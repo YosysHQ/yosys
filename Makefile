@@ -42,6 +42,7 @@ SANITIZER =
 # SANITIZER = undefined
 # SANITIZER = cfi
 
+PROGRAM_PREFIX := 
 
 OS := $(shell uname -s)
 PREFIX ?= /usr/local
@@ -57,14 +58,14 @@ endif
 
 BINDIR := $(PREFIX)/bin
 LIBDIR := $(PREFIX)/lib
-DATDIR := $(PREFIX)/share/yosys
+DATDIR := $(PREFIX)/share/$(PROGRAM_PREFIX)yosys
 
 EXE =
 OBJS =
 GENFILES =
 EXTRA_OBJS =
 EXTRA_TARGETS =
-TARGETS = yosys$(EXE) yosys-config
+TARGETS = $(PROGRAM_PREFIX)yosys$(EXE) $(PROGRAM_PREFIX)yosys-config
 
 PRETTY = 1
 SMALL = 0
@@ -249,7 +250,7 @@ LDFLAGS += $(EMCCFLAGS)
 LDLIBS =
 EXE = .js
 
-TARGETS := $(filter-out yosys-config,$(TARGETS))
+TARGETS := $(filter-out $(PROGRAM_PREFIX)yosys-config,$(TARGETS))
 EXTRA_TARGETS += yosysjs-$(YOSYS_VER).zip
 
 ifeq ($(ENABLE_ABC),1)
@@ -310,7 +311,7 @@ $(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, gcc-4.8, e
 endif
 
 ifeq ($(ENABLE_LIBYOSYS),1)
-TARGETS += libyosys.so
+TARGETS += lib$(PROGRAM_PREFIX)yosys.so
 endif
 
 ifeq ($(ENABLE_PYOSYS),1)
@@ -463,7 +464,7 @@ LDLIBS += -lpthread
 endif
 else
 ifeq ($(ABCEXTERNAL),)
-TARGETS += yosys-abc$(EXE)
+TARGETS += $(PROGRAM_PREFIX)yosys-abc$(EXE)
 endif
 endif
 endif
@@ -513,8 +514,8 @@ endef
 ifeq ($(PRETTY), 1)
 P_STATUS = 0
 P_OFFSET = 0
-P_UPDATE = $(eval P_STATUS=$(shell echo $(OBJS) yosys$(EXE) | $(AWK) 'BEGIN { RS = " "; I = $(P_STATUS)+0; } $$1 == "$@" && NR > I { I = NR; } END { print I; }'))
-P_SHOW = [$(shell $(AWK) "BEGIN { N=$(words $(OBJS) yosys$(EXE)); printf \"%3d\", $(P_OFFSET)+90*$(P_STATUS)/N; exit; }")%]
+P_UPDATE = $(eval P_STATUS=$(shell echo $(OBJS) $(PROGRAM_PREFIX)yosys$(EXE) | $(AWK) 'BEGIN { RS = " "; I = $(P_STATUS)+0; } $$1 == "$@" && NR > I { I = NR; } END { print I; }'))
+P_SHOW = [$(shell $(AWK) "BEGIN { N=$(words $(OBJS) $(PROGRAM_PREFIX)yosys$(EXE)); printf \"%3d\", $(P_OFFSET)+90*$(P_STATUS)/N; exit; }")%]
 P = @echo "$(if $(findstring $@,$(TARGETS) $(EXTRA_TARGETS)),$(eval P_OFFSET = 10))$(call P_UPDATE)$(call P_SHOW) Building $@";
 Q = @
 S = -s
@@ -552,7 +553,7 @@ OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/cal
 OBJS += kernel/cellaigs.o kernel/celledges.o
 
 kernel/log.o: CXXFLAGS += -DYOSYS_SRC='"$(YOSYS_SRC)"'
-kernel/yosys.o: CXXFLAGS += -DYOSYS_DATDIR='"$(DATDIR)"'
+kernel/yosys.o: CXXFLAGS += -DYOSYS_DATDIR='"$(DATDIR)"' -DYOSYS_PROGRAM_PREFIX='"$(PROGRAM_PREFIX)"'
 
 OBJS += libs/bigint/BigIntegerAlgorithms.o libs/bigint/BigInteger.o libs/bigint/BigIntegerUtils.o
 OBJS += libs/bigint/BigUnsigned.o libs/bigint/BigUnsignedInABase.o
@@ -605,7 +606,7 @@ include techlibs/common/Makefile.inc
 endif
 
 ifeq ($(LINK_ABC),1)
-OBJS += yosys-libabc.a
+OBJS += $(PROGRAM_PREFIX)yosys-libabc.a
 endif
 
 top-all: $(TARGETS) $(EXTRA_TARGETS)
@@ -617,14 +618,14 @@ ifeq ($(CONFIG),emcc)
 yosys.js: $(filter-out yosysjs-$(YOSYS_VER).zip,$(EXTRA_TARGETS))
 endif
 
-yosys$(EXE): $(OBJS)
-	$(P) $(LD) -o yosys$(EXE) $(LDFLAGS) $(OBJS) $(LDLIBS)
+$(PROGRAM_PREFIX)yosys$(EXE): $(OBJS)
+	$(P) $(LD) -o $(PROGRAM_PREFIX)yosys$(EXE) $(LDFLAGS) $(OBJS) $(LDLIBS)
 
-libyosys.so: $(filter-out kernel/driver.o,$(OBJS))
+lib$(PROGRAM_PREFIX)yosys.so: $(filter-out kernel/driver.o,$(OBJS))
 ifeq ($(OS), Darwin)
-	$(P) $(LD) -o libyosys.so -shared -Wl,-install_name,libyosys.so $(LDFLAGS) $^ $(LDLIBS)
+	$(P) $(LD) -o lib$(PROGRAM_PREFIX)yosys.so -shared -Wl,-install_name,lib$(PROGRAM_PREFIX)yosys.so $(LDFLAGS) $^ $(LDLIBS)
 else
-	$(P) $(LD) -o libyosys.so -shared -Wl,-soname,libyosys.so $(LDFLAGS) $^ $(LDLIBS)
+	$(P) $(LD) -o lib$(PROGRAM_PREFIX)yosys.so -shared -Wl,-soname,lib$(PROGRAM_PREFIX)yosys.so $(LDFLAGS) $^ $(LDLIBS)
 endif
 
 %.o: %.cc
@@ -660,11 +661,11 @@ CXXFLAGS_NOVERIFIC = $(CXXFLAGS)
 LDLIBS_NOVERIFIC = $(LDLIBS)
 endif
 
-yosys-config: misc/yosys-config.in
+$(PROGRAM_PREFIX)yosys-config: misc/yosys-config.in
 	$(P) $(SED) -e 's#@CXXFLAGS@#$(subst -I. -I"$(YOSYS_SRC)",-I"$(DATDIR)/include",$(strip $(CXXFLAGS_NOVERIFIC)))#;' \
 			-e 's#@CXX@#$(strip $(CXX))#;' -e 's#@LDFLAGS@#$(strip $(LDFLAGS) $(PLUGIN_LDFLAGS))#;' -e 's#@LDLIBS@#$(strip $(LDLIBS_NOVERIFIC))#;' \
-			-e 's#@BINDIR@#$(strip $(BINDIR))#;' -e 's#@DATDIR@#$(strip $(DATDIR))#;' < $< > yosys-config
-	$(Q) chmod +x yosys-config
+			-e 's#@BINDIR@#$(strip $(BINDIR))#;' -e 's#@DATDIR@#$(strip $(DATDIR))#;' < $< > $(PROGRAM_PREFIX)yosys-config
+	$(Q) chmod +x $(PROGRAM_PREFIX)yosys-config
 
 abc/abc-$(ABCREV)$(EXE) abc/libabc-$(ABCREV).a:
 	$(P)
@@ -691,11 +692,11 @@ ifeq ($(ABCREV),default)
 .PHONY: abc/libabc-$(ABCREV).a
 endif
 
-yosys-abc$(EXE): abc/abc-$(ABCREV)$(EXE)
-	$(P) cp abc/abc-$(ABCREV)$(EXE) yosys-abc$(EXE)
+$(PROGRAM_PREFIX)yosys-abc$(EXE): abc/abc-$(ABCREV)$(EXE)
+	$(P) cp abc/abc-$(ABCREV)$(EXE) $(PROGRAM_PREFIX)yosys-abc$(EXE)
 
-yosys-libabc.a: abc/libabc-$(ABCREV).a
-	$(P) cp abc/libabc-$(ABCREV).a yosys-libabc.a
+$(PROGRAM_PREFIX)yosys-libabc.a: abc/libabc-$(ABCREV).a
+	$(P) cp abc/libabc-$(ABCREV).a $(PROGRAM_PREFIX)yosys-libabc.a
 
 ifneq ($(SEED),)
 SEEDOPT="-S $(SEED)"
@@ -765,7 +766,7 @@ ystests: $(TARGETS) $(EXTRA_TARGETS)
 	@echo ""
 
 # Unit test
-unit-test: libyosys.so
+unit-test: lib$(PROGRAM_PREFIX)yosys.so
 	@$(MAKE) -C $(UNITESTPATH) CXX="$(CXX)" CPPFLAGS="$(CPPFLAGS)" \
 		CXXFLAGS="$(CXXFLAGS)" LDLIBS="$(LDLIBS)" ROOTPATH="$(CURDIR)"
 
@@ -774,26 +775,26 @@ clean-unit-test:
 
 install: $(TARGETS) $(EXTRA_TARGETS)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)
-	$(INSTALL_SUDO) cp $(filter-out libyosys.so,$(TARGETS)) $(DESTDIR)$(BINDIR)
-ifneq ($(filter yosys,$(TARGETS)),)
-	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(BINDIR)/yosys
+	$(INSTALL_SUDO) cp $(filter-out lib$(PROGRAM_PREFIX)yosys.so,$(TARGETS)) $(DESTDIR)$(BINDIR)
+ifneq ($(filter $(PROGRAM_PREFIX)yosys,$(TARGETS)),)
+	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys
 endif
-ifneq ($(filter yosys-abc,$(TARGETS)),)
-	$(INSTALL_SUDO) $(STRIP) $(DESTDIR)$(BINDIR)/yosys-abc
+ifneq ($(filter $(PROGRAM_PREFIX)yosys-abc,$(TARGETS)),)
+	$(INSTALL_SUDO) $(STRIP) $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys-abc
 endif
-ifneq ($(filter yosys-filterlib,$(TARGETS)),)
-	$(INSTALL_SUDO) $(STRIP) $(DESTDIR)$(BINDIR)/yosys-filterlib
+ifneq ($(filter $(PROGRAM_PREFIX)yosys-filterlib,$(TARGETS)),)
+	$(INSTALL_SUDO) $(STRIP) $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys-filterlib
 endif
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(DATDIR)
 	$(INSTALL_SUDO) cp -r share/. $(DESTDIR)$(DATDIR)/.
 ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(LIBDIR)
-	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(LIBDIR)/
-	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(LIBDIR)/libyosys.so
+	$(INSTALL_SUDO) cp lib$(PROGRAM_PREFIX)yosys.so $(DESTDIR)$(LIBDIR)/
+	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(LIBDIR)/lib$(PROGRAM_PREFIX)yosys.so
 ifeq ($(ENABLE_PYOSYS),1)
-	$(INSTALL_SUDO) mkdir -p $(PYTHON_DESTDIR)/pyosys
-	$(INSTALL_SUDO) cp libyosys.so $(PYTHON_DESTDIR)/pyosys/
-	$(INSTALL_SUDO) cp misc/__init__.py $(PYTHON_DESTDIR)/pyosys/
+	$(INSTALL_SUDO) mkdir -p $(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys
+	$(INSTALL_SUDO) cp lib$(PROGRAM_PREFIX)yosys.so $(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/libyosys.so
+	$(INSTALL_SUDO) cp misc/__init__.py $(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/
 endif
 endif
 
@@ -801,16 +802,16 @@ uninstall:
 	$(INSTALL_SUDO) rm -vf $(addprefix $(DESTDIR)$(BINDIR)/,$(notdir $(TARGETS)))
 	$(INSTALL_SUDO) rm -rvf $(DESTDIR)$(DATDIR)
 ifeq ($(ENABLE_LIBYOSYS),1)
-	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(LIBDIR)/libyosys.so
+	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(LIBDIR)/lib$(PROGRAM_PREFIX)yosys.so
 ifeq ($(ENABLE_PYOSYS),1)
-	$(INSTALL_SUDO) rm -vf $(PYTHON_DESTDIR)/pyosys/libyosys.so
-	$(INSTALL_SUDO) rm -vf $(PYTHON_DESTDIR)/pyosys/__init__.py
-	$(INSTALL_SUDO) rmdir $(PYTHON_DESTDIR)/pyosys
+	$(INSTALL_SUDO) rm -vf $(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/libyosys.so
+	$(INSTALL_SUDO) rm -vf $(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/__init__.py
+	$(INSTALL_SUDO) rmdir $(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys
 endif
 endif
 
 update-manual: $(TARGETS) $(EXTRA_TARGETS)
-	cd manual && ../yosys -p 'help -write-tex-command-reference-manual'
+	cd manual && ../$(PROGRAM_PREFIX)yosys -p 'help -write-tex-command-reference-manual'
 
 manual: $(TARGETS) $(EXTRA_TARGETS)
 	cd manual && bash appnotes.sh
@@ -836,13 +837,13 @@ clean:
 
 clean-abc:
 	$(MAKE) -C abc DEP= clean
-	rm -f yosys-abc$(EXE) yosys-libabc.a abc/abc-[0-9a-f]* abc/libabc-[0-9a-f]*.a
+	rm -f $(PROGRAM_PREFIX)yosys-abc$(EXE) $(PROGRAM_PREFIX)yosys-libabc.a abc/abc-[0-9a-f]* abc/libabc-[0-9a-f]*.a
 
 mrproper: clean
 	git clean -xdf
 
 coverage:
-	./yosys -qp 'help; help -all'
+	./$(PROGRAM_PREFIX)yosys -qp 'help; help -all'
 	rm -rf coverage.info coverage_html
 	lcov --capture -d . --no-external -o coverage.info
 	genhtml coverage.info --output-directory coverage_html
@@ -868,9 +869,9 @@ ifeq ($(CONFIG),mxe)
 mxebin: $(TARGETS) $(EXTRA_TARGETS)
 	rm -rf yosys-win32-mxebin-$(YOSYS_VER){,.zip}
 	mkdir -p yosys-win32-mxebin-$(YOSYS_VER)
-	cp -r yosys.exe share/ yosys-win32-mxebin-$(YOSYS_VER)/
+	cp -r $(PROGRAM_PREFIX)yosys.exe share/ yosys-win32-mxebin-$(YOSYS_VER)/
 ifeq ($(ENABLE_ABC),1)
-	cp -r yosys-abc.exe abc/lib/x86/pthreadVC2.dll yosys-win32-mxebin-$(YOSYS_VER)/
+	cp -r $(PROGRAM_PREFIX)yosys-abc.exe abc/lib/x86/pthreadVC2.dll yosys-win32-mxebin-$(YOSYS_VER)/
 endif
 	echo -en 'This is Yosys $(YOSYS_VER) for Win32.\r\n' > yosys-win32-mxebin-$(YOSYS_VER)/readme.txt
 	echo -en 'Documentation at http://www.clifford.at/yosys/.\r\n' >> yosys-win32-mxebin-$(YOSYS_VER)/readme.txt

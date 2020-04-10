@@ -702,7 +702,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	if (dff_mode && clk_sig.empty())
 		log_cmd_error("Clock domain %s not found.\n", clk_str.c_str());
 
-	std::string tempdir_name = "/tmp/yosys-abc-XXXXXX";
+	std::string tempdir_name = "/tmp/" + proc_program_prefix()+ "yosys-abc-XXXXXX";
 	if (!cleanup)
 		tempdir_name[0] = tempdir_name[4] = '_';
 	tempdir_name = make_temp_dir(tempdir_name);
@@ -1305,7 +1305,7 @@ struct AbcPass : public Pass {
 #ifdef ABCEXTERNAL
 		log("        use the specified command instead of \"" ABCEXTERNAL "\" to execute ABC.\n");
 #else
-		log("        use the specified command instead of \"<yosys-bindir>/yosys-abc\" to execute ABC.\n");
+		log("        use the specified command instead of \"<yosys-bindir>/%syosys-abc\" to execute ABC.\n", proc_program_prefix().c_str());
 #endif
 		log("        This can e.g. be used to call a specific version of ABC or a wrapper.\n");
 		log("\n");
@@ -1491,7 +1491,7 @@ struct AbcPass : public Pass {
 #ifdef ABCEXTERNAL
 		std::string exe_file = ABCEXTERNAL;
 #else
-		std::string exe_file = proc_self_dirname() + "yosys-abc";
+		std::string exe_file = proc_self_dirname() + proc_program_prefix() + "yosys-abc";
 #endif
 		std::string script_file, liberty_file, constr_file, clk_str;
 		std::string delay_target, sop_inputs, sop_products, lutin_shared = "-S 1";
@@ -1509,8 +1509,8 @@ struct AbcPass : public Pass {
 
 #ifdef _WIN32
 #ifndef ABCEXTERNAL
-		if (!check_file_exists(exe_file + ".exe") && check_file_exists(proc_self_dirname() + "..\\yosys-abc.exe"))
-			exe_file = proc_self_dirname() + "..\\yosys-abc";
+		if (!check_file_exists(exe_file + ".exe") && check_file_exists(proc_self_dirname() + "..\\" + proc_program_prefix()+ "yosys-abc.exe"))
+			exe_file = proc_self_dirname() + "..\\" + proc_program_prefix() + "yosys-abc";
 #endif
 #endif
 
