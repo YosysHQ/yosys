@@ -30,6 +30,12 @@ $(eval $(call add_extra_objs,passes/pmgen/xilinx_dsp_cascade_pm.h))
 
 # --------------------------------------
 
+OBJS += passes/pmgen/xilinx_bram.o
+passes/pmgen/xilinx_bram.o: passes/pmgen/xilinx_bram_pm.h
+$(eval $(call add_extra_objs,passes/pmgen/xilinx_bram_pm.h))
+
+# --------------------------------------
+
 OBJS += passes/pmgen/peepopt.o
 passes/pmgen/peepopt.o: passes/pmgen/peepopt_pm.h
 $(eval $(call add_extra_objs,passes/pmgen/peepopt_pm.h))
