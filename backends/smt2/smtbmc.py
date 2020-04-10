@@ -53,8 +53,7 @@ so = SmtOpts()
 
 
 def usage():
-    print("""
-yosys-smtbmc [options] <yosys_smt2_output>
+    print(os.path.basename(sys.argv[0]) + """ [options] <yosys_smt2_output>
 
     -t <num_steps>
     -t <skip_steps>:<num_steps>

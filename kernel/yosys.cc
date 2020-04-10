@@ -835,7 +835,7 @@ std::string proc_share_dirname()
 	std::string proc_share_path = proc_self_path + "share/";
 	if (check_file_exists(proc_share_path, true))
 		return proc_share_path;
-	proc_share_path = proc_self_path + "../share/yosys/";
+	proc_share_path = proc_self_path + "../share/" + proc_program_prefix()+ "yosys/";
 	if (check_file_exists(proc_share_path, true))
 		return proc_share_path;
 #    ifdef YOSYS_DATDIR
@@ -847,6 +847,15 @@ std::string proc_share_dirname()
 	log_error("proc_share_dirname: unable to determine share/ directory!\n");
 }
 #endif
+
+std::string proc_program_prefix()
+{
+	std::string program_prefix;
+#ifdef YOSYS_PROGRAM_PREFIX
+	program_prefix = YOSYS_PROGRAM_PREFIX;
+#endif
+	return program_prefix;
+}
 
 bool fgetline(FILE *f, std::string &buffer)
 {

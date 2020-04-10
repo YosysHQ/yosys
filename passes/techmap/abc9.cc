@@ -100,7 +100,7 @@ struct Abc9Pass : public ScriptPass
 #ifdef ABCEXTERNAL
 		log("        use the specified command instead of \"" ABCEXTERNAL "\" to execute ABC.\n");
 #else
-		log("        use the specified command instead of \"<yosys-bindir>/yosys-abc\" to execute ABC.\n");
+		log("        use the specified command instead of \"<yosys-bindir>/%syosys-abc\" to execute ABC.\n", proc_program_prefix().c_str());
 #endif
 		log("        This can e.g. be used to call a specific version of ABC or a wrapper.\n");
 		log("\n");
@@ -326,7 +326,7 @@ struct Abc9Pass : public ScriptPass
 					if (!active_design->selected_whole_module(mod))
 						log_error("Can't handle partially selected module %s!\n", log_id(mod));
 
-					std::string tempdir_name = "/tmp/yosys-abc-XXXXXX";
+					std::string tempdir_name = "/tmp/" + proc_program_prefix() + "yosys-abc-XXXXXX";
 					if (!cleanup)
 						tempdir_name[0] = tempdir_name[4] = '_';
 					tempdir_name = make_temp_dir(tempdir_name);

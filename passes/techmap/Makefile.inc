@@ -59,10 +59,10 @@ passes/techmap/techmap.inc: techlibs/common/techmap.v
 passes/techmap/techmap.o: passes/techmap/techmap.inc
 
 ifneq ($(CONFIG),emcc)
-TARGETS += yosys-filterlib$(EXE)
+TARGETS += $(PROGRAM_PREFIX)yosys-filterlib$(EXE)
 EXTRA_OBJS += passes/techmap/filterlib.o
 
-yosys-filterlib$(EXE): passes/techmap/filterlib.o
+$(PROGRAM_PREFIX)yosys-filterlib$(EXE): passes/techmap/filterlib.o
 	$(Q) mkdir -p $(dir $@)
-	$(P) $(LD) -o yosys-filterlib$(EXE) $(LDFLAGS) $^ $(LDLIBS)
+	$(P) $(LD) -o $(PROGRAM_PREFIX)yosys-filterlib$(EXE) $(LDFLAGS) $^ $(LDLIBS)
 endif
