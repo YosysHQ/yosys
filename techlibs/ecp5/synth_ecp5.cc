@@ -298,7 +298,6 @@ struct SynthEcp5Pass : public ScriptPass
 
 		if (check_label("map_ffs"))
 		{
-			run("dffsr2dff");
 			run("dff2dffs");
 			run("opt_clean");
 			if (!nodffe)
