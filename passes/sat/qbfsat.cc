@@ -40,7 +40,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct QbfSolutionType {
 	std::vector<std::string> stdout;
-	std::map<std::string, std::string> hole_to_value;
+	dict<std::string, std::string> hole_to_value;
 	bool sat;
 	bool unknown; //true if neither 'sat' nor 'unsat'
 	bool success; //true if exit code 0
@@ -71,7 +71,7 @@ void recover_solution(QbfSolutionType &sol) {
 	YS_REGEX_MATCH_TYPE m;
 	bool sat_regex_found = false;
 	bool unsat_regex_found = false;
-	std::map<std::string, bool> hole_value_recovered;
+	dict<std::string, bool> hole_value_recovered;
 	for (const std::string &x : sol.stdout) {
 		if(YS_REGEX_NS::regex_search(x, m, hole_value_regex)) {
 			std::string loc = m[1].str();
@@ -93,8 +93,8 @@ void recover_solution(QbfSolutionType &sol) {
 #endif
 }
 
-std::map<std::string, std::string> get_hole_loc_name_map(RTLIL::Module *module, const QbfSolutionType &sol) {
-	std::map<std::string, std::string> hole_loc_to_name;
+dict<std::string, std::string> get_hole_loc_name_map(RTLIL::Module *module, const QbfSolutionType &sol) {
+	dict<std::string, std::string> hole_loc_to_name;
 	for (auto cell : module->cells()) {
 		std::string cell_src = cell->get_src_attribute();
 		auto pos = sol.hole_to_value.find(cell_src);
@@ -115,7 +115,7 @@ void write_solution(RTLIL::Module *module, const QbfSolutionType &sol, const std
 	if (!fout)
 		log_cmd_error("could not open solution file for writing.\n");
 
-	std::map<std::string, std::string> hole_loc_to_name = get_hole_loc_name_map(module, sol);
+	dict<std::string, std::string> hole_loc_to_name = get_hole_loc_name_map(module, sol);
 	for(auto &x : sol.hole_to_value)
 		fout << hole_loc_to_name[x.first] << "=" << x.second << std::endl;
 }
@@ -124,7 +124,7 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 	YS_REGEX_TYPE hole_assn_regex = YS_REGEX_COMPILE_WITH_SUBS("^(.*)=([01]+)$");
 	YS_REGEX_MATCH_TYPE m;
 	std::set<RTLIL::Cell *> anyconsts_to_remove;
-	std::map<std::string, std::string> hole_name_to_value;
+	dict<std::string, std::string> hole_name_to_value;
 	std::ifstream fin(file.c_str());
 	if (!fin)
 		log_cmd_error("could not read solution file.\n");
@@ -168,7 +168,7 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 }
 
 void specialize(RTLIL::Module *module, const QbfSolutionType &sol) {
-	std::map<std::string, std::string> hole_loc_to_name = get_hole_loc_name_map(module, sol);
+	dict<std::string, std::string> hole_loc_to_name = get_hole_loc_name_map(module, sol);
 	std::set<RTLIL::Cell *> anyconsts_to_remove;
 	for (auto cell : module->cells())
 		if (cell->type == "$anyconst")
@@ -204,7 +204,7 @@ void specialize(RTLIL::Module *module, const QbfSolutionType &sol) {
 
 void dump_model(RTLIL::Module *module, const QbfSolutionType &sol) {
 	log("Satisfiable model:\n");
-	std::map<std::string, std::string> hole_loc_to_name = get_hole_loc_name_map(module, sol);
+	dict<std::string, std::string> hole_loc_to_name = get_hole_loc_name_map(module, sol);
 	for (auto &it : sol.hole_to_value) {
 		std::string hole_loc = it.first;
 		std::string hole_value = it.second;
