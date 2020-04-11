@@ -148,7 +148,10 @@ define newline
 endef
 
 ifneq ($(wildcard Makefile.conf),)
+# don't echo Makefile.conf contents when invoked to print source versions
+ifeq ($(findstring echo-,$(MAKECMDGOALS)),)
 $(info $(subst $$--$$,$(newline),$(shell sed 's,^,[Makefile.conf] ,; s,$$,$$--$$,;' < Makefile.conf | tr -d '\n' | sed 's,\$$--\$$$$,,')))
+endif
 include Makefile.conf
 endif
 
