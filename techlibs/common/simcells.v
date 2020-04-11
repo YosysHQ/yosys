@@ -469,15 +469,14 @@ endmodule
 //-
 //- Truth table:    S R | Q
 //-                -----+---
-//-                 0 0 | x
-//-                 0 1 | 1
-//-                 1 0 | 0
-//-                 1 1 | y
+//-                 - 0 | 0
+//-                 0 - | 1
+//-                 - - | q
 //-
 module \$_SR_NN_ (S, R, Q);
 input S, R;
 output reg Q;
-always @(negedge S, negedge R) begin
+always @* begin
 	if (R == 0)
 		Q <= 0;
 	else if (S == 0)
@@ -493,15 +492,14 @@ endmodule
 //-
 //- Truth table:    S R | Q
 //-                -----+---
-//-                 0 1 | x
-//-                 0 0 | 1
-//-                 1 1 | 0
-//-                 1 0 | y
+//-                 - 1 | 0
+//-                 0 - | 1
+//-                 - - | q
 //-
 module \$_SR_NP_ (S, R, Q);
 input S, R;
 output reg Q;
-always @(negedge S, posedge R) begin
+always @* begin
 	if (R == 1)
 		Q <= 0;
 	else if (S == 0)
@@ -517,15 +515,14 @@ endmodule
 //-
 //- Truth table:    S R | Q
 //-                -----+---
-//-                 1 0 | x
-//-                 1 1 | 1
-//-                 0 0 | 0
-//-                 0 1 | y
+//-                 - 0 | 0
+//-                 1 - | 1
+//-                 - - | q
 //-
 module \$_SR_PN_ (S, R, Q);
 input S, R;
 output reg Q;
-always @(posedge S, negedge R) begin
+always @* begin
 	if (R == 0)
 		Q <= 0;
 	else if (S == 1)
@@ -541,15 +538,14 @@ endmodule
 //-
 //- Truth table:    S R | Q
 //-                -----+---
-//-                 1 1 | x
-//-                 1 0 | 1
-//-                 0 1 | 0
-//-                 0 0 | y
+//-                 - 1 | 0
+//-                 1 - | 1
+//-                 - - | q
 //-
 module \$_SR_PP_ (S, R, Q);
 input S, R;
 output reg Q;
-always @(posedge S, posedge R) begin
+always @* begin
 	if (R == 1)
 		Q <= 0;
 	else if (S == 1)
