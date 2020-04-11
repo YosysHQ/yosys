@@ -123,7 +123,7 @@ void write_solution(RTLIL::Module *module, const QbfSolutionType &sol, const std
 void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 	YS_REGEX_TYPE hole_assn_regex = YS_REGEX_COMPILE_WITH_SUBS("^(.*)=([01]+)$");
 	YS_REGEX_MATCH_TYPE m;
-	std::set<RTLIL::Cell *> anyconsts_to_remove;
+	pool<RTLIL::Cell *> anyconsts_to_remove;
 	dict<std::string, std::string> hole_name_to_value;
 	std::ifstream fin(file.c_str());
 	if (!fin)
@@ -169,7 +169,7 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 
 void specialize(RTLIL::Module *module, const QbfSolutionType &sol) {
 	dict<std::string, std::string> hole_loc_to_name = get_hole_loc_name_map(module, sol);
-	std::set<RTLIL::Cell *> anyconsts_to_remove;
+	pool<RTLIL::Cell *> anyconsts_to_remove;
 	for (auto cell : module->cells())
 		if (cell->type == "$anyconst")
 			if (hole_loc_to_name.find(cell->get_src_attribute()) != hole_loc_to_name.end())
@@ -225,7 +225,7 @@ void dump_model(RTLIL::Module *module, const QbfSolutionType &sol) {
 
 }
 
-void allconstify_inputs(RTLIL::Module *module, const std::set<std::string> &input_wires) {
+void allconstify_inputs(RTLIL::Module *module, const pool<std::string> &input_wires) {
 	for (auto &n : input_wires) {
 		RTLIL::Wire *input = module->wire(n);
 #ifndef NDEBUG
@@ -322,12 +322,12 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 	return ret;
 }
 
-std::set<std::string> validate_design_and_get_inputs(RTLIL::Module *module, const QbfSolveOptions &opt) {
+pool<std::string> validate_design_and_get_inputs(RTLIL::Module *module, const QbfSolveOptions &opt) {
 	bool found_input = false;
 	bool found_hole = false;
 	bool found_1bit_output = false;
 	bool found_assert_assume = false;
-	std::set<std::string> input_wires;
+	pool<std::string> input_wires;
 	for (auto wire : module->wires()) {
 		if (wire->port_input) {
 			found_input = true;
@@ -509,7 +509,7 @@ struct QbfSatPass : public Pass {
 			Pass::call(design, "design -push-copy");
 
 			//Replace input wires with wires assigned $allconst cells.
-			std::set<std::string> input_wires = validate_design_and_get_inputs(module, opt);
+			pool<std::string> input_wires = validate_design_and_get_inputs(module, opt);
 			allconstify_inputs(module, input_wires);
 			if (opt.assume_outputs)
 				assume_miter_outputs(module);
