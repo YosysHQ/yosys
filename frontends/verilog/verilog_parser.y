@@ -1735,7 +1735,6 @@ single_cell:
 		ast_stack.back()->children.push_back(new AstNode(AST_CELLARRAY, $2, astbuf2));
 	} '(' cell_port_list ')'{
 		SET_AST_NODE_LOC(astbuf2, @1, @$);
-		SET_AST_NODE_LOC(astbuf3, @1, @$);
 	};
 
 prim_list:
