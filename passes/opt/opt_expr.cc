@@ -1426,6 +1426,39 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 						goto next_cell;
 					}
 			}
+
+			sig_a = assign_map(cell->getPort(ID::A));
+			sig_b = assign_map(cell->getPort(ID::B));
+			int a_zeros, b_zeros;
+			for (a_zeros = 0; a_zeros < GetSize(sig_a); a_zeros++)
+				if (sig_a[a_zeros] != RTLIL::State::S0)
+					break;
+			for (b_zeros = 0; b_zeros < GetSize(sig_b); b_zeros++)
+				if (sig_b[b_zeros] != RTLIL::State::S0)
+					break;
+			if (a_zeros || b_zeros) {
+				int y_zeros = a_zeros + b_zeros;
+				cover("opt.opt_expr.mul_low_zeros");
+
+				log_debug("Removing low %d A and %d B bits from cell `%s' in module `%s'.\n",
+						a_zeros, b_zeros, cell->name.c_str(), module->name.c_str());
+
+				if (a_zeros) {
+					cell->setPort(ID::A, sig_a.extract_end(a_zeros));
+					cell->parameters[ID::A_WIDTH] = GetSize(sig_a) - a_zeros;
+				}
+				if (b_zeros) {
+					cell->setPort(ID::B, sig_b.extract_end(b_zeros));
+					cell->parameters[ID::B_WIDTH] = GetSize(sig_b) - b_zeros;
+				}
+				cell->setPort(ID::Y, sig_y.extract_end(y_zeros));
+				cell->parameters[ID::Y_WIDTH] = GetSize(sig_y) - y_zeros;
+				module->connect(RTLIL::SigSig(sig_y.extract(0, y_zeros), RTLIL::SigSpec(0, y_zeros)));
+				cell->check();
+
+				did_something = true;
+				goto next_cell;
+			}
 		}
 
 		if (!keepdc && cell->type.in(ID($div), ID($mod)))
