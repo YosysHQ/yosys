@@ -802,7 +802,8 @@ void AigerReader::post_process()
 		ff->setPort(ID::C, r.first->second);
 		ff->setPort(ID::D, d);
 		ff->setPort(ID::Q, q);
-		ff->attributes[ID::abc9_init] = initial_state[i];
+		log_assert(GetSize(q) == 1);
+		q->attributes[ID::init] = initial_state[i];
 	}
 
 	dict<RTLIL::IdString, std::pair<int,int>> wideports_cache;
