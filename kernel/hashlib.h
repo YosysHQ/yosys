@@ -314,11 +314,11 @@ class dict
 	int do_insert(const K &key, int &hash)
 	{
 		if (hashtable.empty()) {
-			entries.push_back(entry_t(std::pair<K, T>(key, T()), -1));
+			entries.emplace_back(std::pair<K, T>(key, T()), -1);
 			do_rehash();
 			hash = do_hash(key);
 		} else {
-			entries.push_back(entry_t(std::pair<K, T>(key, T()), hashtable[hash]));
+			entries.emplace_back(std::pair<K, T>(key, T()), hashtable[hash]);
 			hashtable[hash] = entries.size() - 1;
 		}
 		return entries.size() - 1;
@@ -327,11 +327,25 @@ class dict
 	int do_insert(const std::pair<K, T> &value, int &hash)
 	{
 		if (hashtable.empty()) {
-			entries.push_back(entry_t(value, -1));
+			entries.emplace_back(value, -1);
 			do_rehash();
 			hash = do_hash(value.first);
 		} else {
-			entries.push_back(entry_t(value, hashtable[hash]));
+			entries.emplace_back(value, hashtable[hash]);
+			hashtable[hash] = entries.size() - 1;
+		}
+		return entries.size() - 1;
+	}
+
+	int do_insert(std::pair<K, T> &&rvalue, int &hash)
+	{
+		if (hashtable.empty()) {
+			auto key = rvalue.first;
+			entries.emplace_back(std::forward<std::pair<K, T>>(rvalue), -1);
+			do_rehash();
+			hash = do_hash(key);
+		} else {
+			entries.emplace_back(std::forward<std::pair<K, T>>(rvalue), hashtable[hash]);
 			hashtable[hash] = entries.size() - 1;
 		}
 		return entries.size() - 1;
@@ -438,6 +452,26 @@ public:
 		if (i >= 0)
 			return std::pair<iterator, bool>(iterator(this, i), false);
 		i = do_insert(value, hash);
+		return std::pair<iterator, bool>(iterator(this, i), true);
+	}
+
+	std::pair<iterator, bool> insert(std::pair<K, T> &&rvalue)
+	{
+		int hash = do_hash(rvalue.first);
+		int i = do_lookup(rvalue.first, hash);
+		if (i >= 0)
+			return std::pair<iterator, bool>(iterator(this, i), false);
+		i = do_insert(std::forward<std::pair<K, T>>(rvalue), hash);
+		return std::pair<iterator, bool>(iterator(this, i), true);
+	}
+
+	std::pair<iterator, bool> insert(K const &key, T &&rvalue)
+	{
+		int hash = do_hash(key);
+		int i = do_lookup(key, hash);
+		if (i >= 0)
+			return std::pair<iterator, bool>(iterator(this, i), false);
+		i = do_insert(std::make_pair(key, std::forward<T>(rvalue)), hash);
 		return std::pair<iterator, bool>(iterator(this, i), true);
 	}
 
