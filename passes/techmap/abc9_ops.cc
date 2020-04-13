@@ -157,20 +157,11 @@ void prep_dff_map(RTLIL::Design *design)
 				D = cell->getPort(ID::D);
 				Q = cell->getPort(ID::Q);
 
-				// TODO: Can we avoid doing this?
-				// Convert (* init *) on $_DFF_[NP]_.Q to (* abc9_init *) attr on cell
+				// Block sequential synthesis on cells with (* init = 1 *)
+				//   because ABC9 doesn't support them
 				log_assert(GetSize(Q.wire) == 1);
-				auto it = Q.wire->attributes.find(ID::init);
-				Const init;
-				if (it != Q.wire->attributes.end()) {
-					log_assert(GetSize(it->second) == 1);
-					init = it->second;
-					Q.wire->attributes.erase(it);
-				}
-				else
-					init = State::Sx;
-				auto r YS_ATTRIBUTE(unused) = cell->attributes.insert(std::make_pair(ID::abc9_init, init));
-				log_assert(r.second);
+				Const init = Q.wire->attributes.at(ID::init, State::Sx);
+				log_assert(GetSize(init) == 1);
 				if (init == State::S1) {
 					log_warning("Module '%s' contains a %s cell with non-zero initial state -- this is not unsupported for ABC9 sequential synthesis. Treating as a blackbox.\n", log_id(module), log_id(cell->type));
 
@@ -226,8 +217,10 @@ void prep_dff_unmap(RTLIL::Design *design)
 			continue; // May not exist if init = 1'b1
 
 		auto unmap_module = unmap_design->addModule(flop_module->name);
-		for (auto port : flop_module->ports)
-			unmap_module->addWire(port, flop_module->wire(port));
+		for (auto port : flop_module->ports) {
+			auto w = unmap_module->addWire(port, flop_module->wire(port));
+			w->attributes.erase(ID::init);
+		}
 		unmap_module->ports = flop_module->ports;
 		unmap_module->check();
 
@@ -757,6 +750,17 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 
 	map_autoidx = autoidx++;
 
+	// TODO: Get rid of this expensive lookup
+	dict<SigBit,vector<SigBit>> sig2inits;
+	SigMap sigmap(module);
+	for (auto w : module->wires()) {
+		auto it = w->attributes.find(ID::init);
+		if (it == w->attributes.end())
+			continue;
+		for (const auto &b : SigSpec(w))
+			sig2inits[sigmap(b)].emplace_back(b);
+	}
+
 	RTLIL::Module *mapped_mod = design->module(stringf("%s$abc9", module->name.c_str()));
 	if (mapped_mod == NULL)
 		log_error("ABC output file does not contain a module `%s$abc'.\n", log_id(module));
@@ -764,6 +768,8 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 	for (auto w : mapped_mod->wires()) {
 		auto nw = module->addWire(remap_name(w->name), GetSize(w));
 		nw->start_offset = w->start_offset;
+		// Remove all (* init *) since they only existon $_DFF_[NP]_
+		w->attributes.erase(ID::init);
 	}
 
 	dict<IdString,std::vector<IdString>> box_ports;
@@ -804,8 +810,15 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 		if (cell->has_keep_attr())
 			continue;
 
+		// Short out $_DFF_[NP]_ cells since the flop box already has
+		//   all the information we need to reconstruct cell
 		if (dff_mode && cell->type.in(ID($_DFF_N_), ID($_DFF_P_))) {
-			module->connect(cell->getPort(ID::Q), cell->getPort(ID::D));
+			SigBit Q = cell->getPort(ID::Q);
+			auto it = sig2inits.find(Q);
+			if (it != sig2inits.end())
+				for (const auto &b : it->second)
+					b.wire->attributes.at(ID::init)[b.offset] = State::Sx;
+			module->connect(Q, cell->getPort(ID::D));
 			module->remove(cell);
 		}
 		else if (cell->type.in(ID($_AND_), ID($_NOT_)))
@@ -822,6 +835,8 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 	std::map<IdString, int> cell_stats;
 	for (auto mapped_cell : mapped_mod->cells())
 	{
+		// Short out $_DFF_[NP]_ cells since the flop box already has
+		//   all the information we need to reconstruct cell
 		if (dff_mode && mapped_cell->type.in(ID($_DFF_N_), ID($_DFF_P_))) {
 			SigBit D = mapped_cell->getPort(ID::D);
 			SigBit Q = mapped_cell->getPort(ID::Q);
