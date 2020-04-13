@@ -613,10 +613,7 @@ struct SynthXilinxPass : public ScriptPass
 				if (family != "xc7")
 					log_warning("'synth_xilinx -abc9' not currently supported for the '%s' family, "
 							"will use timing for 'xc7' instead.\n", family.c_str());
-				std::string techmap_args = "-map +/xilinx/abc9_map.v -max_iter 1";
-				if (dff_mode)
-					techmap_args += " -D DFF_MODE";
-				run("techmap " + techmap_args);
+				run("techmap -map +/xilinx/abc9_map.v -max_iter 1");
 				run("read_verilog -icells -lib -specify +/abc9_model.v +/xilinx/abc9_model.v");
 				std::string abc9_opts;
 				std::string k = "synth_xilinx.abc9.W";

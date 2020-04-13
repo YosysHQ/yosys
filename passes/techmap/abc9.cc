@@ -151,8 +151,8 @@ struct Abc9Pass : public ScriptPass
 		log("        specified).\n");
 		log("\n");
 		log("    -dff\n");
-		log("        also pass $_ABC9_FF_ cells through to ABC. modules with many clock\n");
-		log("        domains are marked as such and automatically partitioned by ABC.\n");
+		log("        also pass $_DFF_[NP]_ cells through to ABC. modules with many clock\n");
+		log("        domains are supported and automatically partitioned by ABC.\n");
 		log("\n");
 		log("    -nocleanup\n");
 		log("        when this option is used, the temporary files created by this pass\n");
@@ -274,26 +274,74 @@ struct Abc9Pass : public ScriptPass
 
 	void script() YS_OVERRIDE
 	{
-		if (check_label("pre")) {
+		if (check_label("check")) {
 			run("abc9_ops -check");
+		}
+
+		if (check_label("dff", "(only if -dff)")) {
+			if (dff_mode || help_mode) {
+				run("abc9_ops -prep_dff_hier"); // derive all used (* abc9_flop *) modules
+				run("design -stash $abc9");
+				run("design -copy-from $abc9 @$abc9_flops"); // copy derived modules in
+				run("proc");
+				run("wbflip");
+				run("techmap");
+				run("opt");
+				run("abc9_ops -prep_dff_map"); // rewrite specify
+									// TODO: Select fan-in cone $_DFF_[NP]_.Q
+				run("setattr -set submod \"$abc9_flop\" t:* t:$_DFF_N_ %d t:$_DFF_P_ %d");
+				run("submod");
+				run("design -copy-to $abc9 *_$abc9_flop"); // copy submod out
+				run("delete *_$abc9_flop");
+				if (help_mode) {
+					run("foreach module in design");
+					run("    cd <module-name>");
+					run("    rename <module-name>_$abc9_flop _TECHMAP_REPLACE_");
+					run("    cd");
+				}
+				else {
+					// Rename all submod-s to _TECHMAP_REPLACE_ to inherit name + attrs
+					for (auto module : active_design->selected_modules()) {
+						run(stringf("cd %s", log_id(module->name)));
+						run(stringf("rename %s_$abc9_flop _TECHMAP_REPLACE_", module->name.c_str()));
+						run("cd");
+					}
+				}
+				run("design -stash $abc9_map");
+				run("design -load $abc9");
+				run("abc9_ops -prep_dff_unmap"); // create $abc9_unmap design
+				run("techmap -map %$abc9_map"); // techmap user design into submod + $_DFF_[NP]_
+				run("setattr -mod -set whitebox 1 -set abc9_flop 1 -set abc9_box 1 *_$abc9_flop");
+				if (!help_mode) {
+					// TODO: Need a way to delete saved designs?
+					auto it = saved_designs.find("$abc9_map");
+					delete it->second;
+					saved_designs.erase(it);
+					// TODO: Need a way to delete selections
+					active_design->selection_vars.erase(ID($abc9_flops));
+					active_design->selection_vars.erase(ID($abc9_cells));
+				}
+			}
+		}
+
+		if (check_label("pre")) {
 			run("scc -set_attr abc9_scc_id {}");
 			if (help_mode)
 				run("abc9_ops -mark_scc -prep_delays -prep_xaiger [-dff]", "(option for -dff)");
 			else
-				run("abc9_ops -mark_scc -prep_delays -prep_xaiger" + std::string(dff_mode ? " -dff" : ""), "(option for -dff)");
+				run("abc9_ops -mark_scc -prep_delays -prep_xaiger" + std::string(dff_mode ? " -dff" : ""));
 			if (help_mode)
 				run("abc9_ops -prep_lut <maxlut>", "(skip if -lut or -luts)");
 			else if (!lut_mode)
 				run(stringf("abc9_ops -prep_lut %d", maxlut));
 			if (help_mode)
-				run("abc9_ops -prep_box [-dff]", "(skip if -box)");
-			else if (box_file.empty())
-				run(stringf("abc9_ops -prep_box %s", dff_mode ? "-dff" : ""));
+				run("abc9_ops -prep_box", "(skip if -box)");
+			else if (box_file.empty()) {
+				run("abc9_ops -prep_box");
+			}
 			run("select -set abc9_holes A:abc9_holes");
 			run("flatten -wb @abc9_holes");
 			run("techmap @abc9_holes");
-			if (dff_mode || help_mode)
-				run("abc9_ops -prep_dff", "(only if -dff)");
 			run("opt -purge @abc9_holes");
 			run("aigmap");
 			run("wbflip @abc9_holes");
@@ -304,10 +352,10 @@ struct Abc9Pass : public ScriptPass
 				run("foreach module in selection");
 				run("    abc9_ops -write_lut <abc-temp-dir>/input.lut", "(skip if '-lut' or '-luts')");
 				run("    abc9_ops -write_box <abc-temp-dir>/input.box", "(skip if '-box')");
-				run("    write_xaiger -map <abc-temp-dir>/input.sym <abc-temp-dir>/input.xaig");
-				run("    abc9_exe [options] -cwd <abc-temp-dir> [-lut <abc-temp-dir>/input.lut] -box <abc-temp-dir>/input.box");
+				run("    write_xaiger -map <abc-temp-dir>/input.sym [-dff] <abc-temp-dir>/input.xaig");
+				run("    abc9_exe [options] -cwd <abc-temp-dir> -lut [<abc-temp-dir>/input.lut] -box [<abc-temp-dir>/input.box]");
 				run("    read_aiger -xaiger -wideports -module_name <module-name>$abc9 -map <abc-temp-dir>/input.sym <abc-temp-dir>/output.aig");
-				run("    abc9_ops -reintegrate");
+				run("    abc9_ops -reintegrate [-dff]");
 			}
 			else {
 				auto selected_modules = active_design->selected_modules();
@@ -335,7 +383,7 @@ struct Abc9Pass : public ScriptPass
 						run_nocheck(stringf("abc9_ops -write_lut %s/input.lut", tempdir_name.c_str()));
 					if (box_file.empty())
 						run_nocheck(stringf("abc9_ops -write_box %s/input.box", tempdir_name.c_str()));
-					run_nocheck(stringf("write_xaiger -map %s/input.sym %s/input.xaig", tempdir_name.c_str(), tempdir_name.c_str()));
+					run_nocheck(stringf("write_xaiger -map %s/input.sym %s %s/input.xaig", tempdir_name.c_str(), dff_mode ? "-dff" : "", tempdir_name.c_str()));
 
 					int num_outputs = active_design->scratchpad_get_int("write_xaiger.num_outputs");
 
@@ -356,7 +404,7 @@ struct Abc9Pass : public ScriptPass
 							abc9_exe_cmd += stringf(" -box %s", box_file.c_str());
 						run_nocheck(abc9_exe_cmd);
 						run_nocheck(stringf("read_aiger -xaiger -wideports -module_name %s$abc9 -map %s/input.sym %s/output.aig", log_id(mod), tempdir_name.c_str(), tempdir_name.c_str()));
-						run_nocheck("abc9_ops -reintegrate");
+						run_nocheck(stringf("abc9_ops -reintegrate %s", dff_mode ? "-dff" : ""));
 					}
 					else
 						log("Don't call ABC as there is nothing to map.\n");
@@ -371,6 +419,19 @@ struct Abc9Pass : public ScriptPass
 				}
 
 				active_design->selection_stack.pop_back();
+			}
+		}
+
+		if (check_label("post")) {
+			if (dff_mode || help_mode) {
+				run("techmap -wb -map %$abc9_unmap", "(only if -dff)"); // techmap user design from submod back to original cell
+											//   ($_DFF_[NP]_ already shorted by -reintegrate)
+				if (!help_mode) {
+					// TODO: Need a way to delete saved designs?
+					auto it = saved_designs.find("$abc9_unmap");
+					delete it->second;
+					saved_designs.erase(it);
+				}
 			}
 		}
 	}

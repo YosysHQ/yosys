@@ -616,7 +616,6 @@ struct XAigerWriter
 
 			dict<SigBit, int> clk_to_mergeability;
 
-			bool nonzero_warned = false;
 			for (const auto &i : ff_bits) {
 				const SigBit &d = i.first;
 				const Cell *cell = i.second;
@@ -633,15 +632,10 @@ struct XAigerWriter
 					write_r_buffer(mergeability);
 				else log_abort();
 
-				Const init = cell->attributes.at(ID::abc9_init, State::Sx);
+				Const init = cell->attributes.at(ID::abc9_init);
 				log_assert(GetSize(init) == 1);
-				if (init == State::S1) {
-					if (!nonzero_warned) {
-						log_warning("Module '%s' contains $_DFF_[NP]_ cell with non-zero initial state -- unsupported by ABC9.\n", log_id(module));
-						nonzero_warned = true;
-					}
+				if (init == State::S1)
 					write_s_buffer(1);
-				}
 				else if (init == State::S0)
 					write_s_buffer(0);
 				else {

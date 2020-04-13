@@ -389,7 +389,7 @@ struct SubmodPass : public Pass {
 			while (did_something) {
 				did_something = false;
 				std::vector<RTLIL::IdString> queued_modules;
-				for (auto mod : design->modules())
+				for (auto mod : design->selected_modules())
 					if (handled_modules.count(mod->name) == 0 && design->selected_whole_module(mod->name))
 						queued_modules.push_back(mod->name);
 				for (auto &modname : queued_modules)
