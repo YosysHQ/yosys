@@ -652,7 +652,7 @@ struct XAigerWriter
 					write_s_buffer(0);
 				else {
 					log_assert(init == State::Sx);
-					write_s_buffer(0);
+					write_s_buffer(2);
 				}
 
 				// Use arrival time from output of flop box
