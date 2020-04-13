@@ -295,16 +295,13 @@ struct Abc9Pass : public ScriptPass
 				run("delete *_$abc9_flop");
 				if (help_mode) {
 					run("foreach module in design");
-					run("    cd <module-name>");
 					run("    rename <module-name>_$abc9_flop _TECHMAP_REPLACE_");
-					run("    cd");
 				}
 				else {
 					// Rename all submod-s to _TECHMAP_REPLACE_ to inherit name + attrs
 					for (auto module : active_design->selected_modules()) {
-						run(stringf("cd %s", log_id(module->name)));
+						active_design->selected_active_module = module->name.str();
 						run(stringf("rename %s_$abc9_flop _TECHMAP_REPLACE_", module->name.c_str()));
-						run("cd");
 					}
 				}
 				run("design -stash $abc9_map");
