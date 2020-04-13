@@ -23,6 +23,8 @@ design -load postopt
 select -assert-count 20 t:$_NOT_
 select -assert-count 1 w:unused a:init %i
 select -assert-count 1 w:Q a:init=13'bxxxx1xxxxxxxx %i
+select -assert-count 4 c:dff0 c:dff2 c:dff4 c:dff6 %% t:$_DFF_??1_ %i
+select -assert-count 4 c:dff1 c:dff3 c:dff5 c:dff7 %% t:$_DFF_??0_ %i
 
 
 design -reset
@@ -45,6 +47,11 @@ $adff #(.WIDTH(2), .CLK_POLARITY(1), .ARST_POLARITY(1'b0), .ARST_VALUE(2'b10)) d
 $adff #(.WIDTH(2), .CLK_POLARITY(0), .ARST_POLARITY(1'b1), .ARST_VALUE(2'b01)) dff9 (.CLK(C), .ARST(R), .D(D), .Q(Q[12:11]));
 endmodule
 EOT
+equiv_opt -assert -map +/simcells.v -multiclock zinit
+design -load postopt
+
 select -assert-count 0 t:$_NOT_
 select -assert-count 1 w:unused a:init %i
-select -assert-count 1 w:Q a:init=13'bx00x100000000 %i
+select -assert-count 1 w:Q a:init=13'bxxxx1xxxxxxxx %i
+select -assert-count 4 c:dff0 c:dff2 c:dff4 c:dff6 %% t:$_DFF_??0_ %i
+select -assert-count 4 c:dff1 c:dff3 c:dff5 c:dff7 %% t:$_DFF_??1_ %i

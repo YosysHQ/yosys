@@ -153,9 +153,11 @@ struct ZinitPass : public Pass {
 				else if (cell->type.in(ID($_DFF_NN0_), ID($_DFF_NN1_), ID($_DFF_NP0_), ID($_DFF_NP1_),
 							ID($_DFF_PN0_), ID($_DFF_PN1_), ID($_DFF_PP0_), ID($_DFF_PP1_)))
 				{
-					std::string t = cell->type.str();
-					t[8] = (t[8] == '0' ? '1' : '0');
-					cell->type = t;
+					if (initval == State::S1) {
+						std::string t = cell->type.str();
+						t[8] = (t[8] == '0' ? '1' : '0');
+						cell->type = t;
+					}
 				}
 			}
 		}
