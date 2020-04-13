@@ -79,6 +79,7 @@ struct XAigerWriter
 	Module *module;
 	SigMap sigmap;
 
+	dict<SigBit, State> init_map;
 	pool<SigBit> input_bits, output_bits;
 	dict<SigBit, SigBit> not_map, alias_map;
 	dict<SigBit, pair<SigBit, SigBit>> and_map;
@@ -157,7 +158,8 @@ struct XAigerWriter
 			if (wire->get_bool_attribute(ID::keep))
 				sigmap.add(wire);
 
-		for (auto wire : module->wires())
+		for (auto wire : module->wires()) {
+			auto it = wire->attributes.find(ID::init);
 			for (int i = 0; i < GetSize(wire); i++)
 			{
 				SigBit wirebit(wire, i);
@@ -184,7 +186,17 @@ struct XAigerWriter
 						alias_map[wirebit] = bit;
 					output_bits.insert(wirebit);
 				}
+
+				if (it != wire->attributes.end()) {
+					auto s = it->second[i];
+					if (s != State::Sx) {
+						auto r = init_map.insert(std::make_pair(bit, it->second[i]));
+						if (!r.second && r.first->second != it->second[i])
+							log_error("Bit '%s' has a conflicting (* init *) value.\n", log_signal(bit));
+					}
+				}
 			}
+		}
 
 		TimingInfo timing;
 
@@ -632,8 +644,8 @@ struct XAigerWriter
 					write_r_buffer(mergeability);
 				else log_abort();
 
-				Const init = cell->attributes.at(ID::abc9_init);
-				log_assert(GetSize(init) == 1);
+				SigBit Q = sigmap(cell->getPort(ID::Q));
+				State init = init_map.at(Q, State::Sx);
 				if (init == State::S1)
 					write_s_buffer(1);
 				else if (init == State::S0)
