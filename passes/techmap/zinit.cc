@@ -57,8 +57,7 @@ struct ZinitPass : public Pass {
 		for (auto module : design->selected_modules())
 		{
 			SigMap sigmap(module);
-			dict<SigBit, State> initbits;
-			pool<SigBit> donebits;
+			dict<SigBit, std::pair<State,SigBit>> initbits;
 
 			for (auto wire : module->selected_wires())
 			{
@@ -67,7 +66,6 @@ struct ZinitPass : public Pass {
 
 				SigSpec wirebits = sigmap(wire);
 				Const initval = wire->attributes.at(ID::init);
-				wire->attributes.erase(ID::init);
 
 				for (int i = 0; i < GetSize(wirebits) && i < GetSize(initval); i++)
 				{
@@ -78,22 +76,25 @@ struct ZinitPass : public Pass {
 						continue;
 
 					if (initbits.count(bit)) {
-						if (initbits.at(bit) != val)
+						if (initbits.at(bit).first != val)
 							log_error("Conflicting init values for signal %s (%s = %s != %s).\n",
 									log_signal(bit), log_signal(SigBit(wire, i)),
-									log_signal(val), log_signal(initbits.at(bit)));
+									log_signal(val), log_signal(initbits.at(bit).first));
 						continue;
 					}
 
-					initbits[bit] = val;
+					initbits[bit] = std::make_pair(val,SigBit(wire,i));
 				}
 			}
 
 			pool<IdString> dff_types = {
-				ID($ff), ID($dff), ID($dffe), ID($dffsr), ID($adff),
+								// FIXME: It would appear that supporting
+								//    $dffsr/$_DFFSR_* would require a new
+								//    cell type where S has priority over R
+				ID($ff), ID($dff), ID($dffe), /*ID($dffsr),*/ ID($adff),
 				ID($_FF_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_),
-				ID($_DFFSR_NNN_), ID($_DFFSR_NNP_), ID($_DFFSR_NPN_), ID($_DFFSR_NPP_),
-				ID($_DFFSR_PNN_), ID($_DFFSR_PNP_), ID($_DFFSR_PPN_), ID($_DFFSR_PPP_),
+				/*ID($_DFFSR_NNN_), ID($_DFFSR_NNP_), ID($_DFFSR_NPN_), ID($_DFFSR_NPP_),
+				ID($_DFFSR_PNN_), ID($_DFFSR_PNP_), ID($_DFFSR_PPN_), ID($_DFFSR_PPP_),*/
 				ID($_DFF_N_), ID($_DFF_NN0_), ID($_DFF_NN1_), ID($_DFF_NP0_), ID($_DFF_NP1_),
 				ID($_DFF_P_), ID($_DFF_PN0_), ID($_DFF_PN1_), ID($_DFF_PP0_), ID($_DFF_PP1_)
 			};
@@ -113,8 +114,10 @@ struct ZinitPass : public Pass {
 
 				for (int i = 0; i < GetSize(sig_q); i++) {
 					if (initbits.count(sig_q[i])) {
-						initval.bits.push_back(initbits.at(sig_q[i]));
-						donebits.insert(sig_q[i]);
+						const auto &d = initbits.at(sig_q[i]);
+						initval.bits.push_back(d.first);
+						const auto &b = d.second;
+						b.wire->attributes.at(ID::init)[b.offset];
 					} else
 						initval.bits.push_back(all_mode ? State::S0 : State::Sx);
 				}
@@ -140,13 +143,13 @@ struct ZinitPass : public Pass {
 				cell->setPort(ID::D, sig_d);
 				cell->setPort(ID::Q, initwire);
 
-				/*if (cell->type.in(ID($_DFFSR_NNN_), ID($_DFFSR_NNP_), ID($_DFFSR_NPN_), ID($_DFFSR_NPP_),
-							ID($_DFFSR_PNN_), ID($_DFFSR_PNP_), ID($_DFFSR_PPN_), ID($_DFFSR_PPP_)))
-				{
-					// TODO: I think I need a $_DFFRS_* cell where S has priority over R...
-					std::swap(cell->connections_.at(ID(R)), cell->connections_.at(ID(S)));
+				if (cell->type == ID($adff)) {
+					auto val = cell->getParam(ID::ARST_VALUE);
+					for (auto &b : val)
+						b = (b == State::S1 ? State::S0 : State::S1);
+					cell->setParam(ID::ARST_VALUE, std::move(val));
 				}
-				else*/ if (cell->type.in(ID($_DFF_NN0_), ID($_DFF_NN1_), ID($_DFF_NP0_), ID($_DFF_NP1_),
+				else if (cell->type.in(ID($_DFF_NN0_), ID($_DFF_NN1_), ID($_DFF_NP0_), ID($_DFF_NP1_),
 							ID($_DFF_PN0_), ID($_DFF_PN1_), ID($_DFF_PP0_), ID($_DFF_PP1_)))
 				{
 					std::string t = cell->type.str();
@@ -154,11 +157,6 @@ struct ZinitPass : public Pass {
 					cell->type = t;
 				}
 			}
-
-			if (!design->selected_whole_module(module))
-				for (auto &it : initbits)
-					if (donebits.count(it.first) == 0)
-						log_error("Failed to handle init bit %s = %s.\n", log_signal(it.first), log_signal(it.second));
 		}
 	}
 } ZinitPass;
