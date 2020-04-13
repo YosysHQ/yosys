@@ -117,7 +117,7 @@ struct ZinitPass : public Pass {
 						const auto &d = initbits.at(sig_q[i]);
 						initval.bits.push_back(d.first);
 						const auto &b = d.second;
-						b.wire->attributes.at(ID::init)[b.offset];
+						b.wire->attributes.at(ID::init)[b.offset] = State::Sx;
 					} else
 						initval.bits.push_back(all_mode ? State::S0 : State::Sx);
 				}
@@ -126,11 +126,11 @@ struct ZinitPass : public Pass {
 				initwire->attributes[ID::init] = initval;
 
 				for (int i = 0; i < GetSize(initwire); i++)
-					if (initval.bits.at(i) == State::S1)
+					if (initval[i] == State::S1)
 					{
 						sig_d[i] = module->NotGate(NEW_ID, sig_d[i]);
 						module->addNotGate(NEW_ID, SigSpec(initwire, i), sig_q[i]);
-						initwire->attributes[ID::init].bits.at(i) = State::S0;
+						initwire->attributes[ID::init][i] = State::S0;
 					}
 					else
 					{
@@ -145,8 +145,9 @@ struct ZinitPass : public Pass {
 
 				if (cell->type == ID($adff)) {
 					auto val = cell->getParam(ID::ARST_VALUE);
-					for (auto &b : val)
-						b = (b == State::S1 ? State::S0 : State::S1);
+					for (int i = 0; i < GetSize(initwire); i++)
+						if (initval[i] == State::S1)
+							val[i] = (val[i] == State::S1 ? State::S0 : State::S1);
 					cell->setParam(ID::ARST_VALUE, std::move(val));
 				}
 				else if (cell->type.in(ID($_DFF_NN0_), ID($_DFF_NN1_), ID($_DFF_NP0_), ID($_DFF_NP1_),
