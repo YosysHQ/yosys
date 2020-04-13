@@ -717,31 +717,27 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				RTLIL::SigSpec sig_y = cell->getPort(ID::Y);
 				RTLIL::SigSpec sig_co = cell->getPort(ID::CO);
 
-				bool sub = (sig_ci == State::S1 && sig_bi == State::S1);
+				if (sig_bi != State::S0 && sig_bi != State::S1)
+					goto skip_fine_alu;
+				if (sig_ci != State::S0 && sig_ci != State::S1)
+					goto skip_fine_alu;
 
-				// If not a subtraction, yet there is a carry or B is inverted
-				//   then no optimisation is possible as carry will not be constant
-				if (!sub && (sig_ci != State::S0 || sig_bi != State::S0))
-					goto next_cell;
+				bool bi = sig_bi == State::S1;
+				bool ci = sig_ci == State::S1;
 
 				int i;
 				for (i = 0; i < GetSize(sig_y); i++) {
 					RTLIL::SigBit b = sig_b.at(i, State::Sx);
 					RTLIL::SigBit a = sig_a.at(i, State::Sx);
-					if (b == State::S0 && a != State::Sx) {
-						module->connect(sig_y[i], sig_a[i]);
-						module->connect(sig_x[i], sub ? module->Not(NEW_ID, a).as_bit() : a);
-						module->connect(sig_co[i], sub ? State::S1 : State::S0);
+					if (b == ((bi ^ ci) ? State::S1 : State::S0) && a != State::Sx) {
+						module->connect(sig_y[i], a);
+						module->connect(sig_x[i], ci ? module->Not(NEW_ID, a).as_bit() : a);
+						module->connect(sig_co[i], ci ? State::S1 : State::S0);
 					}
-					else if (sub && b == State::S1 && a == State::S1) {
-						module->connect(sig_y[i], State::S0);
-						module->connect(sig_x[i], module->Not(NEW_ID, a));
-						module->connect(sig_co[i], State::S0);
-					}
-					else if (!sub && a == State::S0 && b != State::Sx) {
-						module->connect(sig_y[i], b);
-						module->connect(sig_x[i], b);
-						module->connect(sig_co[i], State::S0);
+					else if (a == (ci ? State::S1 : State::S0) && b != State::Sx) {
+						module->connect(sig_y[i], bi ? module->Not(NEW_ID, b).as_bit() : b);
+						module->connect(sig_x[i], (bi ^ ci) ? module->Not(NEW_ID, b).as_bit() : b);
+						module->connect(sig_co[i], ci ? State::S1 : State::S0);
 					}
 					else
 						break;
@@ -758,6 +754,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				}
 			}
 		}
+skip_fine_alu:
 
 		if (cell->type.in(ID($reduce_xor), ID($reduce_xnor), ID($shift), ID($shiftx), ID($shl), ID($shr), ID($sshl), ID($sshr),
 					ID($lt), ID($le), ID($ge), ID($gt), ID($neg), ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($pow)))
@@ -1089,7 +1086,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					// If not a subtraction, yet there is a carry or B is inverted
 					//   then no optimisation is possible as carry will not be constant
 					if (!sub && (sig_ci != State::S0 || sig_bi != State::S0))
-						goto next_cell;
+						goto skip_identity;
 				}
 
 				if (!sub && a.is_fully_const() && a.as_bool() == false)
@@ -1163,6 +1160,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				goto next_cell;
 			}
 		}
+skip_identity:
 
 		if (mux_bool && cell->type.in(ID($mux), ID($_MUX_)) &&
 				cell->getPort(ID::A) == State::S0 && cell->getPort(ID::B) == State::S1) {
@@ -1529,6 +1527,99 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 					}
 			}
 		}
+
+		// Find places in $alu cell where the carry is constant, and split it at these points.
+		if (do_fine && !keepdc && cell->type == ID($alu))
+		{
+			bool a_signed = cell->parameters[ID::A_SIGNED].as_bool();
+			bool b_signed = cell->parameters[ID::B_SIGNED].as_bool();
+			bool is_signed = a_signed && b_signed;
+
+			RTLIL::SigSpec sig_a = assign_map(cell->getPort(ID::A));
+			RTLIL::SigSpec sig_b = assign_map(cell->getPort(ID::B));
+			RTLIL::SigSpec sig_y = assign_map(cell->getPort(ID::Y));
+			RTLIL::SigSpec sig_bi = assign_map(cell->getPort(ID::BI));
+			if (GetSize(sig_a) == 0)
+				sig_a = State::S0;
+			if (GetSize(sig_b) == 0)
+				sig_b = State::S0;
+			sig_a.extend_u0(GetSize(sig_y), is_signed);
+			sig_b.extend_u0(GetSize(sig_y), is_signed);
+
+			if (sig_bi != State::S0 && sig_bi != State::S1)
+				goto skip_alu_split;
+
+			std::vector<std::pair<int, State>> split_points;
+
+			for (int i = 0; i < GetSize(sig_y); i++) {
+				SigBit bit_a = sig_a[i];
+				SigBit bit_b = sig_b[i];
+				if (bit_a != State::S0 && bit_a != State::S1)
+					continue;
+				if (bit_b != State::S0 && bit_b != State::S1)
+					continue;
+				if (sig_bi == State::S1) {
+					if (bit_b == State::S0)
+						bit_b = State::S1;
+					else
+						bit_b = State::S0;
+				}
+				if (bit_a != bit_b)
+					continue;
+				split_points.push_back(std::make_pair(i + 1, bit_a.data));
+			}
+
+			if (split_points.empty() || split_points[0].first == GetSize(sig_y))
+				goto skip_alu_split;
+
+			for (auto &p : split_points)
+				log_debug("Splitting $alu cell `%s' in module `%s' at const-carry point %d.\n",
+					cell->name.c_str(), module->name.c_str(), p.first);
+
+			if (split_points.back().first != GetSize(sig_y))
+				split_points.push_back(std::make_pair(GetSize(sig_y), State::Sx));
+
+			RTLIL::SigSpec sig_ci = assign_map(cell->getPort(ID::CI));
+			int prev = 0;
+			RTLIL::SigSpec sig_x = assign_map(cell->getPort(ID::X));
+			RTLIL::SigSpec sig_co = assign_map(cell->getPort(ID::CO));
+
+			for (auto &p : split_points) {
+				int cur = p.first;
+				int sz = cur - prev;
+				bool last = cur == GetSize(sig_y);
+
+				RTLIL::Cell *c = module->addCell(NEW_ID, cell->type);
+				c->setPort(ID::A, sig_a.extract(prev, sz));
+				c->setPort(ID::B, sig_b.extract(prev, sz));
+				c->setPort(ID::BI, sig_bi);
+				c->setPort(ID::CI, sig_ci);
+				c->setPort(ID::Y, sig_y.extract(prev, sz));
+				c->setPort(ID::X, sig_x.extract(prev, sz));
+				RTLIL::SigSpec new_co = sig_co.extract(prev, sz);
+				if (p.second != State::Sx) {
+					module->connect(new_co[sz-1], p.second);
+					RTLIL::Wire *dummy = module->addWire(NEW_ID);
+					new_co[sz-1] = dummy;
+				}
+				c->setPort(ID::CO, new_co);
+				c->parameters[ID::A_WIDTH] = sz;
+				c->parameters[ID::B_WIDTH] = sz;
+				c->parameters[ID::Y_WIDTH] = sz;
+				c->parameters[ID::A_SIGNED] = last ? a_signed : false;
+				c->parameters[ID::B_SIGNED] = last ? b_signed : false;
+
+				prev = p.first;
+				sig_ci = p.second;
+			}
+
+			cover("opt.opt_expr.alu_split");
+			module->remove(cell);
+
+			did_something = true;
+			goto next_cell;
+		}
+skip_alu_split:
 
 		// remove redundant pairs of bits in ==, ===, !=, and !==
 		// replace cell with const driver if inputs can't be equal
