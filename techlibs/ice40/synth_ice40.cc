@@ -412,19 +412,9 @@ struct SynthIce40Pass : public ScriptPass
 		if (check_label("map_cells"))
 		{
 			if (help_mode)
-				run("techmap [-map +/ice40/ff_map.v] [-map +/ice40/cells_map.v]", "(skip if -abc9; skip if -vpr)");
-			else if (vpr)
-				run("techmap -map +/ice40/ff_map.v");
-			else {
-				std::string techmap_args;
-				if (!abc9)
-					techmap_args += " -map +/ice40/ff_map.v";
-				if (!vpr)
-					techmap_args += " -map +/ice40/cells_map.v";
-				if (!techmap_args.empty())
-					run("techmap " + techmap_args);
-			}
-
+				run("techmap -map +/ice40/cells_map.v", "(skip if -vpr)");
+			else if (!vpr)
+				run("techmap -map +/ice40/cells_map.v");
 			run("clean");
 		}
 
