@@ -1984,7 +1984,7 @@ struct VerilogBackend : public Backend {
 		extra_args(f, filename, args, argidx);
 		if (extmem)
 		{
-			if (filename.empty())
+			if (filename == "<stdout>")
 				log_cmd_error("Option -extmem must be used with a filename.\n");
 			extmem_prefix = filename.substr(0, filename.rfind('.'));
 		}
