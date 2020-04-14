@@ -309,15 +309,10 @@ struct Abc9Pass : public ScriptPass
 				run("abc9_ops -prep_dff_unmap"); // create $abc9_unmap design
 				run("techmap -map %$abc9_map"); // techmap user design into submod + $_DFF_[NP]_
 				run("setattr -mod -set whitebox 1 -set abc9_flop 1 -set abc9_box 1 *_$abc9_flop");
-				if (!help_mode) {
-					// TODO: Need a way to delete saved designs?
-					auto it = saved_designs.find("$abc9_map");
-					delete it->second;
-					saved_designs.erase(it);
-					// TODO: Need a way to delete selections
-					active_design->selection_vars.erase(ID($abc9_flops));
-					active_design->selection_vars.erase(ID($abc9_cells));
-				}
+				run("design -delete $abc9");
+				run("design -delete $abc9_map");
+				run("select -unset $abc9_flops");
+				run("select -unset $abc9_cells");
 			}
 		}
 
@@ -423,12 +418,7 @@ struct Abc9Pass : public ScriptPass
 			if (dff_mode || help_mode) {
 				run("techmap -wb -map %$abc9_unmap", "(only if -dff)"); // techmap user design from submod back to original cell
 											//   ($_DFF_[NP]_ already shorted by -reintegrate)
-				if (!help_mode) {
-					// TODO: Need a way to delete saved designs?
-					auto it = saved_designs.find("$abc9_unmap");
-					delete it->second;
-					saved_designs.erase(it);
-				}
+				run("design -delete $abc9_unmap");
 			}
 		}
 	}

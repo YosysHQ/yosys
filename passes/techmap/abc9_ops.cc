@@ -1204,7 +1204,8 @@ struct Abc9OpsPass : public Pass {
 		log("\n");
 		log("    -prep_dff_hier\n");
 		log("        derive all cells with a type instantiating an (* abc9_flop *) module.\n");
-		log("        store such modules in named selection '$abc9_flops'.\n");
+		log("        store such modules in named selection '$abc9_flops'. store one cell\n");
+		log("        instantiating each derived module into named selection '$abc9_cells'.\n");
 		log("\n");
 		log("    -prep_dff_map\n");
 		log("        within (* abc9_flop *) modules, move all $specify{2,3}/$specrule cells\n");
