@@ -62,10 +62,10 @@ void apply_prefix(IdString prefix, RTLIL::SigSpec &sig, RTLIL::Module *module)
 
 struct TechmapWorker
 {
-	std::map<RTLIL::IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> simplemap_mappers;
-	std::map<std::pair<RTLIL::IdString, std::map<RTLIL::IdString, RTLIL::Const>>, RTLIL::Module*> techmap_cache;
+	std::map<IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> simplemap_mappers;
+	std::map<std::pair<IdString, std::map<IdString, RTLIL::Const>>, RTLIL::Module*> techmap_cache;
 	std::map<RTLIL::Module*, bool> techmap_do_cache;
-	std::set<RTLIL::Module*, RTLIL::IdString::compare_ptr_by_name<RTLIL::Module>> module_queue;
+	std::set<RTLIL::Module*, IdString::compare_ptr_by_name<RTLIL::Module>> module_queue;
 	dict<Module*, SigMap> sigmaps;
 
 	pool<IdString> flatten_do_list;
@@ -79,7 +79,7 @@ struct TechmapWorker
 		RTLIL::SigSpec value;
 	};
 
-	typedef std::map<std::string, std::vector<TechmapWireData>> TechmapWires;
+	typedef std::map<IdString, std::vector<TechmapWireData>> TechmapWires;
 
 	bool extern_mode;
 	bool assert_mode;
@@ -101,7 +101,7 @@ struct TechmapWorker
 	std::string constmap_tpl_name(SigMap &sigmap, RTLIL::Module *tpl, RTLIL::Cell *cell, bool verbose)
 	{
 		std::string constmap_info;
-		std::map<RTLIL::SigBit, std::pair<RTLIL::IdString, int>> connbits_map;
+		std::map<RTLIL::SigBit, std::pair<IdString, int>> connbits_map;
 
 		for (auto conn : cell->connections())
 			for (int i = 0; i < GetSize(conn.second); i++) {
@@ -117,7 +117,7 @@ struct TechmapWorker
 					constmap_info += stringf("|%s %d %s %d", log_id(conn.first), i,
 							log_id(connbits_map.at(bit).first), connbits_map.at(bit).second);
 				} else {
-					connbits_map[bit] = std::pair<RTLIL::IdString, int>(conn.first, i);
+					connbits_map[bit] = std::pair<IdString, int>(conn.first, i);
 					constmap_info += stringf("|%s %d", log_id(conn.first), i);
 				}
 			}
@@ -204,7 +204,7 @@ struct TechmapWorker
 			design->select(module, m);
 		}
 
-		std::map<RTLIL::IdString, RTLIL::IdString> positional_ports;
+		std::map<IdString, IdString> positional_ports;
 		dict<Wire*, IdString> temp_renamed_wires;
 		pool<SigBit> autopurge_tpl_bits;
 
@@ -282,7 +282,7 @@ struct TechmapWorker
 
 		for (auto &it : cell->connections())
 		{
-			RTLIL::IdString portname = it.first;
+			IdString portname = it.first;
 			if (positional_ports.count(portname) > 0)
 				portname = positional_ports.at(portname);
 			if (tpl->wire(portname) == nullptr || tpl->wire(portname)->port_id == 0) {
@@ -464,7 +464,7 @@ struct TechmapWorker
 	}
 
 	bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Design *map, std::set<RTLIL::Cell*> &handled_cells,
-			const std::map<RTLIL::IdString, std::set<RTLIL::IdString, RTLIL::sort_by_id_str>> &celltypeMap, bool in_recursion)
+			const std::map<IdString, std::set<IdString, RTLIL::sort_by_id_str>> &celltypeMap, bool in_recursion)
 	{
 		std::string mapmsg_prefix = in_recursion ? "Recursively mapping" : "Mapping";
 
@@ -489,7 +489,7 @@ struct TechmapWorker
 			}
 		}
 
-		TopoSort<RTLIL::Cell*, RTLIL::IdString::compare_ptr_by_name<RTLIL::Cell>> cells;
+		TopoSort<RTLIL::Cell*, IdString::compare_ptr_by_name<RTLIL::Cell>> cells;
 		std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_inbit;
 		std::map<RTLIL::SigBit, std::set<RTLIL::Cell*>> outbit_to_cell;
 
@@ -566,9 +566,9 @@ struct TechmapWorker
 
 			for (auto &tpl_name : celltypeMap.at(cell_type))
 			{
-				RTLIL::IdString derived_name = tpl_name;
+				IdString derived_name = tpl_name;
 				RTLIL::Module *tpl = map->module(tpl_name);
-				std::map<RTLIL::IdString, RTLIL::Const> parameters(cell->parameters.begin(), cell->parameters.end());
+				std::map<IdString, RTLIL::Const> parameters(cell->parameters.begin(), cell->parameters.end());
 
 				if (tpl->get_blackbox_attribute(ignore_wb))
 					continue;
@@ -778,13 +778,13 @@ struct TechmapWorker
 			use_wrapper_tpl:;
 					// do not register techmap_wrap modules with techmap_cache
 				} else {
-					std::pair<RTLIL::IdString, std::map<RTLIL::IdString, RTLIL::Const>> key(tpl_name, parameters);
+					std::pair<IdString, std::map<IdString, RTLIL::Const>> key(tpl_name, parameters);
 					if (techmap_cache.count(key) > 0) {
 						tpl = techmap_cache[key];
 					} else {
 						if (parameters.size() != 0) {
 							mkdebug.on();
-							derived_name = tpl->derive(map, dict<RTLIL::IdString, RTLIL::Const>(parameters.begin(), parameters.end()));
+							derived_name = tpl->derive(map, dict<IdString, RTLIL::Const>(parameters.begin(), parameters.end()));
 							tpl = map->module(derived_name);
 							log_continue = true;
 						}
@@ -805,7 +805,7 @@ struct TechmapWorker
 					bool keep_running = true;
 					techmap_do_cache[tpl] = true;
 
-					std::set<std::string> techmap_wire_names;
+					std::set<IdString> techmap_wire_names;
 
 					while (keep_running)
 					{
@@ -851,7 +851,7 @@ struct TechmapWorker
 								cmd_string = cmd_string.substr(strlen("CONSTMAP; "));
 
 								log("Analyzing pattern of constant bits for this cell:\n");
-								RTLIL::IdString new_tpl_name = constmap_tpl_name(sigmap, tpl, cell, true);
+								IdString new_tpl_name = constmap_tpl_name(sigmap, tpl, cell, true);
 								log("Creating constmapped module `%s'.\n", log_id(new_tpl_name));
 								log_assert(map->module(new_tpl_name) == nullptr);
 
@@ -871,7 +871,7 @@ struct TechmapWorker
 									if (!wire->port_input || wire->port_output)
 										continue;
 
-									RTLIL::IdString port_name = wire->name;
+									IdString port_name = wire->name;
 									tpl->rename(wire, NEW_ID);
 
 									RTLIL::Wire *new_wire = tpl->addWire(port_name, wire);
@@ -1300,7 +1300,7 @@ struct TechmapPass : public Pass {
 
 		log_header(design, "Continuing TECHMAP pass.\n");
 
-		std::map<RTLIL::IdString, std::set<RTLIL::IdString, RTLIL::sort_by_id_str>> celltypeMap;
+		std::map<IdString, std::set<IdString, RTLIL::sort_by_id_str>> celltypeMap;
 		for (auto module : map->modules()) {
 			if (module->attributes.count(ID::techmap_celltype) && !module->attributes.at(ID::techmap_celltype).bits.empty()) {
 				char *p = strdup(module->attributes.at(ID::techmap_celltype).decode_string().c_str());
@@ -1381,7 +1381,7 @@ struct FlattenPass : public Pass {
 		extra_args(args, argidx, design);
 
 
-		std::map<RTLIL::IdString, std::set<RTLIL::IdString, RTLIL::sort_by_id_str>> celltypeMap;
+		std::map<IdString, std::set<IdString, RTLIL::sort_by_id_str>> celltypeMap;
 		for (auto module : design->modules())
 			celltypeMap[module->name].insert(module->name);
 
@@ -1410,10 +1410,10 @@ struct FlattenPass : public Pass {
 
 		if (top_mod != NULL)
 		{
-			pool<RTLIL::IdString> used_modules, new_used_modules;
+			pool<IdString> used_modules, new_used_modules;
 			new_used_modules.insert(top_mod->name);
 			while (!new_used_modules.empty()) {
-				pool<RTLIL::IdString> queue;
+				pool<IdString> queue;
 				queue.swap(new_used_modules);
 				for (auto modname : queue)
 					used_modules.insert(modname);
