@@ -213,16 +213,16 @@ struct RenamePass : public Pass {
 			for (auto module : design->selected_modules())
 			{
 				int counter = 0;
-				std::map<RTLIL::Wire *, IdString> new_wire_names;
-				std::map<RTLIL::Cell *, IdString> new_cell_names;
+				dict<RTLIL::Wire *, IdString> new_wire_names;
+				dict<RTLIL::Cell *, IdString> new_cell_names;
 
 				for (auto wire : module->selected_wires())
 					if (wire->name[0] == '$')
-						new_wire_names[wire] = derive_name_from_src(wire->get_src_attribute(), counter++);
+						new_wire_names.emplace(wire, derive_name_from_src(wire->get_src_attribute(), counter++));
 
 				for (auto cell : module->selected_cells())
 					if (cell->name[0] == '$')
-						new_cell_names[cell] = derive_name_from_src(cell->get_src_attribute(), counter++);
+						new_cell_names.emplace(cell, derive_name_from_src(cell->get_src_attribute(), counter++));
 
 				for (auto &it : new_wire_names)
 					module->rename(it.first, it.second);
@@ -237,7 +237,7 @@ struct RenamePass : public Pass {
 			extra_args(args, argidx, design);
 
 			for (auto module : design->selected_modules()) {
-				std::map<RTLIL::Cell *, IdString> new_cell_names;
+				dict<RTLIL::Cell *, IdString> new_cell_names;
 				for (auto cell : module->selected_cells())
 					if (cell->name[0] == '$')
 						new_cell_names[cell] = derive_name_from_cell_output_wire(cell);
@@ -253,8 +253,8 @@ struct RenamePass : public Pass {
 			for (auto module : design->selected_modules())
 			{
 				int counter = 0;
-				std::map<RTLIL::Wire *, IdString> new_wire_names;
-				std::map<RTLIL::Cell *, IdString> new_cell_names;
+				dict<RTLIL::Wire *, IdString> new_wire_names;
+				dict<RTLIL::Cell *, IdString> new_cell_names;
 
 				for (auto wire : module->selected_wires())
 					if (wire->name[0] == '$') {
@@ -286,8 +286,8 @@ struct RenamePass : public Pass {
 
 			for (auto module : design->selected_modules())
 			{
-				std::map<RTLIL::Wire *, IdString> new_wire_names;
-				std::map<RTLIL::Cell *, IdString> new_cell_names;
+				dict<RTLIL::Wire *, IdString> new_wire_names;
+				dict<RTLIL::Cell *, IdString> new_cell_names;
 
 				for (auto wire : module->selected_wires())
 					if (wire->name[0] == '\\' && wire->port_id == 0)
