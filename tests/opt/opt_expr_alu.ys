@@ -8,7 +8,7 @@ alumacc
 equiv_opt -assert opt_expr -fine
 design -load postopt
 select -assert-count 1 t:$pos
-select -assert-count none t:$pos t:* %D
+select -assert-none t:$pos t:* %D
 
 
 design -reset
@@ -20,7 +20,7 @@ EOT
 
 alumacc
 select -assert-count 1 t:$alu
-select -assert-count none t:$alu t:* %D
+select -assert-none t:$alu t:* %D
 
 
 design -reset
@@ -33,7 +33,7 @@ EOT
 equiv_opt -assert opt_expr -fine
 design -load postopt
 select -assert-count 1 t:$pos
-select -assert-count none t:$pos t:* %D
+select -assert-none t:$pos t:* %D
 
 
 design -reset
@@ -46,7 +46,7 @@ EOT
 equiv_opt -assert opt_expr -fine
 design -load postopt
 select -assert-count 1 t:$pos
-select -assert-count none t:$pos t:* %D
+select -assert-none t:$pos t:* %D
 
 
 design -reset
@@ -60,7 +60,8 @@ alumacc
 equiv_opt -assert opt_expr -fine
 design -load postopt
 select -assert-count 1 t:$pos
-select -assert-count none t:$pos t:* %D
+select -assert-count 1 t:$not
+select -assert-none t:$pos t:$not %% t:* %D
 
 
 design -reset
@@ -76,7 +77,7 @@ design -load postopt
 select -assert-count 1 t:$alu
 select -assert-count 1 t:$alu r:Y_WIDTH=3 %i
 select -assert-count 1 t:$not
-select -assert-count none t:$alu t:$not t:* %D %D
+select -assert-none t:$alu t:$not t:* %D %D
 
 
 design -reset
@@ -93,7 +94,7 @@ dump
 select -assert-count 2 t:$alu
 select -assert-count 1 t:$alu r:Y_WIDTH=2 %i
 select -assert-count 1 t:$alu r:Y_WIDTH=3 %i
-select -assert-count none t:$alu t:* %D
+select -assert-none t:$alu t:* %D
 
 
 design -reset
@@ -108,4 +109,61 @@ equiv_opt -assert opt -fine
 design -load postopt
 select -assert-count 2 t:$alu
 select -assert-count 2 t:$alu r:Y_WIDTH=3 %i
-select -assert-count none t:$alu t:* %D
+select -assert-none t:$alu t:* %D
+
+
+design -reset
+read_verilog -icells <<EOT
+module test(input [3:0] a, output [3:0] y, output [3:0] x, output [3:0] co);
+$alu #(
+	.A_WIDTH(4), .B_WIDTH(4), .Y_WIDTH(4),
+	.A_SIGNED(0), .B_SIGNED(0),
+) alu (
+	.A(a), .B(4'h0),
+	.BI(1'b0), .CI(1'b0),
+	.Y(y), .X(x), .CO(co),
+);
+endmodule
+EOT
+
+equiv_opt -assert opt
+design -load postopt
+select -assert-none t:$alu
+
+
+design -reset
+read_verilog -icells <<EOT
+module test(input [3:0] a, output [3:0] y, output [3:0] x, output [3:0] co);
+$alu #(
+	.A_WIDTH(4), .B_WIDTH(4), .Y_WIDTH(4),
+	.A_SIGNED(0), .B_SIGNED(0),
+) alu (
+	.A(a), .B(4'h0),
+	.BI(1'b1), .CI(1'b1),
+	.Y(y), .X(x), .CO(co),
+);
+endmodule
+EOT
+
+equiv_opt -assert opt
+design -load postopt
+select -assert-none t:$alu
+
+
+design -reset
+read_verilog -icells <<EOT
+module test(input [3:0] a, output [3:0] y, output [3:0] x, output [3:0] co);
+$alu #(
+	.A_WIDTH(4), .B_WIDTH(4), .Y_WIDTH(4),
+	.A_SIGNED(0), .B_SIGNED(0),
+) alu (
+	.A(4'h0), .B(a),
+	.BI(1'b0), .CI(1'b0),
+	.Y(y), .X(x), .CO(co),
+);
+endmodule
+EOT
+
+equiv_opt -assert opt
+design -load postopt
+select -assert-none t:$alu
