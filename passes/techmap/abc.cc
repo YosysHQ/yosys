@@ -1827,7 +1827,7 @@ struct AbcPass : public Pass {
 			ok_gate:
 				gate_list.push_back(g);
 			ok_alias:
-				for (auto gate : gate_list) {
+				for (const auto& gate : gate_list) {
 					if (remove_gates)
 						enabled_gates.erase(gate);
 					else
@@ -1959,7 +1959,7 @@ struct AbcPass : public Pass {
 					clkdomain_t key = assigned_cells_reverse.at(cell);
 					expand_queue_up.erase(cell);
 
-					for (auto bit : cell_to_bit_up[cell])
+					for (const auto& bit : cell_to_bit_up[cell])
 					for (auto c : bit_to_cell_up[bit])
 						if (unassigned_cells.count(c)) {
 							unassigned_cells.erase(c);
@@ -1976,7 +1976,7 @@ struct AbcPass : public Pass {
 					clkdomain_t key = assigned_cells_reverse.at(cell);
 					expand_queue_down.erase(cell);
 
-					for (auto bit : cell_to_bit_down[cell])
+					for (const auto& bit : cell_to_bit_down[cell])
 					for (auto c : bit_to_cell_down[bit])
 						if (unassigned_cells.count(c)) {
 							unassigned_cells.erase(c);
@@ -1999,7 +1999,7 @@ struct AbcPass : public Pass {
 				clkdomain_t key = assigned_cells_reverse.at(cell);
 				expand_queue.erase(cell);
 
-				for (auto bit : cell_to_bit.at(cell)) {
+				for (const auto& bit : cell_to_bit.at(cell)) {
 					for (auto c : bit_to_cell[bit])
 						if (unassigned_cells.count(c)) {
 							unassigned_cells.erase(c);

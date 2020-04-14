@@ -441,7 +441,7 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 	{
 		vlog_file << stringf("\nmodule %s;\n", uut_name.c_str());
 
-		for (auto port : gold_mod->ports) {
+		for (const auto& port : gold_mod->ports) {
 			RTLIL::Wire *wire = gold_mod->wire(port);
 			if (wire->port_input)
 				vlog_file << stringf("  reg [%d:0] %s;\n", GetSize(wire)-1, log_id(wire));
@@ -476,7 +476,7 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 		RTLIL::SigSpec out_sig, out_val;
 		std::string vlog_pattern_info;
 
-		for (auto port : gold_mod->ports)
+		for (const auto& port : gold_mod->ports)
 		{
 			RTLIL::Wire *gold_wire = gold_mod->wire(port);
 			RTLIL::Wire *gate_wire = gate_mod->wire(port);
@@ -520,7 +520,7 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 		if (vlog_file.is_open())
 			vlog_file << stringf("      #1;\n");
 
-		for (auto port : gold_mod->ports)
+		for (const auto& port : gold_mod->ports)
 		{
 			RTLIL::Wire *gold_wire = gold_mod->wire(port);
 			RTLIL::Wire *gate_wire = gate_mod->wire(port);
@@ -874,7 +874,7 @@ struct TestCellPass : public Pass {
 
 			if (args[argidx].compare(0, 1, "/") == 0) {
 				std::vector<IdString> new_selected_cell_types;
-				for (auto it : selected_cell_types)
+				for (const auto& it : selected_cell_types)
 					if (it != args[argidx].substr(1))
 						new_selected_cell_types.push_back(it);
 				new_selected_cell_types.swap(selected_cell_types);
@@ -911,7 +911,7 @@ struct TestCellPass : public Pass {
 
 		std::vector<std::string> uut_names;
 
-		for (auto cell_type : selected_cell_types)
+		for (const auto& cell_type : selected_cell_types)
 			for (int i = 0; i < num_iter; i++)
 			{
 				RTLIL::Design *design = new RTLIL::Design;

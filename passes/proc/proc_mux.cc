@@ -56,7 +56,7 @@ struct SigSnippets
 			if (!new_sig.empty()) {
 				int new_key = sigidx(new_sig);
 				snippets.insert(new_key);
-				for (auto bit : new_sig)
+				for (const auto& bit : new_sig)
 					bit2snippet[bit] = new_key;
 				new_sig = SigSpec();
 			}
@@ -76,7 +76,7 @@ struct SigSnippets
 			SigSpec sig2 = other_sig.extract(k, n);
 			SigSpec sig3 = other_sig.extract(k+n, GetSize(other_sig)-k-n);
 
-			for (auto bit : other_sig)
+			for (const auto& bit : other_sig)
 				bit2snippet.erase(bit);
 			snippets.erase(other_key);
 
@@ -90,7 +90,7 @@ struct SigSnippets
 		if (!new_sig.empty()) {
 			int new_key = sigidx(new_sig);
 			snippets.insert(new_key);
-			for (auto bit : new_sig)
+			for (const auto& bit : new_sig)
 				bit2snippet[bit] = new_key;
 		}
 	}
@@ -121,7 +121,7 @@ struct SnippetSwCache
 	void insert(const RTLIL::CaseRule *cs, vector<RTLIL::SwitchRule*> &sw_stack)
 	{
 		for (auto &action : cs->actions)
-		for (auto bit : action.first) {
+		for (const auto& bit : action.first) {
 			int sn = snippets->bit2snippet.at(bit, -1);
 			if (sn < 0)
 				continue;
@@ -289,13 +289,13 @@ const pool<SigBit> &get_full_case_bits(SnippetSwCache &swcache, RTLIL::SwitchRul
 			{
 				pool<SigBit> case_bits;
 
-				for (auto it : cs->actions) {
-					for (auto bit : it.first)
+				for (const auto& it : cs->actions) {
+					for (const auto& bit : it.first)
 						case_bits.insert(bit);
 				}
 
 				for (auto it : cs->switches) {
-					for (auto bit : get_full_case_bits(swcache, it))
+					for (const auto& bit : get_full_case_bits(swcache, it))
 						case_bits.insert(bit);
 				}
 
@@ -304,7 +304,7 @@ const pool<SigBit> &get_full_case_bits(SnippetSwCache &swcache, RTLIL::SwitchRul
 					bits = case_bits;
 				} else {
 					pool<SigBit> new_bits;
-					for (auto bit : bits)
+					for (const auto& bit : bits)
 						if (case_bits.count(bit))
 							new_bits.insert(bit);
 					bits.swap(new_bits);
@@ -342,7 +342,7 @@ RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, d
 				pool<Const> case_values;
 				for (size_t i = 0; i < sw->cases.size(); i++) {
 					RTLIL::CaseRule *cs2 = sw->cases[i];
-					for (auto pat : cs2->compare) {
+					for (const auto& pat : cs2->compare) {
 						if (!pat.is_fully_def())
 							goto not_simple_parallel_case;
 						Const cpat = pat.as_const();
@@ -371,7 +371,7 @@ RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, d
 						pgroups[i] = pgroups[i-1]+1;
 						extra_group_for_next_case = false;
 					}
-					for (auto pat : cs2->compare)
+					for (const auto& pat : cs2->compare)
 						if (!pat.is_fully_const() || !pool.has_all(pat))
 							pgroups[i] = pgroups[i-1]+1;
 					if (cs2->compare.empty())
@@ -379,7 +379,7 @@ RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, d
 					if (pgroups[i] != pgroups[i-1])
 						pool = BitPatternPool(sw->signal.size());
 				}
-				for (auto pat : cs2->compare)
+				for (const auto& pat : cs2->compare)
 					if (!pat.is_fully_const())
 						extra_group_for_next_case = true;
 					else if (!ifxmode)

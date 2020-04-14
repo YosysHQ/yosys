@@ -35,7 +35,7 @@ bool merge_lut(LutData &result, const LutData &data, const LutData select, bool 
 	int idx_data = 0;
 	// Now add the control input LUT inputs.
 	std::vector<int> idx_sel;
-	for (auto bit : select.second) {
+	for (const auto& bit : select.second) {
 		int idx = -1;
 		for (int i = 0; i < GetSize(result.second); i++)
 			if (result.second[i] == bit)
@@ -140,8 +140,8 @@ struct XilinxDffOptPass : public Pass {
 			// Gather LUTs.
 			for (auto cell : module->selected_cells())
 			{
-				for (auto port : cell->connections())
-					for (auto bit : port.second)
+				for (const auto& port : cell->connections())
+					for (const auto& bit : port.second)
 						bit_uses[sigmap(bit)]++;
 				if (cell->get_bool_attribute(ID::keep))
 					continue;

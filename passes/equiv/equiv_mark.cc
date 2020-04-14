@@ -54,11 +54,11 @@ struct EquivMarkWorker
 			for (auto &port : cell->connections())
 			{
 				if (cell->input(port.first))
-					for (auto bit : sigmap(port.second))
+					for (const auto& bit : sigmap(port.second))
 						up_cell2bits[cell->name].insert(bit);
 
 				if (cell->output(port.first))
-					for (auto bit : sigmap(port.second))
+					for (const auto& bit : sigmap(port.second))
 						up_bit2cells[bit].insert(cell->name);
 			}
 		}
@@ -78,14 +78,14 @@ struct EquivMarkWorker
 				bit_regions[bit] = next_region;
 				visited.insert(bit);
 
-				for (auto cell : up_bit2cells[bit])
+				for (const auto& cell : up_bit2cells[bit])
 					if (edge_cells.count(cell) == 0)
 						cells.insert(cell);
 			}
 
 			queue.clear();
 
-			for (auto cell : cells)
+			for (const auto& cell : cells)
 			{
 				if (next_region == 0 && equiv_cells.count(cell))
 					continue;
@@ -98,7 +98,7 @@ struct EquivMarkWorker
 
 				cell_regions[cell] = next_region;
 
-				for (auto bit : up_cell2bits[cell])
+				for (const auto& bit : up_cell2bits[cell])
 					if (visited.count(bit) == 0)
 						queue.insert(bit);
 			}
@@ -115,10 +115,10 @@ struct EquivMarkWorker
 
 		for (auto wire : module->wires())
 			if (wire->port_id > 0)
-				for (auto bit : sigmap(wire))
+				for (const auto& bit : sigmap(wire))
 					queue.insert(bit);
 
-		for (auto cell_name : equiv_cells)
+		for (const auto& cell_name : equiv_cells)
 		{
 			auto cell = module->cell(cell_name);
 
@@ -126,7 +126,7 @@ struct EquivMarkWorker
 			SigSpec sig_b = sigmap(cell->getPort(ID::B));
 
 			if (sig_a == sig_b) {
-				for (auto bit : sig_a)
+				for (const auto& bit : sig_a)
 					queue.insert(bit);
 				edge_cells.insert(cell_name);
 				cell_regions[cell_name] = 0;
@@ -147,10 +147,10 @@ struct EquivMarkWorker
 
 			log_assert(sig_a != sig_b);
 
-			for (auto bit : sig_a)
+			for (const auto& bit : sig_a)
 				queue.insert(bit);
 
-			for (auto bit : sig_b)
+			for (const auto& bit : sig_b)
 				queue.insert(bit);
 
 			cell_regions[cell->name] = next_region;
@@ -185,7 +185,7 @@ struct EquivMarkWorker
 		for (auto wire : module->wires())
 		{
 			pool<int> regions;
-			for (auto bit : sigmap(wire))
+			for (const auto& bit : sigmap(wire))
 				if (bit_regions.count(bit))
 					regions.insert(region_mf.find(bit_regions.at(bit)));
 

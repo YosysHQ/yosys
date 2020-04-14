@@ -154,7 +154,7 @@ struct EquivStructWorker
 		if (merge_count > 0)
 			return;
 
-		for (auto cell_name : cells)
+		for (const auto& cell_name : cells)
 		{
 			merge_key_t key;
 			vector<tuple<IdString, int, SigBit>> fwd_connections;
@@ -210,7 +210,7 @@ struct EquivStructWorker
 				vector<pair<Cell*, Cell*>> cell_pairs;
 				IdString cells_type;
 
-				for (auto cell_name : merge_cache[key]) {
+				for (const auto& cell_name : merge_cache[key]) {
 					Cell *c = module->cell(cell_name);
 					if (c != nullptr) {
 						string n = cell_name.str();

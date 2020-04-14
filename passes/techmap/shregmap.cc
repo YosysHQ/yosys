@@ -80,7 +80,7 @@ struct ShregmapTechGreenpak4 : ShregmapTech
 		newcell->setPort(ID(IN), D);
 
 		int i = 0;
-		for (auto tap : taps) {
+		for (const auto& tap : taps) {
 			newcell->setPort(i ? ID(OUTB) : ID(OUTA), tap.second);
 			newcell->setParam(i ? ID(OUTB_TAP) : ID(OUTA_TAP), tap.first + 1);
 			i++;
@@ -113,7 +113,7 @@ struct ShregmapWorker
 		for (auto wire : module->wires())
 		{
 			if (wire->port_output || wire->get_bool_attribute(ID::keep)) {
-				for (auto bit : sigmap(wire))
+				for (const auto& bit : sigmap(wire))
 					sigbit_with_non_chain_users.insert(bit);
 			}
 
@@ -162,16 +162,16 @@ struct ShregmapWorker
 				}
 			}
 
-			for (auto conn : cell->connections())
+			for (const auto& conn : cell->connections())
 				if (cell->input(conn.first))
-					for (auto bit : sigmap(conn.second))
+					for (const auto& bit : sigmap(conn.second))
 						sigbit_with_non_chain_users.insert(bit);
 		}
 	}
 
 	void find_chain_start_cells()
 	{
-		for (auto it : sigbit_chain_next)
+		for (const auto& it : sigbit_chain_next)
 		{
 			if (opts.tech == nullptr && sigbit_with_non_chain_users.count(it.first))
 				goto start_cell;

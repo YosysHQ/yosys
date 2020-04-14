@@ -182,7 +182,7 @@ static void detect_fsm(RTLIL::Wire *wire)
 			if (set_output || clr_output) {
 				for (auto &port_it : cell->connections())
 					if (cell->input(port_it.first))
-						for (auto bit : assign_map(port_it.second))
+						for (const auto& bit : assign_map(port_it.second))
 							if (bit.wire != nullptr && !sig_q_bits.count(bit))
 								goto next_cellport;
 			}
@@ -224,7 +224,7 @@ static void detect_fsm(RTLIL::Wire *wire)
 
 		if (!warnings.empty()) {
 			string warnmsg = stringf("Regarding the user-specified fsm_encoding attribute on %s.%s:\n", log_id(wire->module), log_id(wire));
-			for (auto w : warnings) warnmsg += "    " + w;
+			for (const auto& w : warnings) warnmsg += "    " + w;
 			log_warning("%s", warnmsg.c_str());
 		} else {
 			log("FSM state register %s.%s already has fsm_encoding attribute.\n", log_id(wire->module), log_id(wire));

@@ -857,7 +857,7 @@ struct BtorWorker
 		int nid = -1;
 		sigmap.apply(sig);
 
-		for (auto bit : sig)
+		for (const auto& bit : sig)
 			if (bit == State::Sx)
 				goto has_undef_bits;
 
@@ -1079,7 +1079,7 @@ struct BtorWorker
 			if (!cell->output(conn.first))
 				continue;
 
-			for (auto bit : sigmap(conn.second))
+			for (const auto& bit : sigmap(conn.second))
 				bit_cell[bit] = cell;
 		}
 

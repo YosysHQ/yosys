@@ -136,7 +136,7 @@ struct SubmodWorker
 				flags.is_ext_used = true;
 			else {
 				auto sig = sigmap(wire);
-				for (auto c : sig.chunks())
+				for (const auto& c : sig.chunks())
 					if (c.wire && c.wire->port_output) {
 						flags.is_ext_used = true;
 						break;
@@ -265,7 +265,7 @@ struct SubmodWorker
 		ct.setup_stdcells_mem();
 		ct.setup_design(design);
 
-		for (auto port : module->ports) {
+		for (const auto& port : module->ports) {
 			auto wire = module->wire(port);
 			if (wire->port_output)
 				sigmap.add(wire);

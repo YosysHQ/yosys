@@ -63,20 +63,20 @@ struct OptMemWorker
 
 	~OptMemWorker()
 	{
-		for (auto it : remove_mem)
+		for (const auto& it : remove_mem)
 		{
-			for (auto cell_name : memrd[it])
+			for (const auto& cell_name : memrd[it])
 				module->remove(module->cell(cell_name));
-			for (auto cell_name : memwr[it])
+			for (const auto& cell_name : memwr[it])
 				module->remove(module->cell(cell_name));
-			for (auto cell_name : meminit[it])
+			for (const auto& cell_name : meminit[it])
 				module->remove(module->cell(cell_name));
 
 			delete module->memories.at(it);
 			module->memories.erase(it);
 		}
 
-		for (auto cell_name : remove_cells)
+		for (const auto& cell_name : remove_cells)
 			module->remove(module->cell(cell_name));
 	}
 

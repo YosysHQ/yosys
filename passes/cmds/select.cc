@@ -551,8 +551,8 @@ static void select_op_expand(RTLIL::Design *design, std::string arg, char mode, 
 				if (str[0] == '@') {
 					str = RTLIL::escape_id(str.substr(1));
 					if (design->selection_vars.count(str) > 0) {
-						for (auto i1 : design->selection_vars.at(str).selected_members)
-						for (auto i2 : i1.second)
+						for (const auto& i1 : design->selection_vars.at(str).selected_members)
+						for (const auto& i2 : i1.second)
 							limits.insert(i2);
 					} else
 						log_cmd_error("Selection %s is not defined!\n", RTLIL::unescape_id(str).c_str());
@@ -613,13 +613,13 @@ static void select_filter_active_mod(RTLIL::Design *design, RTLIL::Selection &se
 	}
 
 	std::vector<RTLIL::IdString> del_list;
-	for (auto mod_name : sel.selected_modules)
+	for (const auto& mod_name : sel.selected_modules)
 		if (mod_name != design->selected_active_module)
 			del_list.push_back(mod_name);
 	for (auto &it : sel.selected_members)
 		if (it.first != design->selected_active_module)
 			del_list.push_back(it.first);
-	for (auto mod_name : del_list) {
+	for (const auto& mod_name : del_list) {
 		sel.selected_modules.erase(mod_name);
 		sel.selected_members.erase(mod_name);
 	}
@@ -1645,7 +1645,7 @@ static void log_matches(const char *title, Module *module, T list)
 	if (!matches.empty()) {
 		log("\n%d %s:\n", int(matches.size()), title);
 		std::sort(matches.begin(), matches.end(), RTLIL::sort_by_id_str());
-		for (auto id : matches)
+		for (const auto& id : matches)
 			log("  %s\n", RTLIL::id2cstr(id));
 	}
 }
@@ -1678,7 +1678,7 @@ struct LsPass : public Pass {
 			if (!matches.empty()) {
 				log("\n%d %s:\n", int(matches.size()), "modules");
 				std::sort(matches.begin(), matches.end(), RTLIL::sort_by_id_str());
-				for (auto id : matches)
+				for (const auto& id : matches)
 					log("  %s%s\n", log_id(id), design->selected_whole_module(design->module(id)) ? "" : "*");
 			}
 		}

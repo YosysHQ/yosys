@@ -122,13 +122,13 @@ struct AlumaccWorker
 
 	void count_bit_users()
 	{
-		for (auto port : module->ports)
-			for (auto bit : sigmap(module->wire(port)))
+		for (const auto& port : module->ports)
+			for (const auto& bit : sigmap(module->wire(port)))
 				bit_users[bit]++;
 
 		for (auto cell : module->cells())
 		for (auto &conn : cell->connections())
-			for (auto bit : sigmap(conn.second))
+			for (const auto& bit : sigmap(conn.second))
 				bit_users[bit]++;
 	}
 
@@ -148,7 +148,7 @@ struct AlumaccWorker
 			n->y = sigmap(cell->getPort(ID::Y));
 			n->users = 0;
 
-			for (auto bit : n->y)
+			for (const auto& bit : n->y)
 				n->users = max(n->users, bit_users.at(bit) - 1);
 
 			if (cell->type.in(ID($pos), ID($neg)))

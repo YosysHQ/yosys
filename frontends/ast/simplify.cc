@@ -2623,7 +2623,7 @@ skip_dynamic_range_lvalue_expansion:;
 			cell->str = prefix.substr(0, GetSize(prefix)-1);
 			cell->children[0]->str = celltype;
 
-			for (auto attr : decl->attributes)
+			for (const auto& attr : decl->attributes)
 				if (attr.first.str().rfind("\\via_celltype_defparam_", 0) == 0)
 				{
 					AstNode *cell_arg = new AstNode(AST_PARASET, attr.second->clone());

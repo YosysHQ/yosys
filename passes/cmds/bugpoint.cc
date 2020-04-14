@@ -198,7 +198,7 @@ struct BugpointPass : public Pass {
 
 				for (auto cell : mod->cells())
 				{
-					for (auto it : cell->connections_)
+					for (const auto& it : cell->connections_)
 					{
 						RTLIL::SigSpec port = cell->getPort(it.first);
 						bool is_undef = port.is_fully_undef();

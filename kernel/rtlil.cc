@@ -312,7 +312,7 @@ pool<string> RTLIL::AttrObject::get_strpool_attribute(RTLIL::IdString id) const
 {
 	pool<string> data;
 	if (attributes.count(id) != 0)
-		for (auto s : split_tokens(attributes.at(id).decode_string(), "|"))
+		for (const auto& s : split_tokens(attributes.at(id).decode_string(), "|"))
 			data.insert(s);
 	return data;
 }
@@ -377,27 +377,27 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 	std::vector<RTLIL::IdString> del_list, add_list;
 
 	del_list.clear();
-	for (auto mod_name : selected_modules) {
+	for (const auto& mod_name : selected_modules) {
 		if (design->modules_.count(mod_name) == 0)
 			del_list.push_back(mod_name);
 		selected_members.erase(mod_name);
 	}
-	for (auto mod_name : del_list)
+	for (const auto& mod_name : del_list)
 		selected_modules.erase(mod_name);
 
 	del_list.clear();
 	for (auto &it : selected_members)
 		if (design->modules_.count(it.first) == 0)
 			del_list.push_back(it.first);
-	for (auto mod_name : del_list)
+	for (const auto& mod_name : del_list)
 		selected_members.erase(mod_name);
 
 	for (auto &it : selected_members) {
 		del_list.clear();
-		for (auto memb_name : it.second)
+		for (const auto& memb_name : it.second)
 			if (design->modules_[it.first]->count_id(memb_name) == 0)
 				del_list.push_back(memb_name);
-		for (auto memb_name : del_list)
+		for (const auto& memb_name : del_list)
 			it.second.erase(memb_name);
 	}
 
@@ -409,9 +409,9 @@ void RTLIL::Selection::optimize(RTLIL::Design *design)
 		else if (it.second.size() == design->modules_[it.first]->wires_.size() + design->modules_[it.first]->memories.size() +
 				design->modules_[it.first]->cells_.size() + design->modules_[it.first]->processes.size())
 			add_list.push_back(it.first);
-	for (auto mod_name : del_list)
+	for (const auto& mod_name : del_list)
 		selected_members.erase(mod_name);
-	for (auto mod_name : add_list) {
+	for (const auto& mod_name : add_list) {
 		selected_members.erase(mod_name);
 		selected_modules.insert(mod_name);
 	}

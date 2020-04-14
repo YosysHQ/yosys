@@ -97,7 +97,7 @@ struct CutpointPass : public Pass {
 					continue;
 				}
 				log("Making wire %s.%s a cutpoint.\n", log_id(module), log_id(wire));
-				for (auto bit : sigmap(wire))
+				for (const auto& bit : sigmap(wire))
 					cutpoint_bits.insert(bit);
 			}
 
@@ -156,7 +156,7 @@ struct CutpointPass : public Pass {
 				SigSpec sig(cutpoint_bits);
 				sig.sort_and_unify();
 
-				for (auto chunk : sig.chunks()) {
+				for (const auto& chunk : sig.chunks()) {
 					SigSpec s(chunk);
 					module->connect(s, flag_undef ? Const(State::Sx, GetSize(s)) : module->Anyseq(NEW_ID, GetSize(s)));
 				}

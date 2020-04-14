@@ -102,7 +102,7 @@ void apply_const(RTLIL::Module *mod, const RTLIL::SigSpec rspec, RTLIL::SigSpec 
 		bool this_polarity = polarity;
 		if (check_signal(mod, sw->signal, const_sig, this_polarity)) {
 			for (auto cs2 : sw->cases) {
-				for (auto comp : cs2->compare)
+				for (const auto& comp : cs2->compare)
 					if (comp == RTLIL::SigSpec(this_polarity, 1))
 						goto matched_case;
 				if (cs2->compare.size() == 0) {
@@ -126,7 +126,7 @@ void eliminate_const(RTLIL::Module *mod, RTLIL::CaseRule *cs, RTLIL::SigSpec con
 			bool found_rem_path = false;
 			for (size_t i = 0; i < sw->cases.size(); i++) {
 				RTLIL::CaseRule *cs2 = sw->cases[i];
-				for (auto comp : cs2->compare)
+				for (const auto& comp : cs2->compare)
 					if (comp == RTLIL::SigSpec(this_polarity, 1))
 						goto matched_case;
 				if (found_rem_path) {

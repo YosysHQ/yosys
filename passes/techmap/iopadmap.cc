@@ -243,9 +243,9 @@ struct IopadmapPass : public Pass {
 						SigBit bit = cell->getPort(ID::Y).as_bit();
 						tbuf_bits[bit] = cell;
 					} else {
-						for (auto port : cell->connections())
+						for (const auto& port : cell->connections())
 							if (!cell->known() || cell->output(port.first))
-								for (auto bit : port.second)
+								for (const auto& bit : port.second)
 									driven_bits.insert(bit);
 					}
 

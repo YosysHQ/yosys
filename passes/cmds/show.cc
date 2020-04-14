@@ -384,12 +384,12 @@ struct ShowWorker
 		if (stretchIO)
 		{
 			fprintf(f, "{ rank=\"source\";");
-			for (auto n : all_sources)
+			for (const auto& n : all_sources)
 				fprintf(f, " %s;", n.c_str());
 			fprintf(f, "}\n");
 
 			fprintf(f, "{ rank=\"sink\";");
-			for (auto n : all_sinks)
+			for (const auto& n : all_sinks)
 				fprintf(f, " %s;", n.c_str());
 			fprintf(f, "}\n");
 		}
@@ -804,7 +804,7 @@ struct ShowPass : public Pass {
 				log_cmd_error("For formats different than 'ps' or 'dot' only one module must be selected.\n");
 		}
 
-		for (auto filename : libfiles) {
+		for (const auto& filename : libfiles) {
 			std::ifstream f;
 			f.open(filename.c_str());
 			yosys_input_files.insert(filename);

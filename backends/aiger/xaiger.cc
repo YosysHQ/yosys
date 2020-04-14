@@ -295,7 +295,7 @@ struct XAigerWriter
 					log_error("Connection '%s' on cell '%s' (type '%s') not recognised!\n", log_id(c.first), log_id(cell), log_id(cell->type));
 
 				if (is_input)
-					for (auto b : c.second) {
+					for (const auto& b : c.second) {
 						Wire *w = b.wire;
 						if (!w) continue;
 						// Do not add as PO if bit is already a PI
@@ -355,7 +355,7 @@ struct XAigerWriter
 				}
 			}
 
-			for (auto port_name : r.first->second) {
+			for (const auto& port_name : r.first->second) {
 				auto w = box_module->wire(port_name);
 				log_assert(w);
 				auto rhs = cell->connections_.at(port_name, SigSpec());
@@ -406,15 +406,15 @@ struct XAigerWriter
 			}
 		}
 
-		for (auto bit : input_bits)
+		for (const auto& bit : input_bits)
 			undriven_bits.erase(bit);
-		for (auto bit : output_bits)
+		for (const auto& bit : output_bits)
 			unused_bits.erase(sigmap(bit));
-		for (auto bit : unused_bits)
+		for (const auto& bit : unused_bits)
 			undriven_bits.erase(bit);
 
 		// Make all undriven bits a primary input
-		for (auto bit : undriven_bits) {
+		for (const auto& bit : undriven_bits) {
 			input_bits.insert(bit);
 			undriven_bits.erase(bit);
 		}
@@ -457,7 +457,7 @@ struct XAigerWriter
 			aig_map[bit] = 2*aig_m;
 		}
 
-		for (auto bit : co_bits) {
+		for (const auto& bit : co_bits) {
 			ordered_outputs[bit] = aig_o++;
 			aig_outputs.push_back(bit2aig(bit));
 		}
@@ -576,7 +576,7 @@ struct XAigerWriter
 		};
 		std::stringstream i_buffer;
 		auto write_i_buffer = std::bind(write_buffer_float, std::ref(i_buffer), std::placeholders::_1);
-		for (auto bit : input_bits)
+		for (const auto& bit : input_bits)
 			write_i_buffer(arrival_times.at(bit, 0));
 		//std::stringstream o_buffer;
 		//auto write_o_buffer = std::bind(write_buffer_float, std::ref(o_buffer), std::placeholders::_1);
@@ -601,7 +601,7 @@ struct XAigerWriter
 				auto &v = r.first->second;
 				if (r.second) {
 					int box_inputs = 0, box_outputs = 0;
-					for (auto port_name : box_module->ports) {
+					for (const auto& port_name : box_module->ports) {
 						RTLIL::Wire *w = box_module->wire(port_name);
 						log_assert(w);
 						if (w->port_input)

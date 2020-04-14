@@ -35,13 +35,13 @@ static void handle_iobufs(Module *module, bool clkbuf_mode)
 	for (auto cell : module->cells())
 	{
 		if (clkbuf_mode && cell->type == ID(SLE)) {
-			for (auto bit : sigmap(cell->getPort(ID::CLK)))
+			for (const auto& bit : sigmap(cell->getPort(ID::CLK)))
 				clk_bits.insert(bit);
 		}
 		if (cell->type.in(ID(INBUF), ID(OUTBUF), ID(TRIBUFF), ID(BIBUF), ID(CLKBUF), ID(CLKBIBUF),
 				ID(INBUF_DIFF), ID(OUTBUF_DIFF), ID(BIBUFF_DIFF), ID(TRIBUFF_DIFF), ID(CLKBUF_DIFF),
 				ID(GCLKBUF), ID(GCLKBUF_DIFF), ID(GCLKBIBUF))) {
-			for (auto bit : sigmap(cell->getPort(ID(PAD))))
+			for (const auto& bit : sigmap(cell->getPort(ID(PAD))))
 				handled_io_bits.insert(bit);
 		}
 	}
@@ -109,17 +109,17 @@ static void handle_clkint(Module *module)
 	for (auto cell : module->cells())
 	{
 		if (cell->type == ID(SLE)) {
-			for (auto bit : sigmap(cell->getPort(ID::CLK)))
+			for (const auto& bit : sigmap(cell->getPort(ID::CLK)))
 				clk_bits.insert(bit);
 		}
 		if (cell->type.in(ID(CLKBUF), ID(CLKBIBUF), ID(CLKBUF_DIFF), ID(GCLKBUF), ID(GCLKBUF_DIFF), ID(GCLKBIBUF),
 				ID(CLKINT), ID(CLKINT_PRESERVE), ID(GCLKINT), ID(RCLKINT), ID(RGCLKINT))) {
-			for (auto bit : sigmap(cell->getPort(ID::Y)))
+			for (const auto& bit : sigmap(cell->getPort(ID::Y)))
 				handled_clk_bits.push_back(bit);
 		}
 	}
 
-	for (auto bit : handled_clk_bits)
+	for (const auto& bit : handled_clk_bits)
 		clk_bits.erase(bit);
 
 	for (auto cell : vector<Cell*>(module->cells()))
@@ -149,7 +149,7 @@ static void handle_clkint(Module *module)
 			cell->setPort(conn.first, sig);
 	}
 
-	for (auto bit : clk_bits)
+	for (const auto& bit : clk_bits)
 		log_error("Failed to insert CLKINT for clock signal %s.\n", log_signal(bit));
 }
 

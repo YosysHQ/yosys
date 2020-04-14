@@ -249,7 +249,7 @@ struct PerformReduction
 
 		if (recursion_guard.count(out)) {
 			string loop_signals;
-			for (auto loop_bit : recursion_guard)
+			for (const auto& loop_bit : recursion_guard)
 				loop_signals += string(" ") + log_signal(loop_bit);
 			log_error("Found logic loop:%s\n", loop_signals.c_str());
 		}

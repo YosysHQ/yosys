@@ -243,7 +243,7 @@ void json_parse_attr_param(dict<IdString, Const> &results, JsonNode *node)
 	if (node->type != 'D')
 		log_error("JSON attributes or parameters node is not a dictionary.\n");
 
-	for (auto it : node->data_dict)
+	for (const auto& it : node->data_dict)
 	{
 		IdString key = RTLIL::escape_id(it.first.c_str());
 		Const value = json_parse_attr_param_value(it.second);

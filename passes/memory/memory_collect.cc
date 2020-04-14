@@ -217,7 +217,7 @@ Cell *handle_memory(Module *module, RTLIL::Memory *memory)
 	mem->setPort(ID::RD_EN, sig_rd_en);
 
 	// Copy attributes from RTLIL memory to $mem
-	for (auto attr : memory->attributes)
+	for (const auto& attr : memory->attributes)
 		mem->attributes[attr.first] = attr.second;
 
 	for (auto c : memcells)

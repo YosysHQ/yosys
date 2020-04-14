@@ -108,7 +108,7 @@ void rmunused_module_cells(Module *module, bool verbose)
 		for (auto &it2 : cell->connections()) {
 			if (ct_all.cell_known(cell->type) && !ct_all.cell_output(cell->type, it2.first))
 				continue;
-			for (auto raw_bit : it2.second) {
+			for (const auto& raw_bit : it2.second) {
 				if (raw_bit.wire == nullptr)
 					continue;
 				auto bit = sigmap(raw_bit);
@@ -129,10 +129,10 @@ void rmunused_module_cells(Module *module, bool verbose)
 	for (auto &it : module->wires_) {
 		Wire *wire = it.second;
 		if (wire->port_output || wire->get_bool_attribute(ID::keep)) {
-			for (auto bit : sigmap(wire))
+			for (const auto& bit : sigmap(wire))
 			for (auto c : wire2driver[bit])
 				queue.insert(c), unused.erase(c);
-			for (auto raw_bit : SigSpec(wire))
+			for (const auto& raw_bit : SigSpec(wire))
 				used_raw_bits.insert(raw_sigmap(raw_bit));
 		}
 	}
@@ -143,11 +143,11 @@ void rmunused_module_cells(Module *module, bool verbose)
 		for (auto cell : queue)
 		for (auto &it : cell->connections())
 			if (!ct_all.cell_known(cell->type) || ct_all.cell_input(cell->type, it.first))
-				for (auto bit : sigmap(it.second))
+				for (const auto& bit : sigmap(it.second))
 					bits.insert(bit);
 
 		queue.clear();
-		for (auto bit : bits)
+		for (const auto& bit : bits)
 		for (auto c : wire2driver[bit])
 			if (unused.count(c))
 				queue.insert(c), unused.erase(c);
@@ -168,14 +168,14 @@ void rmunused_module_cells(Module *module, bool verbose)
 		for (auto &it2 : cell->connections()) {
 			if (ct_all.cell_known(cell->type) && !ct_all.cell_input(cell->type, it2.first))
 				continue;
-			for (auto raw_bit : raw_sigmap(it2.second))
+			for (const auto& raw_bit : raw_sigmap(it2.second))
 				used_raw_bits.insert(raw_bit);
 		}
 	}
 
-	for (auto it : driver_driver_logs) {
+	for (const auto& it : driver_driver_logs) {
 		if (used_raw_bits.count(it.first))
-			for (auto msg : it.second)
+			for (const auto& msg : it.second)
 				log_warning("%s\n", msg.c_str());
 	}
 }

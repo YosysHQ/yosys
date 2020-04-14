@@ -447,14 +447,14 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 			for (auto &conn : cell->connections()) {
 				if (cell->output(conn.first))
 					continue;
-				for (auto bit : sigmap(conn.second))
+				for (const auto& bit : sigmap(conn.second))
 					bit_user_cnt[bit]++;
 			}
 		}
 
 		for (auto wire : module->selected_wires())
 		{
-			for (SigBit bit : SigSpec(wire))
+			for (const SigBit& bit : SigSpec(wire))
 			{
 				SigBit sigbit = sigmap(bit);
 

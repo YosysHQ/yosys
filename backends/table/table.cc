@@ -95,7 +95,7 @@ struct TableBackend : public Backend {
 			}
 
 			for (auto cell : module->cells())
-			for (auto conn : cell->connections())
+			for (const auto& conn : cell->connections())
 			{
 				*f << log_id(module) << "\t";
 				*f << log_id(cell) << "\t";

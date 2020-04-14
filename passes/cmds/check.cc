@@ -123,7 +123,7 @@ struct CheckPass : public Pass {
 					SigSpec sig = sigmap(conn.second);
 					bool logic_cell = yosys_celltypes.cell_evaluable(cell->type);
 					if (cell->input(conn.first))
-						for (auto bit : sig)
+						for (const auto& bit : sig)
 							if (bit.wire) {
 								if (logic_cell)
 									topo.edge(stringf("wire %s", log_signal(bit)),
@@ -140,7 +140,7 @@ struct CheckPass : public Pass {
 										log_id(conn.first), i, log_id(cell), log_id(cell->type)));
 						}
 					if (!cell->input(conn.first) && cell->output(conn.first))
-						for (auto bit : sig)
+						for (const auto& bit : sig)
 							if (bit.wire) wire_drivers_count[bit]++;
 				}
 			}
@@ -154,10 +154,10 @@ struct CheckPass : public Pass {
 						wire_drivers[sig[i]].push_back(stringf("module input %s[%d]", log_id(wire), i));
 				}
 				if (wire->port_output)
-					for (auto bit : sigmap(wire))
+					for (const auto& bit : sigmap(wire))
 						if (bit.wire) used_wires.insert(bit);
 				if (wire->port_input && !wire->port_output)
-					for (auto bit : sigmap(wire))
+					for (const auto& bit : sigmap(wire))
 						if (bit.wire) wire_drivers_count[bit]++;
 				if (wire->attributes.count(ID::init)) {
 					Const initval = wire->attributes.at(ID::init);
@@ -171,16 +171,16 @@ struct CheckPass : public Pass {
 				}
 			}
 
-			for (auto it : wire_drivers)
+			for (const auto& it : wire_drivers)
 				if (wire_drivers_count[it.first] > 1) {
 					string message = stringf("multiple conflicting drivers for %s.%s:\n", log_id(module), log_signal(it.first));
-					for (auto str : it.second)
+					for (const auto& str : it.second)
 						message += stringf("    %s\n", str.c_str());
 					log_warning("%s", message.c_str());
 					counter++;
 				}
 
-			for (auto bit : used_wires)
+			for (const auto& bit : used_wires)
 				if (!wire_drivers.count(bit)) {
 					log_warning("Wire %s.%s is used but has no driver.\n", log_id(module), log_signal(bit));
 					counter++;
@@ -202,14 +202,14 @@ struct CheckPass : public Pass {
 					if (RTLIL::builtin_ff_cell_types().count(cell->type) == 0)
 						continue;
 
-					for (auto bit : sigmap(cell->getPort(ID::Q)))
+					for (const auto& bit : sigmap(cell->getPort(ID::Q)))
 						init_bits.erase(bit);
 				}
 
 				SigSpec init_sig(init_bits);
 				init_sig.sort_and_unify();
 
-				for (auto chunk : init_sig.chunks()) {
+				for (const auto& chunk : init_sig.chunks()) {
 					log_warning("Wire %s.%s has 'init' attribute and is not driven by an FF cell.\n", log_id(module), log_signal(chunk));
 					counter++;
 				}

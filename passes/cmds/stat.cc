@@ -155,7 +155,7 @@ struct statdata_t
 
 		if (!unknown_cell_area.empty()) {
 			log("\n");
-			for (auto cell_type : unknown_cell_area)
+			for (const auto& cell_type : unknown_cell_area)
 				log("   Area for cell type %s is unknown!\n", cell_type.c_str());
 		}
 
@@ -223,7 +223,7 @@ struct statdata_t
 			bool tran_cnt_exact = true;
 			auto &gate_costs = CellCosts::cmos_gate_cost();
 
-			for (auto it : num_cells_by_type) {
+			for (const auto& it : num_cells_by_type) {
 				auto ctype = it.first;
 				auto cnum = it.second;
 

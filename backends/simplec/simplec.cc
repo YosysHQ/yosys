@@ -293,7 +293,7 @@ struct SimplecWorker
 		for (Wire *w : mod->wires())
 		{
 			if (w->port_output)
-				for (auto bit : SigSpec(w))
+				for (const auto& bit : SigSpec(w))
 					bit2output[mod][sigmaps.at(mod)(bit)].insert(bit);
 		}
 
@@ -302,13 +302,13 @@ struct SimplecWorker
 			for (auto &conn : c->connections())
 			{
 				if (!c->input(conn.first)) {
-					for (auto bit : sigmaps.at(mod)(conn.second))
+					for (const auto& bit : sigmaps.at(mod)(conn.second))
 						driven_bits[mod].insert(bit);
 					continue;
 				}
 
 				int idx = 0;
-				for (auto bit : sigmaps.at(mod)(conn.second))
+				for (const auto& bit : sigmaps.at(mod)(conn.second))
 					bit2cell[mod][bit].insert(tuple<Cell*, IdString, int>(c, conn.first, idx++));
 			}
 
@@ -327,7 +327,7 @@ struct SimplecWorker
 				if (!c->input(conn.first))
 					continue;
 
-				for (auto bit : sigmaps.at(mod)(conn.second))
+				for (const auto& bit : sigmaps.at(mod)(conn.second))
 				for (auto &it : bit2cell[mod][bit])
 					topo.edge(c->name, std::get<0>(it)->name);
 			}
@@ -513,7 +513,7 @@ struct SimplecWorker
 					SigSpec dirtysig(work->dirty_bits);
 					dirtysig.sort_and_unify();
 
-					for (SigChunk chunk : dirtysig.chunks()) {
+					for (const SigChunk& chunk : dirtysig.chunks()) {
 						if (chunk.wire == nullptr)
 							continue;
 						if (verbose)
@@ -521,10 +521,10 @@ struct SimplecWorker
 						funct_declarations.push_back(stringf("  // Updated signal in %s: %s", work->log_prefix.c_str(), log_signal(chunk)));
 					}
 
-					for (SigBit bit : dirtysig)
+					for (const SigBit& bit : dirtysig)
 					{
 						if (bit2output[work->module].count(bit) && work->parent)
-							for (auto outbit : bit2output[work->module][bit])
+							for (const auto& outbit : bit2output[work->module][bit])
 							{
 								Module *parent_mod = work->parent->module;
 								Cell *parent_cell = parent_mod->cell(work->hiername);
@@ -600,7 +600,7 @@ struct SimplecWorker
 		Module *mod = work->module;
 
 		for (Wire *w : mod->wires())
-		for (SigBit bit : SigSpec(w))
+		for (const SigBit& bit : SigSpec(w))
 		{
 			SigBit canonical_bit = sigmaps.at(mod)(bit);
 
@@ -667,7 +667,7 @@ struct SimplecWorker
 					}
 			}
 
-			for (SigBit bit : SigSpec(w))
+			for (const SigBit& bit : SigSpec(w))
 			{
 				SigBit val = sigmaps.at(module)(bit);
 
@@ -700,7 +700,7 @@ struct SimplecWorker
 
 		for (Wire *w : mod->wires()) {
 			if (w->port_input)
-				for (SigBit bit : sigmaps.at(mod)(w))
+				for (const SigBit& bit : sigmaps.at(mod)(w))
 					work->set_dirty(bit);
 		}
 

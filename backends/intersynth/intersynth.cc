@@ -102,7 +102,7 @@ struct IntersynthBackend : public Backend {
 
 		log("Output filename: %s\n", filename.c_str());
 
-		for (auto filename : libfiles) {
+		for (const auto& filename : libfiles) {
 			std::ifstream f;
 			f.open(filename.c_str());
 			if (f.fail())
@@ -191,17 +191,17 @@ struct IntersynthBackend : public Backend {
 
 			if (constcells_code.size() > 0)
 			  netlists_code += "# constant cells\n";
-			for (auto code : constcells_code)
+			for (const auto& code : constcells_code)
 				netlists_code += code;
 			netlists_code += "\n";
 		}
 
 		if (!flag_notypes) {
 			*f << stringf("### Connection Types\n");
-			for (auto code : conntypes_code)
+			for (const auto& code : conntypes_code)
 				*f << stringf("%s", code.c_str());
 			*f << stringf("\n### Cell Types\n");
-			for (auto code : celltypes_code)
+			for (const auto& code : celltypes_code)
 				*f << stringf("%s", code.c_str());
 		}
 		*f << stringf("\n### Netlists\n");

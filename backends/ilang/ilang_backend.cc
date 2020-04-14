@@ -304,7 +304,7 @@ void ILANG_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Modu
 				dump_wire(f, indent + "  ", it);
 			}
 
-		for (auto it : module->memories)
+		for (const auto& it : module->memories)
 			if (!only_selected || design->selected(module, it.second)) {
 				if (only_selected)
 					f << stringf("\n");
@@ -318,7 +318,7 @@ void ILANG_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Modu
 				dump_cell(f, indent + "  ", it);
 			}
 
-		for (auto it : module->processes)
+		for (const auto& it : module->processes)
 			if (!only_selected || design->selected(module, it.second)) {
 				if (only_selected)
 					f << stringf("\n");

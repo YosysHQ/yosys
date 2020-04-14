@@ -80,7 +80,7 @@ void check(RTLIL::Design *design)
 
 		if (flop) {
 			int num_outputs = 0;
-			for (auto port_name : m->ports) {
+			for (const auto& port_name : m->ports) {
 				auto wire = m->wire(port_name);
 				if (wire->port_output) num_outputs++;
 			}
@@ -247,13 +247,13 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 			continue;
 
 		// TODO: Speed up toposort -- we care about box ordering only
-		for (auto conn : cell->connections()) {
+		for (const auto& conn : cell->connections()) {
 			if (cell->input(conn.first))
-				for (auto bit : sigmap(conn.second))
+				for (const auto& bit : sigmap(conn.second))
 					bit_users[bit].insert(cell->name);
 
 			if (cell->output(conn.first) && !abc9_flop)
-				for (auto bit : sigmap(conn.second))
+				for (const auto& bit : sigmap(conn.second))
 					bit_drivers[bit].insert(cell->name);
 		}
 		toposort.node(cell->name);
@@ -264,8 +264,8 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 
 	for (auto &it : bit_users)
 		if (bit_drivers.count(it.first))
-			for (auto driver_cell : bit_drivers.at(it.first))
-				for (auto user_cell : it.second)
+			for (const auto& driver_cell : bit_drivers.at(it.first))
+				for (const auto& user_cell : it.second)
 					toposort.edge(driver_cell, user_cell);
 
 	if (ys_debug(1))
@@ -277,7 +277,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 		unsigned i = 0;
 		for (auto &it : toposort.loops) {
 			log("  loop %d\n", i++);
-			for (auto cell_name : it) {
+			for (const auto& cell_name : it) {
 				auto cell = module->cell(cell_name);
 				log_assert(cell);
 				log("\t%s (%s @ %s)\n", log_id(cell), log_id(cell->type), cell->get_src_attribute().c_str());
@@ -295,7 +295,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 	TimingInfo timing;
 
 	int port_id = 1, box_count = 0;
-	for (auto cell_name : toposort.sorted) {
+	for (const auto& cell_name : toposort.sorted) {
 		RTLIL::Cell *cell = module->cell(cell_name);
 		log_assert(cell);
 
@@ -321,7 +321,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 					Pass::call_on_module(design, box_module, "proc");
 
 				int box_inputs = 0;
-				for (auto port_name : box_ports.at(cell->type)) {
+				for (const auto& port_name : box_ports.at(cell->type)) {
 					RTLIL::Wire *w = box_module->wire(port_name);
 					log_assert(w);
 					log_assert(!w->port_input || !w->port_output);
@@ -362,7 +362,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 				log_assert(holes_cell == nullptr);
 		}
 
-		for (auto port_name : box_ports.at(cell->type)) {
+		for (const auto& port_name : box_ports.at(cell->type)) {
 			RTLIL::Wire *w = box_module->wire(port_name);
 			log_assert(w);
 			if (!w->port_output)
@@ -544,7 +544,7 @@ void prep_box(RTLIL::Design *design, bool dff_mode)
 
 			if (dff_mode) {
 				int num_inputs = 0, num_outputs = 0;
-				for (auto port_name : module->ports) {
+				for (const auto& port_name : module->ports) {
 					auto wire = module->wire(port_name);
 					log_assert(GetSize(wire) == 1);
 					if (wire->port_input) num_inputs++;
@@ -558,7 +558,7 @@ void prep_box(RTLIL::Design *design, bool dff_mode)
 
 				ss << "#";
 				bool first = true;
-				for (auto port_name : module->ports) {
+				for (const auto& port_name : module->ports) {
 					auto wire = module->wire(port_name);
 					if (!wire->port_input)
 						continue;
@@ -572,7 +572,7 @@ void prep_box(RTLIL::Design *design, bool dff_mode)
 
 				auto &t = timing.setup_module(module).required;
 				first = true;
-				for (auto port_name : module->ports) {
+				for (const auto& port_name : module->ports) {
 					auto wire = module->wire(port_name);
 					if (!wire->port_input)
 						continue;
@@ -640,7 +640,7 @@ void prep_box(RTLIL::Design *design, bool dff_mode)
 
 		std::vector<SigBit> inputs;
 		std::vector<SigBit> outputs;
-		for (auto port_name : r.first->second) {
+		for (const auto& port_name : r.first->second) {
 			auto wire = module->wire(port_name);
 			if (wire->port_input)
 				for (int i = 0; i < GetSize(wire); i++)
@@ -842,13 +842,13 @@ void reintegrate(RTLIL::Module *module)
 				cell->setPort(mapped_conn.first, newsig);
 
 				if (cell->input(mapped_conn.first)) {
-					for (auto i : newsig)
+					for (const auto& i : newsig)
 						bit2sinks[i].push_back(cell);
-					for (auto i : mapped_conn.second)
+					for (const auto& i : mapped_conn.second)
 						bit_users[i].insert(mapped_cell->name);
 				}
 				if (cell->output(mapped_conn.first))
-					for (auto i : mapped_conn.second)
+					for (const auto& i : mapped_conn.second)
 						// Ignore inouts for topo ordering
 						if (i.wire && !(i.wire->port_input && i.wire->port_output))
 							bit_drivers[i].insert(mapped_cell->name);
@@ -962,7 +962,7 @@ void reintegrate(RTLIL::Module *module)
 	int in_wires = 0, out_wires = 0;
 
 	// Stitch in mapped_mod's inputs/outputs into module
-	for (auto port : mapped_mod->ports) {
+	for (const auto& port : mapped_mod->ports) {
 		RTLIL::Wire *mapped_wire = mapped_mod->wire(port);
 		RTLIL::Wire *wire = module->wire(port);
 		log_assert(wire);
@@ -1000,8 +1000,8 @@ void reintegrate(RTLIL::Module *module)
 	//   increasing depth/delay.
 	for (auto &it : bit_users)
 		if (bit_drivers.count(it.first))
-			for (auto driver_cell : bit_drivers.at(it.first))
-			for (auto user_cell : it.second)
+			for (const auto& driver_cell : bit_drivers.at(it.first))
+			for (const auto& user_cell : it.second)
 				toposort.edge(driver_cell, user_cell);
 	bool no_loops YS_ATTRIBUTE(unused) = toposort.sort();
 	log_assert(no_loops);

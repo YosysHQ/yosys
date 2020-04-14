@@ -75,7 +75,7 @@ struct TorderPass : public Pass {
 			TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
 
 			for (auto cell : module->selected_cells())
-			for (auto conn : cell->connections())
+			for (const auto& conn : cell->connections())
 			{
 				if (stop_db.count(cell->type) && stop_db.at(cell->type).count(conn.first))
 					continue;
@@ -88,11 +88,11 @@ struct TorderPass : public Pass {
 				}
 
 				if (cell->input(conn.first))
-					for (auto bit : sigmap(conn.second))
+					for (const auto& bit : sigmap(conn.second))
 						bit_users[bit].insert(cell->name);
 
 				if (cell->output(conn.first))
-					for (auto bit : sigmap(conn.second))
+					for (const auto& bit : sigmap(conn.second))
 						bit_drivers[bit].insert(cell->name);
 
 				toposort.node(cell->name);
@@ -100,8 +100,8 @@ struct TorderPass : public Pass {
 
 			for (auto &it : bit_users)
 				if (bit_drivers.count(it.first))
-					for (auto driver_cell : bit_drivers.at(it.first))
-					for (auto user_cell : it.second)
+					for (const auto& driver_cell : bit_drivers.at(it.first))
+					for (const auto& user_cell : it.second)
 						toposort.edge(driver_cell, user_cell);
 
 			toposort.analyze_loops = true;
@@ -109,12 +109,12 @@ struct TorderPass : public Pass {
 
 			for (auto &it : toposort.loops) {
 				log("  loop");
-				for (auto cell : it)
+				for (const auto& cell : it)
 					log(" %s", log_id(cell));
 				log("\n");
 			}
 
-			for (auto cell : toposort.sorted)
+			for (const auto& cell : toposort.sorted)
 					log("  cell %s\n", log_id(cell));
 		}
 	}

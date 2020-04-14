@@ -31,7 +31,7 @@ int autoname_worker(Module *module)
 
 	for (auto cell : module->selected_cells())
 	for (auto &conn : cell->connections())
-	for (auto bit : conn.second)
+	for (const auto& bit : conn.second)
 		if (bit.wire != nullptr)
 			wire_score[bit.wire]++;
 
@@ -39,7 +39,7 @@ int autoname_worker(Module *module)
 		if (cell->name[0] == '$') {
 			for (auto &conn : cell->connections()) {
 				string suffix = stringf("_%s_%s", log_id(cell->type), log_id(conn.first));
-				for (auto bit : conn.second)
+				for (const auto& bit : conn.second)
 					if (bit.wire != nullptr && bit.wire->name[0] != '$') {
 						IdString new_name(bit.wire->name.str() + suffix);
 						int score = wire_score.at(bit.wire);
@@ -55,7 +55,7 @@ int autoname_worker(Module *module)
 		} else {
 			for (auto &conn : cell->connections()) {
 				string suffix = stringf("_%s", log_id(conn.first));
-				for (auto bit : conn.second)
+				for (const auto& bit : conn.second)
 					if (bit.wire != nullptr && bit.wire->name[0] == '$' && !bit.wire->port_id) {
 						IdString new_name(cell->name.str() + suffix);
 						int score = wire_score.at(bit.wire);

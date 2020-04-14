@@ -177,7 +177,7 @@ struct MemoryShareWorker
 					cell->parameters.at(ID::MEMID).decode_string() == memid)
 				ignore_data_port = true;
 
-			for (auto conn : cell->connections())
+			for (const auto& conn : cell->connections())
 			{
 				if (ignore_data_port && conn.first == ID::DATA)
 					continue;
@@ -501,7 +501,7 @@ struct MemoryShareWorker
 
 		for (int i = 0; i < int(wr_ports.size()); i++) {
 			std::vector<RTLIL::SigBit> bits = modwalker.sigmap(wr_ports[i]->getPort(ID::EN));
-			for (auto bit : bits)
+			for (const auto& bit : bits)
 				if (bit == RTLIL::State::S1)
 					goto port_is_always_active;
 			if (modwalker.has_drivers(bits))
@@ -563,7 +563,7 @@ struct MemoryShareWorker
 
 		while (!bits_queue.empty())
 		{
-			for (auto bit : bits_queue)
+			for (const auto& bit : bits_queue)
 				if (bit.wire && bit.wire->get_bool_attribute(ID::onehot))
 					one_hot_wires.insert(bit.wire);
 

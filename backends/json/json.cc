@@ -67,7 +67,7 @@ struct JsonWriter
 	{
 		bool first = true;
 		string str = "[";
-		for (auto bit : sigmap(sig)) {
+		for (const auto& bit : sigmap(sig)) {
 			str += first ? " " : ", ";
 			first = false;
 			if (sigids.count(bit) == 0) {
@@ -143,7 +143,7 @@ struct JsonWriter
 
 		f << stringf("      \"ports\": {");
 		bool first = true;
-		for (auto n : module->ports) {
+		for (const auto& n : module->ports) {
 			Wire *w = module->wire(n);
 			if (use_selection && !module->selected(w))
 				continue;

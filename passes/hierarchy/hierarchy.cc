@@ -1086,7 +1086,7 @@ struct HierarchyPass : public Pass {
 				SigSig new_conn;
 				int cursor = 0;
 
-				for (auto c : conn.first.chunks())
+				for (const auto& c : conn.first.chunks())
 				{
 					Wire *w = c.wire;
 					SigSpec rhs = conn.second.extract(cursor, GetSize(c));
@@ -1124,7 +1124,7 @@ struct HierarchyPass : public Pass {
 					SigSpec new_sig;
 					bool update_port = false;
 
-					for (auto c : conn.second.chunks())
+					for (const auto& c : conn.second.chunks())
 					{
 						Wire *w = c.wire;
 

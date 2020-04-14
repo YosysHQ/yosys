@@ -128,7 +128,7 @@ struct SimInstance
 
 			for (auto &port : cell->connections()) {
 				if (cell->input(port.first))
-					for (auto bit : sigmap(port.second))
+					for (const auto& bit : sigmap(port.second))
 						upd_cells[bit].insert(cell);
 			}
 
@@ -212,7 +212,7 @@ struct SimInstance
 	{
 		Const value;
 
-		for (auto bit : sigmap(sig))
+		for (const auto& bit : sigmap(sig))
 			if (bit.wire == nullptr)
 				value.bits.push_back(bit.data);
 			else if (state_nets.count(bit))
@@ -354,7 +354,7 @@ struct SimInstance
 
 		while (1)
 		{
-			for (auto bit : dirty_bits)
+			for (const auto& bit : dirty_bits)
 			{
 				if (upd_cells.count(bit))
 					for (auto cell : upd_cells.at(bit))
@@ -676,7 +676,7 @@ struct SimWorker : SimShared
 
 	void set_inports(pool<IdString> ports, State value)
 	{
-		for (auto portname : ports)
+		for (const auto& portname : ports)
 		{
 			Wire *w = top->module->wire(portname);
 

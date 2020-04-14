@@ -288,7 +288,7 @@ struct OptReduceWorker
 			// (only handle reduce_and and reduce_or for various reasons)
 
 			const IdString type_list[] = { ID($reduce_or), ID($reduce_and) };
-			for (auto type : type_list)
+			for (const auto& type : type_list)
 			{
 				SigSet<RTLIL::Cell*> drivers;
 				pool<RTLIL::Cell*> cells;

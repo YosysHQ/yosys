@@ -49,7 +49,7 @@ void demorgan_worker(
 		//TODO: do other stuff like nor/nand?
 		pool<ModIndex::PortInfo> ports = index.query_ports(b);
 		bool inverted = false;
-		for(auto x : ports)
+		for(const auto& x : ports)
 		{
 			if(x.port == ID::Y && x.cell->type == ID($_NOT_))
 			{
@@ -83,7 +83,7 @@ void demorgan_worker(
 		//TODO: do other stuff like nor/nand?
 		pool<ModIndex::PortInfo> ports = index.query_ports(b);
 		RTLIL::Cell* srcinv = NULL;
-		for(auto x : ports)
+		for(const auto& x : ports)
 		{
 			if(x.port == ID::Y && x.cell->type == ID($_NOT_))
 			{

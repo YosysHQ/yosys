@@ -44,7 +44,7 @@ struct TribufWorker {
 
 	static bool is_all_z(SigSpec sig)
 	{
-		for (auto bit : sig)
+		for (const auto& bit : sig)
 			if (bit != State::Sz)
 				return false;
 		return true;
@@ -58,7 +58,7 @@ struct TribufWorker {
 		if (config.logic_mode)
 			for (auto wire : module->wires())
 				if (wire->port_output)
-					for (auto bit : sigmap(wire))
+					for (const auto& bit : sigmap(wire))
 						output_bits.insert(bit);
 
 		for (auto cell : module->selected_cells())
@@ -110,7 +110,7 @@ struct TribufWorker {
 
 				if (config.logic_mode) {
 					no_tribuf = true;
-					for (auto bit : it.first)
+					for (const auto& bit : it.first)
 						if (output_bits.count(bit))
 							no_tribuf = false;
 				}

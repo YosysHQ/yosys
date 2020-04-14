@@ -146,7 +146,7 @@ struct OptMergeWorker
 
 		std::sort(hash_conn_strings.begin(), hash_conn_strings.end());
 
-		for (auto it : hash_conn_strings)
+		for (const auto& it : hash_conn_strings)
 			hash_string += it;
 
 		checksum.update(hash_string);
@@ -301,7 +301,7 @@ struct OptMergeWorker
 								if (it.first == ID::Q && (cell->type.begins_with("$dff") || cell->type.begins_with("$dlatch") ||
 											cell->type.begins_with("$_DFF") || cell->type.begins_with("$_DLATCH") || cell->type.begins_with("$_SR_") ||
 											cell->type.in(ID($adff), ID($sr), ID($ff), ID($_FF_)))) {
-									for (auto c : it.second.chunks()) {
+									for (const auto& c : it.second.chunks()) {
 										auto jt = c.wire->attributes.find(ID::init);
 										if (jt == c.wire->attributes.end())
 											continue;

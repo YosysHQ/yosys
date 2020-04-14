@@ -62,7 +62,7 @@ struct DeminoutPass : public Pass {
 
 				for (auto wire : module->wires())
 					if (wire->port_id)
-						for (auto bit : sigmap(wire))
+						for (const auto& bit : sigmap(wire))
 							bits_numports[bit]++;
 
 				for (auto cell : module->cells())
@@ -72,15 +72,15 @@ struct DeminoutPass : public Pass {
 					bool cellport_in = cell->input(conn.first) || !cell->known();
 
 					if (cellport_out && cellport_in)
-						for (auto bit : sigmap(conn.second))
+						for (const auto& bit : sigmap(conn.second))
 							bits_inout.insert(bit);
 
 					if (cellport_out)
-						for (auto bit : sigmap(conn.second))
+						for (const auto& bit : sigmap(conn.second))
 							bits_written.insert(bit);
 
 					if (cellport_in)
-						for (auto bit : sigmap(conn.second))
+						for (const auto& bit : sigmap(conn.second))
 							bits_used.insert(bit);
 
 					if (conn.first == ID::Y && cell->type.in(ID($mux), ID($pmux), ID($_MUX_), ID($_TBUF_), ID($tribuf)))
@@ -91,14 +91,14 @@ struct DeminoutPass : public Pass {
 							for (auto &c : cell->connections()) {
 								if (!c.first.in(ID::A, ID::B))
 									continue;
-								for (auto b : sigmap(c.second))
+								for (const auto& b : sigmap(c.second))
 									if (b == State::Sz)
 										tribuf = true;
 							}
 						}
 
 						if (tribuf)
-							for (auto bit : sigmap(conn.second))
+							for (const auto& bit : sigmap(conn.second))
 								bits_tribuf.insert(bit);
 					}
 				}
@@ -109,7 +109,7 @@ struct DeminoutPass : public Pass {
 						bool new_input = false;
 						bool new_output = false;
 
-						for (auto bit : sigmap(wire))
+						for (const auto& bit : sigmap(wire))
 						{
 							if (bits_numports[bit] > 1 || bits_inout.count(bit))
 								new_input = true, new_output = true;

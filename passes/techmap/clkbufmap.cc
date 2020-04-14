@@ -127,7 +127,7 @@ struct ClkbufmapPass : public Pass {
 		for (auto module : modules_sorted)
 		{
 			if (module->get_blackbox_attribute()) {
-				for (auto port : module->ports) {
+				for (const auto& port : module->ports) {
 					auto wire = module->wire(port);
 					if (wire->get_bool_attribute(ID::clkbuf_driver))
 						for (int i = 0; i < GetSize(wire); i++)
@@ -301,7 +301,7 @@ struct ClkbufmapPass : public Pass {
 
 			// Reconnect the drivers to buffer inputs.
 			for (auto cell : module->cells())
-			for (auto port : cell->connections()) {
+			for (const auto& port : cell->connections()) {
 				if (!cell->output(port.first))
 					continue;
 				SigSpec sig = port.second;

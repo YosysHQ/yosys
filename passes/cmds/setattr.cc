@@ -271,7 +271,7 @@ struct ChparamPass : public Pass {
 				log_cmd_error("The options -set and -list cannot be used together.\n");
 			for (auto module : design->selected_modules()) {
 				log("%s:\n", log_id(module));
-				for (auto param : module->avail_parameters)
+				for (const auto& param : module->avail_parameters)
 					log("  %s\n", log_id(param));
 			}
 			return;
@@ -284,7 +284,7 @@ struct ChparamPass : public Pass {
 		}
 		modnames.sort();
 
-		for (auto modname : modnames) {
+		for (const auto& modname : modnames) {
 			Module *module = design->module(modname);
 			Module *new_module = design->module(module->derive(design, new_parameters));
 			if (module != new_module) {

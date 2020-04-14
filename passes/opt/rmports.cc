@@ -74,7 +74,7 @@ struct RmportsPassPass : public Pass {
 			}
 
 			auto ports_to_remove = removed_ports[cell->type];
-			for(auto p : ports_to_remove)
+			for(const auto& p : ports_to_remove)
 			{
 				log("  Removing port \"%s\" from instance \"%s\"\n",
 					p.c_str(), cell->type.c_str());
@@ -92,7 +92,7 @@ struct RmportsPassPass : public Pass {
 		// See what wires are used.
 		// Start by checking connections between named wires
 		auto &conns = module->connections();
-		for(auto sigsig : conns)
+		for(const auto& sigsig : conns)
 		{
 			auto s1 = sigsig.first;
 			auto s2 = sigsig.second;
@@ -142,7 +142,7 @@ struct RmportsPassPass : public Pass {
 
 		// Now that we know what IS used, get rid of anything that isn't in that list
 		pool<IdString> unused_ports;
-		for(auto port : module->ports)
+		for(const auto& port : module->ports)
 		{
 			if(used_ports.find(port) != used_ports.end())
 				continue;
@@ -150,7 +150,7 @@ struct RmportsPassPass : public Pass {
 		}
 
 		// Print the ports out as we go through them
-		for(auto port : unused_ports)
+		for(const auto& port : unused_ports)
 		{
 			log("  removing unused port %s\n", port.c_str());
 			removed_ports[module->name].insert(port);
