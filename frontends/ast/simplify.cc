@@ -442,6 +442,29 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		}
 	}
 
+	// create name resolution entries for all objects with names
+	if (type == AST_PACKAGE) {
+		//add names to package scope
+		for (size_t i = 0; i < children.size(); i++) {
+			AstNode *node = children[i];
+			// these nodes appear at the top level in a package and can define names
+			if (node->type == AST_PARAMETER || node->type == AST_LOCALPARAM || node->type == AST_TYPEDEF) {
+				current_scope[node->str] = node;
+			}
+			if (node->type == AST_ENUM) {
+				current_scope[node->str] = node;
+				for (auto enode : node->children) {
+					log_assert(enode->type==AST_ENUM_ITEM);
+					if (current_scope.count(enode->str) == 0)
+						current_scope[enode->str] = enode;
+					else
+						log_file_error(filename, location.first_line, "enum item %s already exists in package\n", enode->str.c_str());
+				}
+			}
+		}
+	}
+
+
 	auto backup_current_block = current_block;
 	auto backup_current_block_child = current_block_child;
 	auto backup_current_top_block = current_top_block;
