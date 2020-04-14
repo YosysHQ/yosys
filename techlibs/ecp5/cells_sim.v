@@ -294,7 +294,9 @@ endmodule
 
 // ---------------------------------------
 
+`ifdef YOSYS
 (* abc9_flop=(SRMODE != "ASYNC"), lib_whitebox=(SRMODE != "ASYNC") *)
+`endif
 module TRELLIS_FF(input CLK, LSR, CE, DI, M, output reg Q);
 	parameter GSR = "ENABLED";
 	parameter [127:0] CEMUX = "1";
