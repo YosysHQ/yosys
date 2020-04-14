@@ -357,13 +357,19 @@ struct FlowGraph {
 };
 
 struct CxxrtlWorker {
+	bool split_intf = false;
+	std::string intf_filename;
+	std::string design_ns = "cxxrtl_design";
+	std::ostream *impl_f = nullptr;
+	std::ostream *intf_f = nullptr;
+
 	bool elide_internal = false;
 	bool elide_public = false;
 	bool localize_internal = false;
 	bool localize_public = false;
 	bool run_splitnets = false;
 
-	std::ostream &f;
+	std::ostringstream f;
 	std::string indent;
 	int temporary = 0;
 
@@ -376,8 +382,6 @@ struct CxxrtlWorker {
 	dict<const RTLIL::Wire*, FlowGraph::Node> elided_wires;
 	dict<const RTLIL::Module*, std::vector<FlowGraph::Node>> schedule;
 	pool<const RTLIL::Wire*> localized_wires;
-
-	CxxrtlWorker(std::ostream &f) : f(f) {}
 
 	void inc_indent() {
 		indent += "\t";
@@ -1191,7 +1195,7 @@ struct CxxrtlWorker {
 		}
 	}
 
-	void dump_module(RTLIL::Module *module)
+	void dump_module_intf(RTLIL::Module *module)
 	{
 		dump_attrs(module);
 		f << "struct " << mangle(module) << " : public module {\n";
@@ -1220,7 +1224,10 @@ struct CxxrtlWorker {
 		dec_indent();
 		f << "}; // struct " << mangle(module) << "\n";
 		f << "\n";
+	}
 
+	void dump_module_impl(RTLIL::Module *module)
+	{
 		f << "void " << mangle(module) << "::eval() {\n";
 		inc_indent();
 			for (auto wire : module->wires())
@@ -1323,18 +1330,49 @@ struct CxxrtlWorker {
 		}
 		log_assert(topo_design.sort());
 
-		f << "#include <cxxrtl.h>\n";
+		if (split_intf) {
+			// The only thing more depraved than include guards, is mangling filenames to turn them into include guards.
+			std::string include_guard = design_ns + "_header";
+			std::transform(include_guard.begin(), include_guard.end(), include_guard.begin(), ::toupper);
+
+			f << "#ifndef " << include_guard << "\n";
+			f << "#define " << include_guard << "\n";
+			f << "\n";
+			f << "#include <backends/cxxrtl/cxxrtl.h>\n";
+			f << "\n";
+			f << "using namespace cxxrtl;\n";
+			f << "\n";
+			f << "namespace " << design_ns << " {\n";
+			f << "\n";
+			for (auto module : topo_design.sorted) {
+				if (!design->selected_module(module))
+					continue;
+				dump_module_intf(module);
+			}
+			f << "} // namespace " << design_ns << "\n";
+			f << "\n";
+			f << "#endif\n";
+			*intf_f << f.str(); f.str("");
+		}
+
+		if (split_intf)
+			f << "#include \"" << intf_filename << "\"\n";
+		else
+			f << "#include <backends/cxxrtl/cxxrtl.h>\n";
 		f << "\n";
 		f << "using namespace cxxrtl_yosys;\n";
 		f << "\n";
-		f << "namespace cxxrtl_design {\n";
+		f << "namespace " << design_ns << " {\n";
 		f << "\n";
 		for (auto module : topo_design.sorted) {
 			if (!design->selected_module(module))
 				continue;
-			dump_module(module);
+			if (!split_intf)
+				dump_module_intf(module);
+			dump_module_impl(module);
 		}
-		f << "} // namespace cxxrtl_design\n";
+		f << "} // namespace " << design_ns << "\n";
+		*impl_f << f.str(); f.str("");
 	}
 
 	// Edge-type sync rules require us to emit edge detectors, which require coordination between
@@ -1618,6 +1656,16 @@ struct CxxrtlBackend : public Backend {
 		log("\n");
 		log("The following options are supported by this backend:\n");
 		log("\n");
+		log("    -header\n");
+		log("        generate separate interface (.h) and implementation (.cc) files.\n");
+		log("        if specified, the backend must be called with a filename, and filename\n");
+		log("        of the interface is derived from filename of the implementation.\n");
+		log("        otherwise, interface and implementation are generated together.\n");
+		log("\n");
+		log("    -namespace <ns-name>\n");
+		log("        place the generated code into namespace <ns-name>. if not specified,\n");
+		log("        \"cxxrtl_design\" is used.\n");
+		log("\n");
 		log("    -O <level>\n");
 		log("        set the optimization level. the default is -O%d. higher optimization\n", DEFAULT_OPT_LEVEL);
 		log("        levels dramatically decrease compile and run time, and highest level\n");
@@ -1645,6 +1693,7 @@ struct CxxrtlBackend : public Backend {
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		int opt_level = DEFAULT_OPT_LEVEL;
+		CxxrtlWorker worker;
 
 		log_header(design, "Executing CXXRTL backend.\n");
 
@@ -1659,11 +1708,18 @@ struct CxxrtlBackend : public Backend {
 				opt_level = std::stoi(args[argidx].substr(2));
 				continue;
 			}
+			if (args[argidx] == "-header") {
+				worker.split_intf = true;
+				continue;
+			}
+			if (args[argidx] == "-namespace" && argidx+1 < args.size()) {
+				worker.design_ns = args[++argidx];
+				continue;
+			}
 			break;
 		}
 		extra_args(f, filename, args, argidx);
 
-		CxxrtlWorker worker(*f);
 		switch (opt_level) {
 			case 5:
 				worker.run_splitnets = true;
@@ -1680,6 +1736,22 @@ struct CxxrtlBackend : public Backend {
 			default:
 				log_cmd_error("Invalid optimization level %d.\n", opt_level);
 		}
+
+		std::ofstream intf_f;
+		if (worker.split_intf) {
+			if (filename == "<stdout>")
+				log_cmd_error("Option -header must be used with a filename.\n");
+
+			worker.intf_filename = filename.substr(0, filename.rfind('.')) + ".h";
+			intf_f.open(worker.intf_filename, std::ofstream::trunc);
+			if (intf_f.fail())
+				log_cmd_error("Can't open file `%s' for writing: %s\n",
+				              worker.intf_filename.c_str(), strerror(errno));
+
+			worker.intf_f = &intf_f;
+		}
+		worker.impl_f = f;
+
 		worker.prepare_design(design);
 		worker.dump_design(design);
 	}
