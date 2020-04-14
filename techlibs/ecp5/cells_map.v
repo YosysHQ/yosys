@@ -1,7 +1,7 @@
 (* techmap_celltype = "$_DFF_N_ $_DFF_P_" *)
 module  \$_DFF_x_ (input D, C, output Q);
     parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
-	parameter _TECHMAP_CELLTYPE_ = "";
+    parameter _TECHMAP_CELLTYPE_ = "";
     wire _TECHMAP_REMOVEINIT_Q_ = 1'b1;
     generate
         if (_TECHMAP_CELLTYPE_[1*8+:8] == "N")
@@ -19,7 +19,7 @@ endmodule
 (* techmap_celltype = "$_DFFE_NN_ $_DFFE_PN_ $_DFFE_NP_ $_DFFE_PP_" *)
 module  \$_DFFE_xx_ (input D, C, E, output Q);
     parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
-	parameter _TECHMAP_CELLTYPE_ = "";
+    parameter _TECHMAP_CELLTYPE_ = "";
     wire _TECHMAP_REMOVEINIT_Q_ = 1'b1;
     generate
         if (_TECHMAP_CELLTYPE_[2*8+:8] == "N")
@@ -41,7 +41,7 @@ endmodule
 (* techmap_celltype = "$_DFF_NN0_ $_DFF_NN1_ $_DFF_PN0_ $_DFF_PN1_ $_DFF_NP0_ $_DFF_NP1_ $_DFF_PP0_ $_DFF_PP1_" *)
 module  \$_DFF_xxx_ (input D, C, R, output Q);
     parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
-	parameter _TECHMAP_CELLTYPE_ = "";
+    parameter _TECHMAP_CELLTYPE_ = "";
     wire _TECHMAP_REMOVEINIT_Q_ = 1'b1;
     generate
         if (_TECHMAP_CELLTYPE_[3*8+:8] == "N")
@@ -70,7 +70,7 @@ endmodule
 (* techmap_celltype = "$__DFFS_NN0_ $__DFFS_NN1_ $__DFFS_PN0_ $__DFFS_PN1_ $__DFFS_NP0_ $__DFFS_NP1_ $__DFFS_PP0_ $__DFFS_PP1_" *)
 module  \$__DFFS_xxx_ (input D, C, R, output Q);
     parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
-	parameter _TECHMAP_CELLTYPE_ = "";
+    parameter _TECHMAP_CELLTYPE_ = "";
     wire _TECHMAP_REMOVEINIT_Q_ = 1'b1;
     generate
         if (_TECHMAP_CELLTYPE_[3*8+:8] == "N")
@@ -105,7 +105,7 @@ endmodule
 (* techmap_celltype = "$__DFFE_NN0 $__DFFE_NN1 $__DFFE_PN0 $__DFFE_PN1 $__DFFE_NP0 $__DFFE_NP1 $__DFFE_PP0 $__DFFE_PP1" *)
 module  \$__DFFE_xxx_ (input D, C, E, R, output Q);
     parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
-	parameter _TECHMAP_CELLTYPE_ = "";
+    parameter _TECHMAP_CELLTYPE_ = "";
     wire _TECHMAP_REMOVEINIT_Q_ = 1'b1;
     generate
         if (_TECHMAP_CELLTYPE_[3*8+:8] == "N")
@@ -136,7 +136,7 @@ endmodule
 (* techmap_celltype = "$__DFFSE_NN0 $__DFFSE_NN1 $__DFFSE_PN0 $__DFFSE_PN1 $__DFFSE_NP0 $__DFFSE_NP1 $__DFFSE_PP0 $__DFFSE_PP1" *)
 module  \$__DFFSE_xxx_ (input D, C, E, R, output Q);
     parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
-	parameter _TECHMAP_CELLTYPE_ = "";
+    parameter _TECHMAP_CELLTYPE_ = "";
     wire _TECHMAP_REMOVEINIT_Q_ = 1'b1;
     generate
         if (_TECHMAP_CELLTYPE_[3*8+:8] == "N")
@@ -180,7 +180,7 @@ endmodule
 (* techmap_celltype = "$_DLATCH_N_ $_DLATCH_P_" *)
 module  \$_DLATCH_x_ (input E, input D, output Q);
     parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
-	parameter _TECHMAP_CELLTYPE_ = "";
+    parameter _TECHMAP_CELLTYPE_ = "";
     wire _TECHMAP_REMOVEINIT_Q_ = 1'b1;
     generate
         // LSRMUX is unreliable, thus don't use it
@@ -197,7 +197,7 @@ endmodule
 (* techmap_celltype = "$_DFFSR_NNN_ $_DFFSR_NNP_ $_DFFSR_PNN_ $_DFFSR_PNP_ $_DFFSR_NPN_ $_DFFSR_NPP_ $_DFFSR_PPN_ $_DFFSR_PPP_" *)
 module \$_DFFSR_xxx_ (input C, S, R, D, output Q);
     parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
-	parameter _TECHMAP_CELLTYPE_ = "";
+    parameter _TECHMAP_CELLTYPE_ = "";
     wire _TECHMAP_REMOVEINIT_Q_ = 1'b1;
     generate
         if (_TECHMAP_CELLTYPE_[3*8+:8] == "N")
