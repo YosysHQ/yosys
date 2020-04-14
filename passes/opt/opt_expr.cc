@@ -1135,9 +1135,24 @@ skip_fine_alu:
 					cell->type.c_str(), cell->name.c_str(), module->name.c_str(), identity_wrt_a ? 'A' : 'B');
 
 				if (cell->type == ID($alu)) {
+					bool a_signed = cell->parameters[ID::A_SIGNED].as_bool();
+					bool b_signed = cell->parameters[ID::B_SIGNED].as_bool();
+					bool is_signed = a_signed && b_signed;
+					RTLIL::SigBit sig_ci = assign_map(cell->getPort(ID::CI));
 					int y_width = GetSize(cell->getPort(ID::Y));
-					module->connect(cell->getPort(ID::X), RTLIL::Const(State::S0, y_width));
-					module->connect(cell->getPort(ID::CO), RTLIL::Const(State::S0, y_width));
+					if (sig_ci == State::S1) {
+						/* sub, b is 0 */
+						RTLIL::SigSpec a = cell->getPort(ID::A);
+						a.extend_u0(y_width, is_signed);
+						module->connect(cell->getPort(ID::X), module->Not(NEW_ID, a));
+						module->connect(cell->getPort(ID::CO), RTLIL::Const(State::S1, y_width));
+					} else {
+						/* add */
+						RTLIL::SigSpec ab = cell->getPort(identity_wrt_a ? ID::A : ID::B);
+						ab.extend_u0(y_width, is_signed);
+						module->connect(cell->getPort(ID::X), ab);
+						module->connect(cell->getPort(ID::CO), RTLIL::Const(State::S0, y_width));
+					}
 					cell->unsetPort(ID::BI);
 					cell->unsetPort(ID::CI);
 					cell->unsetPort(ID::X);
