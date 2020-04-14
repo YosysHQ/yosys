@@ -65,6 +65,7 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Added "logger" pass
     - Removed "dffsr2dff" (use opt_rmdff instead)
     - Added "design -delete"
+    - Added "select -unset"
 
 Yosys 0.8 .. Yosys 0.9
 ----------------------
