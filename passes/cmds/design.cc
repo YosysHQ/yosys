@@ -340,7 +340,7 @@ struct DesignPass : public Pass {
 
 		if (reset_mode || !load_name.empty() || push_mode || pop_mode)
 		{
-			for (auto mod : design->modules())
+			for (auto mod : design->modules().to_vector())
 				design->remove(mod);
 
 			design->selection_stack.clear();
