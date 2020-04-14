@@ -23,6 +23,7 @@ techlibs/ice40/brams_init3.vh: techlibs/ice40/brams_init.mk
 
 $(eval $(call add_share_file,share/ice40,techlibs/ice40/arith_map.v))
 $(eval $(call add_share_file,share/ice40,techlibs/ice40/cells_map.v))
+$(eval $(call add_share_file,share/ice40,techlibs/ice40/ff_map.v))
 $(eval $(call add_share_file,share/ice40,techlibs/ice40/cells_sim.v))
 $(eval $(call add_share_file,share/ice40,techlibs/ice40/latches_map.v))
 $(eval $(call add_share_file,share/ice40,techlibs/ice40/brams.txt))
