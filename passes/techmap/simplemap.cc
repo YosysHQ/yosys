@@ -522,7 +522,7 @@ void simplemap_dlatch(RTLIL::Module *module, RTLIL::Cell *cell)
 	}
 }
 
-void simplemap_get_mappers(std::map<RTLIL::IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> &mappers)
+void simplemap_get_mappers(dict<IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> &mappers)
 {
 	mappers[ID($not)]         = simplemap_not;
 	mappers[ID($pos)]         = simplemap_pos;
@@ -559,7 +559,7 @@ void simplemap_get_mappers(std::map<RTLIL::IdString, void(*)(RTLIL::Module*, RTL
 
 void simplemap(RTLIL::Module *module, RTLIL::Cell *cell)
 {
-	static std::map<RTLIL::IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> mappers;
+	static dict<IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> mappers;
 	static bool initialized_mappers = false;
 
 	if (!initialized_mappers) {
@@ -595,7 +595,7 @@ struct SimplemapPass : public Pass {
 		log_header(design, "Executing SIMPLEMAP pass (map simple cells to gate primitives).\n");
 		extra_args(args, 1, design);
 
-		std::map<RTLIL::IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> mappers;
+		dict<IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> mappers;
 		simplemap_get_mappers(mappers);
 
 		for (auto mod : design->modules()) {

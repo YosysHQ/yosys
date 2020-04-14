@@ -62,7 +62,7 @@ void apply_prefix(IdString prefix, RTLIL::SigSpec &sig, RTLIL::Module *module)
 
 struct TechmapWorker
 {
-	std::map<IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> simplemap_mappers;
+	dict<IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> simplemap_mappers;
 	std::map<std::pair<IdString, std::map<IdString, RTLIL::Const>>, RTLIL::Module*> techmap_cache;
 	std::map<RTLIL::Module*, bool> techmap_do_cache;
 	std::set<RTLIL::Module*, IdString::compare_ptr_by_name<RTLIL::Module>> module_queue;
