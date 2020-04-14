@@ -907,9 +907,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 						);
 					}
 					//start building attribute string
-					std::string enum_item_str = "\\enum_";
-					enum_item_str.append(std::to_string(width));
-					enum_item_str.append("_");
+					std::string enum_item_str = "\\enum_value_";
 					//get enum item value
 					if(enum_item->children[0]->type != AST_CONSTANT){
 						log_error("expected const, got %s for %s (%s)\n",
@@ -917,8 +915,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 								  enum_item->str.c_str(), enum_node->str.c_str()
  								);
 					}
-					int val = enum_item->children[0]->asInt(is_signed);
-					enum_item_str.append(std::to_string(val));
+					RTLIL::Const val = enum_item->children[0]->bitsAsConst(width, is_signed);
+					enum_item_str.append(val.as_string());
 					//set attribute for available val to enum item name mappings
 					attributes[enum_item_str.c_str()] = mkconst_str(enum_item->str);
 				}
