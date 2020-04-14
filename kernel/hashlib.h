@@ -19,6 +19,12 @@
 
 namespace hashlib {
 
+template<typename T> struct hash_ops;
+template<typename K, typename T, typename OPS = hash_ops<K>> class dict;
+template<typename K, int offset = 0, typename OPS = hash_ops<K>> class idict;
+template<typename K, typename OPS = hash_ops<K>> class pool;
+template<typename K, typename OPS = hash_ops<K>> class mfp;
+
 const int hashtable_size_trigger = 2;
 const int hashtable_size_factor = 3;
 
@@ -97,6 +103,20 @@ template<typename P, typename Q> struct hash_ops<std::pair<P, Q>> {
 	}
 	static inline unsigned int hash(std::pair<P, Q> a) {
 		return mkhash(hash_ops<P>::hash(a.first), hash_ops<Q>::hash(a.second));
+	}
+};
+
+template<typename P, typename Q> struct hash_ops<dict<P, Q>> {
+	static inline bool cmp(dict<P, Q> a, dict<P, Q> b) {
+		return a == b;
+	}
+	static inline unsigned int hash(dict<P, Q> a) {
+		unsigned int h = mkhash_init;
+		for (auto &it : a) {
+			h = mkhash(h, hash_ops<P>::hash(it.first));
+			h = mkhash(h, hash_ops<Q>::hash(it.second));
+		}
+		return h;
 	}
 };
 
@@ -190,11 +210,6 @@ inline int hashtable_size(int min_size)
 
 	throw std::length_error("hash table exceeded maximum size.");
 }
-
-template<typename K, typename T, typename OPS = hash_ops<K>> class dict;
-template<typename K, int offset = 0, typename OPS = hash_ops<K>> class idict;
-template<typename K, typename OPS = hash_ops<K>> class pool;
-template<typename K, typename OPS = hash_ops<K>> class mfp;
 
 template<typename K, typename T, typename OPS>
 class dict

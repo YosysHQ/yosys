@@ -63,8 +63,8 @@ void apply_prefix(IdString prefix, RTLIL::SigSpec &sig, RTLIL::Module *module)
 struct TechmapWorker
 {
 	dict<IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> simplemap_mappers;
-	std::map<std::pair<IdString, std::map<IdString, RTLIL::Const>>, RTLIL::Module*> techmap_cache;
-	std::map<RTLIL::Module*, bool> techmap_do_cache;
+	dict<std::pair<IdString, dict<IdString, RTLIL::Const>>, RTLIL::Module*> techmap_cache;
+	dict<RTLIL::Module*, bool> techmap_do_cache;
 	std::set<RTLIL::Module*, IdString::compare_ptr_by_name<RTLIL::Module>> module_queue;
 	dict<Module*, SigMap> sigmaps;
 
@@ -568,7 +568,7 @@ struct TechmapWorker
 			{
 				IdString derived_name = tpl_name;
 				RTLIL::Module *tpl = map->module(tpl_name);
-				std::map<IdString, RTLIL::Const> parameters(cell->parameters.begin(), cell->parameters.end());
+				dict<IdString, RTLIL::Const> parameters(cell->parameters.begin(), cell->parameters.end());
 
 				if (tpl->get_blackbox_attribute(ignore_wb))
 					continue;
@@ -778,7 +778,7 @@ struct TechmapWorker
 			use_wrapper_tpl:;
 					// do not register techmap_wrap modules with techmap_cache
 				} else {
-					std::pair<IdString, std::map<IdString, RTLIL::Const>> key(tpl_name, parameters);
+					std::pair<IdString, dict<IdString, RTLIL::Const>> key(tpl_name, parameters);
 					if (techmap_cache.count(key) > 0) {
 						tpl = techmap_cache[key];
 					} else {
