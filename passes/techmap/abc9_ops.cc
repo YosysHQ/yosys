@@ -434,6 +434,9 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 		auto &t = timing.at(derived_type).required;
 		for (auto &conn : cell->connections_) {
 			auto port_wire = inst_module->wire(conn.first);
+			if (!port_wire)
+				log_error("Port %s in cell %s (type %s) of module %s does not actually exist",
+						log_id(conn.first), log_id(cell->name), log_id(cell->type), log_id(module->name));
 			if (!port_wire->port_input)
 				continue;
 
