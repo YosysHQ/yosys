@@ -312,7 +312,6 @@ struct Abc9Pass : public ScriptPass
 				run("design -delete $abc9");
 				run("design -delete $abc9_map");
 				run("select -unset $abc9_flops");
-				run("select -unset $abc9_cells");
 			}
 		}
 

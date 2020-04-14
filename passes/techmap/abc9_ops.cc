@@ -122,14 +122,11 @@ void mark_scc(RTLIL::Module *module)
 
 void prep_dff_hier(RTLIL::Design *design)
 {
-	pool<IdString> seen;
-	dict<RTLIL::IdString, RTLIL::Selection> selection_vars;
 	auto r YS_ATTRIBUTE(unused) = design->selection_vars.insert(std::make_pair(ID($abc9_flops), RTLIL::Selection(false)));
 	log_assert(r.second);
-	auto r2 YS_ATTRIBUTE(unused) = design->selection_vars.insert(std::make_pair(ID($abc9_cells), RTLIL::Selection(false)));
-	log_assert(r2.second);
 	auto &modules_sel = design->selection_vars.at(ID($abc9_flops));
-	auto &cells_sel = design->selection_vars.at(ID($abc9_cells));
+
+	Design *unmap_design = new Design;
 
 	for (auto module : design->selected_modules())
 		for (auto cell : module->cells()) {
@@ -142,16 +139,24 @@ void prep_dff_hier(RTLIL::Design *design)
 				auto derived_module = design->module(derived_type);
 				if (!derived_module->get_bool_attribute(ID::abc9_flop))
 					continue;
-				// And remember one representative cell (for its parameters)
+				// And create the stub in the $abc9_unmap design
 				if (!modules_sel.selected_whole_module(derived_type)) {
 					if (derived_type != cell->type)
 						modules_sel.select(inst_module);
 
 					modules_sel.select(derived_module);
-					cells_sel.select(module, cell);
+
+					auto unmap_module = unmap_design->addModule(derived_type.str() + "_$abc9_flop");
+					auto unmap_cell = unmap_module->addCell(ID::_TECHMAP_REPLACE_, cell->type);
+					for (const auto &conn : cell->connections())
+						unmap_cell->setPort(conn.first, SigSpec());
+					unmap_cell->parameters = cell->parameters;
 				}
 			}
 		}
+
+	auto r2 YS_ATTRIBUTE(unused) = saved_designs.emplace("$abc9_unmap", unmap_design);
+	log_assert(r2.second);
 }
 
 void prep_dff_map(RTLIL::Design *design)
@@ -225,46 +230,32 @@ continue_outer_loop: ;
 
 void prep_dff_unmap(RTLIL::Design *design)
 {
-	dict<IdString,Cell*> derived_to_cell;
-	const auto &cells_sel = design->selection_vars.at(ID($abc9_cells));
-	for (auto &i : cells_sel.selected_members) {
-		auto module = design->module(i.first);
-		for (auto cell_name : i.second) {
-			auto cell = module->cell(cell_name);
-			log_assert(cell);
-			auto inst_module = design->module(cell->type);
-			log_assert(inst_module);
-			auto derived_type = inst_module->derive(design, cell->parameters);
-			derived_to_cell.insert(std::make_pair(derived_type, cell));
-		}
-	}
-
-	Design *unmap_design = new Design;
+	Design *unmap_design = saved_designs.at("$abc9_unmap");
 
 	// Create the reverse techmap rule -- (* abc9_box *) back to flop
-	for (const auto &i : derived_to_cell) {
-		auto module_name = i.first;
-		auto flop_module = design->module(module_name.str() + "_$abc9_flop");
+	for (auto module : unmap_design->modules()) {
+		auto flop_module = design->module(module->name.str());
 		if (!flop_module)
 			continue; // May not exist if init = 1'b1
 
-		auto unmap_module = unmap_design->addModule(flop_module->name);
+		auto unmap_module = unmap_design->module(flop_module->name);
+		log_assert(unmap_module);
 		for (auto port : flop_module->ports) {
 			auto w = unmap_module->addWire(port, flop_module->wire(port));
+			// Do not propagate (* init *) values inside the box
 			w->attributes.erase(ID::init);
 		}
 		unmap_module->ports = flop_module->ports;
 		unmap_module->check();
 
-		auto orig_cell = i.second;
-		auto unmap_cell = unmap_module->addCell(ID::_TECHMAP_REPLACE_, orig_cell->type);
-		for (const auto &conn : orig_cell->connections())
-			unmap_cell->setPort(conn.first, unmap_module->wire(conn.first));
-		unmap_cell->parameters = orig_cell->parameters;
+		auto unmap_cell = unmap_module->cell(ID::_TECHMAP_REPLACE_);
+		log_assert(unmap_cell);
+		for (const auto &conn : unmap_cell->connections()) {
+			auto rhs = unmap_module->wire(conn.first);
+			log_assert(rhs);
+			unmap_cell->setPort(conn.first, rhs);
+		}
 	}
-
-	auto r YS_ATTRIBUTE(unused) = saved_designs.emplace("$abc9_unmap", unmap_design);
-	log_assert(r.second);
 }
 
 void prep_xaiger(RTLIL::Module *module, bool dff)
@@ -1204,8 +1195,8 @@ struct Abc9OpsPass : public Pass {
 		log("\n");
 		log("    -prep_dff_hier\n");
 		log("        derive all cells with a type instantiating an (* abc9_flop *) module.\n");
-		log("        store such modules in named selection '$abc9_flops'. store one cell\n");
-		log("        instantiating each derived module into named selection '$abc9_cells'.\n");
+		log("        store such modules in named selection '$abc9_flops'. create stubs within\n");
+		log("        a new '$abc9_unmap' design to be used by -prep_dff_unmap.\n");
 		log("\n");
 		log("    -prep_dff_map\n");
 		log("        within (* abc9_flop *) modules, move all $specify{2,3}/$specrule cells\n");
@@ -1214,9 +1205,9 @@ struct Abc9OpsPass : public Pass {
 		log("        a submodule.\n");
 		log("\n");
 		log("    -prep_dff_unmap\n");
-		log("        create a new design '$abc9_unmap' containing techmap rules that map\n");
-		log("        *_$abc9_flop cells back into their original (* abc9_flop *) cells\n");
-		log("        (including their original parameters).\n");
+		log("        fill in previously created '$abc9_unmap' design to contain techmap rules\n");
+		log("        for mapping *_$abc9_flop cells back into their original (* abc9_flop *)\n");
+		log("         cells(including their original parameters).\n");
 		log("\n");
 		log("    -prep_delays\n");
 		log("        insert `$__ABC9_DELAY' blackbox cells into the design to account for\n");
