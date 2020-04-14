@@ -1,6 +1,5 @@
 
-OBJS += techlibs/ecp5/synth_ecp5.o techlibs/ecp5/ecp5_ffinit.o \
-        techlibs/ecp5/ecp5_gsr.o
+OBJS += techlibs/ecp5/synth_ecp5.o techlibs/ecp5/ecp5_gsr.o
 
 GENFILES += techlibs/ecp5/bram_init_1_2_4.vh
 GENFILES += techlibs/ecp5/bram_init_9_18_36.vh
