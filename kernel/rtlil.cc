@@ -776,6 +776,7 @@ void RTLIL::Module::makeblackbox()
 	connections_.clear();
 
 	remove(delwires);
+
 	set_bool_attribute(ID::blackbox);
 }
 
