@@ -134,13 +134,22 @@ void prep_dff_hier(RTLIL::Design *design)
 	for (auto module : design->selected_modules())
 		for (auto cell : module->cells()) {
 			auto inst_module = design->module(cell->type);
-			if (inst_module && inst_module->get_bool_attribute(ID::abc9_flop)) {
-				modules_sel.select(inst_module);
+			if (inst_module && inst_module->attributes.count(ID::abc9_flop)) {
+				if (inst_module->get_blackbox_attribute(true /* ignore_wb */))
+					log_error("Module '%s' with (* abc9_flop *) is not a whitebox.\n", log_id(inst_module));
 				// Derive modules for all instantiations of (* abc9_flop *)
 				auto derived_type = inst_module->derive(design, cell->parameters);
+				auto derived_module = design->module(derived_type);
+				if (!derived_module->get_bool_attribute(ID::abc9_flop))
+					continue;
 				// And remember one representative cell (for its parameters)
-				if (modules_sel.selected_modules.insert(derived_type).second)
+				if (!modules_sel.selected_whole_module(derived_type)) {
+					if (derived_type != cell->type)
+						modules_sel.select(inst_module);
+
+					modules_sel.select(derived_module);
 					cells_sel.select(module, cell);
+				}
 			}
 		}
 }
@@ -150,19 +159,20 @@ void prep_dff_map(RTLIL::Design *design)
 	for (auto module : design->modules()) {
 		vector<Cell*> specify_cells;
 		SigBit D, Q;
+		Cell* dff_cell = nullptr;
 		for (auto cell : module->cells())
 			if (cell->type.in(ID($_DFF_N_), ID($_DFF_P_))) {
-				if (D != SigBit())
+				if (dff_cell)
 					log_error("More than one $_DFF_[NP]_ cell found in module '%s' marked (* abc9_flop *)\n", log_id(module));
-				D = cell->getPort(ID::D);
-				Q = cell->getPort(ID::Q);
+				dff_cell = cell;
 
-				// Block sequential synthesis on cells with (* init = 1 *)
+				// Block sequential synthesis on cells with (* init *) != 1'b0
 				//   because ABC9 doesn't support them
+				Q = cell->getPort(ID::Q);
 				log_assert(GetSize(Q.wire) == 1);
 				Const init = Q.wire->attributes.at(ID::init, State::Sx);
 				log_assert(GetSize(init) == 1);
-				if (init == State::S1) {
+				if (init != State::S0) {
 					log_warning("Module '%s' contains a %s cell with non-zero initial state -- this is not unsupported for ABC9 sequential synthesis. Treating as a blackbox.\n", log_id(module), log_id(cell->type));
 
 					module->makeblackbox();
@@ -176,8 +186,25 @@ void prep_dff_map(RTLIL::Design *design)
 			}
 			else if (cell->type.in(ID($specify2), ID($specify3), ID($specrule)))
 				specify_cells.emplace_back(cell);
-		if (D == SigBit())
+		if (!dff_cell)
 			log_error("$_DFF_[NP]_ cell not found in module '%s' marked (* abc9_flop *)\n", log_id(module));
+
+		D = dff_cell->getPort(ID::D);
+
+		// Add a dummy enable mux feeding DFF.D to ensure that:
+		//   (i) a driving cell exists, so that 'submod' will have
+		//       an output port
+		//   (ii) DFF.Q will exist in this submodule
+		{
+			auto c = module->addCell(NEW_ID, ID($_MUX_));
+			auto w = module->addWire(NEW_ID);
+			c->setPort(ID::A, D);
+			c->setPort(ID::B, Q);
+			c->setPort(ID::S, State::S0);
+			c->setPort(ID::Y, w);
+			dff_cell->setPort(ID::D, w);
+			D = w;
+		}
 
 		// Rewrite $specify cells that end with $_DFF_[NP]_.Q
 		//   to $_DFF_[NP]_.D since it will be moved into
@@ -253,7 +280,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 			continue;
 
 		auto inst_module = design->module(cell->type);
-		bool abc9_flop = inst_module && inst_module->get_bool_attribute(ID::abc9_flop);
+		bool abc9_flop = inst_module && inst_module->attributes.count(ID::abc9_flop);
 		if (abc9_flop && !dff)
 			continue;
 
@@ -339,7 +366,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 		log_assert(cell);
 
 		RTLIL::Module* box_module = design->module(cell->type);
-		if (!box_module || (!box_module->get_bool_attribute(ID::abc9_box) && !box_module->get_bool_attribute(ID::abc9_flop)))
+		if (!box_module || !box_module->get_bool_attribute(ID::abc9_box))
 			continue;
 
 		cell->attributes[ID::abc9_box_seq] = box_count++;
@@ -967,7 +994,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 			SigSpec outputs = std::move(jt->second);
 			mapped_cell->connections_.erase(jt);
 
-			auto abc9_flop = box_module->attributes.count(ID::abc9_flop);
+			auto abc9_flop = box_module->get_bool_attribute(ID::abc9_flop);
 			if (!abc9_flop) {
 				for (const auto &i : inputs)
 					bit_users[i].insert(mapped_cell->name);
