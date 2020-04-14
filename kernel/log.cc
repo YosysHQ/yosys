@@ -354,6 +354,9 @@ static void logv_error_with_prefix(const char *prefix,
 
 	if (check_expected_logs)
 		log_check_expected();
+
+	YS_DEBUGTRAP; //trap into debugger if one is attached
+
 #ifdef EMSCRIPTEN
 	log_files = backup_log_files;
 	throw 0;

@@ -53,6 +53,8 @@
 #ifndef _WIN32
 #  include <sys/time.h>
 #  include <sys/resource.h>
+#  include <sys/ptrace.h>
+#  include <signal.h>
 #endif
 
 #if defined(_MSC_VER)
@@ -68,6 +70,22 @@ YOSYS_NAMESPACE_BEGIN
 #define S__LINE__sub2(x) #x
 #define S__LINE__sub1(x) S__LINE__sub2(x)
 #define S__LINE__ S__LINE__sub1(__LINE__)
+
+#if defined(_MSC_VER)
+# define YS_DEBUGTRAP __debugbreak()
+#elif defined(__unix__)
+# if defined(__clang__)
+#  if defined(__builtin_debugtrap)
+#   define YS_DEBUGTRAP __builtin_debugtrap()
+#  else
+#   define YS_DEBUGTRAP do{if(ptrace(PTRACE_TRACEME, 0, nullptr, 0) == -1){ raise(SIGTRAP); }} while(0);
+#  endif
+# else
+#  define YS_DEBUGTRAP do{if(ptrace(PTRACE_TRACEME, 0, nullptr, 0) == -1){ raise(SIGTRAP); }} while(0);
+# endif
+#else
+# define YS_DEBUGTRAP do{} while(0);
+#endif
 
 struct log_cmd_error_exception { };
 
