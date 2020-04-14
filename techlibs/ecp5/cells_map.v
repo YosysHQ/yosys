@@ -48,7 +48,7 @@ module  \$_DFF_xxx_ (input D, C, R, output Q);
             localparam CLKMUX = "INV";
         else
             localparam CLKMUX = "CLK";
-        // TODO: Why not use LSRMUX param?
+        // LSRMUX is unreliable, thus don't use it
         if (_TECHMAP_CELLTYPE_[2*8+:8] == "N")
             wire LSR_ = !R;
         else
@@ -77,7 +77,7 @@ module  \$__DFFS_xxx_ (input D, C, R, output Q);
             localparam CLKMUX = "INV";
         else
             localparam CLKMUX = "CLK";
-        // TODO: Why not use LSRMUX param?
+        // LSRMUX is unreliable, thus don't use it
         if (_TECHMAP_CELLTYPE_[2*8+:8] == "N")
             wire LSR_ = !R;
         else
@@ -112,7 +112,7 @@ module  \$__DFFE_xxx_ (input D, C, E, R, output Q);
             localparam CLKMUX = "INV";
         else
             localparam CLKMUX = "CLK";
-        // TODO: Why not use LSRMUX param?
+        // LSRMUX is unreliable, thus don't use it
         if (_TECHMAP_CELLTYPE_[2*8+:8] == "N")
             wire LSR_ = !R;
         else
@@ -143,7 +143,7 @@ module  \$__DFFSE_xxx_ (input D, C, E, R, output Q);
             localparam CLKMUX = "INV";
         else
             localparam CLKMUX = "CLK";
-        // TODO: Why not use LSRMUX param?
+        // LSRMUX is unreliable, thus don't use it
         if (_TECHMAP_CELLTYPE_[2*8+:8] == "N")
             wire LSR_ = !R;
         else
@@ -183,7 +183,7 @@ module  \$_DLATCH_x_ (input E, input D, output Q);
 	parameter _TECHMAP_CELLTYPE_ = "";
     wire _TECHMAP_REMOVEINIT_Q_ = 1'b1;
     generate
-        // TODO: Why not use LSRMUX param?
+        // LSRMUX is unreliable, thus don't use it
         if (_TECHMAP_CELLTYPE_[1*8+:8] == "N")
             wire LSR_ = !E;
         else
