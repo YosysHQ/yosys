@@ -175,6 +175,10 @@ void prep_dff_map(RTLIL::Design *design)
 				//   because ABC9 doesn't support them
 				Q = cell->getPort(ID::Q);
 				log_assert(GetSize(Q.wire) == 1);
+
+				if (!Q.wire->port_output)
+					log_error("Module '%s' contains a %s cell where its 'Q' port does not drive a module output!\n", log_id(module), log_id(cell->type));
+
 				Const init = Q.wire->attributes.at(ID::init, State::Sx);
 				log_assert(GetSize(init) == 1);
 				if (init != State::S0) {
@@ -1207,7 +1211,7 @@ struct Abc9OpsPass : public Pass {
 		log("    -prep_dff_unmap\n");
 		log("        fill in previously created '$abc9_unmap' design to contain techmap rules\n");
 		log("        for mapping *_$abc9_flop cells back into their original (* abc9_flop *)\n");
-		log("         cells(including their original parameters).\n");
+		log("        cells (including their original parameters).\n");
 		log("\n");
 		log("    -prep_delays\n");
 		log("        insert `$__ABC9_DELAY' blackbox cells into the design to account for\n");
