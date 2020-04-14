@@ -245,6 +245,7 @@ endmodule
 
 // Positive Edge SiliconBlue FF Cells
 
+(* abc9_flop, lib_whitebox *)
 module SB_DFF (
 	output `SB_DFF_REG,
 	input C, D
@@ -280,6 +281,7 @@ module SB_DFF (
 `endif
 endmodule
 
+(* abc9_flop, lib_whitebox *)
 module SB_DFFE (
 	output `SB_DFF_REG,
 	input C, E, D
@@ -322,6 +324,7 @@ module SB_DFFE (
 `endif
 endmodule
 
+(* abc9_flop, lib_whitebox *)
 module SB_DFFSR (
 	output `SB_DFF_REG,
 	input C, R, D
@@ -419,6 +422,7 @@ module SB_DFFR (
 `endif
 endmodule
 
+(* abc9_flop, lib_whitebox *)
 module SB_DFFSS (
 	output `SB_DFF_REG,
 	input C, S, D
@@ -516,6 +520,7 @@ module SB_DFFS (
 `endif
 endmodule
 
+(* abc9_flop, lib_whitebox *)
 module SB_DFFESR (
 	output `SB_DFF_REG,
 	input C, E, R, D
@@ -627,6 +632,7 @@ module SB_DFFER (
 `endif
 endmodule
 
+(* abc9_flop, lib_whitebox *)
 module SB_DFFESS (
 	output `SB_DFF_REG,
 	input C, E, S, D
@@ -740,6 +746,7 @@ endmodule
 
 // Negative Edge SiliconBlue FF Cells
 
+(* abc9_flop, lib_whitebox *)
 module SB_DFFN (
 	output `SB_DFF_REG,
 	input C, D
@@ -775,6 +782,7 @@ module SB_DFFN (
 `endif
 endmodule
 
+(* abc9_flop, lib_whitebox *)
 module SB_DFFNE (
 	output `SB_DFF_REG,
 	input C, E, D
@@ -817,6 +825,7 @@ module SB_DFFNE (
 `endif
 endmodule
 
+(* abc9_flop, lib_whitebox *)
 module SB_DFFNSR (
 	output `SB_DFF_REG,
 	input C, R, D
@@ -864,6 +873,7 @@ module SB_DFFNSR (
 `endif
 endmodule
 
+(* abc9_flop, lib_whitebox *)
 module SB_DFFNR (
 	output `SB_DFF_REG,
 	input C, R, D
@@ -914,6 +924,7 @@ module SB_DFFNR (
 `endif
 endmodule
 
+(* abc9_flop, lib_whitebox *)
 module SB_DFFNSS (
 	output `SB_DFF_REG,
 	input C, S, D
@@ -1011,6 +1022,7 @@ module SB_DFFNS (
 `endif
 endmodule
 
+(* abc9_flop, lib_whitebox *)
 module SB_DFFNESR (
 	output `SB_DFF_REG,
 	input C, E, R, D
@@ -1122,6 +1134,7 @@ module SB_DFFNER (
 `endif
 endmodule
 
+(* abc9_flop, lib_whitebox *)
 module SB_DFFNESS (
 	output `SB_DFF_REG,
 	input C, E, S, D
