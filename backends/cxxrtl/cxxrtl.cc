@@ -974,6 +974,8 @@ struct CxxrtlWorker {
 						continue;
 				}
 				if (cell->output(conn.first)) {
+					if (conn.second.empty())
+						continue; // ignore disconnected ports
 					f << indent;
 					dump_sigspec_lhs(conn.second);
 					f << " = " << mangle(cell) << "." << mangle_wire_name(conn.first) << ".curr;\n";
