@@ -64,6 +64,7 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Added "opt_lut_ins" pass
     - Added "logger" pass
     - Removed "dffsr2dff" (use opt_rmdff instead)
+    - Added "design -delete"
 
 Yosys 0.8 .. Yosys 0.9
 ----------------------
