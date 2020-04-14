@@ -420,9 +420,10 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				current_scope[node->str] = node;
 				for (auto enode : node->children) {
 					log_assert(enode->type==AST_ENUM_ITEM);
-					if (current_scope.count(enode->str) == 0) {
+					if (current_scope.count(enode->str) == 0)
 						current_scope[enode->str] = enode;
-					}
+					else
+						log_file_error(filename, location.first_line, "enum item %s already exists\n", enode->str.c_str());
 				}
 			}
 		}
