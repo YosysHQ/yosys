@@ -299,14 +299,13 @@ struct SynthEcp5Pass : public ScriptPass
 		if (check_label("map_ffs"))
 		{
 			run("dffsr2dff");
-			run("dff2dffs");
+			run("dff2dffs -match-init");
 			run("opt_clean");
 			if (!nodffe)
 				run("dff2dffe -direct-match $_DFF_* -direct-match $__DFFS_*");
 			run(stringf("techmap -D NO_LUT %s -map +/ecp5/cells_map.v", help_mode ? "[-D ASYNC_PRLD]" : (asyncprld ? "-D ASYNC_PRLD" : "")));
 			run("opt_expr -undriven -mux_undef");
 			run("simplemap");
-			run("ecp5_ffinit");
 			run("ecp5_gsr");
 			run("attrmvcp -copy -attr syn_useioff");
 			run("opt_clean");
