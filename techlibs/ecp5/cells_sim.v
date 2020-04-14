@@ -294,6 +294,7 @@ endmodule
 
 // ---------------------------------------
 
+(* abc9_flop=(SRMODE != "ASYNC"), lib_whitebox=(SRMODE != "ASYNC") *)
 module TRELLIS_FF(input CLK, LSR, CE, DI, M, output reg Q);
 	parameter GSR = "ENABLED";
 	parameter [127:0] CEMUX = "1";
@@ -339,6 +340,26 @@ module TRELLIS_FF(input CLK, LSR, CE, DI, M, output reg Q);
 				else if (muxce)
 					Q <= DI;
 		end
+	endgenerate
+
+	generate
+		// TODO
+		if (CLKMUX == "INV")
+			specify
+				$setup(DI, negedge CLK, 0);
+				$setup(CE, negedge CLK, 0);
+				$setup(LSR, negedge CLK, 0);
+				if (muxlsr) (negedge CLK => (Q : DI)) = 0;
+				if (!muxlsr && muxce) (negedge CLK => (Q : srval)) = 0;
+			endspecify
+		else
+			specify
+				$setup(DI, posedge CLK, 0);
+				$setup(CE, posedge CLK, 0);
+				$setup(LSR, posedge CLK, 0);
+				if (muxlsr) (posedge CLK => (Q : srval)) = 0;
+				if (!muxlsr && muxce) (posedge CLK => (Q : DI)) = 0;
+			endspecify
 	endgenerate
 endmodule
 
