@@ -206,13 +206,18 @@ void prep_dff_map(RTLIL::Design *design)
 			D = w;
 		}
 
-		// Rewrite $specify cells that end with $_DFF_[NP]_.Q
-		//   to $_DFF_[NP]_.D since it will be moved into
-		//   the submodule
-		for (auto cell : specify_cells) {
-			auto DST = cell->getPort(ID::DST);
-			DST.replace(Q, D);
-			cell->setPort(ID::DST, DST);
+		if (GetSize(specify_cells) == 0) {
+			log_warning("Module '%s' marked (* abc9_flop *) contains no specify timing information.\n", log_id(module));
+		}
+		else {
+			// Rewrite $specify cells that end with $_DFF_[NP]_.Q
+			//   to $_DFF_[NP]_.D since it will be moved into
+			//   the submodule
+			for (auto cell : specify_cells) {
+				auto DST = cell->getPort(ID::DST);
+				DST.replace(Q, D);
+				cell->setPort(ID::DST, DST);
+			}
 		}
 continue_outer_loop: ;
 	}
