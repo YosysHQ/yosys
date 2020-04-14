@@ -96,7 +96,15 @@ struct ZinitPass : public Pass {
 				/*ID($_DFFSR_NNN_), ID($_DFFSR_NNP_), ID($_DFFSR_NPN_), ID($_DFFSR_NPP_),
 				ID($_DFFSR_PNN_), ID($_DFFSR_PNP_), ID($_DFFSR_PPN_), ID($_DFFSR_PPP_),*/
 				ID($_DFF_N_), ID($_DFF_NN0_), ID($_DFF_NN1_), ID($_DFF_NP0_), ID($_DFF_NP1_),
-				ID($_DFF_P_), ID($_DFF_PN0_), ID($_DFF_PN1_), ID($_DFF_PP0_), ID($_DFF_PP1_)
+				ID($_DFF_P_), ID($_DFF_PN0_), ID($_DFF_PN1_), ID($_DFF_PP0_), ID($_DFF_PP1_),
+				// Async set/reset
+				ID($__DFFE_NN0), ID($__DFFE_NN1), ID($__DFFE_NP0), ID($__DFFE_NP1),
+				ID($__DFFE_PN0), ID($__DFFE_PN1), ID($__DFFE_PP0), ID($__DFFE_PP1),
+				// Sync set/reset
+				ID($__DFFS_NN0_), ID($__DFFS_NN1_), ID($__DFFS_NP0_), ID($__DFFS_NP1_),
+				ID($__DFFS_PN0_), ID($__DFFS_PN1_), ID($__DFFS_PP0_), ID($__DFFS_PP1_),
+				ID($__DFFSE_NN0), ID($__DFFSE_NN1), ID($__DFFSE_NP0), ID($__DFFSE_NP1),
+				ID($__DFFSE_PN0), ID($__DFFSE_PN1), ID($__DFFSE_PP0), ID($__DFFSE_PP1)
 			};
 
 			for (auto cell : module->selected_cells())
@@ -150,14 +158,26 @@ struct ZinitPass : public Pass {
 							val[i] = (val[i] == State::S1 ? State::S0 : State::S1);
 					cell->setParam(ID::ARST_VALUE, std::move(val));
 				}
-				else if (cell->type.in(ID($_DFF_NN0_), ID($_DFF_NN1_), ID($_DFF_NP0_), ID($_DFF_NP1_),
-							ID($_DFF_PN0_), ID($_DFF_PN1_), ID($_DFF_PP0_), ID($_DFF_PP1_)))
-				{
-					if (initval == State::S1) {
-						std::string t = cell->type.str();
+				else if (initval == State::S1) {
+					std::string t = cell->type.str();
+					if (cell->type.in(ID($_DFF_NN0_), ID($_DFF_NN1_), ID($_DFF_NP0_), ID($_DFF_NP1_),
+								ID($_DFF_PN0_), ID($_DFF_PN1_), ID($_DFF_PP0_), ID($_DFF_PP1_)))
+					{
 						t[8] = (t[8] == '0' ? '1' : '0');
-						cell->type = t;
 					}
+					else if (cell->type.in(ID($__DFFE_NN0), ID($__DFFE_NN1), ID($__DFFE_NP0), ID($__DFFE_NP1),
+								ID($__DFFE_PN0), ID($__DFFE_PN1), ID($__DFFE_PP0), ID($__DFFE_PP1),
+								ID($__DFFS_NN0_), ID($__DFFS_NN1_), ID($__DFFS_NP0_), ID($__DFFS_NP1_),
+								ID($__DFFS_PN0_), ID($__DFFS_PN1_), ID($__DFFS_PP0_), ID($__DFFS_PP1_)))
+					{
+						t[10] = (t[10] == '0' ? '1' : '0');
+					}
+					else if (cell->type.in(ID($__DFFSE_NN0), ID($__DFFSE_NN1), ID($__DFFSE_NP0), ID($__DFFSE_NP1),
+								ID($__DFFSE_PN0), ID($__DFFSE_PN1), ID($__DFFSE_PP0), ID($__DFFSE_PP1)))
+					{
+						t[11] = (t[11] == '0' ? '1' : '0');
+					}
+					cell->type = t;
 				}
 			}
 		}
