@@ -51,7 +51,7 @@ void apply_prefix(IdString prefix, RTLIL::SigSpec &sig, RTLIL::Module *module)
 {
 	vector<SigChunk> chunks = sig;
 	for (auto &chunk : chunks)
-		if (chunk.wire != NULL) {
+		if (chunk.wire != nullptr) {
 			IdString wire_name = chunk.wire->name;
 			apply_prefix(prefix, wire_name);
 			log_assert(module->wire(wire_name) != nullptr);
@@ -129,7 +129,7 @@ struct TechmapWorker
 	{
 		TechmapWires result;
 
-		if (module == NULL)
+		if (module == nullptr)
 			return result;
 
 		for (auto w : module->wires()) {
@@ -686,7 +686,7 @@ struct TechmapWorker
 							}
 
 							module->remove(cell);
-							cell = NULL;
+							cell = nullptr;
 						}
 
 						did_something = true;
@@ -716,13 +716,13 @@ struct TechmapWorker
 						if (tpl->avail_parameters.count(stringf("\\_TECHMAP_CONSTMSK_%s_", log_id(conn.first))) != 0) {
 							std::vector<RTLIL::SigBit> v = sigmap(conn.second).to_sigbit_vector();
 							for (auto &bit : v)
-								bit = RTLIL::SigBit(bit.wire == NULL ? RTLIL::State::S1 : RTLIL::State::S0);
+								bit = RTLIL::SigBit(bit.wire == nullptr ? RTLIL::State::S1 : RTLIL::State::S0);
 							parameters[stringf("\\_TECHMAP_CONSTMSK_%s_", log_id(conn.first))] = RTLIL::SigSpec(v).as_const();
 						}
 						if (tpl->avail_parameters.count(stringf("\\_TECHMAP_CONSTVAL_%s_", log_id(conn.first))) != 0) {
 							std::vector<RTLIL::SigBit> v = sigmap(conn.second).to_sigbit_vector();
 							for (auto &bit : v)
-								if (bit.wire != NULL)
+								if (bit.wire != nullptr)
 									bit = RTLIL::SigBit(RTLIL::State::Sx);
 							parameters[stringf("\\_TECHMAP_CONSTVAL_%s_", log_id(conn.first))] = RTLIL::SigSpec(v).as_const();
 						}
@@ -1015,7 +1015,7 @@ struct TechmapWorker
 					}
 					log_debug("%s %s.%s (%s) using %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type), log_id(tpl));
 					techmap_module_worker(design, module, cell, tpl);
-					cell = NULL;
+					cell = nullptr;
 				}
 				did_something = true;
 				mapped_cell = true;
@@ -1304,7 +1304,7 @@ struct TechmapPass : public Pass {
 		for (auto module : map->modules()) {
 			if (module->attributes.count(ID::techmap_celltype) && !module->attributes.at(ID::techmap_celltype).bits.empty()) {
 				char *p = strdup(module->attributes.at(ID::techmap_celltype).decode_string().c_str());
-				for (char *q = strtok(p, " \t\r\n"); q; q = strtok(NULL, " \t\r\n"))
+				for (char *q = strtok(p, " \t\r\n"); q; q = strtok(nullptr, " \t\r\n"))
 					celltypeMap[RTLIL::escape_id(q)].insert(module->name);
 				free(p);
 			} else {
@@ -1385,14 +1385,14 @@ struct FlattenPass : public Pass {
 		for (auto module : design->modules())
 			celltypeMap[module->name].insert(module->name);
 
-		RTLIL::Module *top_mod = NULL;
+		RTLIL::Module *top_mod = nullptr;
 		if (design->full_selection())
 			for (auto mod : design->modules())
 				if (mod->get_bool_attribute(ID::top))
 					top_mod = mod;
 
 		std::set<RTLIL::Cell*> handled_cells;
-		if (top_mod != NULL) {
+		if (top_mod != nullptr) {
 			worker.flatten_do_list.insert(top_mod->name);
 			while (!worker.flatten_do_list.empty()) {
 				auto mod = design->module(*worker.flatten_do_list.begin());
@@ -1408,7 +1408,7 @@ struct FlattenPass : public Pass {
 		log_suppressed();
 		log("No more expansions possible.\n");
 
-		if (top_mod != NULL)
+		if (top_mod != nullptr)
 		{
 			pool<IdString> used_modules, new_used_modules;
 			new_used_modules.insert(top_mod->name);
