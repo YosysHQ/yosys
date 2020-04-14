@@ -63,7 +63,8 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Improved support of $readmem[hb] Memory Content File inclusion
     - Added "opt_lut_ins" pass
     - Added "logger" pass
-
+    - Removed "ecp5_ffinit" pass (in favour of -map +/ecp5/cells_map.v)
+ 
 Yosys 0.8 .. Yosys 0.9
 ----------------------
 
