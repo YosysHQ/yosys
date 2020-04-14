@@ -208,7 +208,7 @@ select -assert-count 1 t:PDPW16KD
 
 design -reset; read_verilog ../common/blockrom.v
 chparam -set ADDRESS_WIDTH 3 -set DATA_WIDTH 36 sync_rom
-write_ilang
+#write_ilang
 synth_ecp5 -top sync_rom; cd sync_rom
 select -assert-count 0 t:PDPW16KD # too inefficient
 select -assert-min 18 t:LUT4
@@ -274,7 +274,7 @@ select -assert-count 1 t:DP16KD
 
 design -reset; read_verilog ../common/blockrom.v
 chparam -set ADDRESS_WIDTH 3 -set DATA_WIDTH 18 sync_rom
-write_ilang
+#write_ilang
 synth_ecp5 -top sync_rom; cd sync_rom
 select -assert-count 0 t:DP16KD # too inefficient
 select -assert-min 9 t:LUT4
