@@ -368,9 +368,13 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 
 	log_assert(no_loops);
 
-	RTLIL::Module *holes_module = design->addModule(stringf("%s$holes", module->name.c_str()));
+	auto r = saved_designs.emplace("$abc9_holes", nullptr);
+	if (r.second)
+		r.first->second = new Design;
+	RTLIL::Design *holes_design = r.first->second;
+	log_assert(holes_design);
+	RTLIL::Module *holes_module = holes_design->addModule(module->name);
 	log_assert(holes_module);
-	holes_module->set_bool_attribute(ID::abc9_holes);
 
 	dict<IdString, Cell*> cell_cache;
 	TimingInfo timing;
@@ -1246,9 +1250,8 @@ struct Abc9OpsPass : public Pass {
 		log("\n");
 		log("    -prep_xaiger\n");
 		log("        prepare the design for XAIGER output. this includes computing the\n");
-		log("        topological ordering of ABC9 boxes, as well as preparing the\n");
-		log("        '<module-name>$holes' module that contains the logic behaviour of ABC9\n");
-		log("        whiteboxes.\n");
+		log("        topological ordering of ABC9 boxes, as well as preparing the '$abc9_holes'\n");
+		log("        design that contains the logic behaviour of ABC9 whiteboxes.\n");
 		log("\n");
 		log("    -dff\n");
 		log("        consider flop cells (those instantiating modules marked with (* abc9_flop *))\n");
@@ -1388,9 +1391,6 @@ struct Abc9OpsPass : public Pass {
 			prep_box(design);
 
 		for (auto mod : design->selected_modules()) {
-			if (mod->get_bool_attribute(ID::abc9_holes))
-				continue;
-
 			if (mod->processes.size() > 0) {
 				log("Skipping module %s as it contains processes.\n", log_id(mod));
 				continue;

@@ -345,15 +345,18 @@ struct Abc9Pass : public ScriptPass
 			else if (box_file.empty()) {
 				run("abc9_ops -prep_box");
 			}
-			run("select -set abc9_holes A:abc9_holes");
-			run("flatten -wb @abc9_holes");
-			run("techmap @abc9_holes");
-			run("opt -purge @abc9_holes");
+			run("design -stash $abc9");
+			run("design -load $abc9_holes");
+			run("techmap -wb -map %$abc9 -map +/techmap.v");
+			run("opt -purge");
 			run("aigmap");
-			run("wbflip @abc9_holes");
+			run("wbflip");
+			run("design -stash $abc9_holes");
+			run("design -load $abc9");
 		}
 
 		if (check_label("map")) {
+			run("aigmap");
 			if (help_mode) {
 				run("foreach module in selection");
 				run("    abc9_ops -write_lut <abc-temp-dir>/input.lut", "(skip if '-lut' or '-luts')");
@@ -372,7 +375,6 @@ struct Abc9Pass : public ScriptPass
 						log("Skipping module %s as it contains processes.\n", log_id(mod));
 						continue;
 					}
-					log_assert(!mod->attributes.count(ID::abc9_box_id));
 
 					log_push();
 					active_design->selection().select(mod);
@@ -432,8 +434,10 @@ struct Abc9Pass : public ScriptPass
 			if (dff_mode || help_mode) {
 				run("techmap -wb -map %$abc9_unmap", "(only if -dff)"); // techmap user design from submod back to original cell
 											//   ($_DFF_[NP]_ already shorted by -reintegrate)
-				run("design -delete $abc9_unmap");
+				run("design -delete $abc9_unmap", "   (only if -dff)");
 			}
+			if (saved_designs.count("$abc9_holes") || help_mode)
+				run("design -delete $abc9_holes");
 		}
 	}
 } Abc9Pass;

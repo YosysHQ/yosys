@@ -676,7 +676,13 @@ struct XAigerWriter
 			f.write(reinterpret_cast<const char*>(&buffer_size_be), sizeof(buffer_size_be));
 			f.write(buffer_str.data(), buffer_str.size());
 
-			RTLIL::Module *holes_module = module->design->module(stringf("%s$holes", module->name.c_str()));
+			RTLIL::Design *holes_design;
+			auto it = saved_designs.find("$abc9_holes");
+			if (it != saved_designs.end())
+				holes_design = it->second;
+			else
+				holes_design = nullptr;
+			RTLIL::Module *holes_module = holes_design ? holes_design->module(module->name) : nullptr;
 			if (holes_module) {
 				std::stringstream a_buffer;
 				XAigerWriter writer(holes_module, false /* dff_mode */, true /* holes_mode */);
@@ -768,8 +774,8 @@ struct XAigerBackend : public Backend {
 		log("Write the top module (according to the (* top *) attribute or if only one module\n");
 		log("is currently selected) to an XAIGER file. Any non $_NOT_, $_AND_, (optionally\n");
 		log("$_DFF_N_, $_DFF_P_), or non (* abc9_box *) cells will be converted into psuedo-\n");
-		log("inputs and pseudo-outputs. Whitebox contents will be taken from the\n");
-		log("'<module-name>$holes' module, if it exists.\n");
+		log("inputs and pseudo-outputs. Whitebox contents will be taken from the equivalent\n");
+		log("module in the '$abc9_holes' design, if it exists.\n");
 		log("\n");
 		log("    -ascii\n");
 		log("        write ASCII version of AIGER format\n");
