@@ -656,7 +656,6 @@ module FDRSE (
       Q <= d;
 endmodule
 
-(* lib_whitebox *)
 module FDCE (
   output reg Q,
   (* clkbuf_sink *)
@@ -699,7 +698,6 @@ module FDCE (
   endspecify
 endmodule
 
-(* lib_whitebox *)
 module FDCE_1 (
   output reg Q,
   (* clkbuf_sink *)
@@ -724,7 +722,6 @@ module FDCE_1 (
   endspecify
 endmodule
 
-(* lib_whitebox *)
 module FDPE (
   output reg Q,
   (* clkbuf_sink *)
@@ -766,7 +763,6 @@ module FDPE (
   endspecify
 endmodule
 
-(* lib_whitebox *)
 module FDPE_1 (
   output reg Q,
   (* clkbuf_sink *)
