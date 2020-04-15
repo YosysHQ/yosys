@@ -871,7 +871,8 @@ struct CxxrtlWorker {
 			dump_sigspec_rhs(cell->getPort(ID(ADDR)));
 			f << ", " << memory->start_offset << ", " << memory->size << ");\n";
 			if (cell->type == ID($memrd)) {
-				if (!cell->getPort(ID(EN)).is_fully_ones()) {
+				bool has_enable = cell->getParam(ID(CLK_ENABLE)).as_bool() && !cell->getPort(ID(EN)).is_fully_ones();
+				if (has_enable) {
 					f << indent << "if (";
 					dump_sigspec_rhs(cell->getPort(ID(EN)));
 					f << ") {\n";
@@ -930,7 +931,7 @@ struct CxxrtlWorker {
 					f << " = value<" << memory->width << "> {};\n";
 				dec_indent();
 				f << indent << "}\n";
-				if (!cell->getPort(ID(EN)).is_fully_ones()) {
+				if (has_enable) {
 					dec_indent();
 					f << indent << "}\n";
 				}
