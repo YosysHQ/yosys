@@ -465,13 +465,43 @@ public:
 		return std::pair<iterator, bool>(iterator(this, i), true);
 	}
 
-	std::pair<iterator, bool> insert(K const &key, T &&rvalue)
+	std::pair<iterator, bool> emplace(K const &key, T const &value)
+	{
+		int hash = do_hash(key);
+		int i = do_lookup(key, hash);
+		if (i >= 0)
+			return std::pair<iterator, bool>(iterator(this, i), false);
+		i = do_insert(std::make_pair(key, value), hash);
+		return std::pair<iterator, bool>(iterator(this, i), true);
+	}
+
+	std::pair<iterator, bool> emplace(K const &key, T &&rvalue)
 	{
 		int hash = do_hash(key);
 		int i = do_lookup(key, hash);
 		if (i >= 0)
 			return std::pair<iterator, bool>(iterator(this, i), false);
 		i = do_insert(std::make_pair(key, std::forward<T>(rvalue)), hash);
+		return std::pair<iterator, bool>(iterator(this, i), true);
+	}
+
+	std::pair<iterator, bool> emplace(K &&rkey, T const &value)
+	{
+		int hash = do_hash(rkey);
+		int i = do_lookup(rkey, hash);
+		if (i >= 0)
+			return std::pair<iterator, bool>(iterator(this, i), false);
+		i = do_insert(std::make_pair(std::forward<K>(rkey), value), hash);
+		return std::pair<iterator, bool>(iterator(this, i), true);
+	}
+
+	std::pair<iterator, bool> emplace(K &&rkey, T &&rvalue)
+	{
+		int hash = do_hash(rkey);
+		int i = do_lookup(rkey, hash);
+		if (i >= 0)
+			return std::pair<iterator, bool>(iterator(this, i), false);
+		i = do_insert(std::make_pair(std::forward<K>(rkey), std::forward<T>(rvalue)), hash);
 		return std::pair<iterator, bool>(iterator(this, i), true);
 	}
 
