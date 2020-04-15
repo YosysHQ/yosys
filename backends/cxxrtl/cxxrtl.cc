@@ -288,7 +288,7 @@ struct FlowGraph {
 		log_assert(cell->known());
 		for (auto conn : cell->connections()) {
 			if (cell->output(conn.first)) {
-				if (is_sync_ff_cell(cell->type) || (cell->type == ID($memrd) && cell->getParam(ID(CLK_ENABLE)).as_bool()))
+				if (is_sync_ff_cell(cell->type) || (cell->type == ID($memrd) && cell->getParam(ID::CLK_ENABLE).as_bool()))
 					/* non-combinatorial outputs do not introduce defs */;
 				else if (is_elidable_cell(cell->type))
 					add_defs(node, conn.second, /*elidable=*/true);
@@ -660,42 +660,42 @@ struct CxxrtlWorker {
 		// Unary cells
 		if (is_unary_cell(cell->type)) {
 			f << cell->type.substr(1) << '_' <<
-			     (cell->getParam(ID(A_SIGNED)).as_bool() ? 's' : 'u') <<
-			     "<" << cell->getParam(ID(Y_WIDTH)).as_int() << ">(";
-			dump_sigspec_rhs(cell->getPort(ID(A)));
+			     (cell->getParam(ID::A_SIGNED).as_bool() ? 's' : 'u') <<
+			     "<" << cell->getParam(ID::Y_WIDTH).as_int() << ">(";
+			dump_sigspec_rhs(cell->getPort(ID::A));
 			f << ")";
 		// Binary cells
 		} else if (is_binary_cell(cell->type)) {
 			f << cell->type.substr(1) << '_' <<
-			     (cell->getParam(ID(A_SIGNED)).as_bool() ? 's' : 'u') <<
-			     (cell->getParam(ID(B_SIGNED)).as_bool() ? 's' : 'u') <<
-			     "<" << cell->getParam(ID(Y_WIDTH)).as_int() << ">(";
-			dump_sigspec_rhs(cell->getPort(ID(A)));
+			     (cell->getParam(ID::A_SIGNED).as_bool() ? 's' : 'u') <<
+			     (cell->getParam(ID::B_SIGNED).as_bool() ? 's' : 'u') <<
+			     "<" << cell->getParam(ID::Y_WIDTH).as_int() << ">(";
+			dump_sigspec_rhs(cell->getPort(ID::A));
 			f << ", ";
-			dump_sigspec_rhs(cell->getPort(ID(B)));
+			dump_sigspec_rhs(cell->getPort(ID::B));
 			f << ")";
 		// Muxes
 		} else if (cell->type == ID($mux)) {
 			f << "(";
-			dump_sigspec_rhs(cell->getPort(ID(S)));
+			dump_sigspec_rhs(cell->getPort(ID::S));
 			f << " ? ";
-			dump_sigspec_rhs(cell->getPort(ID(B)));
+			dump_sigspec_rhs(cell->getPort(ID::B));
 			f << " : ";
-			dump_sigspec_rhs(cell->getPort(ID(A)));
+			dump_sigspec_rhs(cell->getPort(ID::A));
 			f << ")";
 		// Concats
 		} else if (cell->type == ID($concat)) {
-			dump_sigspec_rhs(cell->getPort(ID(B)));
+			dump_sigspec_rhs(cell->getPort(ID::B));
 			f << ".concat(";
-			dump_sigspec_rhs(cell->getPort(ID(A)));
+			dump_sigspec_rhs(cell->getPort(ID::A));
 			f << ").val()";
 		// Slices
 		} else if (cell->type == ID($slice)) {
-			dump_sigspec_rhs(cell->getPort(ID(A)));
+			dump_sigspec_rhs(cell->getPort(ID::A));
 			f << ".slice<";
-			f << cell->getParam(ID(OFFSET)).as_int() + cell->getParam(ID(Y_WIDTH)).as_int() - 1;
+			f << cell->getParam(ID::OFFSET).as_int() + cell->getParam(ID::Y_WIDTH).as_int() - 1;
 			f << ",";
-			f << cell->getParam(ID(OFFSET)).as_int();
+			f << cell->getParam(ID::OFFSET).as_int();
 			f << ">().val()";
 		} else {
 			log_assert(false);
@@ -704,8 +704,8 @@ struct CxxrtlWorker {
 
 	bool is_cell_elided(const RTLIL::Cell *cell)
 	{
-		return is_elidable_cell(cell->type) && cell->hasPort(ID(Y)) && cell->getPort(ID(Y)).is_wire() &&
-			elided_wires.count(cell->getPort(ID(Y)).as_wire());
+		return is_elidable_cell(cell->type) && cell->hasPort(ID::Y) && cell->getPort(ID::Y).is_wire() &&
+			elided_wires.count(cell->getPort(ID::Y).as_wire());
 	}
 
 	void collect_cell(const RTLIL::Cell *cell, std::vector<RTLIL::IdString> &cells)
@@ -715,7 +715,7 @@ struct CxxrtlWorker {
 
 		cells.push_back(cell->name);
 		for (auto port : cell->connections())
-			if (port.first != ID(Y))
+			if (port.first != ID::Y)
 				collect_sigspec_rhs(port.second, cells);
 	}
 
@@ -729,7 +729,7 @@ struct CxxrtlWorker {
 		std::vector<RTLIL::IdString> elided_cells;
 		if (is_elidable_cell(cell->type)) {
 			for (auto port : cell->connections())
-				if (port.first != ID(Y))
+				if (port.first != ID::Y)
 					collect_sigspec_rhs(port.second, elided_cells);
 		}
 		if (elided_cells.empty()) {
@@ -745,26 +745,26 @@ struct CxxrtlWorker {
 		// Elidable cells
 		if (is_elidable_cell(cell->type)) {
 			f << indent;
-			dump_sigspec_lhs(cell->getPort(ID(Y)));
+			dump_sigspec_lhs(cell->getPort(ID::Y));
 			f << " = ";
 			dump_cell_elided(cell);
 			f << ";\n";
 		// Parallel (one-hot) muxes
 		} else if (cell->type == ID($pmux)) {
-			int width = cell->getParam(ID(WIDTH)).as_int();
-			int s_width = cell->getParam(ID(S_WIDTH)).as_int();
+			int width = cell->getParam(ID::WIDTH).as_int();
+			int s_width = cell->getParam(ID::S_WIDTH).as_int();
 			bool first = true;
 			for (int part = 0; part < s_width; part++) {
 				f << (first ? indent : " else ");
 				first = false;
 				f << "if (";
-				dump_sigspec_rhs(cell->getPort(ID(S)).extract(part));
+				dump_sigspec_rhs(cell->getPort(ID::S).extract(part));
 				f << ") {\n";
 				inc_indent();
 					f << indent;
-					dump_sigspec_lhs(cell->getPort(ID(Y)));
+					dump_sigspec_lhs(cell->getPort(ID::Y));
 					f << " = ";
-					dump_sigspec_rhs(cell->getPort(ID(B)).extract(part * width, width));
+					dump_sigspec_rhs(cell->getPort(ID::B).extract(part * width, width));
 					f << ";\n";
 				dec_indent();
 				f << indent << "}";
@@ -772,31 +772,31 @@ struct CxxrtlWorker {
 			f << " else {\n";
 			inc_indent();
 				f << indent;
-				dump_sigspec_lhs(cell->getPort(ID(Y)));
+				dump_sigspec_lhs(cell->getPort(ID::Y));
 				f << " = ";
-				dump_sigspec_rhs(cell->getPort(ID(A)));
+				dump_sigspec_rhs(cell->getPort(ID::A));
 				f << ";\n";
 			dec_indent();
 			f << indent << "}\n";
 		// Flip-flops
 		} else if (is_ff_cell(cell->type)) {
-			if (cell->hasPort(ID(CLK)) && cell->getPort(ID(CLK)).is_wire()) {
+			if (cell->hasPort(ID::CLK) && cell->getPort(ID::CLK).is_wire()) {
 				// Edge-sensitive logic
-				RTLIL::SigBit clk_bit = cell->getPort(ID(CLK))[0];
+				RTLIL::SigBit clk_bit = cell->getPort(ID::CLK)[0];
 				clk_bit = sigmaps[clk_bit.wire->module](clk_bit);
-				f << indent << "if (" << (cell->getParam(ID(CLK_POLARITY)).as_bool() ? "posedge_" : "negedge_")
+				f << indent << "if (" << (cell->getParam(ID::CLK_POLARITY).as_bool() ? "posedge_" : "negedge_")
 				            << mangle(clk_bit) << ") {\n";
 				inc_indent();
 					if (cell->type == ID($dffe)) {
 						f << indent << "if (";
-						dump_sigspec_rhs(cell->getPort(ID(EN)));
-						f << " == value<1> {" << cell->getParam(ID(EN_POLARITY)).as_bool() << "u}) {\n";
+						dump_sigspec_rhs(cell->getPort(ID::EN));
+						f << " == value<1> {" << cell->getParam(ID::EN_POLARITY).as_bool() << "u}) {\n";
 						inc_indent();
 					}
 					f << indent;
-					dump_sigspec_lhs(cell->getPort(ID(Q)));
+					dump_sigspec_lhs(cell->getPort(ID::Q));
 					f << " = ";
-					dump_sigspec_rhs(cell->getPort(ID(D)));
+					dump_sigspec_rhs(cell->getPort(ID::D));
 					f << ";\n";
 					if (cell->type == ID($dffe)) {
 						dec_indent();
@@ -804,77 +804,77 @@ struct CxxrtlWorker {
 					}
 				dec_indent();
 				f << indent << "}\n";
-			} else if (cell->hasPort(ID(EN))) {
+			} else if (cell->hasPort(ID::EN)) {
 				// Level-sensitive logic
 				f << indent << "if (";
-				dump_sigspec_rhs(cell->getPort(ID(EN)));
-				f << " == value<1> {" << cell->getParam(ID(EN_POLARITY)).as_bool() << "u}) {\n";
+				dump_sigspec_rhs(cell->getPort(ID::EN));
+				f << " == value<1> {" << cell->getParam(ID::EN_POLARITY).as_bool() << "u}) {\n";
 				inc_indent();
 					f << indent;
-					dump_sigspec_lhs(cell->getPort(ID(Q)));
+					dump_sigspec_lhs(cell->getPort(ID::Q));
 					f << " = ";
-					dump_sigspec_rhs(cell->getPort(ID(D)));
+					dump_sigspec_rhs(cell->getPort(ID::D));
 					f << ";\n";
 				dec_indent();
 				f << indent << "}\n";
 			}
-			if (cell->hasPort(ID(ARST))) {
+			if (cell->hasPort(ID::ARST)) {
 				// Asynchronous reset (entire coarse cell at once)
 				f << indent << "if (";
-				dump_sigspec_rhs(cell->getPort(ID(ARST)));
-				f << " == value<1> {" << cell->getParam(ID(ARST_POLARITY)).as_bool() << "u}) {\n";
+				dump_sigspec_rhs(cell->getPort(ID::ARST));
+				f << " == value<1> {" << cell->getParam(ID::ARST_POLARITY).as_bool() << "u}) {\n";
 				inc_indent();
 					f << indent;
-					dump_sigspec_lhs(cell->getPort(ID(Q)));
+					dump_sigspec_lhs(cell->getPort(ID::Q));
 					f << " = ";
-					dump_const(cell->getParam(ID(ARST_VALUE)));
+					dump_const(cell->getParam(ID::ARST_VALUE));
 					f << ";\n";
 				dec_indent();
 				f << indent << "}\n";
 			}
-			if (cell->hasPort(ID(SET))) {
+			if (cell->hasPort(ID::SET)) {
 				// Asynchronous set (for individual bits)
 				f << indent;
-				dump_sigspec_lhs(cell->getPort(ID(Q)));
+				dump_sigspec_lhs(cell->getPort(ID::Q));
 				f << " = ";
-				dump_sigspec_lhs(cell->getPort(ID(Q)));
+				dump_sigspec_lhs(cell->getPort(ID::Q));
 				f << ".update(";
-				dump_const(RTLIL::Const(RTLIL::S1, cell->getParam(ID(WIDTH)).as_int()));
+				dump_const(RTLIL::Const(RTLIL::S1, cell->getParam(ID::WIDTH).as_int()));
 				f << ", ";
-				dump_sigspec_rhs(cell->getPort(ID(SET)));
-				f << (cell->getParam(ID(SET_POLARITY)).as_bool() ? "" : ".bit_not()") << ");\n";
+				dump_sigspec_rhs(cell->getPort(ID::SET));
+				f << (cell->getParam(ID::SET_POLARITY).as_bool() ? "" : ".bit_not()") << ");\n";
 			}
-			if (cell->hasPort(ID(CLR))) {
+			if (cell->hasPort(ID::CLR)) {
 				// Asynchronous clear (for individual bits; priority over set)
 				f << indent;
-				dump_sigspec_lhs(cell->getPort(ID(Q)));
+				dump_sigspec_lhs(cell->getPort(ID::Q));
 				f << " = ";
-				dump_sigspec_lhs(cell->getPort(ID(Q)));
+				dump_sigspec_lhs(cell->getPort(ID::Q));
 				f << ".update(";
-				dump_const(RTLIL::Const(RTLIL::S0, cell->getParam(ID(WIDTH)).as_int()));
+				dump_const(RTLIL::Const(RTLIL::S0, cell->getParam(ID::WIDTH).as_int()));
 				f << ", ";
-				dump_sigspec_rhs(cell->getPort(ID(CLR)));
-				f << (cell->getParam(ID(CLR_POLARITY)).as_bool() ? "" : ".bit_not()") << ");\n";
+				dump_sigspec_rhs(cell->getPort(ID::CLR));
+				f << (cell->getParam(ID::CLR_POLARITY).as_bool() ? "" : ".bit_not()") << ");\n";
 			}
 		// Memory ports
 		} else if (cell->type.in(ID($memrd), ID($memwr))) {
-			if (cell->getParam(ID(CLK_ENABLE)).as_bool()) {
-				RTLIL::SigBit clk_bit = cell->getPort(ID(CLK))[0];
+			if (cell->getParam(ID::CLK_ENABLE).as_bool()) {
+				RTLIL::SigBit clk_bit = cell->getPort(ID::CLK)[0];
 				clk_bit = sigmaps[clk_bit.wire->module](clk_bit);
-				f << indent << "if (" << (cell->getParam(ID(CLK_POLARITY)).as_bool() ? "posedge_" : "negedge_")
+				f << indent << "if (" << (cell->getParam(ID::CLK_POLARITY).as_bool() ? "posedge_" : "negedge_")
 				            << mangle(clk_bit) << ") {\n";
 				inc_indent();
 			}
-			RTLIL::Memory *memory = cell->module->memories[cell->getParam(ID(MEMID)).decode_string()];
+			RTLIL::Memory *memory = cell->module->memories[cell->getParam(ID::MEMID).decode_string()];
 			std::string valid_index_temp = fresh_temporary();
 			f << indent << "auto " << valid_index_temp << " = memory_index(";
-			dump_sigspec_rhs(cell->getPort(ID(ADDR)));
+			dump_sigspec_rhs(cell->getPort(ID::ADDR));
 			f << ", " << memory->start_offset << ", " << memory->size << ");\n";
 			if (cell->type == ID($memrd)) {
-				bool has_enable = cell->getParam(ID(CLK_ENABLE)).as_bool() && !cell->getPort(ID(EN)).is_fully_ones();
+				bool has_enable = cell->getParam(ID::CLK_ENABLE).as_bool() && !cell->getPort(ID::EN).is_fully_ones();
 				if (has_enable) {
 					f << indent << "if (";
-					dump_sigspec_rhs(cell->getPort(ID(EN)));
+					dump_sigspec_rhs(cell->getPort(ID::EN));
 					f << ") {\n";
 					inc_indent();
 				}
@@ -890,8 +890,8 @@ struct CxxrtlWorker {
 				inc_indent();
 					if (writable_memories[memory]) {
 						std::string addr_temp = fresh_temporary();
-						f << indent << "const value<" << cell->getPort(ID(ADDR)).size() << "> &" << addr_temp << " = ";
-						dump_sigspec_rhs(cell->getPort(ID(ADDR)));
+						f << indent << "const value<" << cell->getPort(ID::ADDR).size() << "> &" << addr_temp << " = ";
+						dump_sigspec_rhs(cell->getPort(ID::ADDR));
 						f << ";\n";
 						std::string lhs_temp = fresh_temporary();
 						f << indent << "value<" << memory->width << "> " << lhs_temp << " = "
@@ -899,35 +899,35 @@ struct CxxrtlWorker {
 						std::vector<const RTLIL::Cell*> memwr_cells(transparent_for[cell].begin(), transparent_for[cell].end());
 						std::sort(memwr_cells.begin(), memwr_cells.end(),
 							[](const RTLIL::Cell *a, const RTLIL::Cell *b) {
-								return a->getParam(ID(PRIORITY)).as_int() < b->getParam(ID(PRIORITY)).as_int();
+								return a->getParam(ID::PRIORITY).as_int() < b->getParam(ID::PRIORITY).as_int();
 							});
 						for (auto memwr_cell : memwr_cells) {
 							f << indent << "if (" << addr_temp << " == ";
-							dump_sigspec_rhs(memwr_cell->getPort(ID(ADDR)));
+							dump_sigspec_rhs(memwr_cell->getPort(ID::ADDR));
 							f << ") {\n";
 							inc_indent();
 								f << indent << lhs_temp << " = " << lhs_temp;
 								f << ".update(";
-								dump_sigspec_rhs(memwr_cell->getPort(ID(DATA)));
+								dump_sigspec_rhs(memwr_cell->getPort(ID::DATA));
 								f << ", ";
-								dump_sigspec_rhs(memwr_cell->getPort(ID(EN)));
+								dump_sigspec_rhs(memwr_cell->getPort(ID::EN));
 								f << ");\n";
 							dec_indent();
 							f << indent << "}\n";
 						}
 						f << indent;
-						dump_sigspec_lhs(cell->getPort(ID(DATA)));
+						dump_sigspec_lhs(cell->getPort(ID::DATA));
 						f << " = " << lhs_temp << ";\n";
 					} else {
 						f << indent;
-						dump_sigspec_lhs(cell->getPort(ID(DATA)));
+						dump_sigspec_lhs(cell->getPort(ID::DATA));
 						f << " = " << mangle(memory) << "[" << valid_index_temp << ".index];\n";
 					}
 				dec_indent();
 				f << indent << "} else {\n";
 				inc_indent();
 					f << indent;
-					dump_sigspec_lhs(cell->getPort(ID(DATA)));
+					dump_sigspec_lhs(cell->getPort(ID::DATA));
 					f << " = value<" << memory->width << "> {};\n";
 				dec_indent();
 				f << indent << "}\n";
@@ -944,14 +944,14 @@ struct CxxrtlWorker {
 				f << indent << "if (" << valid_index_temp << ".valid) {\n";
 				inc_indent();
 					f << indent << mangle(memory) << ".update(" << valid_index_temp << ".index, ";
-					dump_sigspec_rhs(cell->getPort(ID(DATA)));
+					dump_sigspec_rhs(cell->getPort(ID::DATA));
 					f << ", ";
-					dump_sigspec_rhs(cell->getPort(ID(EN)));
-					f << ", " << cell->getParam(ID(PRIORITY)).as_int() << ");\n";
+					dump_sigspec_rhs(cell->getPort(ID::EN));
+					f << ", " << cell->getParam(ID::PRIORITY).as_int() << ");\n";
 				dec_indent();
 				f << indent << "}\n";
 			}
-			if (cell->getParam(ID(CLK_ENABLE)).as_bool()) {
+			if (cell->getParam(ID::CLK_ENABLE).as_bool()) {
 				dec_indent();
 				f << indent << "}\n";
 			}
@@ -1144,9 +1144,9 @@ struct CxxrtlWorker {
 
 			dump_attrs(wire);
 			f << indent << "wire<" << wire->width << "> " << mangle(wire);
-			if (wire->attributes.count(ID(init))) {
+			if (wire->attributes.count(ID::init)) {
 				f << " ";
-				dump_const_init(wire->attributes.at(ID(init)));
+				dump_const_init(wire->attributes.at(ID::init));
 			}
 			f << ";\n";
 			if (sync_wires[wire]) {
@@ -1166,12 +1166,12 @@ struct CxxrtlWorker {
 	{
 		vector<const RTLIL::Cell*> init_cells;
 		for (auto cell : module->cells())
-			if (cell->type == ID($meminit) && cell->getParam(ID(MEMID)).decode_string() == memory->name.str())
+			if (cell->type == ID($meminit) && cell->getParam(ID::MEMID).decode_string() == memory->name.str())
 				init_cells.push_back(cell);
 
 		std::sort(init_cells.begin(), init_cells.end(), [](const RTLIL::Cell *a, const RTLIL::Cell *b) {
-			int a_addr = a->getPort(ID(ADDR)).as_int(), b_addr = b->getPort(ID(ADDR)).as_int();
-			int a_prio = a->getParam(ID(PRIORITY)).as_int(), b_prio = b->getParam(ID(PRIORITY)).as_int();
+			int a_addr = a->getPort(ID::ADDR).as_int(), b_addr = b->getPort(ID::ADDR).as_int();
+			int a_prio = a->getParam(ID::PRIORITY).as_int(), b_prio = b->getParam(ID::PRIORITY).as_int();
 			return a_prio > b_prio || (a_prio == b_prio && a_addr < b_addr);
 		});
 
@@ -1185,11 +1185,11 @@ struct CxxrtlWorker {
 			inc_indent();
 				for (auto cell : init_cells) {
 					dump_attrs(cell);
-					RTLIL::Const data = cell->getPort(ID(DATA)).as_const();
-					size_t width = cell->getParam(ID(WIDTH)).as_int();
-					size_t words = cell->getParam(ID(WORDS)).as_int();
+					RTLIL::Const data = cell->getPort(ID::DATA).as_const();
+					size_t width = cell->getParam(ID::WIDTH).as_int();
+					size_t words = cell->getParam(ID::WORDS).as_int();
 					f << indent << "memory<" << memory->width << ">::init<" << words << "> { "
-					            << stringf("%#x", cell->getPort(ID(ADDR)).as_int()) << ", {";
+					            << stringf("%#x", cell->getPort(ID::ADDR).as_int()) << ", {";
 					inc_indent();
 						for (size_t n = 0; n < words; n++) {
 							if (n % 4 == 0)
@@ -1431,26 +1431,26 @@ struct CxxrtlWorker {
 
 				// Various DFF cells are treated like posedge/negedge processes, see above for details.
 				if (cell->type.in(ID($dff), ID($dffe), ID($adff), ID($dffsr))) {
-					if (cell->getPort(ID(CLK)).is_wire())
-						register_edge_signal(sigmap, cell->getPort(ID(CLK)),
-							cell->parameters[ID(CLK_POLARITY)].as_bool() ? RTLIL::STp : RTLIL::STn);
+					if (cell->getPort(ID::CLK).is_wire())
+						register_edge_signal(sigmap, cell->getPort(ID::CLK),
+							cell->parameters[ID::CLK_POLARITY].as_bool() ? RTLIL::STp : RTLIL::STn);
 				}
 				// Similar for memory port cells.
 				if (cell->type.in(ID($memrd), ID($memwr))) {
-					if (cell->getParam(ID(CLK_ENABLE)).as_bool()) {
-						if (cell->getPort(ID(CLK)).is_wire())
-							register_edge_signal(sigmap, cell->getPort(ID(CLK)),
-								cell->parameters[ID(CLK_POLARITY)].as_bool() ? RTLIL::STp : RTLIL::STn);
+					if (cell->getParam(ID::CLK_ENABLE).as_bool()) {
+						if (cell->getPort(ID::CLK).is_wire())
+							register_edge_signal(sigmap, cell->getPort(ID::CLK),
+								cell->parameters[ID::CLK_POLARITY].as_bool() ? RTLIL::STp : RTLIL::STn);
 					}
 					memrw_cell_nodes[cell] = node;
 				}
 				// Optimize access to read-only memories.
 				if (cell->type == ID($memwr))
-					writable_memories.insert(module->memories[cell->getParam(ID(MEMID)).decode_string()]);
+					writable_memories.insert(module->memories[cell->getParam(ID::MEMID).decode_string()]);
 				// Collect groups of memory write ports in the same domain.
-				if (cell->type == ID($memwr) && cell->getParam(ID(CLK_ENABLE)).as_bool() && cell->getPort(ID(CLK)).is_wire()) {
-					RTLIL::SigBit clk_bit = sigmap(cell->getPort(ID(CLK)))[0];
-					const RTLIL::Memory *memory = module->memories[cell->getParam(ID(MEMID)).decode_string()];
+				if (cell->type == ID($memwr) && cell->getParam(ID::CLK_ENABLE).as_bool() && cell->getPort(ID::CLK).is_wire()) {
+					RTLIL::SigBit clk_bit = sigmap(cell->getPort(ID::CLK))[0];
+					const RTLIL::Memory *memory = module->memories[cell->getParam(ID::MEMID).decode_string()];
 					memwr_per_domain[{clk_bit, memory}].insert(cell);
 				}
 				// Handling of packed memories is delegated to the `memory_unpack` pass, so we can rely on the presence
@@ -1460,17 +1460,17 @@ struct CxxrtlWorker {
 			}
 			for (auto cell : module->cells()) {
 				// Collect groups of memory write ports read by every transparent read port.
-				if (cell->type == ID($memrd) && cell->getParam(ID(CLK_ENABLE)).as_bool() && cell->getPort(ID(CLK)).is_wire() &&
-				    cell->getParam(ID(TRANSPARENT)).as_bool()) {
-					RTLIL::SigBit clk_bit = sigmap(cell->getPort(ID(CLK)))[0];
-					const RTLIL::Memory *memory = module->memories[cell->getParam(ID(MEMID)).decode_string()];
+				if (cell->type == ID($memrd) && cell->getParam(ID::CLK_ENABLE).as_bool() && cell->getPort(ID::CLK).is_wire() &&
+				    cell->getParam(ID::TRANSPARENT).as_bool()) {
+					RTLIL::SigBit clk_bit = sigmap(cell->getPort(ID::CLK))[0];
+					const RTLIL::Memory *memory = module->memories[cell->getParam(ID::MEMID).decode_string()];
 					for (auto memwr_cell : memwr_per_domain[{clk_bit, memory}]) {
 						transparent_for[cell].insert(memwr_cell);
 						// Our implementation of transparent $memrd cells reads \EN, \ADDR and \DATA from every $memwr cell
 						// in the same domain, which isn't directly visible in the netlist. Add these uses explicitly.
-						flow.add_uses(memrw_cell_nodes[cell], memwr_cell->getPort(ID(EN)));
-						flow.add_uses(memrw_cell_nodes[cell], memwr_cell->getPort(ID(ADDR)));
-						flow.add_uses(memrw_cell_nodes[cell], memwr_cell->getPort(ID(DATA)));
+						flow.add_uses(memrw_cell_nodes[cell], memwr_cell->getPort(ID::EN));
+						flow.add_uses(memrw_cell_nodes[cell], memwr_cell->getPort(ID::ADDR));
+						flow.add_uses(memrw_cell_nodes[cell], memwr_cell->getPort(ID::DATA));
 					}
 				}
 			}
@@ -1506,7 +1506,7 @@ struct CxxrtlWorker {
 			for (auto wire : module->wires()) {
 				if (!flow.is_elidable(wire)) continue;
 				if (wire->port_id != 0) continue;
-				if (wire->get_bool_attribute(ID(keep))) continue;
+				if (wire->get_bool_attribute(ID::keep)) continue;
 				if (wire->name.begins_with("$") && !elide_internal) continue;
 				if (wire->name.begins_with("\\") && !elide_public) continue;
 				if (sync_wires[wire]) continue;
@@ -1573,7 +1573,7 @@ struct CxxrtlWorker {
 			for (auto wire : module->wires()) {
 				if (feedback_wires[wire]) continue;
 				if (wire->port_id != 0) continue;
-				if (wire->get_bool_attribute(ID(keep))) continue;
+				if (wire->get_bool_attribute(ID::keep)) continue;
 				if (wire->name.begins_with("$") && !localize_internal) continue;
 				if (wire->name.begins_with("\\") && !localize_public) continue;
 				if (sync_wires[wire]) continue;
