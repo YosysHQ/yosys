@@ -149,7 +149,7 @@ struct SetundefPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
-		bool got_value = false;
+		int got_value = 0;
 		bool undriven_mode = false;
 		bool expose_mode = false;
 		bool init_mode = false;
@@ -170,31 +170,31 @@ struct SetundefPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-zero") {
-				got_value = true;
+				got_value++;
 				worker.next_bit_mode = MODE_ZERO;
 				worker.next_bit_state = 0;
 				continue;
 			}
 			if (args[argidx] == "-one") {
-				got_value = true;
+				got_value++;
 				worker.next_bit_mode = MODE_ONE;
 				worker.next_bit_state = 0;
 				continue;
 			}
 			if (args[argidx] == "-anyseq") {
-				got_value = true;
+				got_value++;
 				worker.next_bit_mode = MODE_ANYSEQ;
 				worker.next_bit_state = 0;
 				continue;
 			}
 			if (args[argidx] == "-anyconst") {
-				got_value = true;
+				got_value++;
 				worker.next_bit_mode = MODE_ANYCONST;
 				worker.next_bit_state = 0;
 				continue;
 			}
 			if (args[argidx] == "-undef") {
-				got_value = true;
+				got_value++;
 				worker.next_bit_mode = MODE_UNDEF;
 				worker.next_bit_state = 0;
 				continue;
@@ -207,8 +207,8 @@ struct SetundefPass : public Pass {
 				params_mode = true;
 				continue;
 			}
-			if (args[argidx] == "-random" && !got_value && argidx+1 < args.size()) {
-				got_value = true;
+			if (args[argidx] == "-random" && argidx+1 < args.size()) {
+				got_value++;
 				worker.next_bit_mode = MODE_RANDOM;
 				worker.next_bit_state = atoi(args[++argidx].c_str()) + 1;
 				for (int i = 0; i < 10; i++)
@@ -221,7 +221,7 @@ struct SetundefPass : public Pass {
 
 		if (!got_value && expose_mode) {
 			log("Using default as -undef with -expose.\n");
-			got_value = true;
+			got_value++;
 			worker.next_bit_mode = MODE_UNDEF;
 			worker.next_bit_state = 0;
 		}
@@ -229,7 +229,9 @@ struct SetundefPass : public Pass {
 		if (expose_mode && !undriven_mode)
 			log_cmd_error("Option -expose must be used with option -undriven.\n");
 		if (!got_value)
-			log_cmd_error("One of the options -zero, -one, -anyseq, -anyconst, or -random <seed> must be specified.\n");
+			log_cmd_error("One of the options -zero, -one, -anyseq, -anyconst, -random <seed>, or -expose must be specified.\n");
+		else if (got_value > 1)
+			log_cmd_error("Only one of the options -zero, -one, -anyseq, -anyconst, or -random <seed> can be specified.\n");
 
 		if (init_mode && (worker.next_bit_mode == MODE_ANYSEQ || worker.next_bit_mode == MODE_ANYCONST))
 			log_cmd_error("The options -init and -anyseq / -anyconst are exclusive.\n");
