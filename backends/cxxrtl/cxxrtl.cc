@@ -1425,8 +1425,6 @@ struct CxxrtlWorker {
 					if (cell->getPort(ID(CLK)).is_wire())
 						register_edge_signal(sigmap, cell->getPort(ID(CLK)),
 							cell->parameters[ID(CLK_POLARITY)].as_bool() ? RTLIL::STp : RTLIL::STn);
-					// The $adff and $dffsr cells are level-sensitive, not edge-sensitive (in spite of the fact that they
-					// are inferred from an edge-sensitive Verilog process) and do not correspond to an edge-type sync rule.
 				}
 				// Similar for memory port cells.
 				if (cell->type.in(ID($memrd), ID($memwr))) {
