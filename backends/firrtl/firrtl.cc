@@ -238,7 +238,7 @@ struct FirrtlWorker
 	{
 		string expr;
 
-		for (const auto& chunk : sig.chunks())
+		for (const auto &chunk : sig.chunks())
 		{
 			string new_expr;
 
@@ -945,7 +945,7 @@ struct FirrtlWorker
 			log_error("Cell type not supported: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
 		}
 
-		for (const auto& conn : module->connections())
+		for (const auto &conn : module->connections())
 		{
 			string y_id = next_id();
 			int y_width =  GetSize(conn.first);
@@ -1029,18 +1029,18 @@ struct FirrtlWorker
 			}
 		}
 
-		for (const auto& str : port_decls)
+		for (const auto &str : port_decls)
 			f << str;
 
 		f << stringf("\n");
 
-		for (const auto& str : wire_decls)
+		for (const auto &str : wire_decls)
 			f << str;
 
 		f << stringf("\n");
 
 		// If we have any memory definitions, output them.
-		for (const auto& kv : memories) {
+		for (const auto &kv : memories) {
 			const memory &m = kv.second;
 			f << stringf("    mem %s:\n", m.name.c_str());
 			f << stringf("      data-type => UInt<%d>\n", m.width);
@@ -1057,12 +1057,12 @@ struct FirrtlWorker
 		}
 		f << stringf("\n");
 
-		for (const auto& str : cell_exprs)
+		for (const auto &str : cell_exprs)
 			f << str;
 
 		f << stringf("\n");
 
-		for (const auto& str : wire_exprs)
+		for (const auto &str : wire_exprs)
 			f << str;
 	}
 };

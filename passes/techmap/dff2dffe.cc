@@ -47,7 +47,7 @@ struct Dff2dffeWorker
 	{
 		for (auto wire : module->wires()) {
 			if (wire->port_output)
-				for (const auto& bit : sigmap(wire))
+				for (const auto &bit : sigmap(wire))
 					bitusers[bit]++;
 		}
 
@@ -64,10 +64,10 @@ struct Dff2dffeWorker
 				if (direct_dict.count(cell->type))
 					dff_cells.push_back(cell);
 			}
-			for (const auto& conn : cell->connections()) {
+			for (const auto &conn : cell->connections()) {
 				if (ct.cell_output(cell->type, conn.first))
 					continue;
-				for (const auto& bit : sigmap(conn.second))
+				for (const auto &bit : sigmap(conn.second))
 					bitusers[bit]++;
 			}
 		}
@@ -147,10 +147,10 @@ struct Dff2dffeWorker
 	{
 		RTLIL::SigSpec or_input;
 
-		for (const auto& pat : patterns)
+		for (const auto &pat : patterns)
 		{
 			RTLIL::SigSpec s1, s2;
-			for (const auto& it : pat) {
+			for (const auto &it : pat) {
 				s1.append(it.first);
 				s2.append(it.second);
 			}

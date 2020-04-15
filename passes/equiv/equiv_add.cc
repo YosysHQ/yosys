@@ -75,7 +75,7 @@ struct EquivAddPass : public Pass {
 				log_cmd_error("Can't find gate cell '%s'.\n", args[3].c_str());
 			}
 
-			for (const auto& conn : gold_cell->connections())
+			for (const auto &conn : gold_cell->connections())
 			{
 				auto port = conn.first;
 				SigSpec gold_sig = gold_cell->getPort(port);
@@ -159,10 +159,10 @@ struct EquivAddPass : public Pass {
 			}
 
 			for (auto cell : module->cells())
-			for (const auto& conn : cell->connections())
+			for (const auto &conn : cell->connections())
 				if (!added_equiv_cells.count(cell) && cell->input(conn.first)) {
 					SigSpec new_sig;
-					for (const auto& bit : conn.second)
+					for (const auto &bit : conn.second)
 						if (to_equiv_bits.count(sigmap(bit)))
 							new_sig.append(to_equiv_bits.at(sigmap(bit)));
 						else

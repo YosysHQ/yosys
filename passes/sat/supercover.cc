@@ -64,7 +64,7 @@ struct SupercoverPass : public Pass {
 				bool counted_wire = false;
 				std::string src = wire->get_src_attribute();
 
-				for (const auto& bit : sigmap(SigSpec(wire)))
+				for (const auto &bit : sigmap(SigSpec(wire)))
 				{
 					if (bit.wire == nullptr)
 						continue;

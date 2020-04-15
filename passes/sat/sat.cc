@@ -1355,7 +1355,7 @@ struct SatPass : public Pass {
 			pool<Wire*> reg_wires;
 			for (auto cell : module->cells()) {
 				if (cell->type == ID($dff) || cell->type.begins_with("$_DFF_"))
-					for (const auto& bit : cell->getPort(ID::Q))
+					for (const auto &bit : cell->getPort(ID::Q))
 						if (bit.wire)
 							reg_wires.insert(bit.wire);
 			}

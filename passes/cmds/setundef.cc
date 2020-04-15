@@ -264,7 +264,7 @@ struct SetundefPass : public Pass {
 						for (auto &conn : cell->connections()) {
 							SigSpec sig = sigmap(conn.second);
 							if (cell->input(conn.first))
-								for (const auto& bit : sig)
+								for (const auto &bit : sig)
 									if (bit.wire)
 										used_wires.insert(bit);
 							if (cell->output(conn.first))
@@ -281,14 +281,14 @@ struct SetundefPass : public Pass {
 						}
 						if (wire->port_output) {
 							SigSpec sig = sigmap(wire);
-							for (const auto& bit : sig)
+							for (const auto &bit : sig)
 								if (bit.wire)
 									used_wires.insert(bit);
 						}
 					}
 
 					pool<RTLIL::Wire*> undriven_wires;
-					for (const auto& bit : used_wires)
+					for (const auto &bit : used_wires)
 						if (!wire_drivers.count(bit))
 							undriven_wires.insert(bit.wire);
 
@@ -364,7 +364,7 @@ struct SetundefPass : public Pass {
 					if (!RTLIL::builtin_ff_cell_types().count(cell->type))
 						continue;
 
-					for (const auto& bit : sigmap(cell->getPort(ID::Q)))
+					for (const auto &bit : sigmap(cell->getPort(ID::Q)))
 						ffbits.insert(bit);
 				}
 
@@ -376,7 +376,7 @@ struct SetundefPass : public Pass {
 					{
 						int weight = 0;
 
-						for (const auto& bit : sigmap(wire))
+						for (const auto &bit : sigmap(wire))
 							weight += ffbits.count(bit) ? +1 : -1;
 
 						wire_weights[wire] = weight;
@@ -443,7 +443,7 @@ struct SetundefPass : public Pass {
 							if (wire->name[0] == (wire_types ? '\\' : '$'))
 								continue;
 
-							for (const auto& bit : sigmap(wire))
+							for (const auto &bit : sigmap(wire))
 								if (!ffbits.count(bit))
 									goto next_wire;
 
@@ -464,7 +464,7 @@ struct SetundefPass : public Pass {
 							if (wire->name[0] == (wire_types ? '\\' : '$'))
 								continue;
 
-							for (const auto& bit : sigmap(wire))
+							for (const auto &bit : sigmap(wire))
 								if (ffbits.count(bit))
 									initwires.insert(wire);
 						}

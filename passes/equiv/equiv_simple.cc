@@ -59,7 +59,7 @@ struct EquivSimpleWorker
 
 		for (auto &conn : cell->connections())
 			if (yosys_celltypes.cell_input(cell->type, conn.first))
-				for (const auto& bit : sigmap(conn.second)) {
+				for (const auto &bit : sigmap(conn.second)) {
 					if (cell->type.in(ID($dff), ID($_DFF_P_), ID($_DFF_N_), ID($ff), ID($_FF_))) {
 						if (!conn.first.in(ID::CLK, ID::C))
 							next_seed.insert(bit);
@@ -131,11 +131,11 @@ struct EquivSimpleWorker
 
 			pool<SigBit> next_seed_a, next_seed_b;
 
-			for (const auto& bit_a : seed_a)
+			for (const auto &bit_a : seed_a)
 				find_input_cone(next_seed_a, full_cells_cone_a, full_bits_cone_a, no_stop_cells, no_stop_bits, nullptr, bit_a);
 			next_seed_a.clear();
 
-			for (const auto& bit_b : seed_b)
+			for (const auto &bit_b : seed_b)
 				find_input_cone(next_seed_b, full_cells_cone_b, full_bits_cone_b, no_stop_cells, no_stop_bits, nullptr, bit_b);
 			next_seed_b.clear();
 
@@ -145,11 +145,11 @@ struct EquivSimpleWorker
 
 			if (short_cones)
 			{
-				for (const auto& bit_a : seed_a)
+				for (const auto &bit_a : seed_a)
 					find_input_cone(next_seed_a, short_cells_cone_a, short_bits_cone_a, full_cells_cone_b, full_bits_cone_b, &input_bits, bit_a);
 				next_seed_a.swap(seed_a);
 
-				for (const auto& bit_b : seed_b)
+				for (const auto &bit_b : seed_b)
 					find_input_cone(next_seed_b, short_cells_cone_b, short_bits_cone_b, full_cells_cone_a, full_bits_cone_a, &input_bits, bit_b);
 				next_seed_b.swap(seed_b);
 			}
@@ -190,7 +190,7 @@ struct EquivSimpleWorker
 			}
 
 			if (satgen.model_undef) {
-				for (const auto& bit : input_bits)
+				for (const auto &bit : input_bits)
 					ez->assume(ez->NOT(satgen.importUndefSigBit(bit, step+1)));
 			}
 
@@ -364,7 +364,7 @@ struct EquivSimplePass : public Pass {
 					continue;
 				for (auto &conn : cell->connections())
 					if (yosys_celltypes.cell_output(cell->type, conn.first))
-						for (const auto& bit : sigmap(conn.second))
+						for (const auto &bit : sigmap(conn.second))
 							bit2driver[bit] = cell;
 			}
 
@@ -374,7 +374,7 @@ struct EquivSimplePass : public Pass {
 				it.second.sort();
 
 				vector<Cell*> cells;
-				for (const auto& it2 : it.second)
+				for (const auto &it2 : it.second)
 					cells.push_back(it2.second);
 
 				EquivSimpleWorker worker(cells, sigmap, bit2driver, max_seq, short_cones, verbose, model_undef);

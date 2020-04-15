@@ -116,7 +116,7 @@ struct OnehotDatabase
 		}
 
 		bool found_init_ones = false;
-		for (const auto& bit : sig) {
+		for (const auto &bit : sig) {
 			if (init_ones.count(bit)) {
 				if (found_init_ones) {
 					if (verbose)
@@ -133,7 +133,7 @@ struct OnehotDatabase
 			if (sig.is_fully_const())
 			{
 				bool found_ones = false;
-				for (const auto& bit : sig) {
+				for (const auto &bit : sig) {
 					if (bit == State::S1) {
 						if (found_ones) {
 							if (verbose)
@@ -330,7 +330,7 @@ struct Pmux2ShiftxPass : public Pass {
 					bits.sort();
 					pair<SigSpec, Const> entry;
 
-					for (const auto& it : bits) {
+					for (const auto &it : bits) {
 						entry.first.append(it.first);
 						entry.second.bits.push_back(it.second);
 					}
@@ -351,7 +351,7 @@ struct Pmux2ShiftxPass : public Pass {
 					bits.sort();
 					pair<SigSpec, Const> entry;
 
-					for (const auto& it : bits) {
+					for (const auto &it : bits) {
 						entry.first.append(it.first);
 						entry.second.bits.push_back(it.second);
 					}

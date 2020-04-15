@@ -459,7 +459,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				input_bits.insert(more_bits.begin(), more_bits.end());
 			}
 
-			for (const auto& bit : input_bits) {
+			for (const auto &bit : input_bits) {
 				if (bit.wire) {
 					if (invert_map.count(bit) && input_bits.count(invert_map.at(bit)))
 						found_inv = true;
@@ -560,7 +560,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				RTLIL::SigSpec sig_a = assign_map(cell->getPort(ID::A));
 				RTLIL::SigSpec new_sig_a;
 
-				for (const auto& bit : sig_a)
+				for (const auto &bit : sig_a)
 					if (bit != neutral_bit) new_sig_a.append(bit);
 
 				if (GetSize(new_sig_a) == 0)
@@ -583,7 +583,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				RTLIL::SigSpec sig_b = assign_map(cell->getPort(ID::B));
 				RTLIL::SigSpec new_sig_b;
 
-				for (const auto& bit : sig_b)
+				for (const auto &bit : sig_b)
 					if (bit != neutral_bit) new_sig_b.append(bit);
 
 				if (GetSize(new_sig_b) == 0)

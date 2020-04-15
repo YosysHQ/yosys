@@ -56,7 +56,7 @@ struct EdgetypePass : public Pass {
 			pool<std::pair<IdString, IdString>> multibit_ports;
 
 			for (auto cell : module->selected_cells())
-			for (const auto& conn : cell->connections())
+			for (const auto &conn : cell->connections())
 			{
 				IdString cell_type = cell->type;
 				IdString port_name = conn.first;

@@ -253,7 +253,7 @@ struct ExtractFaWorker
 		if (maxdepth == 0)
 			return;
 
-		for (const SigBit& bit : leaves)
+		for (const SigBit &bit : leaves)
 		{
 			if (driver.count(bit) == 0)
 				continue;
@@ -262,7 +262,7 @@ struct ExtractFaWorker
 			pool<SigBit> new_leaves = leaves;
 
 			new_leaves.erase(bit);
-			for (const auto& port : {ID::A, ID::B, ID::C, ID::D}) {
+			for (const auto &port : {ID::A, ID::B, ID::C, ID::D}) {
 				if (!cell->hasPort(port))
 					continue;
 				auto bit = sigmap(SigBit(cell->getPort(port)));
@@ -291,7 +291,7 @@ struct ExtractFaWorker
 	{
 		log("Extracting full/half adders from %s:\n", log_id(module));
 
-		for (const auto& it : driver)
+		for (const auto &it : driver)
 		{
 			if (it.second->type.in(ID($_BUF_), ID($_NOT_)))
 				continue;
@@ -329,7 +329,7 @@ struct ExtractFaWorker
 					continue;
 
 				log("      %08d ->", bindec(it.first));
-				for (const auto& bit : it.second)
+				for (const auto &bit : it.second)
 					log(" %s", log_signal(bit));
 				log("\n");
 			}
@@ -363,7 +363,7 @@ struct ExtractFaWorker
 				}
 
 				log("      %08d ->", bindec(func));
-				for (const auto& bit : func3.at(key).at(func))
+				for (const auto &bit : func3.at(key).at(func))
 					log(" %s", log_signal(bit));
 				log("\n");
 
@@ -414,19 +414,19 @@ struct ExtractFaWorker
 
 				if (func3.at(key).count(xor3_func)) {
 					SigBit YY = invert_xy ? module->NotGate(NEW_ID, Y) : Y;
-					for (const auto& bit : func3.at(key).at(xor3_func))
+					for (const auto &bit : func3.at(key).at(xor3_func))
 						assign_new_driver(bit, YY);
 				}
 
 				if (func3.at(key).count(xnor3_func)) {
 					SigBit YY = invert_xy ? Y : module->NotGate(NEW_ID, Y);
-					for (const auto& bit : func3.at(key).at(xnor3_func))
+					for (const auto &bit : func3.at(key).at(xnor3_func))
 						assign_new_driver(bit, YY);
 				}
 
 				SigBit XX = invert_xy != f3i.inv_y ? module->NotGate(NEW_ID, X) : X;
 
-				for (const auto& bit : func3.at(key).at(func))
+				for (const auto &bit : func3.at(key).at(func))
 					assign_new_driver(bit, XX);
 			}
 		}
@@ -444,7 +444,7 @@ struct ExtractFaWorker
 					continue;
 
 				log("    %04d ->", bindec(it.first));
-				for (const auto& bit : it.second)
+				for (const auto &bit : it.second)
 					log(" %s", log_signal(bit));
 				log("\n");
 			}
@@ -470,7 +470,7 @@ struct ExtractFaWorker
 				}
 
 				log("      %04d ->", bindec(func));
-				for (const auto& bit : func2.at(key).at(func))
+				for (const auto &bit : func2.at(key).at(func))
 					log(" %s", log_signal(bit));
 				log("\n");
 
@@ -518,19 +518,19 @@ struct ExtractFaWorker
 
 				if (func2.at(key).count(xor2_func)) {
 					SigBit YY = invert_xy || (f2i.inv_a && !f2i.inv_b) || (!f2i.inv_a && f2i.inv_b) ? module->NotGate(NEW_ID, Y) : Y;
-					for (const auto& bit : func2.at(key).at(xor2_func))
+					for (const auto &bit : func2.at(key).at(xor2_func))
 						assign_new_driver(bit, YY);
 				}
 
 				if (func2.at(key).count(xnor2_func)) {
 					SigBit YY = invert_xy || (f2i.inv_a && !f2i.inv_b) || (!f2i.inv_a && f2i.inv_b) ? Y : module->NotGate(NEW_ID, Y);
-					for (const auto& bit : func2.at(key).at(xnor2_func))
+					for (const auto &bit : func2.at(key).at(xnor2_func))
 						assign_new_driver(bit, YY);
 				}
 
 				SigBit XX = invert_xy != f2i.inv_y ? module->NotGate(NEW_ID, X) : X;
 
-				for (const auto& bit : func2.at(key).at(func))
+				for (const auto &bit : func2.at(key).at(func))
 					assign_new_driver(bit, XX);
 			}
 		}

@@ -1012,12 +1012,12 @@ struct ShareWorker
 			if (ct.cell_known(cell->type))
 				for (auto &conn : cell->connections()) {
 					if (ct.cell_output(cell->type, conn.first))
-						for (const auto& bit : topo_sigmap(conn.second)) {
+						for (const auto &bit : topo_sigmap(conn.second)) {
 							cell_to_bits[cell].insert(bit);
 							topo_bit_drivers[bit].insert(cell);
 						}
 					else
-						for (const auto& bit : topo_sigmap(conn.second))
+						for (const auto &bit : topo_sigmap(conn.second))
 							bit_to_cells[bit].insert(cell);
 				}
 
@@ -1025,7 +1025,7 @@ struct ShareWorker
 		{
 			RTLIL::Cell *c1 = it.first;
 
-			for (const auto& bit : it.second)
+			for (const auto &bit : it.second)
 			for (auto c2 : bit_to_cells[bit])
 				toposort.edge(c1, c2);
 		}
@@ -1085,7 +1085,7 @@ struct ShareWorker
 					continue;
 				for (auto &conn : c->connections())
 					if (ct.cell_input(c->type, conn.first))
-						for (const auto& bit : conn.second)
+						for (const auto &bit : conn.second)
 							for (auto &pi : mi.query_ports(bit))
 								if (ct.cell_known(pi.cell->type) && ct.cell_output(pi.cell->type, pi.port))
 									new_queue.insert(pi.cell);
@@ -1171,8 +1171,8 @@ struct ShareWorker
 
 		for (auto cell : module->cells())
 			if (cell->type == ID($pmux))
-				for (const auto& bit : cell->getPort(ID::S))
-				for (const auto& other_bit : cell->getPort(ID::S))
+				for (const auto &bit : cell->getPort(ID::S))
+				for (const auto &other_bit : cell->getPort(ID::S))
 					if (bit < other_bit)
 						exclusive_ctrls.push_back(std::pair<RTLIL::SigBit, RTLIL::SigBit>(bit, other_bit));
 
@@ -1301,7 +1301,7 @@ struct ShareWorker
 						break;
 				}
 
-				for (const auto& it : exclusive_ctrls)
+				for (const auto &it : exclusive_ctrls)
 					if (satgen.importedSigBit(it.first) && satgen.importedSigBit(it.second)) {
 						log("      Adding exclusive control bits: %s vs. %s\n", log_signal(it.first), log_signal(it.second));
 						int sub1 = satgen.importSigBit(it.first);
@@ -1406,7 +1406,7 @@ struct ShareWorker
 				activation_patterns_cache[supercell] = supercell_activation_patterns;
 				shareable_cells.insert(supercell);
 
-				for (const auto& bit : topo_sigmap(all_ctrl_signals))
+				for (const auto &bit : topo_sigmap(all_ctrl_signals))
 					for (auto c : topo_bit_drivers[bit])
 						topo_cell_drivers[supercell].insert(c);
 

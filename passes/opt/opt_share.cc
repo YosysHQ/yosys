@@ -323,7 +323,7 @@ ExtSigSpec find_shared_operand(const OpMuxConn* seed, std::vector<const OpMuxCon
 
 	auto op_a = seed->op;
 
-	for (const RTLIL::IdString& port_name : {ID::A, ID::B}) {
+	for (const RTLIL::IdString &port_name : {ID::A, ID::B}) {
 		oper = decode_port(op_a, port_name, &assign_map);
 		auto operand_users = operand_to_users.at(oper);
 
@@ -353,7 +353,7 @@ dict<RTLIL::SigSpec, OpMuxConn> find_valid_op_mux_conns(RTLIL::Module *module, d
 	dict<RTLIL::SigSpec, OpMuxConn> op_mux_conn_map;
 
 	std::function<void(RTLIL::SigSpec)> remove_outsig = [&](RTLIL::SigSpec outsig) {
-		for (const auto& op_outbit : outsig)
+		for (const auto &op_outbit : outsig)
 			op_outbit_to_outsig.erase(op_outbit);
 
 		if (op_mux_conn_map.count(outsig))
@@ -366,7 +366,7 @@ dict<RTLIL::SigSpec, OpMuxConn> find_valid_op_mux_conns(RTLIL::Module *module, d
 		auto op_outsig = assign_map(op->getPort(ID::Y));
 		remove_outsig(op_outsig);
 
-		for (const auto& aux_outbit : aux_outsig)
+		for (const auto &aux_outbit : aux_outsig)
 			op_aux_to_outsig.erase(aux_outbit);
 	};
 
@@ -437,7 +437,7 @@ dict<RTLIL::SigSpec, OpMuxConn> find_valid_op_mux_conns(RTLIL::Module *module, d
 
 	std::function<void(RTLIL::SigSpec)> remove_connected_ops = [&](RTLIL::SigSpec sig) {
 		auto mux_insig = assign_map(sig);
-		for (const auto& outbit : mux_insig) {
+		for (const auto &outbit : mux_insig) {
 			if (op_aux_to_outsig.count(outbit)) {
 				remove_outsig_from_aux_bit(outbit);
 				continue;
@@ -510,20 +510,20 @@ struct OptSharePass : public Pass {
 					continue;
 
 				if (cell->type == ID($alu)) {
-					for (const RTLIL::IdString& port_name : {ID::X, ID::CO}) {
+					for (const RTLIL::IdString &port_name : {ID::X, ID::CO}) {
 						auto mux_insig = assign_map(cell->getPort(port_name));
 						outsig_to_operator[mux_insig] = cell;
-						for (const auto& outbit : mux_insig)
+						for (const auto &outbit : mux_insig)
 							op_aux_to_outsig[outbit] = mux_insig;
 					}
 				}
 
 				auto mux_insig = assign_map(cell->getPort(ID::Y));
 				outsig_to_operator[mux_insig] = cell;
-				for (const auto& outbit : mux_insig)
+				for (const auto &outbit : mux_insig)
 					op_outbit_to_outsig[outbit] = mux_insig;
 
-				for (const RTLIL::IdString& port_name : {ID::A, ID::B}) {
+				for (const RTLIL::IdString &port_name : {ID::A, ID::B}) {
 					auto op_insig = decode_port(cell, port_name, &assign_map);
 					op_insigs.push_back(op_insig);
 					operand_to_users[op_insig].insert(cell);

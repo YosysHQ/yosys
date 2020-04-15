@@ -107,15 +107,15 @@ struct MuxcoverWorker
 		for (auto wire : module->wires()) {
 			if (!wire->port_output)
 				continue;
-			for (const auto& bit : sigmap(wire))
+			for (const auto &bit : sigmap(wire))
 				roots.insert(bit);
 		}
 
 		for (auto cell : module->cells()) {
-			for (const auto& conn : cell->connections()) {
+			for (const auto &conn : cell->connections()) {
 				if (!cell->input(conn.first))
 					continue;
-				for (const auto& bit : sigmap(conn.second)) {
+				for (const auto &bit : sigmap(conn.second)) {
 					if (used_once.count(bit) || cell->type != ID($_MUX_) || conn.first == ID::S)
 						roots.insert(bit);
 					used_once.insert(bit);
@@ -128,7 +128,7 @@ struct MuxcoverWorker
 		log("  Treeifying %d MUXes:\n", GetSize(sig_to_mux));
 
 		roots.sort();
-		for (const auto& rootsig : roots)
+		for (const auto &rootsig : roots)
 		{
 			tree_t tree;
 			tree.root = rootsig;
@@ -230,14 +230,14 @@ struct MuxcoverWorker
 
 	void find_best_covers(tree_t &tree, const vector<SigBit> &bits)
 	{
-		for (const auto& bit : bits)
+		for (const auto &bit : bits)
 			find_best_cover(tree, bit);
 	}
 
 	int sum_best_covers(tree_t &tree, const vector<SigBit> &bits)
 	{
 		int sum = 0;
-		for (const auto& bit : pool<SigBit>(bits.begin(), bits.end())) {
+		for (const auto &bit : pool<SigBit>(bits.begin(), bits.end())) {
 			int cost = tree.newmuxes.at(bit).cost;
 			log_debug("        Best cost for %s: %d\n", log_signal(bit), cost);
 			sum += cost;
@@ -505,10 +505,10 @@ struct MuxcoverWorker
 	{
 		newmux_t mux = tree.newmuxes.at(bit);
 
-		for (const auto& inbit : mux.inputs)
+		for (const auto &inbit : mux.inputs)
 			implement_best_cover(tree, inbit, count_muxes_by_type);
 
-		for (const auto& selbit : mux.selects)
+		for (const auto &selbit : mux.selects)
 			implement_decode_mux(selbit);
 
 		if (GetSize(mux.inputs) == 0)

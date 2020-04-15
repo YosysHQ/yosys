@@ -304,7 +304,7 @@ struct VlogHammerReporter
 
 	VlogHammerReporter(RTLIL::Design *design, std::string module_prefix, std::string module_list, std::string input_list, std::string pattern_list) : design(design)
 	{
-		for (const auto& name : split(module_list, ",")) {
+		for (const auto &name : split(module_list, ",")) {
 			RTLIL::IdString esc_name = RTLIL::escape_id(module_prefix + name);
 			if (design->module(esc_name) == nullptr)
 				log_error("Can't find module %s in current design!\n", name.c_str());
@@ -314,7 +314,7 @@ struct VlogHammerReporter
 		}
 
 		total_input_width = 0;
-		for (const auto& name : split(input_list, ",")) {
+		for (const auto &name : split(input_list, ",")) {
 			int width = -1;
 			RTLIL::IdString esc_name = RTLIL::escape_id(name);
 			for (auto mod : modules) {

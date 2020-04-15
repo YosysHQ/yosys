@@ -126,7 +126,7 @@ struct Smt2Worker
 			bool is_output = ct.cell_output(cell->type, conn.first);
 
 			if (is_output && !is_input)
-				for (const auto& bit : sigmap(conn.second)) {
+				for (const auto &bit : sigmap(conn.second)) {
 					if (bit_driver.count(bit))
 						log_error("Found multiple drivers for %s.\n", log_signal(bit));
 					bit_driver[bit] = cell;
@@ -156,7 +156,7 @@ struct Smt2Worker
 			if (cell->type.in(ID($dff), ID($_DFF_P_), ID($_DFF_N_)) && conn.first.in(ID::CLK, ID::C))
 			{
 				bool posedge = (cell->type == ID($_DFF_N_)) || (cell->type == ID($dff) && cell->getParam(ID::CLK_POLARITY).as_bool());
-				for (const auto& bit : sigmap(conn.second)) {
+				for (const auto &bit : sigmap(conn.second)) {
 					if (posedge)
 						clock_posedge.insert(bit);
 					else
@@ -166,7 +166,7 @@ struct Smt2Worker
 			else
 			if (mod_clk_cache.count(cell->type) && mod_clk_cache.at(cell->type).count(conn.first))
 			{
-				for (const auto& bit : sigmap(conn.second)) {
+				for (const auto &bit : sigmap(conn.second)) {
 					if (mod_clk_cache.at(cell->type).at(conn.first).first)
 						clock_posedge.insert(bit);
 					if (mod_clk_cache.at(cell->type).at(conn.first).second)
@@ -175,12 +175,12 @@ struct Smt2Worker
 			}
 			else
 			{
-				for (const auto& bit : sigmap(conn.second))
+				for (const auto &bit : sigmap(conn.second))
 					noclock.insert(bit);
 			}
 		}
 
-		for (const auto& bit : noclock) {
+		for (const auto &bit : noclock) {
 			clock_posedge.erase(bit);
 			clock_negedge.erase(bit);
 		}
@@ -297,7 +297,7 @@ struct Smt2Worker
 
 		SigSpec orig_sig;
 		while (orig_sig != sig) {
-			for (const auto& bit : sig)
+			for (const auto &bit : sig)
 				if (bit_driver.count(bit))
 					export_cell(bit_driver.at(bit));
 			orig_sig = sig;
@@ -345,7 +345,7 @@ struct Smt2Worker
 
 			if (verbose) log("%*s-> external bv: %s\n", 2+2*GetSize(recursive_cells), "",
 					log_signal(sig.extract(i, j)));
-			for (const auto& bit : sig.extract(i, j))
+			for (const auto &bit : sig.extract(i, j))
 				log_assert(bit_driver.count(bit) == 0);
 			makebits(stringf("%s#%d", get_id(module), idcounter), j, log_signal(sig.extract(i, j)));
 			subexpr.push_back(stringf("(|%s#%d| %s)", get_id(module), idcounter, state_name));
@@ -449,7 +449,7 @@ struct Smt2Worker
 		for (char ch : expr)
 			if (ch == 'A' || ch == 'B') {
 				RTLIL::SigSpec sig = sigmap(cell->getPort(stringf("\\%c", ch)));
-				for (const auto& bit : sig)
+				for (const auto &bit : sig)
 					processed_expr += " " + get_bool(bit);
 				if (GetSize(sig) == 1)
 					processed_expr += identity_val ? " true" : " false";
@@ -803,13 +803,13 @@ struct Smt2Worker
 		for (auto cell : module->cells())
 			if (cell->type.in(ID($ff), ID($dff), ID($_FF_), ID($_DFF_P_), ID($_DFF_N_))) {
 				// not using sigmap -- we want the net directly at the dff output
-				for (const auto& bit : cell->getPort(ID::Q))
+				for (const auto &bit : cell->getPort(ID::Q))
 					reg_bits.insert(bit);
 			}
 
 		for (auto wire : module->wires()) {
 			bool is_register = false;
-			for (const auto& bit : SigSpec(wire))
+			for (const auto &bit : SigSpec(wire))
 				if (reg_bits.count(bit))
 					is_register = true;
 			if (wire->port_id || is_register || wire->get_bool_attribute(ID::keep) || (wiresmode && wire->name[0] == '\\')) {
@@ -1232,19 +1232,19 @@ struct Smt2Worker
 		} else
 		if (statedt) {
 			f << stringf("(declare-datatype |%s_s| ((|%s_mk|\n", get_id(module), get_id(module));
-			for (const auto& it : dtmembers)
+			for (const auto &it : dtmembers)
 				f << it;
 			f << stringf(")))\n");
 		} else
 			f << stringf("(declare-sort |%s_s| 0)\n", get_id(module));
 
-		for (const auto& it : decls)
+		for (const auto &it : decls)
 			f << it;
 
 		f << stringf("(define-fun |%s_h| ((state |%s_s|)) Bool ", get_id(module), get_id(module));
 		if (GetSize(hier) > 1) {
 			f << "(and\n";
-			for (const auto& it : hier)
+			for (const auto &it : hier)
 				f << it;
 			f << "))\n";
 		} else
@@ -1256,7 +1256,7 @@ struct Smt2Worker
 		f << stringf("(define-fun |%s_t| ((state |%s_s|) (next_state |%s_s|)) Bool ", get_id(module), get_id(module), get_id(module));
 		if (GetSize(trans) > 1) {
 			f << "(and\n";
-			for (const auto& it : trans)
+			for (const auto &it : trans)
 				f << it;
 			f << "))";
 		} else

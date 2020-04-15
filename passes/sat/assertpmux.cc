@@ -46,7 +46,7 @@ struct AssertpmuxWorker
 		for (auto wire : module->wires())
 		{
 			if (wire->port_output)
-				for (const auto& bit : sigmap(wire))
+				for (const auto &bit : sigmap(wire))
 					sigbit_actsignals[bit] = State::S1;
 		}
 
@@ -73,7 +73,7 @@ struct AssertpmuxWorker
 			{
 				for (auto &conn : cell->connections()) {
 					if (!cell->known() || cell->input(conn.first))
-						for (const auto& bit : sigmap(conn.second))
+						for (const auto &bit : sigmap(conn.second))
 							sigbit_actsignals[bit] = State::S1;
 				}
 			}
@@ -128,7 +128,7 @@ struct AssertpmuxWorker
 		{
 			SigSpec output;
 
-			for (const auto& bit : sig)
+			for (const auto &bit : sig)
 				output.append(get_bit_activation(bit));
 
 			output.sort_and_unify();

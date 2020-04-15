@@ -309,7 +309,7 @@ struct SccPass : public Pass {
 			{
 				for (const auto &cells : worker.sccList)
 				{
-					for (const auto& attr : setAttr)
+					for (const auto &attr : setAttr)
 					{
 						IdString attr_name(RTLIL::escape_id(attr.first));
 						string attr_valstr = attr.second;

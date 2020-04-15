@@ -266,7 +266,7 @@ Aig::Aig(Cell *cell)
 	bool mkname_is_signed = false;
 
 	cell->parameters.sort();
-	for (const auto& p : cell->parameters)
+	for (const auto &p : cell->parameters)
 	{
 		if (p.first == ID::A_WIDTH && mkname_a_signed) {
 			name = mkname_last + stringf(":%d%c", p.second.as_int(), mkname_is_signed ? 'S' : 'U');

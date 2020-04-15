@@ -67,7 +67,7 @@ struct ExclusiveDatabase
 			nonconst_sig = SigSpec();
 			std::vector<Const> values;
 			SigSpec a_port = sigmap(cell->getPort(ID::A));
-			for (const auto& bit : a_port) {
+			for (const auto &bit : a_port) {
 				auto it = sig_cmp_prev.find(bit);
 				if (it == sig_cmp_prev.end()) {
 					nonconst_sig = SigSpec();
@@ -79,7 +79,7 @@ struct ExclusiveDatabase
 					nonconst_sig = SigSpec();
 					break;
 				}
-				for (const auto& value : it->second.second)
+				for (const auto &value : it->second.second)
 					values.push_back(value);
 			}
 			if (nonconst_sig.empty())
@@ -94,7 +94,7 @@ struct ExclusiveDatabase
 		SigSpec nonconst_sig;
 		pool<Const> const_values;
 
-		for (const auto& bit : sig.bits()) {
+		for (const auto &bit : sig.bits()) {
 			auto it = sig_cmp_prev.find(bit);
 			if (it == sig_cmp_prev.end())
 				return false;
@@ -104,7 +104,7 @@ struct ExclusiveDatabase
 			else if (nonconst_sig != it->second.first)
 				return false;
 
-			for (const auto& value : it->second.second)
+			for (const auto &value : it->second.second)
 				if (!const_values.insert(value).second)
 					return false;
 		}
@@ -136,7 +136,7 @@ struct MuxpackWorker
 		for (auto wire : module->wires())
 		{
 			if (wire->port_output || wire->get_bool_attribute(ID::keep)) {
-				for (const auto& bit : sigmap(wire))
+				for (const auto &bit : sigmap(wire))
 					sigbit_with_non_chain_users.insert(bit);
 			}
 		}
@@ -152,7 +152,7 @@ struct MuxpackWorker
 				SigSpec y_sig = sigmap(cell->getPort(ID::Y));
    
 				if (sig_chain_next.count(a_sig))
-					for (const auto& a_bit : a_sig.bits())
+					for (const auto &a_bit : a_sig.bits())
 						sigbit_with_non_chain_users.insert(a_bit);
 				else {
 					sig_chain_next[a_sig] = cell;
@@ -161,7 +161,7 @@ struct MuxpackWorker
 
 				if (!b_sig.empty()) {
 					if (sig_chain_next.count(b_sig))
-						for (const auto& b_bit : b_sig.bits())
+						for (const auto &b_bit : b_sig.bits())
 							sigbit_with_non_chain_users.insert(b_bit);
 					else {
 						sig_chain_next[b_sig] = cell;
@@ -173,9 +173,9 @@ struct MuxpackWorker
 				continue;
 			}
 
-			for (const auto& conn : cell->connections())
+			for (const auto &conn : cell->connections())
 				if (cell->input(conn.first))
-					for (const auto& bit : sigmap(conn.second))
+					for (const auto &bit : sigmap(conn.second))
 						sigbit_with_non_chain_users.insert(bit);
 		}
 	}
@@ -201,7 +201,7 @@ struct MuxpackWorker
 			}
 			else log_abort();
 
-			for (const auto& bit : a_sig.bits())
+			for (const auto &bit : a_sig.bits())
 				if (sigbit_with_non_chain_users.count(bit))
 					goto start_cell;
 

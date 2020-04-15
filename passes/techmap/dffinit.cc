@@ -106,15 +106,15 @@ struct DffinitPass : public Pass {
 							init_bits[sigmap(SigBit(wire, i))] = value[i];
 				}
 				if (wire->port_output)
-					for (const auto& bit : sigmap(wire))
+					for (const auto &bit : sigmap(wire))
 						used_bits.insert(bit);
 			}
 
 			for (auto cell : module->selected_cells())
 			{
-				for (const auto& it : cell->connections())
+				for (const auto &it : cell->connections())
 					if (!cell->known() || cell->input(it.first))
-						for (const auto& bit : sigmap(it.second))
+						for (const auto &bit : sigmap(it.second))
 							used_bits.insert(bit);
 
 				if (ff_types.count(cell->type) == 0)

@@ -172,7 +172,7 @@ struct QwpWorker
 						nodes[idx].alt_tie(alpha_outputs.at(wire) / GetSize(alpha_outputs));
 				}
 
-				for (const auto& bit : sigmap(wire))
+				for (const auto &bit : sigmap(wire))
 					bits_to_nodes[bit].insert(idx);
 			}
 		}
@@ -187,7 +187,7 @@ struct QwpWorker
 			nodes[idx].cell = cell;
 
 			for (auto &conn : cell->connections())
-			for (const auto& bit : sigmap(conn.second))
+			for (const auto &bit : sigmap(conn.second))
 				bits_to_nodes[bit].insert(idx);
 		}
 

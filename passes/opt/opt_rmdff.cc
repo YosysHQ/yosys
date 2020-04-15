@@ -38,9 +38,9 @@ bool sat;
 
 void remove_init_attr(SigSpec sig)
 {
-	for (const auto& bit : assign_map(sig))
+	for (const auto &bit : assign_map(sig))
 		if (init_attributes.count(bit))
-			for (const auto& wbit : init_attributes.at(bit))
+			for (const auto &wbit : init_attributes.at(bit))
 				wbit.wire->attributes.at(ID::init)[wbit.offset] = State::Sx;
 }
 
@@ -242,7 +242,7 @@ bool handle_dlatch(RTLIL::Module *mod, RTLIL::Cell *dlatch)
 	if (sig_e == off_state)
 	{
 		RTLIL::Const val_init;
-		for (const auto& bit : dff_init_map(dlatch->getPort(ID::Q)))
+		for (const auto &bit : dff_init_map(dlatch->getPort(ID::Q)))
 			val_init.bits.push_back(bit.wire == NULL ? bit.data : State::Sx);
 		mod->connect(dlatch->getPort(ID::Q), val_init);
 		goto delete_dlatch;
@@ -337,7 +337,7 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 
 	bool has_init = false;
 	RTLIL::Const val_init;
-	for (const auto& bit : dff_init_map(sig_q).to_sigbit_vector()) {
+	for (const auto &bit : dff_init_map(sig_q).to_sigbit_vector()) {
 		if (bit.wire == NULL || keepdc)
 			has_init = true;
 		val_init.bits.push_back(bit.wire == NULL ? bit.data : RTLIL::State::Sx);
@@ -473,7 +473,7 @@ bool handle_dff(RTLIL::Module *mod, RTLIL::Cell *dff)
 			for (auto &conn : c->connections()) {
 				if (!c->input(conn.first))
 					continue;
-				for (const auto& bit : assign_map(conn.second))
+				for (const auto &bit : assign_map(conn.second))
 					if (bit2driver.count(bit))
 						sat_import_cell(bit2driver.at(bit));
 			}
@@ -604,7 +604,7 @@ struct OptRmdffPass : public Pass {
 				}
 
 				if (wire->port_input) {
-					for (const auto& bit : assign_map(wire))
+					for (const auto &bit : assign_map(wire))
 						driven_bits.insert(bit);
 				}
 			}
@@ -617,7 +617,7 @@ struct OptRmdffPass : public Pass {
 				for (auto &conn : cell->connections()) {
 					bool is_output = cell->output(conn.first);
 					if (is_output || !cell->known())
-						for (const auto& bit : assign_map(conn.second)) {
+						for (const auto &bit : assign_map(conn.second)) {
 							if (is_output)
 								bit2driver[bit] = cell;
 							driven_bits.insert(bit);
@@ -670,17 +670,17 @@ struct OptRmdffPass : public Pass {
 
 			SigSpec const_init_sigs;
 
-			for (const auto& bit : init_bits)
+			for (const auto &bit : init_bits)
 				if (!driven_bits.count(bit.first))
 					const_init_sigs.append(bit.first);
 
 			const_init_sigs.sort_and_unify();
 
-			for (const SigSpec& sig : const_init_sigs.chunks())
+			for (const SigSpec &sig : const_init_sigs.chunks())
 			{
 				Const val;
 
-				for (const auto& bit : sig)
+				for (const auto &bit : sig)
 					val.bits.push_back(init_bits.at(bit));
 
 				log("Promoting init spec %s = %s to constant driver in module %s.\n",

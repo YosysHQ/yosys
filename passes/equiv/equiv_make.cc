@@ -52,7 +52,7 @@ struct EquivMakeWorker
 
 	void read_blacklists()
 	{
-		for (const auto& fn : blacklists)
+		for (const auto &fn : blacklists)
 		{
 			std::ifstream f(fn);
 			if (f.fail())
@@ -72,7 +72,7 @@ struct EquivMakeWorker
 
 	void read_encfiles()
 	{
-		for (const auto& fn : encfiles)
+		for (const auto &fn : encfiles)
 		{
 			std::ifstream f(fn);
 			if (f.fail())
@@ -151,7 +151,7 @@ struct EquivMakeWorker
 		// list of cells without added $equiv cells
 		auto cells_list = equiv_mod->cells().to_vector();
 
-		for (const auto& id : wire_names)
+		for (const auto &id : wire_names)
 		{
 			IdString gold_id = id.str() + "_gold";
 			IdString gate_id = id.str() + "_gate";
@@ -323,7 +323,7 @@ struct EquivMakeWorker
 	{
 		SigMap assign_map(equiv_mod);
 
-		for (const auto& id : cell_names)
+		for (const auto &id : cell_names)
 		{
 			IdString gold_id = id.str() + "_gold";
 			IdString gate_id = id.str() + "_gate";
@@ -336,14 +336,14 @@ struct EquivMakeWorker
 		try_next_cell_name:
 				continue;
 
-			for (const auto& gold_conn : gold_cell->connections())
+			for (const auto &gold_conn : gold_cell->connections())
 				if (!gate_cell->connections().count(gold_conn.first))
 					goto try_next_cell_name;
 
 			log("Presumably equivalent cells: %s %s (%s) -> %s\n",
 					log_id(gold_cell), log_id(gate_cell), log_id(gold_cell->type), log_id(id));
 
-			for (const auto& gold_conn : gold_cell->connections())
+			for (const auto &gold_conn : gold_cell->connections())
 			{
 				SigSpec gold_sig = assign_map(gold_conn.second);
 				SigSpec gate_sig = assign_map(gate_cell->getPort(gold_conn.first));
@@ -374,21 +374,21 @@ struct EquivMakeWorker
 		assign_map.set(equiv_mod);
 
 		for (auto wire : equiv_mod->wires()) {
-			for (const auto& bit : assign_map(wire))
+			for (const auto &bit : assign_map(wire))
 				if (bit.wire)
 					undriven_bits.insert(bit);
 		}
 
 		for (auto wire : equiv_mod->wires()) {
 			if (wire->port_input)
-				for (const auto& bit : assign_map(wire))
+				for (const auto &bit : assign_map(wire))
 					undriven_bits.erase(bit);
 		}
 
 		for (auto cell : equiv_mod->cells()) {
 			for (auto &conn : cell->connections())
 				if (!ct.cell_known(cell->type) || ct.cell_output(cell->type, conn.first))
-					for (const auto& bit : assign_map(conn.second))
+					for (const auto &bit : assign_map(conn.second))
 						undriven_bits.erase(bit);
 		}
 
@@ -396,7 +396,7 @@ struct EquivMakeWorker
 			SigSpec undriven_sig(undriven_bits);
 			undriven_sig.sort_and_unify();
 
-			for (const auto& chunk : undriven_sig.chunks()) {
+			for (const auto &chunk : undriven_sig.chunks()) {
 				log("Setting undriven nets to undef: %s\n", log_signal(chunk));
 				equiv_mod->connect(chunk, SigSpec(State::Sx, chunk.width));
 			}
@@ -411,7 +411,7 @@ struct EquivMakeWorker
 			for (auto &conn : cell->connections())
 			{
 				if (yosys_celltypes.cell_input(cell->type, conn.first))
-					for (const auto& bit : assign_map(conn.second))
+					for (const auto &bit : assign_map(conn.second))
 					{
 						bit2driven[bit].insert(cell);
 					}
@@ -443,7 +443,7 @@ struct EquivMakeWorker
 				if (yosys_celltypes.cell_input(driven_cell->type, conn.first))
 					continue;
 
-				for (const auto& bit: conn.second) {
+				for (const auto &bit: conn.second) {
 					bool is_in_fanout = check_signal_in_fanout(visited_cells, bit, target_bit);
 					if (is_in_fanout == true)
 						return true;

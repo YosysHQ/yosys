@@ -49,13 +49,13 @@ struct proc_dlatch_db_t
 					mux_drivers[sig_y[i]] = pair<Cell*, int>(cell, i);
 
 				pool<SigBit> mux_srcbits_pool;
-				for (const auto& bit : sigmap(cell->getPort(ID::A)))
+				for (const auto &bit : sigmap(cell->getPort(ID::A)))
 					mux_srcbits_pool.insert(bit);
-				for (const auto& bit : sigmap(cell->getPort(ID::B)))
+				for (const auto &bit : sigmap(cell->getPort(ID::B)))
 					mux_srcbits_pool.insert(bit);
 
 				vector<SigBit> mux_srcbits_vec;
-				for (const auto& bit : mux_srcbits_pool)
+				for (const auto &bit : mux_srcbits_pool)
 					if (bit.wire != nullptr)
 						mux_srcbits_vec.push_back(bit);
 
@@ -64,13 +64,13 @@ struct proc_dlatch_db_t
 
 			for (auto &conn : cell->connections())
 				if (!cell->known() || cell->input(conn.first))
-					for (const auto& bit : sigmap(conn.second))
+					for (const auto &bit : sigmap(conn.second))
 						sigusers[bit]++;
 		}
 
 		for (auto wire : module->wires())
 			if (wire->port_input)
-				for (const auto& bit : sigmap(wire))
+				for (const auto &bit : sigmap(wire))
 					sigusers[bit]++;
 	}
 
@@ -96,7 +96,7 @@ struct proc_dlatch_db_t
 			bits_queue.clear();
 
 			for (auto c : cells_queue) {
-				for (const auto& bit : mux_srcbits[c]) {
+				for (const auto &bit : mux_srcbits[c]) {
 					if (needle_bits.count(bit))
 						return true;
 					if (!bits_visited.count(bit))
@@ -302,12 +302,12 @@ struct proc_dlatch_db_t
 		ct.setup_internals();
 
 		for (auto cell : module->cells())
-		for (const auto& conn : cell->connections()) {
+		for (const auto &conn : cell->connections()) {
 			if (cell->input(conn.first))
-				for (const auto& bit : sigmap(conn.second))
+				for (const auto &bit : sigmap(conn.second))
 					upstream_cell2net[cell].insert(bit);
 			if (cell->output(conn.first))
-				for (const auto& bit : sigmap(conn.second))
+				for (const auto &bit : sigmap(conn.second))
 					upstream_net2cell[bit].insert(cell);
 		}
 
@@ -319,7 +319,7 @@ struct proc_dlatch_db_t
 			for (auto cell : queue) {
 				if (cell->type.in(ID($mux), ID($pmux)))
 					fixup_mux(cell);
-				for (const auto& bit : upstream_cell2net[cell])
+				for (const auto &bit : upstream_cell2net[cell])
 					for (auto cell : upstream_net2cell[bit])
 						next_queue.insert(cell);
 				visited.insert(cell);
@@ -385,7 +385,7 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 	}
 
 	int offset = 0;
-	for (const auto& chunk : nolatches_bits.first.chunks()) {
+	for (const auto &chunk : nolatches_bits.first.chunks()) {
 		SigSpec lhs = chunk, rhs = nolatches_bits.second.extract(offset, chunk.width);
 		if (proc->get_bool_attribute(ID::always_latch))
 			log_error("No latch inferred for signal `%s.%s' from always_latch process `%s.%s'.\n",

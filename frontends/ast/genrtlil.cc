@@ -378,7 +378,7 @@ struct AST_INTERNAL::ProcessGenerator
 
 		if (run_sort_and_unify) {
 			std::set<RTLIL::SigBit> sorted_reg;
-			for (const auto& bit : reg)
+			for (const auto &bit : reg)
 				if (bit.wire)
 					sorted_reg.insert(bit);
 			reg = RTLIL::SigSpec(sorted_reg);

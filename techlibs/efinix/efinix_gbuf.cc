@@ -35,13 +35,13 @@ static void handle_gbufs(Module *module)
 	for (auto cell : module->cells())
 	{
 		if (cell->type == ID(EFX_FF)) {
-			for (const auto& bit : sigmap(cell->getPort(ID::CLK)))
+			for (const auto &bit : sigmap(cell->getPort(ID::CLK)))
 				clk_bits.insert(bit);
 		}
 		if (cell->type == ID(EFX_RAM_5K)) {
-			for (const auto& bit : sigmap(cell->getPort(ID(RCLK))))
+			for (const auto &bit : sigmap(cell->getPort(ID(RCLK))))
 				clk_bits.insert(bit);
-			for (const auto& bit : sigmap(cell->getPort(ID(WCLK))))
+			for (const auto &bit : sigmap(cell->getPort(ID(WCLK))))
 				clk_bits.insert(bit);
 		}
 	}

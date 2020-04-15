@@ -28,10 +28,10 @@ PRIVATE_NAMESPACE_BEGIN
 pool<Cell*> get_other_cells(const RTLIL::SigSpec& port, ModIndex& index, Cell* src)
 {
 	pool<Cell*> rval;
-	for(const auto& b : port)
+	for(const auto &b : port)
 	{
 		pool<ModIndex::PortInfo> ports = index.query_ports(b);
-		for(const auto& x : ports)
+		for(const auto &x : ports)
 		{
 			if(x.cell == src)
 				continue;
@@ -52,12 +52,12 @@ bool is_full_bus(
 	RTLIL::IdString bp,
 	bool other_conns_allowed = false)
 {
-	for(const auto& s : sig)
+	for(const auto &s : sig)
 	{
 		pool<ModIndex::PortInfo> ports = index.query_ports(s);
 		bool found_a = false;
 		bool found_b = false;
-		for(const auto& x : ports)
+		for(const auto &x : ports)
 		{
 			if( (x.cell == a) && (x.port == ap) )
 				found_a = true;
@@ -77,7 +77,7 @@ bool is_full_bus(
 //return true if the signal connects to one port only (nothing on the other end)
 bool is_unconnected(const RTLIL::SigSpec& port, ModIndex& index)
 {
-	for(const auto& b : port)
+	for(const auto &b : port)
 	{
 		pool<ModIndex::PortInfo> ports = index.query_ports(b);
 		if(ports.size() > 1)
@@ -427,10 +427,10 @@ int counter_tryextract(
 			//Figure out what port(s) are driven by it
 			//TODO: this can probably be done more efficiently w/o multiple iterations over our whole net?
 			//TODO: For what purpose do we actually need extract.pouts?
-			for(const auto& b : qport)
+			for(const auto &b : qport)
 			{
 				pool<ModIndex::PortInfo> ports = index.query_ports(b);
-				for(const auto& x : ports)
+				for(const auto &x : ports)
 				{
 					if(x.cell != c)
 						continue;
@@ -440,7 +440,7 @@ int counter_tryextract(
 			}
 		}
 	}
-	for (const auto& b : qport)
+	for (const auto &b : qport)
 	{
 		if(index.query_is_output(b))
 		{
@@ -697,7 +697,7 @@ void counter_worker(
 	cell->setParam(ID(RESET_TO_MAX), RTLIL::Const(0));
 
 	//Hook up any parallel outputs
-	for(const auto& load : extract.pouts)
+	for(const auto &load : extract.pouts)
 	{
 		log("    Counter has parallel output to cell %s port %s\n", log_id(load.cell->name), log_id(load.port));
 	}
@@ -893,7 +893,7 @@ struct ExtractCounterPass : public Pass {
 				module->remove(cell);
 			}
 
-			for(const auto& cpair : cells_to_rename)
+			for(const auto &cpair : cells_to_rename)
 			{
 				//log("Renaming cell %s to %s\n", log_id(cpair.first->name), cpair.second.c_str());
 				module->rename(cpair.first, cpair.second);

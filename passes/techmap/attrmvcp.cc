@@ -96,11 +96,11 @@ struct AttrmvcpPass : public Pass {
 			{
 				if (driven_mode) {
 					if (cell->input(conn.first))
-						for (const auto& bit : sigmap(conn.second))
+						for (const auto &bit : sigmap(conn.second))
 							net2cells[bit].insert(cell);
 				} else {
 					if (cell->output(conn.first))
-						for (const auto& bit : sigmap(conn.second))
+						for (const auto &bit : sigmap(conn.second))
 							net2cells[bit].insert(cell);
 				}
 			}
@@ -109,7 +109,7 @@ struct AttrmvcpPass : public Pass {
 			{
 				dict<IdString, Const> new_attributes;
 
-				for (const auto& attr : wire->attributes)
+				for (const auto &attr : wire->attributes)
 				{
 					bool did_something = false;
 
@@ -118,7 +118,7 @@ struct AttrmvcpPass : public Pass {
 						continue;
 					}
 
-					for (const auto& bit : sigmap(wire))
+					for (const auto &bit : sigmap(wire))
 						if (net2cells.count(bit))
 							for (auto cell : net2cells.at(bit)) {
 								log("Moving attribute %s=%s from %s.%s to %s.%s.\n", log_id(attr.first), log_const(attr.second),

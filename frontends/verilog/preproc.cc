@@ -823,7 +823,7 @@ frontend_verilog_preproc(std::istream                 &f,
 			if (ff.fail() && fn.size() > 0 && fn_relative) {
 				// if the include file was not found and it is not given with an absolute path, then
 				// search it in the include path
-				for (const auto& incdir : include_dirs) {
+				for (const auto &incdir : include_dirs) {
 					ff.clear();
 					fixed_fn = incdir + '/' + fn;
 					ff.open(fixed_fn);

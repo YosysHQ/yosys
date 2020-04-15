@@ -146,14 +146,14 @@ struct Greenpak4DffInvPass : public Pass {
 				if (!wire->port_output)
 					continue;
 
-				for (const auto& bit : sigmap(wire))
+				for (const auto &bit : sigmap(wire))
 					sig_use_cnt[bit]++;
 			}
 
 			for (auto cell : module->cells())
 			for (auto &conn : cell->connections())
 				if (cell->input(conn.first) || !cell->known())
-					for (const auto& bit : sigmap(conn.second))
+					for (const auto &bit : sigmap(conn.second))
 						sig_use_cnt[bit]++;
 
 			for (auto cell : module->selected_cells())

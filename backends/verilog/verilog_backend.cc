@@ -312,7 +312,7 @@ void dump_reg_init(std::ostream &f, SigSpec sig)
 	Const initval;
 	bool gotinit = false;
 
-	for (const auto& bit : active_sigmap(sig)) {
+	for (const auto &bit : active_sigmap(sig)) {
 		if (active_initdata.count(bit)) {
 			initval.bits.push_back(active_initdata.at(bit));
 			gotinit = true;

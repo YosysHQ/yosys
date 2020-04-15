@@ -126,7 +126,7 @@ struct WreduceWorker
 			new_work_queue_bits.append(sig_b.extract(k*GetSize(sig_a) + n_kept, n_removed));
 		}
 
-		for (const auto& bit : new_work_queue_bits)
+		for (const auto &bit : new_work_queue_bits)
 			work_queue_bits.insert(bit);
 
 		cell->setPort(ID::A, new_sig_a);
@@ -213,10 +213,10 @@ struct WreduceWorker
 		log("Removed top %d bits (of %d) from FF cell %s.%s (%s).\n", width_before - GetSize(sig_q), width_before,
 				log_id(module), log_id(cell), log_id(cell->type));
 
-		for (const auto& bit : sig_d)
+		for (const auto &bit : sig_d)
 			work_queue_bits.insert(bit);
 
-		for (const auto& bit : sig_q)
+		for (const auto &bit : sig_q)
 			work_queue_bits.insert(bit);
 
 		// Narrow ARST_VALUE parameter to new size.
@@ -241,7 +241,7 @@ struct WreduceWorker
 		int bits_removed = 0;
 		if (GetSize(sig) > max_port_size) {
 			bits_removed = GetSize(sig) - max_port_size;
-			for (const auto& bit : sig.extract(max_port_size, bits_removed))
+			for (const auto &bit : sig.extract(max_port_size, bits_removed))
 				work_queue_bits.insert(bit);
 			sig = sig.extract(0, max_port_size);
 		}
@@ -404,7 +404,7 @@ struct WreduceWorker
 
 		for (auto w : module->wires()) {
 			if (w->get_bool_attribute(ID::keep))
-				for (const auto& bit : mi.sigmap(w))
+				for (const auto &bit : mi.sigmap(w))
 					keep_bits.insert(bit);
 			if (w->attributes.count(ID::init)) {
 				Const initval = w->attributes.at(ID::init);
@@ -425,8 +425,8 @@ struct WreduceWorker
 				run_cell(c);
 
 			work_queue_cells.clear();
-			for (const auto& bit : work_queue_bits)
-			for (const auto& port : mi.query_ports(bit))
+			for (const auto &bit : work_queue_bits)
+			for (const auto &port : mi.query_ports(bit))
 				if (module->selected(port.cell))
 					work_queue_cells.insert(port.cell);
 		}

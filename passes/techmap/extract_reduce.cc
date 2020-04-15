@@ -93,12 +93,12 @@ struct ExtractReducePass : public Pass
 				for (auto &conn : cell->connections())
 				{
 					if (cell->output(conn.first))
-						for (const auto& bit : sigmap(conn.second))
+						for (const auto &bit : sigmap(conn.second))
 							sig_to_driver[bit] = cell;
 
 					if (cell->input(conn.first))
 					{
-						for (const auto& bit : sigmap(conn.second))
+						for (const auto &bit : sigmap(conn.second))
 						{
 							if (sig_to_sink.count(bit) == 0)
 								sig_to_sink[bit] = pool<Cell*>();
@@ -112,7 +112,7 @@ struct ExtractReducePass : public Pass
 			pool<SigBit> port_sigs;
 			for (auto wire : module->selected_wires())
 				if (wire->port_input || wire->port_output)
-					for (const auto& bit : sigmap(wire))
+					for (const auto &bit : sigmap(wire))
 						port_sigs.insert(bit);
 
 			// Actual logic starts here
@@ -284,7 +284,7 @@ struct ExtractReducePass : public Pass
 							input_pool_intermed.insert(sigmap(x->getPort(ID::Y))[0]);
 						}
 						SigSpec input;
-						for (const auto& b : input_pool)
+						for (const auto &b : input_pool)
 							if (input_pool_intermed.count(b) == 0)
 								input.append(b);
 

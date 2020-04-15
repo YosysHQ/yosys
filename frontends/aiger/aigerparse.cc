@@ -105,7 +105,7 @@ struct ConstEvalAig
 			if (it != values_map.end()) {
 				RTLIL::State current_val = it->second;
 				if (current_val != value[i])
-					for (const auto& dep : sig2deps[sig[i]])
+					for (const auto &dep : sig2deps[sig[i]])
 						values_map.erase(dep);
 				it->second = value[i];
 			}

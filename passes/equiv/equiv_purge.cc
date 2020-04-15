@@ -105,10 +105,10 @@ struct EquivPurgeWorker
 			if (cell->type != ID($equiv)) {
 				for (auto &port : cell->connections()) {
 					if (cell->input(port.first))
-						for (const auto& bit : sigmap(port.second))
+						for (const auto &bit : sigmap(port.second))
 							up_cell2bits[cell->name].insert(bit);
 					if (cell->output(port.first))
-						for (const auto& bit : sigmap(port.second))
+						for (const auto &bit : sigmap(port.second))
 							up_bit2cells[bit].insert(cell->name);
 				}
 				continue;
@@ -121,13 +121,13 @@ struct EquivPurgeWorker
 			if (sig_a == sig_b)
 				continue;
 
-			for (const auto& bit : sig_a)
+			for (const auto &bit : sig_a)
 				queue.insert(bit);
 
-			for (const auto& bit : sig_b)
+			for (const auto &bit : sig_b)
 				queue.insert(bit);
 
-			for (const auto& bit : sig_y)
+			for (const auto &bit : sig_y)
 				visited.insert(bit);
 
 			cell->setPort(ID::Y, make_output(sig_y, cell->name));
@@ -140,18 +140,18 @@ struct EquivPurgeWorker
 		{
 			pool<SigBit> next_queue;
 
-			for (const auto& bit : queue)
+			for (const auto &bit : queue)
 				visited.insert(bit);
 
-			for (const auto& bit : queue)
+			for (const auto &bit : queue)
 			{
 				auto &cells = up_bit2cells[bit];
 
 				if (cells.empty()) {
 					srcsig.append(bit);
 				} else {
-					for (const auto& cell : cells)
-					for (const auto& bit : up_cell2bits[cell])
+					for (const auto &cell : cells)
+					for (const auto &bit : up_cell2bits[cell])
 						if (visited.count(bit) == 0)
 							next_queue.insert(bit);
 				}
@@ -162,7 +162,7 @@ struct EquivPurgeWorker
 
 		srcsig.sort_and_unify();
 
-		for (const SigChunk& chunk : srcsig.chunks())
+		for (const SigChunk &chunk : srcsig.chunks())
 			if (chunk.wire != nullptr)
 				rewrite_sigmap.add(chunk, make_input(chunk));
 

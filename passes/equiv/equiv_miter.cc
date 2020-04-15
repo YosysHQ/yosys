@@ -59,7 +59,7 @@ struct EquivMiterWorker
 				continue;
 			if (c->type == ID($equiv) && (conn.first == ID::A) != gold_mode)
 				continue;
-			for (const auto& bit : sigmap(conn.second))
+			for (const auto &bit : sigmap(conn.second))
 				if (bit_to_driver.count(bit))
 					follow_cone(cone, leaves, bit_to_driver.at(bit), gold_mode);
 		}
@@ -74,7 +74,7 @@ struct EquivMiterWorker
 		for (auto c : source_module->cells())
 			for (auto &conn : c->connections())
 				if (ct.cell_output(c->type, conn.first))
-					for (const auto& bit : sigmap(conn.second))
+					for (const auto &bit : sigmap(conn.second))
 						if (bit.wire)
 							bit_to_driver[bit] = c;
 
@@ -130,7 +130,7 @@ struct EquivMiterWorker
 
 		for (auto c : miter_cells)
 			for (auto &conn : c->connections())
-				for (const auto& bit : sigmap(conn.second))
+				for (const auto &bit : sigmap(conn.second))
 					if (bit.wire)
 						miter_wires.insert(bit.wire);
 		log("Selected %d miter wires.\n", GetSize(miter_wires));
@@ -175,11 +175,11 @@ struct EquivMiterWorker
 		for (auto c : miter_module->cells())
 		for (auto &conn : c->connections()) {
 			if (ct.cell_input(c->type, conn.first))
-				for (const auto& bit : conn.second)
+				for (const auto &bit : conn.second)
 					if (bit.wire)
 						used_bits.insert(bit);
 			if (ct.cell_output(c->type, conn.first))
-				for (const auto& bit : conn.second)
+				for (const auto &bit : conn.second)
 					if (bit.wire)
 						driven_bits.insert(bit);
 		}
@@ -187,7 +187,7 @@ struct EquivMiterWorker
 		// create ports
 
 		for (auto w : miter_module->wires()) {
-			for (const auto& bit : SigSpec(w)) {
+			for (const auto &bit : SigSpec(w)) {
 				if (driven_bits.count(bit) && !used_bits.count(bit))
 					w->port_output = true;
 				if (!driven_bits.count(bit) && used_bits.count(bit))

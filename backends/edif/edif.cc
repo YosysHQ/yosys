@@ -192,7 +192,7 @@ struct EdifBackend : public Backend {
 			{
 				if (design->module(cell->type) == nullptr || design->module(cell->type)->get_blackbox_attribute()) {
 					lib_cell_ports[cell->type];
-					for (const auto& p : cell->connections())
+					for (const auto &p : cell->connections())
 						lib_cell_ports[cell->type][p.first] = GetSize(p.second);
 				}
 			}

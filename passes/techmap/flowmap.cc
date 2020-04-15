@@ -142,7 +142,7 @@ static void dump_dot_graph(string filename,
 	fprintf(f, "  rankdir=\"TB\";\n");
 
 	dict<RTLIL::SigBit, int> ids;
-	for (const auto& node : nodes)
+	for (const auto &node : nodes)
 	{
 		ids[node] = ids.size();
 
@@ -160,21 +160,21 @@ static void dump_dot_graph(string filename,
 	}
 
 	fprintf(f, "  { rank=\"source\"; ");
-	for (const auto& input : inputs)
+	for (const auto &input : inputs)
 		if (nodes[input])
 			fprintf(f, "n%d; ", ids[input]);
 	fprintf(f, "}\n");
 
 	fprintf(f, "  { rank=\"sink\"; ");
-	for (const auto& output : outputs)
+	for (const auto &output : outputs)
 		if (nodes[output])
 			fprintf(f, "n%d; ", ids[output]);
 	fprintf(f, "}\n");
 
-	for (const auto& edge : edges)
+	for (const auto &edge : edges)
 	{
 		auto source = edge.first;
-		for (const auto& sink : edge.second) {
+		for (const auto &sink : edge.second) {
 			if (nodes[source] && nodes[sink])
 			{
 				auto prop = edge_style(source, sink);
@@ -205,7 +205,7 @@ struct FlowGraph
 	{
 		auto node_style = [&](RTLIL::SigBit node) {
 			string label = (node == source) ? "(source)" : log_signal(node);
-			for (const auto& collapsed_node : collapsed[node])
+			for (const auto &collapsed_node : collapsed[node])
 				label += stringf(" %s", log_signal(collapsed_node));
 			int flow = node_flow[node];
 			if (node != source && node != sink)
@@ -300,7 +300,7 @@ struct FlowGraph
 				}
 				else
 				{
-					for (const auto& node_pred : edges_bw[node_prime.node])
+					for (const auto &node_pred : edges_bw[node_prime.node])
 					{
 						if (!visited[NodePrime::bottom(node_pred)] && edge_flow[{node_pred, node_prime.node}] > 0)
 						{
@@ -320,7 +320,7 @@ struct FlowGraph
 				}
 				else
 				{
-					for (const auto& node_succ : edges_fw[node_prime.node])
+					for (const auto &node_succ : edges_fw[node_prime.node])
 					{
 						if (!visited[NodePrime::top(node_succ)] /* && edge_flow[...] < ∞ */)
 						{
@@ -342,7 +342,7 @@ struct FlowGraph
 		if (commit && path.back() == sink_prime)
 		{
 			auto prev_prime = path.front();
-			for (const auto& node_prime : path)
+			for (const auto &node_prime : path)
 			{
 				if (node_prime == source_prime)
 					continue;
@@ -416,7 +416,7 @@ struct FlowGraph
 			{
 				if (node_flow[node_prime.node] < MAX_NODE_FLOW)
 					worklist.push_back(node_prime.as_bottom());
-				for (const auto& node_pred : edges_bw[node_prime.node])
+				for (const auto &node_pred : edges_bw[node_prime.node])
 					if (edge_flow[{node_pred, node_prime.node}] > 0)
 						worklist.push_back(NodePrime::bottom(node_pred));
 			}
@@ -424,17 +424,17 @@ struct FlowGraph
 			{
 				if (node_flow[node_prime.node] > 0)
 					worklist.push_back(node_prime.as_top());
-				for (const auto& node_succ : edges_fw[node_prime.node])
+				for (const auto &node_succ : edges_fw[node_prime.node])
 					if (true /* edge_flow[...] < ∞ */)
 						worklist.push_back(NodePrime::top(node_succ));
 			}
 		}
 
-		for (const auto& node : nodes)
+		for (const auto &node : nodes)
 			if (!x[node])
 				xi.insert(node);
 
-		for (const auto& collapsed_node : collapsed[sink])
+		for (const auto &collapsed_node : collapsed[sink])
 			xi.insert(collapsed_node);
 
 		log_assert(x[source] && !xi[source]);
@@ -487,7 +487,7 @@ struct FlowmapWorker
 
 		auto node_style = [&](RTLIL::SigBit node) {
 			string label = log_signal(node);
-			for (const auto& collapsed_node : collapsed[node])
+			for (const auto &collapsed_node : collapsed[node])
 				if (collapsed_node != node)
 					label += stringf(" %s", log_signal(collapsed_node));
 			switch (mode)
@@ -540,7 +540,7 @@ struct FlowmapWorker
 		{
 			auto node = worklist.pop();
 			subgraph.insert(node);
-			for (const auto& source : edges_bw[node])
+			for (const auto &source : edges_bw[node])
 			{
 				if (!subgraph[source])
 					worklist.insert(source);
@@ -565,7 +565,7 @@ struct FlowmapWorker
 				flow_graph.collapsed[collapsed_node].insert(node);
 			flow_graph.nodes.insert(collapsed_node);
 
-			for (const auto& node_pred : edges_bw[node])
+			for (const auto &node_pred : edges_bw[node])
 			{
 				auto collapsed_node_pred = labels[node_pred] == p ? sink : node_pred;
 				if (node_pred != collapsed_node_pred)
@@ -599,11 +599,11 @@ struct FlowmapWorker
 				log_error("Cell %s (%s.%s) is unknown.\n", cell->type.c_str(), log_id(module), log_id(cell));
 
 			pool<RTLIL::SigBit> fanout;
-			for (const auto& conn : cell->connections())
+			for (const auto &conn : cell->connections())
 			{
 				if (!cell->output(conn.first)) continue;
 				int offset = -1;
-				for (const auto& bit : conn.second)
+				for (const auto &bit : conn.second)
 				{
 					offset++;
 					if (!bit.wire) continue;
@@ -617,13 +617,13 @@ struct FlowmapWorker
 			}
 
 			int fanin = 0;
-			for (const auto& conn : cell->connections())
+			for (const auto &conn : cell->connections())
 			{
 				if (!cell->input(conn.first)) continue;
-				for (const auto& bit : sigmap(conn.second))
+				for (const auto &bit : sigmap(conn.second))
 				{
 					if (!bit.wire) continue;
-					for (const auto& fanout_bit : fanout)
+					for (const auto &fanout_bit : fanout)
 					{
 						edges_fw[bit].insert(fanout_bit);
 						edges_bw[fanout_bit].insert(bit);
@@ -640,7 +640,7 @@ struct FlowmapWorker
 			gate_area += 1 << fanin;
 		}
 
-		for (const auto& edge : edges_fw)
+		for (const auto &edge : edges_fw)
 		{
 			if (!nodes[edge.first])
 			{
@@ -649,12 +649,12 @@ struct FlowmapWorker
 			}
 		}
 
-		for (const auto& node : nodes)
+		for (const auto &node : nodes)
 		{
 			auto node_info = index.query(node);
 			if (node_info->is_output && !inputs[node])
 				outputs.insert(node);
-			for (const auto& port : node_info->ports)
+			for (const auto &port : node_info->ports)
 				if (!cell_types[port.cell->type] && !inputs[node])
 					outputs.insert(node);
 		}
@@ -668,9 +668,9 @@ struct FlowmapWorker
 
 	void label_nodes()
 	{
-		for (const auto& node : nodes)
+		for (const auto &node : nodes)
 			labels[node] = -1;
-		for (const auto& input : inputs)
+		for (const auto &input : inputs)
 		{
 			if (input.wire->attributes.count(ID($flowmap_level)))
 				labels[input] = input.wire->attributes[ID($flowmap_level)].as_int();
@@ -687,7 +687,7 @@ struct FlowmapWorker
 				continue;
 
 			bool inputs_have_labels = true;
-			for (const auto& sink_input : edges_bw[sink])
+			for (const auto &sink_input : edges_bw[sink])
 			{
 				if (labels[sink_input] == -1)
 				{
@@ -707,7 +707,7 @@ struct FlowmapWorker
 			pool<RTLIL::SigBit> subgraph = find_subgraph(sink);
 
 			int p = 1;
-			for (const auto& subgraph_node : subgraph)
+			for (const auto &subgraph_node : subgraph)
 				p = max(p, labels[subgraph_node]);
 
 			FlowGraph flow_graph = build_flow_graph(sink, p);
@@ -730,15 +730,15 @@ struct FlowmapWorker
 			lut_gates[sink] = xi;
 
 			pool<RTLIL::SigBit> k;
-			for (const auto& xi_node : xi)
+			for (const auto &xi_node : xi)
 			{
-				for (const auto& xi_node_pred : edges_bw[xi_node])
+				for (const auto &xi_node_pred : edges_bw[xi_node])
 					if (x[xi_node_pred])
 						k.insert(xi_node_pred);
 			}
 			log_assert((int)k.size() <= order);
 			lut_edges_bw[sink] = k;
-			for (const auto& k_node : k)
+			for (const auto &k_node : k)
 				lut_edges_fw[k_node].insert(sink);
 
 			if (debug)
@@ -749,16 +749,16 @@ struct FlowmapWorker
 				flow_graph.dump_dot_graph(stringf("flowmap-%d-flow.dot", debug_num));
 				log("  Dumped flow graph to `flowmap-%d-flow.dot`.\n", debug_num);
 				log("    LUT inputs:");
-				for (const auto& k_node : k)
+				for (const auto &k_node : k)
 					log(" %s", log_signal(k_node));
 				log(".\n");
 				log("    LUT packed gates:");
-				for (const auto& xi_node : xi)
+				for (const auto &xi_node : xi)
 					log(" %s", log_signal(xi_node));
 				log(".\n");
 			}
 
-			for (const auto& sink_succ : edges_fw[sink])
+			for (const auto &sink_succ : edges_fw[sink])
 				worklist.insert(sink_succ);
 		}
 
@@ -776,13 +776,13 @@ struct FlowmapWorker
 		{
 			auto lut_node = worklist.pop();
 			lut_nodes.insert(lut_node);
-			for (const auto& input_node : lut_edges_bw[lut_node])
+			for (const auto &input_node : lut_edges_bw[lut_node])
 				if (!lut_nodes[input_node] && !inputs[input_node])
 					worklist.insert(input_node);
 		}
 
 		int depth = 0;
-		for (const auto& label : labels)
+		for (const auto &label : labels)
 			depth = max(depth, label.second);
 		log("Mapped to %d LUTs with maximum depth %d.\n", GetSize(lut_nodes), depth);
 
@@ -805,7 +805,7 @@ struct FlowmapWorker
 				continue;
 
 			bool realized_successors = false;
-			for (const auto& lut_succ : lut_edges_fw[lut])
+			for (const auto &lut_succ : lut_edges_fw[lut])
 				if (lut_nodes[lut_succ])
 					realized_successors = true;
 
@@ -816,7 +816,7 @@ struct FlowmapWorker
 			else
 				continue;
 
-			for (const auto& lut_pred : lut_edges_bw[lut])
+			for (const auto &lut_pred : lut_edges_bw[lut])
 				worklist.insert(lut_pred);
 
 			if (changed)
@@ -864,7 +864,7 @@ struct FlowmapWorker
 		while (!worklist.empty())
 		{
 			auto node = worklist.pop();
-			for (const auto& node_pred : edges_bw[node])
+			for (const auto &node_pred : edges_bw[node])
 			{
 				if (node_pred == lut_gate)
 					continue;
@@ -889,7 +889,7 @@ struct FlowmapWorker
 
 		if (initial.empty())
 			initial = terminals;
-		for (const auto& node : initial)
+		for (const auto &node : initial)
 			lut_distances.erase(node);
 
 		pool<RTLIL::SigBit> worklist = initial;
@@ -899,7 +899,7 @@ struct FlowmapWorker
 			int lut_distance = 0;
 			if (forward && inputs[lut])
 				lut_distance = labels[lut]; // to support (* $flowmap_level=n *)
-			for (const auto& lut_prev : lut_edges_prev[lut])
+			for (const auto &lut_prev : lut_edges_prev[lut])
 				if ((lut_nodes[lut_prev] || inputs[lut_prev]) && lut_distances.count(lut_prev))
 					lut_distance = max(lut_distance, lut_distances[lut_prev] + 1);
 			if (!lut_distances.count(lut) || lut_distances[lut] != lut_distance)
@@ -907,7 +907,7 @@ struct FlowmapWorker
 				lut_distances[lut] = lut_distance;
 				if (changed != nullptr && !inputs[lut])
 					changed->insert(lut);
-				for (const auto& lut_next : lut_edges_next[lut])
+				for (const auto &lut_next : lut_edges_next[lut])
 					if (lut_nodes[lut_next] || inputs[lut_next])
 						worklist.insert(lut_next);
 			}
@@ -918,7 +918,7 @@ struct FlowmapWorker
 	{
 		dict<RTLIL::SigBit, int> gold_lut_distances;
 		compute_lut_distances(gold_lut_distances, forward);
-		for (const auto& lut_distance : lut_distances)
+		for (const auto &lut_distance : lut_distances)
 			if (lut_nodes[lut_distance.first])
 				log_assert(lut_distance.second == gold_lut_distances[lut_distance.first]);
 	}
@@ -946,7 +946,7 @@ struct FlowmapWorker
 		while (!worklist.empty())
 		{
 			bool updated_some = false;
-			for (const auto& lut : worklist)
+			for (const auto &lut : worklist)
 			{
 				if (outputs[lut])
 					lut_critical_outputs[lut] = {lut};
@@ -954,7 +954,7 @@ struct FlowmapWorker
 				{
 					bool all_succ_computed = true;
 					lut_critical_outputs[lut] = {};
-					for (const auto& lut_succ : lut_edges_fw[lut])
+					for (const auto &lut_succ : lut_edges_fw[lut])
 					{
 						if (lut_nodes[lut_succ] && lut_depths[lut_succ] == lut_depths[lut] + 1)
 						{
@@ -992,7 +992,7 @@ struct FlowmapWorker
 			auto lut = worklist.pop();
 			changed.insert(lut);
 			lut_critical_outputs.erase(lut);
-			for (const auto& lut_pred : lut_edges_bw[lut])
+			for (const auto &lut_pred : lut_edges_bw[lut])
 			{
 				if (lut_nodes[lut_pred] && !changed[lut_pred])
 				{
@@ -1008,7 +1008,7 @@ struct FlowmapWorker
 	{
 		dict<RTLIL::SigBit, pool<RTLIL::SigBit>> gold_lut_critical_outputs;
 		compute_lut_critical_outputs(gold_lut_critical_outputs);
-		for (const auto& lut_critical_output : lut_critical_outputs)
+		for (const auto &lut_critical_output : lut_critical_outputs)
 			if (lut_nodes[lut_critical_output.first])
 				log_assert(lut_critical_output.second == gold_lut_critical_outputs[lut_critical_output.first]);
 	}
@@ -1029,7 +1029,7 @@ struct FlowmapWorker
 	void update_breaking_node_potentials(dict<RTLIL::SigBit, dict<RTLIL::SigBit, int>> &potentials,
 	                                     const dict<RTLIL::SigBit, pool<RTLIL::SigBit>> &lut_critical_outputs)
 	{
-		for (const auto& lut : lut_nodes)
+		for (const auto &lut : lut_nodes)
 		{
 			if (potentials.count(lut))
 				continue;
@@ -1039,7 +1039,7 @@ struct FlowmapWorker
 			if (debug_relax)
 				log("  Computing potentials for LUT %s.\n", log_signal(lut));
 
-			for (const auto& lut_gate : lut_gates[lut])
+			for (const auto &lut_gate : lut_gates[lut])
 			{
 				if (lut == lut_gate)
 					continue;
@@ -1059,7 +1059,7 @@ struct FlowmapWorker
 				}
 
 				pool<RTLIL::SigBit> elim_fanin_luts;
-				for (const auto& gate_input : gate_inputs)
+				for (const auto &gate_input : gate_inputs)
 				{
 					if (lut_edges_fw[gate_input].size() == 1)
 					{
@@ -1074,14 +1074,14 @@ struct FlowmapWorker
 					if (!gate_inputs.empty())
 					{
 						log("      Breaking eliminates LUT inputs");
-						for (const auto& gate_input : gate_inputs)
+						for (const auto &gate_input : gate_inputs)
 							log(" %s", log_signal(gate_input));
 						log(".\n");
 					}
 					if (!elim_fanin_luts.empty())
 					{
 						log("      Breaking eliminates fan-in LUTs");
-						for (const auto& elim_fanin_lut : elim_fanin_luts)
+						for (const auto &elim_fanin_lut : elim_fanin_luts)
 							log(" %s", log_signal(elim_fanin_lut));
 						log(".\n");
 					}
@@ -1093,7 +1093,7 @@ struct FlowmapWorker
 				// Try to merge LUTv with one of its successors.
 				RTLIL::SigBit last_lut_succ;
 				int fanout = 0;
-				for (const auto& lut_succ : lut_edges_fw[lut])
+				for (const auto &lut_succ : lut_edges_fw[lut])
 				{
 					if (lut_nodes[lut_succ])
 					{
@@ -1105,10 +1105,10 @@ struct FlowmapWorker
 					maybe_mergeable_luts.insert({lut, last_lut_succ});
 
 				// Try to merge LUTv with one of its predecessors.
-				for (const auto& lut_pred : other_inputs)
+				for (const auto &lut_pred : other_inputs)
 				{
 					int fanout = 0;
-					for (const auto& lut_pred_succ : lut_edges_fw[lut_pred])
+					for (const auto &lut_pred_succ : lut_edges_fw[lut_pred])
 						if (lut_nodes[lut_pred_succ] || lut_pred_succ == lut_gate)
 							fanout++;
 					if (fanout == 1)
@@ -1116,10 +1116,10 @@ struct FlowmapWorker
 				}
 
 				// Try to merge LUTw with one of its predecessors.
-				for (const auto& lut_gate_pred : lut_edges_bw[lut_gate])
+				for (const auto &lut_gate_pred : lut_edges_bw[lut_gate])
 				{
 					int fanout = 0;
-					for (const auto& lut_gate_pred_succ : lut_edges_fw[lut_gate_pred])
+					for (const auto &lut_gate_pred_succ : lut_edges_fw[lut_gate_pred])
 						if (lut_nodes[lut_gate_pred_succ] || lut_gate_pred_succ == lut_gate)
 							fanout++;
 					if (fanout == 1)
@@ -1127,14 +1127,14 @@ struct FlowmapWorker
 				}
 
 				r_im = 0;
-				for (const auto& maybe_mergeable_pair : maybe_mergeable_luts)
+				for (const auto &maybe_mergeable_pair : maybe_mergeable_luts)
 				{
 					log_assert(lut_edges_fw[maybe_mergeable_pair.first][maybe_mergeable_pair.second]);
 					pool<RTLIL::SigBit> unique_inputs;
-					for (const auto& fst_lut_pred : lut_edges_bw[maybe_mergeable_pair.first])
+					for (const auto &fst_lut_pred : lut_edges_bw[maybe_mergeable_pair.first])
 						if (lut_nodes[fst_lut_pred])
 							unique_inputs.insert(fst_lut_pred);
-					for (const auto& snd_lut_pred : lut_edges_bw[maybe_mergeable_pair.second])
+					for (const auto &snd_lut_pred : lut_edges_bw[maybe_mergeable_pair.second])
 						if (lut_nodes[snd_lut_pred])
 							unique_inputs.insert(snd_lut_pred);
 					unique_inputs.erase(maybe_mergeable_pair.first);
@@ -1153,7 +1153,7 @@ struct FlowmapWorker
 				else
 				{
 					lut_gate_depth = 0;
-					for (const auto& lut_gate_pred : lut_edges_bw[lut_gate])
+					for (const auto &lut_gate_pred : lut_edges_bw[lut_gate])
 						lut_gate_depth = max(lut_gate_depth, lut_depths[lut_gate_pred] + 1);
 				}
 				if (lut_depths[lut] >= lut_gate_depth + 1)
@@ -1174,7 +1174,7 @@ struct FlowmapWorker
 						if (lut_critical_outputs.at(lut).size())
 						{
 							log("      Breaking decreases slack of outputs");
-							for (const auto& lut_critical_output : lut_critical_outputs.at(lut))
+							for (const auto &lut_critical_output : lut_critical_outputs.at(lut))
 							{
 								log(" %s", log_signal(lut_critical_output));
 								log_assert(lut_slacks[lut_critical_output] > 0);
@@ -1198,7 +1198,7 @@ struct FlowmapWorker
 	{
 		int initial_count = GetSize(lut_nodes);
 
-		for (const auto& node : lut_nodes)
+		for (const auto &node : lut_nodes)
 		{
 			lut_slacks[node] = depth_bound - (lut_depths[node] + lut_altitudes[node]);
 			log_assert(lut_slacks[node] >= 0);
@@ -1231,9 +1231,9 @@ struct FlowmapWorker
 
 			RTLIL::SigBit breaking_lut, breaking_gate;
 			int best_potential = INT_MIN;
-			for (const auto& lut_gate_potentials : potentials)
+			for (const auto &lut_gate_potentials : potentials)
 			{
-				for (const auto& gate_potential : lut_gate_potentials.second)
+				for (const auto &gate_potential : lut_gate_potentials.second)
 				{
 					if (gate_potential.second > best_potential)
 					{
@@ -1259,7 +1259,7 @@ struct FlowmapWorker
 			{
 				auto lut_gate = worklist.pop();
 				bool all_gate_preds_elim = true;
-				for (const auto& lut_gate_pred : edges_bw[lut_gate])
+				for (const auto &lut_gate_pred : edges_bw[lut_gate])
 					if (!elim_gates[lut_gate_pred])
 						all_gate_preds_elim = false;
 				if (all_gate_preds_elim)
@@ -1267,14 +1267,14 @@ struct FlowmapWorker
 					if (debug_relax)
 						log("    Removing gate %s from LUT.\n", log_signal(lut_gate));
 					lut_gates[breaking_lut].erase(lut_gate);
-					for (const auto& lut_gate_succ : edges_fw[lut_gate])
+					for (const auto &lut_gate_succ : edges_fw[lut_gate])
 						worklist.insert(lut_gate_succ);
 				}
 			}
 			log_assert(!lut_gates[breaking_lut].empty());
 
 			pool<RTLIL::SigBit> directly_affected_nodes = {breaking_lut};
-			for (const auto& gate_input : gate_inputs)
+			for (const auto &gate_input : gate_inputs)
 			{
 				if (debug_relax)
 					log("    Removing LUT edge %s -> %s.\n", log_signal(gate_input), log_signal(breaking_lut));
@@ -1290,7 +1290,7 @@ struct FlowmapWorker
 			pool<RTLIL::SigBit> indirectly_affected_nodes = {};
 			update_lut_depths_altitudes(directly_affected_nodes, &indirectly_affected_nodes);
 			update_lut_critical_outputs(lut_critical_outputs, indirectly_affected_nodes);
-			for (const auto& node : indirectly_affected_nodes)
+			for (const auto &node : indirectly_affected_nodes)
 			{
 				lut_slacks[node] = depth_bound - (lut_depths[node] + lut_altitudes[node]);
 				log_assert(lut_slacks[node] >= 0);
@@ -1309,7 +1309,7 @@ struct FlowmapWorker
 				// all LUTs that could contain one of the indirectly affected nodes as a *part* of them, as they may not be in the output cone
 				// of any of the LUT IR nodes, e.g. if we have a LUT IR node A and node B as predecessors of node C, where node B includes all
 				// gates from node A.
-				for (const auto& node_succ : edges_fw[node])
+				for (const auto &node_succ : edges_fw[node])
 					if (!visited[node_succ])
 						worklist.insert(node_succ);
 			}
@@ -1343,11 +1343,11 @@ struct FlowmapWorker
 	void pack_cells(int minlut)
 	{
 		ConstEval ce(module);
-		for (const auto& input_node : inputs)
+		for (const auto &input_node : inputs)
 			ce.stop(input_node);
 
 		pool<RTLIL::SigBit> mapped_nodes;
-		for (const auto& node : lut_nodes)
+		for (const auto &node : lut_nodes)
 		{
 			if (node_origins.count(node))
 			{
@@ -1364,7 +1364,7 @@ struct FlowmapWorker
 				log("Packing %s.%s.\n", log_id(module), log_signal(node));
 			}
 
-			for (const auto& gate_node : lut_gates[node])
+			for (const auto &gate_node : lut_gates[node])
 			{
 				log_assert(node_origins.count(gate_node));
 
@@ -1393,7 +1393,7 @@ struct FlowmapWorker
 				if (!ce.eval(value, undef))
 				{
 					string env;
-					for (const auto& input_node : input_nodes)
+					for (const auto &input_node : input_nodes)
 						env += stringf("  %s = %s\n", log_signal(input_node), log_signal(ce.values_map(input_node)));
 					log_error("Cannot evaluate %s because %s is not defined.\nEvaluation environment:\n%s",
 					          log_signal(node), log_signal(undef), env.c_str());
@@ -1404,13 +1404,13 @@ struct FlowmapWorker
 			}
 
 			RTLIL::SigSpec lut_a, lut_y = node;
-			for (const auto& input_node : input_nodes)
+			for (const auto &input_node : input_nodes)
 				lut_a.append(input_node);
 			lut_a.append(RTLIL::Const(State::Sx, minlut - input_nodes.size()));
 
 			RTLIL::Cell *lut = module->addLut(NEW_ID, lut_a, lut_y, lut_table);
 			mapped_nodes.insert(node);
-			for (const auto& gate_node : lut_gates[node])
+			for (const auto &gate_node : lut_gates[node])
 			{
 				auto gate_origin = node_origins[gate_node];
 				lut->add_strpool_attribute(ID::src, gate_origin.cell->get_strpool_attribute(ID::src));
@@ -1425,7 +1425,7 @@ struct FlowmapWorker
 				log("  Packed into a %d-LUT %s.%s (implemented as %d-LUT).\n", GetSize(input_nodes), log_id(module), log_id(lut), minlut);
 		}
 
-		for (const auto& node : mapped_nodes)
+		for (const auto &node : mapped_nodes)
 		{
 			auto origin = node_origins[node];
 			RTLIL::SigSpec driver = origin.cell->getPort(origin.port);

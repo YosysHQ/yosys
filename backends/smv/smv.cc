@@ -198,7 +198,7 @@ struct SmvWorker
 //		f << stringf("    %s : unsigned word[%d]; -- %s\n", temp_id, GetSize(sig), log_signal(sig));
 
 		int offset = 0;
-		for (const auto& bit : sig) {
+		for (const auto &bit : sig) {
 			log_assert(bit.wire != nullptr);
 			partial_assignment_wires.insert(bit.wire);
 			partial_assignment_bits[bit] = std::pair<const char*, int>(temp_id, offset++);
@@ -435,7 +435,7 @@ struct SmvWorker
 				const char *expr_y = lvalue(cell->getPort(ID::Y));
 				string expr;
 
-				for (const auto& bit : cell->getPort(ID::A)) {
+				for (const auto &bit : cell->getPort(ID::A)) {
 					if (!expr.empty())
 						expr += " xor ";
 					expr += rvalue(bit);

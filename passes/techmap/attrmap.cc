@@ -122,7 +122,7 @@ void attrmap_apply(string objname, vector<std::unique_ptr<AttrmapAction>> &actio
 {
 	dict<RTLIL::IdString, RTLIL::Const> new_attributes;
 
-	for (const auto& attr : attributes)
+	for (const auto &attr : attributes)
 	{
 		auto new_attr = attr;
 		for (auto &action : actions)
@@ -276,7 +276,7 @@ struct AttrmapPass : public Pass {
 				for (auto cell : module->selected_cells())
 					attrmap_apply(stringf("%s.%s", log_id(module), log_id(cell)), actions, cell->attributes);
 
-				for (const auto& proc : module->processes)
+				for (const auto &proc : module->processes)
 				{
 					if (!design->selected(module, proc.second))
 						continue;

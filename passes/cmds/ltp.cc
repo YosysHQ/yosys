@@ -48,7 +48,7 @@ struct LtpWorker
 		}
 
 		for (auto wire : module->selected_wires())
-			for (const auto& bit : sigmap(wire))
+			for (const auto &bit : sigmap(wire))
 				bits[bit] = tuple<int, SigBit, Cell*>(-1, State::Sx, nullptr);
 
 		for (auto cell : module->selected_cells())
@@ -56,7 +56,7 @@ struct LtpWorker
 			pool<SigBit> src_bits, dst_bits;
 
 			for (auto &conn : cell->connections())
-				for (const auto& bit : sigmap(conn.second)) {
+				for (const auto &bit : sigmap(conn.second)) {
 					if (cell->input(conn.first))
 						src_bits.insert(bit);
 					if (cell->output(conn.first))
@@ -64,16 +64,16 @@ struct LtpWorker
 				}
 
 			if (noff && ff_celltypes.cell_known(cell->type)) {
-				for (const auto& s : src_bits)
-					for (const auto& d : dst_bits) {
+				for (const auto &s : src_bits)
+					for (const auto &d : dst_bits) {
 						bit2ff[s] = tuple<SigBit, Cell*>(d, cell);
 						break;
 					}
 				continue;
 			}
 
-			for (const auto& s : src_bits)
-				for (const auto& d : dst_bits)
+			for (const auto &s : src_bits)
+				for (const auto &d : dst_bits)
 					bit2bits[s][d] = cell;
 		}
 

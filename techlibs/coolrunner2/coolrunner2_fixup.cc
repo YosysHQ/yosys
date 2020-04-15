@@ -228,7 +228,7 @@ struct Coolrunner2FixupPass : public Pass {
 				{
 					if (cell->input(conn.first))
 					{
-						for (const auto& wire_in : sigmap(conn.second))
+						for (const auto &wire_in : sigmap(conn.second))
 						{
 							if (sig_fed_by_ibuf[wire_in])
 							{
@@ -243,7 +243,7 @@ struct Coolrunner2FixupPass : public Pass {
 
 			dict<SigBit, RTLIL::Cell *> ibuf_out_to_packed_reg_cell;
 			pool<SigBit> packed_reg_out;
-			for (const auto& x : ibuf_fanouts)
+			for (const auto &x : ibuf_fanouts)
 			{
 				auto ibuf_out_wire = x.first;
 				auto fanout_count = x.second.first;
@@ -440,7 +440,7 @@ struct Coolrunner2FixupPass : public Pass {
 				{
 					if (cell->input(conn.first))
 					{
-						for (const auto& wire_in : sigmap(conn.second))
+						for (const auto &wire_in : sigmap(conn.second))
 						{
 							auto xor_cell = xor_out_to_xor_cell[wire_in];
 							if (xor_cell)
@@ -488,7 +488,7 @@ struct Coolrunner2FixupPass : public Pass {
 				{
 					if (cell->input(conn.first))
 					{
-						for (const auto& wire_in : sigmap(conn.second))
+						for (const auto &wire_in : sigmap(conn.second))
 						{
 							auto or_cell = or_out_to_or_cell[wire_in];
 							if (or_cell)

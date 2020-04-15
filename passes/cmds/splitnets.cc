@@ -226,7 +226,7 @@ struct SplitnetsPass : public Pass {
 
 					vector<IdString> &new_ports = module_ports_db[module->name][wire->name];
 
-					for (const SigSpec& c : sig.chunks())
+					for (const SigSpec &c : sig.chunks())
 						new_ports.push_back(c.as_wire()->name);
 				}
 			}
@@ -259,7 +259,7 @@ struct SplitnetsPass : public Pass {
 					int offset = 0;
 					SigSpec sig = cell->getPort(port_id);
 
-					for (const auto& nid : new_port_ids)
+					for (const auto &nid : new_port_ids)
 					{
 						int nlen = GetSize(design->module(cell->type)->wire(nid));
 						if (offset + nlen > GetSize(sig))

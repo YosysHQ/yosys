@@ -73,7 +73,7 @@ struct EquivInductWorker
 		}
 
 		if (satgen.model_undef) {
-			for (const auto& bit : undriven_signals.export_all())
+			for (const auto &bit : undriven_signals.export_all())
 				ez->assume(ez->NOT(satgen.importUndefSigBit(bit, step)));
 		}
 
@@ -101,7 +101,7 @@ struct EquivInductWorker
 		create_timestep(1);
 
 		if (satgen.model_undef) {
-			for (const auto& bit : satgen.initial_state.export_all())
+			for (const auto &bit : satgen.initial_state.export_all())
 				ez->assume(ez->NOT(satgen.importUndefSigBit(bit, 1)));
 			log("  Undef modelling: force def on %d initial reg values and %d inputs.\n",
 				GetSize(satgen.initial_state), GetSize(undriven_signals));

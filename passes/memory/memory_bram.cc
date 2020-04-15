@@ -227,7 +227,7 @@ struct rules_t
 				break;
 			if (labels.empty())
 				lines_nolabels.push_back(tokens);
-			for (const auto& lab : labels)
+			for (const auto &lab : labels)
 				lines_labels[lab].push_back(tokens);
 		}
 
@@ -830,7 +830,7 @@ grow_read_ports:;
 		log("      Updated properties: dups=%d waste=%d efficiency=%d\n",
 				match_properties["dups"], match_properties["waste"], match_properties["efficiency"]);
 
-		for (const auto& it : match.min_limits) {
+		for (const auto &it : match.min_limits) {
 			if (!match_properties.count(it.first))
 				log_error("Unknown property '%s' in match rule for bram type %s.\n",
 						it.first.c_str(), log_id(match.name));
@@ -840,7 +840,7 @@ grow_read_ports:;
 					log_id(match.name), it.first.c_str(), it.second);
 			return false;
 		}
-		for (const auto& it : match.max_limits) {
+		for (const auto &it : match.max_limits) {
 			if (!match_properties.count(it.first))
 				log_error("Unknown property '%s' in match rule for bram type %s.\n",
 						it.first.c_str(), log_id(match.name));
@@ -1149,7 +1149,7 @@ void handle_cell(Cell *cell, const rules_t &rules)
 				goto next_match_rule;
 			}
 
-			for (const auto& it : match.min_limits) {
+			for (const auto &it : match.min_limits) {
 				if (it.first == "waste" || it.first == "dups" || it.first == "acells" || it.first == "dcells" || it.first == "cells")
 					continue;
 				if (!match_properties.count(it.first))
@@ -1162,7 +1162,7 @@ void handle_cell(Cell *cell, const rules_t &rules)
 				goto next_match_rule;
 			}
 
-			for (const auto& it : match.max_limits) {
+			for (const auto &it : match.max_limits) {
 				if (it.first == "acells" || it.first == "dcells" || it.first == "cells")
 					continue;
 				if (!match_properties.count(it.first))

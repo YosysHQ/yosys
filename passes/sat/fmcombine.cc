@@ -162,7 +162,7 @@ struct FmcombineWorker
 				SigSpec B = import_sig(conn.second, "_gate");
 				SigBit EQ = module->Eq(NEW_ID, A, B);
 
-				for (const auto& bit : sigmap({A, B}))
+				for (const auto &bit : sigmap({A, B}))
 					data_bit_to_eq_net[bit] = EQ;
 
 				cell_to_eq_nets[cell].append(EQ);
@@ -188,7 +188,7 @@ struct FmcombineWorker
 				SigSpec A = import_sig(conn.second, "_gold");
 				SigSpec B = import_sig(conn.second, "_gate");
 
-				for (const auto& bit : sigmap({A, B})) {
+				for (const auto &bit : sigmap({A, B})) {
 					if (data_bit_to_eq_net.count(bit))
 						src_eq_bits.insert(data_bit_to_eq_net.at(bit));
 					else

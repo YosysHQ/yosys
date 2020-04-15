@@ -161,10 +161,10 @@ struct AigerWriter
 			}
 		}
 
-		for (const auto& bit : input_bits)
+		for (const auto &bit : input_bits)
 			undriven_bits.erase(bit);
 
-		for (const auto& bit : output_bits)
+		for (const auto &bit : output_bits)
 			unused_bits.erase(bit);
 
 		for (auto cell : module->cells())
@@ -251,7 +251,7 @@ struct AigerWriter
 
 			if (cell->type == ID($anyconst))
 			{
-				for (const auto& bit : sigmap(cell->getPort(ID::Y))) {
+				for (const auto &bit : sigmap(cell->getPort(ID::Y))) {
 					undriven_bits.erase(bit);
 					ff_map[bit] = bit;
 				}
@@ -260,7 +260,7 @@ struct AigerWriter
 
 			if (cell->type == ID($anyseq))
 			{
-				for (const auto& bit : sigmap(cell->getPort(ID::Y))) {
+				for (const auto &bit : sigmap(cell->getPort(ID::Y))) {
 					undriven_bits.erase(bit);
 					input_bits.insert(bit);
 				}
@@ -270,12 +270,12 @@ struct AigerWriter
 			log_error("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
 		}
 
-		for (const auto& bit : unused_bits)
+		for (const auto &bit : unused_bits)
 			undriven_bits.erase(bit);
 
 		if (!undriven_bits.empty()) {
 			undriven_bits.sort();
-			for (const auto& bit : undriven_bits) {
+			for (const auto &bit : undriven_bits) {
 				log_warning("Treating undriven bit %s.%s like $anyseq.\n", log_id(module), log_signal(bit));
 				input_bits.insert(bit);
 			}
@@ -292,7 +292,7 @@ struct AigerWriter
 		aig_map[State::S0] = 0;
 		aig_map[State::S1] = 1;
 
-		for (const auto& bit : input_bits) {
+		for (const auto &bit : input_bits) {
 			aig_m++, aig_i++;
 			aig_map[bit] = 2*aig_m;
 		}
@@ -303,7 +303,7 @@ struct AigerWriter
 
 		if (zinit_mode)
 		{
-			for (const auto& it : ff_map) {
+			for (const auto &it : ff_map) {
 				if (init_map.count(it.first))
 					continue;
 				aig_m++, aig_i++;
@@ -317,7 +317,7 @@ struct AigerWriter
 		aig_m += fair_live_inputs_cnt;
 		aig_i += fair_live_inputs_cnt;
 
-		for (const auto& it : ff_map) {
+		for (const auto &it : ff_map) {
 			aig_m++, aig_l++;
 			aig_map[it.first] = 2*aig_m;
 			ordered_latches[it.first] = aig_l-1;
@@ -345,7 +345,7 @@ struct AigerWriter
 
 		if (zinit_mode)
 		{
-			for (const auto& it : ff_map)
+			for (const auto &it : ff_map)
 			{
 				int l = ordered_latches[it.first];
 
@@ -361,7 +361,7 @@ struct AigerWriter
 			}
 		}
 
-		for (const auto& it : ff_map) {
+		for (const auto &it : ff_map) {
 			int a = bit2aig(it.second);
 			int l = ordered_latches[it.first];
 			if (zinit_mode && aig_latchinit.at(l) == 1)
@@ -379,7 +379,7 @@ struct AigerWriter
 		if (!initstate_bits.empty() || !init_inputs.empty())
 			aig_latchin.push_back(1);
 
-		for (const auto& bit : output_bits) {
+		for (const auto &bit : output_bits) {
 			aig_o++;
 			ordered_outputs[bit] = aig_o-1;
 			aig_outputs.push_back(bit2aig(bit));
@@ -390,7 +390,7 @@ struct AigerWriter
 			aig_outputs.push_back(0);
 		}
 
-		for (const auto& it : asserts) {
+		for (const auto &it : asserts) {
 			aig_b++;
 			int bit_a = bit2aig(it.first);
 			int bit_en = bit2aig(it.second);
@@ -402,14 +402,14 @@ struct AigerWriter
 			aig_outputs.push_back(0);
 		}
 
-		for (const auto& it : assumes) {
+		for (const auto &it : assumes) {
 			aig_c++;
 			int bit_a = bit2aig(it.first);
 			int bit_en = bit2aig(it.second);
 			aig_outputs.push_back(mkgate(bit_a^1, bit_en)^1);
 		}
 
-		for (const auto& it : liveness)
+		for (const auto &it : liveness)
 		{
 			int input_m = ++fair_live_inputs_m;
 			int latch_m1 = ++fair_live_latches_m;
@@ -433,7 +433,7 @@ struct AigerWriter
 			aig_outputs.push_back(mkgate(bit_q1, bit_q2^1));
 		}
 
-		for (const auto& it : fairness)
+		for (const auto &it : fairness)
 		{
 			int latch_m = ++fair_live_latches_m;
 

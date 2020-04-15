@@ -89,14 +89,14 @@ struct NlutmapWorker
 					candidate_ratings[cell] = 0;
 
 				for (auto &conn : cell->connections())
-					for (const auto& bit : sigmap(conn.second))
+					for (const auto &bit : sigmap(conn.second))
 						bit_lut_count[bit]++;
 			}
 
 			for (auto &cand : candidate_ratings)
 			{
 				for (auto &conn : cand.first->connections())
-					for (const auto& bit : sigmap(conn.second))
+					for (const auto &bit : sigmap(conn.second))
 						cand.second -= bit_lut_count[bit];
 			}
 

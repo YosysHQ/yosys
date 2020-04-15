@@ -177,7 +177,7 @@ struct MemoryDffWorker
 		RTLIL::SigSpec clk_data = RTLIL::SigSpec(RTLIL::State::Sx);
 		RTLIL::SigSpec sig_data = cell->getPort(ID::DATA);
 
-		for (const auto& bit : sigmap(sig_data))
+		for (const auto &bit : sigmap(sig_data))
 			if (sigbit_users_count[bit] > 1)
 				goto skip_ff_after_read_merging;
 
@@ -194,7 +194,7 @@ struct MemoryDffWorker
 				en.append(enable_invert ? module->LogicNot(NEW_ID, mux->getPort(ID::S)) : mux->getPort(ID::S));
 			} while (mux_cells_a.count(sig_data) || mux_cells_b.count(sig_data));
 
-			for (const auto& bit : sig_data)
+			for (const auto &bit : sig_data)
 				if (sigbit_users_count[bit] > 1)
 					goto skip_ff_after_read_merging;
 
@@ -251,7 +251,7 @@ struct MemoryDffWorker
 	{
 		for (auto wire : module->wires()) {
 			if (wire->port_output)
-				for (const auto& bit : sigmap(wire))
+				for (const auto &bit : sigmap(wire))
 					sigbit_users_count[bit]++;
 		}
 
@@ -274,7 +274,7 @@ struct MemoryDffWorker
 			}
 			for (auto &conn : cell->connections())
 				if (!cell->known() || cell->input(conn.first))
-					for (const auto& bit : sigmap(conn.second))
+					for (const auto &bit : sigmap(conn.second))
 						sigbit_users_count[bit]++;
 		}
 

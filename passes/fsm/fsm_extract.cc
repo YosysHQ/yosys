@@ -104,7 +104,7 @@ static bool find_states(RTLIL::SigSpec sig, const RTLIL::SigSpec &dff_out, RTLIL
 				log("  found reset state: %s (guessed from mux tree)\n", log_signal(*reset_state));
 			} while (0);
 
-		for (const auto& sig_s_bit : sig_s) {
+		for (const auto &sig_s_bit : sig_s) {
 			if (ctrl.extract(sig_s_bit).empty()) {
 				log("  found ctrl input: %s\n", log_signal(sig_s_bit));
 				ctrl.append(sig_s_bit);

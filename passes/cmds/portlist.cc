@@ -60,7 +60,7 @@ struct PortlistPass : public Pass {
 				first_module = false;
 			else
 				log("\n");
-			for (const auto& port : module->ports) {
+			for (const auto &port : module->ports) {
 				auto *w = module->wire(port);
 				ports.push_back(stringf("%s [%d:%d] %s", w->port_input ? w->port_output ? "inout" : "input" : "output",
 						w->upto ? w->start_offset : w->start_offset + w->width - 1,
