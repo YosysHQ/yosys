@@ -280,7 +280,8 @@ struct Abc9Pass : public ScriptPass
 
 		if (check_label("dff", "(only if -dff)")) {
 			if (dff_mode || help_mode) {
-				run("abc9_ops -prep_dff_hier"); // derive all used (* abc9_flop *) modules
+				run("abc9_ops -prep_dff_hier"); // derive all used (* abc9_flop *) modules,
+                                                // create stubs in $abc9_unmap design
 				run("design -stash $abc9");
 				run("design -copy-from $abc9 @$abc9_flops"); // copy derived modules in
 				run("proc");
@@ -288,8 +289,11 @@ struct Abc9Pass : public ScriptPass
 				run("techmap");
 				run("opt");
 				run("abc9_ops -prep_dff_map"); // rewrite specify
-									// TODO: Select fan-in cone $_DFF_[NP]_.Q
-				run("setattr -set submod \"$abc9_flop\" t:* t:$_DFF_N_ %d t:$_DFF_P_ %d");
+									// select all $_DFF_[NP]_
+									// then select all its fanins
+									// then select all fanouts of all that
+									// lastly remove $_DFF_[NP]_ cells
+				run("setattr -set submod \"$abc9_flop\" t:$_DFF_?_ %ci* %co* t:$_DFF_?_ %d");
 				run("submod");
 				run("design -copy-to $abc9 *_$abc9_flop"); // copy submod out
 				run("delete *_$abc9_flop");
@@ -306,12 +310,12 @@ struct Abc9Pass : public ScriptPass
 				}
 				run("design -stash $abc9_map");
 				run("design -load $abc9");
-				run("abc9_ops -prep_dff_unmap"); // create $abc9_unmap design
-				run("techmap -map %$abc9_map"); // techmap user design into submod + $_DFF_[NP]_
-				run("setattr -mod -set whitebox 1 -set abc9_flop 1 -set abc9_box 1 *_$abc9_flop");
 				run("design -delete $abc9");
-				run("design -delete $abc9_map");
 				run("select -unset $abc9_flops");
+				run("abc9_ops -prep_dff_unmap"); // implement $abc9_unmap design
+				run("techmap -map %$abc9_map"); // techmap user design into submod + $_DFF_[NP]_
+				run("design -delete $abc9_map");
+				run("setattr -mod -set whitebox 1 -set abc9_flop 1 -set abc9_box 1 *_$abc9_flop");
 			}
 		}
 
