@@ -138,7 +138,7 @@ struct XAigerWriter
 		return a;
 	}
 
-	XAigerWriter(Module *module, bool dff_mode, bool holes_mode=false) : module(module), sigmap(module)
+	XAigerWriter(Module *module, bool dff_mode) : module(module), sigmap(module)
 	{
 		pool<SigBit> undriven_bits;
 		pool<SigBit> unused_bits;
@@ -411,16 +411,14 @@ struct XAigerWriter
 			undriven_bits.erase(bit);
 		}
 
-		if (holes_mode) {
-			struct sort_by_port_id {
-				bool operator()(const RTLIL::SigBit& a, const RTLIL::SigBit& b) const {
-					return a.wire->port_id < b.wire->port_id ||
-					    (a.wire->port_id == b.wire->port_id && a.offset < b.offset);
-				}
-			};
-			input_bits.sort(sort_by_port_id());
-			output_bits.sort(sort_by_port_id());
-		}
+		struct sort_by_port_id {
+			bool operator()(const RTLIL::SigBit& a, const RTLIL::SigBit& b) const {
+				return a.wire->port_id < b.wire->port_id ||
+				    (a.wire->port_id == b.wire->port_id && a.offset < b.offset);
+			}
+		};
+		input_bits.sort(sort_by_port_id());
+		output_bits.sort(sort_by_port_id());
 
 		aig_map[State::S0] = 0;
 		aig_map[State::S1] = 1;
@@ -685,7 +683,7 @@ struct XAigerWriter
 			RTLIL::Module *holes_module = holes_design ? holes_design->module(module->name) : nullptr;
 			if (holes_module) {
 				std::stringstream a_buffer;
-				XAigerWriter writer(holes_module, false /* dff_mode */, true /* holes_mode */);
+				XAigerWriter writer(holes_module, false /* dff_mode */);
 				writer.write_aiger(a_buffer, false /*ascii_mode*/);
 
 				f << "a";
