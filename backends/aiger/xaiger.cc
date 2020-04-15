@@ -627,21 +627,25 @@ struct XAigerWriter
 			write_s_buffer(ff_bits.size());
 
 			dict<SigBit, int> clk_to_mergeability;
+			for (const auto &i : ff_bits) {
+				const Cell *cell = i.second;
+				log_assert(cell->type.in(ID($_DFF_N_), ID($_DFF_P_)));
+
+				SigBit clock = sigmap(cell->getPort(ID::C));
+				clk_to_mergeability.insert(std::make_pair(clock, clk_to_mergeability.size()*2+1));
+			}
 
 			for (const auto &i : ff_bits) {
 				const SigBit &d = i.first;
 				const Cell *cell = i.second;
 
-				log_assert(cell->type.in(ID($_DFF_N_), ID($_DFF_P_)));
-
 				SigBit clock = sigmap(cell->getPort(ID::C));
-				auto r = clk_to_mergeability.insert(std::make_pair(clock, clk_to_mergeability.size() + 1));
-				int mergeability = r.first->second;
+				int mergeability = clk_to_mergeability.at(clock);
 				log_assert(mergeability > 0);
 				if (cell->type == ID($_DFF_N_))
-					write_r_buffer(-mergeability);
-				else if (cell->type == ID($_DFF_P_))
 					write_r_buffer(mergeability);
+				else if (cell->type == ID($_DFF_P_))
+					write_r_buffer(mergeability+1);
 				else log_abort();
 
 				SigBit Q = sigmap(cell->getPort(ID::Q));

@@ -789,13 +789,12 @@ void AigerReader::post_process()
 
 		Cell* ff;
 		int clock_index = mergeability[i];
-		if (clock_index < 0) {
+		if (clock_index & 1) {
 			ff = module->addCell(NEW_ID, ID($_DFF_N_));
-			clock_index = -clock_index;
+			clock_index--;
 		}
-		else if (clock_index > 0)
+		else
 			ff = module->addCell(NEW_ID, ID($_DFF_P_));
-		else log_abort();
 		auto r = mergeability_to_clock.insert(clock_index);
 		if (r.second)
 			r.first->second = module->addWire(NEW_ID);
