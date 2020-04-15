@@ -157,6 +157,126 @@ static RTLIL::SigSpec mux2rtlil(AstNode *that, const RTLIL::SigSpec &cond, const
 	return wire;
 }
 
+// helper class for rewriting simple lookahead references in AST always blocks
+struct AST_INTERNAL::LookaheadRewriter
+{
+	dict<IdString, pair<AstNode*, AstNode*>> lookaheadids;
+
+	void collect_lookaheadids(AstNode *node)
+	{
+		if (node->lookahead) {
+			log_assert(node->type == AST_IDENTIFIER);
+			if (!lookaheadids.count(node->str)) {
+				AstNode *wire = new AstNode(AST_WIRE);
+				for (auto c : node->id2ast->children)
+					wire->children.push_back(c->clone());
+				wire->str = stringf("$lookahead%s$%d", node->str.c_str(), autoidx++);
+				wire->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
+				wire->is_logic = true;
+				while (wire->simplify(true, false, false, 1, -1, false, false)) { }
+				current_ast_mod->children.push_back(wire);
+				lookaheadids[node->str] = make_pair(node->id2ast, wire);
+				wire->genRTLIL();
+			}
+		}
+
+		for (auto child : node->children)
+			collect_lookaheadids(child);
+	}
+
+	bool has_lookaheadids(AstNode *node)
+	{
+		if (node->type == AST_IDENTIFIER && lookaheadids.count(node->str) != 0)
+			return true;
+
+		for (auto child : node->children)
+			if (has_lookaheadids(child))
+				return true;
+
+		return false;
+	}
+
+	bool has_nonlookaheadids(AstNode *node)
+	{
+		if (node->type == AST_IDENTIFIER && lookaheadids.count(node->str) == 0)
+			return true;
+
+		for (auto child : node->children)
+			if (has_nonlookaheadids(child))
+				return true;
+
+		return false;
+	}
+
+	void rewrite_lookaheadids(AstNode *node, bool lhs = false)
+	{
+		if (node->type == AST_ASSIGN_LE)
+		{
+			if (has_lookaheadids(node->children[0]))
+			{
+				if (has_nonlookaheadids(node->children[0]))
+					log_error("incompatible mix of lookahead and non-lookahead IDs in LHS expression.\n");
+
+				rewrite_lookaheadids(node->children[0], true);
+				node->type = AST_ASSIGN_EQ;
+			}
+
+			rewrite_lookaheadids(node->children[1], lhs);
+			return;
+		}
+
+		if (node->type == AST_IDENTIFIER && (node->lookahead || lhs)) {
+			AstNode *newwire = lookaheadids.at(node->str).second;
+			node->str = newwire->str;
+			node->id2ast = newwire;
+			lhs = false;
+		}
+
+		for (auto child : node->children)
+			rewrite_lookaheadids(child, lhs);
+	}
+
+	LookaheadRewriter(AstNode *top)
+	{
+		// top->dumpAst(NULL, "REWRITE-BEFORE> ");
+		// top->dumpVlog(NULL, "REWRITE-BEFORE> ");
+
+		AstNode *block = nullptr;
+
+		for (auto c : top->children)
+			if (c->type == AST_BLOCK) {
+				log_assert(block == nullptr);
+				block = c;
+			}
+		log_assert(block != nullptr);
+
+		collect_lookaheadids(block);
+		rewrite_lookaheadids(block);
+
+		for (auto it : lookaheadids)
+		{
+			AstNode *ref_orig = new AstNode(AST_IDENTIFIER);
+			ref_orig->str = it.second.first->str;
+			ref_orig->id2ast = it.second.first;
+			ref_orig->was_checked = true;
+
+			AstNode *ref_temp = new AstNode(AST_IDENTIFIER);
+			ref_temp->str = it.second.second->str;
+			ref_temp->id2ast = it.second.second;
+			ref_temp->was_checked = true;
+
+			AstNode *init_assign = new AstNode(AST_ASSIGN_EQ, ref_temp->clone(), ref_orig->clone());
+			AstNode *final_assign = new AstNode(AST_ASSIGN_LE, ref_orig, ref_temp);
+
+			block->children.insert(block->children.begin(), init_assign);
+			block->children.push_back(final_assign);
+		}
+
+		// top->dumpAst(NULL, "REWRITE-AFTER> ");
+		// top->dumpVlog(NULL, "REWRITE-AFTER> ");
+	}
+};
+
 // helper class for converting AST always nodes to RTLIL processes
 struct AST_INTERNAL::ProcessGenerator
 {
@@ -191,6 +311,9 @@ struct AST_INTERNAL::ProcessGenerator
 
 	ProcessGenerator(AstNode *always, RTLIL::SigSpec initSyncSignalsArg = RTLIL::SigSpec()) : always(always), initSyncSignals(initSyncSignalsArg)
 	{
+		// rewrite lookahead references
+		LookaheadRewriter la_rewriter(always);
+
 		// generate process and simple root case
 		proc = new RTLIL::Process;
 		proc->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", always->filename.c_str(), always->location.first_line, always->location.first_column, always->location.last_line, always->location.last_column);
@@ -338,7 +461,7 @@ struct AST_INTERNAL::ProcessGenerator
 		return chunks;
 	}
 
-	// recursively traverse the AST an collect all assigned signals
+	// recursively traverse the AST and collect all assigned signals
 	void collect_lvalues(RTLIL::SigSpec &reg, AstNode *ast, bool type_eq, bool type_le, bool run_sort_and_unify = true)
 	{
 		switch (ast->type)
@@ -1010,7 +1133,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			int add_undef_bits_msb = 0;
 			int add_undef_bits_lsb = 0;
 
-			if (id2ast && id2ast->type == AST_AUTOWIRE && current_module->wires_.count(str) == 0) {
+			log_assert(id2ast != nullptr);
+
+			if (id2ast->type == AST_AUTOWIRE && current_module->wires_.count(str) == 0) {
 				RTLIL::Wire *wire = current_module->addWire(str);
 				wire->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", filename.c_str(), location.first_line, location.first_column, location.last_line, location.last_column);
 				wire->name = str;
@@ -1025,7 +1150,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				chunk = RTLIL::Const(id2ast->children[0]->bits);
 				goto use_const_chunk;
 			}
-			else if (id2ast && (id2ast->type == AST_WIRE || id2ast->type == AST_AUTOWIRE || id2ast->type == AST_MEMORY) && current_module->wires_.count(str) != 0) {
+			else if ((id2ast->type == AST_WIRE || id2ast->type == AST_AUTOWIRE || id2ast->type == AST_MEMORY) && current_module->wires_.count(str) != 0) {
 				RTLIL::Wire *current_wire = current_module->wire(str);
 				if (current_wire->get_bool_attribute(ID::is_interface))
 					is_interface = true;

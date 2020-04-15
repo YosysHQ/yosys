@@ -1797,11 +1797,17 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 			AstNode *ref_mask = new AstNode(AST_IDENTIFIER);
 			ref_mask->str = wire_mask->str;
+			ref_mask->id2ast = wire_mask;
 			ref_mask->was_checked = true;
 
 			AstNode *ref_data = new AstNode(AST_IDENTIFIER);
 			ref_data->str = wire_data->str;
+			ref_data->id2ast = wire_data;
 			ref_data->was_checked = true;
+
+			AstNode *old_data = lvalue->clone();
+			if (type == AST_ASSIGN_LE)
+				old_data->lookahead = true;
 
 			AstNode *shamt = shift_expr;
 
@@ -1809,7 +1815,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 					new AstNode(AST_SHIFT_LEFT, mkconst_bits(std::vector<RTLIL::State>(result_width, State::S1), false), shamt->clone())));
 			newNode->children.push_back(new AstNode(AST_ASSIGN_EQ, ref_data->clone(),
 					new AstNode(AST_SHIFT_LEFT, new AstNode(AST_BIT_AND, mkconst_bits(std::vector<RTLIL::State>(result_width, State::S1), false), children[1]->clone()), shamt)));
-			newNode->children.push_back(new AstNode(type, lvalue, new AstNode(AST_BIT_OR, new AstNode(AST_BIT_AND, lvalue->clone(), new AstNode(AST_BIT_NOT, ref_mask)), ref_data)));
+			newNode->children.push_back(new AstNode(type, lvalue, new AstNode(AST_BIT_OR, new AstNode(AST_BIT_AND, old_data, new AstNode(AST_BIT_NOT, ref_mask)), ref_data)));
 		}
 
 		goto apply_newNode;
