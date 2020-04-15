@@ -350,7 +350,6 @@ struct Abc9Pass : public ScriptPass
 			run("techmap -wb -map %$abc9 -map +/techmap.v");
 			run("opt -purge");
 			run("aigmap");
-			run("wbflip");
 			run("design -stash $abc9_holes");
 			run("design -load $abc9");
 		}
