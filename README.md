@@ -443,8 +443,8 @@ Verilog Attributes and non-standard features
 - The ``wiretype`` attribute is added by the verilog parser for wires of a
   typedef'd type to indicate the type identifier.
 
-- Various ``enum_{width}_{value}`` attributes are added to wires of an
-  enumerated type to give a map of possible enum items to their values.
+- Various ``enum_value_{value}`` attributes are added to wires of an enumerated type
+  to give a map of possible enum items to their values.
 
 - The ``enum_base_type`` attribute is added to enum items to indicate which
   enum they belong to (enums -- anonymous and otherwise -- are
