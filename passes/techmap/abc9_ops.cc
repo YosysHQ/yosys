@@ -161,10 +161,23 @@ void prep_dff_hier(RTLIL::Design *design)
 
 void prep_dff_map(RTLIL::Design *design)
 {
+	Design *unmap_design = saved_designs.at("$abc9_unmap");
+
 	for (auto module : design->modules()) {
 		vector<Cell*> specify_cells;
 		SigBit D, Q;
 		Cell* dff_cell = nullptr;
+
+		// If module has a public name (i.e. not $paramod) and it doesn't exist
+		//   in the $abc9_unmap then it means only derived modules were
+		//   instantiated, so make this a blackbox
+		if (module->name[0] == '\\' && !unmap_design->module(module->name.str() + "_$abc9_flop")) {
+			module->makeblackbox();
+			module->set_bool_attribute(ID::blackbox, false);
+			module->set_bool_attribute(ID::whitebox, true);
+			continue;
+		}
+
 		for (auto cell : module->cells())
 			if (cell->type.in(ID($_DFF_N_), ID($_DFF_P_))) {
 				if (dff_cell)
@@ -185,6 +198,7 @@ void prep_dff_map(RTLIL::Design *design)
 					log_warning("Module '%s' contains a %s cell with non-zero initial state -- this is not unsupported for ABC9 sequential synthesis. Treating as a blackbox.\n", log_id(module), log_id(cell->type));
 
 					module->makeblackbox();
+					module->set_bool_attribute(ID::blackbox, false);
 
 					auto wire = module->addWire(ID(_TECHMAP_FAIL_));
 					wire->set_bool_attribute(ID::keep);
@@ -215,19 +229,20 @@ void prep_dff_map(RTLIL::Design *design)
 			D = w;
 		}
 
-		if (GetSize(specify_cells) == 0) {
-			log_warning("Module '%s' marked (* abc9_flop *) contains no specify timing information.\n", log_id(module));
+		if (GetSize(specify_cells) == 0)
+			log_error("Module '%s' marked (* abc9_flop *) contains no specify timing information.\n", log_id(module));
+
+		// Rewrite $specify cells that end with $_DFF_[NP]_.Q
+		//   to $_DFF_[NP]_.D since it will be moved into
+		//   the submodule
+		for (auto cell : specify_cells) {
+			auto DST = cell->getPort(ID::DST);
+			DST.replace(Q, D);
+			cell->setPort(ID::DST, DST);
 		}
-		else {
-			// Rewrite $specify cells that end with $_DFF_[NP]_.Q
-			//   to $_DFF_[NP]_.D since it will be moved into
-			//   the submodule
-			for (auto cell : specify_cells) {
-				auto DST = cell->getPort(ID::DST);
-				DST.replace(Q, D);
-				cell->setPort(ID::DST, DST);
-			}
-		}
+
+		design->scratchpad_set_bool("abc9_ops.prep_dff_map.did_something", true);
+
 continue_outer_loop: ;
 	}
 }

@@ -281,41 +281,52 @@ struct Abc9Pass : public ScriptPass
 		if (check_label("dff", "(only if -dff)")) {
 			if (dff_mode || help_mode) {
 				run("abc9_ops -prep_dff_hier"); // derive all used (* abc9_flop *) modules,
-                                                // create stubs in $abc9_unmap design
+								// create stubs in $abc9_unmap design
 				run("design -stash $abc9");
 				run("design -copy-from $abc9 @$abc9_flops"); // copy derived modules in
 				run("proc");
 				run("wbflip");
 				run("techmap");
 				run("opt");
+				if (!help_mode)
+					active_design->scratchpad_unset("abc9_ops.prep_dff_map.did_something");
 				run("abc9_ops -prep_dff_map"); // rewrite specify
-									// select all $_DFF_[NP]_
-									// then select all its fanins
-									// then select all fanouts of all that
-									// lastly remove $_DFF_[NP]_ cells
-				run("setattr -set submod \"$abc9_flop\" t:$_DFF_?_ %ci* %co* t:$_DFF_?_ %d");
-				run("submod");
-				run("design -copy-to $abc9 *_$abc9_flop"); // copy submod out
-				run("delete *_$abc9_flop");
-				if (help_mode) {
-					run("foreach module in design");
-					run("    rename <module-name>_$abc9_flop _TECHMAP_REPLACE_");
+				bool did_something = help_mode || active_design->scratchpad_get_bool("abc9_ops.prep_dff_map.did_something");
+				if (did_something) {
+										// select all $_DFF_[NP]_
+										// then select all its fanins
+										// then select all fanouts of all that
+										// lastly remove $_DFF_[NP]_ cells
+					run("setattr -set submod \"$abc9_flop\" t:$_DFF_?_ %ci* %co* t:$_DFF_?_ %d");
+					run("submod");
+					run("design -copy-to $abc9 *_$abc9_flop"); // copy submod out
+					run("delete *_$abc9_flop");
+					if (help_mode) {
+						run("foreach module in design");
+						run("    rename <module-name>_$abc9_flop _TECHMAP_REPLACE_");
+					}
+					else {
+						// Rename all submod-s to _TECHMAP_REPLACE_ to inherit name + attrs
+						for (auto module : active_design->selected_modules()) {
+							active_design->selected_active_module = module->name.str();
+							if (module->cell(stringf("%s_$abc9_flop", module->name.c_str())))
+								run(stringf("rename %s_$abc9_flop _TECHMAP_REPLACE_", module->name.c_str()));
+						}
+					}
+					run("design -stash $abc9_map");
+					run("design -load $abc9");
+					run("design -delete $abc9");
+					run("select -unset $abc9_flops");
+					run("techmap -wb -map %$abc9_map"); // techmap user design into submod + $_DFF_[NP]_
+					run("design -delete $abc9_map");
+					run("setattr -mod -set whitebox 1 -set abc9_flop 1 -set abc9_box 1 *_$abc9_flop");
+					run("abc9_ops -prep_dff_unmap"); // implement $abc9_unmap design
 				}
 				else {
-					// Rename all submod-s to _TECHMAP_REPLACE_ to inherit name + attrs
-					for (auto module : active_design->selected_modules()) {
-						active_design->selected_active_module = module->name.str();
-						run(stringf("rename %s_$abc9_flop _TECHMAP_REPLACE_", module->name.c_str()));
-					}
+					run("design -load $abc9");
+					run("design -delete $abc9");
+					run("select -unset $abc9_flops");
 				}
-				run("design -stash $abc9_map");
-				run("design -load $abc9");
-				run("design -delete $abc9");
-				run("select -unset $abc9_flops");
-				run("abc9_ops -prep_dff_unmap"); // implement $abc9_unmap design
-				run("techmap -map %$abc9_map"); // techmap user design into submod + $_DFF_[NP]_
-				run("design -delete $abc9_map");
-				run("setattr -mod -set whitebox 1 -set abc9_flop 1 -set abc9_box 1 *_$abc9_flop");
 			}
 		}
 

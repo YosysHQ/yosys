@@ -14,6 +14,7 @@ endmodule
 EOT
 equiv_opt -assert -multiclock -map +/xilinx/cells_sim.v synth_xilinx -abc9 -dff -noiopad -noclkbuf
 design -load postopt
+select -assert-count 6 t:FD*
 select -assert-count 6 c:fd2 c:fd3 c:fd4 c:fd6 c:fd7 c:fd8
 
 
@@ -32,6 +33,7 @@ endmodule
 EOT
 equiv_opt -assert -multiclock -map +/xilinx/cells_sim.v synth_xilinx -abc9 -dff -noiopad -noclkbuf
 design -load postopt
+select -assert-count 4 t:FD*
 select -assert-count 4 c:fd3 c:fd4 c:fd7 c:fd8
 
 
@@ -54,6 +56,6 @@ logger -expect warning "Module 'FDSE' contains a \$_DFF_P_ cell .*" 1
 logger -expect warning "Module '\$paramod\\FDSE_1\\INIT=1' contains a \$_DFF_N_ cell .*" 1
 equiv_opt -assert -multiclock -map +/xilinx/cells_sim.v synth_xilinx -abc9 -dff -noiopad -noclkbuf
 design -load postopt
-#select -assert-count 4 c:fd3 c:fd4 c:fd7 c:fd8
+select -assert-count 8 t:FD*
 
 logger -expect-no-warnings
