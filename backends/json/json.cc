@@ -141,6 +141,12 @@ struct JsonWriter
 		write_parameters(module->attributes, /*for_module=*/true);
 		f << stringf("\n      },\n");
 
+		if (module->parameter_default_values.size()) {
+			f << stringf("      \"parameter_default_values\": {");
+			write_parameters(module->parameter_default_values, /*for_module=*/true);
+			f << stringf("\n      },\n");
+		}
+
 		f << stringf("      \"ports\": {");
 		bool first = true;
 		for (auto n : module->ports) {
@@ -308,6 +314,10 @@ struct JsonBackend : public Backend {
 		log("        <module_name>: {\n");
 		log("          \"attributes\": {\n");
 		log("            <attribute_name>: <attribute_value>,\n");
+		log("            ...\n");
+		log("          },\n");
+		log("          \"parameter_default_values\": {\n");
+		log("            <parameter_name>: <parameter_value>,\n");
 		log("            ...\n");
 		log("          },\n");
 		log("          \"ports\": {\n");
