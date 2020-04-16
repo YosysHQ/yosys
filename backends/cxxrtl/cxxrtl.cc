@@ -1166,8 +1166,7 @@ struct CxxrtlWorker {
 		});
 
 		dump_attrs(memory);
-		f << indent << (writable_memories[memory] ? "" : "const ")
-		            << "memory<" << memory->width << "> " << mangle(memory)
+		f << indent << "memory<" << memory->width << "> " << mangle(memory)
 		            << " { " << memory->size << "u";
 		if (init_cells.empty()) {
 			f << " };\n";
