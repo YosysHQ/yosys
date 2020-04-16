@@ -166,6 +166,7 @@ void prep_dff_map(RTLIL::Design *design)
 	for (auto module : design->modules()) {
 		vector<Cell*> specify_cells;
 		SigBit D, Q;
+		Cell *c;
 		Cell* dff_cell = nullptr;
 
 		// If module has a public name (i.e. not $paramod) and it doesn't exist
@@ -217,28 +218,23 @@ void prep_dff_map(RTLIL::Design *design)
 		if (!dff_cell)
 			log_error("Module '%s' with (* abc9_flop *) does not any contain $_DFF_[NP]_ cells.\n", log_id(module));
 
-		D = dff_cell->getPort(ID::D);
-
-		{
-			// Add dummy buffers for all module inputs/outputs
-			//   to ensure that these ports exists in the flop box
-			//   created by later submod pass
-			for (auto port_name : module->ports) {
-				auto port = module->wire(port_name);
-				log_assert(GetSize(port) == 1);
-				auto c = module->addBufGate(NEW_ID, port, module->addWire(NEW_ID));
-				// Need to set (* keep *) otherwise opt_clean
-				//   inside submod will blow it away
-				c->set_bool_attribute(ID::keep);
-			}
-			// Add an additional buffer that drives $_DFF_[NP]_.D
-			//   so that the flop box will have an output
-			auto w = module->addWire(NEW_ID);
-			auto c = module->addBufGate(NEW_ID, D, w);
+		// Add dummy buffers for all module inputs/outputs
+		//   to ensure that these ports exists in the flop box
+		//   created by later submod pass
+		for (auto port_name : module->ports) {
+			auto port = module->wire(port_name);
+			log_assert(GetSize(port) == 1);
+			auto c = module->addBufGate(NEW_ID, port, module->addWire(NEW_ID));
+			// Need to set (* keep *) otherwise opt_clean
+			//   inside submod will blow it away
 			c->set_bool_attribute(ID::keep);
-			dff_cell->setPort(ID::D, w);
-			D = w;
 		}
+		// Add an additional buffer that drives $_DFF_[NP]_.D
+		//   so that the flop box will have an output
+		D = module->addWire(NEW_ID);
+		c = module->addBufGate(NEW_ID, dff_cell->getPort(ID::D), D);
+		c->set_bool_attribute(ID::keep);
+		dff_cell->setPort(ID::D, D);
 
 		// Rewrite $specify cells that end with $_DFF_[NP]_.Q
 		//   to $_DFF_[NP]_.D since it will be moved into
@@ -895,9 +891,9 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 	std::map<IdString, int> cell_stats;
 	for (auto mapped_cell : mapped_mod->cells())
 	{
-		// Short out $_DFF_[NP]_ cells since the flop box already has
+		// Short out $_FF_ cells since the flop box already has
 		//   all the information we need to reconstruct cell
-		if (dff_mode && mapped_cell->type.in(ID($_DFF_N_), ID($_DFF_P_))) {
+		if (dff_mode && mapped_cell->type == ID($_FF_)) {
 			SigBit D = mapped_cell->getPort(ID::D);
 			SigBit Q = mapped_cell->getPort(ID::Q);
 			if (D.wire)
