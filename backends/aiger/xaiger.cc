@@ -620,27 +620,16 @@ struct XAigerWriter
 			auto write_s_buffer = std::bind(write_buffer, std::ref(s_buffer), std::placeholders::_1);
 			write_s_buffer(ff_bits.size());
 
-			dict<SigBit, int> clk_to_mergeability;
-			for (const auto &i : ff_bits) {
-				const Cell *cell = i.second;
-				log_assert(cell->type.in(ID($_DFF_N_), ID($_DFF_P_)));
-
-				SigBit clock = sigmap(cell->getPort(ID::C));
-				clk_to_mergeability.insert(std::make_pair(clock, clk_to_mergeability.size()*2+1));
-			}
-
+			dict<SigSpec, int> clk_to_mergeability;
 			for (const auto &i : ff_bits) {
 				const SigBit &d = i.first;
 				const Cell *cell = i.second;
 
-				SigBit clock = sigmap(cell->getPort(ID::C));
-				int mergeability = clk_to_mergeability.at(clock);
+				SigSpec clk_and_pol{sigmap(cell->getPort(ID::C)), cell->type[6] == 'P' ? State::S1 : State::S0};
+				auto r = clk_to_mergeability.insert(std::make_pair(clk_and_pol, clk_to_mergeability.size()+1));
+				int mergeability = r.first->second;
 				log_assert(mergeability > 0);
-				if (cell->type == ID($_DFF_N_))
-					write_r_buffer(mergeability);
-				else if (cell->type == ID($_DFF_P_))
-					write_r_buffer(mergeability+1);
-				else log_abort();
+				write_r_buffer(mergeability);
 
 				SigBit Q = sigmap(cell->getPort(ID::Q));
 				State init = init_map.at(Q, State::Sx);
