@@ -656,6 +656,8 @@ struct RTLIL::AttrObject
 {
 	dict<RTLIL::IdString, RTLIL::Const> attributes;
 
+	bool has_attribute(RTLIL::IdString id) const;
+
 	void set_bool_attribute(RTLIL::IdString id, bool value=true);
 	bool get_bool_attribute(RTLIL::IdString id) const;
 
