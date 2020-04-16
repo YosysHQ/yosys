@@ -1091,7 +1091,8 @@ public:
 	std::vector<RTLIL::SigSig> connections_;
 
 	RTLIL::IdString name;
-	pool<RTLIL::IdString> avail_parameters;
+	idict<RTLIL::IdString> avail_parameters;
+	dict<RTLIL::IdString, RTLIL::Const> parameter_default_values;
 	dict<RTLIL::IdString, RTLIL::Memory*> memories;
 	dict<RTLIL::IdString, RTLIL::Process*> processes;
 

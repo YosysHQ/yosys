@@ -1015,7 +1015,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 	// remember the parameter, needed for example in techmap
 	case AST_PARAMETER:
-		current_module->avail_parameters.insert(str);
+		current_module->avail_parameters(str);
+		if (GetSize(children) >= 1 && children[0]->type == AST_CONSTANT) {
+			current_module->parameter_default_values[str] = children[0]->asParaConst();
+		}
 		/* fall through */
 	case AST_LOCALPARAM:
 		if (flag_pwires)

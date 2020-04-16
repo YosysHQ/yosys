@@ -1389,7 +1389,7 @@ void RTLIL::Module::sort()
 {
 	wires_.sort(sort_by_id_str());
 	cells_.sort(sort_by_id_str());
-	avail_parameters.sort(sort_by_id_str());
+	parameter_default_values.sort(sort_by_id_str());
 	memories.sort(sort_by_id_str());
 	processes.sort(sort_by_id_str());
 	for (auto &it : cells_)
@@ -1508,6 +1508,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 	log_assert(new_mod->refcount_cells_ == 0);
 
 	new_mod->avail_parameters = avail_parameters;
+	new_mod->parameter_default_values = parameter_default_values;
 
 	for (auto &conn : connections_)
 		new_mod->connect(conn);

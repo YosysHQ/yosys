@@ -1074,8 +1074,6 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 				if (child->type == AST_WIRE && (child->is_input || child->is_output)) {
 					new_children.push_back(child);
 				} else if (child->type == AST_PARAMETER) {
-					child->delete_children();
-					child->children.push_back(AstNode::mkconst_int(0, false, 0));
 					new_children.push_back(child);
 				} else if (child->type == AST_CELL && child->children.size() > 0 && child->children[0]->type == AST_CELLTYPE &&
 						(child->children[0]->str == "$specify2" || child->children[0]->str == "$specify3" || child->children[0]->str == "$specrule")) {
