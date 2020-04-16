@@ -45,14 +45,16 @@ sat -seq 10 -verify -prove-asserts -show-ports miter
 design -reset
 read_verilog -icells <<EOT
 module abc9_test036(input clk, d, output q);
-(* keep *) reg w;
-$__ABC9_FF_ ff(.D(d), .Q(w));
-wire \ff.clock = clk;
-wire \ff.init = 1'b0;
+(* keep, init=1'b0 *) wire w;
+$_DFF_P_ ff(.C(clk), .D(d), .Q(w));
 assign q = w;
 endmodule
 EOT
-abc9 -lut 4 -dff
+equiv_opt abc9 -lut 4 -dff
+design -load postopt
+cd abc9_test036
+select -assert-count 1 t:$_DFF_P_
+select -assert-none t:* t:$_DFF_P_ %d
 
 
 design -reset

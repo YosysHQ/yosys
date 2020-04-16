@@ -314,23 +314,24 @@ struct Abc9Pass : public ScriptPass
 						}
 					}
 					run("design -stash $abc9_map");
-					run("design -load $abc9");
-					run("design -delete $abc9");
-					run("select -unset $abc9_flops");
-					run("techmap -wb -map %$abc9_map"); // techmap user design into submod + $_DFF_[NP]_
+				}
+				run("design -load $abc9");
+				run("design -delete $abc9");
+				run("select -unset $abc9_flops");
+				if (did_something) { // techmap user design into submod + $_DFF_[NP]_
+					run("techmap -wb -max_iter 1 -map %$abc9_map -map +/abc9_map.v");
 					run("design -delete $abc9_map");
 					run("setattr -mod -set whitebox 1 -set abc9_flop 1 -set abc9_box 1 *_$abc9_flop");
 					run("abc9_ops -prep_dff_unmap"); // implement $abc9_unmap design
 				}
-				else {
-					run("design -load $abc9");
-					run("design -delete $abc9");
-					run("select -unset $abc9_flops");
-				}
+				else
+					run("techmap -wb -max_iter 1 -map +/abc9_map.v");
+
 			}
 		}
 
 		if (check_label("pre")) {
+			run("read_verilog -icells -lib -specify +/abc9_model.v");
 			run("scc -set_attr abc9_scc_id {}");
 			if (help_mode)
 				run("abc9_ops -mark_scc -prep_delays -prep_xaiger [-dff]", "(option for -dff)");

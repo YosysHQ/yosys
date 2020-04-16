@@ -128,7 +128,7 @@ void prep_dff_hier(RTLIL::Design *design)
 
 	Design *unmap_design = new Design;
 
-	for (auto module : design->selected_modules())
+	for (auto module : design->modules())
 		for (auto cell : module->cells()) {
 			auto inst_module = design->module(cell->type);
 			if (inst_module && inst_module->attributes.count(ID::abc9_flop)) {
@@ -219,17 +219,23 @@ void prep_dff_map(RTLIL::Design *design)
 
 		D = dff_cell->getPort(ID::D);
 
-		// Add a dummy enable mux feeding DFF.D to ensure that:
-		//   (i) a driving cell exists, so that 'submod' will have
-		//       an output port
-		//   (ii) DFF.Q will exist in this submodule
 		{
-			auto c = module->addCell(NEW_ID, ID($_MUX_));
+			// Add dummy buffers for all module inputs/outputs
+			//   to ensure that these ports exists in the flop box
+			//   created by later submod pass
+			for (auto port_name : module->ports) {
+				auto port = module->wire(port_name);
+				log_assert(GetSize(port) == 1);
+				auto c = module->addBufGate(NEW_ID, port, module->addWire(NEW_ID));
+				// Need to set (* keep *) otherwise opt_clean
+				//   inside submod will blow it away
+				c->set_bool_attribute(ID::keep);
+			}
+			// Add an additional buffer that drives $_DFF_[NP]_.D
+			//   so that the flop box will have an output
 			auto w = module->addWire(NEW_ID);
-			c->setPort(ID::A, D);
-			c->setPort(ID::B, Q);
-			c->setPort(ID::S, State::S0);
-			c->setPort(ID::Y, w);
+			auto c = module->addBufGate(NEW_ID, D, w);
+			c->set_bool_attribute(ID::keep);
 			dff_cell->setPort(ID::D, w);
 			D = w;
 		}
