@@ -128,7 +128,7 @@ void prep_dff_hier(RTLIL::Design *design)
 
 	Design *unmap_design = new Design;
 
-	for (auto module : design->modules())
+	for (auto module : design->selected_modules())
 		for (auto cell : module->cells()) {
 			auto inst_module = design->module(cell->type);
 			if (inst_module && inst_module->attributes.count(ID::abc9_flop)) {
