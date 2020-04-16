@@ -2619,7 +2619,16 @@ void RTLIL::Cell::setParam(RTLIL::IdString paramname, RTLIL::Const value)
 
 const RTLIL::Const &RTLIL::Cell::getParam(RTLIL::IdString paramname) const
 {
-	return parameters.at(paramname);
+	static const RTLIL::Const empty;
+	const auto &it = parameters.find(paramname);
+	if (it != parameters.end())
+		return it->second;
+	if (module && module->design) {
+		RTLIL::Module *m = module->design->module(type);
+		if (m)
+			return m->parameter_default_values.at(paramname, empty);
+	}
+	return empty;
 }
 
 void RTLIL::Cell::sort()
