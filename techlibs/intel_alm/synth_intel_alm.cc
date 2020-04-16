@@ -164,6 +164,7 @@ struct SynthIntelALMPass : public ScriptPass {
 			run(stringf("read_verilog -sv -lib +/intel/%s/cells_sim.v", family_opt.c_str()));
 			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/alm_sim.v", family_opt.c_str()));
 			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/dff_sim.v", family_opt.c_str()));
+			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/mem_sim.v", family_opt.c_str()));
 
 			// Misc and common cells
 			run("read_verilog -lib +/intel/common/altpll_bb.v");
@@ -190,7 +191,6 @@ struct SynthIntelALMPass : public ScriptPass {
 
 		if (!nolutram && check_label("map_lutram", "(skip if -nolutram)")) {
 			run("memory_bram -rules +/intel_alm/common/lutram_mlab.txt", "(for Cyclone V / Cyclone 10GX)");
-			run("techmap -map +/intel_alm/common/lutram_mlab_map.v", "(for Cyclone V / Cyclone 10GX)");
 		}
 
 		if (check_label("map_ffram")) {
