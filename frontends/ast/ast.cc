@@ -1153,6 +1153,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 		bool nolatches, bool nomeminit, bool nomem2reg, bool mem2reg, bool noblackbox, bool lib, bool nowb, bool noopt, bool icells, bool pwires, bool nooverwrite, bool overwrite, bool defer, bool autowire)
 {
 	current_ast = ast;
+	current_ast_mod = nullptr;
 	flag_dump_ast1 = dump_ast1;
 	flag_dump_ast2 = dump_ast2;
 	flag_no_dump_ptr = no_dump_ptr;
@@ -1219,6 +1220,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 			}
 
 			design->add(process_module(*it, defer));
+			current_ast_mod = nullptr;
 		}
 		else if ((*it)->type == AST_PACKAGE) {
 			// process enum/other declarations
