@@ -569,7 +569,7 @@ public:
 		return entries[i].udata.second;
 	}
 
-	T at(const K &key, const T &defval) const
+	const T& at(const K &key, const T &defval) const
 	{
 		int hash = do_hash(key);
 		int i = do_lookup(key, hash);
@@ -961,7 +961,21 @@ class idict
 	pool<K, OPS> database;
 
 public:
-	typedef typename pool<K, OPS>::const_iterator const_iterator;
+	class const_iterator : public std::iterator<std::forward_iterator_tag, K>
+	{
+		friend class idict;
+	protected:
+		const idict &container;
+		int index;
+		const_iterator(const idict &container, int index) : container(container), index(index) { }
+	public:
+		const_iterator() { }
+		const_iterator operator++() { index++; return *this; }
+		bool operator==(const const_iterator &other) const { return index == other.index; }
+		bool operator!=(const const_iterator &other) const { return index != other.index; }
+		const K &operator*() const { return container[index]; }
+		const K *operator->() const { return &container[index]; }
+	};
 
 	int operator()(const K &key)
 	{
@@ -1019,9 +1033,9 @@ public:
 	bool empty() const { return database.empty(); }
 	void clear() { database.clear(); }
 
-	const_iterator begin() const { return database.begin(); }
-	const_iterator element(int n) const { return database.element(n); }
-	const_iterator end() const { return database.end(); }
+	const_iterator begin() const { return const_iterator(*this, offset); }
+	const_iterator element(int n) const { return const_iterator(*this, n); }
+	const_iterator end() const { return const_iterator(*this, offset + size()); }
 };
 
 template<typename K, typename OPS>
