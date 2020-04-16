@@ -316,7 +316,7 @@ class SubCircuit::SolverWorker
 
 	// helper functions for handling permutations
 
-	static const int maxPermutationsLimit = 1000000;
+	static constexpr int maxPermutationsLimit = 1000000;
 
 	static int numberOfPermutations(const std::vector<std::string> &list)
 	{
@@ -1689,4 +1689,3 @@ void SubCircuit::Solver::clearConfig()
 {
 	worker->clearConfig();
 }
-
