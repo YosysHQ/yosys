@@ -1753,7 +1753,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			result_width = abs(int(left_at_zero_ast->integer - right_at_zero_ast->integer)) + 1;
 		}
 
-		if (1)
+		if (0)
 		{
 			// big case block
 
