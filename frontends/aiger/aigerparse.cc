@@ -787,21 +787,8 @@ void AigerReader::post_process()
 		log_assert(q->port_input);
 		q->port_input = false;
 
-		Cell* ff;
-		int clock_index = mergeability[i];
-		if (clock_index & 1) {
-			ff = module->addCell(NEW_ID, ID($_DFF_N_));
-			clock_index--;
-		}
-		else
-			ff = module->addCell(NEW_ID, ID($_DFF_P_));
-		auto r = mergeability_to_clock.insert(clock_index);
-		if (r.second)
-			r.first->second = module->addWire(NEW_ID);
-		ff->setPort(ID::C, r.first->second);
-		ff->setPort(ID::D, d);
-		ff->setPort(ID::Q, q);
-		log_assert(GetSize(q) == 1);
+		Cell* ff = module->addFfGate(NEW_ID, d, q);
+		ff->attributes[ID::abc9_mergeability] = mergeability[i];
 		q->attributes[ID::init] = initial_state[i];
 	}
 
