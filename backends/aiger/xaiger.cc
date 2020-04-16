@@ -644,6 +644,7 @@ struct XAigerWriter
 
 				SigBit Q = sigmap(cell->getPort(ID::Q));
 				State init = init_map.at(Q, State::Sx);
+				log_debug("Cell '%s' (type %s) has (* init *) value '%s'.\n", log_id(cell), log_id(cell->type), log_signal(init));
 				if (init == State::S1)
 					write_s_buffer(1);
 				else if (init == State::S0)
