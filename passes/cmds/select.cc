@@ -809,6 +809,9 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 			continue;
 		}
 
+		if (mod->get_blackbox_attribute())
+			continue;
+
 		if (arg_memb.compare(0, 2, "w:") == 0) {
 			for (auto wire : mod->wires())
 				if (match_ids(wire->name, arg_memb.substr(2)))
