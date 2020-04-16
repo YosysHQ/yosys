@@ -485,20 +485,21 @@ void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<s
 			cmd_error(args, argidx, "Extra filename argument in direct file mode.");
 
 		filename = arg;
+		//Accommodate heredocs with EOT marker spaced out from "<<", e.g. "<< EOT" vs. "<<EOT"
 		if (filename == "<<" && argidx+1 < args.size())
 			filename += args[++argidx];
 		if (filename.compare(0, 2, "<<") == 0) {
-			if (Frontend::current_script_file == NULL)
-				log_error("Unexpected here document '%s' outside of script!\n", filename.c_str());
 			if (filename.size() <= 2)
 				log_error("Missing EOT marker in here document!\n");
 			std::string eot_marker = filename.substr(2);
+			if (Frontend::current_script_file == nullptr)
+				filename = "<stdin>";
 			last_here_document.clear();
 			while (1) {
 				std::string buffer;
 				char block[4096];
 				while (1) {
-					if (fgets(block, 4096, Frontend::current_script_file) == NULL)
+					if (fgets(block, 4096, Frontend::current_script_file == nullptr? stdin : Frontend::current_script_file) == nullptr)
 						log_error("Unexpected end of file in here document '%s'!\n", filename.c_str());
 					buffer += block;
 					if (buffer.size() > 0 && (buffer[buffer.size() - 1] == '\n' || buffer[buffer.size() - 1] == '\r'))
