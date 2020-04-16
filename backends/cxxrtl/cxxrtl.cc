@@ -1166,8 +1166,7 @@ struct CxxrtlWorker {
 		});
 
 		dump_attrs(memory);
-		f << indent << (writable_memories[memory] ? "" : "const ")
-		            << "memory<" << memory->width << "> " << mangle(memory)
+		f << indent << "memory<" << memory->width << "> " << mangle(memory)
 		            << " { " << memory->size << "u";
 		if (init_cells.empty()) {
 			f << " };\n";
@@ -1425,8 +1424,6 @@ struct CxxrtlWorker {
 					if (cell->getPort(ID(CLK)).is_wire())
 						register_edge_signal(sigmap, cell->getPort(ID(CLK)),
 							cell->parameters[ID(CLK_POLARITY)].as_bool() ? RTLIL::STp : RTLIL::STn);
-					// The $adff and $dffsr cells are level-sensitive, not edge-sensitive (in spite of the fact that they
-					// are inferred from an edge-sensitive Verilog process) and do not correspond to an edge-type sync rule.
 				}
 				// Similar for memory port cells.
 				if (cell->type.in(ID($memrd), ID($memwr))) {
@@ -1642,20 +1639,29 @@ struct CxxrtlBackend : public Backend {
 		log("\n");
 		log("    write_cxxrtl [options] [filename]\n");
 		log("\n");
-		log("Write C++ code for simulating the design. The generated code requires a driver;\n");
-		log("the following simple driver is provided as an example:\n");
+		log("Write C++ code for simulating the design. The generated code requires a driver\n");
+		log("that instantiates the design, toggles its clock, and interacts with its ports.\n");
+		log("\n");
+		log("The following driver may be used as an example for a design with a single clock\n");
+		log("driving rising edge triggered flip-flops:\n");
 		log("\n");
 		log("    #include \"top.cc\"\n");
 		log("\n");
 		log("    int main() {\n");
 		log("      cxxrtl_design::p_top top;\n");
+		log("      top.step();\n");
 		log("      while (1) {\n");
-		log("        top.p_clk.next = value<1> {1u};\n");
-		log("        top.step();\n");
+		log("        /* user logic */\n");
 		log("        top.p_clk.next = value<1> {0u};\n");
+		log("        top.step();\n");
+		log("        top.p_clk.next = value<1> {1u};\n");
 		log("        top.step();\n");
 		log("      }\n");
 		log("    }\n");
+		log("\n");
+		log("Note that CXXRTL simulations, just like the hardware they are simulating, are\n");
+		log("subject to race conditions. If, in then example above, the user logic would run\n");
+		log("simultaneously with the rising edge of the clock, the design would malfunction.\n");
 		log("\n");
 		log("The following options are supported by this backend:\n");
 		log("\n");

@@ -604,12 +604,15 @@ struct memory {
 		auto _ = {std::move(std::begin(init.data), std::end(init.data), data.begin() + init.offset)...};
 	}
 
-	value<Width> &operator [](size_t index) {
+	// An operator for direct memory reads. May be used at any time during the simulation.
+	const value<Width> &operator [](size_t index) const {
 		assert(index < data.size());
 		return data[index];
 	}
 
-	const value<Width> &operator [](size_t index) const {
+	// An operator for direct memory writes. May only be used before the simulation is started. If used
+	// after the simulation is started, the design may malfunction.
+	value<Width> &operator [](size_t index) {
 		assert(index < data.size());
 		return data[index];
 	}
