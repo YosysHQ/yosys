@@ -663,12 +663,19 @@ struct RTLIL::AttrObject
 		return get_bool_attribute(ID::blackbox) || (!ignore_wb && get_bool_attribute(ID::whitebox));
 	}
 
+	void set_string_attribute(RTLIL::IdString id, string value);
+	string get_string_attribute(RTLIL::IdString id) const;
+
 	void set_strpool_attribute(RTLIL::IdString id, const pool<string> &data);
 	void add_strpool_attribute(RTLIL::IdString id, const pool<string> &data);
 	pool<string> get_strpool_attribute(RTLIL::IdString id) const;
 
-	void set_src_attribute(const std::string &src);
-	std::string get_src_attribute() const;
+	void set_src_attribute(const std::string &src) {
+		set_string_attribute(ID::src, src);
+	}
+	std::string get_src_attribute() const {
+		return get_string_attribute(ID::src);
+	}
 };
 
 struct RTLIL::SigChunk
