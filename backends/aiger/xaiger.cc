@@ -293,10 +293,6 @@ struct XAigerWriter
 				if (abc9_flop)
 					continue;
 			}
-			else {
-				if (cell->type == ID($__ABC9_DELAY))
-					log_error("Cell type '%s' not recognised. Check that '+/abc9_model.v' has been read.\n", cell->type.c_str());
-			}
 
 			bool cell_known = inst_module || cell->known();
 			for (const auto &c : cell->connections()) {
