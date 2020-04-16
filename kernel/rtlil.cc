@@ -597,6 +597,7 @@ void RTLIL::Design::remove(RTLIL::Module *module)
 	}
 
 	log_assert(modules_.at(module->name) == module);
+	log_assert(refcount_modules_ == 0);
 	modules_.erase(module->name);
 	delete module;
 }
