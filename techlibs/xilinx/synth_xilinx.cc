@@ -616,7 +616,7 @@ struct SynthXilinxPass : public ScriptPass
 					log_warning("'synth_xilinx -abc9' not currently supported for the '%s' family, "
 							"will use timing for 'xc7' instead.\n", family.c_str());
 				run("techmap -map +/xilinx/abc9_map.v -max_iter 1");
-				run("read_verilog -icells -lib -specify +/abc9_model.v +/xilinx/abc9_model.v");
+				run("read_verilog -icells -lib -specify +/xilinx/abc9_model.v");
 				std::string abc9_opts;
 				std::string k = "synth_xilinx.abc9.W";
 				if (active_design && active_design->scratchpad.count(k))

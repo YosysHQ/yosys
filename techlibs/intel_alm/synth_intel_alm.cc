@@ -209,7 +209,6 @@ struct SynthIntelALMPass : public ScriptPass {
 		}
 
 		if (check_label("map_luts")) {
-			run("read_verilog -icells -specify -lib +/abc9_model.v");
 			run("abc9 -maxlut 6 -W 200");
 			run("techmap -map +/intel_alm/common/alm_map.v");
 			run("opt -fast");

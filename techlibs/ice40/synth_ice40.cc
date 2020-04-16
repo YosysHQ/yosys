@@ -387,7 +387,7 @@ struct SynthIce40Pass : public ScriptPass
 			}
 			if (!noabc) {
 				if (abc9) {
-					run("read_verilog " + define + " -icells -lib -specify +/abc9_model.v +/ice40/abc9_model.v");
+					run("read_verilog " + define + " -icells -lib -specify +/ice40/abc9_model.v");
 					std::string abc9_opts;
 					std::string k = "synth_ice40.abc9.W";
 					if (active_design && active_design->scratchpad.count(k))
