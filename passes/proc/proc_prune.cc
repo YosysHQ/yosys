@@ -38,7 +38,7 @@ struct PruneWorker
 	pool<RTLIL::SigBit> do_switch(RTLIL::SwitchRule *sw, pool<RTLIL::SigBit> assigned, pool<RTLIL::SigBit> &affected)
 	{
 		pool<RTLIL::SigBit> all_assigned;
-		bool full_case = sw->get_bool_attribute("\\full_case");
+		bool full_case = sw->get_bool_attribute(ID::full_case);
 		bool first = true;
 		for (auto it : sw->cases) {
 			if (it->compare.empty())
@@ -93,7 +93,7 @@ struct PruneWorker
 						for (int i = 0; i < GetSize(lhs); i++) {
 							RTLIL::SigBit lhs_bit = lhs[i];
 							if (lhs_bit.wire && !assigned[lhs_bit]) {
-								conn.first.append_bit(lhs_bit);
+								conn.first.append(lhs_bit);
 								conn.second.append(rhs.extract(i));
 							}
 						}

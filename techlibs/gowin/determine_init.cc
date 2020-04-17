@@ -55,12 +55,12 @@ struct DetermineInitPass : public Pass {
 		{
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->type == "\\RAM16S4")
+				if (cell->type == ID(RAM16S4))
 				{
-					cell->setParam("\\INIT_0", determine_init(cell->getParam("\\INIT_0")));
-					cell->setParam("\\INIT_1", determine_init(cell->getParam("\\INIT_1")));
-					cell->setParam("\\INIT_2", determine_init(cell->getParam("\\INIT_2")));
-					cell->setParam("\\INIT_3", determine_init(cell->getParam("\\INIT_3")));
+					cell->setParam(ID(INIT_0), determine_init(cell->getParam(ID(INIT_0))));
+					cell->setParam(ID(INIT_1), determine_init(cell->getParam(ID(INIT_1))));
+					cell->setParam(ID(INIT_2), determine_init(cell->getParam(ID(INIT_2))));
+					cell->setParam(ID(INIT_3), determine_init(cell->getParam(ID(INIT_3))));
 					cnt++;
 				}
 			}

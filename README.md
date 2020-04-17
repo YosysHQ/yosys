@@ -1,7 +1,7 @@
 ```
 yosys -- Yosys Open SYnthesis Suite
 
-Copyright (C) 2012 - 2019  Clifford Wolf <clifford@clifford.at>
+Copyright (C) 2012 - 2020  Claire Wolf <claire@symbioticeda.com>
 
 Permission to use, copy, modify, and/or distribute this software for any
 purpose with or without fee is hereby granted, provided that the above
@@ -364,24 +364,18 @@ Verilog Attributes and non-standard features
   it as the external-facing pin of an I/O pad, and prevents ``iopadmap``
   from inserting another pad cell on it.
 
-- The module attribute ``abc9_box_id`` specifies a positive integer linking a
-  blackbox or whitebox definition to a corresponding entry in a `abc9`
-  box-file.
+- The module attribute ``abc9_lut`` is an integer attribute indicating to
+  `abc9` that this module describes a LUT with an area cost of this value, and
+  propagation delays described using `specify` statements.
+
+- The module attribute ``abc9_box`` is a boolean specifying a black/white-box
+  definition, with propagation delays described using `specify` statements, for
+  use by `abc9`.
 
 - The port attribute ``abc9_carry`` marks the carry-in (if an input port) and
   carry-out (if output port) ports of a box. This information is necessary for
   `abc9` to preserve the integrity of carry-chains. Specifying this attribute
   onto a bus port will affect only its most significant bit.
-
-- The output port attribute ``abc9_arrival`` specifies an integer, or a string
-  of space-separated integers to be used as the arrival time of this blackbox
-  port. It can be used, for example, to specify the clk-to-Q delay of a flip-
-  flop output for consideration during `abc9` techmapping.
-
-- The input port attribute ``abc9_required`` specifies an integer, or a string
-  of space-separated integers to be used as the required time of this blackbox
-  port. It can be used, for example, to specify the setup-time of a flip-flop
-  input for consideration during `abc9` techmapping.
 
 - The module attribute ``abc9_flop`` is a boolean marking the module as a
   flip-flop. This allows `abc9` to analyse its contents in order to perform
@@ -449,8 +443,8 @@ Verilog Attributes and non-standard features
 - The ``wiretype`` attribute is added by the verilog parser for wires of a
   typedef'd type to indicate the type identifier.
 
-- Various ``enum_{width}_{value}`` attributes are added to wires of an
-  enumerated type to give a map of possible enum items to their values.
+- Various ``enum_value_{value}`` attributes are added to wires of an enumerated type
+  to give a map of possible enum items to their values.
 
 - The ``enum_base_type`` attribute is added to enum items to indicate which
   enum they belong to (enums -- anonymous and otherwise -- are
@@ -547,8 +541,6 @@ from SystemVerilog:
   SystemVerilog files being read into the same design afterwards.
 
 - typedefs are supported (including inside packages)
-	- type identifiers must currently be enclosed in (parentheses) when declaring
-	  signals of that type (this is syntactically incorrect SystemVerilog)
 	- type casts are currently not supported
 
 - enums are supported (including inside packages)

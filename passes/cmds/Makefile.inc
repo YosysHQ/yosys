@@ -1,4 +1,5 @@
 
+OBJS += passes/cmds/exec.o
 OBJS += passes/cmds/add.o
 OBJS += passes/cmds/delete.o
 OBJS += passes/cmds/design.o
@@ -33,3 +34,4 @@ OBJS += passes/cmds/blackbox.o
 OBJS += passes/cmds/ltp.o
 OBJS += passes/cmds/bugpoint.o
 OBJS += passes/cmds/scratchpad.o
+OBJS += passes/cmds/logger.o

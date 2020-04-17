@@ -222,9 +222,9 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 	abc9_script += stringf("; &ps -l; &write -n %s/output.aig", tempdir_name.c_str());
 	if (design->scratchpad_get_bool("abc9.verify")) {
 		if (dff_mode)
-			abc9_script += "; verify -s";
+			abc9_script += "; &verify -s";
 		else
-			abc9_script += "; verify";
+			abc9_script += "; &verify";
 	}
 	abc9_script += "; time";
 	abc9_script = add_echos_to_abc9_cmd(abc9_script);
@@ -293,7 +293,7 @@ struct Abc9ExePass : public Pass {
 #ifdef ABCEXTERNAL
 		log("        use the specified command instead of \"" ABCEXTERNAL "\" to execute ABC.\n");
 #else
-		log("        use the specified command instead of \"<yosys-bindir>/yosys-abc\" to execute ABC.\n");
+		log("        use the specified command instead of \"<yosys-bindir>/%syosys-abc\" to execute ABC.\n", proc_program_prefix().c_str());
 #endif
 		log("        This can e.g. be used to call a specific version of ABC or a wrapper.\n");
 		log("\n");
@@ -367,7 +367,7 @@ struct Abc9ExePass : public Pass {
 #ifdef ABCEXTERNAL
 		std::string exe_file = ABCEXTERNAL;
 #else
-		std::string exe_file = proc_self_dirname() + "yosys-abc";
+		std::string exe_file = proc_self_dirname() + proc_program_prefix()+ "yosys-abc";
 #endif
 		std::string script_file, clk_str, box_file, lut_file;
 		std::string delay_target, lutin_shared = "-S 1", wire_delay;
@@ -383,8 +383,8 @@ struct Abc9ExePass : public Pass {
 
 #ifdef _WIN32
 #ifndef ABCEXTERNAL
-		if (!check_file_exists(exe_file + ".exe") && check_file_exists(proc_self_dirname() + "..\\yosys-abc.exe"))
-			exe_file = proc_self_dirname() + "..\\yosys-abc";
+		if (!check_file_exists(exe_file + ".exe") && check_file_exists(proc_self_dirname() + "..\\" + proc_program_prefix() + "yosys-abc.exe"))
+			exe_file = proc_self_dirname() + "..\\" + proc_program_prefix() + "yosys-abc";
 #endif
 #endif
 

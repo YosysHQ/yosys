@@ -64,7 +64,7 @@ struct UniquifyPass : public Pass {
 
 			for (auto module : design->selected_modules())
 			{
-				if (!module->get_bool_attribute("\\unique") && !module->get_bool_attribute("\\top"))
+				if (!module->get_bool_attribute(ID::unique) && !module->get_bool_attribute(ID::top))
 					continue;
 
 				for (auto cell : module->selected_cells())
@@ -78,7 +78,7 @@ struct UniquifyPass : public Pass {
 					if (tmod->get_blackbox_attribute())
 						continue;
 
-					if (tmod->get_bool_attribute("\\unique") && newname == tmod->name)
+					if (tmod->get_bool_attribute(ID::unique) && newname == tmod->name)
 						continue;
 
 					log("Creating module %s from %s.\n", log_id(newname), log_id(tmod));
@@ -86,9 +86,9 @@ struct UniquifyPass : public Pass {
 					auto smod = tmod->clone();
 					smod->name = newname;
 					cell->type = newname;
-					smod->set_bool_attribute("\\unique");
-					if (smod->attributes.count("\\hdlname") == 0)
-						smod->attributes["\\hdlname"] = string(log_id(tmod->name));
+					smod->set_bool_attribute(ID::unique);
+					if (smod->attributes.count(ID::hdlname) == 0)
+						smod->attributes[ID::hdlname] = string(log_id(tmod->name));
 					design->add(smod);
 
 					did_something = true;

@@ -28,10 +28,31 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct MemoryMapWorker
 {
+	bool attr_icase = false;
+	dict<RTLIL::IdString, std::vector<RTLIL::Const>> attributes;
+
 	RTLIL::Design *design;
 	RTLIL::Module *module;
 
 	std::map<std::pair<RTLIL::SigSpec, RTLIL::SigSpec>, RTLIL::SigBit> decoder_cache;
+
+	MemoryMapWorker(RTLIL::Design *design, RTLIL::Module *module) : design(design), module(module) {}
+
+	std::string map_case(std::string value) const
+	{
+		if (attr_icase) {
+			for (char &c : value)
+				c = tolower(c);
+		}
+		return value;
+	}
+
+	RTLIL::Const map_case(RTLIL::Const value) const
+	{
+		if (value.flags & RTLIL::CONST_FLAG_STRING)
+			return map_case(value.decode_string());
+		return value;
+	}
 
 	std::string genid(RTLIL::IdString name, std::string token1 = "", int i = -1, std::string token2 = "", int j = -1, std::string token3 = "", int k = -1, std::string token4 = "")
 	{
@@ -81,15 +102,15 @@ struct MemoryMapWorker
 		std::set<int> static_ports;
 		std::map<int, RTLIL::SigSpec> static_cells_map;
 
-		int wr_ports = cell->parameters["\\WR_PORTS"].as_int();
-		int rd_ports = cell->parameters["\\RD_PORTS"].as_int();
+		int wr_ports = cell->parameters[ID::WR_PORTS].as_int();
+		int rd_ports = cell->parameters[ID::RD_PORTS].as_int();
 
-		int mem_size = cell->parameters["\\SIZE"].as_int();
-		int mem_width = cell->parameters["\\WIDTH"].as_int();
-		int mem_offset = cell->parameters["\\OFFSET"].as_int();
-		int mem_abits = cell->parameters["\\ABITS"].as_int();
+		int mem_size = cell->parameters[ID::SIZE].as_int();
+		int mem_width = cell->parameters[ID::WIDTH].as_int();
+		int mem_offset = cell->parameters[ID::OFFSET].as_int();
+		int mem_abits = cell->parameters[ID::ABITS].as_int();
 
-		SigSpec init_data = cell->getParam("\\INIT");
+		SigSpec init_data = cell->getParam(ID::INIT);
 		init_data.extend_u0(mem_size*mem_width, true);
 
 		// delete unused memory cell
@@ -98,23 +119,53 @@ struct MemoryMapWorker
 			return;
 		}
 
+		// check if attributes allow us to infer FFRAM for this cell
+		for (const auto &attr : attributes) {
+			if (cell->attributes.count(attr.first)) {
+				const auto &cell_attr = cell->attributes[attr.first];
+				if (attr.second.empty()) {
+					log("Not mapping memory cell %s in module %s (attribute %s is set).\n",
+							cell->name.c_str(), module->name.c_str(), attr.first.c_str());
+					return;
+				}
+
+				bool found = false;
+				for (auto &value : attr.second) {
+					if (map_case(cell_attr) == map_case(value)) {
+						found = true;
+						break;
+					}
+				}
+				if (!found) {
+					if (cell_attr.flags & RTLIL::CONST_FLAG_STRING) {
+						log("Not mapping memory cell %s in module %s (attribute %s is set to \"%s\").\n",
+								cell->name.c_str(), module->name.c_str(), attr.first.c_str(), cell_attr.decode_string().c_str());
+					} else {
+						log("Not mapping memory cell %s in module %s (attribute %s is set to %d).\n",
+								cell->name.c_str(), module->name.c_str(), attr.first.c_str(), cell_attr.as_int());
+					}
+					return;
+				}
+			}
+		}
+
 		// all write ports must share the same clock
-		RTLIL::SigSpec clocks = cell->getPort("\\WR_CLK");
-		RTLIL::Const clocks_pol = cell->parameters["\\WR_CLK_POLARITY"];
-		RTLIL::Const clocks_en = cell->parameters["\\WR_CLK_ENABLE"];
+		RTLIL::SigSpec clocks = cell->getPort(ID::WR_CLK);
+		RTLIL::Const clocks_pol = cell->parameters[ID::WR_CLK_POLARITY];
+		RTLIL::Const clocks_en = cell->parameters[ID::WR_CLK_ENABLE];
 		clocks_pol.bits.resize(wr_ports);
 		clocks_en.bits.resize(wr_ports);
 		RTLIL::SigSpec refclock;
 		RTLIL::State refclock_pol = RTLIL::State::Sx;
 		for (int i = 0; i < clocks.size(); i++) {
-			RTLIL::SigSpec wr_en = cell->getPort("\\WR_EN").extract(i * mem_width, mem_width);
+			RTLIL::SigSpec wr_en = cell->getPort(ID::WR_EN).extract(i * mem_width, mem_width);
 			if (wr_en.is_fully_const() && !wr_en.as_bool()) {
 				static_ports.insert(i);
 				continue;
 			}
 			if (clocks_en.bits[i] != RTLIL::State::S1) {
-				RTLIL::SigSpec wr_addr = cell->getPort("\\WR_ADDR").extract(i*mem_abits, mem_abits);
-				RTLIL::SigSpec wr_data = cell->getPort("\\WR_DATA").extract(i*mem_width, mem_width);
+				RTLIL::SigSpec wr_addr = cell->getPort(ID::WR_ADDR).extract(i*mem_abits, mem_abits);
+				RTLIL::SigSpec wr_data = cell->getPort(ID::WR_DATA).extract(i*mem_width, mem_width);
 				if (wr_addr.is_fully_const()) {
 					// FIXME: Actually we should check for wr_en.is_fully_const() also and
 					// create a $adff cell with this ports wr_en input as reset pin when wr_en
@@ -155,21 +206,21 @@ struct MemoryMapWorker
 			}
 			else
 			{
-				RTLIL::Cell *c = module->addCell(genid(cell->name, "", i), "$dff");
-				c->parameters["\\WIDTH"] = cell->parameters["\\WIDTH"];
+				RTLIL::Cell *c = module->addCell(genid(cell->name, "", i), ID($dff));
+				c->parameters[ID::WIDTH] = cell->parameters[ID::WIDTH];
 				if (clocks_pol.bits.size() > 0) {
-					c->parameters["\\CLK_POLARITY"] = RTLIL::Const(clocks_pol.bits[0]);
-					c->setPort("\\CLK", clocks.extract(0, 1));
+					c->parameters[ID::CLK_POLARITY] = RTLIL::Const(clocks_pol.bits[0]);
+					c->setPort(ID::CLK, clocks.extract(0, 1));
 				} else {
-					c->parameters["\\CLK_POLARITY"] = RTLIL::Const(RTLIL::State::S1);
-					c->setPort("\\CLK", RTLIL::SigSpec(RTLIL::State::S0));
+					c->parameters[ID::CLK_POLARITY] = RTLIL::Const(RTLIL::State::S1);
+					c->setPort(ID::CLK, RTLIL::SigSpec(RTLIL::State::S0));
 				}
 
 				RTLIL::Wire *w_in = module->addWire(genid(cell->name, "", i, "$d"), mem_width);
 				data_reg_in.push_back(RTLIL::SigSpec(w_in));
-				c->setPort("\\D", data_reg_in.back());
+				c->setPort(ID::D, data_reg_in.back());
 
-				std::string w_out_name = stringf("%s[%d]", cell->parameters["\\MEMID"].decode_string().c_str(), i);
+				std::string w_out_name = stringf("%s[%d]", cell->parameters[ID::MEMID].decode_string().c_str(), i);
 				if (module->wires_.count(w_out_name) > 0)
 					w_out_name = genid(cell->name, "", i, "$q");
 
@@ -177,10 +228,10 @@ struct MemoryMapWorker
 				SigSpec w_init = init_data.extract(i*mem_width, mem_width);
 
 				if (!w_init.is_fully_undef())
-					w_out->attributes["\\init"] = w_init.as_const();
+					w_out->attributes[ID::init] = w_init.as_const();
 
 				data_reg_out.push_back(RTLIL::SigSpec(w_out));
-				c->setPort("\\Q", data_reg_out.back());
+				c->setPort(ID::Q, data_reg_out.back());
 			}
 		}
 
@@ -188,55 +239,55 @@ struct MemoryMapWorker
 
 		int count_dff = 0, count_mux = 0, count_wrmux = 0;
 
-		for (int i = 0; i < cell->parameters["\\RD_PORTS"].as_int(); i++)
+		for (int i = 0; i < cell->parameters[ID::RD_PORTS].as_int(); i++)
 		{
-			RTLIL::SigSpec rd_addr = cell->getPort("\\RD_ADDR").extract(i*mem_abits, mem_abits);
+			RTLIL::SigSpec rd_addr = cell->getPort(ID::RD_ADDR).extract(i*mem_abits, mem_abits);
 
 			if (mem_offset)
 				rd_addr = module->Sub(NEW_ID, rd_addr, SigSpec(mem_offset, GetSize(rd_addr)));
 
 			std::vector<RTLIL::SigSpec> rd_signals;
-			rd_signals.push_back(cell->getPort("\\RD_DATA").extract(i*mem_width, mem_width));
+			rd_signals.push_back(cell->getPort(ID::RD_DATA).extract(i*mem_width, mem_width));
 
-			if (cell->parameters["\\RD_CLK_ENABLE"].bits[i] == RTLIL::State::S1)
+			if (cell->parameters[ID::RD_CLK_ENABLE].bits[i] == RTLIL::State::S1)
 			{
 				RTLIL::Cell *dff_cell = nullptr;
 
-				if (cell->parameters["\\RD_TRANSPARENT"].bits[i] == RTLIL::State::S1)
+				if (cell->parameters[ID::RD_TRANSPARENT].bits[i] == RTLIL::State::S1)
 				{
-					dff_cell = module->addCell(genid(cell->name, "$rdreg", i), "$dff");
-					dff_cell->parameters["\\WIDTH"] = RTLIL::Const(mem_abits);
-					dff_cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(cell->parameters["\\RD_CLK_POLARITY"].bits[i]);
-					dff_cell->setPort("\\CLK", cell->getPort("\\RD_CLK").extract(i, 1));
-					dff_cell->setPort("\\D", rd_addr);
+					dff_cell = module->addCell(genid(cell->name, "$rdreg", i), ID($dff));
+					dff_cell->parameters[ID::WIDTH] = RTLIL::Const(mem_abits);
+					dff_cell->parameters[ID::CLK_POLARITY] = RTLIL::Const(cell->parameters[ID::RD_CLK_POLARITY].bits[i]);
+					dff_cell->setPort(ID::CLK, cell->getPort(ID::RD_CLK).extract(i, 1));
+					dff_cell->setPort(ID::D, rd_addr);
 					count_dff++;
 
 					RTLIL::Wire *w = module->addWire(genid(cell->name, "$rdreg", i, "$q"), mem_abits);
 
-					dff_cell->setPort("\\Q", RTLIL::SigSpec(w));
+					dff_cell->setPort(ID::Q, RTLIL::SigSpec(w));
 					rd_addr = RTLIL::SigSpec(w);
 				}
 				else
 				{
-					dff_cell = module->addCell(genid(cell->name, "$rdreg", i), "$dff");
-					dff_cell->parameters["\\WIDTH"] = cell->parameters["\\WIDTH"];
-					dff_cell->parameters["\\CLK_POLARITY"] = RTLIL::Const(cell->parameters["\\RD_CLK_POLARITY"].bits[i]);
-					dff_cell->setPort("\\CLK", cell->getPort("\\RD_CLK").extract(i, 1));
-					dff_cell->setPort("\\Q", rd_signals.back());
+					dff_cell = module->addCell(genid(cell->name, "$rdreg", i), ID($dff));
+					dff_cell->parameters[ID::WIDTH] = cell->parameters[ID::WIDTH];
+					dff_cell->parameters[ID::CLK_POLARITY] = RTLIL::Const(cell->parameters[ID::RD_CLK_POLARITY].bits[i]);
+					dff_cell->setPort(ID::CLK, cell->getPort(ID::RD_CLK).extract(i, 1));
+					dff_cell->setPort(ID::Q, rd_signals.back());
 					count_dff++;
 
 					RTLIL::Wire *w = module->addWire(genid(cell->name, "$rdreg", i, "$d"), mem_width);
 
 					rd_signals.clear();
 					rd_signals.push_back(RTLIL::SigSpec(w));
-					dff_cell->setPort("\\D", rd_signals.back());
+					dff_cell->setPort(ID::D, rd_signals.back());
 				}
 
-				SigBit en_bit = cell->getPort("\\RD_EN").extract(i);
+				SigBit en_bit = cell->getPort(ID::RD_EN).extract(i);
 				if (en_bit != State::S1) {
 					SigSpec new_d = module->Mux(genid(cell->name, "$rdenmux", i),
-							dff_cell->getPort("\\Q"), dff_cell->getPort("\\D"), en_bit);
-					dff_cell->setPort("\\D", new_d);
+							dff_cell->getPort(ID::Q), dff_cell->getPort(ID::D), en_bit);
+					dff_cell->setPort(ID::D, new_d);
 				}
 			}
 
@@ -246,17 +297,17 @@ struct MemoryMapWorker
 
 				for (size_t k = 0; k < rd_signals.size(); k++)
 				{
-					RTLIL::Cell *c = module->addCell(genid(cell->name, "$rdmux", i, "", j, "", k), "$mux");
-					c->parameters["\\WIDTH"] = cell->parameters["\\WIDTH"];
-					c->setPort("\\Y", rd_signals[k]);
-					c->setPort("\\S", rd_addr.extract(mem_abits-j-1, 1));
+					RTLIL::Cell *c = module->addCell(genid(cell->name, "$rdmux", i, "", j, "", k), ID($mux));
+					c->parameters[ID::WIDTH] = cell->parameters[ID::WIDTH];
+					c->setPort(ID::Y, rd_signals[k]);
+					c->setPort(ID::S, rd_addr.extract(mem_abits-j-1, 1));
 					count_mux++;
 
-					c->setPort("\\A", module->addWire(genid(cell->name, "$rdmux", i, "", j, "", k, "$a"), mem_width));
-					c->setPort("\\B", module->addWire(genid(cell->name, "$rdmux", i, "", j, "", k, "$b"), mem_width));
+					c->setPort(ID::A, module->addWire(genid(cell->name, "$rdmux", i, "", j, "", k, "$a"), mem_width));
+					c->setPort(ID::B, module->addWire(genid(cell->name, "$rdmux", i, "", j, "", k, "$b"), mem_width));
 
-					next_rd_signals.push_back(c->getPort("\\A"));
-					next_rd_signals.push_back(c->getPort("\\B"));
+					next_rd_signals.push_back(c->getPort(ID::A));
+					next_rd_signals.push_back(c->getPort(ID::B));
 				}
 
 				next_rd_signals.swap(rd_signals);
@@ -275,11 +326,11 @@ struct MemoryMapWorker
 
 			RTLIL::SigSpec sig = data_reg_out[i];
 
-			for (int j = 0; j < cell->parameters["\\WR_PORTS"].as_int(); j++)
+			for (int j = 0; j < cell->parameters[ID::WR_PORTS].as_int(); j++)
 			{
-				RTLIL::SigSpec wr_addr = cell->getPort("\\WR_ADDR").extract(j*mem_abits, mem_abits);
-				RTLIL::SigSpec wr_data = cell->getPort("\\WR_DATA").extract(j*mem_width, mem_width);
-				RTLIL::SigSpec wr_en = cell->getPort("\\WR_EN").extract(j*mem_width, mem_width);
+				RTLIL::SigSpec wr_addr = cell->getPort(ID::WR_ADDR).extract(j*mem_abits, mem_abits);
+				RTLIL::SigSpec wr_data = cell->getPort(ID::WR_DATA).extract(j*mem_width, mem_width);
+				RTLIL::SigSpec wr_en = cell->getPort(ID::WR_EN).extract(j*mem_width, mem_width);
 
 				if (mem_offset)
 					wr_addr = module->Sub(NEW_ID, wr_addr, SigSpec(mem_offset, GetSize(wr_addr)));
@@ -303,27 +354,27 @@ struct MemoryMapWorker
 
 					if (wr_bit != State::S1)
 					{
-						RTLIL::Cell *c = module->addCell(genid(cell->name, "$wren", i, "", j, "", wr_offset), "$and");
-						c->parameters["\\A_SIGNED"] = RTLIL::Const(0);
-						c->parameters["\\B_SIGNED"] = RTLIL::Const(0);
-						c->parameters["\\A_WIDTH"] = RTLIL::Const(1);
-						c->parameters["\\B_WIDTH"] = RTLIL::Const(1);
-						c->parameters["\\Y_WIDTH"] = RTLIL::Const(1);
-						c->setPort("\\A", w);
-						c->setPort("\\B", wr_bit);
+						RTLIL::Cell *c = module->addCell(genid(cell->name, "$wren", i, "", j, "", wr_offset), ID($and));
+						c->parameters[ID::A_SIGNED] = RTLIL::Const(0);
+						c->parameters[ID::B_SIGNED] = RTLIL::Const(0);
+						c->parameters[ID::A_WIDTH] = RTLIL::Const(1);
+						c->parameters[ID::B_WIDTH] = RTLIL::Const(1);
+						c->parameters[ID::Y_WIDTH] = RTLIL::Const(1);
+						c->setPort(ID::A, w);
+						c->setPort(ID::B, wr_bit);
 
 						w = module->addWire(genid(cell->name, "$wren", i, "", j, "", wr_offset, "$y"));
-						c->setPort("\\Y", RTLIL::SigSpec(w));
+						c->setPort(ID::Y, RTLIL::SigSpec(w));
 					}
 
-					RTLIL::Cell *c = module->addCell(genid(cell->name, "$wrmux", i, "", j, "", wr_offset), "$mux");
-					c->parameters["\\WIDTH"] = wr_width;
-					c->setPort("\\A", sig.extract(wr_offset, wr_width));
-					c->setPort("\\B", wr_data.extract(wr_offset, wr_width));
-					c->setPort("\\S", RTLIL::SigSpec(w));
+					RTLIL::Cell *c = module->addCell(genid(cell->name, "$wrmux", i, "", j, "", wr_offset), ID($mux));
+					c->parameters[ID::WIDTH] = wr_width;
+					c->setPort(ID::A, sig.extract(wr_offset, wr_width));
+					c->setPort(ID::B, wr_data.extract(wr_offset, wr_width));
+					c->setPort(ID::S, RTLIL::SigSpec(w));
 
 					w = module->addWire(genid(cell->name, "$wrmux", i, "", j, "", wr_offset, "$y"), wr_width);
-					c->setPort("\\Y", w);
+					c->setPort(ID::Y, w);
 
 					sig.replace(wr_offset, w);
 					wr_offset += wr_width;
@@ -339,11 +390,11 @@ struct MemoryMapWorker
 		module->remove(cell);
 	}
 
-	MemoryMapWorker(RTLIL::Design *design, RTLIL::Module *module) : design(design), module(module)
+	void run()
 	{
 		std::vector<RTLIL::Cell*> cells;
 		for (auto cell : module->selected_cells())
-			if (cell->type == "$mem" && design->selected(module, cell))
+			if (cell->type == ID($mem))
 				cells.push_back(cell);
 		for (auto cell : cells)
 			handle_cell(cell);
@@ -356,17 +407,73 @@ struct MemoryMapPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    memory_map [selection]\n");
+		log("    memory_map [options] [selection]\n");
 		log("\n");
 		log("This pass converts multiport memory cells as generated by the memory_collect\n");
 		log("pass to word-wide DFFs and address decoders.\n");
 		log("\n");
+		log("    -attr !<name>\n");
+		log("        do not map memories that have attribute <name> set.\n");
+		log("\n");
+		log("    -attr <name>[=<value>]\n");
+		log("        for memories that have attribute <name> set, only map them if its value\n");
+		log("        is a string <value> (if specified), or an integer 1 (otherwise). if this\n");
+		log("        option is specified multiple times, map the memory if the attribute is\n");
+		log("        to any of the values.\n");
+		log("\n");
+		log("    -iattr\n");
+		log("        for -attr, ignore case of <value>.\n");
+		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE {
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	{
+		bool attr_icase = false;
+		dict<RTLIL::IdString, std::vector<RTLIL::Const>> attributes;
+
 		log_header(design, "Executing MEMORY_MAP pass (converting $mem cells to logic and flip-flops).\n");
-		extra_args(args, 1, design);
-		for (auto mod : design->selected_modules())
-			MemoryMapWorker(design, mod);
+
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++)
+		{
+			if (args[argidx] == "-attr" && argidx + 1 < args.size())
+			{
+				std::string attr_arg = args[++argidx];
+				std::string name;
+				RTLIL::Const value;
+				size_t eq_at = attr_arg.find('=');
+				if (eq_at != std::string::npos) {
+					name  = attr_arg.substr(0, eq_at);
+					value = attr_arg.substr(eq_at + 1);
+				} else {
+					name  = attr_arg;
+					value = RTLIL::Const(1);
+				}
+				if (attr_arg.size() > 1 && attr_arg[0] == '!') {
+					if (value != RTLIL::Const(1)) {
+						--argidx;
+						break; // we don't support -attr !<name>=<value>
+					}
+					attributes[RTLIL::escape_id(name.substr(1))].clear();
+				} else {
+					attributes[RTLIL::escape_id(name)].push_back(value);
+				}
+				continue;
+			}
+			if (args[argidx] == "-iattr")
+			{
+				attr_icase = true;
+				continue;
+			}
+			break;
+		}
+		extra_args(args, argidx, design);
+
+		for (auto mod : design->selected_modules()) {
+			MemoryMapWorker worker(design, mod);
+			worker.attr_icase = attr_icase;
+			worker.attributes = attributes;
+			worker.run();
+		}
 	}
 } MemoryMapPass;
 

@@ -149,7 +149,7 @@ struct SetundefPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
-		bool got_value = false;
+		int got_value = 0;
 		bool undriven_mode = false;
 		bool expose_mode = false;
 		bool init_mode = false;
@@ -170,31 +170,31 @@ struct SetundefPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-zero") {
-				got_value = true;
+				got_value++;
 				worker.next_bit_mode = MODE_ZERO;
 				worker.next_bit_state = 0;
 				continue;
 			}
 			if (args[argidx] == "-one") {
-				got_value = true;
+				got_value++;
 				worker.next_bit_mode = MODE_ONE;
 				worker.next_bit_state = 0;
 				continue;
 			}
 			if (args[argidx] == "-anyseq") {
-				got_value = true;
+				got_value++;
 				worker.next_bit_mode = MODE_ANYSEQ;
 				worker.next_bit_state = 0;
 				continue;
 			}
 			if (args[argidx] == "-anyconst") {
-				got_value = true;
+				got_value++;
 				worker.next_bit_mode = MODE_ANYCONST;
 				worker.next_bit_state = 0;
 				continue;
 			}
 			if (args[argidx] == "-undef") {
-				got_value = true;
+				got_value++;
 				worker.next_bit_mode = MODE_UNDEF;
 				worker.next_bit_state = 0;
 				continue;
@@ -207,8 +207,8 @@ struct SetundefPass : public Pass {
 				params_mode = true;
 				continue;
 			}
-			if (args[argidx] == "-random" && !got_value && argidx+1 < args.size()) {
-				got_value = true;
+			if (args[argidx] == "-random" && argidx+1 < args.size()) {
+				got_value++;
 				worker.next_bit_mode = MODE_RANDOM;
 				worker.next_bit_state = atoi(args[++argidx].c_str()) + 1;
 				for (int i = 0; i < 10; i++)
@@ -221,7 +221,7 @@ struct SetundefPass : public Pass {
 
 		if (!got_value && expose_mode) {
 			log("Using default as -undef with -expose.\n");
-			got_value = true;
+			got_value++;
 			worker.next_bit_mode = MODE_UNDEF;
 			worker.next_bit_state = 0;
 		}
@@ -229,7 +229,9 @@ struct SetundefPass : public Pass {
 		if (expose_mode && !undriven_mode)
 			log_cmd_error("Option -expose must be used with option -undriven.\n");
 		if (!got_value)
-			log_cmd_error("One of the options -zero, -one, -anyseq, -anyconst, or -random <seed> must be specified.\n");
+			log_cmd_error("One of the options -zero, -one, -anyseq, -anyconst, -random <seed>, or -expose must be specified.\n");
+		else if (got_value > 1)
+			log_cmd_error("Only one of the options -zero, -one, -anyseq, -anyconst, or -random <seed> can be specified.\n");
 
 		if (init_mode && (worker.next_bit_mode == MODE_ANYSEQ || worker.next_bit_mode == MODE_ANYCONST))
 			log_cmd_error("The options -init and -anyseq / -anyconst are exclusive.\n");
@@ -359,37 +361,12 @@ struct SetundefPass : public Pass {
 				pool<SigBit> ffbits;
 				pool<Wire*> initwires;
 
-				pool<IdString> fftypes;
-				fftypes.insert("$dff");
-				fftypes.insert("$dffe");
-				fftypes.insert("$dffsr");
-				fftypes.insert("$adff");
-
-				std::vector<char> list_np = {'N', 'P'}, list_01 = {'0', '1'};
-
-				for (auto c1 : list_np)
-					fftypes.insert(stringf("$_DFF_%c_", c1));
-
-				for (auto c1 : list_np)
-				for (auto c2 : list_np)
-					fftypes.insert(stringf("$_DFFE_%c%c_", c1, c2));
-
-				for (auto c1 : list_np)
-				for (auto c2 : list_np)
-				for (auto c3 : list_01)
-					fftypes.insert(stringf("$_DFF_%c%c%c_", c1, c2, c3));
-
-				for (auto c1 : list_np)
-				for (auto c2 : list_np)
-				for (auto c3 : list_np)
-					fftypes.insert(stringf("$_DFFSR_%c%c%c_", c1, c2, c3));
-
 				for (auto cell : module->cells())
 				{
-					if (!fftypes.count(cell->type))
+					if (!RTLIL::builtin_ff_cell_types().count(cell->type))
 						continue;
 
-					for (auto bit : sigmap(cell->getPort("\\Q")))
+					for (auto bit : sigmap(cell->getPort(ID::Q)))
 						ffbits.insert(bit);
 				}
 
@@ -411,7 +388,7 @@ struct SetundefPass : public Pass {
 
 					for (auto wire : initwires)
 					{
-						Const &initval = wire->attributes["\\init"];
+						Const &initval = wire->attributes[ID::init];
 						initval.bits.resize(GetSize(wire), State::Sx);
 
 						for (int i = 0; i < GetSize(wire); i++) {
@@ -423,7 +400,7 @@ struct SetundefPass : public Pass {
 						}
 
 						if (initval.is_fully_undef())
-							wire->attributes.erase("\\init");
+							wire->attributes.erase(ID::init);
 					}
 
 					initwires.clear();
@@ -439,14 +416,14 @@ struct SetundefPass : public Pass {
 							if (wire->name[0] == (wire_types ? '\\' : '$'))
 								continue;
 
-							if (!wire->attributes.count("\\init"))
+							if (!wire->attributes.count(ID::init))
 								continue;
 
-							Const &initval = wire->attributes["\\init"];
+							Const &initval = wire->attributes[ID::init];
 							initval.bits.resize(GetSize(wire), State::Sx);
 
 							if (initval.is_fully_undef()) {
-								wire->attributes.erase("\\init");
+								wire->attributes.erase(ID::init);
 								continue;
 							}
 

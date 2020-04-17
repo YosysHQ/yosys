@@ -78,6 +78,9 @@ struct SynthPass : public ScriptPass
 		log("    -abc9\n");
 		log("        use new ABC9 flow (EXPERIMENTAL)\n");
 		log("\n");
+		log("    -flowmap\n");
+		log("        use FlowMap LUT techmapping instead of ABC\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
@@ -85,7 +88,7 @@ struct SynthPass : public ScriptPass
 	}
 
 	string top_module, fsm_opts, memory_opts, abc;
-	bool autotop, flatten, noalumacc, nofsm, noabc, noshare;
+	bool autotop, flatten, noalumacc, nofsm, noabc, noshare, flowmap;
 	int lut;
 
 	void clear_flags() YS_OVERRIDE
@@ -101,6 +104,7 @@ struct SynthPass : public ScriptPass
 		nofsm = false;
 		noabc = false;
 		noshare = false;
+		flowmap = false;
 		abc = "abc";
 	}
 
@@ -167,6 +171,10 @@ struct SynthPass : public ScriptPass
 				abc = "abc9";
 				continue;
 			}
+			if (args[argidx] == "-flowmap") {
+				flowmap = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -176,6 +184,8 @@ struct SynthPass : public ScriptPass
 
 		if (abc == "abc9" && !lut)
 			log_cmd_error("ABC9 flow only supported for FPGA synthesis (using '-lut' option)\n");
+		if (flowmap && !lut)
+			log_cmd_error("FlowMap is only supported for FPGA synthesis (using '-lut' option)\n");
 
 		log_header(design, "Executing SYNTH pass.\n");
 		log_push();
@@ -215,9 +225,9 @@ struct SynthPass : public ScriptPass
 			run("peepopt");
 			run("opt_clean");
 			if (help_mode)
-				run("techmap -map +/cmp2lut.v", " (if -lut)");
-			else
-				run(stringf("techmap -map +/cmp2lut.v -D LUT_WIDTH=%d", lut));
+				run("techmap -map +/cmp2lut.v -map +/cmp2lcu.v", " (if -lut)");
+			else if (lut)
+				run(stringf("techmap -map +/cmp2lut.v -map +/cmp2lcu.v -D LUT_WIDTH=%d", lut));
 			if (!noalumacc)
 				run("alumacc", "  (unless -noalumacc)");
 			if (!noshare)
@@ -240,15 +250,20 @@ struct SynthPass : public ScriptPass
 			{
 				run("techmap -map +/gate2lut.v", "(if -noabc and -lut)");
 				run("clean; opt_lut", "           (if -noabc and -lut)");
+				run("flowmap -maxlut K", "        (if -flowmap and -lut)");
 			}
 			else if (noabc && lut)
 			{
 				run(stringf("techmap -map +/gate2lut.v -D LUT_WIDTH=%d", lut));
 				run("clean; opt_lut");
 			}
+			else if (flowmap)
+			{
+				run(stringf("flowmap -maxlut %d", lut));
+			}
 			run("opt -fast");
 
-			if (!noabc) {
+			if (!noabc && !flowmap) {
 		#ifdef YOSYS_ENABLE_ABC
 				if (help_mode)
 				{

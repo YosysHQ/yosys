@@ -230,7 +230,7 @@ struct SynthEcp5Pass : public ScriptPass
 	{
 		if (check_label("begin"))
 		{
-			run("read_verilog -lib +/ecp5/cells_sim.v +/ecp5/cells_bb.v");
+			run("read_verilog -lib -specify +/ecp5/cells_sim.v +/ecp5/cells_bb.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 		}
 
@@ -279,7 +279,9 @@ struct SynthEcp5Pass : public ScriptPass
 		if (check_label("map_ffram"))
 		{
 			run("opt -fast -mux_undef -undriven -fine");
-			run("memory_map");
+			run("memory_map -iattr -attr !ram_block -attr !rom_block -attr logic_block "
+			    "-attr syn_ramstyle=auto -attr syn_ramstyle=registers "
+			    "-attr syn_romstyle=auto -attr syn_romstyle=logic");
 			run("opt -undriven -fine");
 		}
 
@@ -296,7 +298,6 @@ struct SynthEcp5Pass : public ScriptPass
 
 		if (check_label("map_ffs"))
 		{
-			run("dffsr2dff");
 			run("dff2dffs");
 			run("opt_clean");
 			if (!nodffe)
@@ -322,11 +323,11 @@ struct SynthEcp5Pass : public ScriptPass
 				run("techmap " + techmap_args);
 
 			if (abc9) {
-				run("read_verilog -icells -lib +/ecp5/abc9_model.v");
+				run("read_verilog -icells -lib -specify +/abc9_model.v +/ecp5/abc9_model.v");
 				if (nowidelut)
-					run("abc9 -lut +/ecp5/abc9_5g_nowide.lut -box +/ecp5/abc9_5g.box -W 200");
+					run("abc9 -maxlut 4 -W 200");
 				else
-					run("abc9 -lut +/ecp5/abc9_5g.lut -box +/ecp5/abc9_5g.box -W 200");
+					run("abc9 -W 200");
 				run("techmap -map +/ecp5/abc9_unmap.v");
 			} else {
 				if (nowidelut)

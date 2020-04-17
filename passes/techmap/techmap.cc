@@ -146,7 +146,7 @@ struct TechmapWorker
 				record.value = it.second;
 				result[p].push_back(record);
 				it.second->attributes[ID::keep] = RTLIL::Const(1);
-				it.second->attributes[ID(_techmap_special_)] = RTLIL::Const(1);
+				it.second->attributes[ID::_techmap_special_] = RTLIL::Const(1);
 			}
 		}
 
@@ -175,12 +175,12 @@ struct TechmapWorker
 		}
 
 		std::string orig_cell_name;
-		pool<string> extra_src_attrs = cell->get_strpool_attribute(ID(src));
+		pool<string> extra_src_attrs = cell->get_strpool_attribute(ID::src);
 
+		orig_cell_name = cell->name.str();
 		if (!flatten_mode) {
 			for (auto &it : tpl->cells_)
-				if (it.first == ID(_TECHMAP_REPLACE_)) {
-					orig_cell_name = cell->name.str();
+				if (it.first == ID::_TECHMAP_REPLACE_) {
 					module->rename(cell, stringf("$techmap%d", autoidx++) + cell->name.str());
 					break;
 				}
@@ -197,8 +197,8 @@ struct TechmapWorker
 			m->start_offset = it.second->start_offset;
 			m->size = it.second->size;
 			m->attributes = it.second->attributes;
-			if (m->attributes.count(ID(src)))
-				m->add_strpool_attribute(ID(src), extra_src_attrs);
+			if (m->attributes.count(ID::src))
+				m->add_strpool_attribute(ID::src, extra_src_attrs);
 			module->memories[m->name] = m;
 			memory_renames[it.first] = m->name;
 			design->select(module, m);
@@ -215,7 +215,7 @@ struct TechmapWorker
 				IdString posportname = stringf("$%d", it.second->port_id);
 				positional_ports[posportname] = it.first;
 
-				if (!flatten_mode && it.second->get_bool_attribute(ID(techmap_autopurge)) &&
+				if (!flatten_mode && it.second->get_bool_attribute(ID::techmap_autopurge) &&
 						(!cell->hasPort(it.second->name) || !GetSize(cell->getPort(it.second->name))) &&
 						(!cell->hasPort(posportname) || !GetSize(cell->getPort(posportname))))
 				{
@@ -231,12 +231,12 @@ struct TechmapWorker
 			apply_prefix(cell->name, w_name);
 			RTLIL::Wire *w = module->wire(w_name);
 			if (w != nullptr) {
-				if (!flatten_mode || !w->get_bool_attribute(ID(hierconn))) {
+				if (!flatten_mode || !w->get_bool_attribute(ID::hierconn)) {
 					temp_renamed_wires[w] = w->name;
 					module->rename(w, NEW_ID);
 					w = nullptr;
 				} else {
-					w->attributes.erase(ID(hierconn));
+					w->attributes.erase(ID::hierconn);
 					if (GetSize(w) < GetSize(it.second)) {
 						log_warning("Widening signal %s.%s to match size of %s.%s (via %s.%s).\n", log_id(module), log_id(w),
 								log_id(tpl), log_id(it.second), log_id(module), log_id(cell));
@@ -250,11 +250,11 @@ struct TechmapWorker
 				w->port_output = false;
 				w->port_id = 0;
 				if (!flatten_mode)
-					w->attributes.erase(ID(techmap_autopurge));
-				if (it.second->get_bool_attribute(ID(_techmap_special_)))
+					w->attributes.erase(ID::techmap_autopurge);
+				if (it.second->get_bool_attribute(ID::_techmap_special_))
 					w->attributes.clear();
-				if (w->attributes.count(ID(src)))
-					w->add_strpool_attribute(ID(src), extra_src_attrs);
+				if (w->attributes.count(ID::src))
+					w->add_strpool_attribute(ID::src, extra_src_attrs);
 			}
 			design->select(module, w);
 
@@ -363,7 +363,7 @@ struct TechmapWorker
 				}
 
 				for (auto &attr : w->attributes) {
-					if (attr.first == ID(src))
+					if (attr.first == ID::src)
 						continue;
 					auto lhs = GetSize(extra_connect.first);
 					auto rhs = GetSize(extra_connect.second);
@@ -380,7 +380,7 @@ struct TechmapWorker
 		for (auto &it : tpl->cells_)
 		{
 			IdString c_name = it.second->name.str();
-			bool techmap_replace_cell = (!flatten_mode) && (c_name == ID(_TECHMAP_REPLACE_));
+			bool techmap_replace_cell = (!flatten_mode) && (c_name == ID::_TECHMAP_REPLACE_);
 
 			if (techmap_replace_cell)
 				c_name = orig_cell_name;
@@ -421,19 +421,19 @@ struct TechmapWorker
 				c->unsetPort(it2);
 
 			if (c->type.in(ID($memrd), ID($memwr), ID($meminit))) {
-				IdString memid = c->getParam(ID(MEMID)).decode_string();
+				IdString memid = c->getParam(ID::MEMID).decode_string();
 				log_assert(memory_renames.count(memid) != 0);
-				c->setParam(ID(MEMID), Const(memory_renames[memid].str()));
+				c->setParam(ID::MEMID, Const(memory_renames[memid].str()));
 			}
 
 			if (c->type == ID($mem)) {
-				IdString memid = c->getParam(ID(MEMID)).decode_string();
+				IdString memid = c->getParam(ID::MEMID).decode_string();
 				apply_prefix(cell->name, memid);
-				c->setParam(ID(MEMID), Const(memid.c_str()));
+				c->setParam(ID::MEMID, Const(memid.c_str()));
 			}
 
-			if (c->attributes.count(ID(src)))
-				c->add_strpool_attribute(ID(src), extra_src_attrs);
+			if (c->attributes.count(ID::src))
+				c->add_strpool_attribute(ID::src, extra_src_attrs);
 
 			if (techmap_replace_cell)
 				for (auto attr : cell->attributes)
@@ -481,8 +481,8 @@ struct TechmapWorker
 		pool<SigBit> remove_init_bits;
 
 		for (auto wire : module->wires()) {
-			if (wire->attributes.count("\\init")) {
-				Const value = wire->attributes.at("\\init");
+			if (wire->attributes.count(ID::init)) {
+				Const value = wire->attributes.at(ID::init);
 				for (int i = 0; i < min(GetSize(value), GetSize(wire)); i++)
 					if (value[i] != State::Sx)
 						init_bits[sigmap(SigBit(wire, i))] = value[i];
@@ -509,9 +509,9 @@ struct TechmapWorker
 			}
 
 			if (flatten_mode) {
-				bool keepit = cell->get_bool_attribute(ID(keep_hierarchy));
+				bool keepit = cell->get_bool_attribute(ID::keep_hierarchy);
 				for (auto &tpl_name : celltypeMap.at(cell_type))
-					if (map->modules_[tpl_name]->get_bool_attribute(ID(keep_hierarchy)))
+					if (map->modules_[tpl_name]->get_bool_attribute(ID::keep_hierarchy))
 						keepit = true;
 				if (keepit) {
 					if (!flatten_keep_list[cell]) {
@@ -577,13 +577,13 @@ struct TechmapWorker
 				{
 					std::string extmapper_name;
 
-					if (tpl->get_bool_attribute(ID(techmap_simplemap)))
+					if (tpl->get_bool_attribute(ID::techmap_simplemap))
 						extmapper_name = "simplemap";
 
-					if (tpl->get_bool_attribute(ID(techmap_maccmap)))
+					if (tpl->get_bool_attribute(ID::techmap_maccmap))
 						extmapper_name = "maccmap";
 
-					if (tpl->attributes.count(ID(techmap_wrap)))
+					if (tpl->attributes.count(ID::techmap_wrap))
 						extmapper_name = "wrap";
 
 					if (!extmapper_name.empty())
@@ -598,7 +598,7 @@ struct TechmapWorker
 								m_name += stringf(":%s=%s", log_id(c.first), log_signal(c.second));
 
 							if (extmapper_name == "wrap")
-								m_name += ":" + sha1(tpl->attributes.at(ID(techmap_wrap)).decode_string());
+								m_name += ":" + sha1(tpl->attributes.at(ID::techmap_wrap).decode_string());
 
 							RTLIL::Design *extmapper_design = extern_mode && !in_recursion ? design : tpl->design;
 							RTLIL::Module *extmapper_module = extmapper_design->module(m_name);
@@ -613,7 +613,7 @@ struct TechmapWorker
 								int port_counter = 1;
 								for (auto &c : extmapper_cell->connections_) {
 									RTLIL::Wire *w = extmapper_module->addWire(c.first, GetSize(c.second));
-									if (w->name.in(ID::Y, ID(Q)))
+									if (w->name.in(ID::Y, ID::Q))
 										w->port_output = true;
 									else
 										w->port_input = true;
@@ -641,7 +641,7 @@ struct TechmapWorker
 								}
 
 								if (extmapper_name == "wrap") {
-									std::string cmd_string = tpl->attributes.at(ID(techmap_wrap)).decode_string();
+									std::string cmd_string = tpl->attributes.at(ID::techmap_wrap).decode_string();
 									log("Running \"%s\" on wrapper %s.\n", cmd_string.c_str(), log_id(extmapper_module));
 									mkdebug.on();
 									Pass::call_on_module(extmapper_design, extmapper_module, cmd_string);
@@ -709,8 +709,8 @@ struct TechmapWorker
 						continue;
 					}
 
-					if (tpl->avail_parameters.count(ID(_TECHMAP_CELLTYPE_)) != 0)
-						parameters[ID(_TECHMAP_CELLTYPE_)] = RTLIL::unescape_id(cell->type);
+					if (tpl->avail_parameters.count(ID::_TECHMAP_CELLTYPE_) != 0)
+						parameters[ID::_TECHMAP_CELLTYPE_] = RTLIL::unescape_id(cell->type);
 
 					for (auto conn : cell->connections()) {
 						if (tpl->avail_parameters.count(stringf("\\_TECHMAP_CONSTMSK_%s_", RTLIL::id2cstr(conn.first))) != 0) {
@@ -760,8 +760,8 @@ struct TechmapWorker
 							bits = i;
 					// Increment index by one to get number of bits
 					bits++;
-					if (tpl->avail_parameters.count(ID(_TECHMAP_BITS_CONNMAP_)))
-						parameters[ID(_TECHMAP_BITS_CONNMAP_)] = bits;
+					if (tpl->avail_parameters.count(ID::_TECHMAP_BITS_CONNMAP_))
+						parameters[ID::_TECHMAP_BITS_CONNMAP_] = bits;
 
 					for (auto conn : cell->connections())
 						if (tpl->avail_parameters.count(stringf("\\_TECHMAP_CONNMAP_%s_", RTLIL::id2cstr(conn.first))) != 0) {
@@ -906,8 +906,8 @@ struct TechmapWorker
 
 								RTLIL::SigSig port_conn;
 								for (auto &it : port_connmap) {
-									port_conn.first.append_bit(it.first);
-									port_conn.second.append_bit(it.second);
+									port_conn.first.append(it.first);
+									port_conn.second.append(it.second);
 								}
 								tpl->connect(port_conn);
 
@@ -1030,8 +1030,8 @@ struct TechmapWorker
 
 		if (!remove_init_bits.empty()) {
 			for (auto wire : module->wires())
-				if (wire->attributes.count("\\init")) {
-					Const &value = wire->attributes.at("\\init");
+				if (wire->attributes.count(ID::init)) {
+					Const &value = wire->attributes.at(ID::init);
 					bool do_cleanup = true;
 					for (int i = 0; i < min(GetSize(value), GetSize(wire)); i++) {
 						SigBit bit = sigmap(SigBit(wire, i));
@@ -1042,7 +1042,7 @@ struct TechmapWorker
 					}
 					if (do_cleanup) {
 						log("Removing init attribute from wire %s.%s.\n", log_id(module), log_id(wire));
-						wire->attributes.erase("\\init");
+						wire->attributes.erase(ID::init);
 					}
 				}
 		}
@@ -1282,7 +1282,7 @@ struct TechmapPass : public Pass {
 				if (fn.compare(0, 1, "%") == 0) {
 					if (!saved_designs.count(fn.substr(1))) {
 						delete map;
-						log_cmd_error("Can't saved design `%s'.\n", fn.c_str()+1);
+						log_cmd_error("Can't open saved design `%s'.\n", fn.c_str()+1);
 					}
 					for (auto mod : saved_designs.at(fn.substr(1))->modules())
 						if (!map->has(mod->name))
@@ -1302,8 +1302,8 @@ struct TechmapPass : public Pass {
 
 		std::map<RTLIL::IdString, std::set<RTLIL::IdString, RTLIL::sort_by_id_str>> celltypeMap;
 		for (auto &it : map->modules_) {
-			if (it.second->attributes.count(ID(techmap_celltype)) && !it.second->attributes.at(ID(techmap_celltype)).bits.empty()) {
-				char *p = strdup(it.second->attributes.at(ID(techmap_celltype)).decode_string().c_str());
+			if (it.second->attributes.count(ID::techmap_celltype) && !it.second->attributes.at(ID::techmap_celltype).bits.empty()) {
+				char *p = strdup(it.second->attributes.at(ID::techmap_celltype).decode_string().c_str());
 				for (char *q = strtok(p, " \t\r\n"); q; q = strtok(NULL, " \t\r\n"))
 					celltypeMap[RTLIL::escape_id(q)].insert(it.first);
 				free(p);
@@ -1389,7 +1389,7 @@ struct FlattenPass : public Pass {
 		RTLIL::Module *top_mod = NULL;
 		if (design->full_selection())
 			for (auto mod : design->modules())
-				if (mod->get_bool_attribute(ID(top)))
+				if (mod->get_bool_attribute(ID::top))
 					top_mod = mod;
 
 		std::set<RTLIL::Cell*> handled_cells;

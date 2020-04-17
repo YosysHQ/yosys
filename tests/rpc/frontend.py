@@ -83,10 +83,11 @@ def main():
 
 	if args.mode == "unix-socket":
 		sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+		sock.settimeout(30)
 		sock.bind(args.path)
 		try:
-			ys_proc = subprocess.Popen(["../../yosys", "-ql", "unix.log", "-p", "connect_rpc -path {}; read_verilog design.v; hierarchy -top top; flatten; select -assert-count 1 t:$neg".format(args.path)])
 			sock.listen(1)
+			ys_proc = subprocess.Popen(["../../yosys", "-ql", "unix.log", "-p", "connect_rpc -path {}; read_verilog design.v; hierarchy -top top; flatten; select -assert-count 1 t:$neg".format(args.path)])
 			conn, addr = sock.accept()
 			file = conn.makefile("rw")
 			while True:

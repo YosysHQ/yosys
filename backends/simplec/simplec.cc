@@ -378,16 +378,16 @@ struct SimplecWorker
 
 	void eval_cell(HierDirtyFlags *work, Cell *cell)
 	{
-		if (cell->type.in("$_BUF_", "$_NOT_"))
+		if (cell->type.in(ID($_BUF_), ID($_NOT_)))
 		{
-			SigBit a = sigmaps.at(work->module)(cell->getPort("\\A"));
-			SigBit y = sigmaps.at(work->module)(cell->getPort("\\Y"));
+			SigBit a = sigmaps.at(work->module)(cell->getPort(ID::A));
+			SigBit y = sigmaps.at(work->module)(cell->getPort(ID::Y));
 
 			string a_expr = a.wire ? util_get_bit(work->prefix + cid(a.wire->name), a.wire->width, a.offset) : a.data ? "1" : "0";
 			string expr;
 
-			if (cell->type == "$_BUF_")  expr = a_expr;
-			if (cell->type == "$_NOT_")  expr = "!" + a_expr;
+			if (cell->type == ID($_BUF_))  expr = a_expr;
+			if (cell->type == ID($_NOT_))  expr = "!" + a_expr;
 
 			log_assert(y.wire);
 			funct_declarations.push_back(util_set_bit(work->prefix + cid(y.wire->name), y.wire->width, y.offset, expr) +
@@ -397,24 +397,24 @@ struct SimplecWorker
 			return;
 		}
 
-		if (cell->type.in("$_AND_", "$_NAND_", "$_OR_", "$_NOR_", "$_XOR_", "$_XNOR_", "$_ANDNOT_", "$_ORNOT_"))
+		if (cell->type.in(ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_), ID($_XOR_), ID($_XNOR_), ID($_ANDNOT_), ID($_ORNOT_)))
 		{
-			SigBit a = sigmaps.at(work->module)(cell->getPort("\\A"));
-			SigBit b = sigmaps.at(work->module)(cell->getPort("\\B"));
-			SigBit y = sigmaps.at(work->module)(cell->getPort("\\Y"));
+			SigBit a = sigmaps.at(work->module)(cell->getPort(ID::A));
+			SigBit b = sigmaps.at(work->module)(cell->getPort(ID::B));
+			SigBit y = sigmaps.at(work->module)(cell->getPort(ID::Y));
 
 			string a_expr = a.wire ? util_get_bit(work->prefix + cid(a.wire->name), a.wire->width, a.offset) : a.data ? "1" : "0";
 			string b_expr = b.wire ? util_get_bit(work->prefix + cid(b.wire->name), b.wire->width, b.offset) : b.data ? "1" : "0";
 			string expr;
 
-			if (cell->type == "$_AND_")    expr = stringf("%s & %s",    a_expr.c_str(), b_expr.c_str());
-			if (cell->type == "$_NAND_")   expr = stringf("!(%s & %s)", a_expr.c_str(), b_expr.c_str());
-			if (cell->type == "$_OR_")     expr = stringf("%s | %s",    a_expr.c_str(), b_expr.c_str());
-			if (cell->type == "$_NOR_")    expr = stringf("!(%s | %s)", a_expr.c_str(), b_expr.c_str());
-			if (cell->type == "$_XOR_")    expr = stringf("%s ^ %s",    a_expr.c_str(), b_expr.c_str());
-			if (cell->type == "$_XNOR_")   expr = stringf("!(%s ^ %s)", a_expr.c_str(), b_expr.c_str());
-			if (cell->type == "$_ANDNOT_") expr = stringf("%s & (!%s)", a_expr.c_str(), b_expr.c_str());
-			if (cell->type == "$_ORNOT_")  expr = stringf("%s | (!%s)", a_expr.c_str(), b_expr.c_str());
+			if (cell->type == ID($_AND_))    expr = stringf("%s & %s",    a_expr.c_str(), b_expr.c_str());
+			if (cell->type == ID($_NAND_))   expr = stringf("!(%s & %s)", a_expr.c_str(), b_expr.c_str());
+			if (cell->type == ID($_OR_))     expr = stringf("%s | %s",    a_expr.c_str(), b_expr.c_str());
+			if (cell->type == ID($_NOR_))    expr = stringf("!(%s | %s)", a_expr.c_str(), b_expr.c_str());
+			if (cell->type == ID($_XOR_))    expr = stringf("%s ^ %s",    a_expr.c_str(), b_expr.c_str());
+			if (cell->type == ID($_XNOR_))   expr = stringf("!(%s ^ %s)", a_expr.c_str(), b_expr.c_str());
+			if (cell->type == ID($_ANDNOT_)) expr = stringf("%s & (!%s)", a_expr.c_str(), b_expr.c_str());
+			if (cell->type == ID($_ORNOT_))  expr = stringf("%s | (!%s)", a_expr.c_str(), b_expr.c_str());
 
 			log_assert(y.wire);
 			funct_declarations.push_back(util_set_bit(work->prefix + cid(y.wire->name), y.wire->width, y.offset, expr) +
@@ -424,20 +424,20 @@ struct SimplecWorker
 			return;
 		}
 
-		if (cell->type.in("$_AOI3_", "$_OAI3_"))
+		if (cell->type.in(ID($_AOI3_), ID($_OAI3_)))
 		{
-			SigBit a = sigmaps.at(work->module)(cell->getPort("\\A"));
-			SigBit b = sigmaps.at(work->module)(cell->getPort("\\B"));
-			SigBit c = sigmaps.at(work->module)(cell->getPort("\\C"));
-			SigBit y = sigmaps.at(work->module)(cell->getPort("\\Y"));
+			SigBit a = sigmaps.at(work->module)(cell->getPort(ID::A));
+			SigBit b = sigmaps.at(work->module)(cell->getPort(ID::B));
+			SigBit c = sigmaps.at(work->module)(cell->getPort(ID::C));
+			SigBit y = sigmaps.at(work->module)(cell->getPort(ID::Y));
 
 			string a_expr = a.wire ? util_get_bit(work->prefix + cid(a.wire->name), a.wire->width, a.offset) : a.data ? "1" : "0";
 			string b_expr = b.wire ? util_get_bit(work->prefix + cid(b.wire->name), b.wire->width, b.offset) : b.data ? "1" : "0";
 			string c_expr = c.wire ? util_get_bit(work->prefix + cid(c.wire->name), c.wire->width, c.offset) : c.data ? "1" : "0";
 			string expr;
 
-			if (cell->type == "$_AOI3_") expr = stringf("!((%s & %s) | %s)", a_expr.c_str(), b_expr.c_str(), c_expr.c_str());
-			if (cell->type == "$_OAI3_") expr = stringf("!((%s | %s) & %s)", a_expr.c_str(), b_expr.c_str(), c_expr.c_str());
+			if (cell->type == ID($_AOI3_)) expr = stringf("!((%s & %s) | %s)", a_expr.c_str(), b_expr.c_str(), c_expr.c_str());
+			if (cell->type == ID($_OAI3_)) expr = stringf("!((%s | %s) & %s)", a_expr.c_str(), b_expr.c_str(), c_expr.c_str());
 
 			log_assert(y.wire);
 			funct_declarations.push_back(util_set_bit(work->prefix + cid(y.wire->name), y.wire->width, y.offset, expr) +
@@ -447,13 +447,13 @@ struct SimplecWorker
 			return;
 		}
 
-		if (cell->type.in("$_AOI4_", "$_OAI4_"))
+		if (cell->type.in(ID($_AOI4_), ID($_OAI4_)))
 		{
-			SigBit a = sigmaps.at(work->module)(cell->getPort("\\A"));
-			SigBit b = sigmaps.at(work->module)(cell->getPort("\\B"));
-			SigBit c = sigmaps.at(work->module)(cell->getPort("\\C"));
-			SigBit d = sigmaps.at(work->module)(cell->getPort("\\D"));
-			SigBit y = sigmaps.at(work->module)(cell->getPort("\\Y"));
+			SigBit a = sigmaps.at(work->module)(cell->getPort(ID::A));
+			SigBit b = sigmaps.at(work->module)(cell->getPort(ID::B));
+			SigBit c = sigmaps.at(work->module)(cell->getPort(ID::C));
+			SigBit d = sigmaps.at(work->module)(cell->getPort(ID::D));
+			SigBit y = sigmaps.at(work->module)(cell->getPort(ID::Y));
 
 			string a_expr = a.wire ? util_get_bit(work->prefix + cid(a.wire->name), a.wire->width, a.offset) : a.data ? "1" : "0";
 			string b_expr = b.wire ? util_get_bit(work->prefix + cid(b.wire->name), b.wire->width, b.offset) : b.data ? "1" : "0";
@@ -461,8 +461,8 @@ struct SimplecWorker
 			string d_expr = d.wire ? util_get_bit(work->prefix + cid(d.wire->name), d.wire->width, d.offset) : d.data ? "1" : "0";
 			string expr;
 
-			if (cell->type == "$_AOI4_") expr = stringf("!((%s & %s) | (%s & %s))", a_expr.c_str(), b_expr.c_str(), c_expr.c_str(), d_expr.c_str());
-			if (cell->type == "$_OAI4_") expr = stringf("!((%s | %s) & (%s | %s))", a_expr.c_str(), b_expr.c_str(), c_expr.c_str(), d_expr.c_str());
+			if (cell->type == ID($_AOI4_)) expr = stringf("!((%s & %s) | (%s & %s))", a_expr.c_str(), b_expr.c_str(), c_expr.c_str(), d_expr.c_str());
+			if (cell->type == ID($_OAI4_)) expr = stringf("!((%s | %s) & (%s | %s))", a_expr.c_str(), b_expr.c_str(), c_expr.c_str(), d_expr.c_str());
 
 			log_assert(y.wire);
 			funct_declarations.push_back(util_set_bit(work->prefix + cid(y.wire->name), y.wire->width, y.offset, expr) +
@@ -472,12 +472,12 @@ struct SimplecWorker
 			return;
 		}
 
-		if (cell->type.in("$_MUX_", "$_NMUX_"))
+		if (cell->type.in(ID($_MUX_), ID($_NMUX_)))
 		{
-			SigBit a = sigmaps.at(work->module)(cell->getPort("\\A"));
-			SigBit b = sigmaps.at(work->module)(cell->getPort("\\B"));
-			SigBit s = sigmaps.at(work->module)(cell->getPort("\\S"));
-			SigBit y = sigmaps.at(work->module)(cell->getPort("\\Y"));
+			SigBit a = sigmaps.at(work->module)(cell->getPort(ID::A));
+			SigBit b = sigmaps.at(work->module)(cell->getPort(ID::B));
+			SigBit s = sigmaps.at(work->module)(cell->getPort(ID::S));
+			SigBit y = sigmaps.at(work->module)(cell->getPort(ID::Y));
 
 			string a_expr = a.wire ? util_get_bit(work->prefix + cid(a.wire->name), a.wire->width, a.offset) : a.data ? "1" : "0";
 			string b_expr = b.wire ? util_get_bit(work->prefix + cid(b.wire->name), b.wire->width, b.offset) : b.data ? "1" : "0";
@@ -485,8 +485,8 @@ struct SimplecWorker
 
 			// casts to bool are a workaround for CBMC bug (https://github.com/diffblue/cbmc/issues/933)
 			string expr = stringf("%s ? %s(bool)%s : %s(bool)%s", s_expr.c_str(),
-					cell->type == "$_NMUX_" ? "!" : "", b_expr.c_str(),
-					cell->type == "$_NMUX_" ? "!" : "", a_expr.c_str());
+					cell->type == ID($_NMUX_) ? "!" : "", b_expr.c_str(),
+					cell->type == ID($_NMUX_) ? "!" : "", a_expr.c_str());
 
 			log_assert(y.wire);
 			funct_declarations.push_back(util_set_bit(work->prefix + cid(y.wire->name), y.wire->width, y.offset, expr) +
@@ -653,10 +653,10 @@ struct SimplecWorker
 
 		for (Wire *w : module->wires())
 		{
-			if (w->attributes.count("\\init"))
+			if (w->attributes.count(ID::init))
 			{
 				SigSpec sig = sigmaps.at(module)(w);
-				Const val = w->attributes.at("\\init");
+				Const val = w->attributes.at(ID::init);
 				val.bits.resize(GetSize(sig), State::Sx);
 
 				for (int i = 0; i < GetSize(sig); i++)

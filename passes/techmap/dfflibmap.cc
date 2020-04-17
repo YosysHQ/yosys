@@ -78,7 +78,7 @@ static void logmap_all()
 
 static bool parse_pin(LibertyAst *cell, LibertyAst *attr, std::string &pin_name, bool &pin_pol)
 {
-	if (cell == NULL || attr == NULL || attr->value.empty())
+	if (cell == nullptr || attr == nullptr || attr->value.empty())
 		return false;
 
 	std::string value = attr->value;
@@ -117,7 +117,7 @@ static bool parse_pin(LibertyAst *cell, LibertyAst *attr, std::string &pin_name,
 
 static void find_cell(LibertyAst *ast, IdString cell_type, bool clkpol, bool has_reset, bool rstpol, bool rstval, bool prepare_mode)
 {
-	LibertyAst *best_cell = NULL;
+	LibertyAst *best_cell = nullptr;
 	std::map<std::string, char> best_cell_ports;
 	int best_cell_pins = 0;
 	bool best_cell_noninv = false;
@@ -132,11 +132,11 @@ static void find_cell(LibertyAst *ast, IdString cell_type, bool clkpol, bool has
 			continue;
 
 		LibertyAst *dn = cell->find("dont_use");
-		if (dn != NULL && dn->value == "true")
+		if (dn != nullptr && dn->value == "true")
 			continue;
 
 		LibertyAst *ff = cell->find("ff");
-		if (ff == NULL)
+		if (ff == nullptr)
 			continue;
 
 		std::string cell_clk_pin, cell_rst_pin, cell_next_pin;
@@ -163,7 +163,7 @@ static void find_cell(LibertyAst *ast, IdString cell_type, bool clkpol, bool has
 
 		double area = 0;
 		LibertyAst *ar = cell->find("area");
-		if (ar != NULL && !ar->value.empty())
+		if (ar != nullptr && !ar->value.empty())
 			area = atof(ar->value.c_str());
 
 		int num_pins = 0;
@@ -175,7 +175,7 @@ static void find_cell(LibertyAst *ast, IdString cell_type, bool clkpol, bool has
 				continue;
 
 			LibertyAst *dir = pin->find("direction");
-			if (dir == NULL || dir->value == "internal")
+			if (dir == nullptr || dir->value == "internal")
 				continue;
 			num_pins++;
 
@@ -183,7 +183,7 @@ static void find_cell(LibertyAst *ast, IdString cell_type, bool clkpol, bool has
 				goto continue_cell_loop;
 
 			LibertyAst *func = pin->find("function");
-			if (dir->value == "output" && func != NULL) {
+			if (dir->value == "output" && func != nullptr) {
 				std::string value = func->value;
 				for (size_t pos = value.find_first_of("\" \t"); pos != std::string::npos; pos = value.find_first_of("\" \t"))
 					value.erase(pos, 1);
@@ -205,10 +205,10 @@ static void find_cell(LibertyAst *ast, IdString cell_type, bool clkpol, bool has
 				this_cell_ports[pin->args[0]] = 0;
 		}
 
-		if (!found_output || (best_cell != NULL && (num_pins > best_cell_pins || (best_cell_noninv && !found_noninv_output))))
+		if (!found_output || (best_cell != nullptr && (num_pins > best_cell_pins || (best_cell_noninv && !found_noninv_output))))
 			continue;
 
-		if (best_cell != NULL && num_pins == best_cell_pins && area > best_cell_area)
+		if (best_cell != nullptr && num_pins == best_cell_pins && area > best_cell_area)
 			continue;
 
 		best_cell = cell;
@@ -219,7 +219,7 @@ static void find_cell(LibertyAst *ast, IdString cell_type, bool clkpol, bool has
 	continue_cell_loop:;
 	}
 
-	if (best_cell != NULL) {
+	if (best_cell != nullptr) {
 		log("  cell %s (%sinv, pins=%d, area=%.2f) is a direct match for cell type %s.\n",
 				best_cell->args[0].c_str(), best_cell_noninv ? "non" : "", best_cell_pins, best_cell_area, cell_type.c_str());
 		if (prepare_mode) {
@@ -238,7 +238,7 @@ static void find_cell(LibertyAst *ast, IdString cell_type, bool clkpol, bool has
 
 static void find_cell_sr(LibertyAst *ast, IdString cell_type, bool clkpol, bool setpol, bool clrpol, bool prepare_mode)
 {
-	LibertyAst *best_cell = NULL;
+	LibertyAst *best_cell = nullptr;
 	std::map<std::string, char> best_cell_ports;
 	int best_cell_pins = 0;
 	bool best_cell_noninv = false;
@@ -253,11 +253,11 @@ static void find_cell_sr(LibertyAst *ast, IdString cell_type, bool clkpol, bool 
 			continue;
 
 		LibertyAst *dn = cell->find("dont_use");
-		if (dn != NULL && dn->value == "true")
+		if (dn != nullptr && dn->value == "true")
 			continue;
 
 		LibertyAst *ff = cell->find("ff");
-		if (ff == NULL)
+		if (ff == nullptr)
 			continue;
 
 		std::string cell_clk_pin, cell_set_pin, cell_clr_pin, cell_next_pin;
@@ -280,7 +280,7 @@ static void find_cell_sr(LibertyAst *ast, IdString cell_type, bool clkpol, bool 
 
 		double area = 0;
 		LibertyAst *ar = cell->find("area");
-		if (ar != NULL && !ar->value.empty())
+		if (ar != nullptr && !ar->value.empty())
 			area = atof(ar->value.c_str());
 
 		int num_pins = 0;
@@ -292,7 +292,7 @@ static void find_cell_sr(LibertyAst *ast, IdString cell_type, bool clkpol, bool 
 				continue;
 
 			LibertyAst *dir = pin->find("direction");
-			if (dir == NULL || dir->value == "internal")
+			if (dir == nullptr || dir->value == "internal")
 				continue;
 			num_pins++;
 
@@ -300,7 +300,7 @@ static void find_cell_sr(LibertyAst *ast, IdString cell_type, bool clkpol, bool 
 				goto continue_cell_loop;
 
 			LibertyAst *func = pin->find("function");
-			if (dir->value == "output" && func != NULL) {
+			if (dir->value == "output" && func != nullptr) {
 				std::string value = func->value;
 				for (size_t pos = value.find_first_of("\" \t"); pos != std::string::npos; pos = value.find_first_of("\" \t"))
 					value.erase(pos, 1);
@@ -322,10 +322,10 @@ static void find_cell_sr(LibertyAst *ast, IdString cell_type, bool clkpol, bool 
 				this_cell_ports[pin->args[0]] = 0;
 		}
 
-		if (!found_output || (best_cell != NULL && (num_pins > best_cell_pins || (best_cell_noninv && !found_noninv_output))))
+		if (!found_output || (best_cell != nullptr && (num_pins > best_cell_pins || (best_cell_noninv && !found_noninv_output))))
 			continue;
 
-		if (best_cell != NULL && num_pins == best_cell_pins && area > best_cell_area)
+		if (best_cell != nullptr && num_pins == best_cell_pins && area > best_cell_area)
 			continue;
 
 		best_cell = cell;
@@ -336,7 +336,7 @@ static void find_cell_sr(LibertyAst *ast, IdString cell_type, bool clkpol, bool 
 	continue_cell_loop:;
 	}
 
-	if (best_cell != NULL) {
+	if (best_cell != nullptr) {
 		log("  cell %s (%sinv, pins=%d, area=%.2f) is a direct match for cell type %s.\n",
 				best_cell->args[0].c_str(), best_cell_noninv ? "non" : "", best_cell_pins, best_cell_area, cell_type.c_str());
 		if (prepare_mode) {
@@ -481,11 +481,11 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module, bool prepare
 	SigMap sigmap(module);
 
 	std::vector<RTLIL::Cell*> cell_list;
-	for (auto &it : module->cells_) {
-		if (design->selected(module, it.second) && cell_mappings.count(it.second->type) > 0)
-			cell_list.push_back(it.second);
-		if (it.second->type == ID($_NOT_))
-			notmap[sigmap(it.second->getPort(ID::A))].insert(it.second);
+	for (auto cell : module->cells()) {
+		if (design->selected(module, cell) && cell_mappings.count(cell->type) > 0)
+			cell_list.push_back(cell);
+		if (cell->type == ID($_NOT_))
+			notmap[sigmap(cell->getPort(ID::A))].insert(cell);
 	}
 
 	std::map<std::string, int> stats;
@@ -663,9 +663,9 @@ struct DfflibmapPass : public Pass {
 		log("  final dff cell mappings:\n");
 		logmap_all();
 
-		for (auto &it : design->modules_)
-			if (design->selected(it.second) && !it.second->get_blackbox_attribute())
-				dfflibmap(design, it.second, prepare_mode);
+		for (auto module : design->selected_modules())
+			if (!module->get_blackbox_attribute())
+				dfflibmap(design, module, prepare_mode);
 
 		cell_mappings.clear();
 	}

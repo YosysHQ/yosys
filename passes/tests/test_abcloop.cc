@@ -55,7 +55,7 @@ static void test_abcloop()
 
 	while (1)
 	{
-		module = design->addModule("\\uut");
+		module = design->addModule(ID(UUT));
 		create_cycles++;
 
 		in_sig = {};

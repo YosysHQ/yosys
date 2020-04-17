@@ -52,14 +52,14 @@ struct AssertpmuxWorker
 
 		for (auto cell : module->cells())
 		{
-			if (cell->type.in("$mux", "$pmux"))
+			if (cell->type.in(ID($mux), ID($pmux)))
 			{
-				int width = cell->getParam("\\WIDTH").as_int();
-				int numports = cell->type == "$mux" ? 2 : cell->getParam("\\S_WIDTH").as_int() + 1;
+				int width = cell->getParam(ID::WIDTH).as_int();
+				int numports = cell->type == ID($mux) ? 2 : cell->getParam(ID::S_WIDTH).as_int() + 1;
 
-				SigSpec sig_a = sigmap(cell->getPort("\\A"));
-				SigSpec sig_b = sigmap(cell->getPort("\\B"));
-				SigSpec sig_s = sigmap(cell->getPort("\\S"));
+				SigSpec sig_a = sigmap(cell->getPort(ID::A));
+				SigSpec sig_b = sigmap(cell->getPort(ID::B));
+				SigSpec sig_s = sigmap(cell->getPort(ID::S));
 
 				for (int i = 0; i < numports; i++) {
 					SigSpec bits = i == 0 ? sig_a : sig_b.extract(width*(i-1), width);
@@ -98,12 +98,12 @@ struct AssertpmuxWorker
 
 				if (muxport_actsignal.count(muxport) == 0) {
 					if (portidx == 0)
-						muxport_actsignal[muxport] = module->LogicNot(NEW_ID, cell->getPort("\\S"));
+						muxport_actsignal[muxport] = module->LogicNot(NEW_ID, cell->getPort(ID::S));
 					else
-						muxport_actsignal[muxport] = cell->getPort("\\S")[portidx-1];
+						muxport_actsignal[muxport] = cell->getPort(ID::S)[portidx-1];
 				}
 
-				output.append(module->LogicAnd(NEW_ID, muxport_actsignal.at(muxport), get_bit_activation(cell->getPort("\\Y")[bitidx])));
+				output.append(module->LogicAnd(NEW_ID, muxport_actsignal.at(muxport), get_bit_activation(cell->getPort(ID::Y)[bitidx])));
 			}
 
 			output.sort_and_unify();
@@ -148,10 +148,10 @@ struct AssertpmuxWorker
 	{
 		log("Adding assert for $pmux cell %s.%s.\n", log_id(module), log_id(pmux));
 
-		int swidth = pmux->getParam("\\S_WIDTH").as_int();
+		int swidth = pmux->getParam(ID::S_WIDTH).as_int();
 		int cntbits = ceil_log2(swidth+1);
 
-		SigSpec sel = pmux->getPort("\\S");
+		SigSpec sel = pmux->getPort(ID::S);
 		SigSpec cnt(State::S0, cntbits);
 
 		for (int i = 0; i < swidth; i++)
@@ -164,7 +164,7 @@ struct AssertpmuxWorker
 			assert_en.append(module->LogicNot(NEW_ID, module->Initstate(NEW_ID)));
 
 		if (!flag_always)
-			assert_en.append(get_activation(pmux->getPort("\\Y")));
+			assert_en.append(get_activation(pmux->getPort(ID::Y)));
 
 		if (GetSize(assert_en) == 0)
 			assert_en = State::S1;
@@ -174,8 +174,8 @@ struct AssertpmuxWorker
 
 		Cell *assert_cell = module->addAssert(NEW_ID, assert_a, assert_en);
 
-		if (pmux->attributes.count("\\src") != 0)
-			assert_cell->attributes["\\src"] = pmux->attributes.at("\\src");
+		if (pmux->attributes.count(ID::src) != 0)
+			assert_cell->attributes[ID::src] = pmux->attributes.at(ID::src);
 	}
 };
 
@@ -227,7 +227,7 @@ struct AssertpmuxPass : public Pass {
 			vector<Cell*> pmux_cells;
 
 			for (auto cell : module->selected_cells())
-				if (cell->type == "$pmux")
+				if (cell->type == ID($pmux))
 					pmux_cells.push_back(cell);
 
 			for (auto cell : pmux_cells)

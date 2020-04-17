@@ -187,7 +187,6 @@ struct SynthSf2Pass : public ScriptPass
 
 		if (check_label("map_ffs"))
 		{
-			run("dffsr2dff");
 			run("techmap -D NO_LUT -map +/sf2/cells_map.v");
 			run("opt_expr -mux_undef");
 			run("simplemap");

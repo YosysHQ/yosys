@@ -90,7 +90,7 @@ struct ExtractinvPass : public Pass {
 				auto cell_wire = cell_module->wire(port.first);
 				if (!cell_wire)
 					continue;
-				auto it = cell_wire->attributes.find("\\invertible_pin");
+				auto it = cell_wire->attributes.find(ID::invertible_pin);
 				if (it == cell_wire->attributes.end())
 					continue;
 				IdString param_name = RTLIL::escape_id(it->second.decode_string());

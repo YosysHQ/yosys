@@ -129,7 +129,7 @@ void yosys_banner()
 	log(" |                                                                            |\n");
 	log(" |  yosys -- Yosys Open SYnthesis Suite                                       |\n");
 	log(" |                                                                            |\n");
-	log(" |  Copyright (C) 2012 - 2019  Clifford Wolf <clifford@clifford.at>           |\n");
+	log(" |  Copyright (C) 2012 - 2020  Claire Wolf <claire@symbioticeda.com>          |\n");
 	log(" |                                                                            |\n");
 	log(" |  Permission to use, copy, modify, and/or distribute this software for any  |\n");
 	log(" |  purpose with or without fee is hereby granted, provided that the above    |\n");
@@ -341,7 +341,11 @@ int run_command(const std::string &command, std::function<void(const std::string
 	if (!process_line)
 		return system(command.c_str());
 
+#ifdef EMSCRIPTEN
+	FILE *f = nullptr;
+#else
 	FILE *f = popen(command.c_str(), "r");
+#endif
 	if (f == nullptr)
 		return -1;
 
@@ -511,12 +515,9 @@ void yosys_setup()
 		return;
 	already_setup = true;
 
-	RTLIL::ID::A = "\\A";
-	RTLIL::ID::B = "\\B";
-	RTLIL::ID::Y = "\\Y";
-	RTLIL::ID::keep = "\\keep";
-	RTLIL::ID::whitebox = "\\whitebox";
-	RTLIL::ID::blackbox = "\\blackbox";
+#define X(_id) RTLIL::ID::_id = "\\" # _id;
+#include "kernel/constids.inc"
+#undef X
 
 	#ifdef WITH_PYTHON
 		PyImport_AppendInittab((char*)"libyosys", INIT_MODULE);
@@ -834,7 +835,7 @@ std::string proc_share_dirname()
 	std::string proc_share_path = proc_self_path + "share/";
 	if (check_file_exists(proc_share_path, true))
 		return proc_share_path;
-	proc_share_path = proc_self_path + "../share/yosys/";
+	proc_share_path = proc_self_path + "../share/" + proc_program_prefix()+ "yosys/";
 	if (check_file_exists(proc_share_path, true))
 		return proc_share_path;
 #    ifdef YOSYS_DATDIR
@@ -846,6 +847,15 @@ std::string proc_share_dirname()
 	log_error("proc_share_dirname: unable to determine share/ directory!\n");
 }
 #endif
+
+std::string proc_program_prefix()
+{
+	std::string program_prefix;
+#ifdef YOSYS_PROGRAM_PREFIX
+	program_prefix = YOSYS_PROGRAM_PREFIX;
+#endif
+	return program_prefix;
+}
 
 bool fgetline(FILE *f, std::string &buffer)
 {
@@ -1033,6 +1043,8 @@ void run_backend(std::string filename, std::string command, RTLIL::Design *desig
 			command = "verilog";
 		else if (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".il") == 0)
 			command = "ilang";
+		else if (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".cc") == 0)
+			command = "cxxrtl";
 		else if (filename.size() > 4 && filename.compare(filename.size()-4, std::string::npos, ".aig") == 0)
 			command = "aiger";
 		else if (filename.size() > 5 && filename.compare(filename.size()-5, std::string::npos, ".blif") == 0)
@@ -1094,30 +1106,29 @@ static char *readline_obj_generator(const char *text, int state)
 
 		if (design->selected_active_module.empty())
 		{
-			for (auto &it : design->modules_)
-				if (RTLIL::unescape_id(it.first).compare(0, len, text) == 0)
-					obj_names.push_back(strdup(RTLIL::id2cstr(it.first)));
+			for (auto mod : design->modules())
+				if (RTLIL::unescape_id(mod->name).compare(0, len, text) == 0)
+					obj_names.push_back(strdup(log_id(mod->name)));
 		}
-		else
-		if (design->modules_.count(design->selected_active_module) > 0)
+		else if (design->module(design->selected_active_module) != nullptr)
 		{
-			RTLIL::Module *module = design->modules_.at(design->selected_active_module);
+			RTLIL::Module *module = design->module(design->selected_active_module);
 
-			for (auto &it : module->wires_)
-				if (RTLIL::unescape_id(it.first).compare(0, len, text) == 0)
-					obj_names.push_back(strdup(RTLIL::id2cstr(it.first)));
+			for (auto w : module->wires())
+				if (RTLIL::unescape_id(w->name).compare(0, len, text) == 0)
+					obj_names.push_back(strdup(log_id(w->name)));
 
 			for (auto &it : module->memories)
 				if (RTLIL::unescape_id(it.first).compare(0, len, text) == 0)
-					obj_names.push_back(strdup(RTLIL::id2cstr(it.first)));
+					obj_names.push_back(strdup(log_id(it.first)));
 
-			for (auto &it : module->cells_)
-				if (RTLIL::unescape_id(it.first).compare(0, len, text) == 0)
-					obj_names.push_back(strdup(RTLIL::id2cstr(it.first)));
+			for (auto cell : module->cells())
+				if (RTLIL::unescape_id(cell->name).compare(0, len, text) == 0)
+					obj_names.push_back(strdup(log_id(cell->name)));
 
 			for (auto &it : module->processes)
 				if (RTLIL::unescape_id(it.first).compare(0, len, text) == 0)
-					obj_names.push_back(strdup(RTLIL::id2cstr(it.first)));
+					obj_names.push_back(strdup(log_id(it.first)));
 		}
 
 		std::sort(obj_names.begin(), obj_names.end());

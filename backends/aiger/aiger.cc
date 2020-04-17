@@ -126,9 +126,9 @@ struct AigerWriter
 
 		for (auto wire : module->wires())
 		{
-			if (wire->attributes.count("\\init")) {
+			if (wire->attributes.count(ID::init)) {
 				SigSpec initsig = sigmap(wire);
-				Const initval = wire->attributes.at("\\init");
+				Const initval = wire->attributes.at(ID::init);
 				for (int i = 0; i < GetSize(wire) && i < GetSize(initval); i++)
 					if (initval[i] == State::S0 || initval[i] == State::S1)
 						init_map[initsig[i]] = initval[i] == State::S1;
@@ -169,31 +169,31 @@ struct AigerWriter
 
 		for (auto cell : module->cells())
 		{
-			if (cell->type == "$_NOT_")
+			if (cell->type == ID($_NOT_))
 			{
-				SigBit A = sigmap(cell->getPort("\\A").as_bit());
-				SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
+				SigBit A = sigmap(cell->getPort(ID::A).as_bit());
+				SigBit Y = sigmap(cell->getPort(ID::Y).as_bit());
 				unused_bits.erase(A);
 				undriven_bits.erase(Y);
 				not_map[Y] = A;
 				continue;
 			}
 
-			if (cell->type.in("$_FF_", "$_DFF_N_", "$_DFF_P_"))
+			if (cell->type.in(ID($_FF_), ID($_DFF_N_), ID($_DFF_P_)))
 			{
-				SigBit D = sigmap(cell->getPort("\\D").as_bit());
-				SigBit Q = sigmap(cell->getPort("\\Q").as_bit());
+				SigBit D = sigmap(cell->getPort(ID::D).as_bit());
+				SigBit Q = sigmap(cell->getPort(ID::Q).as_bit());
 				unused_bits.erase(D);
 				undriven_bits.erase(Q);
 				ff_map[Q] = D;
 				continue;
 			}
 
-			if (cell->type == "$_AND_")
+			if (cell->type == ID($_AND_))
 			{
-				SigBit A = sigmap(cell->getPort("\\A").as_bit());
-				SigBit B = sigmap(cell->getPort("\\B").as_bit());
-				SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
+				SigBit A = sigmap(cell->getPort(ID::A).as_bit());
+				SigBit B = sigmap(cell->getPort(ID::B).as_bit());
+				SigBit Y = sigmap(cell->getPort(ID::Y).as_bit());
 				unused_bits.erase(A);
 				unused_bits.erase(B);
 				undriven_bits.erase(Y);
@@ -201,66 +201,66 @@ struct AigerWriter
 				continue;
 			}
 
-			if (cell->type == "$initstate")
+			if (cell->type == ID($initstate))
 			{
-				SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
+				SigBit Y = sigmap(cell->getPort(ID::Y).as_bit());
 				undriven_bits.erase(Y);
 				initstate_bits.insert(Y);
 				continue;
 			}
 
-			if (cell->type == "$assert")
+			if (cell->type == ID($assert))
 			{
-				SigBit A = sigmap(cell->getPort("\\A").as_bit());
-				SigBit EN = sigmap(cell->getPort("\\EN").as_bit());
+				SigBit A = sigmap(cell->getPort(ID::A).as_bit());
+				SigBit EN = sigmap(cell->getPort(ID::EN).as_bit());
 				unused_bits.erase(A);
 				unused_bits.erase(EN);
 				asserts.push_back(make_pair(A, EN));
 				continue;
 			}
 
-			if (cell->type == "$assume")
+			if (cell->type == ID($assume))
 			{
-				SigBit A = sigmap(cell->getPort("\\A").as_bit());
-				SigBit EN = sigmap(cell->getPort("\\EN").as_bit());
+				SigBit A = sigmap(cell->getPort(ID::A).as_bit());
+				SigBit EN = sigmap(cell->getPort(ID::EN).as_bit());
 				unused_bits.erase(A);
 				unused_bits.erase(EN);
 				assumes.push_back(make_pair(A, EN));
 				continue;
 			}
 
-			if (cell->type == "$live")
+			if (cell->type == ID($live))
 			{
-				SigBit A = sigmap(cell->getPort("\\A").as_bit());
-				SigBit EN = sigmap(cell->getPort("\\EN").as_bit());
+				SigBit A = sigmap(cell->getPort(ID::A).as_bit());
+				SigBit EN = sigmap(cell->getPort(ID::EN).as_bit());
 				unused_bits.erase(A);
 				unused_bits.erase(EN);
 				liveness.push_back(make_pair(A, EN));
 				continue;
 			}
 
-			if (cell->type == "$fair")
+			if (cell->type == ID($fair))
 			{
-				SigBit A = sigmap(cell->getPort("\\A").as_bit());
-				SigBit EN = sigmap(cell->getPort("\\EN").as_bit());
+				SigBit A = sigmap(cell->getPort(ID::A).as_bit());
+				SigBit EN = sigmap(cell->getPort(ID::EN).as_bit());
 				unused_bits.erase(A);
 				unused_bits.erase(EN);
 				fairness.push_back(make_pair(A, EN));
 				continue;
 			}
 
-			if (cell->type == "$anyconst")
+			if (cell->type == ID($anyconst))
 			{
-				for (auto bit : sigmap(cell->getPort("\\Y"))) {
+				for (auto bit : sigmap(cell->getPort(ID::Y))) {
 					undriven_bits.erase(bit);
 					ff_map[bit] = bit;
 				}
 				continue;
 			}
 
-			if (cell->type == "$anyseq")
+			if (cell->type == ID($anyseq))
 			{
-				for (auto bit : sigmap(cell->getPort("\\Y"))) {
+				for (auto bit : sigmap(cell->getPort(ID::Y))) {
 					undriven_bits.erase(bit);
 					input_bits.insert(bit);
 				}

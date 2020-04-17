@@ -1,2 +1,2 @@
 read_ilang bug1630.il.gz
-abc9 -lut +/ecp5/abc9_5g.lut
+abc9 -lut 4

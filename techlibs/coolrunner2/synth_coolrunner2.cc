@@ -143,6 +143,9 @@ struct SynthCoolrunner2Pass : public ScriptPass
 
 		if (check_label("fine"))
 		{
+			run("extract_counter -dir up -allow_arst no");
+			run("techmap -map +/coolrunner2/cells_counter_map.v");
+			run("clean");
 			run("opt -fast -full");
 			run("techmap -map +/techmap.v -map +/coolrunner2/cells_latch.v");
 			run("opt -fast");
@@ -175,9 +178,11 @@ struct SynthCoolrunner2Pass : public ScriptPass
 			run("dffinit -ff LDCP Q INIT");
 			run("dffinit -ff LDCP_N Q INIT");
 			run("coolrunner2_sop");
+			run("clean");
 			run("iopadmap -bits -inpad IBUF O:I -outpad IOBUFE I:IO -inoutpad IOBUFE O:IO -toutpad IOBUFE E:I:IO -tinoutpad IOBUFE E:O:I:IO");
 			run("attrmvcp -attr src -attr LOC t:IOBUFE n:*");
 			run("attrmvcp -attr src -attr LOC -driven t:IBUF n:*");
+			run("coolrunner2_fixup");
 			run("splitnets");
 			run("clean");
 		}

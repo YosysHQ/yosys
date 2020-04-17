@@ -1,0 +1,151 @@
+read_verilog -icells <<EOT
+module top(input C, R, input [1:0] D, (* init = {2'b10, 2'b01, 1'b1, {8{1'b1}}} *) output [12:0] Q);
+
+(* init = 1'b1 *)
+wire unused;
+
+$_DFF_NN0_ dff0 (.C(C), .D(D[0]), .R(R), .Q(Q[0]));
+$_DFF_NN1_ dff1 (.C(C), .D(D[0]), .R(R), .Q(Q[1]));
+$_DFF_NP0_ dff2 (.C(C), .D(D[0]), .R(R), .Q(Q[2]));
+$_DFF_NP1_ dff3 (.C(C), .D(D[0]), .R(R), .Q(Q[3]));
+$_DFF_PN0_ dff4 (.C(C), .D(D[0]), .R(R), .Q(Q[4]));
+$_DFF_PN1_ dff5 (.C(C), .D(D[0]), .R(R), .Q(Q[5]));
+$_DFF_PP0_ dff6 (.C(C), .D(D[0]), .R(R), .Q(Q[6]));
+$_DFF_PP1_ dff7 (.C(C), .D(D[0]), .R(R), .Q(Q[7]));
+
+$adff #(.WIDTH(2), .CLK_POLARITY(1), .ARST_POLARITY(1'b0), .ARST_VALUE(2'b10)) dff8 (.CLK(C), .ARST(R), .D(D), .Q(Q[10:9]));
+$adff #(.WIDTH(2), .CLK_POLARITY(0), .ARST_POLARITY(1'b1), .ARST_VALUE(2'b01)) dff9 (.CLK(C), .ARST(R), .D(D), .Q(Q[12:11]));
+endmodule
+EOT
+equiv_opt -assert -multiclock zinit
+design -load postopt
+
+select -assert-count 20 t:$_NOT_
+select -assert-count 1 w:unused a:init %i
+select -assert-count 1 w:Q a:init=13'bxxxx1xxxxxxxx %i
+select -assert-count 4 c:dff0 c:dff2 c:dff4 c:dff6 %% t:$_DFF_??1_ %i
+select -assert-count 4 c:dff1 c:dff3 c:dff5 c:dff7 %% t:$_DFF_??0_ %i
+
+
+design -reset
+read_verilog -icells <<EOT
+module top(input C, R, input [1:0] D, (* init = {2'bx0, 2'b0x, 1'b1, {8{1'b0}}} *) output [12:0] Q);
+
+(* init = 1'b1 *)
+wire unused;
+
+$_DFF_NN0_ dff0 (.C(C), .D(D[0]), .R(R), .Q(Q[0]));
+$_DFF_NN1_ dff1 (.C(C), .D(D[0]), .R(R), .Q(Q[1]));
+$_DFF_NP0_ dff2 (.C(C), .D(D[0]), .R(R), .Q(Q[2]));
+$_DFF_NP1_ dff3 (.C(C), .D(D[0]), .R(R), .Q(Q[3]));
+$_DFF_PN0_ dff4 (.C(C), .D(D[0]), .R(R), .Q(Q[4]));
+$_DFF_PN1_ dff5 (.C(C), .D(D[0]), .R(R), .Q(Q[5]));
+$_DFF_PP0_ dff6 (.C(C), .D(D[0]), .R(R), .Q(Q[6]));
+$_DFF_PP1_ dff7 (.C(C), .D(D[0]), .R(R), .Q(Q[7]));
+
+$adff #(.WIDTH(2), .CLK_POLARITY(1), .ARST_POLARITY(1'b0), .ARST_VALUE(2'b10)) dff8 (.CLK(C), .ARST(R), .D(D), .Q(Q[10:9]));
+$adff #(.WIDTH(2), .CLK_POLARITY(0), .ARST_POLARITY(1'b1), .ARST_VALUE(2'b01)) dff9 (.CLK(C), .ARST(R), .D(D), .Q(Q[12:11]));
+endmodule
+EOT
+equiv_opt -assert -multiclock zinit
+design -load postopt
+
+select -assert-count 0 t:$_NOT_
+select -assert-count 1 w:unused a:init %i
+select -assert-count 1 w:Q a:init=13'bxxxx1xxxxxxxx %i
+select -assert-count 4 c:dff0 c:dff2 c:dff4 c:dff6 %% t:$_DFF_??0_ %i
+select -assert-count 4 c:dff1 c:dff3 c:dff5 c:dff7 %% t:$_DFF_??1_ %i
+
+
+design -reset
+read_verilog -icells <<EOT
+module top(input C, R, D, E, (* init = {24{1'b1}} *) output [23:0] Q);
+
+$__DFFE_NN0 dff0 (.C(C), .D(D), .E(E), .R(R), .Q(Q[0]));
+$__DFFE_NN1 dff1 (.C(C), .D(D), .E(E), .R(R), .Q(Q[1]));
+$__DFFE_NP0 dff2 (.C(C), .D(D), .E(E), .R(R), .Q(Q[2]));
+$__DFFE_NP1 dff3 (.C(C), .D(D), .E(E), .R(R), .Q(Q[3]));
+$__DFFE_PN0 dff4 (.C(C), .D(D), .E(E), .R(R), .Q(Q[4]));
+$__DFFE_PN1 dff5 (.C(C), .D(D), .E(E), .R(R), .Q(Q[5]));
+$__DFFE_PP0 dff6 (.C(C), .D(D), .E(E), .R(R), .Q(Q[6]));
+$__DFFE_PP1 dff7 (.C(C), .D(D), .E(E), .R(R), .Q(Q[7]));
+
+$__DFFS_NN0_ dff8 (.C(C), .D(D[0]), .R(R), .Q(Q[8]));
+$__DFFS_NN1_ dff9 (.C(C), .D(D[0]), .R(R), .Q(Q[9]));
+$__DFFS_NP0_ dff10(.C(C), .D(D[0]), .R(R), .Q(Q[10]));
+$__DFFS_NP1_ dff11(.C(C), .D(D[0]), .R(R), .Q(Q[11]));
+$__DFFS_PN0_ dff12(.C(C), .D(D[0]), .R(R), .Q(Q[12]));
+$__DFFS_PN1_ dff13(.C(C), .D(D[0]), .R(R), .Q(Q[13]));
+$__DFFS_PP0_ dff14(.C(C), .D(D[0]), .R(R), .Q(Q[14]));
+$__DFFS_PP1_ dff15(.C(C), .D(D[0]), .R(R), .Q(Q[15]));
+
+$__DFFSE_NN0 dff16(.C(C), .D(D[0]),.E(E),  .R(R), .Q(Q[16]));
+$__DFFSE_NN1 dff17(.C(C), .D(D[0]),.E(E),  .R(R), .Q(Q[17]));
+$__DFFSE_NP0 dff18(.C(C), .D(D[0]),.E(E),  .R(R), .Q(Q[18]));
+$__DFFSE_NP1 dff19(.C(C), .D(D[0]),.E(E),  .R(R), .Q(Q[19]));
+$__DFFSE_PN0 dff20(.C(C), .D(D[0]),.E(E),  .R(R), .Q(Q[20]));
+$__DFFSE_PN1 dff21(.C(C), .D(D[0]),.E(E),  .R(R), .Q(Q[21]));
+$__DFFSE_PP0 dff22(.C(C), .D(D[0]),.E(E),  .R(R), .Q(Q[22]));
+$__DFFSE_PP1 dff23(.C(C), .D(D[0]),.E(E),  .R(R), .Q(Q[23]));
+
+endmodule
+EOT
+#equiv_opt -assert -multiclock zinit
+#design -load postopt
+zinit
+
+select -assert-count 48 t:$_NOT_
+select -assert-count 1 w:Q a:init=24'bx %i
+select -assert-count 4 c:dff0 c:dff2 c:dff4 c:dff6 %% t:$__DFFE_??1 %i
+select -assert-count 4 c:dff1 c:dff3 c:dff5 c:dff7 %% t:$__DFFE_??0 %i
+select -assert-count 4 c:dff8 c:dff10 c:dff12 c:dff14 %% t:$__DFFS_??1_ %i
+select -assert-count 4 c:dff9 c:dff11 c:dff13 c:dff15 %% t:$__DFFS_??0_ %i
+select -assert-count 4 c:dff16 c:dff18 c:dff20 c:dff22 %% t:$__DFFSE_??1 %i
+select -assert-count 4 c:dff17 c:dff19 c:dff21 c:dff23 %% t:$__DFFSE_??0 %i
+
+
+design -reset
+read_verilog -icells <<EOT
+module top(input C, R, D, E, (* init = {24{1'b0}} *) output [23:0] Q);
+
+$__DFFE_NN0 dff0 (.C(C), .D(D), .E(E), .R(R), .Q(Q[0]));
+$__DFFE_NN1 dff1 (.C(C), .D(D), .E(E), .R(R), .Q(Q[1]));
+$__DFFE_NP0 dff2 (.C(C), .D(D), .E(E), .R(R), .Q(Q[2]));
+$__DFFE_NP1 dff3 (.C(C), .D(D), .E(E), .R(R), .Q(Q[3]));
+$__DFFE_PN0 dff4 (.C(C), .D(D), .E(E), .R(R), .Q(Q[4]));
+$__DFFE_PN1 dff5 (.C(C), .D(D), .E(E), .R(R), .Q(Q[5]));
+$__DFFE_PP0 dff6 (.C(C), .D(D), .E(E), .R(R), .Q(Q[6]));
+$__DFFE_PP1 dff7 (.C(C), .D(D), .E(E), .R(R), .Q(Q[7]));
+
+$__DFFS_NN0_ dff8 (.C(C), .D(D[0]), .R(R), .Q(Q[8]));
+$__DFFS_NN1_ dff9 (.C(C), .D(D[0]), .R(R), .Q(Q[9]));
+$__DFFS_NP0_ dff10(.C(C), .D(D[0]), .R(R), .Q(Q[10]));
+$__DFFS_NP1_ dff11(.C(C), .D(D[0]), .R(R), .Q(Q[11]));
+$__DFFS_PN0_ dff12(.C(C), .D(D[0]), .R(R), .Q(Q[12]));
+$__DFFS_PN1_ dff13(.C(C), .D(D[0]), .R(R), .Q(Q[13]));
+$__DFFS_PP0_ dff14(.C(C), .D(D[0]), .R(R), .Q(Q[14]));
+$__DFFS_PP1_ dff15(.C(C), .D(D[0]), .R(R), .Q(Q[15]));
+
+$__DFFSE_NN0 dff16(.C(C), .D(D[0]),.E(E),  .R(R), .Q(Q[16]));
+$__DFFSE_NN1 dff17(.C(C), .D(D[0]),.E(E),  .R(R), .Q(Q[17]));
+$__DFFSE_NP0 dff18(.C(C), .D(D[0]),.E(E),  .R(R), .Q(Q[18]));
+$__DFFSE_NP1 dff19(.C(C), .D(D[0]),.E(E),  .R(R), .Q(Q[19]));
+$__DFFSE_PN0 dff20(.C(C), .D(D[0]),.E(E),  .R(R), .Q(Q[20]));
+$__DFFSE_PN1 dff21(.C(C), .D(D[0]),.E(E),  .R(R), .Q(Q[21]));
+$__DFFSE_PP0 dff22(.C(C), .D(D[0]),.E(E),  .R(R), .Q(Q[22]));
+$__DFFSE_PP1 dff23(.C(C), .D(D[0]),.E(E),  .R(R), .Q(Q[23]));
+
+endmodule
+EOT
+#equiv_opt -assert -multiclock zinit
+#design -load postopt
+zinit
+
+select -assert-count 0 t:$_NOT_
+select -assert-count 1 w:Q a:init=24'bx %i
+select -assert-count 4 c:dff0 c:dff2 c:dff4 c:dff6 %% t:$__DFFE_??0 %i
+select -assert-count 4 c:dff1 c:dff3 c:dff5 c:dff7 %% t:$__DFFE_??1 %i
+select -assert-count 4 c:dff8 c:dff10 c:dff12 c:dff14 %% t:$__DFFS_??0_ %i
+select -assert-count 4 c:dff9 c:dff11 c:dff13 c:dff15 %% t:$__DFFS_??1_ %i
+select -assert-count 4 c:dff16 c:dff18 c:dff20 c:dff22 %% t:$__DFFSE_??0 %i
+select -assert-count 4 c:dff17 c:dff19 c:dff21 c:dff23 %% t:$__DFFSE_??1 %i

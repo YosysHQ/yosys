@@ -1,0 +1,8 @@
+logger -expect warning "wire '\\o' is assigned in a block at <<EOT:2.11-2.17" 1
+logger -expect warning "wire '\\p' is assigned in a block at <<EOT:3.11-3.16" 1
+read_verilog <<EOT
+module top(input i, output o, p);
+always @* o <= i;
+always @* p = i;
+endmodule
+EOT

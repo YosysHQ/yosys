@@ -60,17 +60,17 @@ struct SplitnetsWorker
 		new_wire->port_input = wire->port_input;
 		new_wire->port_output = wire->port_output;
 
-		if (wire->attributes.count("\\src"))
-			new_wire->attributes["\\src"] = wire->attributes.at("\\src");
+		if (wire->attributes.count(ID::src))
+			new_wire->attributes[ID::src] = wire->attributes.at(ID::src);
 
-		if (wire->attributes.count("\\keep"))
-			new_wire->attributes["\\keep"] = wire->attributes.at("\\keep");
+		if (wire->attributes.count(ID::keep))
+			new_wire->attributes[ID::keep] = wire->attributes.at(ID::keep);
 
-		if (wire->attributes.count("\\init")) {
-			Const old_init = wire->attributes.at("\\init"), new_init;
+		if (wire->attributes.count(ID::init)) {
+			Const old_init = wire->attributes.at(ID::init), new_init;
 			for (int i = offset; i < offset+width; i++)
 				new_init.bits.push_back(i < GetSize(old_init) ? old_init.bits.at(i) : State::Sx);
-			new_wire->attributes["\\init"] = new_init;
+			new_wire->attributes[ID::init] = new_init;
 		}
 
 		std::vector<RTLIL::SigBit> sigvec = RTLIL::SigSpec(new_wire).to_sigbit_vector();
@@ -141,6 +141,9 @@ struct SplitnetsPass : public Pass {
 
 		for (auto module : design->selected_modules())
 		{
+			if (module->has_processes_warn())
+				continue;
+
 			SplitnetsWorker worker;
 
 			if (flag_ports)

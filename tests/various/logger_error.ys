@@ -1,0 +1,6 @@
+logger -werror "is implicitly declared." -expect error "is implicitly declared." 1
+read_verilog << EOF
+module top(...);
+	assign b = w;
+endmodule
+EOF

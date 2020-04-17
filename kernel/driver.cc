@@ -413,22 +413,13 @@ int main(int argc, char **argv)
 			scriptfile_tcl = true;
 			break;
 		case 'W':
-			log_warn_regexes.push_back(std::regex(optarg,
-					std::regex_constants::nosubs |
-					std::regex_constants::optimize |
-					std::regex_constants::egrep));
+			log_warn_regexes.push_back(YS_REGEX_COMPILE(optarg));
 			break;
 		case 'w':
-			log_nowarn_regexes.push_back(std::regex(optarg,
-					std::regex_constants::nosubs |
-					std::regex_constants::optimize |
-					std::regex_constants::egrep));
+			log_nowarn_regexes.push_back(YS_REGEX_COMPILE(optarg));
 			break;
 		case 'e':
-			log_werror_regexes.push_back(std::regex(optarg,
-					std::regex_constants::nosubs |
-					std::regex_constants::optimize |
-					std::regex_constants::egrep));
+			log_werror_regexes.push_back(YS_REGEX_COMPILE(optarg));
 			break;
 		case 'D':
 			vlog_defines.push_back(optarg);
@@ -558,6 +549,10 @@ int main(int argc, char **argv)
 		fprintf(f, "\n");
 	}
 
+	if (log_expect_no_warnings && log_warnings_count_noexpect)
+		log_error("Unexpected warnings found: %d unique messages, %d total, %d expected\n", GetSize(log_warnings),
+					log_warnings_count, log_warnings_count - log_warnings_count_noexpect);
+
 	if (print_stats)
 	{
 		std::string hash = log_hasher->final().substr(0, 10);
@@ -663,6 +658,8 @@ int main(int argc, char **argv)
 		fclose(f);
 	}
 #endif
+
+	log_check_expected();
 
 	yosys_atexit();
 

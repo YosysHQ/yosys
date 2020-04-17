@@ -98,49 +98,6 @@ struct CheckPass : public Pass {
 
 		log_header(design, "Executing CHECK pass (checking for obvious problems).\n");
 
-		pool<IdString> fftypes;
-		fftypes.insert("$sr");
-		fftypes.insert("$ff");
-		fftypes.insert("$dff");
-		fftypes.insert("$dffe");
-		fftypes.insert("$dffsr");
-		fftypes.insert("$adff");
-		fftypes.insert("$dlatch");
-		fftypes.insert("$dlatchsr");
-		fftypes.insert("$_DFFE_NN_");
-		fftypes.insert("$_DFFE_NP_");
-		fftypes.insert("$_DFFE_PN_");
-		fftypes.insert("$_DFFE_PP_");
-		fftypes.insert("$_DFFSR_NNN_");
-		fftypes.insert("$_DFFSR_NNP_");
-		fftypes.insert("$_DFFSR_NPN_");
-		fftypes.insert("$_DFFSR_NPP_");
-		fftypes.insert("$_DFFSR_PNN_");
-		fftypes.insert("$_DFFSR_PNP_");
-		fftypes.insert("$_DFFSR_PPN_");
-		fftypes.insert("$_DFFSR_PPP_");
-		fftypes.insert("$_DFF_NN0_");
-		fftypes.insert("$_DFF_NN1_");
-		fftypes.insert("$_DFF_NP0_");
-		fftypes.insert("$_DFF_NP1_");
-		fftypes.insert("$_DFF_N_");
-		fftypes.insert("$_DFF_PN0_");
-		fftypes.insert("$_DFF_PN1_");
-		fftypes.insert("$_DFF_PP0_");
-		fftypes.insert("$_DFF_PP1_");
-		fftypes.insert("$_DFF_P_");
-		fftypes.insert("$_DLATCHSR_NNN_");
-		fftypes.insert("$_DLATCHSR_NNP_");
-		fftypes.insert("$_DLATCHSR_NPN_");
-		fftypes.insert("$_DLATCHSR_NPP_");
-		fftypes.insert("$_DLATCHSR_PNN_");
-		fftypes.insert("$_DLATCHSR_PNP_");
-		fftypes.insert("$_DLATCHSR_PPN_");
-		fftypes.insert("$_DLATCHSR_PPP_");
-		fftypes.insert("$_DLATCH_N_");
-		fftypes.insert("$_DLATCH_P_");
-		fftypes.insert("$_FF_");
-
 		for (auto module : design->selected_whole_modules_warn())
 		{
 			if (module->has_processes_warn())
@@ -202,8 +159,8 @@ struct CheckPass : public Pass {
 				if (wire->port_input && !wire->port_output)
 					for (auto bit : sigmap(wire))
 						if (bit.wire) wire_drivers_count[bit]++;
-				if (wire->attributes.count("\\init")) {
-					Const initval = wire->attributes.at("\\init");
+				if (wire->attributes.count(ID::init)) {
+					Const initval = wire->attributes.at(ID::init);
 					for (int i = 0; i < GetSize(initval) && i < GetSize(wire); i++)
 						if (initval[i] == State::S0 || initval[i] == State::S1)
 							init_bits.insert(sigmap(SigBit(wire, i)));
@@ -242,10 +199,10 @@ struct CheckPass : public Pass {
 			{
 				for (auto cell : module->cells())
 				{
-					if (fftypes.count(cell->type) == 0)
+					if (RTLIL::builtin_ff_cell_types().count(cell->type) == 0)
 						continue;
 
-					for (auto bit : sigmap(cell->getPort("\\Q")))
+					for (auto bit : sigmap(cell->getPort(ID::Q)))
 						init_bits.erase(bit);
 				}
 

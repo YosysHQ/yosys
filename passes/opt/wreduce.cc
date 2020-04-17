@@ -65,7 +65,7 @@ struct WreduceWorker
 
 		SigSpec sig_a = mi.sigmap(cell->getPort(ID::A));
 		SigSpec sig_b = mi.sigmap(cell->getPort(ID::B));
-		SigSpec sig_s = mi.sigmap(cell->getPort(ID(S)));
+		SigSpec sig_s = mi.sigmap(cell->getPort(ID::S));
 		SigSpec sig_y = mi.sigmap(cell->getPort(ID::Y));
 		std::vector<SigBit> bits_removed;
 
@@ -98,7 +98,7 @@ struct WreduceWorker
 
 		SigSpec sig_removed;
 		for (int i = GetSize(bits_removed)-1; i >= 0; i--)
-			sig_removed.append_bit(bits_removed[i]);
+			sig_removed.append(bits_removed[i]);
 
 		if (GetSize(bits_removed) == GetSize(sig_y)) {
 			log("Removed cell %s.%s (%s).\n", log_id(module), log_id(cell), log_id(cell->type));
@@ -141,8 +141,8 @@ struct WreduceWorker
 	{
 		// Reduce size of FF if inputs are just sign/zero extended or output bit is not used
 
-		SigSpec sig_d = mi.sigmap(cell->getPort(ID(D)));
-		SigSpec sig_q = mi.sigmap(cell->getPort(ID(Q)));
+		SigSpec sig_d = mi.sigmap(cell->getPort(ID::D));
+		SigSpec sig_q = mi.sigmap(cell->getPort(ID::Q));
 		bool is_adff = (cell->type == ID($adff));
 		Const initval, arst_value;
 
@@ -151,8 +151,8 @@ struct WreduceWorker
 		if (width_before == 0)
 			return;
 
-		if (cell->parameters.count(ID(ARST_VALUE))) {
-			arst_value = cell->parameters[ID(ARST_VALUE)];
+		if (cell->parameters.count(ID::ARST_VALUE)) {
+			arst_value = cell->parameters[ID::ARST_VALUE];
 		}
 
 		bool zero_ext = sig_d[GetSize(sig_d)-1] == State::S0;
@@ -220,13 +220,13 @@ struct WreduceWorker
 			work_queue_bits.insert(bit);
 
 		// Narrow ARST_VALUE parameter to new size.
-		if (cell->parameters.count(ID(ARST_VALUE))) {
+		if (cell->parameters.count(ID::ARST_VALUE)) {
 			arst_value.bits.resize(GetSize(sig_q));
-			cell->setParam(ID(ARST_VALUE), arst_value);
+			cell->setParam(ID::ARST_VALUE, arst_value);
 		}
 
-		cell->setPort(ID(D), sig_d);
-		cell->setPort(ID(Q), sig_q);
+		cell->setPort(ID::D, sig_d);
+		cell->setPort(ID::Q, sig_q);
 		cell->fixup_parameters();
 	}
 
@@ -306,8 +306,8 @@ struct WreduceWorker
 					GetSize(sig_b) > 0 && sig_b[GetSize(sig_b)-1] == State::S0) {
 				log("Converting cell %s.%s (%s) from signed to unsigned.\n",
 						log_id(module), log_id(cell), log_id(cell->type));
-				cell->setParam(ID(A_SIGNED), 0);
-				cell->setParam(ID(B_SIGNED), 0);
+				cell->setParam(ID::A_SIGNED, 0);
+				cell->setParam(ID::B_SIGNED, 0);
 				port_a_signed = false;
 				port_b_signed = false;
 				did_something = true;
@@ -319,7 +319,7 @@ struct WreduceWorker
 			if (GetSize(sig_a) > 0 && sig_a[GetSize(sig_a)-1] == State::S0) {
 				log("Converting cell %s.%s (%s) from signed to unsigned.\n",
 						log_id(module), log_id(cell), log_id(cell->type));
-				cell->setParam(ID(A_SIGNED), 0);
+				cell->setParam(ID::A_SIGNED, 0);
 				port_a_signed = false;
 				did_something = true;
 			}
@@ -349,7 +349,7 @@ struct WreduceWorker
 
 		if (cell->type.in(ID($pos), ID($add), ID($mul), ID($and), ID($or), ID($xor), ID($sub)))
 		{
-			bool is_signed = cell->getParam(ID(A_SIGNED)).as_bool() || cell->type == ID($sub);
+			bool is_signed = cell->getParam(ID::A_SIGNED).as_bool() || cell->type == ID($sub);
 
 			int a_size = 0, b_size = 0;
 			if (cell->hasPort(ID::A)) a_size = GetSize(cell->getPort(ID::A));
@@ -392,8 +392,8 @@ struct WreduceWorker
 	static int count_nontrivial_wire_attrs(RTLIL::Wire *w)
 	{
 		int count = w->attributes.size();
-		count -= w->attributes.count(ID(src));
-		count -= w->attributes.count(ID(unused_bits));
+		count -= w->attributes.count(ID::src);
+		count -= w->attributes.count(ID::unused_bits);
 		return count;
 	}
 
@@ -406,8 +406,8 @@ struct WreduceWorker
 			if (w->get_bool_attribute(ID::keep))
 				for (auto bit : mi.sigmap(w))
 					keep_bits.insert(bit);
-			if (w->attributes.count(ID(init))) {
-				Const initval = w->attributes.at(ID(init));
+			if (w->attributes.count(ID::init)) {
+				Const initval = w->attributes.at(ID::init);
 				SigSpec initsig = init_attr_sigmap(w);
 				int width = std::min(GetSize(initval), GetSize(initsig));
 				for (int i = 0; i < width; i++)
@@ -464,8 +464,8 @@ struct WreduceWorker
 
 		if (!remove_init_bits.empty()) {
 			for (auto w : module->wires()) {
-				if (w->attributes.count(ID(init))) {
-					Const initval = w->attributes.at(ID(init));
+				if (w->attributes.count(ID::init)) {
+					Const initval = w->attributes.at(ID::init);
 					Const new_initval(State::Sx, GetSize(w));
 					SigSpec initsig = init_attr_sigmap(w);
 					int width = std::min(GetSize(initval), GetSize(initsig));
@@ -473,7 +473,7 @@ struct WreduceWorker
 						if (!remove_init_bits.count(initsig[i]))
 							new_initval[i] = initval[i];
 					}
-					w->attributes.at(ID(init)) = new_initval;
+					w->attributes.at(ID::init) = new_initval;
 				}
 			}
 		}
@@ -539,7 +539,7 @@ struct WreducePass : public Pass {
 					SigSpec sig = c->getPort(ID::Y);
 					if (!sig.has_const()) {
 						c->setPort(ID::Y, sig[0]);
-						c->setParam(ID(Y_WIDTH), 1);
+						c->setParam(ID::Y_WIDTH, 1);
 						sig.remove(0);
 						module->connect(sig, Const(0, GetSize(sig)));
 					}
@@ -549,7 +549,7 @@ struct WreducePass : public Pass {
 				{
 					SigSpec A = c->getPort(ID::A);
 					int original_a_width = GetSize(A);
-					if (c->getParam(ID(A_SIGNED)).as_bool()) {
+					if (c->getParam(ID::A_SIGNED).as_bool()) {
 						while (GetSize(A) > 1 && A[GetSize(A)-1] == State::S0 && A[GetSize(A)-2] == State::S0)
 							A.remove(GetSize(A)-1, 1);
 					} else {
@@ -560,12 +560,12 @@ struct WreducePass : public Pass {
 						log("Removed top %d bits (of %d) from port A of cell %s.%s (%s).\n",
 								original_a_width-GetSize(A), original_a_width, log_id(module), log_id(c), log_id(c->type));
 						c->setPort(ID::A, A);
-						c->setParam(ID(A_WIDTH), GetSize(A));
+						c->setParam(ID::A_WIDTH, GetSize(A));
 					}
 
 					SigSpec B = c->getPort(ID::B);
 					int original_b_width = GetSize(B);
-					if (c->getParam(ID(B_SIGNED)).as_bool()) {
+					if (c->getParam(ID::B_SIGNED).as_bool()) {
 						while (GetSize(B) > 1 && B[GetSize(B)-1] == State::S0 && B[GetSize(B)-2] == State::S0)
 							B.remove(GetSize(B)-1, 1);
 					} else {
@@ -576,23 +576,23 @@ struct WreducePass : public Pass {
 						log("Removed top %d bits (of %d) from port B of cell %s.%s (%s).\n",
 								original_b_width-GetSize(B), original_b_width, log_id(module), log_id(c), log_id(c->type));
 						c->setPort(ID::B, B);
-						c->setParam(ID(B_WIDTH), GetSize(B));
+						c->setParam(ID::B_WIDTH, GetSize(B));
 					}
 				}
 
 				if (!opt_memx && c->type.in(ID($memrd), ID($memwr), ID($meminit))) {
-					IdString memid = c->getParam(ID(MEMID)).decode_string();
+					IdString memid = c->getParam(ID::MEMID).decode_string();
 					RTLIL::Memory *mem = module->memories.at(memid);
 					if (mem->start_offset >= 0) {
-						int cur_addrbits = c->getParam(ID(ABITS)).as_int();
+						int cur_addrbits = c->getParam(ID::ABITS).as_int();
 						int max_addrbits = ceil_log2(mem->start_offset + mem->size);
 						if (cur_addrbits > max_addrbits) {
 							log("Removed top %d address bits (of %d) from memory %s port %s.%s (%s).\n",
 									cur_addrbits-max_addrbits, cur_addrbits,
 									c->type == ID($memrd) ? "read" : c->type == ID($memwr) ? "write" : "init",
 									log_id(module), log_id(c), log_id(memid));
-							c->setParam(ID(ABITS), max_addrbits);
-							c->setPort(ID(ADDR), c->getPort(ID(ADDR)).extract(0, max_addrbits));
+							c->setParam(ID::ABITS, max_addrbits);
+							c->setPort(ID::ADDR, c->getPort(ID::ADDR).extract(0, max_addrbits));
 						}
 					}
 				}

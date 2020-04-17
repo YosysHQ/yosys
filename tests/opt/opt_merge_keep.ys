@@ -1,0 +1,64 @@
+read_verilog -icells <<EOT
+module top(input clk, i, output o, p);
+  (* keep *)
+  \$_DFF_P_ ffo  (
+    .C(clk),
+    .D(i),
+    .Q(o)
+  );
+  \$_DFF_P_ ffp  (
+    .C(clk),
+    .D(i),
+    .Q(p)
+  );
+endmodule
+EOT
+
+opt_merge
+select -assert-count 1 t:$_DFF_P_
+select -assert-count 1 a:keep
+
+
+design -reset
+read_verilog -icells <<EOT
+module top(input clk, i, output o, p);
+  \$_DFF_P_ ffo  (
+    .C(clk),
+    .D(i),
+    .Q(o)
+  );
+  (* keep *)
+  \$_DFF_P_ ffp  (
+    .C(clk),
+    .D(i),
+    .Q(p)
+  );
+endmodule
+EOT
+
+opt_merge
+select -assert-count 1 t:$_DFF_P_
+select -assert-count 1 a:keep
+
+
+design -reset
+read_verilog -icells <<EOT
+module top(input clk, i, output o, p);
+  (* keep *)
+  \$_DFF_P_ ffo  (
+    .C(clk),
+    .D(i),
+    .Q(o)
+  );
+  (* keep *)
+  \$_DFF_P_ ffp  (
+    .C(clk),
+    .D(i),
+    .Q(p)
+  );
+endmodule
+EOT
+
+opt_merge
+select -assert-count 2 t:$_DFF_P_
+select -assert-count 2 a:keep

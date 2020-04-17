@@ -34,14 +34,14 @@ static void handle_gbufs(Module *module)
 
 	for (auto cell : module->cells())
 	{
-		if (cell->type == "\\EFX_FF") {
-			for (auto bit : sigmap(cell->getPort("\\CLK")))
+		if (cell->type == ID(EFX_FF)) {
+			for (auto bit : sigmap(cell->getPort(ID::CLK)))
 				clk_bits.insert(bit);
 		}
-		if (cell->type == "\\EFX_RAM_5K") {
-			for (auto bit : sigmap(cell->getPort("\\RCLK")))
+		if (cell->type == ID(EFX_RAM_5K)) {
+			for (auto bit : sigmap(cell->getPort(ID(RCLK))))
 				clk_bits.insert(bit);
-			for (auto bit : sigmap(cell->getPort("\\WCLK")))
+			for (auto bit : sigmap(cell->getPort(ID(WCLK))))
 				clk_bits.insert(bit);
 		}
 	}
@@ -59,11 +59,11 @@ static void handle_gbufs(Module *module)
 			if (!clk_bits.count(canonical_bit))
 				continue;
 
-			Cell *c = module->addCell(NEW_ID, "\\EFX_GBUFCE");
+			Cell *c = module->addCell(NEW_ID, ID(EFX_GBUFCE));
 			SigBit new_bit = module->addWire(NEW_ID);
-			c->setParam("\\CE_POLARITY", State::S1);
-			c->setPort("\\O", new_bit);
-			c->setPort("\\CE", State::S1);
+			c->setParam(ID(CE_POLARITY), State::S1);
+			c->setPort(ID::O, new_bit);
+			c->setPort(ID(CE), State::S1);
 			pad_bits.push_back(make_pair(c, bit));
 			rewrite_bits[canonical_bit] = new_bit;
 
@@ -82,7 +82,7 @@ static void handle_gbufs(Module *module)
 	module->rewrite_sigspecs(rewrite_function);
 
 	for (auto &it : pad_bits)
-		it.first->setPort("\\I", it.second);
+		it.first->setPort(ID::I, it.second);
 }
 
 struct EfinixGbufPass : public Pass {

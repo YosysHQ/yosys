@@ -58,7 +58,7 @@ static bool match_attr_val(const RTLIL::Const &value, std::string pattern, char 
 	{
 		RTLIL::SigSpec sig_value;
 
-		if (!RTLIL::SigSpec::parse(sig_value, NULL, pattern))
+		if (!RTLIL::SigSpec::parse(sig_value, nullptr, pattern))
 			return false;
 
 		RTLIL::Const pattern_value = sig_value.as_const();
@@ -152,27 +152,26 @@ static void select_op_neg(RTLIL::Design *design, RTLIL::Selection &lhs)
 
 	RTLIL::Selection new_sel(false);
 
-	for (auto &mod_it : design->modules_)
+	for (auto mod : design->modules())
 	{
-		if (lhs.selected_whole_module(mod_it.first))
+		if (lhs.selected_whole_module(mod->name))
 			continue;
-		if (!lhs.selected_module(mod_it.first)) {
-			new_sel.selected_modules.insert(mod_it.first);
+		if (!lhs.selected_module(mod->name)) {
+			new_sel.selected_modules.insert(mod->name);
 			continue;
 		}
 
-		RTLIL::Module *mod = mod_it.second;
-		for (auto &it : mod->wires_)
-			if (!lhs.selected_member(mod_it.first, it.first))
-				new_sel.selected_members[mod->name].insert(it.first);
+		for (auto wire : mod->wires())
+			if (!lhs.selected_member(mod->name, wire->name))
+				new_sel.selected_members[mod->name].insert(wire->name);
 		for (auto &it : mod->memories)
-			if (!lhs.selected_member(mod_it.first, it.first))
+			if (!lhs.selected_member(mod->name, it.first))
 				new_sel.selected_members[mod->name].insert(it.first);
-		for (auto &it : mod->cells_)
-			if (!lhs.selected_member(mod_it.first, it.first))
-				new_sel.selected_members[mod->name].insert(it.first);
+		for (auto cell : mod->cells())
+			if (!lhs.selected_member(mod->name, cell->name))
+				new_sel.selected_members[mod->name].insert(cell->name);
 		for (auto &it : mod->processes)
-			if (!lhs.selected_member(mod_it.first, it.first))
+			if (!lhs.selected_member(mod->name, it.first))
 				new_sel.selected_members[mod->name].insert(it.first);
 	}
 
@@ -223,15 +222,15 @@ static void select_op_random(RTLIL::Design *design, RTLIL::Selection &lhs, int c
 
 static void select_op_submod(RTLIL::Design *design, RTLIL::Selection &lhs)
 {
-	for (auto &mod_it : design->modules_)
+	for (auto mod : design->modules())
 	{
-		if (lhs.selected_whole_module(mod_it.first))
+		if (lhs.selected_whole_module(mod->name))
 		{
-			for (auto &cell_it : mod_it.second->cells_)
+			for (auto cell : mod->cells())
 			{
-				if (design->modules_.count(cell_it.second->type) == 0)
+				if (design->module(cell->type) == nullptr)
 					continue;
-				lhs.selected_modules.insert(cell_it.second->type);
+				lhs.selected_modules.insert(cell->type);
 			}
 		}
 	}
@@ -240,21 +239,21 @@ static void select_op_submod(RTLIL::Design *design, RTLIL::Selection &lhs)
 static void select_op_cells_to_modules(RTLIL::Design *design, RTLIL::Selection &lhs)
 {
 	RTLIL::Selection new_sel(false);
-	for (auto &mod_it : design->modules_)
-		if (lhs.selected_module(mod_it.first))
-			for (auto &cell_it : mod_it.second->cells_)
-				if (lhs.selected_member(mod_it.first, cell_it.first) && design->modules_.count(cell_it.second->type))
-					new_sel.selected_modules.insert(cell_it.second->type);
+	for (auto mod : design->modules())
+		if (lhs.selected_module(mod->name))
+			for (auto cell : mod->cells())
+				if (lhs.selected_member(mod->name, cell->name) && (design->module(cell->type) != nullptr))
+					new_sel.selected_modules.insert(cell->type);
 	lhs = new_sel;
 }
 
 static void select_op_module_to_cells(RTLIL::Design *design, RTLIL::Selection &lhs)
 {
 	RTLIL::Selection new_sel(false);
-	for (auto &mod_it : design->modules_)
-		for (auto &cell_it : mod_it.second->cells_)
-			if (design->modules_.count(cell_it.second->type) && lhs.selected_whole_module(cell_it.second->type))
-				new_sel.selected_members[mod_it.first].insert(cell_it.first);
+	for (auto mod : design->modules())
+		for (auto cell : mod->cells())
+			if ((design->module(cell->type) != nullptr) && lhs.selected_whole_module(cell->type))
+				new_sel.selected_members[mod->name].insert(cell->name);
 	lhs = new_sel;
 }
 
@@ -268,23 +267,23 @@ static void select_op_fullmod(RTLIL::Design *design, RTLIL::Selection &lhs)
 
 static void select_op_alias(RTLIL::Design *design, RTLIL::Selection &lhs)
 {
-	for (auto &mod_it : design->modules_)
+	for (auto mod : design->modules())
 	{
-		if (lhs.selected_whole_module(mod_it.first))
+		if (lhs.selected_whole_module(mod->name))
 			continue;
-		if (!lhs.selected_module(mod_it.first))
+		if (!lhs.selected_module(mod->name))
 			continue;
 
-		SigMap sigmap(mod_it.second);
+		SigMap sigmap(mod);
 		SigPool selected_bits;
 
-		for (auto &it : mod_it.second->wires_)
-			if (lhs.selected_member(mod_it.first, it.first))
-				selected_bits.add(sigmap(it.second));
+		for (auto wire : mod->wires())
+			if (lhs.selected_member(mod->name, wire->name))
+				selected_bits.add(sigmap(wire));
 
-		for (auto &it : mod_it.second->wires_)
-			if (!lhs.selected_member(mod_it.first, it.first) && selected_bits.check_any(sigmap(it.second)))
-				lhs.selected_members[mod_it.first].insert(it.first);
+		for (auto wire : mod->wires())
+			if (!lhs.selected_member(mod->name, wire->name) && selected_bits.check_any(sigmap(wire)))
+				lhs.selected_members[mod->name].insert(wire->name);
 	}
 }
 
@@ -323,8 +322,8 @@ static void select_op_diff(RTLIL::Design *design, RTLIL::Selection &lhs, const R
 		if (!rhs.full_selection && rhs.selected_modules.size() == 0 && rhs.selected_members.size() == 0)
 			return;
 		lhs.full_selection = false;
-		for (auto &it : design->modules_)
-			lhs.selected_modules.insert(it.first);
+		for (auto mod : design->modules())
+			lhs.selected_modules.insert(mod->name);
 	}
 
 	for (auto &it : rhs.selected_modules) {
@@ -334,19 +333,19 @@ static void select_op_diff(RTLIL::Design *design, RTLIL::Selection &lhs, const R
 
 	for (auto &it : rhs.selected_members)
 	{
-		if (design->modules_.count(it.first) == 0)
+		if (design->module(it.first) == nullptr)
 			continue;
 
-		RTLIL::Module *mod = design->modules_[it.first];
+		RTLIL::Module *mod = design->module(it.first);
 
 		if (lhs.selected_modules.count(mod->name) > 0)
 		{
-			for (auto &it : mod->wires_)
-				lhs.selected_members[mod->name].insert(it.first);
+			for (auto wire : mod->wires())
+				lhs.selected_members[mod->name].insert(wire->name);
 			for (auto &it : mod->memories)
 				lhs.selected_members[mod->name].insert(it.first);
-			for (auto &it : mod->cells_)
-				lhs.selected_members[mod->name].insert(it.first);
+			for (auto cell : mod->cells())
+				lhs.selected_members[mod->name].insert(cell->name);
 			for (auto &it : mod->processes)
 				lhs.selected_members[mod->name].insert(it.first);
 			lhs.selected_modules.erase(mod->name);
@@ -367,8 +366,8 @@ static void select_op_intersect(RTLIL::Design *design, RTLIL::Selection &lhs, co
 
 	if (lhs.full_selection) {
 		lhs.full_selection = false;
-		for (auto &it : design->modules_)
-			lhs.selected_modules.insert(it.first);
+		for (auto mod : design->modules())
+			lhs.selected_modules.insert(mod->name);
 	}
 
 	std::vector<RTLIL::IdString> del_list;
@@ -431,18 +430,17 @@ static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::v
 {
 	int sel_objects = 0;
 	bool is_input, is_output;
-	for (auto &mod_it : design->modules_)
+	for (auto mod : design->modules())
 	{
-		if (lhs.selected_whole_module(mod_it.first) || !lhs.selected_module(mod_it.first))
+		if (lhs.selected_whole_module(mod->name) || !lhs.selected_module(mod->name))
 			continue;
 
-		RTLIL::Module *mod = mod_it.second;
 		std::set<RTLIL::Wire*> selected_wires;
 		auto selected_members = lhs.selected_members[mod->name];
 
-		for (auto &it : mod->wires_)
-			if (lhs.selected_member(mod_it.first, it.first) && limits.count(it.first) == 0)
-				selected_wires.insert(it.second);
+		for (auto wire : mod->wires())
+			if (lhs.selected_member(mod->name, wire->name) && limits.count(wire->name) == 0)
+				selected_wires.insert(wire);
 
 		for (auto &conn : mod->connections())
 		{
@@ -450,7 +448,7 @@ static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::v
 			std::vector<RTLIL::SigBit> conn_rhs = conn.second.to_sigbit_vector();
 
 			for (size_t i = 0; i < conn_lhs.size(); i++) {
-				if (conn_lhs[i].wire == NULL || conn_rhs[i].wire == NULL)
+				if (conn_lhs[i].wire == nullptr || conn_rhs[i].wire == nullptr)
 					continue;
 				if (mode != 'i' && selected_wires.count(conn_rhs[i].wire) && selected_members.count(conn_lhs[i].wire->name) == 0)
 					lhs.selected_members[mod->name].insert(conn_lhs[i].wire->name), sel_objects++, max_objects--;
@@ -459,15 +457,15 @@ static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::v
 			}
 		}
 
-		for (auto &cell : mod->cells_)
-		for (auto &conn : cell.second->connections())
+		for (auto cell : mod->cells())
+		for (auto &conn : cell->connections())
 		{
 			char last_mode = '-';
-			if (eval_only && !yosys_celltypes.cell_evaluable(cell.second->type))
+			if (eval_only && !yosys_celltypes.cell_evaluable(cell->type))
 				goto exclude_match;
 			for (auto &rule : rules) {
 				last_mode = rule.mode;
-				if (rule.cell_types.size() > 0 && rule.cell_types.count(cell.second->type) == 0)
+				if (rule.cell_types.size() > 0 && rule.cell_types.count(cell->type) == 0)
 					continue;
 				if (rule.port_names.size() > 0 && rule.port_names.count(conn.first) == 0)
 					continue;
@@ -479,14 +477,14 @@ static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::v
 			if (last_mode == '+')
 				goto exclude_match;
 		include_match:
-			is_input = mode == 'x' || ct.cell_input(cell.second->type, conn.first);
-			is_output = mode == 'x' || ct.cell_output(cell.second->type, conn.first);
+			is_input = mode == 'x' || ct.cell_input(cell->type, conn.first);
+			is_output = mode == 'x' || ct.cell_output(cell->type, conn.first);
 			for (auto &chunk : conn.second.chunks())
-				if (chunk.wire != NULL) {
-					if (max_objects != 0 && selected_wires.count(chunk.wire) > 0 && selected_members.count(cell.first) == 0)
+				if (chunk.wire != nullptr) {
+					if (max_objects != 0 && selected_wires.count(chunk.wire) > 0 && selected_members.count(cell->name) == 0)
 						if (mode == 'x' || (mode == 'i' && is_output) || (mode == 'o' && is_input))
-							lhs.selected_members[mod->name].insert(cell.first), sel_objects++, max_objects--;
-					if (max_objects != 0 && selected_members.count(cell.first) > 0 && limits.count(cell.first) == 0 && selected_members.count(chunk.wire->name) == 0)
+							lhs.selected_members[mod->name].insert(cell->name), sel_objects++, max_objects--;
+					if (max_objects != 0 && selected_members.count(cell->name) > 0 && limits.count(cell->name) == 0 && selected_members.count(chunk.wire->name) == 0)
 						if (mode == 'x' || (mode == 'i' && is_input) || (mode == 'o' && is_output))
 							lhs.selected_members[mod->name].insert(chunk.wire->name), sel_objects++, max_objects--;
 				}
@@ -627,9 +625,13 @@ static void select_filter_active_mod(RTLIL::Design *design, RTLIL::Selection &se
 	}
 }
 
-static void select_stmt(RTLIL::Design *design, std::string arg)
+static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_empty_warning = false)
 {
 	std::string arg_mod, arg_memb;
+	std::unordered_map<std::string, bool> arg_mod_found;
+	std::unordered_map<std::string, bool> arg_memb_found;
+	auto isalpha = [](const char &x) { return ((x >= 'a' && x <= 'z') || (x >= 'A' && x <= 'Z')); };
+	bool prefixed = GetSize(arg) >= 2 && isalpha(arg[0]) && arg[1] == ':';
 
 	if (arg.size() == 0)
 		return;
@@ -760,19 +762,21 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 	if (!design->selected_active_module.empty()) {
 		arg_mod = design->selected_active_module;
 		arg_memb = arg;
+		if (!prefixed) arg_memb_found[arg_memb] = false;
 	} else
-	if (GetSize(arg) >= 2 && arg[0] >= 'a' && arg[0] <= 'z' && arg[1] == ':') {
+	if (prefixed && arg[0] >= 'a' && arg[0] <= 'z') {
 		arg_mod = "*", arg_memb = arg;
 	} else {
 		size_t pos = arg.find('/');
 		if (pos == std::string::npos) {
-			if (arg.find(':') == std::string::npos || arg.compare(0, 1, "A") == 0)
-				arg_mod = arg;
-			else
-				arg_mod = "*", arg_memb = arg;
+			arg_mod = arg;
+			if (!prefixed) arg_mod_found[arg_mod] = false;
 		} else {
 			arg_mod = arg.substr(0, pos);
+			if (!prefixed) arg_mod_found[arg_mod] = false;
 			arg_memb = arg.substr(pos+1);
+			bool arg_memb_prefixed = GetSize(arg_memb) >= 2 && isalpha(arg_memb[0]) && arg_memb[1] == ':';
+			if (!arg_memb_prefixed) arg_memb_found[arg_memb] = false;
 		}
 	}
 
@@ -785,56 +789,61 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 	}
 
 	sel.full_selection = false;
-	for (auto &mod_it : design->modules_)
+	for (auto mod : design->modules())
 	{
 		if (arg_mod.compare(0, 2, "A:") == 0) {
-			if (!match_attr(mod_it.second->attributes, arg_mod.substr(2)))
+			if (!match_attr(mod->attributes, arg_mod.substr(2)))
 				continue;
 		} else
-		if (!match_ids(mod_it.first, arg_mod))
+		if (arg_mod.compare(0, 2, "N:") == 0) {
+			if (!match_ids(mod->name, arg_mod.substr(2)))
+				continue;
+		} else
+		if (!match_ids(mod->name, arg_mod))
 			continue;
+		else
+			arg_mod_found[arg_mod] = true;
 
 		if (arg_memb == "") {
-			sel.selected_modules.insert(mod_it.first);
+			sel.selected_modules.insert(mod->name);
 			continue;
 		}
 
-		RTLIL::Module *mod = mod_it.second;
 		if (arg_memb.compare(0, 2, "w:") == 0) {
-			for (auto &it : mod->wires_)
-				if (match_ids(it.first, arg_memb.substr(2)))
-					sel.selected_members[mod->name].insert(it.first);
+			for (auto wire : mod->wires())
+				if (match_ids(wire->name, arg_memb.substr(2)))
+					sel.selected_members[mod->name].insert(wire->name);
 		} else
 		if (arg_memb.compare(0, 2, "i:") == 0) {
-			for (auto &it : mod->wires_)
-				if (it.second->port_input && match_ids(it.first, arg_memb.substr(2)))
-					sel.selected_members[mod->name].insert(it.first);
+			for (auto wire : mod->wires())
+				if (wire->port_input && match_ids(wire->name, arg_memb.substr(2)))
+					sel.selected_members[mod->name].insert(wire->name);
 		} else
 		if (arg_memb.compare(0, 2, "o:") == 0) {
-			for (auto &it : mod->wires_)
-				if (it.second->port_output && match_ids(it.first, arg_memb.substr(2)))
-					sel.selected_members[mod->name].insert(it.first);
+			for (auto wire : mod->wires())
+				if (wire->port_output && match_ids(wire->name, arg_memb.substr(2)))
+					sel.selected_members[mod->name].insert(wire->name);
 		} else
 		if (arg_memb.compare(0, 2, "x:") == 0) {
-			for (auto &it : mod->wires_)
-				if ((it.second->port_input || it.second->port_output) && match_ids(it.first, arg_memb.substr(2)))
-					sel.selected_members[mod->name].insert(it.first);
+			for (auto wire : mod->wires())
+				if ((wire->port_input || wire->port_output) && match_ids(wire->name, arg_memb.substr(2)))
+					sel.selected_members[mod->name].insert(wire->name);
 		} else
 		if (arg_memb.compare(0, 2, "s:") == 0) {
 			size_t delim = arg_memb.substr(2).find(':');
 			if (delim == std::string::npos) {
 				int width = atoi(arg_memb.substr(2).c_str());
-				for (auto &it : mod->wires_)
-					if (it.second->width == width)
-						sel.selected_members[mod->name].insert(it.first);
+				for (auto wire : mod->wires())
+					if (wire->width == width)
+						sel.selected_members[mod->name].insert(wire->name);
 			} else {
 				std::string min_str = arg_memb.substr(2, delim);
 				std::string max_str = arg_memb.substr(2+delim+1);
 				int min_width = min_str.empty() ? 0 : atoi(min_str.c_str());
 				int max_width = max_str.empty() ? -1 : atoi(max_str.c_str());
-				for (auto &it : mod->wires_)
-					if (min_width <= it.second->width && (it.second->width <= max_width || max_width == -1))
-						sel.selected_members[mod->name].insert(it.first);
+				for (auto wire : mod->wires())
+					if (min_width <= wire->width && (wire->width <= max_width || max_width == -1))
+						sel.selected_members[mod->name].insert(wire->name);
 			}
 		} else
 		if (arg_memb.compare(0, 2, "m:") == 0) {
@@ -842,15 +851,15 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 				if (match_ids(it.first, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
-		if (arg_memb.compare(0, 2, "c:") ==0) {
-			for (auto &it : mod->cells_)
-				if (match_ids(it.first, arg_memb.substr(2)))
-					sel.selected_members[mod->name].insert(it.first);
+		if (arg_memb.compare(0, 2, "c:") == 0) {
+			for (auto cell : mod->cells())
+				if (match_ids(cell->name, arg_memb.substr(2)))
+					sel.selected_members[mod->name].insert(cell->name);
 		} else
 		if (arg_memb.compare(0, 2, "t:") == 0) {
-			for (auto &it : mod->cells_)
-				if (match_ids(it.second->type, arg_memb.substr(2)))
-					sel.selected_members[mod->name].insert(it.first);
+			for (auto cell : mod->cells())
+				if (match_ids(cell->type, arg_memb.substr(2)))
+					sel.selected_members[mod->name].insert(cell->name);
 		} else
 		if (arg_memb.compare(0, 2, "p:") == 0) {
 			for (auto &it : mod->processes)
@@ -858,62 +867,82 @@ static void select_stmt(RTLIL::Design *design, std::string arg)
 					sel.selected_members[mod->name].insert(it.first);
 		} else
 		if (arg_memb.compare(0, 2, "a:") == 0) {
-			for (auto &it : mod->wires_)
-				if (match_attr(it.second->attributes, arg_memb.substr(2)))
-					sel.selected_members[mod->name].insert(it.first);
+			for (auto wire : mod->wires())
+				if (match_attr(wire->attributes, arg_memb.substr(2)))
+					sel.selected_members[mod->name].insert(wire->name);
 			for (auto &it : mod->memories)
 				if (match_attr(it.second->attributes, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
-			for (auto &it : mod->cells_)
-				if (match_attr(it.second->attributes, arg_memb.substr(2)))
-					sel.selected_members[mod->name].insert(it.first);
+			for (auto cell : mod->cells())
+				if (match_attr(cell->attributes, arg_memb.substr(2)))
+					sel.selected_members[mod->name].insert(cell->name);
 			for (auto &it : mod->processes)
 				if (match_attr(it.second->attributes, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
 		if (arg_memb.compare(0, 2, "r:") == 0) {
-			for (auto &it : mod->cells_)
-				if (match_attr(it.second->parameters, arg_memb.substr(2)))
-					sel.selected_members[mod->name].insert(it.first);
+			for (auto cell : mod->cells())
+				if (match_attr(cell->parameters, arg_memb.substr(2)))
+					sel.selected_members[mod->name].insert(cell->name);
 		} else {
+			std::string orig_arg_memb = arg_memb;
 			if (arg_memb.compare(0, 2, "n:") == 0)
 				arg_memb = arg_memb.substr(2);
-			for (auto &it : mod->wires_)
-				if (match_ids(it.first, arg_memb))
-					sel.selected_members[mod->name].insert(it.first);
+			for (auto wire : mod->wires())
+				if (match_ids(wire->name, arg_memb)) {
+					sel.selected_members[mod->name].insert(wire->name);
+					arg_memb_found[orig_arg_memb] = true;
+				}
 			for (auto &it : mod->memories)
-				if (match_ids(it.first, arg_memb))
+				if (match_ids(it.first, arg_memb)) {
 					sel.selected_members[mod->name].insert(it.first);
-			for (auto &it : mod->cells_)
-				if (match_ids(it.first, arg_memb))
-					sel.selected_members[mod->name].insert(it.first);
+					arg_memb_found[orig_arg_memb] = true;
+				}
+			for (auto cell : mod->cells())
+				if (match_ids(cell->name, arg_memb)) {
+					sel.selected_members[mod->name].insert(cell->name);
+					arg_memb_found[orig_arg_memb] = true;
+				}
 			for (auto &it : mod->processes)
-				if (match_ids(it.first, arg_memb))
+				if (match_ids(it.first, arg_memb)) {
 					sel.selected_members[mod->name].insert(it.first);
+					arg_memb_found[orig_arg_memb] = true;
+				}
 		}
 	}
 
 	select_filter_active_mod(design, work_stack.back());
+
+	for (auto &it : arg_mod_found) {
+		if (it.second == false && !disable_empty_warning) {
+			log_warning("Selection \"%s\" did not match any module.\n", it.first.c_str());
+		}
+	}
+	for (auto &it : arg_memb_found) {
+		if (it.second == false && !disable_empty_warning) {
+			log_warning("Selection \"%s\" did not match any object.\n", it.first.c_str());
+		}
+	}
 }
 
 static std::string describe_selection_for_assert(RTLIL::Design *design, RTLIL::Selection *sel)
 {
 	std::string desc = "Selection contains:\n";
-	for (auto mod_it : design->modules_)
+	for (auto mod : design->modules())
 	{
-		if (sel->selected_module(mod_it.first)) {
-			for (auto &it : mod_it.second->wires_)
-				if (sel->selected_member(mod_it.first, it.first))
-					desc += stringf("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
-			for (auto &it : mod_it.second->memories)
-				if (sel->selected_member(mod_it.first, it.first))
-					desc += stringf("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
-			for (auto &it : mod_it.second->cells_)
-				if (sel->selected_member(mod_it.first, it.first))
-					desc += stringf("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
-			for (auto &it : mod_it.second->processes)
-				if (sel->selected_member(mod_it.first, it.first))
-					desc += stringf("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first));
+		if (sel->selected_module(mod->name)) {
+			for (auto wire : mod->wires())
+				if (sel->selected_member(mod->name, wire->name))
+					desc += stringf("%s/%s\n", id2cstr(mod->name), id2cstr(wire->name));
+			for (auto &it : mod->memories)
+				if (sel->selected_member(mod->name, it.first))
+					desc += stringf("%s/%s\n", id2cstr(mod->name), id2cstr(it.first));
+			for (auto cell : mod->cells())
+				if (sel->selected_member(mod->name, cell->name))
+					desc += stringf("%s/%s\n", id2cstr(mod->name), id2cstr(cell->name));
+			for (auto &it : mod->processes)
+				if (sel->selected_member(mod->name, it.first))
+					desc += stringf("%s/%s\n", id2cstr(mod->name), id2cstr(it.first));
 		}
 	}
 	return desc;
@@ -928,7 +957,7 @@ void handle_extra_select_args(Pass *pass, vector<string> args, size_t argidx, si
 	work_stack.clear();
 	for (; argidx < args_size; argidx++) {
 		if (args[argidx].compare(0, 1, "-") == 0) {
-			if (pass != NULL)
+			if (pass != nullptr)
 				pass->cmd_error(args, argidx, "Unexpected option in selection arguments.");
 			else
 				log_cmd_error("Unexpected option in selection arguments.");
@@ -978,6 +1007,7 @@ struct SelectPass : public Pass {
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    select [ -add | -del | -set <name> ] {-read <filename> | <selection>}\n");
+		log("    select [ -unset <name> ]\n");
 		log("    select [ <assert_option> ] {-read <filename> | <selection>}\n");
 		log("    select [ -list | -write <filename> | -count | -clear ]\n");
 		log("    select -module <modname>\n");
@@ -999,6 +1029,10 @@ struct SelectPass : public Pass {
 		log("        do not modify the current selection. instead save the new selection\n");
 		log("        under the given name (see @<name> below). to save the current selection,\n");
 		log("        use \"select -set <name> %%\"\n");
+		log("\n");
+		log("    -unset <name>\n");
+		log("        do not modify the current selection. instead remove a previously saved\n");
+		log("        selection under the given name (see @<name> below).");
 		log("\n");
 		log("    -assert-none\n");
 		log("        do not modify the current selection. instead assert that the given\n");
@@ -1076,6 +1110,10 @@ struct SelectPass : public Pass {
 		log("    A:<pattern>, A:<pattern>=<pattern>\n");
 		log("        all modules with an attribute matching the given pattern\n");
 		log("        in addition to = also <, <=, >=, and > are supported\n");
+		log("\n");
+		log("    N:<pattern>\n");
+		log("        all modules with a name matching the given pattern\n");
+		log("        (i.e. 'N:' is optional as it is the default matching rule)\n");
 		log("\n");
 		log("An <obj_pattern> can be an object name, wildcard expression, or one of\n");
 		log("the following:\n");
@@ -1205,7 +1243,7 @@ struct SelectPass : public Pass {
 		int assert_max = -1;
 		int assert_min = -1;
 		std::string write_file, read_file;
-		std::string set_name, sel_str;
+		std::string set_name, unset_name, sel_str;
 
 		work_stack.clear();
 
@@ -1267,7 +1305,7 @@ struct SelectPass : public Pass {
 			}
 			if (arg == "-module" && argidx+1 < args.size()) {
 				RTLIL::IdString mod_name = RTLIL::escape_id(args[++argidx]);
-				if (design->modules_.count(mod_name) == 0)
+				if (design->module(mod_name) == nullptr)
 					log_cmd_error("No such module: %s\n", id2cstr(mod_name));
 				design->selected_active_module = mod_name.str();
 				got_module = true;
@@ -1277,9 +1315,14 @@ struct SelectPass : public Pass {
 				set_name = RTLIL::escape_id(args[++argidx]);
 				continue;
 			}
+			if (arg == "-unset" && argidx+1 < args.size()) {
+				unset_name = RTLIL::escape_id(args[++argidx]);
+				continue;
+			}
 			if (arg.size() > 0 && arg[0] == '-')
 				log_cmd_error("Unknown option %s.\n", arg.c_str());
-			select_stmt(design, arg);
+			bool disable_empty_warning = count_mode || assert_none || assert_any || (assert_count != -1) || (assert_max != -1) || (assert_min != -1);
+			select_stmt(design, arg, disable_empty_warning);
 			sel_str += " " + arg;
 		}
 
@@ -1324,8 +1367,11 @@ struct SelectPass : public Pass {
 		if ((list_mode || !write_file.empty() || count_mode) && (add_mode || del_mode || assert_none || assert_any || assert_count >= 0 || assert_max >= 0 || assert_min >= 0))
 			log_cmd_error("Options -list, -write and -count can not be combined with -add, -del, -assert-none, -assert-any, assert-count, -assert-max, or -assert-min.\n");
 
-		if (!set_name.empty() && (list_mode || !write_file.empty() || count_mode || add_mode || del_mode || assert_none || assert_any || assert_count >= 0 || assert_max >= 0 || assert_min >= 0))
-			log_cmd_error("Option -set can not be combined with -list, -write, -count, -add, -del, -assert-none, -assert-any, -assert-count, -assert-max, or -assert-min.\n");
+		if (!set_name.empty() && (list_mode || !write_file.empty() || count_mode || add_mode || !unset_name.empty() || del_mode || assert_none || assert_any || assert_count >= 0 || assert_max >= 0 || assert_min >= 0))
+			log_cmd_error("Option -set can not be combined with -list, -write, -count, -add, -del, -unset, -assert-none, -assert-any, -assert-count, -assert-max, or -assert-min.\n");
+
+		if (!unset_name.empty() && (list_mode || !write_file.empty() || count_mode || add_mode || !set_name.empty() || del_mode || assert_none || assert_any || assert_count >= 0 || assert_max >= 0 || assert_min >= 0))
+			log_cmd_error("Option -unset can not be combined with -list, -write, -count, -add, -del, -set, -assert-none, -assert-any, -assert-count, -assert-max, or -assert-min.\n");
 
 		if (work_stack.size() == 0 && got_module) {
 			RTLIL::Selection sel;
@@ -1353,41 +1399,41 @@ struct SelectPass : public Pass {
 
 		if (list_mode || count_mode || !write_file.empty())
 		{
-		#define LOG_OBJECT(...) { if (list_mode) log(__VA_ARGS__); if (f != NULL) fprintf(f, __VA_ARGS__); total_count++; }
+		#define LOG_OBJECT(...) { if (list_mode) log(__VA_ARGS__); if (f != nullptr) fprintf(f, __VA_ARGS__); total_count++; }
 			int total_count = 0;
-			FILE *f = NULL;
+			FILE *f = nullptr;
 			if (!write_file.empty()) {
 				f = fopen(write_file.c_str(), "w");
 				yosys_output_files.insert(write_file);
-				if (f == NULL)
+				if (f == nullptr)
 					log_error("Can't open '%s' for writing: %s\n", write_file.c_str(), strerror(errno));
 			}
 			RTLIL::Selection *sel = &design->selection_stack.back();
 			if (work_stack.size() > 0)
 				sel = &work_stack.back();
 			sel->optimize(design);
-			for (auto mod_it : design->modules_)
+			for (auto mod : design->modules())
 			{
-				if (sel->selected_whole_module(mod_it.first) && list_mode)
-					log("%s\n", id2cstr(mod_it.first));
-				if (sel->selected_module(mod_it.first)) {
-					for (auto &it : mod_it.second->wires_)
-						if (sel->selected_member(mod_it.first, it.first))
-							LOG_OBJECT("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first))
-					for (auto &it : mod_it.second->memories)
-						if (sel->selected_member(mod_it.first, it.first))
-							LOG_OBJECT("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first))
-					for (auto &it : mod_it.second->cells_)
-						if (sel->selected_member(mod_it.first, it.first))
-							LOG_OBJECT("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first))
-					for (auto &it : mod_it.second->processes)
-						if (sel->selected_member(mod_it.first, it.first))
-							LOG_OBJECT("%s/%s\n", id2cstr(mod_it.first), id2cstr(it.first))
+				if (sel->selected_whole_module(mod->name) && list_mode)
+					log("%s\n", id2cstr(mod->name));
+				if (sel->selected_module(mod->name)) {
+					for (auto wire : mod->wires())
+						if (sel->selected_member(mod->name, wire->name))
+							LOG_OBJECT("%s/%s\n", id2cstr(mod->name), id2cstr(wire->name))
+					for (auto &it : mod->memories)
+						if (sel->selected_member(mod->name, it.first))
+							LOG_OBJECT("%s/%s\n", id2cstr(mod->name), id2cstr(it.first))
+					for (auto cell : mod->cells())
+						if (sel->selected_member(mod->name, cell->name))
+							LOG_OBJECT("%s/%s\n", id2cstr(mod->name), id2cstr(cell->name))
+					for (auto &it : mod->processes)
+						if (sel->selected_member(mod->name, it.first))
+							LOG_OBJECT("%s/%s\n", id2cstr(mod->name), id2cstr(it.first))
 				}
 			}
 			if (count_mode)
 				log("%d objects.\n", total_count);
-			if (f != NULL)
+			if (f != nullptr)
 				fclose(f);
 		#undef LOG_OBJECT
 			return;
@@ -1448,19 +1494,19 @@ struct SelectPass : public Pass {
 				log_cmd_error("No selection to check.\n");
 			RTLIL::Selection *sel = &work_stack.back();
 			sel->optimize(design);
-			for (auto mod_it : design->modules_)
-				if (sel->selected_module(mod_it.first)) {
-					for (auto &it : mod_it.second->wires_)
-						if (sel->selected_member(mod_it.first, it.first))
+			for (auto mod : design->modules())
+				if (sel->selected_module(mod->name)) {
+					for (auto wire : mod->wires())
+						if (sel->selected_member(mod->name, wire->name))
 							total_count++;
-					for (auto &it : mod_it.second->memories)
-						if (sel->selected_member(mod_it.first, it.first))
+					for (auto &it : mod->memories)
+						if (sel->selected_member(mod->name, it.first))
 							total_count++;
-					for (auto &it : mod_it.second->cells_)
-						if (sel->selected_member(mod_it.first, it.first))
+					for (auto cell : mod->cells())
+						if (sel->selected_member(mod->name, cell->name))
 							total_count++;
-					for (auto &it : mod_it.second->processes)
-						if (sel->selected_member(mod_it.first, it.first))
+					for (auto &it : mod->processes)
+						if (sel->selected_member(mod->name, it.first))
 							total_count++;
 				}
 			if (assert_count >= 0 && assert_count != total_count)
@@ -1490,6 +1536,13 @@ struct SelectPass : public Pass {
 				design->selection_vars[set_name] = RTLIL::Selection(false);
 			else
 				design->selection_vars[set_name] = work_stack.back();
+			return;
+		}
+
+		if (!unset_name.empty())
+		{
+			if (!design->selection_vars.erase(unset_name))
+				log_error("Selection '%s' does not exist!\n", unset_name.c_str());
 			return;
 		}
 
@@ -1581,15 +1634,13 @@ struct CdPass : public Pass {
 
 		std::string modname = RTLIL::escape_id(args[1]);
 
-		if (design->modules_.count(modname) == 0 && !design->selected_active_module.empty()) {
-			RTLIL::Module *module = NULL;
-			if (design->modules_.count(design->selected_active_module) > 0)
-				module = design->modules_.at(design->selected_active_module);
-			if (module != NULL && module->cells_.count(modname) > 0)
-				modname = module->cells_.at(modname)->type.str();
+		if (design->module(modname) == nullptr && !design->selected_active_module.empty()) {
+			RTLIL::Module *module = design->module(design->selected_active_module);
+			if (module != nullptr && module->cell(modname) != nullptr)
+				modname = module->cell(modname)->type.str();
 		}
 
-		if (design->modules_.count(modname) > 0) {
+		if (design->module(modname) != nullptr) {
 			design->selected_active_module = modname;
 			design->selection_stack.back() = RTLIL::Selection();
 			select_filter_active_mod(design, design->selection_stack.back());

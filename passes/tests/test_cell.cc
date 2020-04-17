@@ -39,98 +39,98 @@ static uint32_t xorshift32(uint32_t limit) {
 
 static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type, std::string cell_type_flags, bool constmode, bool muxdiv)
 {
-	RTLIL::Module *module = design->addModule("\\gold");
-	RTLIL::Cell *cell = module->addCell("\\UUT", cell_type);
+	RTLIL::Module *module = design->addModule(ID(gold));
+	RTLIL::Cell *cell = module->addCell(ID(UUT), cell_type);
 	RTLIL::Wire *wire;
 
-	if (cell_type.in("$mux", "$pmux"))
+	if (cell_type.in(ID($mux), ID($pmux)))
 	{
 		int width = 1 + xorshift32(8);
-		int swidth = cell_type == "$mux" ? 1 : 1 + xorshift32(8);
+		int swidth = cell_type == ID($mux) ? 1 : 1 + xorshift32(8);
 
-		wire = module->addWire("\\A");
+		wire = module->addWire(ID::A);
 		wire->width = width;
 		wire->port_input = true;
-		cell->setPort("\\A", wire);
+		cell->setPort(ID::A, wire);
 
-		wire = module->addWire("\\B");
+		wire = module->addWire(ID::B);
 		wire->width = width * swidth;
 		wire->port_input = true;
-		cell->setPort("\\B", wire);
+		cell->setPort(ID::B, wire);
 
-		wire = module->addWire("\\S");
+		wire = module->addWire(ID::S);
 		wire->width = swidth;
 		wire->port_input = true;
-		cell->setPort("\\S", wire);
+		cell->setPort(ID::S, wire);
 
-		wire = module->addWire("\\Y");
+		wire = module->addWire(ID::Y);
 		wire->width = width;
 		wire->port_output = true;
-		cell->setPort("\\Y", wire);
+		cell->setPort(ID::Y, wire);
 	}
 
-	if (cell_type == "$fa")
+	if (cell_type == ID($fa))
 	{
 		int width = 1 + xorshift32(8);
 
-		wire = module->addWire("\\A");
+		wire = module->addWire(ID::A);
 		wire->width = width;
 		wire->port_input = true;
-		cell->setPort("\\A", wire);
+		cell->setPort(ID::A, wire);
 
-		wire = module->addWire("\\B");
+		wire = module->addWire(ID::B);
 		wire->width = width;
 		wire->port_input = true;
-		cell->setPort("\\B", wire);
+		cell->setPort(ID::B, wire);
 
-		wire = module->addWire("\\C");
+		wire = module->addWire(ID::C);
 		wire->width = width;
 		wire->port_input = true;
-		cell->setPort("\\C", wire);
+		cell->setPort(ID::C, wire);
 
-		wire = module->addWire("\\X");
+		wire = module->addWire(ID::X);
 		wire->width = width;
 		wire->port_output = true;
-		cell->setPort("\\X", wire);
+		cell->setPort(ID::X, wire);
 
-		wire = module->addWire("\\Y");
+		wire = module->addWire(ID::Y);
 		wire->width = width;
 		wire->port_output = true;
-		cell->setPort("\\Y", wire);
+		cell->setPort(ID::Y, wire);
 	}
 
-	if (cell_type == "$lcu")
+	if (cell_type == ID($lcu))
 	{
 		int width = 1 + xorshift32(8);
 
-		wire = module->addWire("\\P");
+		wire = module->addWire(ID::P);
 		wire->width = width;
 		wire->port_input = true;
-		cell->setPort("\\P", wire);
+		cell->setPort(ID::P, wire);
 
-		wire = module->addWire("\\G");
+		wire = module->addWire(ID::G);
 		wire->width = width;
 		wire->port_input = true;
-		cell->setPort("\\G", wire);
+		cell->setPort(ID::G, wire);
 
-		wire = module->addWire("\\CI");
+		wire = module->addWire(ID::CI);
 		wire->port_input = true;
-		cell->setPort("\\CI", wire);
+		cell->setPort(ID::CI, wire);
 
-		wire = module->addWire("\\CO");
+		wire = module->addWire(ID::CO);
 		wire->width = width;
 		wire->port_output = true;
-		cell->setPort("\\CO", wire);
+		cell->setPort(ID::CO, wire);
 	}
 
-	if (cell_type == "$macc")
+	if (cell_type == ID($macc))
 	{
 		Macc macc;
 		int width = 1 + xorshift32(8);
 		int depth = 1 + xorshift32(6);
 		int mulbits_a = 0, mulbits_b = 0;
 
-		RTLIL::Wire *wire_a = module->addWire("\\A");
+		RTLIL::Wire *wire_a = module->addWire(ID::A);
 		wire_a->width = 0;
 		wire_a->port_input = true;
 
@@ -158,52 +158,52 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 			macc.ports.push_back(this_port);
 		}
 
-		wire = module->addWire("\\B");
+		wire = module->addWire(ID::B);
 		wire->width = xorshift32(mulbits_a ? xorshift32(4)+1 : xorshift32(16)+1);
 		wire->port_input = true;
 		macc.bit_ports = wire;
 
-		wire = module->addWire("\\Y");
+		wire = module->addWire(ID::Y);
 		wire->width = width;
 		wire->port_output = true;
-		cell->setPort("\\Y", wire);
+		cell->setPort(ID::Y, wire);
 
 		macc.to_cell(cell);
 	}
 
-	if (cell_type == "$lut")
+	if (cell_type == ID($lut))
 	{
 		int width = 1 + xorshift32(6);
 
-		wire = module->addWire("\\A");
+		wire = module->addWire(ID::A);
 		wire->width = width;
 		wire->port_input = true;
-		cell->setPort("\\A", wire);
+		cell->setPort(ID::A, wire);
 
-		wire = module->addWire("\\Y");
+		wire = module->addWire(ID::Y);
 		wire->port_output = true;
-		cell->setPort("\\Y", wire);
+		cell->setPort(ID::Y, wire);
 
 		RTLIL::SigSpec config;
 		for (int i = 0; i < (1 << width); i++)
 			config.append(xorshift32(2) ? State::S1 : State::S0);
 
-		cell->setParam("\\LUT", config.as_const());
+		cell->setParam(ID::LUT, config.as_const());
 	}
 
-	if (cell_type == "$sop")
+	if (cell_type == ID($sop))
 	{
 		int width = 1 + xorshift32(8);
 		int depth = 1 + xorshift32(8);
 
-		wire = module->addWire("\\A");
+		wire = module->addWire(ID::A);
 		wire->width = width;
 		wire->port_input = true;
-		cell->setPort("\\A", wire);
+		cell->setPort(ID::A, wire);
 
-		wire = module->addWire("\\Y");
+		wire = module->addWire(ID::Y);
 		wire->port_output = true;
-		cell->setPort("\\Y", wire);
+		cell->setPort(ID::Y, wire);
 
 		RTLIL::SigSpec config;
 		for (int i = 0; i < width*depth; i++)
@@ -222,74 +222,74 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 					break;
 			}
 
-		cell->setParam("\\DEPTH", depth);
-		cell->setParam("\\TABLE", config.as_const());
+		cell->setParam(ID::DEPTH, depth);
+		cell->setParam(ID::TABLE, config.as_const());
 	}
 
 	if (cell_type_flags.find('A') != std::string::npos) {
-		wire = module->addWire("\\A");
+		wire = module->addWire(ID::A);
 		wire->width = 1 + xorshift32(8);
 		wire->port_input = true;
-		cell->setPort("\\A", wire);
+		cell->setPort(ID::A, wire);
 	}
 
 	if (cell_type_flags.find('B') != std::string::npos) {
-		wire = module->addWire("\\B");
+		wire = module->addWire(ID::B);
 		if (cell_type_flags.find('h') != std::string::npos)
 			wire->width = 1 + xorshift32(6);
 		else
 			wire->width = 1 + xorshift32(8);
 		wire->port_input = true;
-		cell->setPort("\\B", wire);
+		cell->setPort(ID::B, wire);
 	}
 
 	if (cell_type_flags.find('S') != std::string::npos && xorshift32(2)) {
 		if (cell_type_flags.find('A') != std::string::npos)
-			cell->parameters["\\A_SIGNED"] = true;
+			cell->parameters[ID::A_SIGNED] = true;
 		if (cell_type_flags.find('B') != std::string::npos)
-			cell->parameters["\\B_SIGNED"] = true;
+			cell->parameters[ID::B_SIGNED] = true;
 	}
 
 	if (cell_type_flags.find('s') != std::string::npos) {
 		if (cell_type_flags.find('A') != std::string::npos && xorshift32(2))
-			cell->parameters["\\A_SIGNED"] = true;
+			cell->parameters[ID::A_SIGNED] = true;
 		if (cell_type_flags.find('B') != std::string::npos && xorshift32(2))
-			cell->parameters["\\B_SIGNED"] = true;
+			cell->parameters[ID::B_SIGNED] = true;
 	}
 
 	if (cell_type_flags.find('Y') != std::string::npos) {
-		wire = module->addWire("\\Y");
+		wire = module->addWire(ID::Y);
 		wire->width = 1 + xorshift32(8);
 		wire->port_output = true;
-		cell->setPort("\\Y", wire);
+		cell->setPort(ID::Y, wire);
 	}
 
-	if (muxdiv && cell_type.in("$div", "$mod")) {
-		auto b_not_zero = module->ReduceBool(NEW_ID, cell->getPort("\\B"));
-		auto div_out = module->addWire(NEW_ID, GetSize(cell->getPort("\\Y")));
-		module->addMux(NEW_ID, RTLIL::SigSpec(0, GetSize(div_out)), div_out, b_not_zero, cell->getPort("\\Y"));
-		cell->setPort("\\Y", div_out);
+	if (muxdiv && cell_type.in(ID($div), ID($mod))) {
+		auto b_not_zero = module->ReduceBool(NEW_ID, cell->getPort(ID::B));
+		auto div_out = module->addWire(NEW_ID, GetSize(cell->getPort(ID::Y)));
+		module->addMux(NEW_ID, RTLIL::SigSpec(0, GetSize(div_out)), div_out, b_not_zero, cell->getPort(ID::Y));
+		cell->setPort(ID::Y, div_out);
 	}
 
-	if (cell_type == "$alu")
+	if (cell_type == ID($alu))
 	{
-		wire = module->addWire("\\CI");
+		wire = module->addWire(ID::CI);
 		wire->port_input = true;
-		cell->setPort("\\CI", wire);
+		cell->setPort(ID::CI, wire);
 
-		wire = module->addWire("\\BI");
+		wire = module->addWire(ID::BI);
 		wire->port_input = true;
-		cell->setPort("\\BI", wire);
+		cell->setPort(ID::BI, wire);
 
-		wire = module->addWire("\\X");
-		wire->width = GetSize(cell->getPort("\\Y"));
+		wire = module->addWire(ID::X);
+		wire->width = GetSize(cell->getPort(ID::Y));
 		wire->port_output = true;
-		cell->setPort("\\X", wire);
+		cell->setPort(ID::X, wire);
 
-		wire = module->addWire("\\CO");
-		wire->width = GetSize(cell->getPort("\\Y"));
+		wire = module->addWire(ID::CO);
+		wire->width = GetSize(cell->getPort(ID::Y));
 		wire->port_output = true;
-		cell->setPort("\\CO", wire);
+		cell->setPort(ID::CO, wire);
 	}
 
 	if (constmode)
@@ -421,8 +421,8 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 {
 	log("Eval testing:%c", verbose ? '\n' : ' ');
 
-	RTLIL::Module *gold_mod = design->module("\\gold");
-	RTLIL::Module *gate_mod = design->module("\\gate");
+	RTLIL::Module *gold_mod = design->module(ID(gold));
+	RTLIL::Module *gate_mod = design->module(ID(gate));
 	ConstEval gold_ce(gold_mod), gate_ce(gate_mod);
 
 	ezSatPtr ez1, ez2;
@@ -800,65 +800,65 @@ struct TestCellPass : public Pass {
 			log("Rng seed value: %d\n", int(xorshift32_state));
 		}
 
-		std::map<std::string, std::string> cell_types;
-		std::vector<std::string> selected_cell_types;
+		std::map<IdString, std::string> cell_types;
+		std::vector<IdString> selected_cell_types;
 
-		cell_types["$not"] = "ASY";
-		cell_types["$pos"] = "ASY";
-		cell_types["$neg"] = "ASY";
+		cell_types[ID($not)] = "ASY";
+		cell_types[ID($pos)] = "ASY";
+		cell_types[ID($neg)] = "ASY";
 
-		cell_types["$and"]  = "ABSY";
-		cell_types["$or"]   = "ABSY";
-		cell_types["$xor"]  = "ABSY";
-		cell_types["$xnor"] = "ABSY";
+		cell_types[ID($and)]  = "ABSY";
+		cell_types[ID($or)]   = "ABSY";
+		cell_types[ID($xor)]  = "ABSY";
+		cell_types[ID($xnor)] = "ABSY";
 
-		cell_types["$reduce_and"]  = "ASY";
-		cell_types["$reduce_or"]   = "ASY";
-		cell_types["$reduce_xor"]  = "ASY";
-		cell_types["$reduce_xnor"] = "ASY";
-		cell_types["$reduce_bool"] = "ASY";
+		cell_types[ID($reduce_and)]  = "ASY";
+		cell_types[ID($reduce_or)]   = "ASY";
+		cell_types[ID($reduce_xor)]  = "ASY";
+		cell_types[ID($reduce_xnor)] = "ASY";
+		cell_types[ID($reduce_bool)] = "ASY";
 
-		cell_types["$shl"]    = "ABshY";
-		cell_types["$shr"]    = "ABshY";
-		cell_types["$sshl"]   = "ABshY";
-		cell_types["$sshr"]   = "ABshY";
-		cell_types["$shift"]  = "ABshY";
-		cell_types["$shiftx"] = "ABshY";
+		cell_types[ID($shl)]    = "ABshY";
+		cell_types[ID($shr)]    = "ABshY";
+		cell_types[ID($sshl)]   = "ABshY";
+		cell_types[ID($sshr)]   = "ABshY";
+		cell_types[ID($shift)]  = "ABshY";
+		cell_types[ID($shiftx)] = "ABshY";
 
-		cell_types["$lt"]  = "ABSY";
-		cell_types["$le"]  = "ABSY";
-		cell_types["$eq"]  = "ABSY";
-		cell_types["$ne"]  = "ABSY";
-		// cell_types["$eqx"] = "ABSY";
-		// cell_types["$nex"] = "ABSY";
-		cell_types["$ge"]  = "ABSY";
-		cell_types["$gt"]  = "ABSY";
+		cell_types[ID($lt)]  = "ABSY";
+		cell_types[ID($le)]  = "ABSY";
+		cell_types[ID($eq)]  = "ABSY";
+		cell_types[ID($ne)]  = "ABSY";
+		// cell_types[ID($eqx)] = "ABSY";
+		// cell_types[ID($nex)] = "ABSY";
+		cell_types[ID($ge)]  = "ABSY";
+		cell_types[ID($gt)]  = "ABSY";
 
-		cell_types["$add"] = "ABSY";
-		cell_types["$sub"] = "ABSY";
-		cell_types["$mul"] = "ABSY";
-		cell_types["$div"] = "ABSY";
-		cell_types["$mod"] = "ABSY";
-		// cell_types["$pow"] = "ABsY";
+		cell_types[ID($add)] = "ABSY";
+		cell_types[ID($sub)] = "ABSY";
+		cell_types[ID($mul)] = "ABSY";
+		cell_types[ID($div)] = "ABSY";
+		cell_types[ID($mod)] = "ABSY";
+		// cell_types[ID($pow)] = "ABsY";
 
-		cell_types["$logic_not"] = "ASY";
-		cell_types["$logic_and"] = "ABSY";
-		cell_types["$logic_or"]  = "ABSY";
+		cell_types[ID($logic_not)] = "ASY";
+		cell_types[ID($logic_and)] = "ABSY";
+		cell_types[ID($logic_or)]  = "ABSY";
 
 		if (edges) {
-			cell_types["$mux"] = "*";
-			cell_types["$pmux"] = "*";
+			cell_types[ID($mux)] = "*";
+			cell_types[ID($pmux)] = "*";
 		}
 
-		// cell_types["$slice"] = "A";
-		// cell_types["$concat"] = "A";
+		// cell_types[ID($slice)] = "A";
+		// cell_types[ID($concat)] = "A";
 
-		cell_types["$lut"] = "*";
-		cell_types["$sop"] = "*";
-		cell_types["$alu"] = "ABSY";
-		cell_types["$lcu"] = "*";
-		cell_types["$macc"] = "*";
-		cell_types["$fa"] = "*";
+		cell_types[ID($lut)] = "*";
+		cell_types[ID($sop)] = "*";
+		cell_types[ID($alu)] = "ABSY";
+		cell_types[ID($lcu)] = "*";
+		cell_types[ID($macc)] = "*";
+		cell_types[ID($fa)] = "*";
 
 		for (; argidx < GetSize(args); argidx++)
 		{
@@ -873,7 +873,7 @@ struct TestCellPass : public Pass {
 			}
 
 			if (args[argidx].compare(0, 1, "/") == 0) {
-				std::vector<std::string> new_selected_cell_types;
+				std::vector<IdString> new_selected_cell_types;
 				for (auto it : selected_cell_types)
 					if (it != args[argidx].substr(1))
 						new_selected_cell_types.push_back(it);
@@ -886,10 +886,10 @@ struct TestCellPass : public Pass {
 				int charcount = 100;
 				for (auto &it : cell_types) {
 					if (charcount > 60) {
-						cell_type_list += "\n" + it.first;
+						cell_type_list += stringf("\n%s", + log_id(it.first));
 						charcount = 0;
 					} else
-						cell_type_list += " " + it.first;
+						cell_type_list += stringf(" %s", log_id(it.first));
 					charcount += GetSize(it.first);
 				}
 				log_cmd_error("The cell type `%s' is currently not supported. Try one of these:%s\n",
