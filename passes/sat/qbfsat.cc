@@ -39,7 +39,7 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct QbfSolutionType {
-	std::vector<std::string> stdout;
+	std::vector<std::string> stdout_lines;
 	dict<std::string, std::string> hole_to_value;
 	bool sat;
 	bool unknown; //true if neither 'sat' nor 'unsat'
@@ -72,7 +72,7 @@ void recover_solution(QbfSolutionType &sol) {
 	bool sat_regex_found = false;
 	bool unsat_regex_found = false;
 	dict<std::string, bool> hole_value_recovered;
-	for (const std::string &x : sol.stdout) {
+	for (const std::string &x : sol.stdout_lines) {
 		if(YS_REGEX_NS::regex_search(x, m, hole_value_regex)) {
 			std::string loc = m[1].str();
 			std::string val = m[2].str();
@@ -294,7 +294,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 	{
 		const std::string cmd = yosys_smtbmc_exe + " -s z3 -t 1 -g --binary " + (opt.dump_final_smt2? "--dump-smt2 " + opt.dump_final_smt2_file + " " : "") + tempdir_name + "/problem.smt2 2>&1";
 		auto process_line = [&ret, &smtbmc_warning, &show_smtbmc](const std::string &line) {
-			ret.stdout.push_back(line.substr(0, line.size()-1)); //don't include trailing newline
+			ret.stdout_lines.push_back(line.substr(0, line.size()-1)); //don't include trailing newline
 			auto warning_pos = line.find(smtbmc_warning);
 			if (warning_pos != std::string::npos)
 				log_warning("%s", line.substr(warning_pos + smtbmc_warning.size() + 1).c_str());
