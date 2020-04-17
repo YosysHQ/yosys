@@ -1924,11 +1924,13 @@ always_events:
 always_event:
 	TOK_POSEDGE expr {
 		AstNode *node = new AstNode(AST_POSEDGE);
+		SET_AST_NODE_LOC(node, @1, @1);
 		ast_stack.back()->children.push_back(node);
 		node->children.push_back($2);
 	} |
 	TOK_NEGEDGE expr {
 		AstNode *node = new AstNode(AST_NEGEDGE);
+		SET_AST_NODE_LOC(node, @1, @1);
 		ast_stack.back()->children.push_back(node);
 		node->children.push_back($2);
 	} |
@@ -2244,6 +2246,7 @@ behavioral_stmt:
 		exitTypeScope();
 		if ($4 != NULL && $8 != NULL && *$4 != *$8)
 			frontend_verilog_yyerror("Begin label (%s) and end label (%s) don't match.", $4->c_str()+1, $8->c_str()+1);
+		SET_AST_NODE_LOC(ast_stack.back(), @2, @8);
 		delete $4;
 		delete $8;
 		ast_stack.pop_back();
