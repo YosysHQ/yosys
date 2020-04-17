@@ -273,6 +273,11 @@ bool RTLIL::Const::is_fully_undef() const
 	return true;
 }
 
+bool RTLIL::AttrObject::has_attribute(RTLIL::IdString id) const
+{
+	return attributes.count(id);
+}
+
 void RTLIL::AttrObject::set_bool_attribute(RTLIL::IdString id, bool value)
 {
 	if (value)
@@ -287,6 +292,23 @@ bool RTLIL::AttrObject::get_bool_attribute(RTLIL::IdString id) const
 	if (it == attributes.end())
 		return false;
 	return it->second.as_bool();
+}
+
+void RTLIL::AttrObject::set_string_attribute(RTLIL::IdString id, string value)
+{
+	if (value.empty())
+		attributes.erase(id);
+	else
+		attributes[id] = value;
+}
+
+string RTLIL::AttrObject::get_string_attribute(RTLIL::IdString id) const
+{
+	std::string value;
+	const auto it = attributes.find(id);
+	if (it != attributes.end())
+		value = it->second.decode_string();
+	return value;
 }
 
 void RTLIL::AttrObject::set_strpool_attribute(RTLIL::IdString id, const pool<string> &data)
@@ -315,23 +337,6 @@ pool<string> RTLIL::AttrObject::get_strpool_attribute(RTLIL::IdString id) const
 		for (auto s : split_tokens(attributes.at(id).decode_string(), "|"))
 			data.insert(s);
 	return data;
-}
-
-void RTLIL::AttrObject::set_src_attribute(const std::string &src)
-{
-	if (src.empty())
-		attributes.erase(ID::src);
-	else
-		attributes[ID::src] = src;
-}
-
-std::string RTLIL::AttrObject::get_src_attribute() const
-{
-	std::string src;
-	const auto it = attributes.find(ID::src);
-	if (it != attributes.end())
-		src = it->second.decode_string();
-	return src;
 }
 
 bool RTLIL::Selection::selected_module(RTLIL::IdString mod_name) const
