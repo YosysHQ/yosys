@@ -28,7 +28,9 @@
 #include <type_traits>
 #include <tuple>
 #include <vector>
+#include <map>
 #include <algorithm>
+#include <memory>
 #include <sstream>
 
 // The cxxrtl support library implements compile time specialized arbitrary width arithmetics, as well as provides
@@ -656,6 +658,57 @@ struct memory {
 		return changed;
 	}
 };
+
+struct parameter {
+	const enum {
+		MISSING = 0,
+		UINT   	= 1,
+		SINT   	= 2,
+		STRING 	= 3,
+		DOUBLE 	= 4,
+	} value_type;
+
+	// In debug mode, using the wrong .as_*() function will assert.
+	// In release mode, using the wrong .as_*() function will safely return a default value.
+	union {
+		const unsigned  uint_value = 0;
+		const signed    sint_value;
+	};
+	const std::string string_value = "";
+	const double      double_value = 0.0;
+
+	parameter() : value_type(MISSING) {}
+	parameter(unsigned value) : value_type(UINT), uint_value(value) {}
+	parameter(signed value) : value_type(SINT), sint_value(value) {}
+	parameter(const std::string &value) : value_type(STRING), string_value(value) {}
+	parameter(const char *value) : value_type(STRING), string_value(value) {}
+	parameter(double value) : value_type(DOUBLE), double_value(value) {}
+
+	parameter(const parameter &) = default;
+	parameter &operator=(const parameter &) = delete;
+
+	unsigned as_uint() const {
+		assert(value_type == UINT);
+		return uint_value;
+	}
+
+	signed as_sint() const {
+		assert(value_type == SINT);
+		return sint_value;
+	}
+
+	const std::string &as_string() const {
+		assert(value_type == STRING);
+		return string_value;
+	}
+
+	double as_double() const {
+		assert(value_type == DOUBLE);
+		return double_value;
+	}
+};
+
+typedef std::map<std::string, parameter> parameter_map;
 
 struct module {
 	module() {}

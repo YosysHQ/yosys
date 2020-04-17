@@ -171,14 +171,14 @@ struct Scheduler {
 	}
 };
 
-static bool is_unary_cell(RTLIL::IdString type)
+bool is_unary_cell(RTLIL::IdString type)
 {
 	return type.in(
 		ID($not), ID($logic_not), ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool),
 		ID($pos), ID($neg));
 }
 
-static bool is_binary_cell(RTLIL::IdString type)
+bool is_binary_cell(RTLIL::IdString type)
 {
 	return type.in(
 		ID($and), ID($or), ID($xor), ID($xnor), ID($logic_and), ID($logic_or),
@@ -187,25 +187,25 @@ static bool is_binary_cell(RTLIL::IdString type)
 		ID($add), ID($sub), ID($mul), ID($div), ID($mod));
 }
 
-static bool is_elidable_cell(RTLIL::IdString type)
+bool is_elidable_cell(RTLIL::IdString type)
 {
 	return is_unary_cell(type) || is_binary_cell(type) || type.in(
 		ID($mux), ID($concat), ID($slice));
 }
 
-static bool is_sync_ff_cell(RTLIL::IdString type)
+bool is_sync_ff_cell(RTLIL::IdString type)
 {
 	return type.in(
 		ID($dff), ID($dffe));
 }
 
-static bool is_ff_cell(RTLIL::IdString type)
+bool is_ff_cell(RTLIL::IdString type)
 {
 	return is_sync_ff_cell(type) || type.in(
 		ID($adff), ID($dffsr), ID($dlatch), ID($dlatchsr), ID($sr));
 }
 
-static bool is_internal_cell(RTLIL::IdString type)
+bool is_internal_cell(RTLIL::IdString type)
 {
 	return type[0] == '$' && !type.begins_with("$paramod\\");
 }
@@ -356,6 +356,36 @@ struct FlowGraph {
 	}
 };
 
+bool is_cxxrtl_blackbox_cell(const RTLIL::Cell *cell)
+{
+	RTLIL::Module *cell_module = cell->module->design->module(cell->type);
+	log_assert(cell_module != nullptr);
+	return cell_module->get_bool_attribute(ID(cxxrtl.blackbox));
+}
+
+std::string escape_cxx_string(const std::string &input)
+{
+	std::string output = "\"";
+	for (auto c : input) {
+		if (::isprint(c)) {
+			if (c == '\\')
+				output.push_back('\\');
+			output.push_back(c);
+		} else {
+			char l = c & 0xf, h = (c >> 4) & 0xf;
+			output.append("\\x");
+			output.push_back((h < 10 ? '0' + h : 'a' + h - 10));
+			output.push_back((l < 10 ? '0' + l : 'a' + l - 10));
+		}
+	}
+	output.push_back('"');
+	if (output.find('\0') != std::string::npos) {
+		output.insert(0, "std::string {");
+		output.append(stringf(", %zu}", input.size()));
+	}
+	return output;
+}
+
 struct CxxrtlWorker {
 	bool split_intf = false;
 	std::string intf_filename;
@@ -429,9 +459,11 @@ struct CxxrtlWorker {
 		return mangled;
 	}
 
-	std::string mangle_module_name(const RTLIL::IdString &name)
+	std::string mangle_module_name(const RTLIL::IdString &name, bool is_blackbox = false)
 	{
 		// Class namespace.
+		if (is_blackbox)
+			return "bb_" + mangle_name(name);
 		return mangle_name(name);
 	}
 
@@ -455,7 +487,7 @@ struct CxxrtlWorker {
 
 	std::string mangle(const RTLIL::Module *module)
 	{
-		return mangle_module_name(module->name);
+		return mangle_module_name(module->name, /*is_blackbox=*/module->get_bool_attribute(ID(cxxrtl.blackbox)));
 	}
 
 	std::string mangle(const RTLIL::Memory *memory)
@@ -549,7 +581,8 @@ struct CxxrtlWorker {
 						if (is_elidable_cell(node.cell->type)) {
 							dump_cell_elided(node.cell);
 						} else {
-							f << mangle(node.cell) << "." << mangle_wire_name(cell_wire_defs[node.cell][chunk.wire]) << ".curr";
+							const char *access = is_cxxrtl_blackbox_cell(node.cell) ? "->" : ".";
+							f << mangle(node.cell) << access << mangle_wire_name(cell_wire_defs[node.cell][chunk.wire]) << ".curr";
 						}
 						break;
 					default:
@@ -961,13 +994,14 @@ struct CxxrtlWorker {
 		// User cells
 		} else {
 			log_assert(cell->known());
+			const char *access = is_cxxrtl_blackbox_cell(cell) ? "->" : ".";
 			for (auto conn : cell->connections())
 				if (cell->input(conn.first)) {
-					f << indent << mangle(cell) << "." << mangle_wire_name(conn.first) << ".next = ";
+					f << indent << mangle(cell) << access << mangle_wire_name(conn.first) << ".next = ";
 					dump_sigspec_rhs(conn.second);
 					f << ";\n";
 				}
-			f << indent << mangle(cell) << ".eval();\n";
+			f << indent << mangle(cell) << access << "eval();\n";
 			for (auto conn : cell->connections()) {
 				if (conn.second.is_wire()) {
 					RTLIL::Wire *wire = conn.second.as_wire();
@@ -979,7 +1013,7 @@ struct CxxrtlWorker {
 						continue; // ignore disconnected ports
 					f << indent;
 					dump_sigspec_lhs(conn.second);
-					f << " = " << mangle(cell) << "." << mangle_wire_name(conn.first) << ".curr;\n";
+					f << " = " << mangle(cell) << access << mangle_wire_name(conn.first) << ".curr;\n";
 				}
 			}
 		}
@@ -1212,27 +1246,73 @@ struct CxxrtlWorker {
 		dump_attrs(module);
 		f << "struct " << mangle(module) << " : public module {\n";
 		inc_indent();
-			for (auto wire : module->wires())
-				dump_wire(wire, /*is_local=*/false);
-			f << "\n";
-			bool has_memories = false;
-			for (auto memory : module->memories) {
-				dump_memory(module, memory.second);
-				has_memories = true;
-			}
-			if (has_memories)
+			if (module->get_bool_attribute(ID(cxxrtl.blackbox))) {
+				for (auto wire : module->wires()) {
+					if (wire->port_id != 0)
+						dump_wire(wire, /*is_local=*/false);
+				}
 				f << "\n";
-			bool has_cells = false;
-			for (auto cell : module->cells()) {
-				if (is_internal_cell(cell->type))
-					continue;
-				f << indent << mangle_module_name(cell->type) << " " << mangle(cell) << ";\n";
-				has_cells = true;
-			}
-			if (has_cells)
+			} else {
+				for (auto wire : module->wires())
+					dump_wire(wire, /*is_local=*/false);
 				f << "\n";
+				bool has_memories = false;
+				for (auto memory : module->memories) {
+					dump_memory(module, memory.second);
+					has_memories = true;
+				}
+				if (has_memories)
+					f << "\n";
+				bool has_cells = false;
+				for (auto cell : module->cells()) {
+					if (is_internal_cell(cell->type))
+						continue;
+					dump_attrs(cell);
+					RTLIL::Module *cell_module = module->design->module(cell->type);
+					log_assert(cell_module != nullptr);
+					if (cell_module->get_bool_attribute(ID(cxxrtl.blackbox))) {
+						f << indent << "std::unique_ptr<" << mangle(cell_module) << "> " << mangle(cell) << " = ";
+						f << mangle(cell_module) << "::create(" << escape_cxx_string(cell->name.str()) << ", ";
+						if (!cell->parameters.empty()) {
+							f << "parameter_map({\n";
+							inc_indent();
+								for (auto param : cell->parameters) {
+									// All blackbox parameters should be in the public namespace already; strip leading slash
+									// to make it more convenient for blackbox implementations.
+									log_assert(param.first.begins_with("\\"));
+									f << indent << "{ " << escape_cxx_string(param.first.str().substr(1)) << ", ";
+									if (param.second.flags & RTLIL::CONST_FLAG_REAL) {
+										f << std::showpoint << std::stod(param.second.decode_string()) << std::noshowpoint;
+									} else if (param.second.flags & RTLIL::CONST_FLAG_STRING) {
+										f << escape_cxx_string(param.second.decode_string());
+									} else {
+										f << param.second.as_int(/*is_signed=*/param.second.flags & RTLIL::CONST_FLAG_SIGNED);
+										if (!(param.second.flags & RTLIL::CONST_FLAG_SIGNED))
+											f << "u";
+									}
+									f << " },\n";
+								}
+							dec_indent();
+							f << indent << "})";
+						} else {
+							f << "parameter_map()";
+						}
+						f << ");\n";
+					} else {
+						f << indent << mangle(cell_module) << " " << mangle(cell) << ";\n";
+					}
+					has_cells = true;
+				}
+				if (has_cells)
+					f << "\n";
+			}
 			f << indent << "void eval() override;\n";
 			f << indent << "bool commit() override;\n";
+			if (module->get_bool_attribute(ID(cxxrtl.blackbox))) {
+				f << "\n";
+				f << indent << "static std::unique_ptr<" << mangle(module) << "> ";
+				f << "create(std::string name, parameter_map parameters);\n";
+			}
 		dec_indent();
 		f << "}; // struct " << mangle(module) << "\n";
 		f << "\n";
@@ -1242,19 +1322,21 @@ struct CxxrtlWorker {
 	{
 		f << "void " << mangle(module) << "::eval() {\n";
 		inc_indent();
-			for (auto wire : module->wires())
-				dump_wire(wire, /*is_local=*/true);
-			for (auto node : schedule[module]) {
-				switch (node.type) {
-					case FlowGraph::Node::Type::CONNECT:
-						dump_connect(node.connect);
-						break;
-					case FlowGraph::Node::Type::CELL:
-						dump_cell(node.cell);
-						break;
-					case FlowGraph::Node::Type::PROCESS:
-						dump_process(node.process);
-						break;
+			if (!module->get_bool_attribute(ID(cxxrtl.blackbox))) {
+				for (auto wire : module->wires())
+					dump_wire(wire, /*is_local=*/true);
+				for (auto node : schedule[module]) {
+					switch (node.type) {
+						case FlowGraph::Node::Type::CONNECT:
+							dump_connect(node.connect);
+							break;
+						case FlowGraph::Node::Type::CELL:
+							dump_cell(node.cell);
+							break;
+						case FlowGraph::Node::Type::PROCESS:
+							dump_process(node.process);
+							break;
+					}
 				}
 			}
 			for (auto sync_type : sync_types) {
@@ -1305,19 +1387,22 @@ struct CxxrtlWorker {
 						}
 					dec_indent();
 					f << indent << "}\n";
-				} else {
+				} else if (!module->get_bool_attribute(ID(cxxrtl.blackbox)) || wire->port_id != 0) {
 					f << indent << "changed |= " << mangle(wire) << ".commit();\n";
 				}
 			}
-			for (auto memory : module->memories) {
-				if (!writable_memories[memory.second])
-					continue;
-				f << indent << "changed |= " << mangle(memory.second) << ".commit();\n";
-			}
-			for (auto cell : module->cells()) {
-				if (is_internal_cell(cell->type))
-					continue;
-				f << indent << "changed |= " << mangle(cell) << ".commit();\n";
+			if (!module->get_bool_attribute(ID(cxxrtl.blackbox))) {
+				for (auto memory : module->memories) {
+					if (!writable_memories[memory.second])
+						continue;
+					f << indent << "changed |= " << mangle(memory.second) << ".commit();\n";
+				}
+				for (auto cell : module->cells()) {
+					if (is_internal_cell(cell->type))
+						continue;
+					const char *access = is_cxxrtl_blackbox_cell(cell) ? "->" : ".";
+					f << indent << "changed |= " << mangle(cell) << access << "commit();\n";
+				}
 			}
 			f << indent << "return changed;\n";
 		dec_indent();
@@ -1327,20 +1412,27 @@ struct CxxrtlWorker {
 
 	void dump_design(RTLIL::Design *design)
 	{
+		std::vector<RTLIL::Module*> modules;
 		TopoSort<RTLIL::Module*> topo_design;
 		for (auto module : design->modules()) {
-			if (module->get_blackbox_attribute() || !design->selected_module(module))
+			if (!design->selected_module(module))
 				continue;
-			topo_design.node(module);
+			if (module->get_bool_attribute(ID(cxxrtl.blackbox)))
+				modules.push_back(module); // cxxrtl blackboxes first
+			if (module->get_blackbox_attribute() || module->get_bool_attribute(ID(cxxrtl.blackbox)))
+				continue;
 
+			topo_design.node(module);
 			for (auto cell : module->cells()) {
-				if (is_internal_cell(cell->type))
+				if (is_internal_cell(cell->type) || is_cxxrtl_blackbox_cell(cell))
 					continue;
-				log_assert(design->has(cell->type));
-				topo_design.edge(design->module(cell->type), module);
+				RTLIL::Module *cell_module = design->module(cell->type);
+				log_assert(cell_module != nullptr);
+				topo_design.edge(cell_module, module);
 			}
 		}
 		log_assert(topo_design.sort());
+		modules.insert(modules.end(), topo_design.sorted.begin(), topo_design.sorted.end());
 
 		if (split_intf) {
 			// The only thing more depraved than include guards, is mangling filenames to turn them into include guards.
@@ -1356,11 +1448,8 @@ struct CxxrtlWorker {
 			f << "\n";
 			f << "namespace " << design_ns << " {\n";
 			f << "\n";
-			for (auto module : topo_design.sorted) {
-				if (!design->selected_module(module))
-					continue;
+			for (auto module : modules)
 				dump_module_intf(module);
-			}
 			f << "} // namespace " << design_ns << "\n";
 			f << "\n";
 			f << "#endif\n";
@@ -1376,9 +1465,7 @@ struct CxxrtlWorker {
 		f << "\n";
 		f << "namespace " << design_ns << " {\n";
 		f << "\n";
-		for (auto module : topo_design.sorted) {
-			if (!design->selected_module(module))
-				continue;
+		for (auto module : modules) {
 			if (!split_intf)
 				dump_module_intf(module);
 			dump_module_impl(module);
@@ -1416,9 +1503,38 @@ struct CxxrtlWorker {
 			if (!design->selected_module(module))
 				continue;
 
-			FlowGraph flow;
 			SigMap &sigmap = sigmaps[module];
 			sigmap.set(module);
+
+			if (module->get_bool_attribute(ID(cxxrtl.blackbox))) {
+				for (auto port : module->ports) {
+					RTLIL::Wire *wire = module->wire(port);
+					if (wire->has_attribute(ID(cxxrtl.edge))) {
+						RTLIL::Const edge_attr = wire->attributes[ID(cxxrtl.edge)];
+						if (!(edge_attr.flags & RTLIL::CONST_FLAG_STRING) || (int)edge_attr.decode_string().size() != GetSize(wire))
+							log_cmd_error("Attribute `cxxrtl.edge' of port `%s.%s' is not a string with one character per bit.\n",
+							              log_id(module), log_signal(wire));
+
+						std::string edges = wire->get_string_attribute(ID(cxxrtl.edge));
+						for (int i = 0; i < GetSize(wire); i++) {
+							RTLIL::SigSpec wire_sig = wire;
+							switch (edges[i]) {
+								case '-': break;
+								case 'p': register_edge_signal(sigmap, wire_sig[i], RTLIL::STp); break;
+								case 'n': register_edge_signal(sigmap, wire_sig[i], RTLIL::STn); break;
+								case 'a': register_edge_signal(sigmap, wire_sig[i], RTLIL::STe); break;
+								default:
+									log_cmd_error("Attribute `cxxrtl.edge' of port `%s.%s' contains specifiers "
+									              "other than '-', 'p', 'n', or 'a'.\n",
+										log_id(module), log_signal(wire));
+							}
+						}
+					}
+				}
+				continue;
+			}
+
+			FlowGraph flow;
 
 			for (auto conn : module->connections())
 				flow.add_node(conn);
@@ -1427,6 +1543,13 @@ struct CxxrtlWorker {
 			dict<std::pair<RTLIL::SigBit, const RTLIL::Memory*>,
 			     pool<const RTLIL::Cell*>> memwr_per_domain;
 			for (auto cell : module->cells()) {
+				if (!cell->known())
+					log_cmd_error("Unknown cell `%s'.\n", log_id(cell->type));
+
+				RTLIL::Module *cell_module = design->module(cell->type);
+				if (cell_module && cell_module->get_blackbox_attribute() && !cell_module->get_bool_attribute(ID(cxxrtl.blackbox)))
+					log_cmd_error("External blackbox cell `%s' is not marked as a CXXRTL blackbox.\n", log_id(cell->type));
+
 				FlowGraph::Node *node = flow.add_node(cell);
 
 				// Various DFF cells are treated like posedge/negedge processes, see above for details.
@@ -1564,7 +1687,7 @@ struct CxxrtlWorker {
 
 			if (!feedback_wires.empty()) {
 				has_feedback_arcs = true;
-				log("Module `%s` contains feedback arcs through wires:\n", module->name.c_str());
+				log("Module `%s' contains feedback arcs through wires:\n", module->name.c_str());
 				for (auto wire : feedback_wires) {
 					log("  %s\n", wire->name.c_str());
 				}
@@ -1592,12 +1715,12 @@ struct CxxrtlWorker {
 		has_sync_init = has_packed_mem = false;
 
 		for (auto module : design->modules()) {
-			if (module->get_blackbox_attribute())
+			if (module->get_blackbox_attribute() && !module->has_attribute(ID(cxxrtl.blackbox)))
 				continue;
 
 			if (!design->selected_whole_module(module))
 				if (design->selected_module(module))
-					log_cmd_error("Can't handle partially selected module `%s`!\n", id2cstr(module->name));
+					log_cmd_error("Can't handle partially selected module `%s'!\n", id2cstr(module->name));
 			if (!design->selected_module(module))
 				continue;
 
@@ -1649,7 +1772,7 @@ struct CxxrtlBackend : public Backend {
 		log("\n");
 		log("    write_cxxrtl [options] [filename]\n");
 		log("\n");
-		log("Write C++ code for simulating the design. The generated code requires a driver\n");
+		log("Write C++ code that simulates the design. The generated code requires a driver\n");
 		log("that instantiates the design, toggles its clock, and interacts with its ports.\n");
 		log("\n");
 		log("The following driver may be used as an example for a design with a single clock\n");
@@ -1670,8 +1793,73 @@ struct CxxrtlBackend : public Backend {
 		log("    }\n");
 		log("\n");
 		log("Note that CXXRTL simulations, just like the hardware they are simulating, are\n");
-		log("subject to race conditions. If, in then example above, the user logic would run\n");
+		log("subject to race conditions. If, in the example above, the user logic would run\n");
 		log("simultaneously with the rising edge of the clock, the design would malfunction.\n");
+		log("\n");
+		log("This backend supports replacing parts of the design with black boxes implemented\n");
+		log("in C++. If a module marked as a CXXRTL black box, its implementation is ignored,\n");
+		log("and the generated code consists only of an interface and a factory function.\n");
+		log("The driver must implement the factory function that creates an implementation of\n");
+		log("the black box, taking into account the parameters it is instantiated with.\n");
+		log("\n");
+		log("For example, the following Verilog code defines a CXXRTL black box interface for\n");
+		log("a synchronous debug sink:\n");
+		log("\n");
+		log("    (* cxxrtl.blackbox *)\n");
+		log("    module debug(...);\n");
+		log("      (* cxxrtl.edge = \"p\" *) input clk;\n");
+		log("      input en;\n");
+		log("      input [7:0] data;\n");
+		log("    endmodule\n");
+		log("\n");
+		log("For this HDL interface, this backend will generate the following C++ interface:\n");
+		log("\n");
+		log("    struct bb_debug : public module {\n");
+		log("      wire<1> p_clk;\n");
+		log("      bool posedge_p_clk = false;\n");
+		log("      wire<1> p_en;\n");
+		log("      wire<8> p_data;\n");
+		log("\n");
+		log("      void eval() override;\n");
+		log("      bool commit() override;\n");
+		log("\n");
+		log("      static std::unique_ptr<bb_debug> create(std::string name,\n");
+		log("                                              parameter_map parameters);\n");
+		log("    };\n");
+		log("\n");
+		log("The `create' function must be implemented by the driver. For example, it could\n");
+		log("always provide an implementation logging the values to standard error stream:\n");
+		log("\n");
+		log("    namespace cxxrtl_design {\n");
+		log("\n");
+		log("    struct stderr_debug : public bb_debug {\n");
+		log("      void eval() override {\n");
+		log("        if (posedge_p_clk && p_en.curr)\n");
+		log("          fprintf(stderr, \"debug: %%02x\\n\", p_data.curr.data[0]);\n");
+		log("        bb_debug::eval();\n");
+		log("      }\n");
+		log("    };\n");
+		log("\n");
+		log("    std::unique_ptr<bb_debug>\n");
+		log("    bb_debug::create(std::string name, cxxrtl::parameter_map parameters) {\n");
+		log("      return std::make_unique<stderr_debug>();\n");
+		log("    }\n");
+		log("\n");
+		log("    }\n");
+		log("\n");
+		log("The following attributes are recognized by this backend:\n");
+		log("\n");
+		log("    cxxrtl.blackbox\n");
+		log("        only valid on modules. if specified, the module contents are ignored,\n");
+		log("        and the generated code includes only the module interface and a factory\n");
+		log("        function, which will be called to instantiate the module.\n");
+		log("\n");
+		log("    cxxrtl.edge\n");
+		log("        only valid on inputs of black boxes. must be one of \"p\", \"n\", \"a\".\n");
+		log("        if specified on signal `clk`, the generated code includes boolean fields\n");
+		log("        `posedge_p_clk` (if \"p\"), `negedge_p_clk` (if \"n\"), or both (if \"a\"),\n");
+		log("        as well as edge detection logic, simplifying implementation of clocked\n");
+		log("        black boxes.\n");
 		log("\n");
 		log("The following options are supported by this backend:\n");
 		log("\n");
