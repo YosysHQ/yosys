@@ -1076,24 +1076,34 @@ struct CxxrtlWorker {
 		log_assert(proc->root_case.attributes.empty());
 		dump_case_rule(&proc->root_case);
 		for (auto sync : proc->syncs) {
-			RTLIL::SigBit sync_bit = sync->signal[0];
-			sync_bit = sigmaps[sync_bit.wire->module](sync_bit);
+			RTLIL::SigBit sync_bit;
+			if (!sync->signal.empty()) {
+				sync_bit = sync->signal[0];
+				sync_bit = sigmaps[sync_bit.wire->module](sync_bit);
+			}
 
 			pool<std::string> events;
 			switch (sync->type) {
 				case RTLIL::STp:
+					log_assert(sync_bit.wire != nullptr);
 					events.insert("posedge_" + mangle(sync_bit));
 					break;
 				case RTLIL::STn:
+					log_assert(sync_bit.wire != nullptr);
 					events.insert("negedge_" + mangle(sync_bit));
+					break;
 				case RTLIL::STe:
+					log_assert(sync_bit.wire != nullptr);
 					events.insert("posedge_" + mangle(sync_bit));
 					events.insert("negedge_" + mangle(sync_bit));
 					break;
 
+				case RTLIL::STa:
+					events.insert("true");
+					break;
+
 				case RTLIL::ST0:
 				case RTLIL::ST1:
-				case RTLIL::STa:
 				case RTLIL::STg:
 				case RTLIL::STi:
 					log_assert(false);
