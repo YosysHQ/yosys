@@ -1924,11 +1924,13 @@ always_events:
 always_event:
 	TOK_POSEDGE expr {
 		AstNode *node = new AstNode(AST_POSEDGE);
+		SET_AST_NODE_LOC(node, @1, @1);
 		ast_stack.back()->children.push_back(node);
 		node->children.push_back($2);
 	} |
 	TOK_NEGEDGE expr {
 		AstNode *node = new AstNode(AST_NEGEDGE);
+		SET_AST_NODE_LOC(node, @1, @1);
 		ast_stack.back()->children.push_back(node);
 		node->children.push_back($2);
 	} |
