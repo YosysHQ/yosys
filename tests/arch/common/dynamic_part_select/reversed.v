@@ -7,7 +7,7 @@ module reversed #(parameter WIDTH=256, SELW=2)
    
    localparam SLICE = WIDTH/(SELW**2);
    always @(posedge clk) begin
-      dout[(1024-ctrl*sel)-:SLICE] <= din;
+      dout[(WIDTH-ctrl*sel)-:SLICE] <= din;
    end
 endmodule
 
