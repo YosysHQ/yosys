@@ -1241,86 +1241,8 @@ struct CxxrtlWorker {
 		}
 	}
 
-	void dump_module_intf(RTLIL::Module *module)
+	void dump_eval_method(RTLIL::Module *module)
 	{
-		dump_attrs(module);
-		f << "struct " << mangle(module) << " : public module {\n";
-		inc_indent();
-			if (module->get_bool_attribute(ID(cxxrtl.blackbox))) {
-				for (auto wire : module->wires()) {
-					if (wire->port_id != 0)
-						dump_wire(wire, /*is_local=*/false);
-				}
-				f << "\n";
-			} else {
-				for (auto wire : module->wires())
-					dump_wire(wire, /*is_local=*/false);
-				f << "\n";
-				bool has_memories = false;
-				for (auto memory : module->memories) {
-					dump_memory(module, memory.second);
-					has_memories = true;
-				}
-				if (has_memories)
-					f << "\n";
-				bool has_cells = false;
-				for (auto cell : module->cells()) {
-					if (is_internal_cell(cell->type))
-						continue;
-					dump_attrs(cell);
-					RTLIL::Module *cell_module = module->design->module(cell->type);
-					log_assert(cell_module != nullptr);
-					if (cell_module->get_bool_attribute(ID(cxxrtl.blackbox))) {
-						f << indent << "std::unique_ptr<" << mangle(cell_module) << "> " << mangle(cell) << " = ";
-						f << mangle(cell_module) << "::create(" << escape_cxx_string(cell->name.str()) << ", ";
-						if (!cell->parameters.empty()) {
-							f << "parameter_map({\n";
-							inc_indent();
-								for (auto param : cell->parameters) {
-									// All blackbox parameters should be in the public namespace already; strip leading slash
-									// to make it more convenient for blackbox implementations.
-									log_assert(param.first.begins_with("\\"));
-									f << indent << "{ " << escape_cxx_string(param.first.str().substr(1)) << ", ";
-									if (param.second.flags & RTLIL::CONST_FLAG_REAL) {
-										f << std::showpoint << std::stod(param.second.decode_string()) << std::noshowpoint;
-									} else if (param.second.flags & RTLIL::CONST_FLAG_STRING) {
-										f << escape_cxx_string(param.second.decode_string());
-									} else {
-										f << param.second.as_int(/*is_signed=*/param.second.flags & RTLIL::CONST_FLAG_SIGNED);
-										if (!(param.second.flags & RTLIL::CONST_FLAG_SIGNED))
-											f << "u";
-									}
-									f << " },\n";
-								}
-							dec_indent();
-							f << indent << "})";
-						} else {
-							f << "parameter_map()";
-						}
-						f << ");\n";
-					} else {
-						f << indent << mangle(cell_module) << " " << mangle(cell) << ";\n";
-					}
-					has_cells = true;
-				}
-				if (has_cells)
-					f << "\n";
-			}
-			f << indent << "void eval() override;\n";
-			f << indent << "bool commit() override;\n";
-			if (module->get_bool_attribute(ID(cxxrtl.blackbox))) {
-				f << "\n";
-				f << indent << "static std::unique_ptr<" << mangle(module) << "> ";
-				f << "create(std::string name, parameter_map parameters);\n";
-			}
-		dec_indent();
-		f << "}; // struct " << mangle(module) << "\n";
-		f << "\n";
-	}
-
-	void dump_module_impl(RTLIL::Module *module)
-	{
-		f << "void " << mangle(module) << "::eval() {\n";
 		inc_indent();
 			if (!module->get_bool_attribute(ID(cxxrtl.blackbox))) {
 				for (auto wire : module->wires())
@@ -1348,10 +1270,10 @@ struct CxxrtlWorker {
 				}
 			}
 		dec_indent();
-		f << "}\n";
-		f << "\n";
+	}
 
-		f << "bool " << mangle(module) << "::commit() {\n";
+	void dump_commit_method(RTLIL::Module *module)
+	{
 		inc_indent();
 			f << indent << "bool changed = false;\n";
 			for (auto wire : module->wires()) {
@@ -1406,6 +1328,105 @@ struct CxxrtlWorker {
 			}
 			f << indent << "return changed;\n";
 		dec_indent();
+	}
+
+	void dump_module_intf(RTLIL::Module *module)
+	{
+		dump_attrs(module);
+		if (module->get_bool_attribute(ID(cxxrtl.blackbox))) {
+			f << "struct " << mangle(module) << " : public module {\n";
+			inc_indent();
+				for (auto wire : module->wires()) {
+					if (wire->port_id != 0)
+						dump_wire(wire, /*is_local=*/false);
+				}
+				f << "\n";
+				f << indent << "void eval() override {\n";
+				dump_eval_method(module);
+				f << indent << "}\n";
+				f << "\n";
+				f << indent << "bool commit() override {\n";
+				dump_commit_method(module);
+				f << indent << "}\n";
+				f << "\n";
+				f << indent << "static std::unique_ptr<" << mangle(module) << "> ";
+				f << "create(std::string name, parameter_map parameters);\n";
+			dec_indent();
+			f << "}; // struct " << mangle(module) << "\n";
+			f << "\n";
+		} else {
+			f << "struct " << mangle(module) << " : public module {\n";
+			inc_indent();
+				for (auto wire : module->wires())
+					dump_wire(wire, /*is_local=*/false);
+				f << "\n";
+				bool has_memories = false;
+				for (auto memory : module->memories) {
+					dump_memory(module, memory.second);
+					has_memories = true;
+				}
+				if (has_memories)
+					f << "\n";
+				bool has_cells = false;
+				for (auto cell : module->cells()) {
+					if (is_internal_cell(cell->type))
+						continue;
+					dump_attrs(cell);
+					RTLIL::Module *cell_module = module->design->module(cell->type);
+					log_assert(cell_module != nullptr);
+					if (cell_module->get_bool_attribute(ID(cxxrtl.blackbox))) {
+						f << indent << "std::unique_ptr<" << mangle(cell_module) << "> " << mangle(cell) << " = ";
+						f << mangle(cell_module) << "::create(" << escape_cxx_string(cell->name.str()) << ", ";
+						if (!cell->parameters.empty()) {
+							f << "parameter_map({\n";
+							inc_indent();
+								for (auto param : cell->parameters) {
+									// All blackbox parameters should be in the public namespace already; strip leading slash
+									// to make it more convenient for blackbox implementations.
+									log_assert(param.first.begins_with("\\"));
+									f << indent << "{ " << escape_cxx_string(param.first.str().substr(1)) << ", ";
+									if (param.second.flags & RTLIL::CONST_FLAG_REAL) {
+										f << std::showpoint << std::stod(param.second.decode_string()) << std::noshowpoint;
+									} else if (param.second.flags & RTLIL::CONST_FLAG_STRING) {
+										f << escape_cxx_string(param.second.decode_string());
+									} else {
+										f << param.second.as_int(/*is_signed=*/param.second.flags & RTLIL::CONST_FLAG_SIGNED);
+										if (!(param.second.flags & RTLIL::CONST_FLAG_SIGNED))
+											f << "u";
+									}
+									f << " },\n";
+								}
+							dec_indent();
+							f << indent << "})";
+						} else {
+							f << "parameter_map()";
+						}
+						f << ");\n";
+					} else {
+						f << indent << mangle(cell_module) << " " << mangle(cell) << ";\n";
+					}
+					has_cells = true;
+				}
+				if (has_cells)
+					f << "\n";
+				f << indent << "void eval() override;\n";
+				f << indent << "bool commit() override;\n";
+			dec_indent();
+			f << "}; // struct " << mangle(module) << "\n";
+			f << "\n";
+		}
+	}
+
+	void dump_module_impl(RTLIL::Module *module)
+	{
+		if (module->get_bool_attribute(ID(cxxrtl.blackbox)))
+			return;
+		f << "void " << mangle(module) << "::eval() {\n";
+		dump_eval_method(module);
+		f << "}\n";
+		f << "\n";
+		f << "bool " << mangle(module) << "::commit() {\n";
+		dump_commit_method(module);
 		f << "}\n";
 		f << "\n";
 	}
