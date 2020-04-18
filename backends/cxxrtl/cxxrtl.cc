@@ -171,14 +171,14 @@ struct Scheduler {
 	}
 };
 
-static bool is_unary_cell(RTLIL::IdString type)
+bool is_unary_cell(RTLIL::IdString type)
 {
 	return type.in(
 		ID($not), ID($logic_not), ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool),
 		ID($pos), ID($neg));
 }
 
-static bool is_binary_cell(RTLIL::IdString type)
+bool is_binary_cell(RTLIL::IdString type)
 {
 	return type.in(
 		ID($and), ID($or), ID($xor), ID($xnor), ID($logic_and), ID($logic_or),
@@ -187,25 +187,25 @@ static bool is_binary_cell(RTLIL::IdString type)
 		ID($add), ID($sub), ID($mul), ID($div), ID($mod));
 }
 
-static bool is_elidable_cell(RTLIL::IdString type)
+bool is_elidable_cell(RTLIL::IdString type)
 {
 	return is_unary_cell(type) || is_binary_cell(type) || type.in(
 		ID($mux), ID($concat), ID($slice));
 }
 
-static bool is_sync_ff_cell(RTLIL::IdString type)
+bool is_sync_ff_cell(RTLIL::IdString type)
 {
 	return type.in(
 		ID($dff), ID($dffe));
 }
 
-static bool is_ff_cell(RTLIL::IdString type)
+bool is_ff_cell(RTLIL::IdString type)
 {
 	return is_sync_ff_cell(type) || type.in(
 		ID($adff), ID($dffsr), ID($dlatch), ID($dlatchsr), ID($sr));
 }
 
-static bool is_internal_cell(RTLIL::IdString type)
+bool is_internal_cell(RTLIL::IdString type)
 {
 	return type[0] == '$' && !type.begins_with("$paramod\\");
 }
@@ -288,7 +288,7 @@ struct FlowGraph {
 		log_assert(cell->known());
 		for (auto conn : cell->connections()) {
 			if (cell->output(conn.first)) {
-				if (is_sync_ff_cell(cell->type) || (cell->type == ID($memrd) && cell->getParam(ID(CLK_ENABLE)).as_bool()))
+				if (is_sync_ff_cell(cell->type) || (cell->type == ID($memrd) && cell->getParam(ID::CLK_ENABLE).as_bool()))
 					/* non-combinatorial outputs do not introduce defs */;
 				else if (is_elidable_cell(cell->type))
 					add_defs(node, conn.second, /*elidable=*/true);
@@ -356,6 +356,53 @@ struct FlowGraph {
 	}
 };
 
+bool is_cxxrtl_blackbox_cell(const RTLIL::Cell *cell)
+{
+	RTLIL::Module *cell_module = cell->module->design->module(cell->type);
+	log_assert(cell_module != nullptr);
+	return cell_module->get_bool_attribute(ID(cxxrtl.blackbox));
+}
+
+std::vector<std::string> split_by(const std::string &str, const std::string &sep)
+{
+	std::vector<std::string> result;
+	size_t prev = 0;
+	while (true) {
+		size_t curr = str.find_first_of(sep, prev + 1);
+		if (curr > str.size())
+			curr = str.size();
+		if (curr > prev + 1)
+			result.push_back(str.substr(prev, curr - prev));
+		if (curr == str.size())
+			break;
+		prev = curr;
+	}
+	return result;
+}
+
+std::string escape_cxx_string(const std::string &input)
+{
+	std::string output = "\"";
+	for (auto c : input) {
+		if (::isprint(c)) {
+			if (c == '\\')
+				output.push_back('\\');
+			output.push_back(c);
+		} else {
+			char l = c & 0xf, h = (c >> 4) & 0xf;
+			output.append("\\x");
+			output.push_back((h < 10 ? '0' + h : 'a' + h - 10));
+			output.push_back((l < 10 ? '0' + l : 'a' + l - 10));
+		}
+	}
+	output.push_back('"');
+	if (output.find('\0') != std::string::npos) {
+		output.insert(0, "std::string {");
+		output.append(stringf(", %zu}", input.size()));
+	}
+	return output;
+}
+
 struct CxxrtlWorker {
 	bool split_intf = false;
 	std::string intf_filename;
@@ -382,6 +429,7 @@ struct CxxrtlWorker {
 	dict<const RTLIL::Wire*, FlowGraph::Node> elided_wires;
 	dict<const RTLIL::Module*, std::vector<FlowGraph::Node>> schedule;
 	pool<const RTLIL::Wire*> localized_wires;
+	dict<const RTLIL::Module*, pool<std::string>> blackbox_specializations;
 
 	void inc_indent() {
 		indent += "\t";
@@ -429,9 +477,11 @@ struct CxxrtlWorker {
 		return mangled;
 	}
 
-	std::string mangle_module_name(const RTLIL::IdString &name)
+	std::string mangle_module_name(const RTLIL::IdString &name, bool is_blackbox = false)
 	{
 		// Class namespace.
+		if (is_blackbox)
+			return "bb_" + mangle_name(name);
 		return mangle_name(name);
 	}
 
@@ -455,7 +505,7 @@ struct CxxrtlWorker {
 
 	std::string mangle(const RTLIL::Module *module)
 	{
-		return mangle_module_name(module->name);
+		return mangle_module_name(module->name, /*is_blackbox=*/module->get_bool_attribute(ID(cxxrtl.blackbox)));
 	}
 
 	std::string mangle(const RTLIL::Memory *memory)
@@ -479,6 +529,80 @@ struct CxxrtlWorker {
 		if (sigbit.wire->width == 1)
 			return mangle(sigbit.wire);
 		return mangle(sigbit.wire) + "_" + std::to_string(sigbit.offset);
+	}
+
+	std::vector<std::string> template_param_names(const RTLIL::Module *module)
+	{
+		if (!module->has_attribute(ID(cxxrtl.template)))
+			return {};
+
+		if (module->attributes.at(ID(cxxrtl.template)).flags != RTLIL::CONST_FLAG_STRING)
+			log_cmd_error("Attribute `cxxrtl.template' of module `%s' is not a string.\n", log_id(module));
+
+		std::vector<std::string> param_names = split_by(module->get_string_attribute(ID(cxxrtl.template)), " \t");
+		for (const auto &param_name : param_names) {
+			// Various lowercase prefixes (p_, i_, cell_, ...) are used for member variables, so require
+			// parameters to start with an uppercase letter to avoid name conflicts. (This is the convention
+			// in both Verilog and C++, anyway.)
+			if (!isupper(param_name[0]))
+				log_cmd_error("Attribute `cxxrtl.template' of module `%s' includes a parameter `%s', "
+				              "which does not start with an uppercase letter.\n",
+				              log_id(module), param_name.c_str());
+		}
+		return param_names;
+	}
+
+	std::string template_params(const RTLIL::Module *module, bool is_decl)
+	{
+		std::vector<std::string> param_names = template_param_names(module);
+		if (param_names.empty())
+			return "";
+
+		std::string params = "<";
+		bool first = true;
+		for (const auto &param_name : param_names) {
+			if (!first)
+				params += ", ";
+			first = false;
+			if (is_decl)
+				params += "size_t ";
+			params += param_name;
+		}
+		params += ">";
+		return params;
+	}
+
+	std::string template_args(const RTLIL::Cell *cell)
+	{
+		RTLIL::Module *cell_module = cell->module->design->module(cell->type);
+		log_assert(cell_module != nullptr);
+		if (!cell_module->get_bool_attribute(ID(cxxrtl.blackbox)))
+			return "";
+
+		std::vector<std::string> param_names = template_param_names(cell_module);
+		if (param_names.empty())
+			return "";
+
+		std::string params = "<";
+		bool first = true;
+		for (const auto &param_name : param_names) {
+			if (!first)
+				params += ", ";
+			first = false;
+			params += "/*" + param_name + "=*/";
+			RTLIL::IdString id_param_name = '\\' + param_name;
+			if (!cell->hasParam(id_param_name))
+				log_cmd_error("Cell `%s.%s' does not have a parameter `%s', which is required by the templated module `%s'.\n",
+				              log_id(cell->module), log_id(cell), param_name.c_str(), log_id(cell_module));
+			RTLIL::Const param_value = cell->getParam(id_param_name);
+			if (((param_value.flags & ~RTLIL::CONST_FLAG_SIGNED) != 0) || param_value.as_int() < 0)
+				log_cmd_error("Parameter `%s' of cell `%s.%s', which is required by the templated module `%s', "
+				              "is not a positive integer.\n",
+				              param_name.c_str(), log_id(cell->module), log_id(cell), log_id(cell_module));
+			params += std::to_string(cell->getParam(id_param_name).as_int());
+		}
+		params += ">";
+		return params;
 	}
 
 	std::string fresh_temporary()
@@ -549,7 +673,8 @@ struct CxxrtlWorker {
 						if (is_elidable_cell(node.cell->type)) {
 							dump_cell_elided(node.cell);
 						} else {
-							f << mangle(node.cell) << "." << mangle_wire_name(cell_wire_defs[node.cell][chunk.wire]) << ".curr";
+							const char *access = is_cxxrtl_blackbox_cell(node.cell) ? "->" : ".";
+							f << mangle(node.cell) << access << mangle_wire_name(cell_wire_defs[node.cell][chunk.wire]) << ".curr";
 						}
 						break;
 					default:
@@ -660,42 +785,42 @@ struct CxxrtlWorker {
 		// Unary cells
 		if (is_unary_cell(cell->type)) {
 			f << cell->type.substr(1) << '_' <<
-			     (cell->getParam(ID(A_SIGNED)).as_bool() ? 's' : 'u') <<
-			     "<" << cell->getParam(ID(Y_WIDTH)).as_int() << ">(";
-			dump_sigspec_rhs(cell->getPort(ID(A)));
+			     (cell->getParam(ID::A_SIGNED).as_bool() ? 's' : 'u') <<
+			     "<" << cell->getParam(ID::Y_WIDTH).as_int() << ">(";
+			dump_sigspec_rhs(cell->getPort(ID::A));
 			f << ")";
 		// Binary cells
 		} else if (is_binary_cell(cell->type)) {
 			f << cell->type.substr(1) << '_' <<
-			     (cell->getParam(ID(A_SIGNED)).as_bool() ? 's' : 'u') <<
-			     (cell->getParam(ID(B_SIGNED)).as_bool() ? 's' : 'u') <<
-			     "<" << cell->getParam(ID(Y_WIDTH)).as_int() << ">(";
-			dump_sigspec_rhs(cell->getPort(ID(A)));
+			     (cell->getParam(ID::A_SIGNED).as_bool() ? 's' : 'u') <<
+			     (cell->getParam(ID::B_SIGNED).as_bool() ? 's' : 'u') <<
+			     "<" << cell->getParam(ID::Y_WIDTH).as_int() << ">(";
+			dump_sigspec_rhs(cell->getPort(ID::A));
 			f << ", ";
-			dump_sigspec_rhs(cell->getPort(ID(B)));
+			dump_sigspec_rhs(cell->getPort(ID::B));
 			f << ")";
 		// Muxes
 		} else if (cell->type == ID($mux)) {
 			f << "(";
-			dump_sigspec_rhs(cell->getPort(ID(S)));
+			dump_sigspec_rhs(cell->getPort(ID::S));
 			f << " ? ";
-			dump_sigspec_rhs(cell->getPort(ID(B)));
+			dump_sigspec_rhs(cell->getPort(ID::B));
 			f << " : ";
-			dump_sigspec_rhs(cell->getPort(ID(A)));
+			dump_sigspec_rhs(cell->getPort(ID::A));
 			f << ")";
 		// Concats
 		} else if (cell->type == ID($concat)) {
-			dump_sigspec_rhs(cell->getPort(ID(B)));
+			dump_sigspec_rhs(cell->getPort(ID::B));
 			f << ".concat(";
-			dump_sigspec_rhs(cell->getPort(ID(A)));
+			dump_sigspec_rhs(cell->getPort(ID::A));
 			f << ").val()";
 		// Slices
 		} else if (cell->type == ID($slice)) {
-			dump_sigspec_rhs(cell->getPort(ID(A)));
+			dump_sigspec_rhs(cell->getPort(ID::A));
 			f << ".slice<";
-			f << cell->getParam(ID(OFFSET)).as_int() + cell->getParam(ID(Y_WIDTH)).as_int() - 1;
+			f << cell->getParam(ID::OFFSET).as_int() + cell->getParam(ID::Y_WIDTH).as_int() - 1;
 			f << ",";
-			f << cell->getParam(ID(OFFSET)).as_int();
+			f << cell->getParam(ID::OFFSET).as_int();
 			f << ">().val()";
 		} else {
 			log_assert(false);
@@ -704,8 +829,8 @@ struct CxxrtlWorker {
 
 	bool is_cell_elided(const RTLIL::Cell *cell)
 	{
-		return is_elidable_cell(cell->type) && cell->hasPort(ID(Y)) && cell->getPort(ID(Y)).is_wire() &&
-			elided_wires.count(cell->getPort(ID(Y)).as_wire());
+		return is_elidable_cell(cell->type) && cell->hasPort(ID::Y) && cell->getPort(ID::Y).is_wire() &&
+			elided_wires.count(cell->getPort(ID::Y).as_wire());
 	}
 
 	void collect_cell(const RTLIL::Cell *cell, std::vector<RTLIL::IdString> &cells)
@@ -715,7 +840,7 @@ struct CxxrtlWorker {
 
 		cells.push_back(cell->name);
 		for (auto port : cell->connections())
-			if (port.first != ID(Y))
+			if (port.first != ID::Y)
 				collect_sigspec_rhs(port.second, cells);
 	}
 
@@ -729,7 +854,7 @@ struct CxxrtlWorker {
 		std::vector<RTLIL::IdString> elided_cells;
 		if (is_elidable_cell(cell->type)) {
 			for (auto port : cell->connections())
-				if (port.first != ID(Y))
+				if (port.first != ID::Y)
 					collect_sigspec_rhs(port.second, elided_cells);
 		}
 		if (elided_cells.empty()) {
@@ -745,26 +870,26 @@ struct CxxrtlWorker {
 		// Elidable cells
 		if (is_elidable_cell(cell->type)) {
 			f << indent;
-			dump_sigspec_lhs(cell->getPort(ID(Y)));
+			dump_sigspec_lhs(cell->getPort(ID::Y));
 			f << " = ";
 			dump_cell_elided(cell);
 			f << ";\n";
 		// Parallel (one-hot) muxes
 		} else if (cell->type == ID($pmux)) {
-			int width = cell->getParam(ID(WIDTH)).as_int();
-			int s_width = cell->getParam(ID(S_WIDTH)).as_int();
+			int width = cell->getParam(ID::WIDTH).as_int();
+			int s_width = cell->getParam(ID::S_WIDTH).as_int();
 			bool first = true;
 			for (int part = 0; part < s_width; part++) {
 				f << (first ? indent : " else ");
 				first = false;
 				f << "if (";
-				dump_sigspec_rhs(cell->getPort(ID(S)).extract(part));
+				dump_sigspec_rhs(cell->getPort(ID::S).extract(part));
 				f << ") {\n";
 				inc_indent();
 					f << indent;
-					dump_sigspec_lhs(cell->getPort(ID(Y)));
+					dump_sigspec_lhs(cell->getPort(ID::Y));
 					f << " = ";
-					dump_sigspec_rhs(cell->getPort(ID(B)).extract(part * width, width));
+					dump_sigspec_rhs(cell->getPort(ID::B).extract(part * width, width));
 					f << ";\n";
 				dec_indent();
 				f << indent << "}";
@@ -772,31 +897,31 @@ struct CxxrtlWorker {
 			f << " else {\n";
 			inc_indent();
 				f << indent;
-				dump_sigspec_lhs(cell->getPort(ID(Y)));
+				dump_sigspec_lhs(cell->getPort(ID::Y));
 				f << " = ";
-				dump_sigspec_rhs(cell->getPort(ID(A)));
+				dump_sigspec_rhs(cell->getPort(ID::A));
 				f << ";\n";
 			dec_indent();
 			f << indent << "}\n";
 		// Flip-flops
 		} else if (is_ff_cell(cell->type)) {
-			if (cell->hasPort(ID(CLK)) && cell->getPort(ID(CLK)).is_wire()) {
+			if (cell->hasPort(ID::CLK) && cell->getPort(ID::CLK).is_wire()) {
 				// Edge-sensitive logic
-				RTLIL::SigBit clk_bit = cell->getPort(ID(CLK))[0];
+				RTLIL::SigBit clk_bit = cell->getPort(ID::CLK)[0];
 				clk_bit = sigmaps[clk_bit.wire->module](clk_bit);
-				f << indent << "if (" << (cell->getParam(ID(CLK_POLARITY)).as_bool() ? "posedge_" : "negedge_")
+				f << indent << "if (" << (cell->getParam(ID::CLK_POLARITY).as_bool() ? "posedge_" : "negedge_")
 				            << mangle(clk_bit) << ") {\n";
 				inc_indent();
 					if (cell->type == ID($dffe)) {
 						f << indent << "if (";
-						dump_sigspec_rhs(cell->getPort(ID(EN)));
-						f << " == value<1> {" << cell->getParam(ID(EN_POLARITY)).as_bool() << "u}) {\n";
+						dump_sigspec_rhs(cell->getPort(ID::EN));
+						f << " == value<1> {" << cell->getParam(ID::EN_POLARITY).as_bool() << "u}) {\n";
 						inc_indent();
 					}
 					f << indent;
-					dump_sigspec_lhs(cell->getPort(ID(Q)));
+					dump_sigspec_lhs(cell->getPort(ID::Q));
 					f << " = ";
-					dump_sigspec_rhs(cell->getPort(ID(D)));
+					dump_sigspec_rhs(cell->getPort(ID::D));
 					f << ";\n";
 					if (cell->type == ID($dffe)) {
 						dec_indent();
@@ -804,77 +929,77 @@ struct CxxrtlWorker {
 					}
 				dec_indent();
 				f << indent << "}\n";
-			} else if (cell->hasPort(ID(EN))) {
+			} else if (cell->hasPort(ID::EN)) {
 				// Level-sensitive logic
 				f << indent << "if (";
-				dump_sigspec_rhs(cell->getPort(ID(EN)));
-				f << " == value<1> {" << cell->getParam(ID(EN_POLARITY)).as_bool() << "u}) {\n";
+				dump_sigspec_rhs(cell->getPort(ID::EN));
+				f << " == value<1> {" << cell->getParam(ID::EN_POLARITY).as_bool() << "u}) {\n";
 				inc_indent();
 					f << indent;
-					dump_sigspec_lhs(cell->getPort(ID(Q)));
+					dump_sigspec_lhs(cell->getPort(ID::Q));
 					f << " = ";
-					dump_sigspec_rhs(cell->getPort(ID(D)));
+					dump_sigspec_rhs(cell->getPort(ID::D));
 					f << ";\n";
 				dec_indent();
 				f << indent << "}\n";
 			}
-			if (cell->hasPort(ID(ARST))) {
+			if (cell->hasPort(ID::ARST)) {
 				// Asynchronous reset (entire coarse cell at once)
 				f << indent << "if (";
-				dump_sigspec_rhs(cell->getPort(ID(ARST)));
-				f << " == value<1> {" << cell->getParam(ID(ARST_POLARITY)).as_bool() << "u}) {\n";
+				dump_sigspec_rhs(cell->getPort(ID::ARST));
+				f << " == value<1> {" << cell->getParam(ID::ARST_POLARITY).as_bool() << "u}) {\n";
 				inc_indent();
 					f << indent;
-					dump_sigspec_lhs(cell->getPort(ID(Q)));
+					dump_sigspec_lhs(cell->getPort(ID::Q));
 					f << " = ";
-					dump_const(cell->getParam(ID(ARST_VALUE)));
+					dump_const(cell->getParam(ID::ARST_VALUE));
 					f << ";\n";
 				dec_indent();
 				f << indent << "}\n";
 			}
-			if (cell->hasPort(ID(SET))) {
+			if (cell->hasPort(ID::SET)) {
 				// Asynchronous set (for individual bits)
 				f << indent;
-				dump_sigspec_lhs(cell->getPort(ID(Q)));
+				dump_sigspec_lhs(cell->getPort(ID::Q));
 				f << " = ";
-				dump_sigspec_lhs(cell->getPort(ID(Q)));
+				dump_sigspec_lhs(cell->getPort(ID::Q));
 				f << ".update(";
-				dump_const(RTLIL::Const(RTLIL::S1, cell->getParam(ID(WIDTH)).as_int()));
+				dump_const(RTLIL::Const(RTLIL::S1, cell->getParam(ID::WIDTH).as_int()));
 				f << ", ";
-				dump_sigspec_rhs(cell->getPort(ID(SET)));
-				f << (cell->getParam(ID(SET_POLARITY)).as_bool() ? "" : ".bit_not()") << ");\n";
+				dump_sigspec_rhs(cell->getPort(ID::SET));
+				f << (cell->getParam(ID::SET_POLARITY).as_bool() ? "" : ".bit_not()") << ");\n";
 			}
-			if (cell->hasPort(ID(CLR))) {
+			if (cell->hasPort(ID::CLR)) {
 				// Asynchronous clear (for individual bits; priority over set)
 				f << indent;
-				dump_sigspec_lhs(cell->getPort(ID(Q)));
+				dump_sigspec_lhs(cell->getPort(ID::Q));
 				f << " = ";
-				dump_sigspec_lhs(cell->getPort(ID(Q)));
+				dump_sigspec_lhs(cell->getPort(ID::Q));
 				f << ".update(";
-				dump_const(RTLIL::Const(RTLIL::S0, cell->getParam(ID(WIDTH)).as_int()));
+				dump_const(RTLIL::Const(RTLIL::S0, cell->getParam(ID::WIDTH).as_int()));
 				f << ", ";
-				dump_sigspec_rhs(cell->getPort(ID(CLR)));
-				f << (cell->getParam(ID(CLR_POLARITY)).as_bool() ? "" : ".bit_not()") << ");\n";
+				dump_sigspec_rhs(cell->getPort(ID::CLR));
+				f << (cell->getParam(ID::CLR_POLARITY).as_bool() ? "" : ".bit_not()") << ");\n";
 			}
 		// Memory ports
 		} else if (cell->type.in(ID($memrd), ID($memwr))) {
-			if (cell->getParam(ID(CLK_ENABLE)).as_bool()) {
-				RTLIL::SigBit clk_bit = cell->getPort(ID(CLK))[0];
+			if (cell->getParam(ID::CLK_ENABLE).as_bool()) {
+				RTLIL::SigBit clk_bit = cell->getPort(ID::CLK)[0];
 				clk_bit = sigmaps[clk_bit.wire->module](clk_bit);
-				f << indent << "if (" << (cell->getParam(ID(CLK_POLARITY)).as_bool() ? "posedge_" : "negedge_")
+				f << indent << "if (" << (cell->getParam(ID::CLK_POLARITY).as_bool() ? "posedge_" : "negedge_")
 				            << mangle(clk_bit) << ") {\n";
 				inc_indent();
 			}
-			RTLIL::Memory *memory = cell->module->memories[cell->getParam(ID(MEMID)).decode_string()];
+			RTLIL::Memory *memory = cell->module->memories[cell->getParam(ID::MEMID).decode_string()];
 			std::string valid_index_temp = fresh_temporary();
 			f << indent << "auto " << valid_index_temp << " = memory_index(";
-			dump_sigspec_rhs(cell->getPort(ID(ADDR)));
+			dump_sigspec_rhs(cell->getPort(ID::ADDR));
 			f << ", " << memory->start_offset << ", " << memory->size << ");\n";
 			if (cell->type == ID($memrd)) {
-				bool has_enable = cell->getParam(ID(CLK_ENABLE)).as_bool() && !cell->getPort(ID(EN)).is_fully_ones();
+				bool has_enable = cell->getParam(ID::CLK_ENABLE).as_bool() && !cell->getPort(ID::EN).is_fully_ones();
 				if (has_enable) {
 					f << indent << "if (";
-					dump_sigspec_rhs(cell->getPort(ID(EN)));
+					dump_sigspec_rhs(cell->getPort(ID::EN));
 					f << ") {\n";
 					inc_indent();
 				}
@@ -890,8 +1015,8 @@ struct CxxrtlWorker {
 				inc_indent();
 					if (writable_memories[memory]) {
 						std::string addr_temp = fresh_temporary();
-						f << indent << "const value<" << cell->getPort(ID(ADDR)).size() << "> &" << addr_temp << " = ";
-						dump_sigspec_rhs(cell->getPort(ID(ADDR)));
+						f << indent << "const value<" << cell->getPort(ID::ADDR).size() << "> &" << addr_temp << " = ";
+						dump_sigspec_rhs(cell->getPort(ID::ADDR));
 						f << ";\n";
 						std::string lhs_temp = fresh_temporary();
 						f << indent << "value<" << memory->width << "> " << lhs_temp << " = "
@@ -899,35 +1024,35 @@ struct CxxrtlWorker {
 						std::vector<const RTLIL::Cell*> memwr_cells(transparent_for[cell].begin(), transparent_for[cell].end());
 						std::sort(memwr_cells.begin(), memwr_cells.end(),
 							[](const RTLIL::Cell *a, const RTLIL::Cell *b) {
-								return a->getParam(ID(PRIORITY)).as_int() < b->getParam(ID(PRIORITY)).as_int();
+								return a->getParam(ID::PRIORITY).as_int() < b->getParam(ID::PRIORITY).as_int();
 							});
 						for (auto memwr_cell : memwr_cells) {
 							f << indent << "if (" << addr_temp << " == ";
-							dump_sigspec_rhs(memwr_cell->getPort(ID(ADDR)));
+							dump_sigspec_rhs(memwr_cell->getPort(ID::ADDR));
 							f << ") {\n";
 							inc_indent();
 								f << indent << lhs_temp << " = " << lhs_temp;
 								f << ".update(";
-								dump_sigspec_rhs(memwr_cell->getPort(ID(DATA)));
+								dump_sigspec_rhs(memwr_cell->getPort(ID::DATA));
 								f << ", ";
-								dump_sigspec_rhs(memwr_cell->getPort(ID(EN)));
+								dump_sigspec_rhs(memwr_cell->getPort(ID::EN));
 								f << ");\n";
 							dec_indent();
 							f << indent << "}\n";
 						}
 						f << indent;
-						dump_sigspec_lhs(cell->getPort(ID(DATA)));
+						dump_sigspec_lhs(cell->getPort(ID::DATA));
 						f << " = " << lhs_temp << ";\n";
 					} else {
 						f << indent;
-						dump_sigspec_lhs(cell->getPort(ID(DATA)));
+						dump_sigspec_lhs(cell->getPort(ID::DATA));
 						f << " = " << mangle(memory) << "[" << valid_index_temp << ".index];\n";
 					}
 				dec_indent();
 				f << indent << "} else {\n";
 				inc_indent();
 					f << indent;
-					dump_sigspec_lhs(cell->getPort(ID(DATA)));
+					dump_sigspec_lhs(cell->getPort(ID::DATA));
 					f << " = value<" << memory->width << "> {};\n";
 				dec_indent();
 				f << indent << "}\n";
@@ -944,14 +1069,14 @@ struct CxxrtlWorker {
 				f << indent << "if (" << valid_index_temp << ".valid) {\n";
 				inc_indent();
 					f << indent << mangle(memory) << ".update(" << valid_index_temp << ".index, ";
-					dump_sigspec_rhs(cell->getPort(ID(DATA)));
+					dump_sigspec_rhs(cell->getPort(ID::DATA));
 					f << ", ";
-					dump_sigspec_rhs(cell->getPort(ID(EN)));
-					f << ", " << cell->getParam(ID(PRIORITY)).as_int() << ");\n";
+					dump_sigspec_rhs(cell->getPort(ID::EN));
+					f << ", " << cell->getParam(ID::PRIORITY).as_int() << ");\n";
 				dec_indent();
 				f << indent << "}\n";
 			}
-			if (cell->getParam(ID(CLK_ENABLE)).as_bool()) {
+			if (cell->getParam(ID::CLK_ENABLE).as_bool()) {
 				dec_indent();
 				f << indent << "}\n";
 			}
@@ -961,13 +1086,14 @@ struct CxxrtlWorker {
 		// User cells
 		} else {
 			log_assert(cell->known());
+			const char *access = is_cxxrtl_blackbox_cell(cell) ? "->" : ".";
 			for (auto conn : cell->connections())
 				if (cell->input(conn.first)) {
-					f << indent << mangle(cell) << "." << mangle_wire_name(conn.first) << ".next = ";
+					f << indent << mangle(cell) << access << mangle_wire_name(conn.first) << ".next = ";
 					dump_sigspec_rhs(conn.second);
 					f << ";\n";
 				}
-			f << indent << mangle(cell) << ".eval();\n";
+			f << indent << mangle(cell) << access << "eval();\n";
 			for (auto conn : cell->connections()) {
 				if (conn.second.is_wire()) {
 					RTLIL::Wire *wire = conn.second.as_wire();
@@ -979,7 +1105,7 @@ struct CxxrtlWorker {
 						continue; // ignore disconnected ports
 					f << indent;
 					dump_sigspec_lhs(conn.second);
-					f << " = " << mangle(cell) << "." << mangle_wire_name(conn.first) << ".curr;\n";
+					f << " = " << mangle(cell) << access << mangle_wire_name(conn.first) << ".curr;\n";
 				}
 			}
 		}
@@ -1142,11 +1268,18 @@ struct CxxrtlWorker {
 			if (localized_wires.count(wire))
 				return;
 
+			std::string width;
+			if (wire->module->has_attribute(ID(cxxrtl.blackbox)) && wire->has_attribute(ID(cxxrtl.width))) {
+				width = wire->get_string_attribute(ID(cxxrtl.width));
+			} else {
+				width = std::to_string(wire->width);
+			}
+
 			dump_attrs(wire);
-			f << indent << "wire<" << wire->width << "> " << mangle(wire);
-			if (wire->attributes.count(ID(init))) {
+			f << indent << "wire<" << width << "> " << mangle(wire);
+			if (wire->has_attribute(ID::init)) {
 				f << " ";
-				dump_const_init(wire->attributes.at(ID(init)));
+				dump_const_init(wire->attributes.at(ID::init));
 			}
 			f << ";\n";
 			if (sync_wires[wire]) {
@@ -1166,12 +1299,12 @@ struct CxxrtlWorker {
 	{
 		vector<const RTLIL::Cell*> init_cells;
 		for (auto cell : module->cells())
-			if (cell->type == ID($meminit) && cell->getParam(ID(MEMID)).decode_string() == memory->name.str())
+			if (cell->type == ID($meminit) && cell->getParam(ID::MEMID).decode_string() == memory->name.str())
 				init_cells.push_back(cell);
 
 		std::sort(init_cells.begin(), init_cells.end(), [](const RTLIL::Cell *a, const RTLIL::Cell *b) {
-			int a_addr = a->getPort(ID(ADDR)).as_int(), b_addr = b->getPort(ID(ADDR)).as_int();
-			int a_prio = a->getParam(ID(PRIORITY)).as_int(), b_prio = b->getParam(ID(PRIORITY)).as_int();
+			int a_addr = a->getPort(ID::ADDR).as_int(), b_addr = b->getPort(ID::ADDR).as_int();
+			int a_prio = a->getParam(ID::PRIORITY).as_int(), b_prio = b->getParam(ID::PRIORITY).as_int();
 			return a_prio > b_prio || (a_prio == b_prio && a_addr < b_addr);
 		});
 
@@ -1185,11 +1318,11 @@ struct CxxrtlWorker {
 			inc_indent();
 				for (auto cell : init_cells) {
 					dump_attrs(cell);
-					RTLIL::Const data = cell->getPort(ID(DATA)).as_const();
-					size_t width = cell->getParam(ID(WIDTH)).as_int();
-					size_t words = cell->getParam(ID(WORDS)).as_int();
+					RTLIL::Const data = cell->getPort(ID::DATA).as_const();
+					size_t width = cell->getParam(ID::WIDTH).as_int();
+					size_t words = cell->getParam(ID::WORDS).as_int();
 					f << indent << "memory<" << memory->width << ">::init<" << words << "> { "
-					            << stringf("%#x", cell->getPort(ID(ADDR)).as_int()) << ", {";
+					            << stringf("%#x", cell->getPort(ID::ADDR).as_int()) << ", {";
 					inc_indent();
 						for (size_t n = 0; n < words; n++) {
 							if (n % 4 == 0)
@@ -1207,54 +1340,24 @@ struct CxxrtlWorker {
 		}
 	}
 
-	void dump_module_intf(RTLIL::Module *module)
+	void dump_eval_method(RTLIL::Module *module)
 	{
-		dump_attrs(module);
-		f << "struct " << mangle(module) << " : public module {\n";
 		inc_indent();
-			for (auto wire : module->wires())
-				dump_wire(wire, /*is_local=*/false);
-			f << "\n";
-			bool has_memories = false;
-			for (auto memory : module->memories) {
-				dump_memory(module, memory.second);
-				has_memories = true;
-			}
-			if (has_memories)
-				f << "\n";
-			bool has_cells = false;
-			for (auto cell : module->cells()) {
-				if (is_internal_cell(cell->type))
-					continue;
-				f << indent << mangle_module_name(cell->type) << " " << mangle(cell) << ";\n";
-				has_cells = true;
-			}
-			if (has_cells)
-				f << "\n";
-			f << indent << "void eval() override;\n";
-			f << indent << "bool commit() override;\n";
-		dec_indent();
-		f << "}; // struct " << mangle(module) << "\n";
-		f << "\n";
-	}
-
-	void dump_module_impl(RTLIL::Module *module)
-	{
-		f << "void " << mangle(module) << "::eval() {\n";
-		inc_indent();
-			for (auto wire : module->wires())
-				dump_wire(wire, /*is_local=*/true);
-			for (auto node : schedule[module]) {
-				switch (node.type) {
-					case FlowGraph::Node::Type::CONNECT:
-						dump_connect(node.connect);
-						break;
-					case FlowGraph::Node::Type::CELL:
-						dump_cell(node.cell);
-						break;
-					case FlowGraph::Node::Type::PROCESS:
-						dump_process(node.process);
-						break;
+			if (!module->get_bool_attribute(ID(cxxrtl.blackbox))) {
+				for (auto wire : module->wires())
+					dump_wire(wire, /*is_local=*/true);
+				for (auto node : schedule[module]) {
+					switch (node.type) {
+						case FlowGraph::Node::Type::CONNECT:
+							dump_connect(node.connect);
+							break;
+						case FlowGraph::Node::Type::CELL:
+							dump_cell(node.cell);
+							break;
+						case FlowGraph::Node::Type::PROCESS:
+							dump_process(node.process);
+							break;
+					}
 				}
 			}
 			for (auto sync_type : sync_types) {
@@ -1266,10 +1369,10 @@ struct CxxrtlWorker {
 				}
 			}
 		dec_indent();
-		f << "}\n";
-		f << "\n";
+	}
 
-		f << "bool " << mangle(module) << "::commit() {\n";
+	void dump_commit_method(RTLIL::Module *module)
+	{
 		inc_indent();
 			f << indent << "bool changed = false;\n";
 			for (auto wire : module->wires()) {
@@ -1305,42 +1408,174 @@ struct CxxrtlWorker {
 						}
 					dec_indent();
 					f << indent << "}\n";
-				} else {
+				} else if (!module->get_bool_attribute(ID(cxxrtl.blackbox)) || wire->port_id != 0) {
 					f << indent << "changed |= " << mangle(wire) << ".commit();\n";
 				}
 			}
-			for (auto memory : module->memories) {
-				if (!writable_memories[memory.second])
-					continue;
-				f << indent << "changed |= " << mangle(memory.second) << ".commit();\n";
-			}
-			for (auto cell : module->cells()) {
-				if (is_internal_cell(cell->type))
-					continue;
-				f << indent << "changed |= " << mangle(cell) << ".commit();\n";
+			if (!module->get_bool_attribute(ID(cxxrtl.blackbox))) {
+				for (auto memory : module->memories) {
+					if (!writable_memories[memory.second])
+						continue;
+					f << indent << "changed |= " << mangle(memory.second) << ".commit();\n";
+				}
+				for (auto cell : module->cells()) {
+					if (is_internal_cell(cell->type))
+						continue;
+					const char *access = is_cxxrtl_blackbox_cell(cell) ? "->" : ".";
+					f << indent << "changed |= " << mangle(cell) << access << "commit();\n";
+				}
 			}
 			f << indent << "return changed;\n";
 		dec_indent();
-		f << "}\n";
+	}
+
+	void dump_module_intf(RTLIL::Module *module)
+	{
+		dump_attrs(module);
+		if (module->get_bool_attribute(ID(cxxrtl.blackbox))) {
+			if (module->has_attribute(ID(cxxrtl.template)))
+				f << indent << "template" << template_params(module, /*is_decl=*/true) << "\n";
+			f << indent << "struct " << mangle(module) << " : public module {\n";
+			inc_indent();
+				for (auto wire : module->wires()) {
+					if (wire->port_id != 0)
+						dump_wire(wire, /*is_local=*/false);
+				}
+				f << "\n";
+				f << indent << "void eval() override {\n";
+				dump_eval_method(module);
+				f << indent << "}\n";
+				f << "\n";
+				f << indent << "bool commit() override {\n";
+				dump_commit_method(module);
+				f << indent << "}\n";
+				f << "\n";
+				f << indent << "static std::unique_ptr<" << mangle(module);
+				f << template_params(module, /*is_decl=*/false) << "> ";
+				f << "create(std::string name, parameter_map parameters);\n";
+			dec_indent();
+			f << indent << "}; // struct " << mangle(module) << "\n";
+			f << "\n";
+			if (blackbox_specializations.count(module)) {
+				// If templated black boxes are used, the constructor of any module which includes the black box cell
+				// (which calls the declared but not defined in the generated code `create` function) may only be used
+				// if (a) the create function is defined in the same translation unit, or (b) the create function has
+				// a forward-declared explicit specialization.
+				//
+				// Option (b) makes it possible to have the generated code and the black box implementation in different
+				// translation units, which is convenient. Of course, its downside is that black boxes must predefine
+				// a specialization for every combination of parameters the generated code may use; but since the main
+				// purpose of templated black boxes is abstracting over datapath width, it is expected that there would
+				// be very few such combinations anyway.
+				for (auto specialization : blackbox_specializations[module]) {
+					f << indent << "template<>\n";
+					f << indent << "std::unique_ptr<" << mangle(module) << specialization << "> ";
+					f << mangle(module) << specialization << "::";
+					f << "create(std::string name, parameter_map parameters);\n";
+					f << "\n";
+				}
+			}
+		} else {
+			f << indent << "struct " << mangle(module) << " : public module {\n";
+			inc_indent();
+				for (auto wire : module->wires())
+					dump_wire(wire, /*is_local=*/false);
+				f << "\n";
+				bool has_memories = false;
+				for (auto memory : module->memories) {
+					dump_memory(module, memory.second);
+					has_memories = true;
+				}
+				if (has_memories)
+					f << "\n";
+				bool has_cells = false;
+				for (auto cell : module->cells()) {
+					if (is_internal_cell(cell->type))
+						continue;
+					dump_attrs(cell);
+					RTLIL::Module *cell_module = module->design->module(cell->type);
+					log_assert(cell_module != nullptr);
+					if (cell_module->get_bool_attribute(ID(cxxrtl.blackbox))) {
+						f << indent << "std::unique_ptr<" << mangle(cell_module) << template_args(cell) << "> ";
+						f << mangle(cell) << " = " << mangle(cell_module) << template_args(cell);
+						f << "::create(" << escape_cxx_string(cell->name.str()) << ", ";
+						if (!cell->parameters.empty()) {
+							f << "parameter_map({\n";
+							inc_indent();
+								for (auto param : cell->parameters) {
+									// All blackbox parameters should be in the public namespace already; strip leading slash
+									// to make it more convenient for blackbox implementations.
+									log_assert(param.first.begins_with("\\"));
+									f << indent << "{ " << escape_cxx_string(param.first.str().substr(1)) << ", ";
+									if (param.second.flags & RTLIL::CONST_FLAG_REAL) {
+										f << std::showpoint << std::stod(param.second.decode_string()) << std::noshowpoint;
+									} else if (param.second.flags & RTLIL::CONST_FLAG_STRING) {
+										f << escape_cxx_string(param.second.decode_string());
+									} else {
+										f << param.second.as_int(/*is_signed=*/param.second.flags & RTLIL::CONST_FLAG_SIGNED);
+										if (!(param.second.flags & RTLIL::CONST_FLAG_SIGNED))
+											f << "u";
+									}
+									f << " },\n";
+								}
+							dec_indent();
+							f << indent << "})";
+						} else {
+							f << "parameter_map()";
+						}
+						f << ");\n";
+					} else {
+						f << indent << mangle(cell_module) << " " << mangle(cell) << ";\n";
+					}
+					has_cells = true;
+				}
+				if (has_cells)
+					f << "\n";
+				f << indent << "void eval() override;\n";
+				f << indent << "bool commit() override;\n";
+			dec_indent();
+			f << indent << "}; // struct " << mangle(module) << "\n";
+			f << "\n";
+		}
+	}
+
+	void dump_module_impl(RTLIL::Module *module)
+	{
+		if (module->get_bool_attribute(ID(cxxrtl.blackbox)))
+			return;
+		f << indent << "void " << mangle(module) << "::eval() {\n";
+		dump_eval_method(module);
+		f << indent << "}\n";
+		f << "\n";
+		f << indent << "bool " << mangle(module) << "::commit() {\n";
+		dump_commit_method(module);
+		f << indent << "}\n";
 		f << "\n";
 	}
 
 	void dump_design(RTLIL::Design *design)
 	{
+		std::vector<RTLIL::Module*> modules;
 		TopoSort<RTLIL::Module*> topo_design;
 		for (auto module : design->modules()) {
-			if (module->get_blackbox_attribute() || !design->selected_module(module))
+			if (!design->selected_module(module))
 				continue;
-			topo_design.node(module);
+			if (module->get_bool_attribute(ID(cxxrtl.blackbox)))
+				modules.push_back(module); // cxxrtl blackboxes first
+			if (module->get_blackbox_attribute() || module->get_bool_attribute(ID(cxxrtl.blackbox)))
+				continue;
 
+			topo_design.node(module);
 			for (auto cell : module->cells()) {
-				if (is_internal_cell(cell->type))
+				if (is_internal_cell(cell->type) || is_cxxrtl_blackbox_cell(cell))
 					continue;
-				log_assert(design->has(cell->type));
-				topo_design.edge(design->module(cell->type), module);
+				RTLIL::Module *cell_module = design->module(cell->type);
+				log_assert(cell_module != nullptr);
+				topo_design.edge(cell_module, module);
 			}
 		}
 		log_assert(topo_design.sort());
+		modules.insert(modules.end(), topo_design.sorted.begin(), topo_design.sorted.end());
 
 		if (split_intf) {
 			// The only thing more depraved than include guards, is mangling filenames to turn them into include guards.
@@ -1356,11 +1591,8 @@ struct CxxrtlWorker {
 			f << "\n";
 			f << "namespace " << design_ns << " {\n";
 			f << "\n";
-			for (auto module : topo_design.sorted) {
-				if (!design->selected_module(module))
-					continue;
+			for (auto module : modules)
 				dump_module_intf(module);
-			}
 			f << "} // namespace " << design_ns << "\n";
 			f << "\n";
 			f << "#endif\n";
@@ -1376,9 +1608,7 @@ struct CxxrtlWorker {
 		f << "\n";
 		f << "namespace " << design_ns << " {\n";
 		f << "\n";
-		for (auto module : topo_design.sorted) {
-			if (!design->selected_module(module))
-				continue;
+		for (auto module : modules) {
 			if (!split_intf)
 				dump_module_intf(module);
 			dump_module_impl(module);
@@ -1416,9 +1646,38 @@ struct CxxrtlWorker {
 			if (!design->selected_module(module))
 				continue;
 
-			FlowGraph flow;
 			SigMap &sigmap = sigmaps[module];
 			sigmap.set(module);
+
+			if (module->get_bool_attribute(ID(cxxrtl.blackbox))) {
+				for (auto port : module->ports) {
+					RTLIL::Wire *wire = module->wire(port);
+					if (wire->has_attribute(ID(cxxrtl.edge))) {
+						RTLIL::Const edge_attr = wire->attributes[ID(cxxrtl.edge)];
+						if (!(edge_attr.flags & RTLIL::CONST_FLAG_STRING) || (int)edge_attr.decode_string().size() != GetSize(wire))
+							log_cmd_error("Attribute `cxxrtl.edge' of port `%s.%s' is not a string with one character per bit.\n",
+							              log_id(module), log_signal(wire));
+
+						std::string edges = wire->get_string_attribute(ID(cxxrtl.edge));
+						for (int i = 0; i < GetSize(wire); i++) {
+							RTLIL::SigSpec wire_sig = wire;
+							switch (edges[i]) {
+								case '-': break;
+								case 'p': register_edge_signal(sigmap, wire_sig[i], RTLIL::STp); break;
+								case 'n': register_edge_signal(sigmap, wire_sig[i], RTLIL::STn); break;
+								case 'a': register_edge_signal(sigmap, wire_sig[i], RTLIL::STe); break;
+								default:
+									log_cmd_error("Attribute `cxxrtl.edge' of port `%s.%s' contains specifiers "
+									              "other than '-', 'p', 'n', or 'a'.\n",
+										log_id(module), log_signal(wire));
+							}
+						}
+					}
+				}
+				continue;
+			}
+
+			FlowGraph flow;
 
 			for (auto conn : module->connections())
 				flow.add_node(conn);
@@ -1427,30 +1686,44 @@ struct CxxrtlWorker {
 			dict<std::pair<RTLIL::SigBit, const RTLIL::Memory*>,
 			     pool<const RTLIL::Cell*>> memwr_per_domain;
 			for (auto cell : module->cells()) {
+				if (!cell->known())
+					log_cmd_error("Unknown cell `%s'.\n", log_id(cell->type));
+
+				RTLIL::Module *cell_module = design->module(cell->type);
+				if (cell_module &&
+				    cell_module->get_blackbox_attribute() &&
+				    !cell_module->get_bool_attribute(ID(cxxrtl.blackbox)))
+					log_cmd_error("External blackbox cell `%s' is not marked as a CXXRTL blackbox.\n", log_id(cell->type));
+
+				if (cell_module &&
+				    cell_module->get_bool_attribute(ID(cxxrtl.blackbox)) &&
+				    cell_module->get_bool_attribute(ID(cxxrtl.template)))
+					blackbox_specializations[cell_module].insert(template_args(cell));
+
 				FlowGraph::Node *node = flow.add_node(cell);
 
 				// Various DFF cells are treated like posedge/negedge processes, see above for details.
 				if (cell->type.in(ID($dff), ID($dffe), ID($adff), ID($dffsr))) {
-					if (cell->getPort(ID(CLK)).is_wire())
-						register_edge_signal(sigmap, cell->getPort(ID(CLK)),
-							cell->parameters[ID(CLK_POLARITY)].as_bool() ? RTLIL::STp : RTLIL::STn);
+					if (cell->getPort(ID::CLK).is_wire())
+						register_edge_signal(sigmap, cell->getPort(ID::CLK),
+							cell->parameters[ID::CLK_POLARITY].as_bool() ? RTLIL::STp : RTLIL::STn);
 				}
 				// Similar for memory port cells.
 				if (cell->type.in(ID($memrd), ID($memwr))) {
-					if (cell->getParam(ID(CLK_ENABLE)).as_bool()) {
-						if (cell->getPort(ID(CLK)).is_wire())
-							register_edge_signal(sigmap, cell->getPort(ID(CLK)),
-								cell->parameters[ID(CLK_POLARITY)].as_bool() ? RTLIL::STp : RTLIL::STn);
+					if (cell->getParam(ID::CLK_ENABLE).as_bool()) {
+						if (cell->getPort(ID::CLK).is_wire())
+							register_edge_signal(sigmap, cell->getPort(ID::CLK),
+								cell->parameters[ID::CLK_POLARITY].as_bool() ? RTLIL::STp : RTLIL::STn);
 					}
 					memrw_cell_nodes[cell] = node;
 				}
 				// Optimize access to read-only memories.
 				if (cell->type == ID($memwr))
-					writable_memories.insert(module->memories[cell->getParam(ID(MEMID)).decode_string()]);
+					writable_memories.insert(module->memories[cell->getParam(ID::MEMID).decode_string()]);
 				// Collect groups of memory write ports in the same domain.
-				if (cell->type == ID($memwr) && cell->getParam(ID(CLK_ENABLE)).as_bool() && cell->getPort(ID(CLK)).is_wire()) {
-					RTLIL::SigBit clk_bit = sigmap(cell->getPort(ID(CLK)))[0];
-					const RTLIL::Memory *memory = module->memories[cell->getParam(ID(MEMID)).decode_string()];
+				if (cell->type == ID($memwr) && cell->getParam(ID::CLK_ENABLE).as_bool() && cell->getPort(ID::CLK).is_wire()) {
+					RTLIL::SigBit clk_bit = sigmap(cell->getPort(ID::CLK))[0];
+					const RTLIL::Memory *memory = module->memories[cell->getParam(ID::MEMID).decode_string()];
 					memwr_per_domain[{clk_bit, memory}].insert(cell);
 				}
 				// Handling of packed memories is delegated to the `memory_unpack` pass, so we can rely on the presence
@@ -1460,17 +1733,17 @@ struct CxxrtlWorker {
 			}
 			for (auto cell : module->cells()) {
 				// Collect groups of memory write ports read by every transparent read port.
-				if (cell->type == ID($memrd) && cell->getParam(ID(CLK_ENABLE)).as_bool() && cell->getPort(ID(CLK)).is_wire() &&
-				    cell->getParam(ID(TRANSPARENT)).as_bool()) {
-					RTLIL::SigBit clk_bit = sigmap(cell->getPort(ID(CLK)))[0];
-					const RTLIL::Memory *memory = module->memories[cell->getParam(ID(MEMID)).decode_string()];
+				if (cell->type == ID($memrd) && cell->getParam(ID::CLK_ENABLE).as_bool() && cell->getPort(ID::CLK).is_wire() &&
+				    cell->getParam(ID::TRANSPARENT).as_bool()) {
+					RTLIL::SigBit clk_bit = sigmap(cell->getPort(ID::CLK))[0];
+					const RTLIL::Memory *memory = module->memories[cell->getParam(ID::MEMID).decode_string()];
 					for (auto memwr_cell : memwr_per_domain[{clk_bit, memory}]) {
 						transparent_for[cell].insert(memwr_cell);
 						// Our implementation of transparent $memrd cells reads \EN, \ADDR and \DATA from every $memwr cell
 						// in the same domain, which isn't directly visible in the netlist. Add these uses explicitly.
-						flow.add_uses(memrw_cell_nodes[cell], memwr_cell->getPort(ID(EN)));
-						flow.add_uses(memrw_cell_nodes[cell], memwr_cell->getPort(ID(ADDR)));
-						flow.add_uses(memrw_cell_nodes[cell], memwr_cell->getPort(ID(DATA)));
+						flow.add_uses(memrw_cell_nodes[cell], memwr_cell->getPort(ID::EN));
+						flow.add_uses(memrw_cell_nodes[cell], memwr_cell->getPort(ID::ADDR));
+						flow.add_uses(memrw_cell_nodes[cell], memwr_cell->getPort(ID::DATA));
 					}
 				}
 			}
@@ -1506,7 +1779,7 @@ struct CxxrtlWorker {
 			for (auto wire : module->wires()) {
 				if (!flow.is_elidable(wire)) continue;
 				if (wire->port_id != 0) continue;
-				if (wire->get_bool_attribute(ID(keep))) continue;
+				if (wire->get_bool_attribute(ID::keep)) continue;
 				if (wire->name.begins_with("$") && !elide_internal) continue;
 				if (wire->name.begins_with("\\") && !elide_public) continue;
 				if (sync_wires[wire]) continue;
@@ -1564,7 +1837,7 @@ struct CxxrtlWorker {
 
 			if (!feedback_wires.empty()) {
 				has_feedback_arcs = true;
-				log("Module `%s` contains feedback arcs through wires:\n", module->name.c_str());
+				log("Module `%s' contains feedback arcs through wires:\n", module->name.c_str());
 				for (auto wire : feedback_wires) {
 					log("  %s\n", wire->name.c_str());
 				}
@@ -1573,7 +1846,7 @@ struct CxxrtlWorker {
 			for (auto wire : module->wires()) {
 				if (feedback_wires[wire]) continue;
 				if (wire->port_id != 0) continue;
-				if (wire->get_bool_attribute(ID(keep))) continue;
+				if (wire->get_bool_attribute(ID::keep)) continue;
 				if (wire->name.begins_with("$") && !localize_internal) continue;
 				if (wire->name.begins_with("\\") && !localize_public) continue;
 				if (sync_wires[wire]) continue;
@@ -1592,12 +1865,12 @@ struct CxxrtlWorker {
 		has_sync_init = has_packed_mem = false;
 
 		for (auto module : design->modules()) {
-			if (module->get_blackbox_attribute())
+			if (module->get_blackbox_attribute() && !module->has_attribute(ID(cxxrtl.blackbox)))
 				continue;
 
 			if (!design->selected_whole_module(module))
 				if (design->selected_module(module))
-					log_cmd_error("Can't handle partially selected module `%s`!\n", id2cstr(module->name));
+					log_cmd_error("Can't handle partially selected module `%s'!\n", id2cstr(module->name));
 			if (!design->selected_module(module))
 				continue;
 
@@ -1649,7 +1922,7 @@ struct CxxrtlBackend : public Backend {
 		log("\n");
 		log("    write_cxxrtl [options] [filename]\n");
 		log("\n");
-		log("Write C++ code for simulating the design. The generated code requires a driver\n");
+		log("Write C++ code that simulates the design. The generated code requires a driver\n");
 		log("that instantiates the design, toggles its clock, and interacts with its ports.\n");
 		log("\n");
 		log("The following driver may be used as an example for a design with a single clock\n");
@@ -1670,8 +1943,121 @@ struct CxxrtlBackend : public Backend {
 		log("    }\n");
 		log("\n");
 		log("Note that CXXRTL simulations, just like the hardware they are simulating, are\n");
-		log("subject to race conditions. If, in then example above, the user logic would run\n");
+		log("subject to race conditions. If, in the example above, the user logic would run\n");
 		log("simultaneously with the rising edge of the clock, the design would malfunction.\n");
+		log("\n");
+		log("This backend supports replacing parts of the design with black boxes implemented\n");
+		log("in C++. If a module marked as a CXXRTL black box, its implementation is ignored,\n");
+		log("and the generated code consists only of an interface and a factory function.\n");
+		log("The driver must implement the factory function that creates an implementation of\n");
+		log("the black box, taking into account the parameters it is instantiated with.\n");
+		log("\n");
+		log("For example, the following Verilog code defines a CXXRTL black box interface for\n");
+		log("a synchronous debug sink:\n");
+		log("\n");
+		log("    (* cxxrtl.blackbox *)\n");
+		log("    module debug(...);\n");
+		log("      (* cxxrtl.edge = \"p\" *) input clk;\n");
+		log("      input en;\n");
+		log("      input [7:0] data;\n");
+		log("    endmodule\n");
+		log("\n");
+		log("For this HDL interface, this backend will generate the following C++ interface:\n");
+		log("\n");
+		log("    struct bb_debug : public module {\n");
+		log("      wire<1> p_clk;\n");
+		log("      bool posedge_p_clk = false;\n");
+		log("      wire<1> p_en;\n");
+		log("      wire<8> p_data;\n");
+		log("\n");
+		log("      void eval() override;\n");
+		log("      bool commit() override;\n");
+		log("\n");
+		log("      static std::unique_ptr<bb_debug>\n");
+		log("      create(std::string name, parameter_map parameters);\n");
+		log("    };\n");
+		log("\n");
+		log("The `create' function must be implemented by the driver. For example, it could\n");
+		log("always provide an implementation logging the values to standard error stream:\n");
+		log("\n");
+		log("    namespace cxxrtl_design {\n");
+		log("\n");
+		log("    struct stderr_debug : public bb_debug {\n");
+		log("      void eval() override {\n");
+		log("        if (posedge_p_clk && p_en.curr)\n");
+		log("          fprintf(stderr, \"debug: %%02x\\n\", p_data.curr.data[0]);\n");
+		log("        bb_debug::eval();\n");
+		log("      }\n");
+		log("    };\n");
+		log("\n");
+		log("    std::unique_ptr<bb_debug>\n");
+		log("    bb_debug::create(std::string name, cxxrtl::parameter_map parameters) {\n");
+		log("      return std::make_unique<stderr_debug>();\n");
+		log("    }\n");
+		log("\n");
+		log("    }\n");
+		log("\n");
+		log("For complex applications of black boxes, it is possible to parameterize their\n");
+		log("port widths. For example, the following Verilog code defines a CXXRTL black box\n");
+		log("interface for a configurable width debug sink:\n");
+		log("\n");
+		log("    (* cxxrtl.blackbox, cxxrtl.template = \"WIDTH\" *)\n");
+		log("    module debug(...);\n");
+		log("      parameter WIDTH = 8;\n");
+		log("      (* cxxrtl.edge = \"p\" *) input clk;\n");
+		log("      input en;\n");
+		log("      (* cxxrtl.width = \"WIDTH\" *) input [WIDTH - 1:0] data;\n");
+		log("    endmodule\n");
+		log("\n");
+		log("For this parametric HDL interface, this backend will generate the following C++\n");
+		log("interface (only the differences are shown):\n");
+		log("\n");
+		log("    template<size_t WIDTH>\n");
+		log("    struct bb_debug : public module {\n");
+		log("      // ...\n");
+		log("      wire<WIDTH> p_data;\n");
+		log("      // ...\n");
+		log("      static std::unique_ptr<bb_debug<WIDTH>>\n");
+		log("      create(std::string name, parameter_map parameters);\n");
+		log("    };\n");
+		log("\n");
+		log("The `create' function must be implemented by the driver, specialized for every\n");
+		log("possible combination of template parameters. (Specialization is necessary to\n");
+		log("enable separate compilation of generated code and black box implementations.)\n");
+		log("\n");
+		log("    template<size_t SIZE>\n");
+		log("    struct stderr_debug : public bb_debug<SIZE> {\n");
+		log("      // ...\n");
+		log("    };\n");
+		log("\n");
+		log("    template<>\n");
+		log("    std::unique_ptr<bb_debug<8>>\n");
+		log("    bb_debug<8>::create(std::string name, cxxrtl::parameter_map parameters) {\n");
+		log("      return std::make_unique<stderr_debug<8>>();\n");
+		log("    }\n");
+		log("\n");
+		log("The following attributes are recognized by this backend:\n");
+		log("\n");
+		log("    cxxrtl.blackbox\n");
+		log("        only valid on modules. if specified, the module contents are ignored,\n");
+		log("        and the generated code includes only the module interface and a factory\n");
+		log("        function, which will be called to instantiate the module.\n");
+		log("\n");
+		log("    cxxrtl.edge\n");
+		log("        only valid on inputs of black boxes. must be one of \"p\", \"n\", \"a\".\n");
+		log("        if specified on signal `clk`, the generated code includes boolean fields\n");
+		log("        `posedge_p_clk` (if \"p\"), `negedge_p_clk` (if \"n\"), or both (if \"a\"),\n");
+		log("        as well as edge detection logic, simplifying implementation of clocked\n");
+		log("        black boxes.\n");
+		log("\n");
+		log("    cxxrtl.template\n");
+		log("        only valid on black boxes. must contain a space separated sequence of\n");
+		log("        identifiers that have a corresponding black box parameters. for each\n");
+		log("        of them, the generated code includes a `size_t` template parameter.\n");
+		log("\n");
+		log("    cxxrtl.width\n");
+		log("        only valid on ports of black boxes. must be a constant expression, which\n");
+		log("        is directly inserted into generated code.\n");
 		log("\n");
 		log("The following options are supported by this backend:\n");
 		log("\n");
