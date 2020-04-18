@@ -363,6 +363,23 @@ bool is_cxxrtl_blackbox_cell(const RTLIL::Cell *cell)
 	return cell_module->get_bool_attribute(ID(cxxrtl.blackbox));
 }
 
+std::vector<std::string> split_by(const std::string &str, const std::string &sep)
+{
+	std::vector<std::string> result;
+	size_t prev = 0;
+	while (true) {
+		size_t curr = str.find_first_of(sep, prev + 1);
+		if (curr > str.size())
+			curr = str.size();
+		if (curr > prev + 1)
+			result.push_back(str.substr(prev, curr - prev));
+		if (curr == str.size())
+			break;
+		prev = curr;
+	}
+	return result;
+}
+
 std::string escape_cxx_string(const std::string &input)
 {
 	std::string output = "\"";
@@ -412,6 +429,7 @@ struct CxxrtlWorker {
 	dict<const RTLIL::Wire*, FlowGraph::Node> elided_wires;
 	dict<const RTLIL::Module*, std::vector<FlowGraph::Node>> schedule;
 	pool<const RTLIL::Wire*> localized_wires;
+	dict<const RTLIL::Module*, pool<std::string>> blackbox_specializations;
 
 	void inc_indent() {
 		indent += "\t";
@@ -511,6 +529,80 @@ struct CxxrtlWorker {
 		if (sigbit.wire->width == 1)
 			return mangle(sigbit.wire);
 		return mangle(sigbit.wire) + "_" + std::to_string(sigbit.offset);
+	}
+
+	std::vector<std::string> template_param_names(const RTLIL::Module *module)
+	{
+		if (!module->has_attribute(ID(cxxrtl.template)))
+			return {};
+
+		if (module->attributes.at(ID(cxxrtl.template)).flags != RTLIL::CONST_FLAG_STRING)
+			log_cmd_error("Attribute `cxxrtl.template' of module `%s' is not a string.\n", log_id(module));
+
+		std::vector<std::string> param_names = split_by(module->get_string_attribute(ID(cxxrtl.template)), " \t");
+		for (const auto &param_name : param_names) {
+			// Various lowercase prefixes (p_, i_, cell_, ...) are used for member variables, so require
+			// parameters to start with an uppercase letter to avoid name conflicts. (This is the convention
+			// in both Verilog and C++, anyway.)
+			if (!isupper(param_name[0]))
+				log_cmd_error("Attribute `cxxrtl.template' of module `%s' includes a parameter `%s', "
+				              "which does not start with an uppercase letter.\n",
+				              log_id(module), param_name.c_str());
+		}
+		return param_names;
+	}
+
+	std::string template_params(const RTLIL::Module *module, bool is_decl)
+	{
+		std::vector<std::string> param_names = template_param_names(module);
+		if (param_names.empty())
+			return "";
+
+		std::string params = "<";
+		bool first = true;
+		for (const auto &param_name : param_names) {
+			if (!first)
+				params += ", ";
+			first = false;
+			if (is_decl)
+				params += "size_t ";
+			params += param_name;
+		}
+		params += ">";
+		return params;
+	}
+
+	std::string template_args(const RTLIL::Cell *cell)
+	{
+		RTLIL::Module *cell_module = cell->module->design->module(cell->type);
+		log_assert(cell_module != nullptr);
+		if (!cell_module->get_bool_attribute(ID(cxxrtl.blackbox)))
+			return "";
+
+		std::vector<std::string> param_names = template_param_names(cell_module);
+		if (param_names.empty())
+			return "";
+
+		std::string params = "<";
+		bool first = true;
+		for (const auto &param_name : param_names) {
+			if (!first)
+				params += ", ";
+			first = false;
+			params += "/*" + param_name + "=*/";
+			RTLIL::IdString id_param_name = '\\' + param_name;
+			if (!cell->hasParam(id_param_name))
+				log_cmd_error("Cell `%s.%s' does not have a parameter `%s', which is required by the templated module `%s'.\n",
+				              log_id(cell->module), log_id(cell), param_name.c_str(), log_id(cell_module));
+			RTLIL::Const param_value = cell->getParam(id_param_name);
+			if (((param_value.flags & ~RTLIL::CONST_FLAG_SIGNED) != 0) || param_value.as_int() < 0)
+				log_cmd_error("Parameter `%s' of cell `%s.%s', which is required by the templated module `%s', "
+				              "is not a positive integer.\n",
+				              param_name.c_str(), log_id(cell->module), log_id(cell), log_id(cell_module));
+			params += std::to_string(cell->getParam(id_param_name).as_int());
+		}
+		params += ">";
+		return params;
 	}
 
 	std::string fresh_temporary()
@@ -1176,9 +1268,16 @@ struct CxxrtlWorker {
 			if (localized_wires.count(wire))
 				return;
 
+			std::string width;
+			if (wire->module->has_attribute(ID(cxxrtl.blackbox)) && wire->has_attribute(ID(cxxrtl.width))) {
+				width = wire->get_string_attribute(ID(cxxrtl.width));
+			} else {
+				width = std::to_string(wire->width);
+			}
+
 			dump_attrs(wire);
-			f << indent << "wire<" << wire->width << "> " << mangle(wire);
-			if (wire->attributes.count(ID::init)) {
+			f << indent << "wire<" << width << "> " << mangle(wire);
+			if (wire->has_attribute(ID::init)) {
 				f << " ";
 				dump_const_init(wire->attributes.at(ID::init));
 			}
@@ -1334,7 +1433,9 @@ struct CxxrtlWorker {
 	{
 		dump_attrs(module);
 		if (module->get_bool_attribute(ID(cxxrtl.blackbox))) {
-			f << "struct " << mangle(module) << " : public module {\n";
+			if (module->has_attribute(ID(cxxrtl.template)))
+				f << indent << "template" << template_params(module, /*is_decl=*/true) << "\n";
+			f << indent << "struct " << mangle(module) << " : public module {\n";
 			inc_indent();
 				for (auto wire : module->wires()) {
 					if (wire->port_id != 0)
@@ -1349,13 +1450,33 @@ struct CxxrtlWorker {
 				dump_commit_method(module);
 				f << indent << "}\n";
 				f << "\n";
-				f << indent << "static std::unique_ptr<" << mangle(module) << "> ";
+				f << indent << "static std::unique_ptr<" << mangle(module);
+				f << template_params(module, /*is_decl=*/false) << "> ";
 				f << "create(std::string name, parameter_map parameters);\n";
 			dec_indent();
-			f << "}; // struct " << mangle(module) << "\n";
+			f << indent << "}; // struct " << mangle(module) << "\n";
 			f << "\n";
+			if (blackbox_specializations.count(module)) {
+				// If templated black boxes are used, the constructor of any module which includes the black box cell
+				// (which calls the declared but not defined in the generated code `create` function) may only be used
+				// if (a) the create function is defined in the same translation unit, or (b) the create function has
+				// a forward-declared explicit specialization.
+				//
+				// Option (b) makes it possible to have the generated code and the black box implementation in different
+				// translation units, which is convenient. Of course, its downside is that black boxes must predefine
+				// a specialization for every combination of parameters the generated code may use; but since the main
+				// purpose of templated black boxes is abstracting over datapath width, it is expected that there would
+				// be very few such combinations anyway.
+				for (auto specialization : blackbox_specializations[module]) {
+					f << indent << "template<>\n";
+					f << indent << "std::unique_ptr<" << mangle(module) << specialization << "> ";
+					f << mangle(module) << specialization << "::";
+					f << "create(std::string name, parameter_map parameters);\n";
+					f << "\n";
+				}
+			}
 		} else {
-			f << "struct " << mangle(module) << " : public module {\n";
+			f << indent << "struct " << mangle(module) << " : public module {\n";
 			inc_indent();
 				for (auto wire : module->wires())
 					dump_wire(wire, /*is_local=*/false);
@@ -1375,8 +1496,9 @@ struct CxxrtlWorker {
 					RTLIL::Module *cell_module = module->design->module(cell->type);
 					log_assert(cell_module != nullptr);
 					if (cell_module->get_bool_attribute(ID(cxxrtl.blackbox))) {
-						f << indent << "std::unique_ptr<" << mangle(cell_module) << "> " << mangle(cell) << " = ";
-						f << mangle(cell_module) << "::create(" << escape_cxx_string(cell->name.str()) << ", ";
+						f << indent << "std::unique_ptr<" << mangle(cell_module) << template_args(cell) << "> ";
+						f << mangle(cell) << " = " << mangle(cell_module) << template_args(cell);
+						f << "::create(" << escape_cxx_string(cell->name.str()) << ", ";
 						if (!cell->parameters.empty()) {
 							f << "parameter_map({\n";
 							inc_indent();
@@ -1412,7 +1534,7 @@ struct CxxrtlWorker {
 				f << indent << "void eval() override;\n";
 				f << indent << "bool commit() override;\n";
 			dec_indent();
-			f << "}; // struct " << mangle(module) << "\n";
+			f << indent << "}; // struct " << mangle(module) << "\n";
 			f << "\n";
 		}
 	}
@@ -1421,13 +1543,13 @@ struct CxxrtlWorker {
 	{
 		if (module->get_bool_attribute(ID(cxxrtl.blackbox)))
 			return;
-		f << "void " << mangle(module) << "::eval() {\n";
+		f << indent << "void " << mangle(module) << "::eval() {\n";
 		dump_eval_method(module);
-		f << "}\n";
+		f << indent << "}\n";
 		f << "\n";
-		f << "bool " << mangle(module) << "::commit() {\n";
+		f << indent << "bool " << mangle(module) << "::commit() {\n";
 		dump_commit_method(module);
-		f << "}\n";
+		f << indent << "}\n";
 		f << "\n";
 	}
 
@@ -1568,8 +1690,15 @@ struct CxxrtlWorker {
 					log_cmd_error("Unknown cell `%s'.\n", log_id(cell->type));
 
 				RTLIL::Module *cell_module = design->module(cell->type);
-				if (cell_module && cell_module->get_blackbox_attribute() && !cell_module->get_bool_attribute(ID(cxxrtl.blackbox)))
+				if (cell_module &&
+				    cell_module->get_blackbox_attribute() &&
+				    !cell_module->get_bool_attribute(ID(cxxrtl.blackbox)))
 					log_cmd_error("External blackbox cell `%s' is not marked as a CXXRTL blackbox.\n", log_id(cell->type));
+
+				if (cell_module &&
+				    cell_module->get_bool_attribute(ID(cxxrtl.blackbox)) &&
+				    cell_module->get_bool_attribute(ID(cxxrtl.template)))
+					blackbox_specializations[cell_module].insert(template_args(cell));
 
 				FlowGraph::Node *node = flow.add_node(cell);
 
@@ -1844,8 +1973,8 @@ struct CxxrtlBackend : public Backend {
 		log("      void eval() override;\n");
 		log("      bool commit() override;\n");
 		log("\n");
-		log("      static std::unique_ptr<bb_debug> create(std::string name,\n");
-		log("                                              parameter_map parameters);\n");
+		log("      static std::unique_ptr<bb_debug>\n");
+		log("      create(std::string name, parameter_map parameters);\n");
 		log("    };\n");
 		log("\n");
 		log("The `create' function must be implemented by the driver. For example, it could\n");
@@ -1868,6 +1997,45 @@ struct CxxrtlBackend : public Backend {
 		log("\n");
 		log("    }\n");
 		log("\n");
+		log("For complex applications of black boxes, it is possible to parameterize their\n");
+		log("port widths. For example, the following Verilog code defines a CXXRTL black box\n");
+		log("interface for a configurable width debug sink:\n");
+		log("\n");
+		log("    (* cxxrtl.blackbox, cxxrtl.template = \"WIDTH\" *)\n");
+		log("    module debug(...);\n");
+		log("      parameter WIDTH = 8;\n");
+		log("      (* cxxrtl.edge = \"p\" *) input clk;\n");
+		log("      input en;\n");
+		log("      (* cxxrtl.width = \"WIDTH\" *) input [WIDTH - 1:0] data;\n");
+		log("    endmodule\n");
+		log("\n");
+		log("For this parametric HDL interface, this backend will generate the following C++\n");
+		log("interface (only the differences are shown):\n");
+		log("\n");
+		log("    template<size_t WIDTH>\n");
+		log("    struct bb_debug : public module {\n");
+		log("      // ...\n");
+		log("      wire<WIDTH> p_data;\n");
+		log("      // ...\n");
+		log("      static std::unique_ptr<bb_debug<WIDTH>>\n");
+		log("      create(std::string name, parameter_map parameters);\n");
+		log("    };\n");
+		log("\n");
+		log("The `create' function must be implemented by the driver, specialized for every\n");
+		log("possible combination of template parameters. (Specialization is necessary to\n");
+		log("enable separate compilation of generated code and black box implementations.)\n");
+		log("\n");
+		log("    template<size_t SIZE>\n");
+		log("    struct stderr_debug : public bb_debug<SIZE> {\n");
+		log("      // ...\n");
+		log("    };\n");
+		log("\n");
+		log("    template<>\n");
+		log("    std::unique_ptr<bb_debug<8>>\n");
+		log("    bb_debug<8>::create(std::string name, cxxrtl::parameter_map parameters) {\n");
+		log("      return std::make_unique<stderr_debug<8>>();\n");
+		log("    }\n");
+		log("\n");
 		log("The following attributes are recognized by this backend:\n");
 		log("\n");
 		log("    cxxrtl.blackbox\n");
@@ -1881,6 +2049,15 @@ struct CxxrtlBackend : public Backend {
 		log("        `posedge_p_clk` (if \"p\"), `negedge_p_clk` (if \"n\"), or both (if \"a\"),\n");
 		log("        as well as edge detection logic, simplifying implementation of clocked\n");
 		log("        black boxes.\n");
+		log("\n");
+		log("    cxxrtl.template\n");
+		log("        only valid on black boxes. must contain a space separated sequence of\n");
+		log("        identifiers that have a corresponding black box parameters. for each\n");
+		log("        of them, the generated code includes a `size_t` template parameter.\n");
+		log("\n");
+		log("    cxxrtl.width\n");
+		log("        only valid on ports of black boxes. must be a constant expression, which\n");
+		log("        is directly inserted into generated code.\n");
 		log("\n");
 		log("The following options are supported by this backend:\n");
 		log("\n");
