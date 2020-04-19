@@ -1429,6 +1429,33 @@ struct CxxrtlWorker {
 		dec_indent();
 	}
 
+	void dump_metadata_map(const dict<RTLIL::IdString, RTLIL::Const> &metadata_map)
+	{
+		if (metadata_map.empty()) {
+			f << "metadata_map()";
+			return;
+		}
+		f << "metadata_map({\n";
+		inc_indent();
+			for (auto metadata_item : metadata_map) {
+				if (!metadata_item.first.begins_with("\\"))
+					continue;
+				f << indent << "{ " << escape_cxx_string(metadata_item.first.str().substr(1)) << ", ";
+				if (metadata_item.second.flags & RTLIL::CONST_FLAG_REAL) {
+					f << std::showpoint << std::stod(metadata_item.second.decode_string()) << std::noshowpoint;
+				} else if (metadata_item.second.flags & RTLIL::CONST_FLAG_STRING) {
+					f << escape_cxx_string(metadata_item.second.decode_string());
+				} else {
+					f << metadata_item.second.as_int(/*is_signed=*/metadata_item.second.flags & RTLIL::CONST_FLAG_SIGNED);
+					if (!(metadata_item.second.flags & RTLIL::CONST_FLAG_SIGNED))
+						f << "u";
+				}
+				f << " },\n";
+			}
+		dec_indent();
+		f << indent << "})";
+	}
+
 	void dump_module_intf(RTLIL::Module *module)
 	{
 		dump_attrs(module);
@@ -1452,7 +1479,7 @@ struct CxxrtlWorker {
 				f << "\n";
 				f << indent << "static std::unique_ptr<" << mangle(module);
 				f << template_params(module, /*is_decl=*/false) << "> ";
-				f << "create(std::string name, parameter_map parameters);\n";
+				f << "create(std::string name, metadata_map parameters, metadata_map attributes);\n";
 			dec_indent();
 			f << indent << "}; // struct " << mangle(module) << "\n";
 			f << "\n";
@@ -1471,7 +1498,7 @@ struct CxxrtlWorker {
 					f << indent << "template<>\n";
 					f << indent << "std::unique_ptr<" << mangle(module) << specialization << "> ";
 					f << mangle(module) << specialization << "::";
-					f << "create(std::string name, parameter_map parameters);\n";
+					f << "create(std::string name, metadata_map parameters, metadata_map attributes);\n";
 					f << "\n";
 				}
 			}
@@ -1499,30 +1526,9 @@ struct CxxrtlWorker {
 						f << indent << "std::unique_ptr<" << mangle(cell_module) << template_args(cell) << "> ";
 						f << mangle(cell) << " = " << mangle(cell_module) << template_args(cell);
 						f << "::create(" << escape_cxx_string(cell->name.str()) << ", ";
-						if (!cell->parameters.empty()) {
-							f << "parameter_map({\n";
-							inc_indent();
-								for (auto param : cell->parameters) {
-									// All blackbox parameters should be in the public namespace already; strip leading slash
-									// to make it more convenient for blackbox implementations.
-									log_assert(param.first.begins_with("\\"));
-									f << indent << "{ " << escape_cxx_string(param.first.str().substr(1)) << ", ";
-									if (param.second.flags & RTLIL::CONST_FLAG_REAL) {
-										f << std::showpoint << std::stod(param.second.decode_string()) << std::noshowpoint;
-									} else if (param.second.flags & RTLIL::CONST_FLAG_STRING) {
-										f << escape_cxx_string(param.second.decode_string());
-									} else {
-										f << param.second.as_int(/*is_signed=*/param.second.flags & RTLIL::CONST_FLAG_SIGNED);
-										if (!(param.second.flags & RTLIL::CONST_FLAG_SIGNED))
-											f << "u";
-									}
-									f << " },\n";
-								}
-							dec_indent();
-							f << indent << "})";
-						} else {
-							f << "parameter_map()";
-						}
+						dump_metadata_map(cell->parameters);
+						f << ", ";
+						dump_metadata_map(cell->attributes);
 						f << ");\n";
 					} else {
 						f << indent << mangle(cell_module) << " " << mangle(cell) << ";\n";
@@ -1964,7 +1970,7 @@ struct CxxrtlBackend : public Backend {
 		log("\n");
 		log("For this HDL interface, this backend will generate the following C++ interface:\n");
 		log("\n");
-		log("    struct bb_debug : public module {\n");
+		log("    struct bb_p_debug : public module {\n");
 		log("      wire<1> p_clk;\n");
 		log("      bool posedge_p_clk = false;\n");
 		log("      wire<1> p_en;\n");
@@ -1973,8 +1979,8 @@ struct CxxrtlBackend : public Backend {
 		log("      void eval() override;\n");
 		log("      bool commit() override;\n");
 		log("\n");
-		log("      static std::unique_ptr<bb_debug>\n");
-		log("      create(std::string name, parameter_map parameters);\n");
+		log("      static std::unique_ptr<bb_p_debug>\n");
+		log("      create(std::string name, metadata_map parameters, metadata_map attributes);\n");
 		log("    };\n");
 		log("\n");
 		log("The `create' function must be implemented by the driver. For example, it could\n");
@@ -1982,16 +1988,17 @@ struct CxxrtlBackend : public Backend {
 		log("\n");
 		log("    namespace cxxrtl_design {\n");
 		log("\n");
-		log("    struct stderr_debug : public bb_debug {\n");
+		log("    struct stderr_debug : public bb_p_debug {\n");
 		log("      void eval() override {\n");
 		log("        if (posedge_p_clk && p_en.curr)\n");
 		log("          fprintf(stderr, \"debug: %%02x\\n\", p_data.curr.data[0]);\n");
-		log("        bb_debug::eval();\n");
+		log("        bb_p_debug::eval();\n");
 		log("      }\n");
 		log("    };\n");
 		log("\n");
-		log("    std::unique_ptr<bb_debug>\n");
-		log("    bb_debug::create(std::string name, cxxrtl::parameter_map parameters) {\n");
+		log("    std::unique_ptr<bb_p_debug>\n");
+		log("    bb_p_debug::create(std::string name, cxxrtl::metadata_map parameters,\n");
+		log("                       cxxrtl::metadata_map attributes) {\n");
 		log("      return std::make_unique<stderr_debug>();\n");
 		log("    }\n");
 		log("\n");
@@ -2013,12 +2020,12 @@ struct CxxrtlBackend : public Backend {
 		log("interface (only the differences are shown):\n");
 		log("\n");
 		log("    template<size_t WIDTH>\n");
-		log("    struct bb_debug : public module {\n");
+		log("    struct bb_p_debug : public module {\n");
 		log("      // ...\n");
 		log("      wire<WIDTH> p_data;\n");
 		log("      // ...\n");
-		log("      static std::unique_ptr<bb_debug<WIDTH>>\n");
-		log("      create(std::string name, parameter_map parameters);\n");
+		log("      static std::unique_ptr<bb_p_debug<WIDTH>>\n");
+		log("      create(std::string name, metadata_map parameters, metadata_map attributes);\n");
 		log("    };\n");
 		log("\n");
 		log("The `create' function must be implemented by the driver, specialized for every\n");
@@ -2026,13 +2033,14 @@ struct CxxrtlBackend : public Backend {
 		log("enable separate compilation of generated code and black box implementations.)\n");
 		log("\n");
 		log("    template<size_t SIZE>\n");
-		log("    struct stderr_debug : public bb_debug<SIZE> {\n");
+		log("    struct stderr_debug : public bb_p_debug<SIZE> {\n");
 		log("      // ...\n");
 		log("    };\n");
 		log("\n");
 		log("    template<>\n");
-		log("    std::unique_ptr<bb_debug<8>>\n");
-		log("    bb_debug<8>::create(std::string name, cxxrtl::parameter_map parameters) {\n");
+		log("    std::unique_ptr<bb_p_debug<8>>\n");
+		log("    bb_p_debug<8>::create(std::string name, cxxrtl::metadata_map parameters,\n");
+		log("                          cxxrtl::metadata_map attributes) {\n");
 		log("      return std::make_unique<stderr_debug<8>>();\n");
 		log("    }\n");
 		log("\n");
