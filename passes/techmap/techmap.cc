@@ -740,7 +740,7 @@ struct TechmapWorker
 					}
 
 					int unique_bit_id_counter = 0;
-					std::map<RTLIL::SigBit, int> unique_bit_id;
+					dict<RTLIL::SigBit, int> unique_bit_id;
 					unique_bit_id[RTLIL::State::S0] = unique_bit_id_counter++;
 					unique_bit_id[RTLIL::State::S1] = unique_bit_id_counter++;
 					unique_bit_id[RTLIL::State::Sx] = unique_bit_id_counter++;
