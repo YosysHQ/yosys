@@ -79,7 +79,7 @@ struct TechmapWorker
 		RTLIL::SigSpec value;
 	};
 
-	typedef std::map<IdString, std::vector<TechmapWireData>> TechmapWires;
+	typedef dict<IdString, std::vector<TechmapWireData>> TechmapWires;
 
 	bool extern_mode;
 	bool assert_mode;
