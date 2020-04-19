@@ -204,7 +204,7 @@ struct TechmapWorker
 			design->select(module, m);
 		}
 
-		std::map<IdString, IdString> positional_ports;
+		dict<IdString, IdString> positional_ports;
 		dict<Wire*, IdString> temp_renamed_wires;
 		pool<SigBit> autopurge_tpl_bits;
 
