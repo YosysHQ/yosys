@@ -101,7 +101,7 @@ struct TechmapWorker
 	std::string constmap_tpl_name(SigMap &sigmap, RTLIL::Module *tpl, RTLIL::Cell *cell, bool verbose)
 	{
 		std::string constmap_info;
-		std::map<RTLIL::SigBit, std::pair<IdString, int>> connbits_map;
+		dict<RTLIL::SigBit, std::pair<IdString, int>> connbits_map;
 
 		for (auto conn : cell->connections())
 			for (int i = 0; i < GetSize(conn.second); i++) {
@@ -490,8 +490,8 @@ struct TechmapWorker
 		}
 
 		TopoSort<RTLIL::Cell*, IdString::compare_ptr_by_name<RTLIL::Cell>> cells;
-		std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_inbit;
-		std::map<RTLIL::SigBit, std::set<RTLIL::Cell*>> outbit_to_cell;
+		dict<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_inbit;
+		dict<RTLIL::SigBit, std::set<RTLIL::Cell*>> outbit_to_cell;
 
 		for (auto cell : module->selected_cells())
 		{
