@@ -659,7 +659,7 @@ struct memory {
 	}
 };
 
-struct parameter {
+struct metadata {
 	const enum {
 		MISSING = 0,
 		UINT   	= 1,
@@ -677,15 +677,15 @@ struct parameter {
 	const std::string string_value = "";
 	const double      double_value = 0.0;
 
-	parameter() : value_type(MISSING) {}
-	parameter(unsigned value) : value_type(UINT), uint_value(value) {}
-	parameter(signed value) : value_type(SINT), sint_value(value) {}
-	parameter(const std::string &value) : value_type(STRING), string_value(value) {}
-	parameter(const char *value) : value_type(STRING), string_value(value) {}
-	parameter(double value) : value_type(DOUBLE), double_value(value) {}
+	metadata() : value_type(MISSING) {}
+	metadata(unsigned value) : value_type(UINT), uint_value(value) {}
+	metadata(signed value) : value_type(SINT), sint_value(value) {}
+	metadata(const std::string &value) : value_type(STRING), string_value(value) {}
+	metadata(const char *value) : value_type(STRING), string_value(value) {}
+	metadata(double value) : value_type(DOUBLE), double_value(value) {}
 
-	parameter(const parameter &) = default;
-	parameter &operator=(const parameter &) = delete;
+	metadata(const metadata &) = default;
+	metadata &operator=(const metadata &) = delete;
 
 	unsigned as_uint() const {
 		assert(value_type == UINT);
@@ -708,7 +708,7 @@ struct parameter {
 	}
 };
 
-typedef std::map<std::string, parameter> parameter_map;
+typedef std::map<std::string, metadata> metadata_map;
 
 struct module {
 	module() {}
