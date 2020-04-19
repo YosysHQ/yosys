@@ -862,9 +862,9 @@ struct TechmapWorker
 								techmap_do_cache[new_tpl] = true;
 								tpl = new_tpl;
 
-								std::map<RTLIL::SigBit, RTLIL::SigBit> port_new2old_map;
-								std::map<RTLIL::SigBit, RTLIL::SigBit> port_connmap;
-								std::map<RTLIL::SigBit, RTLIL::SigBit> cellbits_to_tplbits;
+								dict<RTLIL::SigBit, RTLIL::SigBit> port_new2old_map;
+								dict<RTLIL::SigBit, RTLIL::SigBit> port_connmap;
+								dict<RTLIL::SigBit, RTLIL::SigBit> cellbits_to_tplbits;
 
 								for (auto wire : tpl->wires().to_vector())
 								{
