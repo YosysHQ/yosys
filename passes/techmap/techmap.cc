@@ -463,7 +463,7 @@ struct TechmapWorker
 		}
 	}
 
-	bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Design *map, std::set<RTLIL::Cell*> &handled_cells,
+	bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Design *map, pool<RTLIL::Cell*> &handled_cells,
 			const std::map<IdString, std::set<IdString, RTLIL::sort_by_id_str>> &celltypeMap, bool in_recursion)
 	{
 		std::string mapmsg_prefix = in_recursion ? "Recursively mapping" : "Mapping";
@@ -805,7 +805,7 @@ struct TechmapWorker
 					bool keep_running = true;
 					techmap_do_cache[tpl] = true;
 
-					std::set<IdString> techmap_wire_names;
+					pool<IdString> techmap_wire_names;
 
 					while (keep_running)
 					{
@@ -1324,7 +1324,7 @@ struct TechmapPass : public Pass {
 
 			int module_max_iter = max_iter;
 			bool did_something = true;
-			std::set<RTLIL::Cell*> handled_cells;
+			pool<RTLIL::Cell*> handled_cells;
 			while (did_something) {
 				did_something = false;
 				if (worker.techmap_module(design, module, map, handled_cells, celltypeMap, false))
@@ -1391,7 +1391,7 @@ struct FlattenPass : public Pass {
 				if (mod->get_bool_attribute(ID::top))
 					top_mod = mod;
 
-		std::set<RTLIL::Cell*> handled_cells;
+		pool<RTLIL::Cell*> handled_cells;
 		if (top_mod != nullptr) {
 			worker.flatten_do_list.insert(top_mod->name);
 			while (!worker.flatten_do_list.empty()) {
