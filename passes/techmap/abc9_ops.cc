@@ -467,7 +467,12 @@ void prep_lut(RTLIL::Design *design, int maxlut)
 {
 	TimingInfo timing;
 
-	std::vector<std::tuple<int, IdString, int, std::vector<int>>> table;
+	struct t_lut {
+		IdString name;
+		int area;
+		std::vector<int> delays;
+	};
+	std::map<int,t_lut> table;
 	for (auto module : design->modules()) {
 		auto it = module->attributes.find(ID::abc9_lut);
 		if (it == module->attributes.end())
@@ -476,40 +481,52 @@ void prep_lut(RTLIL::Design *design, int maxlut)
 		auto &t = timing.setup_module(module);
 
 		TimingInfo::NameBit o;
-		std::vector<int> specify;
+		std::vector<int> delays;
 		for (const auto &i : t.comb) {
 			auto &d = i.first.second;
 			if (o == TimingInfo::NameBit())
 				o = d;
 			else if (o != d)
-				log_error("(* abc9_lut *) module '%s' with has more than one output.\n", log_id(module));
-			specify.push_back(i.second);
+				log_error("Module '%s' with (* abc9_lut *) has more than one output.\n", log_id(module));
+			delays.push_back(i.second);
 		}
 
-		if (maxlut && GetSize(specify) > maxlut)
+		if (GetSize(delays) == 0)
+			log_error("Module '%s' with (* abc9_lut *) has no specify entries.\n", log_id(module));
+		if (maxlut && GetSize(delays) > maxlut)
 			continue;
 		// ABC requires non-decreasing LUT input delays
-		std::sort(specify.begin(), specify.end());
-		table.emplace_back(GetSize(specify), module->name, it->second.as_int(), std::move(specify));
+		std::sort(delays.begin(), delays.end());
+
+		int K = GetSize(delays);
+		auto entry = t_lut{module->name, it->second.as_int(), std::move(delays)};
+		auto r = table.emplace(K, entry);
+		if (!r.second) {
+			if (r.first->second.area != entry.area)
+				log_error("Modules '%s' and '%s' have conflicting (* abc9_lut *) values.\n", log_id(module), log_id(r.first->second.name));
+			if (r.first->second.delays != entry.delays)
+				log_error("Modules '%s' and '%s' have conflicting specify entries.\n", log_id(module), log_id(r.first->second.name));
+		}
 	}
-	// ABC requires ascending size
-	std::sort(table.begin(), table.end());
+
+	if (table.empty())
+		log_error("Design does not contain any modules with (* abc9_lut *).\n");
 
 	std::stringstream ss;
-	const auto &first = table.front();
+	const auto &front = *table.begin();
 	// If the first entry does not start from a 1-input LUT,
 	//   (as ABC requires) crop the first entry to do so
-	for (int i = 1; i < std::get<0>(first); i++) {
+	for (int i = 1; i < front.first; i++) {
 		ss << "# $__ABC9_LUT" << i << std::endl;
-		ss << i << " " << std::get<2>(first);
+		ss << i << " " << front.second.area;
 		for (int j = 0; j < i; j++)
-			ss << " " << std::get<3>(first)[j];
+			ss << " " << front.second.delays[j];
 		ss << std::endl;
 	}
 	for (const auto &i : table) {
-		ss << "# " << log_id(std::get<1>(i)) << std::endl;
-		ss << std::get<0>(i) << " " << std::get<2>(i);
-		for (const auto &j : std::get<3>(i))
+		ss << "# " << log_id(i.second.name) << std::endl;
+		ss << i.first << " " << i.second.area;
+		for (const auto &j : i.second.delays)
 			ss << " " << j;
 		ss << std::endl;
 	}
