@@ -613,8 +613,6 @@ struct SynthXilinxPass : public ScriptPass
 				if (family != "xc7")
 					log_warning("'synth_xilinx -abc9' not currently supported for the '%s' family, "
 							"will use timing for 'xc7' instead.\n", family.c_str());
-				if (!help_mode && !active_design->scratchpad.count("abc9.nomfs"))
-					active_design->scratchpad_set_bool("abc9.nomfs", true);
 				std::string techmap_args = "-map +/xilinx/abc9_map.v -max_iter 1";
 				if (dff_mode)
 					techmap_args += " -D DFF_MODE";
