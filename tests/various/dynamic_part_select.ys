@@ -13,7 +13,7 @@ design -copy-from gold -as gold gold
 design -copy-from gate -as gate gate
 
 miter -equiv -make_assert -make_outcmp -flatten gold gate equiv
-sat -prove-asserts -seq 10 -show-public -verify -set-init-zero -ignore_unknown_cells equiv
+sat -prove-asserts -seq 10 -show-public -verify -set-init-zero equiv
 
 ### Multiple blocking assingments ###
 design -reset
@@ -31,7 +31,7 @@ design -copy-from gold -as gold gold
 design -copy-from gate -as gate gate
 
 miter -equiv -make_assert -make_outcmp -flatten gold gate equiv
-sat -prove-asserts -seq 10 -show-public -verify -set-init-zero -ignore_unknown_cells equiv
+sat -prove-asserts -seq 10 -show-public -verify -set-init-zero equiv
  
 ### Non-blocking to the same output register ###
 design -reset
@@ -49,7 +49,7 @@ design -copy-from gold -as gold gold
 design -copy-from gate -as gate gate
 
 miter -equiv -make_assert -make_outcmp -flatten gold gate equiv
-sat -prove-asserts -seq 10 -show-public -verify -set-init-zero -ignore_unknown_cells equiv
+sat -prove-asserts -seq 10 -show-public -verify -set-init-zero equiv
  
 ### For-loop select, one dynamic input
 design -reset
@@ -67,7 +67,7 @@ design -copy-from gold -as gold gold
 design -copy-from gate -as gate gate
 
 miter -equiv -make_assert -make_outcmp -flatten gold gate equiv
-sat -prove-asserts -seq 10 -show-public -verify -set-init-zero -ignore_unknown_cells equiv
+sat -prove-asserts -seq 10 -show-public -verify -set-init-zero equiv
  
 #### Double loop (part-select, reset) ### 
 design -reset
@@ -85,7 +85,7 @@ design -copy-from gold -as gold gold
 design -copy-from gate -as gate gate
  
 miter -equiv -make_assert -make_outcmp -flatten gold gate equiv
-sat -prove-asserts -seq 10 -show-public -verify -set-init-zero -ignore_unknown_cells equiv
+sat -prove-asserts -seq 10 -show-public -verify -set-init-zero equiv
  
 ### Reversed part-select case ###
 design -reset
@@ -103,4 +103,4 @@ design -copy-from gold -as gold gold
 design -copy-from gate -as gate gate
  
 miter -equiv -make_assert -make_outcmp -flatten gold gate equiv
-sat -prove-asserts -seq 10 -show-public -verify -set-init-zero -ignore_unknown_cells equiv
+sat -prove-asserts -seq 10 -show-public -verify -set-init-zero equiv
