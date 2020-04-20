@@ -117,7 +117,7 @@ struct TechmapWorker
 					constmap_info += stringf("|%s %d %s %d", log_id(conn.first), i,
 							log_id(connbits_map.at(bit).first), connbits_map.at(bit).second);
 				} else {
-					connbits_map[bit] = std::pair<IdString, int>(conn.first, i);
+					connbits_map.emplace(bit, std::make_pair(conn.first, i));
 					constmap_info += stringf("|%s %d", log_id(conn.first), i);
 				}
 			}
@@ -710,21 +710,21 @@ struct TechmapWorker
 					}
 
 					if (tpl->avail_parameters.count(ID::_TECHMAP_CELLTYPE_) != 0)
-						parameters[ID::_TECHMAP_CELLTYPE_] = RTLIL::unescape_id(cell->type);
+						parameters.emplace(ID::_TECHMAP_CELLTYPE_, RTLIL::unescape_id(cell->type));
 
 					for (auto &conn : cell->connections()) {
 						if (tpl->avail_parameters.count(stringf("\\_TECHMAP_CONSTMSK_%s_", log_id(conn.first))) != 0) {
 							std::vector<RTLIL::SigBit> v = sigmap(conn.second).to_sigbit_vector();
 							for (auto &bit : v)
 								bit = RTLIL::SigBit(bit.wire == nullptr ? RTLIL::State::S1 : RTLIL::State::S0);
-							parameters[stringf("\\_TECHMAP_CONSTMSK_%s_", log_id(conn.first))] = RTLIL::SigSpec(v).as_const();
+							parameters.emplace(stringf("\\_TECHMAP_CONSTMSK_%s_", log_id(conn.first)), RTLIL::SigSpec(v).as_const());
 						}
 						if (tpl->avail_parameters.count(stringf("\\_TECHMAP_CONSTVAL_%s_", log_id(conn.first))) != 0) {
 							std::vector<RTLIL::SigBit> v = sigmap(conn.second).to_sigbit_vector();
 							for (auto &bit : v)
 								if (bit.wire != nullptr)
 									bit = RTLIL::SigBit(RTLIL::State::Sx);
-							parameters[stringf("\\_TECHMAP_CONSTVAL_%s_", log_id(conn.first))] = RTLIL::SigSpec(v).as_const();
+							parameters.emplace(stringf("\\_TECHMAP_CONSTVAL_%s_", log_id(conn.first)), RTLIL::SigSpec(v).as_const());
 						}
 						if (tpl->avail_parameters.count(stringf("\\_TECHMAP_WIREINIT_%s_", log_id(conn.first))) != 0) {
 							auto sig = sigmap(conn.second);
@@ -735,7 +735,7 @@ struct TechmapWorker
 									value[i] = it->second;
 								}
 							}
-							parameters[stringf("\\_TECHMAP_WIREINIT_%s_", log_id(conn.first))] = value;
+							parameters.emplace(stringf("\\_TECHMAP_WIREINIT_%s_", log_id(conn.first)), value);
 						}
 					}
 
@@ -773,7 +773,7 @@ struct TechmapWorker
 									val = val >> 1;
 								}
 							}
-							parameters[stringf("\\_TECHMAP_CONNMAP_%s_", log_id(conn.first))] = value;
+							parameters.emplace(stringf("\\_TECHMAP_CONNMAP_%s_", log_id(conn.first)), value);
 						}
 				}
 
@@ -882,8 +882,8 @@ struct TechmapWorker
 									wire->port_id = 0;
 
 									for (int i = 0; i < wire->width; i++) {
-										port_new2old_map[RTLIL::SigBit(new_wire, i)] = RTLIL::SigBit(wire, i);
-										port_connmap[RTLIL::SigBit(wire, i)] = RTLIL::SigBit(new_wire, i);
+										port_new2old_map.emplace(RTLIL::SigBit(new_wire, i), RTLIL::SigBit(wire, i));
+										port_connmap.emplace(RTLIL::SigBit(wire, i), RTLIL::SigBit(new_wire, i));
 									}
 								}
 
