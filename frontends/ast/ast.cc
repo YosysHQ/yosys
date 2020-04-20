@@ -52,7 +52,7 @@ namespace AST_INTERNAL {
 	const dict<RTLIL::SigBit, RTLIL::SigBit> *genRTLIL_subst_ptr = NULL;
 	RTLIL::SigSpec ignoreThisSignalsInInitial;
 	AstNode *current_always, *current_top_block, *current_block, *current_block_child;
-	AstModule *current_module;
+	Module *current_module;
 	bool current_always_clocked;
 	dict<std::string, int> current_memwr_count;
 	dict<std::string, pool<int>> current_memwr_visible;
@@ -992,11 +992,13 @@ static void process_module(RTLIL::Design *design, AstNode *ast, bool defer, AstN
 		log("Generating RTLIL representation for module `%s'.\n", ast->str.c_str());
 	}
 
-	current_module = new AstModule;
-	current_module->ast = NULL;
-	current_module->name = ast->str;
-	set_src_attr(current_module, ast);
-	current_module->set_bool_attribute(ID::cells_not_processed);
+	AstModule *module = new AstModule;
+	current_module = module;
+
+	module->ast = NULL;
+	module->name = ast->str;
+	set_src_attr(module, ast);
+	module->set_bool_attribute(ID::cells_not_processed);
 
 	current_ast_mod = ast;
 	AstNode *ast_before_simplify;
@@ -1137,7 +1139,7 @@ static void process_module(RTLIL::Design *design, AstNode *ast, bool defer, AstN
 		for (auto &attr : ast->attributes) {
 			if (attr.second->type != AST_CONSTANT)
 				log_file_error(ast->filename, ast->location.first_line, "Attribute `%s' with non-constant value!\n", attr.first.c_str());
-			current_module->attributes[attr.first] = attr.second->asAttrConst();
+			module->attributes[attr.first] = attr.second->asAttrConst();
 		}
 		for (size_t i = 0; i < ast->children.size(); i++) {
 			AstNode *node = ast->children[i];
@@ -1165,29 +1167,29 @@ static void process_module(RTLIL::Design *design, AstNode *ast, bool defer, AstN
 		for (auto &attr : ast->attributes) {
 			if (attr.second->type != AST_CONSTANT)
 				continue;
-			current_module->attributes[attr.first] = attr.second->asAttrConst();
+			module->attributes[attr.first] = attr.second->asAttrConst();
 		}
 	}
 
 	if (ast->type == AST_INTERFACE)
-		current_module->set_bool_attribute(ID::is_interface);
-	current_module->ast = ast_before_simplify;
-	current_module->nolatches = flag_nolatches;
-	current_module->nomeminit = flag_nomeminit;
-	current_module->nomem2reg = flag_nomem2reg;
-	current_module->mem2reg = flag_mem2reg;
-	current_module->noblackbox = flag_noblackbox;
-	current_module->lib = flag_lib;
-	current_module->nowb = flag_nowb;
-	current_module->noopt = flag_noopt;
-	current_module->icells = flag_icells;
-	current_module->pwires = flag_pwires;
-	current_module->autowire = flag_autowire;
-	current_module->fixup_ports();
+		module->set_bool_attribute(ID::is_interface);
+	module->ast = ast_before_simplify;
+	module->nolatches = flag_nolatches;
+	module->nomeminit = flag_nomeminit;
+	module->nomem2reg = flag_nomem2reg;
+	module->mem2reg = flag_mem2reg;
+	module->noblackbox = flag_noblackbox;
+	module->lib = flag_lib;
+	module->nowb = flag_nowb;
+	module->noopt = flag_noopt;
+	module->icells = flag_icells;
+	module->pwires = flag_pwires;
+	module->autowire = flag_autowire;
+	module->fixup_ports();
 
 	if (flag_dump_rtlil) {
 		log("Dumping generated RTLIL:\n");
-		log_module(current_module);
+		log_module(module);
 		log("--- END OF RTLIL DUMP ---\n");
 	}
 
