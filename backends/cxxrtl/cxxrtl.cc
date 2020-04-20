@@ -415,6 +415,7 @@ struct CxxrtlWorker {
 	bool localize_internal = false;
 	bool localize_public = false;
 	bool run_splitnets = false;
+	bool max_opt_level = false;
 
 	std::ostringstream f;
 	std::string indent;
@@ -1648,6 +1649,8 @@ struct CxxrtlWorker {
 	void analyze_design(RTLIL::Design *design)
 	{
 		bool has_feedback_arcs = false;
+		bool has_buffered_wires = false;
+
 		for (auto module : design->modules()) {
 			if (!design->selected_module(module))
 				continue;
@@ -1844,9 +1847,8 @@ struct CxxrtlWorker {
 			if (!feedback_wires.empty()) {
 				has_feedback_arcs = true;
 				log("Module `%s' contains feedback arcs through wires:\n", module->name.c_str());
-				for (auto wire : feedback_wires) {
+				for (auto wire : feedback_wires)
 					log("  %s\n", wire->name.c_str());
-				}
 			}
 
 			for (auto wire : module->wires()) {
@@ -1856,13 +1858,45 @@ struct CxxrtlWorker {
 				if (wire->name.begins_with("$") && !localize_internal) continue;
 				if (wire->name.begins_with("\\") && !localize_public) continue;
 				if (sync_wires[wire]) continue;
-				// Outputs of FF/$memrd cells and LHS of sync actions do not end up in defs.
+				// Wires connected to synchronous outputs do not introduce defs.
 				if (flow.wire_defs[wire].size() != 1) continue;
 				localized_wires.insert(wire);
 			}
+
+			// For maximum performance, the state of the simulation (which is the same as the set of its double buffered
+			// wires, since using a singly buffered wire for any kind of state introduces a race condition) should contain
+			// no wires attached to combinatorial outputs. Feedback wires, by definition, make that impossible. However,
+			// it is possible that a design with no feedback arcs would end up with doubly buffered wires in such cases
+			// as a wire with multiple drivers where one of them is combinatorial and the other is synchronous. Such designs
+			// also require more than one delta cycle to converge.
+			pool<RTLIL::Wire*> buffered_wires;
+			for (auto wire : module->wires()) {
+				// Only wires connected to combinatorial outputs introduce defs.
+				if (flow.wire_defs[wire].size() > 0 && !elided_wires.count(wire) && !localized_wires[wire]) {
+					if (!feedback_wires[wire])
+						buffered_wires.insert(wire);
+				}
+			}
+			if (!buffered_wires.empty()) {
+				has_buffered_wires = true;
+				log("Module `%s' contains buffered combinatorial wires:\n", module->name.c_str());
+				for (auto wire : buffered_wires)
+					log("  %s\n", wire->name.c_str());
+			}
 		}
-		if (has_feedback_arcs) {
-			log("Feedback arcs require delta cycles during evaluation.\n");
+		if (has_feedback_arcs || has_buffered_wires) {
+			// Although both non-feedback buffered combinatorial wires and apparent feedback wires may be eliminated
+			// by optimizing the design, if after `opt_clean -purge` there are any feedback wires remaining, it is very
+			// likely that these feedback wires are indicative of a true logic loop, so they get emphasized in the message.
+			const char *why_pessimistic = nullptr;
+			if (has_feedback_arcs)
+				why_pessimistic = "feedback wires";
+			else if (has_buffered_wires)
+				why_pessimistic = "buffered combinatorial wires";
+			log("\n");
+			log_warning("Design contains %s, which require delta cycles during evaluation.\n", why_pessimistic);
+			if (!max_opt_level)
+				log("Increasing the optimization level may eliminate %s from the design.\n", why_pessimistic);
 		}
 	}
 
@@ -2135,6 +2169,7 @@ struct CxxrtlBackend : public Backend {
 
 		switch (opt_level) {
 			case 5:
+				worker.max_opt_level = true;
 				worker.run_splitnets = true;
 			case 4:
 				worker.localize_public = true;
