@@ -1152,8 +1152,8 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool no_dump_ptr, bool dump_vlog1, bool dump_vlog2, bool dump_rtlil,
 		bool nolatches, bool nomeminit, bool nomem2reg, bool mem2reg, bool noblackbox, bool lib, bool nowb, bool noopt, bool icells, bool pwires, bool nooverwrite, bool overwrite, bool defer, bool autowire)
 {
-    current_scope.clear();
-    
+	current_scope.clear();
+	
 	current_ast = ast;
 	current_ast_mod = nullptr;
 	flag_dump_ast1 = dump_ast1;
@@ -1429,10 +1429,9 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 	}
 
 	std::string new_modname = modname;
-	if (has_interfaces)
-    {
+	if (has_interfaces) {
 		new_modname += "$interfaces$" + interf_info;
-    }
+	}
 
 	if (!design->has(new_modname)) {
 		if (!new_ast) {
