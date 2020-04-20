@@ -642,6 +642,7 @@ protected:
 
 		entry_t() { }
 		entry_t(const K &udata, int next) : udata(udata), next(next) { }
+		entry_t(K &&udata, int next) : udata(std::move(udata)), next(next) { }
 	};
 
 	std::vector<int> hashtable;
