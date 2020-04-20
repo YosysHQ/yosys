@@ -103,7 +103,7 @@ struct TechmapWorker
 		std::string constmap_info;
 		dict<RTLIL::SigBit, std::pair<IdString, int>> connbits_map;
 
-		for (auto conn : cell->connections())
+		for (auto &conn : cell->connections())
 			for (int i = 0; i < GetSize(conn.second); i++) {
 				RTLIL::SigBit bit = sigmap(conn.second[i]);
 				if (bit.wire == nullptr) {
@@ -269,12 +269,12 @@ struct TechmapWorker
 		pool<SigBit> tpl_written_bits;
 
 		for (auto tpl_cell : tpl->cells())
-		for (auto &it2 : tpl_cell->connections_)
-			if (tpl_cell->output(it2.first))
-				for (auto bit : tpl_sigmap(it2.second))
+		for (auto &conn : tpl_cell->connections())
+			if (tpl_cell->output(conn.first))
+				for (auto bit : tpl_sigmap(conn.second))
 					tpl_written_bits.insert(bit);
-		for (auto &it1 : tpl->connections_)
-			for (auto bit : tpl_sigmap(it1.first))
+		for (auto &conn : tpl->connections())
+			for (auto bit : tpl_sigmap(conn.first))
 				tpl_written_bits.insert(bit);
 
 		SigMap port_signal_map;
@@ -397,12 +397,12 @@ struct TechmapWorker
 
 			vector<IdString> autopurge_ports;
 
-			for (auto &it2 : c->connections_)
+			for (auto &conn : c->connections_)
 			{
 				bool autopurge = false;
 				if (!autopurge_tpl_bits.empty()) {
-					autopurge = GetSize(it2.second) != 0;
-					for (auto &bit : sigmaps.at(tpl)(it2.second))
+					autopurge = GetSize(conn.second) != 0;
+					for (auto &bit : sigmaps.at(tpl)(conn.second))
 						if (!autopurge_tpl_bits.count(bit)) {
 							autopurge = false;
 							break;
@@ -410,10 +410,10 @@ struct TechmapWorker
 				}
 
 				if (autopurge) {
-					autopurge_ports.push_back(it2.first);
+					autopurge_ports.push_back(conn.first);
 				} else {
-					apply_prefix(cell->name, it2.second, module);
-					port_signal_map.apply(it2.second);
+					apply_prefix(cell->name, conn.second, module);
+					port_signal_map.apply(conn.second);
 				}
 			}
 
@@ -694,7 +694,7 @@ struct TechmapWorker
 						break;
 					}
 
-					for (auto conn : cell->connections()) {
+					for (auto &conn : cell->connections()) {
 						if (conn.first.begins_with("$"))
 							continue;
 						if (tpl->wire(conn.first) != nullptr && tpl->wire(conn.first)->port_id > 0)
@@ -712,7 +712,7 @@ struct TechmapWorker
 					if (tpl->avail_parameters.count(ID::_TECHMAP_CELLTYPE_) != 0)
 						parameters[ID::_TECHMAP_CELLTYPE_] = RTLIL::unescape_id(cell->type);
 
-					for (auto conn : cell->connections()) {
+					for (auto &conn : cell->connections()) {
 						if (tpl->avail_parameters.count(stringf("\\_TECHMAP_CONSTMSK_%s_", log_id(conn.first))) != 0) {
 							std::vector<RTLIL::SigBit> v = sigmap(conn.second).to_sigbit_vector();
 							for (auto &bit : v)
@@ -746,7 +746,7 @@ struct TechmapWorker
 					unique_bit_id[RTLIL::State::Sx] = unique_bit_id_counter++;
 					unique_bit_id[RTLIL::State::Sz] = unique_bit_id_counter++;
 
-					for (auto conn : cell->connections())
+					for (auto &conn : cell->connections())
 						if (tpl->avail_parameters.count(stringf("\\_TECHMAP_CONNMAP_%s_", log_id(conn.first))) != 0) {
 							for (auto &bit : sigmap(conn.second))
 								if (unique_bit_id.count(bit) == 0)
@@ -763,7 +763,7 @@ struct TechmapWorker
 					if (tpl->avail_parameters.count(ID::_TECHMAP_BITS_CONNMAP_))
 						parameters[ID::_TECHMAP_BITS_CONNMAP_] = bits;
 
-					for (auto conn : cell->connections())
+					for (auto &conn : cell->connections())
 						if (tpl->avail_parameters.count(stringf("\\_TECHMAP_CONNMAP_%s_", log_id(conn.first))) != 0) {
 							RTLIL::Const value;
 							for (auto &bit : sigmap(conn.second)) {
@@ -884,7 +884,7 @@ struct TechmapWorker
 									}
 								}
 
-								for (auto conn : cell->connections())
+								for (auto &conn : cell->connections())
 									for (int i = 0; i < GetSize(conn.second); i++)
 									{
 										RTLIL::SigBit bit = sigmap(conn.second[i]);
