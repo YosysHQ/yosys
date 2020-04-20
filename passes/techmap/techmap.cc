@@ -138,15 +138,16 @@ struct TechmapWorker
 				continue;
 
 			const char *q = strrchr(p+1, '.');
-			p = q ? q+1 : p+1;
+			if (q)
+				p = q;
 
-			if (!strncmp(p, "_TECHMAP_", 9)) {
+			if (!strncmp(p, "\\_TECHMAP_", 10)) {
 				TechmapWireData record;
 				record.wire = w;
 				record.value = w;
 				result[p].push_back(record);
-				w->attributes[ID::keep] = RTLIL::Const(1);
-				w->attributes[ID::_techmap_special_] = RTLIL::Const(1);
+				w->set_bool_attribute(ID::keep);
+				w->set_bool_attribute(ID::_techmap_special_);
 			}
 		}
 
@@ -819,7 +820,7 @@ struct TechmapWorker
 						for (auto &it : twd)
 							techmap_wire_names.insert(it.first);
 
-						for (auto &it : twd["_TECHMAP_FAIL_"]) {
+						for (auto &it : twd[ID::_TECHMAP_FAIL_]) {
 							RTLIL::SigSpec value = it.value;
 							if (value.is_fully_const() && value.as_bool()) {
 								log("Not using module `%s' from techmap as it contains a %s marker wire with non-zero value %s.\n",
@@ -833,7 +834,7 @@ struct TechmapWorker
 
 						for (auto &it : twd)
 						{
-							if (it.first.compare(0, 12, "_TECHMAP_DO_") != 0 || it.second.empty())
+							if (!it.first.begins_with("\\_TECHMAP_DO_") || it.second.empty())
 								continue;
 
 							auto &data = it.second.front();
@@ -941,8 +942,8 @@ struct TechmapWorker
 
 					TechmapWires twd = techmap_find_special_wires(tpl);
 					for (auto &it : twd) {
-						if (it.first != "_TECHMAP_FAIL_" && (it.first.substr(0, 20) != "_TECHMAP_REMOVEINIT_" || it.first[it.first.size()-1] != '_') && it.first.substr(0, 12) != "_TECHMAP_DO_" && it.first.substr(0, 14) != "_TECHMAP_DONE_")
-							log_error("Techmap yielded unknown config wire %s.\n", it.first.c_str());
+						if (it.first != ID::_TECHMAP_FAIL_ && (!it.first.begins_with("\\_TECHMAP_REMOVEINIT_") || !it.first.ends_with("_")) && !it.first.begins_with("\\_TECHMAP_DO_") && !it.first.begins_with("\\_TECHMAP_DONE_"))
+							log_error("Techmap yielded unknown config wire %s.\n", log_id(it.first));
 						if (techmap_do_cache[tpl])
 							for (auto &it2 : it.second)
 								if (!it2.value.is_fully_const())
@@ -974,10 +975,10 @@ struct TechmapWorker
 
 				TechmapWires twd = techmap_find_special_wires(tpl);
 				for (auto &it : twd) {
-					if (it.first.substr(0, 20) == "_TECHMAP_REMOVEINIT_") {
+					if (it.first.begins_with("\\_TECHMAP_REMOVEINIT_")) {
 						for (auto &it2 : it.second) {
 							auto val = it2.value.as_const();
-							auto wirename = RTLIL::escape_id(it.first.substr(20, it.first.size() - 20 - 1));
+							auto wirename = RTLIL::escape_id(it.first.substr(21, it.first.size() - 21 - 1));
 							auto it = cell->connections().find(wirename);
 							if (it != cell->connections().end()) {
 								auto sig = sigmap(it->second);
@@ -1289,7 +1290,7 @@ struct TechmapPass : public Pass {
 						log_cmd_error("Can't open saved design `%s'.\n", fn.c_str()+1);
 					}
 					for (auto mod : saved_designs.at(fn.substr(1))->modules())
-						if (!map->has(mod->name))
+						if (!map->module(mod->name))
 							map->add(mod->clone());
 				} else {
 					std::ifstream f;

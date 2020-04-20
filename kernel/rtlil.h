@@ -150,7 +150,7 @@ namespace RTLIL
 			if (!p[0])
 				return 0;
 
-			log_assert(p[0] == '$' || p[0] == '\\' || strncmp(p, "_TECHMAP_", strlen("_TECHMAP_")) == 0);
+			log_assert(p[0] == '$' || p[0] == '\\');
 			log_assert(p[1] != 0);
 
 			auto it = global_id_index_.find((char*)p);
