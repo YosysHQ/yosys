@@ -324,6 +324,8 @@ struct SynthEcp5Pass : public ScriptPass
 
 			if (abc9) {
 				run("read_verilog -icells -lib -specify +/abc9_model.v +/ecp5/abc9_model.v");
+				if (!help_mode && !active_design->scratchpad.count("abc9.nomfs"))
+					active_design->scratchpad_set_bool("abc9.nomfs", true);
 				if (nowidelut)
 					run("abc9 -maxlut 4 -W 200");
 				else

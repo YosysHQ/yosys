@@ -219,6 +219,10 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 	for (size_t pos = abc9_script.find("{R}"); pos != std::string::npos; pos = abc9_script.find("{R}", pos))
 		abc9_script = abc9_script.substr(0, pos) + R + abc9_script.substr(pos+3);
 
+	if (design->scratchpad_get_bool("abc9.nomfs"))
+		for (size_t pos = abc9_script.find("&mfs"); pos != std::string::npos; pos = abc9_script.find("&mfs", pos))
+			abc9_script = abc9_script.erase(pos, strlen("&mfs"));
+
 	abc9_script += stringf("; &ps -l; &write -n %s/output.aig", tempdir_name.c_str());
 	if (design->scratchpad_get_bool("abc9.verify")) {
 		if (dff_mode)
