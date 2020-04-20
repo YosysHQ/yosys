@@ -767,8 +767,11 @@ struct TechmapWorker
 						if (tpl->avail_parameters.count(stringf("\\_TECHMAP_CONNMAP_%s_", log_id(conn.first))) != 0) {
 							RTLIL::Const value;
 							for (auto &bit : sigmap(conn.second)) {
-								RTLIL::Const chunk(unique_bit_id.at(bit), bits);
-								value.bits.insert(value.bits.end(), chunk.bits.begin(), chunk.bits.end());
+								int val = unique_bit_id.at(bit);
+								for (int i = 0; i < bits; i++) {
+									value.bits.push_back((val & 1) != 0 ? State::S1 : State::S0);
+									val = val >> 1;
+								}
 							}
 							parameters[stringf("\\_TECHMAP_CONNMAP_%s_", log_id(conn.first))] = value;
 						}
