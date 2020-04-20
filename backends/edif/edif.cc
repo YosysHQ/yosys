@@ -113,6 +113,9 @@ struct EdifBackend : public Backend {
 		log("    -attrprop\n");
 		log("        create EDIF properties for cell attributes\n");
 		log("\n");
+		log("    -keep\n");
+		log("        create extra KEEP nets by allowing a cell to drive multiple nets.\n");
+		log("\n");
 		log("    -pvector {par|bra|ang}\n");
 		log("        sets the delimiting character for module port rename clauses to\n");
 		log("        parentheses, square brackets, or angle brackets.\n");
@@ -130,7 +133,7 @@ struct EdifBackend : public Backend {
 		bool port_rename = false;
 		bool attr_properties = false;
 		std::map<RTLIL::IdString, std::map<RTLIL::IdString, int>> lib_cell_ports;
-		bool nogndvcc = false, gndvccy = false;
+		bool nogndvcc = false, gndvccy = false, keepmode = false;
 		CellTypes ct(design);
 		EdifNames edif_names;
 
@@ -151,6 +154,10 @@ struct EdifBackend : public Backend {
 			}
 			if (args[argidx] == "-attrprop") {
 				attr_properties = true;
+				continue;
+			}
+			if (args[argidx] == "-keep") {
+				keepmode = true;
 				continue;
 			}
 			if (args[argidx] == "-pvector" && argidx+1 < args.size()) {
@@ -337,6 +344,7 @@ struct EdifBackend : public Backend {
 			*f << stringf("      (view VIEW_NETLIST\n");
 			*f << stringf("        (viewType NETLIST)\n");
 			*f << stringf("        (interface\n");
+
 			for (auto wire : module->wires()) {
 				if (wire->port_id == 0)
 					continue;
@@ -369,12 +377,15 @@ struct EdifBackend : public Backend {
 					}
 				}
 			}
+
 			*f << stringf("        )\n");
 			*f << stringf("        (contents\n");
+
 			if (!nogndvcc) {
 				*f << stringf("          (instance GND (viewRef VIEW_NETLIST (cellRef GND (libraryRef LIB))))\n");
 				*f << stringf("          (instance VCC (viewRef VIEW_NETLIST (cellRef VCC (libraryRef LIB))))\n");
 			}
+
 			for (auto cell : module->cells()) {
 				*f << stringf("          (instance %s\n", EDIF_DEF(cell->name));
 				*f << stringf("            (viewRef VIEW_NETLIST (cellRef %s%s))", EDIF_REF(cell->type),
@@ -412,6 +423,7 @@ struct EdifBackend : public Backend {
 						}
 				}
 			}
+
 			for (auto &it : net_join_db) {
 				RTLIL::SigBit sig = it.first;
 				if (sig.wire == NULL && sig != RTLIL::State::S0 && sig != RTLIL::State::S1) {
@@ -440,7 +452,7 @@ struct EdifBackend : public Backend {
 				}
 				*f << stringf("          (net %s (joined\n", EDIF_DEF(netname));
 				for (auto &ref : it.second)
-					*f << stringf("            %s\n", ref.first.c_str());
+					*f << stringf("              %s\n", ref.first.c_str());
 				if (sig.wire == NULL) {
 					if (nogndvcc)
 						log_error("Design contains constant nodes (map with \"hilomap\" first).\n");
@@ -455,30 +467,48 @@ struct EdifBackend : public Backend {
 						add_prop(p.first, p.second);
 				*f << stringf("\n          )\n");
 			}
-			for (auto wire : module->wires()) {
+
+			for (auto wire : module->wires())
+			{
 				if (!wire->get_bool_attribute(ID::keep))
 					continue;
-				for(int i = 0; i < wire->width; i++) {
+
+				for(int i = 0; i < wire->width; i++)
+				{
 					SigBit raw_sig = RTLIL::SigSpec(wire, i);
 					SigBit mapped_sig = sigmap(raw_sig);
+
 					if (raw_sig == mapped_sig || net_join_db.count(mapped_sig) == 0)
 						continue;
+
 					std::string netname = log_signal(raw_sig);
 					for (size_t i = 0; i < netname.size(); i++)
 						if (netname[i] == ' ' || netname[i] == '\\')
 							netname.erase(netname.begin() + i--);
-					*f << stringf("          (net %s (joined\n", EDIF_DEF(netname));
-					auto &refs = net_join_db.at(mapped_sig);
-					for (auto &ref : refs)
-						if (ref.second)
-							*f << stringf("            %s\n", ref.first.c_str());
-					*f << stringf("            )");
-					if (attr_properties && raw_sig.wire != NULL)
-						for (auto &p : raw_sig.wire->attributes)
-							add_prop(p.first, p.second);
-					*f << stringf("\n          )\n");
+
+					if (keepmode)
+					{
+						*f << stringf("          (net %s (joined\n", EDIF_DEF(netname));
+
+						auto &refs = net_join_db.at(mapped_sig);
+						for (auto &ref : refs)
+							if (ref.second)
+								*f << stringf("              %s\n", ref.first.c_str());
+						*f << stringf("            )");
+
+						if (attr_properties && raw_sig.wire != NULL)
+							for (auto &p : raw_sig.wire->attributes)
+								add_prop(p.first, p.second);
+
+						*f << stringf("\n          )\n");
+					}
+					else
+					{
+						log_warning("Ignoring conflicting 'keep' property on net %s. Use -keep to generate the extra net nevertheless.\n", EDIF_DEF(netname));
+					}
 				}
 			}
+
 			*f << stringf("        )\n");
 			*f << stringf("      )\n");
 			*f << stringf("    )\n");
