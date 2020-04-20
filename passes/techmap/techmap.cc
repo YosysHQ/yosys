@@ -490,8 +490,8 @@ struct TechmapWorker
 		}
 
 		TopoSort<RTLIL::Cell*, IdString::compare_ptr_by_name<RTLIL::Cell>> cells;
-		dict<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_inbit;
-		dict<RTLIL::SigBit, std::set<RTLIL::Cell*>> outbit_to_cell;
+		dict<RTLIL::Cell*, pool<RTLIL::SigBit>> cell_to_inbit;
+		dict<RTLIL::SigBit, pool<RTLIL::Cell*>> outbit_to_cell;
 
 		for (auto cell : module->selected_cells())
 		{
