@@ -213,7 +213,7 @@ struct TechmapWorker
 			if (tpl_w->port_id > 0)
 			{
 				IdString posportname = stringf("$%d", tpl_w->port_id);
-				positional_ports[posportname] = tpl_w->name;
+				positional_ports.emplace(posportname, tpl_w->name);
 
 				if (!flatten_mode && tpl_w->get_bool_attribute(ID::techmap_autopurge) &&
 						(!cell->hasPort(tpl_w->name) || !GetSize(cell->getPort(tpl_w->name))) &&
