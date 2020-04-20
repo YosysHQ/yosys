@@ -284,6 +284,9 @@ namespace AST
 		void dumpAst(FILE *f, std::string indent) const;
 		void dumpVlog(FILE *f, std::string indent) const;
 
+		// Generate RTLIL for a bind construct
+		std::vector<RTLIL::Binding *> genBindings() const;
+
 		// used by genRTLIL() for detecting expression width and sign
 		void detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *found_real = NULL);
 		void detectSignWidth(int &width_hint, bool &sign_hint, bool *found_real = NULL);
