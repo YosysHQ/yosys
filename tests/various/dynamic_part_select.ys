@@ -1,0 +1,119 @@
+### Original testcase ###
+read_verilog ./dynamic_part_select/original.v
+hierarchy -top original; proc; opt;
+prep -flatten -top original
+rename -top gold
+design -stash gold
+
+read_verilog ./dynamic_part_select/original_gate.v
+hierarchy -top original_gate; proc; opt;
+prep -flatten -top original_gate
+rename -top gate
+design -stash gate
+
+design -copy-from gold -as gold gold
+design -copy-from gate -as gate gate
+
+miter -equiv -make_assert -make_outcmp -flatten gold gate equiv
+hierarchy -top equiv
+sat -prove-asserts -seq 10 -show-public -verify -set-init-zero -ignore_unknown_cells equiv
+
+### Multiple blocking assingments ###
+read_verilog ./dynamic_part_select/multiple_blocking.v
+hierarchy -top multiple_blocking; proc; opt;
+prep -flatten -top multiple_blocking
+rename -top gold
+design -stash gold
+ 
+read_verilog ./dynamic_part_select/multiple_blocking_gate.v
+hierarchy -top multiple_blocking_gate; proc; opt;
+prep -flatten -top multiple_blocking_gate
+rename -top gate
+design -stash gate
+ 
+design -copy-from gold -as gold gold
+design -copy-from gate -as gate gate
+
+miter -equiv -make_assert -make_outcmp -flatten gold gate equiv
+hierarchy -top equiv
+sat -prove-asserts -seq 10 -show-public -verify -set-init-zero -ignore_unknown_cells equiv
+ 
+### Non-blocking to the same output register ###
+read_verilog ./dynamic_part_select/nonblocking.v
+hierarchy -top nonblocking; proc; opt;
+prep -flatten -top nonblocking
+rename -top gold
+design -stash gold
+
+read_verilog ./dynamic_part_select/nonblocking_gate.v
+hierarchy -top nonblocking_gate; proc; opt;
+prep -flatten -top nonblocking_gate
+rename -top gate
+design -stash gate
+ 
+design -copy-from gold -as gold gold
+design -copy-from gate -as gate gate
+
+miter -equiv -make_assert -make_outcmp -flatten gold gate equiv
+hierarchy -top equiv
+sat -prove-asserts -seq 10 -show-public -verify -set-init-zero -ignore_unknown_cells equiv
+ 
+### For-loop select, one dynamic input
+read_verilog ./dynamic_part_select/forloop_select.v
+hierarchy -top forloop_select; proc; opt;
+prep -flatten -top forloop_select
+rename -top gold
+design -stash gold
+
+read_verilog ./dynamic_part_select/forloop_select_gate.v
+hierarchy -top forloop_select_gate; proc; opt;
+prep -flatten -top forloop_select_gate
+rename -top gate
+design -stash gate
+ 
+design -copy-from gold -as gold gold
+design -copy-from gate -as gate gate
+
+miter -equiv -make_assert -make_outcmp -flatten gold gate equiv
+hierarchy -top equiv
+sat -prove-asserts -seq 10 -show-public -verify -set-init-zero -ignore_unknown_cells equiv
+ 
+#### Double loop (part-select, reset) ### 
+read_verilog ./dynamic_part_select/reset_test.v
+hierarchy -top reset_test; proc; opt;
+prep -flatten -top reset_test
+rename -top gold
+design -stash gold
+
+read_verilog ./dynamic_part_select/reset_test_gate.v
+hierarchy -top reset_test_gate; proc; opt;
+prep -flatten -top reset_test_gate
+rename -top gate
+design -stash gate
+
+design -copy-from gold -as gold gold
+design -copy-from gate -as gate gate
+ 
+miter -equiv -make_assert -make_outcmp -flatten gold gate equiv
+hierarchy -top equiv
+sat -prove-asserts -seq 10 -show-public -verify -set-init-zero -ignore_unknown_cells equiv
+ 
+### Reversed part-select case ###
+read_verilog ./dynamic_part_select/reversed.v
+hierarchy -top reversed; proc; opt;
+prep -flatten -top reversed
+rename -top gold
+design -stash gold
+
+read_verilog ./dynamic_part_select/reversed_gate.v
+hierarchy -top reversed_gate; proc; opt;
+prep -flatten -top reversed_gate
+rename -top gate
+design -stash gate
+
+design -copy-from gold -as gold gold
+design -copy-from gate -as gate gate
+ 
+miter -equiv -make_assert -make_outcmp -flatten gold gate equiv
+hierarchy -top equiv
+sat -prove-asserts -seq 10 -show-public -verify -set-init-zero -ignore_unknown_cells equiv
