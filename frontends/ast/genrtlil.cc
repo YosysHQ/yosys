@@ -731,6 +731,108 @@ struct AST_INTERNAL::ProcessGenerator
 	}
 };
 
+// helper function for filling out an RTLIL::Cell with the contents of a CELL AST node
+static void fill_cell(RTLIL::Cell *cell, const AstNode &ast_node)
+{
+	int port_counter = 0, para_counter = 0;
+
+	set_src_attr(cell, &ast_node);
+	// Set attribute 'module_not_derived' which will be cleared again after the hierarchy pass
+	cell->set_bool_attribute(ID::module_not_derived);
+
+	for (const AstNode *pchild : ast_node.children) {
+		const AstNode &child = *pchild;
+		if (child.type == AST_CELLTYPE) {
+			cell->type = child.str;
+			if (flag_icells && cell->type.begins_with("\\$"))
+				cell->type = cell->type.substr(1);
+			continue;
+		}
+		if (child.type == AST_PARASET) {
+			int extra_const_flags = 0;
+			IdString paraname = child.str.empty() ? stringf("$%d", ++para_counter) : child.str;
+			if (child.children[0]->type == AST_REALVALUE) {
+				log_file_warning(ast_node.filename, ast_node.location.first_line, "Replacing floating point parameter %s.%s = %f with string.\n",
+						log_id(cell), log_id(paraname), child.children[0]->realvalue);
+				extra_const_flags = RTLIL::CONST_FLAG_REAL;
+				auto strnode = AstNode::mkconst_str(stringf("%f", child.children[0]->realvalue));
+				strnode->cloneInto(child.children[0]);
+				delete strnode;
+			}
+			if (child.children[0]->type != AST_CONSTANT)
+				log_file_error(ast_node.filename, ast_node.location.first_line, "Parameter %s.%s with non-constant value!\n",
+						log_id(cell), log_id(paraname));
+			cell->parameters[paraname] = child.children[0]->asParaConst();
+			cell->parameters[paraname].flags |= extra_const_flags;
+			continue;
+		}
+		if (child.type == AST_ARGUMENT) {
+			RTLIL::SigSpec sig;
+			if (child.children.size() > 0) {
+				AstNode *arg = child.children[0];
+				int local_width_hint = -1;
+				bool local_sign_hint = false;
+				// don't inadvertently attempt to detect the width of interfaces
+				if (arg->type != AST_IDENTIFIER || !arg->id2ast || arg->id2ast->type != AST_CELL)
+					arg->detectSignWidth(local_width_hint, local_sign_hint);
+				sig = arg->genRTLIL(local_width_hint, local_sign_hint);
+				log_assert(local_sign_hint == arg->is_signed);
+				if (sig.is_wire()) {
+					// if the resulting SigSpec is a wire, its
+					// signedness should match that of the AstNode
+					log_assert(arg->is_signed == sig.as_wire()->is_signed);
+				} else if (arg->is_signed) {
+					// non-trivial signed nodes are indirected through
+					// signed wires to enable sign extension
+					RTLIL::IdString wire_name = NEW_ID;
+					RTLIL::Wire *wire = current_module->addWire(wire_name, GetSize(sig));
+					wire->is_signed = true;
+					current_module->connect(wire, sig);
+					sig = wire;
+				}
+			}
+			if (child.str.size() == 0) {
+				char buf[100];
+				snprintf(buf, 100, "$%d", ++port_counter);
+				cell->setPort(buf, sig);
+			} else {
+				cell->setPort(child.str, sig);
+			}
+			continue;
+		}
+		log_abort();
+	}
+	for (auto &attr : ast_node.attributes) {
+		if (attr.second->type != AST_CONSTANT)
+			log_file_error(ast_node.filename, ast_node.location.first_line, "Attribute `%s' with non-constant value.\n", attr.first.c_str());
+		cell->attributes[attr.first] = attr.second->asAttrConst();
+	}
+	if (cell->type == ID($specify2)) {
+		int src_width = GetSize(cell->getPort(ID::SRC));
+		int dst_width = GetSize(cell->getPort(ID::DST));
+		bool full = cell->getParam(ID::FULL).as_bool();
+		if (!full && src_width != dst_width)
+			log_file_error(ast_node.filename, ast_node.location.first_line, "Parallel specify SRC width does not match DST width.\n");
+		cell->setParam(ID::SRC_WIDTH, Const(src_width));
+		cell->setParam(ID::DST_WIDTH, Const(dst_width));
+	}
+	else if (cell->type ==  ID($specify3)) {
+		int dat_width = GetSize(cell->getPort(ID::DAT));
+		int dst_width = GetSize(cell->getPort(ID::DST));
+		if (dat_width != dst_width)
+			log_file_error(ast_node.filename, ast_node.location.first_line, "Specify DAT width does not match DST width.\n");
+		int src_width = GetSize(cell->getPort(ID::SRC));
+		cell->setParam(ID::SRC_WIDTH, Const(src_width));
+		cell->setParam(ID::DST_WIDTH, Const(dst_width));
+	}
+	else if (cell->type == ID($specrule)) {
+		int src_width = GetSize(cell->getPort(ID::SRC));
+		int dst_width = GetSize(cell->getPort(ID::DST));
+		cell->setParam(ID::SRC_WIDTH, Const(src_width));
+		cell->setParam(ID::DST_WIDTH, Const(dst_width));
+	}
+}
+
 // detect sign and width of an expression
 void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *found_real)
 {
@@ -1774,110 +1876,11 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 		break;
 
 	// create an RTLIL::Cell for an AST_CELL
-	case AST_CELL:
-		{
-			int port_counter = 0, para_counter = 0;
-
-			RTLIL::IdString id = str;
-			check_unique_id(current_module, id, this, "cell");
-			RTLIL::Cell *cell = current_module->addCell(id, "");
-			set_src_attr(cell, this);
-			// Set attribute 'module_not_derived' which will be cleared again after the hierarchy pass
-			cell->set_bool_attribute(ID::module_not_derived);
-
-			for (auto it = children.begin(); it != children.end(); it++) {
-				AstNode *child = *it;
-				if (child->type == AST_CELLTYPE) {
-					cell->type = child->str;
-					if (flag_icells && cell->type.begins_with("\\$"))
-						cell->type = cell->type.substr(1);
-					continue;
-				}
-				if (child->type == AST_PARASET) {
-					int extra_const_flags = 0;
-					IdString paraname = child->str.empty() ? stringf("$%d", ++para_counter) : child->str;
-					if (child->children[0]->type == AST_REALVALUE) {
-						log_file_warning(filename, location.first_line, "Replacing floating point parameter %s.%s = %f with string.\n",
-								log_id(cell), log_id(paraname), child->children[0]->realvalue);
-						extra_const_flags = RTLIL::CONST_FLAG_REAL;
-						auto strnode = AstNode::mkconst_str(stringf("%f", child->children[0]->realvalue));
-						strnode->cloneInto(child->children[0]);
-						delete strnode;
-					}
-					if (child->children[0]->type != AST_CONSTANT)
-						log_file_error(filename, location.first_line, "Parameter %s.%s with non-constant value!\n",
-								log_id(cell), log_id(paraname));
-					cell->parameters[paraname] = child->children[0]->asParaConst();
-					cell->parameters[paraname].flags |= extra_const_flags;
-					continue;
-				}
-				if (child->type == AST_ARGUMENT) {
-					RTLIL::SigSpec sig;
-					if (child->children.size() > 0) {
-						AstNode *arg = child->children[0];
-						int local_width_hint = -1;
-						bool local_sign_hint = false;
-						// don't inadvertently attempt to detect the width of interfaces
-						if (arg->type != AST_IDENTIFIER || !arg->id2ast || arg->id2ast->type != AST_CELL)
-							arg->detectSignWidth(local_width_hint, local_sign_hint);
-						sig = arg->genRTLIL(local_width_hint, local_sign_hint);
-						log_assert(local_sign_hint == arg->is_signed);
-						if (sig.is_wire()) {
-							// if the resulting SigSpec is a wire, its
-							// signedness should match that of the AstNode
-							log_assert(arg->is_signed == sig.as_wire()->is_signed);
-						} else if (arg->is_signed) {
-							// non-trivial signed nodes are indirected through
-							// signed wires to enable sign extension
-							RTLIL::IdString wire_name = NEW_ID;
-							RTLIL::Wire *wire = current_module->addWire(wire_name, GetSize(sig));
-							wire->is_signed = true;
-							current_module->connect(wire, sig);
-							sig = wire;
-						}
-					}
-					if (child->str.size() == 0) {
-						char buf[100];
-						snprintf(buf, 100, "$%d", ++port_counter);
-						cell->setPort(buf, sig);
-					} else {
-						cell->setPort(child->str, sig);
-					}
-					continue;
-				}
-				log_abort();
-			}
-			for (auto &attr : attributes) {
-				if (attr.second->type != AST_CONSTANT)
-					log_file_error(filename, location.first_line, "Attribute `%s' with non-constant value.\n", attr.first.c_str());
-				cell->attributes[attr.first] = attr.second->asAttrConst();
-			}
-			if (cell->type == ID($specify2)) {
-				int src_width = GetSize(cell->getPort(ID::SRC));
-				int dst_width = GetSize(cell->getPort(ID::DST));
-				bool full = cell->getParam(ID::FULL).as_bool();
-				if (!full && src_width != dst_width)
-					log_file_error(filename, location.first_line, "Parallel specify SRC width does not match DST width.\n");
-				cell->setParam(ID::SRC_WIDTH, Const(src_width));
-				cell->setParam(ID::DST_WIDTH, Const(dst_width));
-			}
-			else if (cell->type ==  ID($specify3)) {
-				int dat_width = GetSize(cell->getPort(ID::DAT));
-				int dst_width = GetSize(cell->getPort(ID::DST));
-				if (dat_width != dst_width)
-					log_file_error(filename, location.first_line, "Specify DAT width does not match DST width.\n");
-				int src_width = GetSize(cell->getPort(ID::SRC));
-				cell->setParam(ID::SRC_WIDTH, Const(src_width));
-				cell->setParam(ID::DST_WIDTH, Const(dst_width));
-			}
-			else if (cell->type == ID($specrule)) {
-				int src_width = GetSize(cell->getPort(ID::SRC));
-				int dst_width = GetSize(cell->getPort(ID::DST));
-				cell->setParam(ID::SRC_WIDTH, Const(src_width));
-				cell->setParam(ID::DST_WIDTH, Const(dst_width));
-			}
-		}
-		break;
+	case AST_CELL: {
+		RTLIL::IdString id = str;
+		check_unique_id(current_module, id, this, "cell");
+		fill_cell(current_module->addCell(str, ""), *this);
+		} break;
 
 	// use ProcessGenerator for always blocks
 	case AST_ALWAYS: {
