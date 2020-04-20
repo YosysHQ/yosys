@@ -551,8 +551,8 @@ RTLIL::Design::Design()
 
 RTLIL::Design::~Design()
 {
-	for (auto it = modules_.begin(); it != modules_.end(); ++it)
-		delete it->second;
+	for (auto &pr : modules_)
+		delete pr.second;
 	for (auto n : verilog_packages)
 		delete n;
 	for (auto n : verilog_globals)
@@ -844,14 +844,14 @@ RTLIL::Module::Module()
 
 RTLIL::Module::~Module()
 {
-	for (auto it = wires_.begin(); it != wires_.end(); ++it)
-		delete it->second;
-	for (auto it = memories.begin(); it != memories.end(); ++it)
-		delete it->second;
-	for (auto it = cells_.begin(); it != cells_.end(); ++it)
-		delete it->second;
-	for (auto it = processes.begin(); it != processes.end(); ++it)
-		delete it->second;
+	for (auto &pr : wires_)
+		delete pr.second;
+	for (auto &pr : memories)
+		delete pr.second;
+	for (auto &pr : cells_)
+		delete pr.second;
+	for (auto &pr : processes)
+		delete pr.second;
 #ifdef WITH_PYTHON
 	RTLIL::Module::get_all_modules()->erase(hashidx_);
 #endif
