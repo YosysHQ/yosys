@@ -568,7 +568,7 @@ struct TechmapWorker
 			{
 				IdString derived_name = tpl_name;
 				RTLIL::Module *tpl = map->module(tpl_name);
-				dict<IdString, RTLIL::Const> parameters(cell->parameters.begin(), cell->parameters.end());
+				dict<IdString, RTLIL::Const> parameters(cell->parameters);
 
 				if (tpl->get_blackbox_attribute(ignore_wb))
 					continue;
@@ -782,16 +782,17 @@ struct TechmapWorker
 					// do not register techmap_wrap modules with techmap_cache
 				} else {
 					std::pair<IdString, dict<IdString, RTLIL::Const>> key(tpl_name, parameters);
-					if (techmap_cache.count(key) > 0) {
-						tpl = techmap_cache[key];
+					auto it = techmap_cache.find(key);
+					if (it != techmap_cache.end()) {
+						tpl = it->second;
 					} else {
 						if (parameters.size() != 0) {
 							mkdebug.on();
-							derived_name = tpl->derive(map, dict<IdString, RTLIL::Const>(parameters.begin(), parameters.end()));
+							derived_name = tpl->derive(map, parameters);
 							tpl = map->module(derived_name);
 							log_continue = true;
 						}
-						techmap_cache[key] = tpl;
+						techmap_cache.emplace(std::move(key), tpl);
 					}
 				}
 
