@@ -1219,12 +1219,12 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 	flag_autowire = autowire;
 
 	log_assert(current_ast->type == AST_DESIGN);
-	for (auto it = current_ast->children.begin(); it != current_ast->children.end(); it++)
+	for (AstNode *child : current_ast->children)
 	{
-		if ((*it)->type == AST_MODULE || (*it)->type == AST_INTERFACE)
+		if (child->type == AST_MODULE || child->type == AST_INTERFACE)
 		{
 			for (auto n : design->verilog_globals)
-				(*it)->children.push_back(n->clone());
+				child->children.push_back(n->clone());
 
 			// append nodes from previous packages using package-qualified names
 			for (auto &n : design->verilog_packages) {
@@ -1239,57 +1239,57 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 					} else {
 						cloned_node->str = n->str + std::string("::") + cloned_node->str.substr(1);
 					}
-					(*it)->children.push_back(cloned_node);
+					child->children.push_back(cloned_node);
 				}
 			}
 
-			if (flag_icells && (*it)->str.compare(0, 2, "\\$") == 0)
-				(*it)->str = (*it)->str.substr(1);
+			if (flag_icells && child->str.compare(0, 2, "\\$") == 0)
+				child->str = child->str.substr(1);
 
 			bool defer_local = defer;
 			if (!defer_local)
-				for (const AstNode *node : (*it)->children)
+				for (const AstNode *node : child->children)
 					if (node->type == AST_PARAMETER && param_has_no_default(node))
 					{
-						log("Deferring `%s' because it contains parameter(s) without defaults.\n", (*it)->str.c_str());
+						log("Deferring `%s' because it contains parameter(s) without defaults.\n", child->str.c_str());
 						defer_local = true;
 						break;
 					}
 
 
 			if (defer_local)
-				(*it)->str = "$abstract" + (*it)->str;
+				child->str = "$abstract" + child->str;
 
-			if (design->has((*it)->str)) {
-				RTLIL::Module *existing_mod = design->module((*it)->str);
+			if (design->has(child->str)) {
+				RTLIL::Module *existing_mod = design->module(child->str);
 				if (!nooverwrite && !overwrite && !existing_mod->get_blackbox_attribute()) {
-					log_file_error((*it)->filename, (*it)->location.first_line, "Re-definition of module `%s'!\n", (*it)->str.c_str());
+					log_file_error(child->filename, child->location.first_line, "Re-definition of module `%s'!\n", child->str.c_str());
 				} else if (nooverwrite) {
 					log("Ignoring re-definition of module `%s' at %s.\n",
-							(*it)->str.c_str(), (*it)->loc_string().c_str());
+							child->str.c_str(), child->loc_string().c_str());
 					continue;
 				} else {
 					log("Replacing existing%s module `%s' at %s.\n",
 							existing_mod->get_bool_attribute(ID::blackbox) ? " blackbox" : "",
-							(*it)->str.c_str(), (*it)->loc_string().c_str());
+							child->str.c_str(), child->loc_string().c_str());
 					design->remove(existing_mod);
 				}
 			}
 
-			process_module(design, *it, defer_local);
+			process_module(design, child, defer_local);
 			current_ast_mod = nullptr;
 		}
-		else if ((*it)->type == AST_PACKAGE) {
+		else if (child->type == AST_PACKAGE) {
 			// process enum/other declarations
-			(*it)->simplify(true, false, false, 1, -1, false, false);
-			design->verilog_packages.push_back((*it)->clone());
+			child->simplify(true, false, false, 1, -1, false, false);
+			design->verilog_packages.push_back(child->clone());
 			current_scope.clear();
 		}
 		else {
 			// must be global definition
-			if ((*it)->type == AST_PARAMETER)
-				(*it)->type = AST_LOCALPARAM; // cannot be overridden
-			design->verilog_globals.push_back((*it)->clone());
+			if (child->type == AST_PARAMETER)
+				child->type = AST_LOCALPARAM; // cannot be overridden
+			design->verilog_globals.push_back(child->clone());
 			current_scope.clear();
 		}
 	}
