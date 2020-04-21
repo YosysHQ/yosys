@@ -756,14 +756,14 @@ protected:
 		return entries.size() - 1;
 	}
 
-	int do_insert(K &&value, int &hash)
+	int do_insert(K &&rvalue, int &hash)
 	{
 		if (hashtable.empty()) {
-			entries.emplace_back(std::forward<K>(value), -1);
+			entries.emplace_back(std::forward<K>(rvalue), -1);
 			do_rehash();
-			hash = do_hash(value);
+			hash = do_hash(rvalue);
 		} else {
-			entries.emplace_back(std::forward<K>(value), hashtable[hash]);
+			entries.emplace_back(std::forward<K>(rvalue), hashtable[hash]);
 			hashtable[hash] = entries.size() - 1;
 		}
 		return entries.size() - 1;
@@ -861,13 +861,13 @@ public:
 		return std::pair<iterator, bool>(iterator(this, i), true);
 	}
 
-	std::pair<iterator, bool> insert(K &&value)
+	std::pair<iterator, bool> insert(K &&rvalue)
 	{
-		int hash = do_hash(value);
-		int i = do_lookup(value, hash);
+		int hash = do_hash(rvalue);
+		int i = do_lookup(rvalue, hash);
 		if (i >= 0)
 			return std::pair<iterator, bool>(iterator(this, i), false);
-		i = do_insert(std::forward<K>(value), hash);
+		i = do_insert(std::forward<K>(rvalue), hash);
 		return std::pair<iterator, bool>(iterator(this, i), true);
 	}
 
