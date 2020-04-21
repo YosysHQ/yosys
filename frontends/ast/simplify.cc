@@ -64,6 +64,21 @@ std::string AstNode::process_format_str(const std::string &sformat, int next_arg
 				continue;
 			}
 
+			bool got_len = false;
+			bool got_zlen = false;
+			int len_value = 0;
+
+			while ('0' <= cformat && cformat <= '9')
+			{
+				if (!got_len && cformat == '0')
+					got_zlen = true;
+
+				got_len = true;
+				len_value = 10*len_value + (cformat - '0');
+
+				cformat = sformat[++i];
+			}
+
 			// Simplify the argument
 			AstNode *node_arg = nullptr;
 
@@ -74,6 +89,9 @@ std::string AstNode::process_format_str(const std::string &sformat, int next_arg
 				case 'S':
 				case 'd':
 				case 'D':
+					if (got_len)
+						goto unsupported_format;
+					/* fall through */
 				case 'x':
 				case 'X':
 					if (next_arg >= GetSize(children))
@@ -88,9 +106,12 @@ std::string AstNode::process_format_str(const std::string &sformat, int next_arg
 
 				case 'm':
 				case 'M':
+					if (got_len)
+						goto unsupported_format;
 					break;
 
 				default:
+				unsupported_format:
 					log_file_error(filename, location.first_line, "System task `%s' called with invalid/unsupported format specifier.\n", str.c_str());
 					break;
 			}
@@ -104,19 +125,28 @@ std::string AstNode::process_format_str(const std::string &sformat, int next_arg
 
 				case 'd':
 				case 'D':
-					{
-						char tmp[128];
-						snprintf(tmp, sizeof(tmp), "%d", node_arg->bitsAsConst().as_int());
-						sout += tmp;
-					}
+					sout += stringf("%d", node_arg->bitsAsConst().as_int());
 					break;
 
 				case 'x':
 				case 'X':
 					{
-						char tmp[128];
-						snprintf(tmp, sizeof(tmp), "%x", node_arg->bitsAsConst().as_int());
-						sout += tmp;
+						Const val = node_arg->bitsAsConst();
+
+						while (GetSize(val) % 4 != 0)
+							val.bits.push_back(State::S0);
+
+						int len = GetSize(val) / 4;
+						for (int i = len; i < len_value; i++)
+							sout += got_zlen ? '0' : ' ';
+
+						for (int i = len-1; i >= 0; i--) {
+							Const digit = val.extract(4*i, 4);
+							if (digit.is_fully_def())
+								sout += stringf(cformat == 'x' ? "%x" : "%X", digit.as_int());
+							else
+								sout += cformat == 'x' ? "x" : "X";
+						}
 					}
 					break;
 
