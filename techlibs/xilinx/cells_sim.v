@@ -692,9 +692,14 @@ module FDCE (
     $setup(CLR, posedge C &&& !IS_C_INVERTED, 404);
     $setup(CLR, negedge C &&&  IS_C_INVERTED, 404);
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L270
+`ifndef YOSYS
+    if (!IS_CLR_INVERTED) (posedge CLR => (Q : 1'b0)) = 764;
+    if ( IS_CLR_INVERTED) (negedge CLR => (Q : 1'b0)) = 764;
+`else
     if (IS_CLR_INVERTED != CLR) (CLR => Q) = 764; // Technically, this should be an edge sensitive path
                                                   // but for facilitating a bypass box, let's pretend it's
                                                   // a simple path
+`endif
     if (!IS_C_INVERTED && CLR == IS_CLR_INVERTED && CE) (posedge C => (Q : D ^ IS_D_INVERTED)) = 303;
     if ( IS_C_INVERTED && CLR == IS_CLR_INVERTED && CE) (negedge C => (Q : D ^ IS_D_INVERTED)) = 303;
   endspecify
@@ -720,14 +725,18 @@ module FDCE_1 (
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L274
     $setup(CLR, negedge C, 404);
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L270
+`ifndef YOSYS
+    (posedge CLR => (Q : 1'b0)) = 764;
+`else
     if (CLR) (CLR => Q) = 764; // Technically, this should be an edge sensitive path
                                // but for facilitating a bypass box, let's pretend it's
                                // a simple path
+`endif
     if (!CLR && CE) (negedge C => (Q : D)) = 303;
   endspecify
 endmodule
 
-//(* abc9_box, lib_whitebox *)
+(* abc9_box, lib_whitebox *)
 module FDPE (
   output reg Q,
   (* clkbuf_sink *)
@@ -762,9 +771,14 @@ module FDPE (
     $setup(PRE, posedge C &&& !IS_C_INVERTED, 404);
     $setup(PRE, negedge C &&&  IS_C_INVERTED, 404);
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L270
+`ifndef YOSYS
+    if (!IS_PRE_INVERTED) (posedge PRE => (Q : 1'b1)) = 764;
+    if ( IS_PRE_INVERTED) (negedge PRE => (Q : 1'b1)) = 764;
+`else
     if (IS_PRE_INVERTED != PRE) (PRE => Q) = 764; // Technically, this should be an edge sensitive path
                                                   // but for facilitating a bypass box, let's pretend it's
                                                   // a simple path
+`endif
     if (!IS_C_INVERTED && PRE == IS_PRE_INVERTED && CE) (posedge C => (Q : D ^ IS_D_INVERTED)) = 303;
     if ( IS_C_INVERTED && PRE == IS_PRE_INVERTED && CE) (negedge C => (Q : D ^ IS_D_INVERTED)) = 303;
   endspecify
@@ -790,9 +804,13 @@ module FDPE_1 (
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L274
     $setup(PRE, negedge C, 404);
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L270
+`ifndef YOSYS
+    (posedge PRE => (Q : 1'b1)) = 764;
+`else
     if (PRE) (PRE => Q) = 764; // Technically, this should be an edge sensitive path
                                // but for facilitating a bypass box, let's pretend it's
                                // a simple path
+`endif
     if (!PRE && CE) (negedge C => (Q : D)) = 303;
   endspecify
 endmodule
