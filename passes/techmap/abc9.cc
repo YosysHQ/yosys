@@ -298,9 +298,9 @@ struct Abc9Pass : public ScriptPass
 			run("opt");
 			if (dff_mode) {
 				if (!help_mode)
-					active_design->scratchpad_unset("abc9_ops.prep_dff_map.did_something");
-				run("abc9_ops -prep_dff_map", "(only if -dff)"); // rewrite specify
-				bool did_something = help_mode || active_design->scratchpad_get_bool("abc9_ops.prep_dff_map.did_something");
+					active_design->scratchpad_unset("abc9_ops.prep_dff_submod.did_something");
+				run("abc9_ops -prep_dff_submod", "(only if -dff)"); // rewrite specify
+				bool did_something = help_mode || active_design->scratchpad_get_bool("abc9_ops.prep_dff_submod.did_something");
 				if (did_something) {
 										// select all $_DFF_[NP]_
 										// then select all its fanins

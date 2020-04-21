@@ -191,10 +191,7 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 							//   because ABC9 doesn't support them
 							if (init != State::S0) {
 								log_warning("Module '%s' contains a %s cell with non-zero initial state -- this is not unsupported for ABC9 sequential synthesis. Treating as a blackbox.\n", log_id(derived_module), log_id(derived_cell->type));
-								// TODO: still necessary?
-								// Do not use set_bool_attribute() as it will unset the value
-								//   and (attributes.count(ID::abc9_flop) will fail)
-								derived_module->attributes[ID::abc9_flop] = false;
+								derived_module->set_bool_attribute(ID::abc9_flop, false);
 								goto skip_cell;
 							}
 							break;
@@ -214,10 +211,7 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 						goto skip_cell;
 					}
 
-					// TODO: still necessary?
-					// Do not use set_bool_attribute() as it will unset the value
-					//   and (attributes.count(ID::abc9_box) will fail)
-					derived_module->attributes[ID::abc9_box] = false;
+					derived_module->set_bool_attribute(ID::abc9_box, false);
 				}
 
 				if (derived_type != cell->type) {
@@ -273,9 +267,7 @@ void prep_bypass(RTLIL::Design *design)
 			log_assert(inst_module);
 			if (inst_module->get_blackbox_attribute(true /* ignore_wb */))
 				continue;
-			// Skip if (* abc9_box *) exists or is true
-			auto it = inst_module->attributes.find(ID::abc9_box);
-			if (it == inst_module->attributes.end() || it->second.as_bool())
+			if (!inst_module->get_bool_attribute(ID::abc9_box))
 				continue;
 
 
@@ -464,7 +456,7 @@ void prep_dff(RTLIL::Design *design)
 		}
 }
 
-void prep_dff_map(RTLIL::Design *design)
+void prep_dff_submod(RTLIL::Design *design)
 {
 	for (auto module : design->modules()) {
 		vector<Cell*> specify_cells;
@@ -512,7 +504,7 @@ void prep_dff_map(RTLIL::Design *design)
 			cell->setPort(ID::DST, DST);
 		}
 
-		design->scratchpad_set_bool("abc9_ops.prep_dff_map.did_something", true);
+		design->scratchpad_set_bool("abc9_ops.prep_dff_submod.did_something", true);
 	}
 }
 
@@ -1548,7 +1540,7 @@ struct Abc9OpsPass : public Pass {
 		log("        select all (* abc9_flop *) modules instantiated in the design and store\n");
 		log("        in the named selection '$abc9_flops'.\n");
 		log("\n");
-		log("    -prep_dff_map\n");
+		log("    -prep_dff_submod\n");
 		log("        within (* abc9_flop *) modules, attach dummy buffers to all ports and move\n");
 		log("        all $specify3/$specrule cells that share a 'DST' port with the $_DFF_[NP]_.Q\n");
 		log("        port from this 'Q' port to the DFF's 'D' port. this is to ensure that all\n");
@@ -1608,7 +1600,7 @@ struct Abc9OpsPass : public Pass {
 		bool mark_scc_mode = false;
 		bool prep_hier_mode = false;
 		bool prep_bypass_mode = false;
-		bool prep_dff_mode = false, prep_dff_map_mode = false, prep_dff_unmap_mode = false;
+		bool prep_dff_mode = false, prep_dff_submod_mode = false, prep_dff_unmap_mode = false;
 		bool prep_xaiger_mode = false;
 		bool prep_lut_mode = false;
 		bool prep_box_mode = false;
@@ -1647,8 +1639,8 @@ struct Abc9OpsPass : public Pass {
 				valid = true;
 				continue;
 			}
-			if (arg == "-prep_dff_map") {
-				prep_dff_map_mode = true;
+			if (arg == "-prep_dff_submod") {
+				prep_dff_submod_mode = true;
 				valid = true;
 				continue;
 			}
@@ -1717,8 +1709,8 @@ struct Abc9OpsPass : public Pass {
 			prep_bypass(design);
 		if (prep_dff_mode)
 			prep_dff(design);
-		if (prep_dff_map_mode)
-			prep_dff_map(design);
+		if (prep_dff_submod_mode)
+			prep_dff_submod(design);
 		if (prep_dff_unmap_mode)
 			prep_dff_unmap(design);
 		if (prep_delays_mode)
