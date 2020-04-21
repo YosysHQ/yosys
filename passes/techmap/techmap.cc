@@ -413,8 +413,10 @@ struct TechmapWorker
 				if (autopurge) {
 					autopurge_ports.push_back(conn.first);
 				} else {
-					apply_prefix(cell->name, const_cast<RTLIL::SigSpec&>(conn.second), module);
-					port_signal_map.apply(const_cast<RTLIL::SigSpec&>(conn.second));
+					RTLIL::SigSpec new_conn = conn.second;
+					apply_prefix(cell->name, new_conn, module);
+					port_signal_map.apply(new_conn);
+					c->setPort(conn.first, std::move(new_conn));
 				}
 			}
 
