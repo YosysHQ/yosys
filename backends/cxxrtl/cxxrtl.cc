@@ -360,6 +360,11 @@ struct FlowGraph {
 	}
 };
 
+bool is_input_wire(const RTLIL::Wire *wire)
+{
+	return wire->port_input && !wire->port_output;
+}
+
 bool is_cxxrtl_blackbox_cell(const RTLIL::Cell *cell)
 {
 	RTLIL::Module *cell_module = cell->module->design->module(cell->type);
@@ -685,7 +690,7 @@ struct CxxrtlWorker {
 					default:
 						log_assert(false);
 				}
-			} else if (localized_wires[chunk.wire]) {
+			} else if (localized_wires[chunk.wire] || is_input_wire(chunk.wire)) {
 				f << mangle(chunk.wire);
 			} else {
 				f << mangle(chunk.wire) << (is_lhs ? ".next" : ".curr");
@@ -1093,7 +1098,11 @@ struct CxxrtlWorker {
 			log_assert(cell->known());
 			const char *access = is_cxxrtl_blackbox_cell(cell) ? "->" : ".";
 			for (auto conn : cell->connections())
-				if (cell->input(conn.first)) {
+				if (cell->input(conn.first) && !cell->output(conn.first)) {
+					f << indent << mangle(cell) << access << mangle_wire_name(conn.first) << " = ";
+					dump_sigspec_rhs(conn.second);
+					f << ";\n";
+				} else if (cell->input(conn.first)) {
 					f << indent << mangle(cell) << access << mangle_wire_name(conn.first) << ".next = ";
 					dump_sigspec_rhs(conn.second);
 					f << ";\n";
@@ -1258,21 +1267,17 @@ struct CxxrtlWorker {
 		}
 	}
 
-	void dump_wire(const RTLIL::Wire *wire, bool is_local)
+	void dump_wire(const RTLIL::Wire *wire, bool is_local_context)
 	{
 		if (elided_wires.count(wire))
 			return;
+		if (localized_wires.count(wire) != is_local_context)
+			return;
 
-		if (is_local) {
-			if (!localized_wires.count(wire))
-				return;
-
+		if (is_local_context) {
 			dump_attrs(wire);
 			f << indent << "value<" << wire->width << "> " << mangle(wire) << ";\n";
 		} else {
-			if (localized_wires.count(wire))
-				return;
-
 			std::string width;
 			if (wire->module->has_attribute(ID(cxxrtl.blackbox)) && wire->has_attribute(ID(cxxrtl.width))) {
 				width = wire->get_string_attribute(ID(cxxrtl.width));
@@ -1281,29 +1286,44 @@ struct CxxrtlWorker {
 			}
 
 			dump_attrs(wire);
-			f << indent << "wire<" << width << "> " << mangle(wire);
+			f << indent << (is_input_wire(wire) ? "value" : "wire") << "<" << width << "> " << mangle(wire);
 			if (wire->has_attribute(ID::init)) {
 				f << " ";
 				dump_const_init(wire->attributes.at(ID::init));
 			}
 			f << ";\n";
 			if (sync_wires[wire]) {
+				if (is_input_wire(wire)) {
+					f << indent << "value<" << width << "> prev_" << mangle(wire);
+					if (wire->has_attribute(ID::init)) {
+						f << " ";
+						dump_const_init(wire->attributes.at(ID::init));
+					}
+					f << ";\n";
+				}
 				for (auto sync_type : sync_types) {
 					if (sync_type.first.wire == wire) {
+						std::string prev, next;
+						if (is_input_wire(wire)) {
+							prev = "prev_" + mangle(sync_type.first.wire);
+							next =           mangle(sync_type.first.wire);
+						} else {
+							prev = mangle(sync_type.first.wire) + ".curr";
+							next = mangle(sync_type.first.wire) + ".next";
+						}
+						prev += ".slice<" + std::to_string(sync_type.first.offset) + ">().val()";
+						next += ".slice<" + std::to_string(sync_type.first.offset) + ">().val()";
 						if (sync_type.second != RTLIL::STn) {
 							f << indent << "bool posedge_" << mangle(sync_type.first) << "() const {\n";
 							inc_indent();
-								f << indent << "return ";
-								f << "!" << mangle(sync_type.first.wire) << ".curr.slice<" << sync_type.first.offset << ">().val() && ";
-								f <<        mangle(sync_type.first.wire) << ".next.slice<" << sync_type.first.offset << ">().val();\n";
+								f << indent << "return !" << prev << " && " << next << ";\n";
 							dec_indent();
 							f << indent << "}\n";
-						} else {
+						}
+						if (sync_type.second != RTLIL::STp) {
 							f << indent << "bool negedge_" << mangle(sync_type.first) << "() const {\n";
 							inc_indent();
-								f << indent << "return ";
-								f <<        mangle(sync_type.first.wire) << ".curr.slice<" << sync_type.first.offset << ">().val() && ";
-								f << "!" << mangle(sync_type.first.wire) << ".next.slice<" << sync_type.first.offset << ">().val();\n";
+								f << indent << "return " << prev << " && !" << next << ";\n";
 							dec_indent();
 							f << indent << "}\n";
 						}
@@ -1363,7 +1383,7 @@ struct CxxrtlWorker {
 		inc_indent();
 			if (!module->get_bool_attribute(ID(cxxrtl.blackbox))) {
 				for (auto wire : module->wires())
-					dump_wire(wire, /*is_local=*/true);
+					dump_wire(wire, /*is_local_context=*/true);
 				for (auto node : schedule[module]) {
 					switch (node.type) {
 						case FlowGraph::Node::Type::CONNECT:
@@ -1388,6 +1408,11 @@ struct CxxrtlWorker {
 			for (auto wire : module->wires()) {
 				if (elided_wires.count(wire) || localized_wires.count(wire))
 					continue;
+				if (is_input_wire(wire)) {
+					if (sync_wires[wire])
+						f << indent << "prev_" << mangle(wire) << " = " << mangle(wire) << ";\n";
+					continue;
+				}
 				if (!module->get_bool_attribute(ID(cxxrtl.blackbox)) || wire->port_id != 0)
 					f << indent << "changed |= " << mangle(wire) << ".commit();\n";
 			}
@@ -1445,7 +1470,7 @@ struct CxxrtlWorker {
 			inc_indent();
 				for (auto wire : module->wires()) {
 					if (wire->port_id != 0)
-						dump_wire(wire, /*is_local=*/false);
+						dump_wire(wire, /*is_local_context=*/false);
 				}
 				f << "\n";
 				f << indent << "void eval() override {\n";
@@ -1485,7 +1510,7 @@ struct CxxrtlWorker {
 			f << indent << "struct " << mangle(module) << " : public module {\n";
 			inc_indent();
 				for (auto wire : module->wires())
-					dump_wire(wire, /*is_local=*/false);
+					dump_wire(wire, /*is_local_context=*/false);
 				f << "\n";
 				bool has_memories = false;
 				for (auto memory : module->memories) {
@@ -1948,9 +1973,9 @@ struct CxxrtlBackend : public Backend {
 		log("      top.step();\n");
 		log("      while (1) {\n");
 		log("        /* user logic */\n");
-		log("        top.p_clk.next = value<1> {0u};\n");
+		log("        top.p_clk = value<1> {0u};\n");
 		log("        top.step();\n");
-		log("        top.p_clk.next = value<1> {1u};\n");
+		log("        top.p_clk = value<1> {1u};\n");
 		log("        top.step();\n");
 		log("      }\n");
 		log("    }\n");
@@ -1972,16 +1997,18 @@ struct CxxrtlBackend : public Backend {
 		log("    module debug(...);\n");
 		log("      (* cxxrtl.edge = \"p\" *) input clk;\n");
 		log("      input en;\n");
-		log("      input [7:0] data;\n");
+		log("      input [7:0] i_data;\n");
+		log("      output [7:0] o_data;\n");
 		log("    endmodule\n");
 		log("\n");
 		log("For this HDL interface, this backend will generate the following C++ interface:\n");
 		log("\n");
 		log("    struct bb_p_debug : public module {\n");
-		log("      wire<1> p_clk;\n");
+		log("      value<1> p_clk;\n");
 		log("      bool posedge_p_clk() const { /* ... */ }\n");
-		log("      wire<1> p_en;\n");
-		log("      wire<8> p_data;\n");
+		log("      value<1> p_en;\n");
+		log("      value<8> p_i_data;\n");
+		log("      wire<8> p_o_data;\n");
 		log("\n");
 		log("      void eval() override;\n");
 		log("      bool commit() override;\n");
@@ -1997,8 +2024,9 @@ struct CxxrtlBackend : public Backend {
 		log("\n");
 		log("    struct stderr_debug : public bb_p_debug {\n");
 		log("      void eval() override {\n");
-		log("        if (posedge_p_clk() && p_en.curr)\n");
-		log("          fprintf(stderr, \"debug: %%02x\\n\", p_data.curr.data[0]);\n");
+		log("        if (posedge_p_clk() && p_en)\n");
+		log("          fprintf(stderr, \"debug: %%02x\\n\", p_i_data.data[0]);\n");
+		log("        p_o_data.next = p_i_data;\n");
 		log("        bb_p_debug::eval();\n");
 		log("      }\n");
 		log("    };\n");
@@ -2020,7 +2048,8 @@ struct CxxrtlBackend : public Backend {
 		log("      parameter WIDTH = 8;\n");
 		log("      (* cxxrtl.edge = \"p\" *) input clk;\n");
 		log("      input en;\n");
-		log("      (* cxxrtl.width = \"WIDTH\" *) input [WIDTH - 1:0] data;\n");
+		log("      (* cxxrtl.width = \"WIDTH\" *) input [WIDTH - 1:0] i_data;\n");
+		log("      (* cxxrtl.width = \"WIDTH\" *) output [WIDTH - 1:0] o_data;\n");
 		log("    endmodule\n");
 		log("\n");
 		log("For this parametric HDL interface, this backend will generate the following C++\n");
@@ -2029,7 +2058,8 @@ struct CxxrtlBackend : public Backend {
 		log("    template<size_t WIDTH>\n");
 		log("    struct bb_p_debug : public module {\n");
 		log("      // ...\n");
-		log("      wire<WIDTH> p_data;\n");
+		log("      value<WIDTH> p_i_data;\n");
+		log("      wire<WIDTH> p_o_data;\n");
 		log("      // ...\n");
 		log("      static std::unique_ptr<bb_p_debug<WIDTH>>\n");
 		log("      create(std::string name, metadata_map parameters, metadata_map attributes);\n");
