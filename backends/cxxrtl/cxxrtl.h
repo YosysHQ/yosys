@@ -717,15 +717,16 @@ struct module {
 	module(const module &) = delete;
 	module &operator=(const module &) = delete;
 
-	virtual void eval() = 0;
+	virtual bool eval() = 0;
 	virtual bool commit() = 0;
 
 	size_t step() {
 		size_t deltas = 0;
+		bool converged = false;
 		do {
-			eval();
+			converged = eval();
 			deltas++;
-		} while (commit());
+		} while (commit() && !converged);
 		return deltas;
 	}
 };

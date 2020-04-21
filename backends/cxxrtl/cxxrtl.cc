@@ -441,6 +441,7 @@ struct CxxrtlWorker {
 	dict<const RTLIL::Module*, std::vector<FlowGraph::Node>> schedule;
 	pool<const RTLIL::Wire*> localized_wires;
 	dict<const RTLIL::Module*, pool<std::string>> blackbox_specializations;
+	dict<const RTLIL::Module*, bool> eval_converges;
 
 	void inc_indent() {
 		indent += "\t";
@@ -1108,7 +1109,7 @@ struct CxxrtlWorker {
 					dump_sigspec_rhs(conn.second);
 					f << ";\n";
 				}
-			f << indent << mangle(cell) << access << "eval();\n";
+			f << indent << "converged &= " << mangle(cell) << access << "eval();\n";
 			for (auto conn : cell->connections()) {
 				if (conn.second.is_wire()) {
 					RTLIL::Wire *wire = conn.second.as_wire();
@@ -1382,6 +1383,7 @@ struct CxxrtlWorker {
 	void dump_eval_method(RTLIL::Module *module)
 	{
 		inc_indent();
+			f << indent << "bool converged = " << (eval_converges.at(module) ? "true" : "false") << ";\n";
 			if (!module->get_bool_attribute(ID(cxxrtl.blackbox))) {
 				for (auto wire : module->wires())
 					dump_wire(wire, /*is_local_context=*/true);
@@ -1399,6 +1401,7 @@ struct CxxrtlWorker {
 					}
 				}
 			}
+			f << indent << "return converged;\n";
 		dec_indent();
 	}
 
@@ -1474,7 +1477,7 @@ struct CxxrtlWorker {
 						dump_wire(wire, /*is_local_context=*/false);
 				}
 				f << "\n";
-				f << indent << "void eval() override {\n";
+				f << indent << "bool eval() override {\n";
 				dump_eval_method(module);
 				f << indent << "}\n";
 				f << "\n";
@@ -1542,7 +1545,7 @@ struct CxxrtlWorker {
 				}
 				if (has_cells)
 					f << "\n";
-				f << indent << "void eval() override;\n";
+				f << indent << "bool eval() override;\n";
 				f << indent << "bool commit() override;\n";
 			dec_indent();
 			f << indent << "}; // struct " << mangle(module) << "\n";
@@ -1554,7 +1557,7 @@ struct CxxrtlWorker {
 	{
 		if (module->get_bool_attribute(ID(cxxrtl.blackbox)))
 			return;
-		f << indent << "void " << mangle(module) << "::eval() {\n";
+		f << indent << "bool " << mangle(module) << "::eval() {\n";
 		dump_eval_method(module);
 		f << indent << "}\n";
 		f << "\n";
@@ -1687,6 +1690,10 @@ struct CxxrtlWorker {
 						}
 					}
 				}
+
+				// Black boxes converge by default, since their implementations are quite unlikely to require
+				// internal propagation of comb signals.
+				eval_converges[module] = true;
 				continue;
 			}
 
@@ -1872,7 +1879,7 @@ struct CxxrtlWorker {
 			// it is possible that a design with no feedback arcs would end up with doubly buffered wires in such cases
 			// as a wire with multiple drivers where one of them is combinatorial and the other is synchronous. Such designs
 			// also require more than one delta cycle to converge.
-			pool<RTLIL::Wire*> buffered_wires;
+			pool<const RTLIL::Wire*> buffered_wires;
 			for (auto wire : module->wires()) {
 				if (flow.wire_comb_defs[wire].size() > 0 && !elided_wires.count(wire) && !localized_wires[wire]) {
 					if (!feedback_wires[wire])
@@ -1885,6 +1892,8 @@ struct CxxrtlWorker {
 				for (auto wire : buffered_wires)
 					log("  %s\n", wire->name.c_str());
 			}
+
+			eval_converges[module] = feedback_wires.empty() && buffered_wires.empty();
 		}
 		if (has_feedback_arcs || has_buffered_wires) {
 			// Although both non-feedback buffered combinatorial wires and apparent feedback wires may be eliminated
@@ -2015,7 +2024,7 @@ struct CxxrtlBackend : public Backend {
 		log("      value<8> p_i_data;\n");
 		log("      wire<8> p_o_data;\n");
 		log("\n");
-		log("      void eval() override;\n");
+		log("      bool eval() override;\n");
 		log("      bool commit() override;\n");
 		log("\n");
 		log("      static std::unique_ptr<bb_p_debug>\n");
@@ -2028,11 +2037,11 @@ struct CxxrtlBackend : public Backend {
 		log("    namespace cxxrtl_design {\n");
 		log("\n");
 		log("    struct stderr_debug : public bb_p_debug {\n");
-		log("      void eval() override {\n");
+		log("      bool eval() override {\n");
 		log("        if (posedge_p_clk() && p_en)\n");
 		log("          fprintf(stderr, \"debug: %%02x\\n\", p_i_data.data[0]);\n");
 		log("        p_o_data.next = p_i_data;\n");
-		log("        bb_p_debug::eval();\n");
+		log("        return bb_p_debug::eval();\n");
 		log("      }\n");
 		log("    };\n");
 		log("\n");
