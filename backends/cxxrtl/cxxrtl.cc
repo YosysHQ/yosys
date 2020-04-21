@@ -915,7 +915,7 @@ struct CxxrtlWorker {
 				RTLIL::SigBit clk_bit = cell->getPort(ID::CLK)[0];
 				clk_bit = sigmaps[clk_bit.wire->module](clk_bit);
 				f << indent << "if (" << (cell->getParam(ID::CLK_POLARITY).as_bool() ? "posedge_" : "negedge_")
-				            << mangle(clk_bit) << ") {\n";
+				            << mangle(clk_bit) << "()) {\n";
 				inc_indent();
 					if (cell->type == ID($dffe)) {
 						f << indent << "if (";
@@ -992,7 +992,7 @@ struct CxxrtlWorker {
 				RTLIL::SigBit clk_bit = cell->getPort(ID::CLK)[0];
 				clk_bit = sigmaps[clk_bit.wire->module](clk_bit);
 				f << indent << "if (" << (cell->getParam(ID::CLK_POLARITY).as_bool() ? "posedge_" : "negedge_")
-				            << mangle(clk_bit) << ") {\n";
+				            << mangle(clk_bit) << "()) {\n";
 				inc_indent();
 			}
 			RTLIL::Memory *memory = cell->module->memories[cell->getParam(ID::MEMID).decode_string()];
@@ -1217,16 +1217,16 @@ struct CxxrtlWorker {
 			switch (sync->type) {
 				case RTLIL::STp:
 					log_assert(sync_bit.wire != nullptr);
-					events.insert("posedge_" + mangle(sync_bit));
+					events.insert("posedge_" + mangle(sync_bit) + "()");
 					break;
 				case RTLIL::STn:
 					log_assert(sync_bit.wire != nullptr);
-					events.insert("negedge_" + mangle(sync_bit));
+					events.insert("negedge_" + mangle(sync_bit) + "()");
 					break;
 				case RTLIL::STe:
 					log_assert(sync_bit.wire != nullptr);
-					events.insert("posedge_" + mangle(sync_bit));
-					events.insert("negedge_" + mangle(sync_bit));
+					events.insert("posedge_" + mangle(sync_bit) + "()");
+					events.insert("negedge_" + mangle(sync_bit) + "()");
 					break;
 
 				case RTLIL::STa:
@@ -1290,10 +1290,23 @@ struct CxxrtlWorker {
 			if (sync_wires[wire]) {
 				for (auto sync_type : sync_types) {
 					if (sync_type.first.wire == wire) {
-						if (sync_type.second != RTLIL::STn)
-							f << indent << "bool posedge_" << mangle(sync_type.first) << " = false;\n";
-						if (sync_type.second != RTLIL::STp)
-							f << indent << "bool negedge_" << mangle(sync_type.first) << " = false;\n";
+						if (sync_type.second != RTLIL::STn) {
+							f << indent << "bool posedge_" << mangle(sync_type.first) << "() const {\n";
+							inc_indent();
+								f << indent << "return ";
+								f << "!" << mangle(sync_type.first.wire) << ".curr.slice<" << sync_type.first.offset << ">().val() && ";
+								f <<        mangle(sync_type.first.wire) << ".next.slice<" << sync_type.first.offset << ">().val();\n";
+							dec_indent();
+							f << indent << "}\n";
+						} else {
+							f << indent << "bool negedge_" << mangle(sync_type.first) << "() const {\n";
+							inc_indent();
+								f << indent << "return ";
+								f <<        mangle(sync_type.first.wire) << ".curr.slice<" << sync_type.first.offset << ">().val() && ";
+								f << "!" << mangle(sync_type.first.wire) << ".next.slice<" << sync_type.first.offset << ">().val();\n";
+							dec_indent();
+							f << indent << "}\n";
+						}
 					}
 				}
 			}
@@ -1365,14 +1378,6 @@ struct CxxrtlWorker {
 					}
 				}
 			}
-			for (auto sync_type : sync_types) {
-				if (sync_type.first.wire->module == module) {
-					if (sync_type.second != RTLIL::STn)
-						f << indent << "posedge_" << mangle(sync_type.first) << " = false;\n";
-					if (sync_type.second != RTLIL::STp)
-						f << indent << "negedge_" << mangle(sync_type.first) << " = false;\n";
-				}
-			}
 		dec_indent();
 	}
 
@@ -1383,39 +1388,8 @@ struct CxxrtlWorker {
 			for (auto wire : module->wires()) {
 				if (elided_wires.count(wire) || localized_wires.count(wire))
 					continue;
-				if (sync_wires[wire]) {
-					std::string wire_prev = mangle(wire) + "_prev";
-					std::string wire_curr = mangle(wire) + ".curr";
-					std::string wire_edge = mangle(wire) + "_edge";
-					f << indent << "value<" << wire->width << "> " << wire_prev << " = " << wire_curr << ";\n";
-					f << indent << "if (" << mangle(wire) << ".commit()) {\n";
-					inc_indent();
-						f << indent << "value<" << wire->width << "> " << wire_edge << " = "
-						            << wire_prev << ".bit_xor(" << wire_curr << ");\n";
-						for (auto sync_type : sync_types) {
-							if (sync_type.first.wire != wire)
-								continue;
-							if (sync_type.second != RTLIL::STn) {
-								f << indent << "if (" << wire_edge << ".slice<" << sync_type.first.offset << ">().val() && "
-								            << wire_curr << ".slice<" << sync_type.first.offset << ">().val())\n";
-								inc_indent();
-									f << indent << "posedge_" << mangle(sync_type.first) << " = true;\n";
-								dec_indent();
-							}
-							if (sync_type.second != RTLIL::STp) {
-								f << indent << "if (" << wire_edge << ".slice<" << sync_type.first.offset << ">().val() && "
-								            << "!" << wire_curr << ".slice<" << sync_type.first.offset << ">().val())\n";
-								inc_indent();
-									f << indent << "negedge_" << mangle(sync_type.first) << " = true;\n";
-								dec_indent();
-							}
-							f << indent << "changed = true;\n";
-						}
-					dec_indent();
-					f << indent << "}\n";
-				} else if (!module->get_bool_attribute(ID(cxxrtl.blackbox)) || wire->port_id != 0) {
+				if (!module->get_bool_attribute(ID(cxxrtl.blackbox)) || wire->port_id != 0)
 					f << indent << "changed |= " << mangle(wire) << ".commit();\n";
-				}
 			}
 			if (!module->get_bool_attribute(ID(cxxrtl.blackbox))) {
 				for (auto memory : module->memories) {
@@ -2005,7 +1979,7 @@ struct CxxrtlBackend : public Backend {
 		log("\n");
 		log("    struct bb_p_debug : public module {\n");
 		log("      wire<1> p_clk;\n");
-		log("      bool posedge_p_clk = false;\n");
+		log("      bool posedge_p_clk() const { /* ... */ }\n");
 		log("      wire<1> p_en;\n");
 		log("      wire<8> p_data;\n");
 		log("\n");
@@ -2023,7 +1997,7 @@ struct CxxrtlBackend : public Backend {
 		log("\n");
 		log("    struct stderr_debug : public bb_p_debug {\n");
 		log("      void eval() override {\n");
-		log("        if (posedge_p_clk && p_en.curr)\n");
+		log("        if (posedge_p_clk() && p_en.curr)\n");
 		log("          fprintf(stderr, \"debug: %%02x\\n\", p_data.curr.data[0]);\n");
 		log("        bb_p_debug::eval();\n");
 		log("      }\n");
@@ -2086,10 +2060,9 @@ struct CxxrtlBackend : public Backend {
 		log("\n");
 		log("    cxxrtl.edge\n");
 		log("        only valid on inputs of black boxes. must be one of \"p\", \"n\", \"a\".\n");
-		log("        if specified on signal `clk`, the generated code includes boolean fields\n");
-		log("        `posedge_p_clk` (if \"p\"), `negedge_p_clk` (if \"n\"), or both (if \"a\"),\n");
-		log("        as well as edge detection logic, simplifying implementation of clocked\n");
-		log("        black boxes.\n");
+		log("        if specified on signal `clk`, the generated code includes edge detectors\n");
+		log("        `posedge_p_clk()` (if \"p\"), `negedge_p_clk()` (if \"n\"), or both (if\n");
+		log("        \"a\"), simplifying implementation of clocked black boxes.\n");
 		log("\n");
 		log("    cxxrtl.template\n");
 		log("        only valid on black boxes. must contain a space separated sequence of\n");
