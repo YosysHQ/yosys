@@ -1313,11 +1313,13 @@ struct TechmapPass : public Pass {
 					celltypeMap[RTLIL::escape_id(q)].insert(module->name);
 				free(p);
 			} else {
-				std::string module_name = module->name.begins_with("\\$") ?
+				IdString module_name = module->name.begins_with("\\$") ?
 						module->name.substr(1) : module->name.str();
 				celltypeMap[module_name].insert(module->name);
 			}
 		}
+		for (auto &i : celltypeMap)
+			i.second.sort(RTLIL::sort_by_id_str());
 
 		for (auto module : design->modules())
 			worker.module_queue.insert(module);
@@ -1389,6 +1391,8 @@ struct FlattenPass : public Pass {
 		dict<IdString, pool<IdString>> celltypeMap;
 		for (auto module : design->modules())
 			celltypeMap[module->name].insert(module->name);
+		for (auto &i : celltypeMap)
+			i.second.sort(RTLIL::sort_by_id_str());
 
 		RTLIL::Module *top_mod = nullptr;
 		if (design->full_selection())
