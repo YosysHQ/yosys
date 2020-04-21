@@ -506,6 +506,34 @@ module \$__div_mod_floor (A, B, Y, R);
 	assign R = (R_s != 0) && A_SIGNED && B_SIGNED && (A_buf[WIDTH-1] != B_buf[WIDTH-1]) ? $signed(B_buf) + $signed(R_s) : R_s;
 endmodule
 
+(* techmap_celltype = "$divfloor" *)
+module _90_divfloor (A, B, Y);
+	parameter A_SIGNED = 0;
+	parameter B_SIGNED = 0;
+	parameter A_WIDTH = 1;
+	parameter B_WIDTH = 1;
+	parameter Y_WIDTH = 1;
+
+	(* force_downto *)
+	input [A_WIDTH-1:0] A;
+	(* force_downto *)
+	input [B_WIDTH-1:0] B;
+	(* force_downto *)
+	output [Y_WIDTH-1:0] Y;
+
+	\$__div_mod_floor #(
+		.A_SIGNED(A_SIGNED),
+		.B_SIGNED(B_SIGNED),
+		.A_WIDTH(A_WIDTH),
+		.B_WIDTH(B_WIDTH),
+		.Y_WIDTH(Y_WIDTH)
+	) div_mod (
+		.A(A),
+		.B(B),
+		.Y(Y)
+	);
+endmodule
+
 (* techmap_celltype = "$modfloor" *)
 module _90_modfloor (A, B, Y);
 	parameter A_SIGNED = 0;
