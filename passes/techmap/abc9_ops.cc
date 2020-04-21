@@ -34,13 +34,10 @@ inline std::string remap_name(RTLIL::IdString abc9_name)
 	return stringf("$abc$%d$%s", map_autoidx, abc9_name.c_str()+1);
 }
 
-void check(RTLIL::Design *design)
+void check(RTLIL::Design *design, bool dff_mode)
 {
 	dict<IdString,IdString> box_lookup;
 	for (auto m : design->modules()) {
-		if (m->name.begins_with("$paramod"))
-			continue;
-
 		auto flop = m->get_bool_attribute(ID::abc9_flop);
 		auto it = m->attributes.find(ID::abc9_box_id);
 		if (!flop) {
@@ -88,6 +85,469 @@ void check(RTLIL::Design *design)
 				log_error("Module '%s' with (* abc9_flop *) has %d outputs (expect 1).\n", log_id(m), num_outputs);
 		}
 	}
+
+	if (dff_mode) {
+		pool<IdString> unsupported{
+			ID($adff), ID($dlatch), ID($dlatchsr), ID($sr),
+			ID($_DFF_NN0_), ID($_DFF_NN1_), ID($_DFF_NP0_), ID($_DFF_NP1_),
+			ID($_DFF_PN0_), ID($_DFF_PN1_), ID($_DFF_PP0_), ID($_DFF_PP1_),
+			ID($_DLATCH_N_), ID($_DLATCH_P_),
+			ID($_DLATCHSR_NNN_), ID($_DLATCHSR_NNP_), ID($_DLATCHSR_NPN_), ID($_DLATCHSR_NPP_),
+			ID($_DLATCHSR_PNN_), ID($_DLATCHSR_PNP_), ID($_DLATCHSR_PPN_), ID($_DLATCHSR_PPP_),
+			ID($_SR_NN_), ID($_SR_NP_), ID($_SR_PN_), ID($_SR_PP_)
+		};
+		pool<IdString> processed;
+		for (auto module : design->selected_modules())
+			for (auto cell : module->cells()) {
+				auto inst_module = design->module(cell->type);
+				if (!inst_module)
+					continue;
+				if (!inst_module->attributes.count(ID::abc9_flop))
+					continue;
+				auto derived_type = inst_module->derive(design, cell->parameters);
+				if (!processed.insert(derived_type).second)
+					continue;
+				if (inst_module->get_blackbox_attribute(true /* ignore_wb */))
+					log_error("Module '%s' with (* abc9_flop *) is a blackbox.\n", log_id(derived_type));
+
+				auto derived_module = design->module(derived_type);
+				if (derived_module->has_processes())
+					Pass::call_on_module(design, derived_module, "proc");
+
+				if (derived_module->get_bool_attribute(ID::abc9_flop)) {
+					bool found = false;
+					for (auto derived_cell : derived_module->cells())
+						if (derived_cell->type.in(ID($dff), ID($_DFF_N_), ID($_DFF_P_))) {
+							if (found)
+								log_error("Module '%s' with (* abc9_flop *) contains more than one $_DFF_[NP]_ cell.\n", log_id(derived_module));
+							found = true;
+
+							SigBit Q = derived_cell->getPort(ID::Q);
+							log_assert(GetSize(Q.wire) == 1);
+
+							if (!Q.wire->port_output)
+								log_error("Module '%s' contains a %s cell where its 'Q' port does not drive a module output!\n", log_id(derived_module), log_id(derived_cell->type));
+
+							Const init = Q.wire->attributes.at(ID::init, State::Sx);
+							log_assert(GetSize(init) == 1);
+						}
+						else if (unsupported.count(derived_cell->type)) {
+							log_error("Module '%s' with (* abc9_flop *) contains a %s cell, which is not supported for sequential synthesis.\n", log_id(derived_module), log_id(derived_cell->type));
+						}
+				}
+			}
+	}
+}
+
+void prep_hier(RTLIL::Design *design, bool dff_mode)
+{
+	auto r = saved_designs.emplace("$abc9_unmap", nullptr);
+	if (r.second)
+		r.first->second = new Design;
+	Design *unmap_design = r.first->second;
+
+	pool<IdString> seq_types{
+		ID($dff), ID($dffsr), ID($adff),
+		ID($dlatch), ID($dlatchsr), ID($sr),
+		ID($mem),
+		ID($_DFF_N_), ID($_DFF_P_),
+		ID($_DFFSR_NNN_), ID($_DFFSR_NNP_), ID($_DFFSR_NPN_), ID($_DFFSR_NPP_),
+		ID($_DFFSR_PNN_), ID($_DFFSR_PNP_), ID($_DFFSR_PPN_), ID($_DFFSR_PPP_),
+		ID($_DFF_N_), ID($_DFF_NN0_), ID($_DFF_NN1_), ID($_DFF_NP0_), ID($_DFF_NP1_),
+		ID($_DFF_P_), ID($_DFF_PN0_), ID($_DFF_PN1_), ID($_DFF_PP0_), ID($_DFF_PP1_),
+		ID($_DLATCH_N_), ID($_DLATCH_P_),
+		ID($_DLATCHSR_NNN_), ID($_DLATCHSR_NNP_), ID($_DLATCHSR_NPN_), ID($_DLATCHSR_NPP_),
+		ID($_DLATCHSR_PNN_), ID($_DLATCHSR_PNP_), ID($_DLATCHSR_PPN_), ID($_DLATCHSR_PPP_),
+		ID($_SR_NN_), ID($_SR_NP_), ID($_SR_PN_), ID($_SR_PP_)
+	};
+
+	for (auto module : design->selected_modules())
+		for (auto cell : module->cells()) {
+			auto inst_module = design->module(cell->type);
+			if (!inst_module)
+				continue;
+			auto derived_type = inst_module->derive(design, cell->parameters);
+			auto derived_module = design->module(derived_type);
+			if (derived_module->get_blackbox_attribute(true /* ignore_wb */))
+				continue;
+
+			if (inst_module->attributes.count(ID::abc9_flop) && !dff_mode)
+				continue;
+			if (!inst_module->attributes.count(ID::abc9_box) && !inst_module->attributes.count(ID::abc9_flop))
+				continue;
+
+			if (!unmap_design->module(derived_type)) {
+				if (derived_module->has_processes())
+					Pass::call_on_module(design, derived_module, "proc");
+
+				if (derived_module->get_bool_attribute(ID::abc9_flop)) {
+					for (auto derived_cell : derived_module->cells())
+						if (derived_cell->type.in(ID($dff), ID($_DFF_N_), ID($_DFF_P_))) {
+							SigBit Q = derived_cell->getPort(ID::Q);
+							Const init = Q.wire->attributes.at(ID::init, State::Sx);
+							log_assert(GetSize(init) == 1);
+
+							// Block sequential synthesis on cells with (* init *) != 1'b0
+							//   because ABC9 doesn't support them
+							if (init != State::S0) {
+								log_warning("Module '%s' contains a %s cell with non-zero initial state -- this is not unsupported for ABC9 sequential synthesis. Treating as a blackbox.\n", log_id(derived_module), log_id(derived_cell->type));
+								// TODO: still necessary?
+								// Do not use set_bool_attribute() as it will unset the value
+								//   and (attributes.count(ID::abc9_flop) will fail)
+								derived_module->attributes[ID::abc9_flop] = false;
+								goto skip_cell;
+							}
+							break;
+						}
+				}
+				else if (derived_module->get_bool_attribute(ID::abc9_box)) {
+					bool found = false;
+					for (auto derived_cell : derived_module->cells())
+						if (seq_types.count(derived_cell->type)) {
+							found = true;
+							break;
+						}
+
+					if (!found) {
+						derived_module->set_bool_attribute(ID::abc9_box, false);
+						log_assert(!derived_module->attributes.count(ID::abc9_box));
+						goto skip_cell;
+					}
+
+					// TODO: still necessary?
+					// Do not use set_bool_attribute() as it will unset the value
+					//   and (attributes.count(ID::abc9_box) will fail)
+					derived_module->attributes[ID::abc9_box] = false;
+				}
+
+				if (derived_type != cell->type) {
+					auto unmap_module = unmap_design->addModule(derived_type);
+					for (auto port : derived_module->ports) {
+						auto w = unmap_module->addWire(port, derived_module->wire(port));
+						// Do not propagate (* init *) values inside the box
+						if (w->port_output)
+							w->attributes.erase(ID::init);
+					}
+					unmap_module->ports = derived_module->ports;
+					unmap_module->check();
+
+					auto replace_cell = unmap_module->addCell(ID::_TECHMAP_REPLACE_, cell->type);
+					for (const auto &conn : cell->connections()) {
+						auto w = unmap_module->wire(conn.first);
+						log_assert(w);
+						replace_cell->setPort(conn.first, w);
+					}
+					replace_cell->parameters = cell->parameters;
+				}
+			}
+
+			cell->type = derived_type;
+			cell->parameters.clear();
+
+skip_cell:		;
+		}
+}
+
+void prep_bypass(RTLIL::Design *design)
+{
+	auto r = saved_designs.emplace("$abc9_map", nullptr);
+	if (r.second)
+		r.first->second = new Design;
+	Design *map_design = r.first->second;
+
+	r = saved_designs.emplace("$abc9_unmap", nullptr);
+	if (r.second)
+		r.first->second = new Design;
+	Design *unmap_design = r.first->second;
+
+	pool<IdString> processed;
+	for (auto module : design->selected_modules())
+		for (auto cell : module->cells()) {
+			if (!processed.insert(cell->type).second)
+				continue;
+			auto inst_module = design->module(cell->type);
+			if (!inst_module)
+				continue;
+			auto derived_type = inst_module->derive(design, cell->parameters);
+			inst_module = design->module(derived_type);
+			log_assert(inst_module);
+			if (inst_module->get_blackbox_attribute(true /* ignore_wb */))
+				continue;
+			// Skip if (* abc9_box *) exists or is true
+			auto it = inst_module->attributes.find(ID::abc9_box);
+			if (it == inst_module->attributes.end() || it->second.as_bool())
+				continue;
+
+
+			// The idea is to create two techmap designs, one which maps:
+			//
+			//   box u0 (.i(i), .o(o));
+			//
+			// to
+			//
+			//   wire $abc9$o;
+			//   box u0 (.i(i), .o($abc9_byp$o));
+			//   box_$abc9_byp (.i(i), .$abc9_byp$o($abc9_byp$o), .o(o));
+			//
+			// the purpose being to move the (* abc9_box *) status from 'box'
+			// (which is stateful) to 'box_$abc9_byp' (which becomes a new
+			// combinatorial black- (not white-) box with all state elements
+			// removed). This has the effect of preserving any combinatorial
+			// paths through an otherwise sequential primitive -- e.g. LUTRAMs.
+			//
+			// The unmap design performs the reverse:
+			//
+			//   wire $abc9$o;
+			//   box u0 (.i(i), .o($abc9_byp$o));
+			//   box_$abc9_byp (.i(i), .$abc9_byp$o($abc9_byp$o), .o(o));
+			//
+			// to:
+			//
+			//   wire $abc9$o;
+			//   box u0 (.i(i), .o($abc9_byp$o));
+			//   assign o = $abc9_byp$o;
+
+
+			// Copy derived_module into map_design, with the same interface
+			//   and duplicate $abc9$* wires for its output ports
+			auto map_module = map_design->addModule(cell->type);
+			for (auto port_name : inst_module->ports) {
+				auto w = map_module->addWire(port_name, inst_module->wire(port_name));
+				if (w->port_output)
+					w->attributes.erase(ID::init);
+			}
+			map_module->ports = inst_module->ports;
+			map_module->check();
+			map_module->set_bool_attribute(ID::whitebox);
+
+			// Create the bypass module in the user design, which has the same
+			//   interface as the derived module but with additional input
+			//   ports driven by the outputs of the replaced cell
+			auto bypass_module = design->addModule(cell->type.str() + "_$abc9_byp");
+			for (auto port_name : inst_module->ports) {
+				auto port = inst_module->wire(port_name);
+				if (!port->port_output)
+					continue;
+				auto dst = bypass_module->addWire(port_name, port);
+				auto src = bypass_module->addWire("$abc9byp$" + port_name.str(), GetSize(port));
+				src->port_input = true;
+				// For these new input ports driven by the replaced
+				//   cell, then create a new simple-path specify entry:
+				//     (input => output) = 0
+				auto specify = bypass_module->addCell(NEW_ID, ID($specify2));
+				specify->setPort(ID::EN, State::S1);
+				specify->setPort(ID::SRC, src);
+				specify->setPort(ID::DST, dst);
+				specify->setParam(ID::FULL, 0);
+				specify->setParam(ID::SRC_WIDTH, GetSize(src));
+				specify->setParam(ID::DST_WIDTH, GetSize(dst));
+				specify->setParam(ID::SRC_DST_PEN, 0);
+				specify->setParam(ID::SRC_DST_POL, 0);
+				specify->setParam(ID::T_RISE_MIN, 0);
+				specify->setParam(ID::T_RISE_TYP, 0);
+				specify->setParam(ID::T_RISE_MAX, 0);
+				specify->setParam(ID::T_FALL_MIN, 0);
+				specify->setParam(ID::T_FALL_TYP, 0);
+				specify->setParam(ID::T_FALL_MAX, 0);
+			}
+			bypass_module->set_bool_attribute(ID::blackbox);
+			bypass_module->set_bool_attribute(ID::abc9_box);
+
+			// Copy any 'simple' (combinatorial) specify paths from
+			//   the derived module into the bypass module, if EN
+			//   is not false and SRC/DST are driven only by
+			//   module ports; create new input port if one doesn't
+			//   already exist
+			for (auto cell : inst_module->cells()) {
+				if (cell->type != ID($specify2))
+					continue;
+				auto EN = cell->getPort(ID::EN).as_bit();
+				SigBit newEN;
+				if (!EN.wire && EN != State::S1)
+					continue;
+				auto SRC = cell->getPort(ID::SRC);
+				for (const auto &c : SRC.chunks())
+					if (c.wire && !c.wire->port_input) {
+						SRC = SigSpec();
+						break;
+					}
+				if (SRC.empty())
+					continue;
+				auto DST = cell->getPort(ID::DST);
+				for (const auto &c : DST.chunks())
+					if (c.wire && !c.wire->port_output) {
+						DST = SigSpec();
+						break;
+					}
+				if (DST.empty())
+					continue;
+				auto rw = [bypass_module](RTLIL::SigSpec &sig)
+				{
+					SigSpec new_sig;
+					for (auto c : sig.chunks()) {
+						if (c.wire) {
+							auto port = bypass_module->wire(c.wire->name);
+							if (!port)
+								port = bypass_module->addWire(c.wire->name, c.wire);
+							c.wire = port;
+						}
+						new_sig.append(std::move(c));
+					}
+					sig = std::move(new_sig);
+				};
+				auto specify = bypass_module->addCell(NEW_ID, cell);
+				specify->rewrite_sigspecs(rw);
+			}
+			bypass_module->fixup_ports();
+
+			// Create an _TECHMAP_REPLACE_ cell identical to the original cell,
+			//   and a bypass cell that has the same inputs/outputs as the
+			//   original cell, but with additional inputs taken from the
+			//   replaced cell
+			auto replace_cell = map_module->addCell(ID::_TECHMAP_REPLACE_, cell->type);
+			auto bypass_cell = map_module->addCell(NEW_ID, cell->type.str() + "_$abc9_byp");
+			for (const auto &conn : cell->connections()) {
+				auto port = map_module->wire(conn.first);
+				if (cell->input(conn.first)) {
+					replace_cell->setPort(conn.first, port);
+					if (bypass_module->wire(conn.first))
+						bypass_cell->setPort(conn.first, port);
+				}
+				if (cell->output(conn.first)) {
+					bypass_cell->setPort(conn.first, port);
+					auto n = "$abc9byp$" + conn.first.str();
+					auto w = map_module->addWire(n, GetSize(conn.second));
+					replace_cell->setPort(conn.first, w);
+					bypass_cell->setPort(n, w);
+				}
+			}
+
+
+			// Lastly, create a new module in the unmap_design that shorts
+			//   out the bypass cell back to leave the replace cell behind
+			//   driving the outputs
+			auto unmap_module = unmap_design->addModule(cell->type.str() + "_$abc9_byp");
+			for (auto port_name : inst_module->ports) {
+				auto w = unmap_module->addWire(port_name, inst_module->wire(port_name));
+				if (w->port_output) {
+					w->attributes.erase(ID::init);
+					auto w2 = unmap_module->addWire("$abc9byp$" + port_name.str(), GetSize(w));
+					w2->port_input = true;
+					unmap_module->connect(w, w2);
+				}
+			}
+			unmap_module->fixup_ports();
+		}
+}
+
+void prep_dff(RTLIL::Design *design)
+{
+	auto r = design->selection_vars.insert(std::make_pair(ID($abc9_flops), RTLIL::Selection(false)));
+	auto &modules_sel = r.first->second;
+
+	for (auto module : design->selected_modules())
+		for (auto cell : module->cells()) {
+			if (modules_sel.selected_whole_module(cell->type))
+				continue;
+			auto inst_module = design->module(cell->type);
+			if (!inst_module)
+				continue;
+			if (!inst_module->attributes.count(ID::abc9_flop))
+				continue;
+			auto derived_type = inst_module->derive(design, cell->parameters);
+			auto derived_module = design->module(derived_type);
+			log_assert(derived_module);
+			if (!derived_module->get_bool_attribute(ID::abc9_flop))
+				continue;
+			log_assert(!derived_module->get_blackbox_attribute(true /* ignore_wb */));
+			modules_sel.select(derived_module);
+		}
+}
+
+void prep_dff_map(RTLIL::Design *design)
+{
+	for (auto module : design->modules()) {
+		vector<Cell*> specify_cells;
+		SigBit Q;
+		Cell* dff_cell = nullptr;
+
+		if (!module->get_bool_attribute(ID::abc9_flop))
+			continue;
+
+		for (auto cell : module->cells())
+			if (cell->type.in(ID($_DFF_N_), ID($_DFF_P_))) {
+				log_assert(!dff_cell);
+				dff_cell = cell;
+				Q = cell->getPort(ID::Q);
+				log_assert(GetSize(Q.wire) == 1);
+			}
+			else if (cell->type.in(ID($specify3), ID($specrule)))
+				specify_cells.emplace_back(cell);
+		log_assert(dff_cell);
+
+		// Add dummy buffers for all module inputs/outputs
+		//   to ensure that these ports exists in the flop box
+		//   created by later submod pass
+		for (auto port_name : module->ports) {
+			auto port = module->wire(port_name);
+			log_assert(GetSize(port) == 1);
+			auto c = module->addBufGate(NEW_ID, port, module->addWire(NEW_ID));
+			// Need to set (* keep *) otherwise opt_clean
+			//   inside submod will blow it away
+			c->set_bool_attribute(ID::keep);
+		}
+		// Add an additional buffer that drives $_DFF_[NP]_.D
+		//   so that the flop box will have an output
+		SigBit D = module->addWire(NEW_ID);
+		Cell *c = module->addBufGate(NEW_ID, dff_cell->getPort(ID::D), D);
+		c->set_bool_attribute(ID::keep);
+		dff_cell->setPort(ID::D, D);
+
+		// Rewrite $specify cells that end with $_DFF_[NP]_.Q
+		//   to $_DFF_[NP]_.D since it will be moved into
+		//   the submodule
+		for (auto cell : specify_cells) {
+			auto DST = cell->getPort(ID::DST);
+			DST.replace(Q, D);
+			cell->setPort(ID::DST, DST);
+		}
+
+		design->scratchpad_set_bool("abc9_ops.prep_dff_map.did_something", true);
+	}
+}
+
+void prep_dff_unmap(RTLIL::Design *design)
+{
+	Design *unmap_design = saved_designs.at("$abc9_unmap");
+
+	for (auto module : design->modules()) {
+		if (!module->get_bool_attribute(ID::abc9_flop) || module->get_bool_attribute(ID::abc9_box))
+			continue;
+
+		auto unmap_module = unmap_design->addModule(module->name.str() + "_$abc9_flop");
+		auto replace_cell = unmap_module->addCell(ID::_TECHMAP_REPLACE_, module->name);
+		for (auto port_name : module->ports) {
+			auto w = unmap_module->addWire(port_name, module->wire(port_name));
+			// Do not propagate (* init *) values inside the box
+			if (w->port_output)
+				w->attributes.erase(ID::init);
+			replace_cell->setPort(port_name, w);
+		}
+
+		// Add new ports appearing in "_$abc9_flop"
+		auto box_module = design->module(unmap_module->name);
+		log_assert(box_module);
+		for (auto port_name : box_module->ports) {
+			auto port = box_module->wire(port_name);
+			auto unmap_port = unmap_module->wire(port_name);
+			if (!unmap_port)
+				unmap_port = unmap_module->addWire(port_name, port);
+			else
+				unmap_port->port_id = port->port_id;
+		}
+		unmap_module->ports = box_module->ports;
+		unmap_module->check();
+	}
 }
 
 void mark_scc(RTLIL::Module *module)
@@ -115,168 +575,6 @@ void mark_scc(RTLIL::Module *module)
 				module->connect(w, c.second);
 				c.second = w;
 			}
-		}
-	}
-}
-
-
-void prep_dff_hier(RTLIL::Design *design)
-{
-	auto r YS_ATTRIBUTE(unused) = design->selection_vars.insert(std::make_pair(ID($abc9_flops), RTLIL::Selection(false)));
-	log_assert(r.second);
-	auto &modules_sel = design->selection_vars.at(ID($abc9_flops));
-
-	Design *unmap_design = new Design;
-
-	for (auto module : design->selected_modules())
-		for (auto cell : module->cells()) {
-			auto inst_module = design->module(cell->type);
-			if (inst_module && inst_module->attributes.count(ID::abc9_flop)) {
-				if (inst_module->get_blackbox_attribute(true /* ignore_wb */))
-					log_error("Module '%s' with (* abc9_flop *) is not a whitebox.\n", log_id(inst_module));
-				// Derive modules for all instantiations of (* abc9_flop *)
-				auto derived_type = inst_module->derive(design, cell->parameters);
-				auto derived_module = design->module(derived_type);
-				if (!derived_module->get_bool_attribute(ID::abc9_flop))
-					continue;
-				// And create the stub in the $abc9_unmap design
-				if (!modules_sel.selected_whole_module(derived_type)) {
-					if (derived_type != cell->type)
-						modules_sel.select(inst_module);
-
-					modules_sel.select(derived_module);
-
-					auto unmap_module = unmap_design->addModule(derived_type.str() + "_$abc9_flop");
-					auto unmap_cell = unmap_module->addCell(ID::_TECHMAP_REPLACE_, cell->type);
-					for (const auto &conn : cell->connections())
-						unmap_cell->setPort(conn.first, SigSpec());
-					unmap_cell->parameters = cell->parameters;
-				}
-			}
-		}
-
-	auto r2 YS_ATTRIBUTE(unused) = saved_designs.emplace("$abc9_unmap", unmap_design);
-	log_assert(r2.second);
-}
-
-void prep_dff_map(RTLIL::Design *design)
-{
-	Design *unmap_design = saved_designs.at("$abc9_unmap");
-
-	for (auto module : design->modules()) {
-		vector<Cell*> specify_cells;
-		SigBit D, Q;
-		Cell *c;
-		Cell* dff_cell = nullptr;
-
-		// If module has a public name (i.e. not $paramod) and it doesn't exist
-		//   in the $abc9_unmap then it means only derived modules were
-		//   instantiated, so make this a blackbox
-		if (module->name[0] == '\\' && !unmap_design->module(module->name.str() + "_$abc9_flop")) {
-			module->makeblackbox();
-			module->set_bool_attribute(ID::blackbox, false);
-			module->set_bool_attribute(ID::whitebox, true);
-			continue;
-		}
-
-		for (auto cell : module->cells())
-			if (cell->type.in(ID($_DFF_N_), ID($_DFF_P_))) {
-				if (dff_cell)
-					log_error("Module '%s' with (* abc9_flop *) contains more than one $_DFF_[NP]_ cell.\n", log_id(module));
-				dff_cell = cell;
-
-				// Block sequential synthesis on cells with (* init *) != 1'b0
-				//   because ABC9 doesn't support them
-				Q = cell->getPort(ID::Q);
-				log_assert(GetSize(Q.wire) == 1);
-
-				if (!Q.wire->port_output)
-					log_error("Module '%s' contains a %s cell where its 'Q' port does not drive a module output!\n", log_id(module), log_id(cell->type));
-
-				Const init = Q.wire->attributes.at(ID::init, State::Sx);
-				log_assert(GetSize(init) == 1);
-				if (init != State::S0) {
-					log_warning("Module '%s' contains a %s cell with non-zero initial state -- this is not unsupported for ABC9 sequential synthesis. Treating as a blackbox.\n", log_id(module), log_id(cell->type));
-
-					module->makeblackbox();
-					module->set_bool_attribute(ID::blackbox, false);
-
-					auto wire = module->addWire(ID(_TECHMAP_FAIL_));
-					wire->set_bool_attribute(ID::keep);
-					module->connect(wire, State::S1);
-
-					goto continue_outer_loop;
-				}
-			}
-			else if (cell->type.in(ID($_DFF_NN0_), ID($_DFF_NN1_), ID($_DFF_NP0_), ID($_DFF_NP1_),
-						ID($_DFF_PN0_), ID($_DFF_PN1_), ID($_DFF_PP0_), ID($_DFF_PP1_),
-						ID($__DFFE_NN0), ID($__DFFE_NN1), ID($__DFFE_NP0), ID($__DFFE_NP1),
-						ID($__DFFE_PN0), ID($__DFFE_PN1), ID($__DFFE_PP0), ID($__DFFE_PP1)))
-				log_error("Module '%s' with (* abc9_flop *) contains an asynchronous $_DFFE?_[NP][NP][01]_? cell, which is not supported for sequential synthesis.\n", log_id(module));
-			else if (cell->type.in(ID($specify2), ID($specify3), ID($specrule)))
-				specify_cells.emplace_back(cell);
-		if (!dff_cell)
-			log_error("Module '%s' with (* abc9_flop *) does not any contain $_DFF_[NP]_ cells.\n", log_id(module));
-
-		// Add dummy buffers for all module inputs/outputs
-		//   to ensure that these ports exists in the flop box
-		//   created by later submod pass
-		for (auto port_name : module->ports) {
-			auto port = module->wire(port_name);
-			log_assert(GetSize(port) == 1);
-			auto c = module->addBufGate(NEW_ID, port, module->addWire(NEW_ID));
-			// Need to set (* keep *) otherwise opt_clean
-			//   inside submod will blow it away
-			c->set_bool_attribute(ID::keep);
-		}
-		// Add an additional buffer that drives $_DFF_[NP]_.D
-		//   so that the flop box will have an output
-		D = module->addWire(NEW_ID);
-		c = module->addBufGate(NEW_ID, dff_cell->getPort(ID::D), D);
-		c->set_bool_attribute(ID::keep);
-		dff_cell->setPort(ID::D, D);
-
-		// Rewrite $specify cells that end with $_DFF_[NP]_.Q
-		//   to $_DFF_[NP]_.D since it will be moved into
-		//   the submodule
-		for (auto cell : specify_cells) {
-			auto DST = cell->getPort(ID::DST);
-			DST.replace(Q, D);
-			cell->setPort(ID::DST, DST);
-		}
-
-		design->scratchpad_set_bool("abc9_ops.prep_dff_map.did_something", true);
-
-continue_outer_loop: ;
-	}
-}
-
-void prep_dff_unmap(RTLIL::Design *design)
-{
-	Design *unmap_design = saved_designs.at("$abc9_unmap");
-
-	// Create the reverse techmap rule -- (* abc9_box *) back to flop
-	for (auto module : unmap_design->modules()) {
-		auto flop_module = design->module(module->name.str());
-		if (!flop_module)
-			continue; // May not exist if init = 1'b1
-
-		auto unmap_module = unmap_design->module(flop_module->name);
-		log_assert(unmap_module);
-		for (auto port : flop_module->ports) {
-			auto w = unmap_module->addWire(port, flop_module->wire(port));
-			// Do not propagate (* init *) values inside the box
-			w->attributes.erase(ID::init);
-		}
-		unmap_module->ports = flop_module->ports;
-		unmap_module->check();
-
-		auto unmap_cell = unmap_module->cell(ID::_TECHMAP_REPLACE_);
-		log_assert(unmap_cell);
-		for (const auto &conn : unmap_cell->connections()) {
-			auto rhs = unmap_module->wire(conn.first);
-			log_assert(rhs);
-			unmap_cell->setPort(conn.first, rhs);
 		}
 	}
 }
@@ -477,7 +775,7 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 				continue;
 			if (!inst_module->get_blackbox_attribute())
 				continue;
-			if (inst_module->attributes.count(ID::abc9_box))
+			if (inst_module->get_bool_attribute(ID::abc9_box))
 				continue;
 			IdString derived_type = inst_module->derive(design, cell->parameters);
 			inst_module = design->module(derived_type);
@@ -630,7 +928,12 @@ void prep_box(RTLIL::Design *design)
 
 	dict<IdString,std::vector<IdString>> box_ports;
 	for (auto module : design->modules()) {
-		if (!module->attributes.erase(ID::abc9_box))
+		auto it = module->attributes.find(ID::abc9_box);
+		if (it == module->attributes.end())
+			continue;
+		bool box = it->second.as_bool();
+		module->attributes.erase(it);
+		if (!box)
 			continue;
 
 		auto r = module->attributes.insert(ID::abc9_box_id);
@@ -758,8 +1061,6 @@ void prep_box(RTLIL::Design *design)
 			auto &t = timing.setup_module(module);
 			if (t.comb.empty())
 				log_error("Module '%s' with (* abc9_box *) has no timing (and thus no connectivity) information.\n", log_id(module));
-			if (!t.arrival.empty() || !t.required.empty())
-				log_error("Module '%s' with (* abc9_box *) has setup and/or edge-sensitive timing information.\n", log_id(module));
 
 			for (const auto &o : outputs) {
 				first = true;
@@ -1226,21 +1527,38 @@ struct Abc9OpsPass : public Pass {
 		log("        check that the design is valid, e.g. (* abc9_box_id *) values are unique,\n");
 		log("        (* abc9_carry *) is only given for one input/output port, etc.\n");
 		log("\n");
-		log("    -prep_dff_hier\n");
-		log("        derive all cells with a type instantiating an (* abc9_flop *) module.\n");
-		log("        store such modules in named selection '$abc9_flops'. create stubs within\n");
-		log("        a new '$abc9_unmap' design to be used by -prep_dff_unmap.\n");
+		log("    -prep_hier\n");
+		log("        derive all used (* abc9_box *) requiring bypass, or (* abc9_flop *) (if\n");
+		log("        -dff option) whitebox modules. with (* abc9_box *) modules, bypassing is\n");
+		log("        necessary if sequential elements (e.g. $dff, $mem, etc.) are discovered\n");
+		log("        inside, to ensure that any combinatorial paths are correctly captured.\n");
+		log("        with (* abc9_flop *) modules, only those containing $dff/$_DFF_[NP]_\n");
+		log("        cells with zero initial state -- due to an ABC limitation -- will be\n");
+		log("        derived. for such derived modules, add a rule inside the '$abc9_unmap'\n");
+		log("        design that can map a cell instantiating a derived module back to the\n");
+		log("        original cell with parameters.\n");
+		log("\n");
+		log("    -prep_bypass\n");
+		log("        create techmap rules in the '$abc9_map' and '$abc9_unmap' designs for\n");
+		log("        bypassing sequential (* abc9_box *) modules using a combinatorial box\n");
+		log("        (named *_$abc9_byp) that has inherited all its $specify2 (simple path)\n");
+		log("        cells.\n");
+		log("\n");
+		log("    -prep_dff\n");
+		log("        select all (* abc9_flop *) modules instantiated in the design and store\n");
+		log("        in the named selection '$abc9_flops'.\n");
 		log("\n");
 		log("    -prep_dff_map\n");
-		log("        within (* abc9_flop *) modules, move all $specify{2,3}/$specrule cells\n");
-		log("        that share a 'DST' port with the $_DFF_[NP]_.Q port from this 'Q' port to\n");
-		log("        the DFF's 'D' port. this is to prepare such specify cells to be moved into\n");
-		log("        a submodule.\n");
+		log("        within (* abc9_flop *) modules, attach dummy buffers to all ports and move\n");
+		log("        all $specify3/$specrule cells that share a 'DST' port with the $_DFF_[NP]_.Q\n");
+		log("        port from this 'Q' port to the DFF's 'D' port. this is to ensure that all\n");
+		log("        module ports will exist in any submodule, and prepare such specify cells to\n");
+		log("        be moved within.\n");
 		log("\n");
 		log("    -prep_dff_unmap\n");
-		log("        fill in previously created '$abc9_unmap' design to contain techmap rules\n");
-		log("        for mapping *_$abc9_flop cells back into their original (* abc9_flop *)\n");
-		log("        cells (including their original parameters).\n");
+		log("        populate the '$abc9_unmap' design with techmap rules for mapping *_$abc9_flop\n");
+		log("        cells back into their derived cell types (where the rules created by\n");
+		log("        -prep_hier will then map back to the original cell with parameters).\n");
 		log("\n");
 		log("    -prep_delays\n");
 		log("        insert `$__ABC9_DELAY' blackbox cells into the design to account for\n");
@@ -1288,7 +1606,9 @@ struct Abc9OpsPass : public Pass {
 		bool check_mode = false;
 		bool prep_delays_mode = false;
 		bool mark_scc_mode = false;
-		bool prep_dff_hier_mode = false, prep_dff_map_mode = false, prep_dff_unmap_mode = false;
+		bool prep_hier_mode = false;
+		bool prep_bypass_mode = false;
+		bool prep_dff_mode = false, prep_dff_map_mode = false, prep_dff_unmap_mode = false;
 		bool prep_xaiger_mode = false;
 		bool prep_lut_mode = false;
 		bool prep_box_mode = false;
@@ -1312,8 +1632,18 @@ struct Abc9OpsPass : public Pass {
 				valid = true;
 				continue;
 			}
-			if (arg == "-prep_dff_hier") {
-				prep_dff_hier_mode = true;
+			if (arg == "-prep_hier") {
+				prep_hier_mode = true;
+				valid = true;
+				continue;
+			}
+			if (arg == "-prep_bypass") {
+				prep_bypass_mode = true;
+				valid = true;
+				continue;
+			}
+			if (arg == "-prep_dff") {
+				prep_dff_mode = true;
 				valid = true;
 				continue;
 			}
@@ -1376,13 +1706,17 @@ struct Abc9OpsPass : public Pass {
 		if (!valid)
 			log_cmd_error("At least one of -check, -mark_scc, -prep_{delays,xaiger,dff[123],lut,box}, -write_{lut,box}, -reintegrate must be specified.\n");
 
-		if (dff_mode && !prep_delays_mode && !prep_xaiger_mode && !reintegrate_mode)
-			log_cmd_error("'-dff' option is only relevant for -prep_{delay,xaiger} or -reintegrate.\n");
+		if (dff_mode && !check_mode && !prep_hier_mode && !prep_delays_mode && !prep_xaiger_mode && !reintegrate_mode)
+			log_cmd_error("'-dff' option is only relevant for -prep_{hier,delay,xaiger} or -reintegrate.\n");
 
 		if (check_mode)
-			check(design);
-		if (prep_dff_hier_mode)
-			prep_dff_hier(design);
+			check(design, dff_mode);
+		if (prep_hier_mode)
+			prep_hier(design, dff_mode);
+		if (prep_bypass_mode)
+			prep_bypass(design);
+		if (prep_dff_mode)
+			prep_dff(design);
 		if (prep_dff_map_mode)
 			prep_dff_map(design);
 		if (prep_dff_unmap_mode)

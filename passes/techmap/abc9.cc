@@ -275,22 +275,31 @@ struct Abc9Pass : public ScriptPass
 	void script() YS_OVERRIDE
 	{
 		if (check_label("check")) {
-			run("abc9_ops -check");
+			if (help_mode)
+				run("abc9_ops -check [-dff]", "(option if -dff)");
+			else
+				run(stringf("abc9_ops -check %s", dff_mode ? "-dff" : ""));
 		}
 
-		if (check_label("dff", "(only if -dff)")) {
-			if (dff_mode || help_mode) {
-				run("abc9_ops -prep_dff_hier"); // derive all used (* abc9_flop *) modules,
-								// create stubs in $abc9_unmap design
-				run("design -stash $abc9");
-				run("design -copy-from $abc9 @$abc9_flops"); // copy derived modules in
-				run("proc");
-				run("wbflip");
-				run("techmap");
-				run("opt");
+		if (check_label("map")) {
+			if (help_mode)
+				run("abc9_ops -prep_hier -prep_bypass [-prep_dff -dff]", "(option if -dff)");
+			else
+				run(stringf("abc9_ops -prep_hier -prep_bypass %s", dff_mode ? "-prep_dff -dff" : ""));
+			if (dff_mode) {
+				run("design -copy-to $abc9_map @$abc9_flops", "(only if -dff)");
+				run("select -unset $abc9_flops", "             (only if -dff)");
+			}
+			run("design -stash $abc9");
+			run("design -load $abc9_map");
+			run("proc");
+			run("wbflip");
+			run("techmap");
+			run("opt");
+			if (dff_mode) {
 				if (!help_mode)
 					active_design->scratchpad_unset("abc9_ops.prep_dff_map.did_something");
-				run("abc9_ops -prep_dff_map"); // rewrite specify
+				run("abc9_ops -prep_dff_map", "(only if -dff)"); // rewrite specify
 				bool did_something = help_mode || active_design->scratchpad_get_bool("abc9_ops.prep_dff_map.did_something");
 				if (did_something) {
 										// select all $_DFF_[NP]_
@@ -299,6 +308,8 @@ struct Abc9Pass : public ScriptPass
 										// lastly remove $_DFF_[NP]_ cells
 					run("setattr -set submod \"$abc9_flop\" t:$_DFF_?_ %ci* %co* t:$_DFF_?_ %d");
 					run("submod");
+					run("setattr -mod -set whitebox 1 -set abc9_flop 1 -set abc9_box 1 *_$abc9_flop");
+					run("abc9_ops -prep_dff_unmap");
 					run("design -copy-to $abc9 *_$abc9_flop"); // copy submod out
 					run("delete *_$abc9_flop");
 					if (help_mode) {
@@ -313,21 +324,13 @@ struct Abc9Pass : public ScriptPass
 								run(stringf("rename %s_$abc9_flop _TECHMAP_REPLACE_", module->name.c_str()));
 						}
 					}
-					run("design -stash $abc9_map");
 				}
-				run("design -load $abc9");
-				run("design -delete $abc9");
-				run("select -unset $abc9_flops");
-				if (did_something) { // techmap user design into submod + $_DFF_[NP]_
-					run("techmap -wb -max_iter 1 -map %$abc9_map -map +/abc9_map.v");
-					run("design -delete $abc9_map");
-					run("setattr -mod -set whitebox 1 -set abc9_flop 1 -set abc9_box 1 *_$abc9_flop");
-					run("abc9_ops -prep_dff_unmap"); // implement $abc9_unmap design
-				}
-				else
-					run("techmap -wb -max_iter 1 -map +/abc9_map.v");
-
 			}
+			run("design -stash $abc9_map");
+			run("design -load $abc9");
+			run("design -delete $abc9");
+			run("techmap -wb -max_iter 1 -map %$abc9_map -map +/abc9_map.v");
+			run("design -delete $abc9_map");
 		}
 
 		if (check_label("pre")) {
@@ -353,9 +356,10 @@ struct Abc9Pass : public ScriptPass
 			run("aigmap");
 			run("design -stash $abc9_holes");
 			run("design -load $abc9");
+			run("design -delete $abc9");
 		}
 
-		if (check_label("map")) {
+		if (check_label("exe")) {
 			run("aigmap");
 			if (help_mode) {
 				run("foreach module in selection");
@@ -430,12 +434,10 @@ struct Abc9Pass : public ScriptPass
 			}
 		}
 
-		if (check_label("post")) {
-			if (dff_mode || help_mode) {
-				run("techmap -wb -map %$abc9_unmap", "(only if -dff)"); // techmap user design from submod back to original cell
+		if (check_label("unmap")) {
+			run("techmap -wb -map %$abc9_unmap -map +/abc9_unmap.v"); 	// techmap user design from submod back to original cell
 											//   ($_DFF_[NP]_ already shorted by -reintegrate)
-				run("design -delete $abc9_unmap", "   (only if -dff)");
-			}
+			run("design -delete $abc9_unmap");
 			if (saved_designs.count("$abc9_holes") || help_mode)
 				run("design -delete $abc9_holes");
 		}

@@ -598,7 +598,7 @@ struct SynthXilinxPass : public ScriptPass
 		if (check_label("map_ffs", "('-abc9' only)")) {
 			if (abc9 || help_mode) {
 				if (dff || help_mode)
-					run("zinit -all", "('-dff' only)");
+					run("zinit -all t:$_DFF_?_ t:$_DFFE_??_ t:$__DFFS*", "('-dff' only)");
 				run("techmap -map " + ff_map_file);
 			}
 		}
@@ -615,7 +615,6 @@ struct SynthXilinxPass : public ScriptPass
 				if (family != "xc7")
 					log_warning("'synth_xilinx -abc9' not currently supported for the '%s' family, "
 							"will use timing for 'xc7' instead.\n", family.c_str());
-				run("techmap -map +/xilinx/abc9_map.v -max_iter 1");
 				run("read_verilog -icells -lib -specify +/xilinx/abc9_model.v");
 				std::string abc9_opts;
 				std::string k = "synth_xilinx.abc9.W";
@@ -630,7 +629,6 @@ struct SynthXilinxPass : public ScriptPass
 				if (dff)
 					abc9_opts += " -dff";
 				run("abc9" + abc9_opts);
-				run("techmap -map +/xilinx/abc9_unmap.v");
 			}
 			else {
 				std::string abc_opts;

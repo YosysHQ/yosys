@@ -524,10 +524,10 @@ module FDRE (
     $setup(R , posedge C &&& !IS_C_INVERTED, 404);
     $setup(R , negedge C &&&  IS_C_INVERTED, 404);
     // https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L243
-    if (!IS_C_INVERTED && R ^ IS_R_INVERTED)        (posedge C => (Q : 1'b0)) = 303;
-    if ( IS_C_INVERTED && R ^ IS_R_INVERTED)        (negedge C => (Q : 1'b0)) = 303;
-    if (!IS_C_INVERTED && R ~^ IS_R_INVERTED && CE) (posedge C => (Q : D ^ IS_D_INVERTED)) = 303;
-    if ( IS_C_INVERTED && R ~^ IS_R_INVERTED && CE) (negedge C => (Q : D ^ IS_D_INVERTED)) = 303;
+    if (!IS_C_INVERTED && R != IS_R_INVERTED)        (posedge C => (Q : 1'b0)) = 303;
+    if ( IS_C_INVERTED && R != IS_R_INVERTED)        (negedge C => (Q : 1'b0)) = 303;
+    if (!IS_C_INVERTED && R == IS_R_INVERTED && CE) (posedge C => (Q : D ^ IS_D_INVERTED)) = 303;
+    if ( IS_C_INVERTED && R == IS_R_INVERTED && CE) (negedge C => (Q : D ^ IS_D_INVERTED)) = 303;
   endspecify
 endmodule
 
@@ -589,10 +589,10 @@ module FDSE (
     $setup(S , posedge C &&& !IS_C_INVERTED, 404);
     $setup(S , negedge C &&&  IS_C_INVERTED, 404);
     // https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L243
-    if (!IS_C_INVERTED && S ^ IS_S_INVERTED)        (posedge C => (Q : 1'b1)) = 303;
-    if ( IS_C_INVERTED && S ^ IS_S_INVERTED)        (negedge C => (Q : 1'b1)) = 303;
-    if (!IS_C_INVERTED && S ~^ IS_S_INVERTED && CE) (posedge C => (Q : D ^ IS_D_INVERTED)) = 303;
-    if ( IS_C_INVERTED && S ~^ IS_S_INVERTED && CE) (negedge C => (Q : D ^ IS_D_INVERTED)) = 303;
+    if (!IS_C_INVERTED && S != IS_S_INVERTED)       (posedge C => (Q : 1'b1)) = 303;
+    if ( IS_C_INVERTED && S != IS_S_INVERTED)       (negedge C => (Q : 1'b1)) = 303;
+    if (!IS_C_INVERTED && S == IS_S_INVERTED && CE) (posedge C => (Q : D ^ IS_D_INVERTED)) = 303;
+    if ( IS_C_INVERTED && S == IS_S_INVERTED && CE) (negedge C => (Q : D ^ IS_D_INVERTED)) = 303;
   endspecify
 endmodule
 
@@ -656,6 +656,7 @@ module FDRSE (
       Q <= d;
 endmodule
 
+(* abc9_box, lib_whitebox *)
 module FDCE (
   output reg Q,
   (* clkbuf_sink *)
@@ -691,13 +692,15 @@ module FDCE (
     $setup(CLR, posedge C &&& !IS_C_INVERTED, 404);
     $setup(CLR, negedge C &&&  IS_C_INVERTED, 404);
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L270
-    //if (!IS_CLR_INVERTED) (posedge CLR => (Q : 1'b0)) = 764; // Captured by $__ABC9_ASYNC0
-    //if ( IS_CLR_INVERTED) (negedge CLR => (Q : 1'b0)) = 764; // Captured by $__ABC9_ASYNC0
-    if (!IS_C_INVERTED && CLR ~^ IS_CLR_INVERTED && CE) (posedge C => (Q : D ^ IS_D_INVERTED)) = 303;
-    if ( IS_C_INVERTED && CLR ~^ IS_CLR_INVERTED && CE) (negedge C => (Q : D ^ IS_D_INVERTED)) = 303;
+    if (IS_CLR_INVERTED != CLR) (CLR => Q) = 764; // Technically, this should be an edge sensitive path
+                                                  // but for facilitating a bypass box, let's pretend it's
+                                                  // a simple path
+    if (!IS_C_INVERTED && CLR == IS_CLR_INVERTED && CE) (posedge C => (Q : D ^ IS_D_INVERTED)) = 303;
+    if ( IS_C_INVERTED && CLR == IS_CLR_INVERTED && CE) (negedge C => (Q : D ^ IS_D_INVERTED)) = 303;
   endspecify
 endmodule
 
+(* abc9_box, lib_whitebox *)
 module FDCE_1 (
   output reg Q,
   (* clkbuf_sink *)
@@ -717,11 +720,14 @@ module FDCE_1 (
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L274
     $setup(CLR, negedge C, 404);
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L270
-    //(posedge CLR => (Q : 1'b0)) = 764; // Captured by $__ABC9_ASYNC0
+    if (CLR) (CLR => Q) = 764; // Technically, this should be an edge sensitive path
+                               // but for facilitating a bypass box, let's pretend it's
+                               // a simple path
     if (!CLR && CE) (negedge C => (Q : D)) = 303;
   endspecify
 endmodule
 
+//(* abc9_box, lib_whitebox *)
 module FDPE (
   output reg Q,
   (* clkbuf_sink *)
@@ -756,13 +762,15 @@ module FDPE (
     $setup(PRE, posedge C &&& !IS_C_INVERTED, 404);
     $setup(PRE, negedge C &&&  IS_C_INVERTED, 404);
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L270
-    //if (!IS_PRE_INVERTED) (posedge PRE => (Q : 1'b1)) = 764; // Captured by $__ABC9_ASYNC1
-    //if ( IS_PRE_INVERTED) (negedge PRE => (Q : 1'b1)) = 764; // Captured by $__ABC9_ASYNC1
-    if (!IS_C_INVERTED && PRE ~^ IS_PRE_INVERTED && CE) (posedge C => (Q : D ^ IS_D_INVERTED)) = 303;
-    if ( IS_C_INVERTED && PRE ~^ IS_PRE_INVERTED && CE) (negedge C => (Q : D ^ IS_D_INVERTED)) = 303;
+    if (IS_PRE_INVERTED != PRE) (PRE => Q) = 764; // Technically, this should be an edge sensitive path
+                                                  // but for facilitating a bypass box, let's pretend it's
+                                                  // a simple path
+    if (!IS_C_INVERTED && PRE == IS_PRE_INVERTED && CE) (posedge C => (Q : D ^ IS_D_INVERTED)) = 303;
+    if ( IS_C_INVERTED && PRE == IS_PRE_INVERTED && CE) (negedge C => (Q : D ^ IS_D_INVERTED)) = 303;
   endspecify
 endmodule
 
+(* abc9_box, lib_whitebox *)
 module FDPE_1 (
   output reg Q,
   (* clkbuf_sink *)
@@ -782,8 +790,9 @@ module FDPE_1 (
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L274
     $setup(PRE, negedge C, 404);
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L270
-    //if (!IS_PRE_INVERTED) (posedge PRE => (Q : 1'b1)) = 764; // Captured by $__ABC9_ASYNC1
-    //if (IS_PRE_INVERTED)  (negedge PRE => (Q : 1'b1)) = 764; // Captured by $__ABC9_ASYNC1
+    if (PRE) (PRE => Q) = 764; // Technically, this should be an edge sensitive path
+                               // but for facilitating a bypass box, let's pretend it's
+                               // a simple path
     if (!PRE && CE) (negedge C => (Q : D)) = 303;
   endspecify
 endmodule
@@ -1395,6 +1404,7 @@ module RAM16X1D_1 (
   always @(negedge clk) if (WE) mem[a] <= D;
 endmodule
 
+(* abc9_box, lib_whitebox *)
 module RAM32X1D (
   output DPO, SPO,
   input  D,
@@ -1441,15 +1451,15 @@ module RAM32X1D (
     if (!IS_WCLK_INVERTED) (posedge WCLK => (DPO : 1'bx)) = 1153;
     if ( IS_WCLK_INVERTED) (posedge WCLK => (SPO : D))    = 1153;
     if ( IS_WCLK_INVERTED) (negedge WCLK => (DPO : 1'bx)) = 1153;
-    // Captured by $__ABC9_RAM6
-    //({A0,DPRA0} => {SPO,DPO}) = 642;
-    //({A1,DPRA1} => {SPO,DPO}) = 631;
-    //({A2,DPRA2} => {SPO,DPO}) = 472;
-    //({A3,DPRA3} => {SPO,DPO}) = 407;
-    //({A4,DPRA4} => {SPO,DPO}) = 238;
+    (A0 => SPO) = 642; (DPRA0 => DPO) = 642;
+    (A1 => SPO) = 632; (DPRA1 => DPO) = 631;
+    (A2 => SPO) = 472; (DPRA2 => DPO) = 472;
+    (A3 => SPO) = 407; (DPRA3 => DPO) = 407;
+    (A4 => SPO) = 238; (DPRA4 => DPO) = 238;
   endspecify
 endmodule
 
+(* abc9_box, lib_whitebox *)
 module RAM32X1D_1 (
   output DPO, SPO,
   input  D,
@@ -1491,15 +1501,15 @@ module RAM32X1D_1 (
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
     if (WE) (negedge WCLK => (SPO : D))    = 1153;
     if (WE) (negedge WCLK => (DPO : 1'bx)) = 1153;
-    // Captured by $__ABC9_RAM6
-    //({A0,DPRA0} => {SPO,DPO}) = 642;
-    //({A1,DPRA1} => {SPO,DPO}) = 631;
-    //({A2,DPRA2} => {SPO,DPO}) = 472;
-    //({A3,DPRA3} => {SPO,DPO}) = 407;
-    //({A4,DPRA4} => {SPO,DPO}) = 238;
+    (A0 => SPO) = 642; (DPRA0 => DPO) = 642;
+    (A1 => SPO) = 632; (DPRA1 => DPO) = 631;
+    (A2 => SPO) = 472; (DPRA2 => DPO) = 472;
+    (A3 => SPO) = 407; (DPRA3 => DPO) = 407;
+    (A4 => SPO) = 238; (DPRA4 => DPO) = 238;
   endspecify
 endmodule
 
+(* abc9_box, lib_whitebox *)
 module RAM64X1D (
   output DPO, SPO,
   input  D,
@@ -1549,13 +1559,12 @@ module RAM64X1D (
     if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (DPO : 1'bx)) = 1153;
     if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (SPO : D))    = 1153;
     if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DPO : 1'bx)) = 1153;
-    // Captured by $__ABC9_RAM6
-    //({A0,DPRA0} => {SPO,DPO}) = 642;
-    //({A1,DPRA1} => {SPO,DPO}) = 631;
-    //({A2,DPRA2} => {SPO,DPO}) = 472;
-    //({A3,DPRA3} => {SPO,DPO}) = 407;
-    //({A4,DPRA4} => {SPO,DPO}) = 238;
-    //({A5,DPRA5} => {SPO,DPO}) = 127;
+    (A0 => SPO) = 642; (DPRA0 => DPO) = 642;
+    (A1 => SPO) = 632; (DPRA1 => DPO) = 631;
+    (A2 => SPO) = 472; (DPRA2 => DPO) = 472;
+    (A3 => SPO) = 407; (DPRA3 => DPO) = 407;
+    (A4 => SPO) = 238; (DPRA4 => DPO) = 238;
+    (A5 => SPO) = 127; (DPRA5 => DPO) = 127;
   endspecify
 endmodule
 
@@ -1598,9 +1607,16 @@ module RAM64X1D_1 (
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
     if (WE) (negedge WCLK => (SPO : D))    = 1153;
     if (WE) (negedge WCLK => (DPO : 1'bx)) = 1153;
+    (A0 => SPO) = 642; (DPRA0 => DPO) = 642;
+    (A1 => SPO) = 632; (DPRA1 => DPO) = 631;
+    (A2 => SPO) = 472; (DPRA2 => DPO) = 472;
+    (A3 => SPO) = 407; (DPRA3 => DPO) = 407;
+    (A4 => SPO) = 238; (DPRA4 => DPO) = 238;
+    (A5 => SPO) = 127; (DPRA5 => DPO) = 127;
   endspecify
 endmodule
 
+(* abc9_box, lib_whitebox *)
 module RAM128X1D (
   output       DPO, SPO,
   input        D,
@@ -1645,21 +1661,20 @@ module RAM128X1D (
     if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (SPO : D))    = 1153 + 217 /* to cross F7AMUX */ + 175 /* AMUX */;
     if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DPO : 1'bx)) = 1153 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
 `endif
-    // Captured by $__ABC9_RAM7
-    //(A[0] => SPO) = 642 + 193 /* to cross F7AMUX */ + 175 /* AMUX */;
-    //(A[1] => SPO) = 631 + 193 /* to cross F7AMUX */ + 175 /* AMUX */;
-    //(A[2] => SPO) = 472 + 193 /* to cross F7AMUX */ + 175 /* AMUX */;
-    //(A[3] => SPO) = 407 + 193 /* to cross F7AMUX */ + 175 /* AMUX */;
-    //(A[4] => SPO) = 238 + 193 /* to cross F7AMUX */ + 175 /* AMUX */;
-    //(A[5] => SPO) = 127 + 193 /* to cross F7AMUX */ + 175 /* AMUX */;
-    //(A[6] => SPO) = 0 + 276 /* to select F7AMUX */ + 175 /* AMUX */;
-    //(DPRA[0] => DPO) = 642 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
-    //(DPRA[1] => DPO) = 631 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
-    //(DPRA[2] => DPO) = 472 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
-    //(DPRA[3] => DPO) = 407 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
-    //(DPRA[4] => DPO) = 238 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
-    //(DPRA[5] => DPO) = 127 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
-    //(DPRA[6] => DPO) = 0 + 296 /* to select MUXF7 */ + 174 /* CMUX */;
+    (A[0] => SPO) = 642 + 193 /* to cross F7AMUX */ + 175 /* AMUX */;
+    (A[1] => SPO) = 631 + 193 /* to cross F7AMUX */ + 175 /* AMUX */;
+    (A[2] => SPO) = 472 + 193 /* to cross F7AMUX */ + 175 /* AMUX */;
+    (A[3] => SPO) = 407 + 193 /* to cross F7AMUX */ + 175 /* AMUX */;
+    (A[4] => SPO) = 238 + 193 /* to cross F7AMUX */ + 175 /* AMUX */;
+    (A[5] => SPO) = 127 + 193 /* to cross F7AMUX */ + 175 /* AMUX */;
+    (A[6] => SPO) = 0 + 276 /* to select F7AMUX */ + 175 /* AMUX */;
+    (DPRA[0] => DPO) = 642 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
+    (DPRA[1] => DPO) = 631 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
+    (DPRA[2] => DPO) = 472 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
+    (DPRA[3] => DPO) = 407 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
+    (DPRA[4] => DPO) = 238 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
+    (DPRA[5] => DPO) = 127 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
+    (DPRA[6] => DPO) = 0 + 296 /* to select MUXF7 */ + 174 /* CMUX */;
   endspecify
 endmodule
 
@@ -1683,6 +1698,7 @@ endmodule
 
 // Multi port.
 
+(* abc9_box, lib_whitebox *)
 module RAM32M (
   output [1:0] DOA,
   output [1:0] DOB,
@@ -1779,12 +1795,11 @@ module RAM32M (
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1061
     if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (DOD[1] : DID[1])) = 1190;
     if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DOD[1] : DID[1])) = 1190;
-    // Captured by $__ABC9_RAM6
-    //({{2{ADDRA[0]}},{2{ADDRB[0]}},{2{ADDRC[0]}},{2{ADDRD[0]}}} => {DOA,DOB,DOC,DOD}) = 642;
-    //({{2{ADDRA[1]}},{2{ADDRB[1]}},{2{ADDRC[1]}},{2{ADDRD[1]}}} => {DOA,DOB,DOC,DOD}) = 631;
-    //({{2{ADDRA[2]}},{2{ADDRB[2]}},{2{ADDRC[2]}},{2{ADDRD[2]}}} => {DOA,DOB,DOC,DOD}) = 472;
-    //({{2{ADDRA[3]}},{2{ADDRB[3]}},{2{ADDRC[3]}},{2{ADDRD[3]}}} => {DOA,DOB,DOC,DOD}) = 407;
-    //({{2{ADDRA[4]}},{2{ADDRB[4]}},{2{ADDRC[4]}},{2{ADDRD[4]}}} => {DOA,DOB,DOC,DOD}) = 238;
+    (ADDRA[0] *> DOA) = 642; (ADDRB[0] *> DOB) = 642; (ADDRC[0] *> DOC) = 642; (ADDRD[0] *> DOD) = 642;
+    (ADDRA[1] *> DOA) = 631; (ADDRB[1] *> DOB) = 631; (ADDRC[1] *> DOC) = 631; (ADDRD[1] *> DOD) = 631;
+    (ADDRA[2] *> DOA) = 472; (ADDRB[2] *> DOB) = 472; (ADDRC[2] *> DOC) = 472; (ADDRD[2] *> DOD) = 472;
+    (ADDRA[3] *> DOA) = 407; (ADDRB[3] *> DOB) = 407; (ADDRC[3] *> DOC) = 407; (ADDRD[3] *> DOD) = 407;
+    (ADDRA[4] *> DOA) = 238; (ADDRB[4] *> DOB) = 238; (ADDRC[4] *> DOC) = 238; (ADDRD[4] *> DOD) = 238;
   endspecify
 endmodule
 
@@ -1857,6 +1872,7 @@ module RAM32M16 (
     end
 endmodule
 
+(* abc9_box, lib_whitebox *)
 module RAM64M (
   output       DOA,
   output       DOB,
@@ -1935,12 +1951,11 @@ module RAM64M (
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L1093
     if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (DOD : DID)) = 1163;
     if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DOD : DID)) = 1163;
-    // Captured by $__ABC9_RAM6
-    //({ADDRA[0],ADDRB[0],ADDRC[0],ADDRD[0]} => {DOA,DOB,DOC,DOD}) = 642;
-    //({ADDRA[1],ADDRB[1],ADDRC[1],ADDRD[1]} => {DOA,DOB,DOC,DOD}) = 631;
-    //({ADDRA[2],ADDRB[2],ADDRC[2],ADDRD[2]} => {DOA,DOB,DOC,DOD}) = 472;
-    //({ADDRA[3],ADDRB[3],ADDRC[3],ADDRD[3]} => {DOA,DOB,DOC,DOD}) = 407;
-    //({ADDRA[4],ADDRB[4],ADDRC[4],ADDRD[4]} => {DOA,DOB,DOC,DOD}) = 238;
+    (ADDRA[0] => DOA) = 642; (ADDRB[0] => DOB) = 642; (ADDRC[0] => DOC) = 642; (ADDRD[0] => DOD) = 642;
+    (ADDRA[1] => DOA) = 631; (ADDRB[1] => DOB) = 631; (ADDRC[1] => DOC) = 631; (ADDRD[1] => DOD) = 631;
+    (ADDRA[2] => DOA) = 472; (ADDRB[2] => DOB) = 472; (ADDRC[2] => DOC) = 472; (ADDRD[2] => DOD) = 472;
+    (ADDRA[3] => DOA) = 407; (ADDRB[3] => DOB) = 407; (ADDRC[3] => DOC) = 407; (ADDRD[3] => DOD) = 407;
+    (ADDRA[4] => DOA) = 238; (ADDRB[4] => DOB) = 238; (ADDRC[4] => DOC) = 238; (ADDRD[4] => DOD) = 238;
   endspecify
 endmodule
 
@@ -2057,6 +2072,7 @@ endmodule
 
 // Shift registers.
 
+(* abc9_box, lib_whitebox *)
 module SRL16 (
   output Q,
   input A0, A1, A2, A3,
@@ -2075,14 +2091,14 @@ module SRL16 (
     (posedge CLK => (Q : 1'bx)) = 1472;
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L912
     $setup(D , posedge CLK, 173);
-    // Captured by $__ABC9_RAM6
-    //(A0 => Q) = 631;
-    //(A1 => Q) = 472;
-    //(A2 => Q) = 407;
-    //(A3 => Q) = 238;
+    (A0 => Q) = 631;
+    (A1 => Q) = 472;
+    (A2 => Q) = 407;
+    (A3 => Q) = 238;
   endspecify
 endmodule
 
+(* abc9_box, lib_whitebox *)
 module SRL16E (
   output Q,
   input A0, A1, A2, A3, CE,
@@ -2108,16 +2124,19 @@ module SRL16E (
     $setup(D , posedge CLK &&& !IS_CLK_INVERTED, 173);
     $setup(D , negedge CLK &&&  IS_CLK_INVERTED, 173);
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L905
+    if (!IS_CLK_INVERTED && CE) (posedge CLK => (Q : D)) = 1472;
+    if ( IS_CLK_INVERTED && CE) (negedge CLK => (Q : D)) = 1472;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L905
     if (!IS_CLK_INVERTED && CE) (posedge CLK => (Q : 1'bx)) = 1472;
     if ( IS_CLK_INVERTED && CE) (negedge CLK => (Q : 1'bx)) = 1472;
-    // Captured by $__ABC9_RAM6
-    //(A0 => Q) = 631;
-    //(A1 => Q) = 472;
-    //(A2 => Q) = 407;
-    //(A3 => Q) = 238;
+    (A0 => Q) = 631;
+    (A1 => Q) = 472;
+    (A2 => Q) = 407;
+    (A3 => Q) = 238;
   endspecify
 endmodule
 
+(* abc9_box, lib_whitebox *)
 module SRLC16 (
   output Q,
   output Q15,
@@ -2134,18 +2153,20 @@ module SRLC16 (
   always @(posedge CLK) r <= { r[14:0], D };
 
   specify
-    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L905
-    (posedge CLK => (Q : 1'bx)) = 1472;
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L912
     $setup(D , posedge CLK, 173);
-    // Captured by $__ABC9_RAM6
-    //(A0 => Q) = 631;
-    //(A1 => Q) = 472;
-    //(A2 => Q) = 407;
-    //(A3 => Q) = 238;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L905
+    (posedge CLK => (Q : 1'bx)) = 1472;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904
+    (posedge CLK => (Q15 : 1'bx)) = 1114;
+    (A0 => Q) = 631;
+    (A1 => Q) = 472;
+    (A2 => Q) = 407;
+    (A3 => Q) = 238;
   endspecify
 endmodule
 
+(* abc9_box, lib_whitebox *)
 module SRLC16E (
   output Q,
   output Q15,
@@ -2172,18 +2193,23 @@ module SRLC16E (
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L912
     $setup(D , posedge CLK &&& !IS_CLK_INVERTED, 173);
     $setup(D , negedge CLK &&&  IS_CLK_INVERTED, 173);
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
+    $setup(CE, posedge CLK &&& !IS_CLK_INVERTED, 109);
+    $setup(CE, negedge CLK &&&  IS_CLK_INVERTED, 109);
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L905
     if (!IS_CLK_INVERTED && CE) (posedge CLK => (Q : D)) = 1472;
     if ( IS_CLK_INVERTED && CE) (negedge CLK => (Q : D)) = 1472;
-    // Captured by $__ABC9_RAM6
-    //(A0 => Q) = 642;
-    //(A1 => Q) = 631;
-    //(A2 => Q) = 472;
-    //(A3 => Q) = 407;
-    //(A4 => Q) = 238;
+    // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904
+    if (!IS_CLK_INVERTED && CE) (posedge CLK => (Q15 : 1'bx)) = 1114;
+    if ( IS_CLK_INVERTED && CE) (negedge CLK => (Q15 : 1'bx)) = 1114;
+    (A0 => Q) = 631;
+    (A1 => Q) = 472;
+    (A2 => Q) = 407;
+    (A3 => Q) = 238;
   endspecify
 endmodule
 
+(* abc9_box, lib_whitebox *)
 module SRLC32E (
   output Q,
   output Q31,
@@ -2211,18 +2237,20 @@ module SRLC32E (
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L912
     $setup(D , posedge CLK &&& !IS_CLK_INVERTED, 173);
     $setup(D , negedge CLK &&&  IS_CLK_INVERTED, 173);
+    // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L248
+    $setup(CE, posedge CLK &&& !IS_CLK_INVERTED, 109);
+    $setup(CE, negedge CLK &&&  IS_CLK_INVERTED, 109);
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L905
     if (!IS_CLK_INVERTED && CE) (posedge CLK => (Q : 1'bx)) = 1472;
     if ( IS_CLK_INVERTED && CE) (negedge CLK => (Q : 1'bx)) = 1472;
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L904
-    if (!IS_CLK_INVERTED && CE) (posedge CLK => (Q : 1'bx)) = 1114;
-    if ( IS_CLK_INVERTED && CE) (negedge CLK => (Q : 1'bx)) = 1114;
-    // Captured by $__ABC9_RAM6
-    //(A0 => Q) = 642;
-    //(A1 => Q) = 631;
-    //(A2 => Q) = 472;
-    //(A3 => Q) = 407;
-    //(A4 => Q) = 238;
+    if (!IS_CLK_INVERTED && CE) (posedge CLK => (Q31 : 1'bx)) = 1114;
+    if ( IS_CLK_INVERTED && CE) (negedge CLK => (Q31 : 1'bx)) = 1114;
+    (A[0] => Q) = 642;
+    (A[1] => Q) = 631;
+    (A[2] => Q) = 472;
+    (A[3] => Q) = 407;
+    (A[4] => Q) = 238;
   endspecify
 endmodule
 
@@ -2990,6 +3018,8 @@ endmodule
 
 // Virtex 6, Series 7.
 
+(* abc9_box=!(PREG || AREG || ADREG || BREG || CREG || DREG || MREG),
+   lib_whitebox=!(PREG || AREG || ADREG || BREG || CREG || DREG || MREG) *)
 module DSP48E1 (
     output [29:0] ACOUT,
     output [17:0] BCOUT,
