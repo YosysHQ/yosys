@@ -225,7 +225,7 @@ struct FlowGraph {
 	};
 
 	std::vector<Node*> nodes;
-	dict<const RTLIL::Wire*, pool<Node*, hash_ptr_ops>> wire_defs, wire_uses;
+	dict<const RTLIL::Wire*, pool<Node*, hash_ptr_ops>> wire_comb_defs, wire_sync_defs, wire_uses;
 	dict<const RTLIL::Wire*, bool> wire_def_elidable, wire_use_elidable;
 
 	~FlowGraph()
@@ -234,13 +234,17 @@ struct FlowGraph {
 			delete node;
 	}
 
-	void add_defs(Node *node, const RTLIL::SigSpec &sig, bool elidable)
+	void add_defs(Node *node, const RTLIL::SigSpec &sig, bool is_sync, bool elidable)
 	{
 		for (auto chunk : sig.chunks())
-			if (chunk.wire)
-				wire_defs[chunk.wire].insert(node);
-		// Only defs of an entire wire in the right order can be elided.
-		if (sig.is_wire())
+			if (chunk.wire) {
+				if (is_sync)
+					wire_sync_defs[chunk.wire].insert(node);
+				else
+					wire_comb_defs[chunk.wire].insert(node);
+			}
+		// Only comb defs of an entire wire in the right order can be elided.
+		if (!is_sync && sig.is_wire())
 			wire_def_elidable[sig.as_wire()] = elidable;
 	}
 
@@ -268,7 +272,7 @@ struct FlowGraph {
 	// Connections
 	void add_connect_defs_uses(Node *node, const RTLIL::SigSig &conn)
 	{
-		add_defs(node, conn.first, /*elidable=*/true);
+		add_defs(node, conn.first, /*is_sync=*/false, /*elidable=*/true);
 		add_uses(node, conn.second);
 	}
 
@@ -288,16 +292,16 @@ struct FlowGraph {
 		log_assert(cell->known());
 		for (auto conn : cell->connections()) {
 			if (cell->output(conn.first)) {
-				if (is_sync_ff_cell(cell->type) || (cell->type == ID($memrd) && cell->getParam(ID::CLK_ENABLE).as_bool()))
-					/* non-combinatorial outputs do not introduce defs */;
-				else if (is_elidable_cell(cell->type))
-					add_defs(node, conn.second, /*elidable=*/true);
+				if (is_elidable_cell(cell->type))
+					add_defs(node, conn.second, /*is_sync=*/false, /*elidable=*/true);
+				else if (is_sync_ff_cell(cell->type) || (cell->type == ID($memrd) && cell->getParam(ID::CLK_ENABLE).as_bool()))
+					add_defs(node, conn.second, /*is_sync=*/true,  /*elidable=*/false);
 				else if (is_internal_cell(cell->type))
-					add_defs(node, conn.second, /*elidable=*/false);
+					add_defs(node, conn.second, /*is_sync=*/false, /*elidable=*/false);
 				else {
 					// Unlike outputs of internal cells (which generate code that depends on the ability to set the output
 					// wire bits), outputs of user cells are normal wires, and the wires connected to them can be elided.
-					add_defs(node, conn.second, /*elidable=*/true);
+					add_defs(node, conn.second, /*is_sync=*/false, /*elidable=*/true);
 				}
 			}
 			if (cell->input(conn.first))
@@ -319,7 +323,7 @@ struct FlowGraph {
 	void add_case_defs_uses(Node *node, const RTLIL::CaseRule *case_)
 	{
 		for (auto &action : case_->actions) {
-			add_defs(node, action.first, /*elidable=*/false);
+			add_defs(node, action.first, /*is_sync=*/false, /*elidable=*/false);
 			add_uses(node, action.second);
 		}
 		for (auto sub_switch : case_->switches) {
@@ -338,9 +342,9 @@ struct FlowGraph {
 		for (auto sync : process->syncs)
 			for (auto action : sync->actions) {
 				if (sync->type == RTLIL::STp || sync->type == RTLIL::STn || sync->type == RTLIL::STe)
-				  /* sync actions do not introduce feedback */;
+				  add_defs(node, action.first, /*is_sync=*/true,  /*elidable=*/false);
 				else
-					add_defs(node, action.first, /*elidable=*/false);
+					add_defs(node, action.first, /*is_sync=*/false, /*elidable=*/false);
 				add_uses(node, action.second);
 			}
 	}
@@ -414,7 +418,7 @@ struct CxxrtlWorker {
 	bool elide_public = false;
 	bool localize_internal = false;
 	bool localize_public = false;
-	bool run_splitnets = false;
+	bool run_opt_clean_purge = false;
 	bool max_opt_level = false;
 
 	std::ostringstream f;
@@ -1792,8 +1796,8 @@ struct CxxrtlWorker {
 				if (wire->name.begins_with("$") && !elide_internal) continue;
 				if (wire->name.begins_with("\\") && !elide_public) continue;
 				if (sync_wires[wire]) continue;
-				log_assert(flow.wire_defs[wire].size() == 1);
-				elided_wires[wire] = **flow.wire_defs[wire].begin();
+				log_assert(flow.wire_comb_defs[wire].size() == 1);
+				elided_wires[wire] = **flow.wire_comb_defs[wire].begin();
 			}
 
 			// Elided wires that are outputs of internal cells are always connected to a well known port (Y).
@@ -1805,9 +1809,9 @@ struct CxxrtlWorker {
 						cell_wire_defs[cell][conn.second.as_wire()] = conn.first;
 
 			dict<FlowGraph::Node*, pool<const RTLIL::Wire*>, hash_ptr_ops> node_defs;
-			for (auto wire_def : flow.wire_defs)
-				for (auto node : wire_def.second)
-					node_defs[node].insert(wire_def.first);
+			for (auto wire_comb_def : flow.wire_comb_defs)
+				for (auto node : wire_comb_def.second)
+					node_defs[node].insert(wire_comb_def.first);
 
 			Scheduler<FlowGraph::Node> scheduler;
 			dict<FlowGraph::Node*, Scheduler<FlowGraph::Node>::Vertex*, hash_ptr_ops> node_map;
@@ -1858,8 +1862,7 @@ struct CxxrtlWorker {
 				if (wire->name.begins_with("$") && !localize_internal) continue;
 				if (wire->name.begins_with("\\") && !localize_public) continue;
 				if (sync_wires[wire]) continue;
-				// Wires connected to synchronous outputs do not introduce defs.
-				if (flow.wire_defs[wire].size() != 1) continue;
+				if (flow.wire_sync_defs.count(wire) > 0) continue;
 				localized_wires.insert(wire);
 			}
 
@@ -1871,8 +1874,7 @@ struct CxxrtlWorker {
 			// also require more than one delta cycle to converge.
 			pool<RTLIL::Wire*> buffered_wires;
 			for (auto wire : module->wires()) {
-				// Only wires connected to combinatorial outputs introduce defs.
-				if (flow.wire_defs[wire].size() > 0 && !elided_wires.count(wire) && !localized_wires[wire]) {
+				if (flow.wire_comb_defs[wire].size() > 0 && !elided_wires.count(wire) && !localized_wires[wire]) {
 					if (!feedback_wires[wire])
 						buffered_wires.insert(wire);
 				}
@@ -1942,11 +1944,8 @@ struct CxxrtlWorker {
 		if (has_sync_init || has_packed_mem)
 			check_design(design, has_sync_init, has_packed_mem);
 		log_assert(!(has_sync_init || has_packed_mem));
-
-		if (run_splitnets) {
-			Pass::call(design, "splitnets -driver");
+		if (run_opt_clean_purge)
 			Pass::call(design, "opt_clean -purge");
-		}
 		log("\n");
 		analyze_design(design);
 	}
@@ -2134,7 +2133,7 @@ struct CxxrtlBackend : public Backend {
 		log("        like -O3, and localize public wires not marked (*keep*) if possible.\n");
 		log("\n");
 		log("    -O5\n");
-		log("        like -O4, and run `splitnets -driver; opt_clean -purge` first.\n");
+		log("        like -O4, and run `opt_clean -purge` first.\n");
 		log("\n");
 	}
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -2170,7 +2169,7 @@ struct CxxrtlBackend : public Backend {
 		switch (opt_level) {
 			case 5:
 				worker.max_opt_level = true;
-				worker.run_splitnets = true;
+				worker.run_opt_clean_purge = true;
 			case 4:
 				worker.localize_public = true;
 			case 3:
