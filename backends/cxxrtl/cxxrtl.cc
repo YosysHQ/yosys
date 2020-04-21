@@ -171,6 +171,11 @@ struct Scheduler {
 	}
 };
 
+bool is_input_wire(const RTLIL::Wire *wire)
+{
+	return wire->port_input && !wire->port_output;
+}
+
 bool is_unary_cell(RTLIL::IdString type)
 {
 	return type.in(
@@ -210,11 +215,54 @@ bool is_internal_cell(RTLIL::IdString type)
 	return type[0] == '$' && !type.begins_with("$paramod\\");
 }
 
+bool is_cxxrtl_blackbox_cell(const RTLIL::Cell *cell)
+{
+	RTLIL::Module *cell_module = cell->module->design->module(cell->type);
+	log_assert(cell_module != nullptr);
+	return cell_module->get_bool_attribute(ID(cxxrtl.blackbox));
+}
+
+enum class CxxrtlPortType {
+	UNKNOWN = 0, // or mixed comb/sync
+	COMB = 1,
+	SYNC = 2,
+};
+
+CxxrtlPortType cxxrtl_port_type(const RTLIL::Cell *cell, RTLIL::IdString port)
+{
+	RTLIL::Module *cell_module = cell->module->design->module(cell->type);
+	if (cell_module == nullptr || !cell_module->get_bool_attribute(ID(cxxrtl.blackbox)))
+		return CxxrtlPortType::UNKNOWN;
+	RTLIL::Wire *cell_output_wire = cell_module->wire(port);
+	log_assert(cell_output_wire != nullptr);
+	bool is_comb = cell_output_wire->get_bool_attribute(ID(cxxrtl.comb));
+	bool is_sync = cell_output_wire->get_bool_attribute(ID(cxxrtl.sync));
+	if (is_comb && is_sync)
+		log_cmd_error("Port `%s.%s' is marked as both `cxxrtl.comb` and `cxxrtl.sync`.\n",
+		              log_id(cell_module), log_signal(cell_output_wire));
+	else if (is_comb)
+		return CxxrtlPortType::COMB;
+	else if (is_sync)
+		return CxxrtlPortType::SYNC;
+	return CxxrtlPortType::UNKNOWN;
+}
+
+bool is_cxxrtl_comb_port(const RTLIL::Cell *cell, RTLIL::IdString port)
+{
+	return cxxrtl_port_type(cell, port) == CxxrtlPortType::COMB;
+}
+
+bool is_cxxrtl_sync_port(const RTLIL::Cell *cell, RTLIL::IdString port)
+{
+	return cxxrtl_port_type(cell, port) == CxxrtlPortType::SYNC;
+}
+
 struct FlowGraph {
 	struct Node {
 		enum class Type {
 			CONNECT,
-			CELL,
+			CELL_SYNC,
+			CELL_EVAL,
 			PROCESS
 		};
 
@@ -234,17 +282,17 @@ struct FlowGraph {
 			delete node;
 	}
 
-	void add_defs(Node *node, const RTLIL::SigSpec &sig, bool is_sync, bool elidable)
+	void add_defs(Node *node, const RTLIL::SigSpec &sig, bool fully_sync, bool elidable)
 	{
 		for (auto chunk : sig.chunks())
 			if (chunk.wire) {
-				if (is_sync)
+				if (fully_sync)
 					wire_sync_defs[chunk.wire].insert(node);
 				else
 					wire_comb_defs[chunk.wire].insert(node);
 			}
 		// Only comb defs of an entire wire in the right order can be elided.
-		if (!is_sync && sig.is_wire())
+		if (!fully_sync && sig.is_wire())
 			wire_def_elidable[sig.as_wire()] = elidable;
 	}
 
@@ -272,7 +320,7 @@ struct FlowGraph {
 	// Connections
 	void add_connect_defs_uses(Node *node, const RTLIL::SigSig &conn)
 	{
-		add_defs(node, conn.first, /*is_sync=*/false, /*elidable=*/true);
+		add_defs(node, conn.first, /*fully_sync=*/false, /*elidable=*/true);
 		add_uses(node, conn.second);
 	}
 
@@ -287,21 +335,59 @@ struct FlowGraph {
 	}
 
 	// Cells
-	void add_cell_defs_uses(Node *node, const RTLIL::Cell *cell)
+	void add_cell_sync_defs(Node *node, const RTLIL::Cell *cell)
 	{
-		log_assert(cell->known());
+		// To understand why this node type is necessary and why it produces comb defs, consider a cell
+		// with input \i and sync output \o, used in a design such that \i is connected to \o. This does
+		// not result in a feedback arc because the output is synchronous. However, a naive implementation
+		// of code generation for cells that assigns to inputs, evaluates cells, assigns from outputs
+		// would not be able to immediately converge...
+		//
+		//   wire<1> i_tmp;
+		//   cell->p_i = i_tmp.curr;
+		//   cell->eval();
+		//   i_tmp.next = cell->p_o.curr;
+		//
+		// ... since the wire connecting the input and output ports would not be localizable. To solve
+		// this, the cell is split into two scheduling nodes; one exclusively for sync outputs, and
+		// another for inputs and all non-sync outputs. This way the generated code can be rearranged...
+		//
+		//   value<1> i_tmp;
+		//   i_tmp = cell->p_o.curr;
+		//   cell->p_i = i_tmp;
+		//   cell->eval();
+		//
+		// eliminating the unnecessary delta cycle. Conceptually, the CELL_SYNC node type is a series of
+		// connections of the form `connect \lhs \cell.\sync_output`; the right-hand side of these is not
+		// as a wire in RTLIL. If it was expressible, then `\cell.\sync_output` would have a sync def,
+		// and this node would be an ordinary CONNECT node, with `\lhs` having a comb def. Because it isn't,
+		// a special node type is used, the right-hand side does not appear anywhere, and the left-hand
+		// side has a comb def.
+		for (auto conn : cell->connections())
+			if (cell->output(conn.first))
+				if (is_cxxrtl_sync_port(cell, conn.first)) {
+					// See note regarding elidability below.
+					add_defs(node, conn.second, /*fully_sync=*/false, /*elidable=*/false);
+				}
+	}
+
+	void add_cell_eval_defs_uses(Node *node, const RTLIL::Cell *cell)
+	{
 		for (auto conn : cell->connections()) {
 			if (cell->output(conn.first)) {
 				if (is_elidable_cell(cell->type))
-					add_defs(node, conn.second, /*is_sync=*/false, /*elidable=*/true);
+					add_defs(node, conn.second, /*fully_sync=*/false, /*elidable=*/true);
 				else if (is_sync_ff_cell(cell->type) || (cell->type == ID($memrd) && cell->getParam(ID::CLK_ENABLE).as_bool()))
-					add_defs(node, conn.second, /*is_sync=*/true,  /*elidable=*/false);
+					add_defs(node, conn.second, /*fully_sync=*/true,  /*elidable=*/false);
 				else if (is_internal_cell(cell->type))
-					add_defs(node, conn.second, /*is_sync=*/false, /*elidable=*/false);
-				else {
-					// Unlike outputs of internal cells (which generate code that depends on the ability to set the output
-					// wire bits), outputs of user cells are normal wires, and the wires connected to them can be elided.
-					add_defs(node, conn.second, /*is_sync=*/false, /*elidable=*/true);
+					add_defs(node, conn.second, /*fully_sync=*/false, /*elidable=*/false);
+				else if (!is_cxxrtl_sync_port(cell, conn.first)) {
+					// Although at first it looks like outputs of user-defined cells may always be elided, the reality is
+					// more complex. Fully sync outputs produce no defs and so don't participate in elision. Fully comb
+					// outputs are assigned in a different way depending on whether the cell's eval() immediately converged.
+					// Unknown/mixed outputs could be elided, but should be rare in practical designs and don't justify
+					// the infrastructure required to elide outputs of cells with many of them.
+					add_defs(node, conn.second, /*fully_sync=*/false, /*elidable=*/false);
 				}
 			}
 			if (cell->input(conn.first))
@@ -311,11 +397,27 @@ struct FlowGraph {
 
 	Node *add_node(const RTLIL::Cell *cell)
 	{
+		log_assert(cell->known());
+
+		bool has_fully_sync_outputs = false;
+		for (auto conn : cell->connections())
+			if (cell->output(conn.first) && is_cxxrtl_sync_port(cell, conn.first)) {
+				has_fully_sync_outputs = true;
+				break;
+			}
+		if (has_fully_sync_outputs) {
+			Node *node = new Node;
+			node->type = Node::Type::CELL_SYNC;
+			node->cell = cell;
+			nodes.push_back(node);
+			add_cell_sync_defs(node, cell);
+		}
+
 		Node *node = new Node;
-		node->type = Node::Type::CELL;
+		node->type = Node::Type::CELL_EVAL;
 		node->cell = cell;
 		nodes.push_back(node);
-		add_cell_defs_uses(node, cell);
+		add_cell_eval_defs_uses(node, cell);
 		return node;
 	}
 
@@ -359,18 +461,6 @@ struct FlowGraph {
 		return node;
 	}
 };
-
-bool is_input_wire(const RTLIL::Wire *wire)
-{
-	return wire->port_input && !wire->port_output;
-}
-
-bool is_cxxrtl_blackbox_cell(const RTLIL::Cell *cell)
-{
-	RTLIL::Module *cell_module = cell->module->design->module(cell->type);
-	log_assert(cell_module != nullptr);
-	return cell_module->get_bool_attribute(ID(cxxrtl.blackbox));
-}
 
 std::vector<std::string> split_by(const std::string &str, const std::string &sep)
 {
@@ -436,7 +526,6 @@ struct CxxrtlWorker {
 	dict<RTLIL::SigBit, RTLIL::SyncType> edge_types;
 	pool<const RTLIL::Memory*> writable_memories;
 	dict<const RTLIL::Cell*, pool<const RTLIL::Cell*>> transparent_for;
-	dict<const RTLIL::Cell*, dict<RTLIL::Wire*, RTLIL::IdString>> cell_wire_defs;
 	dict<const RTLIL::Wire*, FlowGraph::Node> elided_wires;
 	dict<const RTLIL::Module*, std::vector<FlowGraph::Node>> schedule;
 	pool<const RTLIL::Wire*> localized_wires;
@@ -681,13 +770,9 @@ struct CxxrtlWorker {
 					case FlowGraph::Node::Type::CONNECT:
 						dump_connect_elided(node.connect);
 						break;
-					case FlowGraph::Node::Type::CELL:
-						if (is_elidable_cell(node.cell->type)) {
-							dump_cell_elided(node.cell);
-						} else {
-							const char *access = is_cxxrtl_blackbox_cell(node.cell) ? "->" : ".";
-							f << mangle(node.cell) << access << mangle_wire_name(cell_wire_defs[node.cell][chunk.wire]) << ".curr";
-						}
+					case FlowGraph::Node::Type::CELL_EVAL:
+						log_assert(is_elidable_cell(node.cell->type));
+						dump_cell_elided(node.cell);
 						break;
 					default:
 						log_assert(false);
@@ -752,8 +837,8 @@ struct CxxrtlWorker {
 				case FlowGraph::Node::Type::CONNECT:
 					collect_connect(node.connect, cells);
 					break;
-				case FlowGraph::Node::Type::CELL:
-					collect_cell(node.cell, cells);
+				case FlowGraph::Node::Type::CELL_EVAL:
+					collect_cell_eval(node.cell, cells);
 					break;
 				default:
 					log_assert(false);
@@ -790,6 +875,19 @@ struct CxxrtlWorker {
 		f << " = ";
 		dump_connect_elided(conn);
 		f << ";\n";
+	}
+
+	void dump_cell_sync(const RTLIL::Cell *cell)
+	{
+		const char *access = is_cxxrtl_blackbox_cell(cell) ? "->" : ".";
+		f << indent << "// cell " << cell->name.str() << " syncs\n";
+		for (auto conn : cell->connections())
+			if (cell->output(conn.first))
+				if (is_cxxrtl_sync_port(cell, conn.first)) {
+					f << indent;
+					dump_sigspec_lhs(conn.second);
+					f << " = " << mangle(cell) << access << mangle_wire_name(conn.first) << ".curr;\n";
+				}
 	}
 
 	void dump_cell_elided(const RTLIL::Cell *cell)
@@ -845,7 +943,7 @@ struct CxxrtlWorker {
 			elided_wires.count(cell->getPort(ID::Y).as_wire());
 	}
 
-	void collect_cell(const RTLIL::Cell *cell, std::vector<RTLIL::IdString> &cells)
+	void collect_cell_eval(const RTLIL::Cell *cell, std::vector<RTLIL::IdString> &cells)
 	{
 		if (!is_cell_elided(cell))
 			return;
@@ -856,7 +954,7 @@ struct CxxrtlWorker {
 				collect_sigspec_rhs(port.second, cells);
 	}
 
-	void dump_cell(const RTLIL::Cell *cell)
+	void dump_cell_eval(const RTLIL::Cell *cell)
 	{
 		if (is_cell_elided(cell))
 			return;
@@ -1109,21 +1207,42 @@ struct CxxrtlWorker {
 					dump_sigspec_rhs(conn.second);
 					f << ";\n";
 				}
-			f << indent << "converged &= " << mangle(cell) << access << "eval();\n";
-			for (auto conn : cell->connections()) {
-				if (conn.second.is_wire()) {
-					RTLIL::Wire *wire = conn.second.as_wire();
-					if (elided_wires.count(wire) && cell_wire_defs[cell].count(wire))
-						continue;
+			auto assign_from_outputs = [&](bool cell_converged) {
+				for (auto conn : cell->connections()) {
+					if (cell->output(conn.first)) {
+						if (conn.second.empty())
+							continue; // ignore disconnected ports
+						if (is_cxxrtl_sync_port(cell, conn.first))
+							continue; // fully sync ports are handled in CELL_SYNC nodes
+						f << indent;
+						dump_sigspec_lhs(conn.second);
+						f << " = " << mangle(cell) << access << mangle_wire_name(conn.first);
+						// Similarly to how there is no purpose to buffering cell inputs, there is also no purpose to buffering
+						// combinatorial cell outputs in case the cell converges within one cycle. (To convince yourself that
+						// this optimization is valid, consider that, since the cell converged within one cycle, it would not
+						// have any buffered wires if they were not output ports. Imagine inlining the cell's eval() function,
+						// and consider the fate of the localized wires that used to be output ports.)
+						//
+						// Unlike cell inputs (which are never buffered), it is not possible to know apriori whether the cell
+						// (which may be late bound) will converge immediately. Because of this, the choice between using .curr
+						// (appropriate for buffered outputs) and .next (appropriate for unbuffered outputs) is made at runtime.
+						if (cell_converged && is_cxxrtl_comb_port(cell, conn.first))
+							f << ".next;\n";
+						else
+							f << ".curr;\n";
+					}
 				}
-				if (cell->output(conn.first)) {
-					if (conn.second.empty())
-						continue; // ignore disconnected ports
-					f << indent;
-					dump_sigspec_lhs(conn.second);
-					f << " = " << mangle(cell) << access << mangle_wire_name(conn.first) << ".curr;\n";
-				}
-			}
+			};
+			f << indent << "if (" << mangle(cell) << access << "eval()) {\n";
+			inc_indent();
+				assign_from_outputs(/*cell_converged=*/true);
+			dec_indent();
+			f << indent << "} else {\n";
+			inc_indent();
+				f << indent << "converged = false;\n";
+				assign_from_outputs(/*cell_converged=*/false);
+			dec_indent();
+			f << indent << "}\n";
 		}
 	}
 
@@ -1392,8 +1511,11 @@ struct CxxrtlWorker {
 						case FlowGraph::Node::Type::CONNECT:
 							dump_connect(node.connect);
 							break;
-						case FlowGraph::Node::Type::CELL:
-							dump_cell(node.cell);
+						case FlowGraph::Node::Type::CELL_SYNC:
+							dump_cell_sync(node.cell);
+							break;
+						case FlowGraph::Node::Type::CELL_EVAL:
+							dump_cell_eval(node.cell);
 							break;
 						case FlowGraph::Node::Type::PROCESS:
 							dump_process(node.process);
@@ -1807,14 +1929,6 @@ struct CxxrtlWorker {
 				elided_wires[wire] = **flow.wire_comb_defs[wire].begin();
 			}
 
-			// Elided wires that are outputs of internal cells are always connected to a well known port (Y).
-			// For user cells, there could be multiple of them, and we need a way to look up the port name
-			// knowing only the wire.
-			for (auto cell : module->cells())
-				for (auto conn : cell->connections())
-					if (conn.second.is_wire() && elided_wires.count(conn.second.as_wire()))
-						cell_wire_defs[cell][conn.second.as_wire()] = conn.first;
-
 			dict<FlowGraph::Node*, pool<const RTLIL::Wire*>, hash_ptr_ops> node_defs;
 			for (auto wire_comb_def : flow.wire_comb_defs)
 				for (auto node : wire_comb_def.second)
@@ -2012,7 +2126,7 @@ struct CxxrtlBackend : public Backend {
 		log("      (* cxxrtl.edge = \"p\" *) input clk;\n");
 		log("      input en;\n");
 		log("      input [7:0] i_data;\n");
-		log("      output [7:0] o_data;\n");
+		log("      (* cxxrtl.sync *) output [7:0] o_data;\n");
 		log("    endmodule\n");
 		log("\n");
 		log("For this HDL interface, this backend will generate the following C++ interface:\n");
@@ -2116,6 +2230,13 @@ struct CxxrtlBackend : public Backend {
 		log("    cxxrtl.width\n");
 		log("        only valid on ports of black boxes. must be a constant expression, which\n");
 		log("        is directly inserted into generated code.\n");
+		log("\n");
+		log("    cxxrtl.comb, cxxrtl.sync\n");
+		log("        only valid on outputs of black boxes. if specified, indicates that every\n");
+		log("        bit of the output port is driven, correspondingly, by combinatorial or\n");
+		log("        synchronous logic. this knowledge is used for scheduling optimizations.\n");
+		log("        if neither is specified, the output will be pessimistically treated as\n");
+		log("        driven by both combinatorial and synchronous logic.\n");
 		log("\n");
 		log("The following options are supported by this backend:\n");
 		log("\n");
