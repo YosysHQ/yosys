@@ -345,6 +345,70 @@ struct EdifBackend : public Backend {
 			*f << stringf("        (viewType NETLIST)\n");
 			*f << stringf("        (interface\n");
 
+			for (auto cell : module->cells()) {
+				for (auto &conn : cell->connections())
+					if (cell->output(conn.first))
+						sigmap.add(conn.second);
+			}
+
+			for (auto wire : module->wires())
+				for (auto b1 : SigSpec(wire))
+				{
+					auto b2 = sigmap(b1);
+
+					if (b1 == b2 || !b2.wire)
+						continue;
+
+					log_assert(b1.wire != nullptr);
+
+					Wire *w1 = b1.wire;
+					Wire *w2 = b2.wire;
+
+					{
+						int c1 = w1->get_bool_attribute(ID::keep);
+						int c2 = w2->get_bool_attribute(ID::keep);
+
+						if (c1 > c2) goto promote;
+						if (c1 < c2) goto nopromote;
+					}
+
+					{
+						int c1 = w1->name[0] == '\\';
+						int c2 = w2->name[0] == '\\';
+
+						if (c1 > c2) goto promote;
+						if (c1 < c2) goto nopromote;
+					}
+
+					{
+						auto count_nontrivial_attr = [](Wire *w) {
+							int count = w->attributes.size();
+							count -= w->attributes.count(ID::src);
+							count -= w->attributes.count(ID::unused_bits);
+							return count;
+						};
+
+						int c1 = count_nontrivial_attr(w1);
+						int c2 = count_nontrivial_attr(w2);
+
+						if (c1 > c2) goto promote;
+						if (c1 < c2) goto nopromote;
+					}
+
+					{
+						int c1 = w1->port_id ? INT_MAX - w1->port_id : 0;
+						int c2 = w2->port_id ? INT_MAX - w2->port_id : 0;
+
+						if (c1 > c2) goto promote;
+						if (c1 < c2) goto nopromote;
+					}
+
+				nopromote:
+					if (0)
+				promote:
+						sigmap.add(b1);
+				}
+
 			for (auto wire : module->wires()) {
 				if (wire->port_id == 0)
 					continue;
