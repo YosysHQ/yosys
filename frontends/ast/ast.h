@@ -202,6 +202,9 @@ namespace AST
 		// this is used by simplify to detect if basic analysis has been performed already on the node
 		bool basic_prep;
 
+		// this is used for ID references in RHS expressions that should use the "new" value for non-blocking assignments
+		bool lookahead;
+
 		// this is the original sourcecode location that resulted in this AST node
 		// it is automatically set by the constructor using AST::current_filename and
 		// the AST::get_line_num() callback function.
@@ -352,6 +355,7 @@ namespace AST_INTERNAL
 	extern AST::AstNode *current_always, *current_top_block, *current_block, *current_block_child;
 	extern AST::AstModule *current_module;
 	extern bool current_always_clocked;
+	struct LookaheadRewriter;
 	struct ProcessGenerator;
 }
 
