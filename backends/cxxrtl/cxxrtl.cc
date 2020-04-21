@@ -424,6 +424,7 @@ struct CxxrtlWorker {
 	bool localize_internal = false;
 	bool localize_public = false;
 	bool run_opt_clean_purge = false;
+	bool run_proc_flatten = false;
 	bool max_opt_level = false;
 
 	std::ostringstream f;
@@ -1929,8 +1930,12 @@ struct CxxrtlWorker {
 	void prepare_design(RTLIL::Design *design)
 	{
 		bool has_sync_init, has_packed_mem;
+		log_push();
 		check_design(design, has_sync_init, has_packed_mem);
-		if (has_sync_init) {
+		if (run_proc_flatten) {
+			Pass::call(design, "proc");
+			Pass::call(design, "flatten");
+		} else if (has_sync_init) {
 			// We're only interested in proc_init, but it depends on proc_prune and proc_clean, so call those
 			// in case they weren't already. (This allows `yosys foo.v -o foo.cc` to work.)
 			Pass::call(design, "proc_prune");
@@ -1945,13 +1950,13 @@ struct CxxrtlWorker {
 		log_assert(!(has_sync_init || has_packed_mem));
 		if (run_opt_clean_purge)
 			Pass::call(design, "opt_clean -purge");
-		log("\n");
+		log_pop();
 		analyze_design(design);
 	}
 };
 
 struct CxxrtlBackend : public Backend {
-	static const int DEFAULT_OPT_LEVEL = 5;
+	static const int DEFAULT_OPT_LEVEL = 6;
 
 	CxxrtlBackend() : Backend("cxxrtl", "convert design to C++ RTL simulation") { }
 	void help() YS_OVERRIDE
@@ -2138,6 +2143,9 @@ struct CxxrtlBackend : public Backend {
 		log("    -O5\n");
 		log("        like -O4, and run `opt_clean -purge` first.\n");
 		log("\n");
+		log("    -O6\n");
+		log("        like -O5, and run `proc; flatten` first.\n");
+		log("\n");
 	}
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
@@ -2170,8 +2178,10 @@ struct CxxrtlBackend : public Backend {
 		extra_args(f, filename, args, argidx);
 
 		switch (opt_level) {
-			case 5:
+			case 6:
 				worker.max_opt_level = true;
+				worker.run_proc_flatten = true;
+			case 5:
 				worker.run_opt_clean_purge = true;
 			case 4:
 				worker.localize_public = true;
