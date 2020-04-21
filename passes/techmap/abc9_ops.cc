@@ -804,6 +804,8 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 						log_id(conn.first), log_id(cell->name), log_id(cell->type), log_id(module->name));
 			if (!port_wire->port_input)
 				continue;
+			if (conn.second.is_fully_const())
+				continue;
 
 			SigSpec O = module->addWire(NEW_ID, GetSize(conn.second));
 			for (int i = 0; i < GetSize(conn.second); i++) {
