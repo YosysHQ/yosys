@@ -398,7 +398,7 @@ struct TechmapWorker
 
 			vector<IdString> autopurge_ports;
 
-			for (auto &conn : c->connections_)
+			for (auto &conn : c->connections())
 			{
 				bool autopurge = false;
 				if (!autopurge_tpl_bits.empty()) {
@@ -413,8 +413,8 @@ struct TechmapWorker
 				if (autopurge) {
 					autopurge_ports.push_back(conn.first);
 				} else {
-					apply_prefix(cell->name, conn.second, module);
-					port_signal_map.apply(conn.second);
+					apply_prefix(cell->name, const_cast<RTLIL::SigSpec&>(conn.second), module);
+					port_signal_map.apply(const_cast<RTLIL::SigSpec&>(conn.second));
 				}
 			}
 
