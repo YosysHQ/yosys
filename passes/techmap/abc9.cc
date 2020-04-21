@@ -296,25 +296,25 @@ struct Abc9Pass : public ScriptPass
 			run("wbflip");
 			run("techmap");
 			run("opt");
-			if (dff_mode) {
+			if (dff_mode || help_mode) {
 				if (!help_mode)
 					active_design->scratchpad_unset("abc9_ops.prep_dff_submod.did_something");
-				run("abc9_ops -prep_dff_submod", "(only if -dff)"); // rewrite specify
+				run("abc9_ops -prep_dff_submod", "                                                 (only if -dff)"); // rewrite specify
 				bool did_something = help_mode || active_design->scratchpad_get_bool("abc9_ops.prep_dff_submod.did_something");
 				if (did_something) {
 										// select all $_DFF_[NP]_
 										// then select all its fanins
 										// then select all fanouts of all that
 										// lastly remove $_DFF_[NP]_ cells
-					run("setattr -set submod \"$abc9_flop\" t:$_DFF_?_ %ci* %co* t:$_DFF_?_ %d");
-					run("submod");
-					run("setattr -mod -set whitebox 1 -set abc9_flop 1 -set abc9_box 1 *_$abc9_flop");
-					run("abc9_ops -prep_dff_unmap");
-					run("design -copy-to $abc9 *_$abc9_flop"); // copy submod out
-					run("delete *_$abc9_flop");
+					run("setattr -set submod \"$abc9_flop\" t:$_DFF_?_ %ci* %co* t:$_DFF_?_ %d", "       (only if -dff)");
+					run("submod", "                                                                    (only if -dff)");
+					run("setattr -mod -set whitebox 1 -set abc9_flop 1 -set abc9_box 1 *_$abc9_flop", "(only if -dff)");
+					run("abc9_ops -prep_dff_unmap", "                                                  (only if -dff)");
+					run("design -copy-to $abc9 *_$abc9_flop", "                                        (only if -dff)"); // copy submod out
+					run("delete *_$abc9_flop", "                                                       (only if -dff)");
 					if (help_mode) {
 						run("foreach module in design");
-						run("    rename <module-name>_$abc9_flop _TECHMAP_REPLACE_");
+						run("    rename <module-name>_$abc9_flop _TECHMAP_REPLACE_", "                     (only if -dff)");
 					}
 					else {
 						// Rename all submod-s to _TECHMAP_REPLACE_ to inherit name + attrs
@@ -346,17 +346,17 @@ struct Abc9Pass : public ScriptPass
 				run(stringf("abc9_ops -prep_lut %d", maxlut));
 			if (help_mode)
 				run("abc9_ops -prep_box", "(skip if -box)");
-			else if (box_file.empty()) {
+			else if (box_file.empty())
 				run("abc9_ops -prep_box");
+			if (saved_designs.count("$abc9_holes") || help_mode) {
+				run("design -stash $abc9");
+				run("design -load $abc9_holes");
+				run("techmap -wb -map %$abc9 -map +/techmap.v");
+				run("opt -purge");
+				run("design -stash $abc9_holes");
+				run("design -load $abc9");
+				run("design -delete $abc9");
 			}
-			run("design -stash $abc9");
-			run("design -load $abc9_holes");
-			run("techmap -wb -map %$abc9 -map +/techmap.v");
-			run("opt -purge");
-			run("aigmap");
-			run("design -stash $abc9_holes");
-			run("design -load $abc9");
-			run("design -delete $abc9");
 		}
 
 		if (check_label("exe")) {
