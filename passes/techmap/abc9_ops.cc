@@ -263,9 +263,9 @@ void prep_bypass(RTLIL::Design *design)
 			auto derived_type = inst_module->derive(design, cell->parameters);
 			inst_module = design->module(derived_type);
 			log_assert(inst_module);
-			log_assert(!inst_module->get_blackbox_attribute(true /* ignore_wb */));
 			if (!inst_module->get_bool_attribute(ID::abc9_bypass))
 				continue;
+			log_assert(!inst_module->get_blackbox_attribute(true /* ignore_wb */));
 
 
 			// The idea is to create two techmap designs, one which maps:
