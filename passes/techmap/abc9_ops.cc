@@ -102,7 +102,7 @@ void check(RTLIL::Design *design, bool dff_mode)
 				auto inst_module = design->module(cell->type);
 				if (!inst_module)
 					continue;
-				if (!inst_module->attributes.count(ID::abc9_flop))
+				if (!inst_module->get_bool_attribute(ID::abc9_flop))
 					continue;
 				auto derived_type = inst_module->derive(design, cell->parameters);
 				if (!processed.insert(derived_type).second)
@@ -171,9 +171,9 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 			if (derived_module->get_blackbox_attribute(true /* ignore_wb */))
 				continue;
 
-			if (inst_module->attributes.count(ID::abc9_flop) && !dff_mode)
+			if (inst_module->get_bool_attribute(ID::abc9_flop) && !dff_mode)
 				continue;
-			if (!inst_module->attributes.count(ID::abc9_box) && !inst_module->attributes.count(ID::abc9_flop))
+			if (!inst_module->get_bool_attribute(ID::abc9_box) && !inst_module->get_bool_attribute(ID::abc9_flop))
 				continue;
 
 			if (!unmap_design->module(derived_type)) {
@@ -205,13 +205,11 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 							break;
 						}
 
-					if (!found) {
-						derived_module->set_bool_attribute(ID::abc9_box, false);
-						log_assert(!derived_module->attributes.count(ID::abc9_box));
+					if (!found)
 						goto skip_cell;
-					}
 
 					derived_module->set_bool_attribute(ID::abc9_box, false);
+					derived_module->set_bool_attribute(ID::abc9_bypass);
 				}
 
 				if (derived_type != cell->type) {
@@ -265,9 +263,8 @@ void prep_bypass(RTLIL::Design *design)
 			auto derived_type = inst_module->derive(design, cell->parameters);
 			inst_module = design->module(derived_type);
 			log_assert(inst_module);
-			if (inst_module->get_blackbox_attribute(true /* ignore_wb */))
-				continue;
-			if (!inst_module->get_bool_attribute(ID::abc9_box))
+			log_assert(!inst_module->get_blackbox_attribute(true /* ignore_wb */));
+			if (!inst_module->get_bool_attribute(ID::abc9_bypass))
 				continue;
 
 
@@ -444,7 +441,7 @@ void prep_dff(RTLIL::Design *design)
 			auto inst_module = design->module(cell->type);
 			if (!inst_module)
 				continue;
-			if (!inst_module->attributes.count(ID::abc9_flop))
+			if (!inst_module->get_bool_attribute(ID::abc9_flop))
 				continue;
 			auto derived_type = inst_module->derive(design, cell->parameters);
 			auto derived_module = design->module(derived_type);
@@ -589,7 +586,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 			continue;
 
 		auto inst_module = design->module(cell->type);
-		bool abc9_flop = inst_module && inst_module->attributes.count(ID::abc9_flop);
+		bool abc9_flop = inst_module && inst_module->get_bool_attribute(ID::abc9_flop);
 		if (abc9_flop && !dff)
 			continue;
 
