@@ -630,8 +630,10 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 	std::string arg_mod, arg_memb;
 	std::unordered_map<std::string, bool> arg_mod_found;
 	std::unordered_map<std::string, bool> arg_memb_found;
-	auto isalpha = [](const char &x) { return ((x >= 'a' && x <= 'z') || (x >= 'A' && x <= 'Z')); };
-	bool prefixed = GetSize(arg) >= 2 && isalpha(arg[0]) && arg[1] == ':';
+
+	auto isprefixed = [](const string &s) {
+		return GetSize(s) >= 2 && ((s[0] >= 'a' && s[0] <= 'z') || (s[0] >= 'A' && s[0] <= 'Z')) && s[1] == ':';
+	};
 
 	if (arg.size() == 0)
 		return;
@@ -759,31 +761,40 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 		return;
 	}
 
+	bool select_blackboxes = true;
+	if (arg.substr(0, 1) == "=") {
+		arg = arg.substr(1);
+		select_blackboxes = false;
+	}
+
 	if (!design->selected_active_module.empty()) {
 		arg_mod = design->selected_active_module;
 		arg_memb = arg;
-		if (!prefixed) arg_memb_found[arg_memb] = false;
+		if (!isprefixed(arg_memb))
+			arg_memb_found[arg_memb] = false;
 	} else
-	if (prefixed && arg[0] >= 'a' && arg[0] <= 'z') {
+	if (isprefixed(arg) && arg[0] >= 'a' && arg[0] <= 'z') {
 		arg_mod = "*", arg_memb = arg;
 	} else {
 		size_t pos = arg.find('/');
 		if (pos == std::string::npos) {
 			arg_mod = arg;
-			if (!prefixed) arg_mod_found[arg_mod] = false;
+			if (!isprefixed(arg_mod))
+				arg_mod_found[arg_mod] = false;
 		} else {
 			arg_mod = arg.substr(0, pos);
-			if (!prefixed) arg_mod_found[arg_mod] = false;
+			if (!isprefixed(arg_mod))
+				arg_mod_found[arg_mod] = false;
 			arg_memb = arg.substr(pos+1);
-			bool arg_memb_prefixed = GetSize(arg_memb) >= 2 && isalpha(arg_memb[0]) && arg_memb[1] == ':';
-			if (!arg_memb_prefixed) arg_memb_found[arg_memb] = false;
+			if (!isprefixed(arg_memb))
+				arg_memb_found[arg_memb] = false;
 		}
 	}
 
 	work_stack.push_back(RTLIL::Selection());
 	RTLIL::Selection &sel = work_stack.back();
 
-	if (arg == "*" && arg_mod == "*") {
+	if (arg == "*" && arg_mod == "*" && select_blackboxes) {
 		select_filter_active_mod(design, work_stack.back());
 		return;
 	}
@@ -791,6 +802,9 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 	sel.full_selection = false;
 	for (auto mod : design->modules())
 	{
+		if (!select_blackboxes && mod->get_blackbox_attribute())
+			continue;
+
 		if (arg_mod.compare(0, 2, "A:") == 0) {
 			if (!match_attr(mod->attributes, arg_mod.substr(2)))
 				continue;
@@ -808,9 +822,6 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 			sel.selected_modules.insert(mod->name);
 			continue;
 		}
-
-		if (mod->get_blackbox_attribute())
-			continue;
 
 		if (arg_memb.compare(0, 2, "w:") == 0) {
 			for (auto wire : mod->wires())
@@ -1112,6 +1123,9 @@ struct SelectPass : public Pass {
 		log("    N:<pattern>\n");
 		log("        all modules with a name matching the given pattern\n");
 		log("        (i.e. 'N:' is optional as it is the default matching rule)\n");
+		log("\n");
+		log("Prefix the pattern with '=' if the pattern should not match blackbox\n");
+		log("modules and their content.\n");
 		log("\n");
 		log("An <obj_pattern> can be an object name, wildcard expression, or one of\n");
 		log("the following:\n");
