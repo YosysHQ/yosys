@@ -1971,9 +1971,9 @@ struct CxxrtlWorker {
 
 			if (!feedback_wires.empty()) {
 				has_feedback_arcs = true;
-				log("Module `%s' contains feedback arcs through wires:\n", module->name.c_str());
+				log("Module `%s' contains feedback arcs through wires:\n", log_id(module));
 				for (auto wire : feedback_wires)
-					log("  %s\n", wire->name.c_str());
+					log("  %s\n", log_id(wire));
 			}
 
 			for (auto wire : module->wires()) {
@@ -2002,9 +2002,9 @@ struct CxxrtlWorker {
 			}
 			if (!buffered_wires.empty()) {
 				has_buffered_wires = true;
-				log("Module `%s' contains buffered combinatorial wires:\n", module->name.c_str());
+				log("Module `%s' contains buffered combinatorial wires:\n", log_id(module));
 				for (auto wire : buffered_wires)
-					log("  %s\n", wire->name.c_str());
+					log("  %s\n", log_id(wire));
 			}
 
 			eval_converges[module] = feedback_wires.empty() && buffered_wires.empty();
