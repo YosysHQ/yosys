@@ -598,7 +598,7 @@ struct SynthXilinxPass : public ScriptPass
 		if (check_label("map_ffs", "('-abc9' only)")) {
 			if (abc9 || help_mode) {
 				if (dff || help_mode)
-					run("zinit -all t:$_DFF_?_ t:$_DFFE_??_ t:$__DFFS*", "('-dff' only)");
+					run("zinit -all w:* t:$_DFF_?_ t:$_DFFE_??_ t:$__DFFS*", "('-dff' only)");
 				run("techmap -map " + ff_map_file);
 			}
 		}
@@ -608,7 +608,7 @@ struct SynthXilinxPass : public ScriptPass
 			if (flatten_before_abc)
 				run("flatten");
 			if (help_mode)
-				run("abc -luts 2:2,3,6:5[,10,20] [-dff] [-D 1]", "(option for 'nowidelut', '-dff', '-retime')");
+				run("abc -luts 2:2,3,6:5[,10,20] [-dff] [-D 1]", "(option for '-nowidelut', '-dff', '-retime')");
 			else if (abc9) {
 				if (lut_size != 6)
 					log_error("'synth_xilinx -abc9' not currently supported for LUT4-based devices.\n");
