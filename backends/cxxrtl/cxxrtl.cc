@@ -432,8 +432,8 @@ struct CxxrtlWorker {
 	int temporary = 0;
 
 	dict<const RTLIL::Module*, SigMap> sigmaps;
-	pool<const RTLIL::Wire*> sync_wires;
-	dict<RTLIL::SigBit, RTLIL::SyncType> sync_types;
+	pool<const RTLIL::Wire*> edge_wires;
+	dict<RTLIL::SigBit, RTLIL::SyncType> edge_types;
 	pool<const RTLIL::Memory*> writable_memories;
 	dict<const RTLIL::Cell*, pool<const RTLIL::Cell*>> transparent_for;
 	dict<const RTLIL::Cell*, dict<RTLIL::Wire*, RTLIL::IdString>> cell_wire_defs;
@@ -1294,7 +1294,7 @@ struct CxxrtlWorker {
 				dump_const_init(wire->attributes.at(ID::init));
 			}
 			f << ";\n";
-			if (sync_wires[wire]) {
+			if (edge_wires[wire]) {
 				if (is_input_wire(wire)) {
 					f << indent << "value<" << width << "> prev_" << mangle(wire);
 					if (wire->has_attribute(ID::init)) {
@@ -1303,27 +1303,27 @@ struct CxxrtlWorker {
 					}
 					f << ";\n";
 				}
-				for (auto sync_type : sync_types) {
-					if (sync_type.first.wire == wire) {
+				for (auto edge_type : edge_types) {
+					if (edge_type.first.wire == wire) {
 						std::string prev, next;
 						if (is_input_wire(wire)) {
-							prev = "prev_" + mangle(sync_type.first.wire);
-							next =           mangle(sync_type.first.wire);
+							prev = "prev_" + mangle(edge_type.first.wire);
+							next =           mangle(edge_type.first.wire);
 						} else {
-							prev = mangle(sync_type.first.wire) + ".curr";
-							next = mangle(sync_type.first.wire) + ".next";
+							prev = mangle(edge_type.first.wire) + ".curr";
+							next = mangle(edge_type.first.wire) + ".next";
 						}
-						prev += ".slice<" + std::to_string(sync_type.first.offset) + ">().val()";
-						next += ".slice<" + std::to_string(sync_type.first.offset) + ">().val()";
-						if (sync_type.second != RTLIL::STn) {
-							f << indent << "bool posedge_" << mangle(sync_type.first) << "() const {\n";
+						prev += ".slice<" + std::to_string(edge_type.first.offset) + ">().val()";
+						next += ".slice<" + std::to_string(edge_type.first.offset) + ">().val()";
+						if (edge_type.second != RTLIL::STn) {
+							f << indent << "bool posedge_" << mangle(edge_type.first) << "() const {\n";
 							inc_indent();
 								f << indent << "return !" << prev << " && " << next << ";\n";
 							dec_indent();
 							f << indent << "}\n";
 						}
-						if (sync_type.second != RTLIL::STp) {
-							f << indent << "bool negedge_" << mangle(sync_type.first) << "() const {\n";
+						if (edge_type.second != RTLIL::STp) {
+							f << indent << "bool negedge_" << mangle(edge_type.first) << "() const {\n";
 							inc_indent();
 								f << indent << "return " << prev << " && !" << next << ";\n";
 							dec_indent();
@@ -1413,7 +1413,7 @@ struct CxxrtlWorker {
 				if (elided_wires.count(wire) || localized_wires.count(wire))
 					continue;
 				if (is_input_wire(wire)) {
-					if (sync_wires[wire])
+					if (edge_wires[wire])
 						f << indent << "prev_" << mangle(wire) << " = " << mangle(wire) << ";\n";
 					continue;
 				}
@@ -1646,11 +1646,11 @@ struct CxxrtlWorker {
 		log_assert(type == RTLIL::STp || type == RTLIL::STn || type == RTLIL::STe);
 
 		RTLIL::SigBit sigbit = signal[0];
-		if (!sync_types.count(sigbit))
-			sync_types[sigbit] = type;
-		else if (sync_types[sigbit] != type)
-			sync_types[sigbit] = RTLIL::STe;
-		sync_wires.insert(signal.as_wire());
+		if (!edge_types.count(sigbit))
+			edge_types[sigbit] = type;
+		else if (edge_types[sigbit] != type)
+			edge_types[sigbit] = RTLIL::STe;
+		edge_wires.insert(signal.as_wire());
 	}
 
 	void analyze_design(RTLIL::Design *design)
@@ -1802,7 +1802,7 @@ struct CxxrtlWorker {
 				if (wire->get_bool_attribute(ID::keep)) continue;
 				if (wire->name.begins_with("$") && !elide_internal) continue;
 				if (wire->name.begins_with("\\") && !elide_public) continue;
-				if (sync_wires[wire]) continue;
+				if (edge_wires[wire]) continue;
 				log_assert(flow.wire_comb_defs[wire].size() == 1);
 				elided_wires[wire] = **flow.wire_comb_defs[wire].begin();
 			}
@@ -1868,7 +1868,7 @@ struct CxxrtlWorker {
 				if (wire->get_bool_attribute(ID::keep)) continue;
 				if (wire->name.begins_with("$") && !localize_internal) continue;
 				if (wire->name.begins_with("\\") && !localize_public) continue;
-				if (sync_wires[wire]) continue;
+				if (edge_wires[wire]) continue;
 				if (flow.wire_sync_defs.count(wire) > 0) continue;
 				localized_wires.insert(wire);
 			}
