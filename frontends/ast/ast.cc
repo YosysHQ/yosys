@@ -1565,6 +1565,9 @@ std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::Id
 	rewritten.reserve(GetSize(parameters));
 
 	AstNode *new_ast = ast->clone();
+	if (!new_ast->attributes.count(ID::hdlname))
+		new_ast->attributes[ID::hdlname] = AstNode::mkconst_str(stripped_name);
+
 	para_counter = 0;
 	for (auto child : new_ast->children) {
 		if (child->type != AST_PARAMETER)

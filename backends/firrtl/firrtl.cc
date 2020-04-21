@@ -306,17 +306,8 @@ struct FirrtlWorker
 		// If this is a parameterized module, its parent module is encoded in the cell type
 		if (cell->type.begins_with("$paramod"))
 		{
-			std::string::iterator it;
-			for (it = cell_type.begin(); it < cell_type.end(); it++)
-			{
-				switch (*it) {
-					case '\\': /* FALL_THROUGH */
-					case '=': /* FALL_THROUGH */
-					case '\'': /* FALL_THROUGH */
-					case '$': instanceOf.append("_"); break;
-					default: instanceOf.append(1, *it); break;
-				}
-			}
+			log_assert(cell->has_attribute(ID::hdlname));
+			instanceOf = cell->get_string_attribute(ID::hdlname);
 		}
 		else
 		{
