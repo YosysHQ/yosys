@@ -363,11 +363,11 @@ module TRELLIS_FF(input CLK, LSR, CE, DI, M, output reg Q);
 				$setup(CE, negedge CLK, 0);
 				$setup(LSR, negedge CLK, 0);
 `ifndef YOSYS
-				if (muxlsr) (negedge CLK => (Q : srval)) = 0;
+				if (SRMODE == "ASYNC" && muxlsr) (negedge CLK => (Q : srval)) = 0;
 `else
-				if (muxlsr) (LSR => Q) = 0; 	// Technically, this should be an edge sensitive path
-								// but for facilitating a bypass box, let's pretend it's
-								// a simple path
+				if (SRMODE == "ASYNC" && muxlsr) (LSR => Q) = 0; 	// Technically, this should be an edge sensitive path
+											// but for facilitating a bypass box, let's pretend it's
+											// a simple path
 `endif
 				if (!muxlsr && muxce) (negedge CLK => (Q : DI)) = 0;
 			endspecify
@@ -377,11 +377,11 @@ module TRELLIS_FF(input CLK, LSR, CE, DI, M, output reg Q);
 				$setup(CE, posedge CLK, 0);
 				$setup(LSR, posedge CLK, 0);
 `ifndef YOSYS
-				if (muxlsr) (posedge CLK => (Q : srval)) = 0;
+				if (SRMODE == "ASYNC" && muxlsr) (posedge CLK => (Q : srval)) = 0;
 `else
-				if (muxlsr) (LSR => Q) = 0;	// Technically, this should be an edge sensitive path
-								// but for facilitating a bypass box, let's pretend it's
-								// a simple path
+				if (SRMODE == "ASYNC" && muxlsr) (LSR => Q) = 0; 	// Technically, this should be an edge sensitive path
+											// but for facilitating a bypass box, let's pretend it's
+											// a simple path
 `endif
 				if (!muxlsr && muxce) (posedge CLK => (Q : DI)) = 0;
 			endspecify
