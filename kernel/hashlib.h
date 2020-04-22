@@ -642,6 +642,7 @@ protected:
 
 		entry_t() { }
 		entry_t(const K &udata, int next) : udata(udata), next(next) { }
+		entry_t(K &&udata, int next) : udata(std::move(udata)), next(next) { }
 	};
 
 	std::vector<int> hashtable;
@@ -745,11 +746,24 @@ protected:
 	int do_insert(const K &value, int &hash)
 	{
 		if (hashtable.empty()) {
-			entries.push_back(entry_t(value, -1));
+			entries.emplace_back(value, -1);
 			do_rehash();
 			hash = do_hash(value);
 		} else {
-			entries.push_back(entry_t(value, hashtable[hash]));
+			entries.emplace_back(value, hashtable[hash]);
+			hashtable[hash] = entries.size() - 1;
+		}
+		return entries.size() - 1;
+	}
+
+	int do_insert(K &&rvalue, int &hash)
+	{
+		if (hashtable.empty()) {
+			entries.emplace_back(std::forward<K>(rvalue), -1);
+			do_rehash();
+			hash = do_hash(rvalue);
+		} else {
+			entries.emplace_back(std::forward<K>(rvalue), hashtable[hash]);
 			hashtable[hash] = entries.size() - 1;
 		}
 		return entries.size() - 1;
@@ -845,6 +859,22 @@ public:
 			return std::pair<iterator, bool>(iterator(this, i), false);
 		i = do_insert(value, hash);
 		return std::pair<iterator, bool>(iterator(this, i), true);
+	}
+
+	std::pair<iterator, bool> insert(K &&rvalue)
+	{
+		int hash = do_hash(rvalue);
+		int i = do_lookup(rvalue, hash);
+		if (i >= 0)
+			return std::pair<iterator, bool>(iterator(this, i), false);
+		i = do_insert(std::forward<K>(rvalue), hash);
+		return std::pair<iterator, bool>(iterator(this, i), true);
+	}
+
+	template<typename... Args>
+	std::pair<iterator, bool> emplace(Args&&... args)
+	{
+		return insert(K(std::forward<Args>(args)...));
 	}
 
 	int erase(const K &key)
