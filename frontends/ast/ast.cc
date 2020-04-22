@@ -946,6 +946,7 @@ RTLIL::Const AstNode::realAsConst(int width)
 // create a new AstModule from an AST_MODULE AST node
 static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast = NULL, bool quiet = false)
 {
+	log_assert(current_scope.empty());
 	log_assert(ast->type == AST_MODULE || ast->type == AST_INTERFACE);
 
 	if (defer)
@@ -1117,6 +1118,7 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 		}
 
 		ignoreThisSignalsInInitial = RTLIL::SigSpec();
+		current_scope.clear();
 	}
 	else {
 		for (auto &attr : ast->attributes) {
@@ -1229,11 +1231,13 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 			// process enum/other declarations
 			(*it)->simplify(true, false, false, 1, -1, false, false);
 			design->verilog_packages.push_back((*it)->clone());
+			current_scope.clear();
 		}
 		else {
 			// must be global definition
 			(*it)->simplify(false, false, false, 1, -1, false, false); //process enum/other declarations
 			design->verilog_globals.push_back((*it)->clone());
+			current_scope.clear();
 		}
 	}
 }
