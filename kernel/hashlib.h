@@ -871,6 +871,12 @@ public:
 		return std::pair<iterator, bool>(iterator(this, i), true);
 	}
 
+	template<typename... Args>
+	std::pair<iterator, bool> emplace(Args&&... args)
+	{
+		return insert(K(std::forward<Args>(args)...));
+	}
+
 	int erase(const K &key)
 	{
 		int hash = do_hash(key);
