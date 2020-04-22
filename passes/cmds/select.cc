@@ -761,10 +761,10 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 		return;
 	}
 
-	bool select_blackboxes = true;
+	bool select_blackboxes = false;
 	if (arg.substr(0, 1) == "=") {
 		arg = arg.substr(1);
-		select_blackboxes = false;
+		select_blackboxes = true;
 	}
 
 	if (!design->selected_active_module.empty()) {
@@ -1113,6 +1113,9 @@ struct SelectPass : public Pass {
 		log("    <obj_pattern>\n");
 		log("        select the specified object(s) from the current module\n");
 		log("\n");
+		log("Prefix the following patterns with '=' if the pattern should match black-/\n");
+		log("white-box modules and their contents.\n");
+		log("\n");
 		log("A <mod_pattern> can be a module name, wildcard expression (*, ?, [..])\n");
 		log("matching module names, or one of the following:\n");
 		log("\n");
@@ -1123,9 +1126,6 @@ struct SelectPass : public Pass {
 		log("    N:<pattern>\n");
 		log("        all modules with a name matching the given pattern\n");
 		log("        (i.e. 'N:' is optional as it is the default matching rule)\n");
-		log("\n");
-		log("Prefix the pattern with '=' if the pattern should not match blackbox\n");
-		log("modules and their content.\n");
 		log("\n");
 		log("An <obj_pattern> can be an object name, wildcard expression, or one of\n");
 		log("the following:\n");
