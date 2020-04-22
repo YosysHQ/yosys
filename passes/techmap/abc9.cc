@@ -330,7 +330,10 @@ struct Abc9Pass : public ScriptPass
 			run("design -stash $abc9_map");
 			run("design -load $abc9");
 			run("design -delete $abc9");
-			run("techmap -wb -max_iter 1 -map %$abc9_map -map +/abc9_map.v");
+			if (help_mode)
+				run("techmap -wb -max_iter 1 -map %$abc9_map -map +/abc9_map.v [-D DFF]", "(option if -dff)");
+			else
+				run(stringf("techmap -wb -max_iter 1 -map %$abc9_map -map +/abc9_map.v %s", dff_mode ? "-D DFF" : ""));
 			run("design -delete $abc9_map");
 		}
 
