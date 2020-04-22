@@ -1202,6 +1202,24 @@ struct CxxrtlWorker {
 					f << indent << mangle(cell) << access << mangle_wire_name(conn.first) << " = ";
 					dump_sigspec_rhs(conn.second);
 					f << ";\n";
+					if (getenv("CXXRTL_VOID_MY_WARRANTY")) {
+						// Until we have proper clock tree detection, this really awful hack that opportunistically
+						// propagates prev_* values for clocks can be used to estimate how much faster a design could
+						// be if only one clock edge was simulated by replacing:
+						//   top.p_clk = value<1>{0u}; top.step();
+						//   top.p_clk = value<1>{1u}; top.step();
+						// with:
+						//   top.prev_p_clk = value<1>{0u}; top.p_clk = value<1>{1u}; top.step();
+						// Don't rely on this; it will be removed without warning.
+						RTLIL::Module *cell_module = cell->module->design->module(cell->type);
+						if (cell_module != nullptr && cell_module->wire(conn.first) && conn.second.is_wire()) {
+							RTLIL::Wire *cell_module_wire = cell_module->wire(conn.first);
+							if (edge_wires[conn.second.as_wire()] && edge_wires[cell_module_wire]) {
+								f << indent << mangle(cell) << access << "prev_" << mangle(cell_module_wire) << " = ";
+								f << "prev_" << mangle(conn.second.as_wire()) << ";\n";
+							}
+						}
+					}
 				} else if (cell->input(conn.first)) {
 					f << indent << mangle(cell) << access << mangle_wire_name(conn.first) << ".next = ";
 					dump_sigspec_rhs(conn.second);
