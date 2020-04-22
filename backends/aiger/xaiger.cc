@@ -267,7 +267,7 @@ struct XAigerWriter
 
 #ifndef NDEBUG
 					if (ys_debug(1)) {
-						static std::set<std::pair<IdString,TimingInfo::NameBit>> seen;
+						static pool<std::pair<IdString,TimingInfo::NameBit>> seen;
 						if (seen.emplace(derived_type, i.first).second) log("%s.%s[%d] abc9_arrival = %d\n",
 								log_id(cell->type), log_id(i.first.name), offset, d);
 					}

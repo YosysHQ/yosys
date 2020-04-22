@@ -36,7 +36,6 @@ struct TimingInfo
 		explicit NameBit(const RTLIL::SigBit &b) : name(b.wire->name), offset(b.offset) {}
 		bool operator==(const NameBit& nb) const { return nb.name == name && nb.offset == offset; }
 		bool operator!=(const NameBit& nb) const { return !operator==(nb); }
-		bool operator<(const NameBit& nb) const { return nb.name < name && nb.offset < offset; }
 		unsigned int hash() const { return mkhash_add(name.hash(), offset); }
 	};
 	struct BitBit

@@ -431,14 +431,9 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 		inst_module = design->module(derived_type);
 		log_assert(inst_module);
 
-		auto &t = timing.at(derived_type).required;
-		for (auto &conn : cell->connections_) {
-			auto port_wire = inst_module->wire(conn.first);
-			if (!port_wire)
-				log_error("Port %s in cell %s (type %s) of module %s does not actually exist",
-						log_id(conn.first), log_id(cell->name), log_id(cell->type), log_id(module->name));
-			if (!port_wire->port_input)
-				continue;
+		for (auto &i : timing.at(derived_type).required) {
+			auto port_wire = inst_module->wire(i.first.name);
+			log_assert(port_wire->port_input);
 
 			auto d = i.second.first;
 			if (d == 0)
@@ -449,7 +444,7 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 			auto rhs = cell->getPort(i.first.name);
 #ifndef NDEBUG
 			if (ys_debug(1)) {
-				static std::set<std::pair<IdString,TimingInfo::NameBit>> seen;
+				static pool<std::pair<IdString,TimingInfo::NameBit>> seen;
 				if (seen.emplace(derived_type, i.first).second) log("%s.%s[%d] abc9_required = %d\n",
 						log_id(cell->type), log_id(i.first.name), offset, d);
 			}

@@ -56,7 +56,7 @@ const0 c(.o(p));
 endmodule
 EOT
 
-logger -expect warning "Cell type 'const0' not recognised! Ignoring\." 1 
+logger -expect warning "Cell type 'const0' not recognised! Ignoring\." 1
 sta
 
 
