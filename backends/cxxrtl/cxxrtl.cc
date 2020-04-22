@@ -1020,7 +1020,7 @@ struct CxxrtlWorker {
 				RTLIL::SigBit clk_bit = cell->getPort(ID::CLK)[0];
 				clk_bit = sigmaps[clk_bit.wire->module](clk_bit);
 				f << indent << "if (" << (cell->getParam(ID::CLK_POLARITY).as_bool() ? "posedge_" : "negedge_")
-				            << mangle(clk_bit) << "()) {\n";
+				            << mangle(clk_bit) << ") {\n";
 				inc_indent();
 					if (cell->type == ID($dffe)) {
 						f << indent << "if (";
@@ -1097,7 +1097,7 @@ struct CxxrtlWorker {
 				RTLIL::SigBit clk_bit = cell->getPort(ID::CLK)[0];
 				clk_bit = sigmaps[clk_bit.wire->module](clk_bit);
 				f << indent << "if (" << (cell->getParam(ID::CLK_POLARITY).as_bool() ? "posedge_" : "negedge_")
-				            << mangle(clk_bit) << "()) {\n";
+				            << mangle(clk_bit) << ") {\n";
 				inc_indent();
 			}
 			RTLIL::Memory *memory = cell->module->memories[cell->getParam(ID::MEMID).decode_string()];
@@ -1365,16 +1365,16 @@ struct CxxrtlWorker {
 			switch (sync->type) {
 				case RTLIL::STp:
 					log_assert(sync_bit.wire != nullptr);
-					events.insert("posedge_" + mangle(sync_bit) + "()");
+					events.insert("posedge_" + mangle(sync_bit));
 					break;
 				case RTLIL::STn:
 					log_assert(sync_bit.wire != nullptr);
-					events.insert("negedge_" + mangle(sync_bit) + "()");
+					events.insert("negedge_" + mangle(sync_bit));
 					break;
 				case RTLIL::STe:
 					log_assert(sync_bit.wire != nullptr);
-					events.insert("posedge_" + mangle(sync_bit) + "()");
-					events.insert("negedge_" + mangle(sync_bit) + "()");
+					events.insert("posedge_" + mangle(sync_bit));
+					events.insert("negedge_" + mangle(sync_bit));
 					break;
 
 				case RTLIL::STa:
@@ -1522,6 +1522,22 @@ struct CxxrtlWorker {
 		inc_indent();
 			f << indent << "bool converged = " << (eval_converges.at(module) ? "true" : "false") << ";\n";
 			if (!module->get_bool_attribute(ID(cxxrtl.blackbox))) {
+				for (auto wire : module->wires()) {
+					if (edge_wires[wire]) {
+						for (auto edge_type : edge_types) {
+							if (edge_type.first.wire == wire) {
+								if (edge_type.second != RTLIL::STn) {
+									f << indent << "bool posedge_" << mangle(edge_type.first) << " = ";
+									f << "this->posedge_" << mangle(edge_type.first) << "();\n";
+								}
+								if (edge_type.second != RTLIL::STp) {
+									f << indent << "bool negedge_" << mangle(edge_type.first) << " = ";
+									f << "this->negedge_" << mangle(edge_type.first) << "();\n";
+								}
+							}
+						}
+					}
+				}
 				for (auto wire : module->wires())
 					dump_wire(wire, /*is_local_context=*/true);
 				for (auto node : schedule[module]) {
