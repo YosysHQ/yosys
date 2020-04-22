@@ -18,17 +18,17 @@ FDRE ff (.D(tmp[0]), .CE(tmp[1]), .R(tmp[2]), .Q(o[0]));
 endmodule
 
 EOT
-
+read_verilog -lib +/xilinx/cells_sim.v
 design -save t0
 
 equiv_opt -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim.v xilinx_dffopt
 design -load postopt
 clean
 
+cd t0
 select -assert-count 1 t:FDRE
 select -assert-count 1 t:LUT6
-select -assert-count 3 t:LUT2
-select -assert-none t:FDRE t:LUT6 t:LUT2 %% t:* %D
+select -assert-none t:FDRE t:LUT6 %% t:* %D
 
 design -load t0
 
@@ -36,9 +36,10 @@ equiv_opt -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim
 design -load postopt
 clean
 
+cd t0
 select -assert-count 1 t:FDRE
 select -assert-count 1 t:LUT4
-select -assert-count 3 t:LUT2
+select -assert-count 1 t:LUT2
 select -assert-none t:FDRE t:LUT4 t:LUT2 %% t:* %D
 
 design -reset
@@ -65,16 +66,17 @@ endmodule
 
 EOT
 
+read_verilog -lib +/xilinx/cells_sim.v
 design -save t0
 
 equiv_opt -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim.v xilinx_dffopt
 design -load postopt
 clean
 
+cd t0
 select -assert-count 1 t:FDSE
 select -assert-count 1 t:LUT6
-select -assert-count 3 t:LUT2
-select -assert-none t:FDSE t:LUT6 t:LUT2 %% t:* %D
+select -assert-none t:FDSE t:LUT6 %% t:* %D
 
 design -load t0
 
@@ -82,9 +84,10 @@ equiv_opt -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim
 design -load postopt
 clean
 
+cd t0
 select -assert-count 1 t:FDSE
 select -assert-count 1 t:LUT4
-select -assert-count 3 t:LUT2
+select -assert-count 1 t:LUT2
 select -assert-none t:FDSE t:LUT4 t:LUT2 %% t:* %D
 
 design -reset
@@ -111,15 +114,17 @@ endmodule
 
 EOT
 
+read_verilog -lib +/xilinx/cells_sim.v
 design -save t0
 
 equiv_opt -async2sync -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim.v xilinx_dffopt
 design -load postopt
 clean
 
+cd t0
 select -assert-count 1 t:FDCE
 select -assert-count 1 t:LUT4
-select -assert-count 3 t:LUT2
+select -assert-count 1 t:LUT2
 select -assert-none t:FDCE t:LUT4 t:LUT2 %% t:* %D
 
 design -reset
@@ -145,16 +150,17 @@ endmodule
 
 EOT
 
+read_verilog -lib +/xilinx/cells_sim.v
 design -save t0
 
 equiv_opt -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim.v xilinx_dffopt
 design -load postopt
 clean
 
+cd t0
 select -assert-count 1 t:FDSE
 select -assert-count 1 t:LUT5
-select -assert-count 2 t:LUT2
-select -assert-none t:FDSE t:LUT5 t:LUT2 %% t:* %D
+select -assert-none t:FDSE t:LUT5 %% t:* %D
 
 design -load t0
 
@@ -162,6 +168,7 @@ equiv_opt -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim
 design -load postopt
 clean
 
+cd t0
 select -assert-count 1 t:FDSE
 select -assert-count 2 t:LUT2
 select -assert-none t:FDSE t:LUT2 %% t:* %D
@@ -191,16 +198,17 @@ endmodule
 
 EOT
 
+read_verilog -lib +/xilinx/cells_sim.v
 design -save t0
 
 equiv_opt -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim.v xilinx_dffopt
 design -load postopt
 clean
 
+cd t0
 select -assert-count 1 t:FDRSE
 select -assert-count 1 t:LUT6
-select -assert-count 4 t:LUT2
-select -assert-none t:FDRSE t:LUT6 t:LUT2 %% t:* %D
+select -assert-none t:FDRSE t:LUT6 %% t:* %D
 
 design -load t0
 
@@ -208,9 +216,10 @@ equiv_opt -blacklist xilinx_dffopt_blacklist.txt -assert -map +/xilinx/cells_sim
 design -load postopt
 clean
 
+cd t0
 select -assert-count 1 t:FDRSE
 select -assert-count 1 t:LUT4
-select -assert-count 4 t:LUT2
+select -assert-count 1 t:LUT2
 select -assert-none t:FDRSE t:LUT4 t:LUT2 %% t:* %D
 
 design -reset
