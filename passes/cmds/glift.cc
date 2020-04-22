@@ -27,7 +27,7 @@ PRIVATE_NAMESPACE_BEGIN
 struct GliftPass : public Pass {
 	private:
 
-	bool opt_create, opt_taintconstants;
+	bool opt_create, opt_sketchify, opt_taintconstants;
 	std::vector<std::string> args;
 	std::vector<std::string>::size_type argidx;
 	RTLIL::Module *module;
@@ -38,12 +38,18 @@ struct GliftPass : public Pass {
 				opt_create = true;
 				continue;
 			}
+			if (args[argidx] == "-sketchify") {
+				opt_sketchify = true;
+				continue;
+			}
 			if (args[argidx] == "-taint-constants") {
 				opt_taintconstants = true;
 				continue;
 			}
 			break;
 		}
+		if(!opt_create && !opt_sketchify) log_cmd_error("One of `-create` or `-sketchify` must be specified.\n");
+		if(opt_create && opt_sketchify) log_cmd_error("Only one of `-create` or `-sketchify` may be specified.\n");
 	}
 
 	RTLIL::SigSpec get_corresponding_taint_signal(RTLIL::SigSpec sig) {
@@ -75,7 +81,37 @@ struct GliftPass : public Pass {
 		return ret;
 	}
 
-	void create_precise_glift_logic() {
+	void add_precise_GLIFT_logic(const RTLIL::Cell *cell, RTLIL::SigSpec &port_a, RTLIL::SigSpec &port_a_taint, RTLIL::SigSpec &port_b, RTLIL::SigSpec &port_b_taint, RTLIL::SigSpec &port_y_taint) {
+		//AKA AN2_SH2 or OR2_SH2
+		RTLIL::SigSpec n_port_a = module->LogicNot(cell->name.str() + "_t_1_1", port_a, false, cell->get_src_attribute());
+		RTLIL::SigSpec n_port_b = module->LogicNot(cell->name.str() + "_t_1_2", port_b, false, cell->get_src_attribute());
+		auto subexpr1 = module->And(cell->name.str() + "_t_1_3", (cell->type == "$_AND_")? port_a : n_port_a, port_b_taint, false, cell->get_src_attribute());
+		auto subexpr2 = module->And(cell->name.str() + "_t_1_4", (cell->type == "$_AND_")? port_b : n_port_b, port_a_taint, false, cell->get_src_attribute());
+		auto subexpr3 = module->And(cell->name.str() + "_t_1_5", port_a_taint, port_b_taint, false, cell->get_src_attribute());
+		auto subexpr4 = module->Or(cell->name.str() + "_t_1_6", subexpr1, subexpr2, false, cell->get_src_attribute());
+		module->addOr(cell->name.str() + "_t_1_7", subexpr4, subexpr3, port_y_taint, false, cell->get_src_attribute());
+	}
+
+	void add_imprecise_GLIFT_logic_1(const RTLIL::Cell *cell, RTLIL::SigSpec &port_a, RTLIL::SigSpec &port_a_taint, RTLIL::SigSpec &port_b, RTLIL::SigSpec &port_b_taint, RTLIL::SigSpec &port_y_taint) {
+		//AKA AN2_SH3 or OR2_SH3
+		RTLIL::SigSpec n_port_a = module->LogicNot(cell->name.str() + "_t_2_1", port_a, false, cell->get_src_attribute());
+		auto subexpr1 = module->And(cell->name.str() + "_t_2_2", (cell->type == "$_AND_")? port_b : n_port_a, (cell->type == "$_AND_")? port_a_taint : port_b_taint, false, cell->get_src_attribute());
+		module->addOr(cell->name.str() + "_t_2_3", (cell->type == "$_AND_")? port_b_taint : port_a_taint, subexpr1, port_y_taint, false, cell->get_src_attribute());
+	}
+
+	void add_imprecise_GLIFT_logic_2(const RTLIL::Cell *cell, RTLIL::SigSpec &port_a, RTLIL::SigSpec &port_a_taint, RTLIL::SigSpec &port_b, RTLIL::SigSpec &port_b_taint, RTLIL::SigSpec &port_y_taint) {
+		//AKA AN2_SH4 or OR2_SH4
+		RTLIL::SigSpec n_port_b = module->LogicNot(cell->name.str() + "_t_3_1", port_b, false, cell->get_src_attribute());
+		auto subexpr1 = module->And(cell->name.str() + "_t_3_2", (cell->type == "$_AND_")? port_a : n_port_b, (cell->type == "$_AND_")? port_b_taint : port_a_taint, false, cell->get_src_attribute());
+		module->addOr(cell->name.str() + "_t_3_3", (cell->type == "$_AND_")? port_a_taint : port_b_taint, subexpr1, port_y_taint, false, cell->get_src_attribute());
+	}
+
+	void add_imprecise_GLIFT_logic_3(const RTLIL::Cell *cell, RTLIL::SigSpec &port_a_taint, RTLIL::SigSpec &port_b_taint, RTLIL::SigSpec &port_y_taint) {
+		//AKA AN2_SH5 or OR2_SH5
+		module->addOr(cell->name.str() + "_t_4_1", port_a_taint, port_b_taint, port_y_taint, false, cell->get_src_attribute());
+	}
+
+	void create_glift_logic() {
 		std::vector<RTLIL::SigSig> connections(module->connections());
 		std::vector<RTLIL::SigSig> new_connections;
 
@@ -94,41 +130,27 @@ struct GliftPass : public Pass {
 				for (unsigned int i = 0; i < NUM_PORTS; ++i)
 					port_taints[i] = get_corresponding_taint_signal(ports[i]);
 
-				if (cell->type == "$_AND_") {
-					//We are basically trying to replace each AND cell with an AN2_SH2 cell:
-					//module AN2_SH2(A, A_t, B, B_t, Y, Y_t);
-					//  input A, A_t, B, B_t;
-					//  output Y, Y_t;
-					//
-					//  assign Y = A & B;
-					//  assign Y_t = A & B_t | B & A_t | A_t & B_t;
-					//endmodule
-					auto subexpr1 = module->And(cell->name.str() + "_t_1", ports[A], port_taints[B], false, cell->get_src_attribute());
-					auto subexpr2 = module->And(cell->name.str() + "_t_2", ports[B], port_taints[A], false, cell->get_src_attribute());
-					auto subexpr3 = module->And(cell->name.str() + "_t_3", port_taints[A], port_taints[B], false, cell->get_src_attribute());
-					auto subexpr4 = module->Or(cell->name.str() + "_t_4", subexpr1, subexpr2, false, cell->get_src_attribute());
-					module->addOr(cell->name.str() + "_t_5", subexpr4, subexpr3, port_taints[Y], false, cell->get_src_attribute());
-				}
+				if (opt_create)
+					add_precise_GLIFT_logic(cell, ports[A], port_taints[A], ports[B], port_taints[B], port_taints[Y]);
+				else if (opt_sketchify) {
+					RTLIL::SigSpec precise_y(module->addWire(cell->name.str() + "_y1", 1)),
+							imprecise_1_y(module->addWire(cell->name.str() + "_y2", 1)),
+							imprecise_2_y(module->addWire(cell->name.str() + "_y3", 1)),
+							imprecise_3_y(module->addWire(cell->name.str() + "_y4", 1));
 
-				else if (cell->type == "$_OR_") {
-					//We are basically trying to replace each OR cell with an OR2_SH2 cell:
-					//module OR2_SH2(A, A_t, B, B_t, Y, Y_t);
-					//  input A, A_t, B, B_t;
-					//  output Y, Y_t;
-					//
-					//  assign Y = A | B;
-					//  assign Y_t = ~A & B_t | ~B & A_t | A_t & B_t;
-					//endmodule
-					RTLIL::SigSpec n_port_a = module->LogicNot(cell->name.str() + "_t_1", ports[A], false, cell->get_src_attribute());
-					RTLIL::SigSpec n_port_b = module->LogicNot(cell->name.str() + "_t_2", ports[B], false, cell->get_src_attribute());
-					auto subexpr1 = module->And(cell->name.str() + "_t_3", n_port_a, port_taints[B], false, cell->get_src_attribute());
-					auto subexpr2 = module->And(cell->name.str() + "_t_4", n_port_b, port_taints[A], false, cell->get_src_attribute());
-					auto subexpr3 = module->And(cell->name.str() + "_t_5", port_taints[A], port_taints[B], false, cell->get_src_attribute());
-					auto subexpr4 = module->Or(cell->name.str() + "_t_6", subexpr1, subexpr2, false, cell->get_src_attribute());
-					module->addOr(cell->name.str() + "_t_7", subexpr4, subexpr3, port_taints[Y], false, cell->get_src_attribute());
-				}
+					add_precise_GLIFT_logic(cell, ports[A], port_taints[A], ports[B], port_taints[B], precise_y);
+					add_imprecise_GLIFT_logic_1(cell, ports[A], port_taints[A], ports[B], port_taints[B], imprecise_1_y);
+					add_imprecise_GLIFT_logic_2(cell, ports[A], port_taints[A], ports[B], port_taints[B], imprecise_2_y);
+					add_imprecise_GLIFT_logic_3(cell, port_taints[A], port_taints[B], imprecise_3_y);
 
-				else log_cmd_error("This is a bug (1).\n");
+					RTLIL::SigSpec meta_mux_select(module->addWire(cell->name.str() + "_sel", 2));
+					meta_mux_select.as_wire()->set_bool_attribute("\\maximize");
+					new_connections.emplace_back(meta_mux_select, module->Anyconst(cell->name.str() + "_hole", 2, cell->get_src_attribute()));
+					RTLIL::SigSpec meta_mux1(module->Mux(cell->name.str() + "_mux1", precise_y, imprecise_1_y, meta_mux_select[1]));
+					RTLIL::SigSpec meta_mux2(module->Mux(cell->name.str() + "_mux2", imprecise_2_y, imprecise_3_y, meta_mux_select[1]));
+					module->addMux(cell->name.str() + "_mux3", meta_mux1, meta_mux2, meta_mux_select[0], port_taints[Y]);
+				}
+				else log_cmd_error("This is a bug (2).\n");
 			}
 			else if (cell->type.in("$_NOT_")) {
 				const unsigned int A = 0, Y = 1;
@@ -142,17 +164,9 @@ struct GliftPass : public Pass {
 					port_taints[i] = get_corresponding_taint_signal(ports[i]);
 
 				if (cell->type == "$_NOT_") {
-					//We are basically trying to replace each NOT cell with an IV_SH2 cell:
-					//module IV_SH2(A, A_t, Y, Y_t);
-					//  input A, A_t;
-					//  output Y, Y_t;
-					//
-					//  assign Y = ~A;
-					//  assign Y_t = A_t;
-					//endmodule
 					new_connections.emplace_back(port_taints[Y], port_taints[A]);
 				}
-				else log_cmd_error("This is a bug (1).\n");
+				else log_cmd_error("This is a bug (3).\n");
 			}
 		} //end foreach cell in cells
 
@@ -176,21 +190,29 @@ struct GliftPass : public Pass {
 
 	public:
 
-	GliftPass() : Pass("glift", "create and transform GLIFT models"), opt_create(false), opt_taintconstants(false), module(nullptr) { }
+	GliftPass() : Pass("glift", "create and transform GLIFT models"), opt_create(false), opt_sketchify(false), opt_taintconstants(false), module(nullptr) { }
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    glift [options] [selection]\n");
+		log("    glift -create|-sketchify [options] [selection]\n");
 		log("\n");
 		log("Adds, removes, or manipulates gate-level information flow tracking (GLIFT) logic\n");
 		log("to the current or specified module.\n");
 		log("\n");
-		log("Options:");
+		log("Commands:");
 		log("\n");
 		log("  -create");
 		log("    Replaces the current or specified module with one that has additional \"taint\"\n");
 		log("    inputs, outputs, and internal nets along with precise taint-tracking logic.\n");
+		log("\n");
+		log("  -sketchify");
+		log("    Replaces the current or specified module with one that has additional \"taint\"\n");
+		log("    inputs, outputs, and internal nets along with varying-precision taint-tracking logic.\n");
+		log("    Which version of taint tracking logic is used at a given cell is determined by a MUX\n");
+		log("    selected by an $anyconst cell.\n");
+		log("\n");
+		log("Options:");
 		log("\n");
 		log("  -taint-constants");
 		log("    Constant values in the design are labeled as tainted.\n");
@@ -213,8 +235,7 @@ struct GliftPass : public Pass {
 		if (module == nullptr)
 			log_cmd_error("Can't operate on an empty selection!\n");
 
-		if (opt_create)
-			create_precise_glift_logic();
+		create_glift_logic();
 	}
 } GliftPass;
 
