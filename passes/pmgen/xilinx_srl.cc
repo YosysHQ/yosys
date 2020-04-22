@@ -48,7 +48,7 @@ void run_fixed(xilinx_srl_pm &pm)
 				initval.append(State::Sx);
 		}
 		else if (cell->type.in(ID(FDRE), ID(FDRE_1))) {
-			if (cell->parameters.at(ID::INIT, State::S0).as_bool())
+			if (cell->getParam(ID::INIT).as_bool())
 				initval.append(State::S1);
 			else
 				initval.append(State::S0);
@@ -71,7 +71,7 @@ void run_fixed(xilinx_srl_pm &pm)
 		else if (first_cell->type.in(ID($_DFF_N_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID(FDRE_1)))
 			c->setParam(ID(CLKPOL), 0);
 		else if (first_cell->type.in(ID(FDRE))) {
-			if (!first_cell->parameters.at(ID(IS_C_INVERTED), State::S0).as_bool())
+			if (!first_cell->getParam(ID(IS_C_INVERTED)).as_bool())
 				c->setParam(ID(CLKPOL), 1);
 			else
 				c->setParam(ID(CLKPOL), 0);

@@ -81,7 +81,7 @@ struct Ecp5GsrPass : public Pass {
 
 			for (auto cell : module->selected_cells())
 			{
-				if (!cell->hasParam(ID(GSR)) || cell->getParam(ID(GSR)).decode_string() != "AUTO")
+				if (cell->getParam(ID(GSR)).decode_string() != "AUTO")
 					continue;
 				
 				bool gsren = found_gsr;
@@ -114,9 +114,9 @@ struct Ecp5GsrPass : public Pass {
 			{
 				if (cell->type != ID(TRELLIS_FF))
 					continue;
-				if (!cell->hasParam(ID(GSR)) || cell->getParam(ID(GSR)).decode_string() != "ENABLED")
+				if (cell->getParam(ID(GSR)).decode_string() != "ENABLED")
 					continue;
-				if (!cell->hasParam(ID(SRMODE)) || cell->getParam(ID(SRMODE)).decode_string() != "ASYNC")
+				if (cell->getParam(ID(SRMODE)).decode_string() != "ASYNC")
 					continue;
 				SigSpec sig_lsr = cell->getPort(ID(LSR));
 				if (GetSize(sig_lsr) < 1)

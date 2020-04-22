@@ -106,9 +106,7 @@ struct Ecp5FfinitPass : public Pass {
 				SigBit bit_d = sigmap(sig_d[0]);
 				SigBit bit_q = sigmap(sig_q[0]);
 
-				std::string regset = "RESET";
-				if (cell->hasParam(ID(REGSET)))
-					regset = cell->getParam(ID(REGSET)).decode_string();
+				std::string regset = cell->getParam(ID(REGSET)).decode_string();
 				State resetState;
 				if (regset == "SET")
 					resetState = State::S1;
@@ -135,9 +133,7 @@ struct Ecp5FfinitPass : public Pass {
 				}
 
 				if (GetSize(sig_lsr) >= 1 && sig_lsr[0] != State::S0) {
-					std::string srmode = "LSR_OVER_CE";
-					if (cell->hasParam(ID(SRMODE)))
-						srmode = cell->getParam(ID(SRMODE)).decode_string();
+					std::string srmode = cell->getParam(ID(SRMODE)).decode_string();
 					if (srmode == "ASYNC") {
 						log("Async reset value %c for FF cell %s inconsistent with init value %c.\n",
 							resetState != State::S0 ? '1' : '0', log_id(cell), val != State::S0 ? '1' : '0');
@@ -154,9 +150,7 @@ struct Ecp5FfinitPass : public Pass {
 						cell->setPort(ID(LSR), State::S0);
 
 						if(cell->hasPort(ID(CE))) {
-							std::string cemux = "CE";
-							if (cell->hasParam(ID(CEMUX)))
-								cemux = cell->getParam(ID(CEMUX)).decode_string();
+							std::string cemux = cell->getParam(ID(CEMUX)).decode_string();
 							SigSpec sig_ce = cell->getPort(ID(CE));
 							if (GetSize(sig_ce) >= 1) {
 								SigBit bit_ce = sigmap(sig_ce[0]);

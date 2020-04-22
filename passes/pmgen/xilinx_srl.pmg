@@ -13,8 +13,8 @@ endcode
 match first
 	select first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1)
 	select !first->has_keep_attr()
-	select !first->type.in(\FDRE) || !param(first, \IS_R_INVERTED, State::S0).as_bool()
-	select !first->type.in(\FDRE) || !param(first, \IS_D_INVERTED, State::S0).as_bool()
+	select !first->type.in(\FDRE) || !param(first, \IS_R_INVERTED).as_bool()
+	select !first->type.in(\FDRE) || !param(first, \IS_D_INVERTED).as_bool()
 	select !first->type.in(\FDRE, \FDRE_1) || port(first, \R, State::S0).is_fully_zero()
 	filter !non_first_cells.count(first)
 generate
@@ -84,8 +84,8 @@ arg en_port
 match first
 	select first->type.in($_DFF_N_, $_DFF_P_, $_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_, \FDRE, \FDRE_1)
 	select !first->has_keep_attr()
-	select !first->type.in(\FDRE) || !param(first, \IS_R_INVERTED, State::S0).as_bool()
-	select !first->type.in(\FDRE) || !param(first, \IS_D_INVERTED, State::S0).as_bool()
+	select !first->type.in(\FDRE) || !param(first, \IS_R_INVERTED).as_bool()
+	select !first->type.in(\FDRE) || !param(first, \IS_D_INVERTED).as_bool()
 	select !first->type.in(\FDRE, \FDRE_1) || port(first, \R, State::S0).is_fully_zero()
 endmatch
 
@@ -111,9 +111,9 @@ match next
 	index <SigBit> port(next, \Q) === port(first, \D)
 	filter port(next, clk_port) == port(first, clk_port)
 	filter en_port == IdString() || port(next, en_port) == port(first, en_port)
-	filter !first->type.in(\FDRE) || param(next, \IS_C_INVERTED, State::S0).as_bool() == param(first, \IS_C_INVERTED, State::S0).as_bool()
-	filter !first->type.in(\FDRE) || param(next, \IS_D_INVERTED, State::S0).as_bool() == param(first, \IS_D_INVERTED, State::S0).as_bool()
-	filter !first->type.in(\FDRE) || param(next, \IS_R_INVERTED, State::S0).as_bool() == param(first, \IS_R_INVERTED, State::S0).as_bool()
+	filter !first->type.in(\FDRE) || param(next, \IS_C_INVERTED).as_bool() == param(first, \IS_C_INVERTED).as_bool()
+	filter !first->type.in(\FDRE) || param(next, \IS_D_INVERTED).as_bool() == param(first, \IS_D_INVERTED).as_bool()
+	filter !first->type.in(\FDRE) || param(next, \IS_R_INVERTED).as_bool() == param(first, \IS_R_INVERTED).as_bool()
 	filter !first->type.in(\FDRE, \FDRE_1) || port(next, \R, State::S0).is_fully_zero()
 endmatch
 
@@ -138,9 +138,9 @@ match next
 	index <SigBit> port(next, \Q) === port(chain.back(), \D)
 	filter port(next, clk_port) == port(first, clk_port)
 	filter en_port == IdString() || port(next, en_port) == port(first, en_port)
-	filter !first->type.in(\FDRE) || param(next, \IS_C_INVERTED, State::S0).as_bool() == param(first, \IS_C_INVERTED, State::S0).as_bool()
-	filter !first->type.in(\FDRE) || param(next, \IS_D_INVERTED, State::S0).as_bool() == param(first, \IS_D_INVERTED, State::S0).as_bool()
-	filter !first->type.in(\FDRE) || param(next, \IS_R_INVERTED, State::S0).as_bool() == param(first, \IS_R_INVERTED, State::S0).as_bool()
+	filter !first->type.in(\FDRE) || param(next, \IS_C_INVERTED).as_bool() == param(first, \IS_C_INVERTED).as_bool()
+	filter !first->type.in(\FDRE) || param(next, \IS_D_INVERTED).as_bool() == param(first, \IS_D_INVERTED).as_bool()
+	filter !first->type.in(\FDRE) || param(next, \IS_R_INVERTED).as_bool() == param(first, \IS_R_INVERTED).as_bool()
 	filter !first->type.in(\FDRE, \FDRE_1) || port(next, \R, State::S0).is_fully_zero()
 generate
 	Cell *cell = module->addCell(NEW_ID, chain.back()->type);
