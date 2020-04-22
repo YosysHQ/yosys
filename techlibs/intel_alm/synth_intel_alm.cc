@@ -200,6 +200,8 @@ struct SynthIntelALMPass : public ScriptPass {
 
 		if (check_label("map_ffs")) {
 			run("dff2dffe -direct-match $_DFF_*");
+			// As mentioned in common/dff_sim.v, Intel flops power up to zero,
+			// so use `zinit` to add inverters where needed.
 			run("zinit");
 			run("techmap -map +/techmap.v -map +/intel_alm/common/dff_map.v");
 			run("opt -full -undriven -mux_undef");
@@ -223,8 +225,16 @@ struct SynthIntelALMPass : public ScriptPass {
 
 		if (check_label("quartus")) {
 			if (quartus || help_mode) {
+				// Quartus ICEs if you have a wire which has `[]` in its name,
+				// which Yosys produces when building memories out of flops.
+				run("rename -hide w:*[* w:*]*");
+				// VQM mode does not support 'x, so replace those with zero.
 				run("setundef -zero");
+				// VQM mode does not support multi-bit constant assignments
+				// (e.g. 2'b00 is an error), so as a workaround use references
+				// to constant driver cells, which Quartus accepts.
 				run("hilomap -singleton -hicell __MISTRAL_VCC Q -locell __MISTRAL_GND Q");
+				// Rename from Yosys-internal MISTRAL_* cells to Quartus cells.
 				run("techmap -map +/intel_alm/common/quartus_rename.v");
 				run(stringf("techmap -map +/intel_alm/%s/quartus_rename.v", family_opt.c_str()));
 			}
