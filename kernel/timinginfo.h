@@ -82,6 +82,9 @@ struct TimingInfo
 
 		for (auto cell : module->cells()) {
 			if (cell->type == ID($specify2)) {
+				auto en = cell->getPort(ID::EN);
+				if (en.is_fully_const() && !en.as_bool())
+					continue;
 				auto src = cell->getPort(ID::SRC);
 				auto dst = cell->getPort(ID::DST);
 				for (const auto &c : src.chunks())
