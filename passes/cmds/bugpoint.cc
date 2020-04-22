@@ -133,6 +133,7 @@ struct BugpointPass : public Pass {
 		int index = 0;
 		if (modules)
 		{
+			Module *removed_module = nullptr;
 			for (auto module : design_copy->modules())
 			{
 				if (module->get_blackbox_attribute())
@@ -141,9 +142,13 @@ struct BugpointPass : public Pass {
 				if (index++ == seed)
 				{
 					log("Trying to remove module %s.\n", module->name.c_str());
-					design_copy->remove(module);
-					return design_copy;
+					removed_module = module;
+					break;
 				}
+			}
+			if (removed_module) {
+				design_copy->remove(removed_module);
+				return design_copy;
 			}
 		}
 		if (ports)
@@ -178,14 +183,19 @@ struct BugpointPass : public Pass {
 				if (mod->get_blackbox_attribute())
 					continue;
 
+				Cell *removed_cell = nullptr;
 				for (auto cell : mod->cells())
 				{
 					if (index++ == seed)
 					{
 						log("Trying to remove cell %s.%s.\n", mod->name.c_str(), cell->name.c_str());
-						mod->remove(cell);
-						return design_copy;
+						removed_cell = cell;
+						break;
 					}
+				}
+				if (removed_cell) {
+					mod->remove(removed_cell);
+					return design_copy;
 				}
 			}
 		}

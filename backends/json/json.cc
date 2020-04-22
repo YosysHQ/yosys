@@ -141,6 +141,12 @@ struct JsonWriter
 		write_parameters(module->attributes, /*for_module=*/true);
 		f << stringf("\n      },\n");
 
+		if (module->parameter_default_values.size()) {
+			f << stringf("      \"parameter_default_values\": {");
+			write_parameters(module->parameter_default_values, /*for_module=*/true);
+			f << stringf("\n      },\n");
+		}
+
 		f << stringf("      \"ports\": {");
 		bool first = true;
 		for (const auto &n : module->ports) {
@@ -303,8 +309,17 @@ struct JsonBackend : public Backend {
 		log("The general syntax of the JSON output created by this command is as follows:\n");
 		log("\n");
 		log("    {\n");
+		log("      \"creator\": \"Yosys <version info>\",\n");
 		log("      \"modules\": {\n");
 		log("        <module_name>: {\n");
+		log("          \"attributes\": {\n");
+		log("            <attribute_name>: <attribute_value>,\n");
+		log("            ...\n");
+		log("          },\n");
+		log("          \"parameter_default_values\": {\n");
+		log("            <parameter_name>: <parameter_value>,\n");
+		log("            ...\n");
+		log("          },\n");
 		log("          \"ports\": {\n");
 		log("            <port_name>: <port_details>,\n");
 		log("            ...\n");
@@ -329,13 +344,19 @@ struct JsonBackend : public Backend {
 		log("    {\n");
 		log("      \"direction\": <\"input\" | \"output\" | \"inout\">,\n");
 		log("      \"bits\": <bit_vector>\n");
+		log("      \"offset\": <the lowest bit index in use, if non-0>\n");
+		log("      \"upto\": <1 if the port bit indexing is MSB-first>\n");
 		log("    }\n");
 		log("\n");
+		log("The \"offset\" and \"upto\" fields are skipped if their value would be 0.");
+		log("They don't affect connection semantics, and are only used to preserve original");
+		log("HDL bit indexing.");
 		log("And <cell_details> is:\n");
 		log("\n");
 		log("    {\n");
 		log("      \"hide_name\": <1 | 0>,\n");
 		log("      \"type\": <cell_type>,\n");
+		log("      \"model\": <AIG model name, if -aig option used>,\n");
 		log("      \"parameters\": {\n");
 		log("        <parameter_name>: <parameter_value>,\n");
 		log("        ...\n");
@@ -359,6 +380,8 @@ struct JsonBackend : public Backend {
 		log("    {\n");
 		log("      \"hide_name\": <1 | 0>,\n");
 		log("      \"bits\": <bit_vector>\n");
+		log("      \"offset\": <the lowest bit index in use, if non-0>\n");
+		log("      \"upto\": <1 if the port bit indexing is MSB-first>\n");
 		log("    }\n");
 		log("\n");
 		log("The \"hide_name\" fields are set to 1 when the name of this cell or net is\n");
@@ -386,9 +409,15 @@ struct JsonBackend : public Backend {
 		log("\n");
 		log("Translates to the following JSON output:\n");
 		log("\n");
+
 		log("    {\n");
+		log("      \"creator\": \"Yosys 0.9+2406 (git sha1 fb1168d8, clang 9.0.1 -fPIC -Os)\",\n");
 		log("      \"modules\": {\n");
 		log("        \"test\": {\n");
+		log("          \"attributes\": {\n");
+		log("            \"cells_not_processed\": \"00000000000000000000000000000001\",\n");
+		log("            \"src\": \"test.v:1.1-4.10\"\n");
+		log("          },\n");
 		log("          \"ports\": {\n");
 		log("            \"x\": {\n");
 		log("              \"direction\": \"input\",\n");
@@ -404,33 +433,34 @@ struct JsonBackend : public Backend {
 		log("              \"hide_name\": 0,\n");
 		log("              \"type\": \"foo\",\n");
 		log("              \"parameters\": {\n");
-		log("                \"Q\": 1337,\n");
-		log("                \"P\": 42\n");
+		log("                \"P\": \"00000000000000000000000000101010\",\n");
+		log("                \"Q\": \"00000000000000000000010100111001\"\n");
 		log("              },\n");
 		log("              \"attributes\": {\n");
-		log("                \"keep\": 1,\n");
-		log("                \"src\": \"test.v:2\"\n");
+		log("                \"keep\": \"00000000000000000000000000000001\",\n");
+		log("                \"module_not_derived\": \"00000000000000000000000000000001\",\n");
+		log("                \"src\": \"test.v:3.1-3.55\"\n");
 		log("              },\n");
 		log("              \"connections\": {\n");
-		log("                \"C\": [ 2, 2, 2, 2, \"0\", \"1\", \"0\", \"1\" ],\n");
+		log("                \"A\": [ 3, 2 ],\n");
 		log("                \"B\": [ 2, 3 ],\n");
-		log("                \"A\": [ 3, 2 ]\n");
+		log("                \"C\": [ 2, 2, 2, 2, \"0\", \"1\", \"0\", \"1\" ]\n");
 		log("              }\n");
 		log("            }\n");
 		log("          },\n");
 		log("          \"netnames\": {\n");
-		log("            \"y\": {\n");
-		log("              \"hide_name\": 0,\n");
-		log("              \"bits\": [ 3 ],\n");
-		log("              \"attributes\": {\n");
-		log("                \"src\": \"test.v:1\"\n");
-		log("              }\n");
-		log("            },\n");
 		log("            \"x\": {\n");
 		log("              \"hide_name\": 0,\n");
 		log("              \"bits\": [ 2 ],\n");
 		log("              \"attributes\": {\n");
-		log("                \"src\": \"test.v:1\"\n");
+		log("                \"src\": \"test.v:1.19-1.20\"\n");
+		log("              }\n");
+		log("            },\n");
+		log("            \"y\": {\n");
+		log("              \"hide_name\": 0,\n");
+		log("              \"bits\": [ 3 ],\n");
+		log("              \"attributes\": {\n");
+		log("                \"src\": \"test.v:1.22-1.23\"\n");
 		log("              }\n");
 		log("            }\n");
 		log("          }\n");

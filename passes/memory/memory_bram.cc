@@ -1102,9 +1102,6 @@ void handle_cell(Cell *cell, const rules_t &rules)
 			auto &bram = rules.brams.at(match.name).at(vi);
 			bool or_next_if_better = match.or_next_if_better || vi+1 < GetSize(rules.brams.at(match.name));
 
-			if (failed_brams.count(pair<IdString, int>(bram.name, bram.variant)))
-				continue;
-
 			int avail_rd_ports = 0;
 			int avail_wr_ports = 0;
 			for (int j = 0; j < bram.groups; j++) {
@@ -1139,6 +1136,9 @@ void handle_cell(Cell *cell, const rules_t &rules)
 			int cells = ((match_properties["dbits"] + bram.dbits - 1) / bram.dbits) * ((match_properties["words"] + (1 << bram.abits) - 1) / (1 << bram.abits));
 			int efficiency = (100 * match_properties["bits"]) / (dups * cells * bram.dbits * (1 << bram.abits));
 			match_properties["efficiency"] = efficiency;
+
+			if (failed_brams.count(pair<IdString, int>(bram.name, bram.variant)))
+				goto next_match_rule;
 
 			log("    Metrics for %s: awaste=%d dwaste=%d bwaste=%d waste=%d efficiency=%d\n",
 					log_id(match.name), awaste, dwaste, bwaste, waste, efficiency);

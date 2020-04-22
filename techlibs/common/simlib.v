@@ -1633,7 +1633,7 @@ wire [WIDTH-1:0] pos_clr = CLR_POLARITY ? CLR : ~CLR;
 genvar i;
 generate
 	for (i = 0; i < WIDTH; i = i+1) begin:bitslices
-		always @(posedge pos_set[i], posedge pos_clr[i])
+		always @*
 			if (pos_clr[i])
 				Q[i] <= 0;
 			else if (pos_set[i])

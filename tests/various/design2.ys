@@ -1,0 +1,9 @@
+read_verilog <<EOT
+module top(input i, output o);
+assign o = i;
+endmodule
+EOT
+design -stash foo
+design -delete foo
+logger -expect error "No saved design 'foo' found!" 1
+design -load foo

@@ -64,6 +64,21 @@ std::string AstNode::process_format_str(const std::string &sformat, int next_arg
 				continue;
 			}
 
+			bool got_len = false;
+			bool got_zlen = false;
+			int len_value = 0;
+
+			while ('0' <= cformat && cformat <= '9')
+			{
+				if (!got_len && cformat == '0')
+					got_zlen = true;
+
+				got_len = true;
+				len_value = 10*len_value + (cformat - '0');
+
+				cformat = sformat[++i];
+			}
+
 			// Simplify the argument
 			AstNode *node_arg = nullptr;
 
@@ -74,6 +89,9 @@ std::string AstNode::process_format_str(const std::string &sformat, int next_arg
 				case 'S':
 				case 'd':
 				case 'D':
+					if (got_len)
+						goto unsupported_format;
+					/* fall through */
 				case 'x':
 				case 'X':
 					if (next_arg >= GetSize(children))
@@ -88,9 +106,12 @@ std::string AstNode::process_format_str(const std::string &sformat, int next_arg
 
 				case 'm':
 				case 'M':
+					if (got_len)
+						goto unsupported_format;
 					break;
 
 				default:
+				unsupported_format:
 					log_file_error(filename, location.first_line, "System task `%s' called with invalid/unsupported format specifier.\n", str.c_str());
 					break;
 			}
@@ -104,19 +125,28 @@ std::string AstNode::process_format_str(const std::string &sformat, int next_arg
 
 				case 'd':
 				case 'D':
-					{
-						char tmp[128];
-						snprintf(tmp, sizeof(tmp), "%d", node_arg->bitsAsConst().as_int());
-						sout += tmp;
-					}
+					sout += stringf("%d", node_arg->bitsAsConst().as_int());
 					break;
 
 				case 'x':
 				case 'X':
 					{
-						char tmp[128];
-						snprintf(tmp, sizeof(tmp), "%x", node_arg->bitsAsConst().as_int());
-						sout += tmp;
+						Const val = node_arg->bitsAsConst();
+
+						while (GetSize(val) % 4 != 0)
+							val.bits.push_back(State::S0);
+
+						int len = GetSize(val) / 4;
+						for (int i = len; i < len_value; i++)
+							sout += got_zlen ? '0' : ' ';
+
+						for (int i = len-1; i >= 0; i--) {
+							Const digit = val.extract(4*i, 4);
+							if (digit.is_fully_def())
+								sout += stringf(cformat == 'x' ? "%x" : "%X", digit.as_int());
+							else
+								sout += cformat == 'x' ? "x" : "X";
+						}
 					}
 					break;
 
@@ -931,9 +961,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 						);
 					}
 					//start building attribute string
-					std::string enum_item_str = "\\enum_";
-					enum_item_str.append(std::to_string(width));
-					enum_item_str.append("_");
+					std::string enum_item_str = "\\enum_value_";
 					//get enum item value
 					if(enum_item->children[0]->type != AST_CONSTANT){
 						log_error("expected const, got %s for %s (%s)\n",
@@ -941,8 +969,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 								  enum_item->str.c_str(), enum_node->str.c_str()
  								);
 					}
-					int val = enum_item->children[0]->asInt(is_signed);
-					enum_item_str.append(std::to_string(val));
+					RTLIL::Const val = enum_item->children[0]->bitsAsConst(width, is_signed);
+					enum_item_str.append(val.as_string());
 					//set attribute for available val to enum item name mappings
 					attributes[enum_item_str.c_str()] = mkconst_str(enum_item->str);
 				}
@@ -1171,7 +1199,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	// annotate identifiers using scope resolution and create auto-wires as needed
 	if (type == AST_IDENTIFIER) {
 		if (current_scope.count(str) == 0) {
-			for (auto node : current_ast_mod->children) {
+			AstNode *current_scope_ast = (current_ast_mod == nullptr) ? current_ast : current_ast_mod;
+			for (auto node : current_scope_ast->children) {
 				//log("looking at mod scope child %s\n", type2str(node->type).c_str());
 				switch (node->type) {
 				case AST_PARAMETER:
@@ -1205,7 +1234,9 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			}
 		}
 		if (current_scope.count(str) == 0) {
-			if (flag_autowire || str == "\\$global_clock") {
+			if (current_ast_mod == nullptr) {
+				log_file_error(filename, location.first_line, "Identifier `%s' is implicitly declared outside of a module.\n", str.c_str());
+			} else if (flag_autowire || str == "\\$global_clock") {
 				AstNode *auto_wire = new AstNode(AST_AUTOWIRE);
 				auto_wire->str = str;
 				current_ast_mod->children.push_back(auto_wire);
@@ -1723,8 +1754,10 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	}
 
 	// replace dynamic ranges in left-hand side expressions (e.g. "foo[bar] <= 1'b1;") with
-	// a big case block that selects the correct single-bit assignment.
-	if (type == AST_ASSIGN_EQ || type == AST_ASSIGN_LE) {
+	// either a big case block that selects the correct single-bit assignment, or mask and
+	// shift operations.
+	if (type == AST_ASSIGN_EQ || type == AST_ASSIGN_LE)
+	{
 		if (children[0]->type != AST_IDENTIFIER || children[0]->children.size() == 0)
 			goto skip_dynamic_range_lvalue_expansion;
 		if (children[0]->children[0]->range_valid || did_something)
@@ -1733,10 +1766,13 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			goto skip_dynamic_range_lvalue_expansion;
 		if (!children[0]->id2ast->range_valid)
 			goto skip_dynamic_range_lvalue_expansion;
+
 		int source_width = children[0]->id2ast->range_left - children[0]->id2ast->range_right + 1;
 		int result_width = 1;
+
 		AstNode *shift_expr = NULL;
 		AstNode *range = children[0]->children[0];
+
 		if (range->children.size() == 1) {
 			shift_expr = range->children[0]->clone();
 		} else {
@@ -1749,19 +1785,72 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				log_file_error(filename, location.first_line, "Unsupported expression on dynamic range select on signal `%s'!\n", str.c_str());
 			result_width = abs(int(left_at_zero_ast->integer - right_at_zero_ast->integer)) + 1;
 		}
-		did_something = true;
-		newNode = new AstNode(AST_CASE, shift_expr);
-		for (int i = 0; i < source_width; i++) {
-			int start_bit = children[0]->id2ast->range_right + i;
-			AstNode *cond = new AstNode(AST_COND, mkconst_int(start_bit, true));
+
+		if (0)
+		{
+			// big case block
+
+			did_something = true;
+			newNode = new AstNode(AST_CASE, shift_expr);
+			for (int i = 0; i < source_width; i++) {
+				int start_bit = children[0]->id2ast->range_right + i;
+				AstNode *cond = new AstNode(AST_COND, mkconst_int(start_bit, true));
+				AstNode *lvalue = children[0]->clone();
+				lvalue->delete_children();
+				int end_bit = std::min(start_bit+result_width,source_width) - 1;
+				lvalue->children.push_back(new AstNode(AST_RANGE,
+						mkconst_int(end_bit, true), mkconst_int(start_bit, true)));
+				cond->children.push_back(new AstNode(AST_BLOCK, new AstNode(type, lvalue, children[1]->clone())));
+				newNode->children.push_back(cond);
+			}
+		}
+		else
+		{
+			// mask and shift operations, disabled for now
+
+			AstNode *wire_mask = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(source_width-1, true), mkconst_int(0, true)));
+			wire_mask->str = stringf("$bitselwrite$mask$%s:%d$%d", filename.c_str(), location.first_line, autoidx++);
+			wire_mask->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
+			wire_mask->is_logic = true;
+			while (wire_mask->simplify(true, false, false, 1, -1, false, false)) { }
+			current_ast_mod->children.push_back(wire_mask);
+
+			AstNode *wire_data = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(source_width-1, true), mkconst_int(0, true)));
+			wire_data->str = stringf("$bitselwrite$data$%s:%d$%d", filename.c_str(), location.first_line, autoidx++);
+			wire_data->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
+			wire_data->is_logic = true;
+			while (wire_data->simplify(true, false, false, 1, -1, false, false)) { }
+			current_ast_mod->children.push_back(wire_data);
+
+			did_something = true;
+			newNode = new AstNode(AST_BLOCK);
+
 			AstNode *lvalue = children[0]->clone();
 			lvalue->delete_children();
-			int end_bit = std::min(start_bit+result_width,source_width) - 1;
-			lvalue->children.push_back(new AstNode(AST_RANGE,
-					mkconst_int(end_bit, true), mkconst_int(start_bit, true)));
-			cond->children.push_back(new AstNode(AST_BLOCK, new AstNode(type, lvalue, children[1]->clone())));
-			newNode->children.push_back(cond);
+
+			AstNode *ref_mask = new AstNode(AST_IDENTIFIER);
+			ref_mask->str = wire_mask->str;
+			ref_mask->id2ast = wire_mask;
+			ref_mask->was_checked = true;
+
+			AstNode *ref_data = new AstNode(AST_IDENTIFIER);
+			ref_data->str = wire_data->str;
+			ref_data->id2ast = wire_data;
+			ref_data->was_checked = true;
+
+			AstNode *old_data = lvalue->clone();
+			if (type == AST_ASSIGN_LE)
+				old_data->lookahead = true;
+
+			AstNode *shamt = shift_expr;
+
+			newNode->children.push_back(new AstNode(AST_ASSIGN_EQ, ref_mask->clone(),
+					new AstNode(AST_SHIFT_LEFT, mkconst_bits(std::vector<RTLIL::State>(result_width, State::S1), false), shamt->clone())));
+			newNode->children.push_back(new AstNode(AST_ASSIGN_EQ, ref_data->clone(),
+					new AstNode(AST_SHIFT_LEFT, new AstNode(AST_BIT_AND, mkconst_bits(std::vector<RTLIL::State>(result_width, State::S1), false), children[1]->clone()), shamt)));
+			newNode->children.push_back(new AstNode(type, lvalue, new AstNode(AST_BIT_OR, new AstNode(AST_BIT_AND, old_data, new AstNode(AST_BIT_NOT, ref_mask)), ref_data)));
 		}
+
 		goto apply_newNode;
 	}
 skip_dynamic_range_lvalue_expansion:;

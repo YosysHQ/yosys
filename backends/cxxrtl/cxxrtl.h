@@ -28,7 +28,9 @@
 #include <type_traits>
 #include <tuple>
 #include <vector>
+#include <map>
 #include <algorithm>
+#include <memory>
 #include <sstream>
 
 // The cxxrtl support library implements compile time specialized arbitrary width arithmetics, as well as provides
@@ -604,12 +606,15 @@ struct memory {
 		auto _ = {std::move(std::begin(init.data), std::end(init.data), data.begin() + init.offset)...};
 	}
 
-	value<Width> &operator [](size_t index) {
+	// An operator for direct memory reads. May be used at any time during the simulation.
+	const value<Width> &operator [](size_t index) const {
 		assert(index < data.size());
 		return data[index];
 	}
 
-	const value<Width> &operator [](size_t index) const {
+	// An operator for direct memory writes. May only be used before the simulation is started. If used
+	// after the simulation is started, the design may malfunction.
+	value<Width> &operator [](size_t index) {
 		assert(index < data.size());
 		return data[index];
 	}
@@ -654,6 +659,57 @@ struct memory {
 	}
 };
 
+struct metadata {
+	const enum {
+		MISSING = 0,
+		UINT   	= 1,
+		SINT   	= 2,
+		STRING 	= 3,
+		DOUBLE 	= 4,
+	} value_type;
+
+	// In debug mode, using the wrong .as_*() function will assert.
+	// In release mode, using the wrong .as_*() function will safely return a default value.
+	union {
+		const unsigned  uint_value = 0;
+		const signed    sint_value;
+	};
+	const std::string string_value = "";
+	const double      double_value = 0.0;
+
+	metadata() : value_type(MISSING) {}
+	metadata(unsigned value) : value_type(UINT), uint_value(value) {}
+	metadata(signed value) : value_type(SINT), sint_value(value) {}
+	metadata(const std::string &value) : value_type(STRING), string_value(value) {}
+	metadata(const char *value) : value_type(STRING), string_value(value) {}
+	metadata(double value) : value_type(DOUBLE), double_value(value) {}
+
+	metadata(const metadata &) = default;
+	metadata &operator=(const metadata &) = delete;
+
+	unsigned as_uint() const {
+		assert(value_type == UINT);
+		return uint_value;
+	}
+
+	signed as_sint() const {
+		assert(value_type == SINT);
+		return sint_value;
+	}
+
+	const std::string &as_string() const {
+		assert(value_type == STRING);
+		return string_value;
+	}
+
+	double as_double() const {
+		assert(value_type == DOUBLE);
+		return double_value;
+	}
+};
+
+typedef std::map<std::string, metadata> metadata_map;
+
 struct module {
 	module() {}
 	virtual ~module() {}
@@ -661,15 +717,16 @@ struct module {
 	module(const module &) = delete;
 	module &operator=(const module &) = delete;
 
-	virtual void eval() = 0;
+	virtual bool eval() = 0;
 	virtual bool commit() = 0;
 
 	size_t step() {
 		size_t deltas = 0;
+		bool converged = false;
 		do {
-			eval();
+			converged = eval();
 			deltas++;
-		} while (commit());
+		} while (commit() && !converged);
 		return deltas;
 	}
 };

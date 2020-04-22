@@ -99,6 +99,11 @@ struct DesignPass : public Pass {
 		log("The Verilog front-end remembers defined macros and top-level declarations\n");
 		log("between calls to 'read_verilog'. This command resets this memory.\n");
 		log("\n");
+		log("    design -delete <name>\n");
+		log("\n");
+		log("Delete the design previously saved under the given name.\n");
+		log("\n");
+
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
@@ -110,7 +115,7 @@ struct DesignPass : public Pass {
 		bool pop_mode = false;
 		bool import_mode = false;
 		RTLIL::Design *copy_from_design = NULL, *copy_to_design = NULL;
-		std::string save_name, load_name, as_name;
+		std::string save_name, load_name, as_name, delete_name;
 		std::vector<RTLIL::Module*> copy_src_modules;
 
 		size_t argidx;
@@ -190,6 +195,13 @@ struct DesignPass : public Pass {
 				as_name = args[++argidx];
 				continue;
 			}
+			if (!got_mode && args[argidx] == "-delete" && argidx+1 < args.size()) {
+				got_mode = true;
+				delete_name = args[++argidx];
+				if (saved_designs.count(delete_name) == 0)
+					log_cmd_error("No saved design '%s' found!\n", delete_name.c_str());
+				continue;
+			}
 			break;
 		}
 
@@ -216,14 +228,20 @@ struct DesignPass : public Pass {
 			}
 
 			if (import_mode) {
+				std::vector<RTLIL::Module*> candidates;
 				for (auto module : copy_src_modules)
 				{
 					if (module->get_bool_attribute(ID::top)) {
-						copy_src_modules.clear();
-						copy_src_modules.push_back(module);
+						candidates.clear();
+						candidates.push_back(module);
 						break;
 					}
+					if (!module->get_blackbox_attribute())
+						candidates.push_back(module);
 				}
+
+				if (GetSize(candidates) == 1)
+					copy_src_modules = std::move(candidates);
 			}
 		}
 
@@ -340,7 +358,7 @@ struct DesignPass : public Pass {
 
 		if (reset_mode || !load_name.empty() || push_mode || pop_mode)
 		{
-			for (auto mod : design->modules())
+			for (auto mod : design->modules().to_vector())
 				design->remove(mod);
 
 			design->selection_stack.clear();
@@ -378,6 +396,14 @@ struct DesignPass : public Pass {
 				delete saved_design;
 				pushed_designs.pop_back();
 			}
+		}
+
+		if (!delete_name.empty())
+		{
+			auto it = saved_designs.find(delete_name);
+			log_assert(it != saved_designs.end());
+			delete it->second;
+			saved_designs.erase(it);
 		}
 	}
 } DesignPass;

@@ -144,7 +144,6 @@ struct SynthAchronixPass : public ScriptPass {
         run("opt -fast -mux_undef -undriven -fine -full");
         run("memory_map");
         run("opt -undriven -fine");
-        run("dffsr2dff");
         run("dff2dffe -direct-match $_DFF_*");
         run("opt -fine");
         run("techmap -map +/techmap.v");

@@ -112,7 +112,6 @@ select -assert-count 1 t:SB_RAM40_4K
 
 design -reset; read_verilog ../common/blockrom.v
 chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 8 sync_rom
-write_ilang
 synth_ice40 -top sync_rom; cd sync_rom
 select -assert-count 0 t:SB_RAM40_4K # too inefficient
 select -assert-min 1 t:SB_LUT4

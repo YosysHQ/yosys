@@ -334,10 +334,16 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 					log_error("Module `%s' referenced in module `%s' in cell `%s' does not have a port named '%s'.\n",
 							log_id(cell->type), log_id(module), log_id(cell), log_id(conn.first));
 			}
-			for (auto &param : cell->parameters)
-				if (mod->avail_parameters.count(param.first) == 0 && param.first[0] != '$' && strchr(param.first.c_str(), '.') == NULL)
+			for (auto &param : cell->parameters) {
+				if (param.first[0] == '$' && '0' <= param.first[1] && param.first[1] <= '9') {
+					int id = atoi(param.first.c_str()+1);
+					if (id <= 0 || id > GetSize(mod->avail_parameters))
+						log_error("Module `%s' referenced in module `%s' in cell `%s' has only %d parameters, requested parameter %d.\n",
+								log_id(cell->type), log_id(module), log_id(cell), GetSize(mod->avail_parameters), id);
+				} else if (mod->avail_parameters.count(param.first) == 0 && param.first[0] != '$' && strchr(param.first.c_str(), '.') == NULL)
 					log_error("Module `%s' referenced in module `%s' in cell `%s' does not have a parameter named '%s'.\n",
 							log_id(cell->type), log_id(module), log_id(cell), log_id(param.first));
+			}
 
 		}
 		}
@@ -939,7 +945,8 @@ struct HierarchyPass : public Pass {
 
 			for (auto mod : design->modules())
 			for (auto cell : mod->cells()) {
-				if (design->module(cell->type) == nullptr)
+				RTLIL::Module *cell_mod = design->module(cell->type);
+				if (cell_mod == nullptr)
 					continue;
 				for (auto &conn : cell->connections())
 					if (conn.first[0] == '$' && '0' <= conn.first[1] && conn.first[1] <= '9') {
@@ -947,6 +954,23 @@ struct HierarchyPass : public Pass {
 						pos_work.push_back(std::pair<RTLIL::Module*,RTLIL::Cell*>(mod, cell));
 						break;
 					}
+
+				pool<std::pair<IdString, IdString>> params_rename;
+				for (const auto &p : cell->parameters) {
+					if (p.first[0] == '$' && '0' <= p.first[1] && p.first[1] <= '9') {
+						int id = atoi(p.first.c_str()+1);
+						if (id <= 0 || id > GetSize(cell_mod->avail_parameters)) {
+							log("  Failed to map positional parameter %d of cell %s.%s (%s).\n",
+									id, RTLIL::id2cstr(mod->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
+						} else {
+							params_rename.insert(std::make_pair(p.first, cell_mod->avail_parameters[id - 1]));
+						}
+					}
+				}
+				for (const auto &p : params_rename) {
+					cell->setParam(p.second, cell->getParam(p.first));
+					cell->unsetParam(p.first);
+				}
 			}
 
 			for (auto module : pos_mods)

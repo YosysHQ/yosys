@@ -29,16 +29,23 @@
 #if defined(__GNUC__) && !defined( __clang__) && ( __GNUC__ == 4 && __GNUC_MINOR__ <= 8)
 	#include <boost/xpressive/xpressive.hpp>
 	#define YS_REGEX_TYPE boost::xpressive::sregex
+	#define YS_REGEX_MATCH_TYPE boost::xpressive::smatch
 	#define YS_REGEX_NS boost::xpressive
 	#define YS_REGEX_COMPILE(param) boost::xpressive::sregex::compile(param, \
 					boost::xpressive::regex_constants::nosubs | \
 					boost::xpressive::regex_constants::optimize)
+	#define YS_REGEX_COMPILE_WITH_SUBS(param) boost::xpressive::sregex::compile(param, \
+					boost::xpressive::regex_constants::optimize)
 # else
 	#include <regex>
 	#define YS_REGEX_TYPE std::regex
+	#define YS_REGEX_MATCH_TYPE std::smatch
 	#define YS_REGEX_NS std
 	#define YS_REGEX_COMPILE(param) std::regex(param, \
 					std::regex_constants::nosubs | \
+					std::regex_constants::optimize | \
+					std::regex_constants::egrep)
+	#define YS_REGEX_COMPILE_WITH_SUBS(param) std::regex(param, \
 					std::regex_constants::optimize | \
 					std::regex_constants::egrep)
 #endif

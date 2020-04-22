@@ -143,11 +143,18 @@ module_body:
 	/* empty */;
 
 module_stmt:
-	param_stmt | attr_stmt | wire_stmt | memory_stmt | cell_stmt | proc_stmt | conn_stmt;
+	param_stmt | param_defval_stmt | attr_stmt | wire_stmt | memory_stmt | cell_stmt | proc_stmt | conn_stmt;
 
 param_stmt:
 	TOK_PARAMETER TOK_ID EOL {
-		current_module->avail_parameters.insert($2);
+		current_module->avail_parameters($2);
+		free($2);
+	};
+
+param_defval_stmt:
+	TOK_PARAMETER TOK_ID constant EOL {
+		current_module->avail_parameters($2);
+		current_module->parameter_default_values[$2] = *$3;
 		free($2);
 	};
 

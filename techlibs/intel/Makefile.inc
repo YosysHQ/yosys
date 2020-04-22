@@ -11,4 +11,3 @@ families := max10 arria10gx cyclonev cyclone10lp cycloneiv cycloneive
 $(foreach family,$(families), $(eval $(call add_share_file,share/intel/$(family),techlibs/intel/$(family)/cells_sim.v)))
 $(foreach family,$(families), $(eval $(call add_share_file,share/intel/$(family),techlibs/intel/$(family)/cells_map.v)))
 #$(eval $(call add_share_file,share/intel/cycloneive,techlibs/intel/cycloneive/arith_map.v))
-

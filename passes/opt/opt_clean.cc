@@ -406,6 +406,9 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 	if (verbose && del_temp_wires_count)
 		log_debug("  removed %d unused temporary wires.\n", del_temp_wires_count);
 
+	if (!del_wires_queue.empty())
+		module->design->scratchpad_set_bool("opt.did_something", true);
+
 	return !del_wires_queue.empty();
 }
 
@@ -475,6 +478,9 @@ bool rmunused_module_init(RTLIL::Module *module, bool purge_mode, bool verbose)
 		did_something = true;
 	next_wire:;
 	}
+
+	if (did_something)
+		module->design->scratchpad_set_bool("opt.did_something", true);
 
 	return did_something;
 }

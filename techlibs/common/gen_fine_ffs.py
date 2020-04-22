@@ -8,15 +8,14 @@ TEMPLATES = [
 //-
 //- Truth table:    S R | Q
 //-                -----+---
-//-                 {S:0|1} {R:0|1} | x
-//-                 {S:0|1} {R:1|0} | 1
-//-                 {S:1|0} {R:0|1} | 0
-//-                 {S:1|0} {R:1|0} | y
+//-                 - {R:0|1} | 0
+//-                 {S:0|1} - | 1
+//-                 - - | q
 //-
 module \$_SR_{S:N|P}{R:N|P}_ (S, R, Q);
 input S, R;
 output reg Q;
-always @({S:neg|pos}edge S, {R:neg|pos}edge R) begin
+always @* begin
 	if (R == {R:0|1})
 		Q <= 0;
 	else if (S == {S:0|1})

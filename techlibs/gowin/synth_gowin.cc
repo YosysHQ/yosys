@@ -219,7 +219,6 @@ struct SynthGowinPass : public ScriptPass
 
 		if (check_label("map_ffs"))
 		{
-			run("dffsr2dff");
 			run("dff2dffs -match-init");
 			run("opt_clean");
 			if (!nodffe)

@@ -1007,6 +1007,7 @@ struct SelectPass : public Pass {
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    select [ -add | -del | -set <name> ] {-read <filename> | <selection>}\n");
+		log("    select [ -unset <name> ]\n");
 		log("    select [ <assert_option> ] {-read <filename> | <selection>}\n");
 		log("    select [ -list | -write <filename> | -count | -clear ]\n");
 		log("    select -module <modname>\n");
@@ -1028,6 +1029,10 @@ struct SelectPass : public Pass {
 		log("        do not modify the current selection. instead save the new selection\n");
 		log("        under the given name (see @<name> below). to save the current selection,\n");
 		log("        use \"select -set <name> %%\"\n");
+		log("\n");
+		log("    -unset <name>\n");
+		log("        do not modify the current selection. instead remove a previously saved\n");
+		log("        selection under the given name (see @<name> below).");
 		log("\n");
 		log("    -assert-none\n");
 		log("        do not modify the current selection. instead assert that the given\n");
@@ -1238,7 +1243,7 @@ struct SelectPass : public Pass {
 		int assert_max = -1;
 		int assert_min = -1;
 		std::string write_file, read_file;
-		std::string set_name, sel_str;
+		std::string set_name, unset_name, sel_str;
 
 		work_stack.clear();
 
@@ -1310,6 +1315,10 @@ struct SelectPass : public Pass {
 				set_name = RTLIL::escape_id(args[++argidx]);
 				continue;
 			}
+			if (arg == "-unset" && argidx+1 < args.size()) {
+				unset_name = RTLIL::escape_id(args[++argidx]);
+				continue;
+			}
 			if (arg.size() > 0 && arg[0] == '-')
 				log_cmd_error("Unknown option %s.\n", arg.c_str());
 			bool disable_empty_warning = count_mode || assert_none || assert_any || (assert_count != -1) || (assert_max != -1) || (assert_min != -1);
@@ -1358,8 +1367,11 @@ struct SelectPass : public Pass {
 		if ((list_mode || !write_file.empty() || count_mode) && (add_mode || del_mode || assert_none || assert_any || assert_count >= 0 || assert_max >= 0 || assert_min >= 0))
 			log_cmd_error("Options -list, -write and -count can not be combined with -add, -del, -assert-none, -assert-any, assert-count, -assert-max, or -assert-min.\n");
 
-		if (!set_name.empty() && (list_mode || !write_file.empty() || count_mode || add_mode || del_mode || assert_none || assert_any || assert_count >= 0 || assert_max >= 0 || assert_min >= 0))
-			log_cmd_error("Option -set can not be combined with -list, -write, -count, -add, -del, -assert-none, -assert-any, -assert-count, -assert-max, or -assert-min.\n");
+		if (!set_name.empty() && (list_mode || !write_file.empty() || count_mode || add_mode || !unset_name.empty() || del_mode || assert_none || assert_any || assert_count >= 0 || assert_max >= 0 || assert_min >= 0))
+			log_cmd_error("Option -set can not be combined with -list, -write, -count, -add, -del, -unset, -assert-none, -assert-any, -assert-count, -assert-max, or -assert-min.\n");
+
+		if (!unset_name.empty() && (list_mode || !write_file.empty() || count_mode || add_mode || !set_name.empty() || del_mode || assert_none || assert_any || assert_count >= 0 || assert_max >= 0 || assert_min >= 0))
+			log_cmd_error("Option -unset can not be combined with -list, -write, -count, -add, -del, -set, -assert-none, -assert-any, -assert-count, -assert-max, or -assert-min.\n");
 
 		if (work_stack.size() == 0 && got_module) {
 			RTLIL::Selection sel;
@@ -1524,6 +1536,13 @@ struct SelectPass : public Pass {
 				design->selection_vars[set_name] = RTLIL::Selection(false);
 			else
 				design->selection_vars[set_name] = work_stack.back();
+			return;
+		}
+
+		if (!unset_name.empty())
+		{
+			if (!design->selection_vars.erase(unset_name))
+				log_error("Selection '%s' does not exist!\n", unset_name.c_str());
 			return;
 		}
 

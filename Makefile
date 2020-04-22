@@ -148,7 +148,10 @@ define newline
 endef
 
 ifneq ($(wildcard Makefile.conf),)
+# don't echo Makefile.conf contents when invoked to print source versions
+ifeq ($(findstring echo-,$(MAKECMDGOALS)),)
 $(info $(subst $$--$$,$(newline),$(shell sed 's,^,[Makefile.conf] ,; s,$$,$$--$$,;' < Makefile.conf | tr -d '\n' | sed 's,\$$--\$$$$,,')))
+endif
 include Makefile.conf
 endif
 
@@ -737,6 +740,7 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/arch/efinix && bash run-test.sh $(SEEDOPT)
 	+cd tests/arch/anlogic && bash run-test.sh $(SEEDOPT)
 	+cd tests/arch/gowin && bash run-test.sh $(SEEDOPT)
+	+cd tests/arch/intel_alm && bash run-test.sh $(SEEDOPT)
 	+cd tests/rpc && bash run-test.sh
 	+cd tests/memfile && bash run-test.sh
 	@echo ""

@@ -522,10 +522,9 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("map_ffram")) {
-			// Required for dffsr2dff to work.
+			// Required for dff2dffs to work.
 			run("simplemap t:$dff t:$adff t:$mux");
 			// Needs to be done before opt -mux_bool happens.
-			run("dffsr2dff");
 			if (help_mode)
 				run("dff2dffs [-match-init]", "(-match-init for xc6s only)");
 			else if (family == "xc6s")

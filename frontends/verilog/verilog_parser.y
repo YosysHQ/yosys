@@ -1924,11 +1924,13 @@ always_events:
 always_event:
 	TOK_POSEDGE expr {
 		AstNode *node = new AstNode(AST_POSEDGE);
+		SET_AST_NODE_LOC(node, @1, @1);
 		ast_stack.back()->children.push_back(node);
 		node->children.push_back($2);
 	} |
 	TOK_NEGEDGE expr {
 		AstNode *node = new AstNode(AST_NEGEDGE);
+		SET_AST_NODE_LOC(node, @1, @1);
 		ast_stack.back()->children.push_back(node);
 		node->children.push_back($2);
 	} |
@@ -2244,6 +2246,7 @@ behavioral_stmt:
 		exitTypeScope();
 		if ($4 != NULL && $8 != NULL && *$4 != *$8)
 			frontend_verilog_yyerror("Begin label (%s) and end label (%s) don't match.", $4->c_str()+1, $8->c_str()+1);
+		SET_AST_NODE_LOC(ast_stack.back(), @2, @8);
 		delete $4;
 		delete $8;
 		ast_stack.pop_back();
@@ -2618,6 +2621,7 @@ basic_expr:
 		bits->str = *$1;
 		SET_AST_NODE_LOC(bits, @1, @1);
 		AstNode *val = const2ast(*$2, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode);
+		SET_AST_NODE_LOC(val, @2, @2);
 		if (val == NULL)
 			log_error("Value conversion failed: `%s'\n", $2->c_str());
 		$$ = new AstNode(AST_TO_BITS, bits, val);
@@ -2626,6 +2630,7 @@ basic_expr:
 	} |
 	integral_number {
 		$$ = const2ast(*$1, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode);
+		SET_AST_NODE_LOC($$, @1, @1);
 		if ($$ == NULL)
 			log_error("Value conversion failed: `%s'\n", $1->c_str());
 		delete $1;
@@ -2644,6 +2649,7 @@ basic_expr:
 	} |
 	TOK_STRING {
 		$$ = AstNode::mkconst_str(*$1);
+		SET_AST_NODE_LOC($$, @1, @1);
 		delete $1;
 	} |
 	hierarchical_id attr {
