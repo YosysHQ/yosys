@@ -27,9 +27,10 @@ PRIVATE_NAMESPACE_BEGIN
 struct GliftPass : public Pass {
 	private:
 
-	bool opt_create, opt_sketchify, opt_taintconstants;
+	bool opt_create, opt_sketchify, opt_taintconstants, opt_keepoutputs;
 	std::vector<std::string> args;
 	std::vector<std::string>::size_type argidx;
+	std::vector<RTLIL::Wire *> new_taint_outputs;
 	RTLIL::Module *module;
 
 	void parse_args() {
@@ -44,6 +45,10 @@ struct GliftPass : public Pass {
 			}
 			if (args[argidx] == "-taint-constants") {
 				opt_taintconstants = true;
+				continue;
+			}
+			if (args[argidx] == "-keep-outputs") {
+				opt_keepoutputs = true;
 				continue;
 			}
 			break;
@@ -76,7 +81,7 @@ struct GliftPass : public Pass {
 		if(sig.is_wire() && sig.as_wire()->port_input)
 			ret.as_wire()->port_input = true;
 		if(sig.is_wire() && sig.as_wire()->port_output)
-			ret.as_wire()->port_output = true;
+			new_taint_outputs.push_back(ret.as_wire());
 
 		return ret;
 	}
@@ -144,13 +149,13 @@ struct GliftPass : public Pass {
 					add_imprecise_GLIFT_logic_3(cell, port_taints[A], port_taints[B], imprecise_3_y);
 
 					RTLIL::SigSpec meta_mux_select(module->addWire(cell->name.str() + "_sel", 2));
-					meta_mux_select.as_wire()->set_bool_attribute("\\maximize");
+					//meta_mux_select.as_wire()->set_bool_attribute("\\maximize");
 					new_connections.emplace_back(meta_mux_select, module->Anyconst(cell->name.str() + "_hole", 2, cell->get_src_attribute()));
 					RTLIL::SigSpec meta_mux1(module->Mux(cell->name.str() + "_mux1", precise_y, imprecise_1_y, meta_mux_select[1]));
 					RTLIL::SigSpec meta_mux2(module->Mux(cell->name.str() + "_mux2", imprecise_2_y, imprecise_3_y, meta_mux_select[1]));
 					module->addMux(cell->name.str() + "_mux3", meta_mux1, meta_mux2, meta_mux_select[0], port_taints[Y]);
 				}
-				else log_cmd_error("This is a bug (2).\n");
+				else log_cmd_error("This is a bug (1).\n");
 			}
 			else if (cell->type.in("$_NOT_")) {
 				const unsigned int A = 0, Y = 1;
@@ -166,7 +171,7 @@ struct GliftPass : public Pass {
 				if (cell->type == "$_NOT_") {
 					new_connections.emplace_back(port_taints[Y], port_taints[A]);
 				}
-				else log_cmd_error("This is a bug (3).\n");
+				else log_cmd_error("This is a bug (2).\n");
 			}
 		} //end foreach cell in cells
 
@@ -179,18 +184,38 @@ struct GliftPass : public Pass {
 			if(conn.second.is_wire() && conn.second.as_wire()->port_input)
 				second.as_wire()->port_input = true;
 			if(conn.first.is_wire() && conn.first.as_wire()->port_output)
-				first.as_wire()->port_output = true;
+				new_taint_outputs.push_back(first.as_wire());
 		} //end foreach conn in connections
 
 		for (auto &conn : new_connections)
 			module->connect(conn);
 
+		for (auto &port_name : module->ports) {
+			RTLIL::Wire *port = module->wire(port_name);
+			log_assert(port != nullptr);
+			if (port->port_output && !opt_keepoutputs)
+				port->port_output = false;
+		}
+		for (auto &output : new_taint_outputs)
+			output->port_output = true;
 		module->fixup_ports(); //we have some new taint signals in the module interface
+	}
+
+	void reset() {
+		opt_create = false;
+		opt_sketchify = false;
+		opt_taintconstants = false;
+		opt_keepoutputs = false;
+		module = nullptr;
+		args.clear();
+		argidx = 0;
+		new_taint_outputs.clear();
 	}
 
 	public:
 
-	GliftPass() : Pass("glift", "create and transform GLIFT models"), opt_create(false), opt_sketchify(false), opt_taintconstants(false), module(nullptr) { }
+	GliftPass() : Pass("glift", "create and transform GLIFT models"), opt_create(false), opt_sketchify(false), opt_taintconstants(false), opt_keepoutputs(false), module(nullptr) { }
+
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -200,29 +225,35 @@ struct GliftPass : public Pass {
 		log("Adds, removes, or manipulates gate-level information flow tracking (GLIFT) logic\n");
 		log("to the current or specified module.\n");
 		log("\n");
-		log("Commands:");
+		log("Commands:\n");
 		log("\n");
-		log("  -create");
+		log("  -create\n");
 		log("    Replaces the current or specified module with one that has additional \"taint\"\n");
 		log("    inputs, outputs, and internal nets along with precise taint-tracking logic.\n");
 		log("\n");
-		log("  -sketchify");
+		log("  -sketchify\n");
 		log("    Replaces the current or specified module with one that has additional \"taint\"\n");
 		log("    inputs, outputs, and internal nets along with varying-precision taint-tracking logic.\n");
 		log("    Which version of taint tracking logic is used at a given cell is determined by a MUX\n");
 		log("    selected by an $anyconst cell.\n");
 		log("\n");
-		log("Options:");
+		log("Options:\n");
 		log("\n");
-		log("  -taint-constants");
+		log("  -taint-constants\n");
 		log("    Constant values in the design are labeled as tainted.\n");
 		log("    (default: label constants as un-tainted)\n");
+		log("\n");
+		log("  -keep-outputs\n");
+		log("    Do not remove module outputs. Taint tracking outputs will appear in the module ports\n");
+		log("    alongside the orignal outputs.\n");
+		log("    (default: original module outputs are removed)\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> _args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing GLIFT pass (creating and manipulating GLIFT models).\n");
 
+		reset();
 		args = _args;
 		parse_args();
 		extra_args(args, argidx, design);
