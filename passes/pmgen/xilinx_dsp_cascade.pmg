@@ -188,7 +188,7 @@ arg next
 //       driven by the 'P' output of the previous DSP cell, and (c) has its
 //       'PCIN' port unused
 match nextP
-	select !param(nextP, \CREG, State::S1).as_bool()
+	select !param(nextP, \CREG).as_bool()
 	select (nextP->type.in(\DSP48A, \DSP48A1) && port(nextP, \OPMODE, Const(0, 8)).extract(2,2) == Const::from_string("11")) || (nextP->type.in(\DSP48E1) && port(nextP, \OPMODE, Const(0, 7)).extract(4,3) == Const::from_string("011"))
 	select nusers(port(nextP, \C, SigSpec())) > 1
 	select nusers(port(nextP, \PCIN, SigSpec())) == 0
@@ -201,7 +201,7 @@ endmatch
 match nextP_shift17
 	if !nextP
 	select nextP_shift17->type.in(\DSP48E1)
-	select !param(nextP_shift17, \CREG, State::S1).as_bool()
+	select !param(nextP_shift17, \CREG).as_bool()
 	select port(nextP_shift17, \OPMODE, Const(0, 7)).extract(4,3) == Const::from_string("011")
 	select nusers(port(nextP_shift17, \C, SigSpec())) > 1
 	select nusers(port(nextP_shift17, \PCIN, SigSpec())) == 0
@@ -242,10 +242,10 @@ code argQ clock AREG
 	if (next && next->type.in(\DSP48E1)) {
 		Cell *prev = std::get<0>(chain.back());
 
-		if (param(next, \A_INPUT, Const("DIRECT")).decode_string() == "DIRECT" &&
+		if (param(next, \A_INPUT).decode_string() == "DIRECT" &&
 				port(next, \ACIN, SigSpec()).is_fully_zero() &&
 				nusers(port(prev, \ACOUT, SigSpec())) <= 1) {
-			if (param(prev, \AREG, 2) == 0) {
+			if (param(prev, \AREG) == 0) {
 				if (port(prev, \A) == port(next, \A))
 					AREG = 0;
 			}
@@ -259,9 +259,9 @@ code argQ clock AREG
 					if (dffrstmux && port(dffrstmux, \S) != port(prev, \RSTA, State::S0))
 						goto reject_AREG;
 					IdString CEA;
-					if (param(prev, \AREG, 2) == 1)
+					if (param(prev, \AREG) == 1)
 						CEA = \CEA2;
-					else if (param(prev, \AREG, 2) == 2)
+					else if (param(prev, \AREG) == 2)
 						CEA = \CEA1;
 					else log_abort();
 					if (!dffcemux && port(prev, CEA, State::S0) != State::S1)
@@ -282,11 +282,11 @@ code argQ clock BREG
 	BREG = -1;
 	if (next) {
 		Cell *prev = std::get<0>(chain.back());
-		if (param(next, \B_INPUT, Const("DIRECT")).decode_string() == "DIRECT" &&
+		if ((next->type != \DSP48E1 || param(next, \B_INPUT).decode_string() == "DIRECT") &&
 				port(next, \BCIN, SigSpec()).is_fully_zero() &&
 				nusers(port(prev, \BCOUT, SigSpec())) <= 1) {
-			if ((next->type.in(\DSP48A, \DSP48A1) && param(prev, \B0REG, 0) == 0 && param(prev, \B1REG, 1) == 0) ||
-				(next->type.in(\DSP48E1) && param(prev, \BREG, 2) == 0)) {
+			if ((next->type.in(\DSP48A, \DSP48A1) && param(prev, \B0REG) == 0 && param(prev, \B1REG) == 0) ||
+				(next->type.in(\DSP48E1) && param(prev, \BREG) == 0)) {
 				if (port(prev, \B) == port(next, \B))
 					BREG = 0;
 			}
@@ -303,9 +303,9 @@ code argQ clock BREG
 					if (next->type.in(\DSP48A, \DSP48A1))
 						CEB = \CEB;
 					else if (next->type.in(\DSP48E1)) {
-						if (param(prev, \BREG, 2) == 1)
+						if (param(prev, \BREG) == 1)
 							CEB = \CEB2;
-						else if (param(prev, \BREG, 2) == 2)
+						else if (param(prev, \BREG) == 2)
 							CEB = \CEB1;
 						else log_abort();
 					}
@@ -315,7 +315,7 @@ code argQ clock BREG
 					if (dffcemux && port(dffcemux, \S) != port(prev, CEB, State::S0))
 						goto reject_BREG;
 					if (dffD == unextend(port(prev, \B))) {
-						if (next->type.in(\DSP48A, \DSP48A1) && param(prev, \B0REG, 0) != 0)
+						if (next->type.in(\DSP48A, \DSP48A1) && param(prev, \B0REG) != 0)
 							goto reject_BREG;
 						BREG = 1;
 					}
