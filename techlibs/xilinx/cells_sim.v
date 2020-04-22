@@ -1678,7 +1678,6 @@ module RAM128X1D (
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L981
     if (!IS_WCLK_INVERTED && WE) (posedge WCLK => (SPO : D))    = 1153 + 217 /* to cross F7AMUX */ + 175 /* AMUX */;
     if ( IS_WCLK_INVERTED && WE) (negedge WCLK => (DPO : 1'bx)) = 1153 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
-`endif
     (A[0] => SPO) = 642 + 193 /* to cross F7AMUX */ + 175 /* AMUX */;
     (A[1] => SPO) = 631 + 193 /* to cross F7AMUX */ + 175 /* AMUX */;
     (A[2] => SPO) = 472 + 193 /* to cross F7AMUX */ + 175 /* AMUX */;
@@ -1693,6 +1692,7 @@ module RAM128X1D (
     (DPRA[4] => DPO) = 238 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
     (DPRA[5] => DPO) = 127 + 223 /* to cross MUXF7 */ + 174 /* CMUX */;
     (DPRA[6] => DPO) = 0 + 296 /* to select MUXF7 */ + 174 /* CMUX */;
+`endif
   endspecify
 endmodule
 
@@ -3036,8 +3036,10 @@ endmodule
 
 // Virtex 6, Series 7.
 
+`ifdef YOSYS
 (* abc9_box=!(PREG || AREG || ADREG || BREG || CREG || DREG || MREG),
    lib_whitebox=!(PREG || AREG || ADREG || BREG || CREG || DREG || MREG) *)
+`endif
 module DSP48E1 (
     output [29:0] ACOUT,
     output [17:0] BCOUT,
