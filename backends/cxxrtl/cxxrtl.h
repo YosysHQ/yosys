@@ -641,13 +641,15 @@ struct memory {
 
 	void update(size_t index, const value<Width> &val, const value<Width> &mask, int priority = 0) {
 		assert(index < data.size());
-		write_queue.emplace_back(write { index, val, mask, priority });
+		// Queue up the write while keeping the queue sorted by priority.
+		write_queue.insert(
+			std::upper_bound(write_queue.begin(), write_queue.end(), priority,
+				[](const int a, const write& b) { return a < b.priority; }),
+			write { index, val, mask, priority });
 	}
 
 	bool commit() {
 		bool changed = false;
-		std::sort(write_queue.begin(), write_queue.end(),
-			[](const write &a, const write &b) { return a.priority < b.priority; });
 		for (const write &entry : write_queue) {
 			value<Width> elem = data[entry.index];
 			elem = elem.update(entry.val, entry.mask);
