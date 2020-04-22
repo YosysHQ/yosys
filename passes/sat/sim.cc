@@ -128,8 +128,12 @@ struct SimInstance
 
 			for (auto &port : cell->connections()) {
 				if (cell->input(port.first))
-					for (auto bit : sigmap(port.second))
+					for (auto bit : sigmap(port.second)) {
 						upd_cells[bit].insert(cell);
+						// Make sure cell inputs connected to constants are updated in the first cycle
+						if (bit.wire == nullptr)
+							dirty_bits.insert(bit);
+					}
 			}
 
 			if (cell->type.in(ID($dff))) {
