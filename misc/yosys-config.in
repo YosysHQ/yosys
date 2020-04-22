@@ -6,7 +6,7 @@ help() {
 		echo "Usage: $0 [--exec] [--prefix pf] args.."
 		echo "       $0 --build modname.so cppsources.."
 		echo ""
-		echo "Replecement args:"
+		echo "Replacement args:"
 		echo "    --cxx         @CXX@"
 		echo "    --cxxflags    $( echo '@CXXFLAGS@' | fmt -w60 | sed ':a;N;$!ba;s/\n/ \\\n                      /g' )"
 		echo "    --ldflags     @LDFLAGS@"
