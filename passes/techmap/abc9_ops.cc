@@ -474,22 +474,11 @@ void prep_dff_submod(RTLIL::Design *design)
 				specify_cells.emplace_back(cell);
 		log_assert(dff_cell);
 
-		// Add dummy buffers for all module inputs/outputs
-		//   to ensure that these ports exists in the flop box
-		//   created by later submod pass
-		for (auto port_name : module->ports) {
-			auto port = module->wire(port_name);
-			log_assert(GetSize(port) == 1);
-			auto c = module->addBufGate(NEW_ID, port, module->addWire(NEW_ID));
-			// Need to set (* keep *) otherwise opt_clean
-			//   inside submod will blow it away
-			c->set_bool_attribute(ID::keep);
-		}
-		// Add an additional buffer that drives $_DFF_[NP]_.D
-		//   so that the flop box will have an output
+		// Add an always-enabled CE mux that drives $_DFF_[NP]_.D so that:
+		//   (a) flop box will have an output
+		//   (b) $_DFF_[NP]_.Q will be present as an input
 		SigBit D = module->addWire(NEW_ID);
-		Cell *c = module->addBufGate(NEW_ID, dff_cell->getPort(ID::D), D);
-		c->set_bool_attribute(ID::keep);
+		module->addMuxGate(NEW_ID, dff_cell->getPort(ID::D), Q, State::S0, D);
 		dff_cell->setPort(ID::D, D);
 
 		// Rewrite $specify cells that end with $_DFF_[NP]_.Q
@@ -513,26 +502,31 @@ void prep_dff_unmap(RTLIL::Design *design)
 		if (!module->get_bool_attribute(ID::abc9_flop) || module->get_bool_attribute(ID::abc9_box))
 			continue;
 
-		auto unmap_module = unmap_design->addModule(module->name.str() + "_$abc9_flop");
-		auto replace_cell = unmap_module->addCell(ID::_TECHMAP_REPLACE_, module->name);
-		for (auto port_name : module->ports) {
-			auto w = unmap_module->addWire(port_name, module->wire(port_name));
-			// Do not propagate (* init *) values inside the box
-			if (w->port_output)
-				w->attributes.erase(ID::init);
-			replace_cell->setPort(port_name, w);
-		}
-
-		// Add new ports appearing in "_$abc9_flop"
-		auto box_module = design->module(unmap_module->name);
+		// Make sure the box module has all the same ports present on flop cell
+		auto replace_cell = module->cell(ID::_TECHMAP_REPLACE_);
+		log_assert(replace_cell);
+		auto box_module = design->module(module->name.str() + "_$abc9_flop");
 		log_assert(box_module);
+		for (auto port_name : module->ports) {
+			auto port = module->wire(port_name);
+			auto box_port = box_module->wire(port_name);
+			if (box_port) {
+				// Do not propagate init -- already captured by box
+				box_port->attributes.erase(ID::init);
+				continue;
+			}
+			log_assert(port->port_input);
+			box_module->addWire(port_name, port);
+			replace_cell->setPort(port_name, port);
+		}
+		box_module->fixup_ports();
+
+		auto unmap_module = unmap_design->addModule(box_module->name);
+		replace_cell = unmap_module->addCell(ID::_TECHMAP_REPLACE_, module->name);
 		for (auto port_name : box_module->ports) {
-			auto port = box_module->wire(port_name);
-			auto unmap_port = unmap_module->wire(port_name);
-			if (!unmap_port)
-				unmap_port = unmap_module->addWire(port_name, port);
-			else
-				unmap_port->port_id = port->port_id;
+			auto w = unmap_module->addWire(port_name, box_module->wire(port_name));
+			if (module->wire(port_name))
+				replace_cell->setPort(port_name, w);
 		}
 		unmap_module->ports = box_module->ports;
 		unmap_module->check();

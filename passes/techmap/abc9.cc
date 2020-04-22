@@ -309,9 +309,6 @@ struct Abc9Pass : public ScriptPass
 					run("setattr -set submod \"$abc9_flop\" t:$_DFF_?_ %ci* %co* t:$_DFF_?_ %d", "       (only if -dff)");
 					run("submod", "                                                                    (only if -dff)");
 					run("setattr -mod -set whitebox 1 -set abc9_flop 1 -set abc9_box 1 *_$abc9_flop", "(only if -dff)");
-					run("abc9_ops -prep_dff_unmap", "                                                  (only if -dff)");
-					run("design -copy-to $abc9 *_$abc9_flop", "                                        (only if -dff)"); // copy submod out
-					run("delete *_$abc9_flop", "                                                       (only if -dff)");
 					if (help_mode) {
 						run("foreach module in design");
 						run("    rename <module-name>_$abc9_flop _TECHMAP_REPLACE_", "                     (only if -dff)");
@@ -323,7 +320,11 @@ struct Abc9Pass : public ScriptPass
 							if (module->cell(stringf("%s_$abc9_flop", module->name.c_str())))
 								run(stringf("rename %s_$abc9_flop _TECHMAP_REPLACE_", module->name.c_str()));
 						}
+						active_design->selected_active_module.clear();
 					}
+					run("abc9_ops -prep_dff_unmap", "                                                  (only if -dff)");
+					run("design -copy-to $abc9 *_$abc9_flop", "                                        (only if -dff)"); // copy submod out
+					run("delete *_$abc9_flop", "                                                       (only if -dff)");
 				}
 			}
 			run("design -stash $abc9_map");
