@@ -148,7 +148,7 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 
 	std::vector<RTLIL::SigBit> bits_a = sig_a, bits_b = sig_b, bits_y = sig_y;
 
-	enum { GRP_DYN, GRP_CONST_A, GRP_CONST_B, GRP_CONST_AB, GRP_N };
+	enum { GRP_DYN, GRP_CONST_A, GRP_CONST_B, GRP_CONST_AB, GRP_CONST_X, GRP_N };
 	std::map<std::pair<RTLIL::SigBit, RTLIL::SigBit>, std::set<RTLIL::SigBit>> grouped_bits[GRP_N];
 
 	for (int i = 0; i < GetSize(bits_y); i++)
@@ -165,9 +165,9 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 		if (bit_a.wire == NULL && bit_b.wire == NULL)
 			group_idx = GRP_CONST_AB;
 		else if (bit_a.wire == NULL)
-			group_idx = GRP_CONST_A;
+			group_idx = (bit_a == State::S0 || bit_a == State::S1 ? GRP_CONST_A : GRP_CONST_X);
 		else if (bit_b.wire == NULL && commutative)
-			group_idx = GRP_CONST_A, std::swap(bit_a, bit_b);
+			group_idx = (bit_b == State::S0 || bit_b == State::S1 ? GRP_CONST_A : GRP_CONST_X), std::swap(bit_a, bit_b);
 		else if (bit_b.wire == NULL)
 			group_idx = GRP_CONST_B;
 
@@ -476,13 +476,13 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				}
 			}
 
-			if (detect_const_and && (found_zero || found_inv)) {
+			if (detect_const_and && (found_zero || found_inv || (!keepdc && found_undef))) {
 				cover("opt.opt_expr.const_and");
 				replace_cell(assign_map, module, cell, "const_and", ID::Y, RTLIL::State::S0);
 				goto next_cell;
 			}
 
-			if (detect_const_or && (found_one || found_inv)) {
+			if (detect_const_or && (found_one || found_inv || (!keepdc && found_undef))) {
 				cover("opt.opt_expr.const_or");
 				replace_cell(assign_map, module, cell, "const_or", ID::Y, RTLIL::State::S1);
 				goto next_cell;
@@ -499,9 +499,23 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 		{
 			SigBit sig_a = assign_map(cell->getPort(ID::A));
 			SigBit sig_b = assign_map(cell->getPort(ID::B));
+			if (sig_a == sig_b) {
+				if (cell->type.in(ID($xor), ID($_XOR_))) {
+					cover("opt.opt_expr.const_xor");
+					replace_cell(assign_map, module, cell, "const_xor", ID::Y, RTLIL::State::S0);
+					goto next_cell;
+				}
+				if (cell->type.in(ID($xnor), ID($_XNOR_))) {
+					cover("opt.opt_expr.const_xnor");
+					replace_cell(assign_map, module, cell, "const_xnor", ID::Y, RTLIL::State::S1);
+					goto next_cell;
+				}
+				log_abort();
+			}
+
 			if (!sig_a.wire)
 				std::swap(sig_a, sig_b);
-			if (sig_b == State::S0 || sig_b == State::S1) {
+			if (!sig_b.wire && (sig_b == State::S0 || sig_b == State::S1 || !keepdc)) {
 				if (cell->type.in(ID($xor), ID($_XOR_))) {
 					cover("opt.opt_expr.xor_buffer");
 					SigSpec sig_y;
@@ -844,7 +858,7 @@ skip_fine_alu:
 			if (input.match("**")) ACTION_DO_Y(x);
 			if (input.match("1*")) ACTION_DO_Y(x);
 			if (input.match("*1")) ACTION_DO_Y(x);
-			if (consume_x) {
+			if (!keepdc) {
 				if (input.match(" *")) ACTION_DO_Y(0);
 				if (input.match("* ")) ACTION_DO_Y(0);
 			}
@@ -863,7 +877,7 @@ skip_fine_alu:
 			if (input.match("**")) ACTION_DO_Y(x);
 			if (input.match("0*")) ACTION_DO_Y(x);
 			if (input.match("*0")) ACTION_DO_Y(x);
-			if (consume_x) {
+			if (!keepdc) {
 				if (input.match(" *")) ACTION_DO_Y(1);
 				if (input.match("* ")) ACTION_DO_Y(1);
 			}
@@ -880,8 +894,10 @@ skip_fine_alu:
 			if (input.match("01")) ACTION_DO_Y(1);
 			if (input.match("10")) ACTION_DO_Y(1);
 			if (input.match("11")) ACTION_DO_Y(0);
-			if (input.match(" *")) ACTION_DO_Y(x);
-			if (input.match("* ")) ACTION_DO_Y(x);
+			if (!keepdc) {
+				if (input.match(" *")) ACTION_DO(ID::Y, input.extract(0, 1));
+				if (input.match("* ")) ACTION_DO(ID::Y, input.extract(1, 1));
+			}
 		}
 
 		if (cell->type == ID($_MUX_)) {
@@ -1093,6 +1109,9 @@ skip_fine_alu:
 					identity_wrt_b = true;
 
 				if (b.is_fully_const() && b.as_bool() == false)
+					identity_wrt_a = true;
+
+				if (cell->type == ID($xor) && a == b)
 					identity_wrt_a = true;
 			}
 
