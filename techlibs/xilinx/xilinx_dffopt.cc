@@ -292,17 +292,20 @@ unmap:
 				LutData final_lut;
 				if (worthy_post_r) {
 					final_lut = lut_d_post_r;
-					log("  Merging R LUT for %s/%s (%d -> %d)\n", log_id(cell), log_id(sig_Q.wire), GetSize(lut_d.second), GetSize(final_lut.second));
 				} else if (worthy_post_s) {
 					final_lut = lut_d_post_s;
-					log("  Merging S LUT for %s/%s (%d -> %d)\n", log_id(cell), log_id(sig_Q.wire), GetSize(lut_d.second), GetSize(final_lut.second));
 				} else if (worthy_post_ce) {
 					final_lut = lut_d_post_ce;
-					log("  Merging CE LUT for %s/%s (%d -> %d)\n", log_id(cell), log_id(sig_Q.wire), GetSize(lut_d.second), GetSize(final_lut.second));
 				} else {
 					// Nothing to do here.
 					continue;
 				}
+
+				std::string ports;
+				if (worthy_post_r) ports += " + R";
+				if (worthy_post_s) ports += " + S";
+				if (worthy_post_ce) ports += " + CE";
+				log("  Merging D%s LUTs for %s/%s (%d -> %d)\n", ports.c_str(), log_id(cell), log_id(sig_Q.wire), GetSize(lut_d.second), GetSize(final_lut.second));
 
 				// Okay, we're doing it.  Unmap ports.
 				if (worthy_post_r) {

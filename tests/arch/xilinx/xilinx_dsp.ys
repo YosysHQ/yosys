@@ -8,4 +8,5 @@ assign o4 = a * b;
 DSP48E1 m3 (.A(a), .B(b), .P(o5));
 endmodule
 EOT
+read_verilog -lib +/xilinx/cells_sim.v
 xilinx_dsp
