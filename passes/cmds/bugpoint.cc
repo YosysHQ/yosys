@@ -30,22 +30,20 @@ struct BugpointPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    bugpoint [options]\n");
+		log("    bugpoint [options] -script <filename>\n");
 		log("\n");
-		log("This command minimizes testcases that crash Yosys. It removes an arbitrary part\n");
-		log("of the design and recursively invokes Yosys with a given script, repeating these\n");
-		log("steps while it can find a smaller design that still causes a crash. Once this\n");
-		log("command finishes, it replaces the current design with the smallest testcase it\n");
-		log("was able to produce.\n");
-		log("\n");
-		log("It is possible to specify the kinds of design part that will be removed. If none\n");
-		log("are specified, all parts of design will be removed.\n");
-		log("\n");
-		log("    -yosys <filename>\n");
-		log("        use this Yosys binary. if not specified, `yosys` is used.\n");
+		log("This command minimizes the current design that is known to crash Yosys with the\n");
+		log("given script into a smaller testcase. It does this by removing an arbitrary part\n");
+		log("of the design and recursively invokes a new Yosys process with this modified design\n");
+		log("and the same script, repeating these steps while it can find a smaller design that\n");
+		log("still causes a crash. Once this command finishes, it replaces the current design\n");
+		log("with the smallest testcase it was able to produce.\n");
 		log("\n");
 		log("    -script <filename>\n");
 		log("        use this script to crash Yosys. required.\n");
+		log("\n");
+		log("    -yosys <filename>\n");
+		log("        use this Yosys binary. if not specified, `yosys` is used.\n");
 		log("\n");
 		log("    -grep <string>\n");
 		log("        only consider crashes that place this string in the log file.\n");
@@ -59,6 +57,10 @@ struct BugpointPass : public Pass {
 		log("        run `proc_clean; clean -purge` before checking testcase and after\n");
 		log("        finishing. produces smaller and more useful testcases, but may fail to\n");
 		log("        produce any testcase at all if the crash is related to dangling wires.\n");
+		log("\n");
+		log("It is possible to constrain which parts of the design will be considered for\n");
+		log("removal. Unless one or more of the following options are specified, all parts\n");
+		log("will be considered.\n");
 		log("\n");
 		log("    -modules\n");
 		log("        try to remove modules.\n");
