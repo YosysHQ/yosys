@@ -49,15 +49,15 @@ struct QbfSolutionType {
 };
 
 struct QbfSolveOptions {
-	bool specialize, specialize_from_file, write_solution, nocleanup, dump_final_smt2, assume_outputs;
+	bool specialize, specialize_from_file, write_solution, nocleanup, dump_final_smt2, assume_outputs, assume_neg;
 	bool sat, unsat, show_smtbmc;
 	std::string specialize_soln_file;
 	std::string write_soln_soln_file;
 	std::string dump_final_smt2_file;
 	size_t argidx;
 	QbfSolveOptions() : specialize(false), specialize_from_file(false), write_solution(false),
-			nocleanup(false), dump_final_smt2(false), assume_outputs(false), sat(false), unsat(false),
-			show_smtbmc(false), argidx(0) {};
+			nocleanup(false), dump_final_smt2(false), assume_outputs(false), assume_neg(false),
+			sat(false), unsat(false), show_smtbmc(false), argidx(0) {};
 };
 
 void recover_solution(QbfSolutionType &sol) {
@@ -242,7 +242,7 @@ void allconstify_inputs(RTLIL::Module *module, const pool<std::string> &input_wi
 	module->fixup_ports();
 }
 
-void assume_miter_outputs(RTLIL::Module *module) {
+void assume_miter_outputs(RTLIL::Module *module, const QbfSolveOptions &opt) {
 	std::vector<RTLIL::Wire *> wires_to_assume;
 	for (auto w : module->wires())
 		if (w->port_output && w->width == 1)
@@ -257,7 +257,14 @@ void assume_miter_outputs(RTLIL::Module *module) {
 		log("\n");
 	}
 
-	for(auto i = 0; wires_to_assume.size() > 1; ++i) {
+	if (opt.assume_neg) {
+		for (unsigned int i = 0; i < wires_to_assume.size(); ++i) {
+			RTLIL::SigSpec n_wire = module->LogicNot(wires_to_assume[i]->name.str() + "__n__qbfsat", wires_to_assume[i], false, wires_to_assume[i]->get_src_attribute());
+			wires_to_assume[i] = n_wire.as_wire();
+		}
+	}
+
+	for (auto i = 0; wires_to_assume.size() > 1; ++i) {
 		std::vector<RTLIL::Wire *> buf;
 		for (auto j = 0; j + 1 < GetSize(wires_to_assume); j += 2) {
 			std::stringstream strstr; strstr << i << "_" << j;
@@ -371,6 +378,10 @@ QbfSolveOptions parse_args(const std::vector<std::string> &args) {
 			opt.assume_outputs = true;
 			continue;
 		}
+		else if (args[opt.argidx] == "-assume-negative-polarity") {
+			opt.assume_neg = true;
+			continue;
+		}
 		else if (args[opt.argidx] == "-sat") {
 			opt.sat = true;
 			continue;
@@ -464,6 +475,11 @@ struct QbfSatPass : public Pass {
 		log("    -assume-outputs\n");
 		log("        Add an $assume cell for the conjunction of all one-bit module output wires.\n");
 		log("\n");
+		log("    -assume-negative-polarity\n");
+		log("        When adding $assume cells for one-bit module output wires, assume they are\n");
+		log("        negative polarity signals and should always be low, for example like the\n");
+		log("        miters created with the `miter` command.\n");
+		log("\n");
 		log("    -sat\n");
 		log("        Generate an error if the solver does not return \"sat\".\n");
 		log("\n");
@@ -512,7 +528,7 @@ struct QbfSatPass : public Pass {
 			pool<std::string> input_wires = validate_design_and_get_inputs(module, opt);
 			allconstify_inputs(module, input_wires);
 			if (opt.assume_outputs)
-				assume_miter_outputs(module);
+				assume_miter_outputs(module, opt);
 
 			QbfSolutionType ret = qbf_solve(module, opt);
 			Pass::call(design, "design -pop");
