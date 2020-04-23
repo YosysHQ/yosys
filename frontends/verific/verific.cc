@@ -1153,6 +1153,26 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 	for (auto net : anyseq_nets)
 		module->connect(net_map_at(net), module->Anyseq(new_verific_id(net)));
 
+	char *id_name;
+	TypeRange *type_range;
+	FOREACH_MAP_ITEM(nl->GetTypeRangeTable(), mi, &id_name, &type_range)
+	{
+		if (!type_range)
+			continue;
+		if (!type_range->IsTypeEnum())
+			continue;
+		auto wire = module->wire(RTLIL::escape_id(id_name));
+		log_assert(wire);
+		wire->set_string_attribute(ID(wiretype), type_range->GetTypeName());
+
+		MapIter mj;
+		char *k, *v;
+		FOREACH_MAP_ITEM(type_range->GetEnumIdMap(), mj, &k, &v) {
+			IdString key = stringf("\\enum_value_%s", v);
+			wire->set_string_attribute(key, k);
+		}
+	}
+
 	pool<Instance*, hash_ptr_ops> sva_asserts;
 	pool<Instance*, hash_ptr_ops> sva_assumes;
 	pool<Instance*, hash_ptr_ops> sva_covers;
