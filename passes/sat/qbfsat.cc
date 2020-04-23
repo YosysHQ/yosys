@@ -98,11 +98,8 @@ dict<std::string, std::string> get_hole_loc_name_map(RTLIL::Module *module, cons
 	for (auto cell : module->cells()) {
 		std::string cell_src = cell->get_src_attribute();
 		auto pos = sol.hole_to_value.find(cell_src);
-		if (pos != sol.hole_to_value.end()) {
-#ifndef NDEBUG
-			log_assert(cell->type.in("$anyconst", "$anyseq"));
-			log_assert(cell->getPort(ID::Y).is_wire());
-#endif
+		if (pos != sol.hole_to_value.end() && cell->type.in("$anyconst", "$anyseq")) {
+			log_assert(hole_loc_to_name.find(pos->first) == hole_loc_to_name.end());
 			hole_loc_to_name[pos->first] = cell->getPort(ID::Y).as_wire()->name.str();
 		}
 	}
