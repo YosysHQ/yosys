@@ -1162,8 +1162,12 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 		if (!type_range->IsTypeEnum())
 			continue;
 		auto wire = module->wire(RTLIL::escape_id(id_name));
-		log_assert(wire);
-		wire->set_string_attribute(ID(wiretype), type_range->GetTypeName());
+		if (!wire) {
+			if (net->IsUserDeclared())
+				log_warning("Unable to find imported net '%s'.\n", net->Name());
+			continue;
+		}
+		wire->set_string_attribute(ID::wiretype, type_range->GetTypeName());
 
 		MapIter mj;
 		char *k, *v;
