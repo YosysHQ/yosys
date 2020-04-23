@@ -235,8 +235,7 @@ struct SynthIntelALMPass : public ScriptPass {
 				// to constant driver cells, which Quartus accepts.
 				run("hilomap -singleton -hicell __MISTRAL_VCC Q -locell __MISTRAL_GND Q");
 				// Rename from Yosys-internal MISTRAL_* cells to Quartus cells.
-				run("techmap -map +/intel_alm/common/quartus_rename.v");
-				run(stringf("techmap -map +/intel_alm/%s/quartus_rename.v", family_opt.c_str()));
+				run(stringf("techmap -D %s -map +/intel_alm/common/quartus_rename.v", family_opt.c_str()));
 			}
 		}
 
