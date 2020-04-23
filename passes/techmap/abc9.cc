@@ -323,8 +323,8 @@ struct Abc9Pass : public ScriptPass
 						active_design->selected_active_module.clear();
 					}
 					run("abc9_ops -prep_dff_unmap", "                                                  (only if -dff)");
-					run("design -copy-to $abc9 *_$abc9_flop", "                                        (only if -dff)"); // copy submod out
-					run("delete *_$abc9_flop", "                                                       (only if -dff)");
+					run("design -copy-to $abc9 =*_$abc9_flop", "                                       (only if -dff)"); // copy submod out
+					run("delete =*_$abc9_flop", "                                                      (only if -dff)");
 				}
 			}
 			run("design -stash $abc9_map");
@@ -333,7 +333,7 @@ struct Abc9Pass : public ScriptPass
 			if (help_mode)
 				run("techmap -wb -max_iter 1 -map %$abc9_map -map +/abc9_map.v [-D DFF]", "(option if -dff)");
 			else
-				run(stringf("techmap -wb -max_iter 1 -map %$abc9_map -map +/abc9_map.v %s", dff_mode ? "-D DFF" : ""));
+				run(stringf("techmap -wb -max_iter 1 -map %%$abc9_map -map +/abc9_map.v %s", dff_mode ? "-D DFF" : ""));
 			run("design -delete $abc9_map");
 		}
 
