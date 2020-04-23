@@ -27,10 +27,11 @@ PRIVATE_NAMESPACE_BEGIN
 struct GliftPass : public Pass {
 	private:
 
-	bool opt_create, opt_sketchify, opt_taintconstants, opt_keepoutputs;
+	bool opt_create, opt_sketchify, opt_taintconstants, opt_keepoutputs, opt_nomodeloptimize;
 	std::vector<std::string> args;
 	std::vector<std::string>::size_type argidx;
 	std::vector<RTLIL::Wire *> new_taint_outputs;
+	std::vector<RTLIL::SigSpec> meta_mux_selects;
 	RTLIL::Module *module;
 
 	void parse_args() {
@@ -49,6 +50,10 @@ struct GliftPass : public Pass {
 			}
 			if (args[argidx] == "-keep-outputs") {
 				opt_keepoutputs = true;
+				continue;
+			}
+			if (args[argidx] == "-no-model-optimize") {
+				opt_nomodeloptimize = true;
 				continue;
 			}
 			break;
@@ -116,6 +121,22 @@ struct GliftPass : public Pass {
 		module->addOr(cell->name.str() + "_t_4_1", port_a_taint, port_b_taint, port_y_taint, false, cell->get_src_attribute());
 	}
 
+	RTLIL::SigSpec score_metamux_select(const RTLIL::SigSpec &metamux_select) {
+		log_assert(metamux_select.is_wire());
+		log_assert(metamux_select.as_wire()->width == 2);
+
+		RTLIL::Const precise_y_cost(5); //5 AND/OR gates
+		RTLIL::Const imprecise_1_y_cost(2);
+		RTLIL::Const imprecise_2_y_cost(2);
+		RTLIL::Const imprecise_3_y_cost(1);
+
+		RTLIL::SigSpec meta_mux1 = module->Pmux(metamux_select.as_wire()->name.str() + "_mux1", precise_y_cost, imprecise_1_y_cost, metamux_select[1], metamux_select.as_wire()->get_src_attribute());
+		RTLIL::SigSpec meta_mux2 = module->Pmux(metamux_select.as_wire()->name.str() + "_mux2", imprecise_2_y_cost, imprecise_3_y_cost, metamux_select[1], metamux_select.as_wire()->get_src_attribute());
+		RTLIL::SigSpec ret = module->Pmux(metamux_select.as_wire()->name.str() + "_mux3", meta_mux1, meta_mux2, metamux_select[0], metamux_select.as_wire()->get_src_attribute());
+
+		return ret;
+	}
+
 	void create_glift_logic() {
 		std::vector<RTLIL::SigSig> connections(module->connections());
 		std::vector<RTLIL::SigSig> new_connections;
@@ -149,8 +170,9 @@ struct GliftPass : public Pass {
 					add_imprecise_GLIFT_logic_3(cell, port_taints[A], port_taints[B], imprecise_3_y);
 
 					RTLIL::SigSpec meta_mux_select(module->addWire(cell->name.str() + "_sel", 2));
-					//meta_mux_select.as_wire()->set_bool_attribute("\\maximize");
+					meta_mux_selects.push_back(meta_mux_select);
 					new_connections.emplace_back(meta_mux_select, module->Anyconst(cell->name.str() + "_hole", 2, cell->get_src_attribute()));
+
 					RTLIL::SigSpec meta_mux1(module->Mux(cell->name.str() + "_mux1", precise_y, imprecise_1_y, meta_mux_select[1]));
 					RTLIL::SigSpec meta_mux2(module->Mux(cell->name.str() + "_mux2", imprecise_2_y, imprecise_3_y, meta_mux_select[1]));
 					module->addMux(cell->name.str() + "_mux3", meta_mux1, meta_mux2, meta_mux_select[0], port_taints[Y]);
@@ -187,6 +209,30 @@ struct GliftPass : public Pass {
 				new_taint_outputs.push_back(first.as_wire());
 		} //end foreach conn in connections
 
+		//Create a rough model of area by summing the "weight" score of each meta-mux select:
+		if (!opt_nomodeloptimize) {
+			std::vector<RTLIL::SigSpec> meta_mux_select_sums;
+			std::vector<RTLIL::SigSpec> meta_mux_select_sums_buf;
+			for (auto &wire : meta_mux_selects) {
+				meta_mux_select_sums.emplace_back(score_metamux_select(wire));
+			}
+			for (unsigned int i = 0; meta_mux_select_sums.size() > 1; ) {
+				meta_mux_select_sums_buf.clear();
+				for (i = 0; i + 1 < meta_mux_select_sums.size(); i += 2) {
+					meta_mux_select_sums_buf.push_back(module->Add(meta_mux_select_sums[i].as_wire()->name.str() + "_add", meta_mux_select_sums[i], meta_mux_select_sums[i+1], false));
+				}
+				if (meta_mux_select_sums.size() % 2 == 1)
+					meta_mux_select_sums_buf.push_back(meta_mux_select_sums[meta_mux_select_sums.size()-1]);
+				meta_mux_select_sums.swap(meta_mux_select_sums_buf);
+			}
+			if (meta_mux_select_sums.size() > 0) {
+				meta_mux_select_sums[0].as_wire()->set_bool_attribute("\\minimize");
+				meta_mux_select_sums[0].as_wire()->set_bool_attribute("\\keep");
+				module->rename(meta_mux_select_sums[0].as_wire(), ID(__glift_weight));
+			}
+		}
+
+		//Add new connections and mark new module outputs:
 		for (auto &conn : new_connections)
 			module->connect(conn);
 
@@ -206,15 +252,17 @@ struct GliftPass : public Pass {
 		opt_sketchify = false;
 		opt_taintconstants = false;
 		opt_keepoutputs = false;
+		opt_nomodeloptimize = false;
 		module = nullptr;
 		args.clear();
 		argidx = 0;
 		new_taint_outputs.clear();
+		meta_mux_selects.clear();
 	}
 
 	public:
 
-	GliftPass() : Pass("glift", "create and transform GLIFT models"), opt_create(false), opt_sketchify(false), opt_taintconstants(false), opt_keepoutputs(false), module(nullptr) { }
+	GliftPass() : Pass("glift", "create and transform GLIFT models"), opt_create(false), opt_sketchify(false), opt_taintconstants(false), opt_keepoutputs(false), opt_nomodeloptimize(false), module(nullptr) { }
 
 	void help() YS_OVERRIDE
 	{
@@ -248,7 +296,12 @@ struct GliftPass : public Pass {
 		log("    alongside the orignal outputs.\n");
 		log("    (default: original module outputs are removed)\n");
 		log("\n");
+		log("  -no-model-optimize\n");
+		log("    Do not model imprecise taint tracking logic area and attempt to minimize it.\n");
+		log("    (default: model area and give that signal the \"minimize\" attribute)\n");
+		log("\n");
 	}
+
 	void execute(std::vector<std::string> _args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing GLIFT pass (creating and manipulating GLIFT models).\n");
