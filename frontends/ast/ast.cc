@@ -1099,8 +1099,14 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 		}
 		for (size_t i = 0; i < ast->children.size(); i++) {
 			AstNode *node = ast->children[i];
-			if (node->type == AST_WIRE || node->type == AST_MEMORY)
+			if (node->type == AST_WIRE || node->type == AST_MEMORY) {
+				if (node->type == AST_WIRE) {
+					if (node->is_signed && (node->attributes.count(ID::SIGNED) == 0)) {
+						node->attributes[ID::SIGNED] = AstNode::mkconst_int(1, false);
+					}
+				}
 				node->genRTLIL();
+			}
 		}
 		for (size_t i = 0; i < ast->children.size(); i++) {
 			AstNode *node = ast->children[i];
