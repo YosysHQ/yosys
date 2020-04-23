@@ -188,7 +188,7 @@ arg next
 //       driven by the 'P' output of the previous DSP cell, and (c) has its
 //       'PCIN' port unused
 match nextP
-	select !param(nextP, \CREG).as_bool()
+	select !nextP->type.in(\DSP48E1) || !param(nextP, \CREG).as_bool()
 	select (nextP->type.in(\DSP48A, \DSP48A1) && port(nextP, \OPMODE, Const(0, 8)).extract(2,2) == Const::from_string("11")) || (nextP->type.in(\DSP48E1) && port(nextP, \OPMODE, Const(0, 7)).extract(4,3) == Const::from_string("011"))
 	select nusers(port(nextP, \C, SigSpec())) > 1
 	select nusers(port(nextP, \PCIN, SigSpec())) == 0
