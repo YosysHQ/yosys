@@ -81,7 +81,7 @@ struct Ecp5GsrPass : public Pass {
 
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->getParam(ID(GSR)).decode_string() != "AUTO")
+				if (!cell->hasParam(ID(GSR)) || cell->getParam(ID(GSR)).decode_string() != "AUTO")
 					continue;
 				
 				bool gsren = found_gsr;
