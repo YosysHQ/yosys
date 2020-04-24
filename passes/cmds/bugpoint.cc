@@ -63,14 +63,16 @@ struct BugpointPass : public Pass {
 		log("will be considered.\n");
 		log("\n");
 		log("    -modules\n");
-		log("        try to remove modules.\n");
+		log("        try to remove modules. modules with a (* bugpoint_keep *) attribute\n");
+		log("        will be skipped.\n");
 		log("\n");
 		log("    -ports\n");
-		log("        try to remove module ports. ports with a (* keep *) attribute will be\n");
-		log("        skipped (useful for clocks, resets, etc.)\n");
+		log("        try to remove module ports. ports with a (* bugpoint_keep *) attribute\n");
+		log("        will be skipped (useful for clocks, resets, etc.)\n");
 		log("\n");
 		log("    -cells\n");
-		log("        try to remove cells.\n");
+		log("        try to remove cells. cells with a (* bugpoint_keep *) attribute will\n");
+		log("        be skipped.\n");
 		log("\n");
 		log("    -connections\n");
 		log("        try to reconnect ports to 'x.\n");
@@ -142,6 +144,9 @@ struct BugpointPass : public Pass {
 				if (module->get_blackbox_attribute())
 					continue;
 
+				if (module->get_bool_attribute(ID::bugpoint_keep))
+				    continue;
+
 				if (index++ == seed)
 				{
 					log("Trying to remove module %s.\n", module->name.c_str());
@@ -169,7 +174,7 @@ struct BugpointPass : public Pass {
 					if (!stage2 && wire->get_bool_attribute(ID($bugpoint)))
 						continue;
 
-					if (wire->get_bool_attribute(ID::keep))
+					if (wire->get_bool_attribute(ID::bugpoint_keep))
 						continue;
 
 					if (index++ == seed)
@@ -189,9 +194,13 @@ struct BugpointPass : public Pass {
 				if (mod->get_blackbox_attribute())
 					continue;
 
+
 				Cell *removed_cell = nullptr;
 				for (auto cell : mod->cells())
 				{
+					if (cell->get_bool_attribute(ID::bugpoint_keep))
+						continue;
+
 					if (index++ == seed)
 					{
 						log("Trying to remove cell %s.%s.\n", mod->name.c_str(), cell->name.c_str());
