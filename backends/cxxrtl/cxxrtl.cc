@@ -212,7 +212,7 @@ bool is_ff_cell(RTLIL::IdString type)
 
 bool is_internal_cell(RTLIL::IdString type)
 {
-	return type[0] == '$' && !type.begins_with("$paramod\\");
+	return type[0] == '$' && !type.begins_with("$paramod");
 }
 
 bool is_cxxrtl_blackbox_cell(const RTLIL::Cell *cell)
