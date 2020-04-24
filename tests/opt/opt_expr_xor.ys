@@ -136,6 +136,6 @@ select -assert-count t c:$_XOR_
 
 cd
 miter -equiv -flatten -make_assert -make_outputs gold coarse_keepdc miter3
-sat -verify -prove-asserts -show-ports -enable_undef -set-def in_i miter3
+sat -verify -prove-asserts -show-ports -enable_undef miter3
 miter -equiv -flatten -make_assert -make_outputs coarse_keepdc fine_keepdc miter4
 sat -verify -prove-asserts -show-ports -enable_undef miter4

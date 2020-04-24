@@ -132,7 +132,7 @@ void replace_cell(SigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell,
 	did_something = true;
 }
 
-bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutative, SigMap &sigmap)
+bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutative, SigMap &sigmap, bool keepdc)
 {
 	IdString b_name = cell->hasPort(ID::B) ? ID::B : ID::A;
 
@@ -148,7 +148,7 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 
 	std::vector<RTLIL::SigBit> bits_a = sig_a, bits_b = sig_b, bits_y = sig_y;
 
-	enum { GRP_DYN, GRP_CONST_A, GRP_CONST_B, GRP_CONST_AB, GRP_CONST_X, GRP_N };
+	enum { GRP_DYN, GRP_CONST_A, GRP_CONST_B, GRP_CONST_AB, GRP_N };
 	std::map<std::pair<RTLIL::SigBit, RTLIL::SigBit>, std::set<RTLIL::SigBit>> grouped_bits[GRP_N];
 
 	for (int i = 0; i < GetSize(bits_y); i++)
@@ -162,14 +162,16 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 		if (cell->type == ID($and) && (bit_a == RTLIL::State::S0 || bit_b == RTLIL::State::S0))
 			bit_a = bit_b = RTLIL::State::S0;
 
-		if (bit_a.wire == NULL && bit_b.wire == NULL)
-			group_idx = GRP_CONST_AB;
-		else if (bit_a.wire == NULL)
-			group_idx = (bit_a == State::S0 || bit_a == State::S1 ? GRP_CONST_A : GRP_CONST_X);
-		else if (bit_b.wire == NULL && commutative)
-			group_idx = (bit_b == State::S0 || bit_b == State::S1 ? GRP_CONST_A : GRP_CONST_X), std::swap(bit_a, bit_b);
-		else if (bit_b.wire == NULL)
-			group_idx = GRP_CONST_B;
+		if (!keepdc || (bit_a != State::Sx && bit_a != State::Sz && bit_a != State::Sx && bit_a != State::Sx)) {
+			if (bit_a.wire == NULL && bit_b.wire == NULL)
+				group_idx = GRP_CONST_AB;
+			else if (bit_a.wire == NULL)
+				group_idx = GRP_CONST_A;
+			else if (bit_b.wire == NULL && commutative)
+				group_idx = GRP_CONST_A, std::swap(bit_a, bit_b);
+			else if (bit_b.wire == NULL)
+				group_idx = GRP_CONST_B;
+		}
 
 		grouped_bits[group_idx][std::pair<RTLIL::SigBit, RTLIL::SigBit>(bit_a, bit_b)].insert(bits_y[i]);
 	}
@@ -186,25 +188,63 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 		if (grouped_bits[i].empty())
 			continue;
 
-		RTLIL::Wire *new_y = module->addWire(NEW_ID, GetSize(grouped_bits[i]));
+		RTLIL::SigSpec new_y = module->addWire(NEW_ID, GetSize(grouped_bits[i]));
 		RTLIL::SigSpec new_a, new_b;
 		RTLIL::SigSig new_conn;
 
 		for (auto &it : grouped_bits[i]) {
 			for (auto &bit : it.second) {
 				new_conn.first.append(bit);
-				new_conn.second.append(RTLIL::SigBit(new_y, new_a.size()));
+				new_conn.second.append(new_y[new_a.size()]);
 			}
 			new_a.append(it.first.first);
 			new_b.append(it.first.second);
 		}
 
 		if (cell->type.in(ID($and), ID($or)) && i == GRP_CONST_A) {
+			if (cell->type == ID($and))
+				new_a.replace(dict<SigBit,SigBit>{{State::Sx, State::S0}, {State::Sz, State::S0}}, &new_b);
+			else if (cell->type == ID($or))
+				new_a.replace(dict<SigBit,SigBit>{{State::Sx, State::S1}, {State::Sz, State::S1}}, &new_b);
+			else log_abort();
 			log_debug("  Direct Connection: %s (%s with %s)\n", log_signal(new_b), log_id(cell->type), log_signal(new_a));
 			module->connect(new_y, new_b);
 			module->connect(new_conn);
 			continue;
 		}
+
+		if (!keepdc && cell->type.in(ID($xor), ID($xnor)) && i == GRP_CONST_A) {
+			SigSpec undef_a, undef_y, undef_b;
+			SigSpec def_y, def_a, def_b;
+			for (int i = 0; i < GetSize(new_y); i++)
+				if (new_a[i] == State::Sx || new_a[i] == State::Sz) {
+					undef_a.append(new_a[i]);
+					if (cell->type == ID($xor))
+						undef_b.append(State::S0);
+					// For consistency with gate-level which does $xnor -> $_XOR_ + $_NOT_
+					else if (cell->type == ID($xnor))
+						undef_b.append(State::S1);
+					else log_abort();
+					undef_y.append(new_y[i]);
+				}
+				else {
+					def_a.append(new_a[i]);
+					def_b.append(new_b[i]);
+					def_y.append(new_y[i]);
+				}
+			if (!undef_y.empty()) {
+				log_debug("  Direct Connection: %s (%s with %s)\n", log_signal(undef_b), log_id(cell->type), log_signal(undef_a));
+				module->connect(undef_y, undef_b);
+			}
+			if (def_y.empty()) {
+				module->connect(new_conn);
+				continue;
+			}
+			new_a = std::move(def_a);
+			new_b = std::move(def_b);
+			new_y = std::move(def_y);
+		}
+
 
 		RTLIL::Cell *c = module->addCell(NEW_ID, cell->type);
 
@@ -219,7 +259,7 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 		}
 
 		c->setPort(ID::Y, new_y);
-		c->parameters[ID::Y_WIDTH] = new_y->width;
+		c->parameters[ID::Y_WIDTH] = GetSize(new_y);
 		c->check();
 
 		module->connect(new_conn);
@@ -499,7 +539,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 		{
 			SigBit sig_a = assign_map(cell->getPort(ID::A));
 			SigBit sig_b = assign_map(cell->getPort(ID::B));
-			if (sig_a == sig_b) {
+			if (!keepdc && (sig_a == sig_b || sig_a == State::Sx || sig_a == State::Sz || sig_b == State::Sx || sig_b == State::Sz)) {
 				if (cell->type.in(ID($xor), ID($_XOR_))) {
 					cover("opt.opt_expr.const_xor");
 					replace_cell(assign_map, module, cell, "const_xor", ID::Y, RTLIL::State::S0);
@@ -507,6 +547,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				}
 				if (cell->type.in(ID($xnor), ID($_XNOR_))) {
 					cover("opt.opt_expr.const_xnor");
+					// For consistency with gate-level which does $xnor -> $_XOR_ + $_NOT_
 					replace_cell(assign_map, module, cell, "const_xnor", ID::Y, RTLIL::State::S1);
 					goto next_cell;
 				}
@@ -515,7 +556,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 			if (!sig_a.wire)
 				std::swap(sig_a, sig_b);
-			if (!sig_b.wire && (sig_b == State::S0 || sig_b == State::S1 || !keepdc)) {
+			if (sig_b == State::S0 || sig_b == State::S1) {
 				if (cell->type.in(ID($xor), ID($_XOR_))) {
 					cover("opt.opt_expr.xor_buffer");
 					SigSpec sig_y;
@@ -564,7 +605,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 		if (do_fine)
 		{
 			if (cell->type.in(ID($not), ID($pos), ID($and), ID($or), ID($xor), ID($xnor)))
-				if (group_cell_inputs(module, cell, true, assign_map))
+				if (group_cell_inputs(module, cell, true, assign_map, keepdc))
 					goto next_cell;
 
 			if (cell->type.in(ID($logic_not), ID($logic_and), ID($logic_or), ID($reduce_or), ID($reduce_and), ID($reduce_bool)))
@@ -895,8 +936,8 @@ skip_fine_alu:
 			if (input.match("10")) ACTION_DO_Y(1);
 			if (input.match("11")) ACTION_DO_Y(0);
 			if (!keepdc) {
-				if (input.match(" *")) ACTION_DO(ID::Y, input.extract(0, 1));
-				if (input.match("* ")) ACTION_DO(ID::Y, input.extract(1, 1));
+				if (input.match(" *")) ACTION_DO_Y(0);
+				if (input.match("* ")) ACTION_DO_Y(0);
 			}
 		}
 
