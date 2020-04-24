@@ -111,7 +111,7 @@ copy gold fine_keepdc
 
 cd coarse
 opt_expr -fine
-select -assert-count 1 t:$xor # FIXME: Should be zero
+select -assert-count 0 t:$xor
 
 cd fine
 simplemap
@@ -126,13 +126,12 @@ sat -verify -prove-asserts -show-ports -enable_undef miter2
 
 cd coarse_keepdc
 opt_expr -keepdc -fine
-dump
-select -assert-count 2 t:$xor $ FIXME: Should be one
+select -assert-count 1 t:$xor
 
 cd fine_keepdc
 simplemap
 opt_expr -keepdc
-select -assert-count t c:$_XOR_
+select -assert-count 3 t:$_XOR_
 
 cd
 miter -equiv -flatten -make_assert -make_outputs gold coarse_keepdc miter3
