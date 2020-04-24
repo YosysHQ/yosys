@@ -207,6 +207,7 @@ class dict
 		entry_t() { }
 		entry_t(const std::pair<K, T> &udata, int next) : udata(udata), next(next) { }
 		entry_t(std::pair<K, T> &&udata, int next) : udata(std::move(udata)), next(next) { }
+		bool operator<(const entry_t &other) const { return udata.first < other.udata.first; }
 	};
 
 	std::vector<int> hashtable;
@@ -616,10 +617,12 @@ public:
 	}
 
 	unsigned int hash() const {
+		std::vector<entry_t> entries_(entries); //make a copy to preserve const-ness
+		std::sort(entries_.begin(), entries_.end());
 		unsigned int h = mkhash_init;
-		for (auto &it : entries) {
-			h = mkhash(h, hash_ops<K>::hash(it.udata.first));
-			h = mkhash(h, hash_ops<T>::hash(it.udata.second));
+		for (unsigned int i = 0; i < entries_.size(); ++i) {
+			h = mkhash(h, hash_ops<K>::hash(entries_[i].udata.first));
+			h = mkhash(h, hash_ops<T>::hash(entries_[i].udata.second));
 		}
 		return h;
 	}
