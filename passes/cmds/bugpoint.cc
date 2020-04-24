@@ -149,7 +149,7 @@ struct BugpointPass : public Pass {
 
 				if (index++ == seed)
 				{
-					log("Trying to remove module %s.\n", module->name.c_str());
+					log_header(design, "Trying to remove module %s.\n", log_id(module));
 					removed_module = module;
 					break;
 				}
@@ -179,7 +179,7 @@ struct BugpointPass : public Pass {
 
 					if (index++ == seed)
 					{
-						log("Trying to remove module port %s.\n", log_signal(wire));
+						log_header(design, "Trying to remove module port %s.\n", log_id(wire));
 						wire->port_input = wire->port_output = false;
 						mod->fixup_ports();
 						return design_copy;
@@ -203,7 +203,7 @@ struct BugpointPass : public Pass {
 
 					if (index++ == seed)
 					{
-						log("Trying to remove cell %s.%s.\n", mod->name.c_str(), cell->name.c_str());
+						log_header(design, "Trying to remove cell %s.%s.\n", log_id(mod), log_id(cell));
 						removed_cell = cell;
 						break;
 					}
@@ -234,7 +234,7 @@ struct BugpointPass : public Pass {
 
 						if (index++ == seed)
 						{
-							log("Trying to remove cell port %s.%s.%s.\n", mod->name.c_str(), cell->name.c_str(), it.first.c_str());
+							log_header(design, "Trying to remove cell port %s.%s.%s.\n", log_id(mod), log_id(cell), log_id(it.first));
 							RTLIL::SigSpec port_x(State::Sx, port.size());
 							cell->unsetPort(it.first);
 							cell->setPort(it.first, port_x);
@@ -243,7 +243,7 @@ struct BugpointPass : public Pass {
 
 						if (!stage2 && (cell->input(it.first) || cell->output(it.first)) && index++ == seed)
 						{
-							log("Trying to expose cell port %s.%s.%s as module port.\n", mod->name.c_str(), cell->name.c_str(), it.first.c_str());
+							log_header(design, "Trying to expose cell port %s.%s.%s as module port.\n", log_id(mod), log_id(cell), log_id(it.first));
 							RTLIL::Wire *wire = mod->addWire(NEW_ID, port.size());
 							wire->set_bool_attribute(ID($bugpoint));
 							wire->port_input = cell->input(it.first);
@@ -275,7 +275,7 @@ struct BugpointPass : public Pass {
 						{
 							if (index++ == seed)
 							{
-								log("Trying to remove assign %s %s in %s.%s.\n", log_signal((*it).first), log_signal((*it).second), mod->name.c_str(), pr.first.c_str());
+								log_header(design, "Trying to remove assign %s %s in %s.%s.\n", log_signal(it->first), log_signal(it->second), log_id(mod), log_id(pr.first));
 								cs->actions.erase(it);
 								return design_copy;
 							}
@@ -301,7 +301,7 @@ struct BugpointPass : public Pass {
 						{
 							if (index++ == seed)
 							{
-								log("Trying to remove sync %s update %s %s in %s.%s.\n", log_signal(sy->signal), log_signal((*it).first), log_signal((*it).second), mod->name.c_str(), pr.first.c_str());
+								log_header(design, "Trying to remove sync %s update %s %s in %s.%s.\n", log_signal(sy->signal), log_signal(it->first), log_signal(it->second), log_id(mod), log_id(pr.first));
 								sy->actions.erase(it);
 								return design_copy;
 							}
