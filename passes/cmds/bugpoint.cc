@@ -66,7 +66,8 @@ struct BugpointPass : public Pass {
 		log("        try to remove modules.\n");
 		log("\n");
 		log("    -ports\n");
-		log("        try to remove module ports.\n");
+		log("        try to remove module ports. ports with a (* keep *) attribute will be\n");
+		log("        skipped (useful for clocks, resets, etc.)\n");
 		log("\n");
 		log("    -cells\n");
 		log("        try to remove cells.\n");
@@ -162,18 +163,21 @@ struct BugpointPass : public Pass {
 
 				for (auto wire : mod->wires())
 				{
+					if (!wire->port_id)
+						continue;
+
 					if (!stage2 && wire->get_bool_attribute(ID($bugpoint)))
 						continue;
 
-					if (wire->port_input || wire->port_output)
+					if (wire->get_bool_attribute(ID::keep))
+						continue;
+
+					if (index++ == seed)
 					{
-						if (index++ == seed)
-						{
-							log("Trying to remove module port %s.\n", log_signal(wire));
-							wire->port_input = wire->port_output = false;
-							mod->fixup_ports();
-							return design_copy;
-						}
+						log("Trying to remove module port %s.\n", log_signal(wire));
+						wire->port_input = wire->port_output = false;
+						mod->fixup_ports();
+						return design_copy;
 					}
 				}
 			}
@@ -305,6 +309,9 @@ struct BugpointPass : public Pass {
 		string yosys_cmd = "yosys", script, grep;
 		bool fast = false, clean = false;
 		bool modules = false, ports = false, cells = false, connections = false, assigns = false, updates = false, has_part = false;
+
+		log_header(design, "Executing BUGPOINT pass (minimize testcases).\n");
+		log_push();
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -449,6 +456,8 @@ struct BugpointPass : public Pass {
 				design->add(module->clone());
 			delete crashing_design;
 		}
+
+		log_pop();
 	}
 } BugpointPass;
 
