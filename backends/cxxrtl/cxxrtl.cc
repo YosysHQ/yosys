@@ -726,12 +726,13 @@ struct CxxrtlWorker {
 
 	void dump_const_init(const RTLIL::Const &data, int width, int offset = 0, bool fixed_width = false)
 	{
+		const int CHUNK_SIZE = 32;
 		f << "{";
 		while (width > 0) {
-			const int CHUNK_SIZE = 32;
-			uint32_t chunk = data.extract(offset, width > CHUNK_SIZE ? CHUNK_SIZE : width).as_int();
+			int chunk_width = min(width, CHUNK_SIZE);
+			uint32_t chunk = data.extract(offset, chunk_width).as_int();
 			if (fixed_width)
-				f << stringf("0x%08xu", chunk);
+				f << stringf("0x%.*xu", chunk_width / 4, chunk);
 			else
 				f << stringf("%#xu", chunk);
 			if (width > CHUNK_SIZE)
