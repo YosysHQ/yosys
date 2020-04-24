@@ -156,13 +156,27 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 		int group_idx = GRP_DYN;
 		RTLIL::SigBit bit_a = bits_a[i], bit_b = bits_b[i];
 
-		if (cell->type == ID($or) && (bit_a == RTLIL::State::S1 || bit_b == RTLIL::State::S1))
-			bit_a = bit_b = RTLIL::State::S1;
+		if (cell->type == ID($or)) {
+			if (bit_a == RTLIL::State::S1 || bit_b == RTLIL::State::S1)
+				bit_a = bit_b = RTLIL::State::S1;
+		}
+		else if (cell->type == ID($and)) {
+			if (bit_a == RTLIL::State::S0 || bit_b == RTLIL::State::S0)
+				bit_a = bit_b = RTLIL::State::S0;
+		}
+		else if (!keepdc) {
+			if (cell->type == ID($xor)) {
+				if (bit_a == bit_b)
+					bit_a = bit_b = RTLIL::State::S0;
+			}
+			else if (cell->type == ID($xnor)) {
+				if (bit_a == bit_b)
+					bit_a = bit_b = RTLIL::State::S1; // For consistency with gate-level which does $xnor -> $_XOR_ + $_NOT_
+			}
+		}
 
-		if (cell->type == ID($and) && (bit_a == RTLIL::State::S0 || bit_b == RTLIL::State::S0))
-			bit_a = bit_b = RTLIL::State::S0;
-
-		if (!keepdc || (bit_a != State::Sx && bit_a != State::Sz && bit_a != State::Sx && bit_a != State::Sx)) {
+		bool def = (bit_a != State::Sx && bit_a != State::Sz && bit_b != State::Sx && bit_b != State::Sx);
+		if (def || !keepdc) {
 			if (bit_a.wire == NULL && bit_b.wire == NULL)
 				group_idx = GRP_CONST_AB;
 			else if (bit_a.wire == NULL)
@@ -202,28 +216,40 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 		}
 
 		if (cell->type.in(ID($and), ID($or)) && i == GRP_CONST_A) {
-			if (cell->type == ID($and))
-				new_a.replace(dict<SigBit,SigBit>{{State::Sx, State::S0}, {State::Sz, State::S0}}, &new_b);
-			else if (cell->type == ID($or))
-				new_a.replace(dict<SigBit,SigBit>{{State::Sx, State::S1}, {State::Sz, State::S1}}, &new_b);
-			else log_abort();
+			if (!keepdc) {
+				if (cell->type == ID($and))
+					new_a.replace(dict<SigBit,SigBit>{{State::Sx, State::S0}, {State::Sz, State::S0}}, &new_b);
+				else if (cell->type == ID($or))
+					new_a.replace(dict<SigBit,SigBit>{{State::Sx, State::S1}, {State::Sz, State::S1}}, &new_b);
+				else log_abort();
+			}
 			log_debug("  Direct Connection: %s (%s with %s)\n", log_signal(new_b), log_id(cell->type), log_signal(new_a));
 			module->connect(new_y, new_b);
 			module->connect(new_conn);
 			continue;
 		}
 
-		if (!keepdc && cell->type.in(ID($xor), ID($xnor)) && i == GRP_CONST_A) {
+		if (cell->type.in(ID($xor), ID($xnor)) && i == GRP_CONST_A) {
 			SigSpec undef_a, undef_y, undef_b;
 			SigSpec def_y, def_a, def_b;
-			for (int i = 0; i < GetSize(new_y); i++)
-				if (new_a[i] == State::Sx || new_a[i] == State::Sz) {
+			for (int i = 0; i < GetSize(new_y); i++) {
+				bool undef = new_a[i] == State::Sx || new_a[i] == State::Sz;
+				if (!keepdc && (undef || new_a[i] == new_b[i])) {
 					undef_a.append(new_a[i]);
 					if (cell->type == ID($xor))
 						undef_b.append(State::S0);
-					// For consistency with gate-level which does $xnor -> $_XOR_ + $_NOT_
+					// For consistency since simplemap does $xnor -> $_XOR_ + $_NOT_
 					else if (cell->type == ID($xnor))
 						undef_b.append(State::S1);
+					else log_abort();
+					undef_y.append(new_y[i]);
+				}
+				else if (new_a[i] == State::S0 || new_a[i] == State::S1) {
+					undef_a.append(new_a[i]);
+					if (cell->type == ID($xor))
+						undef_b.append(new_a[i] == State::S1 ? module->Not(NEW_ID, new_b[i]).as_bit() : new_b[i]);
+					else if (cell->type == ID($xnor))
+						undef_b.append(new_a[i] == State::S1 ? new_b[i] : module->Not(NEW_ID, new_b[i]).as_bit());
 					else log_abort();
 					undef_y.append(new_y[i]);
 				}
@@ -232,13 +258,14 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 					def_b.append(new_b[i]);
 					def_y.append(new_y[i]);
 				}
+			}
 			if (!undef_y.empty()) {
 				log_debug("  Direct Connection: %s (%s with %s)\n", log_signal(undef_b), log_id(cell->type), log_signal(undef_a));
 				module->connect(undef_y, undef_b);
-			}
-			if (def_y.empty()) {
-				module->connect(new_conn);
-				continue;
+				if (def_y.empty()) {
+					module->connect(new_conn);
+					continue;
+				}
 			}
 			new_a = std::move(def_a);
 			new_b = std::move(def_b);
@@ -547,7 +574,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				}
 				if (cell->type.in(ID($xnor), ID($_XNOR_))) {
 					cover("opt.opt_expr.const_xnor");
-					// For consistency with gate-level which does $xnor -> $_XOR_ + $_NOT_
+					// For consistency since simplemap does $xnor -> $_XOR_ + $_NOT_
 					replace_cell(assign_map, module, cell, "const_xnor", ID::Y, RTLIL::State::S1);
 					goto next_cell;
 				}
@@ -1150,9 +1177,6 @@ skip_fine_alu:
 					identity_wrt_b = true;
 
 				if (b.is_fully_const() && b.as_bool() == false)
-					identity_wrt_a = true;
-
-				if (cell->type == ID($xor) && a == b)
 					identity_wrt_a = true;
 			}
 
