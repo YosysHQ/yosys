@@ -219,7 +219,7 @@ bool is_cxxrtl_blackbox_cell(const RTLIL::Cell *cell)
 {
 	RTLIL::Module *cell_module = cell->module->design->module(cell->type);
 	log_assert(cell_module != nullptr);
-	return cell_module->get_bool_attribute(ID(cxxrtl.blackbox));
+	return cell_module->get_bool_attribute(ID(cxxrtl_blackbox));
 }
 
 enum class CxxrtlPortType {
@@ -231,14 +231,14 @@ enum class CxxrtlPortType {
 CxxrtlPortType cxxrtl_port_type(const RTLIL::Cell *cell, RTLIL::IdString port)
 {
 	RTLIL::Module *cell_module = cell->module->design->module(cell->type);
-	if (cell_module == nullptr || !cell_module->get_bool_attribute(ID(cxxrtl.blackbox)))
+	if (cell_module == nullptr || !cell_module->get_bool_attribute(ID(cxxrtl_blackbox)))
 		return CxxrtlPortType::UNKNOWN;
 	RTLIL::Wire *cell_output_wire = cell_module->wire(port);
 	log_assert(cell_output_wire != nullptr);
-	bool is_comb = cell_output_wire->get_bool_attribute(ID(cxxrtl.comb));
-	bool is_sync = cell_output_wire->get_bool_attribute(ID(cxxrtl.sync));
+	bool is_comb = cell_output_wire->get_bool_attribute(ID(cxxrtl_comb));
+	bool is_sync = cell_output_wire->get_bool_attribute(ID(cxxrtl_sync));
 	if (is_comb && is_sync)
-		log_cmd_error("Port `%s.%s' is marked as both `cxxrtl.comb` and `cxxrtl.sync`.\n",
+		log_cmd_error("Port `%s.%s' is marked as both `cxxrtl_comb` and `cxxrtl_sync`.\n",
 		              log_id(cell_module), log_signal(cell_output_wire));
 	else if (is_comb)
 		return CxxrtlPortType::COMB;
@@ -606,7 +606,7 @@ struct CxxrtlWorker {
 
 	std::string mangle(const RTLIL::Module *module)
 	{
-		return mangle_module_name(module->name, /*is_blackbox=*/module->get_bool_attribute(ID(cxxrtl.blackbox)));
+		return mangle_module_name(module->name, /*is_blackbox=*/module->get_bool_attribute(ID(cxxrtl_blackbox)));
 	}
 
 	std::string mangle(const RTLIL::Memory *memory)
@@ -634,19 +634,19 @@ struct CxxrtlWorker {
 
 	std::vector<std::string> template_param_names(const RTLIL::Module *module)
 	{
-		if (!module->has_attribute(ID(cxxrtl.template)))
+		if (!module->has_attribute(ID(cxxrtl_template)))
 			return {};
 
-		if (module->attributes.at(ID(cxxrtl.template)).flags != RTLIL::CONST_FLAG_STRING)
-			log_cmd_error("Attribute `cxxrtl.template' of module `%s' is not a string.\n", log_id(module));
+		if (module->attributes.at(ID(cxxrtl_template)).flags != RTLIL::CONST_FLAG_STRING)
+			log_cmd_error("Attribute `cxxrtl_template' of module `%s' is not a string.\n", log_id(module));
 
-		std::vector<std::string> param_names = split_by(module->get_string_attribute(ID(cxxrtl.template)), " \t");
+		std::vector<std::string> param_names = split_by(module->get_string_attribute(ID(cxxrtl_template)), " \t");
 		for (const auto &param_name : param_names) {
 			// Various lowercase prefixes (p_, i_, cell_, ...) are used for member variables, so require
 			// parameters to start with an uppercase letter to avoid name conflicts. (This is the convention
 			// in both Verilog and C++, anyway.)
 			if (!isupper(param_name[0]))
-				log_cmd_error("Attribute `cxxrtl.template' of module `%s' includes a parameter `%s', "
+				log_cmd_error("Attribute `cxxrtl_template' of module `%s' includes a parameter `%s', "
 				              "which does not start with an uppercase letter.\n",
 				              log_id(module), param_name.c_str());
 		}
@@ -677,7 +677,7 @@ struct CxxrtlWorker {
 	{
 		RTLIL::Module *cell_module = cell->module->design->module(cell->type);
 		log_assert(cell_module != nullptr);
-		if (!cell_module->get_bool_attribute(ID(cxxrtl.blackbox)))
+		if (!cell_module->get_bool_attribute(ID(cxxrtl_blackbox)))
 			return "";
 
 		std::vector<std::string> param_names = template_param_names(cell_module);
@@ -1419,8 +1419,8 @@ struct CxxrtlWorker {
 			f << indent << "value<" << wire->width << "> " << mangle(wire) << ";\n";
 		} else {
 			std::string width;
-			if (wire->module->has_attribute(ID(cxxrtl.blackbox)) && wire->has_attribute(ID(cxxrtl.width))) {
-				width = wire->get_string_attribute(ID(cxxrtl.width));
+			if (wire->module->has_attribute(ID(cxxrtl_blackbox)) && wire->has_attribute(ID(cxxrtl_width))) {
+				width = wire->get_string_attribute(ID(cxxrtl_width));
 			} else {
 				width = std::to_string(wire->width);
 			}
@@ -1522,7 +1522,7 @@ struct CxxrtlWorker {
 	{
 		inc_indent();
 			f << indent << "bool converged = " << (eval_converges.at(module) ? "true" : "false") << ";\n";
-			if (!module->get_bool_attribute(ID(cxxrtl.blackbox))) {
+			if (!module->get_bool_attribute(ID(cxxrtl_blackbox))) {
 				for (auto wire : module->wires()) {
 					if (edge_wires[wire]) {
 						for (auto edge_type : edge_types) {
@@ -1574,10 +1574,10 @@ struct CxxrtlWorker {
 						f << indent << "prev_" << mangle(wire) << " = " << mangle(wire) << ";\n";
 					continue;
 				}
-				if (!module->get_bool_attribute(ID(cxxrtl.blackbox)) || wire->port_id != 0)
+				if (!module->get_bool_attribute(ID(cxxrtl_blackbox)) || wire->port_id != 0)
 					f << indent << "changed |= " << mangle(wire) << ".commit();\n";
 			}
-			if (!module->get_bool_attribute(ID(cxxrtl.blackbox))) {
+			if (!module->get_bool_attribute(ID(cxxrtl_blackbox))) {
 				for (auto memory : module->memories) {
 					if (!writable_memories[memory.second])
 						continue;
@@ -1624,8 +1624,8 @@ struct CxxrtlWorker {
 	void dump_module_intf(RTLIL::Module *module)
 	{
 		dump_attrs(module);
-		if (module->get_bool_attribute(ID(cxxrtl.blackbox))) {
-			if (module->has_attribute(ID(cxxrtl.template)))
+		if (module->get_bool_attribute(ID(cxxrtl_blackbox))) {
+			if (module->has_attribute(ID(cxxrtl_template)))
 				f << indent << "template" << template_params(module, /*is_decl=*/true) << "\n";
 			f << indent << "struct " << mangle(module) << " : public module {\n";
 			inc_indent();
@@ -1687,7 +1687,7 @@ struct CxxrtlWorker {
 					dump_attrs(cell);
 					RTLIL::Module *cell_module = module->design->module(cell->type);
 					log_assert(cell_module != nullptr);
-					if (cell_module->get_bool_attribute(ID(cxxrtl.blackbox))) {
+					if (cell_module->get_bool_attribute(ID(cxxrtl_blackbox))) {
 						f << indent << "std::unique_ptr<" << mangle(cell_module) << template_args(cell) << "> ";
 						f << mangle(cell) << " = " << mangle(cell_module) << template_args(cell);
 						f << "::create(" << escape_cxx_string(cell->name.str()) << ", ";
@@ -1712,7 +1712,7 @@ struct CxxrtlWorker {
 
 	void dump_module_impl(RTLIL::Module *module)
 	{
-		if (module->get_bool_attribute(ID(cxxrtl.blackbox)))
+		if (module->get_bool_attribute(ID(cxxrtl_blackbox)))
 			return;
 		f << indent << "bool " << mangle(module) << "::eval() {\n";
 		dump_eval_method(module);
@@ -1731,9 +1731,9 @@ struct CxxrtlWorker {
 		for (auto module : design->modules()) {
 			if (!design->selected_module(module))
 				continue;
-			if (module->get_bool_attribute(ID(cxxrtl.blackbox)))
+			if (module->get_bool_attribute(ID(cxxrtl_blackbox)))
 				modules.push_back(module); // cxxrtl blackboxes first
-			if (module->get_blackbox_attribute() || module->get_bool_attribute(ID(cxxrtl.blackbox)))
+			if (module->get_blackbox_attribute() || module->get_bool_attribute(ID(cxxrtl_blackbox)))
 				continue;
 
 			topo_design.node(module);
@@ -1822,16 +1822,16 @@ struct CxxrtlWorker {
 			SigMap &sigmap = sigmaps[module];
 			sigmap.set(module);
 
-			if (module->get_bool_attribute(ID(cxxrtl.blackbox))) {
+			if (module->get_bool_attribute(ID(cxxrtl_blackbox))) {
 				for (auto port : module->ports) {
 					RTLIL::Wire *wire = module->wire(port);
-					if (wire->has_attribute(ID(cxxrtl.edge))) {
-						RTLIL::Const edge_attr = wire->attributes[ID(cxxrtl.edge)];
+					if (wire->has_attribute(ID(cxxrtl_edge))) {
+						RTLIL::Const edge_attr = wire->attributes[ID(cxxrtl_edge)];
 						if (!(edge_attr.flags & RTLIL::CONST_FLAG_STRING) || (int)edge_attr.decode_string().size() != GetSize(wire))
-							log_cmd_error("Attribute `cxxrtl.edge' of port `%s.%s' is not a string with one character per bit.\n",
+							log_cmd_error("Attribute `cxxrtl_edge' of port `%s.%s' is not a string with one character per bit.\n",
 							              log_id(module), log_signal(wire));
 
-						std::string edges = wire->get_string_attribute(ID(cxxrtl.edge));
+						std::string edges = wire->get_string_attribute(ID(cxxrtl_edge));
 						for (int i = 0; i < GetSize(wire); i++) {
 							RTLIL::SigSpec wire_sig = wire;
 							switch (edges[i]) {
@@ -1840,7 +1840,7 @@ struct CxxrtlWorker {
 								case 'n': register_edge_signal(sigmap, wire_sig[i], RTLIL::STn); break;
 								case 'a': register_edge_signal(sigmap, wire_sig[i], RTLIL::STe); break;
 								default:
-									log_cmd_error("Attribute `cxxrtl.edge' of port `%s.%s' contains specifiers "
+									log_cmd_error("Attribute `cxxrtl_edge' of port `%s.%s' contains specifiers "
 									              "other than '-', 'p', 'n', or 'a'.\n",
 										log_id(module), log_signal(wire));
 							}
@@ -1869,12 +1869,12 @@ struct CxxrtlWorker {
 				RTLIL::Module *cell_module = design->module(cell->type);
 				if (cell_module &&
 				    cell_module->get_blackbox_attribute() &&
-				    !cell_module->get_bool_attribute(ID(cxxrtl.blackbox)))
+				    !cell_module->get_bool_attribute(ID(cxxrtl_blackbox)))
 					log_cmd_error("External blackbox cell `%s' is not marked as a CXXRTL blackbox.\n", log_id(cell->type));
 
 				if (cell_module &&
-				    cell_module->get_bool_attribute(ID(cxxrtl.blackbox)) &&
-				    cell_module->get_bool_attribute(ID(cxxrtl.template)))
+				    cell_module->get_bool_attribute(ID(cxxrtl_blackbox)) &&
+				    cell_module->get_bool_attribute(ID(cxxrtl_template)))
 					blackbox_specializations[cell_module].insert(template_args(cell));
 
 				FlowGraph::Node *node = flow.add_node(cell);
@@ -2065,7 +2065,7 @@ struct CxxrtlWorker {
 		has_sync_init = has_packed_mem = false;
 
 		for (auto module : design->modules()) {
-			if (module->get_blackbox_attribute() && !module->has_attribute(ID(cxxrtl.blackbox)))
+			if (module->get_blackbox_attribute() && !module->has_attribute(ID(cxxrtl_blackbox)))
 				continue;
 
 			if (!design->selected_whole_module(module))
@@ -2156,12 +2156,12 @@ struct CxxrtlBackend : public Backend {
 		log("For example, the following Verilog code defines a CXXRTL black box interface for\n");
 		log("a synchronous debug sink:\n");
 		log("\n");
-		log("    (* cxxrtl.blackbox *)\n");
+		log("    (* cxxrtl_blackbox *)\n");
 		log("    module debug(...);\n");
-		log("      (* cxxrtl.edge = \"p\" *) input clk;\n");
+		log("      (* cxxrtl_edge = \"p\" *) input clk;\n");
 		log("      input en;\n");
 		log("      input [7:0] i_data;\n");
-		log("      (* cxxrtl.sync *) output [7:0] o_data;\n");
+		log("      (* cxxrtl_sync *) output [7:0] o_data;\n");
 		log("    endmodule\n");
 		log("\n");
 		log("For this HDL interface, this backend will generate the following C++ interface:\n");
@@ -2206,13 +2206,13 @@ struct CxxrtlBackend : public Backend {
 		log("port widths. For example, the following Verilog code defines a CXXRTL black box\n");
 		log("interface for a configurable width debug sink:\n");
 		log("\n");
-		log("    (* cxxrtl.blackbox, cxxrtl.template = \"WIDTH\" *)\n");
+		log("    (* cxxrtl_blackbox, cxxrtl_template = \"WIDTH\" *)\n");
 		log("    module debug(...);\n");
 		log("      parameter WIDTH = 8;\n");
-		log("      (* cxxrtl.edge = \"p\" *) input clk;\n");
+		log("      (* cxxrtl_edge = \"p\" *) input clk;\n");
 		log("      input en;\n");
-		log("      (* cxxrtl.width = \"WIDTH\" *) input [WIDTH - 1:0] i_data;\n");
-		log("      (* cxxrtl.width = \"WIDTH\" *) output [WIDTH - 1:0] o_data;\n");
+		log("      (* cxxrtl_width = \"WIDTH\" *) input [WIDTH - 1:0] i_data;\n");
+		log("      (* cxxrtl_width = \"WIDTH\" *) output [WIDTH - 1:0] o_data;\n");
 		log("    endmodule\n");
 		log("\n");
 		log("For this parametric HDL interface, this backend will generate the following C++\n");
@@ -2246,27 +2246,27 @@ struct CxxrtlBackend : public Backend {
 		log("\n");
 		log("The following attributes are recognized by this backend:\n");
 		log("\n");
-		log("    cxxrtl.blackbox\n");
+		log("    cxxrtl_blackbox\n");
 		log("        only valid on modules. if specified, the module contents are ignored,\n");
 		log("        and the generated code includes only the module interface and a factory\n");
 		log("        function, which will be called to instantiate the module.\n");
 		log("\n");
-		log("    cxxrtl.edge\n");
+		log("    cxxrtl_edge\n");
 		log("        only valid on inputs of black boxes. must be one of \"p\", \"n\", \"a\".\n");
 		log("        if specified on signal `clk`, the generated code includes edge detectors\n");
 		log("        `posedge_p_clk()` (if \"p\"), `negedge_p_clk()` (if \"n\"), or both (if\n");
 		log("        \"a\"), simplifying implementation of clocked black boxes.\n");
 		log("\n");
-		log("    cxxrtl.template\n");
+		log("    cxxrtl_template\n");
 		log("        only valid on black boxes. must contain a space separated sequence of\n");
 		log("        identifiers that have a corresponding black box parameters. for each\n");
 		log("        of them, the generated code includes a `size_t` template parameter.\n");
 		log("\n");
-		log("    cxxrtl.width\n");
+		log("    cxxrtl_width\n");
 		log("        only valid on ports of black boxes. must be a constant expression, which\n");
 		log("        is directly inserted into generated code.\n");
 		log("\n");
-		log("    cxxrtl.comb, cxxrtl.sync\n");
+		log("    cxxrtl_comb, cxxrtl_sync\n");
 		log("        only valid on outputs of black boxes. if specified, indicates that every\n");
 		log("        bit of the output port is driven, correspondingly, by combinatorial or\n");
 		log("        synchronous logic. this knowledge is used for scheduling optimizations.\n");
