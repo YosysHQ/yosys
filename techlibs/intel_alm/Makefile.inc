@@ -10,6 +10,8 @@ $(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/al
 $(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/arith_alm_map.v))
 $(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/dff_map.v))
 $(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/dff_sim.v))
+$(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/dsp_sim.v))
+$(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/dsp_map.v))
 $(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/mem_sim.v))
 
 # RAM
