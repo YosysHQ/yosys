@@ -732,7 +732,7 @@ struct CxxrtlWorker {
 			int chunk_width = min(width, CHUNK_SIZE);
 			uint32_t chunk = data.extract(offset, chunk_width).as_int();
 			if (fixed_width)
-				f << stringf("0x%.*xu", chunk_width / 4, chunk);
+				f << stringf("0x%.*xu", (3 + chunk_width) / 4, chunk);
 			else
 				f << stringf("%#xu", chunk);
 			if (width > CHUNK_SIZE)
