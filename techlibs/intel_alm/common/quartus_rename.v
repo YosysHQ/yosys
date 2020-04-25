@@ -1,9 +1,11 @@
 `ifdef cyclonev
 `define LCELL cyclonev_lcell_comb
+`define MAC cyclonev_mac
 `define MLAB cyclonev_mlab_cell
 `endif
 `ifdef cyclone10gx
 `define LCELL cyclone10gx_lcell_comb
+`define MAC cyclone10gx_mac
 `define MLAB cyclone10gx_mlab_cell
 `endif
 
@@ -117,5 +119,26 @@ module MISTRAL_MLAB(input [4:0] A1ADDR, input A1DATA, A1EN, CLK1, input [4:0] B1
     .ena0(A1EN),
     .clk0(CLK1)
 );
+
+endmodule
+
+
+module MISTRAL_MUL27X27(input [26:0] A, B, output [53:0] Y);
+
+`MAC #(.ax_width(27), .ay_scan_in_width(27), .result_a_width(54), .operation_mode("M27x27")) _TECHMAP_REPLACE_ (.ax(A), .ay(B), .resulta(Y));
+
+endmodule
+
+
+module MISTRAL_MUL18X18(input [17:0] A, B, output [35:0] Y);
+
+`MAC #(.ax_width(18), .ay_scan_in_width(18), .result_a_width(36), .operation_mode("M18x18_FULL")) _TECHMAP_REPLACE_ (.ax(B), .ay(A), .resulta(Y));
+
+endmodule
+
+
+module MISTRAL_MUL9X9(input [8:0] A, B, output [17:0] Y);
+
+`MAC #(.ax_width(9), .ay_scan_in_width(9), .result_a_width(18), .operation_mode("M9x9")) _TECHMAP_REPLACE_ (.ax(A), .ay(B), .resulta(Y));
 
 endmodule

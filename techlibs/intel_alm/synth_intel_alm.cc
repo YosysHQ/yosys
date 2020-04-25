@@ -69,13 +69,16 @@ struct SynthIntelALMPass : public ScriptPass {
 		log("    -nobram\n");
 		log("        do not use block RAM cells in output netlist\n");
 		log("\n");
+		log("    -nodsp\n");
+		log("        do not map multipliers to MISTRAL_MUL cells\n");
+		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
 		log("\n");
 	}
 
 	string top_opt, family_opt, bram_type, vout_file;
-	bool flatten, quartus, nolutram, nobram, dff;
+	bool flatten, quartus, nolutram, nobram, dff, nodsp;
 
 	void clear_flags() override
 	{
@@ -88,6 +91,7 @@ struct SynthIntelALMPass : public ScriptPass {
 		nolutram = false;
 		nobram = false;
 		dff = false;
+		nodsp = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -130,6 +134,10 @@ struct SynthIntelALMPass : public ScriptPass {
 				nobram = true;
 				continue;
 			}
+			if (args[argidx] == "-nodsp") {
+				nodsp = true;
+				continue;
+			}
 			if (args[argidx] == "-noflatten") {
 				flatten = false;
 				continue;
@@ -169,9 +177,11 @@ struct SynthIntelALMPass : public ScriptPass {
 		}
 
 		if (check_label("begin")) {
-			run(stringf("read_verilog -sv -lib +/intel/%s/cells_sim.v", family_opt.c_str()));
+			if (family_opt == "cyclonev")
+				run(stringf("read_verilog -sv -lib +/intel/%s/cells_sim.v", family_opt.c_str()));
 			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/alm_sim.v", family_opt.c_str()));
 			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/dff_sim.v", family_opt.c_str()));
+			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/dsp_sim.v", family_opt.c_str()));
 			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/mem_sim.v", family_opt.c_str()));
 			run(stringf("read_verilog -specify -lib -D %s -icells +/intel_alm/common/abc9_model.v", family_opt.c_str()));
 
@@ -181,16 +191,46 @@ struct SynthIntelALMPass : public ScriptPass {
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 		}
 
-		if (flatten && check_label("flatten", "(unless -noflatten)")) {
+		if (check_label("coarse")) {
 			run("proc");
-			run("flatten");
+			if (flatten || help_mode)
+				run("flatten", "(skip if -noflatten)");
 			run("tribuf -logic");
 			run("deminout");
-		}
-
-		if (check_label("coarse")) {
-			run("synth -run coarse -lut 6");
-			run("techmap -map +/intel_alm/common/arith_alm_map.v");
+			run("opt_expr");
+			run("opt_clean");
+			run("check");
+			run("opt");
+			run("wreduce");
+			run("peepopt");
+			run("opt_clean");
+			run("share");
+			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=6");
+			run("opt_expr");
+			run("opt_clean");
+			if (help_mode) {
+				run("techmap -map +/mul2dsp.v [...]", "(unless -nodsp)");
+			} else if (!nodsp) {
+				// Cyclone V supports 9x9 multiplication, Cyclone 10 GX does not.
+				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=27 -D DSP_B_MAXWIDTH=27  -D DSP_A_MINWIDTH=19 -D DSP_B_MINWIDTH=19  -D DSP_SIGNEDONLY  -D DSP_NAME=__MUL27X27");
+				run("chtype -set $mul t:$__soft_mul");
+				if (family_opt == "cyclonev") {
+					run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18  -D DSP_A_MINWIDTH=10 -D DSP_B_MINWIDTH=10  -D DSP_SIGNEDONLY  -D DSP_NAME=__MUL18X18");
+					run("chtype -set $mul t:$__soft_mul");
+					run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=9 -D DSP_B_MAXWIDTH=9  -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=4  -D DSP_SIGNEDONLY  -D DSP_NAME=__MUL9X9");
+					run("chtype -set $mul t:$__soft_mul");
+				} else if (family_opt == "cyclone10gx") {
+					run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18  -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=4  -D DSP_SIGNEDONLY  -D DSP_NAME=__MUL18X18");
+					run("chtype -set $mul t:$__soft_mul");
+				}
+			}
+			run("alumacc");
+			run("techmap -map +/intel_alm/common/arith_alm_map.v -map +/intel_alm/common/dsp_map.v");
+			run("opt");
+			run("fsm");
+			run("opt -fast");
+			run("memory -nomap");
+			run("opt_clean");
 		}
 
 		if (!nobram && check_label("map_bram", "(skip if -nobram)")) {
