@@ -170,26 +170,56 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 			return;
 		if (!type_range->IsTypeEnum())
 			return;
+		if (nl->IsFromVhdl() && strcmp(type_range->GetTypeName(), "STD_LOGIC") == 0)
+			return;
 		attributes.emplace(ID::wiretype, RTLIL::escape_id(type_range->GetTypeName()));
 
 		MapIter mi;
 		const char *k, *v;
 		FOREACH_MAP_ITEM(type_range->GetEnumIdMap(), mi, &k, &v) {
-			// Expect <decimal>'b<binary>
-			auto p = strchr(v, '\'');
-			if (p) {
-				if (*(p+1) != 'b')
-					p = nullptr;
-				else
-					for (auto q = p+2; *q != '\0'; q++)
-						if (*q != '0' && *q != '1') {
-							p = nullptr;
-							break;
-						}
+			if (nl->IsFromVerilog()) {
+				// Expect <decimal>'b<binary>
+				auto p = strchr(v, '\'');
+				if (p) {
+					if (*(p+1) != 'b')
+						p = nullptr;
+					else
+						for (auto q = p+2; *q != '\0'; q++)
+							if (*q != '0' && *q != '1') {
+								p = nullptr;
+								break;
+							}
+				}
+				if (p == nullptr)
+					log_error("Expected TypeRange value '%s' to be of form <decimal>'b<binary>.\n", v);
+				attributes.emplace(stringf("\\enum_value_%s", p+2), RTLIL::escape_id(k));
 			}
-			if (p == nullptr)
-				log_error("Expected TypeRange value '%s' to be of form <decimal>'b<binary>.\n", v);
-			attributes.emplace(stringf("\\enum_value_%s", p+2), RTLIL::escape_id(k));
+			else if (nl->IsFromVhdl()) {
+				// Expect "<binary>"
+				auto p = v;
+				if (p) {
+					if (*p != '"')
+						p = nullptr;
+					else {
+						auto *q = p+1;
+						for (; *q != '"'; q++)
+							if (*q != '0' && *q != '1') {
+								p = nullptr;
+								break;
+							}
+						if (p && *(q+1) != '\0')
+							p = nullptr;
+					}
+				}
+				if (p == nullptr)
+					log_error("Expected TypeRange value '%s' to be of form \"<binary>\".\n", v);
+				auto l = strlen(p);
+				auto q = (char*)malloc(l+1-2);
+				strncpy(q, p+1, l-2);
+				q[l-2] = '\0';
+				attributes.emplace(stringf("\\enum_value_%s", q), RTLIL::escape_id(k));
+				free(q);
+			}
 		}
 	}
 }
