@@ -131,6 +131,8 @@ void ILANG_BACKEND::dump_wire(std::ostream &f, std::string indent, const RTLIL::
 		f << stringf("output %d ", wire->port_id);
 	if (wire->port_input && wire->port_output)
 		f << stringf("inout %d ", wire->port_id);
+	if (wire->is_signed)
+		f << stringf("signed ");
 	f << stringf("%s\n", wire->name.c_str());
 }
 

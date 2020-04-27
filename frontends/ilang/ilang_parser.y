@@ -192,6 +192,9 @@ wire_options:
 	wire_options TOK_UPTO {
 		current_wire->upto = true;
 	} |
+	wire_options TOK_SIGNED {
+		current_wire->is_signed = true;
+	} |
 	wire_options TOK_OFFSET TOK_INT {
 		current_wire->start_offset = $3;
 	} |
