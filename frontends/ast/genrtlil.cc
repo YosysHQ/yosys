@@ -856,6 +856,8 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 	case AST_SHIFT_RIGHT:
 	case AST_SHIFT_SLEFT:
 	case AST_SHIFT_SRIGHT:
+	case AST_SHIFTX:
+	case AST_SHIFT:
 	case AST_POW:
 		children[0]->detectSignWidthWorker(width_hint, sign_hint, found_real);
 		break;
@@ -1356,6 +1358,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	if (0) { case AST_SHIFT_RIGHT:  type_name = ID($shr); }
 	if (0) { case AST_SHIFT_SLEFT:  type_name = ID($sshl); }
 	if (0) { case AST_SHIFT_SRIGHT: type_name = ID($sshr); }
+	if (0) { case AST_SHIFTX:       type_name = ID($shiftx); }
+	if (0) { case AST_SHIFT:        type_name = ID($shift); }
 		{
 			if (width_hint < 0)
 				detectSignWidth(width_hint, sign_hint);

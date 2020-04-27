@@ -281,6 +281,9 @@ Verilog Attributes and non-standard features
   temporary variable within an always block. This is mostly used internally
   by Yosys to synthesize Verilog functions and access arrays.
 
+- The ``nowrshmsk`` attribute on a register prohibits the generation of
+  shift-and-mask type circuits for writing to bit slices of that register.
+
 - The ``onehot`` attribute on wires mark them as one-hot state register. This
   is used for example for memory port sharing and set by the fsm_map pass.
 

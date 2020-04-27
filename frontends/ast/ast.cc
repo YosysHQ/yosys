@@ -110,6 +110,8 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_SHIFT_RIGHT)
 	X(AST_SHIFT_SLEFT)
 	X(AST_SHIFT_SRIGHT)
+	X(AST_SHIFTX)
+	X(AST_SHIFT)
 	X(AST_LT)
 	X(AST_LE)
 	X(AST_EQ)
@@ -628,6 +630,8 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 	if (0) { case AST_SHIFT_RIGHT:  txt = ">>";  }
 	if (0) { case AST_SHIFT_SLEFT:  txt = "<<<"; }
 	if (0) { case AST_SHIFT_SRIGHT: txt = ">>>"; }
+	if (0) { case AST_SHIFTX:       txt = "@shiftx@"; }
+	if (0) { case AST_SHIFT:        txt = "@shift@"; }
 	if (0) { case AST_LT:           txt = "<";   }
 	if (0) { case AST_LE:           txt = "<=";  }
 	if (0) { case AST_EQ:           txt = "==";  }
