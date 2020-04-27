@@ -30,22 +30,20 @@ struct BugpointPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    bugpoint [options]\n");
+		log("    bugpoint [options] -script <filename>\n");
 		log("\n");
-		log("This command minimizes testcases that crash Yosys. It removes an arbitrary part\n");
-		log("of the design and recursively invokes Yosys with a given script, repeating these\n");
-		log("steps while it can find a smaller design that still causes a crash. Once this\n");
-		log("command finishes, it replaces the current design with the smallest testcase it\n");
-		log("was able to produce.\n");
-		log("\n");
-		log("It is possible to specify the kinds of design part that will be removed. If none\n");
-		log("are specified, all parts of design will be removed.\n");
-		log("\n");
-		log("    -yosys <filename>\n");
-		log("        use this Yosys binary. if not specified, `yosys` is used.\n");
+		log("This command minimizes the current design that is known to crash Yosys with the\n");
+		log("given script into a smaller testcase. It does this by removing an arbitrary part\n");
+		log("of the design and recursively invokes a new Yosys process with this modified design\n");
+		log("and the same script, repeating these steps while it can find a smaller design that\n");
+		log("still causes a crash. Once this command finishes, it replaces the current design\n");
+		log("with the smallest testcase it was able to produce.\n");
 		log("\n");
 		log("    -script <filename>\n");
 		log("        use this script to crash Yosys. required.\n");
+		log("\n");
+		log("    -yosys <filename>\n");
+		log("        use this Yosys binary. if not specified, `yosys` is used.\n");
 		log("\n");
 		log("    -grep <string>\n");
 		log("        only consider crashes that place this string in the log file.\n");
@@ -60,14 +58,21 @@ struct BugpointPass : public Pass {
 		log("        finishing. produces smaller and more useful testcases, but may fail to\n");
 		log("        produce any testcase at all if the crash is related to dangling wires.\n");
 		log("\n");
+		log("It is possible to constrain which parts of the design will be considered for\n");
+		log("removal. Unless one or more of the following options are specified, all parts\n");
+		log("will be considered.\n");
+		log("\n");
 		log("    -modules\n");
-		log("        try to remove modules.\n");
+		log("        try to remove modules. modules with a (* bugpoint_keep *) attribute\n");
+		log("        will be skipped.\n");
 		log("\n");
 		log("    -ports\n");
-		log("        try to remove module ports.\n");
+		log("        try to remove module ports. ports with a (* bugpoint_keep *) attribute\n");
+		log("        will be skipped (useful for clocks, resets, etc.)\n");
 		log("\n");
 		log("    -cells\n");
-		log("        try to remove cells.\n");
+		log("        try to remove cells. cells with a (* bugpoint_keep *) attribute will\n");
+		log("        be skipped.\n");
 		log("\n");
 		log("    -connections\n");
 		log("        try to reconnect ports to 'x.\n");
@@ -139,9 +144,12 @@ struct BugpointPass : public Pass {
 				if (module->get_blackbox_attribute())
 					continue;
 
+				if (module->get_bool_attribute(ID::bugpoint_keep))
+				    continue;
+
 				if (index++ == seed)
 				{
-					log("Trying to remove module %s.\n", module->name.c_str());
+					log_header(design, "Trying to remove module %s.\n", log_id(module));
 					removed_module = module;
 					break;
 				}
@@ -160,18 +168,21 @@ struct BugpointPass : public Pass {
 
 				for (auto wire : mod->wires())
 				{
+					if (!wire->port_id)
+						continue;
+
 					if (!stage2 && wire->get_bool_attribute(ID($bugpoint)))
 						continue;
 
-					if (wire->port_input || wire->port_output)
+					if (wire->get_bool_attribute(ID::bugpoint_keep))
+						continue;
+
+					if (index++ == seed)
 					{
-						if (index++ == seed)
-						{
-							log("Trying to remove module port %s.\n", log_signal(wire));
-							wire->port_input = wire->port_output = false;
-							mod->fixup_ports();
-							return design_copy;
-						}
+						log_header(design, "Trying to remove module port %s.\n", log_id(wire));
+						wire->port_input = wire->port_output = false;
+						mod->fixup_ports();
+						return design_copy;
 					}
 				}
 			}
@@ -183,12 +194,16 @@ struct BugpointPass : public Pass {
 				if (mod->get_blackbox_attribute())
 					continue;
 
+
 				Cell *removed_cell = nullptr;
 				for (auto cell : mod->cells())
 				{
+					if (cell->get_bool_attribute(ID::bugpoint_keep))
+						continue;
+
 					if (index++ == seed)
 					{
-						log("Trying to remove cell %s.%s.\n", mod->name.c_str(), cell->name.c_str());
+						log_header(design, "Trying to remove cell %s.%s.\n", log_id(mod), log_id(cell));
 						removed_cell = cell;
 						break;
 					}
@@ -219,7 +234,7 @@ struct BugpointPass : public Pass {
 
 						if (index++ == seed)
 						{
-							log("Trying to remove cell port %s.%s.%s.\n", mod->name.c_str(), cell->name.c_str(), it.first.c_str());
+							log_header(design, "Trying to remove cell port %s.%s.%s.\n", log_id(mod), log_id(cell), log_id(it.first));
 							RTLIL::SigSpec port_x(State::Sx, port.size());
 							cell->unsetPort(it.first);
 							cell->setPort(it.first, port_x);
@@ -228,7 +243,7 @@ struct BugpointPass : public Pass {
 
 						if (!stage2 && (cell->input(it.first) || cell->output(it.first)) && index++ == seed)
 						{
-							log("Trying to expose cell port %s.%s.%s as module port.\n", mod->name.c_str(), cell->name.c_str(), it.first.c_str());
+							log_header(design, "Trying to expose cell port %s.%s.%s as module port.\n", log_id(mod), log_id(cell), log_id(it.first));
 							RTLIL::Wire *wire = mod->addWire(NEW_ID, port.size());
 							wire->set_bool_attribute(ID($bugpoint));
 							wire->port_input = cell->input(it.first);
@@ -260,7 +275,7 @@ struct BugpointPass : public Pass {
 						{
 							if (index++ == seed)
 							{
-								log("Trying to remove assign %s %s in %s.%s.\n", log_signal((*it).first), log_signal((*it).second), mod->name.c_str(), pr.first.c_str());
+								log_header(design, "Trying to remove assign %s %s in %s.%s.\n", log_signal(it->first), log_signal(it->second), log_id(mod), log_id(pr.first));
 								cs->actions.erase(it);
 								return design_copy;
 							}
@@ -286,7 +301,7 @@ struct BugpointPass : public Pass {
 						{
 							if (index++ == seed)
 							{
-								log("Trying to remove sync %s update %s %s in %s.%s.\n", log_signal(sy->signal), log_signal((*it).first), log_signal((*it).second), mod->name.c_str(), pr.first.c_str());
+								log_header(design, "Trying to remove sync %s update %s %s in %s.%s.\n", log_signal(sy->signal), log_signal(it->first), log_signal(it->second), log_id(mod), log_id(pr.first));
 								sy->actions.erase(it);
 								return design_copy;
 							}
@@ -303,6 +318,9 @@ struct BugpointPass : public Pass {
 		string yosys_cmd = "yosys", script, grep;
 		bool fast = false, clean = false;
 		bool modules = false, ports = false, cells = false, connections = false, assigns = false, updates = false, has_part = false;
+
+		log_header(design, "Executing BUGPOINT pass (minimize testcases).\n");
+		log_push();
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -447,6 +465,8 @@ struct BugpointPass : public Pass {
 				design->add(module->clone());
 			delete crashing_design;
 		}
+
+		log_pop();
 	}
 } BugpointPass;
 
