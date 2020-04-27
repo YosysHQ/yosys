@@ -15,9 +15,6 @@ $(foreach bramtype, $(bramtypes), $(eval $(call add_share_file,share/intel_alm/c
 $(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/lutram_mlab.txt))
 $(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/lutram_mlab_map.v))
 
-families := cyclonev cyclone10gx
-
 # Miscellaneous
 $(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/megafunction_bb.v))
 $(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/quartus_rename.v))
-$(foreach family, $(families), $(eval $(call add_share_file,share/intel_alm/$(family),techlibs/intel_alm/$(family)/quartus_rename.v)))

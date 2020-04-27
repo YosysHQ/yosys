@@ -228,14 +228,20 @@ struct DesignPass : public Pass {
 			}
 
 			if (import_mode) {
+				std::vector<RTLIL::Module*> candidates;
 				for (auto module : copy_src_modules)
 				{
 					if (module->get_bool_attribute(ID::top)) {
-						copy_src_modules.clear();
-						copy_src_modules.push_back(module);
+						candidates.clear();
+						candidates.push_back(module);
 						break;
 					}
+					if (!module->get_blackbox_attribute())
+						candidates.push_back(module);
 				}
+
+				if (GetSize(candidates) == 1)
+					copy_src_modules = std::move(candidates);
 			}
 		}
 

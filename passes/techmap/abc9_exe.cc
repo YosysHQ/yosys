@@ -219,6 +219,17 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 	for (size_t pos = abc9_script.find("{R}"); pos != std::string::npos; pos = abc9_script.find("{R}", pos))
 		abc9_script = abc9_script.substr(0, pos) + R + abc9_script.substr(pos+3);
 
+	if (design->scratchpad_get_bool("abc9.nomfs"))
+		for (size_t pos = abc9_script.find("&mfs"); pos != std::string::npos; pos = abc9_script.find("&mfs", pos))
+			abc9_script = abc9_script.erase(pos, strlen("&mfs"));
+	else {
+		auto s = stringf("&write -n %s/output.aig; ", tempdir_name.c_str());
+		for (size_t pos = abc9_script.find("&mfs"); pos != std::string::npos; pos = abc9_script.find("&mfs", pos)) {
+			abc9_script = abc9_script.insert(pos, s);
+			pos += GetSize(s) + strlen("&mfs");
+		}
+	}
+
 	abc9_script += stringf("; &ps -l; &write -n %s/output.aig", tempdir_name.c_str());
 	if (design->scratchpad_get_bool("abc9.verify")) {
 		if (dff_mode)
@@ -272,8 +283,12 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 	free(abc9_argv[2]);
 	free(abc9_argv[3]);
 #endif
-	if (ret != 0)
-		log_error("ABC: execution of command \"%s\" failed: return code %d.\n", buffer.c_str(), ret);
+	if (ret != 0) {
+		if (check_file_exists(stringf("%s/output.aig", tempdir_name.c_str())))
+			log_warning("ABC: execution of command \"%s\" failed: return code %d.\n", buffer.c_str(), ret);
+		else
+			log_error("ABC: execution of command \"%s\" failed: return code %d.\n", buffer.c_str(), ret);
+	}
 }
 
 struct Abc9ExePass : public Pass {

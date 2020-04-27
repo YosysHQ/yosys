@@ -42,7 +42,7 @@ udata <bool> dffcepol dffrstpol
 //     and (b) uses the 'C' port
 match dsp
 	select dsp->type.in(\DSP48A, \DSP48A1, \DSP48E1)
-	select param(dsp, \CREG, 1).as_int() == 0
+	select param(dsp, \CREG).as_int() == 0
 	select nusers(port(dsp, \C, SigSpec())) > 1
 endmatch
 
@@ -61,7 +61,7 @@ code sigC sigP clock
 
 	SigSpec P = port(dsp, \P);
 	if (!dsp->type.in(\DSP48E1) ||
- param(dsp, \USE_MULT, Const("MULTIPLY")).decode_string() == "MULTIPLY") {
+            param(dsp, \USE_MULT).decode_string() == "MULTIPLY") {
 		// Only care about those bits that are used
 		int i;
 		for (i = GetSize(P)-1; i >= 0; i--)

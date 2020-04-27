@@ -209,7 +209,7 @@ lut_sigin_done:
 					continue;
 				LutData lut_d = it_D->second.first;
 				Cell *cell_d = it_D->second.second;
-				if (cell->hasParam(ID(IS_D_INVERTED)) && cell->getParam(ID(IS_D_INVERTED)).as_bool()) {
+				if (cell->getParam(ID(IS_D_INVERTED)).as_bool()) {
 					// Flip all bits in the LUT.
 					for (int i = 0; i < GetSize(lut_d.first); i++)
 						lut_d.first.bits[i] = (lut_d.first.bits[i] == State::S1) ? State::S0 : State::S1;
@@ -249,7 +249,7 @@ lut_sigin_done:
 				if (has_s) {
 					SigBit sig_S = sigmap(cell->getPort(ID::S));
 					LutData lut_s = LutData(Const(2, 2), {sig_S});
-					bool inv_s = cell->hasParam(ID(IS_S_INVERTED)) && cell->getParam(ID(IS_S_INVERTED)).as_bool();
+					bool inv_s = cell->getParam(ID(IS_S_INVERTED)).as_bool();
 					auto it_S = bit_to_lut.find(sig_S);
 					if (it_S != bit_to_lut.end())
 						lut_s = it_S->second.first;
@@ -271,7 +271,7 @@ lut_sigin_done:
 				if (has_r) {
 					SigBit sig_R = sigmap(cell->getPort(ID::R));
 					LutData lut_r = LutData(Const(2, 2), {sig_R});
-					bool inv_r = cell->hasParam(ID(IS_R_INVERTED)) && cell->getParam(ID(IS_R_INVERTED)).as_bool();
+					bool inv_r = cell->getParam(ID(IS_R_INVERTED)).as_bool();
 					auto it_R = bit_to_lut.find(sig_R);
 					if (it_R != bit_to_lut.end())
 						lut_r = it_R->second.first;
@@ -292,17 +292,20 @@ unmap:
 				LutData final_lut;
 				if (worthy_post_r) {
 					final_lut = lut_d_post_r;
-					log("  Merging R LUT for %s/%s (%d -> %d)\n", log_id(cell), log_id(sig_Q.wire), GetSize(lut_d.second), GetSize(final_lut.second));
 				} else if (worthy_post_s) {
 					final_lut = lut_d_post_s;
-					log("  Merging S LUT for %s/%s (%d -> %d)\n", log_id(cell), log_id(sig_Q.wire), GetSize(lut_d.second), GetSize(final_lut.second));
 				} else if (worthy_post_ce) {
 					final_lut = lut_d_post_ce;
-					log("  Merging CE LUT for %s/%s (%d -> %d)\n", log_id(cell), log_id(sig_Q.wire), GetSize(lut_d.second), GetSize(final_lut.second));
 				} else {
 					// Nothing to do here.
 					continue;
 				}
+
+				std::string ports;
+				if (worthy_post_r) ports += " + R";
+				if (worthy_post_s) ports += " + S";
+				if (worthy_post_ce) ports += " + CE";
+				log("  Merging D%s LUTs for %s/%s (%d -> %d)\n", ports.c_str(), log_id(cell), log_id(sig_Q.wire), GetSize(lut_d.second), GetSize(final_lut.second));
 
 				// Okay, we're doing it.  Unmap ports.
 				if (worthy_post_r) {

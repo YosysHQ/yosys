@@ -218,6 +218,7 @@ AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2, AstNode *ch
 	realvalue = 0;
 	id2ast = NULL;
 	basic_prep = false;
+	lookahead = false;
 
 	if (child1)
 		children.push_back(child1);
@@ -310,6 +311,10 @@ void AstNode::dumpAst(FILE *f, std::string indent) const
 		fprintf(f, " reg");
 	if (is_signed)
 		fprintf(f, " signed");
+	if (basic_prep)
+		fprintf(f, " basic_prep");
+	if (lookahead)
+		fprintf(f, " lookahead");
 	if (port_id > 0)
 		fprintf(f, " port=%d", port_id);
 	if (range_valid || range_left != -1 || range_right != 0)
@@ -1069,8 +1074,6 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 				if (child->type == AST_WIRE && (child->is_input || child->is_output)) {
 					new_children.push_back(child);
 				} else if (child->type == AST_PARAMETER) {
-					child->delete_children();
-					child->children.push_back(AstNode::mkconst_int(0, false, 0));
 					new_children.push_back(child);
 				} else if (child->type == AST_CELL && child->children.size() > 0 && child->children[0]->type == AST_CELLTYPE &&
 						(child->children[0]->str == "$specify2" || child->children[0]->str == "$specify3" || child->children[0]->str == "$specrule")) {

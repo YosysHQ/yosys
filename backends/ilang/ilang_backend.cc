@@ -290,8 +290,16 @@ void ILANG_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Modu
 		if (!module->avail_parameters.empty()) {
 			if (only_selected)
 				f << stringf("\n");
-			for (auto &p : module->avail_parameters)
-				f << stringf("%s" "  parameter %s\n", indent.c_str(), p.c_str());
+			for (const auto &p : module->avail_parameters) {
+				const auto &it = module->parameter_default_values.find(p);
+				if (it == module->parameter_default_values.end()) {
+					f << stringf("%s" "  parameter %s\n", indent.c_str(), p.c_str());
+				} else {
+					f << stringf("%s" "  parameter %s ", indent.c_str(), p.c_str());
+					dump_const(f, it->second);
+					f << stringf("\n");
+				}
+			}
 		}
 	}
 

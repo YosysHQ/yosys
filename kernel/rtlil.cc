@@ -1389,7 +1389,7 @@ void RTLIL::Module::sort()
 {
 	wires_.sort(sort_by_id_str());
 	cells_.sort(sort_by_id_str());
-	avail_parameters.sort(sort_by_id_str());
+	parameter_default_values.sort(sort_by_id_str());
 	memories.sort(sort_by_id_str());
 	processes.sort(sort_by_id_str());
 	for (auto &it : cells_)
@@ -1508,6 +1508,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 	log_assert(new_mod->refcount_cells_ == 0);
 
 	new_mod->avail_parameters = avail_parameters;
+	new_mod->parameter_default_values = parameter_default_values;
 
 	for (auto &conn : connections_)
 		new_mod->connect(conn);
@@ -2618,7 +2619,15 @@ void RTLIL::Cell::setParam(RTLIL::IdString paramname, RTLIL::Const value)
 
 const RTLIL::Const &RTLIL::Cell::getParam(RTLIL::IdString paramname) const
 {
-	return parameters.at(paramname);
+	const auto &it = parameters.find(paramname);
+	if (it != parameters.end())
+		return it->second;
+	if (module && module->design) {
+		RTLIL::Module *m = module->design->module(type);
+		if (m)
+			return m->parameter_default_values.at(paramname);
+	}
+	throw std::out_of_range("Cell::getParam()");
 }
 
 void RTLIL::Cell::sort()
