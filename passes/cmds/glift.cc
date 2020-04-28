@@ -27,21 +27,28 @@ PRIVATE_NAMESPACE_BEGIN
 struct GliftPass : public Pass {
 	private:
 
-	bool opt_create, opt_sketchify, opt_taintconstants, opt_keepoutputs, opt_nomodeloptimize;
+	bool opt_create_precise, opt_create_imprecise, opt_create_sketch;
+	bool opt_taintconstants, opt_keepoutputs, opt_nocostmodel;
 	std::vector<std::string> args;
 	std::vector<std::string>::size_type argidx;
 	std::vector<RTLIL::Wire *> new_taint_outputs;
 	std::vector<RTLIL::SigSpec> meta_mux_selects;
 	RTLIL::Module *module;
 
+	const RTLIL::IdString cost_model_wire_name = ID(__glift_weight);
+
 	void parse_args() {
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			if (args[argidx] == "-create") {
-				opt_create = true;
+			if (args[argidx] == "-create-precise") {
+				opt_create_precise = true;
 				continue;
 			}
-			if (args[argidx] == "-sketchify") {
-				opt_sketchify = true;
+			if (args[argidx] == "-create-imprecise") {
+				opt_create_imprecise = true;
+				continue;
+			}
+			if (args[argidx] == "-create-sketch") {
+				opt_create_sketch = true;
 				continue;
 			}
 			if (args[argidx] == "-taint-constants") {
@@ -52,14 +59,16 @@ struct GliftPass : public Pass {
 				opt_keepoutputs = true;
 				continue;
 			}
-			if (args[argidx] == "-no-model-optimize") {
-				opt_nomodeloptimize = true;
+			if (args[argidx] == "-no-cost-model") {
+				opt_nocostmodel = true;
 				continue;
 			}
 			break;
 		}
-		if(!opt_create && !opt_sketchify) log_cmd_error("One of `-create` or `-sketchify` must be specified.\n");
-		if(opt_create && opt_sketchify) log_cmd_error("Only one of `-create` or `-sketchify` may be specified.\n");
+		if(!opt_create_precise && !opt_create_imprecise && !opt_create_sketch)
+			log_cmd_error("No command provided.  See help for usage.\n");
+		if(static_cast<int>(opt_create_precise) + static_cast<int>(opt_create_imprecise) + static_cast<int>(opt_create_sketch) != 1)
+			log_cmd_error("Only one command may be specified.  See help for usage.\n");
 	}
 
 	RTLIL::SigSpec get_corresponding_taint_signal(RTLIL::SigSpec sig) {
@@ -156,9 +165,11 @@ struct GliftPass : public Pass {
 				for (unsigned int i = 0; i < NUM_PORTS; ++i)
 					port_taints[i] = get_corresponding_taint_signal(ports[i]);
 
-				if (opt_create)
+				if (opt_create_precise)
 					add_precise_GLIFT_logic(cell, ports[A], port_taints[A], ports[B], port_taints[B], port_taints[Y]);
-				else if (opt_sketchify) {
+				else if (opt_create_imprecise)
+					add_imprecise_GLIFT_logic_3(cell, port_taints[A], port_taints[B], port_taints[Y]);
+				else if (opt_create_sketch) {
 					RTLIL::SigSpec precise_y(module->addWire(cell->name.str() + "_y1", 1)),
 							imprecise_1_y(module->addWire(cell->name.str() + "_y2", 1)),
 							imprecise_2_y(module->addWire(cell->name.str() + "_y3", 1)),
@@ -210,7 +221,7 @@ struct GliftPass : public Pass {
 		} //end foreach conn in connections
 
 		//Create a rough model of area by summing the "weight" score of each meta-mux select:
-		if (!opt_nomodeloptimize) {
+		if (!opt_nocostmodel) {
 			std::vector<RTLIL::SigSpec> meta_mux_select_sums;
 			std::vector<RTLIL::SigSpec> meta_mux_select_sums_buf;
 			for (auto &wire : meta_mux_selects) {
@@ -228,7 +239,7 @@ struct GliftPass : public Pass {
 			if (meta_mux_select_sums.size() > 0) {
 				meta_mux_select_sums[0].as_wire()->set_bool_attribute("\\minimize");
 				meta_mux_select_sums[0].as_wire()->set_bool_attribute("\\keep");
-				module->rename(meta_mux_select_sums[0].as_wire(), ID(__glift_weight));
+				module->rename(meta_mux_select_sums[0].as_wire(), cost_model_wire_name);
 			}
 		}
 
@@ -248,11 +259,12 @@ struct GliftPass : public Pass {
 	}
 
 	void reset() {
-		opt_create = false;
-		opt_sketchify = false;
+		opt_create_precise = false;
+		opt_create_imprecise = false;
+		opt_create_sketch = false;
 		opt_taintconstants = false;
 		opt_keepoutputs = false;
-		opt_nomodeloptimize = false;
+		opt_nocostmodel = false;
 		module = nullptr;
 		args.clear();
 		argidx = 0;
@@ -262,28 +274,41 @@ struct GliftPass : public Pass {
 
 	public:
 
-	GliftPass() : Pass("glift", "create and transform GLIFT models"), opt_create(false), opt_sketchify(false), opt_taintconstants(false), opt_keepoutputs(false), opt_nomodeloptimize(false), module(nullptr) { }
+	GliftPass() : Pass("glift", "create GLIFT models and optimization problems"), opt_create_precise(false), opt_create_imprecise(false), opt_create_sketch(false), opt_taintconstants(false), opt_keepoutputs(false), opt_nocostmodel(false), module(nullptr) { }
 
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    glift -create|-sketchify [options] [selection]\n");
+		log("    glift <command> [options] [selection]\n");
 		log("\n");
-		log("Adds, removes, or manipulates gate-level information flow tracking (GLIFT) logic\n");
-		log("to the current or specified module.\n");
+		log("Augments the current or specified module with gate-level information flow tracking\n");
+		log("(GLIFT) logic using the \"constructive mapping\" approach. Also can set up QBF-SAT\n");
+		log("optimization problems in order to optimize GLIFT models or trade off precision and\n");
+		log("complexity.\n");
+		log("\n");
 		log("\n");
 		log("Commands:\n");
 		log("\n");
-		log("  -create\n");
+		log("  -create-precise\n");
 		log("    Replaces the current or specified module with one that has additional \"taint\"\n");
 		log("    inputs, outputs, and internal nets along with precise taint-tracking logic.\n");
 		log("\n");
-		log("  -sketchify\n");
+		log("  -create-imprecise\n");
 		log("    Replaces the current or specified module with one that has additional \"taint\"\n");
-		log("    inputs, outputs, and internal nets along with varying-precision taint-tracking logic.\n");
-		log("    Which version of taint tracking logic is used at a given cell is determined by a MUX\n");
-		log("    selected by an $anyconst cell.\n");
+		log("    inputs, outputs, and internal nets along with imprecise \"All OR\" taint-tracking\n");
+		log("    logic.\n");
+		log("\n");
+		log("  -create-sketch\n");
+		log("    Replaces the current or specified module with one that has additional \"taint\"\n");
+		log("    inputs, outputs, and internal nets along with varying-precision taint-tracking\n");
+		log("    logic.  Which version of taint tracking logic is used at a given cell is determined\n");
+		log("    by a MUX selected by an $anyconst cell.  By default, unless the `-no-cost-model`\n");
+		log("    option is provided, an additional wire named `__glift_weight` with the `keep` and\n");
+		log("    `minimize` attributes is added to the module along with pmuxes and adders to\n");
+		log("    calculate a rough estimate of the number of logic gates in the GLIFT model given\n");
+		log("    an assignment for the $anyconst cells.\n");
+		log("\n");
 		log("\n");
 		log("Options:\n");
 		log("\n");
@@ -296,9 +321,10 @@ struct GliftPass : public Pass {
 		log("    alongside the orignal outputs.\n");
 		log("    (default: original module outputs are removed)\n");
 		log("\n");
-		log("  -no-model-optimize\n");
-		log("    Do not model imprecise taint tracking logic area and attempt to minimize it.\n");
-		log("    (default: model area and give that signal the \"minimize\" attribute)\n");
+		log("  -no-cost-model\n");
+		log("    Do not model taint tracking logic area and do not create a `__glift_weight` wire.\n");
+		log("    Only applicable in combination with `-create-sketch`.\n");
+		log("    (default: model area and give that wire the \"keep\" and \"minimize\" attributes)\n");
 		log("\n");
 	}
 

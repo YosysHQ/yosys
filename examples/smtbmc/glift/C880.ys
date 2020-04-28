@@ -2,7 +2,7 @@ read_verilog C880.v
 techmap
 flatten
 select C880_lev2
-glift -optimize-precise
+glift -create-sketch
 techmap
 opt
 rename C880_lev2 uut

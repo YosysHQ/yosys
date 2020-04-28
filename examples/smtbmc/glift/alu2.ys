@@ -2,7 +2,7 @@ read_verilog alu2.v
 techmap
 flatten
 select alu2_lev2
-glift -optimize-precise
+glift -create-sketch
 techmap
 opt
 rename alu2_lev2 uut

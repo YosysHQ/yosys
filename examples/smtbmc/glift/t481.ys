@@ -2,7 +2,7 @@ read_verilog t481.v
 techmap
 flatten
 select t481_lev2
-glift -optimize-precise
+glift -create-sketch
 techmap
 opt
 rename t481_lev2 uut

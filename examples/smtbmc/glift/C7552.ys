@@ -2,7 +2,7 @@ read_verilog C7552.v
 techmap
 flatten
 select C7552_lev2
-glift -optimize-precise
+glift -create-sketch
 techmap
 opt
 rename C7552_lev2 uut

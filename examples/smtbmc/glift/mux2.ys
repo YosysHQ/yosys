@@ -18,18 +18,19 @@ module mux2(a, b, s, y);
 endmodule
 EOT
 techmap
-copy mux2 uut
 copy mux2 spec
+copy mux2 uut
+copy mux2 solved
 delete mux2
-glift -optimize-precise uut
 glift -create-precise spec
+glift -create-sketch uut
+glift -create-sketch -no-cost-model solved
 design -push-copy
 miter -equiv spec uut qbfmiter
 flatten
-delete spec uut
+delete spec uut solved
 qbfsat -assume-outputs -assume-negative-polarity -write-solution mux2.soln qbfmiter
 design -pop
-copy uut solved
 qbfsat -specialize-from-file mux2.soln solved
 opt
 miter -equiv spec solved proofmiter

@@ -2,7 +2,7 @@ read_verilog ttt2.v
 techmap
 flatten
 select ttt2_lev2
-glift -optimize-precise
+glift -create-sketch
 techmap
 opt
 rename ttt2_lev2 uut
