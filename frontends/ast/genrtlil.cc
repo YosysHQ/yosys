@@ -809,6 +809,11 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		sign_hint = false;
 		break;
 
+	case AST_SELFSZ:
+		sub_width_hint = 0;
+		children.at(0)->detectSignWidthWorker(sub_width_hint, sign_hint);
+		break;
+
 	case AST_CONCAT:
 		for (auto child : children) {
 			sub_width_hint = 0;
@@ -1267,7 +1272,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 	// just pass thru the signal. the parent will evaluate the is_signed property and interpret the SigSpec accordingly
 	case AST_TO_SIGNED:
-	case AST_TO_UNSIGNED: {
+	case AST_TO_UNSIGNED:
+	case AST_SELFSZ: {
 			RTLIL::SigSpec sig = children[0]->genRTLIL();
 			if (sig.size() < width_hint)
 				sig.extend_u0(width_hint, sign_hint);

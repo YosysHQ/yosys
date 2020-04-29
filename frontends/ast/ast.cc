@@ -94,6 +94,7 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_TO_BITS)
 	X(AST_TO_SIGNED)
 	X(AST_TO_UNSIGNED)
+	X(AST_SELFSZ)
 	X(AST_CONCAT)
 	X(AST_REPLICATE)
 	X(AST_BIT_NOT)
@@ -617,6 +618,7 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 	if (0) { case AST_POS:         txt = "+";  }
 	if (0) { case AST_NEG:         txt = "-";  }
 	if (0) { case AST_LOGIC_NOT:   txt = "!";  }
+	if (0) { case AST_SELFSZ:      txt = "@selfsz@";  }
 		fprintf(f, "%s(", txt.c_str());
 		children[0]->dumpVlog(f, "");
 		fprintf(f, ")");

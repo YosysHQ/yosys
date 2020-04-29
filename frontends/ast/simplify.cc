@@ -608,6 +608,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	case AST_TO_BITS:
 	case AST_TO_SIGNED:
 	case AST_TO_UNSIGNED:
+	case AST_SELFSZ:
 	case AST_CONCAT:
 	case AST_REPLICATE:
 	case AST_REDUCE_AND:
@@ -1855,8 +1856,12 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 			AstNode *shamt = shift_expr;
 
+			int shamt_width_hint = 0;
+			bool shamt_sign_hint = true;
+			shamt->detectSignWidth(shamt_width_hint, shamt_sign_hint);
+
 			int start_bit = children[0]->id2ast->range_right;
-			bool use_shift = shamt->is_signed;
+			bool use_shift = shamt_sign_hint;
 
 			if (start_bit != 0) {
 				shamt = new AstNode(AST_SUB, shamt, mkconst_int(start_bit, true));
@@ -3060,6 +3065,7 @@ replace_fcall_later:;
 				}
 			}
 			break;
+		if (0) { case AST_SELFSZ: const_func = RTLIL::const_pos; }
 		if (0) { case AST_POS: const_func = RTLIL::const_pos; }
 		if (0) { case AST_NEG: const_func = RTLIL::const_neg; }
 			if (children[0]->type == AST_CONSTANT) {
@@ -3068,10 +3074,10 @@ replace_fcall_later:;
 			} else
 			if (children[0]->isConst()) {
 				newNode = new AstNode(AST_REALVALUE);
-				if (type == AST_POS)
-					newNode->realvalue = +children[0]->asReal(sign_hint);
-				else
+				if (type == AST_NEG)
 					newNode->realvalue = -children[0]->asReal(sign_hint);
+				else
+					newNode->realvalue = +children[0]->asReal(sign_hint);
 			}
 			break;
 		case AST_TERNARY:

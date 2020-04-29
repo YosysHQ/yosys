@@ -645,13 +645,13 @@ non_opt_range:
 	} |
 	'[' expr TOK_POS_INDEXED expr ']' {
 		$$ = new AstNode(AST_RANGE);
-		AstNode *expr = new AstNode(AST_CONCAT, $2);
+		AstNode *expr = new AstNode(AST_SELFSZ, $2);
 		$$->children.push_back(new AstNode(AST_SUB, new AstNode(AST_ADD, expr->clone(), $4), AstNode::mkconst_int(1, true)));
 		$$->children.push_back(new AstNode(AST_ADD, expr, AstNode::mkconst_int(0, true)));
 	} |
 	'[' expr TOK_NEG_INDEXED expr ']' {
 		$$ = new AstNode(AST_RANGE);
-		AstNode *expr = new AstNode(AST_CONCAT, $2);
+		AstNode *expr = new AstNode(AST_SELFSZ, $2);
 		$$->children.push_back(new AstNode(AST_ADD, expr, AstNode::mkconst_int(0, true)));
 		$$->children.push_back(new AstNode(AST_SUB, new AstNode(AST_ADD, expr->clone(), AstNode::mkconst_int(1, true)), $4));
 	} |
