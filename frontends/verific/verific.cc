@@ -172,7 +172,10 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 			return;
 		if (nl->IsFromVhdl() && strcmp(type_range->GetTypeName(), "STD_LOGIC") == 0)
 			return;
-		attributes.emplace(ID::wiretype, RTLIL::escape_id(type_range->GetTypeName()));
+		auto type_name = type_range->GetTypeName();
+		if (!type_name)
+			return;
+		attributes.emplace(ID::wiretype, RTLIL::escape_id(type_name));
 
 		MapIter mi;
 		const char *k, *v;
