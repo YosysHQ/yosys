@@ -41,6 +41,7 @@ struct QbfSolveOptions {
 	bool specialize, specialize_from_file, write_solution, nocleanup, dump_final_smt2, assume_outputs, assume_neg;
 	bool nooptimize, nobisection;
 	bool sat, unsat, show_smtbmc;
+	enum Solver{Z3, Yices} solver;
 	std::string specialize_soln_file;
 	std::string write_soln_soln_file;
 	std::string dump_final_smt2_file;
@@ -48,8 +49,18 @@ struct QbfSolveOptions {
 	QbfSolveOptions() : specialize(false), specialize_from_file(false), write_solution(false),
 			nocleanup(false), dump_final_smt2(false), assume_outputs(false), assume_neg(false),
 			nooptimize(false), nobisection(false), sat(false), unsat(false), show_smtbmc(false),
-			argidx(0) {};
+			solver(Yices), argidx(0) {};
 };
+
+std::string get_solver_name(const QbfSolveOptions &opt) {
+	if (opt.solver == opt.Solver::Z3)
+		return "z3";
+	else if (opt.solver == opt.Solver::Yices)
+		return "yices";
+	else
+		log_cmd_error("unknown solver specified.\n");
+	return "";
+}
 
 void recover_solution(QbfSolutionType &sol) {
 	YS_REGEX_TYPE sat_regex = YS_REGEX_COMPILE("Status: PASSED");
@@ -315,19 +326,18 @@ QbfSolutionType call_qbf_solver(RTLIL::Module *mod, const QbfSolveOptions &opt, 
 	QbfSolutionType ret;
 	const std::string yosys_smtbmc_exe = proc_self_dirname() + "yosys-smtbmc";
 	const std::string smt2_command = "write_smt2 -stbv -wires " + tempdir_name + "/problem" + (iter_num != 0? stringf("%d", iter_num) : "") + ".smt2";
-	const std::string smtbmc_cmd = yosys_smtbmc_exe + " -s z3 -t 1 -g --binary " + (opt.dump_final_smt2? "--dump-smt2 " + opt.dump_final_smt2_file + " " : "") + tempdir_name + "/problem" + (iter_num != 0? stringf("%d", iter_num) : "") + ".smt2 2>&1";
 	const std::string smtbmc_warning = "z3: WARNING:";
-	const bool show_smtbmc = opt.show_smtbmc;
+	const std::string smtbmc_cmd = yosys_smtbmc_exe + " -s " + (get_solver_name(opt)) + " -t 1 -g --binary " + (opt.dump_final_smt2? "--dump-smt2 " + opt.dump_final_smt2_file + " " : "") + tempdir_name + "/problem" + (iter_num != 0? stringf("%d", iter_num) : "") + ".smt2 2>&1";
 
 	Pass::call(mod->design, smt2_command);
 
-	auto process_line = [&ret, &smtbmc_warning, &show_smtbmc, &quiet](const std::string &line) {
+	auto process_line = [&ret, &smtbmc_warning, &opt, &quiet](const std::string &line) {
 		ret.stdout_lines.push_back(line.substr(0, line.size()-1)); //don't include trailing newline
 		auto warning_pos = line.find(smtbmc_warning);
 		if (warning_pos != std::string::npos)
 			log_warning("%s", line.substr(warning_pos + smtbmc_warning.size() + 1).c_str());
 		else
-			if (show_smtbmc && !quiet)
+			if (opt.show_smtbmc && !quiet)
 				log("smtbmc output: %s", line.c_str());
 	};
 	log_header(mod->design, "Solving QBF-SAT problem.\n");
@@ -486,6 +496,20 @@ QbfSolveOptions parse_args(const std::vector<std::string> &args) {
 			opt.nobisection = true;
 			continue;
 		}
+		else if (args[opt.argidx] == "-solver") {
+			if (args.size() <= opt.argidx + 1)
+				log_cmd_error("solver not specified.\n");
+			else {
+				if (args[opt.argidx+1] == "z3")
+					opt.solver = opt.Solver::Z3;
+				else if (args[opt.argidx+1] == "yices")
+					opt.solver = opt.Solver::Yices;
+				else
+					log_cmd_error("Unknown solver \"%s\".\n", args[opt.argidx+1].c_str());
+				opt.argidx++;
+			}
+			continue;
+		}
 		else if (args[opt.argidx] == "-sat") {
 			opt.sat = true;
 			continue;
@@ -563,21 +587,20 @@ struct QbfSatPass : public Pass {
 		log("\n");
 		log("    qbfsat [options] [selection]\n");
 		log("\n");
-		log("This command solves a 2QBF-SAT problem defined over the currently selected module.\n");
-		log("Existentially-quantified variables are declared by assigning a wire \"$anyconst\".\n");
-		log("Universally-quantified variables may be explicitly declared by assigning a wire\n");
-		log("\"$allconst\", but module inputs will be treated as universally-quantified variables\n");
-		log("by default.\n");
+		log("This command solves an \"exists-forall\" 2QBF-SAT problem defined over the currently\n");
+		log("selected module. Existentially-quantified variables are declared by assigning a wire\n");
+		log("\"$anyconst\". Universally-quantified variables may be explicitly declared by assigning\n");
+		log("a wire \"$allconst\", but module inputs will be treated as universally-quantified\n");
+		log("variables by default.\n");
 		log("\n");
 		log("    -nocleanup\n");
-		log("        Do not delete temporary files and directories.  Useful for\n");
-		log("        debugging.\n");
+		log("        Do not delete temporary files and directories. Useful for debugging.\n");
 		log("\n");
 		log("    -dump-final-smt2 <file>\n");
 		log("        Pass the --dump-smt2 option to yosys-smtbmc.\n");
 		log("\n");
 		log("    -assume-outputs\n");
-		log("        Add an $assume cell for the conjunction of all one-bit module output wires.\n");
+		log("        Add an \"$assume\" cell for the conjunction of all one-bit module output wires.\n");
 		log("\n");
 		log("    -assume-negative-polarity\n");
 		log("        When adding $assume cells for one-bit module output wires, assume they are\n");
@@ -586,14 +609,17 @@ struct QbfSatPass : public Pass {
 		log("\n");
 		log("    -nooptimize\n");
 		log("        Ignore \"\\minimize\" and \"\\maximize\" attributes, do not emit \"(maximize)\" or\n");
-		log("        \"(minimize)\" in the SMTLIBv2, and generally make no attempt to optimize anything.\n");
+		log("        \"(minimize)\" in the SMT-LIBv2, and generally make no attempt to optimize anything.\n");
 		log("\n");
 		log("    -nobisection\n");
 		log("        If a wire is marked with the \"\\minimize\" or \"\\maximize\" attribute, do not\n");
 		log("        attempt to optimize that value with the default iterated solving and threshold\n");
 		log("        bisection approach. Instead, have yosys-smtbmc emit a \"(minimize)\" or \"(maximize)\"\n");
-		log("        command in the SMTLIBv2 output and hope that the solver supports optimizing\n");
+		log("        command in the SMT-LIBv2 output and hope that the solver supports optimizing\n");
 		log("        quantified bitvector problems.\n");
+		log("\n");
+		log("    -solver <solver>\n");
+		log("        Use a particular solver. Choose one of: \"z3\", \"yices\".\n");
 		log("\n");
 		log("    -sat\n");
 		log("        Generate an error if the solver does not return \"sat\".\n");
@@ -605,15 +631,16 @@ struct QbfSatPass : public Pass {
 		log("        Print the output from yosys-smtbmc.\n");
 		log("\n");
 		log("    -specialize\n");
-		log("        Replace all \"$anyconst\" cells with constant values determined by the solver.\n");
+		log("        If the problem is satisfiable, replace each \"$anyconst\" cell with its\n");
+		log("        corresponding constant value from the model produced by the solver.\n");
 		log("\n");
 		log("    -specialize-from-file <solution file>\n");
-		log("        Do not run the solver, but instead only attempt to replace all \"$anyconst\"\n");
-		log("        cells in the current module with values provided by the specified file.\n");
+		log("        Do not run the solver, but instead only attempt to replace each \"$anyconst\"\n");
+		log("        cell in the current module with a constant value provided by the specified file.\n");
 		log("\n");
 		log("    -write-solution <solution file>\n");
-		log("        Write the assignments discovered by the solver for all \"$anyconst\" cells\n");
-		log("        to the specified file.");
+		log("        If the problem is satisfiable, write the corresponding constant value for each\n");
+		log("        \"$anyconst\" cell from the model produced by the solver to the specified file.");
 		log("\n");
 		log("\n");
 	}
