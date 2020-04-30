@@ -149,7 +149,7 @@ RTLIL::IdString VerificImporter::new_verific_id(Verific::DesignObj *obj)
 	return s;
 }
 
-void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &attributes, DesignObj *obj)
+void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &attributes, DesignObj *obj, Netlist *nl)
 {
 	MapIter mi;
 	Att *attr;
@@ -162,6 +162,68 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 		if (attr->Key()[0] == ' ' || attr->Value() == nullptr)
 			continue;
 		attributes[RTLIL::escape_id(attr->Key())] = RTLIL::Const(std::string(attr->Value()));
+	}
+
+	if (nl) {
+		auto type_range = nl->GetTypeRange(obj->Name());
+		if (!type_range)
+			return;
+		if (!type_range->IsTypeEnum())
+			return;
+		if (nl->IsFromVhdl() && strcmp(type_range->GetTypeName(), "STD_LOGIC") == 0)
+			return;
+		auto type_name = type_range->GetTypeName();
+		if (!type_name)
+			return;
+		attributes.emplace(ID::wiretype, RTLIL::escape_id(type_name));
+
+		MapIter mi;
+		const char *k, *v;
+		FOREACH_MAP_ITEM(type_range->GetEnumIdMap(), mi, &k, &v) {
+			if (nl->IsFromVerilog()) {
+				// Expect <decimal>'b<binary>
+				auto p = strchr(v, '\'');
+				if (p) {
+					if (*(p+1) != 'b')
+						p = nullptr;
+					else
+						for (auto q = p+2; *q != '\0'; q++)
+							if (*q != '0' && *q != '1') {
+								p = nullptr;
+								break;
+							}
+				}
+				if (p == nullptr)
+					log_error("Expected TypeRange value '%s' to be of form <decimal>'b<binary>.\n", v);
+				attributes.emplace(stringf("\\enum_value_%s", p+2), RTLIL::escape_id(k));
+			}
+			else if (nl->IsFromVhdl()) {
+				// Expect "<binary>"
+				auto p = v;
+				if (p) {
+					if (*p != '"')
+						p = nullptr;
+					else {
+						auto *q = p+1;
+						for (; *q != '"'; q++)
+							if (*q != '0' && *q != '1') {
+								p = nullptr;
+								break;
+							}
+						if (p && *(q+1) != '\0')
+							p = nullptr;
+					}
+				}
+				if (p == nullptr)
+					log_error("Expected TypeRange value '%s' to be of form \"<binary>\".\n", v);
+				auto l = strlen(p);
+				auto q = (char*)malloc(l+1-2);
+				strncpy(q, p+1, l-2);
+				q[l-2] = '\0';
+				attributes.emplace(stringf("\\enum_value_%s", q), RTLIL::escape_id(k));
+				free(q);
+			}
+		}
 	}
 }
 
@@ -845,7 +907,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 			log("  importing port %s.\n", port->Name());
 
 		RTLIL::Wire *wire = module->addWire(RTLIL::escape_id(port->Name()));
-		import_attributes(wire->attributes, port);
+		import_attributes(wire->attributes, port, nl);
 
 		wire->port_id = nl->IndexOf(port) + 1;
 
@@ -872,7 +934,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 
 		RTLIL::Wire *wire = module->addWire(RTLIL::escape_id(portbus->Name()), portbus->Size());
 		wire->start_offset = min(portbus->LeftIndex(), portbus->RightIndex());
-		import_attributes(wire->attributes, portbus);
+		import_attributes(wire->attributes, portbus, nl);
 
 		if (portbus->GetDir() == DIR_INOUT || portbus->GetDir() == DIR_IN)
 			wire->port_input = true;
@@ -1021,7 +1083,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 			log("  importing net %s as %s.\n", net->Name(), log_id(wire_name));
 
 		RTLIL::Wire *wire = module->addWire(wire_name);
-		import_attributes(wire->attributes, net);
+		import_attributes(wire->attributes, net, nl);
 
 		net_map[net] = wire;
 	}
@@ -1046,7 +1108,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 
 			RTLIL::Wire *wire = module->addWire(wire_name, netbus->Size());
 			wire->start_offset = min(netbus->LeftIndex(), netbus->RightIndex());
-			import_attributes(wire->attributes, netbus);
+			import_attributes(wire->attributes, netbus, nl);
 
 			RTLIL::Const initval = Const(State::Sx, GetSize(wire));
 			bool initval_valid = false;
@@ -1152,30 +1214,6 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 
 	for (auto net : anyseq_nets)
 		module->connect(net_map_at(net), module->Anyseq(new_verific_id(net)));
-
-	char *id_name;
-	TypeRange *type_range;
-	FOREACH_MAP_ITEM(nl->GetTypeRangeTable(), mi, &id_name, &type_range)
-	{
-		if (!type_range)
-			continue;
-		if (!type_range->IsTypeEnum())
-			continue;
-		auto wire = module->wire(RTLIL::escape_id(id_name));
-		if (!wire) {
-			if (net->IsUserDeclared())
-				log_warning("Unable to find imported net '%s'.\n", net->Name());
-			continue;
-		}
-		wire->set_string_attribute(ID::wiretype, type_range->GetTypeName());
-
-		MapIter mj;
-		char *k, *v;
-		FOREACH_MAP_ITEM(type_range->GetEnumIdMap(), mj, &k, &v) {
-			IdString key = stringf("\\enum_value_%s", v);
-			wire->set_string_attribute(key, k);
-		}
-	}
 
 	pool<Instance*, hash_ptr_ops> sva_asserts;
 	pool<Instance*, hash_ptr_ops> sva_assumes;
