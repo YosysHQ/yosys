@@ -89,7 +89,7 @@ module partsel_test005 (
 endmodule
 
 module partsel_test006 (
-	input [31:0] din,
+	input [31:-32] din,
 	input signed [4:0] n,
 	output reg [31:-32] dout
 );
@@ -101,7 +101,7 @@ endmodule
 
 
 module partsel_test007 (
-	input [31:0] din,
+	input [31:-32] din,
 	input signed [4:0] n,
 	output reg [31:-32] dout
 );
