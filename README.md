@@ -118,6 +118,13 @@ Tests are located in the tests subdirectory and can be executed using the test t
 
 	$ make test
 
+To use a separate (out-of-tree) build directory, provide a path to the Makefile.
+
+	$ mkdir build; cd build
+	$ make -f ../Makefile
+
+Out-of-tree builds require a clean source tree.
+
 Getting Started
 ===============
 
@@ -388,7 +395,7 @@ Verilog Attributes and non-standard features
 
 - The cell attribute ``wildcard_port_conns`` represents wildcard port
   connections (SystemVerilog ``.*``). These are resolved to concrete
-  connections to matching wires in ``hierarchy``.  
+  connections to matching wires in ``hierarchy``.
 
 - In addition to the ``(* ... *)`` attribute syntax, Yosys supports
   the non-standard ``{* ... *}`` attribute syntax to set default attributes

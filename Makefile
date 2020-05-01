@@ -42,7 +42,7 @@ SANITIZER =
 # SANITIZER = undefined
 # SANITIZER = cfi
 
-PROGRAM_PREFIX := 
+PROGRAM_PREFIX :=
 
 OS := $(shell uname -s)
 PREFIX ?= /usr/local
@@ -584,10 +584,10 @@ include $(YOSYS_SRC)/techlibs/*/Makefile.inc
 
 else
 
-include frontends/verilog/Makefile.inc
-include frontends/ilang/Makefile.inc
-include frontends/ast/Makefile.inc
-include frontends/blif/Makefile.inc
+include $(YOSYS_SRC)/frontends/verilog/Makefile.inc
+include $(YOSYS_SRC)/frontends/ilang/Makefile.inc
+include $(YOSYS_SRC)/frontends/ast/Makefile.inc
+include $(YOSYS_SRC)/frontends/blif/Makefile.inc
 
 OBJS += passes/hierarchy/hierarchy.o
 OBJS += passes/cmds/select.o
@@ -597,14 +597,14 @@ OBJS += passes/cmds/cover.o
 OBJS += passes/cmds/design.o
 OBJS += passes/cmds/plugin.o
 
-include passes/proc/Makefile.inc
-include passes/opt/Makefile.inc
-include passes/techmap/Makefile.inc
+include $(YOSYS_SRC)/passes/proc/Makefile.inc
+include $(YOSYS_SRC)/passes/opt/Makefile.inc
+include $(YOSYS_SRC)/passes/techmap/Makefile.inc
 
-include backends/verilog/Makefile.inc
-include backends/ilang/Makefile.inc
+include $(YOSYS_SRC)/backends/verilog/Makefile.inc
+include $(YOSYS_SRC)/backends/ilang/Makefile.inc
 
-include techlibs/common/Makefile.inc
+include $(YOSYS_SRC)/techlibs/common/Makefile.inc
 
 endif
 
