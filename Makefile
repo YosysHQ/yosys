@@ -4,6 +4,7 @@ CONFIG := clang
 # CONFIG := gcc-4.8
 # CONFIG := afl-gcc
 # CONFIG := emcc
+# CONFIG := wasi
 # CONFIG := mxe
 # CONFIG := msys2
 # CONFIG := msys2-64
@@ -32,7 +33,9 @@ ENABLE_NDEBUG := 0
 LINK_CURSES := 0
 LINK_TERMCAP := 0
 LINK_ABC := 0
-# Needed for environments that don't have proper thread support (i.e. emscripten)
+# Needed for environments that can't run executables (i.e. emscripten, wasm)
+DISABLE_SPAWN := 0
+# Needed for environments that don't have proper thread support (i.e. emscripten, wasm--for now)
 DISABLE_ABC_THREADS := 0
 
 # clang sanitizers
@@ -253,6 +256,8 @@ LDFLAGS += $(EMCCFLAGS)
 LDLIBS =
 EXE = .js
 
+DISABLE_SPAWN := 1
+
 TARGETS := $(filter-out $(PROGRAM_PREFIX)yosys-config,$(TARGETS))
 EXTRA_TARGETS += yosysjs-$(YOSYS_VER).zip
 
@@ -273,6 +278,35 @@ yosysjs-$(YOSYS_VER).zip: yosys.js yosys.wasm viz.js misc/yosysjs/*
 
 yosys.html: misc/yosys.html
 	$(P) cp misc/yosys.html yosys.html
+
+else ifeq ($(CONFIG),wasi)
+ifeq ($(WASI_SDK),)
+CXX = clang++
+LD = clang++
+AR = llvm-ar
+RANLIB = llvm-ranlib
+WASIFLAGS := -target wasm32-wasi --sysroot $(WASI_SYSROOT) $(WASIFLAGS)
+else
+CXX = $(WASI_SDK)/bin/clang++
+LD = $(WASI_SDK)/bin/clang++
+AR = $(WASI_SDK)/bin/ar
+RANLIB = $(WASI_SDK)/bin/ranlib
+WASIFLAGS := --sysroot $(WASI_SDK)/share/wasi-sysroot $(WASIFLAGS)
+endif
+CXXFLAGS := $(WASIFLAGS) -std=c++11 -Os $(filter-out -fPIC,$(CXXFLAGS))
+LDFLAGS := $(WASIFLAGS) -Wl,-z,stack-size=1048576 $(filter-out -rdynamic,$(LDFLAGS))
+LDLIBS := $(filter-out -lrt,$(LDLIBS))
+ABCMKARGS += AR="$(AR)" RANLIB="$(RANLIB)"
+ABCMKARGS += ARCHFLAGS="$(WASIFLAGS) -DABC_USE_STDINT_H -DABC_NO_DYNAMIC_LINKING"
+ABCMKARGS += OPTFLAGS="-Os"
+EXE = .wasm
+
+DISABLE_SPAWN := 1
+
+ifeq ($(ENABLE_ABC),1)
+LINK_ABC := 1
+DISABLE_ABC_THREADS := 1
+endif
 
 else ifeq ($(CONFIG),mxe)
 PKG_CONFIG = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-pkg-config
@@ -394,6 +428,10 @@ endif
 
 ifeq ($(DISABLE_ABC_THREADS),1)
 ABCMKARGS += "ABC_USE_NO_PTHREADS=1"
+endif
+
+ifeq ($(DISABLE_SPAWN),1)
+CXXFLAGS += -DYOSYS_DISABLE_SPAWN
 endif
 
 ifeq ($(ENABLE_PLUGINS),1)
@@ -905,6 +943,14 @@ config-afl-gcc: clean
 
 config-emcc: clean
 	echo 'CONFIG := emcc' > Makefile.conf
+	echo 'ENABLE_TCL := 0' >> Makefile.conf
+	echo 'ENABLE_ABC := 0' >> Makefile.conf
+	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
+	echo 'ENABLE_READLINE := 0' >> Makefile.conf
+	echo 'ENABLE_ZLIB := 0' >> Makefile.conf
+
+config-wasi: clean
+	echo 'CONFIG := wasi' > Makefile.conf
 	echo 'ENABLE_TCL := 0' >> Makefile.conf
 	echo 'ENABLE_ABC := 0' >> Makefile.conf
 	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
