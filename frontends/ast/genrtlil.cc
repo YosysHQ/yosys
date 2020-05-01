@@ -1212,13 +1212,18 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					AstNode *fake_ast = new AstNode(AST_NONE, clone(), children[0]->children.size() >= 2 ?
 							children[0]->children[1]->clone() : children[0]->children[0]->clone());
 					fake_ast->children[0]->delete_children();
-					RTLIL::SigSpec shift_val = fake_ast->children[1]->genRTLIL();
+
+					int fake_ast_width = 0;
+					bool fake_ast_sign = true;
+					fake_ast->children[1]->detectSignWidth(fake_ast_width, fake_ast_sign);
+					RTLIL::SigSpec shift_val = fake_ast->children[1]->genRTLIL(fake_ast_width, fake_ast_sign);
+
 					if (id2ast->range_right != 0) {
-						shift_val = current_module->Sub(NEW_ID, shift_val, id2ast->range_right, fake_ast->children[1]->is_signed);
+						shift_val = current_module->Sub(NEW_ID, shift_val, id2ast->range_right, fake_ast_sign);
 						fake_ast->children[1]->is_signed = true;
 					}
 					if (id2ast->range_swapped) {
-						shift_val = current_module->Sub(NEW_ID, RTLIL::SigSpec(source_width - width), shift_val, fake_ast->children[1]->is_signed);
+						shift_val = current_module->Sub(NEW_ID, RTLIL::SigSpec(source_width - width), shift_val, fake_ast_sign);
 						fake_ast->children[1]->is_signed = true;
 					}
 					if (GetSize(shift_val) >= 32)
