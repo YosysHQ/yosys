@@ -41,7 +41,7 @@ struct QbfSolveOptions {
 	bool specialize, specialize_from_file, write_solution, nocleanup, dump_final_smt2, assume_outputs, assume_neg;
 	bool nooptimize, nobisection;
 	bool sat, unsat, show_smtbmc;
-	enum Solver{Z3, Yices} solver;
+	enum Solver{Z3, Yices, CVC4} solver;
 	std::string specialize_soln_file;
 	std::string write_soln_soln_file;
 	std::string dump_final_smt2_file;
@@ -57,6 +57,8 @@ std::string get_solver_name(const QbfSolveOptions &opt) {
 		return "z3";
 	else if (opt.solver == opt.Solver::Yices)
 		return "yices";
+	else if (opt.solver == opt.Solver::CVC4)
+		return "cvc4";
 	else
 		log_cmd_error("unknown solver specified.\n");
 	return "";
@@ -504,6 +506,8 @@ QbfSolveOptions parse_args(const std::vector<std::string> &args) {
 					opt.solver = opt.Solver::Z3;
 				else if (args[opt.argidx+1] == "yices")
 					opt.solver = opt.Solver::Yices;
+				else if (args[opt.argidx+1] == "cvc4")
+					opt.solver = opt.Solver::CVC4;
 				else
 					log_cmd_error("Unknown solver \"%s\".\n", args[opt.argidx+1].c_str());
 				opt.argidx++;
@@ -619,7 +623,7 @@ struct QbfSatPass : public Pass {
 		log("        quantified bitvector problems.\n");
 		log("\n");
 		log("    -solver <solver>\n");
-		log("        Use a particular solver. Choose one of: \"z3\", \"yices\".\n");
+		log("        Use a particular solver. Choose one of: \"z3\", \"yices\", and \"cvc4\".\n");
 		log("\n");
 		log("    -sat\n");
 		log("        Generate an error if the solver does not return \"sat\".\n");
