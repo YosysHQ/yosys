@@ -1557,8 +1557,9 @@ else:  # not tempind, covermode
                 smt_assert(get_constr_expr(constr_asserts, i))
 
             print_msg("Solving for step %d.." % (last_check_step))
-            if smt_check_sat() != "sat":
-                print("%s No solution found!" % smt.timestamp())
+            status = smt_check_sat()
+            if status != "sat":
+                print("%s No solution found! (%s)" % (smt.timestamp(), status))
                 retstatus = "FAILED"
                 break
 
