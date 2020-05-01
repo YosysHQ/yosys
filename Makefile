@@ -281,13 +281,13 @@ yosys.html: misc/yosys.html
 
 else ifeq ($(CONFIG),wasi)
 ifeq ($(WASI_SDK),)
-CXX = clang++
+CXX = clang
 LD = clang++
 AR = llvm-ar
 RANLIB = llvm-ranlib
 WASIFLAGS := -target wasm32-wasi --sysroot $(WASI_SYSROOT) $(WASIFLAGS)
 else
-CXX = $(WASI_SDK)/bin/clang++
+CXX = $(WASI_SDK)/bin/clang
 LD = $(WASI_SDK)/bin/clang++
 AR = $(WASI_SDK)/bin/ar
 RANLIB = $(WASI_SDK)/bin/ranlib
