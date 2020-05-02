@@ -682,25 +682,37 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				RTLIL::SigSpec sig_a = assign_map(cell->getPort(ID::A));
 				RTLIL::SigSpec sig_b = assign_map(cell->getPort(ID::B));
 				RTLIL::SigSpec sig_y = cell->getPort(ID::Y);
+				bool is_signed = cell->getParam(ID::A_SIGNED).as_bool();
 				bool sub = cell->type == ID($sub);
 
+				int minsz = GetSize(sig_y);
+				minsz = std::min(minsz, GetSize(sig_a));
+				minsz = std::min(minsz, GetSize(sig_b));
+
 				int i;
-				for (i = 0; i < GetSize(sig_y); i++) {
-					RTLIL::SigBit b = sig_b.at(i, State::Sx);
-					RTLIL::SigBit a = sig_a.at(i, State::Sx);
-					if (b == State::S0 && a != State::Sx)
+				for (i = 0; i < minsz; i++) {
+					RTLIL::SigBit b = sig_b[i];
+					RTLIL::SigBit a = sig_a[i];
+					if (b == State::S0)
 						module->connect(sig_y[i], a);
 					else if (sub && b == State::S1 && a == State::S1)
 						module->connect(sig_y[i], State::S0);
-					else if (!sub && a == State::S0 && b != State::Sx)
+					else if (!sub && a == State::S0)
 						module->connect(sig_y[i], b);
 					else
 						break;
 				}
 				if (i > 0) {
 					cover_list("opt.opt_expr.fine", "$add", "$sub", cell->type.str());
-					cell->setPort(ID::A, sig_a.extract_end(i));
-					cell->setPort(ID::B, sig_b.extract_end(i));
+					log_debug("Stripping %d LSB bits of %s cell %s in module %s.\n", i, log_id(cell->type), log_id(cell), log_id(module));
+					SigSpec new_a = sig_a.extract_end(i);
+					SigSpec new_b = sig_b.extract_end(i);
+					if (new_a.empty() && is_signed)
+						new_a = sig_a[i-1];
+					if (new_b.empty() && is_signed)
+						new_b = sig_b[i-1];
+					cell->setPort(ID::A, new_a);
+					cell->setPort(ID::B, new_b);
 					cell->setPort(ID::Y, sig_y.extract_end(i));
 					cell->fixup_parameters();
 					did_something = true;
