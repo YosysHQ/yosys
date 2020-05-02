@@ -52,3 +52,8 @@ miter -equiv -flatten -make_assert -make_outputs gold gate miter
 sat -verify -prove-asserts -show-ports -seq 16 miter
 " -l ${aig}.log
 done
+
+for y in *.ys; do
+    echo "Running $y."
+    ../../yosys $y -ql ${y%.*}.log
+done

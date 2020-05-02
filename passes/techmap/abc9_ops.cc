@@ -741,8 +741,10 @@ void reintegrate(RTLIL::Module *module)
 	if (mapped_mod == NULL)
 		log_error("ABC output file does not contain a module `%s$abc'.\n", log_id(module));
 
-	for (auto w : mapped_mod->wires())
-		module->addWire(remap_name(w->name), GetSize(w));
+	for (auto w : mapped_mod->wires()) {
+		auto nw = module->addWire(remap_name(w->name), GetSize(w));
+		nw->start_offset = w->start_offset;
+	}
 
 	dict<IdString,std::vector<IdString>> box_ports;
 
@@ -989,7 +991,7 @@ void reintegrate(RTLIL::Module *module)
 		wire->attributes.erase(ID::abc9_scc);
 
 		RTLIL::Wire *remap_wire = module->wire(remap_name(port));
-		RTLIL::SigSpec signal(wire, 0, GetSize(remap_wire));
+		RTLIL::SigSpec signal(wire, remap_wire->start_offset-wire->start_offset, GetSize(remap_wire));
 		log_assert(GetSize(signal) >= GetSize(remap_wire));
 
 		RTLIL::SigSig conn;
