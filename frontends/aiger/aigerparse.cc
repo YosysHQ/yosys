@@ -784,7 +784,7 @@ void AigerReader::post_process()
 		ff->attributes[ID::abc9_mergeability] = mergeability[i];
 	}
 
-	dict<RTLIL::IdString, int> wideports_cache;
+	dict<RTLIL::IdString, std::pair<int,int>> wideports_cache;
 
 	if (!map_filename.empty()) {
 		std::ifstream mf(map_filename);
@@ -799,11 +799,12 @@ void AigerReader::post_process()
 				log_assert(wire->port_input);
 				log_debug("Renaming input %s", log_id(wire));
 
+				RTLIL::Wire *existing = nullptr;
 				if (index == 0) {
 					// Cope with the fact that a CI might be identical
 					// to a PI (necessary due to ABC); in those cases
 					// simply connect the latter to the former
-					RTLIL::Wire* existing = module->wire(escaped_s);
+					existing = module->wire(escaped_s);
 					if (!existing)
 						module->rename(wire, escaped_s);
 					else {
@@ -812,19 +813,28 @@ void AigerReader::post_process()
 					}
 					log_debug(" -> %s\n", log_id(escaped_s));
 				}
-				else if (index > 0) {
-					std::string indexed_name = stringf("%s[%d]", escaped_s.c_str(), index);
-					RTLIL::Wire* existing = module->wire(indexed_name);
-					if (!existing) {
+				else {
+					RTLIL::IdString indexed_name = stringf("%s[%d]", escaped_s.c_str(), index);
+					existing = module->wire(indexed_name);
+					if (!existing)
 						module->rename(wire, indexed_name);
-						if (wideports)
-							wideports_cache[escaped_s] = std::max(wideports_cache[escaped_s], index);
-					}
 					else {
 						module->connect(wire, existing);
 						wire->port_input = false;
 					}
 					log_debug(" -> %s\n", log_id(indexed_name));
+				}
+
+				if (wideports && !existing) {
+					auto r = wideports_cache.insert(escaped_s);
+					if (r.second) {
+						r.first->second.first = index;
+						r.first->second.second = index;
+					}
+					else {
+						r.first->second.first = std::min(r.first->second.first, index);
+						r.first->second.second = std::max(r.first->second.second, index);
+					}
 				}
 			}
 			else if (type == "output") {
@@ -834,14 +844,14 @@ void AigerReader::post_process()
 				log_assert(wire->port_output);
 				log_debug("Renaming output %s", log_id(wire));
 
+				RTLIL::Wire *existing;
 				if (index == 0) {
 					// Cope with the fact that a CO might be identical
 					// to a PO (necessary due to ABC); in those cases
 					// simply connect the latter to the former
-					RTLIL::Wire* existing = module->wire(escaped_s);
-					if (!existing) {
+					existing = module->wire(escaped_s);
+					if (!existing)
 						module->rename(wire, escaped_s);
-					}
 					else {
 						wire->port_output = false;
 						existing->port_output = true;
@@ -850,14 +860,11 @@ void AigerReader::post_process()
 					}
 					log_debug(" -> %s\n", log_id(escaped_s));
 				}
-				else if (index > 0) {
-					std::string indexed_name = stringf("%s[%d]", escaped_s.c_str(), index);
-					RTLIL::Wire* existing = module->wire(indexed_name);
-					if (!existing) {
+				else {
+					RTLIL::IdString indexed_name = stringf("%s[%d]", escaped_s.c_str(), index);
+					existing = module->wire(indexed_name);
+					if (!existing)
 						module->rename(wire, indexed_name);
-						if (wideports)
-							wideports_cache[escaped_s] = std::max(wideports_cache[escaped_s], index);
-					}
 					else {
 						wire->port_output = false;
 						existing->port_output = true;
@@ -865,10 +872,18 @@ void AigerReader::post_process()
 					}
 					log_debug(" -> %s\n", log_id(indexed_name));
 				}
-				int init;
-				mf >> init;
-				if (init < 2)
-					wire->attributes[ID::init] = init;
+
+				if (wideports && !existing) {
+					auto r = wideports_cache.insert(escaped_s);
+					if (r.second) {
+						r.first->second.first = index;
+						r.first->second.second = index;
+					}
+					else {
+						r.first->second.first = std::min(r.first->second.first, index);
+						r.first->second.second = std::max(r.first->second.second, index);
+					}
+				}
 			}
 			else if (type == "box") {
 				RTLIL::Cell* cell = module->cell(stringf("$box%d", variable));
@@ -882,7 +897,8 @@ void AigerReader::post_process()
 
 	for (auto &wp : wideports_cache) {
 		auto name = wp.first;
-		int width = wp.second + 1;
+		int min = wp.second.first;
+		int max = wp.second.second;
 
 		RTLIL::Wire *wire = module->wire(name);
 		if (wire)
@@ -891,7 +907,7 @@ void AigerReader::post_process()
 		// Do not make ports with a mix of input/output into
 		// wide ports
 		bool port_input = false, port_output = false;
-		for (int i = 0; i < width; i++) {
+		for (int i = min; i <= max; i++) {
 			RTLIL::IdString other_name = name.str() + stringf("[%d]", i);
 			RTLIL::Wire *other_wire = module->wire(other_name);
 			if (other_wire) {
@@ -900,20 +916,21 @@ void AigerReader::post_process()
 			}
 		}
 
-		wire = module->addWire(name, width);
+		wire = module->addWire(name, max-min+1);
+		wire->start_offset = min;
 		wire->port_input = port_input;
 		wire->port_output = port_output;
 
-		for (int i = 0; i < width; i++) {
-			RTLIL::IdString other_name = name.str() + stringf("[%d]", i);
+		for (int i = min; i <= max; i++) {
+			RTLIL::IdString other_name = stringf("%s[%d]", name.c_str(), i);
 			RTLIL::Wire *other_wire = module->wire(other_name);
 			if (other_wire) {
 				other_wire->port_input = false;
 				other_wire->port_output = false;
 				if (wire->port_input)
-					module->connect(other_wire, SigSpec(wire, i));
+					module->connect(other_wire, SigSpec(wire, i-min));
 				else
-					module->connect(SigSpec(wire, i), other_wire);
+					module->connect(SigSpec(wire, i-min), other_wire);
 			}
 		}
 	}
