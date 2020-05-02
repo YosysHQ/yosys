@@ -66,6 +66,7 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Added "design -delete"
     - Added "select -unset"
     - Use YosysHQ/abc instead of upstream berkeley-abc/abc
+    - Added $divfloor and $modfloor cells
 
 Yosys 0.8 .. Yosys 0.9
 ----------------------
