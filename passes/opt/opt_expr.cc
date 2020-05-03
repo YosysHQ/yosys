@@ -728,6 +728,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				RTLIL::SigSpec sig_x = cell->getPort(ID::X);
 				RTLIL::SigSpec sig_y = cell->getPort(ID::Y);
 				RTLIL::SigSpec sig_co = cell->getPort(ID::CO);
+				bool is_signed = cell->getParam(ID::A_SIGNED).as_bool();
 
 				if (sig_bi != State::S0 && sig_bi != State::S1)
 					goto skip_fine_alu;
@@ -737,16 +738,20 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				bool bi = sig_bi == State::S1;
 				bool ci = sig_ci == State::S1;
 
+				int minsz = GetSize(sig_y);
+				minsz = std::min(minsz, GetSize(sig_a));
+				minsz = std::min(minsz, GetSize(sig_b));
+
 				int i;
-				for (i = 0; i < GetSize(sig_y); i++) {
-					RTLIL::SigBit b = sig_b.at(i, State::Sx);
-					RTLIL::SigBit a = sig_a.at(i, State::Sx);
-					if (b == ((bi ^ ci) ? State::S1 : State::S0) && a != State::Sx) {
+				for (i = 0; i < minsz; i++) {
+					RTLIL::SigBit b = sig_b[i];
+					RTLIL::SigBit a = sig_a[i];
+					if (b == ((bi ^ ci) ? State::S1 : State::S0)) {
 						module->connect(sig_y[i], a);
 						module->connect(sig_x[i], ci ? module->Not(NEW_ID, a).as_bit() : a);
 						module->connect(sig_co[i], ci ? State::S1 : State::S0);
 					}
-					else if (a == (ci ? State::S1 : State::S0) && b != State::Sx) {
+					else if (a == (ci ? State::S1 : State::S0)) {
 						module->connect(sig_y[i], bi ? module->Not(NEW_ID, b).as_bit() : b);
 						module->connect(sig_x[i], (bi ^ ci) ? module->Not(NEW_ID, b).as_bit() : b);
 						module->connect(sig_co[i], ci ? State::S1 : State::S0);
@@ -756,8 +761,15 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				}
 				if (i > 0) {
 					cover("opt.opt_expr.fine.$alu");
-					cell->setPort(ID::A, sig_a.extract_end(i));
-					cell->setPort(ID::B, sig_b.extract_end(i));
+					log_debug("Stripping %d LSB bits of %s cell %s in module %s.\n", i, log_id(cell->type), log_id(cell), log_id(module));
+					SigSpec new_a = sig_a.extract_end(i);
+					SigSpec new_b = sig_b.extract_end(i);
+					if (new_a.empty() && is_signed)
+						new_a = sig_a[i-1];
+					if (new_b.empty() && is_signed)
+						new_b = sig_b[i-1];
+					cell->setPort(ID::A, new_a);
+					cell->setPort(ID::B, new_b);
 					cell->setPort(ID::X, sig_x.extract_end(i));
 					cell->setPort(ID::Y, sig_y.extract_end(i));
 					cell->setPort(ID::CO, sig_co.extract_end(i));
