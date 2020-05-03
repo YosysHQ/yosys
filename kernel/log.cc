@@ -354,6 +354,9 @@ static void logv_error_with_prefix(const char *prefix,
 
 	if (check_expected_logs)
 		log_check_expected();
+
+	YS_DEBUGTRAP_IF_DEBUGGING;
+
 #ifdef EMSCRIPTEN
 	log_files = backup_log_files;
 	throw 0;
@@ -673,7 +676,7 @@ void log_check_expected()
 		}
 		if (item.second.current_count != item.second.expected_count) {
 			log_warn_regexes.clear();
-			log_error("Expected warning pattern '%s' found %d time(s), instead of %d time(s) !\n", 
+			log_error("Expected warning pattern '%s' found %d time(s), instead of %d time(s) !\n",
 				item.second.pattern.c_str(), item.second.current_count, item.second.expected_count);
 		}
 	}
@@ -700,7 +703,7 @@ void log_check_expected()
 				_exit(0);
 			#else
 				_Exit(0);
-			#endif			
+			#endif
 		} else {
 			display_error_log_msg = false;
 			log_warn_regexes.clear();
