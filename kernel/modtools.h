@@ -226,6 +226,10 @@ struct ModIndex : public RTLIL::Monitor
 		auto_reload_module = true;
 	}
 
+	ModIndex() : module(NULL)
+	{
+	}
+
 	ModIndex(RTLIL::Module *_m) : sigmap(_m), module(_m)
 	{
 		auto_reload_counter = 0;
@@ -235,7 +239,8 @@ struct ModIndex : public RTLIL::Monitor
 
 	~ModIndex()
 	{
-		module->monitors.erase(this);
+		if (module)
+			module->monitors.erase(this);
 	}
 
 	SigBitInfo *query(RTLIL::SigBit bit)
