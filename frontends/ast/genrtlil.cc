@@ -43,12 +43,12 @@ using namespace AST_INTERNAL;
 // helper function for creating RTLIL code for unary operations
 static RTLIL::SigSpec uniop2rtlil(AstNode *that, IdString type, int result_width, const RTLIL::SigSpec &arg, bool gen_attributes = true)
 {
-        IdString name = stringf("%s$%s:%d$%d", type.c_str(), that->filename.c_str(), that->location.first_line, autoidx++);
+	IdString name = stringf("%s$%s:%d$%d", type.c_str(), that->filename.c_str(), that->location.first_line, autoidx++);
 	RTLIL::Cell *cell = current_module->addCell(name, type);
-	cell->attributes[ID::src] = stringf("%s:%d", that->filename.c_str(), that->location.first_line);
+	cell->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", that->filename.c_str(), that->location.first_line, that->location.first_column, that->location.last_line, that->location.last_column);
 
 	RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_Y", result_width);
-	wire->attributes[ID::src] = stringf("%s:%d", that->filename.c_str(), that->location.first_line);
+	wire->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", that->filename.c_str(), that->location.first_line, that->location.first_column, that->location.last_line, that->location.last_column);
 
 	if (gen_attributes)
 		for (auto &attr : that->attributes) {
@@ -74,12 +74,12 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 		return;
 	}
 
-        IdString name = stringf("$extend$%s:%d$%d", that->filename.c_str(), that->location.first_line, autoidx++);
+	IdString name = stringf("$extend$%s:%d$%d", that->filename.c_str(), that->location.first_line, autoidx++);
 	RTLIL::Cell *cell = current_module->addCell(name, ID($pos));
-	cell->attributes[ID::src] = stringf("%s:%d", that->filename.c_str(), that->location.first_line);
+	cell->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", that->filename.c_str(), that->location.first_line, that->location.first_column, that->location.last_line, that->location.last_column);
 
 	RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_Y", width);
-	wire->attributes[ID::src] = stringf("%s:%d", that->filename.c_str(), that->location.first_line);
+	wire->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", that->filename.c_str(), that->location.first_line, that->location.first_column, that->location.last_line, that->location.last_column);
 
 	if (that != NULL)
 		for (auto &attr : that->attributes) {
@@ -100,12 +100,12 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 // helper function for creating RTLIL code for binary operations
 static RTLIL::SigSpec binop2rtlil(AstNode *that, IdString type, int result_width, const RTLIL::SigSpec &left, const RTLIL::SigSpec &right)
 {
-        IdString name = stringf("%s$%s:%d$%d", type.c_str(), that->filename.c_str(), that->location.first_line, autoidx++);
+	IdString name = stringf("%s$%s:%d$%d", type.c_str(), that->filename.c_str(), that->location.first_line, autoidx++);
 	RTLIL::Cell *cell = current_module->addCell(name, type);
-	cell->attributes[ID::src] = stringf("%s:%d", that->filename.c_str(), that->location.first_line);
+	cell->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", that->filename.c_str(), that->location.first_line, that->location.first_column, that->location.last_line, that->location.last_column);
 
 	RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_Y", result_width);
-	wire->attributes[ID::src] = stringf("%s:%d", that->filename.c_str(), that->location.first_line);
+	wire->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", that->filename.c_str(), that->location.first_line, that->location.first_column, that->location.last_line, that->location.last_column);
 
 	for (auto &attr : that->attributes) {
 		if (attr.second->type != AST_CONSTANT)
@@ -136,10 +136,10 @@ static RTLIL::SigSpec mux2rtlil(AstNode *that, const RTLIL::SigSpec &cond, const
 	sstr << "$ternary$" << that->filename << ":" << that->location.first_line << "$" << (autoidx++);
 
 	RTLIL::Cell *cell = current_module->addCell(sstr.str(), ID($mux));
-	cell->attributes[ID::src] = stringf("%s:%d", that->filename.c_str(), that->location.first_line);
+	cell->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", that->filename.c_str(), that->location.first_line, that->location.first_column, that->location.last_line, that->location.last_column);
 
 	RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_Y", left.size());
-	wire->attributes[ID::src] = stringf("%s:%d", that->filename.c_str(), that->location.first_line);
+	wire->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", that->filename.c_str(), that->location.first_line, that->location.first_column, that->location.last_line, that->location.last_column);
 
 	for (auto &attr : that->attributes) {
 		if (attr.second->type != AST_CONSTANT)
@@ -1500,10 +1500,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			sstr << "$memrd$" << str << "$" << filename << ":" << location.first_line << "$" << (autoidx++);
 
 			RTLIL::Cell *cell = current_module->addCell(sstr.str(), ID($memrd));
-			cell->attributes[ID::src] = stringf("%s:%d", filename.c_str(), location.first_line);
+			cell->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", filename.c_str(), location.first_line, location.first_column, location.last_line, location.last_column);
 
 			RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_DATA", current_module->memories[str]->width);
-			wire->attributes[ID::src] = stringf("%s:%d", filename.c_str(), location.first_line);
+			wire->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", filename.c_str(), location.first_line, location.first_column, location.last_line, location.last_column);
 
 			int mem_width, mem_size, addr_bits;
 			is_signed = id2ast->is_signed;
