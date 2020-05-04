@@ -923,7 +923,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 			}
 			break;
 		}
-		/* fall through */
+		YS_FALLTHROUGH
 
 	// everything should have been handled above -> print error if not.
 	default:
@@ -1019,7 +1019,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 		if (GetSize(children) >= 1 && children[0]->type == AST_CONSTANT) {
 			current_module->parameter_default_values[str] = children[0]->asParaConst();
 		}
-		/* fall through */
+		YS_FALLTHROUGH
 	case AST_LOCALPARAM:
 		if (flag_pwires)
 		{
@@ -1807,7 +1807,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				is_signed = sign_hint;
 				return SigSpec(wire);
 			}
-		} /* fall through */
+		}
+		YS_FALLTHROUGH
 
 	// everything should have been handled above -> print error if not.
 	default:

@@ -91,7 +91,7 @@ std::string AstNode::process_format_str(const std::string &sformat, int next_arg
 				case 'D':
 					if (got_len)
 						goto unsupported_format;
-					/* fall through */
+					YS_FALLTHROUGH
 				case 'x':
 				case 'X':
 					if (next_arg >= GetSize(children))

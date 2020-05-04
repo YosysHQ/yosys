@@ -343,7 +343,7 @@ struct FirrtlWorker
 				switch (dir) {
 					case FD_INOUT:
 						log_warning("Instance port connection %s.%s is INOUT; treating as OUT\n", cell_type.c_str(), log_signal(it->second));
-						/* FALLTHRU */
+						YS_FALLTHROUGH
 					case FD_OUT:
 						sourceExpr = firstName;
 						sinkExpr = secondExpr;
@@ -351,7 +351,7 @@ struct FirrtlWorker
 						break;
 					case FD_NODIRECTION:
 						log_warning("Instance port connection %s.%s is NODIRECTION; treating as IN\n", cell_type.c_str(), log_signal(it->second));
-						/* FALLTHRU */
+						YS_FALLTHROUGH
 					case FD_IN:
 						sourceExpr = secondExpr;
 						sinkExpr = firstName;
