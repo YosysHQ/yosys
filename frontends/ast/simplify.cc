@@ -1739,8 +1739,10 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 			AstNode *node = children_list[1];
 			if (op_type != AST_POS)
-				for (size_t i = 2; i < children_list.size(); i++)
+				for (size_t i = 2; i < children_list.size(); i++) {
 					node = new AstNode(op_type, node, children_list[i]);
+					node->location = location;
+				}
 			if (invert_results)
 				node = new AstNode(AST_BIT_NOT, node);
 

@@ -1747,7 +1747,9 @@ single_prim:
 	/* no name */ {
 		astbuf2 = astbuf1->clone();
 		ast_stack.back()->children.push_back(astbuf2);
-	} '(' cell_port_list ')';
+	} '(' cell_port_list ')' {
+		SET_AST_NODE_LOC(astbuf2, @1, @$);
+	}
 
 cell_parameter_list_opt:
 	'#' '(' cell_parameter_list ')' | /* empty */;
