@@ -29,6 +29,13 @@ struct SynthIce40Pass : public ScriptPass
 {
 	SynthIce40Pass() : ScriptPass("synth_ice40", "synthesis for iCE40 FPGAs") { }
 
+	void on_register() YS_OVERRIDE
+	{
+		RTLIL::constpad["synth_ice40.abc9.hx.W"] = "250";
+		RTLIL::constpad["synth_ice40.abc9.lp.W"] = "400";
+		RTLIL::constpad["synth_ice40.abc9.u.W"] = "750";
+	}
+
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -373,14 +380,15 @@ struct SynthIce40Pass : public ScriptPass
 			if (!noabc) {
 				if (abc9) {
 					run("read_verilog " + define + " -icells -lib -specify +/abc9_model.v +/ice40/abc9_model.v");
-					int wire_delay;
-					if (device_opt == "lp")
-						wire_delay = 400;
-					else if (device_opt == "u")
-						wire_delay = 750;
-					else
-						wire_delay = 250;
-					run(stringf("abc9 -W %d", wire_delay));
+					std::string abc9_opts;
+					std::string k = "synth_ice40.abc9.W";
+					if (active_design && active_design->scratchpad.count(k))
+						abc9_opts += stringf(" -W %s", active_design->scratchpad_get_string(k).c_str());
+					else {
+						k = stringf("synth_ice40.abc9.%s.W", device_opt.c_str());
+						abc9_opts += stringf(" -W %s", RTLIL::constpad.at(k).c_str());
+					}
+					run("abc9 " + abc9_opts);
 				}
 				else
 					run("abc -dress -lut 4", "(skip if -noabc)");

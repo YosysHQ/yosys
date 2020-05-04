@@ -30,6 +30,11 @@ struct SynthEcp5Pass : public ScriptPass
 {
 	SynthEcp5Pass() : ScriptPass("synth_ecp5", "synthesis for ECP5 FPGAs") { }
 
+	void on_register() YS_OVERRIDE
+	{
+		RTLIL::constpad["synth_ecp5.abc9.W"] = "300";
+	}
+
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -324,6 +329,14 @@ struct SynthEcp5Pass : public ScriptPass
 
 			if (abc9) {
 				run("read_verilog -icells -lib -specify +/abc9_model.v +/ecp5/abc9_model.v");
+				std::string abc9_opts;
+				if (nowidelut)
+					abc9_opts += " -maxlut 4";
+				std::string k = "synth_ecp5.abc9.W";
+				if (active_design && active_design->scratchpad.count(k))
+					abc9_opts += stringf(" -W %s", active_design->scratchpad_get_string(k).c_str());
+				else
+					abc9_opts += stringf(" -W %s", RTLIL::constpad.at(k).c_str());
 				if (nowidelut)
 					run("abc9 -maxlut 4 -W 200");
 				else

@@ -619,11 +619,13 @@ struct SynthXilinxPass : public ScriptPass
 				run("techmap " + techmap_args);
 				run("read_verilog -icells -lib -specify +/abc9_model.v +/xilinx/abc9_model.v");
 				std::string abc9_opts;
-				auto k = stringf("synth_xilinx.abc9.%s.W", family.c_str());
-				if (active_design->scratchpad.count(k))
+				std::string k = "synth_xilinx.abc9.W";
+				if (active_design && active_design->scratchpad.count(k))
 					abc9_opts += stringf(" -W %s", active_design->scratchpad_get_string(k).c_str());
-				else
+				else {
+					k = stringf("synth_xilinx.abc9.%s.W", family.c_str());
 					abc9_opts += stringf(" -W %s", RTLIL::constpad.at(k, RTLIL::constpad.at("synth_xilinx.abc9.xc7.W")).c_str());
+				}
 				if (nowidelut)
 					abc9_opts += stringf(" -maxlut %d", lut_size);
 				if (dff_mode)
