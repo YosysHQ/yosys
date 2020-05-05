@@ -1445,7 +1445,7 @@ endmodule
 
 // --------------------------------------------------------
 
-module \$specrule (EN_SRC, EN_DST, SRC, DST);
+module \$specrule (SRC_EN, DST_EN, SRC, DST);
 
 parameter TYPE = "";
 parameter T_LIMIT = 0;
@@ -1460,7 +1460,7 @@ parameter SRC_POL = 0;
 parameter DST_PEN = 0;
 parameter DST_POL = 0;
 
-input EN_SRC, EN_DST;
+input SRC_EN, DST_EN;
 input [SRC_WIDTH-1:0] SRC;
 input [DST_WIDTH-1:0] DST;
 
