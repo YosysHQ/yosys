@@ -885,6 +885,7 @@ specify_item:
 		cell->str = stringf("$specify$%d", autoidx++);
 		cell->children.push_back(new AstNode(AST_CELLTYPE));
 		cell->children.back()->str = target->dat ? "$specify3" : "$specify2";
+		SET_AST_NODE_LOC(cell, en_expr ? @1 : @2, @10);
 
 		char oper_polarity = 0;
 		char oper_type = oper->at(0);
@@ -973,6 +974,7 @@ specify_item:
 		cell->str = stringf("$specify$%d", autoidx++);
 		cell->children.push_back(new AstNode(AST_CELLTYPE));
 		cell->children.back()->str = "$specrule";
+		SET_AST_NODE_LOC(cell, @1, @14);
 
 		cell->children.push_back(new AstNode(AST_PARASET, AstNode::mkconst_str(*$1)));
 		cell->children.back()->str = "\\TYPE";
@@ -1099,8 +1101,8 @@ specify_rise_fall:
 		$$->fall = *$4;
 		delete $2;
 		delete $4;
-        delete $6;
-        log_file_warning(current_filename, get_line_num(), "Path delay expressions beyond rise/fall not currently supported. Ignoring.\n");
+		delete $6;
+		log_file_warning(current_filename, get_line_num(), "Path delay expressions beyond rise/fall not currently supported. Ignoring.\n");
 	} |
 	'(' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ')' {
 		$$ = new specify_rise_fall;
@@ -1108,11 +1110,11 @@ specify_rise_fall:
 		$$->fall = *$4;
 		delete $2;
 		delete $4;
-        delete $6;
-        delete $8;
-        delete $10;
-        delete $12;
-        log_file_warning(current_filename, get_line_num(), "Path delay expressions beyond rise/fall not currently supported. Ignoring.\n");
+		delete $6;
+		delete $8;
+		delete $10;
+		delete $12;
+		log_file_warning(current_filename, get_line_num(), "Path delay expressions beyond rise/fall not currently supported. Ignoring.\n");
 	} |
 	'(' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ')' {
 		$$ = new specify_rise_fall;
@@ -1120,17 +1122,17 @@ specify_rise_fall:
 		$$->fall = *$4;
 		delete $2;
 		delete $4;
-        delete $6;
-        delete $8;
-        delete $10;
-        delete $12;
-        delete $14;
-        delete $16;
-        delete $18;
-        delete $20;
-        delete $22;
-        delete $24;
-        log_file_warning(current_filename, get_line_num(), "Path delay expressions beyond rise/fall not currently supported. Ignoring.\n");
+		delete $6;
+		delete $8;
+		delete $10;
+		delete $12;
+		delete $14;
+		delete $16;
+		delete $18;
+		delete $20;
+		delete $22;
+		delete $24;
+		log_file_warning(current_filename, get_line_num(), "Path delay expressions beyond rise/fall not currently supported. Ignoring.\n");
 	}
 
 specify_triple:
