@@ -50,7 +50,7 @@ namespace VERILOG_FRONTEND
 	extern std::vector<UserTypeMap *> user_type_stack;
 
 	// names of package typedef'ed types
-	extern std::map<std::string, AST::AstNode*> pkg_user_types;
+	extern dict<std::string, AST::AstNode*> pkg_user_types;
 
 	// state of `default_nettype
 	extern bool default_nettype_wire;

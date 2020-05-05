@@ -50,12 +50,12 @@ using namespace VERILOG_FRONTEND;
 YOSYS_NAMESPACE_BEGIN
 namespace VERILOG_FRONTEND {
 	int port_counter;
-	std::map<std::string, int> port_stubs;
-	std::map<std::string, AstNode*> *attr_list, default_attr_list;
-	std::stack<std::map<std::string, AstNode*> *> attr_list_stack;
-	std::map<std::string, AstNode*> *albuf;
+	dict<std::string, int> port_stubs;
+	dict<IdString, AstNode*> *attr_list, default_attr_list;
+	std::stack<dict<IdString, AstNode*> *> attr_list_stack;
+	dict<IdString, AstNode*> *albuf;
 	std::vector<UserTypeMap*> user_type_stack;
-	std::map<std::string, AstNode*> pkg_user_types;
+	dict<std::string, AstNode*> pkg_user_types;
 	std::vector<AstNode*> ast_stack;
 	struct AstNode *astbuf1, *astbuf2, *astbuf3;
 	struct AstNode *current_function_or_task;
@@ -87,7 +87,7 @@ YOSYS_NAMESPACE_END
 
 int frontend_verilog_yylex(YYSTYPE *yylval_param, YYLTYPE *yyloc_param);
 
-static void append_attr(AstNode *ast, std::map<std::string, AstNode*> *al)
+static void append_attr(AstNode *ast, dict<IdString, AstNode*> *al)
 {
 	for (auto &it : *al) {
 		if (ast->attributes.count(it.first) > 0)
@@ -97,7 +97,7 @@ static void append_attr(AstNode *ast, std::map<std::string, AstNode*> *al)
 	delete al;
 }
 
-static void append_attr_clone(AstNode *ast, std::map<std::string, AstNode*> *al)
+static void append_attr_clone(AstNode *ast, dict<IdString, AstNode*> *al)
 {
 	for (auto &it : *al) {
 		if (ast->attributes.count(it.first) > 0)
@@ -106,7 +106,7 @@ static void append_attr_clone(AstNode *ast, std::map<std::string, AstNode*> *al)
 	}
 }
 
-static void free_attr(std::map<std::string, AstNode*> *al)
+static void free_attr(dict<IdString, AstNode*> *al)
 {
 	for (auto &it : *al)
 		delete it.second;
@@ -192,7 +192,7 @@ static void addRange(AstNode *parent, int msb = 31, int lsb = 0, bool isSigned =
 %union {
 	std::string *string;
 	struct YOSYS_NAMESPACE_PREFIX AST::AstNode *ast;
-	std::map<std::string, YOSYS_NAMESPACE_PREFIX AST::AstNode*> *al;
+	YOSYS_NAMESPACE_PREFIX dict<YOSYS_NAMESPACE_PREFIX RTLIL::IdString, YOSYS_NAMESPACE_PREFIX AST::AstNode*> *al;
 	struct specify_target *specify_target_ptr;
 	struct specify_triple *specify_triple_ptr;
 	struct specify_rise_fall *specify_rise_fall_ptr;
@@ -289,7 +289,7 @@ attr:
 	{
 		if (attr_list != nullptr)
 			attr_list_stack.push(attr_list);
-		attr_list = new std::map<std::string, AstNode*>;
+		attr_list = new dict<IdString, AstNode*>;
 		for (auto &it : default_attr_list)
 			(*attr_list)[it.first] = it.second->clone();
 	} attr_opt {
@@ -311,7 +311,7 @@ defattr:
 	DEFATTR_BEGIN {
 		if (attr_list != nullptr)
 			attr_list_stack.push(attr_list);
-		attr_list = new std::map<std::string, AstNode*>;
+		attr_list = new dict<IdString, AstNode*>;
 		for (auto &it : default_attr_list)
 			delete it.second;
 		default_attr_list.clear();
@@ -1390,7 +1390,7 @@ enum_type: TOK_ENUM {
 								delete astbuf1;
 								astbuf1 = tnode;
 								tnode->type = AST_WIRE;
-								tnode->attributes["\\enum_type"] = AstNode::mkconst_str(astbuf2->str);
+								tnode->attributes[ID::enum_type] = AstNode::mkconst_str(astbuf2->str);
 								// drop constant but keep any range
 								delete tnode->children[0];
 								tnode->children.erase(tnode->children.begin()); }
@@ -2345,7 +2345,7 @@ unique_case_attr:
 
 case_attr:
 	attr unique_case_attr {
-		if ($2) (*$1)["\\parallel_case"] = AstNode::mkconst_int(1, false);
+		if ($2) (*$1)[ID::parallel_case] = AstNode::mkconst_int(1, false);
 		$$ = $1;
 	};
 

@@ -48,7 +48,7 @@ static void error_on_dpi_function(AST::AstNode *node)
 		error_on_dpi_function(child);
 }
 
-static void add_package_types(std::map<std::string, AST::AstNode *> &user_types, std::vector<AST::AstNode *> &package_list)
+static void add_package_types(dict<std::string, AST::AstNode *> &user_types, std::vector<AST::AstNode *> &package_list)
 {
 	// prime the parser's user type lookup table with the package qualified names
 	// of typedefed names in the packages seen so far.

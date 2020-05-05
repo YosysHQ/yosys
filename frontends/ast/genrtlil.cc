@@ -171,7 +171,7 @@ struct AST_INTERNAL::LookaheadRewriter
 				for (auto c : node->id2ast->children)
 					wire->children.push_back(c->clone());
 				wire->str = stringf("$lookahead%s$%d", node->str.c_str(), autoidx++);
-				wire->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
+				wire->attributes[ID::nosync] = AstNode::mkconst_int(1, false);
 				wire->is_logic = true;
 				while (wire->simplify(true, false, false, 1, -1, false, false)) { }
 				current_ast_mod->children.push_back(wire);

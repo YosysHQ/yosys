@@ -920,11 +920,11 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			range_swapped = templ->range_swapped;
 			range_left = templ->range_left;
 			range_right = templ->range_right;
-			attributes["\\wiretype"] = mkconst_str(resolved_type->str);
+			attributes[ID::wiretype] = mkconst_str(resolved_type->str);
 			//check if enum
-			if (templ->attributes.count("\\enum_type")){
+			if (templ->attributes.count(ID::enum_type)){
 				//get reference to enum node:
-				std::string enum_type = templ->attributes["\\enum_type"]->str.c_str();
+				const std::string &enum_type = templ->attributes[ID::enum_type]->str;
 				// 				log("enum_type=%s (count=%lu)\n", enum_type.c_str(), current_scope.count(enum_type));
 				// 				log("current scope:\n");
 				// 				for (auto &it : current_scope)
@@ -972,7 +972,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 					RTLIL::Const val = enum_item->children[0]->bitsAsConst(width, is_signed);
 					enum_item_str.append(val.as_string());
 					//set attribute for available val to enum item name mappings
-					attributes[enum_item_str.c_str()] = mkconst_str(enum_item->str);
+					attributes[enum_item_str] = mkconst_str(enum_item->str);
 				}
 			}
 
@@ -1021,7 +1021,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			range_swapped = templ->range_swapped;
 			range_left = templ->range_left;
 			range_right = templ->range_right;
-			attributes["\\wiretype"] = mkconst_str(resolved_type->str);
+			attributes[ID::wiretype] = mkconst_str(resolved_type->str);
 			for (auto template_child : templ->children)
 				children.push_back(template_child->clone());
 			did_something = true;
@@ -1812,14 +1812,14 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 			AstNode *wire_mask = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(source_width-1, true), mkconst_int(0, true)));
 			wire_mask->str = stringf("$bitselwrite$mask$%s:%d$%d", filename.c_str(), location.first_line, autoidx++);
-			wire_mask->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
+			wire_mask->attributes[ID::nosync] = AstNode::mkconst_int(1, false);
 			wire_mask->is_logic = true;
 			while (wire_mask->simplify(true, false, false, 1, -1, false, false)) { }
 			current_ast_mod->children.push_back(wire_mask);
 
 			AstNode *wire_data = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(source_width-1, true), mkconst_int(0, true)));
 			wire_data->str = stringf("$bitselwrite$data$%s:%d$%d", filename.c_str(), location.first_line, autoidx++);
-			wire_data->attributes["\\nosync"] = AstNode::mkconst_int(1, false);
+			wire_data->attributes[ID::nosync] = AstNode::mkconst_int(1, false);
 			wire_data->is_logic = true;
 			while (wire_data->simplify(true, false, false, 1, -1, false, false)) { }
 			current_ast_mod->children.push_back(wire_data);
@@ -2639,7 +2639,7 @@ skip_dynamic_range_lvalue_expansion:;
 
 		bool recommend_const_eval = false;
 		bool require_const_eval = in_param ? false : has_const_only_constructs(recommend_const_eval);
-		if ((in_param || recommend_const_eval || require_const_eval) && !decl->attributes.count("\\via_celltype"))
+		if ((in_param || recommend_const_eval || require_const_eval) && !decl->attributes.count(ID::via_celltype))
 		{
 			bool all_args_const = true;
 			for (auto child : children) {
@@ -2698,9 +2698,9 @@ skip_dynamic_range_lvalue_expansion:;
 			goto replace_fcall_with_id;
 		}
 
-		if (decl->attributes.count("\\via_celltype"))
+		if (decl->attributes.count(ID::via_celltype))
 		{
-			std::string celltype = decl->attributes.at("\\via_celltype")->asAttrConst().decode_string();
+			std::string celltype = decl->attributes.at(ID::via_celltype)->asAttrConst().decode_string();
 			std::string outport = str;
 
 			if (celltype.find(' ') != std::string::npos) {
@@ -2794,7 +2794,7 @@ skip_dynamic_range_lvalue_expansion:;
 					wire->is_reg = true;
 					wire->attributes[ID::nosync] = AstNode::mkconst_int(1, false);
 					if (child->type == AST_ENUM_ITEM)
-						wire->attributes["\\enum_base_type"] = child->attributes["\\enum_base_type"];
+						wire->attributes[ID::enum_base_type] = child->attributes[ID::enum_base_type];
 
 					wire_cache[child->str] = wire;
 
@@ -4094,7 +4094,7 @@ void AstNode::allocateDefaultEnumValues()
 	int last_enum_int = -1;
 	for (auto node : children) {
 		log_assert(node->type==AST_ENUM_ITEM);
-		node->attributes["\\enum_base_type"] = mkconst_str(str);
+		node->attributes[ID::enum_base_type] = mkconst_str(str);
 		for (size_t i = 0; i < node->children.size(); i++) {
 			switch (node->children[i]->type) {
 			case AST_NONE:
