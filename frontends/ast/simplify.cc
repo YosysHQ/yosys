@@ -3477,8 +3477,8 @@ void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg
 		}
 	}
 
-	// also activate if requested, either by using mem2reg attribute or by declaring array as 'wire' instead of 'reg'
-	if (type == AST_MEMORY && (get_bool_attribute(ID::mem2reg) || (flags & AstNode::MEM2REG_FL_ALL) || !is_reg))
+	// also activate if requested, either by using mem2reg attribute or by declaring array as 'wire' instead of 'reg' or 'logic'
+	if (type == AST_MEMORY && (get_bool_attribute(ID::mem2reg) || (flags & AstNode::MEM2REG_FL_ALL) || !(is_reg || is_logic)))
 		mem2reg_candidates[this] |= AstNode::MEM2REG_FL_FORCED;
 
 	if (type == AST_MODULE && get_bool_attribute(ID::mem2reg))
