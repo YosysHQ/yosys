@@ -2533,7 +2533,12 @@ gen_stmt:
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 		ast_stack.back()->children.push_back($3);
-	} gen_stmt_block opt_gen_else {
+		AstNode *block = new AstNode(AST_GENBLOCK);
+		ast_stack.back()->children.push_back(block);
+		ast_stack.push_back(block);
+	} gen_stmt_or_null {
+		ast_stack.pop_back();
+	} opt_gen_else {
 		SET_AST_NODE_LOC(ast_stack.back(), @1, @7);
 		ast_stack.pop_back();
 	} |
