@@ -136,7 +136,7 @@ bumpversion:
 # is just a symlink to your actual ABC working directory, as 'make mrproper'
 # will remove the 'abc' directory and you do not want to accidentally
 # delete your work on ABC..
-ABCREV = d14acd8
+ABCREV = fd2c9b1
 ABCPULL = 1
 ABCURL ?= https://github.com/YosysHQ/abc
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1
@@ -281,13 +281,13 @@ yosys.html: misc/yosys.html
 
 else ifeq ($(CONFIG),wasi)
 ifeq ($(WASI_SDK),)
-CXX = clang++
+CXX = clang
 LD = clang++
 AR = llvm-ar
 RANLIB = llvm-ranlib
 WASIFLAGS := -target wasm32-wasi --sysroot $(WASI_SYSROOT) $(WASIFLAGS)
 else
-CXX = $(WASI_SDK)/bin/clang++
+CXX = $(WASI_SDK)/bin/clang
 LD = $(WASI_SDK)/bin/clang++
 AR = $(WASI_SDK)/bin/ar
 RANLIB = $(WASI_SDK)/bin/ranlib
