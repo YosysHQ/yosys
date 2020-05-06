@@ -396,26 +396,23 @@ struct FirrtlWorker
 	{
 		std::string moduleFileinfo = getFileinfo(module);
 		f << stringf("  extmodule %s: %s\n", make_id(module->name), moduleFileinfo.c_str());
-		vector<string> port_decls;
+		vector<std::string> port_decls;
 
 		for (auto wire : module->wires())
 		{
 			const auto wireName = make_id(wire->name);
 			std::string wireFileinfo = getFileinfo(wire);
 
-			// Maybe not needed?
-			if (wire->port_id)
+			if (wire->port_input && wire->port_output)
 			{
-				if (wire->port_input && wire->port_output)
-				{
-					log_error("Module port %s.%s is inout!\n", log_id(module), log_id(wire));
-				}
-				port_decls.push_back(stringf("    %s %s: UInt<%d> %s\n", wire->port_input ? "input" : "output",
-						wireName, wire->width, wireFileinfo.c_str()));
+				log_error("Module port %s.%s is inout!\n", log_id(module), log_id(wire));
 			}
+			port_decls.push_back(stringf("    %s %s: UInt<%d> %s\n", wire->port_input ? "input" : "output",
+					wireName, wire->width, wireFileinfo.c_str()));
 		}
 
-		for (auto str : port_decls) {
+		for (auto &str : port_decls)
+		{
 			f << str;
 		}
 
@@ -1115,13 +1112,9 @@ struct FirrtlWorker
 		// Blackboxes should be emitted as `extmodule`s in firrtl. Only ports are
 		// emitted in such a case.
 		if (module->get_blackbox_attribute())
-		{
 			emit_extmodule();
-		}
 		else
-		{
 			emit_module();
-		}
 	}
 };
 
