@@ -722,7 +722,7 @@ ifneq ($(ABCREV),default)
 		test $(ABCPULL) -ne 0 || { echo 'REEBE: NOP abg hc gb qngr naq NOPCHYY frg gb 0 va Znxrsvyr!' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; exit 1; }; \
 		echo "Pulling ABC from $(ABCURL):"; set -x; \
 		test -d abc || git clone $(ABCURL) abc; \
-		cd abc && $(MAKE) DEP= clean && git fetch origin master && git checkout $(ABCREV); \
+		cd abc && $(MAKE) DEP= clean && git fetch $(ABCURL) && git checkout $(ABCREV); \
 	fi
 endif
 	$(Q) rm -f abc/abc-[0-9a-f]*
