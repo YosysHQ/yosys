@@ -608,6 +608,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	case AST_TO_BITS:
 	case AST_TO_SIGNED:
 	case AST_TO_UNSIGNED:
+	case AST_SELFSZ:
 	case AST_CONCAT:
 	case AST_REPLICATE:
 	case AST_REDUCE_AND:
@@ -1788,7 +1789,18 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			result_width = abs(int(left_at_zero_ast->integer - right_at_zero_ast->integer)) + 1;
 		}
 
-		if (0)
+		bool use_case_method = false;
+
+		if (children[0]->id2ast->attributes.count(ID::nowrshmsk)) {
+			AstNode *node = children[0]->id2ast->attributes.at(ID::nowrshmsk);
+			while (node->simplify(true, false, false, stage, -1, false, false)) { }
+			if (node->type != AST_CONSTANT)
+				log_file_error(filename, location.first_line, "Non-constant value for `nowrshmsk' attribute on `%s'!\n", children[0]->id2ast->str.c_str());
+			if (node->asAttrConst().as_bool())
+				use_case_method = true;
+		}
+
+		if (use_case_method)
 		{
 			// big case block
 
@@ -1796,10 +1808,10 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			newNode = new AstNode(AST_CASE, shift_expr);
 			for (int i = 0; i < source_width; i++) {
 				int start_bit = children[0]->id2ast->range_right + i;
+				int end_bit = std::min(start_bit+result_width,source_width) - 1;
 				AstNode *cond = new AstNode(AST_COND, mkconst_int(start_bit, true));
 				AstNode *lvalue = children[0]->clone();
 				lvalue->delete_children();
-				int end_bit = std::min(start_bit+result_width,source_width) - 1;
 				lvalue->children.push_back(new AstNode(AST_RANGE,
 						mkconst_int(end_bit, true), mkconst_int(start_bit, true)));
 				cond->children.push_back(new AstNode(AST_BLOCK, new AstNode(type, lvalue, children[1]->clone())));
@@ -1846,11 +1858,40 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 			AstNode *shamt = shift_expr;
 
-			newNode->children.push_back(new AstNode(AST_ASSIGN_EQ, ref_mask->clone(),
-					new AstNode(AST_SHIFT_LEFT, mkconst_bits(std::vector<RTLIL::State>(result_width, State::S1), false), shamt->clone())));
-			newNode->children.push_back(new AstNode(AST_ASSIGN_EQ, ref_data->clone(),
-					new AstNode(AST_SHIFT_LEFT, new AstNode(AST_BIT_AND, mkconst_bits(std::vector<RTLIL::State>(result_width, State::S1), false), children[1]->clone()), shamt)));
-			newNode->children.push_back(new AstNode(type, lvalue, new AstNode(AST_BIT_OR, new AstNode(AST_BIT_AND, old_data, new AstNode(AST_BIT_NOT, ref_mask)), ref_data)));
+			int shamt_width_hint = 0;
+			bool shamt_sign_hint = true;
+			shamt->detectSignWidth(shamt_width_hint, shamt_sign_hint);
+
+			int start_bit = children[0]->id2ast->range_right;
+			bool use_shift = shamt_sign_hint;
+
+			if (start_bit != 0) {
+				shamt = new AstNode(AST_SUB, shamt, mkconst_int(start_bit, true));
+				use_shift = true;
+			}
+
+			AstNode *t;
+
+			t = mkconst_bits(std::vector<RTLIL::State>(result_width, State::S1), false);
+			if (use_shift)
+				t = new AstNode(AST_SHIFT, t, new AstNode(AST_NEG, shamt->clone()));
+			else
+				t = new AstNode(AST_SHIFT_LEFT, t, shamt->clone());
+			t = new AstNode(AST_ASSIGN_EQ, ref_mask->clone(), t);
+			newNode->children.push_back(t);
+
+			t = new AstNode(AST_BIT_AND, mkconst_bits(std::vector<RTLIL::State>(result_width, State::S1), false), children[1]->clone());
+			if (use_shift)
+				t = new AstNode(AST_SHIFT, t, new AstNode(AST_NEG, shamt));
+			else
+				t = new AstNode(AST_SHIFT_LEFT, t, shamt);
+			t = new AstNode(AST_ASSIGN_EQ, ref_data->clone(), t);
+			newNode->children.push_back(t);
+
+			t = new AstNode(AST_BIT_AND, old_data, new AstNode(AST_BIT_NOT, ref_mask));
+			t = new AstNode(AST_BIT_OR, t, ref_data);
+			t = new AstNode(type, lvalue, t);
+			newNode->children.push_back(t);
 		}
 
 		goto apply_newNode;
@@ -3026,6 +3067,7 @@ replace_fcall_later:;
 				}
 			}
 			break;
+		if (0) { case AST_SELFSZ: const_func = RTLIL::const_pos; }
 		if (0) { case AST_POS: const_func = RTLIL::const_pos; }
 		if (0) { case AST_NEG: const_func = RTLIL::const_neg; }
 			if (children[0]->type == AST_CONSTANT) {
@@ -3034,10 +3076,10 @@ replace_fcall_later:;
 			} else
 			if (children[0]->isConst()) {
 				newNode = new AstNode(AST_REALVALUE);
-				if (type == AST_POS)
-					newNode->realvalue = +children[0]->asReal(sign_hint);
-				else
+				if (type == AST_NEG)
 					newNode->realvalue = -children[0]->asReal(sign_hint);
+				else
+					newNode->realvalue = +children[0]->asReal(sign_hint);
 			}
 			break;
 		case AST_TERNARY:

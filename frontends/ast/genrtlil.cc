@@ -809,6 +809,11 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		sign_hint = false;
 		break;
 
+	case AST_SELFSZ:
+		sub_width_hint = 0;
+		children.at(0)->detectSignWidthWorker(sub_width_hint, sign_hint);
+		break;
+
 	case AST_CONCAT:
 		for (auto child : children) {
 			sub_width_hint = 0;
@@ -856,6 +861,8 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 	case AST_SHIFT_RIGHT:
 	case AST_SHIFT_SLEFT:
 	case AST_SHIFT_SRIGHT:
+	case AST_SHIFTX:
+	case AST_SHIFT:
 	case AST_POW:
 		children[0]->detectSignWidthWorker(width_hint, sign_hint, found_real);
 		break;
@@ -1205,13 +1212,18 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					AstNode *fake_ast = new AstNode(AST_NONE, clone(), children[0]->children.size() >= 2 ?
 							children[0]->children[1]->clone() : children[0]->children[0]->clone());
 					fake_ast->children[0]->delete_children();
-					RTLIL::SigSpec shift_val = fake_ast->children[1]->genRTLIL();
+
+					int fake_ast_width = 0;
+					bool fake_ast_sign = true;
+					fake_ast->children[1]->detectSignWidth(fake_ast_width, fake_ast_sign);
+					RTLIL::SigSpec shift_val = fake_ast->children[1]->genRTLIL(fake_ast_width, fake_ast_sign);
+
 					if (id2ast->range_right != 0) {
-						shift_val = current_module->Sub(NEW_ID, shift_val, id2ast->range_right, fake_ast->children[1]->is_signed);
+						shift_val = current_module->Sub(NEW_ID, shift_val, id2ast->range_right, fake_ast_sign);
 						fake_ast->children[1]->is_signed = true;
 					}
 					if (id2ast->range_swapped) {
-						shift_val = current_module->Sub(NEW_ID, RTLIL::SigSpec(source_width - width), shift_val, fake_ast->children[1]->is_signed);
+						shift_val = current_module->Sub(NEW_ID, RTLIL::SigSpec(source_width - width), shift_val, fake_ast_sign);
 						fake_ast->children[1]->is_signed = true;
 					}
 					if (GetSize(shift_val) >= 32)
@@ -1265,7 +1277,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 	// just pass thru the signal. the parent will evaluate the is_signed property and interpret the SigSpec accordingly
 	case AST_TO_SIGNED:
-	case AST_TO_UNSIGNED: {
+	case AST_TO_UNSIGNED:
+	case AST_SELFSZ: {
 			RTLIL::SigSpec sig = children[0]->genRTLIL();
 			if (sig.size() < width_hint)
 				sig.extend_u0(width_hint, sign_hint);
@@ -1356,6 +1369,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	if (0) { case AST_SHIFT_RIGHT:  type_name = ID($shr); }
 	if (0) { case AST_SHIFT_SLEFT:  type_name = ID($sshl); }
 	if (0) { case AST_SHIFT_SRIGHT: type_name = ID($sshr); }
+	if (0) { case AST_SHIFTX:       type_name = ID($shiftx); }
+	if (0) { case AST_SHIFT:        type_name = ID($shift); }
 		{
 			if (width_hint < 0)
 				detectSignWidth(width_hint, sign_hint);
