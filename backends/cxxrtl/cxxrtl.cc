@@ -1943,13 +1943,13 @@ struct CxxrtlWorker {
 						case RTLIL::STa:
 							break;
 
+						case RTLIL::STg:
+							log_cmd_error("Global clock is not supported.\n");
+
 						// Handling of init-type sync rules is delegated to the `proc_init` pass, so we can use the wire
 						// attribute regardless of input.
 						case RTLIL::STi:
 							log_assert(false);
-
-						case RTLIL::STg:
-							log_cmd_error("Global clock is not supported.\n");
 					}
 			}
 
