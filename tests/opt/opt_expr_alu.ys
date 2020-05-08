@@ -59,9 +59,8 @@ EOT
 alumacc
 equiv_opt -assert opt_expr -fine
 design -load postopt
-select -assert-count 1 t:$pos
 select -assert-count 1 t:$not
-select -assert-none t:$pos t:$not %% t:* %D
+select -assert-none t:$not %% t:* %D
 
 
 design -reset
