@@ -543,13 +543,13 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				}
 			}
 
-			if (detect_const_and && (found_zero || found_inv || (!keepdc && found_undef))) {
+			if (detect_const_and && (found_zero || found_inv || (!keepdc && found_undef && consume_x))) {
 				cover("opt.opt_expr.const_and");
 				replace_cell(assign_map, module, cell, "const_and", ID::Y, RTLIL::State::S0);
 				goto next_cell;
 			}
 
-			if (detect_const_or && (found_one || found_inv || (!keepdc && found_undef))) {
+			if (detect_const_or && (found_one || found_inv || (!keepdc && found_undef && consume_x))) {
 				cover("opt.opt_expr.const_or");
 				replace_cell(assign_map, module, cell, "const_or", ID::Y, RTLIL::State::S1);
 				goto next_cell;
@@ -927,7 +927,7 @@ skip_fine_alu:
 			if (input.match("**")) ACTION_DO_Y(x);
 			if (input.match("1*")) ACTION_DO_Y(x);
 			if (input.match("*1")) ACTION_DO_Y(x);
-			if (!keepdc) {
+			if (consume_x) {
 				if (input.match(" *")) ACTION_DO_Y(0);
 				if (input.match("* ")) ACTION_DO_Y(0);
 			}
@@ -946,7 +946,7 @@ skip_fine_alu:
 			if (input.match("**")) ACTION_DO_Y(x);
 			if (input.match("0*")) ACTION_DO_Y(x);
 			if (input.match("*0")) ACTION_DO_Y(x);
-			if (!keepdc) {
+			if (consume_x) {
 				if (input.match(" *")) ACTION_DO_Y(1);
 				if (input.match("* ")) ACTION_DO_Y(1);
 			}
@@ -963,7 +963,7 @@ skip_fine_alu:
 			if (input.match("01")) ACTION_DO_Y(1);
 			if (input.match("10")) ACTION_DO_Y(1);
 			if (input.match("11")) ACTION_DO_Y(0);
-			if (!keepdc) {
+			if (consume_x) {
 				if (input.match(" *")) ACTION_DO_Y(0);
 				if (input.match("* ")) ACTION_DO_Y(0);
 			}
@@ -1149,7 +1149,7 @@ skip_fine_alu:
 			goto next_cell;
 		}
 
-		if (!keepdc)
+		if (!keepdc && consume_x)
 		{
 			bool identity_wrt_a = false;
 			bool identity_wrt_b = false;
