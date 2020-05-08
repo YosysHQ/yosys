@@ -543,13 +543,13 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				}
 			}
 
-			if (detect_const_and && (found_zero || found_inv || (!keepdc && found_undef && consume_x))) {
+			if (detect_const_and && (found_zero || found_inv || (found_undef && consume_x))) {
 				cover("opt.opt_expr.const_and");
 				replace_cell(assign_map, module, cell, "const_and", ID::Y, RTLIL::State::S0);
 				goto next_cell;
 			}
 
-			if (detect_const_or && (found_one || found_inv || (!keepdc && found_undef && consume_x))) {
+			if (detect_const_or && (found_one || found_inv || (found_undef && consume_x))) {
 				cover("opt.opt_expr.const_or");
 				replace_cell(assign_map, module, cell, "const_or", ID::Y, RTLIL::State::S1);
 				goto next_cell;
@@ -1149,7 +1149,7 @@ skip_fine_alu:
 			goto next_cell;
 		}
 
-		if (!keepdc && consume_x)
+		if (consume_x)
 		{
 			bool identity_wrt_a = false;
 			bool identity_wrt_b = false;
@@ -2041,11 +2041,12 @@ struct OptExprPass : public Pass {
 			do {
 				do {
 					did_something = false;
-					replace_const_cells(design, module, false, mux_undef, mux_bool, do_fine, keepdc, clkinv);
+					replace_const_cells(design, module, false /* consume_x */, mux_undef, mux_bool, do_fine, keepdc, clkinv);
 					if (did_something)
 						design->scratchpad_set_bool("opt.did_something", true);
 				} while (did_something);
-				replace_const_cells(design, module, true, mux_undef, mux_bool, do_fine, keepdc, clkinv);
+				if (!keepdc)
+				    replace_const_cells(design, module, true /* consume_x */, mux_undef, mux_bool, do_fine, keepdc, clkinv);
 				if (did_something)
 					design->scratchpad_set_bool("opt.did_something", true);
 			} while (did_something);
