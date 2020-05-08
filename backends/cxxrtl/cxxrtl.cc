@@ -1943,13 +1943,13 @@ struct CxxrtlWorker {
 						case RTLIL::STa:
 							break;
 
+						case RTLIL::STg:
+							log_cmd_error("Global clock is not supported.\n");
+
 						// Handling of init-type sync rules is delegated to the `proc_init` pass, so we can use the wire
 						// attribute regardless of input.
 						case RTLIL::STi:
 							log_assert(false);
-
-						case RTLIL::STg:
-							log_cmd_error("Global clock is not supported.\n");
 					}
 			}
 
@@ -2346,16 +2346,22 @@ struct CxxrtlBackend : public Backend {
 			case 6:
 				worker.max_opt_level = true;
 				worker.run_proc_flatten = true;
+				YS_FALLTHROUGH
 			case 5:
 				worker.run_opt_clean_purge = true;
+				YS_FALLTHROUGH
 			case 4:
 				worker.localize_public = true;
+				YS_FALLTHROUGH
 			case 3:
 				worker.elide_public = true;
+				YS_FALLTHROUGH
 			case 2:
 				worker.localize_internal = true;
+				YS_FALLTHROUGH
 			case 1:
 				worker.elide_internal = true;
+				YS_FALLTHROUGH
 			case 0:
 				break;
 			default:

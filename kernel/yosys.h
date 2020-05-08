@@ -155,6 +155,16 @@ extern Tcl_Obj *Tcl_ObjSetVar2(Tcl_Interp *interp, Tcl_Obj *part1Ptr, Tcl_Obj *p
 #  define YS_NORETURN
 #endif
 
+#if __cplusplus >= 201703L
+#  define YS_FALLTHROUGH [[fallthrough]];
+#elif defined(__GNUC__)
+#  define YS_FALLTHROUGH [[gnu::fallthrough]];
+#elif defined(__clang__)
+#  define YS_FALLTHROUGH [[clang::fallthrough]];
+#else
+#  define YS_FALLTHROUGH
+#endif
+
 YOSYS_NAMESPACE_BEGIN
 
 // Note: All headers included in hashlib.h must be included
