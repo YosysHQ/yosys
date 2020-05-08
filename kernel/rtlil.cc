@@ -339,6 +339,27 @@ pool<string> RTLIL::AttrObject::get_strpool_attribute(RTLIL::IdString id) const
 	return data;
 }
 
+void RTLIL::AttrObject::set_intvec_attribute(RTLIL::IdString id, const vector<int> &data)
+{
+	std::stringstream attrval;
+	for (auto &i : data) {
+		if (attrval.tellp() > 0)
+			attrval << " ";
+		attrval << i;
+	}
+	attributes[id] = RTLIL::Const(attrval.str());
+}
+
+vector<int> RTLIL::AttrObject::get_intvec_attribute(RTLIL::IdString id) const
+{
+	vector<int> data;
+	auto it = attributes.find(id);
+	if (it != attributes.end())
+		for (const auto &s : split_tokens(attributes.at(id).decode_string()))
+			data.push_back(atoi(s.c_str()));
+	return data;
+}
+
 bool RTLIL::Selection::selected_module(RTLIL::IdString mod_name) const
 {
 	if (full_selection)

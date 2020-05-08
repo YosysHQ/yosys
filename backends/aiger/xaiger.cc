@@ -255,26 +255,24 @@ struct XAigerWriter
 
 				if (!timing.count(derived_type))
 					timing.setup_module(inst_module);
-				auto &t = timing.at(derived_type).arrival;
-				for (const auto &conn : cell->connections()) {
-					auto port_wire = inst_module->wire(conn.first);
-					if (!port_wire->port_output)
-						continue;
 
-					for (int i = 0; i < GetSize(conn.second); i++) {
-						auto d = t.at(TimingInfo::NameBit(conn.first,i), 0);
-						if (d == 0)
-							continue;
+				for (auto &i : timing.at(derived_type).arrival) {
+					auto port_wire = inst_module->wire(i.first.name);
+					log_assert(port_wire->port_output);
+
+					auto d = i.second.first;
+					if (d == 0)
+						continue;
+					auto offset = i.first.offset;
 
 #ifndef NDEBUG
-						if (ys_debug(1)) {
-							static std::set<std::tuple<IdString,IdString,int>> seen;
-							if (seen.emplace(derived_type, conn.first, i).second) log("%s.%s[%d] abc9_arrival = %d\n",
-									log_id(cell->type), log_id(conn.first), i, d);
-						}
-#endif
-						arrival_times[conn.second[i]] = d;
+					if (ys_debug(1)) {
+						static pool<std::pair<IdString,TimingInfo::NameBit>> seen;
+						if (seen.emplace(derived_type, i.first).second) log("%s.%s[%d] abc9_arrival = %d\n",
+								log_id(cell->type), log_id(i.first.name), offset, d);
 					}
+#endif
+					arrival_times[cell->getPort(i.first.name)[offset]] = d;
 				}
 
 				if (abc9_flop)

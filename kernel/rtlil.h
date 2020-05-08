@@ -678,6 +678,9 @@ struct RTLIL::AttrObject
 	std::string get_src_attribute() const {
 		return get_string_attribute(ID::src);
 	}
+
+	void set_intvec_attribute(RTLIL::IdString id, const vector<int> &data);
+	vector<int> get_intvec_attribute(RTLIL::IdString id) const;
 };
 
 struct RTLIL::SigChunk

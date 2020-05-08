@@ -31,8 +31,5 @@ cd fsm # Constrain all select calls below inside the top module
 stat
 select -assert-count 1 t:BUFG
 select -assert-count 6 t:FDRE
-select -assert-count 1 t:LUT1
-select -assert-count 3 t:LUT3
-select -assert-count 6 t:LUT4
-select -assert-count 6 t:MUXF5
-select -assert-none t:BUFG t:FDRE t:LUT1 t:LUT3 t:LUT4 t:MUXF5 %% t:* %D
+select -assert-any t:LUT*
+select -assert-none t:BUFG t:FDRE t:LUT* t:MUXF* %% t:* %D
