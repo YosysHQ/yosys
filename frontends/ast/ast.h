@@ -143,7 +143,7 @@ namespace AST
 		AST_GENCASE,
 		AST_GENBLOCK,
 		AST_TECALL,
-		
+
 		AST_POSEDGE,
 		AST_NEGEDGE,
 		AST_EDGE,
@@ -156,7 +156,9 @@ namespace AST
 		AST_PACKAGE,
 
 		AST_WIRETYPE,
-		AST_TYPEDEF
+		AST_TYPEDEF,
+		AST_STRUCT,
+		AST_STRUCT_ITEM
 	};
 
 	struct AstSrcLocType {
@@ -306,6 +308,7 @@ namespace AST
 
 		// helpers for enum
 		void allocateDefaultEnumValues();
+		void annotateTypedEnums(AstNode *template_node);
 	};
 
 	// process an AST tree (ast must point to an AST_DESIGN node) and generate RTLIL code

@@ -161,6 +161,23 @@ static bool isInLocalScope(const std::string *name)
 	return (user_types->count(*name) > 0);
 }
 
+static AstNode *getTypeDefinitionNode(std::string type_name)
+{
+	// return the definition nodes from the typedef statement
+	auto user_types = user_type_stack.back();
+	log_assert(user_types->count(type_name) > 0);
+	auto typedef_node = (*user_types)[type_name];
+	log_assert(typedef_node->type == AST_TYPEDEF);
+	return typedef_node->children[0];
+}
+
+static AstNode *copyTypeDefinition(std::string type_name)
+{
+	// return a copy of the template from a typedef definition
+	auto typedef_node = getTypeDefinitionNode(type_name);
+	return typedef_node->clone();
+}
+
 static AstNode *makeRange(int msb = 31, int lsb = 0, bool isSigned = true)
 {
 	auto range = new AstNode(AST_RANGE);
@@ -175,6 +192,35 @@ static void addRange(AstNode *parent, int msb = 31, int lsb = 0, bool isSigned =
 	auto range = makeRange(msb, lsb, isSigned);
 	parent->children.push_back(range);
 }
+
+static AstNode *checkRange(AstNode *type_node, AstNode *range_node)
+{
+	if (type_node->range_left >= 0 && type_node->range_right >= 0) {
+		// type already restricts the range
+		if (range_node) {
+			frontend_verilog_yyerror("integer/genvar types cannot have packed dimensions.");
+		}
+		else {
+			range_node = makeRange(type_node->range_left, type_node->range_right, false);
+		}
+	}
+	if (range_node && range_node->children.size() != 2) {
+		frontend_verilog_yyerror("wire/reg/logic packed dimension must be of the form: [<expr>:<expr>], [<expr>+:<expr>], or [<expr>-:<expr>]");
+	}
+	return range_node;
+}
+
+static void rewriteAsMemoryNode(AstNode *node, AstNode *rangeNode)
+{
+	node->type = AST_MEMORY;
+	if (rangeNode->type == AST_RANGE && rangeNode->children.size() == 1) {
+		// SV array size [n], rewrite as [n-1:0]
+		rangeNode->children[0] = new AstNode(AST_SUB, rangeNode->children[0], AstNode::mkconst_int(1, true));
+		rangeNode->children.push_back(AstNode::mkconst_int(0, false));
+	}
+	node->children.push_back(rangeNode);
+}
+
 %}
 
 %define api.prefix {frontend_verilog_yy}
@@ -223,12 +269,13 @@ static void addRange(AstNode *parent, int msb = 31, int lsb = 0, bool isSigned =
 %token TOK_POS_INDEXED TOK_NEG_INDEXED TOK_PROPERTY TOK_ENUM TOK_TYPEDEF
 %token TOK_RAND TOK_CONST TOK_CHECKER TOK_ENDCHECKER TOK_EVENTUALLY
 %token TOK_INCREMENT TOK_DECREMENT TOK_UNIQUE TOK_PRIORITY
+%token TOK_STRUCT TOK_PACKED TOK_UNSIGNED TOK_INT TOK_BYTE
 
 %type <ast> range range_or_multirange  non_opt_range non_opt_multirange range_or_signed_int
 %type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list
 %type <string> opt_label opt_sva_label tok_prim_wrapper hierarchical_id hierarchical_type_id integral_number
 %type <string> type_name
-%type <ast> opt_enum_init
+%type <ast> opt_enum_init enum_type struct_type non_wire_data_type
 %type <boolean> opt_signed opt_property unique_case_attr always_comb_or_latch always_or_always_ff
 %type <al> attr case_attr
 
@@ -281,6 +328,7 @@ design:
 	param_decl design |
 	localparam_decl design |
 	typedef_decl design |
+	struct_decl design |
 	package design |
 	interface design |
 	/* empty */;
@@ -520,9 +568,11 @@ package_body:
 	;
 
 package_body_stmt:
-	typedef_decl |
-	localparam_decl |
-	param_decl;
+	typedef_decl
+	| struct_decl
+	| localparam_decl
+	| param_decl
+	;
 
 interface:
 	TOK_INTERFACE {
@@ -551,7 +601,7 @@ interface_body:
 	interface_body interface_body_stmt |;
 
 interface_body_stmt:
-	param_decl | localparam_decl | typedef_decl | defparam_decl | wire_decl | always_stmt | assign_stmt |
+	param_decl | localparam_decl | typedef_decl | struct_decl | defparam_decl | wire_decl | always_stmt | assign_stmt |
 	modport_stmt;
 
 non_opt_delay:
@@ -582,6 +632,7 @@ wire_type_token_list:
 		astbuf3->is_custom_type = true;
 		astbuf3->children.push_back(new AstNode(AST_WIRETYPE));
 		astbuf3->children.back()->str = *$1;
+		delete $1;
 	};
 
 wire_type_token_io:
@@ -682,15 +733,9 @@ range_or_multirange:
 	non_opt_multirange { $$ = $1; };
 
 range_or_signed_int:
-	range {
-		$$ = $1;
-	} |
-	TOK_INTEGER {
-		$$ = new AstNode(AST_RANGE);
-		$$->children.push_back(AstNode::mkconst_int(31, true));
-		$$->children.push_back(AstNode::mkconst_int(0, true));
-		$$->is_signed = true;
-	};
+	  range 		{ $$ = $1; }
+	| TOK_INTEGER		{ $$ = makeRange(); }
+	;
 
 module_body:
 	module_body module_body_stmt |
@@ -700,7 +745,7 @@ module_body:
 
 module_body_stmt:
 	task_func_decl | specify_block | param_decl | localparam_decl | typedef_decl | defparam_decl | specparam_declaration | wire_decl | assign_stmt | cell_stmt |
-	enum_decl |
+	enum_decl | struct_decl |
 	always_stmt | TOK_GENERATE module_gen_body TOK_ENDGENERATE | defattr | assert_property | checker_decl | ignored_specify_block;
 
 checker_decl:
@@ -841,18 +886,7 @@ task_func_port:
 		}
 		albuf = $1;
 		astbuf1 = $2;
-		astbuf2 = $3;
-		if (astbuf1->range_left >= 0 && astbuf1->range_right >= 0) {
-			if (astbuf2) {
-				frontend_verilog_yyerror("integer/genvar types cannot have packed dimensions (task/function arguments)");
-			} else {
-				astbuf2 = new AstNode(AST_RANGE);
-				astbuf2->children.push_back(AstNode::mkconst_int(astbuf1->range_left, true));
-				astbuf2->children.push_back(AstNode::mkconst_int(astbuf1->range_right, true));
-			}
-		}
-		if (astbuf2 && astbuf2->children.size() != 2)
-			frontend_verilog_yyerror("task/function argument range must be of the form: [<expr>:<expr>], [<expr>+:<expr>], or [<expr>-:<expr>]");
+		astbuf2 = checkRange(astbuf1, $3);
 	} wire_name | wire_name;
 
 task_func_body:
@@ -1375,6 +1409,10 @@ single_defparam_decl:
 		ast_stack.back()->children.push_back(node);
 	};
 
+/////////
+// enum
+/////////
+
 enum_type: TOK_ENUM {
 		static int enum_count;
 		// create parent node for the enum
@@ -1385,31 +1423,39 @@ enum_type: TOK_ENUM {
 		// create the template for the names
 		astbuf1 = new AstNode(AST_ENUM_ITEM);
 		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
-	 } param_signed enum_base_type '{' enum_name_list '}' {  // create template for the enum vars
-								auto tnode = astbuf1->clone();
-								delete astbuf1;
-								astbuf1 = tnode;
-								tnode->type = AST_WIRE;
-								tnode->attributes[ID::enum_type] = AstNode::mkconst_str(astbuf2->str);
-								// drop constant but keep any range
-								delete tnode->children[0];
-								tnode->children.erase(tnode->children.begin()); }
+	 } enum_base_type '{' enum_name_list '}' {	// create template for the enum vars
+							auto tnode = astbuf1->clone();
+							delete astbuf1;
+							astbuf1 = tnode;
+							tnode->type = AST_WIRE;
+							tnode->attributes[ID::enum_type] = AstNode::mkconst_str(astbuf2->str);
+							// drop constant but keep any range
+							delete tnode->children[0];
+							tnode->children.erase(tnode->children.begin());
+							$$ = astbuf1; }
 	 ;
 
-enum_base_type: int_vec param_range
-	| int_atom
-	| /* nothing */		{astbuf1->is_reg = true; addRange(astbuf1); }
+enum_base_type: type_atom type_signing
+	| type_vec type_signing range	{ if ($3) astbuf1->children.push_back($3); }
+	| /* nothing */			{ astbuf1->is_reg = true; addRange(astbuf1); }
 	;
 
-int_atom: TOK_INTEGER		{astbuf1->is_reg=true; addRange(astbuf1); }		// probably should do byte, range [7:0] here
+type_atom: TOK_INTEGER		{ astbuf1->is_reg = true; addRange(astbuf1); }		// 4-state signed
+	|  TOK_INT		{ astbuf1->is_reg = true; addRange(astbuf1); }		// 2-state signed
+	|  TOK_BYTE		{ astbuf1->is_reg = true; addRange(astbuf1,  7, 0); }	// 2-state signed
 	;
 
-int_vec: TOK_REG {astbuf1->is_reg = true;}
-	| TOK_LOGIC  {astbuf1->is_logic = true;}
+type_vec: TOK_REG		{ astbuf1->is_reg   = true; }		// unsigned
+	| TOK_LOGIC		{ astbuf1->is_logic = true; }		// unsigned
 	;
 
-enum_name_list:
-	enum_name_decl
+type_signing:
+	  TOK_SIGNED		{ astbuf1->is_signed = true; }
+	| TOK_UNSIGNED		{ astbuf1->is_signed = false; }
+	| // optional
+	;
+
+enum_name_list: enum_name_decl
 	| enum_name_list ',' enum_name_decl
 	;
 
@@ -1448,28 +1494,90 @@ enum_var: TOK_ID {
 	}
 	;
 
-enum_decl: enum_type enum_var_list ';'			{
-		//enum_type creates astbuf1 for use by typedef only
-		delete astbuf1;
-	}
+enum_decl: enum_type enum_var_list ';'		{ delete $1; }
 	;
+
+/////////
+// struct
+/////////
+
+struct_decl: struct_type struct_var_list ';' 	{ delete astbuf2; }
+	;
+
+struct_type: TOK_STRUCT { astbuf2 = new AstNode(AST_STRUCT); } opt_packed '{' struct_member_list '}' 	{ $$ = astbuf2; }
+	;
+
+opt_packed: TOK_PACKED opt_signed_struct
+	| { frontend_verilog_yyerror("Only STRUCT PACKED supported at this time"); }
+	;
+
+opt_signed_struct:
+	  TOK_SIGNED		{ astbuf2->is_signed = true; }
+	| TOK_UNSIGNED
+	| // default is unsigned
+	;
+
+struct_member_list: struct_member
+	| struct_member_list struct_member
+	;
+
+struct_member: struct_member_type member_name_list ';'		{ delete astbuf1; }
+	;
+
+member_name_list:
+	  member_name
+	| member_name_list ',' member_name
+	;
+
+member_name: TOK_ID {
+			astbuf1->str = $1->substr(1);
+			delete $1;
+			astbuf2->children.push_back(astbuf1->clone());
+		}
+	;
+
+struct_member_type: { astbuf1 = new AstNode(AST_STRUCT_ITEM); } member_type_token_list { SET_RULE_LOC(@$, @2, @$); }
+	;
+
+member_type_token_list:
+	  member_type 
+	| hierarchical_type_id {
+			// use a clone of the typedef definition nodes
+			auto template_node = copyTypeDefinition(*$1);
+			if (template_node->type != AST_WIRE) {
+				frontend_verilog_yyerror("Invalid type for struct member: %s", type2str(template_node->type).c_str());
+			}
+			template_node->type = AST_STRUCT_ITEM;
+			delete astbuf1;
+			delete $1;
+			astbuf1 = template_node;
+		}
+	;
+
+member_type: type_atom type_signing
+	| type_vec type_signing range	{ if ($3) astbuf1->children.push_back($3); }
+	;
+
+struct_var_list: struct_var
+	| struct_var_list ',' struct_var
+	;
+
+struct_var: TOK_ID	{	auto *var_node = astbuf2->clone();
+				var_node->str = *$1;
+				delete $1;
+				ast_stack.back()->children.push_back(var_node);
+			}
+	;
+
+/////////
+// wire
+/////////
 
 wire_decl:
 	attr wire_type range {
 		albuf = $1;
 		astbuf1 = $2;
-		astbuf2 = $3;
-		if (astbuf1->range_left >= 0 && astbuf1->range_right >= 0) {
-			if (astbuf2) {
-				frontend_verilog_yyerror("integer/genvar types cannot have packed dimensions.");
-			} else {
-				astbuf2 = new AstNode(AST_RANGE);
-				astbuf2->children.push_back(AstNode::mkconst_int(astbuf1->range_left, true));
-				astbuf2->children.push_back(AstNode::mkconst_int(astbuf1->range_right, true));
-			}
-		}
-		if (astbuf2 && astbuf2->children.size() != 2)
-			frontend_verilog_yyerror("wire/reg/logic packed dimension must be of the form: [<expr>:<expr>], [<expr>+:<expr>], or [<expr>-:<expr>]");
+		astbuf2 = checkRange(astbuf1, $3);
 	} delay wire_name_list {
 		delete astbuf1;
 		if (astbuf2 != NULL)
@@ -1591,19 +1699,9 @@ wire_name:
 			if (node->is_input || node->is_output)
 				frontend_verilog_yyerror("input/output/inout ports cannot have unpacked dimensions.");
 			if (!astbuf2 && !node->is_custom_type) {
-				AstNode *rng = new AstNode(AST_RANGE);
-				rng->children.push_back(AstNode::mkconst_int(0, true));
-				rng->children.push_back(AstNode::mkconst_int(0, true));
-				node->children.push_back(rng);
+				addRange(node, 0, 0, false);
 			}
-			node->type = AST_MEMORY;
-			auto *rangeNode = $2;
-			if (rangeNode->type == AST_RANGE && rangeNode->children.size() == 1) {
-				// SV array size [n], rewrite as [n-1:0]
-				rangeNode->children[0] = new AstNode(AST_SUB, rangeNode->children[0], AstNode::mkconst_int(1, true));
-				rangeNode->children.push_back(AstNode::mkconst_int(0, false));
-			}
-			node->children.push_back(rangeNode);
+			rewriteAsMemoryNode(node, $2);
 		}
 		if (current_function_or_task == NULL) {
 			if (do_not_require_port_stubs && (node->is_input || node->is_output) && port_stubs.count(*$1) == 0) {
@@ -1651,42 +1749,23 @@ type_name: TOK_ID		// first time seen
 typedef_decl:
 	TOK_TYPEDEF wire_type range type_name range_or_multirange ';' {
 		astbuf1 = $2;
-		astbuf2 = $3;
-		if (astbuf1->range_left >= 0 && astbuf1->range_right >= 0) {
-			if (astbuf2) {
-				frontend_verilog_yyerror("integer/genvar types cannot have packed dimensions.");
-			} else {
-				astbuf2 = new AstNode(AST_RANGE);
-				astbuf2->children.push_back(AstNode::mkconst_int(astbuf1->range_left, true));
-				astbuf2->children.push_back(AstNode::mkconst_int(astbuf1->range_right, true));
-			}
-		}
-		if (astbuf2 && astbuf2->children.size() != 2)
-			frontend_verilog_yyerror("wire/reg/logic packed dimension must be of the form: [<expr>:<expr>], [<expr>+:<expr>], or [<expr>-:<expr>]");
+		astbuf2 = checkRange(astbuf1, $3);
 		if (astbuf2)
 			astbuf1->children.push_back(astbuf2);
 
 		if ($5 != NULL) {
 			if (!astbuf2) {
-				AstNode *rng = new AstNode(AST_RANGE);
-				rng->children.push_back(AstNode::mkconst_int(0, true));
-				rng->children.push_back(AstNode::mkconst_int(0, true));
-				astbuf1->children.push_back(rng);
+				addRange(astbuf1, 0, 0, false);
 			}
-			astbuf1->type = AST_MEMORY;
-			auto *rangeNode = $5;
-			if (rangeNode->type == AST_RANGE && rangeNode->children.size() == 1) {
-				// SV array size [n], rewrite as [n-1:0]
-				rangeNode->children[0] = new AstNode(AST_SUB, rangeNode->children[0], AstNode::mkconst_int(1, true));
-				rangeNode->children.push_back(AstNode::mkconst_int(0, false));
-			}
-			astbuf1->children.push_back(rangeNode);
+			rewriteAsMemoryNode(astbuf1, $5);
 		}
-		addTypedefNode($4, astbuf1);
-	} |
-	TOK_TYPEDEF enum_type type_name ';' {
-		addTypedefNode($3, astbuf1);
-	}
+		addTypedefNode($4, astbuf1); }
+	| TOK_TYPEDEF non_wire_data_type type_name ';'   { addTypedefNode($3, $2); }
+	;
+
+non_wire_data_type:
+	  enum_type
+	| struct_type
 	;
 
 cell_stmt:

@@ -556,6 +556,8 @@ from SystemVerilog:
 - enums are supported (including inside packages)
 	- but are currently not strongly typed
 
+- structs are supported
+
 - SystemVerilog interfaces (SVIs) are supported. Modports for specifying whether
   ports are inputs or outputs are supported.
 
