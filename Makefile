@@ -82,7 +82,6 @@ YOSYS_SRC := $(dir $(firstword $(MAKEFILE_LIST)))
 VPATH := $(YOSYS_SRC)
 
 CXXFLAGS := $(CXXFLAGS) -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -D_YOSYS_ -fPIC -I$(PREFIX)/include
-LDFLAGS := $(LDFLAGS) -L$(LIBDIR)
 LDLIBS := $(LDLIBS) -lstdc++ -lm
 PLUGIN_LDFLAGS :=
 
@@ -371,7 +370,7 @@ BOOST_PYTHON_LIB ?= $(shell \
 endif
 
 ifeq ($(BOOST_PYTHON_LIB),)
-$(error BOOST_PYTHON_LIB could not be detected. Please define manualy)
+$(error BOOST_PYTHON_LIB could not be detected. Please define manually)
 endif
 
 ifeq ($(OS), Darwin)
