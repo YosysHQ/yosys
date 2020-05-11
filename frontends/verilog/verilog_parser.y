@@ -2440,7 +2440,7 @@ gen_case_item:
 	} case_select {
 		case_type_stack.push_back(0);
 		SET_AST_NODE_LOC(ast_stack.back(), @2, @2);
-	} gen_stmt_or_null {
+	} gen_stmt_block {
 		case_type_stack.pop_back();
 		ast_stack.pop_back();
 	};
@@ -2532,7 +2532,11 @@ module_gen_body:
 	/* empty */;
 
 gen_stmt_or_module_body_stmt:
-	gen_stmt | module_body_stmt;
+	gen_stmt | module_body_stmt |
+	attr ';' {
+		log_file_warning(current_filename, get_line_num(), "Attribute(s) attached to null statement. Ignoring.\n");
+		free_attr($1);
+	};
 
 // this production creates the obligatory if-else shift/reduce conflict
 gen_stmt:
@@ -2554,7 +2558,7 @@ gen_stmt:
 		AstNode *block = new AstNode(AST_GENBLOCK);
 		ast_stack.back()->children.push_back(block);
 		ast_stack.push_back(block);
-	} gen_stmt_or_null {
+	} gen_stmt_block {
 		ast_stack.pop_back();
 	} opt_gen_else {
 		SET_AST_NODE_LOC(ast_stack.back(), @1, @7);
@@ -2604,11 +2608,8 @@ gen_stmt_block:
 		ast_stack.pop_back();
 	};
 
-gen_stmt_or_null:
-	gen_stmt_block | ';';
-
 opt_gen_else:
-	TOK_ELSE gen_stmt_or_null | /* empty */ %prec FAKE_THEN;
+	TOK_ELSE gen_stmt_block | /* empty */ %prec FAKE_THEN;
 
 expr:
 	basic_expr {
