@@ -853,7 +853,11 @@ task_func_port:
 		}
 		if (astbuf2 && astbuf2->children.size() != 2)
 			frontend_verilog_yyerror("task/function argument range must be of the form: [<expr>:<expr>], [<expr>+:<expr>], or [<expr>-:<expr>]");
-	} wire_name | wire_name;
+	} wire_name |
+	{
+		if (!astbuf1)
+			frontend_verilog_yyerror("Non-ANSI style task/function arguments not currently supported");
+	} wire_name;
 
 task_func_body:
 	task_func_body behavioral_stmt |
