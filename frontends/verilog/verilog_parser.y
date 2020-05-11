@@ -2228,7 +2228,11 @@ simple_behavioral_stmt:
 behavioral_stmt:
 	defattr | assert | wire_decl | param_decl | localparam_decl | typedef_decl |
 	non_opt_delay behavioral_stmt |
-	attr simple_behavioral_stmt ';' | ';' |
+	attr simple_behavioral_stmt ';' |
+	attr ';' {
+		log_file_warning(current_filename, get_line_num(), "Attribute(s) attached to null statement. Ignoring.\n");
+		free_attr($1);
+	} |
 	attr hierarchical_id {
 		AstNode *node = new AstNode(AST_TCALL);
 		node->str = *$2;
