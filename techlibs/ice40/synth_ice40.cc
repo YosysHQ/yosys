@@ -225,10 +225,10 @@ struct SynthIce40Pass : public ScriptPass
 				device_opt = args[++argidx];
 				continue;
 			}
-            if (args[argidx] == "-flowmap") {
-                flowmap = true;
-                continue;
-            }
+			if (args[argidx] == "-flowmap") {
+				flowmap = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -240,13 +240,12 @@ struct SynthIce40Pass : public ScriptPass
 
 		if (abc9 && retime)
 			log_cmd_error("-retime option not currently compatible with -abc9!\n");
-
-        if (abc9 && noabc)
-            log_cmd_error("-abc9 is incompatible with -noabc!\n");
-        if (abc9 && flowmap)
-            log_cmd_error("-abc9 is incompatible with -flowmap!\n");
-        if (flowmap && noabc)
-            log_cmd_error("-flowmap is incompatible with -noabc!\n");
+		if (abc9 && noabc)
+			log_cmd_error("-abc9 is incompatible with -noabc!\n");
+		if (abc9 && flowmap)
+			log_cmd_error("-abc9 is incompatible with -flowmap!\n");
+		if (flowmap && noabc)
+			log_cmd_error("-flowmap is incompatible with -noabc!\n");
 
 		log_header(design, "Executing SYNTH_ICE40 pass.\n");
 		log_push();
@@ -372,10 +371,10 @@ struct SynthIce40Pass : public ScriptPass
 			run("techmap -map +/ice40/latches_map.v");
 			if (noabc || flowmap || help_mode) {
 				run("simplemap", "                               (if -noabc or -flowmap)");
-                if (noabc || help_mode)
-				    run("techmap -map +/gate2lut.v -D LUT_WIDTH=4", "(only if -noabc)");
-                if (flowmap || help_mode)
-                    run("flowmap -maxlut 4", "(only if -flowmap)");
+				if (noabc || help_mode)
+					run("techmap -map +/gate2lut.v -D LUT_WIDTH=4", "(only if -noabc)");
+				if (flowmap || help_mode)
+					run("flowmap -maxlut 4", "(only if -flowmap)");
 			}
 			if (!noabc) {
 				if (abc9) {
