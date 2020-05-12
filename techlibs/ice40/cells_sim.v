@@ -1908,7 +1908,7 @@ module ICESTORM_LC (
 			o_reg <= SR_pd ? SET_NORESET : lut_o;
 
 	reg o_reg_async = 1'b0;
-	always @(posedge polarized_clk, posedge SR)
+	always @(posedge polarized_clk, posedge SR_pd)
 		if (SR_pd)
 			o_reg_async <= SET_NORESET;
 		else if (CEN_pu)
