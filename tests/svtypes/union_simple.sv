@@ -58,4 +58,15 @@ module top;
 		assert(ir1.u.imm == 'hAA01);
 	end
 
+	union packed {
+		int word;
+		struct packed {
+			byte a, b, c, d;
+		} byte4;
+	} u;
+	assign u.word = 'h42;
+	always_comb begin
+		assert(u.byte4.d == 'h42);
+	end
+
 endmodule

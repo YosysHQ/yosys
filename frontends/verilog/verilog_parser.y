@@ -238,7 +238,6 @@ static void rewriteAsMemoryNode(AstNode *node, AstNode *rangeNode)
 %union {
 	std::string *string;
 	struct YOSYS_NAMESPACE_PREFIX AST::AstNode *ast;
-	YOSYS_NAMESPACE_PREFIX AST::AstNodeType type;
 	YOSYS_NAMESPACE_PREFIX dict<YOSYS_NAMESPACE_PREFIX RTLIL::IdString, YOSYS_NAMESPACE_PREFIX AST::AstNode*> *al;
 	struct specify_target *specify_target_ptr;
 	struct specify_triple *specify_triple_ptr;
@@ -279,7 +278,7 @@ static void rewriteAsMemoryNode(AstNode *node, AstNode *rangeNode)
 %type <ast> opt_enum_init enum_type struct_type non_wire_data_type
 %type <boolean> opt_signed opt_property unique_case_attr always_comb_or_latch always_or_always_ff
 %type <al> attr case_attr
-%type <type> struct_union
+%type <ast> struct_union
 
 %type <specify_target_ptr> specify_target
 %type <specify_triple_ptr> specify_triple specify_opt_triple
@@ -1507,14 +1506,16 @@ enum_decl: enum_type enum_var_list ';'		{ delete $1; }
 struct_decl: struct_type struct_var_list ';' 	{ delete astbuf2; }
 	;
 
-struct_type: struct_union { astbuf2 = new AstNode($1); } opt_packed '{' struct_member_list '}' 	{ $$ = astbuf2; }
+struct_type: struct_union { astbuf2 = $1; } struct_body { $$ = astbuf2; }
 	;
 
 struct_union:
-	  TOK_STRUCT		{ $$ = AST_STRUCT; }
-	| TOK_UNION		{ $$ = AST_UNION; }
+	  TOK_STRUCT		{ $$ = new AstNode(AST_STRUCT); }
+	| TOK_UNION		{ $$ = new AstNode(AST_UNION); }
 	;
 
+struct_body: opt_packed '{' struct_member_list '}'
+	;
 
 opt_packed: TOK_PACKED opt_signed_struct
 	| { frontend_verilog_yyerror("Only PACKED supported at this time"); }
@@ -1547,10 +1548,10 @@ member_name: TOK_ID {
 		}
 	;
 
-struct_member_type: { astbuf1 = new AstNode(AST_STRUCT_ITEM); } member_type_token_list
+struct_member_type: { astbuf1 = new AstNode(AST_STRUCT_ITEM); } member_type_token
 	;
 
-member_type_token_list:
+member_type_token:
 	  member_type 
 	| hierarchical_type_id {
 			// use a clone of the typedef definition nodes
@@ -1568,6 +1569,16 @@ member_type_token_list:
 			}
 			delete astbuf1;
 			astbuf1 = template_node;
+		}
+	| struct_union {
+			// stash state on ast_stack
+			ast_stack.push_back(astbuf2);
+			astbuf2 = $1;
+		} struct_body  {
+		        astbuf1 = astbuf2;
+			// recover state
+			astbuf2 = ast_stack.back();
+			ast_stack.pop_back();
 		}
 	;
 

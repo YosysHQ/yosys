@@ -15,6 +15,13 @@ module top;
 		bit [7:0] d;
 	} pack1;
 
+	struct packed {
+		byte a;
+		struct packed {
+			byte x, y;
+		} b;
+	} s2;
+
 	assign s.a = '1;
 	assign s.b = '1;
 	assign s.c = 8'hAA;
@@ -25,6 +32,7 @@ module top;
 	assign pack1.b = 16'hAAAA;
 	assign pack1.c = '1;
 	assign pack1.d = 8'h55;
+	assign s2.b.x = 'h42;
 
 	always_comb assert(s.a == 1'b1);
 	always_comb assert(s.c == 8'hAA);
@@ -35,5 +43,6 @@ module top;
 	always_comb assert(pack1.c == 8'hFF);
 	always_comb assert(pack1[15:8] == 8'hFF);
 	always_comb assert(pack1.d == 8'h55);
+	always_comb assert(s2.b.x == 'h42);
 
 endmodule
