@@ -250,6 +250,97 @@ static AstNode *make_range(int left, int right, bool is_signed = false)
 	return range;
 }
 
+int size_packed_struct(AstNode *snode, int base_offset)
+{
+	// Struct members will be laid out in the structure contiguously from left to right.
+	// Union members all have zero offset from the start of the union.
+	// Determine total packed size and assign offsets.  Store these in the member node.
+	bool is_union = (snode->type == AST_UNION);
+	int offset = 0;
+	int packed_width = -1;
+	// examine members from last to first
+	for (auto it = snode->children.rbegin(); it != snode->children.rend(); ++it) {
+		auto node = *it;
+		int width;
+		if (node->type == AST_STRUCT || node->type == AST_UNION) {
+			// embedded struct or union
+			width = size_packed_struct(node, base_offset + offset);
+		}
+		else {
+			log_assert(node->type == AST_STRUCT_ITEM);
+			if (node->children.size() == 1 && node->children[0]->type == AST_RANGE) {
+				auto rnode = node->children[0];
+				width = (rnode->range_swapped ? rnode->range_right - rnode->range_left :
+								rnode->range_left - rnode->range_right) + 1;
+				// range nodes are now redundant
+				node->children.clear();
+			}
+			else if (node->range_left < 0) {
+				// 1 bit signal: bit, logic or reg
+				width = 1;
+			}
+			else {
+				// already resolved and compacted
+				width = node->range_left - node->range_right + 1;
+			}
+			if (is_union) {
+				node->range_right = base_offset;
+				node->range_left = base_offset + width - 1;
+			}
+			else {
+				node->range_right = base_offset + offset;
+				node->range_left = base_offset + offset + width - 1;
+			}
+			node->range_valid = true;
+		}
+		if (is_union) {
+			// check that all members have the same size
+			if (packed_width == -1) {
+				// first member
+				packed_width = width;
+			}
+			else {
+				if (packed_width != width) {
+
+					log_file_error(node->filename, node->location.first_line, "member %s of a packed union has %d bits, expecting %d\n", node->str.c_str(), width, packed_width);
+				}
+			}
+		}
+		else {
+			offset += width;
+		}
+	}
+	return (is_union ? packed_width : offset);
+}
+
+static void add_members_to_scope(AstNode *snode, std::string name)
+{
+	// add all the members in a struct or union to local scope
+	// in case later referenced in assignments
+	log_assert(snode->type==AST_STRUCT || snode->type==AST_UNION);
+	for (auto *node : snode->children) {
+		if (node->type != AST_STRUCT_ITEM) {
+			// embedded struct or union
+			add_members_to_scope(node, name + "." + node->str);
+		}
+		else {
+			auto member_name = name + "." + node->str;
+			current_scope[member_name] = node;
+		}
+	}
+}
+
+static int get_max_offset(AstNode *node)
+{
+	// get the width from the MS member in the struct
+	// as members are laid out from left to right in the packed wire
+	log_assert(node->type==AST_STRUCT || node->type==AST_UNION);
+	while (node->type != AST_STRUCT_ITEM) {
+		node = node->children[0];
+	}
+	return node->range_left;
+}
+
 static AstNode *make_packed_struct(AstNode *template_node, std::string &name)
 {
 	// create a wire for the packed struct
@@ -257,18 +348,14 @@ static AstNode *make_packed_struct(AstNode *template_node, std::string &name)
 	wnode->str = name;
 	wnode->is_logic = true;
 	wnode->range_valid = true;
-	// get the width from the MS member in the template
-	// as members are laid out from left to right
-	int offset = template_node->children[0]->range_left;
+	wnode->is_signed = template_node->is_signed;
+	int offset = get_max_offset(template_node);
 	auto range = make_range(offset, 0);
 	wnode->children.push_back(range);
 	// make sure this node is the one in scope for this name
 	current_scope[name] = wnode;
-	// add members to scope
-	for (auto *node : template_node->children) {
-		auto member_name = name + "." + node->str;
-		current_scope[member_name] = node;
-	}
+	// add all the struct members to scope under the wire's name
+	add_members_to_scope(template_node, name);
 	return wnode;
 }
 
@@ -672,46 +759,25 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		break;
 
 	case AST_STRUCT:
-		//log("STRUCT %d %d %d\n", stage, basic_prep, in_param);
+	case AST_UNION:
 		if (!basic_prep) {
-			//dumpAst(NULL, "1> ");
 			for (auto *node : children) {
 				// resolve any ranges
 				while (!node->basic_prep && node->simplify(true, false, false, stage, -1, false, false)) {
 					did_something = true;
 				}
 			}
-			basic_prep = true;
-			// The members will be laid out in the structure contiguously from left to right.
-			// Determine total packed size and assign offsets.  Store these in the member node.
-			// dumpAst(NULL, "2> ");
-			int offset = 0;
-			for (auto it = children.rbegin(); it != children.rend(); ++it) {
-				auto node = *it;
-				if (is_signed)
-					node->is_signed = true;
-				int width;
-				if (node->children.size() == 1 && node->children[0]->type == AST_RANGE) {
-					auto rnode = node->children[0];
-					width = (rnode->range_swapped ? rnode->range_right - rnode->range_left :
-									rnode->range_left - rnode->range_right) + 1;
-					// range nodes are now redundant
-					node->children.clear();
-				}
-				else {
-					width = 1;
-				}
-				node->range_right = offset;
-				node->range_left = offset + width - 1;
-				node->range_valid = true;
-				offset += width;
-			}
-			if (!str.empty()) {
-				// instance rather than just a type in a typedef
-				// so add a wire for the packed structure
+			// determine member offsets and widths
+			size_packed_struct(this, 0);
+
+			// instance rather than just a type in a typedef or outer struct?
+			if (!str.empty() && str[0] == '\\') {
+				// instance so add a wire for the packed structure
 				auto wnode = make_packed_struct(this, str);
+				log_assert(current_ast_mod);
 				current_ast_mod->children.push_back(wnode);
 			}
+			basic_prep = true;
 		}
 		break;
 
@@ -1036,7 +1102,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	if (type == AST_TYPEDEF) {
 		log_assert(children.size() == 1);
 		auto type_node = children[0];
-		log_assert(type_node->type == AST_WIRE || type_node->type == AST_MEMORY || type_node->type == AST_STRUCT);
+		log_assert(type_node->type == AST_WIRE || type_node->type == AST_MEMORY || type_node->type == AST_STRUCT || type_node->type == AST_UNION);
 		while (type_node->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param)) {
 			did_something = true;
 		}
@@ -1061,7 +1127,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			// Ensure typedef itself is fully simplified
 			while (template_node->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param)) {};
 
-			if (template_node->type == AST_STRUCT) {
+			if (template_node->type == AST_STRUCT || template_node->type == AST_UNION) {
 				// replace with wire representing the packed structure
 				newNode = make_packed_struct(template_node, str);
 				current_scope[str] = this;

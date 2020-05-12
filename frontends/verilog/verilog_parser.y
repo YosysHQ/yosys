@@ -238,6 +238,7 @@ static void rewriteAsMemoryNode(AstNode *node, AstNode *rangeNode)
 %union {
 	std::string *string;
 	struct YOSYS_NAMESPACE_PREFIX AST::AstNode *ast;
+	YOSYS_NAMESPACE_PREFIX AST::AstNodeType type;
 	YOSYS_NAMESPACE_PREFIX dict<YOSYS_NAMESPACE_PREFIX RTLIL::IdString, YOSYS_NAMESPACE_PREFIX AST::AstNode*> *al;
 	struct specify_target *specify_target_ptr;
 	struct specify_triple *specify_triple_ptr;
@@ -269,7 +270,7 @@ static void rewriteAsMemoryNode(AstNode *node, AstNode *rangeNode)
 %token TOK_POS_INDEXED TOK_NEG_INDEXED TOK_PROPERTY TOK_ENUM TOK_TYPEDEF
 %token TOK_RAND TOK_CONST TOK_CHECKER TOK_ENDCHECKER TOK_EVENTUALLY
 %token TOK_INCREMENT TOK_DECREMENT TOK_UNIQUE TOK_PRIORITY
-%token TOK_STRUCT TOK_PACKED TOK_UNSIGNED TOK_INT TOK_BYTE
+%token TOK_STRUCT TOK_PACKED TOK_UNSIGNED TOK_INT TOK_BYTE TOK_SHORTINT TOK_UNION 
 
 %type <ast> range range_or_multirange  non_opt_range non_opt_multirange range_or_signed_int
 %type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list
@@ -278,6 +279,7 @@ static void rewriteAsMemoryNode(AstNode *node, AstNode *rangeNode)
 %type <ast> opt_enum_init enum_type struct_type non_wire_data_type
 %type <boolean> opt_signed opt_property unique_case_attr always_comb_or_latch always_or_always_ff
 %type <al> attr case_attr
+%type <type> struct_union
 
 %type <specify_target_ptr> specify_target
 %type <specify_triple_ptr> specify_triple specify_opt_triple
@@ -328,7 +330,6 @@ design:
 	param_decl design |
 	localparam_decl design |
 	typedef_decl design |
-	struct_decl design |
 	package design |
 	interface design |
 	/* empty */;
@@ -568,8 +569,7 @@ package_body:
 	;
 
 package_body_stmt:
-	typedef_decl
-	| struct_decl
+	  typedef_decl
 	| localparam_decl
 	| param_decl
 	;
@@ -601,7 +601,7 @@ interface_body:
 	interface_body interface_body_stmt |;
 
 interface_body_stmt:
-	param_decl | localparam_decl | typedef_decl | struct_decl | defparam_decl | wire_decl | always_stmt | assign_stmt |
+	param_decl | localparam_decl | typedef_decl | defparam_decl | wire_decl | always_stmt | assign_stmt |
 	modport_stmt;
 
 non_opt_delay:
@@ -1442,6 +1442,7 @@ enum_base_type: type_atom type_signing
 
 type_atom: TOK_INTEGER		{ astbuf1->is_reg = true; addRange(astbuf1); }		// 4-state signed
 	|  TOK_INT		{ astbuf1->is_reg = true; addRange(astbuf1); }		// 2-state signed
+	|  TOK_SHORTINT		{ astbuf1->is_reg = true; addRange(astbuf1, 15, 0); }	// 2-state signed
 	|  TOK_BYTE		{ astbuf1->is_reg = true; addRange(astbuf1,  7, 0); }	// 2-state signed
 	;
 
@@ -1467,6 +1468,7 @@ enum_name_decl:
 		auto node = astbuf1->clone();
 		node->str = *$1;
 		delete $1;
+		SET_AST_NODE_LOC(node, @1, @1);
 		delete node->children[0];
 		node->children[0] = $2 ?: new AstNode(AST_NONE);
 		astbuf2->children.push_back(node);
@@ -1490,6 +1492,7 @@ enum_var: TOK_ID {
 		ast_stack.back()->children.push_back(node);
 		node->str = *$1;
 		delete $1;
+		SET_AST_NODE_LOC(node, @1, @1);
 		node->is_enum = true;
 	}
 	;
@@ -1497,23 +1500,29 @@ enum_var: TOK_ID {
 enum_decl: enum_type enum_var_list ';'		{ delete $1; }
 	;
 
-/////////
-// struct
-/////////
+//////////////////
+// struct or union
+//////////////////
 
 struct_decl: struct_type struct_var_list ';' 	{ delete astbuf2; }
 	;
 
-struct_type: TOK_STRUCT { astbuf2 = new AstNode(AST_STRUCT); } opt_packed '{' struct_member_list '}' 	{ $$ = astbuf2; }
+struct_type: struct_union { astbuf2 = new AstNode($1); } opt_packed '{' struct_member_list '}' 	{ $$ = astbuf2; }
 	;
 
+struct_union:
+	  TOK_STRUCT		{ $$ = AST_STRUCT; }
+	| TOK_UNION		{ $$ = AST_UNION; }
+	;
+
+
 opt_packed: TOK_PACKED opt_signed_struct
-	| { frontend_verilog_yyerror("Only STRUCT PACKED supported at this time"); }
+	| { frontend_verilog_yyerror("Only PACKED supported at this time"); }
 	;
 
 opt_signed_struct:
 	  TOK_SIGNED		{ astbuf2->is_signed = true; }
-	| TOK_UNSIGNED
+	| TOK_UNSIGNED		{ astbuf2->is_signed = false; }
 	| // default is unsigned
 	;
 
@@ -1532,11 +1541,13 @@ member_name_list:
 member_name: TOK_ID {
 			astbuf1->str = $1->substr(1);
 			delete $1;
-			astbuf2->children.push_back(astbuf1->clone());
+			auto member_node = astbuf1->clone();
+			SET_AST_NODE_LOC(member_node, @1, @1);
+			astbuf2->children.push_back(member_node);
 		}
 	;
 
-struct_member_type: { astbuf1 = new AstNode(AST_STRUCT_ITEM); } member_type_token_list { SET_RULE_LOC(@$, @2, @$); }
+struct_member_type: { astbuf1 = new AstNode(AST_STRUCT_ITEM); } member_type_token_list
 	;
 
 member_type_token_list:
@@ -1544,12 +1555,18 @@ member_type_token_list:
 	| hierarchical_type_id {
 			// use a clone of the typedef definition nodes
 			auto template_node = copyTypeDefinition(*$1);
-			if (template_node->type != AST_WIRE) {
+			delete $1;
+			switch (template_node->type) {
+			case AST_WIRE:
+				template_node->type = AST_STRUCT_ITEM;
+				break;
+			case AST_STRUCT:
+			case AST_UNION:
+				break;
+			default:
 				frontend_verilog_yyerror("Invalid type for struct member: %s", type2str(template_node->type).c_str());
 			}
-			template_node->type = AST_STRUCT_ITEM;
 			delete astbuf1;
-			delete $1;
 			astbuf1 = template_node;
 		}
 	;
@@ -1565,6 +1582,7 @@ struct_var_list: struct_var
 struct_var: TOK_ID	{	auto *var_node = astbuf2->clone();
 				var_node->str = *$1;
 				delete $1;
+				SET_AST_NODE_LOC(var_node, @1, @1);
 				ast_stack.back()->children.push_back(var_node);
 			}
 	;
