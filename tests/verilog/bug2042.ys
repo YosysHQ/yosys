@@ -1,4 +1,4 @@
-logger -expect error "Non-ANSI style task/function arguments not currently supported" 1
+logger -expect error "task/function argument direction missing" 1
 read_verilog <<EOT
 module Task_Test_Top
 (
@@ -9,4 +9,3 @@ module Task_Test_Top
 
 endmodule
 EOT
-
