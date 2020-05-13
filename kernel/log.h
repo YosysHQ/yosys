@@ -86,7 +86,7 @@ YOSYS_NAMESPACE_BEGIN
 # endif
 # if __has_builtin(__builtin_debugtrap)
 #  define YS_DEBUGTRAP __builtin_debugtrap()
-# elif defined(__unix__)
+# elif defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
 #  define YS_DEBUGTRAP raise(SIGTRAP)
 # else
 #  define YS_DEBUGTRAP do {} while(0)
@@ -103,6 +103,9 @@ YOSYS_NAMESPACE_BEGIN
 # define YS_DEBUGTRAP_IF_DEBUGGING do { \
 		sighandler_t old = signal(SIGTRAP, SIG_IGN); raise(SIGTRAP); signal(SIGTRAP, old); \
 	} while(0)
+#elif defined(__APPLE__) && defined(__MACH__)
+// MacOS
+#define YS_DEBUGTRAP_IF_DEBUGGING { sig_t old = signal(SIGTRAP, SIG_IGN); raise(SIGTRAP); signal(SIGTRAP, old); }
 #else
 # define YS_DEBUGTRAP_IF_DEBUGGING do {} while(0)
 #endif
