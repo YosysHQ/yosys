@@ -330,8 +330,8 @@ struct SynthEcp5Pass : public ScriptPass
 		{
 			if (abc2 || help_mode)
 				run("abc", "      (only if -abc2)");
-			if (asyncprld || help_mode)
-				run("techmap -map +/ecp5/latches_map.v", "(only if -asyncprld)");
+			if (!asyncprld || help_mode)
+				run("techmap -map +/ecp5/latches_map.v", "(skip if -asyncprld)");
 
 			if (abc9) {
 				run("read_verilog -icells -lib -specify +/ecp5/abc9_model.v");
