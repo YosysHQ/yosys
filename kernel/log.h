@@ -97,15 +97,12 @@ YOSYS_NAMESPACE_BEGIN
 // if a debugger is attached, and does nothing otherwise.
 #if defined(_WIN32)
 # define YS_DEBUGTRAP_IF_DEBUGGING do { if (IsDebuggerPresent()) DebugBreak(); } while(0)
-#elif defined(__unix__)
+# elif defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
 // There is no reliable (or portable) *nix equivalent of IsDebuggerPresent(). However,
 // debuggers will stop when SIGTRAP is raised, even if the action is set to ignore.
 # define YS_DEBUGTRAP_IF_DEBUGGING do { \
-		sighandler_t old = signal(SIGTRAP, SIG_IGN); raise(SIGTRAP); signal(SIGTRAP, old); \
+		auto old = signal(SIGTRAP, SIG_IGN); raise(SIGTRAP); signal(SIGTRAP, old); \
 	} while(0)
-#elif defined(__APPLE__) && defined(__MACH__)
-// MacOS
-#define YS_DEBUGTRAP_IF_DEBUGGING { sig_t old = signal(SIGTRAP, SIG_IGN); raise(SIGTRAP); signal(SIGTRAP, old); }
 #else
 # define YS_DEBUGTRAP_IF_DEBUGGING do {} while(0)
 #endif
