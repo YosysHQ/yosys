@@ -855,8 +855,16 @@ task_func_port:
 			frontend_verilog_yyerror("task/function argument range must be of the form: [<expr>:<expr>], [<expr>+:<expr>], or [<expr>-:<expr>]");
 	} wire_name |
 	{
-		if (!astbuf1)
-			frontend_verilog_yyerror("Non-ANSI style task/function arguments not currently supported");
+		if (!astbuf1) {
+			if (!sv_mode)
+				frontend_verilog_yyerror("task/function argument direction missing");
+			albuf = new dict<IdString, AstNode*>;
+			astbuf1 = new AstNode(AST_WIRE);
+			current_wire_rand = false;
+			current_wire_const = false;
+			astbuf1->is_input = true;
+			astbuf2 = NULL;
+		}
 	} wire_name;
 
 task_func_body:
