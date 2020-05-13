@@ -348,10 +348,10 @@ struct SynthEcp5Pass : public ScriptPass
 				else
 					abc9_opts += stringf(" -W %s", RTLIL::constpad.at(k).c_str());
 				if (nowidelut)
-					abc9_args += " -maxlut 4";
+					abc9_opts += " -maxlut 4";
 				if (dff)
-					abc9_args += " -dff";
-				run("abc9" + abc9_args);
+					abc9_opts += " -dff";
+				run("abc9" + abc9_opts);
 				run("techmap -map +/ecp5/abc9_unmap.v");
 			} else {
 				std::string abc_args = " -dress";
