@@ -2046,7 +2046,7 @@ struct OptExprPass : public Pass {
 						design->scratchpad_set_bool("opt.did_something", true);
 				} while (did_something);
 				if (!keepdc)
-				    replace_const_cells(design, module, true /* consume_x */, mux_undef, mux_bool, do_fine, keepdc, clkinv);
+					replace_const_cells(design, module, true /* consume_x */, mux_undef, mux_bool, do_fine, keepdc, clkinv);
 				if (did_something)
 					design->scratchpad_set_bool("opt.did_something", true);
 			} while (did_something);
