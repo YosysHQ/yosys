@@ -611,8 +611,7 @@ struct CleanPass : public Pass {
 			}
 			break;
 		}
-		if (argidx < args.size())
-			extra_args(args, argidx, design);
+		extra_args(args, argidx, design);
 
 		keep_cache.reset(design);
 
@@ -627,7 +626,7 @@ struct CleanPass : public Pass {
 		for (auto module : design->selected_whole_modules()) {
 			if (module->has_processes())
 				continue;
-			rmunused_module(module, purge_mode, ys_debug(), false);
+			rmunused_module(module, purge_mode, ys_debug(), true);
 		}
 
 		log_suppressed();
