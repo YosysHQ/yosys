@@ -563,7 +563,7 @@ void mark_scc(RTLIL::Module *module)
 			if (c.second.is_fully_const()) continue;
 			if (cell->output(c.first)) {
 				Wire *w = module->addWire(NEW_ID, GetSize(c.second));
-				w->set_bool_attribute(ID::abc9_scc);
+				w->set_bool_attribute(ID::abc9_keep);
 				module->connect(w, c.second);
 				c.second = w;
 			}
@@ -1154,7 +1154,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 
 		// Short out $_DFF_[NP]_ cells since the flop box already has
 		//   all the information we need to reconstruct cell
-		if (dff_mode && cell->type.in(ID($_DFF_N_), ID($_DFF_P_))) {
+		if (dff_mode && cell->type.in(ID($_DFF_N_), ID($_DFF_P_)) && !cell->get_bool_attribute(ID::abc9_keep)) {
 			module->connect(cell->getPort(ID::Q), cell->getPort(ID::D));
 			module->remove(cell);
 		}
@@ -1373,7 +1373,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 		RTLIL::Wire *mapped_wire = mapped_mod->wire(port);
 		RTLIL::Wire *wire = module->wire(port);
 		log_assert(wire);
-		wire->attributes.erase(ID::abc9_scc);
+		wire->attributes.erase(ID::abc9_keep);
 
 		RTLIL::Wire *remap_wire = module->wire(remap_name(port));
 		RTLIL::SigSpec signal(wire, remap_wire->start_offset-wire->start_offset, GetSize(remap_wire));

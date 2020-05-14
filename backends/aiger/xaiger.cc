@@ -177,12 +177,12 @@ struct XAigerWriter
 				undriven_bits.insert(bit);
 				unused_bits.insert(bit);
 
-				bool scc = wire->attributes.count(ID::abc9_scc);
-				if (wire->port_input || scc)
+				bool keep = wire->get_bool_attribute(ID::abc9_keep);
+				if (wire->port_input || keep)
 					input_bits.insert(bit);
 
-				bool keep = wire->get_bool_attribute(ID::keep);
-				if (wire->port_output || keep || scc) {
+				keep = keep || wire->get_bool_attribute(ID::keep);
+				if (wire->port_output || keep) {
 					if (bit != wirebit)
 						alias_map[wirebit] = bit;
 					output_bits.insert(wirebit);
@@ -225,7 +225,7 @@ struct XAigerWriter
 					continue;
 				}
 
-				if (dff_mode && cell->type.in(ID($_DFF_N_), ID($_DFF_P_)))
+				if (dff_mode && cell->type.in(ID($_DFF_N_), ID($_DFF_P_)) && !cell->get_bool_attribute(ID::abc9_keep))
 				{
 					SigBit D = sigmap(cell->getPort(ID::D).as_bit());
 					SigBit Q = sigmap(cell->getPort(ID::Q).as_bit());

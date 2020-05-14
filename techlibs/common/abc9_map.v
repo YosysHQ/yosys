@@ -10,7 +10,7 @@ module $_DFF_x_(input C, D, output Q);
       $_DFF_N_ ff (.C(C), .D(D_), .Q(Q));
     end
     else
-      $__DFF_N_ _TECHMAP_REPLACE_ (.C(C), .D(D), .Q(Q)); // hide from abc9 using $__ prefix
+      (* abc9_keep *) $_DFF_N_ _TECHMAP_REPLACE_ (.C(C), .D(D), .Q(Q));
   end
   else if (_TECHMAP_CELLTYPE_ == "$_DFF_P_") begin
     if (_TECHMAP_WIREINIT_Q_ === 1'b0) begin
@@ -18,7 +18,7 @@ module $_DFF_x_(input C, D, output Q);
       $_DFF_P_ ff (.C(C), .D(D_), .Q(Q));
     end
     else
-      $__DFF_P_ _TECHMAP_REPLACE_ (.C(C), .D(D), .Q(Q)); // hide from abc9 using $__ prefix
+      (* abc9_keep *) $_DFF_P_ _TECHMAP_REPLACE_ (.C(C), .D(D), .Q(Q));
   end
   else if (_TECHMAP_CELLTYPE_ != "")
     $error("Unrecognised _TECHMAP_CELLTYPE_");
