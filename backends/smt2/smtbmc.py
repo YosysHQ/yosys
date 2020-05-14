@@ -1548,7 +1548,7 @@ else:  # not tempind, covermode
                         break
 
                     smt_pop()
-                if not retstatus:
+                if retstatus == "FAILED" or retstatus == "PREUNSAT":
                     break
 
         else:  # gentrace
@@ -1568,7 +1568,7 @@ else:  # not tempind, covermode
 
         step += step_size
 
-    if gentrace and retstatus:
+    if gentrace and retstatus == "PASSED":
         print_anyconsts(0)
         write_trace(0, num_steps, '%')
 
