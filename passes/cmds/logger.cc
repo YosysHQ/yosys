@@ -168,7 +168,7 @@ struct LoggerPass : public Pass {
 								break;
 							}
 						if (it == ie)
-							log_expect_error.emplace_back(YS_REGEX_COMPILE(pattern), LogExpectedItem(pattern, count));
+							log_expect_error.insert(YS_REGEX_COMPILE(pattern), LogExpectedItem(pattern, count));
 					}
 					else if (type=="warning") {
 						auto it = log_expect_warning.begin();
@@ -179,7 +179,7 @@ struct LoggerPass : public Pass {
 								break;
 							}
 						if (it == ie)
-							log_expect_warning.emplace_back(YS_REGEX_COMPILE(pattern), LogExpectedItem(pattern, count));
+							log_expect_warning.insert(YS_REGEX_COMPILE(pattern), LogExpectedItem(pattern, count));
 					}
 					else if (type=="log") {
 						auto it = log_expect_log.begin();
@@ -190,7 +190,7 @@ struct LoggerPass : public Pass {
 								break;
 							}
 						if (it == ie)
-							log_expect_log.emplace_back(YS_REGEX_COMPILE(pattern), LogExpectedItem(pattern, count));
+							log_expect_log.insert(YS_REGEX_COMPILE(pattern), LogExpectedItem(pattern, count));
 					}
 					else log_abort();
 				}
