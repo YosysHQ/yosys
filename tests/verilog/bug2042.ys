@@ -1,0 +1,11 @@
+logger -expect error "task/function argument direction missing" 1
+read_verilog <<EOT
+module Task_Test_Top
+(
+);
+
+    task SomeTaskName(a)
+    endtask
+
+endmodule
+EOT
