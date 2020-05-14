@@ -1,5 +1,5 @@
 (* abc9_box *)
-module \$__ABC9_DELAY (input I, output O);
+module $__ABC9_DELAY (input I, output O);
   parameter DELAY = 0;
   specify
     (I => O) = DELAY;
@@ -7,7 +7,7 @@ module \$__ABC9_DELAY (input I, output O);
 endmodule
 
 (* abc9_flop, abc9_box, lib_whitebox *)
-module $__DFF_N__$abc9_flop(input C, D, Q, (* init=INIT *) output n1);
+module $__DFF_N__$abc9_flop (input C, D, Q, (* init=INIT *) output n1);
   parameter [0:0] INIT = 1'bx;
   assign n1 = D;
   specify
@@ -17,7 +17,7 @@ module $__DFF_N__$abc9_flop(input C, D, Q, (* init=INIT *) output n1);
 endmodule
 
 (* abc9_flop, abc9_box, lib_whitebox *)
-module $__DFF_P__$abc9_flop(input C, D, Q, (* init=INIT *) output n1);
+module $__DFF_P__$abc9_flop (input C, D, Q, (* init=INIT *) output n1);
   parameter [0:0] INIT = 1'bx;
   assign n1 = D;
   specify

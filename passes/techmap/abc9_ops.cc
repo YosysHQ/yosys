@@ -87,7 +87,7 @@ void check(RTLIL::Design *design, bool dff_mode)
 	}
 
 	if (dff_mode) {
-		pool<IdString> unsupported{
+		static pool<IdString> unsupported{
 			ID($adff), ID($dlatch), ID($dlatchsr), ID($sr),
 			ID($_DFF_NN0_), ID($_DFF_NN1_), ID($_DFF_NP0_), ID($_DFF_NP1_),
 			ID($_DFF_PN0_), ID($_DFF_PN1_), ID($_DFF_PP0_), ID($_DFF_PP1_),
@@ -102,38 +102,38 @@ void check(RTLIL::Design *design, bool dff_mode)
 				auto inst_module = design->module(cell->type);
 				if (!inst_module)
 					continue;
-				if (!inst_module->get_bool_attribute(ID::abc9_flop))
+				if (!inst_module->get_blackbox_attribute())
 					continue;
 				auto derived_type = inst_module->derive(design, cell->parameters);
 				if (!processed.insert(derived_type).second)
 					continue;
-				if (inst_module->get_blackbox_attribute(true /* ignore_wb */))
+				auto derived_module = design->module(derived_type);
+				if (!derived_module->get_bool_attribute(ID::abc9_flop))
+					continue;
+				if (derived_module->get_blackbox_attribute(true /* ignore_wb */))
 					log_error("Module '%s' with (* abc9_flop *) is a blackbox.\n", log_id(derived_type));
 
-				auto derived_module = design->module(derived_type);
 				if (derived_module->has_processes())
 					Pass::call_on_module(design, derived_module, "proc");
 
-				if (derived_module->get_bool_attribute(ID::abc9_flop)) {
-					bool found = false;
-					for (auto derived_cell : derived_module->cells())
-						if (derived_cell->type.in(ID($dff), ID($_DFF_N_), ID($_DFF_P_))) {
-							if (found)
-								log_error("Module '%s' with (* abc9_flop *) contains more than one $_DFF_[NP]_ cell.\n", log_id(derived_module));
-							found = true;
+				bool found = false;
+				for (auto derived_cell : derived_module->cells()) {
+					if (derived_cell->type.in(ID($dff), ID($_DFF_N_), ID($_DFF_P_))) {
+						if (found)
+							log_error("Module '%s' with (* abc9_flop *) contains more than one $_DFF_[NP]_ cell.\n", log_id(derived_module));
+						found = true;
 
-							SigBit Q = derived_cell->getPort(ID::Q);
-							log_assert(GetSize(Q.wire) == 1);
+						SigBit Q = derived_cell->getPort(ID::Q);
+						log_assert(GetSize(Q.wire) == 1);
 
-							if (!Q.wire->port_output)
-								log_error("Module '%s' contains a %s cell where its 'Q' port does not drive a module output!\n", log_id(derived_module), log_id(derived_cell->type));
+						if (!Q.wire->port_output)
+							log_error("Module '%s' contains a %s cell where its 'Q' port does not drive a module output!\n", log_id(derived_module), log_id(derived_cell->type));
 
-							Const init = Q.wire->attributes.at(ID::init, State::Sx);
-							log_assert(GetSize(init) == 1);
-						}
-						else if (unsupported.count(derived_cell->type)) {
-							log_error("Module '%s' with (* abc9_flop *) contains a %s cell, which is not supported for sequential synthesis.\n", log_id(derived_module), log_id(derived_cell->type));
-						}
+						Const init = Q.wire->attributes.at(ID::init, State::Sx);
+						log_assert(GetSize(init) == 1);
+					}
+					else if (unsupported.count(derived_cell->type))
+						log_error("Module '%s' with (* abc9_flop *) contains a %s cell, which is not supported for sequential synthesis.\n", log_id(derived_module), log_id(derived_cell->type));
 				}
 			}
 	}
@@ -146,7 +146,7 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 		r.first->second = new Design;
 	Design *unmap_design = r.first->second;
 
-	pool<IdString> seq_types{
+	static const pool<IdString> seq_types{
 		ID($dff), ID($dffsr), ID($adff),
 		ID($dlatch), ID($dlatchsr), ID($sr),
 		ID($mem),
@@ -166,14 +166,16 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 			auto inst_module = design->module(cell->type);
 			if (!inst_module)
 				continue;
+			if (!inst_module->get_blackbox_attribute())
+				continue;
 			auto derived_type = inst_module->derive(design, cell->parameters);
 			auto derived_module = design->module(derived_type);
 			if (derived_module->get_blackbox_attribute(true /* ignore_wb */))
 				continue;
 
-			if (inst_module->get_bool_attribute(ID::abc9_flop) && !dff_mode)
+			if (derived_module->get_bool_attribute(ID::abc9_flop) && !dff_mode)
 				continue;
-			if (!inst_module->get_bool_attribute(ID::abc9_box) && !inst_module->get_bool_attribute(ID::abc9_flop))
+			if (!derived_module->get_bool_attribute(ID::abc9_box) && !derived_module->get_bool_attribute(ID::abc9_flop))
 				continue;
 
 			if (!unmap_design->module(derived_type)) {
@@ -260,11 +262,9 @@ void prep_bypass(RTLIL::Design *design)
 			auto inst_module = design->module(cell->type);
 			if (!inst_module)
 				continue;
-			auto derived_type = inst_module->derive(design, cell->parameters);
-			inst_module = design->module(derived_type);
-			log_assert(inst_module);
 			if (!inst_module->get_bool_attribute(ID::abc9_bypass))
 				continue;
+			log_assert(cell->parameters.empty());
 			log_assert(!inst_module->get_blackbox_attribute(true /* ignore_wb */));
 
 
@@ -297,7 +297,7 @@ void prep_bypass(RTLIL::Design *design)
 			//   assign o = $abc9_byp$o;
 
 
-			// Copy derived_module into map_design, with the same interface
+			// Copy inst_module into map_design, with the same interface
 			//   and duplicate $abc9$* wires for its output ports
 			auto map_module = map_design->addModule(cell->type);
 			for (auto port_name : inst_module->ports) {
@@ -443,13 +443,9 @@ void prep_dff(RTLIL::Design *design)
 				continue;
 			if (!inst_module->get_bool_attribute(ID::abc9_flop))
 				continue;
-			auto derived_type = inst_module->derive(design, cell->parameters);
-			auto derived_module = design->module(derived_type);
-			log_assert(derived_module);
-			if (!derived_module->get_bool_attribute(ID::abc9_flop))
-				continue;
-			log_assert(!derived_module->get_blackbox_attribute(true /* ignore_wb */));
-			modules_sel.select(derived_module);
+			log_assert(!inst_module->get_blackbox_attribute(true /* ignore_wb */));
+			log_assert(cell->parameters.empty());
+			modules_sel.select(inst_module);
 		}
 }
 
@@ -557,6 +553,99 @@ void mark_scc(RTLIL::Module *module)
 				w->set_bool_attribute(ID::abc9_scc);
 				module->connect(w, c.second);
 				c.second = w;
+			}
+		}
+	}
+}
+
+void prep_delays(RTLIL::Design *design, bool dff_mode)
+{
+	TimingInfo timing;
+
+	// Derive all Yosys blackbox modules that are not combinatorial abc9 boxes
+	//   (e.g. DSPs, RAMs, etc.) nor abc9 flops and collect all such instantiations
+	pool<Module*> flops;
+	std::vector<std::pair<Cell*,Module*>> cells;
+	for (auto module : design->selected_modules()) {
+		if (module->processes.size() > 0) {
+			log("Skipping module %s as it contains processes.\n", log_id(module));
+			continue;
+		}
+
+		for (auto cell : module->cells()) {
+			if (cell->type.in(ID($_AND_), ID($_NOT_), ID($_DFF_N_), ID($_DFF_P_), ID($__ABC9_DELAY)))
+				continue;
+
+			RTLIL::Module* inst_module = design->module(cell->type);
+			if (!inst_module)
+				continue;
+			if (!inst_module->get_blackbox_attribute())
+				continue;
+
+			IdString derived_type;
+			if (cell->parameters.empty())
+				derived_type = cell->type;
+			else
+				derived_type = inst_module->derive(design, cell->parameters);
+			auto derived_module = design->module(derived_type);
+			log_assert(derived_module);
+			log_assert(derived_module->get_blackbox_attribute());
+
+			if (derived_module->get_bool_attribute(ID::abc9_box))
+				continue;
+			if (derived_module->get_bool_attribute(ID::abc9_bypass))
+				continue;
+
+			if (dff_mode && inst_module->get_bool_attribute(ID::abc9_flop)) {
+				flops.insert(inst_module);
+				continue; 	// do not add $__ABC9_DELAY boxes to flops
+						//   as delays will be captured in the flop box
+			}
+
+			if (!timing.count(derived_type))
+				timing.setup_module(derived_module);
+
+			cells.emplace_back(cell, derived_module);
+		}
+	}
+
+	// Insert $__ABC9_DELAY cells on all cells that instantiate blackboxes
+	//   (or bypassed white-boxes with required times)
+	for (const auto &i : cells) {
+		auto cell = i.first;
+		auto module = cell->module;
+		auto derived_module = i.second;
+		auto derived_type = derived_module->name;
+
+		auto &t = timing.at(derived_type).required;
+		for (auto &conn : cell->connections_) {
+			auto port_wire = derived_module->wire(conn.first);
+			if (!port_wire)
+				log_error("Port %s in cell %s (type %s) of module %s does not actually exist",
+						log_id(conn.first), log_id(cell->name), log_id(cell->type), log_id(module->name));
+			if (!port_wire->port_input)
+				continue;
+			if (conn.second.is_fully_const())
+				continue;
+
+			SigSpec O = module->addWire(NEW_ID, GetSize(conn.second));
+			for (int i = 0; i < GetSize(conn.second); i++) {
+				auto d = t.at(TimingInfo::NameBit(conn.first,i), 0);
+				if (d == 0)
+					continue;
+
+#ifndef NDEBUG
+				if (ys_debug(1)) {
+					static std::set<std::tuple<IdString,IdString,int>> seen;
+					if (seen.emplace(derived_type, conn.first, i).second) log("%s.%s[%d] abc9_required = %d\n",
+							log_id(cell->type), log_id(conn.first), i, d);
+				}
+#endif
+				auto box = module->addCell(NEW_ID, ID($__ABC9_DELAY));
+				box->setPort(ID::I, conn.second[i]);
+				box->setPort(ID::O, O[i]);
+				box->setParam(ID::DELAY, d);
+				conn.second[i] = O[i];
 			}
 		}
 	}
@@ -670,30 +759,36 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 		log_assert(cell);
 
 		RTLIL::Module* box_module = design->module(cell->type);
-		if (!box_module || !box_module->get_bool_attribute(ID::abc9_box))
+		if (!box_module)
 			continue;
-
-		cell->attributes[ID::abc9_box_seq] = box_count++;
+		if (!box_module->get_blackbox_attribute())
+			continue;
 
 		IdString derived_type;
 		if (cell->parameters.empty())
 			derived_type = cell->type;
 		else
 			derived_type = box_module->derive(design, cell->parameters);
-		box_module = design->module(derived_type);
+		auto derived_module = design->module(derived_type);
+		log_assert(derived_module);
+
+		if (!derived_module->get_bool_attribute(ID::abc9_box))
+			continue;
+
+		cell->attributes[ID::abc9_box_seq] = box_count++;
 
 		auto r = cell_cache.insert(derived_type);
 		auto &holes_cell = r.first->second;
 		if (r.second) {
-			if (box_module->get_bool_attribute(ID::whitebox)) {
+			if (derived_module->get_bool_attribute(ID::whitebox)) {
 				holes_cell = holes_module->addCell(cell->name, derived_type);
 
-				if (box_module->has_processes())
-					Pass::call_on_module(design, box_module, "proc");
+				if (derived_module->has_processes())
+					Pass::call_on_module(design, derived_module, "proc");
 
 				int box_inputs = 0;
 				for (auto port_name : box_ports.at(cell->type)) {
-					RTLIL::Wire *w = box_module->wire(port_name);
+					RTLIL::Wire *w = derived_module->wire(port_name);
 					log_assert(w);
 					log_assert(!w->port_input || !w->port_output);
 					auto &conn = holes_cell->connections_[port_name];
@@ -714,12 +809,12 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 						conn = holes_module->addWire(stringf("%s.%s", derived_type.c_str(), log_id(port_name)), GetSize(w));
 				}
 			}
-			else // box_module is a blackbox
+			else // derived_module is a blackbox
 				log_assert(holes_cell == nullptr);
 		}
 
 		for (auto port_name : box_ports.at(cell->type)) {
-			RTLIL::Wire *w = box_module->wire(port_name);
+			RTLIL::Wire *w = derived_module->wire(port_name);
 			log_assert(w);
 			if (!w->port_output)
 				continue;
@@ -731,92 +826,6 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 				holes_module->connect(holes_wire, holes_cell->getPort(port_name));
 			else // blackbox
 				holes_module->connect(holes_wire, Const(State::S0, GetSize(w)));
-		}
-	}
-}
-
-void prep_delays(RTLIL::Design *design, bool dff_mode)
-{
-	TimingInfo timing;
-
-	// Derive all Yosys blackbox modules that are not combinatorial abc9 boxes
-	//   (e.g. DSPs, RAMs, etc.) nor abc9 flops and collect all such instantiations
-	pool<Module*> flops;
-	std::vector<Cell*> cells;
-	for (auto module : design->selected_modules()) {
-		if (module->processes.size() > 0) {
-			log("Skipping module %s as it contains processes.\n", log_id(module));
-			continue;
-		}
-
-		for (auto cell : module->cells()) {
-			if (cell->type.in(ID($_AND_), ID($_NOT_), ID($_DFF_N_), ID($_DFF_P_), ID($__ABC9_DELAY)))
-				continue;
-
-			RTLIL::Module* inst_module = module->design->module(cell->type);
-			if (!inst_module)
-				continue;
-			if (!inst_module->get_blackbox_attribute())
-				continue;
-			if (inst_module->get_bool_attribute(ID::abc9_box))
-				continue;
-			IdString derived_type = inst_module->derive(design, cell->parameters);
-			inst_module = design->module(derived_type);
-			log_assert(inst_module);
-
-			if (dff_mode && inst_module->get_bool_attribute(ID::abc9_flop)) {
-				flops.insert(inst_module);
-				continue; // do not add $__ABC9_DELAY boxes to flops
-				//   as delays will be captured in the flop box
-			}
-
-			if (!timing.count(derived_type))
-				timing.setup_module(inst_module);
-
-			cells.emplace_back(cell);
-		}
-	}
-
-	// Insert $__ABC9_DELAY cells on all cells that instantiate blackboxes
-	//   with required times
-	for (auto cell : cells) {
-		auto module = cell->module;
-		RTLIL::Module* inst_module = module->design->module(cell->type);
-		log_assert(inst_module);
-		IdString derived_type = inst_module->derive(design, cell->parameters);
-		inst_module = design->module(derived_type);
-		log_assert(inst_module);
-
-		auto &t = timing.at(derived_type).required;
-		for (auto &conn : cell->connections_) {
-			auto port_wire = inst_module->wire(conn.first);
-			if (!port_wire)
-				log_error("Port %s in cell %s (type %s) of module %s does not actually exist",
-						log_id(conn.first), log_id(cell->name), log_id(cell->type), log_id(module->name));
-			if (!port_wire->port_input)
-				continue;
-			if (conn.second.is_fully_const())
-				continue;
-
-			SigSpec O = module->addWire(NEW_ID, GetSize(conn.second));
-			for (int i = 0; i < GetSize(conn.second); i++) {
-				auto d = t.at(TimingInfo::NameBit(conn.first,i), 0);
-				if (d == 0)
-					continue;
-
-#ifndef NDEBUG
-				if (ys_debug(1)) {
-					static std::set<std::tuple<IdString,IdString,int>> seen;
-					if (seen.emplace(derived_type, conn.first, i).second) log("%s.%s[%d] abc9_required = %d\n",
-							log_id(cell->type), log_id(conn.first), i, d);
-				}
-#endif
-				auto box = module->addCell(NEW_ID, ID($__ABC9_DELAY));
-				box->setPort(ID::I, conn.second[i]);
-				box->setPort(ID::O, O[i]);
-				box->setParam(ID::DELAY, d);
-				conn.second[i] = O[i];
-			}
 		}
 	}
 }
