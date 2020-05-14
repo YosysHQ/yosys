@@ -36,9 +36,11 @@ parser.add_argument('-S', '--seed',  type = int, help = 'seed for PRNG')
 parser.add_argument('-c', '--count', type = int, default = 50, help = 'number of test cases to generate')
 args = parser.parse_args()
 
-if args.seed is not None:
-    print("PRNG seed: %d" % args.seed)
-    random.seed(args.seed)
+seed = args.seed
+if seed is None:
+    seed = random.randrange(sys.maxsize)
+print("PRNG seed: %d" % seed)
+random.seed(seed)
 
 for idx in range(args.count):
     with open('temp/uut_%05d.v' % idx, 'w') as f:

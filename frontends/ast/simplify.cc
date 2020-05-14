@@ -1080,7 +1080,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		}
 		if (old_range_valid != range_valid)
 			did_something = true;
-		if (range_valid && range_left >= 0 && range_right > range_left) {
+		if (range_valid && range_right > range_left) {
 			int tmp = range_right;
 			range_right = range_left;
 			range_left = tmp;
