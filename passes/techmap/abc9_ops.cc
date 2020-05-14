@@ -213,7 +213,6 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 							if (init != State::S0) {
 								log_warning("Module '%s' contains a %s cell with non-zero initial state -- this is not unsupported for ABC9 sequential synthesis. Treating as a blackbox.\n", log_id(derived_module), log_id(derived_cell->type));
 								derived_module->set_bool_attribute(ID::abc9_flop, false);
-								goto skip_cell;
 							}
 							break;
 						}
@@ -250,8 +249,6 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 
 			cell->type = derived_type;
 			cell->parameters.clear();
-
-skip_cell:		;
 		}
 }
 
