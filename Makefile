@@ -860,6 +860,7 @@ manual: $(TARGETS) $(EXTRA_TARGETS)
 	cd manual && bash manual.sh
 
 clean:
+	rm -rf abc/
 	rm -rf share
 	rm -rf kernel/*.pyh
 	if test -d manual; then cd manual && sh clean.sh; fi
