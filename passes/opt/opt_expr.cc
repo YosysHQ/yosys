@@ -175,7 +175,7 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 			}
 		}
 
-		bool def = (bit_a != State::Sx && bit_a != State::Sz && bit_b != State::Sx && bit_b != State::Sx);
+		bool def = (bit_a != State::Sx && bit_a != State::Sz && bit_b != State::Sx && bit_b != State::Sz);
 		if (def || !keepdc) {
 			if (bit_a.wire == NULL && bit_b.wire == NULL)
 				group_idx = GRP_CONST_AB;
