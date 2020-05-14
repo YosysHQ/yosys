@@ -473,7 +473,7 @@ bool rmunused_module_init(RTLIL::Module *module, bool verbose)
 					goto next_wire;
 
 				if (mapped_wire_bit != init[i]) {
-					log_warning("Initial value conflict for wire '%s' and value '%s'.\n", log_signal(wire_bit), log_signal(mapped_wire_bit));
+					log_warning("Initial value conflict for %s resolving to %s but with init %s.\n", log_signal(wire_bit), log_signal(mapped_wire_bit), log_signal(init[i]));
 					goto next_wire;
 				}
 			}
