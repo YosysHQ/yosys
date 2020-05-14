@@ -1101,17 +1101,6 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 
 	map_autoidx = autoidx++;
 
-	// TODO: Get rid of this expensive lookup
-	dict<SigBit,vector<SigBit>> sig2inits;
-	SigMap sigmap(module);
-	for (auto w : module->wires()) {
-		auto it = w->attributes.find(ID::init);
-		if (it == w->attributes.end())
-			continue;
-		for (const auto &b : SigSpec(w))
-			sig2inits[sigmap(b)].emplace_back(b);
-	}
-
 	RTLIL::Module *mapped_mod = design->module(stringf("%s$abc9", module->name.c_str()));
 	if (mapped_mod == NULL)
 		log_error("ABC output file does not contain a module `%s$abc'.\n", log_id(module));
@@ -1164,12 +1153,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 		// Short out $_DFF_[NP]_ cells since the flop box already has
 		//   all the information we need to reconstruct cell
 		if (dff_mode && cell->type.in(ID($_DFF_N_), ID($_DFF_P_))) {
-			SigBit Q = cell->getPort(ID::Q);
-			auto it = sig2inits.find(Q);
-			if (it != sig2inits.end())
-				for (const auto &b : it->second)
-					b.wire->attributes.at(ID::init)[b.offset] = State::Sx;
-			module->connect(Q, cell->getPort(ID::D));
+			module->connect(cell->getPort(ID::Q), cell->getPort(ID::D));
 			module->remove(cell);
 		}
 		else if (cell->type.in(ID($_AND_), ID($_NOT_)))
