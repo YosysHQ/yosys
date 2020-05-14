@@ -412,7 +412,7 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 	return !del_wires_queue.empty();
 }
 
-bool rmunused_module_init(RTLIL::Module *module, bool purge_mode, bool verbose)
+bool rmunused_module_init(RTLIL::Module *module, bool verbose)
 {
 	bool did_something = false;
 	CellTypes fftypes;
@@ -445,9 +445,6 @@ bool rmunused_module_init(RTLIL::Module *module, bool purge_mode, bool verbose)
 
 	for (auto wire : module->wires())
 	{
-		if (!purge_mode && wire->name[0] == '\\')
-			continue;
-
 		if (wire->attributes.count(ID::init) == 0)
 			continue;
 
@@ -464,11 +461,22 @@ bool rmunused_module_init(RTLIL::Module *module, bool purge_mode, bool verbose)
 			if (wire_bit == mapped_wire_bit)
 				goto next_wire;
 
-			if (qbits.count(sigmap(SigBit(wire, i))) == 0)
-				goto next_wire;
+			if (mapped_wire_bit.wire) {
+				if (qbits.count(mapped_wire_bit) == 0)
+					goto next_wire;
 
-			if (qbits.at(sigmap(SigBit(wire, i))) != init[i])
-				goto next_wire;
+				if (qbits.at(mapped_wire_bit) != init[i])
+					goto next_wire;
+			}
+			else {
+				if (mapped_wire_bit == State::Sx || mapped_wire_bit == State::Sz)
+					goto next_wire;
+
+				if (mapped_wire_bit != init[i]) {
+					log_warning("Initial value conflict for wire '%s' and value '%s'.\n", log_signal(wire_bit), log_signal(mapped_wire_bit));
+					goto next_wire;
+				}
+			}
 		}
 
 		if (verbose)
@@ -512,7 +520,7 @@ void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool 
 	rmunused_module_cells(module, verbose);
 	while (rmunused_module_signals(module, purge_mode, verbose)) { }
 
-	if (rminit && rmunused_module_init(module, purge_mode, verbose))
+	if (rminit && rmunused_module_init(module, verbose))
 		while (rmunused_module_signals(module, purge_mode, verbose)) { }
 }
 
