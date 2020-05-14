@@ -1,0 +1,35 @@
+read_verilog <<EOT
+module top(input a, b, output o);
+wire tmp;
+assign o = tmp | 1'bx;
+assign tmp = a & 1'b0;
+endmodule
+EOT
+design -save read
+select -assert-count 1 t:$and
+select -assert-count 1 t:$or
+
+
+opt_expr
+select -assert-none t:$and t:$or
+sat -verify -enable_undef -prove o 1'bx
+
+
+design -load read
+opt_expr -keepdc
+select -assert-none t:$and t:$or
+sat -verify -enable_undef -prove o 1'bx
+
+
+design -load read
+simplemap
+opt_expr -keepdc
+select -assert-none t:$_AND_ t:$_OR_
+sat -verify -enable_undef -prove o 1'bx
+
+
+design -load read
+simplemap
+opt_expr -keepdc
+select -assert-none t:$_AND_ t:$_OR_
+sat -verify -enable_undef -prove o 1'bx

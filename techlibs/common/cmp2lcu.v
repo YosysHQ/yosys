@@ -108,8 +108,12 @@ generate
                 // Generate if any comparisons call for it
                 wire [LCU_WIDTH-1:0] G_ = {G[LCU_WIDTH-1:1], G[0] | GG};
             end
-            $__CMP2LCU #(.AB_WIDTH(AB_WIDTH-1), .AB_SIGNED(1'b0), .LCU_WIDTH(LCU_WIDTH), .BUDGET(BUDGET-COST), .CI(CI))
-                _TECHMAP_REPLACE_ (.A(A[AB_WIDTH-2:0]), .B(B[AB_WIDTH-2:0]), .P(P_), .G(G_), .Y(Y));
+            if (AB_WIDTH == 1)
+               $__CMP2LCU #(.AB_WIDTH(AB_WIDTH-1), .AB_SIGNED(1'b0), .LCU_WIDTH(LCU_WIDTH), .BUDGET(BUDGET-COST), .CI(CI))
+                    _TECHMAP_REPLACE_ (.A(), .B(), .P(P_), .G(G_), .Y(Y));
+            else
+               $__CMP2LCU #(.AB_WIDTH(AB_WIDTH-1), .AB_SIGNED(1'b0), .LCU_WIDTH(LCU_WIDTH), .BUDGET(BUDGET-COST), .CI(CI))
+                    _TECHMAP_REPLACE_ (.A(A[AB_WIDTH-2:0]), .B(B[AB_WIDTH-2:0]), .P(P_), .G(G_), .Y(Y));
         end
     end
 endgenerate
