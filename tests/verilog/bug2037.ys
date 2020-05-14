@@ -1,4 +1,3 @@
-logger -expect warning "Attribute\(s\) attached to null statement\. Ignoring\." 1
 logger -expect-no-warnings
 read_verilog <<EOT
 module test ();
@@ -7,10 +6,10 @@ module test ();
 		if (y) (* foo *) ;
 endmodule
 EOT
+select -assert-none a:* a:src %d
 
 
 design -reset
-logger -expect warning "Attribute\(s\) attached to null statement\. Ignoring\." 3 # cumulative
 logger -expect-no-warnings
 read_verilog <<EOT
 module test ();
@@ -19,10 +18,10 @@ module test ();
 		if (y) (* foo *) ; else (* bar *) ;
 endmodule
 EOT
+select -assert-none a:* a:src %d
 
 
 design -reset
-logger -expect warning "Attribute\(s\) attached to null statement\. Ignoring\." 4 # cumulative
 logger -expect-no-warnings
 read_verilog <<EOT
 module test ();
@@ -30,10 +29,10 @@ module test ();
     generate if (y) (* foo *) ; endgenerate
 endmodule
 EOT
+select -assert-none a:*
 
 
 design -reset
-logger -expect warning "Attribute\(s\) attached to null statement\. Ignoring\." 6 # cumulative
 logger -expect-no-warnings
 read_verilog <<EOT
 module test ();
@@ -41,3 +40,4 @@ module test ();
     generate if (y) (* foo *) ; else (* bar *); endgenerate
 endmodule
 EOT
+select -assert-none a:*
