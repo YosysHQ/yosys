@@ -3,10 +3,10 @@
 module $_DFF_x_(input C, D, output Q);
   parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
   parameter _TECHMAP_CELLTYPE_ = "";
-  wire D_;
+  (* init=_TECHMAP_WIREINIT_Q_ *) wire D_;
   generate if (_TECHMAP_CELLTYPE_ == "$_DFF_N_") begin
     if (_TECHMAP_WIREINIT_Q_ === 1'b0) begin
-      $__DFF_N__$abc9_flop #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.C(C), .D(D), .Q(Q), .n1(D_));
+      $__DFF_N__$abc9_flop _TECHMAP_REPLACE_ (.C(C), .D(D), .Q(Q), .n1(D_));
       $_DFF_N_ ff (.C(C), .D(D_), .Q(Q));
     end
     else
@@ -14,7 +14,7 @@ module $_DFF_x_(input C, D, output Q);
   end
   else if (_TECHMAP_CELLTYPE_ == "$_DFF_P_") begin
     if (_TECHMAP_WIREINIT_Q_ === 1'b0) begin
-      $__DFF_P__$abc9_flop #(.INIT(_TECHMAP_WIREINIT_Q_)) _TECHMAP_REPLACE_ (.C(C), .D(D), .Q(Q), .n1(D_));
+      $__DFF_P__$abc9_flop _TECHMAP_REPLACE_ (.C(C), .D(D), .Q(Q), .n1(D_));
       $_DFF_P_ ff (.C(C), .D(D_), .Q(Q));
     end
     else

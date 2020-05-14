@@ -243,34 +243,33 @@ struct XAigerWriter
 
 			RTLIL::Module* inst_module = design->module(cell->type);
 			if (inst_module && inst_module->get_blackbox_attribute()) {
-				IdString derived_type;
-				if (cell->parameters.empty())
-					derived_type = cell->type;
-				else
-					derived_type = inst_module->derive(design, cell->parameters);
-				inst_module = design->module(derived_type);
-				log_assert(inst_module);
-				log_assert(inst_module->get_blackbox_attribute());
-
 				bool abc9_flop = false;
-				if (!cell->has_keep_attr()) {
-					auto it = cell->attributes.find(ID::abc9_box_seq);
-					if (it != cell->attributes.end()) {
-						int abc9_box_seq = it->second.as_int();
-						if (GetSize(box_list) <= abc9_box_seq)
-							box_list.resize(abc9_box_seq+1);
-						box_list[abc9_box_seq] = cell;
-						// Only flop boxes may have arrival times
-						//   (all others are combinatorial)
-						abc9_flop = inst_module->get_bool_attribute(ID::abc9_flop);
-						if (!abc9_flop)
-							continue;
-					}
+
+				auto it = cell->attributes.find(ID::abc9_box_seq);
+				if (it != cell->attributes.end()) {
+					log_assert(!cell->has_keep_attr());
+					int abc9_box_seq = it->second.as_int();
+					if (GetSize(box_list) <= abc9_box_seq)
+						box_list.resize(abc9_box_seq+1);
+					box_list[abc9_box_seq] = cell;
+					// Only flop boxes may have arrival times
+					//   (all others are combinatorial)
+					log_assert(cell->parameters.empty());
+					abc9_flop = inst_module->get_bool_attribute(ID::abc9_flop);
+					if (!abc9_flop)
+						continue;
 				}
 
-				if (!timing.count(derived_type))
+				if (!cell->parameters.empty()) {
+					auto derived_type = inst_module->derive(design, cell->parameters);
+					inst_module = design->module(derived_type);
+					log_assert(inst_module);
+					log_assert(inst_module->get_blackbox_attribute());
+				}
+
+				if (!timing.count(inst_module->name))
 					timing.setup_module(inst_module);
-				auto &t = timing.at(derived_type).arrival;
+				auto &t = timing.at(inst_module->name).arrival;
 				for (const auto &conn : cell->connections()) {
 					auto port_wire = inst_module->wire(conn.first);
 					if (!port_wire->port_output)
@@ -284,7 +283,7 @@ struct XAigerWriter
 #ifndef NDEBUG
 						if (ys_debug(1)) {
 							static std::set<std::tuple<IdString,IdString,int>> seen;
-							if (seen.emplace(derived_type, conn.first, i).second) log("%s.%s[%d] abc9_arrival = %d\n",
+							if (seen.emplace(inst_module->name, conn.first, i).second) log("%s.%s[%d] abc9_arrival = %d\n",
 									log_id(cell->type), log_id(conn.first), i, d);
 						}
 #endif
@@ -577,24 +576,17 @@ struct XAigerWriter
 			int box_count = 0;
 			for (auto cell : box_list) {
 				log_assert(cell);
+				log_assert(cell->parameters.empty());
 
-				RTLIL::Module* box_module = design->module(cell->type);
-				log_assert(box_module);
-
-				IdString derived_type;
-				if (cell->parameters.empty())
-					derived_type = cell->type;
-				else
-					derived_type = box_module->derive(design, cell->parameters);
-				auto derived_module = design->module(derived_type);
-				log_assert(derived_module);
-
-				auto r = cell_cache.insert(derived_type);
+				auto r = cell_cache.insert(cell->type);
 				auto &v = r.first->second;
 				if (r.second) {
+					RTLIL::Module* box_module = design->module(cell->type);
+					log_assert(box_module);
+
 					int box_inputs = 0, box_outputs = 0;
-					for (auto port_name : derived_module->ports) {
-						RTLIL::Wire *w = derived_module->wire(port_name);
+					for (auto port_name : box_module->ports) {
+						RTLIL::Wire *w = box_module->wire(port_name);
 						log_assert(w);
 						if (w->port_input)
 							box_inputs += GetSize(w);
@@ -604,7 +596,7 @@ struct XAigerWriter
 
 					std::get<0>(v) = box_inputs;
 					std::get<1>(v) = box_outputs;
-					std::get<2>(v) = derived_module->attributes.at(ID::abc9_box_id).as_int();
+					std::get<2>(v) = box_module->attributes.at(ID::abc9_box_id).as_int();
 				}
 
 				write_h_buffer(std::get<0>(v));
