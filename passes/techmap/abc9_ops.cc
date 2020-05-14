@@ -230,9 +230,12 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 					auto unmap_module = unmap_design->addModule(derived_type);
 					for (auto port : derived_module->ports) {
 						auto w = unmap_module->addWire(port, derived_module->wire(port));
-						// Do not propagate (* init *) values inside the box
-						if (w->port_output)
-							w->attributes.erase(ID::init);
+						// Do not propagate (* init *) values into the box,
+						//   in fact, remove it from outside too
+						if (w->port_output && w->attributes.erase(ID::init)) {
+							auto r = unmap_module->addWire(stringf("\\_TECHMAP_REMOVEINIT_%s_", log_id(port)));
+							unmap_module->connect(r, State::S1);
+						}
 					}
 					unmap_module->ports = derived_module->ports;
 					unmap_module->check();
@@ -771,7 +774,6 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 			continue;
 		if (!box_module->get_bool_attribute(ID::abc9_box))
 			continue;
-log_cell(cell);
 		log_assert(cell->parameters.empty());
 		log_assert(box_module->get_blackbox_attribute());
 
