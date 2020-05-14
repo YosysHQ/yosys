@@ -58,7 +58,8 @@ struct LoggerPass : public Pass {
 		log("        do not print warnings for the specified experimental feature\n");
 		log("\n");
 		log("    -expect <type> <regex> <expected_count>\n");
-		log("        expect log,warning or error to appear. In case of error return code is 0.\n");
+		log("        expect log, warning or error to appear. matched errors will terminate\n");
+		log("        with exit code 0.\n");
 		log("\n");
 		log("    -expect-no-warnings\n");
 		log("        gives error in case there is at least one warning that is not expected.\n");
