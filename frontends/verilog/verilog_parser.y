@@ -2217,23 +2217,23 @@ behavioral_stmt:
 	defattr | assert | wire_decl | param_decl | localparam_decl | typedef_decl |
 	non_opt_delay behavioral_stmt |
 	simple_behavioral_stmt ';' | ';' |
-	hierarchical_id attr {
+	attr hierarchical_id {
 		AstNode *node = new AstNode(AST_TCALL);
-		node->str = *$1;
-		delete $1;
+		node->str = *$2;
+		delete $2;
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
-		append_attr(node, $2);
+		append_attr(node, $1);
 	} opt_arg_list ';'{
 		ast_stack.pop_back();
 	} |
-	TOK_MSG_TASKS attr {
+	attr TOK_MSG_TASKS {
 		AstNode *node = new AstNode(AST_TCALL);
-		node->str = *$1;
-		delete $1;
+		node->str = *$2;
+		delete $2;
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
-		append_attr(node, $2);
+		append_attr(node, $1);
 	} opt_arg_list ';'{
 		ast_stack.pop_back();
 	} |
@@ -2329,8 +2329,6 @@ behavioral_stmt:
 		case_type_stack.pop_back();
 		ast_stack.pop_back();
 	};
-
-	;
 
 unique_case_attr:
 	/* empty */ {
