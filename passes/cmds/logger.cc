@@ -159,39 +159,12 @@ struct LoggerPass : public Pass {
 					log_cmd_error("Expected error message occurrences must be 1 !\n");
 				log("Added regex '%s' for warnings to expected %s list.\n", pattern.c_str(), type.c_str());
 				try {
-					if (type=="error") {
-						auto it = log_expect_error.begin();
-						auto ie = log_expect_error.end();
-						for (; it != ie; it++)
-							if (it->second.pattern == pattern) {
-								it->second.expected_count = count;
-								break;
-							}
-						if (it == ie)
-							log_expect_error.emplace_back(YS_REGEX_COMPILE(pattern), LogExpectedItem(pattern, count));
-					}
-					else if (type=="warning") {
-						auto it = log_expect_warning.begin();
-						auto ie = log_expect_warning.end();
-						for (; it != ie; it++)
-							if (it->second.pattern == pattern) {
-								it->second.expected_count = count;
-								break;
-							}
-						if (it == ie)
-							log_expect_warning.emplace_back(YS_REGEX_COMPILE(pattern), LogExpectedItem(pattern, count));
-					}
-					else if (type=="log") {
-						auto it = log_expect_log.begin();
-						auto ie = log_expect_log.end();
-						for (; it != ie; it++)
-							if (it->second.pattern == pattern) {
-								it->second.expected_count = count;
-								break;
-							}
-						if (it == ie)
-							log_expect_log.emplace_back(YS_REGEX_COMPILE(pattern), LogExpectedItem(pattern, count));
-					}
+					if (type == "error")
+						log_expect_error[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
+					else if (type == "warning")
+						log_expect_warning[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
+					else if (type == "log")
+						log_expect_log[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
 					else log_abort();
 				}
 				catch (const YS_REGEX_NS::regex_error& e) {
