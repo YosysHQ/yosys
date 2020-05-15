@@ -227,6 +227,28 @@ The command ``synth`` provides a good default synthesis script (see
 The command ``prep`` provides a good default word-level synthesis script, as
 used in SMT-based formal verification.
 
+# Cleaning
+
+There are a variety of `make clean` options available:
+
+* `make clean-abc` cleans the abc repo that was fetched into `./abc` during last build; calls `$(MAKE) -C abc DEP= clean`
+
+* `make clean-yosys` only cleans the yosys buld directory; test files and abc directory are unaffeccted.
+
+* `make clean-app` deletes the build files for both `yoysys` and `abc` files; calls `make clean-abc` `make clean-yosys`
+
+* `make clean-tests` removes all the test files that were generated during `make test`
+
+* `make clean-git` removes the entire `abc` directory. (will be re-feetched at next build)
+
+* `make clean-nogit` deletes the `abc` and `yosys` build files; calling `make clean-tests` and `make clean-app`, but does not purge the `abc` git fetch directory.
+
+* `make clean` cleans all abc and yosys build filess, as well as removing test files; calls `make clean-abc` `make clean-yosys` `make clean-tests`
+
+Note: If you do ABC development, make sure that 'abc' in this directory
+is just a symlink to your actual ABC working directory, as 'make mrproper'
+will remove the 'abc' directory and you do not want to accidentally
+delete your work on ABC..
 
 Unsupported Verilog-2005 Features
 =================================

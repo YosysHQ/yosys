@@ -717,7 +717,7 @@ ifneq ($(ABCREV),default)
 		echo 'REEBE: NOP pbagnvaf ybpny zbqvsvpngvbaf! Frg NOPERI=qrsnhyg va Lbflf Znxrsvyr!' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; false; \
 	fi
 # set a variable so the test fails if git fails to run - when comparing outputs directly, empty string would match empty string
-	$(Q) if ! (cd abc && rev="`git rev-parse $(ABCREV)`" && test "`git rev-parse HEAD`" == "$$rev"); then \
+	$(Q) if ! (cd abc 2> /dev/null && rev="`git rev-parse $(ABCREV)`" && test "`git rev-parse HEAD`" == "$$rev"); then \
 		test $(ABCPULL) -ne 0 || { echo 'REEBE: NOP abg hc gb qngr naq NOPCHYY frg gb 0 va Znxrsvyr!' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; exit 1; }; \
 		echo "Pulling ABC from $(ABCURL):"; set -x; \
 		test -d abc || git clone $(ABCURL) abc; \
@@ -860,27 +860,75 @@ manual: $(TARGETS) $(EXTRA_TARGETS)
 	cd manual && bash presentation.sh
 	cd manual && bash manual.sh
 
-clean:
-	rm -rf abc/
+# clean everything: clean should always leave directory in pristine condition
+clean: clean-abc clean-yosys clean-tests 
+	@echo ""
+	@echo "Cleaning everything... (not deleting extra git repo such as abc)"
+	@echo ""
+
+# put any additional repoa fetched that should be deleted here (and later redownloaded)
+clean-git: 
+	@echo ""
+	@echo "Removing other git repos..."
+	@echo ""
+	if [ -d "abc" ]; then echo "Removing local abc..."; rm -rf abc/; fi
+
+# clean just the build files of the app
+clean-app: clean-abc clean-yosys
+	@echo ""
+	@echo "Cleaning app build files..."
+	@echo ""
+
+clean-yosys:
+	@echo ""
+	@echo "Cleaning yosys build files..."
+	@echo ""
 	rm -rf share
 	rm -rf kernel/*.pyh
-	if test -d manual; then cd manual && sh clean.sh; fi
+	if [ -d "manual" ]; then cd manual; ./clean.sh; cd ..; fi
 	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS) $(PY_WRAP_INCLUDES) $(PY_WRAPPER_FILE).cc
 	rm -f kernel/version_*.o kernel/version_*.cc
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d techlibs/*/*.d
+	rm -rf vloghtb/Makefile vloghtb/refdat vloghtb/rtl vloghtb/scripts vloghtb/spec vloghtb/check_yosys vloghtb/vloghammer_tb.tar.bz2 vloghtb/temp vloghtb/log_test_*
+
+# an alias for clean-tests
+clean-test: clean-tests
+
+# test results to delete
+clean-tests:
+	@echo ""
+	@echo "Cleaning tests..."
+	@echo ""
+
+	rm -rf tests/aiger/*.out tests/aiger/*.log
+	rm -rf tests/arch/intel_alm/*.out tests/arch/intel_alm/*.log
 	rm -rf tests/asicworld/*.out tests/asicworld/*.log
 	rm -rf tests/hana/*.out tests/hana/*.log
 	rm -rf tests/simple/*.out tests/simple/*.log
 	rm -rf tests/memories/*.out tests/memories/*.log tests/memories/*.dmp
-	rm -rf tests/sat/*.log tests/techmap/*.log tests/various/*.log
+	rm -rf tests/sat/*.log tests/sat/*.log tests/sat/*.log
+	rm -rf tests/various/*.log tests/various/*.log tests/various/*.log
+	
 	rm -rf tests/bram/temp tests/fsm/temp tests/realmath/temp tests/share/temp tests/smv/temp
-	rm -rf vloghtb/Makefile vloghtb/refdat vloghtb/rtl vloghtb/scripts vloghtb/spec vloghtb/check_yosys vloghtb/vloghammer_tb.tar.bz2 vloghtb/temp vloghtb/log_test_*
 	rm -f tests/svinterfaces/*.log_stdout tests/svinterfaces/*.log_stderr tests/svinterfaces/dut_result.txt tests/svinterfaces/reference_result.txt tests/svinterfaces/a.out tests/svinterfaces/*_syn.v tests/svinterfaces/*.diff
-	rm -f  tests/tools/cmp_tbdata
+	rm -f tests/tools/cmp_tbdata
+
+	rm -f tests/*/*.d
+
 
 clean-abc:
-	$(MAKE) -C abc DEP= clean
+	@echo ""
+	@echo "Cleaning abc..."
+	@echo ""
+	if [ -d "abc" ]; then $(MAKE) -C abc DEP= clean; else echo "No abc directory to clean!"; fi
 	rm -f $(PROGRAM_PREFIX)yosys-abc$(EXE) $(PROGRAM_PREFIX)yosys-libabc.a abc/abc-[0-9a-f]* abc/libabc-[0-9a-f]*.a
+
+# clean everything *except* don't delete what we fetched from other git repos
+clean-nogit: clean-tests clean-app
+	@echo ""
+	@echo "Clean (nogit)"
+	@echo ""
+
 
 mrproper: clean
 	git clean -xdf
@@ -1001,6 +1049,6 @@ echo-abc-rev:
 -include kernel/*.d
 -include techlibs/*/*.d
 
-.PHONY: all top-all abc test install install-abc manual clean mrproper qtcreator coverage vcxsrc mxebin
+.PHONY: all top-all abc test install install-abc manual mrproper qtcreator coverage vcxsrc mxebin
 .PHONY: config-clean config-clang config-gcc config-gcc-static config-gcc-4.8 config-afl-gcc config-gprof config-sudo
-
+.PHONY: clean clean-abc clean-app clean-git clean-nogit clean-test clean-tests clean-yosys
