@@ -860,10 +860,10 @@ manual: $(TARGETS) $(EXTRA_TARGETS)
 	cd manual && bash presentation.sh
 	cd manual && bash manual.sh
 
-# clean everything: clean should always leave directory in pristine condition
-clean: clean-abc clean-yosys clean-tests 
+# clean actually only cleans yosys, leaving test files and abc build intact. See distclean
+clean: clean-yosys 
 	@echo ""
-	@echo "Cleaning everything... (not deleting extra git repo such as abc)"
+	@echo "Cleaned yosys only. ABC, a critical component of yosys, was NOT cleaned. Consider: make distclean"
 	@echo ""
 
 # put any additional repoa fetched that should be deleted here (and later redownloaded)
@@ -922,11 +922,23 @@ clean-abc:
 	@echo ""
 	if [ -d "abc" ]; then $(MAKE) -C abc DEP= clean; else echo "No abc directory to clean!"; fi
 	rm -f $(PROGRAM_PREFIX)yosys-abc$(EXE) $(PROGRAM_PREFIX)yosys-libabc.a abc/abc-[0-9a-f]* abc/libabc-[0-9a-f]*.a
+	@echo ""
+	@echo "abc clean complete."
+	@echo ""
 
 # clean everything *except* don't delete what we fetched from other git repos
 clean-nogit: clean-tests clean-app
 	@echo ""
 	@echo "Clean (nogit)"
+	@echo ""
+
+clean-dist: distclean
+
+cleandist: distclean
+
+distclean: clean-yosys clean-abc clean-tests
+	@echo ""
+	@echo "distclean complete: yosys and abc cleaned; tests purged."
 	@echo ""
 
 
@@ -1051,4 +1063,4 @@ echo-abc-rev:
 
 .PHONY: all top-all abc test install install-abc manual mrproper qtcreator coverage vcxsrc mxebin
 .PHONY: config-clean config-clang config-gcc config-gcc-static config-gcc-4.8 config-afl-gcc config-gprof config-sudo
-.PHONY: clean clean-abc clean-app clean-git clean-nogit clean-test clean-tests clean-yosys
+.PHONY: clean clean-abc clean-app distclean dist-clean clean-dist clean-git clean-nogit clean-test clean-tests clean-yosys

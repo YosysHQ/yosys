@@ -229,21 +229,32 @@ used in SMT-based formal verification.
 
 # Cleaning
 
+NOTE: `make clean` does *not* clean the `abc` dependency in the `./abc` directory (fetched at build time).
+If problems are encountered with `yosys`, please consider doing a full rebuild with `make distclean`.
+
+Also note that the most recent version of `abc` is typically *not* included. (there's ususally a specific deteched-head version in `./abc`)
+
 There are a variety of `make clean` options available:
+
+* `make clean` cleans only yosys build files, as well as removing test files; calls `make clean-yosys`
 
 * `make clean-abc` cleans the abc repo that was fetched into `./abc` during last build; calls `$(MAKE) -C abc DEP= clean`
 
-* `make clean-yosys` only cleans the yosys buld directory; test files and abc directory are unaffeccted.
+* `make clean-yosys` only cleans the yosys buld directory; test files and abc directory are unaffected. This is typically the same as `make clean`.
 
 * `make clean-app` deletes the build files for both `yoysys` and `abc` files; calls `make clean-abc` `make clean-yosys`
 
 * `make clean-tests` removes all the test files that were generated during `make test`
 
-* `make clean-git` removes the entire `abc` directory. (will be re-feetched at next build)
+* `make clean-git` warning! `rm -rf abc/` - removes the entire `abc` directory, not just cleaning!  (will be re-fetched at next build)
 
 * `make clean-nogit` deletes the `abc` and `yosys` build files; calling `make clean-tests` and `make clean-app`, but does not purge the `abc` git fetch directory.
 
-* `make clean` cleans all abc and yosys build filess, as well as removing test files; calls `make clean-abc` `make clean-yosys` `make clean-tests`
+* `make distclean` cleans everything. Use this if you encounter problems with `yosys`; calls  `make clean-abc`, `make clean-yosys` and  `make clean-tests`.
+This does NOT DELETE the `abc` git repo, only runs the local clean there. See separate `make clean-git` to actually delete repos.
+
+* `make mrproper` performs a `make clean` (calls `make clean-yosys`) - and does a `git clean -xdf`
+
 
 Note: If you do ABC development, make sure that 'abc' in this directory
 is just a symlink to your actual ABC working directory, as 'make mrproper'
