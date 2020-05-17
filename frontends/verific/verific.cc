@@ -1265,18 +1265,13 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 			int numchunks = int(inst->OutputSize()) / memory->width;
 			int chunksbits = ceil_log2(numchunks);
 
-			if ((numchunks * memory->width) != int(inst->OutputSize()))
+			if ((numchunks * memory->width) != int(inst->OutputSize()) || (numchunks & (numchunks - 1)) != 0)
 				log_error("Import of asymmetric memories of this type is not supported yet: %s %s\n", inst->Name(), inst->GetInput()->Name());
 
 			for (int i = 0; i < numchunks; i++)
 			{
 				RTLIL::SigSpec addr = {operatorInput1(inst), RTLIL::Const(i, chunksbits)};
 				RTLIL::SigSpec data = operatorOutput(inst).extract(i * memory->width, memory->width);
-
-				if ((numchunks & (numchunks - 1)) != 0) {
-					addr = module->Mul(NEW_ID, operatorInput1(inst), RTLIL::Const(numchunks));
-					addr = module->Add(NEW_ID, addr, RTLIL::Const(i));
-				}
 
 				RTLIL::Cell *cell = module->addCell(numchunks == 1 ? inst_name :
 						RTLIL::IdString(stringf("%s_%d", inst_name.c_str(), i)), ID($memrd));
@@ -1300,18 +1295,13 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 			int numchunks = int(inst->Input2Size()) / memory->width;
 			int chunksbits = ceil_log2(numchunks);
 
-			if ((numchunks * memory->width) != int(inst->Input2Size()))
+			if ((numchunks * memory->width) != int(inst->Input2Size()) || (numchunks & (numchunks - 1)) != 0)
 				log_error("Import of asymmetric memories of this type is not supported yet: %s %s\n", inst->Name(), inst->GetOutput()->Name());
 
 			for (int i = 0; i < numchunks; i++)
 			{
 				RTLIL::SigSpec addr = {operatorInput1(inst), RTLIL::Const(i, chunksbits)};
 				RTLIL::SigSpec data = operatorInput2(inst).extract(i * memory->width, memory->width);
-
-				if ((numchunks & (numchunks - 1)) != 0) {
-					addr = module->Mul(NEW_ID, operatorInput1(inst), RTLIL::Const(numchunks));
-					addr = module->Add(NEW_ID, addr, RTLIL::Const(i));
-				}
 
 				RTLIL::Cell *cell = module->addCell(numchunks == 1 ? inst_name :
 						RTLIL::IdString(stringf("%s_%d", inst_name.c_str(), i)), ID($memwr));
