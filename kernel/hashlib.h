@@ -617,12 +617,10 @@ public:
 	}
 
 	unsigned int hash() const {
-		std::vector<entry_t> entries_(entries); //make a copy to preserve const-ness
-		std::sort(entries_.begin(), entries_.end());
 		unsigned int h = mkhash_init;
-		for (unsigned int i = 0; i < entries_.size(); ++i) {
-			h = mkhash(h, hash_ops<K>::hash(entries_[i].udata.first));
-			h = mkhash(h, hash_ops<T>::hash(entries_[i].udata.second));
+		for (auto &entry : entries) {
+			h ^= hash_ops<K>::hash(entry.udata.first);
+			h ^= hash_ops<T>::hash(entry.udata.second);
 		}
 		return h;
 	}
