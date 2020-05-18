@@ -54,8 +54,6 @@ $(eval $(call add_share_file,share/xilinx,techlibs/xilinx/xc5v_dsp_map.v))
 $(eval $(call add_share_file,share/xilinx,techlibs/xilinx/xc7_dsp_map.v))
 $(eval $(call add_share_file,share/xilinx,techlibs/xilinx/xcu_dsp_map.v))
 
-$(eval $(call add_share_file,share/xilinx,techlibs/xilinx/abc9_map.v))
-$(eval $(call add_share_file,share/xilinx,techlibs/xilinx/abc9_unmap.v))
 $(eval $(call add_share_file,share/xilinx,techlibs/xilinx/abc9_model.v))
 
 $(eval $(call add_gen_share_file,share/xilinx,techlibs/xilinx/brams_init_36.vh))

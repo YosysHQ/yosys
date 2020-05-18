@@ -82,6 +82,9 @@ struct TimingInfo
 
 		for (auto cell : module->cells()) {
 			if (cell->type == ID($specify2)) {
+				auto en = cell->getPort(ID::EN);
+				if (en.is_fully_const() && !en.as_bool())
+					continue;
 				auto src = cell->getPort(ID::SRC);
 				auto dst = cell->getPort(ID::DST);
 				for (const auto &c : src.chunks())
@@ -128,11 +131,9 @@ struct TimingInfo
 				int rise_max = cell->getParam(ID::T_RISE_MAX).as_int();
 				int fall_max = cell->getParam(ID::T_FALL_MAX).as_int();
 				int max = std::max(rise_max,fall_max);
-				if (max < 0)
-					log_warning("Module '%s' contains specify cell '%s' with T_{RISE,FALL}_MAX < 0 which is currently unsupported. Ignoring.\n", log_id(module), log_id(cell));
-				if (max <= 0) {
-					log_debug("Module '%s' contains specify cell '%s' with T_{RISE,FALL}_MAX <= 0 which is currently unsupported. Ignoring.\n", log_id(module), log_id(cell));
-					continue;
+				if (max < 0) {
+					log_warning("Module '%s' contains specify cell '%s' with T_{RISE,FALL}_MAX < 0 which is currently unsupported. Clamping to 0.\n", log_id(module), log_id(cell));
+					max = 0;
 				}
 				for (const auto &d : dst) {
 					auto &v = t.arrival[NameBit(d)];
@@ -152,11 +153,9 @@ struct TimingInfo
 					if (!c.wire->port_input)
 						log_error("Module '%s' contains specify cell '%s' where DST '%s' is not a module input.\n", log_id(module), log_id(cell), log_signal(dst));
 				int max = cell->getParam(ID::T_LIMIT_MAX).as_int();
-				if (max < 0)
-					log_warning("Module '%s' contains specify cell '%s' with T_LIMIT_MAX < 0 which is currently unsupported. Ignoring.\n", log_id(module), log_id(cell));
-				if (max <= 0) {
-					log_debug("Module '%s' contains specify cell '%s' with T_LIMIT_MAX <= 0 which is currently unsupported. Ignoring.\n", log_id(module), log_id(cell));
-					continue;
+				if (max < 0) {
+					log_warning("Module '%s' contains specify cell '%s' with T_LIMIT_MAX < 0 which is currently unsupported. Clamping to 0.\n", log_id(module), log_id(cell));
+					max = 0;
 				}
 				for (const auto &s : src) {
 					auto &v = t.required[NameBit(s)];

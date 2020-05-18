@@ -45,7 +45,7 @@ struct AigerReader
     std::vector<RTLIL::Wire*> outputs;
     std::vector<RTLIL::Wire*> bad_properties;
     std::vector<RTLIL::Cell*> boxes;
-    std::vector<int> mergeability;
+    std::vector<int> mergeability, initial_state;
 
     AigerReader(RTLIL::Design *design, std::istream &f, RTLIL::IdString module_name, RTLIL::IdString clk_name, std::string map_filename, bool wideports);
     void parse_aiger();
