@@ -421,6 +421,8 @@ constant:
 		free($1);
 	} |
 	TOK_INT {
+		if ($1 < 0)
+			rtlil_frontend_ilang_yyerror("negative literal");
 		$$ = new RTLIL::Const($1, 32);
 	} |
 	TOK_STRING {
