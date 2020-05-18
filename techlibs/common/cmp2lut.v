@@ -16,8 +16,11 @@ parameter A_WIDTH = 0;
 parameter B_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
+(* force_downto *)
 input [A_WIDTH-1:0] A;
+(* force_downto *)
 input [B_WIDTH-1:0] B;
+(* force_downto *)
 output [Y_WIDTH-1:0] Y;
 
 parameter _TECHMAP_CELLTYPE_ = "";

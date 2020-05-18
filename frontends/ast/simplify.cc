@@ -1098,6 +1098,25 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				range_swapped = children[0]->range_swapped;
 				range_left = children[0]->range_left;
 				range_right = children[0]->range_right;
+				bool force_upto = false, force_downto = false;
+				if (attributes.count(ID::force_upto)) {
+					AstNode *val = attributes[ID::force_upto];
+					if (val->type != AST_CONSTANT)
+						log_file_error(filename, location.first_line, "Attribute `force_upto' with non-constant value!\n");
+					force_upto = val->asAttrConst().as_bool();
+				}
+				if (attributes.count(ID::force_downto)) {
+					AstNode *val = attributes[ID::force_downto];
+					if (val->type != AST_CONSTANT)
+						log_file_error(filename, location.first_line, "Attribute `force_downto' with non-constant value!\n");
+					force_downto = val->asAttrConst().as_bool();
+				}
+				if (force_upto && force_downto)
+					log_file_error(filename, location.first_line, "Attributes `force_downto' and `force_upto' cannot be both set!\n");
+				if ((force_upto && !range_swapped) || (force_downto && range_swapped)) {
+					std::swap(range_left, range_right);
+					range_swapped = force_upto;
+				}
 			}
 		} else {
 			if (!range_valid)

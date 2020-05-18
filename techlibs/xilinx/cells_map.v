@@ -184,8 +184,11 @@ module \$__XILINX_SHIFTX (A, B, Y);
   parameter B_WIDTH = 1;
   parameter Y_WIDTH = 1;
 
+  (* force_downto *)
   input [A_WIDTH-1:0] A;
+  (* force_downto *)
   input [B_WIDTH-1:0] B;
+  (* force_downto *)
   output [Y_WIDTH-1:0] Y;
 
   parameter [A_WIDTH-1:0] _TECHMAP_CONSTMSK_A_ = 0;
@@ -321,8 +324,11 @@ module _90__XILINX_SHIFTX (A, B, Y);
   parameter B_WIDTH = 1;
   parameter Y_WIDTH = 1;
 
+  (* force_downto *)
   input [A_WIDTH-1:0] A;
+  (* force_downto *)
   input [B_WIDTH-1:0] B;
+  (* force_downto *)
   output [Y_WIDTH-1:0] Y;
 
   \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(A_WIDTH), .B_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A), .B(B), .Y(Y));
