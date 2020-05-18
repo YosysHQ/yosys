@@ -4,7 +4,9 @@ module dff2ff (CLK, D, Q);
 	parameter CLK_POLARITY = 1;
 
 	input CLK;
+	(* force_downto *)
 	input [WIDTH-1:0] D;
+	(* force_downto *)
 	output reg [WIDTH-1:0] Q;
 
 	wire [1023:0] _TECHMAP_DO_ = "proc;;";

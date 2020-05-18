@@ -85,8 +85,11 @@ module _90_shift_ops_shr_shl_sshl_sshr (A, B, Y);
 	localparam shift_left = _TECHMAP_CELLTYPE_ == "$shl" || _TECHMAP_CELLTYPE_ == "$sshl";
 	localparam sign_extend = A_SIGNED && _TECHMAP_CELLTYPE_ == "$sshr";
 
+	(* force_downto *)
 	input [A_WIDTH-1:0] A;
+	(* force_downto *)
 	input [B_WIDTH-1:0] B;
+	(* force_downto *)
 	output [Y_WIDTH-1:0] Y;
 
 	localparam WIDTH = `MAX(A_WIDTH, Y_WIDTH);
@@ -96,6 +99,7 @@ module _90_shift_ops_shr_shl_sshl_sshr (A, B, Y);
 	wire [1023:0] _TECHMAP_DO_01_ = "RECURSION; CONSTMAP; opt_muxtree; opt_expr -mux_undef -mux_bool -fine;;;";
 
 	integer i;
+	(* force_downto *)
 	reg [WIDTH-1:0] buffer;
 	reg overflow;
 
@@ -125,8 +129,11 @@ module _90_shift_shiftx (A, B, Y);
 	parameter B_WIDTH = 1;
 	parameter Y_WIDTH = 1;
 
+	(* force_downto *)
 	input [A_WIDTH-1:0] A;
+	(* force_downto *)
 	input [B_WIDTH-1:0] B;
+	(* force_downto *)
 	output [Y_WIDTH-1:0] Y;
 
 	parameter _TECHMAP_CELLTYPE_ = "";
@@ -173,6 +180,7 @@ module _90_shift_shiftx (A, B, Y);
 			wire [1023:0] _TECHMAP_DO_01_ = "CONSTMAP; opt_muxtree; opt_expr -mux_undef -mux_bool -fine;;;";
 
 			integer i;
+			(* force_downto *)
 			reg [WIDTH-1:0] buffer;
 			reg overflow;
 
@@ -216,9 +224,12 @@ endmodule
 module _90_fa (A, B, C, X, Y);
 	parameter WIDTH = 1;
 
+	(* force_downto *)
 	input [WIDTH-1:0] A, B, C;
+	(* force_downto *)
 	output [WIDTH-1:0] X, Y;
 
+	(* force_downto *)
 	wire [WIDTH-1:0] t1, t2, t3;
 
 	assign t1 = A ^ B, t2 = A & B, t3 = C & t1;
@@ -229,12 +240,15 @@ endmodule
 module _90_lcu (P, G, CI, CO);
 	parameter WIDTH = 2;
 
+	(* force_downto *)
 	input [WIDTH-1:0] P, G;
 	input CI;
 
+	(* force_downto *)
 	output [WIDTH-1:0] CO;
 
 	integer i, j;
+	(* force_downto *)
 	reg [WIDTH-1:0] p, g;
 
 	wire [1023:0] _TECHMAP_DO_ = "proc; opt -fast";
@@ -278,38 +292,26 @@ module _90_alu (A, B, CI, BI, X, Y, CO);
 	parameter B_WIDTH = 1;
 	parameter Y_WIDTH = 1;
 
+	(* force_downto *)
 	input [A_WIDTH-1:0] A;
+	(* force_downto *)
 	input [B_WIDTH-1:0] B;
+	(* force_downto *)
 	output [Y_WIDTH-1:0] X, Y;
 
 	input CI, BI;
+	(* force_downto *)
 	output [Y_WIDTH-1:0] CO;
 
-	wire [Y_WIDTH-1:0] AA, BB;
+	(* force_downto *)
+	wire [Y_WIDTH-1:0] AA = A_buf;
+	(* force_downto *)
 	wire [Y_WIDTH-1:0] BB = BI ? ~B_buf : B_buf;
 
-	if (A_WIDTH == 0) begin
-		wire [Y_WIDTH-1:0] B_buf;
-		\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
-
-		assign AA = {Y_WIDTH{1'b0}};
-		assign BB = BI ? ~B_buf : B_buf;
-	end
-	else if (B_WIDTH == 0) begin
-		wire [Y_WIDTH-1:0] A_buf;
-		\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
-
-		assign AA = A_buf;
-		assign BB = {Y_WIDTH{BI ? 1'b0 : 1'b1}};
-	end
-	else begin
-		wire [Y_WIDTH-1:0] A_buf, B_buf;
-		\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
-		\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
-
-		assign AA = A_buf;
-		assign BB = BI ? ~B_buf : B_buf;
-	end
+	(* force_downto *)
+	wire [Y_WIDTH-1:0] A_buf, B_buf;
+	\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
+	\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
 
 	\$lcu #(.WIDTH(Y_WIDTH)) lcu (.P(X), .G(AA & BB), .CI(CI), .CO(CO));
 
@@ -335,15 +337,19 @@ endmodule
 module \$__div_mod_u (A, B, Y, R);
 	parameter WIDTH = 1;
 
+	(* force_downto *)
 	input [WIDTH-1:0] A, B;
+	(* force_downto *)
 	output [WIDTH-1:0] Y, R;
 
+	(* force_downto *)
 	wire [WIDTH*WIDTH-1:0] chaindata;
 	assign R = chaindata[WIDTH*WIDTH-1:WIDTH*(WIDTH-1)];
 
 	genvar i;
 	generate begin
 		for (i = 0; i < WIDTH; i=i+1) begin:stage
+			(* force_downto *)
 			wire [WIDTH-1:0] stage_in;
 
 			if (i == 0) begin:cp
@@ -369,14 +375,19 @@ module \$__div_mod (A, B, Y, R);
 			A_WIDTH >= B_WIDTH && A_WIDTH >= Y_WIDTH ? A_WIDTH :
 			B_WIDTH >= A_WIDTH && B_WIDTH >= Y_WIDTH ? B_WIDTH : Y_WIDTH;
 
+	(* force_downto *)
 	input [A_WIDTH-1:0] A;
+	(* force_downto *)
 	input [B_WIDTH-1:0] B;
+	(* force_downto *)
 	output [Y_WIDTH-1:0] Y, R;
 
+	(* force_downto *)
 	wire [WIDTH-1:0] A_buf, B_buf;
 	\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
 	\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
 
+	(* force_downto *)
 	wire [WIDTH-1:0] A_buf_u, B_buf_u, Y_u, R_u;
 	assign A_buf_u = A_SIGNED && A_buf[WIDTH-1] ? -A_buf : A_buf;
 	assign B_buf_u = B_SIGNED && B_buf[WIDTH-1] ? -B_buf : B_buf;
@@ -402,8 +413,11 @@ module _90_div (A, B, Y);
 	parameter B_WIDTH = 1;
 	parameter Y_WIDTH = 1;
 
+	(* force_downto *)
 	input [A_WIDTH-1:0] A;
+	(* force_downto *)
 	input [B_WIDTH-1:0] B;
+	(* force_downto *)
 	output [Y_WIDTH-1:0] Y;
 
 	\$__div_mod #(
@@ -427,8 +441,11 @@ module _90_mod (A, B, Y);
 	parameter B_WIDTH = 1;
 	parameter Y_WIDTH = 1;
 
+	(* force_downto *)
 	input [A_WIDTH-1:0] A;
+	(* force_downto *)
 	input [B_WIDTH-1:0] B;
+	(* force_downto *)
 	output [Y_WIDTH-1:0] Y;
 
 	\$__div_mod #(
@@ -457,8 +474,11 @@ module _90_pow (A, B, Y);
 	parameter B_WIDTH = 1;
 	parameter Y_WIDTH = 1;
 
+	(* force_downto *)
 	input [A_WIDTH-1:0] A;
+	(* force_downto *)
 	input [B_WIDTH-1:0] B;
+	(* force_downto *)
 	output [Y_WIDTH-1:0] Y;
 
 	wire _TECHMAP_FAIL_ = 1;
@@ -474,20 +494,27 @@ module _90_pmux (A, B, S, Y);
 	parameter WIDTH = 1;
 	parameter S_WIDTH = 1;
 
+	(* force_downto *)
 	input [WIDTH-1:0] A;
+	(* force_downto *)
 	input [WIDTH*S_WIDTH-1:0] B;
+	(* force_downto *)
 	input [S_WIDTH-1:0] S;
+	(* force_downto *)
 	output [WIDTH-1:0] Y;
 
+	(* force_downto *)
 	wire [WIDTH-1:0] Y_B;
 
 	genvar i, j;
 	generate
+		(* force_downto *)
 		wire [WIDTH*S_WIDTH-1:0] B_AND_S;
 		for (i = 0; i < S_WIDTH; i = i + 1) begin:B_AND
 			assign B_AND_S[WIDTH*(i+1)-1:WIDTH*i] = B[WIDTH*(i+1)-1:WIDTH*i] & {WIDTH{S[i]}};
 		end:B_AND
 		for (i = 0; i < WIDTH; i = i + 1) begin:B_OR
+			(* force_downto *)
 			wire [S_WIDTH-1:0] B_AND_BITS;
 			for (j = 0; j < S_WIDTH; j = j + 1) begin:B_AND_BITS_COLLECT
 				assign B_AND_BITS[j] = B_AND_S[WIDTH*j+i];

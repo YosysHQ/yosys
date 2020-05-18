@@ -12,8 +12,11 @@ parameter A_WIDTH = 0;
 parameter B_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
+(* force_downto *)
 input [A_WIDTH-1:0] A;
+(* force_downto *)
 input [B_WIDTH-1:0] B;
+(* force_downto *)
 output [Y_WIDTH-1:0] Y;
 
 parameter _TECHMAP_CELLTYPE_ = "";
@@ -32,7 +35,9 @@ generate
     else begin
         // Perform sign extension on A and B
         localparam WIDTH = A_WIDTH > B_WIDTH ? A_WIDTH : B_WIDTH;
+        (* force_downto *)
         wire [WIDTH-1:0] AA = {{(WIDTH-A_WIDTH){A_SIGNED ? A[A_WIDTH-1] : 1'b0}}, A};
+        (* force_downto *)
         wire [WIDTH-1:0] BB = {{(WIDTH-B_WIDTH){B_SIGNED ? B[B_WIDTH-1] : 1'b0}}, B};
         // For $ge operation, start with the assumption that A and B are
         //   equal (propagating this equality if A and B turn out to be so)
@@ -54,9 +59,13 @@ parameter LCU_WIDTH = 1;
 parameter BUDGET = 0;
 parameter CI = 0;
 
+(* force_downto *)
 input [AB_WIDTH-1:0] A; // A from original $gt/$ge
+(* force_downto *)
 input [AB_WIDTH-1:0] B; // B from original $gt/$ge
+(* force_downto *)
 input [LCU_WIDTH-1:0] P; // P of $lcu
+(* force_downto *)
 input [LCU_WIDTH-1:0] G; // G of $lcu
 output Y;
 
@@ -66,6 +75,7 @@ parameter [LCU_WIDTH-1:0] _TECHMAP_CONSTMSK_P_ = 0;
 
 generate
     if (AB_WIDTH == 0) begin
+        (* force_downto *)
         wire [LCU_WIDTH-1:0] CO;
         $lcu #(.WIDTH(LCU_WIDTH)) _TECHMAP_REPLACE_ (.P(P), .G(G), .CI(CI), .CO(CO));
         assign Y = CO[LCU_WIDTH-1];
@@ -104,8 +114,10 @@ generate
             else begin
                 // Propagate only if all pairs are equal
                 //   (inconclusive evidence to say A >= B)
+                (* force_downto *)
                 wire [LCU_WIDTH-1:0] P_ = {P[LCU_WIDTH-1:1], P[0] & PP};
                 // Generate if any comparisons call for it
+                (* force_downto *)
                 wire [LCU_WIDTH-1:0] G_ = {G[LCU_WIDTH-1:1], G[0] | GG};
             end
             if (AB_WIDTH == 1)
