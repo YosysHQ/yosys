@@ -312,16 +312,16 @@ class PythonListTranslator(Translator):
 			text += prefix + "\t" + known_containers[types[0].name].typename + " " + tmp_name + " = boost::python::extract<" + known_containers[types[0].name].typename + ">(" + varname + "[" + cntr_name + "]);"
 			text += known_containers[types[0].name].translate(tmp_name, types[0].cont.args, prefix+"\t")
 			tmp_name = tmp_name + "___tmp"
-			text += prefix + "\t" + varname + "___tmp." + c.insert_name + "(" + tmp_name + ");"
+			text += prefix + "\t" + varname + "___tmp" + c.insert_name + "(" + tmp_name + ");"
 		elif types[0].name in classnames:
 			text += prefix + "\t" + types[0].name + "* " + tmp_name + " = boost::python::extract<" + types[0].name + "*>(" + varname + "[" + cntr_name + "]);"
 			if types[0].attr_type == attr_types.star:
-				text += prefix + "\t" + varname + "___tmp." + c.insert_name + "(" + tmp_name + "->get_cpp_obj());"
+				text += prefix + "\t" + varname + "___tmp" + c.insert_name + "(" + tmp_name + "->get_cpp_obj());"
 			else:
-				text += prefix + "\t" + varname + "___tmp." + c.insert_name + "(*" + tmp_name + "->get_cpp_obj());"
+				text += prefix + "\t" + varname + "___tmp" + c.insert_name + "(*" + tmp_name + "->get_cpp_obj());"
 		else:
 			text += prefix + "\t" + types[0].name + " " + tmp_name + " = boost::python::extract<" + types[0].name + ">(" + varname + "[" + cntr_name + "]);"
-			text += prefix + "\t" + varname + "___tmp." + c.insert_name + "(" + tmp_name + ");"
+			text += prefix + "\t" + varname + "___tmp" + c.insert_name + "(" + tmp_name + ");"
 		text += prefix + "}"
 		return text
 
@@ -349,19 +349,24 @@ class PythonListTranslator(Translator):
 		text += prefix + "}"
 		return text
 
+class IDictTranslator(PythonListTranslator):
+	typename = "boost::python::list"
+	orig_name = "idict"
+	insert_name = ""
+
 #Sub-type for std::set
 class SetTranslator(PythonListTranslator):
-	insert_name = "insert"
+	insert_name = ".insert"
 	orig_name = "std::set"
 
 #Sub-type for std::vector
 class VectorTranslator(PythonListTranslator):
-	insert_name = "push_back"
+	insert_name = ".push_back"
 	orig_name = "std::vector"
 
 #Sub-type for pool
 class PoolTranslator(PythonListTranslator):
-	insert_name = "insert"
+	insert_name = ".insert"
 	orig_name = "pool"
 
 #Translates dict-types (dict, std::map), that only differ in their name and
@@ -528,6 +533,7 @@ known_containers = {
 	"std::set"		:	SetTranslator,
 	"std::vector"	:	VectorTranslator,
 	"pool"			:	PoolTranslator,
+	"idict"			:	IDictTranslator,
 	"dict"			:	DictTranslator,
 	"std::pair"		:	TupleTranslator,
 	"std::map"		:	MapTranslator
