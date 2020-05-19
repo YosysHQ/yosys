@@ -1511,7 +1511,7 @@ else:  # not tempind, covermode
                             smt_assert_consequent(get_constr_expr(constr_assumes, i))
                         print_msg("Re-solving with appended steps..")
                         if smt_check_sat() == "unsat":
-                            print("%s Cannot appended steps without violating assumptions!" % smt.timestamp())
+                            print("%s Cannot append steps without violating assumptions!" % smt.timestamp())
                             retstatus = "FAILED"
                             break
                     print_anyconsts(step)
