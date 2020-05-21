@@ -202,19 +202,16 @@ void log_flush();
 
 struct LogExpectedItem
 {
-	LogExpectedItem(std::string pattern, int expected) :
-		expected_count(expected),
-		current_count(0),
-		pattern(pattern)
-	{
-	}
+	LogExpectedItem(const YS_REGEX_TYPE &pat, int expected) :
+			pattern(pat), expected_count(expected), current_count(0) {}
+	LogExpectedItem() : expected_count(0), current_count(0) {}
 
+	YS_REGEX_TYPE pattern;
 	int expected_count;
 	int current_count;
-	std::string pattern;
 };
 
-extern std::vector<std::pair<YS_REGEX_TYPE,LogExpectedItem>> log_expect_log, log_expect_warning, log_expect_error;
+extern dict<std::string, LogExpectedItem> log_expect_log, log_expect_warning, log_expect_error;
 void log_check_expected();
 
 const char *log_signal(const RTLIL::SigSpec &sig, bool autoint = true);

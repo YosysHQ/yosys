@@ -42,7 +42,7 @@ std::vector<FILE*> log_files;
 std::vector<std::ostream*> log_streams;
 std::map<std::string, std::set<std::string>> log_hdump;
 std::vector<YS_REGEX_TYPE> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
-std::vector<std::pair<YS_REGEX_TYPE,LogExpectedItem>> log_expect_log, log_expect_warning, log_expect_error;
+dict<std::string, LogExpectedItem> log_expect_log, log_expect_warning, log_expect_error;
 std::set<std::string> log_warnings, log_experimentals, log_experimentals_ignored;
 int log_warnings_count = 0;
 int log_warnings_count_noexpect = 0;
@@ -181,7 +181,7 @@ void logv(const char *format, va_list ap)
 						log_warning("Found log message matching -W regex:\n%s", str.c_str());
 
 				for (auto &item : log_expect_log)
-					if (YS_REGEX_NS::regex_search(linebuffer, item.first))
+					if (YS_REGEX_NS::regex_search(linebuffer, item.second.pattern))
 						item.second.current_count++;
 
 				linebuffer.clear();
@@ -256,7 +256,7 @@ static void logv_warning_with_prefix(const char *prefix,
 
 		bool warning_match = false;
 		for (auto &item : log_expect_warning)
-			if (YS_REGEX_NS::regex_search(message, item.first)) {
+			if (YS_REGEX_NS::regex_search(message, item.second.pattern)) {
 				item.second.current_count++;
 				warning_match = true;
 			}
@@ -349,7 +349,7 @@ static void logv_error_with_prefix(const char *prefix,
 		log_error_atexit();
 
 	for (auto &item : log_expect_error)
-		if (YS_REGEX_NS::regex_search(log_last_error, item.first))
+		if (YS_REGEX_NS::regex_search(log_last_error, item.second.pattern))
 			item.second.current_count++;
 
 	if (check_expected_logs)
@@ -672,31 +672,31 @@ void log_check_expected()
 	for (auto &item : log_expect_warning) {
 		if (item.second.current_count == 0) {
 			log_warn_regexes.clear();
-			log_error("Expected warning pattern '%s' not found !\n", item.second.pattern.c_str());
+			log_error("Expected warning pattern '%s' not found !\n", item.first.c_str());
 		}
 		if (item.second.current_count != item.second.expected_count) {
 			log_warn_regexes.clear();
 			log_error("Expected warning pattern '%s' found %d time(s), instead of %d time(s) !\n",
-				item.second.pattern.c_str(), item.second.current_count, item.second.expected_count);
+				item.first.c_str(), item.second.current_count, item.second.expected_count);
 		}
 	}
 
 	for (auto &item : log_expect_log) {
 		if (item.second.current_count == 0) {
 			log_warn_regexes.clear();
-			log_error("Expected log pattern '%s' not found !\n", item.second.pattern.c_str());
+			log_error("Expected log pattern '%s' not found !\n", item.first.c_str());
 		}
 		if (item.second.current_count != item.second.expected_count) {
 			log_warn_regexes.clear();
 			log_error("Expected log pattern '%s' found %d time(s), instead of %d time(s) !\n",
-				item.second.pattern.c_str(), item.second.current_count, item.second.expected_count);
+				item.first.c_str(), item.second.current_count, item.second.expected_count);
 		}
 	}
 
 	for (auto &item : log_expect_error)
 		if (item.second.current_count == item.second.expected_count) {
 			log_warn_regexes.clear();
-			log("Expected error pattern '%s' found !!!\n", item.second.pattern.c_str());
+			log("Expected error pattern '%s' found !!!\n", item.first.c_str());
 			#ifdef EMSCRIPTEN
 				throw 0;
 			#elif defined(_MSC_VER)
@@ -707,7 +707,7 @@ void log_check_expected()
 		} else {
 			display_error_log_msg = false;
 			log_warn_regexes.clear();
-			log_error("Expected error pattern '%s' not found !\n", item.second.pattern.c_str());
+			log_error("Expected error pattern '%s' not found !\n", item.first.c_str());
 		}
 }
 
