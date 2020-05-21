@@ -23,18 +23,7 @@
 #include "kernel/log.h"
 #include "kernel/rtlil.h"
 #include "kernel/register.h"
-#include <cstdio>
 #include <algorithm>
-
-#if defined(_WIN32)
-#  define WIFEXITED(x) 1
-#  define WIFSIGNALED(x) 0
-#  define WIFSTOPPED(x) 0
-#  define WEXITSTATUS(x) ((x) & 0xff)
-#  define WTERMSIG(x) SIGTERM
-#else
-#  include <sys/wait.h>
-#endif
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
