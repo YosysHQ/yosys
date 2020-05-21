@@ -260,6 +260,7 @@ static bool isUserType(std::string &s)
 "const"      { if (formal_mode) return TOK_CONST; SV_KEYWORD(TOK_CONST); }
 "checker"    { if (formal_mode) return TOK_CHECKER; SV_KEYWORD(TOK_CHECKER); }
 "endchecker" { if (formal_mode) return TOK_ENDCHECKER; SV_KEYWORD(TOK_ENDCHECKER); }
+"bind"       { if (formal_mode) return TOK_BIND; SV_KEYWORD(TOK_BIND); }
 "final"      { SV_KEYWORD(TOK_FINAL); }
 "logic"      { SV_KEYWORD(TOK_LOGIC); }
 "var"        { SV_KEYWORD(TOK_VAR); }
