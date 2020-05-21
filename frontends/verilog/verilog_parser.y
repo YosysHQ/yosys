@@ -2203,32 +2203,36 @@ assert_property:
 	};
 
 simple_behavioral_stmt:
-	lvalue '=' delay expr {
-		AstNode *node = new AstNode(AST_ASSIGN_EQ, $1, $4);
+	attr lvalue '=' delay expr {
+		AstNode *node = new AstNode(AST_ASSIGN_EQ, $2, $5);
 		ast_stack.back()->children.push_back(node);
-		SET_AST_NODE_LOC(node, @1, @4);
+		SET_AST_NODE_LOC(node, @2, @5);
+		append_attr(node, $1);
 	} |
-	lvalue TOK_INCREMENT {
-		AstNode *node = new AstNode(AST_ASSIGN_EQ, $1, new AstNode(AST_ADD, $1->clone(), AstNode::mkconst_int(1, true)));
+	attr lvalue TOK_INCREMENT {
+		AstNode *node = new AstNode(AST_ASSIGN_EQ, $2, new AstNode(AST_ADD, $2->clone(), AstNode::mkconst_int(1, true)));
 		ast_stack.back()->children.push_back(node);
-		SET_AST_NODE_LOC(node, @1, @2);
+		SET_AST_NODE_LOC(node, @2, @3);
+		append_attr(node, $1);
 	} |
-	lvalue TOK_DECREMENT {
-		AstNode *node = new AstNode(AST_ASSIGN_EQ, $1, new AstNode(AST_SUB, $1->clone(), AstNode::mkconst_int(1, true)));
+	attr lvalue TOK_DECREMENT {
+		AstNode *node = new AstNode(AST_ASSIGN_EQ, $2, new AstNode(AST_SUB, $2->clone(), AstNode::mkconst_int(1, true)));
 		ast_stack.back()->children.push_back(node);
-		SET_AST_NODE_LOC(node, @1, @2);
+		SET_AST_NODE_LOC(node, @2, @3);
+		append_attr(node, $1);
 	} |
-	lvalue OP_LE delay expr {
-		AstNode *node = new AstNode(AST_ASSIGN_LE, $1, $4);
+	attr lvalue OP_LE delay expr {
+		AstNode *node = new AstNode(AST_ASSIGN_LE, $2, $5);
 		ast_stack.back()->children.push_back(node);
-		SET_AST_NODE_LOC(node, @1, @4);
+		SET_AST_NODE_LOC(node, @2, @5);
+		append_attr(node, $1);
 	};
 
 // this production creates the obligatory if-else shift/reduce conflict
 behavioral_stmt:
 	defattr | assert | wire_decl | param_decl | localparam_decl | typedef_decl |
 	non_opt_delay behavioral_stmt |
-	attr simple_behavioral_stmt ';' |
+	simple_behavioral_stmt ';' |
 	attr ';' {
 		free_attr($1);
 	} |
