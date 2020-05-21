@@ -160,7 +160,8 @@ namespace AST
 		AST_TYPEDEF,
 		AST_STRUCT,
 		AST_UNION,
-		AST_STRUCT_ITEM
+		AST_STRUCT_ITEM,
+		AST_BIND
 	};
 
 	struct AstSrcLocType {

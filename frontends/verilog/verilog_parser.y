@@ -299,6 +299,7 @@ static void checkLabelsMatch(const char *element, const std::string *before, con
 %token TOK_BIT_OR_ASSIGN TOK_BIT_AND_ASSIGN TOK_BIT_XOR_ASSIGN TOK_ADD_ASSIGN
 %token TOK_SUB_ASSIGN TOK_DIV_ASSIGN TOK_MOD_ASSIGN TOK_MUL_ASSIGN
 %token TOK_SHL_ASSIGN TOK_SHR_ASSIGN TOK_SSHL_ASSIGN TOK_SSHR_ASSIGN
+%token TOK_BIND
 
 %type <ast> range range_or_multirange non_opt_range non_opt_multirange
 %type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list non_io_wire_type io_wire_type
@@ -364,6 +365,7 @@ design:
 	typedef_decl design |
 	package design |
 	interface design |
+	bind_directive design |
 	%empty;
 
 attr:
@@ -636,7 +638,67 @@ interface_body:
 
 interface_body_stmt:
 	param_decl | localparam_decl | typedef_decl | defparam_decl | wire_decl | always_stmt | assign_stmt |
-	modport_stmt;
+	modport_stmt | bind_directive;
+
+bind_directive:
+	TOK_BIND {
+		AstNode *bnode = new AstNode(AST_BIND);
+		ast_stack.back()->children.push_back(bnode);
+		ast_stack.push_back(bnode);
+	}
+	bind_target {
+		// bind_target should have added at least one child
+		log_assert(ast_stack.back()->children.size() >= 1);
+	}
+	TOK_ID {
+		// The single_cell parser in cell_list_no_array uses astbuf1 as
+		// a sort of template for constructing cells.
+		astbuf1 = new AstNode(AST_CELL);
+		astbuf1->children.push_back(new AstNode(AST_CELLTYPE));
+		astbuf1->children[0]->str = *$5;
+		delete $5;
+	}
+	cell_parameter_list_opt cell_list_no_array ';' {
+		// cell_list should have added at least one more child
+		log_assert(ast_stack.back()->children.size() >= 2);
+		delete astbuf1;
+		ast_stack.pop_back();
+	};
+
+// bind_target matches the target of the bind (everything before
+// bind_instantiation in the IEEE 1800 spec).
+//
+// We can't use the BNF from the spec directly because it's ambiguous:
+// something like "bind foo bar_i (.*)" can either be interpreted with "foo" as
+// a module or interface identifier (matching bind_target_scope in the spec) or
+// by considering foo as a degenerate hierarchical identifier with no '.'
+// characters, followed by no bit select (which matches bind_target_instance in
+// the spec).
+//
+// Instead, we resolve everything as an instance name and then deal with the
+// ambiguity when converting to RTLIL / in the hierarchy pass.
+bind_target:
+	bind_target_instance opt_bind_target_instance_list;
+
+// An optional list of target instances for a bind statement, introduced by a
+// colon.
+opt_bind_target_instance_list:
+	':' bind_target_instance_list |
+	%empty;
+
+bind_target_instance_list:
+	bind_target_instance |
+	bind_target_instance_list ',' bind_target_instance;
+
+// A single target instance for a bind statement. The top of ast_stack will be
+// the bind node where we should add it.
+bind_target_instance:
+	hierarchical_id {
+		auto *node = new AstNode(AST_IDENTIFIER);
+		node->str = *$1;
+		delete $1;
+		ast_stack.back()->children.push_back(node);
+	};
 
 mintypmax_expr:
 	expr { delete $1; } |
@@ -813,7 +875,7 @@ module_body:
 
 module_body_stmt:
 	task_func_decl | specify_block | param_decl | localparam_decl | typedef_decl | defparam_decl | specparam_declaration | wire_decl | assign_stmt | cell_stmt |
-	enum_decl | struct_decl |
+	enum_decl | struct_decl | bind_directive |
 	always_stmt | TOK_GENERATE module_gen_body TOK_ENDGENERATE | defattr | assert_property | checker_decl | ignored_specify_block;
 
 checker_decl:
@@ -1975,6 +2037,9 @@ cell_list:
 	cell_list ',' single_cell;
 
 single_cell:
+	single_cell_no_array | single_cell_arraylist;
+
+single_cell_no_array:
 	TOK_ID {
 		astbuf2 = astbuf1->clone();
 		if (astbuf2->type != AST_PRIMITIVE)
@@ -1983,7 +2048,9 @@ single_cell:
 		ast_stack.back()->children.push_back(astbuf2);
 	} '(' cell_port_list ')' {
 		SET_AST_NODE_LOC(astbuf2, @1, @$);
-	} |
+	}
+
+single_cell_arraylist:
 	TOK_ID non_opt_range {
 		astbuf2 = astbuf1->clone();
 		if (astbuf2->type != AST_PRIMITIVE)
@@ -1993,6 +2060,10 @@ single_cell:
 	} '(' cell_port_list ')'{
 		SET_AST_NODE_LOC(astbuf2, @1, @$);
 	};
+
+cell_list_no_array:
+	single_cell_no_array |
+	cell_list_no_array ',' single_cell_no_array;
 
 prim_list:
 	single_prim |

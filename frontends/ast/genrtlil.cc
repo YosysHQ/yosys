@@ -1963,6 +1963,11 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			}
 		} break;
 
+	case AST_BIND: {
+		// The bind construct. Currently unimplemented: just ignore it.
+		break;
+	}
+
 	case AST_FCALL: {
 			if (str == "\\$anyconst" || str == "\\$anyseq" || str == "\\$allconst" || str == "\\$allseq")
 			{
