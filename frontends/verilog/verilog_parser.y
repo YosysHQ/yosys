@@ -2216,7 +2216,7 @@ simple_behavioral_stmt:
 behavioral_stmt:
 	defattr | assert | wire_decl | param_decl | localparam_decl | typedef_decl |
 	non_opt_delay behavioral_stmt |
-	simple_behavioral_stmt ';' | ';' |
+	attr simple_behavioral_stmt ';' | ';' |
 	attr hierarchical_id {
 		AstNode *node = new AstNode(AST_TCALL);
 		node->str = *$2;
