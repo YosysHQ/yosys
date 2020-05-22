@@ -547,7 +547,7 @@ void mark_scc(RTLIL::Module *module)
 	// For every unique SCC found, (arbitrarily) find the first
 	//   cell in the component, and replace its output connections
 	//   with a new wire driven by the old connection but with a
-	//   special (* abc9_scc *) attribute set (which is used by
+	//   special (* abc9_keep *) attribute set (which is used by
 	//   write_xaiger to break this wire into PI and POs)
 	pool<RTLIL::Const> ids_seen;
 	for (auto cell : module->cells()) {
