@@ -2306,10 +2306,7 @@ struct CxxrtlBackend : public Backend {
 		log("        like -O3, and localize public wires not marked (*keep*) if possible.\n");
 		log("\n");
 		log("    -O5\n");
-		log("        like -O4, and run `opt_clean -purge` first.\n");
-		log("\n");
-		log("    -O6\n");
-		log("        like -O5, and run `proc; flatten` first.\n");
+		log("        like -O4, and run `proc; flatten` first.\n");
 		log("\n");
 	}
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -2343,12 +2340,9 @@ struct CxxrtlBackend : public Backend {
 		extra_args(f, filename, args, argidx);
 
 		switch (opt_level) {
-			case 6:
+			case 5:
 				worker.max_opt_level = true;
 				worker.run_proc_flatten = true;
-				YS_FALLTHROUGH
-			case 5:
-				worker.run_opt_clean_purge = true;
 				YS_FALLTHROUGH
 			case 4:
 				worker.localize_public = true;
