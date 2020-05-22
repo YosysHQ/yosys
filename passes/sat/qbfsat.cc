@@ -30,7 +30,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct QbfSolutionType {
 	std::vector<std::string> stdout_lines;
-	dict<std::string, std::string> hole_to_value;
+	dict<pool<std::string>, std::string> hole_to_value;
 	bool sat;
 	bool unknown; //true if neither 'sat' nor 'unsat'
 
@@ -91,7 +91,10 @@ void recover_solution(QbfSolutionType &sol) {
 			log_assert(YS_REGEX_NS::regex_search(loc, hole_loc_regex));
 			log_assert(YS_REGEX_NS::regex_search(val, hole_val_regex));
 #endif
-			sol.hole_to_value[loc] = val;
+			RTLIL::AttrObject tmp;
+			tmp.set_src_attribute(loc);
+			pool<std::string> loc_pool = tmp.get_strpool_attribute(ID::src);
+			sol.hole_to_value[loc_pool] = val;
 		}
 		else if (YS_REGEX_NS::regex_search(x, sat_regex)) {
 			sat_regex_found = true;
@@ -134,18 +137,20 @@ void recover_solution(QbfSolutionType &sol) {
 #endif
 }
 
-dict<std::string, std::string> get_hole_loc_name_map(RTLIL::Module *module, const QbfSolutionType &sol) {
-	dict<std::string, std::string> hole_loc_to_name;
+dict<std::pair<pool<std::string>, int>, RTLIL::SigBit> get_hole_loc_idx_sigbit_map(RTLIL::Module *module, const QbfSolutionType &sol) {
+	dict<std::pair<pool<std::string>, int>, RTLIL::SigBit> hole_loc_idx_to_sigbit;
 	for (auto cell : module->cells()) {
-		std::string cell_src = cell->get_src_attribute();
+		pool<std::string> cell_src = cell->get_strpool_attribute(ID::src);
 		auto pos = sol.hole_to_value.find(cell_src);
 		if (pos != sol.hole_to_value.end() && cell->type.in("$anyconst", "$anyseq")) {
-			log_assert(hole_loc_to_name.find(pos->first) == hole_loc_to_name.end());
-			hole_loc_to_name[pos->first] = cell->getPort(ID::Y).as_wire()->name.str();
+			RTLIL::SigSpec port_y = cell->getPort(ID::Y);
+			for (int i = GetSize(port_y) - 1; i >= 0; --i) {
+				hole_loc_idx_to_sigbit[std::make_pair(pos->first, i)] = port_y[i];
+			}
 		}
 	}
 
-	return hole_loc_to_name;
+	return hole_loc_idx_to_sigbit;
 }
 
 pool<std::string> validate_design_and_get_inputs(RTLIL::Module *module, const QbfSolveOptions &opt) {
@@ -187,113 +192,141 @@ void write_solution(RTLIL::Module *module, const QbfSolutionType &sol, const std
 	if (!fout)
 		log_cmd_error("could not open solution file for writing.\n");
 
-	dict<std::string, std::string> hole_loc_to_name = get_hole_loc_name_map(module, sol);
-	for(auto &x : sol.hole_to_value)
-		fout << hole_loc_to_name[x.first] << "=" << x.second << std::endl;
+	//There is a question here: How exactly shall we identify holes?
+	//There are at least two reasonable options:
+	//1. By the source location of the $anyconst cells
+	//2. By the name(s) of the wire(s) connected to each SigBit of the $anyconst cell->getPort(ID::Y) SigSpec.
+	//
+	//Option 1 has the benefit of being very precise.  There is very limited potential for confusion, as long
+	//as the source attribute has been set.  However, if the source attribute is not set, this won't work.
+	//More importantly, we want to have the ability to port hole assignments to other modules with compatible
+	//hole names and widths.  Obviously in those cases source locations of the $anyconst cells will not match.
+	//
+	//Option 2 has the benefits previously described, but wire names can be changed automatically by 
+	//optimization or techmapping passes, especially when (ex/im)porting from BLIF for optimization with ABC.
+	//
+	//The approach taken here is to allow both options.  We write the assignment information for each bit of
+	//the solution on a separate line.  Each line is of the form:
+	//
+	//location[bit]#name[offset]=value
+	//
+	//where '[', ']', '#',and '=' are literal symbols, "location" is the $anyconst cell source location
+	//attribute, "bit" is the index of the $anyconst cell, "name" is the `wire->name` field of the SigBit
+	//corresponding to the current bit of the $anyconst cell->getPort(ID::Y), "offset" is the `offset` field
+	//of that same SigBit, and "value", which is either '0' or '1', represents the assignment for that bit.
+	dict<std::pair<pool<std::string>, int>, RTLIL::SigBit> hole_loc_idx_to_sigbit = get_hole_loc_idx_sigbit_map(module, sol);
+	for (auto &x : sol.hole_to_value) {
+		RTLIL::AttrObject tmp;
+		tmp.set_strpool_attribute(ID::src, x.first);
+		std::string src_as_str = tmp.get_string_attribute(ID::src);
+		for (auto i = 0; i < GetSize(x.second); ++i)
+			fout << src_as_str.c_str() << "[" << i << "]#" << hole_loc_idx_to_sigbit[std::make_pair(x.first, i)].str() << "=" << x.second[GetSize(x.second) - 1 - i] << std::endl;
+	}
 }
 
 void specialize_from_file(RTLIL::Module *module, const std::string &file) {
-	YS_REGEX_TYPE hole_assn_regex = YS_REGEX_COMPILE_WITH_SUBS("^(.*)=([01]+)$");
+	YS_REGEX_TYPE hole_assn_regex = YS_REGEX_COMPILE_WITH_SUBS("^(.*)\\[([0-9]+)]#(.*)\\[([0-9]+)]=([01])$");
 	YS_REGEX_MATCH_TYPE m;
-	pool<RTLIL::Cell *> anyconsts_to_remove;
-	dict<std::string, std::string> hole_name_to_value;
+	//(hole_loc, hole_bit, hole_name, hole_offset) -> (value, found)
+	dict<pool<std::string>, RTLIL::Cell*> anyconst_loc_to_cell;
+	dict<RTLIL::SigBit, RTLIL::State> hole_assignments;
+
+	for (auto cell : module->cells())
+		if (cell->type == "$anyconst")
+			anyconst_loc_to_cell[cell->get_strpool_attribute(ID::src)] = cell;
+
 	std::ifstream fin(file.c_str());
 	if (!fin)
 		log_cmd_error("could not read solution file.\n");
 
 	std::string buf;
 	while (std::getline(fin, buf)) {
-		log_assert(YS_REGEX_NS::regex_search(buf, m, hole_assn_regex));
-		std::string hole_name = m[1].str();
-		std::string hole_value = m[2].str();
-		hole_name_to_value[hole_name] = hole_value;
+		if (!YS_REGEX_NS::regex_search(buf, m, hole_assn_regex))
+			log_cmd_error("solution file is not formatted correctly: \"%s\"\n", buf.c_str());
+		std::string hole_loc = m[1].str();
+		unsigned int hole_bit = atoi(m[2].str().c_str());
+		std::string hole_name = m[3].str();
+		unsigned int hole_offset = atoi(m[4].str().c_str());
+		RTLIL::State hole_value = atoi(m[5].str().c_str()) == 1? RTLIL::State::S1 : RTLIL::State::S0;
+
+		//We have two options to identify holes.  First, try to match wire names.  If we can't find a matching wire,
+		//then try to find a cell with a matching location.
+		RTLIL::SigBit hole_sigbit;
+		if (module->wire(hole_name) != nullptr) {
+			RTLIL::Wire *hole_wire = module->wire(hole_name);
+			hole_sigbit = RTLIL::SigSpec(hole_wire)[hole_offset];
+		} else {
+			RTLIL::AttrObject tmp;
+			tmp.set_src_attribute(hole_loc);
+			pool<std::string> hole_loc_pool = tmp.get_strpool_attribute(ID::src);
+			auto hole_cell_it = anyconst_loc_to_cell.find(hole_loc_pool);
+			if (hole_cell_it == anyconst_loc_to_cell.end())
+				YS_DEBUGTRAP;
+				//log_cmd_error("cannot find matching wire name or $anyconst cell location for hole spec \"%s\"\n", buf.c_str());
+
+			RTLIL::Cell *hole_cell = hole_cell_it->second;
+			hole_sigbit = hole_cell->getPort(ID::Y)[hole_bit];
+		}
+		hole_assignments[hole_sigbit] = hole_value;
 	}
 
-	for (auto cell : module->cells())
-		if (cell->type == "$anyconst") {
-			auto anyconst_port_y = cell->getPort(ID::Y).as_wire();
-			if (anyconst_port_y == nullptr)
-				continue;
-			if (hole_name_to_value.find(anyconst_port_y->name.str()) != hole_name_to_value.end())
-				anyconsts_to_remove.insert(cell);
-		}
-	for (auto cell : anyconsts_to_remove)
-		module->remove(cell);
+	for (auto &it : anyconst_loc_to_cell)
+		module->remove(it.second);
 
-	for (auto &it : hole_name_to_value) {
-		std::string hole_name = it.first;
-		std::string hole_value = it.second;
-		RTLIL::Wire *wire = module->wire(hole_name);
-#ifndef NDEBUG
-		log_assert(wire != nullptr);
-		log_assert(wire->width > 0 && GetSize(hole_value) == wire->width);
-#endif
-
-		log("Specializing %s from file with %s = %d'b%s.\n", module->name.c_str(), hole_name.c_str(), wire->width, hole_value.c_str());
-		std::vector<RTLIL::SigBit> value_bv;
-		value_bv.reserve(wire->width);
-		for (char c : hole_value)
-			value_bv.emplace_back(c == '1'? RTLIL::S1 : RTLIL::S0);
-		std::reverse(value_bv.begin(), value_bv.end());
-		module->connect(wire, value_bv);
+	for (auto &it : hole_assignments) {
+		RTLIL::SigSpec lhs(it.first);
+		RTLIL::SigSpec rhs(it.second);
+		log("Specializing %s from file with %s = %d.\n", module->name.c_str(), it.first.str().c_str(), it.second == RTLIL::State::S1? 1 : 0);
+		module->connect(lhs, rhs);
 	}
 }
 
 void specialize(RTLIL::Module *module, const QbfSolutionType &sol, bool quiet = false) {
-	dict<std::string, std::string> hole_loc_to_name = get_hole_loc_name_map(module, sol);
+	dict<std::pair<pool<std::string>, int>, RTLIL::SigBit> hole_loc_idx_to_sigbit = get_hole_loc_idx_sigbit_map(module, sol);
 	pool<RTLIL::Cell *> anyconsts_to_remove;
 	for (auto cell : module->cells())
 		if (cell->type == "$anyconst")
-			if (hole_loc_to_name.find(cell->get_src_attribute()) != hole_loc_to_name.end())
+			if (hole_loc_idx_to_sigbit.find(std::make_pair(cell->get_strpool_attribute(ID::src), 0)) != hole_loc_idx_to_sigbit.end())
 				anyconsts_to_remove.insert(cell);
 	for (auto cell : anyconsts_to_remove)
 		module->remove(cell);
 	for (auto &it : sol.hole_to_value) {
-		std::string hole_loc = it.first;
+		pool<std::string> hole_loc = it.first;
 		std::string hole_value = it.second;
 
-#ifndef NDEBUG
-		auto pos = hole_loc_to_name.find(hole_loc);
-		log_assert(pos != hole_loc_to_name.end());
-#endif
+		for (unsigned int i = 0; i < hole_value.size(); ++i) {
+			int bit_idx = GetSize(hole_value) - 1 - i;
+			auto it = hole_loc_idx_to_sigbit.find(std::make_pair(hole_loc, i));
+			log_assert(it != hole_loc_idx_to_sigbit.end());
 
-		std::string hole_name = hole_loc_to_name[hole_loc];
-		RTLIL::Wire *wire = module->wire(hole_name);
-#ifndef NDEBUG
-		log_assert(wire != nullptr);
-		log_assert(wire->width > 0 && GetSize(hole_value) == wire->width);
-#endif
-
-		if (!quiet)
-			log("Specializing %s with %s = %d'b%s.\n", module->name.c_str(), hole_name.c_str(), wire->width, hole_value.c_str());
-		std::vector<RTLIL::SigBit> value_bv;
-		value_bv.reserve(wire->width);
-		for (char c : hole_value)
-			value_bv.emplace_back(c == '1'? RTLIL::S1 : RTLIL::S0);
-		std::reverse(value_bv.begin(), value_bv.end());
-		module->connect(wire, value_bv);
+			RTLIL::SigBit hole_sigbit = it->second;
+			log_assert(hole_sigbit.wire != nullptr);
+			log_assert(hole_value[bit_idx] == '0' || hole_value[bit_idx] == '1');
+			RTLIL::SigSpec lhs(hole_sigbit.wire, hole_sigbit.offset, 1);
+			RTLIL::State hole_bit_val = hole_value[bit_idx] == '1'? RTLIL::State::S1 : RTLIL::State::S0;
+			if (!quiet)
+				log("Specializing %s with %s = %d.\n", module->name.c_str(), hole_sigbit.str().c_str(), hole_bit_val == RTLIL::State::S0? 0 : 1)
+;
+			module->connect(lhs, hole_bit_val);
+		}
 	}
 }
 
 void dump_model(RTLIL::Module *module, const QbfSolutionType &sol) {
 	log("Satisfiable model:\n");
-	dict<std::string, std::string> hole_loc_to_name = get_hole_loc_name_map(module, sol);
+	dict<std::pair<pool<std::string>, int>, RTLIL::SigBit> hole_loc_idx_to_sigbit = get_hole_loc_idx_sigbit_map(module, sol);
 	for (auto &it : sol.hole_to_value) {
-		std::string hole_loc = it.first;
+		pool<std::string> hole_loc = it.first;
 		std::string hole_value = it.second;
 
-#ifndef NDEBUG
-		auto pos = hole_loc_to_name.find(hole_loc);
-		log_assert(pos != hole_loc_to_name.end());
-#endif
+		for (unsigned int i = 0; i < hole_value.size(); ++i) {
+			int bit_idx = GetSize(hole_value) - 1 - i;
+			auto it = hole_loc_idx_to_sigbit.find(std::make_pair(hole_loc, i));
+			log_assert(it != hole_loc_idx_to_sigbit.end());
 
-		std::string hole_name = hole_loc_to_name[hole_loc];
-		log("\t%s = %lu'b%s\n", hole_name.c_str(), hole_value.size(), hole_value.c_str());
-		std::vector<RTLIL::SigBit> value_bv;
-		value_bv.reserve(hole_value.size());
-		for (char c : hole_value)
-			value_bv.emplace_back(c == '1'? RTLIL::S1 : RTLIL::S0);
-		std::reverse(value_bv.begin(), value_bv.end());
+			RTLIL::SigBit hole_sigbit = it->second;
+			log("\t%s = 1'b%c\n", hole_sigbit.str().c_str(), hole_value[bit_idx]);
+		}
 	}
 }
 
