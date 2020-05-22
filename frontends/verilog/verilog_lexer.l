@@ -128,7 +128,9 @@ static bool isUserType(std::string &s)
 %x BASED_CONST
 
 %%
-	int comment_caller;
+	// Initialise comment_caller to something to avoid a "maybe undefined"
+	// warning from GCC.
+	int comment_caller = INITIAL;
 
 <INITIAL,SYNOPSYS_TRANSLATE_OFF>"`file_push "[^\n]* {
 	fn_stack.push_back(current_filename);
