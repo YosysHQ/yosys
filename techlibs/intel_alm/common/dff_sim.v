@@ -53,23 +53,45 @@
 // Q: data output
 //
 // Note: the DFFEAS primitive is mostly emulated; it does not reflect what the hardware implements.
+
+`ifdef cyclonev
+`define SYNCPATH 262
+`define SYNCSETUP 522
+`define COMBPATH 0
+`endif
+`ifdef cyclone10gx
+`define SYNCPATH 219
+`define SYNCSETUP 268
+`define COMBPATH 0
+`endif
+
+// fallback for when a family isn't detected (e.g. when techmapping for equivalence)
+`ifndef SYNCPATH
+`define SYNCPATH 0
+`define SYNCSETUP 0
+`define COMBPATH 0
+`endif
+
+(* abc9_box, lib_whitebox *)
 module MISTRAL_FF(
     input DATAIN, CLK, ACLR, ENA, SCLR, SLOAD, SDATA,
     output reg Q
 );
 
-`ifdef cyclonev
 specify
-    (posedge CLK => (Q : DATAIN)) = 262;
-    $setup(DATAIN, posedge CLK, 522);
+    if (ENA) (posedge CLK => (Q : DATAIN)) = `SYNCPATH;
+    if (ENA) (posedge CLK => (Q : SCLR)) = `SYNCPATH;
+    if (ENA) (posedge CLK => (Q : SLOAD)) = `SYNCPATH;
+    if (ENA) (posedge CLK => (Q : SDATA)) = `SYNCPATH;
+
+    $setup(DATAIN, posedge CLK, `SYNCSETUP);
+    $setup(ENA, posedge CLK, `SYNCSETUP);
+    $setup(SCLR, posedge CLK, `SYNCSETUP);
+    $setup(SLOAD, posedge CLK, `SYNCSETUP);
+    $setup(SDATA, posedge CLK, `SYNCSETUP);
+
+    (ACLR => Q) = `COMBPATH;
 endspecify
-`endif
-`ifdef cyclone10gx
-specify
-    (posedge CLK => (Q : DATAIN)) = 219;
-    $setup(DATAIN, posedge CLK, 268);
-endspecify
-`endif
 
 initial begin
     // Altera flops initialise to zero.

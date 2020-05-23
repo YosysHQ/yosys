@@ -48,9 +48,19 @@
 // the following model because it's very difficult to trigger this in practice
 // as clock cycles will be much longer than any potential blip of 'x, so the
 // model can be treated as always returning a defined result.
+
+(* abc9_box, lib_whitebox *)
 module MISTRAL_MLAB(input [4:0] A1ADDR, input A1DATA, A1EN, CLK1, input [4:0] B1ADDR, output B1DATA);
 
 reg [31:0] mem = 32'b0;
+
+// TODO
+specify
+    $setup(A1ADDR, posedge CLK1, 0);
+    $setup(A1DATA, posedge CLK1, 0);
+
+    (B1ADDR *> B1DATA) = 0;
+endspecify
 
 always @(posedge CLK1)
     if (A1EN) mem[A1ADDR] <= A1DATA;
