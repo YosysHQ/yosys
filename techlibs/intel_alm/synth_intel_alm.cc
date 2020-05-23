@@ -38,19 +38,25 @@ struct SynthIntelALMPass : public ScriptPass {
 		log("This command runs synthesis for ALM-based Intel FPGAs.\n");
 		log("\n");
 		log("    -top <module>\n");
-		log("        use the specified module as top module (default='top')\n");
+		log("        use the specified module as top module\n");
 		log("\n");
 		log("    -family <family>\n");
 		log("        target one of:\n");
 		log("        \"cyclonev\"    - Cyclone V (default)\n");
 		log("        \"cyclone10gx\" - Cyclone 10GX\n");
 		log("\n");
-		log("    -quartus\n");
-		log("        output a netlist using Quartus cells instead of MISTRAL_* cells\n");
-		log("\n");
 		log("    -vqm <file>\n");
 		log("        write the design to the specified Verilog Quartus Mapping File. Writing of an\n");
 		log("        output file is omitted if this parameter is not specified. Implies -quartus.\n");
+		log("\n");
+		log("    -noflatten\n");
+		log("        do not flatten design before synthesis; useful for per-module area statistics\n");
+		log("\n");
+		log("    -quartus\n");
+		log("        output a netlist using Quartus cells instead of MISTRAL_* cells\n");
+		log("\n");
+		log("    -dff\n");
+		log("        pass DFFs to ABC to perform sequential logic optimisations (EXPERIMENTAL)\n");
 		log("\n");
 		log("    -run <from_label>:<to_label>\n");
 		log("        only run the commands between the labels (see below). an empty\n");
@@ -63,16 +69,13 @@ struct SynthIntelALMPass : public ScriptPass {
 		log("    -nobram\n");
 		log("        do not use block RAM cells in output netlist\n");
 		log("\n");
-		log("    -noflatten\n");
-		log("        do not flatten design before synthesis\n");
-		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
 		log("\n");
 	}
 
 	string top_opt, family_opt, bram_type, vout_file;
-	bool flatten, quartus, nolutram, nobram;
+	bool flatten, quartus, nolutram, nobram, dff;
 
 	void clear_flags() override
 	{
@@ -84,6 +87,7 @@ struct SynthIntelALMPass : public ScriptPass {
 		quartus = false;
 		nolutram = false;
 		nobram = false;
+		dff = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -130,6 +134,10 @@ struct SynthIntelALMPass : public ScriptPass {
 				flatten = false;
 				continue;
 			}
+			if (args[argidx] == "-dff") {
+				dff = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -165,6 +173,7 @@ struct SynthIntelALMPass : public ScriptPass {
 			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/alm_sim.v", family_opt.c_str()));
 			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/dff_sim.v", family_opt.c_str()));
 			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/mem_sim.v", family_opt.c_str()));
+			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/abc9_model.v", family_opt.c_str()));
 
 			// Misc and common cells
 			run("read_verilog -lib +/intel/common/altpll_bb.v");
@@ -209,7 +218,9 @@ struct SynthIntelALMPass : public ScriptPass {
 		}
 
 		if (check_label("map_luts")) {
-			run("abc9 -maxlut 6 -W 200");
+			run("techmap -map +/intel_alm/common/abc9_map.v");
+			run(stringf("abc9 %s -maxlut 6 -W 200", help_mode ? "[-dff]" : dff ? "-dff" : ""));
+			run("techmap -map +/intel_alm/common/abc9_unmap.v");
 			run("techmap -map +/intel_alm/common/alm_map.v");
 			run("opt -fast");
 			run("autoname");
