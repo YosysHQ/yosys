@@ -334,7 +334,6 @@ struct SynthEcp5Pass : public ScriptPass
 				run("techmap -map +/ecp5/latches_map.v", "(skip if -asyncprld)");
 
 			if (abc9) {
-				run("read_verilog -icells -lib -specify +/ecp5/abc9_model.v");
 				std::string abc9_opts;
 				if (nowidelut)
 					abc9_opts += " -maxlut 4";
