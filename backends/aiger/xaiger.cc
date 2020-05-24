@@ -248,6 +248,7 @@ struct XAigerWriter
 				auto it = cell->attributes.find(ID::abc9_box_seq);
 				if (it != cell->attributes.end()) {
 					log_assert(!cell->has_keep_attr());
+					log_assert(cell->parameters.empty());
 					int abc9_box_seq = it->second.as_int();
 					if (GetSize(box_list) <= abc9_box_seq)
 						box_list.resize(abc9_box_seq+1);
@@ -258,13 +259,6 @@ struct XAigerWriter
 					abc9_flop = inst_module->get_bool_attribute(ID::abc9_flop);
 					if (!abc9_flop)
 						continue;
-				}
-
-				if (!cell->parameters.empty()) {
-					auto derived_type = inst_module->derive(design, cell->parameters);
-					inst_module = design->module(derived_type);
-					log_assert(inst_module);
-					log_assert(inst_module->get_blackbox_attribute());
 				}
 
 				if (!timing.count(inst_module->name))
