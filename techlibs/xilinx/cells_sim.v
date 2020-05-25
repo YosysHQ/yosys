@@ -3387,10 +3387,10 @@ module DSP48E1 (
     reg signed [24:0] Dr;
     reg signed [17:0] Br1, Br2;
     reg signed [47:0] Cr;
-    reg        [4:0]  INMODEr = 5'b0;
-    reg        [6:0]  OPMODEr = 7'b0;
-    reg        [3:0]  ALUMODEr = 4'b0;
-    reg        [2:0]  CARRYINSELr = 3'b0;
+    reg        [4:0]  INMODEr;
+    reg        [6:0]  OPMODEr;
+    reg        [3:0]  ALUMODEr;
+    reg        [2:0]  CARRYINSELr;
 
     generate
         // Configurable A register
@@ -3572,11 +3572,13 @@ module DSP48E1 (
 
     // Carry in
     wire A24_xnor_B17d = A_MULT[24] ~^ B_MULT[17];
-    reg CARRYINr = 1'b0, A24_xnor_B17 = 1'b0;
+    reg CARRYINr, A24_xnor_B17;
     generate
+        if (CARRYINREG == 1) initial CARRYINr = 1'b0;
         if (CARRYINREG == 1) begin always @(posedge CLK) if (RSTALLCARRYIN) CARRYINr <= 1'b0; else if (CECARRYIN) CARRYINr <= CARRYIN; end
         else                 always @* CARRYINr = CARRYIN;
 
+        if (MREG == 1) initial A24_xnor_B17 = 1'b0;
         if (MREG == 1) begin always @(posedge CLK) if (RSTALLCARRYIN) A24_xnor_B17 <= 1'b0; else if (CEM) A24_xnor_B17 <= A24_xnor_B17d; end
         else                 always @* A24_xnor_B17 = A24_xnor_B17d;
     endgenerate

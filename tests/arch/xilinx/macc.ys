@@ -6,7 +6,7 @@ proc
 #equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -noiopad ### TODO
 equiv_opt -run :prove -map +/xilinx/cells_sim.v synth_xilinx -noiopad
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
-sat -verify -prove-asserts -seq 10 -show-inputs -show-outputs miter
+sat -verify -prove-asserts -seq 3 -show-inputs -show-outputs miter
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd macc # Constrain all select calls below inside the top module
 select -assert-count 1 t:BUFG
@@ -20,7 +20,7 @@ proc
 #equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -noiopad ### TODO
 equiv_opt -run :prove -map +/xilinx/cells_sim.v synth_xilinx -noiopad
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
-sat -verify -prove-asserts -seq 10 -show-inputs -show-outputs miter
+sat -verify -prove-asserts -seq 4 -show-inputs -show-outputs miter
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd macc2 # Constrain all select calls below inside the top module
 
