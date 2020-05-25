@@ -2203,32 +2203,39 @@ assert_property:
 	};
 
 simple_behavioral_stmt:
-	lvalue '=' delay expr {
-		AstNode *node = new AstNode(AST_ASSIGN_EQ, $1, $4);
+	attr lvalue '=' delay expr {
+		AstNode *node = new AstNode(AST_ASSIGN_EQ, $2, $5);
 		ast_stack.back()->children.push_back(node);
-		SET_AST_NODE_LOC(node, @1, @4);
+		SET_AST_NODE_LOC(node, @2, @5);
+		append_attr(node, $1);
 	} |
-	lvalue TOK_INCREMENT {
-		AstNode *node = new AstNode(AST_ASSIGN_EQ, $1, new AstNode(AST_ADD, $1->clone(), AstNode::mkconst_int(1, true)));
+	attr lvalue TOK_INCREMENT {
+		AstNode *node = new AstNode(AST_ASSIGN_EQ, $2, new AstNode(AST_ADD, $2->clone(), AstNode::mkconst_int(1, true)));
 		ast_stack.back()->children.push_back(node);
-		SET_AST_NODE_LOC(node, @1, @2);
+		SET_AST_NODE_LOC(node, @2, @3);
+		append_attr(node, $1);
 	} |
-	lvalue TOK_DECREMENT {
-		AstNode *node = new AstNode(AST_ASSIGN_EQ, $1, new AstNode(AST_SUB, $1->clone(), AstNode::mkconst_int(1, true)));
+	attr lvalue TOK_DECREMENT {
+		AstNode *node = new AstNode(AST_ASSIGN_EQ, $2, new AstNode(AST_SUB, $2->clone(), AstNode::mkconst_int(1, true)));
 		ast_stack.back()->children.push_back(node);
-		SET_AST_NODE_LOC(node, @1, @2);
+		SET_AST_NODE_LOC(node, @2, @3);
+		append_attr(node, $1);
 	} |
-	lvalue OP_LE delay expr {
-		AstNode *node = new AstNode(AST_ASSIGN_LE, $1, $4);
+	attr lvalue OP_LE delay expr {
+		AstNode *node = new AstNode(AST_ASSIGN_LE, $2, $5);
 		ast_stack.back()->children.push_back(node);
-		SET_AST_NODE_LOC(node, @1, @4);
+		SET_AST_NODE_LOC(node, @2, @5);
+		append_attr(node, $1);
 	};
 
 // this production creates the obligatory if-else shift/reduce conflict
 behavioral_stmt:
 	defattr | assert | wire_decl | param_decl | localparam_decl | typedef_decl |
 	non_opt_delay behavioral_stmt |
-	attr simple_behavioral_stmt ';' | ';' |
+	simple_behavioral_stmt ';' |
+	attr ';' {
+		free_attr($1);
+	} |
 	attr hierarchical_id {
 		AstNode *node = new AstNode(AST_TCALL);
 		node->str = *$2;
@@ -2436,7 +2443,7 @@ gen_case_item:
 	} case_select {
 		case_type_stack.push_back(0);
 		SET_AST_NODE_LOC(ast_stack.back(), @2, @2);
-	} gen_stmt_or_null {
+	} gen_stmt_block {
 		case_type_stack.pop_back();
 		ast_stack.pop_back();
 	};
@@ -2528,7 +2535,10 @@ module_gen_body:
 	/* empty */;
 
 gen_stmt_or_module_body_stmt:
-	gen_stmt | module_body_stmt;
+	gen_stmt | module_body_stmt |
+	attr ';' {
+		free_attr($1);
+	};
 
 // this production creates the obligatory if-else shift/reduce conflict
 gen_stmt:
@@ -2550,7 +2560,7 @@ gen_stmt:
 		AstNode *block = new AstNode(AST_GENBLOCK);
 		ast_stack.back()->children.push_back(block);
 		ast_stack.push_back(block);
-	} gen_stmt_or_null {
+	} gen_stmt_block {
 		ast_stack.pop_back();
 	} opt_gen_else {
 		SET_AST_NODE_LOC(ast_stack.back(), @1, @7);
@@ -2600,11 +2610,8 @@ gen_stmt_block:
 		ast_stack.pop_back();
 	};
 
-gen_stmt_or_null:
-	gen_stmt_block | ';';
-
 opt_gen_else:
-	TOK_ELSE gen_stmt_or_null | /* empty */ %prec FAKE_THEN;
+	TOK_ELSE gen_stmt_block | /* empty */ %prec FAKE_THEN;
 
 expr:
 	basic_expr {
