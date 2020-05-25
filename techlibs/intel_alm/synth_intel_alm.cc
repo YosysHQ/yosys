@@ -173,7 +173,7 @@ struct SynthIntelALMPass : public ScriptPass {
 			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/alm_sim.v", family_opt.c_str()));
 			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/dff_sim.v", family_opt.c_str()));
 			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/mem_sim.v", family_opt.c_str()));
-			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/abc9_model.v", family_opt.c_str()));
+			run(stringf("read_verilog -specify -lib -D %s -icells +/intel_alm/common/abc9_model.v", family_opt.c_str()));
 
 			// Misc and common cells
 			run("read_verilog -lib +/intel/common/altpll_bb.v");

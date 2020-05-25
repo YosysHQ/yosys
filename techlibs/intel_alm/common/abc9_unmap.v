@@ -1,7 +1,7 @@
 // After performing sequential synthesis, map the synchronous flops back to
 // standard MISTRAL_FF flops.
 
-module MISTRAL_FF_SYNCONLY(
+module $__MISTRAL_FF_SYNCONLY (
     input DATAIN, CLK, ENA, SCLR, SLOAD, SDATA,
     output reg Q
 );

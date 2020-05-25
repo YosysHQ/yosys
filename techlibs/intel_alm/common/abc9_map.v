@@ -11,7 +11,7 @@ parameter _TECHMAP_CONSTMSK_ACLR_ = 1'b0;
 
 // If the async-clear is constant, we assume it's disabled.
 if (_TECHMAP_CONSTMSK_ACLR_ != 1'b0)
-    MISTRAL_FF_SYNCONLY _TECHMAP_REPLACE_ (.DATAIN(DATAIN), .CLK(CLK), .ENA(ENA), .SCLR(SCLR), .SLOAD(SLOAD), .SDATA(SDATA), .Q(Q));
+    $__MISTRAL_FF_SYNCONLY _TECHMAP_REPLACE_ (.DATAIN(DATAIN), .CLK(CLK), .ENA(ENA), .SCLR(SCLR), .SLOAD(SLOAD), .SDATA(SDATA), .Q(Q));
 else
     wire _TECHMAP_FAIL_ = 1;
 
