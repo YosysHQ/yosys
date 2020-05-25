@@ -11,3 +11,32 @@ EOT
 clean
 select -assert-count 1 a:init
 select -assert-count 1 w:y a:init %i
+
+
+design -reset
+read_verilog <<EOT
+module top(input clk, d, output q);
+(* init=1'b0 *) wire private0;
+reg private1 = 1'b1;
+always @(posedge clk)
+    private1 <= d;
+assign q = private1;
+endmodule
+EOT
+proc
+rename -hide w:private*
+clean
+select -assert-count 1 a:init=1'b1
+select -assert-count 0 a:init=1'b0
+
+
+design -reset
+read_verilog <<EOT
+module top;
+(* init=1'b0 *) wire private;
+wire public = private;
+endmodule
+EOT
+rename -hide w:private
+clean
+select -assert-none w:*
