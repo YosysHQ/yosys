@@ -1110,7 +1110,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 	for (auto w : mapped_mod->wires()) {
 		auto nw = module->addWire(remap_name(w->name), GetSize(w));
 		nw->start_offset = w->start_offset;
-		// Remove all (* init *) since they only existon $_DFF_[NP]_
+		// Remove all (* init *) since they only exist on $_DFF_[NP]_
 		w->attributes.erase(ID::init);
 	}
 
@@ -1152,8 +1152,9 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 		if (cell->has_keep_attr())
 			continue;
 
-		// Short out $_DFF_[NP]_ cells since the flop box already has
-		//   all the information we need to reconstruct cell
+		// Short out (so that existing name can be preserved) and remove
+		//   $_DFF_[NP]_ cells since flop box already has all the information
+		//   we need to reconstruct them
 		if (dff_mode && cell->type.in(ID($_DFF_N_), ID($_DFF_P_)) && !cell->get_bool_attribute(ID::abc9_keep)) {
 			module->connect(cell->getPort(ID::Q), cell->getPort(ID::D));
 			module->remove(cell);
@@ -1299,7 +1300,25 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 			mapped_cell->connections_.erase(jt);
 
 			auto abc9_flop = box_module->get_bool_attribute(ID::abc9_flop);
-			if (!abc9_flop) {
+			if (abc9_flop) {
+				// Link this sole flop box output to the output of the existing
+				//   flop box, so that any (public) signal it drives will be
+				//   preserved
+				SigBit old_q;
+				for (const auto &port_name : box_ports.at(existing_cell->type)) {
+					RTLIL::Wire *w = box_module->wire(port_name);
+					log_assert(w);
+					if (!w->port_output)
+						continue;
+					log_assert(old_q == SigBit());
+					log_assert(GetSize(w) == 1);
+					old_q = existing_cell->getPort(port_name);
+				}
+				auto new_q = outputs[0];
+				new_q.wire = module->wires_.at(remap_name(new_q.wire->name));
+				module->connect(old_q,  new_q);
+			}
+			else {
 				for (const auto &i : inputs)
 					bit_users[i].insert(mapped_cell->name);
 				for (const auto &i : outputs)
@@ -1332,11 +1351,12 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 						c.wire = module->wires_.at(remap_name(c.wire->name));
 					newsig.append(c);
 				}
-				cell->setPort(port_name, newsig);
 
 				if (w->port_input && !abc9_flop)
 					for (const auto &i : newsig)
 						bit2sinks[i].push_back(cell);
+
+				cell->setPort(port_name, std::move(newsig));
 			}
 		}
 
