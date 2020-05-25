@@ -1,8 +1,9 @@
+`default_nettype none
 module forloop_select_gate (clk, ctrl, din, en, dout);
-      input clk;
-      input [3:0] ctrl;
-      input [15:0] din;
-      input en;
+      input wire clk;
+      input wire [3:0] ctrl;
+      input wire [15:0] din;
+      input wire en;
       output reg [15:0] dout;
       reg [4:0] sel;
       always @(posedge clk)

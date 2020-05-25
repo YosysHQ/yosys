@@ -1,8 +1,10 @@
-module reset_test_gate (clk, ctrl, din, sel, dout);
-   input clk;
-   input [4:0] ctrl;
-   input [1:0] din;
-   input [0:0] sel;
+`default_nettype none
+module reset_test_gate (clk, reset, ctrl, din, sel, dout);
+   input wire clk;
+   input wire reset;
+   input wire [4:0] ctrl;
+   input wire [1:0] din;
+   input wire [0:0] sel;
    output reg [31:0] dout;
    reg [1:0] 	     i;
    wire [0:0] 	     rval;
