@@ -2410,6 +2410,22 @@ assert_property:
 		}
 	};
 
+local_definition_stmt:
+	non_io_wire_type lvalue '=' delay expr {
+		$2->is_signed = astbuf3->is_signed;
+		$2->is_reg = astbuf3->is_reg;
+		for(auto *child : astbuf3->children)
+			$2->children.push_back(child->clone());
+		$2->type = astbuf3->type;
+		delete astbuf3;
+		AstNode *node = new AstNode(AST_ASSIGN_EQ, $2, $5);
+		ast_stack.back()->children.push_back(node);
+		SET_AST_NODE_LOC(node, @2, @5);
+	};
+
+for_initialization:
+	 local_definition_stmt | simple_behavioral_stmt;
+
 simple_behavioral_stmt:
 	attr lvalue '=' delay expr {
 		AstNode *node = new AstNode(AST_ASSIGN_EQ, $2, $5);
@@ -2534,10 +2550,13 @@ behavioral_stmt:
 	} |
 	attr TOK_FOR '(' {
 		AstNode *node = new AstNode(AST_FOR);
+		static int loop_count;
+		node->str = std::string("$loop");
+		node->str += std::to_string(loop_count++);
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 		append_attr(node, $1);
-	} simple_behavioral_stmt ';' expr {
+	} for_initialization ';' expr {
 		ast_stack.back()->children.push_back($7);
 	} ';' simple_behavioral_stmt ')' {
 		AstNode *block = new AstNode(AST_BLOCK);
@@ -2805,9 +2824,12 @@ gen_stmt_or_module_body_stmt:
 gen_stmt:
 	TOK_FOR '(' {
 		AstNode *node = new AstNode(AST_GENFOR);
+		static int genfor_count;
+		node->str = std::string("$genfor");
+		node->str += std::to_string(genfor_count++);
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
-	} simple_behavioral_stmt ';' expr {
+	} for_initialization ';' expr {
 		ast_stack.back()->children.push_back($6);
 	} ';' simple_behavioral_stmt ')' gen_stmt_block {
 		SET_AST_NODE_LOC(ast_stack.back(), @1, @11);

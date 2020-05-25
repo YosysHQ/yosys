@@ -941,6 +941,19 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	bool children_are_self_determined = false;
 	bool reset_width_after_children = false;
 
+	if ((type == AST_GENFOR || type == AST_FOR) && children.size() != 0)
+	{
+		AstNode *init_ast = children[0];
+		if (init_ast->type == AST_ASSIGN_EQ && init_ast->children[0]->type != AST_IDENTIFIER) {
+			auto *clone = init_ast->children[0]->clone();
+			clone->simplify(false, false, true, stage, -1, false, in_param);
+			current_ast_mod->children.push_back(clone);
+			init_ast->children[0]->type = AST_IDENTIFIER;
+			init_ast->children[0]->id2ast = clone;
+			init_ast->children[0]->children.clear();
+		}
+	}
+
 	switch (type)
 	{
 	case AST_ASSIGN_EQ:
