@@ -116,4 +116,19 @@ design -load postopt
 select -assert-count 1 t:FDRE %co %a w:r %i
 
 
+design -reset
+read_verilog <<EOT
+module top(input clk, input a, b, output o);
+reg r1, r2;
+always @(posedge clk) begin
+    r1 <= a | b;
+    r2 <= ~(~a & ~b);
+end
+assign o = r1 | r2;
+endmodule
+EOT
+proc
+equiv_opt -assert -multiclock -map +/xilinx/cells_sim.v synth_xilinx -abc9 -dff -noiopad -noclkbuf
+
+
 logger -expect-no-warnings
