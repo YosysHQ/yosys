@@ -296,8 +296,8 @@ namespace RTLIL
 
 		// The methods below are just convenience functions for better compatibility with std::string.
 
-		bool operator==(const std::string &rhs) const { return str() == rhs; }
-		bool operator!=(const std::string &rhs) const { return str() != rhs; }
+		bool operator==(const std::string &rhs) const { return c_str() == rhs; }
+		bool operator!=(const std::string &rhs) const { return c_str() != rhs; }
 
 		bool operator==(const char *rhs) const { return strcmp(c_str(), rhs) == 0; }
 		bool operator!=(const char *rhs) const { return strcmp(c_str(), rhs) != 0; }
