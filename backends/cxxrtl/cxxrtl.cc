@@ -513,7 +513,6 @@ struct CxxrtlWorker {
 	bool elide_public = false;
 	bool localize_internal = false;
 	bool localize_public = false;
-	bool run_opt_clean_purge = false;
 	bool run_proc_flatten = false;
 	bool max_opt_level = false;
 
@@ -2009,6 +2008,7 @@ struct CxxrtlWorker {
 				log("Module `%s' contains feedback arcs through wires:\n", log_id(module));
 				for (auto wire : feedback_wires)
 					log("  %s\n", log_id(wire));
+				log("\n");
 			}
 
 			for (auto wire : module->wires()) {
@@ -2040,20 +2040,20 @@ struct CxxrtlWorker {
 				log("Module `%s' contains buffered combinatorial wires:\n", log_id(module));
 				for (auto wire : buffered_wires)
 					log("  %s\n", log_id(wire));
+				log("\n");
 			}
 
 			eval_converges[module] = feedback_wires.empty() && buffered_wires.empty();
 		}
 		if (has_feedback_arcs || has_buffered_wires) {
 			// Although both non-feedback buffered combinatorial wires and apparent feedback wires may be eliminated
-			// by optimizing the design, if after `opt_clean -purge` there are any feedback wires remaining, it is very
+			// by optimizing the design, if after `proc; flatten` there are any feedback wires remaining, it is very
 			// likely that these feedback wires are indicative of a true logic loop, so they get emphasized in the message.
 			const char *why_pessimistic = nullptr;
 			if (has_feedback_arcs)
 				why_pessimistic = "feedback wires";
 			else if (has_buffered_wires)
 				why_pessimistic = "buffered combinatorial wires";
-			log("\n");
 			log_warning("Design contains %s, which require delta cycles during evaluation.\n", why_pessimistic);
 			if (!max_opt_level)
 				log("Increasing the optimization level may eliminate %s from the design.\n", why_pessimistic);
@@ -2087,34 +2087,39 @@ struct CxxrtlWorker {
 
 	void prepare_design(RTLIL::Design *design)
 	{
+		bool did_anything = false;
 		bool has_sync_init, has_packed_mem;
 		log_push();
 		check_design(design, has_sync_init, has_packed_mem);
 		if (run_proc_flatten) {
 			Pass::call(design, "proc");
 			Pass::call(design, "flatten");
+			did_anything = true;
 		} else if (has_sync_init) {
 			// We're only interested in proc_init, but it depends on proc_prune and proc_clean, so call those
 			// in case they weren't already. (This allows `yosys foo.v -o foo.cc` to work.)
 			Pass::call(design, "proc_prune");
 			Pass::call(design, "proc_clean");
 			Pass::call(design, "proc_init");
+			did_anything = true;
 		}
-		if (has_packed_mem)
+		if (has_packed_mem) {
 			Pass::call(design, "memory_unpack");
+			did_anything = true;
+		}
 		// Recheck the design if it was modified.
 		if (has_sync_init || has_packed_mem)
 			check_design(design, has_sync_init, has_packed_mem);
 		log_assert(!(has_sync_init || has_packed_mem));
-		if (run_opt_clean_purge)
-			Pass::call(design, "opt_clean -purge");
 		log_pop();
+		if (did_anything)
+			log_spacer();
 		analyze_design(design);
 	}
 };
 
 struct CxxrtlBackend : public Backend {
-	static const int DEFAULT_OPT_LEVEL = 6;
+	static const int DEFAULT_OPT_LEVEL = 5;
 
 	CxxrtlBackend() : Backend("cxxrtl", "convert design to C++ RTL simulation") { }
 	void help() YS_OVERRIDE
@@ -2340,6 +2345,7 @@ struct CxxrtlBackend : public Backend {
 		extra_args(f, filename, args, argidx);
 
 		switch (opt_level) {
+			// the highest level here must match DEFAULT_OPT_LEVEL
 			case 5:
 				worker.max_opt_level = true;
 				worker.run_proc_flatten = true;
