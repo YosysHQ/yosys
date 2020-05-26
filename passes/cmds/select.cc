@@ -54,7 +54,7 @@ static bool match_ids(RTLIL::IdString id, const std::string &pattern)
 	return false;
 }
 
-static bool match_attr_val(const RTLIL::Const &value, std::string pattern, char match_op)
+static bool match_attr_val(const RTLIL::Const &value, const std::string &pattern, char match_op)
 {
 	if (match_op == 0)
 		return true;
@@ -106,7 +106,7 @@ static bool match_attr_val(const RTLIL::Const &value, std::string pattern, char 
 	log_abort();
 }
 
-static bool match_attr(const dict<RTLIL::IdString, RTLIL::Const> &attributes, std::string name_pat, std::string value_pat, char match_op)
+static bool match_attr(const dict<RTLIL::IdString, RTLIL::Const> &attributes, const std::string &name_pat, const std::string &value_pat, char match_op)
 {
 	if (name_pat.find('*') != std::string::npos || name_pat.find('?') != std::string::npos || name_pat.find('[') != std::string::npos) {
 		for (auto &it : attributes) {
@@ -124,7 +124,7 @@ static bool match_attr(const dict<RTLIL::IdString, RTLIL::Const> &attributes, st
 	return false;
 }
 
-static bool match_attr(const dict<RTLIL::IdString, RTLIL::Const> &attributes, std::string match_expr)
+static bool match_attr(const dict<RTLIL::IdString, RTLIL::Const> &attributes, const std::string &match_expr)
 {
 	size_t pos = match_expr.find_first_of("<!=>");
 
@@ -415,7 +415,7 @@ namespace {
 	};
 }
 
-static int parse_comma_list(std::set<RTLIL::IdString> &tokens, std::string str, size_t pos, std::string stopchar)
+static int parse_comma_list(std::set<RTLIL::IdString> &tokens, const std::string &str, size_t pos, std::string stopchar)
 {
 	stopchar += ',';
 	while (1) {
@@ -500,7 +500,7 @@ static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::v
 	return sel_objects;
 }
 
-static void select_op_expand(RTLIL::Design *design, std::string arg, char mode, bool eval_only)
+static void select_op_expand(RTLIL::Design *design, const std::string &arg, char mode, bool eval_only)
 {
 	int pos = (mode == 'x' ? 2 : 3) + (eval_only ? 1 : 0);
 	int levels = 1, rem_objects = -1;
@@ -971,7 +971,7 @@ PRIVATE_NAMESPACE_END
 YOSYS_NAMESPACE_BEGIN
 
 // used in kernel/register.cc and maybe other locations, extern decl. in register.h
-void handle_extra_select_args(Pass *pass, vector<string> args, size_t argidx, size_t args_size, RTLIL::Design *design)
+void handle_extra_select_args(Pass *pass, const vector<string> &args, size_t argidx, size_t args_size, RTLIL::Design *design)
 {
 	work_stack.clear();
 	for (; argidx < args_size; argidx++) {
@@ -1675,7 +1675,7 @@ struct CdPass : public Pass {
 } CdPass;
 
 template<typename T>
-static void log_matches(const char *title, Module *module, T list)
+static void log_matches(const char *title, Module *module, const T &list)
 {
 	std::vector<IdString> matches;
 

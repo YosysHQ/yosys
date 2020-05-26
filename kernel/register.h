@@ -125,7 +125,7 @@ struct Backend : Pass
 };
 
 // implemented in passes/cmds/select.cc
-extern void handle_extra_select_args(Pass *pass, std::vector<std::string> args, size_t argidx, size_t args_size, RTLIL::Design *design);
+extern void handle_extra_select_args(Pass *pass, const std::vector<std::string> &args, size_t argidx, size_t args_size, RTLIL::Design *design);
 extern RTLIL::Selection eval_select_args(const vector<string> &args, RTLIL::Design *design);
 extern void eval_select_op(vector<RTLIL::Selection> &work, const string &op, RTLIL::Design *design);
 
