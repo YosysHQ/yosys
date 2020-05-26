@@ -2008,6 +2008,7 @@ struct CxxrtlWorker {
 				log("Module `%s' contains feedback arcs through wires:\n", log_id(module));
 				for (auto wire : feedback_wires)
 					log("  %s\n", log_id(wire));
+				log("\n");
 			}
 
 			for (auto wire : module->wires()) {
@@ -2039,6 +2040,7 @@ struct CxxrtlWorker {
 				log("Module `%s' contains buffered combinatorial wires:\n", log_id(module));
 				for (auto wire : buffered_wires)
 					log("  %s\n", log_id(wire));
+				log("\n");
 			}
 
 			eval_converges[module] = feedback_wires.empty() && buffered_wires.empty();
@@ -2052,7 +2054,6 @@ struct CxxrtlWorker {
 				why_pessimistic = "feedback wires";
 			else if (has_buffered_wires)
 				why_pessimistic = "buffered combinatorial wires";
-			log("\n");
 			log_warning("Design contains %s, which require delta cycles during evaluation.\n", why_pessimistic);
 			if (!max_opt_level)
 				log("Increasing the optimization level may eliminate %s from the design.\n", why_pessimistic);
@@ -2086,26 +2087,33 @@ struct CxxrtlWorker {
 
 	void prepare_design(RTLIL::Design *design)
 	{
+		bool did_anything = false;
 		bool has_sync_init, has_packed_mem;
 		log_push();
 		check_design(design, has_sync_init, has_packed_mem);
 		if (run_proc_flatten) {
 			Pass::call(design, "proc");
 			Pass::call(design, "flatten");
+			did_anything = true;
 		} else if (has_sync_init) {
 			// We're only interested in proc_init, but it depends on proc_prune and proc_clean, so call those
 			// in case they weren't already. (This allows `yosys foo.v -o foo.cc` to work.)
 			Pass::call(design, "proc_prune");
 			Pass::call(design, "proc_clean");
 			Pass::call(design, "proc_init");
+			did_anything = true;
 		}
-		if (has_packed_mem)
+		if (has_packed_mem) {
 			Pass::call(design, "memory_unpack");
+			did_anything = true;
+		}
 		// Recheck the design if it was modified.
 		if (has_sync_init || has_packed_mem)
 			check_design(design, has_sync_init, has_packed_mem);
 		log_assert(!(has_sync_init || has_packed_mem));
 		log_pop();
+		if (did_anything)
+			log_spacer();
 		analyze_design(design);
 	}
 };
