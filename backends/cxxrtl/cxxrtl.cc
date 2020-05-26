@@ -513,7 +513,6 @@ struct CxxrtlWorker {
 	bool elide_public = false;
 	bool localize_internal = false;
 	bool localize_public = false;
-	bool run_opt_clean_purge = false;
 	bool run_proc_flatten = false;
 	bool max_opt_level = false;
 
@@ -2046,7 +2045,7 @@ struct CxxrtlWorker {
 		}
 		if (has_feedback_arcs || has_buffered_wires) {
 			// Although both non-feedback buffered combinatorial wires and apparent feedback wires may be eliminated
-			// by optimizing the design, if after `opt_clean -purge` there are any feedback wires remaining, it is very
+			// by optimizing the design, if after `proc; flatten` there are any feedback wires remaining, it is very
 			// likely that these feedback wires are indicative of a true logic loop, so they get emphasized in the message.
 			const char *why_pessimistic = nullptr;
 			if (has_feedback_arcs)
@@ -2106,15 +2105,13 @@ struct CxxrtlWorker {
 		if (has_sync_init || has_packed_mem)
 			check_design(design, has_sync_init, has_packed_mem);
 		log_assert(!(has_sync_init || has_packed_mem));
-		if (run_opt_clean_purge)
-			Pass::call(design, "opt_clean -purge");
 		log_pop();
 		analyze_design(design);
 	}
 };
 
 struct CxxrtlBackend : public Backend {
-	static const int DEFAULT_OPT_LEVEL = 6;
+	static const int DEFAULT_OPT_LEVEL = 5;
 
 	CxxrtlBackend() : Backend("cxxrtl", "convert design to C++ RTL simulation") { }
 	void help() YS_OVERRIDE
@@ -2340,6 +2337,7 @@ struct CxxrtlBackend : public Backend {
 		extra_args(f, filename, args, argidx);
 
 		switch (opt_level) {
+			// the highest level here must match DEFAULT_OPT_LEVEL
 			case 5:
 				worker.max_opt_level = true;
 				worker.run_proc_flatten = true;
