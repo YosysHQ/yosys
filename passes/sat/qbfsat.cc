@@ -28,6 +28,13 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+static inline unsigned int difference(unsigned int a, unsigned int b) {
+	if (a < b)
+		return b - a;
+	else
+		return a - b;
+}
+
 struct QbfSolutionType {
 	std::vector<std::string> stdout_lines;
 	dict<pool<std::string>, std::string> hole_to_value;
@@ -443,7 +450,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 		maximize = wire_to_optimize->get_bool_attribute("\\maximize");
 	}
 
-	if (opt.nobisection || opt.nooptimize) {
+	if (opt.nobisection || opt.nooptimize || wire_to_optimize == nullptr) {
 		if (wire_to_optimize != nullptr && opt.nooptimize) {
 			wire_to_optimize->set_bool_attribute("\\maximize", false);
 			wire_to_optimize->set_bool_attribute("\\minimize", false);
@@ -460,7 +467,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 		log("%s wire \"%s\".\n", (maximize? "Maximizing" : "Minimizing"), log_signal(wire_to_optimize));
 
 		//If maximizing, grow until we get a failure.  Then bisect success and failure.
-		while (failure == 0 || success - failure > 1) {
+		while (failure == 0 || difference(success, failure) > 1) {
 			Pass::call(design, "design -push-copy");
 			log_header(design, "Preparing QBF-SAT problem.\n");
 
@@ -498,8 +505,9 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 				//sometimes this happens if we get an 'unknown' or timeout
 				if (!maximize && success < failure)
 					break;
-				else if (maximize && success > failure)
+				else if (maximize && failure != 0 && success > failure)
 					break;
+
 			} else {
 				//Treat 'unknown' as UNSAT
 				failure = cur_thresh;
@@ -512,8 +520,12 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 			}
 
 			iter_num++;
-			cur_thresh = (maximize && failure == 0)? 2 * success //growth
-			                                       : (success + failure) / 2; //bisection
+			if (maximize && failure == 0 && success == 0)
+				cur_thresh = 2;
+			else if (maximize && failure == 0)
+				cur_thresh = 2 * success; //growth
+			else //if (!maximize || failure != 0)
+				cur_thresh = (success + failure) / 2; //bisection
 		}
 		if (success != 0 || failure != 0) {
 			log("Wire %s is %s at %d.\n", wire_to_optimize_name.c_str(), (maximize? "maximized" : "minimized"), success);
