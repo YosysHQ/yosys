@@ -90,7 +90,7 @@ specify
     $setup(SLOAD, posedge CLK, `SYNCSETUP);
     $setup(SDATA, posedge CLK, `SYNCSETUP);
 
-    (ACLR => Q) = `COMBPATH;
+    if (!ACLR) (ACLR => Q) = `COMBPATH;
 endspecify
 
 initial begin
