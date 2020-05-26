@@ -294,7 +294,7 @@ struct Abc9Pass : public ScriptPass
 			run("design -load $abc9_map");
 			run("proc");
 			run("wbflip");
-			run("techmap");
+			run("techmap -wb -map %$abc9 -map +/techmap.v");
 			run("opt");
 			if (dff_mode || help_mode) {
 				if (!help_mode)
