@@ -318,6 +318,64 @@ struct IFExpander
 	}
 };
 
+// Get a module needed by a cell, either by deriving an abstract module or by
+// loading one from a directory in libdirs.
+//
+// If the module can't be found and check is true then exit with an error
+// message. Otherwise, return a pointer to the module if we derived or loaded
+// something. or null otherwise (the module should be blackbox or we couldn't
+// find it and check is not set).
+RTLIL::Module *get_module(RTLIL::Design                  &design,
+                          RTLIL::Cell                    &cell,
+                          RTLIL::Module                  &parent,
+                          bool                            check,
+                          const std::vector<std::string> &libdirs)
+{
+	std::string cell_type = cell.type.str();
+	RTLIL::Module *abs_mod = design.module("$abstract" + cell_type);
+	if (abs_mod) {
+		cell.type = abs_mod->derive(&design, cell.parameters);
+		cell.parameters.clear();
+		RTLIL::Module *mod = design.module(cell.type);
+		log_assert(mod);
+		return mod;
+	}
+
+	// If the cell type starts with '$' and isn't '$abstract', we should
+	// treat it as a black box and skip.
+	if (cell_type[0] == '$')
+		return nullptr;
+
+	for (auto &dir : libdirs) {
+		static const vector<pair<string, string>> extensions_list =
+			{
+			 {".v", "verilog"},
+			 {".sv", "verilog -sv"},
+			 {".il", "rtlil"}
+			};
+
+		for (auto &ext : extensions_list) {
+			std::string filename = dir + "/" + RTLIL::unescape_id(cell.type) + ext.first;
+			if (!check_file_exists(filename))
+				continue;
+
+			Frontend::frontend_call(&design, NULL, filename, ext.second);
+			RTLIL::Module *mod = design.module(cell.type);
+			if (!mod)
+				log_error("File `%s' from libdir does not declare module `%s'.\n",
+				          filename.c_str(), cell_type.c_str());
+			return mod;
+		}
+	}
+
+	// We couldn't find the module anywhere. Complain if check is set.
+	if (check)
+		log_error("Module `%s' referenced in module `%s' in cell `%s' is not part of the design.\n",
+		          cell_type.c_str(), parent.name.c_str(), cell.name.c_str());
+
+	return nullptr;
+}
+
 bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check, bool flag_simcheck, std::vector<std::string> &libdirs)
 {
 	bool did_something = false;
@@ -354,49 +412,21 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 		}
 
 		RTLIL::Module *mod = design->module(cell->type);
-		if (mod == nullptr)
+		if (!mod)
 		{
-			if (design->module("$abstract" + cell->type.str()) != nullptr)
-			{
-				cell->type = design->module("$abstract" + cell->type.str())->derive(design, cell->parameters);
-				cell->parameters.clear();
+			mod = get_module(*design, *cell, *module, flag_check || flag_simcheck, libdirs);
+
+			// If we still don't have a module, treat the cell as a black box and skip
+			// it. Otherwise, we either loaded or derived something so should set the
+			// did_something flag before returning (to ensure we come back and expand
+			// the thing we just loaded).
+			if (mod)
 				did_something = true;
-				continue;
-			}
 
-			if (cell->type[0] == '$')
-				continue;
-
-			for (auto &dir : libdirs)
-			{
-				static const vector<pair<string, string>> extensions_list =
-				{
-					{".v", "verilog"},
-					{".sv", "verilog -sv"},
-					{".il", "rtlil"}
-				};
-
-				for (auto &ext : extensions_list)
-				{
-					filename = dir + "/" + RTLIL::unescape_id(cell->type) + ext.first;
-					if (check_file_exists(filename)) {
-						Frontend::frontend_call(design, NULL, filename, ext.second);
-						goto loaded_module;
-					}
-				}
-			}
-
-			if ((flag_check || flag_simcheck) && cell->type[0] != '$')
-				log_error("Module `%s' referenced in module `%s' in cell `%s' is not part of the design.\n",
-						cell->type.c_str(), module->name.c_str(), cell->name.c_str());
 			continue;
+		}
 
-		loaded_module:
-			mod = design->module(cell->type);
-			if (mod == nullptr)
-				log_error("File `%s' from libdir does not declare module `%s'.\n", filename.c_str(), cell->type.c_str());
-			did_something = true;
-		} else {
+		log_assert(mod);
 
 		// Go over all connections and check if any of them are SV
 		// interfaces.
@@ -426,12 +456,6 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			}
 
 		}
-		}
-
-		// If we make it out of the if/else block above without leaving
-		// this iteration, mod will equal design->module(cell->type) and
-		// will be non-null.
-		log_assert(mod);
 
 		if (mod->get_blackbox_attribute()) {
 			if (flag_simcheck)
