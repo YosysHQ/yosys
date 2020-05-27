@@ -34,7 +34,10 @@ static bool match_ids(RTLIL::IdString id, std::string pattern)
 {
 	if (id == pattern)
 		return true;
-	if (id.size() > 0 && id[0] == '\\' && id.compare(1, std::string::npos, pattern.c_str()) == 0)
+	const char *id_c = id.c_str();
+	if (*id_c == '\\' &&
+	    id.size() == 1 + pattern.size() &&
+	    memcmp(id_c + 1, pattern.c_str(), pattern.size()) == 0)
 		return true;
 	if (patmatch(pattern.c_str(), id.c_str()))
 		return true;
