@@ -30,22 +30,24 @@ using RTLIL::id2cstr;
 
 static std::vector<RTLIL::Selection> work_stack;
 
-static bool match_ids(RTLIL::IdString id, std::string pattern)
+static bool match_ids(RTLIL::IdString id, const std::string &pattern)
 {
 	if (id == pattern)
 		return true;
+
 	const char *id_c = id.c_str();
-	if (*id_c == '\\' &&
-	    id.size() == 1 + pattern.size() &&
-	    memcmp(id_c + 1, pattern.c_str(), pattern.size()) == 0)
+	const char *pat_c = pattern.c_str();
+	size_t id_size = strlen(id_c);
+	size_t pat_size = pattern.size();
+
+	if (*id_c == '\\' && id_size == 1 + pat_size && memcmp(id_c + 1, pat_c, pat_size) == 0)
 		return true;
-	if (patmatch(pattern.c_str(), id.c_str()))
+	if (patmatch(pat_c, id_c))
 		return true;
-	if (id.size() > 0 && id[0] == '\\' && patmatch(pattern.c_str(), id.substr(1).c_str()))
+	if (*id_c == '\\' && patmatch(pat_c, id_c + 1))
 		return true;
-	if (id.size() > 0 && id[0] == '$' && pattern.size() > 0 && pattern[0] == '$') {
-		const char *p = id.c_str();
-		const char *q = strrchr(p, '$');
+	if (*id_c == '$' && *pat_c == '$') {
+		const char *q = strrchr(id_c, '$');
 		if (pattern == q)
 			return true;
 	}
