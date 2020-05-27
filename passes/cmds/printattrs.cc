@@ -35,11 +35,17 @@ struct PrintAttrsPass : public Pass {
 		log("\n");
 	}
 
+	static std::string get_indent_str(const unsigned int indent) {
+		//Build the format string (e.g. "%4s")
+		std::string format_str = stringf("%%%ds", indent);
+		return stringf(format_str.c_str(), " "); //Use the format string with " " as %s 
+	}
+
 	static void log_const(const RTLIL::IdString &s, const RTLIL::Const &x, const unsigned int indent) {
 		if (x.flags == RTLIL::CONST_FLAG_STRING)
-			log("%s(* %s=\"%s\" *)\n", stringf(stringf("%%%ds", indent).c_str(), " ").c_str(), log_id(s), x.decode_string().c_str());
+			log("%s(* %s=\"%s\" *)\n", get_indent_str(indent).c_str(), log_id(s), x.decode_string().c_str());
 		else if (x.flags == RTLIL::CONST_FLAG_NONE)
-			log("%s(* %s=%s *)\n", stringf(stringf("%%%ds", indent).c_str(), " ").c_str(), log_id(s), x.as_string().c_str());
+			log("%s(* %s=%s *)\n", get_indent_str(indent).c_str(), log_id(s), x.as_string().c_str());
 		else
 			log_assert(x.flags == RTLIL::CONST_FLAG_STRING || x.flags == RTLIL::CONST_FLAG_NONE); //intended to fail
 	}
@@ -53,14 +59,14 @@ struct PrintAttrsPass : public Pass {
 		for (auto mod : design->selected_modules())
 		{
 			if (design->selected_whole_module(mod)) {
-				log("%s%s\n", stringf(stringf("%%%ds", indent).c_str(), " ").c_str(), log_id(mod->name));
+				log("%s%s\n", get_indent_str(indent).c_str(), log_id(mod->name));
 				indent += 2;
 				for (auto &it : mod->attributes)
 					log_const(it.first, it.second, indent);
 			}
 
 			for (auto cell : mod->selected_cells()) {
-				log("%s%s\n", stringf(stringf("%%%ds", indent).c_str(), " ").c_str(), log_id(cell->name));
+				log("%s%s\n", get_indent_str(indent).c_str(), log_id(cell->name));
 				indent += 2;
 				for (auto &it : cell->attributes)
 					log_const(it.first, it.second, indent);
@@ -68,7 +74,7 @@ struct PrintAttrsPass : public Pass {
 			}
 
 			for (auto wire : mod->selected_wires()) {
-				log("%s%s\n", stringf(stringf("%%%ds", indent).c_str(), " ").c_str(), log_id(wire->name));
+				log("%s%s\n", get_indent_str(indent).c_str(), log_id(wire->name));
 				indent += 2;
 				for (auto &it : wire->attributes)
 					log_const(it.first, it.second, indent);
