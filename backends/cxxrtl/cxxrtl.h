@@ -49,6 +49,8 @@ namespace cxxrtl {
 // invisible to the compiler, (b) we often operate on non-power-of-2 values and have to clear the high bits anyway.
 // Therefore, using relatively wide chunks and clearing the high bits explicitly and only when we know they may be
 // clobbered results in simpler generated code.
+typedef uint32_t chunk_t;
+
 template<typename T>
 struct chunk_traits {
 	static_assert(std::is_integral<T>::value && std::is_unsigned<T>::value,
@@ -65,7 +67,7 @@ template<size_t Bits>
 struct value : public expr_base<value<Bits>> {
 	static constexpr size_t bits = Bits;
 
-	using chunk = chunk_traits<uint32_t>;
+	using chunk = chunk_traits<chunk_t>;
 	static constexpr chunk::type msb_mask = (Bits % chunk::bits == 0) ? chunk::mask
 		: chunk::mask >> (chunk::bits - (Bits % chunk::bits));
 
@@ -712,6 +714,46 @@ struct metadata {
 
 typedef std::map<std::string, metadata> metadata_map;
 
+// This structure is intended for consumption via foreign function interfaces, like Python's ctypes.
+// Because of this it uses a C-style layout that is easy to parse rather than more idiomatic C++.
+struct debug_item {
+	enum : uint32_t {
+		VALUE  = 0,
+		WIRE   = 1,
+		MEMORY = 2,
+	} type;
+
+	size_t width; // in bits
+	size_t depth; // 1 if `type != MEMORY`
+	chunk_t *curr;
+	chunk_t *next; // nullptr if `type == VALUE || type == MEMORY`
+
+	template<size_t Bits>
+	debug_item(value<Bits> &item) : type(VALUE), width(Bits), depth(1),
+		curr(item.data), next(nullptr) {
+			static_assert(sizeof(item) == value<Bits>::chunks * sizeof(chunk_t),
+			              "value<Bits> is not compatible with C layout");
+		}
+
+	template<size_t Bits>
+	debug_item(wire<Bits> &item) : type(WIRE), width(Bits), depth(1),
+		curr(item.curr.data), next(item.next.data) {
+			static_assert(sizeof(item.curr) == value<Bits>::chunks * sizeof(chunk_t) &&
+			              sizeof(item.next) == value<Bits>::chunks * sizeof(chunk_t),
+			              "wire<Bits> is not compatible with C layout");
+		}
+
+	template<size_t Width>
+	debug_item(memory<Width> &item) : type(MEMORY), width(Width), depth(item.data.size()),
+		curr(item.data.empty() ? nullptr : item.data[0].data), next(nullptr) {
+			static_assert(sizeof(item.data[0]) == value<Width>::chunks * sizeof(chunk_t),
+			              "memory<Width> is not compatible with C layout");
+		}
+};
+static_assert(std::is_standard_layout<debug_item>::value, "debug_item is not compatible with C layout");
+
+typedef std::map<std::string, debug_item> debug_items;
+
 struct module {
 	module() {}
 	virtual ~module() {}
@@ -731,6 +773,8 @@ struct module {
 		} while (commit() && !converged);
 		return deltas;
 	}
+
+	virtual void debug_info(debug_items &items, std::string path = "") {}
 };
 
 } // namespace cxxrtl

@@ -502,6 +502,15 @@ std::string escape_cxx_string(const std::string &input)
 	return output;
 }
 
+template<class T>
+std::string get_hdl_name(T *object)
+{
+	if (object->has_attribute(ID::hdlname))
+		return object->get_string_attribute(ID::hdlname);
+	else
+		return object->name.str();
+}
+
 struct CxxrtlWorker {
 	bool split_intf = false;
 	std::string intf_filename;
@@ -515,6 +524,8 @@ struct CxxrtlWorker {
 	bool localize_public = false;
 	bool run_proc_flatten = false;
 	bool max_opt_level = false;
+
+	bool debug_info = false;
 
 	std::ostringstream f;
 	std::string indent;
@@ -1593,6 +1604,34 @@ struct CxxrtlWorker {
 		dec_indent();
 	}
 
+	void dump_debug_info_method(RTLIL::Module *module)
+	{
+		inc_indent();
+			f << indent << "assert(path.empty() || path[path.size() - 1] == ' ');\n";
+			for (auto wire : module->wires()) {
+				if (wire->name[0] != '\\')
+					continue;
+				if (localized_wires.count(wire))
+					continue;
+				f << indent << "items.emplace(path + " << escape_cxx_string(get_hdl_name(wire));
+				f << ", debug_item(" << mangle(wire) << "));\n";
+			}
+			for (auto &memory_it : module->memories) {
+				if (memory_it.first[0] != '\\')
+					continue;
+				f << indent << "items.emplace(path + " << escape_cxx_string(get_hdl_name(memory_it.second));
+				f << ", debug_item(" << mangle(memory_it.second) << "));\n";
+			}
+			for (auto cell : module->cells()) {
+				if (is_internal_cell(cell->type))
+					continue;
+				const char *access = is_cxxrtl_blackbox_cell(cell) ? "->" : ".";
+				f << indent << mangle(cell) << access << "debug_info(items, ";
+				f << "path + " << escape_cxx_string(get_hdl_name(cell) + ' ') << ");\n";
+			}
+		dec_indent();
+	}
+
 	void dump_metadata_map(const dict<RTLIL::IdString, RTLIL::Const> &metadata_map)
 	{
 		if (metadata_map.empty()) {
@@ -1641,6 +1680,12 @@ struct CxxrtlWorker {
 				dump_commit_method(module);
 				f << indent << "}\n";
 				f << "\n";
+				if (debug_info) {
+					f << indent << "void debug_info(debug_items &items, std::string path = \"\") override {\n";
+					dump_debug_info_method(module);
+					f << indent << "}\n";
+					f << "\n";
+				}
 				f << indent << "static std::unique_ptr<" << mangle(module);
 				f << template_params(module, /*is_decl=*/false) << "> ";
 				f << "create(std::string name, metadata_map parameters, metadata_map attributes);\n";
@@ -1689,7 +1734,7 @@ struct CxxrtlWorker {
 					if (cell_module->get_bool_attribute(ID(cxxrtl_blackbox))) {
 						f << indent << "std::unique_ptr<" << mangle(cell_module) << template_args(cell) << "> ";
 						f << mangle(cell) << " = " << mangle(cell_module) << template_args(cell);
-						f << "::create(" << escape_cxx_string(cell->name.str()) << ", ";
+						f << "::create(" << escape_cxx_string(get_hdl_name(cell)) << ", ";
 						dump_metadata_map(cell->parameters);
 						f << ", ";
 						dump_metadata_map(cell->attributes);
@@ -1703,6 +1748,8 @@ struct CxxrtlWorker {
 					f << "\n";
 				f << indent << "bool eval() override;\n";
 				f << indent << "bool commit() override;\n";
+				if (debug_info)
+					f << indent << "void debug_info(debug_items &items, std::string path = \"\") override;\n";
 			dec_indent();
 			f << indent << "}; // struct " << mangle(module) << "\n";
 			f << "\n";
@@ -1721,6 +1768,12 @@ struct CxxrtlWorker {
 		dump_commit_method(module);
 		f << indent << "}\n";
 		f << "\n";
+		if (debug_info) {
+			f << indent << "void " << mangle(module) << "::debug_info(debug_items &items, std::string path) {\n";
+			dump_debug_info_method(module);
+			f << indent << "}\n";
+			f << "\n";
+		}
 	}
 
 	void dump_design(RTLIL::Design *design)
@@ -2120,6 +2173,7 @@ struct CxxrtlWorker {
 
 struct CxxrtlBackend : public Backend {
 	static const int DEFAULT_OPT_LEVEL = 5;
+	static const int DEFAULT_DEBUG_LEVEL = 1;
 
 	CxxrtlBackend() : Backend("cxxrtl", "convert design to C++ RTL simulation") { }
 	void help() YS_OVERRIDE
@@ -2313,10 +2367,22 @@ struct CxxrtlBackend : public Backend {
 		log("    -O5\n");
 		log("        like -O4, and run `proc; flatten` first.\n");
 		log("\n");
+		log("    -g <level>\n");
+		log("        set the debug level. the default is -g%d. higher debug levels provide\n", DEFAULT_DEBUG_LEVEL);
+		log("        more visibility and generate more code, but do not pessimize evaluation.\n");
+		log("\n");
+		log("    -g0\n");
+		log("        no debug information.\n");
+		log("\n");
+		log("    -g1\n");
+		log("        debug information for non-localized public wires.\n");
+		log("\n");
 	}
+
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		int opt_level = DEFAULT_OPT_LEVEL;
+		int debug_level = DEFAULT_DEBUG_LEVEL;
 		CxxrtlWorker worker;
 
 		log_header(design, "Executing CXXRTL backend.\n");
@@ -2330,6 +2396,14 @@ struct CxxrtlBackend : public Backend {
 			}
 			if (args[argidx].substr(0, 2) == "-O" && args[argidx].size() == 3 && isdigit(args[argidx][2])) {
 				opt_level = std::stoi(args[argidx].substr(2));
+				continue;
+			}
+			if (args[argidx] == "-g" && argidx+1 < args.size()) {
+				debug_level = std::stoi(args[++argidx]);
+				continue;
+			}
+			if (args[argidx].substr(0, 2) == "-g" && args[argidx].size() == 3 && isdigit(args[argidx][2])) {
+				debug_level = std::stoi(args[argidx].substr(2));
 				continue;
 			}
 			if (args[argidx] == "-header") {
@@ -2361,6 +2435,17 @@ struct CxxrtlBackend : public Backend {
 				YS_FALLTHROUGH
 			case 1:
 				worker.elide_internal = true;
+				YS_FALLTHROUGH
+			case 0:
+				break;
+			default:
+				log_cmd_error("Invalid optimization level %d.\n", opt_level);
+		}
+
+		switch (debug_level) {
+			// the highest level here must match DEFAULT_DEBUG_LEVEL
+			case 1:
+				worker.debug_info = true;
 				YS_FALLTHROUGH
 			case 0:
 				break;
