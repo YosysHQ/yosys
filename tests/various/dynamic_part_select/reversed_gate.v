@@ -3,7 +3,7 @@ module reversed_gate (clk, ctrl, din, sel, dout);
    input wire clk;
    input wire [4:0] ctrl;
    input wire [15:0] din;
-   input wire [3:0] 	sel;
+   input wire [3:0]  sel;
    output reg [31:0] dout;
    always @(posedge clk)
      case ((({(32)-((ctrl)*(sel))})+(1))-(2))

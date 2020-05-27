@@ -1,4 +1,4 @@
-`default_nettype wire
+`default_nettype none
 module multiple_blocking_gate (clk, ctrl, din, sel, dout);
    input wire clk;
    input wire [4:0] ctrl;
