@@ -150,9 +150,6 @@ namespace RTLIL
 			if (!p[0])
 				return 0;
 
-			log_assert(p[0] == '$' || p[0] == '\\');
-			log_assert(p[1] != 0);
-
 			auto it = global_id_index_.find((char*)p);
 			if (it != global_id_index_.end()) {
 		#ifndef YOSYS_NO_IDS_REFCNT
@@ -164,6 +161,11 @@ namespace RTLIL
 		#endif
 				return it->second;
 			}
+
+			log_assert(p[0] == '$' || p[0] == '\\');
+			log_assert(p[1] != 0);
+			for (const char *c = p; *c; c++)
+				log_assert((unsigned)*c > (unsigned)' ');
 
 		#ifndef YOSYS_NO_IDS_REFCNT
 			if (global_free_idx_list_.empty()) {
