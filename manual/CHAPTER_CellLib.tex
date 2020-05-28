@@ -139,6 +139,8 @@ Verilog & Cell Type \\
 \lstinline[language=Verilog]; Y = A  * B; & {\tt \$mul} \\
 \lstinline[language=Verilog]; Y = A  / B; & {\tt \$div} \\
 \lstinline[language=Verilog]; Y = A  % B; & {\tt \$mod} \\
+\multicolumn{1}{c}{\tt [N/A]} & {\tt \$divfloor} \\
+\multicolumn{1}{c}{\tt [N/A]} & {\tt \$modfoor} \\
 \lstinline[language=Verilog]; Y = A ** B; & {\tt \$pow} \\
 \end{tabular}
 \caption{Cell types for binary operators with their corresponding Verilog expressions.}
@@ -160,6 +162,27 @@ For the binary cells that output a logical value ({\tt \$logic\_and}, {\tt \$log
 {\tt \$eqx}, {\tt \$nex}, {\tt \$lt}, {\tt \$le}, {\tt \$eq}, {\tt \$ne}, {\tt \$ge},
 {\tt \$gt}), when the \B{Y\_WIDTH} parameter is greater than 1, the output is zero-extended,
 and only the least significant bit varies.
+
+Division and modulo cells are available in two rounding modes. The original {\tt \$div} and {\tt \$mod}
+cells are based on truncating division, and correspond to the semantics of the verilog {\tt /} and
+{\tt \%} operators. The {\tt \$divfloor} and {\tt \$modfloor} cells represent flooring division and
+flooring modulo, the latter of which is also known as ``remainder'' in several languages. See
+table~\ref{tab:CellLib_divmod} for a side-by-side comparison between the different semantics.
+
+\begin{table}[h]
+\hfil
+\begin{tabular}{lr|rr|rr}
+\multirow{2}{*}{Division} & \multirow{2}{*}{Result} & \multicolumn{2}{c|}{Truncating} & \multicolumn{2}{c}{Flooring} \\
+               &            & {\tt \$div} & {\tt \$mod} & {\tt \$divfloor} & {\tt \$modfloor} \\
+\hline
+{\tt -10 / 3}  & {\tt -3.3} & {\tt -3}    & {\tt -1}    & {\tt -4}         & {\tt 2} \\
+{\tt 10 / -3}  & {\tt -3.3} & {\tt -3}    & {\tt 1}     & {\tt -4}         & {\tt -2} \\
+{\tt -10 / -3} & {\tt 3.3}  & {\tt 3}     & {\tt -1}    & {\tt 3}          & {\tt -1} \\
+{\tt 10 / 3}   & {\tt 3.3}  & {\tt 3}     & {\tt 1}     & {\tt 3}          & {\tt 1} \\
+\end{tabular}
+\caption{Comparison between different rounding modes for division and modulo cells.}
+\label{tab:CellLib_divmod}
+\end{table}
 
 \subsection{Multiplexers}
 
