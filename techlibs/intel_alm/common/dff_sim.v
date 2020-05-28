@@ -79,10 +79,9 @@ module MISTRAL_FF(
 );
 
 specify
-    if (ENA) (posedge CLK => (Q : DATAIN)) = `SYNCPATH;
-    if (ENA) (posedge CLK => (Q : SCLR)) = `SYNCPATH;
-    if (ENA) (posedge CLK => (Q : SLOAD)) = `SYNCPATH;
-    if (ENA) (posedge CLK => (Q : SDATA)) = `SYNCPATH;
+    if (ENA && ACLR !== 1'b0 && !SCLR && !SLOAD) (posedge CLK => (Q : DATAIN)) = `SYNCPATH;
+    if (ENA && SCLR) (posedge CLK => (Q : 1'b0)) = `SYNCPATH;
+    if (ENA && !SCLR && SLOAD) (posedge CLK => (Q : SDATA)) = `SYNCPATH;
 
     $setup(DATAIN, posedge CLK, `SYNCSETUP);
     $setup(ENA, posedge CLK, `SYNCSETUP);
@@ -90,7 +89,7 @@ specify
     $setup(SLOAD, posedge CLK, `SYNCSETUP);
     $setup(SDATA, posedge CLK, `SYNCSETUP);
 
-    if (!ACLR) (ACLR => Q) = `COMBPATH;
+    if (ACLR === 1'b0) (ACLR => Q) = `COMBPATH;
 endspecify
 
 initial begin
