@@ -721,7 +721,7 @@ struct RTLIL::SigBit
 	SigBit(const RTLIL::SigChunk &chunk);
 	SigBit(const RTLIL::SigChunk &chunk, int index);
 	SigBit(const RTLIL::SigSpec &sig);
-	SigBit(const RTLIL::SigBit &sigbit);
+	SigBit(const RTLIL::SigBit &sigbit) = default;
 	RTLIL::SigBit &operator =(const RTLIL::SigBit &other) = default;
 
 	bool operator <(const RTLIL::SigBit &other) const;
@@ -1494,7 +1494,6 @@ inline RTLIL::SigBit::SigBit(RTLIL::Wire *wire) : wire(wire), offset(0) { log_as
 inline RTLIL::SigBit::SigBit(RTLIL::Wire *wire, int offset) : wire(wire), offset(offset) { log_assert(wire != nullptr); }
 inline RTLIL::SigBit::SigBit(const RTLIL::SigChunk &chunk) : wire(chunk.wire) { log_assert(chunk.width == 1); if (wire) offset = chunk.offset; else data = chunk.data[0]; }
 inline RTLIL::SigBit::SigBit(const RTLIL::SigChunk &chunk, int index) : wire(chunk.wire) { if (wire) offset = chunk.offset + index; else data = chunk.data[index]; }
-inline RTLIL::SigBit::SigBit(const RTLIL::SigBit &sigbit) : wire(sigbit.wire), data(sigbit.data){ if (wire) offset = sigbit.offset; }
 
 inline bool RTLIL::SigBit::operator<(const RTLIL::SigBit &other) const {
 	if (wire == other.wire)
