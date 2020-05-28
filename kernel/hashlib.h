@@ -435,6 +435,14 @@ public:
 			insert(*first);
 	}
 
+	template<class InputIterator, class Predicate>
+	void insert_if(InputIterator first, InputIterator last, Predicate pred)
+	{
+		for (; first != last; ++first)
+			if (pred(*first))
+				insert(*first);
+	}
+
 	std::pair<iterator, bool> insert(const K &key)
 	{
 		int hash = do_hash(key);
@@ -849,6 +857,14 @@ public:
 	{
 		for (; first != last; ++first)
 			insert(*first);
+	}
+
+	template<class InputIterator, class Predicate>
+	void insert_if(InputIterator first, InputIterator last, Predicate pred)
+	{
+		for (; first != last; ++first)
+			if (pred(*first))
+				insert(*first);
 	}
 
 	std::pair<iterator, bool> insert(const K &value)
