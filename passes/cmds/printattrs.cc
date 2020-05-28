@@ -36,9 +36,7 @@ struct PrintAttrsPass : public Pass {
 	}
 
 	static std::string get_indent_str(const unsigned int indent) {
-		//Build the format string (e.g. "%4s")
-		std::string format_str = stringf("%%%ds", indent);
-		return stringf(format_str.c_str(), " "); //Use the format string with " " as %s 
+		return stringf("%*s", indent, "");
 	}
 
 	static void log_const(const RTLIL::IdString &s, const RTLIL::Const &x, const unsigned int indent) {
