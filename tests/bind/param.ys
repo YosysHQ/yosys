@@ -1,1 +1,6 @@
 read_verilog -sv param.sv
+hierarchy
+flatten
+equiv_make ref act equiv
+equiv_simple
+equiv_status -assert

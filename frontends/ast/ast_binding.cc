@@ -46,4 +46,36 @@ AST::Binding::describe() const
 	return oss.str();
 }
 
+bool
+AST::Binding::bind_into(RTLIL::Design &design, RTLIL::Module &target) const
+{
+	if (target.get_bool_attribute(attr_name))
+		return false;
+
+	// Dynamically cast the target module to an AstModule. If we can't,
+	// we're trying to bind into a module that didn't come from parsing RTL
+	// code and there's not really much we can do!
+	AstModule *tgt_ast_mod = dynamic_cast<AstModule *>(&target);
+	if (!tgt_ast_mod) {
+		log_error("Cannot bind into module `%s' because it didn't originally come from RTL.\n",
+		          target.name.c_str());
+	}
+
+	tgt_ast_mod->loadconfig();
+
+	// Re-derive the module from its AstNode, after modifying the
+	// target's AST by inserting a copy of our own AST node to
+	// represent the thing being bound in.
+	AstNode *new_ast = tgt_ast_mod->ast->clone();
+	new_ast->children.push_back(ast_node->clone());
+
+	RTLIL::Module *new_module =
+		process_and_replace_module(&design, &target, new_ast);
+
+	// Set attr_name so that we don't try to bind into this module again.
+	new_module->set_bool_attribute(attr_name);
+
+	return true;
+}
+
 PRIVATE_NAMESPACE_END

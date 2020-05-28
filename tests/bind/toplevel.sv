@@ -8,13 +8,12 @@ module bar (input a, input b, output c);
   assign c = a ^ b;
 endmodule
 
-module top ();
-  logic u, v, w;
+module act (input u, input v, output w);
   foo foo_i (.a (u), .b (v), .c (w));
-
-  always_comb begin
-    assert(w == u ^ v);
-  end
 endmodule
 
-bind top.foo_i bar bound_i (.*);
+bind act.foo_i bar bound_i (.*);
+
+module ref (input u, input v, output w);
+  assign w = u ^ v;
+endmodule
