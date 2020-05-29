@@ -468,10 +468,6 @@ class SmtIo:
 
         fields = stmt.split()
 
-        if fields[1] == "yosys-smt2-timeout":
-            self.timeout = int(fields[2])
-            assert self.timeout > 0
-
         if fields[1] == "yosys-smt2-nomem":
             if self.logic is None:
                 self.logic_ax = False
