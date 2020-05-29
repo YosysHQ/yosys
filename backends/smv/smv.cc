@@ -358,7 +358,8 @@ struct SmvWorker
 				continue;
 			}
 
-			if (cell->type.in(ID($div), ID($mod)))
+			// SMV has a "mod" operator, but its semantics don't seem to be well-defined - to be safe, don't generate it at all
+			if (cell->type.in(ID($div)/*, ID($mod), ID($modfloor)*/))
 			{
 				int width_y = GetSize(cell->getPort(ID::Y));
 				int width = max(width_y, GetSize(cell->getPort(ID::A)));
@@ -366,7 +367,7 @@ struct SmvWorker
 				string expr_a, expr_b, op;
 
 				if (cell->type == ID($div))  op = "/";
-				if (cell->type == ID($mod))  op = "mod";
+				//if (cell->type == ID($mod))  op = "mod";
 
 				if (cell->getParam(ID::A_SIGNED).as_bool())
 				{

@@ -590,7 +590,17 @@ struct Smt2Worker
 			if (cell->type == ID($sub)) return export_bvop(cell, "(bvsub A B)");
 			if (cell->type == ID($mul)) return export_bvop(cell, "(bvmul A B)");
 			if (cell->type == ID($div)) return export_bvop(cell, "(bvUdiv A B)", 'd');
+			// "rem" = truncating modulo
 			if (cell->type == ID($mod)) return export_bvop(cell, "(bvUrem A B)", 'd');
+			// "mod" = flooring modulo
+			if (cell->type == ID($modfloor)) {
+				// bvumod doesn't exist because it's the same as bvurem
+				if (cell->getParam(ID::A_SIGNED).as_bool()) {
+					return export_bvop(cell, "(bvsmod A B)", 'd');
+				} else {
+					return export_bvop(cell, "(bvurem A B)", 'd');
+				}
+			}
 
 			if (cell->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_bool)) &&
 					2*GetSize(cell->getPort(ID::A).chunks()) < GetSize(cell->getPort(ID::A))) {
