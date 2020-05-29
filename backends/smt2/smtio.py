@@ -172,7 +172,7 @@ class SmtIo:
             self.unroll = False
 
         if self.solver == "yices":
-            if self.noincr:
+            if self.noincr or self.forall:
                 self.popen_vargs = ['yices-smt2'] + self.solver_opts
             else:
                 self.popen_vargs = ['yices-smt2', '--incremental'] + self.solver_opts
@@ -232,11 +232,15 @@ class SmtIo:
             if self.logic_uf: self.logic += "UF"
             if self.logic_bv: self.logic += "BV"
             if self.logic_dt: self.logic = "ALL"
+            if self.solver == "yices" and self.forall: self.logic = "BV"
 
         self.setup_done = True
 
         for stmt in self.info_stmts:
             self.write(stmt)
+
+        if self.forall and self.solver == "yices":
+            self.write("(set-option :yices-ef-max-iters 1000000000)")
 
         if self.produce_models:
             self.write("(set-option :produce-models true)")
