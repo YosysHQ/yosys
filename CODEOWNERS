@@ -23,10 +23,14 @@ passes/opt/opt_lut.cc          @whitequark
 # requests automatically, but we add information for other
 # contributors here too, so we know who to ask to take a look.
 
-# synth_intel_alm
-techlibs/intel_alm/*           @ZirconiumX
+techlibs/intel_alm/            @ZirconiumX
 
 # pyosys
 misc/*.py                      @btut
 
 # firrtl backend
+?
+
+passes/sat/qbfsat.cc           @boqwxp
+passes/cmds/exec.cc            @boqwxp
+passes/cmds/printattrs.cc      @boqwxp
