@@ -184,9 +184,12 @@ may hold important information for Yosys developers can be used without
 disturbing external tools. For example the Verilog backend assigns names in the form {\tt \_{\it integer}\_}.
 \end{itemize}
 
-In order to avoid programming errors, the RTLIL data structures check if all
-identifiers start with either a backslash or a dollar sign and generate a
-runtime error if this rule is violated.
+Whitespace and control characters (any character with an ASCII code 32 or less) are not allowed
+in RTLIL identifiers; most frontends and backends cannot support these characters in identifiers.
+
+In order to avoid programming errors, the RTLIL data structures check if all identifiers start
+with either a backslash or a dollar sign, and contain no whitespace or control characters.
+Violating these rules results in a runtime error.
 
 All RTLIL identifiers are case sensitive.
 
