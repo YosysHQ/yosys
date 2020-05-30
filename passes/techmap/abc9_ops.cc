@@ -129,20 +129,20 @@ void check(RTLIL::Design *design, bool dff_mode)
 				for (auto derived_cell : derived_module->cells()) {
 					if (derived_cell->type.in(ID($dff), ID($_DFF_N_), ID($_DFF_P_))) {
 						if (found)
-							log_error("Module '%s' with (* abc9_flop *) contains more than one $_DFF_[NP]_ cell.\n", log_id(derived_module));
+							log_error("Whitebox '%s' with (* abc9_flop *) contains more than one $_DFF_[NP]_ cell.\n", log_id(derived_module));
 						found = true;
 
 						SigBit Q = derived_cell->getPort(ID::Q);
 						log_assert(GetSize(Q.wire) == 1);
 
 						if (!Q.wire->port_output)
-							log_error("Module '%s' contains a %s cell where its 'Q' port does not drive a module output!\n", log_id(derived_module), log_id(derived_cell->type));
+							log_error("Whitebox '%s' with (* abc9_flop *) contains a %s cell where its 'Q' port does not drive a module output.\n", log_id(derived_module), log_id(derived_cell->type));
 
 						Const init = Q.wire->attributes.at(ID::init, State::Sx);
 						log_assert(GetSize(init) == 1);
 					}
 					else if (unsupported.count(derived_cell->type))
-						log_error("Module '%s' with (* abc9_flop *) contains a %s cell, which is not supported for sequential synthesis.\n", log_id(derived_module), log_id(derived_cell->type));
+						log_error("Whitebox '%s' with (* abc9_flop *) contains a %s cell, which is not supported for sequential synthesis.\n", log_id(derived_module), log_id(derived_cell->type));
 				}
 			}
 	}
@@ -215,7 +215,7 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 							// Block sequential synthesis on cells with (* init *) != 1'b0
 							//   because ABC9 doesn't support them
 							if (init != State::S0) {
-								log_warning("Module '%s' contains a %s cell with non-zero initial state -- this is not unsupported for ABC9 sequential synthesis. Treating as a blackbox.\n", log_id(derived_module), log_id(derived_cell->type));
+								log_warning("Whitebox '%s' with (* abc9_flop *) contains a %s cell with non-zero initial state -- this is not supported for ABC9 sequential synthesis. Treating as a blackbox.\n", log_id(derived_module), log_id(derived_cell->type));
 								derived_module->set_bool_attribute(ID::abc9_flop, false);
 							}
 							break;

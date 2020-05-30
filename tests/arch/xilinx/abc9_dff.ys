@@ -50,10 +50,10 @@ FDCE_1 /*#(.INIT(1))*/ fd7(.C(C), .CE(1'b0), .D(D), .CLR(1'b0), .Q(Q[6]));
 FDPE_1 #(.INIT(1)) fd8(.C(C), .CE(1'b0), .D(D), .PRE(1'b0), .Q(Q[7]));
 endmodule
 EOT
-logger -expect warning "Module '\$paramod\\FDRE\\INIT=1' contains a \$dff cell .*" 1
-logger -expect warning "Module '\$paramod\\FDRE_1\\INIT=1' contains a \$dff cell .*" 1
-logger -expect warning "Module 'FDSE' contains a \$dff cell .*" 1
-logger -expect warning "Module '\$paramod\\FDSE_1\\INIT=1' contains a \$dff cell .*" 1
+logger -expect warning "Whitebox '\$paramod\\FDRE\\INIT=1' with \(\* abc9_flop \*\) contains a \$dff cell with non-zero initial state -- this is not supported for ABC9 sequential synthesis. Treating as a blackbox\." 1
+logger -expect warning "Whitebox '\$paramod\\FDRE_1\\INIT=1' with \(\* abc9_flop \*\) contains a \$dff cell with non-zero initial state -- this is not supported for ABC9 sequential synthesis. Treating as a blackbox\." 1
+logger -expect warning "Whitebox 'FDSE' with \(\* abc9_flop \*\) contains a \$dff cell with non-zero initial state -- this is not supported for ABC9 sequential synthesis. Treating as a blackbox\." 1
+logger -expect warning "Whitebox '\$paramod\\FDSE_1\\INIT=1' with \(\* abc9_flop \*\) contains a \$dff cell with non-zero initial state -- this is not supported for ABC9 sequential synthesis. Treating as a blackbox\." 1
 equiv_opt -assert -multiclock -map +/xilinx/cells_sim.v synth_xilinx -abc9 -dff -noiopad -noclkbuf
 design -load postopt
 select -assert-count 8 t:FD*
