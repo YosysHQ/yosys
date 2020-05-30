@@ -1439,7 +1439,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 	//   treated as being "free"), in particular driving primary
 	//   outputs (real primary outputs, or cells treated as blackboxes)
 	//   or driving box inputs.
-	// Instead of just mapping those $_NOT_ gates into 2-input $lut-s
+	// Instead of just mapping those $_NOT_ gates into 1-input $lut-s
 	//   at an area and delay cost, see if it is possible to push
 	//   this $_NOT_ into the driving LUT, or into all sink LUTs.
 	// When this is not possible, (i.e. this signal drives two primary
