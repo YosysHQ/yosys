@@ -42,6 +42,7 @@ struct QbfSolveOptions {
 	bool nooptimize, nobisection;
 	bool sat, unsat, show_smtbmc;
 	enum Solver{Z3, Yices, CVC4} solver;
+	int timeout;
 	std::string specialize_soln_file;
 	std::string write_soln_soln_file;
 	std::string dump_final_smt2_file;
@@ -49,7 +50,7 @@ struct QbfSolveOptions {
 	QbfSolveOptions() : specialize(false), specialize_from_file(false), write_solution(false),
 			nocleanup(false), dump_final_smt2(false), assume_outputs(false), assume_neg(false),
 			nooptimize(false), nobisection(false), sat(false), unsat(false), show_smtbmc(false),
-			solver(Yices), argidx(0) {};
+			solver(Yices), timeout(0), argidx(0) {};
 };
 
 std::string get_solver_name(const QbfSolveOptions &opt) {
@@ -67,6 +68,11 @@ std::string get_solver_name(const QbfSolveOptions &opt) {
 void recover_solution(QbfSolutionType &sol) {
 	YS_REGEX_TYPE sat_regex = YS_REGEX_COMPILE("Status: PASSED");
 	YS_REGEX_TYPE unsat_regex = YS_REGEX_COMPILE("Solver Error.*model is not available");
+	YS_REGEX_TYPE unsat_regex2 = YS_REGEX_COMPILE("Status: FAILED");
+	YS_REGEX_TYPE timeout_regex = YS_REGEX_COMPILE("No solution found! \\(timeout\\)");
+	YS_REGEX_TYPE timeout_regex2 = YS_REGEX_COMPILE("No solution found! \\(interrupted\\)");
+	YS_REGEX_TYPE unknown_regex = YS_REGEX_COMPILE("No solution found! \\(unknown\\)");
+	YS_REGEX_TYPE unknown_regex2 = YS_REGEX_COMPILE("Unexpected EOF response from solver");
 	YS_REGEX_TYPE memout_regex = YS_REGEX_COMPILE("Solver Error:.*error \"out of memory\"");
 	YS_REGEX_TYPE hole_value_regex = YS_REGEX_COMPILE_WITH_SUBS("Value for anyconst in [a-zA-Z0-9_]* \\(([^:]*:[^\\)]*)\\): (.*)");
 #ifndef NDEBUG
@@ -87,13 +93,39 @@ void recover_solution(QbfSolutionType &sol) {
 #endif
 			sol.hole_to_value[loc] = val;
 		}
-		else if (YS_REGEX_NS::regex_search(x, sat_regex))
+		else if (YS_REGEX_NS::regex_search(x, sat_regex)) {
 			sat_regex_found = true;
-		else if (YS_REGEX_NS::regex_search(x, unsat_regex))
+			sol.sat = true;
+			sol.unknown = false;
+		}
+		else if (YS_REGEX_NS::regex_search(x, unsat_regex)) {
 			unsat_regex_found = true;
+			sol.sat = false;
+			sol.unknown = false;
+		}
 		else if (YS_REGEX_NS::regex_search(x, memout_regex)) {
 			sol.unknown = true;
 			log_warning("solver ran out of memory\n");
+		}
+		else if (YS_REGEX_NS::regex_search(x, timeout_regex)) {
+			sol.unknown = true;
+			log_warning("solver timed out\n");
+		}
+		else if (YS_REGEX_NS::regex_search(x, timeout_regex2)) {
+			sol.unknown = true;
+			log_warning("solver timed out\n");
+		}
+		else if (YS_REGEX_NS::regex_search(x, unknown_regex)) {
+			sol.unknown = true;
+			log_warning("solver returned \"unknown\"\n");
+		}
+		else if (YS_REGEX_NS::regex_search(x, unsat_regex2)) {
+			unsat_regex_found = true;
+			sol.sat = false;
+			sol.unknown = false;
+		}
+		else if (YS_REGEX_NS::regex_search(x, unknown_regex2)) {
+			sol.unknown = true;
 		}
 	}
 #ifndef NDEBUG
@@ -329,7 +361,7 @@ QbfSolutionType call_qbf_solver(RTLIL::Module *mod, const QbfSolveOptions &opt, 
 	const std::string yosys_smtbmc_exe = proc_self_dirname() + "yosys-smtbmc";
 	const std::string smt2_command = "write_smt2 -stbv -wires " + tempdir_name + "/problem" + (iter_num != 0? stringf("%d", iter_num) : "") + ".smt2";
 	const std::string smtbmc_warning = "z3: WARNING:";
-	const std::string smtbmc_cmd = yosys_smtbmc_exe + " -s " + (get_solver_name(opt)) + " -t 1 -g --binary " + (opt.dump_final_smt2? "--dump-smt2 " + opt.dump_final_smt2_file + " " : "") + tempdir_name + "/problem" + (iter_num != 0? stringf("%d", iter_num) : "") + ".smt2 2>&1";
+	const std::string smtbmc_cmd = yosys_smtbmc_exe + " -s " + (get_solver_name(opt)) + (opt.timeout != 0? stringf(" --timeout %d", opt.timeout) : "") + " -t 1 -g --binary " + (opt.dump_final_smt2? "--dump-smt2 " + opt.dump_final_smt2_file + " " : "") + tempdir_name + "/problem" + (iter_num != 0? stringf("%d", iter_num) : "") + ".smt2 2>&1";
 
 	Pass::call(mod->design, smt2_command);
 
@@ -344,14 +376,7 @@ QbfSolutionType call_qbf_solver(RTLIL::Module *mod, const QbfSolveOptions &opt, 
 	};
 	log_header(mod->design, "Solving QBF-SAT problem.\n");
 	if (!quiet) log("Launching \"%s\".\n", smtbmc_cmd.c_str());
-	int retval = run_command(smtbmc_cmd, process_line);
-	if (retval == 0) {
-		ret.sat = true;
-		ret.unknown = false;
-	} else if (retval == 1) {
-		ret.sat = false;
-		ret.unknown = false;
-	}
+	run_command(smtbmc_cmd, process_line);
 
 	recover_solution(ret);
 	return ret;
@@ -514,6 +539,19 @@ QbfSolveOptions parse_args(const std::vector<std::string> &args) {
 			}
 			continue;
 		}
+		else if (args[opt.argidx] == "-timeout") {
+			if (args.size() <= opt.argidx + 1)
+				log_cmd_error("timeout not specified.\n");
+			else {
+				int timeout = atoi(args[opt.argidx+1].c_str());
+				if (timeout > 0)
+					opt.timeout = timeout;
+				else
+					log_cmd_error("timeout must be greater than 0.\n");
+				opt.argidx++;
+			}
+			continue;
+		}
 		else if (args[opt.argidx] == "-sat") {
 			opt.sat = true;
 			continue;
@@ -625,6 +663,9 @@ struct QbfSatPass : public Pass {
 		log("    -solver <solver>\n");
 		log("        Use a particular solver. Choose one of: \"z3\", \"yices\", and \"cvc4\".\n");
 		log("\n");
+		log("    -timeout <value>\n");
+		log("        Set the per-iteration timeout in seconds.\n");
+		log("\n");
 		log("    -sat\n");
 		log("        Generate an error if the solver does not return \"sat\".\n");
 		log("\n");
@@ -672,7 +713,6 @@ struct QbfSatPass : public Pass {
 			QbfSolutionType ret = qbf_solve(module, opt);
 			module = design->module(module_name);
 			if (ret.unknown) {
-				log_warning("solver did not give an answer\n");
 				if (opt.sat || opt.unsat)
 					log_cmd_error("expected problem to be %s\n", opt.sat? "SAT" : "UNSAT");
 			}
