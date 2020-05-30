@@ -97,4 +97,5 @@ select -assert-count 3 t:$_DFF_N_
 select -assert-none c:ff1 c:ff2 c:ff4 %% c:* %D
 clean
 select -assert-count 2 a:init
-select -assert-none w:w w:z %% a:init %D
+select -assert-count 1 w:w a:init %i
+select -assert-count 1 c:ff4 %co c:ff4 %d %a a:init %i

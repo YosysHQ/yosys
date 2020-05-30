@@ -1,5 +1,5 @@
 (* techmap_celltype = "$__DFF_N__$abc9_flop $__DFF_P__$abc9_flop" *)
-module $__DFF_x__$abc9_flop (input C, D, Q, output n1);
+module $__DFF_x__$abc9_flop (input C, D, (* init = 1'b0 *) input Q, output n1);
   parameter _TECHMAP_CELLTYPE_ = "";
   generate if (_TECHMAP_CELLTYPE_ == "$__DFF_N__$abc9_flop")
     $_DFF_N_ _TECHMAP_REPLACE_ (.C(C), .D(D), .Q(Q));

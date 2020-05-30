@@ -232,10 +232,8 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 						auto w = unmap_module->addWire(port, derived_module->wire(port));
 						// Do not propagate (* init *) values into the box,
 						//   in fact, remove it from outside too
-						if (w->port_output && w->attributes.erase(ID::init)) {
-							auto r = unmap_module->addWire(stringf("\\_TECHMAP_REMOVEINIT_%s_", log_id(port)));
-							unmap_module->connect(r, State::S1);
-						}
+						if (w->port_output)
+							w->attributes.erase(ID::init);
 					}
 					unmap_module->ports = derived_module->ports;
 					unmap_module->check();
@@ -1147,6 +1145,20 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 		}
 	}
 
+	SigMap initmap;
+	if (dff_mode) {
+		// Build a sigmap prioritising bits with (* init *)
+		initmap.set(module);
+		for (auto w : module->wires()) {
+			auto it = w->attributes.find(ID::init);
+			if (it == w->attributes.end())
+				continue;
+			for (auto i = 0; i < GetSize(w); i++)
+				if (it->second[i] == State::S0 || it->second[i] == State::S1)
+					initmap.add(w);
+		}
+	}
+
 	std::vector<Cell*> boxes;
 	for (auto cell : module->cells().to_vector()) {
 		if (cell->has_keep_attr())
@@ -1156,8 +1168,13 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 		//   $_DFF_[NP]_ cells since flop box already has all the information
 		//   we need to reconstruct them
 		if (dff_mode && cell->type.in(ID($_DFF_N_), ID($_DFF_P_)) && !cell->get_bool_attribute(ID::abc9_keep)) {
-			module->connect(cell->getPort(ID::Q), cell->getPort(ID::D));
+			SigBit Q = cell->getPort(ID::Q);
+			module->connect(Q, cell->getPort(ID::D));
 			module->remove(cell);
+			auto Qi = initmap(Q);
+			auto it = Qi.wire->attributes.find(ID::init);
+			if (it != Qi.wire->attributes.end())
+				it->second[Qi.offset] = State::Sx;
 		}
 		else if (cell->type.in(ID($_AND_), ID($_NOT_)))
 			module->remove(cell);
