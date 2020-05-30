@@ -102,8 +102,6 @@ void check(RTLIL::Design *design, bool dff_mode)
 				auto inst_module = design->module(cell->type);
 				if (!inst_module)
 					continue;
-				if (!inst_module->get_blackbox_attribute())
-					continue;
 				IdString derived_type;
 				Module *derived_module;
 				if (cell->parameters.empty()) {
@@ -111,6 +109,10 @@ void check(RTLIL::Design *design, bool dff_mode)
 					derived_module = inst_module;
 				}
 				else {
+					// Check potential (since its value may depend on a parameter,
+					//   but not its existence)
+					if (!inst_module->has_attribute(ID::abc9_flop))
+						continue;
 					derived_type = inst_module->derive(design, cell->parameters);
 					derived_module = design->module(derived_type);
 					log_assert(derived_module);
@@ -173,8 +175,6 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 			auto inst_module = design->module(cell->type);
 			if (!inst_module)
 				continue;
-			if (!inst_module->get_blackbox_attribute())
-				continue;
 			IdString derived_type;
 			Module *derived_module;
 			if (cell->parameters.empty()) {
@@ -182,6 +182,10 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 				derived_module = inst_module;
 			}
 			else {
+				// Check potential for any one of those three
+				//   (since its value may depend on a parameter, but not its existence)
+				if (!inst_module->has_attribute(ID::abc9_flop) && !inst_module->has_attribute(ID::abc9_box) && !inst_module->get_bool_attribute(ID::abc9_bypass))
+					continue;
 				derived_type = inst_module->derive(design, cell->parameters);
 				derived_module = design->module(derived_type);
 			}
