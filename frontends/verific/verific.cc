@@ -974,6 +974,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 			module->memories[memory->name] = memory;
 
 			int number_of_bits = net->Size();
+			number_of_bits = 1 << ceil_log2(number_of_bits);
 			int bits_in_word = number_of_bits;
 			FOREACH_PORTREF_OF_NET(net, si, pr) {
 				if (pr->GetInst()->Type() == OPER_READ_PORT) {
@@ -1265,9 +1266,6 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 			int numchunks = int(inst->OutputSize()) / memory->width;
 			int chunksbits = ceil_log2(numchunks);
 
-			if ((numchunks * memory->width) != int(inst->OutputSize()) || (numchunks & (numchunks - 1)) != 0)
-				log_error("Import of asymmetric memories of this type is not supported yet: %s %s\n", inst->Name(), inst->GetInput()->Name());
-
 			for (int i = 0; i < numchunks; i++)
 			{
 				RTLIL::SigSpec addr = {operatorInput1(inst), RTLIL::Const(i, chunksbits)};
@@ -1294,9 +1292,6 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 			RTLIL::Memory *memory = module->memories.at(RTLIL::escape_id(inst->GetOutput()->Name()));
 			int numchunks = int(inst->Input2Size()) / memory->width;
 			int chunksbits = ceil_log2(numchunks);
-
-			if ((numchunks * memory->width) != int(inst->Input2Size()) || (numchunks & (numchunks - 1)) != 0)
-				log_error("Import of asymmetric memories of this type is not supported yet: %s %s\n", inst->Name(), inst->GetOutput()->Name());
 
 			for (int i = 0; i < numchunks; i++)
 			{
