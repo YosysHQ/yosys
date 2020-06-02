@@ -1052,214 +1052,35 @@ struct TechmapWorker
 	}
 };
 
-struct TechmapPass : public Pass {
-	TechmapPass() : Pass("techmap", "generic technology mapper") { }
+struct FlattenPass : public Pass {
+	FlattenPass() : Pass("flatten", "flatten design") { }
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    techmap [-map filename] [selection]\n");
+		log("    flatten [options] [selection]\n");
 		log("\n");
-		log("This pass implements a very simple technology mapper that replaces cells in\n");
-		log("the design with implementations given in form of a Verilog or ilang source\n");
-		log("file.\n");
+		log("This pass flattens the design by replacing cells by their implementation. This\n");
+		log("pass is very similar to the 'techmap' pass. The only difference is that this\n");
+		log("pass is using the current design as mapping library.\n");
 		log("\n");
-		log("    -map filename\n");
-		log("        the library of cell implementations to be used.\n");
-		log("        without this parameter a builtin library is used that\n");
-		log("        transforms the internal RTL cells to the internal gate\n");
-		log("        library.\n");
-		log("\n");
-		log("    -map %%<design-name>\n");
-		log("        like -map above, but with an in-memory design instead of a file.\n");
-		log("\n");
-		log("    -extern\n");
-		log("        load the cell implementations as separate modules into the design\n");
-		log("        instead of inlining them.\n");
-		log("\n");
-		log("    -max_iter <number>\n");
-		log("        only run the specified number of iterations on each module.\n");
-		log("        default: unlimited\n");
-		log("\n");
-		log("    -recursive\n");
-		log("        instead of the iterative breadth-first algorithm use a recursive\n");
-		log("        depth-first algorithm. both methods should yield equivalent results,\n");
-		log("        but may differ in performance.\n");
-		log("\n");
-		log("    -autoproc\n");
-		log("        Automatically call \"proc\" on implementations that contain processes.\n");
+		log("Cells and/or modules with the 'keep_hierarchy' attribute set will not be\n");
+		log("flattened by this command.\n");
 		log("\n");
 		log("    -wb\n");
 		log("        Ignore the 'whitebox' attribute on cell implementations.\n");
 		log("\n");
-		log("    -assert\n");
-		log("        this option will cause techmap to exit with an error if it can't map\n");
-		log("        a selected cell. only cell types that end on an underscore are accepted\n");
-		log("        as final cell types by this mode.\n");
-		log("\n");
-		log("    -D <define>, -I <incdir>\n");
-		log("        this options are passed as-is to the Verilog frontend for loading the\n");
-		log("        map file. Note that the Verilog frontend is also called with the\n");
-		log("        '-nooverwrite' option set.\n");
-		log("\n");
-		log("When a module in the map file has the 'techmap_celltype' attribute set, it will\n");
-		log("match cells with a type that match the text value of this attribute. Otherwise\n");
-		log("the module name will be used to match the cell.\n");
-		log("\n");
-		log("When a module in the map file has the 'techmap_simplemap' attribute set, techmap\n");
-		log("will use 'simplemap' (see 'help simplemap') to map cells matching the module.\n");
-		log("\n");
-		log("When a module in the map file has the 'techmap_maccmap' attribute set, techmap\n");
-		log("will use 'maccmap' (see 'help maccmap') to map cells matching the module.\n");
-		log("\n");
-		log("When a module in the map file has the 'techmap_wrap' attribute set, techmap\n");
-		log("will create a wrapper for the cell and then run the command string that the\n");
-		log("attribute is set to on the wrapper module.\n");
-		log("\n");
-		log("When a port on a module in the map file has the 'techmap_autopurge' attribute\n");
-		log("set, and that port is not connected in the instantiation that is mapped, then\n");
-		log("then a cell port connected only to such wires will be omitted in the mapped\n");
-		log("version of the circuit.\n");
-		log("\n");
-		log("All wires in the modules from the map file matching the pattern _TECHMAP_*\n");
-		log("or *._TECHMAP_* are special wires that are used to pass instructions from\n");
-		log("the mapping module to the techmap command. At the moment the following special\n");
-		log("wires are supported:\n");
-		log("\n");
-		log("    _TECHMAP_FAIL_\n");
-		log("        When this wire is set to a non-zero constant value, techmap will not\n");
-		log("        use this module and instead try the next module with a matching\n");
-		log("        'techmap_celltype' attribute.\n");
-		log("\n");
-		log("        When such a wire exists but does not have a constant value after all\n");
-		log("        _TECHMAP_DO_* commands have been executed, an error is generated.\n");
-		log("\n");
-		log("    _TECHMAP_DO_*\n");
-		log("        This wires are evaluated in alphabetical order. The constant text value\n");
-		log("        of this wire is a yosys command (or sequence of commands) that is run\n");
-		log("        by techmap on the module. A common use case is to run 'proc' on modules\n");
-		log("        that are written using always-statements.\n");
-		log("\n");
-		log("        When such a wire has a non-constant value at the time it is to be\n");
-		log("        evaluated, an error is produced. That means it is possible for such a\n");
-		log("        wire to start out as non-constant and evaluate to a constant value\n");
-		log("        during processing of other _TECHMAP_DO_* commands.\n");
-		log("\n");
-		log("        A _TECHMAP_DO_* command may start with the special token 'CONSTMAP; '.\n");
-		log("        in this case techmap will create a copy for each distinct configuration\n");
-		log("        of constant inputs and shorted inputs at this point and import the\n");
-		log("        constant and connected bits into the map module. All further commands\n");
-		log("        are executed in this copy. This is a very convenient way of creating\n");
-		log("        optimized specializations of techmap modules without using the special\n");
-		log("        parameters described below.\n");
-		log("\n");
-		log("        A _TECHMAP_DO_* command may start with the special token 'RECURSION; '.\n");
-		log("        then techmap will recursively replace the cells in the module with their\n");
-		log("        implementation. This is not affected by the -max_iter option.\n");
-		log("\n");
-		log("        It is possible to combine both prefixes to 'RECURSION; CONSTMAP; '.\n");
-		log("\n");
-		log("    _TECHMAP_REMOVEINIT_<port-name>_\n");
-		log("        When this wire is set to a constant value, the init attribute of the wire(s)\n");
-		log("        connected to this port will be consumed.  This wire must have the same\n");
-		log("        width as the given port, and for every bit that is set to 1 in the value,\n");
-		log("        the corresponding init attribute bit will be changed to 1'bx.  If all\n");
-		log("        bits of an init attribute are left as x, it will be removed.\n");
-		log("\n");
-		log("In addition to this special wires, techmap also supports special parameters in\n");
-		log("modules in the map file:\n");
-		log("\n");
-		log("    _TECHMAP_CELLTYPE_\n");
-		log("        When a parameter with this name exists, it will be set to the type name\n");
-		log("        of the cell that matches the module.\n");
-		log("\n");
-		log("    _TECHMAP_CONSTMSK_<port-name>_\n");
-		log("    _TECHMAP_CONSTVAL_<port-name>_\n");
-		log("        When this pair of parameters is available in a module for a port, then\n");
-		log("        former has a 1-bit for each constant input bit and the latter has the\n");
-		log("        value for this bit. The unused bits of the latter are set to undef (x).\n");
-		log("\n");
-		log("    _TECHMAP_WIREINIT_<port-name>_\n");
-		log("        When a parameter with this name exists, it will be set to the initial\n");
-		log("        value of the wire(s) connected to the given port, as specified by the init\n");
-		log("        attribute. If the attribute doesn't exist, x will be filled for the\n");
-		log("        missing bits.  To remove the init attribute bits used, use the\n");
-		log("        _TECHMAP_REMOVEINIT_*_ wires.\n");
-		log("\n");
-		log("    _TECHMAP_BITS_CONNMAP_\n");
-		log("    _TECHMAP_CONNMAP_<port-name>_\n");
-		log("        For an N-bit port, the _TECHMAP_CONNMAP_<port-name>_ parameter, if it\n");
-		log("        exists, will be set to an N*_TECHMAP_BITS_CONNMAP_ bit vector containing\n");
-		log("        N words (of _TECHMAP_BITS_CONNMAP_ bits each) that assign each single\n");
-		log("        bit driver a unique id. The values 0-3 are reserved for 0, 1, x, and z.\n");
-		log("        This can be used to detect shorted inputs.\n");
-		log("\n");
-		log("When a module in the map file has a parameter where the according cell in the\n");
-		log("design has a port, the module from the map file is only used if the port in\n");
-		log("the design is connected to a constant value. The parameter is then set to the\n");
-		log("constant value.\n");
-		log("\n");
-		log("A cell with the name _TECHMAP_REPLACE_ in the map file will inherit the name\n");
-		log("and attributes of the cell that is being replaced.\n");
-		log("A cell with a name of the form `_TECHMAP_REPLACE_.<suffix>` in the map file will\n");
-		log("be named thus but with the `_TECHMAP_REPLACE_' prefix substituted with the name\n");
-		log("of the cell being replaced.\n");
-		log("Similarly, a wire named in the form `_TECHMAP_REPLACE_.<suffix>` will cause a\n");
-		log("new wire alias to be created and named as above but with the `_TECHMAP_REPLACE_'\n");
-		log("prefix also substituted.\n");
-		log("\n");
-		log("See 'help extract' for a pass that does the opposite thing.\n");
-		log("\n");
-		log("See 'help flatten' for a pass that does flatten the design (which is\n");
-		log("essentially techmap but using the design itself as map library).\n");
-		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
-		log_header(design, "Executing TECHMAP pass (map to technology primitives).\n");
+		log_header(design, "Executing FLATTEN pass (flatten design).\n");
 		log_push();
 
 		TechmapWorker worker;
-		simplemap_get_mappers(worker.simplemap_mappers);
-
-		std::vector<std::string> map_files;
-		std::string verilog_frontend = "verilog -nooverwrite -noblackbox";
-		int max_iter = -1;
+		worker.flatten_mode = true;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			if (args[argidx] == "-map" && argidx+1 < args.size()) {
-				map_files.push_back(args[++argidx]);
-				continue;
-			}
-			if (args[argidx] == "-max_iter" && argidx+1 < args.size()) {
-				max_iter = atoi(args[++argidx].c_str());
-				continue;
-			}
-			if (args[argidx] == "-D" && argidx+1 < args.size()) {
-				verilog_frontend += " -D " + args[++argidx];
-				continue;
-			}
-			if (args[argidx] == "-I" && argidx+1 < args.size()) {
-				verilog_frontend += " -I " + args[++argidx];
-				continue;
-			}
-			if (args[argidx] == "-assert") {
-				worker.assert_mode = true;
-				continue;
-			}
-			if (args[argidx] == "-extern") {
-				worker.extern_mode = true;
-				continue;
-			}
-			if (args[argidx] == "-recursive") {
-				worker.recursive_mode = true;
-				continue;
-			}
-			if (args[argidx] == "-autoproc") {
-				worker.autoproc_mode = true;
-				continue;
-			}
 			if (args[argidx] == "-wb") {
 				worker.ignore_wb = true;
 				continue;
@@ -1268,69 +1089,60 @@ struct TechmapPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		RTLIL::Design *map = new RTLIL::Design;
-		if (map_files.empty()) {
-			Frontend::frontend_call(map, nullptr, "+/techmap.v", verilog_frontend);
-		} else {
-			for (auto &fn : map_files)
-				if (fn.compare(0, 1, "%") == 0) {
-					if (!saved_designs.count(fn.substr(1))) {
-						delete map;
-						log_cmd_error("Can't open saved design `%s'.\n", fn.c_str()+1);
-					}
-					for (auto mod : saved_designs.at(fn.substr(1))->modules())
-						if (!map->module(mod->name))
-							map->add(mod->clone());
-				} else {
-					Frontend::frontend_call(map, nullptr, fn, (fn.size() > 3 && fn.compare(fn.size()-3, std::string::npos, ".il") == 0 ? "ilang" : verilog_frontend));
-				}
-		}
-
-		log_header(design, "Continuing TECHMAP pass.\n");
 
 		dict<IdString, pool<IdString>> celltypeMap;
-		for (auto module : map->modules()) {
-			if (module->attributes.count(ID::techmap_celltype) && !module->attributes.at(ID::techmap_celltype).bits.empty()) {
-				char *p = strdup(module->attributes.at(ID::techmap_celltype).decode_string().c_str());
-				for (char *q = strtok(p, " \t\r\n"); q; q = strtok(nullptr, " \t\r\n"))
-					celltypeMap[RTLIL::escape_id(q)].insert(module->name);
-				free(p);
-			} else {
-				IdString module_name = module->name.begins_with("\\$") ?
-						module->name.substr(1) : module->name.str();
-				celltypeMap[module_name].insert(module->name);
-			}
-		}
+		for (auto module : design->modules())
+			celltypeMap[module->name].insert(module->name);
 		for (auto &i : celltypeMap)
 			i.second.sort(RTLIL::sort_by_id_str());
 
-		for (auto module : design->modules())
-			worker.module_queue.insert(module);
+		RTLIL::Module *top_mod = nullptr;
+		if (design->full_selection())
+			for (auto mod : design->modules())
+				if (mod->get_bool_attribute(ID::top))
+					top_mod = mod;
 
-		while (!worker.module_queue.empty())
-		{
-			RTLIL::Module *module = *worker.module_queue.begin();
-			worker.module_queue.erase(module);
-
-			int module_max_iter = max_iter;
-			bool did_something = true;
-			pool<RTLIL::Cell*> handled_cells;
-			while (did_something) {
-				did_something = false;
-				if (worker.techmap_module(design, module, map, handled_cells, celltypeMap, false))
-					did_something = true;
-				if (did_something)
-					module->check();
-				if (module_max_iter > 0 && --module_max_iter == 0)
-					break;
+		pool<RTLIL::Cell*> handled_cells;
+		if (top_mod != nullptr) {
+			worker.flatten_do_list.insert(top_mod->name);
+			while (!worker.flatten_do_list.empty()) {
+				auto mod = design->module(*worker.flatten_do_list.begin());
+				while (worker.techmap_module(design, mod, design, handled_cells, celltypeMap, false)) { }
+				worker.flatten_done_list.insert(mod->name);
+				worker.flatten_do_list.erase(mod->name);
 			}
+		} else {
+			for (auto mod : design->modules().to_vector())
+				while (worker.techmap_module(design, mod, design, handled_cells, celltypeMap, false)) { }
 		}
 
+		log_suppressed();
 		log("No more expansions possible.\n");
-		delete map;
+
+		if (top_mod != nullptr)
+		{
+			pool<IdString> used_modules, new_used_modules;
+			new_used_modules.insert(top_mod->name);
+			while (!new_used_modules.empty()) {
+				pool<IdString> queue;
+				queue.swap(new_used_modules);
+				for (auto modname : queue)
+					used_modules.insert(modname);
+				for (auto modname : queue)
+					for (auto cell : design->module(modname)->cells())
+						if (design->module(cell->type) && !used_modules[cell->type])
+							new_used_modules.insert(cell->type);
+			}
+
+			for (auto mod : design->modules().to_vector())
+				if (!used_modules[mod->name] && !mod->get_blackbox_attribute(worker.ignore_wb)) {
+					log("Deleting now unused module %s.\n", log_id(mod));
+					design->remove(mod);
+				}
+		}
 
 		log_pop();
 	}
-} TechmapPass;
+} FlattenPass;
 
 PRIVATE_NAMESPACE_END
