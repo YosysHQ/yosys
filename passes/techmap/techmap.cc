@@ -80,22 +80,12 @@ struct TechmapWorker
 
 	typedef dict<IdString, std::vector<TechmapWireData>> TechmapWires;
 
-	bool extern_mode;
-	bool assert_mode;
-	bool flatten_mode;
-	bool recursive_mode;
-	bool autoproc_mode;
-	bool ignore_wb;
-
-	TechmapWorker()
-	{
-		extern_mode = false;
-		assert_mode = false;
-		flatten_mode = false;
-		recursive_mode = false;
-		autoproc_mode = false;
-		ignore_wb = false;
-	}
+	bool extern_mode = false;
+	bool assert_mode = false;
+	bool flatten_mode = false;
+	bool recursive_mode = false;
+	bool autoproc_mode = false;
+	bool ignore_wb = false;
 
 	std::string constmap_tpl_name(SigMap &sigmap, RTLIL::Module *tpl, RTLIL::Cell *cell, bool verbose)
 	{
