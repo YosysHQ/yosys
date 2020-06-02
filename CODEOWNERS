@@ -22,14 +22,15 @@ passes/opt/opt_lut.cc          @whitequark
 # Only users with write permission to the repository get review
 # requests automatically, but we add information for other
 # contributors here too, so we know who to ask to take a look.
+# These still override previous lines, so be careful not to
+# accidentally disable any of the above rules.
 
 techlibs/intel_alm/            @ZirconiumX
 
 # pyosys
 misc/*.py                      @btut
 
-# firrtl backend
-?
+backends/firrtl                @ucbjrl @azidar
 
 passes/sat/qbfsat.cc           @boqwxp
 passes/cmds/exec.cc            @boqwxp
