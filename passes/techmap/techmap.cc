@@ -1293,13 +1293,7 @@ struct TechmapPass : public Pass {
 						if (!map->module(mod->name))
 							map->add(mod->clone());
 				} else {
-					std::ifstream f;
-					rewrite_filename(fn);
-					f.open(fn.c_str());
-					yosys_input_files.insert(fn);
-					if (f.fail())
-						log_cmd_error("Can't open map file `%s'\n", fn.c_str());
-					Frontend::frontend_call(map, &f, fn, (fn.size() > 3 && fn.compare(fn.size()-3, std::string::npos, ".il") == 0 ? "ilang" : verilog_frontend));
+					Frontend::frontend_call(map, nullptr, fn, (fn.size() > 3 && fn.compare(fn.size()-3, std::string::npos, ".il") == 0 ? "ilang" : verilog_frontend));
 				}
 		}
 
