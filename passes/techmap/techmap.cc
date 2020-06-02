@@ -27,7 +27,6 @@
 #include <string.h>
 
 #include "simplemap.h"
-#include "passes/techmap/techmap.inc"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -1282,8 +1281,7 @@ struct TechmapPass : public Pass {
 
 		RTLIL::Design *map = new RTLIL::Design;
 		if (map_files.empty()) {
-			std::istringstream f(stdcells_code);
-			Frontend::frontend_call(map, &f, "<techmap.v>", verilog_frontend);
+			Frontend::frontend_call(map, nullptr, "+/techmap.v", verilog_frontend);
 		} else {
 			for (auto &fn : map_files)
 				if (fn.compare(0, 1, "%") == 0) {
