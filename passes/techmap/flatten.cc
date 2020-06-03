@@ -251,7 +251,7 @@ struct FlattenWorker
 		}
 	}
 
-	bool flatten_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Design *map, pool<RTLIL::Cell*> &handled_cells,
+	bool flatten_module(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Cell*> &handled_cells,
 			const dict<IdString, pool<IdString>> &celltypeMap, bool in_recursion)
 	{
 		std::string mapmsg_prefix = in_recursion ? "Recursively mapping" : "Mapping";
@@ -283,7 +283,7 @@ struct FlattenWorker
 
 			bool keepit = cell->get_bool_attribute(ID::keep_hierarchy);
 			for (auto &tpl_name : celltypeMap.at(cell_type))
-				if (map->module(tpl_name)->get_bool_attribute(ID::keep_hierarchy))
+				if (design->module(tpl_name)->get_bool_attribute(ID::keep_hierarchy))
 					keepit = true;
 			if (keepit) {
 				if (!flatten_keep_list[cell]) {
@@ -304,7 +304,7 @@ struct FlattenWorker
 					continue;
 
 				for (auto &tpl_name : celltypeMap.at(cell_type)) {
-					RTLIL::Module *tpl = map->module(tpl_name);
+					RTLIL::Module *tpl = design->module(tpl_name);
 					RTLIL::Wire *port = tpl->wire(conn.first);
 					if (port && port->port_input)
 						cell_to_inbit[cell].insert(sig.begin(), sig.end());
@@ -337,7 +337,7 @@ struct FlattenWorker
 			for (auto &tpl_name : celltypeMap.at(cell_type))
 			{
 				IdString derived_name = tpl_name;
-				RTLIL::Module *tpl = map->module(tpl_name);
+				RTLIL::Module *tpl = design->module(tpl_name);
 				dict<IdString, RTLIL::Const> parameters(cell->parameters);
 
 				if (tpl->get_blackbox_attribute(ignore_wb))
@@ -350,8 +350,8 @@ struct FlattenWorker
 				} else {
 					if (parameters.size() != 0) {
 						mkdebug.on();
-						derived_name = tpl->derive(map, parameters);
-						tpl = map->module(derived_name);
+						derived_name = tpl->derive(design, parameters);
+						tpl = design->module(derived_name);
 						log_continue = true;
 					}
 					cache.emplace(std::move(key), tpl);
@@ -442,13 +442,13 @@ struct FlattenPass : public Pass {
 			worker.flatten_do_list.insert(top_mod->name);
 			while (!worker.flatten_do_list.empty()) {
 				auto mod = design->module(*worker.flatten_do_list.begin());
-				while (worker.flatten_module(design, mod, design, handled_cells, celltypeMap, false)) { }
+				while (worker.flatten_module(design, mod, handled_cells, celltypeMap, false)) { }
 				worker.flatten_done_list.insert(mod->name);
 				worker.flatten_do_list.erase(mod->name);
 			}
 		} else {
 			for (auto mod : design->modules().to_vector())
-				while (worker.flatten_module(design, mod, design, handled_cells, celltypeMap, false)) { }
+				while (worker.flatten_module(design, mod, handled_cells, celltypeMap, false)) { }
 		}
 
 		log_suppressed();
