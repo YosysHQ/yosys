@@ -91,8 +91,10 @@ USING_YOSYS_NAMESPACE
 [0-9]+'[01xzm-]*	{ rtlil_frontend_ilang_yylval.string = strdup(yytext); return TOK_VALUE; }
 -?[0-9]+		{
 	char *end = nullptr;
+	errno = 0;
 	long value = strtol(yytext, &end, 10);
-	if (end != yytext + strlen(yytext))
+	log_assert(end == yytext + strlen(yytext));
+	if (errno == ERANGE)
 		return TOK_INVALID; // literal out of range of long
 	if (value < INT_MIN || value > INT_MAX)
 		return TOK_INVALID; // literal out of range of int (relevant mostly for LP64 platforms)

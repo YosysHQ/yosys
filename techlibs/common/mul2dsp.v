@@ -57,8 +57,11 @@ module _80_mul (A, B, Y);
 	parameter B_WIDTH = 1;
 	parameter Y_WIDTH = 1;
 
+	(* force_downto *)
 	input [A_WIDTH-1:0] A;
+	(* force_downto *)
 	input [B_WIDTH-1:0] B;
+	(* force_downto *)
 	output [Y_WIDTH-1:0] Y;
 
 	parameter _TECHMAP_CELLTYPE_ = "";
@@ -119,13 +122,19 @@ module _80_mul (A, B, Y);
 			localparam last_A_WIDTH = A_WIDTH-n*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom);
 			localparam last_Y_WIDTH = B_WIDTH+last_A_WIDTH;
 			if (A_SIGNED && B_SIGNED) begin
+				(* force_downto *)
 				wire signed [partial_Y_WIDTH-1:0] partial [n-1:0];
+				(* force_downto *)
 				wire signed [last_Y_WIDTH-1:0] last_partial;
+				(* force_downto *)
 				wire signed [Y_WIDTH-1:0] partial_sum [n:0];
 			end
 			else begin
+				(* force_downto *)
 				wire [partial_Y_WIDTH-1:0] partial [n-1:0];
+				(* force_downto *)
 				wire [last_Y_WIDTH-1:0] last_partial;
+				(* force_downto *)
 				wire [Y_WIDTH-1:0] partial_sum [n:0];
 			end
 
@@ -170,13 +179,19 @@ module _80_mul (A, B, Y);
 			localparam last_B_WIDTH = B_WIDTH-n*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom);
 			localparam last_Y_WIDTH = A_WIDTH+last_B_WIDTH;
 			if (A_SIGNED && B_SIGNED) begin
+				(* force_downto *)
 				wire signed [partial_Y_WIDTH-1:0] partial [n-1:0];
+				(* force_downto *)
 				wire signed [last_Y_WIDTH-1:0] last_partial;
+				(* force_downto *)
 				wire signed [Y_WIDTH-1:0] partial_sum [n:0];
 			end
 			else begin
+				(* force_downto *)
 				wire [partial_Y_WIDTH-1:0] partial [n-1:0];
+				(* force_downto *)
 				wire [last_Y_WIDTH-1:0] last_partial;
+				(* force_downto *)
 				wire [Y_WIDTH-1:0] partial_sum [n:0];
 			end
 
@@ -249,8 +264,11 @@ module _90_soft_mul (A, B, Y);
 	parameter B_WIDTH = 1;
 	parameter Y_WIDTH = 1;
 
+	(* force_downto *)
 	input [A_WIDTH-1:0] A;
+	(* force_downto *)
 	input [B_WIDTH-1:0] B;
+	(* force_downto *)
 	output [Y_WIDTH-1:0] Y;
 
 	// Indirection necessary since mapping

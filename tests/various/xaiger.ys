@@ -1,0 +1,13 @@
+read_verilog <<EOT
+module top(input a, b, output c);
+bb #(1) bb();
+endmodule
+
+module bb(input a, b, output c);
+parameter p = 0;
+assign c = a ^ b;
+endmodule
+EOT
+blackbox bb
+hierarchy
+write_xaiger /dev/null

@@ -1256,7 +1256,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		}
 		if (old_range_valid != range_valid)
 			did_something = true;
-		if (range_valid && range_left >= 0 && range_right > range_left) {
+		if (range_valid && range_right > range_left) {
 			int tmp = range_right;
 			range_right = range_left;
 			range_left = tmp;
@@ -1274,6 +1274,25 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				range_swapped = children[0]->range_swapped;
 				range_left = children[0]->range_left;
 				range_right = children[0]->range_right;
+				bool force_upto = false, force_downto = false;
+				if (attributes.count(ID::force_upto)) {
+					AstNode *val = attributes[ID::force_upto];
+					if (val->type != AST_CONSTANT)
+						log_file_error(filename, location.first_line, "Attribute `force_upto' with non-constant value!\n");
+					force_upto = val->asAttrConst().as_bool();
+				}
+				if (attributes.count(ID::force_downto)) {
+					AstNode *val = attributes[ID::force_downto];
+					if (val->type != AST_CONSTANT)
+						log_file_error(filename, location.first_line, "Attribute `force_downto' with non-constant value!\n");
+					force_downto = val->asAttrConst().as_bool();
+				}
+				if (force_upto && force_downto)
+					log_file_error(filename, location.first_line, "Attributes `force_downto' and `force_upto' cannot be both set!\n");
+				if ((force_upto && !range_swapped) || (force_downto && range_swapped)) {
+					std::swap(range_left, range_right);
+					range_swapped = force_upto;
+				}
 			}
 		} else {
 			if (!range_valid)
@@ -3719,8 +3738,8 @@ void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg
 		}
 	}
 
-	// also activate if requested, either by using mem2reg attribute or by declaring array as 'wire' instead of 'reg'
-	if (type == AST_MEMORY && (get_bool_attribute(ID::mem2reg) || (flags & AstNode::MEM2REG_FL_ALL) || !is_reg))
+	// also activate if requested, either by using mem2reg attribute or by declaring array as 'wire' instead of 'reg' or 'logic'
+	if (type == AST_MEMORY && (get_bool_attribute(ID::mem2reg) || (flags & AstNode::MEM2REG_FL_ALL) || !(is_reg || is_logic)))
 		mem2reg_candidates[this] |= AstNode::MEM2REG_FL_FORCED;
 
 	if (type == AST_MODULE && get_bool_attribute(ID::mem2reg))

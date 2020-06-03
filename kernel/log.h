@@ -86,7 +86,7 @@ YOSYS_NAMESPACE_BEGIN
 # endif
 # if __has_builtin(__builtin_debugtrap)
 #  define YS_DEBUGTRAP __builtin_debugtrap()
-# elif defined(__unix__)
+# elif defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
 #  define YS_DEBUGTRAP raise(SIGTRAP)
 # else
 #  define YS_DEBUGTRAP do {} while(0)
@@ -97,11 +97,11 @@ YOSYS_NAMESPACE_BEGIN
 // if a debugger is attached, and does nothing otherwise.
 #if defined(_WIN32)
 # define YS_DEBUGTRAP_IF_DEBUGGING do { if (IsDebuggerPresent()) DebugBreak(); } while(0)
-#elif defined(__unix__)
+# elif defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
 // There is no reliable (or portable) *nix equivalent of IsDebuggerPresent(). However,
 // debuggers will stop when SIGTRAP is raised, even if the action is set to ignore.
 # define YS_DEBUGTRAP_IF_DEBUGGING do { \
-		sighandler_t old = signal(SIGTRAP, SIG_IGN); raise(SIGTRAP); signal(SIGTRAP, old); \
+		auto old = signal(SIGTRAP, SIG_IGN); raise(SIGTRAP); signal(SIGTRAP, old); \
 	} while(0)
 #else
 # define YS_DEBUGTRAP_IF_DEBUGGING do {} while(0)
@@ -202,19 +202,16 @@ void log_flush();
 
 struct LogExpectedItem
 {
-	LogExpectedItem(std::string pattern, int expected) :
-		expected_count(expected),
-		current_count(0),
-		pattern(pattern)
-	{
-	}
+	LogExpectedItem(const YS_REGEX_TYPE &pat, int expected) :
+			pattern(pat), expected_count(expected), current_count(0) {}
+	LogExpectedItem() : expected_count(0), current_count(0) {}
 
+	YS_REGEX_TYPE pattern;
 	int expected_count;
 	int current_count;
-	std::string pattern;
 };
 
-extern std::vector<std::pair<YS_REGEX_TYPE,LogExpectedItem>> log_expect_log, log_expect_warning, log_expect_error;
+extern dict<std::string, LogExpectedItem> log_expect_log, log_expect_warning, log_expect_error;
 void log_check_expected();
 
 const char *log_signal(const RTLIL::SigSpec &sig, bool autoint = true);

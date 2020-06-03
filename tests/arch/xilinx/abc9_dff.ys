@@ -1,32 +1,85 @@
+logger -nowarn "Yosys has only limited support for tri-state logic at the moment\. .*"
+
 read_verilog <<EOT
 module top(input C, D, output [7:0] Q);
-FDRE   fd1(.C(C), .CE(1'b1), .D(D), .R(1'b1), .Q(Q[0]));
-FDSE   fd2(.C(C), .CE(1'b1), .D(D), .S(1'b1), .Q(Q[1]));
-FDCE   fd3(.C(C), .CE(1'b1), .D(D), .CLR(1'b1), .Q(Q[2]));
-FDPE   fd4(.C(C), .CE(1'b1), .D(D), .PRE(1'b1), .Q(Q[3]));
-FDRE_1 fd5(.C(C), .CE(1'b1), .D(D), .R(1'b1), .Q(Q[4]));
-FDSE_1 fd6(.C(C), .CE(1'b1), .D(D), .S(1'b1), .Q(Q[5]));
-FDCE_1 fd7(.C(C), .CE(1'b1), .D(D), .CLR(1'b1), .Q(Q[6]));
-FDPE_1 fd8(.C(C), .CE(1'b1), .D(D), .PRE(1'b1), .Q(Q[7]));
+FDRE   /*#(.INIT(0))*/ fd1(.C(C), .CE(1'b1), .D(D), .R(1'b1), .Q(Q[0]));
+FDSE   #(.INIT(0)) fd2(.C(C), .CE(1'b1), .D(D), .S(1'b1), .Q(Q[1]));
+FDCE   #(.INIT(0)) fd3(.C(C), .CE(1'b1), .D(D), .CLR(1'b1), .Q(Q[2]));
+FDPE   #(.INIT(0)) fd4(.C(C), .CE(1'b1), .D(D), .PRE(1'b1), .Q(Q[3]));
+FDRE_1 #(.INIT(0)) fd5(.C(C), .CE(1'b1), .D(D), .R(1'b1), .Q(Q[4]));
+FDSE_1 #(.INIT(0)) fd6(.C(C), .CE(1'b1), .D(D), .S(1'b1), .Q(Q[5]));
+FDCE_1 #(.INIT(0)) fd7(.C(C), .CE(1'b1), .D(D), .CLR(1'b1), .Q(Q[6]));
+FDPE_1 #(.INIT(0)) fd8(.C(C), .CE(1'b1), .D(D), .PRE(1'b1), .Q(Q[7]));
 endmodule
 EOT
 equiv_opt -assert -multiclock -map +/xilinx/cells_sim.v synth_xilinx -abc9 -dff -noiopad -noclkbuf
 design -load postopt
-select -assert-none t:FD*
+select -assert-count 6 t:FD*
+select -assert-count 6 c:fd2 c:fd3 c:fd4 c:fd6 c:fd7 c:fd8
+
 
 design -reset
 read_verilog <<EOT
 module top(input C, D, output [7:0] Q);
-FDRE   fd1(.C(C), .CE(1'b0), .D(D), .R(1'b0), .Q(Q[0]));
-FDSE   fd2(.C(C), .CE(1'b0), .D(D), .S(1'b0), .Q(Q[1]));
-FDCE   fd3(.C(C), .CE(1'b0), .D(D), .CLR(1'b0), .Q(Q[2]));
-FDPE   fd4(.C(C), .CE(1'b0), .D(D), .PRE(1'b0), .Q(Q[3]));
-FDRE_1 fd5(.C(C), .CE(1'b0), .D(D), .R(1'b0), .Q(Q[4]));
-FDSE_1 fd6(.C(C), .CE(1'b0), .D(D), .S(1'b0), .Q(Q[5]));
-FDCE_1 fd7(.C(C), .CE(1'b0), .D(D), .CLR(1'b0), .Q(Q[6]));
-FDPE_1 fd8(.C(C), .CE(1'b0), .D(D), .PRE(1'b0), .Q(Q[7]));
+FDRE   #(.INIT(0)) fd1(.C(C), .CE(1'b0), .D(D), .R(1'b0), .Q(Q[0]));
+FDSE   #(.INIT(0)) fd2(.C(C), .CE(1'b0), .D(D), .S(1'b0), .Q(Q[1]));
+FDCE   #(.INIT(0)) fd3(.C(C), .CE(1'b0), .D(D), .CLR(1'b0), .Q(Q[2]));
+FDPE   #(.INIT(0)) fd4(.C(C), .CE(1'b0), .D(D), .PRE(1'b0), .Q(Q[3]));
+FDRE_1 /*#(.INIT(0))*/ fd5(.C(C), .CE(1'b0), .D(D), .R(1'b0), .Q(Q[4]));
+FDSE_1 #(.INIT(0)) fd6(.C(C), .CE(1'b0), .D(D), .S(1'b0), .Q(Q[5]));
+FDCE_1 #(.INIT(0)) fd7(.C(C), .CE(1'b0), .D(D), .CLR(1'b0), .Q(Q[6]));
+FDPE_1 #(.INIT(0)) fd8(.C(C), .CE(1'b0), .D(D), .PRE(1'b0), .Q(Q[7]));
 endmodule
 EOT
 equiv_opt -assert -multiclock -map +/xilinx/cells_sim.v synth_xilinx -abc9 -dff -noiopad -noclkbuf
 design -load postopt
-select -assert-none t:FD*
+select -assert-count 4 t:FD*
+select -assert-count 4 c:fd3 c:fd4 c:fd7 c:fd8
+
+
+design -reset
+read_verilog <<EOT
+module top(input C, D, output [7:0] Q);
+FDRE   #(.INIT(1)) fd1(.C(C), .CE(1'b0), .D(D), .R(1'b0), .Q(Q[0]));
+FDSE   /*#(.INIT(1))*/ fd2(.C(C), .CE(1'b0), .D(D), .S(1'b0), .Q(Q[1]));
+FDCE   #(.INIT(1)) fd3(.C(C), .CE(1'b0), .D(D), .CLR(1'b0), .Q(Q[2]));
+FDPE   #(.INIT(1)) fd4(.C(C), .CE(1'b0), .D(D), .PRE(1'b0), .Q(Q[3]));
+FDRE_1 #(.INIT(1)) fd5(.C(C), .CE(1'b0), .D(D), .R(1'b0), .Q(Q[4]));
+FDSE_1 #(.INIT(1)) fd6(.C(C), .CE(1'b0), .D(D), .S(1'b0), .Q(Q[5]));
+FDCE_1 /*#(.INIT(1))*/ fd7(.C(C), .CE(1'b0), .D(D), .CLR(1'b0), .Q(Q[6]));
+FDPE_1 #(.INIT(1)) fd8(.C(C), .CE(1'b0), .D(D), .PRE(1'b0), .Q(Q[7]));
+endmodule
+EOT
+logger -expect warning "Module '\$paramod\\FDRE\\INIT=1' contains a \$dff cell .*" 1
+logger -expect warning "Module '\$paramod\\FDRE_1\\INIT=1' contains a \$dff cell .*" 1
+logger -expect warning "Module 'FDSE' contains a \$dff cell .*" 1
+logger -expect warning "Module '\$paramod\\FDSE_1\\INIT=1' contains a \$dff cell .*" 1
+equiv_opt -assert -multiclock -map +/xilinx/cells_sim.v synth_xilinx -abc9 -dff -noiopad -noclkbuf
+design -load postopt
+select -assert-count 8 t:FD*
+
+
+design -reset
+read_verilog <<EOT
+module top(input clk, clr, pre, output reg q0 = 1'b0, output reg q1 = 1'b1);
+always @(posedge clk or posedge clr)
+    if (clr)
+        q0 <= 1'b0;
+    else
+        q0 <= ~q0;
+always @(posedge clk or posedge pre)
+    if (pre)
+        q1 <= 1'b1;
+    else
+        q1 <= ~q1;
+endmodule
+EOT
+proc
+equiv_opt -assert -multiclock -map +/xilinx/cells_sim.v synth_xilinx -abc9 -dff -noiopad -noclkbuf
+design -load postopt
+select -assert-count 1 t:FDCE
+select -assert-count 1 t:FDPE
+select -assert-count 2 t:INV
+select -assert-count 0 t:FD* t:INV %% t:* %D
+
+logger -expect-no-warnings

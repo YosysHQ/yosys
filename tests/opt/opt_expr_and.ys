@@ -1,0 +1,85 @@
+# Single-bit $and
+read_verilog -noopt <<EOT
+module gold(input i, output o);
+assign o = 1'bx & i;
+endmodule
+EOT
+select -assert-count 1 t:$and
+copy gold coarse
+copy gold fine
+copy gold coarse_keepdc
+copy gold fine_keepdc
+
+cd coarse
+opt_expr
+select -assert-none c:*
+
+cd fine
+simplemap
+opt_expr
+select -assert-none c:*
+
+cd
+miter -equiv -flatten -make_assert -make_outputs -ignore_gold_x gold coarse miter
+sat -verify -prove-asserts -show-ports -enable_undef miter
+miter -equiv -flatten -make_assert -make_outputs coarse fine miter2
+sat -verify -prove-asserts -show-ports -enable_undef miter2
+
+cd coarse_keepdc
+opt_expr -keepdc
+select -assert-count 1 c:*
+
+cd fine_keepdc
+simplemap
+opt_expr -keepdc
+select -assert-count 1 c:*
+
+cd
+miter -equiv -flatten -make_assert -make_outputs gold coarse_keepdc miter3
+sat -verify -prove-asserts -show-ports -enable_undef miter3
+miter -equiv -flatten -make_assert -make_outputs coarse_keepdc fine_keepdc miter4
+sat -verify -prove-asserts -show-ports -enable_undef miter4
+
+
+# Multi-bit $and
+design -reset
+read_verilog -noopt <<EOT
+module gold(input i, output [6:0] o);
+assign o = {1'bx, 1'b0, 1'b0, 1'b1, 1'bx, 1'b1, i} & {7{i}};
+endmodule
+EOT
+select -assert-count 1 t:$and
+copy gold coarse
+copy gold fine
+copy gold coarse_keepdc
+copy gold fine_keepdc
+
+cd coarse
+opt_expr -fine
+select -assert-none c:*
+
+cd fine
+simplemap
+opt_expr
+select -assert-none c:*
+
+cd
+miter -equiv -flatten -make_assert -make_outputs -ignore_gold_x gold coarse miter
+sat -verify -prove-asserts -show-ports -enable_undef miter
+miter -equiv -flatten -make_assert -make_outputs coarse fine miter2
+sat -verify -prove-asserts -show-ports -enable_undef miter2
+
+cd coarse_keepdc
+opt_expr -fine -keepdc
+select -assert-count 1 c:*
+
+cd fine_keepdc
+simplemap
+opt_expr -keepdc
+select -assert-count 2 c:*
+
+cd
+miter -equiv -flatten -make_assert -make_outputs gold coarse_keepdc miter3
+sat -verify -prove-asserts -show-ports -enable_undef miter3
+miter -equiv -flatten -make_assert -make_outputs coarse_keepdc fine_keepdc miter4
+sat -verify -prove-asserts -show-ports -enable_undef miter4

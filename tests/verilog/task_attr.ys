@@ -1,0 +1,28 @@
+read_verilog <<EOT
+module top;
+    task foo;
+    endtask
+
+    always @*
+        (* foo *) foo;
+
+    initial
+        if (0) $info("bar");
+endmodule
+EOT
+# Since task enables are not an RTLIL object,
+#   any attributes on their AST get dropped
+select -assert-none a:* a:src %d
+
+
+logger -expect error "syntax error, unexpected ATTR_BEGIN" 1
+design -reset
+read_verilog <<EOT
+module top;
+    task foo;
+    endtask
+
+    always @*
+        foo (* foo *);
+endmodule
+EOT

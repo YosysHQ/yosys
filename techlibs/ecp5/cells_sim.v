@@ -186,6 +186,7 @@ module PFUMX (input ALUT, BLUT, C0, output Z);
 endmodule
 
 // ---------------------------------------
+(* abc9_box, lib_whitebox *)
 module TRELLIS_DPR16X4 (
 	input  [3:0] DI,
 	input  [3:0] WAD,
@@ -222,10 +223,16 @@ module TRELLIS_DPR16X4 (
 			mem[WAD] <= DI;
 
 	assign DO = mem[RAD];
+
+	specify
+		// TODO
+		(RAD *> DO) = 0;
+	endspecify
 endmodule
 
 // ---------------------------------------
 
+(* abc9_box, lib_whitebox *)
 module DPR16X4C (
 		input [3:0] DI,
 		input WCK, WRE,
@@ -281,6 +288,10 @@ module DPR16X4C (
 
 	assign DO = ram[RAD];
 
+	specify
+		// TODO
+		(RAD *> DO) = 0;
+	endspecify
 endmodule
 
 // ---------------------------------------
@@ -294,6 +305,9 @@ endmodule
 
 // ---------------------------------------
 
+`ifdef YOSYS
+(* abc9_flop=(SRMODE != "ASYNC"), abc9_box=(SRMODE == "ASYNC"), lib_whitebox *)
+`endif
 module TRELLIS_FF(input CLK, LSR, CE, DI, M, output reg Q);
 	parameter GSR = "ENABLED";
 	parameter [127:0] CEMUX = "1";
@@ -339,6 +353,38 @@ module TRELLIS_FF(input CLK, LSR, CE, DI, M, output reg Q);
 				else if (muxce)
 					Q <= DI;
 		end
+	endgenerate
+
+	generate
+		// TODO
+		if (CLKMUX == "INV")
+			specify
+				$setup(DI, negedge CLK, 0);
+				$setup(CE, negedge CLK, 0);
+				$setup(LSR, negedge CLK, 0);
+`ifndef YOSYS
+				if (SRMODE == "ASYNC" && muxlsr) (negedge CLK => (Q : srval)) = 0;
+`else
+				if (SRMODE == "ASYNC" && muxlsr) (LSR => Q) = 0; 	// Technically, this should be an edge sensitive path
+											// but for facilitating a bypass box, let's pretend it's
+											// a simple path
+`endif
+				if (!muxlsr && muxce) (negedge CLK => (Q : DI)) = 0;
+			endspecify
+		else
+			specify
+				$setup(DI, posedge CLK, 0);
+				$setup(CE, posedge CLK, 0);
+				$setup(LSR, posedge CLK, 0);
+`ifndef YOSYS
+				if (SRMODE == "ASYNC" && muxlsr) (posedge CLK => (Q : srval)) = 0;
+`else
+				if (SRMODE == "ASYNC" && muxlsr) (LSR => Q) = 0; 	// Technically, this should be an edge sensitive path
+											// but for facilitating a bypass box, let's pretend it's
+											// a simple path
+`endif
+				if (!muxlsr && muxce) (posedge CLK => (Q : DI)) = 0;
+			endspecify
 	endgenerate
 endmodule
 

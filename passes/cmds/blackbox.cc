@@ -48,31 +48,7 @@ struct BlackboxPass : public Pass {
 
 		for (auto module : design->selected_whole_modules_warn())
 		{
-			pool<Cell*> remove_cells;
-			pool<Wire*> remove_wires;
-
-			for (auto cell : module->cells())
-				remove_cells.insert(cell);
-
-			for (auto wire : module->wires())
-				if (wire->port_id == 0)
-					remove_wires.insert(wire);
-
-			for (auto it = module->memories.begin(); it != module->memories.end(); ++it)
-				delete it->second;
-			module->memories.clear();
-
-			for (auto it = module->processes.begin(); it != module->processes.end(); ++it)
-				delete it->second;
-			module->processes.clear();
-
-			module->new_connections(std::vector<RTLIL::SigSig>());
-
-			for (auto cell : remove_cells)
-				module->remove(cell);
-
-			module->remove(remove_wires);
-
+			module->makeblackbox();
 			module->set_bool_attribute(ID::blackbox);
 		}
 	}

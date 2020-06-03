@@ -1,0 +1,58 @@
+logger -expect-no-warnings
+read_verilog <<EOT
+module test ();
+	localparam y = 1;
+	always @(*)
+		if (y) (* foo *) ;
+endmodule
+EOT
+select -assert-none a:* a:src %d
+
+
+design -reset
+logger -expect-no-warnings
+read_verilog <<EOT
+module test ();
+	localparam y = 1;
+	always @(*)
+		if (y) (* foo *) ; else (* bar *) ;
+endmodule
+EOT
+select -assert-none a:* a:src %d
+
+
+design -reset
+logger -expect-no-warnings
+read_verilog <<EOT
+module test ();
+	localparam y = 1;
+    generate if (y) (* foo *) ; endgenerate
+endmodule
+EOT
+select -assert-none a:*
+
+
+design -reset
+logger -expect-no-warnings
+read_verilog <<EOT
+module test ();
+	localparam y = 1;
+    generate if (y) (* foo *) ; else (* bar *); endgenerate
+endmodule
+EOT
+select -assert-none a:*
+
+
+design -reset
+read_verilog <<EOT
+module test ();
+	localparam y = 1;
+	reg x = 1'b0;
+	always @(*) begin
+		if (y)
+			(* foo *) x <= 1'b1;
+		else
+			(* bar *) x = 1'b0;
+	end
+endmodule
+EOT

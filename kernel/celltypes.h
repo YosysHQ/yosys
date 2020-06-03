@@ -114,7 +114,7 @@ struct CellTypes
 			ID($and), ID($or), ID($xor), ID($xnor),
 			ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx),
 			ID($lt), ID($le), ID($eq), ID($ne), ID($eqx), ID($nex), ID($ge), ID($gt),
-			ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($pow),
+			ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($divfloor), ID($modfloor), ID($pow),
 			ID($logic_and), ID($logic_or), ID($concat), ID($macc)
 		};
 
@@ -304,6 +304,8 @@ struct CellTypes
 		HANDLE_CELL_TYPE(mul)
 		HANDLE_CELL_TYPE(div)
 		HANDLE_CELL_TYPE(mod)
+		HANDLE_CELL_TYPE(divfloor)
+		HANDLE_CELL_TYPE(modfloor)
 		HANDLE_CELL_TYPE(pow)
 		HANDLE_CELL_TYPE(pos)
 		HANDLE_CELL_TYPE(neg)

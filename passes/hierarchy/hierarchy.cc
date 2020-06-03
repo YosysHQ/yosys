@@ -574,9 +574,9 @@ struct HierarchyPass : public Pass {
 		log("\n");
 		log("In parametric designs, a module might exists in several variations with\n");
 		log("different parameter values. This pass looks at all modules in the current\n");
-		log("design an re-runs the language frontends for the parametric modules as\n");
+		log("design and re-runs the language frontends for the parametric modules as\n");
 		log("needed. It also resolves assignments to wired logic data types (wand/wor),\n");
-		log("resolves positional module parameters, unroll array instances, and more.\n");
+		log("resolves positional module parameters, unrolls array instances, and more.\n");
 		log("\n");
 		log("    -check\n");
 		log("        also check the design hierarchy. this generates an error when\n");

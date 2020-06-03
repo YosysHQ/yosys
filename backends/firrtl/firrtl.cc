@@ -392,7 +392,34 @@ struct FirrtlWorker
 		return result;
 	}
 
-	void run()
+	void emit_extmodule()
+	{
+		std::string moduleFileinfo = getFileinfo(module);
+		f << stringf("  extmodule %s: %s\n", make_id(module->name), moduleFileinfo.c_str());
+		vector<std::string> port_decls;
+
+		for (auto wire : module->wires())
+		{
+			const auto wireName = make_id(wire->name);
+			std::string wireFileinfo = getFileinfo(wire);
+
+			if (wire->port_input && wire->port_output)
+			{
+				log_error("Module port %s.%s is inout!\n", log_id(module), log_id(wire));
+			}
+			port_decls.push_back(stringf("    %s %s: UInt<%d> %s\n", wire->port_input ? "input" : "output",
+					wireName, wire->width, wireFileinfo.c_str()));
+		}
+
+		for (auto &str : port_decls)
+		{
+			f << str;
+		}
+
+		f << stringf("\n");
+	}
+
+	void emit_module()
 	{
 		std::string moduleFileinfo = getFileinfo(module);
 		f << stringf("  module %s: %s\n", make_id(module->name), moduleFileinfo.c_str());
@@ -446,7 +473,7 @@ struct FirrtlWorker
 			string y_id = make_id(cell->name);
 			std::string cellFileinfo = getFileinfo(cell);
 
-			if (cell->type.in(ID($not), ID($logic_not), ID($neg), ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_bool), ID($reduce_xnor)))
+			if (cell->type.in(ID($not), ID($logic_not), ID($_NOT_), ID($neg), ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_bool), ID($reduce_xnor)))
 			{
 				string a_expr = make_expr(cell->getPort(ID::A));
 				wire_decls.push_back(stringf("    wire %s: UInt<%d> %s\n", y_id.c_str(), y_width, cellFileinfo.c_str()));
@@ -462,7 +489,7 @@ struct FirrtlWorker
 
 				// Assume the FIRRTL width is a single bit.
 				firrtl_width = 1;
-				if (cell->type == ID($not)) primop = "not";
+				if (cell->type.in(ID($not), ID($_NOT_))) primop = "not";
 				else if (cell->type == ID($neg)) {
 					primop = "neg";
 					firrtl_is_signed = true;	// Result of "neg" is signed (an SInt).
@@ -494,7 +521,7 @@ struct FirrtlWorker
 
 				continue;
 			}
-			if (cell->type.in(ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($xor), ID($xnor), ID($and), ID($or), ID($eq), ID($eqx),
+			if (cell->type.in(ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($xor), ID($_XOR_), ID($xnor), ID($and), ID($_AND_), ID($or), ID($_OR_), ID($eq), ID($eqx),
                                         ID($gt), ID($ge), ID($lt), ID($le), ID($ne), ID($nex), ID($shr), ID($sshr), ID($sshl), ID($shl),
                                         ID($logic_and), ID($logic_or), ID($pow)))
 			{
@@ -524,7 +551,7 @@ struct FirrtlWorker
 
 				// For the arithmetic ops, expand operand widths to result widths befor performing the operation.
 				// This corresponds (according to iverilog) to what verilog compilers implement.
-				if (cell->type.in(ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($xor), ID($xnor), ID($and), ID($or)))
+				if (cell->type.in(ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($xor), ID($_XOR_), ID($xnor), ID($and), ID($_AND_), ID($or), ID($_OR_)))
 				{
 					if (a_width < y_width) {
 						a_expr = stringf("pad(%s, %d)", a_expr.c_str(), y_width);
@@ -558,19 +585,20 @@ struct FirrtlWorker
 					firrtl_is_signed = a_signed | b_signed;
 					firrtl_width = a_width;
 				} else if (cell->type == ID($mod)) {
+					// "rem" = truncating modulo
 					primop = "rem";
 					firrtl_width = min(a_width, b_width);
-				} else if (cell->type == ID($and)) {
+				} else if (cell->type.in(ID($and), ID($_AND_))) {
 					primop = "and";
 					always_uint = true;
 					firrtl_width = max(a_width, b_width);
 				}
-				else if (cell->type == ID($or) ) {
+				else if (cell->type.in(ID($or), ID($_OR_))) {
 					primop =  "or";
 					always_uint = true;
 					firrtl_width = max(a_width, b_width);
 				}
-				else if (cell->type == ID($xor)) {
+				else if (cell->type.in(ID($xor), ID($_XOR_))) {
 					primop = "xor";
 					always_uint = true;
 					firrtl_width = max(a_width, b_width);
@@ -694,7 +722,8 @@ struct FirrtlWorker
 					}
 				}
 
-				if (!cell->parameters.at(ID::B_SIGNED).as_bool()) {
+				auto it = cell->parameters.find(ID::B_SIGNED);
+				if (it == cell->parameters.end() || !it->second.as_bool()) {
 					b_expr = "asUInt(" + b_expr + ")";
 				}
 
@@ -723,9 +752,10 @@ struct FirrtlWorker
 				continue;
 			}
 
-			if (cell->type.in(ID($mux)))
+			if (cell->type.in(ID($mux), ID($_MUX_)))
 			{
-				int width = cell->parameters.at(ID::WIDTH).as_int();
+				auto it = cell->parameters.find(ID::WIDTH);
+				int width = it == cell->parameters.end()? 1 : it->second.as_int();
 				string a_expr = make_expr(cell->getPort(ID::A));
 				string b_expr = make_expr(cell->getPort(ID::B));
 				string s_expr = make_expr(cell->getPort(ID::S));
@@ -1076,6 +1106,18 @@ struct FirrtlWorker
 
 		for (auto str : wire_exprs)
 			f << str;
+
+		f << stringf("\n");
+	}
+
+	void run()
+	{
+		// Blackboxes should be emitted as `extmodule`s in firrtl. Only ports are
+		// emitted in such a case.
+		if (module->get_blackbox_attribute())
+			emit_extmodule();
+		else
+			emit_module();
 	}
 };
 

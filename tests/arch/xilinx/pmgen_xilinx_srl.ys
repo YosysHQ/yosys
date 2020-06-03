@@ -1,6 +1,6 @@
 read_verilog -icells <<EOT
 module \$__XILINX_SHREG_ (input C, input D, input [31:0] L, input E, output Q, output SO);
-  parameter DEPTH = 1;
+  parameter DEPTH = 2;
   parameter [DEPTH-1:0] INIT = 0;
   parameter CLKPOL = 1;
   parameter ENPOL = 2;

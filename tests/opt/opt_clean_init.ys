@@ -1,0 +1,13 @@
+logger -expect warning "Initial value conflict for \\y resolving to 1'0 but with init 1'1" 1
+logger -expect-no-warnings
+read_verilog <<EOT
+module top;
+(* init=1'b0 *) wire w = 1'b0;
+(* init=1'bx *) wire x = 1'b0;
+(* init=1'b1 *) wire y = 1'b0;
+(* init=1'b0 *) wire z = 1'bx;
+endmodule
+EOT
+clean
+select -assert-count 1 a:init
+select -assert-count 1 w:y a:init %i
