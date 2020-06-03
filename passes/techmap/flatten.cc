@@ -58,8 +58,6 @@ struct FlattenWorker
 	pool<IdString> flatten_done_list;
 	pool<Cell*> flatten_keep_list;
 
-	pool<string> log_msg_cache;
-
 	bool ignore_wb = false;
 
 	void flatten_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Cell *cell, RTLIL::Module *tpl)
@@ -251,8 +249,7 @@ struct FlattenWorker
 		}
 	}
 
-	bool flatten_module(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Cell*> &handled_cells,
-			const dict<IdString, pool<IdString>> &celltypeMap, bool in_recursion)
+	bool flatten_module(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Cell*> &handled_cells, bool in_recursion)
 	{
 		std::string mapmsg_prefix = in_recursion ? "Recursively mapping" : "Mapping";
 
@@ -274,18 +271,10 @@ struct FlattenWorker
 			if (handled_cells.count(cell) > 0)
 				continue;
 
-			std::string cell_type = cell->type.str();
-			if (in_recursion && cell->type.begins_with("\\$"))
-				cell_type = cell_type.substr(1);
-
-			if (celltypeMap.count(cell_type) == 0)
+			if (!design->has(cell->type))
 				continue;
 
-			bool keepit = cell->get_bool_attribute(ID::keep_hierarchy);
-			for (auto &tpl_name : celltypeMap.at(cell_type))
-				if (design->module(tpl_name)->get_bool_attribute(ID::keep_hierarchy))
-					keepit = true;
-			if (keepit) {
+			if (cell->get_bool_attribute(ID::keep_hierarchy) || design->module(cell->type)->get_bool_attribute(ID::keep_hierarchy)) {
 				if (!flatten_keep_list[cell]) {
 					log("Keeping %s.%s (found keep_hierarchy property).\n", log_id(module), log_id(cell));
 					flatten_keep_list.insert(cell);
@@ -303,15 +292,13 @@ struct FlattenWorker
 				if (GetSize(sig) == 0)
 					continue;
 
-				for (auto &tpl_name : celltypeMap.at(cell_type)) {
-					RTLIL::Module *tpl = design->module(tpl_name);
-					RTLIL::Wire *port = tpl->wire(conn.first);
-					if (port && port->port_input)
-						cell_to_inbit[cell].insert(sig.begin(), sig.end());
-					if (port && port->port_output)
-						for (auto &bit : sig)
-							outbit_to_cell[bit].insert(cell);
-				}
+				RTLIL::Module *tpl = design->module(cell->type);
+				RTLIL::Wire *port = tpl->wire(conn.first);
+				if (port && port->port_input)
+					cell_to_inbit[cell].insert(sig.begin(), sig.end());
+				if (port && port->port_output)
+					for (auto &bit : sig)
+						outbit_to_cell[bit].insert(cell);
 			}
 
 			cells.node(cell);
@@ -329,53 +316,39 @@ struct FlattenWorker
 			log_assert(handled_cells.count(cell) == 0);
 			log_assert(cell == module->cell(cell->name));
 
-			std::string cell_type = cell->type.str();
+			RTLIL::Module *tpl = design->module(cell->type);
+			dict<IdString, RTLIL::Const> parameters(cell->parameters);
 
-			if (in_recursion && cell->type.begins_with("\\$"))
-				cell_type = cell_type.substr(1);
-
-			for (auto &tpl_name : celltypeMap.at(cell_type))
-			{
-				IdString derived_name = tpl_name;
-				RTLIL::Module *tpl = design->module(tpl_name);
-				dict<IdString, RTLIL::Const> parameters(cell->parameters);
-
-				if (tpl->get_blackbox_attribute(ignore_wb))
-					continue;
-
-				std::pair<IdString, dict<IdString, RTLIL::Const>> key(tpl_name, parameters);
-				auto it = cache.find(key);
-				if (it != cache.end()) {
-					tpl = it->second;
-				} else {
-					if (parameters.size() != 0) {
-						mkdebug.on();
-						derived_name = tpl->derive(design, parameters);
-						tpl = design->module(derived_name);
-						log_continue = true;
-					}
-					cache.emplace(std::move(key), tpl);
-				}
-
-				if (log_continue) {
-					log_header(design, "Continuing FLATTEN pass.\n");
-					log_continue = false;
-					mkdebug.off();
-				}
-
-				auto msg = stringf("Using template %s for cells of type %s.", log_id(tpl), log_id(cell->type));
-				if (!log_msg_cache.count(msg)) {
-					log_msg_cache.insert(msg);
-					log("%s\n", msg.c_str());
-				}
-				log_debug("%s %s.%s (%s) using %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type), log_id(tpl));
-				flatten_module(design, module, cell, tpl);
-				cell = nullptr;
-				did_something = true;
-				break;
+			if (tpl->get_blackbox_attribute(ignore_wb)) {
+				handled_cells.insert(cell);
+				continue;
 			}
 
-			handled_cells.insert(cell);
+			std::pair<IdString, dict<IdString, RTLIL::Const>> key(cell->type, parameters);
+			IdString derived_name;
+			auto it = cache.find(key);
+			if (it != cache.end()) {
+				derived_name = cell->type;
+				tpl = it->second;
+			} else {
+				if (parameters.size() != 0) {
+					mkdebug.on();
+					derived_name = tpl->derive(design, parameters);
+					tpl = design->module(derived_name);
+					log_continue = true;
+				}
+				cache.emplace(std::move(key), tpl);
+			}
+
+			if (log_continue) {
+				log_header(design, "Continuing FLATTEN pass.\n");
+				log_continue = false;
+				mkdebug.off();
+			}
+
+			log_debug("%s %s.%s (%s) using %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type), log_id(tpl));
+			flatten_module(design, module, cell, tpl);
+			did_something = true;
 		}
 
 		if (log_continue) {
@@ -424,13 +397,6 @@ struct FlattenPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-
-		dict<IdString, pool<IdString>> celltypeMap;
-		for (auto module : design->modules())
-			celltypeMap[module->name].insert(module->name);
-		for (auto &i : celltypeMap)
-			i.second.sort(RTLIL::sort_by_id_str());
-
 		RTLIL::Module *top_mod = nullptr;
 		if (design->full_selection())
 			for (auto mod : design->modules())
@@ -442,13 +408,13 @@ struct FlattenPass : public Pass {
 			worker.flatten_do_list.insert(top_mod->name);
 			while (!worker.flatten_do_list.empty()) {
 				auto mod = design->module(*worker.flatten_do_list.begin());
-				while (worker.flatten_module(design, mod, handled_cells, celltypeMap, false)) { }
+				while (worker.flatten_module(design, mod, handled_cells, false)) { }
 				worker.flatten_done_list.insert(mod->name);
 				worker.flatten_do_list.erase(mod->name);
 			}
 		} else {
 			for (auto mod : design->modules().to_vector())
-				while (worker.flatten_module(design, mod, handled_cells, celltypeMap, false)) { }
+				while (worker.flatten_module(design, mod, handled_cells, false)) { }
 		}
 
 		log_suppressed();
