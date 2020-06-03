@@ -27,7 +27,6 @@
 #include <string.h>
 
 #include "simplemap.h"
-#include "passes/techmap/techmap.inc"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -81,22 +80,12 @@ struct TechmapWorker
 
 	typedef dict<IdString, std::vector<TechmapWireData>> TechmapWires;
 
-	bool extern_mode;
-	bool assert_mode;
-	bool flatten_mode;
-	bool recursive_mode;
-	bool autoproc_mode;
-	bool ignore_wb;
-
-	TechmapWorker()
-	{
-		extern_mode = false;
-		assert_mode = false;
-		flatten_mode = false;
-		recursive_mode = false;
-		autoproc_mode = false;
-		ignore_wb = false;
-	}
+	bool extern_mode = false;
+	bool assert_mode = false;
+	bool flatten_mode = false;
+	bool recursive_mode = false;
+	bool autoproc_mode = false;
+	bool ignore_wb = false;
 
 	std::string constmap_tpl_name(SigMap &sigmap, RTLIL::Module *tpl, RTLIL::Cell *cell, bool verbose)
 	{
@@ -279,7 +268,6 @@ struct TechmapWorker
 				tpl_written_bits.insert(bit);
 
 		SigMap port_signal_map;
-		SigSig port_signal_assign;
 
 		for (auto &it : cell->connections())
 		{
@@ -1282,8 +1270,7 @@ struct TechmapPass : public Pass {
 
 		RTLIL::Design *map = new RTLIL::Design;
 		if (map_files.empty()) {
-			std::istringstream f(stdcells_code);
-			Frontend::frontend_call(map, &f, "<techmap.v>", verilog_frontend);
+			Frontend::frontend_call(map, nullptr, "+/techmap.v", verilog_frontend);
 		} else {
 			for (auto &fn : map_files)
 				if (fn.compare(0, 1, "%") == 0) {
@@ -1295,13 +1282,7 @@ struct TechmapPass : public Pass {
 						if (!map->module(mod->name))
 							map->add(mod->clone());
 				} else {
-					std::ifstream f;
-					rewrite_filename(fn);
-					f.open(fn.c_str());
-					yosys_input_files.insert(fn);
-					if (f.fail())
-						log_cmd_error("Can't open map file `%s'\n", fn.c_str());
-					Frontend::frontend_call(map, &f, fn, (fn.size() > 3 && fn.compare(fn.size()-3, std::string::npos, ".il") == 0 ? "ilang" : verilog_frontend));
+					Frontend::frontend_call(map, nullptr, fn, (fn.size() > 3 && fn.compare(fn.size()-3, std::string::npos, ".il") == 0 ? "ilang" : verilog_frontend));
 				}
 		}
 
