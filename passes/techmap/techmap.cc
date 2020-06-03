@@ -268,7 +268,6 @@ struct TechmapWorker
 				tpl_written_bits.insert(bit);
 
 		SigMap port_signal_map;
-		SigSig port_signal_assign;
 
 		for (auto &it : cell->connections())
 		{
