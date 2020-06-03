@@ -33,7 +33,7 @@ void apply_prefix(IdString prefix, IdString &id)
 	if (id[0] == '\\')
 		id = stringf("%s.%s", prefix.c_str(), id.c_str()+1);
 	else
-		id = stringf("$techmap%s.%s", prefix.c_str(), id.c_str());
+		id = stringf("$flatten%s.%s", prefix.c_str(), id.c_str());
 }
 
 void apply_prefix(IdString prefix, RTLIL::SigSpec &sig, RTLIL::Module *module)
@@ -49,9 +49,9 @@ void apply_prefix(IdString prefix, RTLIL::SigSpec &sig, RTLIL::Module *module)
 	sig = chunks;
 }
 
-struct TechmapWorker
+struct FlattenWorker
 {
-	dict<std::pair<IdString, dict<IdString, RTLIL::Const>>, RTLIL::Module*> techmap_cache;
+	dict<std::pair<IdString, dict<IdString, RTLIL::Const>>, RTLIL::Module*> cache;
 	dict<Module*, SigMap> sigmaps;
 
 	pool<IdString> flatten_do_list;
@@ -62,14 +62,14 @@ struct TechmapWorker
 
 	bool ignore_wb = false;
 
-	void techmap_module_worker(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Cell *cell, RTLIL::Module *tpl)
+	void flatten_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Cell *cell, RTLIL::Module *tpl)
 	{
 		if (tpl->processes.size() != 0) {
-			log("Technology map yielded processes:");
+			log("Flattening yielded processes:");
 			for (auto &it : tpl->processes)
 				log(" %s",log_id(it.first));
 			log("\n");
-			log_error("Technology map yielded processes -> this is not supported.\n");
+			log_error("Flattening yielded processes -> this is not supported.\n");
 		}
 
 		pool<string> extra_src_attrs = cell->get_strpool_attribute(ID::src);
@@ -257,7 +257,7 @@ struct TechmapWorker
 		}
 	}
 
-	bool techmap_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Design *map, pool<RTLIL::Cell*> &handled_cells,
+	bool flatten_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Design *map, pool<RTLIL::Cell*> &handled_cells,
 			const dict<IdString, pool<IdString>> &celltypeMap, bool in_recursion)
 	{
 		std::string mapmsg_prefix = in_recursion ? "Recursively mapping" : "Mapping";
@@ -350,8 +350,8 @@ struct TechmapWorker
 					continue;
 
 				std::pair<IdString, dict<IdString, RTLIL::Const>> key(tpl_name, parameters);
-				auto it = techmap_cache.find(key);
-				if (it != techmap_cache.end()) {
+				auto it = cache.find(key);
+				if (it != cache.end()) {
 					tpl = it->second;
 				} else {
 					if (parameters.size() != 0) {
@@ -360,11 +360,11 @@ struct TechmapWorker
 						tpl = map->module(derived_name);
 						log_continue = true;
 					}
-					techmap_cache.emplace(std::move(key), tpl);
+					cache.emplace(std::move(key), tpl);
 				}
 
 				if (log_continue) {
-					log_header(design, "Continuing TECHMAP pass.\n");
+					log_header(design, "Continuing FLATTEN pass.\n");
 					log_continue = false;
 					mkdebug.off();
 				}
@@ -375,7 +375,7 @@ struct TechmapWorker
 					log("%s\n", msg.c_str());
 				}
 				log_debug("%s %s.%s (%s) using %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type), log_id(tpl));
-				techmap_module_worker(design, module, cell, tpl);
+				flatten_module(design, module, cell, tpl);
 				cell = nullptr;
 				did_something = true;
 				break;
@@ -385,7 +385,7 @@ struct TechmapWorker
 		}
 
 		if (log_continue) {
-			log_header(design, "Continuing TECHMAP pass.\n");
+			log_header(design, "Continuing FLATTEN pass.\n");
 			log_continue = false;
 			mkdebug.off();
 		}
@@ -418,7 +418,7 @@ struct FlattenPass : public Pass {
 		log_header(design, "Executing FLATTEN pass (flatten design).\n");
 		log_push();
 
-		TechmapWorker worker;
+		FlattenWorker worker;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -448,13 +448,13 @@ struct FlattenPass : public Pass {
 			worker.flatten_do_list.insert(top_mod->name);
 			while (!worker.flatten_do_list.empty()) {
 				auto mod = design->module(*worker.flatten_do_list.begin());
-				while (worker.techmap_module(design, mod, design, handled_cells, celltypeMap, false)) { }
+				while (worker.flatten_module(design, mod, design, handled_cells, celltypeMap, false)) { }
 				worker.flatten_done_list.insert(mod->name);
 				worker.flatten_do_list.erase(mod->name);
 			}
 		} else {
 			for (auto mod : design->modules().to_vector())
-				while (worker.techmap_module(design, mod, design, handled_cells, celltypeMap, false)) { }
+				while (worker.flatten_module(design, mod, design, handled_cells, celltypeMap, false)) { }
 		}
 
 		log_suppressed();
