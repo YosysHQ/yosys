@@ -51,15 +51,13 @@ void apply_prefix(IdString prefix, RTLIL::SigSpec &sig, RTLIL::Module *module)
 
 struct FlattenWorker
 {
-	dict<std::pair<IdString, dict<IdString, RTLIL::Const>>, RTLIL::Module*> cache;
-
 	pool<IdString> flatten_do_list;
 	pool<IdString> flatten_done_list;
 	pool<Cell*> flatten_keep_list;
 
 	bool ignore_wb = false;
 
-	void flatten_module(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Cell *cell, RTLIL::Module *tpl)
+	void flatten_cell(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Cell *cell, RTLIL::Module *tpl)
 	{
 		if (tpl->processes.size() != 0) {
 			log("Flattening yielded processes:");
@@ -252,62 +250,28 @@ struct FlattenWorker
 		if (!design->selected(module) || module->get_blackbox_attribute(ignore_wb))
 			return false;
 
-		bool log_continue = false;
 		bool did_something = false;
-		LogMakeDebugHdl mkdebug;
 
 		for (auto cell : module->selected_cells())
 		{
 			if (!design->has(cell->type))
 				continue;
 
-			if (cell->get_bool_attribute(ID::keep_hierarchy) || design->module(cell->type)->get_bool_attribute(ID::keep_hierarchy)) {
+			RTLIL::Module *tpl = design->module(cell->type);
+			if (tpl->get_blackbox_attribute(ignore_wb))
+				continue;
+
+			if (cell->get_bool_attribute(ID::keep_hierarchy) || tpl->get_bool_attribute(ID::keep_hierarchy)) {
 				if (!flatten_keep_list[cell]) {
 					log("Keeping %s.%s (found keep_hierarchy property).\n", log_id(module), log_id(cell));
 					flatten_keep_list.insert(cell);
 				}
-				if (!flatten_done_list[cell->type])
-					flatten_do_list.insert(cell->type);
 				continue;
-			}
-
-			RTLIL::Module *tpl = design->module(cell->type);
-			dict<IdString, RTLIL::Const> parameters(cell->parameters);
-
-			if (tpl->get_blackbox_attribute(ignore_wb))
-				continue;
-
-			std::pair<IdString, dict<IdString, RTLIL::Const>> key(cell->type, parameters);
-			IdString derived_name;
-			auto it = cache.find(key);
-			if (it != cache.end()) {
-				derived_name = cell->type;
-				tpl = it->second;
-			} else {
-				if (parameters.size() != 0) {
-					mkdebug.on();
-					derived_name = tpl->derive(design, parameters);
-					tpl = design->module(derived_name);
-					log_continue = true;
-				}
-				cache.emplace(std::move(key), tpl);
-			}
-
-			if (log_continue) {
-				log_header(design, "Continuing FLATTEN pass.\n");
-				log_continue = false;
-				mkdebug.off();
 			}
 
 			log_debug("Flattening %s.%s (%s) using %s.\n", log_id(module), log_id(cell), log_id(cell->type), log_id(tpl));
-			flatten_module(design, module, cell, tpl);
+			flatten_cell(design, module, cell, tpl);
 			did_something = true;
-		}
-
-		if (log_continue) {
-			log_header(design, "Continuing FLATTEN pass.\n");
-			log_continue = false;
-			mkdebug.off();
 		}
 
 		return did_something;
