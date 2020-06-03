@@ -51,13 +51,9 @@ void apply_prefix(IdString prefix, RTLIL::SigSpec &sig, RTLIL::Module *module)
 
 struct FlattenWorker
 {
-	pool<IdString> flatten_do_list;
-	pool<IdString> flatten_done_list;
-	pool<Cell*> flatten_keep_list;
-
 	bool ignore_wb = false;
 
-	void flatten_cell(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Cell *cell, RTLIL::Module *tpl)
+	void flatten_cell(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Cell *cell, RTLIL::Module *tpl, std::vector<RTLIL::Cell*> &new_cells)
 	{
 		if (tpl->processes.size() != 0) {
 			log("Flattening yielded processes:");
@@ -197,6 +193,7 @@ struct FlattenWorker
 			apply_prefix(cell->name, c_name);
 
 			RTLIL::Cell *c = module->addCell(c_name, tpl_cell);
+			new_cells.push_back(c);
 			design->select(module, c);
 
 			for (auto &conn : c->connections())
@@ -245,15 +242,17 @@ struct FlattenWorker
 		}
 	}
 
-	bool flatten_module(RTLIL::Design *design, RTLIL::Module *module)
+	void flatten_module(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module*> &used_modules)
 	{
 		if (!design->selected(module) || module->get_blackbox_attribute(ignore_wb))
-			return false;
+			return;
 
-		bool did_something = false;
-
-		for (auto cell : module->selected_cells())
+		std::vector<RTLIL::Cell*> worklist = module->selected_cells();
+		while (!worklist.empty())
 		{
+			RTLIL::Cell *cell = worklist.back();
+			worklist.pop_back();
+
 			if (!design->has(cell->type))
 				continue;
 
@@ -262,19 +261,17 @@ struct FlattenWorker
 				continue;
 
 			if (cell->get_bool_attribute(ID::keep_hierarchy) || tpl->get_bool_attribute(ID::keep_hierarchy)) {
-				if (!flatten_keep_list[cell]) {
-					log("Keeping %s.%s (found keep_hierarchy property).\n", log_id(module), log_id(cell));
-					flatten_keep_list.insert(cell);
-				}
+				log("Keeping %s.%s (found keep_hierarchy property).\n", log_id(module), log_id(cell));
+				used_modules.insert(tpl);
 				continue;
 			}
 
-			log_debug("Flattening %s.%s (%s) using %s.\n", log_id(module), log_id(cell), log_id(cell->type), log_id(tpl));
-			flatten_cell(design, module, cell, tpl);
-			did_something = true;
+			log_debug("Flattening %s.%s (%s).\n", log_id(module), log_id(cell), log_id(cell->type));
+			// If a design is fully selected and has a top module defined, topological sorting ensures that all cells
+			// added during flattening are black boxes, and flattening is finished in one pass. However, when flattening
+			// individual modules, this isn't the case, and the newly added cells might have to be flattened further.
+			flatten_cell(design, module, cell, tpl, worklist);
 		}
-
-		return did_something;
 	}
 };
 
@@ -314,49 +311,44 @@ struct FlattenPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		RTLIL::Module *top_mod = nullptr;
+		RTLIL::Module *top = nullptr;
 		if (design->full_selection())
-			for (auto mod : design->modules())
-				if (mod->get_bool_attribute(ID::top))
-					top_mod = mod;
+			for (auto module : design->modules())
+				if (module->get_bool_attribute(ID::top))
+					top = module;
 
-		if (top_mod != nullptr) {
-			worker.flatten_do_list.insert(top_mod->name);
-			while (!worker.flatten_do_list.empty()) {
-				auto mod = design->module(*worker.flatten_do_list.begin());
-				while (worker.flatten_module(design, mod)) { }
-				worker.flatten_done_list.insert(mod->name);
-				worker.flatten_do_list.erase(mod->name);
-			}
-		} else {
-			for (auto mod : design->modules().to_vector())
-				while (worker.flatten_module(design, mod)) { }
-		}
+		pool<RTLIL::Module*> used_modules;
+		if (top == nullptr)
+			used_modules = design->modules();
+		else
+			used_modules.insert(top);
 
-		log_suppressed();
-		log("No more expansions possible.\n");
-
-		if (top_mod != nullptr)
-		{
-			pool<IdString> used_modules, new_used_modules;
-			new_used_modules.insert(top_mod->name);
-			while (!new_used_modules.empty()) {
-				pool<IdString> queue;
-				queue.swap(new_used_modules);
-				for (auto modname : queue)
-					used_modules.insert(modname);
-				for (auto modname : queue)
-					for (auto cell : design->module(modname)->cells())
-						if (design->module(cell->type) && !used_modules[cell->type])
-							new_used_modules.insert(cell->type);
-			}
-
-			for (auto mod : design->modules().to_vector())
-				if (!used_modules[mod->name] && !mod->get_blackbox_attribute(worker.ignore_wb)) {
-					log("Deleting now unused module %s.\n", log_id(mod));
-					design->remove(mod);
+		TopoSort<RTLIL::Module*, IdString::compare_ptr_by_name<RTLIL::Module>> topo_modules;
+		pool<RTLIL::Module*> worklist = used_modules;
+		while (!worklist.empty()) {
+			RTLIL::Module *module = worklist.pop();
+			for (auto cell : module->selected_cells()) {
+				RTLIL::Module *tpl = design->module(cell->type);
+				if (tpl != nullptr) {
+					if (topo_modules.database.count(tpl) == 0)
+						worklist.insert(tpl);
+					topo_modules.edge(tpl, module);
 				}
+			}
 		}
+
+		if (!topo_modules.sort())
+			log_error("Cannot flatten a design containing recursive instantiations.\n");
+
+		for (auto module : topo_modules.sorted)
+			worker.flatten_module(design, module, used_modules);
+
+		if (top != nullptr)
+			for (auto module : design->modules().to_vector())
+				if (!used_modules[module] && !module->get_blackbox_attribute(worker.ignore_wb)) {
+					log("Deleting now unused module %s.\n", log_id(module));
+					design->remove(module);
+				}
 
 		log_pop();
 	}
