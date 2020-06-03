@@ -261,7 +261,7 @@ struct FlattenWorker
 				continue;
 
 			if (cell->get_bool_attribute(ID::keep_hierarchy) || tpl->get_bool_attribute(ID::keep_hierarchy)) {
-				log("Keeping %s.%s (found keep_hierarchy property).\n", log_id(module), log_id(cell));
+				log("Keeping %s.%s (found keep_hierarchy attribute).\n", log_id(module), log_id(cell));
 				used_modules.insert(tpl);
 				continue;
 			}
