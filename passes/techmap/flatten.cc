@@ -249,7 +249,7 @@ struct FlattenWorker
 		}
 	}
 
-	bool flatten_module(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Cell*> &handled_cells)
+	bool flatten_module(RTLIL::Design *design, RTLIL::Module *module)
 	{
 		if (!design->selected(module) || module->get_blackbox_attribute(ignore_wb))
 			return false;
@@ -266,9 +266,6 @@ struct FlattenWorker
 
 		for (auto cell : module->selected_cells())
 		{
-			if (handled_cells.count(cell) > 0)
-				continue;
-
 			if (!design->has(cell->type))
 				continue;
 
@@ -311,16 +308,13 @@ struct FlattenWorker
 
 		for (auto cell : cells.sorted)
 		{
-			log_assert(handled_cells.count(cell) == 0);
 			log_assert(cell == module->cell(cell->name));
 
 			RTLIL::Module *tpl = design->module(cell->type);
 			dict<IdString, RTLIL::Const> parameters(cell->parameters);
 
-			if (tpl->get_blackbox_attribute(ignore_wb)) {
-				handled_cells.insert(cell);
+			if (tpl->get_blackbox_attribute(ignore_wb))
 				continue;
-			}
 
 			std::pair<IdString, dict<IdString, RTLIL::Const>> key(cell->type, parameters);
 			IdString derived_name;
@@ -401,18 +395,17 @@ struct FlattenPass : public Pass {
 				if (mod->get_bool_attribute(ID::top))
 					top_mod = mod;
 
-		pool<RTLIL::Cell*> handled_cells;
 		if (top_mod != nullptr) {
 			worker.flatten_do_list.insert(top_mod->name);
 			while (!worker.flatten_do_list.empty()) {
 				auto mod = design->module(*worker.flatten_do_list.begin());
-				while (worker.flatten_module(design, mod, handled_cells)) { }
+				while (worker.flatten_module(design, mod)) { }
 				worker.flatten_done_list.insert(mod->name);
 				worker.flatten_do_list.erase(mod->name);
 			}
 		} else {
 			for (auto mod : design->modules().to_vector())
-				while (worker.flatten_module(design, mod, handled_cells)) { }
+				while (worker.flatten_module(design, mod)) { }
 		}
 
 		log_suppressed();
