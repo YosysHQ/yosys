@@ -526,6 +526,8 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 
 ".*" { return TOK_WILDCARD_CONNECT; }
 
+"|=" { SV_KEYWORD(TOK_OR_ASSIGN); }
+
 [-+]?[=*]> {
 	if (!specify_mode) REJECT;
 	yylval->string = new std::string(yytext);
