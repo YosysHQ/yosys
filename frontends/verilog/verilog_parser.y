@@ -256,7 +256,7 @@ static void rewriteAsMemoryNode(AstNode *node, AstNode *rangeNode)
 %token TOK_PACKAGE TOK_ENDPACKAGE TOK_PACKAGESEP
 %token TOK_INTERFACE TOK_ENDINTERFACE TOK_MODPORT TOK_VAR TOK_WILDCARD_CONNECT
 %token TOK_INPUT TOK_OUTPUT TOK_INOUT TOK_WIRE TOK_WAND TOK_WOR TOK_REG TOK_LOGIC
-%token TOK_INTEGER TOK_SIGNED TOK_ASSIGN TOK_ALWAYS TOK_INITIAL
+%token TOK_INTEGER TOK_SIGNED TOK_ASSIGN TOK_PLUS_ASSIGN TOK_ALWAYS TOK_INITIAL
 %token TOK_ALWAYS_FF TOK_ALWAYS_COMB TOK_ALWAYS_LATCH
 %token TOK_BEGIN TOK_END TOK_IF TOK_ELSE TOK_FOR TOK_WHILE TOK_REPEAT
 %token TOK_DPI_FUNCTION TOK_POSEDGE TOK_NEGEDGE TOK_OR TOK_OR_ASSIGN TOK_AUTOMATIC
@@ -2340,6 +2340,14 @@ simple_behavioral_stmt:
 		SET_AST_NODE_LOC(or_node, @2, @5);
 		AstNode *node = new AstNode(AST_ASSIGN_EQ, $2, or_node);
 		SET_AST_NODE_LOC(node, @2, @5);
+		ast_stack.back()->children.push_back(node);
+		append_attr(node, $1);
+	} |
+	attr lvalue TOK_PLUS_ASSIGN delay expr {
+		AstNode *add_node = new AstNode(AST_ADD, $2->clone(), $5);
+		AstNode *node = new AstNode(AST_ASSIGN_EQ, $2, add_node);
+		SET_AST_NODE_LOC(node, @2, @5);
+		SET_AST_NODE_LOC(add_node, @2, @5);
 		ast_stack.back()->children.push_back(node);
 		append_attr(node, $1);
 	};
