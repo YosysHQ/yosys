@@ -20,20 +20,10 @@
 #include "kernel/yosys.h"
 #include "kernel/utils.h"
 #include "kernel/sigtools.h"
-#include "libs/sha1/sha1.h"
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
-#include "simplemap.h"
-
-YOSYS_NAMESPACE_BEGIN
-
-// see maccmap.cc
-extern void maccmap(RTLIL::Module *module, RTLIL::Cell *cell, bool unmap = false);
-
-YOSYS_NAMESPACE_END
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -61,10 +51,7 @@ void apply_prefix(IdString prefix, RTLIL::SigSpec &sig, RTLIL::Module *module)
 
 struct TechmapWorker
 {
-	dict<IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> simplemap_mappers;
 	dict<std::pair<IdString, dict<IdString, RTLIL::Const>>, RTLIL::Module*> techmap_cache;
-	dict<RTLIL::Module*, bool> techmap_do_cache;
-	pool<RTLIL::Module*> module_queue;
 	dict<Module*, SigMap> sigmaps;
 
 	pool<IdString> flatten_do_list;
@@ -73,82 +60,7 @@ struct TechmapWorker
 
 	pool<string> log_msg_cache;
 
-	struct TechmapWireData {
-		RTLIL::Wire *wire;
-		RTLIL::SigSpec value;
-	};
-
-	typedef dict<IdString, std::vector<TechmapWireData>> TechmapWires;
-
-	bool extern_mode = false;
-	bool assert_mode = false;
-	bool flatten_mode = false;
-	bool recursive_mode = false;
-	bool autoproc_mode = false;
 	bool ignore_wb = false;
-
-	std::string constmap_tpl_name(SigMap &sigmap, RTLIL::Module *tpl, RTLIL::Cell *cell, bool verbose)
-	{
-		std::string constmap_info;
-		dict<RTLIL::SigBit, std::pair<IdString, int>> connbits_map;
-
-		for (auto &conn : cell->connections())
-			for (int i = 0; i < GetSize(conn.second); i++) {
-				RTLIL::SigBit bit = sigmap(conn.second[i]);
-				if (bit.wire == nullptr) {
-					if (verbose)
-						log("  Constant input on bit %d of port %s: %s\n", i, log_id(conn.first), log_signal(bit));
-					constmap_info += stringf("|%s %d %d", log_id(conn.first), i, bit.data);
-				} else if (connbits_map.count(bit)) {
-					if (verbose)
-						log("  Bit %d of port %s and bit %d of port %s are connected.\n", i, log_id(conn.first),
-								connbits_map.at(bit).second, log_id(connbits_map.at(bit).first));
-					constmap_info += stringf("|%s %d %s %d", log_id(conn.first), i,
-							log_id(connbits_map.at(bit).first), connbits_map.at(bit).second);
-				} else {
-					connbits_map.emplace(bit, std::make_pair(conn.first, i));
-					constmap_info += stringf("|%s %d", log_id(conn.first), i);
-				}
-			}
-
-		return stringf("$paramod$constmap:%s%s", sha1(constmap_info).c_str(), tpl->name.c_str());
-	}
-
-	TechmapWires techmap_find_special_wires(RTLIL::Module *module)
-	{
-		TechmapWires result;
-
-		if (module == nullptr)
-			return result;
-
-		for (auto w : module->wires()) {
-			const char *p = w->name.c_str();
-			if (*p == '$')
-				continue;
-
-			const char *q = strrchr(p+1, '.');
-			if (q)
-				p = q;
-
-			if (!strncmp(p, "\\_TECHMAP_", 10)) {
-				TechmapWireData record;
-				record.wire = w;
-				record.value = w;
-				result[p].push_back(record);
-				w->set_bool_attribute(ID::keep);
-				w->set_bool_attribute(ID::_techmap_special_);
-			}
-		}
-
-		if (!result.empty()) {
-			SigMap sigmap(module);
-			for (auto &it1 : result)
-			for (auto &it2 : it1.second)
-				sigmap.apply(it2.value);
-		}
-
-		return result;
-	}
 
 	void techmap_module_worker(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Cell *cell, RTLIL::Module *tpl)
 	{
@@ -157,24 +69,10 @@ struct TechmapWorker
 			for (auto &it : tpl->processes)
 				log(" %s",log_id(it.first));
 			log("\n");
-			if (autoproc_mode) {
-				Pass::call_on_module(tpl->design, tpl, "proc");
-				log_assert(GetSize(tpl->processes) == 0);
-			} else
-				log_error("Technology map yielded processes -> this is not supported (use -autoproc to run 'proc' automatically).\n");
+			log_error("Technology map yielded processes -> this is not supported.\n");
 		}
 
-		std::string orig_cell_name;
 		pool<string> extra_src_attrs = cell->get_strpool_attribute(ID::src);
-
-		orig_cell_name = cell->name.str();
-		if (!flatten_mode) {
-			for (auto tpl_cell : tpl->cells())
-				if (tpl_cell->name == ID::_TECHMAP_REPLACE_) {
-					module->rename(cell, stringf("$techmap%d", autoidx++) + cell->name.str());
-					break;
-				}
-		}
 
 		dict<IdString, IdString> memory_renames;
 
@@ -196,7 +94,6 @@ struct TechmapWorker
 
 		dict<IdString, IdString> positional_ports;
 		dict<Wire*, IdString> temp_renamed_wires;
-		pool<SigBit> autopurge_tpl_bits;
 
 		for (auto tpl_w : tpl->wires())
 		{
@@ -204,24 +101,12 @@ struct TechmapWorker
 			{
 				IdString posportname = stringf("$%d", tpl_w->port_id);
 				positional_ports.emplace(posportname, tpl_w->name);
-
-				if (!flatten_mode && tpl_w->get_bool_attribute(ID::techmap_autopurge) &&
-						(!cell->hasPort(tpl_w->name) || !GetSize(cell->getPort(tpl_w->name))) &&
-						(!cell->hasPort(posportname) || !GetSize(cell->getPort(posportname))))
-				{
-					if (sigmaps.count(tpl) == 0)
-						sigmaps[tpl].set(tpl);
-
-					for (auto bit : sigmaps.at(tpl)(tpl_w))
-						if (bit.wire != nullptr)
-							autopurge_tpl_bits.insert(bit);
-				}
 			}
 			IdString w_name = tpl_w->name;
 			apply_prefix(cell->name, w_name);
 			RTLIL::Wire *w = module->wire(w_name);
 			if (w != nullptr) {
-				if (!flatten_mode || !w->get_bool_attribute(ID::hierconn)) {
+				if (!w->get_bool_attribute(ID::hierconn)) {
 					temp_renamed_wires[w] = w->name;
 					module->rename(w, NEW_ID);
 					w = nullptr;
@@ -239,20 +124,10 @@ struct TechmapWorker
 				w->port_input = false;
 				w->port_output = false;
 				w->port_id = 0;
-				if (!flatten_mode)
-					w->attributes.erase(ID::techmap_autopurge);
-				if (tpl_w->get_bool_attribute(ID::_techmap_special_))
-					w->attributes.clear();
 				if (w->attributes.count(ID::src))
 					w->add_strpool_attribute(ID::src, extra_src_attrs);
 			}
 			design->select(module, w);
-
-			if (tpl_w->name.begins_with("\\_TECHMAP_REPLACE_.")) {
-				IdString replace_name = stringf("%s%s", orig_cell_name.c_str(), tpl_w->name.c_str() + strlen("\\_TECHMAP_REPLACE_"));
-				Wire *replace_w = module->addWire(replace_name, tpl_w);
-				module->connect(replace_w, w);
-			}
 		}
 
 		SigMap tpl_sigmap(tpl);
@@ -284,20 +159,16 @@ struct TechmapWorker
 				continue;
 
 			RTLIL::Wire *w = tpl->wire(portname);
-			RTLIL::SigSig c, extra_connect;
+			RTLIL::SigSig c;
 
 			if (w->port_output && !w->port_input) {
 				c.first = it.second;
 				c.second = RTLIL::SigSpec(w);
 				apply_prefix(cell->name, c.second, module);
-				extra_connect.first = c.second;
-				extra_connect.second = c.first;
 			} else if (!w->port_output && w->port_input) {
 				c.first = RTLIL::SigSpec(w);
 				c.second = it.second;
 				apply_prefix(cell->name, c.first, module);
-				extra_connect.first = c.first;
-				extra_connect.second = c.second;
 			} else {
 				SigSpec sig_tpl = w, sig_tpl_pf = w, sig_mod = it.second;
 				apply_prefix(cell->name, sig_tpl_pf, module);
@@ -310,8 +181,6 @@ struct TechmapWorker
 						c.second.append(sig_mod[i]);
 					}
 				}
-				extra_connect.first = sig_tpl_pf;
-				extra_connect.second = sig_mod;
 			}
 
 			if (c.second.size() > c.first.size())
@@ -322,94 +191,33 @@ struct TechmapWorker
 
 			log_assert(c.first.size() == c.second.size());
 
-			if (flatten_mode)
-			{
-				// more conservative approach:
-				// connect internal and external wires
+			// connect internal and external wires
 
-				if (sigmaps.count(module) == 0)
-					sigmaps[module].set(module);
+			if (sigmaps.count(module) == 0)
+				sigmaps[module].set(module);
 
-				if (sigmaps.at(module)(c.first).has_const())
-					log_error("Mismatch in directionality for cell port %s.%s.%s: %s <= %s\n",
-						log_id(module), log_id(cell), log_id(it.first), log_signal(c.first), log_signal(c.second));
+			if (sigmaps.at(module)(c.first).has_const())
+				log_error("Mismatch in directionality for cell port %s.%s.%s: %s <= %s\n",
+					log_id(module), log_id(cell), log_id(it.first), log_signal(c.first), log_signal(c.second));
 
-				module->connect(c);
-			}
-			else
-			{
-				// approach that yields nicer outputs:
-				// replace internal wires that are connected to external wires
-
-				if (w->port_output && !w->port_input) {
-					port_signal_map.add(c.second, c.first);
-				} else
-				if (!w->port_output && w->port_input) {
-					port_signal_map.add(c.first, c.second);
-				} else {
-					module->connect(c);
-					extra_connect = SigSig();
-				}
-
-				for (auto &attr : w->attributes) {
-					if (attr.first == ID::src)
-						continue;
-					auto lhs = GetSize(extra_connect.first);
-					auto rhs = GetSize(extra_connect.second);
-					if (lhs > rhs)
-						extra_connect.first.remove(rhs, lhs-rhs);
-					else if (rhs > lhs)
-						extra_connect.second.remove(lhs, rhs-lhs);
-					module->connect(extra_connect);
-					break;
-				}
-			}
+			module->connect(c);
 		}
 
 		for (auto tpl_cell : tpl->cells())
 		{
 			IdString c_name = tpl_cell->name;
-			bool techmap_replace_cell = (!flatten_mode) && (c_name == ID::_TECHMAP_REPLACE_);
-
-			if (techmap_replace_cell)
-				c_name = orig_cell_name;
-			else if (tpl_cell->name.begins_with("\\_TECHMAP_REPLACE_."))
-				c_name = stringf("%s%s", orig_cell_name.c_str(), c_name.c_str() + strlen("\\_TECHMAP_REPLACE_"));
-			else
-				apply_prefix(cell->name, c_name);
+			apply_prefix(cell->name, c_name);
 
 			RTLIL::Cell *c = module->addCell(c_name, tpl_cell);
 			design->select(module, c);
 
-			if (!flatten_mode && c->type.begins_with("\\$"))
-				c->type = c->type.substr(1);
-
-			vector<IdString> autopurge_ports;
-
 			for (auto &conn : c->connections())
 			{
-				bool autopurge = false;
-				if (!autopurge_tpl_bits.empty()) {
-					autopurge = GetSize(conn.second) != 0;
-					for (auto &bit : sigmaps.at(tpl)(conn.second))
-						if (!autopurge_tpl_bits.count(bit)) {
-							autopurge = false;
-							break;
-						}
-				}
-
-				if (autopurge) {
-					autopurge_ports.push_back(conn.first);
-				} else {
-					RTLIL::SigSpec new_conn = conn.second;
-					apply_prefix(cell->name, new_conn, module);
-					port_signal_map.apply(new_conn);
-					c->setPort(conn.first, std::move(new_conn));
-				}
+				RTLIL::SigSpec new_conn = conn.second;
+				apply_prefix(cell->name, new_conn, module);
+				port_signal_map.apply(new_conn);
+				c->setPort(conn.first, std::move(new_conn));
 			}
-
-			for (auto &it2 : autopurge_ports)
-				c->unsetPort(it2);
 
 			if (c->type.in(ID($memrd), ID($memwr), ID($meminit))) {
 				IdString memid = c->getParam(ID::MEMID).decode_string();
@@ -425,11 +233,6 @@ struct TechmapWorker
 
 			if (c->attributes.count(ID::src))
 				c->add_strpool_attribute(ID::src, extra_src_attrs);
-
-			if (techmap_replace_cell)
-				for (auto attr : cell->attributes)
-					if (!c->attributes.count(attr.first))
-						c->attributes[attr.first] = attr.second;
 		}
 
 		for (auto &it : tpl->connections()) {
@@ -468,18 +271,6 @@ struct TechmapWorker
 
 		SigMap sigmap(module);
 
-		dict<SigBit, State> init_bits;
-		pool<SigBit> remove_init_bits;
-
-		for (auto wire : module->wires()) {
-			if (wire->attributes.count(ID::init)) {
-				Const value = wire->attributes.at(ID::init);
-				for (int i = 0; i < min(GetSize(value), GetSize(wire)); i++)
-					if (value[i] != State::Sx)
-						init_bits[sigmap(SigBit(wire, i))] = value[i];
-			}
-		}
-
 		TopoSort<RTLIL::Cell*, IdString::compare_ptr_by_name<RTLIL::Cell>> cells;
 		dict<RTLIL::Cell*, pool<RTLIL::SigBit>> cell_to_inbit;
 		dict<RTLIL::SigBit, pool<RTLIL::Cell*>> outbit_to_cell;
@@ -493,26 +284,21 @@ struct TechmapWorker
 			if (in_recursion && cell->type.begins_with("\\$"))
 				cell_type = cell_type.substr(1);
 
-			if (celltypeMap.count(cell_type) == 0) {
-				if (assert_mode && cell_type.back() != '_')
-					log_error("(ASSERT MODE) No matching template cell for type %s found.\n", log_id(cell_type));
+			if (celltypeMap.count(cell_type) == 0)
 				continue;
-			}
 
-			if (flatten_mode) {
-				bool keepit = cell->get_bool_attribute(ID::keep_hierarchy);
-				for (auto &tpl_name : celltypeMap.at(cell_type))
-					if (map->module(tpl_name)->get_bool_attribute(ID::keep_hierarchy))
-						keepit = true;
-				if (keepit) {
-					if (!flatten_keep_list[cell]) {
-						log("Keeping %s.%s (found keep_hierarchy property).\n", log_id(module), log_id(cell));
-						flatten_keep_list.insert(cell);
-					}
-					if (!flatten_done_list[cell->type])
-						flatten_do_list.insert(cell->type);
-					continue;
+			bool keepit = cell->get_bool_attribute(ID::keep_hierarchy);
+			for (auto &tpl_name : celltypeMap.at(cell_type))
+				if (map->module(tpl_name)->get_bool_attribute(ID::keep_hierarchy))
+					keepit = true;
+			if (keepit) {
+				if (!flatten_keep_list[cell]) {
+					log("Keeping %s.%s (found keep_hierarchy property).\n", log_id(module), log_id(cell));
+					flatten_keep_list.insert(cell);
 				}
+				if (!flatten_done_list[cell->type])
+					flatten_do_list.insert(cell->type);
+				continue;
 			}
 
 			for (auto &conn : cell->connections())
@@ -548,7 +334,6 @@ struct TechmapWorker
 		{
 			log_assert(handled_cells.count(cell) == 0);
 			log_assert(cell == module->cell(cell->name));
-			bool mapped_cell = false;
 
 			std::string cell_type = cell->type.str();
 
@@ -564,398 +349,19 @@ struct TechmapWorker
 				if (tpl->get_blackbox_attribute(ignore_wb))
 					continue;
 
-				if (!flatten_mode)
-				{
-					std::string extmapper_name;
-
-					if (tpl->get_bool_attribute(ID::techmap_simplemap))
-						extmapper_name = "simplemap";
-
-					if (tpl->get_bool_attribute(ID::techmap_maccmap))
-						extmapper_name = "maccmap";
-
-					if (tpl->attributes.count(ID::techmap_wrap))
-						extmapper_name = "wrap";
-
-					if (!extmapper_name.empty())
-					{
-						cell->type = cell_type;
-
-						if ((extern_mode && !in_recursion) || extmapper_name == "wrap")
-						{
-							std::string m_name = stringf("$extern:%s:%s", extmapper_name.c_str(), log_id(cell->type));
-
-							for (auto &c : cell->parameters)
-								m_name += stringf(":%s=%s", log_id(c.first), log_signal(c.second));
-
-							if (extmapper_name == "wrap")
-								m_name += ":" + sha1(tpl->attributes.at(ID::techmap_wrap).decode_string());
-
-							RTLIL::Design *extmapper_design = extern_mode && !in_recursion ? design : tpl->design;
-							RTLIL::Module *extmapper_module = extmapper_design->module(m_name);
-
-							if (extmapper_module == nullptr)
-							{
-								extmapper_module = extmapper_design->addModule(m_name);
-								RTLIL::Cell *extmapper_cell = extmapper_module->addCell(cell->type, cell);
-
-								extmapper_cell->set_src_attribute(cell->get_src_attribute());
-
-								int port_counter = 1;
-								for (auto &c : extmapper_cell->connections_) {
-									RTLIL::Wire *w = extmapper_module->addWire(c.first, GetSize(c.second));
-									if (w->name.in(ID::Y, ID::Q))
-										w->port_output = true;
-									else
-										w->port_input = true;
-									w->port_id = port_counter++;
-									c.second = w;
-								}
-
-								extmapper_module->fixup_ports();
-								extmapper_module->check();
-
-								if (extmapper_name == "simplemap") {
-									log("Creating %s with simplemap.\n", log_id(extmapper_module));
-									if (simplemap_mappers.count(extmapper_cell->type) == 0)
-										log_error("No simplemap mapper for cell type %s found!\n", log_id(extmapper_cell->type));
-									simplemap_mappers.at(extmapper_cell->type)(extmapper_module, extmapper_cell);
-									extmapper_module->remove(extmapper_cell);
-								}
-
-								if (extmapper_name == "maccmap") {
-									log("Creating %s with maccmap.\n", log_id(extmapper_module));
-									if (extmapper_cell->type != ID($macc))
-										log_error("The maccmap mapper can only map $macc (not %s) cells!\n", log_id(extmapper_cell->type));
-									maccmap(extmapper_module, extmapper_cell);
-									extmapper_module->remove(extmapper_cell);
-								}
-
-								if (extmapper_name == "wrap") {
-									std::string cmd_string = tpl->attributes.at(ID::techmap_wrap).decode_string();
-									log("Running \"%s\" on wrapper %s.\n", cmd_string.c_str(), log_id(extmapper_module));
-									mkdebug.on();
-									Pass::call_on_module(extmapper_design, extmapper_module, cmd_string);
-									log_continue = true;
-								}
-							}
-
-							cell->type = extmapper_module->name;
-							cell->parameters.clear();
-
-							if (!extern_mode || in_recursion) {
-								tpl = extmapper_module;
-								goto use_wrapper_tpl;
-							}
-
-							auto msg = stringf("Using extmapper %s for cells of type %s.", log_id(extmapper_module), log_id(cell->type));
-							if (!log_msg_cache.count(msg)) {
-								log_msg_cache.insert(msg);
-								log("%s\n", msg.c_str());
-							}
-							log_debug("%s %s.%s (%s) to %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type), log_id(extmapper_module));
-						}
-						else
-						{
-							auto msg = stringf("Using extmapper %s for cells of type %s.", extmapper_name.c_str(), log_id(cell->type));
-							if (!log_msg_cache.count(msg)) {
-								log_msg_cache.insert(msg);
-								log("%s\n", msg.c_str());
-							}
-							log_debug("%s %s.%s (%s) with %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type), extmapper_name.c_str());
-
-							if (extmapper_name == "simplemap") {
-								if (simplemap_mappers.count(cell->type) == 0)
-									log_error("No simplemap mapper for cell type %s found!\n", log_id(cell->type));
-								simplemap_mappers.at(cell->type)(module, cell);
-							}
-
-							if (extmapper_name == "maccmap") {
-								if (cell->type != ID($macc))
-									log_error("The maccmap mapper can only map $macc (not %s) cells!\n", log_id(cell->type));
-								maccmap(module, cell);
-							}
-
-							module->remove(cell);
-							cell = nullptr;
-						}
-
-						did_something = true;
-						mapped_cell = true;
-						break;
-					}
-
-					for (auto &conn : cell->connections()) {
-						if (conn.first.begins_with("$"))
-							continue;
-						if (tpl->wire(conn.first) != nullptr && tpl->wire(conn.first)->port_id > 0)
-							continue;
-						if (!conn.second.is_fully_const() || parameters.count(conn.first) > 0 || tpl->avail_parameters.count(conn.first) == 0)
-							goto next_tpl;
-						parameters[conn.first] = conn.second.as_const();
-					}
-
-					if (0) {
-			next_tpl:
-						continue;
-					}
-
-					if (tpl->avail_parameters.count(ID::_TECHMAP_CELLTYPE_) != 0)
-						parameters.emplace(ID::_TECHMAP_CELLTYPE_, RTLIL::unescape_id(cell->type));
-
-					for (auto &conn : cell->connections()) {
-						if (tpl->avail_parameters.count(stringf("\\_TECHMAP_CONSTMSK_%s_", log_id(conn.first))) != 0) {
-							std::vector<RTLIL::SigBit> v = sigmap(conn.second).to_sigbit_vector();
-							for (auto &bit : v)
-								bit = RTLIL::SigBit(bit.wire == nullptr ? RTLIL::State::S1 : RTLIL::State::S0);
-							parameters.emplace(stringf("\\_TECHMAP_CONSTMSK_%s_", log_id(conn.first)), RTLIL::SigSpec(v).as_const());
-						}
-						if (tpl->avail_parameters.count(stringf("\\_TECHMAP_CONSTVAL_%s_", log_id(conn.first))) != 0) {
-							std::vector<RTLIL::SigBit> v = sigmap(conn.second).to_sigbit_vector();
-							for (auto &bit : v)
-								if (bit.wire != nullptr)
-									bit = RTLIL::SigBit(RTLIL::State::Sx);
-							parameters.emplace(stringf("\\_TECHMAP_CONSTVAL_%s_", log_id(conn.first)), RTLIL::SigSpec(v).as_const());
-						}
-						if (tpl->avail_parameters.count(stringf("\\_TECHMAP_WIREINIT_%s_", log_id(conn.first))) != 0) {
-							auto sig = sigmap(conn.second);
-							RTLIL::Const value(State::Sx, sig.size());
-							for (int i = 0; i < sig.size(); i++) {
-								auto it = init_bits.find(sig[i]);
-								if (it != init_bits.end()) {
-									value[i] = it->second;
-								}
-							}
-							parameters.emplace(stringf("\\_TECHMAP_WIREINIT_%s_", log_id(conn.first)), value);
-						}
-					}
-
-					int unique_bit_id_counter = 0;
-					dict<RTLIL::SigBit, int> unique_bit_id;
-					unique_bit_id[RTLIL::State::S0] = unique_bit_id_counter++;
-					unique_bit_id[RTLIL::State::S1] = unique_bit_id_counter++;
-					unique_bit_id[RTLIL::State::Sx] = unique_bit_id_counter++;
-					unique_bit_id[RTLIL::State::Sz] = unique_bit_id_counter++;
-
-					for (auto &conn : cell->connections())
-						if (tpl->avail_parameters.count(stringf("\\_TECHMAP_CONNMAP_%s_", log_id(conn.first))) != 0) {
-							for (auto &bit : sigmap(conn.second))
-								if (unique_bit_id.count(bit) == 0)
-									unique_bit_id[bit] = unique_bit_id_counter++;
-						}
-
-					// Find highest bit set
-					int bits = 0;
-					for (int i = 0; i < 32; i++)
-						if (((unique_bit_id_counter-1) & (1 << i)) != 0)
-							bits = i;
-					// Increment index by one to get number of bits
-					bits++;
-					if (tpl->avail_parameters.count(ID::_TECHMAP_BITS_CONNMAP_))
-						parameters[ID::_TECHMAP_BITS_CONNMAP_] = bits;
-
-					for (auto &conn : cell->connections())
-						if (tpl->avail_parameters.count(stringf("\\_TECHMAP_CONNMAP_%s_", log_id(conn.first))) != 0) {
-							RTLIL::Const value;
-							for (auto &bit : sigmap(conn.second)) {
-								int val = unique_bit_id.at(bit);
-								for (int i = 0; i < bits; i++) {
-									value.bits.push_back((val & 1) != 0 ? State::S1 : State::S0);
-									val = val >> 1;
-								}
-							}
-							parameters.emplace(stringf("\\_TECHMAP_CONNMAP_%s_", log_id(conn.first)), value);
-						}
-				}
-
-				if (0) {
-			use_wrapper_tpl:;
-					// do not register techmap_wrap modules with techmap_cache
+				std::pair<IdString, dict<IdString, RTLIL::Const>> key(tpl_name, parameters);
+				auto it = techmap_cache.find(key);
+				if (it != techmap_cache.end()) {
+					tpl = it->second;
 				} else {
-					std::pair<IdString, dict<IdString, RTLIL::Const>> key(tpl_name, parameters);
-					auto it = techmap_cache.find(key);
-					if (it != techmap_cache.end()) {
-						tpl = it->second;
-					} else {
-						if (parameters.size() != 0) {
-							mkdebug.on();
-							derived_name = tpl->derive(map, parameters);
-							tpl = map->module(derived_name);
-							log_continue = true;
-						}
-						techmap_cache.emplace(std::move(key), tpl);
+					if (parameters.size() != 0) {
+						mkdebug.on();
+						derived_name = tpl->derive(map, parameters);
+						tpl = map->module(derived_name);
+						log_continue = true;
 					}
+					techmap_cache.emplace(std::move(key), tpl);
 				}
-
-				if (flatten_mode) {
-					techmap_do_cache[tpl] = true;
-				} else {
-					RTLIL::Module *constmapped_tpl = map->module(constmap_tpl_name(sigmap, tpl, cell, false));
-					if (constmapped_tpl != nullptr)
-						tpl = constmapped_tpl;
-				}
-
-				if (techmap_do_cache.count(tpl) == 0)
-				{
-					bool keep_running = true;
-					techmap_do_cache[tpl] = true;
-
-					pool<IdString> techmap_wire_names;
-
-					while (keep_running)
-					{
-						TechmapWires twd = techmap_find_special_wires(tpl);
-						keep_running = false;
-
-						for (auto &it : twd)
-							techmap_wire_names.insert(it.first);
-
-						for (auto &it : twd[ID::_TECHMAP_FAIL_]) {
-							RTLIL::SigSpec value = it.value;
-							if (value.is_fully_const() && value.as_bool()) {
-								log("Not using module `%s' from techmap as it contains a %s marker wire with non-zero value %s.\n",
-										derived_name.c_str(), log_id(it.wire->name), log_signal(value));
-								techmap_do_cache[tpl] = false;
-							}
-						}
-
-						if (!techmap_do_cache[tpl])
-							break;
-
-						for (auto &it : twd)
-						{
-							if (!it.first.begins_with("\\_TECHMAP_DO_") || it.second.empty())
-								continue;
-
-							auto &data = it.second.front();
-
-							if (!data.value.is_fully_const())
-								log_error("Techmap yielded config wire %s with non-const value %s.\n", log_id(data.wire->name), log_signal(data.value));
-
-							techmap_wire_names.erase(it.first);
-
-							const char *p = data.wire->name.c_str();
-							const char *q = strrchr(p+1, '.');
-							q = q ? q : p+1;
-
-							std::string cmd_string = data.value.as_const().decode_string();
-
-						restart_eval_cmd_string:
-							if (cmd_string.rfind("CONSTMAP; ", 0) == 0)
-							{
-								cmd_string = cmd_string.substr(strlen("CONSTMAP; "));
-
-								log("Analyzing pattern of constant bits for this cell:\n");
-								IdString new_tpl_name = constmap_tpl_name(sigmap, tpl, cell, true);
-								log("Creating constmapped module `%s'.\n", log_id(new_tpl_name));
-								log_assert(map->module(new_tpl_name) == nullptr);
-
-								RTLIL::Module *new_tpl = map->addModule(new_tpl_name);
-								tpl->cloneInto(new_tpl);
-
-								techmap_do_cache.erase(tpl);
-								techmap_do_cache[new_tpl] = true;
-								tpl = new_tpl;
-
-								dict<RTLIL::SigBit, RTLIL::SigBit> port_new2old_map;
-								dict<RTLIL::SigBit, RTLIL::SigBit> port_connmap;
-								dict<RTLIL::SigBit, RTLIL::SigBit> cellbits_to_tplbits;
-
-								for (auto wire : tpl->wires().to_vector())
-								{
-									if (!wire->port_input || wire->port_output)
-										continue;
-
-									IdString port_name = wire->name;
-									tpl->rename(wire, NEW_ID);
-
-									RTLIL::Wire *new_wire = tpl->addWire(port_name, wire);
-									wire->port_input = false;
-									wire->port_id = 0;
-
-									for (int i = 0; i < wire->width; i++) {
-										port_new2old_map.emplace(RTLIL::SigBit(new_wire, i), RTLIL::SigBit(wire, i));
-										port_connmap.emplace(RTLIL::SigBit(wire, i), RTLIL::SigBit(new_wire, i));
-									}
-								}
-
-								for (auto &conn : cell->connections())
-									for (int i = 0; i < GetSize(conn.second); i++)
-									{
-										RTLIL::SigBit bit = sigmap(conn.second[i]);
-										RTLIL::SigBit tplbit(tpl->wire(conn.first), i);
-
-										if (bit.wire == nullptr)
-										{
-											RTLIL::SigBit oldbit = port_new2old_map.at(tplbit);
-											port_connmap.at(oldbit) = bit;
-										}
-										else if (cellbits_to_tplbits.count(bit))
-										{
-											RTLIL::SigBit oldbit = port_new2old_map.at(tplbit);
-											port_connmap.at(oldbit) = cellbits_to_tplbits[bit];
-										}
-										else
-											cellbits_to_tplbits[bit] = tplbit;
-									}
-
-								RTLIL::SigSig port_conn;
-								for (auto &it : port_connmap) {
-									port_conn.first.append(it.first);
-									port_conn.second.append(it.second);
-								}
-								tpl->connect(port_conn);
-
-								tpl->check();
-								goto restart_eval_cmd_string;
-							}
-
-							if (cmd_string.rfind("RECURSION; ", 0) == 0)
-							{
-								cmd_string = cmd_string.substr(strlen("RECURSION; "));
-								while (techmap_module(map, tpl, map, handled_cells, celltypeMap, true)) { }
-								goto restart_eval_cmd_string;
-							}
-
-							Pass::call_on_module(map, tpl, cmd_string);
-
-							log_assert(!strncmp(q, "_TECHMAP_DO_", 12));
-							std::string new_name = data.wire->name.substr(0, q-p) + "_TECHMAP_DONE_" + data.wire->name.substr(q-p+12);
-							while (tpl->wire(new_name) != nullptr)
-								new_name += "_";
-							tpl->rename(data.wire->name, new_name);
-
-							keep_running = true;
-							break;
-						}
-					}
-
-					TechmapWires twd = techmap_find_special_wires(tpl);
-					for (auto &it : twd) {
-						if (it.first != ID::_TECHMAP_FAIL_ && (!it.first.begins_with("\\_TECHMAP_REMOVEINIT_") || !it.first.ends_with("_")) && !it.first.begins_with("\\_TECHMAP_DO_") && !it.first.begins_with("\\_TECHMAP_DONE_"))
-							log_error("Techmap yielded unknown config wire %s.\n", log_id(it.first));
-						if (techmap_do_cache[tpl])
-							for (auto &it2 : it.second)
-								if (!it2.value.is_fully_const())
-									log_error("Techmap yielded config wire %s with non-const value %s.\n", log_id(it2.wire->name), log_signal(it2.value));
-						techmap_wire_names.erase(it.first);
-					}
-
-					for (auto &it : techmap_wire_names)
-						log_error("Techmap special wire %s disappeared. This is considered a fatal error.\n", log_id(it));
-
-					if (recursive_mode) {
-						if (log_continue) {
-							log_header(design, "Continuing TECHMAP pass.\n");
-							log_continue = false;
-							mkdebug.off();
-						}
-						while (techmap_module(map, tpl, map, handled_cells, celltypeMap, true)) { }
-					}
-				}
-
-				if (techmap_do_cache.at(tpl) == false)
-					continue;
 
 				if (log_continue) {
 					log_header(design, "Continuing TECHMAP pass.\n");
@@ -963,83 +369,19 @@ struct TechmapWorker
 					mkdebug.off();
 				}
 
-				TechmapWires twd = techmap_find_special_wires(tpl);
-				for (auto &it : twd) {
-					if (it.first.begins_with("\\_TECHMAP_REMOVEINIT_")) {
-						for (auto &it2 : it.second) {
-							auto val = it2.value.as_const();
-							auto wirename = RTLIL::escape_id(it.first.substr(21, it.first.size() - 21 - 1));
-							auto it = cell->connections().find(wirename);
-							if (it != cell->connections().end()) {
-								auto sig = sigmap(it->second);
-								for (int i = 0; i < sig.size(); i++)
-									if (val[i] == State::S1)
-										remove_init_bits.insert(sig[i]);
-							}
-						}
-					}
+				auto msg = stringf("Using template %s for cells of type %s.", log_id(tpl), log_id(cell->type));
+				if (!log_msg_cache.count(msg)) {
+					log_msg_cache.insert(msg);
+					log("%s\n", msg.c_str());
 				}
-
-				if (extern_mode && !in_recursion)
-				{
-					std::string m_name = stringf("$extern:%s", log_id(tpl));
-
-					if (!design->module(m_name))
-					{
-						RTLIL::Module *m = design->addModule(m_name);
-						tpl->cloneInto(m);
-
-						for (auto cell : m->cells()) {
-							if (cell->type.begins_with("\\$"))
-								cell->type = cell->type.substr(1);
-						}
-
-						module_queue.insert(m);
-					}
-
-					log_debug("%s %s.%s to imported %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(m_name));
-					cell->type = m_name;
-					cell->parameters.clear();
-				}
-				else
-				{
-					auto msg = stringf("Using template %s for cells of type %s.", log_id(tpl), log_id(cell->type));
-					if (!log_msg_cache.count(msg)) {
-						log_msg_cache.insert(msg);
-						log("%s\n", msg.c_str());
-					}
-					log_debug("%s %s.%s (%s) using %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type), log_id(tpl));
-					techmap_module_worker(design, module, cell, tpl);
-					cell = nullptr;
-				}
+				log_debug("%s %s.%s (%s) using %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type), log_id(tpl));
+				techmap_module_worker(design, module, cell, tpl);
+				cell = nullptr;
 				did_something = true;
-				mapped_cell = true;
 				break;
 			}
 
-			if (assert_mode && !mapped_cell)
-				log_error("(ASSERT MODE) Failed to map cell %s.%s (%s).\n", log_id(module), log_id(cell), log_id(cell->type));
-
 			handled_cells.insert(cell);
-		}
-
-		if (!remove_init_bits.empty()) {
-			for (auto wire : module->wires())
-				if (wire->attributes.count(ID::init)) {
-					Const &value = wire->attributes.at(ID::init);
-					bool do_cleanup = true;
-					for (int i = 0; i < min(GetSize(value), GetSize(wire)); i++) {
-						SigBit bit = sigmap(SigBit(wire, i));
-						if (remove_init_bits.count(bit))
-							value[i] = State::Sx;
-						else if (value[i] != State::Sx)
-							do_cleanup = false;
-					}
-					if (do_cleanup) {
-						log("Removing init attribute from wire %s.%s.\n", log_id(module), log_id(wire));
-						wire->attributes.erase(ID::init);
-					}
-				}
 		}
 
 		if (log_continue) {
@@ -1077,7 +419,6 @@ struct FlattenPass : public Pass {
 		log_push();
 
 		TechmapWorker worker;
-		worker.flatten_mode = true;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
