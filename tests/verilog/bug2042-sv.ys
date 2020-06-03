@@ -2,7 +2,7 @@ read_verilog -sv <<EOT
 module Task_Test_Top
 (
 input a,
-output b
+output reg b
 );
 
     task SomeTaskName(a);
