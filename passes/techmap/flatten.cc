@@ -52,7 +52,6 @@ void apply_prefix(IdString prefix, RTLIL::SigSpec &sig, RTLIL::Module *module)
 struct FlattenWorker
 {
 	dict<std::pair<IdString, dict<IdString, RTLIL::Const>>, RTLIL::Module*> cache;
-	dict<Module*, SigMap> sigmaps;
 
 	pool<IdString> flatten_do_list;
 	pool<IdString> flatten_done_list;
@@ -122,6 +121,8 @@ struct FlattenWorker
 			design->select(module, w);
 		}
 
+		SigMap sigmap(module);
+
 		SigMap tpl_sigmap(tpl);
 		pool<SigBit> tpl_written_bits;
 
@@ -185,10 +186,7 @@ struct FlattenWorker
 
 			// connect internal and external wires
 
-			if (sigmaps.count(module) == 0)
-				sigmaps[module].set(module);
-
-			if (sigmaps.at(module)(c.first).has_const())
+			if (sigmap(c.first).has_const())
 				log_error("Mismatch in directionality for cell port %s.%s.%s: %s <= %s\n",
 					log_id(module), log_id(cell), log_id(it.first), log_signal(c.first), log_signal(c.second));
 
@@ -257,8 +255,6 @@ struct FlattenWorker
 		bool log_continue = false;
 		bool did_something = false;
 		LogMakeDebugHdl mkdebug;
-
-		SigMap sigmap(module);
 
 		for (auto cell : module->selected_cells())
 		{
