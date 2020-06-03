@@ -260,10 +260,6 @@ struct FlattenWorker
 
 		SigMap sigmap(module);
 
-		TopoSort<RTLIL::Cell*, IdString::compare_ptr_by_name<RTLIL::Cell>> cells;
-		dict<RTLIL::Cell*, pool<RTLIL::SigBit>> cell_to_inbit;
-		dict<RTLIL::SigBit, pool<RTLIL::Cell*>> outbit_to_cell;
-
 		for (auto cell : module->selected_cells())
 		{
 			if (!design->has(cell->type))
@@ -278,37 +274,6 @@ struct FlattenWorker
 					flatten_do_list.insert(cell->type);
 				continue;
 			}
-
-			for (auto &conn : cell->connections())
-			{
-				RTLIL::SigSpec sig = sigmap(conn.second);
-				sig.remove_const();
-
-				if (GetSize(sig) == 0)
-					continue;
-
-				RTLIL::Module *tpl = design->module(cell->type);
-				RTLIL::Wire *port = tpl->wire(conn.first);
-				if (port && port->port_input)
-					cell_to_inbit[cell].insert(sig.begin(), sig.end());
-				if (port && port->port_output)
-					for (auto &bit : sig)
-						outbit_to_cell[bit].insert(cell);
-			}
-
-			cells.node(cell);
-		}
-
-		for (auto &it_right : cell_to_inbit)
-		for (auto &it_sigbit : it_right.second)
-		for (auto &it_left : outbit_to_cell[it_sigbit])
-			cells.edge(it_left, it_right.first);
-
-		cells.sort();
-
-		for (auto cell : cells.sorted)
-		{
-			log_assert(cell == module->cell(cell->name));
 
 			RTLIL::Module *tpl = design->module(cell->type);
 			dict<IdString, RTLIL::Const> parameters(cell->parameters);
