@@ -11,8 +11,8 @@
 # PATH (can use glob)          USERNAME(S)
 
 passes/cmds/scratchpad.cc      @nakengelhardt
-frontends/rpc/*                @whitequark
-backends/cxxrtl/*              @whitequark
+frontends/rpc/                 @whitequark
+backends/cxxrtl/               @whitequark
 passes/cmds/bugpoint.cc        @whitequark
 passes/techmap/flowmap.cc      @whitequark
 passes/opt/opt_lut.cc          @whitequark
