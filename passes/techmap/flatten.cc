@@ -249,10 +249,8 @@ struct FlattenWorker
 		}
 	}
 
-	bool flatten_module(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Cell*> &handled_cells, bool in_recursion)
+	bool flatten_module(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Cell*> &handled_cells)
 	{
-		std::string mapmsg_prefix = in_recursion ? "Recursively mapping" : "Mapping";
-
 		if (!design->selected(module) || module->get_blackbox_attribute(ignore_wb))
 			return false;
 
@@ -346,7 +344,7 @@ struct FlattenWorker
 				mkdebug.off();
 			}
 
-			log_debug("%s %s.%s (%s) using %s.\n", mapmsg_prefix.c_str(), log_id(module), log_id(cell), log_id(cell->type), log_id(tpl));
+			log_debug("Flattening %s.%s (%s) using %s.\n", log_id(module), log_id(cell), log_id(cell->type), log_id(tpl));
 			flatten_module(design, module, cell, tpl);
 			did_something = true;
 		}
@@ -408,13 +406,13 @@ struct FlattenPass : public Pass {
 			worker.flatten_do_list.insert(top_mod->name);
 			while (!worker.flatten_do_list.empty()) {
 				auto mod = design->module(*worker.flatten_do_list.begin());
-				while (worker.flatten_module(design, mod, handled_cells, false)) { }
+				while (worker.flatten_module(design, mod, handled_cells)) { }
 				worker.flatten_done_list.insert(mod->name);
 				worker.flatten_do_list.erase(mod->name);
 			}
 		} else {
 			for (auto mod : design->modules().to_vector())
-				while (worker.flatten_module(design, mod, handled_cells, false)) { }
+				while (worker.flatten_module(design, mod, handled_cells)) { }
 		}
 
 		log_suppressed();
