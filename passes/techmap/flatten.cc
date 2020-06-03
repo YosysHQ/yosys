@@ -79,15 +79,9 @@ struct FlattenWorker
 		for (auto &it : tpl->memories) {
 			IdString m_name = it.first;
 			apply_prefix(cell->name, m_name);
-			RTLIL::Memory *m = new RTLIL::Memory;
-			m->name = m_name;
-			m->width = it.second->width;
-			m->start_offset = it.second->start_offset;
-			m->size = it.second->size;
-			m->attributes = it.second->attributes;
+			RTLIL::Memory *m = module->addMemory(m_name, it.second);
 			if (m->attributes.count(ID::src))
 				m->add_strpool_attribute(ID::src, extra_src_attrs);
-			module->memories[m->name] = m;
 			memory_renames[it.first] = m->name;
 			design->select(module, m);
 		}
