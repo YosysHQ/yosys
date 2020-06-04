@@ -263,7 +263,10 @@ static bool isUserType(std::string &s)
 "final"      { SV_KEYWORD(TOK_FINAL); }
 "logic"      { SV_KEYWORD(TOK_LOGIC); }
 "var"        { SV_KEYWORD(TOK_VAR); }
-"bit"        { SV_KEYWORD(TOK_REG); }
+"bit"        { SV_KEYWORD(TOK_LOGIC); }
+"int"        { SV_KEYWORD(TOK_INT); }
+"byte"       { SV_KEYWORD(TOK_BYTE); }
+"shortint"   { SV_KEYWORD(TOK_SHORTINT); }
 
 "eventually"   { if (formal_mode) return TOK_EVENTUALLY; SV_KEYWORD(TOK_EVENTUALLY); }
 "s_eventually" { if (formal_mode) return TOK_EVENTUALLY; SV_KEYWORD(TOK_EVENTUALLY); }
@@ -277,11 +280,15 @@ static bool isUserType(std::string &s)
 "reg"     { return TOK_REG; }
 "integer" { return TOK_INTEGER; }
 "signed"  { return TOK_SIGNED; }
+"unsigned" { SV_KEYWORD(TOK_UNSIGNED); }
 "genvar"  { return TOK_GENVAR; }
 "real"    { return TOK_REAL; }
 
 "enum"    { SV_KEYWORD(TOK_ENUM); }
 "typedef" { SV_KEYWORD(TOK_TYPEDEF); }
+"struct"  { SV_KEYWORD(TOK_STRUCT); }
+"union"   { SV_KEYWORD(TOK_UNION); }
+"packed"  { SV_KEYWORD(TOK_PACKED); }
 
 [0-9][0-9_]* {
 	yylval->string = new std::string(yytext);

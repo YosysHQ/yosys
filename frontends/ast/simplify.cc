@@ -168,6 +168,197 @@ std::string AstNode::process_format_str(const std::string &sformat, int next_arg
 }
 
 
+void AstNode::annotateTypedEnums(AstNode *template_node)
+{
+	//check if enum
+	if (template_node->attributes.count(ID::enum_type)) {
+		//get reference to enum node:
+		std::string enum_type = template_node->attributes[ID::enum_type]->str.c_str();
+		//			log("enum_type=%s (count=%lu)\n", enum_type.c_str(), current_scope.count(enum_type));
+		//			log("current scope:\n");
+		//			for (auto &it : current_scope)
+		//				log("  %s\n", it.first.c_str());
+		log_assert(current_scope.count(enum_type) == 1);
+		AstNode *enum_node = current_scope.at(enum_type);
+		log_assert(enum_node->type == AST_ENUM);
+		//get width from 1st enum item:
+		log_assert(enum_node->children.size() >= 1);
+		AstNode *enum_item0 = enum_node->children[0];
+		log_assert(enum_item0->type == AST_ENUM_ITEM);
+		int width;
+		if (!enum_item0->range_valid)
+			width = 1;
+		else if (enum_item0->range_swapped)
+			width = enum_item0->range_right - enum_item0->range_left + 1;
+		else
+			width = enum_item0->range_left - enum_item0->range_right + 1;
+		log_assert(width > 0);
+		//add declared enum items:
+		for (auto enum_item : enum_node->children){
+			log_assert(enum_item->type == AST_ENUM_ITEM);
+			//get is_signed
+			bool is_signed;
+			if (enum_item->children.size() == 1){
+				is_signed = false;
+			} else if (enum_item->children.size() == 2){
+				log_assert(enum_item->children[1]->type == AST_RANGE);
+				is_signed = enum_item->children[1]->is_signed;
+			} else {
+				log_error("enum_item children size==%lu, expected 1 or 2 for %s (%s)\n",
+						  enum_item->children.size(),
+						  enum_item->str.c_str(), enum_node->str.c_str()
+				);
+			}
+			//start building attribute string
+			std::string enum_item_str = "\\enum_value_";
+			//get enum item value
+			if(enum_item->children[0]->type != AST_CONSTANT){
+				log_error("expected const, got %s for %s (%s)\n",
+						  type2str(enum_item->children[0]->type).c_str(),
+						  enum_item->str.c_str(), enum_node->str.c_str()
+						);
+			}
+			RTLIL::Const val = enum_item->children[0]->bitsAsConst(width, is_signed);
+			enum_item_str.append(val.as_string());
+			//set attribute for available val to enum item name mappings
+			attributes[enum_item_str.c_str()] = mkconst_str(enum_item->str);
+		}
+	}
+}
+
+static bool name_has_dot(const std::string &name, std::string &struct_name)
+{
+	// check if plausible struct member name \sss.mmm
+	std::string::size_type pos;
+	if (name.substr(0, 1) == "\\" && (pos = name.find('.', 0)) != std::string::npos) {
+		struct_name = name.substr(0, pos);
+		return true;
+	}
+	return false;
+}
+
+static AstNode *make_range(int left, int right, bool is_signed = false)
+{
+	// generate a pre-validated range node for a fixed signal range.
+	auto range = new AstNode(AST_RANGE);
+	range->range_left = left;
+	range->range_right = right;
+	range->range_valid = true;
+	range->children.push_back(AstNode::mkconst_int(left, true));
+	range->children.push_back(AstNode::mkconst_int(right, true));
+	range->is_signed = is_signed;
+	return range;
+}
+
+int size_packed_struct(AstNode *snode, int base_offset)
+{
+	// Struct members will be laid out in the structure contiguously from left to right.
+	// Union members all have zero offset from the start of the union.
+	// Determine total packed size and assign offsets.  Store these in the member node.
+	bool is_union = (snode->type == AST_UNION);
+	int offset = 0;
+	int packed_width = -1;
+	// examine members from last to first
+	for (auto it = snode->children.rbegin(); it != snode->children.rend(); ++it) {
+		auto node = *it;
+		int width;
+		if (node->type == AST_STRUCT || node->type == AST_UNION) {
+			// embedded struct or union
+			width = size_packed_struct(node, base_offset + offset);
+		}
+		else {
+			log_assert(node->type == AST_STRUCT_ITEM);
+			if (node->children.size() == 1 && node->children[0]->type == AST_RANGE) {
+				auto rnode = node->children[0];
+				width = (rnode->range_swapped ? rnode->range_right - rnode->range_left :
+								rnode->range_left - rnode->range_right) + 1;
+				// range nodes are now redundant
+				node->children.clear();
+			}
+			else if (node->range_left < 0) {
+				// 1 bit signal: bit, logic or reg
+				width = 1;
+			}
+			else {
+				// already resolved and compacted
+				width = node->range_left - node->range_right + 1;
+			}
+			if (is_union) {
+				node->range_right = base_offset;
+				node->range_left = base_offset + width - 1;
+			}
+			else {
+				node->range_right = base_offset + offset;
+				node->range_left = base_offset + offset + width - 1;
+			}
+			node->range_valid = true;
+		}
+		if (is_union) {
+			// check that all members have the same size
+			if (packed_width == -1) {
+				// first member
+				packed_width = width;
+			}
+			else {
+				if (packed_width != width) {
+
+					log_file_error(node->filename, node->location.first_line, "member %s of a packed union has %d bits, expecting %d\n", node->str.c_str(), width, packed_width);
+				}
+			}
+		}
+		else {
+			offset += width;
+		}
+	}
+	return (is_union ? packed_width : offset);
+}
+
+static void add_members_to_scope(AstNode *snode, std::string name)
+{
+	// add all the members in a struct or union to local scope
+	// in case later referenced in assignments
+	log_assert(snode->type==AST_STRUCT || snode->type==AST_UNION);
+	for (auto *node : snode->children) {
+		if (node->type != AST_STRUCT_ITEM) {
+			// embedded struct or union
+			add_members_to_scope(node, name + "." + node->str);
+		}
+		else {
+			auto member_name = name + "." + node->str;
+			current_scope[member_name] = node;
+		}
+	}
+}
+
+static int get_max_offset(AstNode *node)
+{
+	// get the width from the MS member in the struct
+	// as members are laid out from left to right in the packed wire
+	log_assert(node->type==AST_STRUCT || node->type==AST_UNION);
+	while (node->type != AST_STRUCT_ITEM) {
+		node = node->children[0];
+	}
+	return node->range_left;
+}
+
+static AstNode *make_packed_struct(AstNode *template_node, std::string &name)
+{
+	// create a wire for the packed struct
+	auto wnode = new AstNode(AST_WIRE);
+	wnode->str = name;
+	wnode->is_logic = true;
+	wnode->range_valid = true;
+	wnode->is_signed = template_node->is_signed;
+	int offset = get_max_offset(template_node);
+	auto range = make_range(offset, 0);
+	wnode->children.push_back(range);
+	// make sure this node is the one in scope for this name
+	current_scope[name] = wnode;
+	// add all the struct members to scope under the wire's name
+	add_members_to_scope(template_node, name);
+	return wnode;
+}
+
 // convert the AST into a simpler AST that has all parameters substituted by their
 // values, unrolled for-loops, expanded generate blocks, etc. when this function
 // is done with an AST it can be converted into RTLIL using genRTLIL().
@@ -567,6 +758,32 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		}
 		break;
 
+	case AST_STRUCT:
+	case AST_UNION:
+		if (!basic_prep) {
+			for (auto *node : children) {
+				// resolve any ranges
+				while (!node->basic_prep && node->simplify(true, false, false, stage, -1, false, false)) {
+					did_something = true;
+				}
+			}
+			// determine member offsets and widths
+			size_packed_struct(this, 0);
+
+			// instance rather than just a type in a typedef or outer struct?
+			if (!str.empty() && str[0] == '\\') {
+				// instance so add a wire for the packed structure
+				auto wnode = make_packed_struct(this, str);
+				log_assert(current_ast_mod);
+				current_ast_mod->children.push_back(wnode);
+			}
+			basic_prep = true;
+		}
+		break;
+
+	case AST_STRUCT_ITEM:
+		break;
+
 	case AST_ENUM:
 		//log("\nENUM %s: %d child %d\n", str.c_str(), basic_prep, children[0]->basic_prep);
 		if (!basic_prep) {
@@ -884,10 +1101,12 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	// resolve typedefs
 	if (type == AST_TYPEDEF) {
 		log_assert(children.size() == 1);
-		log_assert(children[0]->type == AST_WIRE || children[0]->type == AST_MEMORY);
-		while(children[0]->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param))
+		auto type_node = children[0];
+		log_assert(type_node->type == AST_WIRE || type_node->type == AST_MEMORY || type_node->type == AST_STRUCT || type_node->type == AST_UNION);
+		while (type_node->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param)) {
 			did_something = true;
-		log_assert(!children[0]->is_custom_type);
+		}
+		log_assert(!type_node->is_custom_type);
 	}
 
 	// resolve types of wires
@@ -895,100 +1114,57 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		if (is_custom_type) {
 			log_assert(children.size() >= 1);
 			log_assert(children[0]->type == AST_WIRETYPE);
-			if (!current_scope.count(children[0]->str))
-				log_file_error(filename, location.first_line, "Unknown identifier `%s' used as type name\n", children[0]->str.c_str());
-			AstNode *resolved_type = current_scope.at(children[0]->str);
-			if (resolved_type->type != AST_TYPEDEF)
-				log_file_error(filename, location.first_line, "`%s' does not name a type\n", children[0]->str.c_str());
-			log_assert(resolved_type->children.size() == 1);
-			AstNode *templ = resolved_type->children[0];
+			auto type_name = children[0]->str;
+			if (!current_scope.count(type_name)) {
+				log_file_error(filename, location.first_line, "Unknown identifier `%s' used as type name\n", type_name.c_str());
+			}
+			AstNode *resolved_type_node = current_scope.at(type_name);
+			if (resolved_type_node->type != AST_TYPEDEF)
+				log_file_error(filename, location.first_line, "`%s' does not name a type\n", type_name.c_str());
+			log_assert(resolved_type_node->children.size() == 1);
+			AstNode *template_node = resolved_type_node->children[0];
+
+			// Ensure typedef itself is fully simplified
+			while (template_node->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param)) {};
+
+			if (template_node->type == AST_STRUCT || template_node->type == AST_UNION) {
+				// replace with wire representing the packed structure
+				newNode = make_packed_struct(template_node, str);
+				current_scope[str] = this;
+				goto apply_newNode;
+			}
+
 			// Remove type reference
 			delete children[0];
 			children.erase(children.begin());
 
-			// Ensure typedef itself is fully simplified
-			while(templ->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param)) {};
-
 			if (type == AST_WIRE)
-				type = templ->type;
-			is_reg = templ->is_reg;
-			is_logic = templ->is_logic;
-			is_signed = templ->is_signed;
-			is_string = templ->is_string;
-			is_custom_type = templ->is_custom_type;
+				type = template_node->type;
+			is_reg = template_node->is_reg;
+			is_logic = template_node->is_logic;
+			is_signed = template_node->is_signed;
+			is_string = template_node->is_string;
+			is_custom_type = template_node->is_custom_type;
 
-			range_valid = templ->range_valid;
-			range_swapped = templ->range_swapped;
-			range_left = templ->range_left;
-			range_right = templ->range_right;
-			attributes[ID::wiretype] = mkconst_str(resolved_type->str);
-			//check if enum
-			if (templ->attributes.count(ID::enum_type)){
-				//get reference to enum node:
-				const std::string &enum_type = templ->attributes[ID::enum_type]->str;
-				// 				log("enum_type=%s (count=%lu)\n", enum_type.c_str(), current_scope.count(enum_type));
-				// 				log("current scope:\n");
-				// 				for (auto &it : current_scope)
-				// 					log("  %s\n", it.first.c_str());
-				log_assert(current_scope.count(enum_type) == 1);
-				AstNode *enum_node = current_scope.at(enum_type);
-				log_assert(enum_node->type == AST_ENUM);
-				//get width from 1st enum item:
-				log_assert(enum_node->children.size() >= 1);
-				AstNode *enum_item0 = enum_node->children[0];
-				log_assert(enum_item0->type == AST_ENUM_ITEM);
-				int width;
-				if (!enum_item0->range_valid)
-					width = 1;
-				else if (enum_item0->range_swapped)
-					width = enum_item0->range_right - enum_item0->range_left + 1;
-				else
-					width = enum_item0->range_left - enum_item0->range_right + 1;
-				log_assert(width > 0);
-				//add declared enum items:
-				for (auto enum_item : enum_node->children){
-					log_assert(enum_item->type == AST_ENUM_ITEM);
-					//get is_signed
-					bool is_signed;
-					if (enum_item->children.size() == 1){
-						is_signed = false;
-					} else if (enum_item->children.size() == 2){
-						log_assert(enum_item->children[1]->type == AST_RANGE);
-						is_signed = enum_item->children[1]->is_signed;
-					} else {
-						log_error("enum_item children size==%lu, expected 1 or 2 for %s (%s)\n",
-								  enum_item->children.size(),
-								  enum_item->str.c_str(), enum_node->str.c_str()
-						);
-					}
-					//start building attribute string
-					std::string enum_item_str = "\\enum_value_";
-					//get enum item value
-					if(enum_item->children[0]->type != AST_CONSTANT){
-						log_error("expected const, got %s for %s (%s)\n",
-								  type2str(enum_item->children[0]->type).c_str(),
-								  enum_item->str.c_str(), enum_node->str.c_str()
- 								);
-					}
-					RTLIL::Const val = enum_item->children[0]->bitsAsConst(width, is_signed);
-					enum_item_str.append(val.as_string());
-					//set attribute for available val to enum item name mappings
-					attributes[enum_item_str] = mkconst_str(enum_item->str);
-				}
-			}
+			range_valid = template_node->range_valid;
+			range_swapped = template_node->range_swapped;
+			range_left = template_node->range_left;
+			range_right = template_node->range_right;
+
+			attributes[ID::wiretype] = mkconst_str(resolved_type_node->str);
+
+			// if an enum then add attributes to support simulator tracing
+			annotateTypedEnums(template_node);
 
 			// Insert clones children from template at beginning
-			for (int i  = 0; i < GetSize(templ->children); i++)
-				children.insert(children.begin() + i, templ->children[i]->clone());
+			for (int i  = 0; i < GetSize(template_node->children); i++)
+				children.insert(children.begin() + i, template_node->children[i]->clone());
 
 			if (type == AST_MEMORY && GetSize(children) == 1) {
 				// Single-bit memories must have [0:0] range
-				AstNode *rng = new AstNode(AST_RANGE);
-				rng->children.push_back(AstNode::mkconst_int(0, true));
-				rng->children.push_back(AstNode::mkconst_int(0, true));
+				AstNode *rng = make_range(0, 0);
 				children.insert(children.begin(), rng);
 			}
-
 			did_something = true;
 		}
 		log_assert(!is_custom_type);
@@ -1001,29 +1177,29 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			log_assert(children[1]->type == AST_WIRETYPE);
 			if (!current_scope.count(children[1]->str))
 				log_file_error(filename, location.first_line, "Unknown identifier `%s' used as type name\n", children[1]->str.c_str());
-			AstNode *resolved_type = current_scope.at(children[1]->str);
-			if (resolved_type->type != AST_TYPEDEF)
+			AstNode *resolved_type_node = current_scope.at(children[1]->str);
+			if (resolved_type_node->type != AST_TYPEDEF)
 				log_file_error(filename, location.first_line, "`%s' does not name a type\n", children[1]->str.c_str());
-			log_assert(resolved_type->children.size() == 1);
-			AstNode *templ = resolved_type->children[0];
+			log_assert(resolved_type_node->children.size() == 1);
+			AstNode *template_node = resolved_type_node->children[0];
 			delete children[1];
 			children.pop_back();
 
 			// Ensure typedef itself is fully simplified
-			while(templ->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param)) {};
+			while(template_node->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param)) {};
 
-			if (templ->type == AST_MEMORY)
+			if (template_node->type == AST_MEMORY)
 				log_file_error(filename, location.first_line, "unpacked array type `%s' cannot be used for a parameter\n", children[1]->str.c_str());
-			is_signed = templ->is_signed;
-			is_string = templ->is_string;
-			is_custom_type = templ->is_custom_type;
+			is_signed = template_node->is_signed;
+			is_string = template_node->is_string;
+			is_custom_type = template_node->is_custom_type;
 
-			range_valid = templ->range_valid;
-			range_swapped = templ->range_swapped;
-			range_left = templ->range_left;
-			range_right = templ->range_right;
-			attributes[ID::wiretype] = mkconst_str(resolved_type->str);
-			for (auto template_child : templ->children)
+			range_valid = template_node->range_valid;
+			range_swapped = template_node->range_swapped;
+			range_left = template_node->range_left;
+			range_right = template_node->range_right;
+			attributes[ID::wiretype] = mkconst_str(resolved_type_node->str);
+			for (auto template_child : template_node->children)
 				children.push_back(template_child->clone());
 			did_something = true;
 		}
@@ -1217,7 +1393,29 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	}
 
 	// annotate identifiers using scope resolution and create auto-wires as needed
+	if (type == AST_IDENTIFIER && !basic_prep) {
+		// check if a plausible struct member sss.mmmm
+		std::string sname;
+		if (name_has_dot(str, sname) && children.size() == 0) {
+			//dumpScope();
+			if (current_scope.count(str) > 0) {
+				auto item_node = current_scope[str];
+				if (item_node->type == AST_STRUCT_ITEM) {
+					//log("found struct item %s\n", item_node->str.c_str());
+					// structure member, rewrite this node to reference the packed struct wire
+					auto range = make_range(item_node->range_left, item_node->range_right);
+					newNode = new AstNode(AST_IDENTIFIER, range);
+					newNode->str = sname;
+					//newNode->dumpAst(NULL, "* ");
+					newNode->basic_prep = true;
+					goto apply_newNode;
+				}
+			}
+		}
+	}
 	if (type == AST_IDENTIFIER) {
+		//log("annotate ID %s, stage=%d cf=%d, ip=%d\n", str.c_str(), stage, const_fold, in_param);
+		//dumpScope();
 		if (current_scope.count(str) == 0) {
 			AstNode *current_scope_ast = (current_ast_mod == nullptr) ? current_ast : current_ast_mod;
 			for (auto node : current_scope_ast->children) {

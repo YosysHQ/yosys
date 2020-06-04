@@ -171,6 +171,9 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_PACKAGE)
 	X(AST_WIRETYPE)
 	X(AST_TYPEDEF)
+	X(AST_STRUCT)
+	X(AST_UNION)
+	X(AST_STRUCT_ITEM)
 #undef X
 	default:
 		log_abort();
