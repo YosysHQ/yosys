@@ -79,7 +79,7 @@ struct BtorWorker
 	vector<string> info_lines;
 	dict<int, int> info_clocks;
 
-	void btorf(const char *fmt, ...)
+	void btorf(const char *fmt, ...) YS_ATTRIBUTE(format(printf, 2, 3))
 	{
 		va_list ap;
 		va_start(ap, fmt);
@@ -87,7 +87,7 @@ struct BtorWorker
 		va_end(ap);
 	}
 
-	void infof(const char *fmt, ...)
+	void infof(const char *fmt, ...) YS_ATTRIBUTE(format(printf, 2, 3))
 	{
 		va_list ap;
 		va_start(ap, fmt);
@@ -524,7 +524,7 @@ struct BtorWorker
 			if (cell->type == ID($reduce_xnor)) {
 				int nid2 = next_nid++;
 				btorf("%d %s %d %d%s\n", nid, btor_op.c_str(), sid, nid_a, getinfo(cell).c_str());
-				btorf("%d not %d %d %d\n", nid2, sid, nid);
+				btorf("%d not %d %d\n", nid2, sid, nid);
 				nid = nid2;
 			} else {
 				btorf("%d %s %d %d%s\n", nid, btor_op.c_str(), sid, nid_a, getinfo(cell).c_str());
