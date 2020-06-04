@@ -1065,6 +1065,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			wire->port_input = is_input;
 			wire->port_output = is_output;
 			wire->upto = range_swapped;
+			wire->is_signed = is_signed;
 
 			for (auto &attr : attributes) {
 				if (attr.second->type != AST_CONSTANT)

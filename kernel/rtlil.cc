@@ -1862,6 +1862,7 @@ RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, const RTLIL::Wire *oth
 	wire->port_input = other->port_input;
 	wire->port_output = other->port_output;
 	wire->upto = other->upto;
+	wire->is_signed = other->is_signed;
 	wire->attributes = other->attributes;
 	return wire;
 }
@@ -2447,6 +2448,7 @@ RTLIL::Wire::Wire()
 	port_input = false;
 	port_output = false;
 	upto = false;
+	is_signed = false;
 
 #ifdef WITH_PYTHON
 	RTLIL::Wire::get_all_wires()->insert(std::pair<unsigned int, RTLIL::Wire*>(hashidx_, this));

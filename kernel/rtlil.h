@@ -1368,7 +1368,7 @@ public:
 	RTLIL::Module *module;
 	RTLIL::IdString name;
 	int width, start_offset, port_id;
-	bool port_input, port_output, upto;
+	bool port_input, port_output, upto, is_signed;
 
 #ifdef WITH_PYTHON
 	static std::map<unsigned int, RTLIL::Wire*> *get_all_wires(void);
