@@ -156,7 +156,7 @@ struct XAigerWriter
 
 		// promote keep wires
 		for (auto wire : module->wires())
-			if (wire->get_bool_attribute(ID::keep))
+			if (wire->get_bool_attribute(ID::keep) || wire->get_bool_attribute(ID::abc9_keep))
 				sigmap.add(wire);
 
 		for (auto wire : module->wires()) {
