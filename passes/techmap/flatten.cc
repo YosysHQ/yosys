@@ -28,24 +28,33 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-void apply_prefix(IdString prefix, IdString &id)
+IdString concat_name(RTLIL::Cell *cell, IdString object_name)
 {
-	if (id[0] == '\\')
-		id = stringf("%s.%s", prefix.c_str(), id.c_str()+1);
+	if (object_name[0] == '\\')
+		return stringf("%s.%s", cell->name.c_str(), object_name.c_str() + 1);
 	else
-		id = stringf("$flatten%s.%s", prefix.c_str(), id.c_str());
+		return stringf("$flatten%s.%s", cell->name.c_str(), object_name.c_str());
 }
 
-void apply_prefix(IdString prefix, RTLIL::SigSpec &sig, RTLIL::Module *module)
+template<class T>
+IdString map_name(RTLIL::Cell *cell, T *object)
+{
+	return cell->module->uniquify(concat_name(cell, object->name));
+}
+
+template<class T>
+void map_attributes(RTLIL::Cell *cell, T *object)
+{
+	if (object->attributes.count(ID::src))
+		object->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
+}
+
+void map_sigspec(const dict<RTLIL::Wire*, RTLIL::Wire*> &map, RTLIL::SigSpec &sig, RTLIL::Module *into = nullptr)
 {
 	vector<SigChunk> chunks = sig;
 	for (auto &chunk : chunks)
-		if (chunk.wire != nullptr) {
-			IdString wire_name = chunk.wire->name;
-			apply_prefix(prefix, wire_name);
-			log_assert(module->wire(wire_name) != nullptr);
-			chunk.wire = module->wire(wire_name);
-		}
+		if (chunk.wire != nullptr && chunk.wire->module != into)
+			chunk.wire = map.at(chunk.wire);
 	sig = chunks;
 }
 
@@ -63,183 +72,135 @@ struct FlattenWorker
 			log_error("Flattening yielded processes -> this is not supported.\n");
 		}
 
-		pool<string> extra_src_attrs = cell->get_strpool_attribute(ID::src);
+		// Copy the contents of the flattened cell
 
-		dict<IdString, IdString> memory_renames;
-
-		for (auto &it : tpl->memories) {
-			IdString m_name = it.first;
-			apply_prefix(cell->name, m_name);
-			RTLIL::Memory *m = module->addMemory(m_name, it.second);
-			if (m->attributes.count(ID::src))
-				m->add_strpool_attribute(ID::src, extra_src_attrs);
-			memory_renames[it.first] = m->name;
-			design->select(module, m);
+		dict<IdString, IdString> memory_map;
+		for (auto &tpl_memory_it : tpl->memories) {
+			RTLIL::Memory *new_memory = module->addMemory(map_name(cell, tpl_memory_it.second), tpl_memory_it.second);
+			map_attributes(cell, new_memory);
+			memory_map[tpl_memory_it.first] = new_memory->name;
+			design->select(module, new_memory);
 		}
 
+		dict<RTLIL::Wire*, RTLIL::Wire*> wire_map;
 		dict<IdString, IdString> positional_ports;
-		dict<Wire*, IdString> temp_renamed_wires;
+		for (auto tpl_wire : tpl->wires()) {
+			if (tpl_wire->port_id > 0)
+				positional_ports.emplace(stringf("$%d", tpl_wire->port_id), tpl_wire->name);
 
-		for (auto tpl_w : tpl->wires())
-		{
-			if (tpl_w->port_id > 0)
-			{
-				IdString posportname = stringf("$%d", tpl_w->port_id);
-				positional_ports.emplace(posportname, tpl_w->name);
-			}
-			IdString w_name = tpl_w->name;
-			apply_prefix(cell->name, w_name);
-			RTLIL::Wire *w = module->wire(w_name);
-			if (w != nullptr) {
-				if (!w->get_bool_attribute(ID::hierconn)) {
-					temp_renamed_wires[w] = w->name;
-					module->rename(w, NEW_ID);
-					w = nullptr;
-				} else {
-					w->attributes.erase(ID::hierconn);
-					if (GetSize(w) < GetSize(tpl_w)) {
-						log_warning("Widening signal %s.%s to match size of %s.%s (via %s.%s).\n", log_id(module), log_id(w),
-								log_id(tpl), log_id(tpl_w), log_id(module), log_id(cell));
-						w->width = GetSize(tpl_w);
+			RTLIL::Wire *new_wire = nullptr;
+			if (tpl_wire->name[0] == '\\') {
+				RTLIL::Wire *hier_wire = module->wire(concat_name(cell, tpl_wire->name));
+				if (hier_wire != nullptr && hier_wire->get_bool_attribute(ID::hierconn)) {
+					hier_wire->attributes.erase(ID::hierconn);
+					if (GetSize(hier_wire) < GetSize(tpl_wire)) {
+						log_warning("Widening signal %s.%s to match size of %s.%s (via %s.%s).\n",
+							log_id(module), log_id(hier_wire), log_id(tpl), log_id(tpl_wire), log_id(module), log_id(cell));
+						hier_wire->width = GetSize(tpl_wire);
 					}
+					new_wire = hier_wire;
 				}
 			}
-			if (w == nullptr) {
-				w = module->addWire(w_name, tpl_w);
-				w->port_input = false;
-				w->port_output = false;
-				w->port_id = 0;
-				if (w->attributes.count(ID::src))
-					w->add_strpool_attribute(ID::src, extra_src_attrs);
+			if (new_wire == nullptr) {
+				new_wire = module->addWire(map_name(cell, tpl_wire), tpl_wire);
+				new_wire->port_input = new_wire->port_output = false;
+				new_wire->port_id = false;
 			}
-			design->select(module, w);
+
+			map_attributes(cell, new_wire);
+			wire_map[tpl_wire] = new_wire;
+			design->select(module, new_wire);
 		}
 
-		SigMap sigmap(module);
+		for (auto tpl_cell : tpl->cells()) {
+			RTLIL::Cell *new_cell = module->addCell(map_name(cell, tpl_cell), tpl_cell);
+			map_attributes(cell, new_cell);
+			if (new_cell->type.in(ID($memrd), ID($memwr), ID($meminit))) {
+				IdString memid = new_cell->getParam(ID::MEMID).decode_string();
+				new_cell->setParam(ID::MEMID, Const(memory_map.at(memid).str()));
+			} else if (new_cell->type == ID($mem)) {
+				IdString memid = new_cell->getParam(ID::MEMID).decode_string();
+				new_cell->setParam(ID::MEMID, Const(concat_name(cell, memid).str()));
+			}
+			auto rewriter = [&](RTLIL::SigSpec &sig) { map_sigspec(wire_map, sig); };
+			new_cell->rewrite_sigspecs(rewriter);
+			design->select(module, new_cell);
+			new_cells.push_back(new_cell);
+		}
+
+		for (auto &tpl_conn_it : tpl->connections()) {
+			RTLIL::SigSig new_conn = tpl_conn_it;
+			map_sigspec(wire_map, new_conn.first);
+			map_sigspec(wire_map, new_conn.second);
+			module->connect(new_conn);
+		}
+
+		// Attach port connections of the flattened cell
 
 		SigMap tpl_sigmap(tpl);
-		pool<SigBit> tpl_written_bits;
-
+		pool<SigBit> tpl_driven;
 		for (auto tpl_cell : tpl->cells())
-		for (auto &conn : tpl_cell->connections())
-			if (tpl_cell->output(conn.first))
-				for (auto bit : tpl_sigmap(conn.second))
-					tpl_written_bits.insert(bit);
-		for (auto &conn : tpl->connections())
-			for (auto bit : tpl_sigmap(conn.first))
-				tpl_written_bits.insert(bit);
+			for (auto &tpl_conn : tpl_cell->connections())
+				if (tpl_cell->output(tpl_conn.first))
+					for (auto bit : tpl_sigmap(tpl_conn.second))
+						tpl_driven.insert(bit);
+		for (auto &tpl_conn : tpl->connections())
+			for (auto bit : tpl_sigmap(tpl_conn.first))
+				tpl_driven.insert(bit);
 
-		SigMap port_signal_map;
-
-		for (auto &it : cell->connections())
+		SigMap sigmap(module);
+		for (auto &port_it : cell->connections())
 		{
-			IdString portname = it.first;
-			if (positional_ports.count(portname) > 0)
-				portname = positional_ports.at(portname);
-			if (tpl->wire(portname) == nullptr || tpl->wire(portname)->port_id == 0) {
-				if (portname.begins_with("$"))
-					log_error("Can't map port `%s' of cell `%s' to template `%s'!\n", portname.c_str(), cell->name.c_str(), tpl->name.c_str());
+			IdString port_name = port_it.first;
+			if (positional_ports.count(port_name) > 0)
+				port_name = positional_ports.at(port_name);
+			if (tpl->wire(port_name) == nullptr || tpl->wire(port_name)->port_id == 0) {
+				if (port_name.begins_with("$"))
+					log_error("Can't map port `%s' of cell `%s' to template `%s'!\n",
+						port_name.c_str(), cell->name.c_str(), tpl->name.c_str());
 				continue;
 			}
 
-			if (GetSize(it.second) == 0)
+			if (GetSize(port_it.second) == 0)
 				continue;
 
-			RTLIL::Wire *w = tpl->wire(portname);
-			RTLIL::SigSig c;
-
-			if (w->port_output && !w->port_input) {
-				c.first = it.second;
-				c.second = RTLIL::SigSpec(w);
-				apply_prefix(cell->name, c.second, module);
-			} else if (!w->port_output && w->port_input) {
-				c.first = RTLIL::SigSpec(w);
-				c.second = it.second;
-				apply_prefix(cell->name, c.first, module);
+			RTLIL::Wire *tpl_wire = tpl->wire(port_name);
+			RTLIL::SigSig new_conn;
+			if (tpl_wire->port_output && !tpl_wire->port_input) {
+				new_conn.first = port_it.second;
+				new_conn.second = tpl_wire;
+			} else if (!tpl_wire->port_output && tpl_wire->port_input) {
+				new_conn.first = tpl_wire;
+				new_conn.second = port_it.second;
 			} else {
-				SigSpec sig_tpl = w, sig_tpl_pf = w, sig_mod = it.second;
-				apply_prefix(cell->name, sig_tpl_pf, module);
+				SigSpec sig_tpl = tpl_wire, sig_mod = port_it.second;
 				for (int i = 0; i < GetSize(sig_tpl) && i < GetSize(sig_mod); i++) {
-					if (tpl_written_bits.count(tpl_sigmap(sig_tpl[i]))) {
-						c.first.append(sig_mod[i]);
-						c.second.append(sig_tpl_pf[i]);
+					if (tpl_driven.count(tpl_sigmap(sig_tpl[i]))) {
+						new_conn.first.append(sig_mod[i]);
+						new_conn.second.append(sig_tpl[i]);
 					} else {
-						c.first.append(sig_tpl_pf[i]);
-						c.second.append(sig_mod[i]);
+						new_conn.first.append(sig_tpl[i]);
+						new_conn.second.append(sig_mod[i]);
 					}
 				}
 			}
+			map_sigspec(wire_map, new_conn.first, module);
+			map_sigspec(wire_map, new_conn.second, module);
 
-			if (c.second.size() > c.first.size())
-				c.second.remove(c.first.size(), c.second.size() - c.first.size());
+			if (new_conn.second.size() > new_conn.first.size())
+				new_conn.second.remove(new_conn.first.size(), new_conn.second.size() - new_conn.first.size());
+			if (new_conn.second.size() < new_conn.first.size())
+				new_conn.second.append(RTLIL::SigSpec(RTLIL::State::S0, new_conn.first.size() - new_conn.second.size()));
+			log_assert(new_conn.first.size() == new_conn.second.size());
 
-			if (c.second.size() < c.first.size())
-				c.second.append(RTLIL::SigSpec(RTLIL::State::S0, c.first.size() - c.second.size()));
-
-			log_assert(c.first.size() == c.second.size());
-
-			// connect internal and external wires
-
-			if (sigmap(c.first).has_const())
+			if (sigmap(new_conn.first).has_const())
 				log_error("Mismatch in directionality for cell port %s.%s.%s: %s <= %s\n",
-					log_id(module), log_id(cell), log_id(it.first), log_signal(c.first), log_signal(c.second));
+					log_id(module), log_id(cell), log_id(port_it.first), log_signal(new_conn.first), log_signal(new_conn.second));
 
-			module->connect(c);
-		}
-
-		for (auto tpl_cell : tpl->cells())
-		{
-			IdString c_name = tpl_cell->name;
-			apply_prefix(cell->name, c_name);
-
-			RTLIL::Cell *c = module->addCell(c_name, tpl_cell);
-			new_cells.push_back(c);
-			design->select(module, c);
-
-			for (auto &conn : c->connections())
-			{
-				RTLIL::SigSpec new_conn = conn.second;
-				apply_prefix(cell->name, new_conn, module);
-				port_signal_map.apply(new_conn);
-				c->setPort(conn.first, std::move(new_conn));
-			}
-
-			if (c->type.in(ID($memrd), ID($memwr), ID($meminit))) {
-				IdString memid = c->getParam(ID::MEMID).decode_string();
-				log_assert(memory_renames.count(memid) != 0);
-				c->setParam(ID::MEMID, Const(memory_renames[memid].str()));
-			}
-
-			if (c->type == ID($mem)) {
-				IdString memid = c->getParam(ID::MEMID).decode_string();
-				apply_prefix(cell->name, memid);
-				c->setParam(ID::MEMID, Const(memid.c_str()));
-			}
-
-			if (c->attributes.count(ID::src))
-				c->add_strpool_attribute(ID::src, extra_src_attrs);
-		}
-
-		for (auto &it : tpl->connections()) {
-			RTLIL::SigSig c = it;
-			apply_prefix(cell->name.str(), c.first, module);
-			apply_prefix(cell->name.str(), c.second, module);
-			port_signal_map.apply(c.first);
-			port_signal_map.apply(c.second);
-			module->connect(c);
+			module->connect(new_conn);
 		}
 
 		module->remove(cell);
-
-		for (auto &it : temp_renamed_wires)
-		{
-			Wire *w = it.first;
-			IdString name = it.second;
-			IdString altname = module->uniquify(name);
-			Wire *other_w = module->wire(name);
-			module->rename(other_w, altname);
-			module->rename(w, name);
-		}
 	}
 
 	void flatten_module(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module*> &used_modules)
