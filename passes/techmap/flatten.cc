@@ -47,10 +47,21 @@ IdString map_name(RTLIL::Cell *cell, T *object)
 }
 
 template<class T>
-void map_attributes(RTLIL::Cell *cell, T *object)
+void map_attributes(RTLIL::Cell *cell, T *object, IdString orig_object_name)
 {
-	if (object->attributes.count(ID::src))
+	if (object->has_attribute(ID::src))
 		object->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
+
+	// Preserve original names via the hdlname attribute, but only for objects with a fully public name.
+	if (cell->name[0] == '\\' && (object->has_attribute(ID::hdlname) || orig_object_name[0] == '\\')) {
+		std::vector<std::string> hierarchy;
+		if (object->has_attribute(ID::hdlname))
+			hierarchy = object->get_hdlname_attribute();
+		else
+			hierarchy.push_back(orig_object_name.str().substr(1));
+		hierarchy.insert(hierarchy.begin(), cell->name.str().substr(1));
+		object->set_hdlname_attribute(hierarchy);
+	}
 }
 
 void map_sigspec(const dict<RTLIL::Wire*, RTLIL::Wire*> &map, RTLIL::SigSpec &sig, RTLIL::Module *into = nullptr)
@@ -81,7 +92,7 @@ struct FlattenWorker
 		dict<IdString, IdString> memory_map;
 		for (auto &tpl_memory_it : tpl->memories) {
 			RTLIL::Memory *new_memory = module->addMemory(map_name(cell, tpl_memory_it.second), tpl_memory_it.second);
-			map_attributes(cell, new_memory);
+			map_attributes(cell, new_memory, tpl_memory_it.second->name);
 			memory_map[tpl_memory_it.first] = new_memory->name;
 			design->select(module, new_memory);
 		}
@@ -111,14 +122,14 @@ struct FlattenWorker
 				new_wire->port_id = false;
 			}
 
-			map_attributes(cell, new_wire);
+			map_attributes(cell, new_wire, tpl_wire->name);
 			wire_map[tpl_wire] = new_wire;
 			design->select(module, new_wire);
 		}
 
 		for (auto tpl_cell : tpl->cells()) {
 			RTLIL::Cell *new_cell = module->addCell(map_name(cell, tpl_cell), tpl_cell);
-			map_attributes(cell, new_cell);
+			map_attributes(cell, new_cell, tpl_cell->name);
 			if (new_cell->type.in(ID($memrd), ID($memwr), ID($meminit))) {
 				IdString memid = new_cell->getParam(ID::MEMID).decode_string();
 				new_cell->setParam(ID::MEMID, Const(memory_map.at(memid).str()));

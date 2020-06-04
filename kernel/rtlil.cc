@@ -339,6 +339,22 @@ pool<string> RTLIL::AttrObject::get_strpool_attribute(RTLIL::IdString id) const
 	return data;
 }
 
+void RTLIL::AttrObject::set_hdlname_attribute(const vector<string> &hierarchy)
+{
+	string attrval;
+	for (const auto &ident : hierarchy) {
+		if (!attrval.empty())
+			attrval += " ";
+		attrval += ident;
+	}
+	set_string_attribute(ID::hdlname, attrval);
+}
+
+vector<string> RTLIL::AttrObject::get_hdlname_attribute() const
+{
+	return split_tokens(get_string_attribute(ID::hdlname), " ");
+}
+
 bool RTLIL::Selection::selected_module(RTLIL::IdString mod_name) const
 {
 	if (full_selection)
