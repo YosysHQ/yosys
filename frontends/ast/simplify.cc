@@ -2017,6 +2017,9 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				use_case_method = true;
 		}
 
+		if (!use_case_method && current_always->detect_latch(children[0]->str))
+			use_case_method = true;
+
 		if (use_case_method)
 		{
 			// big case block
@@ -4083,6 +4086,60 @@ void AstNode::meminfo(int &mem_width, int &mem_size, int &addr_bits)
 	addr_bits = 1;
 	while ((1 << addr_bits) < mem_size)
 		addr_bits++;
+}
+
+bool AstNode::detect_latch(const std::string &var)
+{
+	switch (type)
+	{
+	case AST_ALWAYS:
+		for (auto &c : children)
+		{
+			switch (c->type)
+			{
+			case AST_POSEDGE:
+			case AST_NEGEDGE:
+				return false;
+			case AST_BLOCK:
+				if (!c->detect_latch(var))
+					return false;
+				break;
+			default:
+				log_abort();
+			}
+		}
+		return true;
+	case AST_BLOCK:
+		for (auto &c : children)
+			if (!c->detect_latch(var))
+				return false;
+		return true;
+	case AST_CASE:
+		{
+			bool r = true;
+			for (auto &c : children) {
+				if (c->type == AST_COND) {
+					if (c->children.at(1)->detect_latch(var))
+						return true;
+					r = false;
+				}
+				if (c->type == AST_DEFAULT) {
+					if (c->children.at(0)->detect_latch(var))
+						return true;
+					r = false;
+				}
+			}
+			return r;
+		}
+	case AST_ASSIGN_EQ:
+	case AST_ASSIGN_LE:
+		if (children.at(0)->type == AST_IDENTIFIER &&
+				children.at(0)->children.empty() && children.at(0)->str == var)
+			return false;
+		return true;
+	default:
+		return true;
+	}
 }
 
 bool AstNode::has_const_only_constructs(bool &recommend_const_eval)
