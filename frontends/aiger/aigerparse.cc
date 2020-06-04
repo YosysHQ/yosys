@@ -775,7 +775,6 @@ void AigerReader::post_process()
 		}
 	}
 
-	dict<int, Wire*> mergeability_to_clock;
 	for (uint32_t i = 0; i < flopNum; i++) {
 		RTLIL::Wire *d = outputs[outputs.size() - flopNum + i];
 		log_assert(d);
@@ -895,7 +894,9 @@ void AigerReader::post_process()
 			}
 			else if (type == "box") {
 				RTLIL::Cell* cell = module->cell(stringf("$box%d", variable));
-				if (cell) // ABC could have optimised this box away
+				if (!cell)
+					log_debug("Box %d (%s) no longer exists.\n", variable, log_id(escaped_s));
+				else
 					module->rename(cell, escaped_s);
 			}
 			else
@@ -907,6 +908,8 @@ void AigerReader::post_process()
 		auto name = wp.first;
 		int min = wp.second.first;
 		int max = wp.second.second;
+		if (min == 0 && max == 0)
+			continue;
 
 		RTLIL::Wire *wire = module->wire(name);
 		if (wire)

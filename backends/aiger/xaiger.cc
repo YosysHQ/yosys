@@ -85,7 +85,7 @@ struct XAigerWriter
 	dict<SigBit, SigBit> not_map, alias_map;
 	dict<SigBit, pair<SigBit, SigBit>> and_map;
 	vector<SigBit> ci_bits, co_bits;
-	dict<SigBit, Cell*> ff_bits;
+	vector<Cell*> ff_list;
 	dict<SigBit, float> arrival_times;
 
 	vector<pair<int, int>> aig_gates;
@@ -232,8 +232,7 @@ struct XAigerWriter
 					unused_bits.erase(D);
 					undriven_bits.erase(Q);
 					alias_map[Q] = D;
-					auto r YS_ATTRIBUTE(unused) = ff_bits.insert(std::make_pair(D, cell));
-					log_assert(r.second);
+					ff_list.emplace_back(cell);
 					continue;
 				}
 
@@ -420,8 +419,7 @@ struct XAigerWriter
 			aig_map[bit] = 2*aig_m;
 		}
 
-		for (const auto &i : ff_bits) {
-			const Cell *cell = i.second;
+		for (auto cell : ff_list) {
 			const SigBit &q = sigmap(cell->getPort(ID::Q));
 			aig_m++, aig_i++;
 			log_assert(!aig_map.count(q));
@@ -468,8 +466,8 @@ struct XAigerWriter
 			aig_outputs.push_back(aig);
 		}
 
-		for (auto &i : ff_bits) {
-			const SigBit &d = i.first;
+		for (auto cell : ff_list) {
+			const SigBit &d = sigmap(cell->getPort(ID::D));
 			aig_o++;
 			aig_outputs.push_back(aig_map.at(d));
 		}
@@ -541,16 +539,16 @@ struct XAigerWriter
 		std::stringstream h_buffer;
 		auto write_h_buffer = std::bind(write_buffer, std::ref(h_buffer), std::placeholders::_1);
 		write_h_buffer(1);
-		log_debug("ciNum = %d\n", GetSize(input_bits) + GetSize(ff_bits) + GetSize(ci_bits));
-		write_h_buffer(input_bits.size() + ff_bits.size() + ci_bits.size());
-		log_debug("coNum = %d\n", GetSize(output_bits) + GetSize(ff_bits) + GetSize(co_bits));
-		write_h_buffer(output_bits.size() + GetSize(ff_bits) + GetSize(co_bits));
-		log_debug("piNum = %d\n", GetSize(input_bits) + GetSize(ff_bits));
-		write_h_buffer(input_bits.size() + ff_bits.size());
-		log_debug("poNum = %d\n", GetSize(output_bits) + GetSize(ff_bits));
-		write_h_buffer(output_bits.size() + ff_bits.size());
+		log_debug("ciNum = %d\n", GetSize(input_bits) + GetSize(ff_list) + GetSize(ci_bits));
+		write_h_buffer(GetSize(input_bits) + GetSize(ff_list) + GetSize(ci_bits));
+		log_debug("coNum = %d\n", GetSize(output_bits) + GetSize(ff_list) + GetSize(co_bits));
+		write_h_buffer(GetSize(output_bits) + GetSize(ff_list) + GetSize(co_bits));
+		log_debug("piNum = %d\n", GetSize(input_bits) + GetSize(ff_list));
+		write_h_buffer(GetSize(input_bits) + GetSize(ff_list));
+		log_debug("poNum = %d\n", GetSize(output_bits) + GetSize(ff_list));
+		write_h_buffer(GetSize(output_bits) + GetSize(ff_list));
 		log_debug("boxNum = %d\n", GetSize(box_list));
-		write_h_buffer(box_list.size());
+		write_h_buffer(GetSize(box_list));
 
 		auto write_buffer_float = [](std::stringstream &buffer, float f32) {
 			buffer.write(reinterpret_cast<const char*>(&f32), sizeof(f32));
@@ -564,7 +562,7 @@ struct XAigerWriter
 		//for (auto bit : output_bits)
 		//	write_o_buffer(0);
 
-		if (!box_list.empty() || !ff_bits.empty()) {
+		if (!box_list.empty() || !ff_list.empty()) {
 			dict<IdString, std::tuple<int,int,int>> cell_cache;
 
 			int box_count = 0;
@@ -601,17 +599,17 @@ struct XAigerWriter
 
 			std::stringstream r_buffer;
 			auto write_r_buffer = std::bind(write_buffer, std::ref(r_buffer), std::placeholders::_1);
-			log_debug("flopNum = %d\n", GetSize(ff_bits));
-			write_r_buffer(ff_bits.size());
+			log_debug("flopNum = %d\n", GetSize(ff_list));
+			write_r_buffer(ff_list.size());
 
 			std::stringstream s_buffer;
 			auto write_s_buffer = std::bind(write_buffer, std::ref(s_buffer), std::placeholders::_1);
-			write_s_buffer(ff_bits.size());
+			write_s_buffer(ff_list.size());
 
 			dict<SigSpec, int> clk_to_mergeability;
-			for (const auto &i : ff_bits) {
-				const SigBit &d = i.first;
-				const Cell *cell = i.second;
+			for (const auto cell : ff_list) {
+				const SigBit &d = sigmap(cell->getPort(ID::D));
+				const SigBit &q = sigmap(cell->getPort(ID::Q));
 
 				SigSpec clk_and_pol{sigmap(cell->getPort(ID::C)), cell->type[6] == 'P' ? State::S1 : State::S0};
 				auto r = clk_to_mergeability.insert(std::make_pair(clk_and_pol, clk_to_mergeability.size()+1));
@@ -619,8 +617,7 @@ struct XAigerWriter
 				log_assert(mergeability > 0);
 				write_r_buffer(mergeability);
 
-				SigBit Q = sigmap(cell->getPort(ID::Q));
-				State init = init_map.at(Q, State::Sx);
+				State init = init_map.at(q, State::Sx);
 				log_debug("Cell '%s' (type %s) has (* init *) value '%s'.\n", log_id(cell), log_id(cell->type), log_signal(init));
 				if (init == State::S1)
 					write_s_buffer(1);
@@ -700,8 +697,6 @@ struct XAigerWriter
 
 		for (auto wire : module->wires())
 		{
-			SigSpec sig = sigmap(wire);
-
 			for (int i = 0; i < GetSize(wire); i++)
 			{
 				RTLIL::SigBit b(wire, i);
@@ -714,7 +709,6 @@ struct XAigerWriter
 				if (output_bits.count(b)) {
 					int o = ordered_outputs.at(b);
 					output_lines[o] += stringf("output %d %d %s\n", o - GetSize(co_bits), wire->start_offset+i, log_id(wire));
-					continue;
 				}
 			}
 		}

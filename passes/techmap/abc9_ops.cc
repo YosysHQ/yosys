@@ -102,8 +102,6 @@ void check(RTLIL::Design *design, bool dff_mode)
 				auto inst_module = design->module(cell->type);
 				if (!inst_module)
 					continue;
-				if (!inst_module->get_blackbox_attribute())
-					continue;
 				IdString derived_type;
 				Module *derived_module;
 				if (cell->parameters.empty()) {
@@ -111,6 +109,10 @@ void check(RTLIL::Design *design, bool dff_mode)
 					derived_module = inst_module;
 				}
 				else {
+					// Check potential (since its value may depend on a parameter,
+					//   but not its existence)
+					if (!inst_module->has_attribute(ID::abc9_flop))
+						continue;
 					derived_type = inst_module->derive(design, cell->parameters);
 					derived_module = design->module(derived_type);
 					log_assert(derived_module);
@@ -127,20 +129,20 @@ void check(RTLIL::Design *design, bool dff_mode)
 				for (auto derived_cell : derived_module->cells()) {
 					if (derived_cell->type.in(ID($dff), ID($_DFF_N_), ID($_DFF_P_))) {
 						if (found)
-							log_error("Module '%s' with (* abc9_flop *) contains more than one $_DFF_[NP]_ cell.\n", log_id(derived_module));
+							log_error("Whitebox '%s' with (* abc9_flop *) contains more than one $_DFF_[NP]_ cell.\n", log_id(derived_module));
 						found = true;
 
 						SigBit Q = derived_cell->getPort(ID::Q);
 						log_assert(GetSize(Q.wire) == 1);
 
 						if (!Q.wire->port_output)
-							log_error("Module '%s' contains a %s cell where its 'Q' port does not drive a module output!\n", log_id(derived_module), log_id(derived_cell->type));
+							log_error("Whitebox '%s' with (* abc9_flop *) contains a %s cell where its 'Q' port does not drive a module output.\n", log_id(derived_module), log_id(derived_cell->type));
 
 						Const init = Q.wire->attributes.at(ID::init, State::Sx);
 						log_assert(GetSize(init) == 1);
 					}
 					else if (unsupported.count(derived_cell->type))
-						log_error("Module '%s' with (* abc9_flop *) contains a %s cell, which is not supported for sequential synthesis.\n", log_id(derived_module), log_id(derived_cell->type));
+						log_error("Whitebox '%s' with (* abc9_flop *) contains a %s cell, which is not supported for sequential synthesis.\n", log_id(derived_module), log_id(derived_cell->type));
 				}
 			}
 	}
@@ -173,8 +175,6 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 			auto inst_module = design->module(cell->type);
 			if (!inst_module)
 				continue;
-			if (!inst_module->get_blackbox_attribute())
-				continue;
 			IdString derived_type;
 			Module *derived_module;
 			if (cell->parameters.empty()) {
@@ -182,6 +182,10 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 				derived_module = inst_module;
 			}
 			else {
+				// Check potential for any one of those three
+				//   (since its value may depend on a parameter, but not its existence)
+				if (!inst_module->has_attribute(ID::abc9_flop) && !inst_module->has_attribute(ID::abc9_box) && !inst_module->get_bool_attribute(ID::abc9_bypass))
+					continue;
 				derived_type = inst_module->derive(design, cell->parameters);
 				derived_module = design->module(derived_type);
 			}
@@ -211,7 +215,7 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 							// Block sequential synthesis on cells with (* init *) != 1'b0
 							//   because ABC9 doesn't support them
 							if (init != State::S0) {
-								log_warning("Module '%s' contains a %s cell with non-zero initial state -- this is not unsupported for ABC9 sequential synthesis. Treating as a blackbox.\n", log_id(derived_module), log_id(derived_cell->type));
+								log_warning("Whitebox '%s' with (* abc9_flop *) contains a %s cell with non-zero initial state -- this is not supported for ABC9 sequential synthesis. Treating as a blackbox.\n", log_id(derived_module), log_id(derived_cell->type));
 								derived_module->set_bool_attribute(ID::abc9_flop, false);
 							}
 							break;
@@ -232,10 +236,8 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 						auto w = unmap_module->addWire(port, derived_module->wire(port));
 						// Do not propagate (* init *) values into the box,
 						//   in fact, remove it from outside too
-						if (w->port_output && w->attributes.erase(ID::init)) {
-							auto r = unmap_module->addWire(stringf("\\_TECHMAP_REMOVEINIT_%s_", log_id(port)));
-							unmap_module->connect(r, State::S1);
-						}
+						if (w->port_output)
+							w->attributes.erase(ID::init);
 					}
 					unmap_module->ports = derived_module->ports;
 					unmap_module->check();
@@ -1112,7 +1114,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 	for (auto w : mapped_mod->wires()) {
 		auto nw = module->addWire(remap_name(w->name), GetSize(w));
 		nw->start_offset = w->start_offset;
-		// Remove all (* init *) since they only existon $_DFF_[NP]_
+		// Remove all (* init *) since they only exist on $_DFF_[NP]_
 		w->attributes.erase(ID::init);
 	}
 
@@ -1149,16 +1151,36 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 		}
 	}
 
+	SigMap initmap;
+	if (dff_mode) {
+		// Build a sigmap prioritising bits with (* init *)
+		initmap.set(module);
+		for (auto w : module->wires()) {
+			auto it = w->attributes.find(ID::init);
+			if (it == w->attributes.end())
+				continue;
+			for (auto i = 0; i < GetSize(w); i++)
+				if (it->second[i] == State::S0 || it->second[i] == State::S1)
+					initmap.add(w);
+		}
+	}
+
 	std::vector<Cell*> boxes;
 	for (auto cell : module->cells().to_vector()) {
 		if (cell->has_keep_attr())
 			continue;
 
-		// Short out $_DFF_[NP]_ cells since the flop box already has
-		//   all the information we need to reconstruct cell
+		// Short out (so that existing name can be preserved) and remove
+		//   $_DFF_[NP]_ cells since flop box already has all the information
+		//   we need to reconstruct them
 		if (dff_mode && cell->type.in(ID($_DFF_N_), ID($_DFF_P_)) && !cell->get_bool_attribute(ID::abc9_keep)) {
-			module->connect(cell->getPort(ID::Q), cell->getPort(ID::D));
+			SigBit Q = cell->getPort(ID::Q);
+			module->connect(Q, cell->getPort(ID::D));
 			module->remove(cell);
+			auto Qi = initmap(Q);
+			auto it = Qi.wire->attributes.find(ID::init);
+			if (it != Qi.wire->attributes.end())
+				it->second[Qi.offset] = State::Sx;
 		}
 		else if (cell->type.in(ID($_AND_), ID($_NOT_)))
 			module->remove(cell);
@@ -1301,7 +1323,25 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 			mapped_cell->connections_.erase(jt);
 
 			auto abc9_flop = box_module->get_bool_attribute(ID::abc9_flop);
-			if (!abc9_flop) {
+			if (abc9_flop) {
+				// Link this sole flop box output to the output of the existing
+				//   flop box, so that any (public) signal it drives will be
+				//   preserved
+				SigBit old_q;
+				for (const auto &port_name : box_ports.at(existing_cell->type)) {
+					RTLIL::Wire *w = box_module->wire(port_name);
+					log_assert(w);
+					if (!w->port_output)
+						continue;
+					log_assert(old_q == SigBit());
+					log_assert(GetSize(w) == 1);
+					old_q = existing_cell->getPort(port_name);
+				}
+				auto new_q = outputs[0];
+				new_q.wire = module->wires_.at(remap_name(new_q.wire->name));
+				module->connect(old_q,  new_q);
+			}
+			else {
 				for (const auto &i : inputs)
 					bit_users[i].insert(mapped_cell->name);
 				for (const auto &i : outputs)
@@ -1334,11 +1374,12 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 						c.wire = module->wires_.at(remap_name(c.wire->name));
 					newsig.append(c);
 				}
-				cell->setPort(port_name, newsig);
 
 				if (w->port_input && !abc9_flop)
 					for (const auto &i : newsig)
 						bit2sinks[i].push_back(cell);
+
+				cell->setPort(port_name, std::move(newsig));
 			}
 		}
 
@@ -1400,7 +1441,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 	//   treated as being "free"), in particular driving primary
 	//   outputs (real primary outputs, or cells treated as blackboxes)
 	//   or driving box inputs.
-	// Instead of just mapping those $_NOT_ gates into 2-input $lut-s
+	// Instead of just mapping those $_NOT_ gates into 1-input $lut-s
 	//   at an area and delay cost, see if it is possible to push
 	//   this $_NOT_ into the driving LUT, or into all sink LUTs.
 	// When this is not possible, (i.e. this signal drives two primary
