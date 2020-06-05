@@ -1355,13 +1355,13 @@ struct BtorBackend : public Backend {
 		log("  -i <filename>\n");
 		log("    Create additional info file with auxiliary information\n");
 		log("\n");
-		log("  -n\n");
-		log("    Don't identify internal netnames\n");
+		log("  -x\n");
+		log("    Output symbols for internal netnames (starting with '$')\n");
 		log("\n");
 	}
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
-		bool verbose = false, single_bad = false, cover_mode = false, print_internal_names = true;
+		bool verbose = false, single_bad = false, cover_mode = false, print_internal_names = false;
 		string info_filename;
 
 		log_header(design, "Executing BTOR backend.\n");
@@ -1385,8 +1385,8 @@ struct BtorBackend : public Backend {
 				info_filename = args[++argidx];
 				continue;
 			}
-			if (args[argidx] == "-n") {
-				print_internal_names = false;
+			if (args[argidx] == "-x") {
+				print_internal_names = true;
 				continue;
 			}
 			break;
