@@ -921,7 +921,7 @@ value<BitsY> sshr_uu(const value<BitsA> &a, const value<BitsB> &b) {
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
 value<BitsY> sshr_su(const value<BitsA> &a, const value<BitsB> &b) {
-	return a.template shr(b).template scast<BitsY>();
+	return a.template sshr(b).template scast<BitsY>();
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
