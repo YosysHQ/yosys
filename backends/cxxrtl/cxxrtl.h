@@ -33,13 +33,15 @@
 #include <memory>
 #include <sstream>
 
-// The cxxrtl support library implements compile time specialized arbitrary width arithmetics, as well as provides
+#include <backends/cxxrtl/cxxrtl_capi.h>
+
+// The CXXRTL support library implements compile time specialized arbitrary width arithmetics, as well as provides
 // composite lvalues made out of bit slices and concatenations of lvalues. This allows the `write_cxxrtl` pass
 // to perform a straightforward translation of RTLIL structures to readable C++, relying on the C++ compiler
 // to unwrap the abstraction and generate efficient code.
 namespace cxxrtl {
 
-// All arbitrary-width values in cxxrtl are backed by arrays of unsigned integers called chunks. The chunk size
+// All arbitrary-width values in CXXRTL are backed by arrays of unsigned integers called chunks. The chunk size
 // is the same regardless of the value width to simplify manipulating values via FFI interfaces, e.g. driving
 // and introspecting the simulation in Python.
 //
@@ -716,39 +718,49 @@ typedef std::map<std::string, metadata> metadata_map;
 
 // This structure is intended for consumption via foreign function interfaces, like Python's ctypes.
 // Because of this it uses a C-style layout that is easy to parse rather than more idiomatic C++.
-struct debug_item {
+//
+// To avoid violating strict aliasing rules, this structure has to be a subclass of the one used
+// in the C API, or it would not be possible to cast between the pointers to these.
+struct debug_item : ::cxxrtl_object {
 	enum : uint32_t {
-		VALUE  = 0,
-		WIRE   = 1,
-		MEMORY = 2,
-	} type;
-
-	size_t width; // in bits
-	size_t depth; // 1 if `type != MEMORY`
-	chunk_t *curr;
-	chunk_t *next; // nullptr if `type == VALUE || type == MEMORY`
+		VALUE  = CXXRTL_VALUE,
+		WIRE   = CXXRTL_WIRE,
+		MEMORY = CXXRTL_MEMORY,
+	};
 
 	template<size_t Bits>
-	debug_item(value<Bits> &item) : type(VALUE), width(Bits), depth(1),
-		curr(item.data), next(nullptr) {
-			static_assert(sizeof(item) == value<Bits>::chunks * sizeof(chunk_t),
-			              "value<Bits> is not compatible with C layout");
-		}
+	debug_item(value<Bits> &item) {
+		static_assert(sizeof(item) == value<Bits>::chunks * sizeof(chunk_t),
+		              "value<Bits> is not compatible with C layout");
+		type  = VALUE;
+		width = Bits;
+		depth = 1;
+		curr  = item.data;
+		next  = item.data;
+	}
 
 	template<size_t Bits>
-	debug_item(wire<Bits> &item) : type(WIRE), width(Bits), depth(1),
-		curr(item.curr.data), next(item.next.data) {
-			static_assert(sizeof(item.curr) == value<Bits>::chunks * sizeof(chunk_t) &&
-			              sizeof(item.next) == value<Bits>::chunks * sizeof(chunk_t),
-			              "wire<Bits> is not compatible with C layout");
-		}
+	debug_item(wire<Bits> &item) {
+		static_assert(sizeof(item.curr) == value<Bits>::chunks * sizeof(chunk_t) &&
+		              sizeof(item.next) == value<Bits>::chunks * sizeof(chunk_t),
+		              "wire<Bits> is not compatible with C layout");
+		type  = WIRE;
+		width = Bits;
+		depth = 1;
+		curr  = item.curr.data;
+		next  = item.next.data;
+	}
 
 	template<size_t Width>
-	debug_item(memory<Width> &item) : type(MEMORY), width(Width), depth(item.data.size()),
-		curr(item.data.empty() ? nullptr : item.data[0].data), next(nullptr) {
-			static_assert(sizeof(item.data[0]) == value<Width>::chunks * sizeof(chunk_t),
-			              "memory<Width> is not compatible with C layout");
-		}
+	debug_item(memory<Width> &item) {
+		static_assert(sizeof(item.data[0]) == value<Width>::chunks * sizeof(chunk_t),
+		              "memory<Width> is not compatible with C layout");
+		type  = MEMORY;
+		width = Width;
+		depth = item.data.size();
+		curr  = item.data.empty() ? nullptr : item.data[0].data;
+		next  = nullptr;
+	}
 };
 static_assert(std::is_standard_layout<debug_item>::value, "debug_item is not compatible with C layout");
 
@@ -779,7 +791,12 @@ struct module {
 
 } // namespace cxxrtl
 
-// Definitions of internal Yosys cells. Other than the functions in this namespace, cxxrtl is fully generic
+// Internal structure used to communicate with the implementation of the C interface.
+typedef struct _cxxrtl_toplevel {
+	std::unique_ptr<cxxrtl::module> module;
+} *cxxrtl_toplevel;
+
+// Definitions of internal Yosys cells. Other than the functions in this namespace, CXXRTL is fully generic
 // and indepenent of Yosys implementation details.
 //
 // The `write_cxxrtl` pass translates internal cells (cells with names that start with `$`) to calls of these

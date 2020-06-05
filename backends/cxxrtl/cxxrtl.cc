@@ -1778,6 +1778,7 @@ struct CxxrtlWorker {
 
 	void dump_design(RTLIL::Design *design)
 	{
+		RTLIL::Module *top_module = nullptr;
 		std::vector<RTLIL::Module*> modules;
 		TopoSort<RTLIL::Module*> topo_design;
 		for (auto module : design->modules()) {
@@ -1787,6 +1788,8 @@ struct CxxrtlWorker {
 				modules.push_back(module); // cxxrtl blackboxes first
 			if (module->get_blackbox_attribute() || module->get_bool_attribute(ID(cxxrtl_blackbox)))
 				continue;
+			if (module->get_bool_attribute(ID::top))
+				top_module = module;
 
 			topo_design.node(module);
 			for (auto cell : module->cells()) {
@@ -1808,6 +1811,25 @@ struct CxxrtlWorker {
 			f << "#ifndef " << include_guard << "\n";
 			f << "#define " << include_guard << "\n";
 			f << "\n";
+			if (top_module != nullptr && debug_info) {
+				f << "#include <backends/cxxrtl/cxxrtl_capi.h>\n";
+				f << "\n";
+				f << "#ifdef __cplusplus\n";
+				f << "extern \"C\" {\n";
+				f << "#endif\n";
+				f << "\n";
+				f << "cxxrtl_toplevel " << design_ns << "_create();\n";
+				f << "\n";
+				f << "#ifdef __cplusplus\n";
+				f << "}\n";
+				f << "#endif\n";
+				f << "\n";
+			} else {
+				f << "// The CXXRTL C API is not available because the design is built without debug information.\n";
+				f << "\n";
+			}
+			f << "#ifdef __cplusplus\n";
+			f << "\n";
 			f << "#include <backends/cxxrtl/cxxrtl.h>\n";
 			f << "\n";
 			f << "using namespace cxxrtl;\n";
@@ -1818,6 +1840,8 @@ struct CxxrtlWorker {
 				dump_module_intf(module);
 			f << "} // namespace " << design_ns << "\n";
 			f << "\n";
+			f << "#endif // __cplusplus\n";
+			f << "\n";
 			f << "#endif\n";
 			*intf_f << f.str(); f.str("");
 		}
@@ -1826,6 +1850,10 @@ struct CxxrtlWorker {
 			f << "#include \"" << intf_filename << "\"\n";
 		else
 			f << "#include <backends/cxxrtl/cxxrtl.h>\n";
+		f << "\n";
+		f << "#ifdef CXXRTL_INCLUDE_CAPI_IMPL\n";
+		f << "#include <backends/cxxrtl/cxxrtl_capi.cc>\n";
+		f << "#endif\n";
 		f << "\n";
 		f << "using namespace cxxrtl_yosys;\n";
 		f << "\n";
@@ -1837,6 +1865,17 @@ struct CxxrtlWorker {
 			dump_module_impl(module);
 		}
 		f << "} // namespace " << design_ns << "\n";
+		f << "\n";
+		if (top_module != nullptr && debug_info) {
+			f << "cxxrtl_toplevel " << design_ns << "_create() {\n";
+			inc_indent();
+				f << indent << "return new _cxxrtl_toplevel { ";
+				f << "std::make_unique<" << design_ns << "::" << mangle(top_module) << ">()";
+				f << " };\n";
+			dec_indent();
+			f << "}\n";
+		}
+
 		*impl_f << f.str(); f.str("");
 	}
 
