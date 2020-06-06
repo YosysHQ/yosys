@@ -28,10 +28,12 @@ class vcd_writer {
 		size_t ident;
 		size_t width;
 		chunk_t *curr;
+		size_t prev_off;
 	};
 
 	std::vector<std::string> current_scope;
 	std::vector<variable> variables;
+	std::vector<chunk_t> cache;
 	bool streaming = false;
 
 	void emit_timescale(unsigned number, const std::string &unit) {
@@ -101,6 +103,22 @@ class vcd_writer {
 		buffer += '\n';
 	}
 
+	void append_variable(size_t width, chunk_t *curr) {
+		const size_t chunks = (width + (sizeof(chunk_t) * 8 - 1)) / (sizeof(chunk_t) * 8);
+		variables.emplace_back(variable { variables.size(), width, curr, cache.size() });
+		cache.insert(cache.end(), &curr[0], &curr[chunks]);
+	}
+
+	bool test_variable(const variable &var) {
+		const size_t chunks = (var.width + (sizeof(chunk_t) * 8 - 1)) / (sizeof(chunk_t) * 8);
+		if (std::equal(&var.curr[0], &var.curr[chunks], &cache[var.prev_off])) {
+			return false;
+		} else {
+			std::copy(&var.curr[0], &var.curr[chunks], &cache[var.prev_off]);
+			return true;
+		}
+	}
+
 	static std::vector<std::string> split_hierarchy(const std::string &hier_name) {
 		std::vector<std::string> hierarchy;
 		size_t prev = 0;
@@ -133,11 +151,11 @@ public:
 		switch (item.type) {
 			// Not the best naming but oh well...
 			case debug_item::VALUE:
-				variables.emplace_back(variable { variables.size(), item.width, item.curr });
+				append_variable(item.width, item.curr);
 				emit_var(variables.back(), "wire", name);
 				break;
 			case debug_item::WIRE:
-				variables.emplace_back(variable { variables.size(), item.width, item.curr });
+				append_variable(item.width, item.curr);
 				emit_var(variables.back(), "reg", name);
 				break;
 			case debug_item::MEMORY: {
@@ -145,7 +163,7 @@ public:
 				for (size_t index = 0; index < item.depth; index++) {
 					chunk_t *nth_curr = &item.curr[stride * index];
 					std::string nth_name = name + '[' + std::to_string(index) + ']';
-					variables.emplace_back(variable { variables.size(), item.width, nth_curr });
+					append_variable(item.width, nth_curr);
 					emit_var(variables.back(), "reg", nth_name);
 				}
 				break;
@@ -175,17 +193,19 @@ public:
 	}
 
 	void sample(uint64_t timestamp) {
-		if (!streaming) {
+		bool first_sample = !streaming;
+		if (first_sample) {
 			emit_scope({});
 			emit_enddefinitions();
 		}
 		emit_time(timestamp);
-		for (auto var : variables) {
-			if (var.width == 1)
-				emit_scalar(var);
-			else
-				emit_vector(var);
-		}
+		for (auto var : variables)
+			if (test_variable(var) || first_sample) {
+				if (var.width == 1)
+					emit_scalar(var);
+				else
+					emit_vector(var);
+			}
 	}
 };
 
