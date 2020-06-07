@@ -728,6 +728,8 @@ struct debug_item : ::cxxrtl_object {
 		MEMORY = CXXRTL_MEMORY,
 	};
 
+	debug_item(const ::cxxrtl_object &object) : cxxrtl_object(object) {}
+
 	template<size_t Bits>
 	debug_item(value<Bits> &item) {
 		static_assert(sizeof(item) == value<Bits>::chunks * sizeof(chunk_t),
