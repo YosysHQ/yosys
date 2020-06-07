@@ -1,2 +1,2 @@
 
-OBJS += backends/cxxrtl/cxxrtl.o
+OBJS += backends/cxxrtl/cxxrtl_backend.o
