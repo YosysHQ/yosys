@@ -26,6 +26,11 @@ struct _cxxrtl_handle {
 	cxxrtl::debug_items objects;
 };
 
+// Private function for use by other units of the C API.
+const cxxrtl::debug_items &cxxrtl_debug_items_from_handle(cxxrtl_handle handle) {
+	return handle->objects;
+}
+
 cxxrtl_handle cxxrtl_create(cxxrtl_toplevel design) {
 	cxxrtl_handle handle = new _cxxrtl_handle;
 	handle->module = std::move(design->module);
@@ -49,7 +54,7 @@ cxxrtl_object *cxxrtl_get(cxxrtl_handle handle, const char *name) {
 }
 
 void cxxrtl_enum(cxxrtl_handle handle, void *data,
-                 void (*callback)(void *data, const char *name, struct cxxrtl_object *object)) {
+                 void (*callback)(void *data, const char *name, cxxrtl_object *object)) {
 	for (auto &it : handle->objects)
 		callback(data, it.first.c_str(), static_cast<cxxrtl_object*>(&it.second));
 }

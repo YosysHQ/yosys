@@ -1851,8 +1851,13 @@ struct CxxrtlWorker {
 		else
 			f << "#include <backends/cxxrtl/cxxrtl.h>\n";
 		f << "\n";
-		f << "#ifdef CXXRTL_INCLUDE_CAPI_IMPL\n";
+		f << "#if defined(CXXRTL_INCLUDE_CAPI_IMPL) || \\\n";
+		f << "    defined(CXXRTL_INCLUDE_VCD_CAPI_IMPL)\n";
 		f << "#include <backends/cxxrtl/cxxrtl_capi.cc>\n";
+		f << "#endif\n";
+		f << "\n";
+		f << "#if defined(CXXRTL_INCLUDE_VCD_CAPI_IMPL)\n";
+		f << "#include <backends/cxxrtl/cxxrtl_vcd_capi.cc>\n";
 		f << "#endif\n";
 		f << "\n";
 		f << "using namespace cxxrtl_yosys;\n";
