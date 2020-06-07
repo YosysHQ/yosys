@@ -250,7 +250,37 @@ static AstNode *make_range(int left, int right, bool is_signed = false)
 	return range;
 }
 
-int size_packed_struct(AstNode *snode, int base_offset)
+static int range_width(AstNode *node, AstNode *rnode)
+{
+	log_assert(rnode->type==AST_RANGE);
+	if (!rnode->range_valid) {
+		log_file_error(node->filename, node->location.first_line, "Size must be constant in packed struct/union member %s\n", node->str.c_str());
+
+	}
+	// note: range swapping has already been checked for
+	return rnode->range_left - rnode->range_right + 1;
+}
+
+[[noreturn]] static void struct_array_packing_error(AstNode *node)
+{
+	log_file_error(node->filename, node->location.first_line, "Unpacked array in packed struct/union member %s\n", node->str.c_str());
+}
+
+static void save_struct_array_width(AstNode *node, int width)
+{
+	// stash the stride for the array
+	node->multirange_dimensions.push_back(width);
+
+}
+
+static int get_struct_array_width(AstNode *node)
+{
+	// the stride for the array, 1 if not an array
+	return (node->multirange_dimensions.empty() ? 1 : node->multirange_dimensions.back());
+
+}
+
+static int size_packed_struct(AstNode *snode, int base_offset)
 {
 	// Struct members will be laid out in the structure contiguously from left to right.
 	// Union members all have zero offset from the start of the union.
@@ -268,10 +298,40 @@ int size_packed_struct(AstNode *snode, int base_offset)
 		}
 		else {
 			log_assert(node->type == AST_STRUCT_ITEM);
-			if (node->children.size() == 1 && node->children[0]->type == AST_RANGE) {
+			if (node->children.size() > 0 && node->children[0]->type == AST_RANGE) {
+				// member width e.g. bit [7:0] a
+				width = range_width(node, node->children[0]);
+				if (node->children.size() == 2) {
+					if (node->children[1]->type == AST_RANGE) {
+						// unpacked array e.g. bit [63:0] a [0:3]
+						auto rnode = node->children[1];
+						int array_count = range_width(node, rnode);
+						if (array_count == 1) {
+							// C-type array size e.g. bit [63:0] a [4]
+							array_count = rnode->range_left;
+						}
+						save_struct_array_width(node, width);
+						width *= array_count;
+					}
+					else {
+						// array element must be single bit for a packed array
+						struct_array_packing_error(node);
+					}
+				}
+				// range nodes are now redundant
+				node->children.clear();
+			}
+			else if (node->children.size() == 1 && node->children[0]->type == AST_MULTIRANGE) {
+				// packed 2D array, e.g. bit [3:0][63:0] a
 				auto rnode = node->children[0];
-				width = (rnode->range_swapped ? rnode->range_right - rnode->range_left :
-								rnode->range_left - rnode->range_right) + 1;
+				if (rnode->children.size() != 2) {
+					// packed arrays can only be 2D
+					struct_array_packing_error(node);
+				}
+				int array_count = range_width(node, rnode->children[0]);
+				width = range_width(node, rnode->children[1]);
+				save_struct_array_width(node, width);
+				width *= array_count;
 				// range nodes are now redundant
 				node->children.clear();
 			}
@@ -311,6 +371,70 @@ int size_packed_struct(AstNode *snode, int base_offset)
 		}
 	}
 	return (is_union ? packed_width : offset);
+}
+
+[[noreturn]] static void struct_op_error(AstNode *node)
+{
+	log_file_error(node->filename, node->location.first_line, "Unsupported operation for struct/union member %s\n", node->str.c_str()+1);
+}
+
+static AstNode *node_int(int ival)
+{
+	// maybe mkconst_int should have default values for the common integer case
+	return AstNode::mkconst_int(ival, true, 32);
+}
+
+static AstNode *offset_indexed_range(int offset_right, int stride, AstNode *left_expr, AstNode *right_expr)
+{
+	// adjust the range expressions to add an offset into the struct
+	// and maybe index using an array stride
+	auto left  = left_expr->clone();
+	auto right = right_expr->clone();
+	if (stride == 1) {
+		// just add the offset
+		left  = new AstNode(AST_ADD, node_int(offset_right), left);
+		right = new AstNode(AST_ADD, node_int(offset_right), right);
+	}
+	else {
+		// newleft = offset_right - 1 + (left + 1) * stride
+		left  = new AstNode(AST_ADD, new AstNode(AST_SUB, node_int(offset_right), node_int(1)),
+				new AstNode(AST_MUL, node_int(stride), new AstNode(AST_ADD, left, node_int(1))));
+		// newright = offset_right + right * stride
+		right = new AstNode(AST_ADD, node_int(offset_right), new AstNode(AST_MUL, right, node_int(stride)));
+	}
+	return new AstNode(AST_RANGE, left, right);
+}
+
+static AstNode *make_struct_member_range(AstNode *node, AstNode *member_node)
+{
+	// Work out the range in the packed array that corresponds to a struct member
+	// taking into account any range operations applicable to the current node
+	// such as array indexing or slicing
+	int range_left = member_node->range_left;
+	int range_right = member_node->range_right;
+	if (node->children.empty()) {
+		// no range operations apply, return the whole width
+	}
+	else if (node->children.size() == 1 && node->children[0]->type == AST_RANGE) {
+		auto rnode = node->children[0];
+		int stride = get_struct_array_width(member_node);
+		if (rnode->children.size() == 1) {
+			// index e.g. s.a[i]
+			return offset_indexed_range(range_right, stride, rnode->children[0], rnode->children[0]);
+		}
+		else if (rnode->children.size() == 2) {
+			// slice e.g. s.a[i:j]
+			return offset_indexed_range(range_right, stride, rnode->children[0], rnode->children[1]);
+		}
+		else {
+			struct_op_error(node);
+		}
+	}
+	else {
+		// TODO multirange, i.e. bit slice after array index s.a[i][p:q]
+		struct_op_error(node);
+	}
+	return make_range(range_left, range_right);
 }
 
 static void add_members_to_scope(AstNode *snode, std::string name)
@@ -1392,30 +1516,25 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		}
 	}
 
-	// annotate identifiers using scope resolution and create auto-wires as needed
 	if (type == AST_IDENTIFIER && !basic_prep) {
 		// check if a plausible struct member sss.mmmm
 		std::string sname;
-		if (name_has_dot(str, sname) && children.size() == 0) {
-			//dumpScope();
+		if (name_has_dot(str, sname)) {
 			if (current_scope.count(str) > 0) {
 				auto item_node = current_scope[str];
 				if (item_node->type == AST_STRUCT_ITEM) {
-					//log("found struct item %s\n", item_node->str.c_str());
 					// structure member, rewrite this node to reference the packed struct wire
-					auto range = make_range(item_node->range_left, item_node->range_right);
+					auto range = make_struct_member_range(this, item_node);
 					newNode = new AstNode(AST_IDENTIFIER, range);
 					newNode->str = sname;
-					//newNode->dumpAst(NULL, "* ");
 					newNode->basic_prep = true;
 					goto apply_newNode;
 				}
 			}
 		}
 	}
+	// annotate identifiers using scope resolution and create auto-wires as needed
 	if (type == AST_IDENTIFIER) {
-		//log("annotate ID %s, stage=%d cf=%d, ip=%d\n", str.c_str(), stage, const_fold, in_param);
-		//dumpScope();
 		if (current_scope.count(str) == 0) {
 			AstNode *current_scope_ast = (current_ast_mod == nullptr) ? current_ast : current_ast_mod;
 			for (auto node : current_scope_ast->children) {
