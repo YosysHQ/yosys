@@ -742,6 +742,17 @@ struct debug_item : ::cxxrtl_object {
 	}
 
 	template<size_t Bits>
+	debug_item(const value<Bits> &item) {
+		static_assert(sizeof(item) == value<Bits>::chunks * sizeof(chunk_t),
+		              "value<Bits> is not compatible with C layout");
+		type  = VALUE;
+		width = Bits;
+		depth = 1;
+		curr  = const_cast<uint32_t*>(item.data);
+		next  = nullptr;
+	}
+
+	template<size_t Bits>
 	debug_item(wire<Bits> &item) {
 		static_assert(sizeof(item.curr) == value<Bits>::chunks * sizeof(chunk_t) &&
 		              sizeof(item.next) == value<Bits>::chunks * sizeof(chunk_t),

@@ -540,6 +540,7 @@ struct CxxrtlWorker {
 	dict<const RTLIL::Module*, std::vector<FlowGraph::Node>> schedule;
 	pool<const RTLIL::Wire*> localized_wires;
 	dict<const RTLIL::Wire*, const RTLIL::Wire*> debug_alias_wires;
+	dict<const RTLIL::Wire*, RTLIL::Const> debug_const_wires;
 	dict<const RTLIL::Module*, pool<std::string>> blackbox_specializations;
 	dict<const RTLIL::Module*, bool> eval_converges;
 
@@ -1607,29 +1608,36 @@ struct CxxrtlWorker {
 
 	void dump_debug_info_method(RTLIL::Module *module)
 	{
-		size_t count_member_wires = 0;
+		size_t count_const_wires = 0;
 		size_t count_alias_wires = 0;
+		size_t count_member_wires = 0;
 		size_t count_skipped_wires = 0;
 		inc_indent();
 			f << indent << "assert(path.empty() || path[path.size() - 1] == ' ');\n";
 			for (auto wire : module->wires()) {
 				if (wire->name[0] != '\\')
 					continue;
-				if (debug_alias_wires.count(wire)) {
+				if (debug_const_wires.count(wire)) {
+					// Wire tied to a constant
+					f << indent << "static const value<" << wire->width << "> const_" << mangle(wire) << " = ";
+					dump_const(debug_const_wires[wire]);
+					f << ";\n";
+					f << indent << "items.emplace(path + " << escape_cxx_string(get_hdl_name(wire));
+					f << ", debug_item(const_" << mangle(wire) << "));\n";
+					count_const_wires++;
+				} else if (debug_alias_wires.count(wire)) {
 					// Alias of a member wire
 					f << indent << "items.emplace(path + " << escape_cxx_string(get_hdl_name(wire));
 					f << ", debug_item(" << mangle(debug_alias_wires[wire]) << "));\n";
 					count_alias_wires++;
-					continue;
-				}
-				if (!localized_wires.count(wire)) {
+				} else if (!localized_wires.count(wire)) {
 					// Member wire
 					f << indent << "items.emplace(path + " << escape_cxx_string(get_hdl_name(wire));
 					f << ", debug_item(" << mangle(wire) << "));\n";
 					count_member_wires++;
-					continue;
+				} else {
+					count_skipped_wires++;
 				}
-				count_skipped_wires++;
 			}
 			for (auto &memory_it : module->memories) {
 				if (memory_it.first[0] != '\\')
@@ -1647,8 +1655,9 @@ struct CxxrtlWorker {
 		dec_indent();
 
 		log_debug("Debug information statistics for module %s:\n", log_id(module));
-		log_debug("  Member wires: %zu\n", count_member_wires);
+		log_debug("  Const wires:  %zu\n", count_const_wires);
 		log_debug("  Alias wires:  %zu\n", count_alias_wires);
+		log_debug("  Member wires: %zu\n", count_member_wires);
 		log_debug("  Other wires:  %zu (no debug information)\n", count_skipped_wires);
 	}
 
@@ -2163,8 +2172,8 @@ struct CxxrtlWorker {
 			eval_converges[module] = feedback_wires.empty() && buffered_wires.empty();
 
 			if (debug_info) {
-				// Find wires that alias other wires; debug information can be enriched with these at essentially zero
-				// additional cost.
+				// Find wires that alias other wires or are tied to a constant; debug information can be enriched with these
+				// at essentially zero additional cost.
 				//
 				// Note that the information collected here can't be used for optimizing the netlist: debug information queries
 				// are pure and run on a design in a stable state, which allows assumptions that do not otherwise hold.
@@ -2179,14 +2188,20 @@ struct CxxrtlWorker {
 							break; // not an alias: complex def
 						log_assert(flow.wire_comb_defs[wire_it].size() == 1);
 						FlowGraph::Node *node = *flow.wire_comb_defs[wire_it].begin();
-						if (node->connect.second.is_wire()) {
-							RTLIL::Wire *rhs_wire = node->connect.second.as_wire();
+						if (node->type != FlowGraph::Node::Type::CONNECT)
+							break; // not an alias: def by cell
+						RTLIL::SigSpec rhs_sig = node->connect.second;
+						if (rhs_sig.is_wire()) {
+							RTLIL::Wire *rhs_wire = rhs_sig.as_wire();
 							if (localized_wires[rhs_wire]) {
 								wire_it = rhs_wire; // maybe an alias
 							} else {
 								debug_alias_wires[wire] = rhs_wire; // is an alias
 								break;
 							}
+						} else if (rhs_sig.is_fully_const()) {
+							debug_const_wires[wire] = rhs_sig.as_const(); // is a const
+							break;
 						} else {
 							break; // not an alias: complex rhs
 						}
