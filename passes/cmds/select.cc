@@ -30,26 +30,31 @@ using RTLIL::id2cstr;
 
 static std::vector<RTLIL::Selection> work_stack;
 
-static bool match_ids(RTLIL::IdString id, std::string pattern)
+static bool match_ids(RTLIL::IdString id, const std::string &pattern)
 {
 	if (id == pattern)
 		return true;
-	if (id.size() > 0 && id[0] == '\\' && id.compare(1, std::string::npos, pattern.c_str()) == 0)
+
+	const char *id_c = id.c_str();
+	const char *pat_c = pattern.c_str();
+	size_t id_size = strlen(id_c);
+	size_t pat_size = pattern.size();
+
+	if (*id_c == '\\' && id_size == 1 + pat_size && memcmp(id_c + 1, pat_c, pat_size) == 0)
 		return true;
-	if (patmatch(pattern.c_str(), id.c_str()))
+	if (patmatch(pat_c, id_c))
 		return true;
-	if (id.size() > 0 && id[0] == '\\' && patmatch(pattern.c_str(), id.substr(1).c_str()))
+	if (*id_c == '\\' && patmatch(pat_c, id_c + 1))
 		return true;
-	if (id.size() > 0 && id[0] == '$' && pattern.size() > 0 && pattern[0] == '$') {
-		const char *p = id.c_str();
-		const char *q = strrchr(p, '$');
+	if (*id_c == '$' && *pat_c == '$') {
+		const char *q = strrchr(id_c, '$');
 		if (pattern == q)
 			return true;
 	}
 	return false;
 }
 
-static bool match_attr_val(const RTLIL::Const &value, std::string pattern, char match_op)
+static bool match_attr_val(const RTLIL::Const &value, const std::string &pattern, char match_op)
 {
 	if (match_op == 0)
 		return true;
@@ -101,7 +106,7 @@ static bool match_attr_val(const RTLIL::Const &value, std::string pattern, char 
 	log_abort();
 }
 
-static bool match_attr(const dict<RTLIL::IdString, RTLIL::Const> &attributes, std::string name_pat, std::string value_pat, char match_op)
+static bool match_attr(const dict<RTLIL::IdString, RTLIL::Const> &attributes, const std::string &name_pat, const std::string &value_pat, char match_op)
 {
 	if (name_pat.find('*') != std::string::npos || name_pat.find('?') != std::string::npos || name_pat.find('[') != std::string::npos) {
 		for (auto &it : attributes) {
@@ -119,7 +124,7 @@ static bool match_attr(const dict<RTLIL::IdString, RTLIL::Const> &attributes, st
 	return false;
 }
 
-static bool match_attr(const dict<RTLIL::IdString, RTLIL::Const> &attributes, std::string match_expr)
+static bool match_attr(const dict<RTLIL::IdString, RTLIL::Const> &attributes, const std::string &match_expr)
 {
 	size_t pos = match_expr.find_first_of("<!=>");
 
@@ -410,7 +415,7 @@ namespace {
 	};
 }
 
-static int parse_comma_list(std::set<RTLIL::IdString> &tokens, std::string str, size_t pos, std::string stopchar)
+static int parse_comma_list(std::set<RTLIL::IdString> &tokens, const std::string &str, size_t pos, std::string stopchar)
 {
 	stopchar += ',';
 	while (1) {
@@ -495,7 +500,7 @@ static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::v
 	return sel_objects;
 }
 
-static void select_op_expand(RTLIL::Design *design, std::string arg, char mode, bool eval_only)
+static void select_op_expand(RTLIL::Design *design, const std::string &arg, char mode, bool eval_only)
 {
 	int pos = (mode == 'x' ? 2 : 3) + (eval_only ? 1 : 0);
 	int levels = 1, rem_objects = -1;
@@ -966,7 +971,7 @@ PRIVATE_NAMESPACE_END
 YOSYS_NAMESPACE_BEGIN
 
 // used in kernel/register.cc and maybe other locations, extern decl. in register.h
-void handle_extra_select_args(Pass *pass, vector<string> args, size_t argidx, size_t args_size, RTLIL::Design *design)
+void handle_extra_select_args(Pass *pass, const vector<string> &args, size_t argidx, size_t args_size, RTLIL::Design *design)
 {
 	work_stack.clear();
 	for (; argidx < args_size; argidx++) {
@@ -1670,7 +1675,7 @@ struct CdPass : public Pass {
 } CdPass;
 
 template<typename T>
-static void log_matches(const char *title, Module *module, T list)
+static void log_matches(const char *title, Module *module, const T &list)
 {
 	std::vector<IdString> matches;
 
