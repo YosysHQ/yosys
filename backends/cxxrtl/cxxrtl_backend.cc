@@ -2419,7 +2419,8 @@ struct CxxrtlBackend : public Backend {
 		log("        no debug information.\n");
 		log("\n");
 		log("    -g1\n");
-		log("        debug information for non-localized public wires.\n");
+		log("        debug information for non-optimized public wires. this also makes it\n");
+		log("        possible to use the C API.\n");
 		log("\n");
 	}
 
@@ -2494,7 +2495,7 @@ struct CxxrtlBackend : public Backend {
 			case 0:
 				break;
 			default:
-				log_cmd_error("Invalid optimization level %d.\n", opt_level);
+				log_cmd_error("Invalid debug information level %d.\n", debug_level);
 		}
 
 		std::ofstream intf_f;
