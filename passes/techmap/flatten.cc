@@ -32,8 +32,12 @@ IdString concat_name(RTLIL::Cell *cell, IdString object_name)
 {
 	if (object_name[0] == '\\')
 		return stringf("%s.%s", cell->name.c_str(), object_name.c_str() + 1);
-	else
-		return stringf("$flatten%s.%s", cell->name.c_str(), object_name.c_str());
+	else {
+		std::string object_name_str = object_name.str();
+		if (object_name_str.substr(0, 8) == "$flatten")
+			object_name_str.erase(0, 8);
+		return stringf("$flatten%s.%s", cell->name.c_str(), object_name_str.c_str());
+	}
 }
 
 template<class T>
