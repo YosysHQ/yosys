@@ -64,9 +64,10 @@ enum cxxrtl_type {
 	// Values correspond to singly buffered netlist nodes, i.e. nodes driven exclusively by
 	// combinatorial cells, or toplevel input nodes.
 	//
-	// Values can be inspected via the `curr` pointer and modified via the `next` pointer (which are
-	// equal for values); however, note that changes to the bits driven by combinatorial cells will
-	// be ignored.
+	// Values can be inspected via the `curr` pointer. If the `next` pointer is NULL, the value is
+	// driven by a constant and can never be modified. Otherwise, the value can be modified through
+	// the `next` pointer (which is equal to `curr` if not NULL). Note that changes to the bits
+	// driven by combinatorial cells will be ignored.
 	//
 	// Values always have depth 1.
 	CXXRTL_VALUE = 0,
@@ -75,8 +76,8 @@ enum cxxrtl_type {
 	// storage cells, or by combinatorial cells that are a part of a feedback path.
 	//
 	// Wires can be inspected via the `curr` pointer and modified via the `next` pointer (which are
-	// distinct for wires); however, note that changes to the bits driven by combinatorial cells will
-	// be ignored.
+	// distinct for wires). Note that changes to the bits driven by combinatorial cells will be
+	// ignored.
 	//
 	// Wires always have depth 1.
 	CXXRTL_WIRE = 1,
