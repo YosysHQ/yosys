@@ -1170,6 +1170,8 @@ public:
 	RTLIL::Cell *addCell(RTLIL::IdString name, RTLIL::IdString type);
 	RTLIL::Cell *addCell(RTLIL::IdString name, const RTLIL::Cell *other);
 
+	RTLIL::Memory *addMemory(RTLIL::IdString name, const RTLIL::Memory *other);
+
 	// The add* methods create a cell and return the created cell. All signals must exist in advance.
 
 	RTLIL::Cell* addNot (RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_y, bool is_signed = false, const std::string &src = "");

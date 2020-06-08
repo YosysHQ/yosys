@@ -1885,6 +1885,18 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, const RTLIL::Cell *oth
 	return cell;
 }
 
+RTLIL::Memory *RTLIL::Module::addMemory(RTLIL::IdString name, const RTLIL::Memory *other)
+{
+	RTLIL::Memory *mem = new RTLIL::Memory;
+	mem->name = name;
+	mem->width = other->width;
+	mem->start_offset = other->start_offset;
+	mem->size = other->size;
+	mem->attributes = other->attributes;
+	memories[mem->name] = mem;
+	return mem;
+}
+
 #define DEF_METHOD(_func, _y_size, _type) \
 	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_y, bool is_signed, const std::string &src) { \
 		RTLIL::Cell *cell = addCell(name, _type);           \
