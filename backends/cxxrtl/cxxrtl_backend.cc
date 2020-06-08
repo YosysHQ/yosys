@@ -359,10 +359,10 @@ struct FlowGraph {
 		//
 		// eliminating the unnecessary delta cycle. Conceptually, the CELL_SYNC node type is a series of
 		// connections of the form `connect \lhs \cell.\sync_output`; the right-hand side of these is not
-		// as a wire in RTLIL. If it was expressible, then `\cell.\sync_output` would have a sync def,
-		// and this node would be an ordinary CONNECT node, with `\lhs` having a comb def. Because it isn't,
-		// a special node type is used, the right-hand side does not appear anywhere, and the left-hand
-		// side has a comb def.
+		// expressible as a wire in RTLIL. If it was expressible, then `\cell.\sync_output` would have
+		// a sync def, and this node would be an ordinary CONNECT node, with `\lhs` having a comb def.
+		// Because it isn't, a special node type is used, the right-hand side does not appear anywhere,
+		// and the left-hand side has a comb def.
 		for (auto conn : cell->connections())
 			if (cell->output(conn.first))
 				if (is_cxxrtl_sync_port(cell, conn.first)) {
