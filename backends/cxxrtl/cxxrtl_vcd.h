@@ -104,19 +104,25 @@ class vcd_writer {
 		buffer += '\n';
 	}
 
-	const variable &register_variable(size_t width, chunk_t *curr) {
+	const variable &register_variable(size_t width, chunk_t *curr, bool immutable = false) {
 		if (aliases.count(curr)) {
 			return variables[aliases[curr]];
 		} else {
 			const size_t chunks = (width + (sizeof(chunk_t) * 8 - 1)) / (sizeof(chunk_t) * 8);
 			aliases[curr] = variables.size();
-			variables.emplace_back(variable { variables.size(), width, curr, cache.size() });
-			cache.insert(cache.end(), &curr[0], &curr[chunks]);
+			if (immutable) {
+				variables.emplace_back(variable { variables.size(), width, curr, (size_t)-1 });
+			} else {
+				variables.emplace_back(variable { variables.size(), width, curr, cache.size() });
+				cache.insert(cache.end(), &curr[0], &curr[chunks]);
+			}
 			return variables.back();
 		}
 	}
 
 	bool test_variable(const variable &var) {
+		if (var.prev_off == (size_t)-1)
+			return false; // immutable
 		const size_t chunks = (var.width + (sizeof(chunk_t) * 8 - 1)) / (sizeof(chunk_t) * 8);
 		if (std::equal(&var.curr[0], &var.curr[chunks], &cache[var.prev_off])) {
 			return false;
@@ -158,7 +164,7 @@ public:
 		switch (item.type) {
 			// Not the best naming but oh well...
 			case debug_item::VALUE:
-				emit_var(register_variable(item.width, item.curr), "wire", name);
+				emit_var(register_variable(item.width, item.curr, /*immutable=*/item.next == nullptr), "wire", name);
 				break;
 			case debug_item::WIRE:
 				emit_var(register_variable(item.width, item.curr), "reg", name);
