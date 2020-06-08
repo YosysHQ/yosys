@@ -34,6 +34,7 @@ class vcd_writer {
 	std::vector<std::string> current_scope;
 	std::vector<variable> variables;
 	std::vector<chunk_t> cache;
+	std::map<chunk_t*, size_t> aliases;
 	bool streaming = false;
 
 	void emit_timescale(unsigned number, const std::string &unit) {
@@ -103,10 +104,16 @@ class vcd_writer {
 		buffer += '\n';
 	}
 
-	void append_variable(size_t width, chunk_t *curr) {
-		const size_t chunks = (width + (sizeof(chunk_t) * 8 - 1)) / (sizeof(chunk_t) * 8);
-		variables.emplace_back(variable { variables.size(), width, curr, cache.size() });
-		cache.insert(cache.end(), &curr[0], &curr[chunks]);
+	const variable &register_variable(size_t width, chunk_t *curr) {
+		if (aliases.count(curr)) {
+			return variables[aliases[curr]];
+		} else {
+			const size_t chunks = (width + (sizeof(chunk_t) * 8 - 1)) / (sizeof(chunk_t) * 8);
+			aliases[curr] = variables.size();
+			variables.emplace_back(variable { variables.size(), width, curr, cache.size() });
+			cache.insert(cache.end(), &curr[0], &curr[chunks]);
+			return variables.back();
+		}
 	}
 
 	bool test_variable(const variable &var) {
@@ -151,20 +158,17 @@ public:
 		switch (item.type) {
 			// Not the best naming but oh well...
 			case debug_item::VALUE:
-				append_variable(item.width, item.curr);
-				emit_var(variables.back(), "wire", name);
+				emit_var(register_variable(item.width, item.curr), "wire", name);
 				break;
 			case debug_item::WIRE:
-				append_variable(item.width, item.curr);
-				emit_var(variables.back(), "reg", name);
+				emit_var(register_variable(item.width, item.curr), "reg", name);
 				break;
 			case debug_item::MEMORY: {
 				const size_t stride = (item.width + (sizeof(chunk_t) * 8 - 1)) / (sizeof(chunk_t) * 8);
 				for (size_t index = 0; index < item.depth; index++) {
 					chunk_t *nth_curr = &item.curr[stride * index];
 					std::string nth_name = name + '[' + std::to_string(index) + ']';
-					append_variable(item.width, nth_curr);
-					emit_var(variables.back(), "reg", nth_name);
+					emit_var(register_variable(item.width, nth_curr), "reg", nth_name);
 				}
 				break;
 			}
