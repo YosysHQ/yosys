@@ -319,7 +319,7 @@ void RTLIL::AttrObject::set_strpool_attribute(RTLIL::IdString id, const pool<str
 			attrval += "|";
 		attrval += s;
 	}
-	attributes[id] = RTLIL::Const(attrval);
+	set_string_attribute(id, attrval);
 }
 
 void RTLIL::AttrObject::add_strpool_attribute(RTLIL::IdString id, const pool<string> &data)
@@ -334,7 +334,7 @@ pool<string> RTLIL::AttrObject::get_strpool_attribute(RTLIL::IdString id) const
 {
 	pool<string> data;
 	if (attributes.count(id) != 0)
-		for (auto s : split_tokens(attributes.at(id).decode_string(), "|"))
+		for (auto s : split_tokens(get_string_attribute(id), "|"))
 			data.insert(s);
 	return data;
 }
