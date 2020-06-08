@@ -1554,10 +1554,10 @@ member_name_list:
 member_name: TOK_ID {
 			astbuf1->str = $1->substr(1);
 			delete $1;
-			auto member_node = astbuf1->clone();
-			SET_AST_NODE_LOC(member_node, @1, @1);
-			astbuf2->children.push_back(member_node);
-		}
+			astbuf3 = astbuf1->clone();
+			SET_AST_NODE_LOC(astbuf3, @1, @1);
+			astbuf2->children.push_back(astbuf3);
+		} range { if ($3) astbuf3->children.push_back($3); }
 	;
 
 struct_member_type: { astbuf1 = new AstNode(AST_STRUCT_ITEM); } member_type_token
@@ -1595,7 +1595,7 @@ member_type_token:
 	;
 
 member_type: type_atom type_signing
-	| type_vec type_signing range	{ if ($3) astbuf1->children.push_back($3); }
+	| type_vec type_signing range_or_multirange	{ if ($3) astbuf1->children.push_back($3); }
 	;
 
 struct_var_list: struct_var
