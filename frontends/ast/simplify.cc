@@ -383,43 +383,9 @@ static AstNode *node_int(int ival)
 	return AstNode::mkconst_int(ival, true);
 }
 
-static AstNode *node_uint(uint ival)
-{
-	return AstNode::mkconst_int(ival, false);
-}
-
-static unsigned int power_of_two(int n)
-{
-	// iff n is a power of two then return the power, else return 0
-	// caller must ensure n > 1
-	log_assert(n > 1);
-	if (n & (n - 1)) {
-		// not a power of 2
-		return 0;
-	}
-	// brute force the shift
-	for (unsigned int i = 1; i < 32; i++) {
-		n >>= 1;
-		if (n & 1) {
-			return i;
-		}
-	}
-	return 0;
-}
-
 static AstNode *multiply_by_const(AstNode *expr_node, int stride)
 {
-	// the stride is very likely a power of 2, e.g. 8 for bytes
-	// and so could be optimised with a shift
-	AstNode *node;
-	unsigned int shift;
-	if ((shift = power_of_two(stride)) > 0) {
-		node = new AstNode(AST_SHIFT_LEFT, expr_node, node_uint(shift));
-	}
-	else {
-		node = new AstNode(AST_MUL, expr_node, node_int(stride));
-	}
-	return node;
+	return new AstNode(AST_MUL, expr_node, node_int(stride));
 }
 
 static AstNode *offset_indexed_range(int offset, int stride, AstNode *left_expr, AstNode *right_expr)
