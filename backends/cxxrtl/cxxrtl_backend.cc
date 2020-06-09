@@ -2490,16 +2490,16 @@ struct CxxrtlBackend : public Backend {
 		log("        no optimization.\n");
 		log("\n");
 		log("    -O1\n");
-		log("        elide internal wires if possible.\n");
+		log("        localize internal wires if possible.\n");
 		log("\n");
 		log("    -O2\n");
-		log("        like -O1, and localize internal wires if possible.\n");
+		log("        like -O1, and elide internal wires if possible.\n");
 		log("\n");
 		log("    -O3\n");
-		log("        like -O2, and elide public wires not marked (*keep*) if possible.\n");
+		log("        like -O2, and localize public wires not marked (*keep*) if possible.\n");
 		log("\n");
 		log("    -O4\n");
-		log("        like -O3, and localize public wires not marked (*keep*) if possible.\n");
+		log("        like -O3, and elide public wires not marked (*keep*) if possible.\n");
 		log("\n");
 		log("    -g <level>\n");
 		log("        set the debug level. the default is -g%d. higher debug levels provide\n", DEFAULT_DEBUG_LEVEL);
@@ -2568,16 +2568,16 @@ struct CxxrtlBackend : public Backend {
 		switch (opt_level) {
 			// the highest level here must match DEFAULT_OPT_LEVEL
 			case 4:
-				worker.localize_public = true;
-				YS_FALLTHROUGH
-			case 3:
 				worker.elide_public = true;
 				YS_FALLTHROUGH
+			case 3:
+				worker.localize_public = true;
+				YS_FALLTHROUGH
 			case 2:
-				worker.localize_internal = true;
+				worker.elide_internal = true;
 				YS_FALLTHROUGH
 			case 1:
-				worker.elide_internal = true;
+				worker.localize_internal = true;
 				YS_FALLTHROUGH
 			case 0:
 				break;
