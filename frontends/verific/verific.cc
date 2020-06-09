@@ -2175,6 +2175,9 @@ struct VerificPass : public Pass {
 			RuntimeFlags::SetVar("vhdl_support_variable_slice", 1);
 			RuntimeFlags::SetVar("vhdl_ignore_assertion_statements", 0);
 
+			RuntimeFlags::SetVar("veri_preserve_assignments", 1);
+			RuntimeFlags::SetVar("vhdl_preserve_assignments", 1);
+
 			// Workaround for VIPER #13851
 			RuntimeFlags::SetVar("veri_create_name_for_unnamed_gen_block", 1);
 
