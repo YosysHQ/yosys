@@ -24,6 +24,7 @@
 #include "kernel/rtlil.h"
 #include "kernel/register.h"
 #include <algorithm>
+#include <numeric>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -98,9 +99,8 @@ void recover_solution(QbfSolutionType &sol) {
 			log_assert(YS_REGEX_NS::regex_search(loc, hole_loc_regex));
 			log_assert(YS_REGEX_NS::regex_search(val, hole_val_regex));
 #endif
-			RTLIL::AttrObject tmp;
-			tmp.set_src_attribute(loc);
-			pool<std::string> loc_pool = tmp.get_strpool_attribute(ID::src);
+			auto locs = split_tokens(loc, "|");
+			pool<std::string> loc_pool(locs.begin(), locs.end());
 			sol.hole_to_value[loc_pool] = val;
 		}
 		else if (YS_REGEX_NS::regex_search(x, sat_regex)) {
@@ -224,9 +224,7 @@ void write_solution(RTLIL::Module *module, const QbfSolutionType &sol, const std
 	//SigBit, and "value", which is either '0' or '1', represents the assignment for that bit.
 	dict<std::pair<pool<std::string>, int>, RTLIL::SigBit> hole_loc_idx_to_sigbit = get_hole_loc_idx_sigbit_map(module, sol);
 	for (auto &x : sol.hole_to_value) {
-		RTLIL::AttrObject tmp;
-		tmp.set_strpool_attribute(ID::src, x.first);
-		std::string src_as_str = tmp.get_string_attribute(ID::src);
+		std::string src_as_str = std::accumulate(x.first.begin(), x.first.end(), std::string(), [](const std::string &a, const std::string &b){return a + "|" + b;});
 		for (auto i = 0; i < GetSize(x.second); ++i)
 			fout << src_as_str.c_str() << " " << i << " " << log_signal(hole_loc_idx_to_sigbit[std::make_pair(x.first, i)]) << " = " << x.second[GetSize(x.second) - 1 - i] << std::endl;
 	}
@@ -281,9 +279,8 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 			RTLIL::Wire *hole_wire = module->wire(hole_name);
 			hole_sigbit = RTLIL::SigSpec(hole_wire)[hole_offset];
 		} else {
-			RTLIL::AttrObject tmp;
-			tmp.set_src_attribute(hole_loc);
-			pool<std::string> hole_loc_pool = tmp.get_strpool_attribute(ID::src);
+			auto locs = split_tokens(hole_loc, "|");
+			pool<std::string> hole_loc_pool(locs.begin(), locs.end());
 			auto hole_cell_it = anyconst_loc_to_cell.find(hole_loc_pool);
 			if (hole_cell_it == anyconst_loc_to_cell.end())
 				YS_DEBUGTRAP;
