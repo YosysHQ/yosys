@@ -231,8 +231,8 @@ void write_solution(RTLIL::Module *module, const QbfSolutionType &sol, const std
 }
 
 void specialize_from_file(RTLIL::Module *module, const std::string &file) {
-	YS_REGEX_TYPE hole_bit_assn_regex = YS_REGEX_COMPILE_WITH_SUBS("^(.*) ([0-9]+) ([^ ]*) \\[([0-9]+)] = ([01])$");
-	YS_REGEX_TYPE hole_assn_regex = YS_REGEX_COMPILE_WITH_SUBS("^(.*) ([0-9]+) ([^ ]*) = ([01])$"); //if no index specified
+	YS_REGEX_TYPE hole_bit_assn_regex = YS_REGEX_COMPILE_WITH_SUBS("^(.+) ([0-9]+) ([^ ]+) \\[([0-9]+)] = ([01])$");
+	YS_REGEX_TYPE hole_assn_regex = YS_REGEX_COMPILE_WITH_SUBS("^(.+) ([0-9]+) ([^ ]+) = ([01])$"); //if no index specified
 	YS_REGEX_MATCH_TYPE bit_m, m;
 	//(hole_loc, hole_bit, hole_name, hole_offset) -> (value, found)
 	dict<pool<std::string>, RTLIL::Cell*> anyconst_loc_to_cell;
@@ -248,29 +248,19 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 
 	std::string buf;
 	while (std::getline(fin, buf)) {
-		std::string hole_loc;
-		unsigned int hole_bit;
-		std::string hole_name;
-		unsigned int hole_offset;
-		RTLIL::State hole_value;
-
+		bool bit_assn = true;
 		if (!YS_REGEX_NS::regex_search(buf, bit_m, hole_bit_assn_regex)) {
-			if (!YS_REGEX_NS::regex_search(buf, m, hole_assn_regex)) {
+			bit_assn = false;
+			if (!YS_REGEX_NS::regex_search(buf, m, hole_assn_regex))
 				log_cmd_error("solution file is not formatted correctly: \"%s\"\n", buf.c_str());
-			} else {
-				hole_loc = m[1].str();
-				hole_bit = atoi(m[2].str().c_str());
-				hole_name = m[3].str();
-				hole_offset = 0;
-				hole_value = atoi(m[4].str().c_str()) == 1? RTLIL::State::S1 : RTLIL::State::S0;
-			}
-		} else {
-			hole_loc = bit_m[1].str();
-			hole_bit = atoi(bit_m[2].str().c_str());
-			hole_name = bit_m[3].str();
-			hole_offset = atoi(bit_m[4].str().c_str());
-			hole_value = atoi(bit_m[5].str().c_str()) == 1? RTLIL::State::S1 : RTLIL::State::S0;
 		}
+
+		std::string hole_loc = bit_assn? bit_m[1].str() : m[1].str();
+		unsigned int hole_bit = bit_assn? atoi(bit_m[2].str().c_str()) : atoi(m[2].str().c_str());
+		std::string hole_name = bit_assn? bit_m[3].str() : m[3].str();
+		unsigned int hole_offset = bit_assn? atoi(bit_m[4].str().c_str()) : 0;
+		RTLIL::State hole_value = bit_assn? (atoi(bit_m[5].str().c_str()) == 1? RTLIL::State::S1 : RTLIL::State::S0)
+		                                  : (atoi(m[4].str().c_str()) == 1? RTLIL::State::S1 : RTLIL::State::S0);
 
 		//We have two options to identify holes.  First, try to match wire names.  If we can't find a matching wire,
 		//then try to find a cell with a matching location.
