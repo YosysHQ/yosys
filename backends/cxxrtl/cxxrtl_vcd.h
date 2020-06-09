@@ -136,14 +136,14 @@ class vcd_writer {
 		std::vector<std::string> hierarchy;
 		size_t prev = 0;
 		while (true) {
-			size_t curr = hier_name.find_first_of(' ', prev + 1);
-			if (curr > hier_name.size())
-				curr = hier_name.size();
-			if (curr > prev + 1)
-				hierarchy.push_back(hier_name.substr(prev, curr - prev));
-			if (curr == hier_name.size())
+			size_t curr = hier_name.find_first_of(' ', prev);
+			if (curr == std::string::npos) {
+				hierarchy.push_back(hier_name.substr(prev));
 				break;
-			prev = curr + 1;
+			} else {
+				hierarchy.push_back(hier_name.substr(prev, curr - prev));
+				prev = curr + 1;
+			}
 		}
 		return hierarchy;
 	}
