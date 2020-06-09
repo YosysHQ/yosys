@@ -27,7 +27,7 @@ PRIVATE_NAMESPACE_BEGIN
 struct GliftPass : public Pass {
 	private:
 
-	bool opt_create_precise, opt_create_imprecise, opt_create_sketch;
+	bool opt_create_precise_model, opt_create_imprecise_model, opt_create_instrumented_model;
 	bool opt_taintconstants, opt_keepoutputs, opt_nocostmodel;
 	std::vector<std::string> args;
 	std::vector<std::string>::size_type argidx;
@@ -39,16 +39,16 @@ struct GliftPass : public Pass {
 
 	void parse_args() {
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			if (args[argidx] == "-create-precise") {
-				opt_create_precise = true;
+			if (args[argidx] == "-create-precise-model") {
+				opt_create_precise_model = true;
 				continue;
 			}
-			if (args[argidx] == "-create-imprecise") {
-				opt_create_imprecise = true;
+			if (args[argidx] == "-create-imprecise-model") {
+				opt_create_imprecise_model = true;
 				continue;
 			}
-			if (args[argidx] == "-create-sketch") {
-				opt_create_sketch = true;
+			if (args[argidx] == "-create-instrumented-model") {
+				opt_create_instrumented_model = true;
 				continue;
 			}
 			if (args[argidx] == "-taint-constants") {
@@ -65,9 +65,9 @@ struct GliftPass : public Pass {
 			}
 			break;
 		}
-		if(!opt_create_precise && !opt_create_imprecise && !opt_create_sketch)
+		if(!opt_create_precise_model && !opt_create_imprecise_model && !opt_create_instrumented_model)
 			log_cmd_error("No command provided.  See help for usage.\n");
-		if(static_cast<int>(opt_create_precise) + static_cast<int>(opt_create_imprecise) + static_cast<int>(opt_create_sketch) != 1)
+		if(static_cast<int>(opt_create_precise_model) + static_cast<int>(opt_create_imprecise_model) + static_cast<int>(opt_create_instrumented_model) != 1)
 			log_cmd_error("Only one command may be specified.  See help for usage.\n");
 	}
 
@@ -165,11 +165,11 @@ struct GliftPass : public Pass {
 				for (unsigned int i = 0; i < NUM_PORTS; ++i)
 					port_taints[i] = get_corresponding_taint_signal(ports[i]);
 
-				if (opt_create_precise)
+				if (opt_create_precise_model)
 					add_precise_GLIFT_logic(cell, ports[A], port_taints[A], ports[B], port_taints[B], port_taints[Y]);
-				else if (opt_create_imprecise)
+				else if (opt_create_imprecise_model)
 					add_imprecise_GLIFT_logic_3(cell, port_taints[A], port_taints[B], port_taints[Y]);
-				else if (opt_create_sketch) {
+				else if (opt_create_instrumented_model) {
 					RTLIL::SigSpec precise_y(module->addWire(cell->name.str() + "_y1", 1)),
 							imprecise_1_y(module->addWire(cell->name.str() + "_y2", 1)),
 							imprecise_2_y(module->addWire(cell->name.str() + "_y3", 1)),
@@ -259,9 +259,9 @@ struct GliftPass : public Pass {
 	}
 
 	void reset() {
-		opt_create_precise = false;
-		opt_create_imprecise = false;
-		opt_create_sketch = false;
+		opt_create_precise_model = false;
+		opt_create_imprecise_model = false;
+		opt_create_instrumented_model = false;
 		opt_taintconstants = false;
 		opt_keepoutputs = false;
 		opt_nocostmodel = false;
@@ -274,7 +274,7 @@ struct GliftPass : public Pass {
 
 	public:
 
-	GliftPass() : Pass("glift", "create GLIFT models and optimization problems"), opt_create_precise(false), opt_create_imprecise(false), opt_create_sketch(false), opt_taintconstants(false), opt_keepoutputs(false), opt_nocostmodel(false), module(nullptr) { }
+	GliftPass() : Pass("glift", "create GLIFT models and optimization problems"), opt_create_precise_model(false), opt_create_imprecise_model(false), opt_create_instrumented_model(false), opt_taintconstants(false), opt_keepoutputs(false), opt_nocostmodel(false), module(nullptr) { }
 
 	void help() YS_OVERRIDE
 	{
@@ -290,17 +290,17 @@ struct GliftPass : public Pass {
 		log("\n");
 		log("Commands:\n");
 		log("\n");
-		log("  -create-precise\n");
-		log("    Replaces the current or specified module with one that has additional \"taint\"\n");
+		log("  -create-precise-model\n");
+		log("    Replaces the current or specified module with one that has corresponding \"taint\"\n");
 		log("    inputs, outputs, and internal nets along with precise taint-tracking logic.\n");
 		log("\n");
-		log("  -create-imprecise\n");
-		log("    Replaces the current or specified module with one that has additional \"taint\"\n");
+		log("  -create-imprecise-model\n");
+		log("    Replaces the current or specified module with one that has corresponding \"taint\"\n");
 		log("    inputs, outputs, and internal nets along with imprecise \"All OR\" taint-tracking\n");
 		log("    logic.\n");
 		log("\n");
-		log("  -create-sketch\n");
-		log("    Replaces the current or specified module with one that has additional \"taint\"\n");
+		log("  -create-instrumented-model\n");
+		log("    Replaces the current or specified module with one that has corresponding \"taint\"\n");
 		log("    inputs, outputs, and internal nets along with varying-precision taint-tracking\n");
 		log("    logic.  Which version of taint tracking logic is used at a given cell is determined\n");
 		log("    by a MUX selected by an $anyconst cell.  By default, unless the `-no-cost-model`\n");

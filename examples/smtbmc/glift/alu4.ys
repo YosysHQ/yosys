@@ -2,7 +2,7 @@ read_verilog alu4.v
 techmap
 flatten
 select alu4_lev2
-glift -create-sketch
+glift -create-instrumented-model
 techmap
 opt
 rename alu4_lev2 uut
@@ -12,7 +12,7 @@ read_verilog alu4.v
 techmap
 flatten
 select alu4_lev2
-glift -create-precise
+glift -create-precise-model
 techmap
 opt
 rename alu4_lev2 spec
@@ -30,7 +30,7 @@ abc -script +print_stats;strash;print_stats;drwsat;print_stats;print_stats;fraig
 techmap
 opt
 stat
-qbfsat -dump-final-smt2 /tmp/test.smt2 -write-solution alu4.soln -show-smtbmc -solver yices -timeout 3600 -nocleanup -assume-outputs -assume-negative-polarity -specialize miter 
+qbfsat -dump-final-smt2 /tmp/test.smt2 -write-solution alu4.soln -solver yices -timeout 3600 -nocleanup -assume-outputs -assume-negative-polarity -specialize miter
 design -pop
 stat
 

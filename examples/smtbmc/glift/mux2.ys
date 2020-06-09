@@ -22,9 +22,9 @@ copy mux2 spec
 copy mux2 uut
 copy mux2 solved
 delete mux2
-glift -create-precise spec
-glift -create-sketch uut
-glift -create-sketch -no-cost-model solved
+glift -create-precise-model spec
+glift -create-instrumented-model uut
+glift -create-instrumented-model -no-cost-model solved
 design -push-copy
 miter -equiv spec uut qbfmiter
 flatten
