@@ -1536,13 +1536,13 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 		new_mod->addWire(it.first, it.second);
 
 	for (auto &it : memories)
-		new_mod->memories[it.first] = new RTLIL::Memory(*it.second);
+		new_mod->addMemory(it.first, it.second);
 
 	for (auto &it : cells_)
 		new_mod->addCell(it.first, it.second);
 
 	for (auto &it : processes)
-		new_mod->processes[it.first] = it.second->clone();
+		new_mod->addProcess(it.first, it.second);
 
 	struct RewriteSigSpecWorker
 	{
@@ -1911,6 +1911,14 @@ RTLIL::Memory *RTLIL::Module::addMemory(RTLIL::IdString name, const RTLIL::Memor
 	mem->attributes = other->attributes;
 	memories[mem->name] = mem;
 	return mem;
+}
+
+RTLIL::Process *RTLIL::Module::addProcess(RTLIL::IdString name, const RTLIL::Process *other)
+{
+	RTLIL::Process *proc = other->clone();
+	proc->name = name;
+	processes[name] = proc;
+	return proc;
 }
 
 #define DEF_METHOD(_func, _y_size, _type) \
