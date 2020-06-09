@@ -829,6 +829,48 @@ constexpr T max(const T &a, const T &b) {
 
 // Logic operations
 template<size_t BitsY, size_t BitsA>
+value<BitsY> logic_not(const value<BitsA> &a) {
+	return value<BitsY> { a ? 0u : 1u };
+}
+
+template<size_t BitsY, size_t BitsA, size_t BitsB>
+value<BitsY> logic_and(const value<BitsA> &a, const value<BitsB> &b) {
+	return value<BitsY> { (bool(a) & bool(b)) ? 1u : 0u };
+}
+
+template<size_t BitsY, size_t BitsA, size_t BitsB>
+value<BitsY> logic_or(const value<BitsA> &a, const value<BitsB> &b) {
+	return value<BitsY> { (bool(a) | bool(b)) ? 1u : 0u };
+}
+
+// Reduction operations
+template<size_t BitsY, size_t BitsA>
+value<BitsY> reduce_and(const value<BitsA> &a) {
+	return value<BitsY> { a.bit_not().is_zero() ? 1u : 0u };
+}
+
+template<size_t BitsY, size_t BitsA>
+value<BitsY> reduce_or(const value<BitsA> &a) {
+	return value<BitsY> { a ? 1u : 0u };
+}
+
+template<size_t BitsY, size_t BitsA>
+value<BitsY> reduce_xor(const value<BitsA> &a) {
+	return value<BitsY> { (a.ctpop() % 2) ? 1u : 0u };
+}
+
+template<size_t BitsY, size_t BitsA>
+value<BitsY> reduce_xnor(const value<BitsA> &a) {
+	return value<BitsY> { (a.ctpop() % 2) ? 0u : 1u };
+}
+
+template<size_t BitsY, size_t BitsA>
+value<BitsY> reduce_bool(const value<BitsA> &a) {
+	return value<BitsY> { a ? 1u : 0u };
+}
+
+// Bitwise operations
+template<size_t BitsY, size_t BitsA>
 value<BitsY> not_u(const value<BitsA> &a) {
 	return a.template zcast<BitsY>().bit_not();
 }
@@ -836,66 +878,6 @@ value<BitsY> not_u(const value<BitsA> &a) {
 template<size_t BitsY, size_t BitsA>
 value<BitsY> not_s(const value<BitsA> &a) {
 	return a.template scast<BitsY>().bit_not();
-}
-
-template<size_t BitsY, size_t BitsA>
-value<BitsY> logic_not_u(const value<BitsA> &a) {
-	return value<BitsY> { a ? 0u : 1u };
-}
-
-template<size_t BitsY, size_t BitsA>
-value<BitsY> logic_not_s(const value<BitsA> &a) {
-	return value<BitsY> { a ? 0u : 1u };
-}
-
-template<size_t BitsY, size_t BitsA>
-value<BitsY> reduce_and_u(const value<BitsA> &a) {
-	return value<BitsY> { a.bit_not().is_zero() ? 1u : 0u };
-}
-
-template<size_t BitsY, size_t BitsA>
-value<BitsY> reduce_and_s(const value<BitsA> &a) {
-	return value<BitsY> { a.bit_not().is_zero() ? 1u : 0u };
-}
-
-template<size_t BitsY, size_t BitsA>
-value<BitsY> reduce_or_u(const value<BitsA> &a) {
-	return value<BitsY> { a ? 1u : 0u };
-}
-
-template<size_t BitsY, size_t BitsA>
-value<BitsY> reduce_or_s(const value<BitsA> &a) {
-	return value<BitsY> { a ? 1u : 0u };
-}
-
-template<size_t BitsY, size_t BitsA>
-value<BitsY> reduce_xor_u(const value<BitsA> &a) {
-	return value<BitsY> { (a.ctpop() % 2) ? 1u : 0u };
-}
-
-template<size_t BitsY, size_t BitsA>
-value<BitsY> reduce_xor_s(const value<BitsA> &a) {
-	return value<BitsY> { (a.ctpop() % 2) ? 1u : 0u };
-}
-
-template<size_t BitsY, size_t BitsA>
-value<BitsY> reduce_xnor_u(const value<BitsA> &a) {
-	return value<BitsY> { (a.ctpop() % 2) ? 0u : 1u };
-}
-
-template<size_t BitsY, size_t BitsA>
-value<BitsY> reduce_xnor_s(const value<BitsA> &a) {
-	return value<BitsY> { (a.ctpop() % 2) ? 0u : 1u };
-}
-
-template<size_t BitsY, size_t BitsA>
-value<BitsY> reduce_bool_u(const value<BitsA> &a) {
-	return value<BitsY> { a ? 1u : 0u };
-}
-
-template<size_t BitsY, size_t BitsA>
-value<BitsY> reduce_bool_s(const value<BitsA> &a) {
-	return value<BitsY> { a ? 1u : 0u };
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
@@ -936,26 +918,6 @@ value<BitsY> xnor_uu(const value<BitsA> &a, const value<BitsB> &b) {
 template<size_t BitsY, size_t BitsA, size_t BitsB>
 value<BitsY> xnor_ss(const value<BitsA> &a, const value<BitsB> &b) {
 	return a.template scast<BitsY>().bit_xor(b.template scast<BitsY>()).bit_not();
-}
-
-template<size_t BitsY, size_t BitsA, size_t BitsB>
-value<BitsY> logic_and_uu(const value<BitsA> &a, const value<BitsB> &b) {
-	return value<BitsY> { (bool(a) & bool(b)) ? 1u : 0u };
-}
-
-template<size_t BitsY, size_t BitsA, size_t BitsB>
-value<BitsY> logic_and_ss(const value<BitsA> &a, const value<BitsB> &b) {
-	return value<BitsY> { (bool(a) & bool(b)) ? 1u : 0u };
-}
-
-template<size_t BitsY, size_t BitsA, size_t BitsB>
-value<BitsY> logic_or_uu(const value<BitsA> &a, const value<BitsB> &b) {
-	return value<BitsY> { (bool(a) | bool(b)) ? 1u : 0u };
-}
-
-template<size_t BitsY, size_t BitsA, size_t BitsB>
-value<BitsY> logic_or_ss(const value<BitsA> &a, const value<BitsB> &b) {
-	return value<BitsY> { (bool(a) | bool(b)) ? 1u : 0u };
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>

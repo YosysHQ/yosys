@@ -192,6 +192,13 @@ bool is_binary_cell(RTLIL::IdString type)
 		ID($add), ID($sub), ID($mul), ID($div), ID($mod));
 }
 
+bool is_extending_cell(RTLIL::IdString type)
+{
+	return !type.in(
+		ID($logic_not), ID($logic_and), ID($logic_or),
+		ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool));
+}
+
 bool is_elidable_cell(RTLIL::IdString type)
 {
 	return is_unary_cell(type) || is_binary_cell(type) || type.in(
@@ -907,17 +914,19 @@ struct CxxrtlWorker {
 	{
 		// Unary cells
 		if (is_unary_cell(cell->type)) {
-			f << cell->type.substr(1) << '_' <<
-			     (cell->getParam(ID::A_SIGNED).as_bool() ? 's' : 'u') <<
-			     "<" << cell->getParam(ID::Y_WIDTH).as_int() << ">(";
+			f << cell->type.substr(1);
+			if (is_extending_cell(cell->type))
+				f << '_' << (cell->getParam(ID::A_SIGNED).as_bool() ? 's' : 'u');
+			f << "<" << cell->getParam(ID::Y_WIDTH).as_int() << ">(";
 			dump_sigspec_rhs(cell->getPort(ID::A));
 			f << ")";
 		// Binary cells
 		} else if (is_binary_cell(cell->type)) {
-			f << cell->type.substr(1) << '_' <<
-			     (cell->getParam(ID::A_SIGNED).as_bool() ? 's' : 'u') <<
-			     (cell->getParam(ID::B_SIGNED).as_bool() ? 's' : 'u') <<
-			     "<" << cell->getParam(ID::Y_WIDTH).as_int() << ">(";
+			f << cell->type.substr(1);
+			if (is_extending_cell(cell->type))
+				f << '_' << (cell->getParam(ID::A_SIGNED).as_bool() ? 's' : 'u') <<
+				            (cell->getParam(ID::B_SIGNED).as_bool() ? 's' : 'u');
+			f << "<" << cell->getParam(ID::Y_WIDTH).as_int() << ">(";
 			dump_sigspec_rhs(cell->getPort(ID::A));
 			f << ", ";
 			dump_sigspec_rhs(cell->getPort(ID::B));
