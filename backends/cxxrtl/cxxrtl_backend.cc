@@ -508,7 +508,7 @@ std::string get_hdl_name(T *object)
 	if (object->has_attribute(ID::hdlname))
 		return object->get_string_attribute(ID::hdlname);
 	else
-		return object->name.str();
+		return object->name.str().substr(1);
 }
 
 struct CxxrtlWorker {

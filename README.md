@@ -309,7 +309,9 @@ Verilog Attributes and non-standard features
   that have ports with a width that depends on a parameter.
 
 - The ``hdlname`` attribute is used by some passes to document the original
-  (HDL) name of a module when renaming a module.
+  (HDL) name of a module when renaming a module. It should contain a single
+  name, or, when describing a hierarchical name in a flattened design, multiple
+  names separated by a single space character.
 
 - The ``keep`` attribute on cells and wires is used to mark objects that should
   never be removed by the optimizer. This is used for example for cells that

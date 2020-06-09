@@ -682,6 +682,9 @@ struct RTLIL::AttrObject
 	std::string get_src_attribute() const {
 		return get_string_attribute(ID::src);
 	}
+
+	void set_hdlname_attribute(const vector<string> &hierarchy);
+	vector<string> get_hdlname_attribute() const;
 };
 
 struct RTLIL::SigChunk
