@@ -79,14 +79,6 @@ struct FlattenWorker
 
 	void flatten_cell(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Cell *cell, RTLIL::Module *tpl, std::vector<RTLIL::Cell*> &new_cells)
 	{
-		if (tpl->processes.size() != 0) {
-			log("Flattening yielded processes:");
-			for (auto &it : tpl->processes)
-				log(" %s",log_id(it.first));
-			log("\n");
-			log_error("Flattening yielded processes -> this is not supported.\n");
-		}
-
 		// Copy the contents of the flattened cell
 
 		dict<IdString, IdString> memory_map;
@@ -125,6 +117,14 @@ struct FlattenWorker
 			map_attributes(cell, new_wire, tpl_wire->name);
 			wire_map[tpl_wire] = new_wire;
 			design->select(module, new_wire);
+		}
+
+		for (auto &tpl_proc_it : tpl->processes) {
+			RTLIL::Process *new_proc = module->addProcess(map_name(cell, tpl_proc_it.second), tpl_proc_it.second);
+			map_attributes(cell, new_proc, tpl_proc_it.second->name);
+			auto rewriter = [&](RTLIL::SigSpec &sig) { map_sigspec(wire_map, sig); };
+			new_proc->rewrite_sigspecs(rewriter);
+			design->select(module, new_proc);
 		}
 
 		for (auto tpl_cell : tpl->cells()) {
