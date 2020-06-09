@@ -474,14 +474,16 @@ std::vector<std::string> split_by(const std::string &str, const std::string &sep
 	std::vector<std::string> result;
 	size_t prev = 0;
 	while (true) {
-		size_t curr = str.find_first_of(sep, prev + 1);
-		if (curr > str.size())
-			curr = str.size();
-		if (curr > prev + 1)
-			result.push_back(str.substr(prev, curr - prev));
-		if (curr == str.size())
+		size_t curr = str.find_first_of(sep, prev);
+		if (curr == std::string::npos) {
+			std::string part = str.substr(prev);
+			if (!part.empty()) result.push_back(part);
 			break;
-		prev = curr;
+		} else {
+			std::string part = str.substr(prev, curr - prev);
+			if (!part.empty()) result.push_back(part);
+			prev = curr + 1;
+		}
 	}
 	return result;
 }
