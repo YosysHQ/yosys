@@ -44,7 +44,7 @@ void cxxrtl_vcd_add(cxxrtl_vcd vcd, const char *name, cxxrtl_object *object) {
 	// Note the copy. We don't know whether `object` came from a design (in which case it is
 	// an instance of `debug_item`), or from user code (in which case it is an instance of
 	// `cxxrtl_object`), so casting the pointer wouldn't be safe.
-	vcd->writer.add(name, debug_item(*object));
+	vcd->writer.add(name, cxxrtl::debug_item(*object));
 }
 
 void cxxrtl_vcd_add_from(cxxrtl_vcd vcd, cxxrtl_handle handle) {
@@ -55,7 +55,7 @@ void cxxrtl_vcd_add_from_if(cxxrtl_vcd vcd, cxxrtl_handle handle, void *data,
 														int (*filter)(void *data, const char *name,
 														              const cxxrtl_object *object)) {
 	vcd->writer.add(cxxrtl_debug_items_from_handle(handle),
-		[=](const std::string &name, const debug_item &item) {
+		[=](const std::string &name, const cxxrtl::debug_item &item) {
 			return filter(data, name.c_str(), static_cast<const cxxrtl_object*>(&item));
 		});
 }
