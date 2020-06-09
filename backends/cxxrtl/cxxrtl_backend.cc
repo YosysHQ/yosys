@@ -527,12 +527,13 @@ struct CxxrtlWorker {
 	std::ostream *impl_f = nullptr;
 	std::ostream *intf_f = nullptr;
 
+	bool run_flatten = false;
+	bool run_proc = false;
+
 	bool elide_internal = false;
 	bool elide_public = false;
 	bool localize_internal = false;
 	bool localize_public = false;
-	bool run_proc_flatten = false;
-	bool max_opt_level = false;
 
 	bool debug_info = false;
 
@@ -2145,7 +2146,6 @@ struct CxxrtlWorker {
 				log("Module `%s' contains feedback arcs through wires:\n", log_id(module));
 				for (auto wire : feedback_wires)
 					log("  %s\n", log_id(wire));
-				log("\n");
 			}
 
 			for (auto wire : module->wires()) {
@@ -2177,7 +2177,6 @@ struct CxxrtlWorker {
 				log("Module `%s' contains buffered combinatorial wires:\n", log_id(module));
 				for (auto wire : buffered_wires)
 					log("  %s\n", log_id(wire));
-				log("\n");
 			}
 
 			eval_converges[module] = feedback_wires.empty() && buffered_wires.empty();
@@ -2230,8 +2229,10 @@ struct CxxrtlWorker {
 			else if (has_buffered_wires)
 				why_pessimistic = "buffered combinatorial wires";
 			log_warning("Design contains %s, which require delta cycles during evaluation.\n", why_pessimistic);
-			if (!max_opt_level)
-				log("Increasing the optimization level may eliminate %s from the design.\n", why_pessimistic);
+			if (!run_flatten)
+				log("Flattening may eliminate %s from the design.\n", why_pessimistic);
+			if (!run_proc)
+				log("Converting processes to netlists may eliminate %s from the design.\n", why_pessimistic);
 		}
 	}
 
@@ -2266,9 +2267,12 @@ struct CxxrtlWorker {
 		bool has_sync_init, has_packed_mem;
 		log_push();
 		check_design(design, has_sync_init, has_packed_mem);
-		if (run_proc_flatten) {
-			Pass::call(design, "proc");
+		if (run_flatten) {
 			Pass::call(design, "flatten");
+			did_anything = true;
+		}
+		if (run_proc) {
+			Pass::call(design, "proc");
 			did_anything = true;
 		} else if (has_sync_init) {
 			// We're only interested in proc_init, but it depends on proc_prune and proc_clean, so call those
@@ -2294,7 +2298,7 @@ struct CxxrtlWorker {
 };
 
 struct CxxrtlBackend : public Backend {
-	static const int DEFAULT_OPT_LEVEL = 5;
+	static const int DEFAULT_OPT_LEVEL = 4;
 	static const int DEFAULT_DEBUG_LEVEL = 1;
 
 	CxxrtlBackend() : Backend("cxxrtl", "convert design to C++ RTL simulation") { }
@@ -2466,6 +2470,17 @@ struct CxxrtlBackend : public Backend {
 		log("        place the generated code into namespace <ns-name>. if not specified,\n");
 		log("        \"cxxrtl_design\" is used.\n");
 		log("\n");
+		log("    -noflatten\n");
+		log("        don't flatten the design. fully flattened designs can evaluate within\n");
+		log("        one delta cycle if they have no combinatorial feedback.\n");
+		log("        note that the debug interface and waveform dumps use full hierarchical\n");
+		log("        names for all wires even in flattened designs.\n");
+		log("\n");
+		log("    -noproc\n");
+		log("        don't convert processes to netlists. in most designs, converting\n");
+		log("        processes significantly improves evaluation performance at the cost of\n");
+		log("        slight increase in compilation time.\n");
+		log("\n");
 		log("    -O <level>\n");
 		log("        set the optimization level. the default is -O%d. higher optimization\n", DEFAULT_OPT_LEVEL);
 		log("        levels dramatically decrease compile and run time, and highest level\n");
@@ -2486,9 +2501,6 @@ struct CxxrtlBackend : public Backend {
 		log("    -O4\n");
 		log("        like -O3, and localize public wires not marked (*keep*) if possible.\n");
 		log("\n");
-		log("    -O5\n");
-		log("        like -O4, and run `proc; flatten` first.\n");
-		log("\n");
 		log("    -g <level>\n");
 		log("        set the debug level. the default is -g%d. higher debug levels provide\n", DEFAULT_DEBUG_LEVEL);
 		log("        more visibility and generate more code, but do not pessimize evaluation.\n");
@@ -2504,6 +2516,8 @@ struct CxxrtlBackend : public Backend {
 
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
+		bool noflatten = false;
+		bool noproc = false;
 		int opt_level = DEFAULT_OPT_LEVEL;
 		int debug_level = DEFAULT_DEBUG_LEVEL;
 		CxxrtlWorker worker;
@@ -2513,6 +2527,14 @@ struct CxxrtlBackend : public Backend {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
+			if (args[argidx] == "-noflatten") {
+				noflatten = true;
+				continue;
+			}
+			if (args[argidx] == "-noproc") {
+				noproc = true;
+				continue;
+			}
 			if (args[argidx] == "-O" && argidx+1 < args.size()) {
 				opt_level = std::stoi(args[++argidx]);
 				continue;
@@ -2541,12 +2563,10 @@ struct CxxrtlBackend : public Backend {
 		}
 		extra_args(f, filename, args, argidx);
 
+		worker.run_flatten = !noflatten;
+		worker.run_proc = !noproc;
 		switch (opt_level) {
 			// the highest level here must match DEFAULT_OPT_LEVEL
-			case 5:
-				worker.max_opt_level = true;
-				worker.run_proc_flatten = true;
-				YS_FALLTHROUGH
 			case 4:
 				worker.localize_public = true;
 				YS_FALLTHROUGH
@@ -2564,7 +2584,6 @@ struct CxxrtlBackend : public Backend {
 			default:
 				log_cmd_error("Invalid optimization level %d.\n", opt_level);
 		}
-
 		switch (debug_level) {
 			// the highest level here must match DEFAULT_DEBUG_LEVEL
 			case 1:
