@@ -1,8 +1,9 @@
+`default_nettype none
 module multiple_blocking_gate (clk, ctrl, din, sel, dout);
-   input clk;
-   input [4:0] ctrl;
-   input [1:0] din;
-   input [0:0] sel;
+   input wire clk;
+   input wire [4:0] ctrl;
+   input wire [1:0] din;
+   input wire [0:0] sel;
    output reg [31:0] dout;
    reg [5:0] 	     a;
    reg [0:0] 	     b;

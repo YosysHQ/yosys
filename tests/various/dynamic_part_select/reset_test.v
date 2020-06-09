@@ -1,8 +1,10 @@
+`default_nettype none
 module reset_test  #(parameter WIDTH=32, SELW=1, CTRLW=$clog2(WIDTH), DINW=2**SELW)
-   (input                  clk,
-    input [CTRLW-1:0] 	   ctrl,
-    input [DINW-1:0] 	   din,
-    input [SELW-1:0] 	   sel,
+   (input wire             clk,
+    input wire             reset,
+    input wire [CTRLW-1:0] ctrl,
+    input wire [DINW-1:0]  din,
+    input wire [SELW-1:0]  sel,
     output reg [WIDTH-1:0] dout);
    
    reg [SELW:0] 		   i;
@@ -16,8 +18,6 @@ module reset_test  #(parameter WIDTH=32, SELW=1, CTRLW=$clog2(WIDTH), DINW=2**SE
             dout[i*rval+:SLICE] <= 32'hDEAD;
          end
       end
-      //else begin
       dout[ctrl*sel+:SLICE] <= din;
-      //end
    end
 endmodule
