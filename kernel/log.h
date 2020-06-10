@@ -308,10 +308,6 @@ struct PerformanceTimer
 	static int64_t query() {
 #  ifdef _WIN32
 		return 0;
-#  elif defined(_POSIX_TIMERS) && (_POSIX_TIMERS > 0)
-		struct timespec ts;
-		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
-		return int64_t(ts.tv_sec)*1000000000 + ts.tv_nsec;
 #  elif defined(RUSAGE_SELF)
 		struct rusage rusage;
 		int64_t t = 0;
