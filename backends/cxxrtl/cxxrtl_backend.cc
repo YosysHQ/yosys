@@ -527,12 +527,15 @@ struct CxxrtlWorker {
 	std::ostream *impl_f = nullptr;
 	std::ostream *intf_f = nullptr;
 
-	bool elide_internal = false;
-	bool elide_public = false;
+	bool run_flatten = false;
+	bool run_proc = false;
+
+	bool unbuffer_internal = false;
+	bool unbuffer_public = false;
 	bool localize_internal = false;
 	bool localize_public = false;
-	bool run_proc_flatten = false;
-	bool max_opt_level = false;
+	bool elide_internal = false;
+	bool elide_public = false;
 
 	bool debug_info = false;
 
@@ -547,6 +550,7 @@ struct CxxrtlWorker {
 	dict<const RTLIL::Cell*, pool<const RTLIL::Cell*>> transparent_for;
 	dict<const RTLIL::Wire*, FlowGraph::Node> elided_wires;
 	dict<const RTLIL::Module*, std::vector<FlowGraph::Node>> schedule;
+	pool<const RTLIL::Wire*> unbuffered_wires;
 	pool<const RTLIL::Wire*> localized_wires;
 	dict<const RTLIL::Wire*, const RTLIL::Wire*> debug_alias_wires;
 	dict<const RTLIL::Wire*, RTLIL::Const> debug_const_wires;
@@ -786,7 +790,8 @@ struct CxxrtlWorker {
 			dump_const(chunk.data, chunk.width, chunk.offset);
 			return false;
 		} else {
-			if (!is_lhs && elided_wires.count(chunk.wire)) {
+			if (elided_wires.count(chunk.wire)) {
+				log_assert(!is_lhs);
 				const FlowGraph::Node &node = elided_wires[chunk.wire];
 				switch (node.type) {
 					case FlowGraph::Node::Type::CONNECT:
@@ -799,7 +804,7 @@ struct CxxrtlWorker {
 					default:
 						log_assert(false);
 				}
-			} else if (localized_wires[chunk.wire] || is_input_wire(chunk.wire)) {
+			} else if (unbuffered_wires[chunk.wire] || is_input_wire(chunk.wire)) {
 				f << mangle(chunk.wire);
 			} else {
 				f << mangle(chunk.wire) << (is_lhs ? ".next" : ".curr");
@@ -1434,13 +1439,13 @@ struct CxxrtlWorker {
 	{
 		if (elided_wires.count(wire))
 			return;
-		if (localized_wires.count(wire) != is_local_context)
-			return;
 
-		if (is_local_context) {
-			dump_attrs(wire);
-			f << indent << "value<" << wire->width << "> " << mangle(wire) << ";\n";
-		} else {
+		if (unbuffered_wires[wire]) {
+			if (localized_wires[wire] == is_local_context) {
+				dump_attrs(wire);
+				f << indent << "value<" << wire->width << "> " << mangle(wire) << ";\n";
+			}
+		} else if (!is_local_context) {
 			std::string width;
 			if (wire->module->has_attribute(ID(cxxrtl_blackbox)) && wire->has_attribute(ID(cxxrtl_width))) {
 				width = wire->get_string_attribute(ID(cxxrtl_width));
@@ -1590,7 +1595,7 @@ struct CxxrtlWorker {
 		inc_indent();
 			f << indent << "bool changed = false;\n";
 			for (auto wire : module->wires()) {
-				if (elided_wires.count(wire) || localized_wires.count(wire))
+				if (elided_wires.count(wire) || unbuffered_wires.count(wire))
 					continue;
 				if (is_input_wire(wire)) {
 					if (edge_wires[wire])
@@ -1619,6 +1624,7 @@ struct CxxrtlWorker {
 
 	void dump_debug_info_method(RTLIL::Module *module)
 	{
+		size_t count_public_wires = 0;
 		size_t count_const_wires = 0;
 		size_t count_alias_wires = 0;
 		size_t count_member_wires = 0;
@@ -1628,6 +1634,7 @@ struct CxxrtlWorker {
 			for (auto wire : module->wires()) {
 				if (wire->name[0] != '\\')
 					continue;
+				count_public_wires++;
 				if (debug_const_wires.count(wire)) {
 					// Wire tied to a constant
 					f << indent << "static const value<" << wire->width << "> const_" << mangle(wire) << " = ";
@@ -1665,11 +1672,12 @@ struct CxxrtlWorker {
 			}
 		dec_indent();
 
-		log_debug("Debug information statistics for module %s:\n", log_id(module));
-		log_debug("  Const wires:  %zu\n", count_const_wires);
-		log_debug("  Alias wires:  %zu\n", count_alias_wires);
-		log_debug("  Member wires: %zu\n", count_member_wires);
-		log_debug("  Other wires:  %zu (no debug information)\n", count_skipped_wires);
+		log_debug("Debug information statistics for module `%s':\n", log_id(module));
+		log_debug("  Public wires: %zu, of which:\n", count_public_wires);
+		log_debug("    Const wires:  %zu\n", count_const_wires);
+		log_debug("    Alias wires:  %zu\n", count_alias_wires);
+		log_debug("    Member wires: %zu\n", count_member_wires);
+		log_debug("    Other wires:  %zu (no debug information)\n", count_skipped_wires);
 	}
 
 	void dump_metadata_map(const dict<RTLIL::IdString, RTLIL::Const> &metadata_map)
@@ -1949,7 +1957,7 @@ struct CxxrtlWorker {
 	void analyze_design(RTLIL::Design *design)
 	{
 		bool has_feedback_arcs = false;
-		bool has_buffered_wires = false;
+		bool has_buffered_comb_wires = false;
 
 		for (auto module : design->modules()) {
 			if (!design->selected_module(module))
@@ -2145,17 +2153,19 @@ struct CxxrtlWorker {
 				log("Module `%s' contains feedback arcs through wires:\n", log_id(module));
 				for (auto wire : feedback_wires)
 					log("  %s\n", log_id(wire));
-				log("\n");
 			}
 
 			for (auto wire : module->wires()) {
 				if (feedback_wires[wire]) continue;
 				if (wire->port_id != 0) continue;
 				if (wire->get_bool_attribute(ID::keep)) continue;
-				if (wire->name.begins_with("$") && !localize_internal) continue;
-				if (wire->name.begins_with("\\") && !localize_public) continue;
+				if (wire->name.begins_with("$") && !unbuffer_internal) continue;
+				if (wire->name.begins_with("\\") && !unbuffer_public) continue;
 				if (edge_wires[wire]) continue;
 				if (flow.wire_sync_defs.count(wire) > 0) continue;
+				unbuffered_wires.insert(wire);
+				if (wire->name.begins_with("$") && !localize_internal) continue;
+				if (wire->name.begins_with("\\") && !localize_public) continue;
 				localized_wires.insert(wire);
 			}
 
@@ -2165,22 +2175,19 @@ struct CxxrtlWorker {
 			// it is possible that a design with no feedback arcs would end up with doubly buffered wires in such cases
 			// as a wire with multiple drivers where one of them is combinatorial and the other is synchronous. Such designs
 			// also require more than one delta cycle to converge.
-			pool<const RTLIL::Wire*> buffered_wires;
+			pool<const RTLIL::Wire*> buffered_comb_wires;
 			for (auto wire : module->wires()) {
-				if (flow.wire_comb_defs[wire].size() > 0 && !elided_wires.count(wire) && !localized_wires[wire]) {
-					if (!feedback_wires[wire])
-						buffered_wires.insert(wire);
-				}
+				if (flow.wire_comb_defs[wire].size() > 0 && !unbuffered_wires[wire] && !feedback_wires[wire])
+					buffered_comb_wires.insert(wire);
 			}
-			if (!buffered_wires.empty()) {
-				has_buffered_wires = true;
+			if (!buffered_comb_wires.empty()) {
+				has_buffered_comb_wires = true;
 				log("Module `%s' contains buffered combinatorial wires:\n", log_id(module));
-				for (auto wire : buffered_wires)
+				for (auto wire : buffered_comb_wires)
 					log("  %s\n", log_id(wire));
-				log("\n");
 			}
 
-			eval_converges[module] = feedback_wires.empty() && buffered_wires.empty();
+			eval_converges[module] = feedback_wires.empty() && buffered_comb_wires.empty();
 
 			if (debug_info) {
 				// Find wires that alias other wires or are tied to a constant; debug information can be enriched with these
@@ -2191,7 +2198,7 @@ struct CxxrtlWorker {
 				for (auto wire : module->wires()) {
 					if (wire->name[0] != '\\')
 						continue;
-					if (!localized_wires[wire])
+					if (!unbuffered_wires[wire])
 						continue;
 					const RTLIL::Wire *wire_it = wire;
 					while (1) {
@@ -2204,7 +2211,7 @@ struct CxxrtlWorker {
 						RTLIL::SigSpec rhs_sig = node->connect.second;
 						if (rhs_sig.is_wire()) {
 							RTLIL::Wire *rhs_wire = rhs_sig.as_wire();
-							if (localized_wires[rhs_wire]) {
+							if (unbuffered_wires[rhs_wire]) {
 								wire_it = rhs_wire; // maybe an alias
 							} else {
 								debug_alias_wires[wire] = rhs_wire; // is an alias
@@ -2220,18 +2227,20 @@ struct CxxrtlWorker {
 				}
 			}
 		}
-		if (has_feedback_arcs || has_buffered_wires) {
+		if (has_feedback_arcs || has_buffered_comb_wires) {
 			// Although both non-feedback buffered combinatorial wires and apparent feedback wires may be eliminated
 			// by optimizing the design, if after `proc; flatten` there are any feedback wires remaining, it is very
 			// likely that these feedback wires are indicative of a true logic loop, so they get emphasized in the message.
 			const char *why_pessimistic = nullptr;
 			if (has_feedback_arcs)
 				why_pessimistic = "feedback wires";
-			else if (has_buffered_wires)
+			else if (has_buffered_comb_wires)
 				why_pessimistic = "buffered combinatorial wires";
 			log_warning("Design contains %s, which require delta cycles during evaluation.\n", why_pessimistic);
-			if (!max_opt_level)
-				log("Increasing the optimization level may eliminate %s from the design.\n", why_pessimistic);
+			if (!run_flatten)
+				log("Flattening may eliminate %s from the design.\n", why_pessimistic);
+			if (!run_proc)
+				log("Converting processes to netlists may eliminate %s from the design.\n", why_pessimistic);
 		}
 	}
 
@@ -2266,9 +2275,12 @@ struct CxxrtlWorker {
 		bool has_sync_init, has_packed_mem;
 		log_push();
 		check_design(design, has_sync_init, has_packed_mem);
-		if (run_proc_flatten) {
-			Pass::call(design, "proc");
+		if (run_flatten) {
 			Pass::call(design, "flatten");
+			did_anything = true;
+		}
+		if (run_proc) {
+			Pass::call(design, "proc");
 			did_anything = true;
 		} else if (has_sync_init) {
 			// We're only interested in proc_init, but it depends on proc_prune and proc_clean, so call those
@@ -2294,7 +2306,8 @@ struct CxxrtlWorker {
 };
 
 struct CxxrtlBackend : public Backend {
-	static const int DEFAULT_OPT_LEVEL = 5;
+	static const int DEFAULT_OPT_LEVEL = 6;
+	static const int OPT_LEVEL_DEBUG = 4;
 	static const int DEFAULT_DEBUG_LEVEL = 1;
 
 	CxxrtlBackend() : Backend("cxxrtl", "convert design to C++ RTL simulation") { }
@@ -2466,6 +2479,17 @@ struct CxxrtlBackend : public Backend {
 		log("        place the generated code into namespace <ns-name>. if not specified,\n");
 		log("        \"cxxrtl_design\" is used.\n");
 		log("\n");
+		log("    -noflatten\n");
+		log("        don't flatten the design. fully flattened designs can evaluate within\n");
+		log("        one delta cycle if they have no combinatorial feedback.\n");
+		log("        note that the debug interface and waveform dumps use full hierarchical\n");
+		log("        names for all wires even in flattened designs.\n");
+		log("\n");
+		log("    -noproc\n");
+		log("        don't convert processes to netlists. in most designs, converting\n");
+		log("        processes significantly improves evaluation performance at the cost of\n");
+		log("        slight increase in compilation time.\n");
+		log("\n");
 		log("    -O <level>\n");
 		log("        set the optimization level. the default is -O%d. higher optimization\n", DEFAULT_OPT_LEVEL);
 		log("        levels dramatically decrease compile and run time, and highest level\n");
@@ -2475,19 +2499,26 @@ struct CxxrtlBackend : public Backend {
 		log("        no optimization.\n");
 		log("\n");
 		log("    -O1\n");
-		log("        elide internal wires if possible.\n");
+		log("        localize internal wires if possible.\n");
 		log("\n");
 		log("    -O2\n");
-		log("        like -O1, and localize internal wires if possible.\n");
+		log("        like -O1, and unbuffer internal wires if possible.\n");
 		log("\n");
 		log("    -O3\n");
-		log("        like -O2, and elide public wires not marked (*keep*) if possible.\n");
+		log("        like -O2, and elide internal wires if possible.\n");
 		log("\n");
 		log("    -O4\n");
-		log("        like -O3, and localize public wires not marked (*keep*) if possible.\n");
+		log("        like -O3, and unbuffer public wires not marked (*keep*) if possible.\n");
 		log("\n");
 		log("    -O5\n");
-		log("        like -O4, and run `proc; flatten` first.\n");
+		log("        like -O4, and localize public wires not marked (*keep*) if possible.\n");
+		log("\n");
+		log("    -O6\n");
+		log("        like -O5, and elide public wires not marked (*keep*) if possible.\n");
+		log("\n");
+		log("    -Og\n");
+		log("        highest optimization level that provides debug information for all\n");
+		log("        public wires. currently, alias for -O%d.\n", OPT_LEVEL_DEBUG);
 		log("\n");
 		log("    -g <level>\n");
 		log("        set the debug level. the default is -g%d. higher debug levels provide\n", DEFAULT_DEBUG_LEVEL);
@@ -2504,6 +2535,8 @@ struct CxxrtlBackend : public Backend {
 
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
+		bool noflatten = false;
+		bool noproc = false;
 		int opt_level = DEFAULT_OPT_LEVEL;
 		int debug_level = DEFAULT_DEBUG_LEVEL;
 		CxxrtlWorker worker;
@@ -2513,6 +2546,23 @@ struct CxxrtlBackend : public Backend {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
+			if (args[argidx] == "-noflatten") {
+				noflatten = true;
+				continue;
+			}
+			if (args[argidx] == "-noproc") {
+				noproc = true;
+				continue;
+			}
+			if (args[argidx] == "-Og") {
+				opt_level = OPT_LEVEL_DEBUG;
+				continue;
+			}
+			if (args[argidx] == "-O" && argidx+1 < args.size() && args[argidx+1] == "g") {
+				argidx++;
+				opt_level = OPT_LEVEL_DEBUG;
+				continue;
+			}
 			if (args[argidx] == "-O" && argidx+1 < args.size()) {
 				opt_level = std::stoi(args[++argidx]);
 				continue;
@@ -2541,30 +2591,33 @@ struct CxxrtlBackend : public Backend {
 		}
 		extra_args(f, filename, args, argidx);
 
+		worker.run_flatten = !noflatten;
+		worker.run_proc = !noproc;
 		switch (opt_level) {
 			// the highest level here must match DEFAULT_OPT_LEVEL
-			case 5:
-				worker.max_opt_level = true;
-				worker.run_proc_flatten = true;
+			case 6:
+				worker.elide_public = true;
 				YS_FALLTHROUGH
-			case 4:
+			case 5:
 				worker.localize_public = true;
 				YS_FALLTHROUGH
+			case 4:
+				worker.unbuffer_public = true;
+				YS_FALLTHROUGH
 			case 3:
-				worker.elide_public = true;
+				worker.elide_internal = true;
 				YS_FALLTHROUGH
 			case 2:
 				worker.localize_internal = true;
 				YS_FALLTHROUGH
 			case 1:
-				worker.elide_internal = true;
+				worker.unbuffer_internal = true;
 				YS_FALLTHROUGH
 			case 0:
 				break;
 			default:
 				log_cmd_error("Invalid optimization level %d.\n", opt_level);
 		}
-
 		switch (debug_level) {
 			// the highest level here must match DEFAULT_DEBUG_LEVEL
 			case 1:
