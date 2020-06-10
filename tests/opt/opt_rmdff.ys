@@ -1,6 +1,7 @@
 read_verilog -icells opt_rmdff.v
 prep
 design -stash gold
+
 read_verilog -icells opt_rmdff.v
 proc
 opt_rmdff
@@ -14,13 +15,19 @@ design -stash gate
 design -import gold -as gold
 design -import gate -as gate
 
-equiv_make gold gate equiv
-hierarchy -top equiv
-equiv_simple -undef
-equiv_status -assert
+cd gold
+# fix up the "EN is don't care" cases, so that the gold output can't
+# become defined by using the properties of an undefined enable. (Both
+# remove6 and remove15 have active-low enables.)
+connect -port remove6 EN 1'b1
+connect -port remove15 E 1'b1
+cd ..
 
-#design -load gold
-#stat
-#
-#design -load gate
-#stat
+dff2dffe -unmap
+clk2fflogic
+opt_clean
+
+miter -equiv -ignore_gold_x -make_assert -make_outputs -make_outcmp -flatten gold gate miter
+hierarchy -top miter
+
+sat -verify -prove-asserts -enable_undef -set-init-undef -seq 10 -show-public miter

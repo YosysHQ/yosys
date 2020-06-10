@@ -256,13 +256,13 @@ struct SatHelper
 		{
 			RTLIL::SigSpec big_lhs, big_rhs;
 
-			for (auto &it : module->wires_)
+			for (auto wire : module->wires())
 			{
-				if (it.second->attributes.count(ID::init) == 0)
+				if (wire->attributes.count(ID::init) == 0)
 					continue;
 
-				RTLIL::SigSpec lhs = sigmap(it.second);
-				RTLIL::SigSpec rhs = it.second->attributes.at(ID::init);
+				RTLIL::SigSpec lhs = sigmap(wire);
+				RTLIL::SigSpec rhs = wire->attributes.at(ID::init);
 				log_assert(lhs.size() == rhs.size());
 
 				RTLIL::SigSpec removed_bits;
