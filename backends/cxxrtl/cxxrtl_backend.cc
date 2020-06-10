@@ -1922,8 +1922,9 @@ struct CxxrtlWorker {
 		if (top_module != nullptr && debug_info) {
 			f << "cxxrtl_toplevel " << design_ns << "_create() {\n";
 			inc_indent();
+				std::string top_type = design_ns + "::" + mangle(top_module);
 				f << indent << "return new _cxxrtl_toplevel { ";
-				f << "std::make_unique<" << design_ns << "::" << mangle(top_module) << ">()";
+				f << "std::unique_ptr<" << top_type << ">(new " + top_type + ")";
 				f << " };\n";
 			dec_indent();
 			f << "}\n";
