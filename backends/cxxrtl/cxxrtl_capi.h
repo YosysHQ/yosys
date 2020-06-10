@@ -89,7 +89,14 @@ enum cxxrtl_type {
 	// always NULL.
 	CXXRTL_MEMORY = 2,
 
-	// More object types will be added in the future, but the existing ones will never change.
+	// Aliases correspond to netlist nodes driven by another node such that their value is always
+	// exactly equal, or driven by a constant value.
+	//
+	// Aliases can be inspected via the `curr` pointer. They cannot be modified, and the `next`
+	// pointer is always NULL.
+	CXXRTL_ALIAS = 3,
+
+	// More object types may be added in the future, but the existing ones will never change.
 };
 
 // Description of a simulated object.
@@ -123,7 +130,7 @@ struct cxxrtl_object {
 	uint32_t *curr;
 	uint32_t *next;
 
-	// More description fields will be added in the future, but the existing ones will never change.
+	// More description fields may be added in the future, but the existing ones will never change.
 };
 
 // Retrieve description of a simulated object.

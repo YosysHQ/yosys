@@ -104,13 +104,13 @@ class vcd_writer {
 		buffer += '\n';
 	}
 
-	const variable &register_variable(size_t width, chunk_t *curr, bool immutable = false) {
+	const variable &register_variable(size_t width, chunk_t *curr, bool constant = false) {
 		if (aliases.count(curr)) {
 			return variables[aliases[curr]];
 		} else {
 			const size_t chunks = (width + (sizeof(chunk_t) * 8 - 1)) / (sizeof(chunk_t) * 8);
 			aliases[curr] = variables.size();
-			if (immutable) {
+			if (constant) {
 				variables.emplace_back(variable { variables.size(), width, curr, (size_t)-1 });
 			} else {
 				variables.emplace_back(variable { variables.size(), width, curr, cache.size() });
@@ -122,7 +122,7 @@ class vcd_writer {
 
 	bool test_variable(const variable &var) {
 		if (var.prev_off == (size_t)-1)
-			return false; // immutable
+			return false; // constant
 		const size_t chunks = (var.width + (sizeof(chunk_t) * 8 - 1)) / (sizeof(chunk_t) * 8);
 		if (std::equal(&var.curr[0], &var.curr[chunks], &cache[var.prev_off])) {
 			return false;
@@ -164,7 +164,7 @@ public:
 		switch (item.type) {
 			// Not the best naming but oh well...
 			case debug_item::VALUE:
-				emit_var(register_variable(item.width, item.curr, /*immutable=*/item.next == nullptr), "wire", name);
+				emit_var(register_variable(item.width, item.curr, /*constant=*/item.next == nullptr), "wire", name);
 				break;
 			case debug_item::WIRE:
 				emit_var(register_variable(item.width, item.curr), "reg", name);
@@ -178,6 +178,13 @@ public:
 				}
 				break;
 			}
+			case debug_item::ALIAS:
+				// Like VALUE, but, even though `item.next == nullptr` always holds, the underlying value
+				// can actually change, and must be tracked. In most cases the VCD identifier will be
+				// unified with the aliased reg, but we should handle the case where only the alias is
+				// added to the VCD writer, too.
+				emit_var(register_variable(item.width, item.curr), "wire", name);
+				break;
 		}
 	}
 
@@ -198,7 +205,7 @@ public:
 
 	void add_without_memories(const debug_items &items) {
 		this->template add(items, [](const std::string &, const debug_item &item) {
-			return item.type == debug_item::VALUE || item.type == debug_item::WIRE;
+			return item.type != debug_item::MEMORY;
 		});
 	}
 
