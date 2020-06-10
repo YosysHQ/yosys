@@ -59,9 +59,13 @@ struct SplitnetsWorker
 		new_wire->port_id = wire->port_id ? wire->port_id + offset : 0;
 		new_wire->port_input = wire->port_input;
 		new_wire->port_output = wire->port_output;
+		new_wire->start_offset = wire->start_offset + offset;
 
 		if (wire->attributes.count(ID::src))
 			new_wire->attributes[ID::src] = wire->attributes.at(ID::src);
+
+		if (wire->attributes.count(ID::hdlname))
+			new_wire->attributes[ID::hdlname] = wire->attributes.at(ID::hdlname);
 
 		if (wire->attributes.count(ID::keep))
 			new_wire->attributes[ID::keep] = wire->attributes.at(ID::keep);
