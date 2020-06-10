@@ -1646,7 +1646,7 @@ struct CxxrtlWorker {
 				} else if (debug_alias_wires.count(wire)) {
 					// Alias of a member wire
 					f << indent << "items.emplace(path + " << escape_cxx_string(get_hdl_name(wire));
-					f << ", debug_item(" << mangle(debug_alias_wires[wire]) << "));\n";
+					f << ", debug_item(debug_alias(), " << mangle(debug_alias_wires[wire]) << "));\n";
 					count_alias_wires++;
 				} else if (!localized_wires.count(wire)) {
 					// Member wire

@@ -716,6 +716,9 @@ struct metadata {
 
 typedef std::map<std::string, metadata> metadata_map;
 
+// Helper class to disambiguate values/wires and their aliases.
+struct debug_alias {};
+
 // This structure is intended for consumption via foreign function interfaces, like Python's ctypes.
 // Because of this it uses a C-style layout that is easy to parse rather than more idiomatic C++.
 //
@@ -726,6 +729,7 @@ struct debug_item : ::cxxrtl_object {
 		VALUE  = CXXRTL_VALUE,
 		WIRE   = CXXRTL_WIRE,
 		MEMORY = CXXRTL_MEMORY,
+		ALIAS  = CXXRTL_ALIAS,
 	};
 
 	debug_item(const ::cxxrtl_object &object) : cxxrtl_object(object) {}
@@ -748,7 +752,7 @@ struct debug_item : ::cxxrtl_object {
 		type  = VALUE;
 		width = Bits;
 		depth = 1;
-		curr  = const_cast<uint32_t*>(item.data);
+		curr  = const_cast<chunk_t*>(item.data);
 		next  = nullptr;
 	}
 
@@ -772,6 +776,29 @@ struct debug_item : ::cxxrtl_object {
 		width = Width;
 		depth = item.data.size();
 		curr  = item.data.empty() ? nullptr : item.data[0].data;
+		next  = nullptr;
+	}
+
+	template<size_t Bits>
+	debug_item(debug_alias, const value<Bits> &item) {
+		static_assert(sizeof(item) == value<Bits>::chunks * sizeof(chunk_t),
+		              "value<Bits> is not compatible with C layout");
+		type  = ALIAS;
+		width = Bits;
+		depth = 1;
+		curr  = const_cast<chunk_t*>(item.data);
+		next  = nullptr;
+	}
+
+	template<size_t Bits>
+	debug_item(debug_alias, const wire<Bits> &item) {
+		static_assert(sizeof(item.curr) == value<Bits>::chunks * sizeof(chunk_t) &&
+		              sizeof(item.next) == value<Bits>::chunks * sizeof(chunk_t),
+		              "wire<Bits> is not compatible with C layout");
+		type  = ALIAS;
+		width = Bits;
+		depth = 1;
+		curr  = const_cast<chunk_t*>(item.curr.data);
 		next  = nullptr;
 	}
 };
