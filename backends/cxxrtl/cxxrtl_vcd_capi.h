@@ -75,8 +75,8 @@ void cxxrtl_vcd_add_from(cxxrtl_vcd vcd, cxxrtl_handle handle);
 //
 // Objects can only be scheduled before the first call to `cxxrtl_vcd_sample`.
 void cxxrtl_vcd_add_from_if(cxxrtl_vcd vcd, cxxrtl_handle handle, void *data,
-					  int (*filter)(void *data, const char *name,
-					                const struct cxxrtl_object *object));
+                            int (*filter)(void *data, const char *name,
+                                          const struct cxxrtl_object *object));
 
 // Schedule all CXXRTL objects in a simulation except for memories.
 //

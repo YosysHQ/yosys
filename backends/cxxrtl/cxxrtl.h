@@ -608,6 +608,7 @@ struct memory {
 		// This utterly reprehensible construct is the most reasonable way to apply a function to every element
 		// of a parameter pack, if the elements all have different types and so cannot be cast to an initializer list.
 		auto _ = {std::move(std::begin(init.data), std::end(init.data), data.begin() + init.offset)...};
+		(void)_;
 	}
 
 	// An operator for direct memory reads. May be used at any time during the simulation.
@@ -676,10 +677,8 @@ struct metadata {
 
 	// In debug mode, using the wrong .as_*() function will assert.
 	// In release mode, using the wrong .as_*() function will safely return a default value.
-	union {
-		const unsigned  uint_value = 0;
-		const signed    sint_value;
-	};
+	const unsigned    uint_value = 0;
+	const signed      sint_value = 0;
 	const std::string string_value = "";
 	const double      double_value = 0.0;
 
@@ -826,7 +825,9 @@ struct module {
 		return deltas;
 	}
 
-	virtual void debug_info(debug_items &items, std::string path = "") {}
+	virtual void debug_info(debug_items &items, std::string path = "") {
+		(void)items, (void)path;
+	}
 };
 
 } // namespace cxxrtl
