@@ -26,11 +26,7 @@ delete uut spec
 techmap
 opt
 stat miter
-abc -script +print_stats;strash;print_stats;drwsat;print_stats;print_stats;fraig;print_stats;dc2,-l,-b;print_stats;irw,-l,-z;print_stats;refactor,-N,15,-z;print_stats;dch,-S,50000,-C,10000;print_stats;dc2,-l;print_stats;fraig,-C,10000;print_stats miter
-techmap
-opt
-stat
-qbfsat -dump-final-smt2 /tmp/test.smt2 -write-solution too_large.soln -solver yices -timeout 3600 -nocleanup -assume-outputs -assume-negative-polarity -specialize miter
+qbfsat -O2 -write-solution too_large.soln -solver yices -timeout 3600 -nocleanup -assume-outputs -assume-negative-polarity miter
 design -pop
 stat
 
