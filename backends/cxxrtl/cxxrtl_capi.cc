@@ -47,14 +47,17 @@ size_t cxxrtl_step(cxxrtl_handle handle) {
 	return handle->module->step();
 }
 
-cxxrtl_object *cxxrtl_get(cxxrtl_handle handle, const char *name) {
-	if (handle->objects.count(name) > 0)
-		return static_cast<cxxrtl_object*>(&handle->objects.at(name));
-	return nullptr;
+struct cxxrtl_object *cxxrtl_get_parts(cxxrtl_handle handle, const char *name, size_t *parts) {
+	auto it = handle->objects.table.find(name);
+	if (it == handle->objects.table.end())
+		return nullptr;
+	*parts = it->second.size();
+	return static_cast<cxxrtl_object*>(&it->second[0]);
 }
 
 void cxxrtl_enum(cxxrtl_handle handle, void *data,
-                 void (*callback)(void *data, const char *name, cxxrtl_object *object)) {
-	for (auto &it : handle->objects)
-		callback(data, it.first.c_str(), static_cast<cxxrtl_object*>(&it.second));
+                 void (*callback)(void *data, const char *name,
+                                  cxxrtl_object *object, size_t parts)) {
+	for (auto &it : handle->objects.table)
+		callback(data, it.first.c_str(), static_cast<cxxrtl_object*>(&it.second[0]), it.second.size());
 }

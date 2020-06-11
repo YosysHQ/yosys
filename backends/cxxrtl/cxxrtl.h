@@ -815,7 +815,38 @@ struct debug_item : ::cxxrtl_object {
 };
 static_assert(std::is_standard_layout<debug_item>::value, "debug_item is not compatible with C layout");
 
-typedef std::map<std::string, debug_item> debug_items;
+struct debug_items {
+	std::map<std::string, std::vector<debug_item>> table;
+
+	void add(const std::string &name, debug_item &&item) {
+		std::vector<debug_item> &parts = table[name];
+		parts.emplace_back(item);
+		std::sort(parts.begin(), parts.end(),
+			[](const debug_item &a, const debug_item &b) {
+				return a.lsb_at < b.lsb_at;
+			});
+	}
+
+	size_t count(const std::string &name) const {
+		if (table.count(name) == 0)
+			return 0;
+		return table.at(name).size();
+	}
+
+	const std::vector<debug_item> &parts_at(const std::string &name) const {
+		return table.at(name);
+	}
+
+	const debug_item &at(const std::string &name) const {
+		const std::vector<debug_item> &parts = table.at(name);
+		assert(parts.size() == 1);
+		return parts.at(0);
+	}
+
+	const debug_item &operator [](const std::string &name) const {
+		return at(name);
+	}
+};
 
 struct module {
 	module() {}

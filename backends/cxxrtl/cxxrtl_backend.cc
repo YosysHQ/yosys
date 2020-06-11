@@ -1640,19 +1640,19 @@ struct CxxrtlWorker {
 					f << indent << "static const value<" << wire->width << "> const_" << mangle(wire) << " = ";
 					dump_const(debug_const_wires[wire]);
 					f << ";\n";
-					f << indent << "items.emplace(path + " << escape_cxx_string(get_hdl_name(wire));
+					f << indent << "items.add(path + " << escape_cxx_string(get_hdl_name(wire));
 					f << ", debug_item(const_" << mangle(wire) << ", ";
 					f << wire->start_offset << "));\n";
 					count_const_wires++;
 				} else if (debug_alias_wires.count(wire)) {
 					// Alias of a member wire
-					f << indent << "items.emplace(path + " << escape_cxx_string(get_hdl_name(wire));
+					f << indent << "items.add(path + " << escape_cxx_string(get_hdl_name(wire));
 					f << ", debug_item(debug_alias(), " << mangle(debug_alias_wires[wire]) << ", ";
 					f << wire->start_offset << "));\n";
 					count_alias_wires++;
 				} else if (!localized_wires.count(wire)) {
 					// Member wire
-					f << indent << "items.emplace(path + " << escape_cxx_string(get_hdl_name(wire));
+					f << indent << "items.add(path + " << escape_cxx_string(get_hdl_name(wire));
 					f << ", debug_item(" << mangle(wire) << ", ";
 					f << wire->start_offset << "));\n";
 					count_member_wires++;
@@ -1663,7 +1663,7 @@ struct CxxrtlWorker {
 			for (auto &memory_it : module->memories) {
 				if (memory_it.first[0] != '\\')
 					continue;
-				f << indent << "items.emplace(path + " << escape_cxx_string(get_hdl_name(memory_it.second));
+				f << indent << "items.add(path + " << escape_cxx_string(get_hdl_name(memory_it.second));
 				f << ", debug_item(" << mangle(memory_it.second) << ", ";
 				f << memory_it.second->start_offset << "));\n";
 			}
