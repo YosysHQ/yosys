@@ -1641,17 +1641,20 @@ struct CxxrtlWorker {
 					dump_const(debug_const_wires[wire]);
 					f << ";\n";
 					f << indent << "items.emplace(path + " << escape_cxx_string(get_hdl_name(wire));
-					f << ", debug_item(const_" << mangle(wire) << "));\n";
+					f << ", debug_item(const_" << mangle(wire) << ", ";
+					f << wire->start_offset << "));\n";
 					count_const_wires++;
 				} else if (debug_alias_wires.count(wire)) {
 					// Alias of a member wire
 					f << indent << "items.emplace(path + " << escape_cxx_string(get_hdl_name(wire));
-					f << ", debug_item(debug_alias(), " << mangle(debug_alias_wires[wire]) << "));\n";
+					f << ", debug_item(debug_alias(), " << mangle(debug_alias_wires[wire]) << ", ";
+					f << wire->start_offset << "));\n";
 					count_alias_wires++;
 				} else if (!localized_wires.count(wire)) {
 					// Member wire
 					f << indent << "items.emplace(path + " << escape_cxx_string(get_hdl_name(wire));
-					f << ", debug_item(" << mangle(wire) << "));\n";
+					f << ", debug_item(" << mangle(wire) << ", ";
+					f << wire->start_offset << "));\n";
 					count_member_wires++;
 				} else {
 					count_skipped_wires++;
@@ -1661,7 +1664,8 @@ struct CxxrtlWorker {
 				if (memory_it.first[0] != '\\')
 					continue;
 				f << indent << "items.emplace(path + " << escape_cxx_string(get_hdl_name(memory_it.second));
-				f << ", debug_item(" << mangle(memory_it.second) << "));\n";
+				f << ", debug_item(" << mangle(memory_it.second) << ", ";
+				f << memory_it.second->start_offset << "));\n";
 			}
 			for (auto cell : module->cells()) {
 				if (is_internal_cell(cell->type))

@@ -113,8 +113,14 @@ struct cxxrtl_object {
 	// Width of the object in bits.
 	size_t width;
 
+	// Index of the least significant bit.
+	size_t lsb_at;
+
 	// Depth of the object. Only meaningful for memories; for other objects, always 1.
 	size_t depth;
+
+	// Index of the first word. Only meaningful for memories; for other objects, always 0;
+	size_t zero_at;
 
 	// Bits stored in the object, as 32-bit chunks, least significant bits first.
 	//
