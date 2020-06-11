@@ -17,6 +17,5 @@ equiv_opt -async2sync -assert -map +/intel_alm/common/alm_sim.v -map +/intel_alm
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd dffe # Constrain all select calls below inside the top module
 select -assert-count 1 t:MISTRAL_FF
-select -assert-count 1 t:MISTRAL_ALUT3
 
-select -assert-none t:MISTRAL_FF t:MISTRAL_ALUT3 %% t:* %D
+select -assert-none t:MISTRAL_FF %% t:* %D
