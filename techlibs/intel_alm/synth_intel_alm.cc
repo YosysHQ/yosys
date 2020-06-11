@@ -199,7 +199,7 @@ struct SynthIntelALMPass : public ScriptPass {
 		}
 
 		if (check_label("map_ffs")) {
-			run("dff2dffe -direct-match $_DFF_*");
+			run("dff2dffe");
 			// As mentioned in common/dff_sim.v, Intel flops power up to zero,
 			// so use `zinit` to add inverters where needed.
 			run("zinit");
