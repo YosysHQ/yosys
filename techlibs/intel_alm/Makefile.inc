@@ -15,9 +15,9 @@ $(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/ds
 $(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/mem_sim.v))
 
 # RAM
-bramtypes := m10k m20k
-$(foreach bramtype, $(bramtypes), $(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/bram_$(bramtype).txt)))
-$(foreach bramtype, $(bramtypes), $(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/bram_$(bramtype)_map.v)))
+$(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/bram_m10k.txt))
+$(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/bram_m20k.txt))
+$(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/bram_m20k_map.v))
 $(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/lutram_mlab.txt))
 
 # Miscellaneous
