@@ -2154,7 +2154,7 @@ struct CxxrtlWorker {
 
 			for (auto wire : module->wires()) {
 				if (feedback_wires[wire]) continue;
-				if (wire->port_output) continue;
+				if (wire->port_output && !module->get_bool_attribute(ID::top)) continue;
 				if (wire->name.begins_with("$") && !unbuffer_internal) continue;
 				if (wire->name.begins_with("\\") && !unbuffer_public) continue;
 				if (flow.wire_sync_defs.count(wire) > 0) continue;
