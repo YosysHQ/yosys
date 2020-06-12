@@ -1448,7 +1448,14 @@ struct CxxrtlWorker {
 			}
 
 			dump_attrs(wire);
-			f << indent << (unbuffered_wires[wire] ? "value" : "wire") << "<" << width << "> " << mangle(wire);
+			f << indent;
+			if (wire->port_input && wire->port_output)
+				f << "/*inout*/ ";
+			else if (wire->port_input)
+				f << "/*input*/ ";
+			else if (wire->port_output)
+				f << "/*output*/ ";
+			f << (unbuffered_wires[wire] ? "value" : "wire") << "<" << width << "> " << mangle(wire);
 			if (wire->has_attribute(ID::init)) {
 				f << " ";
 				dump_const_init(wire->attributes.at(ID::init));
