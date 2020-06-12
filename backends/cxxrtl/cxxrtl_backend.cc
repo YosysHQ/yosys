@@ -171,11 +171,6 @@ struct Scheduler {
 	}
 };
 
-bool is_input_wire(const RTLIL::Wire *wire)
-{
-	return wire->port_input && !wire->port_output;
-}
-
 bool is_unary_cell(RTLIL::IdString type)
 {
 	return type.in(
@@ -804,7 +799,7 @@ struct CxxrtlWorker {
 					default:
 						log_assert(false);
 				}
-			} else if (unbuffered_wires[chunk.wire] || is_input_wire(chunk.wire)) {
+			} else if (unbuffered_wires[chunk.wire]) {
 				f << mangle(chunk.wire);
 			} else {
 				f << mangle(chunk.wire) << (is_lhs ? ".next" : ".curr");
@@ -1440,12 +1435,11 @@ struct CxxrtlWorker {
 		if (elided_wires.count(wire))
 			return;
 
-		if (unbuffered_wires[wire]) {
-			if (localized_wires[wire] == is_local_context) {
-				dump_attrs(wire);
-				f << indent << "value<" << wire->width << "> " << mangle(wire) << ";\n";
-			}
-		} else if (!is_local_context) {
+		if (localized_wires[wire] && is_local_context) {
+			dump_attrs(wire);
+			f << indent << "value<" << wire->width << "> " << mangle(wire) << ";\n";
+		}
+		if (!localized_wires[wire] && !is_local_context) {
 			std::string width;
 			if (wire->module->has_attribute(ID(cxxrtl_blackbox)) && wire->has_attribute(ID(cxxrtl_width))) {
 				width = wire->get_string_attribute(ID(cxxrtl_width));
@@ -1454,14 +1448,21 @@ struct CxxrtlWorker {
 			}
 
 			dump_attrs(wire);
-			f << indent << (is_input_wire(wire) ? "value" : "wire") << "<" << width << "> " << mangle(wire);
+			f << indent;
+			if (wire->port_input && wire->port_output)
+				f << "/*inout*/ ";
+			else if (wire->port_input)
+				f << "/*input*/ ";
+			else if (wire->port_output)
+				f << "/*output*/ ";
+			f << (unbuffered_wires[wire] ? "value" : "wire") << "<" << width << "> " << mangle(wire);
 			if (wire->has_attribute(ID::init)) {
 				f << " ";
 				dump_const_init(wire->attributes.at(ID::init));
 			}
 			f << ";\n";
 			if (edge_wires[wire]) {
-				if (is_input_wire(wire)) {
+				if (unbuffered_wires[wire]) {
 					f << indent << "value<" << width << "> prev_" << mangle(wire);
 					if (wire->has_attribute(ID::init)) {
 						f << " ";
@@ -1472,7 +1473,7 @@ struct CxxrtlWorker {
 				for (auto edge_type : edge_types) {
 					if (edge_type.first.wire == wire) {
 						std::string prev, next;
-						if (is_input_wire(wire)) {
+						if (unbuffered_wires[wire]) {
 							prev = "prev_" + mangle(edge_type.first.wire);
 							next =           mangle(edge_type.first.wire);
 						} else {
@@ -1595,9 +1596,9 @@ struct CxxrtlWorker {
 		inc_indent();
 			f << indent << "bool changed = false;\n";
 			for (auto wire : module->wires()) {
-				if (elided_wires.count(wire) || unbuffered_wires.count(wire))
+				if (elided_wires.count(wire))
 					continue;
-				if (is_input_wire(wire)) {
+				if (unbuffered_wires[wire]) {
 					if (edge_wires[wire])
 						f << indent << "prev_" << mangle(wire) << " = " << mangle(wire) << ";\n";
 					continue;
@@ -1970,6 +1971,8 @@ struct CxxrtlWorker {
 			if (module->get_bool_attribute(ID(cxxrtl_blackbox))) {
 				for (auto port : module->ports) {
 					RTLIL::Wire *wire = module->wire(port);
+					if (wire->port_input && !wire->port_output)
+						unbuffered_wires.insert(wire);
 					if (wire->has_attribute(ID(cxxrtl_edge))) {
 						RTLIL::Const edge_attr = wire->attributes[ID(cxxrtl_edge)];
 						if (!(edge_attr.flags & RTLIL::CONST_FLAG_STRING) || (int)edge_attr.decode_string().size() != GetSize(wire))
@@ -2158,13 +2161,14 @@ struct CxxrtlWorker {
 
 			for (auto wire : module->wires()) {
 				if (feedback_wires[wire]) continue;
-				if (wire->port_id != 0) continue;
-				if (wire->get_bool_attribute(ID::keep)) continue;
+				if (wire->port_output && !module->get_bool_attribute(ID::top)) continue;
 				if (wire->name.begins_with("$") && !unbuffer_internal) continue;
 				if (wire->name.begins_with("\\") && !unbuffer_public) continue;
-				if (edge_wires[wire]) continue;
 				if (flow.wire_sync_defs.count(wire) > 0) continue;
 				unbuffered_wires.insert(wire);
+				if (edge_wires[wire]) continue;
+				if (wire->get_bool_attribute(ID::keep)) continue;
+				if (wire->port_input || wire->port_output) continue;
 				if (wire->name.begins_with("$") && !localize_internal) continue;
 				if (wire->name.begins_with("\\") && !localize_public) continue;
 				localized_wires.insert(wire);
