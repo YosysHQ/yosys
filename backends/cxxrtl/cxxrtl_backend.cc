@@ -197,7 +197,7 @@ bool is_extending_cell(RTLIL::IdString type)
 bool is_elidable_cell(RTLIL::IdString type)
 {
 	return is_unary_cell(type) || is_binary_cell(type) || type.in(
-		ID($mux), ID($concat), ID($slice));
+		ID($mux), ID($concat), ID($slice), ID($pmux));
 }
 
 bool is_sync_ff_cell(RTLIL::IdString type)
@@ -942,6 +942,21 @@ struct CxxrtlWorker {
 			f << " : ";
 			dump_sigspec_rhs(cell->getPort(ID::A));
 			f << ")";
+		// Parallel (one-hot) muxes
+		} else if (cell->type == ID($pmux)) {
+			int width = cell->getParam(ID::WIDTH).as_int();
+			int s_width = cell->getParam(ID::S_WIDTH).as_int();
+			for (int part = 0; part < s_width; part++) {
+				f << "(";
+				dump_sigspec_rhs(cell->getPort(ID::S).extract(part));
+				f << " ? ";
+				dump_sigspec_rhs(cell->getPort(ID::B).extract(part * width, width));
+				f << " : ";
+			}
+			dump_sigspec_rhs(cell->getPort(ID::A));
+			for (int part = 0; part < s_width; part++) {
+				f << ")";
+			}
 		// Concats
 		} else if (cell->type == ID($concat)) {
 			dump_sigspec_rhs(cell->getPort(ID::B));
@@ -1008,35 +1023,6 @@ struct CxxrtlWorker {
 			f << " = ";
 			dump_cell_elided(cell);
 			f << ";\n";
-		// Parallel (one-hot) muxes
-		} else if (cell->type == ID($pmux)) {
-			int width = cell->getParam(ID::WIDTH).as_int();
-			int s_width = cell->getParam(ID::S_WIDTH).as_int();
-			bool first = true;
-			for (int part = 0; part < s_width; part++) {
-				f << (first ? indent : " else ");
-				first = false;
-				f << "if (";
-				dump_sigspec_rhs(cell->getPort(ID::S).extract(part));
-				f << ") {\n";
-				inc_indent();
-					f << indent;
-					dump_sigspec_lhs(cell->getPort(ID::Y));
-					f << " = ";
-					dump_sigspec_rhs(cell->getPort(ID::B).extract(part * width, width));
-					f << ";\n";
-				dec_indent();
-				f << indent << "}";
-			}
-			f << " else {\n";
-			inc_indent();
-				f << indent;
-				dump_sigspec_lhs(cell->getPort(ID::Y));
-				f << " = ";
-				dump_sigspec_rhs(cell->getPort(ID::A));
-				f << ";\n";
-			dec_indent();
-			f << indent << "}\n";
 		// Flip-flops
 		} else if (is_ff_cell(cell->type)) {
 			if (cell->hasPort(ID::CLK) && cell->getPort(ID::CLK).is_wire()) {
