@@ -55,7 +55,9 @@
 #else
 #  include <sys/time.h>
 #  include <sys/resource.h>
-#  include <signal.h>
+#  if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
+#    include <signal.h>
+#  endif
 #endif
 
 #if defined(_MSC_VER)
