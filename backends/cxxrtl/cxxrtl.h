@@ -17,6 +17,11 @@
  */
 
 // This file is included by the designs generated with `write_cxxrtl`. It is not used in Yosys itself.
+//
+// The CXXRTL support library implements compile time specialized arbitrary width arithmetics, as well as provides
+// composite lvalues made out of bit slices and concatenations of lvalues. This allows the `write_cxxrtl` pass
+// to perform a straightforward translation of RTLIL structures to readable C++, relying on the C++ compiler
+// to unwrap the abstraction and generate efficient code.
 
 #ifndef CXXRTL_H
 #define CXXRTL_H
@@ -35,10 +40,19 @@
 
 #include <backends/cxxrtl/cxxrtl_capi.h>
 
-// The CXXRTL support library implements compile time specialized arbitrary width arithmetics, as well as provides
-// composite lvalues made out of bit slices and concatenations of lvalues. This allows the `write_cxxrtl` pass
-// to perform a straightforward translation of RTLIL structures to readable C++, relying on the C++ compiler
-// to unwrap the abstraction and generate efficient code.
+// CXXRTL essentially uses the C++ compiler as a hygienic macro engine that feeds an instruction selector.
+// It generates a lot of specialized template functions with relatively large bodies that, when inlined
+// into the caller and (for those with loops) unrolled, often expose many new optimization opportunities.
+// Because of this, most of the CXXRTL runtime must be always inlined for best performance.
+#ifndef __has_attribute
+#	define __has_attribute(x) 0
+#endif
+#if __has_attribute(always_inline)
+#define CXXRTL_ALWAYS_INLINE inline __attribute__((__always_inline__))
+#else
+#define CXXRTL_ALWAYS_INLINE inline
+#endif
+
 namespace cxxrtl {
 
 // All arbitrary-width values in CXXRTL are backed by arrays of unsigned integers called chunks. The chunk size
@@ -85,6 +99,7 @@ struct value : public expr_base<value<Bits>> {
 	value<Bits> &operator=(const value<Bits> &) = default;
 
 	// A (no-op) helper that forces the cast to value<>.
+	CXXRTL_ALWAYS_INLINE
 	const value<Bits> &val() const {
 		return *this;
 	}
@@ -101,6 +116,7 @@ struct value : public expr_base<value<Bits>> {
 	// The trunc, zext and sext operations add or remove most significant bits (i.e. on the left);
 	// the rtrunc and rzext operations add or remove least significant bits (i.e. on the right).
 	template<size_t NewBits>
+	CXXRTL_ALWAYS_INLINE
 	value<NewBits> trunc() const {
 		static_assert(NewBits <= Bits, "trunc() may not increase width");
 		value<NewBits> result;
@@ -111,6 +127,7 @@ struct value : public expr_base<value<Bits>> {
 	}
 
 	template<size_t NewBits>
+	CXXRTL_ALWAYS_INLINE
 	value<NewBits> zext() const {
 		static_assert(NewBits >= Bits, "zext() may not decrease width");
 		value<NewBits> result;
@@ -120,6 +137,7 @@ struct value : public expr_base<value<Bits>> {
 	}
 
 	template<size_t NewBits>
+	CXXRTL_ALWAYS_INLINE
 	value<NewBits> sext() const {
 		static_assert(NewBits >= Bits, "sext() may not decrease width");
 		value<NewBits> result;
@@ -135,6 +153,7 @@ struct value : public expr_base<value<Bits>> {
 	}
 
 	template<size_t NewBits>
+	CXXRTL_ALWAYS_INLINE
 	value<NewBits> rtrunc() const {
 		static_assert(NewBits <= Bits, "rtrunc() may not increase width");
 		value<NewBits> result;
@@ -154,6 +173,7 @@ struct value : public expr_base<value<Bits>> {
 	}
 
 	template<size_t NewBits>
+	CXXRTL_ALWAYS_INLINE
 	value<NewBits> rzext() const {
 		static_assert(NewBits >= Bits, "rzext() may not decrease width");
 		value<NewBits> result;
@@ -172,6 +192,7 @@ struct value : public expr_base<value<Bits>> {
 
 	// Bit blit operation, i.e. a partial read-modify-write.
 	template<size_t Stop, size_t Start>
+	CXXRTL_ALWAYS_INLINE
 	value<Bits> blit(const value<Stop - Start + 1> &source) const {
 		static_assert(Stop >= Start, "blit() may not reverse bit order");
 		constexpr chunk::type start_mask = ~(chunk::mask << (Start % chunk::bits));
@@ -196,6 +217,7 @@ struct value : public expr_base<value<Bits>> {
 	// than the operand. In C++17 these can be replaced with `if constexpr`.
 	template<size_t NewBits, typename = void>
 	struct zext_cast {
+		CXXRTL_ALWAYS_INLINE
 		value<NewBits> operator()(const value<Bits> &val) {
 			return val.template zext<NewBits>();
 		}
@@ -203,6 +225,7 @@ struct value : public expr_base<value<Bits>> {
 
 	template<size_t NewBits>
 	struct zext_cast<NewBits, typename std::enable_if<(NewBits < Bits)>::type> {
+		CXXRTL_ALWAYS_INLINE
 		value<NewBits> operator()(const value<Bits> &val) {
 			return val.template trunc<NewBits>();
 		}
@@ -210,6 +233,7 @@ struct value : public expr_base<value<Bits>> {
 
 	template<size_t NewBits, typename = void>
 	struct sext_cast {
+		CXXRTL_ALWAYS_INLINE
 		value<NewBits> operator()(const value<Bits> &val) {
 			return val.template sext<NewBits>();
 		}
@@ -217,17 +241,20 @@ struct value : public expr_base<value<Bits>> {
 
 	template<size_t NewBits>
 	struct sext_cast<NewBits, typename std::enable_if<(NewBits < Bits)>::type> {
+		CXXRTL_ALWAYS_INLINE
 		value<NewBits> operator()(const value<Bits> &val) {
 			return val.template trunc<NewBits>();
 		}
 	};
 
 	template<size_t NewBits>
+	CXXRTL_ALWAYS_INLINE
 	value<NewBits> zcast() const {
 		return zext_cast<NewBits>()(*this);
 	}
 
 	template<size_t NewBits>
+	CXXRTL_ALWAYS_INLINE
 	value<NewBits> scast() const {
 		return sext_cast<NewBits>()(*this);
 	}
@@ -439,12 +466,14 @@ struct slice_expr : public expr_base<slice_expr<T, Stop, Start>> {
 	slice_expr(T &expr) : expr(expr) {}
 	slice_expr(const slice_expr<T, Stop, Start> &) = delete;
 
+	CXXRTL_ALWAYS_INLINE
 	operator value<bits>() const {
 		return static_cast<const value<T::bits> &>(expr)
 			.template rtrunc<T::bits - Start>()
 			.template trunc<bits>();
 	}
 
+	CXXRTL_ALWAYS_INLINE
 	slice_expr<T, Stop, Start> &operator=(const value<bits> &rhs) {
 		// Generic partial assignment implemented using a read-modify-write operation on the sliced expression.
 		expr = static_cast<const value<T::bits> &>(expr)
@@ -453,6 +482,7 @@ struct slice_expr : public expr_base<slice_expr<T, Stop, Start>> {
 	}
 
 	// A helper that forces the cast to value<>, which allows deduction to work.
+	CXXRTL_ALWAYS_INLINE
 	value<bits> val() const {
 		return static_cast<const value<bits> &>(*this);
 	}
@@ -469,6 +499,7 @@ struct concat_expr : public expr_base<concat_expr<T, U>> {
 	concat_expr(T &ms_expr, U &ls_expr) : ms_expr(ms_expr), ls_expr(ls_expr) {}
 	concat_expr(const concat_expr<T, U> &) = delete;
 
+	CXXRTL_ALWAYS_INLINE
 	operator value<bits>() const {
 		value<bits> ms_shifted = static_cast<const value<T::bits> &>(ms_expr)
 			.template rzext<bits>();
@@ -477,6 +508,7 @@ struct concat_expr : public expr_base<concat_expr<T, U>> {
 		return ms_shifted.bit_or(ls_extended);
 	}
 
+	CXXRTL_ALWAYS_INLINE
 	concat_expr<T, U> &operator=(const value<bits> &rhs) {
 		ms_expr = rhs.template rtrunc<T::bits>();
 		ls_expr = rhs.template trunc<U::bits>();
@@ -484,6 +516,7 @@ struct concat_expr : public expr_base<concat_expr<T, U>> {
 	}
 
 	// A helper that forces the cast to value<>, which allows deduction to work.
+	CXXRTL_ALWAYS_INLINE
 	value<bits> val() const {
 		return static_cast<const value<bits> &>(*this);
 	}
@@ -508,21 +541,25 @@ struct concat_expr : public expr_base<concat_expr<T, U>> {
 template<class T>
 struct expr_base {
 	template<size_t Stop, size_t Start = Stop>
+	CXXRTL_ALWAYS_INLINE
 	slice_expr<const T, Stop, Start> slice() const {
 		return {*static_cast<const T *>(this)};
 	}
 
 	template<size_t Stop, size_t Start = Stop>
+	CXXRTL_ALWAYS_INLINE
 	slice_expr<T, Stop, Start> slice() {
 		return {*static_cast<T *>(this)};
 	}
 
 	template<class U>
+	CXXRTL_ALWAYS_INLINE
 	concat_expr<const T, typename std::remove_reference<const U>::type> concat(const U &other) const {
 		return {*static_cast<const T *>(this), other};
 	}
 
 	template<class U>
+	CXXRTL_ALWAYS_INLINE
 	concat_expr<T, typename std::remove_reference<U>::type> concat(U &&other) {
 		return {*static_cast<T *>(this), other};
 	}
@@ -851,271 +888,322 @@ using namespace cxxrtl;
 
 // std::max isn't constexpr until C++14 for no particular reason (it's an oversight), so we define our own.
 template<class T>
+CXXRTL_ALWAYS_INLINE
 constexpr T max(const T &a, const T &b) {
 	return a > b ? a : b;
 }
 
 // Logic operations
 template<size_t BitsY, size_t BitsA>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> logic_not(const value<BitsA> &a) {
 	return value<BitsY> { a ? 0u : 1u };
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> logic_and(const value<BitsA> &a, const value<BitsB> &b) {
 	return value<BitsY> { (bool(a) & bool(b)) ? 1u : 0u };
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> logic_or(const value<BitsA> &a, const value<BitsB> &b) {
 	return value<BitsY> { (bool(a) | bool(b)) ? 1u : 0u };
 }
 
 // Reduction operations
 template<size_t BitsY, size_t BitsA>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> reduce_and(const value<BitsA> &a) {
 	return value<BitsY> { a.bit_not().is_zero() ? 1u : 0u };
 }
 
 template<size_t BitsY, size_t BitsA>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> reduce_or(const value<BitsA> &a) {
 	return value<BitsY> { a ? 1u : 0u };
 }
 
 template<size_t BitsY, size_t BitsA>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> reduce_xor(const value<BitsA> &a) {
 	return value<BitsY> { (a.ctpop() % 2) ? 1u : 0u };
 }
 
 template<size_t BitsY, size_t BitsA>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> reduce_xnor(const value<BitsA> &a) {
 	return value<BitsY> { (a.ctpop() % 2) ? 0u : 1u };
 }
 
 template<size_t BitsY, size_t BitsA>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> reduce_bool(const value<BitsA> &a) {
 	return value<BitsY> { a ? 1u : 0u };
 }
 
 // Bitwise operations
 template<size_t BitsY, size_t BitsA>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> not_u(const value<BitsA> &a) {
 	return a.template zcast<BitsY>().bit_not();
 }
 
 template<size_t BitsY, size_t BitsA>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> not_s(const value<BitsA> &a) {
 	return a.template scast<BitsY>().bit_not();
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> and_uu(const value<BitsA> &a, const value<BitsB> &b) {
 	return a.template zcast<BitsY>().bit_and(b.template zcast<BitsY>());
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> and_ss(const value<BitsA> &a, const value<BitsB> &b) {
 	return a.template scast<BitsY>().bit_and(b.template scast<BitsY>());
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> or_uu(const value<BitsA> &a, const value<BitsB> &b) {
 	return a.template zcast<BitsY>().bit_or(b.template zcast<BitsY>());
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> or_ss(const value<BitsA> &a, const value<BitsB> &b) {
 	return a.template scast<BitsY>().bit_or(b.template scast<BitsY>());
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> xor_uu(const value<BitsA> &a, const value<BitsB> &b) {
 	return a.template zcast<BitsY>().bit_xor(b.template zcast<BitsY>());
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> xor_ss(const value<BitsA> &a, const value<BitsB> &b) {
 	return a.template scast<BitsY>().bit_xor(b.template scast<BitsY>());
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> xnor_uu(const value<BitsA> &a, const value<BitsB> &b) {
 	return a.template zcast<BitsY>().bit_xor(b.template zcast<BitsY>()).bit_not();
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> xnor_ss(const value<BitsA> &a, const value<BitsB> &b) {
 	return a.template scast<BitsY>().bit_xor(b.template scast<BitsY>()).bit_not();
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> shl_uu(const value<BitsA> &a, const value<BitsB> &b) {
 	return a.template zcast<BitsY>().template shl(b);
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> shl_su(const value<BitsA> &a, const value<BitsB> &b) {
 	return a.template scast<BitsY>().template shl(b);
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> sshl_uu(const value<BitsA> &a, const value<BitsB> &b) {
 	return a.template zcast<BitsY>().template shl(b);
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> sshl_su(const value<BitsA> &a, const value<BitsB> &b) {
 	return a.template scast<BitsY>().template shl(b);
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> shr_uu(const value<BitsA> &a, const value<BitsB> &b) {
 	return a.template shr(b).template zcast<BitsY>();
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> shr_su(const value<BitsA> &a, const value<BitsB> &b) {
 	return a.template shr(b).template scast<BitsY>();
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> sshr_uu(const value<BitsA> &a, const value<BitsB> &b) {
 	return a.template shr(b).template zcast<BitsY>();
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> sshr_su(const value<BitsA> &a, const value<BitsB> &b) {
 	return a.template sshr(b).template scast<BitsY>();
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> shift_uu(const value<BitsA> &a, const value<BitsB> &b) {
 	return shr_uu<BitsY>(a, b);
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> shift_su(const value<BitsA> &a, const value<BitsB> &b) {
 	return shr_su<BitsY>(a, b);
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> shift_us(const value<BitsA> &a, const value<BitsB> &b) {
 	return b.is_neg() ? shl_uu<BitsY>(a, b.template sext<BitsB + 1>().neg()) : shr_uu<BitsY>(a, b);
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> shift_ss(const value<BitsA> &a, const value<BitsB> &b) {
 	return b.is_neg() ? shl_su<BitsY>(a, b.template sext<BitsB + 1>().neg()) : shr_su<BitsY>(a, b);
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> shiftx_uu(const value<BitsA> &a, const value<BitsB> &b) {
 	return shift_uu<BitsY>(a, b);
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> shiftx_su(const value<BitsA> &a, const value<BitsB> &b) {
 	return shift_su<BitsY>(a, b);
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> shiftx_us(const value<BitsA> &a, const value<BitsB> &b) {
 	return shift_us<BitsY>(a, b);
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> shiftx_ss(const value<BitsA> &a, const value<BitsB> &b) {
 	return shift_ss<BitsY>(a, b);
 }
 
 // Comparison operations
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> eq_uu(const value<BitsA> &a, const value<BitsB> &b) {
 	constexpr size_t BitsExt = max(BitsA, BitsB);
 	return value<BitsY>{ a.template zext<BitsExt>() == b.template zext<BitsExt>() ? 1u : 0u };
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> eq_ss(const value<BitsA> &a, const value<BitsB> &b) {
 	constexpr size_t BitsExt = max(BitsA, BitsB);
 	return value<BitsY>{ a.template sext<BitsExt>() == b.template sext<BitsExt>() ? 1u : 0u };
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> ne_uu(const value<BitsA> &a, const value<BitsB> &b) {
 	constexpr size_t BitsExt = max(BitsA, BitsB);
 	return value<BitsY>{ a.template zext<BitsExt>() != b.template zext<BitsExt>() ? 1u : 0u };
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> ne_ss(const value<BitsA> &a, const value<BitsB> &b) {
 	constexpr size_t BitsExt = max(BitsA, BitsB);
 	return value<BitsY>{ a.template sext<BitsExt>() != b.template sext<BitsExt>() ? 1u : 0u };
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> eqx_uu(const value<BitsA> &a, const value<BitsB> &b) {
 	return eq_uu<BitsY>(a, b);
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> eqx_ss(const value<BitsA> &a, const value<BitsB> &b) {
 	return eq_ss<BitsY>(a, b);
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> nex_uu(const value<BitsA> &a, const value<BitsB> &b) {
 	return ne_uu<BitsY>(a, b);
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> nex_ss(const value<BitsA> &a, const value<BitsB> &b) {
 	return ne_ss<BitsY>(a, b);
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> gt_uu(const value<BitsA> &a, const value<BitsB> &b) {
 	constexpr size_t BitsExt = max(BitsA, BitsB);
 	return value<BitsY> { b.template zext<BitsExt>().ucmp(a.template zext<BitsExt>()) ? 1u : 0u };
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> gt_ss(const value<BitsA> &a, const value<BitsB> &b) {
 	constexpr size_t BitsExt = max(BitsA, BitsB);
 	return value<BitsY> { b.template sext<BitsExt>().scmp(a.template sext<BitsExt>()) ? 1u : 0u };
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> ge_uu(const value<BitsA> &a, const value<BitsB> &b) {
 	constexpr size_t BitsExt = max(BitsA, BitsB);
 	return value<BitsY> { !a.template zext<BitsExt>().ucmp(b.template zext<BitsExt>()) ? 1u : 0u };
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> ge_ss(const value<BitsA> &a, const value<BitsB> &b) {
 	constexpr size_t BitsExt = max(BitsA, BitsB);
 	return value<BitsY> { !a.template sext<BitsExt>().scmp(b.template sext<BitsExt>()) ? 1u : 0u };
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> lt_uu(const value<BitsA> &a, const value<BitsB> &b) {
 	constexpr size_t BitsExt = max(BitsA, BitsB);
 	return value<BitsY> { a.template zext<BitsExt>().ucmp(b.template zext<BitsExt>()) ? 1u : 0u };
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> lt_ss(const value<BitsA> &a, const value<BitsB> &b) {
 	constexpr size_t BitsExt = max(BitsA, BitsB);
 	return value<BitsY> { a.template sext<BitsExt>().scmp(b.template sext<BitsExt>()) ? 1u : 0u };
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> le_uu(const value<BitsA> &a, const value<BitsB> &b) {
 	constexpr size_t BitsExt = max(BitsA, BitsB);
 	return value<BitsY> { !b.template zext<BitsExt>().ucmp(a.template zext<BitsExt>()) ? 1u : 0u };
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> le_ss(const value<BitsA> &a, const value<BitsB> &b) {
 	constexpr size_t BitsExt = max(BitsA, BitsB);
 	return value<BitsY> { !b.template sext<BitsExt>().scmp(a.template sext<BitsExt>()) ? 1u : 0u };
@@ -1123,46 +1211,55 @@ value<BitsY> le_ss(const value<BitsA> &a, const value<BitsB> &b) {
 
 // Arithmetic operations
 template<size_t BitsY, size_t BitsA>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> pos_u(const value<BitsA> &a) {
 	return a.template zcast<BitsY>();
 }
 
 template<size_t BitsY, size_t BitsA>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> pos_s(const value<BitsA> &a) {
 	return a.template scast<BitsY>();
 }
 
 template<size_t BitsY, size_t BitsA>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> neg_u(const value<BitsA> &a) {
 	return a.template zcast<BitsY>().neg();
 }
 
 template<size_t BitsY, size_t BitsA>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> neg_s(const value<BitsA> &a) {
 	return a.template scast<BitsY>().neg();
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> add_uu(const value<BitsA> &a, const value<BitsB> &b) {
 	return a.template zcast<BitsY>().add(b.template zcast<BitsY>());
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> add_ss(const value<BitsA> &a, const value<BitsB> &b) {
 	return a.template scast<BitsY>().add(b.template scast<BitsY>());
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> sub_uu(const value<BitsA> &a, const value<BitsB> &b) {
 	return a.template zcast<BitsY>().sub(b.template zcast<BitsY>());
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> sub_ss(const value<BitsA> &a, const value<BitsB> &b) {
 	return a.template scast<BitsY>().sub(b.template scast<BitsY>());
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> mul_uu(const value<BitsA> &a, const value<BitsB> &b) {
 	value<BitsY> product;
 	value<BitsY> multiplicand = a.template zcast<BitsY>();
@@ -1180,6 +1277,7 @@ value<BitsY> mul_uu(const value<BitsA> &a, const value<BitsB> &b) {
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> mul_ss(const value<BitsA> &a, const value<BitsB> &b) {
 	value<BitsB + 1> ub = b.template sext<BitsB + 1>();
 	if (ub.is_neg()) ub = ub.neg();
@@ -1188,6 +1286,7 @@ value<BitsY> mul_ss(const value<BitsA> &a, const value<BitsB> &b) {
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 std::pair<value<BitsY>, value<BitsY>> divmod_uu(const value<BitsA> &a, const value<BitsB> &b) {
 	constexpr size_t Bits = max(BitsY, max(BitsA, BitsB));
 	value<Bits> quotient;
@@ -1209,6 +1308,7 @@ std::pair<value<BitsY>, value<BitsY>> divmod_uu(const value<BitsA> &a, const val
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 std::pair<value<BitsY>, value<BitsY>> divmod_ss(const value<BitsA> &a, const value<BitsB> &b) {
 	value<BitsA + 1> ua = a.template sext<BitsA + 1>();
 	value<BitsB + 1> ub = b.template sext<BitsB + 1>();
@@ -1222,21 +1322,25 @@ std::pair<value<BitsY>, value<BitsY>> divmod_ss(const value<BitsA> &a, const val
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> div_uu(const value<BitsA> &a, const value<BitsB> &b) {
 	return divmod_uu<BitsY>(a, b).first;
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> div_ss(const value<BitsA> &a, const value<BitsB> &b) {
 	return divmod_ss<BitsY>(a, b).first;
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> mod_uu(const value<BitsA> &a, const value<BitsB> &b) {
 	return divmod_uu<BitsY>(a, b).second;
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
 value<BitsY> mod_ss(const value<BitsA> &a, const value<BitsB> &b) {
 	return divmod_ss<BitsY>(a, b).second;
 }
