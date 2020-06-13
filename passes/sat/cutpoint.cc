@@ -68,98 +68,97 @@ struct CutpointPass : public Pass {
 						output_wires.push_back(wire);
 				for (auto wire : output_wires)
 					module->connect(wire, flag_undef ? Const(State::Sx, GetSize(wire)) : module->Anyseq(NEW_ID, GetSize(wire)));
-				continue;
-			}
+			} else {
+				SigMap sigmap(module);
+				pool<SigBit> cutpoint_bits;
 
-			SigMap sigmap(module);
-			pool<SigBit> cutpoint_bits;
-
-			for (auto cell : module->selected_cells()) {
-				if (cell->type == ID($anyseq))
-					continue;
-				log("Removing cell %s.%s, making all cell outputs cutpoints.\n", log_id(module), log_id(cell));
-				for (auto &conn : cell->connections()) {
-					if (cell->output(conn.first))
-						module->connect(conn.second, flag_undef ? Const(State::Sx, GetSize(conn.second)) : module->Anyseq(NEW_ID, GetSize(conn.second)));
-				}
-				module->remove(cell);
-			}
-
-			for (auto wire : module->selected_wires()) {
-				if (wire->port_output) {
-					log("Making output wire %s.%s a cutpoint.\n", log_id(module), log_id(wire));
-					Wire *new_wire = module->addWire(NEW_ID, wire);
-					module->swap_names(wire, new_wire);
-					module->connect(new_wire, flag_undef ? Const(State::Sx, GetSize(new_wire)) : module->Anyseq(NEW_ID, GetSize(new_wire)));
-					wire->port_id = 0;
-					wire->port_input = false;
-					wire->port_output = false;
-				} else {
-					log("Making wire %s.%s a cutpoint.\n", log_id(module), log_id(wire));
-					for (auto bit : sigmap(wire))
-						cutpoint_bits.insert(bit);
-				}
-			}
-
-			if (!cutpoint_bits.empty())
-			{
-				for (auto cell : module->cells()) {
+				for (auto cell : module->selected_cells()) {
+					if (cell->type == ID($anyseq))
+						continue;
+					log("Removing cell %s.%s, making all cell outputs cutpoints.\n", log_id(module), log_id(cell));
 					for (auto &conn : cell->connections()) {
-						if (!cell->output(conn.first))
-							continue;
-						SigSpec sig = sigmap(conn.second);
-						int bit_count = 0;
-						for (auto &bit : sig) {
-							if (cutpoint_bits.count(bit))
-								bit_count++;
-						}
-						if (bit_count == 0)
-							continue;
-						SigSpec dummy = module->addWire(NEW_ID, bit_count);
-						bit_count = 0;
-						for (auto &bit : sig) {
-							if (cutpoint_bits.count(bit))
-								bit = dummy[bit_count++];
-						}
-						cell->setPort(conn.first, sig);
+						if (cell->output(conn.first))
+							module->connect(conn.second, flag_undef ? Const(State::Sx, GetSize(conn.second)) : module->Anyseq(NEW_ID, GetSize(conn.second)));
+					}
+					module->remove(cell);
+				}
+
+				for (auto wire : module->selected_wires()) {
+					if (wire->port_output) {
+						log("Making output wire %s.%s a cutpoint.\n", log_id(module), log_id(wire));
+						Wire *new_wire = module->addWire(NEW_ID, wire);
+						module->swap_names(wire, new_wire);
+						module->connect(new_wire, flag_undef ? Const(State::Sx, GetSize(new_wire)) : module->Anyseq(NEW_ID, GetSize(new_wire)));
+						wire->port_id = 0;
+						wire->port_input = false;
+						wire->port_output = false;
+					} else {
+						log("Making wire %s.%s a cutpoint.\n", log_id(module), log_id(wire));
+						for (auto bit : sigmap(wire))
+							cutpoint_bits.insert(bit);
 					}
 				}
 
-				vector<Wire*> rewrite_wires;
-				for (auto id : module->ports) {
-					RTLIL::Wire *wire = module->wire(id);
-					if (wire->port_input) {
-						int bit_count = 0;
-						for (auto &bit : sigmap(wire))
-							if (cutpoint_bits.count(bit))
-								bit_count++;
-						if (bit_count)
-							rewrite_wires.push_back(wire);
-					}
-				}
-
-				for (auto wire : rewrite_wires) {
-					Wire *new_wire = module->addWire(NEW_ID, wire);
-					SigSpec lhs, rhs, sig = sigmap(wire);
-					for (int i = 0; i < GetSize(sig); i++)
-						if (!cutpoint_bits.count(sig[i])) {
-							lhs.append(SigBit(wire, i));
-							rhs.append(SigBit(new_wire, i));
+				if (!cutpoint_bits.empty())
+				{
+					for (auto cell : module->cells()) {
+						for (auto &conn : cell->connections()) {
+							if (!cell->output(conn.first))
+								continue;
+							SigSpec sig = sigmap(conn.second);
+							int bit_count = 0;
+							for (auto &bit : sig) {
+								if (cutpoint_bits.count(bit))
+									bit_count++;
+							}
+							if (bit_count == 0)
+								continue;
+							SigSpec dummy = module->addWire(NEW_ID, bit_count);
+							bit_count = 0;
+							for (auto &bit : sig) {
+								if (cutpoint_bits.count(bit))
+									bit = dummy[bit_count++];
+							}
+							cell->setPort(conn.first, sig);
 						}
-					if (GetSize(lhs))
-						module->connect(lhs, rhs);
-					module->swap_names(wire, new_wire);
-					wire->port_id = 0;
-					wire->port_input = false;
-					wire->port_output = false;
-				}
+					}
 
-				SigSpec sig(cutpoint_bits);
-				sig.sort_and_unify();
+					vector<Wire*> rewrite_wires;
+					for (auto id : module->ports) {
+						RTLIL::Wire *wire = module->wire(id);
+						if (wire->port_input) {
+							int bit_count = 0;
+							for (auto &bit : sigmap(wire))
+								if (cutpoint_bits.count(bit))
+									bit_count++;
+							if (bit_count)
+								rewrite_wires.push_back(wire);
+						}
+					}
 
-				for (auto chunk : sig.chunks()) {
-					SigSpec s(chunk);
-					module->connect(s, flag_undef ? Const(State::Sx, GetSize(s)) : module->Anyseq(NEW_ID, GetSize(s)));
+					for (auto wire : rewrite_wires) {
+						Wire *new_wire = module->addWire(NEW_ID, wire);
+						SigSpec lhs, rhs, sig = sigmap(wire);
+						for (int i = 0; i < GetSize(sig); i++)
+							if (!cutpoint_bits.count(sig[i])) {
+								lhs.append(SigBit(wire, i));
+								rhs.append(SigBit(new_wire, i));
+							}
+						if (GetSize(lhs))
+							module->connect(lhs, rhs);
+						module->swap_names(wire, new_wire);
+						wire->port_id = 0;
+						wire->port_input = false;
+						wire->port_output = false;
+					}
+
+					SigSpec sig(cutpoint_bits);
+					sig.sort_and_unify();
+
+					for (auto chunk : sig.chunks()) {
+						SigSpec s(chunk);
+						module->connect(s, flag_undef ? Const(State::Sx, GetSize(s)) : module->Anyseq(NEW_ID, GetSize(s)));
+					}
 				}
 			}
 		}
