@@ -66,11 +66,19 @@ class vcd_writer {
 		} while (ident != 0);
 	}
 
-	void emit_var(const variable &var, const std::string &type, const std::string &name) {
+	void emit_var(const variable &var, const std::string &type, const std::string &name,
+	              size_t lsb_at, bool multipart) {
 		assert(!streaming);
 		buffer += "$var " + type + " " + std::to_string(var.width) + " ";
 		emit_ident(var.ident);
-		buffer += " " + name + " $end\n";
+		buffer += " " + name;
+		if (multipart || name.back() == ']' || lsb_at != 0) {
+			if (var.width == 1)
+				buffer += " [" + std::to_string(lsb_at) + "]";
+			else
+				buffer += " [" + std::to_string(lsb_at + var.width - 1) + ":" + std::to_string(lsb_at) + "]";
+		}
+		buffer += " $end\n";
 	}
 
 	void emit_enddefinitions() {
@@ -155,7 +163,7 @@ public:
 		emit_timescale(number, unit);
 	}
 
-	void add(const std::string &hier_name, const debug_item &item) {
+	void add(const std::string &hier_name, const debug_item &item, bool multipart = false) {
 		std::vector<std::string> scope = split_hierarchy(hier_name);
 		std::string name = scope.back();
 		scope.pop_back();
@@ -164,17 +172,20 @@ public:
 		switch (item.type) {
 			// Not the best naming but oh well...
 			case debug_item::VALUE:
-				emit_var(register_variable(item.width, item.curr, /*constant=*/item.next == nullptr), "wire", name);
+				emit_var(register_variable(item.width, item.curr, /*constant=*/item.next == nullptr),
+				         "wire", name, item.lsb_at, multipart);
 				break;
 			case debug_item::WIRE:
-				emit_var(register_variable(item.width, item.curr), "reg", name);
+				emit_var(register_variable(item.width, item.curr),
+				         "reg", name, item.lsb_at, multipart);
 				break;
 			case debug_item::MEMORY: {
 				const size_t stride = (item.width + (sizeof(chunk_t) * 8 - 1)) / (sizeof(chunk_t) * 8);
 				for (size_t index = 0; index < item.depth; index++) {
 					chunk_t *nth_curr = &item.curr[stride * index];
 					std::string nth_name = name + '[' + std::to_string(index) + ']';
-					emit_var(register_variable(item.width, nth_curr), "reg", nth_name);
+					emit_var(register_variable(item.width, nth_curr),
+					         "reg", nth_name, item.lsb_at, multipart);
 				}
 				break;
 			}
@@ -183,7 +194,8 @@ public:
 				// can actually change, and must be tracked. In most cases the VCD identifier will be
 				// unified with the aliased reg, but we should handle the case where only the alias is
 				// added to the VCD writer, too.
-				emit_var(register_variable(item.width, item.curr), "wire", name);
+				emit_var(register_variable(item.width, item.curr),
+				         "wire", name, item.lsb_at, multipart);
 				break;
 		}
 	}
@@ -192,9 +204,10 @@ public:
 	void add(const debug_items &items, const Filter &filter) {
 		// `debug_items` is a map, so the items are already sorted in an order optimal for emitting
 		// VCD scope sections.
-		for (auto &it : items)
-			if (filter(it.first, it.second))
-				add(it.first, it.second);
+		for (auto &it : items.table)
+			for (auto &part : it.second)
+				if (filter(it.first, part))
+					add(it.first, part, it.second.size() > 1);
 	}
 
 	void add(const debug_items &items) {

@@ -26,6 +26,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <assert.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -113,8 +114,14 @@ struct cxxrtl_object {
 	// Width of the object in bits.
 	size_t width;
 
+	// Index of the least significant bit.
+	size_t lsb_at;
+
 	// Depth of the object. Only meaningful for memories; for other objects, always 1.
 	size_t depth;
+
+	// Index of the first word. Only meaningful for memories; for other objects, always 0;
+	size_t zero_at;
 
 	// Bits stored in the object, as 32-bit chunks, least significant bits first.
 	//
@@ -140,17 +147,36 @@ struct cxxrtl_object {
 // the top-level module instantiates a module `foo`, which in turn contains a wire `bar`, the full
 // hierarchical name is `\foo \bar`.
 //
-// Returns the object if it was found, NULL otherwise. The returned value is valid until the design
-// is destroyed.
-struct cxxrtl_object *cxxrtl_get(cxxrtl_handle handle, const char *name);
+// The storage of a single abstract object may be split (usually with the `splitnets` pass) into
+// many physical parts, all of which correspond to the same hierarchical name. To handle such cases,
+// this function returns an array and writes its length to `parts`. The array is sorted by `lsb_at`.
+//
+// Returns the object parts if it was found, NULL otherwise. The returned parts are valid until
+// the design is destroyed.
+struct cxxrtl_object *cxxrtl_get_parts(cxxrtl_handle handle, const char *name, size_t *parts);
+
+// Retrieve description of a single part simulated object.
+//
+// This function is a shortcut for the most common use of `cxxrtl_get_parts`. It asserts that,
+// if the object exists, it consists of a single part. If assertions are disabled, it returns NULL
+// for multi-part objects.
+inline struct cxxrtl_object *cxxrtl_get(cxxrtl_handle handle, const char *name) {
+	size_t parts = 0;
+	struct cxxrtl_object *object = cxxrtl_get_parts(handle, name, &parts);
+	assert(object == NULL || parts == 1);
+	if (object == NULL || parts == 1)
+		return object;
+	return NULL;
+}
 
 // Enumerate simulated objects.
 //
 // For every object in the simulation, `callback` is called with the provided `data`, the full
-// hierarchical name of the object (see `cxxrtl_get` for details), and the object description.
+// hierarchical name of the object (see `cxxrtl_get` for details), and the object parts.
 // The provided `name` and `object` values are valid until the design is destroyed.
 void cxxrtl_enum(cxxrtl_handle handle, void *data,
-                 void (*callback)(void *data, const char *name, struct cxxrtl_object *object));
+                 void (*callback)(void *data, const char *name,
+                                  struct cxxrtl_object *object, size_t parts));
 
 #ifdef __cplusplus
 }
