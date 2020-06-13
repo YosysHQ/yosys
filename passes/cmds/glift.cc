@@ -28,7 +28,7 @@ struct GliftPass : public Pass {
 	private:
 
 	bool opt_create_precise_model, opt_create_imprecise_model, opt_create_instrumented_model;
-	bool opt_taintconstants, opt_keepoutputs, opt_nocostmodel, opt_instrumentmore;
+	bool opt_taintconstants, opt_keepoutputs, opt_simplecostmodel, opt_nocostmodel, opt_instrumentmore;
 	std::vector<std::string> args;
 	std::vector<std::string>::size_type argidx;
 	std::vector<RTLIL::Wire *> new_taint_outputs;
@@ -59,6 +59,10 @@ struct GliftPass : public Pass {
 				opt_keepoutputs = true;
 				continue;
 			}
+			if (args[argidx] == "-simple-cost-model") {
+				opt_simplecostmodel = true;
+				continue;
+			}
 			if (args[argidx] == "-no-cost-model") {
 				opt_nocostmodel = true;
 				continue;
@@ -73,6 +77,10 @@ struct GliftPass : public Pass {
 			log_cmd_error("No command provided.  See help for usage.\n");
 		if(static_cast<int>(opt_create_precise_model) + static_cast<int>(opt_create_imprecise_model) + static_cast<int>(opt_create_instrumented_model) != 1)
 			log_cmd_error("Only one command may be specified.  See help for usage.\n");
+		if(opt_simplecostmodel && opt_nocostmodel)
+			log_cmd_error("Only one of `-simple-cost-model` and `-no-cost-model` may be specified. See help for usage.\n");
+		if((opt_simplecostmodel || opt_nocostmodel) && !opt_create_instrumented_model)
+			log_cmd_error("Options `-simple-cost-model` and `-no-cost-model` may only be used with `-create-instrumented-model`. See help for usage.\n");
 	}
 
 	RTLIL::SigSpec get_corresponding_taint_signal(RTLIL::SigSpec sig) {
@@ -153,25 +161,33 @@ struct GliftPass : public Pass {
 	RTLIL::SigSpec score_metamux_select(const RTLIL::SigSpec &metamux_select) {
 		log_assert(metamux_select.is_wire());
 
-		auto num_versions = opt_instrumentmore? 8 : 4;
-		auto select_width = log2(num_versions);
-		log_assert(metamux_select.as_wire()->width == select_width);
+		if (opt_simplecostmodel) {
+			//The complex model is an area model, so a lower score should mean smaller.
+			//In this case, a nonzero hole metamux select value means less logic.
+			//Thus we should invert the ReduceOr over the metamux_select signal.
+			RTLIL::SigSpec pmux_select = module->ReduceOr(metamux_select.as_wire()->name.str() + "_nonzero", metamux_select);
+			return module->Pmux(NEW_ID, RTLIL::Const(1), RTLIL::Const(0), pmux_select, metamux_select.as_wire()->get_src_attribute());
+		} else {
+			auto num_versions = opt_instrumentmore? 8 : 4;
+			auto select_width = log2(num_versions);
+			log_assert(metamux_select.as_wire()->width == select_width);
 
-		std::vector<RTLIL::Const> costs = {5, 2, 2, 1, 0, 0, 0, 0}; //in terms of AND/OR gates
+			std::vector<RTLIL::Const> costs = {5, 2, 2, 1, 0, 0, 0, 0}; //in terms of AND/OR gates
 
-		std::vector<RTLIL::SigSpec> next_pmux_y_ports, pmux_y_ports(costs.begin(), costs.begin() + num_versions);
-		for (auto i = 0; pmux_y_ports.size() > 1; ++i) {
-			for (auto j = 0; j+1 < GetSize(pmux_y_ports); j += 2) {
-				next_pmux_y_ports.emplace_back(module->Pmux(stringf("%s_mux_%d_%d", metamux_select.as_wire()->name.c_str(), i, j), pmux_y_ports[j], pmux_y_ports[j+1], metamux_select[GetSize(metamux_select) - 1 - i], metamux_select.as_wire()->get_src_attribute()));
+			std::vector<RTLIL::SigSpec> next_pmux_y_ports, pmux_y_ports(costs.begin(), costs.begin() + num_versions);
+			for (auto i = 0; pmux_y_ports.size() > 1; ++i) {
+				for (auto j = 0; j+1 < GetSize(pmux_y_ports); j += 2) {
+					next_pmux_y_ports.emplace_back(module->Pmux(stringf("%s_mux_%d_%d", metamux_select.as_wire()->name.c_str(), i, j), pmux_y_ports[j], pmux_y_ports[j+1], metamux_select[GetSize(metamux_select) - 1 - i], metamux_select.as_wire()->get_src_attribute()));
+				}
+				if (GetSize(pmux_y_ports) % 2 == 1)
+					next_pmux_y_ports.push_back(pmux_y_ports[GetSize(pmux_y_ports) - 1]);
+				pmux_y_ports.swap(next_pmux_y_ports);
+				next_pmux_y_ports.clear();
 			}
-			if (GetSize(pmux_y_ports) % 2 == 1)
-				next_pmux_y_ports.push_back(pmux_y_ports[GetSize(pmux_y_ports) - 1]);
-			pmux_y_ports.swap(next_pmux_y_ports);
-			next_pmux_y_ports.clear();
-		}
 
-		log_assert(pmux_y_ports.size() == 1);
-		return pmux_y_ports[0];
+			log_assert(pmux_y_ports.size() == 1);
+			return pmux_y_ports[0];
+		}
 	}
 
 	void create_glift_logic() {
@@ -276,7 +292,7 @@ struct GliftPass : public Pass {
 				new_taint_outputs.push_back(first.as_wire());
 		} //end foreach conn in connections
 
-		//Create a rough model of area by summing the "weight" score of each meta-mux select:
+		//Create a rough model of area by summing the (potentially simplified) "weight" score of each meta-mux select:
 		if (!opt_nocostmodel) {
 			std::vector<RTLIL::SigSpec> meta_mux_select_sums;
 			std::vector<RTLIL::SigSpec> meta_mux_select_sums_buf;
@@ -317,6 +333,7 @@ struct GliftPass : public Pass {
 		opt_create_instrumented_model = false;
 		opt_taintconstants = false;
 		opt_keepoutputs = false;
+		opt_simplecostmodel = false;
 		opt_nocostmodel = false;
 		opt_instrumentmore = false;
 		module = nullptr;
@@ -328,7 +345,7 @@ struct GliftPass : public Pass {
 
 	public:
 
-	GliftPass() : Pass("glift", "create GLIFT models and optimization problems"), opt_create_precise_model(false), opt_create_imprecise_model(false), opt_create_instrumented_model(false), opt_taintconstants(false), opt_keepoutputs(false), opt_nocostmodel(false), opt_instrumentmore(false), module(nullptr) { }
+	GliftPass() : Pass("glift", "create GLIFT models and optimization problems"), opt_create_precise_model(false), opt_create_imprecise_model(false), opt_create_instrumented_model(false), opt_taintconstants(false), opt_keepoutputs(false), opt_simplecostmodel(false), opt_nocostmodel(false), opt_instrumentmore(false), module(nullptr) { }
 
 	void help() YS_OVERRIDE
 	{
@@ -387,6 +404,14 @@ struct GliftPass : public Pass {
 		log("    Do not remove module outputs. Taint tracking outputs will appear in the module ports\n");
 		log("    alongside the orignal outputs.\n");
 		log("    (default: original module outputs are removed)\n");
+		log("\n");
+		log("  -simple-cost-model\n");
+		log("    Do not model logic area. Instead model the number of non-zero assignments to $anyconsts.\n");
+		log("    Taint tracking logic versions vary in their size, but all reduced-precision versions are\n");
+		log("    significantly smaller than the fully-precise version. A non-zero $anyconst assignment means\n");
+		log("    that reduced-precision taint tracking logic was chosen for some gate.\n");
+		log("    Only applicable in combination with `-create-instrumented-model`.\n");
+		log("    (default: use a complex model and give that wire the \"keep\" and \"minimize\" attributes)\n");
 		log("\n");
 		log("  -no-cost-model\n");
 		log("    Do not model taint tracking logic area and do not create a `__glift_weight` wire.\n");
