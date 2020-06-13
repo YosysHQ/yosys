@@ -174,12 +174,12 @@ struct SplitnetsPass : public Pass {
 
 				std::map<RTLIL::Wire*, std::set<int>> split_wires_at;
 
-				for (auto &c : module->cells_)
-				for (auto &p : c.second->connections())
+				for (auto c : module->cells())
+				for (auto &p : c->connections())
 				{
-					if (!ct.cell_known(c.second->type))
+					if (!ct.cell_known(c->type))
 						continue;
-					if (!ct.cell_output(c.second->type, p.first))
+					if (!ct.cell_output(c->type, p.first))
 						continue;
 
 					RTLIL::SigSpec sig = p.second;
@@ -206,9 +206,8 @@ struct SplitnetsPass : public Pass {
 			}
 			else
 			{
-				for (auto &w : module->wires_) {
-					RTLIL::Wire *wire = w.second;
-					if (wire->width > 1 && (wire->port_id == 0 || flag_ports) && design->selected(module, w.second))
+				for (auto wire : module->wires()) {
+					if (wire->width > 1 && (wire->port_id == 0 || flag_ports) && design->selected(module, wire))
 						worker.splitmap[wire] = std::vector<RTLIL::SigBit>();
 				}
 
