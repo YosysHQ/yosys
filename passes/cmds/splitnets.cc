@@ -61,20 +61,24 @@ struct SplitnetsWorker
 		new_wire->port_output = wire->port_output;
 		new_wire->start_offset = wire->start_offset + offset;
 
-		if (wire->attributes.count(ID::src))
-			new_wire->attributes[ID::src] = wire->attributes.at(ID::src);
+		auto it = wire->attributes.find(ID::src);
+		if (it != wire->attributes.end())
+			new_wire->attributes.emplace(ID::src, it->second);
 
-		if (wire->attributes.count(ID::hdlname))
-			new_wire->attributes[ID::hdlname] = wire->attributes.at(ID::hdlname);
+		it = wire->attributes.find(ID::hdlname);
+		if (it != wire->attributes.end())
+			new_wire->attributes.emplace(ID::hdlname, it->second);
 
-		if (wire->attributes.count(ID::keep))
-			new_wire->attributes[ID::keep] = wire->attributes.at(ID::keep);
+		it = wire->attributes.find(ID::keep);
+		if (it != wire->attributes.end())
+			new_wire->attributes.emplace(ID::keep, it->second);
 
-		if (wire->attributes.count(ID::init)) {
-			Const old_init = wire->attributes.at(ID::init), new_init;
+		it = wire->attributes.find(ID::init);
+		if (it != wire->attributes.end()) {
+			Const old_init = it->second, new_init;
 			for (int i = offset; i < offset+width; i++)
 				new_init.bits.push_back(i < GetSize(old_init) ? old_init.bits.at(i) : State::Sx);
-			new_wire->attributes[ID::init] = new_init;
+			new_wire->attributes.emplace(ID::init, new_init);
 		}
 
 		std::vector<RTLIL::SigBit> sigvec = RTLIL::SigSpec(new_wire).to_sigbit_vector();
