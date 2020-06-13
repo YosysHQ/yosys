@@ -73,14 +73,14 @@ struct CutpointPass : public Pass {
 				pool<SigBit> cutpoint_bits;
 
 				for (auto cell : module->selected_cells()) {
-					if (cell->type == ID($anyseq))
-						continue;
-					log("Removing cell %s.%s, making all cell outputs cutpoints.\n", log_id(module), log_id(cell));
-					for (auto &conn : cell->connections()) {
-						if (cell->output(conn.first))
-							module->connect(conn.second, flag_undef ? Const(State::Sx, GetSize(conn.second)) : module->Anyseq(NEW_ID, GetSize(conn.second)));
+					if (cell->type != ID($anyseq)) {
+						log("Removing cell %s.%s, making all cell outputs cutpoints.\n", log_id(module), log_id(cell));
+						for (auto &conn : cell->connections()) {
+							if (cell->output(conn.first))
+								module->connect(conn.second, flag_undef ? Const(State::Sx, GetSize(conn.second)) : module->Anyseq(NEW_ID, GetSize(conn.second)));
+						}
+						module->remove(cell);
 					}
-					module->remove(cell);
 				}
 
 				for (auto wire : module->selected_wires()) {
@@ -103,23 +103,21 @@ struct CutpointPass : public Pass {
 				{
 					for (auto cell : module->cells()) {
 						for (auto &conn : cell->connections()) {
-							if (!cell->output(conn.first))
-								continue;
-							SigSpec sig = sigmap(conn.second);
-							int bit_count = 0;
-							for (auto &bit : sig) {
-								if (cutpoint_bits.count(bit))
-									bit_count++;
+							if (cell->output(conn.first)) {
+								SigSpec sig = sigmap(conn.second);
+								int bit_count = 0;
+								for (auto &bit : sig)
+									if (cutpoint_bits.count(bit))
+										bit_count++;
+								if (bit_count != 0) {
+									SigSpec dummy = module->addWire(NEW_ID, bit_count);
+									bit_count = 0;
+									for (auto &bit : sig)
+										if (cutpoint_bits.count(bit))
+											bit = dummy[bit_count++];
+									cell->setPort(conn.first, sig);
+								}
 							}
-							if (bit_count == 0)
-								continue;
-							SigSpec dummy = module->addWire(NEW_ID, bit_count);
-							bit_count = 0;
-							for (auto &bit : sig) {
-								if (cutpoint_bits.count(bit))
-									bit = dummy[bit_count++];
-							}
-							cell->setPort(conn.first, sig);
 						}
 					}
 
