@@ -165,8 +165,8 @@ struct value : public expr_base<value<Bits>> {
 			carry = (shift_bits == 0) ? 0
 				: data[n] >> (chunk::bits - shift_bits);
 		}
-		if (carry != 0)
-			result.data[result.chunks - 1] = carry;
+		if (shift_chunks + chunks < result.chunks)
+			result.data[shift_chunks + chunks] = carry;
 		return result;
 	}
 
