@@ -66,6 +66,7 @@ namespace cxxrtl {
 // Therefore, using relatively wide chunks and clearing the high bits explicitly and only when we know they may be
 // clobbered results in simpler generated code.
 typedef uint32_t chunk_t;
+typedef uint64_t wide_chunk_t;
 
 template<typename T>
 struct chunk_traits {
@@ -451,6 +452,24 @@ struct value : public expr_base<value<Bits>> {
 		std::tie(result, carry) = alu</*Invert=*/true, /*CarryIn=*/true>(other);
 		bool overflow = (is_neg() == !other.is_neg()) && (is_neg() != result.is_neg());
 		return result.is_neg() ^ overflow; // a.scmp(b) ≡ a s< b
+	}
+
+	template<size_t ResultBits>
+	value<ResultBits> mul(const value<Bits> &other) const {
+		value<ResultBits> result;
+		wide_chunk_t wide_result[result.chunks + 1] = {};
+		for (size_t n = 0; n < chunks; n++) {
+			for (size_t m = 0; m < chunks && n + m < result.chunks; m++) {
+				wide_result[n + m] += wide_chunk_t(data[n]) * wide_chunk_t(other.data[m]);
+				wide_result[n + m + 1] += wide_result[n + m] >> chunk::bits;
+				wide_result[n + m] &= chunk::mask;
+			}
+		}
+		for (size_t n = 0; n < result.chunks; n++) {
+			result.data[n] = wide_result[n];
+		}
+		result.data[result.chunks - 1] &= result.msb_mask;
+		return result;
 	}
 };
 
@@ -1304,28 +1323,14 @@ value<BitsY> sub_ss(const value<BitsA> &a, const value<BitsB> &b) {
 template<size_t BitsY, size_t BitsA, size_t BitsB>
 CXXRTL_ALWAYS_INLINE
 value<BitsY> mul_uu(const value<BitsA> &a, const value<BitsB> &b) {
-	value<BitsY> product;
-	value<BitsY> multiplicand = a.template zcast<BitsY>();
-	const value<BitsB> &multiplier = b;
-	uint32_t multiplicand_shift = 0;
-	for (size_t step = 0; step < BitsB; step++) {
-		if (multiplier.bit(step)) {
-			multiplicand = multiplicand.shl(value<32> { multiplicand_shift });
-			product = product.add(multiplicand);
-			multiplicand_shift = 0;
-		}
-		multiplicand_shift++;
-	}
-	return product;
+	constexpr size_t BitsM = BitsA >= BitsB ? BitsA : BitsB;
+	return a.template zcast<BitsM>().template mul<BitsY>(b.template zcast<BitsM>());
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
 CXXRTL_ALWAYS_INLINE
 value<BitsY> mul_ss(const value<BitsA> &a, const value<BitsB> &b) {
-	value<BitsB + 1> ub = b.template sext<BitsB + 1>();
-	if (ub.is_neg()) ub = ub.neg();
-	value<BitsY> y = mul_uu<BitsY>(a.template scast<BitsY>(), ub);
-	return b.is_neg() ? y.neg() : y;
+	return a.template scast<BitsY>().template mul<BitsY>(b.template scast<BitsY>());
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
