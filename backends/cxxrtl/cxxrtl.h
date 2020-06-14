@@ -376,10 +376,12 @@ struct value : public expr_base<value<Bits>> {
 				: data[chunks - 1 - n] << (chunk::bits - shift_bits);
 		}
 		if (Signed && is_neg()) {
-			for (size_t n = chunks - shift_chunks; n < chunks; n++)
+			size_t top_chunk_idx  = (Bits - shift_bits) / chunk::bits;
+			size_t top_chunk_bits = (Bits - shift_bits) % chunk::bits;
+			for (size_t n = top_chunk_idx + 1; n < chunks; n++)
 				result.data[n] = chunk::mask;
 			if (shift_bits != 0)
-				result.data[chunks - shift_chunks] |= chunk::mask << (chunk::bits - shift_bits);
+				result.data[top_chunk_idx] |= chunk::mask << top_chunk_bits;
 		}
 		return result;
 	}
