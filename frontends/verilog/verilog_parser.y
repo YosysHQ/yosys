@@ -298,6 +298,7 @@ static void rewriteAsMemoryNode(AstNode *node, AstNode *rangeNode)
 %left '+' '-'
 %left '*' '/' '%'
 %left OP_POW
+%left OP_CAST
 %right UNARY_OPS
 
 %define parse.error verbose
@@ -3001,6 +3002,24 @@ basic_expr:
 		$$ = new AstNode(AST_LOGIC_NOT, $3);
 		SET_AST_NODE_LOC($$, @1, @3);
 		append_attr($$, $2);
+	} |
+	TOK_SIGNED OP_CAST '(' expr ')' {
+		if (!sv_mode)
+			frontend_verilog_yyerror("Static cast is only supported in SystemVerilog mode.");
+		$$ = new AstNode(AST_TO_SIGNED, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
+	} |
+	TOK_UNSIGNED OP_CAST '(' expr ')' {
+		if (!sv_mode)
+			frontend_verilog_yyerror("Static cast is only supported in SystemVerilog mode.");
+		$$ = new AstNode(AST_TO_UNSIGNED, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
+	} |
+	basic_expr OP_CAST '(' expr ')' {
+		if (!sv_mode)
+			frontend_verilog_yyerror("Static cast is only supported in SystemVerilog mode.");
+		$$ = new AstNode(AST_CAST_SIZE, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 	};
 
 concat_list:

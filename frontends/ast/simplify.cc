@@ -950,6 +950,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	case AST_TO_SIGNED:
 	case AST_TO_UNSIGNED:
 	case AST_SELFSZ:
+	case AST_CAST_SIZE:
 	case AST_CONCAT:
 	case AST_REPLICATE:
 	case AST_REDUCE_AND:
