@@ -1623,6 +1623,8 @@ struct CxxrtlWorker {
 			for (auto wire : module->wires()) {
 				if (wire->name[0] != '\\')
 					continue;
+				if (module->get_bool_attribute(ID(cxxrtl_blackbox)) && (wire->port_id == 0))
+					continue;
 				count_public_wires++;
 				if (debug_const_wires.count(wire)) {
 					// Wire tied to a constant
@@ -1649,19 +1651,21 @@ struct CxxrtlWorker {
 					count_skipped_wires++;
 				}
 			}
-			for (auto &memory_it : module->memories) {
-				if (memory_it.first[0] != '\\')
-					continue;
-				f << indent << "items.add(path + " << escape_cxx_string(get_hdl_name(memory_it.second));
-				f << ", debug_item(" << mangle(memory_it.second) << ", ";
-				f << memory_it.second->start_offset << "));\n";
-			}
-			for (auto cell : module->cells()) {
-				if (is_internal_cell(cell->type))
-					continue;
-				const char *access = is_cxxrtl_blackbox_cell(cell) ? "->" : ".";
-				f << indent << mangle(cell) << access << "debug_info(items, ";
-				f << "path + " << escape_cxx_string(get_hdl_name(cell) + ' ') << ");\n";
+			if (!module->get_bool_attribute(ID(cxxrtl_blackbox))) {
+				for (auto &memory_it : module->memories) {
+					if (memory_it.first[0] != '\\')
+						continue;
+					f << indent << "items.add(path + " << escape_cxx_string(get_hdl_name(memory_it.second));
+					f << ", debug_item(" << mangle(memory_it.second) << ", ";
+					f << memory_it.second->start_offset << "));\n";
+				}
+				for (auto cell : module->cells()) {
+					if (is_internal_cell(cell->type))
+						continue;
+					const char *access = is_cxxrtl_blackbox_cell(cell) ? "->" : ".";
+					f << indent << mangle(cell) << access << "debug_info(items, ";
+					f << "path + " << escape_cxx_string(get_hdl_name(cell) + ' ') << ");\n";
+				}
 			}
 		dec_indent();
 
