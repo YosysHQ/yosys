@@ -591,7 +591,7 @@ read_define_args()
 
 		default:
 			// The only FSM states are 0-2 and we dealt with 2 at the start of the loop.
-			__builtin_unreachable();
+			log_assert(false);
 		}
 	}
 
