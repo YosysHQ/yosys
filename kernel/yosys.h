@@ -117,11 +117,11 @@ extern Tcl_Obj *Tcl_ObjSetVar2(Tcl_Interp *interp, Tcl_Obj *part1Ptr, Tcl_Obj *p
 #    define PATH_MAX MAX_PATH
 #    define isatty _isatty
 #    define fileno _fileno
-#  else
-//   mingw includes `wingdi.h` which defines a TRANSPARENT macro
-//   that conflicts with X(TRANSPARENT) entry in kernel/constids.inc
-#    undef TRANSPARENT
 #  endif
+
+// mingw and msvc include `wingdi.h` which defines a TRANSPARENT macro
+// that conflicts with X(TRANSPARENT) entry in kernel/constids.inc
+#  undef TRANSPARENT
 #endif
 
 #ifndef PATH_MAX
