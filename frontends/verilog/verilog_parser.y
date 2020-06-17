@@ -1481,7 +1481,7 @@ enum_name_decl:
 		delete $1;
 		SET_AST_NODE_LOC(node, @1, @1);
 		delete node->children[0];
-		node->children[0] = $2 ?: new AstNode(AST_NONE);
+		node->children[0] = $2 ? $2 : new AstNode(AST_NONE);
 		astbuf2->children.push_back(node);
 	}
 	;
