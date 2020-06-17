@@ -1839,7 +1839,8 @@ struct CxxrtlWorker {
 				topo_design.edge(cell_module, module);
 			}
 		}
-		log_assert(topo_design.sort());
+		bool no_loops = topo_design.sort();
+		log_assert(no_loops);
 		modules.insert(modules.end(), topo_design.sorted.begin(), topo_design.sorted.end());
 
 		if (split_intf) {
