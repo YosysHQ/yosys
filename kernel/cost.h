@@ -70,6 +70,28 @@ struct CellCosts
 		return db;
 	}
 
+	static const dict<RTLIL::IdString, int>& unit_gate_cost() {
+		static const dict<RTLIL::IdString, int> db = {
+			{ ID($_BUF_),     0 },
+			{ ID($_NOT_),     0 },
+			{ ID($_AND_),     1 },
+			{ ID($_NAND_),    1 },
+			{ ID($_OR_),      1 },
+			{ ID($_NOR_),     1 },
+			{ ID($_ANDNOT_),  1 },
+			{ ID($_ORNOT_),   1 },
+			{ ID($_XOR_),     1 }, //arguably should be higher
+			{ ID($_XNOR_),    1 }, //arguably should be higher
+			{ ID($_AOI3_),    2 },
+			{ ID($_OAI3_),    2 },
+			{ ID($_AOI4_),    3 },
+			{ ID($_OAI4_),    3 },
+			{ ID($_MUX_),     3 },
+			{ ID($_NMUX_),    3 }
+		};
+		return db;
+	}
+
 	dict<RTLIL::IdString, int> mod_cost_cache;
 	const dict<RTLIL::IdString, int> *gate_cost = nullptr;
 	Design *design = nullptr;
