@@ -1134,31 +1134,33 @@ struct CxxrtlWorker {
 				f << indent << "if(" << valid_index_temp << ".valid) {\n";
 				inc_indent();
 					if (writable_memories[memory]) {
-						std::string addr_temp = fresh_temporary();
-						f << indent << "const value<" << cell->getPort(ID::ADDR).size() << "> &" << addr_temp << " = ";
-						dump_sigspec_rhs(cell->getPort(ID::ADDR));
-						f << ";\n";
 						std::string lhs_temp = fresh_temporary();
 						f << indent << "value<" << memory->width << "> " << lhs_temp << " = "
 						            << mangle(memory) << "[" << valid_index_temp << ".index];\n";
 						std::vector<const RTLIL::Cell*> memwr_cells(transparent_for[cell].begin(), transparent_for[cell].end());
-						std::sort(memwr_cells.begin(), memwr_cells.end(),
-							[](const RTLIL::Cell *a, const RTLIL::Cell *b) {
-								return a->getParam(ID::PRIORITY).as_int() < b->getParam(ID::PRIORITY).as_int();
-							});
-						for (auto memwr_cell : memwr_cells) {
-							f << indent << "if (" << addr_temp << " == ";
-							dump_sigspec_rhs(memwr_cell->getPort(ID::ADDR));
-							f << ") {\n";
-							inc_indent();
-								f << indent << lhs_temp << " = " << lhs_temp;
-								f << ".update(";
-								dump_sigspec_rhs(memwr_cell->getPort(ID::DATA));
-								f << ", ";
-								dump_sigspec_rhs(memwr_cell->getPort(ID::EN));
-								f << ");\n";
-							dec_indent();
-							f << indent << "}\n";
+						if (!memwr_cells.empty()) {
+							std::string addr_temp = fresh_temporary();
+							f << indent << "const value<" << cell->getPort(ID::ADDR).size() << "> &" << addr_temp << " = ";
+							dump_sigspec_rhs(cell->getPort(ID::ADDR));
+							f << ";\n";
+							std::sort(memwr_cells.begin(), memwr_cells.end(),
+								[](const RTLIL::Cell *a, const RTLIL::Cell *b) {
+									return a->getParam(ID::PRIORITY).as_int() < b->getParam(ID::PRIORITY).as_int();
+								});
+							for (auto memwr_cell : memwr_cells) {
+								f << indent << "if (" << addr_temp << " == ";
+								dump_sigspec_rhs(memwr_cell->getPort(ID::ADDR));
+								f << ") {\n";
+								inc_indent();
+									f << indent << lhs_temp << " = " << lhs_temp;
+									f << ".update(";
+									dump_sigspec_rhs(memwr_cell->getPort(ID::DATA));
+									f << ", ";
+									dump_sigspec_rhs(memwr_cell->getPort(ID::EN));
+									f << ");\n";
+								dec_indent();
+								f << indent << "}\n";
+							}
 						}
 						f << indent;
 						dump_sigspec_lhs(cell->getPort(ID::DATA));
