@@ -575,7 +575,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct SimplemapPass : public Pass {
 	SimplemapPass() : Pass("simplemap", "mapping simple coarse-grain cells") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -590,7 +590,7 @@ struct SimplemapPass : public Pass {
 		log("  $sr, $ff, $dff, $dffsr, $adff, $dlatch\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing SIMPLEMAP pass (map simple cells to gate primitives).\n");
 		extra_args(args, 1, design);

@@ -29,7 +29,7 @@ PRIVATE_NAMESPACE_BEGIN
 struct SynthIntelALMPass : public ScriptPass {
 	SynthIntelALMPass() : ScriptPass("synth_intel_alm", "synthesis for ALM-based Intel (Altera) FPGAs.") {}
 
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -74,7 +74,7 @@ struct SynthIntelALMPass : public ScriptPass {
 	string top_opt, family_opt, bram_type, vout_file;
 	bool flatten, quartus, nolutram, nobram;
 
-	void clear_flags() YS_OVERRIDE
+	void clear_flags() override
 	{
 		top_opt = "-auto-top";
 		family_opt = "cyclonev";
@@ -86,7 +86,7 @@ struct SynthIntelALMPass : public ScriptPass {
 		nobram = false;
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		string run_from, run_to;
 		clear_flags();
@@ -153,7 +153,7 @@ struct SynthIntelALMPass : public ScriptPass {
 		log_pop();
 	}
 
-	void script() YS_OVERRIDE
+	void script() override
 	{
 		if (help_mode) {
 			family_opt = "<family>";

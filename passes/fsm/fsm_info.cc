@@ -30,7 +30,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct FsmInfoPass : public Pass {
 	FsmInfoPass() : Pass("fsm_info", "print information on finite state machines") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -41,7 +41,7 @@ struct FsmInfoPass : public Pass {
 		log("pass so that this information is included in the synthesis log file.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing FSM_INFO pass (dumping all available information on FSM cells).\n");
 		extra_args(args, 1, design);

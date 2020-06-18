@@ -56,7 +56,7 @@ int lut2mux(Cell *cell)
 
 struct Lut2muxPass : public Pass {
 	Lut2muxPass() : Pass("lut2mux", "convert $lut to $_MUX_") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -65,7 +65,7 @@ struct Lut2muxPass : public Pass {
 		log("This pass converts $lut cells to $_MUX_ gates.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing LUT2MUX pass (convert $lut to $_MUX_).\n");
 

@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct EquivAddPass : public Pass {
 	EquivAddPass() : Pass("equiv_add", "add a $equiv cell") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -39,7 +39,7 @@ struct EquivAddPass : public Pass {
 		log("This command adds $equiv cells for the ports of the specified cells.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, Design *design) override
 	{
 		bool try_mode = false;
 

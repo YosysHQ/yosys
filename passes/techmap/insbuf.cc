@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct InsbufPass : public Pass {
 	InsbufPass() : Pass("insbuf", "insert buffer cells for connected wires") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		log("\n");
 		log("    insbuf [options] [selection]\n");
@@ -37,7 +37,7 @@ struct InsbufPass : public Pass {
 		log("        call to \"clean\" will remove all $_BUF_ in the design.)\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing INSBUF pass (insert buffer cells for connected wires).\n");
 

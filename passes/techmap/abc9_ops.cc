@@ -1530,7 +1530,7 @@ clone_lut:
 
 struct Abc9OpsPass : public Pass {
 	Abc9OpsPass() : Pass("abc9_ops", "helper functions for ABC9") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1614,7 +1614,7 @@ struct Abc9OpsPass : public Pass {
 		log("        inputs and outputs.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing ABC9_OPS pass (helper functions for ABC9).\n");
 

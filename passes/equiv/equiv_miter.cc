@@ -261,7 +261,7 @@ struct EquivMiterWorker
 
 struct EquivMiterPass : public Pass {
 	EquivMiterPass() : Pass("equiv_miter", "extract miter from equiv circuit") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -282,7 +282,7 @@ struct EquivMiterPass : public Pass {
 		log("        Create compare logic that handles undefs correctly\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		EquivMiterWorker worker;
 		worker.ct.setup(design);

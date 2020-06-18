@@ -744,7 +744,7 @@ struct SimplecWorker
 
 struct SimplecBackend : public Backend {
 	SimplecBackend() : Backend("simplec", "convert design to simple C code") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -763,7 +763,7 @@ struct SimplecBackend : public Backend {
 		log("THIS COMMAND IS UNDER CONSTRUCTION\n");
 		log("\n");
 	}
-	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		reserved_cids.clear();
 		id2cid.clear();

@@ -97,7 +97,7 @@ struct OptMemWorker
 
 struct OptMemPass : public Pass {
 	OptMemPass() : Pass("opt_mem", "optimize memories") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -106,7 +106,7 @@ struct OptMemPass : public Pass {
 		log("This pass performs various optimizations on memories in the design.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing OPT_MEM pass (optimize memories).\n");
 

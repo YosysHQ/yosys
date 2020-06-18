@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct ChformalPass : public Pass {
 	ChformalPass() : Pass("chformal", "change formal constraints of the design") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -62,7 +62,7 @@ struct ChformalPass : public Pass {
 		log("        change the roles of cells as indicated. these options can be combined\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool assert2assume = false;
 		bool assume2assert = false;

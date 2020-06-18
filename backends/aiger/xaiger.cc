@@ -731,7 +731,7 @@ struct XAigerWriter
 
 struct XAigerBackend : public Backend {
 	XAigerBackend() : Backend("xaiger", "write design to XAIGER file") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -753,7 +753,7 @@ struct XAigerBackend : public Backend {
 		log("        write $_DFF_[NP]_ cells\n");
 		log("\n");
 	}
-	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool ascii_mode = false, dff_mode = false;
 		std::string map_filename;

@@ -273,7 +273,7 @@ struct EquivSimpleWorker
 
 struct EquivSimplePass : public Pass {
 	EquivSimplePass() : Pass("equiv_simple", "try proving simple $equiv instances") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -298,7 +298,7 @@ struct EquivSimplePass : public Pass {
 		log("        the max. number of time steps to be considered (default = 1)\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, Design *design) override
 	{
 		bool verbose = false, short_cones = false, model_undef = false, nogroup = false;
 		int success_counter = 0;

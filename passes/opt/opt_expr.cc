@@ -2009,7 +2009,7 @@ skip_alu_split:
 
 struct OptExprPass : public Pass {
 	OptExprPass() : Pass("opt_expr", "perform const folding and simple expression rewriting") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -2043,7 +2043,7 @@ struct OptExprPass : public Pass {
 		log("        replaced by 'a'. the -keepdc option disables all such optimizations.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool mux_undef = false;
 		bool mux_bool = false;

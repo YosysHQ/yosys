@@ -1335,7 +1335,7 @@ struct BtorWorker
 
 struct BtorBackend : public Backend {
 	BtorBackend() : Backend("btor", "write design to BTOR file") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1359,7 +1359,7 @@ struct BtorBackend : public Backend {
 		log("    Output symbols for internal netnames (starting with '$')\n");
 		log("\n");
 	}
-	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool verbose = false, single_bad = false, cover_mode = false, print_internal_names = false;
 		string info_filename;

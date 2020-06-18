@@ -86,7 +86,7 @@ void proc_init(RTLIL::Module *mod, SigMap &sigmap, RTLIL::Process *proc)
 
 struct ProcInitPass : public Pass {
 	ProcInitPass() : Pass("proc_init", "convert initial block to init attributes") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -97,7 +97,7 @@ struct ProcInitPass : public Pass {
 		log("respective wire.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing PROC_INIT pass (extract init attributes).\n");
 

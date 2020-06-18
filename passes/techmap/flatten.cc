@@ -253,7 +253,7 @@ struct FlattenWorker
 
 struct FlattenPass : public Pass {
 	FlattenPass() : Pass("flatten", "flatten design") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -270,7 +270,7 @@ struct FlattenPass : public Pass {
 		log("        Ignore the 'whitebox' attribute on cell implementations.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing FLATTEN pass (flatten design).\n");
 		log_push();

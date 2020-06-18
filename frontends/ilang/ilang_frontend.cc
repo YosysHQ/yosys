@@ -35,7 +35,7 @@ YOSYS_NAMESPACE_BEGIN
 
 struct IlangFrontend : public Frontend {
 	IlangFrontend() : Frontend("ilang", "read modules from ilang file") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -56,7 +56,7 @@ struct IlangFrontend : public Frontend {
 		log("        only create empty blackbox modules\n");
 		log("\n");
 	}
-	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		ILANG_FRONTEND::flag_nooverwrite = false;
 		ILANG_FRONTEND::flag_overwrite = false;

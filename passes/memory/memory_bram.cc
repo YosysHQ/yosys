@@ -1265,7 +1265,7 @@ void handle_cell(Cell *cell, const rules_t &rules)
 
 struct MemoryBramPass : public Pass {
 	MemoryBramPass() : Pass("memory_bram", "map memories to block rams") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1367,7 +1367,7 @@ struct MemoryBramPass : public Pass {
 		log("the data bits to accommodate the enable pattern of port A.\n");
 		log("\n");
 	}
-	void execute(vector<string> args, Design *design) YS_OVERRIDE
+	void execute(vector<string> args, Design *design) override
 	{
 		rules_t rules;
 

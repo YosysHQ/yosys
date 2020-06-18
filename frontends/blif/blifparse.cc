@@ -586,7 +586,7 @@ error_with_reason:
 
 struct BlifFrontend : public Frontend {
 	BlifFrontend() : Frontend("blif", "read BLIF file") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -602,7 +602,7 @@ struct BlifFrontend : public Frontend {
 		log("        multi-bit port 'name'.\n");
 		log("\n");
 	}
-	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool sop_mode = false;
 		bool wideports = false;

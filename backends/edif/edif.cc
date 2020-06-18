@@ -90,7 +90,7 @@ struct EdifNames
 
 struct EdifBackend : public Backend {
 	EdifBackend() : Backend("edif", "write design to EDIF netlist file") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -126,7 +126,7 @@ struct EdifBackend : public Backend {
 		log("is targeted.\n");
 		log("\n");
 	}
-	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing EDIF backend.\n");
 		std::string top_module_name;

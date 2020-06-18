@@ -322,12 +322,12 @@ namespace AST
 	struct AstModule : RTLIL::Module {
 		AstNode *ast;
 		bool nolatches, nomeminit, nomem2reg, mem2reg, noblackbox, lib, nowb, noopt, icells, pwires, autowire;
-		~AstModule() YS_OVERRIDE;
-		RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, bool mayfail) YS_OVERRIDE;
-		RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, const dict<RTLIL::IdString, RTLIL::Module*> &interfaces, const dict<RTLIL::IdString, RTLIL::IdString> &modports, bool mayfail) YS_OVERRIDE;
+		~AstModule() override;
+		RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, bool mayfail) override;
+		RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, const dict<RTLIL::IdString, RTLIL::Module*> &interfaces, const dict<RTLIL::IdString, RTLIL::IdString> &modports, bool mayfail) override;
 		std::string derive_common(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, AstNode **new_ast_out, bool quiet = false);
-		void reprocess_module(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Module *> &local_interfaces) YS_OVERRIDE;
-		RTLIL::Module *clone() const YS_OVERRIDE;
+		void reprocess_module(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Module *> &local_interfaces) override;
+		RTLIL::Module *clone() const override;
 		void loadconfig() const;
 	};
 

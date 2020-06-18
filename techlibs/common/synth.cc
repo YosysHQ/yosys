@@ -29,7 +29,7 @@ struct SynthPass : public ScriptPass
 {
 	SynthPass() : ScriptPass("synth", "generic synthesis script") { }
 
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -91,7 +91,7 @@ struct SynthPass : public ScriptPass
 	bool autotop, flatten, noalumacc, nofsm, noabc, noshare, flowmap;
 	int lut;
 
-	void clear_flags() YS_OVERRIDE
+	void clear_flags() override
 	{
 		top_module.clear();
 		fsm_opts.clear();
@@ -108,7 +108,7 @@ struct SynthPass : public ScriptPass
 		abc = "abc";
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		string run_from, run_to;
 		clear_flags();
@@ -195,7 +195,7 @@ struct SynthPass : public ScriptPass
 		log_pop();
 	}
 
-	void script() YS_OVERRIDE
+	void script() override
 	{
 		if (check_label("begin"))
 		{

@@ -129,7 +129,7 @@ struct NlutmapWorker
 
 struct NlutmapPass : public Pass {
 	NlutmapPass() : Pass("nlutmap", "map to LUTs of different sizes") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -149,7 +149,7 @@ struct NlutmapPass : public Pass {
 		log("to generic logic gates ($_AND_, etc.).\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		NlutmapConfig config;
 

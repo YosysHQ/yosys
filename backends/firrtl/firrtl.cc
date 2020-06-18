@@ -1123,7 +1123,7 @@ struct FirrtlWorker
 
 struct FirrtlBackend : public Backend {
 	FirrtlBackend() : Backend("firrtl", "write design to a FIRRTL file") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1134,7 +1134,7 @@ struct FirrtlBackend : public Backend {
 		log("        pmuxtree\n");
 		log("\n");
 	}
-	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		size_t argidx = args.size();	// We aren't expecting any arguments.
 

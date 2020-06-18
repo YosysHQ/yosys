@@ -130,7 +130,7 @@ static void print_spice_module(std::ostream &f, RTLIL::Module *module, RTLIL::De
 
 struct SpiceBackend : public Backend {
 	SpiceBackend() : Backend("spice", "write design to SPICE netlist file") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -159,7 +159,7 @@ struct SpiceBackend : public Backend {
 		log("        set the specified module as design top module\n");
 		log("\n");
 	}
-	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::string top_module_name;
 		RTLIL::Module *top_module = NULL;

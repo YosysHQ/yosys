@@ -751,7 +751,7 @@ struct SimWorker : SimShared
 
 struct SimPass : public Pass {
 	SimPass() : Pass("sim", "simulate the circuit") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -793,7 +793,7 @@ struct SimPass : public Pass {
 		log("        enable debug output\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		SimWorker worker;
 		int numcycles = 20;

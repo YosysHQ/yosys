@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct ZinitPass : public Pass {
 	ZinitPass() : Pass("zinit", "add inverters so all FF are zero-initialized") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -37,7 +37,7 @@ struct ZinitPass : public Pass {
 		log("        also add zero initialization to uninitialized FFs\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool all_mode = false;
 

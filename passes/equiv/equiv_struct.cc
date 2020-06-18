@@ -283,7 +283,7 @@ struct EquivStructWorker
 
 struct EquivStructPass : public Pass {
 	EquivStructPass() : Pass("equiv_struct", "structural equivalence checking") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -314,7 +314,7 @@ struct EquivStructPass : public Pass {
 		log("        maximum number of iterations to run before aborting\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, Design *design) override
 	{
 		pool<IdString> fwonly_cells({ ID($equiv) });
 		bool mode_icells = false;

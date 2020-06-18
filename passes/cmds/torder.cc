@@ -27,7 +27,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct TorderPass : public Pass {
 	TorderPass() : Pass("torder", "print cells in topological order") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -43,7 +43,7 @@ struct TorderPass : public Pass {
 		log("        are not used in topological sorting. this option deactivates that.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool noautostop = false;
 		dict<IdString, pool<IdString>> stop_db;

@@ -473,7 +473,7 @@ dict<RTLIL::SigSpec, OpMuxConn> find_valid_op_mux_conns(RTLIL::Module *module, d
 
 struct OptSharePass : public Pass {
 	OptSharePass() : Pass("opt_share", "merge mutually exclusive cells of the same type that share an input signal") {}
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -488,7 +488,7 @@ struct OptSharePass : public Pass {
 		log("multiplexing its output to multiplexing the non-shared input signals.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 
 		log_header(design, "Executing OPT_SHARE pass.\n");

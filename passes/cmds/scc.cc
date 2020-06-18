@@ -218,7 +218,7 @@ struct SccWorker
 
 struct SccPass : public Pass {
 	SccPass() : Pass("scc", "detect strongly connected components (logic loops)") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -255,7 +255,7 @@ struct SccPass : public Pass {
 		log("        that are part of a found logic loop\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::map<std::string, std::string> setAttr;
 		bool allCellTypes = false;

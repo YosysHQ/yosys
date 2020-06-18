@@ -354,7 +354,7 @@ void create_miter_assert(struct Pass *that, std::vector<std::string> args, RTLIL
 
 struct MiterPass : public Pass {
 	MiterPass() : Pass("miter", "automatically create a miter circuit") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -398,7 +398,7 @@ struct MiterPass : public Pass {
 		log("        call 'flatten -wb; opt_expr -keepdc -undriven;;' on the miter circuit.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		if (args.size() > 1 && args[1] == "-equiv") {
 			create_miter_equiv(this, args, design);

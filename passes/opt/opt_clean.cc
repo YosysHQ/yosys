@@ -526,7 +526,7 @@ void rmunused_module(RTLIL::Module *module, bool purge_mode, bool verbose, bool 
 
 struct OptCleanPass : public Pass {
 	OptCleanPass() : Pass("opt_clean", "remove unused cells and wires") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -543,7 +543,7 @@ struct OptCleanPass : public Pass {
 		log("        also remove internal nets if they have a public name\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool purge_mode = false;
 
@@ -592,7 +592,7 @@ struct OptCleanPass : public Pass {
 
 struct CleanPass : public Pass {
 	CleanPass() : Pass("clean", "remove unused cells and wires") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -607,7 +607,7 @@ struct CleanPass : public Pass {
 		log("in -purge mode between the commands.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool purge_mode = false;
 

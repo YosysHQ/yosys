@@ -26,7 +26,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct BugpointPass : public Pass {
 	BugpointPass() : Pass("bugpoint", "minimize testcases") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -313,7 +313,7 @@ struct BugpointPass : public Pass {
 		return nullptr;
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		string yosys_cmd = "yosys", script, grep;
 		bool fast = false, clean = false;

@@ -92,7 +92,7 @@ int autoname_worker(Module *module)
 
 struct AutonamePass : public Pass {
 	AutonamePass() : Pass("autoname", "automatically assign names to objects") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -102,7 +102,7 @@ struct AutonamePass : public Pass {
 		log("with $-prefix).\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)

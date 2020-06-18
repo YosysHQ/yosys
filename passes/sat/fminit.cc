@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct FminitPass : public Pass {
 	FminitPass() : Pass("fminit", "set init values/sequences for formal") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -47,7 +47,7 @@ struct FminitPass : public Pass {
 		log("        Set clock for init sequences\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		vector<pair<string, vector<string>>> initdata;
 		vector<pair<string, string>> setdata;
