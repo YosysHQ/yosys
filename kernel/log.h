@@ -50,9 +50,14 @@
 					std::regex_constants::egrep)
 #endif
 
-#ifndef _WIN32
+#if defined(_WIN32)
+#  include <intrin.h>
+#else
 #  include <sys/time.h>
 #  include <sys/resource.h>
+#  if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
+#    include <signal.h>
+#  endif
 #endif
 
 #if defined(_MSC_VER)
@@ -68,6 +73,41 @@ YOSYS_NAMESPACE_BEGIN
 #define S__LINE__sub2(x) #x
 #define S__LINE__sub1(x) S__LINE__sub2(x)
 #define S__LINE__ S__LINE__sub1(__LINE__)
+
+// YS_DEBUGTRAP is a macro that is functionally equivalent to a breakpoint
+// if the platform provides such functionality, and does nothing otherwise.
+// If no debugger is attached, it starts a just-in-time debugger if available,
+// and crashes the process otherwise.
+#if defined(_WIN32)
+# define YS_DEBUGTRAP __debugbreak()
+#else
+# ifndef __has_builtin
+// __has_builtin is a GCC/Clang extension; on a different compiler (or old enough GCC/Clang)
+// that does not have it, using __has_builtin(...) is a syntax error.
+#  define __has_builtin(x) 0
+# endif
+# if __has_builtin(__builtin_debugtrap)
+#  define YS_DEBUGTRAP __builtin_debugtrap()
+# elif defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
+#  define YS_DEBUGTRAP raise(SIGTRAP)
+# else
+#  define YS_DEBUGTRAP do {} while(0)
+# endif
+#endif
+
+// YS_DEBUGTRAP_IF_DEBUGGING is a macro that is functionally equivalent to a breakpoint
+// if a debugger is attached, and does nothing otherwise.
+#if defined(_WIN32)
+# define YS_DEBUGTRAP_IF_DEBUGGING do { if (IsDebuggerPresent()) DebugBreak(); } while(0)
+# elif defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
+// There is no reliable (or portable) *nix equivalent of IsDebuggerPresent(). However,
+// debuggers will stop when SIGTRAP is raised, even if the action is set to ignore.
+# define YS_DEBUGTRAP_IF_DEBUGGING do { \
+		auto old = signal(SIGTRAP, SIG_IGN); raise(SIGTRAP); signal(SIGTRAP, old); \
+	} while(0)
+#else
+# define YS_DEBUGTRAP_IF_DEBUGGING do {} while(0)
+#endif
 
 struct log_cmd_error_exception { };
 
@@ -164,19 +204,16 @@ void log_flush();
 
 struct LogExpectedItem
 {
-	LogExpectedItem(std::string pattern, int expected) :
-		expected_count(expected),
-		current_count(0),
-		pattern(pattern)
-	{
-	}
+	LogExpectedItem(const YS_REGEX_TYPE &pat, int expected) :
+			pattern(pat), expected_count(expected), current_count(0) {}
+	LogExpectedItem() : expected_count(0), current_count(0) {}
 
+	YS_REGEX_TYPE pattern;
 	int expected_count;
 	int current_count;
-	std::string pattern;
 };
 
-extern std::vector<std::pair<YS_REGEX_TYPE,LogExpectedItem>> log_expect_log, log_expect_warning, log_expect_error;
+extern dict<std::string, LogExpectedItem> log_expect_log, log_expect_warning, log_expect_error;
 void log_check_expected();
 
 const char *log_signal(const RTLIL::SigSpec &sig, bool autoint = true);

@@ -740,6 +740,95 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 #undef HANDLE_UNIOP
 #undef HANDLE_BINOP
 
+	if (cell->type == ID($divfloor))
+	{
+		// wire [MAXLEN+1:0] _0_, _1_, _2_;
+		// assign _0_ = $signed(A);
+		// assign _1_ = $signed(B);
+		// assign _2_ = (A[-1] == B[-1]) || A == 0 ? _0_ : $signed(_0_ - (B[-1] ? _1_ + 1 : _1_ - 1));
+		// assign Y = $signed(_2_) / $signed(_1_);
+
+		if (cell->getParam(ID::A_SIGNED).as_bool() && cell->getParam(ID::B_SIGNED).as_bool()) {
+			SigSpec sig_a = cell->getPort(ID::A);
+			SigSpec sig_b = cell->getPort(ID::B);
+
+			std::string buf_a = next_auto_id();
+			std::string buf_b = next_auto_id();
+			std::string buf_num = next_auto_id();
+			int size_a = GetSize(sig_a);
+			int size_b = GetSize(sig_b);
+			int size_y = GetSize(cell->getPort(ID::Y));
+			int size_max = std::max(size_a, std::max(size_b, size_y));
+
+			// intentionally one wider than maximum width
+			f << stringf("%s" "wire [%d:0] %s, %s, %s;\n", indent.c_str(), size_max, buf_a.c_str(), buf_b.c_str(), buf_num.c_str());
+			f << stringf("%s" "assign %s = ", indent.c_str(), buf_a.c_str());
+			dump_cell_expr_port(f, cell, "A", true);
+			f << stringf(";\n");
+			f << stringf("%s" "assign %s = ", indent.c_str(), buf_b.c_str());
+			dump_cell_expr_port(f, cell, "B", true);
+			f << stringf(";\n");
+
+			f << stringf("%s" "assign %s = ", indent.c_str(), buf_num.c_str());
+			f << stringf("(");
+			dump_sigspec(f, sig_a.extract(sig_a.size()-1));
+			f << stringf(" == ");
+			dump_sigspec(f, sig_b.extract(sig_b.size()-1));
+			f << stringf(") || ");
+			dump_sigspec(f, sig_a);
+			f << stringf(" == 0 ? %s : ", buf_a.c_str());
+			f << stringf("$signed(%s - (", buf_a.c_str());
+			dump_sigspec(f, sig_b.extract(sig_b.size()-1));
+			f << stringf(" ? %s + 1 : %s - 1));\n", buf_b.c_str(), buf_b.c_str());
+
+
+			f << stringf("%s" "assign ", indent.c_str());
+			dump_sigspec(f, cell->getPort(ID::Y));
+			f << stringf(" = $signed(%s) / ", buf_num.c_str());
+			dump_attributes(f, "", cell->attributes, ' ');
+			f << stringf("$signed(%s);\n", buf_b.c_str());
+			return true;
+		} else {
+			// same as truncating division
+			dump_cell_expr_binop(f, indent, cell, "/");
+			return true;
+		}
+	}
+
+	if (cell->type == ID($modfloor))
+	{
+		// wire truncated = $signed(A) % $signed(B);
+		// assign Y = (A[-1] == B[-1]) || truncated == 0 ? truncated : $signed(B) + $signed(truncated);
+
+		if (cell->getParam(ID::A_SIGNED).as_bool() && cell->getParam(ID::B_SIGNED).as_bool()) {
+			SigSpec sig_a = cell->getPort(ID::A);
+			SigSpec sig_b = cell->getPort(ID::B);
+
+			std::string temp_id = next_auto_id();
+			f << stringf("%s" "wire [%d:0] %s = ", indent.c_str(), GetSize(cell->getPort(ID::A))-1, temp_id.c_str());
+			dump_cell_expr_port(f, cell, "A", true);
+			f << stringf(" %% ");
+			dump_attributes(f, "", cell->attributes, ' ');
+			dump_cell_expr_port(f, cell, "B", true);
+			f << stringf(";\n");
+
+			f << stringf("%s" "assign ", indent.c_str());
+			dump_sigspec(f, cell->getPort(ID::Y));
+			f << stringf(" = (");
+			dump_sigspec(f, sig_a.extract(sig_a.size()-1));
+			f << stringf(" == ");
+			dump_sigspec(f, sig_b.extract(sig_b.size()-1));
+			f << stringf(") || %s == 0 ? %s : ", temp_id.c_str(), temp_id.c_str());
+			dump_cell_expr_port(f, cell, "B", true);
+			f << stringf(" + $signed(%s);\n", temp_id.c_str());
+			return true;
+		} else {
+			// same as truncating modulo
+			dump_cell_expr_binop(f, indent, cell, "%");
+			return true;
+		}
+	}
+
 	if (cell->type == ID($shift))
 	{
 		f << stringf("%s" "assign ", indent.c_str());

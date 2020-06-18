@@ -629,30 +629,30 @@ struct AigerWriter
 				int a = aig_map.at(sig[i]);
 
 				if (verbose_map)
-					wire_lines[a] += stringf("wire %d %d %s\n", a, i, log_id(wire));
+					wire_lines[a] += stringf("wire %d %d %s\n", a, wire->start_offset+i, log_id(wire));
 
 				if (wire->port_input) {
 					log_assert((a & 1) == 0);
-					input_lines[a] += stringf("input %d %d %s\n", (a >> 1)-1, i, log_id(wire));
+					input_lines[a] += stringf("input %d %d %s\n", (a >> 1)-1, wire->start_offset+i, log_id(wire));
 				}
 
 				if (wire->port_output) {
 					int o = ordered_outputs.at(sig[i]);
-					output_lines[o] += stringf("output %d %d %s\n", o, i, log_id(wire));
+					output_lines[o] += stringf("output %d %d %s\n", o, wire->start_offset+i, log_id(wire));
 				}
 
 				if (init_inputs.count(sig[i])) {
 					int a = init_inputs.at(sig[i]);
 					log_assert((a & 1) == 0);
-					init_lines[a] += stringf("init %d %d %s\n", (a >> 1)-1, i, log_id(wire));
+					init_lines[a] += stringf("init %d %d %s\n", (a >> 1)-1, wire->start_offset+i, log_id(wire));
 				}
 
 				if (ordered_latches.count(sig[i])) {
 					int l = ordered_latches.at(sig[i]);
 					if (zinit_mode && (aig_latchinit.at(l) == 1))
-						latch_lines[l] += stringf("invlatch %d %d %s\n", l, i, log_id(wire));
+						latch_lines[l] += stringf("invlatch %d %d %s\n", l, wire->start_offset+i, log_id(wire));
 					else
-						latch_lines[l] += stringf("latch %d %d %s\n", l, i, log_id(wire));
+						latch_lines[l] += stringf("latch %d %d %s\n", l, wire->start_offset+i, log_id(wire));
 				}
 			}
 		}

@@ -48,15 +48,17 @@ USING_YOSYS_NAMESPACE
 using namespace AST;
 using namespace VERILOG_FRONTEND;
 
+#define YYSTYPE FRONTEND_VERILOG_YYSTYPE
+#define YYLTYPE FRONTEND_VERILOG_YYLTYPE
+
 YOSYS_NAMESPACE_BEGIN
 namespace VERILOG_FRONTEND {
 	std::vector<std::string> fn_stack;
 	std::vector<int> ln_stack;
+	YYLTYPE real_location;
+	YYLTYPE old_location;
 }
 YOSYS_NAMESPACE_END
-
-#define YYSTYPE FRONTEND_VERILOG_YYSTYPE
-#define YYLTYPE FRONTEND_VERILOG_YYLTYPE
 
 #define SV_KEYWORD(_tok) \
 	if (sv_mode) return _tok; \
@@ -72,9 +74,6 @@ YOSYS_NAMESPACE_END
 
 #define YY_INPUT(buf,result,max_size) \
 	result = readsome(*VERILOG_FRONTEND::lexin, buf, max_size)
-
-YYLTYPE real_location;
-YYLTYPE old_location;
 
 #define YY_USER_ACTION \
        old_location = real_location; \
@@ -128,7 +127,9 @@ static bool isUserType(std::string &s)
 %x BASED_CONST
 
 %%
-	int comment_caller;
+	// Initialise comment_caller to something to avoid a "maybe undefined"
+	// warning from GCC.
+	int comment_caller = INITIAL;
 
 <INITIAL,SYNOPSYS_TRANSLATE_OFF>"`file_push "[^\n]* {
 	fn_stack.push_back(current_filename);
@@ -262,7 +263,10 @@ static bool isUserType(std::string &s)
 "final"      { SV_KEYWORD(TOK_FINAL); }
 "logic"      { SV_KEYWORD(TOK_LOGIC); }
 "var"        { SV_KEYWORD(TOK_VAR); }
-"bit"        { SV_KEYWORD(TOK_REG); }
+"bit"        { SV_KEYWORD(TOK_LOGIC); }
+"int"        { SV_KEYWORD(TOK_INT); }
+"byte"       { SV_KEYWORD(TOK_BYTE); }
+"shortint"   { SV_KEYWORD(TOK_SHORTINT); }
 
 "eventually"   { if (formal_mode) return TOK_EVENTUALLY; SV_KEYWORD(TOK_EVENTUALLY); }
 "s_eventually" { if (formal_mode) return TOK_EVENTUALLY; SV_KEYWORD(TOK_EVENTUALLY); }
@@ -276,11 +280,15 @@ static bool isUserType(std::string &s)
 "reg"     { return TOK_REG; }
 "integer" { return TOK_INTEGER; }
 "signed"  { return TOK_SIGNED; }
+"unsigned" { SV_KEYWORD(TOK_UNSIGNED); }
 "genvar"  { return TOK_GENVAR; }
 "real"    { return TOK_REAL; }
 
 "enum"    { SV_KEYWORD(TOK_ENUM); }
 "typedef" { SV_KEYWORD(TOK_TYPEDEF); }
+"struct"  { SV_KEYWORD(TOK_STRUCT); }
+"union"   { SV_KEYWORD(TOK_UNION); }
+"packed"  { SV_KEYWORD(TOK_PACKED); }
 
 [0-9][0-9_]* {
 	yylval->string = new std::string(yytext);

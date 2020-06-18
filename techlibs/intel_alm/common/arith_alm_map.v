@@ -11,17 +11,24 @@ parameter Y_WIDTH = 1;
 parameter _TECHMAP_CONSTMSK_CI_ = 0;
 parameter _TECHMAP_CONSTVAL_CI_ = 0;
 
+(* force_downto *)
 input [A_WIDTH-1:0] A;
+(* force_downto *)
 input [B_WIDTH-1:0] B;
 input CI, BI;
+(* force_downto *)
 output [Y_WIDTH-1:0] X, Y, CO;
 
+(* force_downto *)
 wire [Y_WIDTH-1:0] A_buf, B_buf;
 \$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
 \$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
 
+(* force_downto *)
 wire [Y_WIDTH-1:0] AA = A_buf;
+(* force_downto *)
 wire [Y_WIDTH-1:0] BB = BI ? ~B_buf : B_buf;
+(* force_downto *)
 wire [Y_WIDTH-1:0] BX = B_buf;
 wire [Y_WIDTH:0] ALM_CARRY;
 

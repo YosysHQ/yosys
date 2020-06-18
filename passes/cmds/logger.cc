@@ -58,7 +58,8 @@ struct LoggerPass : public Pass {
 		log("        do not print warnings for the specified experimental feature\n");
 		log("\n");
 		log("    -expect <type> <regex> <expected_count>\n");
-		log("        expect log,warning or error to appear. In case of error return code is 0.\n");
+		log("        expect log, warning or error to appear. matched errors will terminate\n");
+		log("        with exit code 0.\n");
 		log("\n");
 		log("    -expect-no-warnings\n");
 		log("        gives error in case there is at least one warning that is not expected.\n");
@@ -158,12 +159,13 @@ struct LoggerPass : public Pass {
 					log_cmd_error("Expected error message occurrences must be 1 !\n");
 				log("Added regex '%s' for warnings to expected %s list.\n", pattern.c_str(), type.c_str());
 				try {
-					if (type=="error")
-						log_expect_error.push_back(std::make_pair(YS_REGEX_COMPILE(pattern), LogExpectedItem(pattern, count)));
-					else if (type=="warning")
-						log_expect_warning.push_back(std::make_pair(YS_REGEX_COMPILE(pattern), LogExpectedItem(pattern, count)));
-					else
-						log_expect_log.push_back(std::make_pair(YS_REGEX_COMPILE(pattern), LogExpectedItem(pattern, count)));
+					if (type == "error")
+						log_expect_error[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
+					else if (type == "warning")
+						log_expect_warning[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
+					else if (type == "log")
+						log_expect_log[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
+					else log_abort();
 				}
 				catch (const YS_REGEX_NS::regex_error& e) {
 					log_cmd_error("Error in regex expression '%s' !\n", pattern.c_str());

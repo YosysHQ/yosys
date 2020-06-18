@@ -1,0 +1,21 @@
+read_verilog -noopt <<EOT
+module gold(input i, output o);
+assign o = 1'bx | i;
+endmodule
+EOT
+copy gold coarse
+copy gold fine
+
+cd coarse
+opt_expr
+select -assert-none c:*
+
+cd fine
+opt_expr
+select -assert-none c:*
+
+cd
+miter -equiv -flatten -make_assert -make_outputs coarse fine miter
+sat -verify -prove-asserts -show-ports miter
+miter -equiv -flatten -make_assert -make_outputs -ignore_gold_x gold coarse miter2
+sat -verify -prove-asserts -show-ports -enable_undef miter2

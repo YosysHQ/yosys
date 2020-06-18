@@ -238,6 +238,7 @@ void Pass::call(RTLIL::Design *design, std::string command)
 		return;
 
 	if (tok[0] == '!') {
+#if !defined(YOSYS_DISABLE_SPAWN)
 		cmd_buf = command.substr(command.find('!') + 1);
 		while (!cmd_buf.empty() && (cmd_buf.back() == ' ' || cmd_buf.back() == '\t' ||
 				cmd_buf.back() == '\r' || cmd_buf.back() == '\n'))
@@ -247,6 +248,9 @@ void Pass::call(RTLIL::Design *design, std::string command)
 		if (retCode != 0)
 			log_cmd_error("Shell command returned error code %d.\n", retCode);
 		return;
+#else
+		log_cmd_error("Shell is not available.\n");
+#endif
 	}
 
 	while (!tok.empty()) {

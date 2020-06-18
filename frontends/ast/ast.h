@@ -75,6 +75,7 @@ namespace AST
 		AST_TO_BITS,
 		AST_TO_SIGNED,
 		AST_TO_UNSIGNED,
+		AST_SELFSZ,
 		AST_CONCAT,
 		AST_REPLICATE,
 		AST_BIT_NOT,
@@ -91,6 +92,8 @@ namespace AST
 		AST_SHIFT_RIGHT,
 		AST_SHIFT_SLEFT,
 		AST_SHIFT_SRIGHT,
+		AST_SHIFTX,
+		AST_SHIFT,
 		AST_LT,
 		AST_LE,
 		AST_EQ,
@@ -140,7 +143,7 @@ namespace AST
 		AST_GENCASE,
 		AST_GENBLOCK,
 		AST_TECALL,
-		
+
 		AST_POSEDGE,
 		AST_NEGEDGE,
 		AST_EDGE,
@@ -153,7 +156,10 @@ namespace AST
 		AST_PACKAGE,
 
 		AST_WIRETYPE,
-		AST_TYPEDEF
+		AST_TYPEDEF,
+		AST_STRUCT,
+		AST_UNION,
+		AST_STRUCT_ITEM
 	};
 
 	struct AstSrcLocType {
@@ -251,6 +257,7 @@ namespace AST
 		bool mem2reg_check(pool<AstNode*> &mem2reg_set);
 		void mem2reg_remove(pool<AstNode*> &mem2reg_set, vector<AstNode*> &delnodes);
 		void meminfo(int &mem_width, int &mem_size, int &addr_bits);
+		bool detect_latch(const std::string &var);
 
 		// additional functionality for evaluating constant functions
 		struct varinfo_t { RTLIL::Const val; int offset; bool is_signed; };
@@ -303,6 +310,7 @@ namespace AST
 
 		// helpers for enum
 		void allocateDefaultEnumValues();
+		void annotateTypedEnums(AstNode *template_node);
 	};
 
 	// process an AST tree (ast must point to an AST_DESIGN node) and generate RTLIL code

@@ -132,7 +132,7 @@ void replace_cell(SigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell,
 	did_something = true;
 }
 
-bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutative, SigMap &sigmap)
+bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutative, SigMap &sigmap, bool keepdc)
 {
 	IdString b_name = cell->hasPort(ID::B) ? ID::B : ID::A;
 
@@ -156,20 +156,36 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 		int group_idx = GRP_DYN;
 		RTLIL::SigBit bit_a = bits_a[i], bit_b = bits_b[i];
 
-		if (cell->type == ID($or) && (bit_a == RTLIL::State::S1 || bit_b == RTLIL::State::S1))
-			bit_a = bit_b = RTLIL::State::S1;
+		if (cell->type == ID($or)) {
+			if (bit_a == RTLIL::State::S1 || bit_b == RTLIL::State::S1)
+				bit_a = bit_b = RTLIL::State::S1;
+		}
+		else if (cell->type == ID($and)) {
+			if (bit_a == RTLIL::State::S0 || bit_b == RTLIL::State::S0)
+				bit_a = bit_b = RTLIL::State::S0;
+		}
+		else if (!keepdc) {
+			if (cell->type == ID($xor)) {
+				if (bit_a == bit_b)
+					bit_a = bit_b = RTLIL::State::S0;
+			}
+			else if (cell->type == ID($xnor)) {
+				if (bit_a == bit_b)
+					bit_a = bit_b = RTLIL::State::S1; // For consistency with gate-level which does $xnor -> $_XOR_ + $_NOT_
+			}
+		}
 
-		if (cell->type == ID($and) && (bit_a == RTLIL::State::S0 || bit_b == RTLIL::State::S0))
-			bit_a = bit_b = RTLIL::State::S0;
-
-		if (bit_a.wire == NULL && bit_b.wire == NULL)
-			group_idx = GRP_CONST_AB;
-		else if (bit_a.wire == NULL)
-			group_idx = GRP_CONST_A;
-		else if (bit_b.wire == NULL && commutative)
-			group_idx = GRP_CONST_A, std::swap(bit_a, bit_b);
-		else if (bit_b.wire == NULL)
-			group_idx = GRP_CONST_B;
+		bool def = (bit_a != State::Sx && bit_a != State::Sz && bit_b != State::Sx && bit_b != State::Sz);
+		if (def || !keepdc) {
+			if (bit_a.wire == NULL && bit_b.wire == NULL)
+				group_idx = GRP_CONST_AB;
+			else if (bit_a.wire == NULL)
+				group_idx = GRP_CONST_A;
+			else if (bit_b.wire == NULL && commutative)
+				group_idx = GRP_CONST_A, std::swap(bit_a, bit_b);
+			else if (bit_b.wire == NULL)
+				group_idx = GRP_CONST_B;
+		}
 
 		grouped_bits[group_idx][std::pair<RTLIL::SigBit, RTLIL::SigBit>(bit_a, bit_b)].insert(bits_y[i]);
 	}
@@ -186,25 +202,76 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 		if (grouped_bits[i].empty())
 			continue;
 
-		RTLIL::Wire *new_y = module->addWire(NEW_ID, GetSize(grouped_bits[i]));
+		RTLIL::SigSpec new_y = module->addWire(NEW_ID, GetSize(grouped_bits[i]));
 		RTLIL::SigSpec new_a, new_b;
 		RTLIL::SigSig new_conn;
 
 		for (auto &it : grouped_bits[i]) {
 			for (auto &bit : it.second) {
 				new_conn.first.append(bit);
-				new_conn.second.append(RTLIL::SigBit(new_y, new_a.size()));
+				new_conn.second.append(new_y[new_a.size()]);
 			}
 			new_a.append(it.first.first);
 			new_b.append(it.first.second);
 		}
 
 		if (cell->type.in(ID($and), ID($or)) && i == GRP_CONST_A) {
+			if (!keepdc) {
+				if (cell->type == ID($and))
+					new_a.replace(dict<SigBit,SigBit>{{State::Sx, State::S0}, {State::Sz, State::S0}}, &new_b);
+				else if (cell->type == ID($or))
+					new_a.replace(dict<SigBit,SigBit>{{State::Sx, State::S1}, {State::Sz, State::S1}}, &new_b);
+				else log_abort();
+			}
 			log_debug("  Direct Connection: %s (%s with %s)\n", log_signal(new_b), log_id(cell->type), log_signal(new_a));
 			module->connect(new_y, new_b);
 			module->connect(new_conn);
 			continue;
 		}
+
+		if (cell->type.in(ID($xor), ID($xnor)) && i == GRP_CONST_A) {
+			SigSpec undef_a, undef_y, undef_b;
+			SigSpec def_y, def_a, def_b;
+			for (int i = 0; i < GetSize(new_y); i++) {
+				bool undef = new_a[i] == State::Sx || new_a[i] == State::Sz;
+				if (!keepdc && (undef || new_a[i] == new_b[i])) {
+					undef_a.append(new_a[i]);
+					if (cell->type == ID($xor))
+						undef_b.append(State::S0);
+					// For consistency since simplemap does $xnor -> $_XOR_ + $_NOT_
+					else if (cell->type == ID($xnor))
+						undef_b.append(State::S1);
+					else log_abort();
+					undef_y.append(new_y[i]);
+				}
+				else if (new_a[i] == State::S0 || new_a[i] == State::S1) {
+					undef_a.append(new_a[i]);
+					if (cell->type == ID($xor))
+						undef_b.append(new_a[i] == State::S1 ? module->Not(NEW_ID, new_b[i]).as_bit() : new_b[i]);
+					else if (cell->type == ID($xnor))
+						undef_b.append(new_a[i] == State::S1 ? new_b[i] : module->Not(NEW_ID, new_b[i]).as_bit());
+					else log_abort();
+					undef_y.append(new_y[i]);
+				}
+				else {
+					def_a.append(new_a[i]);
+					def_b.append(new_b[i]);
+					def_y.append(new_y[i]);
+				}
+			}
+			if (!undef_y.empty()) {
+				log_debug("  Direct Connection: %s (%s with %s)\n", log_signal(undef_b), log_id(cell->type), log_signal(undef_a));
+				module->connect(undef_y, undef_b);
+				if (def_y.empty()) {
+					module->connect(new_conn);
+					continue;
+				}
+			}
+			new_a = std::move(def_a);
+			new_b = std::move(def_b);
+			new_y = std::move(def_y);
+		}
+
 
 		RTLIL::Cell *c = module->addCell(NEW_ID, cell->type);
 
@@ -219,7 +286,7 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 		}
 
 		c->setPort(ID::Y, new_y);
-		c->parameters[ID::Y_WIDTH] = new_y->width;
+		c->parameters[ID::Y_WIDTH] = GetSize(new_y);
 		c->check();
 
 		module->connect(new_conn);
@@ -476,13 +543,13 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				}
 			}
 
-			if (detect_const_and && (found_zero || found_inv)) {
+			if (detect_const_and && (found_zero || found_inv || (found_undef && consume_x))) {
 				cover("opt.opt_expr.const_and");
 				replace_cell(assign_map, module, cell, "const_and", ID::Y, RTLIL::State::S0);
 				goto next_cell;
 			}
 
-			if (detect_const_or && (found_one || found_inv)) {
+			if (detect_const_or && (found_one || found_inv || (found_undef && consume_x))) {
 				cover("opt.opt_expr.const_or");
 				replace_cell(assign_map, module, cell, "const_or", ID::Y, RTLIL::State::S1);
 				goto next_cell;
@@ -499,6 +566,22 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 		{
 			SigBit sig_a = assign_map(cell->getPort(ID::A));
 			SigBit sig_b = assign_map(cell->getPort(ID::B));
+			if (!keepdc && (sig_a == sig_b || sig_a == State::Sx || sig_a == State::Sz || sig_b == State::Sx || sig_b == State::Sz)) {
+				if (cell->type.in(ID($xor), ID($_XOR_))) {
+					cover("opt.opt_expr.const_xor");
+					replace_cell(assign_map, module, cell, "const_xor", ID::Y, RTLIL::State::S0);
+					goto next_cell;
+				}
+				if (cell->type.in(ID($xnor), ID($_XNOR_))) {
+					cover("opt.opt_expr.const_xnor");
+					// For consistency since simplemap does $xnor -> $_XOR_ + $_NOT_
+					int width = cell->getParam(ID::Y_WIDTH).as_int();
+					replace_cell(assign_map, module, cell, "const_xnor", ID::Y, SigSpec(RTLIL::State::S1, width));
+					goto next_cell;
+				}
+				log_abort();
+			}
+
 			if (!sig_a.wire)
 				std::swap(sig_a, sig_b);
 			if (sig_b == State::S0 || sig_b == State::S1) {
@@ -550,7 +633,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 		if (do_fine)
 		{
 			if (cell->type.in(ID($not), ID($pos), ID($and), ID($or), ID($xor), ID($xnor)))
-				if (group_cell_inputs(module, cell, true, assign_map))
+				if (group_cell_inputs(module, cell, true, assign_map, keepdc))
 					goto next_cell;
 
 			if (cell->type.in(ID($logic_not), ID($logic_and), ID($logic_or), ID($reduce_or), ID($reduce_and), ID($reduce_bool)))
@@ -682,25 +765,37 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				RTLIL::SigSpec sig_a = assign_map(cell->getPort(ID::A));
 				RTLIL::SigSpec sig_b = assign_map(cell->getPort(ID::B));
 				RTLIL::SigSpec sig_y = cell->getPort(ID::Y);
+				bool is_signed = cell->getParam(ID::A_SIGNED).as_bool();
 				bool sub = cell->type == ID($sub);
 
+				int minsz = GetSize(sig_y);
+				minsz = std::min(minsz, GetSize(sig_a));
+				minsz = std::min(minsz, GetSize(sig_b));
+
 				int i;
-				for (i = 0; i < GetSize(sig_y); i++) {
-					RTLIL::SigBit b = sig_b.at(i, State::Sx);
-					RTLIL::SigBit a = sig_a.at(i, State::Sx);
-					if (b == State::S0 && a != State::Sx)
+				for (i = 0; i < minsz; i++) {
+					RTLIL::SigBit b = sig_b[i];
+					RTLIL::SigBit a = sig_a[i];
+					if (b == State::S0)
 						module->connect(sig_y[i], a);
 					else if (sub && b == State::S1 && a == State::S1)
 						module->connect(sig_y[i], State::S0);
-					else if (!sub && a == State::S0 && b != State::Sx)
+					else if (!sub && a == State::S0)
 						module->connect(sig_y[i], b);
 					else
 						break;
 				}
 				if (i > 0) {
 					cover_list("opt.opt_expr.fine", "$add", "$sub", cell->type.str());
-					cell->setPort(ID::A, sig_a.extract_end(i));
-					cell->setPort(ID::B, sig_b.extract_end(i));
+					log_debug("Stripping %d LSB bits of %s cell %s in module %s.\n", i, log_id(cell->type), log_id(cell), log_id(module));
+					SigSpec new_a = sig_a.extract_end(i);
+					SigSpec new_b = sig_b.extract_end(i);
+					if (new_a.empty() && is_signed)
+						new_a = sig_a[i-1];
+					if (new_b.empty() && is_signed)
+						new_b = sig_b[i-1];
+					cell->setPort(ID::A, new_a);
+					cell->setPort(ID::B, new_b);
 					cell->setPort(ID::Y, sig_y.extract_end(i));
 					cell->fixup_parameters();
 					did_something = true;
@@ -716,6 +811,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				RTLIL::SigSpec sig_x = cell->getPort(ID::X);
 				RTLIL::SigSpec sig_y = cell->getPort(ID::Y);
 				RTLIL::SigSpec sig_co = cell->getPort(ID::CO);
+				bool is_signed = cell->getParam(ID::A_SIGNED).as_bool();
 
 				if (sig_bi != State::S0 && sig_bi != State::S1)
 					goto skip_fine_alu;
@@ -725,16 +821,20 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				bool bi = sig_bi == State::S1;
 				bool ci = sig_ci == State::S1;
 
+				int minsz = GetSize(sig_y);
+				minsz = std::min(minsz, GetSize(sig_a));
+				minsz = std::min(minsz, GetSize(sig_b));
+
 				int i;
-				for (i = 0; i < GetSize(sig_y); i++) {
-					RTLIL::SigBit b = sig_b.at(i, State::Sx);
-					RTLIL::SigBit a = sig_a.at(i, State::Sx);
-					if (b == ((bi ^ ci) ? State::S1 : State::S0) && a != State::Sx) {
+				for (i = 0; i < minsz; i++) {
+					RTLIL::SigBit b = sig_b[i];
+					RTLIL::SigBit a = sig_a[i];
+					if (b == ((bi ^ ci) ? State::S1 : State::S0)) {
 						module->connect(sig_y[i], a);
 						module->connect(sig_x[i], ci ? module->Not(NEW_ID, a).as_bit() : a);
 						module->connect(sig_co[i], ci ? State::S1 : State::S0);
 					}
-					else if (a == (ci ? State::S1 : State::S0) && b != State::Sx) {
+					else if (a == (ci ? State::S1 : State::S0)) {
 						module->connect(sig_y[i], bi ? module->Not(NEW_ID, b).as_bit() : b);
 						module->connect(sig_x[i], (bi ^ ci) ? module->Not(NEW_ID, b).as_bit() : b);
 						module->connect(sig_co[i], ci ? State::S1 : State::S0);
@@ -744,8 +844,15 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				}
 				if (i > 0) {
 					cover("opt.opt_expr.fine.$alu");
-					cell->setPort(ID::A, sig_a.extract_end(i));
-					cell->setPort(ID::B, sig_b.extract_end(i));
+					log_debug("Stripping %d LSB bits of %s cell %s in module %s.\n", i, log_id(cell->type), log_id(cell), log_id(module));
+					SigSpec new_a = sig_a.extract_end(i);
+					SigSpec new_b = sig_b.extract_end(i);
+					if (new_a.empty() && is_signed)
+						new_a = sig_a[i-1];
+					if (new_b.empty() && is_signed)
+						new_b = sig_b[i-1];
+					cell->setPort(ID::A, new_a);
+					cell->setPort(ID::B, new_b);
 					cell->setPort(ID::X, sig_x.extract_end(i));
 					cell->setPort(ID::Y, sig_y.extract_end(i));
 					cell->setPort(ID::CO, sig_co.extract_end(i));
@@ -757,7 +864,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 skip_fine_alu:
 
 		if (cell->type.in(ID($reduce_xor), ID($reduce_xnor), ID($shift), ID($shiftx), ID($shl), ID($shr), ID($sshl), ID($sshr),
-					ID($lt), ID($le), ID($ge), ID($gt), ID($neg), ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($pow)))
+					ID($lt), ID($le), ID($ge), ID($gt), ID($neg), ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($divfloor), ID($modfloor), ID($pow)))
 		{
 			RTLIL::SigSpec sig_a = assign_map(cell->getPort(ID::A));
 			RTLIL::SigSpec sig_b = cell->hasPort(ID::B) ? assign_map(cell->getPort(ID::B)) : RTLIL::SigSpec();
@@ -776,7 +883,7 @@ skip_fine_alu:
 			if (0) {
 		found_the_x_bit:
 				cover_list("opt.opt_expr.xbit", "$reduce_xor", "$reduce_xnor", "$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx",
-						"$lt", "$le", "$ge", "$gt", "$neg", "$add", "$sub", "$mul", "$div", "$mod", "$pow", cell->type.str());
+						"$lt", "$le", "$ge", "$gt", "$neg", "$add", "$sub", "$mul", "$div", "$mod", "$divfloor", "$modfloor", "$pow", cell->type.str());
 				if (cell->type.in(ID($reduce_xor), ID($reduce_xnor), ID($lt), ID($le), ID($ge), ID($gt)))
 					replace_cell(assign_map, module, cell, "x-bit in input", ID::Y, RTLIL::State::Sx);
 				else
@@ -880,8 +987,10 @@ skip_fine_alu:
 			if (input.match("01")) ACTION_DO_Y(1);
 			if (input.match("10")) ACTION_DO_Y(1);
 			if (input.match("11")) ACTION_DO_Y(0);
-			if (input.match(" *")) ACTION_DO_Y(x);
-			if (input.match("* ")) ACTION_DO_Y(x);
+			if (consume_x) {
+				if (input.match(" *")) ACTION_DO_Y(0);
+				if (input.match("* ")) ACTION_DO_Y(0);
+			}
 		}
 
 		if (cell->type == ID($_MUX_)) {
@@ -1064,7 +1173,7 @@ skip_fine_alu:
 			goto next_cell;
 		}
 
-		if (!keepdc)
+		if (consume_x)
 		{
 			bool identity_wrt_a = false;
 			bool identity_wrt_b = false;
@@ -1360,6 +1469,8 @@ skip_identity:
 		FOLD_2ARG_CELL(mul)
 		FOLD_2ARG_CELL(div)
 		FOLD_2ARG_CELL(mod)
+		FOLD_2ARG_CELL(divfloor)
+		FOLD_2ARG_CELL(modfloor)
 		FOLD_2ARG_CELL(pow)
 
 		FOLD_1ARG_CELL(pos)
@@ -1474,9 +1585,11 @@ skip_identity:
 			}
 		}
 
-		if (!keepdc && cell->type.in(ID($div), ID($mod)))
+		if (!keepdc && cell->type.in(ID($div), ID($mod), ID($divfloor), ID($modfloor)))
 		{
+			bool a_signed = cell->parameters[ID::A_SIGNED].as_bool();
 			bool b_signed = cell->parameters[ID::B_SIGNED].as_bool();
+			SigSpec sig_a = assign_map(cell->getPort(ID::A));
 			SigSpec sig_b = assign_map(cell->getPort(ID::B));
 			SigSpec sig_y = assign_map(cell->getPort(ID::Y));
 
@@ -1501,11 +1614,13 @@ skip_identity:
 				for (int i = 1; i < (b_signed ? sig_b.size()-1 : sig_b.size()); i++)
 					if (b_val == (1 << i))
 					{
-						if (cell->type == ID($div))
+						if (cell->type.in(ID($div), ID($divfloor)))
 						{
 							cover("opt.opt_expr.div_shift");
 
-							log_debug("Replacing divide-by-%d cell `%s' in module `%s' with shift-by-%d.\n",
+							bool is_truncating = cell->type == ID($div);
+							log_debug("Replacing %s-divide-by-%d cell `%s' in module `%s' with shift-by-%d.\n",
+									is_truncating ? "truncating" : "flooring",
 									b_val, cell->name.c_str(), module->name.c_str(), i);
 
 							std::vector<RTLIL::SigBit> new_b = RTLIL::SigSpec(i, 6);
@@ -1513,17 +1628,35 @@ skip_identity:
 							while (GetSize(new_b) > 1 && new_b.back() == RTLIL::State::S0)
 								new_b.pop_back();
 
-							cell->type = ID($shr);
+							cell->type = ID($sshr);
 							cell->parameters[ID::B_WIDTH] = GetSize(new_b);
 							cell->parameters[ID::B_SIGNED] = false;
 							cell->setPort(ID::B, new_b);
+
+							// Truncating division is the same as flooring division, except when
+							// the result is negative and there is a remainder - then trunc = floor + 1
+							if (is_truncating && a_signed) {
+								Wire *flooring = module->addWire(NEW_ID, sig_y.size());
+								cell->setPort(ID::Y, flooring);
+
+								Wire *result_neg = module->addWire(NEW_ID);
+								module->addXor(NEW_ID, sig_a[sig_a.size()-1], sig_b[sig_b.size()-1], result_neg);
+								Wire *rem_nonzero = module->addWire(NEW_ID);
+								module->addReduceOr(NEW_ID, sig_a.extract(0, i), rem_nonzero);
+								Wire *should_add = module->addWire(NEW_ID);
+								module->addAnd(NEW_ID, result_neg, rem_nonzero, should_add);
+								module->addAdd(NEW_ID, flooring, should_add, sig_y);
+							}
+
 							cell->check();
 						}
-						else
+						else if (cell->type.in(ID($mod), ID($modfloor)))
 						{
 							cover("opt.opt_expr.mod_mask");
 
-							log_debug("Replacing modulo-by-%d cell `%s' in module `%s' with bitmask.\n",
+							bool is_truncating = cell->type == ID($mod);
+							log_debug("Replacing %s-modulo-by-%d cell `%s' in module `%s' with bitmask.\n",
+									is_truncating ? "truncating" : "flooring",
 									b_val, cell->name.c_str(), module->name.c_str());
 
 							std::vector<RTLIL::SigBit> new_b = RTLIL::SigSpec(State::S1, i);
@@ -1534,6 +1667,24 @@ skip_identity:
 							cell->type = ID($and);
 							cell->parameters[ID::B_WIDTH] = GetSize(new_b);
 							cell->setPort(ID::B, new_b);
+
+							// truncating modulo has the same masked bits as flooring modulo, but
+							// the sign bits are those of A (except when R=0)
+							if (is_truncating && a_signed) {
+								Wire *flooring = module->addWire(NEW_ID, sig_y.size());
+								cell->setPort(ID::Y, flooring);
+								SigSpec truncating = SigSpec(flooring).extract(0, i);
+
+								Wire *rem_nonzero = module->addWire(NEW_ID);
+								module->addReduceOr(NEW_ID, truncating, rem_nonzero);
+								SigSpec a_sign = sig_a[sig_a.size()-1];
+								Wire *extend_bit = module->addWire(NEW_ID);
+								module->addAnd(NEW_ID, a_sign, rem_nonzero, extend_bit);
+
+								truncating.append(extend_bit);
+								module->addPos(NEW_ID, truncating, sig_y, true);
+							}
+
 							cell->check();
 						}
 
@@ -1956,11 +2107,12 @@ struct OptExprPass : public Pass {
 			do {
 				do {
 					did_something = false;
-					replace_const_cells(design, module, false, mux_undef, mux_bool, do_fine, keepdc, clkinv);
+					replace_const_cells(design, module, false /* consume_x */, mux_undef, mux_bool, do_fine, keepdc, clkinv);
 					if (did_something)
 						design->scratchpad_set_bool("opt.did_something", true);
 				} while (did_something);
-				replace_const_cells(design, module, true, mux_undef, mux_bool, do_fine, keepdc, clkinv);
+				if (!keepdc)
+					replace_const_cells(design, module, true /* consume_x */, mux_undef, mux_bool, do_fine, keepdc, clkinv);
 				if (did_something)
 					design->scratchpad_set_bool("opt.did_something", true);
 			} while (did_something);

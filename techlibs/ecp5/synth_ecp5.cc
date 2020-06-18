@@ -30,6 +30,11 @@ struct SynthEcp5Pass : public ScriptPass
 {
 	SynthEcp5Pass() : ScriptPass("synth_ecp5", "synthesis for ECP5 FPGAs") { }
 
+	void on_register() YS_OVERRIDE
+	{
+		RTLIL::constpad["synth_ecp5.abc9.W"] = "300";
+	}
+
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -60,6 +65,9 @@ struct SynthEcp5Pass : public ScriptPass
 		log("\n");
 		log("    -noflatten\n");
 		log("        do not flatten design before synthesis\n");
+		log("\n");
+		log("    -dff\n");
+		log("        run 'abc'/'abc9' with -dff option\n");
 		log("\n");
 		log("    -retime\n");
 		log("        run 'abc' with '-dff -D 1' options\n");
@@ -102,7 +110,7 @@ struct SynthEcp5Pass : public ScriptPass
 	}
 
 	string top_opt, blif_file, edif_file, json_file;
-	bool noccu2, nodffe, nobram, nolutram, nowidelut, asyncprld, flatten, retime, abc2, abc9, nodsp, vpr;
+	bool noccu2, nodffe, nobram, nolutram, nowidelut, asyncprld, flatten, dff, retime, abc2, abc9, nodsp, vpr;
 
 	void clear_flags() YS_OVERRIDE
 	{
@@ -117,6 +125,7 @@ struct SynthEcp5Pass : public ScriptPass
 		nowidelut = false;
 		asyncprld = false;
 		flatten = true;
+		dff = false;
 		retime = false;
 		abc2 = false;
 		vpr = false;
@@ -162,6 +171,10 @@ struct SynthEcp5Pass : public ScriptPass
 			}
 			if (args[argidx] == "-noflatten") {
 				flatten = false;
+				continue;
+			}
+			if (args[argidx] == "-dff") {
+				dff = true;
 				continue;
 			}
 			if (args[argidx] == "-retime") {
@@ -302,6 +315,8 @@ struct SynthEcp5Pass : public ScriptPass
 			run("opt_clean");
 			if (!nodffe)
 				run("dff2dffe -direct-match $_DFF_* -direct-match $__DFFS_*");
+			if ((abc9 && dff) || help_mode)
+				run("zinit -all w:* t:$_DFF_?_ t:$_DFFE_??_ t:$__DFFS*", "(only if -abc9 and -dff");
 			run(stringf("techmap -D NO_LUT %s -map +/ecp5/cells_map.v", help_mode ? "[-D ASYNC_PRLD]" : (asyncprld ? "-D ASYNC_PRLD" : "")));
 			run("opt_expr -undriven -mux_undef");
 			run("simplemap");
@@ -313,38 +328,44 @@ struct SynthEcp5Pass : public ScriptPass
 
 		if (check_label("map_luts"))
 		{
-			if (abc2 || help_mode) {
+			if (abc2 || help_mode)
 				run("abc", "      (only if -abc2)");
-			}
-			std::string techmap_args = asyncprld ? "" : "-map +/ecp5/latches_map.v";
-			if (abc9)
-				techmap_args += " -map +/ecp5/abc9_map.v -max_iter 1";
-			if (!asyncprld || abc9)
-				run("techmap " + techmap_args);
+			if (!asyncprld || help_mode)
+				run("techmap -map +/ecp5/latches_map.v", "(skip if -asyncprld)");
 
 			if (abc9) {
-				run("read_verilog -icells -lib -specify +/abc9_model.v +/ecp5/abc9_model.v");
+				std::string abc9_opts;
 				if (nowidelut)
-					run("abc9 -maxlut 4 -W 200");
+					abc9_opts += " -maxlut 4";
+				std::string k = "synth_ecp5.abc9.W";
+				if (active_design && active_design->scratchpad.count(k))
+					abc9_opts += stringf(" -W %s", active_design->scratchpad_get_string(k).c_str());
 				else
-					run("abc9 -W 200");
-				run("techmap -map +/ecp5/abc9_unmap.v");
+					abc9_opts += stringf(" -W %s", RTLIL::constpad.at(k).c_str());
+				if (nowidelut)
+					abc9_opts += " -maxlut 4";
+				if (dff)
+					abc9_opts += " -dff";
+				run("abc9" + abc9_opts);
 			} else {
+				std::string abc_args = " -dress";
 				if (nowidelut)
-					run("abc -lut 4 -dress");
+					abc_args += " -lut 4";
 				else
-					run("abc -lut 4:7 -dress");
+					abc_args += " -lut 4:7";
+				if (dff)
+					abc_args += " -dff";
+				run("abc" + abc_args);
 			}
 			run("clean");
 		}
 
 		if (check_label("map_cells"))
 		{
-			if (vpr)
-				run("techmap -D NO_LUT -map +/ecp5/cells_map.v");
-			else
-				run("techmap -map +/ecp5/cells_map.v", "(with -D NO_LUT in vpr mode)");
-
+			if (help_mode)
+				run("techmap -map +/ecp5/cells_map.v", "(skip if -vpr)");
+			else if (!vpr)
+				run("techmap -map +/ecp5/cells_map.v");
 			run("opt_lut_ins -tech ecp5");
 			run("clean");
 		}

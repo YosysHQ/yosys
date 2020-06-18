@@ -715,6 +715,8 @@ struct MemoryShareWorker
 		cone_ct.cell_types.erase(ID($mul));
 		cone_ct.cell_types.erase(ID($mod));
 		cone_ct.cell_types.erase(ID($div));
+		cone_ct.cell_types.erase(ID($modfloor));
+		cone_ct.cell_types.erase(ID($divfloor));
 		cone_ct.cell_types.erase(ID($pow));
 		cone_ct.cell_types.erase(ID($shl));
 		cone_ct.cell_types.erase(ID($shr));

@@ -94,6 +94,7 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_TO_BITS)
 	X(AST_TO_SIGNED)
 	X(AST_TO_UNSIGNED)
+	X(AST_SELFSZ)
 	X(AST_CONCAT)
 	X(AST_REPLICATE)
 	X(AST_BIT_NOT)
@@ -110,6 +111,8 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_SHIFT_RIGHT)
 	X(AST_SHIFT_SLEFT)
 	X(AST_SHIFT_SRIGHT)
+	X(AST_SHIFTX)
+	X(AST_SHIFT)
 	X(AST_LT)
 	X(AST_LE)
 	X(AST_EQ)
@@ -168,6 +171,9 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_PACKAGE)
 	X(AST_WIRETYPE)
 	X(AST_TYPEDEF)
+	X(AST_STRUCT)
+	X(AST_UNION)
+	X(AST_STRUCT_ITEM)
 #undef X
 	default:
 		log_abort();
@@ -615,6 +621,7 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 	if (0) { case AST_POS:         txt = "+";  }
 	if (0) { case AST_NEG:         txt = "-";  }
 	if (0) { case AST_LOGIC_NOT:   txt = "!";  }
+	if (0) { case AST_SELFSZ:      txt = "@selfsz@";  }
 		fprintf(f, "%s(", txt.c_str());
 		children[0]->dumpVlog(f, "");
 		fprintf(f, ")");
@@ -628,6 +635,8 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 	if (0) { case AST_SHIFT_RIGHT:  txt = ">>";  }
 	if (0) { case AST_SHIFT_SLEFT:  txt = "<<<"; }
 	if (0) { case AST_SHIFT_SRIGHT: txt = ">>>"; }
+	if (0) { case AST_SHIFTX:       txt = "@shiftx@"; }
+	if (0) { case AST_SHIFT:        txt = "@shift@"; }
 	if (0) { case AST_LT:           txt = "<";   }
 	if (0) { case AST_LE:           txt = "<=";  }
 	if (0) { case AST_EQ:           txt = "==";  }
@@ -946,6 +955,7 @@ RTLIL::Const AstNode::realAsConst(int width)
 // create a new AstModule from an AST_MODULE AST node
 static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast = NULL, bool quiet = false)
 {
+	log_assert(current_scope.empty());
 	log_assert(ast->type == AST_MODULE || ast->type == AST_INTERFACE);
 
 	if (defer)
@@ -1117,6 +1127,7 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 		}
 
 		ignoreThisSignalsInInitial = RTLIL::SigSpec();
+		current_scope.clear();
 	}
 	else {
 		for (auto &attr : ast->attributes) {
@@ -1229,11 +1240,13 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 			// process enum/other declarations
 			(*it)->simplify(true, false, false, 1, -1, false, false);
 			design->verilog_packages.push_back((*it)->clone());
+			current_scope.clear();
 		}
 		else {
 			// must be global definition
 			(*it)->simplify(false, false, false, 1, -1, false, false); //process enum/other declarations
 			design->verilog_globals.push_back((*it)->clone());
+			current_scope.clear();
 		}
 	}
 }

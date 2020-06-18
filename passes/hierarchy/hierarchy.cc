@@ -254,16 +254,6 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 		// some lists, so that the ports for sub-modules can be replaced further down:
 		for (auto &conn : cell->connections()) {
 			if(mod->wire(conn.first) != nullptr && mod->wire(conn.first)->get_bool_attribute(ID::is_interface)) { // Check if the connection is present as an interface in the sub-module's port list
-				//const pool<string> &interface_type_pool = mod->wire(conn.first)->get_strpool_attribute(ID::interface_type);
-				//for (auto &d : interface_type_pool) { // TODO: Compare interface type to type in parent module (not crucially important, but good for robustness)
-				//}
-
-				// Find if the sub-module has set a modport for the current interface connection:
-				const pool<string> &interface_modport_pool = mod->wire(conn.first)->get_strpool_attribute(ID::interface_modport);
-				std::string interface_modport = "";
-				for (auto &d : interface_modport_pool) {
-					interface_modport = "\\" + d;
-				}
 				if(conn.second.bits().size() == 1 && conn.second.bits()[0].wire->get_bool_attribute(ID::is_interface)) { // Check if the connected wire is a potential interface in the parent module
 					std::string interface_name_str = conn.second.bits()[0].wire->name.str();
 					interface_name_str.replace(0,23,""); // Strip the prefix '$dummywireforinterface' from the dummy wire to get the name
@@ -297,9 +287,12 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 							connections_to_remove.push_back(conn.first);
 							interfaces_to_add_to_submodule[conn.first] = interfaces_in_module.at(interface_name2);
 
-							// Add modports to a dict which will be passed to AstModule::derive
-							if (interface_modport != "") {
-								modports_used_in_submodule[conn.first] = interface_modport;
+							// Find if the sub-module has set a modport for the current
+							// interface connection. Add any modports to a dict which will
+							// be passed to AstModule::derive
+							string modport_name = mod->wire(conn.first)->get_string_attribute(ID::interface_modport);
+							if (!modport_name.empty()) {
+								modports_used_in_submodule[conn.first] = "\\" + modport_name;
 							}
 						}
 						else not_found_interface = true;
@@ -574,9 +567,9 @@ struct HierarchyPass : public Pass {
 		log("\n");
 		log("In parametric designs, a module might exists in several variations with\n");
 		log("different parameter values. This pass looks at all modules in the current\n");
-		log("design an re-runs the language frontends for the parametric modules as\n");
+		log("design and re-runs the language frontends for the parametric modules as\n");
 		log("needed. It also resolves assignments to wired logic data types (wand/wor),\n");
-		log("resolves positional module parameters, unroll array instances, and more.\n");
+		log("resolves positional module parameters, unrolls array instances, and more.\n");
 		log("\n");
 		log("    -check\n");
 		log("        also check the design hierarchy. this generates an error when\n");

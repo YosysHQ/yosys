@@ -71,6 +71,7 @@ endmodule
 module \$lut (A, Y);
    parameter WIDTH  = 0;
    parameter LUT    = 0;
+   (* force_downto *)
    input [WIDTH-1:0] A;
    output            Y;
    wire              VCC;

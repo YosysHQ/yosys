@@ -107,16 +107,16 @@ module:
 		delete_current_module = false;
 		if (current_design->has($2)) {
 			RTLIL::Module *existing_mod = current_design->module($2);
-			if (!flag_overwrite && (flag_lib || (attrbuf.count("\\blackbox") && attrbuf.at("\\blackbox").as_bool()))) {
+			if (!flag_overwrite && (flag_lib || (attrbuf.count(ID::blackbox) && attrbuf.at(ID::blackbox).as_bool()))) {
 				log("Ignoring blackbox re-definition of module %s.\n", $2);
 				delete_current_module = true;
-			} else if (!flag_nooverwrite && !flag_overwrite && !existing_mod->get_bool_attribute("\\blackbox")) {
+			} else if (!flag_nooverwrite && !flag_overwrite && !existing_mod->get_bool_attribute(ID::blackbox)) {
 				rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of module %s.", $2).c_str());
 			} else if (flag_nooverwrite) {
 				log("Ignoring re-definition of module %s.\n", $2);
 				delete_current_module = true;
 			} else {
-				log("Replacing existing%s module %s.\n", existing_mod->get_bool_attribute("\\blackbox") ? " blackbox" : "", $2);
+				log("Replacing existing%s module %s.\n", existing_mod->get_bool_attribute(ID::blackbox) ? " blackbox" : "", $2);
 				current_design->remove(existing_mod);
 			}
 		}
@@ -191,6 +191,9 @@ wire_options:
 	} |
 	wire_options TOK_UPTO {
 		current_wire->upto = true;
+	} |
+	wire_options TOK_SIGNED {
+		current_wire->is_signed = true;
 	} |
 	wire_options TOK_OFFSET TOK_INT {
 		current_wire->start_offset = $3;

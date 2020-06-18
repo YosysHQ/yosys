@@ -37,7 +37,7 @@ struct WreduceConfig
 			ID($and), ID($or), ID($xor), ID($xnor),
 			ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx),
 			ID($lt), ID($le), ID($eq), ID($ne), ID($eqx), ID($nex), ID($ge), ID($gt),
-			ID($add), ID($sub), ID($mul), // ID($div), ID($mod), ID($pow),
+			ID($add), ID($sub), ID($mul), // ID($div), ID($mod), ID($divfloor), ID($modfloor), ID($pow),
 			ID($mux), ID($pmux),
 			ID($dff), ID($adff)
 		});
@@ -545,7 +545,7 @@ struct WreducePass : public Pass {
 					}
 				}
 
-				if (c->type.in(ID($div), ID($mod), ID($pow)))
+				if (c->type.in(ID($div), ID($mod), ID($divfloor), ID($modfloor), ID($pow)))
 				{
 					SigSpec A = c->getPort(ID::A);
 					int original_a_width = GetSize(A);

@@ -155,6 +155,16 @@ extern Tcl_Obj *Tcl_ObjSetVar2(Tcl_Interp *interp, Tcl_Obj *part1Ptr, Tcl_Obj *p
 #  define YS_NORETURN
 #endif
 
+#if __cplusplus >= 201703L
+#  define YS_FALLTHROUGH [[fallthrough]];
+#elif defined(__clang__)
+#  define YS_FALLTHROUGH [[clang::fallthrough]];
+#elif defined(__GNUC__)
+#  define YS_FALLTHROUGH [[gnu::fallthrough]];
+#else
+#  define YS_FALLTHROUGH
+#endif
+
 YOSYS_NAMESPACE_BEGIN
 
 // Note: All headers included in hashlib.h must be included
@@ -264,7 +274,9 @@ int readsome(std::istream &f, char *s, int n);
 std::string next_token(std::string &text, const char *sep = " \t\r\n", bool long_strings = false);
 std::vector<std::string> split_tokens(const std::string &text, const char *sep = " \t\r\n");
 bool patmatch(const char *pattern, const char *string);
+#if !defined(YOSYS_DISABLE_SPAWN)
 int run_command(const std::string &command, std::function<void(const std::string&)> process_line = std::function<void(const std::string&)>());
+#endif
 std::string make_temp_file(std::string template_str = "/tmp/yosys_XXXXXX");
 std::string make_temp_dir(std::string template_str = "/tmp/yosys_XXXXXX");
 bool check_file_exists(std::string filename, bool is_exec = false);

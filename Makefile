@@ -4,6 +4,7 @@ CONFIG := clang
 # CONFIG := gcc-4.8
 # CONFIG := afl-gcc
 # CONFIG := emcc
+# CONFIG := wasi
 # CONFIG := mxe
 # CONFIG := msys2
 # CONFIG := msys2-64
@@ -32,7 +33,9 @@ ENABLE_NDEBUG := 0
 LINK_CURSES := 0
 LINK_TERMCAP := 0
 LINK_ABC := 0
-# Needed for environments that don't have proper thread support (i.e. emscripten)
+# Needed for environments that can't run executables (i.e. emscripten, wasm)
+DISABLE_SPAWN := 0
+# Needed for environments that don't have proper thread support (i.e. emscripten, wasm--for now)
 DISABLE_ABC_THREADS := 0
 
 # clang sanitizers
@@ -42,7 +45,7 @@ SANITIZER =
 # SANITIZER = undefined
 # SANITIZER = cfi
 
-PROGRAM_PREFIX := 
+PROGRAM_PREFIX :=
 
 OS := $(shell uname -s)
 PREFIX ?= /usr/local
@@ -79,7 +82,6 @@ YOSYS_SRC := $(dir $(firstword $(MAKEFILE_LIST)))
 VPATH := $(YOSYS_SRC)
 
 CXXFLAGS := $(CXXFLAGS) -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -D_YOSYS_ -fPIC -I$(PREFIX)/include
-LDFLAGS := $(LDFLAGS) -L$(LIBDIR)
 LDLIBS := $(LDLIBS) -lstdc++ -lm
 PLUGIN_LDFLAGS :=
 
@@ -133,9 +135,9 @@ bumpversion:
 # is just a symlink to your actual ABC working directory, as 'make mrproper'
 # will remove the 'abc' directory and you do not want to accidentally
 # delete your work on ABC..
-ABCREV = ed90ce2
+ABCREV = fd2c9b1
 ABCPULL = 1
-ABCURL ?= https://github.com/berkeley-abc/abc
+ABCURL ?= https://github.com/YosysHQ/abc
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1
 
 # set ABCEXTERNAL = <abc-command> to use an external ABC instance
@@ -253,6 +255,8 @@ LDFLAGS += $(EMCCFLAGS)
 LDLIBS =
 EXE = .js
 
+DISABLE_SPAWN := 1
+
 TARGETS := $(filter-out $(PROGRAM_PREFIX)yosys-config,$(TARGETS))
 EXTRA_TARGETS += yosysjs-$(YOSYS_VER).zip
 
@@ -273,6 +277,35 @@ yosysjs-$(YOSYS_VER).zip: yosys.js yosys.wasm viz.js misc/yosysjs/*
 
 yosys.html: misc/yosys.html
 	$(P) cp misc/yosys.html yosys.html
+
+else ifeq ($(CONFIG),wasi)
+ifeq ($(WASI_SDK),)
+CXX = clang
+LD = clang++
+AR = llvm-ar
+RANLIB = llvm-ranlib
+WASIFLAGS := -target wasm32-wasi --sysroot $(WASI_SYSROOT) $(WASIFLAGS)
+else
+CXX = $(WASI_SDK)/bin/clang
+LD = $(WASI_SDK)/bin/clang++
+AR = $(WASI_SDK)/bin/ar
+RANLIB = $(WASI_SDK)/bin/ranlib
+WASIFLAGS := --sysroot $(WASI_SDK)/share/wasi-sysroot $(WASIFLAGS)
+endif
+CXXFLAGS := $(WASIFLAGS) -std=c++11 -Os $(filter-out -fPIC,$(CXXFLAGS))
+LDFLAGS := $(WASIFLAGS) -Wl,-z,stack-size=1048576 $(filter-out -rdynamic,$(LDFLAGS))
+LDLIBS := $(filter-out -lrt,$(LDLIBS))
+ABCMKARGS += AR="$(AR)" RANLIB="$(RANLIB)"
+ABCMKARGS += ARCHFLAGS="$(WASIFLAGS) -DABC_USE_STDINT_H -DABC_NO_DYNAMIC_LINKING"
+ABCMKARGS += OPTFLAGS="-Os"
+EXE = .wasm
+
+DISABLE_SPAWN := 1
+
+ifeq ($(ENABLE_ABC),1)
+LINK_ABC := 1
+DISABLE_ABC_THREADS := 1
+endif
 
 else ifeq ($(CONFIG),mxe)
 PKG_CONFIG = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-pkg-config
@@ -337,7 +370,7 @@ BOOST_PYTHON_LIB ?= $(shell \
 endif
 
 ifeq ($(BOOST_PYTHON_LIB),)
-$(error BOOST_PYTHON_LIB could not be detected. Please define manualy)
+$(error BOOST_PYTHON_LIB could not be detected. Please define manually)
 endif
 
 ifeq ($(OS), Darwin)
@@ -394,6 +427,10 @@ endif
 
 ifeq ($(DISABLE_ABC_THREADS),1)
 ABCMKARGS += "ABC_USE_NO_PTHREADS=1"
+endif
+
+ifeq ($(DISABLE_SPAWN),1)
+CXXFLAGS += -DYOSYS_DISABLE_SPAWN
 endif
 
 ifeq ($(ENABLE_PLUGINS),1)
@@ -551,6 +588,11 @@ $(eval $(call add_include_file,passes/fsm/fsmdata.h))
 $(eval $(call add_include_file,frontends/ast/ast.h))
 $(eval $(call add_include_file,backends/ilang/ilang_backend.h))
 $(eval $(call add_include_file,backends/cxxrtl/cxxrtl.h))
+$(eval $(call add_include_file,backends/cxxrtl/cxxrtl_vcd.h))
+$(eval $(call add_include_file,backends/cxxrtl/cxxrtl_capi.cc))
+$(eval $(call add_include_file,backends/cxxrtl/cxxrtl_capi.h))
+$(eval $(call add_include_file,backends/cxxrtl/cxxrtl_vcd_capi.cc))
+$(eval $(call add_include_file,backends/cxxrtl/cxxrtl_vcd_capi.h))
 
 OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/yosys.o
 OBJS += kernel/cellaigs.o kernel/celledges.o
@@ -584,10 +626,10 @@ include $(YOSYS_SRC)/techlibs/*/Makefile.inc
 
 else
 
-include frontends/verilog/Makefile.inc
-include frontends/ilang/Makefile.inc
-include frontends/ast/Makefile.inc
-include frontends/blif/Makefile.inc
+include $(YOSYS_SRC)/frontends/verilog/Makefile.inc
+include $(YOSYS_SRC)/frontends/ilang/Makefile.inc
+include $(YOSYS_SRC)/frontends/ast/Makefile.inc
+include $(YOSYS_SRC)/frontends/blif/Makefile.inc
 
 OBJS += passes/hierarchy/hierarchy.o
 OBJS += passes/cmds/select.o
@@ -597,14 +639,14 @@ OBJS += passes/cmds/cover.o
 OBJS += passes/cmds/design.o
 OBJS += passes/cmds/plugin.o
 
-include passes/proc/Makefile.inc
-include passes/opt/Makefile.inc
-include passes/techmap/Makefile.inc
+include $(YOSYS_SRC)/passes/proc/Makefile.inc
+include $(YOSYS_SRC)/passes/opt/Makefile.inc
+include $(YOSYS_SRC)/passes/techmap/Makefile.inc
 
-include backends/verilog/Makefile.inc
-include backends/ilang/Makefile.inc
+include $(YOSYS_SRC)/backends/verilog/Makefile.inc
+include $(YOSYS_SRC)/backends/ilang/Makefile.inc
 
-include techlibs/common/Makefile.inc
+include $(YOSYS_SRC)/techlibs/common/Makefile.inc
 
 endif
 
@@ -680,11 +722,11 @@ ifneq ($(ABCREV),default)
 		echo 'REEBE: NOP pbagnvaf ybpny zbqvsvpngvbaf! Frg NOPERI=qrsnhyg va Lbflf Znxrsvyr!' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; false; \
 	fi
 # set a variable so the test fails if git fails to run - when comparing outputs directly, empty string would match empty string
-	$(Q) if ! (cd abc && rev="`git rev-parse $(ABCREV)`" && test "`git rev-parse HEAD`" == "$$rev"); then \
+	$(Q) if ! (cd abc 2> /dev/null && rev="`git rev-parse $(ABCREV)`" && test "`git rev-parse HEAD`" == "$$rev"); then \
 		test $(ABCPULL) -ne 0 || { echo 'REEBE: NOP abg hc gb qngr naq NOPCHYY frg gb 0 va Znxrsvyr!' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; exit 1; }; \
 		echo "Pulling ABC from $(ABCURL):"; set -x; \
 		test -d abc || git clone $(ABCURL) abc; \
-		cd abc && $(MAKE) DEP= clean && git fetch origin master && git checkout $(ABCREV); \
+		cd abc && $(MAKE) DEP= clean && git fetch $(ABCURL) && git checkout $(ABCREV); \
 	fi
 endif
 	$(Q) rm -f abc/abc-[0-9a-f]*
@@ -743,6 +785,7 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/arch/intel_alm && bash run-test.sh $(SEEDOPT)
 	+cd tests/rpc && bash run-test.sh
 	+cd tests/memfile && bash run-test.sh
+	+cd tests/verilog && bash run-test.sh
 	@echo ""
 	@echo "  Passed \"make test\"."
 	@echo ""
@@ -905,6 +948,14 @@ config-afl-gcc: clean
 
 config-emcc: clean
 	echo 'CONFIG := emcc' > Makefile.conf
+	echo 'ENABLE_TCL := 0' >> Makefile.conf
+	echo 'ENABLE_ABC := 0' >> Makefile.conf
+	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
+	echo 'ENABLE_READLINE := 0' >> Makefile.conf
+	echo 'ENABLE_ZLIB := 0' >> Makefile.conf
+
+config-wasi: clean
+	echo 'CONFIG := wasi' > Makefile.conf
 	echo 'ENABLE_TCL := 0' >> Makefile.conf
 	echo 'ENABLE_ABC := 0' >> Makefile.conf
 	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf

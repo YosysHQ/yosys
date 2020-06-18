@@ -1511,7 +1511,7 @@ else:  # not tempind, covermode
                             smt_assert_consequent(get_constr_expr(constr_assumes, i))
                         print_msg("Re-solving with appended steps..")
                         if smt_check_sat() == "unsat":
-                            print("%s Cannot appended steps without violating assumptions!" % smt.timestamp())
+                            print("%s Cannot append steps without violating assumptions!" % smt.timestamp())
                             retstatus = "FAILED"
                             break
                     print_anyconsts(step)
@@ -1548,7 +1548,7 @@ else:  # not tempind, covermode
                         break
 
                     smt_pop()
-                if not retstatus:
+                if retstatus == "FAILED" or retstatus == "PREUNSAT":
                     break
 
         else:  # gentrace
@@ -1557,8 +1557,9 @@ else:  # not tempind, covermode
                 smt_assert(get_constr_expr(constr_asserts, i))
 
             print_msg("Solving for step %d.." % (last_check_step))
-            if smt_check_sat() != "sat":
-                print("%s No solution found!" % smt.timestamp())
+            status = smt_check_sat()
+            if status != "sat":
+                print("%s No solution found! (%s)" % (smt.timestamp(), status))
                 retstatus = "FAILED"
                 break
 
@@ -1568,7 +1569,7 @@ else:  # not tempind, covermode
 
         step += step_size
 
-    if gentrace and retstatus:
+    if gentrace and retstatus == "PASSED":
         print_anyconsts(0)
         write_trace(0, num_steps, '%')
 

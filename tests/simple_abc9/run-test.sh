@@ -25,7 +25,7 @@ exec ${MAKE:-make} -f ../tools/autotest.mk $seed *.v *.sv EXTRA_FLAGS="-n 300 -p
     synth -run coarse; \
     opt -full; \
     techmap; \
-    abc9 -lut 4; \
+    abc9 -lut 4 -box ../abc9.box; \
     clean; \
     check -assert; \
     select -assert-none t:${DOLLAR}_NOT_ t:${DOLLAR}_AND_ %%; \

@@ -1,0 +1,14 @@
+logger -expect log ".*cells_not_processed=[01]* .*" 1
+logger -expect log ".*src=.<<EOT:1\.1-9\.10. .*" 1
+read_verilog <<EOT
+module mux2(a, b, s, y);
+	input a, b, s;
+	output y;
+
+	wire s_n = ~s;
+	wire t0 = s & a;
+	wire t1 = s_n & b;
+	assign y = t0 | t1;
+endmodule
+EOT
+printattrs

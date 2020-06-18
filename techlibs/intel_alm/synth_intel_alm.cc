@@ -164,6 +164,7 @@ struct SynthIntelALMPass : public ScriptPass {
 			run(stringf("read_verilog -sv -lib +/intel/%s/cells_sim.v", family_opt.c_str()));
 			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/alm_sim.v", family_opt.c_str()));
 			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/dff_sim.v", family_opt.c_str()));
+			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/mem_sim.v", family_opt.c_str()));
 
 			// Misc and common cells
 			run("read_verilog -lib +/intel/common/altpll_bb.v");
@@ -190,7 +191,6 @@ struct SynthIntelALMPass : public ScriptPass {
 
 		if (!nolutram && check_label("map_lutram", "(skip if -nolutram)")) {
 			run("memory_bram -rules +/intel_alm/common/lutram_mlab.txt", "(for Cyclone V / Cyclone 10GX)");
-			run("techmap -map +/intel_alm/common/lutram_mlab_map.v", "(for Cyclone V / Cyclone 10GX)");
 		}
 
 		if (check_label("map_ffram")) {
@@ -199,7 +199,7 @@ struct SynthIntelALMPass : public ScriptPass {
 		}
 
 		if (check_label("map_ffs")) {
-			run("dff2dffe -direct-match $_DFF_*");
+			run("dff2dffe");
 			// As mentioned in common/dff_sim.v, Intel flops power up to zero,
 			// so use `zinit` to add inverters where needed.
 			run("zinit");
@@ -209,7 +209,6 @@ struct SynthIntelALMPass : public ScriptPass {
 		}
 
 		if (check_label("map_luts")) {
-			run("read_verilog -icells -specify -lib +/abc9_model.v");
 			run("abc9 -maxlut 6 -W 200");
 			run("techmap -map +/intel_alm/common/alm_map.v");
 			run("opt -fast");

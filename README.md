@@ -118,6 +118,13 @@ Tests are located in the tests subdirectory and can be executed using the test t
 
 	$ make test
 
+To use a separate (out-of-tree) build directory, provide a path to the Makefile.
+
+	$ mkdir build; cd build
+	$ make -f ../Makefile
+
+Out-of-tree builds require a clean source tree.
+
 Getting Started
 ===============
 
@@ -274,6 +281,9 @@ Verilog Attributes and non-standard features
   temporary variable within an always block. This is mostly used internally
   by Yosys to synthesize Verilog functions and access arrays.
 
+- The ``nowrshmsk`` attribute on a register prohibits the generation of
+  shift-and-mask type circuits for writing to bit slices of that register.
+
 - The ``onehot`` attribute on wires mark them as one-hot state register. This
   is used for example for memory port sharing and set by the fsm_map pass.
 
@@ -299,7 +309,9 @@ Verilog Attributes and non-standard features
   that have ports with a width that depends on a parameter.
 
 - The ``hdlname`` attribute is used by some passes to document the original
-  (HDL) name of a module when renaming a module.
+  (HDL) name of a module when renaming a module. It should contain a single
+  name, or, when describing a hierarchical name in a flattened design, multiple
+  names separated by a single space character.
 
 - The ``keep`` attribute on cells and wires is used to mark objects that should
   never be removed by the optimizer. This is used for example for cells that
@@ -388,7 +400,7 @@ Verilog Attributes and non-standard features
 
 - The cell attribute ``wildcard_port_conns`` represents wildcard port
   connections (SystemVerilog ``.*``). These are resolved to concrete
-  connections to matching wires in ``hierarchy``.  
+  connections to matching wires in ``hierarchy``.
 
 - In addition to the ``(* ... *)`` attribute syntax, Yosys supports
   the non-standard ``{* ... *}`` attribute syntax to set default attributes
@@ -545,6 +557,8 @@ from SystemVerilog:
 
 - enums are supported (including inside packages)
 	- but are currently not strongly typed
+
+- packed structs and unions are supported.
 
 - SystemVerilog interfaces (SVIs) are supported. Modports for specifying whether
   ports are inputs or outputs are supported.

@@ -101,8 +101,8 @@ struct CoverPass : public Pass {
 				const std::string &filename = args[++argidx];
 				FILE *f = nullptr;
 				if (args[argidx-1] == "-d") {
-			#ifdef _WIN32
-					log_cmd_error("The 'cover -d' option is not supported on win32.\n");
+			#if defined(_WIN32) || defined(__wasm)
+					log_cmd_error("The 'cover -d' option is not supported on this platform.\n");
 			#else
 					char filename_buffer[4096];
 					snprintf(filename_buffer, 4096, "%s/yosys_cover_%d_XXXXXX.txt", filename.c_str(), getpid());

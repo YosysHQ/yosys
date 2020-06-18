@@ -319,7 +319,7 @@ void RTLIL::AttrObject::set_strpool_attribute(RTLIL::IdString id, const pool<str
 			attrval += "|";
 		attrval += s;
 	}
-	attributes[id] = RTLIL::Const(attrval);
+	set_string_attribute(id, attrval);
 }
 
 void RTLIL::AttrObject::add_strpool_attribute(RTLIL::IdString id, const pool<string> &data)
@@ -334,9 +334,25 @@ pool<string> RTLIL::AttrObject::get_strpool_attribute(RTLIL::IdString id) const
 {
 	pool<string> data;
 	if (attributes.count(id) != 0)
-		for (auto s : split_tokens(attributes.at(id).decode_string(), "|"))
+		for (auto s : split_tokens(get_string_attribute(id), "|"))
 			data.insert(s);
 	return data;
+}
+
+void RTLIL::AttrObject::set_hdlname_attribute(const vector<string> &hierarchy)
+{
+	string attrval;
+	for (const auto &ident : hierarchy) {
+		if (!attrval.empty())
+			attrval += " ";
+		attrval += ident;
+	}
+	set_string_attribute(ID::hdlname, attrval);
+}
+
+vector<string> RTLIL::AttrObject::get_hdlname_attribute() const
+{
+	return split_tokens(get_string_attribute(ID::hdlname), " ");
 }
 
 bool RTLIL::Selection::selected_module(RTLIL::IdString mod_name) const
@@ -948,7 +964,7 @@ namespace {
 				return;
 			}
 
-			if (cell->type.in(ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($pow))) {
+			if (cell->type.in(ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($divfloor), ID($modfloor), ID($pow))) {
 				param_bool(ID::A_SIGNED);
 				param_bool(ID::B_SIGNED);
 				port(ID::A, param(ID::A_WIDTH));
@@ -1520,13 +1536,13 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 		new_mod->addWire(it.first, it.second);
 
 	for (auto &it : memories)
-		new_mod->memories[it.first] = new RTLIL::Memory(*it.second);
+		new_mod->addMemory(it.first, it.second);
 
 	for (auto &it : cells_)
 		new_mod->addCell(it.first, it.second);
 
 	for (auto &it : processes)
-		new_mod->processes[it.first] = it.second->clone();
+		new_mod->addProcess(it.first, it.second);
 
 	struct RewriteSigSpecWorker
 	{
@@ -1862,6 +1878,7 @@ RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, const RTLIL::Wire *oth
 	wire->port_input = other->port_input;
 	wire->port_output = other->port_output;
 	wire->upto = other->upto;
+	wire->is_signed = other->is_signed;
 	wire->attributes = other->attributes;
 	return wire;
 }
@@ -1882,6 +1899,26 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, const RTLIL::Cell *oth
 	cell->parameters = other->parameters;
 	cell->attributes = other->attributes;
 	return cell;
+}
+
+RTLIL::Memory *RTLIL::Module::addMemory(RTLIL::IdString name, const RTLIL::Memory *other)
+{
+	RTLIL::Memory *mem = new RTLIL::Memory;
+	mem->name = name;
+	mem->width = other->width;
+	mem->start_offset = other->start_offset;
+	mem->size = other->size;
+	mem->attributes = other->attributes;
+	memories[mem->name] = mem;
+	return mem;
+}
+
+RTLIL::Process *RTLIL::Module::addProcess(RTLIL::IdString name, const RTLIL::Process *other)
+{
+	RTLIL::Process *proc = other->clone();
+	proc->name = name;
+	processes[name] = proc;
+	return proc;
 }
 
 #define DEF_METHOD(_func, _y_size, _type) \
@@ -1949,6 +1986,8 @@ DEF_METHOD(Sub,      max(sig_a.size(), sig_b.size()), ID($sub))
 DEF_METHOD(Mul,      max(sig_a.size(), sig_b.size()), ID($mul))
 DEF_METHOD(Div,      max(sig_a.size(), sig_b.size()), ID($div))
 DEF_METHOD(Mod,      max(sig_a.size(), sig_b.size()), ID($mod))
+DEF_METHOD(DivFloor, max(sig_a.size(), sig_b.size()), ID($divfloor))
+DEF_METHOD(ModFloor, max(sig_a.size(), sig_b.size()), ID($modfloor))
 DEF_METHOD(LogicAnd, 1, ID($logic_and))
 DEF_METHOD(LogicOr,  1, ID($logic_or))
 #undef DEF_METHOD
@@ -2445,6 +2484,7 @@ RTLIL::Wire::Wire()
 	port_input = false;
 	port_output = false;
 	upto = false;
+	is_signed = false;
 
 #ifdef WITH_PYTHON
 	RTLIL::Wire::get_all_wires()->insert(std::pair<unsigned int, RTLIL::Wire*>(hashidx_, this));

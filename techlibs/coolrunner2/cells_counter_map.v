@@ -3,6 +3,7 @@ module \$__COUNT_ (CE, CLK, OUT, POUT, RST, UP);
     input wire CE;
     input wire CLK;
     output wire OUT;
+    (* force_downto *)
     output wire[WIDTH-1:0] POUT;
     input wire RST;
     input wire UP;

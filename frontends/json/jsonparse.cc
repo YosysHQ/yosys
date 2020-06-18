@@ -309,6 +309,12 @@ void json_import(Design *design, string &modname, JsonNode *node)
 					port_wire->upto = val->data_number != 0;
 			}
 
+			if (port_node->data_dict.count("signed") != 0) {
+				JsonNode *val = port_node->data_dict.at("signed");
+				if (val->type == 'N')
+					port_wire->is_signed = val->data_number != 0;
+			}
+
 			if (port_node->data_dict.count("offset") != 0) {
 				JsonNode *val = port_node->data_dict.at("offset");
 				if (val->type == 'N')
@@ -573,4 +579,3 @@ struct JsonFrontend : public Frontend {
 } JsonFrontend;
 
 YOSYS_NAMESPACE_END
-

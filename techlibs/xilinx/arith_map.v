@@ -24,9 +24,11 @@
 module _80_xilinx_lcu (P, G, CI, CO);
 	parameter WIDTH = 2;
 
+	(* force_downto *)
 	input [WIDTH-1:0] P, G;
 	input CI;
 
+	(* force_downto *)
 	output [WIDTH-1:0] CO;
 
 	wire _TECHMAP_FAIL_ = WIDTH <= 2;
@@ -41,7 +43,9 @@ module _80_xilinx_lcu (P, G, CI, CO);
 
 generate if (EXPLICIT_CARRY || `LUT_SIZE == 4) begin
 
+	(* force_downto *)
 	wire [WIDTH-1:0] C = {CO, CI};
+	(* force_downto *)
 	wire [WIDTH-1:0] S = P & ~G;
 
 	generate for (i = 0; i < WIDTH; i = i + 1) begin:slice
@@ -59,8 +63,11 @@ end else begin
 	localparam MAX_WIDTH    = CARRY4_COUNT * 4;
 	localparam PAD_WIDTH    = MAX_WIDTH - WIDTH;
 
+	(* force_downto *)
 	wire [MAX_WIDTH-1:0] S =  {{PAD_WIDTH{1'b0}}, P & ~G};
+	(* force_downto *)
 	wire [MAX_WIDTH-1:0] GG = {{PAD_WIDTH{1'b0}}, G};
+	(* force_downto *)
 	wire [MAX_WIDTH-1:0] C;
 	assign CO = C;
 
@@ -103,20 +110,27 @@ module _80_xilinx_alu (A, B, CI, BI, X, Y, CO);
 	parameter _TECHMAP_CONSTVAL_CI_ = 0;
 	parameter _TECHMAP_CONSTMSK_CI_ = 0;
 
+	(* force_downto *)
 	input [A_WIDTH-1:0] A;
+	(* force_downto *)
 	input [B_WIDTH-1:0] B;
+	(* force_downto *)
 	output [Y_WIDTH-1:0] X, Y;
 
 	input CI, BI;
+	(* force_downto *)
 	output [Y_WIDTH-1:0] CO;
 
 	wire _TECHMAP_FAIL_ = Y_WIDTH <= 2;
 
+	(* force_downto *)
 	wire [Y_WIDTH-1:0] A_buf, B_buf;
 	\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
 	\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
 
+	(* force_downto *)
 	wire [Y_WIDTH-1:0] AA = A_buf;
+	(* force_downto *)
 	wire [Y_WIDTH-1:0] BB = BI ? ~B_buf : B_buf;
 
 	genvar i;
@@ -129,7 +143,9 @@ module _80_xilinx_alu (A, B, CI, BI, X, Y, CO);
 
 generate if (`LUT_SIZE == 4) begin
 
+	(* force_downto *)
 	wire [Y_WIDTH-1:0] C = {CO, CI};
+	(* force_downto *)
 	wire [Y_WIDTH-1:0] S  = {AA ^ BB};
 
 	genvar i;
@@ -149,6 +165,7 @@ generate if (`LUT_SIZE == 4) begin
 
 end else if (EXPLICIT_CARRY) begin
 
+	(* force_downto *)
 	wire [Y_WIDTH-1:0] S = AA ^ BB;
 
 	wire CINIT;
@@ -161,7 +178,9 @@ end else if (EXPLICIT_CARRY) begin
 	// So we maintain two wire sets, CO_CHAIN is the carry that is for VPR,
 	// e.g. off fabric dedicated chain.  CO is the carry outputs that are
 	// available to the fabric.
+	(* force_downto *)
 	wire [Y_WIDTH-1:0] CO_CHAIN;
+	(* force_downto *)
 	wire [Y_WIDTH-1:0] C = {CO_CHAIN, CINIT};
 
 	// If carry chain is being initialized to a constant, techmap the constant
@@ -250,10 +269,14 @@ end else begin
 	localparam MAX_WIDTH    = CARRY4_COUNT * 4;
 	localparam PAD_WIDTH    = MAX_WIDTH - Y_WIDTH;
 
+	(* force_downto *)
 	wire [MAX_WIDTH-1:0] S  = {{PAD_WIDTH{1'b0}}, AA ^ BB};
+	(* force_downto *)
 	wire [MAX_WIDTH-1:0] DI = {{PAD_WIDTH{1'b0}}, AA};
 
+	(* force_downto *)
 	wire [MAX_WIDTH-1:0] O;
+	(* force_downto *)
 	wire [MAX_WIDTH-1:0] C;
 	assign Y = O, CO = C;
 

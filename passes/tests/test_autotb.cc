@@ -81,6 +81,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 
 	f << stringf("integer i;\n");
 	f << stringf("integer file;\n\n");
+	f << stringf("reg [1023:0] filename;\n\n");
 
 	f << stringf("reg [31:0] xorshift128_x = 123456789;\n");
 	f << stringf("reg [31:0] xorshift128_y = 362436069;\n");
@@ -305,9 +306,15 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 	}
 
 	f << stringf("initial begin\n");
-	f << stringf("\t// $dumpfile(\"testbench.vcd\");\n");
-	f << stringf("\t// $dumpvars(0, testbench);\n");
-	f << stringf("\tfile = $fopen(`outfile);\n");
+	f << stringf("\tif ($value$plusargs(\"VCD=%%s\", filename)) begin\n");
+	f << stringf("\t\t$dumpfile(filename);\n");
+	f << stringf("\t\t$dumpvars(0, testbench);\n");
+	f << stringf("\tend\n");
+	f << stringf("\tif ($value$plusargs(\"OUT=%%s\", filename)) begin\n");
+	f << stringf("\t\tfile = $fopen(filename);\n");
+	f << stringf("\tend else begin\n");
+	f << stringf("\t\tfile = $fopen(`outfile);\n");
+	f << stringf("\tend\n");
 	for (auto module : design->modules())
 		if (!module->get_bool_attribute(ID::gentb_skip))
 			f << stringf("\t%s;\n", idy(module->name.str(), "test").c_str());
