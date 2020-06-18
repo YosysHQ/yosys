@@ -795,11 +795,11 @@ struct ExtractCounterPass : public Pass {
 		pool<RTLIL::IdString> _parallel_cells;
 		CounterExtractionSettings settings
 		{
-			.parallel_cells = _parallel_cells,
-			.maxwidth = 64,
-			.minwidth = 2,
-			.allow_arst = true,
-			.allowed_dirs = 0,
+			_parallel_cells,    // parallel_cells
+			64,                 // maxwidth
+			2,                  // minwidth
+			true,               // allow_arst
+			0,                  // allowed_dirs
 		};
 
 		size_t argidx;
