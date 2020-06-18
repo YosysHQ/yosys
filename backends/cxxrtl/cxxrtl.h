@@ -111,6 +111,35 @@ struct value : public expr_base<value<Bits>> {
 		return ss.str();
 	}
 
+	// Conversion operations.
+	//
+	// These functions ensure that a conversion is never out of range, and should be always used, if at all
+	// possible, instead of direct manipulation of the `data` member. For very large types, .slice() and
+	// .concat() can be used to split them into more manageable parts.
+	template<class IntegerT>
+	CXXRTL_ALWAYS_INLINE
+	IntegerT get() const {
+		static_assert(std::numeric_limits<IntegerT>::is_integer && !std::numeric_limits<IntegerT>::is_signed,
+		              "get<T>() requires T to be an unsigned integral type");
+		static_assert(std::numeric_limits<IntegerT>::digits >= Bits,
+		              "get<T>() requires T to be at least as wide as the value is");
+		IntegerT result = 0;
+		for (size_t n = 0; n < chunks; n++)
+			result |= IntegerT(data[n]) << (n * chunk::bits);
+		return result;
+	}
+
+	template<class IntegerT>
+	CXXRTL_ALWAYS_INLINE
+	void set(IntegerT other) {
+		static_assert(std::numeric_limits<IntegerT>::is_integer && !std::numeric_limits<IntegerT>::is_signed,
+		              "set<T>() requires T to be an unsigned integral type");
+		static_assert(std::numeric_limits<IntegerT>::digits >= Bits,
+		              "set<T>() requires the value to be at least as wide as T is");
+		for (size_t n = 0; n < chunks; n++)
+			data[n] = (other >> (n * chunk::bits)) & chunk::mask;
+	}
+
 	// Operations with compile-time parameters.
 	//
 	// These operations are used to implement slicing, concatenation, and blitting.
@@ -274,15 +303,15 @@ struct value : public expr_base<value<Bits>> {
 		data[offset_chunks] |= value ? 1 << offset_bits : 0;
 	}
 
+	explicit operator bool() const {
+		return !is_zero();
+	}
+
 	bool is_zero() const {
 		for (size_t n = 0; n < chunks; n++)
 			if (data[n] != 0)
 				return false;
 		return true;
-	}
-
-	explicit operator bool() const {
-		return !is_zero();
 	}
 
 	bool is_neg() const {
@@ -620,6 +649,18 @@ struct wire {
 	wire(const wire<Bits> &) = delete;
 	wire(wire<Bits> &&) = default;
 	wire<Bits> &operator=(const wire<Bits> &) = delete;
+
+	template<class IntegerT>
+	CXXRTL_ALWAYS_INLINE
+	IntegerT get() const {
+		return curr.template get<IntegerT>();
+	}
+
+	template<class IntegerT>
+	CXXRTL_ALWAYS_INLINE
+	void set(IntegerT other) {
+		next.template set<IntegerT>(other);
+	}
 
 	bool commit() {
 		if (curr != next) {
@@ -967,13 +1008,13 @@ value<BitsY> logic_not(const value<BitsA> &a) {
 template<size_t BitsY, size_t BitsA, size_t BitsB>
 CXXRTL_ALWAYS_INLINE
 value<BitsY> logic_and(const value<BitsA> &a, const value<BitsB> &b) {
-	return value<BitsY> { (bool(a) & bool(b)) ? 1u : 0u };
+	return value<BitsY> { (bool(a) && bool(b)) ? 1u : 0u };
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
 CXXRTL_ALWAYS_INLINE
 value<BitsY> logic_or(const value<BitsA> &a, const value<BitsB> &b) {
-	return value<BitsY> { (bool(a) | bool(b)) ? 1u : 0u };
+	return value<BitsY> { (bool(a) || bool(b)) ? 1u : 0u };
 }
 
 // Reduction operations
