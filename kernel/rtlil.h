@@ -1061,6 +1061,13 @@ struct RTLIL::Design
 		return selected_member(module->name, member->name);
 	}
 
+	template<typename T1> void select(T1 *module) {
+		if (selection_stack.size() > 0) {
+			RTLIL::Selection &sel = selection_stack.back();
+			sel.select(module);
+		}
+	}
+
 	template<typename T1, typename T2> void select(T1 *module, T2 *member) {
 		if (selection_stack.size() > 0) {
 			RTLIL::Selection &sel = selection_stack.back();
