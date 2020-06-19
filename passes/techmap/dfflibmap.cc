@@ -409,11 +409,11 @@ static void map_sr_to_arst(IdString from, IdString to)
 	if (!cell_mappings.count(from) || cell_mappings.count(to) > 0)
 		return;
 
-	char from_clk_pol YS_ATTRIBUTE(unused) = from[8];
+	char from_clk_pol = from[8];
 	char from_set_pol = from[9];
 	char from_clr_pol = from[10];
-	char to_clk_pol YS_ATTRIBUTE(unused) = to[6];
-	char to_rst_pol YS_ATTRIBUTE(unused) = to[7];
+	char to_clk_pol = to[6];
+	char to_rst_pol = to[7];
 	char to_rst_val = to[8];
 
 	log_assert(from_clk_pol == to_clk_pol);
@@ -455,9 +455,9 @@ static void map_adff_to_dff(IdString from, IdString to)
 	if (!cell_mappings.count(from) || cell_mappings.count(to) > 0)
 		return;
 
-	char from_clk_pol YS_ATTRIBUTE(unused) = from[6];
+	char from_clk_pol = from[6];
 	char from_rst_pol = from[7];
-	char to_clk_pol YS_ATTRIBUTE(unused) = to[6];
+	char to_clk_pol = to[6];
 
 	log_assert(from_clk_pol == to_clk_pol);
 

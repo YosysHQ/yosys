@@ -741,7 +741,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 	if (ys_debug(1))
 		toposort.analyze_loops = true;
 
-	bool no_loops YS_ATTRIBUTE(unused) = toposort.sort();
+	bool no_loops = toposort.sort();
 
 	if (ys_debug(1)) {
 		unsigned i = 0;
@@ -1453,7 +1453,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 			for (auto driver_cell : bit_drivers.at(it.first))
 			for (auto user_cell : it.second)
 				toposort.edge(driver_cell, user_cell);
-	bool no_loops YS_ATTRIBUTE(unused) = toposort.sort();
+	bool no_loops = toposort.sort();
 	log_assert(no_loops);
 
 	for (auto ii = toposort.sorted.rbegin(); ii != toposort.sorted.rend(); ii++) {

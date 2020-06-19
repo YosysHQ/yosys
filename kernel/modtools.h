@@ -169,7 +169,7 @@ struct ModIndex : public RTLIL::Monitor
 		port_add(cell, port, sig);
 	}
 
-	void notify_connect(RTLIL::Module *mod YS_ATTRIBUTE(unused), const RTLIL::SigSig &sigsig) override
+	void notify_connect(RTLIL::Module *mod, const RTLIL::SigSig &sigsig) override
 	{
 		log_assert(module == mod);
 
@@ -214,13 +214,13 @@ struct ModIndex : public RTLIL::Monitor
 		}
 	}
 
-	void notify_connect(RTLIL::Module *mod YS_ATTRIBUTE(unused), const std::vector<RTLIL::SigSig>&) override
+	void notify_connect(RTLIL::Module *mod, const std::vector<RTLIL::SigSig>&) override
 	{
 		log_assert(module == mod);
 		auto_reload_module = true;
 	}
 
-	void notify_blackout(RTLIL::Module *mod YS_ATTRIBUTE(unused)) override
+	void notify_blackout(RTLIL::Module *mod) override
 	{
 		log_assert(module == mod);
 		auto_reload_module = true;

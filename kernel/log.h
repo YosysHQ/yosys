@@ -370,7 +370,7 @@ static inline void log_dump_val_worker(char *v) { log("%s", v); }
 static inline void log_dump_val_worker(const char *v) { log("%s", v); }
 static inline void log_dump_val_worker(std::string v) { log("%s", v.c_str()); }
 static inline void log_dump_val_worker(PerformanceTimer p) { log("%f seconds", p.sec()); }
-static inline void log_dump_args_worker(const char *p YS_ATTRIBUTE(unused)) { log_assert(*p == 0); }
+static inline void log_dump_args_worker(const char *p) { log_assert(*p == 0); }
 void log_dump_val_worker(RTLIL::IdString v);
 void log_dump_val_worker(RTLIL::SigSpec v);
 void log_dump_val_worker(RTLIL::State v);
