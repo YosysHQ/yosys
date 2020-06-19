@@ -363,7 +363,7 @@ struct PartitionWorker {
 struct PartitionPass : public Pass {
 	PartitionPass() : Pass("partition", "split techmapped module into equal-sized parts") { }
 
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -399,7 +399,7 @@ struct PartitionPass : public Pass {
 		log("\n");
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		int opt_k = -1, opt_imbalance = 5;
 		bool opt_verbose = false, opt_nocleanup = false;
