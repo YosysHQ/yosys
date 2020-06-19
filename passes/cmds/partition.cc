@@ -24,10 +24,10 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct PartitionPass : public Pass {
-	//Constructs a hypergraph from a flat techmapped module, partitions the hypergraph,
-	//recovers the cell partition assignments, creates partition modules with the appropriate
-	//cells, ports, and intra-partition connections, then replaces the original module
-	//with one that instantiates and connects the partition modules.
+	//Constructs a hypergraph from a module, partitions the hypergraph, recovers the cell
+	//partition assignments, creates partition modules with the appropriate cells, ports,
+	//and intra-partition connections, then replaces the original module with one that
+	//instantiates and connects the partition modules.
 	int opt_k = -1, opt_imbalance = 5;
 	bool opt_verbose = false, opt_nocleanup = false;
 	RTLIL::Module *module = nullptr, *new_module = nullptr;
@@ -340,9 +340,9 @@ struct PartitionPass : public Pass {
 		log("\n");
 		log("    partition [options] [selection]\n");
 		log("\n");
-		log("This command splits a combinational techmapped module into partitions, with\n");
-		log("an emphasis on minimizing the connectivity between partitions. Multiple new\n");
-		log("modules will be created and selected, with names described by:\n");
+		log("This command splits a flat combinational gate-level module into partitions,\n");
+		log("with an emphasis on minimizing the connectivity between partitions. Multiple\n");
+		log("new modules will be created and selected, with names described by:\n");
 		log("  `printf(\"%%s_partition%%d\", name, i)`,\n");
 		log("where `name` is the name of the module being partitioned and `i` is the\n");
 		log("partition number.\n");
