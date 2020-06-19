@@ -347,7 +347,7 @@ struct GliftPass : public Pass {
 
 	GliftPass() : Pass("glift", "create GLIFT models and optimization problems"), opt_create_precise_model(false), opt_create_imprecise_model(false), opt_create_instrumented_model(false), opt_taintconstants(false), opt_keepoutputs(false), opt_simplecostmodel(false), opt_nocostmodel(false), opt_instrumentmore(false), module(nullptr) { }
 
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -433,7 +433,7 @@ struct GliftPass : public Pass {
 		log("\n");
 	}
 
-	void execute(std::vector<std::string> _args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> _args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing GLIFT pass (creating and manipulating GLIFT models).\n");
 
