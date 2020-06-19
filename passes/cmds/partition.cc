@@ -198,57 +198,55 @@ struct PartitionWorker {
 		}
 	}
 
-	void create_partition_modules() {
-		for (auto i = 0; i < partitions; ++i) {
-			//Create new module for the partition:
-			RTLIL::IdString dest_module_name = stringf("%s_partition%d", module->name.c_str(), i);
-			partition_modules.emplace_back(design->addModule(dest_module_name));
-			RTLIL::Module *dest_module = design->module(dest_module_name);
-			design->select(dest_module);
+	void create_partition_module(int i) {
+		//Create new module for the partition:
+		RTLIL::IdString dest_module_name = stringf("%s_partition%d", module->name.c_str(), i);
+		partition_modules.emplace_back(design->addModule(dest_module_name));
+		RTLIL::Module *dest_module = design->module(dest_module_name);
+		design->select(dest_module);
 
-			//Copy cells and cell ports to this partition:
-			for (auto node : partition_nodes[i]) {
-				RTLIL::Cell *cell = *(module->cells().begin() += node);
-				RTLIL::Cell *dest_cell = dest_module->addCell(cell->name, cell->type);
-				//Copy cell ports, creating a new wire for each port if one does not already exist:
-				for (auto &it : cell->connections()) {
-					log_assert(it.second.is_wire());
-					RTLIL::IdString wire_name = it.second.as_wire()->name.c_str();
-					RTLIL::Wire *dest_wire = dest_module->wire(wire_name);
-					if (dest_wire == nullptr) {
-						dest_wire = dest_module->addWire(it.second.as_wire()->name, GetSize(it.second));
+		//Copy cells and cell ports to this partition:
+		for (auto node : partition_nodes[i]) {
+			RTLIL::Cell *cell = *(module->cells().begin() += node);
+			RTLIL::Cell *dest_cell = dest_module->addCell(cell->name, cell->type);
+			//Copy cell ports, creating a new wire for each port if one does not already exist:
+			for (auto &it : cell->connections()) {
+				log_assert(it.second.is_wire());
+				RTLIL::IdString wire_name = it.second.as_wire()->name.c_str();
+				RTLIL::Wire *dest_wire = dest_module->wire(wire_name);
+				if (dest_wire == nullptr) {
+					dest_wire = dest_module->addWire(it.second.as_wire()->name, GetSize(it.second));
 
-						//if the wire is a PI or PO in the original module, make it so for this module:
-						if (it.second.as_wire()->port_input)
-							dest_wire->port_input = true;
-						if (it.second.as_wire()->port_output)
-							dest_wire->port_output = true;
-					}
-					//if the wire corresponds to a cut edge, determine if we need to mark it a module
-					//input or a module output of this partition:
-					for (auto j = 0; j < GetSize(it.second); ++j) {
-						int edgenum = sigbit_to_edgenum[RTLIL::SigBit(it.second.as_wire(), j)];
-						if (!edge_cut[edgenum]) {
-							if (opt_verbose) log("Hyperedge #%d not cut, not marking %s as port\n", edgenum, dest_wire->name.c_str());
-							continue;
-						}
-
-						cut_wires.insert(it.second.as_wire()->name);
-						if (opt_verbose) log("Found a cut hyperedge #%d, marking %s as port\n", edgenum, dest_wire->name.c_str());
-						if (cell->input(it.first) && !dest_wire->port_output)
-							dest_wire->port_input = true;
-						else if (cell->output(it.first)) {
-							dest_wire->port_input = false;
-							dest_wire->port_output = true;
-						}
-						break;
-					}
-					dest_cell->setPort(it.first, dest_wire);
+					//if the wire is a PI or PO in the original module, make it so for this module:
+					if (it.second.as_wire()->port_input)
+						dest_wire->port_input = true;
+					if (it.second.as_wire()->port_output)
+						dest_wire->port_output = true;
 				}
-			}
+				//if the wire corresponds to a cut edge, determine if we need to mark it a module
+				//input or a module output of this partition:
+				for (auto j = 0; j < GetSize(it.second); ++j) {
+					int edgenum = sigbit_to_edgenum[RTLIL::SigBit(it.second.as_wire(), j)];
+					if (!edge_cut[edgenum]) {
+						if (opt_verbose) log("Hyperedge #%d not cut, not marking %s as port\n", edgenum, dest_wire->name.c_str());
+						continue;
+					}
 
-			dest_module->fixup_ports();
+					cut_wires.insert(it.second.as_wire()->name);
+					if (opt_verbose) log("Found a cut hyperedge #%d, marking %s as port\n", edgenum, dest_wire->name.c_str());
+					if (cell->input(it.first) && !dest_wire->port_output)
+						dest_wire->port_input = true;
+					else if (cell->output(it.first)) {
+						dest_wire->port_input = false;
+						dest_wire->port_output = true;
+					}
+					break;
+				}
+				dest_cell->setPort(it.first, dest_wire);
+			}
 		}
+
+		dest_module->fixup_ports();
 	}
 
 	void create_partitioned_module() {
@@ -351,7 +349,8 @@ struct PartitionWorker {
 			remove_directory(tempdir_name);
 
 		//Make partition submodules and move cells to them:
-		create_partition_modules();
+		for (auto i = 0; i < partitions; ++i)
+			create_partition_module(i);
 
 		//Finally, make a new module that instantiates and connects partition cells:
 		create_partitioned_module();
