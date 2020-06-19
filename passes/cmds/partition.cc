@@ -120,7 +120,7 @@ struct PartitionWorker {
 		}
 		fout << "% node weights" << std::endl;
 		for (auto i = 0; i < node_ctr; ++i) {
-			RTLIL::Cell *cell = *(module->cells().begin() + i);
+			RTLIL::Cell *cell = *(module->cells().begin() += i);
 			fout << cell_type_costs.at(cell->type) << std::endl;
 		}
 		fout.close();
@@ -208,7 +208,7 @@ struct PartitionWorker {
 
 			//Copy cells and cell ports to this partition:
 			for (auto node : partition_nodes[i]) {
-				RTLIL::Cell *cell = *(module->cells().begin() + node);
+				RTLIL::Cell *cell = *(module->cells().begin() += node);
 				RTLIL::Cell *dest_cell = dest_module->addCell(cell->name, cell->type);
 				//Copy cell ports, creating a new wire for each port if one does not already exist:
 				for (auto &it : cell->connections()) {
