@@ -148,11 +148,11 @@ struct PartitionPass : public Pass {
 			partitions = opt_k;
 		else if (opt_k != -1)
 			return; //nothing to do
-		const std::string partitions_str = opt_k != 1? stringf(" -k %d", partitions) : "";
-		const std::string imbalance_str = opt_imbalance != 5? stringf(" -e %d", opt_imbalance) : "";
-		const std::string input_file_str = " -i " + problem_fname;
-		const std::string output_file_str = " -o " + solution_fname;
-		const std::string minipart_cmd = "minipart" + input_file_str + output_file_str + partitions_str + imbalance_str;
+		std::string partitions_str = opt_k != 1? stringf(" -k %d", partitions) : "";
+		std::string imbalance_str = opt_imbalance != 5? stringf(" -e %d", opt_imbalance) : "";
+		std::string input_file_str = " -i " + problem_fname;
+		std::string output_file_str = " -o " + solution_fname;
+		std::string minipart_cmd = "minipart" + input_file_str + output_file_str + partitions_str + imbalance_str;
 		if (run_command(minipart_cmd, [](const std::string &){}) != 0)
 			log_cmd_error("Could not solve with minipart; is it installed and on the PATH?\n");
 	}
