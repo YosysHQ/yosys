@@ -126,15 +126,16 @@ struct CutpointPass : public Pass {
 				}
 
 				vector<Wire*> rewrite_wires;
-				for (auto wire : module->wires()) {
-					if (!wire->port_input)
-						continue;
-					int bit_count = 0;
-					for (auto &bit : sigmap(wire))
-						if (cutpoint_bits.count(bit))
-							bit_count++;
-					if (bit_count)
-						rewrite_wires.push_back(wire);
+				for (auto id : module->ports) {
+					RTLIL::Wire *wire = module->wire(id);
+					if (wire->port_input) {
+						int bit_count = 0;
+						for (auto &bit : sigmap(wire))
+							if (cutpoint_bits.count(bit))
+								bit_count++;
+						if (bit_count)
+							rewrite_wires.push_back(wire);
+					}
 				}
 
 				for (auto wire : rewrite_wires) {
