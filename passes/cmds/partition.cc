@@ -49,13 +49,14 @@ struct PartitionWorker {
 
 			if (opt_verbose) log("Adding cell %s as node #%d\n", cell->name.c_str(), node_ctr);
 			for (auto port : cell->connections()) {
-				if (cell->output(port.first)) {
-					for (auto i = 0; i < GetSize(port.second); ++i) {
-						auto sigbit = port.second[i];
-						sigbit_to_edgenum.emplace(sigbit, edge_ctr);
-						edge_nodes.emplace(edge_ctr++, {node_ctr});
-						if (opt_verbose) log("Defined hyperedge #%d starting with driver node #%d\n", edge_ctr-1, node_ctr);
-					}
+				if (!cell->output(port.first))
+					continue;
+
+				for (auto i = 0; i < GetSize(port.second); ++i) {
+					auto sigbit = port.second[i];
+					sigbit_to_edgenum.emplace(sigbit, edge_ctr);
+					edge_nodes.emplace(edge_ctr++, {node_ctr});
+					if (opt_verbose) log("Defined hyperedge #%d starting with driver node #%d\n", edge_ctr-1, node_ctr);
 				}
 			}
 			node_ctr++;
@@ -63,14 +64,15 @@ struct PartitionWorker {
 
 		//Go through connections to find more drivers and fully set up sigbit_to_edgenum:
 		for (auto conn : module->connections()) {
-			if (!conn.second.is_wire() || !conn.second.as_wire()->port_input) {
-				for (auto i = 0; i < GetSize(conn.first); ++i) {
-					auto it = sigbit_to_edgenum.find(conn.second[i]);
-					if (it != sigbit_to_edgenum.end())
-						sigbit_to_edgenum.emplace(conn.first[i], it->second);
-					else
-						log_cmd_error("Cannot find driver for connection %s = %s\n", log_signal(conn.first[i]), log_signal(conn.second[i]));
-				}
+			if (conn.second.is_wire() && conn.second.as_wire()->port_input)
+				continue;
+
+			for (auto i = 0; i < GetSize(conn.first); ++i) {
+				auto it = sigbit_to_edgenum.find(conn.second[i]);
+				if (it != sigbit_to_edgenum.end())
+					sigbit_to_edgenum.emplace(conn.first[i], it->second);
+				else
+					log_cmd_error("Cannot find driver for connection %s = %s\n", log_signal(conn.first[i]), log_signal(conn.second[i]));
 			}
 		}
 
@@ -79,17 +81,17 @@ struct PartitionWorker {
 		node_ctr = 0;
 		for (auto cell : module->cells()) {
 			for (auto port : cell->connections()) {
-				if (port.first != ID::Y) {
-					for (auto i = 0; i < GetSize(port.second); ++i) {
-						auto sigbit = port.second[i];
-						auto it = sigbit_to_edgenum.find(sigbit);
-						if (it != sigbit_to_edgenum.end()) {
-							if (opt_verbose) log("Found driver hyperedge #%d for %s on node #%d\n", it->second, log_signal(sigbit), node_ctr);
-							edge_nodes[it->second].insert(node_ctr);
-						} else {
-							if (sigbit.wire == nullptr || !sigbit.wire->port_input)
-								log_cmd_error("Cannot find driver for net %s\n", log_signal(sigbit));
-						}
+				if (cell->output(port.first))
+					continue;
+
+				for (auto i = 0; i < GetSize(port.second); ++i) {
+					auto sigbit = port.second[i];
+					auto it = sigbit_to_edgenum.find(sigbit);
+					if (it != sigbit_to_edgenum.end()) {
+						if (opt_verbose) log("Found driver hyperedge #%d for %s on node #%d\n", it->second, log_signal(sigbit), node_ctr);
+						edge_nodes[it->second].insert(node_ctr);
+					} else if (sigbit.wire == nullptr || !sigbit.wire->port_input) {
+						log_cmd_error("Cannot find driver for net %s\n", log_signal(sigbit));
 					}
 				}
 			}
@@ -185,12 +187,13 @@ struct PartitionWorker {
 			RTLIL::Wire *wire = module->wire(port);
 			log_assert(wire != nullptr);
 
-			if (wire->port_output) {
-				for (auto i = 0; i < GetSize(wire); ++i) {
-					int edgenum = sigbit_to_edgenum[RTLIL::SigBit(wire, i)];
-					edge_cut[edgenum] = true;
-					if (opt_verbose) log("Marking hyperedge #%d as cut because of PO %s\n", edgenum, wire->name.c_str());
-				}
+			if (!wire->port_output)
+				continue;
+
+			for (auto i = 0; i < GetSize(wire); ++i) {
+				int edgenum = sigbit_to_edgenum[RTLIL::SigBit(wire, i)];
+				edge_cut[edgenum] = true;
+				if (opt_verbose) log("Marking hyperedge #%d as cut because of PO %s\n", edgenum, wire->name.c_str());
 			}
 		}
 	}
@@ -225,20 +228,20 @@ struct PartitionWorker {
 					//input or a module output of this partition:
 					for (auto j = 0; j < GetSize(it.second); ++j) {
 						int edgenum = sigbit_to_edgenum[RTLIL::SigBit(it.second.as_wire(), j)];
-						if (edge_cut[edgenum]) {
-							cut_wires.insert(it.second.as_wire()->name);
-							if (opt_verbose) log("Found a cut hyperedge #%d, marking %s as port\n", edgenum, dest_wire->name.c_str());
-							if (cell->input(it.first) && !dest_wire->port_output)
-								dest_wire->port_input = true;
-							else if (cell->output(it.first)) {
-								dest_wire->port_input = false;
-								dest_wire->port_output = true;
-							}
-							break;
+						if (!edge_cut[edgenum]) {
+							if (opt_verbose) log("Hyperedge #%d not cut, not marking %s as port\n", edgenum, dest_wire->name.c_str());
+							continue;
 						}
-						else if (opt_verbose) {
-							log("Hyperedge #%d not cut, not marking %s as port\n", edgenum, dest_wire->name.c_str());
+
+						cut_wires.insert(it.second.as_wire()->name);
+						if (opt_verbose) log("Found a cut hyperedge #%d, marking %s as port\n", edgenum, dest_wire->name.c_str());
+						if (cell->input(it.first) && !dest_wire->port_output)
+							dest_wire->port_input = true;
+						else if (cell->output(it.first)) {
+							dest_wire->port_input = false;
+							dest_wire->port_output = true;
 						}
+						break;
 					}
 					dest_cell->setPort(it.first, dest_wire);
 				}
@@ -262,12 +265,13 @@ struct PartitionWorker {
 
 		//Add wires for cut hyperedges, i.e. signals crossing partitions:
 		for (auto id : cut_wires) {
-			if (new_module->wire(id) == nullptr) {
-				if (opt_verbose) log("Adding cut wire %s\n", id.c_str());
-				new_module->addWire(id, GetSize(module->wire(id)));
-			} else if (opt_verbose) {
-				 log("Skipping cut wire %s\n", id.c_str());
+			if (new_module->wire(id) != nullptr) {
+				if (opt_verbose) log("Skipping cut wire %s\n", id.c_str());
+				continue;
 			}
+
+			if (opt_verbose) log("Adding cut wire %s\n", id.c_str());
+			new_module->addWire(id, GetSize(module->wire(id)));
 		}
 
 		//Add and connect partition submodule instances:
@@ -295,17 +299,18 @@ struct PartitionWorker {
 			for (auto &conn : module->connections()) {
 				log_assert(conn.first.is_wire());
 				RTLIL::Wire *old_mod_lhs = conn.first.as_wire();
-				if (pos[old_mod_lhs->name]) {
-					log_assert(conn.second.is_wire());
-					RTLIL::Wire *old_mod_rhs = conn.second.as_wire();
-					RTLIL::Wire *new_mod_rhs = new_module->wire(old_mod_rhs->name);
-					if (new_mod_rhs == nullptr) {
-						new_mod_rhs = new_module->addWire(old_mod_rhs->name, GetSize(old_mod_rhs));
-						pos.insert(old_mod_rhs->name);
-					}
-					new_module->connect(new_module->wire(old_mod_lhs->name), new_mod_rhs);
-					pos.erase(old_mod_lhs->name);
+				if (!pos[old_mod_lhs->name])
+					continue;
+
+				log_assert(conn.second.is_wire());
+				RTLIL::Wire *old_mod_rhs = conn.second.as_wire();
+				RTLIL::Wire *new_mod_rhs = new_module->wire(old_mod_rhs->name);
+				if (new_mod_rhs == nullptr) {
+					new_mod_rhs = new_module->addWire(old_mod_rhs->name, GetSize(old_mod_rhs));
+					pos.insert(old_mod_rhs->name);
 				}
+				new_module->connect(new_module->wire(old_mod_lhs->name), new_mod_rhs);
+				pos.erase(old_mod_lhs->name);
 			}
 		}
 		if (GetSize(pos) != 0)
