@@ -24,7 +24,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct BlackboxPass : public Pass {
 	BlackboxPass() : Pass("blackbox", "convert modules into blackbox modules") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -34,7 +34,7 @@ struct BlackboxPass : public Pass {
 		log("module attribute).\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)

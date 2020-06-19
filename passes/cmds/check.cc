@@ -27,7 +27,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct CheckPass : public Pass {
 	CheckPass() : Pass("check", "check for obvious problems in the design") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -61,7 +61,7 @@ struct CheckPass : public Pass {
 		log("    Produce a runtime error if any problems are found in the current design.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		int counter = 0;
 		bool noinit = false;

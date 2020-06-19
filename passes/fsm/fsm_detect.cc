@@ -257,7 +257,7 @@ static void detect_fsm(RTLIL::Wire *wire)
 
 struct FsmDetectPass : public Pass {
 	FsmDetectPass() : Pass("fsm_detect", "finding FSMs in design") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -273,7 +273,7 @@ struct FsmDetectPass : public Pass {
 		log("'fsm_encoding' attribute to \"none\".\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing FSM_DETECT pass (finding FSMs in design).\n");
 		extra_args(args, 1, design);

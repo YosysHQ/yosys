@@ -29,7 +29,7 @@ struct PrepPass : public ScriptPass
 {
 	PrepPass() : ScriptPass("prep", "generic synthesis script") { }
 
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -81,7 +81,7 @@ struct PrepPass : public ScriptPass
 	string top_module, fsm_opts;
 	bool autotop, flatten, ifxmode, memxmode, nomemmode, nokeepdc, nordff;
 
-	void clear_flags() YS_OVERRIDE
+	void clear_flags() override
 	{
 		top_module.clear();
 
@@ -94,7 +94,7 @@ struct PrepPass : public ScriptPass
 		nordff = true;
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		string run_from, run_to;
 
@@ -163,7 +163,7 @@ struct PrepPass : public ScriptPass
 		log_pop();
 	}
 
-	void script() YS_OVERRIDE
+	void script() override
 	{
 
 		if (check_label("begin"))

@@ -26,7 +26,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct Dff2dffsPass : public Pass {
 	Dff2dffsPass() : Pass("dff2dffs", "process sync set/reset with SR over CE priority") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		log("\n");
 		log("    dff2dffs [options] [selection]\n");
@@ -39,7 +39,7 @@ struct Dff2dffsPass : public Pass {
 		log("        output wire's init attribute (if any).\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing dff2dffs pass (merge synchronous set/reset into FF cells).\n");
 

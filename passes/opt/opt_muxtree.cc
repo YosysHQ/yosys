@@ -473,7 +473,7 @@ struct OptMuxtreeWorker
 
 struct OptMuxtreePass : public Pass {
 	OptMuxtreePass() : Pass("opt_muxtree", "eliminate dead trees in multiplexer trees") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -486,7 +486,7 @@ struct OptMuxtreePass : public Pass {
 		log("This pass only operates on completely selected modules without processes.\n");
 		log("\n");
 	}
-	void execute(vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing OPT_MUXTREE pass (detect dead branches in mux trees).\n");
 		extra_args(args, 1, design);

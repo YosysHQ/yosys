@@ -991,7 +991,7 @@ struct TechmapWorker
 
 struct TechmapPass : public Pass {
 	TechmapPass() : Pass("techmap", "generic technology mapper") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1151,7 +1151,7 @@ struct TechmapPass : public Pass {
 		log("essentially techmap but using the design itself as map library).\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing TECHMAP pass (map to technology primitives).\n");
 		log_push();

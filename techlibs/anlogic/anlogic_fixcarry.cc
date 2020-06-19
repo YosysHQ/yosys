@@ -98,7 +98,7 @@ static void fix_carry_chain(Module *module)
 
 struct AnlogicCarryFixPass : public Pass {
 	AnlogicCarryFixPass() : Pass("anlogic_fixcarry", "Anlogic: fix carry chain") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -107,7 +107,7 @@ struct AnlogicCarryFixPass : public Pass {
 		log("Add Anlogic adders to fix carry chain if needed.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing anlogic_fixcarry pass (fix invalid carry chain).\n");
 		

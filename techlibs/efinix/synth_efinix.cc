@@ -30,7 +30,7 @@ struct SynthEfinixPass : public ScriptPass
 {
 	SynthEfinixPass() : ScriptPass("synth_efinix", "synthesis for Efinix FPGAs") { }
 
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -72,7 +72,7 @@ struct SynthEfinixPass : public ScriptPass
 	string top_opt, edif_file, json_file;
 	bool flatten, retime, nobram;
 
-	void clear_flags() YS_OVERRIDE
+	void clear_flags() override
 	{
 		top_opt = "-auto-top";
 		edif_file = "";
@@ -82,7 +82,7 @@ struct SynthEfinixPass : public ScriptPass
 		nobram = false;
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		string run_from, run_to;
 		clear_flags();
@@ -137,7 +137,7 @@ struct SynthEfinixPass : public ScriptPass
 		log_pop();
 	}
 
-	void script() YS_OVERRIDE
+	void script() override
 	{
 		if (check_label("begin"))
 		{

@@ -26,7 +26,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct Ecp5GsrPass : public Pass {
 	Ecp5GsrPass() : Pass("ecp5_gsr", "ECP5: handle GSR") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -40,7 +40,7 @@ struct Ecp5GsrPass : public Pass {
 		log("is not set, otherwise it will be resolved to \"DISABLED\".\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing ECP5_GSR pass (implement FF init values).\n");
 

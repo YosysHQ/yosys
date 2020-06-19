@@ -535,7 +535,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 
 struct JsonFrontend : public Frontend {
 	JsonFrontend() : Frontend("json", "read JSON file") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -545,7 +545,7 @@ struct JsonFrontend : public Frontend {
 		log("for a description of the file format.\n");
 		log("\n");
 	}
-	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing JSON frontend.\n");
 

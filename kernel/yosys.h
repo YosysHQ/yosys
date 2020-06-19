@@ -136,23 +136,12 @@ extern Tcl_Obj *Tcl_ObjSetVar2(Tcl_Interp *interp, Tcl_Obj *part1Ptr, Tcl_Obj *p
 #define YOSYS_NAMESPACE_PREFIX   Yosys::
 #define USING_YOSYS_NAMESPACE    using namespace Yosys;
 
-#if __cplusplus >= 201103L
-#  define YS_OVERRIDE override
-#  define YS_FINAL final
-#else
-#  define YS_OVERRIDE
-#  define YS_FINAL
-#endif
-
 #if defined(__GNUC__) || defined(__clang__)
 #  define YS_ATTRIBUTE(...) __attribute__((__VA_ARGS__))
-#  define YS_NORETURN
 #elif defined(_MSC_VER)
 #  define YS_ATTRIBUTE(...)
-#  define YS_NORETURN __declspec(noreturn)
 #else
 #  define YS_ATTRIBUTE(...)
-#  define YS_NORETURN
 #endif
 
 #if __cplusplus >= 201703L

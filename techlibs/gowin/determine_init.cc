@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct DetermineInitPass : public Pass {
 	DetermineInitPass() : Pass("determine_init", "Determine the init value of cells") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		log("\n");
 		log("    determine_init [selection]\n");
@@ -44,7 +44,7 @@ struct DetermineInitPass : public Pass {
 		return init;
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing DETERMINE_INIT pass (determine init value for cells).\n");
 

@@ -198,7 +198,7 @@ struct OnehotDatabase
 
 struct Pmux2ShiftxPass : public Pass {
 	Pmux2ShiftxPass() : Pass("pmux2shiftx", "transform $pmux cells to $shiftx cells") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -225,7 +225,7 @@ struct Pmux2ShiftxPass : public Pass {
 		log("        disable $sub inference for \"range decoders\"\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		int min_density = 50;
 		int min_choices = 3;
@@ -737,7 +737,7 @@ struct Pmux2ShiftxPass : public Pass {
 
 struct OnehotPass : public Pass {
 	OnehotPass() : Pass("onehot", "optimize $eq cells for onehot signals") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -749,7 +749,7 @@ struct OnehotPass : public Pass {
 		log("        verbose output\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool verbose = false;
 		bool verbose_onehot = false;

@@ -204,7 +204,7 @@ struct EquivMarkWorker
 
 struct EquivMarkPass : public Pass {
 	EquivMarkPass() : Pass("equiv_mark", "mark equivalence checking regions") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -216,7 +216,7 @@ struct EquivMarkPass : public Pass {
 		log("wires and cells.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, Design *design) override
 	{
 		log_header(design, "Executing EQUIV_MARK pass.\n");
 

@@ -24,7 +24,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct EquivRemovePass : public Pass {
 	EquivRemovePass() : Pass("equiv_remove", "remove $equiv cells") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -40,7 +40,7 @@ struct EquivRemovePass : public Pass {
 		log("        keep gate circuit\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, Design *design) override
 	{
 		bool mode_gold = false;
 		bool mode_gate = false;

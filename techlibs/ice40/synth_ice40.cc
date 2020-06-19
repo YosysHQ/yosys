@@ -29,14 +29,14 @@ struct SynthIce40Pass : public ScriptPass
 {
 	SynthIce40Pass() : ScriptPass("synth_ice40", "synthesis for iCE40 FPGAs") { }
 
-	void on_register() YS_OVERRIDE
+	void on_register() override
 	{
 		RTLIL::constpad["synth_ice40.abc9.hx.W"] = "250";
 		RTLIL::constpad["synth_ice40.abc9.lp.W"] = "400";
 		RTLIL::constpad["synth_ice40.abc9.u.W"] = "750";
 	}
 
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -119,7 +119,7 @@ struct SynthIce40Pass : public ScriptPass
 	bool nocarry, nodffe, nobram, dsp, flatten, retime, noabc, abc2, vpr, abc9, dff, flowmap;
 	int min_ce_use;
 
-	void clear_flags() YS_OVERRIDE
+	void clear_flags() override
 	{
 		top_opt = "-auto-top";
 		blif_file = "";
@@ -140,7 +140,7 @@ struct SynthIce40Pass : public ScriptPass
 		device_opt = "hx";
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		string run_from, run_to;
 		clear_flags();
@@ -262,7 +262,7 @@ struct SynthIce40Pass : public ScriptPass
 		log_pop();
 	}
 
-	void script() YS_OVERRIDE
+	void script() override
 	{
 		std::string define;
 		if (device_opt == "lp")

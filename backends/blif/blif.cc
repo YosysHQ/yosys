@@ -482,7 +482,7 @@ struct BlifDumper
 
 struct BlifBackend : public Backend {
 	BlifBackend() : Backend("blif", "write design to BLIF file") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -552,7 +552,7 @@ struct BlifBackend : public Backend {
 		log("        do not write definitions for the $true, $false and $undef wires.\n");
 		log("\n");
 	}
-	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::string top_module_name;
 		std::string buf_type, buf_in, buf_out;

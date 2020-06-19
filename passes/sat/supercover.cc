@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct SupercoverPass : public Pass {
 	SupercoverPass() : Pass("supercover", "add hi/lo cover cells for each wire bit") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -35,7 +35,7 @@ struct SupercoverPass : public Pass {
 		log("checking for a hi signal level and one checking for lo level.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		// bool flag_noinit = false;
 

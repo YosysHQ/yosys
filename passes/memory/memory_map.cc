@@ -403,7 +403,7 @@ struct MemoryMapWorker
 
 struct MemoryMapPass : public Pass {
 	MemoryMapPass() : Pass("memory_map", "translate multiport memories to basic cells") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -425,7 +425,7 @@ struct MemoryMapPass : public Pass {
 		log("        for -attr, ignore case of <value>.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool attr_icase = false;
 		dict<RTLIL::IdString, std::vector<RTLIL::Const>> attributes;

@@ -67,7 +67,7 @@ static SigSpec recursive_mux_generator(Module *module, const SigSpec &sig_data, 
 
 struct PmuxtreePass : public Pass {
 	PmuxtreePass() : Pass("pmuxtree", "transform $pmux cells to trees of $mux cells") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -76,7 +76,7 @@ struct PmuxtreePass : public Pass {
 		log("This pass transforms $pmux cells to trees of $mux cells.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing PMUXTREE pass.\n");
 

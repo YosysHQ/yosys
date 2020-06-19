@@ -623,7 +623,7 @@ struct MuxcoverWorker
 
 struct MuxcoverPass : public Pass {
 	MuxcoverPass() : Pass("muxcover", "cover trees of MUX cells with wider MUXes") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -656,7 +656,7 @@ struct MuxcoverPass : public Pass {
 		log("        than <N> different signals.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing MUXCOVER pass (mapping to wider MUXes).\n");
 

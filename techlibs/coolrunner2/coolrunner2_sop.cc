@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct Coolrunner2SopPass : public Pass {
 	Coolrunner2SopPass() : Pass("coolrunner2_sop", "break $sop cells into ANDTERM/ORTERM cells") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		log("\n");
 		log("    coolrunner2_sop [options] [selection]\n");
@@ -33,7 +33,7 @@ struct Coolrunner2SopPass : public Pass {
 		log("Break $sop cells into ANDTERM/ORTERM cells.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing COOLRUNNER2_SOP pass (break $sop cells into ANDTERM/ORTERM cells).\n");
 		extra_args(args, 1, design);

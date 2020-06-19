@@ -760,7 +760,7 @@ struct FreduceWorker
 
 struct FreducePass : public Pass {
 	FreducePass() : Pass("freduce", "perform functional reduction") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -791,7 +791,7 @@ struct FreducePass : public Pass {
 		log("circuit that is analyzed.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		reduce_counter = 0;
 		reduce_stop_at = 0;

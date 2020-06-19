@@ -2313,7 +2313,7 @@ struct CxxrtlBackend : public Backend {
 	static const int DEFAULT_DEBUG_LEVEL = 1;
 
 	CxxrtlBackend() : Backend("cxxrtl", "convert design to C++ RTL simulation") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -2535,7 +2535,7 @@ struct CxxrtlBackend : public Backend {
 		log("\n");
 	}
 
-	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool noflatten = false;
 		bool noproc = false;

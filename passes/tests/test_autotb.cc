@@ -327,7 +327,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 
 struct TestAutotbBackend : public Backend {
 	TestAutotbBackend() : Backend("=test_autotb", "generate simple test benches") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -360,7 +360,7 @@ struct TestAutotbBackend : public Backend {
 		log("        the current system time.\n");
 		log("\n");
 	}
-	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		int num_iter = 1000;
 		int seed = 0;

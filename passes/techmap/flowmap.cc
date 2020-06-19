@@ -1470,7 +1470,7 @@ static void split(std::vector<std::string> &tokens, const std::string &text, cha
 
 struct FlowmapPass : public Pass {
 	FlowmapPass() : Pass("flowmap", "pack LUTs with FlowMap") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1511,7 +1511,7 @@ struct FlowmapPass : public Pass {
 		log("        explain decisions performed during depth relaxation.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		int order = 3;
 		int minlut = 1;

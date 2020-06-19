@@ -38,7 +38,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct ExecPass : public Pass {
 	ExecPass() : Pass("exec", "execute commands in the operating system shell") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -71,7 +71,7 @@ struct ExecPass : public Pass {
 		log("\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::string cmd = "";
 		char buf[1024] = {};

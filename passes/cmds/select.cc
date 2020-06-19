@@ -1021,7 +1021,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct SelectPass : public Pass {
 	SelectPass() : Pass("select", "modify and view the list of selected objects") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1250,7 +1250,7 @@ struct SelectPass : public Pass {
 		log("    select */t:SWITCH %%x:+[GATE] */t:SWITCH %%d\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool add_mode = false;
 		bool del_mode = false;
@@ -1587,7 +1587,7 @@ struct SelectPass : public Pass {
 
 struct CdPass : public Pass {
 	CdPass() : Pass("cd", "a shortcut for 'select -module <name>'") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1613,7 +1613,7 @@ struct CdPass : public Pass {
 		log("This is just a shortcut for 'select -clear'.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		if (args.size() != 1 && args.size() != 2)
 			log_cmd_error("Invalid number of arguments.\n");
@@ -1693,7 +1693,7 @@ static void log_matches(const char *title, Module *module, const T &list)
 
 struct LsPass : public Pass {
 	LsPass() : Pass("ls", "list modules or objects in modules") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1704,7 +1704,7 @@ struct LsPass : public Pass {
 		log("When an active module is selected, this prints a list of objects in the module.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		size_t argidx = 1;
 		extra_args(args, argidx, design);

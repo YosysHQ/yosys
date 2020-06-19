@@ -26,7 +26,7 @@ struct EquivOptPass:public ScriptPass
 {
 	EquivOptPass() : ScriptPass("equiv_opt", "prove equivalence for optimized circuit") { }
 
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -68,7 +68,7 @@ struct EquivOptPass:public ScriptPass
 	std::string command, techmap_opts, make_opts;
 	bool assert, undef, multiclock, async2sync;
 
-	void clear_flags() YS_OVERRIDE
+	void clear_flags() override
 	{
 		command = "";
 		techmap_opts = "";
@@ -79,7 +79,7 @@ struct EquivOptPass:public ScriptPass
 		async2sync = false;
 	}
 
-	void execute(std::vector < std::string > args, RTLIL::Design * design) YS_OVERRIDE
+	void execute(std::vector < std::string > args, RTLIL::Design * design) override
 	{
 		string run_from, run_to;
 		clear_flags();
@@ -148,7 +148,7 @@ struct EquivOptPass:public ScriptPass
 		log_pop();
 	}
 
-	void script() YS_OVERRIDE
+	void script() override
 	{
 		if (check_label("run_pass")) {
 			run("hierarchy -auto-top");

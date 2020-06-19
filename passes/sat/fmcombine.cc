@@ -235,7 +235,7 @@ struct FmcombineWorker
 
 struct FmcombinePass : public Pass {
 	FmcombinePass() : Pass("fmcombine", "combine two instances of a cell into one") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -272,7 +272,7 @@ struct FmcombinePass : public Pass {
 		log("If none of -fwd, -bwd, and -nop is given, then -fwd is used as default.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		opts_t opts;
 		Module *module = nullptr;

@@ -753,7 +753,7 @@ static struct CellHelpMessages {
 
 struct HelpPass : public Pass {
 	HelpPass() : Pass("help", "display help messages") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		log("\n");
 		log("    help  ................  list all commands\n");
@@ -822,7 +822,7 @@ struct HelpPass : public Pass {
 
 		fclose(f);
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design*) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design*) override
 	{
 		if (args.size() == 1) {
 			log("\n");
@@ -926,7 +926,7 @@ struct HelpPass : public Pass {
 
 struct EchoPass : public Pass {
 	EchoPass() : Pass("echo", "turning echoing back of commands on and off") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		log("\n");
 		log("    echo on\n");
@@ -939,7 +939,7 @@ struct EchoPass : public Pass {
 		log("Do not print all commands to log before executing them. (default)\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design*) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design*) override
 	{
 		if (args.size() > 2)
 			cmd_error(args, 2, "Unexpected argument.");
@@ -964,7 +964,7 @@ struct MinisatSatSolver : public SatSolver {
 	MinisatSatSolver() : SatSolver("minisat") {
 		yosys_satsolver = this;
 	}
-	ezSAT *create() YS_OVERRIDE {
+	ezSAT *create() override {
 		return new ezMiniSAT();
 	}
 } MinisatSatSolver;

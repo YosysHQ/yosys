@@ -90,7 +90,7 @@ static void fix_carry_chain(Module *module)
 
 struct EfinixCarryFixPass : public Pass {
 	EfinixCarryFixPass() : Pass("efinix_fixcarry", "Efinix: fix carry chain") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -99,7 +99,7 @@ struct EfinixCarryFixPass : public Pass {
 		log("Add Efinix adders to fix carry chain if needed.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing EFINIX_FIXCARRY pass (fix invalid carry chain).\n");
 		

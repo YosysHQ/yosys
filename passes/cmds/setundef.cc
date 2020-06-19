@@ -107,7 +107,7 @@ struct SetundefWorker
 
 struct SetundefPass : public Pass {
 	SetundefPass() : Pass("setundef", "replace undef values with defined constants") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -147,7 +147,7 @@ struct SetundefPass : public Pass {
 		log("        replace undef in cell parameters\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		int got_value = 0;
 		bool undriven_mode = false;

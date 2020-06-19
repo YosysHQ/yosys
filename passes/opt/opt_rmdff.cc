@@ -540,7 +540,7 @@ delete_dff:
 
 struct OptRmdffPass : public Pass {
 	OptRmdffPass() : Pass("opt_rmdff", "remove DFFs with constant inputs") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -554,7 +554,7 @@ struct OptRmdffPass : public Pass {
 		log("        non-constant inputs) that can also be replaced with a constant driver\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		int total_count = 0, total_initdrv = 0;
 		log_header(design, "Executing OPT_RMDFF pass (remove dff with constant values).\n");
