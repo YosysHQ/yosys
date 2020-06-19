@@ -139,7 +139,7 @@ void logv(const char *format, va_list ap);
 void logv_header(RTLIL::Design *design, const char *format, va_list ap);
 void logv_warning(const char *format, va_list ap);
 void logv_warning_noprefix(const char *format, va_list ap);
-YS_NORETURN void logv_error(const char *format, va_list ap) YS_ATTRIBUTE(noreturn);
+[[noreturn]] void logv_error(const char *format, va_list ap);
 
 void log(const char *format, ...)  YS_ATTRIBUTE(format(printf, 1, 2));
 void log_header(RTLIL::Design *design, const char *format, ...) YS_ATTRIBUTE(format(printf, 2, 3));
@@ -151,9 +151,9 @@ void log_file_warning(const std::string &filename, int lineno, const char *forma
 void log_file_info(const std::string &filename, int lineno, const char *format, ...) YS_ATTRIBUTE(format(printf, 3, 4));
 
 void log_warning_noprefix(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
-YS_NORETURN void log_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2), noreturn);
-void log_file_error(const string &filename, int lineno, const char *format, ...) YS_ATTRIBUTE(format(printf, 3, 4), noreturn);
-YS_NORETURN void log_cmd_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2), noreturn);
+[[noreturn]] void log_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
+void log_file_error(const string &filename, int lineno, const char *format, ...) YS_ATTRIBUTE(format(printf, 3, 4));
+[[noreturn]] void log_cmd_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 
 #ifndef NDEBUG
 static inline bool ys_debug(int n = 0) { if (log_force_debug) return true; log_debug_suppressed += n; return false; }

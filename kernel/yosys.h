@@ -138,13 +138,10 @@ extern Tcl_Obj *Tcl_ObjSetVar2(Tcl_Interp *interp, Tcl_Obj *part1Ptr, Tcl_Obj *p
 
 #if defined(__GNUC__) || defined(__clang__)
 #  define YS_ATTRIBUTE(...) __attribute__((__VA_ARGS__))
-#  define YS_NORETURN
 #elif defined(_MSC_VER)
 #  define YS_ATTRIBUTE(...)
-#  define YS_NORETURN __declspec(noreturn)
 #else
 #  define YS_ATTRIBUTE(...)
-#  define YS_NORETURN
 #endif
 
 #if __cplusplus >= 201703L

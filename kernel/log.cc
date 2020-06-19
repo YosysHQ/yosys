@@ -319,7 +319,7 @@ void log_file_info(const std::string &filename, int lineno,
 	va_end(ap);
 }
 
-YS_ATTRIBUTE(noreturn)
+[[noreturn]]
 static void logv_error_with_prefix(const char *prefix,
                                    const char *format, va_list ap)
 {
