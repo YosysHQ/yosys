@@ -28,23 +28,20 @@ struct PartitionPass : public Pass {
 	//recovers the cell partition assignments, creates partition modules with the appropriate
 	//cells, ports, and intra-partition connections, then replaces the original module
 	//with one that instantiates and connects the partition modules.
-	int opt_k, opt_imbalance;
-	bool opt_verbose, opt_nocleanup;
-	RTLIL::Module *module, *new_module;
-	RTLIL::Design *design;
-	dict<RTLIL::IdString, int> cell_type_costs;
-	dict<RTLIL::SigBit, int> sigbit_to_edgenum;
-	dict<int, pool<int>> edge_nodes;
-	dict<int, pool<int>> partition_nodes;
-	dict<int, bool> edge_cut;
-	pool<RTLIL::IdString> cut_wires;
-	int node_ctr, edge_ctr, cut_edge_ctr, partitions;
-	std::vector<RTLIL::Module *> partition_modules;
+	int opt_k = -1, opt_imbalance = 5;
+	bool opt_verbose = false, opt_nocleanup = false;
+	RTLIL::Module *module = nullptr, *new_module = nullptr;
+	RTLIL::Design *design = nullptr;
+	dict<RTLIL::IdString, int> cell_type_costs = CellCosts::unit_gate_cost();
+	dict<RTLIL::SigBit, int> sigbit_to_edgenum = {};
+	dict<int, pool<int>> edge_nodes = {};
+	dict<int, pool<int>> partition_nodes = {};
+	dict<int, bool> edge_cut = {};
+	pool<RTLIL::IdString> cut_wires = {};
+	int node_ctr = 0, edge_ctr = 0, cut_edge_ctr = 0, partitions = 2;
+	std::vector<RTLIL::Module *> partition_modules = {};
 
-	PartitionPass() : Pass("partition", "split techmapped module into equal-sized parts"), opt_k(-1), opt_s(-1),
-	                  opt_imbalance(5), opt_verbose(false), opt_nocleanup(false), module(nullptr), new_module(nullptr),
-	                  design(nullptr), cell_type_costs(CellCosts::unit_gate_cost()), node_ctr(0), edge_ctr(0),
-	                  cut_edge_ctr(0), partitions(2) { }
+	PartitionPass() : Pass("partition", "split techmapped module into equal-sized parts") { }
 
 	void reset() {
 		opt_k = -1, opt_imbalance = 5;
