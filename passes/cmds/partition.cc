@@ -23,7 +23,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct PartitionPass : public Pass {
+struct PartitionWorker {
 	//Constructs a hypergraph from a module, partitions the hypergraph, recovers the cell
 	//partition assignments, creates partition modules with the appropriate cells, ports,
 	//and intra-partition connections, then replaces the original module with one that
@@ -40,23 +40,6 @@ struct PartitionPass : public Pass {
 	pool<RTLIL::IdString> cut_wires = {};
 	int node_ctr = 0, edge_ctr = 0, cut_edge_ctr = 0, partitions = 2;
 	std::vector<RTLIL::Module *> partition_modules = {};
-
-	PartitionPass() : Pass("partition", "split techmapped module into equal-sized parts") { }
-
-	void reset() {
-		opt_k = -1, opt_imbalance = 5;
-		opt_verbose = false, opt_nocleanup = false;
-		module = nullptr, new_module = nullptr;
-		design = nullptr;
-		cell_type_costs = CellCosts::unit_gate_cost();
-		sigbit_to_edgenum.clear();
-		edge_nodes.clear();
-		partition_nodes.clear();
-		edge_cut.clear();
-		cut_wires.clear();
-		node_ctr = 0, edge_ctr = 0, cut_edge_ctr = 0, partitions = 2;
-		partition_modules.clear();
-	}
 
 	void create_hypergraph() {
 		//Initial set up on sigbit_to_edgenum for the cell output ports and on edge_nodes with just that output node for now:
@@ -334,6 +317,48 @@ struct PartitionPass : public Pass {
 		design->select(new_module);
 	}
 
+	PartitionWorker(RTLIL::Design *_design, RTLIL::Module *_module, int _opt_k, int _opt_imbalance, const dict<RTLIL::IdString, int> &_cell_type_costs, bool _opt_verbose, bool _opt_nocleanup) {
+		int64_t t_begin = PerformanceTimer::query();
+
+		//Set config:
+		design = _design;
+		module = _module;
+		opt_k = _opt_k;
+		opt_imbalance = _opt_imbalance;
+		cell_type_costs = _cell_type_costs;
+		opt_verbose = _opt_verbose;
+		opt_nocleanup = _opt_nocleanup;
+
+		//Build sigbit_to_edgenum and edge_nodes:
+		create_hypergraph();
+		log("Found %d nodes and %d hyperedges.\n", node_ctr, edge_ctr);
+
+		//Create hypergraph partitioning problem:
+		const std::string tempdir_name = make_temp_dir("/tmp/yosys-partition-XXXXXX");
+		write_hypergraph(tempdir_name + "/problem.hgr");
+
+		//Run hypergraph partitioning tool:
+		call_solver(tempdir_name + "/problem.hgr", tempdir_name + "/problem.sol");
+
+		//Recover partitions and cut edges:
+		recover_partitions_edge_cuts(tempdir_name + "/problem.sol");
+		if (!opt_nocleanup)
+			remove_directory(tempdir_name);
+
+		//Make partition submodules and move cells to them:
+		create_partition_modules();
+
+		//Finally, make a new module that instantiates and connects partition cells:
+		create_partitioned_module();
+
+		int64_t t_end = PerformanceTimer::query();
+		log("Module %s partitioned %d ways with %d cut wires in %.3f seconds.\n", module->name.c_str(), partitions, cut_edge_ctr, (t_end - t_begin) * 1e-9f);
+	}
+};
+
+struct PartitionPass : public Pass {
+	PartitionPass() : Pass("partition", "split techmapped module into equal-sized parts") { }
+
 	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -351,11 +376,6 @@ struct PartitionPass : public Pass {
 		log("\n");
 		log("  -k <num partitions>\n");
 		log("    Set the desired number of partitions (at least two).\n");
-		log("\n");
-		log("  -s <total cell costs>\n");
-		log("    Set the desired number of partitions by specifying a maximum total cell\n");
-		log("    cost for a partition. By default, \"unit\" cell costs are used, where NOT\n");
-		log("    gates count for 0, AND and OR gates count for 1, and MUX cells count for 3.\n");
 		log("\n");
 		log("  -imbalance <percent>\n");
 		log("    Allowed size mismatch between partitions. For example \"5\" allows 45%%/55%%.\n");
@@ -377,10 +397,11 @@ struct PartitionPass : public Pass {
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
-		reset();
-		this->design = design;
+		int opt_k = -1, opt_imbalance = 5;
+		bool opt_verbose = false, opt_nocleanup = false;
+		RTLIL::Module *module = nullptr;
+		dict<RTLIL::IdString, int> cell_type_costs = CellCosts::unit_gate_cost();
 		size_t argidx = 1;
-		int64_t t_begin = PerformanceTimer::query();
 
 		log_header(design, "Executing PARTITION pass (splitting module into equal-sized parts).\n");
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -449,30 +470,7 @@ struct PartitionPass : public Pass {
 			}
 		}
 
-		//Build sigbit_to_edgenum and edge_nodes:
-		create_hypergraph();
-		log("Found %d nodes and %d hyperedges.\n", node_ctr, edge_ctr);
-
-		//Create hypergraph partitioning problem:
-		const std::string tempdir_name = make_temp_dir("/tmp/yosys-partition-XXXXXX");
-		write_hypergraph(tempdir_name + "/problem.hgr");
-
-		//Run hypergraph partitioning tool:
-		call_solver(tempdir_name + "/problem.hgr", tempdir_name + "/problem.sol");
-
-		//Recover partitions and cut edges:
-		recover_partitions_edge_cuts(tempdir_name + "/problem.sol");
-		if (!opt_nocleanup)
-			remove_directory(tempdir_name);
-
-		//Make partition submodules and move cells to them:
-		create_partition_modules();
-
-		//Finally, make a new module that instantiates and connects partition cells:
-		create_partitioned_module();
-
-		int64_t t_end = PerformanceTimer::query();
-		log("Module %s partitioned %d ways with %d cut wires in %.3f seconds.\n", module->name.c_str(), partitions, cut_edge_ctr, (t_end - t_begin) * 1e-9f);
+		PartitionWorker(design, module, opt_k, opt_imbalance, cell_type_costs, opt_verbose, opt_nocleanup);
 	}
 } PartitionPass;
 
