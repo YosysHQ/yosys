@@ -152,7 +152,7 @@ void log_file_info(const std::string &filename, int lineno, const char *format, 
 
 void log_warning_noprefix(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 [[noreturn]] void log_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
-void log_file_error(const string &filename, int lineno, const char *format, ...) YS_ATTRIBUTE(format(printf, 3, 4));
+[[noreturn]] void log_file_error(const string &filename, int lineno, const char *format, ...) YS_ATTRIBUTE(format(printf, 3, 4));
 [[noreturn]] void log_cmd_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 
 #ifndef NDEBUG
