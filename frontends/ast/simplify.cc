@@ -3484,6 +3484,13 @@ replace_fcall_later:;
 				}
 			}
 			break;
+		case AST_CAST_SIZE:
+			if (children.at(0)->type == AST_CONSTANT && children.at(1)->type == AST_CONSTANT) {
+				int width = children[0]->bitsAsConst().as_int();
+				RTLIL::Const val = children[1]->bitsAsConst(width);
+				newNode = mkconst_bits(val.bits, children[1]->is_signed);
+			}
+			break;
 		case AST_CONCAT:
 			string_op = !children.empty();
 			for (auto it = children.begin(); it != children.end(); it++) {
