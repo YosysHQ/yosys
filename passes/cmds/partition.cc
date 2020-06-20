@@ -209,6 +209,8 @@ struct PartitionWorker {
 		for (auto node : partition_nodes[i]) {
 			RTLIL::Cell *cell = *(module->cells().begin() += node);
 			RTLIL::Cell *dest_cell = dest_module->addCell(cell->name, cell->type);
+			for (auto &it : cell->attributes)
+				dest_cell->attributes.emplace(it.first, it.second);
 			//Copy cell ports, creating a new wire for each port if one does not already exist:
 			for (auto &it : cell->connections()) {
 				log_assert(it.second.is_wire());
@@ -216,6 +218,8 @@ struct PartitionWorker {
 				RTLIL::Wire *dest_wire = dest_module->wire(wire_name);
 				if (dest_wire == nullptr) {
 					dest_wire = dest_module->addWire(it.second.as_wire()->name, GetSize(it.second));
+					for (auto &it : it.second.as_wire()->attributes)
+						dest_wire->attributes.emplace(it.first, it.second);
 
 					//if the wire is a PI or PO in the original module, make it so for this module:
 					if (it.second.as_wire()->port_input)
@@ -251,6 +255,8 @@ struct PartitionWorker {
 
 	void create_partitioned_module() {
 		new_module = design->addModule(NEW_ID);
+		for (auto &it : module->attributes)
+			new_module->attributes.emplace(it.first, it.second);
 
 		//Add wires for PIs and POs:
 		for (auto id : module->ports) {
@@ -258,6 +264,8 @@ struct PartitionWorker {
 			RTLIL::Wire *new_io = new_module->addWire(id, GetSize(old_io));
 			new_io->port_input = old_io->port_input;
 			new_io->port_output = old_io->port_output;
+			for (auto &it : old_io->attributes)
+				new_io->attributes.emplace(it.first, it.second);
 		}
 		new_module->fixup_ports();
 
@@ -269,7 +277,9 @@ struct PartitionWorker {
 			}
 
 			if (opt_verbose) log("Adding cut wire %s\n", id.c_str());
-			new_module->addWire(id, GetSize(module->wire(id)));
+			RTLIL::Wire *new_wire = new_module->addWire(id, GetSize(module->wire(id)));
+			for (auto &it : module->wire(id)->attributes)
+				new_wire->attributes.emplace(it.first, it.second);
 		}
 
 		//Add and connect partition submodule instances:
@@ -305,6 +315,8 @@ struct PartitionWorker {
 				RTLIL::Wire *new_mod_rhs = new_module->wire(old_mod_rhs->name);
 				if (new_mod_rhs == nullptr) {
 					new_mod_rhs = new_module->addWire(old_mod_rhs->name, GetSize(old_mod_rhs));
+					for (auto &it : old_mod_rhs->attributes)
+						new_mod_rhs->attributes.emplace(it.first, it.second);
 					pos.insert(old_mod_rhs->name);
 				}
 				new_module->connect(new_module->wire(old_mod_lhs->name), new_mod_rhs);
