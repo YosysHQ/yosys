@@ -211,33 +211,35 @@ struct PartitionWorker {
 			RTLIL::Cell *dest_cell = dest_module->addCell(cell->name, cell->type);
 			for (auto &it : cell->attributes)
 				dest_cell->attributes.emplace(it.first, it.second);
+
 			//Copy cell ports, creating a new wire for each port if one does not already exist:
 			for (auto &it : cell->connections()) {
 				log_assert(it.second.is_wire());
-				RTLIL::IdString wire_name = it.second.as_wire()->name.c_str();
+				RTLIL::Wire *orig_wire = it.second.as_wire();
+				RTLIL::IdString wire_name = orig_wire->name;
 				RTLIL::Wire *dest_wire = dest_module->wire(wire_name);
 				if (dest_wire == nullptr) {
-					dest_wire = dest_module->addWire(it.second.as_wire()->name, GetSize(it.second));
-					for (auto &it : it.second.as_wire()->attributes)
+					dest_wire = dest_module->addWire(wire_name, GetSize(orig_wire));
+					for (auto &it : orig_wire->attributes)
 						dest_wire->attributes.emplace(it.first, it.second);
 
 					//if the wire is a PI or PO in the original module, make it so for this module:
-					if (it.second.as_wire()->port_input)
+					if (orig_wire->port_input)
 						dest_wire->port_input = true;
-					if (it.second.as_wire()->port_output)
+					if (orig_wire->port_output)
 						dest_wire->port_output = true;
 				}
 				//if the wire corresponds to a cut edge, determine if we need to mark it a module
 				//input or a module output of this partition:
-				for (auto j = 0; j < GetSize(it.second); ++j) {
-					int edgenum = sigbit_to_edgenum[RTLIL::SigBit(it.second.as_wire(), j)];
+				for (auto j = 0; j < GetSize(orig_wire); ++j) {
+					int edgenum = sigbit_to_edgenum[RTLIL::SigBit(orig_wire, j)];
 					if (!edge_cut[edgenum]) {
-						if (opt_verbose) log("Hyperedge #%d not cut, not marking %s as port\n", edgenum, dest_wire->name.c_str());
+						if (opt_verbose) log("Hyperedge #%d not cut, not marking %s as port\n", edgenum, wire_name.c_str());
 						continue;
 					}
 
-					cut_wires.insert(it.second.as_wire()->name);
-					if (opt_verbose) log("Found a cut hyperedge #%d, marking %s as port\n", edgenum, dest_wire->name.c_str());
+					cut_wires.insert(wire_name);
+					if (opt_verbose) log("Found a cut hyperedge #%d, marking %s as port\n", edgenum, wire_name.c_str());
 					if (cell->input(it.first) && !dest_wire->port_output)
 						dest_wire->port_input = true;
 					else if (cell->output(it.first)) {
@@ -277,8 +279,9 @@ struct PartitionWorker {
 			}
 
 			if (opt_verbose) log("Adding cut wire %s\n", id.c_str());
+			RTLIL::Wire *old_wire = module->wire(id);
 			RTLIL::Wire *new_wire = new_module->addWire(id, GetSize(module->wire(id)));
-			for (auto &it : module->wire(id)->attributes)
+			for (auto &it : old_wire->attributes)
 				new_wire->attributes.emplace(it.first, it.second);
 		}
 
