@@ -19,6 +19,7 @@
 
 #include "kernel/register.h"
 #include "kernel/rtlil.h"
+#include "kernel/utils.h"
 #include "kernel/log.h"
 
 USING_YOSYS_NAMESPACE
@@ -36,6 +37,7 @@ struct GliftPass : public Pass {
 	RTLIL::Module *module;
 
 	const RTLIL::IdString cost_model_wire_name = ID(__glift_weight);
+	const RTLIL::IdString glift_attribute_name = ID(glift);
 
 	void parse_args() {
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -190,12 +192,15 @@ struct GliftPass : public Pass {
 		}
 	}
 
-	void create_glift_logic() {
+	void create_glift_logic(bool is_top_module) {
+		if (module->get_bool_attribute(glift_attribute_name))
+			return;
+
 		std::vector<RTLIL::SigSig> connections(module->connections());
 
 		for(auto &cell : module->cells().to_vector()) {
-			if (!cell->type.in("$_AND_", "$_OR_", "$_NOT_", "$anyconst", "$allconst", "$assume", "$assert")) {
-				log_cmd_error("Invalid cell type \"%s\" found.  Module must be techmapped.\n", cell->type.c_str());
+			if (!cell->type.in({"$_AND_", "$_OR_", "$_NOT_", "$anyconst", "$allconst", "$assume", "$assert"}) && module->design->module(cell->type) == nullptr) {
+				log_cmd_error("Unsupported cell type \"%s\" found.  Run `techmap` first.\n", cell->type.c_str());
 			}
 			if (cell->type.in("$_AND_", "$_OR_")) {
 				const unsigned int A = 0, B = 1, Y = 2;
@@ -278,13 +283,31 @@ struct GliftPass : public Pass {
 				}
 				else log_cmd_error("This is a bug (2).\n");
 			}
+			else if (module->design->module(cell->type) != nullptr) {
+				//User cell type
+				//This function is called on modules according to topological order, so we do not need to
+				//recurse to GLIFT model the child module. However, we need to augment the ports list
+				//with taint signals and connect the new ports to the corresponding taint signals.
+				RTLIL::Module *cell_module_def = module->design->module(cell->type);
+				dict<RTLIL::IdString, RTLIL::SigSpec> orig_ports = cell->connections();
+				log("Adding cell %s\n", cell_module_def->name.c_str());
+				for (auto &it : orig_ports) {
+					RTLIL::SigSpec port = it.second;
+					RTLIL::SigSpec port_taint = get_corresponding_taint_signal(port);
+
+					log_assert(port_taint.is_wire());
+					log_assert(std::find(cell_module_def->ports.begin(), cell_module_def->ports.end(), port_taint.as_wire()->name) != cell_module_def->ports.end());
+					cell->setPort(port_taint.as_wire()->name, port_taint);
+				}
+			}
+			else log_cmd_error("This is a bug (3).\n");
 		} //end foreach cell in cells
 
 		for (auto &conn : connections) {
 			RTLIL::SigSpec first = get_corresponding_taint_signal(conn.first);
 			RTLIL::SigSpec second = get_corresponding_taint_signal(conn.second);
 
-			module->connect(get_corresponding_taint_signal(conn.first), get_corresponding_taint_signal(conn.second));
+			module->connect(first, second);
 
 			if(conn.second.is_wire() && conn.second.as_wire()->port_input)
 				second.as_wire()->port_input = true;
@@ -319,12 +342,13 @@ struct GliftPass : public Pass {
 		for (auto &port_name : module->ports) {
 			RTLIL::Wire *port = module->wire(port_name);
 			log_assert(port != nullptr);
-			if (port->port_output && !opt_keepoutputs)
+			if (is_top_module && port->port_output && !opt_keepoutputs)
 				port->port_output = false;
 		}
 		for (auto &output : new_taint_outputs)
 			output->port_output = true;
 		module->fixup_ports(); //we have some new taint signals in the module interface
+		module->set_bool_attribute(glift_attribute_name, true);
 	}
 
 	void reset() {
@@ -442,15 +466,38 @@ struct GliftPass : public Pass {
 		parse_args();
 		extra_args(args, argidx, design);
 
-		for (auto mod : design->selected_modules()) {
-			if (module)
-				log_cmd_error("Only one module may be selected for the glift pass! Flatten the design if necessary. (selected: %s and %s)\n", log_id(module), log_id(mod));
-			module = mod;
-		}
-		if (module == nullptr)
+		if (GetSize(design->selected_modules()) == 0)
 			log_cmd_error("Can't operate on an empty selection!\n");
 
-		create_glift_logic();
+		TopoSort<RTLIL::Module*, IdString::compare_ptr_by_name<RTLIL::Module>> topo_modules; //cribbed from passes/techmap/flatten.cc
+		auto worklist = design->selected_modules();
+		pool<RTLIL::IdString> non_top_modules;
+		while (!worklist.empty()) {
+			RTLIL::Module *module = *(worklist.begin());
+			worklist.erase(worklist.begin());
+			topo_modules.node(module);
+
+			for (auto cell : module->selected_cells()) {
+				RTLIL::Module *tpl = design->module(cell->type);
+				if (tpl != nullptr) {
+					if (topo_modules.database.count(tpl) == 0)
+						worklist.push_back(tpl);
+					topo_modules.edge(tpl, module);
+					non_top_modules.insert(cell->type);
+				}
+			}
+		}
+
+		if (!topo_modules.sort())
+			log_cmd_error("Cannot handle recursive module instantiations.\n");
+
+		for (auto i = 0; i < GetSize(topo_modules.sorted); ++i) {
+			new_taint_outputs.clear();
+			meta_mux_selects.clear();
+			module = topo_modules.sorted[i];
+
+			create_glift_logic(!non_top_modules[module->name]);
+		}
 	}
 } GliftPass;
 
