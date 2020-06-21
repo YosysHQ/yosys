@@ -554,6 +554,29 @@ namespace RTLIL
 			return *this;
 		}
 
+		inline ObjIterator<T>& operator+=(int amt) {
+			log_assert(list_p != nullptr);
+			it += amt;
+			if (it == list_p->end()) {
+				(*refcount_p)--;
+				list_p = nullptr;
+				refcount_p = nullptr;
+			}
+			return *this;
+		}
+
+		inline ObjIterator<T> operator+(int amt) {
+			log_assert(list_p != nullptr);
+			ObjIterator<T> new_obj(*this);
+			new_obj.it += amt;
+			if (new_obj.it == list_p->end()) {
+				(*(new_obj.refcount_p))--;
+				new_obj.list_p = nullptr;
+				new_obj.refcount_p = nullptr;
+			}
+			return new_obj;
+		}
+
 		inline const ObjIterator<T> operator++(int) {
 			ObjIterator<T> result(*this);
 			++(*this);

@@ -363,6 +363,7 @@ public:
 	public:
 		const_iterator() { }
 		const_iterator operator++() { index--; return *this; }
+		const_iterator operator+=(int amt) { index -= amt; return *this; }
 		bool operator<(const const_iterator &other) const { return index > other.index; }
 		bool operator==(const const_iterator &other) const { return index == other.index; }
 		bool operator!=(const const_iterator &other) const { return index != other.index; }
@@ -380,6 +381,7 @@ public:
 	public:
 		iterator() { }
 		iterator operator++() { index--; return *this; }
+		iterator operator+=(int amt) { index -= amt; return *this; }
 		bool operator<(const iterator &other) const { return index > other.index; }
 		bool operator==(const iterator &other) const { return index == other.index; }
 		bool operator!=(const iterator &other) const { return index != other.index; }
