@@ -1414,7 +1414,7 @@ class WFunction:
 			text += ", "
 		if len(self.args) > 0:
 			text = text[:-2]
-		text += ") YS_OVERRIDE;\n"
+		text += ") override;\n"
 		return text
 
 	def gen_decl_hash_py(self):
