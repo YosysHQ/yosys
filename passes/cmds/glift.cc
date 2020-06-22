@@ -25,65 +25,19 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct GliftPass : public Pass {
-	private:
-
-	bool opt_create_precise_model, opt_create_imprecise_model, opt_create_instrumented_model;
-	bool opt_taintconstants, opt_keepoutputs, opt_simplecostmodel, opt_nocostmodel, opt_instrumentmore;
-	std::vector<std::string> args;
-	std::vector<std::string>::size_type argidx;
+struct GliftWorker {
+private:
+	bool is_top_module = false;
+	bool opt_create_precise_model = false, opt_create_imprecise_model = false, opt_create_instrumented_model = false;
+	bool opt_taintconstants = false, opt_keepoutputs = false, opt_simplecostmodel = false, opt_nocostmodel = false;
+	bool opt_instrumentmore = false;
 	std::vector<RTLIL::Wire *> new_taint_outputs;
 	std::vector<std::pair<RTLIL::SigSpec, RTLIL::IdString>> meta_mux_selects;
-	RTLIL::Module *module;
+	RTLIL::Module *module = nullptr;
 
 	const RTLIL::IdString cost_model_wire_name = ID(__glift_weight);
 	const RTLIL::IdString glift_attribute_name = ID(glift);
 
-	void parse_args() {
-		for (argidx = 1; argidx < args.size(); argidx++) {
-			if (args[argidx] == "-create-precise-model") {
-				opt_create_precise_model = true;
-				continue;
-			}
-			if (args[argidx] == "-create-imprecise-model") {
-				opt_create_imprecise_model = true;
-				continue;
-			}
-			if (args[argidx] == "-create-instrumented-model") {
-				opt_create_instrumented_model = true;
-				continue;
-			}
-			if (args[argidx] == "-taint-constants") {
-				opt_taintconstants = true;
-				continue;
-			}
-			if (args[argidx] == "-keep-outputs") {
-				opt_keepoutputs = true;
-				continue;
-			}
-			if (args[argidx] == "-simple-cost-model") {
-				opt_simplecostmodel = true;
-				continue;
-			}
-			if (args[argidx] == "-no-cost-model") {
-				opt_nocostmodel = true;
-				continue;
-			}
-			if (args[argidx] == "-instrument-more") {
-				opt_instrumentmore = true;
-				continue;
-			}
-			break;
-		}
-		if(!opt_create_precise_model && !opt_create_imprecise_model && !opt_create_instrumented_model)
-			log_cmd_error("No command provided.  See help for usage.\n");
-		if(static_cast<int>(opt_create_precise_model) + static_cast<int>(opt_create_imprecise_model) + static_cast<int>(opt_create_instrumented_model) != 1)
-			log_cmd_error("Only one command may be specified.  See help for usage.\n");
-		if(opt_simplecostmodel && opt_nocostmodel)
-			log_cmd_error("Only one of `-simple-cost-model` and `-no-cost-model` may be specified. See help for usage.\n");
-		if((opt_simplecostmodel || opt_nocostmodel) && !opt_create_instrumented_model)
-			log_cmd_error("Options `-simple-cost-model` and `-no-cost-model` may only be used with `-create-instrumented-model`. See help for usage.\n");
-	}
 
 	RTLIL::SigSpec get_corresponding_taint_signal(RTLIL::SigSpec sig) {
 		RTLIL::SigSpec ret;
@@ -223,7 +177,7 @@ struct GliftPass : public Pass {
 		}
 	}
 
-	void create_glift_logic(bool is_top_module) {
+	void create_glift_logic() {
 		if (module->get_bool_attribute(glift_attribute_name))
 			return;
 
@@ -451,25 +405,25 @@ struct GliftPass : public Pass {
 		module->set_bool_attribute(glift_attribute_name, true);
 	}
 
-	void reset() {
-		opt_create_precise_model = false;
-		opt_create_imprecise_model = false;
-		opt_create_instrumented_model = false;
-		opt_taintconstants = false;
-		opt_keepoutputs = false;
-		opt_simplecostmodel = false;
-		opt_nocostmodel = false;
-		opt_instrumentmore = false;
-		module = nullptr;
-		args.clear();
-		argidx = 0;
-		new_taint_outputs.clear();
-		meta_mux_selects.clear();
+public:
+	GliftWorker(RTLIL::Module *_module, bool _is_top_module, bool _opt_create_precise_model, bool _opt_create_imprecise_model, bool _opt_create_instrumented_model, bool _opt_taintconstants, bool _opt_keepoutputs, bool _opt_simplecostmodel, bool _opt_nocostmodel, bool _opt_instrumentmore) {
+		module = _module;
+		is_top_module = _is_top_module;
+		opt_create_precise_model = _opt_create_precise_model;
+		opt_create_imprecise_model = _opt_create_imprecise_model;
+		opt_create_instrumented_model = _opt_create_instrumented_model;
+		opt_taintconstants = _opt_taintconstants;
+		opt_keepoutputs = _opt_keepoutputs;
+		opt_simplecostmodel = _opt_simplecostmodel;
+		opt_nocostmodel = _opt_nocostmodel;
+		opt_instrumentmore = _opt_instrumentmore;
+
+		create_glift_logic();
 	}
+};
 
-	public:
-
-	GliftPass() : Pass("glift", "create GLIFT models and optimization problems"), opt_create_precise_model(false), opt_create_imprecise_model(false), opt_create_instrumented_model(false), opt_taintconstants(false), opt_keepoutputs(false), opt_simplecostmodel(false), opt_nocostmodel(false), opt_instrumentmore(false), module(nullptr) { }
+struct GliftPass : public Pass {
+	GliftPass() : Pass("glift", "create GLIFT models and optimization problems") {}
 
 	void help() override
 	{
@@ -557,13 +511,57 @@ struct GliftPass : public Pass {
 		log("\n");
 	}
 
-	void execute(std::vector<std::string> _args, RTLIL::Design *design) override
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		bool opt_create_precise_model = false, opt_create_imprecise_model = false, opt_create_instrumented_model = false;
+		bool opt_taintconstants = false, opt_keepoutputs = false, opt_simplecostmodel = false, opt_nocostmodel = false;
+		bool opt_instrumentmore = false;
 		log_header(design, "Executing GLIFT pass (creating and manipulating GLIFT models).\n");
+		std::vector<std::string>::size_type argidx;
 
-		reset();
-		args = _args;
-		parse_args();
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-create-precise-model") {
+				opt_create_precise_model = true;
+				continue;
+			}
+			if (args[argidx] == "-create-imprecise-model") {
+				opt_create_imprecise_model = true;
+				continue;
+			}
+			if (args[argidx] == "-create-instrumented-model") {
+				opt_create_instrumented_model = true;
+				continue;
+			}
+			if (args[argidx] == "-taint-constants") {
+				opt_taintconstants = true;
+				continue;
+			}
+			if (args[argidx] == "-keep-outputs") {
+				opt_keepoutputs = true;
+				continue;
+			}
+			if (args[argidx] == "-simple-cost-model") {
+				opt_simplecostmodel = true;
+				continue;
+			}
+			if (args[argidx] == "-no-cost-model") {
+				opt_nocostmodel = true;
+				continue;
+			}
+			if (args[argidx] == "-instrument-more") {
+				opt_instrumentmore = true;
+				continue;
+			}
+			break;
+		}
+		if(!opt_create_precise_model && !opt_create_imprecise_model && !opt_create_instrumented_model)
+			log_cmd_error("No command provided.  See help for usage.\n");
+		if(static_cast<int>(opt_create_precise_model) + static_cast<int>(opt_create_imprecise_model) + static_cast<int>(opt_create_instrumented_model) != 1)
+			log_cmd_error("Only one command may be specified.  See help for usage.\n");
+		if(opt_simplecostmodel && opt_nocostmodel)
+			log_cmd_error("Only one of `-simple-cost-model` and `-no-cost-model` may be specified. See help for usage.\n");
+		if((opt_simplecostmodel || opt_nocostmodel) && !opt_create_instrumented_model)
+			log_cmd_error("Options `-simple-cost-model` and `-no-cost-model` may only be used with `-create-instrumented-model`. See help for usage.\n");
 		extra_args(args, argidx, design);
 
 		if (GetSize(design->selected_modules()) == 0)
@@ -592,11 +590,8 @@ struct GliftPass : public Pass {
 			log_cmd_error("Cannot handle recursive module instantiations.\n");
 
 		for (auto i = 0; i < GetSize(topo_modules.sorted); ++i) {
-			new_taint_outputs.clear();
-			meta_mux_selects.clear();
-			module = topo_modules.sorted[i];
-
-			create_glift_logic(!non_top_modules[module->name]);
+			RTLIL::Module *module = topo_modules.sorted[i];
+			GliftWorker(module, !non_top_modules[module->name], opt_create_precise_model, opt_create_imprecise_model, opt_create_instrumented_model, opt_taintconstants, opt_keepoutputs, opt_simplecostmodel, opt_nocostmodel, opt_instrumentmore);
 		}
 	}
 } GliftPass;
