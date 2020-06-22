@@ -70,7 +70,7 @@ private:
 
 	void add_precise_GLIFT_logic(const RTLIL::Cell *cell, RTLIL::SigSpec &port_a, RTLIL::SigSpec &port_a_taint, RTLIL::SigSpec &port_b, RTLIL::SigSpec &port_b_taint, RTLIL::SigSpec &port_y_taint) {
 		//AKA AN2_SH2 or OR2_SH2
-		bool is_and = cell->type.in("$_AND_", "$_NAND_");
+		bool is_and = cell->type.in(ID($_AND_), ID($_NAND_));
 		RTLIL::SigSpec n_port_a = module->LogicNot(cell->name.str() + "_t_1_1", port_a, false, cell->get_src_attribute());
 		RTLIL::SigSpec n_port_b = module->LogicNot(cell->name.str() + "_t_1_2", port_b, false, cell->get_src_attribute());
 		auto subexpr1 = module->And(cell->name.str() + "_t_1_3", is_and? port_a : n_port_a, port_b_taint, false, cell->get_src_attribute());
@@ -82,7 +82,7 @@ private:
 
 	void add_imprecise_GLIFT_logic_1(const RTLIL::Cell *cell, RTLIL::SigSpec &port_a, RTLIL::SigSpec &port_a_taint, RTLIL::SigSpec &port_b, RTLIL::SigSpec &port_b_taint, RTLIL::SigSpec &port_y_taint) {
 		//AKA AN2_SH3 or OR2_SH3
-		bool is_and = cell->type.in("$_AND_", "$_NAND_");
+		bool is_and = cell->type.in(ID($_AND_), ID($_NAND_));
 		RTLIL::SigSpec n_port_a = module->LogicNot(cell->name.str() + "_t_2_1", port_a, false, cell->get_src_attribute());
 		auto subexpr1 = module->And(cell->name.str() + "_t_2_2", is_and? port_b : n_port_a, is_and? port_a_taint : port_b_taint, false, cell->get_src_attribute());
 		module->addOr(cell->name.str() + "_t_2_3", is_and? port_b_taint : port_a_taint, subexpr1, port_y_taint, false, cell->get_src_attribute());
@@ -90,7 +90,7 @@ private:
 
 	void add_imprecise_GLIFT_logic_2(const RTLIL::Cell *cell, RTLIL::SigSpec &port_a, RTLIL::SigSpec &port_a_taint, RTLIL::SigSpec &port_b, RTLIL::SigSpec &port_b_taint, RTLIL::SigSpec &port_y_taint) {
 		//AKA AN2_SH4 or OR2_SH4
-		bool is_and = cell->type.in("$_AND_", "$_NAND_");
+		bool is_and = cell->type.in(ID($_AND_), ID($_NAND_));
 		RTLIL::SigSpec n_port_b = module->LogicNot(cell->name.str() + "_t_3_1", port_b, false, cell->get_src_attribute());
 		auto subexpr1 = module->And(cell->name.str() + "_t_3_2", is_and? port_a : n_port_b, is_and? port_b_taint : port_a_taint, false, cell->get_src_attribute());
 		module->addOr(cell->name.str() + "_t_3_3", is_and? port_a_taint : port_b_taint, subexpr1, port_y_taint, false, cell->get_src_attribute());
@@ -150,13 +150,13 @@ private:
 			auto select_width = metamux_select.as_wire()->width;
 
 			std::vector<RTLIL::Const> costs;
-			if (celltype == ID(_AND_) || celltype == ID(_OR_)) {
+			if (celltype == ID($_AND_) || celltype == ID($_OR_)) {
 				costs = {5, 2, 2, 1, 0, 0, 0, 0};
 				log_assert(select_width == 2 || select_width == 3);
 				log_assert(opt_instrumentmore || select_width == 2);
 				log_assert(!opt_instrumentmore || select_width == 3);
 			}
-			else if (celltype == ID(_XOR_) || celltype == ID(_XNOR_)) {
+			else if (celltype == ID($_XOR_) || celltype == ID($_XNOR_)) {
 				costs = {1, 0, 0, 0};
 				log_assert(select_width == 2);
 			}
@@ -184,10 +184,10 @@ private:
 		std::vector<RTLIL::SigSig> connections(module->connections());
 
 		for(auto &cell : module->cells().to_vector()) {
-			if (!cell->type.in({"$_AND_", "$_NAND_", "$_OR_", "$_NOR_", "$_XOR_", "$_XNOR_", "$_MUX_", "$_NMUX_", "$_NOT_", "$anyconst", "$allconst", "$assume", "$assert"}) && module->design->module(cell->type) == nullptr) {
+			if (!cell->type.in({ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_), ID($_XOR_), ID($_XNOR_), ID($_MUX_), ID($_NMUX_), ID($_NOT_), ID($anyconst), ID($allconst), ID($assume), ID($assert)}) && module->design->module(cell->type) == nullptr) {
 				log_cmd_error("Unsupported cell type \"%s\" found.  Run `techmap` first.\n", cell->type.c_str());
 			}
-			if (cell->type.in("$_AND_", "$_NAND_", "$_OR_", "$_NOR_")) {
+			if (cell->type.in(ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_))) {
 				const unsigned int A = 0, B = 1, Y = 2;
 				const unsigned int NUM_PORTS = 3;
 				RTLIL::SigSpec ports[NUM_PORTS] = {cell->getPort(ID::A), cell->getPort(ID::B), cell->getPort(ID::Y)};
@@ -252,7 +252,7 @@ private:
 				}
 				else log_cmd_error("This is a bug (1).\n");
 			}
-			else if (cell->type.in("$_XOR_", "$_XNOR_")) {
+			else if (cell->type.in(ID($_XOR_), ID($_XNOR_))) {
 				const unsigned int A = 0, B = 1, Y = 2;
 				const unsigned int NUM_PORTS = 3;
 				RTLIL::SigSpec ports[NUM_PORTS] = {cell->getPort(ID::A), cell->getPort(ID::B), cell->getPort(ID::Y)};
@@ -308,7 +308,7 @@ private:
 				else log_cmd_error("This is a bug (2).\n");
 
 			}
-			else if (cell->type.in("$_MUX_", "$_NMUX_")) {
+			else if (cell->type.in(ID($_MUX_), ID($_NMUX_))) {
 				const unsigned int A = 0, B = 1, S = 2, Y = 3;
 				const unsigned int NUM_PORTS = 4;
 				RTLIL::SigSpec ports[NUM_PORTS] = {cell->getPort(ID::A), cell->getPort(ID::B), cell->getPort(ID::S), cell->getPort(ID::Y)};
@@ -321,7 +321,7 @@ private:
 
 				add_precise_GLIFT_mux(cell, ports[A], port_taints[A], ports[B], port_taints[B], ports[S], port_taints[S], port_taints[Y]);
 			}
-			else if (cell->type.in("$_NOT_")) {
+			else if (cell->type.in(ID($_NOT_))) {
 				const unsigned int A = 0, Y = 1;
 				const unsigned int NUM_PORTS = 2;
 				RTLIL::SigSpec ports[NUM_PORTS] = {cell->getPort(ID::A), cell->getPort(ID::Y)};
@@ -332,7 +332,7 @@ private:
 				for (unsigned int i = 0; i < NUM_PORTS; ++i)
 					port_taints[i] = get_corresponding_taint_signal(ports[i]);
 
-				if (cell->type == "$_NOT_") {
+				if (cell->type == ID($_NOT_)) {
 					module->connect(port_taints[Y], port_taints[A]);
 				}
 				else log_cmd_error("This is a bug (3).\n");
