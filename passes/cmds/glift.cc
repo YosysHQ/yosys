@@ -160,6 +160,26 @@ struct GliftPass : public Pass {
 		module->connect(port_y_taint, RTLIL::Const(0, 1));
 	}
 
+	void add_precise_GLIFT_mux(const RTLIL::Cell *cell, RTLIL::SigSpec &port_a, RTLIL::SigSpec &port_a_taint, RTLIL::SigSpec &port_b, RTLIL::SigSpec &port_b_taint, RTLIL::SigSpec &port_s, RTLIL::SigSpec &port_s_taint, RTLIL::SigSpec &port_y_taint) {
+		//S&At | ~S&Bt | ~A&B&St | A&~B&St | At&St | Bt&St
+		RTLIL::SigSpec n_port_a = module->LogicNot(cell->name.str() + "_t_4_1", port_a, false, cell->get_src_attribute());
+		RTLIL::SigSpec n_port_b = module->LogicNot(cell->name.str() + "_t_4_2", port_b, false, cell->get_src_attribute());
+		RTLIL::SigSpec n_port_s = module->LogicNot(cell->name.str() + "_t_4_3", port_s, false, cell->get_src_attribute());
+		auto subexpr1 = module->And(cell->name.str() + "_t_4_4", port_s, port_a_taint, false, cell->get_src_attribute());
+		auto subexpr2 = module->And(cell->name.str() + "_t_4_5", n_port_s, port_b_taint, false, cell->get_src_attribute());
+		auto subexpr3 = module->And(cell->name.str() + "_t_4_6", n_port_a, port_b, false, cell->get_src_attribute());
+		auto subexpr4 = module->And(cell->name.str() + "_t_4_7", subexpr3, port_s_taint, false, cell->get_src_attribute());
+		auto subexpr5 = module->And(cell->name.str() + "_t_4_8", port_a, n_port_b, false, cell->get_src_attribute());
+		auto subexpr6 = module->And(cell->name.str() + "_t_4_9", subexpr5, port_s_taint, false, cell->get_src_attribute());
+		auto subexpr7 = module->And(cell->name.str() + "_t_4_10", port_a_taint, port_s_taint, false, cell->get_src_attribute());
+		auto subexpr8 = module->And(cell->name.str() + "_t_4_11", port_b_taint, port_s_taint, false, cell->get_src_attribute());
+		auto subexpr9  = module->Or(cell->name.str() + "_t_4_12", subexpr1, subexpr2, false, cell->get_src_attribute());
+		auto subexpr10 = module->Or(cell->name.str() + "_t_4_13", subexpr4, subexpr6, false, cell->get_src_attribute());
+		auto subexpr11 = module->Or(cell->name.str() + "_t_4_14", subexpr7, subexpr8, false, cell->get_src_attribute());
+		auto subexpr12 = module->Or(cell->name.str() + "_t_4_15", subexpr9, subexpr10, false, cell->get_src_attribute());
+		module->addOr(cell->name.str() + "_t_4_16", subexpr11, subexpr12, port_y_taint, false, cell->get_src_attribute());
+	}
+
 	RTLIL::SigSpec score_metamux_select(const RTLIL::SigSpec &metamux_select, const RTLIL::IdString celltype) {
 		log_assert(metamux_select.is_wire());
 
@@ -207,7 +227,7 @@ struct GliftPass : public Pass {
 		std::vector<RTLIL::SigSig> connections(module->connections());
 
 		for(auto &cell : module->cells().to_vector()) {
-			if (!cell->type.in({"$_AND_", "$_OR_", "$_XOR_", "$_XNOR_", "$_NOT_", "$anyconst", "$allconst", "$assume", "$assert"}) && module->design->module(cell->type) == nullptr) {
+			if (!cell->type.in({"$_AND_", "$_OR_", "$_XOR_", "$_XNOR_", "$_MUX_", "$_NMUX_", "$_NOT_", "$anyconst", "$allconst", "$assume", "$assert"}) && module->design->module(cell->type) == nullptr) {
 				log_cmd_error("Unsupported cell type \"%s\" found.  Run `techmap` first.\n", cell->type.c_str());
 			}
 			if (cell->type.in("$_AND_", "$_OR_")) {
@@ -330,6 +350,19 @@ struct GliftPass : public Pass {
 				}
 				else log_cmd_error("This is a bug (2).\n");
 
+			}
+			else if (cell->type.in("$_MUX_", "$_NMUX_")) {
+				const unsigned int A = 0, B = 1, S = 2, Y = 3;
+				const unsigned int NUM_PORTS = 4;
+				RTLIL::SigSpec ports[NUM_PORTS] = {cell->getPort(ID::A), cell->getPort(ID::B), cell->getPort(ID::S), cell->getPort(ID::Y)};
+				RTLIL::SigSpec port_taints[NUM_PORTS];
+
+				if (ports[A].size() != 1 || ports[B].size() != 1 || ports[S].size() != 1 || ports[Y].size() != 1)
+					log_cmd_error("Multi-bit signal found.  Run `splitnets` first.\n");
+				for (unsigned int i = 0; i < NUM_PORTS; ++i)
+					port_taints[i] = get_corresponding_taint_signal(ports[i]);
+
+				add_precise_GLIFT_mux(cell, ports[A], port_taints[A], ports[B], port_taints[B], ports[S], port_taints[S], port_taints[Y]);
 			}
 			else if (cell->type.in("$_NOT_")) {
 				const unsigned int A = 0, Y = 1;
