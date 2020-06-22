@@ -33,7 +33,7 @@ struct GliftPass : public Pass {
 	std::vector<std::string> args;
 	std::vector<std::string>::size_type argidx;
 	std::vector<RTLIL::Wire *> new_taint_outputs;
-	std::vector<RTLIL::SigSpec> meta_mux_selects;
+	std::vector<std::pair<RTLIL::SigSpec, RTLIL::IdString>> meta_mux_selects;
 	RTLIL::Module *module;
 
 	const RTLIL::IdString cost_model_wire_name = ID(__glift_weight);
@@ -140,7 +140,7 @@ struct GliftPass : public Pass {
 	}
 
 	void add_imprecise_GLIFT_logic_3(const RTLIL::Cell *cell, RTLIL::SigSpec &port_a_taint, RTLIL::SigSpec &port_b_taint, RTLIL::SigSpec &port_y_taint) {
-		//AKA AN2_SH5 or OR2_SH5
+		//AKA AN2_SH5 or OR2_SH5 or XR2_SH2
 		module->addOr(cell->name.str() + "_t_4_1", port_a_taint, port_b_taint, port_y_taint, false, cell->get_src_attribute());
 	}
 
@@ -160,7 +160,7 @@ struct GliftPass : public Pass {
 		module->connect(port_y_taint, RTLIL::Const(0, 1));
 	}
 
-	RTLIL::SigSpec score_metamux_select(const RTLIL::SigSpec &metamux_select) {
+	RTLIL::SigSpec score_metamux_select(const RTLIL::SigSpec &metamux_select, const RTLIL::IdString celltype) {
 		log_assert(metamux_select.is_wire());
 
 		if (opt_simplecostmodel) {
@@ -170,13 +170,21 @@ struct GliftPass : public Pass {
 			RTLIL::SigSpec pmux_select = module->ReduceOr(metamux_select.as_wire()->name.str() + "_nonzero", metamux_select);
 			return module->Pmux(NEW_ID, RTLIL::Const(1), RTLIL::Const(0), pmux_select, metamux_select.as_wire()->get_src_attribute());
 		} else {
-			auto num_versions = opt_instrumentmore? 8 : 4;
-			auto select_width = log2(num_versions);
-			log_assert(metamux_select.as_wire()->width == select_width);
+			auto select_width = metamux_select.as_wire()->width;
 
-			std::vector<RTLIL::Const> costs = {5, 2, 2, 1, 0, 0, 0, 0}; //in terms of AND/OR gates
+			std::vector<RTLIL::Const> costs;
+			if (celltype == ID(_AND_) || celltype == ID(_OR_)) {
+				costs = {5, 2, 2, 1, 0, 0, 0, 0};
+				log_assert(select_width == 2 || select_width == 3);
+				log_assert(opt_instrumentmore || select_width == 2);
+				log_assert(!opt_instrumentmore || select_width == 3);
+			}
+			else if (celltype == ID(_XOR_) || celltype == ID(_XNOR_)) {
+				costs = {1, 0, 0, 0};
+				log_assert(select_width == 2);
+			}
 
-			std::vector<RTLIL::SigSpec> next_pmux_y_ports, pmux_y_ports(costs.begin(), costs.begin() + num_versions);
+			std::vector<RTLIL::SigSpec> next_pmux_y_ports, pmux_y_ports(costs.begin(), costs.begin() + exp2(select_width));
 			for (auto i = 0; pmux_y_ports.size() > 1; ++i) {
 				for (auto j = 0; j+1 < GetSize(pmux_y_ports); j += 2) {
 					next_pmux_y_ports.emplace_back(module->Pmux(stringf("%s_mux_%d_%d", metamux_select.as_wire()->name.c_str(), i, j), pmux_y_ports[j], pmux_y_ports[j+1], metamux_select[GetSize(metamux_select) - 1 - i], metamux_select.as_wire()->get_src_attribute()));
@@ -199,7 +207,7 @@ struct GliftPass : public Pass {
 		std::vector<RTLIL::SigSig> connections(module->connections());
 
 		for(auto &cell : module->cells().to_vector()) {
-			if (!cell->type.in({"$_AND_", "$_OR_", "$_NOT_", "$anyconst", "$allconst", "$assume", "$assert"}) && module->design->module(cell->type) == nullptr) {
+			if (!cell->type.in({"$_AND_", "$_OR_", "$_XOR_", "$_XNOR_", "$_NOT_", "$anyconst", "$allconst", "$assume", "$assert"}) && module->design->module(cell->type) == nullptr) {
 				log_cmd_error("Unsupported cell type \"%s\" found.  Run `techmap` first.\n", cell->type.c_str());
 			}
 			if (cell->type.in("$_AND_", "$_OR_")) {
@@ -249,7 +257,7 @@ struct GliftPass : public Pass {
 					auto select_width = log2(num_versions);
 					log_assert(exp2(select_width) == num_versions);
 					RTLIL::SigSpec meta_mux_select(module->addWire(cell->name.str() + "_sel", select_width));
-					meta_mux_selects.push_back(meta_mux_select);
+					meta_mux_selects.push_back(make_pair(meta_mux_select, cell->type));
 					module->connect(meta_mux_select, module->Anyconst(cell->name.str() + "_hole", select_width, cell->get_src_attribute()));
 
 					std::vector<RTLIL::SigSpec> next_meta_mux_y_ports, meta_mux_y_ports(taint_version);
@@ -267,6 +275,62 @@ struct GliftPass : public Pass {
 				}
 				else log_cmd_error("This is a bug (1).\n");
 			}
+			else if (cell->type.in("$_XOR_", "$_XNOR_")) {
+				const unsigned int A = 0, B = 1, Y = 2;
+				const unsigned int NUM_PORTS = 3;
+				RTLIL::SigSpec ports[NUM_PORTS] = {cell->getPort(ID::A), cell->getPort(ID::B), cell->getPort(ID::Y)};
+				RTLIL::SigSpec port_taints[NUM_PORTS];
+
+				if (ports[A].size() != 1 || ports[B].size() != 1 || ports[Y].size() != 1)
+					log_cmd_error("Multi-bit signal found.  Run `splitnets` first.\n");
+				for (unsigned int i = 0; i < NUM_PORTS; ++i)
+					port_taints[i] = get_corresponding_taint_signal(ports[i]);
+
+				if (opt_create_precise_model || opt_create_imprecise_model)
+					add_imprecise_GLIFT_logic_3(cell, port_taints[A], port_taints[B], port_taints[Y]);
+				else if (opt_create_instrumented_model) {
+					std::vector<RTLIL::SigSpec> taint_version;
+					int num_versions = 4;
+					auto select_width = log2(num_versions);
+					log_assert(exp2(select_width) == num_versions);
+
+					for (auto i = 1; i <= num_versions; ++i)
+						taint_version.emplace_back(RTLIL::SigSpec(module->addWire(stringf("%s_y%d", cell->name.c_str(), i), 1)));
+
+					for (auto i = 0; i < num_versions; ++i) {
+						switch(i) {
+							case 0: add_imprecise_GLIFT_logic_3(cell, port_taints[A], port_taints[B], taint_version[i]);
+							break;
+							case 1: add_imprecise_GLIFT_logic_4(port_taints[A], taint_version[i]);
+							break;
+							case 2: add_imprecise_GLIFT_logic_5(port_taints[B], taint_version[i]);
+							break;
+							case 3: add_imprecise_GLIFT_logic_6(taint_version[i]);
+							break;
+							default: log_assert(false);
+						}
+					}
+
+					RTLIL::SigSpec meta_mux_select(module->addWire(cell->name.str() + "_sel", select_width));
+					meta_mux_selects.push_back(make_pair(meta_mux_select, cell->type));
+					module->connect(meta_mux_select, module->Anyconst(cell->name.str() + "_hole", select_width, cell->get_src_attribute()));
+
+					std::vector<RTLIL::SigSpec> next_meta_mux_y_ports, meta_mux_y_ports(taint_version);
+					for (auto i = 0; meta_mux_y_ports.size() > 1; ++i) {
+						for (auto j = 0; j+1 < GetSize(meta_mux_y_ports); j += 2) {
+							next_meta_mux_y_ports.emplace_back(module->Mux(stringf("%s_mux_%d_%d", cell->name.c_str(), i, j), meta_mux_y_ports[j], meta_mux_y_ports[j+1], meta_mux_select[GetSize(meta_mux_select) - 1 - i]));
+						}
+						if (GetSize(meta_mux_y_ports) % 2 == 1)
+							next_meta_mux_y_ports.push_back(meta_mux_y_ports[GetSize(meta_mux_y_ports) - 1]);
+						meta_mux_y_ports.swap(next_meta_mux_y_ports);
+						next_meta_mux_y_ports.clear();
+					}
+					log_assert(meta_mux_y_ports.size() == 1);
+					module->connect(port_taints[Y], meta_mux_y_ports[0]);
+				}
+				else log_cmd_error("This is a bug (2).\n");
+
+			}
 			else if (cell->type.in("$_NOT_")) {
 				const unsigned int A = 0, Y = 1;
 				const unsigned int NUM_PORTS = 2;
@@ -281,7 +345,7 @@ struct GliftPass : public Pass {
 				if (cell->type == "$_NOT_") {
 					module->connect(port_taints[Y], port_taints[A]);
 				}
-				else log_cmd_error("This is a bug (2).\n");
+				else log_cmd_error("This is a bug (3).\n");
 			}
 			else if (module->design->module(cell->type) != nullptr) {
 				//User cell type
@@ -300,7 +364,7 @@ struct GliftPass : public Pass {
 					cell->setPort(port_taint.as_wire()->name, port_taint);
 				}
 			}
-			else log_cmd_error("This is a bug (3).\n");
+			else log_cmd_error("This is a bug (4).\n");
 		} //end foreach cell in cells
 
 		for (auto &conn : connections) {
@@ -319,8 +383,8 @@ struct GliftPass : public Pass {
 		if (!opt_nocostmodel) {
 			std::vector<RTLIL::SigSpec> meta_mux_select_sums;
 			std::vector<RTLIL::SigSpec> meta_mux_select_sums_buf;
-			for (auto &wire : meta_mux_selects) {
-				meta_mux_select_sums.emplace_back(score_metamux_select(wire));
+			for (auto &it : meta_mux_selects) {
+				meta_mux_select_sums.emplace_back(score_metamux_select(it.first, it.second));
 			}
 			for (unsigned int i = 0; meta_mux_select_sums.size() > 1; ) {
 				meta_mux_select_sums_buf.clear();
