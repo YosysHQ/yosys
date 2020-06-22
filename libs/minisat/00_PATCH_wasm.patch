@@ -32,3 +32,15 @@
  #endif
 +#endif
  }
+--- System.cc
++++ System.cc
+@@ -24,7 +24,9 @@
+ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ **************************************************************************************************/
+
++#if !defined(__wasm)
+ #include <signal.h>
++#endif
+ #include <stdio.h>
+
+ #include "System.h"
