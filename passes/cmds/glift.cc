@@ -116,10 +116,11 @@ struct GliftPass : public Pass {
 
 	void add_precise_GLIFT_logic(const RTLIL::Cell *cell, RTLIL::SigSpec &port_a, RTLIL::SigSpec &port_a_taint, RTLIL::SigSpec &port_b, RTLIL::SigSpec &port_b_taint, RTLIL::SigSpec &port_y_taint) {
 		//AKA AN2_SH2 or OR2_SH2
+		bool is_and = cell->type.in("$_AND_", "$_NAND_");
 		RTLIL::SigSpec n_port_a = module->LogicNot(cell->name.str() + "_t_1_1", port_a, false, cell->get_src_attribute());
 		RTLIL::SigSpec n_port_b = module->LogicNot(cell->name.str() + "_t_1_2", port_b, false, cell->get_src_attribute());
-		auto subexpr1 = module->And(cell->name.str() + "_t_1_3", (cell->type == "$_AND_")? port_a : n_port_a, port_b_taint, false, cell->get_src_attribute());
-		auto subexpr2 = module->And(cell->name.str() + "_t_1_4", (cell->type == "$_AND_")? port_b : n_port_b, port_a_taint, false, cell->get_src_attribute());
+		auto subexpr1 = module->And(cell->name.str() + "_t_1_3", is_and? port_a : n_port_a, port_b_taint, false, cell->get_src_attribute());
+		auto subexpr2 = module->And(cell->name.str() + "_t_1_4", is_and? port_b : n_port_b, port_a_taint, false, cell->get_src_attribute());
 		auto subexpr3 = module->And(cell->name.str() + "_t_1_5", port_a_taint, port_b_taint, false, cell->get_src_attribute());
 		auto subexpr4 = module->Or(cell->name.str() + "_t_1_6", subexpr1, subexpr2, false, cell->get_src_attribute());
 		module->addOr(cell->name.str() + "_t_1_7", subexpr4, subexpr3, port_y_taint, false, cell->get_src_attribute());
@@ -127,16 +128,18 @@ struct GliftPass : public Pass {
 
 	void add_imprecise_GLIFT_logic_1(const RTLIL::Cell *cell, RTLIL::SigSpec &port_a, RTLIL::SigSpec &port_a_taint, RTLIL::SigSpec &port_b, RTLIL::SigSpec &port_b_taint, RTLIL::SigSpec &port_y_taint) {
 		//AKA AN2_SH3 or OR2_SH3
+		bool is_and = cell->type.in("$_AND_", "$_NAND_");
 		RTLIL::SigSpec n_port_a = module->LogicNot(cell->name.str() + "_t_2_1", port_a, false, cell->get_src_attribute());
-		auto subexpr1 = module->And(cell->name.str() + "_t_2_2", (cell->type == "$_AND_")? port_b : n_port_a, (cell->type == "$_AND_")? port_a_taint : port_b_taint, false, cell->get_src_attribute());
-		module->addOr(cell->name.str() + "_t_2_3", (cell->type == "$_AND_")? port_b_taint : port_a_taint, subexpr1, port_y_taint, false, cell->get_src_attribute());
+		auto subexpr1 = module->And(cell->name.str() + "_t_2_2", is_and? port_b : n_port_a, is_and? port_a_taint : port_b_taint, false, cell->get_src_attribute());
+		module->addOr(cell->name.str() + "_t_2_3", is_and? port_b_taint : port_a_taint, subexpr1, port_y_taint, false, cell->get_src_attribute());
 	}
 
 	void add_imprecise_GLIFT_logic_2(const RTLIL::Cell *cell, RTLIL::SigSpec &port_a, RTLIL::SigSpec &port_a_taint, RTLIL::SigSpec &port_b, RTLIL::SigSpec &port_b_taint, RTLIL::SigSpec &port_y_taint) {
 		//AKA AN2_SH4 or OR2_SH4
+		bool is_and = cell->type.in("$_AND_", "$_NAND_");
 		RTLIL::SigSpec n_port_b = module->LogicNot(cell->name.str() + "_t_3_1", port_b, false, cell->get_src_attribute());
-		auto subexpr1 = module->And(cell->name.str() + "_t_3_2", (cell->type == "$_AND_")? port_a : n_port_b, (cell->type == "$_AND_")? port_b_taint : port_a_taint, false, cell->get_src_attribute());
-		module->addOr(cell->name.str() + "_t_3_3", (cell->type == "$_AND_")? port_a_taint : port_b_taint, subexpr1, port_y_taint, false, cell->get_src_attribute());
+		auto subexpr1 = module->And(cell->name.str() + "_t_3_2", is_and? port_a : n_port_b, is_and? port_b_taint : port_a_taint, false, cell->get_src_attribute());
+		module->addOr(cell->name.str() + "_t_3_3", is_and? port_a_taint : port_b_taint, subexpr1, port_y_taint, false, cell->get_src_attribute());
 	}
 
 	void add_imprecise_GLIFT_logic_3(const RTLIL::Cell *cell, RTLIL::SigSpec &port_a_taint, RTLIL::SigSpec &port_b_taint, RTLIL::SigSpec &port_y_taint) {
@@ -227,10 +230,10 @@ struct GliftPass : public Pass {
 		std::vector<RTLIL::SigSig> connections(module->connections());
 
 		for(auto &cell : module->cells().to_vector()) {
-			if (!cell->type.in({"$_AND_", "$_OR_", "$_XOR_", "$_XNOR_", "$_MUX_", "$_NMUX_", "$_NOT_", "$anyconst", "$allconst", "$assume", "$assert"}) && module->design->module(cell->type) == nullptr) {
+			if (!cell->type.in({"$_AND_", "$_NAND_", "$_OR_", "$_NOR_", "$_XOR_", "$_XNOR_", "$_MUX_", "$_NMUX_", "$_NOT_", "$anyconst", "$allconst", "$assume", "$assert"}) && module->design->module(cell->type) == nullptr) {
 				log_cmd_error("Unsupported cell type \"%s\" found.  Run `techmap` first.\n", cell->type.c_str());
 			}
-			if (cell->type.in("$_AND_", "$_OR_")) {
+			if (cell->type.in("$_AND_", "$_NAND_", "$_OR_", "$_NOR_")) {
 				const unsigned int A = 0, B = 1, Y = 2;
 				const unsigned int NUM_PORTS = 3;
 				RTLIL::SigSpec ports[NUM_PORTS] = {cell->getPort(ID::A), cell->getPort(ID::B), cell->getPort(ID::Y)};
