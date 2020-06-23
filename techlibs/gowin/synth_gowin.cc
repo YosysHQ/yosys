@@ -222,7 +222,7 @@ struct SynthGowinPass : public ScriptPass
 			run("dff2dffs -match-init");
 			run("opt_clean");
 			if (!nodffe)
-				run("dff2dffe -direct-match $_DFF_* -direct-match $__DFFS_*");
+				run("dff2dffe -direct-match $_DFF_* -direct-match $_SDFF_*");
 			run("techmap -map +/gowin/cells_map.v");
 			run("opt_expr -mux_undef");
 			run("simplemap");

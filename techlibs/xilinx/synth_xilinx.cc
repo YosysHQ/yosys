@@ -540,7 +540,7 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("fine")) {
-			run("dff2dffe -direct-match $_DFF_* -direct-match $__DFFS_*");
+			run("dff2dffe -direct-match $_DFF_* -direct-match $_SDFF_*");
 			if (help_mode)
 				run("muxcover <internal options> ('-widemux' only)");
 			else if (widemux > 0) {
@@ -598,7 +598,7 @@ struct SynthXilinxPass : public ScriptPass
 		if (check_label("map_ffs", "('-abc9' only)")) {
 			if (abc9 || help_mode) {
 				if (dff || help_mode)
-					run("zinit -all w:* t:$_DFF_?_ t:$_DFFE_??_ t:$__DFFS*", "('-dff' only)");
+					run("zinit -all w:* t:$_DFF_?_ t:$_DFFE_??_ t:$_SDFF*", "('-dff' only)");
 				run("techmap -map " + ff_map_file);
 			}
 		}

@@ -139,8 +139,14 @@ struct CellTypes
 		setup_type(ID($dff), {ID::CLK, ID::D}, {ID::Q});
 		setup_type(ID($dffe), {ID::CLK, ID::EN, ID::D}, {ID::Q});
 		setup_type(ID($dffsr), {ID::CLK, ID::SET, ID::CLR, ID::D}, {ID::Q});
+		setup_type(ID($dffsre), {ID::CLK, ID::SET, ID::CLR, ID::D, ID::E}, {ID::Q});
 		setup_type(ID($adff), {ID::CLK, ID::ARST, ID::D}, {ID::Q});
+		setup_type(ID($adffe), {ID::CLK, ID::ARST, ID::D, ID::E}, {ID::Q});
+		setup_type(ID($sdff), {ID::CLK, ID::SRST, ID::D}, {ID::Q});
+		setup_type(ID($sdffe), {ID::CLK, ID::SRST, ID::D, ID::E}, {ID::Q});
+		setup_type(ID($sdffce), {ID::CLK, ID::SRST, ID::D, ID::E}, {ID::Q});
 		setup_type(ID($dlatch), {ID::EN, ID::D}, {ID::Q});
+		setup_type(ID($adlatch), {ID::EN, ID::D, ID::ARST}, {ID::Q});
 		setup_type(ID($dlatchsr), {ID::EN, ID::SET, ID::CLR, ID::D}, {ID::Q});
 	}
 
@@ -210,11 +216,45 @@ struct CellTypes
 
 		for (auto c1 : list_np)
 		for (auto c2 : list_np)
+		for (auto c3 : list_01)
+		for (auto c4 : list_np)
+			setup_type(stringf("$_DFFE_%c%c%c%c_", c1, c2, c3, c4), {ID::C, ID::R, ID::D, ID::E}, {ID::Q});
+
+		for (auto c1 : list_np)
+		for (auto c2 : list_np)
 		for (auto c3 : list_np)
 			setup_type(stringf("$_DFFSR_%c%c%c_", c1, c2, c3), {ID::C, ID::S, ID::R, ID::D}, {ID::Q});
 
 		for (auto c1 : list_np)
+		for (auto c2 : list_np)
+		for (auto c3 : list_np)
+		for (auto c4 : list_np)
+			setup_type(stringf("$_DFFSRE_%c%c%c%c_", c1, c2, c3, c4), {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q});
+
+		for (auto c1 : list_np)
+		for (auto c2 : list_np)
+		for (auto c3 : list_01)
+			setup_type(stringf("$_SDFF_%c%c%c_", c1, c2, c3), {ID::C, ID::R, ID::D}, {ID::Q});
+
+		for (auto c1 : list_np)
+		for (auto c2 : list_np)
+		for (auto c3 : list_01)
+		for (auto c4 : list_np)
+			setup_type(stringf("$_SDFFE_%c%c%c%c_", c1, c2, c3, c4), {ID::C, ID::R, ID::D, ID::E}, {ID::Q});
+
+		for (auto c1 : list_np)
+		for (auto c2 : list_np)
+		for (auto c3 : list_01)
+		for (auto c4 : list_np)
+			setup_type(stringf("$_SDFFCE_%c%c%c%c_", c1, c2, c3, c4), {ID::C, ID::R, ID::D, ID::E}, {ID::Q});
+
+		for (auto c1 : list_np)
 			setup_type(stringf("$_DLATCH_%c_", c1), {ID::E, ID::D}, {ID::Q});
+
+		for (auto c1 : list_np)
+		for (auto c2 : list_np)
+		for (auto c3 : list_01)
+			setup_type(stringf("$_DLATCH_%c%c%c_", c1, c2, c3), {ID::E, ID::R, ID::D}, {ID::Q});
 
 		for (auto c1 : list_np)
 		for (auto c2 : list_np)

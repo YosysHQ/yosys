@@ -362,7 +362,7 @@ struct SynthIce40Pass : public ScriptPass
 				run("simplemap t:$dff");
 			}
 			if ((abc9 && dff) || help_mode)
-				run("zinit -all w:* t:$_DFF_?_ t:$_DFFE_??_ t:$__DFFS*", "(only if -abc9 and -dff");
+				run("zinit -all w:* t:$_DFF_?_ t:$_DFFE_??_ t:$_SDFF*", "(only if -abc9 and -dff");
 			run("techmap -map +/ice40/ff_map.v");
 			run("opt_expr -mux_undef");
 			run("simplemap");
