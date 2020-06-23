@@ -528,6 +528,7 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 
 "|=" { SV_KEYWORD(TOK_OR_ASSIGN); }
 "+=" { SV_KEYWORD(TOK_PLUS_ASSIGN); }
+"^=" { SV_KEYWORD(TOK_XOR_ASSIGN); }
 
 [-+]?[=*]> {
 	if (!specify_mode) REJECT;
