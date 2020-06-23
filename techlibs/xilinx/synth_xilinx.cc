@@ -342,13 +342,6 @@ struct SynthXilinxPass : public ScriptPass
 		std::string lut_size_s = std::to_string(lut_size);
 		if (help_mode)
 			lut_size_s = "[46]";
-		std::string ff_map_file;
-		if (help_mode)
-			ff_map_file = "+/xilinx/{family}_ff_map.v";
-		else if (family == "xc6s")
-			ff_map_file = "+/xilinx/xc6s_ff_map.v";
-		else
-			ff_map_file = "+/xilinx/xc7_ff_map.v";
 
 		if (check_label("begin")) {
 			std::string read_args;
@@ -595,11 +588,17 @@ struct SynthXilinxPass : public ScriptPass
 			run("clean");
 		}
 
-		if (check_label("map_ffs", "('-abc9' only)")) {
+		if (check_label("map_ffs")) {
+			if (family == "xc6s")
+				run("dfflegalize -cell $_DFFE_?P?P_ r -cell $_SDFFE_?P?P_ r -cell $_DLATCH_?P?_ r", "(for xc6s)");
+			else if (family == "xc6v" || family == "xc7" || family == "xcu" || family == "xcup")
+				run("dfflegalize -cell $_DFFE_?P?P_ 01 -cell $_SDFFE_?P?P_ 01 -cell $_DLATCH_?P?_ 01", "(for xc6v, xc7, xcu, xcup)");
+			else
+				run("dfflegalize -cell $_DFFE_?P?P_ 01 -cell $_DFFSRE_?PPP_ 01 -cell $_SDFFE_?P?P_ 01 -cell $_DLATCH_?P?_ 01 -cell $_DLATCHSR_?PP_ 01", "(for xc5v and older)");
 			if (abc9 || help_mode) {
 				if (dff || help_mode)
-					run("zinit -all w:* t:$_DFF_?_ t:$_DFFE_??_ t:$_SDFF*", "('-dff' only)");
-				run("techmap -map " + ff_map_file);
+					run("zinit -all w:* t:$_SDFFE_*", "('-dff' only)");
+				run("techmap -map +/xilinx/ff_map.v", "('-abc9' only)");
 			}
 		}
 
@@ -659,7 +658,7 @@ struct SynthXilinxPass : public ScriptPass
 				run("xilinx_srl -fixed -minlen 3", "(skip if '-nosrl')");
 			std::string techmap_args = "-map +/xilinx/lut_map.v -map +/xilinx/cells_map.v";
 			if (help_mode || !abc9)
-				techmap_args += stringf(" -map %s", ff_map_file.c_str());
+				techmap_args += stringf(" -map +/xilinx/ff_map.v");
 			techmap_args += " -D LUT_WIDTH=" + lut_size_s;
 			run("techmap " + techmap_args);
 			if (help_mode)
