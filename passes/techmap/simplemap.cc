@@ -489,7 +489,7 @@ void simplemap_dffsre(RTLIL::Module *module, RTLIL::Cell *cell)
 	RTLIL::SigSpec sig_d = cell->getPort(ID::D);
 	RTLIL::SigSpec sig_q = cell->getPort(ID::Q);
 
-	IdString gate_type = stringf("$_DFFSR_%c%c%c%c_", clk_pol, set_pol, clr_pol, en_pol);
+	IdString gate_type = stringf("$_DFFSRE_%c%c%c%c_", clk_pol, set_pol, clr_pol, en_pol);
 
 	for (int i = 0; i < width; i++) {
 		RTLIL::Cell *gate = module->addCell(NEW_ID, gate_type);
