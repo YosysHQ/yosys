@@ -314,9 +314,9 @@ struct SynthEcp5Pass : public ScriptPass
 			run("dff2dffs");
 			run("opt_clean");
 			if (!nodffe)
-				run("dff2dffe -direct-match $_DFF_* -direct-match $__DFFS_*");
+				run("dff2dffe -direct-match $_DFF_* -direct-match $_SDFF_*");
 			if ((abc9 && dff) || help_mode)
-				run("zinit -all w:* t:$_DFF_?_ t:$_DFFE_??_ t:$__DFFS*", "(only if -abc9 and -dff");
+				run("zinit -all w:* t:$_DFF_?_ t:$_DFFE_??_ t:$_SDFF*", "(only if -abc9 and -dff");
 			run(stringf("techmap -D NO_LUT %s -map +/ecp5/cells_map.v", help_mode ? "[-D ASYNC_PRLD]" : (asyncprld ? "-D ASYNC_PRLD" : "")));
 			run("opt_expr -undriven -mux_undef");
 			run("simplemap");
