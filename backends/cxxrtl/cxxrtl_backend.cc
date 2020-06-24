@@ -203,13 +203,13 @@ bool is_elidable_cell(RTLIL::IdString type)
 bool is_sync_ff_cell(RTLIL::IdString type)
 {
 	return type.in(
-		ID($dff), ID($dffe));
+		ID($dff), ID($dffe), ID($sdff), ID($sdffe), ID($sdffce));
 }
 
 bool is_ff_cell(RTLIL::IdString type)
 {
 	return is_sync_ff_cell(type) || type.in(
-		ID($adff), ID($dffsr), ID($dlatch), ID($dlatchsr), ID($sr));
+		ID($adff), ID($adffe), ID($dffsr), ID($dffsre), ID($dlatch), ID($adlatch), ID($dlatchsr), ID($sr));
 }
 
 bool is_internal_cell(RTLIL::IdString type)
@@ -1032,7 +1032,7 @@ struct CxxrtlWorker {
 				f << indent << "if (" << (cell->getParam(ID::CLK_POLARITY).as_bool() ? "posedge_" : "negedge_")
 				            << mangle(clk_bit) << ") {\n";
 				inc_indent();
-					if (cell->type == ID($dffe)) {
+					if (cell->hasPort(ID::EN)) {
 						f << indent << "if (";
 						dump_sigspec_rhs(cell->getPort(ID::EN));
 						f << " == value<1> {" << cell->getParam(ID::EN_POLARITY).as_bool() << "u}) {\n";
@@ -1043,7 +1043,24 @@ struct CxxrtlWorker {
 					f << " = ";
 					dump_sigspec_rhs(cell->getPort(ID::D));
 					f << ";\n";
-					if (cell->type == ID($dffe)) {
+					if (cell->hasPort(ID::EN) && cell->type != ID($sdffce)) {
+						dec_indent();
+						f << indent << "}\n";
+					}
+					if (cell->hasPort(ID::SRST)) {
+						f << indent << "if (";
+						dump_sigspec_rhs(cell->getPort(ID::SRST));
+						f << " == value<1> {" << cell->getParam(ID::SRST_POLARITY).as_bool() << "u}) {\n";
+						inc_indent();
+							f << indent;
+							dump_sigspec_lhs(cell->getPort(ID::Q));
+							f << " = ";
+							dump_const(cell->getParam(ID::SRST_VALUE));
+							f << ";\n";
+						dec_indent();
+						f << indent << "}\n";
+					}
+					if (cell->hasPort(ID::EN) && cell->type == ID($sdffce)) {
 						dec_indent();
 						f << indent << "}\n";
 					}
@@ -2025,7 +2042,7 @@ struct CxxrtlWorker {
 				FlowGraph::Node *node = flow.add_node(cell);
 
 				// Various DFF cells are treated like posedge/negedge processes, see above for details.
-				if (cell->type.in(ID($dff), ID($dffe), ID($adff), ID($dffsr))) {
+				if (cell->type.in(ID($dff), ID($dffe), ID($adff), ID($adffe), ID($dffsr), ID($dffsre), ID($sdff), ID($sdffe), ID($sdffce))) {
 					if (cell->getPort(ID::CLK).is_wire())
 						register_edge_signal(sigmap, cell->getPort(ID::CLK),
 							cell->parameters[ID::CLK_POLARITY].as_bool() ? RTLIL::STp : RTLIL::STn);
