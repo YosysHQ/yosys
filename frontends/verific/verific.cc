@@ -1109,7 +1109,10 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 
 			RTLIL::Wire *wire = module->addWire(wire_name, netbus->Size());
 			wire->start_offset = min(netbus->LeftIndex(), netbus->RightIndex());
-			import_attributes(wire->attributes, netbus, nl);
+			MapIter mibus;
+			FOREACH_NET_OF_NETBUS(netbus, mibus, net) {
+				import_attributes(wire->attributes, net, nl);
+			}
 
 			RTLIL::Const initval = Const(State::Sx, GetSize(wire));
 			bool initval_valid = false;
