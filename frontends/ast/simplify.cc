@@ -778,7 +778,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				while (node->simplify(true, false, false, 1, -1, false, node->type == AST_PARAMETER || node->type == AST_LOCALPARAM))
 					did_something = true;
 			if (node->type == AST_ENUM) {
-				for (auto enode YS_ATTRIBUTE(unused) : node->children){
+				for (auto enode : node->children){
 					log_assert(enode->type==AST_ENUM_ITEM);
 					while (node->simplify(true, false, false, 1, -1, false, in_param))
 						did_something = true;

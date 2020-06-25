@@ -362,9 +362,7 @@ void ILANG_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Modu
 
 void ILANG_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool only_selected, bool flag_m, bool flag_n)
 {
-#ifndef NDEBUG
 	int init_autoidx = autoidx;
-#endif
 
 	if (!flag_m) {
 		int count_selected_mods = 0;

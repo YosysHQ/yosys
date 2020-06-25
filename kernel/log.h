@@ -157,11 +157,10 @@ void log_warning_noprefix(const char *format, ...) YS_ATTRIBUTE(format(printf, 1
 
 #ifndef NDEBUG
 static inline bool ys_debug(int n = 0) { if (log_force_debug) return true; log_debug_suppressed += n; return false; }
-#  define log_debug(...) do { if (ys_debug(1)) log(__VA_ARGS__); } while (0)
 #else
 static inline bool ys_debug(int = 0) { return false; }
-#  define log_debug(_fmt, ...) do { } while (0)
 #endif
+#  define log_debug(...) do { if (ys_debug(1)) log(__VA_ARGS__); } while (0)
 
 static inline void log_suppressed() {
 	if (log_debug_suppressed && !log_make_debug) {
@@ -236,7 +235,7 @@ static inline void log_assert_worker(bool cond, const char *expr, const char *fi
 }
 #  define log_assert(_assert_expr_) YOSYS_NAMESPACE_PREFIX log_assert_worker(_assert_expr_, #_assert_expr_, __FILE__, __LINE__)
 #else
-#  define log_assert(_assert_expr_)
+#  define log_assert(_assert_expr_) do { if (0) { (void)(_assert_expr_); } } while(0)
 #endif
 
 #define log_abort() YOSYS_NAMESPACE_PREFIX log_error("Abort in %s:%d.\n", __FILE__, __LINE__)
@@ -369,7 +368,7 @@ static inline void log_dump_val_worker(char *v) { log("%s", v); }
 static inline void log_dump_val_worker(const char *v) { log("%s", v); }
 static inline void log_dump_val_worker(std::string v) { log("%s", v.c_str()); }
 static inline void log_dump_val_worker(PerformanceTimer p) { log("%f seconds", p.sec()); }
-static inline void log_dump_args_worker(const char *p YS_ATTRIBUTE(unused)) { log_assert(*p == 0); }
+static inline void log_dump_args_worker(const char *p) { log_assert(*p == 0); }
 void log_dump_val_worker(RTLIL::IdString v);
 void log_dump_val_worker(RTLIL::SigSpec v);
 void log_dump_val_worker(RTLIL::State v);
