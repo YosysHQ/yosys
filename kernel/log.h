@@ -308,19 +308,17 @@ struct PerformanceTimer
 	static int64_t query() {
 #  ifdef _WIN32
 		return 0;
-#  elif defined(_POSIX_TIMERS) && (_POSIX_TIMERS > 0)
-		struct timespec ts;
-		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
-		return int64_t(ts.tv_sec)*1000000000 + ts.tv_nsec;
 #  elif defined(RUSAGE_SELF)
 		struct rusage rusage;
-		int64_t t;
-		if (getrusage(RUSAGE_SELF, &rusage) == -1) {
-			log_cmd_error("getrusage failed!\n");
-			log_abort();
+		int64_t t = 0;
+		for (int who : {RUSAGE_SELF, RUSAGE_CHILDREN}) {
+			if (getrusage(who, &rusage) == -1) {
+				log_cmd_error("getrusage failed!\n");
+				log_abort();
+			}
+			t += 1000000000ULL * (int64_t) rusage.ru_utime.tv_sec + (int64_t) rusage.ru_utime.tv_usec * 1000ULL;
+			t += 1000000000ULL * (int64_t) rusage.ru_stime.tv_sec + (int64_t) rusage.ru_stime.tv_usec * 1000ULL;
 		}
-		t = 1000000000ULL * (int64_t) rusage.ru_utime.tv_sec + (int64_t) rusage.ru_utime.tv_usec * 1000ULL;
-		t += 1000000000ULL * (int64_t) rusage.ru_stime.tv_sec + (int64_t) rusage.ru_stime.tv_usec * 1000ULL;
 		return t;
 #  else
 #    error "Don't know how to measure per-process CPU time. Need alternative method (times()/clocks()/gettimeofday()?)."

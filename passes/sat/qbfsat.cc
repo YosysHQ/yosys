@@ -39,10 +39,11 @@ static inline unsigned int difference(unsigned int a, unsigned int b) {
 struct QbfSolutionType {
 	std::vector<std::string> stdout_lines;
 	dict<pool<std::string>, std::string> hole_to_value;
+	double solver_time;
 	bool sat;
 	bool unknown; //true if neither 'sat' nor 'unsat'
 
-	QbfSolutionType() : sat(false), unknown(true) {}
+	QbfSolutionType() : solver_time(0.0), sat(false), unknown(true) {}
 };
 
 struct QbfSolveOptions {
@@ -421,7 +422,11 @@ QbfSolutionType call_qbf_solver(RTLIL::Module *mod, const QbfSolveOptions &opt, 
 	};
 	log_header(mod->design, "Solving QBF-SAT problem.\n");
 	if (!quiet) log("Launching \"%s\".\n", smtbmc_cmd.c_str());
+	int64_t begin = PerformanceTimer::query();
 	run_command(smtbmc_cmd, process_line);
+	int64_t end = PerformanceTimer::query();
+	ret.solver_time = (end - begin) / 1e9f;
+	if (!quiet) log("Solver finished in %.3f seconds.\n", ret.solver_time);
 
 	recover_solution(ret);
 	return ret;
