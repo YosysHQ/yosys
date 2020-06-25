@@ -1112,6 +1112,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 			MapIter mibus;
 			FOREACH_NET_OF_NETBUS(netbus, mibus, net) {
 				import_attributes(wire->attributes, net, nl);
+				break;
 			}
 
 			RTLIL::Const initval = Const(State::Sx, GetSize(wire));
