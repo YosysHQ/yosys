@@ -259,7 +259,7 @@ static void rewriteAsMemoryNode(AstNode *node, AstNode *rangeNode)
 %token TOK_INTEGER TOK_SIGNED TOK_ASSIGN TOK_PLUS_ASSIGN TOK_ALWAYS TOK_INITIAL
 %token TOK_ALWAYS_FF TOK_ALWAYS_COMB TOK_ALWAYS_LATCH
 %token TOK_BEGIN TOK_END TOK_IF TOK_ELSE TOK_FOR TOK_WHILE TOK_REPEAT
-%token TOK_DPI_FUNCTION TOK_POSEDGE TOK_NEGEDGE TOK_OR TOK_OR_ASSIGN TOK_XOR_ASSIGN TOK_AUTOMATIC
+%token TOK_DPI_FUNCTION TOK_POSEDGE TOK_NEGEDGE TOK_OR TOK_AUTOMATIC
 %token TOK_CASE TOK_CASEX TOK_CASEZ TOK_ENDCASE TOK_DEFAULT
 %token TOK_FUNCTION TOK_ENDFUNCTION TOK_TASK TOK_ENDTASK TOK_SPECIFY
 %token TOK_IGNORED_SPECIFY TOK_ENDSPECIFY TOK_SPECPARAM TOK_SPECIFY_AND TOK_IGNORED_SPECIFY_AND
@@ -269,7 +269,8 @@ static void rewriteAsMemoryNode(AstNode *node, AstNode *rangeNode)
 %token TOK_POS_INDEXED TOK_NEG_INDEXED TOK_PROPERTY TOK_ENUM TOK_TYPEDEF
 %token TOK_RAND TOK_CONST TOK_CHECKER TOK_ENDCHECKER TOK_EVENTUALLY
 %token TOK_INCREMENT TOK_DECREMENT TOK_UNIQUE TOK_PRIORITY
-%token TOK_STRUCT TOK_PACKED TOK_UNSIGNED TOK_INT TOK_BYTE TOK_SHORTINT TOK_UNION 
+%token TOK_STRUCT TOK_PACKED TOK_UNSIGNED TOK_INT TOK_BYTE TOK_SHORTINT TOK_UNION
+%token TOK_OR_ASSIGN TOK_XOR_ASSIGN TOK_AND_ASSIGN TOK_SUB_ASSIGN
 
 %type <ast> range range_or_multirange  non_opt_range non_opt_multirange range_or_signed_int
 %type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list
@@ -2356,6 +2357,22 @@ simple_behavioral_stmt:
 		AstNode *node = new AstNode(AST_ASSIGN_EQ, $2, add_node);
 		SET_AST_NODE_LOC(node, @2, @5);
 		SET_AST_NODE_LOC(add_node, @2, @5);
+		ast_stack.back()->children.push_back(node);
+		append_attr(node, $1);
+	} |
+	attr lvalue TOK_SUB_ASSIGN delay expr {
+		AstNode *sub_node = new AstNode(AST_SUB, $2->clone(), $5);
+		AstNode *node = new AstNode(AST_ASSIGN_EQ, $2, sub_node);
+		SET_AST_NODE_LOC(node, @2, @5);
+		SET_AST_NODE_LOC(sub_node, @2, @5);
+		ast_stack.back()->children.push_back(node);
+		append_attr(node, $1);
+	} |
+	attr lvalue TOK_AND_ASSIGN delay expr {
+		AstNode *and_node = new AstNode(AST_BIT_AND, $2->clone(), $5);
+		AstNode *node = new AstNode(AST_ASSIGN_EQ, $2, and_node);
+		SET_AST_NODE_LOC(node, @2, @5);
+		SET_AST_NODE_LOC(and_node, @2, @5);
 		ast_stack.back()->children.push_back(node);
 		append_attr(node, $1);
 	};

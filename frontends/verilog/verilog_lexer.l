@@ -527,7 +527,9 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 ".*" { return TOK_WILDCARD_CONNECT; }
 
 "|=" { SV_KEYWORD(TOK_OR_ASSIGN); }
+"&=" { SV_KEYWORD(TOK_AND_ASSIGN); }
 "+=" { SV_KEYWORD(TOK_PLUS_ASSIGN); }
+"-=" { SV_KEYWORD(TOK_SUB_ASSIGN); }
 "^=" { SV_KEYWORD(TOK_XOR_ASSIGN); }
 
 [-+]?[=*]> {
