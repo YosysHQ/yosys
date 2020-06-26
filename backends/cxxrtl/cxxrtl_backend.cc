@@ -2349,9 +2349,9 @@ struct CxxrtlBackend : public Backend {
 		log("      top.step();\n");
 		log("      while (1) {\n");
 		log("        /* user logic */\n");
-		log("        top.p_clk = value<1> {0u};\n");
+		log("        top.p_clk.set(false);\n");
 		log("        top.step();\n");
-		log("        top.p_clk = value<1> {1u};\n");
+		log("        top.p_clk.set(true);\n");
 		log("        top.step();\n");
 		log("      }\n");
 		log("    }\n");
