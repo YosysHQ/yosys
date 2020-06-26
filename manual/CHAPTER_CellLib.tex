@@ -490,6 +490,7 @@ source tree.
 \begin{tabular}[t]{ll}
 Verilog & Cell Type \\
 \hline
+\lstinline[language=Verilog]; Y = A;     & {\tt \$\_BUF\_} \\
 \lstinline[language=Verilog]; Y = ~A;    & {\tt \$\_NOT\_} \\
 \lstinline[language=Verilog]; Y = A & B; & {\tt \$\_AND\_} \\
 \lstinline[language=Verilog]; Y = ~(A & B); & {\tt \$\_NAND\_} \\
@@ -499,8 +500,16 @@ Verilog & Cell Type \\
 \lstinline[language=Verilog]; Y = A | ~B; & {\tt \$\_ORNOT\_} \\
 \lstinline[language=Verilog]; Y = A ^ B; & {\tt \$\_XOR\_} \\
 \lstinline[language=Verilog]; Y = ~(A ^ B); & {\tt \$\_XNOR\_} \\
+\lstinline[language=Verilog]; Y = ~((A & B) | C); & {\tt \$\_AOI3\_} \\
+\lstinline[language=Verilog]; Y = ~((A | B) & C); & {\tt \$\_OAI3\_} \\
+\lstinline[language=Verilog]; Y = ~((A & B) | (C & D)); & {\tt \$\_AOI4\_} \\
+\lstinline[language=Verilog]; Y = ~((A | B) & (C | D)); & {\tt \$\_OAI4\_} \\
 \lstinline[language=Verilog]; Y = S ? B : A; & {\tt \$\_MUX\_} \\
-\lstinline[language=Verilog]; Y = EN ? A : 'bz; & {\tt \$\_TBUF\_} \\
+\lstinline[language=Verilog]; Y = ~(S ? B : A); & {\tt \$\_NMUX\_} \\
+(see below) & {\tt \$\_MUX4\_} \\
+(see below) & {\tt \$\_MUX8\_} \\
+(see below) & {\tt \$\_MUX16\_} \\
+\lstinline[language=Verilog]; Y = EN ? A : 1'bz; & {\tt \$\_TBUF\_} \\
 \hline
 \lstinline[language=Verilog]; always @(negedge C) Q <= D; & {\tt \$\_DFF\_N\_} \\
 \lstinline[language=Verilog]; always @(posedge C) Q <= D; & {\tt \$\_DFF\_P\_} \\
@@ -611,9 +620,33 @@ $ClkEdge$ & $SetLvl$ & $RstLvl$ & $EnLvl$ & Cell Type \\
 \end{table}
 
 Tables~\ref{tab:CellLib_gates}, \ref{tab:CellLib_gates_dffe}, \ref{tab:CellLib_gates_adff}, \ref{tab:CellLib_gates_adffe}, \ref{tab:CellLib_gates_dffsr} and \ref{tab:CellLib_gates_dffsre} list all cell types used for gate level logic. The cell types
-{\tt \$\_NOT\_}, {\tt \$\_AND\_}, {\tt \$\_NAND\_}, {\tt \$\_ANDNOT\_}, {\tt \$\_OR\_}, {\tt \$\_NOR\_},
-{\tt \$\_ORNOT\_}, {\tt \$\_XOR\_}, {\tt \$\_XNOR\_} and {\tt \$\_MUX\_} are used to model combinatorial logic.
+{\tt \$\_BUF\_}, {\tt \$\_NOT\_}, {\tt \$\_AND\_}, {\tt \$\_NAND\_}, {\tt \$\_ANDNOT\_},
+{\tt \$\_OR\_}, {\tt \$\_NOR\_}, {\tt \$\_ORNOT\_}, {\tt \$\_XOR\_}, {\tt \$\_XNOR\_},
+{\tt \$\_AOI3\_}, {\tt \$\_OAI3\_}, {\tt \$\_AOI4\_}, {\tt \$\_OAI4\_},
+{\tt \$\_MUX\_}, {\tt \$\_MUX4\_}, {\tt \$\_MUX8\_}, {\tt \$\_MUX16\_} and {\tt \$\_NMUX\_} are used to model combinatorial logic.
 The cell type {\tt \$\_TBUF\_} is used to model tristate logic.
+
+The {\tt \$\_MUX4\_}, {\tt \$\_MUX8\_} and {\tt \$\_MUX16\_} cells are used to model wide muxes, and correspond to the following Verilog code:
+
+\begin{lstlisting}[language=Verilog]
+// $_MUX4_
+assign Y = T ? (S ? D : C) :
+               (S ? B : A);
+// $_MUX8_
+assign Y = U ? T ? (S ? H : G) :
+                   (S ? F : E) :
+               T ? (S ? D : C) :
+                   (S ? B : A);
+// $_MUX16_
+assign Y = V ? U ? T ? (S ? P : O) :
+                       (S ? N : M) :
+                   T ? (S ? L : K) :
+                       (S ? J : I) :
+               U ? T ? (S ? H : G) :
+                       (S ? F : E) :
+                   T ? (S ? D : C) :
+                       (S ? B : A);
+\end{lstlisting}
 
 The cell types {\tt \$\_DFF\_N\_} and {\tt \$\_DFF\_P\_} represent d-type flip-flops.
 
@@ -765,8 +798,3 @@ Add information about {\tt \$ff} and {\tt \$\_FF\_} cells.
 \begin{fixme}
 Add information about {\tt \$\_DLATCH\_?\_}, and {\tt \$\_DLATCHSR\_???\_} cells.
 \end{fixme}
-
-\begin{fixme}
-Add information about {\tt \$\_AOI3\_}, {\tt \$\_OAI3\_}, {\tt \$\_AOI4\_}, {\tt \$\_OAI4\_}, and {\tt \$\_NMUX\_} cells.
-\end{fixme}
-
