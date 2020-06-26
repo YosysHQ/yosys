@@ -1111,7 +1111,8 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 			wire->start_offset = min(netbus->LeftIndex(), netbus->RightIndex());
 			MapIter mibus;
 			FOREACH_NET_OF_NETBUS(netbus, mibus, net) {
-				import_attributes(wire->attributes, net, nl);
+				if (net)
+					import_attributes(wire->attributes, net, nl);
 				break;
 			}
 
