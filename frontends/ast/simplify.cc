@@ -1126,6 +1126,10 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			bool in_param_here = in_param;
 			if (i == 0 && (type == AST_REPLICATE || type == AST_WIRE))
 				const_fold_here = true, in_param_here = true;
+			if (i == 0 && (type == AST_GENIF || type == AST_GENCASE))
+				in_param_here = true;
+			if (i == 1 && (type == AST_FOR || type == AST_GENFOR))
+				in_param_here = true;
 			if (type == AST_PARAMETER || type == AST_LOCALPARAM)
 				const_fold_here = true;
 			if (i == 0 && (type == AST_ASSIGN || type == AST_ASSIGN_EQ || type == AST_ASSIGN_LE))
@@ -1942,7 +1946,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 					continue;
 
 				buf = child->clone();
-				while (buf->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
+				while (buf->simplify(true, false, false, stage, width_hint, sign_hint, true)) { }
 				if (buf->type != AST_CONSTANT) {
 					// for (auto f : log_files)
 					// 	dumpAst(f, "verilog-ast> ");
