@@ -389,7 +389,7 @@ struct PartitionPass : public Pass {
 		log("new modules will be created and selected, with names described by:\n");
 		log("  `printf(\"%%s_partition%%d\", name, i)`,\n");
 		log("where `name` is the name of the module being partitioned and `i` is the\n");
-		log("partition number.\n");
+		log("partition number (starting at 0).\n");
 		log("\n");
 		log("Options: \n");
 		log("\n");
@@ -401,9 +401,9 @@ struct PartitionPass : public Pass {
 		log("    Must be between 1 and 49.\n");
 		log("\n");
 		log("  -cell-costs <option>\n");
-		log("    Specify the weights cell types for the hypergraph partitioner and for option\n");
-		log("    `-s` above. Acceptable options are \"default\" (which, confusingly, is not\n");
-		log("    the default here), \"cmos\", and \"unit\", which is the default option.\n");
+		log("    Specify the weights of basic cell types for the hypergraph partitioner.\n");
+		log("    Acceptable options are \"default\" (which, confusingly, is not the default\n");
+		log("    here), \"cmos\", and \"unit\", which is the default option.\n");
 		log("\n");
 		log("  -v\n");
 		log("    Print verbose output.\n");
