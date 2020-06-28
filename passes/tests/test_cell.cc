@@ -264,6 +264,10 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 		cell->setPort(ID::Y, wire);
 	}
 
+	if (cell_type.in(ID($shl), ID($shr), ID($sshl), ID($sshr))) {
+		cell->parameters[ID::B_SIGNED] = false;
+	}
+
 	if (muxdiv && cell_type.in(ID($div), ID($mod), ID($divfloor), ID($modfloor))) {
 		auto b_not_zero = module->ReduceBool(NEW_ID, cell->getPort(ID::B));
 		auto div_out = module->addWire(NEW_ID, GetSize(cell->getPort(ID::Y)));
