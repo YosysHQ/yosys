@@ -445,6 +445,8 @@ struct ExposePass : public Pass {
 
 			SigMap out_to_in_map;
 
+			std::map<RTLIL::Wire*, RTLIL::IdString> wire_map;
+
 			for (auto w : module->wires())
 			{
 				if (flag_shared) {
@@ -462,8 +464,7 @@ struct ExposePass : public Pass {
 					if (!w->port_input) {
 						w->port_input = true;
 						log("New module port: %s/%s\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(w->name));
-						RTLIL::Wire *in_wire = module->addWire(NEW_ID, GetSize(w));
-						out_to_in_map.add(w, in_wire);
+						wire_map[w] = NEW_ID;
 					}
 				}
 				else
@@ -474,10 +475,20 @@ struct ExposePass : public Pass {
 					}
 
 					if (flag_cut) {
-						RTLIL::Wire *in_wire = add_new_wire(module, w->name.str() + sep + "i", w->width);
-						in_wire->port_input = true;
-						out_to_in_map.add(sigmap(w), in_wire);
+						wire_map[w] = w->name.str() + sep + "i";
 					}
+				}
+			}
+			for (auto &wm : wire_map)
+			{
+				if (flag_input) {
+						RTLIL::Wire *in_wire = module->addWire(wm.second, GetSize(wm.first));
+						out_to_in_map.add(wm.first, in_wire);
+				}
+				if (flag_cut) {
+						RTLIL::Wire *in_wire = add_new_wire(module, wm.second, wm.first->width);
+						in_wire->port_input = true;
+						out_to_in_map.add(sigmap(wm.first), in_wire);
 				}
 			}
 
