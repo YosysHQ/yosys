@@ -26,7 +26,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct Ecp5FfinitPass : public Pass {
 	Ecp5FfinitPass() : Pass("ecp5_ffinit", "ECP5: handle FF init values") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -36,7 +36,7 @@ struct Ecp5FfinitPass : public Pass {
 		log("If reset is not used, set the reset value to the init value, otherwise\n");
 		log("unmap out the reset (if not an async reset).\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing ECP5_FFINIT pass (implement FF init values).\n");
 

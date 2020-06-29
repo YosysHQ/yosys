@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct LoggerPass : public Pass {
 	LoggerPass() : Pass("logger", "set logger properties") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -66,7 +66,7 @@ struct LoggerPass : public Pass {
 		log("\n");
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design * design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design * design) override
 	{
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)

@@ -326,7 +326,7 @@ struct MuxpackWorker
 
 struct MuxpackPass : public Pass {
 	MuxpackPass() : Pass("muxpack", "$mux/$pmux cascades to $pmux") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -341,7 +341,7 @@ struct MuxpackPass : public Pass {
 		log("certain that their select inputs are mutually exclusive.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing MUXPACK pass ($mux cell cascades to $pmux).\n");
 

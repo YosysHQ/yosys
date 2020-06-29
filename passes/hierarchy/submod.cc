@@ -319,7 +319,7 @@ struct SubmodWorker
 
 struct SubmodPass : public Pass {
 	SubmodPass() : Pass("submod", "moving part of a module to a new submodule") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -351,7 +351,7 @@ struct SubmodPass : public Pass {
 		log("        original module with original public names.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing SUBMOD pass (moving cells to submodules as requested).\n");
 		log_push();

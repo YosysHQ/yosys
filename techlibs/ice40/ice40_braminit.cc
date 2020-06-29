@@ -128,7 +128,7 @@ static void run_ice40_braminit(Module *module)
 
 struct Ice40BRAMInitPass : public Pass {
 	Ice40BRAMInitPass() : Pass("ice40_braminit", "iCE40: perform SB_RAM40_4K initialization from file") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -138,7 +138,7 @@ struct Ice40BRAMInitPass : public Pass {
 		log("parameter and converts it into the required INIT_x attributes\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing ICE40_BRAMINIT pass.\n");
 

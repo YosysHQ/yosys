@@ -22,7 +22,7 @@ struct EvalDemoPass : public Pass
 {
 	EvalDemoPass() : Pass("evaldemo") { }
 
-	void execute(vector<string>, Design *design) YS_OVERRIDE
+	void execute(vector<string>, Design *design) override
 	{
 		Module *module = design->top_module();
 

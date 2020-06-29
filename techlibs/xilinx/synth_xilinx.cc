@@ -30,13 +30,13 @@ struct SynthXilinxPass : public ScriptPass
 {
 	SynthXilinxPass() : ScriptPass("synth_xilinx", "synthesis for Xilinx FPGAs") { }
 
-	void on_register() YS_OVERRIDE
+	void on_register() override
 	{
 		RTLIL::constpad["synth_xilinx.abc9.xc7.W"] = "300"; // Number with which ABC will map a 6-input gate
 								    // to one LUT6 (instead of a LUT5 + LUT2)
 	}
 
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -149,7 +149,7 @@ struct SynthXilinxPass : public ScriptPass
 	int lut_size;
 	int widelut_size;
 
-	void clear_flags() YS_OVERRIDE
+	void clear_flags() override
 	{
 		top_opt = "-auto-top";
 		edif_file.clear();
@@ -176,7 +176,7 @@ struct SynthXilinxPass : public ScriptPass
 		lut_size = 6;
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::string run_from, run_to;
 		clear_flags();
@@ -337,7 +337,7 @@ struct SynthXilinxPass : public ScriptPass
 		log_pop();
 	}
 
-	void script() YS_OVERRIDE
+	void script() override
 	{
 		std::string lut_size_s = std::to_string(lut_size);
 		if (help_mode)
@@ -540,7 +540,7 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("fine")) {
-			run("dff2dffe -direct-match $_DFF_* -direct-match $__DFFS_*");
+			run("dff2dffe -direct-match $_DFF_* -direct-match $_SDFF_*");
 			if (help_mode)
 				run("muxcover <internal options> ('-widemux' only)");
 			else if (widemux > 0) {
@@ -598,7 +598,7 @@ struct SynthXilinxPass : public ScriptPass
 		if (check_label("map_ffs", "('-abc9' only)")) {
 			if (abc9 || help_mode) {
 				if (dff || help_mode)
-					run("zinit -all w:* t:$_DFF_?_ t:$_DFFE_??_ t:$__DFFS*", "('-dff' only)");
+					run("zinit -all w:* t:$_DFF_?_ t:$_DFFE_??_ t:$_SDFF*", "('-dff' only)");
 				run("techmap -map " + ff_map_file);
 			}
 		}

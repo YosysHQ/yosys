@@ -72,7 +72,7 @@ void create_ice40_wrapcarry(ice40_wrapcarry_pm &pm)
 
 struct Ice40WrapCarryPass : public Pass {
 	Ice40WrapCarryPass() : Pass("ice40_wrapcarry", "iCE40: wrap carries") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -91,7 +91,7 @@ struct Ice40WrapCarryPass : public Pass {
 		log("        including restoring their attributes.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool unwrap = false;
 

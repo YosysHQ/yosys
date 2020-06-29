@@ -1822,6 +1822,39 @@ endgenerate
 
 endmodule
 
+// --------------------------------------------------------
+
+module \$dffsre (CLK, SET, CLR, EN, D, Q);
+
+parameter WIDTH = 0;
+parameter CLK_POLARITY = 1'b1;
+parameter SET_POLARITY = 1'b1;
+parameter CLR_POLARITY = 1'b1;
+parameter EN_POLARITY = 1'b1;
+
+input CLK, EN;
+input [WIDTH-1:0] SET, CLR, D;
+output reg [WIDTH-1:0] Q;
+
+wire pos_clk = CLK == CLK_POLARITY;
+wire [WIDTH-1:0] pos_set = SET_POLARITY ? SET : ~SET;
+wire [WIDTH-1:0] pos_clr = CLR_POLARITY ? CLR : ~CLR;
+
+genvar i;
+generate
+	for (i = 0; i < WIDTH; i = i+1) begin:bitslices
+		always @(posedge pos_set[i], posedge pos_clr[i], posedge pos_clk)
+			if (pos_clr[i])
+				Q[i] <= 0;
+			else if (pos_set[i])
+				Q[i] <= 1;
+			else if (EN == EN_POLARITY)
+				Q[i] <= D[i];
+	end
+endgenerate
+
+endmodule
+
 `endif
 // --------------------------------------------------------
 
@@ -1849,6 +1882,107 @@ endmodule
 
 // --------------------------------------------------------
 
+module \$sdff (CLK, SRST, D, Q);
+
+parameter WIDTH = 0;
+parameter CLK_POLARITY = 1'b1;
+parameter SRST_POLARITY = 1'b1;
+parameter SRST_VALUE = 0;
+
+input CLK, SRST;
+input [WIDTH-1:0] D;
+output reg [WIDTH-1:0] Q;
+wire pos_clk = CLK == CLK_POLARITY;
+wire pos_srst = SRST == SRST_POLARITY;
+
+always @(posedge pos_clk) begin
+	if (pos_srst)
+		Q <= SRST_VALUE;
+	else
+		Q <= D;
+end
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$adffe (CLK, ARST, EN, D, Q);
+
+parameter WIDTH = 0;
+parameter CLK_POLARITY = 1'b1;
+parameter EN_POLARITY = 1'b1;
+parameter ARST_POLARITY = 1'b1;
+parameter ARST_VALUE = 0;
+
+input CLK, ARST, EN;
+input [WIDTH-1:0] D;
+output reg [WIDTH-1:0] Q;
+wire pos_clk = CLK == CLK_POLARITY;
+wire pos_arst = ARST == ARST_POLARITY;
+
+always @(posedge pos_clk, posedge pos_arst) begin
+	if (pos_arst)
+		Q <= ARST_VALUE;
+	else if (EN == EN_POLARITY)
+		Q <= D;
+end
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$sdffe (CLK, SRST, EN, D, Q);
+
+parameter WIDTH = 0;
+parameter CLK_POLARITY = 1'b1;
+parameter EN_POLARITY = 1'b1;
+parameter SRST_POLARITY = 1'b1;
+parameter SRST_VALUE = 0;
+
+input CLK, SRST, EN;
+input [WIDTH-1:0] D;
+output reg [WIDTH-1:0] Q;
+wire pos_clk = CLK == CLK_POLARITY;
+wire pos_srst = SRST == SRST_POLARITY;
+
+always @(posedge pos_clk) begin
+	if (pos_srst)
+		Q <= SRST_VALUE;
+	else if (EN == EN_POLARITY)
+		Q <= D;
+end
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$sdffce (CLK, SRST, EN, D, Q);
+
+parameter WIDTH = 0;
+parameter CLK_POLARITY = 1'b1;
+parameter EN_POLARITY = 1'b1;
+parameter SRST_POLARITY = 1'b1;
+parameter SRST_VALUE = 0;
+
+input CLK, SRST, EN;
+input [WIDTH-1:0] D;
+output reg [WIDTH-1:0] Q;
+wire pos_clk = CLK == CLK_POLARITY;
+wire pos_srst = SRST == SRST_POLARITY;
+
+always @(posedge pos_clk) begin
+	if (EN == EN_POLARITY) begin
+		if (pos_srst)
+			Q <= SRST_VALUE;
+		else
+			Q <= D;
+	end
+end
+
+endmodule
+
+// --------------------------------------------------------
+
 module \$dlatch (EN, D, Q);
 
 parameter WIDTH = 0;
@@ -1860,6 +1994,28 @@ output reg [WIDTH-1:0] Q;
 
 always @* begin
 	if (EN == EN_POLARITY)
+		Q = D;
+end
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$adlatch (EN, ARST, D, Q);
+
+parameter WIDTH = 0;
+parameter EN_POLARITY = 1'b1;
+parameter ARST_POLARITY = 1'b1;
+parameter ARST_VALUE = 0;
+
+input EN, ARST;
+input [WIDTH-1:0] D;
+output reg [WIDTH-1:0] Q;
+
+always @* begin
+	if (ARST == ARST_POLARITY)
+		Q = ARST_VALUE;
+	else if (EN == EN_POLARITY)
 		Q = D;
 end
 

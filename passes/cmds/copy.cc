@@ -26,7 +26,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct CopyPass : public Pass {
 	CopyPass() : Pass("copy", "copy modules in the design") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -36,7 +36,7 @@ struct CopyPass : public Pass {
 		log("by this command.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		if (args.size() != 3)
 			log_cmd_error("Invalid number of arguments!\n");

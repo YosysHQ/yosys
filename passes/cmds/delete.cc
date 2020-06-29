@@ -24,7 +24,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct DeletePass : public Pass {
 	DeletePass() : Pass("delete", "delete objects in the design") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -40,7 +40,7 @@ struct DeletePass : public Pass {
 		log("selected wires, thus 'deleting' module ports.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool flag_input = false;
 		bool flag_output = false;

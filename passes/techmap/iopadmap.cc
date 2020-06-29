@@ -34,7 +34,7 @@ void split_portname_pair(std::string &port1, std::string &port2)
 
 struct IopadmapPass : public Pass {
 	IopadmapPass() : Pass("iopadmap", "technology mapping of i/o pads (or buffers)") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		log("\n");
 		log("    iopadmap [options] [selection]\n");
@@ -97,7 +97,7 @@ struct IopadmapPass : public Pass {
 		modules_processed.insert(module);
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing IOPADMAP pass (mapping inputs/outputs to IO-PAD cells).\n");
 

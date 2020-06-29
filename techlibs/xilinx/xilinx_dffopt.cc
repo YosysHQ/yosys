@@ -99,7 +99,7 @@ bool merge_lut(LutData &result, const LutData &data, const LutData select, bool 
 
 struct XilinxDffOptPass : public Pass {
 	XilinxDffOptPass() : Pass("xilinx_dffopt", "Xilinx: optimize FF control signal usage") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -113,7 +113,7 @@ struct XilinxDffOptPass : public Pass {
 		log("        Assume a LUT4-based device (instead of a LUT6-based device).\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing XILINX_DFFOPT pass (optimize FF control signal usage).\n");
 

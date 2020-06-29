@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct Async2syncPass : public Pass {
 	Async2syncPass() : Pass("async2sync", "convert async FF inputs to sync circuits") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -42,7 +42,7 @@ struct Async2syncPass : public Pass {
 		log("Currently only $adff, $dffsr, and $dlatch cells are supported by this pass.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		// bool flag_noinit = false;
 

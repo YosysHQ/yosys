@@ -125,7 +125,7 @@ struct PruneWorker
 
 struct ProcPrunePass : public Pass {
 	ProcPrunePass() : Pass("proc_prune", "remove redundant assignments") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -135,7 +135,7 @@ struct ProcPrunePass : public Pass {
 		log("a later assignment to the same signal and removes them.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		int total_removed_count = 0, total_promoted_count = 0;
 		log_header(design, "Executing PROC_PRUNE pass (remove redundant assignments in processes).\n");

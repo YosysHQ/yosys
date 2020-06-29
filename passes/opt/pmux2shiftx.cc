@@ -63,11 +63,13 @@ struct OnehotDatabase
 			vector<SigSpec> inputs;
 			SigSpec output;
 
-			if (cell->type.in(ID($adff), ID($dff), ID($dffe), ID($dlatch), ID($ff)))
+			if (cell->type.in(ID($adff), ID($adffe), ID($dff), ID($dffe), ID($sdff), ID($sdffe), ID($sdffce), ID($dlatch), ID($adlatch), ID($ff)))
 			{
 				output = cell->getPort(ID::Q);
-				if (cell->type == ID($adff))
+				if (cell->type.in(ID($adff), ID($adffe), ID($adlatch)))
 					inputs.push_back(cell->getParam(ID::ARST_VALUE));
+				if (cell->type.in(ID($sdff), ID($sdffe), ID($sdffce)))
+					inputs.push_back(cell->getParam(ID::SRST_VALUE));
 				inputs.push_back(cell->getPort(ID::D));
 			}
 
@@ -198,7 +200,7 @@ struct OnehotDatabase
 
 struct Pmux2ShiftxPass : public Pass {
 	Pmux2ShiftxPass() : Pass("pmux2shiftx", "transform $pmux cells to $shiftx cells") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -225,7 +227,7 @@ struct Pmux2ShiftxPass : public Pass {
 		log("        disable $sub inference for \"range decoders\"\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		int min_density = 50;
 		int min_choices = 3;
@@ -737,7 +739,7 @@ struct Pmux2ShiftxPass : public Pass {
 
 struct OnehotPass : public Pass {
 	OnehotPass() : Pass("onehot", "optimize $eq cells for onehot signals") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -749,7 +751,7 @@ struct OnehotPass : public Pass {
 		log("        verbose output\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool verbose = false;
 		bool verbose_onehot = false;

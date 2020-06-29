@@ -67,7 +67,7 @@ static void add_package_types(dict<std::string, AST::AstNode *> &user_types, std
 
 struct VerilogFrontend : public Frontend {
 	VerilogFrontend() : Frontend("verilog", "read modules from Verilog file") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -232,7 +232,7 @@ struct VerilogFrontend : public Frontend {
 		log("supported by the Yosys Verilog front-end.\n");
 		log("\n");
 	}
-	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool flag_dump_ast1 = false;
 		bool flag_dump_ast2 = false;
@@ -503,7 +503,7 @@ struct VerilogFrontend : public Frontend {
 
 struct VerilogDefaults : public Pass {
 	VerilogDefaults() : Pass("verilog_defaults", "set default options for read_verilog") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -524,7 +524,7 @@ struct VerilogDefaults : public Pass {
 		log("not imply -clear.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design*) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design*) override
 	{
 		if (args.size() < 2)
 			cmd_error(args, 1, "Missing argument.");
@@ -561,7 +561,7 @@ struct VerilogDefaults : public Pass {
 
 struct VerilogDefines : public Pass {
 	VerilogDefines() : Pass("verilog_defines", "define and undefine verilog defines") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -583,7 +583,7 @@ struct VerilogDefines : public Pass {
 		log("        list currently defined preprocessor symbols\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {

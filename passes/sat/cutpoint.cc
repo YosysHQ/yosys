@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct CutpointPass : public Pass {
 	CutpointPass() : Pass("cutpoint", "adds formal cut points to the design") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -38,7 +38,7 @@ struct CutpointPass : public Pass {
 		log("        $anyseq cell and drive the cutpoint net from that\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		 bool flag_undef = false;
 
@@ -126,15 +126,16 @@ struct CutpointPass : public Pass {
 				}
 
 				vector<Wire*> rewrite_wires;
-				for (auto wire : module->wires()) {
-					if (!wire->port_input)
-						continue;
-					int bit_count = 0;
-					for (auto &bit : sigmap(wire))
-						if (cutpoint_bits.count(bit))
-							bit_count++;
-					if (bit_count)
-						rewrite_wires.push_back(wire);
+				for (auto id : module->ports) {
+					RTLIL::Wire *wire = module->wire(id);
+					if (wire->port_input) {
+						int bit_count = 0;
+						for (auto &bit : sigmap(wire))
+							if (cutpoint_bits.count(bit))
+								bit_count++;
+						if (bit_count)
+							rewrite_wires.push_back(wire);
+					}
 				}
 
 				for (auto wire : rewrite_wires) {

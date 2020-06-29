@@ -27,7 +27,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct ScatterPass : public Pass {
 	ScatterPass() : Pass("scatter", "add additional intermediate nets") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -41,7 +41,7 @@ struct ScatterPass : public Pass {
 		log("Use the opt_clean command to get rid of the additional nets.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		CellTypes ct(design);
 		extra_args(args, 1, design);

@@ -29,7 +29,7 @@ struct SynthGowinPass : public ScriptPass
 {
 	SynthGowinPass() : ScriptPass("synth_gowin", "synthesis for Gowin FPGAs") { }
 
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -82,7 +82,7 @@ struct SynthGowinPass : public ScriptPass
 	string top_opt, vout_file;
 	bool retime, nobram, nolutram, flatten, nodffe, nowidelut, abc9, noiopads;
 
-	void clear_flags() YS_OVERRIDE
+	void clear_flags() override
 	{
 		top_opt = "-auto-top";
 		vout_file = "";
@@ -96,7 +96,7 @@ struct SynthGowinPass : public ScriptPass
 		noiopads = false;
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		string run_from, run_to;
 		clear_flags();
@@ -167,7 +167,7 @@ struct SynthGowinPass : public ScriptPass
 		log_pop();
 	}
 
-	void script() YS_OVERRIDE
+	void script() override
 	{
 		if (check_label("begin"))
 		{
@@ -222,7 +222,7 @@ struct SynthGowinPass : public ScriptPass
 			run("dff2dffs -match-init");
 			run("opt_clean");
 			if (!nodffe)
-				run("dff2dffe -direct-match $_DFF_* -direct-match $__DFFS_*");
+				run("dff2dffe -direct-match $_DFF_* -direct-match $_SDFF_*");
 			run("techmap -map +/gowin/cells_map.v");
 			run("opt_expr -mux_undef");
 			run("simplemap");

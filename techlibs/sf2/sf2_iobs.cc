@@ -155,7 +155,7 @@ static void handle_clkint(Module *module)
 
 struct Sf2IobsPass : public Pass {
 	Sf2IobsPass() : Pass("sf2_iobs", "SF2: insert IO buffers") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -167,7 +167,7 @@ struct Sf2IobsPass : public Pass {
 		log("        Insert PAD->global_net clock buffers\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool clkbuf_mode = false;
 

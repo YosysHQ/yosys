@@ -713,7 +713,7 @@ extern Tcl_Interp *yosys_get_tcl_interp()
 
 struct TclPass : public Pass {
 	TclPass() : Pass("tcl", "execute a TCL script file") { }
-	void help() YS_OVERRIDE {
+	void help() override {
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    tcl <filename> [args]\n");
@@ -730,7 +730,7 @@ struct TclPass : public Pass {
 		log("the standard $argc and $argv variables.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *) YS_OVERRIDE {
+	void execute(std::vector<std::string> args, RTLIL::Design *) override {
 		if (args.size() < 2)
 			log_cmd_error("Missing script file.\n");
 
@@ -1220,7 +1220,7 @@ void shell(RTLIL::Design *design)
 
 struct ShellPass : public Pass {
 	ShellPass() : Pass("shell", "enter interactive command mode") { }
-	void help() YS_OVERRIDE {
+	void help() override {
 		log("\n");
 		log("    shell\n");
 		log("\n");
@@ -1252,7 +1252,7 @@ struct ShellPass : public Pass {
 		log("Press Ctrl-D or type 'exit' to leave the interactive shell.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE {
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
 		extra_args(args, 1, design, false);
 		shell(design);
 	}
@@ -1261,7 +1261,7 @@ struct ShellPass : public Pass {
 #if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
 struct HistoryPass : public Pass {
 	HistoryPass() : Pass("history", "show last interactive commands") { }
-	void help() YS_OVERRIDE {
+	void help() override {
 		log("\n");
 		log("    history\n");
 		log("\n");
@@ -1270,7 +1270,7 @@ struct HistoryPass : public Pass {
 		log("from executed scripts.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE {
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
 		extra_args(args, 1, design, false);
 #ifdef YOSYS_ENABLE_READLINE
 		for(HIST_ENTRY **list = history_list(); *list != NULL; list++)
@@ -1285,7 +1285,7 @@ struct HistoryPass : public Pass {
 
 struct ScriptCmdPass : public Pass {
 	ScriptCmdPass() : Pass("script", "execute commands from file or wire") { }
-	void help() YS_OVERRIDE {
+	void help() override {
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    script <filename> [<from_label>:<to_label>]\n");
@@ -1308,7 +1308,7 @@ struct ScriptCmdPass : public Pass {
 		log("'-module' mode can be exited by using the 'cd' command.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool scriptwire = false;
 

@@ -26,12 +26,12 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct Dff2dffsPass : public Pass {
 	Dff2dffsPass() : Pass("dff2dffs", "process sync set/reset with SR over CE priority") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		log("\n");
 		log("    dff2dffs [options] [selection]\n");
 		log("\n");
-		log("Merge synchronous set/reset $_MUX_ cells to create $__DFFS_[NP][NP][01], to be run before\n");
+		log("Merge synchronous set/reset $_MUX_ cells to create $_SDFF_[NP][NP][01]_, to be run before\n");
 		log("dff2dffe for SR over CE priority.\n");
 		log("\n");
 		log("    -match-init\n");
@@ -39,7 +39,7 @@ struct Dff2dffsPass : public Pass {
 		log("        output wire's init attribute (if any).\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing dff2dffs pass (merge synchronous set/reset into FF cells).\n");
 
@@ -138,21 +138,21 @@ struct Dff2dffsPass : public Pass {
 
 				if (sr_val == State::S1) {
 					if (cell->type == ID($_DFF_N_)) {
-						if (invert_sr) cell->type = ID($__DFFS_NN1_);
-						else cell->type = ID($__DFFS_NP1_);
+						if (invert_sr) cell->type = ID($_SDFF_NN1_);
+						else cell->type = ID($_SDFF_NP1_);
 					} else {
 						log_assert(cell->type == ID($_DFF_P_));
-						if (invert_sr) cell->type = ID($__DFFS_PN1_);
-						else cell->type = ID($__DFFS_PP1_);
+						if (invert_sr) cell->type = ID($_SDFF_PN1_);
+						else cell->type = ID($_SDFF_PP1_);
 					}
 				} else {
 					if (cell->type == ID($_DFF_N_)) {
-						if (invert_sr) cell->type = ID($__DFFS_NN0_);
-						else cell->type = ID($__DFFS_NP0_);
+						if (invert_sr) cell->type = ID($_SDFF_NN0_);
+						else cell->type = ID($_SDFF_NP0_);
 					} else {
 						log_assert(cell->type == ID($_DFF_P_));
-						if (invert_sr) cell->type = ID($__DFFS_PN0_);
-						else cell->type = ID($__DFFS_PP0_);
+						if (invert_sr) cell->type = ID($_SDFF_PN0_);
+						else cell->type = ID($_SDFF_PP0_);
 					}
 				}
 				cell->setPort(ID::R, sr_sig);

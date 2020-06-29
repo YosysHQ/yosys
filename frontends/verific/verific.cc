@@ -1109,7 +1109,12 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 
 			RTLIL::Wire *wire = module->addWire(wire_name, netbus->Size());
 			wire->start_offset = min(netbus->LeftIndex(), netbus->RightIndex());
-			import_attributes(wire->attributes, netbus, nl);
+			MapIter mibus;
+			FOREACH_NET_OF_NETBUS(netbus, mibus, net) {
+				if (net)
+					import_attributes(wire->attributes, net, nl);
+				break;
+			}
 
 			RTLIL::Const initval = Const(State::Sx, GetSize(wire));
 			bool initval_valid = false;
@@ -1882,7 +1887,7 @@ struct VerificExtNets
 				new_net = new Net(name.c_str());
 				nl->Add(new_net);
 
-				Net *n YS_ATTRIBUTE(unused) = route_up(new_net, port->IsOutput(), ca_nl, ca_net);
+				Net *n = route_up(new_net, port->IsOutput(), ca_nl, ca_net);
 				log_assert(n == ca_net);
 			}
 
@@ -2008,7 +2013,7 @@ bool check_noverific_env()
 
 struct VerificPass : public Pass {
 	VerificPass() : Pass("verific", "load Verilog and VHDL designs using Verific") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -2147,7 +2152,7 @@ struct VerificPass : public Pass {
 		log("\n");
 	}
 #ifdef YOSYS_ENABLE_VERIFIC
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		static bool set_verific_global_flags = true;
 
@@ -2582,7 +2587,7 @@ struct VerificPass : public Pass {
 
 	}
 #else /* YOSYS_ENABLE_VERIFIC */
-	void execute(std::vector<std::string>, RTLIL::Design *) YS_OVERRIDE {
+	void execute(std::vector<std::string>, RTLIL::Design *) override {
 		log_cmd_error("This version of Yosys is built without Verific support.\n"
 				"\n"
 				"Use Symbiotic EDA Suite if you need Yosys+Verifc.\n"
@@ -2596,7 +2601,7 @@ struct VerificPass : public Pass {
 
 struct ReadPass : public Pass {
 	ReadPass() : Pass("read", "load HDL designs") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -2637,7 +2642,7 @@ struct ReadPass : public Pass {
 		log("Verific support. The default is to use Verific if it is available.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 #ifdef YOSYS_ENABLE_VERIFIC
 		static bool verific_available = !check_noverific_env();

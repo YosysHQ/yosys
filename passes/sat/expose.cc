@@ -217,7 +217,7 @@ RTLIL::Wire *add_new_wire(RTLIL::Module *module, RTLIL::IdString name, int width
 
 struct ExposePass : public Pass {
 	ExposePass() : Pass("expose", "convert internal signals to module ports") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -254,7 +254,7 @@ struct ExposePass : public Pass {
 		log("        designator for the exposed signal.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool flag_shared = false;
 		bool flag_evert = false;

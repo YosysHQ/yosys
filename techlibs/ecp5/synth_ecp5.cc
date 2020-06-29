@@ -30,12 +30,12 @@ struct SynthEcp5Pass : public ScriptPass
 {
 	SynthEcp5Pass() : ScriptPass("synth_ecp5", "synthesis for ECP5 FPGAs") { }
 
-	void on_register() YS_OVERRIDE
+	void on_register() override
 	{
 		RTLIL::constpad["synth_ecp5.abc9.W"] = "300";
 	}
 
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -112,7 +112,7 @@ struct SynthEcp5Pass : public ScriptPass
 	string top_opt, blif_file, edif_file, json_file;
 	bool noccu2, nodffe, nobram, nolutram, nowidelut, asyncprld, flatten, dff, retime, abc2, abc9, nodsp, vpr;
 
-	void clear_flags() YS_OVERRIDE
+	void clear_flags() override
 	{
 		top_opt = "-auto-top";
 		blif_file = "";
@@ -133,7 +133,7 @@ struct SynthEcp5Pass : public ScriptPass
 		nodsp = false;
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		string run_from, run_to;
 		clear_flags();
@@ -239,7 +239,7 @@ struct SynthEcp5Pass : public ScriptPass
 		log_pop();
 	}
 
-	void script() YS_OVERRIDE
+	void script() override
 	{
 		if (check_label("begin"))
 		{
@@ -314,9 +314,9 @@ struct SynthEcp5Pass : public ScriptPass
 			run("dff2dffs");
 			run("opt_clean");
 			if (!nodffe)
-				run("dff2dffe -direct-match $_DFF_* -direct-match $__DFFS_*");
+				run("dff2dffe -direct-match $_DFF_* -direct-match $_SDFF_*");
 			if ((abc9 && dff) || help_mode)
-				run("zinit -all w:* t:$_DFF_?_ t:$_DFFE_??_ t:$__DFFS*", "(only if -abc9 and -dff");
+				run("zinit -all w:* t:$_DFF_?_ t:$_DFFE_??_ t:$_SDFF*", "(only if -abc9 and -dff");
 			run(stringf("techmap -D NO_LUT %s -map +/ecp5/cells_map.v", help_mode ? "[-D ASYNC_PRLD]" : (asyncprld ? "-D ASYNC_PRLD" : "")));
 			run("opt_expr -undriven -mux_undef");
 			run("simplemap");

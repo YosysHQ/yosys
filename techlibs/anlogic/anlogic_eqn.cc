@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct AnlogicEqnPass : public Pass {
 	AnlogicEqnPass() : Pass("anlogic_eqn", "Anlogic: Calculate equations for luts") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		log("\n");
 		log("    anlogic_eqn [selection]\n");
@@ -63,7 +63,7 @@ struct AnlogicEqnPass : public Pass {
 		return Const(eqn);
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing ANLOGIC_EQN pass (calculate equations for luts).\n");
 

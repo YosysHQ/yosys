@@ -39,7 +39,8 @@ struct WreduceConfig
 			ID($lt), ID($le), ID($eq), ID($ne), ID($eqx), ID($nex), ID($ge), ID($gt),
 			ID($add), ID($sub), ID($mul), // ID($div), ID($mod), ID($divfloor), ID($modfloor), ID($pow),
 			ID($mux), ID($pmux),
-			ID($dff), ID($adff)
+			ID($dff), ID($dffe), ID($adff), ID($adffe), ID($sdff), ID($sdffe), ID($sdffce),
+			ID($dlatch), ID($adlatch),
 		});
 	}
 };
@@ -143,8 +144,8 @@ struct WreduceWorker
 
 		SigSpec sig_d = mi.sigmap(cell->getPort(ID::D));
 		SigSpec sig_q = mi.sigmap(cell->getPort(ID::Q));
-		bool is_adff = (cell->type == ID($adff));
-		Const initval, arst_value;
+		bool has_reset = false;
+		Const initval, rst_value;
 
 		int width_before = GetSize(sig_q);
 
@@ -152,7 +153,11 @@ struct WreduceWorker
 			return;
 
 		if (cell->parameters.count(ID::ARST_VALUE)) {
-			arst_value = cell->parameters[ID::ARST_VALUE];
+			rst_value = cell->parameters[ID::ARST_VALUE];
+			has_reset = true;
+		} else if (cell->parameters.count(ID::SRST_VALUE)) {
+			rst_value = cell->parameters[ID::SRST_VALUE];
+			has_reset = true;
 		}
 
 		bool zero_ext = sig_d[GetSize(sig_d)-1] == State::S0;
@@ -169,7 +174,7 @@ struct WreduceWorker
 		for (int i = GetSize(sig_q)-1; i >= 0; i--)
 		{
 			if (zero_ext && sig_d[i] == State::S0 && (initval[i] == State::S0 || initval[i] == State::Sx) &&
-					(!is_adff || i >= GetSize(arst_value) || arst_value[i] == State::S0 || arst_value[i] == State::Sx)) {
+					(!has_reset || i >= GetSize(rst_value) || rst_value[i] == State::S0 || rst_value[i] == State::Sx)) {
 				module->connect(sig_q[i], State::S0);
 				remove_init_bits.insert(sig_q[i]);
 				sig_d.remove(i);
@@ -178,7 +183,7 @@ struct WreduceWorker
 			}
 
 			if (sign_ext && i > 0 && sig_d[i] == sig_d[i-1] && initval[i] == initval[i-1] &&
-					(!is_adff || i >= GetSize(arst_value) || arst_value[i] == arst_value[i-1])) {
+					(!has_reset || i >= GetSize(rst_value) || rst_value[i] == rst_value[i-1])) {
 				module->connect(sig_q[i], sig_q[i-1]);
 				remove_init_bits.insert(sig_q[i]);
 				sig_d.remove(i);
@@ -221,8 +226,11 @@ struct WreduceWorker
 
 		// Narrow ARST_VALUE parameter to new size.
 		if (cell->parameters.count(ID::ARST_VALUE)) {
-			arst_value.bits.resize(GetSize(sig_q));
-			cell->setParam(ID::ARST_VALUE, arst_value);
+			rst_value.bits.resize(GetSize(sig_q));
+			cell->setParam(ID::ARST_VALUE, rst_value);
+		} else if (cell->parameters.count(ID::SRST_VALUE)) {
+			rst_value.bits.resize(GetSize(sig_q));
+			cell->setParam(ID::SRST_VALUE, rst_value);
 		}
 
 		cell->setPort(ID::D, sig_d);
@@ -272,7 +280,7 @@ struct WreduceWorker
 		if (cell->type.in(ID($mux), ID($pmux)))
 			return run_cell_mux(cell);
 
-		if (cell->type.in(ID($dff), ID($adff)))
+		if (cell->type.in(ID($dff), ID($dffe), ID($adff), ID($adffe), ID($sdff), ID($sdffe), ID($sdffce), ID($dlatch), ID($adlatch)))
 			return run_cell_dff(cell);
 
 		SigSpec sig = mi.sigmap(cell->getPort(ID::Y));
@@ -482,7 +490,7 @@ struct WreduceWorker
 
 struct WreducePass : public Pass {
 	WreducePass() : Pass("wreduce", "reduce the word size of operations if possible") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -505,7 +513,7 @@ struct WreducePass : public Pass {
 		log("        Do not optimize explicit don't-care values.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, Design *design) override
 	{
 		WreduceConfig config;
 		bool opt_memx = false;

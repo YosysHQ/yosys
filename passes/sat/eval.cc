@@ -359,7 +359,7 @@ struct VlogHammerReporter
 
 struct EvalPass : public Pass {
 	EvalPass() : Pass("eval", "evaluate the circuit given an input") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -382,7 +382,7 @@ struct EvalPass : public Pass {
 		log("        then all output ports of the current module are used.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::vector<std::pair<std::string, std::string>> sets;
 		std::vector<std::string> shows, tables;

@@ -143,7 +143,7 @@ struct ConnwrappersWorker
 
 struct ConnwrappersPass : public Pass {
 	ConnwrappersPass() : Pass("connwrappers", "match width of input-output port pairs") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -165,7 +165,7 @@ struct ConnwrappersPass : public Pass {
 		log("The options -signed, -unsigned, and -port can be specified multiple times.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		ConnwrappersWorker worker;
 

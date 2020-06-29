@@ -46,7 +46,7 @@ static std::string netname(std::set<std::string> &conntypes_code, std::set<std::
 
 struct IntersynthBackend : public Backend {
 	IntersynthBackend() : Backend("intersynth", "write design to InterSynth netlist file") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -71,7 +71,7 @@ struct IntersynthBackend : public Backend {
 		log("http://www.clifford.at/intersynth/\n");
 		log("\n");
 	}
-	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing INTERSYNTH backend.\n");
 		log_push();

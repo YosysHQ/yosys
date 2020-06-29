@@ -117,7 +117,10 @@ struct statdata_t
 				}
 				else if (cell_type.in(ID($mux), ID($pmux)))
 					cell_type = stringf("%s_%d", cell_type.c_str(), GetSize(cell->getPort(ID::Y)));
-				else if (cell_type.in(ID($sr), ID($dff), ID($dffsr), ID($adff), ID($dlatch), ID($dlatchsr)))
+				else if (cell_type.in(
+						ID($sr), ID($ff), ID($dff), ID($dffe), ID($dffsr), ID($dffsre),
+						ID($adff), ID($adffe), ID($sdff), ID($sdffe), ID($sdffce),
+						ID($dlatch), ID($adlatch), ID($dlatchsr)))
 					cell_type = stringf("%s_%d", cell_type.c_str(), GetSize(cell->getPort(ID::Q)));
 			}
 
@@ -282,7 +285,7 @@ void read_liberty_cellarea(dict<IdString, double> &cell_area, string liberty_fil
 
 struct StatPass : public Pass {
 	StatPass() : Pass("stat", "print some statistics") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -308,7 +311,7 @@ struct StatPass : public Pass {
 		log("        e.g. $add_8 for an 8 bit wide $add cell.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Printing statistics.\n");
 

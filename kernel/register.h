@@ -97,9 +97,9 @@ struct Frontend : Pass
 
 	std::string frontend_name;
 	Frontend(std::string name, std::string short_help = "** document me **");
-	void run_register() YS_OVERRIDE;
-	~Frontend() YS_OVERRIDE;
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE YS_FINAL;
+	void run_register() override;
+	~Frontend() override;
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override final;
 	virtual void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) = 0;
 
 	static std::vector<std::string> next_args;
@@ -113,9 +113,9 @@ struct Backend : Pass
 {
 	std::string backend_name;
 	Backend(std::string name, std::string short_help = "** document me **");
-	void run_register() YS_OVERRIDE;
-	~Backend() YS_OVERRIDE;
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE YS_FINAL;
+	void run_register() override;
+	~Backend() override;
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override final;
 	virtual void execute(std::ostream *&f, std::string filename,  std::vector<std::string> args, RTLIL::Design *design) = 0;
 
 	void extra_args(std::ostream *&f, std::string &filename, std::vector<std::string> args, size_t argidx, bool bin_output = false);

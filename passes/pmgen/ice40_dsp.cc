@@ -275,7 +275,7 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 
 struct Ice40DspPass : public Pass {
 	Ice40DspPass() : Pass("ice40_dsp", "iCE40: map multipliers") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -294,7 +294,7 @@ struct Ice40DspPass : public Pass {
 		log("the accumulator to an arbitrary value can be inferred to use the {C,D} input.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing ICE40_DSP pass (map multipliers).\n");
 

@@ -118,7 +118,7 @@ void opt_eqpmux(test_pmgen_pm &pm)
 
 struct TestPmgenPass : public Pass {
 	TestPmgenPass() : Pass("test_pmgen", "test pass for pmgen") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -239,7 +239,7 @@ struct TestPmgenPass : public Pass {
 		log_cmd_error("Unknown pattern: %s\n", pattern.c_str());
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		if (GetSize(args) > 1)
 		{

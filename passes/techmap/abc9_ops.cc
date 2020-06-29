@@ -741,7 +741,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 	if (ys_debug(1))
 		toposort.analyze_loops = true;
 
-	bool no_loops YS_ATTRIBUTE(unused) = toposort.sort();
+	bool no_loops = toposort.sort();
 
 	if (ys_debug(1)) {
 		unsigned i = 0;
@@ -1453,7 +1453,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 			for (auto driver_cell : bit_drivers.at(it.first))
 			for (auto user_cell : it.second)
 				toposort.edge(driver_cell, user_cell);
-	bool no_loops YS_ATTRIBUTE(unused) = toposort.sort();
+	bool no_loops = toposort.sort();
 	log_assert(no_loops);
 
 	for (auto ii = toposort.sorted.rbegin(); ii != toposort.sorted.rend(); ii++) {
@@ -1530,7 +1530,7 @@ clone_lut:
 
 struct Abc9OpsPass : public Pass {
 	Abc9OpsPass() : Pass("abc9_ops", "helper functions for ABC9") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1614,7 +1614,7 @@ struct Abc9OpsPass : public Pass {
 		log("        inputs and outputs.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing ABC9_OPS pass (helper functions for ABC9).\n");
 

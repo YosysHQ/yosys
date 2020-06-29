@@ -760,7 +760,7 @@ void counter_worker(
 
 struct ExtractCounterPass : public Pass {
 	ExtractCounterPass() : Pass("extract_counter", "Extract GreenPak4 counter cells") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -788,18 +788,18 @@ struct ExtractCounterPass : public Pass {
 		log("\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing EXTRACT_COUNTER pass (find counters in netlist).\n");
 
 		pool<RTLIL::IdString> _parallel_cells;
 		CounterExtractionSettings settings
 		{
-			.parallel_cells = _parallel_cells,
-			.maxwidth = 64,
-			.minwidth = 2,
-			.allow_arst = true,
-			.allowed_dirs = 0,
+			_parallel_cells,    // parallel_cells
+			64,                 // maxwidth
+			2,                  // minwidth
+			true,               // allow_arst
+			0,                  // allowed_dirs
 		};
 
 		size_t argidx;

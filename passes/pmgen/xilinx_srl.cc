@@ -188,7 +188,7 @@ void run_variable(xilinx_srl_pm &pm)
 
 struct XilinxSrlPass : public Pass {
 	XilinxSrlPass() : Pass("xilinx_srl", "Xilinx shift register extraction") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -212,7 +212,7 @@ struct XilinxSrlPass : public Pass {
 		log("\n");
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing XILINX_SRL pass (Xilinx shift register extraction).\n");
 

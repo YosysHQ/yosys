@@ -35,7 +35,7 @@ void split_portname_pair(std::string &port1, std::string &port2)
 
 struct ClkbufmapPass : public Pass {
 	ClkbufmapPass() : Pass("clkbufmap", "insert global buffers on clock networks") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -76,7 +76,7 @@ struct ClkbufmapPass : public Pass {
 		modules_processed.insert(module);
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing CLKBUFMAP pass (inserting global clock buffers).\n");
 

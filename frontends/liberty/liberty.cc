@@ -453,7 +453,7 @@ void parse_type_map(std::map<std::string, std::tuple<int, int, bool>> &type_map,
 
 struct LibertyFrontend : public Frontend {
 	LibertyFrontend() : Frontend("liberty", "read cells from liberty file") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -486,7 +486,7 @@ struct LibertyFrontend : public Frontend {
 		log("        set the specified attribute (to the value 1) on all loaded modules\n");
 		log("\n");
 	}
-	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool flag_lib = false;
 		bool flag_nooverwrite = false;

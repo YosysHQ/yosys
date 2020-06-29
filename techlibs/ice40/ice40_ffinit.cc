@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct Ice40FfinitPass : public Pass {
 	Ice40FfinitPass() : Pass("ice40_ffinit", "iCE40: handle FF init values") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -35,7 +35,7 @@ struct Ice40FfinitPass : public Pass {
 		log("nonzero init values.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing ICE40_FFINIT pass (implement FF init values).\n");
 

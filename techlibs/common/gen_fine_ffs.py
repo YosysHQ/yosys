@@ -108,6 +108,31 @@ endmodule
 """
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
+//-     $_DFFE_{C:N|P}{R:N|P}{V:0|1}{E:N|P}_ (D, C, R, E, Q)
+//-
+//- A {C:negative|positive} edge D-type flip-flop with {R:negative|positive} polarity {V:reset|set} and {E:negative|positive}
+//- polarity clock enable.
+//-
+//- Truth table:    D C R E | Q
+//-                ---------+---
+//-                 - - {R:0|1} - | {V:0|1}
+//-                 d {C:\\|/} - {E:0|1} | d
+//-                 - - - - | q
+//-
+module \$_DFFE_{C:N|P}{R:N|P}{V:0|1}{E:N|P}_ (D, C, R, E, Q);
+input D, C, R, E;
+output reg Q;
+always @({C:neg|pos}edge C or {R:neg|pos}edge R) begin
+	if (R == {R:0|1})
+		Q <= {V:0|1};
+	else if (E == {E:0|1})
+		Q <= D;
+end
+endmodule
+""",
+"""
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
 //-     $_DFFSR_{C:N|P}{S:N|P}{R:N|P}_ (C, S, R, D, Q)
 //-
 //- A {C:negative|positive} edge D-type flip-flop with {S:negative|positive} polarity set and {R:negative|positive}
@@ -136,6 +161,110 @@ endmodule
 """
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
+//-     $_DFFSRE_{C:N|P}{S:N|P}{R:N|P}{E:N|P}_ (C, S, R, E, D, Q)
+//-
+//- A {C:negative|positive} edge D-type flip-flop with {S:negative|positive} polarity set, {R:negative|positive}
+//- polarity reset and {E:negative|positive} polarity clock enable.
+//-
+//- Truth table:    C S R E D | Q
+//-                -----------+---
+//-                 - - {R:0|1} - - | 0
+//-                 - {S:0|1} - - - | 1
+//-                 {C:\\|/} - - {E:0|1} d | d
+//-                 - - - - - | q
+//-
+module \$_DFFSRE_{C:N|P}{S:N|P}{R:N|P}{E:N|P}_ (C, S, R, E, D, Q);
+input C, S, R, E, D;
+output reg Q;
+always @({C:neg|pos}edge C, {S:neg|pos}edge S, {R:neg|pos}edge R) begin
+	if (R == {R:0|1})
+		Q <= 0;
+	else if (S == {S:0|1})
+		Q <= 1;
+        else if (E == {E:0|1})
+		Q <= D;
+end
+endmodule
+""",
+"""
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_SDFF_{C:N|P}{R:N|P}{V:0|1}_ (D, C, R, Q)
+//-
+//- A {C:negative|positive} edge D-type flip-flop with {R:negative|positive} polarity synchronous {V:reset|set}.
+//-
+//- Truth table:    D C R | Q
+//-                -------+---
+//-                 - {C:\\|/} {R:0|1} | {V:0|1}
+//-                 d {C:\\|/} - | d
+//-                 - - - | q
+//-
+module \$_SDFF_{C:N|P}{R:N|P}{V:0|1}_ (D, C, R, Q);
+input D, C, R;
+output reg Q;
+always @({C:neg|pos}edge C) begin
+	if (R == {R:0|1})
+		Q <= {V:0|1};
+	else
+		Q <= D;
+end
+endmodule
+""",
+"""
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_SDFFE_{C:N|P}{R:N|P}{V:0|1}{E:N|P}_ (D, C, R, E, Q)
+//-
+//- A {C:negative|positive} edge D-type flip-flop with {R:negative|positive} polarity synchronous {V:reset|set} and {E:negative|positive}
+//- polarity clock enable (with {V:reset|set} having priority).
+//-
+//- Truth table:    D C R E | Q
+//-                ---------+---
+//-                 - {C:\\|/} {R:0|1} - | {V:0|1}
+//-                 d {C:\\|/} - {E:0|1} | d
+//-                 - - - - | q
+//-
+module \$_SDFFE_{C:N|P}{R:N|P}{V:0|1}{E:N|P}_ (D, C, R, E, Q);
+input D, C, R, E;
+output reg Q;
+always @({C:neg|pos}edge C) begin
+	if (R == {R:0|1})
+		Q <= {V:0|1};
+	else if (E == {E:0|1})
+		Q <= D;
+end
+endmodule
+""",
+"""
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_SDFFCE_{C:N|P}{R:N|P}{V:0|1}{E:N|P}_ (D, C, R, E, Q)
+//-
+//- A {C:negative|positive} edge D-type flip-flop with {R:negative|positive} polarity synchronous {V:reset|set} and {E:negative|positive}
+//- polarity clock enable (with clock enable having priority).
+//-
+//- Truth table:    D C R E | Q
+//-                ---------+---
+//-                 - {C:\\|/} {R:0|1} {E:0|1} | {V:0|1}
+//-                 d {C:\\|/} - {E:0|1} | d
+//-                 - - - - | q
+//-
+module \$_SDFFCE_{C:N|P}{R:N|P}{V:0|1}{E:N|P}_ (D, C, R, E, Q);
+input D, C, R, E;
+output reg Q;
+always @({C:neg|pos}edge C) begin
+	if (E == {E:0|1}) begin
+		if (R == {R:0|1})
+			Q <= {V:0|1};
+		else
+			Q <= D;
+	end
+end
+endmodule
+""",
+"""
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
 //-     $_DLATCH_{E:N|P}_ (E, D, Q)
 //-
 //- A {E:negative|positive} enable D-type latch.
@@ -150,6 +279,30 @@ input E, D;
 output reg Q;
 always @* begin
 	if (E == {E:0|1})
+		Q <= D;
+end
+endmodule
+""",
+"""
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_DLATCH_{E:N|P}{R:N|P}{V:0|1}_ (E, R, D, Q)
+//-
+//- A {E:negative|positive} enable D-type latch with {R:negative|positive} polarity {V:reset|set}.
+//-
+//- Truth table:    E R D | Q
+//-                -------+---
+//-                 - {R:0|1} - | {V:0|1}
+//-                 {E:0|1} - d | d
+//-                 - - - | q
+//-
+module \$_DLATCH_{E:N|P}{R:N|P}{V:0|1}_ (E, R, D, Q);
+input E, R, D;
+output reg Q;
+always @* begin
+	if (R == {E:0|1})
+                Q <= {V:0|1};
+	else if (E == {E:0|1})
 		Q <= D;
 end
 endmodule

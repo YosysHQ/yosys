@@ -28,7 +28,7 @@ PRIVATE_NAMESPACE_BEGIN
 struct SynthIntelPass : public ScriptPass {
 	SynthIntelPass() : ScriptPass("synth_intel", "synthesis for Intel (Altera) FPGAs.") { experimental(); }
 
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -81,7 +81,7 @@ struct SynthIntelPass : public ScriptPass {
 	string top_opt, family_opt, vout_file, blif_file;
 	bool retime, flatten, nobram, iopads;
 
-	void clear_flags() YS_OVERRIDE
+	void clear_flags() override
 	{
 		top_opt = "-auto-top";
 		family_opt = "max10";
@@ -93,7 +93,7 @@ struct SynthIntelPass : public ScriptPass {
 		iopads = false;
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		string run_from, run_to;
 		clear_flags();
@@ -163,7 +163,7 @@ struct SynthIntelPass : public ScriptPass {
 		log_pop();
 	}
 
-	void script() YS_OVERRIDE
+	void script() override
 	{
 		if (check_label("begin")) {
 			if (check_label("family"))

@@ -362,9 +362,7 @@ void ILANG_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Modu
 
 void ILANG_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool only_selected, bool flag_m, bool flag_n)
 {
-#ifndef NDEBUG
 	int init_autoidx = autoidx;
-#endif
 
 	if (!flag_m) {
 		int count_selected_mods = 0;
@@ -400,7 +398,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct IlangBackend : public Backend {
 	IlangBackend() : Backend("ilang", "write design to ilang file") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -413,7 +411,7 @@ struct IlangBackend : public Backend {
 		log("        only write selected parts of the design.\n");
 		log("\n");
 	}
-	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool selected = false;
 
@@ -440,7 +438,7 @@ struct IlangBackend : public Backend {
 
 struct DumpPass : public Pass {
 	DumpPass() : Pass("dump", "print parts of the design in ilang format") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -463,7 +461,7 @@ struct DumpPass : public Pass {
 		log("        like -outfile but append instead of overwrite\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::string filename;
 		bool flag_m = false, flag_n = false, append = false;

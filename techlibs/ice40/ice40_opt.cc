@@ -203,7 +203,7 @@ static void run_ice40_opts(Module *module)
 
 struct Ice40OptPass : public Pass {
 	Ice40OptPass() : Pass("ice40_opt", "iCE40: perform simple optimizations") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -220,7 +220,7 @@ struct Ice40OptPass : public Pass {
 		log("    while <changed design>\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		string opt_expr_args = "-mux_undef -undriven";
 

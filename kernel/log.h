@@ -139,7 +139,7 @@ void logv(const char *format, va_list ap);
 void logv_header(RTLIL::Design *design, const char *format, va_list ap);
 void logv_warning(const char *format, va_list ap);
 void logv_warning_noprefix(const char *format, va_list ap);
-YS_NORETURN void logv_error(const char *format, va_list ap) YS_ATTRIBUTE(noreturn);
+[[noreturn]] void logv_error(const char *format, va_list ap);
 
 void log(const char *format, ...)  YS_ATTRIBUTE(format(printf, 1, 2));
 void log_header(RTLIL::Design *design, const char *format, ...) YS_ATTRIBUTE(format(printf, 2, 3));
@@ -151,17 +151,16 @@ void log_file_warning(const std::string &filename, int lineno, const char *forma
 void log_file_info(const std::string &filename, int lineno, const char *format, ...) YS_ATTRIBUTE(format(printf, 3, 4));
 
 void log_warning_noprefix(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
-YS_NORETURN void log_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2), noreturn);
-void log_file_error(const string &filename, int lineno, const char *format, ...) YS_ATTRIBUTE(format(printf, 3, 4), noreturn);
-YS_NORETURN void log_cmd_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2), noreturn);
+[[noreturn]] void log_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
+[[noreturn]] void log_file_error(const string &filename, int lineno, const char *format, ...) YS_ATTRIBUTE(format(printf, 3, 4));
+[[noreturn]] void log_cmd_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 
 #ifndef NDEBUG
 static inline bool ys_debug(int n = 0) { if (log_force_debug) return true; log_debug_suppressed += n; return false; }
-#  define log_debug(...) do { if (ys_debug(1)) log(__VA_ARGS__); } while (0)
 #else
 static inline bool ys_debug(int = 0) { return false; }
-#  define log_debug(_fmt, ...) do { } while (0)
 #endif
+#  define log_debug(...) do { if (ys_debug(1)) log(__VA_ARGS__); } while (0)
 
 static inline void log_suppressed() {
 	if (log_debug_suppressed && !log_make_debug) {
@@ -236,7 +235,7 @@ static inline void log_assert_worker(bool cond, const char *expr, const char *fi
 }
 #  define log_assert(_assert_expr_) YOSYS_NAMESPACE_PREFIX log_assert_worker(_assert_expr_, #_assert_expr_, __FILE__, __LINE__)
 #else
-#  define log_assert(_assert_expr_)
+#  define log_assert(_assert_expr_) do { if (0) { (void)(_assert_expr_); } } while(0)
 #endif
 
 #define log_abort() YOSYS_NAMESPACE_PREFIX log_error("Abort in %s:%d.\n", __FILE__, __LINE__)
@@ -308,19 +307,17 @@ struct PerformanceTimer
 	static int64_t query() {
 #  ifdef _WIN32
 		return 0;
-#  elif defined(_POSIX_TIMERS) && (_POSIX_TIMERS > 0)
-		struct timespec ts;
-		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
-		return int64_t(ts.tv_sec)*1000000000 + ts.tv_nsec;
 #  elif defined(RUSAGE_SELF)
 		struct rusage rusage;
-		int64_t t;
-		if (getrusage(RUSAGE_SELF, &rusage) == -1) {
-			log_cmd_error("getrusage failed!\n");
-			log_abort();
+		int64_t t = 0;
+		for (int who : {RUSAGE_SELF, RUSAGE_CHILDREN}) {
+			if (getrusage(who, &rusage) == -1) {
+				log_cmd_error("getrusage failed!\n");
+				log_abort();
+			}
+			t += 1000000000ULL * (int64_t) rusage.ru_utime.tv_sec + (int64_t) rusage.ru_utime.tv_usec * 1000ULL;
+			t += 1000000000ULL * (int64_t) rusage.ru_stime.tv_sec + (int64_t) rusage.ru_stime.tv_usec * 1000ULL;
 		}
-		t = 1000000000ULL * (int64_t) rusage.ru_utime.tv_sec + (int64_t) rusage.ru_utime.tv_usec * 1000ULL;
-		t += 1000000000ULL * (int64_t) rusage.ru_stime.tv_sec + (int64_t) rusage.ru_stime.tv_usec * 1000ULL;
 		return t;
 #  else
 #    error "Don't know how to measure per-process CPU time. Need alternative method (times()/clocks()/gettimeofday()?)."
@@ -371,7 +368,7 @@ static inline void log_dump_val_worker(char *v) { log("%s", v); }
 static inline void log_dump_val_worker(const char *v) { log("%s", v); }
 static inline void log_dump_val_worker(std::string v) { log("%s", v.c_str()); }
 static inline void log_dump_val_worker(PerformanceTimer p) { log("%f seconds", p.sec()); }
-static inline void log_dump_args_worker(const char *p YS_ATTRIBUTE(unused)) { log_assert(*p == 0); }
+static inline void log_dump_args_worker(const char *p) { log_assert(*p == 0); }
 void log_dump_val_worker(RTLIL::IdString v);
 void log_dump_val_worker(RTLIL::SigSpec v);
 void log_dump_val_worker(RTLIL::State v);

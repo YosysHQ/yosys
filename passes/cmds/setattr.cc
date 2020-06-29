@@ -56,7 +56,7 @@ static void do_setunset(dict<RTLIL::IdString, RTLIL::Const> &attrs, const std::v
 
 struct SetattrPass : public Pass {
 	SetattrPass() : Pass("setattr", "set/unset attributes on objects") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -69,7 +69,7 @@ struct SetattrPass : public Pass {
 		log("instead of objects within modules.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::vector<setunset_t> setunset_list;
 		bool flag_mod = false;
@@ -128,7 +128,7 @@ struct SetattrPass : public Pass {
 
 struct WbflipPass : public Pass {
 	WbflipPass() : Pass("wbflip", "flip the whitebox attribute") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -138,7 +138,7 @@ struct WbflipPass : public Pass {
 		log("vice-versa. Blackbox cells are not effected by this command.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -167,7 +167,7 @@ struct WbflipPass : public Pass {
 
 struct SetparamPass : public Pass {
 	SetparamPass() : Pass("setparam", "set/unset parameters on objects") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -179,7 +179,7 @@ struct SetparamPass : public Pass {
 		log("The -type option can be used to change the cell type of the selected cells.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		vector<setunset_t> setunset_list;
 		string new_cell_type;
@@ -219,7 +219,7 @@ struct SetparamPass : public Pass {
 
 struct ChparamPass : public Pass {
 	ChparamPass() : Pass("chparam", "re-evaluate modules with new parameters") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -234,7 +234,7 @@ struct ChparamPass : public Pass {
 		log("List the available parameters of the selected modules.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::vector<setunset_t> setunset_list;
 		dict<RTLIL::IdString, RTLIL::Const> new_parameters;

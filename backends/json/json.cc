@@ -294,7 +294,7 @@ struct JsonWriter
 
 struct JsonBackend : public Backend {
 	JsonBackend() : Backend("json", "write design to a JSON file") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -530,7 +530,7 @@ struct JsonBackend : public Backend {
 		log("format. A program processing this format must ignore all unknown fields.\n");
 		log("\n");
 	}
-	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool aig_mode = false;
 		bool compat_int_mode = false;
@@ -559,7 +559,7 @@ struct JsonBackend : public Backend {
 
 struct JsonPass : public Pass {
 	JsonPass() : Pass("json", "write design in JSON format") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -580,7 +580,7 @@ struct JsonPass : public Pass {
 		log("See 'help write_json' for a description of the JSON format used.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::string filename;
 		bool aig_mode = false;

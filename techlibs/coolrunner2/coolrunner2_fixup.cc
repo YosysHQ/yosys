@@ -112,7 +112,7 @@ RTLIL::Wire *makeptermbuffer(RTLIL::Module *module, SigBit inwire)
 
 struct Coolrunner2FixupPass : public Pass {
 	Coolrunner2FixupPass() : Pass("coolrunner2_fixup", "insert necessary buffer cells for CoolRunner-II architecture") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		log("\n");
 		log("    coolrunner2_fixup [options] [selection]\n");
@@ -120,7 +120,7 @@ struct Coolrunner2FixupPass : public Pass {
 		log("Insert necessary buffer cells for CoolRunner-II architecture.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing COOLRUNNER2_FIXUP pass (insert necessary buffer cells for CoolRunner-II architecture).\n");
 		extra_args(args, 1, design);

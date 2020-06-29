@@ -520,7 +520,7 @@ static void split(std::vector<std::string> &tokens, const std::string &text, cha
 
 struct OptLutPass : public Pass {
 	OptLutPass() : Pass("opt_lut", "optimize LUT cells") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -538,7 +538,7 @@ struct OptLutPass : public Pass {
 		log("        only perform the first N combines, then stop. useful for debugging.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing OPT_LUT pass (optimize LUTs).\n");
 

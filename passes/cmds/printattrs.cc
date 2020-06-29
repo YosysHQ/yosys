@@ -24,7 +24,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct PrintAttrsPass : public Pass {
 	PrintAttrsPass() : Pass("printattrs", "print attributes of selected objects") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -48,7 +48,7 @@ struct PrintAttrsPass : public Pass {
 			log_assert(x.flags == RTLIL::CONST_FLAG_STRING || x.flags == RTLIL::CONST_FLAG_NONE); //intended to fail
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		size_t argidx = 1;
 		extra_args(args, argidx, design);

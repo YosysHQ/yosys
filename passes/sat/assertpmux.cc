@@ -181,7 +181,7 @@ struct AssertpmuxWorker
 
 struct AssertpmuxPass : public Pass {
 	AssertpmuxPass() : Pass("assertpmux", "adds asserts for parallel muxes") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -199,7 +199,7 @@ struct AssertpmuxPass : public Pass {
 		log("        additional constraint and check the $pmux condition always.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool flag_noinit = false;
 		bool flag_always = false;

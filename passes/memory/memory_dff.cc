@@ -291,7 +291,7 @@ struct MemoryDffWorker
 
 struct MemoryDffPass : public Pass {
 	MemoryDffPass() : Pass("memory_dff", "merge input/output DFFs into memories") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -305,7 +305,7 @@ struct MemoryDffPass : public Pass {
 		log("        do not merge registers on read ports\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool flag_wr_only = false;
 

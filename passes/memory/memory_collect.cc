@@ -245,7 +245,7 @@ static void handle_module(Design *design, Module *module)
 
 struct MemoryCollectPass : public Pass {
 	MemoryCollectPass() : Pass("memory_collect", "creating multi-port memory cells") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -255,7 +255,7 @@ struct MemoryCollectPass : public Pass {
 		log("memory cells.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE {
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
 		log_header(design, "Executing MEMORY_COLLECT pass (generating $mem cells).\n");
 		extra_args(args, 1, design);
 		for (auto module : design->selected_modules())

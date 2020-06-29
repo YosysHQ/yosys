@@ -69,7 +69,7 @@ struct ConstEvalAig
 				continue;
 			for (auto &it2 : it.second->connections())
 				if (yosys_celltypes.cell_output(it.second->type, it2.first)) {
-					auto r YS_ATTRIBUTE(unused) = sig2driver.insert(std::make_pair(it2.second, it.second));
+					auto r = sig2driver.insert(std::make_pair(it2.second, it.second));
 					log_assert(r.second);
 				}
 		}
@@ -400,9 +400,9 @@ void AigerReader::parse_xaiger()
 	for (int c = f.get(); c != EOF; c = f.get()) {
 		// XAIGER extensions
 		if (c == 'm') {
-			uint32_t dataSize YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
+			uint32_t dataSize = parse_xaiger_literal(f);
 			uint32_t lutNum = parse_xaiger_literal(f);
-			uint32_t lutSize YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
+			uint32_t lutSize = parse_xaiger_literal(f);
 			log_debug("m: dataSize=%u lutNum=%u lutSize=%u\n", dataSize, lutNum, lutSize);
 			ConstEvalAig ce(module);
 			for (unsigned i = 0; i < lutNum; ++i) {
@@ -434,7 +434,7 @@ void AigerReader::parse_xaiger()
 					int gray = j ^ (j >> 1);
 					ce.set_incremental(input_sig, RTLIL::Const{gray, GetSize(input_sig)});
 					RTLIL::SigBit o(output_sig);
-					bool success YS_ATTRIBUTE(unused) = ce.eval(o);
+					bool success = ce.eval(o);
 					log_assert(success);
 					log_assert(o.wire == nullptr);
 					lut_mask[gray] = o.data;
@@ -446,7 +446,7 @@ void AigerReader::parse_xaiger()
 			}
 		}
 		else if (c == 'r') {
-			uint32_t dataSize YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
+			uint32_t dataSize = parse_xaiger_literal(f);
 			flopNum = parse_xaiger_literal(f);
 			log_debug("flopNum = %u\n", flopNum);
 			log_assert(dataSize == (flopNum+1) * sizeof(uint32_t));
@@ -455,7 +455,7 @@ void AigerReader::parse_xaiger()
 				mergeability.emplace_back(parse_xaiger_literal(f));
 		}
 		else if (c == 's') {
-			uint32_t dataSize YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
+			uint32_t dataSize = parse_xaiger_literal(f);
 			flopNum = parse_xaiger_literal(f);
 			log_assert(dataSize == (flopNum+1) * sizeof(uint32_t));
 			initial_state.reserve(flopNum);
@@ -469,15 +469,15 @@ void AigerReader::parse_xaiger()
 		}
 		else if (c == 'h') {
 			f.ignore(sizeof(uint32_t));
-			uint32_t version YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
+			uint32_t version = parse_xaiger_literal(f);
 			log_assert(version == 1);
-			uint32_t ciNum YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
+			uint32_t ciNum = parse_xaiger_literal(f);
 			log_debug("ciNum = %u\n", ciNum);
-			uint32_t coNum YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
+			uint32_t coNum = parse_xaiger_literal(f);
 			log_debug("coNum = %u\n", coNum);
 			piNum = parse_xaiger_literal(f);
 			log_debug("piNum = %u\n", piNum);
-			uint32_t poNum YS_ATTRIBUTE(unused) = parse_xaiger_literal(f);
+			uint32_t poNum = parse_xaiger_literal(f);
 			log_debug("poNum = %u\n", poNum);
 			uint32_t boxNum = parse_xaiger_literal(f);
 			log_debug("boxNum = %u\n", boxNum);
@@ -970,7 +970,7 @@ void AigerReader::post_process()
 
 struct AigerFrontend : public Frontend {
 	AigerFrontend() : Frontend("aiger", "read AIGER file") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -996,7 +996,7 @@ struct AigerFrontend : public Frontend {
 		log("        read XAIGER extensions\n");
 		log("\n");
 	}
-	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing AIGER frontend.\n");
 

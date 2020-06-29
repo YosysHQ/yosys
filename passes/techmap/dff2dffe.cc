@@ -253,7 +253,7 @@ struct Dff2dffeWorker
 
 struct Dff2dffePass : public Pass {
 	Dff2dffePass() : Pass("dff2dffe", "transform $dff cells to $dffe cells") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -282,13 +282,13 @@ struct Dff2dffePass : public Pass {
 		log("\n");
 		log("    -direct-match <pattern>\n");
 		log("        like -direct for all DFF cell types matching the expression.\n");
-		log("        this will use $__DFFE_* as <external_gate_type> matching the\n");
-		log("        internal gate type $_DFF_*_, and $__DFFSE_* for those matching\n");
-		log("        $_DFFS_*_, except for $_DFF_[NP]_, which is converted to \n");
+		log("        this will use $_DFFE_* as <external_gate_type> matching the\n");
+		log("        internal gate type $_DFF_*_, and $_SDFFE_* for those matching\n");
+		log("        $_SDFF_*_, except for $_DFF_[NP]_, which is converted to \n");
 		log("        $_DFFE_[NP]_.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing DFF2DFFE pass (transform $dff to $dffe where applicable).\n");
 
@@ -318,23 +318,23 @@ struct Dff2dffePass : public Pass {
 				const char *pattern = args[++argidx].c_str();
 				if (patmatch(pattern, "$_DFF_P_"  )) found_match = true, direct_dict[ID($_DFF_P_)  ] = ID($_DFFE_PP_);
 				if (patmatch(pattern, "$_DFF_N_"  )) found_match = true, direct_dict[ID($_DFF_N_)  ] = ID($_DFFE_NP_);
-				if (patmatch(pattern, "$_DFF_NN0_")) found_match = true, direct_dict[ID($_DFF_NN0_)] = ID($__DFFE_NN0);
-				if (patmatch(pattern, "$_DFF_NN1_")) found_match = true, direct_dict[ID($_DFF_NN1_)] = ID($__DFFE_NN1);
-				if (patmatch(pattern, "$_DFF_NP0_")) found_match = true, direct_dict[ID($_DFF_NP0_)] = ID($__DFFE_NP0);
-				if (patmatch(pattern, "$_DFF_NP1_")) found_match = true, direct_dict[ID($_DFF_NP1_)] = ID($__DFFE_NP1);
-				if (patmatch(pattern, "$_DFF_PN0_")) found_match = true, direct_dict[ID($_DFF_PN0_)] = ID($__DFFE_PN0);
-				if (patmatch(pattern, "$_DFF_PN1_")) found_match = true, direct_dict[ID($_DFF_PN1_)] = ID($__DFFE_PN1);
-				if (patmatch(pattern, "$_DFF_PP0_")) found_match = true, direct_dict[ID($_DFF_PP0_)] = ID($__DFFE_PP0);
-				if (patmatch(pattern, "$_DFF_PP1_")) found_match = true, direct_dict[ID($_DFF_PP1_)] = ID($__DFFE_PP1);
+				if (patmatch(pattern, "$_DFF_NN0_")) found_match = true, direct_dict[ID($_DFF_NN0_)] = ID($_DFFE_NN0P_);
+				if (patmatch(pattern, "$_DFF_NN1_")) found_match = true, direct_dict[ID($_DFF_NN1_)] = ID($_DFFE_NN1P_);
+				if (patmatch(pattern, "$_DFF_NP0_")) found_match = true, direct_dict[ID($_DFF_NP0_)] = ID($_DFFE_NP0P_);
+				if (patmatch(pattern, "$_DFF_NP1_")) found_match = true, direct_dict[ID($_DFF_NP1_)] = ID($_DFFE_NP1P_);
+				if (patmatch(pattern, "$_DFF_PN0_")) found_match = true, direct_dict[ID($_DFF_PN0_)] = ID($_DFFE_PN0P_);
+				if (patmatch(pattern, "$_DFF_PN1_")) found_match = true, direct_dict[ID($_DFF_PN1_)] = ID($_DFFE_PN1P_);
+				if (patmatch(pattern, "$_DFF_PP0_")) found_match = true, direct_dict[ID($_DFF_PP0_)] = ID($_DFFE_PP0P_);
+				if (patmatch(pattern, "$_DFF_PP1_")) found_match = true, direct_dict[ID($_DFF_PP1_)] = ID($_DFFE_PP1P_);
 
-				if (patmatch(pattern, "$__DFFS_NN0_")) found_match = true, direct_dict[ID($__DFFS_NN0_)] = ID($__DFFSE_NN0);
-				if (patmatch(pattern, "$__DFFS_NN1_")) found_match = true, direct_dict[ID($__DFFS_NN1_)] = ID($__DFFSE_NN1);
-				if (patmatch(pattern, "$__DFFS_NP0_")) found_match = true, direct_dict[ID($__DFFS_NP0_)] = ID($__DFFSE_NP0);
-				if (patmatch(pattern, "$__DFFS_NP1_")) found_match = true, direct_dict[ID($__DFFS_NP1_)] = ID($__DFFSE_NP1);
-				if (patmatch(pattern, "$__DFFS_PN0_")) found_match = true, direct_dict[ID($__DFFS_PN0_)] = ID($__DFFSE_PN0);
-				if (patmatch(pattern, "$__DFFS_PN1_")) found_match = true, direct_dict[ID($__DFFS_PN1_)] = ID($__DFFSE_PN1);
-				if (patmatch(pattern, "$__DFFS_PP0_")) found_match = true, direct_dict[ID($__DFFS_PP0_)] = ID($__DFFSE_PP0);
-				if (patmatch(pattern, "$__DFFS_PP1_")) found_match = true, direct_dict[ID($__DFFS_PP1_)] = ID($__DFFSE_PP1);
+				if (patmatch(pattern, "$_SDFF_NN0_")) found_match = true, direct_dict[ID($_SDFF_NN0_)] = ID($_SDFFE_NN0P_);
+				if (patmatch(pattern, "$_SDFF_NN1_")) found_match = true, direct_dict[ID($_SDFF_NN1_)] = ID($_SDFFE_NN1P_);
+				if (patmatch(pattern, "$_SDFF_NP0_")) found_match = true, direct_dict[ID($_SDFF_NP0_)] = ID($_SDFFE_NP0P_);
+				if (patmatch(pattern, "$_SDFF_NP1_")) found_match = true, direct_dict[ID($_SDFF_NP1_)] = ID($_SDFFE_NP1P_);
+				if (patmatch(pattern, "$_SDFF_PN0_")) found_match = true, direct_dict[ID($_SDFF_PN0_)] = ID($_SDFFE_PN0P_);
+				if (patmatch(pattern, "$_SDFF_PN1_")) found_match = true, direct_dict[ID($_SDFF_PN1_)] = ID($_SDFFE_PN1P_);
+				if (patmatch(pattern, "$_SDFF_PP0_")) found_match = true, direct_dict[ID($_SDFF_PP0_)] = ID($_SDFFE_PP0P_);
+				if (patmatch(pattern, "$_SDFF_PP1_")) found_match = true, direct_dict[ID($_SDFF_PP1_)] = ID($_SDFFE_PP1P_);
 				if (!found_match)
 					log_cmd_error("No cell types matched pattern '%s'.\n", pattern);
 				continue;

@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct DffinitPass : public Pass {
 	DffinitPass() : Pass("dffinit", "set INIT param on FF cells") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -54,7 +54,7 @@ struct DffinitPass : public Pass {
 		log("        the already defined initial value.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing DFFINIT pass (set INIT param on FF cells).\n");
 

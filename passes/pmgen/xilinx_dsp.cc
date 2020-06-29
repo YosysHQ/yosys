@@ -744,7 +744,7 @@ void xilinx_dsp_packC(xilinx_dsp_CREG_pm &pm)
 
 struct XilinxDspPass : public Pass {
 	XilinxDspPass() : Pass("xilinx_dsp", "Xilinx: pack resources into DSPs") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -785,7 +785,7 @@ struct XilinxDspPass : public Pass {
 		log("        default: xc7\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing XILINX_DSP pass (pack resources into DSPs).\n");
 

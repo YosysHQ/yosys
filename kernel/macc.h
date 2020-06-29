@@ -107,10 +107,8 @@ struct Macc
 		std::vector<RTLIL::State> config_bits = cell->getParam(ID::CONFIG).bits;
 		int config_cursor = 0;
 
-#ifndef NDEBUG
 		int config_width = cell->getParam(ID::CONFIG_WIDTH).as_int();
 		log_assert(GetSize(config_bits) >= config_width);
-#endif
 
 		int num_bits = 0;
 		if (config_bits[config_cursor++] == State::S1) num_bits |= 1;

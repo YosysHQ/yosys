@@ -126,7 +126,7 @@ static void fsm_recode(RTLIL::Cell *cell, RTLIL::Module *module, FILE *fm_set_fs
 
 struct FsmRecodePass : public Pass {
 	FsmRecodePass() : Pass("fsm_recode", "recoding finite state machines") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -151,7 +151,7 @@ struct FsmRecodePass : public Pass {
 		log("            .map <old_bitpattern> <new_bitpattern>\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		FILE *fm_set_fsm_file = NULL;
 		FILE *encfile = NULL;

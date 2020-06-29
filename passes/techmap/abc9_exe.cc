@@ -293,7 +293,7 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 
 struct Abc9ExePass : public Pass {
 	Abc9ExePass() : Pass("abc9_exe", "use ABC9 for technology mapping") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -375,7 +375,7 @@ struct Abc9ExePass : public Pass {
 		log("[1] http://www.eecs.berkeley.edu/~alanmi/abc/\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing ABC9_EXE pass (technology mapping using ABC9).\n");
 

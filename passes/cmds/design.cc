@@ -28,7 +28,7 @@ std::vector<RTLIL::Design*> pushed_designs;
 
 struct DesignPass : public Pass {
 	DesignPass() : Pass("design", "save, restore and reset current design") { }
-	~DesignPass() YS_OVERRIDE {
+	~DesignPass() override {
 		for (auto &it : saved_designs)
 			delete it.second;
 		saved_designs.clear();
@@ -36,7 +36,7 @@ struct DesignPass : public Pass {
 			delete it;
 		pushed_designs.clear();
 	}
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -105,7 +105,7 @@ struct DesignPass : public Pass {
 		log("\n");
 
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool got_mode = false;
 		bool reset_mode = false;
