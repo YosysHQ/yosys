@@ -281,11 +281,15 @@ struct ExposePass : public Pass {
 				flag_dff = true;
 				continue;
 			}
-			if (args[argidx] == "-cut" && !flag_input) {
+			if (args[argidx] == "-cut") {
+				if (flag_input)
+					log_cmd_error("Options -cut and -input are mutually exclusive.\n");
 				flag_cut = true;
 				continue;
 			}
-			if (args[argidx] == "-input" && !flag_cut) {
+			if (args[argidx] == "-input") {
+				if (flag_cut)
+					log_cmd_error("Options -cut and -input are mutually exclusive.\n");
 				flag_input = true;
 				continue;
 			}
