@@ -71,9 +71,10 @@ end else if (EXPLICIT_CARRY) begin
 	localparam MAX_WIDTH    = CARRY4_COUNT * 4;
 	localparam PAD_WIDTH    = MAX_WIDTH - WIDTH;
 
+	(* force_downto *)
+	wire [Y_PAD_WIDTH-1:0] O;
 	wire [MAX_WIDTH-1:0] S =  {{PAD_WIDTH{1'b0}}, P & ~G};
 	wire [MAX_WIDTH-1:0] GG = {{PAD_WIDTH{1'b0}}, G};
-	wire [MAX_WIDTH-1:0] C;
 
 	// Carry chain between CARRY4 blocks.
 	//
@@ -82,9 +83,26 @@ end else if (EXPLICIT_CARRY) begin
 	// fabric.
 	//
 	// So we maintain two wire sets, CO_CHAIN is the carry that is for VPR,
-	// e.g. off fabric dedicated chain.
+	// e.g. off fabric dedicated chain.  CO is the carry outputs that are
+	// available to the fabric.
+	(* force_downto *)
 	wire [CARRY4_COUNT-1:0] CO_CHAIN;
+	(* force_downto *)
 	wire [CARRY4_COUNT-1:0] CO_CHAIN_PLUG;
+
+	// If the design needs access to intermediate carry values, use the O pin
+	// (e.g. no other CARRY4 pin) to avoid [ABCD]MUX congestion.
+	// This does result in the CARRY stack being one element higher, but it
+	// avoids the need to deal with congestion at the top of the chain.
+	//
+	// Note:
+	//
+	//  O[N] = CO[N-1] ^ S[N]
+	//
+	// So for top of chain, S[N] = 0:
+	//
+	//  O[N] = CO[N-1]
+	assign CO[WIDTH-1:0] = O[WIDTH:1] ^ S[WIDTH:1];
 
 	genvar i;
 	generate for (i = 0; i < CARRY4_COUNT; i = i + 1) begin:slice
@@ -98,7 +116,8 @@ end else if (EXPLICIT_CARRY) begin
 				(
 				.CYINIT(CI),
 				.DI    (GG[(Y_PAD_WIDTH - 1):i*4]),
-				.S     (S [(Y_PAD_WIDTH - 1):i*4])
+				.S     (S [(Y_PAD_WIDTH - 1):i*4]),
+				.O     (O [(Y_PAD_WIDTH - 1):i*4]),
 				);
 			// Another one
 			end else begin
@@ -106,7 +125,8 @@ end else if (EXPLICIT_CARRY) begin
 				(
 				.CI    (CO_CHAIN [i-1]),
 				.DI    (GG[(Y_PAD_WIDTH - 1):i*4]),
-				.S     (S [(Y_PAD_WIDTH - 1):i*4])
+				.S     (S [(Y_PAD_WIDTH - 1):i*4]),
+				.O     (O [(Y_PAD_WIDTH - 1):i*4]),
 				);
 			end
 
@@ -120,6 +140,7 @@ end else if (EXPLICIT_CARRY) begin
 				.CYINIT(CI),
 				.DI    (GG[((i+1)*4 - 1):i*4]),
 				.S     (S [((i+1)*4 - 1):i*4]),
+				.O     (O [((i+1)*4 - 1):i*4]),
 				.COUT(CO_CHAIN_PLUG[i])
 				);
 			// Another one
@@ -127,8 +148,9 @@ end else if (EXPLICIT_CARRY) begin
 				CARRY4_COUT carry4_full
 				(
 				.CI    (CO_CHAIN[i-1]),
-				.DI    (DI[((i+1)*4 - 1):i*4]),
+				.DI    (GG[((i+1)*4 - 1):i*4]),
 				.S     (S [((i+1)*4 - 1):i*4]),
+				.O     (O [((i+1)*4 - 1):i*4]),
 				.COUT(CO_CHAIN_PLUG[i])
 				);
 			end
