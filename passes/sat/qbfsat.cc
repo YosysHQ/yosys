@@ -220,9 +220,13 @@ QbfSolutionType call_qbf_solver(RTLIL::Module *mod, const QbfSolveOptions &opt, 
 	//Execute and capture stdout from `yosys-smtbmc -s z3 -t 1 -g --binary [--dump-smt2 <file>]`
 	QbfSolutionType ret;
 	const std::string yosys_smtbmc_exe = proc_self_dirname() + "yosys-smtbmc";
-	const std::string smt2_command = "write_smt2 -stbv -wires " + tempdir_name + "/problem" + (iter_num != 0? stringf("%d", iter_num) : "") + ".smt2";
+	const std::string smt2_command = stringf("write_smt2 -stbv -wires %s/problem%d.smt2", tempdir_name.c_str(), iter_num);
 	const std::string smtbmc_warning = "z3: WARNING:";
-	const std::string smtbmc_cmd = yosys_smtbmc_exe + " -s " + (opt.get_solver_name()) + (opt.timeout != 0? stringf(" --timeout %d", opt.timeout) : "") + " -t 1 -g --binary " + (opt.dump_final_smt2? "--dump-smt2 " + opt.dump_final_smt2_file + " " : "") + tempdir_name + "/problem" + (iter_num != 0? stringf("%d", iter_num) : "") + ".smt2 2>&1";
+	const std::string smtbmc_cmd = stringf("%s -s %s %s -t 1 -g --binary %s %s/problem%d.smt2 2>&1",
+			yosys_smtbmc_exe.c_str(), opt.get_solver_name().c_str(),
+			(opt.timeout != 0? stringf("--timeout %d", opt.timeout) : "").c_str(),
+			(opt.dump_final_smt2? "--dump-smt2 " + opt.dump_final_smt2_file : "").c_str(),
+			tempdir_name.c_str(), iter_num);
 
 	Pass::call(mod->design, smt2_command);
 
@@ -249,7 +253,7 @@ QbfSolutionType call_qbf_solver(RTLIL::Module *mod, const QbfSolveOptions &opt, 
 
 QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 	QbfSolutionType ret, best_soln;
-	const std::string tempdir_name = make_temp_dir("/tmp/yosys-z3-XXXXXX");
+	const std::string tempdir_name = make_temp_dir("/tmp/yosys-qbfsat-XXXXXX");
 	RTLIL::Module *module = mod;
 	RTLIL::Design *design = module->design;
 	std::string module_name = module->name.str();
