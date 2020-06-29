@@ -905,7 +905,7 @@ struct TestCellPass : public Pass {
 		if (!ilang_file.empty()) {
 			if (!selected_cell_types.empty())
 				log_cmd_error("Do not specify any cell types when using -f.\n");
-			selected_cell_types.push_back("ilang");
+			selected_cell_types.push_back(ID(ilang));
 		}
 
 		if (selected_cell_types.empty())
@@ -917,7 +917,7 @@ struct TestCellPass : public Pass {
 			for (int i = 0; i < num_iter; i++)
 			{
 				RTLIL::Design *design = new RTLIL::Design;
-				if (cell_type == "ilang")
+				if (cell_type == ID(ilang))
 					Frontend::frontend_call(design, NULL, std::string(), "ilang " + ilang_file);
 				else
 					create_gold_module(design, cell_type, cell_types.at(cell_type), constmode, muxdiv);
