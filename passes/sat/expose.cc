@@ -479,21 +479,15 @@ struct ExposePass : public Pass {
 					}
 				}
 			}
-			for (auto &wm : wire_map)
-			{
-				if (flag_input) {
-						RTLIL::Wire *in_wire = module->addWire(wm.second, GetSize(wm.first));
-						out_to_in_map.add(wm.first, in_wire);
-				}
-				if (flag_cut) {
-						RTLIL::Wire *in_wire = add_new_wire(module, wm.second, wm.first->width);
-						in_wire->port_input = true;
-						out_to_in_map.add(sigmap(wm.first), in_wire);
-				}
-			}
 
 			if (flag_input)
 			{
+				for (auto &wm : wire_map)
+				{
+					RTLIL::Wire *in_wire = module->addWire(wm.second, GetSize(wm.first));
+					out_to_in_map.add(wm.first, in_wire);
+				}
+
 				for (auto cell : module->cells()) {
 					if (!ct.cell_known(cell->type))
 						continue;
@@ -508,6 +502,13 @@ struct ExposePass : public Pass {
 
 			if (flag_cut)
 			{
+				for (auto &wm : wire_map)
+				{
+					RTLIL::Wire *in_wire = add_new_wire(module, wm.second, wm.first->width);
+					in_wire->port_input = true;
+					out_to_in_map.add(sigmap(wm.first), in_wire);
+				}
+
 				for (auto cell : module->cells()) {
 					if (!ct.cell_known(cell->type))
 						continue;
