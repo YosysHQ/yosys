@@ -31,6 +31,7 @@ struct QbfSolveOptions {
 	bool nobisection = false, sat = false, unsat = false, show_smtbmc = false;
 	enum Solver{Z3, Yices, CVC4} solver = Yices;
 	enum OptimizationLevel{O0, O1, O2} oflag = O0;
+	dict<std::string, std::string> solver_options;
 	int timeout = 0;
 	std::string specialize_soln_file = "";
 	std::string write_soln_soln_file = "";
