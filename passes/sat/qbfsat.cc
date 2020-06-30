@@ -147,6 +147,9 @@ void recover_solution(QbfSolutionType &sol) {
 
 dict<std::pair<pool<std::string>, int>, RTLIL::SigBit> get_hole_loc_idx_sigbit_map(RTLIL::Module *module, const QbfSolutionType &sol) {
 	dict<std::pair<pool<std::string>, int>, RTLIL::SigBit> hole_loc_idx_to_sigbit;
+	pool<RTLIL::SigBit> anyconst_sigbits;
+	dict<RTLIL::SigBit, RTLIL::SigBit> anyconst_sigbit_to_wire_sigbit;
+
 	for (auto cell : module->cells()) {
 		pool<std::string> cell_src = cell->get_strpool_attribute(ID::src);
 		auto pos = sol.hole_to_value.find(cell_src);
@@ -154,8 +157,28 @@ dict<std::pair<pool<std::string>, int>, RTLIL::SigBit> get_hole_loc_idx_sigbit_m
 			RTLIL::SigSpec port_y = cell->getPort(ID::Y);
 			for (int i = GetSize(port_y) - 1; i >= 0; --i) {
 				hole_loc_idx_to_sigbit[std::make_pair(pos->first, i)] = port_y[i];
+				anyconst_sigbits.insert(port_y[i]);
 			}
 		}
+	}
+
+	for (auto &conn : module->connections()) {
+		auto lhs = conn.first;
+		auto rhs = conn.second;
+		for (auto i = 0; i < GetSize(rhs); ++i) {
+			if (anyconst_sigbits[rhs[i]]) {
+				auto pos = anyconst_sigbit_to_wire_sigbit.find(rhs[i]);
+				if (pos != anyconst_sigbit_to_wire_sigbit.end())
+					log_cmd_error("conflicting names for hole $anyconst sigbit %s\n", log_signal(rhs[i]));
+				anyconst_sigbit_to_wire_sigbit[rhs[i]] = lhs[i];
+			}
+		}
+	}
+
+	for (auto &it : hole_loc_idx_to_sigbit) {
+		auto pos = anyconst_sigbit_to_wire_sigbit.find(it.second);
+		if (pos != anyconst_sigbit_to_wire_sigbit.end())
+			it.second = pos->second;
 	}
 
 	return hole_loc_idx_to_sigbit;
@@ -274,8 +297,7 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 			pool<std::string> hole_loc_pool(locs.begin(), locs.end());
 			auto hole_cell_it = anyconst_loc_to_cell.find(hole_loc_pool);
 			if (hole_cell_it == anyconst_loc_to_cell.end())
-				YS_DEBUGTRAP;
-				//log_cmd_error("cannot find matching wire name or $anyconst cell location for hole spec \"%s\"\n", buf.c_str());
+				log_cmd_error("cannot find matching wire name or $anyconst cell location for hole spec \"%s\"\n", buf.c_str());
 
 			RTLIL::Cell *hole_cell = hole_cell_it->second;
 			hole_sigbit = hole_cell->getPort(ID::Y)[hole_bit];
