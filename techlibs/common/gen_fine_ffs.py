@@ -300,7 +300,7 @@ module \$_DLATCH_{E:N|P}{R:N|P}{V:0|1}_ (E, R, D, Q);
 input E, R, D;
 output reg Q;
 always @* begin
-	if (R == {E:0|1})
+	if (R == {R:0|1})
                 Q <= {V:0|1};
 	else if (E == {E:0|1})
 		Q <= D;
