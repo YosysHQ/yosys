@@ -476,12 +476,12 @@ module CARRY4_COUT(
     input CI,
     input CYINIT,
     input [3:0] DI, S);
-`ifdef _ABC
-  wire CI0 = CYINIT | CI;
-`else
+`ifdef __ICARUS__
   wire CI0 = (CI === 1'bz) ? CYINIT :
       (CYINIT === 1'bz) ? CI :
       (CI | CYINIT);
+`else
+  wire CI0 = CYINIT | CI;
 `endif
 
   wire [3:0] CO;
