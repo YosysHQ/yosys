@@ -536,9 +536,11 @@ struct QbfSatPass : public Pass {
 		log("\n");
 		log("    -solver <solver>\n");
 		log("        Use a particular solver. Choose one of: \"z3\", \"yices\", and \"cvc4\".\n");
+		log("        (default: yices)\n");
 		log("\n");
 		log("    -timeout <value>\n");
 		log("        Set the per-iteration timeout in seconds.\n");
+		log("        (default: no timeout)\n");
 		log("\n");
 		log("    -O0, -O1, -O2\n");
 		log("        Control the use of ABC to simplify the QBF-SAT problem before solving.\n");
