@@ -69,7 +69,6 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 	YS_REGEX_TYPE hole_bit_assn_regex = YS_REGEX_COMPILE_WITH_SUBS("^(.+) ([0-9]+) ([^ ]+) \\[([0-9]+)] = ([01])$");
 	YS_REGEX_TYPE hole_assn_regex = YS_REGEX_COMPILE_WITH_SUBS("^(.+) ([0-9]+) ([^ ]+) = ([01])$"); //if no index specified
 	YS_REGEX_MATCH_TYPE bit_m, m;
-	//(hole_loc, hole_bit, hole_name, hole_offset) -> (value, found)
 	dict<pool<std::string>, RTLIL::Cell*> anyconst_loc_to_cell;
 	dict<RTLIL::SigBit, RTLIL::State> hole_assignments;
 
@@ -161,9 +160,7 @@ void specialize(RTLIL::Module *module, const QbfSolutionType &sol, bool quiet = 
 void allconstify_inputs(RTLIL::Module *module, const pool<std::string> &input_wires) {
 	for (auto &n : input_wires) {
 		RTLIL::Wire *input = module->wire(n);
-#ifndef NDEBUG
 		log_assert(input != nullptr);
-#endif
 
 		RTLIL::Cell *allconst = module->addCell("$allconst$" + n, "$allconst");
 		allconst->setParam(ID(WIDTH), input->width);
@@ -210,9 +207,7 @@ void assume_miter_outputs(RTLIL::Module *module, bool assume_neg) {
 		wires_to_assume.swap(buf);
 	}
 
-#ifndef NDEBUG
 	log_assert(wires_to_assume.size() == 1);
-#endif
 	module->addAssume("$assume_qbfsat_miter_outputs", wires_to_assume[0], RTLIL::S1);
 }
 
