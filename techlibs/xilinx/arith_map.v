@@ -59,108 +59,49 @@ generate if (`LUT_SIZE == 4) begin
 
 end else if (EXPLICIT_CARRY) begin
 
-	// Turns out CO and O both use [ABCD]MUX, so provide a non-congested path
-	// to carry chain by using O outputs.
-	//
-	// Registering the output of the CARRY block would prevent the need to do
-	// this, but not all designs do that.
-	//
-	// To ensure that PAD_WIDTH > 0, add 1 to Y_WIDTH.
-	localparam Y_PAD_WIDTH  = WIDTH + 1;
-	localparam CARRY4_COUNT = (Y_PAD_WIDTH + 3) / 4;
+	localparam CARRY4_COUNT = (WIDTH + 3) / 4;
 	localparam MAX_WIDTH    = CARRY4_COUNT * 4;
 	localparam PAD_WIDTH    = MAX_WIDTH - WIDTH;
 
 	(* force_downto *)
-	wire [Y_PAD_WIDTH-1:0] O;
 	wire [MAX_WIDTH-1:0] S =  {{PAD_WIDTH{1'b0}}, P & ~G};
+	(* force_downto *)
 	wire [MAX_WIDTH-1:0] GG = {{PAD_WIDTH{1'b0}}, G};
-
-	// Carry chain between CARRY4 blocks.
-	//
-	// VPR requires that the carry chain never hit the fabric. The CO input
-	// to this techmap is the carry outputs for synthesis, e.g. might hit the
-	// fabric.
-	//
-	// So we maintain two wire sets, CO_CHAIN is the carry that is for VPR,
-	// e.g. off fabric dedicated chain.  CO is the carry outputs that are
-	// available to the fabric.
+	(* force_downto *)
+	wire [MAX_WIDTH-1:0] C;
 	(* force_downto *)
 	wire [CARRY4_COUNT-1:0] CO_CHAIN;
 	(* force_downto *)
 	wire [CARRY4_COUNT-1:0] CO_CHAIN_PLUG;
+	assign CO = C;
 
-	// If the design needs access to intermediate carry values, use the O pin
-	// (e.g. no other CARRY4 pin) to avoid [ABCD]MUX congestion.
-	// This does result in the CARRY stack being one element higher, but it
-	// avoids the need to deal with congestion at the top of the chain.
-	//
-	// Note:
-	//
-	//  O[N] = CO[N-1] ^ S[N]
-	//
-	// So for top of chain, S[N] = 0:
-	//
-	//  O[N] = CO[N-1]
-	assign CO[WIDTH-1:0] = O[WIDTH:1] ^ S[WIDTH:1];
-
-	genvar i;
 	generate for (i = 0; i < CARRY4_COUNT; i = i + 1) begin:slice
-
-		// Partially occupied CARRY4
-		if ((i+1)*4 > Y_PAD_WIDTH) begin
-
-			// First one
-			if (i == 0) begin
-				CARRY4_COUT carry4_1st_part
-				(
-				.CYINIT(CI),
-				.DI    (GG[(Y_PAD_WIDTH - 1):i*4]),
-				.S     (S [(Y_PAD_WIDTH - 1):i*4]),
-				.O     (O [(Y_PAD_WIDTH - 1):i*4]),
-				);
-			// Another one
-			end else begin
-				CARRY4_COUT carry4_part
-				(
-				.CI    (CO_CHAIN [i-1]),
-				.DI    (GG[(Y_PAD_WIDTH - 1):i*4]),
-				.S     (S [(Y_PAD_WIDTH - 1):i*4]),
-				.O     (O [(Y_PAD_WIDTH - 1):i*4]),
-				);
-			end
-
-		// Fully occupied CARRY4
+		if (i == 0) begin
+			CARRY4_CO_COUT carry4
+			(
+			.CYINIT(CI),
+			.CI    (1'd0),
+			.DI    (GG[i*4 +: 4]),
+			.S     (S [i*4 +: 4]),
+			.CO    (C [i*4 +: 4]),
+			.COUT  (CO_CHAIN_PLUG [i]),
+			);
 		end else begin
-
-			// First one
-			if (i == 0) begin
-				CARRY4_COUT carry4_1st_full
-				(
-				.CYINIT(CI),
-				.DI    (GG[((i+1)*4 - 1):i*4]),
-				.S     (S [((i+1)*4 - 1):i*4]),
-				.O     (O [((i+1)*4 - 1):i*4]),
-				.COUT(CO_CHAIN_PLUG[i])
-				);
-			// Another one
-			end else begin
-				CARRY4_COUT carry4_full
-				(
-				.CI    (CO_CHAIN[i-1]),
-				.DI    (GG[((i+1)*4 - 1):i*4]),
-				.S     (S [((i+1)*4 - 1):i*4]),
-				.O     (O [((i+1)*4 - 1):i*4]),
-				.COUT(CO_CHAIN_PLUG[i])
-				);
-			end
-
-			CARRY_COUT_PLUG plug(
-				.CIN(CO_CHAIN_PLUG[i]),
-				.COUT(CO_CHAIN[i])
+			CARRY4_CO_COUT carry4
+			(
+			.CYINIT(1'd0),
+			.CI    (CO_CHAIN[i-1]),
+			.DI    (GG[i*4 +: 4]),
+			.S     (S [i*4 +: 4]),
+			.CO    (C [i*4 +: 4]),
+			.COUT  (CO_CHAIN_PLUG [i]),
 			);
 		end
 
+		CARRY_COUT_PLUG plug(
+			.CIN(CO_CHAIN_PLUG[i]),
+			.COUT(CO_CHAIN[i])
+		);
 	end endgenerate
 
 end else begin

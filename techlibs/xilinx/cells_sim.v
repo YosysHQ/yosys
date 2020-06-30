@@ -531,6 +531,73 @@ module CARRY4_COUT(
   endspecify
 endmodule
 
+(* abc9_box, lib_whitebox *)
+module CARRY4_CO_COUT(
+    output [3:0] CO,
+    (* abc9_carry *)
+    output COUT,
+    (* abc9_carry *)
+    input CI,
+    input CYINIT,
+    input [3:0] DI, S);
+`ifdef __ICARUS__
+  wire CI0 = (CI === 1'bz) ? CYINIT :
+      (CYINIT === 1'bz) ? CI :
+      (CI | CYINIT);
+`else
+  wire CI0 = CYINIT | CI;
+`endif
+
+  wire [3:0] CO;
+
+  assign CO[0] = S[0] ? CI0 : DI[0];
+  assign CO[1] = S[1] ? CO[0] : DI[1];
+  assign CO[2] = S[2] ? CO[1] : DI[2];
+  wire CO_TOP  = S[3] ? CO[2] : DI[3];
+  assign CO[3] = CO_TOP;
+  assign COUT = CO_TOP;
+  specify
+    (CYINIT => CO[0]) = 536;
+    (DI[0]  => CO[0]) = 379;
+    (S[0]   => CO[0]) = 340;
+    (CI     => CO[0]) = 271;
+    (CYINIT => CO[1]) = 494;
+    (DI[0]  => CO[1]) = 465;
+    (DI[1]  => CO[1]) = 445;
+    (S[0]   => CO[1]) = 433;
+    (S[1]   => CO[1]) = 469;
+    (CI     => CO[1]) = 157;
+    (CYINIT => CO[2]) = 592;
+    (DI[0]  => CO[2]) = 540;
+    (DI[1]  => CO[2]) = 520;
+    (DI[2]  => CO[2]) = 356;
+    (S[0]   => CO[2]) = 512;
+    (S[1]   => CO[2]) = 548;
+    (S[2]   => CO[2]) = 292;
+    (CI     => CO[2]) = 228;
+    (CYINIT => CO[3]) = 580;
+    (DI[0]  => CO[3]) = 526;
+    (DI[1]  => CO[3]) = 507;
+    (DI[2]  => CO[3]) = 398;
+    (DI[3]  => CO[3]) = 385;
+    (S[0]   => CO[3]) = 508;
+    (S[1]   => CO[3]) = 528;
+    (S[2]   => CO[3]) = 378;
+    (S[3]   => CO[3]) = 380;
+    (CI     => CO[3]) = 114;
+    (CYINIT => COUT) = 580;
+    (DI[0]  => COUT) = 526;
+    (DI[1]  => COUT) = 507;
+    (DI[2]  => COUT) = 398;
+    (DI[3]  => COUT) = 385;
+    (S[0]   => COUT) = 508;
+    (S[1]   => COUT) = 528;
+    (S[2]   => COUT) = 378;
+    (S[3]   => COUT) = 380;
+    (CI     => COUT) = 114;
+  endspecify
+endmodule
+
 `endif
 
 module ORCY (output O, input CI, I);
