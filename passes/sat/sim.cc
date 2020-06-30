@@ -163,7 +163,10 @@ struct SimInstance
 
 				mem_database[cell] = mem;
 			}
-
+			if (cell->type.in(ID($memwr),ID($memrd)))
+			{
+				log_error("$memrd and $memwr cells have to be merged to stand-alone $mem cells (execute memory_collect pass)\n");
+			}
 			if (cell->type.in(ID($assert), ID($cover), ID($assume))) {
 				formal_database.insert(cell);
 			}
