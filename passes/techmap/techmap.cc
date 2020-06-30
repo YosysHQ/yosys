@@ -328,8 +328,9 @@ struct TechmapWorker
 		for (auto tpl_cell : tpl->cells())
 		{
 			IdString c_name = tpl_cell->name;
+			bool techmap_replace_cell = (c_name == ID::_TECHMAP_REPLACE_);
 
-			if (c_name == ID::_TECHMAP_REPLACE_)
+			if (techmap_replace_cell)
 				c_name = orig_cell_name;
 			else if (tpl_cell->name.begins_with("\\_TECHMAP_REPLACE_."))
 				c_name = stringf("%s%s", orig_cell_name.c_str(), c_name.c_str() + strlen("\\_TECHMAP_REPLACE_"));
@@ -384,7 +385,7 @@ struct TechmapWorker
 			if (c->attributes.count(ID::src))
 				c->add_strpool_attribute(ID::src, extra_src_attrs);
 
-			if (c_name == ID::_TECHMAP_REPLACE_)
+			if (techmap_replace_cell)
 				for (auto attr : cell->attributes)
 					if (!c->attributes.count(attr.first))
 						c->attributes[attr.first] = attr.second;
