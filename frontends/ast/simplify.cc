@@ -950,6 +950,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	case AST_TO_SIGNED:
 	case AST_TO_UNSIGNED:
 	case AST_SELFSZ:
+	case AST_CAST_SIZE:
 	case AST_CONCAT:
 	case AST_REPLICATE:
 	case AST_REDUCE_AND:
@@ -3485,6 +3486,13 @@ replace_fcall_later:;
 						// value in Table 7-1 for the 'real' type is 0.0.
 						newNode->realvalue = 0.0;
 				}
+			}
+			break;
+		case AST_CAST_SIZE:
+			if (children.at(0)->type == AST_CONSTANT && children.at(1)->type == AST_CONSTANT) {
+				int width = children[0]->bitsAsConst().as_int();
+				RTLIL::Const val = children[1]->bitsAsConst(width);
+				newNode = mkconst_bits(val.bits, children[1]->is_signed);
 			}
 			break;
 		case AST_CONCAT:

@@ -814,6 +814,16 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		children.at(0)->detectSignWidthWorker(sub_width_hint, sign_hint);
 		break;
 
+	case AST_CAST_SIZE:
+		while (children.at(0)->simplify(true, false, false, 1, -1, false, false)) { }
+		if (children.at(0)->type != AST_CONSTANT)
+			log_file_error(filename, location.first_line, "Static cast with non constant expression!\n");
+		children.at(1)->detectSignWidthWorker(width_hint, sign_hint);
+		width_hint = children.at(0)->bitsAsConst().as_int();
+		if (width_hint <= 0)
+			log_file_error(filename, location.first_line, "Static cast with zero or negative size!\n");
+		break;
+
 	case AST_CONCAT:
 		for (auto child : children) {
 			sub_width_hint = 0;
@@ -1288,6 +1298,20 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			is_signed = sign_hint;
 			return sig;
 	}
+
+	// changing the size of signal can be done directly using RTLIL::SigSpec
+	case AST_CAST_SIZE: {
+			RTLIL::SigSpec size = children[0]->genRTLIL();
+			RTLIL::SigSpec sig = children[1]->genRTLIL();
+			if (!size.is_fully_const())
+				log_file_error(filename, location.first_line, "Static cast with non constant expression!\n");
+			int width = size.as_int();
+			if (width <= 0)
+				log_file_error(filename, location.first_line, "Static cast with zero or negative size!\n");
+			sig.extend_u0(width, sign_hint);
+			is_signed = sign_hint;
+			return sig;
+		}
 
 	// concatenation of signals can be done directly using RTLIL::SigSpec
 	case AST_CONCAT: {
