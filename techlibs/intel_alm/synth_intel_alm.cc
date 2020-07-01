@@ -208,11 +208,10 @@ struct SynthIntelALMPass : public ScriptPass {
 		}
 
 		if (check_label("map_ffs")) {
+			run("techmap");
 			run("dff2dffe");
-			// As mentioned in common/dff_sim.v, Intel flops power up to zero,
-			// so use `zinit` to add inverters where needed.
-			run("zinit");
-			run("techmap -map +/techmap.v -map +/intel_alm/common/dff_map.v");
+			run("dfflegalize -cell $_DFFE_PN0P_ 0 -cell $_SDFFCE_PP0P_ 0");
+			run("techmap -map +/intel_alm/common/dff_map.v");
 			run("opt -full -undriven -mux_undef");
 			run("clean -purge");
 		}
