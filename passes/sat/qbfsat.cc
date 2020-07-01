@@ -51,6 +51,7 @@ struct QbfSolveOptions {
 	bool nooptimize, nobisection;
 	bool sat, unsat, show_smtbmc;
 	enum Solver{Z3, Yices, CVC4} solver;
+	enum OptimizationLevel{O0, O1, O2} oflag;
 	int timeout;
 	std::string specialize_soln_file;
 	std::string write_soln_soln_file;
@@ -59,7 +60,7 @@ struct QbfSolveOptions {
 	QbfSolveOptions() : specialize(false), specialize_from_file(false), write_solution(false),
 			nocleanup(false), dump_final_smt2(false), assume_outputs(false), assume_neg(false),
 			nooptimize(false), nobisection(false), sat(false), unsat(false), show_smtbmc(false),
-			solver(Yices), timeout(0), argidx(0) {};
+			solver(Yices), oflag(O0), timeout(0), argidx(0) {};
 };
 
 std::string get_solver_name(const QbfSolveOptions &opt) {
@@ -460,8 +461,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 	RTLIL::Module *module = mod;
 	RTLIL::Design *design = module->design;
 	std::string module_name = module->name.str();
-	RTLIL::Wire *wire_to_optimize = nullptr;
-	RTLIL::IdString wire_to_optimize_name;
+	RTLIL::IdString wire_to_optimize_name = "";
 	bool maximize = false;
 	log_assert(module->design != nullptr);
 
@@ -474,19 +474,30 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 		assume_miter_outputs(module, opt);
 
 	//Find the wire to be optimized, if any:
-	for (auto wire : module->wires())
-		if (wire->get_bool_attribute("\\maximize") || wire->get_bool_attribute("\\minimize"))
-			wire_to_optimize = wire;
-	if (wire_to_optimize != nullptr) {
-		wire_to_optimize_name = wire_to_optimize->name;
-		maximize = wire_to_optimize->get_bool_attribute("\\maximize");
+	for (auto wire : module->wires()) {
+		if (wire->get_bool_attribute("\\maximize") || wire->get_bool_attribute("\\minimize")) {
+			wire_to_optimize_name = wire->name;
+			maximize = wire->get_bool_attribute("\\maximize");
+			if (opt.nooptimize) {
+				if (maximize)
+					wire->set_bool_attribute("\\maximize", false);
+				else
+					wire->set_bool_attribute("\\minimize", false);
+			}
+		}
 	}
 
-	if (opt.nobisection || opt.nooptimize || wire_to_optimize == nullptr) {
-		if (wire_to_optimize != nullptr && opt.nooptimize) {
-			wire_to_optimize->set_bool_attribute("\\maximize", false);
-			wire_to_optimize->set_bool_attribute("\\minimize", false);
-		}
+	//If -O1 or -O2 was specified, use ABC to simplify the problem:
+	if (opt.oflag == opt.OptimizationLevel::O1)
+		Pass::call(module->design, "abc -g AND,NAND,OR,NOR,XOR,XNOR,MUX,NMUX -script +print_stats;strash;print_stats;drwsat;print_stats;fraig;print_stats;refactor,-N,10,-lz;print_stats;&get,-n;&dch,-pem;&nf;&put " + mod->name.str());
+	else if (opt.oflag == opt.OptimizationLevel::O2)
+		Pass::call(module->design, "abc -g AND,NAND,OR,NOR,XOR,XNOR,MUX,NMUX -script +print_stats;strash;print_stats;drwsat;print_stats;dch,-S,1000000,-C,100000,-p;print_stats;fraig;print_stats;refactor,-N,15,-lz;print_stats;dc2,-pbl;print_stats;drwsat;print_stats;&get,-n;&dch,-pem;&nf;&put " + mod->name.str());
+	if (opt.oflag != opt.OptimizationLevel::O0) {
+		Pass::call(module->design, "techmap");
+		Pass::call(module->design, "opt");
+	}
+
+	if (opt.nobisection || opt.nooptimize || wire_to_optimize_name == "") {
 		ret = call_qbf_solver(module, opt, tempdir_name, false, 0);
 	} else {
 		//Do the iterated bisection method:
@@ -495,8 +506,9 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 		unsigned int failure = 0;
 		unsigned int cur_thresh = 0;
 
-		log_assert(wire_to_optimize != nullptr);
-		log("%s wire \"%s\".\n", (maximize? "Maximizing" : "Minimizing"), log_signal(wire_to_optimize));
+		log_assert(wire_to_optimize_name != "");
+		log_assert(module->wire(wire_to_optimize_name) != nullptr);
+		log("%s wire \"%s\".\n", (maximize? "Maximizing" : "Minimizing"), wire_to_optimize_name.c_str());
 
 		//If maximizing, grow until we get a failure.  Then bisect success and failure.
 		while (failure == 0 || difference(success, failure) > 1) {
@@ -629,6 +641,22 @@ QbfSolveOptions parse_args(const std::vector<std::string> &args) {
 			}
 			continue;
 		}
+		else if (args[opt.argidx].substr(0, 2) == "-O" && args[opt.argidx].size() == 3) {
+			switch (args[opt.argidx][2]) {
+				case '0':
+					opt.oflag = opt.OptimizationLevel::O0;
+				break;
+				case '1':
+					opt.oflag = opt.OptimizationLevel::O1;
+				break;
+				case '2':
+					opt.oflag = opt.OptimizationLevel::O2;
+				break;
+				default:
+					log_cmd_error("unknown argument %s\n", args[opt.argidx].c_str());
+			}
+			continue;
+		}
 		else if (args[opt.argidx] == "-sat") {
 			opt.sat = true;
 			continue;
@@ -742,6 +770,9 @@ struct QbfSatPass : public Pass {
 		log("\n");
 		log("    -timeout <value>\n");
 		log("        Set the per-iteration timeout in seconds.\n");
+		log("\n");
+		log("    -O0, -O1, -O2\n");
+		log("        Control the use of ABC to simplify the QBF-SAT problem before solving.\n");
 		log("\n");
 		log("    -sat\n");
 		log("        Generate an error if the solver does not return \"sat\".\n");
