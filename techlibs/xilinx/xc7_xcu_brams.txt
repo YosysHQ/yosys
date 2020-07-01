@@ -73,15 +73,13 @@ bram $__XILINX_RAMB18_TDP
   clkpol 2 3
 endbram
 
-# Disable RAMB36 synthesis until https://github.com/SymbiFlow/symbiflow-arch-defs/issues/438
-# is solved.
-#match $__XILINX_RAMB36_SDP
-#  min bits 4096
-#  min efficiency 5
-#  shuffle_enable B
-#  make_transp
-#  or_next_if_better
-#endmatch
+match $__XILINX_RAMB36_SDP
+  min bits 4096
+  min efficiency 5
+  shuffle_enable B
+  make_transp
+  or_next_if_better
+endmatch
 
 match $__XILINX_RAMB36_SDP
   attribute ram_style=block ram_block
@@ -101,13 +99,13 @@ match $__XILINX_RAMB18_SDP
   or_next_if_better
 endmatch
 
-#match $__XILINX_RAMB36_TDP
-#  min bits 4096
-#  min efficiency 5
-#  shuffle_enable B
-#  make_transp
-#  or_next_if_better
-#endmatch
+match $__XILINX_RAMB36_TDP
+  min bits 4096
+  min efficiency 5
+  shuffle_enable B
+  make_transp
+  or_next_if_better
+endmatch
 
 match $__XILINX_RAMB36_TDP
   attribute ram_style=block ram_block
