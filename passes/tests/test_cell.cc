@@ -264,6 +264,10 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 		cell->setPort(ID::Y, wire);
 	}
 
+	if (cell_type.in(ID($shift), ID($shiftx))) {
+		cell->parameters[ID::A_SIGNED] = false;
+	}
+
 	if (cell_type.in(ID($shl), ID($shr), ID($sshl), ID($sshr))) {
 		cell->parameters[ID::B_SIGNED] = false;
 	}

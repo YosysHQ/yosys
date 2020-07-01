@@ -224,11 +224,12 @@ struct BtorWorker
 			int sid = get_bv_sid(width);
 			int nid;
 
+			// $shift + $shiftx always zero-extend their A operand
+			int nid_a = get_sig_nid(cell->getPort(ID::A), width, a_signed && !cell->type.in(ID($shift), ID($shiftx)));
+			int nid_b = get_sig_nid(cell->getPort(ID::B), width, b_signed);
+
 			if (btor_op == "shift")
 			{
-				int nid_a = get_sig_nid(cell->getPort(ID::A), width, false);
-				int nid_b = get_sig_nid(cell->getPort(ID::B), width, b_signed);
-
 				int nid_r = next_nid++;
 				btorf("%d srl %d %d %d\n", nid_r, sid, nid_a, nid_b);
 
@@ -248,9 +249,6 @@ struct BtorWorker
 			}
 			else
 			{
-				int nid_a = get_sig_nid(cell->getPort(ID::A), width, a_signed);
-				int nid_b = get_sig_nid(cell->getPort(ID::B), width, b_signed);
-
 				nid = next_nid++;
 				btorf("%d %s %d %d %d%s\n", nid, btor_op.c_str(), sid, nid_a, nid_b, getinfo(cell).c_str());
 			}
