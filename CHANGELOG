@@ -67,6 +67,8 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Added "select -unset"
     - Use YosysHQ/abc instead of upstream berkeley-abc/abc
     - Added $divfloor and $modfloor cells
+    - Added $adffe, $dffsre, $sdff, $sdffe, $sdffce, $adlatch cells
+    - Added "dfflegalize" pass
 
 Yosys 0.8 .. Yosys 0.9
 ----------------------
