@@ -315,12 +315,17 @@ struct SynthEcp5Pass : public ScriptPass
 			run("opt_clean");
 			if (!nodffe)
 				run("dff2dffe -direct-match $_DFF_* -direct-match $_SDFF_*");
+			if (help_mode)
+				run("dfflegalize -cell $_DFF_?_ 01 -cell $_DFFE_??_ 01 -cell $_DFF_?P?_ r -cell $_DFFE_?P??_ r -cell $_SDFF_?P?_ r -cell $_SDFFE_?P??_ r -cell $_DLATCH_?_ x [-cell $_DFFSR_?PP_ x]", "($_DFFSR_*_ only if -asyncprld)");
+			else if (asyncprld)
+				run("dfflegalize -cell $_DFF_?_ 01 -cell $_DFFE_??_ 01 -cell $_DFF_?P?_ r -cell $_DFFE_?P??_ r -cell $_SDFF_?P?_ r -cell $_SDFFE_?P??_ r -cell $_DLATCH_?_ x -cell $_DFFSR_?PP_ x");
+			else
+				run("dfflegalize -cell $_DFF_?_ 01 -cell $_DFFE_??_ 01 -cell $_DFF_?P?_ r -cell $_DFFE_?P??_ r -cell $_SDFF_?P?_ r -cell $_SDFFE_?P??_ r -cell $_DLATCH_?_ x");
 			if ((abc9 && dff) || help_mode)
 				run("zinit -all w:* t:$_DFF_?_ t:$_DFFE_??_ t:$_SDFF*", "(only if -abc9 and -dff");
 			run(stringf("techmap -D NO_LUT %s -map +/ecp5/cells_map.v", help_mode ? "[-D ASYNC_PRLD]" : (asyncprld ? "-D ASYNC_PRLD" : "")));
 			run("opt_expr -undriven -mux_undef");
 			run("simplemap");
-			run("ecp5_ffinit");
 			run("ecp5_gsr");
 			run("attrmvcp -copy -attr syn_useioff");
 			run("opt_clean");
