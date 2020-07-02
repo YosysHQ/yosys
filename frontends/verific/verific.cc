@@ -48,6 +48,7 @@ USING_YOSYS_NAMESPACE
 #include "VeriWrite.h"
 #include "VhdlUnits.h"
 #include "VeriLibrary.h"
+#include "VeriExtensions.h"
 
 #ifndef SYMBIOTIC_VERIFIC_API_VERSION
 #  error "Only Symbiotic EDA flavored Verific is supported. Please contact office@symbioticeda.com for commercial support for Yosys+Verific."
@@ -1445,6 +1446,16 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 				continue;
 		}
 
+		if (inst->Type() == PRIM_SEDA_INITSTATE)
+		{
+			SigBit initstate = module->Initstate(new_verific_id(inst));
+			SigBit sig_o = net_map_at(inst->GetOutput());
+			module->connect(sig_o, initstate);
+
+			if (!mode_keep)
+				continue;
+		}
+
 		if (!mode_keep && verific_sva_prims.count(inst->Type())) {
 			if (verific_verbose)
 				log("    skipping SVA cell in non k-mode\n");
@@ -1921,6 +1932,9 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 	Map verific_params(STRING_HASH);
 	for (const auto &i : parameters)
 		verific_params.Insert(i.first.c_str(), i.second.c_str());
+
+	InitialAssertionRewriter rw;
+	rw.RegisterCallBack();
 
 	if (top.empty()) {
 		netlists = hier_tree::ElaborateAll(&veri_libs, &vhdl_libs, &verific_params);
@@ -2467,6 +2481,9 @@ struct VerificPass : public Pass {
 
 			std::set<std::string> top_mod_names;
 
+			InitialAssertionRewriter rw;
+			rw.RegisterCallBack();
+
 			if (mode_all)
 			{
 				log("Running hier_tree::ElaborateAll().\n");
@@ -2491,31 +2508,23 @@ struct VerificPass : public Pass {
 				if (argidx == GetSize(args))
 					cmd_error(args, argidx, "No top module specified.\n");
 
+				VeriLibrary* veri_lib = veri_file::GetLibrary(work.c_str(), 1);
+				VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary(work.c_str(), 1);
+
 				Array veri_modules, vhdl_units;
 				for (; argidx < GetSize(args); argidx++)
 				{
 					const char *name = args[argidx].c_str();
 					top_mod_names.insert(name);
-					VeriLibrary* veri_lib = veri_file::GetLibrary(work.c_str(), 1);
 
-					if (veri_lib) {
-						VeriModule *veri_module = veri_lib->GetModule(name, 1);
-						if (veri_module) {
-							log("Adding Verilog module '%s' to elaboration queue.\n", name);
-							veri_modules.InsertLast(veri_module);
-							continue;
-						}
-
-						// Also elaborate all root modules since they may contain bind statements
-						MapIter mi;
-						FOREACH_VERILOG_MODULE_IN_LIBRARY(veri_lib, mi, veri_module) {
-							if (!veri_module->IsRootModule()) continue;
-							veri_modules.InsertLast(veri_module);
-						}
+					VeriModule *veri_module = veri_lib ? veri_lib->GetModule(name, 1) : nullptr;
+					if (veri_module) {
+						log("Adding Verilog module '%s' to elaboration queue.\n", name);
+						veri_modules.InsertLast(veri_module);
+						continue;
 					}
 
-					VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary(work.c_str(), 1);
-					VhdlDesignUnit *vhdl_unit = vhdl_lib->GetPrimUnit(name);
+					VhdlDesignUnit *vhdl_unit = vhdl_lib ? vhdl_lib->GetPrimUnit(name) : nullptr;
 					if (vhdl_unit) {
 						log("Adding VHDL unit '%s' to elaboration queue.\n", name);
 						vhdl_units.InsertLast(vhdl_unit);
@@ -2523,6 +2532,16 @@ struct VerificPass : public Pass {
 					}
 
 					log_error("Can't find module/unit '%s'.\n", name);
+				}
+
+				if (veri_lib) {
+					// Also elaborate all root modules since they may contain bind statements
+					MapIter mi;
+					VeriModule *veri_module;
+					FOREACH_VERILOG_MODULE_IN_LIBRARY(veri_lib, mi, veri_module) {
+						if (!veri_module->IsRootModule()) continue;
+						veri_modules.InsertLast(veri_module);
+					}
 				}
 
 				log("Running hier_tree::Elaborate().\n");
