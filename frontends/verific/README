@@ -1,7 +1,11 @@
 
-
 This directory contains Verific bindings for Yosys.
-See http://www.verific.com/ for details.
+
+Use Symbiotic EDA Suite if you need Yosys+Verifc.
+https://www.symbioticeda.com/seda-suite
+
+Contact office@symbioticeda.com for free evaluation
+binaries of Symbiotic EDA Suite.
 
 
 Verific Features that should be enabled in your Verific library

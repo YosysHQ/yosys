@@ -26,7 +26,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct CopyPass : public Pass {
 	CopyPass() : Pass("copy", "copy modules in the design") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -36,7 +36,7 @@ struct CopyPass : public Pass {
 		log("by this command.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		if (args.size() != 3)
 			log_cmd_error("Invalid number of arguments!\n");
@@ -44,10 +44,10 @@ struct CopyPass : public Pass {
 		std::string src_name = RTLIL::escape_id(args[1]);
 		std::string trg_name = RTLIL::escape_id(args[2]);
 
-		if (design->modules_.count(src_name) == 0)
+		if (design->module(src_name) == nullptr)
 			log_cmd_error("Can't find source module %s.\n", src_name.c_str());
 
-		if (design->modules_.count(trg_name) != 0)
+		if (design->module(trg_name) != nullptr)
 			log_cmd_error("Target module name %s already exists.\n", trg_name.c_str());
 
 		RTLIL::Module *new_mod = design->module(src_name)->clone();

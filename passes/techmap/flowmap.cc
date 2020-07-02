@@ -1405,7 +1405,7 @@ struct FlowmapWorker
 
 			RTLIL::SigSpec lut_a, lut_y = node;
 			for (auto input_node : input_nodes)
-				lut_a.append_bit(input_node);
+				lut_a.append(input_node);
 			lut_a.append(RTLIL::Const(State::Sx, minlut - input_nodes.size()));
 
 			RTLIL::Cell *lut = module->addLut(NEW_ID, lut_a, lut_y, lut_table);
@@ -1413,7 +1413,7 @@ struct FlowmapWorker
 			for (auto gate_node : lut_gates[node])
 			{
 				auto gate_origin = node_origins[gate_node];
-				lut->add_strpool_attribute(ID(src), gate_origin.cell->get_strpool_attribute(ID(src)));
+				lut->add_strpool_attribute(ID::src, gate_origin.cell->get_strpool_attribute(ID::src));
 				packed_count++;
 			}
 			lut_count++;
@@ -1470,7 +1470,7 @@ static void split(std::vector<std::string> &tokens, const std::string &text, cha
 
 struct FlowmapPass : public Pass {
 	FlowmapPass() : Pass("flowmap", "pack LUTs with FlowMap") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1511,7 +1511,7 @@ struct FlowmapPass : public Pass {
 		log("        explain decisions performed during depth relaxation.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		int order = 3;
 		int minlut = 1;

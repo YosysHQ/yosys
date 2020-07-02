@@ -107,16 +107,16 @@ module:
 		delete_current_module = false;
 		if (current_design->has($2)) {
 			RTLIL::Module *existing_mod = current_design->module($2);
-			if (!flag_overwrite && (flag_lib || (attrbuf.count("\\blackbox") && attrbuf.at("\\blackbox").as_bool()))) {
+			if (!flag_overwrite && (flag_lib || (attrbuf.count(ID::blackbox) && attrbuf.at(ID::blackbox).as_bool()))) {
 				log("Ignoring blackbox re-definition of module %s.\n", $2);
 				delete_current_module = true;
-			} else if (!flag_nooverwrite && !flag_overwrite && !existing_mod->get_bool_attribute("\\blackbox")) {
+			} else if (!flag_nooverwrite && !flag_overwrite && !existing_mod->get_bool_attribute(ID::blackbox)) {
 				rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of module %s.", $2).c_str());
 			} else if (flag_nooverwrite) {
 				log("Ignoring re-definition of module %s.\n", $2);
 				delete_current_module = true;
 			} else {
-				log("Replacing existing%s module %s.\n", existing_mod->get_bool_attribute("\\blackbox") ? " blackbox" : "", $2);
+				log("Replacing existing%s module %s.\n", existing_mod->get_bool_attribute(ID::blackbox) ? " blackbox" : "", $2);
 				current_design->remove(existing_mod);
 			}
 		}
@@ -143,11 +143,18 @@ module_body:
 	/* empty */;
 
 module_stmt:
-	param_stmt | attr_stmt | wire_stmt | memory_stmt | cell_stmt | proc_stmt | conn_stmt;
+	param_stmt | param_defval_stmt | attr_stmt | wire_stmt | memory_stmt | cell_stmt | proc_stmt | conn_stmt;
 
 param_stmt:
 	TOK_PARAMETER TOK_ID EOL {
-		current_module->avail_parameters.insert($2);
+		current_module->avail_parameters($2);
+		free($2);
+	};
+
+param_defval_stmt:
+	TOK_PARAMETER TOK_ID constant EOL {
+		current_module->avail_parameters($2);
+		current_module->parameter_default_values[$2] = *$3;
 		free($2);
 	};
 
@@ -169,7 +176,7 @@ wire_stmt:
 		current_wire->attributes = attrbuf;
 		attrbuf.clear();
 	} wire_options TOK_ID EOL {
-		if (current_module->wires_.count($4) != 0)
+		if (current_module->wire($4) != nullptr)
 			rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of wire %s.", $4).c_str());
 		current_module->rename(current_wire, $4);
 		free($4);
@@ -179,8 +186,14 @@ wire_options:
 	wire_options TOK_WIDTH TOK_INT {
 		current_wire->width = $3;
 	} |
+	wire_options TOK_WIDTH TOK_INVALID {
+		rtlil_frontend_ilang_yyerror("ilang error: invalid wire width");
+	} |
 	wire_options TOK_UPTO {
 		current_wire->upto = true;
+	} |
+	wire_options TOK_SIGNED {
+		current_wire->is_signed = true;
 	} |
 	wire_options TOK_OFFSET TOK_INT {
 		current_wire->start_offset = $3;
@@ -229,7 +242,7 @@ memory_options:
 
 cell_stmt:
 	TOK_CELL TOK_ID TOK_ID EOL {
-		if (current_module->cells_.count($3) != 0)
+		if (current_module->cell($3) != nullptr)
 			rtlil_frontend_ilang_yyerror(stringf("ilang error: redefinition of cell %s.", $3).c_str());
 		current_cell = current_module->addCell($3, $2);
 		current_cell->attributes = attrbuf;
@@ -424,9 +437,9 @@ sigspec:
 		delete $1;
 	} |
 	TOK_ID {
-		if (current_module->wires_.count($1) == 0)
+		if (current_module->wire($1) == nullptr)
 			rtlil_frontend_ilang_yyerror(stringf("ilang error: wire %s not found", $1).c_str());
-		$$ = new RTLIL::SigSpec(current_module->wires_[$1]);
+		$$ = new RTLIL::SigSpec(current_module->wire($1));
 		free($1);
 	} |
 	sigspec '[' TOK_INT ']' {

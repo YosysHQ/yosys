@@ -48,7 +48,7 @@ module  \$_DFF_PP0_ (input D, C, R, output Q);
    dffeas #(.is_wysiwyg(WYSIWYG), .power_up(power_up)) _TECHMAP_REPLACE_ (.d(D), .q(Q), .clk(C), .clrn(R_i), .prn(1'b1), .ena(1'b1), .asdata(1'b0), .aload(1'b0), .sclr(1'b0), .sload(1'b0));
 endmodule
 
-module  \$__DFFE_PP0 (input D, C, E, R, output Q);
+module  \$_DFFE_PP0P_ (input D, C, E, R, output Q);
    parameter WYSIWYG="TRUE";
    parameter power_up=1'bx;
    wire E_i = ~ E;
@@ -71,6 +71,7 @@ endmodule
 module \$lut (A, Y);
    parameter WIDTH  = 0;
    parameter LUT    = 0;
+   (* force_downto *)
    input [WIDTH-1:0] A;
    output            Y;
    generate

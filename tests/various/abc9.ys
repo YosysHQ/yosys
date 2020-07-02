@@ -14,6 +14,7 @@ design -import gate -as gate
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
 sat -verify -prove-asserts -show-ports miter
 
+
 design -load read
 hierarchy -top abc9_test028
 proc
@@ -22,3 +23,79 @@ abc9 -lut 4
 select -assert-count 1 t:$lut r:LUT=2'b01 r:WIDTH=1 %i %i
 select -assert-count 1 t:unknown
 select -assert-none t:$lut t:unknown %% t: %D
+
+
+design -load read
+hierarchy -top abc9_test032
+proc
+clk2fflogic
+design -save gold
+
+abc9 -lut 4
+check
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -seq 10 -verify -prove-asserts -show-ports miter
+
+
+design -reset
+read_verilog -icells <<EOT
+module abc9_test036(input clk, d, output q);
+(* keep, init=1'b0 *) wire w;
+$_DFF_P_ ff(.C(clk), .D(d), .Q(w));
+assign q = w;
+endmodule
+EOT
+equiv_opt -assert abc9 -lut 4 -dff
+design -load postopt
+cd abc9_test036
+select -assert-count 1 t:$_DFF_P_
+select -assert-none t:* t:$_DFF_P_ %d
+
+
+design -reset
+read_verilog -icells -specify <<EOT
+(* abc9_lut=1, blackbox *)
+module LUT2(input [1:0] i, output o);
+parameter [3:0] mask = 0;
+assign o = i[0] ? (i[1] ? mask[3] : mask[2])
+                : (i[1] ? mask[1] : mask[0]);
+specify
+  (i *> o) = 1;
+endspecify
+endmodule
+
+module abc9_test037(input [1:0] i, output o);
+LUT2 #(.mask(4'b0)) lut (.i(i), .o(o));
+endmodule
+EOT
+abc9
+
+
+design -reset
+read_verilog -icells <<EOT
+module abc9_test038(input clk, output w, x, y, z);
+(* init=1'b1 *) wire w;
+$_DFF_N_ ff1(.C(clk), .D(1'b1), .Q(w));
+(* init=1'bx *) wire x;
+$_DFF_N_ ff2(.C(clk), .D(1'b0), .Q(x));
+(* init=1'b0 *) wire y;
+$_DFF_N_ ff3(.C(clk), .D(1'b0), .Q(y));
+(* init=1'b0 *) wire z;
+$_DFF_N_ ff4(.C(clk), .D(1'b1), .Q(z));
+endmodule
+EOT
+simplemap
+equiv_opt abc9 -lut 4 -dff
+design -load postopt
+cd abc9_test038
+select -assert-count 3 t:$_DFF_N_
+select -assert-none c:ff1 c:ff2 c:ff4 %% c:* %D
+clean
+select -assert-count 2 a:init
+select -assert-count 1 w:w a:init %i
+select -assert-count 1 c:ff4 %co c:ff4 %d %a a:init %i

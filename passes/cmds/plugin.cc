@@ -99,7 +99,7 @@ void load_plugin(std::string, std::vector<std::string>)
 
 struct PluginPass : public Pass {
 	PluginPass() : Pass("plugin", "load and list loaded plugins") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -117,7 +117,7 @@ struct PluginPass : public Pass {
 		log("        List loaded plugins\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::string plugin_filename;
 		std::vector<std::string> plugin_aliases;

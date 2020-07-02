@@ -40,16 +40,16 @@ void reduce_chain(test_pmgen_pm &pm)
 	log("Found chain of length %d (%s):\n", GetSize(ud.longest_chain), log_id(st.first->type));
 
 	SigSpec A;
-	SigSpec Y = ud.longest_chain.front().first->getPort(ID(Y));
+	SigSpec Y = ud.longest_chain.front().first->getPort(ID::Y);
 	auto last_cell = ud.longest_chain.back().first;
 
 	for (auto it : ud.longest_chain) {
 		auto cell = it.first;
 		if (cell == last_cell) {
-			A.append(cell->getPort(ID(A)));
-			A.append(cell->getPort(ID(B)));
+			A.append(cell->getPort(ID::A));
+			A.append(cell->getPort(ID::B));
 		} else {
-			A.append(cell->getPort(it.second == ID(A) ? ID(B) : ID(A)));
+			A.append(cell->getPort(it.second == ID::A ? ID::B : ID::A));
 		}
 		log("    %s\n", log_id(cell));
 		pm.autoremove(cell);
@@ -78,7 +78,7 @@ void reduce_tree(test_pmgen_pm &pm)
 		return;
 
 	SigSpec A = ud.leaves;
-	SigSpec Y = st.first->getPort(ID(Y));
+	SigSpec Y = st.first->getPort(ID::Y);
 	pm.autoremove(st.first);
 
 	log("Found %s tree with %d leaves for %s (%s).\n", log_id(st.first->type),
@@ -118,7 +118,7 @@ void opt_eqpmux(test_pmgen_pm &pm)
 
 struct TestPmgenPass : public Pass {
 	TestPmgenPass() : Pass("test_pmgen", "test pass for pmgen") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -239,7 +239,7 @@ struct TestPmgenPass : public Pass {
 		log_cmd_error("Unknown pattern: %s\n", pattern.c_str());
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		if (GetSize(args) > 1)
 		{

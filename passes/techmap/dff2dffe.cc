@@ -88,7 +88,7 @@ struct Dff2dffeWorker
 		cell_int_t mux_cell_int = bit2mux.at(d);
 		RTLIL::SigSpec sig_a = sigmap(mux_cell_int.first->getPort(ID::A));
 		RTLIL::SigSpec sig_b = sigmap(mux_cell_int.first->getPort(ID::B));
-		RTLIL::SigSpec sig_s = sigmap(mux_cell_int.first->getPort(ID(S)));
+		RTLIL::SigSpec sig_s = sigmap(mux_cell_int.first->getPort(ID::S));
 		int width = GetSize(sig_a), index = mux_cell_int.second;
 
 		for (int i = 0; i < GetSize(sig_s); i++)
@@ -185,8 +185,8 @@ struct Dff2dffeWorker
 
 	void handle_dff_cell(RTLIL::Cell *dff_cell)
 	{
-		RTLIL::SigSpec sig_d = sigmap(dff_cell->getPort(ID(D)));
-		RTLIL::SigSpec sig_q = sigmap(dff_cell->getPort(ID(Q)));
+		RTLIL::SigSpec sig_d = sigmap(dff_cell->getPort(ID::D));
+		RTLIL::SigSpec sig_q = sigmap(dff_cell->getPort(ID::Q));
 
 		std::map<patterns_t, std::set<int>> grouped_patterns;
 		std::set<int> remaining_indices;
@@ -208,15 +208,15 @@ struct Dff2dffeWorker
 			}
 			if (!direct_dict.empty()) {
 				log("  converting %s cell %s to %s for %s -> %s.\n", log_id(dff_cell->type), log_id(dff_cell), log_id(direct_dict.at(dff_cell->type)), log_signal(new_sig_d), log_signal(new_sig_q));
-				dff_cell->setPort(ID(E), make_patterns_logic(it.first, true));
+				dff_cell->setPort(ID::E, make_patterns_logic(it.first, true));
 				dff_cell->type = direct_dict.at(dff_cell->type);
 			} else
 			if (dff_cell->type == ID($dff)) {
-				RTLIL::Cell *new_cell = module->addDffe(NEW_ID, dff_cell->getPort(ID(CLK)), make_patterns_logic(it.first, false),
-						new_sig_d, new_sig_q, dff_cell->getParam(ID(CLK_POLARITY)).as_bool(), true);
+				RTLIL::Cell *new_cell = module->addDffe(NEW_ID, dff_cell->getPort(ID::CLK), make_patterns_logic(it.first, false),
+						new_sig_d, new_sig_q, dff_cell->getParam(ID::CLK_POLARITY).as_bool(), true);
 				log("  created $dffe cell %s for %s -> %s.\n", log_id(new_cell), log_signal(new_sig_d), log_signal(new_sig_q));
 			} else {
-				RTLIL::Cell *new_cell = module->addDffeGate(NEW_ID, dff_cell->getPort(ID(C)), make_patterns_logic(it.first, true),
+				RTLIL::Cell *new_cell = module->addDffeGate(NEW_ID, dff_cell->getPort(ID::C), make_patterns_logic(it.first, true),
 						new_sig_d, new_sig_q, dff_cell->type == ID($_DFF_P_), true);
 				log("  created %s cell %s for %s -> %s.\n", log_id(new_cell->type), log_id(new_cell), log_signal(new_sig_d), log_signal(new_sig_q));
 			}
@@ -235,9 +235,9 @@ struct Dff2dffeWorker
 				new_sig_d.append(sig_d[i]);
 				new_sig_q.append(sig_q[i]);
 			}
-			dff_cell->setPort(ID(D), new_sig_d);
-			dff_cell->setPort(ID(Q), new_sig_q);
-			dff_cell->setParam(ID(WIDTH), GetSize(remaining_indices));
+			dff_cell->setPort(ID::D, new_sig_d);
+			dff_cell->setPort(ID::Q, new_sig_q);
+			dff_cell->setParam(ID::WIDTH, GetSize(remaining_indices));
 		}
 	}
 
@@ -253,7 +253,7 @@ struct Dff2dffeWorker
 
 struct Dff2dffePass : public Pass {
 	Dff2dffePass() : Pass("dff2dffe", "transform $dff cells to $dffe cells") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -282,13 +282,13 @@ struct Dff2dffePass : public Pass {
 		log("\n");
 		log("    -direct-match <pattern>\n");
 		log("        like -direct for all DFF cell types matching the expression.\n");
-		log("        this will use $__DFFE_* as <external_gate_type> matching the\n");
-		log("        internal gate type $_DFF_*_, and $__DFFSE_* for those matching\n");
-		log("        $_DFFS_*_, except for $_DFF_[NP]_, which is converted to \n");
+		log("        this will use $_DFFE_* as <external_gate_type> matching the\n");
+		log("        internal gate type $_DFF_*_, and $_SDFFE_* for those matching\n");
+		log("        $_SDFF_*_, except for $_DFF_[NP]_, which is converted to \n");
 		log("        $_DFFE_[NP]_.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing DFF2DFFE pass (transform $dff to $dffe where applicable).\n");
 
@@ -318,23 +318,23 @@ struct Dff2dffePass : public Pass {
 				const char *pattern = args[++argidx].c_str();
 				if (patmatch(pattern, "$_DFF_P_"  )) found_match = true, direct_dict[ID($_DFF_P_)  ] = ID($_DFFE_PP_);
 				if (patmatch(pattern, "$_DFF_N_"  )) found_match = true, direct_dict[ID($_DFF_N_)  ] = ID($_DFFE_NP_);
-				if (patmatch(pattern, "$_DFF_NN0_")) found_match = true, direct_dict[ID($_DFF_NN0_)] = ID($__DFFE_NN0);
-				if (patmatch(pattern, "$_DFF_NN1_")) found_match = true, direct_dict[ID($_DFF_NN1_)] = ID($__DFFE_NN1);
-				if (patmatch(pattern, "$_DFF_NP0_")) found_match = true, direct_dict[ID($_DFF_NP0_)] = ID($__DFFE_NP0);
-				if (patmatch(pattern, "$_DFF_NP1_")) found_match = true, direct_dict[ID($_DFF_NP1_)] = ID($__DFFE_NP1);
-				if (patmatch(pattern, "$_DFF_PN0_")) found_match = true, direct_dict[ID($_DFF_PN0_)] = ID($__DFFE_PN0);
-				if (patmatch(pattern, "$_DFF_PN1_")) found_match = true, direct_dict[ID($_DFF_PN1_)] = ID($__DFFE_PN1);
-				if (patmatch(pattern, "$_DFF_PP0_")) found_match = true, direct_dict[ID($_DFF_PP0_)] = ID($__DFFE_PP0);
-				if (patmatch(pattern, "$_DFF_PP1_")) found_match = true, direct_dict[ID($_DFF_PP1_)] = ID($__DFFE_PP1);
+				if (patmatch(pattern, "$_DFF_NN0_")) found_match = true, direct_dict[ID($_DFF_NN0_)] = ID($_DFFE_NN0P_);
+				if (patmatch(pattern, "$_DFF_NN1_")) found_match = true, direct_dict[ID($_DFF_NN1_)] = ID($_DFFE_NN1P_);
+				if (patmatch(pattern, "$_DFF_NP0_")) found_match = true, direct_dict[ID($_DFF_NP0_)] = ID($_DFFE_NP0P_);
+				if (patmatch(pattern, "$_DFF_NP1_")) found_match = true, direct_dict[ID($_DFF_NP1_)] = ID($_DFFE_NP1P_);
+				if (patmatch(pattern, "$_DFF_PN0_")) found_match = true, direct_dict[ID($_DFF_PN0_)] = ID($_DFFE_PN0P_);
+				if (patmatch(pattern, "$_DFF_PN1_")) found_match = true, direct_dict[ID($_DFF_PN1_)] = ID($_DFFE_PN1P_);
+				if (patmatch(pattern, "$_DFF_PP0_")) found_match = true, direct_dict[ID($_DFF_PP0_)] = ID($_DFFE_PP0P_);
+				if (patmatch(pattern, "$_DFF_PP1_")) found_match = true, direct_dict[ID($_DFF_PP1_)] = ID($_DFFE_PP1P_);
 
-				if (patmatch(pattern, "$__DFFS_NN0_")) found_match = true, direct_dict[ID($__DFFS_NN0_)] = ID($__DFFSE_NN0);
-				if (patmatch(pattern, "$__DFFS_NN1_")) found_match = true, direct_dict[ID($__DFFS_NN1_)] = ID($__DFFSE_NN1);
-				if (patmatch(pattern, "$__DFFS_NP0_")) found_match = true, direct_dict[ID($__DFFS_NP0_)] = ID($__DFFSE_NP0);
-				if (patmatch(pattern, "$__DFFS_NP1_")) found_match = true, direct_dict[ID($__DFFS_NP1_)] = ID($__DFFSE_NP1);
-				if (patmatch(pattern, "$__DFFS_PN0_")) found_match = true, direct_dict[ID($__DFFS_PN0_)] = ID($__DFFSE_PN0);
-				if (patmatch(pattern, "$__DFFS_PN1_")) found_match = true, direct_dict[ID($__DFFS_PN1_)] = ID($__DFFSE_PN1);
-				if (patmatch(pattern, "$__DFFS_PP0_")) found_match = true, direct_dict[ID($__DFFS_PP0_)] = ID($__DFFSE_PP0);
-				if (patmatch(pattern, "$__DFFS_PP1_")) found_match = true, direct_dict[ID($__DFFS_PP1_)] = ID($__DFFSE_PP1);
+				if (patmatch(pattern, "$_SDFF_NN0_")) found_match = true, direct_dict[ID($_SDFF_NN0_)] = ID($_SDFFE_NN0P_);
+				if (patmatch(pattern, "$_SDFF_NN1_")) found_match = true, direct_dict[ID($_SDFF_NN1_)] = ID($_SDFFE_NN1P_);
+				if (patmatch(pattern, "$_SDFF_NP0_")) found_match = true, direct_dict[ID($_SDFF_NP0_)] = ID($_SDFFE_NP0P_);
+				if (patmatch(pattern, "$_SDFF_NP1_")) found_match = true, direct_dict[ID($_SDFF_NP1_)] = ID($_SDFFE_NP1P_);
+				if (patmatch(pattern, "$_SDFF_PN0_")) found_match = true, direct_dict[ID($_SDFF_PN0_)] = ID($_SDFFE_PN0P_);
+				if (patmatch(pattern, "$_SDFF_PN1_")) found_match = true, direct_dict[ID($_SDFF_PN1_)] = ID($_SDFFE_PN1P_);
+				if (patmatch(pattern, "$_SDFF_PP0_")) found_match = true, direct_dict[ID($_SDFF_PP0_)] = ID($_SDFFE_PP0P_);
+				if (patmatch(pattern, "$_SDFF_PP1_")) found_match = true, direct_dict[ID($_SDFF_PP1_)] = ID($_SDFFE_PP1P_);
 				if (!found_match)
 					log_cmd_error("No cell types matched pattern '%s'.\n", pattern);
 				continue;
@@ -361,19 +361,19 @@ struct Dff2dffePass : public Pass {
 								for (auto cell_other : mod->selected_cells()) {
 									if (cell_other->type != cell->type)
 										continue;
-									if (sigmap(cell->getPort(ID(EN))) == sigmap(cell_other->getPort(ID(EN))))
+									if (sigmap(cell->getPort(ID::EN)) == sigmap(cell_other->getPort(ID::EN)))
 										ce_use++;
 								}
 								if (ce_use >= min_ce_use)
 									continue;
 							}
 
-							RTLIL::SigSpec tmp = mod->addWire(NEW_ID, GetSize(cell->getPort(ID(D))));
-							mod->addDff(NEW_ID, cell->getPort(ID(CLK)), tmp, cell->getPort(ID(Q)), cell->getParam(ID(CLK_POLARITY)).as_bool());
-							if (cell->getParam(ID(EN_POLARITY)).as_bool())
-								mod->addMux(NEW_ID, cell->getPort(ID(Q)), cell->getPort(ID(D)), cell->getPort(ID(EN)), tmp);
+							RTLIL::SigSpec tmp = mod->addWire(NEW_ID, GetSize(cell->getPort(ID::D)));
+							mod->addDff(NEW_ID, cell->getPort(ID::CLK), tmp, cell->getPort(ID::Q), cell->getParam(ID::CLK_POLARITY).as_bool());
+							if (cell->getParam(ID::EN_POLARITY).as_bool())
+								mod->addMux(NEW_ID, cell->getPort(ID::Q), cell->getPort(ID::D), cell->getPort(ID::EN), tmp);
 							else
-								mod->addMux(NEW_ID, cell->getPort(ID(D)), cell->getPort(ID(Q)), cell->getPort(ID(EN)), tmp);
+								mod->addMux(NEW_ID, cell->getPort(ID::D), cell->getPort(ID::Q), cell->getPort(ID::EN), tmp);
 							mod->remove(cell);
 							continue;
 						}
@@ -383,7 +383,7 @@ struct Dff2dffePass : public Pass {
 								for (auto cell_other : mod->selected_cells()) {
 									if (cell_other->type != cell->type)
 										continue;
-									if (sigmap(cell->getPort(ID(E))) == sigmap(cell_other->getPort(ID(E))))
+									if (sigmap(cell->getPort(ID::E)) == sigmap(cell_other->getPort(ID::E)))
 										ce_use++;
 								}
 								if (ce_use >= min_ce_use)
@@ -393,11 +393,11 @@ struct Dff2dffePass : public Pass {
 							bool clk_pol = cell->type.compare(7, 1, "P") == 0;
 							bool en_pol = cell->type.compare(8, 1, "P") == 0;
 							RTLIL::SigSpec tmp = mod->addWire(NEW_ID);
-							mod->addDff(NEW_ID, cell->getPort(ID(C)), tmp, cell->getPort(ID(Q)), clk_pol);
+							mod->addDff(NEW_ID, cell->getPort(ID::C), tmp, cell->getPort(ID::Q), clk_pol);
 							if (en_pol)
-								mod->addMux(NEW_ID, cell->getPort(ID(Q)), cell->getPort(ID(D)), cell->getPort(ID(E)), tmp);
+								mod->addMux(NEW_ID, cell->getPort(ID::Q), cell->getPort(ID::D), cell->getPort(ID::E), tmp);
 							else
-								mod->addMux(NEW_ID, cell->getPort(ID(D)), cell->getPort(ID(Q)), cell->getPort(ID(E)), tmp);
+								mod->addMux(NEW_ID, cell->getPort(ID::D), cell->getPort(ID::Q), cell->getPort(ID::E), tmp);
 							mod->remove(cell);
 							continue;
 						}

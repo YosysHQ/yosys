@@ -34,7 +34,7 @@ struct ExtractReducePass : public Pass
 
 	ExtractReducePass() : Pass("extract_reduce", "converts gate chains into $reduce_* cells") { }
 
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -63,7 +63,7 @@ struct ExtractReducePass : public Pass
 				(cell->type == ID($_XOR_) && gt == GateType::Xor);
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing EXTRACT_REDUCE pass.\n");
 		log_push();
@@ -286,7 +286,7 @@ struct ExtractReducePass : public Pass
 						SigSpec input;
 						for (auto b : input_pool)
 							if (input_pool_intermed.count(b) == 0)
-								input.append_bit(b);
+								input.append(b);
 
 						SigBit output = sigmap(head_cell->getPort(ID::Y)[0]);
 
@@ -294,9 +294,9 @@ struct ExtractReducePass : public Pass
 							gt == GateType::And ? ID($reduce_and) :
 							gt == GateType::Or ? ID($reduce_or) :
 							gt == GateType::Xor ? ID($reduce_xor) : "");
-						new_reduce_cell->setParam(ID(A_SIGNED), 0);
-						new_reduce_cell->setParam(ID(A_WIDTH), input.size());
-						new_reduce_cell->setParam(ID(Y_WIDTH), 1);
+						new_reduce_cell->setParam(ID::A_SIGNED, 0);
+						new_reduce_cell->setParam(ID::A_WIDTH, input.size());
+						new_reduce_cell->setParam(ID::Y_WIDTH, 1);
 						new_reduce_cell->setPort(ID::A, input);
 						new_reduce_cell->setPort(ID::Y, output);
 

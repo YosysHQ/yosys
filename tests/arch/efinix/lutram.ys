@@ -1,0 +1,18 @@
+read_verilog ../common/lutram.v
+hierarchy -top lutram_1w1r
+proc
+memory -nomap
+equiv_opt -run :prove -map +/efinix/cells_sim.v synth_efinix
+memory
+opt -full
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+#ERROR: Called with -verify and proof did fail!
+#sat -verify -prove-asserts -seq 5 -set-init-zero -show-inputs -show-outputs miter
+sat -prove-asserts -seq 5 -set-init-zero -show-inputs -show-outputs miter
+
+design -load postopt
+cd lutram_1w1r
+select -assert-count 1 t:EFX_GBUFCE
+select -assert-count 1 t:EFX_RAM_5K
+select -assert-none t:EFX_GBUFCE t:EFX_RAM_5K %% t:* %D

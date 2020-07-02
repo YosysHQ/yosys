@@ -39,12 +39,12 @@ static void fix_carry_chain(Module *module)
 
 	for (auto cell : module->cells())
 	{
-		if (cell->type == "\\EFX_ADD") {
-			SigBit bit_i0 = get_bit_or_zero(cell->getPort("\\I0"));
-			SigBit bit_i1 = get_bit_or_zero(cell->getPort("\\I1"));
+		if (cell->type == ID(EFX_ADD)) {
+			SigBit bit_i0 = get_bit_or_zero(cell->getPort(ID(I0)));
+			SigBit bit_i1 = get_bit_or_zero(cell->getPort(ID(I1)));
 			if (bit_i0 == State::S0 && bit_i1== State::S0) {
-				SigBit bit_ci = get_bit_or_zero(cell->getPort("\\CI"));
-				SigBit bit_o = sigmap(cell->getPort("\\O"));
+				SigBit bit_ci = get_bit_or_zero(cell->getPort(ID::CI));
+				SigBit bit_o = sigmap(cell->getPort(ID::O));
 				ci_bits.insert(bit_ci);				
 				mapping_bits[bit_ci] = bit_o;
 			}
@@ -54,10 +54,10 @@ static void fix_carry_chain(Module *module)
 	vector<Cell*> adders_to_fix_cells;
 	for (auto cell : module->cells())
 	{
-		if (cell->type == "\\EFX_ADD") {
-			SigBit bit_ci = get_bit_or_zero(cell->getPort("\\CI"));
-			SigBit bit_i0 = get_bit_or_zero(cell->getPort("\\I0"));
-			SigBit bit_i1 = get_bit_or_zero(cell->getPort("\\I1"));			
+		if (cell->type == ID(EFX_ADD)) {
+			SigBit bit_ci = get_bit_or_zero(cell->getPort(ID::CI));
+			SigBit bit_i0 = get_bit_or_zero(cell->getPort(ID(I0)));
+			SigBit bit_i1 = get_bit_or_zero(cell->getPort(ID(I1)));
 			SigBit canonical_bit = sigmap(bit_ci);
 			if (!ci_bits.count(canonical_bit))
 				continue;			
@@ -71,26 +71,26 @@ static void fix_carry_chain(Module *module)
 
 	for (auto cell : adders_to_fix_cells)
 	{
-		SigBit bit_ci = get_bit_or_zero(cell->getPort("\\CI"));
+		SigBit bit_ci = get_bit_or_zero(cell->getPort(ID::CI));
 		SigBit canonical_bit = sigmap(bit_ci);
 		auto bit = mapping_bits.at(canonical_bit);
 		log("Fixing %s cell named %s breaking carry chain.\n", log_id(cell->type), log_id(cell));
-		Cell *c = module->addCell(NEW_ID, "\\EFX_ADD");
+		Cell *c = module->addCell(NEW_ID, ID(EFX_ADD));
 		SigBit new_bit = module->addWire(NEW_ID);
-		c->setParam("\\I0_POLARITY", State::S1);
-		c->setParam("\\I1_POLARITY", State::S1);
-		c->setPort("\\I0", bit);
-		c->setPort("\\I1", State::S1);
-		c->setPort("\\CI", State::S0);
-		c->setPort("\\CO", new_bit);
+		c->setParam(ID(I0_POLARITY), State::S1);
+		c->setParam(ID(I1_POLARITY), State::S1);
+		c->setPort(ID(I0), bit);
+		c->setPort(ID(I1), State::S1);
+		c->setPort(ID::CI, State::S0);
+		c->setPort(ID::CO, new_bit);
 		
-		cell->setPort("\\CI", new_bit);
+		cell->setPort(ID::CI, new_bit);
 	}
 }
 
 struct EfinixCarryFixPass : public Pass {
 	EfinixCarryFixPass() : Pass("efinix_fixcarry", "Efinix: fix carry chain") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -99,9 +99,9 @@ struct EfinixCarryFixPass : public Pass {
 		log("Add Efinix adders to fix carry chain if needed.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		log_header(design, "Executing efinix_fixcarry pass (fix invalid carry chain).\n");
+		log_header(design, "Executing EFINIX_FIXCARRY pass (fix invalid carry chain).\n");
 		
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)

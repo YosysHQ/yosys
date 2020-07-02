@@ -1,0 +1,33 @@
+bram __MISTRAL_M20K_SDP
+    init   1   # TODO: Re-enable when I figure out how BRAM init works
+    abits 14   @D16384x1
+    dbits  1   @D16384x1
+    abits 13   @D8192x2
+    dbits  2   @D8192x2
+    abits 12   @D4096x4 @D4096x5
+    dbits  4   @D4096x4
+    dbits  5   @D4096x5
+    abits 11   @D2048x8 @D2048x10
+    dbits  8   @D2048x8
+    dbits 10   @D2048x10
+    abits 10   @D1024x16 @D1024x20
+    dbits 16   @D1024x16
+    dbits 20   @D1024x20
+    abits  9   @D512x32 @D512x40
+    dbits 32   @D512x32
+    dbits 40   @D512x40
+    groups 2
+    ports  1 1
+    wrmode 1 0
+    # read enable; write enable + byte enables (only for multiples of 8)
+    enable 1 1
+    transp 0 0
+    clocks 1 1
+    clkpol 1 1
+endbram
+
+
+match __MISTRAL_M20K_SDP
+    min efficiency 5
+    make_transp
+endmatch

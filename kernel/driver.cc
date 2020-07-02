@@ -155,6 +155,19 @@ int yosys_history_offset = 0;
 std::string yosys_history_file;
 #endif
 
+#if defined(__wasm)
+extern "C" {
+	// FIXME: WASI does not currently support exceptions.
+	void* __cxa_allocate_exception(size_t thrown_size) throw() {
+		return malloc(thrown_size);
+	}
+	bool __cxa_uncaught_exception() throw();
+	void __cxa_throw(void* thrown_exception, struct std::type_info * tinfo, void (*dest)(void*)) {
+		std::terminate();
+	}
+}
+#endif
+
 void yosys_atexit()
 {
 #if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
@@ -295,6 +308,9 @@ int main(int argc, char **argv)
 		printf("    -E <depsfile>\n");
 		printf("        write a Makefile dependencies file with in- and output file names\n");
 		printf("\n");
+		printf("    -x <feature>\n");
+		printf("        do not print warnings for the specified experimental feature\n");
+		printf("\n");
 		printf("    -g\n");
 		printf("        globally enable debug log messages\n");
 		printf("\n");
@@ -317,8 +333,14 @@ int main(int argc, char **argv)
 		exit(0);
 	}
 
+	if (argc == 2 && (!strcmp(argv[1], "-V") || !strcmp(argv[1], "-version") || !strcmp(argv[1], "--version")))
+	{
+		printf("%s\n", yosys_version_str);
+		exit(0);
+	}
+
 	int opt;
-	while ((opt = getopt(argc, argv, "MXAQTVSgm:f:Hh:b:o:p:l:L:qv:tds:c:W:w:e:D:P:E:")) != -1)
+	while ((opt = getopt(argc, argv, "MXAQTVSgm:f:Hh:b:o:p:l:L:qv:tds:c:W:w:e:D:P:E:x:")) != -1)
 	{
 		switch (opt)
 		{
@@ -404,22 +426,13 @@ int main(int argc, char **argv)
 			scriptfile_tcl = true;
 			break;
 		case 'W':
-			log_warn_regexes.push_back(std::regex(optarg,
-					std::regex_constants::nosubs |
-					std::regex_constants::optimize |
-					std::regex_constants::egrep));
+			log_warn_regexes.push_back(YS_REGEX_COMPILE(optarg));
 			break;
 		case 'w':
-			log_nowarn_regexes.push_back(std::regex(optarg,
-					std::regex_constants::nosubs |
-					std::regex_constants::optimize |
-					std::regex_constants::egrep));
+			log_nowarn_regexes.push_back(YS_REGEX_COMPILE(optarg));
 			break;
 		case 'e':
-			log_werror_regexes.push_back(std::regex(optarg,
-					std::regex_constants::nosubs |
-					std::regex_constants::optimize |
-					std::regex_constants::egrep));
+			log_werror_regexes.push_back(YS_REGEX_COMPILE(optarg));
 			break;
 		case 'D':
 			vlog_defines.push_back(optarg);
@@ -448,6 +461,9 @@ int main(int argc, char **argv)
 			break;
 		case 'E':
 			depsfile = optarg;
+			break;
+		case 'x':
+			log_experimentals_ignored.insert(optarg);
 			break;
 		default:
 			fprintf(stderr, "Run '%s -h' for help.\n", argv[0]);
@@ -546,6 +562,10 @@ int main(int argc, char **argv)
 		fprintf(f, "\n");
 	}
 
+	if (log_expect_no_warnings && log_warnings_count_noexpect)
+		log_error("Unexpected warnings found: %d unique messages, %d total, %d expected\n", GetSize(log_warnings),
+					log_warnings_count, log_warnings_count - log_warnings_count_noexpect);
+
 	if (print_stats)
 	{
 		std::string hash = log_hasher->final().substr(0, 10);
@@ -561,39 +581,33 @@ int main(int argc, char **argv)
 
 		if (log_warnings_count)
 			log("Warnings: %d unique messages, %d total\n", GetSize(log_warnings), log_warnings_count);
+
+		if (!log_experimentals.empty())
+			log("Warnings: %d experimental features used (not excluded with -x).\n", GetSize(log_experimentals));
+
 #ifdef _WIN32
 		log("End of script. Logfile hash: %s\n", hash.c_str());
 #else
 		std::string meminfo;
 		std::string stats_divider = ", ";
-#  if defined(__linux__)
-		std::ifstream statm;
-		statm.open(stringf("/proc/%lld/statm", (long long)getpid()));
-		if (statm.is_open()) {
-			int sz_total, sz_resident;
-			statm >> sz_total >> sz_resident;
-			meminfo = stringf(", MEM: %.2f MB total, %.2f MB resident",
-					sz_total * (getpagesize() / 1024.0 / 1024.0),
-					sz_resident * (getpagesize() / 1024.0 / 1024.0));
-			stats_divider = "\n";
-		}
-#  elif defined(__FreeBSD__)
-		pid_t pid = getpid();
-		int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, (int)pid};
-		struct kinfo_proc kip;
-		size_t kip_len = sizeof(kip);
-		if (sysctl(mib, 4, &kip, &kip_len, NULL, 0) == 0) {
-			vm_size_t sz_total = kip.ki_size;
-			segsz_t sz_resident = kip.ki_rssize;
-			meminfo = stringf(", MEM: %.2f MB total, %.2f MB resident",
-				(int)sz_total / 1024.0 / 1024.0,
-				(int)sz_resident * (getpagesize() / 1024.0 / 1024.0));
-			stats_divider = "\n";
-		}
-#  endif
 
 		struct rusage ru_buffer;
 		getrusage(RUSAGE_SELF, &ru_buffer);
+		if (yosys_design->scratchpad_get_bool("print_stats.include_children")) {
+			struct rusage ru_buffer_children;
+			getrusage(RUSAGE_CHILDREN, &ru_buffer_children);
+			ru_buffer.ru_utime.tv_sec += ru_buffer_children.ru_utime.tv_sec;
+			ru_buffer.ru_utime.tv_usec += ru_buffer_children.ru_utime.tv_usec;
+			ru_buffer.ru_stime.tv_sec += ru_buffer_children.ru_stime.tv_sec;
+			ru_buffer.ru_stime.tv_usec += ru_buffer_children.ru_stime.tv_usec;
+#if defined(__linux__) || defined(__FreeBSD__)
+			ru_buffer.ru_maxrss = std::max(ru_buffer.ru_maxrss, ru_buffer_children.ru_maxrss);
+#endif
+		}
+#if defined(__linux__) || defined(__FreeBSD__)
+		meminfo = stringf(", MEM: %.2f MB peak",
+				ru_buffer.ru_maxrss / 1024.0);
+#endif
 		log("End of script. Logfile hash: %s%sCPU: user %.2fs system %.2fs%s\n", hash.c_str(),
 				stats_divider.c_str(), ru_buffer.ru_utime.tv_sec + 1e-6 * ru_buffer.ru_utime.tv_usec,
 				ru_buffer.ru_stime.tv_sec + 1e-6 * ru_buffer.ru_stime.tv_usec, meminfo.c_str());
@@ -659,6 +673,8 @@ int main(int argc, char **argv)
 		fclose(f);
 	}
 #endif
+
+	log_check_expected();
 
 	yosys_atexit();
 

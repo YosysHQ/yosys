@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct PortlistPass : public Pass {
 	PortlistPass() : Pass("portlist", "list (top-level) ports") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -39,7 +39,7 @@ struct PortlistPass : public Pass {
 		log("    print verilog blackbox module definitions instead of port lists\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool m_mode = false;
 

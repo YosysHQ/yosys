@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct InsbufPass : public Pass {
 	InsbufPass() : Pass("insbuf", "insert buffer cells for connected wires") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		log("\n");
 		log("    insbuf [options] [selection]\n");
@@ -37,20 +37,20 @@ struct InsbufPass : public Pass {
 		log("        call to \"clean\" will remove all $_BUF_ in the design.)\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing INSBUF pass (insert buffer cells for connected wires).\n");
 
-		std::string celltype = "$_BUF_", in_portname = "\\A", out_portname = "\\Y";
+		IdString celltype = ID($_BUF_), in_portname = ID::A, out_portname = ID::Y;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			std::string arg = args[argidx];
 			if (arg == "-buf" && argidx+3 < args.size()) {
-				celltype = args[++argidx];
-				in_portname = args[++argidx];
-				out_portname = args[++argidx];
+				celltype = RTLIL::escape_id(args[++argidx]);
+				in_portname = RTLIL::escape_id(args[++argidx]);
+				out_portname = RTLIL::escape_id(args[++argidx]);
 				continue;
 			}
 			break;
@@ -76,9 +76,9 @@ struct InsbufPass : public Pass {
 						continue;
 					}
 
-					Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(celltype));
-					cell->setPort(RTLIL::escape_id(in_portname), rhs);
-					cell->setPort(RTLIL::escape_id(out_portname), lhs);
+					Cell *cell = module->addCell(NEW_ID, celltype);
+					cell->setPort(in_portname, rhs);
+					cell->setPort(out_portname, lhs);
 					log("Added %s.%s: %s -> %s\n", log_id(module), log_id(cell), log_signal(rhs), log_signal(lhs));
 				}
 

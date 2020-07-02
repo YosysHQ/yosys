@@ -29,7 +29,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct TableBackend : public Backend {
 	TableBackend() : Backend("table", "write design as connectivity table") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -48,7 +48,7 @@ struct TableBackend : public Backend {
 		log("module inputs and outputs are output using cell type and port '-' and with\n");
 		log("'pi' (primary input) or 'po' (primary output) or 'pio' as direction.\n");
 	}
-	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing TABLE backend.\n");
 

@@ -24,7 +24,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct BlackboxPass : public Pass {
 	BlackboxPass() : Pass("blackbox", "convert modules into blackbox modules") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -34,7 +34,7 @@ struct BlackboxPass : public Pass {
 		log("module attribute).\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -48,32 +48,8 @@ struct BlackboxPass : public Pass {
 
 		for (auto module : design->selected_whole_modules_warn())
 		{
-			pool<Cell*> remove_cells;
-			pool<Wire*> remove_wires;
-
-			for (auto cell : module->cells())
-				remove_cells.insert(cell);
-
-			for (auto wire : module->wires())
-				if (wire->port_id == 0)
-					remove_wires.insert(wire);
-
-			for (auto it = module->memories.begin(); it != module->memories.end(); ++it)
-				delete it->second;
-			module->memories.clear();
-
-			for (auto it = module->processes.begin(); it != module->processes.end(); ++it)
-				delete it->second;
-			module->processes.clear();
-
-			module->new_connections(std::vector<RTLIL::SigSig>());
-
-			for (auto cell : remove_cells)
-				module->remove(cell);
-
-			module->remove(remove_wires);
-
-			module->set_bool_attribute("\\blackbox");
+			module->makeblackbox();
+			module->set_bool_attribute(ID::blackbox);
 		}
 	}
 } BlackboxPass;

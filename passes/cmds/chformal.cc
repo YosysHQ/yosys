@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct ChformalPass : public Pass {
 	ChformalPass() : Pass("chformal", "change formal constraints of the design") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -62,7 +62,7 @@ struct ChformalPass : public Pass {
 		log("        change the roles of cells as indicated. these options can be combined\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool assert2assume = false;
 		bool assume2assert = false;
@@ -77,23 +77,23 @@ struct ChformalPass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			if (args[argidx] == "-assert") {
-				constr_types.insert("$assert");
+				constr_types.insert(ID($assert));
 				continue;
 			}
 			if (args[argidx] == "-assume") {
-				constr_types.insert("$assume");
+				constr_types.insert(ID($assume));
 				continue;
 			}
 			if (args[argidx] == "-live") {
-				constr_types.insert("$live");
+				constr_types.insert(ID($live));
 				continue;
 			}
 			if (args[argidx] == "-fair") {
-				constr_types.insert("$fair");
+				constr_types.insert(ID($fair));
 				continue;
 			}
 			if (args[argidx] == "-cover") {
-				constr_types.insert("$cover");
+				constr_types.insert(ID($cover));
 				continue;
 			}
 			if (mode == 0 && args[argidx] == "-remove") {
@@ -139,11 +139,11 @@ struct ChformalPass : public Pass {
 		extra_args(args, argidx, design);
 
 		if (constr_types.empty()) {
-			constr_types.insert("$assert");
-			constr_types.insert("$assume");
-			constr_types.insert("$live");
-			constr_types.insert("$fair");
-			constr_types.insert("$cover");
+			constr_types.insert(ID($assert));
+			constr_types.insert(ID($assume));
+			constr_types.insert(ID($live));
+			constr_types.insert(ID($fair));
+			constr_types.insert(ID($cover));
 		}
 
 		if (mode == 0)
@@ -171,11 +171,11 @@ struct ChformalPass : public Pass {
 
 				for (auto wire : module->wires())
 				{
-					if (wire->attributes.count("\\init") == 0)
+					if (wire->attributes.count(ID::init) == 0)
 						continue;
 
 					SigSpec initsig = sigmap(wire);
-					Const initval = wire->attributes.at("\\init");
+					Const initval = wire->attributes.at(ID::init);
 
 					for (int i = 0; i < GetSize(initsig) && i < GetSize(initval); i++) {
 						if (initval[i] == State::S0)
@@ -187,17 +187,17 @@ struct ChformalPass : public Pass {
 
 				for (auto cell : module->selected_cells())
 				{
-					if (cell->type == "$ff") {
-						SigSpec D = sigmap(cell->getPort("\\D"));
-						SigSpec Q = sigmap(cell->getPort("\\Q"));
+					if (cell->type == ID($ff)) {
+						SigSpec D = sigmap(cell->getPort(ID::D));
+						SigSpec Q = sigmap(cell->getPort(ID::Q));
 						for (int i = 0; i < GetSize(D); i++)
 							ffmap[Q[i]] = make_pair(D[i], make_pair(State::Sm, false));
 					}
-					if (cell->type == "$dff") {
-						SigSpec D = sigmap(cell->getPort("\\D"));
-						SigSpec Q = sigmap(cell->getPort("\\Q"));
-						SigSpec C = sigmap(cell->getPort("\\CLK"));
-						bool clockpol = cell->getParam("\\CLK_POLARITY").as_bool();
+					if (cell->type == ID($dff)) {
+						SigSpec D = sigmap(cell->getPort(ID::D));
+						SigSpec Q = sigmap(cell->getPort(ID::Q));
+						SigSpec C = sigmap(cell->getPort(ID::CLK));
+						bool clockpol = cell->getParam(ID::CLK_POLARITY).as_bool();
 						for (int i = 0; i < GetSize(D); i++)
 							ffmap[Q[i]] = make_pair(D[i], make_pair(C, clockpol));
 					}
@@ -206,15 +206,15 @@ struct ChformalPass : public Pass {
 				for (auto cell : constr_cells)
 					while (true)
 					{
-						SigSpec A = sigmap(cell->getPort("\\A"));
-						SigSpec EN = sigmap(cell->getPort("\\EN"));
+						SigSpec A = sigmap(cell->getPort(ID::A));
+						SigSpec EN = sigmap(cell->getPort(ID::EN));
 
 						if (ffmap.count(A) == 0 || ffmap.count(EN) == 0)
 							break;
 
 						if (!init_zero.count(EN)) {
-							if (cell->type == "$cover") break;
-							if (cell->type.in("$assert", "$assume") && !init_one.count(A)) break;
+							if (cell->type == ID($cover)) break;
+							if (cell->type.in(ID($assert), ID($assume)) && !init_one.count(A)) break;
 						}
 
 						const auto &A_map = ffmap.at(A);
@@ -223,8 +223,8 @@ struct ChformalPass : public Pass {
 						if (A_map.second != EN_map.second)
 							break;
 
-						cell->setPort("\\A", A_map.first);
-						cell->setPort("\\EN", EN_map.first);
+						cell->setPort(ID::A, A_map.first);
+						cell->setPort(ID::EN, EN_map.first);
 					}
 			}
 			else
@@ -233,18 +233,18 @@ struct ChformalPass : public Pass {
 				for (auto cell : constr_cells)
 				for (int i = 0; i < mode_arg; i++)
 				{
-					SigSpec orig_a = cell->getPort("\\A");
-					SigSpec orig_en = cell->getPort("\\EN");
+					SigSpec orig_a = cell->getPort(ID::A);
+					SigSpec orig_en = cell->getPort(ID::EN);
 
 					Wire *new_a = module->addWire(NEW_ID);
 					Wire *new_en = module->addWire(NEW_ID);
-					new_en->attributes["\\init"] = State::S0;
+					new_en->attributes[ID::init] = State::S0;
 
 					module->addFf(NEW_ID, orig_a, new_a);
 					module->addFf(NEW_ID, orig_en, new_en);
 
-					cell->setPort("\\A", new_a);
-					cell->setPort("\\EN", new_en);
+					cell->setPort(ID::A, new_a);
+					cell->setPort(ID::EN, new_en);
 				}
 			}
 			else
@@ -254,26 +254,26 @@ struct ChformalPass : public Pass {
 
 				for (int i = 0; i < mode_arg; i++) {
 					Wire *w = module->addWire(NEW_ID);
-					w->attributes["\\init"] = State::S0;
+					w->attributes[ID::init] = State::S0;
 					module->addFf(NEW_ID, en, w);
 					en = w;
 				}
 
 				for (auto cell : constr_cells)
-					cell->setPort("\\EN", module->LogicAnd(NEW_ID, en, cell->getPort("\\EN")));
+					cell->setPort(ID::EN, module->LogicAnd(NEW_ID, en, cell->getPort(ID::EN)));
 			}
 			else
 			if (mode == 'c')
 			{
 				for (auto cell : constr_cells)
-					if (assert2assume && cell->type == "$assert")
-						cell->type = "$assume";
-					else if (assume2assert && cell->type == "$assume")
-						cell->type = "$assert";
-					else if (live2fair && cell->type == "$live")
-						cell->type = "$fair";
-					else if (fair2live && cell->type == "$fair")
-						cell->type = "$live";
+					if (assert2assume && cell->type == ID($assert))
+						cell->type = ID($assume);
+					else if (assume2assert && cell->type == ID($assume))
+						cell->type = ID($assert);
+					else if (live2fair && cell->type == ID($live))
+						cell->type = ID($fair);
+					else if (fair2live && cell->type == ID($fair))
+						cell->type = ID($live);
 			}
 		}
 	}

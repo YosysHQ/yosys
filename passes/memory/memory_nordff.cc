@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct MemoryNordffPass : public Pass {
 	MemoryNordffPass() : Pass("memory_nordff", "extract read port FFs from memories") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -35,7 +35,7 @@ struct MemoryNordffPass : public Pass {
 		log("similar to what one would get from calling memory_dff with -nordff.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing MEMORY_NORDFF pass (extracting $dff cells from $mem).\n");
 
@@ -52,19 +52,19 @@ struct MemoryNordffPass : public Pass {
 		for (auto module : design->selected_modules())
 		for (auto cell : vector<Cell*>(module->selected_cells()))
 		{
-			if (cell->type != "$mem")
+			if (cell->type != ID($mem))
 				continue;
 
-			int rd_ports = cell->getParam("\\RD_PORTS").as_int();
-			int abits = cell->getParam("\\ABITS").as_int();
-			int width = cell->getParam("\\WIDTH").as_int();
+			int rd_ports = cell->getParam(ID::RD_PORTS).as_int();
+			int abits = cell->getParam(ID::ABITS).as_int();
+			int width = cell->getParam(ID::WIDTH).as_int();
 
-			SigSpec rd_addr = cell->getPort("\\RD_ADDR");
-			SigSpec rd_data = cell->getPort("\\RD_DATA");
-			SigSpec rd_clk = cell->getPort("\\RD_CLK");
-			SigSpec rd_en = cell->getPort("\\RD_EN");
-			Const rd_clk_enable = cell->getParam("\\RD_CLK_ENABLE");
-			Const rd_clk_polarity = cell->getParam("\\RD_CLK_POLARITY");
+			SigSpec rd_addr = cell->getPort(ID::RD_ADDR);
+			SigSpec rd_data = cell->getPort(ID::RD_DATA);
+			SigSpec rd_clk = cell->getPort(ID::RD_CLK);
+			SigSpec rd_en = cell->getPort(ID::RD_EN);
+			Const rd_clk_enable = cell->getParam(ID::RD_CLK_ENABLE);
+			Const rd_clk_polarity = cell->getParam(ID::RD_CLK_POLARITY);
 
 			for (int i = 0; i < rd_ports; i++)
 			{
@@ -72,11 +72,11 @@ struct MemoryNordffPass : public Pass {
 
 				if (clk_enable)
 				{
-					bool clk_polarity = cell->getParam("\\RD_CLK_POLARITY")[i] == State::S1;
-					bool transparent = cell->getParam("\\RD_TRANSPARENT")[i] == State::S1;
+					bool clk_polarity = cell->getParam(ID::RD_CLK_POLARITY)[i] == State::S1;
+					bool transparent = cell->getParam(ID::RD_TRANSPARENT)[i] == State::S1;
 
-					SigSpec clk = cell->getPort("\\RD_CLK")[i] ;
-					SigSpec en = cell->getPort("\\RD_EN")[i];
+					SigSpec clk = cell->getPort(ID::RD_CLK)[i] ;
+					SigSpec en = cell->getPort(ID::RD_EN)[i];
 					Cell *c;
 
 					if (transparent)
@@ -108,12 +108,12 @@ struct MemoryNordffPass : public Pass {
 				rd_clk_polarity[i] = State::S1;
 			}
 
-			cell->setPort("\\RD_ADDR", rd_addr);
-			cell->setPort("\\RD_DATA", rd_data);
-			cell->setPort("\\RD_CLK", rd_clk);
-			cell->setPort("\\RD_EN", rd_en);
-			cell->setParam("\\RD_CLK_ENABLE", rd_clk_enable);
-			cell->setParam("\\RD_CLK_POLARITY", rd_clk_polarity);
+			cell->setPort(ID::RD_ADDR, rd_addr);
+			cell->setPort(ID::RD_DATA, rd_data);
+			cell->setPort(ID::RD_CLK, rd_clk);
+			cell->setPort(ID::RD_EN, rd_en);
+			cell->setParam(ID::RD_CLK_ENABLE, rd_clk_enable);
+			cell->setParam(ID::RD_CLK_POLARITY, rd_clk_polarity);
 		}
 	}
 } MemoryNordffPass;

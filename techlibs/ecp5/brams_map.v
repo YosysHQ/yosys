@@ -137,8 +137,6 @@ module \$__ECP5_PDPW16KD (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN
 	localparam CLKWMUX = CLKPOL2 ? "CLKA" : "INV";
 	localparam CLKRMUX = CLKPOL3 ? "CLKB" : "INV";
 
-	localparam WRITEMODE_A = TRANSP2 ? "WRITETHROUGH" : "READBEFOREWRITE";
-
 	PDPW16KD #(
 		`include "bram_init_9_18_36.vh"
 		.DATA_WIDTH_W(36),

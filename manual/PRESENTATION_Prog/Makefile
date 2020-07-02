@@ -1,8 +1,11 @@
 
 all: test0.log test1.log test2.log
 
+CXXFLAGS=$(shell ../../yosys-config --cxxflags)
+DATDIR=$(shell ../../yosys-config --datdir)
+
 my_cmd.so: my_cmd.cc
-	../../yosys-config --exec --cxx --cxxflags --ldflags -o my_cmd.so -shared my_cmd.cc --ldlibs
+	../../yosys-config --exec --cxx $(subst $(DATDIR),../../share,$(CXXFLAGS)) --ldflags -o my_cmd.so -shared my_cmd.cc --ldlibs
 
 test0.log: my_cmd.so
 	../../yosys -Ql test0.log_new -m ./my_cmd.so -p 'my_cmd foo bar' absval_ref.v

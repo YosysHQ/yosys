@@ -207,6 +207,7 @@ class dict
 		entry_t() { }
 		entry_t(const std::pair<K, T> &udata, int next) : udata(udata), next(next) { }
 		entry_t(std::pair<K, T> &&udata, int next) : udata(std::move(udata)), next(next) { }
+		bool operator<(const entry_t &other) const { return udata.first < other.udata.first; }
 	};
 
 	std::vector<int> hashtable;
@@ -314,11 +315,11 @@ class dict
 	int do_insert(const K &key, int &hash)
 	{
 		if (hashtable.empty()) {
-			entries.push_back(entry_t(std::pair<K, T>(key, T()), -1));
+			entries.emplace_back(std::pair<K, T>(key, T()), -1);
 			do_rehash();
 			hash = do_hash(key);
 		} else {
-			entries.push_back(entry_t(std::pair<K, T>(key, T()), hashtable[hash]));
+			entries.emplace_back(std::pair<K, T>(key, T()), hashtable[hash]);
 			hashtable[hash] = entries.size() - 1;
 		}
 		return entries.size() - 1;
@@ -327,11 +328,25 @@ class dict
 	int do_insert(const std::pair<K, T> &value, int &hash)
 	{
 		if (hashtable.empty()) {
-			entries.push_back(entry_t(value, -1));
+			entries.emplace_back(value, -1);
 			do_rehash();
 			hash = do_hash(value.first);
 		} else {
-			entries.push_back(entry_t(value, hashtable[hash]));
+			entries.emplace_back(value, hashtable[hash]);
+			hashtable[hash] = entries.size() - 1;
+		}
+		return entries.size() - 1;
+	}
+
+	int do_insert(std::pair<K, T> &&rvalue, int &hash)
+	{
+		if (hashtable.empty()) {
+			auto key = rvalue.first;
+			entries.emplace_back(std::forward<std::pair<K, T>>(rvalue), -1);
+			do_rehash();
+			hash = do_hash(key);
+		} else {
+			entries.emplace_back(std::forward<std::pair<K, T>>(rvalue), hashtable[hash]);
 			hashtable[hash] = entries.size() - 1;
 		}
 		return entries.size() - 1;
@@ -348,6 +363,7 @@ public:
 	public:
 		const_iterator() { }
 		const_iterator operator++() { index--; return *this; }
+		const_iterator operator+=(int amt) { index -= amt; return *this; }
 		bool operator<(const const_iterator &other) const { return index > other.index; }
 		bool operator==(const const_iterator &other) const { return index == other.index; }
 		bool operator!=(const const_iterator &other) const { return index != other.index; }
@@ -365,6 +381,7 @@ public:
 	public:
 		iterator() { }
 		iterator operator++() { index--; return *this; }
+		iterator operator+=(int amt) { index -= amt; return *this; }
 		bool operator<(const iterator &other) const { return index > other.index; }
 		bool operator==(const iterator &other) const { return index == other.index; }
 		bool operator!=(const iterator &other) const { return index != other.index; }
@@ -441,6 +458,56 @@ public:
 		return std::pair<iterator, bool>(iterator(this, i), true);
 	}
 
+	std::pair<iterator, bool> insert(std::pair<K, T> &&rvalue)
+	{
+		int hash = do_hash(rvalue.first);
+		int i = do_lookup(rvalue.first, hash);
+		if (i >= 0)
+			return std::pair<iterator, bool>(iterator(this, i), false);
+		i = do_insert(std::forward<std::pair<K, T>>(rvalue), hash);
+		return std::pair<iterator, bool>(iterator(this, i), true);
+	}
+
+	std::pair<iterator, bool> emplace(K const &key, T const &value)
+	{
+		int hash = do_hash(key);
+		int i = do_lookup(key, hash);
+		if (i >= 0)
+			return std::pair<iterator, bool>(iterator(this, i), false);
+		i = do_insert(std::make_pair(key, value), hash);
+		return std::pair<iterator, bool>(iterator(this, i), true);
+	}
+
+	std::pair<iterator, bool> emplace(K const &key, T &&rvalue)
+	{
+		int hash = do_hash(key);
+		int i = do_lookup(key, hash);
+		if (i >= 0)
+			return std::pair<iterator, bool>(iterator(this, i), false);
+		i = do_insert(std::make_pair(key, std::forward<T>(rvalue)), hash);
+		return std::pair<iterator, bool>(iterator(this, i), true);
+	}
+
+	std::pair<iterator, bool> emplace(K &&rkey, T const &value)
+	{
+		int hash = do_hash(rkey);
+		int i = do_lookup(rkey, hash);
+		if (i >= 0)
+			return std::pair<iterator, bool>(iterator(this, i), false);
+		i = do_insert(std::make_pair(std::forward<K>(rkey), value), hash);
+		return std::pair<iterator, bool>(iterator(this, i), true);
+	}
+
+	std::pair<iterator, bool> emplace(K &&rkey, T &&rvalue)
+	{
+		int hash = do_hash(rkey);
+		int i = do_lookup(rkey, hash);
+		if (i >= 0)
+			return std::pair<iterator, bool>(iterator(this, i), false);
+		i = do_insert(std::make_pair(std::forward<K>(rkey), std::forward<T>(rvalue)), hash);
+		return std::pair<iterator, bool>(iterator(this, i), true);
+	}
+
 	int erase(const K &key)
 	{
 		int hash = do_hash(key);
@@ -505,7 +572,7 @@ public:
 		return entries[i].udata.second;
 	}
 
-	T at(const K &key, const T &defval) const
+	const T& at(const K &key, const T &defval) const
 	{
 		int hash = do_hash(key);
 		int i = do_lookup(key, hash);
@@ -551,6 +618,15 @@ public:
 		return !operator==(other);
 	}
 
+	unsigned int hash() const {
+		unsigned int h = mkhash_init;
+		for (auto &entry : entries) {
+			h ^= hash_ops<K>::hash(entry.udata.first);
+			h ^= hash_ops<T>::hash(entry.udata.second);
+		}
+		return h;
+	}
+
 	void reserve(size_t n) { entries.reserve(n); }
 	size_t size() const { return entries.size(); }
 	bool empty() const { return entries.empty(); }
@@ -578,6 +654,7 @@ protected:
 
 		entry_t() { }
 		entry_t(const K &udata, int next) : udata(udata), next(next) { }
+		entry_t(K &&udata, int next) : udata(std::move(udata)), next(next) { }
 	};
 
 	std::vector<int> hashtable;
@@ -681,11 +758,24 @@ protected:
 	int do_insert(const K &value, int &hash)
 	{
 		if (hashtable.empty()) {
-			entries.push_back(entry_t(value, -1));
+			entries.emplace_back(value, -1);
 			do_rehash();
 			hash = do_hash(value);
 		} else {
-			entries.push_back(entry_t(value, hashtable[hash]));
+			entries.emplace_back(value, hashtable[hash]);
+			hashtable[hash] = entries.size() - 1;
+		}
+		return entries.size() - 1;
+	}
+
+	int do_insert(K &&rvalue, int &hash)
+	{
+		if (hashtable.empty()) {
+			entries.emplace_back(std::forward<K>(rvalue), -1);
+			do_rehash();
+			hash = do_hash(rvalue);
+		} else {
+			entries.emplace_back(std::forward<K>(rvalue), hashtable[hash]);
 			hashtable[hash] = entries.size() - 1;
 		}
 		return entries.size() - 1;
@@ -781,6 +871,22 @@ public:
 			return std::pair<iterator, bool>(iterator(this, i), false);
 		i = do_insert(value, hash);
 		return std::pair<iterator, bool>(iterator(this, i), true);
+	}
+
+	std::pair<iterator, bool> insert(K &&rvalue)
+	{
+		int hash = do_hash(rvalue);
+		int i = do_lookup(rvalue, hash);
+		if (i >= 0)
+			return std::pair<iterator, bool>(iterator(this, i), false);
+		i = do_insert(std::forward<K>(rvalue), hash);
+		return std::pair<iterator, bool>(iterator(this, i), true);
+	}
+
+	template<typename... Args>
+	std::pair<iterator, bool> emplace(Args&&... args)
+	{
+		return insert(K(std::forward<Args>(args)...));
 	}
 
 	int erase(const K &key)
@@ -897,7 +1003,21 @@ class idict
 	pool<K, OPS> database;
 
 public:
-	typedef typename pool<K, OPS>::const_iterator const_iterator;
+	class const_iterator : public std::iterator<std::forward_iterator_tag, K>
+	{
+		friend class idict;
+	protected:
+		const idict &container;
+		int index;
+		const_iterator(const idict &container, int index) : container(container), index(index) { }
+	public:
+		const_iterator() { }
+		const_iterator operator++() { index++; return *this; }
+		bool operator==(const const_iterator &other) const { return index == other.index; }
+		bool operator!=(const const_iterator &other) const { return index != other.index; }
+		const K &operator*() const { return container[index]; }
+		const K *operator->() const { return &container[index]; }
+	};
 
 	int operator()(const K &key)
 	{
@@ -955,9 +1075,9 @@ public:
 	bool empty() const { return database.empty(); }
 	void clear() { database.clear(); }
 
-	const_iterator begin() const { return database.begin(); }
-	const_iterator element(int n) const { return database.element(n); }
-	const_iterator end() const { return database.end(); }
+	const_iterator begin() const { return const_iterator(*this, offset); }
+	const_iterator element(int n) const { return const_iterator(*this, n); }
+	const_iterator end() const { return const_iterator(*this, offset + size()); }
 };
 
 template<typename K, typename OPS>

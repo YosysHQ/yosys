@@ -28,7 +28,7 @@ PRIVATE_NAMESPACE_BEGIN
 struct SynthAchronixPass : public ScriptPass {
   SynthAchronixPass() : ScriptPass("synth_achronix", "synthesis for Acrhonix Speedster22i FPGAs.") { }
 
-  void help() YS_OVERRIDE
+  void help() override
   {
     //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
     log("\n");
@@ -52,7 +52,7 @@ struct SynthAchronixPass : public ScriptPass {
     log("        do not flatten design before synthesis\n");
     log("\n");
     log("    -retime\n");
-    log("        run 'abc' with -dff option\n");
+    log("        run 'abc' with '-dff -D 1' options\n");
     log("\n");
     log("\n");
     log("The following commands are executed by this synthesis command:\n");
@@ -63,7 +63,7 @@ struct SynthAchronixPass : public ScriptPass {
   string top_opt, family_opt, vout_file;
   bool retime, flatten;
 
-  void clear_flags() YS_OVERRIDE
+  void clear_flags() override
   {
     top_opt = "-auto-top";
     vout_file = "";
@@ -71,7 +71,7 @@ struct SynthAchronixPass : public ScriptPass {
     flatten = true;
   }
 
-  void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+  void execute(std::vector<std::string> args, RTLIL::Design *design) override
   {
     string run_from, run_to;
     clear_flags();
@@ -118,7 +118,7 @@ struct SynthAchronixPass : public ScriptPass {
     log_pop();
   }
 
-  void script() YS_OVERRIDE
+  void script() override
   {
     if (check_label("begin"))
       {
@@ -144,7 +144,6 @@ struct SynthAchronixPass : public ScriptPass {
         run("opt -fast -mux_undef -undriven -fine -full");
         run("memory_map");
         run("opt -undriven -fine");
-        run("dffsr2dff");
         run("dff2dffe -direct-match $_DFF_*");
         run("opt -fine");
         run("techmap -map +/techmap.v");
@@ -152,12 +151,12 @@ struct SynthAchronixPass : public ScriptPass {
         run("clean -purge");
         run("setundef -undriven -zero");
         if (retime || help_mode)
-          run("abc -markgroups -dff", "(only if -retime)");
+          run("abc -markgroups -dff -D 1", "(only if -retime)");
       }
 
     if (check_label("map_luts"))
       {
-        run("abc -lut 4" + string(retime ? " -dff" : ""));
+        run("abc -lut 4" + string(retime ? " -dff -D 1" : ""));
         run("clean");
       }
 

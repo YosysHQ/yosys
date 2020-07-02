@@ -116,7 +116,7 @@ struct MuxcoverWorker
 				if (!cell->input(conn.first))
 					continue;
 				for (auto bit : sigmap(conn.second)) {
-					if (used_once.count(bit) || cell->type != ID($_MUX_) || conn.first == ID(S))
+					if (used_once.count(bit) || cell->type != ID($_MUX_) || conn.first == ID::S)
 						roots.insert(bit);
 					used_once.insert(bit);
 				}
@@ -519,7 +519,7 @@ struct MuxcoverWorker
 			Cell *cell = module->addCell(NEW_ID, ID($_MUX_));
 			cell->setPort(ID::A, mux.inputs[0]);
 			cell->setPort(ID::B, mux.inputs[1]);
-			cell->setPort(ID(S), mux.selects[0]);
+			cell->setPort(ID::S, mux.selects[0]);
 			cell->setPort(ID::Y, bit);
 			return;
 		}
@@ -529,10 +529,10 @@ struct MuxcoverWorker
 			Cell *cell = module->addCell(NEW_ID, ID($_MUX4_));
 			cell->setPort(ID::A, mux.inputs[0]);
 			cell->setPort(ID::B, mux.inputs[1]);
-			cell->setPort(ID(C), mux.inputs[2]);
-			cell->setPort(ID(D), mux.inputs[3]);
-			cell->setPort(ID(S), mux.selects[0]);
-			cell->setPort(ID(T), mux.selects[1]);
+			cell->setPort(ID::C, mux.inputs[2]);
+			cell->setPort(ID::D, mux.inputs[3]);
+			cell->setPort(ID::S, mux.selects[0]);
+			cell->setPort(ID::T, mux.selects[1]);
 			cell->setPort(ID::Y, bit);
 			return;
 		}
@@ -542,15 +542,15 @@ struct MuxcoverWorker
 			Cell *cell = module->addCell(NEW_ID, ID($_MUX8_));
 			cell->setPort(ID::A, mux.inputs[0]);
 			cell->setPort(ID::B, mux.inputs[1]);
-			cell->setPort(ID(C), mux.inputs[2]);
-			cell->setPort(ID(D), mux.inputs[3]);
-			cell->setPort(ID(E), mux.inputs[4]);
-			cell->setPort(ID(F), mux.inputs[5]);
-			cell->setPort(ID(G), mux.inputs[6]);
-			cell->setPort(ID(H), mux.inputs[7]);
-			cell->setPort(ID(S), mux.selects[0]);
-			cell->setPort(ID(T), mux.selects[1]);
-			cell->setPort(ID(U), mux.selects[2]);
+			cell->setPort(ID::C, mux.inputs[2]);
+			cell->setPort(ID::D, mux.inputs[3]);
+			cell->setPort(ID::E, mux.inputs[4]);
+			cell->setPort(ID::F, mux.inputs[5]);
+			cell->setPort(ID::G, mux.inputs[6]);
+			cell->setPort(ID::H, mux.inputs[7]);
+			cell->setPort(ID::S, mux.selects[0]);
+			cell->setPort(ID::T, mux.selects[1]);
+			cell->setPort(ID::U, mux.selects[2]);
 			cell->setPort(ID::Y, bit);
 			return;
 		}
@@ -560,24 +560,24 @@ struct MuxcoverWorker
 			Cell *cell = module->addCell(NEW_ID, ID($_MUX16_));
 			cell->setPort(ID::A, mux.inputs[0]);
 			cell->setPort(ID::B, mux.inputs[1]);
-			cell->setPort(ID(C), mux.inputs[2]);
-			cell->setPort(ID(D), mux.inputs[3]);
-			cell->setPort(ID(E), mux.inputs[4]);
-			cell->setPort(ID(F), mux.inputs[5]);
-			cell->setPort(ID(G), mux.inputs[6]);
-			cell->setPort(ID(H), mux.inputs[7]);
-			cell->setPort(ID(I), mux.inputs[8]);
-			cell->setPort(ID(J), mux.inputs[9]);
-			cell->setPort(ID(K), mux.inputs[10]);
-			cell->setPort(ID(L), mux.inputs[11]);
-			cell->setPort(ID(M), mux.inputs[12]);
-			cell->setPort(ID(N), mux.inputs[13]);
-			cell->setPort(ID(O), mux.inputs[14]);
-			cell->setPort(ID(P), mux.inputs[15]);
-			cell->setPort(ID(S), mux.selects[0]);
-			cell->setPort(ID(T), mux.selects[1]);
-			cell->setPort(ID(U), mux.selects[2]);
-			cell->setPort(ID(V), mux.selects[3]);
+			cell->setPort(ID::C, mux.inputs[2]);
+			cell->setPort(ID::D, mux.inputs[3]);
+			cell->setPort(ID::E, mux.inputs[4]);
+			cell->setPort(ID::F, mux.inputs[5]);
+			cell->setPort(ID::G, mux.inputs[6]);
+			cell->setPort(ID::H, mux.inputs[7]);
+			cell->setPort(ID::I, mux.inputs[8]);
+			cell->setPort(ID::J, mux.inputs[9]);
+			cell->setPort(ID::K, mux.inputs[10]);
+			cell->setPort(ID::L, mux.inputs[11]);
+			cell->setPort(ID::M, mux.inputs[12]);
+			cell->setPort(ID::N, mux.inputs[13]);
+			cell->setPort(ID::O, mux.inputs[14]);
+			cell->setPort(ID::P, mux.inputs[15]);
+			cell->setPort(ID::S, mux.selects[0]);
+			cell->setPort(ID::T, mux.selects[1]);
+			cell->setPort(ID::U, mux.selects[2]);
+			cell->setPort(ID::V, mux.selects[3]);
 			cell->setPort(ID::Y, bit);
 			return;
 		}
@@ -623,7 +623,7 @@ struct MuxcoverWorker
 
 struct MuxcoverPass : public Pass {
 	MuxcoverPass() : Pass("muxcover", "cover trees of MUX cells with wider MUXes") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -656,7 +656,7 @@ struct MuxcoverPass : public Pass {
 		log("        than <N> different signals.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing MUXCOVER pass (mapping to wider MUXes).\n");
 

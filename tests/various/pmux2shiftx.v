@@ -33,7 +33,7 @@ module pmux2shiftx_test (
 	end
 endmodule
 
-module issue01135(input [7:0] i, output o);
+module issue01135(input [7:0] i, output reg o);
 always @*
 case (i[6:3])
     4: o <= i[0];

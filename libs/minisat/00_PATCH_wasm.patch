@@ -1,0 +1,46 @@
+--- System.cc
++++ System.cc
+@@ -101,7 +101,7 @@ double Minisat::memUsedPeak(bool) { return 0; }
+ #endif
+
+
+-#if !defined(_MSC_VER) && !defined(__MINGW32__)
++#if !defined(_MSC_VER) && !defined(__MINGW32__) && !defined(__wasm)
+ void Minisat::limitMemory(uint64_t max_mem_mb)
+ {
+ // FIXME: OpenBSD does not support RLIMIT_AS. Not sure how well RLIMIT_DATA works instead.
+@@ -133,7 +133,7 @@ void Minisat::limitMemory(uint64_t /*max_mem_mb*/)
+ #endif
+
+
+-#if !defined(_MSC_VER) && !defined(__MINGW32__)
++#if !defined(_MSC_VER) && !defined(__MINGW32__) && !defined(__wasm)
+ void Minisat::limitTime(uint32_t max_cpu_time)
+ {
+     if (max_cpu_time != 0){
+@@ -156,9 +156,13 @@ void Minisat::limitTime(uint32_t /*max_cpu_time*/)
+
+ void Minisat::sigTerm(void handler(int))
+ {
++#if defined(__wasm)
++    (void)handler;
++#else
+     signal(SIGINT, handler);
+     signal(SIGTERM,handler);
+ #ifdef SIGXCPU
+     signal(SIGXCPU,handler);
+ #endif
++#endif
+ }
+--- System.cc
++++ System.cc
+@@ -24,7 +24,9 @@
+ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ **************************************************************************************************/
+
++#if !defined(__wasm)
+ #include <signal.h>
++#endif
+ #include <stdio.h>
+
+ #include "System.h"

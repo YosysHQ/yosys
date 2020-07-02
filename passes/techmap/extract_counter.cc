@@ -90,20 +90,33 @@ bool is_unconnected(const RTLIL::SigSpec& port, ModIndex& index)
 struct CounterExtraction
 {
 	int width;						//counter width
+	bool count_is_up;				//count up (else down)
 	RTLIL::Wire* rwire;				//the register output
 	bool has_reset;					//true if we have a reset
 	bool has_ce;					//true if we have a clock enable
+	bool ce_inverted;				//true if clock enable is active low
 	RTLIL::SigSpec rst;				//reset pin
 	bool rst_inverted;				//true if reset is active low
 	bool rst_to_max;				//true if we reset to max instead of 0
 	int count_value;				//value we count from
 	RTLIL::SigSpec ce;				//clock signal
 	RTLIL::SigSpec clk;				//clock enable, if any
-	RTLIL::SigSpec outsig;			//counter output signal
+	RTLIL::SigSpec outsig;			//counter overflow output signal
+	RTLIL::SigSpec poutsig;			//counter parallel output signal
+	bool has_pout;					//whether parallel output is used
 	RTLIL::Cell* count_mux;			//counter mux
 	RTLIL::Cell* count_reg;			//counter register
-	RTLIL::Cell* underflow_inv;		//inverter reduction for output-underflow detect
+	RTLIL::Cell* overflow_cell;		//cell for counter overflow (either inverter reduction or $eq)
 	pool<ModIndex::PortInfo> pouts;	//Ports that take a parallel output from us
+};
+
+struct CounterExtractionSettings
+{
+	pool<RTLIL::IdString>& parallel_cells;
+	int maxwidth;
+	int minwidth;
+	bool allow_arst;
+	int allowed_dirs;	//0 = down, 1 = up, 2 = both
 };
 
 //attempt to extract a counter centered on the given adder cell
@@ -113,48 +126,131 @@ int counter_tryextract(
 	ModIndex& index,
 	Cell *cell,
 	CounterExtraction& extract,
-	pool<RTLIL::IdString>& parallel_cells,
-	int maxwidth)
+	CounterExtractionSettings settings)
 {
 	SigMap& sigmap = index.sigmap;
 
-	//A counter with less than 2 bits makes no sense
-	//TODO: configurable min threshold
-	int a_width = cell->getParam(ID(A_WIDTH)).as_int();
-	extract.width = a_width;
-	if( (a_width < 2) || (a_width > maxwidth) )
-		return 1;
-
-	//Second input must be a single bit
-	int b_width = cell->getParam(ID(B_WIDTH)).as_int();
-	if(b_width != 1)
-		return 2;
-
 	//Both inputs must be unsigned, so don't extract anything with a signed input
-	bool a_sign = cell->getParam(ID(A_SIGNED)).as_bool();
-	bool b_sign = cell->getParam(ID(B_SIGNED)).as_bool();
+	bool a_sign = cell->getParam(ID::A_SIGNED).as_bool();
+	bool b_sign = cell->getParam(ID::B_SIGNED).as_bool();
 	if(a_sign || b_sign)
 		return 3;
 
-	//To be a counter, one input of the ALU must be a constant 1
-	//TODO: can A or B be swapped in synthesized RTL or is B always the 1?
-	const RTLIL::SigSpec b_port = sigmap(cell->getPort(ID::B));
-	if(!b_port.is_fully_const() || (b_port.as_int() != 1) )
-		return 4;
-
-	//BI and CI must be constant 1 as well
-	const RTLIL::SigSpec bi_port = sigmap(cell->getPort(ID(BI)));
-	if(!bi_port.is_fully_const() || (bi_port.as_int() != 1) )
-		return 5;
-	const RTLIL::SigSpec ci_port = sigmap(cell->getPort(ID(CI)));
-	if(!ci_port.is_fully_const() || (ci_port.as_int() != 1) )
-		return 6;
-
 	//CO and X must be unconnected (exactly one connection to each port)
-	if(!is_unconnected(sigmap(cell->getPort(ID(CO))), index))
+	if(!is_unconnected(sigmap(cell->getPort(ID::CO)), index))
 		return 7;
-	if(!is_unconnected(sigmap(cell->getPort(ID(X))), index))
+	if(!is_unconnected(sigmap(cell->getPort(ID::X)), index))
 		return 8;
+
+	//true if $alu is performing A - B, else A + B
+	bool alu_is_subtract;
+
+	//BI and CI must be both constant 0 or both constant 1 as well
+	const RTLIL::SigSpec bi_port = sigmap(cell->getPort(ID::BI));
+	const RTLIL::SigSpec ci_port = sigmap(cell->getPort(ID::CI));
+	if(bi_port.is_fully_const() && bi_port.as_int() == 1 &&
+		ci_port.is_fully_const() && ci_port.as_int() == 1)
+	{
+		alu_is_subtract = true;
+	}
+	else if(bi_port.is_fully_const() && bi_port.as_int() == 0 &&
+		ci_port.is_fully_const() && ci_port.as_int() == 0)
+	{
+		alu_is_subtract = false;
+	}
+	else
+	{
+		return 5;
+	}
+
+	//false -> port B connects to value
+	//true -> port A connects to value
+	bool alu_port_use_a = false;
+
+	if(alu_is_subtract)
+	{
+		const int a_width = cell->getParam(ID::A_WIDTH).as_int();
+		const int b_width = cell->getParam(ID::B_WIDTH).as_int();
+		const RTLIL::SigSpec b_port = sigmap(cell->getPort(ID::B));
+
+		// down, cnt <= cnt - 1
+		if (b_width == 1 && b_port.is_fully_const() && b_port.as_int() == 1)
+		{
+			// OK
+			alu_port_use_a = true;
+			extract.count_is_up = false;
+		}
+
+		// up, cnt <= cnt - -1
+		else if (b_width == a_width && b_port.is_fully_const() && b_port.is_fully_ones())
+		{
+			// OK
+			alu_port_use_a = true;
+			extract.count_is_up = true;
+		}
+
+		// ???
+		else
+		{
+			return 2;
+		}
+	}
+	else
+	{
+		const int a_width = cell->getParam(ID::A_WIDTH).as_int();
+		const int b_width = cell->getParam(ID::B_WIDTH).as_int();
+		const RTLIL::SigSpec a_port = sigmap(cell->getPort(ID::A));
+		const RTLIL::SigSpec b_port = sigmap(cell->getPort(ID::B));
+
+		// down, cnt <= cnt + -1
+		if (b_width == a_width && b_port.is_fully_const() && b_port.is_fully_ones())
+		{
+			// OK
+			alu_port_use_a = true;
+			extract.count_is_up = false;
+		}
+		else if (a_width == b_width && a_port.is_fully_const() && a_port.is_fully_ones())
+		{
+			// OK
+			alu_port_use_a = false;
+			extract.count_is_up = false;
+		}
+
+		// up, cnt <= cnt + 1
+		else if (b_width == 1 && b_port.is_fully_const() && b_port.as_int() == 1)
+		{
+			// OK
+			alu_port_use_a = true;
+			extract.count_is_up = true;
+		}
+		else if (a_width == 1 && a_port.is_fully_const() && a_port.as_int() == 1)
+		{
+			// OK
+			alu_port_use_a = false;
+			extract.count_is_up = true;
+		}
+
+		// ???
+		else
+		{
+			return 2;
+		}
+	}
+
+	if (extract.count_is_up && settings.allowed_dirs == 0)
+		return 26;
+	if (!extract.count_is_up && settings.allowed_dirs == 1)
+		return 26;
+
+	//Check if counter is an appropriate size
+	int count_width;
+	if (alu_port_use_a)
+		count_width = cell->getParam(ID::A_WIDTH).as_int();
+	else
+		count_width = cell->getParam(ID::B_WIDTH).as_int();
+	extract.width = count_width;
+	if( (count_width < settings.minwidth) || (count_width > settings.maxwidth) )
+		return 1;
 
 	//Y must have exactly one connection, and it has to be a $mux cell.
 	//We must have a direct bus connection from our Y to their A.
@@ -169,30 +265,43 @@ int counter_tryextract(
 	if(!is_full_bus(aluy, index, cell, ID::Y, count_mux, ID::A))
 		return 11;
 
-	//B connection of the mux is our underflow value
-	const RTLIL::SigSpec underflow = sigmap(count_mux->getPort(ID::B));
-	if(!underflow.is_fully_const())
-		return 12;
-	extract.count_value = underflow.as_int();
+	if (extract.count_is_up)
+	{
+		//B connection of the mux must be 0
+		const RTLIL::SigSpec underflow = sigmap(count_mux->getPort(ID::B));
+		if(!(underflow.is_fully_const() && underflow.is_fully_zero()))
+			return 12;
+	}
+	else
+	{
+		//B connection of the mux is our underflow value
+		const RTLIL::SigSpec underflow = sigmap(count_mux->getPort(ID::B));
+		if(!underflow.is_fully_const())
+			return 12;
+		extract.count_value = underflow.as_int();
+	}
 
-	//S connection of the mux must come from an inverter (need not be the only load)
-	const RTLIL::SigSpec muxsel = sigmap(count_mux->getPort(ID(S)));
+	//S connection of the mux must come from an inverter if down, eq if up
+	//(need not be the only load)
+	const RTLIL::SigSpec muxsel = sigmap(count_mux->getPort(ID::S));
 	extract.outsig = muxsel;
 	pool<Cell*> muxsel_conns = get_other_cells(muxsel, index, count_mux);
-	Cell* underflow_inv = NULL;
+	Cell* overflow_cell = NULL;
 	for(auto c : muxsel_conns)
 	{
-		if(c->type != ID($logic_not))
+		if(extract.count_is_up && c->type != ID($eq))
 			continue;
-		if(!is_full_bus(muxsel, index, c, ID::Y, count_mux, ID(S), true))
+		if(!extract.count_is_up && c->type != ID($logic_not))
+			continue;
+		if(!is_full_bus(muxsel, index, c, ID::Y, count_mux, ID::S, true))
 			continue;
 
-		underflow_inv = c;
+		overflow_cell = c;
 		break;
 	}
-	if(underflow_inv == NULL)
+	if(overflow_cell == NULL)
 		return 13;
-	extract.underflow_inv = underflow_inv;
+	extract.overflow_cell = overflow_cell;
 
 	//Y connection of the mux must have exactly one load, the counter's internal register, if there's no clock enable
 	//If we have a clock enable, Y drives the B input of a mux. A of that mux must come from our register
@@ -215,18 +324,28 @@ int counter_tryextract(
 			return 24;
 		count_reg = *cey_loads.begin();
 
+		if(sigmap(cemux->getPort(ID::Y)) != sigmap(count_reg->getPort(ID::D)))
+			return 24;
 		//Mux should have A driven by count Q, and B by muxy
-		//TODO: if A and B are swapped, CE polarity is inverted
-		if(sigmap(cemux->getPort(ID::B)) != muxy)
+		//if A and B are swapped, CE polarity is inverted
+		if(sigmap(cemux->getPort(ID::B)) == muxy && 
+			sigmap(cemux->getPort(ID::A)) == sigmap(count_reg->getPort(ID::Q)))
+		{
+			extract.ce_inverted = false;
+		}
+		else if(sigmap(cemux->getPort(ID::A)) == muxy && 
+				sigmap(cemux->getPort(ID::B)) == sigmap(count_reg->getPort(ID::Q)))
+		{
+			extract.ce_inverted = true;
+		}
+		else
+		{
 			return 24;
-		if(sigmap(cemux->getPort(ID::A)) != sigmap(count_reg->getPort(ID(Q))))
-			return 24;
-		if(sigmap(cemux->getPort(ID::Y)) != sigmap(count_reg->getPort(ID(D))))
-			return 24;
+		}
 
 		//Select of the mux is our clock enable
 		extract.has_ce = true;
-		extract.ce = sigmap(cemux->getPort(ID(S)));
+		extract.ce = sigmap(cemux->getPort(ID::S));
 	}
 	else
 		extract.has_ce = false;
@@ -236,13 +355,16 @@ int counter_tryextract(
 		extract.has_reset = false;
 	else if(count_reg->type == ID($adff))
 	{
+		if (!settings.allow_arst)
+			return 25;
+
 		extract.has_reset = true;
 
 		//Check polarity of reset - we may have to add an inverter later on!
-		extract.rst_inverted = (count_reg->getParam(ID(ARST_POLARITY)).as_int() != 1);
+		extract.rst_inverted = (count_reg->getParam(ID::ARST_POLARITY).as_int() != 1);
 
 		//Verify ARST_VALUE is zero or full scale
-		int rst_value = count_reg->getParam(ID(ARST_VALUE)).as_int();
+		int rst_value = count_reg->getParam(ID::ARST_VALUE).as_int();
 		if(rst_value == 0)
 			extract.rst_to_max = false;
 		else if(rst_value == extract.count_value)
@@ -251,7 +373,7 @@ int counter_tryextract(
 			return 23;
 
 		//Save the reset
-		extract.rst = sigmap(count_reg->getPort(ID(ARST)));
+		extract.rst = sigmap(count_reg->getPort(ID::ARST));
 	}
 	//TODO: support synchronous reset
 	else
@@ -260,12 +382,14 @@ int counter_tryextract(
 	//Sanity check that we use the ALU output properly
 	if(extract.has_ce)
 	{
-		if(!is_full_bus(muxy, index, count_mux, ID::Y, cemux, ID::B))
+		if(!extract.ce_inverted && !is_full_bus(muxy, index, count_mux, ID::Y, cemux, ID::B))
 			return 16;
-		if(!is_full_bus(cey, index, cemux, ID::Y, count_reg, ID(D)))
+		if(extract.ce_inverted && !is_full_bus(muxy, index, count_mux, ID::Y, cemux, ID::A))
+			return 16;
+		if(!is_full_bus(cey, index, cemux, ID::Y, count_reg, ID::D))
 			return 16;
 	}
-	else if(!is_full_bus(muxy, index, count_mux, ID::Y, count_reg, ID(D)))
+	else if(!is_full_bus(muxy, index, count_mux, ID::Y, count_reg, ID::D))
 		return 16;
 
 	//TODO: Verify count_reg CLK_POLARITY is 1
@@ -273,7 +397,9 @@ int counter_tryextract(
 	//Register output must have exactly two loads, the inverter and ALU
 	//(unless we have a parallel output!)
 	//If we have a clock enable, 3 is OK
-	const RTLIL::SigSpec qport = count_reg->getPort(ID(Q));
+	const RTLIL::SigSpec qport = count_reg->getPort(ID::Q);
+	extract.poutsig = qport;
+	extract.has_pout = false;
 	const RTLIL::SigSpec cnout = sigmap(qport);
 	pool<Cell*> cnout_loads = get_other_cells(cnout, index, count_reg);
 	unsigned int max_loads = 2;
@@ -283,7 +409,7 @@ int counter_tryextract(
 	{
 		for(auto c : cnout_loads)
 		{
-			if(c == underflow_inv)
+			if(c == overflow_cell)
 				continue;
 			if(c == cell)
 				continue;
@@ -291,15 +417,16 @@ int counter_tryextract(
 				continue;
 
 			//If we specified a limited set of cells for parallel output, check that we only drive them
-			if(!parallel_cells.empty())
+			if(!settings.parallel_cells.empty())
 			{
 				//Make sure we're in the whitelist
-				if( parallel_cells.find(c->type) == parallel_cells.end())
+				if( settings.parallel_cells.find(c->type) == settings.parallel_cells.end())
 					return 17;
 			}
 
 			//Figure out what port(s) are driven by it
 			//TODO: this can probably be done more efficiently w/o multiple iterations over our whole net?
+			//TODO: For what purpose do we actually need extract.pouts?
 			for(auto b : qport)
 			{
 				pool<ModIndex::PortInfo> ports = index.query_ports(b);
@@ -308,25 +435,75 @@ int counter_tryextract(
 					if(x.cell != c)
 						continue;
 					extract.pouts.insert(ModIndex::PortInfo(c, x.port, 0));
+					extract.has_pout = true;
 				}
 			}
 		}
 	}
-	if(!is_full_bus(cnout, index, count_reg, ID(Q), underflow_inv, ID::A, true))
-		return 18;
-	if(!is_full_bus(cnout, index, count_reg, ID(Q), cell, ID::A, true))
+	for (auto b : qport)
+	{
+		if(index.query_is_output(b))
+		{
+			// Parallel out goes out of module
+			extract.has_pout = true;
+		}
+	}
+	if(!extract.count_is_up)
+	{
+		if(!is_full_bus(cnout, index, count_reg, ID::Q, overflow_cell, ID::A, true))
+			return 18;
+	}
+	else
+	{
+		if(is_full_bus(cnout, index, count_reg, ID::Q, overflow_cell, ID::A, true))
+		{
+			// B must be the overflow value
+			const RTLIL::SigSpec overflow = sigmap(overflow_cell->getPort(ID::B));
+			if(!overflow.is_fully_const())
+				return 12;
+			extract.count_value = overflow.as_int();
+		}
+		else if(is_full_bus(cnout, index, count_reg, ID::Q, overflow_cell, ID::B, true))
+		{
+			// A must be the overflow value
+			const RTLIL::SigSpec overflow = sigmap(overflow_cell->getPort(ID::A));
+			if(!overflow.is_fully_const())
+				return 12;
+			extract.count_value = overflow.as_int();
+		}
+		else
+		{
+			return 18;
+		}
+	}
+	if(alu_port_use_a && !is_full_bus(cnout, index, count_reg, ID::Q, cell, ID::A, true))
+		return 19;
+	if(!alu_port_use_a && !is_full_bus(cnout, index, count_reg, ID::Q, cell, ID::B, true))
 		return 19;
 
 	//Look up the clock from the register
-	extract.clk = sigmap(count_reg->getPort(ID(CLK)));
+	extract.clk = sigmap(count_reg->getPort(ID::CLK));
 
-	//Register output net must have an INIT attribute equal to the count value
-	extract.rwire = cnout.as_wire();
-	if(extract.rwire->attributes.find(ID(init)) == extract.rwire->attributes.end())
-		return 20;
-	int rinit = extract.rwire->attributes[ID(init)].as_int();
-	if(rinit != extract.count_value)
-		return 21;
+	if(!extract.count_is_up)
+	{
+		//Register output net must have an INIT attribute equal to the count value
+		extract.rwire = cnout.as_wire();
+		if(extract.rwire->attributes.find(ID::init) == extract.rwire->attributes.end())
+			return 20;
+		int rinit = extract.rwire->attributes[ID::init].as_int();
+		if(rinit != extract.count_value)
+			return 21;
+	}
+	else
+	{
+		//Register output net must not have an INIT attribute or it must be zero
+		extract.rwire = cnout.as_wire();
+		if(extract.rwire->attributes.find(ID::init) == extract.rwire->attributes.end())
+			return 0;
+		int rinit = extract.rwire->attributes[ID::init].as_int();
+		if(rinit != 0)
+			return 21;
+	}
 
 	return 0;
 }
@@ -337,8 +514,7 @@ void counter_worker(
 	unsigned int& total_counters,
 	pool<Cell*>& cells_to_remove,
 	pool<pair<Cell*, string>>& cells_to_rename,
-	pool<RTLIL::IdString>& parallel_cells,
-	int maxwidth)
+	CounterExtractionSettings settings)
 {
 	SigMap& sigmap = index.sigmap;
 
@@ -350,20 +526,24 @@ void counter_worker(
 	//If it's not a wire, don't even try
 	auto port = sigmap(cell->getPort(ID::A));
 	if(!port.is_wire())
-		return;
-	RTLIL::Wire* a_wire = port.as_wire();
+	{
+		port = sigmap(cell->getPort(ID::B));
+		if(!port.is_wire())
+			return;
+	}
+	RTLIL::Wire* port_wire = port.as_wire();
 	bool force_extract = false;
 	bool never_extract = false;
-	string count_reg_src = a_wire->attributes[ID(src)].decode_string().c_str();
-	if(a_wire->attributes.find(ID(COUNT_EXTRACT)) != a_wire->attributes.end())
+	string count_reg_src = port_wire->attributes[ID::src].decode_string().c_str();
+	if(port_wire->attributes.find(ID(COUNT_EXTRACT)) != port_wire->attributes.end())
 	{
-		pool<string> sa = a_wire->get_strpool_attribute(ID(COUNT_EXTRACT));
+		pool<string> sa = port_wire->get_strpool_attribute(ID(COUNT_EXTRACT));
 		string extract_value;
 		if(sa.size() >= 1)
 		{
 			extract_value = *sa.begin();
 			log("  Signal %s declared at %s has COUNT_EXTRACT = %s\n",
-				log_id(a_wire),
+				log_id(port_wire),
 				count_reg_src.c_str(),
 				extract_value.c_str());
 
@@ -385,21 +565,21 @@ void counter_worker(
 
 	//Attempt to extract a counter
 	CounterExtraction extract;
-	int reason = counter_tryextract(index, cell, extract, parallel_cells, maxwidth);
+	int reason = counter_tryextract(index, cell, extract, settings);
 
 	//Nonzero code - we could not find a matchable counter.
 	//Do nothing, unless extraction was forced in which case give an error
 	if(reason != 0)
 	{
-		static const char* reasons[25]=
+		static const char* reasons[]=
 		{
 			"no problem",									//0
 			"counter is too large/small",					//1
 			"counter does not count by one",				//2
 			"counter uses signed math",						//3
-			"counter does not count by one",				//4
-			"ALU is not a subtractor",						//5
-			"ALU is not a subtractor",						//6
+			"RESERVED, not implemented",					//4
+			"ALU is not an adder/subtractor",				//5
+			"RESERVED, not implemented",					//6
 			"ALU ports used outside counter",				//7
 			"ALU ports used outside counter",				//8
 			"ALU output used outside counter",				//9
@@ -417,14 +597,16 @@ void counter_worker(
 			"Underflow value is not equal to init value",	//21
 			"RESERVED, not implemented",					//22, kept for compatibility but not used anymore
 			"Reset is not to zero or COUNT_TO",				//23
-			"Clock enable configuration is unsupported"		//24
+			"Clock enable configuration is unsupported",	//24
+			"Async reset used but not permitted",			//25
+			"Count direction is not allowed"				//26
 		};
 
 		if(force_extract)
 		{
 			log_error(
 			"Counter extraction is set to FORCE on register %s, but a counter could not be inferred (%s)\n",
-			log_id(a_wire),
+			log_id(port_wire),
 			reasons[reason]);
 		}
 		return;
@@ -436,16 +618,16 @@ void counter_worker(
 	//Wipe all of the old connections to the ALU
 	cell->unsetPort(ID::A);
 	cell->unsetPort(ID::B);
-	cell->unsetPort(ID(BI));
-	cell->unsetPort(ID(CI));
-	cell->unsetPort(ID(CO));
-	cell->unsetPort(ID(X));
+	cell->unsetPort(ID::BI);
+	cell->unsetPort(ID::CI);
+	cell->unsetPort(ID::CO);
+	cell->unsetPort(ID::X);
 	cell->unsetPort(ID::Y);
-	cell->unsetParam(ID(A_SIGNED));
-	cell->unsetParam(ID(A_WIDTH));
-	cell->unsetParam(ID(B_SIGNED));
-	cell->unsetParam(ID(B_WIDTH));
-	cell->unsetParam(ID(Y_WIDTH));
+	cell->unsetParam(ID::A_SIGNED);
+	cell->unsetParam(ID::A_WIDTH);
+	cell->unsetParam(ID::B_SIGNED);
+	cell->unsetParam(ID::B_WIDTH);
+	cell->unsetParam(ID::Y_WIDTH);
 
 	//Change the cell type
 	cell->type = ID($__COUNT_);
@@ -475,44 +657,61 @@ void counter_worker(
 	//Hook up other stuff
 	//cell->setParam(ID(CLKIN_DIVIDE), RTLIL::Const(1));
 	cell->setParam(ID(COUNT_TO), RTLIL::Const(extract.count_value));
-	cell->setParam(ID(WIDTH), RTLIL::Const(extract.width));
-	cell->setPort(ID(CLK), extract.clk);
+	cell->setParam(ID::WIDTH, RTLIL::Const(extract.width));
+	cell->setPort(ID::CLK, extract.clk);
 	cell->setPort(ID(OUT), extract.outsig);
 
 	//Hook up clock enable
 	if(extract.has_ce)
 	{
 		cell->setParam(ID(HAS_CE), RTLIL::Const(1));
-		cell->setPort(ID(CE), extract.ce);
+		if(extract.ce_inverted)
+		{
+			auto realce = cell->module->addWire(NEW_ID);
+			cell->module->addNot(NEW_ID, extract.ce, RTLIL::SigSpec(realce));
+			cell->setPort(ID(CE), realce);
+		}
+		else
+			cell->setPort(ID(CE), extract.ce);
 	}
 	else
+	{
 		cell->setParam(ID(HAS_CE), RTLIL::Const(0));
+		cell->setPort(ID(CE), RTLIL::Const(1));
+	}
 
-	//Hook up hard-wired ports (for now up/down are not supported), default to no parallel output
+	if(extract.count_is_up)
+	{
+		cell->setParam(ID(DIRECTION), RTLIL::Const("UP"));
+		//XXX: What is this supposed to do?
+		cell->setPort(ID(UP), RTLIL::Const(1));
+	}
+	else
+	{
+		cell->setParam(ID(DIRECTION), RTLIL::Const("DOWN"));
+		cell->setPort(ID(UP), RTLIL::Const(0));
+	}
+
+	//Hook up hard-wired ports, default to no parallel output
 	cell->setParam(ID(HAS_POUT), RTLIL::Const(0));
 	cell->setParam(ID(RESET_TO_MAX), RTLIL::Const(0));
-	cell->setParam(ID(DIRECTION), RTLIL::Const("DOWN"));
-	cell->setPort(ID(CE), RTLIL::Const(1));
-	cell->setPort(ID(UP), RTLIL::Const(0));
 
 	//Hook up any parallel outputs
 	for(auto load : extract.pouts)
 	{
 		log("    Counter has parallel output to cell %s port %s\n", log_id(load.cell->name), log_id(load.port));
-
-		//Find the wire hooked to the old port
-		auto sig = load.cell->getPort(load.port);
-
+	}
+	if(extract.has_pout)
+	{
 		//Connect it to our parallel output
-		//(this is OK to do more than once b/c they all go to the same place)
-		cell->setPort(ID(POUT), sig);
+		cell->setPort(ID(POUT), extract.poutsig);
 		cell->setParam(ID(HAS_POUT), RTLIL::Const(1));
 	}
 
 	//Delete the cells we've replaced (let opt_clean handle deleting the now-redundant wires)
 	cells_to_remove.insert(extract.count_mux);
 	cells_to_remove.insert(extract.count_reg);
-	cells_to_remove.insert(extract.underflow_inv);
+	cells_to_remove.insert(extract.overflow_cell);
 
 	//Log it
 	total_counters ++;
@@ -527,17 +726,19 @@ void counter_worker(
 		//TODO: support other kind of reset
 		reset_type += " async resettable";
 	}
-	log("  Found %d-bit (%s) down counter %s (counting from %d) for register %s, declared at %s\n",
+	log("  Found %d-bit (%s) %s counter %s (counting %s %d) for register %s, declared at %s\n",
 		extract.width,
 		reset_type.c_str(),
+		extract.count_is_up ? "up" : "down",
 		countname.c_str(),
+		extract.count_is_up ? "to" : "from",
 		extract.count_value,
 		log_id(extract.rwire->name),
 		count_reg_src.c_str());
 
 	//Optimize the counter
 	//If we have no parallel output, and we have redundant bits, shrink us
-	if(extract.pouts.empty())
+	if(!extract.has_pout)
 	{
 		//TODO: Need to update this when we add support for counters with nonzero reset values
 		//to make sure the reset value fits in our bit space too
@@ -546,7 +747,7 @@ void counter_worker(
 		int newbits = ceil(log2(extract.count_value));
 		if(extract.width != newbits)
 		{
-			cell->setParam(ID(WIDTH), RTLIL::Const(newbits));
+			cell->setParam(ID::WIDTH, RTLIL::Const(newbits));
 			log("    Optimizing out %d unused high-order bits (new width is %d)\n",
 				extract.width - newbits,
 				newbits);
@@ -559,7 +760,7 @@ void counter_worker(
 
 struct ExtractCounterPass : public Pass {
 	ExtractCounterPass() : Pass("extract_counter", "Extract GreenPak4 counter cells") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -570,7 +771,16 @@ struct ExtractCounterPass : public Pass {
 		log("to the actual target cells.\n");
 		log("\n");
 		log("    -maxwidth N\n");
-		log("        Only extract counters up to N bits wide\n");
+		log("        Only extract counters up to N bits wide (default 64)\n");
+		log("\n");
+		log("    -minwidth N\n");
+		log("        Only extract counters at least N bits wide (default 2)\n");
+		log("\n");
+		log("    -allow_arst yes|no\n");
+		log("        Allow counters to have async reset (default yes)\n");
+		log("\n");
+		log("    -dir up|down|both\n");
+		log("        Look for up-counters, down-counters, or both (default down)\n");
 		log("\n");
 		log("    -pout X,Y,...\n");
 		log("        Only allow parallel output from the counter to the listed cell types\n");
@@ -578,13 +788,21 @@ struct ExtractCounterPass : public Pass {
 		log("\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing EXTRACT_COUNTER pass (find counters in netlist).\n");
 
-		int maxwidth = 64;
+		pool<RTLIL::IdString> _parallel_cells;
+		CounterExtractionSettings settings
+		{
+			_parallel_cells,    // parallel_cells
+			64,                 // maxwidth
+			2,                  // minwidth
+			true,               // allow_arst
+			0,                  // allowed_dirs
+		};
+
 		size_t argidx;
-		pool<RTLIL::IdString> parallel_cells;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			if (args[argidx] == "-pout")
@@ -601,23 +819,62 @@ struct ExtractCounterPass : public Pass {
 				{
 					if(pouts[i] == ',')
 					{
-						parallel_cells.insert(RTLIL::escape_id(tmp));
+						settings.parallel_cells.insert(RTLIL::escape_id(tmp));
 						tmp = "";
 					}
 					else
 						tmp += pouts[i];
 				}
-				parallel_cells.insert(RTLIL::escape_id(tmp));
+				settings.parallel_cells.insert(RTLIL::escape_id(tmp));
 				continue;
 			}
 
 			if (args[argidx] == "-maxwidth" && argidx+1 < args.size())
 			{
-				maxwidth = atoi(args[++argidx].c_str());
+				settings.maxwidth = atoi(args[++argidx].c_str());
+				continue;
+			}
+
+			if (args[argidx] == "-minwidth" && argidx+1 < args.size())
+			{
+				settings.minwidth = atoi(args[++argidx].c_str());
+				continue;
+			}
+
+			if (args[argidx] == "-allow_arst" && argidx+1 < args.size())
+			{
+				auto arg = args[++argidx];
+				if (arg == "yes")
+					settings.allow_arst = true;
+				else if (arg == "no")
+					settings.allow_arst = false;
+				else
+					log_error("Invalid -allow_arst value \"%s\"\n", arg.c_str());
+				continue;
+			}
+
+			if (args[argidx] == "-dir" && argidx+1 < args.size())
+			{
+				auto arg = args[++argidx];
+				if (arg == "up")
+					settings.allowed_dirs = 1;
+				else if (arg == "down")
+					settings.allowed_dirs = 0;
+				else if (arg == "both")
+					settings.allowed_dirs = 2;
+				else
+					log_error("Invalid -dir value \"%s\"\n", arg.c_str());
 				continue;
 			}
 		}
 		extra_args(args, argidx, design);
+
+		if (settings.minwidth < 2)
+		{
+			//A counter with less than 2 bits makes no sense
+			log_warning("Minimum counter width is 2 bits wide\n");
+			settings.minwidth = 2;
+		}
 
 		//Extract all of the counters we could find
 		unsigned int total_counters = 0;
@@ -628,7 +885,7 @@ struct ExtractCounterPass : public Pass {
 
 			ModIndex index(module);
 			for (auto cell : module->selected_cells())
-				counter_worker(index, cell, total_counters, cells_to_remove, cells_to_rename, parallel_cells, maxwidth);
+				counter_worker(index, cell, total_counters, cells_to_remove, cells_to_rename, settings);
 
 			for(auto cell : cells_to_remove)
 			{

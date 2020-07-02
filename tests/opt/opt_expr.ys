@@ -291,3 +291,31 @@ check
 equiv_opt -assert opt_expr -keepdc
 design -load postopt
 select -assert-count 1 t:$shift r:A_WIDTH=13 %i
+
+###########
+
+design -reset
+read_verilog -icells <<EOT
+module opt_expr_mul_low_bits(input [2:0] a, input [2:0] b, output [7:0] y);
+    \$mul #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(4), .B_WIDTH(4), .Y_WIDTH(8)) mul (.A({a, 1'b0}), .B({b, 1'b0}), .Y(y));
+endmodule
+EOT
+check
+
+equiv_opt -assert opt_expr
+design -load postopt
+select -assert-count 1 t:$mul r:A_WIDTH=3 %i r:B_WIDTH=3 %i r:Y_WIDTH=6 %i
+
+###########
+
+design -reset
+read_verilog -icells <<EOT
+module opt_expr_mul_low_bits(input [2:0] a, input [2:0] b, output [7:0] y);
+    \$mul #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(4), .B_WIDTH(4), .Y_WIDTH(8)) mul (.A({a, 1'b0}), .B({b, 1'b0}), .Y(y));
+endmodule
+EOT
+check
+
+equiv_opt -assert opt_expr -keepdc
+design -load postopt
+select -assert-count 1 t:$mul r:A_WIDTH=4 %i r:B_WIDTH=4 %i r:Y_WIDTH=8 %i

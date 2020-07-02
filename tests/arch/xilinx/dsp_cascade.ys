@@ -1,0 +1,89 @@
+design -reset
+read_verilog <<EOT
+module cascade(input clk, input [4:0] a, input [4:0] b, output reg [9:0] o);
+reg [4:0] ar1, ar2, ar3, br1, br2, br3;
+reg [9:0] m, n;
+always @(posedge clk) begin
+ar1 <= a;
+ar2 <= ar1;
+ar3 <= ar2;
+br1 <= b;
+br2 <= br1;
+br3 <= br2;
+m <= ar1 * br1;
+n <= ar2 * br2 + m;
+o <= ar3 * br3 + n;
+end
+endmodule
+EOT
+proc
+design -save read
+
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -noiopad
+design -load postopt
+cd cascade
+select -assert-count 3 t:DSP48E1
+select -assert-none t:DSP48E1 t:BUFG %% t:* %D
+# Very crude method of checking that DSP48E1.PCOUT -> DSP48E1.PCIN
+# (i.e. Take all DSP48E1s, expand to find all wires connected
+#       to its PCOUT port, then remove all DSP48E1s from this
+#       selection, then expand again to find all cells where
+#       those wires are connected to the PCIN port, then remove
+#       all wires from this selection, and lastly intersect
+#       this selection with all DSP48E1 cells (to check that
+#       the connected cells are indeed DSPs)
+select -assert-count 2 t:DSP48E1 %co:+[PCOUT] t:DSP48E1 %d %co:+[PCIN] w:* %d t:DSP48E1 %i
+
+design -load read
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc6s -noiopad
+design -load postopt
+cd cascade
+select -assert-count 3 t:DSP48A1
+select -assert-count 5 t:FDRE # No cascade for A input
+select -assert-none t:DSP48A1 t:BUFG t:FDRE %% t:* %D
+# Very crude method of checking that DSP48E1.PCOUT -> DSP48E1.PCIN
+#   (see above for explanation)
+select -assert-count 2 t:DSP48A1 %co:+[PCOUT] t:DSP48A1 %d %co:+[PCIN] w:* %d t:DSP48A1 %i
+
+design -reset
+read_verilog <<EOT
+module cascade(input clk, input [4:0] a, input [4:0] b, output reg [9:0] o);
+reg [4:0] ar1, ar2, ar3, br1, br2, br3;
+reg [9:0] m;
+always @(posedge clk) begin
+ar1 <= a;
+ar2 <= ar1;
+ar3 <= ar2;
+br1 <= b;
+br2 <= br1;
+br3 <= br2;
+m <= ar2 * br2;
+o <= ar3 * br3 + m;
+end
+endmodule
+EOT
+proc
+design -save read
+
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -noiopad
+design -load postopt
+cd cascade
+select -assert-count 2 t:DSP48E1
+select -assert-none t:DSP48E1 t:BUFG %% t:* %D
+# Very crude method of checking that DSP48E1.PCOUT -> DSP48E1.PCIN
+#   (see above for explanation)
+select -assert-count 1 t:DSP48E1 %co:+[PCOUT] t:DSP48E1 %d %co:+[PCIN] w:* %d t:DSP48E1 %i
+
+design -load read
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc6s -noiopad
+design -load postopt
+cd cascade
+select -assert-count 2 t:DSP48A1
+select -assert-count 10 t:FDRE # Cannot cascade because first 'm' DSP
+                               # uses both B0REG and B1REG, whereas 'o'
+                               # only requires 1
+select -assert-none t:DSP48A1 t:BUFG t:FDRE %% t:* %D
+# Very crude method of checking that DSP48E1.PCOUT -> DSP48E1.PCIN
+#   (see above for explanation)
+select -assert-count 1 t:DSP48A1 %co:+[PCOUT] t:DSP48A1 %d %co:+[PCIN] w:* %d t:DSP48A1 %i
+

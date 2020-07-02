@@ -30,7 +30,7 @@ struct SynthEfinixPass : public ScriptPass
 {
 	SynthEfinixPass() : ScriptPass("synth_efinix", "synthesis for Efinix FPGAs") { }
 
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -58,7 +58,10 @@ struct SynthEfinixPass : public ScriptPass
 		log("        do not flatten design before synthesis\n");
 		log("\n");
 		log("    -retime\n");
-		log("        run 'abc' with -dff option\n");
+		log("        run 'abc' with '-dff -D 1' options\n");
+		log("\n");
+		log("    -nobram\n");
+		log("        do not use EFX_RAM_5K cells in output netlist\n");
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
@@ -67,18 +70,19 @@ struct SynthEfinixPass : public ScriptPass
 	}
 
 	string top_opt, edif_file, json_file;
-	bool flatten, retime;
+	bool flatten, retime, nobram;
 
-	void clear_flags() YS_OVERRIDE
+	void clear_flags() override
 	{
 		top_opt = "-auto-top";
 		edif_file = "";
 		json_file = "";
 		flatten = true;
 		retime = false;
+		nobram = false;
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		string run_from, run_to;
 		clear_flags();
@@ -114,6 +118,10 @@ struct SynthEfinixPass : public ScriptPass
 				retime = true;
 				continue;
 			}
+			if (args[argidx] == "-nobram") {
+				nobram = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -129,7 +137,7 @@ struct SynthEfinixPass : public ScriptPass
 		log_pop();
 	}
 
-	void script() YS_OVERRIDE
+	void script() override
 	{
 		if (check_label("begin"))
 		{
@@ -150,26 +158,30 @@ struct SynthEfinixPass : public ScriptPass
 			run("synth -run coarse");
 		}
 
-		if (check_label("map_bram", "(skip if -nobram)"))
+		if (!nobram || check_label("map_bram", "(skip if -nobram)"))
 		{
-			run("memory_bram -rules +/efinix/bram.txt");
+			run("memory_bram -rules +/efinix/brams.txt");
 			run("techmap -map +/efinix/brams_map.v");
 			run("setundef -zero -params t:EFX_RAM_5K");
 		}
 
-		if (check_label("fine"))
+		if (check_label("map_ffram"))
 		{
 			run("opt -fast -mux_undef -undriven -fine");
 			run("memory_map");
 			run("opt -undriven -fine");
+		}
+
+		if (check_label("map_gates"))
+		{
 			run("techmap -map +/techmap.v -map +/efinix/arith_map.v");
+			run("opt -fast");
 			if (retime || help_mode)
-				run("abc -dff", "(only if -retime)");
+				run("abc -dff -D 1", "(only if -retime)");
 		}
 
 		if (check_label("map_ffs"))
 		{
-			run("dffsr2dff");
 			run("techmap -D NO_LUT -map +/efinix/cells_map.v");
 			run("dffinit -strinit SET RESET -ff AL_MAP_SEQ q REGSET -noreinit");
 			run("opt_expr -mux_undef");
@@ -194,7 +206,7 @@ struct SynthEfinixPass : public ScriptPass
 			run("efinix_fixcarry");
 			run("clean");
 		}
-		
+
 		if (check_label("check"))
 		{
 			run("hierarchy -check");
