@@ -1,0 +1,55 @@
+library(test) {
+  /* D-type flip-flop with asynchronous reset and preset */
+  cell (dffn) {
+    area : 6;
+    ff("IQ", "IQN") {
+      next_state : "D";
+      clocked_on : "!CLK";
+    } 
+    pin(D) {
+      direction : input;
+    }
+    pin(CLK) {
+      direction : input;
+    }
+    pin(Q) {
+      direction: output;
+      function : "IQ";
+    }
+    pin(QN) {
+      direction: output;
+      function : "IQN";
+    } 
+  }
+  cell (dffsr) {
+    area : 6;
+    ff("IQ", "IQN") {
+      next_state : "D";
+      clocked_on : "CLK";
+      clear      : "CLEAR";
+      preset     : "PRESET";
+      clear_preset_var1 : L;
+      clear_preset_var2 : L;
+    } 
+    pin(D) {
+      direction : input;
+    }
+    pin(CLK) {
+      direction : input;
+    }
+    pin(CLEAR) {
+      direction : input;
+    }
+    pin(PRESET) {
+      direction : input;
+    }
+    pin(Q) {
+      direction: output;
+      function : "IQ";
+    }
+    pin(QN) {
+      direction: output;
+      function : "IQN";
+    } 
+  }
+}
