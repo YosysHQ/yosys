@@ -1035,7 +1035,11 @@ namespace {
 			}
 
 			if (cell->type.in(ID($shift), ID($shiftx))) {
-				param_bool(ID::A_SIGNED);
+				if (cell->type == ID($shiftx)) {
+					param_bool(ID::A_SIGNED, /*expected=*/false);
+				} else {
+					param_bool(ID::A_SIGNED);
+				}
 				param_bool(ID::B_SIGNED);
 				port(ID::A, param(ID::A_WIDTH));
 				port(ID::B, param(ID::B_WIDTH));
