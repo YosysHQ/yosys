@@ -750,21 +750,19 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		f << stringf(" = ");
 		if (cell->getParam(ID::B_SIGNED).as_bool())
 		{
-			f << stringf("$signed(");
-			dump_sigspec(f, cell->getPort(ID::B));
-			f << stringf(")");
+			dump_cell_expr_port(f, cell, "B", true);
 			f << stringf(" < 0 ? ");
-			dump_sigspec(f, cell->getPort(ID::A));
+			dump_cell_expr_port(f, cell, "A", true);
 			f << stringf(" << - ");
 			dump_sigspec(f, cell->getPort(ID::B));
 			f << stringf(" : ");
-			dump_sigspec(f, cell->getPort(ID::A));
+			dump_cell_expr_port(f, cell, "A", true);
 			f << stringf(" >> ");
 			dump_sigspec(f, cell->getPort(ID::B));
 		}
 		else
 		{
-			dump_sigspec(f, cell->getPort(ID::A));
+			dump_cell_expr_port(f, cell, "A", true);
 			f << stringf(" >> ");
 			dump_sigspec(f, cell->getPort(ID::B));
 		}

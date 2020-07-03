@@ -205,9 +205,8 @@ struct BtorWorker
 			if (cell->type.in(ID($xnor), ID($_XNOR_))) btor_op = "xnor";
 			log_assert(!btor_op.empty());
 
-			int width = GetSize(cell->getPort(ID::Y));
-			width = std::max(width, GetSize(cell->getPort(ID::A)));
-			width = std::max(width, GetSize(cell->getPort(ID::B)));
+			int width_ay = std::max(GetSize(cell->getPort(ID::A)), GetSize(cell->getPort(ID::Y)));
+			int width = std::max(width_ay, GetSize(cell->getPort(ID::B)));
 
 			bool a_signed = cell->hasParam(ID::A_SIGNED) ? cell->getParam(ID::A_SIGNED).as_bool() : false;
 			bool b_signed = cell->hasParam(ID::B_SIGNED) ? cell->getParam(ID::B_SIGNED).as_bool() : false;
@@ -224,11 +223,23 @@ struct BtorWorker
 			int sid = get_bv_sid(width);
 			int nid;
 
+			int nid_a;
+			if (cell->type.in(ID($shl), ID($shr), ID($shift), ID($shiftx)) && a_signed && width_ay < width) {
+				// sign-extend A up to the width of Y
+				int nid_a_padded = get_sig_nid(cell->getPort(ID::A), width_ay, a_signed);
+
+				// zero-extend the rest
+				int zeroes = get_sig_nid(Const(0, width-width_ay));
+				nid_a = next_nid++;
+				btorf("%d concat %d %d %d\n", nid_a, sid, zeroes, nid_a_padded);
+			} else {
+				nid_a = get_sig_nid(cell->getPort(ID::A), width, a_signed);
+			}
+
+			int nid_b = get_sig_nid(cell->getPort(ID::B), width, b_signed);
+
 			if (btor_op == "shift")
 			{
-				int nid_a = get_sig_nid(cell->getPort(ID::A), width, false);
-				int nid_b = get_sig_nid(cell->getPort(ID::B), width, b_signed);
-
 				int nid_r = next_nid++;
 				btorf("%d srl %d %d %d\n", nid_r, sid, nid_a, nid_b);
 
@@ -248,9 +259,6 @@ struct BtorWorker
 			}
 			else
 			{
-				int nid_a = get_sig_nid(cell->getPort(ID::A), width, a_signed);
-				int nid_b = get_sig_nid(cell->getPort(ID::B), width, b_signed);
-
 				nid = next_nid++;
 				btorf("%d %s %d %d %d%s\n", nid, btor_op.c_str(), sid, nid_a, nid_b, getinfo(cell).c_str());
 			}

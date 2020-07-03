@@ -522,7 +522,7 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 		int extend_bit = ez->CONST_FALSE;
 
-		if (!cell->type.in(ID($shift), ID($shiftx)) && cell->parameters[ID::A_SIGNED].as_bool())
+		if (cell->parameters[ID::A_SIGNED].as_bool())
 			extend_bit = a.back();
 
 		while (y.size() < a.size())
@@ -555,7 +555,7 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 			std::vector<int> undef_a_shifted;
 
 			extend_bit = cell->type == ID($shiftx) ? ez->CONST_TRUE : ez->CONST_FALSE;
-			if (!cell->type.in(ID($shift), ID($shiftx)) && cell->parameters[ID::A_SIGNED].as_bool())
+			if (cell->parameters[ID::A_SIGNED].as_bool())
 				extend_bit = undef_a.back();
 
 			while (undef_y.size() < undef_a.size())
