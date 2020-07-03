@@ -141,6 +141,7 @@ module _90_shift_shiftx (A, B, Y);
 	parameter [B_WIDTH-1:0] _TECHMAP_CONSTVAL_B_ = 0;
 
 	localparam extbit = _TECHMAP_CELLTYPE_ == "$shift" ? 1'b0 : 1'bx;
+	wire a_padding = _TECHMAP_CELLTYPE_ == "$shiftx" ? extbit : (A_SIGNED ? A[A_WIDTH-1] : 1'b0);
 
 	generate
 `ifndef NO_LSB_FIRST_SHIFT_SHIFTX
@@ -160,7 +161,7 @@ module _90_shift_shiftx (A, B, Y);
 			localparam entries = (A_WIDTH+Y_WIDTH-1)/Y_WIDTH2;
 			localparam len = Y_WIDTH2 * ((entries+1)/2);
 			wire [len-1:0] AA;
-			wire [(A_WIDTH+Y_WIDTH2+Y_WIDTH-1)-1:0] Apad = {{(Y_WIDTH2+Y_WIDTH-1){extbit}}, A};
+			wire [(A_WIDTH+Y_WIDTH2+Y_WIDTH-1)-1:0] Apad = {{(Y_WIDTH2+Y_WIDTH-1){a_padding}}, A};
 			genvar i;
 			for (i = 0; i < A_WIDTH; i=i+Y_WIDTH2*2)
 				assign AA[i/2 +: Y_WIDTH2] = B[CLOG2_Y_WIDTH] ? Apad[i+Y_WIDTH2 +: Y_WIDTH2] : Apad[i +: Y_WIDTH2];
@@ -187,7 +188,8 @@ module _90_shift_shiftx (A, B, Y);
 			always @* begin
 				overflow = 0;
 				buffer = {WIDTH{extbit}};
-				buffer[`MAX(A_WIDTH, Y_WIDTH)-1:0] = A;
+				buffer[Y_WIDTH-1:0] = {Y_WIDTH{a_padding}};
+				buffer[A_WIDTH-1:0] = A;
 
 				if (B_WIDTH > BB_WIDTH) begin
 					if (B_SIGNED) begin
