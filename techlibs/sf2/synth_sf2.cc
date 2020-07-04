@@ -209,10 +209,12 @@ struct SynthSf2Pass : public ScriptPass
 
 		if (check_label("map_iobs"))
 		{
-			if (help_mode)
-				run("sf2_iobs [-clkbuf]", "(unless -noiobs)");
-			else if (iobs)
-				run(clkbuf ? "sf2_iobs -clkbuf" : "sf2_iobs");
+			if (help_mode || iobs) {
+				if (help_mode || clkbuf) {
+					run("clkbufmap -buf CLKINT Y:A -inpad CLKBUF Y:PAD", "(if -clkbuf, unless -noiobs)");
+				}
+				run("iopadmap -bits -inpad INBUF Y:PAD -outpad OUTBUF D:PAD -toutpad TRIBUFF E:D:PAD -tinoutpad BIBUF E:Y:D:PAD", "(unless -noiobs");
+			}
 			run("clean");
 		}
 
