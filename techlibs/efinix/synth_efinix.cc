@@ -202,7 +202,8 @@ struct SynthEfinixPass : public ScriptPass
 
 		if (check_label("map_gbuf"))
 		{
-			run("efinix_gbuf");
+			run("clkbufmap -buf $__EFX_GBUF O:I");
+			run("techmap -map +/efinix/gbuf_map.v");
 			run("efinix_fixcarry");
 			run("clean");
 		}
