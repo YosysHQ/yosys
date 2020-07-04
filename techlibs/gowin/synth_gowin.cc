@@ -198,7 +198,7 @@ struct SynthGowinPass : public ScriptPass
 		{
 			run("memory_bram -rules +/gowin/lutrams.txt");
 			run("techmap -map +/gowin/lutrams_map.v");
-			run("determine_init");
+			run("setundef -params -zero t:RAM16S4");
 		}
 
 		if (check_label("map_ffram"))
