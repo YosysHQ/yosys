@@ -1596,6 +1596,14 @@ skip_identity:
 				log_debug("Removing low %d A and %d B bits from cell `%s' in module `%s'.\n",
 						a_zeros, b_zeros, cell->name.c_str(), module->name.c_str());
 
+				if (y_zeros >= GetSize(sig_y)) {
+					module->connect(sig_y, RTLIL::SigSpec(0, GetSize(sig_y)));
+					module->remove(cell);
+
+					did_something = true;
+					goto next_cell;
+				}
+
 				if (a_zeros) {
 					cell->setPort(ID::A, sig_a.extract_end(a_zeros));
 					cell->parameters[ID::A_WIDTH] = GetSize(sig_a) - a_zeros;
