@@ -1,5 +1,7 @@
 read_verilog <<EOT
 module clkbuf (input i, (* clkbuf_driver *) output o); endmodule
+module inbuf (input i, output o); endmodule
+module clkinbuf (input i, (* clkbuf_driver *) output o); endmodule
 module dff ((* clkbuf_sink *) input clk, input d, output q); endmodule
 module dffe ((* clkbuf_sink *) input c, input d, e, output q); endmodule
 module latch (input e, d, output q); endmodule
@@ -105,3 +107,80 @@ select -assert-count 0 w:clk1 %a %co t:clkbuf %i
 select -assert-count 0 w:clk2 %a %co t:clkbuf %i
 select -assert-count 0 top/t:clkbuf
 select -assert-count 2 sub/t:clkbuf
+
+# ----------------------
+
+design -load ref
+clkbufmap -buf clkbuf o:i -inpad inbuf o:i
+select -assert-count 3 top/t:clkbuf
+select -assert-count 3 sub/t:clkbuf
+select -assert-count 2 top/t:inbuf
+select -assert-count 0 sub/t:inbuf
+select -set clk1 w:clk1 %a %co t:inbuf %i
+select -assert-count 1 @clk1
+select -assert-count 1 @clk1 %x:+[o] %co t:clkbuf %i
+select -set clk1b @clk1 %x:+[o] %co t:clkbuf %i
+select -assert-count 1 @clk1b %x:+[o] %co c:s* %i
+select -assert-count 1 @clk1b %x:+[o] %co c:s0 %i
+select -set clk2 w:clk2 %a %co t:inbuf %i
+select -assert-count 1 @clk2
+select -assert-count 1 @clk2 %x:+[o] %co t:clkbuf %i
+select -set clk2b @clk2 %x:+[o] %co t:clkbuf %i
+select -assert-count 1 @clk2b %x:+[o] %co c:s* %i
+select -assert-count 1 @clk2b %x:+[o] %co c:s1 %i
+select -set clk5 w:clk5 %a %ci t:clkbuf %i
+select -assert-count 1 @clk5
+select -assert-count 1 @clk5 %x:+[o] %co c:s5 %i
+select -assert-count 1 @clk5 %x:+[i] %ci c:s3 %i
+select -set sclk4 w:sclk4 %a %ci t:clkbuf %i
+select -assert-count 1 @sclk4
+select -assert-count 1 @sclk4 %x:+[o] %co c:s11 %i
+select -assert-count 1 @sclk4 %x:+[i] %ci c:s7 %i
+select -set sclk8 w:sclk8 %a %ci t:clkbuf %i
+select -assert-count 1 @sclk8
+select -assert-count 1 @sclk8 %x:+[o] %co c:s13 %i
+select -assert-count 1 @sclk8 %x:+[i] %ci c:s12 %i
+
+# ----------------------
+
+design -load ref
+clkbufmap -inpad inbuf o:i
+select -assert-count 2 top/t:inbuf
+select -assert-count 0 sub/t:inbuf
+select -set clk1 w:clk1 %a %co t:inbuf %i
+select -assert-count 1 @clk1
+select -assert-count 1 @clk1 %x:+[o] %co c:s* %i
+select -assert-count 1 @clk1 %x:+[o] %co c:s0 %i
+select -set clk2 w:clk2 %a %co t:inbuf %i
+select -assert-count 1 @clk2
+select -assert-count 1 @clk2 %x:+[o] %co c:s* %i
+select -assert-count 1 @clk2 %x:+[o] %co c:s1 %i
+
+# ----------------------
+
+design -load ref
+clkbufmap -buf clkbuf o:i -inpad clkinbuf o:i
+select -assert-count 1 top/t:clkbuf
+select -assert-count 3 sub/t:clkbuf
+select -assert-count 2 top/t:clkinbuf
+select -assert-count 0 sub/t:clkinbuf
+select -set clk1 w:clk1 %a %co t:clkinbuf %i
+select -assert-count 1 @clk1
+select -assert-count 1 @clk1 %x:+[o] %co c:s* %i
+select -assert-count 1 @clk1 %x:+[o] %co c:s0 %i
+select -set clk2 w:clk2 %a %co t:clkinbuf %i
+select -assert-count 1 @clk2
+select -assert-count 1 @clk2 %x:+[o] %co c:s* %i
+select -assert-count 1 @clk2 %x:+[o] %co c:s1 %i
+select -set clk5 w:clk5 %a %ci t:clkbuf %i
+select -assert-count 1 @clk5
+select -assert-count 1 @clk5 %x:+[o] %co c:s5 %i
+select -assert-count 1 @clk5 %x:+[i] %ci c:s3 %i
+select -set sclk4 w:sclk4 %a %ci t:clkbuf %i
+select -assert-count 1 @sclk4
+select -assert-count 1 @sclk4 %x:+[o] %co c:s11 %i
+select -assert-count 1 @sclk4 %x:+[i] %ci c:s7 %i
+select -set sclk8 w:sclk8 %a %ci t:clkbuf %i
+select -assert-count 1 @sclk8
+select -assert-count 1 @sclk8 %x:+[o] %co c:s13 %i
+select -assert-count 1 @sclk8 %x:+[i] %ci c:s12 %i
