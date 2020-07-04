@@ -30,6 +30,7 @@ ENABLE_GCOV := 0
 ENABLE_GPROF := 0
 ENABLE_DEBUG := 0
 ENABLE_NDEBUG := 0
+ENABLE_CCACHE := 0
 LINK_CURSES := 0
 LINK_TERMCAP := 0
 LINK_ABC := 0
@@ -526,6 +527,10 @@ endif
 
 ifeq ($(ENABLE_COVER),1)
 CXXFLAGS += -DYOSYS_ENABLE_COVER
+endif
+
+ifeq ($(ENABLE_CCACHE),1)
+CXX := ccache $(CXX)
 endif
 
 define add_share_file
