@@ -212,6 +212,11 @@ struct SynthIntelPass : public ScriptPass {
 				run("abc -markgroups -dff -D 1", "(only if -retime)");
 		}
 
+		if (check_label("map_ffs")) {
+			run("dfflegalize -cell $_DFFE_PN0P_ 01");
+			run("techmap -map +/intel/common/ff_map.v");
+		}
+
 		if (check_label("map_luts")) {
 			if (family_opt == "arria10gx" || family_opt == "cyclonev")
 				run("abc -luts 2:2,3,6:5" + string(retime ? " -dff" : ""));
@@ -224,7 +229,6 @@ struct SynthIntelPass : public ScriptPass {
 			if (iopads || help_mode)
 				run("iopadmap -bits -outpad $__outpad I:O -inpad $__inpad O:I", "(if -iopads)");
 			run(stringf("techmap -map +/intel/%s/cells_map.v", family_opt.c_str()));
-			run("dffinit -highlow -ff dffeas q power_up");
 			run("clean -purge");
 		}
 
