@@ -77,7 +77,7 @@ endmodule // DFFE (positive clock edge; clock enable)
 
 
 module DFFS (output reg Q, input D, CLK, SET);
-  parameter [0:0] INIT = 1'b0;
+  parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
   always @(posedge CLK) begin
     if (SET)
@@ -89,7 +89,7 @@ endmodule // DFFS (positive clock edge; synchronous set)
 
 
 module DFFSE (output reg Q, input D, CLK, CE, SET);
-  parameter [0:0] INIT = 1'b0;
+  parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
   always @(posedge CLK) begin
     if (SET)
@@ -125,7 +125,7 @@ endmodule // DFFRE (positive clock edge; synchronous reset takes precedence over
 
 
 module DFFP (output reg Q, input D, CLK, PRESET);
-  parameter [0:0] INIT = 1'b0;
+  parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
   always @(posedge CLK or posedge PRESET) begin
     if(PRESET)
@@ -137,7 +137,7 @@ endmodule // DFFP (positive clock edge; asynchronous preset)
 
 
 module DFFPE (output reg Q, input D, CLK, CE, PRESET);
-  parameter [0:0] INIT = 1'b0;
+  parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
   always @(posedge CLK or posedge PRESET) begin
     if(PRESET)
@@ -190,7 +190,7 @@ endmodule // DFFNE (negative clock edge; clock enable)
 
 
 module DFFNS (output reg Q, input D, CLK, SET);
-  parameter [0:0] INIT = 1'b0;
+  parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
   always @(negedge CLK) begin
     if (SET)
@@ -202,7 +202,7 @@ endmodule // DFFNS (negative clock edge; synchronous set)
 
 
 module DFFNSE (output reg Q, input D, CLK, CE, SET);
-  parameter [0:0] INIT = 1'b0;
+  parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
   always @(negedge CLK) begin
     if (SET)
@@ -238,7 +238,7 @@ endmodule // DFFNRE (negative clock edge; synchronous reset takes precedence ove
 
 
 module DFFNP (output reg Q, input D, CLK, PRESET);
-  parameter [0:0] INIT = 1'b0;
+  parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
   always @(negedge CLK or posedge PRESET) begin
     if(PRESET)
@@ -250,7 +250,7 @@ endmodule // DFFNP (negative clock edge; asynchronous preset)
 
 
 module DFFNPE (output reg Q, input D, CLK, CE, PRESET);
-  parameter [0:0] INIT = 1'b0;
+  parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
   always @(negedge CLK or posedge PRESET) begin
     if(PRESET)
