@@ -364,7 +364,7 @@ flip_dqi:
 				// Some DFF is supported with this init val.  Just pick a type.
 				if (ff_type == FF_DFF) {
 					// Try adding a set or reset pin.
-					for (auto new_type: {FF_ADFF0, FF_ADFF1, FF_SDFF0, FF_SDFF1})
+					for (auto new_type: {FF_SDFF0, FF_SDFF1, FF_ADFF0, FF_ADFF1})
 						if (supported_cells[new_type] & initmask) {
 							ff_type = new_type;
 							sig_r = State::S0;
