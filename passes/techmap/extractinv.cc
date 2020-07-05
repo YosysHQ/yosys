@@ -2,7 +2,7 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
- *  Copyright (C) 2019  Marcin Kościelnicki <mwk@0x04.net>
+ *  Copyright (C) 2019  Marcelina Kościelnicka <mwk@0x04.net>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
