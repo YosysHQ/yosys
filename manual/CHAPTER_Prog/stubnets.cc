@@ -98,7 +98,7 @@ static void find_stub_nets(RTLIL::Design *design, RTLIL::Module *module, bool re
 // each pass contains a singleton object that is derived from Pass
 struct StubnetsPass : public Pass {
 	StubnetsPass() : Pass("stubnets") { }
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		// variables to mirror information from passed options
 		bool report_bits = 0;

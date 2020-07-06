@@ -39,13 +39,13 @@ static void fix_carry_chain(Module *module)
 
 	for (auto cell : module->cells())
 	{
-		if (cell->type == "\\AL_MAP_ADDER") {
-			if (cell->getParam("\\ALUTYPE") != Const("ADD")) continue;
-			SigBit bit_i0 = get_bit_or_zero(cell->getPort("\\a"));
-			SigBit bit_i1 = get_bit_or_zero(cell->getPort("\\b"));
+		if (cell->type == ID(AL_MAP_ADDER)) {
+			if (cell->getParam(ID(ALUTYPE)) != Const("ADD")) continue;
+			SigBit bit_i0 = get_bit_or_zero(cell->getPort(ID(a)));
+			SigBit bit_i1 = get_bit_or_zero(cell->getPort(ID(b)));
 			if (bit_i0 == State::S0 && bit_i1== State::S0) {
-				SigBit bit_ci = get_bit_or_zero(cell->getPort("\\c"));
-				SigSpec o = cell->getPort("\\o");
+				SigBit bit_ci = get_bit_or_zero(cell->getPort(ID(c)));
+				SigSpec o = cell->getPort(ID(o));
 				if (GetSize(o) == 2) {
 					SigBit bit_o = o[0];
 					ci_bits.insert(bit_ci);				
@@ -57,11 +57,11 @@ static void fix_carry_chain(Module *module)
 	vector<Cell*> adders_to_fix_cells;
 	for (auto cell : module->cells())
 	{
-		if (cell->type == "\\AL_MAP_ADDER") {
-			if (cell->getParam("\\ALUTYPE") != Const("ADD")) continue;
-			SigBit bit_ci = get_bit_or_zero(cell->getPort("\\c"));
-			SigBit bit_i0 = get_bit_or_zero(cell->getPort("\\a"));
-			SigBit bit_i1 = get_bit_or_zero(cell->getPort("\\b"));			
+		if (cell->type == ID(AL_MAP_ADDER)) {
+			if (cell->getParam(ID(ALUTYPE)) != Const("ADD")) continue;
+			SigBit bit_ci = get_bit_or_zero(cell->getPort(ID(c)));
+			SigBit bit_i0 = get_bit_or_zero(cell->getPort(ID(a)));
+			SigBit bit_i1 = get_bit_or_zero(cell->getPort(ID(b)));
 			SigBit canonical_bit = sigmap(bit_ci);
 			if (!ci_bits.count(canonical_bit))
 				continue;			
@@ -75,30 +75,30 @@ static void fix_carry_chain(Module *module)
 
 	for (auto cell : adders_to_fix_cells)
 	{
-		SigBit bit_ci = get_bit_or_zero(cell->getPort("\\c"));
+		SigBit bit_ci = get_bit_or_zero(cell->getPort(ID(c)));
 		SigBit canonical_bit = sigmap(bit_ci);
 		auto bit = mapping_bits.at(canonical_bit);
 		log("Fixing %s cell named %s breaking carry chain.\n", log_id(cell->type), log_id(cell));
-		Cell *c = module->addCell(NEW_ID, "\\AL_MAP_ADDER");
+		Cell *c = module->addCell(NEW_ID, ID(AL_MAP_ADDER));
 		SigBit new_bit = module->addWire(NEW_ID);
 		SigBit dummy_bit = module->addWire(NEW_ID);
 		SigSpec bits;
 		bits.append(dummy_bit);
 		bits.append(new_bit);
-		c->setParam("\\ALUTYPE", Const("ADD_CARRY"));
-		c->setPort("\\a", bit);
-		c->setPort("\\b", State::S0);
-		c->setPort("\\c", State::S0);
-		c->setPort("\\o", bits);
+		c->setParam(ID(ALUTYPE), Const("ADD_CARRY"));
+		c->setPort(ID(a), bit);
+		c->setPort(ID(b), State::S0);
+		c->setPort(ID(c), State::S0);
+		c->setPort(ID(o), bits);
 		
-		cell->setPort("\\c", new_bit);
+		cell->setPort(ID(c), new_bit);
 	}
 	
 }
 
 struct AnlogicCarryFixPass : public Pass {
 	AnlogicCarryFixPass() : Pass("anlogic_fixcarry", "Anlogic: fix carry chain") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -107,7 +107,7 @@ struct AnlogicCarryFixPass : public Pass {
 		log("Add Anlogic adders to fix carry chain if needed.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing anlogic_fixcarry pass (fix invalid carry chain).\n");
 		

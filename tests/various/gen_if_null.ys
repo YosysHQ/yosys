@@ -1,0 +1,4 @@
+read_verilog gen_if_null.v
+select -assert-count 1 test/x
+select -assert-count 1 test/y
+select -assert-count 1 test/z

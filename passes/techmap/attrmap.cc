@@ -81,7 +81,7 @@ struct AttrmapAction {
 
 struct AttrmapTocase : AttrmapAction {
 	string name;
-	bool apply(IdString &id, Const&) YS_OVERRIDE {
+	bool apply(IdString &id, Const&) override {
 		if (match_name(name, id, true))
 			id = RTLIL::escape_id(name);
 		return true;
@@ -90,7 +90,7 @@ struct AttrmapTocase : AttrmapAction {
 
 struct AttrmapRename : AttrmapAction {
 	string old_name, new_name;
-	bool apply(IdString &id, Const&) YS_OVERRIDE {
+	bool apply(IdString &id, Const&) override {
 		if (match_name(old_name, id))
 			id = RTLIL::escape_id(new_name);
 		return true;
@@ -101,7 +101,7 @@ struct AttrmapMap : AttrmapAction {
 	bool imap;
 	string old_name, new_name;
 	string old_value, new_value;
-	bool apply(IdString &id, Const &val) YS_OVERRIDE {
+	bool apply(IdString &id, Const &val) override {
 		if (match_name(old_name, id) && match_value(old_value, val, true)) {
 			id = RTLIL::escape_id(new_name);
 			val = make_value(new_value);
@@ -113,7 +113,7 @@ struct AttrmapMap : AttrmapAction {
 struct AttrmapRemove : AttrmapAction {
 	bool has_value;
 	string name, value;
-	bool apply(IdString &id, Const &val) YS_OVERRIDE {
+	bool apply(IdString &id, Const &val) override {
 		return !(match_name(name, id) && (!has_value || match_value(value, val)));
 	}
 };
@@ -221,7 +221,7 @@ bool parse_attrmap_paramap_options(size_t &argidx, std::vector<std::string> &arg
 
 struct AttrmapPass : public Pass {
 	AttrmapPass() : Pass("attrmap", "renaming attributes") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -241,7 +241,7 @@ struct AttrmapPass : public Pass {
 		log("            -imap keep=\"false\" keep=0 -remove keep=0\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing ATTRMAP pass (move or copy attributes).\n");
 
@@ -301,7 +301,7 @@ struct AttrmapPass : public Pass {
 
 struct ParamapPass : public Pass {
 	ParamapPass() : Pass("paramap", "renaming cell parameters") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -317,7 +317,7 @@ struct ParamapPass : public Pass {
 		log("    paramap -tocase INIT t:LUT4\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing PARAMAP pass (move or copy cell parameters).\n");
 

@@ -1,0 +1,28 @@
+read_verilog -specify <<EOT
+module top(input a, b, output o);
+assign o = a & b;
+endmodule
+
+(* blackbox *)
+module bb(input a, b, output o);
+assign o = a | b;
+specify
+	(a => o) = 1;
+endspecify
+endmodule
+
+(* whitebox *)
+module wb(input a, b, output o);
+assign o = a ^ b;
+endmodule
+EOT
+clean
+
+select -assert-count 1 c:*
+select -assert-none t:* t:$and %d
+select -assert-count 3 w:*
+select -assert-count 4 *
+
+select -assert-count 3 =c:*
+select -assert-count 10 =w:*
+select -assert-count 13 =*

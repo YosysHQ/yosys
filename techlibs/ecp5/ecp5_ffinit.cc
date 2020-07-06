@@ -26,7 +26,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct Ecp5FfinitPass : public Pass {
 	Ecp5FfinitPass() : Pass("ecp5_ffinit", "ECP5: handle FF init values") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -36,7 +36,7 @@ struct Ecp5FfinitPass : public Pass {
 		log("If reset is not used, set the reset value to the init value, otherwise\n");
 		log("unmap out the reset (if not an async reset).\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing ECP5_FFINIT pass (implement FF init values).\n");
 
@@ -63,11 +63,11 @@ struct Ecp5FfinitPass : public Pass {
 
 			for (auto wire : module->selected_wires())
 			{
-				if (wire->attributes.count("\\init") == 0)
+				if (wire->attributes.count(ID::init) == 0)
 					continue;
 
 				SigSpec wirebits = sigmap(wire);
-				Const initval = wire->attributes.at("\\init");
+				Const initval = wire->attributes.at(ID::init);
 				init_wires.insert(wire);
 
 				for (int i = 0; i < GetSize(wirebits) && i < GetSize(initval); i++)
@@ -94,11 +94,11 @@ struct Ecp5FfinitPass : public Pass {
 			}
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->type != "\\TRELLIS_FF")
+				if (cell->type != ID(TRELLIS_FF))
 					continue;
-				SigSpec sig_d = cell->getPort("\\DI");
-				SigSpec sig_q = cell->getPort("\\Q");
-				SigSpec sig_lsr = cell->getPort("\\LSR");
+				SigSpec sig_d = cell->getPort(ID(DI));
+				SigSpec sig_q = cell->getPort(ID::Q);
+				SigSpec sig_lsr = cell->getPort(ID(LSR));
 
 				if (GetSize(sig_d) < 1 || GetSize(sig_q) < 1)
 					continue;
@@ -106,9 +106,7 @@ struct Ecp5FfinitPass : public Pass {
 				SigBit bit_d = sigmap(sig_d[0]);
 				SigBit bit_q = sigmap(sig_q[0]);
 
-				std::string regset = "RESET";
-				if (cell->hasParam("\\REGSET"))
-					regset = cell->getParam("\\REGSET").decode_string();
+				std::string regset = cell->getParam(ID(REGSET)).decode_string();
 				State resetState;
 				if (regset == "SET")
 					resetState = State::S1;
@@ -135,9 +133,7 @@ struct Ecp5FfinitPass : public Pass {
 				}
 
 				if (GetSize(sig_lsr) >= 1 && sig_lsr[0] != State::S0) {
-					std::string srmode = "LSR_OVER_CE";
-					if (cell->hasParam("\\SRMODE"))
-						srmode = cell->getParam("\\SRMODE").decode_string();
+					std::string srmode = cell->getParam(ID(SRMODE)).decode_string();
 					if (srmode == "ASYNC") {
 						log("Async reset value %c for FF cell %s inconsistent with init value %c.\n",
 							resetState != State::S0 ? '1' : '0', log_id(cell), val != State::S0 ? '1' : '0');
@@ -150,14 +146,12 @@ struct Ecp5FfinitPass : public Pass {
 							module->addOrGate(NEW_ID, bit_d, bit_lsr, new_bit_d);
 						}
 
-						cell->setPort("\\DI", new_bit_d);
-						cell->setPort("\\LSR", State::S0);
+						cell->setPort(ID(DI), new_bit_d);
+						cell->setPort(ID(LSR), State::S0);
 
-						if(cell->hasPort("\\CE")) {
-							std::string cemux = "CE";
-							if (cell->hasParam("\\CEMUX"))
-								cemux = cell->getParam("\\CEMUX").decode_string();
-							SigSpec sig_ce = cell->getPort("\\CE");
+						if(cell->hasPort(ID(CE))) {
+							std::string cemux = cell->getParam(ID(CEMUX)).decode_string();
+							SigSpec sig_ce = cell->getPort(ID(CE));
 							if (GetSize(sig_ce) >= 1) {
 								SigBit bit_ce = sigmap(sig_ce[0]);
 								Wire *new_bit_ce = module->addWire(NEW_ID);
@@ -165,25 +159,25 @@ struct Ecp5FfinitPass : public Pass {
 									module->addAndnotGate(NEW_ID, bit_ce, bit_lsr, new_bit_ce);
 								else
 									module->addOrGate(NEW_ID, bit_ce, bit_lsr, new_bit_ce);
-								cell->setPort("\\CE", new_bit_ce);
+								cell->setPort(ID(CE), new_bit_ce);
 							}
 						}
-						cell->setParam("\\REGSET", val != State::S0 ? Const("SET") : Const("RESET"));
+						cell->setParam(ID(REGSET), val != State::S0 ? Const("SET") : Const("RESET"));
 						handled_initbits.insert(bit_q);
 					}
 				} else {
-					cell->setParam("\\REGSET", val != State::S0 ? Const("SET") : Const("RESET"));
+					cell->setParam(ID(REGSET), val != State::S0 ? Const("SET") : Const("RESET"));
 					handled_initbits.insert(bit_q);
 				}
 			}
 
 			for (auto wire : init_wires)
 			{
-				if (wire->attributes.count("\\init") == 0)
+				if (wire->attributes.count(ID::init) == 0)
 					continue;
 
 				SigSpec wirebits = sigmap(wire);
-				Const &initval = wire->attributes.at("\\init");
+				Const &initval = wire->attributes.at(ID::init);
 				bool remove_attribute = true;
 
 				for (int i = 0; i < GetSize(wirebits) && i < GetSize(initval); i++) {
@@ -194,7 +188,7 @@ struct Ecp5FfinitPass : public Pass {
 				}
 
 				if (remove_attribute)
-					wire->attributes.erase("\\init");
+					wire->attributes.erase(ID::init);
 			}
 		}
 	}

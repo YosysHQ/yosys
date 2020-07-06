@@ -59,18 +59,26 @@ struct SplitnetsWorker
 		new_wire->port_id = wire->port_id ? wire->port_id + offset : 0;
 		new_wire->port_input = wire->port_input;
 		new_wire->port_output = wire->port_output;
+		new_wire->start_offset = wire->start_offset + offset;
 
-		if (wire->attributes.count("\\src"))
-			new_wire->attributes["\\src"] = wire->attributes.at("\\src");
+		auto it = wire->attributes.find(ID::src);
+		if (it != wire->attributes.end())
+			new_wire->attributes.emplace(ID::src, it->second);
 
-		if (wire->attributes.count("\\keep"))
-			new_wire->attributes["\\keep"] = wire->attributes.at("\\keep");
+		it = wire->attributes.find(ID::hdlname);
+		if (it != wire->attributes.end())
+			new_wire->attributes.emplace(ID::hdlname, it->second);
 
-		if (wire->attributes.count("\\init")) {
-			Const old_init = wire->attributes.at("\\init"), new_init;
+		it = wire->attributes.find(ID::keep);
+		if (it != wire->attributes.end())
+			new_wire->attributes.emplace(ID::keep, it->second);
+
+		it = wire->attributes.find(ID::init);
+		if (it != wire->attributes.end()) {
+			Const old_init = it->second, new_init;
 			for (int i = offset; i < offset+width; i++)
 				new_init.bits.push_back(i < GetSize(old_init) ? old_init.bits.at(i) : State::Sx);
-			new_wire->attributes["\\init"] = new_init;
+			new_wire->attributes.emplace(ID::init, new_init);
 		}
 
 		std::vector<RTLIL::SigBit> sigvec = RTLIL::SigSpec(new_wire).to_sigbit_vector();
@@ -87,7 +95,7 @@ struct SplitnetsWorker
 
 struct SplitnetsPass : public Pass {
 	SplitnetsPass() : Pass("splitnets", "split up multi-bit nets") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -109,7 +117,7 @@ struct SplitnetsPass : public Pass {
 		log("        and split nets so that no driver drives only part of a net.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool flag_ports = false;
 		bool flag_driver = false;
@@ -141,6 +149,9 @@ struct SplitnetsPass : public Pass {
 
 		for (auto module : design->selected_modules())
 		{
+			if (module->has_processes_warn())
+				continue;
+
 			SplitnetsWorker worker;
 
 			if (flag_ports)
@@ -163,12 +174,12 @@ struct SplitnetsPass : public Pass {
 
 				std::map<RTLIL::Wire*, std::set<int>> split_wires_at;
 
-				for (auto &c : module->cells_)
-				for (auto &p : c.second->connections())
+				for (auto c : module->cells())
+				for (auto &p : c->connections())
 				{
-					if (!ct.cell_known(c.second->type))
+					if (!ct.cell_known(c->type))
 						continue;
-					if (!ct.cell_output(c.second->type, p.first))
+					if (!ct.cell_output(c->type, p.first))
 						continue;
 
 					RTLIL::SigSpec sig = p.second;
@@ -195,9 +206,8 @@ struct SplitnetsPass : public Pass {
 			}
 			else
 			{
-				for (auto &w : module->wires_) {
-					RTLIL::Wire *wire = w.second;
-					if (wire->width > 1 && (wire->port_id == 0 || flag_ports) && design->selected(module, w.second))
+				for (auto wire : module->wires()) {
+					if (wire->width > 1 && (wire->port_id == 0 || flag_ports) && design->selected(module, wire))
 						worker.splitmap[wire] = std::vector<RTLIL::SigBit>();
 				}
 

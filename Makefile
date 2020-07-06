@@ -4,6 +4,7 @@ CONFIG := clang
 # CONFIG := gcc-4.8
 # CONFIG := afl-gcc
 # CONFIG := emcc
+# CONFIG := wasi
 # CONFIG := mxe
 # CONFIG := msys2
 # CONFIG := msys2-64
@@ -32,7 +33,9 @@ ENABLE_NDEBUG := 0
 LINK_CURSES := 0
 LINK_TERMCAP := 0
 LINK_ABC := 0
-# Needed for environments that don't have proper thread support (i.e. emscripten)
+# Needed for environments that can't run executables (i.e. emscripten, wasm)
+DISABLE_SPAWN := 0
+# Needed for environments that don't have proper thread support (i.e. emscripten, wasm--for now)
 DISABLE_ABC_THREADS := 0
 
 # clang sanitizers
@@ -42,6 +45,7 @@ SANITIZER =
 # SANITIZER = undefined
 # SANITIZER = cfi
 
+PROGRAM_PREFIX :=
 
 OS := $(shell uname -s)
 PREFIX ?= /usr/local
@@ -51,16 +55,20 @@ ifneq ($(wildcard Makefile.conf),)
 include Makefile.conf
 endif
 
+ifeq ($(ENABLE_PYOSYS),1)
+ENABLE_LIBYOSYS := 1
+endif
+
 BINDIR := $(PREFIX)/bin
-LIBDIR := $(PREFIX)/lib
-DATDIR := $(PREFIX)/share/yosys
+LIBDIR := $(PREFIX)/lib/$(PROGRAM_PREFIX)yosys
+DATDIR := $(PREFIX)/share/$(PROGRAM_PREFIX)yosys
 
 EXE =
 OBJS =
 GENFILES =
 EXTRA_OBJS =
 EXTRA_TARGETS =
-TARGETS = yosys$(EXE) yosys-config
+TARGETS = $(PROGRAM_PREFIX)yosys$(EXE) $(PROGRAM_PREFIX)yosys-config
 
 PRETTY = 1
 SMALL = 0
@@ -74,7 +82,6 @@ YOSYS_SRC := $(dir $(firstword $(MAKEFILE_LIST)))
 VPATH := $(YOSYS_SRC)
 
 CXXFLAGS := $(CXXFLAGS) -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -D_YOSYS_ -fPIC -I$(PREFIX)/include
-LDFLAGS := $(LDFLAGS) -L$(LIBDIR)
 LDLIBS := $(LDLIBS) -lstdc++ -lm
 PLUGIN_LDFLAGS :=
 
@@ -115,7 +122,7 @@ LDFLAGS += -rdynamic
 LDLIBS += -lrt
 endif
 
-YOSYS_VER := 0.9+932
+YOSYS_VER := 0.9+2406
 GIT_REV := $(shell cd $(YOSYS_SRC) && git rev-parse --short HEAD 2> /dev/null || echo UNKNOWN)
 OBJS = kernel/version_$(GIT_REV).o
 
@@ -128,9 +135,9 @@ bumpversion:
 # is just a symlink to your actual ABC working directory, as 'make mrproper'
 # will remove the 'abc' directory and you do not want to accidentally
 # delete your work on ABC..
-ABCREV = 623b5e8
+ABCREV = 341db25
 ABCPULL = 1
-ABCURL ?= https://github.com/berkeley-abc/abc
+ABCURL ?= https://github.com/YosysHQ/abc
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1
 
 # set ABCEXTERNAL = <abc-command> to use an external ABC instance
@@ -143,7 +150,10 @@ define newline
 endef
 
 ifneq ($(wildcard Makefile.conf),)
+# don't echo Makefile.conf contents when invoked to print source versions
+ifeq ($(findstring echo-,$(MAKECMDGOALS)),)
 $(info $(subst $$--$$,$(newline),$(shell sed 's,^,[Makefile.conf] ,; s,$$,$$--$$,;' < Makefile.conf | tr -d '\n' | sed 's,\$$--\$$$$,,')))
+endif
 include Makefile.conf
 endif
 
@@ -152,7 +162,15 @@ ifeq ($(ENABLE_PYOSYS),1)
 PYTHON_VERSION_TESTCODE := "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));print(t)"
 PYTHON_VERSION := $(shell $(PYTHON_EXECUTABLE) -c ""$(PYTHON_VERSION_TESTCODE)"")
 PYTHON_MAJOR_VERSION := $(shell echo $(PYTHON_VERSION) | cut -f1 -d.)
-PYTHON_PREFIX := $(shell $(PYTHON_EXECUTABLE)-config --prefix)
+
+ENABLE_PYTHON_CONFIG_EMBED ?= $(shell $(PYTHON_EXECUTABLE)-config --embed --libs > /dev/null && echo 1)
+ifeq ($(ENABLE_PYTHON_CONFIG_EMBED),1)
+PYTHON_CONFIG := $(PYTHON_EXECUTABLE)-config --embed
+else
+PYTHON_CONFIG := $(PYTHON_EXECUTABLE)-config
+endif
+
+PYTHON_PREFIX := $(shell $(PYTHON_CONFIG) --prefix)
 PYTHON_DESTDIR := $(PYTHON_PREFIX)/lib/python$(PYTHON_VERSION)/site-packages
 
 # Reload Makefile.conf to override python specific variables if defined
@@ -229,14 +247,17 @@ ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DABC_MEMALIGN=8"
 EMCCFLAGS := -Os -Wno-warn-absolute-paths
 EMCCFLAGS += --memory-init-file 0 --embed-file share -s NO_EXIT_RUNTIME=1
 EMCCFLAGS += -s EXPORTED_FUNCTIONS="['_main','_run','_prompt','_errmsg']"
-EMCCFLAGS += -s TOTAL_MEMORY=128*1024*1024
+EMCCFLAGS += -s TOTAL_MEMORY=134217728
+EMCCFLAGS += -s EXTRA_EXPORTED_RUNTIME_METHODS='["ccall", "cwrap"]'
 # https://github.com/kripken/emscripten/blob/master/src/settings.js
 CXXFLAGS += $(EMCCFLAGS)
 LDFLAGS += $(EMCCFLAGS)
 LDLIBS =
 EXE = .js
 
-TARGETS := $(filter-out yosys-config,$(TARGETS))
+DISABLE_SPAWN := 1
+
+TARGETS := $(filter-out $(PROGRAM_PREFIX)yosys-config,$(TARGETS))
 EXTRA_TARGETS += yosysjs-$(YOSYS_VER).zip
 
 ifeq ($(ENABLE_ABC),1)
@@ -248,14 +269,43 @@ viz.js:
 	wget -O viz.js.part https://github.com/mdaines/viz.js/releases/download/0.0.3/viz.js
 	mv viz.js.part viz.js
 
-yosysjs-$(YOSYS_VER).zip: yosys.js viz.js misc/yosysjs/*
+yosysjs-$(YOSYS_VER).zip: yosys.js yosys.wasm viz.js misc/yosysjs/*
 	rm -rf yosysjs-$(YOSYS_VER) yosysjs-$(YOSYS_VER).zip
 	mkdir -p yosysjs-$(YOSYS_VER)
-	cp viz.js misc/yosysjs/* yosys.js yosysjs-$(YOSYS_VER)/
+	cp viz.js misc/yosysjs/* yosys.js yosys.wasm yosysjs-$(YOSYS_VER)/
 	zip -r yosysjs-$(YOSYS_VER).zip yosysjs-$(YOSYS_VER)
 
 yosys.html: misc/yosys.html
 	$(P) cp misc/yosys.html yosys.html
+
+else ifeq ($(CONFIG),wasi)
+ifeq ($(WASI_SDK),)
+CXX = clang
+LD = clang++
+AR = llvm-ar
+RANLIB = llvm-ranlib
+WASIFLAGS := -target wasm32-wasi --sysroot $(WASI_SYSROOT) $(WASIFLAGS)
+else
+CXX = $(WASI_SDK)/bin/clang
+LD = $(WASI_SDK)/bin/clang++
+AR = $(WASI_SDK)/bin/ar
+RANLIB = $(WASI_SDK)/bin/ranlib
+WASIFLAGS := --sysroot $(WASI_SDK)/share/wasi-sysroot $(WASIFLAGS)
+endif
+CXXFLAGS := $(WASIFLAGS) -std=c++11 -Os $(filter-out -fPIC,$(CXXFLAGS))
+LDFLAGS := $(WASIFLAGS) -Wl,-z,stack-size=1048576 $(filter-out -rdynamic,$(LDFLAGS))
+LDLIBS := $(filter-out -lrt,$(LDLIBS))
+ABCMKARGS += AR="$(AR)" RANLIB="$(RANLIB)"
+ABCMKARGS += ARCHFLAGS="$(WASIFLAGS) -DABC_USE_STDINT_H -DABC_NO_DYNAMIC_LINKING"
+ABCMKARGS += OPTFLAGS="-Os"
+EXE = .wasm
+
+DISABLE_SPAWN := 1
+
+ifeq ($(ENABLE_ABC),1)
+LINK_ABC := 1
+DISABLE_ABC_THREADS := 1
+endif
 
 else ifeq ($(CONFIG),mxe)
 PKG_CONFIG = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-pkg-config
@@ -305,39 +355,39 @@ ifeq ($(ENABLE_PYOSYS),1)
 #Detect name of boost_python library. Some distros usbe boost_python-py<version>, other boost_python<version>, some only use the major version number, some a concatenation of major and minor version numbers
 ifeq ($(OS), Darwin)
 BOOST_PYTHON_LIB ?= $(shell \
-	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(shell $(PYTHON_EXECUTABLE)-config --ldflags) -lboost_python-py$(subst .,,$(PYTHON_VERSION)) - > /dev/null 2>&1;        then echo "-lboost_python-py$(subst .,,$(PYTHON_VERSION))";       else \
-	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(shell $(PYTHON_EXECUTABLE)-config --ldflags) -lboost_python-py$(subst .,,$(PYTHON_MAJOR_VERSION)) - > /dev/null 2>&1;  then echo "-lboost_python-py$(subst .,,$(PYTHON_MAJOR_VERSION))"; else \
-	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(shell $(PYTHON_EXECUTABLE)-config --ldflags) -lboost_python$(subst .,,$(PYTHON_VERSION)) - > /dev/null 2>&1;           then echo "-lboost_python$(subst .,,$(PYTHON_VERSION))";          else \
-	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(shell $(PYTHON_EXECUTABLE)-config --ldflags) -lboost_python$(subst .,,$(PYTHON_MAJOR_VERSION)) - > /dev/null 2>&1;     then echo "-lboost_python$(subst .,,$(PYTHON_MAJOR_VERSION))";    else \
+	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(shell $(PYTHON_CONFIG) --ldflags) -lboost_python-py$(subst .,,$(PYTHON_VERSION)) - > /dev/null 2>&1;        then echo "-lboost_python-py$(subst .,,$(PYTHON_VERSION))";       else \
+	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(shell $(PYTHON_CONFIG) --ldflags) -lboost_python-py$(subst .,,$(PYTHON_MAJOR_VERSION)) - > /dev/null 2>&1;  then echo "-lboost_python-py$(subst .,,$(PYTHON_MAJOR_VERSION))"; else \
+	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(shell $(PYTHON_CONFIG) --ldflags) -lboost_python$(subst .,,$(PYTHON_VERSION)) - > /dev/null 2>&1;           then echo "-lboost_python$(subst .,,$(PYTHON_VERSION))";          else \
+	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(shell $(PYTHON_CONFIG) --ldflags) -lboost_python$(subst .,,$(PYTHON_MAJOR_VERSION)) - > /dev/null 2>&1;     then echo "-lboost_python$(subst .,,$(PYTHON_MAJOR_VERSION))";    else \
                                                                                                                                                                                         echo ""; fi; fi; fi; fi;)
 else
 BOOST_PYTHON_LIB ?= $(shell \
-	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null `$(PYTHON_EXECUTABLE)-config --libs` -lboost_python-py$(subst .,,$(PYTHON_VERSION)) - > /dev/null 2>&1;        then echo "-lboost_python-py$(subst .,,$(PYTHON_VERSION))";       else \
-	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null `$(PYTHON_EXECUTABLE)-config --libs` -lboost_python-py$(subst .,,$(PYTHON_MAJOR_VERSION)) - > /dev/null 2>&1;  then echo "-lboost_python-py$(subst .,,$(PYTHON_MAJOR_VERSION))"; else \
-	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null `$(PYTHON_EXECUTABLE)-config --libs` -lboost_python$(subst .,,$(PYTHON_VERSION)) - > /dev/null 2>&1;           then echo "-lboost_python$(subst .,,$(PYTHON_VERSION))";          else \
-	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null `$(PYTHON_EXECUTABLE)-config --libs` -lboost_python$(subst .,,$(PYTHON_MAJOR_VERSION)) - > /dev/null 2>&1;     then echo "-lboost_python$(subst .,,$(PYTHON_MAJOR_VERSION))";    else \
+	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null `$(PYTHON_CONFIG) --libs` -lboost_python-py$(subst .,,$(PYTHON_VERSION)) - > /dev/null 2>&1;        then echo "-lboost_python-py$(subst .,,$(PYTHON_VERSION))";       else \
+	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null `$(PYTHON_CONFIG) --libs` -lboost_python-py$(subst .,,$(PYTHON_MAJOR_VERSION)) - > /dev/null 2>&1;  then echo "-lboost_python-py$(subst .,,$(PYTHON_MAJOR_VERSION))"; else \
+	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null `$(PYTHON_CONFIG) --libs` -lboost_python$(subst .,,$(PYTHON_VERSION)) - > /dev/null 2>&1;           then echo "-lboost_python$(subst .,,$(PYTHON_VERSION))";          else \
+	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null `$(PYTHON_CONFIG) --libs` -lboost_python$(subst .,,$(PYTHON_MAJOR_VERSION)) - > /dev/null 2>&1;     then echo "-lboost_python$(subst .,,$(PYTHON_MAJOR_VERSION))";    else \
                                                                                                                                                                                         echo ""; fi; fi; fi; fi;)
 endif
 
 ifeq ($(BOOST_PYTHON_LIB),)
-$(error BOOST_PYTHON_LIB could not be detected. Please define manualy)
+$(error BOOST_PYTHON_LIB could not be detected. Please define manually)
 endif
 
 ifeq ($(OS), Darwin)
 ifeq ($(PYTHON_MAJOR_VERSION),3)
-LDLIBS += $(shell $(PYTHON_EXECUTABLE)-config --ldflags) $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
-CXXFLAGS += $(shell $(PYTHON_EXECUTABLE)-config --includes) -DWITH_PYTHON
+LDLIBS += $(shell $(PYTHON_CONFIG) --ldflags) $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
+CXXFLAGS += $(shell $(PYTHON_CONFIG) --includes) -DWITH_PYTHON
 else
-LDLIBS += $(shell $(PYTHON_EXECUTABLE)-config --ldflags) $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
-CXXFLAGS += $(shell $(PYTHON_EXECUTABLE)-config --includes) -DWITH_PYTHON
+LDLIBS += $(shell $(PYTHON_CONFIG) --ldflags) $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
+CXXFLAGS += $(shell $(PYTHON_CONFIG) --includes) -DWITH_PYTHON
 endif
 else
 ifeq ($(PYTHON_MAJOR_VERSION),3)
-LDLIBS += $(shell $(PYTHON_EXECUTABLE)-config --libs) $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
-CXXFLAGS += $(shell $(PYTHON_EXECUTABLE)-config --includes) -DWITH_PYTHON
+LDLIBS += $(shell $(PYTHON_CONFIG) --libs) $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
+CXXFLAGS += $(shell $(PYTHON_CONFIG) --includes) -DWITH_PYTHON
 else
-LDLIBS += $(shell $(PYTHON_EXECUTABLE)-config --libs) $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
-CXXFLAGS += $(shell $(PYTHON_EXECUTABLE)-config --includes) -DWITH_PYTHON
+LDLIBS += $(shell $(PYTHON_CONFIG) --libs) $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
+CXXFLAGS += $(shell $(PYTHON_CONFIG) --includes) -DWITH_PYTHON
 endif
 endif
 
@@ -377,6 +427,10 @@ endif
 
 ifeq ($(DISABLE_ABC_THREADS),1)
 ABCMKARGS += "ABC_USE_NO_PTHREADS=1"
+endif
+
+ifeq ($(DISABLE_SPAWN),1)
+CXXFLAGS += -DYOSYS_DISABLE_SPAWN
 endif
 
 ifeq ($(ENABLE_PLUGINS),1)
@@ -450,7 +504,7 @@ LDLIBS += -lpthread
 endif
 else
 ifeq ($(ABCEXTERNAL),)
-TARGETS += yosys-abc$(EXE)
+TARGETS += $(PROGRAM_PREFIX)yosys-abc$(EXE)
 endif
 endif
 endif
@@ -500,8 +554,8 @@ endef
 ifeq ($(PRETTY), 1)
 P_STATUS = 0
 P_OFFSET = 0
-P_UPDATE = $(eval P_STATUS=$(shell echo $(OBJS) yosys$(EXE) | $(AWK) 'BEGIN { RS = " "; I = $(P_STATUS)+0; } $$1 == "$@" && NR > I { I = NR; } END { print I; }'))
-P_SHOW = [$(shell $(AWK) "BEGIN { N=$(words $(OBJS) yosys$(EXE)); printf \"%3d\", $(P_OFFSET)+90*$(P_STATUS)/N; exit; }")%]
+P_UPDATE = $(eval P_STATUS=$(shell echo $(OBJS) $(PROGRAM_PREFIX)yosys$(EXE) | $(AWK) 'BEGIN { RS = " "; I = $(P_STATUS)+0; } $$1 == "$@" && NR > I { I = NR; } END { print I; }'))
+P_SHOW = [$(shell $(AWK) "BEGIN { N=$(words $(OBJS) $(PROGRAM_PREFIX)yosys$(EXE)); printf \"%3d\", $(P_OFFSET)+90*$(P_STATUS)/N; exit; }")%]
 P = @echo "$(if $(findstring $@,$(TARGETS) $(EXTRA_TARGETS)),$(eval P_OFFSET = 10))$(call P_UPDATE)$(call P_SHOW) Building $@";
 Q = @
 S = -s
@@ -520,6 +574,7 @@ $(eval $(call add_include_file,kernel/register.h))
 $(eval $(call add_include_file,kernel/celltypes.h))
 $(eval $(call add_include_file,kernel/celledges.h))
 $(eval $(call add_include_file,kernel/consteval.h))
+$(eval $(call add_include_file,kernel/constids.inc))
 $(eval $(call add_include_file,kernel/sigtools.h))
 $(eval $(call add_include_file,kernel/modtools.h))
 $(eval $(call add_include_file,kernel/macc.h))
@@ -532,12 +587,18 @@ $(eval $(call add_include_file,libs/json11/json11.hpp))
 $(eval $(call add_include_file,passes/fsm/fsmdata.h))
 $(eval $(call add_include_file,frontends/ast/ast.h))
 $(eval $(call add_include_file,backends/ilang/ilang_backend.h))
+$(eval $(call add_include_file,backends/cxxrtl/cxxrtl.h))
+$(eval $(call add_include_file,backends/cxxrtl/cxxrtl_vcd.h))
+$(eval $(call add_include_file,backends/cxxrtl/cxxrtl_capi.cc))
+$(eval $(call add_include_file,backends/cxxrtl/cxxrtl_capi.h))
+$(eval $(call add_include_file,backends/cxxrtl/cxxrtl_vcd_capi.cc))
+$(eval $(call add_include_file,backends/cxxrtl/cxxrtl_vcd_capi.h))
 
 OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/yosys.o
 OBJS += kernel/cellaigs.o kernel/celledges.o
 
 kernel/log.o: CXXFLAGS += -DYOSYS_SRC='"$(YOSYS_SRC)"'
-kernel/yosys.o: CXXFLAGS += -DYOSYS_DATDIR='"$(DATDIR)"'
+kernel/yosys.o: CXXFLAGS += -DYOSYS_DATDIR='"$(DATDIR)"' -DYOSYS_PROGRAM_PREFIX='"$(PROGRAM_PREFIX)"'
 
 OBJS += libs/bigint/BigIntegerAlgorithms.o libs/bigint/BigInteger.o libs/bigint/BigIntegerUtils.o
 OBJS += libs/bigint/BigUnsigned.o libs/bigint/BigUnsignedInABase.o
@@ -565,10 +626,10 @@ include $(YOSYS_SRC)/techlibs/*/Makefile.inc
 
 else
 
-include frontends/verilog/Makefile.inc
-include frontends/ilang/Makefile.inc
-include frontends/ast/Makefile.inc
-include frontends/blif/Makefile.inc
+include $(YOSYS_SRC)/frontends/verilog/Makefile.inc
+include $(YOSYS_SRC)/frontends/ilang/Makefile.inc
+include $(YOSYS_SRC)/frontends/ast/Makefile.inc
+include $(YOSYS_SRC)/frontends/blif/Makefile.inc
 
 OBJS += passes/hierarchy/hierarchy.o
 OBJS += passes/cmds/select.o
@@ -578,19 +639,19 @@ OBJS += passes/cmds/cover.o
 OBJS += passes/cmds/design.o
 OBJS += passes/cmds/plugin.o
 
-include passes/proc/Makefile.inc
-include passes/opt/Makefile.inc
-include passes/techmap/Makefile.inc
+include $(YOSYS_SRC)/passes/proc/Makefile.inc
+include $(YOSYS_SRC)/passes/opt/Makefile.inc
+include $(YOSYS_SRC)/passes/techmap/Makefile.inc
 
-include backends/verilog/Makefile.inc
-include backends/ilang/Makefile.inc
+include $(YOSYS_SRC)/backends/verilog/Makefile.inc
+include $(YOSYS_SRC)/backends/ilang/Makefile.inc
 
-include techlibs/common/Makefile.inc
+include $(YOSYS_SRC)/techlibs/common/Makefile.inc
 
 endif
 
 ifeq ($(LINK_ABC),1)
-OBJS += yosys-libabc.a
+OBJS += $(PROGRAM_PREFIX)yosys-libabc.a
 endif
 
 top-all: $(TARGETS) $(EXTRA_TARGETS)
@@ -602,14 +663,14 @@ ifeq ($(CONFIG),emcc)
 yosys.js: $(filter-out yosysjs-$(YOSYS_VER).zip,$(EXTRA_TARGETS))
 endif
 
-yosys$(EXE): $(OBJS)
-	$(P) $(LD) -o yosys$(EXE) $(LDFLAGS) $(OBJS) $(LDLIBS)
+$(PROGRAM_PREFIX)yosys$(EXE): $(OBJS)
+	$(P) $(LD) -o $(PROGRAM_PREFIX)yosys$(EXE) $(LDFLAGS) $(OBJS) $(LDLIBS)
 
 libyosys.so: $(filter-out kernel/driver.o,$(OBJS))
 ifeq ($(OS), Darwin)
-	$(P) $(LD) -o libyosys.so -shared -Wl,-install_name,libyosys.so $(LDFLAGS) $^ $(LDLIBS)
+	$(P) $(LD) -o libyosys.so -shared -Wl,-install_name,$(DESTDIR)$(LIBDIR)/libyosys.so $(LDFLAGS) $^ $(LDLIBS)
 else
-	$(P) $(LD) -o libyosys.so -shared -Wl,-soname,libyosys.so $(LDFLAGS) $^ $(LDLIBS)
+	$(P) $(LD) -o libyosys.so -shared -Wl,-soname,$(DESTDIR)$(LIBDIR)/libyosys.so $(LDFLAGS) $^ $(LDLIBS)
 endif
 
 %.o: %.cc
@@ -645,11 +706,11 @@ CXXFLAGS_NOVERIFIC = $(CXXFLAGS)
 LDLIBS_NOVERIFIC = $(LDLIBS)
 endif
 
-yosys-config: misc/yosys-config.in
+$(PROGRAM_PREFIX)yosys-config: misc/yosys-config.in
 	$(P) $(SED) -e 's#@CXXFLAGS@#$(subst -I. -I"$(YOSYS_SRC)",-I"$(DATDIR)/include",$(strip $(CXXFLAGS_NOVERIFIC)))#;' \
 			-e 's#@CXX@#$(strip $(CXX))#;' -e 's#@LDFLAGS@#$(strip $(LDFLAGS) $(PLUGIN_LDFLAGS))#;' -e 's#@LDLIBS@#$(strip $(LDLIBS_NOVERIFIC))#;' \
-			-e 's#@BINDIR@#$(strip $(BINDIR))#;' -e 's#@DATDIR@#$(strip $(DATDIR))#;' < $< > yosys-config
-	$(Q) chmod +x yosys-config
+			-e 's#@BINDIR@#$(strip $(BINDIR))#;' -e 's#@DATDIR@#$(strip $(DATDIR))#;' < $< > $(PROGRAM_PREFIX)yosys-config
+	$(Q) chmod +x $(PROGRAM_PREFIX)yosys-config
 
 abc/abc-$(ABCREV)$(EXE) abc/libabc-$(ABCREV).a:
 	$(P)
@@ -660,11 +721,12 @@ ifneq ($(ABCREV),default)
 	$(Q) if ( cd abc 2> /dev/null && ! git diff-index --quiet HEAD; ); then \
 		echo 'REEBE: NOP pbagnvaf ybpny zbqvsvpngvbaf! Frg NOPERI=qrsnhyg va Lbflf Znxrsvyr!' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; false; \
 	fi
-	$(Q) if test "`cd abc 2> /dev/null && git rev-parse --short HEAD`" != "$(ABCREV)"; then \
+# set a variable so the test fails if git fails to run - when comparing outputs directly, empty string would match empty string
+	$(Q) if ! (cd abc 2> /dev/null && rev="`git rev-parse $(ABCREV)`" && test "`git rev-parse HEAD`" == "$$rev"); then \
 		test $(ABCPULL) -ne 0 || { echo 'REEBE: NOP abg hc gb qngr naq NOPCHYY frg gb 0 va Znxrsvyr!' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; exit 1; }; \
 		echo "Pulling ABC from $(ABCURL):"; set -x; \
 		test -d abc || git clone $(ABCURL) abc; \
-		cd abc && $(MAKE) DEP= clean && git fetch origin master && git checkout $(ABCREV); \
+		cd abc && $(MAKE) DEP= clean && git fetch $(ABCURL) && git checkout $(ABCREV); \
 	fi
 endif
 	$(Q) rm -f abc/abc-[0-9a-f]*
@@ -675,11 +737,11 @@ ifeq ($(ABCREV),default)
 .PHONY: abc/libabc-$(ABCREV).a
 endif
 
-yosys-abc$(EXE): abc/abc-$(ABCREV)$(EXE)
-	$(P) cp abc/abc-$(ABCREV)$(EXE) yosys-abc$(EXE)
+$(PROGRAM_PREFIX)yosys-abc$(EXE): abc/abc-$(ABCREV)$(EXE)
+	$(P) cp abc/abc-$(ABCREV)$(EXE) $(PROGRAM_PREFIX)yosys-abc$(EXE)
 
-yosys-libabc.a: abc/libabc-$(ABCREV).a
-	$(P) cp abc/libabc-$(ABCREV).a yosys-libabc.a
+$(PROGRAM_PREFIX)yosys-libabc.a: abc/libabc-$(ABCREV).a
+	$(P) cp abc/libabc-$(ABCREV).a $(PROGRAM_PREFIX)yosys-libabc.a
 
 ifneq ($(SEED),)
 SEEDOPT="-S $(SEED)"
@@ -706,6 +768,7 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/memories && bash run-test.sh $(ABCOPT) $(SEEDOPT)
 	+cd tests/bram && bash run-test.sh $(SEEDOPT)
 	+cd tests/various && bash run-test.sh
+	+cd tests/select && bash run-test.sh
 	+cd tests/sat && bash run-test.sh
 	+cd tests/svinterfaces && bash run-test.sh $(SEEDOPT)
 	+cd tests/svtypes && bash run-test.sh $(SEEDOPT)
@@ -719,7 +782,10 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/arch/efinix && bash run-test.sh $(SEEDOPT)
 	+cd tests/arch/anlogic && bash run-test.sh $(SEEDOPT)
 	+cd tests/arch/gowin && bash run-test.sh $(SEEDOPT)
+	+cd tests/arch/intel_alm && bash run-test.sh $(SEEDOPT)
 	+cd tests/rpc && bash run-test.sh
+	+cd tests/memfile && bash run-test.sh
+	+cd tests/verilog && bash run-test.sh
 	@echo ""
 	@echo "  Passed \"make test\"."
 	@echo ""
@@ -756,15 +822,15 @@ clean-unit-test:
 
 install: $(TARGETS) $(EXTRA_TARGETS)
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(BINDIR)
-	$(INSTALL_SUDO) cp $(TARGETS) $(DESTDIR)$(BINDIR)
-ifneq ($(filter yosys,$(TARGETS)),)
-	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(BINDIR)/yosys
+	$(INSTALL_SUDO) cp $(filter-out libyosys.so,$(TARGETS)) $(DESTDIR)$(BINDIR)
+ifneq ($(filter $(PROGRAM_PREFIX)yosys,$(TARGETS)),)
+	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys
 endif
-ifneq ($(filter yosys-abc,$(TARGETS)),)
-	$(INSTALL_SUDO) $(STRIP) $(DESTDIR)$(BINDIR)/yosys-abc
+ifneq ($(filter $(PROGRAM_PREFIX)yosys-abc,$(TARGETS)),)
+	$(INSTALL_SUDO) $(STRIP) $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys-abc
 endif
-ifneq ($(filter yosys-filterlib,$(TARGETS)),)
-	$(INSTALL_SUDO) $(STRIP) $(DESTDIR)$(BINDIR)/yosys-filterlib
+ifneq ($(filter $(PROGRAM_PREFIX)yosys-filterlib,$(TARGETS)),)
+	$(INSTALL_SUDO) $(STRIP) $(DESTDIR)$(BINDIR)/$(PROGRAM_PREFIX)yosys-filterlib
 endif
 	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(DATDIR)
 	$(INSTALL_SUDO) cp -r share/. $(DESTDIR)$(DATDIR)/.
@@ -773,9 +839,9 @@ ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(LIBDIR)/
 	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(LIBDIR)/libyosys.so
 ifeq ($(ENABLE_PYOSYS),1)
-	$(INSTALL_SUDO) mkdir -p $(PYTHON_DESTDIR)/pyosys
-	$(INSTALL_SUDO) cp libyosys.so $(PYTHON_DESTDIR)/pyosys/
-	$(INSTALL_SUDO) cp misc/__init__.py $(PYTHON_DESTDIR)/pyosys/
+	$(INSTALL_SUDO) mkdir -p $(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys
+	$(INSTALL_SUDO) cp libyosys.so $(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/libyosys.so
+	$(INSTALL_SUDO) cp misc/__init__.py $(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/
 endif
 endif
 
@@ -785,14 +851,14 @@ uninstall:
 ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(LIBDIR)/libyosys.so
 ifeq ($(ENABLE_PYOSYS),1)
-	$(INSTALL_SUDO) rm -vf $(PYTHON_DESTDIR)/pyosys/libyosys.so
-	$(INSTALL_SUDO) rm -vf $(PYTHON_DESTDIR)/pyosys/__init__.py
-	$(INSTALL_SUDO) rmdir $(PYTHON_DESTDIR)/pyosys
+	$(INSTALL_SUDO) rm -vf $(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/libyosys.so
+	$(INSTALL_SUDO) rm -vf $(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/__init__.py
+	$(INSTALL_SUDO) rmdir $(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys
 endif
 endif
 
 update-manual: $(TARGETS) $(EXTRA_TARGETS)
-	cd manual && ../yosys -p 'help -write-tex-command-reference-manual'
+	cd manual && ../$(PROGRAM_PREFIX)yosys -p 'help -write-tex-command-reference-manual'
 
 manual: $(TARGETS) $(EXTRA_TARGETS)
 	cd manual && bash appnotes.sh
@@ -818,13 +884,13 @@ clean:
 
 clean-abc:
 	$(MAKE) -C abc DEP= clean
-	rm -f yosys-abc$(EXE) yosys-libabc.a abc/abc-[0-9a-f]* abc/libabc-[0-9a-f]*.a
+	rm -f $(PROGRAM_PREFIX)yosys-abc$(EXE) $(PROGRAM_PREFIX)yosys-libabc.a abc/abc-[0-9a-f]* abc/libabc-[0-9a-f]*.a
 
 mrproper: clean
 	git clean -xdf
 
 coverage:
-	./yosys -qp 'help; help -all'
+	./$(PROGRAM_PREFIX)yosys -qp 'help; help -all'
 	rm -rf coverage.info coverage_html
 	lcov --capture -d . --no-external -o coverage.info
 	genhtml coverage.info --output-directory coverage_html
@@ -850,9 +916,9 @@ ifeq ($(CONFIG),mxe)
 mxebin: $(TARGETS) $(EXTRA_TARGETS)
 	rm -rf yosys-win32-mxebin-$(YOSYS_VER){,.zip}
 	mkdir -p yosys-win32-mxebin-$(YOSYS_VER)
-	cp -r yosys.exe share/ yosys-win32-mxebin-$(YOSYS_VER)/
+	cp -r $(PROGRAM_PREFIX)yosys.exe share/ yosys-win32-mxebin-$(YOSYS_VER)/
 ifeq ($(ENABLE_ABC),1)
-	cp -r yosys-abc.exe abc/lib/x86/pthreadVC2.dll yosys-win32-mxebin-$(YOSYS_VER)/
+	cp -r $(PROGRAM_PREFIX)yosys-abc.exe abc/lib/x86/pthreadVC2.dll yosys-win32-mxebin-$(YOSYS_VER)/
 endif
 	echo -en 'This is Yosys $(YOSYS_VER) for Win32.\r\n' > yosys-win32-mxebin-$(YOSYS_VER)/readme.txt
 	echo -en 'Documentation at http://www.clifford.at/yosys/.\r\n' >> yosys-win32-mxebin-$(YOSYS_VER)/readme.txt
@@ -886,6 +952,15 @@ config-emcc: clean
 	echo 'ENABLE_ABC := 0' >> Makefile.conf
 	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
 	echo 'ENABLE_READLINE := 0' >> Makefile.conf
+	echo 'ENABLE_ZLIB := 0' >> Makefile.conf
+
+config-wasi: clean
+	echo 'CONFIG := wasi' > Makefile.conf
+	echo 'ENABLE_TCL := 0' >> Makefile.conf
+	echo 'ENABLE_ABC := 0' >> Makefile.conf
+	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
+	echo 'ENABLE_READLINE := 0' >> Makefile.conf
+	echo 'ENABLE_ZLIB := 0' >> Makefile.conf
 
 config-mxe: clean
 	echo 'CONFIG := mxe' > Makefile.conf
@@ -919,6 +994,9 @@ echo-yosys-ver:
 
 echo-git-rev:
 	@echo "$(GIT_REV)"
+
+echo-abc-rev:
+	@echo "$(ABCREV)"
 
 -include libs/*/*.d
 -include frontends/*/*.d

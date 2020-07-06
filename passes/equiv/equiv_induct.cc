@@ -58,9 +58,9 @@ struct EquivInductWorker
 				log_warning("No SAT model available for cell %s (%s).\n", log_id(cell), log_id(cell->type));
 				cell_warn_cache.insert(cell);
 			}
-			if (cell->type == "$equiv") {
-				SigBit bit_a = sigmap(cell->getPort("\\A")).as_bit();
-				SigBit bit_b = sigmap(cell->getPort("\\B")).as_bit();
+			if (cell->type == ID($equiv)) {
+				SigBit bit_a = sigmap(cell->getPort(ID::A)).as_bit();
+				SigBit bit_b = sigmap(cell->getPort(ID::B)).as_bit();
 				if (bit_a != bit_b) {
 					int ez_a = satgen.importSigBit(bit_a, step);
 					int ez_b = satgen.importSigBit(bit_b, step);
@@ -125,7 +125,7 @@ struct EquivInductWorker
 			if (!ez->solve(new_step_not_consistent)) {
 				log("  Proof for induction step holds. Entire workset of %d cells proven!\n", GetSize(workset));
 				for (auto cell : workset)
-					cell->setPort("\\B", cell->getPort("\\A"));
+					cell->setPort(ID::B, cell->getPort(ID::A));
 				success_counter += GetSize(workset);
 				return;
 			}
@@ -137,10 +137,10 @@ struct EquivInductWorker
 
 		for (auto cell : workset)
 		{
-			SigBit bit_a = sigmap(cell->getPort("\\A")).as_bit();
-			SigBit bit_b = sigmap(cell->getPort("\\B")).as_bit();
+			SigBit bit_a = sigmap(cell->getPort(ID::A)).as_bit();
+			SigBit bit_b = sigmap(cell->getPort(ID::B)).as_bit();
 
-			log("  Trying to prove $equiv for %s:", log_signal(sigmap(cell->getPort("\\Y"))));
+			log("  Trying to prove $equiv for %s:", log_signal(sigmap(cell->getPort(ID::Y))));
 
 			int ez_a = satgen.importSigBit(bit_a, max_seq+1);
 			int ez_b = satgen.importSigBit(bit_b, max_seq+1);
@@ -151,7 +151,7 @@ struct EquivInductWorker
 
 			if (!ez->solve(cond)) {
 				log(" success!\n");
-				cell->setPort("\\B", cell->getPort("\\A"));
+				cell->setPort(ID::B, cell->getPort(ID::A));
 				success_counter++;
 			} else {
 				log(" failed.\n");
@@ -162,7 +162,7 @@ struct EquivInductWorker
 
 struct EquivInductPass : public Pass {
 	EquivInductPass() : Pass("equiv_induct", "proving $equiv cells using temporal induction") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -192,7 +192,7 @@ struct EquivInductPass : public Pass {
 		log("after reset.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, Design *design) override
 	{
 		int success_counter = 0;
 		bool model_undef = false;
@@ -219,8 +219,8 @@ struct EquivInductPass : public Pass {
 			pool<Cell*> unproven_equiv_cells;
 
 			for (auto cell : module->selected_cells())
-				if (cell->type == "$equiv") {
-					if (cell->getPort("\\A") != cell->getPort("\\B"))
+				if (cell->type == ID($equiv)) {
+					if (cell->getPort(ID::A) != cell->getPort(ID::B))
 						unproven_equiv_cells.insert(cell);
 				}
 

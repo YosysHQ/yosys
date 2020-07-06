@@ -35,7 +35,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct CoverPass : public Pass {
 	CoverPass() : Pass("cover", "print code coverage counters") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -83,7 +83,7 @@ struct CoverPass : public Pass {
 		log("Coverage counters are only available in Yosys for Linux.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::vector<FILE*> out_files;
 		std::vector<std::string> patterns;
@@ -101,8 +101,8 @@ struct CoverPass : public Pass {
 				const std::string &filename = args[++argidx];
 				FILE *f = nullptr;
 				if (args[argidx-1] == "-d") {
-			#ifdef _WIN32
-					log_cmd_error("The 'cover -d' option is not supported on win32.\n");
+			#if defined(_WIN32) || defined(__wasm)
+					log_cmd_error("The 'cover -d' option is not supported on this platform.\n");
 			#else
 					char filename_buffer[4096];
 					snprintf(filename_buffer, 4096, "%s/yosys_cover_%d_XXXXXX.txt", filename.c_str(), getpid());

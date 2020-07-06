@@ -1,0 +1,328 @@
+# ================================ RAM ================================
+# RAM bits <= 18K; Data width <= 36; Address width <= 9: -> PDPW16KD
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 9 -set DATA_WIDTH 36 sync_ram_sdp
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:PDPW16KD
+
+## With parameters
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 36 sync_ram_sdp
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 0 t:PDPW16KD # too inefficient
+select -assert-count 9 t:TRELLIS_DPR16X4
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 36 sync_ram_sdp
+setattr -set syn_ramstyle "block_ram" m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:PDPW16KD
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 36 sync_ram_sdp
+setattr -set syn_ramstyle "Block_RAM" m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:PDPW16KD # any case works
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 36 sync_ram_sdp
+setattr -set ram_block 1 m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:PDPW16KD
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 36 sync_ram_sdp
+setattr -set syn_ramstyle "registers" m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 0 t:PDPW16KD # requested FFRAM explicitly
+select -assert-count 180 t:TRELLIS_FF
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 36 sync_ram_sdp
+setattr -set logic_block 1 m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 0 t:PDPW16KD # requested FFRAM explicitly
+select -assert-count 180 t:TRELLIS_FF
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 36 sync_ram_sdp
+setattr -set syn_romstyle "ebr" m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:$mem # requested BROM but this is a RAM
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 36 sync_ram_sdp
+setattr -set rom_block 1 m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:$mem # requested BROM but this is a RAM
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 36 sync_ram_sdp
+setattr -set syn_ramstyle "block_ram" m:memory
+synth_ecp5 -top sync_ram_sdp -nobram; cd sync_ram_sdp
+select -assert-count 1 t:$mem # requested BRAM but BRAM is disabled
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 36 sync_ram_sdp
+setattr -set ram_block 1 m:memory
+synth_ecp5 -top sync_ram_sdp -nobram; cd sync_ram_sdp
+select -assert-count 1 t:$mem # requested BRAM but BRAM is disabled
+
+# RAM bits <= 18K; Data width <= 18; Address width <= 10: -> DP16KD
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 10 -set DATA_WIDTH 18 sync_ram_sdp
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:DP16KD
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 11 -set DATA_WIDTH 9 sync_ram_sdp
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:DP16KD
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 12 -set DATA_WIDTH 4 sync_ram_sdp
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:DP16KD
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 13 -set DATA_WIDTH 2 sync_ram_sdp
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:DP16KD
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 14 -set DATA_WIDTH 1 sync_ram_sdp
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:DP16KD
+
+## With parameters
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 18 sync_ram_sdp
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 0 t:DP16KD # too inefficient
+select -assert-count 5 t:TRELLIS_DPR16X4
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 18 sync_ram_sdp
+setattr -set syn_ramstyle "block_ram" m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:DP16KD
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 18 sync_ram_sdp
+setattr -set syn_ramstyle "Block_RAM" m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:DP16KD # any case works
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 18 sync_ram_sdp
+setattr -set ram_block 1 m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:DP16KD
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 18 sync_ram_sdp
+setattr -set syn_ramstyle "registers" m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 0 t:DP16KD # requested FFRAM explicitly
+select -assert-count 90 t:TRELLIS_FF
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 18 sync_ram_sdp
+setattr -set logic_block 1 m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 0 t:DP16KD # requested FFRAM explicitly
+select -assert-count 90 t:TRELLIS_FF
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 18 sync_ram_sdp
+setattr -set syn_romstyle "ebr" m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:$mem # requested BROM but this is a RAM
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 18 sync_ram_sdp
+setattr -set rom_block 1 m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:$mem # requested BROM but this is a RAM
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 18 sync_ram_sdp
+setattr -set syn_ramstyle "block_ram" m:memory
+synth_ecp5 -top sync_ram_sdp -nobram; cd sync_ram_sdp
+select -assert-count 1 t:$mem # requested BRAM but BRAM is disabled
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 18 sync_ram_sdp
+setattr -set ram_block 1 m:memory
+synth_ecp5 -top sync_ram_sdp -nobram; cd sync_ram_sdp
+select -assert-count 1 t:$mem # requested BRAM but BRAM is disabled
+
+# RAM bits <= 64; Data width <= 4; Address width <= 4: -> DPR16X4
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 4 -set DATA_WIDTH 4 sync_ram_sdp
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:TRELLIS_DPR16X4
+
+## With parameters
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 4 -set DATA_WIDTH 4 sync_ram_sdp
+setattr -set syn_ramstyle "distributed" m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:TRELLIS_DPR16X4
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 4 -set DATA_WIDTH 4 sync_ram_sdp
+setattr -set syn_ramstyle "registers" m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 0 t:TRELLIS_DPR16X4 # requested FFRAM explicitly
+select -assert-count 68 t:TRELLIS_FF
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 4 -set DATA_WIDTH 4 sync_ram_sdp
+setattr -set logic_block 1 m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 0 t:TRELLIS_DPR16X4 # requested FFRAM explicitly
+select -assert-count 68 t:TRELLIS_FF
+
+design -reset; read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 4 -set DATA_WIDTH 4 sync_ram_sdp
+setattr -set syn_ramstyle "distributed" m:memory
+synth_ecp5 -top sync_ram_sdp -nolutram; cd sync_ram_sdp
+select -assert-count 1 t:$mem # requested LUTRAM but LUTRAM is disabled
+
+# ================================ ROM ================================
+# ROM bits <= 18K; Data width <= 36; Address width <= 9: -> PDPW16KD
+
+design -reset; read_verilog ../common/blockrom.v
+chparam -set ADDRESS_WIDTH 9 -set DATA_WIDTH 36 sync_rom
+synth_ecp5 -top sync_rom; cd sync_rom
+select -assert-count 1 t:PDPW16KD
+
+## With parameters
+
+design -reset; read_verilog ../common/blockrom.v
+chparam -set ADDRESS_WIDTH 3 -set DATA_WIDTH 36 sync_rom
+synth_ecp5 -top sync_rom; cd sync_rom
+select -assert-count 0 t:PDPW16KD # too inefficient
+select -assert-min 18 t:LUT4
+
+design -reset; read_verilog ../common/blockrom.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 36 sync_rom
+setattr -set syn_romstyle "ebr" m:memory
+synth_ecp5 -top sync_rom; cd sync_rom
+select -assert-count 1 t:PDPW16KD
+
+design -reset; read_verilog ../common/blockrom.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 36 sync_rom
+setattr -set rom_block 1 m:memory
+synth_ecp5 -top sync_rom; cd sync_rom
+select -assert-count 1 t:PDPW16KD
+
+design -reset; read_verilog ../common/blockrom.v
+chparam -set ADDRESS_WIDTH 3 -set DATA_WIDTH 36 sync_rom
+setattr -set syn_romstyle "logic" m:memory
+synth_ecp5 -top sync_rom; cd sync_rom
+select -assert-count 0 t:PDPW16KD # requested LUTROM explicitly
+select -assert-min 18 t:LUT4
+
+design -reset; read_verilog ../common/blockrom.v
+chparam -set ADDRESS_WIDTH 3 -set DATA_WIDTH 36 sync_rom
+setattr -set logic_block 1 m:memory
+synth_ecp5 -top sync_rom; cd sync_rom
+select -assert-count 0 t:PDPW16KD # requested LUTROM explicitly
+select -assert-min 18 t:LUT4
+
+design -reset; read_verilog ../common/blockrom.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 36 sync_rom
+setattr -set syn_ramstyle "block_ram" m:memory
+synth_ecp5 -top sync_rom; cd sync_rom
+select -assert-count 1 t:$mem # requested BRAM but this is a ROM
+
+design -reset; read_verilog ../common/blockrom.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 36 sync_rom
+setattr -set ram_block 1 m:memory
+synth_ecp5 -top sync_rom; cd sync_rom
+select -assert-count 1 t:$mem # requested BRAM but this is a ROM
+
+design -reset; read_verilog ../common/blockrom.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 36 sync_rom
+setattr -set syn_ramstyle "block_rom" m:memory
+synth_ecp5 -top sync_rom -nobram; cd sync_rom
+select -assert-count 1 t:$mem # requested BROM but BRAM is disabled
+
+design -reset; read_verilog ../common/blockrom.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 36 sync_rom
+setattr -set rom_block 1 m:memory
+synth_ecp5 -top sync_rom -nobram; cd sync_rom
+select -assert-count 1 t:$mem # requested BROM but BRAM is disabled
+
+# ROM bits <= 18K; Data width <= 18; Address width <= 10: -> DP16KD
+
+design -reset; read_verilog ../common/blockrom.v
+chparam -set ADDRESS_WIDTH 10 -set DATA_WIDTH 18 sync_rom
+synth_ecp5 -top sync_rom; cd sync_rom
+select -assert-count 1 t:DP16KD
+
+## With parameters
+
+design -reset; read_verilog ../common/blockrom.v
+chparam -set ADDRESS_WIDTH 3 -set DATA_WIDTH 18 sync_rom
+synth_ecp5 -top sync_rom; cd sync_rom
+select -assert-count 0 t:DP16KD # too inefficient
+select -assert-min 9 t:LUT4
+
+design -reset; read_verilog ../common/blockrom.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 18 sync_rom
+setattr -set syn_romstyle "ebr" m:memory
+synth_ecp5 -top sync_rom; cd sync_rom
+select -assert-count 1 t:DP16KD
+
+design -reset; read_verilog ../common/blockrom.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 18 sync_rom
+setattr -set rom_block 1 m:memory
+synth_ecp5 -top sync_rom; cd sync_rom
+select -assert-count 1 t:DP16KD
+
+design -reset; read_verilog ../common/blockrom.v
+chparam -set ADDRESS_WIDTH 3 -set DATA_WIDTH 18 sync_rom
+setattr -set syn_romstyle "logic" m:memory
+synth_ecp5 -top sync_rom; cd sync_rom
+select -assert-count 0 t:DP16KD # requested LUTROM explicitly
+select -assert-min 9 t:LUT4
+
+design -reset; read_verilog ../common/blockrom.v
+chparam -set ADDRESS_WIDTH 3 -set DATA_WIDTH 18 sync_rom
+setattr -set logic_block 1 m:memory
+synth_ecp5 -top sync_rom; cd sync_rom
+select -assert-count 0 t:DP16KD # requested LUTROM explicitly
+select -assert-min 9 t:LUT4
+
+design -reset; read_verilog ../common/blockrom.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 18 sync_rom
+setattr -set syn_ramstyle "block_ram" m:memory
+synth_ecp5 -top sync_rom; cd sync_rom
+select -assert-count 1 t:$mem # requested BRAM but this is a ROM
+
+design -reset; read_verilog ../common/blockrom.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 18 sync_rom
+setattr -set ram_block 1 m:memory
+synth_ecp5 -top sync_rom; cd sync_rom
+select -assert-count 1 t:$mem # requested BRAM but this is a ROM
+
+design -reset; read_verilog ../common/blockrom.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 18 sync_rom
+setattr -set syn_ramstyle "block_rom" m:memory
+synth_ecp5 -top sync_rom -nobram; cd sync_rom
+select -assert-count 1 t:$mem # requested BROM but BRAM is disabled
+
+design -reset; read_verilog ../common/blockrom.v
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 18 sync_rom
+setattr -set rom_block 1 m:memory
+synth_ecp5 -top sync_rom -nobram; cd sync_rom
+select -assert-count 1 t:$mem # requested BROM but BRAM is disabled

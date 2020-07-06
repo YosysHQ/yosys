@@ -256,20 +256,21 @@ struct SatHelper
 		{
 			RTLIL::SigSpec big_lhs, big_rhs;
 
-			for (auto &it : module->wires_)
+			for (auto wire : module->wires())
 			{
-				if (it.second->attributes.count("\\init") == 0)
+				if (wire->attributes.count(ID::init) == 0)
 					continue;
 
-				RTLIL::SigSpec lhs = sigmap(it.second);
-				RTLIL::SigSpec rhs = it.second->attributes.at("\\init");
+				RTLIL::SigSpec lhs = sigmap(wire);
+				RTLIL::SigSpec rhs = wire->attributes.at(ID::init);
 				log_assert(lhs.size() == rhs.size());
 
 				RTLIL::SigSpec removed_bits;
 				for (int i = 0; i < lhs.size(); i++) {
 					RTLIL::SigSpec bit = lhs.extract(i, 1);
 					if (rhs[i] == State::Sx || !satgen.initial_state.check_all(bit)) {
-						removed_bits.append(bit);
+						if (rhs[i] != State::Sx)
+							removed_bits.append(bit);
 						lhs.remove(i, 1);
 						rhs.remove(i, 1);
 						i--;
@@ -517,9 +518,9 @@ struct SatHelper
 				} else {
 					for (auto &d : drivers)
 					for (auto &p : d->connections()) {
-						if (d->type == "$dff" && p.first == "\\CLK")
+						if (d->type == ID($dff) && p.first == ID::CLK)
 							continue;
-						if (d->type.begins_with("$_DFF_") && p.first == "\\C")
+						if (d->type.begins_with("$_DFF_") && p.first == ID::C)
 							continue;
 						queued_signals.add(handled_signals.remove(sigmap(p.second)));
 					}
@@ -674,9 +675,9 @@ struct SatHelper
 		strftime(stime, sizeof(stime), "%c", now);
 
 		std::string module_fname = "unknown";
-		auto apos = module->attributes.find("\\src");
+		auto apos = module->attributes.find(ID::src);
 		if(apos != module->attributes.end())
-			module_fname = module->attributes["\\src"].decode_string();
+			module_fname = module->attributes[ID::src].decode_string();
 
 		fprintf(f, "$date\n");
 		fprintf(f, "    %s\n", stime);
@@ -892,7 +893,7 @@ void print_qed()
 
 struct SatPass : public Pass {
 	SatPass() : Pass("sat", "solve a SAT problem in the circuit") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1059,7 +1060,7 @@ struct SatPass : public Pass {
 		log("        Like -falsify but do not return an error for timeouts.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::vector<std::pair<std::string, std::string>> sets, sets_init, prove, prove_x;
 		std::map<int, std::vector<std::pair<std::string, std::string>>> sets_at;
@@ -1353,8 +1354,8 @@ struct SatPass : public Pass {
 		if (show_regs) {
 			pool<Wire*> reg_wires;
 			for (auto cell : module->cells()) {
-				if (cell->type == "$dff" || cell->type.begins_with("$_DFF_"))
-					for (auto bit : cell->getPort("\\Q"))
+				if (cell->type == ID($dff) || cell->type.begins_with("$_DFF_"))
+					for (auto bit : cell->getPort(ID::Q))
 						if (bit.wire)
 							reg_wires.insert(bit.wire);
 			}

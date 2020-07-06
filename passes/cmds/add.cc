@@ -22,26 +22,61 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+static bool is_formal_celltype(const std::string &celltype)
+{
+	if(celltype == "assert" || celltype == "assume" || celltype == "live" || celltype == "fair" || celltype == "cover")
+		return true;
+	else
+		return false;
+}
+
+static void add_formal(RTLIL::Module *module, const std::string &celltype, const std::string &name, const std::string &enable_name)
+{
+	std::string escaped_name = RTLIL::escape_id(name);
+	std::string escaped_enable_name = (enable_name != "") ? RTLIL::escape_id(enable_name) : "";
+	RTLIL::Wire *wire = module->wire(escaped_name);
+	log_assert(is_formal_celltype(celltype));
+
+	if (wire == nullptr) {
+		log_error("Could not find wire with name \"%s\".\n", name.c_str());
+	}
+	else {
+		RTLIL::Cell *formal_cell = module->addCell(NEW_ID, "$" + celltype);
+		formal_cell->setPort(ID::A, wire);
+		if(enable_name == "") {
+			formal_cell->setPort(ID::EN, State::S1);
+			log("Added $%s cell for wire \"%s.%s\"\n", celltype.c_str(), module->name.str().c_str(), name.c_str());
+		}
+		else {
+			RTLIL::Wire *enable_wire = module->wire(escaped_enable_name);
+			if(enable_wire == nullptr)
+				log_error("Could not find enable wire with name \"%s\".\n", enable_name.c_str());
+
+			formal_cell->setPort(ID::EN, enable_wire);
+			log("Added $%s cell for wire \"%s.%s\" enabled by wire \"%s.%s\".\n", celltype.c_str(), module->name.str().c_str(), name.c_str(), module->name.str().c_str(), enable_name.c_str());
+		}
+	}
+}
+
 static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string name, int width, bool flag_input, bool flag_output, bool flag_global)
 {
-	RTLIL::Wire *wire = NULL;
+	RTLIL::Wire *wire = nullptr;
 	name = RTLIL::escape_id(name);
 
 	if (module->count_id(name) != 0)
 	{
-		if (module->wires_.count(name) > 0)
-			wire = module->wires_.at(name);
+		wire = module->wire(name);
 
-		if (wire != NULL && wire->width != width)
-			wire = NULL;
+		if (wire != nullptr && wire->width != width)
+			wire = nullptr;
 
-		if (wire != NULL && wire->port_input != flag_input)
-			wire = NULL;
+		if (wire != nullptr && wire->port_input != flag_input)
+			wire = nullptr;
 
-		if (wire != NULL && wire->port_output != flag_output)
-			wire = NULL;
+		if (wire != nullptr && wire->port_output != flag_output)
+			wire = nullptr;
 
-		if (wire == NULL)
+		if (wire == nullptr)
 			log_cmd_error("Found incompatible object with same name in module %s!\n", module->name.c_str());
 
 		log("Module %s already has such an object.\n", module->name.c_str());
@@ -53,7 +88,6 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 		wire->port_output = flag_output;
 
 		if (flag_input || flag_output) {
-			wire->port_id = module->wires_.size();
 			module->fixup_ports();
 		}
 
@@ -63,27 +97,26 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 	if (!flag_global)
 		return;
 
-	for (auto &it : module->cells_)
+	for (auto cell : module->cells())
 	{
-		if (design->modules_.count(it.second->type) == 0)
+		RTLIL::Module *mod = design->module(cell->type);
+		if (mod == nullptr)
 			continue;
-
-		RTLIL::Module *mod = design->modules_.at(it.second->type);
 		if (!design->selected_whole_module(mod->name))
 			continue;
 		if (mod->get_blackbox_attribute())
 			continue;
-		if (it.second->hasPort(name))
+		if (cell->hasPort(name))
 			continue;
 
-		it.second->setPort(name, wire);
-		log("Added connection %s to cell %s.%s (%s).\n", name.c_str(), module->name.c_str(), it.first.c_str(), it.second->type.c_str());
+		cell->setPort(name, wire);
+		log("Added connection %s to cell %s.%s (%s).\n", name.c_str(), module->name.c_str(), cell->name.c_str(), cell->type.c_str());
 	}
 }
 
 struct AddPass : public Pass {
 	AddPass() : Pass("add", "add objects to the design") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -106,15 +139,22 @@ struct AddPass : public Pass {
 		log("selected modules.\n");
 		log("\n");
 		log("\n");
+		log("    add {-assert|-assume|-live|-fair|-cover} <name1> [-if <name2>]\n");
+		log("\n");
+		log("Add an $assert, $assume, etc. cell connected to a wire named name1, with its\n");
+		log("enable signal optionally connected to a wire named name2 (default: 1'b1).\n");
+		log("\n");
+		log("\n");
 		log("    add -mod <name[s]>\n");
 		log("\n");
 		log("Add module[s] with the specified name[s].\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::string command;
 		std::string arg_name;
+		std::string enable_name = "";
 		bool arg_flag_input = false;
 		bool arg_flag_output = false;
 		bool arg_flag_global = false;
@@ -144,6 +184,17 @@ struct AddPass : public Pass {
 				argidx++;
 				break;
 			}
+			if (arg.length() > 0 && arg[0] == '-' && is_formal_celltype(arg.substr(1))) {
+				if (argidx + 1 >= args.size())
+					break;
+				command = arg.substr(1);
+				arg_name = args[++argidx];
+				if (argidx + 2 < args.size() && args[argidx + 1] == "-if") {
+					enable_name = args[argidx + 2];
+					argidx += 2;
+				}
+				continue;
+			}
 			break;
 		}
 
@@ -155,17 +206,23 @@ struct AddPass : public Pass {
 
 		extra_args(args, argidx, design);
 
-		for (auto &mod : design->modules_)
+		bool selected_anything = false;
+		for (auto module : design->modules())
 		{
-			RTLIL::Module *module = mod.second;
+			log_assert(module != nullptr);
 			if (!design->selected_whole_module(module->name))
 				continue;
-			if (module->get_bool_attribute("\\blackbox"))
+			if (module->get_bool_attribute(ID::blackbox))
 				continue;
 
-			if (command == "wire")
+			selected_anything = true;
+			if (is_formal_celltype(command))
+				add_formal(module, command, arg_name, enable_name);
+			else if (command == "wire")
 				add_wire(design, module, arg_name, arg_width, arg_flag_input, arg_flag_output, arg_flag_global);
 		}
+		if (!selected_anything)
+			log_warning("No modules selected, or only blackboxes.  Nothing was added.\n");
 	}
 } AddPass;
 

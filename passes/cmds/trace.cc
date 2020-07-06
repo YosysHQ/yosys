@@ -25,34 +25,34 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct TraceMonitor : public RTLIL::Monitor
 {
-	void notify_module_add(RTLIL::Module *module) YS_OVERRIDE
+	void notify_module_add(RTLIL::Module *module) override
 	{
 		log("#TRACE# Module add: %s\n", log_id(module));
 	}
 
-	void notify_module_del(RTLIL::Module *module) YS_OVERRIDE
+	void notify_module_del(RTLIL::Module *module) override
 	{
 		log("#TRACE# Module delete: %s\n", log_id(module));
 	}
 
-	void notify_connect(RTLIL::Cell *cell, const RTLIL::IdString &port, const RTLIL::SigSpec &old_sig, RTLIL::SigSpec &sig) YS_OVERRIDE
+	void notify_connect(RTLIL::Cell *cell, const RTLIL::IdString &port, const RTLIL::SigSpec &old_sig, const RTLIL::SigSpec &sig) override
 	{
 		log("#TRACE# Cell connect: %s.%s.%s = %s (was: %s)\n", log_id(cell->module), log_id(cell), log_id(port), log_signal(sig), log_signal(old_sig));
 	}
 
-	void notify_connect(RTLIL::Module *module, const RTLIL::SigSig &sigsig) YS_OVERRIDE
+	void notify_connect(RTLIL::Module *module, const RTLIL::SigSig &sigsig) override
 	{
 		log("#TRACE# Connection in module %s: %s = %s\n", log_id(module), log_signal(sigsig.first), log_signal(sigsig.second));
 	}
 
-	void notify_connect(RTLIL::Module *module, const std::vector<RTLIL::SigSig> &sigsig_vec) YS_OVERRIDE
+	void notify_connect(RTLIL::Module *module, const std::vector<RTLIL::SigSig> &sigsig_vec) override
 	{
 		log("#TRACE# New connections in module %s:\n", log_id(module));
 		for (auto &sigsig : sigsig_vec)
 			log("##    %s = %s\n", log_signal(sigsig.first), log_signal(sigsig.second));
 	}
 
-	void notify_blackout(RTLIL::Module *module) YS_OVERRIDE
+	void notify_blackout(RTLIL::Module *module) override
 	{
 		log("#TRACE# Blackout in module %s:\n", log_id(module));
 	}
@@ -60,7 +60,7 @@ struct TraceMonitor : public RTLIL::Monitor
 
 struct TracePass : public Pass {
 	TracePass() : Pass("trace", "redirect command output to file") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -70,7 +70,7 @@ struct TracePass : public Pass {
 		log("the design in real time.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -96,7 +96,7 @@ struct TracePass : public Pass {
 
 struct DebugPass : public Pass {
 	DebugPass() : Pass("debug", "run command with debug log messages enabled") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -105,7 +105,7 @@ struct DebugPass : public Pass {
 		log("Execute the specified command with debug log messages enabled\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)

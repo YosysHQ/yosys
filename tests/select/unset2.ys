@@ -1,0 +1,10 @@
+read_verilog <<EOT
+module top(input i, output o);
+assign o = i;
+endmodule
+EOT
+select -set foo w:*
+select -assert-any @foo
+select -unset foo
+logger -expect error "Selection @foo is not defined!" 1
+select -list @foo

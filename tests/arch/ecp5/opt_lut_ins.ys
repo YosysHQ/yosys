@@ -1,0 +1,32 @@
+read_ilang << EOF
+
+module \top
+
+  wire input 1 \A
+  wire input 2 \B
+  wire input 3 \C
+  wire input 4 \D
+
+  wire output 5 \Z
+
+  cell \LUT4 $0
+    parameter \INIT 16'1111110011000000
+    connect \A \A
+    connect \B \B
+    connect \C \C
+    connect \D \D
+    connect \Z \Z
+  end
+end
+
+EOF
+
+read_verilog -lib +/ecp5/cells_sim.v
+
+equiv_opt -assert -map +/ecp5/cells_sim.v opt_lut_ins -tech ecp5
+
+design -load postopt
+
+select -assert-count 1 top/t:LUT4
+select -assert-count 0 top/w:A %co top/t:LUT4 %i
+select -assert-count 1 top/w:B %co top/t:LUT4 %i

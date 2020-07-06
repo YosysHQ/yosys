@@ -1,0 +1,2 @@
+logger -expect-no-warnings
+select -assert-count 0 top/t:ff4 top/w:d0 %co:+[d] %i

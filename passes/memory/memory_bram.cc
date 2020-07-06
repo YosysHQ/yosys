@@ -105,11 +105,11 @@ struct rules_t
 				log_error("Bram %s variants %d and %d have different values for 'groups'.\n", log_id(name), variant, other.variant);
 
 			if (abits != other.abits)
-				variant_params["\\CFG_ABITS"] = abits;
+				variant_params[ID::CFG_ABITS] = abits;
 			if (dbits != other.dbits)
-				variant_params["\\CFG_DBITS"] = dbits;
+				variant_params[ID::CFG_DBITS] = dbits;
 			if (init != other.init)
-				variant_params["\\CFG_INIT"] = init;
+				variant_params[ID::CFG_INIT] = init;
 
 			for (int i = 0; i < groups; i++)
 			{
@@ -134,10 +134,28 @@ struct rules_t
 		dict<string, int> min_limits, max_limits;
 		bool or_next_if_better, make_transp, make_outreg;
 		char shuffle_enable;
+		vector<vector<std::tuple<bool,IdString,Const>>> attributes;
 	};
 
+	bool attr_icase;
 	dict<IdString, vector<bram_t>> brams;
 	vector<match_t> matches;
+
+	std::string map_case(std::string value) const
+	{
+		if (attr_icase) {
+			for (char &c : value)
+				c = tolower(c);
+		}
+		return value;
+	}
+
+	RTLIL::Const map_case(RTLIL::Const value) const
+	{
+		if (value.flags & RTLIL::CONST_FLAG_STRING)
+			return map_case(value.decode_string());
+		return value;
+	}
 
 	std::ifstream infile;
 	vector<string> tokens;
@@ -327,6 +345,20 @@ struct rules_t
 				continue;
 			}
 
+			if (GetSize(tokens) >= 2 && tokens[0] == "attribute") {
+				data.attributes.emplace_back();
+				for (int idx = 1; idx < GetSize(tokens); idx++) {
+					size_t c1 = tokens[idx][0] == '!' ? 1 : 0;
+					size_t c2 = tokens[idx].find("=");
+					bool exists = (c1 == 0);
+					IdString key = RTLIL::escape_id(tokens[idx].substr(c1, c2));
+					Const val = c2 != std::string::npos ? tokens[idx].substr(c2+1) : RTLIL::Const(1);
+
+					data.attributes.back().emplace_back(exists, key, map_case(val));
+				}
+				continue;
+			}
+
 			syntax_error();
 		}
 	}
@@ -336,6 +368,7 @@ struct rules_t
 		rewrite_filename(filename);
 		infile.open(filename);
 		linecount = 0;
+		attr_icase = false;
 
 		if (infile.fail())
 			log_error("Can't open rules file `%s'.\n", filename.c_str());
@@ -344,6 +377,11 @@ struct rules_t
 		{
 			if (!labels.empty())
 				syntax_error();
+
+			if (GetSize(tokens) == 2 && tokens[0] == "attr_icase") {
+				attr_icase = atoi(tokens[1].c_str());
+				continue;
+			}
 
 			if (tokens[0] == "bram") {
 				parse_bram();
@@ -399,44 +437,44 @@ bool replace_cell(Cell *cell, const rules_t &rules, const rules_t::bram_t &bram,
 	log("    Mapping to bram type %s (variant %d):\n", log_id(bram.name), bram.variant);
 	// bram.dump_config();
 
-	int mem_size = cell->getParam("\\SIZE").as_int();
-	int mem_abits = cell->getParam("\\ABITS").as_int();
-	int mem_width = cell->getParam("\\WIDTH").as_int();
-	// int mem_offset = cell->getParam("\\OFFSET").as_int();
+	int mem_size = cell->getParam(ID::SIZE).as_int();
+	int mem_abits = cell->getParam(ID::ABITS).as_int();
+	int mem_width = cell->getParam(ID::WIDTH).as_int();
+	// int mem_offset = cell->getParam(ID::OFFSET).as_int();
 
-	bool cell_init = !SigSpec(cell->getParam("\\INIT")).is_fully_undef();
+	bool cell_init = !SigSpec(cell->getParam(ID::INIT)).is_fully_undef();
 	vector<Const> initdata;
 
 	if (cell_init) {
-		Const initparam = cell->getParam("\\INIT");
+		Const initparam = cell->getParam(ID::INIT);
 		initdata.reserve(mem_size);
 		for (int i=0; i < mem_size; i++)
 			initdata.push_back(initparam.extract(mem_width*i, mem_width, State::Sx));
 	}
 
-	int wr_ports = cell->getParam("\\WR_PORTS").as_int();
-	auto wr_clken = SigSpec(cell->getParam("\\WR_CLK_ENABLE"));
-	auto wr_clkpol = SigSpec(cell->getParam("\\WR_CLK_POLARITY"));
+	int wr_ports = cell->getParam(ID::WR_PORTS).as_int();
+	auto wr_clken = SigSpec(cell->getParam(ID::WR_CLK_ENABLE));
+	auto wr_clkpol = SigSpec(cell->getParam(ID::WR_CLK_POLARITY));
 	wr_clken.extend_u0(wr_ports);
 	wr_clkpol.extend_u0(wr_ports);
 
-	SigSpec wr_en = cell->getPort("\\WR_EN");
-	SigSpec wr_clk = cell->getPort("\\WR_CLK");
-	SigSpec wr_data = cell->getPort("\\WR_DATA");
-	SigSpec wr_addr = cell->getPort("\\WR_ADDR");
+	SigSpec wr_en = cell->getPort(ID::WR_EN);
+	SigSpec wr_clk = cell->getPort(ID::WR_CLK);
+	SigSpec wr_data = cell->getPort(ID::WR_DATA);
+	SigSpec wr_addr = cell->getPort(ID::WR_ADDR);
 
-	int rd_ports = cell->getParam("\\RD_PORTS").as_int();
-	auto rd_clken = SigSpec(cell->getParam("\\RD_CLK_ENABLE"));
-	auto rd_clkpol = SigSpec(cell->getParam("\\RD_CLK_POLARITY"));
-	auto rd_transp = SigSpec(cell->getParam("\\RD_TRANSPARENT"));
+	int rd_ports = cell->getParam(ID::RD_PORTS).as_int();
+	auto rd_clken = SigSpec(cell->getParam(ID::RD_CLK_ENABLE));
+	auto rd_clkpol = SigSpec(cell->getParam(ID::RD_CLK_POLARITY));
+	auto rd_transp = SigSpec(cell->getParam(ID::RD_TRANSPARENT));
 	rd_clken.extend_u0(rd_ports);
 	rd_clkpol.extend_u0(rd_ports);
 	rd_transp.extend_u0(rd_ports);
 
-	SigSpec rd_en = cell->getPort("\\RD_EN");
-	SigSpec rd_clk = cell->getPort("\\RD_CLK");
-	SigSpec rd_data = cell->getPort("\\RD_DATA");
-	SigSpec rd_addr = cell->getPort("\\RD_ADDR");
+	SigSpec rd_en = cell->getPort(ID::RD_EN);
+	SigSpec rd_clk = cell->getPort(ID::RD_CLK);
+	SigSpec rd_data = cell->getPort(ID::RD_DATA);
+	SigSpec rd_addr = cell->getPort(ID::RD_ADDR);
 
 	if (match.shuffle_enable && bram.dbits >= portinfos.at(match.shuffle_enable - 'A').enable*2 && portinfos.at(match.shuffle_enable - 'A').enable > 0 && wr_ports > 0)
 	{
@@ -724,7 +762,7 @@ grow_read_ports:;
 					if (match.make_transp && wr_ports <= 1) {
 						pi.make_transp = true;
 						if (pi.clocks != 0) {
-							if (wr_ports == 1 && wr_clkdom != clkdom) {								
+							if (wr_ports == 1 && wr_clkdom != clkdom) {
 								log("        Bram port %c%d.%d cannot have soft transparency logic added as read and write clock domains differ.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 								goto skip_bram_rport;
 							}
@@ -813,6 +851,43 @@ grow_read_ports:;
 			return false;
 		}
 
+		for (const auto &sums : match.attributes) {
+			bool found = false;
+			for (const auto &term : sums) {
+				bool exists = std::get<0>(term);
+				IdString key = std::get<1>(term);
+				const Const &value = std::get<2>(term);
+				auto it = cell->attributes.find(key);
+				if (it == cell->attributes.end()) {
+					if (exists)
+						continue;
+					found = true;
+					break;
+				}
+				else if (!exists)
+					continue;
+				if (rules.map_case(it->second) != value)
+					continue;
+				found = true;
+				break;
+			}
+			if (!found) {
+				std::stringstream ss;
+				bool exists = std::get<0>(sums.front());
+				if (!exists)
+					ss << "!";
+				IdString key = std::get<1>(sums.front());
+				ss << log_id(key);
+				const Const &value = rules.map_case(std::get<2>(sums.front()));
+				if (exists && value != Const(1))
+					ss << "=\"" << value.decode_string() << "\"";
+
+				log("    Rule for bram type %s rejected: requirement 'attribute %s ...' not met.\n",
+						log_id(match.name), ss.str().c_str());
+				return false;
+			}
+		}
+
 		if (mode == 1)
 			return true;
 	}
@@ -863,7 +938,7 @@ grow_read_ports:;
 						else
 							initparam[i*bram.dbits+j] = padding;
 				}
-				c->setParam("\\INIT", initparam);
+				c->setParam(ID::INIT, initparam);
 			}
 
 			for (auto &pi : portinfos)
@@ -996,14 +1071,14 @@ void handle_cell(Cell *cell, const rules_t &rules)
 {
 	log("Processing %s.%s:\n", log_id(cell->module), log_id(cell));
 
-	bool cell_init = !SigSpec(cell->getParam("\\INIT")).is_fully_undef();
+	bool cell_init = !SigSpec(cell->getParam(ID::INIT)).is_fully_undef();
 
 	dict<string, int> match_properties;
-	match_properties["words"]  = cell->getParam("\\SIZE").as_int();
-	match_properties["abits"]  = cell->getParam("\\ABITS").as_int();
-	match_properties["dbits"]  = cell->getParam("\\WIDTH").as_int();
-	match_properties["wports"] = cell->getParam("\\WR_PORTS").as_int();
-	match_properties["rports"] = cell->getParam("\\RD_PORTS").as_int();
+	match_properties["words"]  = cell->getParam(ID::SIZE).as_int();
+	match_properties["abits"]  = cell->getParam(ID::ABITS).as_int();
+	match_properties["dbits"]  = cell->getParam(ID::WIDTH).as_int();
+	match_properties["wports"] = cell->getParam(ID::WR_PORTS).as_int();
+	match_properties["rports"] = cell->getParam(ID::RD_PORTS).as_int();
 	match_properties["bits"]   = match_properties["words"] * match_properties["dbits"];
 	match_properties["ports"]  = match_properties["wports"] + match_properties["rports"];
 
@@ -1026,9 +1101,6 @@ void handle_cell(Cell *cell, const rules_t &rules)
 		{
 			auto &bram = rules.brams.at(match.name).at(vi);
 			bool or_next_if_better = match.or_next_if_better || vi+1 < GetSize(rules.brams.at(match.name));
-
-			if (failed_brams.count(pair<IdString, int>(bram.name, bram.variant)))
-				continue;
 
 			int avail_rd_ports = 0;
 			int avail_wr_ports = 0;
@@ -1065,6 +1137,9 @@ void handle_cell(Cell *cell, const rules_t &rules)
 			int efficiency = (100 * match_properties["bits"]) / (dups * cells * bram.dbits * (1 << bram.abits));
 			match_properties["efficiency"] = efficiency;
 
+			if (failed_brams.count(pair<IdString, int>(bram.name, bram.variant)))
+				goto next_match_rule;
+
 			log("    Metrics for %s: awaste=%d dwaste=%d bwaste=%d waste=%d efficiency=%d\n",
 					log_id(match.name), awaste, dwaste, bwaste, waste, efficiency);
 
@@ -1098,6 +1173,43 @@ void handle_cell(Cell *cell, const rules_t &rules)
 				log("    Rule #%d for bram type %s (variant %d) rejected: requirement 'max %s %d' not met.\n",
 						i+1, log_id(bram.name), bram.variant, it.first.c_str(), it.second);
 				goto next_match_rule;
+			}
+
+			for (const auto &sums : match.attributes) {
+				bool found = false;
+				for (const auto &term : sums) {
+					bool exists = std::get<0>(term);
+					IdString key = std::get<1>(term);
+					const Const &value = std::get<2>(term);
+					auto it = cell->attributes.find(key);
+					if (it == cell->attributes.end()) {
+						if (exists)
+							continue;
+						found = true;
+						break;
+					}
+					else if (!exists)
+						continue;
+					if (rules.map_case(it->second) != value)
+						continue;
+					found = true;
+					break;
+				}
+				if (!found) {
+					std::stringstream ss;
+					bool exists = std::get<0>(sums.front());
+					if (!exists)
+						ss << "!";
+					IdString key = std::get<1>(sums.front());
+					ss << log_id(key);
+					const Const &value = rules.map_case(std::get<2>(sums.front()));
+					if (exists && value != Const(1))
+						ss << "=\"" << value.decode_string() << "\"";
+
+					log("    Rule for bram type %s (variant %d) rejected: requirement 'attribute %s ...' not met.\n",
+							log_id(bram.name), bram.variant, ss.str().c_str());
+					goto next_match_rule;
+				}
 			}
 
 			log("    Rule #%d for bram type %s (variant %d) accepted.\n", i+1, log_id(bram.name), bram.variant);
@@ -1153,7 +1265,7 @@ void handle_cell(Cell *cell, const rules_t &rules)
 
 struct MemoryBramPass : public Pass {
 	MemoryBramPass() : Pass("memory_bram", "map memories to block rams") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1163,8 +1275,13 @@ struct MemoryBramPass : public Pass {
 		log("The given rules file describes the available resources and how they should be\n");
 		log("used.\n");
 		log("\n");
-		log("The rules file contains a set of block ram description and a sequence of match\n");
-		log("rules. A block ram description looks like this:\n");
+		log("The rules file contains configuration options, a set of block ram description\n");
+		log("and a sequence of match rules.\n");
+		log("\n");
+		log("The option 'attr_icase' configures how attribute values are matched. The value 0\n");
+		log("means case-sensitive, 1 means case-insensitive.\n");
+		log("\n");
+		log("A block ram description looks like this:\n");
 		log("\n");
 		log("    bram RAMB1024X32     # name of BRAM cell\n");
 		log("      init 1             # set to '1' if BRAM can be initialized\n");
@@ -1225,6 +1342,13 @@ struct MemoryBramPass : public Pass {
 		log("    dcells  .......  number of cells in 'data-direction'\n");
 		log("    cells  ........  total number of cells (acells*dcells*dups)\n");
 		log("\n");
+		log("A match containing the command 'attribute' followed by a list of space\n");
+		log("separated 'name[=string_value]' values requires that the memory contains any\n");
+		log("one of the given attribute name and string values (where specified), or name\n");
+		log("and integer 1 value (if no string_value given, since Verilog will interpret\n");
+		log("'(* attr *)' as '(* attr=1 *)').\n");
+		log("A name prefixed with '!' indicates that the attribute must not exist.\n");
+		log("\n");
 		log("The interface for the created bram instances is derived from the bram\n");
 		log("description. Use 'techmap' to convert the created bram instances into\n");
 		log("instances of the actual bram cells of your target architecture.\n");
@@ -1243,7 +1367,7 @@ struct MemoryBramPass : public Pass {
 		log("the data bits to accommodate the enable pattern of port A.\n");
 		log("\n");
 	}
-	void execute(vector<string> args, Design *design) YS_OVERRIDE
+	void execute(vector<string> args, Design *design) override
 	{
 		rules_t rules;
 
@@ -1261,7 +1385,7 @@ struct MemoryBramPass : public Pass {
 
 		for (auto mod : design->selected_modules())
 		for (auto cell : mod->selected_cells())
-			if (cell->type == "$mem")
+			if (cell->type == ID($mem))
 				handle_cell(cell, rules);
 	}
 } MemoryBramPass;

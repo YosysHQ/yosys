@@ -1,0 +1,6 @@
+logger -expect-no-warnings -nowarn "is implicitly declared."
+read_verilog << EOF
+module top(...);
+	assign b = w;
+endmodule
+EOF

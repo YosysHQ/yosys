@@ -1,0 +1,14 @@
+read_verilog <<EOT
+module top(input clk, inout [7:0] x);
+
+reg [3:0] ctr;
+always @(posedge clk) ctr <= ctr + 1'b1;
+
+assign x[7:4] = ctr;
+endmodule
+EOT
+proc
+tribuf
+deminout
+select -assert-count 1 i:x o:x %i
+

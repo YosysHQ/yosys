@@ -72,7 +72,7 @@ struct AlumaccWorker
 
 		RTLIL::SigSpec get_eq() {
 			if (GetSize(cached_eq) == 0)
-				cached_eq = alu_cell->module->ReduceAnd(NEW_ID, alu_cell->getPort(ID(X)), false, alu_cell->get_src_attribute());
+				cached_eq = alu_cell->module->ReduceAnd(NEW_ID, alu_cell->getPort(ID::X), false, alu_cell->get_src_attribute());
 			return cached_eq;
 		}
 
@@ -84,7 +84,7 @@ struct AlumaccWorker
 
 		RTLIL::SigSpec get_cf() {
 			if (GetSize(cached_cf) == 0) {
-				cached_cf = alu_cell->getPort(ID(CO));
+				cached_cf = alu_cell->getPort(ID::CO);
 				log_assert(GetSize(cached_cf) >= 1);
 				cached_cf = alu_cell->module->Not(NEW_ID, cached_cf[GetSize(cached_cf)-1], false, alu_cell->get_src_attribute());
 			}
@@ -93,7 +93,7 @@ struct AlumaccWorker
 
 		RTLIL::SigSpec get_of() {
 			if (GetSize(cached_of) == 0) {
-				cached_of = {alu_cell->getPort(ID(CO)), alu_cell->getPort(ID(CI))};
+				cached_of = {alu_cell->getPort(ID::CO), alu_cell->getPort(ID::CI)};
 				log_assert(GetSize(cached_of) >= 2);
 				cached_of = alu_cell->module->Xor(NEW_ID, cached_of[GetSize(cached_of)-1], cached_of[GetSize(cached_of)-2]);
 			}
@@ -154,7 +154,7 @@ struct AlumaccWorker
 			if (cell->type.in(ID($pos), ID($neg)))
 			{
 				new_port.in_a = sigmap(cell->getPort(ID::A));
-				new_port.is_signed = cell->getParam(ID(A_SIGNED)).as_bool();
+				new_port.is_signed = cell->getParam(ID::A_SIGNED).as_bool();
 				new_port.do_subtract = cell->type == ID($neg);
 				n->macc.ports.push_back(new_port);
 			}
@@ -162,12 +162,12 @@ struct AlumaccWorker
 			if (cell->type.in(ID($add), ID($sub)))
 			{
 				new_port.in_a = sigmap(cell->getPort(ID::A));
-				new_port.is_signed = cell->getParam(ID(A_SIGNED)).as_bool();
+				new_port.is_signed = cell->getParam(ID::A_SIGNED).as_bool();
 				new_port.do_subtract = false;
 				n->macc.ports.push_back(new_port);
 
 				new_port.in_a = sigmap(cell->getPort(ID::B));
-				new_port.is_signed = cell->getParam(ID(B_SIGNED)).as_bool();
+				new_port.is_signed = cell->getParam(ID::B_SIGNED).as_bool();
 				new_port.do_subtract = cell->type == ID($sub);
 				n->macc.ports.push_back(new_port);
 			}
@@ -176,7 +176,7 @@ struct AlumaccWorker
 			{
 				new_port.in_a = sigmap(cell->getPort(ID::A));
 				new_port.in_b = sigmap(cell->getPort(ID::B));
-				new_port.is_signed = cell->getParam(ID(A_SIGNED)).as_bool();
+				new_port.is_signed = cell->getParam(ID::A_SIGNED).as_bool();
 				new_port.do_subtract = false;
 				n->macc.ports.push_back(new_port);
 			}
@@ -399,7 +399,7 @@ struct AlumaccWorker
 
 			bool cmp_less = cell->type.in(ID($lt), ID($le));
 			bool cmp_equal = cell->type.in(ID($le), ID($ge));
-			bool is_signed = cell->getParam(ID(A_SIGNED)).as_bool();
+			bool is_signed = cell->getParam(ID::A_SIGNED).as_bool();
 
 			RTLIL::SigSpec A = sigmap(cell->getPort(ID::A));
 			RTLIL::SigSpec B = sigmap(cell->getPort(ID::B));
@@ -439,7 +439,7 @@ struct AlumaccWorker
 		for (auto cell : eq_cells)
 		{
 			bool cmp_equal = cell->type.in(ID($eq), ID($eqx));
-			bool is_signed = cell->getParam(ID(A_SIGNED)).as_bool();
+			bool is_signed = cell->getParam(ID::A_SIGNED).as_bool();
 
 			RTLIL::SigSpec A = sigmap(cell->getPort(ID::A));
 			RTLIL::SigSpec B = sigmap(cell->getPort(ID::B));
@@ -495,11 +495,11 @@ struct AlumaccWorker
 
 			n->alu_cell->setPort(ID::A, n->a);
 			n->alu_cell->setPort(ID::B, n->b);
-			n->alu_cell->setPort(ID(CI), GetSize(n->c) ? n->c : State::S0);
-			n->alu_cell->setPort(ID(BI), n->invert_b ? State::S1 : State::S0);
+			n->alu_cell->setPort(ID::CI, GetSize(n->c) ? n->c : State::S0);
+			n->alu_cell->setPort(ID::BI, n->invert_b ? State::S1 : State::S0);
 			n->alu_cell->setPort(ID::Y, n->y);
-			n->alu_cell->setPort(ID(X), module->addWire(NEW_ID, GetSize(n->y)));
-			n->alu_cell->setPort(ID(CO), module->addWire(NEW_ID, GetSize(n->y)));
+			n->alu_cell->setPort(ID::X, module->addWire(NEW_ID, GetSize(n->y)));
+			n->alu_cell->setPort(ID::CO, module->addWire(NEW_ID, GetSize(n->y)));
 			n->alu_cell->fixup_parameters(n->is_signed, n->is_signed);
 
 			for (auto &it : n->cmp)
@@ -550,7 +550,7 @@ struct AlumaccWorker
 
 struct AlumaccPass : public Pass {
 	AlumaccPass() : Pass("alumacc", "extract ALU and MACC cells") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -560,7 +560,7 @@ struct AlumaccPass : public Pass {
 		log("and $macc cells.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing ALUMACC pass (create $alu and $macc cells).\n");
 

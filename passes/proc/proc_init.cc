@@ -54,7 +54,7 @@ void proc_init(RTLIL::Module *mod, SigMap &sigmap, RTLIL::Process *proc)
 							log_cmd_error("Non-const initialization value: %s = %s\n", log_signal(lhs_c), log_signal(valuesig));
 
 						Const value = valuesig.as_const();
-						Const &wireinit = lhs_c.wire->attributes["\\init"];
+						Const &wireinit = lhs_c.wire->attributes[ID::init];
 
 						while (GetSize(wireinit.bits) < lhs_c.wire->width)
 							wireinit.bits.push_back(State::Sx);
@@ -86,7 +86,7 @@ void proc_init(RTLIL::Module *mod, SigMap &sigmap, RTLIL::Process *proc)
 
 struct ProcInitPass : public Pass {
 	ProcInitPass() : Pass("proc_init", "convert initial block to init attributes") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -97,7 +97,7 @@ struct ProcInitPass : public Pass {
 		log("respective wire.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing PROC_INIT pass (extract init attributes).\n");
 

@@ -1,0 +1,19 @@
+bram $__XILINX_RAM16X1D
+  init 1
+  abits 4
+  dbits 1
+  groups 2
+  ports  1 1
+  wrmode 0 1
+  enable 0 1
+  transp 0 0
+  clocks 0 1
+  clkpol 0 2
+endbram
+
+
+match $__XILINX_RAM16X1D
+  min bits 2
+  min wports 1
+  make_outreg
+endmatch

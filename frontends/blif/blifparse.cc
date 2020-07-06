@@ -176,7 +176,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 
 			if (!strcmp(cmd, ".blackbox"))
 			{
-				module->attributes["\\blackbox"] = RTLIL::Const(1);
+				module->attributes[ID::blackbox] = RTLIL::Const(1);
 				continue;
 			}
 
@@ -215,17 +215,17 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 					vector<Cell*> remove_cells;
 
 					for (auto cell : module->cells())
-						if (cell->type == "$lut" && cell->getParam("\\LUT") == buffer_lut) {
-							module->connect(cell->getPort("\\Y"), cell->getPort("\\A"));
+						if (cell->type == ID($lut) && cell->getParam(ID::LUT) == buffer_lut) {
+							module->connect(cell->getPort(ID::Y), cell->getPort(ID::A));
 							remove_cells.push_back(cell);
 						}
 
 					for (auto cell : remove_cells)
 						module->remove(cell);
 
-					Wire *true_wire = module->wire("$true");
-					Wire *false_wire = module->wire("$false");
-					Wire *undef_wire = module->wire("$undef");
+					Wire *true_wire = module->wire(ID($true));
+					Wire *false_wire = module->wire(ID($false));
+					Wire *undef_wire = module->wire(ID($undef));
 
 					if (true_wire != nullptr)
 						module->rename(true_wire, stringf("$true$%d", ++blif_maxnum));
@@ -337,7 +337,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 				}
 
 				if (init != nullptr && (init[0] == '0' || init[0] == '1'))
-					blif_wire(q)->attributes["\\init"] = Const(init[0] == '1' ? 1 : 0, 1);
+					blif_wire(q)->attributes[ID::init] = Const(init[0] == '1' ? 1 : 0, 1);
 
 				if (clock == nullptr)
 					goto no_latch_clock;
@@ -356,8 +356,8 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 						cell = module->addFf(NEW_ID, blif_wire(d), blif_wire(q));
 					} else {
 						cell = module->addCell(NEW_ID, dff_name);
-						cell->setPort("\\D", blif_wire(d));
-						cell->setPort("\\Q", blif_wire(q));
+						cell->setPort(ID::D, blif_wire(d));
+						cell->setPort(ID::Q, blif_wire(q));
 					}
 				}
 
@@ -476,7 +476,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 				finished_parsing_constval:
 					if (state == RTLIL::State::Sa)
 						state = RTLIL::State::S0;
-					if (output_sig.as_wire()->name == "$undef")
+					if (output_sig.as_wire()->name == ID($undef))
 						state = RTLIL::State::Sx;
 					module->connect(RTLIL::SigSig(output_sig, state));
 					goto continue_without_read;
@@ -484,23 +484,23 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 
 				if (sop_mode)
 				{
-					sopcell = module->addCell(NEW_ID, "$sop");
-					sopcell->parameters["\\WIDTH"] = RTLIL::Const(input_sig.size());
-					sopcell->parameters["\\DEPTH"] = 0;
-					sopcell->parameters["\\TABLE"] = RTLIL::Const();
-					sopcell->setPort("\\A", input_sig);
-					sopcell->setPort("\\Y", output_sig);
+					sopcell = module->addCell(NEW_ID, ID($sop));
+					sopcell->parameters[ID::WIDTH] = RTLIL::Const(input_sig.size());
+					sopcell->parameters[ID::DEPTH] = 0;
+					sopcell->parameters[ID::TABLE] = RTLIL::Const();
+					sopcell->setPort(ID::A, input_sig);
+					sopcell->setPort(ID::Y, output_sig);
 					sopmode = -1;
 					lastcell = sopcell;
 				}
 				else
 				{
-					RTLIL::Cell *cell = module->addCell(NEW_ID, "$lut");
-					cell->parameters["\\WIDTH"] = RTLIL::Const(input_sig.size());
-					cell->parameters["\\LUT"] = RTLIL::Const(RTLIL::State::Sx, 1 << input_sig.size());
-					cell->setPort("\\A", input_sig);
-					cell->setPort("\\Y", output_sig);
-					lutptr = &cell->parameters.at("\\LUT");
+					RTLIL::Cell *cell = module->addCell(NEW_ID, ID($lut));
+					cell->parameters[ID::WIDTH] = RTLIL::Const(input_sig.size());
+					cell->parameters[ID::LUT] = RTLIL::Const(RTLIL::State::Sx, 1 << input_sig.size());
+					cell->setPort(ID::A, input_sig);
+					cell->setPort(ID::Y, output_sig);
+					lutptr = &cell->parameters.at(ID::LUT);
 					lut_default_state = RTLIL::State::Sx;
 					lastcell = cell;
 				}
@@ -523,32 +523,32 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 
 		if (sopcell)
 		{
-			log_assert(sopcell->parameters["\\WIDTH"].as_int() == input_len);
-			sopcell->parameters["\\DEPTH"] = sopcell->parameters["\\DEPTH"].as_int() + 1;
+			log_assert(sopcell->parameters[ID::WIDTH].as_int() == input_len);
+			sopcell->parameters[ID::DEPTH] = sopcell->parameters[ID::DEPTH].as_int() + 1;
 
 			for (int i = 0; i < input_len; i++)
 				switch (input[i]) {
 					case '0':
-						sopcell->parameters["\\TABLE"].bits.push_back(State::S1);
-						sopcell->parameters["\\TABLE"].bits.push_back(State::S0);
+						sopcell->parameters[ID::TABLE].bits.push_back(State::S1);
+						sopcell->parameters[ID::TABLE].bits.push_back(State::S0);
 						break;
 					case '1':
-						sopcell->parameters["\\TABLE"].bits.push_back(State::S0);
-						sopcell->parameters["\\TABLE"].bits.push_back(State::S1);
+						sopcell->parameters[ID::TABLE].bits.push_back(State::S0);
+						sopcell->parameters[ID::TABLE].bits.push_back(State::S1);
 						break;
 					default:
-						sopcell->parameters["\\TABLE"].bits.push_back(State::S0);
-						sopcell->parameters["\\TABLE"].bits.push_back(State::S0);
+						sopcell->parameters[ID::TABLE].bits.push_back(State::S0);
+						sopcell->parameters[ID::TABLE].bits.push_back(State::S0);
 						break;
 				}
 
 			if (sopmode == -1) {
 				sopmode = (*output == '1');
 				if (!sopmode) {
-					SigSpec outnet = sopcell->getPort("\\Y");
+					SigSpec outnet = sopcell->getPort(ID::Y);
 					SigSpec tempnet = module->addWire(NEW_ID);
 					module->addNotGate(NEW_ID, tempnet, outnet);
-					sopcell->setPort("\\Y", tempnet);
+					sopcell->setPort(ID::Y, tempnet);
 				}
 			} else
 				log_assert(sopmode == (*output == '1'));
@@ -586,7 +586,7 @@ error_with_reason:
 
 struct BlifFrontend : public Frontend {
 	BlifFrontend() : Frontend("blif", "read BLIF file") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -602,7 +602,7 @@ struct BlifFrontend : public Frontend {
 		log("        multi-bit port 'name'.\n");
 		log("\n");
 	}
-	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool sop_mode = false;
 		bool wideports = false;

@@ -1,0 +1,10 @@
+read_verilog <<EOT
+module top(input i, output o);
+assign o = i;
+endmodule
+EOT
+select -set foo w:*
+select -assert-any @foo
+select -unset foo
+logger -expect error "Selection '\\foo' does not exist!" 1
+select -unset foo

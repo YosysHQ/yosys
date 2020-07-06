@@ -27,7 +27,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct FsmPass : public Pass {
 	FsmPass() : Pass("fsm", "extract and optimize finite state machines") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -68,7 +68,7 @@ struct FsmPass : public Pass {
 		log("        passed through to fsm_recode pass\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool flag_nomap = false;
 		bool flag_norecode = false;

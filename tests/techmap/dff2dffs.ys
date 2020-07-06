@@ -31,20 +31,20 @@ design -save ref
 dff2dffs
 clean
 
-select -assert-count 1 w:q0 %x t:$__DFFS_PP0_ %i
-select -assert-count 1 w:q1 %x t:$__DFFS_PP1_ %i
-select -assert-count 1 w:q2 %x t:$__DFFS_PP0_ %i
-select -assert-count 1 w:q3 %x t:$__DFFS_PP1_ %i
-select -assert-count 1 w:q4 %x t:$__DFFS_PP0_ %i
-select -assert-count 1 w:q5 %x t:$__DFFS_PP1_ %i
+select -assert-count 1 w:q0 %x t:$_SDFF_PP0_ %i
+select -assert-count 1 w:q1 %x t:$_SDFF_PP1_ %i
+select -assert-count 1 w:q2 %x t:$_SDFF_PP0_ %i
+select -assert-count 1 w:q3 %x t:$_SDFF_PP1_ %i
+select -assert-count 1 w:q4 %x t:$_SDFF_PP0_ %i
+select -assert-count 1 w:q5 %x t:$_SDFF_PP1_ %i
 
 design -load ref
 dff2dffs -match-init
 clean
 
-select -assert-count 1 w:q0 %x t:$__DFFS_PP0_ %i
-select -assert-count 0 w:q1 %x t:$__DFFS_PP1_ %i
-select -assert-count 0 w:q2 %x t:$__DFFS_PP0_ %i
-select -assert-count 1 w:q3 %x t:$__DFFS_PP1_ %i
-select -assert-count 1 w:q4 %x t:$__DFFS_PP0_ %i
-select -assert-count 1 w:q5 %x t:$__DFFS_PP1_ %i
+select -assert-count 1 w:q0 %x t:$_SDFF_PP0_ %i
+select -assert-count 0 w:q1 %x t:$_SDFF_PP1_ %i
+select -assert-count 0 w:q2 %x t:$_SDFF_PP0_ %i
+select -assert-count 1 w:q3 %x t:$_SDFF_PP1_ %i
+select -assert-count 1 w:q4 %x t:$_SDFF_PP0_ %i
+select -assert-count 1 w:q5 %x t:$_SDFF_PP1_ %i

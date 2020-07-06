@@ -1,7 +1,7 @@
 // This file describes the second of three pattern matcher setups that
 //   forms the `xilinx_dsp` pass described in xilinx_dsp.cc
 // At a high level, it works as follows:
-//   (1) Starting from a DSP48E1 cell that (a) doesn't have a CREG already,
+//   (1) Starting from a DSP48* cell that (a) doesn't have a CREG already,
 //       and (b) uses the 'C' port
 //   (2) Match the driver of the 'C' input to a possible $dff cell (CREG)
 //       (attached to at most two $mux cells that implement clock-enable or
@@ -38,11 +38,11 @@ udata <SigBit> dffclock
 udata <Cell*> dff dffcemux dffrstmux
 udata <bool> dffcepol dffrstpol
 
-// (1) Starting from a DSP48E1 cell that (a) doesn't have a CREG already,
+// (1) Starting from a DSP48* cell that (a) doesn't have a CREG already,
 //     and (b) uses the 'C' port
 match dsp
-	select dsp->type.in(\DSP48E1)
-	select param(dsp, \CREG, 1).as_int() == 0
+	select dsp->type.in(\DSP48A, \DSP48A1, \DSP48E1)
+	select param(dsp, \CREG).as_int() == 0
 	select nusers(port(dsp, \C, SigSpec())) > 1
 endmatch
 
@@ -60,7 +60,8 @@ code sigC sigP clock
 	sigC = unextend(port(dsp, \C, SigSpec()));
 
 	SigSpec P = port(dsp, \P);
-	if (param(dsp, \USE_MULT, Const("MULTIPLY")).decode_string() == "MULTIPLY") {
+	if (!dsp->type.in(\DSP48E1) ||
+            param(dsp, \USE_MULT).decode_string() == "MULTIPLY") {
 		// Only care about those bits that are used
 		int i;
 		for (i = GetSize(P)-1; i >= 0; i--)

@@ -36,6 +36,11 @@ struct Pass
 
 	int call_counter;
 	int64_t runtime_ns;
+	bool experimental_flag = false;
+
+	void experimental() {
+		experimental_flag = true;
+	}
 
 	struct pre_post_exec_state_t {
 		Pass *parent_pass;
@@ -62,6 +67,9 @@ struct Pass
 	virtual void run_register();
 	static void init_register();
 	static void done_register();
+
+	virtual void on_register();
+	virtual void on_shutdown();
 };
 
 struct ScriptPass : Pass
@@ -76,6 +84,7 @@ struct ScriptPass : Pass
 
 	bool check_label(std::string label, std::string info = std::string());
 	void run(std::string command, std::string info = std::string());
+	void run_nocheck(std::string command, std::string info = std::string());
 	void run_script(RTLIL::Design *design, std::string run_from = std::string(), std::string run_to = std::string());
 	void help_script();
 };
@@ -88,9 +97,9 @@ struct Frontend : Pass
 
 	std::string frontend_name;
 	Frontend(std::string name, std::string short_help = "** document me **");
-	void run_register() YS_OVERRIDE;
-	~Frontend() YS_OVERRIDE;
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE YS_FINAL;
+	void run_register() override;
+	~Frontend() override;
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override final;
 	virtual void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) = 0;
 
 	static std::vector<std::string> next_args;
@@ -104,9 +113,9 @@ struct Backend : Pass
 {
 	std::string backend_name;
 	Backend(std::string name, std::string short_help = "** document me **");
-	void run_register() YS_OVERRIDE;
-	~Backend() YS_OVERRIDE;
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE YS_FINAL;
+	void run_register() override;
+	~Backend() override;
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override final;
 	virtual void execute(std::ostream *&f, std::string filename,  std::vector<std::string> args, RTLIL::Design *design) = 0;
 
 	void extra_args(std::ostream *&f, std::string &filename, std::vector<std::string> args, size_t argidx, bool bin_output = false);
@@ -116,7 +125,7 @@ struct Backend : Pass
 };
 
 // implemented in passes/cmds/select.cc
-extern void handle_extra_select_args(Pass *pass, std::vector<std::string> args, size_t argidx, size_t args_size, RTLIL::Design *design);
+extern void handle_extra_select_args(Pass *pass, const std::vector<std::string> &args, size_t argidx, size_t args_size, RTLIL::Design *design);
 extern RTLIL::Selection eval_select_args(const vector<string> &args, RTLIL::Design *design);
 extern void eval_select_op(vector<RTLIL::Selection> &work, const string &op, RTLIL::Design *design);
 

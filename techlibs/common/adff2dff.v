@@ -6,8 +6,11 @@ module adff2dff (CLK, ARST, D, Q);
 	parameter ARST_VALUE = 0;
 
 	input CLK, ARST;
+	(* force_downto *)
 	input [WIDTH-1:0] D;
+	(* force_downto *)
 	output reg [WIDTH-1:0] Q;
+	(* force_downto *)
 	wire reg [WIDTH-1:0] NEXT_Q;
 
 	wire [1023:0] _TECHMAP_DO_ = "proc;;";

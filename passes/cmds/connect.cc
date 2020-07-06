@@ -32,9 +32,9 @@ static void unset_drivers(RTLIL::Design *design, RTLIL::Module *module, SigMap &
 
 	RTLIL::Wire *dummy_wire = module->addWire(NEW_ID, sig.size());
 
-	for (auto &it : module->cells_)
-	for (auto &port : it.second->connections_)
-		if (ct.cell_output(it.second->type, port.first))
+	for (auto cell : module->cells())
+	for (auto &port : cell->connections_)
+		if (ct.cell_output(cell->type, port.first))
 			sigmap(port.second).replace(sig, dummy_wire, &port.second);
 
 	for (auto &conn : module->connections_)
@@ -43,7 +43,7 @@ static void unset_drivers(RTLIL::Design *design, RTLIL::Module *module, SigMap &
 
 struct ConnectPass : public Pass {
 	ConnectPass() : Pass("connect", "create or remove connections") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -75,17 +75,15 @@ struct ConnectPass : public Pass {
 		log("This command does not operate on module with processes.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		RTLIL::Module *module = NULL;
-		for (auto &it : design->modules_) {
-			if (!design->selected(it.second))
-				continue;
-			if (module != NULL)
-				log_cmd_error("Multiple modules selected: %s, %s\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(it.first));
-			module = it.second;
+		RTLIL::Module *module = nullptr;
+		for (auto mod : design->selected_modules()) {
+			if (module != nullptr)
+				log_cmd_error("Multiple modules selected: %s, %s\n", log_id(module->name), log_id(mod->name));
+			module = mod;
 		}
-		if (module == NULL)
+		if (module == nullptr)
 			log_cmd_error("No modules selected.\n");
 		if (!module->processes.empty())
 			log_cmd_error("Found processes in selected module.\n");
@@ -130,7 +128,7 @@ struct ConnectPass : public Pass {
 				std::vector<RTLIL::SigBit> lhs = it.first.to_sigbit_vector();
 				std::vector<RTLIL::SigBit> rhs = it.first.to_sigbit_vector();
 				for (size_t i = 0; i < lhs.size(); i++)
-					if (rhs[i].wire != NULL)
+					if (rhs[i].wire != nullptr)
 						sigmap.add(lhs[i], rhs[i]);
 			}
 
@@ -172,14 +170,14 @@ struct ConnectPass : public Pass {
 			if (flag_nounset)
 				log_cmd_error("Can't use -port together with -nounset.\n");
 
-			if (module->cells_.count(RTLIL::escape_id(port_cell)) == 0)
+			if (module->cell(RTLIL::escape_id(port_cell)) == nullptr)
 				log_cmd_error("Can't find cell %s.\n", port_cell.c_str());
 
 			RTLIL::SigSpec sig;
 			if (!RTLIL::SigSpec::parse_sel(sig, design, module, port_expr))
 				log_cmd_error("Failed to parse port expression `%s'.\n", port_expr.c_str());
 
-			module->cells_.at(RTLIL::escape_id(port_cell))->setPort(RTLIL::escape_id(port_port), sigmap(sig));
+			module->cell(RTLIL::escape_id(port_cell))->setPort(RTLIL::escape_id(port_port), sigmap(sig));
 		}
 		else
 			log_cmd_error("Expected -set, -unset, or -port.\n");

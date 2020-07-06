@@ -1,0 +1,13 @@
+read_verilog <<EOT
+
+module top(input clk, output reg [1:0] q);
+	wire [1:0] x = 2'b10;
+	always @(posedge clk)
+		q <= x & 2'b11;
+endmodule
+EOT
+
+proc
+sim -clock clk -n 1 -w top
+select -assert-count 1 a:init=2'b10 top/q %i
+

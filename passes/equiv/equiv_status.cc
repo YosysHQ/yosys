@@ -24,7 +24,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct EquivStatusPass : public Pass {
 	EquivStatusPass() : Pass("equiv_status", "print status of equivalent checking module") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -36,7 +36,7 @@ struct EquivStatusPass : public Pass {
 		log("        produce an error if any unproven $equiv cell is found\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, Design *design) override
 	{
 		bool assert_mode = false;
 		int unproven_count = 0;
@@ -59,8 +59,8 @@ struct EquivStatusPass : public Pass {
 			int proven_equiv_cells = 0;
 
 			for (auto cell : module->selected_cells())
-				if (cell->type == "$equiv") {
-					if (cell->getPort("\\A") != cell->getPort("\\B"))
+				if (cell->type == ID($equiv)) {
+					if (cell->getPort(ID::A) != cell->getPort(ID::B))
 						unproven_equiv_cells.push_back(cell);
 					else
 						proven_equiv_cells++;
@@ -77,7 +77,7 @@ struct EquivStatusPass : public Pass {
 				log("  Equivalence successfully proven!\n");
 			} else {
 				for (auto cell : unproven_equiv_cells)
-					log("  Unproven $equiv %s: %s %s\n", log_id(cell), log_signal(cell->getPort("\\A")), log_signal(cell->getPort("\\B")));
+					log("  Unproven $equiv %s: %s %s\n", log_id(cell), log_signal(cell->getPort(ID::A)), log_signal(cell->getPort(ID::B)));
 			}
 
 			unproven_count += GetSize(unproven_equiv_cells);

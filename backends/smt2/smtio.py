@@ -39,7 +39,7 @@ if os.name == "posix":
         smtio_stacksize = 128 * 1024 * 1024
         if os.uname().sysname == "Darwin":
             # MacOS has rather conservative stack limits
-            smtio_stacksize = 16 * 1024 * 1024
+            smtio_stacksize = 8 * 1024 * 1024
         if current_rlimit_stack[1] != resource.RLIM_INFINITY:
             smtio_stacksize = min(smtio_stacksize, current_rlimit_stack[1])
         if current_rlimit_stack[0] < smtio_stacksize:
@@ -101,6 +101,8 @@ class SmtModInfo:
         self.cells = dict()
         self.asserts = dict()
         self.covers = dict()
+        self.maximize = set()
+        self.minimize = set()
         self.anyconsts = dict()
         self.anyseqs = dict()
         self.allconsts = dict()
@@ -119,6 +121,7 @@ class SmtIo:
         self.logic_bv = True
         self.logic_dt = False
         self.forall = False
+        self.timeout = 0
         self.produce_models = True
         self.smt2cache = [list()]
         self.p = None
@@ -133,6 +136,7 @@ class SmtIo:
             self.debug_file = opts.debug_file
             self.dummy_file = opts.dummy_file
             self.timeinfo = opts.timeinfo
+            self.timeout = opts.timeout
             self.unroll = opts.unroll
             self.noincr = opts.noincr
             self.info_stmts = opts.info_stmts
@@ -145,6 +149,7 @@ class SmtIo:
             self.debug_file = None
             self.dummy_file = None
             self.timeinfo = os.name != "nt"
+            self.timeout = 0
             self.unroll = False
             self.noincr = False
             self.info_stmts = list()
@@ -170,22 +175,32 @@ class SmtIo:
             self.unroll = False
 
         if self.solver == "yices":
-            if self.noincr:
+            if self.noincr or self.forall:
                 self.popen_vargs = ['yices-smt2'] + self.solver_opts
             else:
                 self.popen_vargs = ['yices-smt2', '--incremental'] + self.solver_opts
+            if self.timeout != 0:
+                self.popen_vargs.append('-t')
+                self.popen_vargs.append('%d' % self.timeout);
 
         if self.solver == "z3":
             self.popen_vargs = ['z3', '-smt2', '-in'] + self.solver_opts
+            if self.timeout != 0:
+                self.popen_vargs.append('-T:%d' % self.timeout);
 
         if self.solver == "cvc4":
             if self.noincr:
                 self.popen_vargs = ['cvc4', '--lang', 'smt2.6' if self.logic_dt else 'smt2'] + self.solver_opts
             else:
                 self.popen_vargs = ['cvc4', '--incremental', '--lang', 'smt2.6' if self.logic_dt else 'smt2'] + self.solver_opts
+            if self.timeout != 0:
+                self.popen_vargs.append('--tlimit=%d000' % self.timeout);
 
         if self.solver == "mathsat":
             self.popen_vargs = ['mathsat'] + self.solver_opts
+            if self.timeout != 0:
+                print('timeout option is not supported for mathsat.')
+                sys.exit(1)
 
         if self.solver == "boolector":
             if self.noincr:
@@ -193,6 +208,9 @@ class SmtIo:
             else:
                 self.popen_vargs = ['boolector', '--smt2', '-i'] + self.solver_opts
             self.unroll = True
+            if self.timeout != 0:
+                print('timeout option is not supported for boolector.')
+                sys.exit(1)
 
         if self.solver == "abc":
             if len(self.solver_opts) > 0:
@@ -202,6 +220,9 @@ class SmtIo:
             self.logic_ax = False
             self.unroll = True
             self.noincr = True
+            if self.timeout != 0:
+                print('timeout option is not supported for abc.')
+                sys.exit(1)
 
         if self.solver == "dummy":
             assert self.dummy_file is not None
@@ -230,11 +251,15 @@ class SmtIo:
             if self.logic_uf: self.logic += "UF"
             if self.logic_bv: self.logic += "BV"
             if self.logic_dt: self.logic = "ALL"
+            if self.solver == "yices" and self.forall: self.logic = "BV"
 
         self.setup_done = True
 
         for stmt in self.info_stmts:
             self.write(stmt)
+
+        if self.forall and self.solver == "yices":
+            self.write("(set-option :yices-ef-max-iters 1000000000)")
 
         if self.produce_models:
             self.write("(set-option :produce-models true)")
@@ -304,7 +329,11 @@ class SmtIo:
 
     def p_open(self):
         assert self.p is None
-        self.p = subprocess.Popen(self.popen_vargs, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        try:
+            self.p = subprocess.Popen(self.popen_vargs, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        except FileNotFoundError:
+            print("%s SMT Solver '%s' not found in path." % (self.timestamp(), self.popen_vargs[0]), flush=True)
+            sys.exit(1)
         running_solvers[self.p_index] = self.p
         self.p_running = True
         self.p_next = None
@@ -497,6 +526,12 @@ class SmtIo:
 
         if fields[1] == "yosys-smt2-cover":
             self.modinfo[self.curmod].covers["%s_c %s" % (self.curmod, fields[2])] = fields[3]
+
+        if fields[1] == "yosys-smt2-maximize":
+            self.modinfo[self.curmod].maximize.add(fields[2])
+
+        if fields[1] == "yosys-smt2-minimize":
+            self.modinfo[self.curmod].minimize.add(fields[2])
 
         if fields[1] == "yosys-smt2-anyconst":
             self.modinfo[self.curmod].anyconsts[fields[2]] = (fields[4], None if len(fields) <= 5 else fields[5])
@@ -692,14 +727,20 @@ class SmtIo:
                     if msg is not None:
                         print("%s waiting for solver (%s)" % (self.timestamp(), msg), flush=True)
 
-        result = self.read()
+        if self.forall:
+            result = self.read()
+            while result not in ["sat", "unsat", "unknown", "timeout", "interrupted", ""]:
+                print("%s %s: %s" % (self.timestamp(), self.solver, result))
+                result = self.read()
+        else:
+            result = self.read()
 
         if self.debug_file:
             print("(set-info :status %s)" % result, file=self.debug_file)
             print("(check-sat)", file=self.debug_file)
             self.debug_file.flush()
 
-        if result not in ["sat", "unsat"]:
+        if result not in ["sat", "unsat", "unknown", "timeout", "interrupted"]:
             if result == "":
                 print("%s Unexpected EOF response from solver." % (self.timestamp()), flush=True)
             else:
@@ -909,7 +950,7 @@ class SmtIo:
 class SmtOpts:
     def __init__(self):
         self.shortopts = "s:S:v"
-        self.longopts = ["unroll", "noincr", "noprogress", "dump-smt2=", "logic=", "dummy=", "info=", "nocomments"]
+        self.longopts = ["unroll", "noincr", "noprogress", "timeout=", "dump-smt2=", "logic=", "dummy=", "info=", "nocomments"]
         self.solver = "yices"
         self.solver_opts = list()
         self.debug_print = False
@@ -918,6 +959,7 @@ class SmtOpts:
         self.unroll = False
         self.noincr = False
         self.timeinfo = os.name != "nt"
+        self.timeout = 0
         self.logic = None
         self.info_stmts = list()
         self.nocomments = False
@@ -927,6 +969,8 @@ class SmtOpts:
             self.solver = a
         elif o == "-S":
             self.solver_opts.append(a)
+        elif o == "--timeout":
+            self.timeout = int(a)
         elif o == "-v":
             self.debug_print = True
         elif o == "--unroll":
@@ -957,6 +1001,9 @@ class SmtOpts:
 
     -S <opt>
         pass <opt> as command line argument to the solver
+
+    --timeout <value>
+        set the solver timeout to the specified value (in seconds).
 
     --logic <smt2_logic>
         use the specified SMT2 logic (e.g. QF_AUFBV)

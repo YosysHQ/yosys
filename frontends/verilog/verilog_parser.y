@@ -38,7 +38,10 @@
 #include <stack>
 #include <string.h>
 #include "frontends/verilog/verilog_frontend.h"
+#include "frontends/verilog/verilog_parser.tab.hh"
 #include "kernel/log.h"
+
+#define YYLEX_PARAM &yylval, &yylloc
 
 USING_YOSYS_NAMESPACE
 using namespace AST;
@@ -47,10 +50,12 @@ using namespace VERILOG_FRONTEND;
 YOSYS_NAMESPACE_BEGIN
 namespace VERILOG_FRONTEND {
 	int port_counter;
-	std::map<std::string, int> port_stubs;
-	std::map<std::string, AstNode*> *attr_list, default_attr_list;
-	std::stack<std::map<std::string, AstNode*> *> attr_list_stack;
-	std::map<std::string, AstNode*> *albuf;
+	dict<std::string, int> port_stubs;
+	dict<IdString, AstNode*> *attr_list, default_attr_list;
+	std::stack<dict<IdString, AstNode*> *> attr_list_stack;
+	dict<IdString, AstNode*> *albuf;
+	std::vector<UserTypeMap*> user_type_stack;
+	dict<std::string, AstNode*> pkg_user_types;
 	std::vector<AstNode*> ast_stack;
 	struct AstNode *astbuf1, *astbuf2, *astbuf3;
 	struct AstNode *current_function_or_task;
@@ -68,7 +73,21 @@ namespace VERILOG_FRONTEND {
 }
 YOSYS_NAMESPACE_END
 
-static void append_attr(AstNode *ast, std::map<std::string, AstNode*> *al)
+#define SET_AST_NODE_LOC(WHICH, BEGIN, END) \
+    do { (WHICH)->location.first_line = (BEGIN).first_line; \
+    (WHICH)->location.first_column = (BEGIN).first_column; \
+    (WHICH)->location.last_line = (END).last_line; \
+    (WHICH)->location.last_column = (END).last_column; } while(0)
+
+#define SET_RULE_LOC(LHS, BEGIN, END) \
+    do { (LHS).first_line = (BEGIN).first_line; \
+    (LHS).first_column = (BEGIN).first_column; \
+    (LHS).last_line = (END).last_line; \
+    (LHS).last_column = (END).last_column; } while(0)
+
+int frontend_verilog_yylex(YYSTYPE *yylval_param, YYLTYPE *yyloc_param);
+
+static void append_attr(AstNode *ast, dict<IdString, AstNode*> *al)
 {
 	for (auto &it : *al) {
 		if (ast->attributes.count(it.first) > 0)
@@ -78,7 +97,7 @@ static void append_attr(AstNode *ast, std::map<std::string, AstNode*> *al)
 	delete al;
 }
 
-static void append_attr_clone(AstNode *ast, std::map<std::string, AstNode*> *al)
+static void append_attr_clone(AstNode *ast, dict<IdString, AstNode*> *al)
 {
 	for (auto &it : *al) {
 		if (ast->attributes.count(it.first) > 0)
@@ -87,7 +106,7 @@ static void append_attr_clone(AstNode *ast, std::map<std::string, AstNode*> *al)
 	}
 }
 
-static void free_attr(std::map<std::string, AstNode*> *al)
+static void free_attr(dict<IdString, AstNode*> *al)
 {
 	for (auto &it : *al)
 		delete it.second;
@@ -108,9 +127,104 @@ struct specify_rise_fall {
 	specify_triple fall;
 };
 
+static void addTypedefNode(std::string *name, AstNode *node)
+{
+	log_assert(node);
+	auto *tnode = new AstNode(AST_TYPEDEF, node);
+	tnode->str = *name;
+	auto user_types = user_type_stack.back();
+	(*user_types)[*name] = tnode;
+	if (current_ast_mod && current_ast_mod->type == AST_PACKAGE) {
+		// typedef inside a package so we need the qualified name
+		auto qname = current_ast_mod->str + "::" + (*name).substr(1);
+		pkg_user_types[qname] = tnode;
+	}
+	delete name;
+	ast_stack.back()->children.push_back(tnode);
+}
+
+static void enterTypeScope()
+{
+	auto user_types = new UserTypeMap();
+	user_type_stack.push_back(user_types);
+}
+
+static void exitTypeScope()
+{
+	user_type_stack.pop_back();
+}
+
+static bool isInLocalScope(const std::string *name)
+{
+	// tests if a name was declared in the current block scope
+	auto user_types = user_type_stack.back();
+	return (user_types->count(*name) > 0);
+}
+
+static AstNode *getTypeDefinitionNode(std::string type_name)
+{
+	// return the definition nodes from the typedef statement
+	auto user_types = user_type_stack.back();
+	log_assert(user_types->count(type_name) > 0);
+	auto typedef_node = (*user_types)[type_name];
+	log_assert(typedef_node->type == AST_TYPEDEF);
+	return typedef_node->children[0];
+}
+
+static AstNode *copyTypeDefinition(std::string type_name)
+{
+	// return a copy of the template from a typedef definition
+	auto typedef_node = getTypeDefinitionNode(type_name);
+	return typedef_node->clone();
+}
+
+static AstNode *makeRange(int msb = 31, int lsb = 0, bool isSigned = true)
+{
+	auto range = new AstNode(AST_RANGE);
+	range->children.push_back(AstNode::mkconst_int(msb, true));
+	range->children.push_back(AstNode::mkconst_int(lsb, true));
+	range->is_signed = isSigned;
+	return range;
+}
+
+static void addRange(AstNode *parent, int msb = 31, int lsb = 0, bool isSigned = true)
+{
+	auto range = makeRange(msb, lsb, isSigned);
+	parent->children.push_back(range);
+}
+
+static AstNode *checkRange(AstNode *type_node, AstNode *range_node)
+{
+	if (type_node->range_left >= 0 && type_node->range_right >= 0) {
+		// type already restricts the range
+		if (range_node) {
+			frontend_verilog_yyerror("integer/genvar types cannot have packed dimensions.");
+		}
+		else {
+			range_node = makeRange(type_node->range_left, type_node->range_right, false);
+		}
+	}
+	if (range_node && range_node->children.size() != 2) {
+		frontend_verilog_yyerror("wire/reg/logic packed dimension must be of the form: [<expr>:<expr>], [<expr>+:<expr>], or [<expr>-:<expr>]");
+	}
+	return range_node;
+}
+
+static void rewriteAsMemoryNode(AstNode *node, AstNode *rangeNode)
+{
+	node->type = AST_MEMORY;
+	if (rangeNode->type == AST_RANGE && rangeNode->children.size() == 1) {
+		// SV array size [n], rewrite as [n-1:0]
+		rangeNode->children[0] = new AstNode(AST_SUB, rangeNode->children[0], AstNode::mkconst_int(1, true));
+		rangeNode->children.push_back(AstNode::mkconst_int(0, false));
+	}
+	node->children.push_back(rangeNode);
+}
+
 %}
 
 %define api.prefix {frontend_verilog_yy}
+%define api.pure
 
 /* The union is defined in the header, so we need to provide all the
  * includes it requires
@@ -124,7 +238,7 @@ struct specify_rise_fall {
 %union {
 	std::string *string;
 	struct YOSYS_NAMESPACE_PREFIX AST::AstNode *ast;
-	std::map<std::string, YOSYS_NAMESPACE_PREFIX AST::AstNode*> *al;
+	YOSYS_NAMESPACE_PREFIX dict<YOSYS_NAMESPACE_PREFIX RTLIL::IdString, YOSYS_NAMESPACE_PREFIX AST::AstNode*> *al;
 	struct specify_target *specify_target_ptr;
 	struct specify_triple *specify_triple_ptr;
 	struct specify_rise_fall *specify_rise_fall_ptr;
@@ -134,36 +248,43 @@ struct specify_rise_fall {
 
 %token <string> TOK_STRING TOK_ID TOK_CONSTVAL TOK_REALVAL TOK_PRIMITIVE
 %token <string> TOK_SVA_LABEL TOK_SPECIFY_OPER TOK_MSG_TASKS
+%token <string> TOK_BASE TOK_BASED_CONSTVAL TOK_UNBASED_UNSIZED_CONSTVAL
+%token <string> TOK_USER_TYPE TOK_PKG_USER_TYPE
 %token TOK_ASSERT TOK_ASSUME TOK_RESTRICT TOK_COVER TOK_FINAL
 %token ATTR_BEGIN ATTR_END DEFATTR_BEGIN DEFATTR_END
 %token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM TOK_DEFPARAM
 %token TOK_PACKAGE TOK_ENDPACKAGE TOK_PACKAGESEP
-%token TOK_INTERFACE TOK_ENDINTERFACE TOK_MODPORT TOK_VAR
+%token TOK_INTERFACE TOK_ENDINTERFACE TOK_MODPORT TOK_VAR TOK_WILDCARD_CONNECT
 %token TOK_INPUT TOK_OUTPUT TOK_INOUT TOK_WIRE TOK_WAND TOK_WOR TOK_REG TOK_LOGIC
-%token TOK_INTEGER TOK_SIGNED TOK_ASSIGN TOK_ALWAYS TOK_INITIAL
+%token TOK_INTEGER TOK_SIGNED TOK_ASSIGN TOK_PLUS_ASSIGN TOK_ALWAYS TOK_INITIAL
 %token TOK_ALWAYS_FF TOK_ALWAYS_COMB TOK_ALWAYS_LATCH
 %token TOK_BEGIN TOK_END TOK_IF TOK_ELSE TOK_FOR TOK_WHILE TOK_REPEAT
 %token TOK_DPI_FUNCTION TOK_POSEDGE TOK_NEGEDGE TOK_OR TOK_AUTOMATIC
 %token TOK_CASE TOK_CASEX TOK_CASEZ TOK_ENDCASE TOK_DEFAULT
 %token TOK_FUNCTION TOK_ENDFUNCTION TOK_TASK TOK_ENDTASK TOK_SPECIFY
-%token TOK_IGNORED_SPECIFY TOK_ENDSPECIFY TOK_SPECPARAM TOK_SPECIFY_AND
+%token TOK_IGNORED_SPECIFY TOK_ENDSPECIFY TOK_SPECPARAM TOK_SPECIFY_AND TOK_IGNORED_SPECIFY_AND
 %token TOK_GENERATE TOK_ENDGENERATE TOK_GENVAR TOK_REAL
 %token TOK_SYNOPSYS_FULL_CASE TOK_SYNOPSYS_PARALLEL_CASE
 %token TOK_SUPPLY0 TOK_SUPPLY1 TOK_TO_SIGNED TOK_TO_UNSIGNED
 %token TOK_POS_INDEXED TOK_NEG_INDEXED TOK_PROPERTY TOK_ENUM TOK_TYPEDEF
 %token TOK_RAND TOK_CONST TOK_CHECKER TOK_ENDCHECKER TOK_EVENTUALLY
 %token TOK_INCREMENT TOK_DECREMENT TOK_UNIQUE TOK_PRIORITY
+%token TOK_STRUCT TOK_PACKED TOK_UNSIGNED TOK_INT TOK_BYTE TOK_SHORTINT TOK_UNION
+%token TOK_OR_ASSIGN TOK_XOR_ASSIGN TOK_AND_ASSIGN TOK_SUB_ASSIGN
 
 %type <ast> range range_or_multirange  non_opt_range non_opt_multirange range_or_signed_int
 %type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list
-%type <string> opt_label opt_sva_label tok_prim_wrapper hierarchical_id hierarchical_type_id
+%type <string> opt_label opt_sva_label tok_prim_wrapper hierarchical_id hierarchical_type_id integral_number
+%type <string> type_name
+%type <ast> opt_enum_init enum_type struct_type non_wire_data_type
 %type <boolean> opt_signed opt_property unique_case_attr always_comb_or_latch always_or_always_ff
 %type <al> attr case_attr
+%type <ast> struct_union
 
 %type <specify_target_ptr> specify_target
-%type <specify_triple_ptr> specify_triple
+%type <specify_triple_ptr> specify_triple specify_opt_triple
 %type <specify_rise_fall_ptr> specify_rise_fall
-%type <ast> specify_if specify_condition specify_opt_arg
+%type <ast> specify_if specify_condition
 %type <ch> specify_edge
 
 // operator precedence from low to high
@@ -187,6 +308,7 @@ struct specify_rise_fall {
 %nonassoc TOK_ELSE
 
 %debug
+%locations
 
 %%
 
@@ -216,7 +338,7 @@ attr:
 	{
 		if (attr_list != nullptr)
 			attr_list_stack.push(attr_list);
-		attr_list = new std::map<std::string, AstNode*>;
+		attr_list = new dict<IdString, AstNode*>;
 		for (auto &it : default_attr_list)
 			(*attr_list)[it.first] = it.second->clone();
 	} attr_opt {
@@ -229,14 +351,16 @@ attr:
 	};
 
 attr_opt:
-	attr_opt ATTR_BEGIN opt_attr_list ATTR_END |
+	attr_opt ATTR_BEGIN opt_attr_list ATTR_END {
+		SET_RULE_LOC(@$, @2, @$);
+	}|
 	/* empty */;
 
 defattr:
 	DEFATTR_BEGIN {
 		if (attr_list != nullptr)
 			attr_list_stack.push(attr_list);
-		attr_list = new std::map<std::string, AstNode*>;
+		attr_list = new dict<IdString, AstNode*>;
 		for (auto &it : default_attr_list)
 			delete it.second;
 		default_attr_list.clear();
@@ -293,10 +417,15 @@ hierarchical_id:
 	};
 
 hierarchical_type_id:
-	'(' hierarchical_id ')' { $$ = $2; };
+	TOK_USER_TYPE
+	| TOK_PKG_USER_TYPE				// package qualified type name
+	| '(' TOK_USER_TYPE ')'	{ $$ = $2; }		// non-standard grammar
+	;
 
 module:
-	attr TOK_MODULE TOK_ID {
+	attr TOK_MODULE {
+		enterTypeScope();
+	} TOK_ID {
 		do_not_require_port_stubs = false;
 		AstNode *mod = new AstNode(AST_MODULE);
 		ast_stack.back()->children.push_back(mod);
@@ -304,16 +433,18 @@ module:
 		current_ast_mod = mod;
 		port_stubs.clear();
 		port_counter = 0;
-		mod->str = *$3;
+		mod->str = *$4;
 		append_attr(mod, $1);
-		delete $3;
-	} module_para_opt module_args_opt ';' module_body TOK_ENDMODULE {
+		delete $4;
+	} module_para_opt module_args_opt ';' module_body TOK_ENDMODULE opt_label {
 		if (port_stubs.size() != 0)
 			frontend_verilog_yyerror("Missing details for module port `%s'.",
 					port_stubs.begin()->first.c_str());
+		SET_AST_NODE_LOC(ast_stack.back(), @2, @$);
 		ast_stack.pop_back();
 		log_assert(ast_stack.size() == 1);
 		current_ast_mod = NULL;
+		exitTypeScope();
 	};
 
 module_para_opt:
@@ -354,9 +485,9 @@ module_arg_opt_assignment:
 			wire->str = ast_stack.back()->children.back()->str;
 			if (ast_stack.back()->children.back()->is_input) {
 				AstNode *n = ast_stack.back()->children.back();
-				if (n->attributes.count("\\defaultvalue"))
-					delete n->attributes.at("\\defaultvalue");
-				n->attributes["\\defaultvalue"] = $2;
+				if (n->attributes.count(ID::defaultvalue))
+					delete n->attributes.at(ID::defaultvalue);
+				n->attributes[ID::defaultvalue] = $2;
 			} else
 			if (ast_stack.back()->children.back()->is_reg || ast_stack.back()->children.back()->is_logic)
 				ast_stack.back()->children.push_back(new AstNode(AST_INITIAL, new AstNode(AST_BLOCK, new AstNode(AST_ASSIGN_LE, wire, $2))));
@@ -374,6 +505,7 @@ module_arg:
 			node->str = *$1;
 			node->port_id = ++port_counter;
 			ast_stack.back()->children.push_back(node);
+			SET_AST_NODE_LOC(node, @1, @1);
 		} else {
 			if (port_stubs.count(*$1) != 0)
 				frontend_verilog_yyerror("Duplicate module port `%s'.", $1->c_str());
@@ -399,6 +531,7 @@ module_arg:
 	attr wire_type range TOK_ID {
 		AstNode *node = $2;
 		node->str = *$4;
+		SET_AST_NODE_LOC(node, @4, @4);
 		node->port_id = ++port_counter;
 		if ($3 != NULL)
 			node->children.push_back($3);
@@ -415,27 +548,36 @@ module_arg:
 	};
 
 package:
-	attr TOK_PACKAGE TOK_ID {
+	attr TOK_PACKAGE {
+		enterTypeScope();
+	} TOK_ID {
 		AstNode *mod = new AstNode(AST_PACKAGE);
 		ast_stack.back()->children.push_back(mod);
 		ast_stack.push_back(mod);
 		current_ast_mod = mod;
-		mod->str = *$3;
+		mod->str = *$4;
 		append_attr(mod, $1);
-	} ';' package_body TOK_ENDPACKAGE {
+	} ';' package_body TOK_ENDPACKAGE opt_label {
 		ast_stack.pop_back();
 		current_ast_mod = NULL;
+		exitTypeScope();
 	};
 
 package_body:
-	package_body package_body_stmt |;
+	package_body package_body_stmt
+	| // optional
+	;
 
 package_body_stmt:
-	typedef_decl |
-	localparam_decl;
+	  typedef_decl
+	| localparam_decl
+	| param_decl
+	;
 
 interface:
-	TOK_INTERFACE TOK_ID {
+	TOK_INTERFACE {
+		enterTypeScope();
+	} TOK_ID {
 		do_not_require_port_stubs = false;
 		AstNode *intf = new AstNode(AST_INTERFACE);
 		ast_stack.back()->children.push_back(intf);
@@ -443,8 +585,8 @@ interface:
 		current_ast_mod = intf;
 		port_stubs.clear();
 		port_counter = 0;
-		intf->str = *$2;
-		delete $2;
+		intf->str = *$3;
+		delete $3;
 	} module_para_opt module_args_opt ';' interface_body TOK_ENDINTERFACE {
 		if (port_stubs.size() != 0)
 			frontend_verilog_yyerror("Missing details for module port `%s'.",
@@ -452,6 +594,7 @@ interface:
 		ast_stack.pop_back();
 		log_assert(ast_stack.size() == 1);
 		current_ast_mod = NULL;
+		exitTypeScope();
 	};
 
 interface_body:
@@ -476,8 +619,9 @@ wire_type:
 		astbuf3 = new AstNode(AST_WIRE);
 		current_wire_rand = false;
 		current_wire_const = false;
-	} wire_type_token_list delay {
+	} wire_type_token_list {
 		$$ = astbuf3;
+		SET_RULE_LOC(@$, @2, @$);
 	};
 
 wire_type_token_list:
@@ -488,6 +632,7 @@ wire_type_token_list:
 		astbuf3->is_custom_type = true;
 		astbuf3->children.push_back(new AstNode(AST_WIRETYPE));
 		astbuf3->children.back()->str = *$1;
+		delete $1;
 	};
 
 wire_type_token_io:
@@ -551,13 +696,15 @@ non_opt_range:
 	} |
 	'[' expr TOK_POS_INDEXED expr ']' {
 		$$ = new AstNode(AST_RANGE);
-		$$->children.push_back(new AstNode(AST_SUB, new AstNode(AST_ADD, $2->clone(), $4), AstNode::mkconst_int(1, true)));
-		$$->children.push_back(new AstNode(AST_ADD, $2, AstNode::mkconst_int(0, true)));
+		AstNode *expr = new AstNode(AST_SELFSZ, $2);
+		$$->children.push_back(new AstNode(AST_SUB, new AstNode(AST_ADD, expr->clone(), $4), AstNode::mkconst_int(1, true)));
+		$$->children.push_back(new AstNode(AST_ADD, expr, AstNode::mkconst_int(0, true)));
 	} |
 	'[' expr TOK_NEG_INDEXED expr ']' {
 		$$ = new AstNode(AST_RANGE);
-		$$->children.push_back(new AstNode(AST_ADD, $2, AstNode::mkconst_int(0, true)));
-		$$->children.push_back(new AstNode(AST_SUB, new AstNode(AST_ADD, $2->clone(), AstNode::mkconst_int(1, true)), $4));
+		AstNode *expr = new AstNode(AST_SELFSZ, $2);
+		$$->children.push_back(new AstNode(AST_ADD, expr, AstNode::mkconst_int(0, true)));
+		$$->children.push_back(new AstNode(AST_SUB, new AstNode(AST_ADD, expr->clone(), AstNode::mkconst_int(1, true)), $4));
 	} |
 	'[' expr ']' {
 		$$ = new AstNode(AST_RANGE);
@@ -586,15 +733,9 @@ range_or_multirange:
 	non_opt_multirange { $$ = $1; };
 
 range_or_signed_int:
-	range {
-		$$ = $1;
-	} |
-	TOK_INTEGER {
-		$$ = new AstNode(AST_RANGE);
-		$$->children.push_back(AstNode::mkconst_int(31, true));
-		$$->children.push_back(AstNode::mkconst_int(0, true));
-		$$->is_signed = true;
-	};
+	  range 		{ $$ = $1; }
+	| TOK_INTEGER		{ $$ = makeRange(); }
+	;
 
 module_body:
 	module_body module_body_stmt |
@@ -604,6 +745,7 @@ module_body:
 
 module_body_stmt:
 	task_func_decl | specify_block | param_decl | localparam_decl | typedef_decl | defparam_decl | specparam_declaration | wire_decl | assign_stmt | cell_stmt |
+	enum_decl | struct_decl |
 	always_stmt | TOK_GENERATE module_gen_body TOK_ENDGENERATE | defattr | assert_property | checker_decl | ignored_specify_block;
 
 checker_decl:
@@ -744,19 +886,20 @@ task_func_port:
 		}
 		albuf = $1;
 		astbuf1 = $2;
-		astbuf2 = $3;
-		if (astbuf1->range_left >= 0 && astbuf1->range_right >= 0) {
-			if (astbuf2) {
-				frontend_verilog_yyerror("integer/genvar types cannot have packed dimensions (task/function arguments)");
-			} else {
-				astbuf2 = new AstNode(AST_RANGE);
-				astbuf2->children.push_back(AstNode::mkconst_int(astbuf1->range_left, true));
-				astbuf2->children.push_back(AstNode::mkconst_int(astbuf1->range_right, true));
-			}
+		astbuf2 = checkRange(astbuf1, $3);
+	} wire_name |
+	{
+		if (!astbuf1) {
+			if (!sv_mode)
+				frontend_verilog_yyerror("task/function argument direction missing");
+			albuf = new dict<IdString, AstNode*>;
+			astbuf1 = new AstNode(AST_WIRE);
+			current_wire_rand = false;
+			current_wire_const = false;
+			astbuf1->is_input = true;
+			astbuf2 = NULL;
 		}
-		if (astbuf2 && astbuf2->children.size() != 2)
-			frontend_verilog_yyerror("task/function argument range must be of the form: [<expr>:<expr>], [<expr>+:<expr>], or [<expr>-:<expr>]");
-	} wire_name | wire_name;
+	} wire_name;
 
 task_func_body:
 	task_func_body behavioral_stmt |
@@ -788,6 +931,7 @@ specify_item:
 		cell->str = stringf("$specify$%d", autoidx++);
 		cell->children.push_back(new AstNode(AST_CELLTYPE));
 		cell->children.back()->str = target->dat ? "$specify3" : "$specify2";
+		SET_AST_NODE_LOC(cell, en_expr ? @1 : @2, @10);
 
 		char oper_polarity = 0;
 		char oper_type = oper->at(0);
@@ -855,7 +999,7 @@ specify_item:
 		delete target;
 		delete timing;
 	} |
-	TOK_ID '(' specify_edge expr specify_condition ',' specify_edge expr specify_condition ',' expr specify_opt_arg ')' ';' {
+	TOK_ID '(' specify_edge expr specify_condition ',' specify_edge expr specify_condition ',' specify_triple specify_opt_triple ')' ';' {
 		if (*$1 != "$setup" && *$1 != "$hold" && *$1 != "$setuphold" && *$1 != "$removal" && *$1 != "$recovery" &&
 				*$1 != "$recrem" && *$1 != "$skew" && *$1 != "$timeskew" && *$1 != "$fullskew" && *$1 != "$nochange")
 			frontend_verilog_yyerror("Unsupported specify rule type: %s\n", $1->c_str());
@@ -868,23 +1012,36 @@ specify_item:
 		AstNode *dst_pol = AstNode::mkconst_int($7 == 'p', false, 1);
 		AstNode *dst_expr = $8, *dst_en = $9 ? $9 : AstNode::mkconst_int(1, false, 1);
 
-		AstNode *limit = $11;
-		AstNode *limit2 = $12;
+		specify_triple *limit = $11;
+		specify_triple *limit2 = $12;
 
 		AstNode *cell = new AstNode(AST_CELL);
 		ast_stack.back()->children.push_back(cell);
 		cell->str = stringf("$specify$%d", autoidx++);
 		cell->children.push_back(new AstNode(AST_CELLTYPE));
 		cell->children.back()->str = "$specrule";
+		SET_AST_NODE_LOC(cell, @1, @14);
 
 		cell->children.push_back(new AstNode(AST_PARASET, AstNode::mkconst_str(*$1)));
 		cell->children.back()->str = "\\TYPE";
 
-		cell->children.push_back(new AstNode(AST_PARASET, limit));
-		cell->children.back()->str = "\\T_LIMIT";
+		cell->children.push_back(new AstNode(AST_PARASET, limit->t_min));
+		cell->children.back()->str = "\\T_LIMIT_MIN";
 
-		cell->children.push_back(new AstNode(AST_PARASET, limit2 ? limit2 : AstNode::mkconst_int(0, true)));
-		cell->children.back()->str = "\\T_LIMIT2";
+		cell->children.push_back(new AstNode(AST_PARASET, limit->t_avg));
+		cell->children.back()->str = "\\T_LIMIT_TYP";
+
+		cell->children.push_back(new AstNode(AST_PARASET, limit->t_max));
+		cell->children.back()->str = "\\T_LIMIT_MAX";
+
+		cell->children.push_back(new AstNode(AST_PARASET, limit2 ? limit2->t_min : AstNode::mkconst_int(0, true)));
+		cell->children.back()->str = "\\T_LIMIT2_MIN";
+
+		cell->children.push_back(new AstNode(AST_PARASET, limit2 ? limit2->t_avg : AstNode::mkconst_int(0, true)));
+		cell->children.back()->str = "\\T_LIMIT2_TYP";
+
+		cell->children.push_back(new AstNode(AST_PARASET, limit2 ? limit2->t_max : AstNode::mkconst_int(0, true)));
+		cell->children.back()->str = "\\T_LIMIT2_MAX";
 
 		cell->children.push_back(new AstNode(AST_PARASET, src_pen));
 		cell->children.back()->str = "\\SRC_PEN";
@@ -913,8 +1070,8 @@ specify_item:
 		delete $1;
 	};
 
-specify_opt_arg:
-	',' expr {
+specify_opt_triple:
+	',' specify_triple {
 		$$ = $2;
 	} |
 	/* empty */ {
@@ -983,7 +1140,46 @@ specify_rise_fall:
 		$$->fall = *$4;
 		delete $2;
 		delete $4;
-	};
+	} |
+	'(' specify_triple ',' specify_triple ',' specify_triple ')' {
+		$$ = new specify_rise_fall;
+		$$->rise = *$2;
+		$$->fall = *$4;
+		delete $2;
+		delete $4;
+		delete $6;
+		log_file_warning(current_filename, get_line_num(), "Path delay expressions beyond rise/fall not currently supported. Ignoring.\n");
+	} |
+	'(' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ')' {
+		$$ = new specify_rise_fall;
+		$$->rise = *$2;
+		$$->fall = *$4;
+		delete $2;
+		delete $4;
+		delete $6;
+		delete $8;
+		delete $10;
+		delete $12;
+		log_file_warning(current_filename, get_line_num(), "Path delay expressions beyond rise/fall not currently supported. Ignoring.\n");
+	} |
+	'(' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ',' specify_triple ')' {
+		$$ = new specify_rise_fall;
+		$$->rise = *$2;
+		$$->fall = *$4;
+		delete $2;
+		delete $4;
+		delete $6;
+		delete $8;
+		delete $10;
+		delete $12;
+		delete $14;
+		delete $16;
+		delete $18;
+		delete $20;
+		delete $22;
+		delete $24;
+		log_file_warning(current_filename, get_line_num(), "Path delay expressions beyond rise/fall not currently supported. Ignoring.\n");
+	}
 
 specify_triple:
 	expr {
@@ -1031,7 +1227,7 @@ list_of_specparam_assignments:
 	specparam_assignment | list_of_specparam_assignments ',' specparam_assignment;
 
 specparam_assignment:
-	ignspec_id '=' constant_mintypmax_expression ;
+	ignspec_id '=' ignspec_expr ;
 
 ignspec_opt_cond:
 	TOK_IF '(' ignspec_expr ')' | /* empty */;
@@ -1048,13 +1244,15 @@ simple_path_declaration :
 	;
 
 path_delay_value :
-	'(' path_delay_expression list_of_path_delay_extra_expressions ')'
-	|     path_delay_expression
-	|     path_delay_expression list_of_path_delay_extra_expressions
+	'(' ignspec_expr list_of_path_delay_extra_expressions ')'
+	|     ignspec_expr
+	|     ignspec_expr list_of_path_delay_extra_expressions
 	;
 
 list_of_path_delay_extra_expressions :
-	',' path_delay_expression | ',' path_delay_expression list_of_path_delay_extra_expressions;
+	',' ignspec_expr
+	| ',' ignspec_expr list_of_path_delay_extra_expressions
+	;
 
 specify_edge_identifier :
 	TOK_POSEDGE | TOK_NEGEDGE ;
@@ -1105,15 +1303,8 @@ system_timing_arg :
 
 system_timing_args :
 	system_timing_arg |
+	system_timing_args TOK_IGNORED_SPECIFY_AND system_timing_arg |
 	system_timing_args ',' system_timing_arg ;
-
-path_delay_expression :
-	ignspec_constant_expression;
-
-constant_mintypmax_expression :
-	ignspec_constant_expression
-	| ignspec_constant_expression ':' ignspec_constant_expression ':' ignspec_constant_expression
-	;
 
 // for the time being this is OK, but we may write our own expr here.
 // as I'm not sure it is legal to use a full expr here (probably not)
@@ -1123,10 +1314,16 @@ ignspec_constant_expression:
 	expr { delete $1; };
 
 ignspec_expr:
-	expr { delete $1; };
+	expr { delete $1; } |
+	expr ':' expr ':' expr {
+		delete $1;
+		delete $3;
+		delete $5;
+	};
 
 ignspec_id:
-	TOK_ID { delete $1; };
+	TOK_ID { delete $1; }
+	range_or_multirange { delete $3; };
 
 /**********************************************************************/
 
@@ -1224,23 +1421,206 @@ single_defparam_decl:
 		ast_stack.back()->children.push_back(node);
 	};
 
+/////////
+// enum
+/////////
+
+enum_type: TOK_ENUM {
+		static int enum_count;
+		// create parent node for the enum
+		astbuf2 = new AstNode(AST_ENUM);
+		ast_stack.back()->children.push_back(astbuf2);
+		astbuf2->str = std::string("$enum");
+		astbuf2->str += std::to_string(enum_count++);
+		// create the template for the names
+		astbuf1 = new AstNode(AST_ENUM_ITEM);
+		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
+	 } enum_base_type '{' enum_name_list '}' {	// create template for the enum vars
+							auto tnode = astbuf1->clone();
+							delete astbuf1;
+							astbuf1 = tnode;
+							tnode->type = AST_WIRE;
+							tnode->attributes[ID::enum_type] = AstNode::mkconst_str(astbuf2->str);
+							// drop constant but keep any range
+							delete tnode->children[0];
+							tnode->children.erase(tnode->children.begin());
+							$$ = astbuf1; }
+	 ;
+
+enum_base_type: type_atom type_signing
+	| type_vec type_signing range	{ if ($3) astbuf1->children.push_back($3); }
+	| /* nothing */			{ astbuf1->is_reg = true; addRange(astbuf1); }
+	;
+
+type_atom: TOK_INTEGER		{ astbuf1->is_reg = true; addRange(astbuf1); }		// 4-state signed
+	|  TOK_INT		{ astbuf1->is_reg = true; addRange(astbuf1); }		// 2-state signed
+	|  TOK_SHORTINT		{ astbuf1->is_reg = true; addRange(astbuf1, 15, 0); }	// 2-state signed
+	|  TOK_BYTE		{ astbuf1->is_reg = true; addRange(astbuf1,  7, 0); }	// 2-state signed
+	;
+
+type_vec: TOK_REG		{ astbuf1->is_reg   = true; }		// unsigned
+	| TOK_LOGIC		{ astbuf1->is_logic = true; }		// unsigned
+	;
+
+type_signing:
+	  TOK_SIGNED		{ astbuf1->is_signed = true; }
+	| TOK_UNSIGNED		{ astbuf1->is_signed = false; }
+	| // optional
+	;
+
+enum_name_list: enum_name_decl
+	| enum_name_list ',' enum_name_decl
+	;
+
+enum_name_decl:
+	TOK_ID opt_enum_init {
+		// put in fn
+		log_assert(astbuf1);
+		log_assert(astbuf2);
+		auto node = astbuf1->clone();
+		node->str = *$1;
+		delete $1;
+		SET_AST_NODE_LOC(node, @1, @1);
+		delete node->children[0];
+		node->children[0] = $2 ? $2 : new AstNode(AST_NONE);
+		astbuf2->children.push_back(node);
+	}
+	;
+
+opt_enum_init:
+	'=' basic_expr		{ $$ = $2; }	// TODO: restrict this
+	| /* optional */	{ $$ = NULL; }
+	;
+
+enum_var_list:
+	enum_var
+	| enum_var_list ',' enum_var
+	;
+
+enum_var: TOK_ID {
+		log_assert(astbuf1);
+		log_assert(astbuf2);
+		auto node = astbuf1->clone();
+		ast_stack.back()->children.push_back(node);
+		node->str = *$1;
+		delete $1;
+		SET_AST_NODE_LOC(node, @1, @1);
+		node->is_enum = true;
+	}
+	;
+
+enum_decl: enum_type enum_var_list ';'		{ delete $1; }
+	;
+
+//////////////////
+// struct or union
+//////////////////
+
+struct_decl: struct_type struct_var_list ';' 	{ delete astbuf2; }
+	;
+
+struct_type: struct_union { astbuf2 = $1; } struct_body { $$ = astbuf2; }
+	;
+
+struct_union:
+	  TOK_STRUCT		{ $$ = new AstNode(AST_STRUCT); }
+	| TOK_UNION		{ $$ = new AstNode(AST_UNION); }
+	;
+
+struct_body: opt_packed '{' struct_member_list '}'
+	;
+
+opt_packed: TOK_PACKED opt_signed_struct
+	| { frontend_verilog_yyerror("Only PACKED supported at this time"); }
+	;
+
+opt_signed_struct:
+	  TOK_SIGNED		{ astbuf2->is_signed = true; }
+	| TOK_UNSIGNED		{ astbuf2->is_signed = false; }
+	| // default is unsigned
+	;
+
+struct_member_list: struct_member
+	| struct_member_list struct_member
+	;
+
+struct_member: struct_member_type member_name_list ';'		{ delete astbuf1; }
+	;
+
+member_name_list:
+	  member_name
+	| member_name_list ',' member_name
+	;
+
+member_name: TOK_ID {
+			astbuf1->str = $1->substr(1);
+			delete $1;
+			astbuf3 = astbuf1->clone();
+			SET_AST_NODE_LOC(astbuf3, @1, @1);
+			astbuf2->children.push_back(astbuf3);
+		} range { if ($3) astbuf3->children.push_back($3); }
+	;
+
+struct_member_type: { astbuf1 = new AstNode(AST_STRUCT_ITEM); } member_type_token
+	;
+
+member_type_token:
+	  member_type 
+	| hierarchical_type_id {
+			// use a clone of the typedef definition nodes
+			auto template_node = copyTypeDefinition(*$1);
+			delete $1;
+			switch (template_node->type) {
+			case AST_WIRE:
+				template_node->type = AST_STRUCT_ITEM;
+				break;
+			case AST_STRUCT:
+			case AST_UNION:
+				break;
+			default:
+				frontend_verilog_yyerror("Invalid type for struct member: %s", type2str(template_node->type).c_str());
+			}
+			delete astbuf1;
+			astbuf1 = template_node;
+		}
+	| struct_union {
+			// stash state on ast_stack
+			ast_stack.push_back(astbuf2);
+			astbuf2 = $1;
+		} struct_body  {
+		        astbuf1 = astbuf2;
+			// recover state
+			astbuf2 = ast_stack.back();
+			ast_stack.pop_back();
+		}
+	;
+
+member_type: type_atom type_signing
+	| type_vec type_signing range_or_multirange	{ if ($3) astbuf1->children.push_back($3); }
+	;
+
+struct_var_list: struct_var
+	| struct_var_list ',' struct_var
+	;
+
+struct_var: TOK_ID	{	auto *var_node = astbuf2->clone();
+				var_node->str = *$1;
+				delete $1;
+				SET_AST_NODE_LOC(var_node, @1, @1);
+				ast_stack.back()->children.push_back(var_node);
+			}
+	;
+
+/////////
+// wire
+/////////
+
 wire_decl:
 	attr wire_type range {
 		albuf = $1;
 		astbuf1 = $2;
-		astbuf2 = $3;
-		if (astbuf1->range_left >= 0 && astbuf1->range_right >= 0) {
-			if (astbuf2) {
-				frontend_verilog_yyerror("integer/genvar types cannot have packed dimensions.");
-			} else {
-				astbuf2 = new AstNode(AST_RANGE);
-				astbuf2->children.push_back(AstNode::mkconst_int(astbuf1->range_left, true));
-				astbuf2->children.push_back(AstNode::mkconst_int(astbuf1->range_right, true));
-			}
-		}
-		if (astbuf2 && astbuf2->children.size() != 2)
-			frontend_verilog_yyerror("wire/reg/logic packed dimension must be of the form: [<expr>:<expr>], [<expr>+:<expr>], or [<expr>-:<expr>]");
-	} wire_name_list {
+		astbuf2 = checkRange(astbuf1, $3);
+	} delay wire_name_list {
 		delete astbuf1;
 		if (astbuf2 != NULL)
 			delete astbuf2;
@@ -1284,24 +1664,24 @@ wire_name_and_opt_assign:
 		bool attr_anyseq = false;
 		bool attr_allconst = false;
 		bool attr_allseq = false;
-		if (ast_stack.back()->children.back()->get_bool_attribute("\\anyconst")) {
-			delete ast_stack.back()->children.back()->attributes.at("\\anyconst");
-			ast_stack.back()->children.back()->attributes.erase("\\anyconst");
+		if (ast_stack.back()->children.back()->get_bool_attribute(ID::anyconst)) {
+			delete ast_stack.back()->children.back()->attributes.at(ID::anyconst);
+			ast_stack.back()->children.back()->attributes.erase(ID::anyconst);
 			attr_anyconst = true;
 		}
-		if (ast_stack.back()->children.back()->get_bool_attribute("\\anyseq")) {
-			delete ast_stack.back()->children.back()->attributes.at("\\anyseq");
-			ast_stack.back()->children.back()->attributes.erase("\\anyseq");
+		if (ast_stack.back()->children.back()->get_bool_attribute(ID::anyseq)) {
+			delete ast_stack.back()->children.back()->attributes.at(ID::anyseq);
+			ast_stack.back()->children.back()->attributes.erase(ID::anyseq);
 			attr_anyseq = true;
 		}
-		if (ast_stack.back()->children.back()->get_bool_attribute("\\allconst")) {
-			delete ast_stack.back()->children.back()->attributes.at("\\allconst");
-			ast_stack.back()->children.back()->attributes.erase("\\allconst");
+		if (ast_stack.back()->children.back()->get_bool_attribute(ID::allconst)) {
+			delete ast_stack.back()->children.back()->attributes.at(ID::allconst);
+			ast_stack.back()->children.back()->attributes.erase(ID::allconst);
 			attr_allconst = true;
 		}
-		if (ast_stack.back()->children.back()->get_bool_attribute("\\allseq")) {
-			delete ast_stack.back()->children.back()->attributes.at("\\allseq");
-			ast_stack.back()->children.back()->attributes.erase("\\allseq");
+		if (ast_stack.back()->children.back()->get_bool_attribute(ID::allseq)) {
+			delete ast_stack.back()->children.back()->attributes.at(ID::allseq);
+			ast_stack.back()->children.back()->attributes.erase(ID::allseq);
 			attr_allseq = true;
 		}
 		if (current_wire_rand || attr_anyconst || attr_anyseq || attr_allconst || attr_allseq) {
@@ -1317,7 +1697,7 @@ wire_name_and_opt_assign:
 				fcall->str = "\\$allconst";
 			if (attr_allseq)
 				fcall->str = "\\$allseq";
-			fcall->attributes["\\reg"] = AstNode::mkconst_str(RTLIL::unescape_id(wire->str));
+			fcall->attributes[ID::reg] = AstNode::mkconst_str(RTLIL::unescape_id(wire->str));
 			ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, wire, fcall));
 		}
 	} |
@@ -1325,14 +1705,27 @@ wire_name_and_opt_assign:
 		AstNode *wire = new AstNode(AST_IDENTIFIER);
 		wire->str = ast_stack.back()->children.back()->str;
 		if (astbuf1->is_input) {
-			if (astbuf1->attributes.count("\\defaultvalue"))
-				delete astbuf1->attributes.at("\\defaultvalue");
-			astbuf1->attributes["\\defaultvalue"] = $3;
-		} else
-		if (astbuf1->is_reg || astbuf1->is_logic)
-			ast_stack.back()->children.push_back(new AstNode(AST_INITIAL, new AstNode(AST_BLOCK, new AstNode(AST_ASSIGN_LE, wire, $3))));
-		else
-			ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, wire, $3));
+			if (astbuf1->attributes.count(ID::defaultvalue))
+				delete astbuf1->attributes.at(ID::defaultvalue);
+			astbuf1->attributes[ID::defaultvalue] = $3;
+		}
+		else if (astbuf1->is_reg || astbuf1->is_logic){
+			AstNode *assign = new AstNode(AST_ASSIGN_LE, wire, $3);
+			AstNode *block = new AstNode(AST_BLOCK, assign);
+			AstNode *init = new AstNode(AST_INITIAL, block);
+
+			SET_AST_NODE_LOC(assign, @1, @3);
+			SET_AST_NODE_LOC(block, @1, @3);
+			SET_AST_NODE_LOC(init, @1, @3);
+
+			ast_stack.back()->children.push_back(init);
+		}
+		else {
+			AstNode *assign = new AstNode(AST_ASSIGN, wire, $3);
+			SET_AST_NODE_LOC(assign, @1, @3);
+			ast_stack.back()->children.push_back(assign);
+		}
+
 	};
 
 wire_name:
@@ -1348,19 +1741,9 @@ wire_name:
 			if (node->is_input || node->is_output)
 				frontend_verilog_yyerror("input/output/inout ports cannot have unpacked dimensions.");
 			if (!astbuf2 && !node->is_custom_type) {
-				AstNode *rng = new AstNode(AST_RANGE);
-				rng->children.push_back(AstNode::mkconst_int(0, true));
-				rng->children.push_back(AstNode::mkconst_int(0, true));
-				node->children.push_back(rng);
+				addRange(node, 0, 0, false);
 			}
-			node->type = AST_MEMORY;
-			auto *rangeNode = $2;
-			if (rangeNode->type == AST_RANGE && rangeNode->children.size() == 1) {
-				// SV array size [n], rewrite as [n-1:0]
-				rangeNode->children[0] = new AstNode(AST_SUB, rangeNode->children[0], AstNode::mkconst_int(1, true));
-				rangeNode->children.push_back(AstNode::mkconst_int(0, false));
-			}
-			node->children.push_back(rangeNode);
+			rewriteAsMemoryNode(node, $2);
 		}
 		if (current_function_or_task == NULL) {
 			if (do_not_require_port_stubs && (node->is_input || node->is_output) && port_stubs.count(*$1) == 0) {
@@ -1381,6 +1764,8 @@ wire_name:
 			if (node->is_input || node->is_output)
 				node->port_id = current_function_or_task_port_id++;
 		}
+		//FIXME: for some reason, TOK_ID has a location which always points to one column *after* the real last column...
+		SET_AST_NODE_LOC(node, @1, @1);
 		ast_stack.back()->children.push_back(node);
 
 		delete $1;
@@ -1394,47 +1779,36 @@ assign_expr_list:
 
 assign_expr:
 	lvalue '=' expr {
-		ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, $1, $3));
+		AstNode *node = new AstNode(AST_ASSIGN, $1, $3);
+		SET_AST_NODE_LOC(node, @$, @$);
+		ast_stack.back()->children.push_back(node);
 	};
 
+type_name: TOK_ID		// first time seen
+	 | TOK_USER_TYPE	{ if (isInLocalScope($1)) frontend_verilog_yyerror("Duplicate declaration of TYPEDEF '%s'", $1->c_str()+1); }
+	 ;
+
 typedef_decl:
-	TOK_TYPEDEF wire_type range TOK_ID range_or_multirange ';' {
+	TOK_TYPEDEF wire_type range type_name range_or_multirange ';' {
 		astbuf1 = $2;
-		astbuf2 = $3;
-		if (astbuf1->range_left >= 0 && astbuf1->range_right >= 0) {
-			if (astbuf2) {
-				frontend_verilog_yyerror("integer/genvar types cannot have packed dimensions.");
-			} else {
-				astbuf2 = new AstNode(AST_RANGE);
-				astbuf2->children.push_back(AstNode::mkconst_int(astbuf1->range_left, true));
-				astbuf2->children.push_back(AstNode::mkconst_int(astbuf1->range_right, true));
-			}
-		}
-		if (astbuf2 && astbuf2->children.size() != 2)
-			frontend_verilog_yyerror("wire/reg/logic packed dimension must be of the form: [<expr>:<expr>], [<expr>+:<expr>], or [<expr>-:<expr>]");
+		astbuf2 = checkRange(astbuf1, $3);
 		if (astbuf2)
 			astbuf1->children.push_back(astbuf2);
 
 		if ($5 != NULL) {
 			if (!astbuf2) {
-				AstNode *rng = new AstNode(AST_RANGE);
-				rng->children.push_back(AstNode::mkconst_int(0, true));
-				rng->children.push_back(AstNode::mkconst_int(0, true));
-				astbuf1->children.push_back(rng);
+				addRange(astbuf1, 0, 0, false);
 			}
-			astbuf1->type = AST_MEMORY;
-			auto *rangeNode = $5;
-			if (rangeNode->type == AST_RANGE && rangeNode->children.size() == 1) {
-				// SV array size [n], rewrite as [n-1:0]
-				rangeNode->children[0] = new AstNode(AST_SUB, rangeNode->children[0], AstNode::mkconst_int(1, true));
-				rangeNode->children.push_back(AstNode::mkconst_int(0, false));
-			}
-			astbuf1->children.push_back(rangeNode);
+			rewriteAsMemoryNode(astbuf1, $5);
 		}
+		addTypedefNode($4, astbuf1); }
+	| TOK_TYPEDEF non_wire_data_type type_name ';'   { addTypedefNode($3, $2); }
+	;
 
-		ast_stack.back()->children.push_back(new AstNode(AST_TYPEDEF, astbuf1));
-		ast_stack.back()->children.back()->str = *$4;
-	};
+non_wire_data_type:
+	  enum_type
+	| struct_type
+	;
 
 cell_stmt:
 	attr TOK_ID {
@@ -1474,14 +1848,18 @@ single_cell:
 			astbuf2->str = *$1;
 		delete $1;
 		ast_stack.back()->children.push_back(astbuf2);
-	} '(' cell_port_list ')' |
+	} '(' cell_port_list ')' {
+		SET_AST_NODE_LOC(astbuf2, @1, @$);
+	} |
 	TOK_ID non_opt_range {
 		astbuf2 = astbuf1->clone();
 		if (astbuf2->type != AST_PRIMITIVE)
 			astbuf2->str = *$1;
 		delete $1;
 		ast_stack.back()->children.push_back(new AstNode(AST_CELLARRAY, $2, astbuf2));
-	} '(' cell_port_list ')';
+	} '(' cell_port_list ')'{
+		SET_AST_NODE_LOC(astbuf2, @1, @$);
+	};
 
 prim_list:
 	single_prim |
@@ -1492,7 +1870,9 @@ single_prim:
 	/* no name */ {
 		astbuf2 = astbuf1->clone();
 		ast_stack.back()->children.push_back(astbuf2);
-	} '(' cell_port_list ')';
+	} '(' cell_port_list ')' {
+		SET_AST_NODE_LOC(astbuf2, @1, @$);
+	}
 
 cell_parameter_list_opt:
 	'#' '(' cell_parameter_list ')' | /* empty */;
@@ -1580,6 +1960,11 @@ cell_port:
 		node->children.back()->str = *$3;
 		delete $3;
 		free_attr($1);
+	} |
+	attr TOK_WILDCARD_CONNECT {
+		if (!sv_mode)
+			frontend_verilog_yyerror("Wildcard port connections are only supported in SystemVerilog mode.");
+		astbuf2->attributes[ID::wildcard_port_conns] = AstNode::mkconst_int(1, false);
 	};
 
 always_comb_or_latch:
@@ -1603,7 +1988,7 @@ always_stmt:
 		AstNode *node = new AstNode(AST_ALWAYS);
 		append_attr(node, $1);
 		if ($2)
-			node->attributes[ID(always_ff)] = AstNode::mkconst_int(1, false);
+			node->attributes[ID::always_ff] = AstNode::mkconst_int(1, false);
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 	} always_cond {
@@ -1611,16 +1996,21 @@ always_stmt:
 		ast_stack.back()->children.push_back(block);
 		ast_stack.push_back(block);
 	} behavioral_stmt {
+		SET_AST_NODE_LOC(ast_stack.back(), @6, @6);
 		ast_stack.pop_back();
+
+		SET_AST_NODE_LOC(ast_stack.back(), @2, @$);
 		ast_stack.pop_back();
+
+		SET_RULE_LOC(@$, @2, @$);
 	} |
 	attr always_comb_or_latch {
 		AstNode *node = new AstNode(AST_ALWAYS);
 		append_attr(node, $1);
 		if ($2)
-			node->attributes[ID(always_latch)] = AstNode::mkconst_int(1, false);
+			node->attributes[ID::always_latch] = AstNode::mkconst_int(1, false);
 		else
-			node->attributes[ID(always_comb)] = AstNode::mkconst_int(1, false);
+			node->attributes[ID::always_comb] = AstNode::mkconst_int(1, false);
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 		AstNode *block = new AstNode(AST_BLOCK);
@@ -1659,11 +2049,13 @@ always_events:
 always_event:
 	TOK_POSEDGE expr {
 		AstNode *node = new AstNode(AST_POSEDGE);
+		SET_AST_NODE_LOC(node, @1, @1);
 		ast_stack.back()->children.push_back(node);
 		node->children.push_back($2);
 	} |
 	TOK_NEGEDGE expr {
 		AstNode *node = new AstNode(AST_NEGEDGE);
+		SET_AST_NODE_LOC(node, @1, @1);
 		ast_stack.back()->children.push_back(node);
 		node->children.push_back($2);
 	} |
@@ -1741,6 +2133,7 @@ assert:
 			delete $5;
 		} else {
 			AstNode *node = new AstNode(assume_asserts_mode ? AST_ASSUME : AST_ASSERT, $5);
+			SET_AST_NODE_LOC(node, @1, @6);
 			if ($1 != nullptr)
 				node->str = *$1;
 			ast_stack.back()->children.push_back(node);
@@ -1753,6 +2146,7 @@ assert:
 			delete $5;
 		} else {
 			AstNode *node = new AstNode(assert_assumes_mode ? AST_ASSERT : AST_ASSUME, $5);
+			SET_AST_NODE_LOC(node, @1, @6);
 			if ($1 != nullptr)
 				node->str = *$1;
 			ast_stack.back()->children.push_back(node);
@@ -1765,6 +2159,7 @@ assert:
 			delete $6;
 		} else {
 			AstNode *node = new AstNode(assume_asserts_mode ? AST_FAIR : AST_LIVE, $6);
+			SET_AST_NODE_LOC(node, @1, @7);
 			if ($1 != nullptr)
 				node->str = *$1;
 			ast_stack.back()->children.push_back(node);
@@ -1777,6 +2172,7 @@ assert:
 			delete $6;
 		} else {
 			AstNode *node = new AstNode(assert_assumes_mode ? AST_LIVE : AST_FAIR, $6);
+			SET_AST_NODE_LOC(node, @1, @7);
 			if ($1 != nullptr)
 				node->str = *$1;
 			ast_stack.back()->children.push_back(node);
@@ -1786,6 +2182,7 @@ assert:
 	} |
 	opt_sva_label TOK_COVER opt_property '(' expr ')' ';' {
 		AstNode *node = new AstNode(AST_COVER, $5);
+		SET_AST_NODE_LOC(node, @1, @6);
 		if ($1 != nullptr) {
 			node->str = *$1;
 			delete $1;
@@ -1794,6 +2191,7 @@ assert:
 	} |
 	opt_sva_label TOK_COVER opt_property '(' ')' ';' {
 		AstNode *node = new AstNode(AST_COVER, AstNode::mkconst_int(1, false));
+		SET_AST_NODE_LOC(node, @1, @5);
 		if ($1 != nullptr) {
 			node->str = *$1;
 			delete $1;
@@ -1802,6 +2200,7 @@ assert:
 	} |
 	opt_sva_label TOK_COVER ';' {
 		AstNode *node = new AstNode(AST_COVER, AstNode::mkconst_int(1, false));
+		SET_AST_NODE_LOC(node, @1, @2);
 		if ($1 != nullptr) {
 			node->str = *$1;
 			delete $1;
@@ -1813,6 +2212,7 @@ assert:
 			delete $5;
 		} else {
 			AstNode *node = new AstNode(AST_ASSUME, $5);
+			SET_AST_NODE_LOC(node, @1, @6);
 			if ($1 != nullptr)
 				node->str = *$1;
 			ast_stack.back()->children.push_back(node);
@@ -1827,6 +2227,7 @@ assert:
 			delete $6;
 		} else {
 			AstNode *node = new AstNode(AST_FAIR, $6);
+			SET_AST_NODE_LOC(node, @1, @7);
 			if ($1 != nullptr)
 				node->str = *$1;
 			ast_stack.back()->children.push_back(node);
@@ -1839,35 +2240,45 @@ assert:
 
 assert_property:
 	opt_sva_label TOK_ASSERT TOK_PROPERTY '(' expr ')' ';' {
-		ast_stack.back()->children.push_back(new AstNode(assume_asserts_mode ? AST_ASSUME : AST_ASSERT, $5));
+		AstNode *node = new AstNode(assume_asserts_mode ? AST_ASSUME : AST_ASSERT, $5);
+		SET_AST_NODE_LOC(node, @1, @6);
+		ast_stack.back()->children.push_back(node);
 		if ($1 != nullptr) {
 			ast_stack.back()->children.back()->str = *$1;
 			delete $1;
 		}
 	} |
 	opt_sva_label TOK_ASSUME TOK_PROPERTY '(' expr ')' ';' {
-		ast_stack.back()->children.push_back(new AstNode(AST_ASSUME, $5));
+		AstNode *node = new AstNode(AST_ASSUME, $5);
+		SET_AST_NODE_LOC(node, @1, @6);
+		ast_stack.back()->children.push_back(node);
 		if ($1 != nullptr) {
 			ast_stack.back()->children.back()->str = *$1;
 			delete $1;
 		}
 	} |
 	opt_sva_label TOK_ASSERT TOK_PROPERTY '(' TOK_EVENTUALLY expr ')' ';' {
-		ast_stack.back()->children.push_back(new AstNode(assume_asserts_mode ? AST_FAIR : AST_LIVE, $6));
+		AstNode *node = new AstNode(assume_asserts_mode ? AST_FAIR : AST_LIVE, $6);
+		SET_AST_NODE_LOC(node, @1, @7);
+		ast_stack.back()->children.push_back(node);
 		if ($1 != nullptr) {
 			ast_stack.back()->children.back()->str = *$1;
 			delete $1;
 		}
 	} |
 	opt_sva_label TOK_ASSUME TOK_PROPERTY '(' TOK_EVENTUALLY expr ')' ';' {
-		ast_stack.back()->children.push_back(new AstNode(AST_FAIR, $6));
+		AstNode *node = new AstNode(AST_FAIR, $6);
+		SET_AST_NODE_LOC(node, @1, @7);
+		ast_stack.back()->children.push_back(node);
 		if ($1 != nullptr) {
 			ast_stack.back()->children.back()->str = *$1;
 			delete $1;
 		}
 	} |
 	opt_sva_label TOK_COVER TOK_PROPERTY '(' expr ')' ';' {
-		ast_stack.back()->children.push_back(new AstNode(AST_COVER, $5));
+		AstNode *node = new AstNode(AST_COVER, $5);
+		SET_AST_NODE_LOC(node, @1, @6);
+		ast_stack.back()->children.push_back(node);
 		if ($1 != nullptr) {
 			ast_stack.back()->children.back()->str = *$1;
 			delete $1;
@@ -1877,7 +2288,9 @@ assert_property:
 		if (norestrict_mode) {
 			delete $5;
 		} else {
-			ast_stack.back()->children.push_back(new AstNode(AST_ASSUME, $5));
+			AstNode *node = new AstNode(AST_ASSUME, $5);
+			SET_AST_NODE_LOC(node, @1, @6);
+			ast_stack.back()->children.push_back(node);
 			if ($1 != nullptr) {
 				ast_stack.back()->children.back()->str = *$1;
 				delete $1;
@@ -1888,7 +2301,9 @@ assert_property:
 		if (norestrict_mode) {
 			delete $6;
 		} else {
-			ast_stack.back()->children.push_back(new AstNode(AST_FAIR, $6));
+			AstNode *node = new AstNode(AST_FAIR, $6);
+			SET_AST_NODE_LOC(node, @1, @7);
+			ast_stack.back()->children.push_back(node);
 			if ($1 != nullptr) {
 				ast_stack.back()->children.back()->str = *$1;
 				delete $1;
@@ -1897,62 +2312,115 @@ assert_property:
 	};
 
 simple_behavioral_stmt:
-	lvalue '=' delay expr {
-		AstNode *node = new AstNode(AST_ASSIGN_EQ, $1, $4);
+	attr lvalue '=' delay expr {
+		AstNode *node = new AstNode(AST_ASSIGN_EQ, $2, $5);
 		ast_stack.back()->children.push_back(node);
+		SET_AST_NODE_LOC(node, @2, @5);
+		append_attr(node, $1);
 	} |
-	lvalue TOK_INCREMENT {
-		AstNode *node = new AstNode(AST_ASSIGN_EQ, $1, new AstNode(AST_ADD, $1->clone(), AstNode::mkconst_int(1, true)));
+	attr lvalue TOK_INCREMENT {
+		AstNode *node = new AstNode(AST_ASSIGN_EQ, $2, new AstNode(AST_ADD, $2->clone(), AstNode::mkconst_int(1, true)));
 		ast_stack.back()->children.push_back(node);
+		SET_AST_NODE_LOC(node, @2, @3);
+		append_attr(node, $1);
 	} |
-	lvalue TOK_DECREMENT {
-		AstNode *node = new AstNode(AST_ASSIGN_EQ, $1, new AstNode(AST_SUB, $1->clone(), AstNode::mkconst_int(1, true)));
+	attr lvalue TOK_DECREMENT {
+		AstNode *node = new AstNode(AST_ASSIGN_EQ, $2, new AstNode(AST_SUB, $2->clone(), AstNode::mkconst_int(1, true)));
 		ast_stack.back()->children.push_back(node);
+		SET_AST_NODE_LOC(node, @2, @3);
+		append_attr(node, $1);
 	} |
-	lvalue OP_LE delay expr {
-		AstNode *node = new AstNode(AST_ASSIGN_LE, $1, $4);
+	attr lvalue OP_LE delay expr {
+		AstNode *node = new AstNode(AST_ASSIGN_LE, $2, $5);
 		ast_stack.back()->children.push_back(node);
+		SET_AST_NODE_LOC(node, @2, @5);
+		append_attr(node, $1);
+	} |
+	attr lvalue TOK_XOR_ASSIGN delay expr {
+		AstNode *xor_node = new AstNode(AST_BIT_XOR, $2->clone(), $5);
+		AstNode *node = new AstNode(AST_ASSIGN_EQ, $2, xor_node);
+		SET_AST_NODE_LOC(xor_node, @2, @5);
+		SET_AST_NODE_LOC(node, @2, @5);
+		ast_stack.back()->children.push_back(node);
+		append_attr(node, $1);
+	} |
+	attr lvalue TOK_OR_ASSIGN delay expr {
+		AstNode *or_node = new AstNode(AST_BIT_OR, $2->clone(), $5);
+		SET_AST_NODE_LOC(or_node, @2, @5);
+		AstNode *node = new AstNode(AST_ASSIGN_EQ, $2, or_node);
+		SET_AST_NODE_LOC(node, @2, @5);
+		ast_stack.back()->children.push_back(node);
+		append_attr(node, $1);
+	} |
+	attr lvalue TOK_PLUS_ASSIGN delay expr {
+		AstNode *add_node = new AstNode(AST_ADD, $2->clone(), $5);
+		AstNode *node = new AstNode(AST_ASSIGN_EQ, $2, add_node);
+		SET_AST_NODE_LOC(node, @2, @5);
+		SET_AST_NODE_LOC(add_node, @2, @5);
+		ast_stack.back()->children.push_back(node);
+		append_attr(node, $1);
+	} |
+	attr lvalue TOK_SUB_ASSIGN delay expr {
+		AstNode *sub_node = new AstNode(AST_SUB, $2->clone(), $5);
+		AstNode *node = new AstNode(AST_ASSIGN_EQ, $2, sub_node);
+		SET_AST_NODE_LOC(node, @2, @5);
+		SET_AST_NODE_LOC(sub_node, @2, @5);
+		ast_stack.back()->children.push_back(node);
+		append_attr(node, $1);
+	} |
+	attr lvalue TOK_AND_ASSIGN delay expr {
+		AstNode *and_node = new AstNode(AST_BIT_AND, $2->clone(), $5);
+		AstNode *node = new AstNode(AST_ASSIGN_EQ, $2, and_node);
+		SET_AST_NODE_LOC(node, @2, @5);
+		SET_AST_NODE_LOC(and_node, @2, @5);
+		ast_stack.back()->children.push_back(node);
+		append_attr(node, $1);
 	};
 
 // this production creates the obligatory if-else shift/reduce conflict
 behavioral_stmt:
 	defattr | assert | wire_decl | param_decl | localparam_decl | typedef_decl |
 	non_opt_delay behavioral_stmt |
-	simple_behavioral_stmt ';' | ';' |
-	hierarchical_id attr {
+	simple_behavioral_stmt ';' |
+	attr ';' {
+		free_attr($1);
+	} |
+	attr hierarchical_id {
 		AstNode *node = new AstNode(AST_TCALL);
-		node->str = *$1;
-		delete $1;
+		node->str = *$2;
+		delete $2;
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
-		append_attr(node, $2);
+		append_attr(node, $1);
 	} opt_arg_list ';'{
 		ast_stack.pop_back();
 	} |
-	TOK_MSG_TASKS attr {
+	attr TOK_MSG_TASKS {
 		AstNode *node = new AstNode(AST_TCALL);
-		node->str = *$1;
-		delete $1;
+		node->str = *$2;
+		delete $2;
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
-		append_attr(node, $2);
+		append_attr(node, $1);
 	} opt_arg_list ';'{
 		ast_stack.pop_back();
 	} |
-	attr TOK_BEGIN opt_label {
+	attr TOK_BEGIN {
+		enterTypeScope();
+	} opt_label {
 		AstNode *node = new AstNode(AST_BLOCK);
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 		append_attr(node, $1);
-		if ($3 != NULL)
-			node->str = *$3;
+		if ($4 != NULL)
+			node->str = *$4;
 	} behavioral_stmt_list TOK_END opt_label {
-		if ($3 != NULL && $7 != NULL && *$3 != *$7)
-			frontend_verilog_yyerror("Begin label (%s) and end label (%s) don't match.", $3->c_str()+1, $7->c_str()+1);
-		if ($3 != NULL)
-			delete $3;
-		if ($7 != NULL)
-			delete $7;
+		exitTypeScope();
+		if ($4 != NULL && $8 != NULL && *$4 != *$8)
+			frontend_verilog_yyerror("Begin label (%s) and end label (%s) don't match.", $4->c_str()+1, $8->c_str()+1);
+		SET_AST_NODE_LOC(ast_stack.back(), @2, @8);
+		delete $4;
+		delete $8;
 		ast_stack.pop_back();
 	} |
 	attr TOK_FOR '(' {
@@ -1967,7 +2435,9 @@ behavioral_stmt:
 		ast_stack.back()->children.push_back(block);
 		ast_stack.push_back(block);
 	} behavioral_stmt {
+		SET_AST_NODE_LOC(ast_stack.back(), @13, @13);
 		ast_stack.pop_back();
+		SET_AST_NODE_LOC(ast_stack.back(), @2, @13);
 		ast_stack.pop_back();
 	} |
 	attr TOK_WHILE '(' expr ')' {
@@ -1980,6 +2450,7 @@ behavioral_stmt:
 		ast_stack.back()->children.push_back(block);
 		ast_stack.push_back(block);
 	} behavioral_stmt {
+		SET_AST_NODE_LOC(ast_stack.back(), @7, @7);
 		ast_stack.pop_back();
 		ast_stack.pop_back();
 	} |
@@ -1993,6 +2464,7 @@ behavioral_stmt:
 		ast_stack.back()->children.push_back(block);
 		ast_stack.push_back(block);
 	} behavioral_stmt {
+		SET_AST_NODE_LOC(ast_stack.back(), @7, @7);
 		ast_stack.pop_back();
 		ast_stack.pop_back();
 	} |
@@ -2000,14 +2472,18 @@ behavioral_stmt:
 		AstNode *node = new AstNode(AST_CASE);
 		AstNode *block = new AstNode(AST_BLOCK);
 		AstNode *cond = new AstNode(AST_COND, AstNode::mkconst_int(1, false, 1), block);
+		SET_AST_NODE_LOC(cond, @4, @4);
 		ast_stack.back()->children.push_back(node);
 		node->children.push_back(new AstNode(AST_REDUCE_BOOL, $4));
 		node->children.push_back(cond);
 		ast_stack.push_back(node);
 		ast_stack.push_back(block);
 		append_attr(node, $1);
-	} behavioral_stmt optional_else {
+	} behavioral_stmt {
+		SET_AST_NODE_LOC(ast_stack.back(), @7, @7);
+	} optional_else {
 		ast_stack.pop_back();
+		SET_AST_NODE_LOC(ast_stack.back(), @2, @9);
 		ast_stack.pop_back();
 	} |
 	case_attr case_type '(' expr ')' {
@@ -2015,7 +2491,9 @@ behavioral_stmt:
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 		append_attr(node, $1);
+		SET_AST_NODE_LOC(ast_stack.back(), @4, @4);
 	} opt_synopsys_attr case_body TOK_ENDCASE {
+		SET_AST_NODE_LOC(ast_stack.back(), @2, @9);
 		case_type_stack.pop_back();
 		ast_stack.pop_back();
 	};
@@ -2033,7 +2511,7 @@ unique_case_attr:
 
 case_attr:
 	attr unique_case_attr {
-		if ($2) (*$1)["\\parallel_case"] = AstNode::mkconst_int(1, false);
+		if ($2) (*$1)[ID::parallel_case] = AstNode::mkconst_int(1, false);
 		$$ = $1;
 	};
 
@@ -2050,12 +2528,12 @@ case_type:
 
 opt_synopsys_attr:
 	opt_synopsys_attr TOK_SYNOPSYS_FULL_CASE {
-		if (ast_stack.back()->attributes.count("\\full_case") == 0)
-			ast_stack.back()->attributes["\\full_case"] = AstNode::mkconst_int(1, false);
+		if (ast_stack.back()->attributes.count(ID::full_case) == 0)
+			ast_stack.back()->attributes[ID::full_case] = AstNode::mkconst_int(1, false);
 	} |
 	opt_synopsys_attr TOK_SYNOPSYS_PARALLEL_CASE {
-		if (ast_stack.back()->attributes.count("\\parallel_case") == 0)
-			ast_stack.back()->attributes["\\parallel_case"] = AstNode::mkconst_int(1, false);
+		if (ast_stack.back()->attributes.count(ID::parallel_case) == 0)
+			ast_stack.back()->attributes[ID::parallel_case] = AstNode::mkconst_int(1, false);
 	} |
 	/* empty */;
 
@@ -2067,10 +2545,14 @@ optional_else:
 	TOK_ELSE {
 		AstNode *block = new AstNode(AST_BLOCK);
 		AstNode *cond = new AstNode(AST_COND, new AstNode(AST_DEFAULT), block);
+		SET_AST_NODE_LOC(cond, @1, @1);
+
 		ast_stack.pop_back();
 		ast_stack.back()->children.push_back(cond);
 		ast_stack.push_back(block);
-	} behavioral_stmt |
+	} behavioral_stmt {
+		SET_AST_NODE_LOC(ast_stack.back(), @3, @3);
+	} |
 	/* empty */ %prec FAKE_THEN;
 
 case_body:
@@ -2091,6 +2573,7 @@ case_item:
 		case_type_stack.push_back(0);
 	} behavioral_stmt {
 		case_type_stack.pop_back();
+		SET_AST_NODE_LOC(ast_stack.back(), @4, @4);
 		ast_stack.pop_back();
 		ast_stack.pop_back();
 	};
@@ -2108,7 +2591,8 @@ gen_case_item:
 		ast_stack.push_back(node);
 	} case_select {
 		case_type_stack.push_back(0);
-	} gen_stmt_or_null {
+		SET_AST_NODE_LOC(ast_stack.back(), @2, @2);
+	} gen_stmt_block {
 		case_type_stack.pop_back();
 		ast_stack.pop_back();
 	};
@@ -2119,10 +2603,14 @@ case_select:
 
 case_expr_list:
 	TOK_DEFAULT {
-		ast_stack.back()->children.push_back(new AstNode(AST_DEFAULT));
+		AstNode *node = new AstNode(AST_DEFAULT);
+		SET_AST_NODE_LOC(node, @1, @1);
+		ast_stack.back()->children.push_back(node);
 	} |
 	TOK_SVA_LABEL {
-		ast_stack.back()->children.push_back(new AstNode(AST_IDENTIFIER));
+		AstNode *node = new AstNode(AST_IDENTIFIER);
+		SET_AST_NODE_LOC(node, @1, @1);
+		ast_stack.back()->children.push_back(node);
 		ast_stack.back()->children.back()->str = *$1;
 		delete $1;
 	} |
@@ -2142,6 +2630,7 @@ rvalue:
 	hierarchical_id range {
 		$$ = new AstNode(AST_IDENTIFIER, $2);
 		$$->str = *$1;
+		SET_AST_NODE_LOC($$, @1, @1);
 		delete $1;
 		if ($2 == nullptr && ($$->str == "\\$initstate" ||
 				$$->str == "\\$anyconst" || $$->str == "\\$anyseq" ||
@@ -2151,6 +2640,7 @@ rvalue:
 	hierarchical_id non_opt_multirange {
 		$$ = new AstNode(AST_IDENTIFIER, $2);
 		$$->str = *$1;
+		SET_AST_NODE_LOC($$, @1, @1);
 		delete $1;
 	};
 
@@ -2194,7 +2684,10 @@ module_gen_body:
 	/* empty */;
 
 gen_stmt_or_module_body_stmt:
-	gen_stmt | module_body_stmt;
+	gen_stmt | module_body_stmt |
+	attr ';' {
+		free_attr($1);
+	};
 
 // this production creates the obligatory if-else shift/reduce conflict
 gen_stmt:
@@ -2205,6 +2698,7 @@ gen_stmt:
 	} simple_behavioral_stmt ';' expr {
 		ast_stack.back()->children.push_back($6);
 	} ';' simple_behavioral_stmt ')' gen_stmt_block {
+		SET_AST_NODE_LOC(ast_stack.back(), @1, @11);
 		ast_stack.pop_back();
 	} |
 	TOK_IF '(' expr ')' {
@@ -2212,7 +2706,13 @@ gen_stmt:
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 		ast_stack.back()->children.push_back($3);
-	} gen_stmt_block opt_gen_else {
+		AstNode *block = new AstNode(AST_GENBLOCK);
+		ast_stack.back()->children.push_back(block);
+		ast_stack.push_back(block);
+	} gen_stmt_block {
+		ast_stack.pop_back();
+	} opt_gen_else {
+		SET_AST_NODE_LOC(ast_stack.back(), @1, @7);
 		ast_stack.pop_back();
 	} |
 	case_type '(' expr ')' {
@@ -2221,18 +2721,21 @@ gen_stmt:
 		ast_stack.push_back(node);
 	} gen_case_body TOK_ENDCASE {
 		case_type_stack.pop_back();
+		SET_AST_NODE_LOC(ast_stack.back(), @1, @7);
 		ast_stack.pop_back();
 	} |
-	TOK_BEGIN opt_label {
+	TOK_BEGIN {
+		enterTypeScope();
+	} opt_label {
 		AstNode *node = new AstNode(AST_GENBLOCK);
-		node->str = $2 ? *$2 : std::string();
+		node->str = $3 ? *$3 : std::string();
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 	} module_gen_body TOK_END opt_label {
-		if ($2 != NULL)
-			delete $2;
-		if ($6 != NULL)
-			delete $6;
+		exitTypeScope();
+		delete $3;
+		delete $7;
+		SET_AST_NODE_LOC(ast_stack.back(), @1, @7);
 		ast_stack.pop_back();
 	} |
 	TOK_MSG_TASKS {
@@ -2242,6 +2745,7 @@ gen_stmt:
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 	} opt_arg_list ';'{
+		SET_AST_NODE_LOC(ast_stack.back(), @1, @3);
 		ast_stack.pop_back();
 	};
 
@@ -2251,14 +2755,12 @@ gen_stmt_block:
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 	} gen_stmt_or_module_body_stmt {
+		SET_AST_NODE_LOC(ast_stack.back(), @2, @2);
 		ast_stack.pop_back();
 	};
 
-gen_stmt_or_null:
-	gen_stmt_block | ';';
-
 opt_gen_else:
-	TOK_ELSE gen_stmt_or_null | /* empty */ %prec FAKE_THEN;
+	TOK_ELSE gen_stmt_block | /* empty */ %prec FAKE_THEN;
 
 expr:
 	basic_expr {
@@ -2269,6 +2771,7 @@ expr:
 		$$->children.push_back($1);
 		$$->children.push_back($4);
 		$$->children.push_back($6);
+		SET_AST_NODE_LOC($$, @1, @$);
 		append_attr($$, $3);
 	};
 
@@ -2276,7 +2779,7 @@ basic_expr:
 	rvalue {
 		$$ = $1;
 	} |
-	'(' expr ')' TOK_CONSTVAL {
+	'(' expr ')' integral_number {
 		if ($4->compare(0, 1, "'") != 0)
 			frontend_verilog_yyerror("Cast operation must be applied on sized constants e.g. (<expr>)<constval> , while %s is not a sized constant.", $4->c_str());
 		AstNode *bits = $2;
@@ -2286,27 +2789,23 @@ basic_expr:
 		$$ = new AstNode(AST_TO_BITS, bits, val);
 		delete $4;
 	} |
-	hierarchical_id TOK_CONSTVAL {
+	hierarchical_id integral_number {
 		if ($2->compare(0, 1, "'") != 0)
 			frontend_verilog_yyerror("Cast operation must be applied on sized constants, e.g. <ID>\'d0, while %s is not a sized constant.", $2->c_str());
 		AstNode *bits = new AstNode(AST_IDENTIFIER);
 		bits->str = *$1;
+		SET_AST_NODE_LOC(bits, @1, @1);
 		AstNode *val = const2ast(*$2, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode);
+		SET_AST_NODE_LOC(val, @2, @2);
 		if (val == NULL)
 			log_error("Value conversion failed: `%s'\n", $2->c_str());
 		$$ = new AstNode(AST_TO_BITS, bits, val);
 		delete $1;
 		delete $2;
 	} |
-	TOK_CONSTVAL TOK_CONSTVAL {
-		$$ = const2ast(*$1 + *$2, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode);
-		if ($$ == NULL || (*$2)[0] != '\'')
-			log_error("Value conversion failed: `%s%s'\n", $1->c_str(), $2->c_str());
-		delete $1;
-		delete $2;
-	} |
-	TOK_CONSTVAL {
+	integral_number {
 		$$ = const2ast(*$1, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode);
+		SET_AST_NODE_LOC($$, @1, @1);
 		if ($$ == NULL)
 			log_error("Value conversion failed: `%s'\n", $1->c_str());
 		delete $1;
@@ -2318,12 +2817,14 @@ basic_expr:
 			if ((*$1)[j] != '_')
 				p[i++] = (*$1)[j], p[i] = 0;
 		$$->realvalue = strtod(p, &q);
+		SET_AST_NODE_LOC($$, @1, @1);
 		log_assert(*q == 0);
 		delete $1;
 		free(p);
 	} |
 	TOK_STRING {
 		$$ = AstNode::mkconst_str(*$1);
+		SET_AST_NODE_LOC($$, @1, @1);
 		delete $1;
 	} |
 	hierarchical_id attr {
@@ -2331,6 +2832,7 @@ basic_expr:
 		node->str = *$1;
 		delete $1;
 		ast_stack.push_back(node);
+		SET_AST_NODE_LOC(node, @1, @1);
 		append_attr(node, $2);
 	} '(' arg_list optional_comma ')' {
 		$$ = ast_stack.back();
@@ -2360,148 +2862,185 @@ basic_expr:
 	} |
 	'~' attr basic_expr %prec UNARY_OPS {
 		$$ = new AstNode(AST_BIT_NOT, $3);
+		SET_AST_NODE_LOC($$, @1, @3);
 		append_attr($$, $2);
 	} |
 	basic_expr '&' attr basic_expr {
 		$$ = new AstNode(AST_BIT_AND, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr OP_NAND attr basic_expr {
 		$$ = new AstNode(AST_BIT_NOT, new AstNode(AST_BIT_AND, $1, $4));
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr '|' attr basic_expr {
 		$$ = new AstNode(AST_BIT_OR, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr OP_NOR attr basic_expr {
 		$$ = new AstNode(AST_BIT_NOT, new AstNode(AST_BIT_OR, $1, $4));
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr '^' attr basic_expr {
 		$$ = new AstNode(AST_BIT_XOR, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr OP_XNOR attr basic_expr {
 		$$ = new AstNode(AST_BIT_XNOR, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	'&' attr basic_expr %prec UNARY_OPS {
 		$$ = new AstNode(AST_REDUCE_AND, $3);
+		SET_AST_NODE_LOC($$, @1, @3);
 		append_attr($$, $2);
 	} |
 	OP_NAND attr basic_expr %prec UNARY_OPS {
 		$$ = new AstNode(AST_REDUCE_AND, $3);
+		SET_AST_NODE_LOC($$, @1, @3);
 		append_attr($$, $2);
 		$$ = new AstNode(AST_LOGIC_NOT, $$);
 	} |
 	'|' attr basic_expr %prec UNARY_OPS {
 		$$ = new AstNode(AST_REDUCE_OR, $3);
+		SET_AST_NODE_LOC($$, @1, @3);
 		append_attr($$, $2);
 	} |
 	OP_NOR attr basic_expr %prec UNARY_OPS {
 		$$ = new AstNode(AST_REDUCE_OR, $3);
+		SET_AST_NODE_LOC($$, @1, @3);
 		append_attr($$, $2);
 		$$ = new AstNode(AST_LOGIC_NOT, $$);
+		SET_AST_NODE_LOC($$, @1, @3);
 	} |
 	'^' attr basic_expr %prec UNARY_OPS {
 		$$ = new AstNode(AST_REDUCE_XOR, $3);
+		SET_AST_NODE_LOC($$, @1, @3);
 		append_attr($$, $2);
 	} |
 	OP_XNOR attr basic_expr %prec UNARY_OPS {
 		$$ = new AstNode(AST_REDUCE_XNOR, $3);
+		SET_AST_NODE_LOC($$, @1, @3);
 		append_attr($$, $2);
 	} |
 	basic_expr OP_SHL attr basic_expr {
 		$$ = new AstNode(AST_SHIFT_LEFT, $1, new AstNode(AST_TO_UNSIGNED, $4));
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr OP_SHR attr basic_expr {
 		$$ = new AstNode(AST_SHIFT_RIGHT, $1, new AstNode(AST_TO_UNSIGNED, $4));
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr OP_SSHL attr basic_expr {
 		$$ = new AstNode(AST_SHIFT_SLEFT, $1, new AstNode(AST_TO_UNSIGNED, $4));
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr OP_SSHR attr basic_expr {
 		$$ = new AstNode(AST_SHIFT_SRIGHT, $1, new AstNode(AST_TO_UNSIGNED, $4));
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr '<' attr basic_expr {
 		$$ = new AstNode(AST_LT, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr OP_LE attr basic_expr {
 		$$ = new AstNode(AST_LE, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr OP_EQ attr basic_expr {
 		$$ = new AstNode(AST_EQ, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr OP_NE attr basic_expr {
 		$$ = new AstNode(AST_NE, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr OP_EQX attr basic_expr {
 		$$ = new AstNode(AST_EQX, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr OP_NEX attr basic_expr {
 		$$ = new AstNode(AST_NEX, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr OP_GE attr basic_expr {
 		$$ = new AstNode(AST_GE, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr '>' attr basic_expr {
 		$$ = new AstNode(AST_GT, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr '+' attr basic_expr {
 		$$ = new AstNode(AST_ADD, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr '-' attr basic_expr {
 		$$ = new AstNode(AST_SUB, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr '*' attr basic_expr {
 		$$ = new AstNode(AST_MUL, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr '/' attr basic_expr {
 		$$ = new AstNode(AST_DIV, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr '%' attr basic_expr {
 		$$ = new AstNode(AST_MOD, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr OP_POW attr basic_expr {
 		$$ = new AstNode(AST_POW, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	'+' attr basic_expr %prec UNARY_OPS {
 		$$ = new AstNode(AST_POS, $3);
+		SET_AST_NODE_LOC($$, @1, @3);
 		append_attr($$, $2);
 	} |
 	'-' attr basic_expr %prec UNARY_OPS {
 		$$ = new AstNode(AST_NEG, $3);
+		SET_AST_NODE_LOC($$, @1, @3);
 		append_attr($$, $2);
 	} |
 	basic_expr OP_LAND attr basic_expr {
 		$$ = new AstNode(AST_LOGIC_AND, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	basic_expr OP_LOR attr basic_expr {
 		$$ = new AstNode(AST_LOGIC_OR, $1, $4);
+		SET_AST_NODE_LOC($$, @1, @4);
 		append_attr($$, $3);
 	} |
 	'!' attr basic_expr %prec UNARY_OPS {
 		$$ = new AstNode(AST_LOGIC_NOT, $3);
+		SET_AST_NODE_LOC($$, @1, @3);
 		append_attr($$, $2);
 	};
 
@@ -2512,4 +3051,19 @@ concat_list:
 	expr ',' concat_list {
 		$$ = $3;
 		$$->children.push_back($1);
+	};
+
+integral_number:
+	TOK_CONSTVAL { $$ = $1; } |
+	TOK_UNBASED_UNSIZED_CONSTVAL { $$ = $1; } |
+	TOK_BASE TOK_BASED_CONSTVAL {
+		$1->append(*$2);
+		$$ = $1;
+		delete $2;
+	} |
+	TOK_CONSTVAL TOK_BASE TOK_BASED_CONSTVAL {
+		$1->append(*$2).append(*$3);
+		$$ = $1;
+		delete $2;
+		delete $3;
 	};

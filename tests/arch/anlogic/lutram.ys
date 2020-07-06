@@ -1,0 +1,21 @@
+read_verilog ../common/lutram.v
+hierarchy -top lutram_1w1r
+proc
+memory -nomap
+equiv_opt -run :prove -map +/anlogic/cells_sim.v synth_anlogic
+memory
+opt -full
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+#ERROR: Failed to import cell gate.mem.0.0.0 (type EG_LOGIC_DRAM16X4) to SAT database.
+#sat -verify -prove-asserts -seq 3 -set-init-zero -show-inputs -show-outputs miter
+
+design -load postopt
+cd lutram_1w1r
+
+select -assert-count 8  t:AL_MAP_LUT2
+select -assert-count 8  t:AL_MAP_LUT4
+select -assert-count 8   t:AL_MAP_LUT5
+select -assert-count 36 t:AL_MAP_SEQ
+select -assert-count 8  t:EG_LOGIC_DRAM16X4 #Why not AL_LOGIC_BRAM?
+select -assert-none t:AL_MAP_LUT2 t:AL_MAP_LUT4 t:AL_MAP_LUT5 t:AL_MAP_SEQ t:EG_LOGIC_DRAM16X4 %% t:* %D

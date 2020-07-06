@@ -95,7 +95,7 @@ code sigA sigB sigC sigD sigM clock
 	sigD = port(dsp, \D, SigSpec());
 
 	SigSpec P = port(dsp, \P);
-	if (param(dsp, \USE_MULT, Const("MULTIPLY")).decode_string() == "MULTIPLY") {
+	if (param(dsp, \USE_MULT).decode_string() == "MULTIPLY") {
 		// Only care about those bits that are used
 		int i;
 		for (i = GetSize(P)-1; i >= 0; i--)
@@ -144,7 +144,7 @@ endcode
 match preAdd
 	if sigD.empty() || sigD.is_fully_zero()
 	// Ensure that preAdder not already used
-	if param(dsp, \USE_DPORT, Const("FALSE")).decode_string() == "FALSE"
+	if param(dsp, \USE_DPORT).decode_string() == "FALSE"
 	if port(dsp, \INMODE, Const(0, 5)).is_fully_zero()
 
 	select preAdd->type.in($add)
@@ -335,7 +335,7 @@ endcode
 //      recognised in xilinx_dsp.cc).
 match postAdd
 	// Ensure that Z mux is not already used
-	if port(dsp, \OPMODE, SigSpec()).extract(4,3).is_fully_zero()
+	if port(dsp, \OPMODE, SigSpec(0, 7)).extract(4,3).is_fully_zero()
 
 	select postAdd->type.in($add)
 	select GetSize(port(postAdd, \Y)) <= 48
@@ -424,7 +424,7 @@ endcode
 //      to implement this function
 match overflow
 	if ffP
-	if param(dsp, \USE_PATTERN_DETECT, Const("NO_PATDET")).decode_string() == "NO_PATDET"
+	if param(dsp, \USE_PATTERN_DETECT).decode_string() == "NO_PATDET"
 	select overflow->type.in($ge)
 	select GetSize(port(overflow, \Y)) <= 48
 	select port(overflow, \B).is_fully_const()
@@ -460,7 +460,7 @@ arg argD argQ clock
 
 code
 	dff = nullptr;
-	if (GetSize(argQ) == 0)
+	if (argQ.empty())
 		reject;
 	for (const auto &c : argQ.chunks()) {
 		// Abandon matches when 'Q' is a constant

@@ -1,0 +1,5 @@
+
+read_verilog -sv enum_simple.sv
+hierarchy; proc; opt
+sat -verify -seq 1 -set-at 1 rst 1 -tempinduct -prove-asserts -show-all
+

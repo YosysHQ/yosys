@@ -29,11 +29,12 @@
 
 #include <limits.h>
 #include <stdint.h>
-#include <csignal>
 #include <cinttypes>
 
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(__wasm)
+#  include <csignal>
 #  include <unistd.h>
+#  define HAS_ALARM
 #endif
 
 #include "../minisat/Solver.h"
@@ -84,7 +85,7 @@ bool ezMiniSAT::eliminated(int idx)
 }
 #endif
 
-#ifndef _WIN32
+#if defined(HAS_ALARM)
 ezMiniSAT *ezMiniSAT::alarmHandlerThis = NULL;
 clock_t ezMiniSAT::alarmHandlerTimeout = 0;
 
@@ -183,7 +184,7 @@ contradiction:
 #endif
 	}
 
-#ifndef _WIN32
+#if defined(HAS_ALARM)
 	struct sigaction sig_action;
 	struct sigaction old_sig_action;
 	int old_alarm_timeout = 0;
@@ -202,7 +203,7 @@ contradiction:
 
 	bool foundSolution = minisatSolver->solve(assumps);
 
-#ifndef _WIN32
+#if defined(HAS_ALARM)
 	if (solverTimeout > 0) {
 		if (alarmHandlerTimeout == 0)
 			solverTimoutStatus = true;
