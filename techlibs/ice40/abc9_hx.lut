@@ -1,0 +1,6 @@
+# From https://github.com/cliffordwolf/icestorm/blob/be0bca0/icefuzz/timings_hx8k.txt
+#       I3  I2  I1  I0
+1   1   316
+2   1   316 379
+3   1   316 379 400
+4   1   316 379 400 449

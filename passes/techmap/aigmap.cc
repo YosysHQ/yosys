@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct AigmapPass : public Pass {
 	AigmapPass() : Pass("aigmap", "map logic to and-inverter-graph circuit") { }
-	void help() override
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -43,7 +43,7 @@ struct AigmapPass : public Pass {
 
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) override
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool nand_mode = false, select_mode = false;
 

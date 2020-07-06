@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct DffinitPass : public Pass {
 	DffinitPass() : Pass("dffinit", "set INIT param on FF cells") { }
-	void help() override
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -54,7 +54,7 @@ struct DffinitPass : public Pass {
 		log("        the already defined initial value.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) override
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing DFFINIT pass (set INIT param on FF cells).\n");
 
@@ -99,8 +99,8 @@ struct DffinitPass : public Pass {
 			pool<SigBit> used_bits;
 
 			for (auto wire : module->selected_wires()) {
-				if (wire->attributes.count(ID::init)) {
-					Const value = wire->attributes.at(ID::init);
+				if (wire->attributes.count(ID(init))) {
+					Const value = wire->attributes.at(ID(init));
 					for (int i = 0; i < min(GetSize(value), GetSize(wire)); i++)
 						if (value[i] != State::Sx)
 							init_bits[sigmap(SigBit(wire, i))] = value[i];
@@ -154,17 +154,15 @@ struct DffinitPass : public Pass {
 							value = Const(low_string);
 					}
 
-					if (value.size() != 0) {
-						log("Setting %s.%s.%s (port=%s, net=%s) to %s.\n", log_id(module), log_id(cell), log_id(it.second),
-								log_id(it.first), log_signal(sig), log_signal(value));
-						cell->setParam(it.second, value);
-					}
+					log("Setting %s.%s.%s (port=%s, net=%s) to %s.\n", log_id(module), log_id(cell), log_id(it.second),
+							log_id(it.first), log_signal(sig), log_signal(value));
+					cell->setParam(it.second, value);
 				}
 			}
 
 			for (auto wire : module->selected_wires())
-				if (wire->attributes.count(ID::init)) {
-					Const &value = wire->attributes.at(ID::init);
+				if (wire->attributes.count(ID(init))) {
+					Const &value = wire->attributes.at(ID(init));
 					bool do_cleanup = true;
 					for (int i = 0; i < min(GetSize(value), GetSize(wire)); i++) {
 						SigBit bit = sigmap(SigBit(wire, i));
@@ -175,7 +173,7 @@ struct DffinitPass : public Pass {
 					}
 					if (do_cleanup) {
 						log("Removing init attribute from wire %s.%s.\n", log_id(module), log_id(wire));
-						wire->attributes.erase(ID::init);
+						wire->attributes.erase(ID(init));
 					}
 				}
 		}

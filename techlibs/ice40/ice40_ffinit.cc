@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct Ice40FfinitPass : public Pass {
 	Ice40FfinitPass() : Pass("ice40_ffinit", "iCE40: handle FF init values") { }
-	void help() override
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -35,7 +35,7 @@ struct Ice40FfinitPass : public Pass {
 		log("nonzero init values.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) override
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing ICE40_FFINIT pass (implement FF init values).\n");
 
@@ -62,11 +62,11 @@ struct Ice40FfinitPass : public Pass {
 
 			for (auto wire : module->selected_wires())
 			{
-				if (wire->attributes.count(ID::init) == 0)
+				if (wire->attributes.count("\\init") == 0)
 					continue;
 
 				SigSpec wirebits = sigmap(wire);
-				Const initval = wire->attributes.at(ID::init);
+				Const initval = wire->attributes.at("\\init");
 				init_wires.insert(wire);
 
 				for (int i = 0; i < GetSize(wirebits) && i < GetSize(initval); i++)
@@ -78,12 +78,10 @@ struct Ice40FfinitPass : public Pass {
 						continue;
 
 					if (initbits.count(bit)) {
-						if (initbits.at(bit) != val) {
-							log_warning("Conflicting init values for signal %s (%s = %s, %s = %s).\n",
+						if (initbits.at(bit) != val)
+							log_error("Conflicting init values for signal %s (%s = %s, %s = %s).\n",
 									log_signal(bit), log_signal(SigBit(wire, i)), log_signal(val),
 									log_signal(initbit_to_wire[bit]), log_signal(initbits.at(bit)));
-							initbits.at(bit) = State::Sx;
-						}
 						continue;
 					}
 
@@ -93,9 +91,9 @@ struct Ice40FfinitPass : public Pass {
 			}
 
 			pool<IdString> sb_dff_types = {
-				ID(SB_DFF),    ID(SB_DFFE),   ID(SB_DFFSR),   ID(SB_DFFR),   ID(SB_DFFSS),   ID(SB_DFFS),   ID(SB_DFFESR),
-				ID(SB_DFFER),  ID(SB_DFFESS), ID(SB_DFFES),   ID(SB_DFFN),   ID(SB_DFFNE),   ID(SB_DFFNSR), ID(SB_DFFNR),
-				ID(SB_DFFNSS), ID(SB_DFFNS),  ID(SB_DFFNESR), ID(SB_DFFNER), ID(SB_DFFNESS), ID(SB_DFFNES)
+				"\\SB_DFF",    "\\SB_DFFE",   "\\SB_DFFSR",   "\\SB_DFFR",   "\\SB_DFFSS",   "\\SB_DFFS",   "\\SB_DFFESR",
+				"\\SB_DFFER",  "\\SB_DFFESS", "\\SB_DFFES",   "\\SB_DFFN",   "\\SB_DFFNE",   "\\SB_DFFNSR", "\\SB_DFFNR",
+				"\\SB_DFFNSS", "\\SB_DFFNS",  "\\SB_DFFNESR", "\\SB_DFFNER", "\\SB_DFFNESS", "\\SB_DFFNES"
 			};
 
 			for (auto cell : module->selected_cells())
@@ -103,8 +101,8 @@ struct Ice40FfinitPass : public Pass {
 				if (!sb_dff_types.count(cell->type))
 					continue;
 
-				SigSpec sig_d = cell->getPort(ID::D);
-				SigSpec sig_q = cell->getPort(ID::Q);
+				SigSpec sig_d = cell->getPort("\\D");
+				SigSpec sig_q = cell->getPort("\\Q");
 
 				if (GetSize(sig_d) < 1 || GetSize(sig_q) < 1)
 					continue;
@@ -116,10 +114,6 @@ struct Ice40FfinitPass : public Pass {
 					continue;
 
 				State val = initbits.at(bit_q);
-
-				if (val == State::Sx)
-					continue;
-
 				handled_initbits.insert(bit_q);
 
 				log("FF init value for cell %s (%s): %s = %c\n", log_id(cell), log_id(cell->type),
@@ -133,14 +127,14 @@ struct Ice40FfinitPass : public Pass {
 				if (type_str.back() == 'S') {
 					type_str.back() = 'R';
 					cell->type = type_str;
-					cell->setPort(ID::R, cell->getPort(ID::S));
-					cell->unsetPort(ID::S);
+					cell->setPort("\\R", cell->getPort("\\S"));
+					cell->unsetPort("\\S");
 				} else
 				if (type_str.back() == 'R') {
 					type_str.back() = 'S';
 					cell->type = type_str;
-					cell->setPort(ID::S, cell->getPort(ID::R));
-					cell->unsetPort(ID::R);
+					cell->setPort("\\S", cell->getPort("\\R"));
+					cell->unsetPort("\\R");
 				}
 
 				Wire *new_bit_d = module->addWire(NEW_ID);
@@ -149,17 +143,17 @@ struct Ice40FfinitPass : public Pass {
 				module->addNotGate(NEW_ID, bit_d, new_bit_d);
 				module->addNotGate(NEW_ID, new_bit_q, bit_q);
 
-				cell->setPort(ID::D, new_bit_d);
-				cell->setPort(ID::Q, new_bit_q);
+				cell->setPort("\\D", new_bit_d);
+				cell->setPort("\\Q", new_bit_q);
 			}
 
 			for (auto wire : init_wires)
 			{
-				if (wire->attributes.count(ID::init) == 0)
+				if (wire->attributes.count("\\init") == 0)
 					continue;
 
 				SigSpec wirebits = sigmap(wire);
-				Const &initval = wire->attributes.at(ID::init);
+				Const &initval = wire->attributes.at("\\init");
 				bool remove_attribute = true;
 
 				for (int i = 0; i < GetSize(wirebits) && i < GetSize(initval); i++) {
@@ -170,7 +164,7 @@ struct Ice40FfinitPass : public Pass {
 				}
 
 				if (remove_attribute)
-					wire->attributes.erase(ID::init);
+					wire->attributes.erase("\\init");
 			}
 		}
 	}

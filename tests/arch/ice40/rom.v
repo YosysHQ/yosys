@@ -2,8 +2,7 @@
 Example from: https://www.latticesemi.com/-/media/LatticeSemi/Documents/UserManuals/EI/iCEcube201701UserGuide.ashx?document_id=52071 [p. 74].
 */
 module top(data, addr);
-output [3:0] data; // Note: this prompts a Yosys warning, but
-                   //       vendor doc does not contain 'reg'
+output [3:0] data;
 input [4:0] addr;
 always @(addr) begin
 case (addr)

@@ -41,6 +41,8 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+using RTLIL::id2cstr;
+
 #undef CLUSTER_CELLS_AND_PORTBOXES
 
 struct ShowWorker
@@ -99,7 +101,7 @@ struct ShowWorker
 	{
 		sig.sort_and_unify();
 		for (auto &c : sig.chunks()) {
-			if (c.wire != nullptr)
+			if (c.wire != NULL)
 				for (auto &s : color_selections)
 					if (s.second.selected_members.count(module->name) > 0 && s.second.selected_members.at(module->name).count(c.wire->name) > 0)
 						return stringf("color=\"%s\"", s.first.c_str());
@@ -216,7 +218,7 @@ struct ShowWorker
 
 		if (sig.is_chunk()) {
 			const RTLIL::SigChunk &c = sig.as_chunk();
-			if (c.wire != nullptr && design->selected_member(module->name, c.wire->name)) {
+			if (c.wire != NULL && design->selected_member(module->name, c.wire->name)) {
 				if (!range_check || c.wire->width == c.width)
 						return stringf("n%d", id2num(c.wire->name));
 			} else {
@@ -228,7 +230,7 @@ struct ShowWorker
 		return std::string();
 	}
 
-	std::string gen_portbox(std::string port, RTLIL::SigSpec sig, bool driver, std::string *node = nullptr)
+	std::string gen_portbox(std::string port, RTLIL::SigSpec sig, bool driver, std::string *node = NULL)
 	{
 		std::string code;
 		std::string net = gen_signode_simple(sig);
@@ -285,7 +287,7 @@ struct ShowWorker
 				else
 					code += stringf("x%d:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", idx, port.c_str(), nextColor(sig).c_str(), widthLabel(sig.size()).c_str());
 			}
-			if (node != nullptr)
+			if (node != NULL)
 				*node = stringf("x%d", idx);
 		}
 		else
@@ -298,7 +300,7 @@ struct ShowWorker
 				net_conn_map[net].bits = sig.size();
 				net_conn_map[net].color = nextColor(sig, net_conn_map[net].color);
 			}
-			if (node != nullptr)
+			if (node != NULL)
 				*node = net;
 		}
 		return code;
@@ -364,20 +366,22 @@ struct ShowWorker
 		std::set<std::string> all_sources, all_sinks;
 
 		std::map<std::string, std::string> wires_on_demand;
-		for (auto wire : module->selected_wires()) {
+		for (auto &it : module->wires_) {
+			if (!design->selected_member(module->name, it.first))
+				continue;
 			const char *shape = "diamond";
-			if (wire->port_input || wire->port_output)
+			if (it.second->port_input || it.second->port_output)
 				shape = "octagon";
-			if (wire->name[0] == '\\') {
+			if (it.first[0] == '\\') {
 				fprintf(f, "n%d [ shape=%s, label=\"%s\", %s, fontcolor=\"black\" ];\n",
-						id2num(wire->name), shape, findLabel(wire->name.str()),
-						nextColor(RTLIL::SigSpec(wire), "color=\"black\"").c_str());
-				if (wire->port_input)
-					all_sources.insert(stringf("n%d", id2num(wire->name)));
-				else if (wire->port_output)
-					all_sinks.insert(stringf("n%d", id2num(wire->name)));
+						id2num(it.first), shape, findLabel(it.first.str()),
+						nextColor(RTLIL::SigSpec(it.second), "color=\"black\"").c_str());
+				if (it.second->port_input)
+					all_sources.insert(stringf("n%d", id2num(it.first)));
+				else if (it.second->port_output)
+					all_sinks.insert(stringf("n%d", id2num(it.first)));
 			} else {
-				wires_on_demand[stringf("n%d", id2num(wire->name))] = wire->name.str();
+				wires_on_demand[stringf("n%d", id2num(it.first))] = it.first.str();
 			}
 		}
 
@@ -394,12 +398,15 @@ struct ShowWorker
 			fprintf(f, "}\n");
 		}
 
-		for (auto cell : module->selected_cells())
+		for (auto &it : module->cells_)
 		{
+			if (!design->selected_member(module->name, it.first))
+				continue;
+
 			std::vector<RTLIL::IdString> in_ports, out_ports;
 
-			for (auto &conn : cell->connections()) {
-				if (!ct.cell_output(cell->type, conn.first))
+			for (auto &conn : it.second->connections()) {
+				if (!ct.cell_output(it.second->type, conn.first))
 					in_ports.push_back(conn.first);
 				else
 					out_ports.push_back(conn.first);
@@ -412,12 +419,12 @@ struct ShowWorker
 
 			for (auto &p : in_ports)
 				label_string += stringf("<p%d> %s%s|", id2num(p), escape(p.str()),
-						genSignedLabels && cell->hasParam(p.str() + "_SIGNED") &&
-						cell->getParam(p.str() + "_SIGNED").as_bool() ? "*" : "");
+						genSignedLabels && it.second->hasParam(p.str() + "_SIGNED") &&
+						it.second->getParam(p.str() + "_SIGNED").as_bool() ? "*" : "");
 			if (label_string[label_string.size()-1] == '|')
 				label_string = label_string.substr(0, label_string.size()-1);
 
-			label_string += stringf("}|%s\\n%s|{", findLabel(cell->name.str()), escape(cell->type.str()));
+			label_string += stringf("}|%s\\n%s|{", findLabel(it.first.str()), escape(it.second->type.str()));
 
 			for (auto &p : out_ports)
 				label_string += stringf("<p%d> %s|", id2num(p), escape(p.str()));
@@ -427,19 +434,19 @@ struct ShowWorker
 			label_string += "}}";
 
 			std::string code;
-			for (auto &conn : cell->connections()) {
-				code += gen_portbox(stringf("c%d:p%d", id2num(cell->name), id2num(conn.first)),
-						conn.second, ct.cell_output(cell->type, conn.first));
+			for (auto &conn : it.second->connections()) {
+				code += gen_portbox(stringf("c%d:p%d", id2num(it.first), id2num(conn.first)),
+						conn.second, ct.cell_output(it.second->type, conn.first));
 			}
 
 #ifdef CLUSTER_CELLS_AND_PORTBOXES
 			if (!code.empty())
 				fprintf(f, "subgraph cluster_c%d {\nc%d [ shape=record, label=\"%s\"%s ];\n%s}\n",
-						id2num(cell->name), id2num(cell->name), label_string.c_str(), findColor(cell->name), code.c_str());
+						id2num(it.first), id2num(it.first), label_string.c_str(), findColor(it.first), code.c_str());
 			else
 #endif
 				fprintf(f, "c%d [ shape=record, label=\"%s\"%s ];\n%s",
-						id2num(cell->name), label_string.c_str(), findColor(cell->name.str()), code.c_str());
+						id2num(it.first), label_string.c_str(), findColor(it.first.str()), code.c_str());
 		}
 
 		for (auto &it : module->processes)
@@ -475,8 +482,8 @@ struct ShowWorker
 			}
 
 			std::string proc_src = RTLIL::unescape_id(proc->name);
-			if (proc->attributes.count(ID::src) > 0)
-				proc_src = proc->attributes.at(ID::src).decode_string();
+			if (proc->attributes.count("\\src") > 0)
+				proc_src = proc->attributes.at("\\src").decode_string();
 			fprintf(f, "p%d [shape=box, style=rounded, label=\"PROC %s\\n%s\"];\n", pidx, findLabel(proc->name.str()), proc_src.c_str());
 		}
 
@@ -484,12 +491,12 @@ struct ShowWorker
 		{
 			bool found_lhs_wire = false;
 			for (auto &c : conn.first.chunks()) {
-				if (c.wire == nullptr || design->selected_member(module->name, c.wire->name))
+				if (c.wire == NULL || design->selected_member(module->name, c.wire->name))
 					found_lhs_wire = true;
 			}
 			bool found_rhs_wire = false;
 			for (auto &c : conn.second.chunks()) {
-				if (c.wire == nullptr || design->selected_member(module->name, c.wire->name))
+				if (c.wire == NULL || design->selected_member(module->name, c.wire->name))
 					found_rhs_wire = true;
 			}
 			if (!found_lhs_wire || !found_rhs_wire)
@@ -565,21 +572,23 @@ struct ShowWorker
 
 		design->optimize();
 		page_counter = 0;
-		for (auto mod : design->selected_modules())
+		for (auto &mod_it : design->modules_)
 		{
-			module = mod;
+			module = mod_it.second;
+			if (!design->selected_module(module->name))
+				continue;
 			if (design->selected_whole_module(module->name)) {
 				if (module->get_blackbox_attribute()) {
-					// log("Skipping blackbox module %s.\n", log_id(module->name));
+					// log("Skipping blackbox module %s.\n", id2cstr(module->name));
 					continue;
 				} else
-				if (module->cells().size() == 0 && module->connections().empty() && module->processes.empty()) {
-					log("Skipping empty module %s.\n", log_id(module->name));
+				if (module->cells_.empty() && module->connections().empty() && module->processes.empty()) {
+					log("Skipping empty module %s.\n", id2cstr(module->name));
 					continue;
 				} else
-					log("Dumping module %s to page %d.\n", log_id(module->name), ++page_counter);
+					log("Dumping module %s to page %d.\n", id2cstr(module->name), ++page_counter);
 			} else
-				log("Dumping selected parts of module %s to page %d.\n", log_id(module->name), ++page_counter);
+				log("Dumping selected parts of module %s to page %d.\n", id2cstr(module->name), ++page_counter);
 			handle_module();
 		}
 	}
@@ -587,7 +596,7 @@ struct ShowWorker
 
 struct ShowPass : public Pass {
 	ShowPass() : Pass("show", "generate schematics using graphviz") { }
-	void help() override
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -659,10 +668,6 @@ struct ShowPass : public Pass {
 		log("    -notitle\n");
 		log("        do not add the module name as graph title to the dot file\n");
 		log("\n");
-		log("    -nobg\n");
-		log("        don't run viewer in the background, IE wait for the viewer tool to\n");
-		log("        exit before returning\n");
-		log("\n");
 		log("When no <format> is specified, 'dot' is used. When no <format> and <viewer> is\n");
 		log("specified, 'xdot' is used to display the schematic (POSIX systems only).\n");
 		log("\n");
@@ -674,7 +679,7 @@ struct ShowPass : public Pass {
 		log("the 'show' command is executed.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) override
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Generating Graphviz representation of design.\n");
 		log_push();
@@ -682,7 +687,7 @@ struct ShowPass : public Pass {
 		std::vector<std::pair<std::string, RTLIL::Selection>> color_selections;
 		std::vector<std::pair<std::string, RTLIL::Selection>> label_selections;
 
-#if defined(_WIN32) || defined(YOSYS_DISABLE_SPAWN)
+#if defined(EMSCRIPTEN) || defined(_WIN32)
 		std::string format = "dot";
 		std::string prefix = "show";
 #else
@@ -701,7 +706,6 @@ struct ShowPass : public Pass {
 		bool flag_abbreviate = true;
 		bool flag_notitle = false;
 		bool custom_prefix = false;
-		std::string background = "&";
 		RTLIL::IdString colorattr;
 
 		size_t argidx;
@@ -783,22 +787,19 @@ struct ShowPass : public Pass {
 				flag_notitle = true;
 				continue;
 			}
-			if (arg == "-nobg") {
-				background= "";
-				continue;
-			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		if (format != "ps" && format != "dot") {
 			int modcount = 0;
-			for (auto module : design->selected_modules()) {
-				if (module->get_blackbox_attribute())
+			for (auto &mod_it : design->modules_) {
+				if (mod_it.second->get_blackbox_attribute())
 					continue;
-				if (module->cells().size() == 0 && module->connections().empty())
+				if (mod_it.second->cells_.empty() && mod_it.second->connections().empty())
 					continue;
-				modcount++;
+				if (design->selected_module(mod_it.first))
+					modcount++;
 			}
 			if (modcount > 1)
 				log_cmd_error("For formats different than 'ps' or 'dot' only one module must be selected.\n");
@@ -825,7 +826,7 @@ struct ShowPass : public Pass {
 		FILE *f = fopen(dot_file.c_str(), "w");
 		if (custom_prefix)
 			yosys_output_files.insert(dot_file);
-		if (f == nullptr) {
+		if (f == NULL) {
 			for (auto lib : libs)
 				delete lib;
 			log_cmd_error("Can't open dot file `%s' for writing.\n", dot_file.c_str());
@@ -849,44 +850,40 @@ struct ShowPass : public Pass {
 			std::string cmd = stringf(DOT_CMD, format.c_str(), dot_file.c_str(), out_file.c_str(), out_file.c_str(), out_file.c_str());
 			#undef DOT_CMD
 			log("Exec: %s\n", cmd.c_str());
-			#if !defined(YOSYS_DISABLE_SPAWN)
-				if (run_command(cmd) != 0)
-					log_cmd_error("Shell command failed!\n");
-			#endif
+			if (run_command(cmd) != 0)
+				log_cmd_error("Shell command failed!\n");
 		}
 
-		#if defined(YOSYS_DISABLE_SPAWN)
-			log_assert(viewer_exe.empty() && !format.empty());
-		#else
 		if (!viewer_exe.empty()) {
 			#ifdef _WIN32
 				// system()/cmd.exe does not understand single quotes nor
 				// background tasks on Windows. So we have to pause yosys
 				// until the viewer exits.
-				std::string cmd = stringf("%s \"%s\"", viewer_exe.c_str(), out_file.c_str());
+				#define VIEW_CMD "%s \"%s\""
 			#else
-				std::string cmd = stringf("%s '%s' %s", viewer_exe.c_str(), out_file.c_str(), background.c_str());
+				#define VIEW_CMD "%s '%s' &"
 			#endif
+			std::string cmd = stringf(VIEW_CMD, viewer_exe.c_str(), out_file.c_str());
+			#undef VIEW_CMD
 			log("Exec: %s\n", cmd.c_str());
 			if (run_command(cmd) != 0)
 				log_cmd_error("Shell command failed!\n");
 		} else
 		if (format.empty()) {
 			#ifdef __APPLE__
-			std::string cmd = stringf("ps -fu %d | grep -q '[ ]%s' || xdot '%s' %s", getuid(), dot_file.c_str(), dot_file.c_str(), background.c_str());
+			std::string cmd = stringf("ps -fu %d | grep -q '[ ]%s' || xdot '%s' &", getuid(), dot_file.c_str(), dot_file.c_str());
 			#else
-			std::string cmd = stringf("{ test -f '%s.pid' && fuser -s '%s.pid' 2> /dev/null; } || ( echo $$ >&3; exec xdot '%s'; ) 3> '%s.pid' %s", dot_file.c_str(), dot_file.c_str(), dot_file.c_str(), dot_file.c_str(), background.c_str());
+			std::string cmd = stringf("{ test -f '%s.pid' && fuser -s '%s.pid'; } || ( echo $$ >&3; exec xdot '%s'; ) 3> '%s.pid' &", dot_file.c_str(), dot_file.c_str(), dot_file.c_str(), dot_file.c_str());
 			#endif
 			log("Exec: %s\n", cmd.c_str());
 			if (run_command(cmd) != 0)
 				log_cmd_error("Shell command failed!\n");
 		}
-		#endif
 
 		if (flag_pause) {
 		#ifdef YOSYS_ENABLE_READLINE
-			char *input = nullptr;
-			while ((input = readline("Press ENTER to continue (or type 'shell' to open a shell)> ")) != nullptr) {
+			char *input = NULL;
+			while ((input = readline("Press ENTER to continue (or type 'shell' to open a shell)> ")) != NULL) {
 				if (input[strspn(input, " \t\r\n")] == 0)
 					break;
 				char *p = input + strspn(input, " \t\r\n");

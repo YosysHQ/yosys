@@ -1,3 +1,0 @@
-logger -expect warning "did not match any module." 1
-logger -expect warning "did not match any object." 1
-select foo/bar

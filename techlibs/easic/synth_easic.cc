@@ -29,7 +29,7 @@ struct SynthEasicPass : public ScriptPass
 {
 	SynthEasicPass() : ScriptPass("synth_easic", "synthesis for eASIC platform") { }
 
-	void help() override
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -56,7 +56,7 @@ struct SynthEasicPass : public ScriptPass
 		log("        do not flatten design before synthesis\n");
 		log("\n");
 		log("    -retime\n");
-		log("        run 'abc' with '-dff -D 1' options\n");
+		log("        run 'abc' with -dff option\n");
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
@@ -67,7 +67,7 @@ struct SynthEasicPass : public ScriptPass
 	string top_opt, vlog_file, etools_path;
 	bool flatten, retime;
 
-	void clear_flags() override
+	void clear_flags() YS_OVERRIDE
 	{
 		top_opt = "-auto-top";
 		vlog_file = "";
@@ -76,7 +76,7 @@ struct SynthEasicPass : public ScriptPass
 		retime = false;
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) override
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		string run_from, run_to;
 		clear_flags();
@@ -127,7 +127,7 @@ struct SynthEasicPass : public ScriptPass
 		log_pop();
 	}
 
-	void script() override
+	void script() YS_OVERRIDE
 	{
 		string phys_clk_lib = stringf("%s/data_ruby28/design_libs/logical/timing/gp/n3x_phys_clk_0v893ff125c.lib", etools_path.c_str());
 		string logic_lut_lib = stringf("%s/data_ruby28/design_libs/logical/timing/gp/n3x_logic_lut_0v893ff125c.lib", etools_path.c_str());
@@ -158,7 +158,7 @@ struct SynthEasicPass : public ScriptPass
 			run("techmap");
 			run("opt -fast");
 			if (retime || help_mode) {
-				run("abc -dff -D 1", " (only if -retime)");
+				run("abc -dff", " (only if -retime)");
 				run("opt_clean", "(only if -retime)");
 			}
 		}

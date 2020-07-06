@@ -26,7 +26,7 @@ struct EquivOptPass:public ScriptPass
 {
 	EquivOptPass() : ScriptPass("equiv_opt", "prove equivalence for optimized circuit") { }
 
-	void help() override
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -43,10 +43,6 @@ struct EquivOptPass:public ScriptPass
 		log("    -map <filename>\n");
 		log("        expand the modules in this file before proving equivalence. this is\n");
 		log("        useful for handling architecture-specific primitives.\n");
-		log("\n");
-		log("    -blacklist <file>\n");
-		log("        Do not match cells or signals that match the names in the file\n");
-		log("        (passed to equiv_make).\n");
 		log("\n");
 		log("    -assert\n");
 		log("        produce an error if the circuits are not equivalent.\n");
@@ -65,21 +61,20 @@ struct EquivOptPass:public ScriptPass
 		log("\n");
 	}
 
-	std::string command, techmap_opts, make_opts;
+	std::string command, techmap_opts;
 	bool assert, undef, multiclock, async2sync;
 
-	void clear_flags() override
+	void clear_flags() YS_OVERRIDE
 	{
 		command = "";
 		techmap_opts = "";
-		make_opts = "";
 		assert = false;
 		undef = false;
 		multiclock = false;
 		async2sync = false;
 	}
 
-	void execute(std::vector < std::string > args, RTLIL::Design * design) override
+	void execute(std::vector < std::string > args, RTLIL::Design * design) YS_OVERRIDE
 	{
 		string run_from, run_to;
 		clear_flags();
@@ -96,10 +91,6 @@ struct EquivOptPass:public ScriptPass
 			}
 			if (args[argidx] == "-map" && argidx + 1 < args.size()) {
 				techmap_opts += " -map " + args[++argidx];
-				continue;
-			}
-			if (args[argidx] == "-blacklist" && argidx + 1 < args.size()) {
-				make_opts += " -blacklist " + args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-assert") {
@@ -148,7 +139,7 @@ struct EquivOptPass:public ScriptPass
 		log_pop();
 	}
 
-	void script() override
+	void script() YS_OVERRIDE
 	{
 		if (check_label("run_pass")) {
 			run("hierarchy -auto-top");
@@ -179,12 +170,7 @@ struct EquivOptPass:public ScriptPass
 				run("clk2fflogic", "(only with -multiclock)");
 			if (async2sync || help_mode)
 				run("async2sync", " (only with -async2sync)");
-			string opts;
-			if (help_mode)
-				opts = " -blacklist <filename> ...";
-			else
-				opts = make_opts;
-			run("equiv_make" + opts + " gold gate equiv");
+			run("equiv_make gold gate equiv");
 			if (help_mode)
 				run("equiv_induct [-undef] equiv");
 			else if (undef)

@@ -41,26 +41,21 @@ static void run_ice40_opts(Module *module)
 
 	for (auto cell : module->selected_cells())
 	{
-		if (!cell->type.in(ID(SB_LUT4), ID(SB_CARRY), ID($__ICE40_CARRY_WRAPPER)))
-			continue;
-		if (cell->has_keep_attr())
-			continue;
-
-		if (cell->type == ID(SB_LUT4))
+		if (cell->type == "\\SB_LUT4")
 		{
 			sb_lut_cells.push_back(cell);
 			continue;
 		}
 
-		if (cell->type == ID(SB_CARRY))
+		if (cell->type == "\\SB_CARRY")
 		{
 			SigSpec non_const_inputs, replacement_output;
 			int count_zeros = 0, count_ones = 0;
 
 			SigBit inbit[3] = {
-				get_bit_or_zero(cell->getPort(ID(I0))),
-				get_bit_or_zero(cell->getPort(ID(I1))),
-				get_bit_or_zero(cell->getPort(ID::CI))
+				get_bit_or_zero(cell->getPort("\\I0")),
+				get_bit_or_zero(cell->getPort("\\I1")),
+				get_bit_or_zero(cell->getPort("\\CI"))
 			};
 			for (int i = 0; i < 3; i++)
 				if (inbit[i].wire == nullptr) {
@@ -79,8 +74,8 @@ static void run_ice40_opts(Module *module)
 				replacement_output = non_const_inputs;
 
 			if (GetSize(replacement_output)) {
-				optimized_co.insert(sigmap(cell->getPort(ID::CO)[0]));
-				module->connect(cell->getPort(ID::CO)[0], replacement_output);
+				optimized_co.insert(sigmap(cell->getPort("\\CO")[0]));
+				module->connect(cell->getPort("\\CO")[0], replacement_output);
 				module->design->scratchpad_set_bool("opt.did_something", true);
 				log("Optimized away SB_CARRY cell %s.%s: CO=%s\n",
 						log_id(module), log_id(cell), log_signal(replacement_output));
@@ -89,15 +84,15 @@ static void run_ice40_opts(Module *module)
 			continue;
 		}
 
-		if (cell->type == ID($__ICE40_CARRY_WRAPPER))
+		if (cell->type == "$__ICE40_CARRY_WRAPPER")
 		{
 			SigSpec non_const_inputs, replacement_output;
 			int count_zeros = 0, count_ones = 0;
 
 			SigBit inbit[3] = {
-				cell->getPort(ID::A),
-				cell->getPort(ID::B),
-				cell->getPort(ID::CI)
+				cell->getPort("\\A"),
+				cell->getPort("\\B"),
+				cell->getPort("\\CI")
 			};
 			for (int i = 0; i < 3; i++)
 				if (inbit[i].wire == nullptr) {
@@ -116,40 +111,21 @@ static void run_ice40_opts(Module *module)
 				replacement_output = non_const_inputs;
 
 			if (GetSize(replacement_output)) {
-				optimized_co.insert(sigmap(cell->getPort(ID::CO)[0]));
-				auto it = cell->attributes.find(ID(SB_LUT4.name));
-				if (it != cell->attributes.end()) {
-					module->rename(cell, it->second.decode_string());
-					decltype(Cell::attributes) new_attr;
-					for (const auto &a : cell->attributes)
-						if (a.first.begins_with("\\SB_LUT4.\\"))
-							new_attr[a.first.c_str() + strlen("\\SB_LUT4.")] = a.second;
-						else if (a.first == ID::src)
-							new_attr.insert(std::make_pair(a.first, a.second));
-						else if (a.first.in(ID(SB_LUT4.name), ID::keep, ID::module_not_derived))
-							continue;
-						else if (a.first.begins_with("\\SB_CARRY.\\"))
-							continue;
-						else
-							log_abort();
-					cell->attributes = std::move(new_attr);
-				}
-				module->connect(cell->getPort(ID::CO)[0], replacement_output);
+				optimized_co.insert(sigmap(cell->getPort("\\CO")[0]));
+				module->connect(cell->getPort("\\CO")[0], replacement_output);
 				module->design->scratchpad_set_bool("opt.did_something", true);
 				log("Optimized $__ICE40_CARRY_WRAPPER cell back to logic (without SB_CARRY) %s.%s: CO=%s\n",
 						log_id(module), log_id(cell), log_signal(replacement_output));
-				cell->type = ID($lut);
-				auto I3 = get_bit_or_zero(cell->getPort(cell->getParam(ID(I3_IS_CI)).as_bool() ? ID::CI : ID(I3)));
-				cell->setPort(ID::A, { I3, inbit[1], inbit[0], get_bit_or_zero(cell->getPort(ID(I0))) });
-				cell->setPort(ID::Y, cell->getPort(ID::O));
-				cell->unsetPort(ID::B);
-				cell->unsetPort(ID::CI);
-				cell->unsetPort(ID(I0));
-				cell->unsetPort(ID(I3));
-				cell->unsetPort(ID::CO);
-				cell->unsetPort(ID::O);
-				cell->setParam(ID::WIDTH, 4);
-				cell->unsetParam(ID(I3_IS_CI));
+				cell->type = "$lut";
+				cell->setPort("\\A", { cell->getPort("\\I0"), inbit[0], inbit[1], cell->getPort("\\I3") });
+				cell->setPort("\\Y", cell->getPort("\\O"));
+				cell->unsetPort("\\B");
+				cell->unsetPort("\\CI");
+				cell->unsetPort("\\I0");
+				cell->unsetPort("\\I3");
+				cell->unsetPort("\\CO");
+				cell->unsetPort("\\O");
+				cell->setParam("\\WIDTH", 4);
 			}
 			continue;
 		}
@@ -159,10 +135,10 @@ static void run_ice40_opts(Module *module)
 	{
 		SigSpec inbits;
 
-		inbits.append(get_bit_or_zero(cell->getPort(ID(I0))));
-		inbits.append(get_bit_or_zero(cell->getPort(ID(I1))));
-		inbits.append(get_bit_or_zero(cell->getPort(ID(I2))));
-		inbits.append(get_bit_or_zero(cell->getPort(ID(I3))));
+		inbits.append(get_bit_or_zero(cell->getPort("\\I0")));
+		inbits.append(get_bit_or_zero(cell->getPort("\\I1")));
+		inbits.append(get_bit_or_zero(cell->getPort("\\I2")));
+		inbits.append(get_bit_or_zero(cell->getPort("\\I3")));
 		sigmap.apply(inbits);
 
 		if (optimized_co.count(inbits[0])) goto remap_lut;
@@ -177,23 +153,23 @@ static void run_ice40_opts(Module *module)
 		module->design->scratchpad_set_bool("opt.did_something", true);
 		log("Mapping SB_LUT4 cell %s.%s back to logic.\n", log_id(module), log_id(cell));
 
-		cell->type = ID($lut);
-		cell->setParam(ID::WIDTH, 4);
-		cell->setParam(ID::LUT, cell->getParam(ID(LUT_INIT)));
-		cell->unsetParam(ID(LUT_INIT));
+		cell->type ="$lut";
+		cell->setParam("\\WIDTH", 4);
+		cell->setParam("\\LUT", cell->getParam("\\LUT_INIT"));
+		cell->unsetParam("\\LUT_INIT");
 
-		cell->setPort(ID::A, SigSpec({
-			get_bit_or_zero(cell->getPort(ID(I3))),
-			get_bit_or_zero(cell->getPort(ID(I2))),
-			get_bit_or_zero(cell->getPort(ID(I1))),
-			get_bit_or_zero(cell->getPort(ID(I0)))
+		cell->setPort("\\A", SigSpec({
+			get_bit_or_zero(cell->getPort("\\I3")),
+			get_bit_or_zero(cell->getPort("\\I2")),
+			get_bit_or_zero(cell->getPort("\\I1")),
+			get_bit_or_zero(cell->getPort("\\I0"))
 		}));
-		cell->setPort(ID::Y, cell->getPort(ID::O)[0]);
-		cell->unsetPort(ID(I0));
-		cell->unsetPort(ID(I1));
-		cell->unsetPort(ID(I2));
-		cell->unsetPort(ID(I3));
-		cell->unsetPort(ID::O);
+		cell->setPort("\\Y", cell->getPort("\\O")[0]);
+		cell->unsetPort("\\I0");
+		cell->unsetPort("\\I1");
+		cell->unsetPort("\\I2");
+		cell->unsetPort("\\I3");
+		cell->unsetPort("\\O");
 
 		cell->check();
 		simplemap_lut(module, cell);
@@ -203,7 +179,7 @@ static void run_ice40_opts(Module *module)
 
 struct Ice40OptPass : public Pass {
 	Ice40OptPass() : Pass("ice40_opt", "iCE40: perform simple optimizations") { }
-	void help() override
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -220,7 +196,7 @@ struct Ice40OptPass : public Pass {
 		log("    while <changed design>\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) override
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		string opt_expr_args = "-mux_undef -undriven";
 

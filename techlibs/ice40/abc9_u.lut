@@ -1,0 +1,6 @@
+# From https://github.com/cliffordwolf/icestorm/blob/be0bca0/icefuzz/timings_up5k.txt
+#       I3  I2  I1  I0
+1   1   874
+2   1   874 1205
+3   1   874 1205 1231
+4   1   874 1205 1231 1285

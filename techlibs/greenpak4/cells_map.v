@@ -115,7 +115,6 @@ module \$lut (A, Y);
 	parameter WIDTH = 0;
 	parameter LUT = 0;
 
-	(* force_downto *)
 	input [WIDTH-1:0] A;
 	output Y;
 
@@ -151,7 +150,6 @@ module \$__COUNT_ (CE, CLK, OUT, POUT, RST, UP);
 	input wire CE;
 	input wire CLK;
 	output reg OUT;
-	(* force_downto *)
 	output reg[WIDTH-1:0] POUT;
 	input wire RST;
 	input wire UP;

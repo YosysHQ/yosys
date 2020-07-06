@@ -1,0 +1,52 @@
+bram $__ECP5_PDPW16KD
+  init 1
+
+  abits 9
+  dbits 36
+
+  groups 2
+  ports 1 1
+  wrmode 1 0
+  enable 4 1
+  transp 0 0
+  clocks 2 3
+  clkpol 2 3
+endbram
+
+bram $__ECP5_DP16KD
+  init 1
+
+  abits 10 @a10d18
+  dbits 18 @a10d18
+  abits 11 @a11d9
+  dbits 9  @a11d9
+  abits 12 @a12d4
+  dbits 4  @a12d4
+  abits 13 @a13d2
+  dbits 2  @a13d2
+  abits 14 @a14d1
+  dbits 1  @a14d1
+
+  groups 2
+  ports 1 1
+  wrmode 1 0
+  enable 2 1 @a10d18
+  enable 1 1 @a11d9 @a12d4 @a13d2 @a14d1
+  transp 0 2
+  clocks 2 3
+  clkpol 2 3
+endbram
+
+match $__ECP5_PDPW16KD
+  min bits 2048
+  min efficiency 5
+  shuffle_enable A
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__ECP5_DP16KD
+  min bits 2048
+  min efficiency 5
+  shuffle_enable A
+endmatch

@@ -1,0 +1,25 @@
+# ECP5-5G LUT library for ABC
+# Note that ECP5 architecture assigns difference
+# in LUT input delay to interconnect, so this is
+# considered too
+
+
+# Simple LUTs
+#  area  D    C    B    A
+1  1     141
+2  1     141  275
+3  1     141  275  379
+4  1     141  275  379  379
+
+# LUT5 = 2x LUT4 + PFUMX
+#  area  M0   D    C    B    A
+5  2     151  239  373  477  477
+
+# LUT6 = 2x LUT5 + MUX2
+#  area  M1   M0   D    C    B    A
+6  4     148  292  380  514  618  618
+
+# LUT7 = 2x LUT6 + MUX2
+#  area  M2   M1   M0   D    C    B    A
+7  8     148  289  433  521  655  759  759
+

@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct DeminoutPass : public Pass {
 	DeminoutPass() : Pass("deminout", "demote inout ports to input or output") { }
-	void help() override
+	void help() YS_OVERRIDE
 	{
 		log("\n");
 		log("    deminout [options] [selection]\n");
@@ -33,7 +33,7 @@ struct DeminoutPass : public Pass {
 		log("\"Demote\" inout ports to input or output ports, if possible.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) override
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing DEMINOUT pass (demote inout ports to input or output).\n");
 
@@ -113,7 +113,7 @@ struct DeminoutPass : public Pass {
 						{
 							if (bits_numports[bit] > 1 || bits_inout.count(bit))
 								new_input = true, new_output = true;
-							if (!bit.wire)
+							if (bit == State::S0 || bit == State::S1)
 								new_output = true;
 							if (bits_written.count(bit)) {
 								new_output = true;
@@ -121,7 +121,8 @@ struct DeminoutPass : public Pass {
 									goto tribuf_bit;
 							} else {
 						tribuf_bit:
-								new_input = true;
+								if (bits_used.count(bit))
+									new_input = true;
 							}
 						}
 

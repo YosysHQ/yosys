@@ -1,4 +1,3 @@
-# Spartan 6 block RAM rules.
 
 bram $__XILINX_RAMB8BWER_SDP
   init 1

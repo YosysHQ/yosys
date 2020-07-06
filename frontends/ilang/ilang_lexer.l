@@ -29,7 +29,6 @@
 #pragma clang diagnostic ignored "-Wdeprecated-register"
 #endif
 
-#include <cstdlib>
 #include "frontends/ilang/ilang_frontend.h"
 #include "ilang_parser.tab.hh"
 
@@ -89,18 +88,7 @@ USING_YOSYS_NAMESPACE
 "."[0-9]+		{ rtlil_frontend_ilang_yylval.string = strdup(yytext); return TOK_ID; }
 
 [0-9]+'[01xzm-]*	{ rtlil_frontend_ilang_yylval.string = strdup(yytext); return TOK_VALUE; }
--?[0-9]+		{
-	char *end = nullptr;
-	errno = 0;
-	long value = strtol(yytext, &end, 10);
-	log_assert(end == yytext + strlen(yytext));
-	if (errno == ERANGE)
-		return TOK_INVALID; // literal out of range of long
-	if (value < INT_MIN || value > INT_MAX)
-		return TOK_INVALID; // literal out of range of int (relevant mostly for LP64 platforms)
-	rtlil_frontend_ilang_yylval.integer = value;
-	return TOK_INT;
-}
+-?[0-9]+		{ rtlil_frontend_ilang_yylval.integer = atoi(yytext); return TOK_INT; }
 
 \"		{ BEGIN(STRING); }
 <STRING>\\.	{ yymore(); }
@@ -148,3 +136,4 @@ USING_YOSYS_NAMESPACE
 void *rtlil_frontend_ilang_avoid_input_warnings() {
 	return (void*)&yyinput;
 }
+

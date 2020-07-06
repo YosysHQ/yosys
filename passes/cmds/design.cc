@@ -18,7 +18,6 @@
  */
 
 #include "kernel/yosys.h"
-#include "frontends/verilog/preproc.h"
 #include "frontends/ast/ast.h"
 
 YOSYS_NAMESPACE_BEGIN
@@ -28,7 +27,7 @@ std::vector<RTLIL::Design*> pushed_designs;
 
 struct DesignPass : public Pass {
 	DesignPass() : Pass("design", "save, restore and reset current design") { }
-	~DesignPass() override {
+	~DesignPass() YS_OVERRIDE {
 		for (auto &it : saved_designs)
 			delete it.second;
 		saved_designs.clear();
@@ -36,7 +35,7 @@ struct DesignPass : public Pass {
 			delete it;
 		pushed_designs.clear();
 	}
-	void help() override
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -58,11 +57,6 @@ struct DesignPass : public Pass {
 		log("    design -push\n");
 		log("\n");
 		log("Push the current design to the stack and then clear the current design.\n");
-		log("\n");
-		log("\n");
-		log("    design -push-copy\n");
-		log("\n");
-		log("Push the current design to the stack without clearing the current design.\n");
 		log("\n");
 		log("\n");
 		log("    design -pop\n");
@@ -99,23 +93,17 @@ struct DesignPass : public Pass {
 		log("The Verilog front-end remembers defined macros and top-level declarations\n");
 		log("between calls to 'read_verilog'. This command resets this memory.\n");
 		log("\n");
-		log("    design -delete <name>\n");
-		log("\n");
-		log("Delete the design previously saved under the given name.\n");
-		log("\n");
-
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) override
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		bool got_mode = false;
 		bool reset_mode = false;
 		bool reset_vlog_mode = false;
 		bool push_mode = false;
-		bool push_copy_mode = false;
 		bool pop_mode = false;
 		bool import_mode = false;
 		RTLIL::Design *copy_from_design = NULL, *copy_to_design = NULL;
-		std::string save_name, load_name, as_name, delete_name;
+		std::string save_name, load_name, as_name;
 		std::vector<RTLIL::Module*> copy_src_modules;
 
 		size_t argidx;
@@ -135,11 +123,6 @@ struct DesignPass : public Pass {
 			if (!got_mode && args[argidx] == "-push") {
 				got_mode = true;
 				push_mode = true;
-				continue;
-			}
-			if (!got_mode && args[argidx] == "-push-copy") {
-				got_mode = true;
-				push_copy_mode = true;
 				continue;
 			}
 			if (!got_mode && args[argidx] == "-pop") {
@@ -195,13 +178,6 @@ struct DesignPass : public Pass {
 				as_name = args[++argidx];
 				continue;
 			}
-			if (!got_mode && args[argidx] == "-delete" && argidx+1 < args.size()) {
-				got_mode = true;
-				delete_name = args[++argidx];
-				if (saved_designs.count(delete_name) == 0)
-					log_cmd_error("No saved design '%s' found!\n", delete_name.c_str());
-				continue;
-			}
 			break;
 		}
 
@@ -218,30 +194,24 @@ struct DesignPass : public Pass {
 				argidx = args.size();
 			}
 
-			for (auto mod : copy_from_design->modules()) {
-				if (sel.selected_whole_module(mod->name)) {
-					copy_src_modules.push_back(mod);
+			for (auto &it : copy_from_design->modules_) {
+				if (sel.selected_whole_module(it.first)) {
+					copy_src_modules.push_back(it.second);
 					continue;
 				}
-				if (sel.selected_module(mod->name))
-					log_cmd_error("Module %s is only partly selected.\n", log_id(mod->name));
+				if (sel.selected_module(it.first))
+					log_cmd_error("Module %s is only partly selected.\n", RTLIL::id2cstr(it.first));
 			}
 
 			if (import_mode) {
-				std::vector<RTLIL::Module*> candidates;
 				for (auto module : copy_src_modules)
 				{
-					if (module->get_bool_attribute(ID::top)) {
-						candidates.clear();
-						candidates.push_back(module);
+					if (module->get_bool_attribute("\\top")) {
+						copy_src_modules.clear();
+						copy_src_modules.push_back(module);
 						break;
 					}
-					if (!module->get_blackbox_attribute())
-						candidates.push_back(module);
 				}
-
-				if (GetSize(candidates) == 1)
-					copy_src_modules = std::move(candidates);
 			}
 		}
 
@@ -260,8 +230,8 @@ struct DesignPass : public Pass {
 			pool<Module*> queue;
 			dict<IdString, IdString> done;
 
-			if (copy_to_design->module(prefix) != nullptr)
-				copy_to_design->remove(copy_to_design->module(prefix));
+			if (copy_to_design->modules_.count(prefix))
+				delete copy_to_design->modules_.at(prefix);
 
 			if (GetSize(copy_src_modules) != 1)
 				log_cmd_error("No top module found in source design.\n");
@@ -270,13 +240,12 @@ struct DesignPass : public Pass {
 			{
 				log("Importing %s as %s.\n", log_id(mod), log_id(prefix));
 
-				RTLIL::Module *t = mod->clone();
-				t->name = prefix;
-				t->design = copy_to_design;
-				t->attributes.erase(ID::top);
-				copy_to_design->add(t);
+				copy_to_design->modules_[prefix] = mod->clone();
+				copy_to_design->modules_[prefix]->name = prefix;
+				copy_to_design->modules_[prefix]->design = copy_to_design;
+				copy_to_design->modules_[prefix]->attributes.erase("\\top");
 
-				queue.insert(t);
+				queue.insert(copy_to_design->modules_[prefix]);
 				done[mod->name] = prefix;
 			}
 
@@ -299,16 +268,15 @@ struct DesignPass : public Pass {
 
 						log("Importing %s as %s.\n", log_id(fmod), log_id(trg_name));
 
-						if (copy_to_design->module(trg_name) != nullptr)
-							copy_to_design->remove(copy_to_design->module(trg_name));
+						if (copy_to_design->modules_.count(trg_name))
+							delete copy_to_design->modules_.at(trg_name);
 
-						RTLIL::Module *t = fmod->clone();
-						t->name = trg_name;
-						t->design = copy_to_design;
-						t->attributes.erase(ID::top);
-						copy_to_design->add(t);
+						copy_to_design->modules_[trg_name] = fmod->clone();
+						copy_to_design->modules_[trg_name]->name = trg_name;
+						copy_to_design->modules_[trg_name]->design = copy_to_design;
+						copy_to_design->modules_[trg_name]->attributes.erase("\\top");
 
-						queue.insert(t);
+						queue.insert(copy_to_design->modules_[trg_name]);
 						done[cell->type] = trg_name;
 					}
 
@@ -326,22 +294,21 @@ struct DesignPass : public Pass {
 			{
 				std::string trg_name = as_name.empty() ? mod->name.str() : RTLIL::escape_id(as_name);
 
-				if (copy_to_design->module(trg_name) != nullptr)
-					copy_to_design->remove(copy_to_design->module(trg_name));
+				if (copy_to_design->modules_.count(trg_name))
+					delete copy_to_design->modules_.at(trg_name);
 
-				RTLIL::Module *t = mod->clone();
-				t->name = trg_name;
-				t->design = copy_to_design;
-				copy_to_design->add(t);
+				copy_to_design->modules_[trg_name] = mod->clone();
+				copy_to_design->modules_[trg_name]->name = trg_name;
+				copy_to_design->modules_[trg_name]->design = copy_to_design;
 			}
 		}
 
-		if (!save_name.empty() || push_mode || push_copy_mode)
+		if (!save_name.empty() || push_mode)
 		{
 			RTLIL::Design *design_copy = new RTLIL::Design;
 
-			for (auto mod : design->modules())
-				design_copy->add(mod->clone());
+			for (auto &it : design->modules_)
+				design_copy->add(it.second->clone());
 
 			design_copy->selection_stack = design->selection_stack;
 			design_copy->selection_vars = design->selection_vars;
@@ -350,7 +317,7 @@ struct DesignPass : public Pass {
 			if (saved_designs.count(save_name))
 				delete saved_designs.at(save_name);
 
-			if (push_mode || push_copy_mode)
+			if (push_mode)
 				pushed_designs.push_back(design_copy);
 			else
 				saved_designs[save_name] = design_copy;
@@ -358,8 +325,9 @@ struct DesignPass : public Pass {
 
 		if (reset_mode || !load_name.empty() || push_mode || pop_mode)
 		{
-			for (auto mod : design->modules().to_vector())
-				design->remove(mod);
+			for (auto &it : design->modules_)
+				delete it.second;
+			design->modules_.clear();
 
 			design->selection_stack.clear();
 			design->selection_vars.clear();
@@ -378,15 +346,15 @@ struct DesignPass : public Pass {
 				delete node;
 			design->verilog_globals.clear();
 
-			design->verilog_defines->clear();
+			design->verilog_defines.clear();
 		}
 
 		if (!load_name.empty() || pop_mode)
 		{
 			RTLIL::Design *saved_design = pop_mode ? pushed_designs.back() : saved_designs.at(load_name);
 
-			for (auto mod : saved_design->modules())
-				design->add(mod->clone());
+			for (auto &it : saved_design->modules_)
+				design->add(it.second->clone());
 
 			design->selection_stack = saved_design->selection_stack;
 			design->selection_vars = saved_design->selection_vars;
@@ -396,14 +364,6 @@ struct DesignPass : public Pass {
 				delete saved_design;
 				pushed_designs.pop_back();
 			}
-		}
-
-		if (!delete_name.empty())
-		{
-			auto it = saved_designs.find(delete_name);
-			log_assert(it != saved_designs.end());
-			delete it->second;
-			saved_designs.erase(it);
 		}
 	}
 } DesignPass;

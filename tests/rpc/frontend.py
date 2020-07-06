@@ -31,7 +31,7 @@ end
 
 import json
 import argparse
-import sys, socket, os, subprocess
+import sys, socket, os
 try:
 	import msvcrt, win32pipe, win32file
 except ImportError:
@@ -83,11 +83,9 @@ def main():
 
 	if args.mode == "unix-socket":
 		sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-		sock.settimeout(30)
 		sock.bind(args.path)
 		try:
 			sock.listen(1)
-			ys_proc = subprocess.Popen(["../../yosys", "-ql", "unix.log", "-p", "connect_rpc -path {}; read_verilog design.v; hierarchy -top top; flatten; select -assert-count 1 t:$neg".format(args.path)])
 			conn, addr = sock.accept()
 			file = conn.makefile("rw")
 			while True:
@@ -95,11 +93,7 @@ def main():
 				if not input: break
 				file.write(call(input) + "\n")
 				file.flush()
-			ys_proc.wait(timeout=10)
-			if ys_proc.returncode:
-				raise subprocess.CalledProcessError(ys_proc.returncode, ys_proc.args)
 		finally:
-			ys_proc.kill()
 			sock.close()
 			os.unlink(args.path)
 
