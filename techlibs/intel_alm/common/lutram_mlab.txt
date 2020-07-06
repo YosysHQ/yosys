@@ -1,0 +1,18 @@
+bram MISTRAL_MLAB
+    init   0   # TODO: Re-enable when Yosys remembers the original filename.
+    abits  5
+    dbits  1
+    groups 2
+    ports  1 1
+    wrmode 1 0
+    # write enable
+    enable 1 0
+    transp 0 0
+    clocks 1 0
+    clkpol 1 1
+endbram
+
+match MISTRAL_MLAB
+    min efficiency 5
+    make_outreg
+endmatch

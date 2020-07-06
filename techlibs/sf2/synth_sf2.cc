@@ -29,7 +29,7 @@ struct SynthSf2Pass : public ScriptPass
 {
 	SynthSf2Pass() : ScriptPass("synth_sf2", "synthesis for SmartFusion2 and IGLOO2 FPGAs") { }
 
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -67,7 +67,7 @@ struct SynthSf2Pass : public ScriptPass
 		log("        insert direct PAD->global_net buffers\n");
 		log("\n");
 		log("    -retime\n");
-		log("        run 'abc' with -dff option\n");
+		log("        run 'abc' with '-dff -D 1' options\n");
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
@@ -78,7 +78,7 @@ struct SynthSf2Pass : public ScriptPass
 	string top_opt, edif_file, vlog_file, json_file;
 	bool flatten, retime, iobs, clkbuf;
 
-	void clear_flags() YS_OVERRIDE
+	void clear_flags() override
 	{
 		top_opt = "-auto-top";
 		edif_file = "";
@@ -90,7 +90,7 @@ struct SynthSf2Pass : public ScriptPass
 		clkbuf = false;
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		string run_from, run_to;
 		clear_flags();
@@ -153,7 +153,7 @@ struct SynthSf2Pass : public ScriptPass
 		log_pop();
 	}
 
-	void script() YS_OVERRIDE
+	void script() override
 	{
 		if (check_label("begin"))
 		{
@@ -180,13 +180,13 @@ struct SynthSf2Pass : public ScriptPass
 			run("memory_map");
 			run("opt -undriven -fine");
 			run("techmap -map +/techmap.v -map +/sf2/arith_map.v");
+			run("opt -fast");
 			if (retime || help_mode)
-				run("abc -dff", "(only if -retime)");
+				run("abc -dff -D 1", "(only if -retime)");
 		}
 
 		if (check_label("map_ffs"))
 		{
-			run("dffsr2dff");
 			run("techmap -D NO_LUT -map +/sf2/cells_map.v");
 			run("opt_expr -mux_undef");
 			run("simplemap");

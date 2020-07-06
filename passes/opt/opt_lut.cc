@@ -41,8 +41,8 @@ struct OptLutWorker
 	bool evaluate_lut(RTLIL::Cell *lut, dict<SigBit, bool> inputs)
 	{
 		SigSpec lut_input = sigmap(lut->getPort(ID::A));
-		int lut_width = lut->getParam(ID(WIDTH)).as_int();
-		Const lut_table = lut->getParam(ID(LUT));
+		int lut_width = lut->getParam(ID::WIDTH).as_int();
+		Const lut_table = lut->getParam(ID::LUT);
 		int lut_index = 0;
 
 		for (int i = 0; i < lut_width; i++)
@@ -107,7 +107,7 @@ struct OptLutWorker
 				if (lut_output.wire->get_bool_attribute(ID::keep))
 					continue;
 
-				int lut_width = cell->getParam(ID(WIDTH)).as_int();
+				int lut_width = cell->getParam(ID::WIDTH).as_int();
 				SigSpec lut_input = cell->getPort(ID::A);
 				int lut_arity = 0;
 
@@ -305,7 +305,7 @@ struct OptLutWorker
 			auto lutA = worklist.pop();
 			SigSpec lutA_input = sigmap(lutA->getPort(ID::A));
 			SigSpec lutA_output = sigmap(lutA->getPort(ID::Y)[0]);
-			int lutA_width = lutA->getParam(ID(WIDTH)).as_int();
+			int lutA_width = lutA->getParam(ID::WIDTH).as_int();
 			int lutA_arity = luts_arity[lutA];
 			pool<int> &lutA_dlogic_inputs = luts_dlogic_inputs[lutA];
 
@@ -323,7 +323,7 @@ struct OptLutWorker
 					auto lutB = port.cell;
 					SigSpec lutB_input = sigmap(lutB->getPort(ID::A));
 					SigSpec lutB_output = sigmap(lutB->getPort(ID::Y)[0]);
-					int lutB_width = lutB->getParam(ID(WIDTH)).as_int();
+					int lutB_width = lutB->getParam(ID::WIDTH).as_int();
 					int lutB_arity = luts_arity[lutB];
 					pool<int> &lutB_dlogic_inputs = luts_dlogic_inputs[lutB];
 
@@ -372,7 +372,7 @@ struct OptLutWorker
 						log_debug("  Not combining LUTs into cell A (combined LUT wider than cell A).\n");
 					else if (lutB_dlogic_inputs.size() > 0)
 						log_debug("  Not combining LUTs into cell A (cell B is connected to dedicated logic).\n");
-					else if (lutB->get_bool_attribute(ID(lut_keep)))
+					else if (lutB->get_bool_attribute(ID::lut_keep))
 						log_debug("  Not combining LUTs into cell A (cell B has attribute \\lut_keep).\n");
 					else
 						combine_mask |= COMBINE_A;
@@ -380,7 +380,7 @@ struct OptLutWorker
 						log_debug("  Not combining LUTs into cell B (combined LUT wider than cell B).\n");
 					else if (lutA_dlogic_inputs.size() > 0)
 						log_debug("  Not combining LUTs into cell B (cell A is connected to dedicated logic).\n");
-					else if (lutA->get_bool_attribute(ID(lut_keep)))
+					else if (lutA->get_bool_attribute(ID::lut_keep))
 						log_debug("  Not combining LUTs into cell B (cell A has attribute \\lut_keep).\n");
 					else
 						combine_mask |= COMBINE_B;
@@ -440,7 +440,7 @@ struct OptLutWorker
 							lutR_unique.insert(bit);
 					}
 
-					int lutM_width = lutM->getParam(ID(WIDTH)).as_int();
+					int lutM_width = lutM->getParam(ID::WIDTH).as_int();
 					SigSpec lutM_input = sigmap(lutM->getPort(ID::A));
 					std::vector<SigBit> lutM_new_inputs;
 					for (int i = 0; i < lutM_width; i++)
@@ -482,11 +482,11 @@ struct OptLutWorker
 						lutM_new_table[eval] = (RTLIL::State) evaluate_lut(lutB, eval_inputs);
 					}
 
-					log_debug("  Cell A truth table: %s.\n", lutA->getParam(ID(LUT)).as_string().c_str());
-					log_debug("  Cell B truth table: %s.\n", lutB->getParam(ID(LUT)).as_string().c_str());
+					log_debug("  Cell A truth table: %s.\n", lutA->getParam(ID::LUT).as_string().c_str());
+					log_debug("  Cell B truth table: %s.\n", lutB->getParam(ID::LUT).as_string().c_str());
 					log_debug("  Merged truth table: %s.\n", lutM_new_table.as_string().c_str());
 
-					lutM->setParam(ID(LUT), lutM_new_table);
+					lutM->setParam(ID::LUT, lutM_new_table);
 					lutM->setPort(ID::A, lutM_new_inputs);
 					lutM->setPort(ID::Y, lutB_output);
 
@@ -520,7 +520,7 @@ static void split(std::vector<std::string> &tokens, const std::string &text, cha
 
 struct OptLutPass : public Pass {
 	OptLutPass() : Pass("opt_lut", "optimize LUT cells") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -538,7 +538,7 @@ struct OptLutPass : public Pass {
 		log("        only perform the first N combines, then stop. useful for debugging.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing OPT_LUT pass (optimize LUTs).\n");
 

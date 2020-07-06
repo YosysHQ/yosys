@@ -1,0 +1,5 @@
+# Check that we spot mismatched brackets
+logger -expect error "Mismatched brackets in macro argument: \[ and }." 1
+read_verilog <<EOT
+`define foo(x=[1,2})
+EOT

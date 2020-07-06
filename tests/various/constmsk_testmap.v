@@ -1,7 +1,7 @@
 (* techmap_celltype = "$reduce_or" *)
 module my_opt_reduce_or(...);
     parameter A_SIGNED = 0;
-    parameter A_WIDTH = 1;
+    parameter A_WIDTH = 2;
     parameter Y_WIDTH = 1;
 
     input [A_WIDTH-1:0] A;

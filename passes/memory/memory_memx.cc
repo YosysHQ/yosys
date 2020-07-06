@@ -28,7 +28,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct MemoryMemxPass : public Pass {
 	MemoryMemxPass() : Pass("memory_memx", "emulate vlog sim behavior for mem ports") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -38,7 +38,7 @@ struct MemoryMemxPass : public Pass {
 		log("behavior for out-of-bounds memory reads and writes.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE {
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
 		log_header(design, "Executing MEMORY_MEMX pass (converting $mem cells to logic and flip-flops).\n");
 		extra_args(args, 1, design);
 
@@ -47,18 +47,18 @@ struct MemoryMemxPass : public Pass {
 			vector<Cell*> mem_port_cells;
 
 			for (auto cell : module->selected_cells())
-				if (cell->type.in("$memrd", "$memwr"))
+				if (cell->type.in(ID($memrd), ID($memwr)))
 					mem_port_cells.push_back(cell);
 
 			for (auto cell : mem_port_cells)
 			{
-				IdString memid = cell->getParam("\\MEMID").decode_string();
+				IdString memid = cell->getParam(ID::MEMID).decode_string();
 				RTLIL::Memory *mem = module->memories.at(memid);
 
 				int lowest_addr = mem->start_offset;
 				int highest_addr = mem->start_offset + mem->size - 1;
 
-				SigSpec addr = cell->getPort("\\ADDR");
+				SigSpec addr = cell->getPort(ID::ADDR);
 				addr.extend_u0(32);
 
 				SigSpec addr_ok = module->Nex(NEW_ID, module->ReduceXor(NEW_ID, addr), module->ReduceXor(NEW_ID, {addr, State::S1}));
@@ -66,23 +66,23 @@ struct MemoryMemxPass : public Pass {
 					addr_ok = module->LogicAnd(NEW_ID, addr_ok, module->Ge(NEW_ID, addr, lowest_addr));
 				addr_ok = module->LogicAnd(NEW_ID, addr_ok, module->Le(NEW_ID, addr, highest_addr));
 
-				if (cell->type == "$memrd")
+				if (cell->type == ID($memrd))
 				{
-					if (cell->getParam("\\CLK_ENABLE").as_bool())
+					if (cell->getParam(ID::CLK_ENABLE).as_bool())
 						log_error("Cell %s.%s (%s) has an enabled clock. Clocked $memrd cells are not supported by memory_memx!\n",
 								log_id(module), log_id(cell), log_id(cell->type));
 
-					SigSpec rdata = cell->getPort("\\DATA");
+					SigSpec rdata = cell->getPort(ID::DATA);
 					Wire *raw_rdata = module->addWire(NEW_ID, GetSize(rdata));
 					module->addMux(NEW_ID, SigSpec(State::Sx, GetSize(rdata)), raw_rdata, addr_ok, rdata);
-					cell->setPort("\\DATA", raw_rdata);
+					cell->setPort(ID::DATA, raw_rdata);
 				}
 
-				if (cell->type == "$memwr")
+				if (cell->type == ID($memwr))
 				{
-					SigSpec en = cell->getPort("\\EN");
+					SigSpec en = cell->getPort(ID::EN);
 					en = module->And(NEW_ID, en, addr_ok.repeat(GetSize(en)));
-					cell->setPort("\\EN", en);
+					cell->setPort(ID::EN, en);
 				}
 			}
 		}

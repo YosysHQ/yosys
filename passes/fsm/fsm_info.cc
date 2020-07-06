@@ -30,7 +30,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct FsmInfoPass : public Pass {
 	FsmInfoPass() : Pass("fsm_info", "print information on finite state machines") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -41,21 +41,20 @@ struct FsmInfoPass : public Pass {
 		log("pass so that this information is included in the synthesis log file.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing FSM_INFO pass (dumping all available information on FSM cells).\n");
 		extra_args(args, 1, design);
 
-		for (auto &mod_it : design->modules_)
-			if (design->selected(mod_it.second))
-				for (auto &cell_it : mod_it.second->cells_)
-					if (cell_it.second->type == "$fsm" && design->selected(mod_it.second, cell_it.second)) {
-						log("\n");
-						log("FSM `%s' from module `%s':\n", cell_it.second->name.c_str(), mod_it.first.c_str());
-						FsmData fsm_data;
-						fsm_data.copy_from_cell(cell_it.second);
-						fsm_data.log_info(cell_it.second);
-					}
+		for (auto mod : design->selected_modules())
+			for (auto cell : mod->selected_cells())
+				if (cell->type == ID($fsm)) {
+					log("\n");
+					log("FSM `%s' from module `%s':\n", log_id(cell), log_id(mod));
+					FsmData fsm_data;
+					fsm_data.copy_from_cell(cell);
+					fsm_data.log_info(cell);
+				}
 	}
 } FsmInfoPass;
 

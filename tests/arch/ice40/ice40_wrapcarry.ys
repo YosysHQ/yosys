@@ -1,0 +1,54 @@
+read_verilog <<EOT
+module top(input A, B, CI, output O, CO);
+	SB_CARRY carry (
+		.I0(A),
+		.I1(B),
+		.CI(CI),
+		.CO(CO)
+	);
+	SB_LUT4 #(
+		.LUT_INIT(16'b 0110_1001_1001_0110)
+	) adder (
+		.I0(1'b0),
+		.I1(A),
+		.I2(B),
+		.I3(1'b0),
+		.O(O)
+	);
+endmodule
+EOT
+
+ice40_wrapcarry
+select -assert-count 1 t:$__ICE40_CARRY_WRAPPER
+
+design -reset
+read_verilog <<EOT
+module top(input A, B, CI, output O, CO);
+    (* foo = "bar", answer = 42, keep=0 *)
+	SB_CARRY carry (
+		.I0(A),
+		.I1(B),
+		.CI(CI),
+		.CO(CO)
+	);
+    (* keep, blah="blah", answer = 43 *)
+	SB_LUT4 #(
+		.LUT_INIT(16'b 0110_1001_1001_0110)
+	) adder (
+		.I0(1'b0),
+		.I1(A),
+		.I2(B),
+		.I3(1'b0),
+		.O(O)
+	);
+endmodule
+EOT
+
+ice40_wrapcarry
+select -assert-count 1 t:$__ICE40_CARRY_WRAPPER
+select -assert-count 0 t:* t:$__ICE40_CARRY_WRAPPER %d
+select -assert-count 1 a:keep=1 a:SB_CARRY.\foo=bar %i a:SB_CARRY.\answer=42 %i a:SB_LUT4.\blah=blah %i a:SB_LUT4.\answer=43 %i
+
+ice40_wrapcarry -unwrap
+select -assert-count 1 c:carry a:src=<<EOT:3.11-8.3 %i a:keep=0 %i a:foo=bar %i a:answer=42 %i
+select -assert-count 1 c:adder a:src=<<EOT:12.4-18.3 %i a:keep=1 %i a:blah=blah %i a:answer=43 %i

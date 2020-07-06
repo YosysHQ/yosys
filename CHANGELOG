@@ -8,7 +8,7 @@ Yosys 0.9 .. Yosys 0.9-dev
 
  * Various
     - Added "write_xaiger" backend
-    - Added "abc9" pass for timing-aware techmapping (experimental, FPGA only, no FFs)
+    - Added "abc9" pass for timing-aware techmapping (experimental, FPGA only)
     - Added "synth_xilinx -abc9" (experimental)
     - Added "synth_ice40 -abc9" (experimental)
     - Added "synth -abc9" (experimental)
@@ -50,9 +50,23 @@ Yosys 0.9 .. Yosys 0.9-dev
     - "synth_ecp5" to now infer DSP blocks (-nodsp to disable, experimental)
     - "synth_ice40 -dsp" to infer DSP blocks
     - Added latch support to synth_xilinx
+    - Added support for flip-flops with synchronous reset to synth_xilinx
+    - Added support for flip-flops with reset and enable to synth_xilinx
     - Added "check -mapped"
     - Added checking of SystemVerilog always block types (always_comb,
       always_latch and always_ff)
+    - Added support for SystemVerilog wildcard port connections (.*)
+    - Added "xilinx_dffopt" pass
+    - Added "scratchpad" pass
+    - Added "synth_xilinx -dff"
+    - Improved support of $readmem[hb] Memory Content File inclusion
+    - Added "opt_lut_ins" pass
+    - Added "logger" pass
+    - Removed "dffsr2dff" (use opt_rmdff instead)
+    - Added "design -delete"
+    - Added "select -unset"
+    - Use YosysHQ/abc instead of upstream berkeley-abc/abc
+    - Added $divfloor and $modfloor cells
 
 Yosys 0.8 .. Yosys 0.9
 ----------------------

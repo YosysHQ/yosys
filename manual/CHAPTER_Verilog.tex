@@ -93,7 +93,7 @@ frontends/verilog/preproc.cc} in the Yosys source tree.
 
 \begin{sloppypar}
 The Verilog Lexer is written using the lexer generator {\it flex} \citeweblink{flex}. Its source code
-can be found in {\tt frontends/verilog/lexer.l} in the Yosys source tree.
+can be found in {\tt frontends/verilog/verilog\_lexer.l} in the Yosys source tree.
 The lexer does little more than identifying all keywords and literals
 recognised by the Yosys Verilog frontend.
 \end{sloppypar}
@@ -115,7 +115,7 @@ whenever possible.)
 \subsection{The Verilog Parser}
 
 The Verilog Parser is written using the parser generator {\it bison} \citeweblink{bison}. Its source code
-can be found in {\tt frontends/verilog/parser.y} in the Yosys source tree.
+can be found in {\tt frontends/verilog/verilog\_parser.y} in the Yosys source tree.
 
 It generates an AST using the \lstinline[language=C++]{AST::AstNode} data structure
 defined in {\tt frontends/ast/ast.h}. An \lstinline[language=C++]{AST::AstNode} object has

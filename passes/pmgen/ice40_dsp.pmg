@@ -56,6 +56,11 @@ code sigA sigB sigH
 			break;
 		sigH.append(O[i]);
 	}
+	// This sigM could have no users if downstream sinks (e.g. $add) is
+	//   narrower than $mul result, for example
+	if (i == 0)
+		reject;
+
 	log_assert(nusers(O.extract_end(i)) <= 1);
 endcode
 
@@ -224,7 +229,7 @@ endcode
 code argD ffO ffOholdmux ffOrstmux ffOholdpol ffOrstpol sigO sigCD clock clock_pol cd_signed o_lo
 	if (mul->type != \SB_MAC16 ||
 			// Ensure that register is not already used
-			((param(mul, \TOPOUTPUT_SELECT, 0).as_int() != 1 && param(mul, \BOTOUTPUT_SELECT, 0).as_int() != 1) &&
+			((param(mul, \TOPOUTPUT_SELECT).as_int() != 1 && param(mul, \BOTOUTPUT_SELECT).as_int() != 1) &&
 			 // Ensure that OLOADTOP/OLOADBOT is unused or zero
 			 (port(mul, \OLOADTOP, State::S0).is_fully_zero() && port(mul, \OLOADBOT, State::S0).is_fully_zero()))) {
 
@@ -328,6 +333,8 @@ arg argD argQ clock clock_pol
 
 code
 	dff = nullptr;
+	if (argQ.empty())
+		reject;
 	for (auto c : argQ.chunks()) {
 		if (!c.wire)
 			reject;
@@ -525,7 +532,7 @@ endcode
 
 match ff
 	select ff->type.in($dff)
-	// DSP48E1 does not support clock inversion
+	// SB_MAC16 does not support clock inversion
 	select param(ff, \CLK_POLARITY).as_bool()
 
 	slice offset GetSize(port(ff, \D))

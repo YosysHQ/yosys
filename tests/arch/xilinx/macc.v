@@ -10,10 +10,10 @@ module macc # (parameter SIZEIN = 16, SIZEOUT = 40) (
 	output signed [SIZEOUT-1:0] accum_out
 );
 // Declare registers for intermediate values
-reg signed [SIZEIN-1:0] a_reg, b_reg;
-reg sload_reg;
-reg signed [2*SIZEIN-1:0] mult_reg;
-reg signed [SIZEOUT-1:0] adder_out, old_result;
+reg signed [SIZEIN-1:0] a_reg = 0, b_reg = 0;
+reg sload_reg = 0;
+reg signed [2*SIZEIN-1:0] mult_reg = 0;
+reg signed [SIZEOUT-1:0] adder_out = 0, old_result;
 always @* /*(adder_out or sload_reg)*/ begin // Modification necessary to fix sim/synth mismatch
 	if (sload_reg)
 		old_result <= 0;
@@ -50,10 +50,10 @@ module macc2 # (parameter SIZEIN = 16, SIZEOUT = 40) (
 	output overflow
 );
 // Declare registers for intermediate values
-reg signed [SIZEIN-1:0] a_reg, b_reg, a_reg2, b_reg2;
+reg signed [SIZEIN-1:0] a_reg = 0, b_reg = 0, a_reg2 = 0, b_reg2 = 0;
 reg signed [2*SIZEIN-1:0] mult_reg = 0;
 reg signed [SIZEOUT:0] adder_out = 0;
-reg overflow_reg;
+reg overflow_reg = 0;
 always @(posedge clk) begin
 	//if (ce)
 	begin

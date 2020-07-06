@@ -29,7 +29,7 @@ endmodule
 module $__XILINX_SHREG_(input C, D, E, input [1:0] L, output Q);
 parameter CLKPOL = 1;
 parameter ENPOL = 1;
-parameter DEPTH = 1;
+parameter DEPTH = 2;
 parameter [DEPTH-1:0] INIT = {DEPTH{1'b0}};
 reg [DEPTH-1:0] r = INIT;
 wire clk = C ^ CLKPOL;

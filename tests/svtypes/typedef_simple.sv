@@ -3,12 +3,12 @@ module top;
 	typedef logic [1:0] uint2_t;
 	typedef logic signed [3:0] int4_t;
 	typedef logic signed [7:0] int8_t;
-	typedef (int8_t) char_t;
+	typedef int8_t char_t;
 
-	(* keep *) (uint2_t) int2 = 2'b10;
-	(* keep *) (int4_t) int4 = -1;
-	(* keep *) (int8_t) int8 = int4;
-	(* keep *) (char_t) ch = int8;
+	(* keep *) uint2_t int2 = 2'b10;
+	(* keep *) int4_t int4 = -1;
+	(* keep *) int8_t int8 = int4;
+	(* keep *) char_t ch = int8;
 
 
 	always @* assert(int2 == 2'b10);

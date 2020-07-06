@@ -112,12 +112,12 @@ struct MaccmapWorker
 			RTLIL::Wire *w2 = module->addWire(NEW_ID, width);
 
 			RTLIL::Cell *cell = module->addCell(NEW_ID, ID($fa));
-			cell->setParam(ID(WIDTH), width);
+			cell->setParam(ID::WIDTH, width);
 			cell->setPort(ID::A, in1);
 			cell->setPort(ID::B, in2);
-			cell->setPort(ID(C), in3);
+			cell->setPort(ID::C, in3);
 			cell->setPort(ID::Y, w1);
-			cell->setPort(ID(X), w2);
+			cell->setPort(ID::X, w2);
 
 			out1 = {out_zeros_msb, w1, out_zeros_lsb};
 			out2 = {out_zeros_msb, w2, out_zeros_lsb};
@@ -240,15 +240,15 @@ struct MaccmapWorker
 		RTLIL::Cell *c = module->addCell(NEW_ID, ID($alu));
 		c->setPort(ID::A, summands.front());
 		c->setPort(ID::B, summands.back());
-		c->setPort(ID(CI), State::S0);
-		c->setPort(ID(BI), State::S0);
+		c->setPort(ID::CI, State::S0);
+		c->setPort(ID::BI, State::S0);
 		c->setPort(ID::Y, module->addWire(NEW_ID, width));
-		c->setPort(ID(X), module->addWire(NEW_ID, width));
-		c->setPort(ID(CO), module->addWire(NEW_ID, width));
+		c->setPort(ID::X, module->addWire(NEW_ID, width));
+		c->setPort(ID::CO, module->addWire(NEW_ID, width));
 		c->fixup_parameters();
 
 		if (!tree_sum_bits.empty()) {
-			c->setPort(ID(CI), tree_sum_bits.back());
+			c->setPort(ID::CI, tree_sum_bits.back());
 			tree_sum_bits.pop_back();
 		}
 		log_assert(tree_sum_bits.empty());
@@ -365,7 +365,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct MaccmapPass : public Pass {
 	MaccmapPass() : Pass("maccmap", "mapping macc cells") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -375,7 +375,7 @@ struct MaccmapPass : public Pass {
 		log("is used then the $macc cell is mapped to $add, $sub, etc. cells instead.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool unmap_mode = false;
 

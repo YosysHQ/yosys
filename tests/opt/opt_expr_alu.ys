@@ -1,0 +1,168 @@
+read_verilog <<EOT
+module test(input a, output [1:0] y);
+assign y = {a,1'b0} + 1'b1;
+endmodule
+EOT
+
+alumacc
+equiv_opt -assert opt_expr -fine
+design -load postopt
+select -assert-count 1 t:$pos
+select -assert-none t:$pos t:* %D
+
+
+design -reset
+read_verilog <<EOT
+module test(input a, output [1:0] y);
+assign y = {a,1'b1} + 1'b1;
+endmodule
+EOT
+
+alumacc
+select -assert-count 1 t:$alu
+select -assert-none t:$alu t:* %D
+
+
+design -reset
+read_verilog <<EOT
+module test(input a, output [1:0] y);
+assign y = {a,1'b1} - 1'b1;
+endmodule
+EOT
+
+equiv_opt -assert opt_expr -fine
+design -load postopt
+select -assert-count 1 t:$pos
+select -assert-none t:$pos t:* %D
+
+
+design -reset
+read_verilog <<EOT
+module test(input a, output [3:0] y);
+assign y = {a,3'b101} - 1'b1;
+endmodule
+EOT
+
+equiv_opt -assert opt_expr -fine
+design -load postopt
+select -assert-count 1 t:$pos
+select -assert-none t:$pos t:* %D
+
+
+design -reset
+read_verilog <<EOT
+module test(input a, output [3:0] y);
+assign y = {a,3'b101} - 1'b1;
+endmodule
+EOT
+
+alumacc
+equiv_opt -assert opt_expr -fine
+design -load postopt
+select -assert-count 1 t:$not
+select -assert-none t:$not %% t:* %D
+
+
+design -reset
+read_verilog <<EOT
+module test(input [1:0] a, output [3:0] y);
+assign y = -{a[1], 2'b10, a[0]};
+endmodule
+EOT
+
+alumacc
+equiv_opt -assert opt -fine
+design -load postopt
+select -assert-count 1 t:$alu
+select -assert-count 1 t:$alu r:Y_WIDTH=3 %i
+select -assert-count 1 t:$not
+select -assert-none t:$alu t:$not t:* %D %D
+
+
+design -reset
+read_verilog <<EOT
+module test(input [3:0] a, input [2:0] b, output [5:0] y);
+assign y = {a[3:2], 1'b1, a[1:0]} + {b[2], 2'b11, b[1:0]};
+endmodule
+EOT
+
+alumacc
+equiv_opt -assert opt -fine
+design -load postopt
+dump
+select -assert-count 2 t:$alu
+select -assert-count 1 t:$alu r:Y_WIDTH=2 %i
+select -assert-count 1 t:$alu r:Y_WIDTH=3 %i
+select -assert-none t:$alu t:* %D
+
+
+design -reset
+read_verilog <<EOT
+module test(input [3:0] a, input [3:0] b, output [5:0] y);
+assign y = {a[3:2], 1'b0, a[1:0]} + {b[3:2], 1'b0, b[1:0]};
+endmodule
+EOT
+
+alumacc
+equiv_opt -assert opt -fine
+design -load postopt
+select -assert-count 2 t:$alu
+select -assert-count 2 t:$alu r:Y_WIDTH=3 %i
+select -assert-none t:$alu t:* %D
+
+
+design -reset
+read_verilog -icells <<EOT
+module test(input [3:0] a, output [3:0] y, output [3:0] x, output [3:0] co);
+$alu #(
+	.A_WIDTH(4), .B_WIDTH(4), .Y_WIDTH(4),
+	.A_SIGNED(0), .B_SIGNED(0),
+) alu (
+	.A(a), .B(4'h0),
+	.BI(1'b0), .CI(1'b0),
+	.Y(y), .X(x), .CO(co),
+);
+endmodule
+EOT
+
+equiv_opt -assert opt
+design -load postopt
+select -assert-none t:$alu
+
+
+design -reset
+read_verilog -icells <<EOT
+module test(input [3:0] a, output [3:0] y, output [3:0] x, output [3:0] co);
+$alu #(
+	.A_WIDTH(4), .B_WIDTH(4), .Y_WIDTH(4),
+	.A_SIGNED(0), .B_SIGNED(0),
+) alu (
+	.A(a), .B(4'h0),
+	.BI(1'b1), .CI(1'b1),
+	.Y(y), .X(x), .CO(co),
+);
+endmodule
+EOT
+
+equiv_opt -assert opt
+design -load postopt
+select -assert-none t:$alu
+
+
+design -reset
+read_verilog -icells <<EOT
+module test(input [3:0] a, output [3:0] y, output [3:0] x, output [3:0] co);
+$alu #(
+	.A_WIDTH(4), .B_WIDTH(4), .Y_WIDTH(4),
+	.A_SIGNED(0), .B_SIGNED(0),
+) alu (
+	.A(4'h0), .B(a),
+	.BI(1'b0), .CI(1'b0),
+	.Y(y), .X(x), .CO(co),
+);
+endmodule
+EOT
+
+equiv_opt -assert opt
+design -load postopt
+select -assert-none t:$alu

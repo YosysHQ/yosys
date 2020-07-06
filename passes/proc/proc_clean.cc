@@ -166,7 +166,7 @@ void proc_clean(RTLIL::Module *mod, RTLIL::Process *proc, int &total_count, bool
 
 struct ProcCleanPass : public Pass {
 	ProcCleanPass() : Pass("proc_clean", "remove empty parts of processes") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -179,7 +179,7 @@ struct ProcCleanPass : public Pass {
 		log("if it contains only empty structures.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		int total_count = 0;
 		bool quiet = false;

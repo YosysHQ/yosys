@@ -652,6 +652,10 @@ module DCUA(
 	parameter CH1_PROTOCOL = "8B10B";
 	parameter CH0_CDR_MAX_RATE = "2.5";
 	parameter CH1_CDR_MAX_RATE = "2.5";
+	parameter CH0_TXDEPRE = "DISABLED";
+	parameter CH1_TXDEPRE = "DISABLED";
+	parameter CH0_TXDEPOST = "DISABLED";
+	parameter CH1_TXDEPOST = "DISABLED";
 endmodule
 
 (* blackbox *)

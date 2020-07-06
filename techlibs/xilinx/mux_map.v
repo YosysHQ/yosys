@@ -30,8 +30,11 @@ module \$shiftx (A, B, Y);
   parameter B_WIDTH = 1;
   parameter Y_WIDTH = 1;
 
+  (* force_downto *)
   input [A_WIDTH-1:0] A;
+  (* force_downto *)
   input [B_WIDTH-1:0] B;
+  (* force_downto *)
   output [Y_WIDTH-1:0] Y;
 
   parameter [B_WIDTH-1:0] _TECHMAP_CONSTMSK_B_ = 0;

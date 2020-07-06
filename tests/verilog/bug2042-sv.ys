@@ -1,0 +1,59 @@
+read_verilog -sv <<EOT
+module Task_Test_Top
+(
+input a,
+output reg b
+);
+
+    task SomeTaskName(a);
+       b = ~a;
+    endtask
+
+    always @*
+        SomeTaskName(a);
+
+    assert property (b == ~a);
+
+endmodule
+EOT
+proc
+sat -verify -prove-asserts
+
+
+design -reset
+read_verilog -sv <<EOT
+module Task_Test_Top
+(
+input a,
+output b, c
+);
+
+    task SomeTaskName(x, output y, z);
+       y = ~x;
+       z = x;
+    endtask
+
+    always @*
+        SomeTaskName(a, b, c);
+
+    assert property (b == ~a);
+    assert property (c == a);
+
+endmodule
+EOT
+proc
+sat -verify -prove-asserts
+
+
+design -reset
+logger -expect error "syntax error, unexpected TOK_ENDTASK, expecting ';'" 1
+read_verilog -sv <<EOT
+module Task_Test_Top
+(
+);
+
+    task SomeTaskName(a)
+    endtask
+
+endmodule
+EOT

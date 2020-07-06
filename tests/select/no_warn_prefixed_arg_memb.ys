@@ -1,0 +1,5 @@
+logger -expect-no-warnings
+read_verilog ../../examples/igloo2/example.v
+hierarchy
+proc
+select example/t:$add

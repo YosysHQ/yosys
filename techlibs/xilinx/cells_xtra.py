@@ -65,9 +65,9 @@ CELLS = [
 
     # CLB -- registers/latches.
     # Virtex 1/2/4/5, Spartan 3.
-    Cell('FDCPE', port_attrs={'C': ['clkbuf_sink']}),
-    Cell('FDRSE', port_attrs={'C': ['clkbuf_sink']}),
-    Cell('LDCPE', port_attrs={'C': ['clkbuf_sink']}),
+    # Cell('FDCPE', port_attrs={'C': ['clkbuf_sink']}),
+    # Cell('FDRSE', port_attrs={'C': ['clkbuf_sink']}),
+    # Cell('LDCPE', port_attrs={'C': ['clkbuf_sink']}),
     # Virtex 6, Spartan 6, Series 7, Ultrascale.
     # Cell('FDCE'),
     # Cell('FDPE'),
@@ -75,8 +75,8 @@ CELLS = [
     # Cell('FDSE'),
     # Cell('LDCE'),
     # Cell('LDPE'),
-    Cell('AND2B1L'),
-    Cell('OR2L'),
+    # Cell('AND2B1L'),
+    # Cell('OR2L'),
 
     # CLB -- other.
     # Cell('LUT1'),
@@ -86,23 +86,23 @@ CELLS = [
     # Cell('LUT5'),
     # Cell('LUT6'),
     # Cell('LUT6_2'),
-    Cell('MUXF5'),
-    Cell('MUXF6'),
+    # Cell('MUXF5'),
+    # Cell('MUXF6'),
     # Cell('MUXF7'),
     # Cell('MUXF8'),
-    Cell('MUXF9'),
+    # Cell('MUXF9'),
     # Cell('CARRY4'),
-    Cell('CARRY8'),
+    # Cell('CARRY8'),
     # Cell('MUXCY'),
     # Cell('XORCY'),
-    Cell('ORCY'),
-    Cell('MULT_AND'),
-    Cell('SRL16', port_attrs={'CLK': ['clkbuf_sink']}),
+    # Cell('ORCY'),
+    # Cell('MULT_AND'),
+    # Cell('SRL16', port_attrs={'CLK': ['clkbuf_sink']}),
     # Cell('SRL16E', port_attrs={'CLK': ['clkbuf_sink']}),
-    Cell('SRLC16', port_attrs={'CLK': ['clkbuf_sink']}),
+    # Cell('SRLC16', port_attrs={'CLK': ['clkbuf_sink']}),
     # Cell('SRLC16E', port_attrs={'CLK': ['clkbuf_sink']}),
     # Cell('SRLC32E', port_attrs={'CLK': ['clkbuf_sink']}),
-    Cell('CFGLUT5', port_attrs={'CLK': ['clkbuf_sink']}),
+    # Cell('CFGLUT5', port_attrs={'CLK': ['clkbuf_sink']}),
 
     # Block RAM.
     # Virtex.
@@ -144,23 +144,9 @@ CELLS = [
     Cell('RAMB16BWE_S36_S18', port_attrs={'CLKA': ['clkbuf_sink'], 'CLKB': ['clkbuf_sink']}),
     Cell('RAMB16BWE_S36_S36', port_attrs={'CLKA': ['clkbuf_sink'], 'CLKB': ['clkbuf_sink']}),
     # Spartan 3A DSP.
-    Cell('RAMB16BWER', port_attrs={
-        'CLKA': ['clkbuf_sink'],
-        'CLKB': ['clkbuf_sink'],
-        #'DOA': ['abc9_arrival=<TODO>'],
-        #'DOB': ['abc9_arrival=<TODO>'],
-        #'DOPA': ['abc9_arrival=<TODO>'],
-        #'DOPB': ['abc9_arrival=<TODO>'],
-    }),
+    Cell('RAMB16BWER', port_attrs={ 'CLKA': ['clkbuf_sink'], 'CLKB': ['clkbuf_sink']}),
     # Spartan 6 (in addition to above).
-    Cell('RAMB8BWER', port_attrs={
-        'CLKAWRCLK': ['clkbuf_sink'],
-        'CLKBRDCLK': ['clkbuf_sink'],
-        #'DOADO': ['abc9_arrival=<TODO>'],
-        #'DOBDO': ['abc9_arrival=<TODO>'],
-        #'DOPADOP': ['abc9_arrival=<TODO>'],
-        #'DOPBDOP': ['abc9_arrival=<TODO>'],
-    }),
+    Cell('RAMB8BWER', port_attrs={ 'CLKAWRCLK': ['clkbuf_sink'], 'CLKBRDCLK': ['clkbuf_sink']}),
     # Virtex 4.
     Cell('FIFO16', port_attrs={'RDCLK': ['clkbuf_sink'], 'WRCLK': ['clkbuf_sink']}),
     Cell('RAMB16', port_attrs={'CLKA': ['clkbuf_sink'], 'CLKB': ['clkbuf_sink']}),
@@ -177,22 +163,8 @@ CELLS = [
     # Virtex 6 / Series 7.
     Cell('FIFO18E1', port_attrs={'RDCLK': ['clkbuf_sink'], 'WRCLK': ['clkbuf_sink']}),
     Cell('FIFO36E1', port_attrs={'RDCLK': ['clkbuf_sink'], 'WRCLK': ['clkbuf_sink']}),
-    Cell('RAMB18E1', port_attrs={
-        'CLKARDCLK': ['clkbuf_sink'],
-        'CLKBWRCLK': ['clkbuf_sink'],
-        'DOADO': ['abc9_arrival=2454'],
-        'DOBDO': ['abc9_arrival=2454'],
-        'DOPADOP': ['abc9_arrival=2454'],
-        'DOPBDOP': ['abc9_arrival=2454'],
-    }),
-    Cell('RAMB36E1', port_attrs={
-        'CLKARDCLK': ['clkbuf_sink'],
-        'CLKBWRCLK': ['clkbuf_sink'],
-        'DOADO': ['abc9_arrival=2454'],
-        'DOBDO': ['abc9_arrival=2454'],
-        'DOPADOP': ['abc9_arrival=2454'],
-        'DOPBDOP': ['abc9_arrival=2454'],
-    }),
+    #Cell('RAMB18E1', port_attrs={'CLKARDCLK': ['clkbuf_sink'], 'CLKBWRCLK': ['clkbuf_sink']]}),
+    #Cell('RAMB36E1', port_attrs={'CLKARDCLK': ['clkbuf_sink'], 'CLKBWRCLK': ['clkbuf_sink']]}),
     # Ultrascale.
     Cell('FIFO18E2', port_attrs={'RDCLK': ['clkbuf_sink'], 'WRCLK': ['clkbuf_sink']}),
     Cell('FIFO36E2', port_attrs={'RDCLK': ['clkbuf_sink'], 'WRCLK': ['clkbuf_sink']}),
@@ -209,7 +181,7 @@ CELLS = [
     # Cell('MULT18X18SIO', port_attrs={'CLK': ['clkbuf_sink']}), # Spartan 3E
     # Cell('DSP48A', port_attrs={'CLK': ['clkbuf_sink']}), # Spartan 3A DSP
     # Cell('DSP48A1', port_attrs={'CLK': ['clkbuf_sink']}), # Spartan 6
-    Cell('DSP48', port_attrs={'CLK': ['clkbuf_sink']}), # Virtex 4
+    # Cell('DSP48', port_attrs={'CLK': ['clkbuf_sink']}), # Virtex 4
     Cell('DSP48E', port_attrs={'CLK': ['clkbuf_sink']}), # Virtex 5
     #Cell('DSP48E1', port_attrs={'CLK': ['clkbuf_sink']}), # Virtex 6 / Series 7
     Cell('DSP48E2', port_attrs={'CLK': ['clkbuf_sink']}), # Ultrascale
@@ -330,13 +302,13 @@ CELLS = [
     Cell('IOBUF_DCIEN', port_attrs={'IO': ['iopad_external_pin']}),
     Cell('IOBUF_INTERMDISABLE', port_attrs={'IO': ['iopad_external_pin']}),
     Cell('IOBUFE3', port_attrs={'IO': ['iopad_external_pin']}),
-    Cell('IOBUFDS', port_attrs={'IO': ['iopad_external_pin']}),
+    Cell('IOBUFDS', port_attrs={'IO': ['iopad_external_pin'], 'IOB': ['iopad_external_pin']}),
     Cell('IOBUFDS_DCIEN', port_attrs={'IO': ['iopad_external_pin'], 'IOB': ['iopad_external_pin']}),
     Cell('IOBUFDS_INTERMDISABLE', port_attrs={'IO': ['iopad_external_pin'], 'IOB': ['iopad_external_pin']}),
     Cell('IOBUFDS_DIFF_OUT', port_attrs={'IO': ['iopad_external_pin'], 'IOB': ['iopad_external_pin']}),
     Cell('IOBUFDS_DIFF_OUT_DCIEN', port_attrs={'IO': ['iopad_external_pin'], 'IOB': ['iopad_external_pin']}),
     Cell('IOBUFDS_DIFF_OUT_INTERMDISABLE', port_attrs={'IO': ['iopad_external_pin'], 'IOB': ['iopad_external_pin']}),
-    Cell('IOBUFDSE3', port_attrs={'IO': ['iopad_external_pin']}),
+    Cell('IOBUFDSE3', port_attrs={'IO': ['iopad_external_pin'], 'IOB': ['iopad_external_pin']}),
     # Output.
     # Cell('OBUF', port_attrs={'O': ['iopad_external_pin']}),
     Cell('OBUFDS', port_attrs={'O': ['iopad_external_pin'], 'OB': ['iopad_external_pin']}),

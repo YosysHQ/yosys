@@ -27,6 +27,7 @@
  */
 
 #include "verilog_frontend.h"
+#include "preproc.h"
 #include "kernel/yosys.h"
 #include "libs/sha1/sha1.h"
 #include <stdarg.h>
@@ -42,14 +43,31 @@ static std::list<std::vector<std::string>> verilog_defaults_stack;
 static void error_on_dpi_function(AST::AstNode *node)
 {
 	if (node->type == AST::AST_DPI_FUNCTION)
-		log_file_error(node->filename, node->linenum, "Found DPI function %s.\n", node->str.c_str());
+		log_file_error(node->filename, node->location.first_line, "Found DPI function %s.\n", node->str.c_str());
 	for (auto child : node->children)
 		error_on_dpi_function(child);
 }
 
+static void add_package_types(dict<std::string, AST::AstNode *> &user_types, std::vector<AST::AstNode *> &package_list)
+{
+	// prime the parser's user type lookup table with the package qualified names
+	// of typedefed names in the packages seen so far.
+	for (const auto &pkg : package_list) {
+		log_assert(pkg->type==AST::AST_PACKAGE);
+		for (const auto &node: pkg->children) {
+			if (node->type == AST::AST_TYPEDEF) {
+				std::string s = pkg->str + "::" + node->str.substr(1);
+				user_types[s] = node;
+			}
+		}
+	}
+	user_type_stack.clear();
+	user_type_stack.push_back(new UserTypeMap());
+}
+
 struct VerilogFrontend : public Frontend {
 	VerilogFrontend() : Frontend("verilog", "read modules from Verilog file") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -214,7 +232,7 @@ struct VerilogFrontend : public Frontend {
 		log("supported by the Yosys Verilog front-end.\n");
 		log("\n");
 	}
-	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool flag_dump_ast1 = false;
 		bool flag_dump_ast2 = false;
@@ -237,7 +255,8 @@ struct VerilogFrontend : public Frontend {
 		bool flag_defer = false;
 		bool flag_noblackbox = false;
 		bool flag_nowb = false;
-		std::map<std::string, std::string> defines_map;
+		define_map_t defines_map;
+
 		std::list<std::string> include_dirs;
 		std::list<std::string> attributes;
 
@@ -353,7 +372,7 @@ struct VerilogFrontend : public Frontend {
 			}
 			if (arg == "-lib") {
 				lib_mode = true;
-				defines_map["BLACKBOX"] = string();
+				defines_map.add("BLACKBOX", "");
 				continue;
 			}
 			if (arg == "-nowb") {
@@ -405,7 +424,7 @@ struct VerilogFrontend : public Frontend {
 					value = name.substr(equal+1);
 					name = name.substr(0, equal);
 				}
-				defines_map[name] = value;
+				defines_map.add(name, value);
 				continue;
 			}
 			if (arg.compare(0, 2, "-D") == 0) {
@@ -414,7 +433,7 @@ struct VerilogFrontend : public Frontend {
 				std::string value;
 				if (equal != std::string::npos)
 					value = arg.substr(equal+1);
-				defines_map[name] = value;
+				defines_map.add(name, value);
 				continue;
 			}
 			if (arg == "-I" && argidx+1 < args.size()) {
@@ -444,11 +463,14 @@ struct VerilogFrontend : public Frontend {
 		std::string code_after_preproc;
 
 		if (!flag_nopp) {
-			code_after_preproc = frontend_verilog_preproc(*f, filename, defines_map, design->verilog_defines, include_dirs);
+			code_after_preproc = frontend_verilog_preproc(*f, filename, defines_map, *design->verilog_defines, include_dirs);
 			if (flag_ppdump)
 				log("-- Verilog code after preprocessor --\n%s-- END OF DUMP --\n", code_after_preproc.c_str());
 			lexin = new std::istringstream(code_after_preproc);
 		}
+
+		// make package typedefs available to parser
+		add_package_types(pkg_user_types, design->verilog_packages);
 
 		frontend_verilog_yyset_lineno(1);
 		frontend_verilog_yyrestart(NULL);
@@ -468,6 +490,7 @@ struct VerilogFrontend : public Frontend {
 		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog1, flag_dump_vlog2, flag_dump_rtlil, flag_nolatches,
 				flag_nomeminit, flag_nomem2reg, flag_mem2reg, flag_noblackbox, lib_mode, flag_nowb, flag_noopt, flag_icells, flag_pwires, flag_nooverwrite, flag_overwrite, flag_defer, default_nettype_wire);
 
+
 		if (!flag_nopp)
 			delete lexin;
 
@@ -480,7 +503,7 @@ struct VerilogFrontend : public Frontend {
 
 struct VerilogDefaults : public Pass {
 	VerilogDefaults() : Pass("verilog_defaults", "set default options for read_verilog") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -501,7 +524,7 @@ struct VerilogDefaults : public Pass {
 		log("not imply -clear.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design*) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design*) override
 	{
 		if (args.size() < 2)
 			cmd_error(args, 1, "Missing argument.");
@@ -538,7 +561,7 @@ struct VerilogDefaults : public Pass {
 
 struct VerilogDefines : public Pass {
 	VerilogDefines() : Pass("verilog_defines", "define and undefine verilog defines") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -560,7 +583,7 @@ struct VerilogDefines : public Pass {
 		log("        list currently defined preprocessor symbols\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -572,7 +595,7 @@ struct VerilogDefines : public Pass {
 					value = name.substr(equal+1);
 					name = name.substr(0, equal);
 				}
-				design->verilog_defines[name] = std::pair<std::string, bool>(value, false);
+				design->verilog_defines->add(name, value);
 				continue;
 			}
 			if (arg.compare(0, 2, "-D") == 0) {
@@ -581,27 +604,25 @@ struct VerilogDefines : public Pass {
 				std::string value;
 				if (equal != std::string::npos)
 					value = arg.substr(equal+1);
-				design->verilog_defines[name] = std::pair<std::string, bool>(value, false);
+				design->verilog_defines->add(name, value);
 				continue;
 			}
 			if (arg == "-U" && argidx+1 < args.size()) {
 				std::string name = args[++argidx];
-				design->verilog_defines.erase(name);
+				design->verilog_defines->erase(name);
 				continue;
 			}
 			if (arg.compare(0, 2, "-U") == 0) {
 				std::string name = arg.substr(2);
-				design->verilog_defines.erase(name);
+				design->verilog_defines->erase(name);
 				continue;
 			}
 			if (arg == "-reset") {
-				design->verilog_defines.clear();
+				design->verilog_defines->clear();
 				continue;
 			}
 			if (arg == "-list") {
-				for (auto &it : design->verilog_defines) {
-					log("`define %s%s %s\n", it.first.c_str(), it.second.second ? "()" : "", it.second.first.c_str());
-				}
+				design->verilog_defines->log();
 				continue;
 			}
 			break;

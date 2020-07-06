@@ -114,18 +114,33 @@ void Pass::run_register()
 
 void Pass::init_register()
 {
+	vector<Pass*> added_passes;
 	while (first_queued_pass) {
+		added_passes.push_back(first_queued_pass);
 		first_queued_pass->run_register();
 		first_queued_pass = first_queued_pass->next_queued_pass;
 	}
+	for (auto added_pass : added_passes)
+		added_pass->on_register();
 }
 
 void Pass::done_register()
 {
+	for (auto &it : pass_register)
+		it.second->on_shutdown();
+
 	frontend_register.clear();
 	pass_register.clear();
 	backend_register.clear();
 	log_assert(first_queued_pass == NULL);
+}
+
+void Pass::on_register()
+{
+}
+
+void Pass::on_shutdown()
+{
 }
 
 Pass::~Pass()
@@ -223,6 +238,7 @@ void Pass::call(RTLIL::Design *design, std::string command)
 		return;
 
 	if (tok[0] == '!') {
+#if !defined(YOSYS_DISABLE_SPAWN)
 		cmd_buf = command.substr(command.find('!') + 1);
 		while (!cmd_buf.empty() && (cmd_buf.back() == ' ' || cmd_buf.back() == '\t' ||
 				cmd_buf.back() == '\r' || cmd_buf.back() == '\n'))
@@ -232,6 +248,9 @@ void Pass::call(RTLIL::Design *design, std::string command)
 		if (retCode != 0)
 			log_cmd_error("Shell command returned error code %d.\n", retCode);
 		return;
+#else
+		log_cmd_error("Shell is not available.\n");
+#endif
 	}
 
 	while (!tok.empty()) {
@@ -288,6 +307,9 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 
 	if (pass_register.count(args[0]) == 0)
 		log_cmd_error("No such command: %s (type 'help' for a command overview)\n", args[0].c_str());
+
+	if (pass_register[args[0]]->experimental_flag)
+		log_experimental("%s", args[0].c_str());
 
 	size_t orig_sel_stack_pos = design->selection_stack.size();
 	auto state = pass_register[args[0]]->pre_execute();
@@ -382,6 +404,18 @@ void ScriptPass::run(std::string command, std::string info)
 	}
 }
 
+void ScriptPass::run_nocheck(std::string command, std::string info)
+{
+	if (active_design == nullptr) {
+		if (info.empty())
+			log("        %s\n", command.c_str());
+		else
+			log("        %s    %s\n", command.c_str(), info.c_str());
+	} else {
+		Pass::call(active_design, command);
+	}
+}
+
 void ScriptPass::run_script(RTLIL::Design *design, std::string run_from, std::string run_to)
 {
 	help_mode = false;
@@ -455,20 +489,21 @@ void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<s
 			cmd_error(args, argidx, "Extra filename argument in direct file mode.");
 
 		filename = arg;
+		//Accommodate heredocs with EOT marker spaced out from "<<", e.g. "<< EOT" vs. "<<EOT"
 		if (filename == "<<" && argidx+1 < args.size())
 			filename += args[++argidx];
 		if (filename.compare(0, 2, "<<") == 0) {
-			if (Frontend::current_script_file == NULL)
-				log_error("Unexpected here document '%s' outside of script!\n", filename.c_str());
 			if (filename.size() <= 2)
 				log_error("Missing EOT marker in here document!\n");
 			std::string eot_marker = filename.substr(2);
+			if (Frontend::current_script_file == nullptr)
+				filename = "<stdin>";
 			last_here_document.clear();
 			while (1) {
 				std::string buffer;
 				char block[4096];
 				while (1) {
-					if (fgets(block, 4096, Frontend::current_script_file) == NULL)
+					if (fgets(block, 4096, Frontend::current_script_file == nullptr? stdin : Frontend::current_script_file) == nullptr)
 						log_error("Unexpected end of file in here document '%s'!\n", filename.c_str());
 					buffer += block;
 					if (buffer.size() > 0 && (buffer[buffer.size() - 1] == '\n' || buffer[buffer.size() - 1] == '\r'))
@@ -718,7 +753,7 @@ static struct CellHelpMessages {
 
 struct HelpPass : public Pass {
 	HelpPass() : Pass("help", "display help messages") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		log("\n");
 		log("    help  ................  list all commands\n");
@@ -787,7 +822,7 @@ struct HelpPass : public Pass {
 
 		fclose(f);
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design*) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design*) override
 	{
 		if (args.size() == 1) {
 			log("\n");
@@ -809,6 +844,11 @@ struct HelpPass : public Pass {
 						log("=");
 					log("\n");
 					it.second->help();
+					if (it.second->experimental_flag) {
+						log("\n");
+						log("WARNING: THE '%s' COMMAND IS EXPERIMENTAL.\n", it.first.c_str());
+						log("\n");
+					}
 				}
 			}
 			else if (args[1] == "-cells") {
@@ -831,6 +871,11 @@ struct HelpPass : public Pass {
 					std::ostringstream buf;
 					log_streams.push_back(&buf);
 					it.second->help();
+					if (it.second->experimental_flag) {
+						log("\n");
+						log("WARNING: THE '%s' COMMAND IS EXPERIMENTAL.\n", it.first.c_str());
+						log("\n");
+					}
 					log_streams.pop_back();
 					write_tex(f, it.first, it.second->short_help, buf.str());
 				}
@@ -843,6 +888,11 @@ struct HelpPass : public Pass {
 					std::ostringstream buf;
 					log_streams.push_back(&buf);
 					it.second->help();
+					if (it.second->experimental_flag) {
+						log("\n");
+						log("WARNING: THE '%s' COMMAND IS EXPERIMENTAL.\n", it.first.c_str());
+						log("\n");
+					}
 					log_streams.pop_back();
 					write_html(f, it.first, it.second->short_help, buf.str());
 				}
@@ -850,6 +900,11 @@ struct HelpPass : public Pass {
 			}
 			else if (pass_register.count(args[1])) {
 				pass_register.at(args[1])->help();
+				if (pass_register.at(args[1])->experimental_flag) {
+					log("\n");
+					log("WARNING: THE '%s' COMMAND IS EXPERIMENTAL.\n", args[1].c_str());
+					log("\n");
+				}
 			}
 			else if (cell_help_messages.cell_help.count(args[1])) {
 				log("%s", cell_help_messages.cell_help.at(args[1]).c_str());
@@ -871,7 +926,7 @@ struct HelpPass : public Pass {
 
 struct EchoPass : public Pass {
 	EchoPass() : Pass("echo", "turning echoing back of commands on and off") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		log("\n");
 		log("    echo on\n");
@@ -884,7 +939,7 @@ struct EchoPass : public Pass {
 		log("Do not print all commands to log before executing them. (default)\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design*) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design*) override
 	{
 		if (args.size() > 2)
 			cmd_error(args, 2, "Unexpected argument.");
@@ -909,7 +964,7 @@ struct MinisatSatSolver : public SatSolver {
 	MinisatSatSolver() : SatSolver("minisat") {
 		yosys_satsolver = this;
 	}
-	ezSAT *create() YS_OVERRIDE {
+	ezSAT *create() override {
 		return new ezMiniSAT();
 	}
 } MinisatSatSolver;

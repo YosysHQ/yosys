@@ -28,6 +28,33 @@ module _90_dff_nn1_to_np1 (input D, C, R, output Q); \$_DFF_NP1_   _TECHMAP_REPL
 (* techmap_celltype = "$_DFF_PN1_" *)
 module _90_dff_pn1_to_pp1 (input D, C, R, output Q); \$_DFF_PP1_   _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .R(~R)); endmodule
 
+(* techmap_celltype = "$_DFFE_NN0P_" *)
+module _90_dffe_nn0_to_np0 (input D, C, R, E, output Q); \$_DFFE_NP0P_  _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .R(~R), .E(E)); endmodule
+(* techmap_celltype = "$_DFFE_PN0P_" *)
+module _90_dffe_pn0_to_pp0 (input D, C, R, E, output Q); \$_DFFE_PP0P_  _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .R(~R), .E(E)); endmodule
+(* techmap_celltype = "$_DFFE_NN1P_" *)
+module _90_dffe_nn1_to_np1 (input D, C, R, E, output Q); \$_DFFE_NP1P_   _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .R(~R), .E(E)); endmodule
+(* techmap_celltype = "$_DFFE_PN1P_" *)
+module _90_dffe_pn1_to_pp1 (input D, C, R, E, output Q); \$_DFFE_PP1P_   _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .R(~R), .E(E)); endmodule
+
+(* techmap_celltype = "$_SDFF_NN0_" *)
+module _90_dffs_nn0_to_np0 (input D, C, R, output Q); \$_SDFF_NP0_  _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .R(~R)); endmodule
+(* techmap_celltype = "$_SDFF_PN0_" *)
+module _90_dffs_pn0_to_pp0 (input D, C, R, output Q); \$_SDFF_PP0_  _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .R(~R)); endmodule
+(* techmap_celltype = "$_SDFF_NN1_" *)
+module _90_dffs_nn1_to_np1 (input D, C, R, output Q); \$_SDFF_NP1_   _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .R(~R)); endmodule
+(* techmap_celltype = "$_SDFF_PN1_" *)
+module _90_dffs_pn1_to_pp1 (input D, C, R, output Q); \$_SDFF_PP1_   _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .R(~R)); endmodule
+
+(* techmap_celltype = "$_SDFFE_NN0P_" *)
+module _90_dffse_nn0_to_np0 (input D, C, R, E, output Q); \$_SDFFE_NP0P_  _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .R(~R), .E(E)); endmodule
+(* techmap_celltype = "$_SDFFE_PN0P_" *)
+module _90_dffse_pn0_to_pp0 (input D, C, R, E, output Q); \$_SDFFE_PP0P_  _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .R(~R), .E(E)); endmodule
+(* techmap_celltype = "$_SDFFE_NN1P_" *)
+module _90_dffse_nn1_to_np1 (input D, C, R, E, output Q); \$_SDFFE_NP1P_   _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .R(~R), .E(E)); endmodule
+(* techmap_celltype = "$_SDFFE_PN1P_" *)
+module _90_dffse_pn1_to_pp1 (input D, C, R, E, output Q); \$_SDFFE_PP1P_   _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .R(~R), .E(E)); endmodule
+
 module \$__SHREG_ (input C, input D, input E, output Q);
   parameter DEPTH = 0;
   parameter [DEPTH-1:0] INIT = 0;
@@ -71,7 +98,10 @@ module \$__XILINX_SHREG_ (input C, input D, input [31:0] L, input E, output Q, o
       else
           FDRE_1 #(.INIT(INIT_R)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(CE), .R(1'b0));
     end else
-    if (DEPTH <= 32) begin
+    if (DEPTH <= 16) begin
+      SRL16E #(.INIT(INIT_R), .IS_CLK_INVERTED(~CLKPOL[0])) _TECHMAP_REPLACE_ (.A0(L[0]), .A1(L[1]), .A2(L[2]), .A3(L[3]), .CE(CE), .CLK(C), .D(D), .Q(Q));
+    end else
+    if (DEPTH > 17 && DEPTH <= 32) begin
       SRLC32E #(.INIT(INIT_R), .IS_CLK_INVERTED(~CLKPOL[0])) _TECHMAP_REPLACE_ (.A(L[4:0]), .CE(CE), .CLK(C), .D(D), .Q(Q));
     end else
     if (DEPTH > 33 && DEPTH <= 64) begin
@@ -154,8 +184,11 @@ module \$__XILINX_SHIFTX (A, B, Y);
   parameter B_WIDTH = 1;
   parameter Y_WIDTH = 1;
 
+  (* force_downto *)
   input [A_WIDTH-1:0] A;
+  (* force_downto *)
   input [B_WIDTH-1:0] B;
+  (* force_downto *)
   output [Y_WIDTH-1:0] Y;
 
   parameter [A_WIDTH-1:0] _TECHMAP_CONSTMSK_A_ = 0;
@@ -291,8 +324,11 @@ module _90__XILINX_SHIFTX (A, B, Y);
   parameter B_WIDTH = 1;
   parameter Y_WIDTH = 1;
 
+  (* force_downto *)
   input [A_WIDTH-1:0] A;
+  (* force_downto *)
   input [B_WIDTH-1:0] B;
+  (* force_downto *)
   output [Y_WIDTH-1:0] Y;
 
   \$shiftx  #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(A_WIDTH), .B_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(A), .B(B), .Y(Y));

@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct Ice40FfssrPass : public Pass {
 	Ice40FfssrPass() : Pass("ice40_ffssr", "iCE40: merge synchronous set/reset into FF cells") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		log("\n");
 		log("    ice40_ffssr [options] [selection]\n");
@@ -33,7 +33,7 @@ struct Ice40FfssrPass : public Pass {
 		log("Merge synchronous set/reset $_MUX_ cells into iCE40 FFs.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing ICE40_FFSSR pass (merge synchronous set/reset into FF cells).\n");
 
@@ -49,10 +49,10 @@ struct Ice40FfssrPass : public Pass {
 		extra_args(args, argidx, design);
 
 		pool<IdString> sb_dff_types;
-		sb_dff_types.insert("\\SB_DFF");
-		sb_dff_types.insert("\\SB_DFFE");
-		sb_dff_types.insert("\\SB_DFFN");
-		sb_dff_types.insert("\\SB_DFFNE");
+		sb_dff_types.insert(ID(SB_DFF));
+		sb_dff_types.insert(ID(SB_DFFE));
+		sb_dff_types.insert(ID(SB_DFFN));
+		sb_dff_types.insert(ID(SB_DFFNE));
 
 		for (auto module : design->selected_modules())
 		{
@@ -69,22 +69,22 @@ struct Ice40FfssrPass : public Pass {
 					continue;
 				}
 
-				if (cell->type != "$_MUX_")
+				if (cell->type != ID($_MUX_))
 					continue;
 
-				SigBit bit_a = sigmap(cell->getPort("\\A"));
-				SigBit bit_b = sigmap(cell->getPort("\\B"));
+				SigBit bit_a = sigmap(cell->getPort(ID::A));
+				SigBit bit_b = sigmap(cell->getPort(ID::B));
 
 				if (bit_a.wire == nullptr || bit_b.wire == nullptr)
-					sr_muxes[sigmap(cell->getPort("\\Y"))] = cell;
+					sr_muxes[sigmap(cell->getPort(ID::Y))] = cell;
 			}
 
 			for (auto cell : ff_cells)
 			{
-				if (cell->get_bool_attribute("\\dont_touch"))
+				if (cell->get_bool_attribute(ID(dont_touch)))
 					continue;
 
-				SigSpec sig_d = cell->getPort("\\D");
+				SigSpec sig_d = cell->getPort(ID::D);
 
 				if (GetSize(sig_d) < 1)
 					continue;
@@ -95,9 +95,9 @@ struct Ice40FfssrPass : public Pass {
 					continue;
 
 				Cell *mux_cell = sr_muxes.at(bit_d);
-				SigBit bit_a = sigmap(mux_cell->getPort("\\A"));
-				SigBit bit_b = sigmap(mux_cell->getPort("\\B"));
-				SigBit bit_s = sigmap(mux_cell->getPort("\\S"));
+				SigBit bit_a = sigmap(mux_cell->getPort(ID::A));
+				SigBit bit_b = sigmap(mux_cell->getPort(ID::B));
+				SigBit bit_s = sigmap(mux_cell->getPort(ID::S));
 
 				log("  Merging %s (A=%s, B=%s, S=%s) into %s (%s).\n", log_id(mux_cell),
 						log_signal(bit_a), log_signal(bit_b), log_signal(bit_s), log_id(cell), log_id(cell->type));
@@ -116,12 +116,12 @@ struct Ice40FfssrPass : public Pass {
 
 				if (sr_val == State::S1) {
 					cell->type = cell->type.str() + "SS";
-					cell->setPort("\\S", sr_sig);
-					cell->setPort("\\D", bit_d);
+					cell->setPort(ID::S, sr_sig);
+					cell->setPort(ID::D, bit_d);
 				} else {
 					cell->type = cell->type.str() + "SR";
-					cell->setPort("\\R", sr_sig);
-					cell->setPort("\\D", bit_d);
+					cell->setPort(ID::R, sr_sig);
+					cell->setPort(ID::D, bit_d);
 				}
 			}
 		}

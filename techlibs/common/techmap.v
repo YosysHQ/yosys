@@ -64,7 +64,7 @@ module _90_simplemap_various;
 endmodule
 
 (* techmap_simplemap *)
-(* techmap_celltype = "$sr $ff $dff $dffe $adff $dffsr $dlatch" *)
+(* techmap_celltype = "$sr $ff $dff $dffe $adff $adffe $sdff $sdffe $sdffce $dffsr $dffsre $dlatch $adlatch $dlatchsr" *)
 module _90_simplemap_registers;
 endmodule
 
@@ -85,8 +85,11 @@ module _90_shift_ops_shr_shl_sshl_sshr (A, B, Y);
 	localparam shift_left = _TECHMAP_CELLTYPE_ == "$shl" || _TECHMAP_CELLTYPE_ == "$sshl";
 	localparam sign_extend = A_SIGNED && _TECHMAP_CELLTYPE_ == "$sshr";
 
+	(* force_downto *)
 	input [A_WIDTH-1:0] A;
+	(* force_downto *)
 	input [B_WIDTH-1:0] B;
+	(* force_downto *)
 	output [Y_WIDTH-1:0] Y;
 
 	localparam WIDTH = `MAX(A_WIDTH, Y_WIDTH);
@@ -96,6 +99,7 @@ module _90_shift_ops_shr_shl_sshl_sshr (A, B, Y);
 	wire [1023:0] _TECHMAP_DO_01_ = "RECURSION; CONSTMAP; opt_muxtree; opt_expr -mux_undef -mux_bool -fine;;;";
 
 	integer i;
+	(* force_downto *)
 	reg [WIDTH-1:0] buffer;
 	reg overflow;
 
@@ -125,51 +129,90 @@ module _90_shift_shiftx (A, B, Y);
 	parameter B_WIDTH = 1;
 	parameter Y_WIDTH = 1;
 
+	(* force_downto *)
 	input [A_WIDTH-1:0] A;
+	(* force_downto *)
 	input [B_WIDTH-1:0] B;
+	(* force_downto *)
 	output [Y_WIDTH-1:0] Y;
 
-	localparam BB_WIDTH = `MIN($clog2(`MAX(A_WIDTH, Y_WIDTH)) + (B_SIGNED ? 2 : 1), B_WIDTH);
-	localparam WIDTH = `MAX(A_WIDTH, Y_WIDTH) + (B_SIGNED ? 2**(BB_WIDTH-1) : 0);
-
 	parameter _TECHMAP_CELLTYPE_ = "";
+	parameter [B_WIDTH-1:0] _TECHMAP_CONSTMSK_B_ = 0;
+	parameter [B_WIDTH-1:0] _TECHMAP_CONSTVAL_B_ = 0;
+
 	localparam extbit = _TECHMAP_CELLTYPE_ == "$shift" ? 1'b0 : 1'bx;
 
-	wire [1023:0] _TECHMAP_DO_00_ = "proc;;";
-	wire [1023:0] _TECHMAP_DO_01_ = "CONSTMAP; opt_muxtree; opt_expr -mux_undef -mux_bool -fine;;;";
-
-	integer i;
-	reg [WIDTH-1:0] buffer;
-	reg overflow;
-
-	always @* begin
-		overflow = 0;
-		buffer = {WIDTH{extbit}};
-		buffer[`MAX(A_WIDTH, Y_WIDTH)-1:0] = A;
-
-		if (B_WIDTH > BB_WIDTH) begin
-			if (B_SIGNED) begin
-				for (i = BB_WIDTH; i < B_WIDTH; i = i+1)
-					if (B[i] != B[BB_WIDTH-1])
-						overflow = 1;
-			end else
-				overflow = |B[B_WIDTH-1:BB_WIDTH];
-			if (overflow)
-				buffer = {WIDTH{extbit}};
+	generate
+`ifndef NO_LSB_FIRST_SHIFT_SHIFTX
+		// If $shift/$shiftx only shifts in units of Y_WIDTH
+		//   (a common pattern created by pmux2shiftx)
+		//   which is checked by ensuring that all that
+		//   the appropriate LSBs of B are constant zero,
+		//   then we can decompose LSB first instead of
+		//   MSB first
+		localparam CLOG2_Y_WIDTH = $clog2(Y_WIDTH);
+		if (B_WIDTH > CLOG2_Y_WIDTH+1 &&
+			_TECHMAP_CONSTMSK_B_[CLOG2_Y_WIDTH-1:0] == {CLOG2_Y_WIDTH{1'b1}} &&
+			_TECHMAP_CONSTVAL_B_[CLOG2_Y_WIDTH-1:0] == {CLOG2_Y_WIDTH{1'b0}}) begin
+			// Halve the size of $shift/$shiftx by $mux-ing A according to
+			//   the LSB of B, after discarding the zeroed bits
+			localparam Y_WIDTH2 = 2**CLOG2_Y_WIDTH;
+			localparam entries = (A_WIDTH+Y_WIDTH-1)/Y_WIDTH2;
+			localparam len = Y_WIDTH2 * ((entries+1)/2);
+			wire [len-1:0] AA;
+			wire [(A_WIDTH+Y_WIDTH2+Y_WIDTH-1)-1:0] Apad = {{(Y_WIDTH2+Y_WIDTH-1){extbit}}, A};
+			genvar i;
+			for (i = 0; i < A_WIDTH; i=i+Y_WIDTH2*2)
+				assign AA[i/2 +: Y_WIDTH2] = B[CLOG2_Y_WIDTH] ? Apad[i+Y_WIDTH2 +: Y_WIDTH2] : Apad[i +: Y_WIDTH2];
+			wire [B_WIDTH-2:0] BB = {B[B_WIDTH-1:CLOG2_Y_WIDTH+1], {CLOG2_Y_WIDTH{1'b0}}};
+			if (_TECHMAP_CELLTYPE_ == "$shift")
+				$shift #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(len), .B_WIDTH(B_WIDTH-1), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(AA), .B(BB), .Y(Y));
+			else
+				$shiftx #(.A_SIGNED(A_SIGNED), .B_SIGNED(B_SIGNED), .A_WIDTH(len), .B_WIDTH(B_WIDTH-1), .Y_WIDTH(Y_WIDTH)) _TECHMAP_REPLACE_ (.A(AA), .B(BB), .Y(Y));
 		end
+		else
+`endif
+		begin
+			localparam BB_WIDTH = `MIN($clog2(`MAX(A_WIDTH, Y_WIDTH)) + (B_SIGNED ? 2 : 1), B_WIDTH);
+			localparam WIDTH = `MAX(A_WIDTH, Y_WIDTH) + (B_SIGNED ? 2**(BB_WIDTH-1) : 0);
 
-		for (i = BB_WIDTH-1; i >= 0; i = i-1)
-			if (B[i]) begin
-				if (B_SIGNED && i == BB_WIDTH-1)
-					buffer = {buffer, {2**i{extbit}}};
-				else if (2**i < WIDTH)
-					buffer = {{2**i{extbit}}, buffer[WIDTH-1 : 2**i]};
-				else
-					buffer = {WIDTH{extbit}};
+			wire [1023:0] _TECHMAP_DO_00_ = "proc;;";
+			wire [1023:0] _TECHMAP_DO_01_ = "CONSTMAP; opt_muxtree; opt_expr -mux_undef -mux_bool -fine;;;";
+
+			integer i;
+			(* force_downto *)
+			reg [WIDTH-1:0] buffer;
+			reg overflow;
+
+			always @* begin
+				overflow = 0;
+				buffer = {WIDTH{extbit}};
+				buffer[`MAX(A_WIDTH, Y_WIDTH)-1:0] = A;
+
+				if (B_WIDTH > BB_WIDTH) begin
+					if (B_SIGNED) begin
+						for (i = BB_WIDTH; i < B_WIDTH; i = i+1)
+							if (B[i] != B[BB_WIDTH-1])
+								overflow = 1;
+					end else
+						overflow = |B[B_WIDTH-1:BB_WIDTH];
+					if (overflow)
+						buffer = {WIDTH{extbit}};
+				end
+
+				for (i = BB_WIDTH-1; i >= 0; i = i-1)
+					if (B[i]) begin
+						if (B_SIGNED && i == BB_WIDTH-1)
+							buffer = {buffer, {2**i{extbit}}};
+						else if (2**i < WIDTH)
+							buffer = {{2**i{extbit}}, buffer[WIDTH-1 : 2**i]};
+						else
+							buffer = {WIDTH{extbit}};
+					end
 			end
-	end
-
-	assign Y = buffer;
+			assign Y = buffer;
+		end
+	endgenerate
 endmodule
 
 
@@ -181,9 +224,12 @@ endmodule
 module _90_fa (A, B, C, X, Y);
 	parameter WIDTH = 1;
 
+	(* force_downto *)
 	input [WIDTH-1:0] A, B, C;
+	(* force_downto *)
 	output [WIDTH-1:0] X, Y;
 
+	(* force_downto *)
 	wire [WIDTH-1:0] t1, t2, t3;
 
 	assign t1 = A ^ B, t2 = A & B, t3 = C & t1;
@@ -194,12 +240,15 @@ endmodule
 module _90_lcu (P, G, CI, CO);
 	parameter WIDTH = 2;
 
+	(* force_downto *)
 	input [WIDTH-1:0] P, G;
 	input CI;
 
+	(* force_downto *)
 	output [WIDTH-1:0] CO;
 
 	integer i, j;
+	(* force_downto *)
 	reg [WIDTH-1:0] p, g;
 
 	wire [1023:0] _TECHMAP_DO_ = "proc; opt -fast";
@@ -243,19 +292,26 @@ module _90_alu (A, B, CI, BI, X, Y, CO);
 	parameter B_WIDTH = 1;
 	parameter Y_WIDTH = 1;
 
+	(* force_downto *)
 	input [A_WIDTH-1:0] A;
+	(* force_downto *)
 	input [B_WIDTH-1:0] B;
+	(* force_downto *)
 	output [Y_WIDTH-1:0] X, Y;
 
 	input CI, BI;
+	(* force_downto *)
 	output [Y_WIDTH-1:0] CO;
 
+	(* force_downto *)
+	wire [Y_WIDTH-1:0] AA = A_buf;
+	(* force_downto *)
+	wire [Y_WIDTH-1:0] BB = BI ? ~B_buf : B_buf;
+
+	(* force_downto *)
 	wire [Y_WIDTH-1:0] A_buf, B_buf;
 	\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(A_buf));
 	\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(B_buf));
-
-	wire [Y_WIDTH-1:0] AA = A_buf;
-	wire [Y_WIDTH-1:0] BB = BI ? ~B_buf : B_buf;
 
 	\$lcu #(.WIDTH(Y_WIDTH)) lcu (.P(X), .G(AA & BB), .CI(CI), .CO(CO));
 
@@ -281,15 +337,19 @@ endmodule
 module \$__div_mod_u (A, B, Y, R);
 	parameter WIDTH = 1;
 
+	(* force_downto *)
 	input [WIDTH-1:0] A, B;
+	(* force_downto *)
 	output [WIDTH-1:0] Y, R;
 
+	(* force_downto *)
 	wire [WIDTH*WIDTH-1:0] chaindata;
 	assign R = chaindata[WIDTH*WIDTH-1:WIDTH*(WIDTH-1)];
 
 	genvar i;
 	generate begin
 		for (i = 0; i < WIDTH; i=i+1) begin:stage
+			(* force_downto *)
 			wire [WIDTH-1:0] stage_in;
 
 			if (i == 0) begin:cp
@@ -304,7 +364,8 @@ module \$__div_mod_u (A, B, Y, R);
 	end endgenerate
 endmodule
 
-module \$__div_mod (A, B, Y, R);
+// truncating signed division/modulo
+module \$__div_mod_trunc (A, B, Y, R);
 	parameter A_SIGNED = 0;
 	parameter B_SIGNED = 0;
 	parameter A_WIDTH = 1;
@@ -315,14 +376,19 @@ module \$__div_mod (A, B, Y, R);
 			A_WIDTH >= B_WIDTH && A_WIDTH >= Y_WIDTH ? A_WIDTH :
 			B_WIDTH >= A_WIDTH && B_WIDTH >= Y_WIDTH ? B_WIDTH : Y_WIDTH;
 
+	(* force_downto *)
 	input [A_WIDTH-1:0] A;
+	(* force_downto *)
 	input [B_WIDTH-1:0] B;
+	(* force_downto *)
 	output [Y_WIDTH-1:0] Y, R;
 
+	(* force_downto *)
 	wire [WIDTH-1:0] A_buf, B_buf;
 	\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
 	\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
 
+	(* force_downto *)
 	wire [WIDTH-1:0] A_buf_u, B_buf_u, Y_u, R_u;
 	assign A_buf_u = A_SIGNED && A_buf[WIDTH-1] ? -A_buf : A_buf;
 	assign B_buf_u = B_SIGNED && B_buf[WIDTH-1] ? -B_buf : B_buf;
@@ -348,11 +414,14 @@ module _90_div (A, B, Y);
 	parameter B_WIDTH = 1;
 	parameter Y_WIDTH = 1;
 
+	(* force_downto *)
 	input [A_WIDTH-1:0] A;
+	(* force_downto *)
 	input [B_WIDTH-1:0] B;
+	(* force_downto *)
 	output [Y_WIDTH-1:0] Y;
 
-	\$__div_mod #(
+	\$__div_mod_trunc #(
 		.A_SIGNED(A_SIGNED),
 		.B_SIGNED(B_SIGNED),
 		.A_WIDTH(A_WIDTH),
@@ -373,11 +442,114 @@ module _90_mod (A, B, Y);
 	parameter B_WIDTH = 1;
 	parameter Y_WIDTH = 1;
 
+	(* force_downto *)
 	input [A_WIDTH-1:0] A;
+	(* force_downto *)
 	input [B_WIDTH-1:0] B;
+	(* force_downto *)
 	output [Y_WIDTH-1:0] Y;
 
-	\$__div_mod #(
+	\$__div_mod_trunc #(
+		.A_SIGNED(A_SIGNED),
+		.B_SIGNED(B_SIGNED),
+		.A_WIDTH(A_WIDTH),
+		.B_WIDTH(B_WIDTH),
+		.Y_WIDTH(Y_WIDTH)
+	) div_mod (
+		.A(A),
+		.B(B),
+		.R(Y)
+	);
+endmodule
+
+// flooring signed division/modulo
+module \$__div_mod_floor (A, B, Y, R);
+	parameter A_SIGNED = 0;
+	parameter B_SIGNED = 0;
+	parameter A_WIDTH = 1;
+	parameter B_WIDTH = 1;
+	parameter Y_WIDTH = 1;
+
+	localparam WIDTH =
+			A_WIDTH >= B_WIDTH && A_WIDTH >= Y_WIDTH ? A_WIDTH :
+			B_WIDTH >= A_WIDTH && B_WIDTH >= Y_WIDTH ? B_WIDTH : Y_WIDTH;
+
+	input [A_WIDTH-1:0] A;
+	input [B_WIDTH-1:0] B;
+	output [Y_WIDTH-1:0] Y, R;
+
+	wire [WIDTH-1:0] A_buf, B_buf;
+	\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(WIDTH)) A_conv (.A(A), .Y(A_buf));
+	\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(WIDTH)) B_conv (.A(B), .Y(B_buf));
+
+	wire [WIDTH-1:0] A_buf_u, B_buf_u, Y_u, R_u, R_s;
+	assign A_buf_u = A_SIGNED && A_buf[WIDTH-1] ? -A_buf : A_buf;
+	assign B_buf_u = B_SIGNED && B_buf[WIDTH-1] ? -B_buf : B_buf;
+
+	\$__div_mod_u #(
+		.WIDTH(WIDTH)
+	) div_mod_u (
+		.A(A_buf_u),
+		.B(B_buf_u),
+		.Y(Y_u),
+		.R(R_u)
+	);
+
+	// For negative results, if there was a remainder, subtract one to turn
+	// the round towards 0 into a round towards -inf
+	assign Y = A_SIGNED && B_SIGNED && (A_buf[WIDTH-1] != B_buf[WIDTH-1]) ? (R_u == 0 ? -Y_u : -Y_u-1) : Y_u;
+
+	// truncating modulo
+	assign R_s = A_SIGNED && B_SIGNED && A_buf[WIDTH-1] ? -R_u : R_u;
+	// Flooring modulo differs from truncating modulo only if it is nonzero and
+	// A and B have different signs - then `floor - trunc = B`
+	assign R = (R_s != 0) && A_SIGNED && B_SIGNED && (A_buf[WIDTH-1] != B_buf[WIDTH-1]) ? $signed(B_buf) + $signed(R_s) : R_s;
+endmodule
+
+(* techmap_celltype = "$divfloor" *)
+module _90_divfloor (A, B, Y);
+	parameter A_SIGNED = 0;
+	parameter B_SIGNED = 0;
+	parameter A_WIDTH = 1;
+	parameter B_WIDTH = 1;
+	parameter Y_WIDTH = 1;
+
+	(* force_downto *)
+	input [A_WIDTH-1:0] A;
+	(* force_downto *)
+	input [B_WIDTH-1:0] B;
+	(* force_downto *)
+	output [Y_WIDTH-1:0] Y;
+
+	\$__div_mod_floor #(
+		.A_SIGNED(A_SIGNED),
+		.B_SIGNED(B_SIGNED),
+		.A_WIDTH(A_WIDTH),
+		.B_WIDTH(B_WIDTH),
+		.Y_WIDTH(Y_WIDTH)
+	) div_mod (
+		.A(A),
+		.B(B),
+		.Y(Y)
+	);
+endmodule
+
+(* techmap_celltype = "$modfloor" *)
+module _90_modfloor (A, B, Y);
+	parameter A_SIGNED = 0;
+	parameter B_SIGNED = 0;
+	parameter A_WIDTH = 1;
+	parameter B_WIDTH = 1;
+	parameter Y_WIDTH = 1;
+
+	(* force_downto *)
+	input [A_WIDTH-1:0] A;
+	(* force_downto *)
+	input [B_WIDTH-1:0] B;
+	(* force_downto *)
+	output [Y_WIDTH-1:0] Y;
+
+	\$__div_mod_floor #(
 		.A_SIGNED(A_SIGNED),
 		.B_SIGNED(B_SIGNED),
 		.A_WIDTH(A_WIDTH),
@@ -403,8 +575,11 @@ module _90_pow (A, B, Y);
 	parameter B_WIDTH = 1;
 	parameter Y_WIDTH = 1;
 
+	(* force_downto *)
 	input [A_WIDTH-1:0] A;
+	(* force_downto *)
 	input [B_WIDTH-1:0] B;
+	(* force_downto *)
 	output [Y_WIDTH-1:0] Y;
 
 	wire _TECHMAP_FAIL_ = 1;
@@ -420,20 +595,27 @@ module _90_pmux (A, B, S, Y);
 	parameter WIDTH = 1;
 	parameter S_WIDTH = 1;
 
+	(* force_downto *)
 	input [WIDTH-1:0] A;
+	(* force_downto *)
 	input [WIDTH*S_WIDTH-1:0] B;
+	(* force_downto *)
 	input [S_WIDTH-1:0] S;
+	(* force_downto *)
 	output [WIDTH-1:0] Y;
 
+	(* force_downto *)
 	wire [WIDTH-1:0] Y_B;
 
 	genvar i, j;
 	generate
+		(* force_downto *)
 		wire [WIDTH*S_WIDTH-1:0] B_AND_S;
 		for (i = 0; i < S_WIDTH; i = i + 1) begin:B_AND
 			assign B_AND_S[WIDTH*(i+1)-1:WIDTH*i] = B[WIDTH*(i+1)-1:WIDTH*i] & {WIDTH{S[i]}};
 		end:B_AND
 		for (i = 0; i < WIDTH; i = i + 1) begin:B_OR
+			(* force_downto *)
 			wire [S_WIDTH-1:0] B_AND_BITS;
 			for (j = 0; j < S_WIDTH; j = j + 1) begin:B_AND_BITS_COLLECT
 				assign B_AND_BITS[j] = B_AND_S[WIDTH*j+i];

@@ -1,0 +1,47 @@
+# Check that blockram memory without parameters is not modified
+read_verilog ../common/memory_attributes/attributes_test.v
+hierarchy -top block_ram
+synth_xilinx -top block_ram -noiopad
+cd block_ram # Constrain all select calls below inside the top module
+select -assert-count 1 t:RAMB18E1
+ 
+# Check that distributed memory without parameters is not modified
+design -reset
+read_verilog ../common/memory_attributes/attributes_test.v
+hierarchy -top distributed_ram
+synth_xilinx -top distributed_ram -noiopad
+cd distributed_ram # Constrain all select calls below inside the top module
+select -assert-count 8 t:RAM32X1D
+ 
+# Set ram_style distributed to blockram memory; will be implemented as distributed
+design -reset
+read_verilog ../common/memory_attributes/attributes_test.v
+prep
+setattr -mod -set ram_style "distributed" block_ram
+synth_xilinx -top block_ram -noiopad
+cd block_ram # Constrain all select calls below inside the top module
+select -assert-count 32 t:RAM128X1D
+ 
+# Set synthesis, logic_block to blockram memory; will be implemented as distributed
+design -reset
+read_verilog ../common/memory_attributes/attributes_test.v
+prep
+setattr -mod -set logic_block 1 block_ram
+synth_xilinx -top block_ram -noiopad
+cd block_ram # Constrain all select calls below inside the top module
+select -assert-count 0 t:RAMB18E1
+select -assert-count 32 t:RAM128X1D
+ 
+# Set ram_style block to a distributed memory; will be implemented as blockram
+design -reset
+read_verilog ../common/memory_attributes/attributes_test.v
+synth_xilinx -top distributed_ram_manual -noiopad
+cd distributed_ram_manual # Constrain all select calls below inside the top module
+select -assert-count 1 t:RAMB18E1
+ 
+# Set synthesis, ram_block block to a distributed memory; will be implemented as blockram
+design -reset
+read_verilog ../common/memory_attributes/attributes_test.v
+synth_xilinx -top distributed_ram_manual_syn -noiopad
+cd distributed_ram_manual_syn # Constrain all select calls below inside the top module
+select -assert-count 1 t:RAMB18E1

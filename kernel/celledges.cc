@@ -24,29 +24,25 @@ PRIVATE_NAMESPACE_BEGIN
 
 void bitwise_unary_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 {
-	IdString A = ID::A, Y = ID::Y;
-
-	bool is_signed = cell->getParam(ID(A_SIGNED)).as_bool();
-	int a_width = GetSize(cell->getPort(A));
-	int y_width = GetSize(cell->getPort(Y));
+	bool is_signed = cell->getParam(ID::A_SIGNED).as_bool();
+	int a_width = GetSize(cell->getPort(ID::A));
+	int y_width = GetSize(cell->getPort(ID::Y));
 
 	for (int i = 0; i < y_width; i++)
 	{
 		if (i < a_width)
-			db->add_edge(cell, A, i, Y, i, -1);
+			db->add_edge(cell, ID::A, i, ID::Y, i, -1);
 		else if (is_signed && a_width > 0)
-			db->add_edge(cell, A, a_width-1, Y, i, -1);
+			db->add_edge(cell, ID::A, a_width-1, ID::Y, i, -1);
 	}
 }
 
 void bitwise_binary_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 {
-	IdString A = ID::A, B = ID::B, Y = ID::Y;
-
-	bool is_signed = cell->getParam(ID(A_SIGNED)).as_bool();
-	int a_width = GetSize(cell->getPort(A));
-	int b_width = GetSize(cell->getPort(B));
-	int y_width = GetSize(cell->getPort(Y));
+	bool is_signed = cell->getParam(ID::A_SIGNED).as_bool();
+	int a_width = GetSize(cell->getPort(ID::A));
+	int b_width = GetSize(cell->getPort(ID::B));
+	int y_width = GetSize(cell->getPort(ID::Y));
 
 	if (cell->type == ID($and) && !is_signed) {
 		if (a_width > b_width)
@@ -58,41 +54,37 @@ void bitwise_binary_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 	for (int i = 0; i < y_width; i++)
 	{
 		if (i < a_width)
-			db->add_edge(cell, A, i, Y, i, -1);
+			db->add_edge(cell, ID::A, i, ID::Y, i, -1);
 		else if (is_signed && a_width > 0)
-			db->add_edge(cell, A, a_width-1, Y, i, -1);
+			db->add_edge(cell, ID::A, a_width-1, ID::Y, i, -1);
 
 		if (i < b_width)
-			db->add_edge(cell, B, i, Y, i, -1);
+			db->add_edge(cell, ID::B, i, ID::Y, i, -1);
 		else if (is_signed && b_width > 0)
-			db->add_edge(cell, B, b_width-1, Y, i, -1);
+			db->add_edge(cell, ID::B, b_width-1, ID::Y, i, -1);
 	}
 }
 
 void arith_neg_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 {
-	IdString A = ID::A, Y = ID::Y;
-
-	bool is_signed = cell->getParam(ID(A_SIGNED)).as_bool();
-	int a_width = GetSize(cell->getPort(A));
-	int y_width = GetSize(cell->getPort(Y));
+	bool is_signed = cell->getParam(ID::A_SIGNED).as_bool();
+	int a_width = GetSize(cell->getPort(ID::A));
+	int y_width = GetSize(cell->getPort(ID::Y));
 
 	if (is_signed && a_width == 1)
 		y_width = std::min(y_width, 1);
 
 	for (int i = 0; i < y_width; i++)
 	for (int k = 0; k <= i && k < a_width; k++)
-		db->add_edge(cell, A, k, Y, i, -1);
+		db->add_edge(cell, ID::A, k, ID::Y, i, -1);
 }
 
 void arith_binary_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 {
-	IdString A = ID::A, B = ID::B, Y = ID::Y;
-
-	bool is_signed = cell->getParam(ID(A_SIGNED)).as_bool();
-	int a_width = GetSize(cell->getPort(A));
-	int b_width = GetSize(cell->getPort(B));
-	int y_width = GetSize(cell->getPort(Y));
+	bool is_signed = cell->getParam(ID::A_SIGNED).as_bool();
+	int a_width = GetSize(cell->getPort(ID::A));
+	int b_width = GetSize(cell->getPort(ID::B));
+	int y_width = GetSize(cell->getPort(ID::Y));
 
 	if (!is_signed && cell->type != ID($sub)) {
 		int ab_width = std::max(a_width, b_width);
@@ -104,55 +96,49 @@ void arith_binary_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 		for (int k = 0; k <= i; k++)
 		{
 			if (k < a_width)
-				db->add_edge(cell, A, k, Y, i, -1);
+				db->add_edge(cell, ID::A, k, ID::Y, i, -1);
 
 			if (k < b_width)
-				db->add_edge(cell, B, k, Y, i, -1);
+				db->add_edge(cell, ID::B, k, ID::Y, i, -1);
 		}
 	}
 }
 
 void reduce_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 {
-	IdString A = ID::A, Y = ID::Y;
-
-	int a_width = GetSize(cell->getPort(A));
+	int a_width = GetSize(cell->getPort(ID::A));
 
 	for (int i = 0; i < a_width; i++)
-		db->add_edge(cell, A, i, Y, 0, -1);
+		db->add_edge(cell, ID::A, i, ID::Y, 0, -1);
 }
 
 void compare_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 {
-	IdString A = ID::A, B = ID::B, Y = ID::Y;
-
-	int a_width = GetSize(cell->getPort(A));
-	int b_width = GetSize(cell->getPort(B));
+	int a_width = GetSize(cell->getPort(ID::A));
+	int b_width = GetSize(cell->getPort(ID::B));
 
 	for (int i = 0; i < a_width; i++)
-		db->add_edge(cell, A, i, Y, 0, -1);
+		db->add_edge(cell, ID::A, i, ID::Y, 0, -1);
 
 	for (int i = 0; i < b_width; i++)
-		db->add_edge(cell, B, i, Y, 0, -1);
+		db->add_edge(cell, ID::B, i, ID::Y, 0, -1);
 }
 
 void mux_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 {
-	IdString A = ID::A, B = ID::B, S = ID(S), Y = ID::Y;
-
-	int a_width = GetSize(cell->getPort(A));
-	int b_width = GetSize(cell->getPort(B));
-	int s_width = GetSize(cell->getPort(S));
+	int a_width = GetSize(cell->getPort(ID::A));
+	int b_width = GetSize(cell->getPort(ID::B));
+	int s_width = GetSize(cell->getPort(ID::S));
 
 	for (int i = 0; i < a_width; i++)
 	{
-		db->add_edge(cell, A, i, Y, i, -1);
+		db->add_edge(cell, ID::A, i, ID::Y, i, -1);
 
 		for (int k = i; k < b_width; k += a_width)
-			db->add_edge(cell, B, k, Y, i, -1);
+			db->add_edge(cell, ID::B, k, ID::Y, i, -1);
 
 		for (int k = 0; k < s_width; k++)
-			db->add_edge(cell, S, k, Y, i, -1);
+			db->add_edge(cell, ID::S, k, ID::Y, i, -1);
 	}
 }
 
@@ -201,7 +187,7 @@ bool YOSYS_NAMESPACE_PREFIX AbstractCellEdgesDatabase::add_edges_from_cell(RTLIL
 		return true;
 	}
 
-	// FIXME: $mul $div $mod $slice $concat
+	// FIXME: $mul $div $mod $divfloor $modfloor $slice $concat
 	// FIXME: $lut $sop $alu $lcu $macc $fa
 
 	return false;

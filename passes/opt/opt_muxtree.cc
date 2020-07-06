@@ -88,7 +88,7 @@ struct OptMuxtreeWorker
 			{
 				RTLIL::SigSpec sig_a = cell->getPort(ID::A);
 				RTLIL::SigSpec sig_b = cell->getPort(ID::B);
-				RTLIL::SigSpec sig_s = cell->getPort(ID(S));
+				RTLIL::SigSpec sig_s = cell->getPort(ID::S);
 				RTLIL::SigSpec sig_y = cell->getPort(ID::Y);
 
 				muxinfo_t muxinfo;
@@ -229,7 +229,7 @@ struct OptMuxtreeWorker
 
 			RTLIL::SigSpec sig_a = mi.cell->getPort(ID::A);
 			RTLIL::SigSpec sig_b = mi.cell->getPort(ID::B);
-			RTLIL::SigSpec sig_s = mi.cell->getPort(ID(S));
+			RTLIL::SigSpec sig_s = mi.cell->getPort(ID::S);
 			RTLIL::SigSpec sig_y = mi.cell->getPort(ID::Y);
 
 			RTLIL::SigSpec sig_ports = sig_b;
@@ -257,12 +257,12 @@ struct OptMuxtreeWorker
 
 				mi.cell->setPort(ID::A, new_sig_a);
 				mi.cell->setPort(ID::B, new_sig_b);
-				mi.cell->setPort(ID(S), new_sig_s);
+				mi.cell->setPort(ID::S, new_sig_s);
 				if (GetSize(new_sig_s) == 1) {
 					mi.cell->type = ID($mux);
-					mi.cell->parameters.erase(ID(S_WIDTH));
+					mi.cell->parameters.erase(ID::S_WIDTH);
 				} else {
-					mi.cell->parameters[ID(S_WIDTH)] = RTLIL::Const(GetSize(new_sig_s));
+					mi.cell->parameters[ID::S_WIDTH] = RTLIL::Const(GetSize(new_sig_s));
 				}
 			}
 		}
@@ -366,7 +366,7 @@ struct OptMuxtreeWorker
 		idict<int> ctrl_bits;
 		if (portname == ID::B)
 			width = GetSize(muxinfo.cell->getPort(ID::A));
-		for (int bit : sig2bits(muxinfo.cell->getPort(ID(S)), false))
+		for (int bit : sig2bits(muxinfo.cell->getPort(ID::S), false))
 			ctrl_bits(bit);
 
 		int port_idx = 0, port_off = 0;
@@ -473,7 +473,7 @@ struct OptMuxtreeWorker
 
 struct OptMuxtreePass : public Pass {
 	OptMuxtreePass() : Pass("opt_muxtree", "eliminate dead trees in multiplexer trees") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -486,7 +486,7 @@ struct OptMuxtreePass : public Pass {
 		log("This pass only operates on completely selected modules without processes.\n");
 		log("\n");
 	}
-	void execute(vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing OPT_MUXTREE pass (detect dead branches in mux trees).\n");
 		extra_args(args, 1, design);

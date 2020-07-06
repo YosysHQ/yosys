@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct Clk2fflogicPass : public Pass {
 	Clk2fflogicPass() : Pass("clk2fflogic", "convert clocked FFs to generic $ff cells") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -36,7 +36,7 @@ struct Clk2fflogicPass : public Pass {
 		log("multiple clocks.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		// bool flag_noinit = false;
 
@@ -60,9 +60,9 @@ struct Clk2fflogicPass : public Pass {
 			pool<SigBit> del_initbits;
 
 			for (auto wire : module->wires())
-				if (wire->attributes.count("\\init") > 0)
+				if (wire->attributes.count(ID::init) > 0)
 				{
-					Const initval = wire->attributes.at("\\init");
+					Const initval = wire->attributes.at(ID::init);
 					SigSpec initsig = sigmap(wire);
 
 					for (int i = 0; i < GetSize(initval) && i < GetSize(initsig); i++)
@@ -72,26 +72,26 @@ struct Clk2fflogicPass : public Pass {
 
 			for (auto cell : vector<Cell*>(module->selected_cells()))
 			{
-				if (cell->type.in("$mem"))
+				if (cell->type.in(ID($mem)))
 				{
-					int abits = cell->getParam("\\ABITS").as_int();
-					int width = cell->getParam("\\WIDTH").as_int();
-					int rd_ports = cell->getParam("\\RD_PORTS").as_int();
-					int wr_ports = cell->getParam("\\WR_PORTS").as_int();
+					int abits = cell->getParam(ID::ABITS).as_int();
+					int width = cell->getParam(ID::WIDTH).as_int();
+					int rd_ports = cell->getParam(ID::RD_PORTS).as_int();
+					int wr_ports = cell->getParam(ID::WR_PORTS).as_int();
 
 					for (int i = 0; i < rd_ports; i++) {
-						if (cell->getParam("\\RD_CLK_ENABLE").extract(i).as_bool())
+						if (cell->getParam(ID::RD_CLK_ENABLE).extract(i).as_bool())
 							log_error("Read port %d of memory %s.%s is clocked. This is not supported by \"clk2fflogic\"! "
 									"Call \"memory\" with -nordff to avoid this error.\n", i, log_id(cell), log_id(module));
 					}
 
-					Const wr_clk_en_param = cell->getParam("\\WR_CLK_ENABLE");
-					Const wr_clk_pol_param = cell->getParam("\\WR_CLK_POLARITY");
+					Const wr_clk_en_param = cell->getParam(ID::WR_CLK_ENABLE);
+					Const wr_clk_pol_param = cell->getParam(ID::WR_CLK_POLARITY);
 
-					SigSpec wr_clk_port = cell->getPort("\\WR_CLK");
-					SigSpec wr_en_port = cell->getPort("\\WR_EN");
-					SigSpec wr_addr_port = cell->getPort("\\WR_ADDR");
-					SigSpec wr_data_port = cell->getPort("\\WR_DATA");
+					SigSpec wr_clk_port = cell->getPort(ID::WR_CLK);
+					SigSpec wr_en_port = cell->getPort(ID::WR_EN);
+					SigSpec wr_addr_port = cell->getPort(ID::WR_ADDR);
+					SigSpec wr_data_port = cell->getPort(ID::WR_DATA);
 
 					for (int wport = 0; wport < wr_ports; wport++)
 					{
@@ -111,17 +111,17 @@ struct Clk2fflogicPass : public Pass {
 								log_signal(addr), log_signal(data));
 
 						Wire *past_clk = module->addWire(NEW_ID);
-						past_clk->attributes["\\init"] = clkpol ? State::S1 : State::S0;
+						past_clk->attributes[ID::init] = clkpol ? State::S1 : State::S0;
 						module->addFf(NEW_ID, clk, past_clk);
 
 						SigSpec clock_edge_pattern;
 
 						if (clkpol) {
-							clock_edge_pattern.append_bit(State::S0);
-							clock_edge_pattern.append_bit(State::S1);
+							clock_edge_pattern.append(State::S0);
+							clock_edge_pattern.append(State::S1);
 						} else {
-							clock_edge_pattern.append_bit(State::S1);
-							clock_edge_pattern.append_bit(State::S0);
+							clock_edge_pattern.append(State::S1);
+							clock_edge_pattern.append(State::S0);
 						}
 
 						SigSpec clock_edge = module->Eqx(NEW_ID, {clk, SigSpec(past_clk)}, clock_edge_pattern);
@@ -144,22 +144,22 @@ struct Clk2fflogicPass : public Pass {
 						wr_clk_pol_param[wport] = State::S0;
 					}
 
-					cell->setParam("\\WR_CLK_ENABLE", wr_clk_en_param);
-					cell->setParam("\\WR_CLK_POLARITY", wr_clk_pol_param);
+					cell->setParam(ID::WR_CLK_ENABLE, wr_clk_en_param);
+					cell->setParam(ID::WR_CLK_POLARITY, wr_clk_pol_param);
 
-					cell->setPort("\\WR_CLK", wr_clk_port);
-					cell->setPort("\\WR_EN", wr_en_port);
-					cell->setPort("\\WR_ADDR", wr_addr_port);
-					cell->setPort("\\WR_DATA", wr_data_port);
+					cell->setPort(ID::WR_CLK, wr_clk_port);
+					cell->setPort(ID::WR_EN, wr_en_port);
+					cell->setPort(ID::WR_ADDR, wr_addr_port);
+					cell->setPort(ID::WR_DATA, wr_data_port);
 				}
 
-				if (cell->type.in("$dlatch", "$dlatchsr"))
+				if (cell->type.in(ID($dlatch), ID($dlatchsr)))
 				{
-					bool enpol = cell->parameters["\\EN_POLARITY"].as_bool();
+					bool enpol = cell->parameters[ID::EN_POLARITY].as_bool();
 
-					SigSpec sig_en = cell->getPort("\\EN");
-					SigSpec sig_d = cell->getPort("\\D");
-					SigSpec sig_q = cell->getPort("\\Q");
+					SigSpec sig_en = cell->getPort(ID::EN);
+					SigSpec sig_d = cell->getPort(ID::D);
+					SigSpec sig_q = cell->getPort(ID::Q);
 
 					log("Replacing %s.%s (%s): EN=%s, D=%s, Q=%s\n",
 							log_id(module), log_id(cell), log_id(cell->type),
@@ -168,7 +168,7 @@ struct Clk2fflogicPass : public Pass {
 					Wire *past_q = module->addWire(NEW_ID, GetSize(sig_q));
 					module->addFf(NEW_ID, sig_q, past_q);
 
-					if (cell->type == "$dlatch")
+					if (cell->type == ID($dlatch))
 					{
 						if (enpol)
 							module->addMux(NEW_ID, past_q, sig_d, sig_en, sig_q);
@@ -183,13 +183,13 @@ struct Clk2fflogicPass : public Pass {
 						else
 							t = module->Mux(NEW_ID, sig_d, past_q, sig_en);
 
-						SigSpec s = cell->getPort("\\SET");
-						if (!cell->parameters["\\SET_POLARITY"].as_bool())
+						SigSpec s = cell->getPort(ID::SET);
+						if (!cell->parameters[ID::SET_POLARITY].as_bool())
 							s = module->Not(NEW_ID, s);
 						t = module->Or(NEW_ID, t, s);
 
-						SigSpec c = cell->getPort("\\CLR");
-						if (cell->parameters["\\CLR_POLARITY"].as_bool())
+						SigSpec c = cell->getPort(ID::CLR);
+						if (cell->parameters[ID::CLR_POLARITY].as_bool())
 							c = module->Not(NEW_ID, c);
 						module->addAnd(NEW_ID, t, c, sig_q);
 					}
@@ -208,23 +208,47 @@ struct Clk2fflogicPass : public Pass {
 					}
 
 					if (assign_initval)
-						past_q->attributes["\\init"] = initval;
+						past_q->attributes[ID::init] = initval;
 
 					module->remove(cell);
 					continue;
 				}
 
-				if (cell->type.in("$dff", "$adff", "$dffsr"))
+				bool word_dff = cell->type.in(ID($dff), ID($adff), ID($dffsr));
+				if (word_dff || cell->type.in(ID($_DFF_N_), ID($_DFF_P_),
+						ID($_DFF_NN0_), ID($_DFF_NN1_), ID($_DFF_NP0_), ID($_DFF_NP1_),
+						ID($_DFF_PP0_), ID($_DFF_PP1_), ID($_DFF_PN0_), ID($_DFF_PN1_),
+						ID($_DFFSR_NNN_), ID($_DFFSR_NNP_), ID($_DFFSR_NPN_), ID($_DFFSR_NPP_),
+						ID($_DFFSR_PNN_), ID($_DFFSR_PNP_), ID($_DFFSR_PPN_), ID($_DFFSR_PPP_)))
 				{
-					bool clkpol = cell->parameters["\\CLK_POLARITY"].as_bool();
+					bool clkpol;
+					SigSpec clk;
+					if (word_dff) {
+						clkpol = cell->parameters[ID::CLK_POLARITY].as_bool();
+						clk = cell->getPort(ID::CLK);
+					}
+					else {
+						if (cell->type.in(ID($_DFF_P_), ID($_DFF_N_),
+									ID($_DFF_NN0_), ID($_DFF_NN1_), ID($_DFF_NP0_), ID($_DFF_NP1_),
+									ID($_DFF_PP0_), ID($_DFF_PP1_), ID($_DFF_PN0_), ID($_DFF_PN1_)))
+							clkpol = cell->type[6] == 'P';
+						else if (cell->type.in(ID($_DFFSR_NNN_), ID($_DFFSR_NNP_), ID($_DFFSR_NPN_), ID($_DFFSR_NPP_),
+									ID($_DFFSR_PNN_), ID($_DFFSR_PNP_), ID($_DFFSR_PPN_), ID($_DFFSR_PPP_)))
+							clkpol = cell->type[8] == 'P';
+						else log_abort();
+						clk = cell->getPort(ID::C);
+					}
 
-					SigSpec clk = cell->getPort("\\CLK");
 					Wire *past_clk = module->addWire(NEW_ID);
-					past_clk->attributes["\\init"] = clkpol ? State::S1 : State::S0;
-					module->addFf(NEW_ID, clk, past_clk);
+					past_clk->attributes[ID::init] = clkpol ? State::S1 : State::S0;
 
-					SigSpec sig_d = cell->getPort("\\D");
-					SigSpec sig_q = cell->getPort("\\Q");
+					if (word_dff)
+						module->addFf(NEW_ID, clk, past_clk);
+					else
+						module->addFfGate(NEW_ID, clk, past_clk);
+
+					SigSpec sig_d = cell->getPort(ID::D);
+					SigSpec sig_q = cell->getPort(ID::Q);
 
 					log("Replacing %s.%s (%s): CLK=%s, D=%s, Q=%s\n",
 							log_id(module), log_id(cell), log_id(cell->type),
@@ -233,57 +257,104 @@ struct Clk2fflogicPass : public Pass {
 					SigSpec clock_edge_pattern;
 
 					if (clkpol) {
-						clock_edge_pattern.append_bit(State::S0);
-						clock_edge_pattern.append_bit(State::S1);
+						clock_edge_pattern.append(State::S0);
+						clock_edge_pattern.append(State::S1);
 					} else {
-						clock_edge_pattern.append_bit(State::S1);
-						clock_edge_pattern.append_bit(State::S0);
+						clock_edge_pattern.append(State::S1);
+						clock_edge_pattern.append(State::S0);
 					}
 
 					SigSpec clock_edge = module->Eqx(NEW_ID, {clk, SigSpec(past_clk)}, clock_edge_pattern);
 
 					Wire *past_d = module->addWire(NEW_ID, GetSize(sig_d));
 					Wire *past_q = module->addWire(NEW_ID, GetSize(sig_q));
-					module->addFf(NEW_ID, sig_d, past_d);
-					module->addFf(NEW_ID, sig_q, past_q);
+					if (word_dff) {
+						module->addFf(NEW_ID, sig_d, past_d);
+						module->addFf(NEW_ID, sig_q, past_q);
+					}
+					else {
+						module->addFfGate(NEW_ID, sig_d, past_d);
+						module->addFfGate(NEW_ID, sig_q, past_q);
+					}
 
-					if (cell->type == "$adff")
+					if (cell->type == ID($adff))
 					{
-						SigSpec arst = cell->getPort("\\ARST");
+						SigSpec arst = cell->getPort(ID::ARST);
 						SigSpec qval = module->Mux(NEW_ID, past_q, past_d, clock_edge);
-						Const rstval = cell->parameters["\\ARST_VALUE"];
+						Const rstval = cell->parameters[ID::ARST_VALUE];
 
 						Wire *past_arst = module->addWire(NEW_ID);
 						module->addFf(NEW_ID, arst, past_arst);
-						if (cell->parameters["\\ARST_POLARITY"].as_bool())
+						if (cell->parameters[ID::ARST_POLARITY].as_bool())
 							arst = module->LogicOr(NEW_ID, arst, past_arst);
 						else
 							arst = module->LogicAnd(NEW_ID, arst, past_arst);
 
-						if (cell->parameters["\\ARST_POLARITY"].as_bool())
+						if (cell->parameters[ID::ARST_POLARITY].as_bool())
 							module->addMux(NEW_ID, qval, rstval, arst, sig_q);
 						else
 							module->addMux(NEW_ID, rstval, qval, arst, sig_q);
 					}
 					else
-					if (cell->type == "$dffsr")
+					if (cell->type.in(ID($_DFF_NN0_), ID($_DFF_NN1_), ID($_DFF_NP0_), ID($_DFF_NP1_),
+						ID($_DFF_PP0_), ID($_DFF_PP1_), ID($_DFF_PN0_), ID($_DFF_PN1_)))
+					{
+						SigSpec arst = cell->getPort(ID::R);
+						SigSpec qval = module->MuxGate(NEW_ID, past_q, past_d, clock_edge);
+						SigBit rstval = (cell->type[8] == '1');
+
+						Wire *past_arst = module->addWire(NEW_ID);
+						module->addFfGate(NEW_ID, arst, past_arst);
+						if (cell->type[7] == 'P')
+							arst = module->OrGate(NEW_ID, arst, past_arst);
+						else
+							arst = module->AndGate(NEW_ID, arst, past_arst);
+
+						if (cell->type[7] == 'P')
+							module->addMuxGate(NEW_ID, qval, rstval, arst, sig_q);
+						else
+							module->addMuxGate(NEW_ID, rstval, qval, arst, sig_q);
+					}
+					else
+					if (cell->type == ID($dffsr))
 					{
 						SigSpec qval = module->Mux(NEW_ID, past_q, past_d, clock_edge);
-						SigSpec setval = cell->getPort("\\SET");
-						SigSpec clrval = cell->getPort("\\CLR");
+						SigSpec setval = cell->getPort(ID::SET);
+						SigSpec clrval = cell->getPort(ID::CLR);
 
-						if (!cell->parameters["\\SET_POLARITY"].as_bool())
+						if (!cell->parameters[ID::SET_POLARITY].as_bool())
 							setval = module->Not(NEW_ID, setval);
 
-						if (cell->parameters["\\CLR_POLARITY"].as_bool())
+						if (cell->parameters[ID::CLR_POLARITY].as_bool())
 							clrval = module->Not(NEW_ID, clrval);
 
 						qval = module->Or(NEW_ID, qval, setval);
 						module->addAnd(NEW_ID, qval, clrval, sig_q);
 					}
 					else
+					if (cell->type.in(ID($_DFFSR_NNN_), ID($_DFFSR_NNP_), ID($_DFFSR_NPN_), ID($_DFFSR_NPP_),
+						ID($_DFFSR_PNN_), ID($_DFFSR_PNP_), ID($_DFFSR_PPN_), ID($_DFFSR_PPP_)))
+					{
+						SigSpec qval = module->MuxGate(NEW_ID, past_q, past_d, clock_edge);
+						SigSpec setval = cell->getPort(ID::S);
+						SigSpec clrval = cell->getPort(ID::R);
+
+						if (cell->type[9] != 'P')
+							setval = module->Not(NEW_ID, setval);
+
+						if (cell->type[10] == 'P')
+							clrval = module->Not(NEW_ID, clrval);
+
+						qval = module->OrGate(NEW_ID, qval, setval);
+						module->addAndGate(NEW_ID, qval, clrval, sig_q);
+					}
+					else if (cell->type == ID($dff))
 					{
 						module->addMux(NEW_ID, past_q, past_d, clock_edge, sig_q);
+					}
+					else
+					{
+						module->addMuxGate(NEW_ID, past_q, past_d, clock_edge, sig_q);
 					}
 
 					Const initval;
@@ -300,8 +371,8 @@ struct Clk2fflogicPass : public Pass {
 					}
 
 					if (assign_initval) {
-						past_d->attributes["\\init"] = initval;
-						past_q->attributes["\\init"] = initval;
+						past_d->attributes[ID::init] = initval;
+						past_q->attributes[ID::init] = initval;
 					}
 
 					module->remove(cell);
@@ -310,10 +381,10 @@ struct Clk2fflogicPass : public Pass {
 			}
 
 			for (auto wire : module->wires())
-				if (wire->attributes.count("\\init") > 0)
+				if (wire->attributes.count(ID::init) > 0)
 				{
 					bool delete_initattr = true;
-					Const initval = wire->attributes.at("\\init");
+					Const initval = wire->attributes.at(ID::init);
 					SigSpec initsig = sigmap(wire);
 
 					for (int i = 0; i < GetSize(initval) && i < GetSize(initsig); i++)
@@ -323,9 +394,9 @@ struct Clk2fflogicPass : public Pass {
 							delete_initattr = false;
 
 					if (delete_initattr)
-						wire->attributes.erase("\\init");
+						wire->attributes.erase(ID::init);
 					else
-						wire->attributes.at("\\init") = initval;
+						wire->attributes.at(ID::init) = initval;
 				}
 		}
 

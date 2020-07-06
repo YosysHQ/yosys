@@ -131,6 +131,8 @@ void ILANG_BACKEND::dump_wire(std::ostream &f, std::string indent, const RTLIL::
 		f << stringf("output %d ", wire->port_id);
 	if (wire->port_input && wire->port_output)
 		f << stringf("inout %d ", wire->port_id);
+	if (wire->is_signed)
+		f << stringf("signed ");
 	f << stringf("%s\n", wire->name.c_str());
 }
 
@@ -290,8 +292,16 @@ void ILANG_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Modu
 		if (!module->avail_parameters.empty()) {
 			if (only_selected)
 				f << stringf("\n");
-			for (auto &p : module->avail_parameters)
-				f << stringf("%s" "  parameter %s\n", indent.c_str(), p.c_str());
+			for (const auto &p : module->avail_parameters) {
+				const auto &it = module->parameter_default_values.find(p);
+				if (it == module->parameter_default_values.end()) {
+					f << stringf("%s" "  parameter %s\n", indent.c_str(), p.c_str());
+				} else {
+					f << stringf("%s" "  parameter %s ", indent.c_str(), p.c_str());
+					dump_const(f, it->second);
+					f << stringf("\n");
+				}
+			}
 		}
 	}
 
@@ -352,16 +362,14 @@ void ILANG_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Modu
 
 void ILANG_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool only_selected, bool flag_m, bool flag_n)
 {
-#ifndef NDEBUG
 	int init_autoidx = autoidx;
-#endif
 
 	if (!flag_m) {
 		int count_selected_mods = 0;
-		for (auto it = design->modules_.begin(); it != design->modules_.end(); ++it) {
-			if (design->selected_whole_module(it->first))
+		for (auto module : design->modules()) {
+			if (design->selected_whole_module(module->name))
 				flag_m = true;
-			if (design->selected(it->second))
+			if (design->selected(module))
 				count_selected_mods++;
 		}
 		if (count_selected_mods > 1)
@@ -374,11 +382,11 @@ void ILANG_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool onl
 		f << stringf("autoidx %d\n", autoidx);
 	}
 
-	for (auto it = design->modules_.begin(); it != design->modules_.end(); ++it) {
-		if (!only_selected || design->selected(it->second)) {
+	for (auto module : design->modules()) {
+		if (!only_selected || design->selected(module)) {
 			if (only_selected)
 				f << stringf("\n");
-			dump_module(f, "", it->second, design, only_selected, flag_m, flag_n);
+			dump_module(f, "", module, design, only_selected, flag_m, flag_n);
 		}
 	}
 
@@ -390,7 +398,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct IlangBackend : public Backend {
 	IlangBackend() : Backend("ilang", "write design to ilang file") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -403,7 +411,7 @@ struct IlangBackend : public Backend {
 		log("        only write selected parts of the design.\n");
 		log("\n");
 	}
-	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool selected = false;
 
@@ -430,7 +438,7 @@ struct IlangBackend : public Backend {
 
 struct DumpPass : public Pass {
 	DumpPass() : Pass("dump", "print parts of the design in ilang format") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -453,7 +461,7 @@ struct DumpPass : public Pass {
 		log("        like -outfile but append instead of overwrite\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::string filename;
 		bool flag_m = false, flag_n = false, append = false;

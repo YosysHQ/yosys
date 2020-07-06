@@ -10,7 +10,7 @@ frontends/verilog/verilog_parser.tab.cc: frontends/verilog/verilog_parser.y
 
 frontends/verilog/verilog_parser.tab.hh: frontends/verilog/verilog_parser.tab.cc
 
-frontends/verilog/verilog_lexer.cc: frontends/verilog/verilog_lexer.l
+frontends/verilog/verilog_lexer.cc: frontends/verilog/verilog_lexer.l frontends/verilog/verilog_parser.tab.cc
 	$(Q) mkdir -p $(dir $@)
 	$(P) flex -o frontends/verilog/verilog_lexer.cc $<
 

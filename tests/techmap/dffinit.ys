@@ -1,0 +1,25 @@
+read_verilog <<EOT
+
+module ff(...);
+input d;
+output q;
+
+endmodule
+
+module top(...);
+input d;
+output q1;
+(* init = 1'b1 *)
+output q2;
+
+ff my_ff1(.d(d), .q(q1));
+ff my_ff2(.d(d), .q(q2));
+
+endmodule
+
+EOT
+
+dffinit -ff ff q init
+select -assert-count 2 t:ff
+select -assert-count 1 t:ff r:init %i
+select -assert-count 1 t:ff r:init=1'b1 %i

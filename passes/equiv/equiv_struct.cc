@@ -110,9 +110,9 @@ struct EquivStructWorker
 			module->connect(sig_b, sig_a);
 		}
 
-		auto merged_attr = cell_b->get_strpool_attribute("\\equiv_merged");
+		auto merged_attr = cell_b->get_strpool_attribute(ID::equiv_merged);
 		merged_attr.insert(log_id(cell_b));
-		cell_a->add_strpool_attribute("\\equiv_merged", merged_attr);
+		cell_a->add_strpool_attribute(ID::equiv_merged, merged_attr);
 		module->remove(cell_b);
 	}
 
@@ -126,9 +126,9 @@ struct EquivStructWorker
 		pool<IdString> cells;
 
 		for (auto cell : module->selected_cells())
-			if (cell->type == "$equiv") {
-				SigBit sig_a = sigmap(cell->getPort("\\A").as_bit());
-				SigBit sig_b = sigmap(cell->getPort("\\B").as_bit());
+			if (cell->type == ID($equiv)) {
+				SigBit sig_a = sigmap(cell->getPort(ID::A).as_bit());
+				SigBit sig_b = sigmap(cell->getPort(ID::B).as_bit());
 				equiv_bits.add(sig_b, sig_a);
 				equiv_inputs.insert(sig_a);
 				equiv_inputs.insert(sig_b);
@@ -139,10 +139,10 @@ struct EquivStructWorker
 			}
 
 		for (auto cell : module->selected_cells())
-			if (cell->type == "$equiv") {
-				SigBit sig_a = sigmap(cell->getPort("\\A").as_bit());
-				SigBit sig_b = sigmap(cell->getPort("\\B").as_bit());
-				SigBit sig_y = sigmap(cell->getPort("\\Y").as_bit());
+			if (cell->type == ID($equiv)) {
+				SigBit sig_a = sigmap(cell->getPort(ID::A).as_bit());
+				SigBit sig_b = sigmap(cell->getPort(ID::B).as_bit());
+				SigBit sig_y = sigmap(cell->getPort(ID::Y).as_bit());
 				if (sig_a == sig_b && equiv_inputs.count(sig_y)) {
 					log("    Purging redundant $equiv cell %s.\n", log_id(cell));
 					module->connect(sig_y, sig_a);
@@ -283,7 +283,7 @@ struct EquivStructWorker
 
 struct EquivStructPass : public Pass {
 	EquivStructPass() : Pass("equiv_struct", "structural equivalence checking") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -314,9 +314,9 @@ struct EquivStructPass : public Pass {
 		log("        maximum number of iterations to run before aborting\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, Design *design) override
 	{
-		pool<IdString> fwonly_cells({ "$equiv" });
+		pool<IdString> fwonly_cells({ ID($equiv) });
 		bool mode_icells = false;
 		bool mode_fwd = false;
 		int max_iter = -1;
