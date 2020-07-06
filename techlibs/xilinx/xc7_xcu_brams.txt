@@ -1,4 +1,3 @@
-# Virtex 6, Series 7, Ultrascale, Ultrascale Plus block RAM rules.
 
 bram $__XILINX_RAMB36_SDP
   init 1
@@ -77,18 +76,8 @@ match $__XILINX_RAMB36_SDP
   or_next_if_better
 endmatch
 
-match $__XILINX_RAMB36_SDP
-  attribute ram_style=block ram_block
-  attribute !logic_block
-  shuffle_enable B
-  make_transp
-  or_next_if_better
-endmatch
-
 match $__XILINX_RAMB18_SDP
-  attribute !ram_style
-  attribute !logic_block
-  min bits 1024
+  min bits 4096
   min efficiency 5
   shuffle_enable B
   make_transp
@@ -103,27 +92,9 @@ match $__XILINX_RAMB36_TDP
   or_next_if_better
 endmatch
 
-match $__XILINX_RAMB36_TDP
-  attribute ram_style=block ram_block
-  attribute !logic_block
-  shuffle_enable B
-  make_transp
-  or_next_if_better
-endmatch
-
 match $__XILINX_RAMB18_TDP
-  attribute !ram_style
-  attribute !logic_block
-  min bits 1024
+  min bits 4096
   min efficiency 5
-  shuffle_enable B
-  make_transp
-  or_next_if_better
-endmatch
-
-match $__XILINX_RAMB18_TDP
-  attribute ram_style=block ram_block
-  attribute !logic_block
   shuffle_enable B
   make_transp
 endmatch

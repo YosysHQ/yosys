@@ -218,7 +218,7 @@ struct SccWorker
 
 struct SccPass : public Pass {
 	SccPass() : Pass("scc", "detect strongly connected components (logic loops)") { }
-	void help() override
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -255,7 +255,7 @@ struct SccPass : public Pass {
 		log("        that are part of a found logic loop\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) override
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::map<std::string, std::string> setAttr;
 		bool allCellTypes = false;
@@ -301,40 +301,41 @@ struct SccPass : public Pass {
 		RTLIL::Selection newSelection(false);
 		int scc_counter = 0;
 
-		for (auto mod : design->selected_modules())
-		{
-			SccWorker worker(design, mod, nofeedbackMode, allCellTypes, maxDepth);
-
-			if (!setAttr.empty())
+		for (auto &mod_it : design->modules_)
+			if (design->selected(mod_it.second))
 			{
-				for (const auto &cells : worker.sccList)
+				SccWorker worker(design, mod_it.second, nofeedbackMode, allCellTypes, maxDepth);
+
+				if (!setAttr.empty())
 				{
-					for (auto attr : setAttr)
+					for (const auto &cells : worker.sccList)
 					{
-						IdString attr_name(RTLIL::escape_id(attr.first));
-						string attr_valstr = attr.second;
-						string index = stringf("%d", scc_counter);
+						for (auto attr : setAttr)
+						{
+							IdString attr_name(RTLIL::escape_id(attr.first));
+							string attr_valstr = attr.second;
+							string index = stringf("%d", scc_counter);
 
-						for (size_t pos = 0; (pos = attr_valstr.find("{}", pos)) != string::npos; pos += index.size())
-							attr_valstr.replace(pos, 2, index);
+							for (size_t pos = 0; (pos = attr_valstr.find("{}", pos)) != string::npos; pos += index.size())
+								attr_valstr.replace(pos, 2, index);
 
-						Const attr_value(attr_valstr);
+							Const attr_value(attr_valstr);
 
-						for (auto cell : cells)
-							cell->attributes[attr_name] = attr_value;
+							for (auto cell : cells)
+								cell->attributes[attr_name] = attr_value;
+						}
+
+						scc_counter++;
 					}
-
-					scc_counter++;
 				}
-			}
-			else
-			{
-				scc_counter += GetSize(worker.sccList);
-			}
+				else
+				{
+					scc_counter += GetSize(worker.sccList);
+				}
 
-			if (selectMode)
-				worker.select(newSelection);
-		}
+				if (selectMode)
+					worker.select(newSelection);
+			}
 
 		if (expect >= 0) {
 			if (scc_counter == expect)

@@ -1,3 +1,0 @@
-logger -expect-no-warnings
-select n:foo/bar*
-select t:$assert

@@ -65,13 +65,15 @@ struct ConnwrappersWorker
 		decls[key] = decl;
 	}
 
-	void work(RTLIL::Module *module)
+	void work(RTLIL::Design *design, RTLIL::Module *module)
 	{
 		std::map<RTLIL::SigBit, std::pair<bool, RTLIL::SigSpec>> extend_map;
 		SigMap sigmap(module);
 
-		for (auto cell : module->cells())
+		for (auto &it : module->cells_)
 		{
+			RTLIL::Cell *cell = it.second;
+
 			if (!decl_celltypes.count(cell->type))
 				continue;
 
@@ -103,8 +105,13 @@ struct ConnwrappersWorker
 			}
 		}
 
-		for (auto cell : module->selected_cells())
+		for (auto &it : module->cells_)
 		{
+			RTLIL::Cell *cell = it.second;
+
+			if (!design->selected(module, cell))
+				continue;
+
 			for (auto &conn : cell->connections_)
 			{
 				std::vector<RTLIL::SigBit> sigbits = sigmap(conn.second).to_sigbit_vector();
@@ -134,8 +141,8 @@ struct ConnwrappersWorker
 				}
 
 				if (old_sig.size())
-					log("Connected extended bits of %s.%s:%s: %s -> %s\n", log_id(module->name), log_id(cell->name),
-							log_id(conn.first), log_signal(old_sig), log_signal(conn.second));
+					log("Connected extended bits of %s.%s:%s: %s -> %s\n", RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name),
+							RTLIL::id2cstr(conn.first), log_signal(old_sig), log_signal(conn.second));
 			}
 		}
 	}
@@ -143,7 +150,7 @@ struct ConnwrappersWorker
 
 struct ConnwrappersPass : public Pass {
 	ConnwrappersPass() : Pass("connwrappers", "match width of input-output port pairs") { }
-	void help() override
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -165,7 +172,7 @@ struct ConnwrappersPass : public Pass {
 		log("The options -signed, -unsigned, and -port can be specified multiple times.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) override
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		ConnwrappersWorker worker;
 
@@ -193,8 +200,9 @@ struct ConnwrappersPass : public Pass {
 
 		log_header(design, "Executing CONNWRAPPERS pass (connect extended ports of wrapper cells).\n");
 
-		for (auto module : design->selected_modules())
-			worker.work(module);
+		for (auto &mod_it : design->modules_)
+			if (design->selected(mod_it.second))
+				worker.work(design, mod_it.second);
 	}
 } ConnwrappersPass;
 

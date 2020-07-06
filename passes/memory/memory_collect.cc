@@ -25,11 +25,11 @@ PRIVATE_NAMESPACE_BEGIN
 
 bool memcells_cmp(Cell *a, Cell *b)
 {
-	if (a->type == ID($memrd) && b->type == ID($memrd))
+	if (a->type == "$memrd" && b->type == "$memrd")
 		return a->name < b->name;
-	if (a->type == ID($memrd) || b->type == ID($memrd))
-		return (a->type == ID($memrd)) < (b->type == ID($memrd));
-	return a->parameters.at(ID::PRIORITY).as_int() < b->parameters.at(ID::PRIORITY).as_int();
+	if (a->type == "$memrd" || b->type == "$memrd")
+		return (a->type == "$memrd") < (b->type == "$memrd");
+	return a->parameters.at("\\PRIORITY").as_int() < b->parameters.at("\\PRIORITY").as_int();
 }
 
 Cell *handle_memory(Module *module, RTLIL::Memory *memory)
@@ -60,14 +60,16 @@ Cell *handle_memory(Module *module, RTLIL::Memory *memory)
 	int addr_bits = 0;
 	std::vector<Cell*> memcells;
 
-	for (auto cell : module->cells())
-		if (cell->type.in(ID($memrd), ID($memwr), ID($meminit)) && memory->name == cell->parameters[ID::MEMID].decode_string()) {
-			SigSpec addr = sigmap(cell->getPort(ID::ADDR));
+	for (auto &cell_it : module->cells_) {
+		Cell *cell = cell_it.second;
+		if (cell->type.in("$memrd", "$memwr", "$meminit") && memory->name == cell->parameters["\\MEMID"].decode_string()) {
+			SigSpec addr = sigmap(cell->getPort("\\ADDR"));
 			for (int i = 0; i < GetSize(addr); i++)
 				if (addr[i] != State::S0)
 					addr_bits = std::max(addr_bits, i+1);
 			memcells.push_back(cell);
 		}
+	}
 
 	if (memory->start_offset == 0 && addr_bits < 30 && (1 << addr_bits) < memory->size)
 		memory->size = 1 << addr_bits;
@@ -88,10 +90,10 @@ Cell *handle_memory(Module *module, RTLIL::Memory *memory)
 	{
 		log("  %s (%s)\n", log_id(cell), log_id(cell->type));
 
-		if (cell->type == ID($meminit))
+		if (cell->type == "$meminit")
 		{
-			SigSpec addr = sigmap(cell->getPort(ID::ADDR));
-			SigSpec data = sigmap(cell->getPort(ID::DATA));
+			SigSpec addr = sigmap(cell->getPort("\\ADDR"));
+			SigSpec data = sigmap(cell->getPort("\\DATA"));
 
 			if (!addr.is_fully_const())
 				log_error("Non-constant address %s in memory initialization %s.\n", log_signal(addr), log_id(cell));
@@ -110,14 +112,14 @@ Cell *handle_memory(Module *module, RTLIL::Memory *memory)
 			continue;
 		}
 
-		if (cell->type == ID($memwr))
+		if (cell->type == "$memwr")
 		{
-			SigSpec clk = sigmap(cell->getPort(ID::CLK));
-			SigSpec clk_enable = SigSpec(cell->parameters[ID::CLK_ENABLE]);
-			SigSpec clk_polarity = SigSpec(cell->parameters[ID::CLK_POLARITY]);
-			SigSpec addr = sigmap(cell->getPort(ID::ADDR));
-			SigSpec data = sigmap(cell->getPort(ID::DATA));
-			SigSpec en = sigmap(cell->getPort(ID::EN));
+			SigSpec clk = sigmap(cell->getPort("\\CLK"));
+			SigSpec clk_enable = SigSpec(cell->parameters["\\CLK_ENABLE"]);
+			SigSpec clk_polarity = SigSpec(cell->parameters["\\CLK_POLARITY"]);
+			SigSpec addr = sigmap(cell->getPort("\\ADDR"));
+			SigSpec data = sigmap(cell->getPort("\\DATA"));
+			SigSpec en = sigmap(cell->getPort("\\EN"));
 
 			if (!en.is_fully_zero())
 			{
@@ -140,15 +142,15 @@ Cell *handle_memory(Module *module, RTLIL::Memory *memory)
 			continue;
 		}
 
-		if (cell->type == ID($memrd))
+		if (cell->type == "$memrd")
 		{
-			SigSpec clk = sigmap(cell->getPort(ID::CLK));
-			SigSpec clk_enable = SigSpec(cell->parameters[ID::CLK_ENABLE]);
-			SigSpec clk_polarity = SigSpec(cell->parameters[ID::CLK_POLARITY]);
-			SigSpec transparent = SigSpec(cell->parameters[ID::TRANSPARENT]);
-			SigSpec addr = sigmap(cell->getPort(ID::ADDR));
-			SigSpec data = sigmap(cell->getPort(ID::DATA));
-			SigSpec en = sigmap(cell->getPort(ID::EN));
+			SigSpec clk = sigmap(cell->getPort("\\CLK"));
+			SigSpec clk_enable = SigSpec(cell->parameters["\\CLK_ENABLE"]);
+			SigSpec clk_polarity = SigSpec(cell->parameters["\\CLK_POLARITY"]);
+			SigSpec transparent = SigSpec(cell->parameters["\\TRANSPARENT"]);
+			SigSpec addr = sigmap(cell->getPort("\\ADDR"));
+			SigSpec data = sigmap(cell->getPort("\\DATA"));
+			SigSpec en = sigmap(cell->getPort("\\EN"));
 
 			if (!en.is_fully_zero())
 			{
@@ -176,13 +178,13 @@ Cell *handle_memory(Module *module, RTLIL::Memory *memory)
 	std::stringstream sstr;
 	sstr << "$mem$" << memory->name.str() << "$" << (autoidx++);
 
-	Cell *mem = module->addCell(sstr.str(), ID($mem));
-	mem->parameters[ID::MEMID] = Const(memory->name.str());
-	mem->parameters[ID::WIDTH] = Const(memory->width);
-	mem->parameters[ID::OFFSET] = Const(memory->start_offset);
-	mem->parameters[ID::SIZE] = Const(memory->size);
-	mem->parameters[ID::ABITS] = Const(addr_bits);
-	mem->parameters[ID::INIT] = init_data;
+	Cell *mem = module->addCell(sstr.str(), "$mem");
+	mem->parameters["\\MEMID"] = Const(memory->name.str());
+	mem->parameters["\\WIDTH"] = Const(memory->width);
+	mem->parameters["\\OFFSET"] = Const(memory->start_offset);
+	mem->parameters["\\SIZE"] = Const(memory->size);
+	mem->parameters["\\ABITS"] = Const(addr_bits);
+	mem->parameters["\\INIT"] = init_data;
 
 	log_assert(sig_wr_clk.size() == wr_ports);
 	log_assert(sig_wr_clk_enable.size() == wr_ports && sig_wr_clk_enable.is_fully_const());
@@ -191,14 +193,14 @@ Cell *handle_memory(Module *module, RTLIL::Memory *memory)
 	log_assert(sig_wr_data.size() == wr_ports * memory->width);
 	log_assert(sig_wr_en.size() == wr_ports * memory->width);
 
-	mem->parameters[ID::WR_PORTS] = Const(wr_ports);
-	mem->parameters[ID::WR_CLK_ENABLE] = wr_ports ? sig_wr_clk_enable.as_const() : State::S0;
-	mem->parameters[ID::WR_CLK_POLARITY] = wr_ports ? sig_wr_clk_polarity.as_const() : State::S0;
+	mem->parameters["\\WR_PORTS"] = Const(wr_ports);
+	mem->parameters["\\WR_CLK_ENABLE"] = wr_ports ? sig_wr_clk_enable.as_const() : State::S0;
+	mem->parameters["\\WR_CLK_POLARITY"] = wr_ports ? sig_wr_clk_polarity.as_const() : State::S0;
 
-	mem->setPort(ID::WR_CLK, sig_wr_clk);
-	mem->setPort(ID::WR_ADDR, sig_wr_addr);
-	mem->setPort(ID::WR_DATA, sig_wr_data);
-	mem->setPort(ID::WR_EN, sig_wr_en);
+	mem->setPort("\\WR_CLK", sig_wr_clk);
+	mem->setPort("\\WR_ADDR", sig_wr_addr);
+	mem->setPort("\\WR_DATA", sig_wr_data);
+	mem->setPort("\\WR_EN", sig_wr_en);
 
 	log_assert(sig_rd_clk.size() == rd_ports);
 	log_assert(sig_rd_clk_enable.size() == rd_ports && sig_rd_clk_enable.is_fully_const());
@@ -206,15 +208,15 @@ Cell *handle_memory(Module *module, RTLIL::Memory *memory)
 	log_assert(sig_rd_addr.size() == rd_ports * addr_bits);
 	log_assert(sig_rd_data.size() == rd_ports * memory->width);
 
-	mem->parameters[ID::RD_PORTS] = Const(rd_ports);
-	mem->parameters[ID::RD_CLK_ENABLE] = rd_ports ? sig_rd_clk_enable.as_const() : State::S0;
-	mem->parameters[ID::RD_CLK_POLARITY] = rd_ports ? sig_rd_clk_polarity.as_const() : State::S0;
-	mem->parameters[ID::RD_TRANSPARENT] = rd_ports ? sig_rd_transparent.as_const() : State::S0;
+	mem->parameters["\\RD_PORTS"] = Const(rd_ports);
+	mem->parameters["\\RD_CLK_ENABLE"] = rd_ports ? sig_rd_clk_enable.as_const() : State::S0;
+	mem->parameters["\\RD_CLK_POLARITY"] = rd_ports ? sig_rd_clk_polarity.as_const() : State::S0;
+	mem->parameters["\\RD_TRANSPARENT"] = rd_ports ? sig_rd_transparent.as_const() : State::S0;
 
-	mem->setPort(ID::RD_CLK, sig_rd_clk);
-	mem->setPort(ID::RD_ADDR, sig_rd_addr);
-	mem->setPort(ID::RD_DATA, sig_rd_data);
-	mem->setPort(ID::RD_EN, sig_rd_en);
+	mem->setPort("\\RD_CLK", sig_rd_clk);
+	mem->setPort("\\RD_ADDR", sig_rd_addr);
+	mem->setPort("\\RD_DATA", sig_rd_data);
+	mem->setPort("\\RD_EN", sig_rd_en);
 
 	// Copy attributes from RTLIL memory to $mem
 	for (auto attr : memory->attributes)
@@ -245,7 +247,7 @@ static void handle_module(Design *design, Module *module)
 
 struct MemoryCollectPass : public Pass {
 	MemoryCollectPass() : Pass("memory_collect", "creating multi-port memory cells") { }
-	void help() override
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -255,11 +257,12 @@ struct MemoryCollectPass : public Pass {
 		log("memory cells.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE {
 		log_header(design, "Executing MEMORY_COLLECT pass (generating $mem cells).\n");
 		extra_args(args, 1, design);
-		for (auto module : design->selected_modules())
-			handle_module(design, module);
+		for (auto &mod_it : design->modules_)
+			if (design->selected(mod_it.second))
+				handle_module(design, mod_it.second);
 	}
 } MemoryCollectPass;
 

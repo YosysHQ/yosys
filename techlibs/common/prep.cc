@@ -29,7 +29,7 @@ struct PrepPass : public ScriptPass
 {
 	PrepPass() : ScriptPass("prep", "generic synthesis script") { }
 
-	void help() override
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -81,7 +81,7 @@ struct PrepPass : public ScriptPass
 	string top_module, fsm_opts;
 	bool autotop, flatten, ifxmode, memxmode, nomemmode, nokeepdc, nordff;
 
-	void clear_flags() override
+	void clear_flags() YS_OVERRIDE
 	{
 		top_module.clear();
 
@@ -94,7 +94,7 @@ struct PrepPass : public ScriptPass
 		nordff = true;
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) override
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		string run_from, run_to;
 
@@ -163,7 +163,7 @@ struct PrepPass : public ScriptPass
 		log_pop();
 	}
 
-	void script() override
+	void script() YS_OVERRIDE
 	{
 
 		if (check_label("begin"))
@@ -192,7 +192,7 @@ struct PrepPass : public ScriptPass
 			run(nokeepdc ? "opt_expr" : "opt_expr -keepdc");
 			run("opt_clean");
 			run("check");
-			run(nokeepdc ? "opt -noff" : "opt -noff -keepdc");
+			run(nokeepdc ? "opt" : "opt -keepdc");
 			if (!ifxmode) {
 				if (help_mode)
 					run("wreduce -keepdc [-memx]");
@@ -208,7 +208,7 @@ struct PrepPass : public ScriptPass
 				run("opt_clean");
 				run("memory_collect");
 			}
-			run(nokeepdc ? "opt -noff -fast" : "opt -noff -keepdc -fast");
+			run(nokeepdc ? "opt -fast" : "opt -keepdc -fast");
 		}
 
 		if (check_label("check"))

@@ -1,7 +1,4 @@
 
-ifeq ($(DISABLE_SPAWN),0)
-OBJS += passes/cmds/exec.o
-endif
 OBJS += passes/cmds/add.o
 OBJS += passes/cmds/delete.o
 OBJS += passes/cmds/design.o
@@ -34,9 +31,4 @@ OBJS += passes/cmds/chformal.o
 OBJS += passes/cmds/chtype.o
 OBJS += passes/cmds/blackbox.o
 OBJS += passes/cmds/ltp.o
-ifeq ($(DISABLE_SPAWN),0)
 OBJS += passes/cmds/bugpoint.o
-endif
-OBJS += passes/cmds/scratchpad.o
-OBJS += passes/cmds/logger.o
-OBJS += passes/cmds/printattrs.o

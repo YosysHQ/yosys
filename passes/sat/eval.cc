@@ -88,24 +88,25 @@ struct BruteForceEquivChecker
 			mod1(mod1), mod2(mod2), counter(0), errors(0), ignore_x_mod1(ignore_x_mod1)
 	{
 		log("Checking for equivalence (brute-force): %s vs %s\n", mod1->name.c_str(), mod2->name.c_str());
-		for (auto w : mod1->wires())
+		for (auto &w : mod1->wires_)
 		{
-			if (w->port_id == 0)
+			RTLIL::Wire *wire1 = w.second;
+			if (wire1->port_id == 0)
 				continue;
 
-			if (mod2->wire(w->name) == nullptr)
-				log_cmd_error("Port %s in module 1 has no counterpart in module 2!\n", w->name.c_str());
+			if (mod2->wires_.count(wire1->name) == 0)
+				log_cmd_error("Port %s in module 1 has no counterpart in module 2!\n", wire1->name.c_str());
 
-			RTLIL::Wire *w2 = mod2->wire(w->name);
-			if (w->width != w2->width || w->port_input != w2->port_input || w->port_output != w2->port_output)
-				log_cmd_error("Port %s in module 1 does not match its counterpart in module 2!\n", w->name.c_str());
+			RTLIL::Wire *wire2 = mod2->wires_.at(wire1->name);
+			if (wire1->width != wire2->width || wire1->port_input != wire2->port_input || wire1->port_output != wire2->port_output)
+				log_cmd_error("Port %s in module 1 does not match its counterpart in module 2!\n", wire1->name.c_str());
 
-			if (w->port_input) {
-				mod1_inputs.append(w);
-				mod2_inputs.append(w2);
+			if (wire1->port_input) {
+				mod1_inputs.append(wire1);
+				mod2_inputs.append(wire2);
 			} else {
-				mod1_outputs.append(w);
-				mod2_outputs.append(w2);
+				mod1_outputs.append(wire1);
+				mod2_outputs.append(wire2);
 			}
 		}
 
@@ -147,17 +148,17 @@ struct VlogHammerReporter
 		SatGen satgen(ez.get(), &sigmap);
 		satgen.model_undef = model_undef;
 
-		for (auto c : module->cells())
-			if (!satgen.importCell(c))
-				log_error("Failed to import cell %s (type %s) to SAT database.\n", log_id(c->name), log_id(c->type));
+		for (auto &c : module->cells_)
+			if (!satgen.importCell(c.second))
+				log_error("Failed to import cell %s (type %s) to SAT database.\n", RTLIL::id2cstr(c.first), RTLIL::id2cstr(c.second->type));
 
 		ez->assume(satgen.signals_eq(recorded_set_vars, recorded_set_vals));
 
-		std::vector<int> y_vec = satgen.importDefSigSpec(module->wire(ID(y)));
+		std::vector<int> y_vec = satgen.importDefSigSpec(module->wires_.at("\\y"));
 		std::vector<bool> y_values;
 
 		if (model_undef) {
-			std::vector<int> y_undef_vec = satgen.importUndefSigSpec(module->wire(ID(y)));
+			std::vector<int> y_undef_vec = satgen.importUndefSigSpec(module->wires_.at("\\y"));
 			y_vec.insert(y_vec.end(), y_undef_vec.begin(), y_undef_vec.end());
 		}
 
@@ -252,7 +253,7 @@ struct VlogHammerReporter
 
 				std::vector<RTLIL::State> bits(patterns[idx].bits.begin(), patterns[idx].bits.begin() + total_input_width);
 				for (int i = 0; i < int(inputs.size()); i++) {
-					RTLIL::Wire *wire = module->wire(inputs[i]);
+					RTLIL::Wire *wire = module->wires_.at(inputs[i]);
 					for (int j = input_widths[i]-1; j >= 0; j--) {
 						ce.set(RTLIL::SigSpec(wire, j), bits.back());
 						recorded_set_vars.append(RTLIL::SigSpec(wire, j));
@@ -262,21 +263,21 @@ struct VlogHammerReporter
 					if (module == modules.front()) {
 						RTLIL::SigSpec sig(wire);
 						if (!ce.eval(sig))
-							log_error("Can't read back value for port %s!\n", log_id(inputs[i]));
+							log_error("Can't read back value for port %s!\n", RTLIL::id2cstr(inputs[i]));
 						input_pattern_list += stringf(" %s", sig.as_const().as_string().c_str());
-						log("++PAT++ %d %s %s #\n", idx, log_id(inputs[i]), sig.as_const().as_string().c_str());
+						log("++PAT++ %d %s %s #\n", idx, RTLIL::id2cstr(inputs[i]), sig.as_const().as_string().c_str());
 					}
 				}
 
-				if (module->wire(ID(y)) == nullptr)
-					log_error("No output wire (y) found in module %s!\n", log_id(module->name));
+				if (module->wires_.count("\\y") == 0)
+					log_error("No output wire (y) found in module %s!\n", RTLIL::id2cstr(module->name));
 
-				RTLIL::SigSpec sig(module->wire(ID(y)));
+				RTLIL::SigSpec sig(module->wires_.at("\\y"));
 				RTLIL::SigSpec undef;
 
 				while (!ce.eval(sig, undef)) {
-					// log_error("Evaluation of y in module %s failed: sig=%s, undef=%s\n", log_id(module->name), log_signal(sig), log_signal(undef));
-					log_warning("Setting signal %s in module %s to undef.\n", log_signal(undef), log_id(module->name));
+					// log_error("Evaluation of y in module %s failed: sig=%s, undef=%s\n", RTLIL::id2cstr(module->name), log_signal(sig), log_signal(undef));
+					log_warning("Setting signal %s in module %s to undef.\n", log_signal(undef), RTLIL::id2cstr(module->name));
 					ce.set(undef, RTLIL::Const(RTLIL::State::Sx, undef.size()));
 				}
 
@@ -288,7 +289,7 @@ struct VlogHammerReporter
 					sat_check(module, recorded_set_vars, recorded_set_vals, sig, true);
 				} else if (rtl_sig.size() > 0) {
 					if (rtl_sig.size() != sig.size())
-						log_error("Output (y) has a different width in module %s compared to rtl!\n", log_id(module->name));
+						log_error("Output (y) has a different width in module %s compared to rtl!\n", RTLIL::id2cstr(module->name));
 					for (int i = 0; i < GetSize(sig); i++)
 						if (rtl_sig[i] == RTLIL::State::Sx)
 							sig[i] = RTLIL::State::Sx;
@@ -306,10 +307,10 @@ struct VlogHammerReporter
 	{
 		for (auto name : split(module_list, ",")) {
 			RTLIL::IdString esc_name = RTLIL::escape_id(module_prefix + name);
-			if (design->module(esc_name) == nullptr)
+			if (design->modules_.count(esc_name) == 0)
 				log_error("Can't find module %s in current design!\n", name.c_str());
 			log("Using module %s (%s).\n", esc_name.c_str(), name.c_str());
-			modules.push_back(design->module(esc_name));
+			modules.push_back(design->modules_.at(esc_name));
 			module_names.push_back(name);
 		}
 
@@ -318,11 +319,11 @@ struct VlogHammerReporter
 			int width = -1;
 			RTLIL::IdString esc_name = RTLIL::escape_id(name);
 			for (auto mod : modules) {
-				if (mod->wire(esc_name) == nullptr)
-					log_error("Can't find input %s in module %s!\n", name.c_str(), log_id(mod->name));
-				RTLIL::Wire *port = mod->wire(esc_name);
+				if (mod->wires_.count(esc_name) == 0)
+					log_error("Can't find input %s in module %s!\n", name.c_str(), RTLIL::id2cstr(mod->name));
+				RTLIL::Wire *port = mod->wires_.at(esc_name);
 				if (!port->port_input || port->port_output)
-					log_error("Wire %s in module %s is not an input!\n", name.c_str(), log_id(mod->name));
+					log_error("Wire %s in module %s is not an input!\n", name.c_str(), RTLIL::id2cstr(mod->name));
 				if (width >= 0 && width != port->width)
 					log_error("Port %s has different sizes in the different modules!\n", name.c_str());
 				width = port->width;
@@ -359,7 +360,7 @@ struct VlogHammerReporter
 
 struct EvalPass : public Pass {
 	EvalPass() : Pass("eval", "evaluate the circuit given an input") { }
-	void help() override
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -382,7 +383,7 @@ struct EvalPass : public Pass {
 		log("        then all output ports of the current module are used.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) override
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		std::vector<std::pair<std::string, std::string>> sets;
 		std::vector<std::string> shows, tables;
@@ -414,11 +415,11 @@ struct EvalPass : public Pass {
 				/* this should only be used for regression testing of ConstEval -- see vloghammer */
 				std::string mod1_name = RTLIL::escape_id(args[++argidx]);
 				std::string mod2_name = RTLIL::escape_id(args[++argidx]);
-				if (design->module(mod1_name) == nullptr)
+				if (design->modules_.count(mod1_name) == 0)
 					log_error("Can't find module `%s'!\n", mod1_name.c_str());
-				if (design->module(mod2_name) == nullptr)
+				if (design->modules_.count(mod2_name) == 0)
 					log_error("Can't find module `%s'!\n", mod2_name.c_str());
-				BruteForceEquivChecker checker(design->module(mod1_name), design->module(mod2_name), args[argidx-2] == "-brute_force_equiv_checker_x");
+				BruteForceEquivChecker checker(design->modules_.at(mod1_name), design->modules_.at(mod2_name), args[argidx-2] == "-brute_force_equiv_checker_x");
 				if (checker.errors > 0)
 					log_cmd_error("Modules are not equivalent!\n");
 				log("Verified %s = %s (using brute-force check on %d cases).\n",
@@ -440,12 +441,13 @@ struct EvalPass : public Pass {
 		extra_args(args, argidx, design);
 
 		RTLIL::Module *module = NULL;
-		for (auto mod : design->selected_modules()) {
-			if (module)
-				log_cmd_error("Only one module must be selected for the EVAL pass! (selected: %s and %s)\n",
-						log_id(module->name), log_id(mod->name));
-			module = mod;
-		}
+		for (auto &mod_it : design->modules_)
+			if (design->selected(mod_it.second)) {
+				if (module)
+					log_cmd_error("Only one module must be selected for the EVAL pass! (selected: %s and %s)\n",
+							RTLIL::id2cstr(module->name), RTLIL::id2cstr(mod_it.first));
+				module = mod_it.second;
+			}
 		if (module == NULL)
 			log_cmd_error("Can't perform EVAL on an empty selection!\n");
 
@@ -466,9 +468,9 @@ struct EvalPass : public Pass {
 		}
 
 		if (shows.size() == 0) {
-			for (auto w : module->wires())
-				if (w->port_output)
-					shows.push_back(w->name.str());
+			for (auto &it : module->wires_)
+				if (it.second->port_output)
+					shows.push_back(it.second->name.str());
 		}
 
 		if (tables.empty())

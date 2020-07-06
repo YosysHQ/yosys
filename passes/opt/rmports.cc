@@ -28,7 +28,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct RmportsPassPass : public Pass {
 	RmportsPassPass() : Pass("rmports", "remove module ports with no connections") { }
-	void help() override
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -39,7 +39,7 @@ struct RmportsPassPass : public Pass {
 		log("\n");
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) override
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		log_header(design, "Executing RMPORTS pass (remove ports with no connections).\n");
 

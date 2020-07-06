@@ -27,7 +27,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct ScatterPass : public Pass {
 	ScatterPass() : Pass("scatter", "add additional intermediate nets") { }
-	void help() override
+	void help() YS_OVERRIDE
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -41,24 +41,30 @@ struct ScatterPass : public Pass {
 		log("Use the opt_clean command to get rid of the additional nets.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) override
+	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
 	{
 		CellTypes ct(design);
 		extra_args(args, 1, design);
 
-		for (auto module : design->selected_modules())
+		for (auto &mod_it : design->modules_)
 		{
-			for (auto cell : module->cells()) {
-				dict<RTLIL::IdString, RTLIL::SigSig> new_connections;
-				for (auto conn : cell->connections())
-					new_connections.emplace(conn.first, RTLIL::SigSig(conn.second, module->addWire(NEW_ID, GetSize(conn.second))));
-				for (auto &it : new_connections) {
-					if (ct.cell_output(cell->type, it.first))
-						module->connect(RTLIL::SigSig(it.second.first, it.second.second));
-					else
-						module->connect(RTLIL::SigSig(it.second.second, it.second.first));
-					cell->setPort(it.first, it.second.second);
+			if (!design->selected(mod_it.second))
+				continue;
+
+			for (auto &c : mod_it.second->cells_)
+			for (auto &p : c.second->connections_)
+			{
+				RTLIL::Wire *wire = mod_it.second->addWire(NEW_ID, p.second.size());
+
+				if (ct.cell_output(c.second->type, p.first)) {
+					RTLIL::SigSig sigsig(p.second, wire);
+					mod_it.second->connect(sigsig);
+				} else {
+					RTLIL::SigSig sigsig(wire, p.second);
+					mod_it.second->connect(sigsig);
 				}
+
+				p.second = wire;
 			}
 		}
 	}
