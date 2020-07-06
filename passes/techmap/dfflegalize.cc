@@ -659,6 +659,24 @@ flip_dqisr:;
 					// This init value is not supported at all...
 					if (supported_dlatch & flip_initmask(initmask))
 						goto flip_dqi;
+
+					if ((sig_d == State::S0 && (supported_adff0 & initmask)) ||
+							(sig_d == State::S1 && (supported_adff1 & initmask)) ||
+							(sig_d == State::S0 && (supported_adff1 & flip_initmask(initmask))) ||
+							(sig_d == State::S1 && (supported_adff0 & flip_initmask(initmask)))
+					) {
+						// Special case: const-D dlatch can be converted into adff with const clock.
+						ff_type = (sig_d == State::S0) ? FF_ADFF0 : FF_ADFF1;
+						if (ff_neg & NEG_E) {
+							ff_neg &= ~NEG_E;
+							ff_neg |= NEG_R;
+						}
+						sig_r = sig_e;
+						sig_d = State::Sx;
+						sig_c = State::S1;
+						continue;
+					}
+
 					if (!supported_dlatch)
 						reason = "dlatch are not supported";
 					else
