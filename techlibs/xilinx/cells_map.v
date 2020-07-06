@@ -98,10 +98,7 @@ module \$__XILINX_SHREG_ (input C, input D, input [31:0] L, input E, output Q, o
       else
           FDRE_1 #(.INIT(INIT_R)) _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .CE(CE), .R(1'b0));
     end else
-    if (DEPTH <= 16) begin
-      SRL16E #(.INIT(INIT_R), .IS_CLK_INVERTED(~CLKPOL[0])) _TECHMAP_REPLACE_ (.A0(L[0]), .A1(L[1]), .A2(L[2]), .A3(L[3]), .CE(CE), .CLK(C), .D(D), .Q(Q));
-    end else
-    if (DEPTH > 17 && DEPTH <= 32) begin
+    if (DEPTH <= 32) begin
       SRLC32E #(.INIT(INIT_R), .IS_CLK_INVERTED(~CLKPOL[0])) _TECHMAP_REPLACE_ (.A(L[4:0]), .CE(CE), .CLK(C), .D(D), .Q(Q));
     end else
     if (DEPTH > 33 && DEPTH <= 64) begin

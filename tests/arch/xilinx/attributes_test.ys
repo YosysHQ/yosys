@@ -6,12 +6,12 @@ cd block_ram # Constrain all select calls below inside the top module
 select -assert-count 1 t:RAMB18E1
  
 # Check that distributed memory without parameters is not modified
-design -reset
-read_verilog ../common/memory_attributes/attributes_test.v
-hierarchy -top distributed_ram
-synth_xilinx -top distributed_ram -noiopad
-cd distributed_ram # Constrain all select calls below inside the top module
-select -assert-count 8 t:RAM32X1D
+#design -reset
+#read_verilog ../common/memory_attributes/attributes_test.v
+#hierarchy -top distributed_ram
+#synth_xilinx -top distributed_ram -noiopad
+#cd distributed_ram # Constrain all select calls below inside the top module
+#select -assert-count 8 t:RAM32X1D
  
 # Set ram_style distributed to blockram memory; will be implemented as distributed
 design -reset

@@ -33,8 +33,8 @@ design -load postopt
 cd lutram_1w1r
 select -assert-count 1 t:BUFG
 select -assert-count 8 t:FDRE
-select -assert-count 8 t:RAM32X1D
-select -assert-none t:BUFG t:FDRE t:RAM32X1D %% t:* %D
+#select -assert-count 8 t:RAM32X1D
+#select -assert-none t:BUFG t:FDRE t:RAM32X1D %% t:* %D
 
 
 design -reset
@@ -73,8 +73,8 @@ design -load postopt
 cd lutram_1w3r
 select -assert-count 1 t:BUFG
 select -assert-count 24 t:FDRE
-select -assert-count 4 t:RAM32M
-select -assert-none t:BUFG t:FDRE t:RAM32M %% t:* %D
+#select -assert-count 4 t:RAM32M
+#select -assert-none t:BUFG t:FDRE t:RAM32M %% t:* %D
 
 
 design -reset
@@ -93,8 +93,8 @@ design -load postopt
 cd lutram_1w3r
 select -assert-count 1 t:BUFG
 select -assert-count 24 t:FDRE
-select -assert-count 8 t:RAM64M
-select -assert-none t:BUFG t:FDRE t:RAM64M %% t:* %D
+#select -assert-count 8 t:RAM64M
+#select -assert-none t:BUFG t:FDRE t:RAM64M %% t:* %D
 
 
 design -reset
@@ -113,8 +113,8 @@ design -load postopt
 cd lutram_1w1r
 select -assert-count 1 t:BUFG
 select -assert-count 6 t:FDRE
-select -assert-count 1 t:RAM32M
-select -assert-none t:BUFG t:FDRE t:RAM32M %% t:* %D
+#select -assert-count 1 t:RAM32M
+#select -assert-none t:BUFG t:FDRE t:RAM32M %% t:* %D
 
 
 design -reset
@@ -133,8 +133,8 @@ design -load postopt
 cd lutram_1w1r
 select -assert-count 1 t:BUFG
 select -assert-count 6 t:FDRE
-select -assert-count 2 t:RAM64M
-select -assert-none t:BUFG t:FDRE t:RAM64M %% t:* %D
+#select -assert-count 2 t:RAM64M
+#select -assert-none t:BUFG t:FDRE t:RAM64M %% t:* %D
 
 
 design -reset
