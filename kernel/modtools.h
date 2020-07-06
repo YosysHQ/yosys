@@ -158,7 +158,7 @@ struct ModIndex : public RTLIL::Monitor
 #endif
 	}
 
-	void notify_connect(RTLIL::Cell *cell, const RTLIL::IdString &port, const RTLIL::SigSpec &old_sig, RTLIL::SigSpec &sig) YS_OVERRIDE
+	void notify_connect(RTLIL::Cell *cell, const RTLIL::IdString &port, const RTLIL::SigSpec &old_sig, const RTLIL::SigSpec &sig) override
 	{
 		log_assert(module == cell->module);
 
@@ -169,7 +169,7 @@ struct ModIndex : public RTLIL::Monitor
 		port_add(cell, port, sig);
 	}
 
-	void notify_connect(RTLIL::Module *mod YS_ATTRIBUTE(unused), const RTLIL::SigSig &sigsig) YS_OVERRIDE
+	void notify_connect(RTLIL::Module *mod, const RTLIL::SigSig &sigsig) override
 	{
 		log_assert(module == mod);
 
@@ -214,13 +214,13 @@ struct ModIndex : public RTLIL::Monitor
 		}
 	}
 
-	void notify_connect(RTLIL::Module *mod YS_ATTRIBUTE(unused), const std::vector<RTLIL::SigSig>&) YS_OVERRIDE
+	void notify_connect(RTLIL::Module *mod, const std::vector<RTLIL::SigSig>&) override
 	{
 		log_assert(module == mod);
 		auto_reload_module = true;
 	}
 
-	void notify_blackout(RTLIL::Module *mod YS_ATTRIBUTE(unused)) YS_OVERRIDE
+	void notify_blackout(RTLIL::Module *mod) override
 	{
 		log_assert(module == mod);
 		auto_reload_module = true;
@@ -380,22 +380,15 @@ struct ModWalker
 		}
 	}
 
-	ModWalker() : design(NULL), module(NULL)
+	ModWalker(RTLIL::Design *design) : design(design), module(NULL)
 	{
+            ct.setup(design);
 	}
 
-	ModWalker(RTLIL::Design *design, RTLIL::Module *module, CellTypes *filter_ct = NULL)
+	void setup(RTLIL::Module *module, CellTypes *filter_ct = NULL)
 	{
-		setup(design, module, filter_ct);
-	}
-
-	void setup(RTLIL::Design *design, RTLIL::Module *module, CellTypes *filter_ct = NULL)
-	{
-		this->design = design;
 		this->module = module;
 
-		ct.clear();
-		ct.setup(design);
 		sigmap.set(module);
 
 		signal_drivers.clear();

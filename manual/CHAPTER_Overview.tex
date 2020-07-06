@@ -184,11 +184,21 @@ may hold important information for Yosys developers can be used without
 disturbing external tools. For example the Verilog backend assigns names in the form {\tt \_{\it integer}\_}.
 \end{itemize}
 
-In order to avoid programming errors, the RTLIL data structures check if all
-identifiers start with either a backslash or a dollar sign and generate a
-runtime error if this rule is violated.
+Whitespace and control characters (any character with an ASCII code 32 or less) are not allowed
+in RTLIL identifiers; most frontends and backends cannot support these characters in identifiers.
+
+In order to avoid programming errors, the RTLIL data structures check if all identifiers start
+with either a backslash or a dollar sign, and contain no whitespace or control characters.
+Violating these rules results in a runtime error.
 
 All RTLIL identifiers are case sensitive.
+
+Some transformations, such as flattening, may have to change identifiers provided by the user
+to avoid name collisions. When that happens, attribute ``{\tt hdlname}`` is attached to the object
+with the changed identifier. This attribute contains one name (if emitted directly by the frontend,
+or is a result of disambiguation) or multiple names separated by spaces (if a result of flattening).
+All names specified in the ``{\tt hdlname}`` attribute are public and do not include the leading
+``\textbackslash``.
 
 \subsection{RTLIL::Design and RTLIL::Module}
 
@@ -234,6 +244,8 @@ An RTLIL::Wire object has the following properties:
 \item The wire name
 \item A list of attributes
 \item A width (buses are just wires with a width > 1)
+\item Bus direction (MSB to LSB or vice versa)
+\item Lowest valid bit index (LSB or MSB depending on bus direction)
 \item If the wire is a port: port number and direction (input/output/inout)
 \end{itemize}
 
@@ -245,6 +257,11 @@ with a width > 1. So Yosys does not convert signal vectors to individual signals
 This makes some aspects of RTLIL more complex but enables Yosys to be used for
 coarse grain synthesis where the cells of the target architecture operate on
 entire signal vectors instead of single bit wires.
+
+In Verilog and VHDL, busses may have arbitrary bounds, and LSB can have either
+the lowest or the highest bit index. In RTLIL, bit 0 always corresponds to LSB;
+however, information from the HDL frontend is preserved so that the bus will be
+correctly indexed in error messages, backend output, constraint files, etc.
 
 An RTLIL::Cell object has the following properties:
 

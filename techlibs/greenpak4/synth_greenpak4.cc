@@ -29,7 +29,7 @@ struct SynthGreenPAK4Pass : public ScriptPass
 {
 	SynthGreenPAK4Pass() : ScriptPass("synth_greenpak4", "synthesis for GreenPAK4 FPGAs") { }
 
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -59,7 +59,7 @@ struct SynthGreenPAK4Pass : public ScriptPass
 		log("        do not flatten design before synthesis\n");
 		log("\n");
 		log("    -retime\n");
-		log("        run 'abc' with -dff option\n");
+		log("        run 'abc' with '-dff -D 1' options\n");
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
@@ -70,7 +70,7 @@ struct SynthGreenPAK4Pass : public ScriptPass
 	string top_opt, part, json_file;
 	bool flatten, retime;
 
-	void clear_flags() YS_OVERRIDE
+	void clear_flags() override
 	{
 		top_opt = "-auto-top";
 		part = "SLG46621V";
@@ -79,7 +79,7 @@ struct SynthGreenPAK4Pass : public ScriptPass
 		retime = false;
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		string run_from, run_to;
 		clear_flags();
@@ -133,7 +133,7 @@ struct SynthGreenPAK4Pass : public ScriptPass
 		log_pop();
 	}
 
-	void script() YS_OVERRIDE
+	void script() override
 	{
 		if (check_label("begin"))
 		{
@@ -160,12 +160,11 @@ struct SynthGreenPAK4Pass : public ScriptPass
 			run("opt -fast -mux_undef -undriven -fine");
 			run("memory_map");
 			run("opt -undriven -fine");
-			run("techmap");
-			run("techmap -map +/greenpak4/cells_latch.v");
+			run("techmap -map +/techmap.v -map +/greenpak4/cells_latch.v");
 			run("dfflibmap -prepare -liberty +/greenpak4/gp_dff.lib");
 			run("opt -fast");
 			if (retime || help_mode)
-				run("abc -dff", "(only if -retime)");
+				run("abc -dff -D 1", "(only if -retime)");
 		}
 
 		if (check_label("map_luts"))

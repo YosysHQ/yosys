@@ -36,9 +36,9 @@ void run_fixed(xilinx_srl_pm &pm)
 	for (auto cell : ud.longest_chain) {
 		log_debug("    %s\n", log_id(cell));
 		if (cell->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_))) {
-			SigBit Q = cell->getPort(ID(Q));
+			SigBit Q = cell->getPort(ID::Q);
 			log_assert(Q.wire);
-			auto it = Q.wire->attributes.find(ID(init));
+			auto it = Q.wire->attributes.find(ID::init);
 			if (it != Q.wire->attributes.end()) {
 				auto &i = it->second[Q.offset];
 				initval.append(i);
@@ -48,7 +48,7 @@ void run_fixed(xilinx_srl_pm &pm)
 				initval.append(State::Sx);
 		}
 		else if (cell->type.in(ID(FDRE), ID(FDRE_1))) {
-			if (cell->parameters.at(ID(INIT), State::S0).as_bool())
+			if (cell->getParam(ID::INIT).as_bool())
 				initval.append(State::S1);
 			else
 				initval.append(State::S0);
@@ -64,14 +64,14 @@ void run_fixed(xilinx_srl_pm &pm)
 	pm.module->swap_names(c, first_cell);
 
 	if (first_cell->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_), ID(FDRE), ID(FDRE_1))) {
-		c->setParam(ID(DEPTH), GetSize(ud.longest_chain));
-		c->setParam(ID(INIT), initval.as_const());
+		c->setParam(ID::DEPTH, GetSize(ud.longest_chain));
+		c->setParam(ID::INIT, initval.as_const());
 		if (first_cell->type.in(ID($_DFF_P_), ID($_DFFE_PN_), ID($_DFFE_PP_)))
 			c->setParam(ID(CLKPOL), 1);
-		else if (first_cell->type.in(ID($_DFF_N_), ID($DFFE_NN_), ID($_DFFE_NP_), ID(FDRE_1)))
+		else if (first_cell->type.in(ID($_DFF_N_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID(FDRE_1)))
 			c->setParam(ID(CLKPOL), 0);
 		else if (first_cell->type.in(ID(FDRE))) {
-			if (!first_cell->parameters.at(ID(IS_C_INVERTED), State::S0).as_bool())
+			if (!first_cell->getParam(ID(IS_C_INVERTED)).as_bool())
 				c->setParam(ID(CLKPOL), 1);
 			else
 				c->setParam(ID(CLKPOL), 0);
@@ -85,16 +85,16 @@ void run_fixed(xilinx_srl_pm &pm)
 		else
 			c->setParam(ID(ENPOL), 2);
 
-		c->setPort(ID(C), first_cell->getPort(ID(C)));
-		c->setPort(ID(D), first_cell->getPort(ID(D)));
-		c->setPort(ID(Q), last_cell->getPort(ID(Q)));
-		c->setPort(ID(L), GetSize(ud.longest_chain)-1);
+		c->setPort(ID::C, first_cell->getPort(ID::C));
+		c->setPort(ID::D, first_cell->getPort(ID::D));
+		c->setPort(ID::Q, last_cell->getPort(ID::Q));
+		c->setPort(ID::L, GetSize(ud.longest_chain)-1);
 		if (first_cell->type.in(ID($_DFF_N_), ID($_DFF_P_)))
-			c->setPort(ID(E), State::S1);
+			c->setPort(ID::E, State::S1);
 		else if (first_cell->type.in(ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_)))
-			c->setPort(ID(E), first_cell->getPort(ID(E)));
+			c->setPort(ID::E, first_cell->getPort(ID::E));
 		else if (first_cell->type.in(ID(FDRE), ID(FDRE_1)))
-			c->setPort(ID(E), first_cell->getPort(ID(CE)));
+			c->setPort(ID::E, first_cell->getPort(ID(CE)));
 		else
 			log_abort();
 	}
@@ -117,9 +117,9 @@ void run_variable(xilinx_srl_pm &pm)
 		auto slice = i.second;
 		log_debug("    %s\n", log_id(cell));
 		if (cell->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_), ID($dff), ID($dffe))) {
-			SigBit Q = cell->getPort(ID(Q))[slice];
+			SigBit Q = cell->getPort(ID::Q)[slice];
 			log_assert(Q.wire);
-			auto it = Q.wire->attributes.find(ID(init));
+			auto it = Q.wire->attributes.find(ID::init);
 			if (it != Q.wire->attributes.end()) {
 				auto &i = it->second[Q.offset];
 				initval.append(i);
@@ -140,15 +140,15 @@ void run_variable(xilinx_srl_pm &pm)
 	pm.module->swap_names(c, first_cell);
 
 	if (first_cell->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_), ID($dff), ID($dffe))) {
-		c->setParam(ID(DEPTH), GetSize(ud.chain));
-		c->setParam(ID(INIT), initval.as_const());
+		c->setParam(ID::DEPTH, GetSize(ud.chain));
+		c->setParam(ID::INIT, initval.as_const());
 		Const clkpol, enpol;
 		if (first_cell->type.in(ID($_DFF_P_), ID($_DFFE_PN_), ID($_DFFE_PP_)))
 			clkpol = 1;
-		else if (first_cell->type.in(ID($_DFF_N_), ID($DFFE_NN_), ID($_DFFE_NP_)))
+		else if (first_cell->type.in(ID($_DFF_N_), ID($_DFFE_NN_), ID($_DFFE_NP_)))
 			clkpol = 0;
 		else if (first_cell->type.in(ID($dff), ID($dffe)))
-			clkpol = first_cell->getParam(ID(CLK_POLARITY));
+			clkpol = first_cell->getParam(ID::CLK_POLARITY);
 		else
 			log_abort();
 		if (first_cell->type.in(ID($_DFFE_NP_), ID($_DFFE_PP_)))
@@ -156,27 +156,27 @@ void run_variable(xilinx_srl_pm &pm)
 		else if (first_cell->type.in(ID($_DFFE_NN_), ID($_DFFE_PN_)))
 			enpol = 0;
 		else if (first_cell->type.in(ID($dffe)))
-			enpol = first_cell->getParam(ID(EN_POLARITY));
+			enpol = first_cell->getParam(ID::EN_POLARITY);
 		else
 			enpol = 2;
 		c->setParam(ID(CLKPOL), clkpol);
 		c->setParam(ID(ENPOL), enpol);
 
 		if (first_cell->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_)))
-			c->setPort(ID(C), first_cell->getPort(ID(C)));
+			c->setPort(ID::C, first_cell->getPort(ID::C));
 		else if (first_cell->type.in(ID($dff), ID($dffe)))
-			c->setPort(ID(C), first_cell->getPort(ID(CLK)));
+			c->setPort(ID::C, first_cell->getPort(ID::CLK));
 		else
 			log_abort();
-		c->setPort(ID(D), first_cell->getPort(ID(D))[first_slice]);
-		c->setPort(ID(Q), st.shiftx->getPort(ID(Y)));
-		c->setPort(ID(L), st.shiftx->getPort(ID(B)));
+		c->setPort(ID::D, first_cell->getPort(ID::D)[first_slice]);
+		c->setPort(ID::Q, st.shiftx->getPort(ID::Y));
+		c->setPort(ID::L, st.shiftx->getPort(ID::B));
 		if (first_cell->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($dff)))
-			c->setPort(ID(E), State::S1);
+			c->setPort(ID::E, State::S1);
 		else if (first_cell->type.in(ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_)))
-			c->setPort(ID(E), first_cell->getPort(ID(E)));
+			c->setPort(ID::E, first_cell->getPort(ID::E));
 		else if (first_cell->type.in(ID($dffe)))
-			c->setPort(ID(E), first_cell->getPort(ID(EN)));
+			c->setPort(ID::E, first_cell->getPort(ID::EN));
 		else
 			log_abort();
 	}
@@ -188,7 +188,7 @@ void run_variable(xilinx_srl_pm &pm)
 
 struct XilinxSrlPass : public Pass {
 	XilinxSrlPass() : Pass("xilinx_srl", "Xilinx shift register extraction") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -212,7 +212,7 @@ struct XilinxSrlPass : public Pass {
 		log("\n");
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing XILINX_SRL pass (Xilinx shift register extraction).\n");
 

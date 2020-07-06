@@ -1,0 +1,36 @@
+read_verilog <<EOT
+module top(input [31:-32] a, input [-65:-128] b, output [128:65] c);
+assign c = a & b;
+endmodule
+EOT
+select -assert-count 1 i:a
+select -assert-count 1 i:b
+select -assert-count 1 o:c
+select -assert-count 3 x:* s:64 %i
+design -save read
+
+!rm -rf neg.out
+!mkdir neg.out
+simplemap
+write_aiger -map neg.out/neg.map neg.out/neg.aig
+
+design -reset
+read_aiger -wideports -map neg.out/neg.map neg.out/neg.aig
+select -assert-count 1 i:a
+select -assert-count 1 i:b
+select -assert-count 1 o:c
+select -assert-count 3 x:* s:64 %i
+
+
+design -load read
+!rm -rf neg.out
+!mkdir neg.out
+simplemap
+write_xaiger -map neg.out/neg.map neg.out/neg.aig
+
+design -reset
+read_aiger -wideports -map neg.out/neg.map neg.out/neg.aig
+select -assert-count 1 i:a
+select -assert-count 1 i:b
+select -assert-count 1 o:c
+select -assert-count 3 x:* s:64 %i

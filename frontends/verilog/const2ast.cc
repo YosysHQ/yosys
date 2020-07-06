@@ -139,6 +139,9 @@ static void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int le
 		data.resize(len_in_bits, msb);
 	}
 
+	if (len_in_bits == 0)
+		log_file_error(current_filename, get_line_num(), "Illegal integer constant size of zero (IEEE 1800-2012, 5.7).\n");
+
 	if (len > len_in_bits)
 		log_warning("Literal has a width of %d bit, but value requires %d bit. (%s:%d)\n",
 			len_in_bits, len, current_filename.c_str(), get_line_num());

@@ -79,18 +79,15 @@ struct statdata_t
 		STAT_NUMERIC_MEMBERS
 	#undef X
 
-		for (auto &it : mod->wires_)
+		for (auto wire : mod->selected_wires())
 		{
-			if (!design->selected(mod, it.second))
-				continue;
-
-			if (it.first[0] == '\\') {
+			if (wire->name[0] == '\\') {
 				num_pub_wires++;
-				num_pub_wire_bits += it.second->width;
+				num_pub_wire_bits += wire->width;
 			}
 
 			num_wires++;
-			num_wire_bits += it.second->width;
+			num_wire_bits += wire->width;
 		}
 
 		for (auto &it : mod->memories) {
@@ -100,31 +97,31 @@ struct statdata_t
 			num_memory_bits += it.second->width * it.second->size;
 		}
 
-		for (auto &it : mod->cells_)
+		for (auto cell : mod->selected_cells())
 		{
-			if (!design->selected(mod, it.second))
-				continue;
-
-			RTLIL::IdString cell_type = it.second->type;
+			RTLIL::IdString cell_type = cell->type;
 
 			if (width_mode)
 			{
-				if (cell_type.in("$not", "$pos", "$neg",
-						"$logic_not", "$logic_and", "$logic_or",
-						"$reduce_and", "$reduce_or", "$reduce_xor", "$reduce_xnor", "$reduce_bool",
-						"$lut", "$and", "$or", "$xor", "$xnor",
-						"$shl", "$shr", "$sshl", "$sshr", "$shift", "$shiftx",
-						"$lt", "$le", "$eq", "$ne", "$eqx", "$nex", "$ge", "$gt",
-						"$add", "$sub", "$mul", "$div", "$mod", "$pow", "$alu")) {
-					int width_a = it.second->hasPort("\\A") ? GetSize(it.second->getPort("\\A")) : 0;
-					int width_b = it.second->hasPort("\\B") ? GetSize(it.second->getPort("\\B")) : 0;
-					int width_y = it.second->hasPort("\\Y") ? GetSize(it.second->getPort("\\Y")) : 0;
+				if (cell_type.in(ID($not), ID($pos), ID($neg),
+						ID($logic_not), ID($logic_and), ID($logic_or),
+						ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool),
+						ID($lut), ID($and), ID($or), ID($xor), ID($xnor),
+						ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx),
+						ID($lt), ID($le), ID($eq), ID($ne), ID($eqx), ID($nex), ID($ge), ID($gt),
+						ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($divfloor), ID($modfloor), ID($pow), ID($alu))) {
+					int width_a = cell->hasPort(ID::A) ? GetSize(cell->getPort(ID::A)) : 0;
+					int width_b = cell->hasPort(ID::B) ? GetSize(cell->getPort(ID::B)) : 0;
+					int width_y = cell->hasPort(ID::Y) ? GetSize(cell->getPort(ID::Y)) : 0;
 					cell_type = stringf("%s_%d", cell_type.c_str(), max<int>({width_a, width_b, width_y}));
 				}
-				else if (cell_type.in("$mux", "$pmux"))
-					cell_type = stringf("%s_%d", cell_type.c_str(), GetSize(it.second->getPort("\\Y")));
-				else if (cell_type.in("$sr", "$dff", "$dffsr", "$adff", "$dlatch", "$dlatchsr"))
-					cell_type = stringf("%s_%d", cell_type.c_str(), GetSize(it.second->getPort("\\Q")));
+				else if (cell_type.in(ID($mux), ID($pmux)))
+					cell_type = stringf("%s_%d", cell_type.c_str(), GetSize(cell->getPort(ID::Y)));
+				else if (cell_type.in(
+						ID($sr), ID($ff), ID($dff), ID($dffe), ID($dffsr), ID($dffsre),
+						ID($adff), ID($adffe), ID($sdff), ID($sdffe), ID($sdffce),
+						ID($dlatch), ID($adlatch), ID($dlatchsr)))
+					cell_type = stringf("%s_%d", cell_type.c_str(), GetSize(cell->getPort(ID::Q)));
 			}
 
 			if (!cell_area.empty()) {
@@ -157,7 +154,7 @@ struct statdata_t
 		log("   Number of cells:             %6d\n", num_cells);
 		for (auto &it : num_cells_by_type)
 			if (it.second)
-				log("     %-26s %6d\n", RTLIL::id2cstr(it.first), it.second);
+				log("     %-26s %6d\n", log_id(it.first), it.second);
 
 		if (!unknown_cell_area.empty()) {
 			log("\n");
@@ -172,12 +169,12 @@ struct statdata_t
 
 		if (tech == "xilinx")
 		{
-			int lut6_cnt = num_cells_by_type["\\LUT6"];
-			int lut5_cnt = num_cells_by_type["\\LUT5"];
-			int lut4_cnt = num_cells_by_type["\\LUT4"];
-			int lut3_cnt = num_cells_by_type["\\LUT3"];
-			int lut2_cnt = num_cells_by_type["\\LUT2"];
-			int lut1_cnt = num_cells_by_type["\\LUT1"];
+			int lut6_cnt = num_cells_by_type[ID(LUT6)];
+			int lut5_cnt = num_cells_by_type[ID(LUT5)];
+			int lut4_cnt = num_cells_by_type[ID(LUT4)];
+			int lut3_cnt = num_cells_by_type[ID(LUT3)];
+			int lut2_cnt = num_cells_by_type[ID(LUT2)];
+			int lut1_cnt = num_cells_by_type[ID(LUT1)];
 			int lc_cnt = 0;
 
 			lc_cnt += lut6_cnt;
@@ -235,7 +232,7 @@ struct statdata_t
 
 				if (gate_costs.count(ctype))
 					tran_cnt += cnum * gate_costs.at(ctype);
-				else if (ctype.in("$_DFF_P_", "$_DFF_N_"))
+				else if (ctype.in(ID($_DFF_P_), ID($_DFF_N_)))
 					tran_cnt += cnum * 16;
 				else
 					tran_cnt_exact = false;
@@ -255,7 +252,7 @@ statdata_t hierarchy_worker(std::map<RTLIL::IdString, statdata_t> &mod_stat, RTL
 
 	for (auto &it : num_cells_by_type)
 		if (mod_stat.count(it.first) > 0) {
-			log("     %*s%-*s %6d\n", 2*level, "", 26-2*level, RTLIL::id2cstr(it.first), it.second);
+			log("     %*s%-*s %6d\n", 2*level, "", 26-2*level, log_id(it.first), it.second);
 			mod_data = mod_data + hierarchy_worker(mod_stat, it.first, level+1) * it.second;
 			mod_data.num_cells -= it.second;
 		} else {
@@ -281,14 +278,14 @@ void read_liberty_cellarea(dict<IdString, double> &cell_area, string liberty_fil
 			continue;
 
 		LibertyAst *ar = cell->find("area");
-		if (ar != NULL && !ar->value.empty())
+		if (ar != nullptr && !ar->value.empty())
 			cell_area["\\" + cell->args[0]] = atof(ar->value.c_str());
 	}
 }
 
 struct StatPass : public Pass {
 	StatPass() : Pass("stat", "print some statistics") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -314,12 +311,12 @@ struct StatPass : public Pass {
 		log("        e.g. $add_8 for an 8 bit wide $add cell.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Printing statistics.\n");
 
 		bool width_mode = false;
-		RTLIL::Module *top_mod = NULL;
+		RTLIL::Module *top_mod = nullptr;
 		std::map<RTLIL::IdString, statdata_t> mod_stat;
 		dict<IdString, double> cell_area;
 		string techname;
@@ -342,9 +339,9 @@ struct StatPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-top" && argidx+1 < args.size()) {
-				if (design->modules_.count(RTLIL::escape_id(args[argidx+1])) == 0)
+				if (design->module(RTLIL::escape_id(args[argidx+1])) == nullptr)
 					log_cmd_error("Can't find module %s.\n", args[argidx+1].c_str());
-				top_mod = design->modules_.at(RTLIL::escape_id(args[++argidx]));
+				top_mod = design->module(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
 			break;
@@ -357,25 +354,25 @@ struct StatPass : public Pass {
 		for (auto mod : design->selected_modules())
 		{
 			if (!top_mod && design->full_selection())
-				if (mod->get_bool_attribute("\\top"))
+				if (mod->get_bool_attribute(ID::top))
 					top_mod = mod;
 
 			statdata_t data(design, mod, width_mode, cell_area, techname);
 			mod_stat[mod->name] = data;
 
 			log("\n");
-			log("=== %s%s ===\n", RTLIL::id2cstr(mod->name), design->selected_whole_module(mod->name) ? "" : " (partially selected)");
+			log("=== %s%s ===\n", log_id(mod->name), design->selected_whole_module(mod->name) ? "" : " (partially selected)");
 			log("\n");
 			data.log_data(mod->name, false);
 		}
 
-		if (top_mod != NULL && GetSize(mod_stat) > 1)
+		if (top_mod != nullptr && GetSize(mod_stat) > 1)
 		{
 			log("\n");
 			log("=== design hierarchy ===\n");
 			log("\n");
 
-			log("   %-28s %6d\n", RTLIL::id2cstr(top_mod->name), 1);
+			log("   %-28s %6d\n", log_id(top_mod->name), 1);
 			statdata_t data = hierarchy_worker(mod_stat, top_mod->name, 0);
 
 			log("\n");

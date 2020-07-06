@@ -71,7 +71,7 @@ struct TribufWorker {
 
 			if (cell->type.in(ID($mux), ID($_MUX_)))
 			{
-				IdString en_port = cell->type == ID($mux) ? ID(EN) : ID(E);
+				IdString en_port = cell->type == ID($mux) ? ID::EN : ID::E;
 				IdString tri_type = cell->type == ID($mux) ? ID($tribuf) : ID($_TBUF_);
 
 				if (is_all_z(cell->getPort(ID::A)) && is_all_z(cell->getPort(ID::B))) {
@@ -81,20 +81,22 @@ struct TribufWorker {
 
 				if (is_all_z(cell->getPort(ID::A))) {
 					cell->setPort(ID::A, cell->getPort(ID::B));
-					cell->setPort(en_port, cell->getPort(ID(S)));
+					cell->setPort(en_port, cell->getPort(ID::S));
 					cell->unsetPort(ID::B);
-					cell->unsetPort(ID(S));
+					cell->unsetPort(ID::S);
 					cell->type = tri_type;
 					tribuf_cells[sigmap(cell->getPort(ID::Y))].push_back(cell);
+					module->design->scratchpad_set_bool("tribuf.added_something", true);
 					continue;
 				}
 
 				if (is_all_z(cell->getPort(ID::B))) {
-					cell->setPort(en_port, module->Not(NEW_ID, cell->getPort(ID(S))));
+					cell->setPort(en_port, module->Not(NEW_ID, cell->getPort(ID::S)));
 					cell->unsetPort(ID::B);
-					cell->unsetPort(ID(S));
+					cell->unsetPort(ID::S);
 					cell->type = tri_type;
 					tribuf_cells[sigmap(cell->getPort(ID::Y))].push_back(cell);
+					module->design->scratchpad_set_bool("tribuf.added_something", true);
 					continue;
 				}
 			}
@@ -119,9 +121,9 @@ struct TribufWorker {
 				SigSpec pmux_b, pmux_s;
 				for (auto cell : it.second) {
 					if (cell->type == ID($tribuf))
-						pmux_s.append(cell->getPort(ID(EN)));
+						pmux_s.append(cell->getPort(ID::EN));
 					else
-						pmux_s.append(cell->getPort(ID(E)));
+						pmux_s.append(cell->getPort(ID::E));
 					pmux_b.append(cell->getPort(ID::A));
 					module->remove(cell);
 				}
@@ -130,8 +132,10 @@ struct TribufWorker {
 
 				if (no_tribuf)
 					module->connect(it.first, muxout);
-				else
+				else {
 					module->addTribuf(NEW_ID, muxout, module->ReduceOr(NEW_ID, pmux_s), it.first);
+					module->design->scratchpad_set_bool("tribuf.added_something", true);
+				}
 			}
 		}
 	}
@@ -139,7 +143,7 @@ struct TribufWorker {
 
 struct TribufPass : public Pass {
 	TribufPass() : Pass("tribuf", "infer tri-state buffers") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -156,7 +160,7 @@ struct TribufPass : public Pass {
 		log("        to non-tristate logic. this option implies -merge.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		TribufConfig config;
 

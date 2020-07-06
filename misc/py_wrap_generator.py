@@ -312,16 +312,16 @@ class PythonListTranslator(Translator):
 			text += prefix + "\t" + known_containers[types[0].name].typename + " " + tmp_name + " = boost::python::extract<" + known_containers[types[0].name].typename + ">(" + varname + "[" + cntr_name + "]);"
 			text += known_containers[types[0].name].translate(tmp_name, types[0].cont.args, prefix+"\t")
 			tmp_name = tmp_name + "___tmp"
-			text += prefix + "\t" + varname + "___tmp." + c.insert_name + "(" + tmp_name + ");"
+			text += prefix + "\t" + varname + "___tmp" + c.insert_name + "(" + tmp_name + ");"
 		elif types[0].name in classnames:
 			text += prefix + "\t" + types[0].name + "* " + tmp_name + " = boost::python::extract<" + types[0].name + "*>(" + varname + "[" + cntr_name + "]);"
 			if types[0].attr_type == attr_types.star:
-				text += prefix + "\t" + varname + "___tmp." + c.insert_name + "(" + tmp_name + "->get_cpp_obj());"
+				text += prefix + "\t" + varname + "___tmp" + c.insert_name + "(" + tmp_name + "->get_cpp_obj());"
 			else:
-				text += prefix + "\t" + varname + "___tmp." + c.insert_name + "(*" + tmp_name + "->get_cpp_obj());"
+				text += prefix + "\t" + varname + "___tmp" + c.insert_name + "(*" + tmp_name + "->get_cpp_obj());"
 		else:
 			text += prefix + "\t" + types[0].name + " " + tmp_name + " = boost::python::extract<" + types[0].name + ">(" + varname + "[" + cntr_name + "]);"
-			text += prefix + "\t" + varname + "___tmp." + c.insert_name + "(" + tmp_name + ");"
+			text += prefix + "\t" + varname + "___tmp" + c.insert_name + "(" + tmp_name + ");"
 		text += prefix + "}"
 		return text
 
@@ -349,19 +349,24 @@ class PythonListTranslator(Translator):
 		text += prefix + "}"
 		return text
 
+class IDictTranslator(PythonListTranslator):
+	typename = "boost::python::list"
+	orig_name = "idict"
+	insert_name = ""
+
 #Sub-type for std::set
 class SetTranslator(PythonListTranslator):
-	insert_name = "insert"
+	insert_name = ".insert"
 	orig_name = "std::set"
 
 #Sub-type for std::vector
 class VectorTranslator(PythonListTranslator):
-	insert_name = "push_back"
+	insert_name = ".push_back"
 	orig_name = "std::vector"
 
 #Sub-type for pool
 class PoolTranslator(PythonListTranslator):
-	insert_name = "insert"
+	insert_name = ".insert"
 	orig_name = "pool"
 
 #Translates dict-types (dict, std::map), that only differ in their name and
@@ -528,6 +533,7 @@ known_containers = {
 	"std::set"		:	SetTranslator,
 	"std::vector"	:	VectorTranslator,
 	"pool"			:	PoolTranslator,
+	"idict"			:	IDictTranslator,
 	"dict"			:	DictTranslator,
 	"std::pair"		:	TupleTranslator,
 	"std::map"		:	MapTranslator
@@ -721,6 +727,7 @@ class WClass:
 	name = None
 	namespace = None
 	link_type = None
+	base_class = None
 	id_ = None
 	string_id = None
 	hash_id = None
@@ -732,6 +739,7 @@ class WClass:
 	def __init__(self, name, link_type, id_, string_id = None, hash_id = None, needs_clone = False):
 		self.name = name
 		self.namespace = None
+		self.base_class = None
 		self.link_type = link_type
 		self.id_ = id_
 		self.string_id = string_id
@@ -804,6 +812,8 @@ class WClass:
 
 			for con in self.found_constrs:
 				text += con.gen_decl()
+			if self.base_class is not None:
+				text += "\n\t\tvirtual ~" + self.name + "() { };"
 			for var in self.found_vars:
 				text += var.gen_decl()
 			for fun in self.found_funs:
@@ -908,15 +918,19 @@ class WClass:
 
 	def gen_boost_py(self):
 		body = self.gen_boost_py_body()
+		base_info = ""
+		if self.base_class is not None:
+			base_info = ", bases<" + (self.base_class.name) + ">"
+
 		if self.link_type == link_types.derive:
-			text = "\n\t\tclass_<" + self.name + ">(\"Cpp" + self.name + "\""
+			text = "\n\t\tclass_<" + self.name + base_info + ">(\"Cpp" + self.name + "\""
 			text += body
 			text += "\n\t\tclass_<" + self.name
 			text += "Wrap, boost::noncopyable"
 			text += ">(\"" + self.name + "\""
 			text += body
 		else:
-			text = "\n\t\tclass_<" + self.name + ">(\"" + self.name + "\""
+			text = "\n\t\tclass_<" + self.name + base_info + ">(\"" + self.name + "\""
 			text += body
 		return text
 	
@@ -1400,7 +1414,7 @@ class WFunction:
 			text += ", "
 		if len(self.args) > 0:
 			text = text[:-2]
-		text += ") YS_OVERRIDE;\n"
+		text += ") override;\n"
 		return text
 
 	def gen_decl_hash_py(self):
@@ -1935,6 +1949,19 @@ def parse_header(source):
 		line = source_text[i].replace("YOSYS_NAMESPACE_BEGIN", "                    namespace YOSYS_NAMESPACE{").replace("YOSYS_NAMESPACE_END","                    }")
 		ugly_line = unpretty_string(line)
 
+		# for anonymous unions, ignore union enclosure by skipping start line and replacing end line with new line
+		if 'union {' in line:
+			j = i+1
+			while j < len(source_text):
+				union_line = source_text[j]
+				if '};' in union_line:
+					source_text[j] = '\n'
+					break
+				j += 1
+			if j != len(source_text):
+				i += 1
+				continue
+
 		if str.startswith(ugly_line, "namespace "):# and ugly_line.find("std") == -1 and ugly_line.find("__") == -1:
 			namespace_name = ugly_line[10:].replace("{","").strip()
 			namespaces.append((namespace_name, ugly_line.count("{")))
@@ -1958,9 +1985,21 @@ def parse_header(source):
 			for namespace in impl_namespaces:
 				complete_namespace += "::" + namespace
 			debug("\tFound " + struct_name + " in " + complete_namespace,2)
+
+			base_class_name = None
+			if len(ugly_line.split(" : ")) > 1: # class is derived
+				deriv_str = ugly_line.split(" : ")[1]
+				if len(deriv_str.split("::")) > 1: # namespace of base class is given
+					base_class_name = deriv_str.split("::", 1)[1]
+				else:
+					base_class_name = deriv_str.split(" ")[0]
+				debug("\t  " + struct_name + " is derived from " + base_class_name,2)
+			base_class = class_by_name(base_class_name)
+
 			class_ = (class_by_name(struct_name), ugly_line.count("{"))#calc_ident(line))
 			if struct_name in classnames:
 				class_[0].namespace = complete_namespace
+				class_[0].base_class = base_class
 			i += 1
 			continue
 
@@ -2129,6 +2168,21 @@ def expand_functions():
 				new_funs.extend(expand_function(fun))
 			class_.found_funs = new_funs
 
+def inherit_members():
+	for source in sources:
+		for class_ in source.classes:
+			if class_.base_class:
+				base_funs = copy.deepcopy(class_.base_class.found_funs)
+				for fun in base_funs:
+					fun.member_of = class_
+					fun.namespace = class_.namespace
+				base_vars = copy.deepcopy(class_.base_class.found_vars)
+				for var in base_vars:
+					var.member_of = class_
+					var.namespace = class_.namespace
+				class_.found_funs.extend(base_funs)
+				class_.found_vars.extend(base_vars)
+
 def clean_duplicates():
 	for source in sources:
 		for class_ in source.classes:
@@ -2165,6 +2219,7 @@ def gen_wrappers(filename, debug_level_ = 0):
 		parse_header(source)
 
 	expand_functions()
+	inherit_members()
 	clean_duplicates()
 
 	import shutil

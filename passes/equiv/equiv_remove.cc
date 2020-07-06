@@ -24,7 +24,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct EquivRemovePass : public Pass {
 	EquivRemovePass() : Pass("equiv_remove", "remove $equiv cells") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -40,7 +40,7 @@ struct EquivRemovePass : public Pass {
 		log("        keep gate circuit\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, Design *design) override
 	{
 		bool mode_gold = false;
 		bool mode_gate = false;
@@ -68,9 +68,9 @@ struct EquivRemovePass : public Pass {
 		for (auto module : design->selected_modules())
 		{
 			for (auto cell : module->selected_cells())
-				if (cell->type == "$equiv" && (mode_gold || mode_gate || cell->getPort("\\A") == cell->getPort("\\B"))) {
-					log("Removing $equiv cell %s.%s (%s).\n", log_id(module), log_id(cell), log_signal(cell->getPort("\\Y")));
-					module->connect(cell->getPort("\\Y"), mode_gate ? cell->getPort("\\B") : cell->getPort("\\A"));
+				if (cell->type == ID($equiv) && (mode_gold || mode_gate || cell->getPort(ID::A) == cell->getPort(ID::B))) {
+					log("Removing $equiv cell %s.%s (%s).\n", log_id(module), log_id(cell), log_signal(cell->getPort(ID::Y)));
+					module->connect(cell->getPort(ID::Y), mode_gate ? cell->getPort(ID::B) : cell->getPort(ID::A));
 					module->remove(cell);
 					remove_count++;
 				}

@@ -23,11 +23,41 @@
 #define LOG_H
 
 #include <time.h>
-#include <regex>
 
-#ifndef _WIN32
+// In GCC 4.8 std::regex is not working correctlty, in order to make features
+// using regular expressions to work replacement regex library is used
+#if defined(__GNUC__) && !defined( __clang__) && ( __GNUC__ == 4 && __GNUC_MINOR__ <= 8)
+	#include <boost/xpressive/xpressive.hpp>
+	#define YS_REGEX_TYPE boost::xpressive::sregex
+	#define YS_REGEX_MATCH_TYPE boost::xpressive::smatch
+	#define YS_REGEX_NS boost::xpressive
+	#define YS_REGEX_COMPILE(param) boost::xpressive::sregex::compile(param, \
+					boost::xpressive::regex_constants::nosubs | \
+					boost::xpressive::regex_constants::optimize)
+	#define YS_REGEX_COMPILE_WITH_SUBS(param) boost::xpressive::sregex::compile(param, \
+					boost::xpressive::regex_constants::optimize)
+# else
+	#include <regex>
+	#define YS_REGEX_TYPE std::regex
+	#define YS_REGEX_MATCH_TYPE std::smatch
+	#define YS_REGEX_NS std
+	#define YS_REGEX_COMPILE(param) std::regex(param, \
+					std::regex_constants::nosubs | \
+					std::regex_constants::optimize | \
+					std::regex_constants::egrep)
+	#define YS_REGEX_COMPILE_WITH_SUBS(param) std::regex(param, \
+					std::regex_constants::optimize | \
+					std::regex_constants::egrep)
+#endif
+
+#if defined(_WIN32)
+#  include <intrin.h>
+#else
 #  include <sys/time.h>
 #  include <sys/resource.h>
+#  if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
+#    include <signal.h>
+#  endif
 #endif
 
 #if defined(_MSC_VER)
@@ -44,14 +74,51 @@ YOSYS_NAMESPACE_BEGIN
 #define S__LINE__sub1(x) S__LINE__sub2(x)
 #define S__LINE__ S__LINE__sub1(__LINE__)
 
+// YS_DEBUGTRAP is a macro that is functionally equivalent to a breakpoint
+// if the platform provides such functionality, and does nothing otherwise.
+// If no debugger is attached, it starts a just-in-time debugger if available,
+// and crashes the process otherwise.
+#if defined(_WIN32)
+# define YS_DEBUGTRAP __debugbreak()
+#else
+# ifndef __has_builtin
+// __has_builtin is a GCC/Clang extension; on a different compiler (or old enough GCC/Clang)
+// that does not have it, using __has_builtin(...) is a syntax error.
+#  define __has_builtin(x) 0
+# endif
+# if __has_builtin(__builtin_debugtrap)
+#  define YS_DEBUGTRAP __builtin_debugtrap()
+# elif defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
+#  define YS_DEBUGTRAP raise(SIGTRAP)
+# else
+#  define YS_DEBUGTRAP do {} while(0)
+# endif
+#endif
+
+// YS_DEBUGTRAP_IF_DEBUGGING is a macro that is functionally equivalent to a breakpoint
+// if a debugger is attached, and does nothing otherwise.
+#if defined(_WIN32)
+# define YS_DEBUGTRAP_IF_DEBUGGING do { if (IsDebuggerPresent()) DebugBreak(); } while(0)
+# elif defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
+// There is no reliable (or portable) *nix equivalent of IsDebuggerPresent(). However,
+// debuggers will stop when SIGTRAP is raised, even if the action is set to ignore.
+# define YS_DEBUGTRAP_IF_DEBUGGING do { \
+		auto old = signal(SIGTRAP, SIG_IGN); raise(SIGTRAP); signal(SIGTRAP, old); \
+	} while(0)
+#else
+# define YS_DEBUGTRAP_IF_DEBUGGING do {} while(0)
+#endif
+
 struct log_cmd_error_exception { };
 
 extern std::vector<FILE*> log_files;
 extern std::vector<std::ostream*> log_streams;
 extern std::map<std::string, std::set<std::string>> log_hdump;
-extern std::vector<std::regex> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
-extern std::set<std::string> log_warnings;
+extern std::vector<YS_REGEX_TYPE> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
+extern std::set<std::string> log_warnings, log_experimentals, log_experimentals_ignored;
 extern int log_warnings_count;
+extern int log_warnings_count_noexpect;
+extern bool log_expect_no_warnings;
 extern bool log_hdump_all;
 extern FILE *log_errfile;
 extern SHA1 *log_hasher;
@@ -72,28 +139,28 @@ void logv(const char *format, va_list ap);
 void logv_header(RTLIL::Design *design, const char *format, va_list ap);
 void logv_warning(const char *format, va_list ap);
 void logv_warning_noprefix(const char *format, va_list ap);
-YS_NORETURN void logv_error(const char *format, va_list ap) YS_ATTRIBUTE(noreturn);
+[[noreturn]] void logv_error(const char *format, va_list ap);
 
 void log(const char *format, ...)  YS_ATTRIBUTE(format(printf, 1, 2));
 void log_header(RTLIL::Design *design, const char *format, ...) YS_ATTRIBUTE(format(printf, 2, 3));
 void log_warning(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
+void log_experimental(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 
 // Log with filename to report a problem in a source file.
 void log_file_warning(const std::string &filename, int lineno, const char *format, ...) YS_ATTRIBUTE(format(printf, 3, 4));
 void log_file_info(const std::string &filename, int lineno, const char *format, ...) YS_ATTRIBUTE(format(printf, 3, 4));
 
 void log_warning_noprefix(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
-YS_NORETURN void log_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2), noreturn);
-void log_file_error(const string &filename, int lineno, const char *format, ...) YS_ATTRIBUTE(format(printf, 3, 4), noreturn);
-YS_NORETURN void log_cmd_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2), noreturn);
+[[noreturn]] void log_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
+[[noreturn]] void log_file_error(const string &filename, int lineno, const char *format, ...) YS_ATTRIBUTE(format(printf, 3, 4));
+[[noreturn]] void log_cmd_error(const char *format, ...) YS_ATTRIBUTE(format(printf, 1, 2));
 
 #ifndef NDEBUG
 static inline bool ys_debug(int n = 0) { if (log_force_debug) return true; log_debug_suppressed += n; return false; }
-#  define log_debug(...) do { if (ys_debug(1)) log(__VA_ARGS__); } while (0)
 #else
 static inline bool ys_debug(int = 0) { return false; }
-#  define log_debug(_fmt, ...) do { } while (0)
 #endif
+#  define log_debug(...) do { if (ys_debug(1)) log(__VA_ARGS__); } while (0)
 
 static inline void log_suppressed() {
 	if (log_debug_suppressed && !log_make_debug) {
@@ -134,6 +201,20 @@ void log_backtrace(const char *prefix, int levels);
 void log_reset_stack();
 void log_flush();
 
+struct LogExpectedItem
+{
+	LogExpectedItem(const YS_REGEX_TYPE &pat, int expected) :
+			pattern(pat), expected_count(expected), current_count(0) {}
+	LogExpectedItem() : expected_count(0), current_count(0) {}
+
+	YS_REGEX_TYPE pattern;
+	int expected_count;
+	int current_count;
+};
+
+extern dict<std::string, LogExpectedItem> log_expect_log, log_expect_warning, log_expect_error;
+void log_check_expected();
+
 const char *log_signal(const RTLIL::SigSpec &sig, bool autoint = true);
 const char *log_const(const RTLIL::Const &value, bool autoint = true);
 const char *log_id(RTLIL::IdString id);
@@ -154,7 +235,7 @@ static inline void log_assert_worker(bool cond, const char *expr, const char *fi
 }
 #  define log_assert(_assert_expr_) YOSYS_NAMESPACE_PREFIX log_assert_worker(_assert_expr_, #_assert_expr_, __FILE__, __LINE__)
 #else
-#  define log_assert(_assert_expr_)
+#  define log_assert(_assert_expr_) do { if (0) { (void)(_assert_expr_); } } while(0)
 #endif
 
 #define log_abort() YOSYS_NAMESPACE_PREFIX log_error("Abort in %s:%d.\n", __FILE__, __LINE__)
@@ -226,19 +307,17 @@ struct PerformanceTimer
 	static int64_t query() {
 #  ifdef _WIN32
 		return 0;
-#  elif defined(_POSIX_TIMERS) && (_POSIX_TIMERS > 0)
-		struct timespec ts;
-		clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
-		return int64_t(ts.tv_sec)*1000000000 + ts.tv_nsec;
 #  elif defined(RUSAGE_SELF)
 		struct rusage rusage;
-		int64_t t;
-		if (getrusage(RUSAGE_SELF, &rusage) == -1) {
-			log_cmd_error("getrusage failed!\n");
-			log_abort();
+		int64_t t = 0;
+		for (int who : {RUSAGE_SELF, RUSAGE_CHILDREN}) {
+			if (getrusage(who, &rusage) == -1) {
+				log_cmd_error("getrusage failed!\n");
+				log_abort();
+			}
+			t += 1000000000ULL * (int64_t) rusage.ru_utime.tv_sec + (int64_t) rusage.ru_utime.tv_usec * 1000ULL;
+			t += 1000000000ULL * (int64_t) rusage.ru_stime.tv_sec + (int64_t) rusage.ru_stime.tv_usec * 1000ULL;
 		}
-		t = 1000000000ULL * (int64_t) rusage.ru_utime.tv_sec + (int64_t) rusage.ru_utime.tv_usec * 1000ULL;
-		t += 1000000000ULL * (int64_t) rusage.ru_stime.tv_sec + (int64_t) rusage.ru_stime.tv_usec * 1000ULL;
 		return t;
 #  else
 #    error "Don't know how to measure per-process CPU time. Need alternative method (times()/clocks()/gettimeofday()?)."
@@ -289,7 +368,7 @@ static inline void log_dump_val_worker(char *v) { log("%s", v); }
 static inline void log_dump_val_worker(const char *v) { log("%s", v); }
 static inline void log_dump_val_worker(std::string v) { log("%s", v.c_str()); }
 static inline void log_dump_val_worker(PerformanceTimer p) { log("%f seconds", p.sec()); }
-static inline void log_dump_args_worker(const char *p YS_ATTRIBUTE(unused)) { log_assert(*p == 0); }
+static inline void log_dump_args_worker(const char *p) { log_assert(*p == 0); }
 void log_dump_val_worker(RTLIL::IdString v);
 void log_dump_val_worker(RTLIL::SigSpec v);
 void log_dump_val_worker(RTLIL::State v);

@@ -49,12 +49,12 @@ presat = False
 smtcinit = False
 smtctop = None
 noinit = False
+binarymode = False
 so = SmtOpts()
 
 
 def usage():
-    print("""
-yosys-smtbmc [options] <yosys_smt2_output>
+    print(os.path.basename(sys.argv[0]) + """ [options] <yosys_smt2_output>
 
     -t <num_steps>
     -t <skip_steps>:<num_steps>
@@ -150,6 +150,9 @@ yosys-smtbmc [options] <yosys_smt2_output>
         add <num_steps> time steps at the end of the trace
         when creating a counter example (this additional time
         steps will still be constrained by assumptions)
+
+    --binary
+        dump anyconst values as raw bit strings
 """ + so.helpmsg())
     sys.exit(1)
 
@@ -158,7 +161,7 @@ try:
     opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:igcm:", so.longopts +
             ["final-only", "assume-skipped=", "smtc=", "cex=", "aig=", "aig-noheader", "btorwit=", "presat",
              "dump-vcd=", "dump-vlogtb=", "vlogtb-top=", "dump-smtc=", "dump-all", "noinfo", "append=",
-             "smtc-init", "smtc-top=", "noinit"])
+             "smtc-init", "smtc-top=", "noinit", "binary"])
 except:
     usage()
 
@@ -229,6 +232,8 @@ for o, a in opts:
         covermode = True
     elif o == "-m":
         topmod = a
+    elif o == "--binary":
+        binarymode = True
     elif so.handle(o, a):
         pass
     else:
@@ -1089,9 +1094,15 @@ def print_anyconsts_worker(mod, state, path):
 
     for fun, info in smt.modinfo[mod].anyconsts.items():
         if info[1] is None:
-            print_msg("Value for anyconst in %s (%s): %d" % (path, info[0], smt.bv2int(smt.get("(|%s| %s)" % (fun, state)))))
+            if not binarymode:
+                print_msg("Value for anyconst in %s (%s): %d" % (path, info[0], smt.bv2int(smt.get("(|%s| %s)" % (fun, state)))))
+            else:
+                print_msg("Value for anyconst in %s (%s): %s" % (path, info[0], smt.bv2bin(smt.get("(|%s| %s)" % (fun, state)))))
         else:
-            print_msg("Value for anyconst %s.%s (%s): %d" % (path, info[1], info[0], smt.bv2int(smt.get("(|%s| %s)" % (fun, state)))))
+            if not binarymode:
+                print_msg("Value for anyconst %s.%s (%s): %d" % (path, info[1], info[0], smt.bv2int(smt.get("(|%s| %s)" % (fun, state)))))
+            else:
+                print_msg("Value for anyconst %s.%s (%s): %s" % (path, info[1], info[0], smt.bv2bin(smt.get("(|%s| %s)" % (fun, state)))))
 
 
 def print_anyconsts(state):
@@ -1157,6 +1168,8 @@ def smt_forall_assert():
 
     global asserts_cache_dirty
     asserts_cache_dirty = False
+
+    assert (len(smt.modinfo[topmod].maximize) + len(smt.modinfo[topmod].minimize) <= 1)
 
     def make_assert_expr(asserts_cache):
         expr = list()
@@ -1235,6 +1248,18 @@ def smt_forall_assert():
     assert_expr.append(") (=> %s %s)))" % (new_antecedent_expr, new_consequent_expr))
 
     smt.write("".join(assert_expr))
+
+    if len(smt.modinfo[topmod].maximize) > 0:
+        for s in states:
+            if s in used_states_db:
+                smt.write("(maximize (|%s| %s))\n" % (smt.modinfo[topmod].maximize.copy().pop(), s))
+                break
+
+    if len(smt.modinfo[topmod].minimize) > 0:
+        for s in states:
+            if s in used_states_db:
+                smt.write("(minimize (|%s| %s))\n" % (smt.modinfo[topmod].minimize.copy().pop(), s))
+                break
 
 def smt_push():
     global asserts_cache_dirty
@@ -1486,7 +1511,7 @@ else:  # not tempind, covermode
                             smt_assert_consequent(get_constr_expr(constr_assumes, i))
                         print_msg("Re-solving with appended steps..")
                         if smt_check_sat() == "unsat":
-                            print("%s Cannot appended steps without violating assumptions!" % smt.timestamp())
+                            print("%s Cannot append steps without violating assumptions!" % smt.timestamp())
                             retstatus = "FAILED"
                             break
                     print_anyconsts(step)
@@ -1523,7 +1548,7 @@ else:  # not tempind, covermode
                         break
 
                     smt_pop()
-                if not retstatus:
+                if retstatus == "FAILED" or retstatus == "PREUNSAT":
                     break
 
         else:  # gentrace
@@ -1532,8 +1557,9 @@ else:  # not tempind, covermode
                 smt_assert(get_constr_expr(constr_asserts, i))
 
             print_msg("Solving for step %d.." % (last_check_step))
-            if smt_check_sat() != "sat":
-                print("%s No solution found!" % smt.timestamp())
+            status = smt_check_sat()
+            if status != "sat":
+                print("%s No solution found! (%s)" % (smt.timestamp(), status))
                 retstatus = "FAILED"
                 break
 
@@ -1543,7 +1569,7 @@ else:  # not tempind, covermode
 
         step += step_size
 
-    if gentrace and retstatus:
+    if gentrace and retstatus == "PASSED":
         print_anyconsts(0)
         write_trace(0, num_steps, '%')
 

@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct DetermineInitPass : public Pass {
 	DetermineInitPass() : Pass("determine_init", "Determine the init value of cells") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		log("\n");
 		log("    determine_init [selection]\n");
@@ -44,7 +44,7 @@ struct DetermineInitPass : public Pass {
 		return init;
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing DETERMINE_INIT pass (determine init value for cells).\n");
 
@@ -55,12 +55,12 @@ struct DetermineInitPass : public Pass {
 		{
 			for (auto cell : module->selected_cells())
 			{
-				if (cell->type == "\\RAM16S4")
+				if (cell->type == ID(RAM16S4))
 				{
-					cell->setParam("\\INIT_0", determine_init(cell->getParam("\\INIT_0")));
-					cell->setParam("\\INIT_1", determine_init(cell->getParam("\\INIT_1")));
-					cell->setParam("\\INIT_2", determine_init(cell->getParam("\\INIT_2")));
-					cell->setParam("\\INIT_3", determine_init(cell->getParam("\\INIT_3")));
+					cell->setParam(ID(INIT_0), determine_init(cell->getParam(ID(INIT_0))));
+					cell->setParam(ID(INIT_1), determine_init(cell->getParam(ID(INIT_1))));
+					cell->setParam(ID(INIT_2), determine_init(cell->getParam(ID(INIT_2))));
+					cell->setParam(ID(INIT_3), determine_init(cell->getParam(ID(INIT_3))));
 					cnt++;
 				}
 			}

@@ -60,8 +60,8 @@ struct EquivSimpleWorker
 		for (auto &conn : cell->connections())
 			if (yosys_celltypes.cell_input(cell->type, conn.first))
 				for (auto bit : sigmap(conn.second)) {
-					if (cell->type.in("$dff", "$_DFF_P_", "$_DFF_N_", "$ff", "$_FF_")) {
-						if (!conn.first.in("\\CLK", "\\C"))
+					if (cell->type.in(ID($dff), ID($_DFF_P_), ID($_DFF_N_), ID($ff), ID($_FF_))) {
+						if (!conn.first.in(ID::CLK, ID::C))
 							next_seed.insert(bit);
 					} else
 						find_input_cone(next_seed, cells_cone, bits_cone, cells_stop, bits_stop, input_bits, bit);
@@ -90,8 +90,8 @@ struct EquivSimpleWorker
 
 	bool run_cell()
 	{
-		SigBit bit_a = sigmap(equiv_cell->getPort("\\A")).as_bit();
-		SigBit bit_b = sigmap(equiv_cell->getPort("\\B")).as_bit();
+		SigBit bit_a = sigmap(equiv_cell->getPort(ID::A)).as_bit();
+		SigBit bit_b = sigmap(equiv_cell->getPort(ID::B)).as_bit();
 		int ez_context = ez->frozen_literal();
 
 		if (satgen.model_undef)
@@ -115,9 +115,9 @@ struct EquivSimpleWorker
 
 		if (verbose) {
 			log("  Trying to prove $equiv cell %s:\n", log_id(equiv_cell));
-			log("    A = %s, B = %s, Y = %s\n", log_signal(bit_a), log_signal(bit_b), log_signal(equiv_cell->getPort("\\Y")));
+			log("    A = %s, B = %s, Y = %s\n", log_signal(bit_a), log_signal(bit_b), log_signal(equiv_cell->getPort(ID::Y)));
 		} else {
-			log("  Trying to prove $equiv for %s:", log_signal(equiv_cell->getPort("\\Y")));
+			log("  Trying to prove $equiv for %s:", log_signal(equiv_cell->getPort(ID::Y)));
 		}
 
 		int step = max_seq;
@@ -199,7 +199,7 @@ struct EquivSimpleWorker
 
 			if (!ez->solve(ez_context)) {
 				log(verbose ? "    Proved equivalence! Marking $equiv cell as proven.\n" : " success!\n");
-				equiv_cell->setPort("\\B", equiv_cell->getPort("\\A"));
+				equiv_cell->setPort(ID::B, equiv_cell->getPort(ID::A));
 				ez->assume(ez->NOT(ez_context));
 				return true;
 			}
@@ -256,7 +256,7 @@ struct EquivSimpleWorker
 		if (GetSize(equiv_cells) > 1) {
 			SigSpec sig;
 			for (auto c : equiv_cells)
-				sig.append(sigmap(c->getPort("\\Y")));
+				sig.append(sigmap(c->getPort(ID::Y)));
 			log(" Grouping SAT models for %s:\n", log_signal(sig));
 		}
 
@@ -273,7 +273,7 @@ struct EquivSimpleWorker
 
 struct EquivSimplePass : public Pass {
 	EquivSimplePass() : Pass("equiv_simple", "try proving simple $equiv instances") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -298,7 +298,7 @@ struct EquivSimplePass : public Pass {
 		log("        the max. number of time steps to be considered (default = 1)\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, Design *design) override
 	{
 		bool verbose = false, short_cones = false, model_undef = false, nogroup = false;
 		int success_counter = 0;
@@ -344,8 +344,8 @@ struct EquivSimplePass : public Pass {
 			int unproven_cells_counter = 0;
 
 			for (auto cell : module->selected_cells())
-				if (cell->type == "$equiv" && cell->getPort("\\A") != cell->getPort("\\B")) {
-					auto bit = sigmap(cell->getPort("\\Y").as_bit());
+				if (cell->type == ID($equiv) && cell->getPort(ID::A) != cell->getPort(ID::B)) {
+					auto bit = sigmap(cell->getPort(ID::Y).as_bit());
 					auto bit_group = bit;
 					if (!nogroup && bit_group.wire)
 						bit_group.offset = 0;
@@ -360,7 +360,7 @@ struct EquivSimplePass : public Pass {
 					unproven_cells_counter, GetSize(unproven_equiv_cells), log_id(module));
 
 			for (auto cell : module->cells()) {
-				if (!ct.cell_known(cell->type) && !cell->type.in("$dff", "$_DFF_P_", "$_DFF_N_", "$ff", "$_FF_"))
+				if (!ct.cell_known(cell->type) && !cell->type.in(ID($dff), ID($_DFF_P_), ID($_DFF_N_), ID($ff), ID($_FF_)))
 					continue;
 				for (auto &conn : cell->connections())
 					if (yosys_celltypes.cell_output(cell->type, conn.first))

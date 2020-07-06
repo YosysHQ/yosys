@@ -262,7 +262,7 @@ struct ExtractFaWorker
 			pool<SigBit> new_leaves = leaves;
 
 			new_leaves.erase(bit);
-			for (auto port : {ID::A, ID::B, ID(C), ID(D)}) {
+			for (auto port : {ID::A, ID::B, ID::C, ID::D}) {
 				if (!cell->hasPort(port))
 					continue;
 				auto bit = sigmap(SigBit(cell->getPort(port)));
@@ -395,18 +395,18 @@ struct ExtractFaWorker
 				else
 				{
 					Cell *cell = module->addCell(NEW_ID, ID($fa));
-					cell->setParam(ID(WIDTH), 1);
+					cell->setParam(ID::WIDTH, 1);
 
 					log("      Created $fa cell %s.\n", log_id(cell));
 
 					cell->setPort(ID::A, f3i.inv_a ? module->NotGate(NEW_ID, A) : A);
 					cell->setPort(ID::B, f3i.inv_b ? module->NotGate(NEW_ID, B) : B);
-					cell->setPort(ID(C), f3i.inv_c ? module->NotGate(NEW_ID, C) : C);
+					cell->setPort(ID::C, f3i.inv_c ? module->NotGate(NEW_ID, C) : C);
 
 					X = module->addWire(NEW_ID);
 					Y = module->addWire(NEW_ID);
 
-					cell->setPort(ID(X), X);
+					cell->setPort(ID::X, X);
 					cell->setPort(ID::Y, Y);
 
 					facache[fakey] = make_tuple(X, Y, cell);
@@ -501,18 +501,18 @@ struct ExtractFaWorker
 				else
 				{
 					Cell *cell = module->addCell(NEW_ID, ID($fa));
-					cell->setParam(ID(WIDTH), 1);
+					cell->setParam(ID::WIDTH, 1);
 
 					log("      Created $fa cell %s.\n", log_id(cell));
 
 					cell->setPort(ID::A, f2i.inv_a ? module->NotGate(NEW_ID, A) : A);
 					cell->setPort(ID::B, f2i.inv_b ? module->NotGate(NEW_ID, B) : B);
-					cell->setPort(ID(C), State::S0);
+					cell->setPort(ID::C, State::S0);
 
 					X = module->addWire(NEW_ID);
 					Y = module->addWire(NEW_ID);
 
-					cell->setPort(ID(X), X);
+					cell->setPort(ID::X, X);
 					cell->setPort(ID::Y, Y);
 				}
 
@@ -539,7 +539,7 @@ struct ExtractFaWorker
 
 struct ExtractFaPass : public Pass {
 	ExtractFaPass() : Pass("extract_fa", "find and extract full/half adders") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -561,7 +561,7 @@ struct ExtractFaPass : public Pass {
 		log("        Verbose output\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		ExtractFaConfig config;
 

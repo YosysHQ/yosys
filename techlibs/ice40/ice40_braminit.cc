@@ -33,15 +33,15 @@ static void run_ice40_braminit(Module *module)
 		uint16_t mem[256];
 
 		/* Only consider cells we're interested in */
-		if (cell->type != "\\SB_RAM40_4K" &&
-		    cell->type != "\\SB_RAM40_4KNR" &&
-		    cell->type != "\\SB_RAM40_4KNW" &&
-		    cell->type != "\\SB_RAM40_4KNRNW")
+		if (cell->type != ID(SB_RAM40_4K) &&
+		    cell->type != ID(SB_RAM40_4KNR) &&
+		    cell->type != ID(SB_RAM40_4KNW) &&
+		    cell->type != ID(SB_RAM40_4KNRNW))
 			continue;
-		if (!cell->hasParam("\\INIT_FILE"))
+		if (!cell->hasParam(ID(INIT_FILE)))
 			continue;
-		std::string init_file = cell->getParam("\\INIT_FILE").decode_string();
-		cell->unsetParam("\\INIT_FILE");
+		std::string init_file = cell->getParam(ID(INIT_FILE)).decode_string();
+		cell->unsetParam(ID(INIT_FILE));
 		if (init_file == "")
 			continue;
 
@@ -128,7 +128,7 @@ static void run_ice40_braminit(Module *module)
 
 struct Ice40BRAMInitPass : public Pass {
 	Ice40BRAMInitPass() : Pass("ice40_braminit", "iCE40: perform SB_RAM40_4K initialization from file") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -138,7 +138,7 @@ struct Ice40BRAMInitPass : public Pass {
 		log("parameter and converts it into the required INIT_x attributes\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing ICE40_BRAMINIT pass.\n");
 

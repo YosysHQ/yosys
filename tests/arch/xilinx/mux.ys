@@ -3,7 +3,7 @@ design -save read
 
 hierarchy -top mux2
 proc
-equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -noiopad # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd mux2 # Constrain all select calls below inside the top module
 select -assert-count 1 t:LUT3
@@ -14,7 +14,7 @@ select -assert-none t:LUT3 %% t:* %D
 design -load read
 hierarchy -top mux4
 proc
-equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -noiopad # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd mux4 # Constrain all select calls below inside the top module
 select -assert-count 1 t:LUT6
@@ -25,7 +25,7 @@ select -assert-none t:LUT6 %% t:* %D
 design -load read
 hierarchy -top mux8
 proc
-equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -noiopad # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd mux8 # Constrain all select calls below inside the top module
 select -assert-count 1 t:LUT3
@@ -37,9 +37,13 @@ select -assert-none t:LUT3 t:LUT6 %% t:* %D
 design -load read
 hierarchy -top mux16
 proc
-equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx # equivalency check
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -noiopad # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd mux16 # Constrain all select calls below inside the top module
-select -assert-count 5 t:LUT6
+select -assert-max 2 t:LUT4
+select -assert-min 4 t:LUT6
+select -assert-max 7 t:LUT6
+select -assert-max 2 t:MUXF7
+dump
 
-select -assert-none t:LUT6 %% t:* %D
+select -assert-none t:LUT6 t:LUT4 t:MUXF7 %% t:* %D

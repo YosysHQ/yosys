@@ -35,7 +35,7 @@ void split_portname_pair(std::string &port1, std::string &port2)
 
 struct ClkbufmapPass : public Pass {
 	ClkbufmapPass() : Pass("clkbufmap", "insert global buffers on clock networks") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -76,7 +76,7 @@ struct ClkbufmapPass : public Pass {
 		modules_processed.insert(module);
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing CLKBUFMAP pass (inserting global clock buffers).\n");
 
@@ -129,13 +129,13 @@ struct ClkbufmapPass : public Pass {
 			if (module->get_blackbox_attribute()) {
 				for (auto port : module->ports) {
 					auto wire = module->wire(port);
-					if (wire->get_bool_attribute("\\clkbuf_driver"))
+					if (wire->get_bool_attribute(ID::clkbuf_driver))
 						for (int i = 0; i < GetSize(wire); i++)
 							buf_ports.insert(make_pair(module->name, make_pair(wire->name, i)));
-					if (wire->get_bool_attribute("\\clkbuf_sink"))
+					if (wire->get_bool_attribute(ID::clkbuf_sink))
 						for (int i = 0; i < GetSize(wire); i++)
 							sink_ports.insert(make_pair(module->name, make_pair(wire->name, i)));
-					auto it = wire->attributes.find("\\clkbuf_inv");
+					auto it = wire->attributes.find(ID::clkbuf_inv);
 					if (it != wire->attributes.end()) {
 						IdString in_name = RTLIL::escape_id(it->second.decode_string());
 						for (int i = 0; i < GetSize(wire); i++) {
@@ -215,7 +215,7 @@ struct ClkbufmapPass : public Pass {
 				if (wire->port_input && wire->port_output)
 					continue;
 				bool process_wire = module->selected(wire);
-				if (!select && wire->get_bool_attribute("\\clkbuf_inhibit"))
+				if (!select && wire->get_bool_attribute(ID::clkbuf_inhibit))
 					process_wire = false;
 				if (!process_wire) {
 					// This wire is supposed to be bypassed, so make sure we don't buffer it in
@@ -238,7 +238,7 @@ struct ClkbufmapPass : public Pass {
 							buf_ports.insert(make_pair(module->name, make_pair(wire->name, i)));
 					} else if (!sink_wire_bits.count(mapped_wire_bit)) {
 						// Nothing to do.
-					} else if (driven_wire_bits.count(wire_bit) || (wire->port_input && module->get_bool_attribute("\\top"))) {
+					} else if (driven_wire_bits.count(wire_bit) || (wire->port_input && module->get_bool_attribute(ID::top))) {
 						// Clock network not yet buffered, driven by one of
 						// our cells or a top-level input -- buffer it.
 
@@ -247,7 +247,7 @@ struct ClkbufmapPass : public Pass {
 						Wire *iwire = module->addWire(NEW_ID);
 						cell->setPort(RTLIL::escape_id(buf_portname), mapped_wire_bit);
 						cell->setPort(RTLIL::escape_id(buf_portname2), iwire);
-						if (wire->port_input && !inpad_celltype.empty() && module->get_bool_attribute("\\top")) {
+						if (wire->port_input && !inpad_celltype.empty() && module->get_bool_attribute(ID::top)) {
 							log("Inserting %s on %s.%s[%d].\n", inpad_celltype.c_str(), log_id(module), log_id(wire), i);
 							RTLIL::Cell *cell2 = module->addCell(NEW_ID, RTLIL::escape_id(inpad_celltype));
 							cell2->setPort(RTLIL::escape_id(inpad_portname), iwire);

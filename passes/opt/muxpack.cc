@@ -208,8 +208,8 @@ struct MuxpackWorker
 			{
 				Cell *prev_cell = sig_chain_prev.at(a_sig);
 				log_assert(prev_cell);
-				SigSpec s_sig = sigmap(cell->getPort(ID(S)));
-				s_sig.append(sigmap(prev_cell->getPort(ID(S))));
+				SigSpec s_sig = sigmap(cell->getPort(ID::S));
+				s_sig.append(sigmap(prev_cell->getPort(ID::S)));
 				if (!excl_db.query(s_sig))
 					goto start_cell;
 			}
@@ -271,26 +271,26 @@ struct MuxpackWorker
 
 			first_cell->type = ID($pmux);
 			SigSpec b_sig = first_cell->getPort(ID::B);
-			SigSpec s_sig = first_cell->getPort(ID(S));
+			SigSpec s_sig = first_cell->getPort(ID::S);
 
 			for (int i = 1; i < cases; i++) {
 				Cell* prev_cell = chain[cursor+i-1];
 				Cell* cursor_cell = chain[cursor+i];
 				if (sigmap(prev_cell->getPort(ID::Y)) == sigmap(cursor_cell->getPort(ID::A))) {
 					b_sig.append(cursor_cell->getPort(ID::B));
-					s_sig.append(cursor_cell->getPort(ID(S)));
+					s_sig.append(cursor_cell->getPort(ID::S));
 				}
 				else {
 					log_assert(cursor_cell->type == ID($mux));
 					b_sig.append(cursor_cell->getPort(ID::A));
-					s_sig.append(module->LogicNot(NEW_ID, cursor_cell->getPort(ID(S))));
+					s_sig.append(module->LogicNot(NEW_ID, cursor_cell->getPort(ID::S)));
 				}
 				remove_cells.insert(cursor_cell);
 			}
 
 			first_cell->setPort(ID::B, b_sig);
-			first_cell->setPort(ID(S), s_sig);
-			first_cell->setParam(ID(S_WIDTH), GetSize(s_sig));
+			first_cell->setPort(ID::S, s_sig);
+			first_cell->setParam(ID::S_WIDTH, GetSize(s_sig));
 			first_cell->setPort(ID::Y, last_cell->getPort(ID::Y));
 
 			cursor += cases;
@@ -326,7 +326,7 @@ struct MuxpackWorker
 
 struct MuxpackPass : public Pass {
 	MuxpackPass() : Pass("muxpack", "$mux/$pmux cascades to $pmux") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -341,7 +341,7 @@ struct MuxpackPass : public Pass {
 		log("certain that their select inputs are mutually exclusive.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing MUXPACK pass ($mux cell cascades to $pmux).\n");
 

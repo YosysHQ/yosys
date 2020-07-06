@@ -1,7 +1,7 @@
 ```
 yosys -- Yosys Open SYnthesis Suite
 
-Copyright (C) 2012 - 2019  Clifford Wolf <clifford@clifford.at>
+Copyright (C) 2012 - 2020  Claire Wolf <claire@symbioticeda.com>
 
 Permission to use, copy, modify, and/or distribute this software for any
 purpose with or without fee is hereby granted, provided that the above
@@ -69,7 +69,7 @@ prerequisites for building yosys:
 		graphviz xdot pkg-config python3 libboost-system-dev \
 		libboost-python-dev libboost-filesystem-dev zlib1g-dev
 
-Similarily, on Mac OS X Homebrew can be used to install dependencies:
+Similarily, on Mac OS X Homebrew can be used to install dependencies (from within cloned yosys repository):
 
 	$ brew tap Homebrew/bundle && brew bundle
 
@@ -117,6 +117,13 @@ as executable name).
 Tests are located in the tests subdirectory and can be executed using the test target. Note that you need gawk as well as a recent version of iverilog (i.e. build from git). Then, execute tests via:
 
 	$ make test
+
+To use a separate (out-of-tree) build directory, provide a path to the Makefile.
+
+	$ mkdir build; cd build
+	$ make -f ../Makefile
+
+Out-of-tree builds require a clean source tree.
 
 Getting Started
 ===============
@@ -274,6 +281,9 @@ Verilog Attributes and non-standard features
   temporary variable within an always block. This is mostly used internally
   by Yosys to synthesize Verilog functions and access arrays.
 
+- The ``nowrshmsk`` attribute on a register prohibits the generation of
+  shift-and-mask type circuits for writing to bit slices of that register.
+
 - The ``onehot`` attribute on wires mark them as one-hot state register. This
   is used for example for memory port sharing and set by the fsm_map pass.
 
@@ -299,7 +309,9 @@ Verilog Attributes and non-standard features
   that have ports with a width that depends on a parameter.
 
 - The ``hdlname`` attribute is used by some passes to document the original
-  (HDL) name of a module when renaming a module.
+  (HDL) name of a module when renaming a module. It should contain a single
+  name, or, when describing a hierarchical name in a flattened design, multiple
+  names separated by a single space character.
 
 - The ``keep`` attribute on cells and wires is used to mark objects that should
   never be removed by the optimizer. This is used for example for cells that
@@ -364,24 +376,31 @@ Verilog Attributes and non-standard features
   it as the external-facing pin of an I/O pad, and prevents ``iopadmap``
   from inserting another pad cell on it.
 
-- The module attribute ``abc_box_id`` specifies a positive integer linking a
-  blackbox or whitebox definition to a corresponding entry in a `abc9`
-  box-file.
+- The module attribute ``abc9_lut`` is an integer attribute indicating to
+  `abc9` that this module describes a LUT with an area cost of this value, and
+  propagation delays described using `specify` statements.
 
-- The port attribute ``abc_carry`` marks the carry-in (if an input port) and
+- The module attribute ``abc9_box`` is a boolean specifying a black/white-box
+  definition, with propagation delays described using `specify` statements, for
+  use by `abc9`.
+
+- The port attribute ``abc9_carry`` marks the carry-in (if an input port) and
   carry-out (if output port) ports of a box. This information is necessary for
   `abc9` to preserve the integrity of carry-chains. Specifying this attribute
   onto a bus port will affect only its most significant bit.
 
-- The port attribute ``abc_arrival`` specifies an integer (for output ports
-  only) to be used as the arrival time of this sequential port. It can be used,
-  for example, to specify the clk-to-Q delay of a flip-flop for consideration
-  during techmapping.
+- The module attribute ``abc9_flop`` is a boolean marking the module as a
+  flip-flop. This allows `abc9` to analyse its contents in order to perform
+  sequential synthesis.
 
 - The frontend sets attributes ``always_comb``, ``always_latch`` and
   ``always_ff`` on processes derived from SystemVerilog style always blocks
   according to the type of the always. These are checked for correctness in
   ``proc_dlatch``.
+
+- The cell attribute ``wildcard_port_conns`` represents wildcard port
+  connections (SystemVerilog ``.*``). These are resolved to concrete
+  connections to matching wires in ``hierarchy``.
 
 - In addition to the ``(* ... *)`` attribute syntax, Yosys supports
   the non-standard ``{* ... *}`` attribute syntax to set default attributes
@@ -433,6 +452,17 @@ Verilog Attributes and non-standard features
         ...
       endmodule
 
+- The ``wiretype`` attribute is added by the verilog parser for wires of a
+  typedef'd type to indicate the type identifier.
+
+- Various ``enum_value_{value}`` attributes are added to wires of an enumerated type
+  to give a map of possible enum items to their values.
+
+- The ``enum_base_type`` attribute is added to enum items to indicate which
+  enum they belong to (enums -- anonymous and otherwise -- are
+  automatically named with an auto-incrementing counter). Note that enums
+  are currently not strongly typed.
+
 - A limited subset of DPI-C functions is supported. The plugin mechanism
   (see ``help plugin``) can be used to load .so files with implementations
   of DPI-C routines. As a non-standard extension it is possible to specify
@@ -454,10 +484,10 @@ Verilog Attributes and non-standard features
   expressions over parameters and constant values are allowed). The intended
   use for this is synthesis-time DRC.
 
-- There is limited support for converting specify .. endspecify statements to
-  special ``$specify2``, ``$specify3``, and ``$specrule`` cells, for use in
-  blackboxes and whiteboxes. Use ``read_verilog -specify`` to enable this
-  functionality. (By default specify .. endspecify blocks are ignored.)
+- There is limited support for converting ``specify`` .. ``endspecify``
+  statements to special ``$specify2``, ``$specify3``, and ``$specrule`` cells,
+  for use in blackboxes and whiteboxes. Use ``read_verilog -specify`` to
+  enable this functionality. (By default these blocks are ignored.)
 
 
 Non-standard or SystemVerilog features for formal verification
@@ -523,6 +553,12 @@ from SystemVerilog:
   SystemVerilog files being read into the same design afterwards.
 
 - typedefs are supported (including inside packages)
+	- type casts are currently not supported
+
+- enums are supported (including inside packages)
+	- but are currently not strongly typed
+
+- packed structs and unions are supported.
 
 - SystemVerilog interfaces (SVIs) are supported. Modports for specifying whether
   ports are inputs or outputs are supported.

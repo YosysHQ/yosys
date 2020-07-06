@@ -11,7 +11,7 @@ module foo(clk, rst, inp_a, inp_b, out);
   input  wire rst;
   input  wire [7:0] inp_a;
   input  wire [7:0] inp_b;
-  output wire [7:0] out;
+  output reg  [7:0] out;
 
   always @(posedge clk)
     if (rst) out <= 0;

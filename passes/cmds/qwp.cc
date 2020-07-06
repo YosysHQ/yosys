@@ -737,7 +737,7 @@ struct QwpWorker
 
 		for (auto &node : nodes)
 			if (node.cell != nullptr)
-				node.cell->attributes["\\qwp_position"] = stringf("%f %f", node.pos, node.alt_pos);
+				node.cell->attributes[ID::qwp_position] = stringf("%f %f", node.pos, node.alt_pos);
 
 		vector<double> edge_lengths;
 		vector<double> weighted_edge_lengths;
@@ -778,7 +778,7 @@ struct QwpWorker
 
 struct QwpPass : public Pass {
 	QwpPass() : Pass("qwp", "quadratic wirelength placer") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -808,7 +808,7 @@ struct QwpPass : public Pass {
 		log("dense matrix operations. It is only a toy-placer for small circuits.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		QwpConfig config;
 		xorshift32_state = 123456789;

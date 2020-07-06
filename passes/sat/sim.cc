@@ -108,8 +108,8 @@ struct SimInstance
 				}
 			}
 
-			if (wire->attributes.count("\\init")) {
-				Const initval = wire->attributes.at("\\init");
+			if (wire->attributes.count(ID::init)) {
+				Const initval = wire->attributes.at(ID::init);
 				for (int i = 0; i < GetSize(sig) && i < GetSize(initval); i++)
 					if (initval[i] == State::S0 || initval[i] == State::S1) {
 						state_nets[sig[i]] = initval[i];
@@ -128,28 +128,32 @@ struct SimInstance
 
 			for (auto &port : cell->connections()) {
 				if (cell->input(port.first))
-					for (auto bit : sigmap(port.second))
+					for (auto bit : sigmap(port.second)) {
 						upd_cells[bit].insert(cell);
+						// Make sure cell inputs connected to constants are updated in the first cycle
+						if (bit.wire == nullptr)
+							dirty_bits.insert(bit);
+					}
 			}
 
-			if (cell->type.in("$dff")) {
+			if (cell->type.in(ID($dff))) {
 				ff_state_t ff;
 				ff.past_clock = State::Sx;
-				ff.past_d = Const(State::Sx, cell->getParam("\\WIDTH").as_int());
+				ff.past_d = Const(State::Sx, cell->getParam(ID::WIDTH).as_int());
 				ff_database[cell] = ff;
 			}
 
-			if (cell->type == "$mem")
+			if (cell->type == ID($mem))
 			{
 				mem_state_t mem;
 
-				mem.past_wr_clk = Const(State::Sx, GetSize(cell->getPort("\\WR_CLK")));
-				mem.past_wr_en = Const(State::Sx, GetSize(cell->getPort("\\WR_EN")));
-				mem.past_wr_addr = Const(State::Sx, GetSize(cell->getPort("\\WR_ADDR")));
-				mem.past_wr_data = Const(State::Sx, GetSize(cell->getPort("\\WR_DATA")));
+				mem.past_wr_clk = Const(State::Sx, GetSize(cell->getPort(ID::WR_CLK)));
+				mem.past_wr_en = Const(State::Sx, GetSize(cell->getPort(ID::WR_EN)));
+				mem.past_wr_addr = Const(State::Sx, GetSize(cell->getPort(ID::WR_ADDR)));
+				mem.past_wr_data = Const(State::Sx, GetSize(cell->getPort(ID::WR_DATA)));
 
-				mem.data = cell->getParam("\\INIT");
-				int sz = cell->getParam("\\SIZE").as_int() * cell->getParam("\\WIDTH").as_int();
+				mem.data = cell->getParam(ID::INIT);
+				int sz = cell->getParam(ID::SIZE).as_int() * cell->getParam(ID::WIDTH).as_int();
 
 				if (GetSize(mem.data) > sz)
 					mem.data.bits.resize(sz);
@@ -160,7 +164,7 @@ struct SimInstance
 				mem_database[cell] = mem;
 			}
 
-			if (cell->type.in("$assert", "$cover", "$assume")) {
+			if (cell->type.in(ID($assert), ID($cover), ID($assume))) {
 				formal_database.insert(cell);
 			}
 		}
@@ -173,7 +177,7 @@ struct SimInstance
 				ff_state_t &ff = it.second;
 				zinit(ff.past_d);
 
-				SigSpec qsig = cell->getPort("\\Q");
+				SigSpec qsig = cell->getPort(ID::Q);
 				Const qdata = get_state(qsig);
 				zinit(qdata);
 				set_state(qsig, qdata);
@@ -230,7 +234,7 @@ struct SimInstance
 		bool did_something = false;
 
 		sig = sigmap(sig);
-		log_assert(GetSize(sig) == GetSize(value));
+		log_assert(GetSize(sig) <= GetSize(value));
 
 		for (int i = 0; i < GetSize(sig); i++)
 			if (state_nets.at(sig[i]) != value[i]) {
@@ -256,18 +260,18 @@ struct SimInstance
 		{
 			mem_state_t &mem = mem_database.at(cell);
 
-			int num_rd_ports = cell->getParam("\\RD_PORTS").as_int();
+			int num_rd_ports = cell->getParam(ID::RD_PORTS).as_int();
 
-			int size = cell->getParam("\\SIZE").as_int();
-			int offset = cell->getParam("\\OFFSET").as_int();
-			int abits = cell->getParam("\\ABITS").as_int();
-			int width = cell->getParam("\\WIDTH").as_int();
+			int size = cell->getParam(ID::SIZE).as_int();
+			int offset = cell->getParam(ID::OFFSET).as_int();
+			int abits = cell->getParam(ID::ABITS).as_int();
+			int width = cell->getParam(ID::WIDTH).as_int();
 
-			if (cell->getParam("\\RD_CLK_ENABLE").as_bool())
+			if (cell->getParam(ID::RD_CLK_ENABLE).as_bool())
 				log_error("Memory %s.%s has clocked read ports. Run 'memory' with -nordff.\n", log_id(module), log_id(cell));
 
-			SigSpec rd_addr_sig = cell->getPort("\\RD_ADDR");
-			SigSpec rd_data_sig = cell->getPort("\\RD_DATA");
+			SigSpec rd_addr_sig = cell->getPort(ID::RD_ADDR);
+			SigSpec rd_data_sig = cell->getPort(ID::RD_DATA);
 
 			for (int port_idx = 0; port_idx < num_rd_ports; port_idx++)
 			{
@@ -303,19 +307,19 @@ struct SimInstance
 			RTLIL::SigSpec sig_a, sig_b, sig_c, sig_d, sig_s, sig_y;
 			bool has_a, has_b, has_c, has_d, has_s, has_y;
 
-			has_a = cell->hasPort("\\A");
-			has_b = cell->hasPort("\\B");
-			has_c = cell->hasPort("\\C");
-			has_d = cell->hasPort("\\D");
-			has_s = cell->hasPort("\\S");
-			has_y = cell->hasPort("\\Y");
+			has_a = cell->hasPort(ID::A);
+			has_b = cell->hasPort(ID::B);
+			has_c = cell->hasPort(ID::C);
+			has_d = cell->hasPort(ID::D);
+			has_s = cell->hasPort(ID::S);
+			has_y = cell->hasPort(ID::Y);
 
-			if (has_a) sig_a = cell->getPort("\\A");
-			if (has_b) sig_b = cell->getPort("\\B");
-			if (has_c) sig_c = cell->getPort("\\C");
-			if (has_d) sig_d = cell->getPort("\\D");
-			if (has_s) sig_s = cell->getPort("\\S");
-			if (has_y) sig_y = cell->getPort("\\Y");
+			if (has_a) sig_a = cell->getPort(ID::A);
+			if (has_b) sig_b = cell->getPort(ID::B);
+			if (has_c) sig_c = cell->getPort(ID::C);
+			if (has_d) sig_d = cell->getPort(ID::D);
+			if (has_s) sig_s = cell->getPort(ID::S);
+			if (has_y) sig_y = cell->getPort(ID::Y);
 
 			if (shared->debug)
 				log("[%s] eval %s (%s)\n", hiername().c_str(), log_id(cell), log_id(cell->type));
@@ -403,16 +407,16 @@ struct SimInstance
 			Cell *cell = it.first;
 			ff_state_t &ff = it.second;
 
-			if (cell->type.in("$dff"))
+			if (cell->type.in(ID($dff)))
 			{
-				bool clkpol = cell->getParam("\\CLK_POLARITY").as_bool();
-				State current_clock = get_state(cell->getPort("\\CLK"))[0];
+				bool clkpol = cell->getParam(ID::CLK_POLARITY).as_bool();
+				State current_clock = get_state(cell->getPort(ID::CLK))[0];
 
 				if (clkpol ? (ff.past_clock == State::S1 || current_clock != State::S1) :
 						(ff.past_clock == State::S0 || current_clock != State::S0))
 					continue;
 
-				if (set_state(cell->getPort("\\Q"), ff.past_d))
+				if (set_state(cell->getPort(ID::Q), ff.past_d))
 					did_something = true;
 			}
 		}
@@ -422,16 +426,16 @@ struct SimInstance
 			Cell *cell = it.first;
 			mem_state_t &mem = it.second;
 
-			int num_wr_ports = cell->getParam("\\WR_PORTS").as_int();
+			int num_wr_ports = cell->getParam(ID::WR_PORTS).as_int();
 
-			int size = cell->getParam("\\SIZE").as_int();
-			int offset = cell->getParam("\\OFFSET").as_int();
-			int abits = cell->getParam("\\ABITS").as_int();
-			int width = cell->getParam("\\WIDTH").as_int();
+			int size = cell->getParam(ID::SIZE).as_int();
+			int offset = cell->getParam(ID::OFFSET).as_int();
+			int abits = cell->getParam(ID::ABITS).as_int();
+			int width = cell->getParam(ID::WIDTH).as_int();
 
-			Const wr_clk_enable = cell->getParam("\\WR_CLK_ENABLE");
-			Const wr_clk_polarity = cell->getParam("\\WR_CLK_POLARITY");
-			Const current_wr_clk  = get_state(cell->getPort("\\WR_CLK"));
+			Const wr_clk_enable = cell->getParam(ID::WR_CLK_ENABLE);
+			Const wr_clk_polarity = cell->getParam(ID::WR_CLK_POLARITY);
+			Const current_wr_clk  = get_state(cell->getPort(ID::WR_CLK));
 
 			for (int port_idx = 0; port_idx < num_wr_ports; port_idx++)
 			{
@@ -439,9 +443,9 @@ struct SimInstance
 
 				if (wr_clk_enable[port_idx] == State::S0)
 				{
-					addr = get_state(cell->getPort("\\WR_ADDR").extract(port_idx*abits, abits));
-					data = get_state(cell->getPort("\\WR_DATA").extract(port_idx*width, width));
-					enable = get_state(cell->getPort("\\WR_EN").extract(port_idx*width, width));
+					addr = get_state(cell->getPort(ID::WR_ADDR).extract(port_idx*abits, abits));
+					data = get_state(cell->getPort(ID::WR_DATA).extract(port_idx*width, width));
+					enable = get_state(cell->getPort(ID::WR_EN).extract(port_idx*width, width));
 				}
 				else
 				{
@@ -485,9 +489,9 @@ struct SimInstance
 			Cell *cell = it.first;
 			ff_state_t &ff = it.second;
 
-			if (cell->type.in("$dff")) {
-				ff.past_clock = get_state(cell->getPort("\\CLK"))[0];
-				ff.past_d = get_state(cell->getPort("\\D"));
+			if (cell->type.in(ID($dff))) {
+				ff.past_clock = get_state(cell->getPort(ID::CLK))[0];
+				ff.past_d = get_state(cell->getPort(ID::D));
 			}
 		}
 
@@ -496,28 +500,28 @@ struct SimInstance
 			Cell *cell = it.first;
 			mem_state_t &mem = it.second;
 
-			mem.past_wr_clk  = get_state(cell->getPort("\\WR_CLK"));
-			mem.past_wr_en   = get_state(cell->getPort("\\WR_EN"));
-			mem.past_wr_addr = get_state(cell->getPort("\\WR_ADDR"));
-			mem.past_wr_data = get_state(cell->getPort("\\WR_DATA"));
+			mem.past_wr_clk  = get_state(cell->getPort(ID::WR_CLK));
+			mem.past_wr_en   = get_state(cell->getPort(ID::WR_EN));
+			mem.past_wr_addr = get_state(cell->getPort(ID::WR_ADDR));
+			mem.past_wr_data = get_state(cell->getPort(ID::WR_DATA));
 		}
 
 		for (auto cell : formal_database)
 		{
 			string label = log_id(cell);
-			if (cell->attributes.count("\\src"))
-				label = cell->attributes.at("\\src").decode_string();
+			if (cell->attributes.count(ID::src))
+				label = cell->attributes.at(ID::src).decode_string();
 
-			State a = get_state(cell->getPort("\\A"))[0];
-			State en = get_state(cell->getPort("\\EN"))[0];
+			State a = get_state(cell->getPort(ID::A))[0];
+			State en = get_state(cell->getPort(ID::EN))[0];
 
-			if (cell->type == "$cover" && en == State::S1 && a != State::S1)
+			if (cell->type == ID($cover) && en == State::S1 && a != State::S1)
 				log("Cover %s.%s (%s) reached.\n", hiername().c_str(), log_id(cell), label.c_str());
 
-			if (cell->type == "$assume" && en == State::S1 && a != State::S1)
+			if (cell->type == ID($assume) && en == State::S1 && a != State::S1)
 				log("Assumption %s.%s (%s) failed.\n", hiername().c_str(), log_id(cell), label.c_str());
 
-			if (cell->type == "$assert" && en == State::S1 && a != State::S1)
+			if (cell->type == ID($assert) && en == State::S1 && a != State::S1)
 				log_warning("Assert %s.%s (%s) failed.\n", hiername().c_str(), log_id(cell), label.c_str());
 		}
 
@@ -533,22 +537,22 @@ struct SimInstance
 		wbmods.insert(module);
 
 		for (auto wire : module->wires())
-			wire->attributes.erase("\\init");
+			wire->attributes.erase(ID::init);
 
 		for (auto &it : ff_database)
 		{
 			Cell *cell = it.first;
-			SigSpec sig_q = cell->getPort("\\Q");
+			SigSpec sig_q = cell->getPort(ID::Q);
 			Const initval = get_state(sig_q);
 
 			for (int i = 0; i < GetSize(sig_q); i++)
 			{
 				Wire *w = sig_q[i].wire;
 
-				if (w->attributes.count("\\init") == 0)
-					w->attributes["\\init"] = Const(State::Sx, GetSize(w));
+				if (w->attributes.count(ID::init) == 0)
+					w->attributes[ID::init] = Const(State::Sx, GetSize(w));
 
-				w->attributes["\\init"][sig_q[i].offset] = initval[i];
+				w->attributes[ID::init][sig_q[i].offset] = initval[i];
 			}
 		}
 
@@ -564,7 +568,7 @@ struct SimInstance
 				initval.bits.pop_back();
 			}
 
-			cell->setParam("\\INIT", initval);
+			cell->setParam(ID::INIT, initval);
 		}
 
 		for (auto it : children)
@@ -747,7 +751,7 @@ struct SimWorker : SimShared
 
 struct SimPass : public Pass {
 	SimPass() : Pass("sim", "simulate the circuit") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -789,7 +793,7 @@ struct SimPass : public Pass {
 		log("        enable debug output\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		SimWorker worker;
 		int numcycles = 20;

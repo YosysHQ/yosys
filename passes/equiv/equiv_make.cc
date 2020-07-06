@@ -406,7 +406,7 @@ struct EquivMakeWorker
 	void init_bit2driven()
 	{
 		for (auto cell : equiv_mod->cells()) {
-			if (!ct.cell_known(cell->type) && !cell->type.in("$dff", "$_DFF_P_", "$_DFF_N_", "$ff", "$_FF_"))
+			if (!ct.cell_known(cell->type) && !cell->type.in(ID($dff), ID($_DFF_P_), ID($_DFF_N_), ID($ff), ID($_FF_)))
 				continue;
 			for (auto &conn : cell->connections())
 			{
@@ -466,7 +466,7 @@ struct EquivMakeWorker
 
 struct EquivMakePass : public Pass {
 	EquivMakePass() : Pass("equiv_make", "prepare a circuit for equivalence checking") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -491,7 +491,7 @@ struct EquivMakePass : public Pass {
 		log("checking problem. Use 'miter -equiv' if you want to create a miter circuit.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		EquivMakeWorker worker;
 		worker.ct.setup(design);

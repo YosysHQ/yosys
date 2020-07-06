@@ -26,12 +26,12 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct Dff2dffsPass : public Pass {
 	Dff2dffsPass() : Pass("dff2dffs", "process sync set/reset with SR over CE priority") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		log("\n");
 		log("    dff2dffs [options] [selection]\n");
 		log("\n");
-		log("Merge synchronous set/reset $_MUX_ cells to create $__DFFS_[NP][NP][01], to be run before\n");
+		log("Merge synchronous set/reset $_MUX_ cells to create $_SDFF_[NP][NP][01]_, to be run before\n");
 		log("dff2dffe for SR over CE priority.\n");
 		log("\n");
 		log("    -match-init\n");
@@ -39,7 +39,7 @@ struct Dff2dffsPass : public Pass {
 		log("        output wire's init attribute (if any).\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing dff2dffs pass (merge synchronous set/reset into FF cells).\n");
 
@@ -90,7 +90,7 @@ struct Dff2dffsPass : public Pass {
 
 			for (auto cell : ff_cells)
 			{
-				SigSpec sig_d = cell->getPort(ID(D));
+				SigSpec sig_d = cell->getPort(ID::D);
 
 				if (GetSize(sig_d) < 1)
 					continue;
@@ -103,7 +103,7 @@ struct Dff2dffsPass : public Pass {
 				Cell *mux_cell = sr_muxes.at(bit_d);
 				SigBit bit_a = sigmap(mux_cell->getPort(ID::A));
 				SigBit bit_b = sigmap(mux_cell->getPort(ID::B));
-				SigBit bit_s = sigmap(mux_cell->getPort(ID(S)));
+				SigBit bit_s = sigmap(mux_cell->getPort(ID::S));
 
 				SigBit sr_val, sr_sig;
 				bool invert_sr;
@@ -120,9 +120,9 @@ struct Dff2dffsPass : public Pass {
 				}
 
 				if (match_init) {
-					SigBit bit_q = cell->getPort(ID(Q));
+					SigBit bit_q = cell->getPort(ID::Q);
 					if (bit_q.wire) {
-						auto it = bit_q.wire->attributes.find(ID(init));
+						auto it = bit_q.wire->attributes.find(ID::init);
 						if (it != bit_q.wire->attributes.end()) {
 							auto init_val = it->second[bit_q.offset];
 							if (init_val == State::S1 && sr_val != State::S1)
@@ -138,25 +138,25 @@ struct Dff2dffsPass : public Pass {
 
 				if (sr_val == State::S1) {
 					if (cell->type == ID($_DFF_N_)) {
-						if (invert_sr) cell->type = ID($__DFFS_NN1_);
-						else cell->type = ID($__DFFS_NP1_);
+						if (invert_sr) cell->type = ID($_SDFF_NN1_);
+						else cell->type = ID($_SDFF_NP1_);
 					} else {
 						log_assert(cell->type == ID($_DFF_P_));
-						if (invert_sr) cell->type = ID($__DFFS_PN1_);
-						else cell->type = ID($__DFFS_PP1_);
+						if (invert_sr) cell->type = ID($_SDFF_PN1_);
+						else cell->type = ID($_SDFF_PP1_);
 					}
 				} else {
 					if (cell->type == ID($_DFF_N_)) {
-						if (invert_sr) cell->type = ID($__DFFS_NN0_);
-						else cell->type = ID($__DFFS_NP0_);
+						if (invert_sr) cell->type = ID($_SDFF_NN0_);
+						else cell->type = ID($_SDFF_NP0_);
 					} else {
 						log_assert(cell->type == ID($_DFF_P_));
-						if (invert_sr) cell->type = ID($__DFFS_PN0_);
-						else cell->type = ID($__DFFS_PP0_);
+						if (invert_sr) cell->type = ID($_SDFF_PN0_);
+						else cell->type = ID($_SDFF_PP0_);
 					}
 				}
-				cell->setPort(ID(R), sr_sig);
-				cell->setPort(ID(D), bit_d);
+				cell->setPort(ID::R, sr_sig);
+				cell->setPort(ID::D, bit_d);
 			}
 		}
 	}

@@ -2,7 +2,7 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
- *                2019  Eddie Hung <eddie@fpgeh.com>
+ *            (C) 2019  Eddie Hung    <eddie@fpgeh.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -22,812 +22,85 @@
 // Berkeley Logic Synthesis and Verification Group, ABC: A System for Sequential Synthesis and Verification
 // http://www.eecs.berkeley.edu/~alanmi/abc/
 
-#if 0
-// Based on &flow3 - better QoR but more experimental
-#define ABC_COMMAND_LUT "&st; &ps -l; &sweep -v; &scorr; " \
-						"&st; &if {W}; &save; &st; &syn2; &if {W} -v; &save; &load; "\
-						"&st; &if -g -K 6; &dch -f; &if {W} -v; &save; &load; "\
-						"&st; &if -g -K 6; &synch2; &if {W} -v; &save; &load; "\
-						"&mfs; &ps -l"
-#else
-#define ABC_COMMAND_LUT "&st; &scorr; &sweep; &dc2; &st; &dch -f; &ps; &if {W} {D} -v; &mfs; &ps -l"
-#endif
-
-
-#define ABC_FAST_COMMAND_LUT "&st; &if {W} {D}"
-
 #include "kernel/register.h"
-#include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
-#include "kernel/cost.h"
+#include "kernel/rtlil.h"
 #include "kernel/log.h"
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <cerrno>
-#include <sstream>
-#include <climits>
 
-#ifndef _WIN32
-#  include <unistd.h>
-#  include <dirent.h>
-#endif
-
-#include "frontends/aiger/aigerparse.h"
-#include "kernel/utils.h"
-
-#ifdef YOSYS_LINK_ABC
-extern "C" int Abc_RealMain(int argc, char *argv[]);
-#endif
+// abc9_exe.cc
+std::string fold_abc9_cmd(std::string str);
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool markgroups;
-int map_autoidx;
-SigMap assign_map;
-RTLIL::Module *module;
-
-bool clk_polarity, en_polarity;
-RTLIL::SigSpec clk_sig, en_sig;
-
-inline std::string remap_name(RTLIL::IdString abc9_name)
+struct Abc9Pass : public ScriptPass
 {
-	return stringf("$abc$%d$%s", map_autoidx, abc9_name.c_str()+1);
-}
-
-void handle_loops(RTLIL::Design *design)
-{
-	Pass::call(design, "scc -set_attr abc9_scc_id {}");
-
-	// For every unique SCC found, (arbitrarily) find the first
-	// cell in the component, and select (and mark) all its output
-	// wires
-	pool<RTLIL::Const> ids_seen;
-	for (auto cell : module->cells()) {
-		auto it = cell->attributes.find(ID(abc9_scc_id));
-		if (it != cell->attributes.end()) {
-			auto r = ids_seen.insert(it->second);
-			if (r.second) {
-				for (auto &c : cell->connections_) {
-					if (c.second.is_fully_const()) continue;
-					if (cell->output(c.first)) {
-						SigBit b = c.second.as_bit();
-						Wire *w = b.wire;
-						if (w->port_input) {
-							// In this case, hopefully the loop break has been already created
-							// Get the non-prefixed wire
-							Wire *wo = module->wire(stringf("%s.abco", b.wire->name.c_str()));
-							log_assert(wo != nullptr);
-							log_assert(wo->port_output);
-							log_assert(b.offset < GetSize(wo));
-							c.second = RTLIL::SigBit(wo, b.offset);
-						}
-						else {
-							// Create a new output/input loop break
-							w->port_input = true;
-							w = module->wire(stringf("%s.abco", w->name.c_str()));
-							if (!w) {
-								w = module->addWire(stringf("%s.abco", b.wire->name.c_str()), GetSize(b.wire));
-								w->port_output = true;
-							}
-							else {
-								log_assert(w->port_input);
-								log_assert(b.offset < GetSize(w));
-							}
-							w->set_bool_attribute(ID(abc9_scc_break));
-							c.second = RTLIL::SigBit(w, b.offset);
-						}
-					}
-				}
-			}
-			cell->attributes.erase(it);
-		}
-	}
-
-	module->fixup_ports();
-}
-
-std::string add_echos_to_abc9_cmd(std::string str)
-{
-	std::string new_str, token;
-	for (size_t i = 0; i < str.size(); i++) {
-		token += str[i];
-		if (str[i] == ';') {
-			while (i+1 < str.size() && str[i+1] == ' ')
-				i++;
-			new_str += "echo + " + token + " " + token + " ";
-			token.clear();
-		}
-	}
-
-	if (!token.empty()) {
-		if (!new_str.empty())
-			new_str += "echo + " + token + "; ";
-		new_str += token;
-	}
-
-	return new_str;
-}
-
-std::string fold_abc9_cmd(std::string str)
-{
-	std::string token, new_str = "          ";
-	int char_counter = 10;
-
-	for (size_t i = 0; i <= str.size(); i++) {
-		if (i < str.size())
-			token += str[i];
-		if (i == str.size() || str[i] == ';') {
-			if (char_counter + token.size() > 75)
-				new_str += "\n              ", char_counter = 14;
-			new_str += token, char_counter += token.size();
-			token.clear();
-		}
-	}
-
-	return new_str;
-}
-
-std::string replace_tempdir(std::string text, std::string tempdir_name, bool show_tempdir)
-{
-	if (show_tempdir)
-		return text;
-
-	while (1) {
-		size_t pos = text.find(tempdir_name);
-		if (pos == std::string::npos)
-			break;
-		text = text.substr(0, pos) + "<abc-temp-dir>" + text.substr(pos + GetSize(tempdir_name));
-	}
-
-	std::string  selfdir_name = proc_self_dirname();
-	if (selfdir_name != "/") {
-		while (1) {
-			size_t pos = text.find(selfdir_name);
-			if (pos == std::string::npos)
-				break;
-			text = text.substr(0, pos) + "<yosys-exe-dir>/" + text.substr(pos + GetSize(selfdir_name));
-		}
-	}
-
-	return text;
-}
-
-struct abc9_output_filter
-{
-	bool got_cr;
-	int escape_seq_state;
-	std::string linebuf;
-	std::string tempdir_name;
-	bool show_tempdir;
-
-	abc9_output_filter(std::string tempdir_name, bool show_tempdir) : tempdir_name(tempdir_name), show_tempdir(show_tempdir)
+	Abc9Pass() : ScriptPass("abc9", "use ABC9 for technology mapping") { }
+	void on_register() override
 	{
-		got_cr = false;
-		escape_seq_state = 0;
+		RTLIL::constpad["abc9.script.default"] = "+&scorr; &sweep; &dc2; &dch -f; &ps; &if {C} {W} {D} {R} -v; &mfs";
+		RTLIL::constpad["abc9.script.default.area"] = "+&scorr; &sweep; &dc2; &dch -f; &ps; &if {C} {W} {D} {R} -a -v; &mfs";
+		RTLIL::constpad["abc9.script.default.fast"] = "+&if {C} {W} {D} {R} -v";
+		// Based on ABC's &flow
+		RTLIL::constpad["abc9.script.flow"] = "+&scorr; &sweep;" \
+			"&dch -C 500;" \
+			/* Round 1 */ \
+			/* Map 1 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			"&st; &dsdb;" \
+			/* Map 2 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			"&st; &syn2 -m -R 10; &dsdb;" \
+			"&blut -a -K 6;" \
+			/* Map 3 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			/* Round 2 */ \
+			"&st; &sopb;" \
+			/* Map 1 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			"&st; &dsdb;" \
+			/* Map 2 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			"&st; &syn2 -m -R 10; &dsdb;" \
+			"&blut -a -K 6;" \
+			/* Map 3 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			/* Round 3 */ \
+			/* Map 1 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			"&st; &dsdb;" \
+			/* Map 2 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;" \
+			"&st; &syn2 -m -R 10; &dsdb;" \
+			"&blut -a -K 6;" \
+			/* Map 3 */ "&unmap; &if {C} {W} {D} {R} -v; &save; &load; &mfs;";
+		// Based on ABC's &flow2
+		RTLIL::constpad["abc9.script.flow2"] = "+&scorr; &sweep;" \
+			/* Comm1 */ "&synch2 -K 6 -C 500; &if -m {C} {W} {D} {R} -v; &mfs "/*"-W 4 -M 500 -C 7000"*/"; &save;"\
+			/* Comm2 */ "&dch -C 500; &if -m {C} {W} {D} {R} -v; &mfs "/*"-W 4 -M 500 -C 7000"*/"; &save;"\
+			"&load; &st; &sopb -R 10 -C 4; " \
+			/* Comm3 */ "&synch2 -K 6 -C 500; &if -m "/*"-E 5"*/" {C} {W} {D} {R} -v; &mfs "/*"-W 4 -M 500 -C 7000"*/"; &save;"\
+			/* Comm2 */ "&dch -C 500; &if -m {C} {W} {D} {R} -v; &mfs "/*"-W 4 -M 500 -C 7000"*/"; &save; "\
+			"&load";
+		// Based on ABC's &flow3
+		RTLIL::constpad["abc9.script.flow3"] = "+&scorr; &sweep;" \
+			"&if {C} {W} {D}; &save; &st; &syn2; &if {C} {W} {D} {R} -v; &save; &load;"\
+			"&st; &if {C} -g -K 6; &dch -f; &if {C} {W} {D} {R} -v; &save; &load;"\
+			"&st; &if {C} -g -K 6; &synch2; &if {C} {W} {D} {R} -v; &save; &load;"\
+			"&mfs";
 	}
-
-	void next_char(char ch)
-	{
-		if (escape_seq_state == 0 && ch == '\033') {
-			escape_seq_state = 1;
-			return;
-		}
-		if (escape_seq_state == 1) {
-			escape_seq_state = ch == '[' ? 2 : 0;
-			return;
-		}
-		if (escape_seq_state == 2) {
-			if ((ch < '0' || '9' < ch) && ch != ';')
-				escape_seq_state = 0;
-			return;
-		}
-		escape_seq_state = 0;
-		if (ch == '\r') {
-			got_cr = true;
-			return;
-		}
-		if (ch == '\n') {
-			log("ABC: %s\n", replace_tempdir(linebuf, tempdir_name, show_tempdir).c_str());
-			got_cr = false, linebuf.clear();
-			return;
-		}
-		if (got_cr)
-			got_cr = false, linebuf.clear();
-		linebuf += ch;
-	}
-
-	void next_line(const std::string &line)
-	{
-		//int pi, po;
-		//if (sscanf(line.c_str(), "Start-point = pi%d.  End-point = po%d.", &pi, &po) == 2) {
-		//	log("ABC: Start-point = pi%d (%s).  End-point = po%d (%s).\n",
-		//			pi, pi_map.count(pi) ? pi_map.at(pi).c_str() : "???",
-		//			po, po_map.count(po) ? po_map.at(po).c_str() : "???");
-		//	return;
-		//}
-
-		for (char ch : line)
-			next_char(ch);
-	}
-};
-
-void abc9_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
-		bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str,
-		bool /*keepff*/, std::string delay_target, std::string /*lutin_shared*/, bool fast_mode,
-		bool show_tempdir, std::string box_file, std::string lut_file,
-		std::string wire_delay, const dict<int,IdString> &box_lookup, bool nomfs
-)
-{
-	module = current_module;
-	map_autoidx = autoidx++;
-
-	if (clk_str != "$")
-	{
-		clk_polarity = true;
-		clk_sig = RTLIL::SigSpec();
-
-		en_polarity = true;
-		en_sig = RTLIL::SigSpec();
-	}
-
-	if (!clk_str.empty() && clk_str != "$")
-	{
-		if (clk_str.find(',') != std::string::npos) {
-			int pos = clk_str.find(',');
-			std::string en_str = clk_str.substr(pos+1);
-			clk_str = clk_str.substr(0, pos);
-			if (en_str[0] == '!') {
-				en_polarity = false;
-				en_str = en_str.substr(1);
-			}
-			if (module->wires_.count(RTLIL::escape_id(en_str)) != 0)
-				en_sig = assign_map(RTLIL::SigSpec(module->wires_.at(RTLIL::escape_id(en_str)), 0));
-		}
-		if (clk_str[0] == '!') {
-			clk_polarity = false;
-			clk_str = clk_str.substr(1);
-		}
-		if (module->wires_.count(RTLIL::escape_id(clk_str)) != 0)
-			clk_sig = assign_map(RTLIL::SigSpec(module->wires_.at(RTLIL::escape_id(clk_str)), 0));
-	}
-
-	if (dff_mode && clk_sig.empty())
-		log_cmd_error("Clock domain %s not found.\n", clk_str.c_str());
-
-	std::string tempdir_name = "/tmp/yosys-abc-XXXXXX";
-	if (!cleanup)
-		tempdir_name[0] = tempdir_name[4] = '_';
-	tempdir_name = make_temp_dir(tempdir_name);
-	log_header(design, "Extracting gate netlist of module `%s' to `%s/input.xaig'..\n",
-			module->name.c_str(), replace_tempdir(tempdir_name, tempdir_name, show_tempdir).c_str());
-
-	std::string abc9_script;
-
-	if (!lut_costs.empty()) {
-		abc9_script += stringf("read_lut %s/lutdefs.txt; ", tempdir_name.c_str());
-		if (!box_file.empty())
-			abc9_script += stringf("read_box -v %s; ", box_file.c_str());
-	}
-	else
-	if (!lut_file.empty()) {
-		abc9_script += stringf("read_lut %s; ", lut_file.c_str());
-		if (!box_file.empty())
-			abc9_script += stringf("read_box -v %s; ", box_file.c_str());
-	}
-	else
-		log_abort();
-
-	abc9_script += stringf("&read %s/input.xaig; &ps; ", tempdir_name.c_str());
-
-	if (!script_file.empty()) {
-		if (script_file[0] == '+') {
-			for (size_t i = 1; i < script_file.size(); i++)
-				if (script_file[i] == '\'')
-					abc9_script += "'\\''";
-				else if (script_file[i] == ',')
-					abc9_script += " ";
-				else
-					abc9_script += script_file[i];
-		} else
-			abc9_script += stringf("source %s", script_file.c_str());
-	} else if (!lut_costs.empty() || !lut_file.empty()) {
-		//bool all_luts_cost_same = true;
-		//for (int this_cost : lut_costs)
-		//	if (this_cost != lut_costs.front())
-		//		all_luts_cost_same = false;
-		abc9_script += fast_mode ? ABC_FAST_COMMAND_LUT : ABC_COMMAND_LUT;
-		//if (all_luts_cost_same && !fast_mode)
-		//	abc9_script += "; lutpack {S}";
-	} else
-		log_abort();
-
-	//if (script_file.empty() && !delay_target.empty())
-	//	for (size_t pos = abc9_script.find("dretime;"); pos != std::string::npos; pos = abc9_script.find("dretime;", pos+1))
-	//		abc9_script = abc9_script.substr(0, pos) + "dretime; retime -o {D};" + abc9_script.substr(pos+8);
-
-	for (size_t pos = abc9_script.find("{D}"); pos != std::string::npos; pos = abc9_script.find("{D}", pos))
-		abc9_script = abc9_script.substr(0, pos) + delay_target + abc9_script.substr(pos+3);
-
-	//for (size_t pos = abc9_script.find("{S}"); pos != std::string::npos; pos = abc9_script.find("{S}", pos))
-	//	abc9_script = abc9_script.substr(0, pos) + lutin_shared + abc9_script.substr(pos+3);
-
-	for (size_t pos = abc9_script.find("{W}"); pos != std::string::npos; pos = abc9_script.find("{W}", pos))
-		abc9_script = abc9_script.substr(0, pos) + wire_delay + abc9_script.substr(pos+3);
-
-	if (nomfs)
-		for (size_t pos = abc9_script.find("&mfs"); pos != std::string::npos; pos = abc9_script.find("&mfs", pos))
-			abc9_script = abc9_script.erase(pos, strlen("&mfs"));
-
-	abc9_script += stringf("; &write %s/output.aig", tempdir_name.c_str());
-	abc9_script = add_echos_to_abc9_cmd(abc9_script);
-
-	for (size_t i = 0; i+1 < abc9_script.size(); i++)
-		if (abc9_script[i] == ';' && abc9_script[i+1] == ' ')
-			abc9_script[i+1] = '\n';
-
-	FILE *f = fopen(stringf("%s/abc.script", tempdir_name.c_str()).c_str(), "wt");
-	fprintf(f, "%s\n", abc9_script.c_str());
-	fclose(f);
-
-	if (dff_mode || !clk_str.empty())
-	{
-		if (clk_sig.size() == 0)
-			log("No%s clock domain found. Not extracting any FF cells.\n", clk_str.empty() ? "" : " matching");
-		else {
-			log("Found%s %s clock domain: %s", clk_str.empty() ? "" : " matching", clk_polarity ? "posedge" : "negedge", log_signal(clk_sig));
-			if (en_sig.size() != 0)
-				log(", enabled by %s%s", en_polarity ? "" : "!", log_signal(en_sig));
-			log("\n");
-		}
-	}
-
-	bool count_output = false;
-	for (auto port_name : module->ports) {
-		RTLIL::Wire *port_wire = module->wire(port_name);
-		log_assert(port_wire);
-		if (port_wire->port_output) {
-			count_output = true;
-			break;
-		}
-	}
-
-	log_push();
-
-	if (count_output)
-	{
-		design->selection_stack.emplace_back(false);
-		RTLIL::Selection& sel = design->selection_stack.back();
-		sel.select(module);
-
-		handle_loops(design);
-
-		Pass::call(design, "aigmap");
-
-		//log("Extracted %d gates and %d wires to a netlist network with %d inputs and %d outputs.\n",
-		//		count_gates, GetSize(signal_list), count_input, count_output);
-
-		Pass::call(design, stringf("write_xaiger -map %s/input.sym %s/input.xaig", tempdir_name.c_str(), tempdir_name.c_str()));
-
-		std::string buffer;
-		std::ifstream ifs;
-#if 0
-		buffer = stringf("%s/%s", tempdir_name.c_str(), "input.xaig");
-		ifs.open(buffer);
-		if (ifs.fail())
-			log_error("Can't open ABC output file `%s'.\n", buffer.c_str());
-		buffer = stringf("%s/%s", tempdir_name.c_str(), "input.sym");
-		log_assert(!design->module(ID($__abc9__)));
-		{
-			AigerReader reader(design, ifs, ID($__abc9__), "" /* clk_name */, buffer.c_str() /* map_filename */, true /* wideports */);
-			reader.parse_xaiger();
-		}
-		ifs.close();
-		Pass::call(design, stringf("write_verilog -noexpr -norename"));
-		design->remove(design->module(ID($__abc9__)));
-#endif
-
-		design->selection_stack.pop_back();
-
-		log_header(design, "Executing ABC9.\n");
-
-		if (!lut_costs.empty()) {
-			buffer = stringf("%s/lutdefs.txt", tempdir_name.c_str());
-			f = fopen(buffer.c_str(), "wt");
-			if (f == NULL)
-				log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
-			for (int i = 0; i < GetSize(lut_costs); i++)
-				fprintf(f, "%d %d.00 1.00\n", i+1, lut_costs.at(i));
-			fclose(f);
-		}
-
-		buffer = stringf("%s -s -f %s/abc.script 2>&1", exe_file.c_str(), tempdir_name.c_str());
-		log("Running ABC command: %s\n", replace_tempdir(buffer, tempdir_name, show_tempdir).c_str());
-
-#ifndef YOSYS_LINK_ABC
-		abc9_output_filter filt(tempdir_name, show_tempdir);
-		int ret = run_command(buffer, std::bind(&abc9_output_filter::next_line, filt, std::placeholders::_1));
-#else
-		// These needs to be mutable, supposedly due to getopt
-		char *abc9_argv[5];
-		string tmp_script_name = stringf("%s/abc.script", tempdir_name.c_str());
-		abc9_argv[0] = strdup(exe_file.c_str());
-		abc9_argv[1] = strdup("-s");
-		abc9_argv[2] = strdup("-f");
-		abc9_argv[3] = strdup(tmp_script_name.c_str());
-		abc9_argv[4] = 0;
-		int ret = Abc_RealMain(4, abc9_argv);
-		free(abc9_argv[0]);
-		free(abc9_argv[1]);
-		free(abc9_argv[2]);
-		free(abc9_argv[3]);
-#endif
-		if (ret != 0)
-			log_error("ABC: execution of command \"%s\" failed: return code %d.\n", buffer.c_str(), ret);
-
-		buffer = stringf("%s/%s", tempdir_name.c_str(), "output.aig");
-		ifs.open(buffer, std::ifstream::binary);
-		if (ifs.fail())
-			log_error("Can't open ABC output file `%s'.\n", buffer.c_str());
-
-		buffer = stringf("%s/%s", tempdir_name.c_str(), "input.sym");
-		log_assert(!design->module(ID($__abc9__)));
-
-		AigerReader reader(design, ifs, ID($__abc9__), "" /* clk_name */, buffer.c_str() /* map_filename */, true /* wideports */);
-		reader.parse_xaiger(box_lookup);
-		ifs.close();
-
-#if 0
-		Pass::call(design, stringf("write_verilog -noexpr -norename"));
-#endif
-
-		log_header(design, "Re-integrating ABC9 results.\n");
-		RTLIL::Module *mapped_mod = design->module(ID($__abc9__));
-		if (mapped_mod == NULL)
-			log_error("ABC output file does not contain a module `$__abc9__'.\n");
-
-		pool<RTLIL::SigBit> output_bits;
-		for (auto &it : mapped_mod->wires_) {
-			RTLIL::Wire *w = it.second;
-			RTLIL::Wire *remap_wire = module->addWire(remap_name(w->name), GetSize(w));
-			if (markgroups) remap_wire->attributes[ID(abcgroup)] = map_autoidx;
-			if (w->port_output) {
-				RTLIL::Wire *wire = module->wire(w->name);
-				log_assert(wire);
-				for (int i = 0; i < GetSize(w); i++)
-					output_bits.insert({wire, i});
-			}
-		}
-
-		for (auto &it : module->connections_) {
-			auto &signal = it.first;
-			auto bits = signal.bits();
-			for (auto &b : bits)
-				if (output_bits.count(b))
-					b = module->addWire(NEW_ID);
-			signal = std::move(bits);
-		}
-
-		dict<IdString, bool> abc9_box;
-		vector<RTLIL::Cell*> boxes;
-		for (const auto &it : module->cells_) {
-			auto cell = it.second;
-			if (cell->type.in(ID($_AND_), ID($_NOT_))) {
-				module->remove(cell);
-				continue;
-			}
-			auto jt = abc9_box.find(cell->type);
-			if (jt == abc9_box.end()) {
-				RTLIL::Module* box_module = design->module(cell->type);
-				jt = abc9_box.insert(std::make_pair(cell->type, box_module && box_module->attributes.count(ID(abc9_box_id)))).first;
-			}
-			if (jt->second)
-				boxes.emplace_back(cell);
-		}
-
-		dict<SigBit, pool<IdString>> bit_drivers, bit_users;
-		TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
-		dict<RTLIL::Cell*,RTLIL::Cell*> not2drivers;
-		dict<SigBit, std::vector<RTLIL::Cell*>> bit2sinks;
-
-		std::map<IdString, int> cell_stats;
-		for (auto c : mapped_mod->cells())
-		{
-			toposort.node(c->name);
-
-			RTLIL::Cell *cell = nullptr;
-			if (c->type == ID($_NOT_)) {
-				RTLIL::SigBit a_bit = c->getPort(ID::A);
-				RTLIL::SigBit y_bit = c->getPort(ID::Y);
-				bit_users[a_bit].insert(c->name);
-				bit_drivers[y_bit].insert(c->name);
-
-				if (!a_bit.wire) {
-					c->setPort(ID::Y, module->addWire(NEW_ID));
-					RTLIL::Wire *wire = module->wire(remap_name(y_bit.wire->name));
-					log_assert(wire);
-					module->connect(RTLIL::SigBit(wire, y_bit.offset), State::S1);
-				}
-				else if (!lut_costs.empty() || !lut_file.empty()) {
-					RTLIL::Cell* driver_lut = nullptr;
-					// ABC can return NOT gates that drive POs
-					if (!a_bit.wire->port_input) {
-						// If it's not a NOT gate that that comes from a PI directly,
-						// find the driver LUT and clone that to guarantee that we won't
-						// increase the max logic depth
-						// (TODO: Optimise by not cloning unless will increase depth)
-						RTLIL::IdString driver_name;
-						if (GetSize(a_bit.wire) == 1)
-							driver_name = stringf("%s$lut", a_bit.wire->name.c_str());
-						else
-							driver_name = stringf("%s[%d]$lut", a_bit.wire->name.c_str(), a_bit.offset);
-						driver_lut = mapped_mod->cell(driver_name);
-					}
-
-					if (!driver_lut) {
-						// If a driver couldn't be found (could be from PI or box CI)
-						// then implement using a LUT
-						cell = module->addLut(remap_name(stringf("%s$lut", c->name.c_str())),
-								RTLIL::SigBit(module->wires_.at(remap_name(a_bit.wire->name)), a_bit.offset),
-								RTLIL::SigBit(module->wires_.at(remap_name(y_bit.wire->name)), y_bit.offset),
-								RTLIL::Const::from_string("01"));
-						bit2sinks[cell->getPort(ID::A)].push_back(cell);
-						cell_stats[ID($lut)]++;
-					}
-					else
-						not2drivers[c] = driver_lut;
-					continue;
-				}
-				else
-					log_abort();
-				if (cell && markgroups) cell->attributes[ID(abcgroup)] = map_autoidx;
-				continue;
-			}
-			cell_stats[c->type]++;
-
-			RTLIL::Cell *existing_cell = nullptr;
-			if (c->type == ID($lut)) {
-				if (GetSize(c->getPort(ID::A)) == 1 && c->getParam(ID(LUT)) == RTLIL::Const::from_string("01")) {
-					SigSpec my_a = module->wires_.at(remap_name(c->getPort(ID::A).as_wire()->name));
-					SigSpec my_y = module->wires_.at(remap_name(c->getPort(ID::Y).as_wire()->name));
-					module->connect(my_y, my_a);
-					if (markgroups) c->attributes[ID(abcgroup)] = map_autoidx;
-					log_abort();
-					continue;
-				}
-				cell = module->addCell(remap_name(c->name), c->type);
-			}
-			else {
-				existing_cell = module->cell(c->name);
-				log_assert(existing_cell);
-				cell = module->addCell(remap_name(c->name), c->type);
-			}
-
-			if (markgroups) cell->attributes[ID(abcgroup)] = map_autoidx;
-			if (existing_cell) {
-				cell->parameters = existing_cell->parameters;
-				cell->attributes = existing_cell->attributes;
-			}
-			else {
-				cell->parameters = c->parameters;
-				cell->attributes = c->attributes;
-			}
-			for (auto &conn : c->connections()) {
-				RTLIL::SigSpec newsig;
-				for (auto c : conn.second.chunks()) {
-					if (c.width == 0)
-						continue;
-					//log_assert(c.width == 1);
-					if (c.wire)
-						c.wire = module->wires_.at(remap_name(c.wire->name));
-					newsig.append(c);
-				}
-				cell->setPort(conn.first, newsig);
-
-				if (cell->input(conn.first)) {
-					for (auto i : newsig)
-						bit2sinks[i].push_back(cell);
-					for (auto i : conn.second)
-						bit_users[i].insert(c->name);
-				}
-				if (cell->output(conn.first))
-					for (auto i : conn.second)
-						bit_drivers[i].insert(c->name);
-			}
-		}
-
-		for (auto existing_cell : boxes) {
-			Cell *cell = module->cell(remap_name(existing_cell->name));
-			if (cell) {
-				for (auto &conn : existing_cell->connections()) {
-					if (!conn.second.is_wire())
-						continue;
-					Wire *wire = conn.second.as_wire();
-					if (!wire->get_bool_attribute(ID(abc9_padding)))
-						continue;
-					cell->unsetPort(conn.first);
-					log_debug("Dropping padded port connection for %s (%s) .%s (%s )\n", log_id(cell), cell->type.c_str(), log_id(conn.first), log_signal(conn.second));
-				}
-				module->swap_names(cell, existing_cell);
-			}
-			module->remove(existing_cell);
-		}
-
-		// Copy connections (and rename) from mapped_mod to module
-		for (auto conn : mapped_mod->connections()) {
-			if (!conn.first.is_fully_const()) {
-				auto chunks = conn.first.chunks();
-				for (auto &c : chunks)
-					c.wire = module->wires_.at(remap_name(c.wire->name));
-				conn.first = std::move(chunks);
-			}
-			if (!conn.second.is_fully_const()) {
-				auto chunks = conn.second.chunks();
-				for (auto &c : chunks)
-					if (c.wire)
-						c.wire = module->wires_.at(remap_name(c.wire->name));
-				conn.second = std::move(chunks);
-			}
-			module->connect(conn);
-		}
-
-		for (auto &it : cell_stats)
-			log("ABC RESULTS:   %15s cells: %8d\n", it.first.c_str(), it.second);
-		int in_wires = 0, out_wires = 0;
-
-		// Stitch in mapped_mod's inputs/outputs into module
-		for (auto port : mapped_mod->ports) {
-			RTLIL::Wire *w = mapped_mod->wire(port);
-			RTLIL::Wire *wire = module->wire(port);
-			log_assert(wire);
-			RTLIL::Wire *remap_wire = module->wire(remap_name(port));
-			RTLIL::SigSpec signal = RTLIL::SigSpec(wire, 0, GetSize(remap_wire));
-			log_assert(GetSize(signal) >= GetSize(remap_wire));
-
-			RTLIL::SigSig conn;
-			if (w->port_output) {
-				conn.first = signal;
-				conn.second = remap_wire;
-				out_wires++;
-				module->connect(conn);
-			}
-			else if (w->port_input) {
-				conn.first = remap_wire;
-				conn.second = signal;
-				in_wires++;
-				module->connect(conn);
-			}
-		}
-
-		for (auto &it : bit_users)
-			if (bit_drivers.count(it.first))
-				for (auto driver_cell : bit_drivers.at(it.first))
-				for (auto user_cell : it.second)
-					toposort.edge(driver_cell, user_cell);
-		bool no_loops YS_ATTRIBUTE(unused) = toposort.sort();
-		log_assert(no_loops);
-
-		for (auto ii = toposort.sorted.rbegin(); ii != toposort.sorted.rend(); ii++) {
-			RTLIL::Cell *not_cell = mapped_mod->cell(*ii);
-			log_assert(not_cell);
-			if (not_cell->type != ID($_NOT_))
-				continue;
-			auto it = not2drivers.find(not_cell);
-			if (it == not2drivers.end())
-				continue;
-			RTLIL::Cell *driver_lut = it->second;
-			RTLIL::SigBit a_bit = not_cell->getPort(ID::A);
-			RTLIL::SigBit y_bit = not_cell->getPort(ID::Y);
-			RTLIL::Const driver_mask;
-
-			a_bit.wire = module->wires_.at(remap_name(a_bit.wire->name));
-			y_bit.wire = module->wires_.at(remap_name(y_bit.wire->name));
-
-			auto jt = bit2sinks.find(a_bit);
-			if (jt == bit2sinks.end())
-				goto clone_lut;
-
-			for (auto sink_cell : jt->second)
-				if (sink_cell->type != ID($lut))
-					goto clone_lut;
-
-			// Push downstream LUTs past inverter
-			for (auto sink_cell : jt->second) {
-				SigSpec A = sink_cell->getPort(ID::A);
-				RTLIL::Const mask = sink_cell->getParam(ID(LUT));
-				int index = 0;
-				for (; index < GetSize(A); index++)
-					if (A[index] == a_bit)
-						break;
-				log_assert(index < GetSize(A));
-				int i = 0;
-				while (i < GetSize(mask)) {
-					for (int j = 0; j < (1 << index); j++)
-						std::swap(mask[i+j], mask[i+j+(1 << index)]);
-					i += 1 << (index+1);
-				}
-				A[index] = y_bit;
-				sink_cell->setPort(ID::A, A);
-				sink_cell->setParam(ID(LUT), mask);
-			}
-
-			// Since we have rewritten all sinks (which we know
-			// to be only LUTs) to be after the inverter, we can
-			// go ahead and clone the LUT with the expectation
-			// that the original driving LUT will become dangling
-			// and get cleaned away
-clone_lut:
-			driver_mask = driver_lut->getParam(ID(LUT));
-			for (auto &b : driver_mask.bits) {
-				if (b == RTLIL::State::S0) b = RTLIL::State::S1;
-				else if (b == RTLIL::State::S1) b = RTLIL::State::S0;
-			}
-			auto cell = module->addLut(NEW_ID,
-					driver_lut->getPort(ID::A),
-					y_bit,
-					driver_mask);
-			for (auto &bit : cell->connections_.at(ID::A)) {
-				bit.wire = module->wires_.at(remap_name(bit.wire->name));
-				bit2sinks[bit].push_back(cell);
-			}
-		}
-
-		// Now 'unexpose' those wires by undoing
-		// the expose operation -- remove them from PO/PI
-		// and re-connecting them back together
-		for (auto wire : module->wires()) {
-			auto it = wire->attributes.find(ID(abc9_scc_break));
-			if (it != wire->attributes.end()) {
-				wire->attributes.erase(it);
-				log_assert(wire->port_output);
-				wire->port_output = false;
-				std::string name = wire->name.str();
-				RTLIL::Wire *i_wire = module->wire(name.substr(0, GetSize(name) - 5));
-				log_assert(i_wire);
-				log_assert(i_wire->port_input);
-				i_wire->port_input = false;
-				module->connect(i_wire, wire);
-			}
-		}
-		module->fixup_ports();
-
-		//log("ABC RESULTS:        internal signals: %8d\n", int(signal_list.size()) - in_wires - out_wires);
-		log("ABC RESULTS:           input signals: %8d\n", in_wires);
-		log("ABC RESULTS:          output signals: %8d\n", out_wires);
-
-		design->remove(mapped_mod);
-	}
-	else
-	{
-		log("Don't call ABC as there is nothing to map.\n");
-	}
-
-	if (cleanup)
-	{
-		log("Removing temp directory.\n");
-		remove_directory(tempdir_name);
-	}
-
-	log_pop();
-}
-
-struct Abc9Pass : public Pass {
-	Abc9Pass() : Pass("abc9", "use ABC9 for technology mapping") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    abc9 [options] [selection]\n");
 		log("\n");
-		log("This pass uses the ABC tool [1] for technology mapping of yosys's internal gate\n");
-		log("library to a target architecture.\n");
+		log("This script pass performs a sequence of commands to facilitate the use of the ABC\n");
+		log("tool [1] for technology mapping of the current design to a target FPGA\n");
+		log("architecture. Only fully-selected modules are supported.\n");
+		log("\n");
+		log("    -run <from_label>:<to_label>\n");
+		log("        only run the commands between the labels (see below). an empty\n");
+		log("        from label is synonymous to 'begin', and empty to label is\n");
+		log("        synonymous to the end of the command list.\n");
 		log("\n");
 		log("    -exe <command>\n");
 #ifdef ABCEXTERNAL
 		log("        use the specified command instead of \"" ABCEXTERNAL "\" to execute ABC.\n");
 #else
-		log("        use the specified command instead of \"<yosys-bindir>/yosys-abc\" to execute ABC.\n");
+		log("        use the specified command instead of \"<yosys-bindir>/%syosys-abc\" to execute ABC.\n", proc_program_prefix().c_str());
 #endif
 		log("        This can e.g. be used to call a specific version of ABC or a wrapper.\n");
 		log("\n");
@@ -840,26 +113,17 @@ struct Abc9Pass : public Pass {
 		log("        replaced with blanks before the string is passed to ABC.\n");
 		log("\n");
 		log("        if no -script parameter is given, the following scripts are used:\n");
-		log("\n");
-		log("        for -lut/-luts (only one LUT size):\n");
-		log("%s\n", fold_abc9_cmd(ABC_COMMAND_LUT /*"; lutpack {S}"*/).c_str());
-		log("\n");
-		log("        for -lut/-luts (different LUT sizes):\n");
-		log("%s\n", fold_abc9_cmd(ABC_COMMAND_LUT).c_str());
+		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default").substr(1,std::string::npos)).c_str());
 		log("\n");
 		log("    -fast\n");
 		log("        use different default scripts that are slightly faster (at the cost\n");
 		log("        of output quality):\n");
-		log("\n");
-		log("        for -lut/-luts:\n");
-		log("%s\n", fold_abc9_cmd(ABC_FAST_COMMAND_LUT).c_str());
+		log("%s\n", fold_abc9_cmd(RTLIL::constpad.at("abc9.script.default.fast").substr(1,std::string::npos)).c_str());
 		log("\n");
 		log("    -D <picoseconds>\n");
 		log("        set delay target. the string {D} in the default scripts above is\n");
 		log("        replaced by this option when used, and an empty string otherwise\n");
 		log("        (indicating best possible delay).\n");
-//		log("        This also replaces 'dretime' with 'dretime; retime -o {D}' in the\n");
-//		log("        default scripts above.\n");
 		log("\n");
 //		log("    -S <num>\n");
 //		log("        maximum number of LUT inputs shared.\n");
@@ -881,19 +145,15 @@ struct Abc9Pass : public Pass {
 		log("        generate netlist using luts. Use the specified costs for luts with 1,\n");
 		log("        2, 3, .. inputs.\n");
 		log("\n");
-//		log("    -dff\n");
-//		log("        also pass $_DFF_?_ and $_DFFE_??_ cells through ABC. modules with many\n");
-//		log("        clock domains are automatically partitioned in clock domains and each\n");
-//		log("        domain is passed through ABC independently.\n");
-//		log("\n");
-//		log("    -clk [!]<clock-signal-name>[,[!]<enable-signal-name>]\n");
-//		log("        use only the specified clock domain. this is like -dff, but only FF\n");
-//		log("        cells that belong to the specified clock domain are used.\n");
-//		log("\n");
-//		log("    -keepff\n");
-//		log("        set the \"keep\" attribute on flip-flop output wires. (and thus preserve\n");
-//		log("        them, for example for equivalence checking.)\n");
-//		log("\n");
+		log("    -maxlut <width>\n");
+		log("        when auto-generating the lut library, discard all luts equal to or\n");
+		log("        greater than this size (applicable when neither -lut nor -luts is\n");
+		log("        specified).\n");
+		log("\n");
+		log("    -dff\n");
+		log("        also pass $_DFF_[NP]_ cells through to ABC. modules with many clock\n");
+		log("        domains are supported and automatically partitioned by ABC.\n");
+		log("\n");
 		log("    -nocleanup\n");
 		log("        when this option is used, the temporary files created by this pass\n");
 		log("        are not removed. this is useful for debugging.\n");
@@ -902,409 +162,290 @@ struct Abc9Pass : public Pass {
 		log("        print the temp dir name in log. usually this is suppressed so that the\n");
 		log("        command output is identical across runs.\n");
 		log("\n");
-		log("    -markgroups\n");
-		log("        set a 'abcgroup' attribute on all objects created by ABC. The value of\n");
-		log("        this attribute is a unique integer for each ABC process started. This\n");
-		log("        is useful for debugging the partitioning of clock domains.\n");
-		log("\n");
 		log("    -box <file>\n");
-		log("        pass this file with box library to ABC. Use with -lut.\n");
+		log("        pass this file with box library to ABC.\n");
 		log("\n");
 		log("Note that this is a logic optimization pass within Yosys that is calling ABC\n");
 		log("internally. This is not going to \"run ABC on your design\". It will instead run\n");
 		log("ABC on logic snippets extracted from your design. You will not get any useful\n");
 		log("output when passing an ABC script that writes a file. Instead write your full\n");
-		log("design as BLIF file with write_blif and then load that into ABC externally if\n");
-		log("you want to use ABC to convert your design into another format.\n");
+		log("design as an XAIGER file with `write_xaiger' and then load that into ABC\n");
+		log("externally if you want to use ABC to convert your design into another format.\n");
 		log("\n");
 		log("[1] http://www.eecs.berkeley.edu/~alanmi/abc/\n");
 		log("\n");
+		help_script();
+		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+
+	std::stringstream exe_cmd;
+	bool dff_mode, cleanup;
+	bool lut_mode;
+	int maxlut;
+	std::string box_file;
+
+	void clear_flags() override
 	{
-		log_header(design, "Executing ABC9 pass (technology mapping using ABC9).\n");
-		log_push();
+		exe_cmd.str("");
+		exe_cmd << "abc9_exe";
+		dff_mode = false;
+		cleanup = true;
+		lut_mode = false;
+		maxlut = 0;
+		box_file = "";
+	}
 
-		assign_map.clear();
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
+	{
+		std::string run_from, run_to;
+		clear_flags();
 
-#ifdef ABCEXTERNAL
-		std::string exe_file = ABCEXTERNAL;
-#else
-		std::string exe_file = proc_self_dirname() + "yosys-abc";
-#endif
-		std::string script_file, clk_str, box_file, lut_file;
-		std::string delay_target, lutin_shared = "-S 1", wire_delay;
-		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
-		bool show_tempdir = false;
-		bool nomfs = false;
-		vector<int> lut_costs;
-		markgroups = false;
+		// get arguments from scratchpad first, then override by command arguments
+		dff_mode = design->scratchpad_get_bool("abc9.dff", dff_mode);
+		cleanup = !design->scratchpad_get_bool("abc9.nocleanup", !cleanup);
 
-#if 0
-		cleanup = false;
-		show_tempdir = true;
-#endif
-
-#ifdef _WIN32
-#ifndef ABCEXTERNAL
-		if (!check_file_exists(exe_file + ".exe") && check_file_exists(proc_self_dirname() + "..\\yosys-abc.exe"))
-			exe_file = proc_self_dirname() + "..\\yosys-abc";
-#endif
-#endif
+		if (design->scratchpad_get_bool("abc9.debug")) {
+			cleanup = false;
+			exe_cmd << " -showtmp";
+		}
 
 		size_t argidx;
-		char pwd [PATH_MAX];
-		if (!getcwd(pwd, sizeof(pwd))) {
-			log_cmd_error("getcwd failed: %s\n", strerror(errno));
-			log_abort();
-		}
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];
-			if (arg == "-exe" && argidx+1 < args.size()) {
-				exe_file = args[++argidx];
+			if ((arg == "-exe" || arg == "-script" || arg == "-D" ||
+						/*arg == "-S" ||*/ arg == "-lut" || arg == "-luts" ||
+						/*arg == "-box" ||*/ arg == "-W") &&
+					argidx+1 < args.size()) {
+				if (arg == "-lut" || arg == "-luts")
+					lut_mode = true;
+				exe_cmd << " " << arg << " " << args[++argidx];
 				continue;
 			}
-			if (arg == "-script" && argidx+1 < args.size()) {
-				script_file = args[++argidx];
-				rewrite_filename(script_file);
-				if (!script_file.empty() && !is_absolute_path(script_file) && script_file[0] != '+')
-					script_file = std::string(pwd) + "/" + script_file;
+			if (arg == "-fast" || /* arg == "-dff" || */
+					/* arg == "-nocleanup" || */ arg == "-showtmp") {
+				exe_cmd << " " << arg;
 				continue;
 			}
-			if (arg == "-D" && argidx+1 < args.size()) {
-				delay_target = "-D " + args[++argidx];
+			if (arg == "-dff") {
+				dff_mode = true;
+				exe_cmd << " " << arg;
 				continue;
 			}
-			//if (arg == "-S" && argidx+1 < args.size()) {
-			//	lutin_shared = "-S " + args[++argidx];
-			//	continue;
-			//}
-			if (arg == "-lut" && argidx+1 < args.size()) {
-				string arg = args[++argidx];
-				size_t pos = arg.find_first_of(':');
-				int lut_mode = 0, lut_mode2 = 0;
-				if (pos != string::npos) {
-					lut_mode = atoi(arg.substr(0, pos).c_str());
-					lut_mode2 = atoi(arg.substr(pos+1).c_str());
-				} else {
-					pos = arg.find_first_of('.');
-					if (pos != string::npos) {
-						lut_file = arg;
-						rewrite_filename(lut_file);
-						if (!lut_file.empty() && !is_absolute_path(lut_file))
-							lut_file = std::string(pwd) + "/" + lut_file;
-					}
-					else {
-						lut_mode = atoi(arg.c_str());
-						lut_mode2 = lut_mode;
-					}
-				}
-				lut_costs.clear();
-				for (int i = 0; i < lut_mode; i++)
-					lut_costs.push_back(1);
-				for (int i = lut_mode; i < lut_mode2; i++)
-					lut_costs.push_back(2 << (i - lut_mode));
-				continue;
-			}
-			if (arg == "-luts" && argidx+1 < args.size()) {
-				lut_costs.clear();
-				for (auto &tok : split_tokens(args[++argidx], ",")) {
-					auto parts = split_tokens(tok, ":");
-					if (GetSize(parts) == 0 && !lut_costs.empty())
-						lut_costs.push_back(lut_costs.back());
-					else if (GetSize(parts) == 1)
-						lut_costs.push_back(atoi(parts.at(0).c_str()));
-					else if (GetSize(parts) == 2)
-						while (GetSize(lut_costs) < atoi(parts.at(0).c_str()))
-							lut_costs.push_back(atoi(parts.at(1).c_str()));
-					else
-						log_cmd_error("Invalid -luts syntax.\n");
-				}
-				continue;
-			}
-			if (arg == "-fast") {
-				fast_mode = true;
-				continue;
-			}
-			//if (arg == "-dff") {
-			//	dff_mode = true;
-			//	continue;
-			//}
-			//if (arg == "-clk" && argidx+1 < args.size()) {
-			//	clk_str = args[++argidx];
-			//	dff_mode = true;
-			//	continue;
-			//}
-			//if (arg == "-keepff") {
-			//	keepff = true;
-			//	continue;
-			//}
 			if (arg == "-nocleanup") {
 				cleanup = false;
-				continue;
-			}
-			if (arg == "-showtmp") {
-				show_tempdir = true;
-				continue;
-			}
-			if (arg == "-markgroups") {
-				markgroups = true;
 				continue;
 			}
 			if (arg == "-box" && argidx+1 < args.size()) {
 				box_file = args[++argidx];
 				continue;
 			}
-			if (arg == "-W" && argidx+1 < args.size()) {
-				wire_delay = "-W " + args[++argidx];
+			if (arg == "-maxlut" && argidx+1 < args.size()) {
+				maxlut = atoi(args[++argidx].c_str());
 				continue;
 			}
-			if (arg == "-nomfs") {
-				nomfs = true;
+			if (arg == "-run" && argidx+1 < args.size()) {
+				size_t pos = args[argidx+1].find(':');
+				if (pos == std::string::npos)
+					break;
+				run_from = args[++argidx].substr(0, pos);
+				run_to = args[argidx].substr(pos+1);
 				continue;
 			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
-		// ABC expects a box file for XAIG
-		if (box_file.empty())
-		    box_file = "+/dummy.box";
+		if (maxlut && lut_mode)
+			log_cmd_error("abc9 '-maxlut' option only applicable without '-lut' nor '-luts'.\n");
 
-		rewrite_filename(box_file);
-		if (!box_file.empty() && !is_absolute_path(box_file))
-		    box_file = std::string(pwd) + "/" + box_file;
-
-		dict<int,IdString> box_lookup;
-		for (auto m : design->modules()) {
-			auto it = m->attributes.find(ID(abc9_box_id));
-			if (it == m->attributes.end())
-				continue;
-			if (m->name.begins_with("$paramod"))
-				continue;
-			auto id = it->second.as_int();
-			auto r = box_lookup.insert(std::make_pair(id, m->name));
-			if (!r.second)
-				log_error("Module '%s' has the same abc9_box_id = %d value as '%s'.\n",
-						log_id(m), id, log_id(r.first->second));
-			log_assert(r.second);
-
-			RTLIL::Wire *carry_in = nullptr, *carry_out = nullptr;
-			for (auto p : m->ports) {
-				auto w = m->wire(p);
-				log_assert(w);
-				if (w->attributes.count(ID(abc9_carry))) {
-					if (w->port_input) {
-						if (carry_in)
-							log_error("Module '%s' contains more than one 'abc9_carry' input port.\n", log_id(m));
-						carry_in = w;
-					}
-					else if (w->port_output) {
-						if (carry_out)
-							log_error("Module '%s' contains more than one 'abc9_carry' input port.\n", log_id(m));
-						carry_out = w;
-					}
-				}
-			}
-			if (carry_in || carry_out) {
-				if (carry_in && !carry_out)
-					log_error("Module '%s' contains an 'abc9_carry' input port but no output port.\n", log_id(m));
-				if (!carry_in && carry_out)
-					log_error("Module '%s' contains an 'abc9_carry' output port but no input port.\n", log_id(m));
-				// Make carry_in the last PI, and carry_out the last PO
-				//   since ABC requires it this way
-				auto &ports = m->ports;
-				for (auto it = ports.begin(); it != ports.end(); ) {
-					RTLIL::Wire* w = m->wire(*it);
-					log_assert(w);
-					if (w == carry_in || w == carry_out) {
-						it = ports.erase(it);
-						continue;
-					}
-					if (w->port_id > carry_in->port_id)
-						--w->port_id;
-					if (w->port_id > carry_out->port_id)
-						--w->port_id;
-					log_assert(w->port_input || w->port_output);
-					log_assert(ports[w->port_id-1] == w->name);
-					++it;
-				}
-				ports.push_back(carry_in->name);
-				carry_in->port_id = ports.size();
-				ports.push_back(carry_out->name);
-				carry_out->port_id = ports.size();
-			}
+		log_assert(design);
+		if (design->selected_modules().empty()) {
+			log_warning("No modules selected for ABC9 techmapping.\n");
+			return;
 		}
 
-		for (auto mod : design->selected_modules())
-		{
-			if (mod->attributes.count(ID(abc9_box_id)))
-				continue;
+		log_header(design, "Executing ABC9 pass.\n");
+		log_push();
 
-			if (mod->processes.size() > 0) {
-				log("Skipping module %s as it contains processes.\n", log_id(mod));
-				continue;
-			}
-
-			assign_map.set(mod);
-
-			if (!dff_mode || !clk_str.empty()) {
-				abc9_module(design, mod, script_file, exe_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
-						delay_target, lutin_shared, fast_mode, show_tempdir,
-						box_file, lut_file, wire_delay, box_lookup, nomfs);
-				continue;
-			}
-
-			CellTypes ct(design);
-
-			std::vector<RTLIL::Cell*> all_cells = mod->selected_cells();
-			std::set<RTLIL::Cell*> unassigned_cells(all_cells.begin(), all_cells.end());
-
-			std::set<RTLIL::Cell*> expand_queue, next_expand_queue;
-			std::set<RTLIL::Cell*> expand_queue_up, next_expand_queue_up;
-			std::set<RTLIL::Cell*> expand_queue_down, next_expand_queue_down;
-
-			typedef tuple<bool, RTLIL::SigSpec, bool, RTLIL::SigSpec> clkdomain_t;
-			std::map<clkdomain_t, std::vector<RTLIL::Cell*>> assigned_cells;
-			std::map<RTLIL::Cell*, clkdomain_t> assigned_cells_reverse;
-
-			std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_bit, cell_to_bit_up, cell_to_bit_down;
-			std::map<RTLIL::SigBit, std::set<RTLIL::Cell*>> bit_to_cell, bit_to_cell_up, bit_to_cell_down;
-
-			for (auto cell : all_cells)
-			{
-				clkdomain_t key;
-
-				for (auto &conn : cell->connections())
-				for (auto bit : conn.second) {
-					bit = assign_map(bit);
-					if (bit.wire != nullptr) {
-						cell_to_bit[cell].insert(bit);
-						bit_to_cell[bit].insert(cell);
-						if (ct.cell_input(cell->type, conn.first)) {
-							cell_to_bit_up[cell].insert(bit);
-							bit_to_cell_down[bit].insert(cell);
-						}
-						if (ct.cell_output(cell->type, conn.first)) {
-							cell_to_bit_down[cell].insert(bit);
-							bit_to_cell_up[bit].insert(cell);
-						}
-					}
-				}
-
-				if (cell->type.in(ID($_DFF_N_), ID($_DFF_P_)))
-				{
-					key = clkdomain_t(cell->type == ID($_DFF_P_), assign_map(cell->getPort(ID(C))), true, RTLIL::SigSpec());
-				}
-				else
-				if (cell->type.in(ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_)))
-				{
-					bool this_clk_pol = cell->type.in(ID($_DFFE_PN_), ID($_DFFE_PP_));
-					bool this_en_pol = cell->type.in(ID($_DFFE_NP_), ID($_DFFE_PP_));
-					key = clkdomain_t(this_clk_pol, assign_map(cell->getPort(ID(C))), this_en_pol, assign_map(cell->getPort(ID(E))));
-				}
-				else
-					continue;
-
-				unassigned_cells.erase(cell);
-				expand_queue.insert(cell);
-				expand_queue_up.insert(cell);
-				expand_queue_down.insert(cell);
-
-				assigned_cells[key].push_back(cell);
-				assigned_cells_reverse[cell] = key;
-			}
-
-			while (!expand_queue_up.empty() || !expand_queue_down.empty())
-			{
-				if (!expand_queue_up.empty())
-				{
-					RTLIL::Cell *cell = *expand_queue_up.begin();
-					clkdomain_t key = assigned_cells_reverse.at(cell);
-					expand_queue_up.erase(cell);
-
-					for (auto bit : cell_to_bit_up[cell])
-					for (auto c : bit_to_cell_up[bit])
-						if (unassigned_cells.count(c)) {
-							unassigned_cells.erase(c);
-							next_expand_queue_up.insert(c);
-							assigned_cells[key].push_back(c);
-							assigned_cells_reverse[c] = key;
-							expand_queue.insert(c);
-						}
-				}
-
-				if (!expand_queue_down.empty())
-				{
-					RTLIL::Cell *cell = *expand_queue_down.begin();
-					clkdomain_t key = assigned_cells_reverse.at(cell);
-					expand_queue_down.erase(cell);
-
-					for (auto bit : cell_to_bit_down[cell])
-					for (auto c : bit_to_cell_down[bit])
-						if (unassigned_cells.count(c)) {
-							unassigned_cells.erase(c);
-							next_expand_queue_up.insert(c);
-							assigned_cells[key].push_back(c);
-							assigned_cells_reverse[c] = key;
-							expand_queue.insert(c);
-						}
-				}
-
-				if (expand_queue_up.empty() && expand_queue_down.empty()) {
-					expand_queue_up.swap(next_expand_queue_up);
-					expand_queue_down.swap(next_expand_queue_down);
-				}
-			}
-
-			while (!expand_queue.empty())
-			{
-				RTLIL::Cell *cell = *expand_queue.begin();
-				clkdomain_t key = assigned_cells_reverse.at(cell);
-				expand_queue.erase(cell);
-
-				for (auto bit : cell_to_bit.at(cell)) {
-					for (auto c : bit_to_cell[bit])
-						if (unassigned_cells.count(c)) {
-							unassigned_cells.erase(c);
-							next_expand_queue.insert(c);
-							assigned_cells[key].push_back(c);
-							assigned_cells_reverse[c] = key;
-						}
-					bit_to_cell[bit].clear();
-				}
-
-				if (expand_queue.empty())
-					expand_queue.swap(next_expand_queue);
-			}
-
-			clkdomain_t key(true, RTLIL::SigSpec(), true, RTLIL::SigSpec());
-			for (auto cell : unassigned_cells) {
-				assigned_cells[key].push_back(cell);
-				assigned_cells_reverse[cell] = key;
-			}
-
-			log_header(design, "Summary of detected clock domains:\n");
-			for (auto &it : assigned_cells)
-				log("  %d cells in clk=%s%s, en=%s%s\n", GetSize(it.second),
-						std::get<0>(it.first) ? "" : "!", log_signal(std::get<1>(it.first)),
-						std::get<2>(it.first) ? "" : "!", log_signal(std::get<3>(it.first)));
-
-			for (auto &it : assigned_cells) {
-				clk_polarity = std::get<0>(it.first);
-				clk_sig = assign_map(std::get<1>(it.first));
-				en_polarity = std::get<2>(it.first);
-				en_sig = assign_map(std::get<3>(it.first));
-				abc9_module(design, mod, script_file, exe_file, cleanup, lut_costs, !clk_sig.empty(), "$",
-						keepff, delay_target, lutin_shared, fast_mode, show_tempdir,
-						box_file, lut_file, wire_delay, box_lookup, nomfs);
-				assign_map.set(mod);
-			}
-		}
-
-		assign_map.clear();
+		run_script(design, run_from, run_to);
 
 		log_pop();
+	}
+
+	void script() override
+	{
+		if (check_label("check")) {
+			if (help_mode)
+				run("abc9_ops -check [-dff]", "(option if -dff)");
+			else
+				run(stringf("abc9_ops -check %s", dff_mode ? "-dff" : ""));
+		}
+
+		if (check_label("map")) {
+			if (help_mode)
+				run("abc9_ops -prep_hier -prep_bypass [-prep_dff -dff]", "(option if -dff)");
+			else
+				run(stringf("abc9_ops -prep_hier -prep_bypass %s", dff_mode ? "-prep_dff -dff" : ""));
+			if (dff_mode) {
+				run("design -copy-to $abc9_map @$abc9_flops", "(only if -dff)");
+				run("select -unset $abc9_flops", "             (only if -dff)");
+			}
+			run("design -stash $abc9");
+			run("design -load $abc9_map");
+			run("proc");
+			run("wbflip");
+			run("techmap");
+			run("opt");
+			if (dff_mode || help_mode) {
+				if (!help_mode)
+					active_design->scratchpad_unset("abc9_ops.prep_dff_submod.did_something");
+				run("abc9_ops -prep_dff_submod", "                                                 (only if -dff)"); // rewrite specify
+				bool did_something = help_mode || active_design->scratchpad_get_bool("abc9_ops.prep_dff_submod.did_something");
+				if (did_something) {
+										// select all $_DFF_[NP]_
+										// then select all its fanins
+										// then select all fanouts of all that
+										// lastly remove $_DFF_[NP]_ cells
+					run("setattr -set submod \"$abc9_flop\" t:$_DFF_?_ %ci* %co* t:$_DFF_?_ %d", "       (only if -dff)");
+					run("submod", "                                                                    (only if -dff)");
+					run("setattr -mod -set whitebox 1 -set abc9_flop 1 -set abc9_box 1 *_$abc9_flop", "(only if -dff)");
+					if (help_mode) {
+						run("foreach module in design");
+						run("    rename <module-name>_$abc9_flop _TECHMAP_REPLACE_", "                     (only if -dff)");
+					}
+					else {
+						// Rename all submod-s to _TECHMAP_REPLACE_ to inherit name + attrs
+						for (auto module : active_design->selected_modules()) {
+							active_design->selected_active_module = module->name.str();
+							if (module->cell(stringf("%s_$abc9_flop", module->name.c_str())))
+								run(stringf("rename %s_$abc9_flop _TECHMAP_REPLACE_", module->name.c_str()));
+						}
+						active_design->selected_active_module.clear();
+					}
+					run("abc9_ops -prep_dff_unmap", "                                                  (only if -dff)");
+					run("design -copy-to $abc9 =*_$abc9_flop", "                                       (only if -dff)"); // copy submod out
+					run("delete =*_$abc9_flop", "                                                      (only if -dff)");
+				}
+			}
+			run("design -stash $abc9_map");
+			run("design -load $abc9");
+			run("design -delete $abc9");
+			if (help_mode)
+				run("techmap -wb -max_iter 1 -map %$abc9_map -map +/abc9_map.v [-D DFF]", "(option if -dff)");
+			else
+				run(stringf("techmap -wb -max_iter 1 -map %%$abc9_map -map +/abc9_map.v %s", dff_mode ? "-D DFF" : ""));
+			run("design -delete $abc9_map");
+		}
+
+		if (check_label("pre")) {
+			run("read_verilog -icells -lib -specify +/abc9_model.v");
+			run("scc -set_attr abc9_scc_id {}");
+			if (help_mode)
+				run("abc9_ops -mark_scc -prep_delays -prep_xaiger [-dff]", "(option for -dff)");
+			else
+				run("abc9_ops -mark_scc -prep_delays -prep_xaiger" + std::string(dff_mode ? " -dff" : ""));
+			if (help_mode)
+				run("abc9_ops -prep_lut <maxlut>", "(skip if -lut or -luts)");
+			else if (!lut_mode)
+				run(stringf("abc9_ops -prep_lut %d", maxlut));
+			if (help_mode)
+				run("abc9_ops -prep_box", "(skip if -box)");
+			else if (box_file.empty())
+				run("abc9_ops -prep_box");
+			if (saved_designs.count("$abc9_holes") || help_mode) {
+				run("design -stash $abc9");
+				run("design -load $abc9_holes");
+				run("techmap -wb -map %$abc9 -map +/techmap.v");
+				run("opt -purge");
+				run("aigmap");
+				run("design -stash $abc9_holes");
+				run("design -load $abc9");
+				run("design -delete $abc9");
+			}
+		}
+
+		if (check_label("exe")) {
+			run("aigmap");
+			if (help_mode) {
+				run("foreach module in selection");
+				run("    abc9_ops -write_lut <abc-temp-dir>/input.lut", "(skip if '-lut' or '-luts')");
+				run("    abc9_ops -write_box <abc-temp-dir>/input.box", "(skip if '-box')");
+				run("    write_xaiger -map <abc-temp-dir>/input.sym [-dff] <abc-temp-dir>/input.xaig");
+				run("    abc9_exe [options] -cwd <abc-temp-dir> -lut [<abc-temp-dir>/input.lut] -box [<abc-temp-dir>/input.box]");
+				run("    read_aiger -xaiger -wideports -module_name <module-name>$abc9 -map <abc-temp-dir>/input.sym <abc-temp-dir>/output.aig");
+				run("    abc9_ops -reintegrate [-dff]");
+			}
+			else {
+				auto selected_modules = active_design->selected_modules();
+				active_design->selection_stack.emplace_back(false);
+
+				for (auto mod : selected_modules) {
+					if (mod->processes.size() > 0) {
+						log("Skipping module %s as it contains processes.\n", log_id(mod));
+						continue;
+					}
+
+					log_push();
+					active_design->selection().select(mod);
+
+					if (!active_design->selected_whole_module(mod))
+						log_error("Can't handle partially selected module %s!\n", log_id(mod));
+
+					std::string tempdir_name = "/tmp/" + proc_program_prefix() + "yosys-abc-XXXXXX";
+					if (!cleanup)
+						tempdir_name[0] = tempdir_name[4] = '_';
+					tempdir_name = make_temp_dir(tempdir_name);
+
+					if (!lut_mode)
+						run_nocheck(stringf("abc9_ops -write_lut %s/input.lut", tempdir_name.c_str()));
+					if (box_file.empty())
+						run_nocheck(stringf("abc9_ops -write_box %s/input.box", tempdir_name.c_str()));
+					run_nocheck(stringf("write_xaiger -map %s/input.sym %s %s/input.xaig", tempdir_name.c_str(), dff_mode ? "-dff" : "", tempdir_name.c_str()));
+
+					int num_outputs = active_design->scratchpad_get_int("write_xaiger.num_outputs");
+
+					log("Extracted %d AND gates and %d wires from module `%s' to a netlist network with %d inputs and %d outputs.\n",
+							active_design->scratchpad_get_int("write_xaiger.num_ands"),
+							active_design->scratchpad_get_int("write_xaiger.num_wires"),
+							log_id(mod),
+							active_design->scratchpad_get_int("write_xaiger.num_inputs"),
+							num_outputs);
+					if (num_outputs) {
+						std::string abc9_exe_cmd;
+						abc9_exe_cmd += stringf("%s -cwd %s", exe_cmd.str().c_str(), tempdir_name.c_str());
+						if (!lut_mode)
+							abc9_exe_cmd += stringf(" -lut %s/input.lut", tempdir_name.c_str());
+						if (box_file.empty())
+							abc9_exe_cmd += stringf(" -box %s/input.box", tempdir_name.c_str());
+						else
+							abc9_exe_cmd += stringf(" -box %s", box_file.c_str());
+						run_nocheck(abc9_exe_cmd);
+						run_nocheck(stringf("read_aiger -xaiger -wideports -module_name %s$abc9 -map %s/input.sym %s/output.aig", log_id(mod), tempdir_name.c_str(), tempdir_name.c_str()));
+						run_nocheck(stringf("abc9_ops -reintegrate %s", dff_mode ? "-dff" : ""));
+					}
+					else
+						log("Don't call ABC as there is nothing to map.\n");
+
+					if (cleanup) {
+						log("Removing temp directory.\n");
+						remove_directory(tempdir_name);
+					}
+					mod->check();
+					active_design->selection().selected_modules.clear();
+					log_pop();
+				}
+
+				active_design->selection_stack.pop_back();
+			}
+		}
+
+		if (check_label("unmap")) {
+			run("techmap -wb -map %$abc9_unmap -map +/abc9_unmap.v"); 	// techmap user design from submod back to original cell
+											//   ($_DFF_[NP]_ already shorted by -reintegrate)
+			run("design -delete $abc9_unmap");
+			if (saved_designs.count("$abc9_holes") || help_mode)
+				run("design -delete $abc9_holes");
+		}
 	}
 } Abc9Pass;
 

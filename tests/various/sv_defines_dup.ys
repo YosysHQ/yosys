@@ -1,0 +1,5 @@
+# Check for duplicate arguments
+logger -expect error "Duplicate macro arguments with name `x'" 1
+read_verilog <<EOT
+`define duplicate_arg(x, x)
+EOT

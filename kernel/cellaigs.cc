@@ -268,9 +268,9 @@ Aig::Aig(Cell *cell)
 	cell->parameters.sort();
 	for (auto p : cell->parameters)
 	{
-		if (p.first == ID(A_WIDTH) && mkname_a_signed) {
+		if (p.first == ID::A_WIDTH && mkname_a_signed) {
 			name = mkname_last + stringf(":%d%c", p.second.as_int(), mkname_is_signed ? 'S' : 'U');
-		} else if (p.first == ID(B_WIDTH) && mkname_b_signed) {
+		} else if (p.first == ID::B_WIDTH && mkname_b_signed) {
 			name = mkname_last + stringf(":%d%c", p.second.as_int(), mkname_is_signed ? 'S' : 'U');
 		} else {
 			mkname_last = name;
@@ -280,11 +280,11 @@ Aig::Aig(Cell *cell)
 		mkname_a_signed = false;
 		mkname_b_signed = false;
 		mkname_is_signed = false;
-		if (p.first == ID(A_SIGNED)) {
+		if (p.first == ID::A_SIGNED) {
 			mkname_a_signed = true;
 			mkname_is_signed = p.second.as_bool();
 		}
-		if (p.first == ID(B_SIGNED)) {
+		if (p.first == ID::B_SIGNED) {
 			mkname_b_signed = true;
 			mkname_is_signed = p.second.as_bool();
 		}
@@ -320,7 +320,7 @@ Aig::Aig(Cell *cell)
 
 	if (cell->type.in(ID($mux), ID($_MUX_)))
 	{
-		int S = mk.inport(ID(S));
+		int S = mk.inport(ID::S);
 		for (int i = 0; i < GetSize(cell->getPort(ID::Y)); i++) {
 			int A = mk.inport(ID::A, i);
 			int B = mk.inport(ID::B, i);
@@ -390,8 +390,8 @@ Aig::Aig(Cell *cell)
 		int width = GetSize(cell->getPort(ID::Y));
 		vector<int> A = mk.inport_vec(ID::A, width);
 		vector<int> B = mk.inport_vec(ID::B, width);
-		int carry = mk.inport(ID(CI));
-		int binv = mk.inport(ID(BI));
+		int carry = mk.inport(ID::CI);
+		int binv = mk.inport(ID::BI);
 		for (auto &n : B)
 			n = mk.xor_gate(n, binv);
 		vector<int> X(width), CO(width);
@@ -399,8 +399,8 @@ Aig::Aig(Cell *cell)
 		for (int i = 0; i < width; i++)
 			X[i] = mk.xor_gate(A[i], B[i]);
 		mk.outport_vec(Y, ID::Y);
-		mk.outport_vec(X, ID(X));
-		mk.outport_vec(CO, ID(CO));
+		mk.outport_vec(X, ID::X);
+		mk.outport_vec(CO, ID::CO);
 		goto optimize;
 	}
 
@@ -422,7 +422,7 @@ Aig::Aig(Cell *cell)
 	{
 		int A = mk.inport(ID::A);
 		int B = mk.inport(ID::B);
-		int C = mk.inport(ID(C));
+		int C = mk.inport(ID::C);
 		int Y = mk.nor_gate(mk.and_gate(A, B), C);
 		mk.outport(Y, ID::Y);
 		goto optimize;
@@ -432,7 +432,7 @@ Aig::Aig(Cell *cell)
 	{
 		int A = mk.inport(ID::A);
 		int B = mk.inport(ID::B);
-		int C = mk.inport(ID(C));
+		int C = mk.inport(ID::C);
 		int Y = mk.nand_gate(mk.or_gate(A, B), C);
 		mk.outport(Y, ID::Y);
 		goto optimize;
@@ -442,8 +442,8 @@ Aig::Aig(Cell *cell)
 	{
 		int A = mk.inport(ID::A);
 		int B = mk.inport(ID::B);
-		int C = mk.inport(ID(C));
-		int D = mk.inport(ID(D));
+		int C = mk.inport(ID::C);
+		int D = mk.inport(ID::D);
 		int Y = mk.nor_gate(mk.and_gate(A, B), mk.and_gate(C, D));
 		mk.outport(Y, ID::Y);
 		goto optimize;
@@ -453,8 +453,8 @@ Aig::Aig(Cell *cell)
 	{
 		int A = mk.inport(ID::A);
 		int B = mk.inport(ID::B);
-		int C = mk.inport(ID(C));
-		int D = mk.inport(ID(D));
+		int C = mk.inport(ID::C);
+		int D = mk.inport(ID::D);
 		int Y = mk.nand_gate(mk.or_gate(A, B), mk.or_gate(C, D));
 		mk.outport(Y, ID::Y);
 		goto optimize;

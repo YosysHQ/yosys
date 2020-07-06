@@ -29,7 +29,7 @@ struct SynthCoolrunner2Pass : public ScriptPass
 {
 	SynthCoolrunner2Pass() : ScriptPass("synth_coolrunner2", "synthesis for Xilinx Coolrunner-II CPLDs") { }
 
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -55,7 +55,7 @@ struct SynthCoolrunner2Pass : public ScriptPass
 		log("        do not flatten design before synthesis\n");
 		log("\n");
 		log("    -retime\n");
-		log("        run 'abc' with -dff option\n");
+		log("        run 'abc' with '-dff -D 1' options\n");
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
@@ -66,7 +66,7 @@ struct SynthCoolrunner2Pass : public ScriptPass
 	string top_opt, json_file;
 	bool flatten, retime;
 
-	void clear_flags() YS_OVERRIDE
+	void clear_flags() override
 	{
 		top_opt = "-auto-top";
 		json_file = "";
@@ -74,7 +74,7 @@ struct SynthCoolrunner2Pass : public ScriptPass
 		retime = false;
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		string run_from, run_to;
 		clear_flags();
@@ -121,7 +121,7 @@ struct SynthCoolrunner2Pass : public ScriptPass
 		log_pop();
 	}
 
-	void script() YS_OVERRIDE
+	void script() override
 	{
 		if (check_label("begin"))
 		{
@@ -143,9 +143,12 @@ struct SynthCoolrunner2Pass : public ScriptPass
 
 		if (check_label("fine"))
 		{
+			run("extract_counter -dir up -allow_arst no");
+			run("techmap -map +/coolrunner2/cells_counter_map.v");
+			run("clean");
 			run("opt -fast -full");
-			run("techmap");
-			run("techmap -map +/coolrunner2/cells_latch.v");
+			run("techmap -map +/techmap.v -map +/coolrunner2/cells_latch.v");
+			run("opt -fast");
 			run("dfflibmap -prepare -liberty +/coolrunner2/xc2_dff.lib");
 		}
 
@@ -161,7 +164,7 @@ struct SynthCoolrunner2Pass : public ScriptPass
 
 		if (check_label("map_pla"))
 		{
-			run("abc -sop -I 40 -P 56");
+			run("abc -sop -I 40 -P 56" + string(retime ? " -dff -D 1" : ""));
 			run("clean");
 		}
 
@@ -175,9 +178,11 @@ struct SynthCoolrunner2Pass : public ScriptPass
 			run("dffinit -ff LDCP Q INIT");
 			run("dffinit -ff LDCP_N Q INIT");
 			run("coolrunner2_sop");
+			run("clean");
 			run("iopadmap -bits -inpad IBUF O:I -outpad IOBUFE I:IO -inoutpad IOBUFE O:IO -toutpad IOBUFE E:I:IO -tinoutpad IOBUFE E:O:I:IO");
 			run("attrmvcp -attr src -attr LOC t:IOBUFE n:*");
 			run("attrmvcp -attr src -attr LOC -driven t:IBUF n:*");
+			run("coolrunner2_fixup");
 			run("splitnets");
 			run("clean");
 		}

@@ -21,6 +21,7 @@ __pycache__
 /yosys
 /yosys.exe
 /yosys.js
+/yosys.wasm
 /yosys-abc
 /yosys-abc.exe
 /yosys-config

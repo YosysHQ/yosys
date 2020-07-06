@@ -71,12 +71,12 @@ struct ShregmapTechGreenpak4 : ShregmapTech
 
 	bool fixup(Cell *cell, dict<int, SigBit> &taps)
 	{
-		auto D = cell->getPort(ID(D));
-		auto C = cell->getPort(ID(C));
+		auto D = cell->getPort(ID::D);
+		auto C = cell->getPort(ID::C);
 
 		auto newcell = cell->module->addCell(NEW_ID, ID(GP_SHREG));
 		newcell->setPort(ID(nRST), State::S1);
-		newcell->setPort(ID(CLK), C);
+		newcell->setPort(ID::CLK, C);
 		newcell->setPort(ID(IN), D);
 
 		int i = 0;
@@ -117,9 +117,9 @@ struct ShregmapWorker
 					sigbit_with_non_chain_users.insert(bit);
 			}
 
-			if (wire->attributes.count(ID(init))) {
+			if (wire->attributes.count(ID::init)) {
 				SigSpec initsig = sigmap(wire);
-				Const initval = wire->attributes.at(ID(init));
+				Const initval = wire->attributes.at(ID::init);
 				for (int i = 0; i < GetSize(initsig) && i < GetSize(initval); i++)
 					if (initval[i] == State::S0 && !opts.zinit)
 						sigbit_init[initsig[i]] = false;
@@ -319,7 +319,7 @@ struct ShregmapWorker
 						initval.push_back(State::S0);
 					remove_init.insert(bit);
 				}
-				first_cell->setParam(ID(INIT), initval);
+				first_cell->setParam(ID::INIT, initval);
 			}
 
 			if (opts.zinit)
@@ -348,7 +348,7 @@ struct ShregmapWorker
 
 			first_cell->type = shreg_cell_type_str;
 			first_cell->setPort(q_port, last_cell->getPort(q_port));
-			first_cell->setParam(ID(DEPTH), depth);
+			first_cell->setParam(ID::DEPTH, depth);
 
 			if (opts.tech != nullptr && !opts.tech->fixup(first_cell, taps_dict))
 				remove_cells.insert(first_cell);
@@ -366,18 +366,18 @@ struct ShregmapWorker
 
 		for (auto wire : module->wires())
 		{
-			if (wire->attributes.count(ID(init)) == 0)
+			if (wire->attributes.count(ID::init) == 0)
 				continue;
 
 			SigSpec initsig = sigmap(wire);
-			Const &initval = wire->attributes.at(ID(init));
+			Const &initval = wire->attributes.at(ID::init);
 
 			for (int i = 0; i < GetSize(initsig) && i < GetSize(initval); i++)
 				if (remove_init.count(initsig[i]))
 					initval[i] = State::Sx;
 
 			if (SigSpec(initval).is_fully_undef())
-				wire->attributes.erase(ID(init));
+				wire->attributes.erase(ID::init);
 		}
 
 		remove_cells.clear();
@@ -403,7 +403,7 @@ struct ShregmapWorker
 
 struct ShregmapPass : public Pass {
 	ShregmapPass() : Pass("shregmap", "map shift registers") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -461,7 +461,7 @@ struct ShregmapPass : public Pass {
 		log("        map to greenpak4 shift registers.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		ShregmapOptions opts;
 		string clkpol, enpol;
@@ -548,19 +548,19 @@ struct ShregmapPass : public Pass {
 			bool en_neg = enpol == "neg" || enpol == "any" || enpol == "any_or_none";
 
 			if (clk_pos && en_none)
-				opts.ffcells[ID($_DFF_P_)] = make_pair(IdString(ID(D)), IdString(ID(Q)));
+				opts.ffcells[ID($_DFF_P_)] = make_pair(IdString(ID::D), IdString(ID::Q));
 			if (clk_neg && en_none)
-				opts.ffcells[ID($_DFF_N_)] = make_pair(IdString(ID(D)), IdString(ID(Q)));
+				opts.ffcells[ID($_DFF_N_)] = make_pair(IdString(ID::D), IdString(ID::Q));
 
 			if (clk_pos && en_pos)
-				opts.ffcells[ID($_DFFE_PP_)] = make_pair(IdString(ID(D)), IdString(ID(Q)));
+				opts.ffcells[ID($_DFFE_PP_)] = make_pair(IdString(ID::D), IdString(ID::Q));
 			if (clk_pos && en_neg)
-				opts.ffcells[ID($_DFFE_PN_)] = make_pair(IdString(ID(D)), IdString(ID(Q)));
+				opts.ffcells[ID($_DFFE_PN_)] = make_pair(IdString(ID::D), IdString(ID::Q));
 
 			if (clk_neg && en_pos)
-				opts.ffcells[ID($_DFFE_NP_)] = make_pair(IdString(ID(D)), IdString(ID(Q)));
+				opts.ffcells[ID($_DFFE_NP_)] = make_pair(IdString(ID::D), IdString(ID::Q));
 			if (clk_neg && en_neg)
-				opts.ffcells[ID($_DFFE_NN_)] = make_pair(IdString(ID(D)), IdString(ID(Q)));
+				opts.ffcells[ID($_DFFE_NN_)] = make_pair(IdString(ID::D), IdString(ID::Q));
 
 			if (en_pos || en_neg)
 				opts.ffe = true;

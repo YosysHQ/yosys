@@ -46,7 +46,7 @@ static std::string netname(std::set<std::string> &conntypes_code, std::set<std::
 
 struct IntersynthBackend : public Backend {
 	IntersynthBackend() : Backend("intersynth", "write design to InterSynth netlist file") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -71,7 +71,7 @@ struct IntersynthBackend : public Backend {
 		log("http://www.clifford.at/intersynth/\n");
 		log("\n");
 	}
-	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing INTERSYNTH backend.\n");
 		log_push();
@@ -122,70 +122,67 @@ struct IntersynthBackend : public Backend {
 		for (auto lib : libs)
 			ct.setup_design(lib);
 
-		for (auto module_it : design->modules_)
+		for (auto module : design->modules())
 		{
-			RTLIL::Module *module = module_it.second;
 			SigMap sigmap(module);
 
 			if (module->get_blackbox_attribute())
 				continue;
-			if (module->memories.size() == 0 && module->processes.size() == 0 && module->cells_.size() == 0)
+			if (module->memories.size() == 0 && module->processes.size() == 0 && module->cells().size() == 0)
 				continue;
 
 			if (selected && !design->selected_whole_module(module->name)) {
 				if (design->selected_module(module->name))
-					log_cmd_error("Can't handle partially selected module %s!\n", RTLIL::id2cstr(module->name));
+					log_cmd_error("Can't handle partially selected module %s!\n", log_id(module->name));
 				continue;
 			}
 
-			log("Generating netlist %s.\n", RTLIL::id2cstr(module->name));
+			log("Generating netlist %s.\n", log_id(module->name));
 
 			if (module->memories.size() != 0 || module->processes.size() != 0)
 				log_error("Can't generate a netlist for a module with unprocessed memories or processes!\n");
 
 			std::set<std::string> constcells_code;
-			netlists_code += stringf("# Netlist of module %s\n", RTLIL::id2cstr(module->name));
-			netlists_code += stringf("netlist %s\n", RTLIL::id2cstr(module->name));
+			netlists_code += stringf("# Netlist of module %s\n", log_id(module->name));
+			netlists_code += stringf("netlist %s\n", log_id(module->name));
 
 			// Module Ports: "std::set<string> celltypes_code" prevents duplicate top level ports
-			for (auto wire_it : module->wires_) {
-				RTLIL::Wire *wire = wire_it.second;
+			for (auto wire : module->wires()) {
 				if (wire->port_input || wire->port_output) {
 					celltypes_code.insert(stringf("celltype !%s b%d %sPORT\n" "%s %s %d %s PORT\n",
-							RTLIL::id2cstr(wire->name), wire->width, wire->port_input ? "*" : "",
-							wire->port_input ? "input" : "output", RTLIL::id2cstr(wire->name), wire->width, RTLIL::id2cstr(wire->name)));
-					netlists_code += stringf("node %s %s PORT %s\n", RTLIL::id2cstr(wire->name), RTLIL::id2cstr(wire->name),
+							log_id(wire->name), wire->width, wire->port_input ? "*" : "",
+							wire->port_input ? "input" : "output", log_id(wire->name), wire->width, log_id(wire->name)));
+					netlists_code += stringf("node %s %s PORT %s\n", log_id(wire->name), log_id(wire->name),
 							netname(conntypes_code, celltypes_code, constcells_code, sigmap(wire)).c_str());
 				}
 			}
 
 			// Submodules: "std::set<string> celltypes_code" prevents duplicate cell types
-			for (auto cell_it : module->cells_)
+			for (auto cell : module->cells())
 			{
-				RTLIL::Cell *cell = cell_it.second;
 				std::string celltype_code, node_code;
 
 				if (!ct.cell_known(cell->type))
-					log_error("Found unknown cell type %s in module!\n", RTLIL::id2cstr(cell->type));
+					log_error("Found unknown cell type %s in module!\n", log_id(cell->type));
 
-				celltype_code = stringf("celltype %s", RTLIL::id2cstr(cell->type));
-				node_code = stringf("node %s %s", RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
+				celltype_code = stringf("celltype %s", log_id(cell->type));
+				node_code = stringf("node %s %s", log_id(cell->name), log_id(cell->type));
 				for (auto &port : cell->connections()) {
 					RTLIL::SigSpec sig = sigmap(port.second);
 					if (sig.size() != 0) {
 						conntypes_code.insert(stringf("conntype b%d %d 2 %d\n", sig.size(), sig.size(), sig.size()));
-						celltype_code += stringf(" b%d %s%s", sig.size(), ct.cell_output(cell->type, port.first) ? "*" : "", RTLIL::id2cstr(port.first));
-						node_code += stringf(" %s %s", RTLIL::id2cstr(port.first), netname(conntypes_code, celltypes_code, constcells_code, sig).c_str());
+						celltype_code += stringf(" b%d %s%s", sig.size(), ct.cell_output(cell->type, port.first) ? "*" : "", log_id(port.first));
+						node_code += stringf(" %s %s", log_id(port.first), netname(conntypes_code, celltypes_code, constcells_code, sig).c_str());
 					}
 				}
 				for (auto &param : cell->parameters) {
-					celltype_code += stringf(" cfg:%d %s", int(param.second.bits.size()), RTLIL::id2cstr(param.first));
+					celltype_code += stringf(" cfg:%d %s", int(param.second.bits.size()), log_id(param.first));
 					if (param.second.bits.size() != 32) {
-						node_code += stringf(" %s '", RTLIL::id2cstr(param.first));
+						node_code += stringf(" %s '", log_id(param.first));
 						for (int i = param.second.bits.size()-1; i >= 0; i--)
 							node_code += param.second.bits[i] == State::S1 ? "1" : "0";
 					} else
-						node_code += stringf(" %s 0x%x", RTLIL::id2cstr(param.first), param.second.as_int());
+						node_code += stringf(" %s 0x%x", log_id(param.first), param.second.as_int());
 				}
 
 				celltypes_code.insert(celltype_code + "\n");
