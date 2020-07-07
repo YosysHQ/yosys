@@ -529,7 +529,7 @@ unmap_enable:
 				}
 				if (supported_dffsr & flip_initmask(initmask)) {
 flip_dqisr:;
-					log_warning("Flipping D/Q/init and inseerting set/reset fixup to handle init value on %s.%s [%s]\n", log_id(cell->module->name), log_id(cell->name), log_id(cell->type));
+					log_warning("Flipping D/Q/init and inserting set/reset fixup to handle init value on %s.%s [%s]\n", log_id(cell->module->name), log_id(cell->name), log_id(cell->type));
 					SigSpec new_r;
 					bool neg_r = (ff_neg & NEG_R);
 					bool neg_s = (ff_neg & NEG_S);
