@@ -22,7 +22,7 @@ EOT
 design -save orig
 flatten
 equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DLATCH_PP0_ x
-#equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DLATCHSR_PPP_ x
+equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DLATCHSR_PPP_ x
 
 
 # Convert everything to ADLATCHs.

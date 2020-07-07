@@ -45,10 +45,10 @@ equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DFFE_PP0P_ 0
 equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DFFE_PP0P_ 1 -cell $_DLATCH_P_ 1
 equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DFFE_PP1P_ 0 -cell $_DLATCH_P_ 1
 equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DFFE_PP1P_ 1 -cell $_DLATCH_P_ 1
-#equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DFFSR_PPP_ 0
-#equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DFFSR_PPP_ 1
-#equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DFFSRE_PPPP_ 0
-#equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DFFSRE_PPPP_ 1
+equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DFFSR_PPP_ 0
+equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DFFSR_PPP_ 1
+equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DFFSRE_PPPP_ 0
+equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DFFSRE_PPPP_ 1
 
 
 # Convert everything to ADFFs.

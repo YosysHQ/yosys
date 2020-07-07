@@ -39,8 +39,8 @@ design -save orig
 flatten
 equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DFF_PP0_ x
 equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DFFE_PP0P_ x
-#equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DFFSR_PPP_ x
-#equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DFFSRE_PPPP_ x
+equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DFFSR_PPP_ x
+equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DFFSRE_PPPP_ x
 
 
 # Convert everything to ADFFs.
