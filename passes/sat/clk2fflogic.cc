@@ -36,6 +36,30 @@ struct Clk2fflogicPass : public Pass {
 		log("multiple clocks.\n");
 		log("\n");
 	}
+	SigSpec wrap_async_control(Module *module, SigSpec sig, bool polarity) {
+		Wire *past_sig = module->addWire(NEW_ID, GetSize(sig));
+		module->addFf(NEW_ID, sig, past_sig);
+		if (polarity)
+			sig = module->Or(NEW_ID, sig, past_sig);
+		else
+			sig = module->And(NEW_ID, sig, past_sig);
+		if (polarity)
+			return sig;
+		else
+			return module->Not(NEW_ID, sig);
+	}
+	SigSpec wrap_async_control_gate(Module *module, SigSpec sig, bool polarity) {
+		Wire *past_sig = module->addWire(NEW_ID);
+		module->addFfGate(NEW_ID, sig, past_sig);
+		if (polarity)
+			sig = module->OrGate(NEW_ID, sig, past_sig);
+		else
+			sig = module->AndGate(NEW_ID, sig, past_sig);
+		if (polarity)
+			return sig;
+		else
+			return module->NotGate(NEW_ID, sig);
+	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		// bool flag_noinit = false;
@@ -153,7 +177,7 @@ struct Clk2fflogicPass : public Pass {
 					cell->setPort(ID::WR_DATA, wr_data_port);
 				}
 
-				if (cell->type.in(ID($dlatch), ID($dlatchsr)))
+				if (cell->type.in(ID($dlatch), ID($adlatch), ID($dlatchsr)))
 				{
 					bool enpol = cell->parameters[ID::EN_POLARITY].as_bool();
 
@@ -165,32 +189,32 @@ struct Clk2fflogicPass : public Pass {
 							log_id(module), log_id(cell), log_id(cell->type),
 							log_signal(sig_en), log_signal(sig_d), log_signal(sig_q));
 
+					sig_en = wrap_async_control(module, sig_en, enpol);
+
 					Wire *past_q = module->addWire(NEW_ID, GetSize(sig_q));
 					module->addFf(NEW_ID, sig_q, past_q);
 
 					if (cell->type == ID($dlatch))
 					{
-						if (enpol)
-							module->addMux(NEW_ID, past_q, sig_d, sig_en, sig_q);
-						else
-							module->addMux(NEW_ID, sig_d, past_q, sig_en, sig_q);
+						module->addMux(NEW_ID, past_q, sig_d, sig_en, sig_q);
+					}
+					else if (cell->type == ID($adlatch))
+					{
+						SigSpec t = module->Mux(NEW_ID, past_q, sig_d, sig_en);
+						SigSpec arst = wrap_async_control(module, cell->getPort(ID::ARST), cell->parameters[ID::ARST_POLARITY].as_bool());
+						Const rstval = cell->parameters[ID::ARST_VALUE];
+
+						module->addMux(NEW_ID, t, rstval, arst, sig_q);
 					}
 					else
 					{
-						SigSpec t;
-						if (enpol)
-							t = module->Mux(NEW_ID, past_q, sig_d, sig_en);
-						else
-							t = module->Mux(NEW_ID, sig_d, past_q, sig_en);
+						SigSpec t = module->Mux(NEW_ID, past_q, sig_d, sig_en);
 
-						SigSpec s = cell->getPort(ID::SET);
-						if (!cell->parameters[ID::SET_POLARITY].as_bool())
-							s = module->Not(NEW_ID, s);
+						SigSpec s = wrap_async_control(module, cell->getPort(ID::SET), cell->parameters[ID::SET_POLARITY].as_bool());
 						t = module->Or(NEW_ID, t, s);
 
-						SigSpec c = cell->getPort(ID::CLR);
-						if (cell->parameters[ID::CLR_POLARITY].as_bool())
-							c = module->Not(NEW_ID, c);
+						SigSpec c = wrap_async_control(module, cell->getPort(ID::CLR), cell->parameters[ID::CLR_POLARITY].as_bool());
+						c = module->Not(NEW_ID, c);
 						module->addAnd(NEW_ID, t, c, sig_q);
 					}
 
@@ -279,55 +303,30 @@ struct Clk2fflogicPass : public Pass {
 
 					if (cell->type == ID($adff))
 					{
-						SigSpec arst = cell->getPort(ID::ARST);
+						SigSpec arst = wrap_async_control(module, cell->getPort(ID::ARST), cell->parameters[ID::ARST_POLARITY].as_bool());
 						SigSpec qval = module->Mux(NEW_ID, past_q, past_d, clock_edge);
 						Const rstval = cell->parameters[ID::ARST_VALUE];
 
-						Wire *past_arst = module->addWire(NEW_ID);
-						module->addFf(NEW_ID, arst, past_arst);
-						if (cell->parameters[ID::ARST_POLARITY].as_bool())
-							arst = module->LogicOr(NEW_ID, arst, past_arst);
-						else
-							arst = module->LogicAnd(NEW_ID, arst, past_arst);
-
-						if (cell->parameters[ID::ARST_POLARITY].as_bool())
-							module->addMux(NEW_ID, qval, rstval, arst, sig_q);
-						else
-							module->addMux(NEW_ID, rstval, qval, arst, sig_q);
+						module->addMux(NEW_ID, qval, rstval, arst, sig_q);
 					}
 					else
 					if (cell->type.in(ID($_DFF_NN0_), ID($_DFF_NN1_), ID($_DFF_NP0_), ID($_DFF_NP1_),
 						ID($_DFF_PP0_), ID($_DFF_PP1_), ID($_DFF_PN0_), ID($_DFF_PN1_)))
 					{
-						SigSpec arst = cell->getPort(ID::R);
+						SigSpec arst = wrap_async_control_gate(module, cell->getPort(ID::R), cell->type[7] == 'P');
 						SigSpec qval = module->MuxGate(NEW_ID, past_q, past_d, clock_edge);
 						SigBit rstval = (cell->type[8] == '1');
 
-						Wire *past_arst = module->addWire(NEW_ID);
-						module->addFfGate(NEW_ID, arst, past_arst);
-						if (cell->type[7] == 'P')
-							arst = module->OrGate(NEW_ID, arst, past_arst);
-						else
-							arst = module->AndGate(NEW_ID, arst, past_arst);
-
-						if (cell->type[7] == 'P')
-							module->addMuxGate(NEW_ID, qval, rstval, arst, sig_q);
-						else
-							module->addMuxGate(NEW_ID, rstval, qval, arst, sig_q);
+						module->addMuxGate(NEW_ID, qval, rstval, arst, sig_q);
 					}
 					else
 					if (cell->type == ID($dffsr))
 					{
 						SigSpec qval = module->Mux(NEW_ID, past_q, past_d, clock_edge);
-						SigSpec setval = cell->getPort(ID::SET);
-						SigSpec clrval = cell->getPort(ID::CLR);
+						SigSpec setval = wrap_async_control(module, cell->getPort(ID::SET), cell->parameters[ID::SET_POLARITY].as_bool());
+						SigSpec clrval = wrap_async_control(module, cell->getPort(ID::CLR), cell->parameters[ID::CLR_POLARITY].as_bool());
 
-						if (!cell->parameters[ID::SET_POLARITY].as_bool())
-							setval = module->Not(NEW_ID, setval);
-
-						if (cell->parameters[ID::CLR_POLARITY].as_bool())
-							clrval = module->Not(NEW_ID, clrval);
-
+						clrval = module->Not(NEW_ID, clrval);
 						qval = module->Or(NEW_ID, qval, setval);
 						module->addAnd(NEW_ID, qval, clrval, sig_q);
 					}
@@ -336,15 +335,10 @@ struct Clk2fflogicPass : public Pass {
 						ID($_DFFSR_PNN_), ID($_DFFSR_PNP_), ID($_DFFSR_PPN_), ID($_DFFSR_PPP_)))
 					{
 						SigSpec qval = module->MuxGate(NEW_ID, past_q, past_d, clock_edge);
-						SigSpec setval = cell->getPort(ID::S);
-						SigSpec clrval = cell->getPort(ID::R);
+						SigSpec setval = wrap_async_control_gate(module, cell->getPort(ID::S), cell->type[9] == 'P');
+						SigSpec clrval = wrap_async_control_gate(module, cell->getPort(ID::R), cell->type[10] == 'P');
 
-						if (cell->type[9] != 'P')
-							setval = module->Not(NEW_ID, setval);
-
-						if (cell->type[10] == 'P')
-							clrval = module->Not(NEW_ID, clrval);
-
+						clrval = module->NotGate(NEW_ID, clrval);
 						qval = module->OrGate(NEW_ID, qval, setval);
 						module->addAndGate(NEW_ID, qval, clrval, sig_q);
 					}
