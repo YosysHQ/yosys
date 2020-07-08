@@ -1,0 +1,6 @@
+read_verilog -sv typedef_struct_port.sv
+hierarchy; proc; opt
+select -module top
+sat -verify -seq 1 -tempinduct -prove-asserts -show-all
+select -module test_parser
+sat -verify -seq 1 -tempinduct -prove-asserts -show-all
