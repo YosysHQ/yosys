@@ -1,0 +1,6 @@
+logger -expect error "syntax error, unexpected TOK_REAL" 1
+read_verilog -sv <<EOT
+module test_integer_real();
+parameter integer real a = 0;
+endmodule
+EOT
