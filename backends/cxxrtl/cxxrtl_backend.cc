@@ -1935,6 +1935,7 @@ struct CxxrtlWorker {
 		f << "} // namespace " << design_ns << "\n";
 		f << "\n";
 		if (top_module != nullptr && debug_info) {
+			f << "extern \"C\"\n";
 			f << "cxxrtl_toplevel " << design_ns << "_create() {\n";
 			inc_indent();
 				std::string top_type = design_ns + "::" + mangle(top_module);
