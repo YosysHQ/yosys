@@ -24,9 +24,9 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct SynthQuickLogicPass : public ScriptPass
-{
-    SynthQuickLogicPass() : ScriptPass("synth_quicklogic", "Synthesis for QuickLogic FPGAs") { }
+struct SynthQuickLogicPass : public ScriptPass {
+
+    SynthQuickLogicPass() : ScriptPass("synth_quicklogic", "Synthesis for QuickLogic FPGAs") {}
 
     void help() override
     {
@@ -42,6 +42,7 @@ struct SynthQuickLogicPass : public ScriptPass
         log("        generate the synthesis netlist for the specified family.\n");
         log("        supported values:\n");
         log("        - pp3: PolarPro 3 \n");
+        log("        - ap3: ArcticPro 3 \n");
         log("\n");
         log("    -edif <file>\n");
         log("        write the design to the specified edif file. writing of an output file\n");
@@ -51,46 +52,53 @@ struct SynthQuickLogicPass : public ScriptPass
         log("        write the design to the specified BLIF file. writing of an output file\n");
         log("        is omitted if this parameter is not specified.\n");
         log("\n");
+        log("    -adder\n");
+        log("        use adder cells in output netlist\n");
+        log("\n");
+        log("The following commands are executed by this synthesis command:\n");
         help_script();
         log("\n");
     }
 
-    std::string top_opt = "";
-    std::string edif_file = "";
-    std::string blif_file = "";
-    std::string currmodule = "";
-    std::string family = "";
+    string top_opt, edif_file, blif_file, family, currmodule;
+    bool inferAdder;
 
-    void clear_flags() override
+    void clear_flags() YS_OVERRIDE
     {
         top_opt = "-auto-top";
+        edif_file = "";
+        blif_file = "";
+        currmodule = "";
         family = "pp3";
-        edif_file.clear();
-        blif_file.clear();
+        inferAdder = false;
     }
 
-    void execute(std::vector<std::string> args, RTLIL::Design *design) override
+    void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
     {
-        std::string run_from, run_to;
+        string run_from, run_to;
         clear_flags();
 
-        size_t argidx;
-        for (argidx = 1; argidx < args.size(); argidx++)
-        {
-            if (args[argidx] == "-top" && argidx+1 < args.size()) {
-                top_opt = "-top " + args[++argidx];
-                continue;
-            }
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++)
+		{
+			if (args[argidx] == "-top" && argidx+1 < args.size()) {
+				top_opt = "-top " + args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-edif" && argidx+1 < args.size()) {
+				edif_file = args[++argidx];
+				continue;
+			}
             if (args[argidx] == "-family" && argidx+1 < args.size()) {
                 family = args[++argidx];
                 continue;
             }
-            if (args[argidx] == "-edif" && argidx+1 < args.size()) {
-                edif_file = args[++argidx];
-                continue;
-            }
             if (args[argidx] == "-blif" && argidx+1 < args.size()) {
                 blif_file = args[++argidx];
+                continue;
+            }
+            if (args[argidx] == "-adder") {
+                inferAdder = true;
                 continue;
             }
             break;
@@ -137,6 +145,10 @@ struct SynthQuickLogicPass : public ScriptPass
             run("opt");
             run("memory -nomap");
             run("opt_clean");
+            run("share");
+            run("techmap -map +/cmp2lut.v -D LUT_WIDTH=4");
+            run("opt_expr");
+            run("opt_clean");
 
             run("alumacc");
             run("opt");
@@ -146,7 +158,7 @@ struct SynthQuickLogicPass : public ScriptPass
             run("opt_clean");
         }
 
-        if (check_label("map_bram", "(skip if -nobram)")) {
+        if (check_label("map_bram", "(skip if -nobram)") && family == "pp3") {
             run("memory_bram -rules +/quicklogic/" + family + "_brams.txt");
             run("pp3_braminit");
             run("techmap -map +/quicklogic/" + family + "_brams_map.v");
@@ -161,41 +173,71 @@ struct SynthQuickLogicPass : public ScriptPass
         }
 
         if (check_label("map_gates")) {
-            run("techmap");
+            if (inferAdder)
+            {
+                if(family == "ap3") {
+                    run("ap3_wrapcarry");
+                }
+                run("techmap -map +/techmap.v -map +/quicklogic/" + family + "_arith_map.v");
+            } else {
+                run("techmap");
+            }
             run("opt -fast");
-            run("muxcover -mux8 -mux4");
-            run("opt_expr -clkinv");
-            run("opt -fast");
-            run("opt_expr");
-            run("opt_merge");
-            run("opt_rmdff");
-            run("opt_clean");
-            run("opt");
+            if (family == "pp3") {
+                run("muxcover -mux8 -mux4");
+            }
+            if(family == "ap3") {
+                run("ap3_opt");
+            } else {
+                run("opt_expr -clkinv");
+                run("opt -fast");
+                run("opt_expr");
+                run("opt_merge");
+                run("opt_rmdff");
+                run("opt_clean");
+                run("opt");
+            }
         }
 
         if (check_label("map_ffs")) {
-			run("opt_expr -clkinv");
-            run("dff2dffe");
+            if (family == "pp3") {
+                run("dff2dffe");
+            } else {
+                run("dff2dffe -direct-match $_DFF_*");
+            }
 
             std::string techMapArgs = " -map +/quicklogic/" + family + "_ffs_map.v";
             run("techmap " + techMapArgs);
             run("opt_expr -mux_undef");
             run("simplemap");
-            run("opt_expr");
-            run("opt_merge");
-            run("opt_rmdff");
-            run("opt_clean");
-            run("opt");
+            if(family == "ap3") {
+                run("ap3_opt -full");
+            } else {
+                run("opt_expr");
+                run("opt_merge");
+                run("opt_rmdff");
+                run("opt_clean");
+                run("opt");
+            }
         }
 
         if (check_label("map_luts")) {
             std::string techMapArgs = " -map +/quicklogic/" + family + "_latches_map.v";
             run("techmap " + techMapArgs);
-            run("abc -luts 1,2,2,4:8");
+            if (family == "pp3") {
+                run("abc -luts 1,2,2");
+            } else {
+                //run("nlutmap -luts N_4");
+                run("abc -dress -lut 4 -dff");
+            }
 
+            if(family == "ap3") {
+			    run("ap3_wrapcarry -unwrap");
+            }
             techMapArgs = " -map +/quicklogic/" + family + "_ffs_map.v";
             run("techmap " + techMapArgs);
             run("clean");
+            run("opt_lut -dlogic QL_CARRY:I0=2:I1=1:CI=0");
         }
 
         if (check_label("map_cells")) {
@@ -204,7 +246,6 @@ struct SynthQuickLogicPass : public ScriptPass
             techMapArgs += " -map +/quicklogic/" + family + "_lut_map.v";
             run("techmap" + techMapArgs);
             run("clean");
-            run("quicklogic_eqn");
         }
 
         if (check_label("check")) {
@@ -213,33 +254,37 @@ struct SynthQuickLogicPass : public ScriptPass
             run("stat");
             run("check -noinit");
         }
-        
-        if (check_label("iomap")) {
-            if (family == "pp3") {
-                run("clkbufmap -buf $_BUF_ Y:A -inpad ckpad Q:P");
-                run("iopadmap -bits -outpad outpad A:P -inpad inpad Q:P -tinoutpad bipad EN:Q:A:P A:top");
-            }
-        }
 
-        if (check_label("finalize")) {
-            run("splitnets -ports -format ()");
-            run("setundef -zero -params -undriven");
-            run("hilomap -hicell logic_1 a -locell logic_0 a -singleton A:top");
-            run("opt_clean -purge");
-            run("check");
-        }
+		if (check_label("iomap")) {
+			if (family == "pp3") {
+				run("clkbufmap -buf $_BUF_ Y:A -inpad ckpad Q:P");
+				run("iopadmap -bits -outpad outpad A:P -inpad inpad Q:P -tinoutpad bipad EN:Q:A:P A:top");
+			} else if (family == "ap3") {
+				run("clkbufmap -buf $_BUF_ Y:A -inpad ck_buff Q:A");
+				run("iopadmap -bits -outpad out_buff A:Q -inpad in_buff Q:A -toutpad EN:A:Q A:top");
+			}
+		}
+
+		if (check_label("finalize")) {
+			run("splitnets -ports -format ()");
+			run("setundef -zero -params -undriven");
+			run("hilomap -hicell logic_1 a -locell logic_0 a -singleton A:top");
+			run("opt_clean");
+			run("check");
+		}
 
         if (check_label("edif")) {
-            if (!edif_file.empty() || help_mode) {
+            if (!edif_file.empty() || help_mode)
                 run(stringf("write_edif -nogndvcc -attrprop -pvector par %s %s", this->currmodule.c_str(), edif_file.c_str()));
-            }
         }
 
         if (check_label("blif")) {
             if (!blif_file.empty() || help_mode)
                 run(stringf("write_blif %s %s", top_opt.c_str(), blif_file.c_str()));
         }
+
     }
-} SynthQuickLogicPass;
+
+} SynthQuicklogicPass;
 
 PRIVATE_NAMESPACE_END

@@ -54,3 +54,6 @@ OBJS += passes/pmgen/xilinx_srl.o
 GENFILES += passes/pmgen/xilinx_srl_pm.h
 passes/pmgen/xilinx_srl.o: passes/pmgen/xilinx_srl_pm.h
 $(eval $(call add_extra_objs,passes/pmgen/xilinx_srl_pm.h))
+
+# --------------------------------------
+
