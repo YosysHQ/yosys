@@ -4231,6 +4231,8 @@ bool AstNode::detect_latch(const std::string &var)
 			case AST_POSEDGE:
 			case AST_NEGEDGE:
 				return false;
+			case AST_EDGE:
+				break;
 			case AST_BLOCK:
 				if (!c->detect_latch(var))
 					return false;
