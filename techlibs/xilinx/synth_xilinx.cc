@@ -652,13 +652,13 @@ struct SynthXilinxPass : public ScriptPass
 			}
 			run("clean");
 
+			if (help_mode || !abc9)
+				run("techmap -map +/xilinx/ff_map.v", "(only if not '-abc9')");
 			// This shregmap call infers fixed length shift registers after abc
 			//   has performed any necessary retiming
 			if (!nosrl || help_mode)
 				run("xilinx_srl -fixed -minlen 3", "(skip if '-nosrl')");
 			std::string techmap_args = "-map +/xilinx/lut_map.v -map +/xilinx/cells_map.v";
-			if (help_mode || !abc9)
-				techmap_args += stringf(" -map +/xilinx/ff_map.v");
 			techmap_args += " -D LUT_WIDTH=" + lut_size_s;
 			run("techmap " + techmap_args);
 			if (help_mode)
