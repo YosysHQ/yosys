@@ -1296,7 +1296,7 @@ unrecognized:
 			sigmap.set(module);
 			initbits.clear();
 
-			for (auto wire : module->selected_wires())
+			for (auto wire : module->wires())
 			{
 				if (wire->attributes.count(ID::init) == 0)
 					continue;
