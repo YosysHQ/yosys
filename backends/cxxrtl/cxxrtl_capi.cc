@@ -43,6 +43,14 @@ void cxxrtl_destroy(cxxrtl_handle handle) {
 	delete handle;
 }
 
+int cxxrtl_eval(cxxrtl_handle handle) {
+	return handle->module->eval();
+}
+
+int cxxrtl_commit(cxxrtl_handle handle) {
+	return handle->module->commit();
+}
+
 size_t cxxrtl_step(cxxrtl_handle handle) {
 	return handle->module->step();
 }
