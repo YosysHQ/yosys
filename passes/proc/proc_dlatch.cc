@@ -37,6 +37,7 @@ struct proc_dlatch_db_t
 	dict<Cell*, vector<SigBit>> mux_srcbits;
 	dict<SigBit, pair<Cell*, int>> mux_drivers;
 	dict<SigBit, int> sigusers;
+	dict<SigBit, std::pair<State,SigBit>> initbits;
 
 	proc_dlatch_db_t(Module *module) : module(module), sigmap(module)
 	{
@@ -69,9 +70,34 @@ struct proc_dlatch_db_t
 		}
 
 		for (auto wire : module->wires())
+		{
 			if (wire->port_input)
 				for (auto bit : sigmap(wire))
 					sigusers[bit]++;
+			if (wire->attributes.count(ID::init)) {
+				SigSpec wirebits = sigmap(wire);
+				Const initval = wire->attributes.at(ID::init);
+
+				for (int i = 0; i < GetSize(wirebits) && i < GetSize(initval); i++)
+				{
+					SigBit bit = wirebits[i];
+					State val = initval[i];
+
+					if (val != State::S0 && val != State::S1 && bit.wire != nullptr)
+						continue;
+
+					if (initbits.count(bit)) {
+						if (initbits.at(bit).first != val)
+							log_error("Conflicting init values for signal %s (%s = %s != %s).\n",
+									log_signal(bit), log_signal(SigBit(wire, i)),
+									log_signal(val), log_signal(initbits.at(bit).first));
+						continue;
+					}
+
+					initbits[bit] = std::make_pair(val,SigBit(wire,i));
+				}
+			}
+		}
 	}
 
 	bool quickcheck(const SigSpec &haystack, const SigSpec &needle)
@@ -393,6 +419,13 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 		else
 			log("No latch inferred for signal `%s.%s' from process `%s.%s'.\n",
 					db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str());
+		for (auto &bit : lhs) {
+			auto it = db.initbits.find(bit);
+			if (it != db.initbits.end()) {
+				log("Removing init bit %s for non-memory siginal `%s.%s` in process `%s.%s`.\n", log_signal(it->second.first), db.module->name.c_str(), log_signal(bit), db.module->name.c_str(), proc->name.c_str());
+				it->second.second.wire->attributes.at(ID::init)[it->second.second.offset] = State::Sx;
+			}
+		}
 		db.module->connect(lhs, rhs);
 		offset += chunk.width;
 	}
