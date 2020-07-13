@@ -123,51 +123,6 @@ module MISTRAL_MLAB(input [4:0] A1ADDR, input A1DATA, A1EN, CLK1, input [4:0] B1
 endmodule
 
 
-module MISTRAL_M10K(A1ADDR, A1DATA, A1EN, CLK1, B1ADDR, B1DATA, B1EN);
-
-parameter CFG_ABITS = 10;
-parameter CFG_DBITS = 10;
-
-input [CFG_ABITS-1:0] A1ADDR, B1ADDR;
-input [CFG_DBITS-1:0] A1DATA;
-input CLK1, A1EN, B1EN;
-output [CFG_DBITS-1:0] B1DATA;
-
-// Much like the MLAB, the M10K has mem_init[01234] parameters which would let
-// you initialise the RAM cell via hex literals. If they were implemented.
-
-cyclonev_ram_block #(
-    .operation_mode("dual_port"),
-    .logical_ram_name("MISTRAL_M10K"),
-    .port_a_address_width(CFG_ABITS),
-    .port_a_data_width(CFG_DBITS),
-    .port_a_logical_ram_depth(2**CFG_ABITS),
-    .port_a_logical_ram_width(CFG_DBITS),
-    .port_a_first_address(0),
-    .port_a_last_address(2**CFG_DBITS - 1),
-    .port_a_first_bit_number(0),
-    .port_b_address_width(CFG_ABITS),
-    .port_b_data_width(CFG_DBITS),
-    .port_b_logical_ram_depth(2**CFG_ABITS),
-    .port_b_logical_ram_width(CFG_DBITS),
-    .port_b_first_address(0),
-    .port_b_last_address(2**CFG_DBITS - 1),
-    .port_b_first_bit_number(0),
-    .port_b_address_clock("clock0"),
-    .port_b_read_enable_clock("clock0")
-) _TECHMAP_REPLACE_ (
-    .portaaddr(A1ADDR),
-    .portadatain(A1DATA),
-    .portawe(A1EN),
-    .portbaddr(B1ADDR),
-    .portbdataout(B1DATA),
-    .portbre(B1EN),
-    .clk0(CLK1)
-);
-
-endmodule
-
-
 module MISTRAL_MUL27X27(input [26:0] A, B, output [53:0] Y);
 
 `MAC #(.ax_width(27), .ay_scan_in_width(27), .result_a_width(54), .operation_mode("M27x27")) _TECHMAP_REPLACE_ (.ax(A), .ay(B), .resulta(Y));
