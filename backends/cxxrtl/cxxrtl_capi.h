@@ -55,6 +55,18 @@ cxxrtl_handle cxxrtl_create(cxxrtl_toplevel design);
 // Release all resources used by a design and its handle.
 void cxxrtl_destroy(cxxrtl_handle handle);
 
+// Evaluate the design, propagating changes on inputs to the `next` value of internal state and
+// output wires.
+//
+// Returns 1 if the design is known to immediately converge, 0 otherwise.
+int cxxrtl_eval(cxxrtl_handle handle);
+
+// Commit the design, replacing the `curr` value of internal state and output wires with the `next`
+// value.
+//
+// Return 1 if any of the `curr` values, 0 otherwise.
+int cxxrtl_commit(cxxrtl_handle handle);
+
 // Simulate the design to a fixed point.
 //
 // Returns the number of delta cycles.
