@@ -1,0 +1,304 @@
+### Always-active SET/CLR removal.
+
+read_verilog -icells <<EOT
+
+module top(...);
+
+input CLK;
+input [5:0] D;
+output [23:0] Q;
+input CLR;
+input SET;
+input EN;
+
+$dffsr #(.CLK_POLARITY(1'b1), .SET_POLARITY(1'b1), .CLR_POLARITY(1'b1), .WIDTH(6)) ff0 (.CLK(CLK), .CLR({CLR, CLR, CLR, 1'b1, 1'b0, 1'bx}), .SET({1'b1, 1'b0, 1'bx, SET, SET, SET}), .D(D), .Q(Q[5:0]));
+$dffsre #(.CLK_POLARITY(1'b1), .SET_POLARITY(1'b0), .CLR_POLARITY(1'b0), .EN_POLARITY(1'b1), .WIDTH(6)) ff1 (.CLK(CLK), .EN(EN), .CLR({CLR, CLR, CLR, 1'b1, 1'b0, 1'bx}), .SET({1'b1, 1'b0, 1'bx, SET, SET, SET}), .D(D), .Q(Q[11:6]));
+$dlatchsr #(.SET_POLARITY(1'b0), .CLR_POLARITY(1'b1), .EN_POLARITY(1'b1), .WIDTH(6)) ff2 (.EN(EN), .CLR({CLR, CLR, CLR, 1'b1, 1'b0, 1'bx}), .SET({1'b1, 1'b0, 1'bx, SET, SET, SET}), .D(D), .Q(Q[17:12]));
+$sr #(.SET_POLARITY(1'b1), .CLR_POLARITY(1'b0), .WIDTH(6)) ff3 (.CLR({CLR, CLR, CLR, 1'b1, 1'b0, 1'bx}), .SET({1'b1, 1'b0, 1'bx, SET, SET, SET}), .Q(Q[23:18]));
+
+endmodule
+
+EOT
+
+design -save orig
+
+equiv_opt -undef -assert -multiclock opt_dff
+design -load postopt
+select -assert-count 1 t:$dffsr
+select -assert-count 1 t:$dffsr r:WIDTH=2 %i
+select -assert-count 1 t:$dffsre
+select -assert-count 1 t:$dffsre r:WIDTH=2 %i
+select -assert-count 1 t:$dlatchsr
+select -assert-count 1 t:$dlatchsr r:WIDTH=2 %i
+select -assert-none t:$sr
+
+design -load orig
+
+equiv_opt -undef -assert -multiclock opt_dff -keepdc
+design -load postopt
+select -assert-count 1 t:$dffsr
+select -assert-count 1 t:$dffsr r:WIDTH=4 %i
+select -assert-count 1 t:$dffsre
+select -assert-count 1 t:$dffsre r:WIDTH=4 %i
+select -assert-count 1 t:$dlatchsr
+select -assert-count 1 t:$dlatchsr r:WIDTH=4 %i
+select -assert-count 1 t:$sr
+select -assert-count 1 t:$sr r:WIDTH=4 %i
+
+design -load orig
+simplemap
+
+equiv_opt -undef -assert -multiclock opt_dff
+design -load postopt
+select -assert-count 1 t:$_DFF_PP0_
+select -assert-count 1 t:$_DFF_PP1_
+select -assert-count 1 t:$_DFFE_PN0P_
+select -assert-count 1 t:$_DFFE_PN1P_
+select -assert-count 1 t:$_DLATCH_PP0_
+select -assert-count 1 t:$_DLATCH_PN1_
+select -assert-none t:$_DFF_PP0_ t:$_DFF_PP1_ t:$_DFFE_PN0P_ t:$_DFFE_PN1P_ t:$_DLATCH_PP0_ t:$_DLATCH_PN1_ t:$_NOT_ %% %n t:* %i
+
+design -load orig
+simplemap
+
+equiv_opt -undef -assert -multiclock opt_dff -keepdc
+design -load postopt
+select -assert-count 1 t:$_DFF_PP0_
+select -assert-count 1 t:$_DFF_PP1_
+select -assert-count 2 t:$_DFFSR_PPP_
+select -assert-count 1 t:$_DFFE_PN0P_
+select -assert-count 1 t:$_DFFE_PN1P_
+select -assert-count 2 t:$_DFFSRE_PNNP_
+select -assert-count 1 t:$_DLATCH_PP0_
+select -assert-count 1 t:$_DLATCH_PN1_
+select -assert-count 2 t:$_DLATCHSR_PNP_
+select -assert-count 1 t:$_DLATCH_P_
+select -assert-count 1 t:$_DLATCH_N_
+select -assert-count 2 t:$_SR_PN_
+select -assert-none t:$_DFF_PP0_ t:$_DFF_PP1_ t:$_DFFSR_PPP_ t:$_DFFE_PN0P_ t:$_DFFE_PN1P_ t:$_DFFSRE_PNNP_ t:$_DLATCH_PP0_ t:$_DLATCH_PN1_ t:$_DLATCHSR_PNP_ t:$_NOT_ t:$_DLATCH_N_ t:$_DLATCH_P_ t:$_SR_PN_ %% %n t:* %i
+
+design -reset
+
+
+
+### Never-active CLR removal.
+
+read_verilog -icells <<EOT
+
+module top(...);
+
+input CLK;
+input [5:0] D;
+output [23:0] Q;
+input CLR;
+input SET;
+input EN;
+
+$dffsr #(.CLK_POLARITY(1'b1), .SET_POLARITY(1'b1), .CLR_POLARITY(1'b1), .WIDTH(6)) ff0 (.CLK(CLK), .CLR(6'h00), .SET({6{SET}}), .D(D), .Q(Q[5:0]));
+$dffsre #(.CLK_POLARITY(1'b1), .SET_POLARITY(1'b0), .CLR_POLARITY(1'b0), .EN_POLARITY(1'b1), .WIDTH(6)) ff1 (.CLK(CLK), .EN(EN), .D(D), .CLR(6'h3f), .SET({6{SET}}), .Q(Q[11:6]));
+$dlatchsr #(.SET_POLARITY(1'b0), .CLR_POLARITY(1'b1), .EN_POLARITY(1'b1), .WIDTH(6)) ff2 (.EN(EN), .D(D), .CLR(6'h00), .SET({6{SET}}), .Q(Q[17:12]));
+$sr #(.SET_POLARITY(1'b1), .CLR_POLARITY(1'b0), .WIDTH(6)) ff3 (.CLR(6'h3f), .SET({6{SET}}), .Q(Q[23:18]));
+
+endmodule
+
+EOT
+
+design -save orig
+
+equiv_opt -undef -assert -multiclock opt_dff -keepdc
+design -load postopt
+select -assert-count 0 t:$dffsr
+select -assert-count 0 t:$dffsre
+select -assert-count 0 t:$dlatchsr
+select -assert-count 0 t:$sr
+select -assert-count 1 t:$adff
+select -assert-count 1 t:$adffe
+select -assert-count 1 t:$adlatch
+select -assert-count 1 t:$dlatch
+
+design -reset
+
+
+
+### Never-active CLR removal (not applicable).
+
+read_verilog -icells <<EOT
+
+module top(...);
+
+input CLK;
+input [5:0] D;
+output [23:0] Q;
+input CLR;
+input SET;
+input ALT;
+input EN;
+
+$dffsr #(.CLK_POLARITY(1'b1), .SET_POLARITY(1'b1), .CLR_POLARITY(1'b1), .WIDTH(6)) ff0 (.CLK(CLK), .CLR(6'h00), .SET({{5{SET}}, ALT}), .D(D), .Q(Q[5:0]));
+$dffsre #(.CLK_POLARITY(1'b1), .SET_POLARITY(1'b0), .CLR_POLARITY(1'b0), .EN_POLARITY(1'b1), .WIDTH(6)) ff1 (.CLK(CLK), .EN(EN), .D(D), .CLR(6'h3f), .SET({{5{SET}}, ALT}), .Q(Q[11:6]));
+$dlatchsr #(.SET_POLARITY(1'b0), .CLR_POLARITY(1'b1), .EN_POLARITY(1'b1), .WIDTH(6)) ff2 (.EN(EN), .D(D), .CLR(6'h00), .SET({{5{SET}}, ALT}), .Q(Q[17:12]));
+$sr #(.SET_POLARITY(1'b1), .CLR_POLARITY(1'b0), .WIDTH(6)) ff3 (.CLR(6'h3f), .SET({{5{SET}}, ALT}), .Q(Q[23:18]));
+
+endmodule
+
+EOT
+
+design -save orig
+
+equiv_opt -undef -assert -multiclock opt_dff -keepdc
+design -load postopt
+select -assert-count 1 t:$dffsr
+select -assert-count 1 t:$dffsre
+select -assert-count 1 t:$dlatchsr
+select -assert-count 1 t:$sr
+select -assert-count 0 t:$adff
+select -assert-count 0 t:$adffe
+select -assert-count 0 t:$adlatch
+select -assert-count 0 t:$dlatch
+
+design -load orig
+simplemap
+
+equiv_opt -undef -assert -multiclock opt_dff -keepdc
+design -load postopt
+select -assert-count 0 t:$_DFFSR_*
+select -assert-count 0 t:$_DFFSRE_*
+select -assert-count 0 t:$_DLATCHSR_*
+select -assert-count 0 t:$_SR_*
+select -assert-count 6 t:$_DFF_PP1_
+select -assert-count 6 t:$_DFFE_PN1P_
+select -assert-count 6 t:$_DLATCH_PN1_
+select -assert-count 6 t:$_DLATCH_P_
+
+design -reset
+
+
+
+### Never-active SET removal.
+
+read_verilog -icells <<EOT
+
+module top(...);
+
+input CLK;
+input [5:0] D;
+output [23:0] Q;
+input CLR;
+input SET;
+input EN;
+
+$dffsr #(.CLK_POLARITY(1'b1), .SET_POLARITY(1'b1), .CLR_POLARITY(1'b1), .WIDTH(6)) ff0 (.CLK(CLK), .CLR({6{CLR}}), .SET(6'h00), .D(D), .Q(Q[5:0]));
+$dffsre #(.CLK_POLARITY(1'b1), .SET_POLARITY(1'b0), .CLR_POLARITY(1'b0), .EN_POLARITY(1'b1), .WIDTH(6)) ff1 (.CLK(CLK), .EN(EN), .D(D), .CLR({6{CLR}}), .SET(6'h3f), .Q(Q[11:6]));
+$dlatchsr #(.SET_POLARITY(1'b0), .CLR_POLARITY(1'b1), .EN_POLARITY(1'b1), .WIDTH(6)) ff2 (.EN(EN), .D(D), .CLR({6{CLR}}), .SET(6'h3f), .Q(Q[17:12]));
+$sr #(.SET_POLARITY(1'b1), .CLR_POLARITY(1'b0), .WIDTH(6)) ff3 (.CLR({6{CLR}}), .SET(6'h00), .Q(Q[23:18]));
+
+endmodule
+
+EOT
+
+design -save orig
+
+equiv_opt -undef -assert -multiclock opt_dff -keepdc
+design -load postopt
+select -assert-count 0 t:$dffsr
+select -assert-count 0 t:$dffsre
+select -assert-count 0 t:$dlatchsr
+select -assert-count 0 t:$sr
+select -assert-count 1 t:$adff
+select -assert-count 1 t:$adffe
+select -assert-count 1 t:$adlatch
+select -assert-count 1 t:$dlatch
+
+design -reset
+
+
+
+### Never-active CLR removal (not applicable).
+
+read_verilog -icells <<EOT
+
+module top(...);
+
+input CLK;
+input [5:0] D;
+output [23:0] Q;
+input CLR;
+input SET;
+input ALT;
+input EN;
+
+$dffsr #(.CLK_POLARITY(1'b1), .SET_POLARITY(1'b1), .CLR_POLARITY(1'b1), .WIDTH(6)) ff0 (.CLK(CLK), .CLR({{5{CLR}}, ALT}), .SET(6'h00), .D(D), .Q(Q[5:0]));
+$dffsre #(.CLK_POLARITY(1'b1), .SET_POLARITY(1'b0), .CLR_POLARITY(1'b0), .EN_POLARITY(1'b1), .WIDTH(6)) ff1 (.CLK(CLK), .EN(EN), .D(D), .CLR({{5{CLR}}, ALT}), .SET(6'h3f), .Q(Q[11:6]));
+$dlatchsr #(.SET_POLARITY(1'b0), .CLR_POLARITY(1'b1), .EN_POLARITY(1'b1), .WIDTH(6)) ff2 (.EN(EN), .D(D), .CLR({{5{CLR}}, ALT}), .SET(6'h3f), .Q(Q[17:12]));
+$sr #(.SET_POLARITY(1'b1), .CLR_POLARITY(1'b0), .WIDTH(6)) ff3 (.CLR({{5{CLR}}, ALT}), .SET(6'h00), .Q(Q[23:18]));
+
+endmodule
+
+EOT
+
+design -save orig
+
+equiv_opt -undef -assert -multiclock opt_dff -keepdc
+design -load postopt
+select -assert-count 1 t:$dffsr
+select -assert-count 1 t:$dffsre
+select -assert-count 1 t:$dlatchsr
+select -assert-count 1 t:$sr
+select -assert-count 0 t:$adff
+select -assert-count 0 t:$adffe
+select -assert-count 0 t:$adlatch
+select -assert-count 0 t:$dlatch
+
+design -load orig
+simplemap
+
+equiv_opt -undef -assert -multiclock opt_dff -keepdc
+design -load postopt
+select -assert-count 0 t:$_DFFSR_*
+select -assert-count 0 t:$_DFFSRE_*
+select -assert-count 0 t:$_DLATCHSR_*
+select -assert-count 0 t:$_SR_*
+select -assert-count 6 t:$_DFF_PP0_
+select -assert-count 6 t:$_DFFE_PN0P_
+select -assert-count 6 t:$_DLATCH_PP0_
+select -assert-count 6 t:$_DLATCH_N_
+
+design -reset
+
+
+
+### SET/CLR merge into ARST.
+
+read_verilog -icells <<EOT
+
+module top(...);
+
+input CLK;
+input [5:0] D;
+output [23:0] Q;
+input ARST;
+input EN;
+
+$dffsr #(.CLK_POLARITY(1'b1), .SET_POLARITY(1'b1), .CLR_POLARITY(1'b1), .WIDTH(6)) ff0 (.CLK(CLK), .CLR({ARST, 5'h00}), .SET({1'b0, {5{ARST}}}), .D(D), .Q(Q[5:0]));
+$dffsre #(.CLK_POLARITY(1'b1), .SET_POLARITY(1'b0), .CLR_POLARITY(1'b0), .EN_POLARITY(1'b1), .WIDTH(6)) ff1 (.CLK(CLK), .EN(EN), .D(D), .CLR({ARST, 5'h1f}), .SET({1'b1, {5{ARST}}}), .Q(Q[11:6]));
+$dlatchsr #(.SET_POLARITY(1'b0), .CLR_POLARITY(1'b1), .EN_POLARITY(1'b1), .WIDTH(6)) ff2 (.EN(EN), .D(D), .CLR({ARST, 5'h00}), .SET({1'b1, {5{ARST}}}), .Q(Q[17:12]));
+$sr #(.SET_POLARITY(1'b1), .CLR_POLARITY(1'b0), .WIDTH(6)) ff3 (.CLR({ARST, 5'h1f}), .SET({1'b0, {5{ARST}}}), .Q(Q[23:18]));
+
+endmodule
+
+EOT
+
+design -save orig
+
+equiv_opt -undef -assert -multiclock opt_dff -keepdc
+design -load postopt
+select -assert-count 0 t:$dffsr
+select -assert-count 0 t:$dffsre
+select -assert-count 1 t:$dlatchsr
+select -assert-count 1 t:$sr
+select -assert-count 1 t:$adff
+select -assert-count 1 t:$adff r:ARST_VALUE=6'h1f %i
+select -assert-count 1 t:$adffe
+select -assert-count 1 t:$adffe r:ARST_VALUE=6'h1f %i
+select -assert-count 0 t:$adlatch
+select -assert-count 0 t:$dlatch

@@ -4,7 +4,7 @@ design -stash gold
 
 read_verilog -icells opt_rmdff.v
 proc
-opt_rmdff
+opt_dff
 
 select -assert-count 0 c:remove*
 select -assert-min 7 c:keep*

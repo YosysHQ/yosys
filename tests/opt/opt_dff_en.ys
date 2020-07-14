@@ -1,0 +1,157 @@
+### Always-active EN removal.
+
+read_verilog -icells <<EOT
+
+module top(...);
+
+input CLK;
+input [1:0] D;
+output [15:0] Q;
+input SRST;
+input ARST;
+input [1:0] CLR;
+input [1:0] SET;
+
+$dffe #(.CLK_POLARITY(1'b1), .EN_POLARITY(1'b1), .WIDTH(2)) ff0 (.CLK(CLK), .EN(1'b1), .D(D), .Q(Q[1:0]));
+$adffe #(.CLK_POLARITY(1'b1), .EN_POLARITY(1'b0), .ARST_POLARITY(1'b1), .ARST_VALUE(2'h2), .WIDTH(2)) ff1 (.CLK(CLK), .EN(1'b0), .ARST(ARST), .D(D), .Q(Q[3:2]));
+$sdffe #(.CLK_POLARITY(1'b1), .EN_POLARITY(1'b1), .SRST_POLARITY(1'b1), .SRST_VALUE(2'h2), .WIDTH(2)) ff2 (.CLK(CLK), .EN(1'b1), .SRST(SRST), .D(D), .Q(Q[5:4]));
+$sdffce #(.CLK_POLARITY(1'b1), .EN_POLARITY(1'b1), .SRST_POLARITY(1'b1), .SRST_VALUE(2'h2), .WIDTH(2)) ff3 (.CLK(CLK), .EN(1'b1), .SRST(SRST), .D(D), .Q(Q[7:6]));
+$dffsre #(.CLK_POLARITY(1'b1), .EN_POLARITY(1'b0), .CLR_POLARITY(1'b1), .SET_POLARITY(1'b0), .WIDTH(2)) ff4 (.CLK(CLK), .EN(1'b0), .SET(SET), .CLR(CLR), .D(D), .Q(Q[9:8]));
+
+$dlatch #(.EN_POLARITY(1'b1), .WIDTH(2)) ff5 (.EN(1'b1), .D(D), .Q(Q[11:10]));
+$adlatch #(.EN_POLARITY(1'b0), .ARST_POLARITY(1'b1), .ARST_VALUE(2'h2), .WIDTH(2)) ff6 (.EN(1'b0), .ARST(ARST), .D(D), .Q(Q[13:12]));
+$dlatchsr #(.EN_POLARITY(1'b0), .CLR_POLARITY(1'b1), .SET_POLARITY(1'b0), .WIDTH(2)) ff7 (.EN(1'b0), .SET(SET), .CLR(CLR), .D(D), .Q(Q[15:14]));
+
+endmodule
+
+EOT
+
+design -save orig
+
+# Equivalence check will fail for unmapped adlatch and dlatchsr due to negative hold hack.
+delete top/ff6 top/ff7
+equiv_opt -undef -assert -multiclock opt_dff
+
+design -load orig
+delete top/ff6 top/ff7
+simplemap
+equiv_opt -undef -assert -multiclock opt_dff
+
+design -load orig
+opt_dff
+select -assert-count 0 t:$dffe
+select -assert-count 0 t:$adffe
+select -assert-count 0 t:$sdffe
+select -assert-count 0 t:$sdffce
+select -assert-count 0 t:$dffsre
+select -assert-count 0 t:$dlatch
+select -assert-count 0 t:$adlatch
+select -assert-count 0 t:$dlatchsr
+select -assert-count 1 t:$dff
+select -assert-count 2 t:$sdff
+select -assert-count 1 t:$adff
+select -assert-count 1 t:$dffsr
+
+design -load orig
+simplemap
+opt_dff
+select -assert-count 0 t:$_DFFE_*
+select -assert-count 0 t:$_SDFFE_*
+select -assert-count 0 t:$_SDFFCE_*
+select -assert-count 0 t:$_DFFSRE_*
+select -assert-count 0 t:$_DLATCH*
+select -assert-count 2 t:$_DFF_P_
+select -assert-count 4 t:$_SDFF_PP?_
+select -assert-count 2 t:$_DFF_PP?_
+select -assert-count 2 t:$_DFFSR_PNP_
+
+design -reset
+
+
+
+### Never-active EN removal.
+
+read_verilog -icells <<EOT
+
+module top(...);
+
+input CLK;
+input [1:0] D;
+(* init = 32'h55555555 *)
+output [31:0] Q;
+input SRST;
+input ARST;
+input [1:0] CLR;
+input [1:0] SET;
+
+$dffe #(.CLK_POLARITY(1'b1), .EN_POLARITY(1'b1), .WIDTH(2)) ff0 (.CLK(CLK), .EN(1'b0), .D(D), .Q(Q[1:0]));
+$adffe #(.CLK_POLARITY(1'b1), .EN_POLARITY(1'b0), .ARST_POLARITY(1'b1), .ARST_VALUE(2'h2), .WIDTH(2)) ff1 (.CLK(CLK), .EN(1'b1), .ARST(ARST), .D(D), .Q(Q[3:2]));
+$sdffe #(.CLK_POLARITY(1'b1), .EN_POLARITY(1'b1), .SRST_POLARITY(1'b1), .SRST_VALUE(2'h2), .WIDTH(2)) ff2 (.CLK(CLK), .EN(1'b0), .SRST(SRST), .D(D), .Q(Q[5:4]));
+$sdffce #(.CLK_POLARITY(1'b1), .EN_POLARITY(1'b1), .SRST_POLARITY(1'b1), .SRST_VALUE(2'h2), .WIDTH(2)) ff3 (.CLK(CLK), .EN(1'b0), .SRST(SRST), .D(D), .Q(Q[7:6]));
+$dffsre #(.CLK_POLARITY(1'b1), .EN_POLARITY(1'b0), .CLR_POLARITY(1'b1), .SET_POLARITY(1'b0), .WIDTH(2)) ff4 (.CLK(CLK), .EN(1'b1), .SET(SET), .CLR(CLR), .D(D), .Q(Q[9:8]));
+
+$dlatch #(.EN_POLARITY(1'b1), .WIDTH(2)) ff5 (.EN(1'b0), .D(D), .Q(Q[11:10]));
+$adlatch #(.EN_POLARITY(1'b0), .ARST_POLARITY(1'b1), .ARST_VALUE(2'h2), .WIDTH(2)) ff6 (.EN(1'b1), .ARST(ARST), .D(D), .Q(Q[13:12]));
+$dlatchsr #(.EN_POLARITY(1'b0), .CLR_POLARITY(1'b1), .SET_POLARITY(1'b0), .WIDTH(2)) ff7 (.EN(1'b1), .SET(SET), .CLR(CLR), .D(D), .Q(Q[15:14]));
+
+$dffe #(.CLK_POLARITY(1'b1), .EN_POLARITY(1'b1), .WIDTH(2)) ff8 (.CLK(CLK), .EN(1'bx), .D(D), .Q(Q[17:16]));
+$adffe #(.CLK_POLARITY(1'b1), .EN_POLARITY(1'b0), .ARST_POLARITY(1'b1), .ARST_VALUE(2'h2), .WIDTH(2)) ff9 (.CLK(CLK), .EN(1'bx), .ARST(ARST), .D(D), .Q(Q[19:18]));
+$sdffe #(.CLK_POLARITY(1'b1), .EN_POLARITY(1'b1), .SRST_POLARITY(1'b1), .SRST_VALUE(2'h2), .WIDTH(2)) ff10 (.CLK(CLK), .EN(1'bx), .SRST(SRST), .D(D), .Q(Q[21:20]));
+$sdffce #(.CLK_POLARITY(1'b1), .EN_POLARITY(1'b1), .SRST_POLARITY(1'b1), .SRST_VALUE(2'h2), .WIDTH(2)) ff11 (.CLK(CLK), .EN(1'bx), .SRST(SRST), .D(D), .Q(Q[23:22]));
+$dffsre #(.CLK_POLARITY(1'b1), .EN_POLARITY(1'b0), .CLR_POLARITY(1'b1), .SET_POLARITY(1'b0), .WIDTH(2)) ff12 (.CLK(CLK), .EN(1'bx), .SET(SET), .CLR(CLR), .D(D), .Q(Q[25:24]));
+
+$dlatch #(.EN_POLARITY(1'b1), .WIDTH(2)) ff13 (.EN(1'bx), .D(D), .Q(Q[27:26]));
+$adlatch #(.EN_POLARITY(1'b0), .ARST_POLARITY(1'b1), .ARST_VALUE(2'h2), .WIDTH(2)) ff14 (.EN(1'bx), .ARST(ARST), .D(D), .Q(Q[29:28]));
+$dlatchsr #(.EN_POLARITY(1'b0), .CLR_POLARITY(1'b1), .SET_POLARITY(1'b0), .WIDTH(2)) ff15 (.EN(1'bx), .SET(SET), .CLR(CLR), .D(D), .Q(Q[31:30]));
+
+endmodule
+
+EOT
+
+design -save orig
+
+equiv_opt -undef -assert -multiclock opt_dff
+design -load postopt
+select -assert-count 2 t:$dffe
+select -assert-count 4 t:$dlatch
+select -assert-count 4 t:$sr
+select -assert-none t:$dffe t:$dlatch t:$sr %% %n t:* %i
+
+design -load orig
+
+equiv_opt -undef -assert -multiclock opt_dff -keepdc
+design -load postopt
+select -assert-count 2 t:$dffe
+select -assert-count 1 t:$adffe
+select -assert-count 1 t:$sdffe
+select -assert-count 1 t:$sdffce
+select -assert-count 1 t:$dffsre
+select -assert-count 3 t:$dlatch
+select -assert-count 1 t:$adlatch
+select -assert-count 1 t:$dlatchsr
+select -assert-count 2 t:$sr
+
+design -load orig
+simplemap
+
+equiv_opt -undef -assert -multiclock opt_dff
+design -load postopt
+select -assert-count 4 t:$_DFFE_??_
+select -assert-count 8 t:$_DLATCH_?_
+select -assert-count 8 t:$_SR_??_
+select -assert-none t:$_DFFE_??_ t:$_DLATCH_?_ t:$_SR_??_ %% %n t:* %i
+
+design -load orig
+simplemap
+
+equiv_opt -undef -assert -multiclock opt_dff -keepdc
+design -load postopt
+select -assert-count 4 t:$_DFFE_??_
+select -assert-count 2 t:$_DFFE_????_
+select -assert-count 2 t:$_SDFFE_????_
+select -assert-count 2 t:$_SDFFCE_????_
+select -assert-count 2 t:$_DFFSRE_????_
+select -assert-count 6 t:$_DLATCH_?_
+select -assert-count 2 t:$_DLATCH_???_
+select -assert-count 2 t:$_DLATCHSR_???_
+select -assert-count 4 t:$_SR_??_

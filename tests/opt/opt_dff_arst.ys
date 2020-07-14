@@ -1,0 +1,101 @@
+### Always-active ARST removal.
+
+read_verilog -icells <<EOT
+
+module top(...);
+
+input CLK;
+input [1:0] D;
+output [11:0] Q;
+input ARST;
+input EN;
+
+$adff #(.CLK_POLARITY(1'b1), .ARST_POLARITY(1'b1), .ARST_VALUE(2'h2), .WIDTH(2)) ff0 (.CLK(CLK), .ARST(1'b1), .D(D), .Q(Q[1:0]));
+$adffe #(.CLK_POLARITY(1'b1), .EN_POLARITY(1'b1), .ARST_POLARITY(1'b0), .ARST_VALUE(2'h2), .WIDTH(2)) ff1 (.CLK(CLK), .ARST(1'b0), .EN(EN), .D(D), .Q(Q[3:2]));
+$adlatch #(.EN_POLARITY(1'b1), .ARST_POLARITY(1'b1), .ARST_VALUE(2'h2), .WIDTH(2)) ff2 (.EN(EN), .ARST(1'b1), .D(D), .Q(Q[5:4]));
+$adff #(.CLK_POLARITY(1'b1), .ARST_POLARITY(1'b1), .ARST_VALUE(2'h2), .WIDTH(2)) ff3 (.CLK(CLK), .ARST(1'bx), .D(D), .Q(Q[7:6]));
+$adffe #(.CLK_POLARITY(1'b1), .EN_POLARITY(1'b1), .ARST_POLARITY(1'b0), .ARST_VALUE(2'h2), .WIDTH(2)) ff4 (.CLK(CLK), .ARST(1'bx), .EN(EN), .D(D), .Q(Q[9:8]));
+$adlatch #(.EN_POLARITY(1'b1), .ARST_POLARITY(1'b1), .ARST_VALUE(2'h2), .WIDTH(2)) ff5 (.EN(EN), .ARST(1'bx), .D(D), .Q(Q[11:10]));
+
+
+endmodule
+
+EOT
+
+design -save orig
+
+equiv_opt -undef -assert -multiclock opt_dff
+design -load postopt
+select -assert-none t:*
+
+design -load orig
+
+equiv_opt -undef -assert -multiclock opt_dff -keepdc
+design -load postopt
+select -assert-count 1 t:$adff
+select -assert-count 1 t:$adffe
+select -assert-count 1 t:$adlatch
+
+design -load orig
+simplemap
+
+equiv_opt -undef -assert -multiclock opt_dff
+design -load postopt
+select -assert-none t:*
+
+design -load orig
+simplemap
+
+equiv_opt -undef -assert -multiclock opt_dff -keepdc
+design -load postopt
+select -assert-count 2 t:$_DFF_???_
+select -assert-count 2 t:$_DFFE_????_
+select -assert-count 2 t:$_DLATCH_???_
+
+design -reset
+
+
+### Never-active ARST removal.
+
+read_verilog -icells <<EOT
+
+module top(...);
+
+input CLK;
+input [1:0] D;
+output [5:0] Q;
+input ARST;
+input EN;
+
+$adff #(.CLK_POLARITY(1'b1), .ARST_POLARITY(1'b1), .ARST_VALUE(2'h2), .WIDTH(2)) ff0 (.CLK(CLK), .ARST(1'b0), .D(D), .Q(Q[1:0]));
+$adffe #(.CLK_POLARITY(1'b1), .EN_POLARITY(1'b1), .ARST_POLARITY(1'b0), .ARST_VALUE(2'h2), .WIDTH(2)) ff1 (.CLK(CLK), .ARST(1'b1), .EN(EN), .D(D), .Q(Q[3:2]));
+$adlatch #(.EN_POLARITY(1'b1), .ARST_POLARITY(1'b1), .ARST_VALUE(2'h2), .WIDTH(2)) ff2 (.EN(EN), .ARST(1'b0), .D(D), .Q(Q[5:4]));
+
+endmodule
+
+EOT
+
+design -save orig
+
+equiv_opt -undef -assert -multiclock opt_dff
+design -load postopt
+select -assert-none t:$adff
+select -assert-none t:$adffe
+select -assert-none t:$adlatch
+select -assert-count 1 t:$dff
+select -assert-count 1 t:$dffe
+select -assert-count 1 t:$dlatch
+
+design -load orig
+simplemap
+
+equiv_opt -undef -assert -multiclock opt_dff
+design -load postopt
+select -assert-none t:$_DFF_???_
+select -assert-none t:$_DFFE_????_
+select -assert-none t:$_DLATCH_???_
+select -assert-count 2 t:$_DFF_P_
+select -assert-count 2 t:$_DFFE_PP_
+select -assert-count 2 t:$_DLATCH_P_
+
+design -reset
