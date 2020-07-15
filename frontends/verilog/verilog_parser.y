@@ -299,14 +299,14 @@ static void rewriteAsMemoryNode(AstNode *node, AstNode *rangeNode)
 %left '+' '-'
 %left '*' '/' '%'
 %left OP_POW
-%left OP_CAST
-%right UNARY_OPS
+%precedence OP_CAST
+%precedence UNARY_OPS
 
 %define parse.error verbose
 %define parse.lac full
 
-%nonassoc FAKE_THEN
-%nonassoc TOK_ELSE
+%precedence FAKE_THEN
+%precedence TOK_ELSE
 
 %debug
 %locations
