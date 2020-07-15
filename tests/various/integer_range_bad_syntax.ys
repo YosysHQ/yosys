@@ -1,0 +1,6 @@
+logger -expect error "syntax error, unexpected" 1
+read_verilog -sv <<EOT
+module test_integer_range();
+parameter integer [31:0] a = 0;
+endmodule
+EOT
