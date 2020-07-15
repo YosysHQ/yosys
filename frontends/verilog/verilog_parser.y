@@ -1342,12 +1342,12 @@ param_integer:
 		astbuf1->children.back()->children.push_back(AstNode::mkconst_int(31, true));
 		astbuf1->children.back()->children.push_back(AstNode::mkconst_int(0, true));
 		astbuf1->is_signed = true;
-	}
+	};
 
 param_real:
 	TOK_REAL {
 		astbuf1->children.push_back(new AstNode(AST_REALVALUE));
-	}
+	};
 
 param_range:
 	range {
@@ -1356,9 +1356,9 @@ param_range:
 		}
 	};
 
-param_integer_type: param_integer param_signed
-param_range_type: type_vec param_signed param_range
-param_implicit_type: param_signed param_range
+param_integer_type: param_integer param_signed;
+param_range_type: type_vec param_signed param_range;
+param_implicit_type: param_signed param_range;
 
 param_type:
 	param_integer_type | param_real | param_range_type | param_implicit_type |
