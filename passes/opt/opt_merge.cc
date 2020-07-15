@@ -173,9 +173,7 @@ struct OptMergeWorker
 
 		for (const auto &it : cell1->connections_) {
 			if (cell1->output(it.first)) {
-				if (it.first == ID::Q && (cell1->type.begins_with("$dff") || cell1->type.begins_with("$dlatch") ||
-						cell1->type.begins_with("$_DFF") || cell1->type.begins_with("$_DLATCH") || cell1->type.begins_with("$_SR_") ||
-						cell1->type.in(ID($adff), ID($sr), ID($ff), ID($_FF_)))) {
+				if (it.first == ID::Q && RTLIL::builtin_ff_cell_types().count(cell1->type)) {
 					// For the 'Q' output of state elements,
 					//   use the (* init *) attribute value
 					auto &sig1 = conn1[it.first];
