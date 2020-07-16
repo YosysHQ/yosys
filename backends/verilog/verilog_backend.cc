@@ -33,7 +33,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool verbose, norename, noattr, attr2comment, noexpr, nodec, nohex, nostr, extmem, defparam, decimal, siminit;
+bool verbose, norename, noattr, attr2comment, noexpr, nodec, nohex, nostr, extmem, defparam, decimal, siminit, systemverilog;
 int auto_name_counter, auto_name_offset, auto_name_digits, extmem_counter;
 std::map<RTLIL::IdString, int> auto_name_map;
 std::set<RTLIL::IdString> reg_wires, reg_ct;
@@ -617,7 +617,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		}
 
 		dump_attributes(f, indent, cell->attributes);
-		f << stringf("%s" "always @(%sedge ", indent.c_str(), cell->type[6] == 'P' ? "pos" : "neg");
+		f << stringf("%s" "always%s @(%sedge ", indent.c_str(), systemverilog ? "_ff" : "", cell->type[6] == 'P' ? "pos" : "neg");
 		dump_sigspec(f, cell->getPort(ID::C));
 		if (cell->type[7] != '_') {
 			f << stringf(" or %sedge ", cell->type[7] == 'P' ? "pos" : "neg");
@@ -660,7 +660,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		}
 
 		dump_attributes(f, indent, cell->attributes);
-		f << stringf("%s" "always @(%sedge ", indent.c_str(), pol_c == 'P' ? "pos" : "neg");
+		f << stringf("%s" "always%s @(%sedge ", indent.c_str(), systemverilog ? "_ff" : "", pol_c == 'P' ? "pos" : "neg");
 		dump_sigspec(f, cell->getPort(ID::C));
 		f << stringf(" or %sedge ", pol_s == 'P' ? "pos" : "neg");
 		dump_sigspec(f, cell->getPort(ID::S));
@@ -1009,7 +1009,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		}
 
 		for (int i = 0; i < width; i++) {
-			f << stringf("%s" "always @(%sedge ", indent.c_str(), pol_clk ? "pos" : "neg");
+			f << stringf("%s" "always%s @(%sedge ", indent.c_str(), systemverilog ? "_ff" : "", pol_clk ? "pos" : "neg");
 			dump_sigspec(f, sig_clk);
 			f << stringf(", %sedge ", pol_set ? "pos" : "neg");
 			dump_sigspec(f, sig_set);
@@ -1067,7 +1067,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			f << ";\n";
 		}
 
-		f << stringf("%s" "always @(%sedge ", indent.c_str(), pol_clk ? "pos" : "neg");
+		f << stringf("%s" "always%s @(%sedge ", indent.c_str(), systemverilog ? "_ff" : "", pol_clk ? "pos" : "neg");
 		dump_sigspec(f, sig_clk);
 		if (cell->type == ID($adff)) {
 			f << stringf(" or %sedge ", pol_arst ? "pos" : "neg");
@@ -1121,7 +1121,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			f << ";\n";
 		}
 
-		f << stringf("%s" "always @*\n", indent.c_str());
+		f << stringf("%s" "always%s\n", indent.c_str(), systemverilog ? "_latch" : " @*");
 
 		f << stringf("%s" "  if (%s", indent.c_str(), pol_en ? "" : "!");
 		dump_sigspec(f, sig_en);
@@ -1392,7 +1392,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			std::vector<std::string> lof_lines = pair.second;
 			if( clk_domain != "")
 			{
-				f << stringf("%s" "always @(%s) begin\n", indent.c_str(), clk_domain.c_str());
+				f << stringf("%s" "always%s @(%s) begin\n", indent.c_str(), systemverilog ? "_ff" : "", clk_domain.c_str());
 				for(auto &line : lof_lines)
 					f << stringf("%s%s" "%s", indent.c_str(), indent.c_str(), line.c_str());
 				f << stringf("%s" "end\n", indent.c_str());
@@ -1410,7 +1410,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 
 	if (cell->type.in(ID($assert), ID($assume), ID($cover)))
 	{
-		f << stringf("%s" "always @* if (", indent.c_str());
+		f << stringf("%s" "always%s if (", indent.c_str(), systemverilog ? "_comb" : " @*");
 		dump_sigspec(f, cell->getPort(ID::EN));
 		f << stringf(") %s(", cell->type.c_str()+1);
 		dump_sigspec(f, cell->getPort(ID::A));
@@ -1717,7 +1717,7 @@ void dump_process(std::ostream &f, std::string indent, RTLIL::Process *proc, boo
 		return;
 	}
 
-	f << stringf("%s" "always @* begin\n", indent.c_str());
+	f << stringf("%s" "always%s begin\n", indent.c_str(), systemverilog ? "_comb" : " @*");
 	dump_case_body(f, indent, &proc->root_case, true);
 
 	std::string backup_indent = indent;
@@ -1728,11 +1728,11 @@ void dump_process(std::ostream &f, std::string indent, RTLIL::Process *proc, boo
 		indent = backup_indent;
 
 		if (sync->type == RTLIL::STa) {
-			f << stringf("%s" "always @* begin\n", indent.c_str());
+			f << stringf("%s" "always%s begin\n", indent.c_str(), systemverilog ? "_comb" : " @*");
 		} else if (sync->type == RTLIL::STi) {
 			f << stringf("%s" "initial begin\n", indent.c_str());
 		} else {
-			f << stringf("%s" "always @(", indent.c_str());
+			f << stringf("%s" "always%s @(", indent.c_str(), systemverilog ? "_ff" : "");
 			if (sync->type == RTLIL::STp || sync->type == RTLIL::ST1)
 				f << stringf("posedge ");
 			if (sync->type == RTLIL::STn || sync->type == RTLIL::ST0)
@@ -1881,6 +1881,9 @@ struct VerilogBackend : public Backend {
 		log("\n");
 		log("Write the current design to a Verilog file.\n");
 		log("\n");
+		log("    -sv\n");
+		log("        with this option, SystemVerilog constructs like always_comb are used\n");
+		log("\n");
 		log("    -norename\n");
 		log("        without this option all internal object names (the ones with a dollar\n");
 		log("        instead of a backslash prefix) are changed to short names in the\n");
@@ -2007,6 +2010,10 @@ struct VerilogBackend : public Backend {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];
+			if (arg == "-sv") {
+				systemverilog = true;
+				continue;
+			}
 			if (arg == "-norename") {
 				norename = true;
 				continue;
