@@ -1050,6 +1050,8 @@ void run_backend(std::string filename, std::string command, RTLIL::Design *desig
 	if (command == "auto") {
 		if (filename.size() > 2 && filename.compare(filename.size()-2, std::string::npos, ".v") == 0)
 			command = "verilog";
+		else if (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".sv") == 0)
+			command = "verilog -sv";
 		else if (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".il") == 0)
 			command = "ilang";
 		else if (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".cc") == 0)
