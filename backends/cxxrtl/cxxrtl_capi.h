@@ -64,7 +64,7 @@ int cxxrtl_eval(cxxrtl_handle handle);
 // Commit the design, replacing the `curr` value of internal state and output wires with the `next`
 // value.
 //
-// Return 1 if any of the `curr` values, 0 otherwise.
+// Return 1 if any of the `curr` values were updated, 0 otherwise.
 int cxxrtl_commit(cxxrtl_handle handle);
 
 // Simulate the design to a fixed point.
