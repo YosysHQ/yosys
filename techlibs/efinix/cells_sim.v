@@ -36,6 +36,7 @@ module EFX_FF(
    output reg Q,
    input D,
    input CE,
+   (* clkbuf_sink *)
    input CLK,
    input SR
 );
@@ -100,6 +101,7 @@ endmodule
 module EFX_GBUFCE(
    input CE,
    input I,
+   (* clkbuf_driver *)
    output O
 );
    parameter CE_POLARITY = 1'b1;
@@ -115,11 +117,13 @@ module EFX_RAM_5K(
    input [WRITE_WIDTH-1:0] WDATA,
    input [WRITE_ADDR_WIDTH-1:0] WADDR,
    input WE, 
+   (* clkbuf_sink *)
    input WCLK,
    input WCLKE, 
    output [READ_WIDTH-1:0] RDATA, 
    input [READ_ADDR_WIDTH-1:0] RADDR,
    input RE, 
+   (* clkbuf_sink *)
    input RCLK
 );
    parameter READ_WIDTH = 20;
