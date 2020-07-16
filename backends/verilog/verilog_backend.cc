@@ -1718,6 +1718,8 @@ void dump_process(std::ostream &f, std::string indent, RTLIL::Process *proc, boo
 	}
 
 	f << stringf("%s" "always%s begin\n", indent.c_str(), systemverilog ? "_comb" : " @*");
+	if (!systemverilog)
+		f << indent + "  " << "if (" << id("\\initial") << ") begin end\n";
 	dump_case_body(f, indent, &proc->root_case, true);
 
 	std::string backup_indent = indent;
@@ -1849,6 +1851,9 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 		}
 	}
 	f << stringf(");\n");
+
+	if (!systemverilog && !module->processes.empty())
+		f << indent + "  " << "reg " << id("\\initial") << " = 0;\n";
 
 	for (auto w : module->wires())
 		dump_wire(f, indent + "  ", w);
