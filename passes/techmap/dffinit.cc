@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/ffinit.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -94,29 +95,10 @@ struct DffinitPass : public Pass {
 		for (auto module : design->selected_modules())
 		{
 			SigMap sigmap(module);
-			dict<SigBit, State> init_bits;
-			pool<SigBit> cleanup_bits;
-			pool<SigBit> used_bits;
-
-			for (auto wire : module->selected_wires()) {
-				if (wire->attributes.count(ID::init)) {
-					Const value = wire->attributes.at(ID::init);
-					for (int i = 0; i < min(GetSize(value), GetSize(wire)); i++)
-						if (value[i] != State::Sx)
-							init_bits[sigmap(SigBit(wire, i))] = value[i];
-				}
-				if (wire->port_output)
-					for (auto bit : sigmap(wire))
-						used_bits.insert(bit);
-			}
+			FfInitVals initvals(&sigmap, module);
 
 			for (auto cell : module->selected_cells())
 			{
-				for (auto it : cell->connections())
-					if (!cell->known() || cell->input(it.first))
-						for (auto bit : sigmap(it.second))
-							used_bits.insert(bit);
-
 				if (ff_types.count(cell->type) == 0)
 					continue;
 
@@ -131,17 +113,18 @@ struct DffinitPass : public Pass {
 					if (cell->hasParam(it.second))
 						value = cell->getParam(it.second);
 
+					Const initval = initvals(sig);
+					initvals.remove_init(sig);
 					for (int i = 0; i < GetSize(sig); i++) {
-						if (init_bits.count(sig[i]) == 0)
+						if (initval[i] == State::Sx)
 							continue;
 						while (GetSize(value.bits) <= i)
 							value.bits.push_back(State::S0);
-						if (noreinit && value.bits[i] != State::Sx && value.bits[i] != init_bits.at(sig[i]))
+						if (noreinit && value.bits[i] != State::Sx && value.bits[i] != initval[i])
 							log_error("Trying to assign a different init value for %s.%s.%s which technically "
 									"have a conflicted init value.\n",
 									log_id(module), log_id(cell), log_id(it.second));
-						value.bits[i] = init_bits.at(sig[i]);
-						cleanup_bits.insert(sig[i]);
+						value.bits[i] = initval[i];
 					}
 
 					if (highlow_mode && GetSize(value) != 0) {
@@ -161,23 +144,6 @@ struct DffinitPass : public Pass {
 					}
 				}
 			}
-
-			for (auto wire : module->selected_wires())
-				if (wire->attributes.count(ID::init)) {
-					Const &value = wire->attributes.at(ID::init);
-					bool do_cleanup = true;
-					for (int i = 0; i < min(GetSize(value), GetSize(wire)); i++) {
-						SigBit bit = sigmap(SigBit(wire, i));
-						if (cleanup_bits.count(bit) || !used_bits.count(bit))
-							value[i] = State::Sx;
-						else if (value[i] != State::Sx)
-							do_cleanup = false;
-					}
-					if (do_cleanup) {
-						log("Removing init attribute from wire %s.%s.\n", log_id(module), log_id(wire));
-						wire->attributes.erase(ID::init);
-					}
-				}
 		}
 	}
 } DffinitPass;
