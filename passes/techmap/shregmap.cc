@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/ffinit.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -100,9 +101,8 @@ struct ShregmapWorker
 	int dff_count, shreg_count;
 
 	pool<Cell*> remove_cells;
-	pool<SigBit> remove_init;
 
-	dict<SigBit, bool> sigbit_init;
+	FfInitVals initvals;
 	dict<SigBit, Cell*> sigbit_chain_next;
 	dict<SigBit, Cell*> sigbit_chain_prev;
 	pool<SigBit> sigbit_with_non_chain_users;
@@ -116,16 +116,6 @@ struct ShregmapWorker
 				for (auto bit : sigmap(wire))
 					sigbit_with_non_chain_users.insert(bit);
 			}
-
-			if (wire->attributes.count(ID::init)) {
-				SigSpec initsig = sigmap(wire);
-				Const initval = wire->attributes.at(ID::init);
-				for (int i = 0; i < GetSize(initsig) && i < GetSize(initval); i++)
-					if (initval[i] == State::S0 && !opts.zinit)
-						sigbit_init[initsig[i]] = false;
-					else if (initval[i] == State::S1)
-						sigbit_init[initsig[i]] = true;
-			}
 		}
 
 		for (auto cell : module->cells())
@@ -137,8 +127,9 @@ struct ShregmapWorker
 
 				SigBit d_bit = sigmap(cell->getPort(d_port).as_bit());
 				SigBit q_bit = sigmap(cell->getPort(q_port).as_bit());
+				State initval = initvals(q_bit);
 
-				if (opts.init || sigbit_init.count(q_bit) == 0)
+				if (opts.init || initval == State::Sx || (opts.zinit && initval == State::S0))
 				{
 					auto r = sigbit_chain_next.insert(std::make_pair(d_bit, cell));
 					if (!r.second) {
@@ -310,22 +301,17 @@ struct ShregmapWorker
 			if (opts.init) {
 				vector<State> initval;
 				for (int i = depth-1; i >= 0; i--) {
-					SigBit bit = sigmap(chain[cursor+i]->getPort(q_port).as_bit());
-					if (sigbit_init.count(bit) == 0)
-						initval.push_back(State::Sx);
-					else if (sigbit_init.at(bit))
-						initval.push_back(State::S1);
-					else
-						initval.push_back(State::S0);
-					remove_init.insert(bit);
+					SigBit bit = chain[cursor+i]->getPort(q_port).as_bit();
+					initval.push_back(initvals(bit));
+					initvals.remove_init(bit);
 				}
 				first_cell->setParam(ID::INIT, initval);
 			}
 
 			if (opts.zinit)
 				for (int i = depth-1; i >= 0; i--) {
-					SigBit bit = sigmap(chain[cursor+i]->getPort(q_port).as_bit());
-					remove_init.insert(bit);
+					SigBit bit = chain[cursor+i]->getPort(q_port).as_bit();
+					initvals.remove_init(bit);
 				}
 
 			if (opts.params)
@@ -364,22 +350,6 @@ struct ShregmapWorker
 		for (auto cell : remove_cells)
 			module->remove(cell);
 
-		for (auto wire : module->wires())
-		{
-			if (wire->attributes.count(ID::init) == 0)
-				continue;
-
-			SigSpec initsig = sigmap(wire);
-			Const &initval = wire->attributes.at(ID::init);
-
-			for (int i = 0; i < GetSize(initsig) && i < GetSize(initval); i++)
-				if (remove_init.count(initsig[i]))
-					initval[i] = State::Sx;
-
-			if (SigSpec(initval).is_fully_undef())
-				wire->attributes.erase(ID::init);
-		}
-
 		remove_cells.clear();
 		sigbit_chain_next.clear();
 		sigbit_chain_prev.clear();
@@ -389,6 +359,7 @@ struct ShregmapWorker
 	ShregmapWorker(Module *module, const ShregmapOptions &opts) :
 			module(module), sigmap(module), opts(opts), dff_count(0), shreg_count(0)
 	{
+		initvals.set(&sigmap, module);
 		make_sigbit_chain_next_prev();
 		find_chain_start_cells();
 
