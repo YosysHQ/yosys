@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/ffinit.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -62,19 +63,7 @@ struct Async2syncPass : public Pass {
 		for (auto module : design->selected_modules())
 		{
 			SigMap sigmap(module);
-			dict<SigBit, State> initbits;
-			pool<SigBit> del_initbits;
-
-			for (auto wire : module->wires())
-				if (wire->attributes.count(ID::init) > 0)
-				{
-					Const initval = wire->attributes.at(ID::init);
-					SigSpec initsig = sigmap(wire);
-
-					for (int i = 0; i < GetSize(initval) && i < GetSize(initsig); i++)
-						if (initval[i] == State::S0 || initval[i] == State::S1)
-							initbits[initsig[i]] = initval[i];
-				}
+			FfInitVals initvals(&sigmap, module);
 
 			for (auto cell : vector<Cell*>(module->selected_cells()))
 			{
@@ -93,16 +82,12 @@ struct Async2syncPass : public Pass {
 							log_id(module), log_id(cell), log_id(cell->type),
 							log_signal(sig_arst), log_signal(sig_d), log_signal(sig_q));
 
-					Const init_val;
-					for (int i = 0; i < GetSize(sig_q); i++) {
-						SigBit bit = sigmap(sig_q[i]);
-						init_val.bits.push_back(initbits.count(bit) ? initbits.at(bit) : State::Sx);
-						del_initbits.insert(bit);
-					}
+					Const init_val = initvals(sig_q);
+					initvals.remove_init(sig_q);
 
 					Wire *new_d = module->addWire(NEW_ID, GetSize(sig_d));
 					Wire *new_q = module->addWire(NEW_ID, GetSize(sig_q));
-					new_q->attributes[ID::init] = init_val;
+					initvals.set_init(new_q, init_val);
 
 					if (arst_pol) {
 						module->addMux(NEW_ID, sig_d, arst_val, sig_arst, new_d);
@@ -137,16 +122,12 @@ struct Async2syncPass : public Pass {
 							log_id(module), log_id(cell), log_id(cell->type),
 							log_signal(sig_set), log_signal(sig_clr), log_signal(sig_d), log_signal(sig_q));
 
-					Const init_val;
-					for (int i = 0; i < GetSize(sig_q); i++) {
-						SigBit bit = sigmap(sig_q[i]);
-						init_val.bits.push_back(initbits.count(bit) ? initbits.at(bit) : State::Sx);
-						del_initbits.insert(bit);
-					}
+					Const init_val = initvals(sig_q);
+					initvals.remove_init(sig_q);
 
 					Wire *new_d = module->addWire(NEW_ID, GetSize(sig_d));
 					Wire *new_q = module->addWire(NEW_ID, GetSize(sig_q));
-					new_q->attributes[ID::init] = init_val;
+					initvals.set_init(new_q, init_val);
 
 					if (!set_pol)
 						sig_set = module->Not(NEW_ID, sig_set);
@@ -182,15 +163,11 @@ struct Async2syncPass : public Pass {
 							log_id(module), log_id(cell), log_id(cell->type),
 							log_signal(sig_en), log_signal(sig_d), log_signal(sig_q));
 
-					Const init_val;
-					for (int i = 0; i < GetSize(sig_q); i++) {
-						SigBit bit = sigmap(sig_q[i]);
-						init_val.bits.push_back(initbits.count(bit) ? initbits.at(bit) : State::Sx);
-						del_initbits.insert(bit);
-					}
+					Const init_val = initvals(sig_q);
+					initvals.remove_init(sig_q);
 
 					Wire *new_q = module->addWire(NEW_ID, GetSize(sig_q));
-					new_q->attributes[ID::init] = init_val;
+					initvals.set_init(new_q, init_val);
 
 					if (en_pol) {
 						module->addMux(NEW_ID, new_q, sig_d, sig_en, sig_q);
@@ -206,25 +183,6 @@ struct Async2syncPass : public Pass {
 					continue;
 				}
 			}
-
-			for (auto wire : module->wires())
-				if (wire->attributes.count(ID::init) > 0)
-				{
-					bool delete_initattr = true;
-					Const initval = wire->attributes.at(ID::init);
-					SigSpec initsig = sigmap(wire);
-
-					for (int i = 0; i < GetSize(initval) && i < GetSize(initsig); i++)
-						if (del_initbits.count(initsig[i]) > 0)
-							initval[i] = State::Sx;
-						else if (initval[i] != State::Sx)
-							delete_initattr = false;
-
-					if (delete_initattr)
-						wire->attributes.erase(ID::init);
-					else
-						wire->attributes.at(ID::init) = initval;
-				}
 		}
 	}
 } Async2syncPass;
