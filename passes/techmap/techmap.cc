@@ -20,6 +20,7 @@
 #include "kernel/yosys.h"
 #include "kernel/utils.h"
 #include "kernel/sigtools.h"
+#include "kernel/ffinit.h"
 #include "libs/sha1/sha1.h"
 
 #include <stdlib.h>
@@ -426,18 +427,7 @@ struct TechmapWorker
 		LogMakeDebugHdl mkdebug;
 
 		SigMap sigmap(module);
-
-		dict<SigBit, State> init_bits;
-		pool<SigBit> remove_init_bits;
-
-		for (auto wire : module->wires()) {
-			if (wire->attributes.count(ID::init)) {
-				Const value = wire->attributes.at(ID::init);
-				for (int i = 0; i < min(GetSize(value), GetSize(wire)); i++)
-					if (value[i] != State::Sx)
-						init_bits[sigmap(SigBit(wire, i))] = value[i];
-			}
-		}
+		FfInitVals initvals(&sigmap, module);
 
 		TopoSort<RTLIL::Cell*, IdString::compare_ptr_by_name<RTLIL::Cell>> cells;
 		dict<RTLIL::Cell*, pool<RTLIL::SigBit>> cell_to_inbit;
@@ -661,15 +651,7 @@ struct TechmapWorker
 						parameters.emplace(stringf("\\_TECHMAP_CONSTVAL_%s_", log_id(conn.first)), RTLIL::SigSpec(v).as_const());
 					}
 					if (tpl->avail_parameters.count(stringf("\\_TECHMAP_WIREINIT_%s_", log_id(conn.first))) != 0) {
-						auto sig = sigmap(conn.second);
-						RTLIL::Const value(State::Sx, sig.size());
-						for (int i = 0; i < sig.size(); i++) {
-							auto it = init_bits.find(sig[i]);
-							if (it != init_bits.end()) {
-								value[i] = it->second;
-							}
-						}
-						parameters.emplace(stringf("\\_TECHMAP_WIREINIT_%s_", log_id(conn.first)), value);
+						parameters.emplace(stringf("\\_TECHMAP_WIREINIT_%s_", log_id(conn.first)), initvals(conn.second));
 					}
 				}
 
@@ -914,7 +896,7 @@ struct TechmapWorker
 								auto sig = sigmap(it->second);
 								for (int i = 0; i < sig.size(); i++)
 									if (val[i] == State::S1)
-										remove_init_bits.insert(sig[i]);
+										initvals.remove_init(sig[i]);
 							}
 						}
 					}
@@ -961,25 +943,6 @@ struct TechmapWorker
 				log_error("(ASSERT MODE) Failed to map cell %s.%s (%s).\n", log_id(module), log_id(cell), log_id(cell->type));
 
 			handled_cells.insert(cell);
-		}
-
-		if (!remove_init_bits.empty()) {
-			for (auto wire : module->wires())
-				if (wire->attributes.count(ID::init)) {
-					Const &value = wire->attributes.at(ID::init);
-					bool do_cleanup = true;
-					for (int i = 0; i < min(GetSize(value), GetSize(wire)); i++) {
-						SigBit bit = sigmap(SigBit(wire, i));
-						if (remove_init_bits.count(bit))
-							value[i] = State::Sx;
-						else if (value[i] != State::Sx)
-							do_cleanup = false;
-					}
-					if (do_cleanup) {
-						log("Removing init attribute from wire %s.%s.\n", log_id(module), log_id(wire));
-						wire->attributes.erase(ID::init);
-					}
-				}
 		}
 
 		if (log_continue) {
