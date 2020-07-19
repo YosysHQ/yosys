@@ -8,9 +8,9 @@ endmodule
 EOT
 
 design -save orig
-equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DLATCH_P_ x
-equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DLATCH_PP0_ x
-equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DLATCHSR_PPP_ x
+equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_P_ x
+equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_PP0_ x
+equiv_opt -assert -multiclock dfflegalize -cell $_DLATCHSR_PPP_ x
 
 # Convert everything to DFFs.
 

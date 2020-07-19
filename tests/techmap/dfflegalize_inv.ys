@@ -94,7 +94,7 @@ EOT
 
 design -save orig
 
-equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DFF_P_ x -cell $_DFFE_PP_ x -cell $_DFF_PP?_ x -cell $_DFFE_PP?P_ x -cell $_DFFSR_PPP_ x -cell $_DFFSRE_PPPP_ x -cell $_SDFF_PP?_ x -cell $_SDFFE_PP?P_ x -cell $_SDFFCE_PP?P_ x -cell $_DLATCH_P_ x -cell $_DLATCH_PP?_ x -cell $_DLATCHSR_PPP_ x -cell $_SR_PP_ x
+equiv_opt -assert -multiclock dfflegalize -cell $_DFF_P_ x -cell $_DFFE_PP_ x -cell $_DFF_PP?_ x -cell $_DFFE_PP?P_ x -cell $_DFFSR_PPP_ x -cell $_DFFSRE_PPPP_ x -cell $_SDFF_PP?_ x -cell $_SDFFE_PP?P_ x -cell $_SDFFCE_PP?P_ x -cell $_DLATCH_P_ x -cell $_DLATCH_PP?_ x -cell $_DLATCHSR_PPP_ x -cell $_SR_PP_ x
 design -load postopt
 
 select -assert-count 46 t:$_NOT_
@@ -123,7 +123,7 @@ select -assert-none t:$_DFF_P_ t:$_DFFE_PP_ t:$_DFF_PP?_ t:$_DFFE_PP?P_ t:$_DFFS
 
 design -load orig
 
-equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DFF_N_ x -cell $_DFFE_NN_ x -cell $_DFF_NN?_ x -cell $_DFFE_NN?N_ x -cell $_DFFSR_NNN_ x -cell $_DFFSRE_NNNN_ x -cell $_SDFF_NN?_ x -cell $_SDFFE_NN?N_ x -cell $_SDFFCE_NN?N_ x -cell $_DLATCH_N_ x -cell $_DLATCH_NN?_ x -cell $_DLATCHSR_NNN_ x -cell $_SR_NN_ x
+equiv_opt -assert -multiclock dfflegalize -cell $_DFF_N_ x -cell $_DFFE_NN_ x -cell $_DFF_NN?_ x -cell $_DFFE_NN?N_ x -cell $_DFFSR_NNN_ x -cell $_DFFSRE_NNNN_ x -cell $_SDFF_NN?_ x -cell $_SDFFE_NN?N_ x -cell $_SDFFCE_NN?N_ x -cell $_DLATCH_N_ x -cell $_DLATCH_NN?_ x -cell $_DLATCHSR_NNN_ x -cell $_SR_NN_ x
 design -load postopt
 
 select -assert-count 122 t:$_NOT_
@@ -166,7 +166,7 @@ endmodule
 
 EOT
 
-equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DFFSRE_NNNN_ x -cell $_DFFSRE_PPPP_ x
+equiv_opt -assert -multiclock dfflegalize -cell $_DFFSRE_NNNN_ x -cell $_DFFSRE_PPPP_ x
 design -load postopt
 
 select -assert-count 6 t:$_NOT_

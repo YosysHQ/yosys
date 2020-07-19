@@ -14,10 +14,10 @@ endmodule
 EOT
 
 design -save orig
-equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DFF_PP0_ 01
-equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DFF_PP?_ 0
-equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DFFSRE_PPPP_ 0
-equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DFFSRE_PPPP_ 1
+equiv_opt -assert -multiclock dfflegalize -cell $_DFF_PP0_ 01
+equiv_opt -assert -multiclock dfflegalize -cell $_DFF_PP?_ 0
+equiv_opt -assert -multiclock dfflegalize -cell $_DFFSRE_PPPP_ 0
+equiv_opt -assert -multiclock dfflegalize -cell $_DFFSRE_PPPP_ 1
 
 # Convert everything to ADFFs.
 
