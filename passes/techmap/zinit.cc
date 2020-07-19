@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/ffinit.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -57,35 +58,7 @@ struct ZinitPass : public Pass {
 		for (auto module : design->selected_modules())
 		{
 			SigMap sigmap(module);
-			dict<SigBit, std::pair<State,SigBit>> initbits;
-
-			for (auto wire : module->selected_wires())
-			{
-				if (wire->attributes.count(ID::init) == 0)
-					continue;
-
-				SigSpec wirebits = sigmap(wire);
-				Const initval = wire->attributes.at(ID::init);
-
-				for (int i = 0; i < GetSize(wirebits) && i < GetSize(initval); i++)
-				{
-					SigBit bit = wirebits[i];
-					State val = initval[i];
-
-					if (val != State::S0 && val != State::S1 && bit.wire != nullptr)
-						continue;
-
-					if (initbits.count(bit)) {
-						if (initbits.at(bit).first != val)
-							log_error("Conflicting init values for signal %s (%s = %s != %s).\n",
-									log_signal(bit), log_signal(SigBit(wire, i)),
-									log_signal(val), log_signal(initbits.at(bit).first));
-						continue;
-					}
-
-					initbits[bit] = std::make_pair(val,SigBit(wire,i));
-				}
-			}
+			FfInitVals initvals(&sigmap, module);
 
 			pool<IdString> dff_types = {
 								// FIXME: It would appear that supporting
@@ -127,32 +100,27 @@ struct ZinitPass : public Pass {
 				if (GetSize(sig_d) < 1 || GetSize(sig_q) < 1)
 					continue;
 
-				Const initval;
+				Const initval = initvals(sig_q);
+				Const newval = initval;
+				initvals.remove_init(sig_q);
 
-				for (int i = 0; i < GetSize(sig_q); i++) {
-					if (initbits.count(sig_q[i])) {
-						const auto &d = initbits.at(sig_q[i]);
-						initval.bits.push_back(d.first);
-						const auto &b = d.second;
-						b.wire->attributes.at(ID::init)[b.offset] = State::Sx;
-					} else
-						initval.bits.push_back(all_mode ? State::S0 : State::Sx);
-				}
-
-				Wire *initwire = module->addWire(NEW_ID, GetSize(initval));
-				initwire->attributes[ID::init] = initval;
+				Wire *initwire = module->addWire(NEW_ID, GetSize(sig_q));
 
 				for (int i = 0; i < GetSize(initwire); i++)
 					if (initval[i] == State::S1)
 					{
 						sig_d[i] = module->NotGate(NEW_ID, sig_d[i]);
 						module->addNotGate(NEW_ID, SigSpec(initwire, i), sig_q[i]);
-						initwire->attributes[ID::init][i] = State::S0;
+						newval[i] = State::S0;
 					}
 					else
 					{
 						module->connect(sig_q[i], SigSpec(initwire, i));
+						if (all_mode)
+							newval[i] = State::S0;
 					}
+
+				initvals.set_init(initwire, newval);
 
 				log("FF init value for cell %s (%s): %s = %s\n", log_id(cell), log_id(cell->type),
 						log_signal(sig_q), log_signal(initval));
