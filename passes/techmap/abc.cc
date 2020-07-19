@@ -44,6 +44,7 @@
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
+#include "kernel/ffinit.h"
 #include "kernel/cost.h"
 #include "kernel/log.h"
 #include <stdlib.h>
@@ -111,7 +112,7 @@ SigMap assign_map;
 RTLIL::Module *module;
 std::vector<gate_t> signal_list;
 std::map<RTLIL::SigBit, int> signal_map;
-std::map<RTLIL::SigBit, RTLIL::State> signal_init;
+FfInitVals initvals;
 pool<std::string> enabled_gates;
 bool recover_init, cmos_cost;
 
@@ -133,10 +134,7 @@ int map_signal(RTLIL::SigBit bit, gate_type_t gate_type = G(NONE), int in1 = -1,
 		gate.in4 = -1;
 		gate.is_port = false;
 		gate.bit = bit;
-		if (signal_init.count(bit))
-			gate.init = signal_init.at(bit);
-		else
-			gate.init = State::Sx;
+		gate.init = initvals(bit);
 		signal_list.push_back(gate);
 		signal_map[bit] = gate.id;
 	}
@@ -1468,7 +1466,7 @@ struct AbcPass : public Pass {
 		assign_map.clear();
 		signal_list.clear();
 		signal_map.clear();
-		signal_init.clear();
+		initvals.clear();
 		pi_map.clear();
 		po_map.clear();
 
@@ -1854,24 +1852,7 @@ struct AbcPass : public Pass {
 			}
 
 			assign_map.set(mod);
-			signal_init.clear();
-
-			for (Wire *wire : mod->wires())
-				if (wire->attributes.count(ID::init)) {
-					SigSpec initsig = assign_map(wire);
-					Const initval = wire->attributes.at(ID::init);
-					for (int i = 0; i < GetSize(initsig) && i < GetSize(initval); i++)
-						switch (initval[i]) {
-							case State::S0:
-								signal_init[initsig[i]] = State::S0;
-								break;
-							case State::S1:
-								signal_init[initsig[i]] = State::S1;
-								break;
-							default:
-								break;
-						}
-				}
+			initvals.set(&assign_map, mod);
 
 			if (!dff_mode || !clk_str.empty()) {
 				abc_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
@@ -2028,7 +2009,7 @@ struct AbcPass : public Pass {
 		assign_map.clear();
 		signal_list.clear();
 		signal_map.clear();
-		signal_init.clear();
+		initvals.clear();
 		pi_map.clear();
 		po_map.clear();
 
