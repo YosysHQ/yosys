@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/ffinit.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -30,7 +31,7 @@ struct OnehotDatabase
 	bool verbose = false;
 	bool initialized = false;
 
-	pool<SigBit> init_ones;
+	FfInitVals initvals;
 	dict<SigSpec, pool<SigSpec>> sig_sources_db;
 	dict<SigSpec, bool> sig_onehot_cache;
 	pool<SigSpec> recursion_guard;
@@ -44,19 +45,7 @@ struct OnehotDatabase
 		log_assert(!initialized);
 		initialized = true;
 
-		for (auto wire : module->wires())
-		{
-			auto it = wire->attributes.find(ID::init);
-			if (it == wire->attributes.end())
-				continue;
-
-			auto &val = it->second;
-			int width = std::max(GetSize(wire), GetSize(val));
-
-			for (int i = 0; i < width; i++)
-				if (val[i] == State::S1)
-					init_ones.insert(sigmap(SigBit(wire, i)));
-		}
+		initvals.set(&sigmap, module);
 
 		for (auto cell : module->cells())
 		{
@@ -119,7 +108,7 @@ struct OnehotDatabase
 
 		bool found_init_ones = false;
 		for (auto bit : sig) {
-			if (init_ones.count(bit)) {
+			if (initvals(bit) == State::S1) {
 				if (found_init_ones) {
 					if (verbose)
 						log("%*s   - non-onehot init value\n", indent, "");
