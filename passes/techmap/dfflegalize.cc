@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/ffinit.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -170,7 +171,7 @@ struct DffLegalizePass : public Pass {
 	dict<SigBit, int> srst_used;
 
 	SigMap sigmap;
-	dict<SigBit, std::pair<State,SigBit>> initbits;
+	FfInitVals initvals;
 
 	int flip_initmask(int mask) {
 		int res = mask & INIT_X;
@@ -303,13 +304,7 @@ struct DffLegalizePass : public Pass {
 			return;
 		}
 
-		State initval = State::Sx;
-		SigBit initbit;
-		if (GetSize(sig_q) > 0 && initbits.count(sigmap(sig_q[0]))) {
-			const auto &d = initbits.at(sigmap(sig_q[0]));
-			initval = d.first;
-			initbit = d.second;
-		}
+		State initval = initvals(sig_q[0]);
 		
 		FfInit initmask = INIT_X;
 		if (initval == State::S0)
@@ -345,12 +340,8 @@ flip_dqi:
 							sig_d = cell->module->NotGate(NEW_ID, sig_d[0]);
 						SigBit new_q = SigSpec(cell->module->addWire(NEW_ID))[0];
 						cell->module->addNotGate(NEW_ID, new_q, sig_q[0]);
-						if (initbit.wire) {
-							initbit.wire->attributes.at(ID::init)[initbit.offset] = State::Sx;
-							initbit = new_q;
-							new_q.wire->attributes[ID::init] = initval;
-							initbits[new_q] = std::make_pair(initval, new_q);
-						}
+						initvals.remove_init(sig_q[0]);
+						initvals.set_init(new_q, initval);
 						sig_q = new_q;
 						continue;
 					}
@@ -484,15 +475,12 @@ unmap_enable:
 				}
 
 				log_warning("Emulating mismatched async reset and init with several FFs and a mux for %s.%s\n", log_id(cell->module->name), log_id(cell->name));
-				if (initbit.wire)
-					initbit.wire->attributes.at(ID::init)[initbit.offset] = State::Sx;
+				initvals.remove_init(sig_q[0]);
 				Wire *adff_q = cell->module->addWire(NEW_ID);
 				Wire *dff_q = cell->module->addWire(NEW_ID);
 				Wire *sel_q = cell->module->addWire(NEW_ID);
-				dff_q->attributes[ID::init] = initval;
-				initbits[SigBit(dff_q, 0)] = std::make_pair(initval, SigBit(dff_q, 0));
-				sel_q->attributes[ID::init] = State::S0;
-				initbits[SigBit(sel_q, 0)] = std::make_pair(State::S0, SigBit(sel_q, 0));
+				initvals.set_init(SigBit(dff_q, 0), initval);
+				initvals.set_init(SigBit(sel_q, 0), State::S0);
 				Cell *cell_dff;
 				Cell *cell_adff;
 				Cell *cell_sel;
@@ -588,21 +576,15 @@ flip_dqisr:;
 				}
 
 				log_warning("Emulating async set + reset with several FFs and a mux for %s.%s\n", log_id(cell->module->name), log_id(cell->name));
-				if (initbit.wire)
-					initbit.wire->attributes.at(ID::init)[initbit.offset] = State::Sx;
+				initvals.remove_init(sig_q[0]);
 				Wire *adff0_q = cell->module->addWire(NEW_ID);
 				Wire *adff1_q = cell->module->addWire(NEW_ID);
 				Wire *sel_q = cell->module->addWire(NEW_ID);
-				if (init0) {
-					adff0_q->attributes[ID::init] = initval;
-					initbits[SigBit(adff0_q, 0)] = std::make_pair(initval, SigBit(adff0_q, 0));
-				}
-				if (init1) {
-					adff1_q->attributes[ID::init] = initval;
-					initbits[SigBit(adff1_q, 0)] = std::make_pair(initval, SigBit(adff1_q, 0));
-				}
-				sel_q->attributes[ID::init] = initsel;
-				initbits[SigBit(sel_q, 0)] = std::make_pair(initsel, SigBit(sel_q, 0));
+				if (init0)
+					initvals.set_init(SigBit(adff0_q, 0), initval);
+				if (init1)
+					initvals.set_init(SigBit(adff1_q, 0), initval);
+				initvals.set_init(SigBit(sel_q, 0), initsel);
 				Cell *cell_adff0;
 				Cell *cell_adff1;
 				Cell *cell_sel;
@@ -741,15 +723,12 @@ flip_dqisr:;
 				// The only hope left is breaking down to adff + dff + dlatch + mux.
 
 				log_warning("Emulating mismatched async reset and init with several latches and a mux for %s.%s\n", log_id(cell->module->name), log_id(cell->name));
-				if (initbit.wire)
-					initbit.wire->attributes.at(ID::init)[initbit.offset] = State::Sx;
+				initvals.remove_init(sig_q[0]);
 				Wire *adlatch_q = cell->module->addWire(NEW_ID);
 				Wire *dlatch_q = cell->module->addWire(NEW_ID);
 				Wire *sel_q = cell->module->addWire(NEW_ID);
-				dlatch_q->attributes[ID::init] = initval;
-				initbits[SigBit(dlatch_q, 0)] = std::make_pair(initval, SigBit(dlatch_q, 0));
-				sel_q->attributes[ID::init] = State::S0;
-				initbits[SigBit(sel_q, 0)] = std::make_pair(State::S0, SigBit(sel_q, 0));
+				initvals.set_init(SigBit(dlatch_q, 0), initval);
+				initvals.set_init(SigBit(sel_q, 0), State::S0);
 				Cell *cell_dlatch;
 				Cell *cell_adlatch;
 				Cell *cell_sel;
@@ -797,21 +776,15 @@ flip_dqisr:;
 				}
 
 				log_warning("Emulating async set + reset with several latches and a mux for %s.%s\n", log_id(cell->module->name), log_id(cell->name));
-				if (initbit.wire)
-					initbit.wire->attributes.at(ID::init)[initbit.offset] = State::Sx;
+				initvals.remove_init(sig_q[0]);
 				Wire *adlatch0_q = cell->module->addWire(NEW_ID);
 				Wire *adlatch1_q = cell->module->addWire(NEW_ID);
 				Wire *sel_q = cell->module->addWire(NEW_ID);
-				if (init0) {
-					adlatch0_q->attributes[ID::init] = initval;
-					initbits[SigBit(adlatch0_q, 0)] = std::make_pair(initval, SigBit(adlatch0_q, 0));
-				}
-				if (init1) {
-					adlatch1_q->attributes[ID::init] = initval;
-					initbits[SigBit(adlatch1_q, 0)] = std::make_pair(initval, SigBit(adlatch1_q, 0));
-				}
-				sel_q->attributes[ID::init] = initsel;
-				initbits[SigBit(sel_q, 0)] = std::make_pair(initsel, SigBit(sel_q, 0));
+				if (init0)
+					initvals.set_init(SigBit(adlatch0_q, 0), initval);
+				if (init1)
+					initvals.set_init(SigBit(adlatch1_q, 0), initval);
+				initvals.set_init(SigBit(sel_q, 0), initsel);
 				Cell *cell_adlatch0;
 				Cell *cell_adlatch1;
 				Cell *cell_sel;
@@ -1294,35 +1267,7 @@ unrecognized:
 		for (auto module : design->selected_modules())
 		{
 			sigmap.set(module);
-			initbits.clear();
-
-			for (auto wire : module->wires())
-			{
-				if (wire->attributes.count(ID::init) == 0)
-					continue;
-
-				SigSpec wirebits = sigmap(wire);
-				Const initval = wire->attributes.at(ID::init);
-
-				for (int i = 0; i < GetSize(wirebits) && i < GetSize(initval); i++)
-				{
-					SigBit bit = wirebits[i];
-					State val = initval[i];
-
-					if (val != State::S0 && val != State::S1 && bit.wire != nullptr)
-						continue;
-
-					if (initbits.count(bit)) {
-						if (initbits.at(bit).first != val)
-							log_error("Conflicting init values for signal %s (%s = %s != %s).\n",
-									log_signal(bit), log_signal(SigBit(wire, i)),
-									log_signal(val), log_signal(initbits.at(bit).first));
-						continue;
-					}
-
-					initbits[bit] = std::make_pair(val,SigBit(wire,i));
-				}
-			}
+			initvals.set(&sigmap, module);
 
 			if (mince || minsrst) {
 				ce_used.clear();
@@ -1365,7 +1310,7 @@ unrecognized:
 		}
 
 		sigmap.clear();
-		initbits.clear();
+		initvals.clear();
 		ce_used.clear();
 		srst_used.clear();
 	}
