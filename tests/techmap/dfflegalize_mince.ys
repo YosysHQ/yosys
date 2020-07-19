@@ -22,7 +22,7 @@ endmodule
 EOT
 
 design -save orig
-equiv_opt -assert -multiclock -map +/simcells.v dfflegalize -cell $_DFFE_PP_ x -cell $_DFFE_PP?P_ x -cell $_DFFSRE_PPPP_ x -cell $_SDFFE_PP?P_ x -cell $_SDFFCE_PP?P_ x -mince 3
+equiv_opt -assert -multiclock dfflegalize -cell $_DFFE_PP_ x -cell $_DFFE_PP?P_ x -cell $_DFFSRE_PPPP_ x -cell $_SDFFE_PP?P_ x -cell $_SDFFCE_PP?P_ x -mince 3
 design -load postopt
 
 select -assert-count 4 t:$_DFFE_PP_
