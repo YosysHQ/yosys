@@ -18,6 +18,7 @@
  */
 
 #include "kernel/satgen.h"
+#include "kernel/ff.h"
 
 USING_YOSYS_NAMESPACE
 
@@ -1075,8 +1076,14 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 		return true;
 	}
 
-	if (timestep > 0 && cell->type.in(ID($ff), ID($dff), ID($_FF_), ID($_DFF_N_), ID($_DFF_P_)))
+	if (timestep > 0 && RTLIL::builtin_ff_cell_types().count(cell->type))
 	{
+		FfData ff(nullptr, cell);
+
+		// Latches and FFs with async inputs are not supported — use clk2fflogic or async2sync first.
+		if (!ff.has_d || ff.has_arst || ff.has_sr || (ff.has_en && !ff.has_clk))
+			return false;
+
 		if (timestep == 1)
 		{
 			initial_state.add((*sigmap)(cell->getPort(ID::Q)));
@@ -1084,6 +1091,51 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 		else
 		{
 			std::vector<int> d = importDefSigSpec(cell->getPort(ID::D), timestep-1);
+			std::vector<int> undef_d;
+			if (model_undef)
+				undef_d = importUndefSigSpec(cell->getPort(ID::D), timestep-1);
+			if (ff.has_srst && ff.has_en && ff.ce_over_srst) {
+				int srst = importDefSigSpec(ff.sig_srst, timestep-1).at(0);
+				std::vector<int> rval = importDefSigSpec(ff.val_srst, timestep-1);
+				int undef_srst;
+				std::vector<int> undef_rval;
+				if (model_undef) {
+					undef_srst = importUndefSigSpec(ff.sig_srst, timestep-1).at(0);
+					undef_rval = importUndefSigSpec(ff.val_srst, timestep-1);
+				}
+				if (ff.pol_srst)
+					std::tie(d, undef_d) = mux(srst, undef_srst, d, undef_d, rval, undef_rval);
+				else
+					std::tie(d, undef_d) = mux(srst, undef_srst, rval, undef_rval, d, undef_d);
+			}
+			if (ff.has_en) {
+				int en = importDefSigSpec(ff.sig_en, timestep-1).at(0);
+				std::vector<int> old_q = importDefSigSpec(ff.sig_q, timestep-1);
+				int undef_en;
+				std::vector<int> undef_old_q;
+				if (model_undef) {
+					undef_en = importUndefSigSpec(ff.sig_en, timestep-1).at(0);
+					undef_old_q = importUndefSigSpec(ff.sig_q, timestep-1);
+				}
+				if (ff.pol_en)
+					std::tie(d, undef_d) = mux(en, undef_en, old_q, undef_old_q, d, undef_d);
+				else
+					std::tie(d, undef_d) = mux(en, undef_en, d, undef_d, old_q, undef_old_q);
+			}
+			if (ff.has_srst && !(ff.has_en && ff.ce_over_srst)) {
+				int srst = importDefSigSpec(ff.sig_srst, timestep-1).at(0);
+				std::vector<int> rval = importDefSigSpec(ff.val_srst, timestep-1);
+				int undef_srst;
+				std::vector<int> undef_rval;
+				if (model_undef) {
+					undef_srst = importUndefSigSpec(ff.sig_srst, timestep-1).at(0);
+					undef_rval = importUndefSigSpec(ff.val_srst, timestep-1);
+				}
+				if (ff.pol_srst)
+					std::tie(d, undef_d) = mux(srst, undef_srst, d, undef_d, rval, undef_rval);
+				else
+					std::tie(d, undef_d) = mux(srst, undef_srst, rval, undef_rval, d, undef_d);
+			}
 			std::vector<int> q = importDefSigSpec(cell->getPort(ID::Q), timestep);
 
 			std::vector<int> qq = model_undef ? ez->vec_var(q.size()) : q;
@@ -1091,7 +1143,6 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 			if (model_undef)
 			{
-				std::vector<int> undef_d = importUndefSigSpec(cell->getPort(ID::D), timestep-1);
 				std::vector<int> undef_q = importUndefSigSpec(cell->getPort(ID::Q), timestep);
 
 				ez->assume(ez->vec_eq(undef_d, undef_q));
@@ -1182,7 +1233,7 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 		return true;
 	}
 
-	// Unsupported internal cell types: $pow $lut
-	// .. and all sequential cells except $dff and $_DFF_[NP]_
+	// Unsupported internal cell types: $pow $fsm $mem*
+	// .. and all sequential cells with asynchronous inputs
 	return false;
 }
