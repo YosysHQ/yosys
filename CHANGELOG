@@ -62,7 +62,6 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Improved support of $readmem[hb] Memory Content File inclusion
     - Added "opt_lut_ins" pass
     - Added "logger" pass
-    - Removed "dffsr2dff" (use opt_rmdff instead)
     - Added "design -delete"
     - Added "select -unset"
     - Use YosysHQ/abc instead of upstream berkeley-abc/abc
@@ -70,6 +69,7 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Added $adffe, $dffsre, $sdff, $sdffe, $sdffce, $adlatch cells
     - Added "dfflegalize" pass
     - Added "_TECHMAP_CELLNAME_" parameter for "techmap" pass
+    - Merged "dffsr2dff", "opt_rmdff", "dff2dffe", "dff2dffs", "peepopt.dffmux" passes into a new "opt_dff" pass
 
 Yosys 0.8 .. Yosys 0.9
 ----------------------

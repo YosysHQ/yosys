@@ -200,6 +200,8 @@ struct SynthIntelALMPass : public ScriptPass {
 			run("opt_expr");
 			run("opt_clean");
 			run("check");
+			run("opt -nodffe -nosdff");
+			run("fsm");
 			run("opt");
 			run("wreduce");
 			run("peepopt");
@@ -227,8 +229,6 @@ struct SynthIntelALMPass : public ScriptPass {
 			run("alumacc");
 			run("techmap -map +/intel_alm/common/arith_alm_map.v -map +/intel_alm/common/dsp_map.v");
 			run("opt");
-			run("fsm");
-			run("opt -fast");
 			run("memory -nomap");
 			run("opt_clean");
 		}
@@ -250,7 +250,6 @@ struct SynthIntelALMPass : public ScriptPass {
 
 		if (check_label("map_ffs")) {
 			run("techmap");
-			run("dff2dffe");
 			run("dfflegalize -cell $_DFFE_PN0P_ 0 -cell $_SDFFCE_PP0P_ 0");
 			run("techmap -map +/intel_alm/common/dff_map.v");
 			run("opt -full -undriven -mux_undef");

@@ -357,10 +357,8 @@ struct SynthXilinxPass : public ScriptPass
 			run("opt_expr");
 			run("opt_clean");
 			run("check");
-			run("opt");
+			run("opt -nodffe -nosdff");
 			run("fsm");
-			run("opt");
-			run("opt_dff");
 			run("opt");
 			if (help_mode)
 				run("wreduce [-keepdc]", "(option for '-widemux')");

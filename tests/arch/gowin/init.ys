@@ -45,24 +45,25 @@ flatten
 synth_gowin -run coarse:
 
 # check the flops mapped as expected
-select -assert-count 1 t:DFF
+select -assert-count 2 t:DFF
 select -assert-count 1 t:DFFC
 select -assert-count 1 t:DFFCE
-select -assert-count 1 t:DFFE
-select -assert-count 1 t:DFFN
+select -assert-count 0 t:DFFE
+select -assert-count 2 t:DFFN
 select -assert-count 1 t:DFFNC
 select -assert-count 1 t:DFFNCE
-select -assert-count 1 t:DFFNE
+select -assert-count 0 t:DFFNE
 select -assert-count 1 t:DFFNP
 select -assert-count 1 t:DFFNPE
 select -assert-count 0 t:DFFNR
 select -assert-count 0 t:DFFNRE
-select -assert-count 2 t:DFFNS
-select -assert-count 2 t:DFFNSE
+select -assert-count 3 t:DFFNS
+select -assert-count 1 t:DFFNSE
 select -assert-count 1 t:DFFP
 select -assert-count 1 t:DFFPE
 select -assert-count 0 t:DFFR
 select -assert-count 0 t:DFFRE
-select -assert-count 2 t:DFFS
-select -assert-count 2 t:DFFSE
-select -assert-count 12 t:LUT2
+select -assert-count 3 t:DFFS
+select -assert-count 1 t:DFFSE
+select -assert-count 4 t:LUT2
+select -assert-count 4 t:LUT4
