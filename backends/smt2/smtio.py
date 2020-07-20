@@ -262,13 +262,20 @@ class SmtIo:
         if self.produce_models:
             self.write("(set-option :produce-models true)")
 
+        #See the SMT-LIB Standard, Section 4.1.7
+        modestart_options = [":global-declarations", ":interactive-mode", ":produce-assertions", ":produce-assignments", ":produce-models", ":produce-proofs", ":produce-unsat-assumptions", ":produce-unsat-cores", ":random-seed"]
+        for key, val in self.smt2_options.items():
+            if key in modestart_options:
+                self.write("(set-option {} {})".format(key, val))
+
         self.write("(set-logic %s)" % self.logic)
 
         if self.forall and self.solver == "yices":
             self.write("(set-option :yices-ef-max-iters 1000000000)")
 
         for key, val in self.smt2_options.items():
-            self.write("(set-option {} {})".format(key, val))
+            if key not in modestart_options:
+                self.write("(set-option {} {})".format(key, val))
 
     def timestamp(self):
         secs = int(time() - self.start_time)
