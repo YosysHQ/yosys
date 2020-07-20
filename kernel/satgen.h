@@ -262,6 +262,18 @@ struct SatGen
 		}
 	}
 
+	std::pair<std::vector<int>, std::vector<int>> mux(int s, int undef_s, const std::vector<int> &a, const std::vector<int> &undef_a, const std::vector<int> &b, const std::vector<int> &undef_b) {
+		std::vector<int> res;
+		std::vector<int> undef_res;
+		res = ez->vec_ite(s, b, a);
+		if (model_undef) {
+			std::vector<int> unequal_ab = ez->vec_not(ez->vec_iff(a, b));
+			std::vector<int> undef_ab = ez->vec_or(unequal_ab, ez->vec_or(undef_a, undef_b));
+			undef_res = ez->vec_ite(undef_s, undef_ab, ez->vec_ite(s, undef_b, undef_a));
+		}
+		return std::make_pair(res, undef_res);
+	}
+
 	void undefGating(int y, int yy, int undef)
 	{
 		ez->assume(ez->OR(undef, ez->IFF(y, yy)));
