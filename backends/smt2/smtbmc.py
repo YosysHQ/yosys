@@ -1275,10 +1275,10 @@ def smt_pop():
     asserts_consequent_cache.pop()
     smt.write("(pop 1)")
 
-def smt_check_sat():
+def smt_check_sat(expected=["sat", "unsat"]):
     if asserts_cache_dirty:
         smt_forall_assert()
-    return smt.check_sat()
+    return smt.check_sat(expected=expected)
 
 if tempind:
     retstatus = "FAILED"
