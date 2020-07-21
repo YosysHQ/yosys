@@ -643,6 +643,8 @@ struct TechmapWorker
 
 				if (tpl->avail_parameters.count(ID::_TECHMAP_CELLTYPE_) != 0)
 					parameters.emplace(ID::_TECHMAP_CELLTYPE_, RTLIL::unescape_id(cell->type));
+				if (tpl->avail_parameters.count(ID::_TECHMAP_CELLNAME_) != 0)
+					parameters.emplace(ID::_TECHMAP_CELLNAME_, RTLIL::unescape_id(cell->name));
 
 				for (auto &conn : cell->connections()) {
 					if (tpl->avail_parameters.count(stringf("\\_TECHMAP_CONSTMSK_%s_", log_id(conn.first))) != 0) {
@@ -1109,6 +1111,10 @@ struct TechmapPass : public Pass {
 		log("\n");
 		log("    _TECHMAP_CELLTYPE_\n");
 		log("        When a parameter with this name exists, it will be set to the type name\n");
+		log("        of the cell that matches the module.\n");
+		log("\n");
+		log("    _TECHMAP_CELLNAME_\n");
+		log("        When a parameter with this name exists, it will be set to the name\n");
 		log("        of the cell that matches the module.\n");
 		log("\n");
 		log("    _TECHMAP_CONSTMSK_<port-name>_\n");
