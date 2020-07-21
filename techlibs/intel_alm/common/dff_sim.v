@@ -54,43 +54,44 @@
 //
 // Note: the DFFEAS primitive is mostly emulated; it does not reflect what the hardware implements.
 
-`ifdef cyclonev
-`define SYNCPATH 262
-`define SYNCSETUP 522
-`define COMBPATH 0
-`endif
-`ifdef cyclone10gx
-`define SYNCPATH 219
-`define SYNCSETUP 268
-`define COMBPATH 0
-`endif
-
-// fallback for when a family isn't detected (e.g. when techmapping for equivalence)
-`ifndef SYNCPATH
-`define SYNCPATH 0
-`define SYNCSETUP 0
-`define COMBPATH 0
-`endif
-
 (* abc9_box, lib_whitebox *)
 module MISTRAL_FF(
     input DATAIN, CLK, ACLR, ENA, SCLR, SLOAD, SDATA,
     output reg Q
 );
 
+`ifdef cyclonev
 specify
-    if (ENA && ACLR !== 1'b0 && !SCLR && !SLOAD) (posedge CLK => (Q : DATAIN)) = `SYNCPATH;
-    if (ENA && SCLR) (posedge CLK => (Q : 1'b0)) = `SYNCPATH;
-    if (ENA && !SCLR && SLOAD) (posedge CLK => (Q : SDATA)) = `SYNCPATH;
+    if (ENA && ACLR !== 1'b0 && !SCLR && !SLOAD) (posedge CLK => (Q : DATAIN)) = 731;
+    if (ENA && SCLR) (posedge CLK => (Q : 1'b0)) = 890;
+    if (ENA && !SCLR && SLOAD) (posedge CLK => (Q : SDATA)) = 618;
 
-    $setup(DATAIN, posedge CLK, `SYNCSETUP);
-    $setup(ENA, posedge CLK, `SYNCSETUP);
-    $setup(SCLR, posedge CLK, `SYNCSETUP);
-    $setup(SLOAD, posedge CLK, `SYNCSETUP);
-    $setup(SDATA, posedge CLK, `SYNCSETUP);
+    $setup(DATAIN, posedge CLK, /* -196 */ 0);
+    $setup(ENA, posedge CLK, /* -196 */ 0);
+    $setup(SCLR, posedge CLK, /* -196 */ 0);
+    $setup(SLOAD, posedge CLK, /* -196 */ 0);
+    $setup(SDATA, posedge CLK, /* -196 */ 0);
 
-    if (ACLR === 1'b0) (ACLR => Q) = `COMBPATH;
+    if (ACLR === 1'b0) (ACLR => Q) = 282;
 endspecify
+`endif
+`ifdef cyclone10gx
+specify
+    // TODO (long-term): investigate these numbers.
+    // It seems relying on the Quartus Timing Analyzer was not the best idea; it's too fiddly.
+    if (ENA && ACLR !== 1'b0 && !SCLR && !SLOAD) (posedge CLK => (Q : DATAIN)) = 219;
+    if (ENA && SCLR) (posedge CLK => (Q : 1'b0)) = 219;
+    if (ENA && !SCLR && SLOAD) (posedge CLK => (Q : SDATA)) = 219;
+
+    $setup(DATAIN, posedge CLK, 268);
+    $setup(ENA, posedge CLK, 268);
+    $setup(SCLR, posedge CLK, 268);
+    $setup(SLOAD, posedge CLK, 268);
+    $setup(SDATA, posedge CLK, 268);
+
+    if (ACLR === 1'b0) (ACLR => Q) = 0;
+endspecify
+`endif
 
 initial begin
     // Altera flops initialise to zero.
