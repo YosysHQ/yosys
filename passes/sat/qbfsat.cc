@@ -215,7 +215,6 @@ QbfSolutionType call_qbf_solver(RTLIL::Module *mod, const QbfSolveOptions &opt, 
 	//Execute and capture stdout from `yosys-smtbmc -s z3 -t 1 -g --binary [--dump-smt2 <file>]`
 	QbfSolutionType ret;
 	const std::string yosys_smtbmc_exe = proc_self_dirname() + "yosys-smtbmc";
-	const std::string smt2_command = stringf("write_smt2 -stbv -wires %s/problem%d.smt2", tempdir_name.c_str(), iter_num);
 	const std::string smtbmc_warning = "z3: WARNING:";
 	const std::string smtbmc_cmd = stringf("%s -s %s %s -t 1 -g --binary %s %s/problem%d.smt2 2>&1",
 			yosys_smtbmc_exe.c_str(), opt.get_solver_name().c_str(),
@@ -223,6 +222,10 @@ QbfSolutionType call_qbf_solver(RTLIL::Module *mod, const QbfSolveOptions &opt, 
 			(opt.dump_final_smt2? "--dump-smt2 " + opt.dump_final_smt2_file : "").c_str(),
 			tempdir_name.c_str(), iter_num);
 
+	std::string smt2_command = "write_smt2 -stbv -wires ";
+	for (auto &solver_opt : opt.solver_options)
+		smt2_command += stringf("-solver-option %s %s ", solver_opt.first.c_str(), solver_opt.second.c_str());
+	smt2_command += stringf("%s/problem%d.smt2", tempdir_name.c_str(), iter_num);
 	Pass::call(mod->design, smt2_command);
 
 	auto process_line = [&ret, &smtbmc_warning, &opt, &quiet](const std::string &line) {
@@ -419,6 +422,13 @@ QbfSolveOptions parse_args(const std::vector<std::string> &args) {
 			}
 			continue;
 		}
+		else if (args[opt.argidx] == "-solver-option") {
+			if (args.size() <= opt.argidx + 2)
+				log_cmd_error("solver option name and value not fully specified.\n");
+			opt.solver_options.emplace(args[opt.argidx+1], args[opt.argidx+2]);
+			opt.argidx += 2;
+			continue;
+		}
 		else if (args[opt.argidx] == "-timeout") {
 			if (args.size() <= opt.argidx + 1)
 				log_cmd_error("timeout not specified.\n");
@@ -532,6 +542,9 @@ struct QbfSatPass : public Pass {
 		log("    -solver <solver>\n");
 		log("        Use a particular solver. Choose one of: \"z3\", \"yices\", and \"cvc4\".\n");
 		log("        (default: yices)\n");
+		log("\n");
+		log("    -solver-option <name> <value>\n");
+		log("        Set the specified solver option in the SMT-LIBv2 problem file.\n");
 		log("\n");
 		log("    -timeout <value>\n");
 		log("        Set the per-iteration timeout in seconds.\n");

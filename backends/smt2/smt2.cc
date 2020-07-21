@@ -1387,6 +1387,10 @@ struct Smt2Backend : public Backend {
 		log("        use the given template file. the line containing only the token '%%%%'\n");
 		log("        is replaced with the regular output of this command.\n");
 		log("\n");
+		log("    -solver-option <option> <value>\n");
+		log("        emit a `; yosys-smt2-solver-option` directive for yosys-smtbmc to write\n");
+		log("        the given option as a `(set-option ...)` command in the SMT-LIBv2.\n");
+		log("\n");
 		log("[1] For more information on SMT-LIBv2 visit http://smt-lib.org/ or read David\n");
 		log("R. Cok's tutorial: http://www.grammatech.com/resources/smt/SMTLIBTutorial.pdf\n");
 		log("\n");
@@ -1441,6 +1445,7 @@ struct Smt2Backend : public Backend {
 		std::ifstream template_f;
 		bool bvmode = true, memmode = true, wiresmode = false, verbose = false, statebv = false, statedt = false;
 		bool forallmode = false;
+		dict<std::string, std::string> solver_options;
 
 		log_header(design, "Executing SMT2 backend.\n");
 
@@ -1484,6 +1489,11 @@ struct Smt2Backend : public Backend {
 				verbose = true;
 				continue;
 			}
+			if (args[argidx] == "-solver-option" && argidx+2 < args.size()) {
+				solver_options.emplace(args[argidx+1], args[argidx+2]);
+				argidx += 2;
+				continue;
+			}
 			break;
 		}
 		extra_args(f, filename, args, argidx);
@@ -1513,6 +1523,9 @@ struct Smt2Backend : public Backend {
 
 		if (statedt)
 			*f << stringf("; yosys-smt2-stdt\n");
+
+		for (auto &it : solver_options)
+			*f << stringf("; yosys-smt2-solver-option %s %s\n", it.first.c_str(), it.second.c_str());
 
 		std::vector<RTLIL::Module*> sorted_modules;
 
