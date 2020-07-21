@@ -42,7 +42,6 @@ OBJS += passes/techmap/attrmvcp.o
 OBJS += passes/techmap/attrmap.o
 OBJS += passes/techmap/zinit.o
 OBJS += passes/techmap/dfflegalize.o
-OBJS += passes/techmap/dff2dffs.o
 OBJS += passes/techmap/dffunmap.o
 OBJS += passes/techmap/flowmap.o
 OBJS += passes/techmap/extractinv.o
