@@ -358,6 +358,10 @@ struct SynthXilinxPass : public ScriptPass
 			run("opt_clean");
 			run("check");
 			run("opt");
+			run("fsm");
+			run("opt");
+			run("opt_dff");
+			run("opt");
 			if (help_mode)
 				run("wreduce [-keepdc]", "(option for '-widemux')");
 			else
@@ -444,8 +448,6 @@ struct SynthXilinxPass : public ScriptPass
 			run("alumacc");
 			run("share");
 			run("opt");
-			run("fsm");
-			run("opt -fast");
 			run("memory -nomap");
 			run("opt_clean");
 		}
@@ -504,28 +506,21 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("map_ffram")) {
-			// Required for dff2dffs to work.
-			run("simplemap t:$dff t:$adff t:$mux");
-			// Needs to be done before opt -mux_bool happens.
-			if (help_mode)
-				run("dff2dffs [-match-init]", "(-match-init for xc6s only)");
-			else if (family == "xc6s")
-				run("dff2dffs -match-init");
-			else
-				run("dff2dffs");
-			if (widemux > 0)
+			if (widemux > 0) {
 				run("opt -fast -mux_bool -undriven -fine"); // Necessary to omit -mux_undef otherwise muxcover
 									    // performs less efficiently
-			else
+			} else {
 				run("opt -fast -full");
+			}
 			run("memory_map");
 		}
 
 		if (check_label("fine")) {
-			run("dff2dffe -direct-match $_DFF_* -direct-match $_SDFF_*");
-			if (help_mode)
-				run("muxcover <internal options> ('-widemux' only)");
-			else if (widemux > 0) {
+			if (help_mode) {
+				run("simplemap t:$mux", "('-widemux' only)");
+				run("muxcover <internal options>", "('-widemux' only)");
+			} else if (widemux > 0) {
+				run("simplemap t:$mux");
 				constexpr int cost_mux2 = 100;
 				std::string muxcover_args = stringf(" -nodecode -mux2=%d", cost_mux2);
 				switch (widemux) {
