@@ -293,6 +293,10 @@ struct SynthIce40Pass : public ScriptPass
 			run("opt_clean");
 			run("check");
 			run("opt");
+			run("fsm");
+			run("opt");
+			run("opt_dff");
+			run("opt");
 			run("wreduce");
 			run("peepopt");
 			run("opt_clean");
@@ -316,8 +320,6 @@ struct SynthIce40Pass : public ScriptPass
 			}
 			run("alumacc");
 			run("opt");
-			run("fsm");
-			run("opt -fast");
 			run("memory -nomap");
 			run("opt_clean");
 		}
@@ -354,11 +356,6 @@ struct SynthIce40Pass : public ScriptPass
 
 		if (check_label("map_ffs"))
 		{
-			if (!nodffe)
-				run("dff2dffe -direct-match $_DFF_*");
-			if (min_ce_use >= 0) {
-				run("opt_merge");
-			}
 			if (nodffe)
 				run(stringf("dfflegalize -cell $_DFF_?_ 0 -cell $_DFF_?P?_ 0 -cell $_SDFF_?P?_ 0 -cell $_DLATCH_?_ x"));
 			else
@@ -366,7 +363,6 @@ struct SynthIce40Pass : public ScriptPass
 			run("techmap -map +/ice40/ff_map.v");
 			run("opt_expr -mux_undef");
 			run("simplemap");
-			run("ice40_ffssr");
 			run("ice40_opt -full");
 		}
 
