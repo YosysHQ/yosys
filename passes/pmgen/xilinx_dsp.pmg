@@ -2,9 +2,7 @@
 //   forms the `xilinx_dsp` pass described in xilinx_dsp.cc
 // At a high level, it works as follows:
 //   ( 1) Starting from a DSP48E1 cell
-//   ( 2) Match the driver of the 'A' input to a possible $dff cell (ADREG)
-//        (attached to at most two $mux cells that implement clock-enable or
-//         reset functionality, using a subpattern discussed below)
+//   ( 2) Match the driver of the 'A' input to a possible $sdffe cell (ADREG)
 //        If ADREG matched, treat 'A' input as input of ADREG
 //   ( 3) Match the driver of the 'A' and 'D' inputs for a possible $add cell
 //       (pre-adder)
@@ -44,7 +42,7 @@
 //     DSP48E1 cells inferred from multiply operations by Yosys, as well as for
 //     user instantiations that may already contain the cells being packed...
 //     (though the latter is currently untested)
-//   - Since the $dff-with-optional-clock-enable-or-reset-mux pattern is used
+//   - Since the $sdffe pattern is used
 //     for each *REG match, it has been factored out into two subpatterns:
 //     in_dffe and out_dffe located at the bottom of this file.
 //   - Matching for pattern detector features is currently incomplete. For
@@ -57,20 +55,15 @@ pattern xilinx_dsp_pack
 state <SigBit> clock
 state <SigSpec> sigA sigB sigC sigD sigM sigP
 state <IdString> postAddAB postAddMuxAB
-state <bool> ffA1cepol ffA2cepol ffADcepol ffB1cepol ffB2cepol ffDcepol ffMcepol ffPcepol
-state <bool> ffArstpol ffADrstpol ffBrstpol ffDrstpol ffMrstpol ffPrstpol
-state <Cell*> ffAD ffADcemux ffADrstmux ffA1 ffA1cemux ffA1rstmux ffA2 ffA2cemux ffA2rstmux
-state <Cell*> ffB1 ffB1cemux ffB1rstmux ffB2 ffB2cemux ffB2rstmux
-state <Cell*> ffD ffDcemux ffDrstmux ffM ffMcemux ffMrstmux ffP ffPcemux ffPrstmux
+state <Cell*> ffAD ffA1 ffA2
+state <Cell*> ffB1 ffB2
+state <Cell*> ffD ffM ffP
 
 // Variables used for subpatterns
 state <SigSpec> argQ argD
-state <bool> ffcepol ffrstpol
-state <int> ffoffset
 udata <SigSpec> dffD dffQ
 udata <SigBit> dffclock
-udata <Cell*> dff dffcemux dffrstmux
-udata <bool> dffcepol dffrstpol
+udata <Cell*> dff
 
 // (1) Starting from a DSP48E1 cell
 match dsp
@@ -115,25 +108,15 @@ code sigA sigB sigC sigD sigM clock
 	clock = port(dsp, \CLK, SigBit());
 endcode
 
-// (2) Match the driver of the 'A' input to a possible $dff cell (ADREG)
-//     (attached to at most two $mux cells that implement clock-enable or
-//      reset functionality, using a subpattern discussed above)
+// (2) Match the driver of the 'A' input to a possible $sdffe cell (ADREG)
 //     If matched, treat 'A' input as input of ADREG
-code argQ ffAD ffADcemux ffADrstmux ffADcepol ffADrstpol sigA clock
+code argQ ffAD sigA clock
 	if (param(dsp, \ADREG).as_int() == 0) {
 		argQ = sigA;
 		subpattern(in_dffe);
 		if (dff) {
 			ffAD = dff;
 			clock = dffclock;
-			if (dffrstmux) {
-				ffADrstmux = dffrstmux;
-				ffADrstpol = dffrstpol;
-			}
-			if (dffcemux) {
-				ffADcemux = dffcemux;
-				ffADcepol = dffcepol;
-			}
 			sigA = dffD;
 		}
 	}
@@ -172,7 +155,7 @@ endcode
 // (4) If pre-adder was present, find match 'A' input for A2REG
 //     If pre-adder was not present, move ADREG to A2REG
 //     Then match 'A' input for A1REG
-code argQ ffAD ffADcemux ffADrstmux ffADcepol ffADrstpol sigA clock ffA2 ffA2cemux ffA2rstmux ffA2cepol ffArstpol ffA1 ffA1cemux ffA1rstmux ffA1cepol
+code argQ ffAD sigA clock ffA2 ffA1
 	// Only search for ffA2 if there was a pre-adder
 	//   (otherwise ffA2 would have been matched as ffAD)
 	if (preAdd) {
@@ -182,14 +165,6 @@ code argQ ffAD ffADcemux ffADrstmux ffADcepol ffADrstpol sigA clock ffA2 ffA2cem
 			if (dff) {
 				ffA2 = dff;
 				clock = dffclock;
-				if (dffrstmux) {
-					ffA2rstmux = dffrstmux;
-					ffArstpol = dffrstpol;
-				}
-				if (dffcemux) {
-					ffA2cepol = dffcepol;
-					ffA2cemux = dffcemux;
-				}
 				sigA = dffD;
 			}
 		}
@@ -197,12 +172,8 @@ code argQ ffAD ffADcemux ffADrstmux ffADcepol ffADrstpol sigA clock ffA2 ffA2cem
 	// And if there wasn't a pre-adder,
 	//   move AD register to A
 	else if (ffAD) {
-		log_assert(!ffA2 && !ffA2cemux && !ffA2rstmux);
+		log_assert(!ffA2);
 		std::swap(ffA2, ffAD);
-		std::swap(ffA2cemux, ffADcemux);
-		std::swap(ffA2rstmux, ffADrstmux);
-		ffA2cepol = ffADcepol;
-		ffArstpol = ffADrstpol;
 	}
 
 	// Now attempt to match A1
@@ -210,23 +181,23 @@ code argQ ffAD ffADcemux ffADrstmux ffADcepol ffADrstpol sigA clock ffA2 ffA2cem
 		argQ = sigA;
 		subpattern(in_dffe);
 		if (dff) {
-			if ((ffA2rstmux != nullptr) ^ (dffrstmux != nullptr))
+			if (dff->type != ffA2->type)
 				goto ffA1_end;
-			if (dffrstmux) {
-				if (ffArstpol != dffrstpol)
+			if (dff->type.in($sdff, $sdffe, $sdffce)) {
+				if (param(dff, \SRST_POLARITY) != param(ffA2, \SRST_POLARITY))
 					goto ffA1_end;
-				if (port(ffA2rstmux, \S) != port(dffrstmux, \S))
+				if (port(dff, \SRST) != port(ffA2, \SRST))
 					goto ffA1_end;
-				ffA1rstmux = dffrstmux;
+			}
+			if (dff->type.in($dffe, $sdffe, $sdffce)) {
+				if (param(dff, \EN_POLARITY) != param(ffA2, \EN_POLARITY))
+					goto ffA1_end;
+				if (port(dff, \EN) != port(ffA2, \EN))
+					goto ffA1_end;
 			}
 
 			ffA1 = dff;
 			clock = dffclock;
-
-			if (dffcemux) {
-				ffA1cemux = dffcemux;
-				ffA1cepol = dffcepol;
-			}
 			sigA = dffD;
 
 ffA1_end:		;
@@ -236,21 +207,13 @@ endcode
 
 // (5) Match 'B' input for B2REG
 //     If B2REG, then match 'B' input for B1REG
-code argQ ffB2 ffB2cemux ffB2rstmux ffB2cepol ffBrstpol sigB clock ffB1 ffB1cemux ffB1rstmux ffB1cepol
+code argQ ffB2 sigB clock ffB1
 	if (param(dsp, \BREG).as_int() == 0) {
 		argQ = sigB;
 		subpattern(in_dffe);
 		if (dff) {
 			ffB2 = dff;
 			clock = dffclock;
-			if (dffrstmux) {
-				ffB2rstmux = dffrstmux;
-				ffBrstpol = dffrstpol;
-			}
-			if (dffcemux) {
-				ffB2cemux = dffcemux;
-				ffB2cepol = dffcepol;
-			}
 			sigB = dffD;
 
 			// Now attempt to match B1
@@ -258,23 +221,23 @@ code argQ ffB2 ffB2cemux ffB2rstmux ffB2cepol ffBrstpol sigB clock ffB1 ffB1cemu
 				argQ = sigB;
 				subpattern(in_dffe);
 				if (dff) {
-					if ((ffB2rstmux != nullptr) ^ (dffrstmux != nullptr))
+					if (dff->type != ffB2->type)
 						goto ffB1_end;
-					if (dffrstmux) {
-						if (ffBrstpol != dffrstpol)
+					if (dff->type.in($sdff, $sdffe, $sdffce)) {
+						if (param(dff, \SRST_POLARITY) != param(ffB2, \SRST_POLARITY))
 							goto ffB1_end;
-						if (port(ffB2rstmux, \S) != port(dffrstmux, \S))
+						if (port(dff, \SRST) != port(ffB2, \SRST))
 							goto ffB1_end;
-						ffB1rstmux = dffrstmux;
+					}
+					if (dff->type.in($dffe, $sdffe, $sdffce)) {
+						if (param(dff, \EN_POLARITY) != param(ffB2, \EN_POLARITY))
+							goto ffB1_end;
+						if (port(dff, \EN) != port(ffB2, \EN))
+							goto ffB1_end;
 					}
 
 					ffB1 = dff;
 					clock = dffclock;
-
-					if (dffcemux) {
-						ffB1cemux = dffcemux;
-						ffB1cepol = dffcepol;
-					}
 					sigB = dffD;
 
 ffB1_end:				;
@@ -286,42 +249,26 @@ ffB1_end:				;
 endcode
 
 // (6) Match 'D' input for DREG
-code argQ ffD ffDcemux ffDrstmux ffDcepol ffDrstpol sigD clock
+code argQ ffD sigD clock
 	if (param(dsp, \DREG).as_int() == 0) {
 		argQ = sigD;
 		subpattern(in_dffe);
 		if (dff) {
 			ffD = dff;
 			clock = dffclock;
-			if (dffrstmux) {
-				ffDrstmux = dffrstmux;
-				ffDrstpol = dffrstpol;
-			}
-			if (dffcemux) {
-				ffDcemux = dffcemux;
-				ffDcepol = dffcepol;
-			}
 			sigD = dffD;
 		}
 	}
 endcode
 
 // (7) Match 'P' output that exclusively drives an MREG
-code argD ffM ffMcemux ffMrstmux ffMcepol ffMrstpol sigM sigP clock
+code argD ffM sigM sigP clock
 	if (param(dsp, \MREG).as_int() == 0 && nusers(sigM) == 2) {
 		argD = sigM;
 		subpattern(out_dffe);
 		if (dff) {
 			ffM = dff;
 			clock = dffclock;
-			if (dffrstmux) {
-				ffMrstmux = dffrstmux;
-				ffMrstpol = dffrstpol;
-			}
-			if (dffcemux) {
-				ffMcemux = dffcemux;
-				ffMcepol = dffcepol;
-			}
 			sigM = dffQ;
 		}
 	}
@@ -340,9 +287,7 @@ match postAdd
 	select postAdd->type.in($add)
 	select GetSize(port(postAdd, \Y)) <= 48
 	choice <IdString> AB {\A, \B}
-	select nusers(port(postAdd, AB)) <= 3
-	filter ffMcemux || nusers(port(postAdd, AB)) == 2
-	filter !ffMcemux || nusers(port(postAdd, AB)) == 3
+	select nusers(port(postAdd, AB)) == 2
 
 	index <SigBit> port(postAdd, AB)[0] === sigP[0]
 	filter GetSize(port(postAdd, AB)) >= GetSize(sigP)
@@ -362,25 +307,14 @@ code sigC sigP
 endcode
 
 // (9) Match 'P' output that exclusively drives a PREG
-code argD ffP ffPcemux ffPrstmux ffPcepol ffPrstpol sigP clock
+code argD ffP sigP clock
 	if (param(dsp, \PREG).as_int() == 0) {
-		int users = 2;
-		// If ffMcemux and no postAdd new-value net must have three users: ffMcemux, ffM and ffPcemux
-		if (ffMcemux && !postAdd) users++;
-		if (nusers(sigP) == users) {
+		if (nusers(sigP) == 2) {
 			argD = sigP;
 			subpattern(out_dffe);
 			if (dff) {
 				ffP = dff;
 				clock = dffclock;
-				if (dffrstmux) {
-					ffPrstmux = dffrstmux;
-					ffPrstpol = dffrstpol;
-				}
-				if (dffcemux) {
-					ffPcemux = dffcemux;
-					ffPcepol = dffcepol;
-				}
 				sigP = dffQ;
 			}
 		}
@@ -441,22 +375,9 @@ endcode
 // #######################
 
 // Subpattern for matching against input registers, based on knowledge of the
-//   'Q' input. Typically, identifying registers with clock-enable and reset
-//   capability would be a task would be handled by other Yosys passes such as
-//   dff2dffe, but since DSP inference happens much before this, these patterns
-//   have to be manually identified.
-// At a high level:
-//   (1) Starting from a $dff cell that (partially or fully) drives the given
-//       'Q' argument
-//   (2) Match for a $mux cell implementing synchronous reset semantics ---
-//       one that exclusively drives the 'D' input of the $dff, with one of its
-//       $mux inputs being fully zero
-//   (3) Match for a $mux cell implement clock enable semantics --- one that
-//       exclusively drives the 'D' input of the $dff (or the other input of
-//       the reset $mux) and where one of this $mux's inputs is connected to
-//       the 'Q' output of the $dff
+//   'Q' input.
 subpattern in_dffe
-arg argD argQ clock
+arg argQ clock
 
 code
 	dff = nullptr;
@@ -479,12 +400,13 @@ code
 	}
 endcode
 
-// (1) Starting from a $dff cell that (partially or fully) drives the given
-//     'Q' argument
 match ff
-	select ff->type.in($dff)
+	select ff->type.in($dff, $dffe, $sdff, $sdffe)
 	// DSP48E1 does not support clock inversion
 	select param(ff, \CLK_POLARITY).as_bool()
+
+	// Check that reset value, if present, is fully 0.
+	filter ff->type.in($dff, $dffe) || param(ff, \SRST_VALUE).is_fully_zero()
 
 	slice offset GetSize(port(ff, \D))
 	index <SigBit> port(ff, \Q)[offset] === argQ[0]
@@ -494,82 +416,16 @@ match ff
 	filter port(ff, \Q).extract(offset, GetSize(argQ)) == argQ
 
 	filter clock == SigBit() || port(ff, \CLK) == clock
-
-	set ffoffset offset
 endmatch
 
-code argQ argD
+code argQ
 	SigSpec Q = port(ff, \Q);
 	dff = ff;
 	dffclock = port(ff, \CLK);
 	dffD = argQ;
-	argD = port(ff, \D);
+	SigSpec D = port(ff, \D);
 	argQ = Q;
-	dffD.replace(argQ, argD);
-	// Only search for ffrstmux if dffD only
-	//   has two (ff, ffrstmux) users
-	if (nusers(dffD) > 2)
-		argD = SigSpec();
-endcode
-
-// (2) Match for a $mux cell implementing synchronous reset semantics ---
-//     exclusively drives the 'D' input of the $dff, with one of the $mux
-//     inputs being fully zero
-match ffrstmux
-	if !argD.empty()
-	select ffrstmux->type.in($mux)
-	index <SigSpec> port(ffrstmux, \Y) === argD
-
-	choice <IdString> BA {\B, \A}
-	// DSP48E1 only supports reset to zero
-	select port(ffrstmux, BA).is_fully_zero()
-
-	define <bool> pol (BA == \B)
-	set ffrstpol pol
-	semioptional
-endmatch
-
-code argD
-	if (ffrstmux) {
-		dffrstmux = ffrstmux;
-		dffrstpol = ffrstpol;
-		argD = port(ffrstmux, ffrstpol ? \A : \B);
-		dffD.replace(port(ffrstmux, \Y), argD);
-
-		// Only search for ffcemux if argQ has at
-		//   least 3 users (ff, <upstream>, ffrstmux) and
-		//   dffD only has two (ff, ffrstmux)
-		if (!(nusers(argQ) >= 3 && nusers(dffD) == 2))
-			argD = SigSpec();
-	}
-	else
-		dffrstmux = nullptr;
-endcode
-
-// (3) Match for a $mux cell implement clock enable semantics --- one that
-//     exclusively drives the 'D' input of the $dff (or the other input of
-//     the reset $mux) and where one of this $mux's inputs is connected to
-//     the 'Q' output of the $dff
-match ffcemux
-	if !argD.empty()
-	select ffcemux->type.in($mux)
-	index <SigSpec> port(ffcemux, \Y) === argD
-	choice <IdString> AB {\A, \B}
-	index <SigSpec> port(ffcemux, AB) === argQ
-	define <bool> pol (AB == \A)
-	set ffcepol pol
-	semioptional
-endmatch
-
-code argD
-	if (ffcemux) {
-		dffcemux = ffcemux;
-		dffcepol = ffcepol;
-		argD = port(ffcemux, ffcepol ? \B : \A);
-		dffD.replace(port(ffcemux, \Y), argD);
-	}
-	else
-		dffcemux = nullptr;
+	dffD.replace(argQ, D);
 endcode
 
 // #######################
@@ -597,119 +453,26 @@ code
 			reject;
 endcode
 
-// (1) Starting from an optional $mux cell that implements clock enable
-//     semantics --- one where the given 'D' argument (partially or fully)
-//     drives one of its two inputs
-match ffcemux
-	select ffcemux->type.in($mux)
-	// ffcemux output must have two users: ffcemux and ff.D
-	select nusers(port(ffcemux, \Y)) == 2
-
-	choice <IdString> AB {\A, \B}
-	// keep-last-value net must have at least three users: ffcemux, ff, downstream sink(s)
-	select nusers(port(ffcemux, AB)) >= 3
-
-	slice offset GetSize(port(ffcemux, \Y))
-	define <IdString> BA (AB == \A ? \B : \A)
-	index <SigBit> port(ffcemux, BA)[offset] === argD[0]
-
-	// Check that the rest of argD is present
-	filter GetSize(port(ffcemux, BA)) >= offset + GetSize(argD)
-	filter port(ffcemux, BA).extract(offset, GetSize(argD)) == argD
-
-	set ffoffset offset
-	define <bool> pol (AB == \A)
-	set ffcepol pol
-
-	semioptional
-endmatch
-
-code argD argQ
-	dffcemux = ffcemux;
-	if (ffcemux) {
-		SigSpec BA = port(ffcemux, ffcepol ? \B : \A);
-		SigSpec Y = port(ffcemux, \Y);
-		argQ = argD;
-		argD.replace(BA, Y);
-		argQ.replace(BA, port(ffcemux, ffcepol ? \A : \B));
-
-		dffcemux = ffcemux;
-		dffcepol = ffcepol;
-	}
-endcode
-
-// (2) Starting from, or continuing onto, another optional $mux cell that
-//     implements synchronous reset semantics --- one where the given 'D'
-//     argument (or the clock enable $mux output) drives one of its two inputs
-//     and where the other input is fully zero
-match ffrstmux
-	select ffrstmux->type.in($mux)
-	// ffrstmux output must have two users: ffrstmux and ff.D
-	select nusers(port(ffrstmux, \Y)) == 2
-
-	choice <IdString> BA {\B, \A}
-	// DSP48E1 only supports reset to zero
-	select port(ffrstmux, BA).is_fully_zero()
-
-	slice offset GetSize(port(ffrstmux, \Y))
-	define <IdString> AB (BA == \B ? \A : \B)
-	index <SigBit> port(ffrstmux, AB)[offset] === argD[0]
-
-	// Check that offset is consistent
-	filter !ffcemux || ffoffset == offset
-	// Check that the rest of argD is present
-	filter GetSize(port(ffrstmux, AB)) >= offset + GetSize(argD)
-	filter port(ffrstmux, AB).extract(offset, GetSize(argD)) == argD
-
-	set ffoffset offset
-	define <bool> pol (AB == \A)
-	set ffrstpol pol
-
-	semioptional
-endmatch
-
-code argD argQ
-	dffrstmux = ffrstmux;
-	if (ffrstmux) {
-		SigSpec AB = port(ffrstmux, ffrstpol ? \A : \B);
-		SigSpec Y = port(ffrstmux, \Y);
-		argD.replace(AB, Y);
-
-		dffrstmux = ffrstmux;
-		dffrstpol = ffrstpol;
-	}
-endcode
-
-// (3) Match for a $dff cell (whose 'D' input is the 'D' argument, or the
-//     output of the previous clock enable or reset $mux cells)
 match ff
-	select ff->type.in($dff)
+	select ff->type.in($dff, $dffe, $sdff, $sdffe)
 	// DSP48E1 does not support clock inversion
 	select param(ff, \CLK_POLARITY).as_bool()
 
 	slice offset GetSize(port(ff, \D))
 	index <SigBit> port(ff, \D)[offset] === argD[0]
 
-	// Check that offset is consistent
-	filter (!ffcemux && !ffrstmux) || ffoffset == offset
 	// Check that the rest of argD is present
 	filter GetSize(port(ff, \D)) >= offset + GetSize(argD)
 	filter port(ff, \D).extract(offset, GetSize(argD)) == argD
-	// Check that FF.Q is connected to CE-mux
-	filter !ffcemux || port(ff, \Q).extract(offset, GetSize(argQ)) == argQ
 
 	filter clock == SigBit() || port(ff, \CLK) == clock
-
-	set ffoffset offset
 endmatch
 
 code argQ
 	SigSpec D = port(ff, \D);
 	SigSpec Q = port(ff, \Q);
-	if (!ffcemux) {
-		argQ = argD;
-		argQ.replace(D, Q);
-	}
+	argQ = argD;
+	argQ.replace(D, Q);
 
 	// Abandon matches when 'Q' has a non-zero init attribute set
 	// (not supported by DSP48E1)

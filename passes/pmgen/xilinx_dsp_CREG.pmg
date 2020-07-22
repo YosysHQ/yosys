@@ -26,17 +26,14 @@ pattern xilinx_dsp_packC
 udata <std::function<SigSpec(const SigSpec&)>> unextend
 state <SigBit> clock
 state <SigSpec> sigC sigP
-state <bool> ffCcepol ffCrstpol
-state <Cell*> ffC ffCcemux ffCrstmux
+state <Cell*> ffC
 
 // Variables used for subpatterns
 state <SigSpec> argQ argD
-state <bool> ffcepol ffrstpol
 state <int> ffoffset
 udata <SigSpec> dffD dffQ
 udata <SigBit> dffclock
-udata <Cell*> dff dffcemux dffrstmux
-udata <bool> dffcepol dffrstpol
+udata <Cell*> dff
 
 // (1) Starting from a DSP48* cell that (a) doesn't have a CREG already,
 //     and (b) uses the 'C' port
@@ -80,20 +77,12 @@ endcode
 // (2) Match the driver of the 'C' input to a possible $dff cell (CREG)
 //     (attached to at most two $mux cells that implement clock-enable or
 //      reset functionality, using the in_dffe subpattern)
-code argQ ffC ffCcemux ffCrstmux ffCcepol ffCrstpol sigC clock
+code argQ ffC sigC clock
 	argQ = sigC;
 	subpattern(in_dffe);
 	if (dff) {
 		ffC = dff;
 		clock = dffclock;
-		if (dffrstmux) {
-			ffCrstmux = dffrstmux;
-			ffCrstpol = dffrstpol;
-		}
-		if (dffcemux) {
-			ffCcemux = dffcemux;
-			ffCcepol = dffcepol;
-		}
 		sigC = dffD;
 	}
 endcode
@@ -106,25 +95,14 @@ endcode
 // #######################
 
 // Subpattern for matching against input registers, based on knowledge of the
-//   'Q' input. Typically, identifying registers with clock-enable and reset
-//   capability would be a task would be handled by other Yosys passes such as
-//   dff2dffe, but since DSP inference happens much before this, these patterns
-//   have to be manually identified.
-// At a high level:
-//   (1) Starting from a $dff cell that (partially or fully) drives the given
-//       'Q' argument
-//   (2) Match for a $mux cell implementing synchronous reset semantics ---
-//       one that exclusively drives the 'D' input of the $dff, with one of its
-//       $mux inputs being fully zero
-//   (3) Match for a $mux cell implement clock enable semantics --- one that
-//       exclusively drives the 'D' input of the $dff (or the other input of
-//       the reset $mux) and where one of this $mux's inputs is connected to
-//       the 'Q' output of the $dff
+//   'Q' input.
 subpattern in_dffe
-arg argD argQ clock
+arg argQ clock
 
 code
 	dff = nullptr;
+	if (argQ.empty())
+		reject;
 	for (const auto &c : argQ.chunks()) {
 		// Abandon matches when 'Q' is a constant
 		if (!c.wire)
@@ -135,18 +113,20 @@ code
 		// Abandon matches when 'Q' has a non-zero init attribute set
 		// (not supported by DSP48E1)
 		Const init = c.wire->attributes.at(\init, Const());
-		for (auto b : init.extract(c.offset, c.width))
-			if (b != State::Sx && b != State::S0)
-				reject;
+		if (!init.empty())
+			for (auto b : init.extract(c.offset, c.width))
+				if (b != State::Sx && b != State::S0)
+					reject;
 	}
 endcode
 
-// (1) Starting from a $dff cell that (partially or fully) drives the given
-//     'Q' argument
 match ff
-	select ff->type.in($dff)
+	select ff->type.in($dff, $dffe, $sdff, $sdffe)
 	// DSP48E1 does not support clock inversion
 	select param(ff, \CLK_POLARITY).as_bool()
+
+	// Check that reset value, if present, is fully 0.
+	filter ff->type.in($dff, $dffe) || param(ff, \SRST_VALUE).is_fully_zero()
 
 	slice offset GetSize(port(ff, \D))
 	index <SigBit> port(ff, \Q)[offset] === argQ[0]
@@ -156,80 +136,14 @@ match ff
 	filter port(ff, \Q).extract(offset, GetSize(argQ)) == argQ
 
 	filter clock == SigBit() || port(ff, \CLK) == clock
-
-	set ffoffset offset
 endmatch
 
-code argQ argD
+code argQ
 	SigSpec Q = port(ff, \Q);
 	dff = ff;
 	dffclock = port(ff, \CLK);
 	dffD = argQ;
-	argD = port(ff, \D);
+	SigSpec D = port(ff, \D);
 	argQ = Q;
-	dffD.replace(argQ, argD);
-	// Only search for ffrstmux if dffD only
-	//   has two (ff, ffrstmux) users
-	if (nusers(dffD) > 2)
-		argD = SigSpec();
-endcode
-
-// (2) Match for a $mux cell implementing synchronous reset semantics ---
-//     exclusively drives the 'D' input of the $dff, with one of the $mux
-//     inputs being fully zero
-match ffrstmux
-	if !argD.empty()
-	select ffrstmux->type.in($mux)
-	index <SigSpec> port(ffrstmux, \Y) === argD
-
-	choice <IdString> BA {\B, \A}
-	// DSP48E1 only supports reset to zero
-	select port(ffrstmux, BA).is_fully_zero()
-
-	define <bool> pol (BA == \B)
-	set ffrstpol pol
-	semioptional
-endmatch
-
-code argD
-	if (ffrstmux) {
-		dffrstmux = ffrstmux;
-		dffrstpol = ffrstpol;
-		argD = port(ffrstmux, ffrstpol ? \A : \B);
-		dffD.replace(port(ffrstmux, \Y), argD);
-
-		// Only search for ffcemux if argQ has at
-		//   least 3 users (ff, <upstream>, ffrstmux) and
-		//   dffD only has two (ff, ffrstmux)
-		if (!(nusers(argQ) >= 3 && nusers(dffD) == 2))
-			argD = SigSpec();
-	}
-	else
-		dffrstmux = nullptr;
-endcode
-
-// (3) Match for a $mux cell implement clock enable semantics --- one that
-//     exclusively drives the 'D' input of the $dff (or the other input of
-//     the reset $mux) and where one of this $mux's inputs is connected to
-//     the 'Q' output of the $dff
-match ffcemux
-	if !argD.empty()
-	select ffcemux->type.in($mux)
-	index <SigSpec> port(ffcemux, \Y) === argD
-	choice <IdString> AB {\A, \B}
-	index <SigSpec> port(ffcemux, AB) === argQ
-	define <bool> pol (AB == \A)
-	set ffcepol pol
-	semioptional
-endmatch
-
-code argD
-	if (ffcemux) {
-		dffcemux = ffcemux;
-		dffcepol = ffcepol;
-		argD = port(ffcemux, ffcepol ? \B : \A);
-		dffD.replace(port(ffcemux, \Y), argD);
-	}
-	else
-		dffcemux = nullptr;
+	dffD.replace(argQ, D);
 endcode
