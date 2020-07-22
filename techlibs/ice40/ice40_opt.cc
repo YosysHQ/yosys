@@ -215,7 +215,7 @@ struct Ice40OptPass : public Pass {
 		log("        <ice40 specific optimizations>\n");
 		log("        opt_expr -mux_undef -undriven [-full]\n");
 		log("        opt_merge\n");
-		log("        opt_rmdff\n");
+		log("        opt_dff\n");
 		log("        opt_clean\n");
 		log("    while <changed design>\n");
 		log("\n");
@@ -247,7 +247,7 @@ struct Ice40OptPass : public Pass {
 
 			Pass::call(design, "opt_expr " + opt_expr_args);
 			Pass::call(design, "opt_merge");
-			Pass::call(design, "opt_rmdff");
+			Pass::call(design, "opt_dff");
 			Pass::call(design, "opt_clean");
 
 			if (design->scratchpad_get_bool("opt.did_something") == false)
