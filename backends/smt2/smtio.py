@@ -667,7 +667,7 @@ class SmtIo:
 
         return stmt
 
-    def check_sat(self, expected=["sat", "unsat", "unknown", "timeout", "interrupted"]):
+    def check_sat(self):
         if self.debug_print:
             print("> (check-sat)")
         if self.debug_file and not self.nocomments:
@@ -754,6 +754,7 @@ class SmtIo:
             print("(check-sat)", file=self.debug_file)
             self.debug_file.flush()
 
+        expected = ["sat", "unsat", "unknown", "timeout", "interrupted"]
         if result not in expected:
             if result == "":
                 print("%s Unexpected EOF response from solver." % (self.timestamp()), flush=True)

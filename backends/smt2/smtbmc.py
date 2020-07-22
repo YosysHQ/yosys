@@ -1275,10 +1275,10 @@ def smt_pop():
     asserts_consequent_cache.pop()
     smt.write("(pop 1)")
 
-def smt_check_sat(expected=["sat", "unsat"]):
+def smt_check_sat():
     if asserts_cache_dirty:
         smt_forall_assert()
-    return smt.check_sat(expected=expected)
+    return smt.check_sat()
 
 if tempind:
     retstatus = "FAILED"
@@ -1373,7 +1373,7 @@ elif covermode:
             smt_push()
             smt_assert("(distinct (covers_%d s%d) #b%s)" % (coveridx, step, "0" * len(cover_desc)))
 
-            if smt_check_sat() == "unsat":
+            if smt_check_sat() != "sat":
                 smt_pop()
                 break
 
@@ -1387,7 +1387,7 @@ elif covermode:
                     smt_assert_antecedent("(|%s_t| s%d s%d)" % (topmod, i-1, i))
                     smt_assert_consequent(get_constr_expr(constr_assumes, i))
                 print_msg("Re-solving with appended steps..")
-                if smt_check_sat() == "unsat":
+                if smt_check_sat() != "sat":
                     print("%s Cannot appended steps without violating assumptions!" % smt.timestamp())
                     found_failed_assert = True
                     retstatus = "FAILED"
@@ -1483,7 +1483,7 @@ else:  # not tempind, covermode
                 else:
                     print_msg("Checking assumptions in steps %d to %d.." % (step, last_check_step))
 
-                if smt_check_sat() == "unsat":
+                if smt_check_sat() != "sat":
                     print("%s Assumptions are unsatisfiable!" % smt.timestamp())
                     retstatus = "PREUNSAT"
                     break
@@ -1510,7 +1510,7 @@ else:  # not tempind, covermode
                             smt_assert_antecedent("(|%s_t| s%d s%d)" % (topmod, i-1, i))
                             smt_assert_consequent(get_constr_expr(constr_assumes, i))
                         print_msg("Re-solving with appended steps..")
-                        if smt_check_sat() == "unsat":
+                        if smt_check_sat() != "sat":
                             print("%s Cannot append steps without violating assumptions!" % smt.timestamp())
                             retstatus = "FAILED"
                             break
