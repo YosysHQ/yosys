@@ -186,48 +186,7 @@ struct Clk2fflogicPass : public Pass {
 						initvals.set_init(past_q, ff.val_init);
 
 					if (ff.has_clk) {
-						SigSpec sig_d = ff.sig_d;
-						if (ff.has_srst && ff.has_en && ff.ce_over_srst) {
-							if (!ff.is_fine) {
-								if (ff.pol_srst)
-									sig_d = module->Mux(NEW_ID, sig_d, ff.val_srst, ff.sig_srst);
-								else
-									sig_d = module->Mux(NEW_ID, ff.val_srst, sig_d, ff.sig_srst);
-							} else {
-								if (ff.pol_srst)
-									sig_d = module->MuxGate(NEW_ID, sig_d, ff.val_srst[0], ff.sig_srst);
-								else
-									sig_d = module->MuxGate(NEW_ID, ff.val_srst[0], sig_d, ff.sig_srst);
-							}
-						}
-
-						if (ff.has_en) {
-							if (!ff.is_fine) {
-								if (ff.pol_en)
-									sig_d = module->Mux(NEW_ID, ff.sig_q, sig_d, ff.sig_en);
-								else
-									sig_d = module->Mux(NEW_ID, sig_d, ff.sig_q, ff.sig_en);
-							} else {
-								if (ff.pol_en)
-									sig_d = module->MuxGate(NEW_ID, ff.sig_q, sig_d, ff.sig_en);
-								else
-									sig_d = module->MuxGate(NEW_ID, sig_d, ff.sig_q, ff.sig_en);
-							}
-						}
-
-						if (ff.has_srst && !(ff.has_en && ff.ce_over_srst)) {
-							if (!ff.is_fine) {
-								if (ff.pol_srst)
-									sig_d = module->Mux(NEW_ID, sig_d, ff.val_srst, ff.sig_srst);
-								else
-									sig_d = module->Mux(NEW_ID, ff.val_srst, sig_d, ff.sig_srst);
-							} else {
-								if (ff.pol_srst)
-									sig_d = module->MuxGate(NEW_ID, sig_d, ff.val_srst[0], ff.sig_srst);
-								else
-									sig_d = module->MuxGate(NEW_ID, ff.val_srst[0], sig_d, ff.sig_srst);
-							}
-						}
+						ff.unmap_ce_srst(module);
 
 						Wire *past_clk = module->addWire(NEW_ID);
 						initvals.set_init(past_clk, ff.pol_clk ? State::S1 : State::S0);
@@ -255,9 +214,9 @@ struct Clk2fflogicPass : public Pass {
 
 						Wire *past_d = module->addWire(NEW_ID, ff.width);
 						if (!ff.is_fine)
-							module->addFf(NEW_ID, sig_d, past_d);
+							module->addFf(NEW_ID, ff.sig_d, past_d);
 						else
-							module->addFfGate(NEW_ID, sig_d, past_d);
+							module->addFfGate(NEW_ID, ff.sig_d, past_d);
 
 						if (!ff.val_init.is_fully_undef())
 							initvals.set_init(past_d, ff.val_init);

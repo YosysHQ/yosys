@@ -323,6 +323,52 @@ struct FfData {
 		return res;
 	}
 
+	void unmap_ce(Module *module) {
+		if (!has_en)
+			return;
+		log_assert(has_clk);
+		if (has_srst && ce_over_srst)
+			unmap_srst(module);
+
+		if (!is_fine) {
+			if (pol_en)
+				sig_d = module->Mux(NEW_ID, sig_q, sig_d, sig_en);
+			else
+				sig_d = module->Mux(NEW_ID, sig_d, sig_q, sig_en);
+		} else {
+			if (pol_en)
+				sig_d = module->MuxGate(NEW_ID, sig_q, sig_d, sig_en);
+			else
+				sig_d = module->MuxGate(NEW_ID, sig_d, sig_q, sig_en);
+		}
+		has_en = false;
+	}
+
+	void unmap_srst(Module *module) {
+		if (!has_srst)
+			return;
+		if (has_en && !ce_over_srst)
+			unmap_ce(module);
+
+		if (!is_fine) {
+			if (pol_srst)
+				sig_d = module->Mux(NEW_ID, sig_d, val_srst, sig_srst);
+			else
+				sig_d = module->Mux(NEW_ID, val_srst, sig_d, sig_srst);
+		} else {
+			if (pol_srst)
+				sig_d = module->MuxGate(NEW_ID, sig_d, val_srst[0], sig_srst);
+			else
+				sig_d = module->MuxGate(NEW_ID, val_srst[0], sig_d, sig_srst);
+		}
+		has_srst = false;
+	}
+
+	void unmap_ce_srst(Module *module) {
+		unmap_ce(module);
+		unmap_srst(module);
+	}
+
 	Cell *emit(Module *module, IdString name) {
 		if (!width)
 			return nullptr;
