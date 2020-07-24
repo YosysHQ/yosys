@@ -590,7 +590,7 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("map_luts")) {
-			run("opt_expr -mux_undef");
+			run("opt_expr -mux_undef -noclkinv");
 			if (flatten_before_abc)
 				run("flatten");
 			if (help_mode)
