@@ -4340,26 +4340,8 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 	size_t argidx = 0;
 	for (auto child : children)
 	{
-		if (child->type == AST_WIRE)
-		{
-			while (child->simplify(true, false, false, 1, -1, false, true)) { }
-			if (!child->range_valid)
-				log_file_error(child->filename, child->location.first_line, "Can't determine size of variable %s\n%s:%d.%d-%d.%d: ... called from here.\n",
-						child->str.c_str(), fcall->filename.c_str(), fcall->location.first_line, fcall->location.first_column, fcall->location.last_line, fcall->location.last_column);
-			variables[child->str].val = RTLIL::Const(RTLIL::State::Sx, abs(child->range_left - child->range_right)+1);
-			variables[child->str].offset = min(child->range_left, child->range_right);
-			variables[child->str].is_signed = child->is_signed;
-			if (child->is_input && argidx < fcall->children.size())
-				variables[child->str].val = fcall->children.at(argidx++)->bitsAsConst(variables[child->str].val.bits.size());
-			backup_scope[child->str] = current_scope[child->str];
-			current_scope[child->str] = child;
-			continue;
-		}
-
 		block->children.push_back(child->clone());
 	}
-
-	log_assert(variables.count(str) != 0);
 
 	while (!block->children.empty())
 	{
@@ -4371,6 +4353,27 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 			log("%20s %40s\n", it.first.c_str(), log_signal(it.second.val));
 		stmt->dumpAst(NULL, "stmt> ");
 #endif
+
+		if (stmt->type == AST_WIRE)
+		{
+			while (stmt->simplify(true, false, false, 1, -1, false, true)) { }
+			if (!stmt->range_valid)
+				log_file_error(stmt->filename, stmt->location.first_line, "Can't determine size of variable %s\n%s:%d.%d-%d.%d: ... called from here.\n",
+						stmt->str.c_str(), fcall->filename.c_str(), fcall->location.first_line, fcall->location.first_column, fcall->location.last_line, fcall->location.last_column);
+			variables[stmt->str].val = RTLIL::Const(RTLIL::State::Sx, abs(stmt->range_left - stmt->range_right)+1);
+			variables[stmt->str].offset = min(stmt->range_left, stmt->range_right);
+			variables[stmt->str].is_signed = stmt->is_signed;
+			if (stmt->is_input && argidx < fcall->children.size())
+				variables[stmt->str].val = fcall->children.at(argidx++)->bitsAsConst(variables[stmt->str].val.bits.size());
+			if (!backup_scope.count(stmt->str))
+				backup_scope[stmt->str] = current_scope[stmt->str];
+			current_scope[stmt->str] = stmt;
+
+			block->children.erase(block->children.begin());
+			continue;
+		}
+
+		log_assert(variables.count(str) != 0);
 
 		if (stmt->type == AST_ASSIGN_EQ)
 		{
