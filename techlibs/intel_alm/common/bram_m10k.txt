@@ -1,4 +1,4 @@
-bram __MISTRAL_M10K_SDP
+bram MISTRAL_M10K
     init   0   # TODO: Re-enable when I figure out how BRAM init works
     abits 13   @D8192x1
     dbits  1   @D8192x1
@@ -27,7 +27,7 @@ bram __MISTRAL_M10K_SDP
 endbram
 
 
-match __MISTRAL_M10K_SDP
+match MISTRAL_M10K
     min efficiency 5
     make_transp
 endmatch
