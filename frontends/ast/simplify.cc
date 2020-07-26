@@ -483,6 +483,27 @@ static AstNode *make_packed_struct(AstNode *template_node, std::string &name)
 	return wnode;
 }
 
+// check if a node or its children contains an assignment to the given variable
+static bool node_contains_assignment_to(const AstNode* node, const AstNode* var)
+{
+	if (node->type == AST_ASSIGN_EQ || node->type == AST_ASSIGN_LE) {
+		// current node is iteslf an assignment
+		log_assert(node->children.size() >= 2);
+		const AstNode* lhs = node->children[0];
+		if (lhs->type == AST_IDENTIFIER && lhs->str == var->str)
+			return false;
+	}
+	for (const AstNode* child : node->children) {
+		// if this child shadows the given variable
+		if (child != var && child->str == var->str && child->type == AST_WIRE)
+			break; // skip the remainder of this block/scope
+		// depth-first short circuit
+		if (!node_contains_assignment_to(child, var))
+			return false;
+	}
+	return true;
+}
+
 // convert the AST into a simpler AST that has all parameters substituted by their
 // values, unrolled for-loops, expanded generate blocks, etc. when this function
 // is done with an AST it can be converted into RTLIL using genRTLIL().
@@ -3196,6 +3217,13 @@ skip_dynamic_range_lvalue_expansion:;
 				if ((child->is_input || child->is_output) && arg_count < children.size())
 				{
 					AstNode *arg = children[arg_count++]->clone();
+					// convert purely constant arguments into localparams
+					if (child->is_input && child->type == AST_WIRE && arg->type == AST_CONSTANT && node_contains_assignment_to(decl, child)) {
+						wire->type = AST_LOCALPARAM;
+						wire->attributes.erase(ID::nosync);
+						wire->children.insert(wire->children.begin(), arg->clone());
+						continue;
+					}
 					AstNode *wire_id = new AstNode(AST_IDENTIFIER);
 					wire_id->str = wire->str;
 					AstNode *assign = child->is_input ?
