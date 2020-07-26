@@ -258,7 +258,7 @@ struct SynthIntelALMPass : public ScriptPass {
 
 		if (check_label("map_luts")) {
 			run("techmap -map +/intel_alm/common/abc9_map.v");
-			run(stringf("abc9 %s -maxlut 6 -W 200", help_mode ? "[-dff]" : dff ? "-dff" : ""));
+			run(stringf("abc9 %s -maxlut 6 -W 600", help_mode ? "[-dff]" : dff ? "-dff" : ""));
 			run("techmap -map +/intel_alm/common/abc9_unmap.v");
 			run("techmap -map +/intel_alm/common/alm_map.v");
 			run("opt -fast");
