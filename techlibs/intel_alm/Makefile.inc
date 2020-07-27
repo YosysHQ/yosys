@@ -14,6 +14,8 @@ $(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/ds
 $(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/dsp_map.v))
 $(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/mem_sim.v))
 
+$(eval $(call add_share_file,share/intel_alm/cyclonev,techlibs/intel_alm/cyclonev/cells_sim.v))
+
 # RAM
 $(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/bram_m10k.txt))
 $(eval $(call add_share_file,share/intel_alm/common,techlibs/intel_alm/common/bram_m20k.txt))

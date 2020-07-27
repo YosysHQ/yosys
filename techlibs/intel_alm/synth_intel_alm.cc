@@ -178,7 +178,7 @@ struct SynthIntelALMPass : public ScriptPass {
 
 		if (check_label("begin")) {
 			if (family_opt == "cyclonev")
-				run(stringf("read_verilog -sv -lib +/intel/%s/cells_sim.v", family_opt.c_str()));
+				run(stringf("read_verilog -sv -lib +/intel_alm/%s/cells_sim.v", family_opt.c_str()));
 			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/alm_sim.v", family_opt.c_str()));
 			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/dff_sim.v", family_opt.c_str()));
 			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/dsp_sim.v", family_opt.c_str()));
