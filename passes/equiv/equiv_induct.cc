@@ -65,8 +65,10 @@ struct EquivInductWorker
 					int ez_a = satgen.importSigBit(bit_a, step);
 					int ez_b = satgen.importSigBit(bit_b, step);
 					int cond = ez->IFF(ez_a, ez_b);
-					if (satgen.model_undef)
+					if (satgen.model_undef) {
+						cond = ez->AND(cond, ez->NOT(satgen.importUndefSigBit(bit_b, step)));
 						cond = ez->OR(cond, satgen.importUndefSigBit(bit_a, step));
+					}
 					ez_equal_terms.push_back(cond);
 				}
 			}

@@ -1,0 +1,35 @@
+read_ilang << EOT
+
+module \top
+  wire $a
+  wire $b
+  wire input 1 \D
+  wire input 2 \EN
+  wire output 3 \Q
+  cell $mux $x
+    parameter \WIDTH 1
+    connect \A \Q
+    connect \B \D
+    connect \S \EN
+    connect \Y $a
+  end
+  cell $ff $y
+    parameter \WIDTH 1
+    connect \D $a
+    connect \Q $b
+  end
+  cell $and $z
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 1
+    parameter \B_SIGNED 0
+    parameter \B_WIDTH 1
+    parameter \Y_WIDTH 1
+    connect \A $b 
+    connect \B 1'x
+    connect \Y \Q
+  end
+end
+
+EOT
+
+equiv_opt -assert -undef ls
