@@ -100,30 +100,52 @@ struct SynthQuickLogicPass : public ScriptPass
         if (check_label("prepare")) {
             run("proc");
             run("flatten");
-            run("wreduce -keepdc");
-            run("muxpack");
+            run("tribuf -logic");
+            run("opt_expr");
+            run("opt_clean");
+            run("deminout");
+            run("opt");
         }
 
         if (check_label("coarse")) {
-            run("tribuf -logic");
-            run("deminout");
+            run("wreduce -keepdc");
+            run("peepopt");
+            run("pmuxtree");
             run("opt");
             run("opt_clean");
-            run("peepopt");
-            run("techmap");
-            if (family == "pp3") {
-                run("muxcover -mux8 -mux4");
-                run("abc -luts 1,2,2,4");
-            }
-            run("opt");
+            run("alumacc");
+            run("opt -fast");
+            run("opt_clean");
+            run("opt -full");
             run("check");
         }
 
         if (check_label("map")) {
+
+            run("techmap");
+            run("opt -fast");
+            if (family == "pp3") {
+                run("muxcover -mux8 -mux4");
+            }
+
+            run("opt_expr -clkinv");
+            run("dff2dffe");
+            run("opt -fast");
+            run("techmap -map +/quicklogic/ffs_map.v");
+
+            if (family == "pp3") {
+                run("abc -luts 1,2,2");
+            }
+            run("opt -fast");
+
+            run("techmap -map +/quicklogic/lut_map.v");
+            run("opt_clean");
+
             run("techmap -map +/quicklogic/cells_map.v");
             run("opt_clean");
-            run("check");
+
             run("autoname");
+            run("check");
         }
 
         if (check_label("iomap")) {
@@ -137,7 +159,7 @@ struct SynthQuickLogicPass : public ScriptPass
             run("splitnets -ports -format ()");
             run("setundef -zero -params -undriven");
             run("hilomap -hicell logic_1 a -locell logic_0 a -singleton A:top");
-            run("opt_clean");
+            run("opt_clean -purge");
             run("check");
         }
 
