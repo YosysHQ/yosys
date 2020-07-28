@@ -83,22 +83,24 @@ struct FfInitVals
 
 	void set_init(RTLIL::SigBit bit, RTLIL::State val)
 	{
-		bit = (*sigmap)(bit);
-		auto it = initbits.find(bit);
-		if (it != initbits.end()) {
-			auto it2 = it->second.second.wire->attributes.find(ID::init);
-			it2->second[it->second.second.offset] = val;
-		} else {
-			log_assert(bit.wire);
-			initbits[bit] = std::make_pair(val,bit);
-			auto it2 = bit.wire->attributes.find(ID::init);
-			if (it2 != bit.wire->attributes.end()) {
-				it2->second[bit.offset] = val;
-			} else {
-				Const cval(State::Sx, GetSize(bit.wire));
-				cval[bit.offset] = val;
-				bit.wire->attributes[ID::init] = cval;
-			}
+		SigBit mbit = (*sigmap)(bit);
+		SigBit abit = bit;
+		auto it = initbits.find(mbit);
+		if (it != initbits.end())
+			abit = it->second.second;
+		else if (val == State::Sx)
+			return;
+		log_assert(abit.wire);
+		initbits[mbit] = std::make_pair(val,abit);
+		auto it2 = abit.wire->attributes.find(ID::init);
+		if (it2 != abit.wire->attributes.end()) {
+			it2->second[abit.offset] = val;
+			if (it2->second.is_fully_undef())
+				abit.wire->attributes.erase(it2);
+		} else if (val != State::Sx) {
+			Const cval(State::Sx, GetSize(abit.wire));
+			cval[abit.offset] = val;
+			abit.wire->attributes[ID::init] = cval;
 		}
 	}
 
@@ -111,14 +113,7 @@ struct FfInitVals
 
 	void remove_init(RTLIL::SigBit bit)
 	{
-		auto it = initbits.find((*sigmap)(bit));
-		if (it != initbits.end()) {
-			auto it2 = it->second.second.wire->attributes.find(ID::init);
-			it2->second[it->second.second.offset] = State::Sx;
-			if (it2->second.is_fully_undef())
-				it->second.second.wire->attributes.erase(it2);
-			initbits.erase(it);
-		}
+		set_init(bit, State::Sx);
 	}
 
 	void remove_init(const RTLIL::SigSpec &sig)
