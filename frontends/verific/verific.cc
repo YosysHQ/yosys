@@ -2354,8 +2354,10 @@ struct VerificPass : public Pass {
 			while (argidx < GetSize(args))
 				file_names.Insert(args[argidx++].c_str());
 
-			if (!veri_file::AnalyzeMultipleFiles(&file_names, verilog_mode, work.c_str(), veri_file::MFCU))
+			if (!veri_file::AnalyzeMultipleFiles(&file_names, verilog_mode, work.c_str(), veri_file::MFCU)) {
+					verific_error_msg.clear();
 					log_cmd_error("Reading Verilog/SystemVerilog sources failed.\n");
+			}
 
 			verific_import_pending = true;
 			goto check_error;
