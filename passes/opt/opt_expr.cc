@@ -604,7 +604,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 				if (cell->type.in(ID($xnor), ID($_XNOR_))) {
 					cover("opt.opt_expr.const_xnor");
 					// For consistency since simplemap does $xnor -> $_XOR_ + $_NOT_
-					int width = cell->getParam(ID::Y_WIDTH).as_int();
+					int width = GetSize(cell->getPort(ID::Y));
 					replace_cell(assign_map, module, cell, "const_xnor", ID::Y, SigSpec(RTLIL::State::S1, width));
 					goto next_cell;
 				}
