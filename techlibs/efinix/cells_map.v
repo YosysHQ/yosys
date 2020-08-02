@@ -1,4 +1,4 @@
-(* techmap_celltype = "$_DFFE_PP0P_ $_DFFE_PP0N_ $_DFFE_PP1P_ $_DFFE_PP1N_ $_DFFE_PN0P_ $_DFFE_PN0N_ $_DFFE_PN1P_ $_DFFE_PN1N_ $_DFFE_NP0P_ $_DFFE_NP0N_ $_DFFE_NP1P_ $_DFFE_NP1N_ $_DFFE_NN0P_ $_DFFE_NN0N_ $_DFFE_NN1P_ $_DFFE_NN1N_" *)
+(* techmap_celltype = "$_DFFE_[PN][PN][01][PN]_" *)
 module  \$_DFFE_xxxx_ (input D, C, R, E, output Q);
 
   parameter _TECHMAP_CELLTYPE_ = "";
@@ -17,7 +17,7 @@ module  \$_DFFE_xxxx_ (input D, C, R, E, output Q);
 
 endmodule
 
-(* techmap_celltype = "$_SDFFE_PP0P_ $_SDFFE_PP0N_ $_SDFFE_PP1P_ $_SDFFE_PP1N_ $_SDFFE_PN0P_ $_SDFFE_PN0N_ $_SDFFE_PN1P_ $_SDFFE_PN1N_ $_SDFFE_NP0P_ $_SDFFE_NP0N_ $_SDFFE_NP1P_ $_SDFFE_NP1N_ $_SDFFE_NN0P_ $_SDFFE_NN0N_ $_SDFFE_NN1P_ $_SDFFE_NN1N_" *)
+(* techmap_celltype = "$_SDFFE_[PN][PN][01][PN]_" *)
 module  \$_SDFFE_xxxx_ (input D, C, R, E, output Q);
 
   parameter _TECHMAP_CELLTYPE_ = "";
@@ -36,7 +36,7 @@ module  \$_SDFFE_xxxx_ (input D, C, R, E, output Q);
 
 endmodule
 
-(* techmap_celltype = "$_SDFFCE_PP0P_ $_SDFFCE_PP0N_ $_SDFFCE_PP1P_ $_SDFFCE_PP1N_ $_SDFFCE_PN0P_ $_SDFFCE_PN0N_ $_SDFFCE_PN1P_ $_SDFFCE_PN1N_ $_SDFFCE_NP0P_ $_SDFFCE_NP0N_ $_SDFFCE_NP1P_ $_SDFFCE_NP1N_ $_SDFFCE_NN0P_ $_SDFFCE_NN0N_ $_SDFFCE_NN1P_ $_SDFFCE_NN1N_" *)
+(* techmap_celltype = "$_SDFFCE_[PN][PN][01][PN]_" *)
 module  \$_SDFFCE_xxxx_ (input D, C, R, E, output Q);
 
   parameter _TECHMAP_CELLTYPE_ = "";
