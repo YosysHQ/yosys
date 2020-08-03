@@ -3503,11 +3503,15 @@ module DSP48E1 (
                 if (OPMODEr[3:2] != 2'b01) $fatal(1, "OPMODEr[3:2] must be 2'b01 when OPMODEr[1:0] is 2'b01");
 `endif
             end
-            2'b10: begin X = P;
+            2'b10:
+                if (PREG == 1)
+                    X = P;
+                else begin
+                    X = 48'bx;
 `ifndef YOSYS
-                if (PREG != 1) $fatal(1, "PREG must be 1 when OPMODEr[1:0] is 2'b10");
+                    $fatal(1, "PREG must be 1 when OPMODEr[1:0] is 2'b10");
 `endif
-            end
+                end
             2'b11: X = $signed({Ar2, Br2});
             default: X = 48'bx;
         endcase
@@ -3529,20 +3533,36 @@ module DSP48E1 (
         case (OPMODEr[6:4])
             3'b000: Z = 48'b0;
             3'b001: Z = PCIN;
-            3'b010: begin Z = P;
+            3'b010:
+                if (PREG == 1)
+                    Z = P;
+                else begin
+                    Z = 48'bx;
 `ifndef YOSYS
-                if (PREG != 1) $fatal(1, "PREG must be 1 when OPMODEr[6:4] i0s 3'b010");
+                    $fatal(1, "PREG must be 1 when OPMODEr[6:4] is 3'b010");
 `endif
-            end
+                end
             3'b011: Z = Cr;
-            3'b100: begin Z = P;
+            3'b100:
+                if (PREG == 1 && OPMODEr[3:0] === 4'b1000)
+                    Z = P;
+                else begin
+                    Z = 48'bx;
 `ifndef YOSYS
-                if (PREG != 1) $fatal(1, "PREG must be 1 when OPMODEr[6:4] is 3'b100");
-                if (OPMODEr[3:0] != 4'b1000) $fatal(1, "OPMODEr[3:0] must be 4'b1000 when OPMODEr[6:4] i0s 3'b100");
+                    if (PREG != 1) $fatal(1, "PREG must be 1 when OPMODEr[6:4] is 3'b100");
+                    if (OPMODEr[3:0] != 4'b1000) $fatal(1, "OPMODEr[3:0] must be 4'b1000 when OPMODEr[6:4] i0s 3'b100");
 `endif
-            end
+                end
             3'b101: Z = $signed(PCIN[47:17]);
-            3'b110: Z = $signed(P[47:17]);
+            3'b110:
+                if (PREG == 1)
+                    Z = $signed(P[47:17]);
+                else begin
+                    Z = 48'bx;
+`ifndef YOSYS
+                    $fatal(1, "PREG must be 1 when OPMODEr[6:4] is 3'b110");
+`endif
+                end
             default: Z = 48'bx;
         endcase
     end
@@ -3568,10 +3588,34 @@ module DSP48E1 (
             3'b001: cin_muxed = ~PCIN[47];
             3'b010: cin_muxed = CARRYCASCIN;
             3'b011: cin_muxed = PCIN[47];
-            3'b100: cin_muxed = CARRYCASCOUT;
-            3'b101: cin_muxed = ~P[47];
+            3'b100:
+                if (PREG == 1)
+                    cin_muxed = CARRYCASCOUT;
+                else begin
+                    cin_muxed = 1'bx;
+`ifndef YOSYS
+                    $fatal(1, "PREG must be 1 when CARRYINSEL is 3'b101");
+`endif
+                end
+            3'b101:
+                if (PREG == 1)
+                    cin_muxed = ~P[47];
+                else begin
+                    cin_muxed = 1'bx;
+`ifndef YOSYS
+                    $fatal(1, "PREG must be 1 when CARRYINSEL is 3'b101");
+`endif
+                end
             3'b110: cin_muxed = A24_xnor_B17;
-            3'b111: cin_muxed = P[47];
+            3'b111:
+                if (PREG == 1)
+                    cin_muxed = P[47];
+                else begin
+                    cin_muxed = 1'bx;
+`ifndef YOSYS
+                    $fatal(1, "PREG must be 1 when CARRYINSEL is 3'b111");
+`endif
+                end
             default: cin_muxed = 1'bx;
         endcase
     end
