@@ -1,0 +1,15 @@
+read_verilog <<EOT
+module m (input i, output o);
+wire [1023:0] _TECHMAP_DO_00_ = "CONSTMAP; ";
+endmodule
+EOT
+
+design -stash map
+
+read_verilog <<EOT
+module top(output o);
+m m (.o(o), .i(o));
+endmodule
+EOT
+
+techmap -map %map

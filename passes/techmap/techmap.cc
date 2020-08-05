@@ -801,11 +801,31 @@ struct TechmapWorker
 									}
 								}
 
+								// Handle outputs first, as these cannot be remapped.
 								for (auto &conn : cell->connections())
+								{
+									Wire *twire = tpl->wire(conn.first);
+									if (!twire->port_output)
+										continue;
+
+									for (int i = 0; i < GetSize(conn.second); i++) {
+										RTLIL::SigBit bit = sigmap(conn.second[i]);
+										RTLIL::SigBit tplbit(twire, i);
+										cellbits_to_tplbits[bit] = tplbit;
+									}
+								}
+
+								// Now handle inputs, remapping as necessary.
+								for (auto &conn : cell->connections())
+								{
+									Wire *twire = tpl->wire(conn.first);
+									if (twire->port_output)
+										continue;
+
 									for (int i = 0; i < GetSize(conn.second); i++)
 									{
 										RTLIL::SigBit bit = sigmap(conn.second[i]);
-										RTLIL::SigBit tplbit(tpl->wire(conn.first), i);
+										RTLIL::SigBit tplbit(twire, i);
 
 										if (bit.wire == nullptr)
 										{
@@ -820,6 +840,7 @@ struct TechmapWorker
 										else
 											cellbits_to_tplbits[bit] = tplbit;
 									}
+								}
 
 								RTLIL::SigSig port_conn;
 								for (auto &it : port_connmap) {
