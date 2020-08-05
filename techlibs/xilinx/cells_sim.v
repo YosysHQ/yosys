@@ -3594,7 +3594,7 @@ module DSP48E1 (
                 else begin
                     cin_muxed = 1'bx;
 `ifndef YOSYS
-                    $fatal(1, "PREG must be 1 when CARRYINSEL is 3'b101");
+                    $fatal(1, "PREG must be 1 when CARRYINSEL is 3'b100");
 `endif
                 end
             3'b101:
@@ -4207,4 +4207,3 @@ module RAMB36E1 (
         if (|DOB_REG) (posedge CLKBWRCLK => (DOPBDOP : 4'bx)) = 882;
     endspecify
 endmodule
-
