@@ -102,56 +102,128 @@ const char *make_id(IdString id)
 	return namecache.at(id).c_str();
 }
 
+std::string dump_const_string(const RTLIL::Const &data)
+{
+	std::string res_str;
+
+	std::string str = data.decode_string();
+	for (size_t i = 0; i < str.size(); i++)
+	{
+		if (str[i] == '\n')
+			res_str += "\\n";
+		else if (str[i] == '\t')
+			res_str += "\\t";
+		else if (str[i] < 32)
+			res_str += stringf("\\%03o", str[i]);
+		else if (str[i] == '"')
+			res_str += "\\\"";
+		else if (str[i] == '\\')
+			res_str += "\\\\";
+		else
+			res_str += str[i];
+	}
+
+	return res_str;
+}
+
 std::string dump_const(const RTLIL::Const &data)
 {
-	std::string dataStr;
+	std::string res_str;
 
-	dataStr += "\"";
+	// // For debugging purposes to find out how Yosys encodes flags.
+	// res_str += stringf("flags_%x --> ", data.flags);
 
-	if ((data.flags & RTLIL::CONST_FLAG_STRING) == 0)
+	// Real-valued parameter.
+	if (data.flags & RTLIL::CONST_FLAG_REAL)
 	{
-		// Emit binary prefix for string.
-		dataStr += "b";
-
-		// Emit bits.
-		int width = data.bits.size();
-		for (int i = width - 1; i >= 0; i--)
-		{
-			log_assert(i < width);
-			switch (data.bits[i])
-			{
-				case State::S0: dataStr += stringf("0"); break;
-				case State::S1: dataStr += stringf("1"); break;
-				case State::Sx: dataStr += stringf("x"); break;
-				case State::Sz: dataStr += stringf("z"); break;
-				case State::Sa: dataStr += stringf("-"); break;
-				case State::Sm: dataStr += stringf("m"); break;
-			}
-		}
+		// Yosys stores real values as strings, so we call the string dumping code.
+		res_str += dump_const_string(data);
 	}
+	// String parameter.
+	else if (data.flags & RTLIL::CONST_FLAG_STRING)
+	{
+		res_str += "\"";
+		res_str += dump_const_string(data);
+		res_str += "\"";
+	}
+	// Numeric (non-real) parameter.
 	else
 	{
-		std::string str = data.decode_string();
-		for (size_t i = 0; i < str.size(); i++)
+		int width = data.bits.size();
+
+		// If a standard 32-bit int, then emit standard int value like "56" or
+		// "-56". Firrtl supports negative-valued int literals.
+		//
+		//    SignedInt
+		//      : ( '+' | '-' ) PosInt
+		//      ;
+		if (width <= 32)
 		{
-			if (str[i] == '\n')
-				dataStr += "\\n";
-			else if (str[i] == '\t')
-				dataStr += "\\t";
-			else if (str[i] < 32)
-				dataStr += stringf("\\%03o", str[i]);
-			else if (str[i] == '"')
-				dataStr += "\\\"";
-			else if (str[i] == '\\')
-				dataStr += "\\\\";
-			else
-				dataStr += str[i];
+			int32_t int_val = 0;
+
+			for (int i = 0; i < width; i++)
+			{
+				switch (data.bits[i])
+				{
+					case State::S0:                      break;
+					case State::S1: int_val |= (1 << i); break;
+					default:
+						log_error("Unexpected int value\n");
+						break;
+				}
+			}
+
+			res_str += stringf("%d", int_val);
+		}
+		else
+		{
+			// If value is larger than 32 bits, then emit a binary representation of
+			// the number. We have to do this as firrtl number literals don't support
+			// specifying their width, therefore a binary literal is the only way to
+			// guarantee the parameter widths match that provided on the RHS of a
+			// verilog parameter assignment. There is a caveat to this approach
+			// though:
+			//
+			// Note that parameter may be defined as having a fixed width as follows:
+			//
+			//     parameter signed [26:0] test_signed;
+			//     parameter        [26:0] test_unsigned;
+			//     parameter signed [40:0] test_signed_large;
+			//
+			// However, if you assign a value on the RHS without specifying the
+			// precision, then yosys considers the value you used as an int and
+			// assigns it a width of 32 bits regardless of the type of the parameter.
+			//
+			// 		defparam <inst_name> .test_signed = 49;						(width = 32, though should be 27 based on definition)
+			// 		defparam <inst_name> .test_unsigned = 40'd35;			(width = 40, though should be 27 based on definition)
+			// 		defparam <inst_name> .test_signed_large = 40'd12;	(width = 40)
+			//
+			// We therefore may lose the precision of the original verilog literal if
+			// it was written without it's bitwidth specifier.
+
+			// Emit binary prefix for string.
+			res_str += "\"b";
+
+			// Emit bits.
+			for (int i = width - 1; i >= 0; i--)
+			{
+				log_assert(i < width);
+				switch (data.bits[i])
+				{
+					case State::S0: res_str += "0"; break;
+					case State::S1: res_str += "1"; break;
+					case State::Sx: res_str += "x"; break;
+					case State::Sz: res_str += "z"; break;
+					case State::Sa: res_str += "-"; break;
+					case State::Sm: res_str += "m"; break;
+				}
+			}
+
+			res_str += "\"";
 		}
 	}
 
-	dataStr += "\"";
-
-	return dataStr;
+	return res_str;
 }
 
 std::string extmodule_name(RTLIL::Cell *cell, RTLIL::Module *mod_instance)
@@ -216,8 +288,11 @@ void emit_extmodule(RTLIL::Cell *cell, RTLIL::Module *mod_instance, std::ostream
 	// Emit extmodule generic parameters.
 	for (const auto &p : cell->parameters)
 	{
-		std::string param_name(p.first.c_str());
-		const std::string param_value = dump_const(p.second);
+		const RTLIL::IdString p_id = p.first;
+		const RTLIL::Const p_value = p.second;
+
+		std::string param_name(p_id.c_str());
+		const std::string param_value = dump_const(p_value);
 
 		// Remove backslashes from parameters as these come from the internal RTLIL
 		// naming scheme, but should not exist in the emitted firrtl blackboxes.
