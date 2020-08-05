@@ -31,20 +31,16 @@ match mul
 	select mul->type.in($mul)
 	select port(mul, \A).is_fully_const() || port(mul, \B).is_fully_const()
 	index <SigSpec> port(mul, \Y) === shamt
+	filter !param(mul, \A_SIGNED).as_bool()
 endmatch
 
 code
 {
 	IdString const_factor_port = port(mul, \A).is_fully_const() ? \A : \B;
-	IdString const_factor_signed = const_factor_port == \A ? \A_SIGNED : \B_SIGNED;
 	Const const_factor_cnst = port(mul, const_factor_port).as_const();
 	int const_factor = const_factor_cnst.as_int();
 
 	if (GetSize(const_factor_cnst) == 0)
-		reject;
-
-	if (const_factor_cnst.bits[GetSize(const_factor_cnst)-1] != State::S0 &&
-			param(mul, const_factor_signed).as_bool())
 		reject;
 
 	if (GetSize(const_factor_cnst) > 20)
