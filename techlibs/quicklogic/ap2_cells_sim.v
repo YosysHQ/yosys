@@ -9,34 +9,175 @@ module LUT4(
     parameter [15:0] INIT = 16'h0;
 	parameter EQN = "(I0)";
     
-	wire [7:0] s3 = I3 ? INIT[15:8] : INIT[7:0];
+    wire [7:0] s3 = I3 ? INIT[15:8] : INIT[7:0];
 	wire [3:0] s2 = I2 ?       s3[ 7:4] :       s3[3:0];
 	wire [1:0] s1 = I1 ?       s2[ 3:2] :       s2[1:0];
 	assign O = I0 ? s1[1] : s1[0];
 endmodule
 
-(* abc9_flop, lib_whitebox *)
-module ff(
-    output reg CQZ,
+(* abc9_lut=1, lib_whitebox *)
+module LUT5(
+    output O, 
+    input I0, 
+    input I1,
+    input I2,
+    input I3,
+    input I4
+);
+    parameter [31:0] INIT = 32'h0;
+    parameter EQN = "(I0)";
+
+    wire [15: 0] s4 = I4 ? INIT[31:16] : INIT[15: 0];
+    wire [ 7: 0] s3 = I3 ?   s4[15: 8] :   s4[ 7: 0];
+    wire [ 3: 0] s2 = I2 ?   s3[ 7: 4] :   s3[ 3: 0];
+    wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
+    assign O = I0 ? s1[1] : s1[0];
+endmodule
+
+module dff(
+    output reg Q,
     input D,
     (* clkbuf_sink *)
-    input QCK,
-    input QEN,
-    (* clkbuf_sink *)
-    input QRT,
-    (* clkbuf_sink *)
-    input QST
+    input CLK
 );
     parameter [0:0] INIT = 1'b0;
-    initial CQZ = INIT;
+    initial Q = INIT;
+    always @(posedge CLK)
+        Q <= D;
+endmodule
 
-    always @(posedge QCK or posedge QRT or posedge QST)
-        if (QRT)
-            CQZ <= 1'b0;
-        else if (QST)
-            CQZ <= 1'b1;
-        else if (QEN)
-            CQZ <= D;
+module dffc(
+    output reg Q,
+    input D,
+    (* clkbuf_sink *)
+    input CLK,
+    (* clkbuf_sink *)
+    input CLR
+);
+    parameter [0:0] INIT = 1'b0;
+    initial Q = INIT;
+
+    always @(posedge CLK or posedge CLR)
+        if (CLR)
+            Q <= 1'b0;
+        else
+            Q <= D;
+endmodule
+
+module dffp(
+    output reg Q,
+    input D,
+    (* clkbuf_sink *)
+    input CLK,
+    (* clkbuf_sink *)
+    input PRE
+);
+    parameter [0:0] INIT = 1'b0;
+    initial Q = INIT;
+
+    always @(posedge CLK or posedge PRE)
+        if (PRE)
+            Q <= 1'b1;
+        else
+            Q <= D;
+endmodule
+
+(* abc9_flop, lib_whitebox *)
+module dffpc(
+    output reg Q,
+	input D,
+    (* clkbuf_sink *)
+	input CLK,
+    (* clkbuf_sink *)
+	input CLR,
+    (* clkbuf_sink *)
+	input PRE
+);
+    parameter [0:0] INIT = 1'b0;
+    initial Q = INIT;
+
+    always @(posedge CLK or posedge CLR or posedge PRE)
+        if (CLR)
+            Q <= 1'b0;
+        else if (PRE)
+            Q <= 1'b1;
+        else 
+            Q <= D;
+endmodule
+
+module dffe(
+    output reg Q,
+    input D,
+    (* clkbuf_sink *)
+    input CLK,
+    input EN
+);
+    parameter [0:0] INIT = 1'b0;
+    initial Q = INIT;
+    always @(posedge CLK)
+        if (EN)
+            Q <= D;
+endmodule
+
+module dffepc(
+    output reg Q,
+    input D,
+    (* clkbuf_sink *)
+    input CLK,
+    input EN,
+    (* clkbuf_sink *)
+    input CLR,
+    (* clkbuf_sink *)
+    input PRE
+);
+    parameter [0:0] INIT = 1'b0;
+    initial Q = INIT;
+
+    always @(posedge CLK or posedge CLR or posedge PRE)
+        if (CLR)
+            Q <= 1'b0;
+        else if (PRE)
+            Q <= 1'b1;
+        else if (EN)
+            Q <= D;
+endmodule
+
+module dffsec(
+    output reg Q,
+	input D,
+    (* clkbuf_sink *)
+	input CLK,
+	input EN,
+    (* clkbuf_sink *)
+	input CLR
+);
+	parameter [0:0] INIT = 1'b0;
+    initial Q = INIT;
+
+    always @(posedge CLK or posedge CLR)
+        if (CLR)
+            Q <= 1'b0;
+        else if (EN)
+            Q <= D;
+endmodule
+
+module dffsep(
+    output reg Q,
+	input D,
+    (* clkbuf_sink *)
+	input CLK,
+	input EN,
+    (* clkbuf_sink *)
+    input P
+);
+    parameter [0:0] INIT = 1'b0;
+    initial Q = INIT;
+    
+	always @(posedge CLK or posedge P)
+        if (P)
+            Q <= 1'b1;
+        else if (EN)
+            Q <= D;
 endmodule
 
 module full_adder(
@@ -58,6 +199,15 @@ module QL_CARRY(
 	input CI
 );
 	assign CO = ((I0 ^ I1) & CI) | (~(I0 ^ I1) & (I0 & I1)); 
+endmodule
+
+module carry(
+	output CO,
+	input A,
+	input B,
+	input CI
+);
+	assign CO = (I0 && I1) || ((I0 || I1) && CI);
 endmodule
 
 module ck_buff ( 
@@ -95,7 +245,6 @@ module d_buff (
 	output Q,
 	input EN
 );
-
 
 	assign Q = EN ? 1'b1 : 1'b0;
 	
@@ -198,35 +347,4 @@ module RAM (RADDR,RRLSEL,REN,RMODE,
 		 .DFT_SCAN_MODE_DAISYIN(1'b0), .DFT_SCAN_EN_DAISYIN(1'b0),
 		 .DFT_SCAN_IN_DAISYIN(1'b0), .dft_FFB_scan_out()
 		 );
-endmodule 
-
-(* blackbox *)
-module DSP (MODE_SEL,COEF_DATA,OPER_DATA,OUT_SEL,ENABLE,CLR,RND,SAT,CLOCK,MAC_OUT,CSEL,OSEL,SBOG);
-
-input [1:0] MODE_SEL,OUT_SEL;
-input [1:0] CSEL;
-input [1:0] OSEL;
-input [31:0] COEF_DATA,OPER_DATA;
-input ENABLE,CLR,RND,SAT,CLOCK;
-input [1:0]SBOG;
-output [63:0] MAC_OUT;
-
-
-dsp_top U1 (
-	       .oper(OPER_DATA), .coef(COEF_DATA),
-	       .outsel(OUT_SEL),
-	       .mode(MODE),
-	       .clk(CLOCK), .clr(CLR), .ena(ENABLE),
-	       .fld(32'h0), .frd(32'h0), .sbog(SBOG),
-	       .rnd(RND), .sat(SAT),
-	       .o_sel(OSEL), .c_sel(CSEL),
-	       .mac_out(MAC_OUT),
-	       .tld(), .trd(),
-	       .DFT_SCAN_CLK_DAISYIN(1'b0),
-	       .DFT_SCAN_RST_DAISYIN(1'b0),
-	       .DFT_SCAN_MODE_DAISYIN(1'b0),
-	       .DFT_SCAN_EN_DAISYIN(1'b0),
-	       .DFT_SCAN_IN_DAISYIN(1'b0),
-	       .dft_FFB_scan_out()
-	       );
 endmodule 

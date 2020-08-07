@@ -42,6 +42,7 @@ struct SynthQuickLogicPass : public ScriptPass {
         log("        generate the synthesis netlist for the specified family.\n");
         log("        supported values:\n");
         log("        - pp3: PolarPro 3 \n");
+        log("        - ap2: ArcticPro 2 \n");
         log("        - ap3: ArcticPro 3 \n");
         log("\n");
         log("    -edif <file>\n");
@@ -173,11 +174,9 @@ struct SynthQuickLogicPass : public ScriptPass {
         }
 
         if (check_label("map_gates")) {
-            if (inferAdder)
+            if (inferAdder && family != "pp3")
             {
-                if(family == "ap3") {
-                    run("ap3_wrapcarry");
-                }
+                run("ap3_wrapcarry");
                 run("techmap -map +/techmap.v -map +/quicklogic/" + family + "_arith_map.v");
             } else {
                 run("techmap");
@@ -186,7 +185,7 @@ struct SynthQuickLogicPass : public ScriptPass {
             if (family == "pp3") {
                 run("muxcover -mux8 -mux4");
             }
-            if(family == "ap3") {
+            if(family != "pp3") {
                 run("ap3_opt");
             } else {
                 run("opt_expr -clkinv");
@@ -210,7 +209,7 @@ struct SynthQuickLogicPass : public ScriptPass {
             run("techmap " + techMapArgs);
             run("opt_expr -mux_undef");
             run("simplemap");
-            if(family == "ap3") {
+            if(family != "pp3") {
                 run("ap3_opt -full");
             } else {
                 run("opt_expr");
@@ -225,14 +224,16 @@ struct SynthQuickLogicPass : public ScriptPass {
             std::string techMapArgs = " -map +/quicklogic/" + family + "_latches_map.v";
             run("techmap " + techMapArgs);
             if (family == "pp3") {
-                run("abc -luts 1,2,2");
+                run("abc -lut 4"); // -luts 1,2,2
+            } else if (family == "ap2") {
+                run("abc -dress -lut 4:5 -dff"); //-luts 5,4,4,1,3
             } else {
                 //run("nlutmap -luts N_4");
                 run("abc -dress -lut 4 -dff");
             }
 
-            if(family == "ap3") {
-			    run("ap3_wrapcarry -unwrap");
+            if(family != "pp3") {
+                run("ap3_wrapcarry -unwrap");
             }
             techMapArgs = " -map +/quicklogic/" + family + "_ffs_map.v";
             run("techmap " + techMapArgs);
@@ -246,6 +247,7 @@ struct SynthQuickLogicPass : public ScriptPass {
             techMapArgs += " -map +/quicklogic/" + family + "_lut_map.v";
             run("techmap" + techMapArgs);
             run("clean");
+            run("quicklogic_eqn");
         }
 
         if (check_label("check")) {
@@ -255,23 +257,25 @@ struct SynthQuickLogicPass : public ScriptPass {
             run("check -noinit");
         }
 
-		if (check_label("iomap")) {
-			if (family == "pp3") {
-				run("clkbufmap -buf $_BUF_ Y:A -inpad ckpad Q:P");
-				run("iopadmap -bits -outpad outpad A:P -inpad inpad Q:P -tinoutpad bipad EN:Q:A:P A:top");
-			} else if (family == "ap3") {
-				run("clkbufmap -buf $_BUF_ Y:A -inpad ck_buff Q:A");
-				run("iopadmap -bits -outpad out_buff A:Q -inpad in_buff Q:A -toutpad EN:A:Q A:top");
-			}
-		}
+        if (check_label("iomap")) {
+            if (family == "pp3") {
+                run("clkbufmap -buf $_BUF_ Y:A -inpad ckpad Q:P");
+                run("iopadmap -bits -outpad outpad A:P -inpad inpad Q:P -tinoutpad bipad EN:Q:A:P A:top");
+            } else {
+                run("clkbufmap -buf $_BUF_ Y:A -inpad ck_buff Q:A");
+                run("iopadmap -bits -outpad $__out_buff A:Q -inpad $__in_buff Q:A -toutpad EN:A:Q A:top");
+                std::string techMapArgs = " -map +/quicklogic/" + family + "_io_map.v";
+                run("techmap" + techMapArgs);
+            } 
+        }
 
-		if (check_label("finalize")) {
-			run("splitnets -ports -format ()");
-			run("setundef -zero -params -undriven");
-			run("hilomap -hicell logic_1 a -locell logic_0 a -singleton A:top");
-			run("opt_clean");
-			run("check");
-		}
+        if (check_label("finalize")) {
+            run("splitnets -ports -format ()");
+            run("setundef -zero -params -undriven");
+            run("hilomap -hicell logic_1 a -locell logic_0 a -singleton A:top");
+            run("opt_clean");
+            run("check");
+        }
 
         if (check_label("edif")) {
             if (!edif_file.empty() || help_mode)
