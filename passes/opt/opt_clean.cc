@@ -55,7 +55,12 @@ struct keep_cache_t
 		if (!module->get_bool_attribute(ID::keep)) {
 		    bool found_keep = false;
 		    for (auto cell : module->cells())
-			if (query(cell, true /* ignore_specify */)) {
+			if (query(cell, true /* ignore_specify_mem */)) {
+			    found_keep = true;
+			    break;
+			}
+		    for (auto wire : module->wires())
+			if (wire->get_bool_attribute(ID::keep)) {
 			    found_keep = true;
 			    break;
 			}
@@ -65,12 +70,12 @@ struct keep_cache_t
 		return cache[module];
 	}
 
-	bool query(Cell *cell, bool ignore_specify = false)
+	bool query(Cell *cell, bool ignore_specify_mem = false)
 	{
-		if (cell->type.in(ID($memwr), ID($meminit), ID($assert), ID($assume), ID($live), ID($fair), ID($cover)))
+		if (cell->type.in(ID($assert), ID($assume), ID($live), ID($fair), ID($cover)))
 			return true;
 
-		if (!ignore_specify && cell->type.in(ID($specify2), ID($specify3), ID($specrule)))
+		if (!ignore_specify_mem && cell->type.in(ID($memwr), ID($meminit), ID($specify2), ID($specify3), ID($specrule)))
 			return true;
 
 		if (cell->has_keep_attr())
