@@ -89,7 +89,7 @@ std::string AstNode::process_format_str(const std::string &sformat, int next_arg
 				case 'S':
 				case 'd':
 				case 'D':
-					if (got_len)
+					if (got_len && len_value != 0)
 						goto unsupported_format;
 					YS_FALLTHROUGH
 				case 'x':
