@@ -3014,8 +3014,12 @@ endmodule
 // Virtex 6, Series 7.
 
 `ifdef YOSYS
-(* abc9_box=!(PREG || AREG || ADREG || BREG || CREG || DREG || MREG),
-   lib_whitebox=!(PREG || AREG || ADREG || BREG || CREG || DREG || MREG) *)
+(* abc9_box=!(PREG || AREG || ADREG || BREG || CREG || DREG || MREG)
+`ifdef ALLOW_WHITEBOX_DSP48E1
+   // Do not make DSP48E1 a whitebox for ABC9 even if fully combinatorial, since it is a big complex block
+   , lib_whitebox=!(PREG || AREG || ADREG || BREG || CREG || DREG || MREG || INMODEREG || OPMODEREG || ALUMODEREG || CARRYINREG || CARRYINSELREG)
+`endif
+*)
 `endif
 module DSP48E1 (
     output [29:0] ACOUT,
