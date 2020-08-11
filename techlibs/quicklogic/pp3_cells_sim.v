@@ -3423,6 +3423,13 @@ module ram(
 parameter ADDRWID = 8;
 parameter DEPTH = (1<<ADDRWID);
 
+parameter [9215:0] init = 9216'bx;
+parameter INIT_FILE="init.mem";
+parameter init_ad = 0;
+
+parameter data_width_int = 16;
+parameter data_depth_int = 1024;
+
 	output	[`DATAWID-1:0]	QA;
 	input										CLKA;
 	input										CENA;
@@ -3513,6 +3520,7 @@ parameter DEPTH = (1<<ADDRWID);
 //  assign	QB	= O2;
 
 	reg		[`DATAWID-1:0]	ram[DEPTH-1:0];
+	reg		[data_width_int-1 :0]	ram_dum[data_depth_int-1:0];
 	reg		[`DATAWID-1:0]	wrData1;
 	reg		[`DATAWID-1:0]	wrData2;
 	wire	[`DATAWID-1:0]	tmpData1;
@@ -3536,14 +3544,22 @@ assign	QB = QBreg | O2;
 	
 	assign	overlap	= ( A1_f == A2_f ) & WEN1_f & WEN2_f;
 	
-	initial
-	begin
+    initial begin
+	 `ifndef YOSYS
+		$readmemh(INIT_FILE,ram_dum);
+     `endif
+    #10
 		for( i = 0; i < DEPTH; i = i+1 )
 		begin
-			ram[i]	= 18'bxxxxxxxxxxxxxxxxxx;
+			if (data_width_int > 16)
+			  ram[i] <= {1'b0,ram_dum[i][((16*init_ad)+16)-1:((16*init_ad)+8)],1'b0,ram_dum[i][((16*init_ad)+8)-1: (16*init_ad)]};
+            else if (data_width_int <= 8)
+			  ram[i] <= {1'b0,ram_dum[i+1+(1024*init_ad)][7:0],1'b0,ram_dum[i+(1024*init_ad)][7:0]};
+            else
+              ram[i] <= {1'b0,ram_dum[i+(512*init_ad)][15:8],1'b0,ram_dum[i+(512*init_ad)][7:0]};
 		end
-	end
-	
+    end 
+
 	always@( WENB1 or I1 or tmpData1 )
 	begin
 		for( j = 0; j < 9; j = j+1 )
@@ -3558,7 +3574,6 @@ assign	QB = QBreg | O2;
 	
 	always@( posedge CLKA )
 	begin
-		//O1	<= CEN1 ? 18'bxxxxxxxxxxxxxxxxxx : ram[A1];
 		if( ~WEN1 & ~CEN1 )
 		begin
 			ram[A1]	<= wrData1[`DATAWID-1:0];
@@ -3609,8 +3624,6 @@ assign	QB = QBreg | O2;
 	
 	always@( posedge CLKB )
 	begin
-		
-		//O2	<= CEN2 ? 18'bxxxxxxxxxxxxxxxxxx : ram[A2];
 		if( ~WEN2 & ~CEN2 )
 		begin
 			ram[A2]	<= wrData2[`DATAWID-1:0];
@@ -3694,7 +3707,14 @@ module x2_model(
 									ram1_WENBA
 								);
 
-parameter ADDRWID = 10;								
+parameter ADDRWID = 10;	
+parameter [18431:0] INIT = 18432'bx;	
+parameter INIT_FILE="init.mem";	
+parameter init_ad1 = 0;
+parameter init_ad2 = 1;
+parameter data_width_int = 16;
+parameter data_depth_int = 1024; 
+			
 
 	input										Concat_En;      
 	
@@ -3736,10 +3756,10 @@ parameter ADDRWID = 10;
 	reg		[`WEWID-1:0]		ram1_WENBA_SEL;
 	reg		[`WEWID-1:0]		ram1_WENBB_SEL;
 	
-  reg										ram0_A_x9_SEL;
-  reg										ram0_B_x9_SEL;
-  reg										ram1_A_x9_SEL;
-  reg										ram1_B_x9_SEL;
+    reg										ram0_A_x9_SEL;
+    reg										ram0_B_x9_SEL;
+    reg										ram1_A_x9_SEL;
+    reg										ram1_B_x9_SEL;
   
 	reg		[ADDRWID-3:0]	ram0_AA_SEL;
 	reg		[ADDRWID-3:0]	ram0_AB_SEL;
@@ -3760,8 +3780,8 @@ parameter ADDRWID = 10;
 	reg										ram1_A_mux_ctl_Q;
 	reg										ram1_B_mux_ctl_Q;
 	
-  reg										ram0_O_mux_ctrl_Q;
-  reg										ram1_O_mux_ctrl_Q;
+    reg										ram0_O_mux_ctrl_Q;
+    reg										ram1_O_mux_ctrl_Q;
   
 	reg										ram_AA_ram_SEL_Q;
 	reg										ram_AB_ram_SEL_Q;
@@ -3853,7 +3873,7 @@ parameter ADDRWID = 10;
 	assign QA_1_SEL1	= ( ram1_PLRDA_SEL ) ? QA_1_Q : QA_1 ;
 	assign QB_1_SEL1	= ( ram1_PLRDB_SEL ) ? QB_1_Q : QB_1 ;
 	
-  assign QA_1_SEL3	= ram1_O_mux_ctrl_Q ? QA_1_SEL2 : QA_0_SEL2;
+    assign QA_1_SEL3	= ram1_O_mux_ctrl_Q ? QA_1_SEL2 : QA_0_SEL2;
 	
 	assign QA_0_SEL2[8:0]	= ram0_A_mux_ctl_Q ? QA_0_SEL1[17:9] : QA_0_SEL1[8:0] ;
 	assign QB_0_SEL2[8:0]	= ram0_B_mux_ctl_Q ? QB_0_SEL1[17:9] : QB_0_SEL1[8:0] ;
@@ -3990,10 +4010,15 @@ parameter ADDRWID = 10;
 			ram1_WENBB_SEL[1]	<= ram0_WIDTH_SELB[1] | ( ram0_WIDTH_SELA[1] | ( ( ~|ram0_WIDTH_SELB & ram1_WENBA[0] ) | ( |ram0_WIDTH_SELB & ram1_WENBA[1] ) ) | ( ~ram0_AB[0] | ( ~ram0_WIDTH_SELB[0] & ~ram0_AB[1] ) ) );
 		end
 	end
-  
 
-
-	ram	#(.ADDRWID(ADDRWID-2)) ram0_inst(
+    ram	#(.ADDRWID(ADDRWID-2),
+          .init(INIT[ 0*9216 +: 9216]),
+          .INIT_FILE(INIT_FILE),
+		  .data_width_int(data_width_int),  
+		  .data_depth_int(data_depth_int),
+          .init_ad(init_ad1)
+		  ) 
+						ram0_inst(
 									.AA( ram0_AA_SEL ),
 									.AB( ram0_AB_SEL ),
 									.CLKA( ram0_CEA ),
@@ -4010,7 +4035,14 @@ parameter ADDRWID = 10;
 									.QB( QB_0 )
 								);
 
-	ram	#(.ADDRWID(ADDRWID-2)) ram1_inst(
+	ram	#(.ADDRWID(ADDRWID-2),
+		  .init(INIT[ 1*9216 +: 9216]),
+		  .INIT_FILE(INIT_FILE),
+		  .data_width_int(data_width_int),
+		  .data_depth_int(data_depth_int),
+		  .init_ad(init_ad2)
+		  ) 
+						ram1_inst(
 									.AA( ram1_AA_SEL ),
 									.AB( ram1_AB_SEL ),
 									.CLKA( ram1_CEA ),
@@ -4087,6 +4119,11 @@ module ram_block_8K (
 								aFlushN_1
 				
                               );
+
+parameter [18431:0] INIT = 18432'bx;
+parameter INIT_FILE="init.mem";	
+parameter data_width_int = 16;
+parameter data_depth_int = 1024;
 
   input                   CLK1_0;
   input                   CLK2_0;
@@ -4186,7 +4223,13 @@ module ram_block_8K (
   assign RAM1_CS1_SEL = ( FIFO_EN_1 ? CS1_1 : ~CS1_1 );
   assign RAM1_CS2_SEL = ( FIFO_EN_1 ? CS2_1 : ~CS2_1 );
 
-  x2_model #(.ADDRWID(`ADDRWID)) x2_8K_model_inst(
+  x2_model #(.ADDRWID(`ADDRWID),
+			 .INIT(INIT),
+			 .INIT_FILE(INIT_FILE),
+			 .data_width_int(data_width_int), 
+			 .data_depth_int(data_depth_int)
+			) 
+			x2_8K_model_inst(
                             .Concat_En( Concat_En_SEL ),
                             
                             .ram0_WIDTH_SELA( WIDTH_SELECT1_0 ),
@@ -4355,7 +4398,10 @@ module ram8k_2x1_cell (
 
 );
 
-
+parameter [18431:0] INIT = 18432'bx;
+parameter INIT_FILE="init.mem";	
+parameter data_width_int = 16;
+parameter data_depth_int = 1024;
 
   input                   CLK1_0;
   input                   CLK2_0;
@@ -4513,7 +4559,12 @@ sw_mux RAM1_WidSel1_port2 (.port_out(RAM1_Wid_Sel1_port2), .default_port(WIDTH_S
 
 
 
-ram_block_8K ram_block_8K_inst (  
+ram_block_8K 	# (.INIT(INIT),
+				   .INIT_FILE(INIT_FILE),
+				   .data_width_int(data_width_int), 
+				   .data_depth_int(data_depth_int)
+				   )
+				ram_block_8K_inst (  
                                 .CLK1_0(RAM0_clk_port1),
                                 .CLK2_0(RAM0_clk_port2),
                                 .WD_0(WD_0),
@@ -4569,7 +4620,12 @@ ram_block_8K ram_block_8K_inst (
 endmodule
 
 (* blackbox *)
-module ram8k_2x1_cell_macro (
+module ram8k_2x1_cell_macro # (parameter [18431:0] INIT = 18432'bx,
+							   parameter INIT_FILE="init.mem",	
+							   parameter data_width_int = 16,
+							   parameter data_depth_int = 1024
+							   ) 
+    (
     input [10:0] A1_0,
     input [10:0] A1_1,
     input [10:0] A2_0,
@@ -4602,8 +4658,14 @@ module ram8k_2x1_cell_macro (
     input SD,DS,LS,SD_RB1,LS_RB1,DS_RB1,RMEA,RMEB,TEST1A,TEST1B,
     input [3:0] RMA,
     input [3:0] RMB);
-	
-	ram8k_2x1_cell I1  ( .A1_0({ A1_0[10:0] }) , .A1_1({ A1_1[10:0] }),
+
+
+	ram8k_2x1_cell   # (.INIT(INIT),
+						.INIT_FILE(INIT_FILE),
+						.data_width_int(data_width_int), 
+						.data_depth_int(data_depth_int)
+						)
+				I1  ( .A1_0({ A1_0[10:0] }) , .A1_1({ A1_1[10:0] }),
                      .A2_0({ A2_0[10:0] }) , .A2_1({ A2_1[10:0] }),
                      .Almost_Empty_0(Almost_Empty_0),
                      .Almost_Empty_1(Almost_Empty_1),
@@ -4829,3 +4891,1008 @@ endmodule
 /*qlal4s3_mult_cell*/
 
 
+(* blackbox *)
+module RAM_8K_BLK ( WA,RA,WD,WClk,RClk,WClk_En,RClk_En,WEN,RD);
+
+parameter 	addr_int 	= 9,
+	  		data_depth_int = 512,
+	  		data_width_int = 18,
+            wr_enable_int 	= 2,
+	  		reg_rd_int 	= 0;
+			
+parameter [8191:0] INIT = 8192'bx;
+parameter INIT_FILE="init.mem";	
+			
+input [addr_int-1:0] WA;
+input [addr_int-1:0] RA;
+input WClk,RClk;
+input WClk_En,RClk_En;
+input [wr_enable_int-1:0] WEN;
+input [data_width_int-1:0] WD;
+output [data_width_int-1:0] RD;
+
+assign VCC = 1'b1;
+assign GND = 1'b0;
+
+wire WClk_Sel,RClk_Sel;
+
+wire 		reg_rd0;
+wire 		reg_rd1;
+wire [10:0] addr_wr0,addr_rd0,addr_wr1,addr_rd1;
+
+wire [17:0] in_reg0;
+
+wire [2:0] wen_reg0;
+
+wire [15:0] out_reg0;
+
+wire [1:0] out_par0;
+
+wire [1:0] WS1_0,WS2_0; 
+wire [1:0] WS_GND;
+
+wire LS,DS,SD,LS_RB1,DS_RB1,SD_RB1;
+
+wire WD0_SEL,RD0_SEL;
+wire WD1_SEL,RD1_SEL;
+
+assign WD0_SEL = 1'b1;
+assign RD0_SEL = 1'b1;
+assign WD1_SEL = 1'b0;
+assign RD1_SEL = 1'b0;
+
+assign WClk0_Sel = 1'b0;
+assign RClk0_Sel = 1'b0;
+
+assign WClk1_Sel = 1'b0;
+assign RClk1_Sel = 1'b0;
+
+assign LS = 1'b0;
+assign DS = 1'b0;
+assign SD = 1'b0;
+assign LS_RB1 = 1'b0;
+assign DS_RB1 = 1'b0;
+assign SD_RB1 = 1'b0;
+
+assign reg_rd0 =reg_rd_int;
+assign WS_GND = 2'b00;
+
+assign reg_rd1 =1'b0;
+
+assign wen_reg0[2:wr_enable_int]=0;
+assign wen_reg0[wr_enable_int-1:0]=WEN;
+
+assign addr_wr1=11'b0000000000;
+assign addr_rd1=11'b0000000000;
+
+
+generate
+
+	if(addr_int == 11)
+	begin
+		assign addr_wr0[10:0]=WA;
+		assign addr_rd0[10:0]=RA;
+	end
+	else
+	begin
+		assign addr_wr0[10:addr_int]=0;
+		assign addr_wr0[addr_int-1:0]=WA;
+		assign addr_rd0[10:addr_int]=0;
+		assign addr_rd0[addr_int-1:0]=RA;
+	end
+
+    if (data_width_int == 16) 
+	begin
+        assign in_reg0[data_width_int-1:0] =WD[data_width_int-1:0]; 
+    end  
+    else if (data_width_int > 8 && data_width_int < 16)
+    begin
+		assign in_reg0[15:data_width_int] =0;
+        assign in_reg0[data_width_int-1:0] =WD[data_width_int-1:0]; 
+    end
+    else if (data_width_int <= 8) 
+	begin
+		assign in_reg0[15:data_width_int] =0;
+        assign in_reg0[data_width_int-1:0] =WD[data_width_int-1:0]; 
+    end
+
+	if(data_width_int <=8)
+    begin
+		assign WS1_0 = 2'b00;
+		assign WS2_0 = 2'b00;
+    end
+	else if(data_width_int >8 && data_width_int <=16)
+    begin
+		assign WS1_0 = 2'b01;
+		assign WS2_0 = 2'b01;
+    end
+	else if(data_width_int > 16)
+    begin
+		assign WS1_0 = 2'b10;
+		assign WS2_0 = 2'b10;
+    end
+
+endgenerate
+
+	ram8k_2x1_cell_macro # (
+				`include "bram_init_8_16.vh"
+				.INIT_FILE(INIT_FILE),
+				.data_width_int(data_width_int), 
+				.data_depth_int(data_depth_int)
+                           )
+                        U1 (.A1_0(addr_wr0) , 
+							.A1_1(addr_wr1), 
+							.A2_0(addr_rd0), 
+							.A2_1(addr_rd1), 
+							.ASYNC_FLUSH_0(GND), //chk
+							.ASYNC_FLUSH_1(GND), //chk
+							.ASYNC_FLUSH_S0(GND),
+							.ASYNC_FLUSH_S1(GND),
+							.CLK1_0(WClk), 
+							.CLK1_1(GND), 
+							.CLK1S_0(WClk0_Sel), 
+							.CLK1S_1(WClk1_Sel),
+							.CLK1EN_0(WClk_En), 
+							.CLK1EN_1(GND), 
+							.CLK2_0(RClk),
+							.CLK2_1(GND), 
+							.CLK2S_0(RClk0_Sel),
+							.CLK2S_1(RClk1_Sel), 
+							.CLK2EN_0(RClk_En), 
+							.CLK2EN_1(GND), 
+							.CONCAT_EN_0(GND),
+							.CONCAT_EN_1(GND), 
+							.CS1_0(WD0_SEL), 
+							.CS1_1(WD1_SEL), 
+							.CS2_0(RD0_SEL), 
+							.CS2_1(RD1_SEL), 
+							.DIR_0(GND),
+							.DIR_1(GND), 
+							.FIFO_EN_0(GND), 
+							.FIFO_EN_1(GND), 
+							.P1_0(GND), //P1_0
+							.P1_1(GND), //P1_1
+							.P2_0(GND), //
+							.P2_1(GND), //
+							.PIPELINE_RD_0(reg_rd0), 
+							.PIPELINE_RD_1(reg_rd1), 
+							.SYNC_FIFO_0(GND),
+							.SYNC_FIFO_1(GND), 
+							.WD_1({18{GND}}), 
+							.WD_0({1'b0,in_reg0[15:8],1'b0,in_reg0[7:0]}), 
+							.WIDTH_SELECT1_0(WS1_0), 
+							.WIDTH_SELECT1_1(WS_GND), 
+							.WIDTH_SELECT2_0(WS2_0),
+							.WIDTH_SELECT2_1(WS_GND), 
+							.WEN1_0(wen_reg0[1:0]), 
+							.WEN1_1({2{GND}}), 
+							.Almost_Empty_0(),
+							.Almost_Empty_1(), 
+							.Almost_Full_0(), 
+							.Almost_Full_1(),
+							.POP_FLAG_0(), 
+							.POP_FLAG_1(), 
+							.PUSH_FLAG_0(), 
+							.PUSH_FLAG_1(),
+							.RD_0({out_par0[1],out_reg0[15:8],out_par0[0],out_reg0[7:0]}), 
+							.RD_1(),
+							.SD(SD),
+							.SD_RB1(SD_RB1),
+							.LS(LS),
+							.LS_RB1(LS_RB1),
+							.DS(DS),
+							.DS_RB1(DS_RB1),
+							.TEST1A(GND),
+							.TEST1B(GND),
+							.RMA(4'd0),
+							.RMB(4'd0),
+							.RMEA(GND),
+							.RMEB(GND)
+							);
+						
+    assign RD[data_width_int-1 :0]= out_reg0[data_width_int-1 :0];
+					
+
+endmodule
+
+
+(* blackbox *)
+module RAM_16K_BLK ( WA,RA,WD,WClk,RClk,WClk_En,RClk_En,WEN,RD
+				    );
+
+parameter 	addr_int 	= 9,
+	  		data_depth_int = 512,
+	  		data_width_int = 36,
+            wr_enable_int 	= 4,
+	  		reg_rd_int 	= 0;
+
+parameter [16383:0] INIT = 16384'bx;
+parameter INIT_FILE="init.mem";	
+			
+input [addr_int-1:0] WA;
+input [addr_int-1:0] RA;
+input WClk,RClk;
+input WClk_En,RClk_En;
+input [wr_enable_int-1:0] WEN;
+input [data_width_int-1:0] WD;
+output [data_width_int-1:0] RD;
+
+assign VCC = 1'b1;
+assign GND = 1'b0;
+
+wire WClk0_Sel,RClk0_Sel;
+wire WClk1_Sel,RClk1_Sel;
+
+wire 		reg_rd0;
+wire 		reg_rd1;
+wire [10:0] addr_wr0,addr_rd0,addr_wr1,addr_rd1;
+
+wire [35:0] in_reg0;
+
+wire [4:0] wen_reg0;
+
+wire [31:0] out_reg0;
+
+wire [3:0] out_par0;
+
+wire [1:0] WS1_0,WS2_0; 
+wire [1:0] WS_GND;
+
+wire LS,DS,SD,LS_RB1,DS_RB1,SD_RB1;
+
+wire WD0_SEL,RD0_SEL;
+wire WD1_SEL,RD1_SEL;
+
+assign WD0_SEL = 1'b1;
+assign RD0_SEL = 1'b1;
+assign WD1_SEL = 1'b1;
+assign RD1_SEL = 1'b1;
+
+assign WClk0_Sel = 1'b0;
+assign RClk0_Sel = 1'b0;
+
+assign WClk1_Sel = 1'b0;
+assign RClk1_Sel = 1'b0;
+
+assign LS = 1'b0;
+assign DS = 1'b0;
+assign SD = 1'b0;
+assign LS_RB1 = 1'b0;
+assign DS_RB1 = 1'b0;
+assign SD_RB1 = 1'b0;
+
+assign reg_rd0 =reg_rd_int;
+assign WS_GND = 2'b00;
+
+assign reg_rd1 = 1'b0;
+
+assign wen_reg0[4:wr_enable_int]=0;
+assign wen_reg0[wr_enable_int-1:0]=WEN;
+
+assign addr_wr1=11'b0000000000;
+assign addr_rd1=11'b0000000000;
+
+generate
+
+	if(addr_int == 11)
+	begin
+		assign addr_wr0[10:0]=WA;
+		assign addr_rd0[10:0]=RA;
+	end
+	else
+	begin
+		assign addr_wr0[10:addr_int]=0;
+		assign addr_wr0[addr_int-1:0]=WA;
+		assign addr_rd0[10:addr_int]=0;
+		assign addr_rd0[addr_int-1:0]=RA;
+	end
+	
+    if (data_width_int == 32) 
+	begin
+        assign in_reg0[data_width_int-1:0] =WD[data_width_int-1:0]; 
+    end  
+    else if (data_width_int > 8 && data_width_int < 32)
+    begin
+		assign in_reg0[31:data_width_int] =0;
+        assign in_reg0[data_width_int-1:0] =WD[data_width_int-1:0]; 
+    end
+    else if (data_width_int <= 9) 
+	begin
+		assign in_reg0[31:data_width_int] =0;
+        assign in_reg0[data_width_int-1:0] =WD[data_width_int-1:0]; 
+    end
+
+	if(data_width_int <=8)
+    begin
+		assign WS1_0 = 2'b00;
+		assign WS2_0 = 2'b00;
+    end
+	else if(data_width_int >8 && data_width_int <=16)
+    begin
+		assign WS1_0 = 2'b01;
+		assign WS2_0 = 2'b01;
+    end
+	else if(data_width_int > 16)
+    begin
+		assign WS1_0 = 2'b10;
+		assign WS2_0 = 2'b10;
+    end
+
+  if (data_width_int <=16)	begin
+
+	ram8k_2x1_cell_macro # (
+			`include "bram_init_8_16.vh"
+			.INIT_FILE(INIT_FILE),
+			.data_width_int(data_width_int), 
+			.data_depth_int(data_depth_int)
+                           )
+						U1 (.A1_0(addr_wr0) , 
+							.A1_1(addr_wr1), 
+							.A2_0(addr_rd0), 
+							.A2_1(addr_rd1), 
+							.ASYNC_FLUSH_0(GND), 
+							.ASYNC_FLUSH_1(GND),
+							.ASYNC_FLUSH_S0(GND),
+							.ASYNC_FLUSH_S1(GND),
+							.CLK1_0(WClk), 
+							.CLK1_1(WClk),
+							.CLK1S_0(WClk0_Sel),
+							.CLK1S_1(WClk0_Sel), 
+							.CLK1EN_0(WClk_En), 
+							.CLK1EN_1(WClk_En), 
+							.CLK2_0(RClk),
+							.CLK2_1(RClk),
+							.CLK2S_0(RClk0_Sel),
+							.CLK2S_1(RClk0_Sel), 
+							.CLK2EN_0(RClk_En), 
+							.CLK2EN_1(RClk_En), 
+							.CONCAT_EN_0(VCC),
+							.CONCAT_EN_1(GND), 
+							.CS1_0(WD0_SEL), 
+							.CS1_1(GND), 
+							.CS2_0(RD0_SEL), 
+							.CS2_1(GND), 
+							.DIR_0(GND),
+							.DIR_1(GND), 
+							.FIFO_EN_0(GND), 
+							.FIFO_EN_1(GND), 
+							.P1_0(GND), 
+							.P1_1(GND), 
+							.P2_0(GND),
+							.P2_1(GND), 
+							.PIPELINE_RD_0(reg_rd0), 
+							.PIPELINE_RD_1(GND), 
+							.SYNC_FIFO_0(GND),
+							.SYNC_FIFO_1(GND), 
+							.WD_1({18{GND}}), 
+							.WD_0({1'b0,in_reg0[15:8],1'b0,in_reg0[7:0]}), 
+							.WIDTH_SELECT1_0(WS1_0), 
+							.WIDTH_SELECT1_1(WS_GND), 
+							.WIDTH_SELECT2_0(WS2_0),
+							.WIDTH_SELECT2_1(WS_GND), 
+							.WEN1_0(wen_reg0[1:0]), 
+							.WEN1_1(wen_reg0[3:2]), 
+							.Almost_Empty_0(),
+							.Almost_Empty_1(), 
+							.Almost_Full_0(), 
+							.Almost_Full_1(),
+							.POP_FLAG_0(), 
+							.POP_FLAG_1(), 
+							.PUSH_FLAG_0(), 
+							.PUSH_FLAG_1(),
+							.RD_0({out_par0[1],out_reg0[15:8],out_par0[0],out_reg0[7:0]}), 
+							.RD_1(),
+							.SD(SD),
+							.SD_RB1(SD_RB1),
+							.LS(LS),
+							.LS_RB1(LS_RB1),
+							.DS(DS),
+							.DS_RB1(DS_RB1),
+							.TEST1A(GND),
+							.TEST1B(GND),
+							.RMA(4'd0),
+							.RMB(4'd0),
+							.RMEA(GND),
+							.RMEB(GND)
+							);	
+  end
+  else if (data_width_int > 16)	begin
+
+	ram8k_2x1_cell_macro # (
+							`include "bram_init_32.vh"
+						        .INIT_FILE(INIT_FILE),
+							.data_width_int(data_width_int), 
+							.data_depth_int(data_depth_int)
+                           )
+						U2 (.A1_0(addr_wr0) , 
+							.A1_1(addr_wr1), 
+							.A2_0(addr_rd0), 
+							.A2_1(addr_rd1), 
+							.ASYNC_FLUSH_0(GND), 
+							.ASYNC_FLUSH_1(GND),
+							.ASYNC_FLUSH_S0(GND),
+							.ASYNC_FLUSH_S1(GND),
+							.CLK1_0(WClk), 
+							.CLK1_1(WClk),
+							.CLK1S_0(WClk0_Sel),
+							.CLK1S_1(WClk0_Sel), 
+							.CLK1EN_0(WClk_En), 
+							.CLK1EN_1(WClk_En), 
+							.CLK2_0(RClk),
+							.CLK2_1(RClk),
+							.CLK2S_0(RClk0_Sel),
+							.CLK2S_1(RClk0_Sel), 
+							.CLK2EN_0(RClk_En), 
+							.CLK2EN_1(RClk_En), 
+							.CONCAT_EN_0(VCC),
+							.CONCAT_EN_1(GND), 
+							.CS1_0(WD0_SEL), 
+							.CS1_1(GND), 
+							.CS2_0(RD0_SEL), 
+							.CS2_1(GND), 
+							.DIR_0(GND),
+							.DIR_1(GND), 
+							.FIFO_EN_0(GND), 
+							.FIFO_EN_1(GND), 
+							.P1_0(GND), 
+							.P1_1(GND), 
+							.P2_0(GND),
+							.P2_1(GND), 
+							.PIPELINE_RD_0(reg_rd0), 
+							.PIPELINE_RD_1(GND), 
+							.SYNC_FIFO_0(GND),
+							.SYNC_FIFO_1(GND), 
+							.WD_1({1'b0,in_reg0[31:24],1'b0,in_reg0[23:16]}), 
+							.WD_0({1'b0,in_reg0[15:8],1'b0,in_reg0[7:0]}), 
+							.WIDTH_SELECT1_0(WS1_0), 
+							.WIDTH_SELECT1_1(WS_GND), 
+							.WIDTH_SELECT2_0(WS2_0),
+							.WIDTH_SELECT2_1(WS_GND), 
+							.WEN1_0(wen_reg0[1:0]), 
+							.WEN1_1(wen_reg0[3:2]), 
+							.Almost_Empty_0(),
+							.Almost_Empty_1(), 
+							.Almost_Full_0(), 
+							.Almost_Full_1(),
+							.POP_FLAG_0(), 
+							.POP_FLAG_1(), 
+							.PUSH_FLAG_0(), 
+							.PUSH_FLAG_1(),
+							.RD_0({out_par0[1],out_reg0[15:8],out_par0[0],out_reg0[7:0]}), 
+							.RD_1({out_par0[3],out_reg0[31:24],out_par0[2],out_reg0[23:16]}),
+							.SD(SD),
+							.SD_RB1(SD_RB1),
+							.LS(LS),
+							.LS_RB1(LS_RB1),
+							.DS(DS),
+							.DS_RB1(DS_RB1),
+							.TEST1A(GND),
+							.TEST1B(GND),
+							.RMA(4'd0),
+							.RMB(4'd0),
+							.RMEA(GND),
+							.RMEB(GND)
+							);	
+  end
+						
+endgenerate	
+
+assign RD[data_width_int-1 :0]= out_reg0[data_width_int-1 :0];
+
+endmodule
+
+
+module FIFO_16K_BLK(DIN0,Fifo_Push_Flush0,Fifo_Pop_Flush0,PUSH0,POP0,Push_Clk0,Pop_Clk0,Push_Clk0_En,Pop_Clk0_En,Fifo0_Dir,Async_Flush0,Almost_Full0,Almost_Empty0,PUSH_FLAG0,POP_FLAG0,DOUT0,
+					DIN1,Fifo_Push_Flush1,Fifo_Pop_Flush1,PUSH1,POP1,Push_Clk1,Pop_Clk1,Push_Clk1_En,Pop_Clk1_En,Fifo1_Dir,Async_Flush1,Almost_Full1,Almost_Empty1,PUSH_FLAG1,POP_FLAG1,DOUT1
+					);
+					
+parameter 	Concatenation_En = 0,
+
+			data_depth_int0 = 512,
+			data_width_int0 = 36,
+			reg_rd_int0    	= 0,
+			sync_fifo_int0 	= 0,
+			
+			data_depth_int1 = 512,
+			data_width_int1 = 18,
+			reg_rd_int1     = 0,
+			sync_fifo_int1  = 0;
+
+input Fifo_Push_Flush0,Fifo_Pop_Flush0;
+input Push_Clk0,Pop_Clk0;
+input PUSH0,POP0;
+input [data_width_int0-1:0] DIN0;
+input Push_Clk0_En,Pop_Clk0_En,Fifo0_Dir,Async_Flush0;
+output [data_width_int0-1:0] DOUT0;
+output [3:0] PUSH_FLAG0,POP_FLAG0;
+output Almost_Full0,Almost_Empty0;
+
+input Fifo_Push_Flush1,Fifo_Pop_Flush1;
+input Push_Clk1,Pop_Clk1;
+input PUSH1,POP1;
+input [data_width_int1-1:0] DIN1;
+input Push_Clk1_En,Pop_Clk1_En,Fifo1_Dir,Async_Flush1;
+output [data_width_int1-1:0] DOUT1;
+output [3:0] PUSH_FLAG1,POP_FLAG1;
+output Almost_Full1,Almost_Empty1;
+
+wire LS,DS,SD,LS_RB1,DS_RB1,SD_RB1;
+
+wire [10:0] addr_wr,addr_rd;
+wire clk1_sig0, clk2_sig0, clk1_sig_en0, clk2_sig_en0, fifo_clk1_flush_sig0, fifo_clk2_flush_sig0, p1_sig0, p2_sig0,clk1_sig_sel0,clk2_sig_sel0;
+wire reg_rd0,sync_fifo0; 
+wire [35:0] in_reg0;
+wire [35:0] out_reg0;
+wire [1:0] WS1_0;
+wire [1:0] WS2_0;
+wire Push_Clk0_Sel,Pop_Clk0_Sel;
+wire Async_Flush_Sel0;
+
+wire clk1_sig1, clk2_sig1, clk1_sig_en1, clk2_sig_en1, fifo_clk1_flush_sig1, fifo_clk2_flush_sig1, p1_sig1, p2_sig1,clk1_sig_sel1,clk2_sig_sel1;
+wire reg_rd1,sync_fifo1;
+wire [35:0] in_reg1;
+wire [35:0] out_reg1;
+wire [1:0] WS1_1;
+wire [1:0] WS2_1;
+wire Push_Clk1_Sel,Pop_Clk1_Sel;
+wire Async_Flush_Sel1;
+
+wire [3:0] out_par0;
+wire [1:0] out_par1;
+
+assign LS = 1'b0;
+assign DS = 1'b0;
+assign SD = 1'b0;
+assign LS_RB1 = 1'b0;
+assign DS_RB1 = 1'b0;
+assign SD_RB1 = 1'b0;
+
+assign VCC = 1'b1;
+assign GND = 1'b0;
+
+assign Push_Clk0_Sel  	= 1'b0;
+assign Pop_Clk0_Sel   	= 1'b0;
+assign Async_Flush_Sel0 = 1'b0;
+
+assign reg_rd0 = reg_rd_int0;
+assign sync_fifo0 = sync_fifo_int0;
+
+generate
+begin
+	assign addr_wr=11'b00000000000;
+	assign addr_rd=11'b00000000000;
+end
+endgenerate
+
+assign clk1_sig0 = Fifo0_Dir ? Pop_Clk0 : Push_Clk0;
+assign clk2_sig0 = Fifo0_Dir ? Push_Clk0 : Pop_Clk0 ;
+assign clk1_sig_en0 = Fifo0_Dir ? Pop_Clk0_En : Push_Clk0_En;
+assign clk2_sig_en0 = Fifo0_Dir ? Push_Clk0_En : Pop_Clk0_En ;
+assign clk1_sig_sel0 =  Push_Clk0_Sel;
+assign clk2_sig_sel0 =  Pop_Clk0_Sel ;
+assign fifo_clk1_flush_sig0 = Fifo0_Dir ? Fifo_Pop_Flush0 : Fifo_Push_Flush0;
+assign fifo_clk2_flush_sig0 = Fifo0_Dir ? Fifo_Push_Flush0 : Fifo_Pop_Flush0 ;
+assign p1_sig0 = Fifo0_Dir ? POP0 : PUSH0;
+assign p2_sig0 = Fifo0_Dir ? PUSH0 : POP0 ;
+
+generate 
+//Generating data
+	if (Concatenation_En == 1'b0) begin
+		assign clk1_sig1 = Fifo1_Dir ? Pop_Clk1 : Push_Clk1;
+		assign clk2_sig1 = Fifo1_Dir ? Push_Clk1 : Pop_Clk1 ;
+		assign clk1_sig_en1 = Fifo1_Dir ? Pop_Clk1_En : Push_Clk1_En;
+		assign clk2_sig_en1 = Fifo1_Dir ? Push_Clk1_En : Pop_Clk1_En ;
+		assign clk1_sig_sel1 =  Push_Clk1_Sel;
+		assign clk2_sig_sel1 =  Pop_Clk1_Sel ;
+		assign fifo_clk1_flush_sig1 = Fifo1_Dir ? Fifo_Pop_Flush1 : Fifo_Push_Flush1;
+		assign fifo_clk2_flush_sig1 = Fifo1_Dir ? Fifo_Push_Flush1 : Fifo_Pop_Flush1 ;
+		assign p1_sig1 = Fifo1_Dir ? POP1 : PUSH1;
+		assign p2_sig1 = Fifo1_Dir ? PUSH1 : POP1 ;
+		assign reg_rd1 = reg_rd_int1;
+		assign sync_fifo1 = sync_fifo_int1;
+		assign Push_Clk1_Sel  	= 1'b0;
+		assign Pop_Clk1_Sel   	= 1'b0;
+		assign Async_Flush_Sel1 = 1'b0;
+	end
+
+	if (data_width_int0 == 36) 
+	begin
+        assign in_reg0[data_width_int0-1:0] =DIN0[data_width_int0-1:0]; 
+    end  
+    else if (data_width_int0 > 9 && data_width_int0 < 36)
+    begin
+		assign in_reg0[35:data_width_int0] =0;
+        assign in_reg0[data_width_int0-1:0] =DIN0[data_width_int0-1:0]; 
+    end
+    else if (data_width_int0 <= 9) 
+	begin
+		assign in_reg0[35:data_width_int0] =0;
+        assign in_reg0[data_width_int0-1:0] =DIN0[data_width_int0-1:0]; 
+    end
+
+    if (Concatenation_En == 0) begin
+		if (data_width_int1 == 36) 
+		begin
+			assign in_reg1[data_width_int1-1:0] =DIN1[data_width_int1-1:0]; 
+		end  
+		else if (data_width_int1 > 9 && data_width_int1 < 36)
+		begin
+			assign in_reg1[35:data_width_int1] =0;
+			assign in_reg1[data_width_int1-1:0] =DIN1[data_width_int1-1:0]; 
+		end
+		else if (data_width_int1 <= 9) 
+		begin
+			assign in_reg1[35:data_width_int1] =0;
+			assign in_reg1[data_width_int1-1:0] =DIN1[data_width_int1-1:0]; 
+		end
+    end
+
+	if(data_width_int0 <=9)
+    begin
+		assign WS1_0 = 2'b00;
+		assign WS2_0 = 2'b00;
+    end
+	else if(data_width_int0 >9 && data_width_int0 <=18)
+    begin
+		assign WS1_0 = 2'b01;
+		assign WS2_0 = 2'b01;
+    end
+	else if(data_width_int0 > 18)
+    begin
+		assign WS1_0 = 2'b10;
+		assign WS2_0 = 2'b10;
+    end
+
+    if (Concatenation_En == 0) begin
+		if(data_width_int1 <=9)
+		begin
+			assign WS1_1 = 2'b00;
+			assign WS2_1 = 2'b00;
+		end
+		else if(data_width_int1 >9 && data_width_int1 <=18)
+		begin
+			assign WS1_1 = 2'b01;
+			assign WS2_1 = 2'b01;
+		end
+		else if(data_width_int1 > 18)
+		begin
+			assign WS1_1 = 2'b10;
+			assign WS2_1 = 2'b10;
+		end
+    end
+
+  if (Concatenation_En == 1'b0)	
+
+	ram8k_2x1_cell_macro U1 (.A1_0(addr_wr) , 
+							.A1_1(addr_wr), 
+							.A2_0(addr_rd), 
+							.A2_1(addr_rd), 
+							.ASYNC_FLUSH_0(Async_Flush0), 
+							.ASYNC_FLUSH_1(Async_Flush1),
+							.ASYNC_FLUSH_S0(Async_Flush_Sel0), 
+							.ASYNC_FLUSH_S1(Async_Flush_Sel1), 
+							.CLK1_0(clk1_sig0), 
+							.CLK1_1(clk1_sig1), 
+							.CLK1EN_0(clk1_sig_en0), 
+							.CLK1EN_1(clk1_sig_en1), 
+							.CLK2_0(clk2_sig0),
+							.CLK2_1(clk2_sig1), 
+							.CLK1S_0(clk1_sig_sel0), 
+							.CLK1S_1(clk1_sig_sel1), 
+							.CLK2S_0(clk2_sig_sel0),
+							.CLK2S_1(clk2_sig_sel1),
+							.CLK2EN_0(clk2_sig_en0), 
+							.CLK2EN_1(clk2_sig_en1), 
+							.CONCAT_EN_0(GND),
+							.CONCAT_EN_1(GND), 
+							.CS1_0(fifo_clk1_flush_sig0), 
+							.CS1_1(fifo_clk1_flush_sig1), 
+							.CS2_0(fifo_clk2_flush_sig0), 
+							.CS2_1(fifo_clk2_flush_sig1), 
+							.DIR_0(Fifo0_Dir),
+							.DIR_1(Fifo1_Dir), 
+							.FIFO_EN_0(VCC), 
+							.FIFO_EN_1(VCC), 
+							.P1_0(p1_sig0), 
+							.P1_1(p1_sig1), 
+							.P2_0(p2_sig0),
+							.P2_1(p2_sig1), 
+							.PIPELINE_RD_0(reg_rd0), 
+							.PIPELINE_RD_1(reg_rd1), 
+							.SYNC_FIFO_0(sync_fifo0),
+							.SYNC_FIFO_1(sync_fifo1), 
+							.WD_1({1'b0,in_reg1[15:8],1'b0,in_reg1[7:0]}), 
+							.WD_0({1'b0,in_reg0[15:8],1'b0,in_reg0[7:0]}), 
+							.WIDTH_SELECT1_0(WS1_0), 
+							.WIDTH_SELECT1_1(WS1_1), 
+							.WIDTH_SELECT2_0(WS2_0),
+							.WIDTH_SELECT2_1(WS2_1), 
+							// PP-II doesn't use this signal
+							.WEN1_0({GND,GND}), 
+							.WEN1_1({GND,GND}), 
+							.Almost_Empty_0(Almost_Empty0),
+							.Almost_Empty_1(Almost_Empty1), 
+							.Almost_Full_0(Almost_Full0), 
+							.Almost_Full_1(Almost_Full1),
+							.POP_FLAG_0(POP_FLAG0), 
+							.POP_FLAG_1(POP_FLAG1), 
+							.PUSH_FLAG_0(PUSH_FLAG0), 
+							.PUSH_FLAG_1(PUSH_FLAG1),
+							.RD_0({out_par0[1],out_reg0[15:8],out_par0[0],out_reg0[7:0]}), 
+							.RD_1({out_par1[1],out_reg1[15:8],out_par1[0],out_reg1[7:0]}),
+							.SD(SD),
+							.SD_RB1(SD_RB1),
+							.LS(LS),
+							.LS_RB1(LS_RB1),
+							.DS(DS),
+							.DS_RB1(DS_RB1),
+							.TEST1A(GND),
+							.TEST1B(GND),
+							.RMA(4'd0),
+							.RMB(4'd0),
+							.RMEA(GND),
+							.RMEB(GND)
+							);	
+
+if (Concatenation_En == 1'b1)
+	
+	ram8k_2x1_cell_macro U2 (.A1_0(addr_wr) , 
+							.A1_1(addr_wr), 
+							.A2_0(addr_rd), 
+							.A2_1(addr_rd), 
+							.ASYNC_FLUSH_0(Async_Flush0), 
+							.ASYNC_FLUSH_1(GND),
+							.ASYNC_FLUSH_S0(Async_Flush_Sel0), 
+							.ASYNC_FLUSH_S1(Async_Flush_Sel0),
+							.CLK1_0(clk1_sig0), 
+							.CLK1_1(clk1_sig0), 
+							.CLK1EN_0(clk1_sig_en0), 
+							.CLK1EN_1(clk1_sig_en0), 
+							.CLK2_0(clk2_sig0),
+							.CLK2_1(clk2_sig0), 
+							.CLK1S_0(clk1_sig_sel0), 
+							.CLK1S_1(clk1_sig_sel0), 
+							.CLK2S_0(clk2_sig_sel0),
+							.CLK2S_1(clk2_sig_sel0),
+							.CLK2EN_0(clk2_sig_en0), 
+							.CLK2EN_1(clk2_sig_en0), 
+							.CONCAT_EN_0(VCC),
+							.CONCAT_EN_1(GND), 
+							.CS1_0(fifo_clk1_flush_sig0), 
+							.CS1_1(GND), 
+							.CS2_0(fifo_clk2_flush_sig0), 
+							.CS2_1(GND), 
+							.DIR_0(Fifo0_Dir),
+							.DIR_1(GND), 
+							.FIFO_EN_0(VCC), 
+							.FIFO_EN_1(GND), 
+							.P1_0(p1_sig0), 
+							.P1_1(GND), 
+							.P2_0(p2_sig0),
+							.P2_1(GND), 
+							.PIPELINE_RD_0(reg_rd0), 
+							.PIPELINE_RD_1(GND), 
+							.SYNC_FIFO_0(sync_fifo0),
+							.SYNC_FIFO_1(GND), 
+							.WD_1({1'b0,in_reg0[31:24],1'b0,in_reg0[23:16]}), 
+							.WD_0({1'b0,in_reg0[15:8],1'b0,in_reg0[7:0]}), 
+							.WIDTH_SELECT1_0(WS1_0), 
+							.WIDTH_SELECT1_1({GND,GND}), 
+							.WIDTH_SELECT2_0(WS2_0),
+							.WIDTH_SELECT2_1({GND,GND}), 
+							.WEN1_0({GND,GND}), 
+							.WEN1_1({GND,GND}), 
+							.Almost_Empty_0(Almost_Empty0),
+							.Almost_Empty_1(), 
+							.Almost_Full_0(Almost_Full0), 
+							.Almost_Full_1(),
+							.POP_FLAG_0(POP_FLAG0), 
+							.POP_FLAG_1(), 
+							.PUSH_FLAG_0(PUSH_FLAG0), 
+							.PUSH_FLAG_1(),
+							.RD_0({out_par0[1],out_reg0[15:8],out_par0[0],out_reg0[7:0]}), 
+							.RD_1({out_par0[3],out_reg0[31:24],out_par0[2],out_reg0[23:16]}),
+							.SD(SD),
+							.SD_RB1(SD_RB1),
+							.LS(LS),
+							.LS_RB1(LS_RB1),
+							.DS(DS),
+							.DS_RB1(DS_RB1),
+							.TEST1A(GND),
+							.TEST1B(GND),
+							.RMA(4'd0),
+							.RMB(4'd0),
+							.RMEA(GND),
+							.RMEB(GND)
+							);	
+
+endgenerate
+						
+generate
+
+    assign DOUT0[data_width_int0-1 :0]= out_reg0[data_width_int0-1 :0];
+
+	if (Concatenation_En == 0) begin
+		assign DOUT1[data_width_int1-1 :0]= out_reg1[data_width_int1-1 :0];
+    end
+
+endgenerate	
+
+endmodule
+
+module FIFO_8K_BLK(DIN0,Fifo_Push_Flush0,Fifo_Pop_Flush0,PUSH0,POP0,Push_Clk0,Pop_Clk0,Push_Clk0_En,Pop_Clk0_En,Fifo0_Dir,Async_Flush0,Almost_Full0,Almost_Empty0,PUSH_FLAG0,POP_FLAG0,DOUT0
+				   );
+					
+parameter 	data_depth_int0 = 512,
+			data_width_int0 = 36,
+			reg_rd_int0    	= 0,
+			sync_fifo_int0 	= 0;
+			
+input Fifo_Push_Flush0,Fifo_Pop_Flush0;
+input Push_Clk0,Pop_Clk0;
+input PUSH0,POP0;
+input [data_width_int0-1:0] DIN0;
+input Push_Clk0_En,Pop_Clk0_En,Fifo0_Dir,Async_Flush0;
+output [data_width_int0-1:0] DOUT0;
+output [3:0] PUSH_FLAG0,POP_FLAG0;
+output Almost_Full0,Almost_Empty0;
+
+wire LS,DS,SD,LS_RB1,DS_RB1,SD_RB1;
+
+wire [10:0] addr_wr,addr_rd;
+wire clk1_sig0, clk2_sig0, clk1_sig_en0, clk2_sig_en0, fifo_clk1_flush_sig0, fifo_clk2_flush_sig0, p1_sig0, p2_sig0,clk1_sig_sel0,clk2_sig_sel0;
+wire reg_rd0,sync_fifo0; 
+wire [35:0] in_reg0;
+wire [35:0] out_reg0;
+wire [1:0] WS1_0;
+wire [1:0] WS2_0;
+wire Push_Clk0_Sel,Pop_Clk0_Sel;
+wire Async_Flush_Sel0;
+
+wire [1:0] out_par0;
+
+assign LS = 1'b0;
+assign DS = 1'b0;
+assign SD = 1'b0;
+assign LS_RB1 = 1'b0;
+assign DS_RB1 = 1'b0;
+assign SD_RB1 = 1'b0;
+
+assign VCC = 1'b1;
+assign GND = 1'b0;
+
+assign Push_Clk0_Sel  	= 1'b0;
+assign Pop_Clk0_Sel   	= 1'b0;
+assign Async_Flush_Sel0 = 1'b0;
+
+assign reg_rd0 = reg_rd_int0;
+assign sync_fifo0 = sync_fifo_int0;
+
+generate
+begin
+	assign addr_wr=11'b00000000000;
+	assign addr_rd=11'b00000000000;
+end
+endgenerate
+
+assign clk1_sig0 = Fifo0_Dir ? Pop_Clk0 : Push_Clk0;
+assign clk2_sig0 = Fifo0_Dir ? Push_Clk0 : Pop_Clk0 ;
+assign clk1_sig_en0 = Fifo0_Dir ? Pop_Clk0_En : Push_Clk0_En;
+assign clk2_sig_en0 = Fifo0_Dir ? Push_Clk0_En : Pop_Clk0_En ;
+assign clk1_sig_sel0 =  Push_Clk0_Sel;
+assign clk2_sig_sel0 =  Pop_Clk0_Sel ;
+assign fifo_clk1_flush_sig0 = Fifo0_Dir ? Fifo_Pop_Flush0 : Fifo_Push_Flush0;
+assign fifo_clk2_flush_sig0 = Fifo0_Dir ? Fifo_Push_Flush0 : Fifo_Pop_Flush0 ;
+assign p1_sig0 = Fifo0_Dir ? POP0 : PUSH0;
+assign p2_sig0 = Fifo0_Dir ? PUSH0 : POP0 ;
+
+generate 
+//Generating data
+
+	if (data_width_int0 == 18) 
+	begin
+        assign in_reg0[data_width_int0-1:0] =DIN0[data_width_int0-1:0]; 
+    end  
+    else if (data_width_int0 > 9 && data_width_int0 < 18)
+    begin
+		assign in_reg0[17:data_width_int0] =0;
+        assign in_reg0[data_width_int0-1:0] =DIN0[data_width_int0-1:0]; 
+    end
+    else if (data_width_int0 <= 9) 
+	begin
+		assign in_reg0[17:data_width_int0] =0;
+        assign in_reg0[data_width_int0-1:0] =DIN0[data_width_int0-1:0]; 
+    end
+
+	if(data_width_int0 <=9)
+    begin
+		assign WS1_0 = 2'b00;
+		assign WS2_0 = 2'b00;
+    end
+	else if(data_width_int0 >9 && data_width_int0 <=18)
+    begin
+		assign WS1_0 = 2'b01;
+		assign WS2_0 = 2'b01;
+    end
+	else if(data_width_int0 > 18)
+    begin
+		assign WS1_0 = 2'b10;
+		assign WS2_0 = 2'b10;
+    end
+
+endgenerate
+
+	ram8k_2x1_cell_macro U1 (.A1_0(addr_wr) , 
+							.A1_1(addr_wr), 
+							.A2_0(addr_rd), 
+							.A2_1(addr_rd), 
+							.ASYNC_FLUSH_0(Async_Flush0), 
+							.ASYNC_FLUSH_1(GND),
+							.ASYNC_FLUSH_S0(Async_Flush_Sel0), 
+							.ASYNC_FLUSH_S1(GND),
+							.CLK1_0(clk1_sig0), 
+							.CLK1_1(GND), 
+							.CLK1EN_0(clk1_sig_en0), 
+							.CLK1EN_1(GND), 
+							.CLK2_0(clk2_sig0),
+							.CLK2_1(GND), 
+							.CLK1S_0(clk1_sig_sel0), 
+							.CLK1S_1(GND), 
+							.CLK2S_0(clk2_sig_sel0),
+							.CLK2S_1(GND),
+							.CLK2EN_0(clk2_sig_en0), 
+							.CLK2EN_1(GND), 
+							.CONCAT_EN_0(GND),
+							.CONCAT_EN_1(GND), 
+							.CS1_0(fifo_clk1_flush_sig0), 
+							.CS1_1(GND), 
+							.CS2_0(fifo_clk2_flush_sig0), 
+							.CS2_1(GND), 
+							.DIR_0(Fifo0_Dir),
+							.DIR_1(GND), 
+							.FIFO_EN_0(VCC), 
+							.FIFO_EN_1(GND), 
+							.P1_0(p1_sig0), 
+							.P1_1(GND), 
+							.P2_0(p2_sig0),
+							.P2_1(GND), 
+							.PIPELINE_RD_0(reg_rd0), 
+							.PIPELINE_RD_1(GND), 
+							.SYNC_FIFO_0(sync_fifo0),
+							.SYNC_FIFO_1(GND), 
+							.WD_1({18{GND}}), 
+							.WD_0({1'b0,in_reg0[15:8],1'b0,in_reg0[7:0]}), 
+							.WIDTH_SELECT1_0(WS1_0), 
+							.WIDTH_SELECT1_1({GND,GND}), 
+							.WIDTH_SELECT2_0(WS2_0),
+							.WIDTH_SELECT2_1({GND,GND}), 
+							.WEN1_0({GND,GND}), 
+							.WEN1_1({GND,GND}), 
+							.Almost_Empty_0(Almost_Empty0),
+							.Almost_Empty_1(), 
+							.Almost_Full_0(Almost_Full0), 
+							.Almost_Full_1(),
+							.POP_FLAG_0(POP_FLAG0), 
+							.POP_FLAG_1(), 
+							.PUSH_FLAG_0(PUSH_FLAG0), 
+							.PUSH_FLAG_1(),
+							.RD_0({out_par0[1],out_reg0[15:8],out_par0[0],out_reg0[7:0]}), 
+							.RD_1(),
+							.SD(SD),
+							.SD_RB1(SD_RB1),
+							.LS(LS),
+							.LS_RB1(LS_RB1),
+							.DS(DS),
+							.DS_RB1(DS_RB1),
+							.TEST1A(GND),
+							.TEST1B(GND),
+							.RMA(4'd0),
+							.RMB(4'd0),
+							.RMEA(GND),
+							.RMEB(GND)
+							);	
+						
+    assign DOUT0[data_width_int0-1 :0]= out_reg0[data_width_int0-1 :0];
+
+
+endmodule

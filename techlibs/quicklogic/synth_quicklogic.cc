@@ -134,6 +134,8 @@ struct SynthQuickLogicPass : public ScriptPass
             run("wreduce -keepdc");
             run("peepopt");
             run("pmuxtree");
+            run("opt");
+            run("memory -nomap");
             run("opt_clean");
 
             run("alumacc");
@@ -146,6 +148,7 @@ struct SynthQuickLogicPass : public ScriptPass
 
         if (check_label("map_bram", "(skip if -nobram)")) {
             run("memory_bram -rules +/quicklogic/" + family + "_brams.txt");
+            run("pp3_braminit");
             run("techmap -map +/quicklogic/" + family + "_brams_map.v");
         }
 
