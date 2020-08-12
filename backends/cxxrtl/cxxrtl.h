@@ -452,10 +452,11 @@ struct value : public expr_base<value<Bits>> {
 		bool carry = CarryIn;
 		for (size_t n = 0; n < result.chunks; n++) {
 			result.data[n] = data[n] + (Invert ? ~other.data[n] : other.data[n]) + carry;
+			if (result.chunks - 1 == n) 
+				result.data[result.chunks - 1] &= result.msb_mask;
 			carry = (result.data[n] <  data[n]) ||
 			        (result.data[n] == data[n] && carry);
 		}
-		result.data[result.chunks - 1] &= result.msb_mask;
 		return {result, carry};
 	}
 
