@@ -450,12 +450,18 @@ struct value : public expr_base<value<Bits>> {
 	std::pair<value<Bits>, bool /*CarryOut*/> alu(const value<Bits> &other) const {
 		value<Bits> result;
 		bool carry = CarryIn;
-		for (size_t n = 0; n < result.chunks; n++) {
+		// Handle full chunks first
+		for (size_t n = 0; n < result.chunks - 1; n++) {
 			result.data[n] = data[n] + (Invert ? ~other.data[n] : other.data[n]) + carry;
 			carry = (result.data[n] <  data[n]) ||
 			        (result.data[n] == data[n] && carry);
 		}
-		result.data[result.chunks - 1] &= result.msb_mask;
+		// Handle last chunk (mask before updating carry)
+		constexpr size_t last = result.chunks - 1;
+		result.data[last] = data[last] + (Invert ? ~other.data[last] : other.data[last]) + carry;
+		result.data[last] &= result.msb_mask;
+		carry = (result.data[last] <  data[last]) ||
+		        (result.data[last] == data[last] && carry);
 		return {result, carry};
 	}
 
