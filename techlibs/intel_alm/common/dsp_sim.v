@@ -1,5 +1,5 @@
 (* abc9_box *)
-module MISTRAL_MUL27x27(input [26:0] A, input [26:0] B, output [53:0] Y);
+module MISTRAL_MUL27X27(input [26:0] A, input [26:0] B, output [53:0] Y);
 
 // TODO: Cyclone 10 GX timings; the below are for Cyclone V
 specify
