@@ -1,3 +1,21 @@
+/*
+ *  yosys -- Yosys Open SYnthesis Suite
+ *
+ *  Copyright (C) 2021 QuickLogic Corp.
+ *
+ *  Permission to use, copy, modify, and/or distribute this software for any
+ *  purpose with or without fee is hereby granted, provided that the above
+ *  copyright notice and this permission notice appear in all copies.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ *  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ *  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ *  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ */
 #include "kernel/register.h"
 #include "kernel/celltypes.h"
 #include "kernel/rtlil.h"
@@ -93,8 +111,9 @@ struct SynthQuickLogicPass : public ScriptPass
     void script() override
     {
         if (check_label("begin")) {
-            run("read_verilog -lib +/quicklogic/cells_sim.v");
-            run(stringf("hierarchy -check %s", top_opt.c_str()));
+            std::string readVelArgs = " +/quicklogic/" + family + "_cells_sim.v";
+            run("read_verilog -lib -specify +/quicklogic/cells_sim.v" + readVelArgs);
+            run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
         }
 
         if (check_label("prepare")) {
@@ -108,46 +127,90 @@ struct SynthQuickLogicPass : public ScriptPass
         }
 
         if (check_label("coarse")) {
+            run("opt_expr");
+            run("opt_clean");
+            run("check");
+            run("opt");
             run("wreduce -keepdc");
             run("peepopt");
             run("pmuxtree");
-            run("opt");
             run("opt_clean");
+
             run("alumacc");
+            run("opt");
+            run("fsm");
             run("opt -fast");
+            run("memory -nomap");
             run("opt_clean");
-            run("opt -full");
-            run("check");
         }
 
-        if (check_label("map")) {
+        if (check_label("map_bram", "(skip if -nobram)")) {
+            run("memory_bram -rules +/quicklogic/" + family + "_brams.txt");
+            run("techmap -map +/quicklogic/" + family + "_brams_map.v");
+        }
 
+        if (check_label("map_ffram")) {
+            run("opt -fast -mux_undef -undriven -fine");
+            run("memory_map -iattr -attr !ram_block -attr !rom_block -attr logic_block "
+                    "-attr syn_ramstyle=auto -attr syn_ramstyle=registers "
+                    "-attr syn_romstyle=auto -attr syn_romstyle=logic");
+            run("opt -undriven -fine");
+        }
+
+        if (check_label("map_gates")) {
             run("techmap");
             run("opt -fast");
-            if (family == "pp3") {
-                run("muxcover -mux8 -mux4");
-            }
-
+            run("muxcover -mux8 -mux4");
             run("opt_expr -clkinv");
-            run("dff2dffe");
             run("opt -fast");
-            run("techmap -map +/quicklogic/ffs_map.v");
-
-            if (family == "pp3") {
-                run("abc -luts 1,2,2");
-            }
-            run("opt -fast");
-
-            run("techmap -map +/quicklogic/lut_map.v");
+            run("opt_expr");
+            run("opt_merge");
+            run("opt_rmdff");
             run("opt_clean");
-
-            run("techmap -map +/quicklogic/cells_map.v");
-            run("opt_clean");
-
-            run("autoname");
-            run("check");
+            run("opt");
         }
 
+        if (check_label("map_ffs")) {
+			run("opt_expr -clkinv");
+            run("dff2dffe");
+
+            std::string techMapArgs = " -map +/quicklogic/" + family + "_ffs_map.v";
+            run("techmap " + techMapArgs);
+            run("opt_expr -mux_undef");
+            run("simplemap");
+            run("opt_expr");
+            run("opt_merge");
+            run("opt_rmdff");
+            run("opt_clean");
+            run("opt");
+        }
+
+        if (check_label("map_luts")) {
+            std::string techMapArgs = " -map +/quicklogic/" + family + "_latches_map.v";
+            run("techmap " + techMapArgs);
+            run("abc -luts 1,2,2"); //
+
+            techMapArgs = " -map +/quicklogic/" + family + "_ffs_map.v";
+            run("techmap " + techMapArgs);
+            run("clean");
+        }
+
+        if (check_label("map_cells")) {
+
+            std::string techMapArgs = " -map +/quicklogic/" + family + "_cells_map.v";
+            techMapArgs += " -map +/quicklogic/" + family + "_lut_map.v";
+            run("techmap" + techMapArgs);
+            run("clean");
+            run("quicklogic_eqn");
+        }
+
+        if (check_label("check")) {
+            run("autoname");
+            run("hierarchy -check");
+            run("stat");
+            run("check -noinit");
+        }
+        
         if (check_label("iomap")) {
             if (family == "pp3") {
                 run("clkbufmap -buf $_BUF_ Y:A -inpad ckpad Q:P");
