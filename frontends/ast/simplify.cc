@@ -1807,7 +1807,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 			if (type == AST_GENFOR) {
 				for (size_t i = 0; i < buf->children.size(); i++) {
-					buf->children[i]->simplify(false, false, false, stage, -1, false, false);
+					buf->children[i]->simplify(const_fold, false, false, stage, -1, false, false);
 					current_ast_mod->children.push_back(buf->children[i]);
 				}
 			} else {
@@ -1883,7 +1883,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		}
 
 		for (size_t i = 0; i < children.size(); i++) {
-			children[i]->simplify(false, false, false, stage, -1, false, false);
+			children[i]->simplify(const_fold, false, false, stage, -1, false, false);
 			current_ast_mod->children.push_back(children[i]);
 		}
 
@@ -1920,7 +1920,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			}
 
 			for (size_t i = 0; i < buf->children.size(); i++) {
-				buf->children[i]->simplify(false, false, false, stage, -1, false, false);
+				buf->children[i]->simplify(const_fold, false, false, stage, -1, false, false);
 				current_ast_mod->children.push_back(buf->children[i]);
 			}
 
@@ -1999,7 +1999,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			}
 
 			for (size_t i = 0; i < buf->children.size(); i++) {
-				buf->children[i]->simplify(false, false, false, stage, -1, false, false);
+				buf->children[i]->simplify(const_fold, false, false, stage, -1, false, false);
 				current_ast_mod->children.push_back(buf->children[i]);
 			}
 
