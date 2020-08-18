@@ -3052,7 +3052,7 @@ skip_dynamic_range_lvalue_expansion:;
 			bool all_args_const = true;
 			for (auto child : children) {
 				while (child->simplify(true, false, false, 1, -1, false, true)) { }
-				if (child->type != AST_CONSTANT)
+				if (child->type != AST_CONSTANT && child->type != AST_REALVALUE)
 					all_args_const = false;
 			}
 
@@ -4379,8 +4379,16 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 			variables[child->str].val = RTLIL::Const(RTLIL::State::Sx, abs(child->range_left - child->range_right)+1);
 			variables[child->str].offset = min(child->range_left, child->range_right);
 			variables[child->str].is_signed = child->is_signed;
-			if (child->is_input && argidx < fcall->children.size())
-				variables[child->str].val = fcall->children.at(argidx++)->bitsAsConst(variables[child->str].val.bits.size());
+			if (child->is_input && argidx < fcall->children.size()) {
+				int width = variables[child->str].val.bits.size();
+				auto* arg_node = fcall->children.at(argidx++);
+				if (arg_node->type == AST_CONSTANT) {
+					variables[child->str].val = arg_node->bitsAsConst(width);
+				} else {
+					log_assert(arg_node->type == AST_REALVALUE);
+					variables[child->str].val = arg_node->realAsConst(width);
+				}
+			}
 			backup_scope[child->str] = current_scope[child->str];
 			current_scope[child->str] = child;
 			continue;

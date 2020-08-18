@@ -53,6 +53,15 @@ module top(out);
         c1, c2, c3, c4,
         d1, d2, d3, d4};
 
+    function signed [31:0] negate;
+        input integer inp;
+        negate = ~inp;
+    endfunction
+    parameter W = 10;
+    parameter X = 3;
+    localparam signed Y = $floor(W / X);
+    localparam signed Z = negate($floor(W / X));
+
 // `define VERIFY
 `ifdef VERIFY
     assert property (a1 == 0);
@@ -71,5 +80,8 @@ module top(out);
     assert property (d2 == 0);
     assert property (d3 == 1);
     assert property (d4 == 1);
+
+    assert property (Y == 3);
+    assert property (Z == ~3);
 `endif
 endmodule
