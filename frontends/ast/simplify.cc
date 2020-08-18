@@ -3711,8 +3711,11 @@ AstNode *AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *m
 }
 
 // annotate the names of all wires and other named objects in a generate block
-void AstNode::expand_genblock(std::string index_var, std::string prefix, std::map<std::string, std::string> &name_map)
+void AstNode::expand_genblock(std::string index_var, std::string prefix, std::map<std::string, std::string> &name_map, bool original_scope)
 {
+	// `original_scope` defaults to false, and is used to prevent the premature
+	// prefixing of items in named sub-blocks
+
 	if (!index_var.empty() && type == AST_IDENTIFIER && str == index_var) {
 		if (children.empty()) {
 			current_scope[index_var]->children[0]->cloneInto(this);
@@ -3725,53 +3728,85 @@ void AstNode::expand_genblock(std::string index_var, std::string prefix, std::ma
 		}
 	}
 
-	if ((type == AST_IDENTIFIER || type == AST_FCALL || type == AST_TCALL || type == AST_WIRETYPE) && name_map.count(str) > 0)
-		str = name_map[str];
+	if (type == AST_IDENTIFIER || type == AST_FCALL || type == AST_TCALL || type == AST_WIRETYPE) {
+		if (name_map.count(str) > 0) {
+			str = name_map[str];
+		} else {
+			// remap the prefix of this ident if it is a local generate scope
+			size_t pos = str.rfind('.');
+			if (pos != std::string::npos) {
+				std::string existing_prefix = str.substr(0, pos);
+				if (name_map.count(existing_prefix) > 0) {
+					str = name_map[existing_prefix] + str.substr(pos);
+				}
+			}
+		}
+	}
 
 	std::map<std::string, std::string> backup_name_map;
 
+	auto prefix_node = [&](AstNode* child) {
+		if (backup_name_map.size() == 0)
+			backup_name_map = name_map;
+
+		// if within a nested scope
+		if (!original_scope) {
+			// this declaration shadows anything in the parent scope(s)
+			name_map[child->str] = child->str;
+			return;
+		}
+
+		std::string new_name = prefix[0] == '\\' ? prefix.substr(1) : prefix;
+		size_t pos = child->str.rfind('.');
+		if (pos == std::string::npos)
+			pos = child->str[0] == '\\' && prefix[0] == '\\' ? 1 : 0;
+		else
+			pos = pos + 1;
+		new_name = child->str.substr(0, pos) + new_name + child->str.substr(pos);
+		if (new_name[0] != '$' && new_name[0] != '\\')
+			new_name = prefix[0] + new_name;
+
+		name_map[child->str] = new_name;
+		if (child->type == AST_FUNCTION)
+			replace_result_wire_name_in_function(child, child->str, new_name);
+		else
+			child->str = new_name;
+		current_scope[new_name] = child;
+	};
+
 	for (size_t i = 0; i < children.size(); i++) {
 		AstNode *child = children[i];
-		if (child->type == AST_WIRE || child->type == AST_MEMORY || child->type == AST_PARAMETER || child->type == AST_LOCALPARAM ||
-				child->type == AST_FUNCTION || child->type == AST_TASK || child->type == AST_CELL || child->type == AST_TYPEDEF || child->type == AST_ENUM_ITEM) {
-			if (backup_name_map.size() == 0)
-				backup_name_map = name_map;
-			std::string new_name = prefix[0] == '\\' ? prefix.substr(1) : prefix;
-			size_t pos = child->str.rfind('.');
-			if (pos == std::string::npos)
-				pos = child->str[0] == '\\' && prefix[0] == '\\' ? 1 : 0;
-			else
-				pos = pos + 1;
-			new_name = child->str.substr(0, pos) + new_name + child->str.substr(pos);
-			if (new_name[0] != '$' && new_name[0] != '\\')
-				new_name = prefix[0] + new_name;
-			name_map[child->str] = new_name;
-			if (child->type == AST_FUNCTION)
-				replace_result_wire_name_in_function(child, child->str, new_name);
-			else
-				child->str = new_name;
-			current_scope[new_name] = child;
-		}
-		if (child->type == AST_ENUM){
+
+		switch (child->type) {
+		case AST_WIRE:
+		case AST_MEMORY:
+		case AST_PARAMETER:
+		case AST_LOCALPARAM:
+		case AST_FUNCTION:
+		case AST_TASK:
+		case AST_CELL:
+		case AST_TYPEDEF:
+		case AST_ENUM_ITEM:
+		case AST_GENVAR:
+			prefix_node(child);
+			break;
+
+		case AST_BLOCK:
+		case AST_GENBLOCK:
+			if (!child->str.empty())
+				prefix_node(child);
+			break;
+
+		case AST_ENUM:
 			current_scope[child->str] = child;
 			for (auto enode : child->children){
 				log_assert(enode->type == AST_ENUM_ITEM);
-				if (backup_name_map.size() == 0)
-					backup_name_map = name_map;
-				std::string new_name = prefix[0] == '\\' ? prefix.substr(1) : prefix;
-				size_t pos = enode->str.rfind('.');
-				if (pos == std::string::npos)
-					pos = enode->str[0] == '\\' && prefix[0] == '\\' ? 1 : 0;
-				else
-					pos = pos + 1;
-				new_name = enode->str.substr(0, pos) + new_name + enode->str.substr(pos);
-				if (new_name[0] != '$' && new_name[0] != '\\')
-					new_name = prefix[0] + new_name;
-				name_map[enode->str] = new_name;
-
-				enode->str = new_name;
-				current_scope[new_name] = enode;
+				prefix_node(enode);
 			}
+			break;
+
+		default:
+			break;
 		}
 	}
 
@@ -3781,8 +3816,14 @@ void AstNode::expand_genblock(std::string index_var, std::string prefix, std::ma
 		// still needs to recursed-into
 		if (type == AST_PREFIX && i == 1 && child->type == AST_IDENTIFIER)
 			continue;
-		if (child->type != AST_FUNCTION && child->type != AST_TASK)
-			child->expand_genblock(index_var, prefix, name_map);
+		// functions/tasks may reference wires, constants, etc. in this scope
+		if (child->type == AST_FUNCTION || child->type == AST_TASK)
+			child->expand_genblock(index_var, prefix, name_map, false);
+		// continue prefixing if this child block is anonymous
+		else if (child->type == AST_GENBLOCK || child->type == AST_BLOCK)
+			child->expand_genblock(index_var, prefix, name_map, original_scope && child->str.empty());
+		else
+			child->expand_genblock(index_var, prefix, name_map, original_scope);
 	}
 
 
