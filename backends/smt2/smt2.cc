@@ -824,38 +824,49 @@ struct Smt2Worker
 					is_register = true;
 			if (wire->port_id || is_register || wire->get_bool_attribute(ID::keep) || (wiresmode && wire->name[0] == '\\')) {
 				RTLIL::SigSpec sig = sigmap(wire);
+				std::vector<std::string> comments;
 				if (wire->port_input)
-					decls.push_back(stringf("; yosys-smt2-input %s %d\n", get_id(wire), wire->width));
+					comments.push_back(stringf("; yosys-smt2-input %s %d\n", get_id(wire), wire->width));
 				if (wire->port_output)
-					decls.push_back(stringf("; yosys-smt2-output %s %d\n", get_id(wire), wire->width));
+					comments.push_back(stringf("; yosys-smt2-output %s %d\n", get_id(wire), wire->width));
 				if (is_register)
-					decls.push_back(stringf("; yosys-smt2-register %s %d\n", get_id(wire), wire->width));
+					comments.push_back(stringf("; yosys-smt2-register %s %d\n", get_id(wire), wire->width));
 				if (wire->get_bool_attribute(ID::keep) || (wiresmode && wire->name[0] == '\\'))
-					decls.push_back(stringf("; yosys-smt2-wire %s %d\n", get_id(wire), wire->width));
+					comments.push_back(stringf("; yosys-smt2-wire %s %d\n", get_id(wire), wire->width));
 				if (GetSize(wire) == 1 && (clock_posedge.count(sig) || clock_negedge.count(sig)))
-					decls.push_back(stringf("; yosys-smt2-clock %s%s%s\n", get_id(wire),
+					comments.push_back(stringf("; yosys-smt2-clock %s%s%s\n", get_id(wire),
 							clock_posedge.count(sig) ? " posedge" : "", clock_negedge.count(sig) ? " negedge" : ""));
 				if (bvmode && GetSize(sig) > 1) {
+					std::string sig_bv = get_bv(sig);
+					if (!comments.empty())
+						decls.insert(decls.end(), comments.begin(), comments.end());
 					decls.push_back(stringf("(define-fun |%s_n %s| ((state |%s_s|)) (_ BitVec %d) %s)\n",
-							get_id(module), get_id(wire), get_id(module), GetSize(sig), get_bv(sig).c_str()));
+							get_id(module), get_id(wire), get_id(module), GetSize(sig), sig_bv.c_str()));
 					if (wire->port_input)
 						ex_input_eq.push_back(stringf("  (= (|%s_n %s| state) (|%s_n %s| other_state))",
 								get_id(module), get_id(wire), get_id(module), get_id(wire)));
 				} else {
-					for (int i = 0; i < GetSize(sig); i++)
+					std::vector<std::string> sig_bool;
+					for (int i = 0; i < GetSize(sig); i++) {
+						sig_bool.push_back(get_bool(sig[i]));
+					}
+					if (!comments.empty())
+						decls.insert(decls.end(), comments.begin(), comments.end());
+					for (int i = 0; i < GetSize(sig); i++) {
 						if (GetSize(sig) > 1) {
 							decls.push_back(stringf("(define-fun |%s_n %s %d| ((state |%s_s|)) Bool %s)\n",
-									get_id(module), get_id(wire), i, get_id(module), get_bool(sig[i]).c_str()));
+									get_id(module), get_id(wire), i, get_id(module), sig_bool[i].c_str()));
 							if (wire->port_input)
 								ex_input_eq.push_back(stringf("  (= (|%s_n %s %d| state) (|%s_n %s %d| other_state))",
 										get_id(module), get_id(wire), i, get_id(module), get_id(wire), i));
 						} else {
 							decls.push_back(stringf("(define-fun |%s_n %s| ((state |%s_s|)) Bool %s)\n",
-									get_id(module), get_id(wire), get_id(module), get_bool(sig[i]).c_str()));
+									get_id(module), get_id(wire), get_id(module), sig_bool[i].c_str()));
 							if (wire->port_input)
 								ex_input_eq.push_back(stringf("  (= (|%s_n %s| state) (|%s_n %s| other_state))",
 										get_id(module), get_id(wire), get_id(module), get_id(wire)));
 						}
+					}
 				}
 			}
 		}
