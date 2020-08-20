@@ -74,12 +74,6 @@ design -save gold
 
 
 design -load gold
-techmap -D NO_LSB_FIRST_SHIFT_SHIFTX
-abc -lut 6
-select -assert-min 17 t:$lut
-
-
-design -load gold
 techmap
 abc -lut 6
 select -assert-count 16 t:$lut
@@ -89,12 +83,6 @@ design -import gold -as gold
 design -import gate -as gate
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
 sat -verify -prove-asserts -show-ports miter
-
-
-design -load gold
-techmap -D NO_LSB_FIRST_SHIFT_SHIFTX
-abc9 -lut 6
-select -assert-min 17 t:$lut
 
 
 design -load gold
