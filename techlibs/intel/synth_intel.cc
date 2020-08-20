@@ -36,11 +36,11 @@ struct SynthIntelPass : public ScriptPass {
 		log("\n");
 		log("This command runs synthesis for Intel FPGAs.\n");
 		log("\n");
-		log("    -family <max10 | arria10gx | cyclone10lp | cycloneiv | cycloneive>\n");
+		log("    -family <max10 | cyclone10lp | cycloneiv | cycloneive>\n");
 		log("        generate the synthesis netlist for the specified family.\n");
 		log("        MAX10 is the default target if no family argument specified.\n");
 		log("        For Cyclone IV GX devices, use cycloneiv argument; for Cyclone IV E, use cycloneive.\n");
-		log("        Arria 10 GX devices are experimental.\n");
+		log("        For Cyclone V and Cyclone 10 GX, use the synth_intel_alm backend instead.\n");
 		log("\n");
 		log("    -top <module>\n");
 		log("        use the specified module as top module (default='top')\n");
@@ -152,7 +152,6 @@ struct SynthIntelPass : public ScriptPass {
 			log_cmd_error("Cyclone V synthesis has been moved to synth_intel_alm.\n");
 
 		if (family_opt != "max10" &&
-		    family_opt != "arria10gx" &&
 		    family_opt != "cycloneiv" &&
 		    family_opt != "cycloneive" &&
 		    family_opt != "cyclone10lp")
@@ -219,10 +218,7 @@ struct SynthIntelPass : public ScriptPass {
 		}
 
 		if (check_label("map_luts")) {
-			if (family_opt == "arria10gx")
-				run("abc -luts 2:2,3,6:5" + string(retime ? " -dff" : ""));
-			else
-				run("abc -lut 4" + string(retime ? " -dff" : ""));
+			run("abc -lut 4" + string(retime ? " -dff" : ""));
 			run("clean");
 		}
 
