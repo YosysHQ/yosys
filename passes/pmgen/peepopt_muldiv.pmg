@@ -1,16 +1,18 @@
 pattern muldiv
 
 state <SigSpec> t x y
+state <bool> is_signed
 
 match mul
 	select mul->type == $mul
 	select GetSize(port(mul, \A)) + GetSize(port(mul, \B)) <= GetSize(port(mul, \Y))
 endmatch
 
-code t x y
+code t x y is_signed
 	t = port(mul, \Y);
 	x = port(mul, \A);
 	y = port(mul, \B);
+	is_signed = param(mul, \A_SIGNED).as_bool();
 	branch;
 	std::swap(x, y);
 endcode
@@ -19,6 +21,7 @@ match div
 	select div->type.in($div)
 	index <SigSpec> port(div, \A) === t
 	index <SigSpec> port(div, \B) === x
+	filter param(div, \A_SIGNED).as_bool() == is_signed
 endmatch
 
 code
