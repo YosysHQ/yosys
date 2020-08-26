@@ -24,9 +24,34 @@ ADD_COMPILE_OPTIONS(-Wall -Wextra -ggdb -Os -g -I/usr/include/tcl -MD -fPIC)
 ADD_COMPILE_OPTIONS(-Wno-unused-parameter)
 
 IF (${ENABLE_ABC})
+
+    IF (IS_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/abc)
+        IF (EXISTS ${CMAKE_CURRENT_LIST_DIR}/abc/CMakeLists.txt)
+            SET(REQUIRE_CLONE_ABC OFF)
+        ELSE()
+            SET(REQUIRE_CLONE_ABC ON)
+        ENDIF()
+    ELSE()
+        SET(REQUIRE_CLONE_ABC ON)
+    ENDIF()
+
+    IF (REQUIRE_CLONE_ABC)
+        SET(ABCREV "341db25")
+        SET(ABCURL "https://github.com/YosysHQ/abc")
+        EXECUTE_PROCESS(
+                COMMAND git clone ${ABCURL} ${CMAKE_CURRENT_LIST_DIR}/abc
+                WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+        )
+        EXECUTE_PROCESS(
+                COMMAND git checkout ${ABCREV}
+                WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/abc
+        )
+    ENDIF()
+
+    ADD_DEFINITIONS(-DABC_USE_LIBSTDCXX=1)
     ADD_DEFINITIONS(-DYOSYS_ENABLE_ABC)
     ADD_SUBDIRECTORY(abc)
-ENDIF()
+ENDIF ()
 
 ADD_SUBDIRECTORY(kernel)
 ADD_SUBDIRECTORY(frontends)
