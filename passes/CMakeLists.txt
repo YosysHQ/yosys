@@ -69,7 +69,6 @@ SET(PASSES_OPT_SRC
         opt/opt_mem.cc
         opt/muxpack.cc
         opt/opt.cc
-        opt/opt_rmdff.cc
         opt/opt_clean.cc
         opt/opt_demorgan.cc
         )
@@ -105,7 +104,6 @@ SET(PASSES_TECHMAP_SRC
         techmap/maccmap.cc
         techmap/aigmap.cc
         techmap/nlutmap.cc
-        techmap/dff2dffs.cc
         techmap/pmuxtree.cc
         techmap/dfflegalize.cc
         techmap/libparse.cc
@@ -123,7 +121,6 @@ SET(PASSES_TECHMAP_SRC
         techmap/clkbufmap.cc
         techmap/iopadmap.cc
         techmap/dffinit.cc
-        techmap/dff2dffe.cc
         techmap/techmap.cc
         techmap/dfflibmap.cc
         techmap/shregmap.cc
