@@ -985,7 +985,7 @@ struct TechmapPass : public Pass {
 		log("    techmap [-map filename] [selection]\n");
 		log("\n");
 		log("This pass implements a very simple technology mapper that replaces cells in\n");
-		log("the design with implementations given in form of a Verilog or ilang source\n");
+		log("the design with implementations given in form of a Verilog or RTLIL source\n");
 		log("file.\n");
 		log("\n");
 		log("    -map filename\n");
@@ -1212,7 +1212,7 @@ struct TechmapPass : public Pass {
 						if (!map->module(mod->name))
 							map->add(mod->clone());
 				} else {
-					Frontend::frontend_call(map, nullptr, fn, (fn.size() > 3 && fn.compare(fn.size()-3, std::string::npos, ".il") == 0 ? "ilang" : verilog_frontend));
+					Frontend::frontend_call(map, nullptr, fn, (fn.size() > 3 && fn.compare(fn.size()-3, std::string::npos, ".il") == 0 ? "rtlil" : verilog_frontend));
 				}
 		}
 

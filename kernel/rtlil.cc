@@ -22,7 +22,7 @@
 #include "kernel/celltypes.h"
 #include "frontends/verilog/verilog_frontend.h"
 #include "frontends/verilog/preproc.h"
-#include "backends/ilang/ilang_backend.h"
+#include "backends/rtlil/rtlil_backend.h"
 
 #include <string.h>
 #include <algorithm>
@@ -923,7 +923,7 @@ namespace {
 		void error(int linenr)
 		{
 			std::stringstream buf;
-			ILANG_BACKEND::dump_cell(buf, "  ", cell);
+			RTLIL_BACKEND::dump_cell(buf, "  ", cell);
 
 			log_error("Found error in internal cell %s%s%s (%s) at %s:%d:\n%s",
 					module ? module->name.c_str() : "", module ? "." : "",

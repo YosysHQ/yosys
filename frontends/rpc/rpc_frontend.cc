@@ -378,7 +378,7 @@ struct RpcFrontend : public Pass {
 		log("    -> {\"method\": \"derive\", \"module\": \"<module-name\">, \"parameters\": {\n");
 		log("        \"<param-name>\": {\"type\": \"[unsigned|signed|string|real]\",\n");
 		log("                           \"value\": \"<param-value>\"}, ...}}\n");
-		log("    <- {\"frontend\": \"[ilang|verilog|...]\",\"source\": \"<source>\"}}\n");
+		log("    <- {\"frontend\": \"[rtlil|verilog|...]\",\"source\": \"<source>\"}}\n");
 		log("    <- {\"error\": \"<error-message>\"}\n");
 		log("        request for the module <module-name> to be derived for a specific set of\n");
 		log("        parameters. <param-name> starts with \\ for named parameters, and with $\n");

@@ -593,7 +593,7 @@ $(eval $(call add_include_file,libs/sha1/sha1.h))
 $(eval $(call add_include_file,libs/json11/json11.hpp))
 $(eval $(call add_include_file,passes/fsm/fsmdata.h))
 $(eval $(call add_include_file,frontends/ast/ast.h))
-$(eval $(call add_include_file,backends/ilang/ilang_backend.h))
+$(eval $(call add_include_file,backends/rtlil/rtlil_backend.h))
 $(eval $(call add_include_file,backends/cxxrtl/cxxrtl.h))
 $(eval $(call add_include_file,backends/cxxrtl/cxxrtl_vcd.h))
 $(eval $(call add_include_file,backends/cxxrtl/cxxrtl_capi.cc))
@@ -634,7 +634,7 @@ include $(YOSYS_SRC)/techlibs/*/Makefile.inc
 else
 
 include $(YOSYS_SRC)/frontends/verilog/Makefile.inc
-include $(YOSYS_SRC)/frontends/ilang/Makefile.inc
+include $(YOSYS_SRC)/frontends/rtlil/Makefile.inc
 include $(YOSYS_SRC)/frontends/ast/Makefile.inc
 include $(YOSYS_SRC)/frontends/blif/Makefile.inc
 
@@ -651,7 +651,7 @@ include $(YOSYS_SRC)/passes/opt/Makefile.inc
 include $(YOSYS_SRC)/passes/techmap/Makefile.inc
 
 include $(YOSYS_SRC)/backends/verilog/Makefile.inc
-include $(YOSYS_SRC)/backends/ilang/Makefile.inc
+include $(YOSYS_SRC)/backends/rtlil/Makefile.inc
 
 include $(YOSYS_SRC)/techlibs/common/Makefile.inc
 
