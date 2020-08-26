@@ -174,20 +174,62 @@ endmodule
 
 module MISTRAL_MUL27X27(input [26:0] A, B, output [53:0] Y);
 
-`MAC #(.ax_width(27), .ay_scan_in_width(27), .result_a_width(54), .operation_mode("M27x27")) _TECHMAP_REPLACE_ (.ax(A), .ay(B), .resulta(Y));
+parameter A_SIGNED = 1;
+parameter B_SIGNED = 1;
+
+`MAC #(
+    .ax_width(27),
+    .signed_max(A_SIGNED ? "true" : "false"),
+    .ay_scan_in_width(27),
+    .signed_may(B_SIGNED ? "true" : "false"),
+    .result_a_width(54),
+    .operation_mode("M27x27")
+) _TECHMAP_REPLACE_ (
+    .ax(A),
+    .ay(B),
+    .resulta(Y)
+);
 
 endmodule
 
 
 module MISTRAL_MUL18X18(input [17:0] A, B, output [35:0] Y);
 
-`MAC #(.ax_width(18), .ay_scan_in_width(18), .result_a_width(36), .operation_mode("M18x18_FULL")) _TECHMAP_REPLACE_ (.ax(B), .ay(A), .resulta(Y));
+parameter A_SIGNED = 1;
+parameter B_SIGNED = 1;
+
+`MAC #(
+    .ax_width(18),
+    .signed_max(A_SIGNED ? "true" : "false"),
+    .ay_scan_in_width(18),
+    .signed_may(B_SIGNED ? "true" : "false"),
+    .result_a_width(36),
+    .operation_mode("M18x18_FULL")
+) _TECHMAP_REPLACE_ (
+    .ax(A),
+    .ay(B),
+    .resulta(Y)
+);
 
 endmodule
 
 
 module MISTRAL_MUL9X9(input [8:0] A, B, output [17:0] Y);
 
-`MAC #(.ax_width(9), .ay_scan_in_width(9), .result_a_width(18), .operation_mode("M9x9")) _TECHMAP_REPLACE_ (.ax(A), .ay(B), .resulta(Y));
+parameter A_SIGNED = 1;
+parameter B_SIGNED = 1;
+
+`MAC #(
+    .ax_width(9),
+    .signed_max(A_SIGNED ? "true" : "false"),
+    .ay_scan_in_width(9),
+    .signed_may(B_SIGNED ? "true" : "false"),
+    .result_a_width(18),
+    .operation_mode("M9x9")
+) _TECHMAP_REPLACE_ (
+    .ax(A),
+    .ay(B),
+    .resulta(Y)
+);
 
 endmodule
