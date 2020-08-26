@@ -1,4 +1,4 @@
-PROJECT(passes)
+#PROJECT(passes)
 
 SET(PASSES_FSM_SRC
         fsm/fsmdata.h
@@ -109,12 +109,12 @@ SET(PASSES_TECHMAP_SRC
         techmap/pmuxtree.cc
         techmap/dfflegalize.cc
         techmap/libparse.cc
+        techmap/abc.cc
         techmap/abc9_ops.cc
+        techmap/abc9_exe.cc
         techmap/hilomap.cc
         techmap/extract_reduce.cc
         techmap/deminout.cc
-        techmap/filterlib.cc
-        techmap/abc.cc
         techmap/attrmvcp.cc
         techmap/lut2mux.cc
         techmap/insbuf.cc
@@ -126,7 +126,6 @@ SET(PASSES_TECHMAP_SRC
         techmap/dff2dffe.cc
         techmap/techmap.cc
         techmap/dfflibmap.cc
-        techmap/abc9_exe.cc
         techmap/shregmap.cc
         techmap/extract_fa.cc
         techmap/extract_counter.cc
@@ -202,10 +201,9 @@ SET(ENABLED_PASSES )
 MACRO(ADD_YOSYS_PASSES Name Enabled)
     OPTION(ENABLE_${Name}_PASS "Enable ${Name} pass." ${Enabled})
     IF (ENABLE_${Name}_PASS)
-        SET(PASSES_SRC
-                ${PASSES_SRC}
-                ${PASSES_${Name}_SRC}
-                )
+        FOREACH(SRC ${PASSES_${Name}_SRC})
+            LIST(APPEND PASSES_SRC ${CMAKE_CURRENT_LIST_DIR}/${SRC})
+        ENDFOREACH()
         LIST(APPEND ENABLED_PASSES ${Name})
     ENDIF()
 ENDMACRO()
@@ -219,8 +217,9 @@ ADD_YOSYS_PASSES(OPT       ON)
 ADD_YOSYS_PASSES(PMGEN     OFF)
 ADD_YOSYS_PASSES(PROC      ON)
 ADD_YOSYS_PASSES(SAT       OFF)
-ADD_YOSYS_PASSES(TECHMAP   OFF)
+ADD_YOSYS_PASSES(TECHMAP   ON)
 ADD_YOSYS_PASSES(TESTS     OFF)
 
 MESSAGE("<< Enabled passes: ${ENABLED_PASSES} >>")
-ADD_LIBRARY(${PROJECT_NAME} ${PASSES_SRC})
+#ADD_LIBRARY(${PROJECT_NAME} SHARED ${PASSES_SRC})
+SET(PASSES_SRC ${PASSES_SRC} PARENT_SCOPE)

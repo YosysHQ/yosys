@@ -1,4 +1,4 @@
 namespace Yosys {
- extern const char *yosys_version_str;
- const char *yosys_version_str="@YOSYS_VER_STR@";
+    extern const char *yosys_version_str;
+    const char *yosys_version_str="Yosys @YOSYS_VER@ (git sha1 @GIT_REV@), @CXX_NAME@ @CXX_VER@ @CC_FLAGS_THUMB@)";
 }
