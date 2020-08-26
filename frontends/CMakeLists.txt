@@ -19,13 +19,12 @@ SET(BLIF_FE_SOURCES
         blif/blifparse.h
         )
 
+ADD_SUBDIRECTORY(ilang)
 SET(ILANG_FE_SOURCES
         ilang/ilang_frontend.cc
         ilang/ilang_frontend.h
-        ilang/ilang_lexer.cc
-        ilang/ilang_parser.tab.cc
-        ilang/ilang_parser.tab.hh
         )
+SET(ILANG_FE_SOURCES_ORG ${ILangParserSrc})
 
 SET(JSON_FE_SOURCES
         json/jsonparse.cc
@@ -45,16 +44,15 @@ SET(VERIFIC_FE_SOURCES
         verific/verificsva.cc
         )
 
+ADD_SUBDIRECTORY(verilog)
 SET(VERILOG_FE_SOURCES
         verilog/const2ast.cc
         verilog/preproc.cc
         verilog/preproc.h
         verilog/verilog_frontend.cc
         verilog/verilog_frontend.h
-        verilog/verilog_lexer.cc
-        verilog/verilog_parser.tab.cc
-        verilog/verilog_parser.tab.hh
         )
+SET(VERILOG_FE_SOURCES_ORG ${VerilogParserSrc})
 
 
 SET(FRONTENDS_SRC )
@@ -66,6 +64,7 @@ MACRO(ADD_YOSYS_FRONTENDS Name Enabled)
         FOREACH(SRC ${${Name}_FE_SOURCES})
             LIST(APPEND FRONTENDS_SRC ${CMAKE_CURRENT_LIST_DIR}/${SRC})
         ENDFOREACH()
+        LIST(APPEND FRONTENDS_SRC ${${Name}_FE_SOURCES_ORG})
         LIST(APPEND ENABLED_FRONTENDS ${Name})
     ENDIF()
 ENDMACRO()
