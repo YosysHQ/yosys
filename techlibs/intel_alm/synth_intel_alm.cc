@@ -214,15 +214,15 @@ struct SynthIntelALMPass : public ScriptPass {
 				run("techmap -map +/mul2dsp.v [...]", "(unless -nodsp)");
 			} else if (!nodsp) {
 				// Cyclone V supports 9x9 multiplication, Cyclone 10 GX does not.
-				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=27 -D DSP_B_MAXWIDTH=27  -D DSP_A_MINWIDTH=19 -D DSP_B_MINWIDTH=19  -D DSP_SIGNEDONLY  -D DSP_NAME=__MUL27X27");
+				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=27 -D DSP_B_MAXWIDTH=27  -D DSP_A_MINWIDTH=19 -D DSP_B_MINWIDTH=19 -D DSP_NAME=__MUL27X27");
 				run("chtype -set $mul t:$__soft_mul");
 				if (family_opt == "cyclonev") {
-					run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18  -D DSP_A_MINWIDTH=10 -D DSP_B_MINWIDTH=10  -D DSP_SIGNEDONLY  -D DSP_NAME=__MUL18X18");
+					run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18  -D DSP_A_MINWIDTH=10 -D DSP_B_MINWIDTH=10 -D DSP_NAME=__MUL18X18");
 					run("chtype -set $mul t:$__soft_mul");
-					run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=9 -D DSP_B_MAXWIDTH=9  -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=4  -D DSP_SIGNEDONLY  -D DSP_NAME=__MUL9X9");
+					run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=9 -D DSP_B_MAXWIDTH=9  -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=4 -D DSP_NAME=__MUL9X9");
 					run("chtype -set $mul t:$__soft_mul");
 				} else if (family_opt == "cyclone10gx") {
-					run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18  -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=4  -D DSP_SIGNEDONLY  -D DSP_NAME=__MUL18X18");
+					run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18  -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=4 -D DSP_NAME=__MUL18X18");
 					run("chtype -set $mul t:$__soft_mul");
 				}
 			}

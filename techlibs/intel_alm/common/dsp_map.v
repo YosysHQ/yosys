@@ -1,3 +1,5 @@
+`default_nettype none
+
 module __MUL27X27(A, B, Y);
 
 parameter A_SIGNED = 1;
