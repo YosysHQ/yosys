@@ -418,7 +418,8 @@ unmap_enable:
 					ff_type = has_set ? FF_ADFFE1 : FF_ADFFE0;
 					break;
 				}
-				if (supported_dffsr & initmask) {
+				if (supported_cells[has_en ? FF_DFFSRE : FF_DFFSR] & initmask) {
+adff_to_dffsr:
 					// Throw in a set/reset, retry in DFFSR/DFFSRE branch.
 					if (has_set) {
 						sig_s = sig_r;
@@ -440,6 +441,9 @@ unmap_enable:
 					// Unmap enable.
 					ff_type = has_set ? FF_ADFF1 : FF_ADFF0;
 					goto unmap_enable;
+				}
+				if (supported_dffsr & initmask) {
+					goto adff_to_dffsr;
 				}
 				log_assert(!((has_set ? supported_adff1 : supported_adff0) & initmask));
 				// Alright, so this particular combination of initval and
