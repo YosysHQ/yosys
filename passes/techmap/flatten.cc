@@ -152,15 +152,14 @@ struct FlattenWorker
 
 		// Attach port connections of the flattened cell
 
-		SigMap tpl_sigmap(tpl);
 		pool<SigBit> tpl_driven;
 		for (auto tpl_cell : tpl->cells())
 			for (auto &tpl_conn : tpl_cell->connections())
 				if (tpl_cell->output(tpl_conn.first))
-					for (auto bit : tpl_sigmap(tpl_conn.second))
+					for (auto bit : tpl_conn.second)
 						tpl_driven.insert(bit);
 		for (auto &tpl_conn : tpl->connections())
-			for (auto bit : tpl_sigmap(tpl_conn.first))
+			for (auto bit : tpl_conn.first)
 				tpl_driven.insert(bit);
 
 		SigMap sigmap(module);
@@ -190,7 +189,7 @@ struct FlattenWorker
 			} else {
 				SigSpec sig_tpl = tpl_wire, sig_mod = port_it.second;
 				for (int i = 0; i < GetSize(sig_tpl) && i < GetSize(sig_mod); i++) {
-					if (tpl_driven.count(tpl_sigmap(sig_tpl[i]))) {
+					if (tpl_driven.count(sig_tpl[i])) {
 						new_conn.first.append(sig_mod[i]);
 						new_conn.second.append(sig_tpl[i]);
 					} else {

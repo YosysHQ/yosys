@@ -233,16 +233,14 @@ struct TechmapWorker
 			}
 		}
 
-		SigMap tpl_sigmap(tpl);
 		pool<SigBit> tpl_written_bits;
-
 		for (auto tpl_cell : tpl->cells())
 		for (auto &conn : tpl_cell->connections())
 			if (tpl_cell->output(conn.first))
-				for (auto bit : tpl_sigmap(conn.second))
+				for (auto bit : conn.second)
 					tpl_written_bits.insert(bit);
 		for (auto &conn : tpl->connections())
-			for (auto bit : tpl_sigmap(conn.first))
+			for (auto bit : conn.first)
 				tpl_written_bits.insert(bit);
 
 		SigMap port_signal_map;
@@ -280,7 +278,7 @@ struct TechmapWorker
 				SigSpec sig_tpl = w, sig_tpl_pf = w, sig_mod = it.second;
 				apply_prefix(cell->name, sig_tpl_pf, module);
 				for (int i = 0; i < GetSize(sig_tpl) && i < GetSize(sig_mod); i++) {
-					if (tpl_written_bits.count(tpl_sigmap(sig_tpl[i]))) {
+					if (tpl_written_bits.count(sig_tpl[i])) {
 						c.first.append(sig_mod[i]);
 						c.second.append(sig_tpl_pf[i]);
 					} else {
