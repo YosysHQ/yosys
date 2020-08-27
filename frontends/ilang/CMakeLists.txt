@@ -3,7 +3,7 @@ MACRO(CONFIG_ILANG_FLEX_BISON WORKING_DIRECTORY)
     BISON_TARGET(ILangParser
             ${WORKING_DIRECTORY}/ilang_parser.y
             ${WORKING_DIRECTORY}/ilang_parser.tab.cc
-            COMPILE_FLAGS "-Wall -Werror -d -r all -b ilang_parser"
+            COMPILE_FLAGS "-d -r all -b ilang_parser"
             DEFINES_FILE ${WORKING_DIRECTORY}/ilang_parser.tab.hh
             )
     FLEX_TARGET (ILangScanner
