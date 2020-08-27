@@ -1,9 +1,12 @@
 
 #PROJECT(techlibs)
 
+ADD_SUBDIRECTORY(common)
+
 SET(ANLOGIC_TECHLIB_SOURCES     anlogic/anlogic_fixcarry.cc anlogic/synth_anlogic.cc anlogic/anlogic_eqn.cc)
 SET(ACHRONIX_TECHLIB_SOURCES    achronix/synth_achronix.cc)
 SET(COMMON_TECHLIB_SOURCES      common/prep.cc common/synth.cc)
+SET(COMMON_TECHLIB_SOURCES_ORG  ${TL_COMMON_GEN_FILELIST})
 SET(COOLRUNNER2_TECHLIB_SOURCES coolrunner2/coolrunner2_fixup.cc coolrunner2/coolrunner2_sop.cc coolrunner2/synth_coolrunner2.cc)
 SET(EASIC_TECHLIB_SOURCES       easic/synth_easic.cc)
 SET(ECP5_TECHLIB_SOURCES        ecp5/ecp5_gsr.cc ecp5/synth_ecp5.cc)
@@ -22,6 +25,7 @@ SET(ENABLED_TECHLIBS )
 MACRO(ADD_YOSYS_TECHLIBS Name Enabled)
     OPTION(ENABLE_${Name}_TECHLIB "Enable ${Name} frontend." ${Enabled})
     IF (ENABLE_${Name}_TECHLIB)
+        LIST(APPEND TECHLIBS_SRC ${${Name}_TECHLIB_SOURCES_ORG})
         FOREACH(SRC ${${Name}_TECHLIB_SOURCES})
             LIST(APPEND TECHLIBS_SRC ${CMAKE_CURRENT_LIST_DIR}/${SRC})
         ENDFOREACH()
@@ -47,3 +51,7 @@ ADD_YOSYS_TECHLIBS(XILINX      OFF)
 MESSAGE("<< Enabled techlibs: ${ENABLED_TECHLIBS} >>")
 #ADD_LIBRARY(${PROJECT_NAME} ${TECHLIBS_SRC})
 SET(TECHLIBS_SRC ${TECHLIBS_SRC} PARENT_SCOPE)
+
+MACRO(ConfigSource WORKING_DIRECTORY)
+    CONFIG_TECHLIB_COMMON_SIMHELP(${WORKING_DIRECTORY}/common)
+ENDMACRO()

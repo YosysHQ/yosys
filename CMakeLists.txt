@@ -5,6 +5,7 @@ SET(CMAKE_C_STANDARD 11)
 SET(CMAKE_CXX_STANDARD 11)
 FIND_PACKAGE(FLEX)
 FIND_PACKAGE(BISON)
+FIND_PROGRAM(PythonInterpreter python3 python)
 
 OPTION(ENABLE_ABC "Enable use ABC library." ON)
 
@@ -53,20 +54,25 @@ IF (${ENABLE_ABC})
     ADD_SUBDIRECTORY(abc)
 ENDIF ()
 
-ADD_SUBDIRECTORY(kernel)
-ADD_SUBDIRECTORY(frontends)
-ADD_SUBDIRECTORY(passes)
-ADD_SUBDIRECTORY(backends)
-ADD_SUBDIRECTORY(techlibs)
-ADD_SUBDIRECTORY(libs)
+MACRO(ADD_MODULE ModuleName)
+    ADD_SUBDIRECTORY(${ModuleName})
+    ConfigSource(${CMAKE_CURRENT_LIST_DIR}/${ModuleName})
+ENDMACRO()
+
+ADD_MODULE(kernel)
+ADD_MODULE(frontends)
+ADD_MODULE(passes)
+ADD_MODULE(backends)
+ADD_MODULE(techlibs)
+ADD_MODULE(libs)
 
 SET(SRC_LIST
-        ${KERNEL_SRC}
         ${FRONTENDS_SRC}
         ${PASSES_SRC}
         ${BACKENDS_SRC}
         ${TECHLIBS_SRC}
         ${LIBS_SRC}
+        ${KERNEL_SRC}
         )
 
 ADD_EXECUTABLE(${PROJECT_NAME} ${SRC_LIST})

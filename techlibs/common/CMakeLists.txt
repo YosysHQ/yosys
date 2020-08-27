@@ -1,0 +1,21 @@
+
+MACRO(GENERATE_INC_FILE_WITH_PYTHON OUTFILE WORKING_DIRECTORY)
+    ADD_CUSTOM_COMMAND(OUTPUT ${OUTFILE}
+            COMMAND "${PythonInterpreter} ${ARGN}" > ${OUTFILE}
+            VERBATIM
+            DEPENDS ${ARGN}
+            COMMENT "[PYTHON][${OUTFILE}] Building inc file with ${PythonInterpreter}"
+            WORKING_DIRECTORY ${WORKING_DIRECTORY}
+    )
+ENDMACRO()
+
+MACRO(CONFIG_TECHLIB_COMMON_SIMHELP WORKING_DIRECTORY)
+    GENERATE_INC_FILE_WITH_PYTHON(simlib_help.inc   ${WORKING_DIRECTORY} cellhelp.py simlib.v)
+    GENERATE_INC_FILE_WITH_PYTHON(simcells_help.inc ${WORKING_DIRECTORY} cellhelp.py simcells.v)
+ENDMACRO()
+
+SET(TL_COMMON_GEN_FILELIST
+        ${CMAKE_CURRENT_LIST_DIR}/simlib.v
+        ${CMAKE_CURRENT_LIST_DIR}/simcells.v
+        PARENT_SCOPE
+        )
