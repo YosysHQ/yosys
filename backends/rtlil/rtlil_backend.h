@@ -18,19 +18,19 @@
  *  ---
  *
  *  A very simple and straightforward backend for the RTLIL text
- *  representation (as understood by the 'ilang' frontend).
+ *  representation.
  *
  */
 
-#ifndef ILANG_BACKEND_H
-#define ILANG_BACKEND_H
+#ifndef RTLIL_BACKEND_H
+#define RTLIL_BACKEND_H
 
 #include "kernel/yosys.h"
 #include <stdio.h>
 
 YOSYS_NAMESPACE_BEGIN
 
-namespace ILANG_BACKEND {
+namespace RTLIL_BACKEND {
 	void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int offset = 0, bool autoint = true);
 	void dump_sigchunk(std::ostream &f, const RTLIL::SigChunk &chunk, bool autoint = true);
 	void dump_sigspec(std::ostream &f, const RTLIL::SigSpec &sig, bool autoint = true);

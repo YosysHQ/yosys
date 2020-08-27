@@ -930,7 +930,7 @@ void run_frontend(std::string filename, std::string command, std::string *backen
 		else if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-5, std::string::npos, ".json") == 0)
 			command = "json";
 		else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".il") == 0)
-			command = "ilang";
+			command = "rtlil";
 		else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".ys") == 0)
 			command = "script";
 		else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".tcl") == 0)
@@ -1053,7 +1053,7 @@ void run_backend(std::string filename, std::string command, RTLIL::Design *desig
 		else if (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".sv") == 0)
 			command = "verilog -sv";
 		else if (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".il") == 0)
-			command = "ilang";
+			command = "rtlil";
 		else if (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".cc") == 0)
 			command = "cxxrtl";
 		else if (filename.size() > 4 && filename.compare(filename.size()-4, std::string::npos, ".aig") == 0)
@@ -1065,7 +1065,7 @@ void run_backend(std::string filename, std::string command, RTLIL::Design *desig
 		else if (filename.size() > 5 && filename.compare(filename.size()-5, std::string::npos, ".json") == 0)
 			command = "json";
 		else if (filename == "-")
-			command = "ilang";
+			command = "rtlil";
 		else if (filename.empty())
 			return;
 		else

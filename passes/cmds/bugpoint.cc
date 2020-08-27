@@ -18,10 +18,10 @@
  */
 
 #include "kernel/yosys.h"
-#include "backends/ilang/ilang_backend.h"
+#include "backends/rtlil/rtlil_backend.h"
 
 USING_YOSYS_NAMESPACE
-using namespace ILANG_BACKEND;
+using namespace RTLIL_BACKEND;
 PRIVATE_NAMESPACE_BEGIN
 
 struct BugpointPass : public Pass {
@@ -90,7 +90,7 @@ struct BugpointPass : public Pass {
 		design->sort();
 
 		std::ofstream f("bugpoint-case.il");
-		ILANG_BACKEND::dump_design(f, design, /*only_selected=*/false, /*flag_m=*/true, /*flag_n=*/false);
+		RTLIL_BACKEND::dump_design(f, design, /*only_selected=*/false, /*flag_m=*/true, /*flag_n=*/false);
 		f.close();
 
 		string yosys_cmdline = stringf("%s -qq -L bugpoint-case.log -s %s bugpoint-case.il", yosys_cmd.c_str(), script.c_str());

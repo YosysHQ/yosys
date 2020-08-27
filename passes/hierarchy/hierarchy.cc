@@ -224,7 +224,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 				{
 					{".v", "verilog"},
 					{".sv", "verilog -sv"},
-					{".il", "ilang"}
+					{".il", "rtlil"}
 				};
 
 				for (auto &ext : extensions_list)

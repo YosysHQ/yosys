@@ -171,7 +171,7 @@ static void test_abcloop()
 	}
 
 	log("Found viable UUT after %d cycles:\n", create_cycles);
-	Pass::call(design, "write_ilang");
+	Pass::call(design, "write_rtlil");
 	Pass::call(design, "abc");
 
 	log("\n");

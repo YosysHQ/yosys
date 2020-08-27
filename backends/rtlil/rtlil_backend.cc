@@ -18,19 +18,19 @@
  *  ---
  *
  *  A very simple and straightforward backend for the RTLIL text
- *  representation (as understood by the 'ilang' frontend).
+ *  representation.
  *
  */
 
-#include "ilang_backend.h"
+#include "rtlil_backend.h"
 #include "kernel/yosys.h"
 #include <errno.h>
 
 USING_YOSYS_NAMESPACE
-using namespace ILANG_BACKEND;
+using namespace RTLIL_BACKEND;
 YOSYS_NAMESPACE_BEGIN
 
-void ILANG_BACKEND::dump_const(std::ostream &f, const RTLIL::Const &data, int width, int offset, bool autoint)
+void RTLIL_BACKEND::dump_const(std::ostream &f, const RTLIL::Const &data, int width, int offset, bool autoint)
 {
 	if (width < 0)
 		width = data.bits.size() - offset;
@@ -83,7 +83,7 @@ void ILANG_BACKEND::dump_const(std::ostream &f, const RTLIL::Const &data, int wi
 	}
 }
 
-void ILANG_BACKEND::dump_sigchunk(std::ostream &f, const RTLIL::SigChunk &chunk, bool autoint)
+void RTLIL_BACKEND::dump_sigchunk(std::ostream &f, const RTLIL::SigChunk &chunk, bool autoint)
 {
 	if (chunk.wire == NULL) {
 		dump_const(f, chunk.data, chunk.width, chunk.offset, autoint);
@@ -97,7 +97,7 @@ void ILANG_BACKEND::dump_sigchunk(std::ostream &f, const RTLIL::SigChunk &chunk,
 	}
 }
 
-void ILANG_BACKEND::dump_sigspec(std::ostream &f, const RTLIL::SigSpec &sig, bool autoint)
+void RTLIL_BACKEND::dump_sigspec(std::ostream &f, const RTLIL::SigSpec &sig, bool autoint)
 {
 	if (sig.is_chunk()) {
 		dump_sigchunk(f, sig.as_chunk(), autoint);
@@ -111,7 +111,7 @@ void ILANG_BACKEND::dump_sigspec(std::ostream &f, const RTLIL::SigSpec &sig, boo
 	}
 }
 
-void ILANG_BACKEND::dump_wire(std::ostream &f, std::string indent, const RTLIL::Wire *wire)
+void RTLIL_BACKEND::dump_wire(std::ostream &f, std::string indent, const RTLIL::Wire *wire)
 {
 	for (auto &it : wire->attributes) {
 		f << stringf("%s" "attribute %s ", indent.c_str(), it.first.c_str());
@@ -136,7 +136,7 @@ void ILANG_BACKEND::dump_wire(std::ostream &f, std::string indent, const RTLIL::
 	f << stringf("%s\n", wire->name.c_str());
 }
 
-void ILANG_BACKEND::dump_memory(std::ostream &f, std::string indent, const RTLIL::Memory *memory)
+void RTLIL_BACKEND::dump_memory(std::ostream &f, std::string indent, const RTLIL::Memory *memory)
 {
 	for (auto &it : memory->attributes) {
 		f << stringf("%s" "attribute %s ", indent.c_str(), it.first.c_str());
@@ -153,7 +153,7 @@ void ILANG_BACKEND::dump_memory(std::ostream &f, std::string indent, const RTLIL
 	f << stringf("%s\n", memory->name.c_str());
 }
 
-void ILANG_BACKEND::dump_cell(std::ostream &f, std::string indent, const RTLIL::Cell *cell)
+void RTLIL_BACKEND::dump_cell(std::ostream &f, std::string indent, const RTLIL::Cell *cell)
 {
 	for (auto &it : cell->attributes) {
 		f << stringf("%s" "attribute %s ", indent.c_str(), it.first.c_str());
@@ -177,7 +177,7 @@ void ILANG_BACKEND::dump_cell(std::ostream &f, std::string indent, const RTLIL::
 	f << stringf("%s" "end\n", indent.c_str());
 }
 
-void ILANG_BACKEND::dump_proc_case_body(std::ostream &f, std::string indent, const RTLIL::CaseRule *cs)
+void RTLIL_BACKEND::dump_proc_case_body(std::ostream &f, std::string indent, const RTLIL::CaseRule *cs)
 {
 	for (auto it = cs->actions.begin(); it != cs->actions.end(); ++it)
 	{
@@ -192,7 +192,7 @@ void ILANG_BACKEND::dump_proc_case_body(std::ostream &f, std::string indent, con
 		dump_proc_switch(f, indent, *it);
 }
 
-void ILANG_BACKEND::dump_proc_switch(std::ostream &f, std::string indent, const RTLIL::SwitchRule *sw)
+void RTLIL_BACKEND::dump_proc_switch(std::ostream &f, std::string indent, const RTLIL::SwitchRule *sw)
 {
 	for (auto it = sw->attributes.begin(); it != sw->attributes.end(); ++it) {
 		f << stringf("%s" "attribute %s ", indent.c_str(), it->first.c_str());
@@ -225,7 +225,7 @@ void ILANG_BACKEND::dump_proc_switch(std::ostream &f, std::string indent, const 
 	f << stringf("%s" "end\n", indent.c_str());
 }
 
-void ILANG_BACKEND::dump_proc_sync(std::ostream &f, std::string indent, const RTLIL::SyncRule *sy)
+void RTLIL_BACKEND::dump_proc_sync(std::ostream &f, std::string indent, const RTLIL::SyncRule *sy)
 {
 	f << stringf("%s" "sync ", indent.c_str());
 	switch (sy->type) {
@@ -251,7 +251,7 @@ void ILANG_BACKEND::dump_proc_sync(std::ostream &f, std::string indent, const RT
 	}
 }
 
-void ILANG_BACKEND::dump_proc(std::ostream &f, std::string indent, const RTLIL::Process *proc)
+void RTLIL_BACKEND::dump_proc(std::ostream &f, std::string indent, const RTLIL::Process *proc)
 {
 	for (auto it = proc->attributes.begin(); it != proc->attributes.end(); ++it) {
 		f << stringf("%s" "attribute %s ", indent.c_str(), it->first.c_str());
@@ -265,7 +265,7 @@ void ILANG_BACKEND::dump_proc(std::ostream &f, std::string indent, const RTLIL::
 	f << stringf("%s" "end\n", indent.c_str());
 }
 
-void ILANG_BACKEND::dump_conn(std::ostream &f, std::string indent, const RTLIL::SigSpec &left, const RTLIL::SigSpec &right)
+void RTLIL_BACKEND::dump_conn(std::ostream &f, std::string indent, const RTLIL::SigSpec &left, const RTLIL::SigSpec &right)
 {
 	f << stringf("%s" "connect ", indent.c_str());
 	dump_sigspec(f, left);
@@ -274,7 +274,7 @@ void ILANG_BACKEND::dump_conn(std::ostream &f, std::string indent, const RTLIL::
 	f << stringf("\n");
 }
 
-void ILANG_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Module *module, RTLIL::Design *design, bool only_selected, bool flag_m, bool flag_n)
+void RTLIL_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Module *module, RTLIL::Design *design, bool only_selected, bool flag_m, bool flag_n)
 {
 	bool print_header = flag_m || design->selected_whole_module(module->name);
 	bool print_body = !flag_n || !design->selected_whole_module(module->name);
@@ -360,7 +360,7 @@ void ILANG_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Modu
 		f << stringf("%s" "end\n", indent.c_str());
 }
 
-void ILANG_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool only_selected, bool flag_m, bool flag_n)
+void RTLIL_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool only_selected, bool flag_m, bool flag_n)
 {
 	int init_autoidx = autoidx;
 
@@ -396,15 +396,15 @@ void ILANG_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool onl
 YOSYS_NAMESPACE_END
 PRIVATE_NAMESPACE_BEGIN
 
-struct IlangBackend : public Backend {
-	IlangBackend() : Backend("ilang", "write design to ilang file") { }
+struct RTLILBackend : public Backend {
+	RTLILBackend() : Backend("rtlil", "write design to RTLIL file") { }
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    write_ilang [filename]\n");
+		log("    write_rtlil [filename]\n");
 		log("\n");
-		log("Write the current design to an 'ilang' file. (ilang is a text representation\n");
+		log("Write the current design to an RTLIL file. (RTLIL is a text representation\n");
 		log("of a design in yosys's internal format.)\n");
 		log("\n");
 		log("    -selected\n");
@@ -415,7 +415,7 @@ struct IlangBackend : public Backend {
 	{
 		bool selected = false;
 
-		log_header(design, "Executing ILANG backend.\n");
+		log_header(design, "Executing RTLIL backend.\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -432,12 +432,27 @@ struct IlangBackend : public Backend {
 
 		log("Output filename: %s\n", filename.c_str());
 		*f << stringf("# Generated by %s\n", yosys_version_str);
-		ILANG_BACKEND::dump_design(*f, design, selected, true, false);
+		RTLIL_BACKEND::dump_design(*f, design, selected, true, false);
+	}
+} RTLILBackend;
+
+struct IlangBackend : public Backend {
+	IlangBackend() : Backend("ilang", "(deprecated) alias of write_rtlil") { }
+	void help() override
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("See `help write_rtlil`.\n");
+		log("\n");
+	}
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
+	{
+		RTLILBackend.execute(f, filename, args, design);
 	}
 } IlangBackend;
 
 struct DumpPass : public Pass {
-	DumpPass() : Pass("dump", "print parts of the design in ilang format") { }
+	DumpPass() : Pass("dump", "print parts of the design in RTLIL format") { }
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -445,7 +460,7 @@ struct DumpPass : public Pass {
 		log("    dump [options] [selection]\n");
 		log("\n");
 		log("Write the selected parts of the design to the console or specified file in\n");
-		log("ilang format.\n");
+		log("RTLIL format.\n");
 		log("\n");
 		log("    -m\n");
 		log("        also dump the module headers, even if only parts of a single\n");
@@ -508,7 +523,7 @@ struct DumpPass : public Pass {
 			f = &buf;
 		}
 
-		ILANG_BACKEND::dump_design(*f, design, true, flag_m, flag_n);
+		RTLIL_BACKEND::dump_design(*f, design, true, flag_m, flag_n);
 
 		if (!filename.empty()) {
 			delete f;
