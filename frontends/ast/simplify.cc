@@ -3211,14 +3211,15 @@ skip_dynamic_range_lvalue_expansion:;
 				if (wire_cache.count(child->str))
 				{
 					wire = wire_cache.at(child->str);
-					if (wire->children.empty()) {
+					bool contains_value = wire->type == AST_LOCALPARAM;
+					if (wire->children.size() == contains_value) {
 						for (auto c : child->children)
 							wire->children.push_back(c->clone());
 					} else if (!child->children.empty()) {
 						while (child->simplify(true, false, false, stage, -1, false, false)) { }
-						if (GetSize(child->children) == GetSize(wire->children)) {
+						if (GetSize(child->children) == GetSize(wire->children) - contains_value) {
 							for (int i = 0; i < GetSize(child->children); i++)
-								if (*child->children.at(i) != *wire->children.at(i))
+								if (*child->children.at(i) != *wire->children.at(i + contains_value))
 									goto tcall_incompatible_wires;
 						} else {
 					tcall_incompatible_wires:
