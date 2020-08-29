@@ -1403,7 +1403,7 @@ struct Smt2Backend : public Backend {
 		log("        the given option as a `(set-option ...)` command in the SMT-LIBv2.\n");
 		log("\n");
 		log("[1] For more information on SMT-LIBv2 visit http://smt-lib.org/ or read David\n");
-		log("R. Cok's tutorial: http://www.grammatech.com/resources/smt/SMTLIBTutorial.pdf\n");
+		log("R. Cok's tutorial: https://smtlib.github.io/jSMTLIB/SMTLIBTutorial.pdf\n");
 		log("\n");
 		log("---------------------------------------------------------------------------\n");
 		log("\n");
