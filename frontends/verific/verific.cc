@@ -203,8 +203,12 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 				auto p = v;
 				if (p) {
 					if (*p != '"') {
-						if (p != nullptr)
-							attributes.emplace(stringf("\\enum_value_%s", p), RTLIL::escape_id(k));
+						auto l = strlen(p);
+						auto q = (char*)malloc(l+1);
+						strncpy(q, p, l);
+						q[l] = '\0';
+						for(char *ptr = q; *ptr; ++ptr )*ptr = tolower(*ptr);
+						attributes.emplace(stringf("\\enum_value_%s", q), RTLIL::escape_id(k));
 					} else {
 						auto *q = p+1;
 						for (; *q != '"'; q++)
