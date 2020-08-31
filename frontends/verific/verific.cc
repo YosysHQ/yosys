@@ -2475,7 +2475,7 @@ struct VerificPass : public Pass {
 			goto check_error;
 		}
 
-		if (args[argidx] == "-app" && argidx+1 < GetSize(args))
+		if (argidx+1 < GetSize(args) && args[argidx] == "-app")
 		{
 			VerificFormalApplications vfa;
 			auto apps = vfa.GetApps();
@@ -2519,7 +2519,7 @@ struct VerificPass : public Pass {
 			goto check_error;
 		}
 
-		if (args[argidx] == "-pp" && argidx < GetSize(args))
+		if (argidx < GetSize(args) && args[argidx] == "-pp")
 		{
 			const char* filename = nullptr;
 			const char* module = nullptr;
@@ -2561,7 +2561,7 @@ struct VerificPass : public Pass {
 			goto check_error;
 		}
 
-		if (args[argidx] == "-template" && argidx < GetSize(args))
+		if (argidx < GetSize(args) && args[argidx] == "-template")
 		{
 			if (!(argidx < GetSize(args)))
 				cmd_error(args, argidx, "No template type specified.\n");
