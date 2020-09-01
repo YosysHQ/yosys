@@ -110,6 +110,12 @@ std::string AstNode::process_format_str(const std::string &sformat, int next_arg
 						goto unsupported_format;
 					break;
 
+				case 'l':
+				case 'L':
+					if (got_len)
+						goto unsupported_format;
+					break;
+
 				default:
 				unsupported_format:
 					log_file_error(filename, location.first_line, "System task `%s' called with invalid/unsupported format specifier.\n", str.c_str());
@@ -152,6 +158,11 @@ std::string AstNode::process_format_str(const std::string &sformat, int next_arg
 
 				case 'm':
 				case 'M':
+					sout += log_id(current_module->name);
+					break;
+
+				case 'l':
+				case 'L':
 					sout += log_id(current_module->name);
 					break;
 
