@@ -1597,6 +1597,13 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	if (type == AST_IDENTIFIER) {
 		if (current_scope.count(str) == 0) {
 			AstNode *current_scope_ast = (current_ast_mod == nullptr) ? current_ast : current_ast_mod;
+			const std::string& mod_scope = current_scope_ast->str;
+			if (str[0] == '\\' && str.substr(0, mod_scope.size()) == mod_scope) {
+				std::string new_str = "\\" + str.substr(mod_scope.size() + 1);
+				if (current_scope.count(new_str)) {
+					str = new_str;
+				}
+			}
 			for (auto node : current_scope_ast->children) {
 				//log("looking at mod scope child %s\n", type2str(node->type).c_str());
 				switch (node->type) {
