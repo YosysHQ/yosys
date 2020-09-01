@@ -4507,6 +4507,18 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 
 		log_assert(variables.count(str) != 0);
 
+		if (stmt->type == AST_LOCALPARAM)
+		{
+			while (stmt->simplify(true, false, false, 1, -1, false, true)) { }
+
+			if (!backup_scope.count(stmt->str))
+				backup_scope[stmt->str] = current_scope[stmt->str];
+			current_scope[stmt->str] = stmt;
+
+			block->children.erase(block->children.begin());
+			continue;
+		}
+
 		if (stmt->type == AST_ASSIGN_EQ)
 		{
 			if (stmt->children.at(0)->type == AST_IDENTIFIER && stmt->children.at(0)->children.size() != 0 &&
