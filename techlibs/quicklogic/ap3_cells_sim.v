@@ -19,12 +19,12 @@ endmodule
 module ff(
     output reg CQZ,
     input D,
-    (* clkbuf_sink *)
+    //(* clkbuf_sink *)
     input QCK,
     input QEN,
-    (* clkbuf_sink *)
+    //(* clkbuf_sink *)
     input QRT,
-    (* clkbuf_sink *)
+    //(* clkbuf_sink *)
     input QST
 );
     parameter [0:0] INIT = 1'b0;
@@ -92,24 +92,25 @@ endmodule /* out buff */
 
 module d_buff ( 
     (* iopad_external_pin *)
-	output Q,
-	input EN
+	output Q
 );
-
-
-	assign Q = EN ? 1'b1 : 1'b0;
+	parameter DSEL = 1'b0;
+	assign Q = DSEL ? 1'b1 : 1'b0;
 	
 endmodule /* d buff */
 
 module in_reg (
 	output dataOut,
+	(* clkbuf_inhibit *) 
 	input clk, 
-	input sel, 
-	input hold, 
+	(* iopad_external_pin *)
 	input rst, 
 	(* iopad_external_pin *)
 	input dataIn
 );
+
+	parameter ISEL = 0; 
+	parameter FIXHOLD = 0;
 
 	wire dataIn_reg_int, dataIn_reg_int_buff;
 	wire fixhold_mux_op;
@@ -120,7 +121,7 @@ module in_reg (
 
 	assign dataIn_reg_int_buff = dataIn_reg_int;
 
-	assign fixhold_mux_op = hold ? dataIn_reg_int_buff : dataIn_reg_int;
+	assign fixhold_mux_op = (FIXHOLD) ? dataIn_reg_int_buff : dataIn_reg_int;
 
 	always @(posedge clk or posedge rst)
 	begin
@@ -130,19 +131,21 @@ module in_reg (
 			iqz_reg <= fixhold_mux_op;	
 	end
 
-	assign dataOut = sel ? dataIn_reg_int : iqz_reg;
+	assign dataOut = (ISEL) ? dataIn_reg_int : iqz_reg;
 
 endmodule /* in_reg*/
 
 module out_reg (
 	(* iopad_external_pin *)
 	output dataOut,
+	(* clkbuf_inhibit *) 
 	input clk, 
-	input sel,
+	(* iopad_external_pin *)
 	input rst, 
 	input dataIn
 );
 
+	parameter OSEL = 0; 
 	wire sel_mux_op;
 
     reg dataOut_reg;
@@ -155,7 +158,7 @@ module out_reg (
             dataOut_reg <= dataIn;
     end
 
-    assign sel_mux_op = sel ? dataIn : dataOut_reg;
+    assign sel_mux_op = (OSEL) ? dataIn : dataOut_reg;
 
     assign dataOut = sel_mux_op;
 
