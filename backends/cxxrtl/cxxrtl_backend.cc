@@ -1662,7 +1662,14 @@ struct CxxrtlWorker {
 					// Member wire
 					f << indent << "items.add(path + " << escape_cxx_string(get_hdl_name(wire));
 					f << ", debug_item(" << mangle(wire) << ", ";
-					f << wire->start_offset << "));\n";
+					f << wire->start_offset;
+					if (wire->port_input && wire->port_output)
+						f << ", debug_item::INOUT";
+					else if (wire->port_input)
+						f << ", debug_item::INPUT";
+					else if (wire->port_output)
+						f << ", debug_item::OUTPUT";
+					f << "));\n";
 					count_member_wires++;
 				} else {
 					count_skipped_wires++;

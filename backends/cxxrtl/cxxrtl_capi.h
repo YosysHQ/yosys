@@ -112,6 +112,28 @@ enum cxxrtl_type {
 	// More object types may be added in the future, but the existing ones will never change.
 };
 
+// Flags of a simulated object.
+enum cxxrtl_flag {
+	// Node is a module input port.
+	//
+	// This flag can be set on objects of type `CXXRTL_VALUE` and `CXXRTL_WIRE`. It may be combined
+	// with `CXXRTL_OUTPUT`, as well as other flags.
+	CXXRTL_INPUT = 1 << 0,
+
+	// Node is a module output port.
+	//
+	// This flag can be set on objects of type `CXXRTL_WIRE`. It may be combined with `CXXRTL_INPUT`,
+	// as well as other flags.
+	CXXRTL_OUTPUT = 1 << 1,
+
+	// Node is a module inout port.
+	//
+	// This flag can be set on objects of type `CXXRTL_WIRE`. It may be combined with other flags.
+	CXXRTL_INOUT = (CXXRTL_INPUT|CXXRTL_OUTPUT),
+
+	// More object flags may be added in the future, but the existing ones will never change.
+};
+
 // Description of a simulated object.
 //
 // The `data` array can be accessed directly to inspect and, if applicable, modify the bits
@@ -122,6 +144,9 @@ struct cxxrtl_object {
 	// All objects have the same memory layout determined by `width` and `depth`, but the type
 	// determines all other properties of the object.
 	uint32_t type; // actually `enum cxxrtl_type`
+
+	// Flags of the object.
+	uint32_t flags; // actually bit mask of `enum cxxrtl_flags`
 
 	// Width of the object in bits.
 	size_t width;
