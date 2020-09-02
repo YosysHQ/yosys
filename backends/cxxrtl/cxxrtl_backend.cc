@@ -273,6 +273,7 @@ struct FlowGraph {
 	std::vector<Node*> nodes;
 	dict<const RTLIL::Wire*, pool<Node*, hash_ptr_ops>> wire_comb_defs, wire_sync_defs, wire_uses;
 	dict<const RTLIL::Wire*, bool> wire_def_elidable, wire_use_elidable;
+	dict<RTLIL::SigBit, bool> bit_has_state;
 
 	~FlowGraph()
 	{
@@ -294,6 +295,8 @@ struct FlowGraph {
 					wire_comb_defs[chunk.wire].insert(node);
 				}
 			}
+		for (auto bit : sig.bits())
+			bit_has_state[bit] |= is_ff;
 		// Only comb defs of an entire wire in the right order can be elided.
 		if (!is_ff && sig.is_wire())
 			wire_def_elidable[sig.as_wire()] = elidable;
@@ -550,6 +553,7 @@ struct CxxrtlWorker {
 	pool<const RTLIL::Wire*> localized_wires;
 	dict<const RTLIL::Wire*, const RTLIL::Wire*> debug_alias_wires;
 	dict<const RTLIL::Wire*, RTLIL::Const> debug_const_wires;
+	dict<RTLIL::SigBit, bool> bit_has_state;
 	dict<const RTLIL::Module*, pool<std::string>> blackbox_specializations;
 	dict<const RTLIL::Module*, bool> eval_converges;
 
@@ -1636,6 +1640,10 @@ struct CxxrtlWorker {
 		size_t count_alias_wires = 0;
 		size_t count_member_wires = 0;
 		size_t count_skipped_wires = 0;
+		size_t count_driven_sync = 0;
+		size_t count_driven_comb = 0;
+		size_t count_undriven = 0;
+		size_t count_mixed_driver = 0;
 		inc_indent();
 			f << indent << "assert(path.empty() || path[path.size() - 1] == ' ');\n";
 			for (auto wire : module->wires()) {
@@ -1661,15 +1669,54 @@ struct CxxrtlWorker {
 					count_alias_wires++;
 				} else if (!localized_wires.count(wire)) {
 					// Member wire
+					std::vector<std::string> flags;
+
+					if (wire->port_input && wire->port_output)
+						flags.push_back("INOUT");
+					else if (wire->port_input)
+						flags.push_back("INPUT");
+					else if (wire->port_output)
+						flags.push_back("OUTPUT");
+
+					bool has_driven_sync = false;
+					bool has_driven_comb = false;
+					bool has_undriven = false;
+					SigSpec sig(wire);
+					for (auto bit : sig.bits())
+						if (!bit_has_state.count(bit))
+							has_undriven = true;
+						else if (bit_has_state[bit])
+							has_driven_sync = true;
+						else
+							has_driven_comb = true;
+					if (has_driven_sync)
+						flags.push_back("DRIVEN_SYNC");
+					if (has_driven_sync && !has_driven_comb && !has_undriven)
+						count_driven_sync++;
+					if (has_driven_comb)
+						flags.push_back("DRIVEN_COMB");
+					if (!has_driven_sync && has_driven_comb && !has_undriven)
+						count_driven_comb++;
+					if (has_undriven)
+						flags.push_back("UNDRIVEN");
+					if (!has_driven_sync && !has_driven_comb && has_undriven)
+						count_undriven++;
+					if (has_driven_sync + has_driven_comb + has_undriven > 1)
+						count_mixed_driver++;
+
 					f << indent << "items.add(path + " << escape_cxx_string(get_hdl_name(wire));
 					f << ", debug_item(" << mangle(wire) << ", ";
 					f << wire->start_offset;
-					if (wire->port_input && wire->port_output)
-						f << ", debug_item::INOUT";
-					else if (wire->port_input)
-						f << ", debug_item::INPUT";
-					else if (wire->port_output)
-						f << ", debug_item::OUTPUT";
+					bool first = true;
+					for (auto flag : flags) {
+						if (first) {
+							first = false;
+							f << ", ";
+						} else {
+							f << "|";
+						}
+						f << "debug_item::" << flag;
+					}
 					f << "));\n";
 					count_member_wires++;
 				} else {
@@ -1698,7 +1745,11 @@ struct CxxrtlWorker {
 		log_debug("  Public wires: %zu, of which:\n", count_public_wires);
 		log_debug("    Const wires:  %zu\n", count_const_wires);
 		log_debug("    Alias wires:  %zu\n", count_alias_wires);
-		log_debug("    Member wires: %zu\n", count_member_wires);
+		log_debug("    Member wires: %zu, of which:\n", count_member_wires);
+		log_debug("      Driven sync:  %zu\n", count_driven_sync);
+		log_debug("      Driven comb:  %zu\n", count_driven_comb);
+		log_debug("      Undriven:     %zu\n", count_undriven);
+		log_debug("      Mixed driver: %zu\n", count_mixed_driver);
 		log_debug("    Other wires:  %zu (no debug information)\n", count_skipped_wires);
 	}
 
@@ -2216,6 +2267,9 @@ struct CxxrtlWorker {
 			}
 
 			eval_converges[module] = feedback_wires.empty() && buffered_comb_wires.empty();
+
+			for (auto item : flow.bit_has_state)
+				bit_has_state.insert(item);
 
 			if (debug_info) {
 				// Find wires that alias other wires or are tied to a constant; debug information can be enriched with these
