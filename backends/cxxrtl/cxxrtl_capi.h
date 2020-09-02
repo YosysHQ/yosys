@@ -103,7 +103,7 @@ enum cxxrtl_type {
 	CXXRTL_MEMORY = 2,
 
 	// Aliases correspond to netlist nodes driven by another node such that their value is always
-	// exactly equal, or driven by a constant value.
+	// exactly equal.
 	//
 	// Aliases can be inspected via the `curr` pointer. They cannot be modified, and the `next`
 	// pointer is always NULL.
