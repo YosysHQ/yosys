@@ -200,16 +200,12 @@ bool is_elidable_cell(RTLIL::IdString type)
 		ID($mux), ID($concat), ID($slice), ID($pmux));
 }
 
-bool is_sync_ff_cell(RTLIL::IdString type)
-{
-	return type.in(
-		ID($dff), ID($dffe), ID($sdff), ID($sdffe), ID($sdffce));
-}
-
 bool is_ff_cell(RTLIL::IdString type)
 {
-	return is_sync_ff_cell(type) || type.in(
-		ID($adff), ID($adffe), ID($dffsr), ID($dffsre), ID($dlatch), ID($adlatch), ID($dlatchsr), ID($sr));
+	return type.in(
+		ID($dff), ID($dffe), ID($sdff), ID($sdffe), ID($sdffce),
+		ID($adff), ID($adffe), ID($dffsr), ID($dffsre),
+		ID($dlatch), ID($adlatch), ID($dlatchsr), ID($sr));
 }
 
 bool is_internal_cell(RTLIL::IdString type)
@@ -284,17 +280,22 @@ struct FlowGraph {
 			delete node;
 	}
 
-	void add_defs(Node *node, const RTLIL::SigSpec &sig, bool fully_sync, bool elidable)
+	void add_defs(Node *node, const RTLIL::SigSpec &sig, bool is_ff, bool elidable)
 	{
 		for (auto chunk : sig.chunks())
 			if (chunk.wire) {
-				if (fully_sync)
+				if (is_ff) {
+					// A sync def means that a wire holds design state because it is driven directly by
+					// a flip-flop output. Such a wire can never be unbuffered.
 					wire_sync_defs[chunk.wire].insert(node);
-				else
+				} else {
+					// A comb def means that a wire doesn't hold design state. It might still be connected,
+					// indirectly, to a flip-flop output.
 					wire_comb_defs[chunk.wire].insert(node);
+				}
 			}
 		// Only comb defs of an entire wire in the right order can be elided.
-		if (!fully_sync && sig.is_wire())
+		if (!is_ff && sig.is_wire())
 			wire_def_elidable[sig.as_wire()] = elidable;
 	}
 
@@ -322,7 +323,7 @@ struct FlowGraph {
 	// Connections
 	void add_connect_defs_uses(Node *node, const RTLIL::SigSig &conn)
 	{
-		add_defs(node, conn.first, /*fully_sync=*/false, /*elidable=*/true);
+		add_defs(node, conn.first, /*is_ff=*/false, /*elidable=*/true);
 		add_uses(node, conn.second);
 	}
 
@@ -369,7 +370,7 @@ struct FlowGraph {
 			if (cell->output(conn.first))
 				if (is_cxxrtl_sync_port(cell, conn.first)) {
 					// See note regarding elidability below.
-					add_defs(node, conn.second, /*fully_sync=*/false, /*elidable=*/false);
+					add_defs(node, conn.second, /*is_ff=*/false, /*elidable=*/false);
 				}
 	}
 
@@ -378,18 +379,18 @@ struct FlowGraph {
 		for (auto conn : cell->connections()) {
 			if (cell->output(conn.first)) {
 				if (is_elidable_cell(cell->type))
-					add_defs(node, conn.second, /*fully_sync=*/false, /*elidable=*/true);
-				else if (is_sync_ff_cell(cell->type) || (cell->type == ID($memrd) && cell->getParam(ID::CLK_ENABLE).as_bool()))
-					add_defs(node, conn.second, /*fully_sync=*/true,  /*elidable=*/false);
+					add_defs(node, conn.second, /*is_ff=*/false, /*elidable=*/true);
+				else if (is_ff_cell(cell->type) || (cell->type == ID($memrd) && cell->getParam(ID::CLK_ENABLE).as_bool()))
+					add_defs(node, conn.second, /*is_ff=*/true,  /*elidable=*/false);
 				else if (is_internal_cell(cell->type))
-					add_defs(node, conn.second, /*fully_sync=*/false, /*elidable=*/false);
+					add_defs(node, conn.second, /*is_ff=*/false, /*elidable=*/false);
 				else if (!is_cxxrtl_sync_port(cell, conn.first)) {
 					// Although at first it looks like outputs of user-defined cells may always be elided, the reality is
 					// more complex. Fully sync outputs produce no defs and so don't participate in elision. Fully comb
 					// outputs are assigned in a different way depending on whether the cell's eval() immediately converged.
 					// Unknown/mixed outputs could be elided, but should be rare in practical designs and don't justify
 					// the infrastructure required to elide outputs of cells with many of them.
-					add_defs(node, conn.second, /*fully_sync=*/false, /*elidable=*/false);
+					add_defs(node, conn.second, /*is_ff=*/false, /*elidable=*/false);
 				}
 			}
 			if (cell->input(conn.first))
@@ -427,7 +428,7 @@ struct FlowGraph {
 	void add_case_defs_uses(Node *node, const RTLIL::CaseRule *case_)
 	{
 		for (auto &action : case_->actions) {
-			add_defs(node, action.first, /*is_sync=*/false, /*elidable=*/false);
+			add_defs(node, action.first, /*is_ff=*/false, /*elidable=*/false);
 			add_uses(node, action.second);
 		}
 		for (auto sub_switch : case_->switches) {
@@ -446,9 +447,9 @@ struct FlowGraph {
 		for (auto sync : process->syncs)
 			for (auto action : sync->actions) {
 				if (sync->type == RTLIL::STp || sync->type == RTLIL::STn || sync->type == RTLIL::STe)
-				  add_defs(node, action.first, /*is_sync=*/true,  /*elidable=*/false);
+				  add_defs(node, action.first, /*is_ff=*/true,  /*elidable=*/false);
 				else
-					add_defs(node, action.first, /*is_sync=*/false, /*elidable=*/false);
+					add_defs(node, action.first, /*is_ff=*/false, /*elidable=*/false);
 				add_uses(node, action.second);
 			}
 	}
