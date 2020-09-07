@@ -28,26 +28,36 @@ module _80_quicklogic_alu (A, B, CI, BI, X, Y, CO);
     wire [Y_WIDTH-1:0] AA = A_buf;
     (* force_downto *)
     wire [Y_WIDTH-1:0] BB = BI ? ~B_buf : B_buf;
-    (* force_downto *)
-    wire [Y_WIDTH-1:0] C = {CO, CI};
+    //(* force_downto *)
+    //wire [Y_WIDTH-1:0] C = {CO, CI};
+
+    full_adder first_inst(
+            .A(AA[0]),
+            .B(BB[0]),
+			.CI(CI),
+			.CO(CO[0]),
+			.S(Y[0]));
 
     genvar i;
-    generate for (i = 0; i < Y_WIDTH; i = i + 1) begin: slice
-        \$__AP3_CARRY_WRAPPER #(
-            .LUT(16'b 1110_1000_1001_0110),
-            .I2_IS_CI(1'b1)
-        ) carry (
+    generate for (i = 1; i < Y_WIDTH-1; i = i + 1) begin: slice
+        full_adder inst_i (
 			.A(AA[i]),
 			.B(BB[i]),
-			.CI(C[i]),
-			.I2(1'bx),
-			.I3(1'b0),
+			.CI(CO[i-1]),
 			.CO(CO[i]),
-			.O(Y[i])
+			.S(Y[i])
 		);
 
     end: slice	  
     endgenerate
+    
+    full_adder inst_last (
+        .A(AA[Y_WIDTH-1]),
+        .B(BB[Y_WIDTH-1]),
+        .CI(CO[Y_WIDTH-2]),
+        .CO(CO[Y_WIDTH-1]),
+        .S(Y[Y_WIDTH-1])
+    );
 
     /* End implementation */
     assign X = AA ^ BB;

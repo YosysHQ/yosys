@@ -13,7 +13,7 @@ static void fix_carry_chain(Module *module)
 
 	for (auto cell : module->cells())
 	{
-		if (cell->type == ID(add)) {
+		if (cell->type == ID(full_adder)) {
 			SigBit bit_ci = cell->getPort(ID::CI);
 			SigBit bit_s = sigmap(cell->getPort(ID::S));
 			ci_bits.insert(bit_ci);				
@@ -24,7 +24,7 @@ static void fix_carry_chain(Module *module)
 	vector<Cell*> adders_to_fix_cells;
 	for (auto cell : module->cells())
 	{
-		if (cell->type == ID(add)) {
+		if (cell->type == ID(full_adder)) {
 			SigBit bit_ci = cell->getPort(ID::CI);
 			SigBit canonical_bit = sigmap(bit_ci);
 			if (!ci_bits.count(canonical_bit))
@@ -41,7 +41,7 @@ static void fix_carry_chain(Module *module)
 		SigBit canonical_bit = sigmap(bit_ci);
 		auto bit = mapping_bits.at(canonical_bit);
 		log("Fixing %s cell named %s breaking carry chain.\n", log_id(cell->type), log_id(cell));
-		Cell *c = module->addCell(NEW_ID, ID(add));
+		Cell *c = module->addCell(NEW_ID, ID(full_adder));
 		SigBit new_bit = module->addWire(NEW_ID);
 		c->setPort(ID(A), bit);
 		c->setPort(ID(B), State::S1);

@@ -178,7 +178,7 @@ struct SynthQuickLogicPass : public ScriptPass {
         if (check_label("map_gates")) {
             if (inferAdder && family != "pp3")
             {
-                run("ap3_wrapcarry");
+                //run("quicklogic_fixcarry");
                 run("techmap -map +/techmap.v -map +/quicklogic/" + family + "_arith_map.v");
             } else {
                 run("techmap");
@@ -188,7 +188,7 @@ struct SynthQuickLogicPass : public ScriptPass {
                 run("muxcover -mux8 -mux4");
             }
             if(family != "pp3") {
-                run("ap3_opt");
+                //run("ap3_opt");
             } else {
                 run("opt_expr -clkinv");
                 run("opt -fast");
@@ -212,7 +212,7 @@ struct SynthQuickLogicPass : public ScriptPass {
             run("opt_expr -mux_undef");
             run("simplemap");
             if(family != "pp3") {
-                run("ap3_opt -full");
+                //run("ap3_opt -full");
             } else {
                 run("opt_expr");
                 run("opt_merge");
@@ -235,7 +235,7 @@ struct SynthQuickLogicPass : public ScriptPass {
             }
 
             if(family != "pp3") {
-                run("ap3_wrapcarry -unwrap");
+                //run("ap3_wrapcarry -unwrap");
             }
             techMapArgs = " -map +/quicklogic/" + family + "_ffs_map.v";
             run("techmap " + techMapArgs);
