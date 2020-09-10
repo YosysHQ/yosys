@@ -45,6 +45,10 @@ struct SynthQuickLogicPass : public ScriptPass {
         log("        - ap2: ArcticPro 2 \n");
         log("        - ap3: ArcticPro 3 \n");
         log("\n");
+        log("    -no_abc_opt\n");
+        log("        By default most of ABC logic optimization features is\n");
+        log("        enabled. Specifying this switch turns them off.\n");
+        log("\n");
         log("    -edif <file>\n");
         log("        write the design to the specified edif file. writing of an output file\n");
         log("        is omitted if this parameter is not specified.\n");
@@ -63,6 +67,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 
     string top_opt, edif_file, blif_file, family, currmodule;
     bool inferAdder;
+    bool abcOpt;
 
     void clear_flags() YS_OVERRIDE
     {
@@ -72,6 +77,7 @@ struct SynthQuickLogicPass : public ScriptPass {
         currmodule = "";
         family = "pp3";
         inferAdder = false;
+        abcOpt = true;
     }
 
     void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -100,6 +106,10 @@ struct SynthQuickLogicPass : public ScriptPass {
             }
             if (args[argidx] == "-adder") {
                 inferAdder = true;
+                continue;
+            }
+            if (args[argidx] == "-no_abc_opt") {
+                abcOpt = false;
                 continue;
             }
             break;
@@ -225,13 +235,26 @@ struct SynthQuickLogicPass : public ScriptPass {
         if (check_label("map_luts")) {
             std::string techMapArgs = " -map +/quicklogic/" + family + "_latches_map.v";
             run("techmap " + techMapArgs);
-            if (family == "pp3") {
-                run("abc -lut 4"); // -luts 1,2,2
-            } else if (family == "ap2") {
-                run("abc -dress -lut 4:5 -dff"); //-luts 5,4,4,1,3
-            } else {
-                //run("nlutmap -luts N_4");
-                run("abc -dress -lut 4 -dff");
+
+            if (abcOpt) {
+                std::string lutDefs = "+/quicklogic/" + family + "_lutdefs.txt";
+                rewrite_filename(lutDefs);
+
+                std::string abcArgs = "+read_lut," + lutDefs + ";"
+                    "strash;ifraig;scorr;dc2;dretime;strash;dch,-f;if;mfs2;" // Common Yosys ABC script
+                    "sweep;eliminate;if;mfs;lutpack;" // Optimization script
+                    "dress"; // "dress" to preserve names
+
+                run("abc -script " + abcArgs);
+            }
+            else {
+                if (family == "pp3") {
+                    run("abc -luts 1,2,2,4:8");
+                } else if (family == "ap2") {
+                    run("abc -dress -lut 4:5 -dff"); //-luts 5,4,4,1,3
+                } else {
+                    run("abc -dress -lut 4 -dff");
+                }
             }
 
             if(family != "pp3") {
