@@ -1,0 +1,18 @@
+read_verilog dpram.v
+hierarchy -top top
+proc
+memory -nomap
+equiv_opt -run :prove -map +/ecp5/cells_sim.v synth_ecp5
+memory
+opt -full
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+
+#Blocked by issue #1358 (Missing ECP5 simulation models)
+#ERROR: Failed to import cell gate.mem.0.0.0 (type DP16KD) to SAT database.
+#sat -verify -prove-asserts -seq 3 -set-init-zero -show-inputs -show-outputs miter
+
+design -load postopt
+cd top
+select -assert-count 1 t:DP16KD
+select -assert-none t:DP16KD %% t:* %D

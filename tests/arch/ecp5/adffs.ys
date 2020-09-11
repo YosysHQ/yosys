@@ -1,0 +1,40 @@
+read_verilog ../common/adffs.v
+design -save read
+
+hierarchy -top adff
+proc
+equiv_opt -async2sync -assert -map +/ecp5/cells_sim.v synth_ecp5 # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd adff # Constrain all select calls below inside the top module
+select -assert-count 1 t:TRELLIS_FF
+select -assert-none t:TRELLIS_FF %% t:* %D
+
+design -load read
+hierarchy -top adffn
+proc
+equiv_opt -async2sync -assert -map +/ecp5/cells_sim.v synth_ecp5 # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd adffn # Constrain all select calls below inside the top module
+select -assert-count 1 t:TRELLIS_FF
+select -assert-count 1 t:LUT4
+select -assert-none t:TRELLIS_FF t:LUT4 %% t:* %D
+
+design -load read
+hierarchy -top dffs
+proc
+equiv_opt -async2sync -assert -map +/ecp5/cells_sim.v synth_ecp5 # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd dffs # Constrain all select calls below inside the top module
+select -assert-count 1 t:TRELLIS_FF
+select -assert-count 1 t:LUT4
+select -assert-none t:TRELLIS_FF t:LUT4 %% t:* %D
+
+design -load read
+hierarchy -top ndffnr
+proc
+equiv_opt -async2sync -assert -map +/ecp5/cells_sim.v synth_ecp5 # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd ndffnr # Constrain all select calls below inside the top module
+select -assert-count 1 t:TRELLIS_FF
+select -assert-count 1 t:LUT4
+select -assert-none t:TRELLIS_FF t:LUT4 %% t:* %D

@@ -1,0 +1,34 @@
+read_verilog ../common/latches.v
+design -save read
+
+hierarchy -top latchp
+proc
+# Can't run any sort of equivalence check because latches are blown to LUTs
+synth_ecp5
+cd latchp # Constrain all select calls below inside the top module
+select -assert-count 1 t:LUT4
+
+select -assert-none t:LUT4 %% t:* %D
+
+
+design -load read
+hierarchy -top latchn
+proc
+# Can't run any sort of equivalence check because latches are blown to LUTs
+synth_ecp5
+cd latchn # Constrain all select calls below inside the top module
+select -assert-count 1 t:LUT4
+
+select -assert-none t:LUT4 %% t:* %D
+
+
+design -load read
+hierarchy -top latchsr
+proc
+# Can't run any sort of equivalence check because latches are blown to LUTs
+synth_ecp5
+cd latchsr # Constrain all select calls below inside the top module
+select -assert-count 2 t:LUT4
+select -assert-count 1 t:PFUMX
+
+select -assert-none t:LUT4 t:PFUMX %% t:* %D

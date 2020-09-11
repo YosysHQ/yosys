@@ -1,0 +1,88 @@
+read_verilog ../common/mux.v
+design -save read
+
+
+hierarchy -top mux2
+proc
+equiv_opt -assert -map +/intel_alm/common/alm_sim.v synth_intel_alm -family cyclonev # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mux2 # Constrain all select calls below inside the top module
+select -assert-count 1 t:MISTRAL_ALUT3
+select -assert-none t:MISTRAL_ALUT3 %% t:* %D
+
+
+design -load read
+hierarchy -top mux2
+proc
+equiv_opt -assert -map +/intel_alm/common/alm_sim.v synth_intel_alm -family cyclone10gx # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mux2 # Constrain all select calls below inside the top module
+select -assert-count 1 t:MISTRAL_ALUT3
+select -assert-none t:MISTRAL_ALUT3 %% t:* %D
+
+
+design -load read
+hierarchy -top mux4
+proc
+equiv_opt -assert -map +/intel_alm/common/alm_sim.v synth_intel_alm -family cyclonev # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mux4 # Constrain all select calls below inside the top module
+select -assert-count 1 t:MISTRAL_ALUT6
+select -assert-none t:MISTRAL_ALUT6 %% t:* %D
+
+
+design -load read
+hierarchy -top mux4
+proc
+equiv_opt -assert -map +/intel_alm/common/alm_sim.v synth_intel_alm -family cyclone10gx # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mux4 # Constrain all select calls below inside the top module
+select -assert-count 1 t:MISTRAL_ALUT6
+select -assert-none t:MISTRAL_ALUT6 %% t:* %D
+
+
+design -load read
+hierarchy -top mux8
+proc
+equiv_opt -assert -map +/intel_alm/common/alm_sim.v synth_intel_alm -family cyclonev # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mux8 # Constrain all select calls below inside the top module
+select -assert-count 1 t:MISTRAL_ALUT3
+select -assert-count 2 t:MISTRAL_ALUT6
+select -assert-none t:MISTRAL_ALUT3 t:MISTRAL_ALUT6 %% t:* %D
+
+
+design -load read
+hierarchy -top mux8
+proc
+equiv_opt -assert -map +/intel_alm/common/alm_sim.v synth_intel_alm -family cyclone10gx # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mux8 # Constrain all select calls below inside the top module
+select -assert-count 1 t:MISTRAL_ALUT3
+select -assert-count 2 t:MISTRAL_ALUT6
+select -assert-none t:MISTRAL_ALUT3 t:MISTRAL_ALUT6 %% t:* %D
+
+
+design -load read
+hierarchy -top mux16
+proc
+equiv_opt -assert -map +/intel_alm/common/alm_sim.v synth_intel_alm -family cyclonev # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mux16 # Constrain all select calls below inside the top module
+select -assert-count 1 t:MISTRAL_ALUT3
+select -assert-max 2 t:MISTRAL_ALUT5
+select -assert-max 5 t:MISTRAL_ALUT6
+select -assert-none t:MISTRAL_ALUT3 t:MISTRAL_ALUT5 t:MISTRAL_ALUT6 %% t:* %D
+
+
+design -load read
+hierarchy -top mux16
+proc
+equiv_opt -assert -map +/intel_alm/common/alm_sim.v synth_intel_alm -family cyclone10gx # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mux16 # Constrain all select calls below inside the top module
+select -assert-count 1 t:MISTRAL_ALUT3
+select -assert-count 2 t:MISTRAL_ALUT5
+select -assert-count 4 t:MISTRAL_ALUT6
+
+select -assert-none t:MISTRAL_ALUT3 t:MISTRAL_ALUT5 t:MISTRAL_ALUT6 %% t:* %D

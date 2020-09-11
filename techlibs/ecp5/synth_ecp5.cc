@@ -2,7 +2,7 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012 Clifford Wolf <clifford@clifford.at>
- *  Copyright (C) 2018 Clifford Wolf <dave@ds0.me>
+ *  Copyright (C) 2018 David Shah <dave@ds0.me>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -30,7 +30,12 @@ struct SynthEcp5Pass : public ScriptPass
 {
 	SynthEcp5Pass() : ScriptPass("synth_ecp5", "synthesis for ECP5 FPGAs") { }
 
-	void help() YS_OVERRIDE
+	void on_register() override
+	{
+		RTLIL::constpad["synth_ecp5.abc9.W"] = "300";
+	}
+
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -61,8 +66,11 @@ struct SynthEcp5Pass : public ScriptPass
 		log("    -noflatten\n");
 		log("        do not flatten design before synthesis\n");
 		log("\n");
+		log("    -dff\n");
+		log("        run 'abc'/'abc9' with -dff option\n");
+		log("\n");
 		log("    -retime\n");
-		log("        run 'abc' with -dff option\n");
+		log("        run 'abc' with '-dff -D 1' options\n");
 		log("\n");
 		log("    -noccu2\n");
 		log("        do not use CCU2 cells in output netlist\n");
@@ -71,13 +79,16 @@ struct SynthEcp5Pass : public ScriptPass
 		log("        do not use flipflops with CE in output netlist\n");
 		log("\n");
 		log("    -nobram\n");
-		log("        do not use BRAM cells in output netlist\n");
+		log("        do not use block RAM cells in output netlist\n");
 		log("\n");
-		log("    -nodram\n");
-		log("        do not use distributed RAM cells in output netlist\n");
+		log("    -nolutram\n");
+		log("        do not use LUT RAM cells in output netlist\n");
 		log("\n");
 		log("    -nowidelut\n");
 		log("        do not use PFU muxes to implement LUTs larger than LUT4s\n");
+		log("\n");
+		log("    -asyncprld\n");
+		log("        use async PRLD mode to implement DLATCH and DFFSR (EXPERIMENTAL)\n");
 		log("\n");
 		log("    -abc2\n");
 		log("        run two passes of 'abc' for slightly improved logic density\n");
@@ -89,6 +100,9 @@ struct SynthEcp5Pass : public ScriptPass
 		log("        generate an output netlist (and BLIF file) suitable for VPR\n");
 		log("        (this feature is experimental and incomplete)\n");
 		log("\n");
+		log("    -nodsp\n");
+		log("        do not map multipliers to MULT18X18D\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
@@ -96,9 +110,9 @@ struct SynthEcp5Pass : public ScriptPass
 	}
 
 	string top_opt, blif_file, edif_file, json_file;
-	bool noccu2, nodffe, nobram, nodram, nowidelut, flatten, retime, abc2, abc9, vpr;
+	bool noccu2, nodffe, nobram, nolutram, nowidelut, asyncprld, flatten, dff, retime, abc2, abc9, nodsp, vpr;
 
-	void clear_flags() YS_OVERRIDE
+	void clear_flags() override
 	{
 		top_opt = "-auto-top";
 		blif_file = "";
@@ -107,16 +121,19 @@ struct SynthEcp5Pass : public ScriptPass
 		noccu2 = false;
 		nodffe = false;
 		nobram = false;
-		nodram = false;
+		nolutram = false;
 		nowidelut = false;
+		asyncprld = false;
 		flatten = true;
+		dff = false;
 		retime = false;
 		abc2 = false;
 		vpr = false;
 		abc9 = false;
+		nodsp = false;
 	}
 
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		string run_from, run_to;
 		clear_flags();
@@ -156,6 +173,10 @@ struct SynthEcp5Pass : public ScriptPass
 				flatten = false;
 				continue;
 			}
+			if (args[argidx] == "-dff") {
+				dff = true;
+				continue;
+			}
 			if (args[argidx] == "-retime") {
 				retime = true;
 				continue;
@@ -172,11 +193,15 @@ struct SynthEcp5Pass : public ScriptPass
 				nobram = true;
 				continue;
 			}
-			if (args[argidx] == "-nodram") {
-				nodram = true;
+			if (args[argidx] == "-asyncprld") {
+				asyncprld = true;
 				continue;
 			}
-			if (args[argidx] == "-nowidelut" || args[argidx] == "-nomux") {
+			if (args[argidx] == "-nolutram" || /*deprecated alias*/ args[argidx] == "-nodram") {
+				nolutram = true;
+				continue;
+			}
+			if (args[argidx] == "-nowidelut" || /*deprecated alias*/ args[argidx] == "-nomux") {
 				nowidelut = true;
 				continue;
 			}
@@ -192,12 +217,19 @@ struct SynthEcp5Pass : public ScriptPass
 				abc9 = true;
 				continue;
 			}
+			if (args[argidx] == "-nodsp") {
+				nodsp = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
+
+		if (abc9 && retime)
+				log_cmd_error("-retime option not currently compatible with -abc9!\n");
 
 		log_header(design, "Executing SYNTH_ECP5 pass.\n");
 		log_push();
@@ -207,97 +239,149 @@ struct SynthEcp5Pass : public ScriptPass
 		log_pop();
 	}
 
-	void script() YS_OVERRIDE
+	void script() override
 	{
 		if (check_label("begin"))
 		{
-			run("read_verilog -D_ABC -lib +/ecp5/cells_sim.v +/ecp5/cells_bb.v");
+			run("read_verilog -lib -specify +/ecp5/cells_sim.v +/ecp5/cells_bb.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
-		}
-
-		if (flatten && check_label("flatten", "(unless -noflatten)"))
-		{
-			run("proc");
-			run("flatten");
-			run("tribuf -logic");
-			run("deminout");
 		}
 
 		if (check_label("coarse"))
 		{
-			run("synth -run coarse");
+			run("proc");
+			if (flatten || help_mode)
+				run("flatten");
+			run("tribuf -logic");
+			run("deminout");
+			run("opt_expr");
+			run("opt_clean");
+			run("check");
+			run("opt -nodffe -nosdff");
+			run("fsm");
+			run("opt");
+			run("wreduce");
+			run("peepopt");
+			run("opt_clean");
+			run("share");
+			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=4");
+			run("opt_expr");
+			run("opt_clean");
+			if (!nodsp) {
+				run("techmap -map +/mul2dsp.v -map +/ecp5/dsp_map.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18  -D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2  -D DSP_NAME=$__MUL18X18", "(unless -nodsp)");
+				run("chtype -set $mul t:$__soft_mul", "(unless -nodsp)");
+			}
+			run("alumacc");
+			run("opt");
+			run("memory -nomap");
+			run("opt_clean");
 		}
 
-		if (!nobram && check_label("bram", "(skip if -nobram)"))
+		if (!nobram && check_label("map_bram", "(skip if -nobram)"))
 		{
-			run("memory_bram -rules +/ecp5/bram.txt");
+			run("memory_bram -rules +/ecp5/brams.txt");
 			run("techmap -map +/ecp5/brams_map.v");
 		}
 
-		if (!nodram && check_label("dram", "(skip if -nodram)"))
+		if (!nolutram && check_label("map_lutram", "(skip if -nolutram)"))
 		{
-			run("memory_bram -rules +/ecp5/dram.txt");
-			run("techmap -map +/ecp5/drams_map.v");
+			run("memory_bram -rules +/ecp5/lutrams.txt");
+			run("techmap -map +/ecp5/lutrams_map.v");
 		}
 
-		if (check_label("fine"))
+		if (check_label("map_ffram"))
 		{
 			run("opt -fast -mux_undef -undriven -fine");
-			run("memory_map");
+			run("memory_map -iattr -attr !ram_block -attr !rom_block -attr logic_block "
+			    "-attr syn_ramstyle=auto -attr syn_ramstyle=registers "
+			    "-attr syn_romstyle=auto -attr syn_romstyle=logic");
 			run("opt -undriven -fine");
+		}
+
+		if (check_label("map_gates"))
+		{
 			if (noccu2)
 				run("techmap");
 			else
 				run("techmap -map +/techmap.v -map +/ecp5/arith_map.v");
+			run("opt -fast");
 			if (retime || help_mode)
-				run("abc -dff", "(only if -retime)");
+				run("abc -dff -D 1", "(only if -retime)");
 		}
 
 		if (check_label("map_ffs"))
 		{
-			run("dffsr2dff");
-			run("dff2dffs");
 			run("opt_clean");
-			if (!nodffe)
-				run("dff2dffe -direct-match $_DFF_* -direct-match $__DFFS_*");
-			run("techmap -D NO_LUT -map +/ecp5/cells_map.v");
+			std::string dfflegalize_args = " -cell $_DFF_?_ 01 -cell $_DFF_?P?_ r -cell $_SDFF_?P?_ r";
+			if (help_mode) {
+				dfflegalize_args += " [-cell $_DFFE_??_ 01 -cell $_DFFE_?P??_ r -cell $_SDFFE_?P??_ r]";
+			} else if (!nodffe) {
+				dfflegalize_args += " -cell $_DFFE_??_ 01 -cell $_DFFE_?P??_ r -cell $_SDFFE_?P??_ r";
+			}
+			dfflegalize_args += " -cell $_DLATCH_?_ x";
+			if (help_mode) {
+				dfflegalize_args += " [-cell $_DFFSR_?PP_ x]";
+			} else if (asyncprld) {
+				dfflegalize_args += " -cell $_DFFSR_?PP_ x";
+			}
+			run("dfflegalize" + dfflegalize_args, "($_DFFSR_*_ only if -asyncprld, $_*DFFE_* only if not -nodffe)");
+			if ((abc9 && dff) || help_mode)
+				run("zinit -all w:* t:$_DFF_?_ t:$_DFFE_??_ t:$_SDFF*", "(only if -abc9 and -dff");
+			run(stringf("techmap -D NO_LUT %s -map +/ecp5/cells_map.v", help_mode ? "[-D ASYNC_PRLD]" : (asyncprld ? "-D ASYNC_PRLD" : "")));
 			run("opt_expr -undriven -mux_undef");
 			run("simplemap");
-			run("ecp5_ffinit");
+			run("ecp5_gsr");
+			run("attrmvcp -copy -attr syn_useioff");
+			run("opt_clean");
 		}
 
 		if (check_label("map_luts"))
 		{
-			if (abc2 || help_mode) {
+			if (abc2 || help_mode)
 				run("abc", "      (only if -abc2)");
-			}
-			run("techmap -map +/ecp5/latches_map.v");
+			if (!asyncprld || help_mode)
+				run("techmap -map +/ecp5/latches_map.v", "(skip if -asyncprld)");
+
 			if (abc9) {
+				std::string abc9_opts;
 				if (nowidelut)
-					run("abc9 -lut +/ecp5/abc_5g_nowide.lut -box +/ecp5/abc_5g.box -W 200");
+					abc9_opts += " -maxlut 4";
+				std::string k = "synth_ecp5.abc9.W";
+				if (active_design && active_design->scratchpad.count(k))
+					abc9_opts += stringf(" -W %s", active_design->scratchpad_get_string(k).c_str());
 				else
-					run("abc9 -lut +/ecp5/abc_5g.lut -box +/ecp5/abc_5g.box -W 200");
+					abc9_opts += stringf(" -W %s", RTLIL::constpad.at(k).c_str());
+				if (nowidelut)
+					abc9_opts += " -maxlut 4";
+				if (dff)
+					abc9_opts += " -dff";
+				run("abc9" + abc9_opts);
 			} else {
+				std::string abc_args = " -dress";
 				if (nowidelut)
-					run("abc -lut 4 -dress");
+					abc_args += " -lut 4";
 				else
-					run("abc -lut 4:7 -dress");
+					abc_args += " -lut 4:7";
+				if (dff)
+					abc_args += " -dff";
+				run("abc" + abc_args);
 			}
 			run("clean");
 		}
 
 		if (check_label("map_cells"))
 		{
-			if (vpr)
-				run("techmap -D NO_LUT -map +/ecp5/cells_map.v");
-			else
-				run("techmap -map +/ecp5/cells_map.v", "(with -D NO_LUT in vpr mode)");
-
+			if (help_mode)
+				run("techmap -map +/ecp5/cells_map.v", "(skip if -vpr)");
+			else if (!vpr)
+				run("techmap -map +/ecp5/cells_map.v");
+			run("opt_lut_ins -tech ecp5");
 			run("clean");
 		}
 
 		if (check_label("check"))
 		{
+			run("autoname");
 			run("hierarchy -check");
 			run("stat");
 			run("check -noinit");

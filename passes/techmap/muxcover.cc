@@ -116,13 +116,13 @@ struct MuxcoverWorker
 				if (!cell->input(conn.first))
 					continue;
 				for (auto bit : sigmap(conn.second)) {
-					if (used_once.count(bit) || cell->type != "$_MUX_" || conn.first == "\\S")
+					if (used_once.count(bit) || cell->type != ID($_MUX_) || conn.first == ID::S)
 						roots.insert(bit);
 					used_once.insert(bit);
 				}
 			}
-			if (cell->type == "$_MUX_")
-				sig_to_mux[sigmap(cell->getPort("\\Y"))] = cell;
+			if (cell->type == ID($_MUX_))
+				sig_to_mux[sigmap(cell->getPort(ID::Y))] = cell;
 		}
 
 		log("  Treeifying %d MUXes:\n", GetSize(sig_to_mux));
@@ -141,8 +141,8 @@ struct MuxcoverWorker
 				if (sig_to_mux.count(bit) && (bit == rootsig || !roots.count(bit))) {
 					Cell *c = sig_to_mux.at(bit);
 					tree.muxes[bit] = c;
-					wavefront.insert(sigmap(c->getPort("\\A")));
-					wavefront.insert(sigmap(c->getPort("\\B")));
+					wavefront.insert(sigmap(c->getPort(ID::A)));
+					wavefront.insert(sigmap(c->getPort(ID::B)));
 				}
 			}
 
@@ -516,69 +516,69 @@ struct MuxcoverWorker
 
 		if (GetSize(mux.inputs) == 2) {
 			count_muxes_by_type[0]++;
-			Cell *cell = module->addCell(NEW_ID, "$_MUX_");
-			cell->setPort("\\A", mux.inputs[0]);
-			cell->setPort("\\B", mux.inputs[1]);
-			cell->setPort("\\S", mux.selects[0]);
-			cell->setPort("\\Y", bit);
+			Cell *cell = module->addCell(NEW_ID, ID($_MUX_));
+			cell->setPort(ID::A, mux.inputs[0]);
+			cell->setPort(ID::B, mux.inputs[1]);
+			cell->setPort(ID::S, mux.selects[0]);
+			cell->setPort(ID::Y, bit);
 			return;
 		}
 
 		if (GetSize(mux.inputs) == 4) {
 			count_muxes_by_type[1]++;
-			Cell *cell = module->addCell(NEW_ID, "$_MUX4_");
-			cell->setPort("\\A", mux.inputs[0]);
-			cell->setPort("\\B", mux.inputs[1]);
-			cell->setPort("\\C", mux.inputs[2]);
-			cell->setPort("\\D", mux.inputs[3]);
-			cell->setPort("\\S", mux.selects[0]);
-			cell->setPort("\\T", mux.selects[1]);
-			cell->setPort("\\Y", bit);
+			Cell *cell = module->addCell(NEW_ID, ID($_MUX4_));
+			cell->setPort(ID::A, mux.inputs[0]);
+			cell->setPort(ID::B, mux.inputs[1]);
+			cell->setPort(ID::C, mux.inputs[2]);
+			cell->setPort(ID::D, mux.inputs[3]);
+			cell->setPort(ID::S, mux.selects[0]);
+			cell->setPort(ID::T, mux.selects[1]);
+			cell->setPort(ID::Y, bit);
 			return;
 		}
 
 		if (GetSize(mux.inputs) == 8) {
 			count_muxes_by_type[2]++;
-			Cell *cell = module->addCell(NEW_ID, "$_MUX8_");
-			cell->setPort("\\A", mux.inputs[0]);
-			cell->setPort("\\B", mux.inputs[1]);
-			cell->setPort("\\C", mux.inputs[2]);
-			cell->setPort("\\D", mux.inputs[3]);
-			cell->setPort("\\E", mux.inputs[4]);
-			cell->setPort("\\F", mux.inputs[5]);
-			cell->setPort("\\G", mux.inputs[6]);
-			cell->setPort("\\H", mux.inputs[7]);
-			cell->setPort("\\S", mux.selects[0]);
-			cell->setPort("\\T", mux.selects[1]);
-			cell->setPort("\\U", mux.selects[2]);
-			cell->setPort("\\Y", bit);
+			Cell *cell = module->addCell(NEW_ID, ID($_MUX8_));
+			cell->setPort(ID::A, mux.inputs[0]);
+			cell->setPort(ID::B, mux.inputs[1]);
+			cell->setPort(ID::C, mux.inputs[2]);
+			cell->setPort(ID::D, mux.inputs[3]);
+			cell->setPort(ID::E, mux.inputs[4]);
+			cell->setPort(ID::F, mux.inputs[5]);
+			cell->setPort(ID::G, mux.inputs[6]);
+			cell->setPort(ID::H, mux.inputs[7]);
+			cell->setPort(ID::S, mux.selects[0]);
+			cell->setPort(ID::T, mux.selects[1]);
+			cell->setPort(ID::U, mux.selects[2]);
+			cell->setPort(ID::Y, bit);
 			return;
 		}
 
 		if (GetSize(mux.inputs) == 16) {
 			count_muxes_by_type[3]++;
-			Cell *cell = module->addCell(NEW_ID, "$_MUX16_");
-			cell->setPort("\\A", mux.inputs[0]);
-			cell->setPort("\\B", mux.inputs[1]);
-			cell->setPort("\\C", mux.inputs[2]);
-			cell->setPort("\\D", mux.inputs[3]);
-			cell->setPort("\\E", mux.inputs[4]);
-			cell->setPort("\\F", mux.inputs[5]);
-			cell->setPort("\\G", mux.inputs[6]);
-			cell->setPort("\\H", mux.inputs[7]);
-			cell->setPort("\\I", mux.inputs[8]);
-			cell->setPort("\\J", mux.inputs[9]);
-			cell->setPort("\\K", mux.inputs[10]);
-			cell->setPort("\\L", mux.inputs[11]);
-			cell->setPort("\\M", mux.inputs[12]);
-			cell->setPort("\\N", mux.inputs[13]);
-			cell->setPort("\\O", mux.inputs[14]);
-			cell->setPort("\\P", mux.inputs[15]);
-			cell->setPort("\\S", mux.selects[0]);
-			cell->setPort("\\T", mux.selects[1]);
-			cell->setPort("\\U", mux.selects[2]);
-			cell->setPort("\\V", mux.selects[3]);
-			cell->setPort("\\Y", bit);
+			Cell *cell = module->addCell(NEW_ID, ID($_MUX16_));
+			cell->setPort(ID::A, mux.inputs[0]);
+			cell->setPort(ID::B, mux.inputs[1]);
+			cell->setPort(ID::C, mux.inputs[2]);
+			cell->setPort(ID::D, mux.inputs[3]);
+			cell->setPort(ID::E, mux.inputs[4]);
+			cell->setPort(ID::F, mux.inputs[5]);
+			cell->setPort(ID::G, mux.inputs[6]);
+			cell->setPort(ID::H, mux.inputs[7]);
+			cell->setPort(ID::I, mux.inputs[8]);
+			cell->setPort(ID::J, mux.inputs[9]);
+			cell->setPort(ID::K, mux.inputs[10]);
+			cell->setPort(ID::L, mux.inputs[11]);
+			cell->setPort(ID::M, mux.inputs[12]);
+			cell->setPort(ID::N, mux.inputs[13]);
+			cell->setPort(ID::O, mux.inputs[14]);
+			cell->setPort(ID::P, mux.inputs[15]);
+			cell->setPort(ID::S, mux.selects[0]);
+			cell->setPort(ID::T, mux.selects[1]);
+			cell->setPort(ID::U, mux.selects[2]);
+			cell->setPort(ID::V, mux.selects[3]);
+			cell->setPort(ID::Y, bit);
 			return;
 		}
 
@@ -623,7 +623,7 @@ struct MuxcoverWorker
 
 struct MuxcoverPass : public Pass {
 	MuxcoverPass() : Pass("muxcover", "cover trees of MUX cells with wider MUXes") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -632,10 +632,15 @@ struct MuxcoverPass : public Pass {
 		log("Cover trees of $_MUX_ cells with $_MUX{4,8,16}_ cells\n");
 		log("\n");
 		log("    -mux4[=cost], -mux8[=cost], -mux16[=cost]\n");
-		log("        Use the specified types of MUXes (with optional integer costs). If none\n");
-		log("        of these options are given, the effect is the same as if all of them are.\n");
-		log("        Default costs: $_MUX_ = %d, $_MUX4_ = %d,\n", COST_MUX2, COST_MUX4);
-		log("                       $_MUX8_ = %d, $_MUX16_ = %d\n", COST_MUX8, COST_MUX16);
+		log("        Cover $_MUX_ trees using the specified types of MUXes (with optional\n");
+		log("        integer costs). If none of these options are given, the effect is the\n");
+		log("        same as if all of them are.\n");
+		log("        Default costs: $_MUX4_ = %d, $_MUX8_ = %d, \n", COST_MUX4, COST_MUX8);
+		log("                       $_MUX16_ = %d\n", COST_MUX16);
+		log("\n");
+		log("    -mux2=cost\n");
+		log("        Use the specified cost for $_MUX_ cells when making covering decisions.\n");
+		log("        Default cost: $_MUX_ = %d\n", COST_MUX2);
 		log("\n");
 		log("    -dmux=cost\n");
 		log("        Use the specified cost for $_MUX_ cells used in decoders.\n");
@@ -651,7 +656,7 @@ struct MuxcoverPass : public Pass {
 		log("        than <N> different signals.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing MUXCOVER pass (mapping to wider MUXes).\n");
 
@@ -661,6 +666,7 @@ struct MuxcoverPass : public Pass {
 		bool nodecode = false;
 		bool nopartial = false;
 		int cost_dmux = COST_DMUX;
+		int cost_mux2 = COST_MUX2;
 		int cost_mux4 = COST_MUX4;
 		int cost_mux8 = COST_MUX8;
 		int cost_mux16 = COST_MUX16;
@@ -669,7 +675,11 @@ struct MuxcoverPass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			const auto &arg = args[argidx];
-			if (arg.size() >= 5 && arg.substr(0,5) == "-mux4") {
+			if (arg.size() >= 6 && arg.compare(0,6,"-mux2=") == 0) {
+				cost_mux2 = atoi(arg.substr(6).c_str());
+				continue;
+			}
+			if (arg.size() >= 5 && arg.compare(0,5,"-mux4") == 0) {
 				use_mux4 = true;
 				if (arg.size() > 5) {
 					if (arg[5] != '=') break;
@@ -677,7 +687,7 @@ struct MuxcoverPass : public Pass {
 				}
 				continue;
 			}
-			if (arg.size() >= 5 && arg.substr(0,5) == "-mux8") {
+			if (arg.size() >= 5 && arg.compare(0,5,"-mux8") == 0) {
 				use_mux8 = true;
 				if (arg.size() > 5) {
 					if (arg[5] != '=') break;
@@ -685,7 +695,7 @@ struct MuxcoverPass : public Pass {
 				}
 				continue;
 			}
-			if (arg.size() >= 6 && arg.substr(0,6) == "-mux16") {
+			if (arg.size() >= 6 && arg.compare(0,6,"-mux16") == 0) {
 				use_mux16 = true;
 				if (arg.size() > 6) {
 					if (arg[6] != '=') break;
@@ -693,7 +703,7 @@ struct MuxcoverPass : public Pass {
 				}
 				continue;
 			}
-			if (arg.size() >= 6 && arg.substr(0,6) == "-dmux=") {
+			if (arg.size() >= 6 && arg.compare(0,6,"-dmux=") == 0) {
 				cost_dmux = atoi(arg.substr(6).c_str());
 				continue;
 			}
@@ -722,6 +732,7 @@ struct MuxcoverPass : public Pass {
 			worker.use_mux8 = use_mux8;
 			worker.use_mux16 = use_mux16;
 			worker.cost_dmux = cost_dmux;
+			worker.cost_mux2 = cost_mux2;
 			worker.cost_mux4 = cost_mux4;
 			worker.cost_mux8 = cost_mux8;
 			worker.cost_mux16 = cost_mux16;

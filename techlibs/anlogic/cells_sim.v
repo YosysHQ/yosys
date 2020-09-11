@@ -1,5 +1,5 @@
 module AL_MAP_SEQ (
-	output q,
+	output reg q,
 	input ce,
 	input clk,
 	input sr,
@@ -9,6 +9,70 @@ module AL_MAP_SEQ (
 	parameter REGSET = "RESET"; //RESET/SET
 	parameter SRMUX = "SR"; //SR/INV
 	parameter SRMODE = "SYNC"; //SYNC/ASYNC
+
+	wire srmux;
+	generate
+		case (SRMUX)
+			"SR": assign srmux = sr;
+			"INV": assign srmux = ~sr;
+			default: assign srmux = sr;
+		endcase
+	endgenerate
+
+	wire regset;
+	generate
+		case (REGSET)
+			"RESET": assign regset = 1'b0;
+			"SET": assign regset = 1'b1;
+			default: assign regset = 1'b0;
+		endcase
+	endgenerate
+
+	initial q = regset;
+
+	generate
+		if (DFFMODE == "FF")
+		begin
+			if (SRMODE == "ASYNC")
+			begin
+				always @(posedge clk, posedge srmux)
+					if (srmux)
+						q <= regset;
+					else if (ce)
+						q <= d;
+			end
+			else
+			begin
+				always @(posedge clk)
+					if (srmux)
+						q <= regset;
+					else if (ce)
+						q <= d;
+			end
+		end
+		else
+		begin
+			// DFFMODE == "LATCH"
+			if (SRMODE == "ASYNC")
+			begin
+				always @*
+					if (srmux)
+						q <= regset;
+					else if (~clk & ce)
+						q <= d;
+			end
+			else
+			begin
+				always @*
+					if (~clk) begin
+						if (srmux)
+							q <= regset;
+						else if (ce)
+							q <= d;
+					end
+			end
+		end
+    endgenerate
 endmodule
 
 module AL_MAP_LUT1 (
@@ -17,7 +81,8 @@ module AL_MAP_LUT1 (
 );
 	parameter [1:0] INIT = 2'h0;
 	parameter EQN = "(A)";
-	assign o = INIT >> a;
+
+	assign o = a ? INIT[1] : INIT[0];	
 endmodule
 
 module AL_MAP_LUT2 (
@@ -27,7 +92,9 @@ module AL_MAP_LUT2 (
 );
 	parameter [3:0] INIT = 4'h0;
 	parameter EQN = "(A)";
-	assign o = INIT >> {b, a};
+
+	wire [1:0] s1 = b ? INIT[ 3:2] : INIT[1:0];
+	assign o = a ? s1[1] : s1[0];	
 endmodule
 
 module AL_MAP_LUT3 (
@@ -38,7 +105,10 @@ module AL_MAP_LUT3 (
 );
 	parameter [7:0] INIT = 8'h0;
 	parameter EQN = "(A)";
-	assign o = INIT >> {c, b, a};
+
+	wire [3:0] s2 = c ? INIT[ 7:4] : INIT[3:0];
+	wire [1:0] s1 = b ?   s2[ 3:2] :   s2[1:0];
+	assign o = a ? s1[1] : s1[0];	
 endmodule
 
 module AL_MAP_LUT4 (
@@ -50,7 +120,11 @@ module AL_MAP_LUT4 (
 );
 	parameter [15:0] INIT = 16'h0;
 	parameter EQN = "(A)";
-	assign o = INIT >> {d, c, b, a};
+
+	wire [7:0] s3 = d ? INIT[15:8] : INIT[7:0];
+	wire [3:0] s2 = c ?   s3[ 7:4] :   s3[3:0];
+	wire [1:0] s1 = b ?   s2[ 3:2] :   s2[1:0];
+	assign o = a ? s1[1] : s1[0];	
 endmodule
 
 module AL_MAP_LUT5 (
@@ -100,4 +174,18 @@ module AL_MAP_ADDER (
   output [1:0] o
 );
 	parameter ALUTYPE = "ADD";
+
+	generate
+		case (ALUTYPE)
+			"ADD": 		 assign o = a + b + c;
+			"SUB": 		 assign o = a - b - c;
+			"A_LE_B":    assign o = a - b - c;
+
+			"ADD_CARRY":    assign o = {  a, 1'b0 };
+			"SUB_CARRY":    assign o = { ~a, 1'b0 };
+			"A_LE_B_CARRY": assign o = {  a, 1'b0 };
+			default: assign o = a + b + c;
+		endcase
+	endgenerate	
+
 endmodule

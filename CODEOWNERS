@@ -1,0 +1,38 @@
+## CODE NOTIFICATIONS
+# Register yourself here to be notified about modifications
+# for any files you have an interest in/know your way around.
+
+# Each line is a file pattern followed by one or more users.
+# Both github usernames and email addresses are supported.
+# Order is important; the last matching pattern takes the most
+# precedence. Previous matches will not be applied.
+
+
+# PATH (can use glob)          USERNAME(S)
+
+passes/cmds/scratchpad.cc      @nakengelhardt
+frontends/rpc/                 @whitequark
+backends/cxxrtl/               @whitequark
+passes/cmds/bugpoint.cc        @whitequark
+passes/techmap/flowmap.cc      @whitequark
+passes/opt/opt_lut.cc          @whitequark
+
+
+## External Contributors
+# Only users with write permission to the repository get review
+# requests automatically, but we add information for other
+# contributors here too, so we know who to ask to take a look.
+# These still override previous lines, so be careful not to
+# accidentally disable any of the above rules.
+
+techlibs/intel_alm/            @ZirconiumX
+
+# pyosys
+misc/*.py                      @btut
+
+backends/firrtl                @ucbjrl @azidar
+
+passes/sat/qbfsat.cc           @boqwxp
+passes/sat/qbfsat.h            @boqwxp
+passes/cmds/exec.cc            @boqwxp
+passes/cmds/printattrs.cc      @boqwxp

@@ -1,0 +1,5 @@
+read_verilog bug_1268.v
+proc
+equiv_make gold gate equiv
+equiv_induct
+equiv_status -assert

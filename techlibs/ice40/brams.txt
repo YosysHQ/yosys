@@ -28,13 +28,73 @@ bram $__ICE40_RAM4K_M123
   clkpol 2 3
 endbram
 
+# The syn_* attributes are described in:
+# https://www.latticesemi.com/-/media/LatticeSemi/Documents/Tutorials/AK/LatticeDiamondTutorial311.ashx
+attr_icase 1
+
 match $__ICE40_RAM4K_M0
+  # implicitly requested RAM or ROM
+  attribute !syn_ramstyle syn_ramstyle=auto
+  attribute !syn_romstyle syn_romstyle=auto
+  attribute !ram_block
+  attribute !rom_block
+  attribute !logic_block
+  min efficiency 2
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__ICE40_RAM4K_M0
+  # explicitly requested RAM
+  attribute syn_ramstyle=block_ram ram_block
+  attribute !syn_romstyle
+  attribute !rom_block
+  attribute !logic_block
+  min wports 1
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__ICE40_RAM4K_M0
+  # explicitly requested ROM
+  attribute syn_romstyle=ebr rom_block
+  attribute !syn_ramstyle
+  attribute !ram_block
+  attribute !logic_block
+  max wports 0
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__ICE40_RAM4K_M123
+  # implicitly requested RAM or ROM
+  attribute !syn_ramstyle syn_ramstyle=auto
+  attribute !syn_romstyle syn_romstyle=auto
+  attribute !ram_block
+  attribute !rom_block
+  attribute !logic_block
   min efficiency 2
   make_transp
   or_next_if_better
 endmatch
 
 match $__ICE40_RAM4K_M123
-  min efficiency 2
+  # explicitly requested RAM
+  attribute syn_ramstyle=block_ram ram_block
+  attribute !syn_romstyle
+  attribute !rom_block
+  attribute !logic_block
+  min wports 1
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__ICE40_RAM4K_M123
+  # explicitly requested ROM
+  attribute syn_romstyle=ebr rom_block
+  attribute !syn_ramstyle
+  attribute !ram_block
+  attribute !logic_block
+  max wports 0
   make_transp
 endmatch

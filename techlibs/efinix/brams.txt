@@ -1,0 +1,32 @@
+bram $__EFINIX_5K
+  init 1
+
+  abits 8  @a8d16
+  dbits 16 @a8d16
+  abits 9  @a9d8
+  dbits 8  @a9d8
+  abits 10 @a10d4
+  dbits 4  @a10d4
+  abits 11 @a11d2
+  dbits 2  @a11d2
+  abits 12 @a12d1
+  dbits 1  @a12d1
+  abits 8  @a8d20
+  dbits 20 @a8d20
+  abits 9  @a9d10
+  dbits 10 @a9d10
+
+  groups 2
+  ports 1 1
+  wrmode 1 0
+  enable 1 1
+  transp 0 2
+  clocks 2 3
+  clkpol 2 3
+endbram
+
+match $__EFINIX_5K
+  min bits 256
+  min efficiency 5
+  shuffle_enable B
+endmatch

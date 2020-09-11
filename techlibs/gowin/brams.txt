@@ -1,0 +1,31 @@
+bram $__GW1NR_SDP
+  init 1
+  abits 9 @a9d36
+  dbits 32 @a9d36
+  abits 10 @a10d18
+  dbits 16 @a10d18
+  abits 11 @a11d9
+  dbits 8  @a11d9
+  abits 12 @a12d4
+  dbits 4  @a12d4
+  abits 13 @a13d2
+  dbits 2  @a13d2
+  abits 14 @a14d1
+  dbits 1  @a14d1
+  groups 2
+  ports  1 1
+  wrmode 1 0
+  enable 4 1 @a9d36
+  enable 2 1 @a10d18
+  enable 1 1 @a11d9 @a12d4 @a13d2 @a14d1
+  transp 0 0
+  clocks 2 3
+  clkpol 2 3
+endbram
+
+match $__GW1NR_SDP
+  min bits 2048
+  min efficiency 5
+  shuffle_enable A
+  make_transp
+endmatch

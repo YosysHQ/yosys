@@ -1,0 +1,7 @@
+read_verilog ../common/mul.v
+hierarchy -top top
+equiv_opt -assert -multiclock -map +/ice40/cells_sim.v synth_ice40 -dsp # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd top # Constrain all select calls below inside the top module
+select -assert-count 1 t:SB_MAC16
+select -assert-none t:SB_MAC16 %% t:* %D

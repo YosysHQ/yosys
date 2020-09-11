@@ -1,0 +1,21 @@
+test_pmgen -generate reduce
+hierarchy -top pmtest_test_pmgen_pm_reduce
+flatten; opt_clean
+
+design -save gold
+test_pmgen -reduce_chain
+design -stash gate
+
+design -copy-from gold -as gold pmtest_test_pmgen_pm_reduce
+design -copy-from gate -as gate pmtest_test_pmgen_pm_reduce
+miter -equiv -flatten -make_assert gold gate miter
+sat -verify -prove-asserts miter
+
+design -load gold
+test_pmgen -reduce_tree
+design -stash gate
+
+design -copy-from gold -as gold pmtest_test_pmgen_pm_reduce
+design -copy-from gate -as gate pmtest_test_pmgen_pm_reduce
+miter -equiv -flatten -make_assert gold gate miter
+sat -verify -prove-asserts miter

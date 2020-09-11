@@ -1,0 +1,49 @@
+read_verilog ../common/mux.v
+design -save read
+
+hierarchy -top mux2
+proc
+equiv_opt -assert -map +/gowin/cells_sim.v synth_gowin # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mux2 # Constrain all select calls below inside the top module
+select -assert-count 1 t:LUT3
+select -assert-count 3 t:IBUF
+select -assert-count 1 t:OBUF
+
+select -assert-none t:LUT3 t:IBUF t:OBUF %% t:* %D
+
+design -load read
+hierarchy -top mux4
+proc
+equiv_opt -assert -map +/gowin/cells_sim.v synth_gowin # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mux4 # Constrain all select calls below inside the top module
+select -assert-count 4 t:LUT*
+select -assert-count 2 t:MUX2_LUT5
+select -assert-count 1 t:MUX2_LUT6
+select -assert-count 6 t:IBUF
+select -assert-count 1 t:OBUF
+
+select -assert-none t:LUT* t:MUX2_LUT6 t:MUX2_LUT5 t:IBUF t:OBUF %% t:* %D
+
+design -load read
+hierarchy -top mux8
+proc
+equiv_opt -assert -map +/gowin/cells_sim.v synth_gowin # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mux8 # Constrain all select calls below inside the top module
+select -assert-count 11 t:IBUF
+select -assert-count 1 t:OBUF
+
+select -assert-none t:LUT* t:MUX2_LUT6 t:MUX2_LUT5 t:IBUF t:OBUF %% t:* %D
+
+design -load read
+hierarchy -top mux16
+proc
+equiv_opt -assert -map +/gowin/cells_sim.v synth_gowin # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mux16 # Constrain all select calls below inside the top module
+select -assert-count 20 t:IBUF
+select -assert-count 1 t:OBUF
+
+select -assert-none t:GND t:VCC t:LUT* t:MUX2_LUT6 t:MUX2_LUT5 t:MUX2_LUT6 t:MUX2_LUT7 t:MUX2_LUT8 t:IBUF t:OBUF %% t:* %D

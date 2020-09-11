@@ -1,0 +1,186 @@
+read_verilog << EOT
+module ibuf ((* iopad_external_pin *) input i, output o); endmodule
+module obuf (input i, (* iopad_external_pin *) output o); endmodule
+module obuft (input i, input oe, (* iopad_external_pin *) output o); endmodule
+module iobuf (input i, input oe, output o, (* iopad_external_pin *) inout io); endmodule
+
+module buf_inside (input i, output o);
+obuf b (.i(i), .o(o));
+endmodule
+
+module a(input i, output o);
+assign o = i;
+endmodule
+
+module b(input i, output o);
+ibuf b (.i(i), .o(o));
+endmodule
+
+module c(input i, output o);
+obuf b (.i(i), .o(o));
+endmodule
+
+module d(input i, oe, output o, o2, o3);
+assign o = oe ? i : 1'bz;
+assign o2 = o;
+assign o3 = ~o;
+endmodule
+
+module e(input i, oe, inout io, output o2, o3);
+assign io = oe ? i : 1'bz;
+assign o2 = io;
+assign o3 = ~io;
+endmodule
+
+module f(output o, o2);
+assign o = 1'bz;
+endmodule
+
+module g(inout io, output o);
+assign o = io;
+endmodule
+
+module h(inout io, output o, input i);
+assign io = i;
+assign o = io;
+endmodule
+
+module i(input i, output o);
+buf_inside b (.i(i), .o(o));
+endmodule
+
+module j(input i, output o);
+wire tmp;
+obuf b (.i(i), .o(tmp));
+assign o = tmp;
+endmodule
+
+module k(inout o, o2);
+assign o = 1'bz;
+endmodule
+
+EOT
+
+opt_clean
+tribuf
+simplemap
+iopadmap -bits -inpad ibuf o:i -outpad obuf i:o -toutpad obuft oe:i:o -tinoutpad iobuf oe:o:i:io a b c d e f g h i j k
+opt_clean
+hierarchy -check
+check
+
+select -assert-count 1 a/t:ibuf
+select -assert-count 1 a/t:obuf
+select -set ib w:i %a %co a/t:ibuf %i
+select -set ob w:o %a %ci a/t:obuf %i
+select -assert-count 1 @ib
+select -assert-count 1 @ob
+select -assert-count 1 @ib %co %co @ob %i
+
+select -assert-count 1 b/t:ibuf
+select -assert-count 1 b/t:obuf
+select -set ib w:i %a %co b/t:ibuf %i
+select -set ob w:o %a %ci b/t:obuf %i
+select -assert-count 1 @ib
+select -assert-count 1 @ob
+select -assert-count 1 @ib %co %co @ob %i
+
+select -assert-count 1 c/t:ibuf
+select -assert-count 1 c/t:obuf
+select -set ib w:i %a %co c/t:ibuf %i
+select -set ob w:o %a %ci c/t:obuf %i
+select -assert-count 1 @ib
+select -assert-count 1 @ob
+select -assert-count 1 @ib %co %co @ob %i
+
+select -assert-count 2 d/t:ibuf
+select -assert-count 2 d/t:obuf
+select -assert-count 1 d/t:obuft
+select -set ib w:i %a %co d/t:ibuf %i
+select -set oeb w:oe %a %co d/t:ibuf %i
+select -set ob w:o %a %ci d/t:obuft %i
+select -set o2b w:o2 %a %ci d/t:obuf %i
+select -set o3b w:o3 %a %ci d/t:obuf %i
+select -assert-count 1 @ib
+select -assert-count 1 @oeb
+select -assert-count 1 @ob
+select -assert-count 1 @o2b
+select -assert-count 1 @o3b
+select -assert-count 1 @ib %co %co @ob %i
+select -assert-count 1 @oeb %co %co @ob %i
+select -assert-count 1 @ib %co %co @o2b %i
+select -assert-count 1 @ib %co %co t:$_NOT_ %i
+select -assert-count 1 @o3b %ci %ci t:$_NOT_ %i
+
+select -assert-count 2 e/t:ibuf
+select -assert-count 2 e/t:obuf
+select -assert-count 1 e/t:iobuf
+select -set ib w:i %a %co e/t:ibuf %i
+select -set oeb w:oe %a %co e/t:ibuf %i
+select -set iob w:io %a %ci e/t:iobuf %i
+select -set o2b w:o2 %a %ci e/t:obuf %i
+select -set o3b w:o3 %a %ci e/t:obuf %i
+select -assert-count 1 @ib
+select -assert-count 1 @oeb
+select -assert-count 1 @iob
+select -assert-count 1 @o2b
+select -assert-count 1 @o3b
+select -assert-count 1 @ib %co %co @iob %i
+select -assert-count 1 @oeb %co %co @iob %i
+select -assert-count 1 @iob %co %co @o2b %i
+select -assert-count 1 @iob %co %co t:$_NOT_ %i
+select -assert-count 1 @o3b %ci %ci t:$_NOT_ %i
+
+select -assert-count 2 f/t:obuft
+
+select -assert-count 1 g/t:obuf
+select -assert-count 1 g/t:iobuf
+
+select -assert-count 1 h/t:ibuf
+select -assert-count 1 h/t:iobuf
+select -assert-count 1 h/t:obuf
+
+select -assert-count 1 i/t:ibuf
+select -assert-count 0 i/t:obuf
+
+select -assert-count 1 j/t:ibuf
+select -assert-count 1 j/t:obuf
+
+select -assert-count 2 k/t:iobuf
+
+
+# Check that \init attributes get moved from output buffer
+#   to buffer input
+design -reset
+read_verilog << EOT
+module obuf (input i, (* iopad_external_pin *) output o); endmodule
+module obuft (input i, input oe, (* iopad_external_pin *) output o); endmodule
+module iobuf (input i, input oe, output o, (* iopad_external_pin *) inout io); endmodule
+module sub(input i, output o); endmodule
+
+module a(input i, (* init=1'b1 *) output o);
+sub s(.i(i), .o(o));
+endmodule
+
+module b(input [1:0] i, oe, (* init=2'b1x *) output [1:0] o);
+wire [1:0] w;
+sub s1(.i(i[0]), .o(w[0]));
+sub s2(.i(i[1]), .o(w[1]));
+assign o = oe ? w : 2'bz;
+endmodule
+
+module c(input i, oe, (* init=2'b00 *) inout io, output o1, o2);
+assign io = oe ? i : 1'bz;
+assign {o1,o2} = {io,io};
+endmodule
+EOT
+opt_clean
+tribuf
+simplemap
+iopadmap -bits -outpad obuf i:o -toutpad obuft oe:i:o -tinoutpad iobuf oe:o:i:io
+select -assert-count 1 a/c:s %co a/a:init=1'b1 %i
+select -assert-count 1 a/a:init
+select -assert-count 1 b/c:s* %co %a b/a:init=2'b1x %i
+select -assert-count 1 b/a:init
+select -assert-count 1 c/t:iobuf %co c/a:init=2'b00 %i
+select -assert-count 1 c/a:init

@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct DeminoutPass : public Pass {
 	DeminoutPass() : Pass("deminout", "demote inout ports to input or output") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		log("\n");
 		log("    deminout [options] [selection]\n");
@@ -33,7 +33,7 @@ struct DeminoutPass : public Pass {
 		log("\"Demote\" inout ports to input or output ports, if possible.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing DEMINOUT pass (demote inout ports to input or output).\n");
 
@@ -83,13 +83,13 @@ struct DeminoutPass : public Pass {
 						for (auto bit : sigmap(conn.second))
 							bits_used.insert(bit);
 
-					if (conn.first == "\\Y" && cell->type.in("$mux", "$pmux", "$_MUX_", "$_TBUF_", "$tribuf"))
+					if (conn.first == ID::Y && cell->type.in(ID($mux), ID($pmux), ID($_MUX_), ID($_TBUF_), ID($tribuf)))
 					{
-						bool tribuf = (cell->type == "$_TBUF_" || cell->type == "$tribuf");
+						bool tribuf = cell->type.in(ID($_TBUF_), ID($tribuf));
 
 						if (!tribuf) {
 							for (auto &c : cell->connections()) {
-								if (!c.first.in("\\A", "\\B"))
+								if (!c.first.in(ID::A, ID::B))
 									continue;
 								for (auto b : sigmap(c.second))
 									if (b == State::Sz)
@@ -113,7 +113,7 @@ struct DeminoutPass : public Pass {
 						{
 							if (bits_numports[bit] > 1 || bits_inout.count(bit))
 								new_input = true, new_output = true;
-							if (bit == State::S0 || bit == State::S1)
+							if (!bit.wire)
 								new_output = true;
 							if (bits_written.count(bit)) {
 								new_output = true;
@@ -121,8 +121,7 @@ struct DeminoutPass : public Pass {
 									goto tribuf_bit;
 							} else {
 						tribuf_bit:
-								if (bits_used.count(bit))
-									new_input = true;
+								new_input = true;
 							}
 						}
 

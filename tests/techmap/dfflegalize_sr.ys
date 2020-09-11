@@ -1,0 +1,74 @@
+read_verilog -icells <<EOT
+
+module sr(input R, S, output [2:0] Q);
+$_SR_PP_ ff0 (.R(R), .S(S), .Q(Q[0]));
+$_SR_PN_ ff1 (.R(R), .S(S), .Q(Q[1]));
+$_SR_NP_ ff2 (.R(R), .S(S), .Q(Q[2]));
+endmodule
+
+EOT
+
+design -save orig
+equiv_opt -assert -multiclock dfflegalize -cell $_SR_PP_ x
+equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_PP0_ x
+equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_PP1_ x
+equiv_opt -assert -multiclock dfflegalize -cell $_DLATCHSR_PPP_ x
+equiv_opt -assert -multiclock dfflegalize -cell $_DFFSR_PPP_ x
+equiv_opt -assert -multiclock dfflegalize -cell $_DFFSRE_PPPP_ x
+
+
+# Convert everything to SRs.
+
+design -load orig
+dfflegalize -cell $_SR_PP_ x
+
+select -assert-count 2 t:$_NOT_
+select -assert-count 3 t:$_SR_PP_
+select -assert-none t:$_SR_PP_ t:$_NOT_ %% %n t:* %i
+
+
+# Convert everything to ADLATCHs.
+
+design -load orig
+dfflegalize -cell $_DLATCH_PP0_ x
+
+select -assert-count 2 t:$_NOT_
+select -assert-count 3 t:$_DLATCH_PP0_
+select -assert-none t:$_DLATCH_PP0_ t:$_NOT_ %% %n t:* %i
+
+design -load orig
+dfflegalize -cell $_DLATCH_PP1_ x
+
+select -assert-count 8 t:$_NOT_
+select -assert-count 3 t:$_DLATCH_PP1_
+select -assert-none t:$_DLATCH_PP1_ t:$_NOT_ %% %n t:* %i
+
+
+# Convert everything to DLATCHSRs.
+
+design -load orig
+dfflegalize -cell $_DLATCHSR_PPP_ x
+
+select -assert-count 2 t:$_NOT_
+select -assert-count 3 t:$_DLATCHSR_PPP_
+select -assert-none t:$_DLATCHSR_PPP_ t:$_NOT_ %% %n t:* %i
+
+
+# Convert everything to DFFSRs.
+
+design -load orig
+dfflegalize -cell $_DFFSR_PPP_ x
+
+select -assert-count 2 t:$_NOT_
+select -assert-count 3 t:$_DFFSR_PPP_
+select -assert-none t:$_DFFSR_PPP_ t:$_NOT_ %% %n t:* %i
+
+
+# Convert everything to DFFSREs.
+
+design -load orig
+dfflegalize -cell $_DFFSRE_PPPP_ x
+
+select -assert-count 2 t:$_NOT_
+select -assert-count 3 t:$_DFFSRE_PPPP_
+select -assert-none t:$_DFFSRE_PPPP_ t:$_NOT_ %% %n t:* %i

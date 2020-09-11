@@ -1,0 +1,53 @@
+read_verilog -icells <<EOT
+
+module dlatch(input E, D, (* init = 8'hf0 *) output [7:0] Q);
+$_DLATCH_P_ ff0 (.E(E), .D(1'b0), .Q(Q[0]));
+$_DLATCH_N_ ff1 (.E(E), .D(1'b0), .Q(Q[1]));
+$_DLATCH_P_ ff2 (.E(E), .D(1'b1), .Q(Q[2]));
+$_DLATCH_N_ ff3 (.E(E), .D(1'b1), .Q(Q[3]));
+$_DLATCH_P_ ff4 (.E(E), .D(1'b0), .Q(Q[4]));
+$_DLATCH_N_ ff5 (.E(E), .D(1'b0), .Q(Q[5]));
+$_DLATCH_P_ ff6 (.E(E), .D(1'b1), .Q(Q[6]));
+$_DLATCH_N_ ff7 (.E(E), .D(1'b1), .Q(Q[7]));
+endmodule
+
+EOT
+
+design -save orig
+equiv_opt -assert -multiclock dfflegalize -cell $_DFF_PP0_ 01
+equiv_opt -assert -multiclock dfflegalize -cell $_DFF_PP?_ 0
+equiv_opt -assert -multiclock dfflegalize -cell $_DFFSRE_PPPP_ 0
+equiv_opt -assert -multiclock dfflegalize -cell $_DFFSRE_PPPP_ 1
+
+# Convert everything to ADFFs.
+
+design -load orig
+dfflegalize -cell $_DFF_PP0_ 01
+
+select -assert-count 12 t:$_NOT_
+select -assert-count 8 t:$_DFF_PP0_
+select -assert-none t:$_DFF_PP0_ t:$_NOT_ %% %n t:* %i
+
+design -load orig
+dfflegalize -cell $_DFF_PP?_ 0
+
+select -assert-count 12 t:$_NOT_
+select -assert-count 4 t:$_DFF_PP0_
+select -assert-count 4 t:$_DFF_PP1_
+select -assert-none t:$_DFF_PP0_ t:$_DFF_PP1_ t:$_NOT_ %% %n t:* %i
+
+# Convert everything to DFFSREs.
+
+design -load orig
+dfflegalize -cell $_DFFSRE_PPPP_ 0
+
+select -assert-count 12 t:$_NOT_
+select -assert-count 8 t:$_DFFSRE_PPPP_
+select -assert-none t:$_DFFSRE_PPPP_ t:$_NOT_ %% %n t:* %i
+
+design -load orig
+dfflegalize -cell $_DFFSRE_PPPP_ 1
+
+select -assert-count 12 t:$_NOT_
+select -assert-count 8 t:$_DFFSRE_PPPP_
+select -assert-none t:$_DFFSRE_PPPP_ t:$_NOT_ %% %n t:* %i

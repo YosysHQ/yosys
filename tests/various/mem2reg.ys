@@ -1,0 +1,14 @@
+read_verilog <<EOT
+module top;
+parameter DATADEPTH=2;
+parameter DATAWIDTH=1;
+(* keep, nomem2reg *) reg [DATAWIDTH-1:0] data1 [DATADEPTH-1:0];
+(* keep, mem2reg *) reg [DATAWIDTH-1:0] data2 [DATADEPTH-1:0];
+endmodule
+EOT
+
+proc
+cd top
+select -assert-count 1 m:data1 a:src=<<EOT:4.43-4.48 %i
+select -assert-count 2 w:data2[*] a:src=<<EOT:5.41-5.46 %i
+select -assert-none a:mem2reg

@@ -27,7 +27,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct CheckPass : public Pass {
 	CheckPass() : Pass("check", "check for obvious problems in the design") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -41,21 +41,33 @@ struct CheckPass : public Pass {
 		log("\n");
 		log(" - used wires that do not have a driver\n");
 		log("\n");
-		log("When called with -noinit then this command also checks for wires which have\n");
-		log("the 'init' attribute set.\n");
+		log("Options:\n");
 		log("\n");
-		log("When called with -initdrv then this command also checks for wires which have\n");
-		log("the 'init' attribute set and aren't driven by a FF cell type.\n");
+		log("  -noinit\n");
+		log("    Also check for wires which have the 'init' attribute set.\n");
 		log("\n");
-		log("When called with -assert then the command will produce an error if any\n");
-		log("problems are found in the current design.\n");
+		log("  -initdrv\n");
+		log("    Also check for wires that have the 'init' attribute set and are not\n");
+		log("    driven by an FF cell type.\n");
+		log("\n");
+		log("  -mapped\n");
+		log("    Also check for internal cells that have not been mapped to cells of the\n");
+		log("    target architecture.\n");
+		log("\n");
+		log("  -allow-tbuf\n");
+		log("    Modify the -mapped behavior to still allow $_TBUF_ cells.\n");
+		log("\n");
+		log("  -assert\n");
+		log("    Produce a runtime error if any problems are found in the current design.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		int counter = 0;
 		bool noinit = false;
 		bool initdrv = false;
+		bool mapped = false;
+		bool allow_tbuf = false;
 		bool assert_mode = false;
 
 		size_t argidx;
@@ -68,6 +80,14 @@ struct CheckPass : public Pass {
 				initdrv = true;
 				continue;
 			}
+			if (args[argidx] == "-mapped") {
+				mapped = true;
+				continue;
+			}
+			if (args[argidx] == "-allow-tbuf") {
+				allow_tbuf = true;
+				continue;
+			}
 			if (args[argidx] == "-assert") {
 				assert_mode = true;
 				continue;
@@ -77,49 +97,6 @@ struct CheckPass : public Pass {
 		extra_args(args, argidx, design);
 
 		log_header(design, "Executing CHECK pass (checking for obvious problems).\n");
-
-		pool<IdString> fftypes;
-		fftypes.insert("$sr");
-		fftypes.insert("$ff");
-		fftypes.insert("$dff");
-		fftypes.insert("$dffe");
-		fftypes.insert("$dffsr");
-		fftypes.insert("$adff");
-		fftypes.insert("$dlatch");
-		fftypes.insert("$dlatchsr");
-		fftypes.insert("$_DFFE_NN_");
-		fftypes.insert("$_DFFE_NP_");
-		fftypes.insert("$_DFFE_PN_");
-		fftypes.insert("$_DFFE_PP_");
-		fftypes.insert("$_DFFSR_NNN_");
-		fftypes.insert("$_DFFSR_NNP_");
-		fftypes.insert("$_DFFSR_NPN_");
-		fftypes.insert("$_DFFSR_NPP_");
-		fftypes.insert("$_DFFSR_PNN_");
-		fftypes.insert("$_DFFSR_PNP_");
-		fftypes.insert("$_DFFSR_PPN_");
-		fftypes.insert("$_DFFSR_PPP_");
-		fftypes.insert("$_DFF_NN0_");
-		fftypes.insert("$_DFF_NN1_");
-		fftypes.insert("$_DFF_NP0_");
-		fftypes.insert("$_DFF_NP1_");
-		fftypes.insert("$_DFF_N_");
-		fftypes.insert("$_DFF_PN0_");
-		fftypes.insert("$_DFF_PN1_");
-		fftypes.insert("$_DFF_PP0_");
-		fftypes.insert("$_DFF_PP1_");
-		fftypes.insert("$_DFF_P_");
-		fftypes.insert("$_DLATCHSR_NNN_");
-		fftypes.insert("$_DLATCHSR_NNP_");
-		fftypes.insert("$_DLATCHSR_NPN_");
-		fftypes.insert("$_DLATCHSR_NPP_");
-		fftypes.insert("$_DLATCHSR_PNN_");
-		fftypes.insert("$_DLATCHSR_PNP_");
-		fftypes.insert("$_DLATCHSR_PPN_");
-		fftypes.insert("$_DLATCHSR_PPP_");
-		fftypes.insert("$_DLATCH_N_");
-		fftypes.insert("$_DLATCH_P_");
-		fftypes.insert("$_FF_");
 
 		for (auto module : design->selected_whole_modules_warn())
 		{
@@ -135,29 +112,37 @@ struct CheckPass : public Pass {
 			TopoSort<string> topo;
 
 			for (auto cell : module->cells())
-			for (auto &conn : cell->connections()) {
-				SigSpec sig = sigmap(conn.second);
-				bool logic_cell = yosys_celltypes.cell_evaluable(cell->type);
-				if (cell->input(conn.first))
-					for (auto bit : sig)
-						if (bit.wire) {
+			{
+				if (mapped && cell->type.begins_with("$") && design->module(cell->type) == nullptr) {
+					if (allow_tbuf && cell->type == ID($_TBUF_)) goto cell_allowed;
+					log_warning("Cell %s.%s is an unmapped internal cell of type %s.\n", log_id(module), log_id(cell), log_id(cell->type));
+					counter++;
+				cell_allowed:;
+				}
+				for (auto &conn : cell->connections()) {
+					SigSpec sig = sigmap(conn.second);
+					bool logic_cell = yosys_celltypes.cell_evaluable(cell->type);
+					if (cell->input(conn.first))
+						for (auto bit : sig)
+							if (bit.wire) {
+								if (logic_cell)
+									topo.edge(stringf("wire %s", log_signal(bit)),
+											stringf("cell %s (%s)", log_id(cell), log_id(cell->type)));
+								used_wires.insert(bit);
+							}
+					if (cell->output(conn.first))
+						for (int i = 0; i < GetSize(sig); i++) {
 							if (logic_cell)
-								topo.edge(stringf("wire %s", log_signal(bit)),
-										stringf("cell %s (%s)", log_id(cell), log_id(cell->type)));
-							used_wires.insert(bit);
+								topo.edge(stringf("cell %s (%s)", log_id(cell), log_id(cell->type)),
+										stringf("wire %s", log_signal(sig[i])));
+							if (sig[i].wire)
+								wire_drivers[sig[i]].push_back(stringf("port %s[%d] of cell %s (%s)",
+										log_id(conn.first), i, log_id(cell), log_id(cell->type)));
 						}
-				if (cell->output(conn.first))
-					for (int i = 0; i < GetSize(sig); i++) {
-						if (logic_cell)
-							topo.edge(stringf("cell %s (%s)", log_id(cell), log_id(cell->type)),
-									stringf("wire %s", log_signal(sig[i])));
-						if (sig[i].wire)
-							wire_drivers[sig[i]].push_back(stringf("port %s[%d] of cell %s (%s)",
-									log_id(conn.first), i, log_id(cell), log_id(cell->type)));
-					}
-				if (!cell->input(conn.first) && cell->output(conn.first))
-					for (auto bit : sig)
-						if (bit.wire) wire_drivers_count[bit]++;
+					if (!cell->input(conn.first) && cell->output(conn.first))
+						for (auto bit : sig)
+							if (bit.wire) wire_drivers_count[bit]++;
+				}
 			}
 
 			pool<SigBit> init_bits;
@@ -174,8 +159,8 @@ struct CheckPass : public Pass {
 				if (wire->port_input && !wire->port_output)
 					for (auto bit : sigmap(wire))
 						if (bit.wire) wire_drivers_count[bit]++;
-				if (wire->attributes.count("\\init")) {
-					Const initval = wire->attributes.at("\\init");
+				if (wire->attributes.count(ID::init)) {
+					Const initval = wire->attributes.at(ID::init);
 					for (int i = 0; i < GetSize(initval) && i < GetSize(wire); i++)
 						if (initval[i] == State::S0 || initval[i] == State::S1)
 							init_bits.insert(sigmap(SigBit(wire, i)));
@@ -214,10 +199,10 @@ struct CheckPass : public Pass {
 			{
 				for (auto cell : module->cells())
 				{
-					if (fftypes.count(cell->type) == 0)
+					if (RTLIL::builtin_ff_cell_types().count(cell->type) == 0)
 						continue;
 
-					for (auto bit : sigmap(cell->getPort("\\Q")))
+					for (auto bit : sigmap(cell->getPort(ID::Q)))
 						init_bits.erase(bit);
 				}
 

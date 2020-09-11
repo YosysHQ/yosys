@@ -614,29 +614,29 @@ struct FreduceWorker
 
 		int bits_full_total = 0;
 		std::vector<std::set<RTLIL::SigBit>> batches;
-		for (auto &it : module->wires_)
-			if (it.second->port_input) {
-				batches.push_back(sigmap(it.second).to_sigbit_set());
-				bits_full_total += it.second->width;
+		for (auto w : module->wires())
+			if (w->port_input) {
+				batches.push_back(sigmap(w).to_sigbit_set());
+				bits_full_total += w->width;
 			}
-		for (auto &it : module->cells_) {
-			if (ct.cell_known(it.second->type)) {
+		for (auto cell : module->cells()) {
+			if (ct.cell_known(cell->type)) {
 				std::set<RTLIL::SigBit> inputs, outputs;
-				for (auto &port : it.second->connections()) {
+				for (auto &port : cell->connections()) {
 					std::vector<RTLIL::SigBit> bits = sigmap(port.second).to_sigbit_vector();
-					if (ct.cell_output(it.second->type, port.first))
+					if (ct.cell_output(cell->type, port.first))
 						outputs.insert(bits.begin(), bits.end());
 					else
 						inputs.insert(bits.begin(), bits.end());
 				}
-				std::pair<RTLIL::Cell*, std::set<RTLIL::SigBit>> drv(it.second, inputs);
+				std::pair<RTLIL::Cell*, std::set<RTLIL::SigBit>> drv(cell, inputs);
 				for (auto &bit : outputs)
 					drivers[bit] = drv;
 				batches.push_back(outputs);
 				bits_full_total += outputs.size();
 			}
-			if (inv_mode && it.second->type == "$_NOT_")
-				inv_pairs.insert(std::pair<RTLIL::SigBit, RTLIL::SigBit>(sigmap(it.second->getPort("\\A")), sigmap(it.second->getPort("\\Y"))));
+			if (inv_mode && cell->type == ID($_NOT_))
+				inv_pairs.insert(std::pair<RTLIL::SigBit, RTLIL::SigBit>(sigmap(cell->getPort(ID::A)), sigmap(cell->getPort(ID::Y))));
 		}
 
 		int bits_count = 0;
@@ -731,9 +731,9 @@ struct FreduceWorker
 					{
 						inv_sig = module->addWire(NEW_ID);
 
-						RTLIL::Cell *inv_cell = module->addCell(NEW_ID, "$_NOT_");
-						inv_cell->setPort("\\A", grp[0].bit);
-						inv_cell->setPort("\\Y", inv_sig);
+						RTLIL::Cell *inv_cell = module->addCell(NEW_ID, ID($_NOT_));
+						inv_cell->setPort(ID::A, grp[0].bit);
+						inv_cell->setPort(ID::Y, inv_sig);
 					}
 
 					module->connect(RTLIL::SigSig(grp[i].bit, inv_sig));
@@ -760,7 +760,7 @@ struct FreduceWorker
 
 struct FreducePass : public Pass {
 	FreducePass() : Pass("freduce", "perform functional reduction") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -791,7 +791,7 @@ struct FreducePass : public Pass {
 		log("circuit that is analyzed.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		reduce_counter = 0;
 		reduce_stop_at = 0;
@@ -828,10 +828,8 @@ struct FreducePass : public Pass {
 		extra_args(args, argidx, design);
 
 		int bitcount = 0;
-		for (auto &mod_it : design->modules_) {
-			RTLIL::Module *module = mod_it.second;
-			if (design->selected(module))
-				bitcount += FreduceWorker(design, module).run();
+		for (auto module : design->selected_modules()) {
+			bitcount += FreduceWorker(design, module).run();
 		}
 
 		log("Rewired a total of %d signal bits.\n", bitcount);

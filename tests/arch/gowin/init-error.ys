@@ -1,0 +1,5 @@
+read_verilog init.v
+chparam -set INIT 0 myDFF*P*
+hierarchy -top myDFFP
+logger -expect error "unsupported initial value and async reset value combination" 1
+synth_gowin

@@ -91,6 +91,9 @@ struct AigerWriter
 		} else
 		if (alias_map.count(bit)) {
 			a = bit2aig(alias_map.at(bit));
+		} else
+		if (initstate_bits.count(bit)) {
+			a = initstate_ff;
 		}
 
 		if (bit == State::Sx || bit == State::Sz)
@@ -101,7 +104,7 @@ struct AigerWriter
 		return a;
 	}
 
-	AigerWriter(Module *module, bool zinit_mode, bool imode, bool omode, bool bmode) : module(module), zinit_mode(zinit_mode), sigmap(module)
+	AigerWriter(Module *module, bool zinit_mode, bool imode, bool omode, bool bmode, bool lmode) : module(module), zinit_mode(zinit_mode), sigmap(module)
 	{
 		pool<SigBit> undriven_bits;
 		pool<SigBit> unused_bits;
@@ -123,9 +126,9 @@ struct AigerWriter
 
 		for (auto wire : module->wires())
 		{
-			if (wire->attributes.count("\\init")) {
+			if (wire->attributes.count(ID::init)) {
 				SigSpec initsig = sigmap(wire);
-				Const initval = wire->attributes.at("\\init");
+				Const initval = wire->attributes.at(ID::init);
 				for (int i = 0; i < GetSize(wire) && i < GetSize(initval); i++)
 					if (initval[i] == State::S0 || initval[i] == State::S1)
 						init_map[initsig[i]] = initval[i] == State::S1;
@@ -166,31 +169,31 @@ struct AigerWriter
 
 		for (auto cell : module->cells())
 		{
-			if (cell->type == "$_NOT_")
+			if (cell->type == ID($_NOT_))
 			{
-				SigBit A = sigmap(cell->getPort("\\A").as_bit());
-				SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
+				SigBit A = sigmap(cell->getPort(ID::A).as_bit());
+				SigBit Y = sigmap(cell->getPort(ID::Y).as_bit());
 				unused_bits.erase(A);
 				undriven_bits.erase(Y);
 				not_map[Y] = A;
 				continue;
 			}
 
-			if (cell->type.in("$_FF_", "$_DFF_N_", "$_DFF_P_"))
+			if (cell->type.in(ID($_FF_), ID($_DFF_N_), ID($_DFF_P_)))
 			{
-				SigBit D = sigmap(cell->getPort("\\D").as_bit());
-				SigBit Q = sigmap(cell->getPort("\\Q").as_bit());
+				SigBit D = sigmap(cell->getPort(ID::D).as_bit());
+				SigBit Q = sigmap(cell->getPort(ID::Q).as_bit());
 				unused_bits.erase(D);
 				undriven_bits.erase(Q);
 				ff_map[Q] = D;
 				continue;
 			}
 
-			if (cell->type == "$_AND_")
+			if (cell->type == ID($_AND_))
 			{
-				SigBit A = sigmap(cell->getPort("\\A").as_bit());
-				SigBit B = sigmap(cell->getPort("\\B").as_bit());
-				SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
+				SigBit A = sigmap(cell->getPort(ID::A).as_bit());
+				SigBit B = sigmap(cell->getPort(ID::B).as_bit());
+				SigBit Y = sigmap(cell->getPort(ID::Y).as_bit());
 				unused_bits.erase(A);
 				unused_bits.erase(B);
 				undriven_bits.erase(Y);
@@ -198,66 +201,66 @@ struct AigerWriter
 				continue;
 			}
 
-			if (cell->type == "$initstate")
+			if (cell->type == ID($initstate))
 			{
-				SigBit Y = sigmap(cell->getPort("\\Y").as_bit());
+				SigBit Y = sigmap(cell->getPort(ID::Y).as_bit());
 				undriven_bits.erase(Y);
 				initstate_bits.insert(Y);
 				continue;
 			}
 
-			if (cell->type == "$assert")
+			if (cell->type == ID($assert))
 			{
-				SigBit A = sigmap(cell->getPort("\\A").as_bit());
-				SigBit EN = sigmap(cell->getPort("\\EN").as_bit());
+				SigBit A = sigmap(cell->getPort(ID::A).as_bit());
+				SigBit EN = sigmap(cell->getPort(ID::EN).as_bit());
 				unused_bits.erase(A);
 				unused_bits.erase(EN);
 				asserts.push_back(make_pair(A, EN));
 				continue;
 			}
 
-			if (cell->type == "$assume")
+			if (cell->type == ID($assume))
 			{
-				SigBit A = sigmap(cell->getPort("\\A").as_bit());
-				SigBit EN = sigmap(cell->getPort("\\EN").as_bit());
+				SigBit A = sigmap(cell->getPort(ID::A).as_bit());
+				SigBit EN = sigmap(cell->getPort(ID::EN).as_bit());
 				unused_bits.erase(A);
 				unused_bits.erase(EN);
 				assumes.push_back(make_pair(A, EN));
 				continue;
 			}
 
-			if (cell->type == "$live")
+			if (cell->type == ID($live))
 			{
-				SigBit A = sigmap(cell->getPort("\\A").as_bit());
-				SigBit EN = sigmap(cell->getPort("\\EN").as_bit());
+				SigBit A = sigmap(cell->getPort(ID::A).as_bit());
+				SigBit EN = sigmap(cell->getPort(ID::EN).as_bit());
 				unused_bits.erase(A);
 				unused_bits.erase(EN);
 				liveness.push_back(make_pair(A, EN));
 				continue;
 			}
 
-			if (cell->type == "$fair")
+			if (cell->type == ID($fair))
 			{
-				SigBit A = sigmap(cell->getPort("\\A").as_bit());
-				SigBit EN = sigmap(cell->getPort("\\EN").as_bit());
+				SigBit A = sigmap(cell->getPort(ID::A).as_bit());
+				SigBit EN = sigmap(cell->getPort(ID::EN).as_bit());
 				unused_bits.erase(A);
 				unused_bits.erase(EN);
 				fairness.push_back(make_pair(A, EN));
 				continue;
 			}
 
-			if (cell->type == "$anyconst")
+			if (cell->type == ID($anyconst))
 			{
-				for (auto bit : sigmap(cell->getPort("\\Y"))) {
+				for (auto bit : sigmap(cell->getPort(ID::Y))) {
 					undriven_bits.erase(bit);
 					ff_map[bit] = bit;
 				}
 				continue;
 			}
 
-			if (cell->type == "$anyseq")
+			if (cell->type == ID($anyseq))
 			{
-				for (auto bit : sigmap(cell->getPort("\\Y"))) {
+				for (auto bit : sigmap(cell->getPort(ID::Y))) {
 					undriven_bits.erase(bit);
 					input_bits.insert(bit);
 				}
@@ -365,6 +368,12 @@ struct AigerWriter
 				aig_latchin.push_back(a ^ 1);
 			else
 				aig_latchin.push_back(a);
+		}
+
+		if (lmode && aig_l == 0) {
+			aig_m++, aig_l++;
+			aig_latchinit.push_back(0);
+			aig_latchin.push_back(0);
 		}
 
 		if (!initstate_bits.empty() || !init_inputs.empty())
@@ -620,30 +629,30 @@ struct AigerWriter
 				int a = aig_map.at(sig[i]);
 
 				if (verbose_map)
-					wire_lines[a] += stringf("wire %d %d %s\n", a, i, log_id(wire));
+					wire_lines[a] += stringf("wire %d %d %s\n", a, wire->start_offset+i, log_id(wire));
 
 				if (wire->port_input) {
 					log_assert((a & 1) == 0);
-					input_lines[a] += stringf("input %d %d %s\n", (a >> 1)-1, i, log_id(wire));
+					input_lines[a] += stringf("input %d %d %s\n", (a >> 1)-1, wire->start_offset+i, log_id(wire));
 				}
 
 				if (wire->port_output) {
 					int o = ordered_outputs.at(sig[i]);
-					output_lines[o] += stringf("output %d %d %s\n", o, i, log_id(wire));
+					output_lines[o] += stringf("output %d %d %s\n", o, wire->start_offset+i, log_id(wire));
 				}
 
 				if (init_inputs.count(sig[i])) {
 					int a = init_inputs.at(sig[i]);
 					log_assert((a & 1) == 0);
-					init_lines[a] += stringf("init %d %d %s\n", (a >> 1)-1, i, log_id(wire));
+					init_lines[a] += stringf("init %d %d %s\n", (a >> 1)-1, wire->start_offset+i, log_id(wire));
 				}
 
 				if (ordered_latches.count(sig[i])) {
 					int l = ordered_latches.at(sig[i]);
 					if (zinit_mode && (aig_latchinit.at(l) == 1))
-						latch_lines[l] += stringf("invlatch %d %d %s\n", l, i, log_id(wire));
+						latch_lines[l] += stringf("invlatch %d %d %s\n", l, wire->start_offset+i, log_id(wire));
 					else
-						latch_lines[l] += stringf("latch %d %d %s\n", l, i, log_id(wire));
+						latch_lines[l] += stringf("latch %d %d %s\n", l, wire->start_offset+i, log_id(wire));
 				}
 			}
 		}
@@ -672,7 +681,7 @@ struct AigerWriter
 
 struct AigerBackend : public Backend {
 	AigerBackend() : Backend("aiger", "write design to AIGER file") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -704,13 +713,13 @@ struct AigerBackend : public Backend {
 		log("    -vmap <filename>\n");
 		log("        like -map, but more verbose\n");
 		log("\n");
-		log("    -I, -O, -B\n");
-		log("        If the design contains no input/output/assert then create one\n");
-		log("        dummy input/output/bad_state pin to make the tools reading the\n");
+		log("    -I, -O, -B, -L\n");
+		log("        If the design contains no input/output/assert/flip-flop then create one\n");
+		log("        dummy input/output/bad_state-pin or latch to make the tools reading the\n");
 		log("        AIGER file happy.\n");
 		log("\n");
 	}
-	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool ascii_mode = false;
 		bool zinit_mode = false;
@@ -720,6 +729,7 @@ struct AigerBackend : public Backend {
 		bool imode = false;
 		bool omode = false;
 		bool bmode = false;
+		bool lmode = false;
 		std::string map_filename;
 
 		log_header(design, "Executing AIGER backend.\n");
@@ -764,16 +774,28 @@ struct AigerBackend : public Backend {
 				bmode = true;
 				continue;
 			}
+			if (args[argidx] == "-L") {
+				lmode = true;
+				continue;
+			}
 			break;
 		}
-		extra_args(f, filename, args, argidx);
+		extra_args(f, filename, args, argidx, !ascii_mode);
 
 		Module *top_module = design->top_module();
 
 		if (top_module == nullptr)
 			log_error("Can't find top module in current design!\n");
 
-		AigerWriter writer(top_module, zinit_mode, imode, omode, bmode);
+		if (!design->selected_whole_module(top_module))
+			log_cmd_error("Can't handle partially selected module %s!\n", log_id(top_module));
+
+		if (!top_module->processes.empty())
+			log_error("Found unmapped processes in module %s: unmapped processes are not supported in AIGER backend!\n", log_id(top_module));
+		if (!top_module->memories.empty())
+			log_error("Found unmapped memories in module %s: unmapped memories are not supported in AIGER backend!\n", log_id(top_module));
+
+		AigerWriter writer(top_module, zinit_mode, imode, omode, bmode, lmode);
 		writer.write_aiger(*f, ascii_mode, miter_mode, symbols_mode);
 
 		if (!map_filename.empty()) {

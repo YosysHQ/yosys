@@ -1,0 +1,36 @@
+read_verilog ../common/fsm.v
+hierarchy -top fsm
+proc
+flatten
+
+design -save orig
+
+equiv_opt -run :prove -map +/xilinx/cells_sim.v synth_xilinx -noiopad
+miter -equiv -make_assert -flatten gold gate miter
+sat -verify -prove-asserts -show-public -set-at 1 in_reset 1 -seq 20 -prove-skip 1 miter
+
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd fsm # Constrain all select calls below inside the top module
+stat
+select -assert-count 1 t:BUFG
+select -assert-count 6 t:FDRE
+select -assert-count 1 t:LUT4
+select -assert-count 4 t:LUT5
+select -assert-count 1 t:LUT6
+select -assert-none t:BUFG t:FDRE t:LUT4 t:LUT5 t:LUT6 %% t:* %D
+
+design -load orig
+
+equiv_opt -run :prove -map +/xilinx/cells_sim.v synth_xilinx -family xc3se -noiopad
+miter -equiv -make_assert -flatten gold gate miter
+sat -verify -prove-asserts -show-public -set-at 1 in_reset 1 -seq 20 -prove-skip 1 miter
+
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd fsm # Constrain all select calls below inside the top module
+stat
+select -assert-count 1 t:BUFG
+select -assert-count 6 t:FDRE
+select -assert-count 1 t:LUT1
+select -assert-count 8 t:LUT4
+select -assert-count 5 t:MUXF5
+select -assert-none t:BUFG t:FDRE t:LUT1 t:LUT4 t:MUXF5 %% t:* %D

@@ -1,0 +1,10 @@
+read_verilog ../common/shifter.v
+hierarchy -top top
+proc
+flatten
+equiv_opt -assert -map +/ecp5/cells_sim.v synth_ecp5 # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd top # Constrain all select calls below inside the top module
+ 
+select -assert-count 8 t:TRELLIS_FF
+select -assert-none t:TRELLIS_FF %% t:* %D

@@ -1,0 +1,143 @@
+bram $__XILINX_RAM32X1D
+  init 1
+  abits 5
+  dbits 1
+  groups 2
+  ports  1 1
+  wrmode 0 1
+  enable 0 1
+  transp 0 0
+  clocks 0 1
+  clkpol 0 2
+endbram
+
+bram $__XILINX_RAM64X1D
+  init 1
+  abits 6
+  dbits 1
+  groups 2
+  ports  1 1
+  wrmode 0 1
+  enable 0 1
+  transp 0 0
+  clocks 0 1
+  clkpol 0 2
+endbram
+
+bram $__XILINX_RAM128X1D
+  init 1
+  abits 7
+  dbits 1
+  groups 2
+  ports  1 1
+  wrmode 0 1
+  enable 0 1
+  transp 0 0
+  clocks 0 1
+  clkpol 0 2
+endbram
+
+
+bram $__XILINX_RAM32X6SDP
+  init 1
+  abits 5
+  dbits 6
+  groups 2
+  ports  1 1
+  wrmode 0 1
+  enable 0 1
+  transp 0 0
+  clocks 0 1
+  clkpol 0 2
+endbram
+
+bram $__XILINX_RAM64X3SDP
+  init 1
+  abits 6
+  dbits 3
+  groups 2
+  ports  1 1
+  wrmode 0 1
+  enable 0 1
+  transp 0 0
+  clocks 0 1
+  clkpol 0 2
+endbram
+
+bram $__XILINX_RAM32X2Q
+  init 1
+  abits 5
+  dbits 2
+  groups 2
+  ports  3 1
+  wrmode 0 1
+  enable 0 1
+  transp 0 0
+  clocks 0 1
+  clkpol 0 2
+endbram
+
+bram $__XILINX_RAM64X1Q
+  init 1
+  abits 6
+  dbits 1
+  groups 2
+  ports  3 1
+  wrmode 0 1
+  enable 0 1
+  transp 0 0
+  clocks 0 1
+  clkpol 0 2
+endbram
+
+
+match $__XILINX_RAM32X1D
+  min bits 3
+  min wports 1
+  make_outreg
+  or_next_if_better
+endmatch
+
+match $__XILINX_RAM64X1D
+  min bits 5
+  min wports 1
+  make_outreg
+  or_next_if_better
+endmatch
+
+match $__XILINX_RAM128X1D
+  min bits 9
+  min wports 1
+  make_outreg
+  or_next_if_better
+endmatch
+
+
+match $__XILINX_RAM32X6SDP
+  min bits 5
+  min wports 1
+  make_outreg
+  or_next_if_better
+endmatch
+
+match $__XILINX_RAM64X3SDP
+  min bits 6
+  min wports 1
+  make_outreg
+  or_next_if_better
+endmatch
+
+match $__XILINX_RAM32X2Q
+  min bits 5
+  min rports 2
+  min wports 1
+  make_outreg
+  or_next_if_better
+endmatch
+
+match $__XILINX_RAM64X1Q
+  min bits 5
+  min rports 2
+  min wports 1
+  make_outreg
+endmatch

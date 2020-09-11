@@ -35,9 +35,9 @@ public:
     static std::string from_file(const std::string &filename);
 
 private:
-    static const unsigned int DIGEST_INTS = 5;  /* number of 32bit integers per SHA1 digest */
-    static const unsigned int BLOCK_INTS = 16;  /* number of 32bit integers per SHA1 block */
-    static const unsigned int BLOCK_BYTES = BLOCK_INTS * 4;
+    static constexpr unsigned int DIGEST_INTS = 5;  /* number of 32bit integers per SHA1 digest */
+    static constexpr unsigned int BLOCK_INTS = 16;  /* number of 32bit integers per SHA1 block */
+    static constexpr unsigned int BLOCK_BYTES = BLOCK_INTS * 4;
 
     uint32_t digest[DIGEST_INTS];
     std::string buffer;

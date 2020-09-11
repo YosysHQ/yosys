@@ -12,11 +12,21 @@ done
 shift "$((OPTIND-1))"
 
 # check for Icarus Verilog
-if ! which iverilog > /dev/null ; then
+if ! command -v iverilog > /dev/null ; then
   echo "$0: Error: Icarus Verilog 'iverilog' not found."
   exit 1
 fi
 
 cp ../simple/*.v .
+cp ../simple/*.sv .
 DOLLAR='?'
-exec ${MAKE:-make} -f ../tools/autotest.mk $seed *.v EXTRA_FLAGS="-p 'hierarchy; synth -run coarse; opt -full; techmap; abc9 -lut 4 -box ../abc.box; stat; check -assert; select -assert-none t:${DOLLAR}_NOT_ t:${DOLLAR}_AND_ %%'"
+exec ${MAKE:-make} -f ../tools/autotest.mk $seed *.v *.sv EXTRA_FLAGS="-n 300 -p '\
+    hierarchy; \
+    synth -run coarse; \
+    opt -full; \
+    techmap; \
+    abc9 -lut 4 -box ../abc9.box; \
+    clean; \
+    check -assert; \
+    select -assert-none t:${DOLLAR}_NOT_ t:${DOLLAR}_AND_ %%; \
+    setattr -mod -unset blackbox'"

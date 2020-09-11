@@ -4,3 +4,15 @@ bram1_[0-9]*/
 bram2.log
 bram2_syn.v
 bram2_tb
+dsp_work*/
+test_dsp_model_ref.v
+test_dsp_model_uut.v
+test_dsp_model
+test_dsp48a_model_ref.v
+test_dsp48a1_model_ref.v
+test_dsp48a1_model_uut.v
+test_dsp48a1_model
+test_dsp48_model_ref.v
+test_dsp48_model_uut.v
+test_dsp48_model
+*.vcd

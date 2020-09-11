@@ -1,0 +1,12 @@
+read_verilog ../common/tribuf.v
+hierarchy -top tristate
+proc
+tribuf
+flatten
+synth
+equiv_opt -assert -map +/efinix/cells_sim.v -map +/simcells.v synth_efinix # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd tristate # Constrain all select calls below inside the top module
+#Internal cell type used. Need support it.
+select -assert-count 1 t:$_TBUF_
+select -assert-none t:$_TBUF_ %% t:* %D

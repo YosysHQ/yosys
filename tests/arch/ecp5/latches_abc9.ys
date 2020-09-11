@@ -1,0 +1,13 @@
+read_verilog <<EOT
+module top(input e, d, output q);
+reg l;
+always @*
+    if (e)
+        l = ~d;
+assign q = ~l;
+endmodule
+EOT
+# Can't run any sort of equivalence check because latches are blown to LUTs
+synth_ecp5 -abc9
+select -assert-count 2 t:LUT4
+select -assert-none t:LUT4 %% t:* %D

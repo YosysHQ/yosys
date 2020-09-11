@@ -72,14 +72,14 @@ struct VerificImporter
 	pool<Verific::Net*, hash_ptr_ops> any_all_nets;
 
 	bool mode_gates, mode_keep, mode_nosva, mode_names, mode_verific;
-	bool mode_autocover;
+	bool mode_autocover, mode_fullinit;
 
-	VerificImporter(bool mode_gates, bool mode_keep, bool mode_nosva, bool mode_names, bool mode_verific, bool mode_autocover);
+	VerificImporter(bool mode_gates, bool mode_keep, bool mode_nosva, bool mode_names, bool mode_verific, bool mode_autocover, bool mode_fullinit);
 
 	RTLIL::SigBit net_map_at(Verific::Net *net);
 
 	RTLIL::IdString new_verific_id(Verific::DesignObj *obj);
-	void import_attributes(dict<RTLIL::IdString, RTLIL::Const> &attributes, Verific::DesignObj *obj);
+	void import_attributes(dict<RTLIL::IdString, RTLIL::Const> &attributes, Verific::DesignObj *obj, Verific::Netlist  *nl = nullptr);
 
 	RTLIL::SigSpec operatorInput(Verific::Instance *inst);
 	RTLIL::SigSpec operatorInput1(Verific::Instance *inst);
@@ -93,7 +93,7 @@ struct VerificImporter
 	void merge_past_ffs_clock(pool<RTLIL::Cell*> &candidates, SigBit clock, bool clock_pol);
 	void merge_past_ffs(pool<RTLIL::Cell*> &candidates);
 
-	void import_netlist(RTLIL::Design *design, Verific::Netlist *nl, std::set<Verific::Netlist*> &nl_todo);
+	void import_netlist(RTLIL::Design *design, Verific::Netlist *nl, std::set<Verific::Netlist*> &nl_todo, bool norename = false);
 };
 
 void verific_import_sva_assert(VerificImporter *importer, Verific::Instance *inst);

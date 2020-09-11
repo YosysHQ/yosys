@@ -1,0 +1,21 @@
+read_verilog ../common/mul.v
+hierarchy -top top
+proc
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -noiopad # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd top # Constrain all select calls below inside the top module
+
+select -assert-count 1 t:DSP48E1
+select -assert-none t:DSP48E1 %% t:* %D
+
+design -reset
+
+read_verilog ../common/mul.v
+hierarchy -top top
+proc
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc6s -noiopad # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd top # Constrain all select calls below inside the top module
+
+select -assert-count 1 t:DSP48A1
+select -assert-none t:DSP48A1 %% t:* %D

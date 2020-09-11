@@ -1,0 +1,35 @@
+read_verilog ../common/latches.v
+design -save read
+
+hierarchy -top latchp
+proc
+equiv_opt -assert -multiclock -map +/anlogic/cells_sim.v synth_anlogic
+design -load postopt
+cd latchp # Constrain all select calls below inside the top module
+
+select -assert-count 1 t:AL_MAP_SEQ
+select -assert-count 1 t:AL_MAP_LUT1
+select -assert-none t:AL_MAP_SEQ t:AL_MAP_LUT1 %% t:* %D
+
+
+design -load read
+hierarchy -top latchn
+proc
+equiv_opt -assert -multiclock -map +/anlogic/cells_sim.v synth_anlogic
+design -load postopt
+cd latchn # Constrain all select calls below inside the top module
+
+select -assert-count 1 t:AL_MAP_SEQ
+select -assert-none t:AL_MAP_SEQ %% t:* %D
+
+
+design -load read
+hierarchy -top latchsr
+proc
+equiv_opt -assert -multiclock -map +/anlogic/cells_sim.v synth_anlogic
+design -load postopt
+cd latchsr # Constrain all select calls below inside the top module
+
+select -assert-count 1 t:AL_MAP_SEQ
+select -assert-count 2 t:AL_MAP_LUT3
+select -assert-none t:AL_MAP_SEQ t:AL_MAP_LUT3 %% t:* %D

@@ -22,15 +22,15 @@ struct EvalDemoPass : public Pass
 {
 	EvalDemoPass() : Pass("evaldemo") { }
 
-	void execute(vector<string>, Design *design) YS_OVERRIDE
+	void execute(vector<string>, Design *design) override
 	{
 		Module *module = design->top_module();
 
 		if (module == nullptr)
 			log_error("No top module found!\n");
 
-		Wire *wire_a = module->wire("\\A");
-		Wire *wire_y = module->wire("\\Y");
+		Wire *wire_a = module->wire(ID::A);
+		Wire *wire_y = module->wire(ID::Y);
 
 		if (wire_a == nullptr)
 			log_error("No wire A found!\n");

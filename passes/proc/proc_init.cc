@@ -26,21 +26,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-void proc_get_const(RTLIL::SigSpec &sig, RTLIL::CaseRule &rule)
-{
-	log_assert(rule.compare.size() == 0);
-
-	while (1) {
-		RTLIL::SigSpec tmp = sig;
-		for (auto &it : rule.actions)
-			tmp.replace(it.first, it.second);
-		if (tmp == sig)
-			break;
-		sig = tmp;
-	}
-}
-
-void proc_init(RTLIL::Module *mod, RTLIL::Process *proc)
+void proc_init(RTLIL::Module *mod, SigMap &sigmap, RTLIL::Process *proc)
 {
 	bool found_init = false;
 
@@ -53,9 +39,7 @@ void proc_init(RTLIL::Module *mod, RTLIL::Process *proc)
 			for (auto &action : sync->actions)
 			{
 				RTLIL::SigSpec lhs = action.first;
-				RTLIL::SigSpec rhs = action.second;
-
-				proc_get_const(rhs, proc->root_case);
+				RTLIL::SigSpec rhs = sigmap(action.second);
 
 				if (!rhs.is_fully_const())
 					log_cmd_error("Failed to get a constant init value for %s: %s\n", log_signal(lhs), log_signal(rhs));
@@ -70,7 +54,7 @@ void proc_init(RTLIL::Module *mod, RTLIL::Process *proc)
 							log_cmd_error("Non-const initialization value: %s = %s\n", log_signal(lhs_c), log_signal(valuesig));
 
 						Const value = valuesig.as_const();
-						Const &wireinit = lhs_c.wire->attributes["\\init"];
+						Const &wireinit = lhs_c.wire->attributes[ID::init];
 
 						while (GetSize(wireinit.bits) < lhs_c.wire->width)
 							wireinit.bits.push_back(State::Sx);
@@ -102,7 +86,7 @@ void proc_init(RTLIL::Module *mod, RTLIL::Process *proc)
 
 struct ProcInitPass : public Pass {
 	ProcInitPass() : Pass("proc_init", "convert initial block to init attributes") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -113,17 +97,19 @@ struct ProcInitPass : public Pass {
 		log("respective wire.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing PROC_INIT pass (extract init attributes).\n");
 
 		extra_args(args, 1, design);
 
 		for (auto mod : design->modules())
-			if (design->selected(mod))
+			if (design->selected(mod)) {
+				SigMap sigmap(mod);
 				for (auto &proc_it : mod->processes)
 					if (design->selected(mod, proc_it.second))
-						proc_init(mod, proc_it.second);
+						proc_init(mod, sigmap, proc_it.second);
+			}
 	}
 } ProcInitPass;
 

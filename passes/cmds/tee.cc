@@ -27,7 +27,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct TeePass : public Pass {
 	TeePass() : Pass("tee", "redirect command output to file") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -49,7 +49,7 @@ struct TeePass : public Pass {
 		log("        Add/subtract INT from the -v setting for this command.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::vector<FILE*> backup_log_files, files_to_close;
 		std::vector<std::ostream*> backup_log_streams;

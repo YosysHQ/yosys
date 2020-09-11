@@ -27,7 +27,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct ProcPass : public Pass {
 	ProcPass() : Pass("proc", "translate processes to netlists") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -37,6 +37,7 @@ struct ProcPass : public Pass {
 		log("\n");
 		log("    proc_clean\n");
 		log("    proc_rmdead\n");
+		log("    proc_prune\n");
 		log("    proc_init\n");
 		log("    proc_arst\n");
 		log("    proc_mux\n");
@@ -49,6 +50,9 @@ struct ProcPass : public Pass {
 		log("\n");
 		log("The following options are supported:\n");
 		log("\n");
+		log("    -nomux\n");
+		log("        Will omit the proc_mux pass.\n");
+		log("\n");
 		log("    -global_arst [!]<netname>\n");
 		log("        This option is passed through to proc_arst.\n");
 		log("\n");
@@ -57,10 +61,11 @@ struct ProcPass : public Pass {
 		log("        executed in -ifx mode.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::string global_arst;
 		bool ifxmode = false;
+		bool nomux = false;
 
 		log_header(design, "Executing PROC pass (convert processes to netlists).\n");
 		log_push();
@@ -68,6 +73,10 @@ struct ProcPass : public Pass {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
+			if (args[argidx] == "-nomux") {
+				nomux = true;
+				continue;
+			}
 			if (args[argidx] == "-global_arst" && argidx+1 < args.size()) {
 				global_arst = args[++argidx];
 				continue;
@@ -83,12 +92,14 @@ struct ProcPass : public Pass {
 		Pass::call(design, "proc_clean");
 		if (!ifxmode)
 			Pass::call(design, "proc_rmdead");
+		Pass::call(design, "proc_prune");
 		Pass::call(design, "proc_init");
 		if (global_arst.empty())
 			Pass::call(design, "proc_arst");
 		else
 			Pass::call(design, "proc_arst -global_arst " + global_arst);
-		Pass::call(design, ifxmode ? "proc_mux -ifx" : "proc_mux");
+		if (!nomux)
+			Pass::call(design, ifxmode ? "proc_mux -ifx" : "proc_mux");
 		Pass::call(design, "proc_dlatch");
 		Pass::call(design, "proc_dff");
 		Pass::call(design, "proc_clean");

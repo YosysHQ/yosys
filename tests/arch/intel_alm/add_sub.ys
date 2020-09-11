@@ -1,0 +1,18 @@
+read_verilog ../common/add_sub.v
+hierarchy -top top
+equiv_opt -assert -map +/intel_alm/common/alm_sim.v synth_intel_alm -family cyclonev # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd top # Constrain all select calls below inside the top module
+stat
+select -assert-count 8 t:MISTRAL_ALUT_ARITH
+select -assert-none t:MISTRAL_ALUT_ARITH %% t:* %D
+
+design -reset
+read_verilog ../common/add_sub.v
+hierarchy -top top
+equiv_opt -assert -map +/intel_alm/common/alm_sim.v synth_intel_alm -family cyclone10gx # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd top # Constrain all select calls below inside the top module
+stat
+select -assert-count 8 t:MISTRAL_ALUT_ARITH
+select -assert-none t:MISTRAL_ALUT_ARITH %% t:* %D

@@ -6,7 +6,7 @@
 set -e
 
 OPTIND=1
-count=100
+count=50
 seed=""    # default to no seed specified
 while getopts "c:S:" opt
 do

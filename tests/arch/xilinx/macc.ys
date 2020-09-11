@@ -1,0 +1,32 @@
+read_verilog macc.v
+design -save read
+
+hierarchy -top macc
+proc
+#equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -noiopad ### TODO
+equiv_opt -run :prove -map +/xilinx/cells_sim.v synth_xilinx -noiopad
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -seq 3 -show-inputs -show-outputs miter
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd macc # Constrain all select calls below inside the top module
+select -assert-count 1 t:BUFG
+select -assert-count 1 t:FDRE
+select -assert-count 1 t:DSP48E1
+select -assert-none t:BUFG t:FDRE t:DSP48E1 %% t:* %D
+
+design -load read
+hierarchy -top macc2
+proc
+#equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -noiopad ### TODO
+equiv_opt -run :prove -map +/xilinx/cells_sim.v synth_xilinx -noiopad
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -seq 4 -show-inputs -show-outputs miter
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd macc2 # Constrain all select calls below inside the top module
+
+select -assert-count 1 t:BUFG
+select -assert-count 1 t:DSP48E1
+select -assert-count 1 t:FDRE
+select -assert-count 1 t:LUT2
+select -assert-count 40 t:LUT3
+select -assert-none t:BUFG t:DSP48E1 t:FDRE t:LUT2 t:LUT3 %% t:* %D

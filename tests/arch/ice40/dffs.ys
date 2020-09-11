@@ -1,0 +1,19 @@
+read_verilog ../common/dffs.v
+design -save read
+
+hierarchy -top dff
+proc
+equiv_opt -assert -map +/ice40/cells_sim.v synth_ice40 # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd dff # Constrain all select calls below inside the top module
+select -assert-count 1 t:SB_DFF
+select -assert-none t:SB_DFF %% t:* %D
+
+design -load read
+hierarchy -top dffe
+proc
+equiv_opt -assert -map +/ice40/cells_sim.v synth_ice40 # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd dffe # Constrain all select calls below inside the top module
+select -assert-count 1 t:SB_DFFE
+select -assert-none t:SB_DFFE %% t:* %D

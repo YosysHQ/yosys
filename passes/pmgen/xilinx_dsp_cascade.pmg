@@ -1,0 +1,409 @@
+// This file describes the third of three pattern matcher setups that
+//   forms the `xilinx_dsp` pass described in xilinx_dsp.cc
+// At a high level, it works as follows:
+//   (1) Starting from a DSP48E1 cell that (a) has the Z multiplexer
+//       (controlled by OPMODE[6:4]) set to zero and (b) doesn't already
+//       use the 'PCOUT' port
+//   (2.1) Match another DSP48E1 cell that (a) does not have the CREG enabled,
+//         (b) has its Z multiplexer output set to the 'C' port, which is
+//         driven by the 'P' output of the previous DSP cell, and (c) has its
+//         'PCIN' port unused
+//   (2.2) Same as (2.1) but with the 'C' port driven by the 'P' output of the
+//         previous DSP cell right-shifted by 17 bits
+//   (3) For this subequent DSP48E1 match (i.e. PCOUT -> PCIN cascade exists)
+//       if (a) the previous DSP48E1 uses either the A2REG or A1REG, (b) this
+//       DSP48 does not use A2REG nor A1REG, (c) this DSP48E1 does not already
+//       have an ACOUT -> ACIN cascade, (d) the previous DSP does not already
+//       use its ACOUT port, then examine if an ACOUT -> ACIN cascade
+//       opportunity exists by matching for a $dff-with-optional-clock-enable-
+//       or-reset and checking that the 'D' input of this register is the same
+//       as the 'A' input of the previous DSP
+//   (4) Same as (3) but for BCOUT -> BCIN cascade
+//   (5) Recursively go to (2.1) until no more matches possible, keeping track
+//       of the longest possible chain found
+//   (6) The longest chain is then divided into chunks of no more than
+//       MAX_DSP_CASCADE in length (to prevent long cascades that exceed the
+//       height of a DSP column) with each DSP in each chunk being rewritten
+//       to use [ABP]COUT -> [ABP]CIN cascading as appropriate
+// Notes:
+//   - Currently, [AB]COUT -> [AB]COUT cascades (3 or 4) are only considered
+//     if a PCOUT -> PCIN cascade is (2.1 or 2.2) first identified; this need
+//     not be the case --- [AB] cascades can exist independently of a P cascade
+//     (though all three cascades must come from the same DSP). This situation
+//     is not handled currently.
+//   - In addition, [AB]COUT -> [AB]COUT cascades (3 or 4) are currently
+//     conservative in that they examine the situation where (a) the previous
+//     DSP has [AB]2REG or [AB]1REG enabled, (b) that the downstream DSP has no
+//     registers enabled, and (c) that there exists only one additional register
+//     between the upstream and downstream DSPs. This can certainly be relaxed
+//     to identify situations ranging from (i) neither DSP uses any registers,
+//     to (ii) upstream DSP has 2 registers, downstream DSP has 2 registers, and
+//     there exists a further 2 registers between them. This remains a TODO
+//     item.
+
+pattern xilinx_dsp_cascade
+
+udata <std::function<SigSpec(const SigSpec&)>> unextend
+udata <vector<std::tuple<Cell*,int,int,int>>> chain longest_chain
+state <Cell*> next
+state <SigSpec> clock
+state <int> AREG BREG
+
+// Variables used for subpatterns
+state <SigSpec> argQ argD
+state <int> ffoffset
+udata <SigSpec> dffD dffQ
+udata <SigBit> dffclock
+udata <Cell*> dff
+
+code
+#define MAX_DSP_CASCADE 20
+endcode
+
+// (1) Starting from a DSP48* cell that (a) has the Z multiplexer
+//     (controlled by OPMODE[3:2] for DSP48A*, by OPMODE[6:4] for DSP48E1)
+//     set to zero and (b) doesn't already use the 'PCOUT' port
+match first
+	select (first->type.in(\DSP48A, \DSP48A1) && port(first, \OPMODE, Const(0, 8)).extract(2,2) == Const::from_string("00")) || (first->type.in(\DSP48E1) && port(first, \OPMODE, Const(0, 7)).extract(4,3) == Const::from_string("000"))
+	select nusers(port(first, \PCOUT, SigSpec())) <= 1
+endmatch
+
+// (6) The longest chain is then divided into chunks of no more than
+//     MAX_DSP_CASCADE in length (to prevent long cascades that exceed the
+//     height of a DSP column) with each DSP in each chunk being rewritten
+//     to use [ABP]COUT -> [ABP]CIN cascading as appropriate
+code
+	longest_chain.clear();
+	chain.emplace_back(first, -1, -1, -1);
+	subpattern(tail);
+finally
+	chain.pop_back();
+	log_assert(chain.empty());
+	if (GetSize(longest_chain) > 1) {
+		Cell *dsp = std::get<0>(longest_chain.front());
+
+		Cell *dsp_pcin;
+		int P, AREG, BREG;
+		for (int i = 1; i < GetSize(longest_chain); i++) {
+			std::tie(dsp_pcin,P,AREG,BREG) = longest_chain[i];
+
+			if (i % MAX_DSP_CASCADE > 0) {
+				if (P >= 0) {
+					Wire *cascade = module->addWire(NEW_ID, 48);
+					dsp_pcin->setPort(ID(C), Const(0, 48));
+					dsp_pcin->setPort(ID(PCIN), cascade);
+					dsp->setPort(ID(PCOUT), cascade);
+					add_siguser(cascade, dsp_pcin);
+					add_siguser(cascade, dsp);
+
+					SigSpec opmode = port(dsp_pcin, \OPMODE, Const(0, 7));
+					if (dsp->type.in(\DSP48A, \DSP48A1)) {
+						log_assert(P == 0);
+						opmode[3] = State::S0;
+						opmode[2] = State::S1;
+					}
+					else if (dsp->type.in(\DSP48E1)) {
+						if (P == 17)
+							opmode[6] = State::S1;
+						else if (P == 0)
+							opmode[6] = State::S0;
+						else log_abort();
+
+						opmode[5] = State::S0;
+						opmode[4] = State::S1;
+					}
+					dsp_pcin->setPort(\OPMODE, opmode);
+
+					log_debug("PCOUT -> PCIN cascade for %s -> %s\n", log_id(dsp), log_id(dsp_pcin));
+				}
+				if (AREG >= 0) {
+					Wire *cascade = module->addWire(NEW_ID, 30);
+					dsp_pcin->setPort(ID(A), Const(0, 30));
+					dsp_pcin->setPort(ID(ACIN), cascade);
+					dsp->setPort(ID(ACOUT), cascade);
+					add_siguser(cascade, dsp_pcin);
+					add_siguser(cascade, dsp);
+
+					if (dsp->type.in(\DSP48E1))
+						dsp->setParam(ID(ACASCREG), AREG);
+					dsp_pcin->setParam(ID(A_INPUT), Const("CASCADE"));
+
+					log_debug("ACOUT -> ACIN cascade for %s -> %s\n", log_id(dsp), log_id(dsp_pcin));
+				}
+				if (BREG >= 0) {
+					Wire *cascade = module->addWire(NEW_ID, 18);
+					if (dsp->type.in(\DSP48A, \DSP48A1)) {
+						// According to UG389 p9 [https://www.xilinx.com/support/documentation/user_guides/ug389.pdf]
+						// "The DSP48A1 component uses this input when cascading
+						//   BCOUT from an adjacent DSP48A1 slice. The tools then
+						//   translate BCOUT cascading to the dedicated BCIN input
+						//   and set the B_INPUT attribute for implementation."
+						dsp_pcin->setPort(ID(B), cascade);
+					}
+					else {
+						dsp_pcin->setPort(ID(B), Const(0, 18));
+						dsp_pcin->setPort(ID(BCIN), cascade);
+					}
+					dsp->setPort(ID(BCOUT), cascade);
+					add_siguser(cascade, dsp_pcin);
+					add_siguser(cascade, dsp);
+
+					if (dsp->type.in(\DSP48E1)) {
+						dsp->setParam(ID(BCASCREG), BREG);
+						// According to UG389 p13 [https://www.xilinx.com/support/documentation/user_guides/ug389.pdf]
+						// "The attribute is only used by place and route tools and
+						//   is not necessary for the users to set for synthesis. The
+						//   attribute is determined by the connection to the B port
+						//   of the DSP48A1 slice. If the B port is connected to the
+						//   BCOUT of another DSP48A1 slice, then the tools automatically
+						//   set the attribute to 'CASCADE', otherwise it is set to
+						//   'DIRECT'".
+						dsp_pcin->setParam(ID(B_INPUT), Const("CASCADE"));
+					}
+
+					log_debug("BCOUT -> BCIN cascade for %s -> %s\n", log_id(dsp), log_id(dsp_pcin));
+				}
+			}
+			else {
+				log_debug("  Blocking %s -> %s cascade (exceeds max: %d)\n", log_id(dsp), log_id(dsp_pcin), MAX_DSP_CASCADE);
+			}
+
+			dsp = dsp_pcin;
+		}
+
+		accept;
+	}
+endcode
+
+// ------------------------------------------------------------------
+
+subpattern tail
+arg first
+arg next
+
+// (2.1) Match another DSP48* cell that (a) does not have the CREG enabled,
+//       (b) has its Z multiplexer output set to the 'C' port, which is
+//       driven by the 'P' output of the previous DSP cell, and (c) has its
+//       'PCIN' port unused
+match nextP
+	select !nextP->type.in(\DSP48E1) || !param(nextP, \CREG).as_bool()
+	select (nextP->type.in(\DSP48A, \DSP48A1) && port(nextP, \OPMODE, Const(0, 8)).extract(2,2) == Const::from_string("11")) || (nextP->type.in(\DSP48E1) && port(nextP, \OPMODE, Const(0, 7)).extract(4,3) == Const::from_string("011"))
+	select nusers(port(nextP, \C, SigSpec())) > 1
+	select nusers(port(nextP, \PCIN, SigSpec())) == 0
+	index <SigBit> port(nextP, \C)[0] === port(std::get<0>(chain.back()), \P)[0]
+	semioptional
+endmatch
+
+// (2.2) For DSP48E1 only, same as (2.1) but with the 'C' port driven
+//       by the 'P' output of the previous DSP cell right-shifted by 17 bits
+match nextP_shift17
+	if !nextP
+	select nextP_shift17->type.in(\DSP48E1)
+	select !param(nextP_shift17, \CREG).as_bool()
+	select port(nextP_shift17, \OPMODE, Const(0, 7)).extract(4,3) == Const::from_string("011")
+	select nusers(port(nextP_shift17, \C, SigSpec())) > 1
+	select nusers(port(nextP_shift17, \PCIN, SigSpec())) == 0
+	index <SigBit> port(nextP_shift17, \C)[0] === port(std::get<0>(chain.back()), \P)[17]
+	semioptional
+endmatch
+
+code next
+	next = nextP;
+	if (!nextP)
+		next = nextP_shift17;
+	if (next) {
+		if (next->type != first->type)
+			reject;
+		unextend = [](const SigSpec &sig) {
+			int i;
+			for (i = GetSize(sig)-1; i > 0; i--)
+				if (sig[i] != sig[i-1])
+					break;
+			// Do not remove non-const sign bit
+			if (sig[i].wire)
+				++i;
+			return sig.extract(0, i);
+		};
+	}
+endcode
+
+// (3) For this subequent DSP48E1 match (i.e. PCOUT -> PCIN cascade exists)
+//     if (a) this DSP48E1 does not already have an ACOUT -> ACIN cascade,
+//     (b) the previous DSP does  not already use its ACOUT port, then
+//     examine if an ACOUT -> ACIN cascade  opportunity exists if
+//     (i) A ports are identical, or (ii) separated by a
+//     $dff-with-optional-clock-enable-or-reset and checking that the 'D' input
+//     of this register is the same as the 'A' input of the previous DSP
+//     TODO: Check for two levels of flops, instead of just one
+code argQ clock AREG
+	AREG = -1;
+	if (next && next->type.in(\DSP48E1)) {
+		Cell *prev = std::get<0>(chain.back());
+
+		if (param(next, \A_INPUT).decode_string() == "DIRECT" &&
+				port(next, \ACIN, SigSpec()).is_fully_zero() &&
+				nusers(port(prev, \ACOUT, SigSpec())) <= 1) {
+			if (param(prev, \AREG) == 0) {
+				if (port(prev, \A) == port(next, \A))
+					AREG = 0;
+			}
+			else {
+				argQ = unextend(port(next, \A));
+				clock = port(prev, \CLK);
+				subpattern(in_dffe);
+				if (dff) {
+					if (!dff->type.in($sdff, $sdffe) && port(prev, \RSTA, State::S0) != State::S0)
+						goto reject_AREG;
+					if (dff->type.in($sdff, $sdffe) && (port(dff, \SRST) != port(prev, \RSTA, State::S0) || !param(dff, \SRST_POLARITY).as_bool()))
+						goto reject_AREG;
+					IdString CEA;
+					if (param(prev, \AREG) == 1)
+						CEA = \CEA2;
+					else if (param(prev, \AREG) == 2)
+						CEA = \CEA1;
+					else log_abort();
+					if (!dff->type.in($dffe, $sdffe) && port(prev, CEA, State::S0) != State::S1)
+						goto reject_AREG;
+					if (dff->type.in($dffe, $sdffe) && (port(dff, \EN) != port(prev, CEA, State::S0) || !param(dff, \EN_POLARITY).as_bool()))
+						goto reject_AREG;
+					if (dffD == unextend(port(prev, \A)))
+						AREG = 1;
+				}
+			}
+		}
+reject_AREG:	;
+	}
+endcode
+
+// (4) Same as (3) but for BCOUT -> BCIN cascade
+code argQ clock BREG
+	BREG = -1;
+	if (next) {
+		Cell *prev = std::get<0>(chain.back());
+		if ((next->type != \DSP48E1 || param(next, \B_INPUT).decode_string() == "DIRECT") &&
+				port(next, \BCIN, SigSpec()).is_fully_zero() &&
+				nusers(port(prev, \BCOUT, SigSpec())) <= 1) {
+			if ((next->type.in(\DSP48A, \DSP48A1) && param(prev, \B0REG) == 0 && param(prev, \B1REG) == 0) ||
+				(next->type.in(\DSP48E1) && param(prev, \BREG) == 0)) {
+				if (port(prev, \B) == port(next, \B))
+					BREG = 0;
+			}
+			else {
+				argQ = unextend(port(next, \B));
+				clock = port(prev, \CLK);
+				subpattern(in_dffe);
+				if (dff) {
+					if (!dff->type.in($sdff, $sdffe) && port(prev, \RSTB, State::S0) != State::S0)
+						goto reject_BREG;
+					if (dff->type.in($sdff, $sdffe) && (port(dff, \SRST) != port(prev, \RSTB, State::S0) || !param(dff, \SRST_POLARITY).as_bool()))
+						goto reject_BREG;
+					IdString CEB;
+					if (next->type.in(\DSP48A, \DSP48A1))
+						CEB = \CEB;
+					else if (next->type.in(\DSP48E1)) {
+						if (param(prev, \BREG) == 1)
+							CEB = \CEB2;
+						else if (param(prev, \BREG) == 2)
+							CEB = \CEB1;
+						else log_abort();
+					}
+					else log_abort();
+					if (!dff->type.in($dffe, $sdffe) && port(prev, CEB, State::S0) != State::S1)
+						goto reject_BREG;
+					if (dff->type.in($dffe, $sdffe) && (port(dff, \EN) != port(prev, CEB, State::S0) || !param(dff, \EN_POLARITY).as_bool()))
+						goto reject_BREG;
+					if (dffD == unextend(port(prev, \B))) {
+						if (next->type.in(\DSP48A, \DSP48A1) && param(prev, \B0REG) != 0)
+							goto reject_BREG;
+						BREG = 1;
+					}
+				}
+			}
+		}
+reject_BREG:	;
+	}
+endcode
+
+// (5) Recursively go to (2.1) until no more matches possible, recording the
+//     longest possible chain
+code
+	if (next) {
+		chain.emplace_back(next, nextP_shift17 ? 17 : nextP ? 0 : -1, AREG, BREG);
+
+		SigSpec sigC = unextend(port(next, \C));
+
+		if (nextP_shift17) {
+			if (GetSize(sigC)+17 <= GetSize(port(std::get<0>(chain.back()), \P)) &&
+					port(std::get<0>(chain.back()), \P).extract(17, GetSize(sigC)) != sigC)
+				subpattern(tail);
+		}
+		else {
+			if (GetSize(sigC) <= GetSize(port(std::get<0>(chain.back()), \P)) &&
+					port(std::get<0>(chain.back()), \P).extract(0, GetSize(sigC)) != sigC)
+				subpattern(tail);
+
+		}
+	} else {
+		if (GetSize(chain) > GetSize(longest_chain))
+			longest_chain = chain;
+	}
+finally
+	if (next)
+		chain.pop_back();
+endcode
+
+// #######################
+
+// Subpattern for matching against input registers, based on knowledge of the
+//   'Q' input.
+subpattern in_dffe
+arg argQ clock
+
+code
+	dff = nullptr;
+	if (argQ.empty())
+		reject;
+	for (const auto &c : argQ.chunks()) {
+		// Abandon matches when 'Q' is a constant
+		if (!c.wire)
+			reject;
+		// Abandon matches when 'Q' has the keep attribute set
+		if (c.wire->get_bool_attribute(\keep))
+			reject;
+		// Abandon matches when 'Q' has a non-zero init attribute set
+		// (not supported by DSP48E1)
+		Const init = c.wire->attributes.at(\init, Const());
+		if (!init.empty())
+			for (auto b : init.extract(c.offset, c.width))
+				if (b != State::Sx && b != State::S0)
+					reject;
+	}
+endcode
+
+match ff
+	select ff->type.in($dff, $dffe, $sdff, $sdffe)
+	// DSP48E1 does not support clock inversion
+	select param(ff, \CLK_POLARITY).as_bool()
+
+	// Check that reset value, if present, is fully 0.
+	filter ff->type.in($dff, $dffe) || param(ff, \SRST_VALUE).is_fully_zero()
+
+	slice offset GetSize(port(ff, \D))
+	index <SigBit> port(ff, \Q)[offset] === argQ[0]
+
+	// Check that the rest of argQ is present
+	filter GetSize(port(ff, \Q)) >= offset + GetSize(argQ)
+	filter port(ff, \Q).extract(offset, GetSize(argQ)) == argQ
+
+	filter clock == SigBit() || port(ff, \CLK) == clock
+endmatch
+
+code argQ
+	SigSpec Q = port(ff, \Q);
+	dff = ff;
+	dffclock = port(ff, \CLK);
+	dffD = argQ;
+	SigSpec D = port(ff, \D);
+	argQ = Q;
+	dffD.replace(argQ, D);
+endcode

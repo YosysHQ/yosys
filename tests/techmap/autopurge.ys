@@ -1,0 +1,62 @@
+# https://github.com/YosysHQ/yosys/issues/1381
+read_verilog <<EOT
+module sub(input i, output o, (* techmap_autopurge *) input j);
+foobar f(i, o, j);
+endmodule
+EOT
+design -stash techmap
+
+read_verilog <<EOT
+(* blackbox *)
+module sub(input i, output o, input j);
+endmodule
+
+(* blackbox *)
+module foobar(input i, output o, input j);
+endmodule
+
+module top(input i, output o);
+sub s0(i, o);
+endmodule
+EOT
+
+techmap -map %techmap
+hierarchy
+check -assert
+
+# https://github.com/YosysHQ/yosys/issues/1391
+design -reset
+read_verilog <<EOT
+module sub(input i, output o, (* techmap_autopurge *) input [1:0] j);
+foobar f(i, o, j);
+endmodule
+EOT
+design -stash techmap
+
+read_verilog <<EOT
+(* blackbox *)
+module sub(input i, output o, input j);
+endmodule
+
+(* blackbox *)
+module foobar(input i, output o, input j);
+endmodule
+
+module top(input i, output o);
+sub s0(i, o);
+endmodule
+EOT
+
+techmap -map %techmap
+hierarchy
+check -assert
+
+read_verilog -overwrite <<EOT
+module top(input i, output o);
+wire j;
+sub s0(i, o, j);
+endmodule
+EOT
+
+techmap -map %techmap
+hierarchy

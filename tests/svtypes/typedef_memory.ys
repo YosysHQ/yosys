@@ -1,0 +1,3 @@
+read_verilog -sv typedef_memory.sv
+prep -top top
+select -assert-count 1 t:$mem r:SIZE=16 %i r:WIDTH=4 %i

@@ -1,0 +1,13 @@
+read_verilog opt_share_large_pmux_part.v
+proc;;
+copy opt_share_test merged
+
+alumacc merged
+opt merged
+opt_share merged
+opt_clean merged
+
+miter -equiv -flatten -ignore_gold_x -make_outputs -make_outcmp opt_share_test merged miter
+sat -set-def-inputs -verify -prove trigger 0 -show-inputs -show-outputs miter
+
+select -assert-count 1 -module merged t:$alu

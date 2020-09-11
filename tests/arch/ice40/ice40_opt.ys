@@ -1,0 +1,118 @@
+read_verilog -icells -formal <<EOT
+module top(input CI, I0, output [1:0] CO, output O);
+    wire A = 1'b0, B = 1'b0;
+	\$__ICE40_CARRY_WRAPPER #(
+		//    A[0]: 1010 1010 1010 1010
+		//    A[1]: 1100 1100 1100 1100
+		//    A[2]: 1111 0000 1111 0000
+		//    A[3]: 1111 1111 0000 0000
+		.LUT(~16'b 0110_1001_1001_0110),
+		.I3_IS_CI(1'b1)
+	) u0 (
+		.A(A),
+		.B(B),
+		.CI(CI),
+		.I0(I0),
+		.I3(1'bx),
+		.CO(CO[0]),
+		.O(O)
+	);
+    SB_CARRY u1 (.I0(~A), .I1(~B), .CI(CI), .CO(CO[1]));
+endmodule
+EOT
+
+equiv_opt -assert -map +/ice40/abc9_model.v -map +/ice40/cells_sim.v ice40_opt
+design -load postopt
+select -assert-count 1 t:*
+select -assert-count 1 t:$lut
+
+# https://github.com/YosysHQ/yosys/issues/1543
+design -reset
+read_verilog <<EOT
+module delay_element (input wire clk, input wire reset, input wire enable,
+                      input wire chainin,  output wire chainout, output reg latch);
+
+
+   reg                           const_zero = 0;
+   reg                           const_one = 1;
+
+    wire                         delay_tap;
+
+
+   //carry logic
+   (* keep *) SB_CARRY carry ( .CO(chainout), .I0(const_zero),
+                    .I1(const_one), .CI(chainin));
+
+
+   //flip flop latch
+   (* keep *) SB_DFFER flipflop( .Q(latch), .C(clk), .E(enable),
+                      .D(delay_tap), .R(reset));
+
+
+   //LUT table
+   // the LUT should just echo the carry in (I3)
+   // carry I0 = LUT I1
+   // carry I1 = LUT I2
+   // carry in = LUT I3
+   // LUT_INIT[0] = 0
+   // LUT_INIT[1] = 0
+   // LUT_INIT[2] = 0
+   // LUT_INIT[3] = 0
+   // LUT_INIT[4] = 0
+   // LUT_INIT[5] = 0
+   // LUT_INIT[6] = 0
+   // LUT_INIT[7] = 0
+   // LUT_INIT[8] = 1
+   // LUT_INIT[9] = 1
+   // LUT_INIT[10] = 1
+   // LUT_INIT[11] = 1
+   // LUT_INIT[12] = 1
+   // LUT_INIT[13] = 1
+   // LUT_INIT[14] = 1
+   // LUT_INIT[15] = 1
+
+   (* keep *) SB_LUT4 lut( .O(delay_tap), .I0(const_zero), .I1(const_zero),
+                .I2(const_one), .I3(chainin));
+
+   //TODO: is this the right way round??
+   defparam lut.LUT_INIT=16'hFF00;
+
+
+endmodule // delay_element
+EOT
+
+synth_ice40
+select -assert-count 1 t:SB_LUT4
+select -assert-count 1 t:SB_CARRY
+select -assert-count 1 t:SB_CARRY a:keep %i
+select -assert-count 1 t:SB_CARRY c:carry %i
+
+
+design -reset
+read_verilog -icells <<EOT
+module top(input I3, I2, I1, I0, output O, O2);
+	SB_LUT4 #(
+		.LUT_INIT(8'b 1001_0110)
+	) u0 (
+		.I0(I0),
+		.I1(I1),
+		.I2(I2),
+		.I3(),
+		.O(O)
+	);
+	wire CO;
+	\$__ICE40_CARRY_WRAPPER #(
+		.LUT(~8'b 1001_0110),
+		.I3_IS_CI(1'b0)
+	) u1 (
+		.A(1'b0),
+		.B(1'b0),
+		.CI(1'b0),
+		.I0(),
+		.I3(),
+		.CO(CO),
+		.O(O2)
+	);
+endmodule
+EOT
+ice40_opt

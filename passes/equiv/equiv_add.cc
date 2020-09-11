@@ -25,7 +25,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct EquivAddPass : public Pass {
 	EquivAddPass() : Pass("equiv_add", "add a $equiv cell") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -39,7 +39,7 @@ struct EquivAddPass : public Pass {
 		log("This command adds $equiv cells for the ports of the specified cells.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, Design *design) override
 	{
 		bool try_mode = false;
 
@@ -152,7 +152,7 @@ struct EquivAddPass : public Pass {
 
 			for (int i = 0; i < GetSize(gold_signal); i++) {
 				Cell *equiv_cell = module->addEquiv(NEW_ID, gold_signal[i], gate_signal[i], equiv_signal[i]);
-				equiv_cell->set_bool_attribute("\\keep");
+				equiv_cell->set_bool_attribute(ID::keep);
 				to_equiv_bits[gold_signal[i]] = equiv_signal[i];
 				to_equiv_bits[gate_signal[i]] = equiv_signal[i];
 				added_equiv_cells.insert(equiv_cell);

@@ -1,0 +1,8 @@
+A simple example design, based on the Numato Labs Mimas V2 board
+================================================================
+
+This example uses Yosys for synthesis and Xilinx ISE
+for place&route and bit-stream creation.
+
+To synthesize:
+  bash run.sh

@@ -37,22 +37,22 @@ struct ExclusiveDatabase
 		SigBit y_port;
 		pool<Cell*> reduce_or;
 		for (auto cell : module->cells()) {
-			if (cell->type == "$eq") {
-				nonconst_sig = sigmap(cell->getPort("\\A"));
-				const_sig = sigmap(cell->getPort("\\B"));
+			if (cell->type == ID($eq)) {
+				nonconst_sig = sigmap(cell->getPort(ID::A));
+				const_sig = sigmap(cell->getPort(ID::B));
 				if (!const_sig.is_fully_const()) {
 					if (!nonconst_sig.is_fully_const())
 						continue;
 					std::swap(nonconst_sig, const_sig);
 				}
-				y_port = sigmap(cell->getPort("\\Y"));
+				y_port = sigmap(cell->getPort(ID::Y));
 			}
-			else if (cell->type == "$logic_not") {
-				nonconst_sig = sigmap(cell->getPort("\\A"));
-				const_sig = Const(RTLIL::S0, GetSize(nonconst_sig));
-				y_port = sigmap(cell->getPort("\\Y"));
+			else if (cell->type == ID($logic_not)) {
+				nonconst_sig = sigmap(cell->getPort(ID::A));
+				const_sig = Const(State::S0, GetSize(nonconst_sig));
+				y_port = sigmap(cell->getPort(ID::Y));
 			}
-			else if (cell->type == "$reduce_or") {
+			else if (cell->type == ID($reduce_or)) {
 				reduce_or.insert(cell);
 				continue;
 			}
@@ -66,7 +66,7 @@ struct ExclusiveDatabase
 		for (auto cell : reduce_or) {
 			nonconst_sig = SigSpec();
 			std::vector<Const> values;
-			SigSpec a_port = sigmap(cell->getPort("\\A"));
+			SigSpec a_port = sigmap(cell->getPort(ID::A));
 			for (auto bit : a_port) {
 				auto it = sig_cmp_prev.find(bit);
 				if (it == sig_cmp_prev.end()) {
@@ -84,7 +84,7 @@ struct ExclusiveDatabase
 			}
 			if (nonconst_sig.empty())
 				continue;
-			y_port = sigmap(cell->getPort("\\Y"));
+			y_port = sigmap(cell->getPort(ID::Y));
 			sig_cmp_prev[y_port] = std::make_pair(nonconst_sig,std::move(values));
 		}
 	}
@@ -135,7 +135,7 @@ struct MuxpackWorker
 	{
 		for (auto wire : module->wires())
 		{
-			if (wire->port_output || wire->get_bool_attribute("\\keep")) {
+			if (wire->port_output || wire->get_bool_attribute(ID::keep)) {
 				for (auto bit : sigmap(wire))
 					sigbit_with_non_chain_users.insert(bit);
 			}
@@ -143,13 +143,13 @@ struct MuxpackWorker
 
 		for (auto cell : module->cells())
 		{
-			if (cell->type.in("$mux", "$pmux") && !cell->get_bool_attribute("\\keep"))
+			if (cell->type.in(ID($mux), ID($pmux)) && !cell->get_bool_attribute(ID::keep))
 			{
-				SigSpec a_sig = sigmap(cell->getPort("\\A"));
+				SigSpec a_sig = sigmap(cell->getPort(ID::A));
 				SigSpec b_sig;
-				if (cell->type == "$mux")
-					b_sig = sigmap(cell->getPort("\\B"));
-				SigSpec y_sig = sigmap(cell->getPort("\\Y"));
+				if (cell->type == ID($mux))
+					b_sig = sigmap(cell->getPort(ID::B));
+				SigSpec y_sig = sigmap(cell->getPort(ID::Y));
    
 				if (sig_chain_next.count(a_sig))
 					for (auto a_bit : a_sig.bits())
@@ -186,16 +186,16 @@ struct MuxpackWorker
 		{
 			log_debug("Considering %s (%s)\n", log_id(cell), log_id(cell->type));
 
-			SigSpec a_sig = sigmap(cell->getPort("\\A"));
-			if (cell->type == "$mux") {
-				SigSpec b_sig = sigmap(cell->getPort("\\B"));
+			SigSpec a_sig = sigmap(cell->getPort(ID::A));
+			if (cell->type == ID($mux)) {
+				SigSpec b_sig = sigmap(cell->getPort(ID::B));
 				if (sig_chain_prev.count(a_sig) + sig_chain_prev.count(b_sig) != 1)
 					goto start_cell;
 
 				if (!sig_chain_prev.count(a_sig))
 					a_sig = b_sig;
 			}
-			else if (cell->type == "$pmux") {
+			else if (cell->type == ID($pmux)) {
 				if (!sig_chain_prev.count(a_sig))
 					goto start_cell;
 			}
@@ -208,8 +208,8 @@ struct MuxpackWorker
 			{
 				Cell *prev_cell = sig_chain_prev.at(a_sig);
 				log_assert(prev_cell);
-				SigSpec s_sig = sigmap(cell->getPort("\\S"));
-				s_sig.append(sigmap(prev_cell->getPort("\\S")));
+				SigSpec s_sig = sigmap(cell->getPort(ID::S));
+				s_sig.append(sigmap(prev_cell->getPort(ID::S)));
 				if (!excl_db.query(s_sig))
 					goto start_cell;
 			}
@@ -230,7 +230,7 @@ struct MuxpackWorker
 		{
 			chain.push_back(c);
 
-			SigSpec y_sig = sigmap(c->getPort("\\Y"));
+			SigSpec y_sig = sigmap(c->getPort(ID::Y));
 
 			if (sig_chain_next.count(y_sig) == 0)
 				break;
@@ -269,29 +269,29 @@ struct MuxpackWorker
 			mux_count += cases;
 			pmux_count += 1;
 
-			first_cell->type = "$pmux";
-			SigSpec b_sig = first_cell->getPort("\\B");
-			SigSpec s_sig = first_cell->getPort("\\S");
+			first_cell->type = ID($pmux);
+			SigSpec b_sig = first_cell->getPort(ID::B);
+			SigSpec s_sig = first_cell->getPort(ID::S);
 
 			for (int i = 1; i < cases; i++) {
 				Cell* prev_cell = chain[cursor+i-1];
 				Cell* cursor_cell = chain[cursor+i];
-				if (sigmap(prev_cell->getPort("\\Y")) == sigmap(cursor_cell->getPort("\\A"))) {
-					b_sig.append(cursor_cell->getPort("\\B"));
-					s_sig.append(cursor_cell->getPort("\\S"));
+				if (sigmap(prev_cell->getPort(ID::Y)) == sigmap(cursor_cell->getPort(ID::A))) {
+					b_sig.append(cursor_cell->getPort(ID::B));
+					s_sig.append(cursor_cell->getPort(ID::S));
 				}
 				else {
-					log_assert(cursor_cell->type == "$mux");
-					b_sig.append(cursor_cell->getPort("\\A"));
-					s_sig.append(module->LogicNot(NEW_ID, cursor_cell->getPort("\\S")));
+					log_assert(cursor_cell->type == ID($mux));
+					b_sig.append(cursor_cell->getPort(ID::A));
+					s_sig.append(module->LogicNot(NEW_ID, cursor_cell->getPort(ID::S)));
 				}
 				remove_cells.insert(cursor_cell);
 			}
 
-			first_cell->setPort("\\B", b_sig);
-			first_cell->setPort("\\S", s_sig);
-			first_cell->setParam("\\S_WIDTH", GetSize(s_sig));
-			first_cell->setPort("\\Y", last_cell->getPort("\\Y"));
+			first_cell->setPort(ID::B, b_sig);
+			first_cell->setPort(ID::S, s_sig);
+			first_cell->setParam(ID::S_WIDTH, GetSize(s_sig));
+			first_cell->setPort(ID::Y, last_cell->getPort(ID::Y));
 
 			cursor += cases;
 		}
@@ -326,7 +326,7 @@ struct MuxpackWorker
 
 struct MuxpackPass : public Pass {
 	MuxpackPass() : Pass("muxpack", "$mux/$pmux cascades to $pmux") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -341,7 +341,7 @@ struct MuxpackPass : public Pass {
 		log("certain that their select inputs are mutually exclusive.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing MUXPACK pass ($mux cell cascades to $pmux).\n");
 

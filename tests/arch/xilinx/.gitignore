@@ -1,0 +1,5 @@
+/*.log
+/*.out
+/run-test.mk
+/*_uut.v
+/test_macc

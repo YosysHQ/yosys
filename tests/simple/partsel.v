@@ -60,3 +60,53 @@ always @(posedge clk) begin
 end
 
 endmodule
+
+module partsel_test003(input [2:0] a, b, input [31:0] din, output [3:0] dout);
+assign dout = din[a*b +: 2];
+endmodule
+
+module partsel_test004 (
+	input [31:0] din,
+	input signed [4:0] n,
+	output reg [31:0] dout
+);
+	always @(*) begin
+		dout = 0;
+		dout[n+1 +: 2] = din[n +: 2];
+	end
+endmodule
+
+
+module partsel_test005 (
+	input [31:0] din,
+	input signed [4:0] n,
+	output reg [31:0] dout
+);
+	always @(*) begin
+		dout = 0;
+		dout[n+1] = din[n];
+	end
+endmodule
+
+module partsel_test006 (
+	input [31:-32] din,
+	input signed [4:0] n,
+	output reg [31:-32] dout
+);
+	always @(*) begin
+		dout = 0;
+		dout[n+1 +: 2] = din[n +: 2];
+	end
+endmodule
+
+
+module partsel_test007 (
+	input [31:-32] din,
+	input signed [4:0] n,
+	output reg [31:-32] dout
+);
+	always @(*) begin
+		dout = 0;
+		dout[n+1] = din[n];
+	end
+endmodule

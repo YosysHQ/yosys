@@ -275,10 +275,15 @@ RTLIL::Const RTLIL::const_logic_or(const RTLIL::Const &arg1, const RTLIL::Const 
 	return result;
 }
 
-static RTLIL::Const const_shift_worker(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool sign_ext, int direction, int result_len)
+// Shift `arg1` by `arg2` bits.
+// If `direction` is +1, `arg1` is shifted right by `arg2` bits; if `direction` is -1, `arg1` is shifted left by `arg2` bits.
+// If `signed2` is true, `arg2` is interpreted as a signed integer; a negative `arg2` will cause a shift in the opposite direction.
+// Any required bits outside the bounds of `arg1` are padded with `vacant_bits` unless `sign_ext` is true, in which case any bits outside the left
+// bounds are filled with the leftmost bit of `arg1` (arithmetic shift).
+static RTLIL::Const const_shift_worker(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool sign_ext, bool signed2, int direction, int result_len, RTLIL::State vacant_bits = RTLIL::State::S0)
 {
 	int undef_bit_pos = -1;
-	BigInteger offset = const2big(arg2, false, undef_bit_pos) * direction;
+	BigInteger offset = const2big(arg2, signed2, undef_bit_pos) * direction;
 
 	if (result_len < 0)
 		result_len = arg1.bits.size();
@@ -290,9 +295,9 @@ static RTLIL::Const const_shift_worker(const RTLIL::Const &arg1, const RTLIL::Co
 	for (int i = 0; i < result_len; i++) {
 		BigInteger pos = BigInteger(i) + offset;
 		if (pos < 0)
-			result.bits[i] = RTLIL::State::S0;
+			result.bits[i] = vacant_bits;
 		else if (pos >= BigInteger(int(arg1.bits.size())))
-			result.bits[i] = sign_ext ? arg1.bits.back() : RTLIL::State::S0;
+			result.bits[i] = sign_ext ? arg1.bits.back() : vacant_bits;
 		else
 			result.bits[i] = arg1.bits[pos.toInt()];
 	}
@@ -304,61 +309,36 @@ RTLIL::Const RTLIL::const_shl(const RTLIL::Const &arg1, const RTLIL::Const &arg2
 {
 	RTLIL::Const arg1_ext = arg1;
 	extend_u0(arg1_ext, result_len, signed1);
-	return const_shift_worker(arg1_ext, arg2, false, -1, result_len);
+	return const_shift_worker(arg1_ext, arg2, false, false, -1, result_len);
 }
 
 RTLIL::Const RTLIL::const_shr(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool, int result_len)
 {
 	RTLIL::Const arg1_ext = arg1;
 	extend_u0(arg1_ext, max(result_len, GetSize(arg1)), signed1);
-	return const_shift_worker(arg1_ext, arg2, false, +1, result_len);
+	return const_shift_worker(arg1_ext, arg2, false, false, +1, result_len);
 }
 
-RTLIL::Const RTLIL::const_sshl(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)
+RTLIL::Const RTLIL::const_sshl(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool, int result_len)
 {
-	if (!signed1)
-		return const_shl(arg1, arg2, signed1, signed2, result_len);
-	return const_shift_worker(arg1, arg2, true, -1, result_len);
+	return const_shift_worker(arg1, arg2, signed1, false, -1, result_len);
 }
 
-RTLIL::Const RTLIL::const_sshr(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)
+RTLIL::Const RTLIL::const_sshr(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool, int result_len)
 {
-	if (!signed1)
-		return const_shr(arg1, arg2, signed1, signed2, result_len);
-	return const_shift_worker(arg1, arg2, true, +1, result_len);
-}
-
-static RTLIL::Const const_shift_shiftx(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool, bool signed2, int result_len, RTLIL::State other_bits)
-{
-	int undef_bit_pos = -1;
-	BigInteger offset = const2big(arg2, signed2, undef_bit_pos);
-
-	if (result_len < 0)
-		result_len = arg1.bits.size();
-
-	RTLIL::Const result(RTLIL::State::Sx, result_len);
-	if (undef_bit_pos >= 0)
-		return result;
-
-	for (int i = 0; i < result_len; i++) {
-		BigInteger pos = BigInteger(i) + offset;
-		if (pos < 0 || pos >= BigInteger(int(arg1.bits.size())))
-			result.bits[i] = other_bits;
-		else
-			result.bits[i] = arg1.bits[pos.toInt()];
-	}
-
-	return result;
+	return const_shift_worker(arg1, arg2, signed1, false, +1, result_len);
 }
 
 RTLIL::Const RTLIL::const_shift(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)
 {
-	return const_shift_shiftx(arg1, arg2, signed1, signed2, result_len, RTLIL::State::S0);
+	RTLIL::Const arg1_ext = arg1;
+	extend_u0(arg1_ext, max(result_len, GetSize(arg1)), signed1);
+	return const_shift_worker(arg1_ext, arg2, false, signed2, +1, result_len);
 }
 
-RTLIL::Const RTLIL::const_shiftx(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)
+RTLIL::Const RTLIL::const_shiftx(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool, bool signed2, int result_len)
 {
-	return const_shift_shiftx(arg1, arg2, signed1, signed2, result_len, RTLIL::State::Sx);
+	return const_shift_worker(arg1, arg2, false, signed2, +1, result_len, RTLIL::State::Sx);
 }
 
 RTLIL::Const RTLIL::const_lt(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)
@@ -489,6 +469,7 @@ RTLIL::Const RTLIL::const_mul(const RTLIL::Const &arg1, const RTLIL::Const &arg2
 	return big2const(y, result_len >= 0 ? result_len : max(arg1.bits.size(), arg2.bits.size()), min(undef_bit_pos, 0));
 }
 
+// truncating division
 RTLIL::Const RTLIL::const_div(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)
 {
 	int undef_bit_pos = -1;
@@ -502,6 +483,7 @@ RTLIL::Const RTLIL::const_div(const RTLIL::Const &arg1, const RTLIL::Const &arg2
 	return big2const(result_neg ? -(a / b) : (a / b), result_len >= 0 ? result_len : max(arg1.bits.size(), arg2.bits.size()), min(undef_bit_pos, 0));
 }
 
+// truncating modulo
 RTLIL::Const RTLIL::const_mod(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)
 {
 	int undef_bit_pos = -1;
@@ -513,6 +495,51 @@ RTLIL::Const RTLIL::const_mod(const RTLIL::Const &arg1, const RTLIL::Const &arg2
 	a = a.getSign() == BigInteger::negative ? -a : a;
 	b = b.getSign() == BigInteger::negative ? -b : b;
 	return big2const(result_neg ? -(a % b) : (a % b), result_len >= 0 ? result_len : max(arg1.bits.size(), arg2.bits.size()), min(undef_bit_pos, 0));
+}
+
+RTLIL::Const RTLIL::const_divfloor(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)
+{
+	int undef_bit_pos = -1;
+	BigInteger a = const2big(arg1, signed1, undef_bit_pos);
+	BigInteger b = const2big(arg2, signed2, undef_bit_pos);
+	if (b.isZero())
+		return RTLIL::Const(RTLIL::State::Sx, result_len);
+
+	bool result_pos = (a.getSign() == BigInteger::negative) == (b.getSign() == BigInteger::negative);
+	a = a.getSign() == BigInteger::negative ? -a : a;
+	b = b.getSign() == BigInteger::negative ? -b : b;
+	BigInteger result;
+
+	if (result_pos || a == 0) {
+		result = a / b;
+	} else {
+		// bigint division with negative numbers is wonky, make sure we only negate at the very end
+		result = -((a + b - 1) / b);
+	}
+	return big2const(result, result_len >= 0 ? result_len : max(arg1.bits.size(), arg2.bits.size()), min(undef_bit_pos, 0));
+}
+
+RTLIL::Const RTLIL::const_modfloor(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)
+{
+	int undef_bit_pos = -1;
+	BigInteger a = const2big(arg1, signed1, undef_bit_pos);
+	BigInteger b = const2big(arg2, signed2, undef_bit_pos);
+	if (b.isZero())
+		return RTLIL::Const(RTLIL::State::Sx, result_len);
+
+	BigInteger::Sign a_sign = a.getSign();
+	BigInteger::Sign b_sign = b.getSign();
+	a = a_sign == BigInteger::negative ? -a : a;
+	b = b_sign == BigInteger::negative ? -b : b;
+	BigInteger truncated = a_sign == BigInteger::negative ? -(a % b) : (a % b);
+	BigInteger modulo;
+
+	if (truncated == 0 || (a_sign == b_sign)) {
+		modulo = truncated;
+	} else {
+		modulo = b_sign == BigInteger::negative ? truncated - b : truncated + b;
+	}
+	return big2const(modulo, result_len >= 0 ? result_len : max(arg1.bits.size(), arg2.bits.size()), min(undef_bit_pos, 0));
 }
 
 RTLIL::Const RTLIL::const_pow(const RTLIL::Const &arg1, const RTLIL::Const &arg2, bool signed1, bool signed2, int result_len)

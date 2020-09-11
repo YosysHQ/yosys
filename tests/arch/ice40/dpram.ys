@@ -1,0 +1,15 @@
+read_verilog dpram.v
+hierarchy -top top
+proc
+memory -nomap
+equiv_opt -run :prove -map +/ice40/cells_sim.v synth_ice40
+memory
+opt -full
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -seq 3 -set-init-zero -show-inputs -show-outputs miter
+
+design -load postopt
+cd top
+select -assert-count 1 t:SB_RAM40_4K
+select -assert-none t:SB_RAM40_4K %% t:* %D

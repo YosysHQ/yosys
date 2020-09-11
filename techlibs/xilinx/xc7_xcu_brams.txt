@@ -1,0 +1,151 @@
+# Virtex 6, Series 7, Ultrascale, Ultrascale Plus block RAM rules.
+
+bram $__XILINX_RAMB36_SDP
+  init 1
+  abits 9
+  dbits 72
+  groups 2
+  ports  1 1
+  wrmode 0 1
+  enable 1 8
+  transp 0 0
+  clocks 2 3
+  clkpol 2 3
+endbram
+
+bram $__XILINX_RAMB18_SDP
+  init 1
+  abits 9
+  dbits 36
+  groups 2
+  ports  1 1
+  wrmode 0 1
+  enable 1 4
+  transp 0 0
+  clocks 2 3
+  clkpol 2 3
+endbram
+
+bram $__XILINX_RAMB36_TDP
+  init 1
+  abits 10     @a10d36
+  dbits 36     @a10d36
+  abits 11     @a11d18
+  dbits 18     @a11d18
+  abits 12     @a12d9
+  dbits  9     @a12d9
+  abits 13     @a13d4
+  dbits  4     @a13d4
+  abits 14     @a14d2
+  dbits  2     @a14d2
+  abits 15     @a15d1
+  dbits  1     @a15d1
+  groups 2
+  ports  1 1
+  wrmode 0 1
+  enable 1 4   @a10d36
+  enable 1 2   @a11d18
+  enable 1 1   @a12d9 @a13d4 @a14d2 @a15d1
+  transp 0 0
+  clocks 2 3
+  clkpol 2 3
+endbram
+
+bram $__XILINX_RAMB18_TDP
+  init 1
+  abits 10     @a10d18
+  dbits 18     @a10d18
+  abits 11     @a11d9
+  dbits  9     @a11d9
+  abits 12     @a12d4
+  dbits  4     @a12d4
+  abits 13     @a13d2
+  dbits  2     @a13d2
+  abits 14     @a14d1
+  dbits  1     @a14d1
+  groups 2
+  ports  1 1
+  wrmode 0 1
+  enable 1 2   @a10d18
+  enable 1 1   @a11d9 @a12d4 @a13d2 @a14d1
+  transp 0 0
+  clocks 2 3
+  clkpol 2 3
+endbram
+
+# The "min bits" value were taken from:
+# [[CITE]] 7 Series FPGAs Memory Resources User Guide (UG473),
+# v1.14 ed., p 29-30, July, 2019.
+# https://www.xilinx.com/support/documentation/user_guides/ug473_7Series_Memory_Resources.pdf
+
+match $__XILINX_RAMB36_SDP
+  attribute !ram_style
+  attribute !logic_block
+  min bits 1024
+  min efficiency 5
+  shuffle_enable B
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__XILINX_RAMB36_SDP
+  attribute ram_style=block ram_block
+  attribute !logic_block
+  shuffle_enable B
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__XILINX_RAMB18_SDP
+  attribute !ram_style
+  attribute !logic_block
+  min bits 1024
+  min efficiency 5
+  shuffle_enable B
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__XILINX_RAMB18_SDP
+  attribute ram_style=block ram_block
+  attribute !logic_block
+  shuffle_enable B
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__XILINX_RAMB36_TDP
+  attribute !ram_style
+  attribute !logic_block
+  min bits 1024
+  min efficiency 5
+  shuffle_enable B
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__XILINX_RAMB36_TDP
+  attribute ram_style=block ram_block
+  attribute !logic_block
+  shuffle_enable B
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__XILINX_RAMB18_TDP
+  attribute !ram_style
+  attribute !logic_block
+  min bits 1024
+  min efficiency 5
+  shuffle_enable B
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__XILINX_RAMB18_TDP
+  attribute ram_style=block ram_block
+  attribute !logic_block
+  shuffle_enable B
+  make_transp
+endmatch
+

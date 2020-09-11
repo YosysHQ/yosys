@@ -1,0 +1,67 @@
+read_verilog xilinx_srl.v
+design -save read
+
+design -copy-to model $__XILINX_SHREG_
+hierarchy -top xilinx_srl_static_test
+prep
+design -save gold
+
+techmap
+xilinx_srl -fixed
+opt
+
+# stat
+# show -width
+select -assert-count 1 t:$_DFF_P_
+select -assert-count 2 t:$__XILINX_SHREG_
+
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+design -copy-from model -as $__XILINX_SHREG_ \$__XILINX_SHREG_
+prep
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+dump gate
+sat -verify -prove-asserts -show-ports -seq 5 miter
+
+#design -load gold
+#stat
+
+#design -load gate
+#stat
+
+##########
+
+design -load read
+design -copy-to model $__XILINX_SHREG_
+hierarchy -top xilinx_srl_variable_test
+prep
+design -save gold
+
+xilinx_srl -variable
+opt
+
+#stat
+# show -width
+# write_verilog -noexpr -norename
+select -assert-count 1 t:$dff
+select -assert-count 1 t:$dff r:WIDTH=1 %i
+select -assert-count 2 t:$__XILINX_SHREG_
+
+design -stash gate
+
+design -import gold -as gold
+design -import gate -as gate
+design -copy-from model -as $__XILINX_SHREG_ \$__XILINX_SHREG_
+prep
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -show-ports -seq 5 miter
+
+# design -load gold
+# stat
+
+# design -load gate
+# stat

@@ -6,7 +6,7 @@ prep
 design -save gold
 muxpack
 opt
-stat
+#stat
 select -assert-count 0 t:$mux
 select -assert-count 1 t:$pmux
 design -stash gate
@@ -21,7 +21,7 @@ prep
 design -save gold
 muxpack
 opt
-stat
+#stat
 select -assert-count 0 t:$mux
 select -assert-count 1 t:$pmux
 design -stash gate
@@ -52,7 +52,7 @@ prep
 design -save gold
 muxpack
 opt
-stat
+#stat
 select -assert-count 0 t:$mux
 select -assert-count 2 t:$pmux
 design -stash gate
@@ -67,7 +67,7 @@ prep
 design -save gold
 muxpack
 opt
-stat
+#stat
 select -assert-count 0 t:$mux
 select -assert-count 1 t:$pmux
 design -stash gate
@@ -82,7 +82,7 @@ prep
 design -save gold
 muxpack
 opt
-stat
+#stat
 select -assert-count 0 t:$mux
 select -assert-count 1 t:$pmux
 design -stash gate
@@ -97,7 +97,7 @@ prep
 design -save gold
 muxpack
 opt
-stat
+#stat
 select -assert-count 0 t:$mux
 select -assert-count 1 t:$pmux
 design -stash gate
@@ -112,7 +112,7 @@ prep
 design -save gold
 muxpack
 opt
-stat
+#stat
 select -assert-count 0 t:$mux
 select -assert-count 1 t:$pmux
 design -stash gate
@@ -127,7 +127,7 @@ prep
 design -save gold
 muxpack
 opt
-stat
+#stat
 select -assert-count 0 t:$mux
 select -assert-count 1 t:$pmux
 design -stash gate
@@ -142,7 +142,7 @@ prep
 design -save gold
 muxpack
 opt
-stat
+#stat
 select -assert-count 7 t:$mux
 select -assert-count 0 t:$pmux
 design -stash gate
@@ -157,7 +157,7 @@ prep
 design -save gold
 muxpack
 opt
-stat
+#stat
 select -assert-count 4 t:$mux
 select -assert-count 0 t:$pmux
 design -stash gate
@@ -172,7 +172,7 @@ prep
 design -save gold
 muxpack
 opt
-stat
+#stat
 select -assert-count 3 t:$mux
 select -assert-count 0 t:$pmux
 design -stash gate
@@ -204,7 +204,7 @@ prep
 design -save gold
 muxpack
 opt
-stat
+#stat
 select -assert-count 0 t:$mux
 select -assert-count 2 t:$pmux
 design -stash gate
@@ -222,7 +222,7 @@ opt -fast -mux_undef
 select -assert-count 2 t:$pmux
 muxpack
 opt
-stat
+#stat
 select -assert-count 0 t:$mux
 select -assert-count 1 t:$pmux
 design -stash gate
@@ -240,7 +240,7 @@ opt -fast -mux_undef
 select -assert-count 2 t:$pmux
 muxpack
 opt
-stat
+#stat
 select -assert-count 0 t:$mux
 select -assert-count 2 t:$pmux
 design -stash gate
@@ -258,7 +258,7 @@ opt -fast -mux_undef
 select -assert-count 2 t:$pmux
 muxpack
 opt
-stat
+#stat
 select -assert-count 0 t:$mux
 select -assert-count 2 t:$pmux
 design -stash gate

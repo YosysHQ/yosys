@@ -1,0 +1,18 @@
+read_verilog ../common/lutram.v
+hierarchy -top lutram_1w1r
+proc
+memory -nomap
+equiv_opt -run :prove -map +/gowin/cells_sim.v synth_gowin
+memory
+opt -full
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+#ERROR: Called with -verify and proof did fail!
+#sat -verify -prove-asserts -seq 5 -set-init-zero -show-inputs -show-outputs miter
+sat -prove-asserts -seq 5 -set-init-zero -show-inputs -show-outputs miter
+
+design -load postopt
+cd lutram_1w1r
+select -assert-count 8 t:RAM16S4
+# other logic present that is not simple
+#select -assert-none t:RAM16S4 %% t:* %D

@@ -202,6 +202,52 @@ of how to use the Yosys API:
 	manual/PRESENTATION_Prog/my_cmd.cc
 
 
+Script Passes
+-------------
+
+The ScriptPass base class can be used to implement passes that just call other passes,
+like a script. Examples for such passes are:
+
+	techlibs/common/prep.cc
+	techlibs/common/synth.cc
+
+In some cases it is easier to implement such a pass as regular pass, for example when
+ScriptPass doesn't provide the type of flow control desired. (But many of the
+script passes in Yosys that don't use ScriptPass simply predate the ScriptPass base
+class.) Examples for such passes are:
+
+	passes/opt/opt.cc
+	passes/proc/proc.cc
+
+Whether they use the ScriptPass base-class or not, a pass should always either
+call other passes without doing any non-trivial work itself, or should implement
+a non-trivial algorithm but not call any other passes. The reason for this is that
+this helps containing complexity in individual passes and simplifies debugging the
+entire system.
+
+Exceptions to this rule should be rare and limited to cases where calling other
+passes is optional and only happens when requested by the user (such as for
+example `techmap -autoproc`), or where it is about commands that are "top-level
+commands" in their own right, not components to be used in regular synthesis
+flows (such as the `bugpoint` command).
+
+A pass that would "naturally" call other passes and also do some work itself
+should be re-written in one of two ways:
+
+1) It could be re-written as script pass with the parts that are not calls
+to other passes factored out into individual new passes. Usually in those
+cases the new sub passes share the same prefix as the top-level script pass.
+
+2) It could be re-written so that it already expects the design in a certain
+state, expecting the calling script to set up this state before calling the
+pass in questions.
+
+Many back-ends are examples for the 2nd approach. For example, `write_aiger`
+does not convert the design into AIG representation, but expects the design
+to be already in this form, and prints an `Unsupported cell type` error
+message otherwise.
+
+
 Notes on the existing codebase
 ------------------------------
 
@@ -390,6 +436,7 @@ Finally run all tests with "make config-{clang,gcc,gcc-4.8}":
 Release:
 
 	- set YOSYS_VER to x.y.z in Makefile
+	- remove "bumpversion" target from Makefile
 	- update version string in CHANGELOG
 	git commit -am "Yosys x.y.z"
 

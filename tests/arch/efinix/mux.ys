@@ -1,0 +1,41 @@
+read_verilog ../common/mux.v
+design -save read
+
+hierarchy -top mux2
+proc
+equiv_opt -assert -map +/efinix/cells_sim.v synth_efinix # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mux2 # Constrain all select calls below inside the top module
+select -assert-count 1 t:EFX_LUT4
+
+select -assert-none t:EFX_LUT4 %% t:* %D
+
+design -load read
+hierarchy -top mux4
+proc
+equiv_opt -assert -map +/efinix/cells_sim.v synth_efinix # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mux4 # Constrain all select calls below inside the top module
+#select -assert-count 2 t:EFX_LUT4
+
+select -assert-none t:EFX_LUT4 %% t:* %D
+
+design -load read
+hierarchy -top mux8
+proc
+equiv_opt -assert -map +/efinix/cells_sim.v synth_efinix # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mux8 # Constrain all select calls below inside the top module
+#select -assert-count 5 t:EFX_LUT4
+
+select -assert-none t:EFX_LUT4 %% t:* %D
+
+design -load read
+hierarchy -top mux16
+proc
+equiv_opt -assert -map +/efinix/cells_sim.v synth_efinix # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mux16 # Constrain all select calls below inside the top module
+select -assert-max 12 t:EFX_LUT4
+
+select -assert-none t:EFX_LUT4 %% t:* %D

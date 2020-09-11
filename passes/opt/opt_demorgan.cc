@@ -35,10 +35,10 @@ void demorgan_worker(
 	//TODO: Add support for reduce_xor
 	//DeMorgan of XOR is either XOR (if even number of inputs) or XNOR (if odd number)
 
-	if( (cell->type != "$reduce_and") && (cell->type != "$reduce_or") )
+	if( (cell->type != ID($reduce_and)) && (cell->type != ID($reduce_or)) )
 		return;
 
-	auto insig = sigmap(cell->getPort("\\A"));
+	auto insig = sigmap(cell->getPort(ID::A));
 	log("Inspecting %s cell %s (%d inputs)\n", log_id(cell->type), log_id(cell->name), GetSize(insig));
 	int num_inverted = 0;
 	for(int i=0; i<GetSize(insig); i++)
@@ -51,7 +51,7 @@ void demorgan_worker(
 		bool inverted = false;
 		for(auto x : ports)
 		{
-			if(x.port == "\\Y" && x.cell->type == "$_NOT_")
+			if(x.port == ID::Y && x.cell->type == ID($_NOT_))
 			{
 				inverted = true;
 				break;
@@ -85,7 +85,7 @@ void demorgan_worker(
 		RTLIL::Cell* srcinv = NULL;
 		for(auto x : ports)
 		{
-			if(x.port == "\\Y" && x.cell->type == "$_NOT_")
+			if(x.port == ID::Y && x.cell->type == ID($_NOT_))
 			{
 				srcinv = x.cell;
 				break;
@@ -103,7 +103,7 @@ void demorgan_worker(
 		//We ARE inverted - bypass it
 		//Don't automatically delete the inverter since other stuff might still use it
 		else
-			insig[i] = srcinv->getPort("\\A");
+			insig[i] = srcinv->getPort(ID::A);
 	}
 
 	//Cosmetic fixup: If our input is just a scrambled version of one bus, rearrange it
@@ -151,25 +151,25 @@ void demorgan_worker(
 	}
 
 	//Push the new input signal back to the reduction (after bypassing/adding inverters)
-	cell->setPort("\\A", insig);
+	cell->setPort(ID::A, insig);
 
 	//Change the cell type
-	if(cell->type == "$reduce_and")
-		cell->type = "$reduce_or";
-	else if(cell->type == "$reduce_or")
-		cell->type = "$reduce_and";
+	if(cell->type == ID($reduce_and))
+		cell->type = ID($reduce_or);
+	else if(cell->type == ID($reduce_or))
+		cell->type = ID($reduce_and);
 	//don't change XOR
 
 	//Add an inverter to the output
-	auto inverted_output = cell->getPort("\\Y");
+	auto inverted_output = cell->getPort(ID::Y);
 	auto uninverted_output = m->addWire(NEW_ID);
 	m->addNot(NEW_ID, RTLIL::SigSpec(uninverted_output), inverted_output);
-	cell->setPort("\\Y", uninverted_output);
+	cell->setPort(ID::Y, uninverted_output);
 }
 
 struct OptDemorganPass : public Pass {
 	OptDemorganPass() : Pass("opt_demorgan", "Optimize reductions with DeMorgan equivalents") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -179,7 +179,7 @@ struct OptDemorganPass : public Pass {
 		log("overall gate count of the circuit\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing OPT_DEMORGAN pass (push inverters through $reduce_* cells).\n");
 

@@ -27,7 +27,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct MemoryPass : public Pass {
 	MemoryPass() : Pass("memory", "translate memories to basic cells") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -35,6 +35,7 @@ struct MemoryPass : public Pass {
 		log("\n");
 		log("This pass calls all the other memory_* passes in a useful order:\n");
 		log("\n");
+		log("    opt_mem\n");
 		log("    memory_dff [-nordff]                (-memx implies -nordff)\n");
 		log("    opt_clean\n");
 		log("    memory_share\n");
@@ -48,7 +49,7 @@ struct MemoryPass : public Pass {
 		log("or multiport memory blocks if called with the -nomap option.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool flag_nomap = false;
 		bool flag_nordff = false;
@@ -81,6 +82,7 @@ struct MemoryPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		Pass::call(design, "opt_mem");
 		Pass::call(design, flag_nordff ? "memory_dff -nordff" : "memory_dff");
 		Pass::call(design, "opt_clean");
 		Pass::call(design, "memory_share");

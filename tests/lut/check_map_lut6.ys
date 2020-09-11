@@ -1,0 +1,7 @@
+chparam -set LUT_WIDTH 6 top
+simplemap
+equiv_opt -assert techmap -D LUT_WIDTH=6 -map +/cmp2lut.v
+design -load postopt
+equiv_opt -assert techmap -D LUT_WIDTH=6 -map +/gate2lut.v
+design -load postopt
+select -assert-count 0 t:* t:$lut %d

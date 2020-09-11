@@ -1,0 +1,44 @@
+read_verilog ../common/fsm.v
+hierarchy -top fsm
+proc
+flatten
+
+equiv_opt -run :prove -map +/intel_alm/common/alm_sim.v -map +/intel_alm/common/dff_sim.v synth_intel_alm -family cyclonev
+async2sync
+miter -equiv -make_assert -flatten gold gate miter
+sat -verify -prove-asserts -show-public -set-at 1 in_reset 1 -seq 20 -prove-skip 1 miter
+
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd fsm # Constrain all select calls below inside the top module
+
+select -assert-count 6 t:MISTRAL_FF
+select -assert-max 1 t:MISTRAL_NOT
+select -assert-max 2 t:MISTRAL_ALUT2 # Clang returns 2, GCC returns 1
+select -assert-max 1 t:MISTRAL_ALUT3
+select -assert-max 2 t:MISTRAL_ALUT4 # Clang returns 0, GCC returns 1
+select -assert-max 6 t:MISTRAL_ALUT5 # Clang returns 5, GCC returns 4
+select -assert-max 2 t:MISTRAL_ALUT6 # Clang returns 1, GCC returns 2
+select -assert-none t:MISTRAL_FF t:MISTRAL_NOT t:MISTRAL_ALUT2 t:MISTRAL_ALUT3 t:MISTRAL_ALUT4 t:MISTRAL_ALUT5 t:MISTRAL_ALUT6 %% t:* %D
+
+design -reset
+read_verilog ../common/fsm.v
+hierarchy -top fsm
+proc
+flatten
+
+equiv_opt -run :prove -map +/intel_alm/common/alm_sim.v -map +/intel_alm/common/dff_sim.v synth_intel_alm -family cyclone10gx
+async2sync
+miter -equiv -make_assert -flatten gold gate miter
+sat -verify -prove-asserts -show-public -set-at 1 in_reset 1 -seq 20 -prove-skip 1 miter
+
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd fsm # Constrain all select calls below inside the top module
+
+select -assert-count 6 t:MISTRAL_FF
+select -assert-max 1 t:MISTRAL_NOT
+select -assert-max 2 t:MISTRAL_ALUT2 # Clang returns 2, GCC returns 1
+select -assert-max 2 t:MISTRAL_ALUT3 # Clang returns 2, GCC returns 1
+select -assert-max 2 t:MISTRAL_ALUT4 # Clang returns 0, GCC returns 1
+select -assert-max 6 t:MISTRAL_ALUT5 # Clang returns 5, GCC returns 4
+select -assert-max 2 t:MISTRAL_ALUT6 # Clang returns 1, GCC returns 2
+select -assert-none t:MISTRAL_FF t:MISTRAL_NOT t:MISTRAL_ALUT2 t:MISTRAL_ALUT3 t:MISTRAL_ALUT4 t:MISTRAL_ALUT5 t:MISTRAL_ALUT6 %% t:* %D

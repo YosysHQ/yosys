@@ -19,13 +19,15 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/ffinit.h"
+#include "kernel/ff.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct Async2syncPass : public Pass {
 	Async2syncPass() : Pass("async2sync", "convert async FF inputs to sync circuits") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -39,10 +41,10 @@ struct Async2syncPass : public Pass {
 		log("reset value in the next cycle regardless of the data-in value at the time of\n");
 		log("the clock edge.\n");
 		log("\n");
-		log("Currently only $adff and $dffsr cells are supported by this pass.\n");
+		log("Currently only $adff, $dffsr, and $dlatch cells are supported by this pass.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		// bool flag_noinit = false;
 
@@ -62,133 +64,183 @@ struct Async2syncPass : public Pass {
 		for (auto module : design->selected_modules())
 		{
 			SigMap sigmap(module);
-			dict<SigBit, State> initbits;
-			pool<SigBit> del_initbits;
-
-			for (auto wire : module->wires())
-				if (wire->attributes.count("\\init") > 0)
-				{
-					Const initval = wire->attributes.at("\\init");
-					SigSpec initsig = sigmap(wire);
-
-					for (int i = 0; i < GetSize(initval) && i < GetSize(initsig); i++)
-						if (initval[i] == State::S0 || initval[i] == State::S1)
-							initbits[initsig[i]] = initval[i];
-				}
+			FfInitVals initvals(&sigmap, module);
 
 			for (auto cell : vector<Cell*>(module->selected_cells()))
 			{
-				if (cell->type.in("$adff"))
+				if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+					continue;
+
+				FfData ff(&initvals, cell);
+
+				// Skip for $_FF_ and $ff cells.
+				if (ff.has_d && !ff.has_clk && !ff.has_en)
+					continue;
+
+				if (ff.has_clk)
 				{
-					// bool clk_pol = cell->parameters["\\CLK_POLARITY"].as_bool();
-					bool arst_pol = cell->parameters["\\ARST_POLARITY"].as_bool();
-					Const arst_val = cell->parameters["\\ARST_VALUE"];
+					if (!ff.has_sr && !ff.has_arst)
+						continue;
 
-					// SigSpec sig_clk = cell->getPort("\\CLK");
-					SigSpec sig_arst = cell->getPort("\\ARST");
-					SigSpec sig_d = cell->getPort("\\D");
-					SigSpec sig_q = cell->getPort("\\Q");
+					if (ff.has_sr) {
+						ff.unmap_ce_srst(module);
 
-					log("Replacing %s.%s (%s): ARST=%s, D=%s, Q=%s\n",
-							log_id(module), log_id(cell), log_id(cell->type),
-							log_signal(sig_arst), log_signal(sig_d), log_signal(sig_q));
+						log("Replacing %s.%s (%s): SET=%s, CLR=%s, D=%s, Q=%s\n",
+								log_id(module), log_id(cell), log_id(cell->type),
+								log_signal(ff.sig_set), log_signal(ff.sig_clr), log_signal(ff.sig_d), log_signal(ff.sig_q));
 
-					Const init_val;
-					for (int i = 0; i < GetSize(sig_q); i++) {
-						SigBit bit = sigmap(sig_q[i]);
-						init_val.bits.push_back(initbits.count(bit) ? initbits.at(bit) : State::Sx);
-						del_initbits.insert(bit);
+						initvals.remove_init(ff.sig_q);
+
+						Wire *new_d = module->addWire(NEW_ID, ff.width);
+						Wire *new_q = module->addWire(NEW_ID, ff.width);
+
+						SigSpec sig_set = ff.sig_set;
+						SigSpec sig_clr = ff.sig_clr;
+
+						if (!ff.pol_set) {
+							if (!ff.is_fine)
+								sig_set = module->Not(NEW_ID, sig_set);
+							else
+								sig_set = module->NotGate(NEW_ID, sig_set);
+						}
+
+						if (ff.pol_clr) {
+							if (!ff.is_fine)
+								sig_clr = module->Not(NEW_ID, sig_clr);
+							else
+								sig_clr = module->NotGate(NEW_ID, sig_clr);
+						}
+
+						if (!ff.is_fine) {
+							SigSpec tmp = module->Or(NEW_ID, ff.sig_d, sig_set);
+							module->addAnd(NEW_ID, tmp, sig_clr, new_d);
+
+							tmp = module->Or(NEW_ID, new_q, sig_set);
+							module->addAnd(NEW_ID, tmp, sig_clr, ff.sig_q);
+						} else {
+							SigSpec tmp = module->OrGate(NEW_ID, ff.sig_d, sig_set);
+							module->addAndGate(NEW_ID, tmp, sig_clr, new_d);
+
+							tmp = module->OrGate(NEW_ID, new_q, sig_set);
+							module->addAndGate(NEW_ID, tmp, sig_clr, ff.sig_q);
+						}
+
+						ff.sig_d = new_d;
+						ff.sig_q = new_q;
+						ff.has_sr = false;
+					} else if (ff.has_arst) {
+						ff.unmap_srst(module);
+
+						log("Replacing %s.%s (%s): ARST=%s, D=%s, Q=%s\n",
+								log_id(module), log_id(cell), log_id(cell->type),
+								log_signal(ff.sig_arst), log_signal(ff.sig_d), log_signal(ff.sig_q));
+
+						initvals.remove_init(ff.sig_q);
+
+						Wire *new_q = module->addWire(NEW_ID, ff.width);
+
+						if (ff.pol_arst) {
+							if (!ff.is_fine)
+								module->addMux(NEW_ID, new_q, ff.val_arst, ff.sig_arst, ff.sig_q);
+							else
+								module->addMuxGate(NEW_ID, new_q, ff.val_arst[0], ff.sig_arst, ff.sig_q);
+						} else {
+							if (!ff.is_fine)
+								module->addMux(NEW_ID, ff.val_arst, new_q, ff.sig_arst, ff.sig_q);
+							else
+								module->addMuxGate(NEW_ID, ff.val_arst[0], new_q, ff.sig_arst, ff.sig_q);
+						}
+
+						ff.sig_q = new_q;
+						ff.has_arst = false;
+						ff.has_srst = true;
+						ff.val_srst = ff.val_arst;
+						ff.sig_srst = ff.sig_arst;
+						ff.pol_srst = ff.pol_arst;
 					}
+				}
+				else
+				{
+					// Latch.
+					log("Replacing %s.%s (%s): EN=%s, D=%s, Q=%s\n",
+							log_id(module), log_id(cell), log_id(cell->type),
+							log_signal(ff.sig_en), log_signal(ff.sig_d), log_signal(ff.sig_q));
 
-					Wire *new_d = module->addWire(NEW_ID, GetSize(sig_d));
-					Wire *new_q = module->addWire(NEW_ID, GetSize(sig_q));
-					new_q->attributes["\\init"] = init_val;
+					initvals.remove_init(ff.sig_q);
 
-					if (arst_pol) {
-						module->addMux(NEW_ID, sig_d, arst_val, sig_arst, new_d);
-						module->addMux(NEW_ID, new_q, arst_val, sig_arst, sig_q);
+					Wire *new_q = module->addWire(NEW_ID, ff.width);
+					Wire *new_d;
+
+					if (ff.has_d) {
+						new_d = module->addWire(NEW_ID, ff.width);
+						if (ff.pol_en) {
+							if (!ff.is_fine)
+								module->addMux(NEW_ID, new_q, ff.sig_d, ff.sig_en, new_d);
+							else
+								module->addMuxGate(NEW_ID, new_q, ff.sig_d, ff.sig_en, new_d);
+						} else {
+							if (!ff.is_fine)
+								module->addMux(NEW_ID, ff.sig_d, new_q, ff.sig_en, new_d);
+							else
+								module->addMuxGate(NEW_ID, ff.sig_d, new_q, ff.sig_en, new_d);
+						}
 					} else {
-						module->addMux(NEW_ID, arst_val, sig_d, sig_arst, new_d);
-						module->addMux(NEW_ID, arst_val, new_q, sig_arst, sig_q);
+						new_d = new_q;
 					}
 
-					cell->setPort("\\D", new_d);
-					cell->setPort("\\Q", new_q);
-					cell->unsetPort("\\ARST");
-					cell->unsetParam("\\ARST_POLARITY");
-					cell->unsetParam("\\ARST_VALUE");
-					cell->type = "$dff";
-					continue;
-				}
+					if (ff.has_sr) {
+						SigSpec sig_set = ff.sig_set;
+						SigSpec sig_clr = ff.sig_clr;
 
-				if (cell->type.in("$dffsr"))
-				{
-					// bool clk_pol = cell->parameters["\\CLK_POLARITY"].as_bool();
-					bool set_pol = cell->parameters["\\SET_POLARITY"].as_bool();
-					bool clr_pol = cell->parameters["\\CLR_POLARITY"].as_bool();
+						if (!ff.pol_set) {
+							if (!ff.is_fine)
+								sig_set = module->Not(NEW_ID, sig_set);
+							else
+								sig_set = module->NotGate(NEW_ID, sig_set);
+						}
 
-					// SigSpec sig_clk = cell->getPort("\\CLK");
-					SigSpec sig_set = cell->getPort("\\SET");
-					SigSpec sig_clr = cell->getPort("\\CLR");
-					SigSpec sig_d = cell->getPort("\\D");
-					SigSpec sig_q = cell->getPort("\\Q");
+						if (ff.pol_clr) {
+							if (!ff.is_fine)
+								sig_clr = module->Not(NEW_ID, sig_clr);
+							else
+								sig_clr = module->NotGate(NEW_ID, sig_clr);
+						}
 
-					log("Replacing %s.%s (%s): SET=%s, CLR=%s, D=%s, Q=%s\n",
-							log_id(module), log_id(cell), log_id(cell->type),
-							log_signal(sig_set), log_signal(sig_clr), log_signal(sig_d), log_signal(sig_q));
-
-					Const init_val;
-					for (int i = 0; i < GetSize(sig_q); i++) {
-						SigBit bit = sigmap(sig_q[i]);
-						init_val.bits.push_back(initbits.count(bit) ? initbits.at(bit) : State::Sx);
-						del_initbits.insert(bit);
+						if (!ff.is_fine) {
+							SigSpec tmp = module->Or(NEW_ID, new_d, sig_set);
+							module->addAnd(NEW_ID, tmp, sig_clr, ff.sig_q);
+						} else {
+							SigSpec tmp = module->OrGate(NEW_ID, new_d, sig_set);
+							module->addAndGate(NEW_ID, tmp, sig_clr, ff.sig_q);
+						}
+					} else if (ff.has_arst) {
+						if (ff.pol_arst) {
+							if (!ff.is_fine)
+								module->addMux(NEW_ID, new_d, ff.val_arst, ff.sig_arst, ff.sig_q);
+							else
+								module->addMuxGate(NEW_ID, new_d, ff.val_arst[0], ff.sig_arst, ff.sig_q);
+						} else {
+							if (!ff.is_fine)
+								module->addMux(NEW_ID, ff.val_arst, new_d, ff.sig_arst, ff.sig_q);
+							else
+								module->addMuxGate(NEW_ID, ff.val_arst[0], new_d, ff.sig_arst, ff.sig_q);
+						}
+					} else {
+						module->connect(ff.sig_q, new_d);
 					}
 
-					Wire *new_d = module->addWire(NEW_ID, GetSize(sig_d));
-					Wire *new_q = module->addWire(NEW_ID, GetSize(sig_q));
-					new_q->attributes["\\init"] = init_val;
-
-					if (!set_pol)
-						sig_set = module->Not(NEW_ID, sig_set);
-
-					if (clr_pol)
-						sig_clr = module->Not(NEW_ID, sig_clr);
-
-					SigSpec tmp = module->Or(NEW_ID, sig_d, sig_set);
-					module->addAnd(NEW_ID, tmp, sig_clr, new_d);
-
-					tmp = module->Or(NEW_ID, new_q, sig_set);
-					module->addAnd(NEW_ID, tmp, sig_clr, sig_q);
-
-					cell->setPort("\\D", new_d);
-					cell->setPort("\\Q", new_q);
-					cell->unsetPort("\\SET");
-					cell->unsetPort("\\CLR");
-					cell->unsetParam("\\SET_POLARITY");
-					cell->unsetParam("\\CLR_POLARITY");
-					cell->type = "$dff";
-					continue;
+					ff.sig_d = new_d;
+					ff.sig_q = new_q;
+					ff.has_en = false;
+					ff.has_arst = false;
+					ff.has_sr = false;
+					ff.has_d = true;
 				}
+
+				IdString name = cell->name;
+				module->remove(cell);
+				ff.emit(module, name);
 			}
-
-			for (auto wire : module->wires())
-				if (wire->attributes.count("\\init") > 0)
-				{
-					bool delete_initattr = true;
-					Const initval = wire->attributes.at("\\init");
-					SigSpec initsig = sigmap(wire);
-
-					for (int i = 0; i < GetSize(initval) && i < GetSize(initsig); i++)
-						if (del_initbits.count(initsig[i]) > 0)
-							initval[i] = State::Sx;
-						else if (initval[i] != State::Sx)
-							delete_initattr = false;
-
-					if (delete_initattr)
-						wire->attributes.erase("\\init");
-					else
-						wire->attributes.at("\\init") = initval;
-				}
 		}
 	}
 } Async2syncPass;

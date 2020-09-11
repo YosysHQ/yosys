@@ -1,0 +1,5 @@
+connect_rpc -exec python3 frontend.py stdio
+read_verilog design.v
+hierarchy -top top
+flatten
+select -assert-count 1 t:$neg

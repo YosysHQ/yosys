@@ -1,0 +1,16 @@
+read_verilog <<EOT
+module top(input a, output y);
+assign y = !a;
+endmodule
+EOT
+
+prep -top top
+write_verilog write_gzip.v.gz
+design -reset
+
+! rm -f write_gzip.v
+! gunzip write_gzip.v.gz
+read_verilog write_gzip.v
+! rm -f write_gzip.v
+hierarchy -top top
+select -assert-any top

@@ -1,4 +1,4 @@
-
+`timescale 1ps / 1ps
 `define SB_DFF_REG reg Q = 0
 // `define SB_DFF_REG reg Q
 
@@ -77,6 +77,37 @@ module SB_IO (
 		if (PIN_TYPE[5:4] == 2'b11) assign PACKAGE_PIN = outena_q ? dout : 1'bz;
 	endgenerate
 `endif
+`ifdef TIMING
+specify
+	(INPUT_CLK => D_IN_0) = (0:0:0, 0:0:0);
+	(INPUT_CLK => D_IN_1) = (0:0:0, 0:0:0);
+	(PACKAGE_PIN => D_IN_0) = (0:0:0, 0:0:0);
+	(OUTPUT_CLK => PACKAGE_PIN) = (0:0:0, 0:0:0);
+	(D_OUT_0 => PACKAGE_PIN) = (0:0:0, 0:0:0);
+	(OUTPUT_ENABLE => PACKAGE_PIN) = (0:0:0, 0:0:0);
+
+	$setuphold(posedge OUTPUT_CLK, posedge D_OUT_0, 0:0:0, 0:0:0);
+	$setuphold(posedge OUTPUT_CLK, negedge D_OUT_0, 0:0:0, 0:0:0);
+	$setuphold(negedge OUTPUT_CLK, posedge D_OUT_1, 0:0:0, 0:0:0);
+	$setuphold(negedge OUTPUT_CLK, negedge D_OUT_1, 0:0:0, 0:0:0);
+	$setuphold(negedge OUTPUT_CLK, posedge D_OUT_0, 0:0:0, 0:0:0);
+	$setuphold(negedge OUTPUT_CLK, negedge D_OUT_0, 0:0:0, 0:0:0);
+	$setuphold(posedge OUTPUT_CLK, posedge D_OUT_1, 0:0:0, 0:0:0);
+	$setuphold(posedge OUTPUT_CLK, negedge D_OUT_1, 0:0:0, 0:0:0);
+	$setuphold(posedge INPUT_CLK, posedge CLOCK_ENABLE, 0:0:0, 0:0:0);
+	$setuphold(posedge INPUT_CLK, negedge CLOCK_ENABLE, 0:0:0, 0:0:0);
+	$setuphold(posedge OUTPUT_CLK, posedge CLOCK_ENABLE, 0:0:0, 0:0:0);
+	$setuphold(posedge OUTPUT_CLK, negedge CLOCK_ENABLE, 0:0:0, 0:0:0);
+	$setuphold(posedge INPUT_CLK, posedge PACKAGE_PIN, 0:0:0, 0:0:0);
+	$setuphold(posedge INPUT_CLK, negedge PACKAGE_PIN, 0:0:0, 0:0:0);
+	$setuphold(negedge INPUT_CLK, posedge PACKAGE_PIN, 0:0:0, 0:0:0);
+	$setuphold(negedge INPUT_CLK, negedge PACKAGE_PIN, 0:0:0, 0:0:0);
+	$setuphold(posedge OUTPUT_CLK, posedge OUTPUT_ENABLE, 0:0:0, 0:0:0);
+	$setuphold(posedge OUTPUT_CLK, negedge OUTPUT_ENABLE, 0:0:0, 0:0:0);
+	$setuphold(negedge OUTPUT_CLK, posedge OUTPUT_ENABLE, 0:0:0, 0:0:0);
+	$setuphold(negedge OUTPUT_CLK, negedge OUTPUT_ENABLE, 0:0:0, 0:0:0);
+endspecify
+`endif
 endmodule
 
 module SB_GB_IO (
@@ -123,70 +154,415 @@ module SB_GB (
 	output GLOBAL_BUFFER_OUTPUT
 );
 	assign GLOBAL_BUFFER_OUTPUT = USER_SIGNAL_TO_GLOBAL_BUFFER;
+`ifdef TIMING
+specify
+	(USER_SIGNAL_TO_GLOBAL_BUFFER => GLOBAL_BUFFER_OUTPUT) = (0:0:0, 0:0:0);
+endspecify
+`endif
 endmodule
 
 // SiliconBlue Logic Cells
 
-(* abc_box_id = 2, lib_whitebox *)
+(* abc9_lut=1, lib_whitebox *)
 module SB_LUT4 (output O, input I0, I1, I2, I3);
 	parameter [15:0] LUT_INIT = 0;
 	wire [7:0] s3 = I3 ? LUT_INIT[15:8] : LUT_INIT[7:0];
 	wire [3:0] s2 = I2 ?       s3[ 7:4] :       s3[3:0];
 	wire [1:0] s1 = I1 ?       s2[ 3:2] :       s2[1:0];
 	assign O = I0 ? s1[1] : s1[0];
+`ifdef ICE40_HX
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L80
+		(I0 => O) = (449, 386);
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L83
+		(I1 => O) = (400, 379);
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L86
+		(I2 => O) = (379, 351);
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L88
+		(I3 => O) = (316, 288);
+	endspecify
+`endif
+`ifdef ICE40_LP
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_lp1k.txt#L80
+		(I0 => O) = (662, 569);
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_lp1k.txt#L83
+		(I1 => O) = (589, 558);
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_lp1k.txt#L86
+		(I2 => O) = (558, 517);
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_lp1k.txt#L88
+		(I3 => O) = (465, 423);
+	endspecify
+`endif
+`ifdef ICE40_U
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_up5k.txt#L92
+		(I0 => O) = (1245, 1285);
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_up5k.txt#L95
+		(I1 => O) = (1179, 1232);
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_up5k.txt#L98
+		(I2 => O) = (1179, 1205);
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_up5k.txt#L100
+		(I3 => O) = (861, 874);
+	endspecify
+`endif
 endmodule
 
-(* abc_box_id = 1, abc_carry="CI,CO", lib_whitebox *)
+(* lib_whitebox *)
 module SB_CARRY (output CO, input I0, I1, CI);
 	assign CO = (I0 && I1) || ((I0 || I1) && CI);
+`ifdef ICE40_HX
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L79
+		(CI => CO) = (126, 105);
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L82
+		(I0 => CO) = (259, 245);
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L85
+		(I1 => CO) = (231, 133);
+	endspecify
+`endif
+`ifdef ICE40_LP
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_lp1k.txt#L79
+		(CI => CO) = (186, 155);
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_lp1k.txt#L82
+		(I0 => CO) = (382, 362);
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_lp1k.txt#L85
+		(I0 => CO) = (341, 196);
+	endspecify
+`endif
+`ifdef ICE40_U
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_up5k.txt#L91
+		(CI => CO) = (278, 278);
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_up5k.txt#L94
+		(I0 => CO) = (675, 662);
+		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_up5k.txt#L97
+		(I0 => CO) = (609, 358);
+	endspecify
+`endif
 endmodule
 
 // Positive Edge SiliconBlue FF Cells
 
-module SB_DFF (output `SB_DFF_REG, input C, D);
+(* abc9_flop, lib_whitebox *)
+module SB_DFF (
+	output `SB_DFF_REG,
+	input C, D
+);
 	always @(posedge C)
 		Q <= D;
+`ifdef ICE40_HX
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		$setup(D, posedge C, 470 - 449);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		(posedge C => (Q : D)) = 540;
+	endspecify
+`endif
+`ifdef ICE40_LP
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, posedge C, 693 - 662);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		(posedge C => (Q : D)) = 796;
+	endspecify
+`endif
+`ifdef ICE40_U
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, posedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		(posedge C => (Q : D)) = 1391;
+	endspecify
+`endif
 endmodule
 
-module SB_DFFE (output `SB_DFF_REG, input C, E, D);
+(* abc9_flop, lib_whitebox *)
+module SB_DFFE (
+	output `SB_DFF_REG,
+	input C, E, D
+);
 	always @(posedge C)
 		if (E)
 			Q <= D;
+`ifdef ICE40_HX
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		$setup(D, posedge C &&& E, 470 - 449);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
+		$setup(E, posedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		if (E) (posedge C => (Q : D)) = 540;
+	endspecify
+`endif
+`ifdef ICE40_LP
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, posedge C &&& E, 693 - 662);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
+		$setup(E, posedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		if (E) (posedge C => (Q : D)) = 796;
+	endspecify
+`endif
+`ifdef ICE40_U
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, posedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
+		$setup(E, posedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		if (E) (posedge C => (Q : D)) = 1391;
+	endspecify
+`endif
 endmodule
 
-module SB_DFFSR (output `SB_DFF_REG, input C, R, D);
+(* abc9_flop, lib_whitebox *)
+module SB_DFFSR (
+	output `SB_DFF_REG,
+	input C, R, D
+);
 	always @(posedge C)
 		if (R)
 			Q <= 0;
 		else
 			Q <= D;
+`ifdef ICE40_HX
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		$setup(D, posedge C, 470 - 449);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L78
+		$setup(R, posedge C, 203);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		if ( R) (posedge C => (Q : 1'b0)) = 540;
+		if (!R) (posedge C => (Q : D)) = 540;
+	endspecify
+`endif
+`ifdef ICE40_LP
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, posedge C, 693 - 662);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L78
+		$setup(R, posedge C, 299);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		if ( R) (posedge C => (Q : 1'b0)) = 796;
+		if (!R) (posedge C => (Q : D)) = 796;
+	endspecify
+`endif
+`ifdef ICE40_U
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, posedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
+		$setup(R, posedge C, 530);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		if ( R) (posedge C => (Q : 1'b0)) = 1391;
+		if (!R) (posedge C => (Q : D)) = 1391;
+	endspecify
+`endif
 endmodule
 
-module SB_DFFR (output `SB_DFF_REG, input C, R, D);
+(* abc9_box, lib_whitebox *)
+module SB_DFFR (
+	output `SB_DFF_REG,
+	input C, R, D
+);
 	always @(posedge C, posedge R)
 		if (R)
 			Q <= 0;
 		else
 			Q <= D;
+`ifdef ICE40_HX
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		$setup(D, posedge C, 470 - 449);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L63
+		$setup(negedge R, posedge C, 160);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L91
+`ifndef YOSYS
+		(posedge R => (Q : 1'b0)) = 599;
+`else
+		if (R) (R => Q) = 599;	// Technically, this should be an edge sensitive path
+					// but for facilitating a bypass box, let's pretend it's
+					// a simple path
+`endif
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		if (!R) (posedge C => (Q : D)) = 540;
+	endspecify
+`endif
+`ifdef ICE40_LP
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, posedge C, 693 - 662);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L63
+		$setup(negedge R, posedge C, 235);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L91
+`ifndef YOSYS
+		(posedge R => (Q : 1'b0)) = 883;
+`else
+		if (R) (R => Q) = 883;	// Technically, this should be an edge sensitive path
+					// but for facilitating a bypass box, let's pretend it's
+					// a simple path
+`endif
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		if (!R) (posedge C => (Q : D)) = 796;
+	endspecify
+`endif
+`ifdef ICE40_U
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, posedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
+		$setup(negedge R, posedge C, 424);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103
+`ifndef YOSYS
+		(posedge R => (Q : 1'b0)) = 1589;
+`else
+		if (R) (R => Q) = 1589;	// Technically, this should be an edge sensitive path
+					// but for facilitating a bypass box, let's pretend it's
+					// a simple path
+`endif
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		if (!R) (posedge C => (Q : D)) = 1391;
+	endspecify
+`endif
 endmodule
 
-module SB_DFFSS (output `SB_DFF_REG, input C, S, D);
+(* abc9_flop, lib_whitebox *)
+module SB_DFFSS (
+	output `SB_DFF_REG,
+	input C, S, D
+);
 	always @(posedge C)
 		if (S)
 			Q <= 1;
 		else
 			Q <= D;
+`ifdef ICE40_HX
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		$setup(D, posedge C, 470 - 449);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L78
+		$setup(S, posedge C, 203);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		if ( S) (posedge C => (Q : 1'b1)) = 540;
+		if (!S) (posedge C => (Q : D)) = 540;
+	endspecify
+`endif
+`ifdef ICE40_LP
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, posedge C, 693 - 662);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L78
+		$setup(S, posedge C, 299);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		if ( S) (posedge C => (Q : 1'b1)) = 796;
+		if (!S) (posedge C => (Q : D)) = 796;
+	endspecify
+`endif
+`ifdef ICE40_U
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, posedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
+		$setup(S, posedge C, 530);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		if ( S) (posedge C => (Q : 1'b1)) = 1391;
+		if (!S) (posedge C => (Q : D)) = 1391;
+	endspecify
+`endif
 endmodule
 
-module SB_DFFS (output `SB_DFF_REG, input C, S, D);
+(* abc9_box, lib_whitebox *)
+module SB_DFFS (
+	output `SB_DFF_REG,
+	input C, S, D
+);
 	always @(posedge C, posedge S)
 		if (S)
 			Q <= 1;
 		else
 			Q <= D;
+`ifdef ICE40_HX
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		$setup(D, posedge C, 470 - 449);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L63
+		$setup(negedge S, posedge C, 160);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L91
+`ifndef YOSYS
+		(posedge S => (Q : 1'b1)) = 599;
+`else
+		if (S) (S => Q) = 599;	// Technically, this should be an edge sensitive path
+					// but for facilitating a bypass box, let's pretend it's
+					// a simple path
+`endif
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		if (!S) (posedge C => (Q : D)) = 540;
+	endspecify
+`endif
+`ifdef ICE40_LP
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, posedge C, 693 - 662);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L63
+		$setup(negedge S, posedge C, 235);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L91
+`ifndef YOSYS
+		(posedge S => (Q : 1'b1)) = 883;
+`else
+		if (S) (S => Q) = 883;	// Technically, this should be an edge sensitive path
+					// but for facilitating a bypass box, let's pretend it's
+					// a simple path
+`endif
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		if (!S) (posedge C => (Q : D)) = 796;
+	endspecify
+`endif
+`ifdef ICE40_U
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, posedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
+		$setup(negedge S, posedge C, 424);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103
+`ifndef YOSYS
+		(posedge S => (Q : 1'b1)) = 1589;
+`else
+		if (S) (S => Q) = 1589; // Technically, this should be an edge sensitive path
+					// but for facilitating a bypass box, let's pretend it's
+					// a simple path
+`endif
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		if (!S) (posedge C => (Q : D)) = 1391;
+	endspecify
+`endif
 endmodule
 
-module SB_DFFESR (output `SB_DFF_REG, input C, E, R, D);
+(* abc9_flop, lib_whitebox *)
+module SB_DFFESR (
+	output `SB_DFF_REG,
+	input C, E, R, D
+);
 	always @(posedge C)
 		if (E) begin
 			if (R)
@@ -194,17 +570,130 @@ module SB_DFFESR (output `SB_DFF_REG, input C, E, R, D);
 			else
 				Q <= D;
 		end
+`ifdef ICE40_HX
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		$setup(D, posedge C &&& E && !R, 470 - 449);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
+		$setup(E, posedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L78
+		$setup(R, posedge C &&& E, 203);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		if (E &&  R) (posedge C => (Q : 1'b0)) = 540;
+		if (E && !R) (posedge C => (Q : D)) = 540;
+	endspecify
+`endif
+`ifdef ICE40_LP
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, posedge C &&& E && !R, 693 - 662);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
+		$setup(E, posedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L78
+		$setup(R, posedge C &&& E, 299);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		if (E &&  R) (posedge C => (Q : 1'b0)) = 796;
+		if (E && !R) (posedge C => (Q : D)) = 796;
+	endspecify
+`endif
+`ifdef ICE40_U
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, posedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
+		$setup(E, posedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
+		$setup(R, posedge C &&& E, 530);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		if (E &&  R) (posedge C => (Q : 1'b0)) = 1391;
+		if (E && !R) (posedge C => (Q : D)) = 1391;
+	endspecify
+`endif
 endmodule
 
-module SB_DFFER (output `SB_DFF_REG, input C, E, R, D);
+(* abc9_box, lib_whitebox *)
+module SB_DFFER (
+	output `SB_DFF_REG,
+	input C, E, R, D
+);
 	always @(posedge C, posedge R)
 		if (R)
 			Q <= 0;
 		else if (E)
 			Q <= D;
+`ifdef ICE40_HX
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		$setup(D, posedge C &&& E, 470 - 449);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
+		$setup(E, posedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L63
+		$setup(negedge R, posedge C, 160);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L91
+`ifndef YOSYS
+		(posedge R => (Q : 1'b0)) = 599;
+`else
+		if (R) (R => Q) = 599;	// Technically, this should be an edge sensitive path
+					// but for facilitating a bypass box, let's pretend it's
+					// a simple path
+`endif
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		if (E && !R) (posedge C => (Q : D)) = 540;
+	endspecify
+`endif
+`ifdef ICE40_LP
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, posedge C &&& E, 693 - 662);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
+		$setup(E, posedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L63
+		$setup(negedge R, posedge C, 235);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L91
+`ifndef YOSYS
+		(posedge R => (Q : 1'b0)) = 883;
+`else
+		if (R) (R => Q) = 883; 	// Technically, this should be an edge sensitive path
+					// but for facilitating a bypass box, let's pretend it's
+					// a simple path
+`endif
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		if (E && !R) (posedge C => (Q : D)) = 796;
+	endspecify
+`endif
+`ifdef ICE40_U
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, posedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
+		$setup(E, posedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
+		$setup(negedge R, posedge C, 424);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103
+`ifndef YOSYS
+		(posedge R => (Q : 1'b0)) = 1589;
+`else
+		if (R) (R => Q) = 1589;	// Technically, this should be an edge sensitive path
+					// but for facilitating a bypass box, let's pretend it's
+					// a simple path
+`endif
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		if (E && !R) (posedge C => (Q : D)) = 1391;
+	endspecify
+`endif
 endmodule
 
-module SB_DFFESS (output `SB_DFF_REG, input C, E, S, D);
+(* abc9_flop, lib_whitebox *)
+module SB_DFFESS (
+	output `SB_DFF_REG,
+	input C, E, S, D
+);
 	always @(posedge C)
 		if (E) begin
 			if (S)
@@ -212,62 +701,445 @@ module SB_DFFESS (output `SB_DFF_REG, input C, E, S, D);
 			else
 				Q <= D;
 		end
+`ifdef ICE40_HX
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		$setup(D, posedge C &&& E && !S, 470 - 449);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
+		$setup(E, posedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L78
+		$setup(S, posedge C &&& E, 203);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		if (E &&  S) (posedge C => (Q : 1'b1)) = 540;
+		if (E && !S) (posedge C => (Q : D)) = 540;
+	endspecify
+`endif
+`ifdef ICE40_LP
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, posedge C &&& E && !S, 693 - 662);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
+		$setup(E, posedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L78
+		$setup(S, posedge C &&& E, 299);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		if (E &&  S) (posedge C => (Q : 1'b1)) = 796;
+		if (E && !S) (posedge C => (Q : D)) = 796;
+	endspecify
+`endif
+`ifdef ICE40_U
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, posedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
+		$setup(E, posedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
+		$setup(S, posedge C &&& E, 530);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		if (E &&  S) (posedge C => (Q : 1'b1)) = 1391;
+		if (E && !S) (posedge C => (Q : D)) = 1391;
+	endspecify
+`endif
 endmodule
 
-module SB_DFFES (output `SB_DFF_REG, input C, E, S, D);
+(* abc9_box, lib_whitebox *)
+module SB_DFFES (
+	output `SB_DFF_REG,
+	input C, E, S, D
+);
 	always @(posedge C, posedge S)
 		if (S)
 			Q <= 1;
 		else if (E)
 			Q <= D;
+`ifdef ICE40_HX
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		$setup(D, posedge C &&& E, 470 - 449);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
+		$setup(E, posedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L63
+		$setup(posedge S, posedge C, 160);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L91
+`ifndef YOSYS
+		(posedge S => (Q : 1'b1)) = 599;
+`else
+		if (S) (S => Q) = 599;	// Technically, this should be an edge sensitive path
+					// but for facilitating a bypass box, let's pretend it's
+					// a simple path
+`endif
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		if (E && !S) (posedge C => (Q : D)) = 540;
+	endspecify
+`endif
+`ifdef ICE40_LP
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, posedge C &&& E, 693 - 662);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
+		$setup(E, posedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L63
+		$setup(posedge S, posedge C, 235);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L91
+`ifndef YOSYS
+		(posedge S => (Q : 1'b1)) = 883;
+`else
+		if (S) (S => Q) = 883; // Technically, this should be an edge sensitive path
+							   // but for facilitating a bypass box, let's pretend it's
+							   // a simple path
+`endif
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		if (E && !S) (posedge C => (Q : D)) = 796;
+	endspecify
+`endif
+`ifdef ICE40_U
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, posedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
+		$setup(E, posedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
+		$setup(posedge S, posedge C, 424);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103
+`ifndef YOSYS
+		(posedge S => (Q : 1'b1)) = 1589;
+`else
+		if (S) (S => Q) = 1589; // Technically, this should be an edge sensitive path
+							   // but for facilitating a bypass box, let's pretend it's
+							   // a simple path
+`endif
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		if (E && !S) (posedge C => (Q : D)) = 1391;
+	endspecify
+`endif
 endmodule
 
 // Negative Edge SiliconBlue FF Cells
 
-module SB_DFFN (output `SB_DFF_REG, input C, D);
+(* abc9_flop, lib_whitebox *)
+module SB_DFFN (
+	output `SB_DFF_REG,
+	input C, D
+);
 	always @(negedge C)
 		Q <= D;
+`ifdef ICE40_HX
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		$setup(D, negedge C, 470 - 449);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		(negedge C => (Q : D)) = 540;
+	endspecify
+`endif
+`ifdef ICE40_LP
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, negedge C, 693 - 662);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		(negedge C => (Q : D)) = 796;
+	endspecify
+`endif
+`ifdef ICE40_U
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, negedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		(negedge C => (Q : D)) = 1391;
+	endspecify
+`endif
 endmodule
 
-module SB_DFFNE (output `SB_DFF_REG, input C, E, D);
+(* abc9_flop, lib_whitebox *)
+module SB_DFFNE (
+	output `SB_DFF_REG,
+	input C, E, D
+);
 	always @(negedge C)
 		if (E)
 			Q <= D;
+`ifdef ICE40_HX
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		$setup(D, negedge C &&& E, 470 - 449);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
+		$setup(E, negedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		if (E) (negedge C => (Q : D)) = 540;
+	endspecify
+`endif
+`ifdef ICE40_LP
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, negedge C &&& E, 693 - 662);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
+		$setup(E, negedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		if (E) (negedge C => (Q : D)) = 796;
+	endspecify
+`endif
+`ifdef ICE40_U
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, negedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
+		$setup(E, negedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		if (E) (negedge C => (Q : D)) = 1391;
+	endspecify
+`endif
 endmodule
 
-module SB_DFFNSR (output `SB_DFF_REG, input C, R, D);
+(* abc9_flop, lib_whitebox *)
+module SB_DFFNSR (
+	output `SB_DFF_REG,
+	input C, R, D
+);
 	always @(negedge C)
 		if (R)
 			Q <= 0;
 		else
 			Q <= D;
+`ifdef ICE40_HX
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		$setup(D, negedge C, 470 - 449);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
+		$setup(R, negedge C, 203);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		if ( R) (negedge C => (Q : 1'b0)) = 540;
+		if (!R) (negedge C => (Q : D)) = 540;
+	endspecify
+`endif
+`ifdef ICE40_LP
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, negedge C, 693 - 662);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L78
+		$setup(R, negedge C, 299);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		if ( R) (negedge C => (Q : 1'b0)) = 796;
+		if (!R) (negedge C => (Q : D)) = 796;
+	endspecify
+`endif
+`ifdef ICE40_U
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, negedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
+		$setup(R, negedge C, 530);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		if ( R) (negedge C => (Q : 1'b0)) = 1391;
+		if (!R) (negedge C => (Q : D)) = 1391;
+	endspecify
+`endif
 endmodule
 
-module SB_DFFNR (output `SB_DFF_REG, input C, R, D);
+(* abc9_flop, lib_whitebox *)
+module SB_DFFNR (
+	output `SB_DFF_REG,
+	input C, R, D
+);
 	always @(negedge C, posedge R)
 		if (R)
 			Q <= 0;
 		else
 			Q <= D;
+`ifdef ICE40_HX
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		$setup(D, negedge C, 470 - 449);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L63
+		$setup(negedge R, negedge C, 160);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L91
+`ifndef YOSYS
+		(posedge R => (Q : 1'b0)) = 599;
+`else
+		if (R) (R => Q) = 599;	// Technically, this should be an edge sensitive path
+					// but for facilitating a bypass box, let's pretend it's
+					// a simple path
+`endif
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		if (!R) (negedge C => (Q : D)) = 540;
+	endspecify
+`endif
+`ifdef ICE40_LP
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, negedge C, 693 - 662);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L63
+		$setup(negedge R, negedge C, 235);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L91
+`ifndef YOSYS
+		(posedge R => (Q : 1'b0)) = 883;
+`else
+		if (R) (R => Q) = 883;	// Technically, this should be an edge sensitive path
+					// but for facilitating a bypass box, let's pretend it's
+					// a simple path
+`endif
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		if (!R) (negedge C => (Q : D)) = 796;
+	endspecify
+`endif
+`ifdef ICE40_U
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, negedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
+		$setup(negedge R, negedge C, 424);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103
+`ifndef YOSYS
+		(posedge R => (Q : 1'b0)) = 1589;
+`else
+		if (R) (R => Q) = 1589;	// Technically, this should be an edge sensitive path
+					// but for facilitating a bypass box, let's pretend it's
+					// a simple path
+`endif
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		if (!R) (negedge C => (Q : D)) = 1391;
+	endspecify
+`endif
 endmodule
 
-module SB_DFFNSS (output `SB_DFF_REG, input C, S, D);
+(* abc9_flop, lib_whitebox *)
+module SB_DFFNSS (
+	output `SB_DFF_REG,
+	input C, S, D
+);
 	always @(negedge C)
 		if (S)
 			Q <= 1;
 		else
 			Q <= D;
+`ifdef ICE40_HX
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		$setup(D, negedge C, 470 - 449);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
+		$setup(S, negedge C, 203);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		if ( S) (negedge C => (Q : 1'b1)) = 540;
+		if (!S) (negedge C => (Q : D)) = 540;
+	endspecify
+`endif
+`ifdef ICE40_LP
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, negedge C, 693 - 662);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L78
+		$setup(S, negedge C, 299);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		if ( S) (negedge C => (Q : 1'b1)) = 796;
+		if (!S) (negedge C => (Q : D)) = 796;
+	endspecify
+`endif
+`ifdef ICE40_U
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, negedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
+		$setup(S, negedge C, 530);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		if ( S) (negedge C => (Q : 1'b1)) = 1391;
+		if (!S) (negedge C => (Q : D)) = 1391;
+	endspecify
+`endif
 endmodule
 
-module SB_DFFNS (output `SB_DFF_REG, input C, S, D);
+(* abc9_box, lib_whitebox *)
+module SB_DFFNS (
+	output `SB_DFF_REG,
+	input C, S, D
+);
 	always @(negedge C, posedge S)
 		if (S)
 			Q <= 1;
 		else
 			Q <= D;
+`ifdef ICE40_HX
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		$setup(D, negedge C, 470 - 449);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L63
+		$setup(negedge S, negedge C, 160);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L91
+`ifndef YOSYS
+		(posedge S => (Q : 1'b1)) = 599;
+`else
+		if (S) (S => Q) = 599;	// Technically, this should be an edge sensitive path
+					// but for facilitating a bypass box, let's pretend it's
+					// a simple path
+`endif
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		if (!S) (negedge C => (Q : D)) = 540;
+	endspecify
+`endif
+`ifdef ICE40_LP
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, negedge C, 693 - 662);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L63
+		$setup(negedge S, negedge C, 235);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L91
+`ifndef YOSYS
+		(posedge S => (Q : 1'b1)) = 883;
+`else
+		if (S) (S => Q) = 883;	// Technically, this should be an edge sensitive path
+					// but for facilitating a bypass box, let's pretend it's
+					// a simple path
+`endif
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		if (!S) (negedge C => (Q : D)) = 796;
+	endspecify
+`endif
+`ifdef ICE40_U
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, negedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
+		$setup(negedge S, negedge C, 424);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103
+`ifndef YOSYS
+		(posedge S => (Q : 1'b1)) = 1589;
+`else
+		if (S) (S => Q) = 1589;	// Technically, this should be an edge sensitive path
+					// but for facilitating a bypass box, let's pretend it's
+					// a simple path
+`endif
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		if (!S) (negedge C => (Q : D)) = 1391;
+	endspecify
+`endif
 endmodule
 
-module SB_DFFNESR (output `SB_DFF_REG, input C, E, R, D);
+(* abc9_flop, lib_whitebox *)
+module SB_DFFNESR (
+	output `SB_DFF_REG,
+	input C, E, R, D
+);
 	always @(negedge C)
 		if (E) begin
 			if (R)
@@ -275,17 +1147,130 @@ module SB_DFFNESR (output `SB_DFF_REG, input C, E, R, D);
 			else
 				Q <= D;
 		end
+`ifdef ICE40_HX
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		$setup(D, negedge C &&& E && !R, 470 - 449);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
+		$setup(E, negedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L78
+		$setup(R, negedge C &&& E, 203);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		if (E &&  R) (negedge C => (Q : 1'b0)) = 540;
+		if (E && !R) (negedge C => (Q : D)) = 540;
+	endspecify
+`endif
+`ifdef ICE40_LP
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, negedge C &&& E && !R, 693 - 662);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
+		$setup(E, negedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L78
+		$setup(R, negedge C &&& E, 299);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		if (E &&  R) (negedge C => (Q : 1'b0)) = 796;
+		if (E && !R) (negedge C => (Q : D)) = 796;
+	endspecify
+`endif
+`ifdef ICE40_U
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, negedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
+		$setup(E, negedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
+		$setup(R, negedge C &&& E, 530);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		if (E &&  R) (negedge C => (Q : 1'b0)) = 1391;
+		if (E && !R) (negedge C => (Q : D)) = 1391;
+	endspecify
+`endif
 endmodule
 
-module SB_DFFNER (output `SB_DFF_REG, input C, E, R, D);
+(* abc9_box, lib_whitebox *)
+module SB_DFFNER (
+	output `SB_DFF_REG,
+	input C, E, R, D
+);
 	always @(negedge C, posedge R)
 		if (R)
 			Q <= 0;
 		else if (E)
 			Q <= D;
+`ifdef ICE40_HX
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		$setup(D, negedge C &&& E, 470 - 449);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
+		$setup(E, negedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L63
+		$setup(R, negedge C, 2160);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L91
+`ifndef YOSYS
+		(posedge R => (Q : 1'b0)) = 599;
+`else
+		if (R) (R => Q) = 599;	// Technically, this should be an edge sensitive path
+					// but for facilitating a bypass box, let's pretend it's
+					// a simple path
+`endif
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		if (E && !R) (negedge C => (Q : D)) = 540;
+	endspecify
+`endif
+`ifdef ICE40_LP
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, negedge C &&& E, 693 - 662);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
+		$setup(E, negedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L63
+		$setup(R, negedge C, 235);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L91
+`ifndef YOSYS
+		(posedge R => (Q : 1'b0)) = 883;
+`else
+		if (R) (R => Q) = 883;	// Technically, this should be an edge sensitive path
+					// but for facilitating a bypass box, let's pretend it's
+					// a simple path
+`endif
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		if (E && !R) (negedge C => (Q : D)) = 796;
+	endspecify
+`endif
+`ifdef ICE40_U
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, negedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
+		$setup(E, negedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
+		$setup(negedge R, negedge C, 424);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103
+`ifndef YOSYS
+		(posedge R => (Q : 1'b0)) = 1589;
+`else
+		if (R) (R => Q) = 1589;	// Technically, this should be an edge sensitive path
+					// but for facilitating a bypass box, let's pretend it's
+					// a simple path
+`endif
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		if (E && !R) (negedge C => (Q : D)) = 1391;
+	endspecify
+`endif
 endmodule
 
-module SB_DFFNESS (output `SB_DFF_REG, input C, E, S, D);
+(* abc9_flop, lib_whitebox *)
+module SB_DFFNESS (
+	output `SB_DFF_REG,
+	input C, E, S, D
+);
 	always @(negedge C)
 		if (E) begin
 			if (S)
@@ -293,14 +1278,124 @@ module SB_DFFNESS (output `SB_DFF_REG, input C, E, S, D);
 			else
 				Q <= D;
 		end
+`ifdef ICE40_HX
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		$setup(D, negedge C &&& E && !S, 470 - 449);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
+		$setup(E, negedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L78
+		$setup(S, negedge C &&& E, 203);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		if (E &&  S) (negedge C => (Q : 1'b1)) = 540;
+		if (E && !S) (negedge C => (Q : D)) = 540;
+	endspecify
+`endif
+`ifdef ICE40_LP
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, negedge C &&& E && !S, 693 - 662);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
+		$setup(E, negedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L78
+		$setup(S, negedge C &&& E, 299);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		if (E &&  S) (negedge C => (Q : 1'b1)) = 796;
+		if (E && !S) (negedge C => (Q : D)) = 796;
+	endspecify
+`endif
+`ifdef ICE40_U
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, negedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
+		$setup(E, negedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
+		$setup(S, negedge C &&& E, 530);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		if (E &&  S) (negedge C => (Q : 1'b1)) = 1391;
+		if (E && !S) (negedge C => (Q : D)) = 1391;
+	endspecify
+`endif
 endmodule
 
-module SB_DFFNES (output `SB_DFF_REG, input C, E, S, D);
+(* abc9_box, lib_whitebox *)
+module SB_DFFNES (
+	output `SB_DFF_REG,
+	input C, E, S, D
+);
 	always @(negedge C, posedge S)
 		if (S)
 			Q <= 1;
 		else if (E)
 			Q <= D;
+`ifdef ICE40_HX
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		$setup(D, negedge C &&& E, 470 - 449);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
+		$setup(E, negedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L63
+		$setup(negedge S, negedge C, 160);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L91
+`ifndef YOSYS
+		(posedge S => (Q : 1'b1)) = 599;
+`else
+        if (S) (S => Q) = 599; // Technically, this should be an edge sensitive path
+                               // but for facilitating a bypass box, let's pretend it's
+                               // a simple path
+`endif
+
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		if (E && !S) (negedge C => (Q : D)) = 540;
+	endspecify
+`endif
+`ifdef ICE40_LP
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, negedge C &&& E, 693 - 662);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
+		$setup(E, negedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L63
+		$setup(negedge S, negedge C, 235);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L91
+`ifndef YOSYS
+		(posedge S => (Q : 1'b1)) = 883;
+`else
+        if (S) (S => Q) = 883; // Technically, this should be an edge sensitive path
+                               // but for facilitating a bypass box, let's pretend it's
+                               // a simple path
+`endif
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		if (E && !S) (negedge C => (Q : D)) = 796;
+	endspecify
+`endif
+`ifdef ICE40_U
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		$setup(D, negedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
+		$setup(E, negedge C, 0);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
+		$setup(negedge S, negedge C, 424);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103
+`ifndef YOSYS
+		(posedge S => (Q : 1'b1)) = 1589;
+`else
+        if (S) (S => Q) = 1589; // Technically, this should be an edge sensitive path
+                               // but for facilitating a bypass box, let's pretend it's
+                               // a simple path
+`endif
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		if (E && !S) (negedge C => (Q : D)) = 1391;
+	endspecify
+`endif
 endmodule
 
 // SiliconBlue RAM Cells
@@ -471,6 +1566,72 @@ module SB_RAM40_4K (
 		end
 	end
 `endif
+`ifdef ICE40_HX
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L343-L358
+		$setup(MASK, posedge WCLK &&& WE && WCLKE, 274);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L359-L369
+		$setup(RADDR, posedge RCLK &&& RE && RCLKE, 203);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L370
+		$setup(RCLKE, posedge RCLK, 267);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L371
+		$setup(RE, posedge RCLK, 98);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L372-L382
+		$setup(WADDR, posedge WCLK &&& WE && WCLKE, 224);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L383
+		$setup(WCLKE, posedge WCLK, 267);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L384-L399
+		$setup(WDATA, posedge WCLK &&& WE && WCLKE, 161);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L400
+		$setup(WE, posedge WCLK, 133);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
+		(posedge RCLK => (RDATA : 16'bx)) = 2146;
+	endspecify
+`endif
+`ifdef ICE40_LP
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L343-L358
+		$setup(MASK, posedge WCLK &&& WE && WCLKE, 403);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L359-L369
+		$setup(RADDR, posedge RCLK &&& RE && RCLKE, 300);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L370
+		$setup(RCLKE, posedge RCLK, 393);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L371
+		$setup(RE, posedge RCLK, 145);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L372-L382
+		$setup(WADDR, posedge WCLK &&& WE && WCLKE, 331);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L383
+		$setup(WCLKE, posedge WCLK, 393);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L384-L399
+		$setup(WDATA, posedge WCLK &&& WE && WCLKE, 238);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L400
+		$setup(WE, posedge WCLK, 196);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
+		(posedge RCLK => (RDATA : 16'bx)) = 3163;
+	endspecify
+`endif
+`ifdef ICE40_U
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12968-12983
+		$setup(MASK, posedge WCLK &&& WE && WCLKE, 517);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12984-12994
+		$setup(RADDR, posedge RCLK &&& RE && RCLKE, 384);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12995
+		$setup(RCLKE, posedge RCLK, 503);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12996
+		$setup(RE, posedge RCLK, 185);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12997-13007
+		$setup(WADDR, posedge WCLK &&& WE && WCLKE, 424);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13008
+		$setup(WCLKE, posedge WCLK, 503);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13009-13024
+		$setup(WDATA, posedge WCLK &&& WE && WCLKE, 305);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13025
+		$setup(WE, posedge WCLK, 252);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
+		(posedge RCLK => (RDATA : 16'bx)) = 1179;
+	endspecify
+`endif
 endmodule
 
 module SB_RAM40_4KNR (
@@ -536,6 +1697,72 @@ module SB_RAM40_4KNR (
 		.MASK (MASK ),
 		.WDATA(WDATA)
 	);
+`ifdef ICE40_HX
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L343-L358
+		$setup(MASK, posedge WCLK &&& WE && WCLKE, 274);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L359-L369
+		$setup(RADDR, posedge RCLKN &&& RE && RCLKE, 203);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L370
+		$setup(RCLKE, posedge RCLKN, 267);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L371
+		$setup(RE, posedge RCLKN, 98);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L372-L382
+		$setup(WADDR, posedge WCLK &&& WE && WCLKE, 224);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L383
+		$setup(WCLKE, posedge WCLK, 267);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L384-L399
+		$setup(WDATA, posedge WCLK &&& WE && WCLKE, 161);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L400
+		$setup(WE, posedge WCLK, 133);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
+		(posedge RCLKN => (RDATA : 16'bx)) = 2146;
+	endspecify
+`endif
+`ifdef ICE40_LP
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L343-L358
+		$setup(MASK, posedge WCLK &&& WE && WCLKE, 403);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L359-L369
+		$setup(RADDR, posedge RCLKN &&& RE && RCLKE, 300);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L370
+		$setup(RCLKE, posedge RCLKN, 393);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L371
+		$setup(RE, posedge RCLKN, 145);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L372-L382
+		$setup(WADDR, posedge WCLK &&& WE && WCLKE, 331);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L383
+		$setup(WCLKE, posedge WCLK, 393);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L384-L399
+		$setup(WDATA, posedge WCLK &&& WE && WCLKE, 238);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L400
+		$setup(WE, posedge WCLK, 196);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
+		(posedge RCLKN => (RDATA : 16'bx)) = 3163;
+	endspecify
+`endif
+`ifdef ICE40_U
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12968-12983
+		$setup(MASK, posedge WCLK &&& WE && WCLKE, 517);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12984-12994
+		$setup(RADDR, posedge RCLKN &&& RE && RCLKE, 384);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12995
+		$setup(RCLKE, posedge RCLKN, 503);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12996
+		$setup(RE, posedge RCLKN, 185);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12997-13007
+		$setup(WADDR, posedge WCLK &&& WE && WCLKE, 424);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13008
+		$setup(WCLKE, posedge WCLK, 503);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13009-13024
+		$setup(WDATA, posedge WCLK &&& WE && WCLKE, 305);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13025
+		$setup(WE, posedge WCLK, 252);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
+		(posedge RCLKN => (RDATA : 16'bx)) = 1179;
+	endspecify
+`endif
 endmodule
 
 module SB_RAM40_4KNW (
@@ -601,6 +1828,72 @@ module SB_RAM40_4KNW (
 		.MASK (MASK ),
 		.WDATA(WDATA)
 	);
+`ifdef ICE40_HX
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L343-L358
+		$setup(MASK, posedge WCLKN &&& WE && WCLKE, 274);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L359-L369
+		$setup(RADDR, posedge RCLK &&& RE && RCLKE, 203);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L370
+		$setup(RCLKE, posedge RCLK, 267);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L371
+		$setup(RE, posedge RCLK, 98);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L372-L382
+		$setup(WADDR, posedge WCLKN &&& WE && WCLKE, 224);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L383
+		$setup(WCLKE, posedge WCLKN, 267);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L384-L399
+		$setup(WDATA, posedge WCLKN &&& WE && WCLKE, 161);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L400
+		$setup(WE, posedge WCLKN, 133);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
+		(posedge RCLK => (RDATA : 16'bx)) = 2146;
+	endspecify
+`endif
+`ifdef ICE40_LP
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L343-L358
+		$setup(MASK, posedge WCLKN &&& WE && WCLKE, 403);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L359-L369
+		$setup(RADDR, posedge RCLK &&& RE && RCLKE, 300);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L370
+		$setup(RCLKE, posedge RCLK, 393);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L371
+		$setup(RE, posedge RCLK, 145);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L372-L382
+		$setup(WADDR, posedge WCLKN &&& WE && WCLKE, 331);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L383
+		$setup(WCLKE, posedge WCLKN, 393);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L384-L399
+		$setup(WDATA, posedge WCLKN &&& WE && WCLKE, 238);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L400
+		$setup(WE, posedge WCLKN, 196);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
+		(posedge RCLK => (RDATA : 16'bx)) = 3163;
+	endspecify
+`endif
+`ifdef ICE40_U
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12968-12983
+		$setup(MASK, posedge WCLKN &&& WE && WCLKE, 517);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12984-12994
+		$setup(RADDR, posedge RCLK &&& RE && RCLKE, 384);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12995
+		$setup(RCLKE, posedge RCLK, 503);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12996
+		$setup(RE, posedge RCLK, 185);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12997-13007
+		$setup(WADDR, posedge WCLKN &&& WE && WCLKE, 424);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13008
+		$setup(WCLKE, posedge WCLKN, 503);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13009-13024
+		$setup(WDATA, posedge WCLKN &&& WE && WCLKE, 305);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13025
+		$setup(WE, posedge WCLKN, 252);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
+		(posedge RCLK => (RDATA : 16'bx)) = 1179;
+	endspecify
+`endif
 endmodule
 
 module SB_RAM40_4KNRNW (
@@ -666,13 +1959,81 @@ module SB_RAM40_4KNRNW (
 		.MASK (MASK ),
 		.WDATA(WDATA)
 	);
+`ifdef ICE40_HX
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L343-L358
+		$setup(MASK, posedge WCLKN &&& WE && WCLKE, 274);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L359-L369
+		$setup(RADDR, posedge RCLKN &&& RE && RCLKE, 203);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L370
+		$setup(RCLKE, posedge RCLKN, 267);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L371
+		$setup(RE, posedge RCLKN, 98);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L372-L382
+		$setup(WADDR, posedge WCLKN &&& WE && WCLKE, 224);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L383
+		$setup(WCLKE, posedge WCLKN, 267);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L384-L399
+		$setup(WDATA, posedge WCLKN &&& WE && WCLKE, 161);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L400
+		$setup(WE, posedge WCLKN, 133);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
+		(posedge RCLKN => (RDATA : 16'bx)) = 2146;
+	endspecify
+`endif
+`ifdef ICE40_LP
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L343-L358
+		$setup(MASK, posedge WCLKN &&& WE && WCLKE, 403);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L359-L369
+		$setup(RADDR, posedge RCLKN &&& RE && RCLKE, 300);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L370
+		$setup(RCLKE, posedge RCLKN, 393);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L371
+		$setup(RE, posedge RCLKN, 145);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L372-L382
+		$setup(WADDR, posedge WCLKN &&& WE && WCLKE, 331);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L383
+		$setup(WCLKE, posedge WCLKN, 393);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L384-L399
+		$setup(WDATA, posedge WCLKN &&& WE && WCLKE, 238);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L400
+		$setup(WE, posedge WCLKN, 196);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
+		(posedge RCLKN => (RDATA : 16'bx)) = 3163;
+	endspecify
+`endif
+`ifdef ICE40_U
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12968-12983
+		$setup(MASK, posedge WCLKN &&& WE && WCLKE, 517);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12984-12994
+		$setup(RADDR, posedge RCLKN &&& RE && RCLKE, 384);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12995
+		$setup(RCLKE, posedge RCLKN, 503);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12996
+		$setup(RE, posedge RCLKN, 185);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12997-13007
+		$setup(WADDR, posedge WCLKN &&& WE && WCLKE, 424);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13008
+		$setup(WCLKE, posedge WCLKN, 503);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13009-13024
+		$setup(WDATA, posedge WCLKN &&& WE && WCLKE, 305);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13025
+		$setup(WE, posedge WCLKN, 252);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
+		(posedge RCLKN => (RDATA : 16'bx)) = 1179;
+	endspecify
+`endif
 endmodule
 
 // Packed IceStorm Logic Cells
 
 module ICESTORM_LC (
 	input I0, I1, I2, I3, CIN, CLK, CEN, SR,
-	output LO, O, COUT
+	output LO,
+	output O,
+	output COUT
 );
 	parameter [15:0] LUT_INIT = 0;
 
@@ -685,33 +2046,273 @@ module ICESTORM_LC (
 	parameter [0:0] CIN_CONST    = 0;
 	parameter [0:0] CIN_SET      = 0;
 
+	wire I0_pd = (I0 === 1'bz) ? 1'b0 : I0;
+	wire I1_pd = (I1 === 1'bz) ? 1'b0 : I1;
+	wire I2_pd = (I2 === 1'bz) ? 1'b0 : I2;
+	wire I3_pd = (I3 === 1'bz) ? 1'b0 : I3;
+	wire SR_pd = (SR === 1'bz) ? 1'b0 : SR;
+	wire CEN_pu = (CEN === 1'bz) ? 1'b1 : CEN;
+
 	wire mux_cin = CIN_CONST ? CIN_SET : CIN;
 
-	assign COUT = CARRY_ENABLE ? (I1 && I2) || ((I1 || I2) && mux_cin) : 1'bx;
+	assign COUT = CARRY_ENABLE ? (I1_pd && I2_pd) || ((I1_pd || I2_pd) && mux_cin) : 1'bx;
 
-	wire [7:0] lut_s3 = I3 ? LUT_INIT[15:8] : LUT_INIT[7:0];
-	wire [3:0] lut_s2 = I2 ?   lut_s3[ 7:4] :   lut_s3[3:0];
-	wire [1:0] lut_s1 = I1 ?   lut_s2[ 3:2] :   lut_s2[1:0];
-	wire       lut_o  = I0 ?   lut_s1[   1] :   lut_s1[  0];
+	wire [7:0] lut_s3 = I3_pd ? LUT_INIT[15:8] : LUT_INIT[7:0];
+	wire [3:0] lut_s2 = I2_pd ?   lut_s3[ 7:4] :   lut_s3[3:0];
+	wire [1:0] lut_s1 = I1_pd ?   lut_s2[ 3:2] :   lut_s2[1:0];
+	wire       lut_o  = I0_pd ?   lut_s1[   1] :   lut_s1[  0];
 
 	assign LO = lut_o;
 
 	wire polarized_clk;
 	assign polarized_clk = CLK ^ NEG_CLK;
 
-	reg o_reg;
+	reg o_reg = 1'b0;
 	always @(posedge polarized_clk)
-		if (CEN)
-			o_reg <= SR ? SET_NORESET : lut_o;
+		if (CEN_pu)
+			o_reg <= SR_pd ? SET_NORESET : lut_o;
 
-	reg o_reg_async;
-	always @(posedge polarized_clk, posedge SR)
-		if (SR)
-			o_reg <= SET_NORESET;
-		else if (CEN)
-			o_reg <= lut_o;
+	reg o_reg_async = 1'b0;
+	always @(posedge polarized_clk, posedge SR_pd)
+		if (SR_pd)
+			o_reg_async <= SET_NORESET;
+		else if (CEN_pu)
+			o_reg_async <= lut_o;
 
 	assign O = DFF_ENABLE ? ASYNC_SR ? o_reg_async : o_reg : lut_o;
+`ifdef TIMING
+specify
+	(I0 => O) = (0:0:0, 0:0:0);
+	(I1 => O) = (0:0:0, 0:0:0);
+	(I2 => O) = (0:0:0, 0:0:0);
+	(I3 => O) = (0:0:0, 0:0:0);
+	(I0 => LO) = (0:0:0, 0:0:0);
+	(I1 => LO) = (0:0:0, 0:0:0);
+	(I2 => LO) = (0:0:0, 0:0:0);
+	(I3 => LO) = (0:0:0, 0:0:0);
+	(I1 => COUT) = (0:0:0, 0:0:0);
+	(I2 => COUT) = (0:0:0, 0:0:0);
+	(CIN => COUT) = (0:0:0, 0:0:0);
+	(CLK => O) = (0:0:0, 0:0:0);
+	(SR => O) = (0:0:0, 0:0:0);
+	$setuphold(posedge CLK, posedge I0, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, negedge I0, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, posedge I0, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, negedge I0, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, posedge I1, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, negedge I1, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, posedge I1, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, negedge I1, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, posedge I2, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, negedge I2, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, posedge I2, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, negedge I2, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, posedge I3, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, negedge I3, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, posedge I3, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, negedge I3, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, posedge CEN, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, negedge CEN, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, posedge CEN, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, negedge CEN, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, posedge SR, 0:0:0, 0:0:0);
+	$setuphold(posedge CLK, negedge SR, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, posedge SR, 0:0:0, 0:0:0);
+	$setuphold(negedge CLK, negedge SR, 0:0:0, 0:0:0);
+endspecify
+`endif
+`ifdef ICE40_HX
+specify
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L79
+	(CIN => COUT) = (101:112:126, 85:94:105);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+	(I0 => O) = (361:399:449, 310:343:386);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L81
+	(I0 => LO) = (293:324:365, 310:343:386);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L82
+	(I1 => COUT) = (209:231:259, 197:218:245);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L83
+	(I1 => O) = (321:355:400, 304:337:379);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L84
+	(I1 => LO) = (259:287:323, 304:337:379);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L85
+	(I2 => COUT) = (186:206:231, 107:118:133);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L86
+	(I2 => O) = (304:337:379, 282:312:351);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L87
+	(I2 => LO) = (254:281:316, 231:256:288);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L88
+	(I3 => O) = (254:281:316, 231:256:288);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L89
+	(I3 => LO) = (214:237:267, 220:243:274);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+	(posedge CLK => (O : 1'bx)) = (434:480:540, 434:480:540);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L91-L92
+	(SR => O) = (482:535:599, 482:533:599);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+	$setuphold(posedge CLK, posedge I0, 378:418:470, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L68
+	$setuphold(posedge CLK, negedge I0, 321:355:400, 0:0:0);
+	$setuphold(negedge CLK, posedge I0, 378:418:470, 0:0:0);
+	$setuphold(negedge CLK, negedge I0, 321:355:400, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L75
+	$setuphold(posedge CLK, posedge I1, 321:355:400, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L69
+	$setuphold(posedge CLK, negedge I1, 304:337:379, 0:0:0);
+	$setuphold(negedge CLK, posedge I1, 321:355:400, 0:0:0);
+	$setuphold(negedge CLK, negedge I1, 304:337:379, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L76
+	$setuphold(posedge CLK, posedge I2, 299:330:372, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L70
+	$setuphold(posedge CLK, negedge I2, 259:287:323, 0:0:0);
+	$setuphold(negedge CLK, posedge I2, 299:330:372, 0:0:0);
+	$setuphold(negedge CLK, negedge I2, 259:287:323, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L77
+	$setuphold(posedge CLK, posedge I3, 220:243:274, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L71
+	$setuphold(posedge CLK, negedge I3, 175:183:217, 0:0:0);
+	$setuphold(negedge CLK, posedge I3, 220:243:274, 0:0:0);
+	$setuphold(negedge CLK, negedge I3, 175:183:217, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
+	$setuphold(posedge CLK, negedge CEN, 0:0:0, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L67
+	$setuphold(posedge CLK, posedge CEN, 0:0:0, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L78
+	$setuphold(posedge CLK, posedge SR, 163:181:203, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L72
+	$setuphold(posedge CLK, negedge SR, 113:125:140, 0:0:0);
+	$setuphold(negedge CLK, posedge SR, 163:181:203, 0:0:0);
+	$setuphold(negedge CLK, negedge SR, 113:125:140, 0:0:0);
+endspecify
+`endif
+`ifdef ICE40_LP
+specify
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L79
+	(CIN => COUT) = (118:153:186, 98:128:155);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+	(I0 => O) = (419:545:662, 360:468:569);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L81
+	(I0 => LO) = (340:442:538, 360:468:569);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L82
+	(I1 => COUT) = (242:315:382, 229:298:362);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L83
+	(I1 => O) = (372:485:589, 353:459:558);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L84
+	(I1 => LO) = (301:391:475, 353:459:558);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L85
+	(I2 => COUT) = (216:281:341, 124:162:196);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+	(I2 => O) = (353:459:558, 327:425:517);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L87
+	(I2 => LO) = (288:374:455, 321:417:507);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L88
+	(I3 => O) = (294:383:465, 268:349:424);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L89
+	(I3 => LO) = (249:323:393, 255:332:403);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+	(posedge CLK => (O : 1'bx)) = (504:655:796, 504:655:796);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L91-L92
+	(SR => O) = (559:726:883, 559:726:883);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+	$setuphold(posedge CLK, posedge I0, 438:570:693, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L68
+	$setuphold(posedge CLK, negedge I0, 373:485:589, 0:0:0);
+	$setuphold(negedge CLK, posedge I0, 438:570:693, 0:0:0);
+	$setuphold(negedge CLK, negedge I0, 373:485:589, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L75
+	$setuphold(posedge CLK, posedge I1, 373:485:589, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L69
+	$setuphold(posedge CLK, negedge I1, 353:459:558, 0:0:0);
+	$setuphold(negedge CLK, posedge I1, 373:485:589, 0:0:0);
+	$setuphold(negedge CLK, negedge I1, 353:459:558, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L76
+	$setuphold(posedge CLK, posedge I2, 347:451:548, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L70
+	$setuphold(posedge CLK, negedge I2, 301:391:475, 0:0:0);
+	$setuphold(negedge CLK, posedge I2, 347:451:548, 0:0:0);
+	$setuphold(negedge CLK, negedge I2, 301:391:475, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L77
+	$setuphold(posedge CLK, posedge I3, 255:332:403, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L71
+	$setuphold(posedge CLK, negedge I3, 203:264:320, 0:0:0);
+	$setuphold(negedge CLK, posedge I3, 255:332:403, 0:0:0);
+	$setuphold(negedge CLK, negedge I3, 203:264:320, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
+	$setuphold(posedge CLK, negedge CEN, 0:0:0, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L67
+	$setuphold(posedge CLK, posedge CEN, 0:0:0, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L78
+	$setuphold(posedge CLK, posedge SR, 190:247:300, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L72
+	$setuphold(posedge CLK, negedge SR, 131:170:207, 0:0:0);
+	$setuphold(negedge CLK, posedge SR, 190:247:300, 0:0:0);
+	$setuphold(negedge CLK, negedge SR, 131:170:207, 0:0:0);
+endspecify
+`endif
+`ifdef ICE40_U
+specify
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L91
+	(CIN => COUT) = (103:181:278, 103:181:278);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L92
+	(I0 => O) = (462:808:1255, 477:834:1285);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L93
+	(I0 => LO) = (315:550:848, 334:585:901);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L94
+	(I1 => COUT) = (251:438:675, 246:430:662);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L95
+	(I1 => O) = (438:765:1179, 457:799:1232);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L96
+	(I1 => LO) = (275:481:742, 329:576:887);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L97
+	(I2 => COUT) = (226:395:609, 133:232:358);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L98
+	(I2 => O) = (438:765:1179, 447:782:1205);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L99
+	(I2 => LO) = (261:456:702, 290:507:781);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L100
+	(I3 => O) = (320:559:861, 226:370:874);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L101
+	(I3 => LO) = (216:378:583, 226:395:609);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+	(posedge CLK => (O : 1'bx)) = (516:903:1391, 516:903:1391);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103-104
+	(SR => O) = (420:734:1131, 590:1032:1589);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
+	$setuphold(posedge CLK, posedge I0, 457:799:1232, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L80
+	$setuphold(posedge CLK, negedge I0, 393:688:1060, 0:0:0);
+	$setuphold(negedge CLK, posedge I0, 457:799:1232, 0:0:0);
+	$setuphold(negedge CLK, negedge I0, 393:688:1060, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L87
+	$setuphold(posedge CLK, posedge I1, 393:688:1060, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L81
+	$setuphold(posedge CLK, negedge I1, 373:653:1007, 0:0:0);
+	$setuphold(negedge CLK, posedge I1, 393:688:1060, 0:0:0);
+	$setuphold(negedge CLK, negedge I1, 373:653:1007, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L88
+	$setuphold(posedge CLK, posedge I2, 364:636:980, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L82
+	$setuphold(posedge CLK, negedge I2, 320:559:861, 0:0:0);
+	$setuphold(negedge CLK, posedge I2, 364:636:980, 0:0:0);
+	$setuphold(negedge CLK, negedge I2, 320:559:861, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L89
+	$setuphold(posedge CLK, posedge I3, 279:473:728, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L83
+	$setuphold(posedge CLK, negedge I3, 216:378:583, 0:0:0);
+	$setuphold(negedge CLK, posedge I3, 279:473:728, 0:0:0);
+	$setuphold(negedge CLK, negedge I3, 216:378:583, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L85
+	$setuphold(posedge CLK, negedge CEN, 0:0:0, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L79
+	$setuphold(posedge CLK, posedge CEN, 0:0:0, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
+	$setuphold(posedge CLK, posedge SR, 197:344:530, 0:0:0);
+	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L84
+	$setuphold(posedge CLK, negedge SR, 143:249:384, 0:0:0);
+	$setuphold(negedge CLK, posedge SR, 197:344:530, 0:0:0);
+	$setuphold(negedge CLK, negedge SR, 131:170:207, 0:0:0);
+endspecify
+`endif
 endmodule
 
 // SiliconBlue PLL Cells
@@ -907,26 +2508,51 @@ module SB_SPRAM256KA (
 
 	always @(negedge POWEROFF) begin
 		for (i = 0; i <= 16383; i = i+1)
-			mem[i] = 'bx;
+			mem[i] = 16'bx;
 	end
 
 	always @(posedge CLOCK, posedge off) begin
 		if (off) begin
 			DATAOUT <= 0;
 		end else
-		if (CHIPSELECT && !STANDBY && !WREN) begin
-			DATAOUT <= mem[ADDRESS];
-		end else begin
-			if (CHIPSELECT && !STANDBY && WREN) begin
-				if (MASKWREN[0]) mem[ADDRESS][ 3: 0] = DATAIN[ 3: 0];
-				if (MASKWREN[1]) mem[ADDRESS][ 7: 4] = DATAIN[ 7: 4];
-				if (MASKWREN[2]) mem[ADDRESS][11: 8] = DATAIN[11: 8];
-				if (MASKWREN[3]) mem[ADDRESS][15:12] = DATAIN[15:12];
+		if (STANDBY) begin
+			DATAOUT <= 16'bx;
+		end else
+		if (CHIPSELECT) begin
+			if (!WREN) begin
+				DATAOUT <= mem[ADDRESS];
+			end else begin
+				if (MASKWREN[0]) mem[ADDRESS][ 3: 0] <= DATAIN[ 3: 0];
+				if (MASKWREN[1]) mem[ADDRESS][ 7: 4] <= DATAIN[ 7: 4];
+				if (MASKWREN[2]) mem[ADDRESS][11: 8] <= DATAIN[11: 8];
+				if (MASKWREN[3]) mem[ADDRESS][15:12] <= DATAIN[15:12];
+				DATAOUT <= 16'bx;
 			end
-			DATAOUT <= 'bx;
 		end
 	end
 `endif
+`endif
+`ifdef ICE40_U
+	specify
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13169-L13182
+		$setup(posedge ADDRESS, posedge CLOCK, 268);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13183
+		$setup(CHIPSELECT, posedge CLOCK, 404);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13184-L13199
+		$setup(DATAIN, posedge CLOCK, 143);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13200-L13203
+		$setup(MASKWREN, posedge CLOCK, 143);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13167
+		//$setup(negedge SLEEP, posedge CLOCK, 41505);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13167
+		//$setup(negedge STANDBY, posedge CLOCK, 1715);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13206
+		$setup(WREN, posedge CLOCK, 289);
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13207-L13222
+		(posedge CLOCK => (DATAOUT : 16'bx)) = 1821;
+		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13223-L13238
+		(posedge SLEEP => (DATAOUT : 16'b0)) = 1099;
+	endspecify
 `endif
 endmodule
 
@@ -1262,6 +2888,7 @@ module SB_IO_OD (
 `endif
 endmodule
 
+//(* abc9_box, lib_whitebox *) // TODO
 module SB_MAC16 (
 	input CLK, CE,
 	input [15:0] C, A, B, D,
@@ -1340,13 +2967,13 @@ module SB_MAC16 (
 	wire [15:0] p_Ah_Bh, p_Al_Bh, p_Ah_Bl, p_Al_Bl;
 	wire [15:0] Ah, Al, Bh, Bl;
 	assign Ah = {A_SIGNED ? {8{iA[15]}} : 8'b0, iA[15: 8]};
-	assign Al = {A_SIGNED ? {8{iA[ 7]}} : 8'b0, iA[ 7: 0]};
+	assign Al = {A_SIGNED && MODE_8x8 ? {8{iA[ 7]}} : 8'b0, iA[ 7: 0]};
 	assign Bh = {B_SIGNED ? {8{iB[15]}} : 8'b0, iB[15: 8]};
-	assign Bl = {B_SIGNED ? {8{iB[ 7]}} : 8'b0, iB[ 7: 0]};
-	assign p_Ah_Bh = Ah * Bh;
-	assign p_Al_Bh = Al * Bh;
-	assign p_Ah_Bl = Ah * Bl;
-	assign p_Al_Bl = Al * Bl;
+	assign Bl = {B_SIGNED && MODE_8x8 ? {8{iB[ 7]}} : 8'b0, iB[ 7: 0]};
+	assign p_Ah_Bh = Ah * Bh; // F
+	assign p_Al_Bh = {8'b0, Al[7:0]} * Bh; // J
+	assign p_Ah_Bl = Ah * {8'b0, Bl[7:0]}; // K
+	assign p_Al_Bl = Al * Bl; // G
 
 	// Regs F and J
 	reg [15:0] rF, rJ;
@@ -1377,7 +3004,9 @@ module SB_MAC16 (
 	assign iG = BOT_8x8_MULT_REG ? rG : p_Al_Bl;
 
 	// Adder Stage
-	assign iL = iG + (iK << 8) + (iJ << 8) + (iF << 16);
+	wire [23:0] iK_e = {A_SIGNED ? {8{iK[15]}} : 8'b0, iK};
+	wire [23:0] iJ_e = {B_SIGNED ? {8{iJ[15]}} : 8'b0, iJ};
+	assign iL = iG + (iK_e << 8) + (iJ_e << 8) + (iF << 16);
 
 	// Reg H
 	reg [31:0] rH;
@@ -1428,4 +3057,342 @@ module SB_MAC16 (
 	assign Ol = (BOTOUTPUT_SELECT == 0) ? iR : (BOTOUTPUT_SELECT == 1) ? iS : (BOTOUTPUT_SELECT == 2) ? iG : iH[15:0];
 	assign LCI = (BOTADDSUB_CARRYSELECT == 0) ? 1'b0 : (BOTADDSUB_CARRYSELECT == 1) ? 1'b1 : (BOTADDSUB_CARRYSELECT == 2) ? ACCUMCI : CI;
 	assign O = {Oh, Ol};
+endmodule
+
+// Post-place-and-route RAM model
+module ICESTORM_RAM(
+	output RDATA_15, RDATA_14, RDATA_13, RDATA_12, RDATA_11, RDATA_10, RDATA_9, RDATA_8, RDATA_7, RDATA_6, RDATA_5, RDATA_4, RDATA_3, RDATA_2, RDATA_1, RDATA_0,
+	input  RCLK, RCLKE, RE,
+	input  RADDR_10, RADDR_9, RADDR_8, RADDR_7, RADDR_6, RADDR_5, RADDR_4, RADDR_3, RADDR_2, RADDR_1, RADDR_0,
+	input  WCLK, WCLKE, WE,
+	input  WADDR_10, WADDR_9, WADDR_8, WADDR_7, WADDR_6, WADDR_5, WADDR_4, WADDR_3, WADDR_2, WADDR_1, WADDR_0,
+	input  MASK_15, MASK_14, MASK_13, MASK_12, MASK_11, MASK_10, MASK_9, MASK_8, MASK_7, MASK_6, MASK_5, MASK_4, MASK_3, MASK_2, MASK_1, MASK_0,
+	input  WDATA_15, WDATA_14, WDATA_13, WDATA_12, WDATA_11, WDATA_10, WDATA_9, WDATA_8, WDATA_7, WDATA_6, WDATA_5, WDATA_4, WDATA_3, WDATA_2, WDATA_1, WDATA_0
+);
+	parameter WRITE_MODE = 0;
+	parameter READ_MODE = 0;
+
+	parameter NEG_CLK_R = 1'b0;
+	parameter NEG_CLK_W = 1'b0;
+
+	parameter INIT_0 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_1 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_2 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_3 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_4 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_5 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_6 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_7 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_8 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_9 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_A = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_B = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_C = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_D = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+	parameter INIT_F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+
+	// Pull-down and pull-up functions
+	function pd;
+		input x;
+		begin
+			pd = (x === 1'bz) ? 1'b0 : x;
+		end
+	endfunction
+
+	function pu;
+		input x;
+		begin
+			pu = (x === 1'bz) ? 1'b1 : x;
+		end
+	endfunction
+
+	SB_RAM40_4K #(
+		.WRITE_MODE(WRITE_MODE),
+		.READ_MODE (READ_MODE ),
+		.INIT_0    (INIT_0    ),
+		.INIT_1    (INIT_1    ),
+		.INIT_2    (INIT_2    ),
+		.INIT_3    (INIT_3    ),
+		.INIT_4    (INIT_4    ),
+		.INIT_5    (INIT_5    ),
+		.INIT_6    (INIT_6    ),
+		.INIT_7    (INIT_7    ),
+		.INIT_8    (INIT_8    ),
+		.INIT_9    (INIT_9    ),
+		.INIT_A    (INIT_A    ),
+		.INIT_B    (INIT_B    ),
+		.INIT_C    (INIT_C    ),
+		.INIT_D    (INIT_D    ),
+		.INIT_E    (INIT_E    ),
+		.INIT_F    (INIT_F    )
+	) RAM (
+		.RDATA({RDATA_15, RDATA_14, RDATA_13, RDATA_12, RDATA_11, RDATA_10, RDATA_9, RDATA_8, RDATA_7, RDATA_6, RDATA_5, RDATA_4, RDATA_3, RDATA_2, RDATA_1, RDATA_0}),
+		.RCLK (pd(RCLK) ^ NEG_CLK_R),
+		.RCLKE(pu(RCLKE)),
+		.RE   (pd(RE)),
+		.RADDR({pd(RADDR_10), pd(RADDR_9), pd(RADDR_8), pd(RADDR_7), pd(RADDR_6), pd(RADDR_5), pd(RADDR_4), pd(RADDR_3), pd(RADDR_2), pd(RADDR_1), pd(RADDR_0)}),
+		.WCLK (pd(WCLK) ^ NEG_CLK_W),
+		.WCLKE(pu(WCLKE)),
+		.WE   (pd(WE)),
+		.WADDR({pd(WADDR_10), pd(WADDR_9), pd(WADDR_8), pd(WADDR_7), pd(WADDR_6), pd(WADDR_5), pd(WADDR_4), pd(WADDR_3), pd(WADDR_2), pd(WADDR_1), pd(WADDR_0)}),
+		.MASK ({pd(MASK_15), pd(MASK_14), pd(MASK_13), pd(MASK_12), pd(MASK_11), pd(MASK_10), pd(MASK_9), pd(MASK_8),
+			pd(MASK_7), pd(MASK_6), pd(MASK_5), pd(MASK_4), pd(MASK_3), pd(MASK_2), pd(MASK_1), pd(MASK_0)}),
+		.WDATA({pd(WDATA_15), pd(WDATA_14), pd(WDATA_13), pd(WDATA_12), pd(WDATA_11), pd(WDATA_10), pd(WDATA_9), pd(WDATA_8),
+			pd(WDATA_7), pd(WDATA_6), pd(WDATA_5), pd(WDATA_4), pd(WDATA_3), pd(WDATA_2), pd(WDATA_1), pd(WDATA_0)})
+	);
+
+`ifdef TIMING
+specify
+	(RCLK => RDATA_15) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_14) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_13) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_12) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_11) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_10) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_9) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_8) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_7) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_6) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_5) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_4) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_3) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_2) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_1) = (0:0:0, 0:0:0);
+	(RCLK => RDATA_0) = (0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RCLKE, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RCLKE, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RCLKE, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RCLKE, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RE, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RE, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RE, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RE, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_10, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_10, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_10, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_10, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_9, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_9, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_9, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_9, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_8, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_8, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_8, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_8, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_7, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_7, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_7, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_7, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_6, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_6, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_6, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_6, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_5, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_5, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_5, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_5, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_4, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_4, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_4, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_4, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_3, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_3, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_3, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_3, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_2, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_2, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_2, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_2, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_1, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_1, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_1, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_1, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, posedge RADDR_0, 0:0:0, 0:0:0);
+	$setuphold(posedge RCLK, negedge RADDR_0, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, posedge RADDR_0, 0:0:0, 0:0:0);
+	$setuphold(negedge RCLK, negedge RADDR_0, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WCLKE, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WCLKE, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WCLKE, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WCLKE, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WE, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WE, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WE, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WE, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_10, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_10, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_10, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_10, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_9, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_9, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_9, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_9, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_8, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_8, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_8, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_8, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_7, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_7, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_7, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_7, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_6, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_6, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_6, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_6, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_5, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_5, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_5, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_5, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_4, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_4, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_4, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_4, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_3, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_3, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_3, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_3, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_2, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_2, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_2, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_2, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_1, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_1, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_1, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_1, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WADDR_0, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WADDR_0, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WADDR_0, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WADDR_0, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_15, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_15, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_15, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_15, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_14, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_14, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_14, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_14, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_13, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_13, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_13, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_13, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_12, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_12, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_12, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_12, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_11, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_11, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_11, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_11, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_10, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_10, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_10, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_10, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_9, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_9, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_9, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_9, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_8, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_8, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_8, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_8, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_7, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_7, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_7, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_7, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_6, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_6, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_6, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_6, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_5, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_5, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_5, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_5, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_4, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_4, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_4, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_4, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_3, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_3, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_3, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_3, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_2, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_2, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_2, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_2, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_1, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_1, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_1, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_1, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge MASK_0, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge MASK_0, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge MASK_0, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge MASK_0, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_15, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_15, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_15, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_15, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_14, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_14, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_14, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_14, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_13, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_13, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_13, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_13, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_12, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_12, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_12, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_12, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_11, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_11, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_11, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_11, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_10, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_10, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_10, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_10, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_9, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_9, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_9, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_9, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_8, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_8, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_8, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_8, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_7, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_7, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_7, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_7, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_6, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_6, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_6, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_6, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_5, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_5, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_5, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_5, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_4, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_4, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_4, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_4, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_3, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_3, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_3, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_3, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_2, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_2, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_2, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_2, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_1, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_1, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_1, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_1, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, posedge WDATA_0, 0:0:0, 0:0:0);
+	$setuphold(posedge WCLK, negedge WDATA_0, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, posedge WDATA_0, 0:0:0, 0:0:0);
+	$setuphold(negedge WCLK, negedge WDATA_0, 0:0:0, 0:0:0);
+
+endspecify
+`endif
 endmodule

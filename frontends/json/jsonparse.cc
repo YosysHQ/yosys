@@ -25,7 +25,7 @@ struct JsonNode
 {
 	char type; // S=String, N=Number, A=Array, D=Dict
 	string data_string;
-	int data_number;
+	int64_t data_number;
 	vector<JsonNode*> data_array;
 	dict<string, JsonNode*> data_dict;
 	vector<string> data_dict_keys;
@@ -206,6 +206,38 @@ struct JsonNode
 	}
 };
 
+Const json_parse_attr_param_value(JsonNode *node)
+{
+	Const value;
+
+	if (node->type == 'S') {
+		string &s = node->data_string;
+		size_t cursor = s.find_first_not_of("01xz");
+		if (cursor == string::npos) {
+			value = Const::from_string(s);
+		} else if (s.find_first_not_of(' ', cursor) == string::npos) {
+			value = Const(s.substr(0, GetSize(s)-1));
+		} else {
+			value = Const(s);
+		}
+	} else
+	if (node->type == 'N') {
+		value = Const(node->data_number, 32);
+		if (node->data_number < 0)
+			value.flags |= RTLIL::CONST_FLAG_SIGNED;
+	} else
+	if (node->type == 'A') {
+		log_error("JSON attribute or parameter value is an array.\n");
+	} else
+	if (node->type == 'D') {
+		log_error("JSON attribute or parameter value is a dict.\n");
+	} else {
+		log_abort();
+	}
+
+	return value;
+}
+
 void json_parse_attr_param(dict<IdString, Const> &results, JsonNode *node)
 {
 	if (node->type != 'D')
@@ -214,28 +246,7 @@ void json_parse_attr_param(dict<IdString, Const> &results, JsonNode *node)
 	for (auto it : node->data_dict)
 	{
 		IdString key = RTLIL::escape_id(it.first.c_str());
-		JsonNode *value_node = it.second;
-		Const value;
-
-		if (value_node->type == 'S') {
-			string &s = value_node->data_string;
-			if (s.find_first_not_of("01xz") == string::npos)
-				value = Const::from_string(s);
-			else
-				value = Const(s);
-		} else
-		if (value_node->type == 'N') {
-			value = Const(value_node->data_number, 32);
-		} else
-		if (value_node->type == 'A') {
-			log_error("JSON attribute or parameter value is an array.\n");
-		} else
-		if (value_node->type == 'D') {
-			log_error("JSON attribute or parameter value is a dict.\n");
-		} else {
-			log_abort();
-		}
-
+		Const value = json_parse_attr_param_value(it.second);
 		results[key] = value;
 	}
 }
@@ -296,6 +307,12 @@ void json_import(Design *design, string &modname, JsonNode *node)
 				JsonNode *val = port_node->data_dict.at("upto");
 				if (val->type == 'N')
 					port_wire->upto = val->data_number != 0;
+			}
+
+			if (port_node->data_dict.count("signed") != 0) {
+				JsonNode *val = port_node->data_dict.at("signed");
+				if (val->type == 'N')
+					port_wire->is_signed = val->data_number != 0;
 			}
 
 			if (port_node->data_dict.count("offset") != 0) {
@@ -518,7 +535,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 
 struct JsonFrontend : public Frontend {
 	JsonFrontend() : Frontend("json", "read JSON file") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -528,7 +545,7 @@ struct JsonFrontend : public Frontend {
 		log("for a description of the file format.\n");
 		log("\n");
 	}
-	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing JSON frontend.\n");
 
@@ -562,4 +579,3 @@ struct JsonFrontend : public Frontend {
 } JsonFrontend;
 
 YOSYS_NAMESPACE_END
-

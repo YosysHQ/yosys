@@ -1,0 +1,13 @@
+read_verilog macc.v
+hierarchy -top top
+proc
+# Blocked by issue #1358 (Missing ECP5 simulation models)
+#equiv_opt -assert -map +/ecp5/cells_sim.v synth_ecp5 # equivalency check
+synth_ecp5
+#design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd top # Constrain all select calls below inside the top module
+select -assert-count 1 t:MULT18X18D
+select -assert-count 4 t:CCU2C
+select -assert-count 7 t:TRELLIS_FF
+
+select -assert-none t:CCU2C t:MULT18X18D t:TRELLIS_FF %% t:* %D

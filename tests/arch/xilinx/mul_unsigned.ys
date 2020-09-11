@@ -1,0 +1,25 @@
+read_verilog mul_unsigned.v
+hierarchy -top mul_unsigned
+proc
+
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -noiopad # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mul_unsigned # Constrain all select calls below inside the top module
+select -assert-count 1 t:BUFG
+select -assert-count 1 t:DSP48E1
+select -assert-count 30 t:FDRE
+select -assert-none t:DSP48E1 t:FDRE t:BUFG %% t:* %D
+
+design -reset
+
+read_verilog mul_unsigned.v
+hierarchy -top mul_unsigned
+proc
+
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc6s -noiopad # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mul_unsigned # Constrain all select calls below inside the top module
+select -assert-count 1 t:BUFG
+select -assert-count 1 t:DSP48A1
+select -assert-count 30 t:FDRE
+select -assert-none t:DSP48A1 t:FDRE t:BUFG %% t:* %D

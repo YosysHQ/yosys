@@ -1,0 +1,70 @@
+read_verilog <<EOT
+module peepopt_shiftmul_0 #(parameter N=3, parameter W=3) (input [N*W-1:0] i, input [$clog2(N)-1:0] s, output [W-1:0] o);
+assign o = i[s*W+:W];
+endmodule
+EOT
+
+prep -nokeepdc
+equiv_opt -assert peepopt
+design -load postopt
+clean
+select -assert-count 1 t:$shiftx
+select -assert-count 0 t:$shiftx t:* %D
+
+####################
+
+design -reset
+read_verilog <<EOT
+module peepopt_shiftmul_1 (output [7:0] y, input [2:0] w);
+assign y = 1'b1 >> (w * (3'b110));
+endmodule
+EOT
+
+prep -nokeepdc
+equiv_opt -assert peepopt
+design -load postopt
+clean
+select -assert-count 1 t:$shr
+select -assert-count 1 t:$mul
+select -assert-count 0 t:$shr t:$mul %% t:* %D
+
+####################
+
+design -reset
+read_verilog <<EOT
+module peepopt_shiftmul_2 (input [11:0] D, input [1:0] S, output [11:0] Y);
+	assign Y = D >> (S*3);
+endmodule
+EOT
+
+prep
+design -save gold
+peepopt
+design -stash gate
+
+design -import gold -as gold peepopt_shiftmul_2
+design -import gate -as gate peepopt_shiftmul_2
+
+miter -equiv -make_assert -make_outputs -ignore_gold_x -flatten gold gate miter
+sat -show-public -enable_undef -prove-asserts miter
+cd gate
+select -assert-count 1 t:$shr
+select -assert-count 1 t:$mul
+select -assert-count 0 t:$shr t:$mul %% t:* %D
+
+####################
+
+design -reset
+read_verilog <<EOT
+module peepopt_muldiv_0(input [1:0] i, output [1:0] o);
+wire [3:0] t;
+assign t = i * 3;
+assign o = t / 3;
+endmodule
+EOT
+
+prep -nokeepdc
+equiv_opt -assert peepopt
+design -load postopt
+clean
+select -assert-count 0 t:*

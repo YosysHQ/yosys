@@ -231,7 +231,7 @@ struct ProtobufDesignSerializer
 
 struct ProtobufBackend : public Backend {
 	ProtobufBackend(): Backend("protobuf", "write design to a Protocol Buffer file") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -249,7 +249,7 @@ struct ProtobufBackend : public Backend {
 		log("Yosys source code distribution.\n");
 		log("\n");
 	}
-	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool aig_mode = false;
 		bool text_mode = false;
@@ -266,7 +266,7 @@ struct ProtobufBackend : public Backend {
 			}
 			break;
 		}
-		extra_args(f, filename, args, argidx);
+		extra_args(f, filename, args, argidx, !text_mode);
 
 		log_header(design, "Executing Protobuf backend.\n");
 
@@ -286,7 +286,7 @@ struct ProtobufBackend : public Backend {
 
 struct ProtobufPass : public Pass {
 	ProtobufPass() : Pass("protobuf", "write design in Protobuf format") { }
-	void help() YS_OVERRIDE
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -307,7 +307,7 @@ struct ProtobufPass : public Pass {
 		log("Yosys source code distribution.\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::string filename;
 		bool aig_mode = false;
@@ -338,7 +338,7 @@ struct ProtobufPass : public Pass {
 		if (!filename.empty()) {
 			rewrite_filename(filename);
 			std::ofstream *ff = new std::ofstream;
-			ff->open(filename.c_str(), std::ofstream::trunc);
+			ff->open(filename.c_str(), text_mode ? std::ofstream::trunc : (std::ofstream::trunc | std::ofstream::binary));
 			if (ff->fail()) {
 				delete ff;
 				log_error("Can't open file `%s' for writing: %s\n", filename.c_str(), strerror(errno));

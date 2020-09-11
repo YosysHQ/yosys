@@ -7,7 +7,7 @@
 // with n <= k inputs should be techmapped in this way, because this shortens the critical path
 // from n to 1 by avoiding carry chains.
 
-(* techmap_celltype = "$eq $ne $lt $le $gt $ge" *)
+(* techmap_celltype = "$lt $le $gt $ge" *)
 module _90_lut_cmp_ (A, B, Y);
 
 parameter A_SIGNED = 0;
@@ -16,8 +16,11 @@ parameter A_WIDTH = 0;
 parameter B_WIDTH = 0;
 parameter Y_WIDTH = 0;
 
+(* force_downto *)
 input [A_WIDTH-1:0] A;
+(* force_downto *)
 input [B_WIDTH-1:0] B;
+(* force_downto *)
 output [Y_WIDTH-1:0] Y;
 
 parameter _TECHMAP_CELLTYPE_ = "";
@@ -27,7 +30,7 @@ parameter _TECHMAP_CONSTVAL_A_ = 0;
 parameter _TECHMAP_CONSTMSK_B_ = 0;
 parameter _TECHMAP_CONSTVAL_B_ = 0;
 
-function automatic integer gen_lut;
+function automatic [(1 << `LUT_WIDTH)-1:0] gen_lut;
 	input integer width;
 	input integer operation;
 	input integer swap;
@@ -57,10 +60,6 @@ function automatic integer gen_lut;
 				o_bit = (lhs >  rhs);
 			if (operation == 3)
 				o_bit = (lhs >= rhs);
-			if (operation == 4)
-				o_bit = (lhs == rhs);
-			if (operation == 5)
-				o_bit = (lhs != rhs);
 			gen_lut = gen_lut | (o_bit << n);
 		end
 	end
@@ -75,10 +74,6 @@ generate
 		localparam operation = 2;
 	if (_TECHMAP_CELLTYPE_ == "$ge")
 		localparam operation = 3;
-	if (_TECHMAP_CELLTYPE_ == "$eq")
-		localparam operation = 4;
-	if (_TECHMAP_CELLTYPE_ == "$ne")
-		localparam operation = 5;
 
 	if (A_WIDTH > `LUT_WIDTH || B_WIDTH > `LUT_WIDTH || Y_WIDTH != 1)
 		wire _TECHMAP_FAIL_ = 1;

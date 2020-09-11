@@ -4,10 +4,16 @@ cd test
 select t:$specify2 -assert-count 0
 select t:$specify3 -assert-count 1
 select t:$specrule -assert-count 2
+select t:$specify3 a:src=specify.v:10.3-10.49 %i -assert-count 1
+select t:$specrule a:src=specify.v:11.3-11.36 %i -assert-count 1
+select t:$specrule a:src=specify.v:12.3-12.35 %i -assert-count 1
 cd test2
 select t:$specify2 -assert-count 2
 select t:$specify3 -assert-count 0
 select t:$specrule -assert-count 0
+select t:$specify2 a:src=specify.v:26.3-26.20 %i -assert-count 1
+                                         # ^^ Note use of macro
+select t:$specify2 a:src=specify.v:28.3-28.18 %i -assert-count 1
 cd
 write_verilog specify.out
 design -stash gold
@@ -55,4 +61,23 @@ equiv_induct -seq 5
 equiv_status -assert
 design -reset
 
-read_verilog -DSKIP_UNSUPPORTED_IGN_PARSER_CONSTRUCTS specify.v
+read_verilog -specify <<EOT
+(* blackbox *)
+module test7_sub(input i, output o);
+specify
+    (i => o) = 1;
+endspecify
+assign o = ~i;
+endmodule
+
+module test7(input i, output o);
+    wire w;
+    test7_sub unused(i, w);
+    test7_sub used(i, o);
+endmodule
+EOT
+hierarchy
+cd test7
+clean
+select -assert-count 1 c:used
+select -assert-none c:* c:used %d

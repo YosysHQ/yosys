@@ -1,0 +1,129 @@
+design -reset
+read_verilog <<EOT
+module opt_dffmuxext_unsigned(input clk, ce, input [1:0] i, output reg [3:0] o);
+    always @(posedge clk) if (ce) o <= i;
+endmodule
+EOT
+
+proc
+equiv_opt -assert opt
+design -load postopt
+select -assert-count 1 t:$dffe r:WIDTH=2 %i
+select -assert-count 0 t:$dffe %% t:* %D
+
+####################
+
+design -reset
+read_verilog <<EOT
+module opt_dffmuxext_signed(input clk, ce, input signed [1:0] i, output reg signed [3:0] o);
+    always @(posedge clk) if (ce) o <= i;
+endmodule
+EOT
+
+proc
+equiv_opt -assert opt
+design -load postopt
+wreduce
+select -assert-count 1 t:$dffe r:WIDTH=2 %i
+select -assert-count 0 t:$dffe %% t:* %D
+
+###################
+
+design -reset
+read_verilog <<EOT
+module opt_dffmuxext_const(input clk, ce, input [1:0] i, output reg [5:0] o);
+    always @(posedge clk) if (ce) o <= {1'b0, i[1], 2'b1x, i[0], 1'bz};
+endmodule
+EOT
+
+proc
+equiv_opt -assert opt
+design -load postopt
+select -assert-count 1 t:$dffe r:WIDTH=2 %i
+select -assert-count 0 t:$dffe %% t:* %D
+
+###################
+
+design -reset
+read_verilog <<EOT
+module opt_dffmuxext_const_init(input clk, ce, input [1:0] i, (* init=6'b0x00x1 *) output reg [5:0] o);
+    always @(posedge clk) if (ce) o <= {1'b0, i[1], 2'b1x, i[0], 1'bz};
+endmodule
+EOT
+
+proc
+equiv_opt -assert opt
+design -load postopt
+select -assert-count 1 t:$dffe r:WIDTH=4 %i
+select -assert-count 0 t:$dffe %% t:* %D
+
+####################
+
+design -reset
+read_verilog <<EOT
+module opt_dffmuxext_unsigned_rst(input clk, ce, rst, input [1:0] i, output reg [3:0] o);
+    always @(posedge clk) if (rst) o <= 0; else if (ce) o <= i;
+endmodule
+EOT
+
+proc
+equiv_opt -assert opt
+design -load postopt
+wreduce
+select -assert-count 1 t:$sdffe r:WIDTH=2 %i
+select -assert-count 0 t:$sdffe %% t:* %D
+
+####################
+
+design -reset
+read_verilog <<EOT
+module opt_dffmuxext_signed_rst(input clk, ce, rstn, input signed [1:0] i, output reg signed [3:0] o);
+    always @(posedge clk) begin
+        if (ce) o <= i;
+        if (!rstn) o <= 4'b1111;
+    end
+endmodule
+EOT
+
+proc
+equiv_opt -assert opt
+design -load postopt
+wreduce
+select -assert-count 1 t:$sdffe r:WIDTH=2 %i
+select -assert-count 0 t:$sdffe %% t:* %D
+
+####################
+
+design -reset
+read_verilog <<EOT
+module opt_dffmuxext_signed_rst_init(input clk, ce, rstn, input signed [1:0] i, output reg signed [3:0] o);
+    initial o <= 4'b0010;
+    always @(posedge clk) begin
+        if (ce) o <= i;
+        if (!rstn) o <= 4'b1111;
+    end
+endmodule
+EOT
+
+proc
+# NB: equiv_opt uses equiv_induct which covers
+#     only the induction half of temporal induction
+#     --- missing the base-case half
+#     This makes it akin to `sat -tempinduct-inductonly`
+#     instead of `sat -tempinduct-baseonly` or
+#     `sat -tempinduct` which is necessary for this
+#     testcase
+#equiv_opt -assert opt
+
+design -save gold
+opt
+wreduce
+design -stash gate
+design -import gold -as gold
+design -import gate -as gate
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -tempinduct -verify -prove-asserts -show-ports miter
+
+design -load gate
+select -assert-count 1 t:$sdffe r:WIDTH=3 %i
+select -assert-count 0 t:$sdffe %% t:* %D

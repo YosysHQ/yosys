@@ -1,0 +1,83 @@
+read_verilog -sv <<EOT
+module opt_expr_or_test(input [3:0] i, input [7:0] j, output [8:0] o);
+wire[8:0] a = 8'b0;
+initial begin
+	a |= i;
+	a |= j;
+end
+    assign o = a;
+endmodule
+EOT
+proc
+equiv_opt -assert opt_expr -fine
+design -load postopt
+
+select -assert-count 1 t:$or r:A_WIDTH=4 r:B_WIDTH=4 r:Y_WIDTH=4 %i %i %i
+
+design -reset
+read_verilog -sv <<EOT
+module opt_expr_add_test(input [3:0] i, input [7:0] j, output [8:0] o);
+wire[8:0] a = 8'b0;
+initial begin
+        a += i;
+        a += j;
+end
+    assign o = a;
+endmodule
+EOT
+proc
+equiv_opt -assert opt_expr -fine
+design -load postopt
+
+select -assert-count 1 t:$add r:A_WIDTH=9 r:B_WIDTH=8 r:Y_WIDTH=9 %i %i %i
+
+design -reset
+read_verilog -sv <<EOT
+module opt_expr_xor_test(input [3:0] i, input [7:0] j, output [8:0] o);
+wire[8:0] a = 8'b0;
+initial begin
+        a ^= i;
+        a ^= j;
+end
+    assign o = a;
+endmodule
+EOT
+proc
+equiv_opt -assert opt_expr -fine
+design -load postopt
+
+select -assert-count 1 t:$xor r:A_WIDTH=4 r:B_WIDTH=4 r:Y_WIDTH=4 %i %i %i
+
+design -reset
+read_verilog -sv <<EOT
+module opt_expr_sub_test(input [3:0] i, input [7:0] j, output [8:0] o);
+wire[8:0] a = 8'b0;
+initial begin
+        a -= i;
+        a -= j;
+end
+    assign o = a;
+endmodule
+EOT
+proc
+equiv_opt -assert opt_expr -fine
+design -load postopt
+
+select -assert-count 1 t:$sub r:A_WIDTH=9 r:B_WIDTH=8 r:Y_WIDTH=9 %i %i %i
+
+design -reset
+read_verilog -sv <<EOT
+module opt_expr_and_test(input [3:0] i, input [7:0] j, output [8:0] o);
+wire[8:0] a = 8'b11111111;
+initial begin
+        a &= i;
+        a &= j;
+end
+    assign o = a;
+endmodule
+EOT
+proc
+equiv_opt -assert opt_expr -fine
+design -load postopt
+
+select -assert-count 1 t:$and r:A_WIDTH=4 r:B_WIDTH=4 r:Y_WIDTH=4 %i %i %i
