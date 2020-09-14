@@ -35,7 +35,7 @@ struct EquivPurgeWorker
 	{
 		if (sig.is_wire()) {
 			Wire *wire = sig.as_wire();
-			if (wire->name[0] == '\\') {
+			if (wire->name.isPublic()) {
 				if (!wire->port_output) {
 					log("  Module output: %s (%s)\n", log_signal(wire), log_id(cellname));
 					wire->port_output = true;
@@ -62,7 +62,7 @@ struct EquivPurgeWorker
 	{
 		if (sig.is_wire()) {
 			Wire *wire = sig.as_wire();
-			if (wire->name[0] == '\\') {
+			if (wire->name.isPublic()) {
 				if (!wire->port_output) {
 					log("  Module input: %s\n", log_signal(wire));
 					wire->port_input = true;

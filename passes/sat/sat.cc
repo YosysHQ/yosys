@@ -1365,7 +1365,7 @@ struct SatPass : public Pass {
 
 		if (show_public) {
 			for (auto wire : module->wires())
-				if (wire->name[0] == '\\')
+				if (wire->name.isPublic())
 					shows.push_back(wire->name.str());
 		}
 

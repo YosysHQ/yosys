@@ -368,7 +368,7 @@ struct ShowWorker
 			const char *shape = "diamond";
 			if (wire->port_input || wire->port_output)
 				shape = "octagon";
-			if (wire->name[0] == '\\') {
+			if (wire->name.isPublic()) {
 				fprintf(f, "n%d [ shape=%s, label=\"%s\", %s, fontcolor=\"black\" ];\n",
 						id2num(wire->name), shape, findLabel(wire->name.str()),
 						nextColor(RTLIL::SigSpec(wire), "color=\"black\"").c_str());

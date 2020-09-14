@@ -290,11 +290,11 @@ struct RenamePass : public Pass {
 				dict<RTLIL::Cell *, IdString> new_cell_names;
 
 				for (auto wire : module->selected_wires())
-					if (wire->name[0] == '\\' && wire->port_id == 0)
+					if (wire->name.isPublic() && wire->port_id == 0)
 						new_wire_names[wire] = NEW_ID;
 
 				for (auto cell : module->selected_cells())
-					if (cell->name[0] == '\\')
+					if (cell->name.isPublic())
 						new_cell_names[cell] = NEW_ID;
 
 				for (auto &it : new_wire_names)
