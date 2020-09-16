@@ -1523,6 +1523,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	{
 		AstNode *index_expr = nullptr;
 
+		integer = children[0]->children.size(); // save original number of dimensions for $size() etc.
 		for (int i = 0; 2*i < GetSize(id2ast->multirange_dimensions); i++)
 		{
 			if (GetSize(children[0]->children) < i)
@@ -1721,6 +1722,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 		newNode = new AstNode(AST_IDENTIFIER, children[1]->clone());
 		newNode->str = wire_id;
+		newNode->integer = integer; // save original number of dimensions for $size() etc.
 		newNode->id2ast = wire;
 		goto apply_newNode;
 	}
@@ -2869,15 +2871,13 @@ skip_dynamic_range_lvalue_expansion:;
 						log_file_error(filename, location.first_line, "Failed to resolve identifier %s for width detection!\n", buf->str.c_str());
 					// a slice of our identifier means we advance to the next dimension, e.g. $size(a[3])
 					if (buf->children.size() > 0) {
-						// we give up here because when we try to support thing such as $size(a[1][1]) the AST at this point doesn't contain
-						// the information how many indexes were given. The array is already flattened and a composite index is given in the AST instead.
-						log_file_error(filename, location.first_line, "%s() only supported for pure identifiers (no further indexing)!\n", str.c_str());
 						// something is hanging below this identifier
-						if (buf->children[0]->type == AST_RANGE)
+						if (buf->children[0]->type == AST_RANGE && buf->integer == 0)
+							// if integer == 0, this node was originally created as AST_RANGE so it's dimension is 1
 							dim++;
 						// more than one range, e.g. $size(a[3][2])
-						else if (buf->children[0]->type == AST_MULTIRANGE)
-							dim += buf->children[0]->children.size(); // increment by multirange size
+						else // created an AST_MULTIRANGE, converted to AST_RANGE, but original dimension saved in 'integer' field
+							dim += buf->integer; // increment by multirange size
 					}
 					// We have 4 cases:
 					// wire x;                ==> AST_WIRE, no AST_RANGE children
@@ -2957,7 +2957,6 @@ skip_dynamic_range_lvalue_expansion:;
 				else {
 					result = width * mem_depth;
 				}
-
 				newNode = mkconst_int(result, false);
 				goto apply_newNode;
 			}

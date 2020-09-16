@@ -25,8 +25,8 @@ assert property ($size(z, 1) == 6);
 assert property ($size(z, 2) == 8);
 assert property ($size(z, 3) == 4);
 // This is unsupported at the moment
-//assert property ($size(z[3], 1) == 8);
-//assert property ($size(z[3][3], 1) == 4);
+assert property ($size(z[3], 1) == 8);
+assert property ($size(z[3][3], 1) == 4);
 //assert property ($size(z[3][3][3], 1) == 1);
 // This should trigger an error if enabled (it does).
 //assert property ($size(z, 4) == 4);
@@ -48,6 +48,9 @@ assert property ($high(z) == 7);
 assert property ($high(z, 1) == 7);
 assert property ($high(z, 2) == 9);
 assert property ($high(z, 3) == 3);
+assert property ($high(z[3]) == 9);
+assert property ($high(z[3][3]) == 3);
+assert property ($high(z[3], 2) == 3);
 
 assert property ($low(x) == 2);
 assert property ($low(y) == 2);
@@ -58,6 +61,9 @@ assert property ($low(z) == 2);
 assert property ($low(z, 1) == 2);
 assert property ($low(z, 2) == 2);
 assert property ($low(z, 3) == 0);
+assert property ($low(z[3]) == 2);
+assert property ($low(z[3][3]) == 0);
+assert property ($low(z[3], 2) == 0);
 
 assert property ($left(x) == 5);
 assert property ($left(y) == 2);
@@ -68,6 +74,9 @@ assert property ($left(z) == 7);
 assert property ($left(z, 1) == 7);
 assert property ($left(z, 2) == 2);
 assert property ($left(z, 3) == 3);
+assert property ($left(z[3]) == 2);
+assert property ($left(z[3][3]) == 3);
+assert property ($left(z[3], 2) == 3);
 
 assert property ($right(x) == 2);
 assert property ($right(y) == 7);
@@ -78,4 +87,7 @@ assert property ($right(z) == 2);
 assert property ($right(z, 1) == 2);
 assert property ($right(z, 2) == 9);
 assert property ($right(z, 3) == 0);
+assert property ($right(z[3]) == 9);
+assert property ($right(z[3][3]) == 0);
+assert property ($right(z[3], 2) == 0);
 endmodule
