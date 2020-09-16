@@ -1510,7 +1510,6 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				log_file_error(filename, location.first_line, "Non-constant range on memory decl.\n");
 			multirange_dimensions.push_back(min(range->range_left, range->range_right));
 			multirange_dimensions.push_back(max(range->range_left, range->range_right) - min(range->range_left, range->range_right) + 1);
-			log_file_warning(filename, location.first_line, "left:%d right:%d\n", range->range_left, range->range_right);
 			multirange_swapped.push_back(range->range_swapped);
 			total_size *= multirange_dimensions.back();
 		}
@@ -2881,10 +2880,11 @@ skip_dynamic_range_lvalue_expansion:;
 							dim += buf->children[0]->children.size(); // increment by multirange size
 					}
 					// We have 4 cases:
-					// AST_WIRE, no AST_RANGE children
-					// AST_WIRE, AST_RANGE children
-					// AST_MEMORY, two AST_RANGE children (1st for packed, 2nd for unpacked)
-					// AST_MEMORY, one AST_RANGE child (0) for packed, then AST_MULTIRANGE child (1) for unpacked
+					// wire x;                ==> AST_WIRE, no AST_RANGE children
+					// wire [1:0]x;           ==> AST_WIRE, AST_RANGE children
+					// wire [1:0]x[1:0];      ==> AST_MEMORY, two AST_RANGE children (1st for packed, 2nd for unpacked)
+					// wire [1:0]x[1:0][1:0]; ==> AST_MEMORY, one AST_RANGE child (0) for packed, then AST_MULTIRANGE child (1) for unpacked
+					// (updated: actually by the time we are here, AST_MULTIRANGE is converted into one big AST_RANGE)
 					// case 0 handled by default
 					if ((id_ast->type == AST_WIRE || id_ast->type == AST_MEMORY) && id_ast->children.size() > 0) {
 						// handle packed array left/right for case 1, and cases 2/3 when requesting the last dimension (packed side)
