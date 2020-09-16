@@ -22,12 +22,23 @@ mkdir -p temp
 echo "generating tests.."
 python3 generate.py -c $count $seed
 
+{
+	echo ".PHONY: all"
+	echo "all:"
+
+	for i in $( ls temp/*.ys | sed 's,[^0-9],,g; s,^0*\(.\),\1,g;' ); do
+		idx=$( printf "%05d" $i )
+		echo ".PHONY: test-$idx"
+		echo "all: test-$idx"
+		echo "test-$idx:"
+		printf "\t@%s\n" \
+			"echo -n [$i]" \
+			"../../yosys -ql temp/uut_${idx}.log temp/uut_${idx}.ys"
+	done
+} > temp/makefile
+
 echo "running tests.."
-for i in $( ls temp/*.ys | sed 's,[^0-9],,g; s,^0*\(.\),\1,g;' ); do
-	echo -n "[$i]"
-	idx=$( printf "%05d" $i )
-	../../yosys -ql temp/uut_${idx}.log temp/uut_${idx}.ys
-done
+${MAKE:-make} -f temp/makefile
 echo
 
 failed_share=$( echo $( gawk '/^#job#/ { j=$2; db[j]=0; } /^Removing [246] cells/ { delete db[j]; } END { for (j in db) print(j); }' temp/all_share_log.txt ) )

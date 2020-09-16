@@ -6,7 +6,7 @@ YOSYS_BASEDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/../ >/dev/null 2>&1 && pwd)
 generate_target() {
 	target_name=$1
 	test_command=$2
-	echo "all:: $target_name"
+	echo "all: $target_name"
 	echo ".PHONY: $target_name"
 	echo "$target_name:"
 	printf "\t@%s\n" "$test_command"
@@ -65,7 +65,7 @@ generate_tests() {
 	fi
 
 	echo ".PHONY: all"
-	echo "all::"
+	echo "all:"
 
 	if [[ $do_ys = true ]]; then
 		for x in *.ys; do
