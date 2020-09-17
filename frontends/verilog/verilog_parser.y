@@ -210,14 +210,23 @@ static AstNode *checkRange(AstNode *type_node, AstNode *range_node)
 	return range_node;
 }
 
-static void rewriteAsMemoryNode(AstNode *node, AstNode *rangeNode)
+static void rewriteRange(AstNode *rangeNode)
 {
-	node->type = AST_MEMORY;
 	if (rangeNode->type == AST_RANGE && rangeNode->children.size() == 1) {
 		// SV array size [n], rewrite as [n-1:0]
 		rangeNode->children[0] = new AstNode(AST_SUB, rangeNode->children[0], AstNode::mkconst_int(1, true));
 		rangeNode->children.push_back(AstNode::mkconst_int(0, false));
 	}
+}
+
+static void rewriteAsMemoryNode(AstNode *node, AstNode *rangeNode)
+{
+	node->type = AST_MEMORY;
+	if (rangeNode->type == AST_MULTIRANGE) {
+		for (auto *itr : rangeNode->children)
+			rewriteRange(itr);
+	} else
+		rewriteRange(rangeNode);
 	node->children.push_back(rangeNode);
 }
 
