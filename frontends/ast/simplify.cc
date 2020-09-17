@@ -1523,7 +1523,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 		for (int i = 0; 2*i < GetSize(id2ast->multirange_dimensions); i++)
 		{
-			if (GetSize(children[0]->children) < i)
+			if (GetSize(children[0]->children) <= i)
 				log_file_error(filename, location.first_line, "Insufficient number of array indices for %s.\n", log_id(str));
 
 			AstNode *new_index_expr = children[0]->children[i]->children.at(0)->clone();
