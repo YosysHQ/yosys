@@ -330,7 +330,7 @@ struct EdifBackend : public Backend {
 				}
 				*f << stringf("\n            (property %s (string \"%d'h%s\"))", EDIF_DEF(name), GetSize(val.bits), hex_string.c_str());
 			}
-		};		
+		};
 		for (auto module : sorted_modules)
 		{
 			if (module->get_blackbox_attribute())
@@ -373,8 +373,8 @@ struct EdifBackend : public Backend {
 					}
 
 					{
-						int c1 = w1->name[0] == '\\';
-						int c2 = w2->name[0] == '\\';
+						int c1 = w1->name.isPublic();
+						int c2 = w2->name.isPublic();
 
 						if (c1 > c2) goto promote;
 						if (c1 < c2) goto nopromote;
@@ -524,7 +524,7 @@ struct EdifBackend : public Backend {
 						*f << stringf("            (portRef %c (instanceRef GND))\n", gndvccy ? 'Y' : 'G');
 					if (sig == RTLIL::State::S1)
 						*f << stringf("            (portRef %c (instanceRef VCC))\n", gndvccy ? 'Y' : 'P');
-				}				
+				}
 				*f << stringf("            )");
 				if (attr_properties && sig.wire != NULL)
 					for (auto &p : sig.wire->attributes)

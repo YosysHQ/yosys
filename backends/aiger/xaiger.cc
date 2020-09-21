@@ -146,7 +146,7 @@ struct XAigerWriter
 
 		// promote public wires
 		for (auto wire : module->wires())
-			if (wire->name[0] == '\\')
+			if (wire->name.isPublic())
 				sigmap.add(wire);
 
 		// promote input wires

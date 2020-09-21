@@ -207,7 +207,7 @@ bool compare_signals(RTLIL::SigBit &s1, RTLIL::SigBit &s2, SigPool &regs, SigPoo
 	if ((w1->port_input && w1->port_output) != (w2->port_input && w2->port_output))
 		return !(w2->port_input && w2->port_output);
 
-	if (w1->name[0] == '\\' && w2->name[0] == '\\') {
+	if (w1->name.isPublic() && w2->name.isPublic()) {
 		if (regs.check(s1) != regs.check(s2))
 			return regs.check(s2);
 		if (direct_wires.count(w1) != direct_wires.count(w2))
@@ -220,7 +220,7 @@ bool compare_signals(RTLIL::SigBit &s1, RTLIL::SigBit &s2, SigPool &regs, SigPoo
 		return w2->port_output;
 
 	if (w1->name[0] != w2->name[0])
-		return w2->name[0] == '\\';
+		return w2->name.isPublic();
 
 	int attrs1 = count_nontrivial_wire_attrs(w1);
 	int attrs2 = count_nontrivial_wire_attrs(w2);

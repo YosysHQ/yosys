@@ -822,7 +822,7 @@ struct Smt2Worker
 			for (auto bit : SigSpec(wire))
 				if (reg_bits.count(bit))
 					is_register = true;
-			if (wire->port_id || is_register || wire->get_bool_attribute(ID::keep) || (wiresmode && wire->name[0] == '\\')) {
+			if (wire->port_id || is_register || wire->get_bool_attribute(ID::keep) || (wiresmode && wire->name.isPublic())) {
 				RTLIL::SigSpec sig = sigmap(wire);
 				std::vector<std::string> comments;
 				if (wire->port_input)
@@ -831,7 +831,7 @@ struct Smt2Worker
 					comments.push_back(stringf("; yosys-smt2-output %s %d\n", get_id(wire), wire->width));
 				if (is_register)
 					comments.push_back(stringf("; yosys-smt2-register %s %d\n", get_id(wire), wire->width));
-				if (wire->get_bool_attribute(ID::keep) || (wiresmode && wire->name[0] == '\\'))
+				if (wire->get_bool_attribute(ID::keep) || (wiresmode && wire->name.isPublic()))
 					comments.push_back(stringf("; yosys-smt2-wire %s %d\n", get_id(wire), wire->width));
 				if (GetSize(wire) == 1 && (clock_posedge.count(sig) || clock_negedge.count(sig)))
 					comments.push_back(stringf("; yosys-smt2-clock %s%s%s\n", get_id(wire),
