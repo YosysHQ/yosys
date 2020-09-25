@@ -765,11 +765,13 @@ struct HierarchyPass : public Pass {
 			top_mod = design->module(top_name);
 
 			dict<RTLIL::IdString, RTLIL::Const> top_parameters;
-			for (auto &para : parameters) {
-				SigSpec sig_value;
-				if (!RTLIL::SigSpec::parse(sig_value, NULL, para.second))
-					log_cmd_error("Can't decode value '%s'!\n", para.second.c_str());
-				top_parameters[RTLIL::escape_id(para.first)] = sig_value.as_const();
+			if ((top_mod == nullptr && design->module(abstract_id)) || top_mod != nullptr) {
+				for (auto &para : parameters) {
+					SigSpec sig_value;
+					if (!RTLIL::SigSpec::parse(sig_value, NULL, para.second))
+						log_cmd_error("Can't decode value '%s'!\n", para.second.c_str());
+					top_parameters[RTLIL::escape_id(para.first)] = sig_value.as_const();
+				}
 			}
 
 			if (top_mod == nullptr && design->module(abstract_id))
