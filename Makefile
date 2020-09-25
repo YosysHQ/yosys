@@ -171,8 +171,7 @@ else
 PYTHON_CONFIG := $(PYTHON_EXECUTABLE)-config
 endif
 
-PYTHON_PREFIX := $(shell $(PYTHON_CONFIG) --prefix)
-PYTHON_DESTDIR := $(PYTHON_PREFIX)/lib/python$(PYTHON_VERSION)/site-packages
+PYTHON_DESTDIR := $(shell $(PYTHON_EXECUTABLE) -c "import site; print(site.getsitepackages()[-1]);")
 
 # Reload Makefile.conf to override python specific variables if defined
 ifneq ($(wildcard Makefile.conf),)
