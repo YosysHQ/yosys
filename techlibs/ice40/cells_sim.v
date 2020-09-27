@@ -166,10 +166,16 @@ endmodule
 (* abc9_lut=1, lib_whitebox *)
 module SB_LUT4 (output O, input I0, I1, I2, I3);
 	parameter [15:0] LUT_INIT = 0;
-	wire [7:0] s3 = I3 ? LUT_INIT[15:8] : LUT_INIT[7:0];
-	wire [3:0] s2 = I2 ?       s3[ 7:4] :       s3[3:0];
-	wire [1:0] s1 = I1 ?       s2[ 3:2] :       s2[1:0];
-	assign O = I0 ? s1[1] : s1[0];
+
+	wire I0_pd = (I0 === 1'bz) ? 1'b0 : I0;
+	wire I1_pd = (I1 === 1'bz) ? 1'b0 : I1;
+	wire I2_pd = (I2 === 1'bz) ? 1'b0 : I2;
+	wire I3_pd = (I3 === 1'bz) ? 1'b0 : I3;
+
+	wire [7:0] s3 = I3_pd ? LUT_INIT[15:8] : LUT_INIT[7:0];
+	wire [3:0] s2 = I2_pd ?       s3[ 7:4] :       s3[3:0];
+	wire [1:0] s1 = I1_pd ?       s2[ 3:2] :       s2[1:0];
+	assign O = I0_pd ? s1[1] : s1[0];
 `ifdef ICE40_HX
 	specify
 		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L80
@@ -1435,6 +1441,28 @@ module SB_RAM40_4K (
 	parameter INIT_FILE = "";
 
 `ifndef BLACKBOX
+	wire RE_pd = (RE === 1'bz) ? 1'b0 : RE;
+	wire WE_pd = (WE === 1'bz) ? 1'b0 : WE;
+	wire RCLK_pd = (RCLK === 1'bz) ? 1'b0 : RCLK;
+	wire WCLK_pd = (WCLK === 1'bz) ? 1'b0 : WCLK;
+	wire RCLKE_pu = (RCLKE === 1'bz) ? 1'b1 : RCLKE;
+	wire WCLKE_pu = (WCLKE === 1'bz) ? 1'b1 : WCLKE;
+	
+	genvar j;
+	wire [10:0] RADDR_pd;
+	wire [10:0] WADDR_pd;
+	for (j = 0; j < 11; j = j + 1) begin
+		assign RADDR_pd[j] = (RADDR[j] === 1'bz) ? 1'b0 : RADDR[j];
+		assign WADDR_pd[j] = (WADDR[j] === 1'bz) ? 1'b0 : WADDR[j];
+	end
+
+	wire [15:0] MASK_pd;
+	wire [15:0] WDATA_pd;
+	for (j = 0; j < 16; j = j + 1) begin
+		assign MASK_pd[j] = (MASK[j] === 1'bz) ? 1'b0 : MASK[j];
+		assign WDATA_pd[j] = (WDATA[j] === 1'bz) ? 1'b0 : WDATA[j];
+	end
+
 	wire [15:0] WMASK_I;
 	wire [15:0] RMASK_I;
 
@@ -1443,64 +1471,64 @@ module SB_RAM40_4K (
 
 	generate
 		case (WRITE_MODE)
-			0: assign WMASK_I = MASK;
+			0: assign WMASK_I = MASK_pd;
 
-			1: assign WMASK_I = WADDR[   8] == 0 ? 16'b 1010_1010_1010_1010 :
-			                    WADDR[   8] == 1 ? 16'b 0101_0101_0101_0101 : 16'bx;
+			1: assign WMASK_I = WADDR_pd[   8] == 0 ? 16'b 1010_1010_1010_1010 :
+			                    WADDR_pd[   8] == 1 ? 16'b 0101_0101_0101_0101 : 16'bx;
 
-			2: assign WMASK_I = WADDR[ 9:8] == 0 ? 16'b 1110_1110_1110_1110 :
-			                    WADDR[ 9:8] == 1 ? 16'b 1101_1101_1101_1101 :
-			                    WADDR[ 9:8] == 2 ? 16'b 1011_1011_1011_1011 :
-			                    WADDR[ 9:8] == 3 ? 16'b 0111_0111_0111_0111 : 16'bx;
+			2: assign WMASK_I = WADDR_pd[ 9:8] == 0 ? 16'b 1110_1110_1110_1110 :
+			                    WADDR_pd[ 9:8] == 1 ? 16'b 1101_1101_1101_1101 :
+			                    WADDR_pd[ 9:8] == 2 ? 16'b 1011_1011_1011_1011 :
+			                    WADDR_pd[ 9:8] == 3 ? 16'b 0111_0111_0111_0111 : 16'bx;
 
-			3: assign WMASK_I = WADDR[10:8] == 0 ? 16'b 1111_1110_1111_1110 :
-			                    WADDR[10:8] == 1 ? 16'b 1111_1101_1111_1101 :
-			                    WADDR[10:8] == 2 ? 16'b 1111_1011_1111_1011 :
-			                    WADDR[10:8] == 3 ? 16'b 1111_0111_1111_0111 :
-			                    WADDR[10:8] == 4 ? 16'b 1110_1111_1110_1111 :
-			                    WADDR[10:8] == 5 ? 16'b 1101_1111_1101_1111 :
-			                    WADDR[10:8] == 6 ? 16'b 1011_1111_1011_1111 :
-			                    WADDR[10:8] == 7 ? 16'b 0111_1111_0111_1111 : 16'bx;
+			3: assign WMASK_I = WADDR_pd[10:8] == 0 ? 16'b 1111_1110_1111_1110 :
+			                    WADDR_pd[10:8] == 1 ? 16'b 1111_1101_1111_1101 :
+			                    WADDR_pd[10:8] == 2 ? 16'b 1111_1011_1111_1011 :
+			                    WADDR_pd[10:8] == 3 ? 16'b 1111_0111_1111_0111 :
+			                    WADDR_pd[10:8] == 4 ? 16'b 1110_1111_1110_1111 :
+			                    WADDR_pd[10:8] == 5 ? 16'b 1101_1111_1101_1111 :
+			                    WADDR_pd[10:8] == 6 ? 16'b 1011_1111_1011_1111 :
+			                    WADDR_pd[10:8] == 7 ? 16'b 0111_1111_0111_1111 : 16'bx;
 		endcase
 
 		case (READ_MODE)
 			0: assign RMASK_I = 16'b 0000_0000_0000_0000;
 
-			1: assign RMASK_I = RADDR[   8] == 0 ? 16'b 1010_1010_1010_1010 :
-			                    RADDR[   8] == 1 ? 16'b 0101_0101_0101_0101 : 16'bx;
+			1: assign RMASK_I = RADDR_pd[   8] == 0 ? 16'b 1010_1010_1010_1010 :
+			                    RADDR_pd[   8] == 1 ? 16'b 0101_0101_0101_0101 : 16'bx;
 
-			2: assign RMASK_I = RADDR[ 9:8] == 0 ? 16'b 1110_1110_1110_1110 :
-			                    RADDR[ 9:8] == 1 ? 16'b 1101_1101_1101_1101 :
-			                    RADDR[ 9:8] == 2 ? 16'b 1011_1011_1011_1011 :
-			                    RADDR[ 9:8] == 3 ? 16'b 0111_0111_0111_0111 : 16'bx;
+			2: assign RMASK_I = RADDR_pd[ 9:8] == 0 ? 16'b 1110_1110_1110_1110 :
+			                    RADDR_pd[ 9:8] == 1 ? 16'b 1101_1101_1101_1101 :
+			                    RADDR_pd[ 9:8] == 2 ? 16'b 1011_1011_1011_1011 :
+			                    RADDR_pd[ 9:8] == 3 ? 16'b 0111_0111_0111_0111 : 16'bx;
 
-			3: assign RMASK_I = RADDR[10:8] == 0 ? 16'b 1111_1110_1111_1110 :
-			                    RADDR[10:8] == 1 ? 16'b 1111_1101_1111_1101 :
-			                    RADDR[10:8] == 2 ? 16'b 1111_1011_1111_1011 :
-			                    RADDR[10:8] == 3 ? 16'b 1111_0111_1111_0111 :
-			                    RADDR[10:8] == 4 ? 16'b 1110_1111_1110_1111 :
-			                    RADDR[10:8] == 5 ? 16'b 1101_1111_1101_1111 :
-			                    RADDR[10:8] == 6 ? 16'b 1011_1111_1011_1111 :
-			                    RADDR[10:8] == 7 ? 16'b 0111_1111_0111_1111 : 16'bx;
+			3: assign RMASK_I = RADDR_pd[10:8] == 0 ? 16'b 1111_1110_1111_1110 :
+			                    RADDR_pd[10:8] == 1 ? 16'b 1111_1101_1111_1101 :
+			                    RADDR_pd[10:8] == 2 ? 16'b 1111_1011_1111_1011 :
+			                    RADDR_pd[10:8] == 3 ? 16'b 1111_0111_1111_0111 :
+			                    RADDR_pd[10:8] == 4 ? 16'b 1110_1111_1110_1111 :
+			                    RADDR_pd[10:8] == 5 ? 16'b 1101_1111_1101_1111 :
+			                    RADDR_pd[10:8] == 6 ? 16'b 1011_1111_1011_1111 :
+			                    RADDR_pd[10:8] == 7 ? 16'b 0111_1111_0111_1111 : 16'bx;
 		endcase
 
 		case (WRITE_MODE)
-			0: assign WDATA_I = WDATA;
+			0: assign WDATA_I = WDATA_pd;
 
-			1: assign WDATA_I = {WDATA[14], WDATA[14], WDATA[12], WDATA[12],
-			                     WDATA[10], WDATA[10], WDATA[ 8], WDATA[ 8],
-			                     WDATA[ 6], WDATA[ 6], WDATA[ 4], WDATA[ 4],
-			                     WDATA[ 2], WDATA[ 2], WDATA[ 0], WDATA[ 0]};
+			1: assign WDATA_I = {WDATA_pd[14], WDATA_pd[14], WDATA_pd[12], WDATA_pd[12],
+			                     WDATA_pd[10], WDATA_pd[10], WDATA_pd[ 8], WDATA_pd[ 8],
+			                     WDATA_pd[ 6], WDATA_pd[ 6], WDATA_pd[ 4], WDATA_pd[ 4],
+			                     WDATA_pd[ 2], WDATA_pd[ 2], WDATA_pd[ 0], WDATA_pd[ 0]};
 
-			2: assign WDATA_I = {WDATA[13], WDATA[13], WDATA[13], WDATA[13],
-			                     WDATA[ 9], WDATA[ 9], WDATA[ 9], WDATA[ 9],
-			                     WDATA[ 5], WDATA[ 5], WDATA[ 5], WDATA[ 5],
-			                     WDATA[ 1], WDATA[ 1], WDATA[ 1], WDATA[ 1]};
+			2: assign WDATA_I = {WDATA_pd[13], WDATA_pd[13], WDATA_pd[13], WDATA_pd[13],
+			                     WDATA_pd[ 9], WDATA_pd[ 9], WDATA_pd[ 9], WDATA_pd[ 9],
+			                     WDATA_pd[ 5], WDATA_pd[ 5], WDATA_pd[ 5], WDATA_pd[ 5],
+			                     WDATA_pd[ 1], WDATA_pd[ 1], WDATA_pd[ 1], WDATA_pd[ 1]};
 
-			3: assign WDATA_I = {WDATA[11], WDATA[11], WDATA[11], WDATA[11],
-			                     WDATA[11], WDATA[11], WDATA[11], WDATA[11],
-			                     WDATA[ 3], WDATA[ 3], WDATA[ 3], WDATA[ 3],
-			                     WDATA[ 3], WDATA[ 3], WDATA[ 3], WDATA[ 3]};
+			3: assign WDATA_I = {WDATA_pd[11], WDATA_pd[11], WDATA_pd[11], WDATA_pd[11],
+			                     WDATA_pd[11], WDATA_pd[11], WDATA_pd[11], WDATA_pd[11],
+			                     WDATA_pd[ 3], WDATA_pd[ 3], WDATA_pd[ 3], WDATA_pd[ 3],
+			                     WDATA_pd[ 3], WDATA_pd[ 3], WDATA_pd[ 3], WDATA_pd[ 3]};
 		endcase
 
 		case (READ_MODE)
@@ -1539,30 +1567,30 @@ module SB_RAM40_4K (
 			end
 	end
 
-	always @(posedge WCLK) begin
-		if (WE && WCLKE) begin
-			if (!WMASK_I[ 0]) memory[WADDR[7:0]][ 0] <= WDATA_I[ 0];
-			if (!WMASK_I[ 1]) memory[WADDR[7:0]][ 1] <= WDATA_I[ 1];
-			if (!WMASK_I[ 2]) memory[WADDR[7:0]][ 2] <= WDATA_I[ 2];
-			if (!WMASK_I[ 3]) memory[WADDR[7:0]][ 3] <= WDATA_I[ 3];
-			if (!WMASK_I[ 4]) memory[WADDR[7:0]][ 4] <= WDATA_I[ 4];
-			if (!WMASK_I[ 5]) memory[WADDR[7:0]][ 5] <= WDATA_I[ 5];
-			if (!WMASK_I[ 6]) memory[WADDR[7:0]][ 6] <= WDATA_I[ 6];
-			if (!WMASK_I[ 7]) memory[WADDR[7:0]][ 7] <= WDATA_I[ 7];
-			if (!WMASK_I[ 8]) memory[WADDR[7:0]][ 8] <= WDATA_I[ 8];
-			if (!WMASK_I[ 9]) memory[WADDR[7:0]][ 9] <= WDATA_I[ 9];
-			if (!WMASK_I[10]) memory[WADDR[7:0]][10] <= WDATA_I[10];
-			if (!WMASK_I[11]) memory[WADDR[7:0]][11] <= WDATA_I[11];
-			if (!WMASK_I[12]) memory[WADDR[7:0]][12] <= WDATA_I[12];
-			if (!WMASK_I[13]) memory[WADDR[7:0]][13] <= WDATA_I[13];
-			if (!WMASK_I[14]) memory[WADDR[7:0]][14] <= WDATA_I[14];
-			if (!WMASK_I[15]) memory[WADDR[7:0]][15] <= WDATA_I[15];
+	always @(posedge WCLK_pd) begin
+		if (WE_pd && WCLKE_pu) begin
+			if (!WMASK_I[ 0]) memory[WADDR_pd[7:0]][ 0] <= WDATA_I[ 0];
+			if (!WMASK_I[ 1]) memory[WADDR_pd[7:0]][ 1] <= WDATA_I[ 1];
+			if (!WMASK_I[ 2]) memory[WADDR_pd[7:0]][ 2] <= WDATA_I[ 2];
+			if (!WMASK_I[ 3]) memory[WADDR_pd[7:0]][ 3] <= WDATA_I[ 3];
+			if (!WMASK_I[ 4]) memory[WADDR_pd[7:0]][ 4] <= WDATA_I[ 4];
+			if (!WMASK_I[ 5]) memory[WADDR_pd[7:0]][ 5] <= WDATA_I[ 5];
+			if (!WMASK_I[ 6]) memory[WADDR_pd[7:0]][ 6] <= WDATA_I[ 6];
+			if (!WMASK_I[ 7]) memory[WADDR_pd[7:0]][ 7] <= WDATA_I[ 7];
+			if (!WMASK_I[ 8]) memory[WADDR_pd[7:0]][ 8] <= WDATA_I[ 8];
+			if (!WMASK_I[ 9]) memory[WADDR_pd[7:0]][ 9] <= WDATA_I[ 9];
+			if (!WMASK_I[10]) memory[WADDR_pd[7:0]][10] <= WDATA_I[10];
+			if (!WMASK_I[11]) memory[WADDR_pd[7:0]][11] <= WDATA_I[11];
+			if (!WMASK_I[12]) memory[WADDR_pd[7:0]][12] <= WDATA_I[12];
+			if (!WMASK_I[13]) memory[WADDR_pd[7:0]][13] <= WDATA_I[13];
+			if (!WMASK_I[14]) memory[WADDR_pd[7:0]][14] <= WDATA_I[14];
+			if (!WMASK_I[15]) memory[WADDR_pd[7:0]][15] <= WDATA_I[15];
 		end
 	end
 
-	always @(posedge RCLK) begin
-		if (RE && RCLKE) begin
-			RDATA_I <= memory[RADDR[7:0]] & ~RMASK_I;
+	always @(posedge RCLK_pd) begin
+		if (RE_pd && RCLKE_pu) begin
+			RDATA_I <= memory[RADDR_pd[7:0]] & ~RMASK_I;
 		end
 	end
 `endif
@@ -1664,6 +1692,8 @@ module SB_RAM40_4KNR (
 
 	parameter INIT_FILE = "";
 
+	wire RCLKN_pd = (RCLKN === 1'bz) ? 1'b0 : RCLKN;
+
 	SB_RAM40_4K #(
 		.WRITE_MODE(WRITE_MODE),
 		.READ_MODE (READ_MODE ),
@@ -1686,7 +1716,7 @@ module SB_RAM40_4KNR (
 		.INIT_FILE (INIT_FILE )
 	) RAM (
 		.RDATA(RDATA),
-		.RCLK (~RCLKN),
+		.RCLK (~RCLKN_pd),
 		.RCLKE(RCLKE),
 		.RE   (RE   ),
 		.RADDR(RADDR),
@@ -1795,6 +1825,8 @@ module SB_RAM40_4KNW (
 
 	parameter INIT_FILE = "";
 
+	wire WCLKN_pd = (WCLKN === 1'bz) ? 1'b0 : WCLKN;
+
 	SB_RAM40_4K #(
 		.WRITE_MODE(WRITE_MODE),
 		.READ_MODE (READ_MODE ),
@@ -1821,7 +1853,7 @@ module SB_RAM40_4KNW (
 		.RCLKE(RCLKE),
 		.RE   (RE   ),
 		.RADDR(RADDR),
-		.WCLK (~WCLKN),
+		.WCLK (~WCLKN_pd),
 		.WCLKE(WCLKE),
 		.WE   (WE   ),
 		.WADDR(WADDR),
@@ -1926,6 +1958,9 @@ module SB_RAM40_4KNRNW (
 
 	parameter INIT_FILE = "";
 
+	wire RCLKN_pd = (RCLKN === 1'bz) ? 1'b0 : RCLKN;
+	wire WCLKN_pd = (WCLKN === 1'bz) ? 1'b0 : WCLKN;
+
 	SB_RAM40_4K #(
 		.WRITE_MODE(WRITE_MODE),
 		.READ_MODE (READ_MODE ),
@@ -1948,11 +1983,11 @@ module SB_RAM40_4KNRNW (
 		.INIT_FILE (INIT_FILE )
 	) RAM (
 		.RDATA(RDATA),
-		.RCLK (~RCLKN),
+		.RCLK (~RCLKN_pd),
 		.RCLKE(RCLKE),
 		.RE   (RE   ),
 		.RADDR(RADDR),
-		.WCLK (~WCLKN),
+		.WCLK (~WCLKN_pd),
 		.WCLKE(WCLKE),
 		.WE   (WE   ),
 		.WADDR(WADDR),
@@ -3092,20 +3127,8 @@ module ICESTORM_RAM(
 	parameter INIT_E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 	parameter INIT_F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
 
-	// Pull-down and pull-up functions
-	function pd;
-		input x;
-		begin
-			pd = (x === 1'bz) ? 1'b0 : x;
-		end
-	endfunction
-
-	function pu;
-		input x;
-		begin
-			pu = (x === 1'bz) ? 1'b1 : x;
-		end
-	endfunction
+	wire RCLK_pd = (RCLK === 1'bz) ? 1'b0 : RCLK;
+	wire WCLK_pd = (WCLK === 1'bz) ? 1'b0 : WCLK;
 
 	SB_RAM40_4K #(
 		.WRITE_MODE(WRITE_MODE),
@@ -3128,18 +3151,18 @@ module ICESTORM_RAM(
 		.INIT_F    (INIT_F    )
 	) RAM (
 		.RDATA({RDATA_15, RDATA_14, RDATA_13, RDATA_12, RDATA_11, RDATA_10, RDATA_9, RDATA_8, RDATA_7, RDATA_6, RDATA_5, RDATA_4, RDATA_3, RDATA_2, RDATA_1, RDATA_0}),
-		.RCLK (pd(RCLK) ^ NEG_CLK_R),
-		.RCLKE(pu(RCLKE)),
-		.RE   (pd(RE)),
-		.RADDR({pd(RADDR_10), pd(RADDR_9), pd(RADDR_8), pd(RADDR_7), pd(RADDR_6), pd(RADDR_5), pd(RADDR_4), pd(RADDR_3), pd(RADDR_2), pd(RADDR_1), pd(RADDR_0)}),
-		.WCLK (pd(WCLK) ^ NEG_CLK_W),
-		.WCLKE(pu(WCLKE)),
-		.WE   (pd(WE)),
-		.WADDR({pd(WADDR_10), pd(WADDR_9), pd(WADDR_8), pd(WADDR_7), pd(WADDR_6), pd(WADDR_5), pd(WADDR_4), pd(WADDR_3), pd(WADDR_2), pd(WADDR_1), pd(WADDR_0)}),
-		.MASK ({pd(MASK_15), pd(MASK_14), pd(MASK_13), pd(MASK_12), pd(MASK_11), pd(MASK_10), pd(MASK_9), pd(MASK_8),
-			pd(MASK_7), pd(MASK_6), pd(MASK_5), pd(MASK_4), pd(MASK_3), pd(MASK_2), pd(MASK_1), pd(MASK_0)}),
-		.WDATA({pd(WDATA_15), pd(WDATA_14), pd(WDATA_13), pd(WDATA_12), pd(WDATA_11), pd(WDATA_10), pd(WDATA_9), pd(WDATA_8),
-			pd(WDATA_7), pd(WDATA_6), pd(WDATA_5), pd(WDATA_4), pd(WDATA_3), pd(WDATA_2), pd(WDATA_1), pd(WDATA_0)})
+		.RCLK (RCLK_pd ^ NEG_CLK_R),
+		.RCLKE(RCLKE),
+		.RE   (RE),
+		.RADDR({RADDR_10, RADDR_9, RADDR_8, RADDR_7, RADDR_6, RADDR_5, RADDR_4, RADDR_3, RADDR_2, RADDR_1, RADDR_0}),
+		.WCLK (WCLK_pd ^ NEG_CLK_W),
+		.WCLKE(WCLKE),
+		.WE   (WE),
+		.WADDR({WADDR_10, WADDR_9, WADDR_8, WADDR_7, WADDR_6, WADDR_5, WADDR_4, WADDR_3, WADDR_2, WADDR_1, WADDR_0}),
+		.MASK ({MASK_15, MASK_14, MASK_13, MASK_12, MASK_11, MASK_10, MASK_9, MASK_8,
+			MASK_7, MASK_6, MASK_5, MASK_4, MASK_3, MASK_2, MASK_1, MASK_0}),
+		.WDATA({WDATA_15, WDATA_14, WDATA_13, WDATA_12, WDATA_11, WDATA_10, WDATA_9, WDATA_8,
+			WDATA_7, WDATA_6, WDATA_5, WDATA_4, WDATA_3, WDATA_2, WDATA_1, WDATA_0})
 	);
 
 `ifdef TIMING
