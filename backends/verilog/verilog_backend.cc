@@ -926,7 +926,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		{
 			SigSpec sig_d;
 			Const val_arst, val_srst;
-			std::string reg_bit_name;
+			std::string reg_bit_name, sig_set_name, sig_clr_name, sig_arst_name;
 			if (chunky) {
 				reg_bit_name = stringf("%s[%d]", reg_name.c_str(), i);
 				if (ff.has_d)
@@ -941,6 +941,32 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			if (ff.has_srst)
 				val_srst = chunky ? ff.val_srst[i] : ff.val_srst;
 
+			// If there are constants in the sensitivity list, replace them with an intermediate wire
+			if (ff.has_sr) {
+				if (ff.sig_set[i].wire == NULL)
+				{
+					sig_set_name = next_auto_id();
+					f << stringf("%s" "wire %s = ", indent.c_str(), sig_set_name.c_str());
+					dump_const(f, ff.sig_set[i].data);
+					f << stringf(";\n");
+				}
+				if (ff.sig_clr[i].wire == NULL)
+				{
+					sig_clr_name = next_auto_id();
+					f << stringf("%s" "wire %s = ", indent.c_str(), sig_clr_name.c_str());
+					dump_const(f, ff.sig_clr[i].data);
+					f << stringf(";\n");
+				}
+			} else if (ff.has_arst) {
+				if (ff.sig_arst[i].wire == NULL)
+				{
+					sig_arst_name = next_auto_id();
+					f << stringf("%s" "wire %s = ", indent.c_str(), sig_arst_name.c_str());
+					dump_const(f, ff.sig_arst[i].data);
+					f << stringf(";\n");
+				}
+			}
+
 			dump_attributes(f, indent, cell->attributes);
 			if (ff.has_clk)
 			{
@@ -949,27 +975,47 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 				dump_sigspec(f, ff.sig_clk);
 				if (ff.has_sr) {
 					f << stringf(", %sedge ", ff.pol_set ? "pos" : "neg");
-					dump_sigspec(f, ff.sig_set[i]);
+					if (ff.sig_set[i].wire == NULL)
+						f << stringf("%s", sig_set_name.c_str());
+					else
+						dump_sigspec(f, ff.sig_set[i]);
+
 					f << stringf(", %sedge ", ff.pol_clr ? "pos" : "neg");
-					dump_sigspec(f, ff.sig_clr[i]);
+					if (ff.sig_clr[i].wire == NULL)
+						f << stringf("%s", sig_clr_name.c_str());
+					else
+						dump_sigspec(f, ff.sig_clr[i]);
+
 				} else if (ff.has_arst) {
 					f << stringf(", %sedge ", ff.pol_arst ? "pos" : "neg");
-					dump_sigspec(f, ff.sig_arst);
+					if (ff.sig_arst[i].wire == NULL)
+						f << stringf("%s", sig_arst_name.c_str());
+					else
+						dump_sigspec(f, ff.sig_arst);
 				}
 				f << stringf(")\n");
 
 				f << stringf("%s" "  ", indent.c_str());
 				if (ff.has_sr) {
 					f << stringf("if (%s", ff.pol_clr ? "" : "!");
-					dump_sigspec(f, ff.sig_clr[i]);
+					if (ff.sig_clr[i].wire == NULL)
+						f << stringf("%s", sig_clr_name.c_str());
+					else
+						dump_sigspec(f, ff.sig_clr[i]);
 					f << stringf(") %s <= 1'b0;\n", reg_bit_name.c_str());
 					f << stringf("%s" "  else if (%s", indent.c_str(), ff.pol_set ? "" : "!");
-					dump_sigspec(f, ff.sig_set[i]);
+					if (ff.sig_set[i].wire == NULL)
+						f << stringf("%s", sig_set_name.c_str());
+					else
+						dump_sigspec(f, ff.sig_set[i]);
 					f << stringf(") %s <= 1'b1;\n", reg_bit_name.c_str());
 					f << stringf("%s" "  else ", indent.c_str());
 				} else if (ff.has_arst) {
 					f << stringf("if (%s", ff.pol_arst ? "" : "!");
-					dump_sigspec(f, ff.sig_arst);
+					if (ff.sig_arst[i].wire == NULL)
+						f << stringf("%s", sig_arst_name.c_str());
+					else
+						dump_sigspec(f, ff.sig_arst);
 					f << stringf(") %s <= ", reg_bit_name.c_str());
 					dump_sigspec(f, val_arst);
 					f << stringf(";\n");
