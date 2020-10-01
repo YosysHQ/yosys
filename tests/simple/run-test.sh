@@ -17,5 +17,4 @@ if ! command -v iverilog > /dev/null ; then
   exit 1
 fi
 
-shopt -s nullglob
 exec ${MAKE:-make} -f ../tools/autotest.mk $seed *.{sv,v}

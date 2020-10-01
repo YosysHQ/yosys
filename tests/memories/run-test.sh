@@ -9,12 +9,12 @@ while getopts "A:S:" opt
 do
     case "$opt" in
 	A) abcopt="-A $OPTARG" ;;
-	S) seed="-S $OPTARG" ;;
+	S) seed="$OPTARG" ;;
     esac
 done
 shift "$((OPTIND-1))"
 
-bash ../tools/autotest.sh $abcopt $seed -G *.v
+${MAKE:-make} -f ../tools/autotest.mk SEED="$seed" EXTRA_FLAGS="$abcopt" *.v
 
 for f in `egrep -l 'expect-(wr-ports|rd-ports|rd-clk)' *.v`; do
 	echo -n "Testing expectations for $f .."
