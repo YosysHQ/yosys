@@ -1891,6 +1891,9 @@ cell_parameter:
 		astbuf1->children.push_back(node);
 		node->children.push_back($1);
 	} |
+	'.' TOK_ID '(' ')' {
+		// just ignore empty parameters
+	} |
 	'.' TOK_ID '(' expr ')' {
 		AstNode *node = new AstNode(AST_PARASET);
 		node->str = *$2;
