@@ -21,6 +21,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
 #include "kernel/log.h"
+#include "libs/sha1/sha1.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -864,6 +865,21 @@ void VerificImporter::merge_past_ffs(pool<RTLIL::Cell*> &candidates)
 		merge_past_ffs_clock(it.second, it.first.first, it.first.second);
 }
 
+static std::string sha1_if_contain_spaces(std::string str)
+{
+	if(str.find_first_of(' ') != std::string::npos) {
+		std::size_t open = str.find_first_of('(');
+		std::size_t closed = str.find_last_of(')');
+		if (open != std::string::npos && closed != std::string::npos) {
+			std::string content = str.substr(open + 1, closed - open - 1);
+			return str.substr(0, open + 1) + sha1(content) + str.substr(closed);
+		} else {
+			return sha1(str);
+		}
+	}
+	return str;
+}
+
 void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*> &nl_todo, bool norename)
 {
 	std::string netlist_name = nl->GetAtt(" \\top") ? nl->CellBaseName() : nl->Owner()->Name();
@@ -877,7 +893,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 			module_name += nl->Name();
 			module_name += ")";
 		}
-		module_name = "\\" + module_name;
+		module_name = "\\" + sha1_if_contain_spaces(module_name);
 	}
 
 	netlist = nl;
@@ -1512,7 +1528,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 				inst_type += inst->View()->Name();
 				inst_type += ")";
 			}
-			inst_type = "\\" + inst_type;
+			inst_type = "\\" + sha1_if_contain_spaces(inst_type);
 		}
 
 		RTLIL::Cell *cell = module->addCell(inst_name, inst_type);
