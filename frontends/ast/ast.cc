@@ -336,6 +336,12 @@ void AstNode::dumpAst(FILE *f, std::string indent) const
 			fprintf(f, " %d", v);
 		fprintf(f, " ]");
 	}
+	if (!multirange_swapped.empty()) {
+		fprintf(f, " multirange_swapped=[");
+		for (auto v : multirange_swapped)
+			fprintf(f, " %d", v);
+		fprintf(f, " ]");
+	}
 	if (is_enum) {
 		fprintf(f, " type=enum");
 	}

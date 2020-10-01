@@ -202,6 +202,7 @@ namespace AST
 
 		// if this is a multirange memory then this vector contains offset and length of each dimension
 		std::vector<int> multirange_dimensions;
+		std::vector<bool> multirange_swapped; // true if range is swapped, not used for structs
 
 		// this is set by simplify and used during RTLIL generation
 		AstNode *id2ast;

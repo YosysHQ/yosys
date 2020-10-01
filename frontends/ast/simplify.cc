@@ -1504,11 +1504,13 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	{
 		int total_size = 1;
 		multirange_dimensions.clear();
+		multirange_swapped.clear();
 		for (auto range : children[1]->children) {
 			if (!range->range_valid)
 				log_file_error(filename, location.first_line, "Non-constant range on memory decl.\n");
 			multirange_dimensions.push_back(min(range->range_left, range->range_right));
 			multirange_dimensions.push_back(max(range->range_left, range->range_right) - min(range->range_left, range->range_right) + 1);
+			multirange_swapped.push_back(range->range_swapped);
 			total_size *= multirange_dimensions.back();
 		}
 		delete children[1];
@@ -1521,6 +1523,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	{
 		AstNode *index_expr = nullptr;
 
+		integer = children[0]->children.size(); // save original number of dimensions for $size() etc.
 		for (int i = 0; 2*i < GetSize(id2ast->multirange_dimensions); i++)
 		{
 			if (GetSize(children[0]->children) <= i)
@@ -1719,6 +1722,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 		newNode = new AstNode(AST_IDENTIFIER, children[1]->clone());
 		newNode->str = wire_id;
+		newNode->integer = integer; // save original number of dimensions for $size() etc.
 		newNode->id2ast = wire;
 		goto apply_newNode;
 	}
@@ -2831,26 +2835,28 @@ skip_dynamic_range_lvalue_expansion:;
 				goto apply_newNode;
 			}
 
-			if (str == "\\$size" || str == "\\$bits")
+			if (str == "\\$size" || str == "\\$bits" || str == "\\$high" || str == "\\$low" || str == "\\$left" || str == "\\$right")
 			{
-				if (str == "\\$bits" && children.size() != 1)
-					log_file_error(filename, location.first_line, "System function %s got %d arguments, expected 1.\n",
-							RTLIL::unescape_id(str).c_str(), int(children.size()));
-
-				if (str == "\\$size" && children.size() != 1 && children.size() != 2)
-					log_file_error(filename, location.first_line, "System function %s got %d arguments, expected 1 or 2.\n",
-							RTLIL::unescape_id(str).c_str(), int(children.size()));
-
 				int dim = 1;
-				if (str == "\\$size" && children.size() == 2) {
-					AstNode *buf = children[1]->clone();
-					// Evaluate constant expression
-					while (buf->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
-					dim = buf->asInt(false);
-					delete buf;
+				if (str == "\\$bits") {
+					if (children.size() != 1)
+						log_file_error(filename, location.first_line, "System function %s got %d arguments, expected 1.\n",
+								RTLIL::unescape_id(str).c_str(), int(children.size()));
+				} else {
+					if (children.size() != 1 && children.size() != 2)
+						log_file_error(filename, location.first_line, "System function %s got %d arguments, expected 1 or 2.\n",
+							RTLIL::unescape_id(str).c_str(), int(children.size()));
+					if (children.size() == 2) {
+						AstNode *buf = children[1]->clone();
+						// Evaluate constant expression
+						while (buf->simplify(true, false, false, stage, width_hint, sign_hint, false)) { }
+						dim = buf->asInt(false);
+						delete buf;
+					}
 				}
 				AstNode *buf = children[0]->clone();
 				int mem_depth = 1;
+				int result, high = 0, low = 0, left = 0, right = 0, width = 1; // defaults for a simple wire
 				AstNode *id_ast = NULL;
 
 				// Is this needed?
@@ -2863,6 +2869,31 @@ skip_dynamic_range_lvalue_expansion:;
 						id_ast = current_scope.at(buf->str);
 					if (!id_ast)
 						log_file_error(filename, location.first_line, "Failed to resolve identifier %s for width detection!\n", buf->str.c_str());
+					// a slice of our identifier means we advance to the next dimension, e.g. $size(a[3])
+					if (buf->children.size() > 0) {
+						// something is hanging below this identifier
+						if (buf->children[0]->type == AST_RANGE && buf->integer == 0)
+							// if integer == 0, this node was originally created as AST_RANGE so it's dimension is 1
+							dim++;
+						// more than one range, e.g. $size(a[3][2])
+						else // created an AST_MULTIRANGE, converted to AST_RANGE, but original dimension saved in 'integer' field
+							dim += buf->integer; // increment by multirange size
+					}
+					// We have 4 cases:
+					// wire x;                ==> AST_WIRE, no AST_RANGE children
+					// wire [1:0]x;           ==> AST_WIRE, AST_RANGE children
+					// wire [1:0]x[1:0];      ==> AST_MEMORY, two AST_RANGE children (1st for packed, 2nd for unpacked)
+					// wire [1:0]x[1:0][1:0]; ==> AST_MEMORY, one AST_RANGE child (0) for packed, then AST_MULTIRANGE child (1) for unpacked
+					// (updated: actually by the time we are here, AST_MULTIRANGE is converted into one big AST_RANGE)
+					// case 0 handled by default
+					if ((id_ast->type == AST_WIRE || id_ast->type == AST_MEMORY) && id_ast->children.size() > 0) {
+						// handle packed array left/right for case 1, and cases 2/3 when requesting the last dimension (packed side)
+						AstNode *wire_range = id_ast->children[0];
+						left = wire_range->children[0]->integer;
+						right = wire_range->children[1]->integer;
+						high = max(left, right);
+						low  = min(left, right);
+					}
 					if (id_ast->type == AST_MEMORY) {
 						// We got here only if the argument is a memory
 						// Otherwise $size() and $bits() return the expression width
@@ -2875,29 +2906,58 @@ skip_dynamic_range_lvalue_expansion:;
 							} else
 								log_file_error(filename, location.first_line, "Unknown memory depth AST type in `%s'!\n", buf->str.c_str());
 						} else {
-							// $size()
+							// $size(), $left(), $right(), $high(), $low()
+							int dims = 1;
 							if (mem_range->type == AST_RANGE) {
-								if (!mem_range->range_valid)
-									log_file_error(filename, location.first_line, "Failed to detect width of memory access `%s'!\n", buf->str.c_str());
-								int dims;
-								if (id_ast->multirange_dimensions.empty())
-									dims = 1;
-								else
+								if (id_ast->multirange_dimensions.empty()) {
+									if (!mem_range->range_valid)
+										log_file_error(filename, location.first_line, "Failed to detect width of memory access `%s'!\n", buf->str.c_str());
+									if (dim == 1) {
+										left  = mem_range->range_right;
+										right = mem_range->range_left;
+										high = max(left, right);
+										low  = min(left, right);
+									}
+								} else {
 									dims = GetSize(id_ast->multirange_dimensions)/2;
-								if (dim == 1)
-									width_hint = (dims > 1) ? id_ast->multirange_dimensions[1] : (mem_range->range_left - mem_range->range_right + 1);
-								else if (dim <= dims) {
-									width_hint = id_ast->multirange_dimensions[2*dim-1];
-								} else if ((dim > dims+1) || (dim < 0))
-									log_file_error(filename, location.first_line, "Dimension %d out of range in `%s', as it only has dimensions 1..%d!\n", dim, buf->str.c_str(), dims+1);
-							} else
+									if (dim <= dims) {
+										width_hint = id_ast->multirange_dimensions[2*dim-1];
+										high = id_ast->multirange_dimensions[2*dim-2] + id_ast->multirange_dimensions[2*dim-1] - 1;
+										low  = id_ast->multirange_dimensions[2*dim-2];
+										if (id_ast->multirange_swapped[dim-1]) {
+											left = low;
+											right = high;
+										} else {
+											right = low;
+											left = high;
+										}
+									} else if ((dim > dims+1) || (dim < 0))
+										log_file_error(filename, location.first_line, "Dimension %d out of range in `%s', as it only has dimensions 1..%d!\n", dim, buf->str.c_str(), dims+1);
+								}
+							} else {
 								log_file_error(filename, location.first_line, "Unknown memory depth AST type in `%s'!\n", buf->str.c_str());
+							}
 						}
 					}
+					width = high - low + 1;
+				} else {
+					width = width_hint;
 				}
 				delete buf;
-
-				newNode = mkconst_int(width_hint * mem_depth, false);
+				if (str == "\\$high")
+					result = high;
+				else if (str == "\\$low")
+					result = low;
+				else if (str == "\\$left")
+					result = left;
+				else if (str == "\\$right")
+					result = right;
+				else if (str == "\\$size")
+					result = width;
+				else {
+					result = width * mem_depth;
+				}
+				newNode = mkconst_int(result, false);
 				goto apply_newNode;
 			}
 
