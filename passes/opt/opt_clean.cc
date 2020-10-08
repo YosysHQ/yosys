@@ -55,7 +55,7 @@ struct keep_cache_t
 		if (!module->get_bool_attribute(ID::keep)) {
 		    bool found_keep = false;
 		    for (auto cell : module->cells())
-			if (query(cell, true /* ignore_specify_mem */)) {
+			if (query(cell, true /* ignore_specify */)) {
 			    found_keep = true;
 			    break;
 			}
@@ -70,12 +70,12 @@ struct keep_cache_t
 		return cache[module];
 	}
 
-	bool query(Cell *cell, bool ignore_specify_mem = false)
+	bool query(Cell *cell, bool ignore_specify = false)
 	{
 		if (cell->type.in(ID($assert), ID($assume), ID($live), ID($fair), ID($cover)))
 			return true;
 
-		if (!ignore_specify_mem && cell->type.in(ID($memwr), ID($meminit), ID($specify2), ID($specify3), ID($specrule)))
+		if (!ignore_specify && cell->type.in(ID($specify2), ID($specify3), ID($specrule)))
 			return true;
 
 		if (cell->has_keep_attr())
@@ -95,6 +95,8 @@ int count_rm_cells, count_rm_wires;
 void rmunused_module_cells(Module *module, bool verbose)
 {
 	SigMap sigmap(module);
+	dict<IdString, pool<Cell*>> mem2cells;
+	pool<IdString> mem_unused;
 	pool<Cell*> queue, unused;
 	pool<SigBit> used_raw_bits;
 	dict<SigBit, pool<Cell*>> wire2driver;
@@ -105,6 +107,17 @@ void rmunused_module_cells(Module *module, bool verbose)
 		for (int i = 0; i < GetSize(it.second); i++) {
 			if (it.second[i].wire != nullptr)
 				raw_sigmap.add(it.first[i], it.second[i]);
+		}
+	}
+
+	for (auto &it : module->memories) {
+		mem_unused.insert(it.first);
+	}
+
+	for (Cell *cell : module->cells()) {
+		if (cell->type.in(ID($memwr), ID($meminit))) {
+			IdString mem_id = cell->getParam(ID::MEMID).decode_string();
+			mem2cells[mem_id].insert(cell);
 		}
 	}
 
@@ -145,15 +158,31 @@ void rmunused_module_cells(Module *module, bool verbose)
 	while (!queue.empty())
 	{
 		pool<SigBit> bits;
-		for (auto cell : queue)
-		for (auto &it : cell->connections())
-			if (!ct_all.cell_known(cell->type) || ct_all.cell_input(cell->type, it.first))
-				for (auto bit : sigmap(it.second))
-					bits.insert(bit);
+		pool<IdString> mems;
+		for (auto cell : queue) {
+			for (auto &it : cell->connections())
+				if (!ct_all.cell_known(cell->type) || ct_all.cell_input(cell->type, it.first))
+					for (auto bit : sigmap(it.second))
+						bits.insert(bit);
+
+			if (cell->type == ID($memrd)) {
+				IdString mem_id = cell->getParam(ID::MEMID).decode_string();
+				if (mem_unused.count(mem_id)) {
+					mem_unused.erase(mem_id);
+					mems.insert(mem_id);
+				}
+			}
+		}
 
 		queue.clear();
+
 		for (auto bit : bits)
 		for (auto c : wire2driver[bit])
+			if (unused.count(c))
+				queue.insert(c), unused.erase(c);
+
+		for (auto mem : mems)
+		for (auto c : mem2cells[mem])
 			if (unused.count(c))
 				queue.insert(c), unused.erase(c);
 	}
@@ -166,6 +195,14 @@ void rmunused_module_cells(Module *module, bool verbose)
 		module->design->scratchpad_set_bool("opt.did_something", true);
 		module->remove(cell);
 		count_rm_cells++;
+	}
+
+	for (auto it : mem_unused)
+	{
+		if (verbose)
+			log_debug("  removing unused memory `%s'.\n", it.c_str());
+		delete module->memories.at(it);
+		module->memories.erase(it);
 	}
 
 	for (auto &it : module->cells_) {
