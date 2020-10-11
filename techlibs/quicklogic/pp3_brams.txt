@@ -37,8 +37,8 @@ endbram
 
 match $__QUICKLOGIC_RAMB16K
 #  attribute ram_style=block ram_block
-  min bits 4096
-  min efficiency 50
+  min bits 128
+  min efficiency 2
 #  shuffle_enable B
   make_transp
   or_next_if_better
@@ -46,8 +46,8 @@ endmatch
 
 match $__QUICKLOGIC_RAMB8K
 #  attribute ram_style=block ram_block
-  min bits 4096
-  min efficiency 50
+  min bits 128
+  min efficiency 2
 #  shuffle_enable B
   make_transp
 endmatch
