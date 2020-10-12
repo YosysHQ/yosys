@@ -55,7 +55,7 @@ USING_YOSYS_NAMESPACE
 #  error "Only Symbiotic EDA flavored Verific is supported. Please contact office@symbioticeda.com for commercial support for Yosys+Verific."
 #endif
 
-#if SYMBIOTIC_VERIFIC_API_VERSION < 20200901
+#if SYMBIOTIC_VERIFIC_API_VERSION < 20200902
 #  error "Please update your version of Symbiotic EDA flavored Verific."
 #endif
 
@@ -2203,6 +2203,9 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("Application options:\n");
 		log("\n");
+		log("    -module <module>\n");
+		log("        Run formal application only on specified module.\n");
+		log("\n");
 		log("    -blacklist <filename[:lineno]>\n");
 		log("        Do not run application on modules from files that match the filename\n");
 		log("        or filename and line number if provided in such format.\n");
@@ -2491,8 +2494,11 @@ struct VerificPass : public Pass {
 			goto check_error;
 		}
 
-		if (argidx+1 < GetSize(args) && args[argidx] == "-app")
+		if (argidx < GetSize(args) && args[argidx] == "-app")
 		{
+			if (!(argidx+1 < GetSize(args)))
+				cmd_error(args, argidx, "No formal application specified.\n");
+
 			VerificFormalApplications vfa;
 			auto apps = vfa.GetApps();
 			std::string app = args[++argidx];
@@ -2500,15 +2506,42 @@ struct VerificPass : public Pass {
 			if (apps.find(app) == apps.end())
 				log_cmd_error("Application '%s' does not exist.\n", app.c_str());
 
+			FormalApplication *application = apps[app];
+			application->setLogger([](std::string msg) { log("%s",msg.c_str()); } );
+			VeriModule *selected_module = nullptr;
+
 			for (argidx++; argidx < GetSize(args); argidx++) {
-				if (args[argidx] == "-blacklist" && argidx+1 < GetSize(args)) {
+				std::string error;
+				if (application->checkParams(args, argidx, error)) {
+					if (!error.empty())
+						cmd_error(args, argidx, error);
+					continue;
+				}
+
+				if (args[argidx] == "-module" && argidx < GetSize(args)) {
+					if (!(argidx+1 < GetSize(args)))
+						cmd_error(args, argidx+1, "No module name specified.\n");
+					std::string module = args[++argidx];
+					VeriLibrary* veri_lib = veri_file::GetLibrary(work.c_str(), 1);
+					selected_module = veri_lib ? veri_lib->GetModule(module.c_str(), 1) : nullptr;
+					if (!selected_module) {
+						log_error("Can't find module '%s'.\n", module.c_str());
+					}
+					continue;
+				}
+				if (args[argidx] == "-blacklist" && argidx < GetSize(args)) {
+					if (!(argidx+1 < GetSize(args)))
+						cmd_error(args, argidx+1, "No blacklist specified.\n");
+
 					std::string line = args[++argidx];
 					std::string p;
 					while (!(p = next_token(line, ",\t\r\n ")).empty())
 						blacklists.push_back(p);
 					continue;
 				}
-				if (args[argidx] == "-blfile" && argidx+1 < GetSize(args)) {
+				if (args[argidx] == "-blfile" && argidx < GetSize(args)) {
+					if (!(argidx+1 < GetSize(args)))
+						cmd_error(args, argidx+1, "No blacklist file specified.\n");
 					std::string fn = args[++argidx];
 					std::ifstream f(fn);
 					if (f.fail())
@@ -2525,12 +2558,32 @@ struct VerificPass : public Pass {
 			}
 			if (argidx < GetSize(args))
 				cmd_error(args, argidx, "unknown option/parameter");
+
+			application->setBlacklists(&blacklists);
+			application->setSingleModuleMode(selected_module!=nullptr);
+
+			const char *err = application->validate();
+			if (err)
+				cmd_error(args, argidx, err);
+
 			MapIter mi;
-			VeriModule *module ;
 			VeriLibrary *veri_lib = veri_file::GetLibrary(work.c_str(), 1);
 			log("Running formal application '%s'.\n", app.c_str());
-			FOREACH_VERILOG_MODULE_IN_LIBRARY(veri_lib, mi, module) {
-				vfa.Run(module,apps[app],blacklists);
+
+			if (selected_module) {
+				std::string out;
+				if (!application->execute(selected_module, out))
+					log_error("%s", out.c_str());
+			}
+			else {
+				VeriModule *module ;
+				FOREACH_VERILOG_MODULE_IN_LIBRARY(veri_lib, mi, module) {
+					std::string out;
+					if (!application->execute(module, out)) {
+						log_error("%s", out.c_str());
+						break;
+					}
+				}
 			}
 			goto check_error;
 		}
@@ -2579,8 +2632,8 @@ struct VerificPass : public Pass {
 
 		if (argidx < GetSize(args) && args[argidx] == "-template")
 		{
-			if (!(argidx < GetSize(args)))
-				cmd_error(args, argidx, "No template type specified.\n");
+			if (!(argidx+1 < GetSize(args)))
+				cmd_error(args, argidx+1, "No template type specified.\n");
 
 			VerificTemplateGenerator vfg;
 			auto gens = vfg.GetGenerators();
@@ -2588,8 +2641,9 @@ struct VerificPass : public Pass {
 			if (gens.find(app) == gens.end())
 				log_cmd_error("Template generator '%s' does not exist.\n", app.c_str());
 			TemplateGenerator *generator = gens[app];
-			if (!(argidx < GetSize(args)))
-				cmd_error(args, argidx, "No top module specified.\n");
+			if (!(argidx+1 < GetSize(args)))
+				cmd_error(args, argidx+1, "No top module specified.\n");
+			generator->setLogger([](std::string msg) { log("%s",msg.c_str()); } );
 			
 			std::string module = args[++argidx];
 			VeriLibrary* veri_lib = veri_file::GetLibrary(work.c_str(), 1);
@@ -2604,9 +2658,19 @@ struct VerificPass : public Pass {
 			const char *out_filename = nullptr;
 
 			for (argidx++; argidx < GetSize(args); argidx++) {
-				if (generator->checkParams(args, argidx))
+				std::string error;
+				if (generator->checkParams(args, argidx, error)) {
+					if (!error.empty())
+						cmd_error(args, argidx, error);
 					continue;
-				if (args[argidx] == "-chparam"  && argidx+2 < GetSize(args)) {
+				}
+
+				if (args[argidx] == "-chparam"  && argidx < GetSize(args)) {
+					if (!(argidx+1 < GetSize(args)))
+						cmd_error(args, argidx+1, "No param name specified.\n");
+					if (!(argidx+2 < GetSize(args)))
+						cmd_error(args, argidx+2, "No param value specified.\n");
+
 					const std::string &key = args[++argidx];
 					const std::string &value = args[++argidx];
 					unsigned new_insertion = parameters.Insert(key.c_str(), value.c_str(),
@@ -2616,7 +2680,9 @@ struct VerificPass : public Pass {
 					continue;
 				}
 
-				if (args[argidx] == "-out" && argidx+1 < GetSize(args)) {
+				if (args[argidx] == "-out" && argidx < GetSize(args)) {
+					if (!(argidx+1 < GetSize(args)))
+						cmd_error(args, argidx+1, "No output file specified.\n");
 					out_filename = args[++argidx].c_str();
 					continue;
 				}
@@ -2630,7 +2696,9 @@ struct VerificPass : public Pass {
 			if (err)
 				cmd_error(args, argidx, err);
 
-			std::string val = generator->generate(veri_module, &parameters);
+			std::string val;
+			if (!generator->generate(veri_module, val, &parameters))
+				log_error("%s", val.c_str());
 
 			FILE *of = stdout;
 			if (out_filename) {
