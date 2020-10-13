@@ -60,7 +60,7 @@ module MISTRAL_FF(
     output reg Q
 );
 
-`ifdef cyclonev
+`ifdef cycloneiv
 specify
     if (ENA && ACLR !== 1'b0 && !SCLR && !SLOAD) (posedge CLK => (Q : DATAIN)) = 731;
     if (ENA && SCLR) (posedge CLK => (Q : 1'b0)) = 890;

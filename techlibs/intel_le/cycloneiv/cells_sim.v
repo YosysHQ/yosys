@@ -25,21 +25,21 @@ module GND (output G);
 endmodule // GND
 
 /* Altera Cyclone IV devices Input Buffer Primitive */
-module cyclonev_io_ibuf
+module cycloneiv_io_ibuf
   (output o, input i, input ibar);
    assign ibar = ibar;
    assign o    = i;
-endmodule // cyclonev_io_ibuf
+endmodule // cycloneiv_io_ibuf
 
 /* Altera Cyclone IV devices Output Buffer Primitive */
-module cyclonev_io_obuf
+module cycloneiv_io_obuf
   (output o, input i, input oe);
    assign o  = i;
    assign oe = oe;
-endmodule // cyclonev_io_obuf
+endmodule // cycloneiv_io_obuf
 
 /* Altera Cyclone V LUT Primitive */
-module cyclonev_lcell_comb
+module cycloneiv_lcell_comb
   (output combout, cout, sumout, shareout,
    input dataa, datab, datac, datad,
    input datae, dataf, datag, cin,
@@ -47,7 +47,7 @@ module cyclonev_lcell_comb
 
    parameter lut_mask      = 64'hFFFFFFFFFFFFFFFF;
    parameter dont_touch    = "off";
-   parameter lpm_type      = "cyclonev_lcell_comb";
+   parameter lpm_type      = "cycloneiv_lcell_comb";
    parameter shared_arith  = "off";
    parameter extended_lut  = "off";
 
@@ -121,7 +121,7 @@ module cyclonev_lcell_comb
        initial $display("Advanced ALM lut combine is not implemented yet");
    `endif
 `endif
-endmodule // cyclonev_lcell_comb
+endmodule // cycloneiv_lcell_comb
 
 
 /* Altera D Flip-Flop Primitive */

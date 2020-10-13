@@ -1,7 +1,7 @@
-`ifdef cyclonev
-`define LCELL cyclonev_lcell_comb
-`define MAC cyclonev_mac
-`define MLAB cyclonev_mlab_cell
+`ifdef cycloneiv
+`define LCELL cycloneiv_lcell_comb
+`define MAC cycloneiv_mac
+`define MLAB cycloneiv_mlab_cell
 `endif
 `ifdef cyclone10gx
 `define LCELL cyclone10gx_lcell_comb
@@ -140,7 +140,7 @@ output [CFG_DBITS-1:0] B1DATA;
 // Much like the MLAB, the M10K has mem_init[01234] parameters which would let
 // you initialise the RAM cell via hex literals. If they were implemented.
 
-cyclonev_ram_block #(
+cycloneiv_ram_block #(
     .operation_mode("dual_port"),
     .logical_ram_name(_TECHMAP_CELLNAME_),
     .port_a_address_width(CFG_ABITS),

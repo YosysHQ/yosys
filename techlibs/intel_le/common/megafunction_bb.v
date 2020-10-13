@@ -539,7 +539,7 @@ output eccstatus;
 endmodule
 
 (* blackbox *)
-module cyclonev_mlab_cell(portaaddr, portadatain, portbaddr, portbdataout, ena0, clk0, clk1);
+module cycloneiv_mlab_cell(portaaddr, portadatain, portbaddr, portbdataout, ena0, clk0, clk1);
 
 parameter logical_ram_name = "";
 parameter logical_ram_depth = 32;
@@ -562,7 +562,7 @@ input ena0, clk0, clk1;
 endmodule
 
 (* blackbox *)
-module cyclonev_mac(ax, ay, resulta);
+module cycloneiv_mac(ax, ay, resulta);
 
 parameter ax_width = 9;
 parameter signed_max = "true";
@@ -594,7 +594,7 @@ output [result_a_width-1:0] resulta;
 endmodule
 
 (* blackbox *)
-module cyclonev_ram_block(portaaddr, portadatain, portawe, portbaddr, portbdataout, portbre, clk0);
+module cycloneiv_ram_block(portaaddr, portadatain, portawe, portbaddr, portbdataout, portbre, clk0);
 
 parameter operation_mode = "dual_port";
 parameter logical_ram_name = "";

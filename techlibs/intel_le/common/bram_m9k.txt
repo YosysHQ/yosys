@@ -1,0 +1,33 @@
+bram MISTRAL_M10K
+    init   0   # TODO: Re-enable when I figure out how BRAM init works
+    abits 13   @D8192x1
+    dbits  1   @D8192x1
+    abits 12   @D4096x2
+    dbits  2   @D4096x2
+    abits 11   @D2048x4 @D2048x5
+    dbits  4   @D2048x4
+    dbits  5   @D2048x5
+    abits 10   @D1024x8 @D1024x10
+    dbits  8   @D1024x8
+    dbits 10   @D1024x10
+    abits  9   @D512x16 @D512x20
+    dbits 16   @D512x16
+    dbits 20   @D512x20
+    abits  8   @D256x32 @D256x40
+    dbits 32   @D256x32
+    dbits 40   @D256x40
+    groups 2
+    ports  1 1
+    wrmode 1 0
+    # read enable; write enable + byte enables (only for multiples of 8)
+    enable 1 1
+    transp 0 0
+    clocks 1 1
+    clkpol 1 1
+endbram
+
+
+match MISTRAL_M10K
+    min efficiency 5
+    make_transp
+endmatch

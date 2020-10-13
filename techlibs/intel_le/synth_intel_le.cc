@@ -62,9 +62,6 @@ struct SynthIntelLEPass : public ScriptPass {
 		log("        from label is synonymous to 'begin', and empty to label is\n");
 		log("        synonymous to the end of the command list.\n");
 		log("\n");
-		log("    -nolutram\n");
-		log("        do not use LUT RAM cells in output netlist\n");
-		log("\n");
 		log("    -nobram\n");
 		log("        do not use block RAM cells in output netlist\n");
 		log("\n");
@@ -77,17 +74,16 @@ struct SynthIntelLEPass : public ScriptPass {
 	}
 
 	string top_opt, family_opt, bram_type, vout_file;
-	bool flatten, quartus, nolutram, nobram, dff, nodsp;
+	bool flatten, quartus, nobram, dff, nodsp;
 
 	void clear_flags() override
 	{
 		top_opt = "-auto-top";
 		family_opt = "cycloneiv";
-		bram_type = "m10k";
+		bram_type = "m9k";
 		vout_file = "";
 		flatten = true;
 		quartus = false;
-		nolutram = false;
 		nobram = false;
 		dff = false;
 		nodsp = false;
@@ -123,10 +119,6 @@ struct SynthIntelLEPass : public ScriptPass {
 			}
 			if (args[argidx] == "-quartus") {
 				quartus = true;
-				continue;
-			}
-			if (args[argidx] == "-nolutram") {
-				nolutram = true;
 				continue;
 			}
 			if (args[argidx] == "-nobram") {
@@ -174,9 +166,9 @@ struct SynthIntelLEPass : public ScriptPass {
 		}
 
 		if (check_label("begin")) {
-			if (family_opt == "cyclonev")
+			if (family_opt == "cycloneiv")
 				run(stringf("read_verilog -sv -lib +/intel_le/%s/cells_sim.v", family_opt.c_str()));
-			run(stringf("read_verilog -specify -lib -D %s +/intel_le/common/alm_sim.v", family_opt.c_str()));
+			run(stringf("read_verilog -specify -lib -D %s +/intel_le/common/le_sim.v", family_opt.c_str()));
 			run(stringf("read_verilog -specify -lib -D %s +/intel_le/common/dff_sim.v", family_opt.c_str()));
 			run(stringf("read_verilog -specify -lib -D %s +/intel_le/common/dsp_sim.v", family_opt.c_str()));
 			run(stringf("read_verilog -specify -lib -D %s +/intel_le/common/mem_sim.v", family_opt.c_str()));
@@ -204,11 +196,11 @@ struct SynthIntelLEPass : public ScriptPass {
 			run("peepopt");
 			run("opt_clean");
 			run("share");
-			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=4");
+			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=6");
 			run("opt_expr");
 			run("opt_clean");
 			run("alumacc");
-			run("techmap -map +/intel_le/common/arith_alm_map.v -map +/intel_le/common/dsp_map.v");
+			run("techmap -map +/intel_le/common/arith_le_map.v -map +/intel_le/common/dsp_map.v");
 			run("opt");
 			run("memory -nomap");
 			run("opt_clean");
@@ -218,10 +210,6 @@ struct SynthIntelLEPass : public ScriptPass {
 			run(stringf("memory_bram -rules +/intel_le/common/bram_%s.txt", bram_type.c_str()));
 			if (help_mode || bram_type != "m9k")
 				run(stringf("techmap -map +/intel_le/common/bram_%s_map.v", bram_type.c_str()));
-		}
-
-		if (!nolutram && check_label("map_lutram", "(skip if -nolutram)")) {
-			run("memory_bram -rules +/intel_le/common/lutram_mlab.txt", "(for Cyclone IV )");
 		}
 
 		if (check_label("map_ffram")) {
@@ -241,7 +229,7 @@ struct SynthIntelLEPass : public ScriptPass {
 			run("techmap -map +/intel_le/common/abc9_map.v");
 			run(stringf("abc9 %s -maxlut 6 -W 600", help_mode ? "[-dff]" : dff ? "-dff" : ""));
 			run("techmap -map +/intel_le/common/abc9_unmap.v");
-			run("techmap -map +/intel_le/common/alm_map.v");
+			run("techmap -map +/intel_le/common/le_map.v");
 			run("opt -fast");
 			run("autoname");
 			run("clean");

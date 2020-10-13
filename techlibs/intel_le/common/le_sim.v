@@ -82,7 +82,7 @@ module MISTRAL_ALUT6(input A, B, C, D, E, F, output Q);
 
 parameter [63:0] LUT = 64'h0000_0000_0000_0000;
 
-`ifdef cyclonev
+`ifdef cycloneiv
 specify
     (A => Q) = 605;
     (B => Q) = 583;
@@ -113,7 +113,7 @@ module MISTRAL_ALUT5(input A, B, C, D, E, output Q);
 
 parameter [31:0] LUT = 32'h0000_0000;
 
-`ifdef cyclonev
+`ifdef cycloneiv
 specify
     (A => Q) = 583;
     (B => Q) = 510;
@@ -142,7 +142,7 @@ module MISTRAL_ALUT4(input A, B, C, D, output Q);
 
 parameter [15:0] LUT = 16'h0000;
 
-`ifdef cyclonev
+`ifdef cycloneiv
 specify
     (A => Q) = 510;
     (B => Q) = 512;
@@ -169,7 +169,7 @@ module MISTRAL_ALUT3(input A, B, C, output Q);
 
 parameter [7:0] LUT = 8'h00;
 
-`ifdef cyclonev
+`ifdef cycloneiv
 specify
     (A => Q) = 510;
     (B => Q) = 400;
@@ -194,7 +194,7 @@ module MISTRAL_ALUT2(input A, B, output Q);
 
 parameter [3:0] LUT = 4'h0;
 
-`ifdef cyclonev
+`ifdef cycloneiv
 specify
     (A => Q) = 400;
     (B => Q) = 97;
@@ -215,7 +215,7 @@ endmodule
 (* abc9_lut=1, lib_whitebox *)
 module MISTRAL_NOT(input A, output Q);
 
-`ifdef cyclonev
+`ifdef cycloneiv
 specify
     (A => Q) = 97;
 endspecify
@@ -236,7 +236,7 @@ module MISTRAL_ALUT_ARITH(input A, B, C, D0, D1, (* abc9_carry *) input CI, outp
 parameter LUT0 = 16'h0000;
 parameter LUT1 = 16'h0000;
 
-`ifdef cyclonev
+`ifdef cycloneiv
 specify
     (A  => SO) = 1342;
     (B  => SO) = 1323;
