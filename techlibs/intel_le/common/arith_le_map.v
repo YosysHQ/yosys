@@ -30,7 +30,8 @@ wire [Y_WIDTH-1:0] AA = A_buf;
 wire [Y_WIDTH-1:0] BB = BI ? ~B_buf : B_buf;
 (* force_downto *)
 wire [Y_WIDTH-1:0] BX = B_buf;
-wire [Y_WIDTH:0] ALM_CARRY;
+wire [Y_WIDTH-1:0] BSUM;
+wire [Y_WIDTH:0] LE_CARRY;
 
 // Start of carry chain
 generate
@@ -53,15 +54,23 @@ genvar i;
 generate for (i = 0; i < Y_WIDTH; i = i + 1) begin:slice
     // TODO: mwk suggests that a pass could merge pre-adder logic into this.
     MISTRAL_ALUT_ARITH #(
-        .LUT0(16'b1010_1010_1010_1010), // Q = A
-        .LUT1(16'b1100_0011_1100_0011), // Q = C ? B : ~B (LUT1's input to the adder is inverted)
+        .LUT0(16'b0110_0110_0110_0110) // Q = A ? ~B : B
     ) alm_i (
-        .A(AA[i]), .B(BX[i]), .C(BI), .D0(1'b1), .D1(1'b1),
-        .CI(ALM_CARRY[i]),
-        .SO(Y[i]),
-        .CO(ALM_CARRY[i+1])
+        .A(BI), .B(BX[i]), .C(1'b0), .D(1'b0),
+        .CI(1'b0),
+        .SO(BSUM[i]),
+        .CO()
     );
-
+    MISTRAL_ALUT_ARITH #(
+    		.LUT0(16'b1010_1010_1010_1010), // SUM = A xor B xor CI
+    		// CARRYi+1 = A and B or A and CI or B and CI 
+    		.sum_lutc_input("cin")
+    	) alm_start (
+    		.A(AA[i]), .B(BX[i]), .C(1'b1), .D(1'b1),
+    		.CI(LE_CARRY),
+    		.SO(Y[i]),
+    		.CO(ALM_CARRY[i+1])
+    	);
     // ALM carry chain is not directly accessible, so calculate the carry through soft logic if really needed.
     assign CO[i] = (AA[i] && BB[i]) || ((Y[i] ^ AA[i] ^ BB[i]) && (AA[i] || BB[i]));
 end endgenerate

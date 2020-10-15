@@ -38,22 +38,19 @@ module cycloneiv_io_obuf
    assign oe = oe;
 endmodule // cycloneiv_io_obuf
 
-/* Altera Cyclone V LUT Primitive */
+/* Altera Cyclone IV LUT Primitive */
 module cycloneiv_lcell_comb
-  (output combout, cout, sumout, shareout,
+  (output combout, cout, 
    input dataa, datab, datac, datad,
-   input datae, dataf, datag, cin,
-   input sharein);
+   input datae, dataf, datag, cin);
 
-   parameter lut_mask      = 64'hFFFFFFFFFFFFFFFF;
+   parameter lut_mask      = 16'hFFFF;
    parameter dont_touch    = "off";
    parameter lpm_type      = "cycloneiv_lcell_comb";
-   parameter shared_arith  = "off";
-   parameter extended_lut  = "off";
+   
 
    // Internal variables
-   // Sub mask for fragmented LUTs
-   wire [15:0] mask_a, mask_b, mask_c, mask_d;
+   
    // Independent output for fragmented LUTs
    wire        output_0, output_1, output_2, output_3;
    // Extended mode uses mux to define the output
@@ -104,23 +101,7 @@ module cycloneiv_lcell_comb
    endfunction // lut6
 
    assign {mask_a, mask_b, mask_c, mask_d} = {lut_mask[15:0], lut_mask[31:16], lut_mask[47:32], lut_mask[63:48]};
-`ifdef ADVANCED_ALM
-   always @(*) begin
-      if(extended_lut == "on")
-        shared_lut_alm = datag;
-      else
-        shared_lut_alm = datac;
-      // Build the ALM behaviour
-      out_0 = lut4(mask_a, dataa, datab, datac, datad);
-      out_1 = lut4(mask_b, dataa, datab, shared_lut_alm, datad);
-      out_2 = lut4(mask_c, dataa, datab, datac, datad);
-      out_3 = lut4(mask_d, dataa, datab, shared_lut_alm, datad);
-   end
-`else
-   `ifdef DEBUG
-       initial $display("Advanced ALM lut combine is not implemented yet");
-   `endif
-`endif
+
 endmodule // cycloneiv_lcell_comb
 
 
