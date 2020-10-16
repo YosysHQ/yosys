@@ -21,6 +21,9 @@
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
 
+#include <ctime>
+#include <iomanip>
+
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
