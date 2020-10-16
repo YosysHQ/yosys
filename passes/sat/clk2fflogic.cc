@@ -21,6 +21,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/ffinit.h"
 #include "kernel/ff.h"
+#include "kernel/mem.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -84,89 +85,65 @@ struct Clk2fflogicPass : public Pass {
 			SigMap sigmap(module);
 			FfInitVals initvals(&sigmap, module);
 
-			for (auto cell : vector<Cell*>(module->selected_cells()))
+			for (auto &mem : Mem::get_selected_memories(module))
 			{
-				if (cell->type.in(ID($mem)))
-				{
-					int abits = cell->getParam(ID::ABITS).as_int();
-					int width = cell->getParam(ID::WIDTH).as_int();
-					int rd_ports = cell->getParam(ID::RD_PORTS).as_int();
-					int wr_ports = cell->getParam(ID::WR_PORTS).as_int();
-
-					for (int i = 0; i < rd_ports; i++) {
-						if (cell->getParam(ID::RD_CLK_ENABLE).extract(i).as_bool())
-							log_error("Read port %d of memory %s.%s is clocked. This is not supported by \"clk2fflogic\"! "
-									"Call \"memory\" with -nordff to avoid this error.\n", i, log_id(cell), log_id(module));
-					}
-
-					Const wr_clk_en_param = cell->getParam(ID::WR_CLK_ENABLE);
-					Const wr_clk_pol_param = cell->getParam(ID::WR_CLK_POLARITY);
-
-					SigSpec wr_clk_port = cell->getPort(ID::WR_CLK);
-					SigSpec wr_en_port = cell->getPort(ID::WR_EN);
-					SigSpec wr_addr_port = cell->getPort(ID::WR_ADDR);
-					SigSpec wr_data_port = cell->getPort(ID::WR_DATA);
-
-					for (int wport = 0; wport < wr_ports; wport++)
-					{
-						bool clken = wr_clk_en_param[wport] == State::S1;
-						bool clkpol = wr_clk_pol_param[wport] == State::S1;
-
-						if (!clken)
-							continue;
-
-						SigBit clk = wr_clk_port[wport];
-						SigSpec en = wr_en_port.extract(wport*width, width);
-						SigSpec addr = wr_addr_port.extract(wport*abits, abits);
-						SigSpec data = wr_data_port.extract(wport*width, width);
-
-						log("Modifying write port %d on memory %s.%s: CLK=%s, A=%s, D=%s\n",
-								wport, log_id(module), log_id(cell), log_signal(clk),
-								log_signal(addr), log_signal(data));
-
-						Wire *past_clk = module->addWire(NEW_ID);
-						past_clk->attributes[ID::init] = clkpol ? State::S1 : State::S0;
-						module->addFf(NEW_ID, clk, past_clk);
-
-						SigSpec clock_edge_pattern;
-
-						if (clkpol) {
-							clock_edge_pattern.append(State::S0);
-							clock_edge_pattern.append(State::S1);
-						} else {
-							clock_edge_pattern.append(State::S1);
-							clock_edge_pattern.append(State::S0);
-						}
-
-						SigSpec clock_edge = module->Eqx(NEW_ID, {clk, SigSpec(past_clk)}, clock_edge_pattern);
-
-						SigSpec en_q = module->addWire(NEW_ID, GetSize(en));
-						module->addFf(NEW_ID, en, en_q);
-
-						SigSpec addr_q = module->addWire(NEW_ID, GetSize(addr));
-						module->addFf(NEW_ID, addr, addr_q);
-
-						SigSpec data_q = module->addWire(NEW_ID, GetSize(data));
-						module->addFf(NEW_ID, data, data_q);
-
-						wr_clk_port[wport] = State::S0;
-						wr_en_port.replace(wport*width, module->Mux(NEW_ID, Const(0, GetSize(en_q)), en_q, clock_edge));
-						wr_addr_port.replace(wport*abits, addr_q);
-						wr_data_port.replace(wport*width, data_q);
-
-						wr_clk_en_param[wport] = State::S0;
-						wr_clk_pol_param[wport] = State::S0;
-					}
-
-					cell->setParam(ID::WR_CLK_ENABLE, wr_clk_en_param);
-					cell->setParam(ID::WR_CLK_POLARITY, wr_clk_pol_param);
-
-					cell->setPort(ID::WR_CLK, wr_clk_port);
-					cell->setPort(ID::WR_EN, wr_en_port);
-					cell->setPort(ID::WR_ADDR, wr_addr_port);
-					cell->setPort(ID::WR_DATA, wr_data_port);
+				for (int i = 0; i < GetSize(mem.rd_ports); i++) {
+					auto &port = mem.rd_ports[i];
+					if (port.clk_enable)
+						log_error("Read port %d of memory %s.%s is clocked. This is not supported by \"clk2fflogic\"! "
+								"Call \"memory\" with -nordff to avoid this error.\n", i, log_id(mem.memid), log_id(module));
 				}
 
+				for (int i = 0; i < GetSize(mem.wr_ports); i++)
+				{
+					auto &port = mem.wr_ports[i];
+
+					if (!port.clk_enable)
+						continue;
+
+					log("Modifying write port %d on memory %s.%s: CLK=%s, A=%s, D=%s\n",
+							i, log_id(module), log_id(mem.memid), log_signal(port.clk),
+							log_signal(port.addr), log_signal(port.data));
+
+					Wire *past_clk = module->addWire(NEW_ID);
+					past_clk->attributes[ID::init] = port.clk_polarity ? State::S1 : State::S0;
+					module->addFf(NEW_ID, port.clk, past_clk);
+
+					SigSpec clock_edge_pattern;
+
+					if (port.clk_polarity) {
+						clock_edge_pattern.append(State::S0);
+						clock_edge_pattern.append(State::S1);
+					} else {
+						clock_edge_pattern.append(State::S1);
+						clock_edge_pattern.append(State::S0);
+					}
+
+					SigSpec clock_edge = module->Eqx(NEW_ID, {port.clk, SigSpec(past_clk)}, clock_edge_pattern);
+
+					SigSpec en_q = module->addWire(NEW_ID, GetSize(port.en));
+					module->addFf(NEW_ID, port.en, en_q);
+
+					SigSpec addr_q = module->addWire(NEW_ID, GetSize(port.addr));
+					module->addFf(NEW_ID, port.addr, addr_q);
+
+					SigSpec data_q = module->addWire(NEW_ID, GetSize(port.data));
+					module->addFf(NEW_ID, port.data, data_q);
+
+					port.clk = State::S0;
+					port.en = module->Mux(NEW_ID, Const(0, GetSize(en_q)), en_q, clock_edge);
+					port.addr = addr_q;
+					port.data = data_q;
+
+					port.clk_enable = false;
+					port.clk_polarity = false;
+				}
+
+				mem.emit();
+			}
+
+			for (auto cell : vector<Cell*>(module->selected_cells()))
+			{
 				SigSpec qval;
 				if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
 					FfData ff(&initvals, cell);
