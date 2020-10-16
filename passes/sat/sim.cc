@@ -633,6 +633,7 @@ struct SimWorker : SimShared
 	SimInstance *top = nullptr;
 	std::ofstream vcdfile;
 	pool<IdString> clock, clockn, reset, resetn;
+	std::string timescale;
 
 	~SimWorker()
 	{
@@ -643,6 +644,15 @@ struct SimWorker : SimShared
 	{
 		if (!vcdfile.is_open())
 			return;
+
+		vcdfile << stringf("$version %s $end\n", yosys_version_str);
+		vcdfile << stringf("$date ");
+		std::time_t t = std::time(nullptr);
+		vcdfile << std::put_time(std::localtime(&t), "%c %Z");
+		vcdfile << stringf(" $end\n");
+
+		if (!timescale.empty())
+			vcdfile << stringf("$timescale %s $end\n", timescale.c_str());
 
 		int id = 1;
 		top->write_vcd_header(vcdfile, id);
@@ -783,6 +793,9 @@ struct SimPass : public Pass {
 		log("    -zinit\n");
 		log("        zero-initialize all uninitialized regs and memories\n");
 		log("\n");
+		log("    -timescale <string>\n");
+		log("        include the specified timescale declaration in the vcd\n");
+		log("\n");
 		log("    -n <integer>\n");
 		log("        number of cycles to simulate (default: 20)\n");
 		log("\n");
@@ -831,6 +844,10 @@ struct SimPass : public Pass {
 			}
 			if (args[argidx] == "-resetn" && argidx+1 < args.size()) {
 				worker.resetn.insert(RTLIL::escape_id(args[++argidx]));
+				continue;
+			}
+			if (args[argidx] == "-timescale" && argidx+1 < args.size()) {
+				worker.timescale = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-a") {
