@@ -1,0 +1,19 @@
+read_verilog ../common/lutram.v
+hierarchy -top lutram_1w1r
+proc
+memory -nomap
+equiv_opt -run :prove -map +/nexus/cells_sim.v synth_nexus
+memory
+opt -full
+
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -seq 5 -set-init-zero -show-inputs -show-outputs miter
+
+design -load postopt
+cd lutram_1w1r
+stat
+select -assert-count 8 t:WIDEFN9
+select -assert-count 16 t:LUT4
+select -assert-count 8 t:DPR16X4
+select -assert-count 36 t:FD1P3IX
+select -assert-none t:DPR16X4 t:FD1P3IX t:WIDEFN9 t:LUT4 t:INV t:IB t:OB t:VLO t:VHI %% t:* %D
