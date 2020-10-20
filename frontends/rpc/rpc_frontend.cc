@@ -401,10 +401,11 @@ struct RpcFrontend : public Pass {
 			std::string arg = args[argidx];
 			if (arg == "-exec" && argidx+1 < args.size()) {
 				command.insert(command.begin(), args.begin() + argidx + 1, args.end());
+				argidx = args.size()-1;
 				continue;
 			}
 			if (arg == "-path" && argidx+1 < args.size()) {
-				path = args[argidx+1];
+				path = args[++argidx];
 				continue;
 			}
 			break;
