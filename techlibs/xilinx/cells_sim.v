@@ -2335,6 +2335,8 @@ parameter integer PREG = 1;
 
 // The multiplier.
 wire signed [35:0] P_MULT;
+wire signed [17:0] A_MULT;
+wire signed [17:0] B_MULT;
 assign P_MULT = A_MULT * B_MULT;
 
 // The cascade output.
@@ -2373,8 +2375,6 @@ always @(posedge CLK) begin
 end
 
 // The register enables.
-wire signed [17:0] A_MULT;
-wire signed [17:0] B_MULT;
 assign A_MULT = (AREG == 1) ? A_REG : A;
 assign B_MULT = (BREG == 1) ? B_REG : B_MUX;
 assign P = (PREG == 1) ? P_REG : P_MULT;
