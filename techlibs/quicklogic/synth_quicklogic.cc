@@ -60,13 +60,18 @@ struct SynthQuickLogicPass : public ScriptPass {
         log("    -adder\n");
         log("        use adder cells in output netlist\n");
         log("\n");
+        log("    -vpr\n");
+        log("        generate an output netlist (and BLIF file) suitable for VPR\n");
+        log("        (this feature is experimental and incomplete)\n");
+        log("\n");
+        log("\n");
         log("The following commands are executed by this synthesis command:\n");
         help_script();
         log("\n");
     }
 
     string top_opt, edif_file, blif_file, family, currmodule;
-    bool inferAdder;
+    bool inferAdder, vpr;
     bool abcOpt;
 
     void clear_flags() YS_OVERRIDE
@@ -78,6 +83,7 @@ struct SynthQuickLogicPass : public ScriptPass {
         family = "pp3";
         inferAdder = false;
         abcOpt = true;
+        vpr=false;
     }
 
     void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -110,6 +116,10 @@ struct SynthQuickLogicPass : public ScriptPass {
             }
             if (args[argidx] == "-no_abc_opt") {
                 abcOpt = false;
+                continue;
+            }
+            if (args[argidx] == "-vpr") {
+                vpr = true;
                 continue;
             }
             break;
@@ -269,7 +279,11 @@ struct SynthQuickLogicPass : public ScriptPass {
         if (check_label("map_cells")) {
 
             std::string techMapArgs = " -map +/quicklogic/" + family + "_cells_map.v";
-            techMapArgs += " -map +/quicklogic/" + family + "_lut_map.v";
+            if(vpr && family != "pp3") {
+                techMapArgs += " -D NO_LUT -map +/quicklogic/" + family + "_lut_map.v";
+            } else {
+                techMapArgs += " -map +/quicklogic/" + family + "_lut_map.v";
+            }
             run("techmap" + techMapArgs);
             run("clean");
             run("quicklogic_eqn");
@@ -308,8 +322,18 @@ struct SynthQuickLogicPass : public ScriptPass {
         }
 
         if (check_label("blif")) {
-            if (!blif_file.empty() || help_mode)
-                run(stringf("write_blif %s %s", top_opt.c_str(), blif_file.c_str()));
+            if (!blif_file.empty() || help_mode) {
+                if(vpr && family != "pp3") {
+                    run(stringf("opt_clean -purge"),
+                            "                                 (vpr mode)");
+                    run(stringf("write_blif -attr -cname -conn -param %s",
+                                help_mode ? "<file-name>" : blif_file.c_str()),
+                            " (vpr mode)");
+
+                } else {
+                    run(stringf("write_blif -attr -param %s %s", top_opt.c_str(), blif_file.c_str()));
+                }
+            }
         }
 
     }
