@@ -22,7 +22,6 @@
 #include "kernel/celltypes.h"
 
 #include <ctime>
-#include <iomanip>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -649,10 +648,12 @@ struct SimWorker : SimShared
 			return;
 
 		vcdfile << stringf("$version %s $end\n", yosys_version_str);
-		vcdfile << stringf("$date ");
+
 		std::time_t t = std::time(nullptr);
-		vcdfile << std::put_time(std::localtime(&t), "%c %Z");
-		vcdfile << stringf(" $end\n");
+		char mbstr[255];
+		if (std::strftime(mbstr, sizeof(mbstr), "%c", std::localtime(&t))) {
+			vcdfile << stringf("$date ") << mbstr << stringf(" $end\n");
+		}
 
 		if (!timescale.empty())
 			vcdfile << stringf("$timescale %s $end\n", timescale.c_str());
