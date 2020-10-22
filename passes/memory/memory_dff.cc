@@ -46,8 +46,15 @@ struct MemoryDffWorker
 	{
 		sigmap.apply(sig);
 
+		dict<SigBit, SigBit> cache;
+
 		for (auto &bit : sig)
 		{
+			if (cache.count(bit)) {
+				bit = cache[bit];
+				continue;
+			}
+
 			if (bit.wire == NULL)
 				continue;
 
@@ -103,6 +110,7 @@ struct MemoryDffWorker
 						d = module->Mux(NEW_ID, rbit, d, cell->getPort(ID::SRST));
 				}
 
+				cache[bit] = d;
 				bit = d;
 				clk = this_clk;
 				clk_polarity = this_clk_polarity;
