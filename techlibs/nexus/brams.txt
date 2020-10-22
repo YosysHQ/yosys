@@ -35,6 +35,7 @@ match $__NX_PDP16K
   min bits 2048
   min efficiency 5
   shuffle_enable A
+  make_transp
   or_next_if_better
 endmatch
 
@@ -46,6 +47,7 @@ match $__NX_PDP16K
   attribute !logic_block
   min wports 1
   shuffle_enable A
+  make_transp
   or_next_if_better
 endmatch
 
@@ -56,5 +58,6 @@ match $__NX_PDP16K
   attribute !ram_block
   attribute !logic_block
   max wports 0
+  make_transp
   shuffle_enable A
 endmatch
