@@ -21,6 +21,7 @@
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/ffinit.h"
+#include "kernel/mem.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -210,16 +211,17 @@ struct MemoryDffWorker
 			}
 	}
 
-	void handle_rd_cell(RTLIL::Cell *cell)
+	void handle_rd_port(Mem &mem, int idx)
 	{
-		log("Checking cell `%s' in module `%s': ", cell->name.c_str(), module->name.c_str());
+		auto &port = mem.rd_ports[idx];
+		log("Checking read port `%s'[%d] in module `%s': ", mem.memid.c_str(), idx, module->name.c_str());
 
 		bool clk_polarity = 0;
 		bool en_polarity = 0;
 
 		RTLIL::SigSpec clk_data = RTLIL::SigSpec(RTLIL::State::Sx);
 		RTLIL::SigSpec en_data;
-		RTLIL::SigSpec sig_data = cell->getPort(ID::DATA);
+		RTLIL::SigSpec sig_data = port.data;
 
 		for (auto bit : sigmap(sig_data))
 			if (sigbit_users_count[bit] > 1)
@@ -230,28 +232,30 @@ struct MemoryDffWorker
 			if (!en_polarity)
 				en_data = module->LogicNot(NEW_ID, en_data);
 			disconnect_dff(sig_data);
-			cell->setPort(ID::CLK, clk_data);
-			cell->setPort(ID::EN, en_data);
-			cell->setPort(ID::DATA, sig_data);
-			cell->parameters[ID::CLK_ENABLE] = RTLIL::Const(1);
-			cell->parameters[ID::CLK_POLARITY] = RTLIL::Const(clk_polarity);
-			cell->parameters[ID::TRANSPARENT] = RTLIL::Const(0);
+			port.clk = clk_data;
+			port.en = en_data;
+			port.data = sig_data;
+			port.clk_enable = true;
+			port.clk_polarity = clk_polarity;
+			port.transparent = false;
+			mem.emit();
 			log("merged data $dff to cell.\n");
 			return;
 		}
 
 	skip_ff_after_read_merging:;
 		RTLIL::SigSpec clk_addr = RTLIL::SigSpec(RTLIL::State::Sx);
-		RTLIL::SigSpec sig_addr = cell->getPort(ID::ADDR);
+		RTLIL::SigSpec sig_addr = port.addr;
 		if (find_sig_before_dff(sig_addr, clk_addr, clk_polarity) &&
 				clk_addr != RTLIL::SigSpec(RTLIL::State::Sx))
 		{
-			cell->setPort(ID::CLK, clk_addr);
-			cell->setPort(ID::EN, State::S1);
-			cell->setPort(ID::ADDR, sig_addr);
-			cell->parameters[ID::CLK_ENABLE] = RTLIL::Const(1);
-			cell->parameters[ID::CLK_POLARITY] = RTLIL::Const(clk_polarity);
-			cell->parameters[ID::TRANSPARENT] = RTLIL::Const(1);
+			port.clk = clk_addr;
+			port.en = State::S1;
+			port.addr = sig_addr;
+			port.clk_enable = true;
+			port.clk_polarity = clk_polarity;
+			port.transparent = true;
+			mem.emit();
 			log("merged address $dff to cell.\n");
 			return;
 		}
@@ -286,9 +290,12 @@ struct MemoryDffWorker
 						sigbit_users_count[bit]++;
 		}
 
-		for (auto cell : module->selected_cells())
-			if (cell->type == ID($memrd) && !cell->parameters[ID::CLK_ENABLE].as_bool())
-				handle_rd_cell(cell);
+		for (auto &mem : Mem::get_selected_memories(module)) {
+			for (int i = 0; i < GetSize(mem.rd_ports); i++) {
+				if (!mem.rd_ports[i].clk_enable)
+					handle_rd_port(mem, i);
+			}
+		}
 	}
 };
 
