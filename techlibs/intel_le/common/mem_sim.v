@@ -74,7 +74,7 @@ assign B1DATA = mem[B1ADDR];
 
 endmodule
 
-// The M10K
+// The M9K
 // --------
 // TODO
 

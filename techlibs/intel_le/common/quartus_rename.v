@@ -3,11 +3,6 @@
 `define MAC cycloneiv_mac
 `define MLAB cycloneiv_mlab_cell
 `endif
-`ifdef cyclone10gx
-`define LCELL cyclone10gx_lcell_comb
-`define MAC cyclone10gx_mac
-`define MLAB cyclone10gx_mlab_cell
-`endif
 
 module __MISTRAL_VCC(output Q);
 
@@ -30,20 +25,6 @@ dffeas #(.power_up("low"), .is_wysiwyg("true")) _TECHMAP_REPLACE_ (.d(DATAIN), .
 endmodule
 
 
-module MISTRAL_ALUT6(input A, B, C, D, E, F, output Q);
-parameter [63:0] LUT = 64'h0000_0000_0000_0000;
-
-`LCELL #(.lut_mask(LUT)) _TECHMAP_REPLACE_ (.dataa(A), .datab(B), .datac(C), .datad(D), .datae(E), .dataf(F), .combout(Q));
-
-endmodule
-
-
-module MISTRAL_ALUT5(input A, B, C, D, E, output Q);
-parameter [31:0] LUT = 32'h0000_0000;
-
-`LCELL #(.lut_mask({2{LUT}})) _TECHMAP_REPLACE_ (.dataa(A), .datab(B), .datac(C), .datad(D), .datae(E), .combout(Q));
-
-endmodule
 
 
 module MISTRAL_ALUT4(input A, B, C, D, output Q);
@@ -77,11 +58,10 @@ NOT _TECHMAP_REPLACE_ (.IN(A), .OUT(Q));
 endmodule
 
 
-module MISTRAL_ALUT_ARITH(input A, B, C, D0, D1, CI, output SO, CO);
-parameter LUT0 = 16'h0000;
-parameter LUT1 = 16'h0000;
+module MISTRAL_ALUT_ARITH(input A, B, C, D, CI, output SO, CO);
+parameter LUT = 16'h0000;
 
-`LCELL #(.lut_mask({16'h0, LUT1, 16'h0, LUT0})) _TECHMAP_REPLACE_ (.dataa(A), .datab(B), .datac(C), .datad(D0), .dataf(D1), .cin(CI), .sumout(SO), .cout(CO));
+`LCELL #(.lut_mask({16'h0, LUT})) _TECHMAP_REPLACE_ (.dataa(A), .datab(B), .datac(C), .datad(D), .cin(CI), .sumout(SO), .cout(CO));
 
 endmodule
 
@@ -125,7 +105,7 @@ parameter _TECHMAP_CELLNAME_ = "";
 endmodule
 
 
-module MISTRAL_M10K(A1ADDR, A1DATA, A1EN, CLK1, B1ADDR, B1DATA, B1EN);
+module MISTRAL_M9K(A1ADDR, A1DATA, A1EN, CLK1, B1ADDR, B1DATA, B1EN);
 
 parameter CFG_ABITS = 10;
 parameter CFG_DBITS = 10;
@@ -137,7 +117,7 @@ input [CFG_DBITS-1:0] A1DATA;
 input CLK1, A1EN, B1EN;
 output [CFG_DBITS-1:0] B1DATA;
 
-// Much like the MLAB, the M10K has mem_init[01234] parameters which would let
+// Much like the MLAB, the M9K has mem_init[01234] parameters which would let
 // you initialise the RAM cell via hex literals. If they were implemented.
 
 cycloneiv_ram_block #(
@@ -172,64 +152,3 @@ cycloneiv_ram_block #(
 endmodule
 
 
-module MISTRAL_MUL27X27(input [26:0] A, B, output [53:0] Y);
-
-parameter A_SIGNED = 1;
-parameter B_SIGNED = 1;
-
-`MAC #(
-    .ax_width(27),
-    .signed_max(A_SIGNED ? "true" : "false"),
-    .ay_scan_in_width(27),
-    .signed_may(B_SIGNED ? "true" : "false"),
-    .result_a_width(54),
-    .operation_mode("M27x27")
-) _TECHMAP_REPLACE_ (
-    .ax(A),
-    .ay(B),
-    .resulta(Y)
-);
-
-endmodule
-
-
-module MISTRAL_MUL18X18(input [17:0] A, B, output [35:0] Y);
-
-parameter A_SIGNED = 1;
-parameter B_SIGNED = 1;
-
-`MAC #(
-    .ax_width(18),
-    .signed_max(A_SIGNED ? "true" : "false"),
-    .ay_scan_in_width(18),
-    .signed_may(B_SIGNED ? "true" : "false"),
-    .result_a_width(36),
-    .operation_mode("M18x18_FULL")
-) _TECHMAP_REPLACE_ (
-    .ax(A),
-    .ay(B),
-    .resulta(Y)
-);
-
-endmodule
-
-
-module MISTRAL_MUL9X9(input [8:0] A, B, output [17:0] Y);
-
-parameter A_SIGNED = 1;
-parameter B_SIGNED = 1;
-
-`MAC #(
-    .ax_width(9),
-    .signed_max(A_SIGNED ? "true" : "false"),
-    .ay_scan_in_width(9),
-    .signed_may(B_SIGNED ? "true" : "false"),
-    .result_a_width(18),
-    .operation_mode("M9x9")
-) _TECHMAP_REPLACE_ (
-    .ax(A),
-    .ay(B),
-    .resulta(Y)
-);
-
-endmodule

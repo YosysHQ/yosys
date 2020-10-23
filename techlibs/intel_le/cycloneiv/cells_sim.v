@@ -1,4 +1,4 @@
-/*
+/* 
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
@@ -41,22 +41,23 @@ endmodule // cycloneiv_io_obuf
 /* Altera Cyclone IV LUT Primitive */
 module cycloneiv_lcell_comb
   (output combout, cout, 
-   input dataa, datab, datac, datad,
-   input datae, dataf, datag, cin);
+   input dataa, datab, datac, datad, cin);
 
    parameter lut_mask      = 16'hFFFF;
    parameter dont_touch    = "off";
    parameter lpm_type      = "cycloneiv_lcell_comb";
-   
+   parameter sum_lutc_input = "datac";
 
-   // Internal variables
+   reg cout_tmp;
+   reg combout_tmp;
+
+   reg [1:0] isum_lutc_input;
    
-   // Independent output for fragmented LUTs
-   wire        output_0, output_1, output_2, output_3;
-   // Extended mode uses mux to define the output
-   wire        mux_0, mux_1;
-   // Input for hold the shared LUT mode value
-   wire        shared_lut_alm;
+   wire dataa_in;
+   wire datab_in;
+   wire datac_in;
+   wire datad_in;
+   wire cin_in;
 
    // Simulation model of 4-input LUT
    function lut4;
@@ -73,35 +74,41 @@ module cycloneiv_lcell_comb
       end
    endfunction // lut4
 
-   // Simulation model of 5-input LUT
-   function lut5;
-      input [31:0] mask; // wp-01003.pdf, page 3: "a 5-LUT can be built with two 4-LUTs and a multiplexer.
-      input        dataa, datab, datac, datad, datae;
-      reg          upper_lut_value;
-      reg          lower_lut_value;
-      begin
-         upper_lut_value = lut4(mask[31:16], dataa, datab, datac, datad);
-         lower_lut_value = lut4(mask[15:0], dataa, datab, datac, datad);
-         lut5            = (datae) ? upper_lut_value : lower_lut_value;
-      end
-   endfunction // lut5
 
-   // Simulation model of 6-input LUT
-   function lut6;
-      input [63:0] mask;
-      input        dataa, datab, datac, datad, datae, dataf;
-      reg          upper_lut_value;
-      reg          lower_lut_value;
-      reg          out_0, out_1, out_2, out_3;
-      begin
-         upper_lut_value = lut5(mask[63:32], dataa, datab, datac, datad, datae);
-         lower_lut_value = lut5(mask[31:0], dataa, datab, datac, datad, datae);
-         lut6            = (dataf) ?  upper_lut_value : lower_lut_value;
-      end
-   endfunction // lut6
+   initial
+   begin
+   	if (sum_lutc_input == "datac") 
+   		isum_lutc_input = 0;
+   	else if (sum_lutc_input == "cin") 
+   		isum_lutc_input = 1;
+   	else
+   	begin
+   		$display ("Error: Invalid sum_lutc_input specified\n");
+   		$display ("Time: %0t  Instance: %m", $time);
+   		isum_lutc_input = 2;
+   	end
 
-   assign {mask_a, mask_b, mask_c, mask_d} = {lut_mask[15:0], lut_mask[31:16], lut_mask[47:32], lut_mask[63:48]};
+   end
 
+   always @(datad_in or datac_in or datab_in or dataa_in or cin_in)
+   begin
+	
+   	if (isum_lutc_input == 0) // datac 
+   	begin
+   		combout_tmp = lut4(lut_mask, dataa_in, datab_in, 
+   				datac_in, datad_in);
+   	end
+   	else if (isum_lutc_input == 1) // cin
+   	begin
+   		combout_tmp = lut4(lut_mask, dataa_in, datab_in, 
+   				cin_in, datad_in);
+   	end
+
+   	cout_tmp = lut4(lut_mask, dataa_in, datab_in, cin_in, 'b0);
+   end
+
+   and (combout, combout_tmp, 1'b1) ;
+   and (cout, cout_tmp, 1'b1) ;
 endmodule // cycloneiv_lcell_comb
 
 

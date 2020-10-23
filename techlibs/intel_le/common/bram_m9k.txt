@@ -1,21 +1,20 @@
-bram MISTRAL_M10K
+bram MISTRAL_M9K
     init   0   # TODO: Re-enable when I figure out how BRAM init works
     abits 13   @D8192x1
     dbits  1   @D8192x1
     abits 12   @D4096x2
     dbits  2   @D4096x2
-    abits 11   @D2048x4 @D2048x5
+    abits 11   @D2048x4
     dbits  4   @D2048x4
-    dbits  5   @D2048x5
-    abits 10   @D1024x8 @D1024x10
+    abits 10   @D1024x8 @D1024x9
     dbits  8   @D1024x8
-    dbits 10   @D1024x10
-    abits  9   @D512x16 @D512x20
+    dbits  9   @D1024x9
+    abits  9   @D512x16 @D512x18
     dbits 16   @D512x16
-    dbits 20   @D512x20
-    abits  8   @D256x32 @D256x40
+    dbits 18   @D512x18
+    abits  8   @D256x32 @D256x36
     dbits 32   @D256x32
-    dbits 40   @D256x40
+    dbits 36   @D256x36
     groups 2
     ports  1 1
     wrmode 1 0
