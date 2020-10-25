@@ -36,6 +36,145 @@ struct MemoryShareWorker
 	bool flag_widen;
 
 
+	// --------------------------------------------------
+	// Consolidate read ports that read the same address
+	// (or close enough to be merged to wide ports)
+	// --------------------------------------------------
+
+	// A simple function to detect ports that couldn't possibly collide
+	// because of opposite const address bits (simplistic, but enough
+	// to fix problems with inferring wide ports).
+	bool rdwr_can_collide(Mem &mem, int ridx, int widx) {
+		auto &rport = mem.rd_ports[ridx];
+		auto &wport = mem.wr_ports[widx];
+		for (int i = std::max(rport.wide_log2, wport.wide_log2); i < GetSize(rport.addr) && i < GetSize(wport.addr); i++) {
+			if (rport.addr[i] == State::S1 && wport.addr[i] == State::S0)
+				return false;
+			if (rport.addr[i] == State::S0 && wport.addr[i] == State::S1)
+				return false;
+		}
+		return true;
+	}
+
+	bool merge_rst_value(Mem &mem, Const &res, int wide_log2, const Const &src1, int sub1, const Const &src2, int sub2) {
+		res = Const(State::Sx, mem.width << wide_log2);
+		for (int i = 0; i < GetSize(src1); i++)
+			res[i + sub1 * mem.width] = src1[i];
+		for (int i = 0; i < GetSize(src2); i++) {
+			if (src2[i] == State::Sx)
+				continue;
+			auto &dst = res[i + sub2 * mem.width];
+			if (dst == src2[i])
+				continue;
+			if (dst != State::Sx)
+				return false;
+			dst = src2[i];
+		}
+		return true;
+	}
+
+	bool consolidate_rd_by_addr(Mem &mem)
+	{
+		if (GetSize(mem.rd_ports) <= 1)
+			return false;
+
+		log("Consolidating read ports of memory %s.%s by address:\n", log_id(module), log_id(mem.memid));
+
+		bool changed = false;
+		for (int i = 0; i < GetSize(mem.rd_ports); i++)
+		{
+			auto &port1 = mem.rd_ports[i];
+			if (port1.removed)
+				continue;
+			for (int j = i + 1; j < GetSize(mem.rd_ports); j++)
+			{
+				auto &port2 = mem.rd_ports[j];
+				if (port2.removed)
+					continue;
+				if (port1.clk_enable != port2.clk_enable)
+					continue;
+				if (port1.clk_enable) {
+					if (port1.clk != port2.clk)
+						continue;
+					if (port1.clk_polarity != port2.clk_polarity)
+						continue;
+				}
+				if (port1.en != port2.en)
+					continue;
+				if (port1.arst != port2.arst)
+					continue;
+				if (port1.srst != port2.srst)
+					continue;
+				if (port1.ce_over_srst != port2.ce_over_srst)
+					continue;
+				if (port1.transparent != port2.transparent)
+					continue;
+				// If the width of the ports doesn't match, they can still be
+				// merged by widening the narrow one.  Check if the conditions
+				// hold for that.
+				int wide_log2 = std::max(port1.wide_log2, port2.wide_log2);
+				if (GetSize(port1.addr) <= wide_log2)
+					continue;
+				if (GetSize(port2.addr) <= wide_log2)
+					continue;
+				if (!port1.addr.extract(0, wide_log2).is_fully_const())
+					continue;
+				if (!port2.addr.extract(0, wide_log2).is_fully_const())
+					continue;
+				if (sigmap_xmux(port1.addr.extract_end(wide_log2)) != sigmap_xmux(port2.addr.extract_end(wide_log2))) {
+					// Incompatible addresses after widening.  Last chance — widen both
+					// ports by one more bit to merge them.
+					if (!flag_widen)
+						continue;
+					wide_log2++;
+					if (sigmap_xmux(port1.addr.extract_end(wide_log2)) != sigmap_xmux(port2.addr.extract_end(wide_log2)))
+						continue;
+					if (!port1.addr.extract(0, wide_log2).is_fully_const())
+						continue;
+					if (!port2.addr.extract(0, wide_log2).is_fully_const())
+						continue;
+				}
+				// Combine init/reset values.
+				SigSpec sub1_c = port1.addr.extract(0, wide_log2);
+				log_assert(sub1_c.is_fully_const());
+				int sub1 = sub1_c.as_int();
+				SigSpec sub2_c = port2.addr.extract(0, wide_log2);
+				log_assert(sub2_c.is_fully_const());
+				int sub2 = sub2_c.as_int();
+				Const init_value, arst_value, srst_value;
+				if (!merge_rst_value(mem, init_value, wide_log2, port1.init_value, sub1, port2.init_value, sub2))
+					continue;
+				if (!merge_rst_value(mem, arst_value, wide_log2, port1.arst_value, sub1, port2.arst_value, sub2))
+					continue;
+				if (!merge_rst_value(mem, srst_value, wide_log2, port1.srst_value, sub1, port2.srst_value, sub2))
+					continue;
+				{
+					log("  Merging ports %d, %d (address %s).\n", i, j, log_signal(port1.addr));
+					mem.widen_prep(wide_log2);
+					SigSpec new_data = module->addWire(NEW_ID, mem.width << wide_log2);
+					module->connect(port1.data, new_data.extract(sub1 * mem.width, mem.width << port1.wide_log2));
+					module->connect(port2.data, new_data.extract(sub2 * mem.width, mem.width << port2.wide_log2));
+					port1.addr = sigmap_xmux(port1.addr);
+					for (int k = 0; k < wide_log2; k++)
+						port1.addr[k] = State::S0;
+					port1.init_value = init_value;
+					port1.arst_value = arst_value;
+					port1.srst_value = srst_value;
+					port1.wide_log2 = wide_log2;
+					port1.data = new_data;
+					port2.removed = true;
+					changed = true;
+				}
+			}
+		}
+
+		if (changed)
+			mem.emit();
+
+		return changed;
+	}
+
+
 	// ------------------------------------------------------
 	// Consolidate write ports that write to the same address
 	// (or close enough to be merged to wide ports)
@@ -370,6 +509,7 @@ struct MemoryShareWorker
 		}
 
 		for (auto &mem : memories) {
+			while (consolidate_rd_by_addr(mem));
 			while (consolidate_wr_by_addr(mem));
 		}
 
