@@ -40,7 +40,7 @@ generate
     end else begin
         MISTRAL_ALUT_ARITH #(
             .LUT(16'b1010_1010_1010_1010), // Q = A
-        ) alm_start (
+        ) le_start (
             .A(CI), .B(1'b1), .C(1'b1), .D0(1'b1), .D1(1'b1),
             .CI(1'b0),
             .SO(),
@@ -52,20 +52,25 @@ endgenerate
 // Carry chain
 genvar i;
 generate for (i = 0; i < Y_WIDTH; i = i + 1) begin:slice
-    // TODO: mwk suggests that a pass could merge pre-adder logic into this.
+    
     MISTRAL_ALUT_ARITH #(
         .LUT(16'b0110_0110_0110_0110) // Q = A ? ~B : B
-    ) alm_i (
+    ) le_not_i (
         .A(BI), .B(BX[i]), .C(1'b0), .D(1'b0),
         .CI(1'b0),
         .SO(BTOADDER[i]),
         .CO()
     );
+    
+
+
+	
+		
     MISTRAL_ALUT_ARITH #(
-    		.LUT(16'b1010_1010_1010_1010), // SUM = A xor B xor CI
+    		.LUT(16'b1001_0110_1110_1000), // SUM = A xor B xor CI
     		// CARRYi+1 = A and B or A and CI or B and CI 
-    		.sum_lutc_input("cin")
-    	) alm_start (
+    		//.sum_lutc_input("cin")
+    	) le_i (
     		.A(AA[i]), .B(BTOADDER[i]), .C(1'b1), .D(1'b1),
     		.CI(LE_CARRY[i]),
     		.SO(Y[i]),

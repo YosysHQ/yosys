@@ -234,7 +234,7 @@ endmodule
 module MISTRAL_ALUT_ARITH(input A, B, C, D, (* abc9_carry *) input CI, output SO, (* abc9_carry *) output CO);
 
 parameter LUT = 16'h0000;
-parameter sum_lutc_input = "cin";
+//parameter sum_lutc_input = "cin";
 `ifdef cycloneiv 
 specify
     (A  => SO) = 1342;
@@ -253,10 +253,13 @@ endspecify
 
 wire q0, q1;
 
-assign q0 = LUT >> sum_lutc_input == "cin" ? {D, CI, B, A}:{D, C, B, A};
-assign q1 = LUT >> sum_lutc_input == "cin" ? {'b1, CI, B, A}:{'b1, C, B, A};
+//assign q0 = LUT >> sum_lutc_input == "cin" ? {D, CI, B, A}:{D, C, B, A};
+//assign q1 = LUT >> sum_lutc_input == "cin" ? {'b0, CI, B, A}:{'b0, C, B, A};
 
-assign SO = D ? q1 : q0;
+assign q0 = LUT >> {'b0, CI, B, A};
+assign q1 = LUT >> {D, CI, B, A};
+
+assign SO = q1;
 
 assign CO = q0;
 

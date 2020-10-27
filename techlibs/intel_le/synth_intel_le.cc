@@ -170,7 +170,6 @@ struct SynthIntelLEPass : public ScriptPass {
 				run(stringf("read_verilog -sv -lib +/intel_le/%s/cells_sim.v", family_opt.c_str()));
 			run(stringf("read_verilog -specify -lib -D %s +/intel_le/common/le_sim.v", family_opt.c_str()));
 			run(stringf("read_verilog -specify -lib -D %s +/intel_le/common/dff_sim.v", family_opt.c_str()));
-			run(stringf("read_verilog -specify -lib -D %s +/intel_le/common/dsp_sim.v", family_opt.c_str()));
 			run(stringf("read_verilog -specify -lib -D %s +/intel_le/common/mem_sim.v", family_opt.c_str()));
 			run(stringf("read_verilog -specify -lib -D %s -icells +/intel_le/common/abc9_model.v", family_opt.c_str()));
 
@@ -196,11 +195,11 @@ struct SynthIntelLEPass : public ScriptPass {
 			run("peepopt");
 			run("opt_clean");
 			run("share");
-			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=6");
+			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=4");
 			run("opt_expr");
 			run("opt_clean");
 			run("alumacc");
-			run("techmap -map +/intel_le/common/arith_le_map.v -map +/intel_le/common/dsp_map.v");
+			run("techmap -map +/intel_le/common/arith_le_map.v");
 			run("opt");
 			run("memory -nomap");
 			run("opt_clean");
@@ -227,7 +226,7 @@ struct SynthIntelLEPass : public ScriptPass {
 
 		if (check_label("map_luts")) {
 			run("techmap -map +/intel_le/common/abc9_map.v");
-			run(stringf("abc9 %s -maxlut 6 -W 600", help_mode ? "[-dff]" : dff ? "-dff" : ""));
+			run(stringf("abc9 %s -maxlut 4 -W 400", help_mode ? "[-dff]" : dff ? "-dff" : ""));
 			run("techmap -map +/intel_le/common/abc9_unmap.v");
 			run("techmap -map +/intel_le/common/le_map.v");
 			run("opt -fast");
