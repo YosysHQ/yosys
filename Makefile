@@ -661,6 +661,10 @@ ifeq ($(LINK_ABC),1)
 OBJS += $(PROGRAM_PREFIX)yosys-libabc.a
 endif
 
+# prevent the CXXFLAGS set by this Makefile from reaching abc/Makefile,
+# especially the -MD flag which will break the build when CXX is clang
+unexport CXXFLAGS
+
 top-all: $(TARGETS) $(EXTRA_TARGETS)
 	@echo ""
 	@echo "  Build successful."
