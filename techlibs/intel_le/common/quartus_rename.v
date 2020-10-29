@@ -1,4 +1,4 @@
-`ifdef cycloneiv
+`ifdef cycloneiv 
 `define LCELL cycloneiv_lcell_comb
 `define MAC cycloneiv_mac
 `define MLAB cycloneiv_mlab_cell
@@ -29,24 +29,24 @@ endmodule
 
 module MISTRAL_ALUT4(input A, B, C, D, output Q);
 parameter [15:0] LUT = 16'h0000;
-
-`LCELL #(.lut_mask({4{LUT}})) _TECHMAP_REPLACE_ (.dataa(A), .datab(B), .datac(C), .datad(D), .combout(Q));
+parameter sum_lutc_input = "datac";
+`LCELL #(.lut_mask(LUT),.sum_lutc_input(sum_lutc_input)) _TECHMAP_REPLACE_ (.dataa(A), .datab(B), .datac(C), .datad(D), .combout(Q));
 
 endmodule
 
 
 module MISTRAL_ALUT3(input A, B, C, output Q);
 parameter [7:0] LUT = 8'h00;
-
-`LCELL #(.lut_mask({8{LUT}})) _TECHMAP_REPLACE_ (.dataa(A), .datab(B), .datac(C), .combout(Q));
+parameter sum_lutc_input = "datac";
+`LCELL #(.lut_mask({2{LUT}}),.sum_lutc_input(sum_lutc_input)) _TECHMAP_REPLACE_ (.dataa(A), .datab(B), .datac(C), .combout(Q));
 
 endmodule
 
 
 module MISTRAL_ALUT2(input A, B, output Q);
 parameter [3:0] LUT = 4'h0;
-
-`LCELL #(.lut_mask({16{LUT}})) _TECHMAP_REPLACE_ (.dataa(A), .datab(B), .combout(Q));
+parameter sum_lutc_input = "datac";
+`LCELL #(.lut_mask({4{LUT}}),.sum_lutc_input(sum_lutc_input)) _TECHMAP_REPLACE_ (.dataa(A), .datab(B), .combout(Q));
 
 endmodule
 
@@ -60,8 +60,8 @@ endmodule
 
 module MISTRAL_ALUT_ARITH(input A, B, C, D, CI, output SO, CO);
 parameter LUT = 16'h0000;
-
-`LCELL #(.lut_mask({16'h0, LUT})) _TECHMAP_REPLACE_ (.dataa(A), .datab(B), .datac(C), .datad(D), .cin(CI), .sumout(SO), .cout(CO));
+parameter sum_lutc_input = "datac";
+`LCELL #(.lut_mask({LUT}),.sum_lutc_input(sum_lutc_input)) _TECHMAP_REPLACE_ (.dataa(A), .datab(B), .datac(C), .datad(D), .cin(CI), .sumout(SO), .cout(CO));
 
 endmodule
 

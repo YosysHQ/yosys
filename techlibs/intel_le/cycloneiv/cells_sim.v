@@ -48,67 +48,7 @@ module cycloneiv_lcell_comb
    parameter lpm_type      = "cycloneiv_lcell_comb";
    parameter sum_lutc_input = "datac";
 
-   reg cout_tmp;
-   reg combout_tmp;
 
-   reg [1:0] isum_lutc_input;
-   
-   wire dataa_in;
-   wire datab_in;
-   wire datac_in;
-   wire datad_in;
-   wire cin_in;
-
-   // Simulation model of 4-input LUT
-   function lut4;
-      input [15:0] mask;
-      input        dataa, datab, datac, datad;
-      reg [7:0]    s3;
-      reg [3:0]    s2;
-      reg [1:0]    s1;
-      begin
-         s3   = datad ? mask[15:8] : mask[7:0];
-         s2   = datac ?   s3[7:4]  :   s3[3:0];
-         s1   = datab ?   s2[3:2]  :   s2[1:0];
-         lut4 = dataa ? s1[1] : s1[0];
-      end
-   endfunction // lut4
-
-
-   initial
-   begin
-   	if (sum_lutc_input == "datac") 
-   		isum_lutc_input = 0;
-   	else if (sum_lutc_input == "cin") 
-   		isum_lutc_input = 1;
-   	else
-   	begin
-   		$display ("Error: Invalid sum_lutc_input specified\n");
-   		$display ("Time: %0t  Instance: %m", $time);
-   		isum_lutc_input = 2;
-   	end
-
-   end
-
-   always @(datad_in or datac_in or datab_in or dataa_in or cin_in)
-   begin
-	
-   	if (isum_lutc_input == 0) // datac 
-   	begin
-   		combout_tmp = lut4(lut_mask, dataa_in, datab_in, 
-   				datac_in, datad_in);
-   	end
-   	else if (isum_lutc_input == 1) // cin
-   	begin
-   		combout_tmp = lut4(lut_mask, dataa_in, datab_in, 
-   				cin_in, datad_in);
-   	end
-
-   	cout_tmp = lut4(lut_mask, dataa_in, datab_in, cin_in, 'b0);
-   end
-
-   and (combout, combout_tmp, 1'b1) ;
-   and (cout, cout_tmp, 1'b1) ;
 endmodule // cycloneiv_lcell_comb
 
 
