@@ -1471,7 +1471,12 @@ struct AbcPass : public Pass {
 		po_map.clear();
 
 #ifdef ABCEXTERNAL
-		std::string exe_file = ABCEXTERNAL;
+		std::string exe_file;
+		if (std::getenv("ABC")) {
+			exe_file = std::getenv("ABC");
+		} else {
+			exe_file = ABCEXTERNAL;
+		}
 #else
 		std::string exe_file = proc_self_dirname() + proc_program_prefix() + "yosys-abc";
 #endif
