@@ -848,6 +848,8 @@ std::string proc_share_dirname()
 	if (check_file_exists(proc_share_path, true))
 		return proc_share_path;
 #    ifdef YOSYS_DATDIR
+	if (std::getenv("YOSYS_DATDIR"))
+		return std::getenv("YOSYS_DATDIR");
 	proc_share_path = YOSYS_DATDIR "/";
 	if (check_file_exists(proc_share_path, true))
 		return proc_share_path;
