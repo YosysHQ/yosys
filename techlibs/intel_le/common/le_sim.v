@@ -168,8 +168,6 @@ endspecify
 
 wire q0, q1;
 
-//assign q0 = LUT >> sum_lutc_input == "cin" ? {'b0, CI, B, A}:{'b0, C, B, A};
-//assign q1 = LUT >> sum_lutc_input == "cin" ? {D, CI, B, A}:{D, C, B, A};
 
 assign q0 = LUT >> {'b0, CI, B, A};
 assign q1 = LUT >> {D, CI, B, A};

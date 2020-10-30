@@ -40,16 +40,6 @@ generate
         MISTRAL_ALUT4 #(.LUT(LUT)) _TECHMAP_REPLACE_(
             .A(A[0]), .B(A[1]), .C(A[2]), .D(A[3]), .Q(Y)
         );
-    end else
-    if (WIDTH == 5) begin
-        MISTRAL_ALUT5 #(.LUT(LUT)) _TECHMAP_REPLACE_ (
-            .A(A[0]), .B(A[1]), .C(A[2]), .D(A[3]), .E(A[4]), .Q(Y)
-        );
-    end else
-    if (WIDTH == 6) begin
-        MISTRAL_ALUT6 #(.LUT(LUT)) _TECHMAP_REPLACE_ (
-            .A(A[0]), .B(A[1]), .C(A[2]), .D(A[3]), .E(A[4]), .F(A[5]), .Q(Y)
-        );
     end else begin
         wire _TECHMAP_FAIL_ = 1'b1;
     end
