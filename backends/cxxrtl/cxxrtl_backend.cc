@@ -22,6 +22,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/utils.h"
 #include "kernel/celltypes.h"
+#include "kernel/mem.h"
 #include "kernel/log.h"
 
 USING_YOSYS_NAMESPACE
@@ -2347,8 +2348,9 @@ struct CxxrtlWorker {
 					if (sync->type == RTLIL::STi)
 						has_sync_init = true;
 
-			for (auto cell : module->cells())
-				if (cell->type == ID($mem))
+			// The Mem constructor also checks for well-formedness of $meminit cells, if any.
+			for (auto &mem : Mem::get_all_memories(module))
+				if (mem.packed)
 					has_packed_mem = true;
 		}
 	}
