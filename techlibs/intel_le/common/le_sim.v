@@ -91,6 +91,14 @@ specify
     (D => Q) = 97;
 endspecify
 `endif
+`ifdef cycloneive
+	specify
+		(A => Q) = 510;
+		(B => Q) = 512;
+		(C => Q) = 400;
+		(D => Q) = 97;
+	endspecify
+`endif
 
 assign Q = LUT >> {D, C, B, A};
 
@@ -103,13 +111,19 @@ module MISTRAL_ALUT3(input A, B, C, output Q);
 parameter [7:0] LUT = 8'h00;
 
 `ifdef cycloneiv
-specify
+specify 
     (A => Q) = 510;
     (B => Q) = 400;
     (C => Q) = 97;
 endspecify
 `endif
-
+`ifdef cycloneive
+	specify 
+		(A => Q) = 510;
+		(B => Q) = 400;
+		(C => Q) = 97;
+	endspecify
+`endif
 assign Q = LUT >> {C, B, A};
 
 endmodule
@@ -126,7 +140,12 @@ specify
     (B => Q) = 97;
 endspecify
 `endif
-
+`ifdef cycloneive
+	specify
+		(A => Q) = 400;
+		(B => Q) = 97;
+	endspecify
+`endif
 assign Q = LUT >> {B, A};
 
 endmodule
@@ -135,12 +154,16 @@ endmodule
 (* abc9_lut=1, lib_whitebox *)
 module MISTRAL_NOT(input A, output Q);
 
-`ifdef cycloneiv
+`ifdef cycloneiv 
 specify
     (A => Q) = 97;
 endspecify
 `endif
-
+`ifdef cycloneive 
+		specify
+			(A => Q) = 97;
+		endspecify
+`endif
 assign Q = ~A;
 
 endmodule
@@ -149,7 +172,7 @@ endmodule
 module MISTRAL_ALUT_ARITH(input A, B, C, D, (* abc9_carry *) input CI, output SO, (* abc9_carry *) output CO);
 
 parameter LUT = 16'h0000;
-parameter sum_lutc_input = "cin";
+
 `ifdef cycloneiv 
 specify
     (A  => SO) = 1342;
@@ -165,7 +188,21 @@ specify
     (CI => CO) = 36; // Divided by 2 to account for there being two ALUT_ARITHs in an ALM)
 endspecify
 `endif
+`ifdef cycloneive 
+	specify
+		(A  => SO) = 1342;
+		(B  => SO) = 1323;
+		(C  => SO) = 927;
+		(D => SO) = 887;
+		(CI => SO) = 368;
 
+		(A  => CO) = 1082;
+		(B  => CO) = 1062;
+		(C  => CO) = 813;
+		(D => CO) = 866;
+		(CI => CO) = 36; // Divided by 2 to account for there being two ALUT_ARITHs in an ALM)
+	endspecify
+`endif
 wire q0, q1;
 
 

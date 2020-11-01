@@ -33,27 +33,31 @@ wire [Y_WIDTH-1:0] BX = B_buf;
 wire [Y_WIDTH-1:0] BTOADDER;
 wire [Y_WIDTH:0] LE_CARRY;
 
+
 // Start of carry chain
 generate
     if (_TECHMAP_CONSTMSK_CI_ == 1) begin
         assign LE_CARRY[0] = _TECHMAP_CONSTVAL_CI_;
     end else begin
+        /*
         MISTRAL_ALUT_ARITH #(
             .LUT(16'b1010_1010_1010_1010), // Q = A
-            .sum_lutc_input("cin")
+
         ) le_start (
             .A(CI), .B(1'b1), .C(1'b1), .D0(1'b1), .D1(1'b1),
             .CI(1'b0),
             .SO(),
             .CO(LE_CARRY[0])
         );
+        */
+    	assign LE_CARRY[0] = CI;
     end
 endgenerate
 
 // Carry chain
 genvar i;
 generate for (i = 0; i < Y_WIDTH; i = i + 1) begin:slice
-    
+    /*
     MISTRAL_ALUT_ARITH #(
         .LUT(16'b0110_0110_0110_0110), // Q = A ? ~B : B
         .sum_lutc_input("cin")
@@ -63,14 +67,14 @@ generate for (i = 0; i < Y_WIDTH; i = i + 1) begin:slice
         .SO(BTOADDER[i]),
         .CO()
     );
-    
+    */
 
     MISTRAL_ALUT_ARITH #(
     		.LUT(16'b1001_0110_1110_1000), // SUM = A xor B xor CI
     		// CARRYi+1 = A and B or A and CI or B and CI 
-    		.sum_lutc_input("cin")
+    		
     	) le_i (
-    		.A(AA[i]), .B(BTOADDER[i]), .C(1'b1), .D(1'b1),
+    		.A(AA[i]), .B(BB[i]), .C(1'b1), .D(1'b1),
     		.CI(LE_CARRY[i]),
     		.SO(Y[i]),
     		.CO(LE_CARRY[i+1])

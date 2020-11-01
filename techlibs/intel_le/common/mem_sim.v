@@ -1,27 +1,3 @@
-// The MLAB
-// --------
-// In addition to Logic Array Blocks (LABs) that contain ten Adaptive Logic
-// Modules (ALMs, see alm_sim.v), the Cyclone V/10GX also contain
-// Memory/Logic Array Blocks (MLABs) that can act as either ten ALMs, or utilise
-// the memory the ALM uses to store the look-up table data for general usage, 
-// producing a 32 address by 20-bit block of memory. MLABs are spread out
-// around the chip, so they can be placed near where they are needed, rather than
-// being comparatively limited in placement for a deep but narrow memory such as
-// the M10K memory block.
-//
-// MLABs are used mainly for shallow but wide memories, such as CPU register
-// files (which have perhaps 32 registers that are comparatively wide (16/32-bit))
-// or shift registers (by using the output of the Nth bit as input for the N+1th
-// bit).
-//
-// Oddly, instead of providing a block 32 address by 20-bit cell, Quartus asks
-// synthesis tools to build MLABs out of 32 address by 1-bit cells, and tries
-// to put these cells in the same MLAB during cell placement. Because of this
-// a MISTRAL_MLAB cell represents one of these 32 address by 1-bit cells, and
-// 20 of them represent a physical MLAB.
-//
-
-
 
 // The M9K
 // --------

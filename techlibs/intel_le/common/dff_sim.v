@@ -75,7 +75,7 @@ specify
     if (ACLR === 1'b0) (ACLR => Q) = 282;
 endspecify
 `endif
-`ifdef cyclone10gx
+`ifdef cycloneive 
 specify
     // TODO (long-term): investigate these numbers.
     // It seems relying on the Quartus Timing Analyzer was not the best idea; it's too fiddly.
