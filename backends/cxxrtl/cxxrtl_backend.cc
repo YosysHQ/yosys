@@ -2182,6 +2182,8 @@ struct CxxrtlWorker {
 				if (wire->name.begins_with("$") && !elide_internal) continue;
 				if (wire->name.begins_with("\\") && !elide_public) continue;
 				if (edge_wires[wire]) continue;
+				if (flow.wire_comb_defs[wire].size() > 1)
+					log_cmd_error("Wire %s.%s has multiple drivers.\n", log_id(module), log_id(wire));
 				log_assert(flow.wire_comb_defs[wire].size() == 1);
 				elided_wires[wire] = **flow.wire_comb_defs[wire].begin();
 			}
