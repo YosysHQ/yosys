@@ -35,30 +35,28 @@ struct CheckPass : public Pass {
 		log("\n");
 		log("This pass identifies the following problems in the current design:\n");
 		log("\n");
-		log(" - combinatorial loops\n");
-		log("\n");
-		log(" - two or more conflicting drivers for one wire\n");
-		log("\n");
-		log(" - used wires that do not have a driver\n");
+		log("  - combinatorial loops\n");
+		log("  - two or more conflicting drivers for one wire\n");
+		log("  - used wires that do not have a driver\n");
 		log("\n");
 		log("Options:\n");
 		log("\n");
-		log("  -noinit\n");
-		log("    Also check for wires which have the 'init' attribute set.\n");
+		log("    -noinit\n");
+		log("        also check for wires which have the 'init' attribute set\n");
 		log("\n");
-		log("  -initdrv\n");
-		log("    Also check for wires that have the 'init' attribute set and are not\n");
-		log("    driven by an FF cell type.\n");
+		log("    -initdrv\n");
+		log("        also check for wires that have the 'init' attribute set and are not\n");
+		log("        driven by an FF cell type\n");
 		log("\n");
-		log("  -mapped\n");
-		log("    Also check for internal cells that have not been mapped to cells of the\n");
-		log("    target architecture.\n");
+		log("    -mapped\n");
+		log("        also check for internal cells that have not been mapped to cells of the\n");
+		log("        target architecture\n");
 		log("\n");
-		log("  -allow-tbuf\n");
-		log("    Modify the -mapped behavior to still allow $_TBUF_ cells.\n");
+		log("    -allow-tbuf\n");
+		log("        modify the -mapped behavior to still allow $_TBUF_ cells\n");
 		log("\n");
-		log("  -assert\n");
-		log("    Produce a runtime error if any problems are found in the current design.\n");
+		log("    -assert\n");
+		log("        produce a runtime error if any problems are found in the current design\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -103,7 +101,7 @@ struct CheckPass : public Pass {
 			if (module->has_processes_warn())
 				continue;
 
-			log("checking module %s..\n", log_id(module));
+			log("Checking module %s...\n", log_id(module));
 
 			SigMap sigmap(module);
 			dict<SigBit, vector<string>> wire_drivers;
@@ -216,7 +214,7 @@ struct CheckPass : public Pass {
 			}
 		}
 
-		log("found and reported %d problems.\n", counter);
+		log("Found and reported %d problems.\n", counter);
 
 		if (assert_mode && counter > 0)
 			log_error("Found %d problems in 'check -assert'.\n", counter);
