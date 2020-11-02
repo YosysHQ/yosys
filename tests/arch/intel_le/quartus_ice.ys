@@ -8,7 +8,7 @@ module top();
 endmodule
 EOT
 
-synth_intel_le -family cyclonev -quartus
+synth_intel_le -family cycloneiv -quartus
 select -assert-none w:*[* w:*]*
 
 design -reset
@@ -22,5 +22,5 @@ module top();
 endmodule
 EOT
 
-synth_intel_le -family cyclone10gx -quartus
+synth_intel_le -family cycloneive -quartus
 select -assert-none w:*[* w:*]*

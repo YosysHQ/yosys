@@ -208,8 +208,6 @@ struct SynthIntelLEPass : public ScriptPass {
 
 		if (!nobram && check_label("map_bram", "(skip if -nobram)")) {
 			run(stringf("memory_bram -rules +/intel_le/common/bram_%s.txt", bram_type.c_str()));
-			if (help_mode || bram_type != "m9k")
-				run(stringf("techmap -map +/intel_le/common/bram_%s_map.v", bram_type.c_str()));
 		}
 
 		if (check_label("map_ffram")) {
