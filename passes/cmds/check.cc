@@ -98,9 +98,6 @@ struct CheckPass : public Pass {
 
 		for (auto module : design->selected_whole_modules_warn())
 		{
-			if (module->has_processes_warn())
-				continue;
-
 			log("Checking module %s...\n", log_id(module));
 
 			SigMap sigmap(module);
@@ -108,6 +105,44 @@ struct CheckPass : public Pass {
 			dict<SigBit, int> wire_drivers_count;
 			pool<SigBit> used_wires;
 			TopoSort<string> topo;
+
+			for (auto &proc_it : module->processes)
+			{
+				std::vector<RTLIL::CaseRule*> all_cases = {&proc_it.second->root_case};
+				for (size_t i = 0; i < all_cases.size(); i++) {
+					for (auto action : all_cases[i]->actions) {
+						for (auto bit : sigmap(action.first))
+							if (bit.wire) {
+								wire_drivers[bit].push_back(
+									stringf("action %s <= %s (case rule) in process %s",
+									        log_signal(action.first), log_signal(action.second), log_id(proc_it.first)));
+							}
+						for (auto bit : sigmap(action.second))
+							if (bit.wire) used_wires.insert(bit);
+					}
+					for (auto switch_ : all_cases[i]->switches) {
+						for (auto case_ : switch_->cases) {
+							all_cases.push_back(case_);
+							for (auto compare : case_->compare)
+								for (auto bit : sigmap(compare))
+									if (bit.wire) used_wires.insert(bit);
+						}
+					}
+				}
+				for (auto &sync : proc_it.second->syncs) {
+					for (auto bit : sigmap(sync->signal))
+						if (bit.wire) used_wires.insert(bit);
+					for (auto action : sync->actions) {
+						for (auto bit : sigmap(action.first))
+							if (bit.wire)
+								wire_drivers[bit].push_back(
+									stringf("action %s <= %s (sync rule) in process %s",
+									        log_signal(action.first), log_signal(action.second), log_id(proc_it.first)));
+						for (auto bit : sigmap(action.second))
+							if (bit.wire) used_wires.insert(bit);
+					}
+				}
+			}
 
 			for (auto cell : module->cells())
 			{
