@@ -749,7 +749,7 @@ struct TclPass : public Pass {
 #endif
 
 #if defined(__linux__) || defined(__CYGWIN__)
-std::string proc_self_dirname()
+std::string proc_self_dirname_exe()
 {
 	char path[PATH_MAX];
 	ssize_t buflen = readlink("/proc/self/exe", path, sizeof(path));
@@ -761,7 +761,7 @@ std::string proc_self_dirname()
 	return std::string(path, buflen);
 }
 #elif defined(__FreeBSD__)
-std::string proc_self_dirname()
+std::string proc_self_dirname_exe()
 {
 	int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_PATHNAME, -1};
 	size_t buflen;
@@ -781,7 +781,7 @@ std::string proc_self_dirname()
 	return path;
 }
 #elif defined(__APPLE__)
-std::string proc_self_dirname()
+std::string proc_self_dirname_exe()
 {
 	char *path = NULL;
 	uint32_t buflen = 0;
@@ -792,7 +792,7 @@ std::string proc_self_dirname()
 	return std::string(path, buflen);
 }
 #elif defined(_WIN32)
-std::string proc_self_dirname()
+std::string proc_self_dirname_exe()
 {
 	int i = 0;
 #  ifdef __MINGW32__
@@ -816,13 +816,28 @@ std::string proc_self_dirname()
 	return path;
 }
 #elif defined(EMSCRIPTEN) || defined(__wasm)
-std::string proc_self_dirname()
+std::string proc_self_dirname_exe()
 {
 	return "/";
 }
 #else
 	#error "Don't know how to determine process executable base path!"
 #endif
+
+std::string proc_self_dirname()
+{
+	if (getenv("YOSYS_HOME")) {
+		std::string home_path = getenv("YOSYS_HOME");
+#  if defined(_WIN32) && !defined(YOSYS_WIN32_UNIX_DIR)
+		home_path += "\\";
+#  else
+		home_path += "/";
+#  endif		
+		if (check_file_exists(home_path, true))
+			return home_path;
+	}
+	return proc_self_dirname_exe();
+}
 
 #if defined(EMSCRIPTEN) || defined(__wasm)
 std::string proc_share_dirname()
