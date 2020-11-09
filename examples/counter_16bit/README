@@ -1,0 +1,12 @@
+
+A simple counter_16bit example design, based on the ArcticPro2 and ArcticPro3 Family
+====================================================================================
+
+This example uses Yosys for synthesis.
+
+Running Yosys:
+  yosys run_yosys_ap2.ys
+  yosys run_yosys_ap3.ys
+
+All of the above:
+  bash run.sh

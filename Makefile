@@ -819,6 +819,10 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/rpc && bash run-test.sh
 	+cd tests/memfile && bash run-test.sh
 	+cd tests/verilog && bash run-test.sh
+	+cd examples/counter_16bit && bash run.sh
+	+cd examples/counter_16bit && bash run.sh
+	+cd examples/rs_decoder && bash run.sh
+	+cd examples/jpeg_qnr && bash run.sh
 	@echo ""
 	@echo "  Passed \"make test\"."
 	@echo ""

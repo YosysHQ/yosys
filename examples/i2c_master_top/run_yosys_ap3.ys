@@ -1,0 +1,3 @@
+read_verilog StateMachine.v i2c_master_bit_ctrl.v i2c_master_byte_ctrl.v i2c_master_defines.v i2c_master_top.v
+#Run synthesis for AP3
+synth_quicklogic -family ap3 -top i2c_master_top -edif i2c_master_top.edif
