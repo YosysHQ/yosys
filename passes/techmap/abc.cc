@@ -1470,16 +1470,7 @@ struct AbcPass : public Pass {
 		pi_map.clear();
 		po_map.clear();
 
-#ifdef ABCEXTERNAL
-		std::string exe_file;
-		if (std::getenv("ABC")) {
-			exe_file = std::getenv("ABC");
-		} else {
-			exe_file = ABCEXTERNAL;
-		}
-#else
-		std::string exe_file = proc_self_dirname() + proc_program_prefix() + "yosys-abc";
-#endif
+		std::string exe_file = yosys_abc_executable;
 		std::string script_file, liberty_file, constr_file, clk_str;
 		std::string delay_target, sop_inputs, sop_products, lutin_shared = "-S 1";
 		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
@@ -1493,13 +1484,6 @@ struct AbcPass : public Pass {
 		map_mux16 = false;
 		enabled_gates.clear();
 		cmos_cost = false;
-
-#ifdef _WIN32
-#ifndef ABCEXTERNAL
-		if (!check_file_exists(exe_file + ".exe") && check_file_exists(proc_self_dirname() + "..\\" + proc_program_prefix()+ "yosys-abc.exe"))
-			exe_file = proc_self_dirname() + "..\\" + proc_program_prefix() + "yosys-abc";
-#endif
-#endif
 
 		// get arguments from scratchpad first, then override by command arguments
 		std::string lut_arg, luts_arg, g_arg;
