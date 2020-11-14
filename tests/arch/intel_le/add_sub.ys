@@ -10,12 +10,3 @@ select -assert-none t:MISTRAL_NOT t:MISTRAL_ALUT_ARITH  %% t:* %D
 
 
 design -reset
-read_verilog ../common/add_sub.v
-hierarchy -top top
-equiv_opt -assert -map +/intel_le/common/le_sim.v synth_intel_le -family cycloneive # equivalency check
-design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
-cd top # Constrain all select calls below inside the top module
-stat
-select -assert-count 8 t:MISTRAL_ALUT_ARITH
-select -assert-count 4 t:MISTRAL_NOT
-select -assert-none t:MISTRAL_NOT t:MISTRAL_ALUT_ARITH  %% t:* %D

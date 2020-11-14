@@ -10,16 +10,6 @@ select -assert-count 1 t:MISTRAL_FF
 
 select -assert-none t:MISTRAL_FF %% t:* %D
 
-design -load read
-hierarchy -top dff
-proc
-equiv_opt -async2sync -assert -map +/intel_le/common/le_sim.v -map +/intel_le/common/dff_sim.v synth_intel_le -family cycloneive # equivalency check
-design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
-cd dff # Constrain all select calls below inside the top module
-select -assert-count 1 t:MISTRAL_FF
-
-select -assert-none t:MISTRAL_FF %% t:* %D
-
 
 design -load read
 hierarchy -top dffe
@@ -32,12 +22,3 @@ select -assert-count 1 t:MISTRAL_FF
 select -assert-none t:MISTRAL_FF %% t:* %D
 
 
-design -load read
-hierarchy -top dffe
-proc
-equiv_opt -async2sync -assert -map +/intel_le/common/le_sim.v -map +/intel_le/common/dff_sim.v synth_intel_le -family cycloneive # equivalency check
-design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
-cd dffe # Constrain all select calls below inside the top module
-select -assert-count 1 t:MISTRAL_FF
-
-select -assert-none t:MISTRAL_FF %% t:* %D

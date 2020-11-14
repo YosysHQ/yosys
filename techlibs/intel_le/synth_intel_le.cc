@@ -43,7 +43,6 @@ struct SynthIntelLEPass : public ScriptPass {
 		log("    -family <family>\n");
 		log("        target one of:\n");
 		log("        \"cycloneiv\"    - Cyclone IV (default)\n");
-		log("        \"cycloneive\"    - Cyclone IV E \n");
 		log("\n");
 		log("    -vqm <file>\n");
 		log("        write the design to the specified Verilog Quartus Mapping File. Writing of an\n");
@@ -145,7 +144,7 @@ struct SynthIntelLEPass : public ScriptPass {
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
 
-		if (family_opt == "cycloneiv" or family_opt == "cycloneive") {
+		if (family_opt == "cycloneiv") {
 			bram_type = "m9k";
 		} else {
 			log_cmd_error("Invalid family specified: '%s'\n", family_opt.c_str());
@@ -167,7 +166,7 @@ struct SynthIntelLEPass : public ScriptPass {
 		}
 
 		if (check_label("begin")) {
-			if (family_opt == "cycloneiv" or family_opt == "cycloneive")
+			if (family_opt == "cycloneiv")
 				run(stringf("read_verilog -sv -lib +/intel_le/cycloneiv/cells_sim.v"));
 			run(stringf("read_verilog -specify -lib -D %s +/intel_le/common/le_sim.v", family_opt.c_str()));
 			run(stringf("read_verilog -specify -lib -D %s +/intel_le/common/dff_sim.v", family_opt.c_str()));

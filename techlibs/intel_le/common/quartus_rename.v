@@ -2,10 +2,6 @@
 	`define LCELL cycloneiv_lcell_comb
 	`define M9K cycloneiv_ram_block
 `endif
-`ifdef cycloneive 
-	`define LCELL cycloneive_lcell_comb
-	`define M9K cycloneive_ram_block
-`endif
 
 
 module __MISTRAL_VCC(output Q);

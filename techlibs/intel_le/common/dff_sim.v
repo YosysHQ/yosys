@@ -1,10 +1,3 @@
-// The four D flip-flops (DFFs) in a Cyclone V/10GX Adaptive Logic Module (ALM)
-// act as one-bit memory cells that can be placed very flexibly (wherever there's
-// an ALM); each flop is represented by a MISTRAL_FF cell.
-//
-// The flops in these chips are rather flexible in some ways, but in practice
-// quite crippled by FPGA standards.
-//
 // What the flops can do
 // ---------------------
 // The core flop acts as a single-bit memory that initialises to zero at chip
@@ -60,7 +53,7 @@ module MISTRAL_FF(
     output reg Q
 );
 
-`ifdef cycloneiv
+`ifdef cycloneiv  
 specify
     if (ENA && ACLR !== 1'b0 && !SCLR && !SLOAD) (posedge CLK => (Q : DATAIN)) = 731;
     if (ENA && SCLR) (posedge CLK => (Q : 1'b0)) = 890;
@@ -73,23 +66,6 @@ specify
     $setup(SDATA, posedge CLK, /* -196 */ 0);
 
     if (ACLR === 1'b0) (ACLR => Q) = 282;
-endspecify
-`endif
-`ifdef cycloneive 
-specify
-    // TODO (long-term): investigate these numbers.
-    // It seems relying on the Quartus Timing Analyzer was not the best idea; it's too fiddly.
-    if (ENA && ACLR !== 1'b0 && !SCLR && !SLOAD) (posedge CLK => (Q : DATAIN)) = 219;
-    if (ENA && SCLR) (posedge CLK => (Q : 1'b0)) = 219;
-    if (ENA && !SCLR && SLOAD) (posedge CLK => (Q : SDATA)) = 219;
-
-    $setup(DATAIN, posedge CLK, 268);
-    $setup(ENA, posedge CLK, 268);
-    $setup(SCLR, posedge CLK, 268);
-    $setup(SLOAD, posedge CLK, 268);
-    $setup(SDATA, posedge CLK, 268);
-
-    if (ACLR === 1'b0) (ACLR => Q) = 0;
 endspecify
 `endif
 
