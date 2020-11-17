@@ -35,7 +35,7 @@ struct SynthMachXO2Pass : public ScriptPass
 		log("\n");
 		log("    synth_machxo2 [options]\n");
 		log("\n");
-		log("This command runs synthesis for ECP5 FPGAs.\n");
+		log("This command runs synthesis for MachXO2 FPGAs.\n");
 		log("\n");
 		log("    -top <module>\n");
 		log("        use the specified module as top module\n");
