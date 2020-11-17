@@ -2114,72 +2114,12 @@ module MULT18 (...);
     input ROUNDEN;
 endmodule
 
-module MULT18X18 (...);
-    parameter REGINPUTA = "REGISTER";
-    parameter REGINPUTB = "REGISTER";
-    parameter REGOUTPUT = "REGISTER";
-    parameter GSR = "ENABLED";
-    parameter RESETMODE = "SYNC";
-    input [17:0] A;
-    input [17:0] B;
-    input CLK;
-    input CEA;
-    input RSTA;
-    input CEB;
-    input RSTB;
-    input SIGNEDA;
-    input SIGNEDB;
-    input RSTOUT;
-    input CEOUT;
-    output [35:0] Z;
-endmodule
-
-module MULT18X36 (...);
-    parameter REGINPUTA = "REGISTER";
-    parameter REGINPUTB = "REGISTER";
-    parameter REGOUTPUT = "REGISTER";
-    parameter GSR = "ENABLED";
-    parameter RESETMODE = "SYNC";
-    input [17:0] A;
-    input [35:0] B;
-    input CLK;
-    input CEA;
-    input RSTA;
-    input CEB;
-    input RSTB;
-    input SIGNEDA;
-    input SIGNEDB;
-    input RSTOUT;
-    input CEOUT;
-    output [53:0] Z;
-endmodule
-
 module MULT36 (...);
     parameter MULT36X36 = "ENABLED";
     input [72:0] PH72;
     input [72:0] PL72;
     output [71:0] PML72;
     output [71:0] PMH72;
-endmodule
-
-module MULT36X36 (...);
-    parameter REGINPUTA = "REGISTER";
-    parameter REGINPUTB = "REGISTER";
-    parameter REGOUTPUT = "REGISTER";
-    parameter GSR = "ENABLED";
-    parameter RESETMODE = "SYNC";
-    input [35:0] A;
-    input [35:0] B;
-    input CLK;
-    input CEA;
-    input RSTA;
-    input CEB;
-    input RSTB;
-    input SIGNEDA;
-    input SIGNEDB;
-    input RSTOUT;
-    input CEOUT;
-    output [71:0] Z;
 endmodule
 
 module MULT9 (...);
@@ -2213,63 +2153,6 @@ module MULT9 (...);
     output [19:0] P18;
     input CEP;
     input RSTP;
-endmodule
-
-module MULT9X9 (...);
-    parameter REGINPUTA = "REGISTER";
-    parameter REGINPUTB = "REGISTER";
-    parameter REGOUTPUT = "REGISTER";
-    parameter GSR = "ENABLED";
-    parameter RESETMODE = "SYNC";
-    input [8:0] A;
-    input [8:0] B;
-    input CLK;
-    input CEA;
-    input RSTA;
-    input CEB;
-    input RSTB;
-    input SIGNEDA;
-    input SIGNEDB;
-    input RSTOUT;
-    input CEOUT;
-    output [17:0] Z;
-endmodule
-
-module MULTADDSUB18X18 (...);
-    parameter REGINPUTA = "REGISTER";
-    parameter REGINPUTB = "REGISTER";
-    parameter REGINPUTC = "REGISTER";
-    parameter REGADDSUB = "REGISTER";
-    parameter REGLOADC = "REGISTER";
-    parameter REGLOADC2 = "REGISTER";
-    parameter REGCIN = "REGISTER";
-    parameter REGPIPELINE = "REGISTER";
-    parameter REGOUTPUT = "REGISTER";
-    parameter GSR = "ENABLED";
-    parameter RESETMODE = "SYNC";
-    input [17:0] A;
-    input [17:0] B;
-    input [53:0] C;
-    input CLK;
-    input CEA;
-    input RSTA;
-    input CEB;
-    input RSTB;
-    input CEC;
-    input RSTC;
-    input SIGNED;
-    input RSTPIPE;
-    input CEPIPE;
-    input RSTCTRL;
-    input CECTRL;
-    input RSTCIN;
-    input CECIN;
-    input LOADC;
-    input ADDSUB;
-    output [53:0] Z;
-    input RSTOUT;
-    input CEOUT;
-    input CIN;
 endmodule
 
 module MULTADDSUB18X18WIDE (...);
@@ -2309,80 +2192,6 @@ module MULTADDSUB18X18WIDE (...);
     input CEOUT;
     input LOADC;
     input [1:0] ADDSUB;
-endmodule
-
-module MULTADDSUB18X36 (...);
-    parameter REGINPUTA = "REGISTER";
-    parameter REGINPUTB = "REGISTER";
-    parameter REGINPUTC = "REGISTER";
-    parameter REGADDSUB = "REGISTER";
-    parameter REGLOADC = "REGISTER";
-    parameter REGLOADC2 = "REGISTER";
-    parameter REGCIN = "REGISTER";
-    parameter REGPIPELINE = "REGISTER";
-    parameter REGOUTPUT = "REGISTER";
-    parameter GSR = "ENABLED";
-    parameter RESETMODE = "SYNC";
-    input [17:0] A;
-    input [35:0] B;
-    input [53:0] C;
-    input CLK;
-    input CEA;
-    input RSTA;
-    input CEB;
-    input RSTB;
-    input CEC;
-    input RSTC;
-    input RSTCTRL;
-    input CECTRL;
-    input RSTCIN;
-    input CECIN;
-    input SIGNED;
-    input RSTPIPE;
-    input CEPIPE;
-    input RSTOUT;
-    input CEOUT;
-    output [53:0] Z;
-    input LOADC;
-    input ADDSUB;
-    input CIN;
-endmodule
-
-module MULTADDSUB36X36 (...);
-    parameter REGINPUTA = "REGISTER";
-    parameter REGINPUTB = "REGISTER";
-    parameter REGINPUTC = "REGISTER";
-    parameter REGADDSUB = "REGISTER";
-    parameter REGLOADC = "REGISTER";
-    parameter REGLOADC2 = "REGISTER";
-    parameter REGCIN = "REGISTER";
-    parameter REGPIPELINE = "REGISTER";
-    parameter REGOUTPUT = "REGISTER";
-    parameter GSR = "ENABLED";
-    parameter RESETMODE = "SYNC";
-    input [35:0] A;
-    input [35:0] B;
-    input [107:0] C;
-    input CLK;
-    input CEA;
-    input RSTA;
-    input CEB;
-    input RSTB;
-    input CEC;
-    input RSTC;
-    input RSTCTRL;
-    input CECTRL;
-    input RSTCIN;
-    input CECIN;
-    input SIGNED;
-    input RSTPIPE;
-    input CEPIPE;
-    input RSTOUT;
-    input CEOUT;
-    output [107:0] Z;
-    input LOADC;
-    input ADDSUB;
-    input CIN;
 endmodule
 
 module MULTADDSUB9X9WIDE (...);
@@ -2436,56 +2245,6 @@ module MULTIBOOT (...);
     parameter SOURCESEL = "DIS";
     input AUTOREBOOT;
     input [31:0] MSPIMADDR;
-endmodule
-
-module MULTPREADD18X18 (...);
-    parameter REGINPUTA = "REGISTER";
-    parameter REGINPUTB = "REGISTER";
-    parameter REGINPUTC = "REGISTER";
-    parameter REGOUTPUT = "REGISTER";
-    parameter GSR = "ENABLED";
-    parameter RESETMODE = "SYNC";
-    input [17:0] A;
-    input [17:0] B;
-    input [17:0] C;
-    input CLK;
-    input CEA;
-    input RSTA;
-    input CEB;
-    input RSTB;
-    input CEC;
-    input RSTC;
-    input SIGNEDA;
-    input SIGNEDB;
-    input SIGNEDC;
-    input RSTOUT;
-    input CEOUT;
-    output [35:0] Z;
-endmodule
-
-module MULTPREADD9X9 (...);
-    parameter REGINPUTA = "REGISTER";
-    parameter REGINPUTB = "REGISTER";
-    parameter REGINPUTC = "REGISTER";
-    parameter REGOUTPUT = "REGISTER";
-    parameter GSR = "ENABLED";
-    parameter RESETMODE = "SYNC";
-    input [8:0] A;
-    input [8:0] B;
-    input [8:0] C;
-    input CLK;
-    input CEA;
-    input RSTA;
-    input CEB;
-    input RSTB;
-    input CEC;
-    input RSTC;
-    input SIGNEDA;
-    input SIGNEDB;
-    input SIGNEDC;
-    input RSTOUT;
-    input CEOUT;
-    output [17:0] Z;
 endmodule
 
 module ODDR71 (...);
