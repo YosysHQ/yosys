@@ -1,0 +1,10 @@
+read_verilog ../common/dffs.v
+design -save read
+
+hierarchy -top dff
+proc
+equiv_opt -assert -map +/machxo2/cells_sim.v synth_machxo2 # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd dff # Constrain all select calls below inside the top module
+select -assert-count 1 t:FACADE_FF
+select -assert-none t:FACADE_FF %% t:* %D
