@@ -8,12 +8,16 @@ module \$lut (A, Y);
 	wire [3:0] I;
 
 	generate
-		if(WIDTH == 2) begin
+		if(WIDTH == 1) begin
+			assign I = {1'b0, 1'b0, 1'b0, A[0]};
+		end else if(WIDTH == 2) begin
 			assign I = {1'b0, 1'b0, A[1], A[0]};
 		end else if(WIDTH == 3) begin
 			assign I = {1'b0, A[2], A[1], A[0]};
 		end else if(WIDTH == 4) begin
 			assign I = {A[3], A[2], A[1], A[0]};
+		end else begin
+			INVALID_LUT_WIDTH error();
 		end
 	endgenerate
 

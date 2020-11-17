@@ -42,7 +42,7 @@ module FACADE_FF #(
 
 	wire muxlsr = (LSRMUX == "INV") ? ~LSR : LSR;
 	wire muxclk = (CLKMUX == "INV") ? ~CLK : CLK;
-	assign srval = (REGSET == "SET") ? 1'b1 : 1'b0;
+	wire srval = (REGSET == "SET") ? 1'b1 : 1'b0;
 
 	generate
 		if (SRMODE == "ASYNC") begin
