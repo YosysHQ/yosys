@@ -26,7 +26,7 @@ module FACADE_FF #(
 	parameter SRMODE = "LSR_OVER_CE",
 	parameter REGSET = "SET"
 ) (
-	input CLK, D, LSR, CE,
+	input CLK, DI, LSR, CE,
 	output reg Q
 );
 
