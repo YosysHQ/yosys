@@ -2446,8 +2446,11 @@ struct VerificPass : public Pass {
 			for (auto &dir : verific_libdirs)
 				veri_file::AddYDir(dir.c_str());
 
-			while (argidx < GetSize(args))
-				file_names.Insert(args[argidx++].c_str());
+			while (argidx < GetSize(args)) {
+				std::string filename(args[argidx++]);
+				rewrite_filename(filename);
+				file_names.Insert(strdup(filename.c_str()));
+			}
 
 			if (!veri_file::AnalyzeMultipleFiles(&file_names, verilog_mode, work.c_str(), veri_file::MFCU)) {
 					verific_error_msg.clear();
@@ -2460,36 +2463,48 @@ struct VerificPass : public Pass {
 
 		if (GetSize(args) > argidx && args[argidx] == "-vhdl87") {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_1987").c_str());
-			for (argidx++; argidx < GetSize(args); argidx++)
-				if (!vhdl_file::Analyze(args[argidx].c_str(), work.c_str(), vhdl_file::VHDL_87))
-					log_cmd_error("Reading `%s' in VHDL_87 mode failed.\n", args[argidx].c_str());
+			for (argidx++; argidx < GetSize(args); argidx++) {
+				std::string filename(args[argidx]);
+				rewrite_filename(filename);
+				if (!vhdl_file::Analyze(filename.c_str(), work.c_str(), vhdl_file::VHDL_87))
+					log_cmd_error("Reading `%s' in VHDL_87 mode failed.\n", filename.c_str());
+			}
 			verific_import_pending = true;
 			goto check_error;
 		}
 
 		if (GetSize(args) > argidx && args[argidx] == "-vhdl93") {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_1993").c_str());
-			for (argidx++; argidx < GetSize(args); argidx++)
-				if (!vhdl_file::Analyze(args[argidx].c_str(), work.c_str(), vhdl_file::VHDL_93))
-					log_cmd_error("Reading `%s' in VHDL_93 mode failed.\n", args[argidx].c_str());
+			for (argidx++; argidx < GetSize(args); argidx++) {
+				std::string filename(args[argidx]);
+				rewrite_filename(filename);
+				if (!vhdl_file::Analyze(filename.c_str(), work.c_str(), vhdl_file::VHDL_93))
+					log_cmd_error("Reading `%s' in VHDL_93 mode failed.\n", filename.c_str());
+			}
 			verific_import_pending = true;
 			goto check_error;
 		}
 
 		if (GetSize(args) > argidx && args[argidx] == "-vhdl2k") {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_1993").c_str());
-			for (argidx++; argidx < GetSize(args); argidx++)
-				if (!vhdl_file::Analyze(args[argidx].c_str(), work.c_str(), vhdl_file::VHDL_2K))
-					log_cmd_error("Reading `%s' in VHDL_2K mode failed.\n", args[argidx].c_str());
+			for (argidx++; argidx < GetSize(args); argidx++) {
+				std::string filename(args[argidx]);
+				rewrite_filename(filename);
+				if (!vhdl_file::Analyze(filename.c_str(), work.c_str(), vhdl_file::VHDL_2K))
+					log_cmd_error("Reading `%s' in VHDL_2K mode failed.\n", filename.c_str());
+			}
 			verific_import_pending = true;
 			goto check_error;
 		}
 
 		if (GetSize(args) > argidx && (args[argidx] == "-vhdl2008" || args[argidx] == "-vhdl")) {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_2008").c_str());
-			for (argidx++; argidx < GetSize(args); argidx++)
-				if (!vhdl_file::Analyze(args[argidx].c_str(), work.c_str(), vhdl_file::VHDL_2008))
-					log_cmd_error("Reading `%s' in VHDL_2008 mode failed.\n", args[argidx].c_str());
+			for (argidx++; argidx < GetSize(args); argidx++) {
+				std::string filename(args[argidx]);
+				rewrite_filename(filename);
+				if (!vhdl_file::Analyze(filename.c_str(), work.c_str(), vhdl_file::VHDL_2008))
+					log_cmd_error("Reading `%s' in VHDL_2008 mode failed.\n", filename.c_str());
+			}
 			verific_import_pending = true;
 			goto check_error;
 		}
@@ -2977,6 +2992,10 @@ struct ReadPass : public Pass {
 		log("with -verific will result in an error on Yosys binaries that are built without\n");
 		log("Verific support. The default is to use Verific if it is available.\n");
 		log("\n");
+		log("\n");
+		log("    read -lib <verilog-file>..\n");
+		log("Only create empty blackbox modules. This implies -DBLACKBOX.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -3038,6 +3057,19 @@ struct ReadPass : public Pass {
 			} else {
 				cmd_error(args, 1, "This version of Yosys is built without Verific support.\n");
 			}
+			return;
+		}
+
+		if (args[1] == "-lib") {
+			if (use_verific) {
+				args[0] = "verific";
+				args[1] = "-sv";
+				args.insert(args.begin()+2, std::string());
+				args[2] = "-DBLACKBOX";
+			} else {
+				args[0] = "read_verilog";
+			}
+			Pass::call(design, args);
 			return;
 		}
 
