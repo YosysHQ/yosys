@@ -377,3 +377,567 @@ module DPR16X4(
 			mem[WAD] <= DI;
 	assign DO = mem[RAD];
 endmodule
+
+// Used for all the DSP models to reduce duplication
+module OXIDE_DSP_REG #(
+	parameter W = 18,
+	parameter USED = "REGISTER",
+	parameter RESETMODE = "SYNC"
+) (
+	input CLK, CE, RST,
+	input [W-1:0] D,
+	output reg [W-1:0] Q
+);
+	generate
+		if (USED == "BYPASS")
+			always @* Q = D;
+		else if (USED == "REGISTER") begin
+			initial Q = 0;
+			if (RESETMODE == "ASYNC")
+				always @(posedge CLK, posedge RST) begin
+					if (RST)
+						Q <= 0;
+					else if (CE)
+						Q <= D;
+				end
+			else if (RESETMODE == "SYNC")
+				always @(posedge CLK) begin
+					if (RST)
+						Q <= 0;
+					else if (CE)
+						Q <= D;
+				end
+		end
+	endgenerate
+endmodule
+
+module OXIDE_DSP_SIM #(
+	// User facing parameters
+	parameter REGINPUTA = "BYPASS",
+	parameter REGINPUTB = "BYPASS",
+	parameter REGINPUTC = "BYPASS",
+	parameter REGADDSUB = "BYPASS",
+	parameter REGLOADC = "BYPASS",
+	parameter REGLOADC2 = "BYPASS",
+	parameter REGCIN = "BYPASS",
+	parameter REGPIPELINE = "BYPASS",
+	parameter REGOUTPUT = "BYPASS",
+	parameter GSR = "ENABLED",
+	parameter RESETMODE = "SYNC",
+	// Internally used parameters
+	parameter A_WIDTH = 36,
+	parameter B_WIDTH = 36,
+	parameter C_WIDTH = 36,
+	parameter Z_WIDTH = 72,
+	parameter PREADD_USED = 0,
+	parameter ADDSUB_USED = 0
+) (
+	input [A_WIDTH-1:0] A,
+	input [B_WIDTH-1:0] B,
+	input [C_WIDTH-1:0] C,
+	input SIGNEDA,
+	input SIGNEDB,
+	input SIGNEDC,
+	input CIN,
+	input LOADC,
+	input ADDSUB,
+	input CLK,
+	input CEA, CEB, CEC, CEPIPE, CECTRL, CECIN, CEOUT,
+	input RSTA, RSTB, RSTC, RSTPIPE, RSTCTRL, RSTCIN, RSTOUT,
+	output wire [Z_WIDTH-1:0] Z
+);
+	
+	localparam M_WIDTH = (A_WIDTH+B_WIDTH);
+
+	/******** REGISTERS ********/
+
+	wire [M_WIDTH-1:0] pipe_d, pipe_q;
+	wire [Z_WIDTH-1:0] z_d;
+
+	wire [A_WIDTH-1:0] a_r;
+	wire [B_WIDTH-1:0] b_r;
+	wire [C_WIDTH-1:0] c_r, c_r2;
+	wire asgd_r, bsgd_r, csgd_r, csgd_r2;
+
+	wire addsub_r, addsub_r2, cin_r, cin_r2, sgd_r, sgd_r2;
+	wire loadc_r, loadc_r2;
+
+	OXIDE_DSP_REG #(A_WIDTH+1, REGINPUTA, RESETMODE) a_reg(CLK, CEA, RSTA, {SIGNEDA, A}, {asgd_r, a_r});
+	OXIDE_DSP_REG #(B_WIDTH+1, REGINPUTB, RESETMODE) b_reg(CLK, CEB, RSTB, {SIGNEDB, B}, {bsgd_r, b_r});
+	OXIDE_DSP_REG #(C_WIDTH+1, REGINPUTC, RESETMODE) c_reg(CLK, CEC, RSTC, {SIGNEDC, C}, {csgd_r, c_r});
+
+	OXIDE_DSP_REG #(M_WIDTH, REGPIPELINE, RESETMODE) pipe_reg(CLK, CEPIPE, RSTPIPE, pipe_d, pipe_q);
+
+	OXIDE_DSP_REG #(2, REGADDSUB, RESETMODE) addsub_reg(CLK, CECTRL, RSTCTRL, {SIGNEDA, ADDSUB}, {sgd_r, addsub_r});
+	OXIDE_DSP_REG #(1, REGLOADC, RESETMODE) loadc_reg(CLK, CECTRL, RSTCTRL, LOADC, loadc_r);
+	OXIDE_DSP_REG #(2, REGPIPELINE, RESETMODE) addsub2_reg(CLK, CECTRL, RSTCTRL, {sgd_r, addsub_r}, {sgd_r2, addsub_r2});
+	OXIDE_DSP_REG #(1, REGLOADC2, RESETMODE) loadc2_reg(CLK, CECTRL, RSTCTRL, loadc_r, loadc_r2);
+
+	OXIDE_DSP_REG #(1, REGCIN, RESETMODE) cin_reg(CLK, CECIN, RSTCIN, CIN, cin_r);
+	OXIDE_DSP_REG #(1, REGPIPELINE, RESETMODE) cin2_reg(CLK, CECIN, RSTCIN, cin_r, cin_r2);
+
+	OXIDE_DSP_REG #(C_WIDTH+1, REGPIPELINE, RESETMODE) c2_reg(CLK, CEC, RSTC, {csgd_r, c_r}, {csgd_r2, c_r2});
+
+	OXIDE_DSP_REG #(Z_WIDTH, REGOUTPUT, RESETMODE) z_reg(CLK, CEOUT, RSTOUT, z_d, Z);
+
+	/******** PREADDER ********/
+
+	wire [B_WIDTH-1:0] mult_b;
+	wire mult_b_sgd;
+
+	generate
+		if (PREADD_USED) begin
+			assign mult_b = (b_r + c_r);
+			assign mult_b_sgd = (bsgd_r | csgd_r);
+		end else begin
+			assign mult_b = b_r;
+			assign mult_b_sgd = bsgd_r;
+		end
+	endgenerate
+
+	/******** MULTIPLIER ********/
+
+	// sign extend operands if needed
+	wire [M_WIDTH-1:0] mult_a_ext = {{(M_WIDTH-A_WIDTH){asgd_r ? a_r[A_WIDTH-1] : 1'b0}}, a_r};
+	wire [M_WIDTH-1:0] mult_b_ext = {{(M_WIDTH-B_WIDTH){mult_b_sgd ? mult_b[B_WIDTH-1] : 1'b0}}, mult_b};
+
+	wire [M_WIDTH-1:0] mult_m = mult_a_ext * mult_b_ext;
+
+	/******** ACCUMULATOR ********/
+
+	wire [Z_WIDTH-1:0] m_ext;
+
+	generate
+		if (ADDSUB_USED) begin
+			assign pipe_d = mult_m;
+			assign m_ext = {{(Z_WIDTH-M_WIDTH){sgd_r2 ? pipe_q[M_WIDTH-1] : 1'b0}}, pipe_q};
+			assign z_d = (loadc_r2 ? c_r2 : Z) + cin_r2 + (addsub_r2 ? -m_ext : m_ext);  
+		end else begin
+			assign z_d = mult_m;
+		end
+	endgenerate
+
+
+endmodule
+
+module MULT9X9 #(
+	parameter REGINPUTA = "REGISTER",
+	parameter REGINPUTB = "REGISTER",
+	parameter REGOUTPUT = "REGISTER",
+	parameter GSR = "ENABLED",
+	parameter RESETMODE = "SYNC"
+) (
+	input [8:0] A,
+	input [8:0] B,
+	input CLK,
+	input CEA,
+	input RSTA,
+	input CEB,
+	input RSTB,
+	input SIGNEDA,
+	input SIGNEDB,
+	input RSTOUT,
+	input CEOUT,
+	output [17:0] Z
+);
+	OXIDE_DSP_SIM #(
+		.REGINPUTA(REGINPUTA),
+		.REGINPUTB(REGINPUTB),
+		.REGOUTPUT(REGOUTPUT),
+		.GSR(GSR),
+		.RESETMODE(RESETMODE),
+
+		.A_WIDTH(9),
+		.B_WIDTH(9),
+		.Z_WIDTH(18),
+		.PREADD_USED(0),
+		.ADDSUB_USED(0)
+	) dsp_i (
+		.A(A), .B(B),
+		.CLK(CLK),
+		.CEA(CEA), .RSTA(RSTA),
+		.CEB(CEB), .RSTB(RSTB),
+		.SIGNEDA(SIGNEDA), .SIGNEDB(SIGNEDB),
+		.RSTOUT(RSTOUT), .CEOUT(CEOUT),
+		.Z(Z)
+	);
+endmodule
+
+module MULT18X18 #(
+	parameter REGINPUTA = "REGISTER",
+	parameter REGINPUTB = "REGISTER",
+	parameter REGOUTPUT = "REGISTER",
+	parameter GSR = "ENABLED",
+	parameter RESETMODE = "SYNC"
+) (
+	input [17:0] A,
+	input [17:0] B,
+	input CLK,
+	input CEA,
+	input RSTA,
+	input CEB,
+	input RSTB,
+	input SIGNEDA,
+	input SIGNEDB,
+	input RSTOUT,
+	input CEOUT,
+	output [35:0] Z
+);
+	OXIDE_DSP_SIM #(
+		.REGINPUTA(REGINPUTA),
+		.REGINPUTB(REGINPUTB),
+		.REGOUTPUT(REGOUTPUT),
+		.GSR(GSR),
+		.RESETMODE(RESETMODE),
+
+		.A_WIDTH(18),
+		.B_WIDTH(18),
+		.Z_WIDTH(36),
+		.PREADD_USED(0),
+		.ADDSUB_USED(0)
+	) dsp_i (
+		.A(A), .B(B),
+		.CLK(CLK),
+		.CEA(CEA), .RSTA(RSTA),
+		.CEB(CEB), .RSTB(RSTB),
+		.SIGNEDA(SIGNEDA), .SIGNEDB(SIGNEDB),
+		.RSTOUT(RSTOUT), .CEOUT(CEOUT),
+		.Z(Z)
+	);
+endmodule
+
+module MULT18X36 #(
+	parameter REGINPUTA = "REGISTER",
+	parameter REGINPUTB = "REGISTER",
+	parameter REGOUTPUT = "REGISTER",
+	parameter GSR = "ENABLED",
+	parameter RESETMODE = "SYNC"
+) (
+	input [17:0] A,
+	input [35:0] B,
+	input CLK,
+	input CEA,
+	input RSTA,
+	input CEB,
+	input RSTB,
+	input SIGNEDA,
+	input SIGNEDB,
+	input RSTOUT,
+	input CEOUT,
+	output [53:0] Z
+);
+	OXIDE_DSP_SIM #(
+		.REGINPUTA(REGINPUTA),
+		.REGINPUTB(REGINPUTB),
+		.REGOUTPUT(REGOUTPUT),
+		.GSR(GSR),
+		.RESETMODE(RESETMODE),
+
+		.A_WIDTH(18),
+		.B_WIDTH(36),
+		.Z_WIDTH(54),
+		.PREADD_USED(0),
+		.ADDSUB_USED(0)
+	) dsp_i (
+		.A(A), .B(B),
+		.CLK(CLK),
+		.CEA(CEA), .RSTA(RSTA),
+		.CEB(CEB), .RSTB(RSTB),
+		.SIGNEDA(SIGNEDA), .SIGNEDB(SIGNEDB),
+		.RSTOUT(RSTOUT), .CEOUT(CEOUT),
+		.Z(Z)
+	);
+endmodule
+
+module MULT36X36 #(
+	parameter REGINPUTA = "REGISTER",
+	parameter REGINPUTB = "REGISTER",
+	parameter REGOUTPUT = "REGISTER",
+	parameter GSR = "ENABLED",
+	parameter RESETMODE = "SYNC"
+) (
+	input [35:0] A,
+	input [35:0] B,
+	input CLK,
+	input CEA,
+	input RSTA,
+	input CEB,
+	input RSTB,
+	input SIGNEDA,
+	input SIGNEDB,
+	input RSTOUT,
+	input CEOUT,
+	output [71:0] Z
+);
+	OXIDE_DSP_SIM #(
+		.REGINPUTA(REGINPUTA),
+		.REGINPUTB(REGINPUTB),
+		.REGOUTPUT(REGOUTPUT),
+		.GSR(GSR),
+		.RESETMODE(RESETMODE),
+
+		.A_WIDTH(36),
+		.B_WIDTH(36),
+		.Z_WIDTH(72),
+		.PREADD_USED(0),
+		.ADDSUB_USED(0)
+	) dsp_i (
+		.A(A), .B(B),
+		.CLK(CLK),
+		.CEA(CEA), .RSTA(RSTA),
+		.CEB(CEB), .RSTB(RSTB),
+		.SIGNEDA(SIGNEDA), .SIGNEDB(SIGNEDB),
+		.RSTOUT(RSTOUT), .CEOUT(CEOUT),
+		.Z(Z)
+	);
+endmodule
+
+
+module MULTPREADD9X9 #(
+	parameter REGINPUTA = "REGISTER",
+	parameter REGINPUTB = "REGISTER",
+	parameter REGINPUTC = "REGISTER",
+	parameter REGOUTPUT = "REGISTER",
+	parameter GSR = "ENABLED",
+	parameter RESETMODE = "SYNC"
+) (
+	input [8:0] A,
+	input [8:0] B,
+	input [8:0] C,
+	input CLK,
+	input CEA,
+	input RSTA,
+	input CEB,
+	input RSTB,
+	input CEC,
+	input RSTC,
+	input SIGNEDA,
+	input SIGNEDB,
+	input SIGNEDC,
+	input RSTOUT,
+	input CEOUT,
+	output [17:0] Z
+);
+	OXIDE_DSP_SIM #(
+		.REGINPUTA(REGINPUTA),
+		.REGINPUTB(REGINPUTB),
+		.REGINPUTC(REGINPUTC),
+		.REGOUTPUT(REGOUTPUT),
+		.GSR(GSR),
+		.RESETMODE(RESETMODE),
+
+		.A_WIDTH(9),
+		.B_WIDTH(9),
+		.C_WIDTH(9),
+		.Z_WIDTH(18),
+		.PREADD_USED(1),
+		.ADDSUB_USED(0)
+	) dsp_i (
+		.A(A), .B(B), .C(C),
+		.CLK(CLK),
+		.CEA(CEA), .RSTA(RSTA),
+		.CEB(CEB), .RSTB(RSTB),
+		.CEC(CEC), .RSTC(RSTC),
+		.SIGNEDA(SIGNEDA), .SIGNEDB(SIGNEDB), .SIGNEDC(SIGNEDC),
+		.RSTOUT(RSTOUT), .CEOUT(CEOUT),
+		.Z(Z)
+	);
+endmodule
+
+
+module MULTPREADD18X18 #(
+	parameter REGINPUTA = "REGISTER",
+	parameter REGINPUTB = "REGISTER",
+	parameter REGINPUTC = "REGISTER",
+	parameter REGOUTPUT = "REGISTER",
+	parameter GSR = "ENABLED",
+	parameter RESETMODE = "SYNC"
+) (
+	input [17:0] A,
+	input [17:0] B,
+	input [17:0] C,
+	input CLK,
+	input CEA,
+	input RSTA,
+	input CEB,
+	input RSTB,
+	input CEC,
+	input RSTC,
+	input SIGNEDA,
+	input SIGNEDB,
+	input SIGNEDC,
+	input RSTOUT,
+	input CEOUT,
+	output [35:0] Z
+);
+	OXIDE_DSP_SIM #(
+		.REGINPUTA(REGINPUTA),
+		.REGINPUTB(REGINPUTB),
+		.REGINPUTC(REGINPUTC),
+		.REGOUTPUT(REGOUTPUT),
+		.GSR(GSR),
+		.RESETMODE(RESETMODE),
+
+		.A_WIDTH(18),
+		.B_WIDTH(18),
+		.C_WIDTH(18),
+		.Z_WIDTH(36),
+		.PREADD_USED(1),
+		.ADDSUB_USED(0)
+	) dsp_i (
+		.A(A), .B(B), .C(C),
+		.CLK(CLK),
+		.CEA(CEA), .RSTA(RSTA),
+		.CEB(CEB), .RSTB(RSTB),
+		.CEC(CEC), .RSTC(RSTC),
+		.SIGNEDA(SIGNEDA), .SIGNEDB(SIGNEDB), .SIGNEDC(SIGNEDC),
+		.RSTOUT(RSTOUT), .CEOUT(CEOUT),
+		.Z(Z)
+	);
+endmodule
+
+
+module MULTADDSUB18X18 #(
+	parameter REGINPUTA = "REGISTER",
+	parameter REGINPUTB = "REGISTER",
+	parameter REGINPUTC = "REGISTER",
+	parameter REGADDSUB = "REGISTER",
+	parameter REGLOADC = "REGISTER",
+	parameter REGLOADC2 = "REGISTER",
+	parameter REGCIN = "REGISTER",
+	parameter REGPIPELINE = "REGISTER",
+	parameter REGOUTPUT = "REGISTER",
+	parameter GSR = "ENABLED",
+	parameter RESETMODE = "SYNC"
+) (
+	input [17:0] A,
+	input [17:0] B,
+	input [53:0] C,
+    input CLK,
+    input CEA,
+    input RSTA,
+    input CEB,
+    input RSTB,
+    input CEC,
+    input RSTC,
+    input SIGNED,
+    input RSTPIPE,
+    input CEPIPE,
+    input RSTCTRL,
+    input CECTRL,
+    input RSTCIN,
+    input CECIN,
+    input LOADC,
+    input ADDSUB,
+    output [53:0] Z,
+    input RSTOUT,
+    input CEOUT,
+    input CIN
+);
+	OXIDE_DSP_SIM #(
+		.REGINPUTA(REGINPUTA),
+		.REGINPUTB(REGINPUTB),
+		.REGINPUTC(REGINPUTC),
+		.REGADDSUB(REGADDSUB),
+		.REGLOADC(REGLOADC),
+		.REGLOADC2(REGLOADC2),
+		.REGCIN(REGCIN),
+		.REGPIPELINE(REGPIPELINE),
+		.REGOUTPUT(REGOUTPUT),
+		.GSR(GSR),
+		.RESETMODE(RESETMODE),
+
+		.A_WIDTH(18),
+		.B_WIDTH(18),
+		.C_WIDTH(54),
+		.Z_WIDTH(54),
+		.PREADD_USED(0),
+		.ADDSUB_USED(1)
+	) dsp_i (
+		.A(A), .B(B), .C(C),
+		.CLK(CLK),
+		.CEA(CEA), .RSTA(RSTA),
+		.CEB(CEB), .RSTB(RSTB),
+		.CEC(CEC), .RSTC(RSTC),
+		.CEPIPE(CEPIPE), .RSTPIPE(RSTPIPE),
+		.CECTRL(CECTRL), .RSTCTRL(RSTCTRL),
+		.CECIN(CECIN), .RSTCIN(RSTCIN),
+		.CIN(CIN), .LOADC(LOADC), .ADDSUB(ADDSUB),
+		.SIGNEDA(SIGNED), .SIGNEDB(SIGNED), .SIGNEDC(SIGNED),
+		.RSTOUT(RSTOUT), .CEOUT(CEOUT),
+		.Z(Z)
+	);
+endmodule
+
+
+module MULTADDSUB36X36 #(
+	parameter REGINPUTA = "REGISTER",
+	parameter REGINPUTB = "REGISTER",
+	parameter REGINPUTC = "REGISTER",
+	parameter REGADDSUB = "REGISTER",
+	parameter REGLOADC = "REGISTER",
+	parameter REGLOADC2 = "REGISTER",
+	parameter REGCIN = "REGISTER",
+	parameter REGPIPELINE = "REGISTER",
+	parameter REGOUTPUT = "REGISTER",
+	parameter GSR = "ENABLED",
+	parameter RESETMODE = "SYNC"
+) (
+	input [35:0] A,
+	input [35:0] B,
+	input [107:0] C,
+    input CLK,
+    input CEA,
+    input RSTA,
+    input CEB,
+    input RSTB,
+    input CEC,
+    input RSTC,
+    input SIGNED,
+    input RSTPIPE,
+    input CEPIPE,
+    input RSTCTRL,
+    input CECTRL,
+    input RSTCIN,
+    input CECIN,
+    input LOADC,
+    input ADDSUB,
+    output [107:0] Z,
+    input RSTOUT,
+    input CEOUT,
+    input CIN
+);
+	OXIDE_DSP_SIM #(
+		.REGINPUTA(REGINPUTA),
+		.REGINPUTB(REGINPUTB),
+		.REGINPUTC(REGINPUTC),
+		.REGADDSUB(REGADDSUB),
+		.REGLOADC(REGLOADC),
+		.REGLOADC2(REGLOADC2),
+		.REGCIN(REGCIN),
+		.REGPIPELINE(REGPIPELINE),
+		.REGOUTPUT(REGOUTPUT),
+		.GSR(GSR),
+		.RESETMODE(RESETMODE),
+
+		.A_WIDTH(36),
+		.B_WIDTH(36),
+		.C_WIDTH(108),
+		.Z_WIDTH(108),
+		.PREADD_USED(0),
+		.ADDSUB_USED(1)
+	) dsp_i (
+		.A(A), .B(B), .C(C),
+		.CLK(CLK),
+		.CEA(CEA), .RSTA(RSTA),
+		.CEB(CEB), .RSTB(RSTB),
+		.CEC(CEC), .RSTC(RSTC),
+		.CEPIPE(CEPIPE), .RSTPIPE(RSTPIPE),
+		.CECTRL(CECTRL), .RSTCTRL(RSTCTRL),
+		.CECIN(CECIN), .RSTCIN(RSTCIN),
+		.CIN(CIN), .LOADC(LOADC), .ADDSUB(ADDSUB),
+		.SIGNEDA(SIGNED), .SIGNEDB(SIGNED), .SIGNEDC(SIGNED),
+		.RSTOUT(RSTOUT), .CEOUT(CEOUT),
+		.Z(Z)
+	);
+endmodule
