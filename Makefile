@@ -31,6 +31,8 @@ ENABLE_GPROF := 0
 ENABLE_DEBUG := 0
 ENABLE_NDEBUG := 0
 ENABLE_CCACHE := 0
+# sccache is not always a drop-in replacement for ccache in practice
+ENABLE_SCCACHE := 0
 LINK_CURSES := 0
 LINK_TERMCAP := 0
 LINK_ABC := 0
@@ -530,6 +532,10 @@ endif
 
 ifeq ($(ENABLE_CCACHE),1)
 CXX := ccache $(CXX)
+else
+ifeq ($(ENABLE_SCCACHE),1)
+CXX := sccache $(CXX)
+endif
 endif
 
 define add_share_file
@@ -1019,4 +1025,3 @@ echo-abc-rev:
 
 .PHONY: all top-all abc test install install-abc manual clean mrproper qtcreator coverage vcxsrc mxebin
 .PHONY: config-clean config-clang config-gcc config-gcc-static config-gcc-4.8 config-afl-gcc config-gprof config-sudo
-
