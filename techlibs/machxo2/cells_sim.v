@@ -2,7 +2,7 @@ module LUT4 #(
 	parameter [15:0] INIT = 0
 ) (
 	input A, B, C, D,
-	output F
+	output Z
 );
 	wire [3:0] I;
 	wire [3:0] I_pd;
@@ -14,7 +14,7 @@ module LUT4 #(
 	endgenerate
 
 	assign I = {D, C, B, A};
-	assign F = INIT[I_pd];
+	assign Z = INIT[I_pd];
 endmodule
 
 module FACADE_FF #(

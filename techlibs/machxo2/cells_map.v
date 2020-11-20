@@ -17,11 +17,11 @@ module \$lut (A, Y);
 		end else if(WIDTH == 4) begin
 			assign I = {A[3], A[2], A[1], A[0]};
 		end else begin
-			INVALID_LUT_WIDTH error();
+			wire _TECHMAP_FAIL_ = 1;
 		end
 	endgenerate
 
-	LUT4 #(.INIT({rep{LUT}})) _TECHMAP_REPLACE_ (.A(I[0]), .B(I[1]), .C(I[2]), .D(I[3]), .F(Y));
+	LUT4 #(.INIT({rep{LUT}})) _TECHMAP_REPLACE_ (.A(I[0]), .B(I[1]), .C(I[2]), .D(I[3]), .Z(Y));
 endmodule
 
 module  \$_DFF_P_ (input D, C, output Q); FACADE_FF #(.CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET")) _TECHMAP_REPLACE_ (.CLK(C), .LSR(1'b0), .DI(D), .Q(Q)); endmodule
