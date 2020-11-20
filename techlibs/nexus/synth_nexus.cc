@@ -89,6 +89,9 @@ struct SynthNexusPass : public ScriptPass
 		log("    -noiopad\n");
 		log("        do not insert IO buffers\n");
 		log("\n");
+		log("    -nodsp\n");
+		log("        do not infer DSP multipliers\n");
+		log("\n");
 		log("    -abc9\n");
 		log("        use new ABC9 flow (EXPERIMENTAL)\n");
 		log("\n");
@@ -98,7 +101,7 @@ struct SynthNexusPass : public ScriptPass
 	}
 
 	string top_opt, json_file, vm_file, family;
-	bool noccu2, nodffe, nobram, nolutram, nowidelut, noiopad, flatten, dff, retime, abc9;
+	bool noccu2, nodffe, nobram, nolutram, nowidelut, noiopad, nodsp, flatten, dff, retime, abc9;
 
 	void clear_flags() override
 	{
@@ -112,6 +115,7 @@ struct SynthNexusPass : public ScriptPass
 		nolutram = false;
 		nowidelut = false;
 		noiopad = false;
+		nodsp = false;
 		flatten = true;
 		dff = false;
 		retime = false;
@@ -159,6 +163,10 @@ struct SynthNexusPass : public ScriptPass
 			}
 			if (args[argidx] == "-dff") {
 				dff = true;
+				continue;
+			}
+			if (args[argidx] == "-nodsp") {
+				nodsp = true;
 				continue;
 			}
 			if (args[argidx] == "-retime") {
@@ -211,6 +219,22 @@ struct SynthNexusPass : public ScriptPass
 		log_pop();
 	}
 
+	struct DSPRule {
+		int a_maxwidth;
+		int b_maxwidth;
+		int a_minwidth;
+		int b_minwidth;
+		std::string prim;
+	};
+
+	const std::vector<DSPRule> dsp_rules = {
+		{36, 36, 22, 22, "$__NX_MUL36X36"},
+		{36, 18, 22, 10, "$__NX_MUL36X18"},
+		{18, 18, 10,  4, "$__NX_MUL18X18"},
+		{18, 18,  4, 10, "$__NX_MUL18X18"},
+		{ 9,  9,  4,  4, "$__NX_MUL9X9"},
+	};
+
 	void script() override
 	{
 
@@ -243,6 +267,18 @@ struct SynthNexusPass : public ScriptPass
 			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=4");
 			run("opt_expr");
 			run("opt_clean");
+
+			if (help_mode) {
+				run("techmap -map +/mul2dsp.v [...]", "(unless -nodsp)");
+				run("techmap -map +/nexus/dsp_map.v", "(unless -nodsp)");
+			} else if (!nodsp) {
+				for (const auto &rule : dsp_rules) {
+					run(stringf("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=%d -D DSP_B_MAXWIDTH=%d -D DSP_A_MINWIDTH=%d -D DSP_B_MINWIDTH=%d -D DSP_NAME=%s",
+						rule.a_maxwidth, rule.b_maxwidth, rule.a_minwidth, rule.b_minwidth, rule.prim.c_str()));
+					run("chtype -set $mul t:$__soft_mul");
+				}
+				run("techmap -map +/nexus/dsp_map.v");
+			}
 
 			run("alumacc");
 			run("opt");

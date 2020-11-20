@@ -11,4 +11,5 @@ $(eval $(call add_share_file,share/nexus,techlibs/nexus/brams_map.v))
 $(eval $(call add_share_file,share/nexus,techlibs/nexus/brams.txt))
 $(eval $(call add_share_file,share/nexus,techlibs/nexus/arith_map.v))
 $(eval $(call add_share_file,share/nexus,techlibs/nexus/latches_map.v))
+$(eval $(call add_share_file,share/nexus,techlibs/nexus/dsp_map.v))
 
