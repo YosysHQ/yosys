@@ -17,30 +17,27 @@
  *
  */
 
-#include "kernel/yosys.h"
 #include "kernel/sigtools.h"
-#include <stdlib.h>
-#include <stdio.h>
+#include "kernel/yosys.h"
 #include <bitset>
+#include <stdio.h>
+#include <stdlib.h>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 static void run_pp3_braminit(Module *module)
 {
-	for (auto cell : module->selected_cells())
-	{
+	for (auto cell : module->selected_cells()) {
 		uint32_t mem[2048];
-                int32_t ramDataWidth = 32;
-                int32_t ramDataDepth = 512;
-                
+		int32_t ramDataWidth = 32;
+		int32_t ramDataDepth = 512;
 
-                log("cell type %s\n", RTLIL::id2cstr(cell->name));
+		log("cell type %s\n", RTLIL::id2cstr(cell->name));
 		/* Only consider cells we're interested in */
-		if (cell->type != ID(RAM_16K_BLK) &&
-		    cell->type != ID(RAM_8K_BLK))
+		if (cell->type != ID(RAM_16K_BLK) && cell->type != ID(RAM_8K_BLK))
 			continue;
-                log("found ram block\n");
+		log("found ram block\n");
 		if (!cell->hasParam(ID(INIT_FILE)))
 			continue;
 		std::string init_file = cell->getParam(ID(INIT_FILE)).decode_string();
@@ -50,8 +47,8 @@ static void run_pp3_braminit(Module *module)
 
 		/* Open file */
 		log("Processing %s : %s\n", RTLIL::id2cstr(cell->name), init_file.c_str());
-                ramDataWidth = cell->getParam(ID(data_width_int)).as_int();
-                ramDataDepth = cell->getParam(ID(data_depth_int)).as_int();
+		ramDataWidth = cell->getParam(ID(data_width_int)).as_int();
+		ramDataDepth = cell->getParam(ID(data_depth_int)).as_int();
 
 		std::ifstream f;
 		f.open(init_file.c_str());
@@ -67,16 +64,14 @@ static void run_pp3_braminit(Module *module)
 		bool in_comment = false;
 		int cursor = 0;
 
-		while (!f.eof())
-		{
+		while (!f.eof()) {
 			std::string line, token;
 			std::getline(f, line);
 
-			for (int i = 0; i < GetSize(line); i++)
-			{
+			for (int i = 0; i < GetSize(line); i++) {
 				if (in_comment && line.compare(i, 2, "*/") == 0) {
 					line[i] = ' ';
-					line[i+1] = ' ';
+					line[i + 1] = ' ';
 					in_comment = false;
 					continue;
 				}
@@ -86,8 +81,7 @@ static void run_pp3_braminit(Module *module)
 					line[i] = ' ';
 			}
 
-			while (1)
-			{
+			while (1) {
 				bool set_cursor = false;
 				long value;
 
@@ -104,10 +98,7 @@ static void run_pp3_braminit(Module *module)
 				char *endptr;
 				value = strtol(nptr, &endptr, 16);
 				if (!*nptr || *endptr) {
-					log("Can not parse %s `%s` for %s.\n",
-						set_cursor ? "address" : "value",
-						nptr, token.c_str()
-					);
+					log("Can not parse %s `%s` for %s.\n", set_cursor ? "address" : "value", nptr, token.c_str());
 					continue;
 				}
 
@@ -122,22 +113,22 @@ static void run_pp3_braminit(Module *module)
 
 		/* Set attributes */
 		std::string val = "";
-		for (int i=ramDataDepth-1; i>=0; i--) {
-			//std::string val = "";
+		for (int i = ramDataDepth - 1; i >= 0; i--) {
+			// std::string val = "";
 			if (ramDataWidth == 8)
-	                     val += std::bitset<8>(mem[i]).to_string();
+				val += std::bitset<8>(mem[i]).to_string();
 			else if (ramDataWidth == 16)
-	                     val += std::bitset<16>(mem[i]).to_string();
+				val += std::bitset<16>(mem[i]).to_string();
 			else if (ramDataWidth == 32)
-	                     val += std::bitset<32>(mem[i]).to_string();
+				val += std::bitset<32>(mem[i]).to_string();
 		}
 		cell->setParam("\\INIT", RTLIL::Const::from_string(val));
 	}
 }
 
 struct PP3BRAMInitPass : public Pass {
-	PP3BRAMInitPass() : Pass("pp3_braminit", "PP3: perform RAM Block initialization from file") { }
-	void help() YS_OVERRIDE
+	PP3BRAMInitPass() : Pass("pp3_braminit", "PP3: perform RAM Block initialization from file") {}
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -147,7 +138,7 @@ struct PP3BRAMInitPass : public Pass {
 		log("parameter and converts it into the required INIT attributes\n");
 		log("\n");
 	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing PP3_BRAMINIT pass.\n");
 

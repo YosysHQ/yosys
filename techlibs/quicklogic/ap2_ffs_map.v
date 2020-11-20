@@ -104,50 +104,50 @@ module \$_DFFSR_PPP_ (D, Q, C, R, S);
     ff _TECHMAP_REPLACE_ (.CQZ(Q), .D(D), .QCK(C), .QEN(1'b1), .QRT(R), .QST(S));
 endmodule
 
-module  \$_DFFE_NN_ (input D, C, E, output Q); 
+module  \$_DFFE_NN_ (input D, C, E, output Q);
     ff _TECHMAP_REPLACE_ (.CQZ(Q), .D(D), .QCK(!C), .QEN(!E), .QRT(1'b0), .QST(1'b0));
  endmodule
 
-module  \$_DFFE_PN_ (input D, C, E, output Q); 
+module  \$_DFFE_PN_ (input D, C, E, output Q);
     ff _TECHMAP_REPLACE_ (.CQZ(Q), .D(D), .QCK(C), .QEN(!E), .QRT(1'b0), .QST(1'b0));
 endmodule
 
-module  \$_DFFE_NP_ (input D, C, E, output Q); 
+module  \$_DFFE_NP_ (input D, C, E, output Q);
     ff _TECHMAP_REPLACE_ (.CQZ(Q), .D(D), .QCK(!C), .QEN(E), .QRT(1'b0), .QST(1'b0));
 endmodule
 
-module  \$_DFFE_PP_ (input D, C, E, output Q); 
+module  \$_DFFE_PP_ (input D, C, E, output Q);
     ff _TECHMAP_REPLACE_ (.CQZ(Q), .D(D), .QCK(C), .QEN(E), .QRT(1'b0), .QST(1'b0));
 endmodule
 
-module  \$__DFFE_NN0 (input D, C, E, R, output Q); 
+module  \$__DFFE_NN0 (input D, C, E, R, output Q);
     ff _TECHMAP_REPLACE_ (.CQZ(Q), .D(D), .QCK(!C), .QEN(E), .QRT(!R), .QST(1'b0));
 endmodule
 
-module  \$__DFFE_NN1 (input D, C, E, R, output Q); 
+module  \$__DFFE_NN1 (input D, C, E, R, output Q);
     ff _TECHMAP_REPLACE_ (.CQZ(Q), .D(D), .QCK(!C), .QEN(E), .QRT(1'b0), .QST(!R));
 endmodule
 
-module  \$__DFFE_PN0 (input D, C, E, R, output Q); 
+module  \$__DFFE_PN0 (input D, C, E, R, output Q);
     ff _TECHMAP_REPLACE_ (.CQZ(Q), .D(D), .QCK(C), .QEN(E), .QRT(!R), .QST(1'b0));
 endmodule
 
-module  \$__DFFE_PN1 (input D, C, E, R, output Q); 
+module  \$__DFFE_PN1 (input D, C, E, R, output Q);
     ff _TECHMAP_REPLACE_ (.CQZ(Q), .D(D), .QCK(C), .QEN(E), .QRT(1'b0), .QST(!R));
 endmodule
 
-module  \$__DFFE_NP0 (input D, C, E, R, output Q); 
+module  \$__DFFE_NP0 (input D, C, E, R, output Q);
     ff _TECHMAP_REPLACE_ (.CQZ(Q), .D(D), .QCK(!C), .QEN(E), .QRT(R), .QST(1'b0));
 endmodule
 
-module  \$__DFFE_NP1 (input D, C, E, R, output Q); 
+module  \$__DFFE_NP1 (input D, C, E, R, output Q);
     ff _TECHMAP_REPLACE_ (.CQZ(Q), .D(D), .QCK(!C), .QEN(E), .QRT(1'b0), .QST(R));
 endmodule
 
-module  \$__DFFE_PP0 (input D, C, E, R, output Q); 
+module  \$__DFFE_PP0 (input D, C, E, R, output Q);
     ff _TECHMAP_REPLACE_ (.CQZ(Q), .D(D), .QCK(C), .QEN(E), .QRT(R), .QST(1'b0));
 endmodule
 
-module  \$__DFFE_PP1 (input D, C, E, R, output Q); 
+module  \$__DFFE_PP1 (input D, C, E, R, output Q);
     ff _TECHMAP_REPLACE_ (.CQZ(Q), .D(D), .QCK(C), .QEN(E), .QRT(1'b0), .QST(R));
 endmodule

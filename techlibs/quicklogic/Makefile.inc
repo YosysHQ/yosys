@@ -1,13 +1,9 @@
 OBJS += techlibs/quicklogic/synth_quicklogic.o
 #OBJS += techlibs/quicklogic/ap3_opt.o
 OBJS += techlibs/quicklogic/quicklogic_eqn.o
-OBJS += techlibs/quicklogic/quicklogic_eqn.o
 OBJS += techlibs/quicklogic/pp3_braminit.o
 #OBJS += techlibs/quicklogic/quicklogic_fixcarry.o
 
-$(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/pp3_ffs_map.v))
-$(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/pp3_lut_map.v))
-$(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/pp3_latches_map.v))
 GENFILES += techlibs/quicklogic/bram_init_8_16.vh
 GENFILES += techlibs/quicklogic/bram_init_32.vh
 

@@ -1,14 +1,13 @@
 (* abc9_lut=1, lib_whitebox *)
-module LUT4(
-   output O, 
-   input I0,
-   input I1,
-   input I2,
-   input I3
+module LUT4 (
+  output O,
+  input I0,
+  input I1,
+  input I2,
+  input I3
 );
     parameter [15:0] INIT = 16'h0;
     parameter EQN = "(I0)";
-    
     assign O = INIT[{I3, I2, I1, I0}];
 endmodule
 
@@ -22,16 +21,13 @@ module ff(
     input QRT,
     input QST
 );
-    parameter [0:0] INIT = 1'b0;
-    initial CQZ = INIT;
+  parameter [0:0] INIT = 1'b0;
+  initial CQZ = INIT;
 
-    always @(posedge QCK or posedge QRT or posedge QST)
-        if (QRT)
-            CQZ <= 1'b0;
-        else if (QST)
-            CQZ <= 1'b1;
-        else if (QEN)
-            CQZ <= D;
+  always @(posedge QCK or posedge QRT or posedge QST)
+    if (QRT) CQZ <= 1'b0;
+    else if (QST) CQZ <= 1'b1;
+    else if (QEN) CQZ <= D;
 endmodule
 
 (* abc9_flop, lib_whitebox *)
@@ -55,120 +51,109 @@ module full_adder(
    input CI
 );
 
-   assign {CO, S} = A + B + CI;
+  assign {CO, S} = A + B + CI;
 endmodule
 
 (* lib_whitebox *)
-module QL_CARRY(
-	output CO,
-	input I0,
-	input I1,
-	input CI
+module QL_CARRY (
+  output CO,
+  input I0,
+  input I1,
+  input CI
 );
-	assign CO = ((I0 ^ I1) & CI) | (~(I0 ^ I1) & (I0 & I1)); 
+  assign CO = ((I0 ^ I1) & CI) | (~(I0 ^ I1) & (I0 & I1));
 endmodule
 
-module ck_buff ( 
-	output Q,
-    (* iopad_external_pin *)
-	input A
-);
-    
-	assign Q = A;
-
-endmodule /* ck buff */
-
-module in_buff ( 
+module ck_buff (
 	output Q,
     (* iopad_external_pin *)
 	input A
 );
 
-    assign Q = A;
+  assign Q = A;
 
-endmodule /* in buff */
+module in_buff (
+	output Q,
+    (* iopad_external_pin *)
+	input A
+);
 
-module out_buff ( 
+  assign Q = A;
+
+endmodule  /* in buff */
+
+module out_buff (
     (* iopad_external_pin *)
 	output Q,
 	input A
 );
 
-	assign Q = A;
+  assign Q = A;
 
-endmodule /* out buff */
+endmodule  /* out buff */
 
-module d_buff ( 
+module d_buff (
     (* iopad_external_pin *)
 	output Q
 );
-	parameter DSEL = 1'b0;
-	assign Q = DSEL ? 1'b1 : 1'b0;
-	
-endmodule /* d buff */
+  parameter DSEL = 1'b0;
+  assign Q = DSEL ? 1'b1 : 1'b0;
+
+endmodule  /* d buff */
 
 module in_reg (
 	output dataOut,
     (* clkbuf_sink *)
-	input clk, 
-	input rst, 
+	input clk,
+	input rst,
 	(* iopad_external_pin *)
 	input dataIn
 );
 
-	parameter ISEL = 0; 
-	parameter FIXHOLD = 0;
+  parameter ISEL = 0;
+  parameter FIXHOLD = 0;
 
-	wire dataIn_reg_int, dataIn_reg_int_buff;
-	wire fixhold_mux_op;
+  wire dataIn_reg_int, dataIn_reg_int_buff;
+  wire fixhold_mux_op;
 
-	reg iqz_reg;
+  reg  iqz_reg;
 
-	assign dataIn_reg_int = dataIn;
+  assign dataIn_reg_int = dataIn;
+  assign dataIn_reg_int_buff = dataIn_reg_int;
+  assign fixhold_mux_op = (FIXHOLD) ? dataIn_reg_int_buff : dataIn_reg_int;
 
-	assign dataIn_reg_int_buff = dataIn_reg_int;
+  always @(posedge clk or posedge rst) begin
+    if (rst) iqz_reg <= 1'b0;
+    else iqz_reg <= fixhold_mux_op;
+  end
 
-	assign fixhold_mux_op = (FIXHOLD) ? dataIn_reg_int_buff : dataIn_reg_int;
+  assign dataOut = (ISEL) ? dataIn_reg_int : iqz_reg;
 
-	always @(posedge clk or posedge rst)
-	begin
-		if(rst)
-			iqz_reg <= 1'b0;
-		else
-			iqz_reg <= fixhold_mux_op;	
-	end
-
-	assign dataOut = (ISEL) ? dataIn_reg_int : iqz_reg;
-
-endmodule /* in_reg*/
+endmodule  /* in_reg*/
 
 module out_reg (
 	(* iopad_external_pin *)
 	output dataOut,
     (* clkbuf_sink *)
-	input clk, 
-	input rst, 
+	input clk,
+	input rst,
 	input dataIn
 );
 
-	parameter OSEL = 0; 
-	wire sel_mux_op;
+  parameter OSEL = 0;
+  wire sel_mux_op;
 
-    reg dataOut_reg;
+  reg  dataOut_reg;
 
-    always @(posedge clk or posedge rst)
-    begin
-        if (rst)
-            dataOut_reg <= 1'b0;
-        else
-            dataOut_reg <= dataIn;
-    end
+  always @(posedge clk or posedge rst) begin
+    if (rst) dataOut_reg <= 1'b0;
+    else dataOut_reg <= dataIn;
+  end
 
-    assign sel_mux_op = (OSEL) ? dataIn : dataOut_reg;
+  assign sel_mux_op = (OSEL) ? dataIn : dataOut_reg;
+  assign dataOut = sel_mux_op;
 
-    assign dataOut = sel_mux_op;
-
-endmodule /* out_reg*/
+endmodule  /* out_reg*/
 
 (* blackbox *)
 module RAM (RADDR,RRLSEL,REN,RMODE,
@@ -188,7 +173,7 @@ module RAM (RADDR,RRLSEL,REN,RMODE,
    output [3:0]  FFLAGS;
    input [2:0] 	 FIFO_DEPTH;
    input 	 FMODE, POWERDN, PROTECT;
-   
+
 
      DPRAM_FIFO U1(
 		 .RCLK(RCLK), .REN(REN), .WCLK(WCLK), .WEN(WEN),
@@ -209,7 +194,7 @@ module RAM (RADDR,RRLSEL,REN,RMODE,
 		 .DFT_SCAN_MODE_DAISYIN(1'b0), .DFT_SCAN_EN_DAISYIN(1'b0),
 		 .DFT_SCAN_IN_DAISYIN(1'b0), .dft_FFB_scan_out()
 		 );
-endmodule 
+endmodule
 
 (* blackbox *)
 module DSP (MODE_SEL,COEF_DATA,OPER_DATA,OUT_SEL,ENABLE,CLR,RND,SAT,CLOCK,MAC_OUT,CSEL,OSEL,SBOG);
@@ -242,4 +227,4 @@ dsp_top U1 (
 	       .DFT_SCAN_IN_DAISYIN(1'b0),
 	       .dft_FFB_scan_out()
 	       );
-endmodule 
+endmodule

@@ -17,11 +17,11 @@
  *
  */
 
-#include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/yosys.h"
 #include "passes/techmap/simplemap.h"
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -36,32 +36,26 @@ static SigBit get_bit_or_zero(const SigSpec &sig)
 static void run_ap3_opts(Module *module)
 {
 	pool<SigBit> optimized_co;
-	vector<Cell*> sb_lut_cells;
+	vector<Cell *> sb_lut_cells;
 	SigMap sigmap(module);
 
-	for (auto cell : module->selected_cells())
-	{
+	for (auto cell : module->selected_cells()) {
 		if (!cell->type.in(ID(LUT4), ID(QL_CARRY), ID($__AP3_CARRY_WRAPPER)))
 			continue;
 		if (cell->has_keep_attr())
 			continue;
 
-		if (cell->type == ID(LUT4))
-		{
+		if (cell->type == ID(LUT4)) {
 			sb_lut_cells.push_back(cell);
 			continue;
 		}
 
-		if (cell->type == ID(QL_CARRY))
-		{
+		if (cell->type == ID(QL_CARRY)) {
 			SigSpec non_const_inputs, replacement_output;
 			int count_zeros = 0, count_ones = 0;
 
-			SigBit inbit[3] = {
-				get_bit_or_zero(cell->getPort(ID(I0))),
-				get_bit_or_zero(cell->getPort(ID(I1))),
-				get_bit_or_zero(cell->getPort(ID::CI))
-			};
+			SigBit inbit[3] = {get_bit_or_zero(cell->getPort(ID(I0))), get_bit_or_zero(cell->getPort(ID(I1))),
+					   get_bit_or_zero(cell->getPort(ID::CI))};
 			for (int i = 0; i < 3; i++)
 				if (inbit[i].wire == nullptr) {
 					if (inbit[i] == State::S1)
@@ -82,23 +76,17 @@ static void run_ap3_opts(Module *module)
 				optimized_co.insert(sigmap(cell->getPort(ID::CO)[0]));
 				module->connect(cell->getPort(ID::CO)[0], replacement_output);
 				module->design->scratchpad_set_bool("opt.did_something", true);
-				log("Optimized away QL_CARRY cell %s.%s: CO=%s\n",
-						log_id(module), log_id(cell), log_signal(replacement_output));
+				log("Optimized away QL_CARRY cell %s.%s: CO=%s\n", log_id(module), log_id(cell), log_signal(replacement_output));
 				module->remove(cell);
 			}
 			continue;
 		}
 
-		if (cell->type == ID($__AP3_CARRY_WRAPPER))
-		{
+		if (cell->type == ID($__AP3_CARRY_WRAPPER)) {
 			SigSpec non_const_inputs, replacement_output;
 			int count_zeros = 0, count_ones = 0;
 
-			SigBit inbit[3] = {
-				cell->getPort(ID::A),
-				cell->getPort(ID::B),
-				cell->getPort(ID::CI)
-			};
+			SigBit inbit[3] = {cell->getPort(ID::A), cell->getPort(ID::B), cell->getPort(ID::CI)};
 			for (int i = 0; i < 3; i++)
 				if (inbit[i].wire == nullptr) {
 					if (inbit[i] == State::S1)
@@ -136,11 +124,11 @@ static void run_ap3_opts(Module *module)
 				}
 				module->connect(cell->getPort(ID::CO)[0], replacement_output);
 				module->design->scratchpad_set_bool("opt.did_something", true);
-				log("Optimized $__AP3_CARRY_WRAPPER cell back to logic (without QL_CARRY) %s.%s: CO=%s\n",
-						log_id(module), log_id(cell), log_signal(replacement_output));
+				log("Optimized $__AP3_CARRY_WRAPPER cell back to logic (without QL_CARRY) %s.%s: CO=%s\n", log_id(module),
+				    log_id(cell), log_signal(replacement_output));
 				cell->type = ID($lut);
 				auto I2 = get_bit_or_zero(cell->getPort(cell->getParam(ID(I2_IS_CI)).as_bool() ? ID::CI : ID(I2)));
-				cell->setPort(ID::A, { get_bit_or_zero(cell->getPort(ID(I3))), I2, inbit[1], inbit[0] });
+				cell->setPort(ID::A, {get_bit_or_zero(cell->getPort(ID(I3))), I2, inbit[1], inbit[0]});
 				cell->setPort(ID::Y, cell->getPort(ID::O));
 				cell->unsetPort(ID::B);
 				cell->unsetPort(ID::CI);
@@ -155,8 +143,7 @@ static void run_ap3_opts(Module *module)
 		}
 	}
 
-	for (auto cell : sb_lut_cells)
-	{
+	for (auto cell : sb_lut_cells) {
 		SigSpec inbits;
 
 		inbits.append(get_bit_or_zero(cell->getPort(ID(I0))));
@@ -165,10 +152,14 @@ static void run_ap3_opts(Module *module)
 		inbits.append(get_bit_or_zero(cell->getPort(ID(I3))));
 		sigmap.apply(inbits);
 
-		if (optimized_co.count(inbits[0])) goto remap_lut;
-		if (optimized_co.count(inbits[1])) goto remap_lut;
-		if (optimized_co.count(inbits[2])) goto remap_lut;
-		if (optimized_co.count(inbits[3])) goto remap_lut;
+		if (optimized_co.count(inbits[0]))
+			goto remap_lut;
+		if (optimized_co.count(inbits[1]))
+			goto remap_lut;
+		if (optimized_co.count(inbits[2]))
+			goto remap_lut;
+		if (optimized_co.count(inbits[3]))
+			goto remap_lut;
 
 		if (!sigmap(inbits).is_fully_const())
 			continue;
@@ -182,12 +173,8 @@ static void run_ap3_opts(Module *module)
 		cell->setParam(ID::LUT, cell->getParam(ID(INIT)));
 		cell->unsetParam(ID(INIT));
 
-		cell->setPort(ID::A, SigSpec({
-			get_bit_or_zero(cell->getPort(ID(I3))),
-			get_bit_or_zero(cell->getPort(ID(I2))),
-			get_bit_or_zero(cell->getPort(ID(I1))),
-			get_bit_or_zero(cell->getPort(ID(I0)))
-		}));
+		cell->setPort(ID::A, SigSpec({get_bit_or_zero(cell->getPort(ID(I3))), get_bit_or_zero(cell->getPort(ID(I2))),
+					      get_bit_or_zero(cell->getPort(ID(I1))), get_bit_or_zero(cell->getPort(ID(I0)))}));
 		cell->setPort(ID::Y, cell->getPort(ID::O)[0]);
 		cell->unsetPort(ID(I0));
 		cell->unsetPort(ID(I1));
@@ -202,8 +189,8 @@ static void run_ap3_opts(Module *module)
 }
 
 struct AP3OptPass : public Pass {
-	AP3OptPass() : Pass("ap3_opt", "AP3: perform simple optimizations") { }
-	void help() YS_OVERRIDE
+	AP3OptPass() : Pass("ap3_opt", "AP3: perform simple optimizations") {}
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -237,8 +224,7 @@ struct AP3OptPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		while (1)
-		{
+		while (1) {
 			design->scratchpad_unset("opt.did_something");
 
 			log_header(design, "Running AP3 specific optimizations.\n");
