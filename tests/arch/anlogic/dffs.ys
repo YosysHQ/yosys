@@ -15,6 +15,5 @@ proc
 equiv_opt -assert -map +/anlogic/cells_sim.v synth_anlogic # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd dffe # Constrain all select calls below inside the top module
-select -assert-count 1 t:AL_MAP_LUT3
 select -assert-count 1 t:AL_MAP_SEQ
-select -assert-none t:AL_MAP_LUT3 t:AL_MAP_SEQ %% t:* %D
+select -assert-none t:AL_MAP_SEQ %% t:* %D

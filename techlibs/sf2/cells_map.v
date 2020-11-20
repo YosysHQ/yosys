@@ -1,58 +1,26 @@
-module  \$_DFF_N_ (input D, C, output Q);
-  SLE _TECHMAP_REPLACE_ (.D(D), .CLK(!C), .EN(1'b1), .ALn(1'b1), .ADn(1'b1), .SLn(1'b1), .SD(1'b0), .LAT(1'b0), .Q(Q));
+module \$_DFFE_PN0P_ (input D, C, R, E, output Q);
+  SLE _TECHMAP_REPLACE_ (.D(D), .CLK(C), .EN(E), .ALn(R), .ADn(1'b1), .SLn(1'b1), .SD(1'b0), .LAT(1'b0), .Q(Q));
 endmodule
 
-module  \$_DFF_P_ (input D, C, output Q);
-  SLE _TECHMAP_REPLACE_ (.D(D), .CLK(C), .EN(1'b1), .ALn(1'b1), .ADn(1'b1), .SLn(1'b1), .SD(1'b0), .LAT(1'b0), .Q(Q));
+module \$_DFFE_PN1P_ (input D, C, R, E, output Q);
+  SLE _TECHMAP_REPLACE_ (.D(D), .CLK(C), .EN(E), .ALn(R), .ADn(1'b0), .SLn(1'b1), .SD(1'b0), .LAT(1'b0), .Q(Q));
 endmodule
 
-module \$_DFF_NN0_ (input D, C, R, output Q);
-  SLE _TECHMAP_REPLACE_ (.D(D), .CLK(!C), .EN(1'b1), .ALn(R), .ADn(1'b1), .SLn(1'b1), .SD(1'b0), .LAT(1'b0), .Q(Q));
+module \$_SDFFCE_PN0P_ (input D, C, R, E, output Q);
+  SLE _TECHMAP_REPLACE_ (.D(D), .CLK(C), .EN(E), .ALn(1'b1), .ADn(1'b0), .SLn(R), .SD(1'b0), .LAT(1'b0), .Q(Q));
 endmodule
 
-module \$_DFF_NN1_ (input D, C, R, output Q);
-  SLE _TECHMAP_REPLACE_ (.D(D), .CLK(!C), .EN(1'b1), .ALn(R), .ADn(1'b0), .SLn(1'b1), .SD(1'b0), .LAT(1'b0), .Q(Q));
+module \$_SDFFCE_PN1P_ (input D, C, R, E, output Q);
+  SLE _TECHMAP_REPLACE_ (.D(D), .CLK(C), .EN(E), .ALn(1'b1), .ADn(1'b0), .SLn(R), .SD(1'b1), .LAT(1'b0), .Q(Q));
 endmodule
 
-module \$_DFF_NP0_ (input D, C, R, output Q);
-  SLE _TECHMAP_REPLACE_ (.D(D), .CLK(!C), .EN(1'b1), .ALn(!R), .ADn(1'b1), .SLn(1'b1), .SD(1'b0), .LAT(1'b0), .Q(Q));
+module \$_DLATCH_PN0_ (input D, R, E, output Q);
+  SLE _TECHMAP_REPLACE_ (.D(D), .CLK(E), .EN(1'b1), .ALn(R), .ADn(1'b1), .SLn(1'b1), .SD(1'b0), .LAT(1'b1), .Q(Q));
 endmodule
 
-module \$_DFF_NP1_ (input D, C, R, output Q);
-  SLE _TECHMAP_REPLACE_ (.D(D), .CLK(!C), .EN(1'b1), .ALn(!R), .ADn(1'b0), .SLn(1'b1), .SD(1'b0), .LAT(1'b0), .Q(Q));
+module \$_DLATCH_PN1_ (input D, R, E, output Q);
+  SLE _TECHMAP_REPLACE_ (.D(D), .CLK(E), .EN(1'b1), .ALn(R), .ADn(1'b0), .SLn(1'b1), .SD(1'b0), .LAT(1'b1), .Q(Q));
 endmodule
-
-module \$_DFF_PN0_ (input D, C, R, output Q);
-  SLE _TECHMAP_REPLACE_ (.D(D), .CLK(C), .EN(1'b1), .ALn(R), .ADn(1'b1), .SLn(1'b1), .SD(1'b0), .LAT(1'b0), .Q(Q));
-endmodule
-
-module \$_DFF_PN1_ (input D, C, R, output Q);
-  SLE _TECHMAP_REPLACE_ (.D(D), .CLK(C), .EN(1'b1), .ALn(R), .ADn(1'b0), .SLn(1'b1), .SD(1'b0), .LAT(1'b0), .Q(Q));
-endmodule
-
-module \$_DFF_PP0_ (input D, C, R, output Q);
-  SLE _TECHMAP_REPLACE_ (.D(D), .CLK(C), .EN(1'b1), .ALn(!R), .ADn(1'b1), .SLn(1'b1), .SD(1'b0), .LAT(1'b0), .Q(Q));
-endmodule
-
-module \$_DFF_PP1_ (input D, C, R, output Q);
-  SLE _TECHMAP_REPLACE_ (.D(D), .CLK(C), .EN(1'b1), .ALn(!R), .ADn(1'b0), .SLn(1'b1), .SD(1'b0), .LAT(1'b0), .Q(Q));
-endmodule
-
-// module  \$_DFFE_NN_ (input D, C, E, output Q); SB_DFFNE _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .E(!E)); endmodule
-// module  \$_DFFE_PN_ (input D, C, E, output Q); SB_DFFE  _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .E(!E)); endmodule
-//
-// module  \$_DFFE_NP_ (input D, C, E, output Q); SB_DFFNE _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .E(E)); endmodule
-// module  \$_DFFE_PP_ (input D, C, E, output Q); SB_DFFE  _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .E(E)); endmodule
-//
-// module  \$_DFFE_NN0P_ (input D, C, E, R, output Q); SB_DFFNER _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .E(E), .R(!R)); endmodule
-// module  \$_DFFE_NN1P_ (input D, C, E, R, output Q); SB_DFFNES _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .E(E), .S(!R)); endmodule
-// module  \$_DFFE_PN0P_ (input D, C, E, R, output Q); SB_DFFER  _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .E(E), .R(!R)); endmodule
-// module  \$_DFFE_PN1P_ (input D, C, E, R, output Q); SB_DFFES  _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .E(E), .S(!R)); endmodule
-//
-// module  \$_DFFE_NP0P_ (input D, C, E, R, output Q); SB_DFFNER _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .E(E), .R(R)); endmodule
-// module  \$_DFFE_NP1P_ (input D, C, E, R, output Q); SB_DFFNES _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .E(E), .S(R)); endmodule
-// module  \$_DFFE_PP0P_ (input D, C, E, R, output Q); SB_DFFER  _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .E(E), .R(R)); endmodule
-// module  \$_DFFE_PP1P_ (input D, C, E, R, output Q); SB_DFFES  _TECHMAP_REPLACE_ (.D(D), .Q(Q), .C(C), .E(E), .S(R)); endmodule
 
 `ifndef NO_LUT
 module \$lut (A, Y);

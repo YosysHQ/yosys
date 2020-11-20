@@ -1,0 +1,43 @@
+read_verilog ../common/mux.v
+design -save read
+
+hierarchy -top mux2
+proc
+equiv_opt -assert -map +/nexus/cells_sim.v synth_nexus # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mux2 # Constrain all select calls below inside the top module
+select -assert-count 1 t:LUT4
+select -assert-none t:IB t:OB t:VLO t:VHI t:LUT4 t:WIDEFN9 %% t:* %D
+
+design -load read
+hierarchy -top mux4
+proc
+equiv_opt -assert -map +/nexus/cells_sim.v synth_nexus # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mux4 # Constrain all select calls below inside the top module
+select -assert-count 1 t:WIDEFN9
+
+select -assert-none t:IB t:OB t:VLO t:VHI t:LUT4 t:WIDEFN9 %% t:* %D
+
+design -load read
+hierarchy -top mux8
+proc
+equiv_opt -assert -map +/nexus/cells_sim.v synth_nexus # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mux8 # Constrain all select calls below inside the top module
+select -assert-count 4 t:LUT4
+select -assert-count 1 t:WIDEFN9
+
+select -assert-none t:IB t:OB t:VLO t:VHI t:LUT4 t:WIDEFN9 %% t:* %D
+
+design -load read
+hierarchy -top mux16
+proc
+equiv_opt -assert -map +/nexus/cells_sim.v synth_nexus # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mux16 # Constrain all select calls below inside the top module
+select -assert-min 11 t:LUT4
+select -assert-max 12 t:LUT4
+select -assert-count 1 t:WIDEFN9
+
+select -assert-none t:IB t:OB t:VLO t:VHI t:LUT4 t:WIDEFN9 %% t:* %D

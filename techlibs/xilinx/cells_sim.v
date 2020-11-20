@@ -455,151 +455,6 @@ module CARRY8(
   assign CO[7] = S[7] ? CO[6] : DI[7];
 endmodule
 
-`ifdef _EXPLICIT_CARRY
-
-(* abc9_box, blackbox *)
-module CARRY_COUT_PLUG(input CIN, output COUT);
-
-  assign COUT = CIN;
-  specify
-    (CIN => COUT) = 0;
-  endspecify
-
-endmodule
-
-(* abc9_box, lib_whitebox *)
-module CARRY4_COUT(
-    output [3:0] O,
-    (* abc9_carry *)
-    output COUT,
-    (* abc9_carry *)
-    input CI,
-    input CYINIT,
-    input [3:0] DI, S);
-`ifdef __ICARUS__
-  wire CI0 = (CI === 1'bz) ? CYINIT :
-      (CYINIT === 1'bz) ? CI :
-      (CI | CYINIT);
-`else
-  wire CI0 = CYINIT | CI;
-`endif
-
-  wire [3:0] CO;
-
-  assign O = S ^ {CO[2:0], CI0};
-  assign CO[0] = S[0] ? CI0 : DI[0];
-  assign CO[1] = S[1] ? CO[0] : DI[1];
-  assign CO[2] = S[2] ? CO[1] : DI[2];
-  wire CO_TOP  = S[3] ? CO[2] : DI[3];
-  assign CO[3] = CO_TOP;
-  assign COUT = CO_TOP;
-  specify
-    (CYINIT => O[0]) = 482;
-    (S[0]   => O[0]) = 223;
-    (CI     => O[0]) = 222;
-    (CYINIT => O[1]) = 598;
-    (DI[0]  => O[1]) = 407;
-    (S[0]   => O[1]) = 400;
-    (S[1]   => O[1]) = 205;
-    (CI     => O[1]) = 334;
-    (CYINIT => O[2]) = 584;
-    (DI[0]  => O[2]) = 556;
-    (DI[1]  => O[2]) = 537;
-    (S[0]   => O[2]) = 523;
-    (S[1]   => O[2]) = 558;
-    (S[2]   => O[2]) = 226;
-    (CI     => O[2]) = 239;
-    (CYINIT => O[3]) = 642;
-    (DI[0]  => O[3]) = 615;
-    (DI[1]  => O[3]) = 596;
-    (DI[2]  => O[3]) = 438;
-    (S[0]   => O[3]) = 582;
-    (S[1]   => O[3]) = 618;
-    (S[2]   => O[3]) = 330;
-    (S[3]   => O[3]) = 227;
-    (CI     => O[3]) = 313;
-    (CYINIT => COUT) = 580;
-    (DI[0]  => COUT) = 526;
-    (DI[1]  => COUT) = 507;
-    (DI[2]  => COUT) = 398;
-    (DI[3]  => COUT) = 385;
-    (S[0]   => COUT) = 508;
-    (S[1]   => COUT) = 528;
-    (S[2]   => COUT) = 378;
-    (S[3]   => COUT) = 380;
-    (CI     => COUT) = 114;
-  endspecify
-endmodule
-
-(* abc9_box, lib_whitebox *)
-module CARRY4_CO_COUT(
-    output [3:0] CO,
-    (* abc9_carry *)
-    output COUT,
-    (* abc9_carry *)
-    input CI,
-    input CYINIT,
-    input [3:0] DI, S);
-`ifdef __ICARUS__
-  wire CI0 = (CI === 1'bz) ? CYINIT :
-      (CYINIT === 1'bz) ? CI :
-      (CI | CYINIT);
-`else
-  wire CI0 = CYINIT | CI;
-`endif
-
-  wire [3:0] CO;
-
-  assign CO[0] = S[0] ? CI0 : DI[0];
-  assign CO[1] = S[1] ? CO[0] : DI[1];
-  assign CO[2] = S[2] ? CO[1] : DI[2];
-  wire CO_TOP  = S[3] ? CO[2] : DI[3];
-  assign CO[3] = CO_TOP;
-  assign COUT = CO_TOP;
-  specify
-    (CYINIT => CO[0]) = 536;
-    (DI[0]  => CO[0]) = 379;
-    (S[0]   => CO[0]) = 340;
-    (CI     => CO[0]) = 271;
-    (CYINIT => CO[1]) = 494;
-    (DI[0]  => CO[1]) = 465;
-    (DI[1]  => CO[1]) = 445;
-    (S[0]   => CO[1]) = 433;
-    (S[1]   => CO[1]) = 469;
-    (CI     => CO[1]) = 157;
-    (CYINIT => CO[2]) = 592;
-    (DI[0]  => CO[2]) = 540;
-    (DI[1]  => CO[2]) = 520;
-    (DI[2]  => CO[2]) = 356;
-    (S[0]   => CO[2]) = 512;
-    (S[1]   => CO[2]) = 548;
-    (S[2]   => CO[2]) = 292;
-    (CI     => CO[2]) = 228;
-    (CYINIT => CO[3]) = 580;
-    (DI[0]  => CO[3]) = 526;
-    (DI[1]  => CO[3]) = 507;
-    (DI[2]  => CO[3]) = 398;
-    (DI[3]  => CO[3]) = 385;
-    (S[0]   => CO[3]) = 508;
-    (S[1]   => CO[3]) = 528;
-    (S[2]   => CO[3]) = 378;
-    (S[3]   => CO[3]) = 380;
-    (CI     => CO[3]) = 114;
-    (CYINIT => COUT) = 580;
-    (DI[0]  => COUT) = 526;
-    (DI[1]  => COUT) = 507;
-    (DI[2]  => COUT) = 398;
-    (DI[3]  => COUT) = 385;
-    (S[0]   => COUT) = 508;
-    (S[1]   => COUT) = 528;
-    (S[2]   => COUT) = 378;
-    (S[3]   => COUT) = 380;
-    (CI     => COUT) = 114;
-  endspecify
-endmodule
-
-`endif
-
 module ORCY (output O, input CI, I);
   assign O = CI | I;
 endmodule
@@ -2480,6 +2335,8 @@ parameter integer PREG = 1;
 
 // The multiplier.
 wire signed [35:0] P_MULT;
+wire signed [17:0] A_MULT;
+wire signed [17:0] B_MULT;
 assign P_MULT = A_MULT * B_MULT;
 
 // The cascade output.
@@ -2518,8 +2375,6 @@ always @(posedge CLK) begin
 end
 
 // The register enables.
-wire signed [17:0] A_MULT;
-wire signed [17:0] B_MULT;
 assign A_MULT = (AREG == 1) ? A_REG : A;
 assign B_MULT = (BREG == 1) ? B_REG : B_MUX;
 assign P = (PREG == 1) ? P_REG : P_MULT;
@@ -3159,8 +3014,12 @@ endmodule
 // Virtex 6, Series 7.
 
 `ifdef YOSYS
-(* abc9_box=!(PREG || AREG || ADREG || BREG || CREG || DREG || MREG),
-   lib_whitebox=!(PREG || AREG || ADREG || BREG || CREG || DREG || MREG) *)
+(* abc9_box=!(PREG || AREG || ADREG || BREG || CREG || DREG || MREG)
+`ifdef ALLOW_WHITEBOX_DSP48E1
+   // Do not make DSP48E1 a whitebox for ABC9 even if fully combinatorial, since it is a big complex block
+   , lib_whitebox=!(PREG || AREG || ADREG || BREG || CREG || DREG || MREG || INMODEREG || OPMODEREG || ALUMODEREG || CARRYINREG || CARRYINSELREG)
+`endif
+*)
 `endif
 module DSP48E1 (
     output [29:0] ACOUT,
@@ -3648,11 +3507,15 @@ module DSP48E1 (
                 if (OPMODEr[3:2] != 2'b01) $fatal(1, "OPMODEr[3:2] must be 2'b01 when OPMODEr[1:0] is 2'b01");
 `endif
             end
-            2'b10: begin X = P;
+            2'b10:
+                if (PREG == 1)
+                    X = P;
+                else begin
+                    X = 48'bx;
 `ifndef YOSYS
-                if (PREG != 1) $fatal(1, "PREG must be 1 when OPMODEr[1:0] is 2'b10");
+                    $fatal(1, "PREG must be 1 when OPMODEr[1:0] is 2'b10");
 `endif
-            end
+                end
             2'b11: X = $signed({Ar2, Br2});
             default: X = 48'bx;
         endcase
@@ -3674,20 +3537,36 @@ module DSP48E1 (
         case (OPMODEr[6:4])
             3'b000: Z = 48'b0;
             3'b001: Z = PCIN;
-            3'b010: begin Z = P;
+            3'b010:
+                if (PREG == 1)
+                    Z = P;
+                else begin
+                    Z = 48'bx;
 `ifndef YOSYS
-                if (PREG != 1) $fatal(1, "PREG must be 1 when OPMODEr[6:4] i0s 3'b010");
+                    $fatal(1, "PREG must be 1 when OPMODEr[6:4] is 3'b010");
 `endif
-            end
+                end
             3'b011: Z = Cr;
-            3'b100: begin Z = P;
+            3'b100:
+                if (PREG == 1 && OPMODEr[3:0] === 4'b1000)
+                    Z = P;
+                else begin
+                    Z = 48'bx;
 `ifndef YOSYS
-                if (PREG != 1) $fatal(1, "PREG must be 1 when OPMODEr[6:4] is 3'b100");
-                if (OPMODEr[3:0] != 4'b1000) $fatal(1, "OPMODEr[3:0] must be 4'b1000 when OPMODEr[6:4] i0s 3'b100");
+                    if (PREG != 1) $fatal(1, "PREG must be 1 when OPMODEr[6:4] is 3'b100");
+                    if (OPMODEr[3:0] != 4'b1000) $fatal(1, "OPMODEr[3:0] must be 4'b1000 when OPMODEr[6:4] i0s 3'b100");
 `endif
-            end
+                end
             3'b101: Z = $signed(PCIN[47:17]);
-            3'b110: Z = $signed(P[47:17]);
+            3'b110:
+                if (PREG == 1)
+                    Z = $signed(P[47:17]);
+                else begin
+                    Z = 48'bx;
+`ifndef YOSYS
+                    $fatal(1, "PREG must be 1 when OPMODEr[6:4] is 3'b110");
+`endif
+                end
             default: Z = 48'bx;
         endcase
     end
@@ -3713,10 +3592,34 @@ module DSP48E1 (
             3'b001: cin_muxed = ~PCIN[47];
             3'b010: cin_muxed = CARRYCASCIN;
             3'b011: cin_muxed = PCIN[47];
-            3'b100: cin_muxed = CARRYCASCOUT;
-            3'b101: cin_muxed = ~P[47];
+            3'b100:
+                if (PREG == 1)
+                    cin_muxed = CARRYCASCOUT;
+                else begin
+                    cin_muxed = 1'bx;
+`ifndef YOSYS
+                    $fatal(1, "PREG must be 1 when CARRYINSEL is 3'b100");
+`endif
+                end
+            3'b101:
+                if (PREG == 1)
+                    cin_muxed = ~P[47];
+                else begin
+                    cin_muxed = 1'bx;
+`ifndef YOSYS
+                    $fatal(1, "PREG must be 1 when CARRYINSEL is 3'b101");
+`endif
+                end
             3'b110: cin_muxed = A24_xnor_B17;
-            3'b111: cin_muxed = P[47];
+            3'b111:
+                if (PREG == 1)
+                    cin_muxed = P[47];
+                else begin
+                    cin_muxed = 1'bx;
+`ifndef YOSYS
+                    $fatal(1, "PREG must be 1 when CARRYINSEL is 3'b111");
+`endif
+                end
             default: cin_muxed = 1'bx;
         endcase
     end
@@ -4308,4 +4211,3 @@ module RAMB36E1 (
         if (|DOB_REG) (posedge CLKBWRCLK => (DOPBDOP : 4'bx)) = 882;
     endspecify
 endmodule
-

@@ -1,4 +1,4 @@
-/*
+/* -*- c++ -*-
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2020  Alberto Gonzalez <boqwxp@airmail.cc>
@@ -18,13 +18,8 @@
  */
 
 #include "kernel/yosys.h"
-#include "kernel/celltypes.h"
 #include "kernel/consteval.h"
-#include "kernel/log.h"
-#include "kernel/rtlil.h"
-#include "kernel/register.h"
-#include <algorithm>
-#include <numeric>
+#include "qbfsat.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -36,132 +31,7 @@ static inline unsigned int difference(unsigned int a, unsigned int b) {
 		return a - b;
 }
 
-struct QbfSolutionType {
-	std::vector<std::string> stdout_lines;
-	dict<pool<std::string>, std::string> hole_to_value;
-	double solver_time;
-	bool sat;
-	bool unknown; //true if neither 'sat' nor 'unsat'
-
-	QbfSolutionType() : solver_time(0.0), sat(false), unknown(true) {}
-};
-
-struct QbfSolveOptions {
-	bool specialize, specialize_from_file, write_solution, nocleanup, dump_final_smt2, assume_outputs, assume_neg;
-	bool nooptimize, nobisection;
-	bool sat, unsat, show_smtbmc;
-	enum Solver{Z3, Yices, CVC4} solver;
-	int timeout;
-	std::string specialize_soln_file;
-	std::string write_soln_soln_file;
-	std::string dump_final_smt2_file;
-	size_t argidx;
-	QbfSolveOptions() : specialize(false), specialize_from_file(false), write_solution(false),
-			nocleanup(false), dump_final_smt2(false), assume_outputs(false), assume_neg(false),
-			nooptimize(false), nobisection(false), sat(false), unsat(false), show_smtbmc(false),
-			solver(Yices), timeout(0), argidx(0) {};
-};
-
-std::string get_solver_name(const QbfSolveOptions &opt) {
-	if (opt.solver == opt.Solver::Z3)
-		return "z3";
-	else if (opt.solver == opt.Solver::Yices)
-		return "yices";
-	else if (opt.solver == opt.Solver::CVC4)
-		return "cvc4";
-	else
-		log_cmd_error("unknown solver specified.\n");
-	return "";
-}
-
-void recover_solution(QbfSolutionType &sol) {
-	YS_REGEX_TYPE sat_regex = YS_REGEX_COMPILE("Status: PASSED");
-	YS_REGEX_TYPE unsat_regex = YS_REGEX_COMPILE("Solver Error.*model is not available");
-	YS_REGEX_TYPE unsat_regex2 = YS_REGEX_COMPILE("Status: FAILED");
-	YS_REGEX_TYPE timeout_regex = YS_REGEX_COMPILE("No solution found! \\(timeout\\)");
-	YS_REGEX_TYPE timeout_regex2 = YS_REGEX_COMPILE("No solution found! \\(interrupted\\)");
-	YS_REGEX_TYPE unknown_regex = YS_REGEX_COMPILE("No solution found! \\(unknown\\)");
-	YS_REGEX_TYPE unknown_regex2 = YS_REGEX_COMPILE("Unexpected EOF response from solver");
-	YS_REGEX_TYPE memout_regex = YS_REGEX_COMPILE("Solver Error:.*error \"out of memory\"");
-	YS_REGEX_TYPE hole_value_regex = YS_REGEX_COMPILE_WITH_SUBS("Value for anyconst in [a-zA-Z0-9_]* \\(([^:]*:[^\\)]*)\\): (.*)");
-#ifndef NDEBUG
-	YS_REGEX_TYPE hole_loc_regex = YS_REGEX_COMPILE("[^:]*:[0-9]+.[0-9]+-[0-9]+.[0-9]+");
-	YS_REGEX_TYPE hole_val_regex = YS_REGEX_COMPILE("[0-9]+");
-#endif
-	YS_REGEX_MATCH_TYPE m;
-	bool sat_regex_found = false;
-	bool unsat_regex_found = false;
-	dict<std::string, bool> hole_value_recovered;
-	for (const std::string &x : sol.stdout_lines) {
-		if(YS_REGEX_NS::regex_search(x, m, hole_value_regex)) {
-			std::string loc = m[1].str();
-			std::string val = m[2].str();
-#ifndef NDEBUG
-			log_assert(YS_REGEX_NS::regex_search(loc, hole_loc_regex));
-			log_assert(YS_REGEX_NS::regex_search(val, hole_val_regex));
-#endif
-			auto locs = split_tokens(loc, "|");
-			pool<std::string> loc_pool(locs.begin(), locs.end());
-			sol.hole_to_value[loc_pool] = val;
-		}
-		else if (YS_REGEX_NS::regex_search(x, sat_regex)) {
-			sat_regex_found = true;
-			sol.sat = true;
-			sol.unknown = false;
-		}
-		else if (YS_REGEX_NS::regex_search(x, unsat_regex)) {
-			unsat_regex_found = true;
-			sol.sat = false;
-			sol.unknown = false;
-		}
-		else if (YS_REGEX_NS::regex_search(x, memout_regex)) {
-			sol.unknown = true;
-			log_warning("solver ran out of memory\n");
-		}
-		else if (YS_REGEX_NS::regex_search(x, timeout_regex)) {
-			sol.unknown = true;
-			log_warning("solver timed out\n");
-		}
-		else if (YS_REGEX_NS::regex_search(x, timeout_regex2)) {
-			sol.unknown = true;
-			log_warning("solver timed out\n");
-		}
-		else if (YS_REGEX_NS::regex_search(x, unknown_regex)) {
-			sol.unknown = true;
-			log_warning("solver returned \"unknown\"\n");
-		}
-		else if (YS_REGEX_NS::regex_search(x, unsat_regex2)) {
-			unsat_regex_found = true;
-			sol.sat = false;
-			sol.unknown = false;
-		}
-		else if (YS_REGEX_NS::regex_search(x, unknown_regex2)) {
-			sol.unknown = true;
-		}
-	}
-#ifndef NDEBUG
-	log_assert(!sol.unknown && sol.sat? sat_regex_found : true);
-	log_assert(!sol.unknown && !sol.sat? unsat_regex_found : true);
-#endif
-}
-
-dict<std::pair<pool<std::string>, int>, RTLIL::SigBit> get_hole_loc_idx_sigbit_map(RTLIL::Module *module, const QbfSolutionType &sol) {
-	dict<std::pair<pool<std::string>, int>, RTLIL::SigBit> hole_loc_idx_to_sigbit;
-	for (auto cell : module->cells()) {
-		pool<std::string> cell_src = cell->get_strpool_attribute(ID::src);
-		auto pos = sol.hole_to_value.find(cell_src);
-		if (pos != sol.hole_to_value.end() && cell->type.in("$anyconst", "$anyseq")) {
-			RTLIL::SigSpec port_y = cell->getPort(ID::Y);
-			for (int i = GetSize(port_y) - 1; i >= 0; --i) {
-				hole_loc_idx_to_sigbit[std::make_pair(pos->first, i)] = port_y[i];
-			}
-		}
-	}
-
-	return hole_loc_idx_to_sigbit;
-}
-
-pool<std::string> validate_design_and_get_inputs(RTLIL::Module *module, const QbfSolveOptions &opt) {
+pool<std::string> validate_design_and_get_inputs(RTLIL::Module *module, bool assume_outputs) {
 	bool found_input = false;
 	bool found_hole = false;
 	bool found_1bit_output = false;
@@ -189,53 +59,16 @@ pool<std::string> validate_design_and_get_inputs(RTLIL::Module *module, const Qb
 		log_cmd_error("Did not find any existentially-quantified variables. Use 'sat' instead.\n");
 	if (!found_1bit_output && !found_assert_assume)
 		log_cmd_error("Did not find any single-bit outputs or $assert/$assume cells. Is this a miter circuit?\n");
-	if (!found_assert_assume && !opt.assume_outputs)
+	if (!found_assert_assume && !assume_outputs)
 		log_cmd_error("Did not find any $assert/$assume cells. Single-bit outputs were found, but `-assume-outputs` was not specified.\n");
 
 	return input_wires;
-}
-
-void write_solution(RTLIL::Module *module, const QbfSolutionType &sol, const std::string &file) {
-	std::ofstream fout(file.c_str());
-	if (!fout)
-		log_cmd_error("could not open solution file for writing.\n");
-
-	//There is a question here: How exactly shall we identify holes?
-	//There are at least two reasonable options:
-	//1. By the source location of the $anyconst cells
-	//2. By the name(s) of the wire(s) connected to each SigBit of the $anyconst cell->getPort(ID::Y) SigSpec.
-	//
-	//Option 1 has the benefit of being very precise.  There is very limited potential for confusion, as long
-	//as the source attribute has been set.  However, if the source attribute is not set, this won't work.
-	//More importantly, we want to have the ability to port hole assignments to other modules with compatible
-	//hole names and widths.  Obviously in those cases source locations of the $anyconst cells will not match.
-	//
-	//Option 2 has the benefits previously described, but wire names can be changed automatically by 
-	//optimization or techmapping passes, especially when (ex/im)porting from BLIF for optimization with ABC.
-	//
-	//The approach taken here is to allow both options.  We write the assignment information for each bit of
-	//the solution on a separate line.  Each line is of one of two forms:
-	//
-	//location bit name = value
-	//location bit name [offset] = value
-	//
-	//where '[', ']', and '=' are literal symbols, "location" is the $anyconst cell source location attribute,
-	//"bit" is the index of the $anyconst cell, "name" is the `wire->name` field of the SigBit corresponding
-	//to the current bit of the $anyconst cell->getPort(ID::Y), "offset" is the `offset` field of that same
-	//SigBit, and "value", which is either '0' or '1', represents the assignment for that bit.
-	dict<std::pair<pool<std::string>, int>, RTLIL::SigBit> hole_loc_idx_to_sigbit = get_hole_loc_idx_sigbit_map(module, sol);
-	for (auto &x : sol.hole_to_value) {
-		std::string src_as_str = std::accumulate(x.first.begin(), x.first.end(), std::string(), [](const std::string &a, const std::string &b){return a + "|" + b;});
-		for (auto i = 0; i < GetSize(x.second); ++i)
-			fout << src_as_str.c_str() << " " << i << " " << log_signal(hole_loc_idx_to_sigbit[std::make_pair(x.first, i)]) << " = " << x.second[GetSize(x.second) - 1 - i] << std::endl;
-	}
 }
 
 void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 	YS_REGEX_TYPE hole_bit_assn_regex = YS_REGEX_COMPILE_WITH_SUBS("^(.+) ([0-9]+) ([^ ]+) \\[([0-9]+)] = ([01])$");
 	YS_REGEX_TYPE hole_assn_regex = YS_REGEX_COMPILE_WITH_SUBS("^(.+) ([0-9]+) ([^ ]+) = ([01])$"); //if no index specified
 	YS_REGEX_MATCH_TYPE bit_m, m;
-	//(hole_loc, hole_bit, hole_name, hole_offset) -> (value, found)
 	dict<pool<std::string>, RTLIL::Cell*> anyconst_loc_to_cell;
 	dict<RTLIL::SigBit, RTLIL::State> hole_assignments;
 
@@ -274,8 +107,7 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 			pool<std::string> hole_loc_pool(locs.begin(), locs.end());
 			auto hole_cell_it = anyconst_loc_to_cell.find(hole_loc_pool);
 			if (hole_cell_it == anyconst_loc_to_cell.end())
-				YS_DEBUGTRAP;
-				//log_cmd_error("cannot find matching wire name or $anyconst cell location for hole spec \"%s\"\n", buf.c_str());
+				log_cmd_error("cannot find matching wire name or $anyconst cell location for hole spec \"%s\"\n", buf.c_str());
 
 			RTLIL::Cell *hole_cell = hole_cell_it->second;
 			hole_sigbit = hole_cell->getPort(ID::Y)[hole_bit];
@@ -295,7 +127,7 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 }
 
 void specialize(RTLIL::Module *module, const QbfSolutionType &sol, bool quiet = false) {
-	dict<std::pair<pool<std::string>, int>, RTLIL::SigBit> hole_loc_idx_to_sigbit = get_hole_loc_idx_sigbit_map(module, sol);
+	auto hole_loc_idx_to_sigbit = sol.get_hole_loc_idx_sigbit_map(module);
 	pool<RTLIL::Cell *> anyconsts_to_remove;
 	for (auto cell : module->cells())
 		if (cell->type == "$anyconst")
@@ -325,30 +157,10 @@ void specialize(RTLIL::Module *module, const QbfSolutionType &sol, bool quiet = 
 	}
 }
 
-void dump_model(RTLIL::Module *module, const QbfSolutionType &sol) {
-	log("Satisfiable model:\n");
-	dict<std::pair<pool<std::string>, int>, RTLIL::SigBit> hole_loc_idx_to_sigbit = get_hole_loc_idx_sigbit_map(module, sol);
-	for (auto &it : sol.hole_to_value) {
-		pool<std::string> hole_loc = it.first;
-		std::string hole_value = it.second;
-
-		for (unsigned int i = 0; i < hole_value.size(); ++i) {
-			int bit_idx = GetSize(hole_value) - 1 - i;
-			auto it = hole_loc_idx_to_sigbit.find(std::make_pair(hole_loc, i));
-			log_assert(it != hole_loc_idx_to_sigbit.end());
-
-			RTLIL::SigBit hole_sigbit = it->second;
-			log("\t%s = 1'b%c\n", log_signal(hole_sigbit), hole_value[bit_idx]);
-		}
-	}
-}
-
 void allconstify_inputs(RTLIL::Module *module, const pool<std::string> &input_wires) {
 	for (auto &n : input_wires) {
 		RTLIL::Wire *input = module->wire(n);
-#ifndef NDEBUG
 		log_assert(input != nullptr);
-#endif
 
 		RTLIL::Cell *allconst = module->addCell("$allconst$" + n, "$allconst");
 		allconst->setParam(ID(WIDTH), input->width);
@@ -360,7 +172,7 @@ void allconstify_inputs(RTLIL::Module *module, const pool<std::string> &input_wi
 	module->fixup_ports();
 }
 
-void assume_miter_outputs(RTLIL::Module *module, const QbfSolveOptions &opt) {
+void assume_miter_outputs(RTLIL::Module *module, bool assume_neg) {
 	std::vector<RTLIL::Wire *> wires_to_assume;
 	for (auto w : module->wires())
 		if (w->port_output && w->width == 1)
@@ -375,7 +187,7 @@ void assume_miter_outputs(RTLIL::Module *module, const QbfSolveOptions &opt) {
 		log("\n");
 	}
 
-	if (opt.assume_neg) {
+	if (assume_neg) {
 		for (unsigned int i = 0; i < wires_to_assume.size(); ++i) {
 			RTLIL::SigSpec n_wire = module->LogicNot(wires_to_assume[i]->name.str() + "__n__qbfsat", wires_to_assume[i], false, wires_to_assume[i]->get_src_attribute());
 			wires_to_assume[i] = n_wire.as_wire();
@@ -395,9 +207,7 @@ void assume_miter_outputs(RTLIL::Module *module, const QbfSolveOptions &opt) {
 		wires_to_assume.swap(buf);
 	}
 
-#ifndef NDEBUG
 	log_assert(wires_to_assume.size() == 1);
-#endif
 	module->addAssume("$assume_qbfsat_miter_outputs", wires_to_assume[0], RTLIL::S1);
 }
 
@@ -405,10 +215,17 @@ QbfSolutionType call_qbf_solver(RTLIL::Module *mod, const QbfSolveOptions &opt, 
 	//Execute and capture stdout from `yosys-smtbmc -s z3 -t 1 -g --binary [--dump-smt2 <file>]`
 	QbfSolutionType ret;
 	const std::string yosys_smtbmc_exe = proc_self_dirname() + "yosys-smtbmc";
-	const std::string smt2_command = "write_smt2 -stbv -wires " + tempdir_name + "/problem" + (iter_num != 0? stringf("%d", iter_num) : "") + ".smt2";
 	const std::string smtbmc_warning = "z3: WARNING:";
-	const std::string smtbmc_cmd = yosys_smtbmc_exe + " -s " + (get_solver_name(opt)) + (opt.timeout != 0? stringf(" --timeout %d", opt.timeout) : "") + " -t 1 -g --binary " + (opt.dump_final_smt2? "--dump-smt2 " + opt.dump_final_smt2_file + " " : "") + tempdir_name + "/problem" + (iter_num != 0? stringf("%d", iter_num) : "") + ".smt2 2>&1";
+	const std::string smtbmc_cmd = stringf("%s -s %s %s -t 1 -g --binary %s %s/problem%d.smt2 2>&1",
+			yosys_smtbmc_exe.c_str(), opt.get_solver_name().c_str(),
+			(opt.timeout != 0? stringf("--timeout %d", opt.timeout) : "").c_str(),
+			(opt.dump_final_smt2? "--dump-smt2 " + opt.dump_final_smt2_file : "").c_str(),
+			tempdir_name.c_str(), iter_num);
 
+	std::string smt2_command = "write_smt2 -stbv -wires ";
+	for (auto &solver_opt : opt.solver_options)
+		smt2_command += stringf("-solver-option %s %s ", solver_opt.first.c_str(), solver_opt.second.c_str());
+	smt2_command += stringf("%s/problem%d.smt2", tempdir_name.c_str(), iter_num);
 	Pass::call(mod->design, smt2_command);
 
 	auto process_line = [&ret, &smtbmc_warning, &opt, &quiet](const std::string &line) {
@@ -428,43 +245,53 @@ QbfSolutionType call_qbf_solver(RTLIL::Module *mod, const QbfSolveOptions &opt, 
 	ret.solver_time = (end - begin) / 1e9f;
 	if (!quiet) log("Solver finished in %.3f seconds.\n", ret.solver_time);
 
-	recover_solution(ret);
+	ret.recover_solution();
 	return ret;
 }
 
 QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 	QbfSolutionType ret, best_soln;
-	const std::string tempdir_name = make_temp_dir("/tmp/yosys-z3-XXXXXX");
+	const std::string tempdir_name = make_temp_dir("/tmp/yosys-qbfsat-XXXXXX");
 	RTLIL::Module *module = mod;
 	RTLIL::Design *design = module->design;
 	std::string module_name = module->name.str();
-	RTLIL::Wire *wire_to_optimize = nullptr;
-	RTLIL::IdString wire_to_optimize_name;
+	RTLIL::IdString wire_to_optimize_name = "";
 	bool maximize = false;
 	log_assert(module->design != nullptr);
 
 	Pass::call(design, "design -push-copy");
 
 	//Replace input wires with wires assigned $allconst cells:
-	pool<std::string> input_wires = validate_design_and_get_inputs(module, opt);
+	pool<std::string> input_wires = validate_design_and_get_inputs(module, opt.assume_outputs);
 	allconstify_inputs(module, input_wires);
 	if (opt.assume_outputs)
-		assume_miter_outputs(module, opt);
+		assume_miter_outputs(module, opt.assume_neg);
 
 	//Find the wire to be optimized, if any:
-	for (auto wire : module->wires())
-		if (wire->get_bool_attribute("\\maximize") || wire->get_bool_attribute("\\minimize"))
-			wire_to_optimize = wire;
-	if (wire_to_optimize != nullptr) {
-		wire_to_optimize_name = wire_to_optimize->name;
-		maximize = wire_to_optimize->get_bool_attribute("\\maximize");
+	for (auto wire : module->wires()) {
+		if (wire->get_bool_attribute("\\maximize") || wire->get_bool_attribute("\\minimize")) {
+			wire_to_optimize_name = wire->name;
+			maximize = wire->get_bool_attribute("\\maximize");
+			if (opt.nooptimize) {
+				if (maximize)
+					wire->set_bool_attribute("\\maximize", false);
+				else
+					wire->set_bool_attribute("\\minimize", false);
+			}
+		}
 	}
 
-	if (opt.nobisection || opt.nooptimize || wire_to_optimize == nullptr) {
-		if (wire_to_optimize != nullptr && opt.nooptimize) {
-			wire_to_optimize->set_bool_attribute("\\maximize", false);
-			wire_to_optimize->set_bool_attribute("\\minimize", false);
-		}
+	//If -O1 or -O2 was specified, use ABC to simplify the problem:
+	if (opt.oflag == opt.OptimizationLevel::O1)
+		Pass::call(module->design, "abc -g AND,NAND,OR,NOR,XOR,XNOR,MUX,NMUX -script +print_stats;strash;print_stats;drwsat;print_stats;fraig;print_stats;refactor,-N,10,-lz;print_stats;&get,-n;&dch,-pem;&nf;&put " + mod->name.str());
+	else if (opt.oflag == opt.OptimizationLevel::O2)
+		Pass::call(module->design, "abc -g AND,NAND,OR,NOR,XOR,XNOR,MUX,NMUX -script +print_stats;strash;print_stats;drwsat;print_stats;dch,-S,1000000,-C,100000,-p;print_stats;fraig;print_stats;refactor,-N,15,-lz;print_stats;dc2,-pbl;print_stats;drwsat;print_stats;&get,-n;&dch,-pem;&nf;&put " + mod->name.str());
+	if (opt.oflag != opt.OptimizationLevel::O0) {
+		Pass::call(module->design, "techmap");
+		Pass::call(module->design, "opt");
+	}
+
+	if (opt.nobisection || opt.nooptimize || wire_to_optimize_name == "") {
 		ret = call_qbf_solver(module, opt, tempdir_name, false, 0);
 	} else {
 		//Do the iterated bisection method:
@@ -473,8 +300,9 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 		unsigned int failure = 0;
 		unsigned int cur_thresh = 0;
 
-		log_assert(wire_to_optimize != nullptr);
-		log("%s wire \"%s\".\n", (maximize? "Maximizing" : "Minimizing"), log_signal(wire_to_optimize));
+		log_assert(wire_to_optimize_name != "");
+		log_assert(module->wire(wire_to_optimize_name) != nullptr);
+		log("%s wire \"%s\".\n", (maximize? "Maximizing" : "Minimizing"), wire_to_optimize_name.c_str());
 
 		//If maximizing, grow until we get a failure.  Then bisect success and failure.
 		while (failure == 0 || difference(success, failure) > 1) {
@@ -594,6 +422,13 @@ QbfSolveOptions parse_args(const std::vector<std::string> &args) {
 			}
 			continue;
 		}
+		else if (args[opt.argidx] == "-solver-option") {
+			if (args.size() <= opt.argidx + 2)
+				log_cmd_error("solver option name and value not fully specified.\n");
+			opt.solver_options.emplace(args[opt.argidx+1], args[opt.argidx+2]);
+			opt.argidx += 2;
+			continue;
+		}
 		else if (args[opt.argidx] == "-timeout") {
 			if (args.size() <= opt.argidx + 1)
 				log_cmd_error("timeout not specified.\n");
@@ -604,6 +439,22 @@ QbfSolveOptions parse_args(const std::vector<std::string> &args) {
 				else
 					log_cmd_error("timeout must be greater than 0.\n");
 				opt.argidx++;
+			}
+			continue;
+		}
+		else if (args[opt.argidx].substr(0, 2) == "-O" && args[opt.argidx].size() == 3) {
+			switch (args[opt.argidx][2]) {
+				case '0':
+					opt.oflag = opt.OptimizationLevel::O0;
+				break;
+				case '1':
+					opt.oflag = opt.OptimizationLevel::O1;
+				break;
+				case '2':
+					opt.oflag = opt.OptimizationLevel::O2;
+				break;
+				default:
+					log_cmd_error("unknown argument %s\n", args[opt.argidx].c_str());
 			}
 			continue;
 		}
@@ -649,33 +500,6 @@ QbfSolveOptions parse_args(const std::vector<std::string> &args) {
 	return opt;
 }
 
-void print_proof_failed()
-{
-	log("\n");
-	log("   ______                   ___       ___       _ _            _ _ \n");
-	log("  (_____ \\                 / __)     / __)     (_) |          | | |\n");
-	log("   _____) )___ ___   ___ _| |__    _| |__ _____ _| | _____  __| | |\n");
-	log("  |  ____/ ___) _ \\ / _ (_   __)  (_   __|____ | | || ___ |/ _  |_|\n");
-	log("  | |   | |  | |_| | |_| || |       | |  / ___ | | || ____( (_| |_ \n");
-	log("  |_|   |_|   \\___/ \\___/ |_|       |_|  \\_____|_|\\_)_____)\\____|_|\n");
-	log("\n");
-}
-
-void print_qed()
-{
-	log("\n");
-	log("                  /$$$$$$      /$$$$$$$$     /$$$$$$$    \n");
-	log("                 /$$__  $$    | $$_____/    | $$__  $$   \n");
-	log("                | $$  \\ $$    | $$          | $$  \\ $$   \n");
-	log("                | $$  | $$    | $$$$$       | $$  | $$   \n");
-	log("                | $$  | $$    | $$__/       | $$  | $$   \n");
-	log("                | $$/$$ $$    | $$          | $$  | $$   \n");
-	log("                |  $$$$$$/ /$$| $$$$$$$$ /$$| $$$$$$$//$$\n");
-	log("                 \\____ $$$|__/|________/|__/|_______/|__/\n");
-	log("                       \\__/                              \n");
-	log("\n");
-}
-
 struct QbfSatPass : public Pass {
 	QbfSatPass() : Pass("qbfsat", "solve a 2QBF-SAT problem in the circuit") { }
 	void help() override
@@ -717,9 +541,17 @@ struct QbfSatPass : public Pass {
 		log("\n");
 		log("    -solver <solver>\n");
 		log("        Use a particular solver. Choose one of: \"z3\", \"yices\", and \"cvc4\".\n");
+		log("        (default: yices)\n");
+		log("\n");
+		log("    -solver-option <name> <value>\n");
+		log("        Set the specified solver option in the SMT-LIBv2 problem file.\n");
 		log("\n");
 		log("    -timeout <value>\n");
 		log("        Set the per-iteration timeout in seconds.\n");
+		log("        (default: no timeout)\n");
+		log("\n");
+		log("    -O0, -O1, -O2\n");
+		log("        Control the use of ABC to simplify the QBF-SAT problem before solving.\n");
 		log("\n");
 		log("    -sat\n");
 		log("        Generate an error if the solver does not return \"sat\".\n");
@@ -774,12 +606,12 @@ struct QbfSatPass : public Pass {
 			else if (ret.sat) {
 				print_qed();
 				if (opt.write_solution) {
-					write_solution(module, ret, opt.write_soln_soln_file);
+					ret.write_solution(module, opt.write_soln_soln_file);
 				}
 				if (opt.specialize) {
 					specialize(module, ret);
 				} else {
-					dump_model(module, ret);
+					ret.dump_model(module);
 				}
 				if (opt.unsat)
 					log_cmd_error("expected problem to be UNSAT\n");

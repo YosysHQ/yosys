@@ -22,6 +22,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/utils.h"
 #include "kernel/celltypes.h"
+#include "kernel/mem.h"
 #include "kernel/log.h"
 
 USING_YOSYS_NAMESPACE
@@ -200,16 +201,12 @@ bool is_elidable_cell(RTLIL::IdString type)
 		ID($mux), ID($concat), ID($slice), ID($pmux));
 }
 
-bool is_sync_ff_cell(RTLIL::IdString type)
-{
-	return type.in(
-		ID($dff), ID($dffe), ID($sdff), ID($sdffe), ID($sdffce));
-}
-
 bool is_ff_cell(RTLIL::IdString type)
 {
-	return is_sync_ff_cell(type) || type.in(
-		ID($adff), ID($adffe), ID($dffsr), ID($dffsre), ID($dlatch), ID($adlatch), ID($dlatchsr), ID($sr));
+	return type.in(
+		ID($dff), ID($dffe), ID($sdff), ID($sdffe), ID($sdffce),
+		ID($adff), ID($adffe), ID($dffsr), ID($dffsre),
+		ID($dlatch), ID($adlatch), ID($dlatchsr), ID($sr));
 }
 
 bool is_internal_cell(RTLIL::IdString type)
@@ -277,6 +274,7 @@ struct FlowGraph {
 	std::vector<Node*> nodes;
 	dict<const RTLIL::Wire*, pool<Node*, hash_ptr_ops>> wire_comb_defs, wire_sync_defs, wire_uses;
 	dict<const RTLIL::Wire*, bool> wire_def_elidable, wire_use_elidable;
+	dict<RTLIL::SigBit, bool> bit_has_state;
 
 	~FlowGraph()
 	{
@@ -284,17 +282,24 @@ struct FlowGraph {
 			delete node;
 	}
 
-	void add_defs(Node *node, const RTLIL::SigSpec &sig, bool fully_sync, bool elidable)
+	void add_defs(Node *node, const RTLIL::SigSpec &sig, bool is_ff, bool elidable)
 	{
 		for (auto chunk : sig.chunks())
 			if (chunk.wire) {
-				if (fully_sync)
+				if (is_ff) {
+					// A sync def means that a wire holds design state because it is driven directly by
+					// a flip-flop output. Such a wire can never be unbuffered.
 					wire_sync_defs[chunk.wire].insert(node);
-				else
+				} else {
+					// A comb def means that a wire doesn't hold design state. It might still be connected,
+					// indirectly, to a flip-flop output.
 					wire_comb_defs[chunk.wire].insert(node);
+				}
 			}
+		for (auto bit : sig.bits())
+			bit_has_state[bit] |= is_ff;
 		// Only comb defs of an entire wire in the right order can be elided.
-		if (!fully_sync && sig.is_wire())
+		if (!is_ff && sig.is_wire())
 			wire_def_elidable[sig.as_wire()] = elidable;
 	}
 
@@ -322,7 +327,7 @@ struct FlowGraph {
 	// Connections
 	void add_connect_defs_uses(Node *node, const RTLIL::SigSig &conn)
 	{
-		add_defs(node, conn.first, /*fully_sync=*/false, /*elidable=*/true);
+		add_defs(node, conn.first, /*is_ff=*/false, /*elidable=*/true);
 		add_uses(node, conn.second);
 	}
 
@@ -369,7 +374,7 @@ struct FlowGraph {
 			if (cell->output(conn.first))
 				if (is_cxxrtl_sync_port(cell, conn.first)) {
 					// See note regarding elidability below.
-					add_defs(node, conn.second, /*fully_sync=*/false, /*elidable=*/false);
+					add_defs(node, conn.second, /*is_ff=*/false, /*elidable=*/false);
 				}
 	}
 
@@ -378,18 +383,18 @@ struct FlowGraph {
 		for (auto conn : cell->connections()) {
 			if (cell->output(conn.first)) {
 				if (is_elidable_cell(cell->type))
-					add_defs(node, conn.second, /*fully_sync=*/false, /*elidable=*/true);
-				else if (is_sync_ff_cell(cell->type) || (cell->type == ID($memrd) && cell->getParam(ID::CLK_ENABLE).as_bool()))
-					add_defs(node, conn.second, /*fully_sync=*/true,  /*elidable=*/false);
+					add_defs(node, conn.second, /*is_ff=*/false, /*elidable=*/true);
+				else if (is_ff_cell(cell->type) || (cell->type == ID($memrd) && cell->getParam(ID::CLK_ENABLE).as_bool()))
+					add_defs(node, conn.second, /*is_ff=*/true,  /*elidable=*/false);
 				else if (is_internal_cell(cell->type))
-					add_defs(node, conn.second, /*fully_sync=*/false, /*elidable=*/false);
+					add_defs(node, conn.second, /*is_ff=*/false, /*elidable=*/false);
 				else if (!is_cxxrtl_sync_port(cell, conn.first)) {
 					// Although at first it looks like outputs of user-defined cells may always be elided, the reality is
 					// more complex. Fully sync outputs produce no defs and so don't participate in elision. Fully comb
 					// outputs are assigned in a different way depending on whether the cell's eval() immediately converged.
 					// Unknown/mixed outputs could be elided, but should be rare in practical designs and don't justify
 					// the infrastructure required to elide outputs of cells with many of them.
-					add_defs(node, conn.second, /*fully_sync=*/false, /*elidable=*/false);
+					add_defs(node, conn.second, /*is_ff=*/false, /*elidable=*/false);
 				}
 			}
 			if (cell->input(conn.first))
@@ -427,7 +432,7 @@ struct FlowGraph {
 	void add_case_defs_uses(Node *node, const RTLIL::CaseRule *case_)
 	{
 		for (auto &action : case_->actions) {
-			add_defs(node, action.first, /*is_sync=*/false, /*elidable=*/false);
+			add_defs(node, action.first, /*is_ff=*/false, /*elidable=*/false);
 			add_uses(node, action.second);
 		}
 		for (auto sub_switch : case_->switches) {
@@ -446,9 +451,9 @@ struct FlowGraph {
 		for (auto sync : process->syncs)
 			for (auto action : sync->actions) {
 				if (sync->type == RTLIL::STp || sync->type == RTLIL::STn || sync->type == RTLIL::STe)
-				  add_defs(node, action.first, /*is_sync=*/true,  /*elidable=*/false);
+				  add_defs(node, action.first, /*is_ff=*/true,  /*elidable=*/false);
 				else
-					add_defs(node, action.first, /*is_sync=*/false, /*elidable=*/false);
+					add_defs(node, action.first, /*is_ff=*/false, /*elidable=*/false);
 				add_uses(node, action.second);
 			}
 	}
@@ -522,6 +527,7 @@ struct CxxrtlWorker {
 	std::ostream *impl_f = nullptr;
 	std::ostream *intf_f = nullptr;
 
+	bool run_hierarchy = false;
 	bool run_flatten = false;
 	bool run_proc = false;
 
@@ -549,6 +555,7 @@ struct CxxrtlWorker {
 	pool<const RTLIL::Wire*> localized_wires;
 	dict<const RTLIL::Wire*, const RTLIL::Wire*> debug_alias_wires;
 	dict<const RTLIL::Wire*, RTLIL::Const> debug_const_wires;
+	dict<RTLIL::SigBit, bool> bit_has_state;
 	dict<const RTLIL::Module*, pool<std::string>> blackbox_specializations;
 	dict<const RTLIL::Module*, bool> eval_converges;
 
@@ -1142,7 +1149,7 @@ struct CxxrtlWorker {
 				}
 				// The generated code has two bounds checks; one in an assertion, and another that guards the read.
 				// This is done so that the code does not invoke undefined behavior under any conditions, but nevertheless
-				// loudly crashes if an illegal condition is encountered. The assert may be turned off with -NDEBUG not
+				// loudly crashes if an illegal condition is encountered. The assert may be turned off with -DNDEBUG not
 				// just for release builds, but also to make sure the simulator (which is presumably embedded in some
 				// larger program) will never crash the code that calls into it.
 				//
@@ -1635,6 +1642,10 @@ struct CxxrtlWorker {
 		size_t count_alias_wires = 0;
 		size_t count_member_wires = 0;
 		size_t count_skipped_wires = 0;
+		size_t count_driven_sync = 0;
+		size_t count_driven_comb = 0;
+		size_t count_undriven = 0;
+		size_t count_mixed_driver = 0;
 		inc_indent();
 			f << indent << "assert(path.empty() || path[path.size() - 1] == ' ');\n";
 			for (auto wire : module->wires()) {
@@ -1660,9 +1671,55 @@ struct CxxrtlWorker {
 					count_alias_wires++;
 				} else if (!localized_wires.count(wire)) {
 					// Member wire
+					std::vector<std::string> flags;
+
+					if (wire->port_input && wire->port_output)
+						flags.push_back("INOUT");
+					else if (wire->port_input)
+						flags.push_back("INPUT");
+					else if (wire->port_output)
+						flags.push_back("OUTPUT");
+
+					bool has_driven_sync = false;
+					bool has_driven_comb = false;
+					bool has_undriven = false;
+					SigSpec sig(wire);
+					for (auto bit : sig.bits())
+						if (!bit_has_state.count(bit))
+							has_undriven = true;
+						else if (bit_has_state[bit])
+							has_driven_sync = true;
+						else
+							has_driven_comb = true;
+					if (has_driven_sync)
+						flags.push_back("DRIVEN_SYNC");
+					if (has_driven_sync && !has_driven_comb && !has_undriven)
+						count_driven_sync++;
+					if (has_driven_comb)
+						flags.push_back("DRIVEN_COMB");
+					if (!has_driven_sync && has_driven_comb && !has_undriven)
+						count_driven_comb++;
+					if (has_undriven)
+						flags.push_back("UNDRIVEN");
+					if (!has_driven_sync && !has_driven_comb && has_undriven)
+						count_undriven++;
+					if (has_driven_sync + has_driven_comb + has_undriven > 1)
+						count_mixed_driver++;
+
 					f << indent << "items.add(path + " << escape_cxx_string(get_hdl_name(wire));
 					f << ", debug_item(" << mangle(wire) << ", ";
-					f << wire->start_offset << "));\n";
+					f << wire->start_offset;
+					bool first = true;
+					for (auto flag : flags) {
+						if (first) {
+							first = false;
+							f << ", ";
+						} else {
+							f << "|";
+						}
+						f << "debug_item::" << flag;
+					}
+					f << "));\n";
 					count_member_wires++;
 				} else {
 					count_skipped_wires++;
@@ -1690,7 +1747,11 @@ struct CxxrtlWorker {
 		log_debug("  Public wires: %zu, of which:\n", count_public_wires);
 		log_debug("    Const wires:  %zu\n", count_const_wires);
 		log_debug("    Alias wires:  %zu\n", count_alias_wires);
-		log_debug("    Member wires: %zu\n", count_member_wires);
+		log_debug("    Member wires: %zu, of which:\n", count_member_wires);
+		log_debug("      Driven sync:  %zu\n", count_driven_sync);
+		log_debug("      Driven comb:  %zu\n", count_driven_comb);
+		log_debug("      Undriven:     %zu\n", count_undriven);
+		log_debug("      Mixed driver: %zu\n", count_mixed_driver);
 		log_debug("    Other wires:  %zu (no debug information)\n", count_skipped_wires);
 	}
 
@@ -1935,6 +1996,7 @@ struct CxxrtlWorker {
 		f << "} // namespace " << design_ns << "\n";
 		f << "\n";
 		if (top_module != nullptr && debug_info) {
+			f << "extern \"C\"\n";
 			f << "cxxrtl_toplevel " << design_ns << "_create() {\n";
 			inc_indent();
 				std::string top_type = design_ns + "::" + mangle(top_module);
@@ -2122,6 +2184,8 @@ struct CxxrtlWorker {
 				if (wire->name.begins_with("$") && !elide_internal) continue;
 				if (wire->name.begins_with("\\") && !elide_public) continue;
 				if (edge_wires[wire]) continue;
+				if (flow.wire_comb_defs[wire].size() > 1)
+					log_cmd_error("Wire %s.%s has multiple drivers.\n", log_id(module), log_id(wire));
 				log_assert(flow.wire_comb_defs[wire].size() == 1);
 				elided_wires[wire] = **flow.wire_comb_defs[wire].begin();
 			}
@@ -2208,6 +2272,9 @@ struct CxxrtlWorker {
 
 			eval_converges[module] = feedback_wires.empty() && buffered_comb_wires.empty();
 
+			for (auto item : flow.bit_has_state)
+				bit_has_state.insert(item);
+
 			if (debug_info) {
 				// Find wires that alias other wires or are tied to a constant; debug information can be enriched with these
 				// at essentially zero additional cost.
@@ -2263,9 +2330,9 @@ struct CxxrtlWorker {
 		}
 	}
 
-	void check_design(RTLIL::Design *design, bool &has_sync_init, bool &has_packed_mem)
+	void check_design(RTLIL::Design *design, bool &has_top, bool &has_sync_init, bool &has_packed_mem)
 	{
-		has_sync_init = has_packed_mem = false;
+		has_sync_init = has_packed_mem = has_top = false;
 
 		for (auto module : design->modules()) {
 			if (module->get_blackbox_attribute() && !module->has_attribute(ID(cxxrtl_blackbox)))
@@ -2277,13 +2344,17 @@ struct CxxrtlWorker {
 			if (!design->selected_module(module))
 				continue;
 
+			if (module->get_bool_attribute(ID::top))
+				has_top = true;
+
 			for (auto proc : module->processes)
 				for (auto sync : proc.second->syncs)
 					if (sync->type == RTLIL::STi)
 						has_sync_init = true;
 
-			for (auto cell : module->cells())
-				if (cell->type == ID($mem))
+			// The Mem constructor also checks for well-formedness of $meminit cells, if any.
+			for (auto &mem : Mem::get_all_memories(module))
+				if (mem.packed)
 					has_packed_mem = true;
 		}
 	}
@@ -2291,9 +2362,13 @@ struct CxxrtlWorker {
 	void prepare_design(RTLIL::Design *design)
 	{
 		bool did_anything = false;
-		bool has_sync_init, has_packed_mem;
+		bool has_top, has_sync_init, has_packed_mem;
 		log_push();
-		check_design(design, has_sync_init, has_packed_mem);
+		check_design(design, has_top, has_sync_init, has_packed_mem);
+		if (run_hierarchy && !has_top) {
+			Pass::call(design, "hierarchy -auto-top");
+			did_anything = true;
+		}
 		if (run_flatten) {
 			Pass::call(design, "flatten");
 			did_anything = true;
@@ -2314,9 +2389,9 @@ struct CxxrtlWorker {
 			did_anything = true;
 		}
 		// Recheck the design if it was modified.
-		if (has_sync_init || has_packed_mem)
-			check_design(design, has_sync_init, has_packed_mem);
-		log_assert(!(has_sync_init || has_packed_mem));
+		if (did_anything)
+			check_design(design, has_top, has_sync_init, has_packed_mem);
+		log_assert(has_top && !has_sync_init && !has_packed_mem);
 		log_pop();
 		if (did_anything)
 			log_spacer();
@@ -2498,6 +2573,11 @@ struct CxxrtlBackend : public Backend {
 		log("        place the generated code into namespace <ns-name>. if not specified,\n");
 		log("        \"cxxrtl_design\" is used.\n");
 		log("\n");
+		log("    -nohierarchy\n");
+		log("        use design hierarchy as-is. in most designs, a top module should be\n");
+		log("        present as it is exposed through the C API and has unbuffered outputs\n");
+		log("        for improved performance; it will be determined automatically if absent.\n");
+		log("\n");
 		log("    -noflatten\n");
 		log("        don't flatten the design. fully flattened designs can evaluate within\n");
 		log("        one delta cycle if they have no combinatorial feedback.\n");
@@ -2554,6 +2634,7 @@ struct CxxrtlBackend : public Backend {
 
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		bool nohierarchy = false;
 		bool noflatten = false;
 		bool noproc = false;
 		int opt_level = DEFAULT_OPT_LEVEL;
@@ -2565,6 +2646,10 @@ struct CxxrtlBackend : public Backend {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
+			if (args[argidx] == "-nohierarchy") {
+				nohierarchy = true;
+				continue;
+			}
 			if (args[argidx] == "-noflatten") {
 				noflatten = true;
 				continue;
@@ -2610,6 +2695,7 @@ struct CxxrtlBackend : public Backend {
 		}
 		extra_args(f, filename, args, argidx);
 
+		worker.run_hierarchy = !nohierarchy;
 		worker.run_flatten = !noflatten;
 		worker.run_proc = !noproc;
 		switch (opt_level) {

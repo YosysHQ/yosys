@@ -53,6 +53,8 @@
 // Q: data output
 //
 // Note: the DFFEAS primitive is mostly emulated; it does not reflect what the hardware implements.
+
+(* abc9_box, lib_whitebox *)
 module MISTRAL_FF(
     input DATAIN, CLK, ACLR, ENA, SCLR, SLOAD, SDATA,
     output reg Q
@@ -60,14 +62,34 @@ module MISTRAL_FF(
 
 `ifdef cyclonev
 specify
-    (posedge CLK => (Q : DATAIN)) = 262;
-    $setup(DATAIN, posedge CLK, 522);
+    if (ENA && ACLR !== 1'b0 && !SCLR && !SLOAD) (posedge CLK => (Q : DATAIN)) = 731;
+    if (ENA && SCLR) (posedge CLK => (Q : 1'b0)) = 890;
+    if (ENA && !SCLR && SLOAD) (posedge CLK => (Q : SDATA)) = 618;
+
+    $setup(DATAIN, posedge CLK, /* -196 */ 0);
+    $setup(ENA, posedge CLK, /* -196 */ 0);
+    $setup(SCLR, posedge CLK, /* -196 */ 0);
+    $setup(SLOAD, posedge CLK, /* -196 */ 0);
+    $setup(SDATA, posedge CLK, /* -196 */ 0);
+
+    if (ACLR === 1'b0) (ACLR => Q) = 282;
 endspecify
 `endif
 `ifdef cyclone10gx
 specify
-    (posedge CLK => (Q : DATAIN)) = 219;
+    // TODO (long-term): investigate these numbers.
+    // It seems relying on the Quartus Timing Analyzer was not the best idea; it's too fiddly.
+    if (ENA && ACLR !== 1'b0 && !SCLR && !SLOAD) (posedge CLK => (Q : DATAIN)) = 219;
+    if (ENA && SCLR) (posedge CLK => (Q : 1'b0)) = 219;
+    if (ENA && !SCLR && SLOAD) (posedge CLK => (Q : SDATA)) = 219;
+
     $setup(DATAIN, posedge CLK, 268);
+    $setup(ENA, posedge CLK, 268);
+    $setup(SCLR, posedge CLK, 268);
+    $setup(SLOAD, posedge CLK, 268);
+    $setup(SDATA, posedge CLK, 268);
+
+    if (ACLR === 1'b0) (ACLR => Q) = 0;
 endspecify
 `endif
 

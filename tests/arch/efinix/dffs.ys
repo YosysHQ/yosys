@@ -19,6 +19,5 @@ design -load postopt # load the post-opt design (otherwise equiv_opt loads the p
 cd dffe # Constrain all select calls below inside the top module
 select -assert-count 1 t:EFX_FF
 select -assert-count 1 t:EFX_GBUFCE
-select -assert-count 1 t:EFX_LUT4
 
-select -assert-none t:EFX_FF t:EFX_GBUFCE t:EFX_LUT4 %% t:* %D
+select -assert-none t:EFX_FF t:EFX_GBUFCE %% t:* %D

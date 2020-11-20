@@ -81,7 +81,7 @@ struct statdata_t
 
 		for (auto wire : mod->selected_wires())
 		{
-			if (wire->name[0] == '\\') {
+			if (wire->name.isPublic()) {
 				num_pub_wires++;
 				num_pub_wire_bits += wire->width;
 			}

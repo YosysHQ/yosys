@@ -211,7 +211,7 @@ struct SpliceWorker
 		std::vector<Wire*> mod_wires = module->wires();
 
 		for (auto wire : mod_wires)
-			if ((!no_outputs && wire->port_output) || (do_wires && wire->name[0] == '\\')) {
+			if ((!no_outputs && wire->port_output) || (do_wires && wire->name.isPublic())) {
 				if (!design->selected(module, wire))
 					continue;
 				RTLIL::SigSpec sig = sigmap(wire);

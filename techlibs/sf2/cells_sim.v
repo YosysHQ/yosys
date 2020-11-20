@@ -1,7 +1,6 @@
 // https://coredocs.s3.amazonaws.com/Libero/12_0_0/Tool/sf2_mlg.pdf
 
 module ADD2 (
-
 	input A, B,
 	output Y
 );
@@ -76,6 +75,7 @@ endmodule
 
 module CLKINT (
 	input A,
+	(* clkbuf_driver *)
 	output Y
 );
 	assign Y = A;
@@ -83,6 +83,7 @@ endmodule
 
 module CLKINT_PRESERVE (
 	input A,
+	(* clkbuf_driver *)
 	output Y
 );
 	assign Y = A;
@@ -90,6 +91,7 @@ endmodule
 
 module GCLKINT (
 	input A, EN,
+	(* clkbuf_driver *)
 	output Y
 );
 	assign Y = A & EN;
@@ -97,6 +99,7 @@ endmodule
 
 module RCLKINT (
 	input A,
+	(* clkbuf_driver *)
 	output Y
 );
 	assign Y = A;
@@ -104,6 +107,7 @@ endmodule
 
 module RGCLKINT (
 	input A, EN,
+	(* clkbuf_driver *)
 	output Y
 );
 	assign Y = A & EN;
@@ -113,6 +117,7 @@ module SLE (
 	output Q,
 	input ADn,
 	input ALn,
+	(* clkbuf_sink *)
 	input CLK,
 	input D,
 	input LAT,
@@ -155,9 +160,41 @@ endmodule
 // module SYSRESET
 // module SYSCTRL_RESET_STATUS
 // module LIVE_PROBE_FB
-// module GCLKBUF
-// module GCLKBUF_DIFF
-// module GCLKBIBUF
+
+(* blackbox *)
+module GCLKBUF (
+	(* iopad_external_pin *)
+	input PAD,
+	input EN,
+	(* clkbuf_driver *)
+	output Y
+);
+endmodule
+
+(* blackbox *)
+module GCLKBUF_DIFF (
+	(* iopad_external_pin *)
+	input PADP,
+	(* iopad_external_pin *)
+	input PADN,
+	input EN,
+	(* clkbuf_driver *)
+	output Y
+);
+endmodule
+
+(* blackbox *)
+module GCLKBIBUF (
+	input D,
+	input E,
+	input EN,
+	(* iopad_external_pin *)
+	inout PAD,
+	(* clkbuf_driver *)
+	output Y
+);
+endmodule
+
 // module DFN1
 // module DFN1C0
 // module DFN1E1
@@ -288,38 +325,118 @@ module XOR8 (
 endmodule
 
 // module UJTAG
-// module BIBUF
-// module BIBUF_DIFF
-// module CLKBIBUF
+
+module BIBUF (
+	input D,
+	input E,
+	(* iopad_external_pin *)
+	inout PAD,
+	output Y
+);
+	assign PAD = E ? D : 1'bz;
+	assign Y = PAD;
+endmodule
+
+(* blackbox *)
+module BIBUF_DIFF (
+	input D,
+	input E,
+	(* iopad_external_pin *)
+	inout PADP,
+	(* iopad_external_pin *)
+	inout PADN,
+	output Y
+);
+endmodule
+
+module CLKBIBUF (
+	input D,
+	input E,
+	(* iopad_external_pin *)
+	inout PAD,
+	(* clkbuf_driver *)
+	output Y
+);
+	assign PAD = E ? D : 1'bz;
+	assign Y = PAD;
+endmodule
 
 module CLKBUF (
+	(* iopad_external_pin *)
 	input PAD,
+	(* clkbuf_driver *)
 	output Y
 );
 	assign Y = PAD;
 endmodule
 
-// module CLKBUF_DIFF
+(* blackbox *)
+module CLKBUF_DIFF (
+	(* iopad_external_pin *)
+	input PADP,
+	(* iopad_external_pin *)
+	input PADN,
+	(* clkbuf_driver *)
+	output Y
+);
+endmodule
 
 module INBUF (
+	(* iopad_external_pin *)
 	input PAD,
 	output Y
 );
 	assign Y = PAD;
 endmodule
 
-// module INBUF_DIFF
+(* blackbox *)
+module INBUF_DIFF (
+	(* iopad_external_pin *)
+	input PADP,
+	(* iopad_external_pin *)
+	input PADN,
+	output Y
+);
+endmodule
 
 module OUTBUF (
 	input D,
+	(* iopad_external_pin *)
 	output PAD
 );
 	assign PAD = D;
 endmodule
 
-// module OUTBUF_DIFF
-// module TRIBUFF
-// module TRIBUFF_DIFF
+(* blackbox *)
+module OUTBUF_DIFF (
+	input D,
+	(* iopad_external_pin *)
+	output PADP,
+	(* iopad_external_pin *)
+	output PADN
+);
+endmodule
+
+module TRIBUFF (
+	input D,
+	input E,
+	(* iopad_external_pin *)
+	output PAD
+);
+	assign PAD = E ? D : 1'bz;
+endmodule
+
+(* blackbox *)
+module TRIBUFF_DIFF (
+	input D,
+	input E,
+	(* iopad_external_pin *)
+	output PADP,
+	(* iopad_external_pin *)
+	output PADN
+);
+endmodule
+
 // module DDR_IN
 // module DDR_OUT
 // module RAM1K18

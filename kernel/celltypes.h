@@ -139,12 +139,12 @@ struct CellTypes
 		setup_type(ID($dff), {ID::CLK, ID::D}, {ID::Q});
 		setup_type(ID($dffe), {ID::CLK, ID::EN, ID::D}, {ID::Q});
 		setup_type(ID($dffsr), {ID::CLK, ID::SET, ID::CLR, ID::D}, {ID::Q});
-		setup_type(ID($dffsre), {ID::CLK, ID::SET, ID::CLR, ID::D, ID::E}, {ID::Q});
+		setup_type(ID($dffsre), {ID::CLK, ID::SET, ID::CLR, ID::D, ID::EN}, {ID::Q});
 		setup_type(ID($adff), {ID::CLK, ID::ARST, ID::D}, {ID::Q});
-		setup_type(ID($adffe), {ID::CLK, ID::ARST, ID::D, ID::E}, {ID::Q});
+		setup_type(ID($adffe), {ID::CLK, ID::ARST, ID::D, ID::EN}, {ID::Q});
 		setup_type(ID($sdff), {ID::CLK, ID::SRST, ID::D}, {ID::Q});
-		setup_type(ID($sdffe), {ID::CLK, ID::SRST, ID::D, ID::E}, {ID::Q});
-		setup_type(ID($sdffce), {ID::CLK, ID::SRST, ID::D, ID::E}, {ID::Q});
+		setup_type(ID($sdffe), {ID::CLK, ID::SRST, ID::D, ID::EN}, {ID::Q});
+		setup_type(ID($sdffce), {ID::CLK, ID::SRST, ID::D, ID::EN}, {ID::Q});
 		setup_type(ID($dlatch), {ID::EN, ID::D}, {ID::Q});
 		setup_type(ID($adlatch), {ID::EN, ID::D, ID::ARST}, {ID::Q});
 		setup_type(ID($dlatchsr), {ID::EN, ID::SET, ID::CLR, ID::D}, {ID::Q});

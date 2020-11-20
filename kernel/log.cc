@@ -19,7 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "libs/sha1/sha1.h"
-#include "backends/ilang/ilang_backend.h"
+#include "backends/rtlil/rtlil_backend.h"
 
 #if !defined(_WIN32) || defined(__MINGW32__)
 #  include <sys/time.h>
@@ -600,7 +600,7 @@ void log_dump_val_worker(RTLIL::State v) {
 const char *log_signal(const RTLIL::SigSpec &sig, bool autoint)
 {
 	std::stringstream buf;
-	ILANG_BACKEND::dump_sigspec(buf, sig, autoint);
+	RTLIL_BACKEND::dump_sigspec(buf, sig, autoint);
 
 	if (string_buf.size() < 100) {
 		string_buf.push_back(buf.str());
@@ -647,21 +647,21 @@ const char *log_id(RTLIL::IdString str)
 void log_module(RTLIL::Module *module, std::string indent)
 {
 	std::stringstream buf;
-	ILANG_BACKEND::dump_module(buf, indent, module, module->design, false);
+	RTLIL_BACKEND::dump_module(buf, indent, module, module->design, false);
 	log("%s", buf.str().c_str());
 }
 
 void log_cell(RTLIL::Cell *cell, std::string indent)
 {
 	std::stringstream buf;
-	ILANG_BACKEND::dump_cell(buf, indent, cell);
+	RTLIL_BACKEND::dump_cell(buf, indent, cell);
 	log("%s", buf.str().c_str());
 }
 
 void log_wire(RTLIL::Wire *wire, std::string indent)
 {
 	std::stringstream buf;
-	ILANG_BACKEND::dump_wire(buf, indent, wire);
+	RTLIL_BACKEND::dump_wire(buf, indent, wire);
 	log("%s", buf.str().c_str());
 }
 

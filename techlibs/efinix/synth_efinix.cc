@@ -182,8 +182,8 @@ struct SynthEfinixPass : public ScriptPass
 
 		if (check_label("map_ffs"))
 		{
+			run("dfflegalize -cell $_DFFE_????_ 0 -cell $_SDFFE_????_ 0 -cell $_SDFFCE_????_ 0 -cell $_DLATCH_?_ x");
 			run("techmap -D NO_LUT -map +/efinix/cells_map.v");
-			run("dffinit -strinit SET RESET -ff AL_MAP_SEQ q REGSET -noreinit");
 			run("opt_expr -mux_undef");
 			run("simplemap");
 		}
@@ -202,7 +202,8 @@ struct SynthEfinixPass : public ScriptPass
 
 		if (check_label("map_gbuf"))
 		{
-			run("efinix_gbuf");
+			run("clkbufmap -buf $__EFX_GBUF O:I");
+			run("techmap -map +/efinix/gbuf_map.v");
 			run("efinix_fixcarry");
 			run("clean");
 		}

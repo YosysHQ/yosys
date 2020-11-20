@@ -1,0 +1,4 @@
+logger -expect error "Static cast is only supported in SystemVerilog mode" 1
+read_verilog <<EOT
+module top; wire [7:0] a = 1'(a); endmodule
+EOT

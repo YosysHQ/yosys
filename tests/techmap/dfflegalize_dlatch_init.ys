@@ -1,0 +1,82 @@
+read_verilog -icells <<EOT
+
+module dlatch(input E, D, (* init = 2'h0 *) output [1:0] Q);
+$_DLATCH_P_ ff0 (.E(E), .D(D), .Q(Q[0]));
+$_DLATCH_N_ ff1 (.E(E), .D(D), .Q(Q[1]));
+endmodule
+
+EOT
+
+design -save orig
+equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_P_ 0
+equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_P_ 1
+equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_PP0_ 0
+equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_PP0_ 1
+equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_PP1_ 0
+equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_PP1_ 1
+equiv_opt -assert -multiclock dfflegalize -cell $_DLATCHSR_PPP_ 0
+equiv_opt -assert -multiclock dfflegalize -cell $_DLATCHSR_PPP_ 1
+
+# Convert everything to DFFs.
+
+design -load orig
+dfflegalize -cell $_DLATCH_P_ 0
+
+select -assert-count 1 t:$_NOT_
+select -assert-count 2 t:$_DLATCH_P_
+select -assert-none t:$_DLATCH_P_ t:$_NOT_ %% %n t:* %i
+
+design -load orig
+dfflegalize -cell $_DLATCH_P_ 1
+
+select -assert-count 5 t:$_NOT_
+select -assert-count 2 t:$_DLATCH_P_
+select -assert-none t:$_DLATCH_P_ t:$_NOT_ %% %n t:* %i
+
+
+# Convert everything to ADLATCHs.
+
+design -load orig
+dfflegalize -cell $_DLATCH_PP0_ 0
+
+select -assert-count 1 t:$_NOT_
+select -assert-count 2 t:$_DLATCH_PP0_
+select -assert-none t:$_DLATCH_PP0_ t:$_NOT_ %% %n t:* %i
+
+design -load orig
+dfflegalize -cell $_DLATCH_PP0_ 1
+
+select -assert-count 5 t:$_NOT_
+select -assert-count 2 t:$_DLATCH_PP0_
+select -assert-none t:$_DLATCH_PP0_ t:$_NOT_ %% %n t:* %i
+
+design -load orig
+dfflegalize -cell $_DLATCH_PP1_ 0
+
+select -assert-count 1 t:$_NOT_
+select -assert-count 2 t:$_DLATCH_PP1_
+select -assert-none t:$_DLATCH_PP1_ t:$_NOT_ %% %n t:* %i
+
+design -load orig
+dfflegalize -cell $_DLATCH_PP1_ 1
+
+select -assert-count 5 t:$_NOT_
+select -assert-count 2 t:$_DLATCH_PP1_
+select -assert-none t:$_DLATCH_PP1_ t:$_NOT_ %% %n t:* %i
+
+
+# Convert everything to DLATCHSRs.
+
+design -load orig
+dfflegalize -cell $_DLATCHSR_PPP_ 0
+
+select -assert-count 1 t:$_NOT_
+select -assert-count 2 t:$_DLATCHSR_PPP_
+select -assert-none t:$_DLATCHSR_PPP_ t:$_NOT_ %% %n t:* %i
+
+design -load orig
+dfflegalize -cell $_DLATCHSR_PPP_ 1
+
+select -assert-count 5 t:$_NOT_
+select -assert-count 2 t:$_DLATCHSR_PPP_
+select -assert-none t:$_DLATCHSR_PPP_ t:$_NOT_ %% %n t:* %i

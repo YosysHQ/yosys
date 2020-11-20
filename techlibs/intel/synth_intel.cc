@@ -36,11 +36,11 @@ struct SynthIntelPass : public ScriptPass {
 		log("\n");
 		log("This command runs synthesis for Intel FPGAs.\n");
 		log("\n");
-		log("    -family <max10 | arria10gx | cyclone10lp | cyclonev | cycloneiv | cycloneive>\n");
+		log("    -family <max10 | cyclone10lp | cycloneiv | cycloneive>\n");
 		log("        generate the synthesis netlist for the specified family.\n");
 		log("        MAX10 is the default target if no family argument specified.\n");
 		log("        For Cyclone IV GX devices, use cycloneiv argument; for Cyclone IV E, use cycloneive.\n");
-		log("        Cyclone V and Arria 10 GX devices are experimental.\n");
+		log("        For Cyclone V and Cyclone 10 GX, use the synth_intel_alm backend instead.\n");
 		log("\n");
 		log("    -top <module>\n");
 		log("        use the specified module as top module (default='top')\n");
@@ -147,9 +147,11 @@ struct SynthIntelPass : public ScriptPass {
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
+
+		if (family_opt == "cyclonev")
+			log_cmd_error("Cyclone V synthesis has been moved to synth_intel_alm.\n");
+
 		if (family_opt != "max10" &&
-		    family_opt != "arria10gx" &&
-		    family_opt != "cyclonev" &&
 		    family_opt != "cycloneiv" &&
 		    family_opt != "cycloneive" &&
 		    family_opt != "cyclone10lp")
@@ -202,8 +204,6 @@ struct SynthIntelPass : public ScriptPass {
 			run("opt -fast -mux_undef -undriven -fine -full");
 			run("memory_map");
 			run("opt -undriven -fine");
-			run("dff2dffe -direct-match $_DFF_*");
-			run("opt -fine");
 			run("techmap -map +/techmap.v");
 			run("opt -full");
 			run("clean -purge");
@@ -212,11 +212,13 @@ struct SynthIntelPass : public ScriptPass {
 				run("abc -markgroups -dff -D 1", "(only if -retime)");
 		}
 
+		if (check_label("map_ffs")) {
+			run("dfflegalize -cell $_DFFE_PN0P_ 01");
+			run("techmap -map +/intel/common/ff_map.v");
+		}
+
 		if (check_label("map_luts")) {
-			if (family_opt == "arria10gx" || family_opt == "cyclonev")
-				run("abc -luts 2:2,3,6:5" + string(retime ? " -dff" : ""));
-			else
-				run("abc -lut 4" + string(retime ? " -dff" : ""));
+			run("abc -lut 4" + string(retime ? " -dff" : ""));
 			run("clean");
 		}
 
@@ -224,7 +226,6 @@ struct SynthIntelPass : public ScriptPass {
 			if (iopads || help_mode)
 				run("iopadmap -bits -outpad $__outpad I:O -inpad $__inpad O:I", "(if -iopads)");
 			run(stringf("techmap -map +/intel/%s/cells_map.v", family_opt.c_str()));
-			run("dffinit -highlow -ff dffeas q power_up");
 			run("clean -purge");
 		}
 

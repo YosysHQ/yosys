@@ -39,7 +39,7 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Improvements in pmgen: slices, choices, define, generate
     - Added "xilinx_srl" for Xilinx shift register extraction
     - Removed "shregmap -tech xilinx" (superseded by "xilinx_srl")
-    - Added "_TECHMAP_WIREINIT_*_" attribute and "_TECHMAP_REMOVEINIT_*_" wire for "techmap" pass
+    - Added "_TECHMAP_WIREINIT_*_" parameter and "_TECHMAP_REMOVEINIT_*_" wire for "techmap" pass
     - Added "-match-init" option to "dff2dffs" pass
     - Added "techmap_autopurge" support to techmap
     - Added "add -mod <modname[s]>"
@@ -62,11 +62,14 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Improved support of $readmem[hb] Memory Content File inclusion
     - Added "opt_lut_ins" pass
     - Added "logger" pass
-    - Removed "dffsr2dff" (use opt_rmdff instead)
     - Added "design -delete"
     - Added "select -unset"
     - Use YosysHQ/abc instead of upstream berkeley-abc/abc
     - Added $divfloor and $modfloor cells
+    - Added $adffe, $dffsre, $sdff, $sdffe, $sdffce, $adlatch cells
+    - Added "dfflegalize" pass
+    - Added "_TECHMAP_CELLNAME_" parameter for "techmap" pass
+    - Merged "dffsr2dff", "opt_rmdff", "dff2dffe", "dff2dffs", "peepopt.dffmux" passes into a new "opt_dff" pass
 
 Yosys 0.8 .. Yosys 0.9
 ----------------------

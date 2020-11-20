@@ -439,7 +439,7 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 		dict<SigBit, int> bit_user_cnt;
 
 		for (auto wire : module->wires()) {
-			if (wire->name[0] == '\\' && wire->attributes.count(ID::src))
+			if (wire->name.isPublic() && wire->attributes.count(ID::src))
 				sigmap.add(wire);
 		}
 
@@ -468,7 +468,7 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 				}
 
 				if (!bit.wire->name[0] != !sigbit.wire->name[0]) {
-					if (bit.wire->name[0] == '\\')
+					if (bit.wire->name.isPublic())
 						sigmap.add(bit);
 					continue;
 				}
@@ -493,7 +493,7 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 						entry.src.insert(s);
 
 					SigBit bit = sigmap(conn.second[i]);
-					if (bit.wire && bit.wire->name[0] == '\\' && (cell->output(conn.first) || bit_user_cnt[bit] == 1)) {
+					if (bit.wire && bit.wire->name.isPublic() && (cell->output(conn.first) || bit_user_cnt[bit] == 1)) {
 						for (auto &s : bit.wire->get_strpool_attribute(ID::src))
 							entry.src.insert(s);
 						entry.wire = bit.wire->name;

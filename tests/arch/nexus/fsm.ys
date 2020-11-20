@@ -1,0 +1,19 @@
+read_verilog ../common/fsm.v
+hierarchy -top fsm
+proc
+flatten
+
+equiv_opt -run :prove -map +/nexus/cells_sim.v synth_nexus
+miter -equiv -make_assert -flatten gold gate miter
+sat -verify -prove-asserts -show-public -set-at 1 in_reset 1 -seq 20 -prove-skip 1 miter
+
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd fsm # Constrain all select calls below inside the top module
+
+stat
+
+select -assert-max 1 t:INV
+select -assert-max 2 t:LUT4
+select -assert-max 6 t:WIDEFN9
+select -assert-count 6 t:FD1P3IX
+select -assert-none t:LUT4 t:FD1P3IX t:WIDEFN9 t:INV t:IB t:OB t:VLO t:VHI %% t:* %D

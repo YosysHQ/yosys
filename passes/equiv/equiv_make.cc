@@ -114,25 +114,25 @@ struct EquivMakeWorker
 		Module *gate_clone = gate_mod->clone();
 
 		for (auto it : gold_clone->wires().to_vector()) {
-			if ((it->name[0] == '\\' || inames) && blacklist_names.count(it->name) == 0)
+			if ((it->name.isPublic() || inames) && blacklist_names.count(it->name) == 0)
 				wire_names.insert(it->name);
 			gold_clone->rename(it, it->name.str() + "_gold");
 		}
 
 		for (auto it : gold_clone->cells().to_vector()) {
-			if ((it->name[0] == '\\' || inames) && blacklist_names.count(it->name) == 0)
+			if ((it->name.isPublic() || inames) && blacklist_names.count(it->name) == 0)
 				cell_names.insert(it->name);
 			gold_clone->rename(it, it->name.str() + "_gold");
 		}
 
 		for (auto it : gate_clone->wires().to_vector()) {
-			if ((it->name[0] == '\\' || inames) && blacklist_names.count(it->name) == 0)
+			if ((it->name.isPublic() || inames) && blacklist_names.count(it->name) == 0)
 				wire_names.insert(it->name);
 			gate_clone->rename(it, it->name.str() + "_gate");
 		}
 
 		for (auto it : gate_clone->cells().to_vector()) {
-			if ((it->name[0] == '\\' || inames) && blacklist_names.count(it->name) == 0)
+			if ((it->name.isPublic() || inames) && blacklist_names.count(it->name) == 0)
 				cell_names.insert(it->name);
 			gate_clone->rename(it, it->name.str() + "_gate");
 		}

@@ -25,6 +25,8 @@
 #include "kernel/celltypes.h"
 #include "kernel/log.h"
 #include "kernel/sigtools.h"
+#include "kernel/ff.h"
+#include "kernel/mem.h"
 #include <string>
 #include <sstream>
 #include <set>
@@ -33,10 +35,10 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool verbose, norename, noattr, attr2comment, noexpr, nodec, nohex, nostr, extmem, defparam, decimal, siminit;
+bool verbose, norename, noattr, attr2comment, noexpr, nodec, nohex, nostr, extmem, defparam, decimal, siminit, systemverilog;
 int auto_name_counter, auto_name_offset, auto_name_digits, extmem_counter;
 std::map<RTLIL::IdString, int> auto_name_map;
-std::set<RTLIL::IdString> reg_wires, reg_ct;
+std::set<RTLIL::IdString> reg_wires;
 std::string auto_prefix, extmem_prefix;
 
 RTLIL::Module *active_module;
@@ -433,10 +435,250 @@ void dump_wire(std::ostream &f, std::string indent, RTLIL::Wire *wire)
 #endif
 }
 
-void dump_memory(std::ostream &f, std::string indent, RTLIL::Memory *memory)
+void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 {
-	dump_attributes(f, indent, memory->attributes);
-	f << stringf("%s" "reg [%d:0] %s [%d:%d];\n", indent.c_str(), memory->width-1, id(memory->name).c_str(), memory->size+memory->start_offset-1, memory->start_offset);
+	std::string mem_id = id(mem.memid);
+
+	dump_attributes(f, indent, mem.attributes);
+	f << stringf("%s" "reg [%d:0] %s [%d:%d];\n", indent.c_str(), mem.width-1, mem_id.c_str(), mem.size+mem.start_offset-1, mem.start_offset);
+
+	// for memory block make something like:
+	//  reg [7:0] memid [3:0];
+	//  initial begin
+	//    memid[0] = ...
+	//  end
+	if (!mem.inits.empty())
+	{
+		if (extmem)
+		{
+			std::string extmem_filename = stringf("%s-%d.mem", extmem_prefix.c_str(), extmem_counter++);
+
+			std::string extmem_filename_esc;
+			for (auto c : extmem_filename)
+			{
+				if (c == '\n')
+					extmem_filename_esc += "\\n";
+				else if (c == '\t')
+					extmem_filename_esc += "\\t";
+				else if (c < 32)
+					extmem_filename_esc += stringf("\\%03o", c);
+				else if (c == '"')
+					extmem_filename_esc += "\\\"";
+				else if (c == '\\')
+					extmem_filename_esc += "\\\\";
+				else
+					extmem_filename_esc += c;
+			}
+			f << stringf("%s" "initial $readmemb(\"%s\", %s);\n", indent.c_str(), extmem_filename_esc.c_str(), mem_id.c_str());
+
+			std::ofstream extmem_f(extmem_filename, std::ofstream::trunc);
+			if (extmem_f.fail())
+				log_error("Can't open file `%s' for writing: %s\n", extmem_filename.c_str(), strerror(errno));
+			else
+			{
+				Const data = mem.get_init_data();
+				for (int i=0; i<mem.size; i++)
+				{
+					RTLIL::Const element = data.extract(i*mem.width, mem.width);
+					for (int j=0; j<element.size(); j++)
+					{
+						switch (element[element.size()-j-1])
+						{
+							case State::S0: extmem_f << '0'; break;
+							case State::S1: extmem_f << '1'; break;
+							case State::Sx: extmem_f << 'x'; break;
+							case State::Sz: extmem_f << 'z'; break;
+							case State::Sa: extmem_f << '_'; break;
+							case State::Sm: log_error("Found marker state in final netlist.");
+						}
+					}
+					extmem_f << '\n';
+				}
+			}
+		}
+		else
+		{
+			f << stringf("%s" "initial begin\n", indent.c_str());
+			for (auto &init : mem.inits) {
+				int words = GetSize(init.data) / mem.width;
+				int start = init.addr.as_int();
+				for (int i=0; i<words; i++)
+				{
+					f << stringf("%s" "  %s[%d] = ", indent.c_str(), mem_id.c_str(), i + start);
+					dump_const(f, init.data.extract(i*mem.width, mem.width));
+					f << stringf(";\n");
+				}
+			}
+			f << stringf("%s" "end\n", indent.c_str());
+		}
+	}
+
+	// create a map : "edge clk" -> expressions within that clock domain
+	dict<std::string, std::vector<std::string>> clk_to_lof_body;
+	clk_to_lof_body[""] = std::vector<std::string>();
+	std::string clk_domain_str;
+	// create a list of reg declarations
+	std::vector<std::string> lof_reg_declarations;
+
+	// read ports
+	for (auto &port : mem.rd_ports)
+	{
+		if (port.clk_enable)
+		{
+			{
+				std::ostringstream os;
+				dump_sigspec(os, port.clk);
+				clk_domain_str = stringf("%sedge %s", port.clk_polarity ? "pos" : "neg", os.str().c_str());
+				if( clk_to_lof_body.count(clk_domain_str) == 0 )
+					clk_to_lof_body[clk_domain_str] = std::vector<std::string>();
+			}
+			if (!port.transparent)
+			{
+				// for clocked read ports make something like:
+				//   reg [..] temp_id;
+				//   always @(posedge clk)
+				//      if (rd_en) temp_id <= array_reg[r_addr];
+				//   assign r_data = temp_id;
+				std::string temp_id = next_auto_id();
+				lof_reg_declarations.push_back( stringf("reg [%d:0] %s;\n", port.data.size() - 1, temp_id.c_str()) );
+				{
+					std::ostringstream os;
+					if (port.en != RTLIL::SigBit(true))
+					{
+						os << stringf("if (");
+						dump_sigspec(os, port.en);
+						os << stringf(") ");
+					}
+					os << stringf("%s <= %s[", temp_id.c_str(), mem_id.c_str());
+					dump_sigspec(os, port.addr);
+					os << stringf("];\n");
+					clk_to_lof_body[clk_domain_str].push_back(os.str());
+				}
+				{
+					std::ostringstream os;
+					dump_sigspec(os, port.data);
+					std::string line = stringf("assign %s = %s;\n", os.str().c_str(), temp_id.c_str());
+					clk_to_lof_body[""].push_back(line);
+				}
+			}
+			else
+			{
+				// for rd-transparent read-ports make something like:
+				//   reg [..] temp_id;
+				//   always @(posedge clk)
+				//     temp_id <= r_addr;
+				//   assign r_data = array_reg[temp_id];
+				std::string temp_id = next_auto_id();
+				lof_reg_declarations.push_back( stringf("reg [%d:0] %s;\n", port.addr.size() - 1, temp_id.c_str()) );
+				{
+					std::ostringstream os;
+					dump_sigspec(os, port.addr);
+					std::string line = stringf("%s <= %s;\n", temp_id.c_str(), os.str().c_str());
+					clk_to_lof_body[clk_domain_str].push_back(line);
+				}
+				{
+					std::ostringstream os;
+					dump_sigspec(os, port.data);
+					std::string line = stringf("assign %s = %s[%s];\n", os.str().c_str(), mem_id.c_str(), temp_id.c_str());
+					clk_to_lof_body[""].push_back(line);
+				}
+			}
+		} else {
+			// for non-clocked read-ports make something like:
+			//   assign r_data = array_reg[r_addr];
+			std::ostringstream os, os2;
+			dump_sigspec(os, port.data);
+			dump_sigspec(os2, port.addr);
+			std::string line = stringf("assign %s = %s[%s];\n", os.str().c_str(), mem_id.c_str(), os2.str().c_str());
+			clk_to_lof_body[""].push_back(line);
+		}
+	}
+
+	// write ports
+	for (auto &port : mem.wr_ports)
+	{
+		{
+			std::ostringstream os;
+			dump_sigspec(os, port.clk);
+			clk_domain_str = stringf("%sedge %s", port.clk_polarity ? "pos" : "neg", os.str().c_str());
+			if( clk_to_lof_body.count(clk_domain_str) == 0 )
+				clk_to_lof_body[clk_domain_str] = std::vector<std::string>();
+		}
+		//   make something like:
+		//   always @(posedge clk)
+		//      if (wr_en_bit) memid[w_addr][??] <= w_data[??];
+		//   ...
+		for (int i = 0; i < GetSize(port.en); i++)
+		{
+			int start_i = i, width = 1;
+			SigBit wen_bit = port.en[i];
+
+			while (i+1 < GetSize(port.en) && active_sigmap(port.en[i+1]) == active_sigmap(wen_bit))
+				i++, width++;
+
+			if (wen_bit == State::S0)
+				continue;
+
+			std::ostringstream os;
+			if (wen_bit != State::S1)
+			{
+				os << stringf("if (");
+				dump_sigspec(os, wen_bit);
+				os << stringf(") ");
+			}
+			os << stringf("%s[", mem_id.c_str());
+			dump_sigspec(os, port.addr);
+			if (width == GetSize(port.en))
+				os << stringf("] <= ");
+			else
+				os << stringf("][%d:%d] <= ", i, start_i);
+			dump_sigspec(os, port.data.extract(start_i, width));
+			os << stringf(";\n");
+			clk_to_lof_body[clk_domain_str].push_back(os.str());
+		}
+	}
+	// Output Verilog that looks something like this:
+	// reg [..] _3_;
+	// always @(posedge CLK2) begin
+	//   _3_ <= memory[D1ADDR];
+	//   if (A1EN)
+	//     memory[A1ADDR] <= A1DATA;
+	//   if (A2EN)
+	//     memory[A2ADDR] <= A2DATA;
+	//   ...
+	// end
+	// always @(negedge CLK1) begin
+	//   if (C1EN)
+	//     memory[C1ADDR] <= C1DATA;
+	// end
+	// ...
+	// assign D1DATA = _3_;
+	// assign D2DATA <= memory[D2ADDR];
+
+	// the reg ... definitions
+	for(auto &reg : lof_reg_declarations)
+	{
+		f << stringf("%s" "%s", indent.c_str(), reg.c_str());
+	}
+	// the block of expressions by clock domain
+	for(auto &pair : clk_to_lof_body)
+	{
+		std::string clk_domain = pair.first;
+		std::vector<std::string> lof_lines = pair.second;
+		if( clk_domain != "")
+		{
+			f << stringf("%s" "always%s @(%s) begin\n", indent.c_str(), systemverilog ? "_ff" : "", clk_domain.c_str());
+			for(auto &line : lof_lines)
+				f << stringf("%s%s" "%s", indent.c_str(), indent.c_str(), line.c_str());
+			f << stringf("%s" "end\n", indent.c_str());
+		}
+		else
+		{
+			// the non-clocked assignments
+			for(auto &line : lof_lines)
+				f << stringf("%s" "%s", indent.c_str(), line.c_str());
+		}
+	}
 }
 
 void dump_cell_expr_port(std::ostream &f, RTLIL::Cell *cell, std::string port, bool gen_signed = true)
@@ -451,7 +693,7 @@ void dump_cell_expr_port(std::ostream &f, RTLIL::Cell *cell, std::string port, b
 
 std::string cellname(RTLIL::Cell *cell)
 {
-	if (!norename && cell->name[0] == '$' && reg_ct.count(cell->type) && cell->hasPort(ID::Q))
+	if (!norename && cell->name[0] == '$' && RTLIL::builtin_ff_cell_types().count(cell->type) && cell->hasPort(ID::Q) && !cell->type.in(ID($ff), ID($_FF_)))
 	{
 		RTLIL::SigSpec sig = cell->getPort(ID::Q);
 		if (GetSize(sig) != 1 || sig.is_fully_const())
@@ -605,93 +847,6 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	if (cell->type.begins_with("$_DFF_"))
-	{
-		std::string reg_name = cellname(cell);
-		bool out_is_reg_wire = is_reg_wire(cell->getPort(ID::Q), reg_name);
-
-		if (!out_is_reg_wire) {
-			f << stringf("%s" "reg %s", indent.c_str(), reg_name.c_str());
-			dump_reg_init(f, cell->getPort(ID::Q));
-			f << ";\n";
-		}
-
-		dump_attributes(f, indent, cell->attributes);
-		f << stringf("%s" "always @(%sedge ", indent.c_str(), cell->type[6] == 'P' ? "pos" : "neg");
-		dump_sigspec(f, cell->getPort(ID::C));
-		if (cell->type[7] != '_') {
-			f << stringf(" or %sedge ", cell->type[7] == 'P' ? "pos" : "neg");
-			dump_sigspec(f, cell->getPort(ID::R));
-		}
-		f << stringf(")\n");
-
-		if (cell->type[7] != '_') {
-			f << stringf("%s" "  if (%s", indent.c_str(), cell->type[7] == 'P' ? "" : "!");
-			dump_sigspec(f, cell->getPort(ID::R));
-			f << stringf(")\n");
-			f << stringf("%s" "    %s <= %c;\n", indent.c_str(), reg_name.c_str(), cell->type[8]);
-			f << stringf("%s" "  else\n", indent.c_str());
-		}
-
-		f << stringf("%s" "    %s <= ", indent.c_str(), reg_name.c_str());
-		dump_cell_expr_port(f, cell, "D", false);
-		f << stringf(";\n");
-
-		if (!out_is_reg_wire) {
-			f << stringf("%s" "assign ", indent.c_str());
-			dump_sigspec(f, cell->getPort(ID::Q));
-			f << stringf(" = %s;\n", reg_name.c_str());
-		}
-
-		return true;
-	}
-
-	if (cell->type.begins_with("$_DFFSR_"))
-	{
-		char pol_c = cell->type[8], pol_s = cell->type[9], pol_r = cell->type[10];
-
-		std::string reg_name = cellname(cell);
-		bool out_is_reg_wire = is_reg_wire(cell->getPort(ID::Q), reg_name);
-
-		if (!out_is_reg_wire) {
-			f << stringf("%s" "reg %s", indent.c_str(), reg_name.c_str());
-			dump_reg_init(f, cell->getPort(ID::Q));
-			f << ";\n";
-		}
-
-		dump_attributes(f, indent, cell->attributes);
-		f << stringf("%s" "always @(%sedge ", indent.c_str(), pol_c == 'P' ? "pos" : "neg");
-		dump_sigspec(f, cell->getPort(ID::C));
-		f << stringf(" or %sedge ", pol_s == 'P' ? "pos" : "neg");
-		dump_sigspec(f, cell->getPort(ID::S));
-		f << stringf(" or %sedge ", pol_r == 'P' ? "pos" : "neg");
-		dump_sigspec(f, cell->getPort(ID::R));
-		f << stringf(")\n");
-
-		f << stringf("%s" "  if (%s", indent.c_str(), pol_r == 'P' ? "" : "!");
-		dump_sigspec(f, cell->getPort(ID::R));
-		f << stringf(")\n");
-		f << stringf("%s" "    %s <= 0;\n", indent.c_str(), reg_name.c_str());
-
-		f << stringf("%s" "  else if (%s", indent.c_str(), pol_s == 'P' ? "" : "!");
-		dump_sigspec(f, cell->getPort(ID::S));
-		f << stringf(")\n");
-		f << stringf("%s" "    %s <= 1;\n", indent.c_str(), reg_name.c_str());
-
-		f << stringf("%s" "  else\n", indent.c_str());
-		f << stringf("%s" "    %s <= ", indent.c_str(), reg_name.c_str());
-		dump_cell_expr_port(f, cell, "D", false);
-		f << stringf(";\n");
-
-		if (!out_is_reg_wire) {
-			f << stringf("%s" "assign ", indent.c_str());
-			dump_sigspec(f, cell->getPort(ID::Q));
-			f << stringf(" = %s;\n", reg_name.c_str());
-		}
-
-		return true;
-	}
-
 #define HANDLE_UNIOP(_type, _operator) \
 	if (cell->type ==_type) { dump_cell_expr_uniop(f, indent, cell, _operator); return true; }
 #define HANDLE_BINOP(_type, _operator) \
@@ -836,21 +991,19 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		f << stringf(" = ");
 		if (cell->getParam(ID::B_SIGNED).as_bool())
 		{
-			f << stringf("$signed(");
-			dump_sigspec(f, cell->getPort(ID::B));
-			f << stringf(")");
+			dump_cell_expr_port(f, cell, "B", true);
 			f << stringf(" < 0 ? ");
-			dump_sigspec(f, cell->getPort(ID::A));
+			dump_cell_expr_port(f, cell, "A", true);
 			f << stringf(" << - ");
 			dump_sigspec(f, cell->getPort(ID::B));
 			f << stringf(" : ");
-			dump_sigspec(f, cell->getPort(ID::A));
+			dump_cell_expr_port(f, cell, "A", true);
 			f << stringf(" >> ");
 			dump_sigspec(f, cell->getPort(ID::B));
 		}
 		else
 		{
-			dump_sigspec(f, cell->getPort(ID::A));
+			dump_cell_expr_port(f, cell, "A", true);
 			f << stringf(" >> ");
 			dump_sigspec(f, cell->getPort(ID::B));
 		}
@@ -986,423 +1139,198 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	if (cell->type == ID($dffsr))
+	if (RTLIL::builtin_ff_cell_types().count(cell->type))
 	{
-		SigSpec sig_clk = cell->getPort(ID::CLK);
-		SigSpec sig_set = cell->getPort(ID::SET);
-		SigSpec sig_clr = cell->getPort(ID::CLR);
-		SigSpec sig_d = cell->getPort(ID::D);
-		SigSpec sig_q = cell->getPort(ID::Q);
+		FfData ff(nullptr, cell);
 
-		int width = cell->parameters[ID::WIDTH].as_int();
-		bool pol_clk = cell->parameters[ID::CLK_POLARITY].as_bool();
-		bool pol_set = cell->parameters[ID::SET_POLARITY].as_bool();
-		bool pol_clr = cell->parameters[ID::CLR_POLARITY].as_bool();
+		// $ff / $_FF_ cell: not supported.
+		if (ff.has_d && !ff.has_clk && !ff.has_en)
+			return false;
 
 		std::string reg_name = cellname(cell);
-		bool out_is_reg_wire = is_reg_wire(sig_q, reg_name);
+		bool out_is_reg_wire = is_reg_wire(ff.sig_q, reg_name);
 
 		if (!out_is_reg_wire) {
-			f << stringf("%s" "reg [%d:0] %s", indent.c_str(), width-1, reg_name.c_str());
-			dump_reg_init(f, sig_q);
-			f << ";\n";
-		}
-
-		for (int i = 0; i < width; i++) {
-			f << stringf("%s" "always @(%sedge ", indent.c_str(), pol_clk ? "pos" : "neg");
-			dump_sigspec(f, sig_clk);
-			f << stringf(", %sedge ", pol_set ? "pos" : "neg");
-			dump_sigspec(f, sig_set);
-			f << stringf(", %sedge ", pol_clr ? "pos" : "neg");
-			dump_sigspec(f, sig_clr);
-			f << stringf(")\n");
-
-			f << stringf("%s" "  if (%s", indent.c_str(), pol_clr ? "" : "!");
-			dump_sigspec(f, sig_clr);
-			f << stringf(") %s[%d] <= 1'b0;\n", reg_name.c_str(), i);
-
-			f << stringf("%s" "  else if (%s", indent.c_str(), pol_set ? "" : "!");
-			dump_sigspec(f, sig_set);
-			f << stringf(") %s[%d] <= 1'b1;\n", reg_name.c_str(), i);
-
-			f << stringf("%s" "  else  %s[%d] <= ", indent.c_str(), reg_name.c_str(), i);
-			dump_sigspec(f, sig_d[i]);
-			f << stringf(";\n");
-		}
-
-		if (!out_is_reg_wire) {
-			f << stringf("%s" "assign ", indent.c_str());
-			dump_sigspec(f, sig_q);
-			f << stringf(" = %s;\n", reg_name.c_str());
-		}
-
-		return true;
-	}
-
-	if (cell->type.in(ID($dff), ID($adff), ID($dffe)))
-	{
-		RTLIL::SigSpec sig_clk, sig_arst, sig_en, val_arst;
-		bool pol_clk, pol_arst = false, pol_en = false;
-
-		sig_clk = cell->getPort(ID::CLK);
-		pol_clk = cell->parameters[ID::CLK_POLARITY].as_bool();
-
-		if (cell->type == ID($adff)) {
-			sig_arst = cell->getPort(ID::ARST);
-			pol_arst = cell->parameters[ID::ARST_POLARITY].as_bool();
-			val_arst = RTLIL::SigSpec(cell->parameters[ID::ARST_VALUE]);
-		}
-
-		if (cell->type == ID($dffe)) {
-			sig_en = cell->getPort(ID::EN);
-			pol_en = cell->parameters[ID::EN_POLARITY].as_bool();
-		}
-
-		std::string reg_name = cellname(cell);
-		bool out_is_reg_wire = is_reg_wire(cell->getPort(ID::Q), reg_name);
-
-		if (!out_is_reg_wire) {
-			f << stringf("%s" "reg [%d:0] %s", indent.c_str(), cell->parameters[ID::WIDTH].as_int()-1, reg_name.c_str());
-			dump_reg_init(f, cell->getPort(ID::Q));
-			f << ";\n";
-		}
-
-		f << stringf("%s" "always @(%sedge ", indent.c_str(), pol_clk ? "pos" : "neg");
-		dump_sigspec(f, sig_clk);
-		if (cell->type == ID($adff)) {
-			f << stringf(" or %sedge ", pol_arst ? "pos" : "neg");
-			dump_sigspec(f, sig_arst);
-		}
-		f << stringf(")\n");
-
-		if (cell->type == ID($adff)) {
-			f << stringf("%s" "  if (%s", indent.c_str(), pol_arst ? "" : "!");
-			dump_sigspec(f, sig_arst);
-			f << stringf(")\n");
-			f << stringf("%s" "    %s <= ", indent.c_str(), reg_name.c_str());
-			dump_sigspec(f, val_arst);
-			f << stringf(";\n");
-			f << stringf("%s" "  else\n", indent.c_str());
-		}
-
-		if (cell->type == ID($dffe)) {
-			f << stringf("%s" "  if (%s", indent.c_str(), pol_en ? "" : "!");
-			dump_sigspec(f, sig_en);
-			f << stringf(")\n");
-		}
-
-		f << stringf("%s" "    %s <= ", indent.c_str(), reg_name.c_str());
-		dump_cell_expr_port(f, cell, "D", false);
-		f << stringf(";\n");
-
-		if (!out_is_reg_wire) {
-			f << stringf("%s" "assign ", indent.c_str());
-			dump_sigspec(f, cell->getPort(ID::Q));
-			f << stringf(" = %s;\n", reg_name.c_str());
-		}
-
-		return true;
-	}
-
-	if (cell->type == ID($dlatch))
-	{
-		RTLIL::SigSpec sig_en;
-		bool pol_en = false;
-
-		sig_en = cell->getPort(ID::EN);
-		pol_en = cell->parameters[ID::EN_POLARITY].as_bool();
-
-		std::string reg_name = cellname(cell);
-		bool out_is_reg_wire = is_reg_wire(cell->getPort(ID::Q), reg_name);
-
-		if (!out_is_reg_wire) {
-			f << stringf("%s" "reg [%d:0] %s", indent.c_str(), cell->parameters[ID::WIDTH].as_int()-1, reg_name.c_str());
-			dump_reg_init(f, cell->getPort(ID::Q));
-			f << ";\n";
-		}
-
-		f << stringf("%s" "always @*\n", indent.c_str());
-
-		f << stringf("%s" "  if (%s", indent.c_str(), pol_en ? "" : "!");
-		dump_sigspec(f, sig_en);
-		f << stringf(")\n");
-
-		f << stringf("%s" "    %s = ", indent.c_str(), reg_name.c_str());
-		dump_cell_expr_port(f, cell, "D", false);
-		f << stringf(";\n");
-
-		if (!out_is_reg_wire) {
-			f << stringf("%s" "assign ", indent.c_str());
-			dump_sigspec(f, cell->getPort(ID::Q));
-			f << stringf(" = %s;\n", reg_name.c_str());
-		}
-
-		return true;
-	}
-
-	if (cell->type == ID($mem))
-	{
-		RTLIL::IdString memid = cell->parameters[ID::MEMID].decode_string();
-		std::string mem_id = id(cell->parameters[ID::MEMID].decode_string());
-		int abits = cell->parameters[ID::ABITS].as_int();
-		int size = cell->parameters[ID::SIZE].as_int();
-		int offset = cell->parameters[ID::OFFSET].as_int();
-		int width = cell->parameters[ID::WIDTH].as_int();
-		bool use_init = !(RTLIL::SigSpec(cell->parameters[ID::INIT]).is_fully_undef());
-
-		// for memory block make something like:
-		//  reg [7:0] memid [3:0];
-		//  initial begin
-		//    memid[0] = ...
-		//  end
-		dump_attributes(f, indent.c_str(), cell->attributes);
-		f << stringf("%s" "reg [%d:%d] %s [%d:%d];\n", indent.c_str(), width-1, 0, mem_id.c_str(), size+offset-1, offset);
-		if (use_init)
-		{
-			if (extmem)
-			{
-				std::string extmem_filename = stringf("%s-%d.mem", extmem_prefix.c_str(), extmem_counter++);
-
-				std::string extmem_filename_esc;
-				for (auto c : extmem_filename)
-				{
-					if (c == '\n')
-						extmem_filename_esc += "\\n";
-					else if (c == '\t')
-						extmem_filename_esc += "\\t";
-					else if (c < 32)
-						extmem_filename_esc += stringf("\\%03o", c);
-					else if (c == '"')
-						extmem_filename_esc += "\\\"";
-					else if (c == '\\')
-						extmem_filename_esc += "\\\\";
-					else
-						extmem_filename_esc += c;
-				}
-				f << stringf("%s" "initial $readmemb(\"%s\", %s);\n", indent.c_str(), extmem_filename_esc.c_str(), mem_id.c_str());
-
-				std::ofstream extmem_f(extmem_filename, std::ofstream::trunc);
-				if (extmem_f.fail())
-					log_error("Can't open file `%s' for writing: %s\n", extmem_filename.c_str(), strerror(errno));
-				else
-				{
-					for (int i=0; i<size; i++)
-					{
-						RTLIL::Const element = cell->parameters[ID::INIT].extract(i*width, width);
-						for (int j=0; j<element.size(); j++)
-						{
-							switch (element[element.size()-j-1])
-							{
-								case State::S0: extmem_f << '0'; break;
-								case State::S1: extmem_f << '1'; break;
-								case State::Sx: extmem_f << 'x'; break;
-								case State::Sz: extmem_f << 'z'; break;
-								case State::Sa: extmem_f << '_'; break;
-								case State::Sm: log_error("Found marker state in final netlist.");
-							}
-						}
-						extmem_f << '\n';
-					}
-				}
-
-			}
+			if (ff.width == 1)
+				f << stringf("%s" "reg %s", indent.c_str(), reg_name.c_str());
 			else
-			{
-				f << stringf("%s" "initial begin\n", indent.c_str());
-				for (int i=0; i<size; i++)
+				f << stringf("%s" "reg [%d:0] %s", indent.c_str(), ff.width-1, reg_name.c_str());
+			dump_reg_init(f, ff.sig_q);
+			f << ";\n";
+		}
+
+		// If the FF has CLR/SET inputs, emit every bit slice separately.
+		int chunks = ff.has_sr ? ff.width : 1;
+		bool chunky = ff.has_sr && ff.width != 1;
+
+		for (int i = 0; i < chunks; i++)
+		{
+			SigSpec sig_d;
+			Const val_arst, val_srst;
+			std::string reg_bit_name, sig_set_name, sig_clr_name, sig_arst_name;
+			if (chunky) {
+				reg_bit_name = stringf("%s[%d]", reg_name.c_str(), i);
+				if (ff.has_d)
+					sig_d = ff.sig_d[i];
+			} else {
+				reg_bit_name = reg_name;
+				if (ff.has_d)
+					sig_d = ff.sig_d;
+			}
+			if (ff.has_arst)
+				val_arst = chunky ? ff.val_arst[i] : ff.val_arst;
+			if (ff.has_srst)
+				val_srst = chunky ? ff.val_srst[i] : ff.val_srst;
+
+			// If there are constants in the sensitivity list, replace them with an intermediate wire
+			if (ff.has_sr) {
+				if (ff.sig_set[i].wire == NULL)
 				{
-					f << stringf("%s" "  %s[%d] = ", indent.c_str(), mem_id.c_str(), i);
-					dump_const(f, cell->parameters[ID::INIT].extract(i*width, width));
+					sig_set_name = next_auto_id();
+					f << stringf("%s" "wire %s = ", indent.c_str(), sig_set_name.c_str());
+					dump_const(f, ff.sig_set[i].data);
 					f << stringf(";\n");
 				}
-				f << stringf("%s" "end\n", indent.c_str());
-			}
-		}
-
-		// create a map : "edge clk" -> expressions within that clock domain
-		dict<std::string, std::vector<std::string>> clk_to_lof_body;
-		clk_to_lof_body[""] = std::vector<std::string>();
-		std::string clk_domain_str;
-		// create a list of reg declarations
-		std::vector<std::string> lof_reg_declarations;
-
-		int nread_ports = cell->parameters[ID::RD_PORTS].as_int();
-		RTLIL::SigSpec sig_rd_clk, sig_rd_en, sig_rd_data, sig_rd_addr;
-		bool use_rd_clk, rd_clk_posedge, rd_transparent;
-		// read ports
-		for (int i=0; i < nread_ports; i++)
-		{
-			sig_rd_clk = cell->getPort(ID::RD_CLK).extract(i);
-			sig_rd_en = cell->getPort(ID::RD_EN).extract(i);
-			sig_rd_data = cell->getPort(ID::RD_DATA).extract(i*width, width);
-			sig_rd_addr = cell->getPort(ID::RD_ADDR).extract(i*abits, abits);
-			use_rd_clk = cell->parameters[ID::RD_CLK_ENABLE].extract(i).as_bool();
-			rd_clk_posedge = cell->parameters[ID::RD_CLK_POLARITY].extract(i).as_bool();
-			rd_transparent = cell->parameters[ID::RD_TRANSPARENT].extract(i).as_bool();
-			if (use_rd_clk)
-			{
+				if (ff.sig_clr[i].wire == NULL)
 				{
-					std::ostringstream os;
-					dump_sigspec(os, sig_rd_clk);
-					clk_domain_str = stringf("%sedge %s", rd_clk_posedge ? "pos" : "neg", os.str().c_str());
-					if( clk_to_lof_body.count(clk_domain_str) == 0 )
-						clk_to_lof_body[clk_domain_str] = std::vector<std::string>();
+					sig_clr_name = next_auto_id();
+					f << stringf("%s" "wire %s = ", indent.c_str(), sig_clr_name.c_str());
+					dump_const(f, ff.sig_clr[i].data);
+					f << stringf(";\n");
 				}
-				if (!rd_transparent)
+			} else if (ff.has_arst) {
+				if (ff.sig_arst[i].wire == NULL)
 				{
-					// for clocked read ports make something like:
-					//   reg [..] temp_id;
-					//   always @(posedge clk)
-					//      if (rd_en) temp_id <= array_reg[r_addr];
-					//   assign r_data = temp_id;
-					std::string temp_id = next_auto_id();
-					lof_reg_declarations.push_back( stringf("reg [%d:0] %s;\n", sig_rd_data.size() - 1, temp_id.c_str()) );
-					{
-						std::ostringstream os;
-						if (sig_rd_en != RTLIL::SigBit(true))
-						{
-							os << stringf("if (");
-							dump_sigspec(os, sig_rd_en);
-							os << stringf(") ");
-						}
-						os << stringf("%s <= %s[", temp_id.c_str(), mem_id.c_str());
-						dump_sigspec(os, sig_rd_addr);
-						os << stringf("];\n");
-						clk_to_lof_body[clk_domain_str].push_back(os.str());
+					sig_arst_name = next_auto_id();
+					f << stringf("%s" "wire %s = ", indent.c_str(), sig_arst_name.c_str());
+					dump_const(f, ff.sig_arst[i].data);
+					f << stringf(";\n");
+				}
+			}
+
+			dump_attributes(f, indent, cell->attributes);
+			if (ff.has_clk)
+			{
+				// FFs.
+				f << stringf("%s" "always%s @(%sedge ", indent.c_str(), systemverilog ? "_ff" : "", ff.pol_clk ? "pos" : "neg");
+				dump_sigspec(f, ff.sig_clk);
+				if (ff.has_sr) {
+					f << stringf(", %sedge ", ff.pol_set ? "pos" : "neg");
+					if (ff.sig_set[i].wire == NULL)
+						f << stringf("%s", sig_set_name.c_str());
+					else
+						dump_sigspec(f, ff.sig_set[i]);
+
+					f << stringf(", %sedge ", ff.pol_clr ? "pos" : "neg");
+					if (ff.sig_clr[i].wire == NULL)
+						f << stringf("%s", sig_clr_name.c_str());
+					else
+						dump_sigspec(f, ff.sig_clr[i]);
+
+				} else if (ff.has_arst) {
+					f << stringf(", %sedge ", ff.pol_arst ? "pos" : "neg");
+					if (ff.sig_arst[i].wire == NULL)
+						f << stringf("%s", sig_arst_name.c_str());
+					else
+						dump_sigspec(f, ff.sig_arst);
+				}
+				f << stringf(")\n");
+
+				f << stringf("%s" "  ", indent.c_str());
+				if (ff.has_sr) {
+					f << stringf("if (%s", ff.pol_clr ? "" : "!");
+					if (ff.sig_clr[i].wire == NULL)
+						f << stringf("%s", sig_clr_name.c_str());
+					else
+						dump_sigspec(f, ff.sig_clr[i]);
+					f << stringf(") %s <= 1'b0;\n", reg_bit_name.c_str());
+					f << stringf("%s" "  else if (%s", indent.c_str(), ff.pol_set ? "" : "!");
+					if (ff.sig_set[i].wire == NULL)
+						f << stringf("%s", sig_set_name.c_str());
+					else
+						dump_sigspec(f, ff.sig_set[i]);
+					f << stringf(") %s <= 1'b1;\n", reg_bit_name.c_str());
+					f << stringf("%s" "  else ", indent.c_str());
+				} else if (ff.has_arst) {
+					f << stringf("if (%s", ff.pol_arst ? "" : "!");
+					if (ff.sig_arst[i].wire == NULL)
+						f << stringf("%s", sig_arst_name.c_str());
+					else
+						dump_sigspec(f, ff.sig_arst);
+					f << stringf(") %s <= ", reg_bit_name.c_str());
+					dump_sigspec(f, val_arst);
+					f << stringf(";\n");
+					f << stringf("%s" "  else ", indent.c_str());
+				}
+
+				if (ff.has_srst && ff.has_en && ff.ce_over_srst) {
+					f << stringf("if (%s", ff.pol_en ? "" : "!");
+					dump_sigspec(f, ff.sig_en);
+					f << stringf(")\n");
+					f << stringf("%s" "    if (%s", indent.c_str(), ff.pol_srst ? "" : "!");
+					dump_sigspec(f, ff.sig_srst);
+					f << stringf(") %s <= ", reg_bit_name.c_str());
+					dump_sigspec(f, val_srst);
+					f << stringf(";\n");
+					f << stringf("%s" "    else ", indent.c_str());
+				} else {
+					if (ff.has_srst) {
+						f << stringf("if (%s", ff.pol_srst ? "" : "!");
+						dump_sigspec(f, ff.sig_srst);
+						f << stringf(") %s <= ", reg_bit_name.c_str());
+						dump_sigspec(f, val_srst);
+						f << stringf(";\n");
+						f << stringf("%s" "  else ", indent.c_str());
 					}
-					{
-						std::ostringstream os;
-						dump_sigspec(os, sig_rd_data);
-						std::string line = stringf("assign %s = %s;\n", os.str().c_str(), temp_id.c_str());
-						clk_to_lof_body[""].push_back(line);
+					if (ff.has_en) {
+						f << stringf("if (%s", ff.pol_en ? "" : "!");
+						dump_sigspec(f, ff.sig_en);
+						f << stringf(") ");
 					}
 				}
-				else
-				{
-					// for rd-transparent read-ports make something like:
-					//   reg [..] temp_id;
-					//   always @(posedge clk)
-					//     temp_id <= r_addr;
-					//   assign r_data = array_reg[temp_id];
-					std::string temp_id = next_auto_id();
-					lof_reg_declarations.push_back( stringf("reg [%d:0] %s;\n", sig_rd_addr.size() - 1, temp_id.c_str()) );
-					{
-						std::ostringstream os;
-						dump_sigspec(os, sig_rd_addr);
-						std::string line = stringf("%s <= %s;\n", temp_id.c_str(), os.str().c_str());
-						clk_to_lof_body[clk_domain_str].push_back(line);
-					}
-					{
-						std::ostringstream os;
-						dump_sigspec(os, sig_rd_data);
-						std::string line = stringf("assign %s = %s[%s];\n", os.str().c_str(), mem_id.c_str(), temp_id.c_str());
-						clk_to_lof_body[""].push_back(line);
-					}
-				}
-			} else {
-				// for non-clocked read-ports make something like:
-				//   assign r_data = array_reg[r_addr];
-				std::ostringstream os, os2;
-				dump_sigspec(os, sig_rd_data);
-				dump_sigspec(os2, sig_rd_addr);
-				std::string line = stringf("assign %s = %s[%s];\n", os.str().c_str(), mem_id.c_str(), os2.str().c_str());
-				clk_to_lof_body[""].push_back(line);
-			}
-		}
 
-		int nwrite_ports = cell->parameters[ID::WR_PORTS].as_int();
-		RTLIL::SigSpec sig_wr_clk, sig_wr_data, sig_wr_addr, sig_wr_en;
-		bool wr_clk_posedge;
-
-		// write ports
-		for (int i=0; i < nwrite_ports; i++)
-		{
-			sig_wr_clk = cell->getPort(ID::WR_CLK).extract(i);
-			sig_wr_data = cell->getPort(ID::WR_DATA).extract(i*width, width);
-			sig_wr_addr = cell->getPort(ID::WR_ADDR).extract(i*abits, abits);
-			sig_wr_en = cell->getPort(ID::WR_EN).extract(i*width, width);
-			wr_clk_posedge = cell->parameters[ID::WR_CLK_POLARITY].extract(i).as_bool();
-			{
-				std::ostringstream os;
-				dump_sigspec(os, sig_wr_clk);
-				clk_domain_str = stringf("%sedge %s", wr_clk_posedge ? "pos" : "neg", os.str().c_str());
-				if( clk_to_lof_body.count(clk_domain_str) == 0 )
-					clk_to_lof_body[clk_domain_str] = std::vector<std::string>();
-			}
-			//   make something like:
-			//   always @(posedge clk)
-			//      if (wr_en_bit) memid[w_addr][??] <= w_data[??];
-			//   ...
-			for (int i = 0; i < GetSize(sig_wr_en); i++)
-			{
-				int start_i = i, width = 1;
-				SigBit wen_bit = sig_wr_en[i];
-
-				while (i+1 < GetSize(sig_wr_en) && active_sigmap(sig_wr_en[i+1]) == active_sigmap(wen_bit))
-					i++, width++;
-
-				if (wen_bit == State::S0)
-					continue;
-
-				std::ostringstream os;
-				if (wen_bit != State::S1)
-				{
-					os << stringf("if (");
-					dump_sigspec(os, wen_bit);
-					os << stringf(") ");
-				}
-				os << stringf("%s[", mem_id.c_str());
-				dump_sigspec(os, sig_wr_addr);
-				if (width == GetSize(sig_wr_en))
-					os << stringf("] <= ");
-				else
-					os << stringf("][%d:%d] <= ", i, start_i);
-				dump_sigspec(os, sig_wr_data.extract(start_i, width));
-				os << stringf(";\n");
-				clk_to_lof_body[clk_domain_str].push_back(os.str());
-			}
-		}
-		// Output Verilog that looks something like this:
-		// reg [..] _3_;
-		// always @(posedge CLK2) begin
-		//   _3_ <= memory[D1ADDR];
-		//   if (A1EN)
-		//     memory[A1ADDR] <= A1DATA;
-		//   if (A2EN)
-		//     memory[A2ADDR] <= A2DATA;
-		//   ...
-		// end
-		// always @(negedge CLK1) begin
-		//   if (C1EN)
-		//     memory[C1ADDR] <= C1DATA;
-		// end
-		// ...
-		// assign D1DATA = _3_;
-		// assign D2DATA <= memory[D2ADDR];
-
-		// the reg ... definitions
-		for(auto &reg : lof_reg_declarations)
-		{
-			f << stringf("%s" "%s", indent.c_str(), reg.c_str());
-		}
-		// the block of expressions by clock domain
-		for(auto &pair : clk_to_lof_body)
-		{
-			std::string clk_domain = pair.first;
-			std::vector<std::string> lof_lines = pair.second;
-			if( clk_domain != "")
-			{
-				f << stringf("%s" "always @(%s) begin\n", indent.c_str(), clk_domain.c_str());
-				for(auto &line : lof_lines)
-					f << stringf("%s%s" "%s", indent.c_str(), indent.c_str(), line.c_str());
-				f << stringf("%s" "end\n", indent.c_str());
+				f << stringf("%s <= ", reg_bit_name.c_str());
+				dump_sigspec(f, sig_d);
+				f << stringf(";\n");
 			}
 			else
 			{
-				// the non-clocked assignments
-				for(auto &line : lof_lines)
-					f << stringf("%s" "%s", indent.c_str(), line.c_str());
+				// Latches.
+				f << stringf("%s" "always%s\n", indent.c_str(), systemverilog ? "_latch" : " @*");
+
+				f << stringf("%s" "  ", indent.c_str());
+				if (ff.has_sr) {
+					f << stringf("if (%s", ff.pol_clr ? "" : "!");
+					dump_sigspec(f, ff.sig_clr[i]);
+					f << stringf(") %s = 1'b0;\n", reg_bit_name.c_str());
+					f << stringf("%s" "  else if (%s", indent.c_str(), ff.pol_set ? "" : "!");
+					dump_sigspec(f, ff.sig_set[i]);
+					f << stringf(") %s = 1'b1;\n", reg_bit_name.c_str());
+					if (ff.has_d)
+						f << stringf("%s" "  else ", indent.c_str());
+				} else if (ff.has_arst) {
+					f << stringf("if (%s", ff.pol_arst ? "" : "!");
+					dump_sigspec(f, ff.sig_arst);
+					f << stringf(") %s = ", reg_bit_name.c_str());
+					dump_sigspec(f, val_arst);
+					f << stringf(";\n");
+					if (ff.has_d)
+						f << stringf("%s" "  else ", indent.c_str());
+				}
+				if (ff.has_d) {
+					f << stringf("if (%s", ff.pol_en ? "" : "!");
+					dump_sigspec(f, ff.sig_en);
+					f << stringf(") %s = ", reg_bit_name.c_str());
+					dump_sigspec(f, sig_d);
+					f << stringf(";\n");
+				}
 			}
+		}
+
+		if (!out_is_reg_wire) {
+			f << stringf("%s" "assign ", indent.c_str());
+			dump_sigspec(f, ff.sig_q);
+			f << stringf(" = %s;\n", reg_name.c_str());
 		}
 
 		return true;
@@ -1410,7 +1338,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 
 	if (cell->type.in(ID($assert), ID($assume), ID($cover)))
 	{
-		f << stringf("%s" "always @* if (", indent.c_str());
+		f << stringf("%s" "always%s if (", indent.c_str(), systemverilog ? "_comb" : " @*");
 		dump_sigspec(f, cell->getPort(ID::EN));
 		f << stringf(") %s(", cell->type.c_str()+1);
 		dump_sigspec(f, cell->getPort(ID::A));
@@ -1528,14 +1456,17 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	// FIXME: $_SR_[PN][PN]_, $_DLATCH_[PN]_, $_DLATCHSR_[PN][PN][PN]_
-	// FIXME: $sr, $dlatch, $memrd, $memwr, $fsm
+	// FIXME: $fsm
 
 	return false;
 }
 
 void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 {
+	// Handled by dump_memory
+	if (cell->type.in(ID($mem), ID($memwr), ID($memrd), ID($meminit)))
+		return;
+
 	if (cell->type[0] == '$' && !noexpr) {
 		if (dump_cell_expr(f, indent, cell))
 			return;
@@ -1602,7 +1533,7 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		}
 	}
 
-	if (siminit && reg_ct.count(cell->type) && cell->hasPort(ID::Q)) {
+	if (siminit && RTLIL::builtin_ff_cell_types().count(cell->type) && cell->hasPort(ID::Q) && !cell->type.in(ID($ff), ID($_FF_))) {
 		std::stringstream ss;
 		dump_reg_init(ss, cell->getPort(ID::Q));
 		if (!ss.str().empty()) {
@@ -1717,7 +1648,9 @@ void dump_process(std::ostream &f, std::string indent, RTLIL::Process *proc, boo
 		return;
 	}
 
-	f << stringf("%s" "always @* begin\n", indent.c_str());
+	f << stringf("%s" "always%s begin\n", indent.c_str(), systemverilog ? "_comb" : " @*");
+	if (!systemverilog)
+		f << indent + "  " << "if (" << id("\\initial") << ") begin end\n";
 	dump_case_body(f, indent, &proc->root_case, true);
 
 	std::string backup_indent = indent;
@@ -1728,11 +1661,11 @@ void dump_process(std::ostream &f, std::string indent, RTLIL::Process *proc, boo
 		indent = backup_indent;
 
 		if (sync->type == RTLIL::STa) {
-			f << stringf("%s" "always @* begin\n", indent.c_str());
+			f << stringf("%s" "always%s begin\n", indent.c_str(), systemverilog ? "_comb" : " @*");
 		} else if (sync->type == RTLIL::STi) {
 			f << stringf("%s" "initial begin\n", indent.c_str());
 		} else {
-			f << stringf("%s" "always @(", indent.c_str());
+			f << stringf("%s" "always%s @(", indent.c_str(), systemverilog ? "_ff" : "");
 			if (sync->type == RTLIL::STp || sync->type == RTLIL::ST1)
 				f << stringf("posedge ");
 			if (sync->type == RTLIL::STn || sync->type == RTLIL::ST0)
@@ -1810,7 +1743,7 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 		std::set<std::pair<RTLIL::Wire*,int>> reg_bits;
 		for (auto cell : module->cells())
 		{
-			if (!reg_ct.count(cell->type) || !cell->hasPort(ID::Q))
+			if (!RTLIL::builtin_ff_cell_types().count(cell->type) || !cell->hasPort(ID::Q) || cell->type.in(ID($ff), ID($_FF_)))
 				continue;
 
 			RTLIL::SigSpec sig = cell->getPort(ID::Q);
@@ -1850,11 +1783,14 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 	}
 	f << stringf(");\n");
 
+	if (!systemverilog && !module->processes.empty())
+		f << indent + "  " << "reg " << id("\\initial") << " = 0;\n";
+
 	for (auto w : module->wires())
 		dump_wire(f, indent + "  ", w);
 
-	for (auto it = module->memories.begin(); it != module->memories.end(); ++it)
-		dump_memory(f, indent + "  ", it->second);
+	for (auto &mem : Mem::get_all_memories(module))
+		dump_memory(f, indent + "  ", mem);
 
 	for (auto cell : module->cells())
 		dump_cell(f, indent + "  ", cell);
@@ -1880,6 +1816,9 @@ struct VerilogBackend : public Backend {
 		log("    write_verilog [options] [filename]\n");
 		log("\n");
 		log("Write the current design to a Verilog file.\n");
+		log("\n");
+		log("    -sv\n");
+		log("        with this option, SystemVerilog constructs like always_comb are used\n");
 		log("\n");
 		log("    -norename\n");
 		log("        without this option all internal object names (the ones with a dollar\n");
@@ -1976,37 +1915,14 @@ struct VerilogBackend : public Backend {
 
 		auto_name_map.clear();
 		reg_wires.clear();
-		reg_ct.clear();
-
-		reg_ct.insert(ID($dff));
-		reg_ct.insert(ID($adff));
-		reg_ct.insert(ID($dffe));
-		reg_ct.insert(ID($dlatch));
-
-		reg_ct.insert(ID($_DFF_N_));
-		reg_ct.insert(ID($_DFF_P_));
-
-		reg_ct.insert(ID($_DFF_NN0_));
-		reg_ct.insert(ID($_DFF_NN1_));
-		reg_ct.insert(ID($_DFF_NP0_));
-		reg_ct.insert(ID($_DFF_NP1_));
-		reg_ct.insert(ID($_DFF_PN0_));
-		reg_ct.insert(ID($_DFF_PN1_));
-		reg_ct.insert(ID($_DFF_PP0_));
-		reg_ct.insert(ID($_DFF_PP1_));
-
-		reg_ct.insert(ID($_DFFSR_NNN_));
-		reg_ct.insert(ID($_DFFSR_NNP_));
-		reg_ct.insert(ID($_DFFSR_NPN_));
-		reg_ct.insert(ID($_DFFSR_NPP_));
-		reg_ct.insert(ID($_DFFSR_PNN_));
-		reg_ct.insert(ID($_DFFSR_PNP_));
-		reg_ct.insert(ID($_DFFSR_PPN_));
-		reg_ct.insert(ID($_DFFSR_PPP_));
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];
+			if (arg == "-sv") {
+				systemverilog = true;
+				continue;
+			}
 			if (arg == "-norename") {
 				norename = true;
 				continue;
@@ -2095,7 +2011,6 @@ struct VerilogBackend : public Backend {
 
 		auto_name_map.clear();
 		reg_wires.clear();
-		reg_ct.clear();
 	}
 } VerilogBackend;
 

@@ -517,6 +517,8 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 "<<<" { return OP_SSHL; }
 ">>>" { return OP_SSHR; }
 
+"'" { return OP_CAST; }
+
 "::"  { return TOK_PACKAGESEP; }
 "++"  { return TOK_INCREMENT; }
 "--"  { return TOK_DECREMENT; }

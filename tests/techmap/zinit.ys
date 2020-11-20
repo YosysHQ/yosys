@@ -95,7 +95,7 @@ EOT
 zinit
 
 select -assert-count 48 t:$_NOT_
-select -assert-count 1 w:Q a:init=24'bx %i
+select -assert-count 0 w:Q a:init %i
 select -assert-count 4 c:dff0 c:dff2 c:dff4 c:dff6 %% t:$_DFFE_??1P_ %i
 select -assert-count 4 c:dff1 c:dff3 c:dff5 c:dff7 %% t:$_DFFE_??0P_ %i
 select -assert-count 4 c:dff8 c:dff10 c:dff12 c:dff14 %% t:$_SDFF_??1_ %i
@@ -142,7 +142,7 @@ EOT
 zinit
 
 select -assert-count 0 t:$_NOT_
-select -assert-count 1 w:Q a:init=24'bx %i
+select -assert-count 0 w:Q a:init %i
 select -assert-count 4 c:dff0 c:dff2 c:dff4 c:dff6 %% t:$_DFFE_??0P_ %i
 select -assert-count 4 c:dff1 c:dff3 c:dff5 c:dff7 %% t:$_DFFE_??1P_ %i
 select -assert-count 4 c:dff8 c:dff10 c:dff12 c:dff14 %% t:$_SDFF_??0_ %i

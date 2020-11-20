@@ -1,0 +1,50 @@
+read_verilog ../common/mul.v
+chparam -set X_WIDTH 8 -set Y_WIDTH 8 -set A_WIDTH 16
+hierarchy -top top
+proc
+
+design -save read
+
+equiv_opt -assert -map +/nexus/cells_sim.v synth_nexus
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd top # Constrain all select calls below inside the top module
+select -assert-count 1 t:MULT9X9
+
+select -assert-none t:IB t:OB t:VLO t:VHI t:MULT9X9 %% t:* %D
+
+
+design -reset
+read_verilog ../common/mul.v
+chparam -set X_WIDTH 16 -set Y_WIDTH 16 -set A_WIDTH 32
+hierarchy -top top
+proc
+# equivalence checking is too slow here
+synth_nexus
+cd top # Constrain all select calls below inside the top module
+select -assert-count 1 t:MULT18X18
+select -assert-none t:IB t:OB t:VLO t:VHI t:MULT18X18 %% t:* %D
+
+
+design -reset
+read_verilog ../common/mul.v
+chparam -set X_WIDTH 32 -set Y_WIDTH 16 -set A_WIDTH 48
+hierarchy -top top
+proc
+# equivalence checking is too slow here
+synth_nexus
+cd top # Constrain all select calls below inside the top module
+select -assert-count 1 t:MULT18X36
+select -assert-none t:IB t:OB t:VLO t:VHI t:MULT18X36 %% t:* %D
+
+
+design -reset
+read_verilog ../common/mul.v
+chparam -set X_WIDTH 32 -set Y_WIDTH 32 -set A_WIDTH 64
+hierarchy -top top
+proc
+# equivalence checking is too slow here
+synth_nexus
+cd top # Constrain all select calls below inside the top module
+select -assert-count 1 t:MULT36X36
+
+select -assert-none t:IB t:OB t:VLO t:VHI t:MULT36X36 %% t:* %D

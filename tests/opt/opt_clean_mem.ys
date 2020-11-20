@@ -1,0 +1,49 @@
+read_verilog <<EOT
+module top(...);
+
+input [7:0] wa;
+input [7:0] ra1;
+input [7:0] ra2;
+input [7:0] wd;
+input clk;
+wire [7:0] rd1;
+wire [7:0] rd2;
+
+reg [7:0] mem[0:7];
+
+always @(posedge clk)
+	mem[wa] <= wd;
+assign rd1 = mem[ra1];
+assign rd2 = mem[ra2];
+
+initial mem[8'h12] = 8'h34;
+
+endmodule
+EOT
+
+proc
+memory_dff
+
+select -assert-count 2 t:$memrd
+select -assert-count 1 t:$memwr
+select -assert-count 1 t:$meminit
+design -save orig
+
+opt_clean
+select -assert-none t:$memrd
+select -assert-none t:$memwr
+select -assert-none t:$meminit
+
+design -load orig
+expose top/rd1
+opt_clean
+select -assert-count 1 t:$memrd
+select -assert-count 1 t:$memwr
+select -assert-count 1 t:$meminit
+
+design -load orig
+expose top/rd1 top/rd2
+opt_clean
+select -assert-count 2 t:$memrd
+select -assert-count 1 t:$memwr
+select -assert-count 1 t:$meminit

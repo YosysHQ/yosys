@@ -1,6 +1,4 @@
-#!/bin/bash
-set -e
-for x in *.ys; do
-	echo "Running $x.."
-	../../yosys -ql ${x%.ys}.log $x
-done
+#!/usr/bin/env bash
+set -eu
+source ../gen-tests-makefile.sh
+run_tests --yosys-scripts

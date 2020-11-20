@@ -1,0 +1,11 @@
+read_verilog ../common/counter.v
+hierarchy -top top
+proc
+flatten
+equiv_opt -assert -multiclock -map +/nexus/cells_sim.v synth_nexus # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd top # Constrain all select calls below inside the top module
+stat
+select -assert-count 5 t:CCU2
+select -assert-count 8 t:FD1P3DX
+select -assert-none t:CCU2 t:FD1P3DX t:IB t:OB t:VLO t:VHI %% t:* %D

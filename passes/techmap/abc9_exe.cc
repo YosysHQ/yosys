@@ -379,11 +379,7 @@ struct Abc9ExePass : public Pass {
 	{
 		log_header(design, "Executing ABC9_EXE pass (technology mapping using ABC9).\n");
 
-#ifdef ABCEXTERNAL
-		std::string exe_file = ABCEXTERNAL;
-#else
-		std::string exe_file = proc_self_dirname() + proc_program_prefix()+ "yosys-abc";
-#endif
+		std::string exe_file = yosys_abc_executable;
 		std::string script_file, clk_str, box_file, lut_file;
 		std::string delay_target, lutin_shared = "-S 1", wire_delay;
 		std::string tempdir_name;
@@ -394,13 +390,6 @@ struct Abc9ExePass : public Pass {
 #if 0
 		cleanup = false;
 		show_tempdir = true;
-#endif
-
-#ifdef _WIN32
-#ifndef ABCEXTERNAL
-		if (!check_file_exists(exe_file + ".exe") && check_file_exists(proc_self_dirname() + "..\\" + proc_program_prefix() + "yosys-abc.exe"))
-			exe_file = proc_self_dirname() + "..\\" + proc_program_prefix() + "yosys-abc";
-#endif
 #endif
 
 		std::string lut_arg, luts_arg;

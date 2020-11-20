@@ -19,6 +19,7 @@
 
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
+#include "kernel/ffinit.h"
 #include "kernel/consteval.h"
 #include "kernel/log.h"
 #include <sstream>
@@ -32,6 +33,7 @@ struct proc_dlatch_db_t
 {
 	Module *module;
 	SigMap sigmap;
+	FfInitVals initvals;
 
 	pool<Cell*> generated_dlatches;
 	dict<Cell*, vector<SigBit>> mux_srcbits;
@@ -40,6 +42,8 @@ struct proc_dlatch_db_t
 
 	proc_dlatch_db_t(Module *module) : module(module), sigmap(module)
 	{
+		initvals.set(&sigmap, module);
+
 		for (auto cell : module->cells())
 		{
 			if (cell->type.in(ID($mux), ID($pmux)))
@@ -69,9 +73,11 @@ struct proc_dlatch_db_t
 		}
 
 		for (auto wire : module->wires())
+		{
 			if (wire->port_input)
 				for (auto bit : sigmap(wire))
 					sigusers[bit]++;
+		}
 	}
 
 	bool quickcheck(const SigSpec &haystack, const SigSpec &needle)
@@ -393,6 +399,13 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 		else
 			log("No latch inferred for signal `%s.%s' from process `%s.%s'.\n",
 					db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str());
+		for (auto &bit : lhs) {
+			State val = db.initvals(bit);
+			if (db.initvals(bit) != State::Sx) {
+				log("Removing init bit %s for non-memory siginal `%s.%s` in process `%s.%s`.\n", log_signal(val), db.module->name.c_str(), log_signal(bit), db.module->name.c_str(), proc->name.c_str());
+			}
+			db.initvals.remove_init(bit);
+		}
 		db.module->connect(lhs, rhs);
 		offset += chunk.width;
 	}

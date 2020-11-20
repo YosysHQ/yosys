@@ -1,0 +1,37 @@
+read_verilog -icells <<EOT
+
+module dlatchsr(input E, R, S, D, output [3:0] Q);
+$_DLATCHSR_PPP_ ff0 (.E(E), .R(R), .S(S), .D(D), .Q(Q[0]));
+$_DLATCHSR_PPN_ ff1 (.E(E), .R(R), .S(S), .D(D), .Q(Q[1]));
+$_DLATCHSR_PNP_ ff2 (.E(E), .R(R), .S(S), .D(D), .Q(Q[2]));
+$_DLATCHSR_NPP_ ff3 (.E(E), .R(R), .S(S), .D(D), .Q(Q[3]));
+endmodule
+
+EOT
+
+design -save orig
+equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_PP0_ x -cell $_SR_PP_ x
+equiv_opt -assert -multiclock dfflegalize -cell $_DLATCHSR_PPP_ x
+
+
+# Convert everything to ADLATCHs.
+
+design -load orig
+dfflegalize -cell $_DLATCH_PP0_ x -cell $_SR_PP_ x
+
+select -assert-count 14 t:$_NOT_
+select -assert-count 4 t:$_MUX_
+select -assert-count 8 t:$_DLATCH_PP0_
+select -assert-count 4 t:$_SR_PP_
+select -assert-none t:$_DLATCH_PP0_ t:$_SR_PP_ t:$_MUX_ t:$_NOT_ %% %n t:* %i
+
+
+# Convert everything to DLATCHSRs.
+
+design -load orig
+dfflegalize -cell $_DLATCHSR_PPP_ x
+
+select -assert-count 3 t:$_NOT_
+select -assert-count 0 t:$_MUX_
+select -assert-count 4 t:$_DLATCHSR_PPP_
+select -assert-none t:$_DLATCHSR_PPP_ t:$_MUX_ t:$_NOT_ %% %n t:* %i

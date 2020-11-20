@@ -59,6 +59,11 @@ struct keep_cache_t
 			    found_keep = true;
 			    break;
 			}
+		    for (auto wire : module->wires())
+			if (wire->get_bool_attribute(ID::keep)) {
+			    found_keep = true;
+			    break;
+			}
 		    cache[module] = found_keep;
 		}
 
@@ -67,7 +72,7 @@ struct keep_cache_t
 
 	bool query(Cell *cell, bool ignore_specify = false)
 	{
-		if (cell->type.in(ID($memwr), ID($meminit), ID($assert), ID($assume), ID($live), ID($fair), ID($cover)))
+		if (cell->type.in(ID($assert), ID($assume), ID($live), ID($fair), ID($cover)))
 			return true;
 
 		if (!ignore_specify && cell->type.in(ID($specify2), ID($specify3), ID($specrule)))
@@ -90,6 +95,8 @@ int count_rm_cells, count_rm_wires;
 void rmunused_module_cells(Module *module, bool verbose)
 {
 	SigMap sigmap(module);
+	dict<IdString, pool<Cell*>> mem2cells;
+	pool<IdString> mem_unused;
 	pool<Cell*> queue, unused;
 	pool<SigBit> used_raw_bits;
 	dict<SigBit, pool<Cell*>> wire2driver;
@@ -100,6 +107,17 @@ void rmunused_module_cells(Module *module, bool verbose)
 		for (int i = 0; i < GetSize(it.second); i++) {
 			if (it.second[i].wire != nullptr)
 				raw_sigmap.add(it.first[i], it.second[i]);
+		}
+	}
+
+	for (auto &it : module->memories) {
+		mem_unused.insert(it.first);
+	}
+
+	for (Cell *cell : module->cells()) {
+		if (cell->type.in(ID($memwr), ID($meminit))) {
+			IdString mem_id = cell->getParam(ID::MEMID).decode_string();
+			mem2cells[mem_id].insert(cell);
 		}
 	}
 
@@ -140,15 +158,31 @@ void rmunused_module_cells(Module *module, bool verbose)
 	while (!queue.empty())
 	{
 		pool<SigBit> bits;
-		for (auto cell : queue)
-		for (auto &it : cell->connections())
-			if (!ct_all.cell_known(cell->type) || ct_all.cell_input(cell->type, it.first))
-				for (auto bit : sigmap(it.second))
-					bits.insert(bit);
+		pool<IdString> mems;
+		for (auto cell : queue) {
+			for (auto &it : cell->connections())
+				if (!ct_all.cell_known(cell->type) || ct_all.cell_input(cell->type, it.first))
+					for (auto bit : sigmap(it.second))
+						bits.insert(bit);
+
+			if (cell->type == ID($memrd)) {
+				IdString mem_id = cell->getParam(ID::MEMID).decode_string();
+				if (mem_unused.count(mem_id)) {
+					mem_unused.erase(mem_id);
+					mems.insert(mem_id);
+				}
+			}
+		}
 
 		queue.clear();
+
 		for (auto bit : bits)
 		for (auto c : wire2driver[bit])
+			if (unused.count(c))
+				queue.insert(c), unused.erase(c);
+
+		for (auto mem : mems)
+		for (auto c : mem2cells[mem])
 			if (unused.count(c))
 				queue.insert(c), unused.erase(c);
 	}
@@ -161,6 +195,14 @@ void rmunused_module_cells(Module *module, bool verbose)
 		module->design->scratchpad_set_bool("opt.did_something", true);
 		module->remove(cell);
 		count_rm_cells++;
+	}
+
+	for (auto it : mem_unused)
+	{
+		if (verbose)
+			log_debug("  removing unused memory `%s'.\n", it.c_str());
+		delete module->memories.at(it);
+		module->memories.erase(it);
 	}
 
 	for (auto &it : module->cells_) {
@@ -202,7 +244,7 @@ bool compare_signals(RTLIL::SigBit &s1, RTLIL::SigBit &s2, SigPool &regs, SigPoo
 	if ((w1->port_input && w1->port_output) != (w2->port_input && w2->port_output))
 		return !(w2->port_input && w2->port_output);
 
-	if (w1->name[0] == '\\' && w2->name[0] == '\\') {
+	if (w1->name.isPublic() && w2->name.isPublic()) {
 		if (regs.check(s1) != regs.check(s2))
 			return regs.check(s2);
 		if (direct_wires.count(w1) != direct_wires.count(w2))
@@ -215,7 +257,7 @@ bool compare_signals(RTLIL::SigBit &s1, RTLIL::SigBit &s2, SigPool &regs, SigPoo
 		return w2->port_output;
 
 	if (w1->name[0] != w2->name[0])
-		return w2->name[0] == '\\';
+		return w2->name.isPublic();
 
 	int attrs1 = count_nontrivial_wire_attrs(w1);
 	int attrs2 = count_nontrivial_wire_attrs(w2);

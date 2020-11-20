@@ -264,6 +264,10 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 		cell->setPort(ID::Y, wire);
 	}
 
+	if (cell_type.in(ID($shiftx))) {
+		cell->parameters[ID::A_SIGNED] = false;
+	}
+
 	if (cell_type.in(ID($shl), ID($shr), ID($sshl), ID($sshr))) {
 		cell->parameters[ID::B_SIGNED] = false;
 	}
@@ -674,12 +678,12 @@ struct TestCellPass : public Pass {
 		log("    -s {positive_integer}\n");
 		log("        use this value as rng seed value (default = unix time).\n");
 		log("\n");
-		log("    -f {ilang_file}\n");
-		log("        don't generate circuits. instead load the specified ilang file.\n");
+		log("    -f {rtlil_file}\n");
+		log("        don't generate circuits. instead load the specified RTLIL file.\n");
 		log("\n");
 		log("    -w {filename_prefix}\n");
 		log("        don't test anything. just generate the circuits and write them\n");
-		log("        to ilang files with the specified prefix\n");
+		log("        to RTLIL files with the specified prefix\n");
 		log("\n");
 		log("    -map {filename}\n");
 		log("        pass this option to techmap.\n");
@@ -720,7 +724,7 @@ struct TestCellPass : public Pass {
 	{
 		int num_iter = 100;
 		std::string techmap_cmd = "techmap -assert";
-		std::string ilang_file, write_prefix;
+		std::string rtlil_file, write_prefix;
 		xorshift32_state = 0;
 		std::ofstream vlog_file;
 		bool muxdiv = false;
@@ -746,7 +750,7 @@ struct TestCellPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-f" && argidx+1 < GetSize(args)) {
-				ilang_file = args[++argidx];
+				rtlil_file = args[++argidx];
 				num_iter = 1;
 				continue;
 			}
@@ -906,10 +910,10 @@ struct TestCellPass : public Pass {
 				selected_cell_types.push_back(args[argidx]);
 		}
 
-		if (!ilang_file.empty()) {
+		if (!rtlil_file.empty()) {
 			if (!selected_cell_types.empty())
 				log_cmd_error("Do not specify any cell types when using -f.\n");
-			selected_cell_types.push_back("ilang");
+			selected_cell_types.push_back(ID(rtlil));
 		}
 
 		if (selected_cell_types.empty())
@@ -921,12 +925,12 @@ struct TestCellPass : public Pass {
 			for (int i = 0; i < num_iter; i++)
 			{
 				RTLIL::Design *design = new RTLIL::Design;
-				if (cell_type == "ilang")
-					Frontend::frontend_call(design, NULL, std::string(), "ilang " + ilang_file);
+				if (cell_type == ID(rtlil))
+					Frontend::frontend_call(design, NULL, std::string(), "rtlil " + rtlil_file);
 				else
 					create_gold_module(design, cell_type, cell_types.at(cell_type), constmode, muxdiv);
 				if (!write_prefix.empty()) {
-					Pass::call(design, stringf("write_ilang %s_%s_%05d.il", write_prefix.c_str(), cell_type.c_str()+1, i));
+					Pass::call(design, stringf("write_rtlil %s_%s_%05d.il", write_prefix.c_str(), cell_type.c_str()+1, i));
 				} else if (edges) {
 					Pass::call(design, "dump gold");
 					run_edges_test(design, verbose);

@@ -48,13 +48,62 @@
 // the following model because it's very difficult to trigger this in practice
 // as clock cycles will be much longer than any potential blip of 'x, so the
 // model can be treated as always returning a defined result.
+
+(* abc9_box, lib_whitebox *)
 module MISTRAL_MLAB(input [4:0] A1ADDR, input A1DATA, A1EN, CLK1, input [4:0] B1ADDR, output B1DATA);
 
 reg [31:0] mem = 32'b0;
+
+// TODO: Cyclone 10 GX timings; the below timings are for Cyclone V
+specify
+    $setup(A1ADDR, posedge CLK1, 86);
+    $setup(A1DATA, posedge CLK1, 86);
+    $setup(A1EN, posedge CLK1, 86);
+
+    (B1ADDR[0] => B1DATA) = 487;
+    (B1ADDR[1] => B1DATA) = 475;
+    (B1ADDR[2] => B1DATA) = 382;
+    (B1ADDR[3] => B1DATA) = 284;
+    (B1ADDR[4] => B1DATA) = 96;
+endspecify
 
 always @(posedge CLK1)
     if (A1EN) mem[A1ADDR] <= A1DATA;
 
 assign B1DATA = mem[B1ADDR];
+
+endmodule
+
+// The M10K
+// --------
+// TODO
+
+module MISTRAL_M10K(CLK1, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
+
+parameter CFG_ABITS = 10;
+parameter CFG_DBITS = 10;
+
+input CLK1;
+input [CFG_ABITS-1:0] A1ADDR, B1ADDR;
+input [CFG_DBITS-1:0] A1DATA;
+input A1EN, B1EN;
+output reg [CFG_DBITS-1:0] B1DATA;
+
+reg [2**CFG_ABITS * CFG_DBITS - 1 : 0] mem = 0;
+
+specify
+    $setup(A1ADDR, posedge CLK1, 0);
+    $setup(A1DATA, posedge CLK1, 0);
+
+    if (B1EN) (posedge CLK1 => (B1DATA : A1DATA)) = 0;
+endspecify
+
+always @(posedge CLK1) begin
+    if (A1EN)
+        mem[(A1ADDR + 1) * CFG_DBITS - 1 : A1ADDR * CFG_DBITS] <= A1DATA;
+
+    if (B1EN)
+        B1DATA <= mem[(B1ADDR + 1) * CFG_DBITS - 1 : B1ADDR * CFG_DBITS];
+end
 
 endmodule

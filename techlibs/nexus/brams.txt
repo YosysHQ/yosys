@@ -1,0 +1,63 @@
+bram $__NX_PDP16K
+  init 1
+
+  abits 9 @a9d36
+  dbits 36 @a9d36
+  abits 10 @a10d18
+  dbits 18 @a10d18
+  abits 11 @a11d9
+  dbits 9  @a11d9
+  abits 12 @a12d4
+  dbits 4  @a12d4
+  abits 13 @a13d2
+  dbits 2  @a13d2
+  abits 14 @a14d1
+  dbits 1  @a14d1
+
+  groups 2
+  ports 1 1
+  wrmode 1 0
+  enable 4 1 @a9d36
+  enable 2 1 @a10d18
+  enable 1 1 @a11d9 @a12d4 @a13d2 @a14d1
+  transp 0 0
+  clocks 2 3
+  clkpol 2 3
+endbram
+
+match $__NX_PDP16K
+  # implicitly requested RAM or ROM
+  attribute !syn_ramstyle syn_ramstyle=auto
+  attribute !syn_romstyle syn_romstyle=auto
+  attribute !ram_block
+  attribute !rom_block
+  attribute !logic_block
+  min bits 2048
+  min efficiency 5
+  shuffle_enable A
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__NX_PDP16K
+  # explicitly requested RAM
+  attribute syn_ramstyle=block_ram ram_block
+  attribute !syn_romstyle
+  attribute !rom_block
+  attribute !logic_block
+  min wports 1
+  shuffle_enable A
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__NX_PDP16K
+  # explicitly requested ROM
+  attribute syn_romstyle=ebr rom_block
+  attribute !syn_ramstyle
+  attribute !ram_block
+  attribute !logic_block
+  max wports 0
+  make_transp
+  shuffle_enable A
+endmatch

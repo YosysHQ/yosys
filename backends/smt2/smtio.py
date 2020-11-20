@@ -124,6 +124,7 @@ class SmtIo:
         self.timeout = 0
         self.produce_models = True
         self.smt2cache = [list()]
+        self.smt2_options = dict()
         self.p = None
         self.p_index = solvers_index
         solvers_index += 1
@@ -258,13 +259,23 @@ class SmtIo:
         for stmt in self.info_stmts:
             self.write(stmt)
 
-        if self.forall and self.solver == "yices":
-            self.write("(set-option :yices-ef-max-iters 1000000000)")
-
         if self.produce_models:
             self.write("(set-option :produce-models true)")
 
+        #See the SMT-LIB Standard, Section 4.1.7
+        modestart_options = [":global-declarations", ":interactive-mode", ":produce-assertions", ":produce-assignments", ":produce-models", ":produce-proofs", ":produce-unsat-assumptions", ":produce-unsat-cores", ":random-seed"]
+        for key, val in self.smt2_options.items():
+            if key in modestart_options:
+                self.write("(set-option {} {})".format(key, val))
+
         self.write("(set-logic %s)" % self.logic)
+
+        if self.forall and self.solver == "yices":
+            self.write("(set-option :yices-ef-max-iters 1000000000)")
+
+        for key, val in self.smt2_options.items():
+            if key not in modestart_options:
+                self.write("(set-option {} {})".format(key, val))
 
     def timestamp(self):
         secs = int(time() - self.start_time)
@@ -468,6 +479,9 @@ class SmtIo:
 
         fields = stmt.split()
 
+        if fields[1] == "yosys-smt2-solver-option":
+            self.smt2_options[fields[2]] = fields[3]
+
         if fields[1] == "yosys-smt2-nomem":
             if self.logic is None:
                 self.logic_ax = False
@@ -653,7 +667,7 @@ class SmtIo:
 
         return stmt
 
-    def check_sat(self):
+    def check_sat(self, expected=["sat", "unsat", "unknown", "timeout", "interrupted"]):
         if self.debug_print:
             print("> (check-sat)")
         if self.debug_file and not self.nocomments:
@@ -740,7 +754,7 @@ class SmtIo:
             print("(check-sat)", file=self.debug_file)
             self.debug_file.flush()
 
-        if result not in ["sat", "unsat", "unknown", "timeout", "interrupted"]:
+        if result not in expected:
             if result == "":
                 print("%s Unexpected EOF response from solver." % (self.timestamp()), flush=True)
             else:

@@ -55,12 +55,28 @@ cxxrtl_handle cxxrtl_create(cxxrtl_toplevel design);
 // Release all resources used by a design and its handle.
 void cxxrtl_destroy(cxxrtl_handle handle);
 
+// Evaluate the design, propagating changes on inputs to the `next` value of internal state and
+// output wires.
+//
+// Returns 1 if the design is known to immediately converge, 0 otherwise.
+int cxxrtl_eval(cxxrtl_handle handle);
+
+// Commit the design, replacing the `curr` value of internal state and output wires with the `next`
+// value.
+//
+// Return 1 if any of the `curr` values were updated, 0 otherwise.
+int cxxrtl_commit(cxxrtl_handle handle);
+
 // Simulate the design to a fixed point.
 //
 // Returns the number of delta cycles.
 size_t cxxrtl_step(cxxrtl_handle handle);
 
 // Type of a simulated object.
+//
+// The type of a simulated object indicates the way it is stored and the operations that are legal
+// to perform on it (i.e. won't crash the simulation). It says very little about object semantics,
+// which is specified through flags.
 enum cxxrtl_type {
 	// Values correspond to singly buffered netlist nodes, i.e. nodes driven exclusively by
 	// combinatorial cells, or toplevel input nodes.
@@ -74,7 +90,8 @@ enum cxxrtl_type {
 	CXXRTL_VALUE = 0,
 
 	// Wires correspond to doubly buffered netlist nodes, i.e. nodes driven, at least in part, by
-	// storage cells, or by combinatorial cells that are a part of a feedback path.
+	// storage cells, or by combinatorial cells that are a part of a feedback path. They are also
+	// present in non-optimized builds.
 	//
 	// Wires can be inspected via the `curr` pointer and modified via the `next` pointer (which are
 	// distinct for wires). Note that changes to the bits driven by combinatorial cells will be
@@ -91,13 +108,73 @@ enum cxxrtl_type {
 	CXXRTL_MEMORY = 2,
 
 	// Aliases correspond to netlist nodes driven by another node such that their value is always
-	// exactly equal, or driven by a constant value.
+	// exactly equal.
 	//
 	// Aliases can be inspected via the `curr` pointer. They cannot be modified, and the `next`
 	// pointer is always NULL.
 	CXXRTL_ALIAS = 3,
 
 	// More object types may be added in the future, but the existing ones will never change.
+};
+
+// Flags of a simulated object.
+//
+// The flags of a simulated object indicate its role in the netlist:
+//  * The flags `CXXRTL_INPUT` and `CXXRTL_OUTPUT` designate module ports.
+//  * The flags `CXXRTL_DRIVEN_SYNC`, `CXXRTL_DRIVEN_COMB`, and `CXXRTL_UNDRIVEN` specify
+//    the semantics of node state. An object with several of these flags set has different bits
+//    follow different semantics.
+enum cxxrtl_flag {
+	// Node is a module input port.
+	//
+	// This flag can be set on objects of type `CXXRTL_VALUE` and `CXXRTL_WIRE`. It may be combined
+	// with `CXXRTL_OUTPUT`, as well as other flags.
+	CXXRTL_INPUT = 1 << 0,
+
+	// Node is a module output port.
+	//
+	// This flag can be set on objects of type `CXXRTL_WIRE`. It may be combined with `CXXRTL_INPUT`,
+	// as well as other flags.
+	CXXRTL_OUTPUT = 1 << 1,
+
+	// Node is a module inout port.
+	//
+	// This flag can be set on objects of type `CXXRTL_WIRE`. It may be combined with other flags.
+	CXXRTL_INOUT = (CXXRTL_INPUT|CXXRTL_OUTPUT),
+
+	// Node has bits that are driven by a storage cell.
+	//
+	// This flag can be set on objects of type `CXXRTL_WIRE`. It may be combined with
+	// `CXXRTL_DRIVEN_COMB` and `CXXRTL_UNDRIVEN`, as well as other flags.
+	//
+	// This flag is set on wires that have bits connected directly to the output of a flip-flop or
+	// a latch, and hold its state. Many `CXXRTL_WIRE` objects may not have the `CXXRTL_DRIVEN_SYNC`
+	// flag set; for example, output ports and feedback wires generally won't. Writing to the `next`
+	// pointer of these wires updates stored state, and for designs without combinatorial loops,
+	// capturing the value from every of these wires through the `curr` pointer creates a complete
+	// snapshot of the design state.
+	CXXRTL_DRIVEN_SYNC = 1 << 2,
+
+	// Node has bits that are driven by a combinatorial cell or another node.
+	//
+	// This flag can be set on objects of type `CXXRTL_VALUE` and `CXXRTL_WIRE`. It may be combined
+	// with `CXXRTL_DRIVEN_SYNC` and `CXXRTL_UNDRIVEN`, as well as other flags.
+	//
+	// This flag is set on objects that have bits connected to the output of a combinatorial cell,
+	// or directly to another node. For designs without combinatorial loops, writing to such bits
+	// through the `next` pointer (if it is not NULL) has no effect.
+	CXXRTL_DRIVEN_COMB = 1 << 3,
+
+	// Node has bits that are not driven.
+	//
+	// This flag can be set on objects of type `CXXRTL_VALUE` and `CXXRTL_WIRE`. It may be combined
+	// with `CXXRTL_DRIVEN_SYNC` and `CXXRTL_DRIVEN_COMB`, as well as other flags.
+	//
+	// This flag is set on objects that have bits not driven by an output of any cell or by another
+	// node, such as inputs and dangling wires.
+	CXXRTL_UNDRIVEN = 1 << 4,
+
+	// More object flags may be added in the future, but the existing ones will never change.
 };
 
 // Description of a simulated object.
@@ -110,6 +187,9 @@ struct cxxrtl_object {
 	// All objects have the same memory layout determined by `width` and `depth`, but the type
 	// determines all other properties of the object.
 	uint32_t type; // actually `enum cxxrtl_type`
+
+	// Flags of the object.
+	uint32_t flags; // actually bit mask of `enum cxxrtl_flags`
 
 	// Width of the object in bits.
 	size_t width;

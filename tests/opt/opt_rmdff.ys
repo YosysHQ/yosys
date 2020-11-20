@@ -4,7 +4,7 @@ design -stash gold
 
 read_verilog -icells opt_rmdff.v
 proc
-opt_rmdff
+opt_dff
 
 select -assert-count 0 c:remove*
 select -assert-min 7 c:keep*
@@ -23,7 +23,6 @@ connect -port remove6 EN 1'b1
 connect -port remove15 E 1'b1
 cd ..
 
-dff2dffe -unmap
 clk2fflogic
 opt_clean
 

@@ -366,6 +366,9 @@ extern std::map<std::string, void*> loaded_python_plugins;
 extern std::map<std::string, std::string> loaded_plugin_aliases;
 void load_plugin(std::string filename, std::vector<std::string> aliases);
 
+extern std::string yosys_share_dirname;
+extern std::string yosys_abc_executable;
+
 YOSYS_NAMESPACE_END
 
 #endif

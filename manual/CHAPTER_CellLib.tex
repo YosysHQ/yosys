@@ -221,6 +221,26 @@ calculated signal and a constant zero with an {\tt \$and} gate).
 
 \subsection{Registers}
 
+SR-type latches are represented by {\tt \$sr} cells.  These cells have input ports
+\B{SET} and \B{CLR} and an output port \B{Q}.  They have the following parameters:
+
+\begin{itemize}
+\item \B{WIDTH} \\
+The width of inputs \B{SET} and \B{CLR} and output \B{Q}.
+
+\item \B{SET\_POLARITY} \\
+The set input bits are active-high if this parameter has the value {\tt 1'b1} and active-low
+if this parameter is {\tt 1'b0}.
+
+\item \B{CLR\_POLARITY} \\
+The reset input bits are active-high if this parameter has the value {\tt 1'b1} and active-low
+if this parameter is {\tt 1'b0}.
+\end{itemize}
+
+Both set and reset inputs have separate bits for every output bit.
+When both the set and reset inputs of an {\tt \$sr} cell are active for a given bit
+index, the reset input takes precedence.
+
 D-type flip-flops are represented by {\tt \$dff} cells. These cells have a clock port \B{CLK},
 an input port \B{D} and an output port \B{Q}. The following parameters are available for {\tt \$dff}
 cells:
@@ -269,21 +289,8 @@ Note that the {\tt \$adff} and {\tt \$sdff} cells can only be used when the rese
 
 D-type flip-flops with asynchronous set and reset are represented by {\tt \$dffsr} cells.
 As the {\tt \$dff} cells they have \B{CLK}, \B{D} and \B{Q} ports. In addition they also have
-a single-bit \B{SET} input port for the set pin, a single-bit \B{CLR} input port for the reset pin,
-and the following two parameters:
-
-\begin{itemize}
-\item \B{SET\_POLARITY} \\
-The set input is active-high if this parameter has the value {\tt 1'b1} and active-low
-if this parameter is {\tt 1'b0}.
-
-\item \B{CLR\_POLARITY} \\
-The reset input is active-high if this parameter has the value {\tt 1'b1} and active-low
-if this parameter is {\tt 1'b0}.
-\end{itemize}
-
-When both the set and reset inputs of a {\tt \$dffsr} cell are active, the reset input takes
-precedence.
+multi-bit \B{SET} and \B{CLR} input ports and the corresponding polarity parameters, like 
+{\tt \$sr} cells.
 
 D-type flip-flops with enable are represented by {\tt \$dffe}, {\tt \$adffe}, {\tt \$dffsre},
 {\tt \$sdffe}, and {\tt \$sdffce} cells, which are enhanced variants of {\tt \$dff}, {\tt \$adff}, {\tt \$dffsr},
@@ -297,10 +304,36 @@ The enable input is active-high if this parameter has the value {\tt 1'b1} and a
 if this parameter is {\tt 1'b0}.
 \end{itemize}
 
-\begin{fixme}
-Add information about {\tt \$sr} cells (set-reset flip-flops), {\tt \$dlatch} cells (d-type latches),
-{\tt \$adlatch} and {\tt \$dlatchsr} cells (d-type latches with set/reset).
-\end{fixme}
+D-type latches are represented by {\tt \$dlatch} cells.  These cells have an enable port \B{EN},
+an input port \B{D}, and an output port \B{Q}.  The following parameters are available for {\tt \$dlatch} cells:
+
+\begin{itemize}
+\item \B{WIDTH} \\
+The width of input \B{D} and output \B{Q}.
+
+\item \B{EN\_POLARITY} \\
+The enable input is active-high if this parameter has the value {\tt 1'b1} and active-low
+if this parameter is {\tt 1'b0}.
+\end{itemize}
+
+The latch is transparent when the \B{EN} input is active.
+
+D-type latches with reset are represented by {\tt \$adlatch} cells.  In addition to {\tt \$dlatch}
+ports and parameters, they also have a single-bit \B{ARST} input port for the reset pin and the following additional parameters:
+
+\begin{itemize}
+\item \B{ARST\_POLARITY} \\
+The asynchronous reset is active-high if this parameter has the value {\tt 1'b1} and active-low
+if this parameter is {\tt 1'b0}.
+
+\item \B{ARST\_VALUE} \\
+The state of \B{Q} will be set to this value when the reset is active.
+\end{itemize}
+
+D-type latches with set and reset are represented by {\tt \$dlatchsr} cells.
+In addition to {\tt \$dlatch} ports and parameters, they also have multi-bit
+\B{SET} and \B{CLR} input ports and the corresponding polarity parameters, like
+{\tt \$sr} cells.
 
 \subsection{Memories}
 \label{sec:memcells}
@@ -476,6 +509,23 @@ The {\tt memory\_map} pass can be used to implement {\tt \$mem} cells as basic l
 Add a brief description of the {\tt \$fsm} cell type.
 \end{fixme}
 
+\subsection{Specify rules}
+
+\begin{fixme}
+Add information about {\tt \$specify2}, {\tt \$specify3}, and {\tt \$specrule} cells.
+\end{fixme}
+
+\subsection{Formal verification cells}
+
+\begin{fixme}
+Add information about {\tt \$assert}, {\tt \$assume}, {\tt \$live}, {\tt \$fair}, {\tt \$cover}, {\tt \$equiv},
+{\tt \$initstate}, {\tt \$anyconst}, {\tt \$anyseq}, {\tt \$allconst}, {\tt \$allseq} cells.
+\end{fixme}
+
+\begin{fixme}
+Add information about {\tt \$ff} and {\tt \$\_FF\_} cells.
+\end{fixme}
+
 \section{Gates}
 \label{sec:celllib_gates}
 
@@ -490,6 +540,7 @@ source tree.
 \begin{tabular}[t]{ll}
 Verilog & Cell Type \\
 \hline
+\lstinline[language=Verilog]; Y = A;     & {\tt \$\_BUF\_} \\
 \lstinline[language=Verilog]; Y = ~A;    & {\tt \$\_NOT\_} \\
 \lstinline[language=Verilog]; Y = A & B; & {\tt \$\_AND\_} \\
 \lstinline[language=Verilog]; Y = ~(A & B); & {\tt \$\_NAND\_} \\
@@ -499,11 +550,21 @@ Verilog & Cell Type \\
 \lstinline[language=Verilog]; Y = A | ~B; & {\tt \$\_ORNOT\_} \\
 \lstinline[language=Verilog]; Y = A ^ B; & {\tt \$\_XOR\_} \\
 \lstinline[language=Verilog]; Y = ~(A ^ B); & {\tt \$\_XNOR\_} \\
+\lstinline[language=Verilog]; Y = ~((A & B) | C); & {\tt \$\_AOI3\_} \\
+\lstinline[language=Verilog]; Y = ~((A | B) & C); & {\tt \$\_OAI3\_} \\
+\lstinline[language=Verilog]; Y = ~((A & B) | (C & D)); & {\tt \$\_AOI4\_} \\
+\lstinline[language=Verilog]; Y = ~((A | B) & (C | D)); & {\tt \$\_OAI4\_} \\
 \lstinline[language=Verilog]; Y = S ? B : A; & {\tt \$\_MUX\_} \\
-\lstinline[language=Verilog]; Y = EN ? A : 'bz; & {\tt \$\_TBUF\_} \\
+\lstinline[language=Verilog]; Y = ~(S ? B : A); & {\tt \$\_NMUX\_} \\
+(see below) & {\tt \$\_MUX4\_} \\
+(see below) & {\tt \$\_MUX8\_} \\
+(see below) & {\tt \$\_MUX16\_} \\
+\lstinline[language=Verilog]; Y = EN ? A : 1'bz; & {\tt \$\_TBUF\_} \\
 \hline
 \lstinline[language=Verilog]; always @(negedge C) Q <= D; & {\tt \$\_DFF\_N\_} \\
 \lstinline[language=Verilog]; always @(posedge C) Q <= D; & {\tt \$\_DFF\_P\_} \\
+\lstinline[language=Verilog]; always @* if (!E) Q <= D; & {\tt \$\_DLATCH\_N\_} \\
+\lstinline[language=Verilog]; always @* if (E)  Q <= D; & {\tt \$\_DLATCH\_P\_} \\
 \end{tabular}
 \caption{Cell types for gate level logic networks (main list)}
 \label{tab:CellLib_gates}
@@ -610,14 +671,88 @@ $ClkEdge$ & $SetLvl$ & $RstLvl$ & $EnLvl$ & Cell Type \\
 \label{tab:CellLib_gates_dffsre}
 \end{table}
 
-Tables~\ref{tab:CellLib_gates}, \ref{tab:CellLib_gates_dffe}, \ref{tab:CellLib_gates_adff}, \ref{tab:CellLib_gates_adffe}, \ref{tab:CellLib_gates_dffsr} and \ref{tab:CellLib_gates_dffsre} list all cell types used for gate level logic. The cell types
-{\tt \$\_NOT\_}, {\tt \$\_AND\_}, {\tt \$\_NAND\_}, {\tt \$\_ANDNOT\_}, {\tt \$\_OR\_}, {\tt \$\_NOR\_},
-{\tt \$\_ORNOT\_}, {\tt \$\_XOR\_}, {\tt \$\_XNOR\_} and {\tt \$\_MUX\_} are used to model combinatorial logic.
+\begin{table}[t]
+\hfil
+\begin{tabular}[t]{llll}
+$EnLvl$ & $RstLvl$ & $RstVal$ & Cell Type \\
+\hline
+\lstinline[language=Verilog];0; & \lstinline[language=Verilog];0; & \lstinline[language=Verilog];0; & {\tt \$\_DLATCH\_NN0\_} \\
+\lstinline[language=Verilog];0; & \lstinline[language=Verilog];0; & \lstinline[language=Verilog];1; & {\tt \$\_DLATCH\_NN1\_} \\
+\lstinline[language=Verilog];0; & \lstinline[language=Verilog];1; & \lstinline[language=Verilog];0; & {\tt \$\_DLATCH\_NP0\_} \\
+\lstinline[language=Verilog];0; & \lstinline[language=Verilog];1; & \lstinline[language=Verilog];1; & {\tt \$\_DLATCH\_NP1\_} \\
+\lstinline[language=Verilog];1; & \lstinline[language=Verilog];0; & \lstinline[language=Verilog];0; & {\tt \$\_DLATCH\_PN0\_} \\
+\lstinline[language=Verilog];1; & \lstinline[language=Verilog];0; & \lstinline[language=Verilog];1; & {\tt \$\_DLATCH\_PN1\_} \\
+\lstinline[language=Verilog];1; & \lstinline[language=Verilog];1; & \lstinline[language=Verilog];0; & {\tt \$\_DLATCH\_PP0\_} \\
+\lstinline[language=Verilog];1; & \lstinline[language=Verilog];1; & \lstinline[language=Verilog];1; & {\tt \$\_DLATCH\_PP1\_} \\
+\end{tabular}
+\caption{Cell types for gate level logic networks (latches with reset)}
+\label{tab:CellLib_gates_adlatch}
+\end{table}
+
+\begin{table}[t]
+\hfil
+\begin{tabular}[t]{llll}
+$EnLvl$ & $SetLvl$ & $RstLvl$ & Cell Type \\
+\hline
+\lstinline[language=Verilog];0; & \lstinline[language=Verilog];0; & \lstinline[language=Verilog];0; & {\tt \$\_DLATCHSR\_NNN\_} \\
+\lstinline[language=Verilog];0; & \lstinline[language=Verilog];0; & \lstinline[language=Verilog];1; & {\tt \$\_DLATCHSR\_NNP\_} \\
+\lstinline[language=Verilog];0; & \lstinline[language=Verilog];1; & \lstinline[language=Verilog];0; & {\tt \$\_DLATCHSR\_NPN\_} \\
+\lstinline[language=Verilog];0; & \lstinline[language=Verilog];1; & \lstinline[language=Verilog];1; & {\tt \$\_DLATCHSR\_NPP\_} \\
+\lstinline[language=Verilog];1; & \lstinline[language=Verilog];0; & \lstinline[language=Verilog];0; & {\tt \$\_DLATCHSR\_PNN\_} \\
+\lstinline[language=Verilog];1; & \lstinline[language=Verilog];0; & \lstinline[language=Verilog];1; & {\tt \$\_DLATCHSR\_PNP\_} \\
+\lstinline[language=Verilog];1; & \lstinline[language=Verilog];1; & \lstinline[language=Verilog];0; & {\tt \$\_DLATCHSR\_PPN\_} \\
+\lstinline[language=Verilog];1; & \lstinline[language=Verilog];1; & \lstinline[language=Verilog];1; & {\tt \$\_DLATCHSR\_PPP\_} \\
+\end{tabular}
+\caption{Cell types for gate level logic networks (latches with set and reset)}
+\label{tab:CellLib_gates_dlatchsr}
+\end{table}
+
+\begin{table}[t]
+\hfil
+\begin{tabular}[t]{llll}
+$SetLvl$ & $RstLvl$ & Cell Type \\
+\hline
+\lstinline[language=Verilog];0; & \lstinline[language=Verilog];0; & {\tt \$\_SR\_NN\_} \\
+\lstinline[language=Verilog];0; & \lstinline[language=Verilog];1; & {\tt \$\_SR\_NP\_} \\
+\lstinline[language=Verilog];1; & \lstinline[language=Verilog];0; & {\tt \$\_SR\_PN\_} \\
+\lstinline[language=Verilog];1; & \lstinline[language=Verilog];1; & {\tt \$\_SR\_PP\_} \\
+\end{tabular}
+\caption{Cell types for gate level logic networks (SR latches)}
+\label{tab:CellLib_gates_sr}
+\end{table}
+
+Tables~\ref{tab:CellLib_gates}, \ref{tab:CellLib_gates_dffe}, \ref{tab:CellLib_gates_adff}, \ref{tab:CellLib_gates_adffe}, \ref{tab:CellLib_gates_dffsr}, \ref{tab:CellLib_gates_dffsre}, \ref{tab:CellLib_gates_adlatch}, \ref{tab:CellLib_gates_dlatchsr} and \ref{tab:CellLib_gates_sr} list all cell types used for gate level logic. The cell types
+{\tt \$\_BUF\_}, {\tt \$\_NOT\_}, {\tt \$\_AND\_}, {\tt \$\_NAND\_}, {\tt \$\_ANDNOT\_},
+{\tt \$\_OR\_}, {\tt \$\_NOR\_}, {\tt \$\_ORNOT\_}, {\tt \$\_XOR\_}, {\tt \$\_XNOR\_},
+{\tt \$\_AOI3\_}, {\tt \$\_OAI3\_}, {\tt \$\_AOI4\_}, {\tt \$\_OAI4\_},
+{\tt \$\_MUX\_}, {\tt \$\_MUX4\_}, {\tt \$\_MUX8\_}, {\tt \$\_MUX16\_} and {\tt \$\_NMUX\_} are used to model combinatorial logic.
 The cell type {\tt \$\_TBUF\_} is used to model tristate logic.
+
+The {\tt \$\_MUX4\_}, {\tt \$\_MUX8\_} and {\tt \$\_MUX16\_} cells are used to model wide muxes, and correspond to the following Verilog code:
+
+\begin{lstlisting}[language=Verilog]
+// $_MUX4_
+assign Y = T ? (S ? D : C) :
+               (S ? B : A);
+// $_MUX8_
+assign Y = U ? T ? (S ? H : G) :
+                   (S ? F : E) :
+               T ? (S ? D : C) :
+                   (S ? B : A);
+// $_MUX16_
+assign Y = V ? U ? T ? (S ? P : O) :
+                       (S ? N : M) :
+                   T ? (S ? L : K) :
+                       (S ? J : I) :
+               U ? T ? (S ? H : G) :
+                       (S ? F : E) :
+                   T ? (S ? D : C) :
+                       (S ? B : A);
+\end{lstlisting}
 
 The cell types {\tt \$\_DFF\_N\_} and {\tt \$\_DFF\_P\_} represent d-type flip-flops.
 
-The cell types {\tt \$\_DFFE\_NN\_}, {\tt \$\_DFFE\_NP\_}, {\tt \$\_DFFE\_PN\_} and {\tt \$\_DFFE\_PP\_}
+The cell types {\tt \$\_DFFE\_[NP][NP]\_}
 implement d-type flip-flops with enable. The values in the table for these cell types relate to the
 following Verilog code template.
 
@@ -627,8 +762,7 @@ following Verilog code template.
 			Q <= D;
 \end{lstlisting}
 
-The cell types {\tt \$\_DFF\_NN0\_}, {\tt \$\_DFF\_NN1\_}, {\tt \$\_DFF\_NP0\_}, {\tt \$\_DFF\_NP1\_},
-{\tt \$\_DFF\_PN0\_}, {\tt \$\_DFF\_PN1\_}, {\tt \$\_DFF\_PP0\_} and {\tt \$\_DFF\_PP1\_} implement
+The cell types {\tt \$\_DFF\_[NP][NP][01]\_} implement
 d-type flip-flops with asynchronous reset. The values in the table for these cell types relate to the
 following Verilog code template, where \lstinline[mathescape,language=Verilog];$RstEdge$; is \lstinline[language=Verilog];posedge;
 if \lstinline[mathescape,language=Verilog];$RstLvl$; if \lstinline[language=Verilog];1;, and \lstinline[language=Verilog];negedge;
@@ -642,8 +776,7 @@ otherwise.
 			Q <= D;
 \end{lstlisting}
 
-The cell types {\tt \$\_SDFF\_NN0\_}, {\tt \$\_SDFF\_NN1\_}, {\tt \$\_SDFF\_NP0\_}, {\tt \$\_SDFF\_NP1\_},
-{\tt \$\_SDFF\_PN0\_}, {\tt \$\_SDFF\_PN1\_}, {\tt \$\_SDFF\_PP0\_} and {\tt \$\_SDFF\_PP1\_} implement
+The cell types {\tt \$\_SDFF\_[NP][NP][01]\_} implement
 d-type flip-flops with synchronous reset. The values in the table for these cell types relate to the
 following Verilog code template:
 
@@ -732,19 +865,50 @@ otherwise.
 			Q <= D;
 \end{lstlisting}
 
+The cell types {\tt \$\_DLATCH\_N\_} and {\tt \$\_DLATCH\_P\_} represent d-type latches.
+
+The cell types {\tt \$\_DLATCH\_[NP][NP][01]\_} implement
+d-type latches with reset. The values in the table for these cell types relate to the
+following Verilog code template:
+
+\begin{lstlisting}[mathescape,language=Verilog]
+	always @*
+		if (R == $RstLvl$)
+			Q <= $RstVal$;
+		else if (E == $EnLvl$)
+			Q <= D;
+\end{lstlisting}
+
+The cell types {\tt \$\_DLATCHSR\_[NP][NP][NP]\_} implement
+d-type latches with set and reset. The values in the table for these cell types relate to the
+following Verilog code template:
+
+\begin{lstlisting}[mathescape,language=Verilog]
+	always @*
+		if (R == $RstLvl$)
+			Q <= 0;
+		else if (S == $SetLvl$)
+			Q <= 1;
+		else if (E == $EnLvl$)
+			Q <= D;
+\end{lstlisting}
+
+The cell types {\tt \$\_SR\_[NP][NP]\_} implement
+sr-type latches. The values in the table for these cell types relate to the
+following Verilog code template:
+
+\begin{lstlisting}[mathescape,language=Verilog]
+	always @*
+		if (R == $RstLvl$)
+			Q <= 0;
+		else if (S == $SetLvl$)
+			Q <= 1;
+\end{lstlisting}
+
 In most cases gate level logic networks are created from RTL networks using the {\tt techmap} pass. The flip-flop cells
 from the gate level logic network can be mapped to physical flip-flop cells from a Liberty file using the {\tt dfflibmap}
 pass. The combinatorial logic cells can be mapped to physical cells from a Liberty file via ABC \citeweblink{ABC}
 using the {\tt abc} pass.
-
-\begin{fixme}
-Add information about {\tt \$assert}, {\tt \$assume}, {\tt \$live}, {\tt \$fair}, {\tt \$cover}, {\tt \$equiv},
-{\tt \$initstate}, {\tt \$anyconst}, {\tt \$anyseq}, {\tt \$allconst}, {\tt \$allseq} cells.
-\end{fixme}
-
-\begin{fixme}
-Add information about {\tt \$specify2}, {\tt \$specify3}, and {\tt \$specrule} cells.
-\end{fixme}
 
 \begin{fixme}
 Add information about {\tt \$slice} and {\tt \$concat} cells.
@@ -757,16 +921,3 @@ Add information about {\tt \$lut} and {\tt \$sop} cells.
 \begin{fixme}
 Add information about {\tt \$alu}, {\tt \$macc}, {\tt \$fa}, and {\tt \$lcu} cells.
 \end{fixme}
-
-\begin{fixme}
-Add information about {\tt \$ff} and {\tt \$\_FF\_} cells.
-\end{fixme}
-
-\begin{fixme}
-Add information about {\tt \$\_DLATCH\_?\_}, and {\tt \$\_DLATCHSR\_???\_} cells.
-\end{fixme}
-
-\begin{fixme}
-Add information about {\tt \$\_AOI3\_}, {\tt \$\_OAI3\_}, {\tt \$\_AOI4\_}, {\tt \$\_OAI4\_}, and {\tt \$\_NMUX\_} cells.
-\end{fixme}
-

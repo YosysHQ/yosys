@@ -95,6 +95,7 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_TO_SIGNED)
 	X(AST_TO_UNSIGNED)
 	X(AST_SELFSZ)
+	X(AST_CAST_SIZE)
 	X(AST_CONCAT)
 	X(AST_REPLICATE)
 	X(AST_BIT_NOT)
@@ -332,6 +333,12 @@ void AstNode::dumpAst(FILE *f, std::string indent) const
 	if (!multirange_dimensions.empty()) {
 		fprintf(f, " multirange=[");
 		for (int v : multirange_dimensions)
+			fprintf(f, " %d", v);
+		fprintf(f, " ]");
+	}
+	if (!multirange_swapped.empty()) {
+		fprintf(f, " multirange_swapped=[");
+		for (auto v : multirange_swapped)
 			fprintf(f, " %d", v);
 		fprintf(f, " ]");
 	}
