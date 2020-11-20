@@ -1,6 +1,5 @@
 
 OBJS += techlibs/gowin/synth_gowin.o
-OBJS += techlibs/gowin/determine_init.o
 
 GENFILES += techlibs/gowin/bram_init_16.vh
 

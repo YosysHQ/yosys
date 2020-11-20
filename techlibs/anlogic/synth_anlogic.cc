@@ -182,8 +182,8 @@ struct SynthAnlogicPass : public ScriptPass
 
 		if (check_label("map_ffs"))
 		{
+			run("dfflegalize -cell $_DFFE_P??P_ r -cell $_SDFFE_P??P_ r -cell $_DLATCH_N??_ r");
 			run("techmap -D NO_LUT -map +/anlogic/cells_map.v");
-			run("dffinit -strinit SET RESET -ff AL_MAP_SEQ q REGSET -noreinit");
 			run("opt_expr -mux_undef");
 			run("simplemap");
 		}

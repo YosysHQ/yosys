@@ -2,7 +2,7 @@
  *  yosys -- Yosys Open SYnthesis Suite
  *
  *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
- *  Copyright (C) 2019  Marcin Kościelnicki <mwk@0x04.net>
+ *  Copyright (C) 2019  Marcelina Kościelnicka <mwk@0x04.net>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -34,33 +34,34 @@ void split_portname_pair(std::string &port1, std::string &port2)
 }
 
 struct ClkbufmapPass : public Pass {
-	ClkbufmapPass() : Pass("clkbufmap", "insert global buffers on clock networks") { }
+	ClkbufmapPass() : Pass("clkbufmap", "insert clock buffers on clock networks") { }
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    clkbufmap [options] [selection]\n");
 		log("\n");
-		log("Inserts global buffers between nets connected to clock inputs and their drivers.\n");
+		log("Inserts clock buffers between nets connected to clock inputs and their drivers.\n");
 		log("\n");
 		log("In the absence of any selection, all wires without the 'clkbuf_inhibit'\n");
-		log("attribute will be considered for global buffer insertion.\n");
+		log("attribute will be considered for clock buffer insertion.\n");
 		log("Alternatively, to consider all wires without the 'buffer_type' attribute set to\n");
 		log("'none' or 'bufr' one would specify:\n");
 		log("  'w:* a:buffer_type=none a:buffer_type=bufr %%u %%d'\n");
 		log("as the selection.\n");
 		log("\n");
 		log("    -buf <celltype> <portname_out>:<portname_in>\n");
-		log("        Specifies the cell type to use for the global buffers\n");
+		log("        Specifies the cell type to use for the clock buffers\n");
 		log("        and its port names.  The first port will be connected to\n");
 		log("        the clock network sinks, and the second will be connected\n");
-		log("        to the actual clock source.  This option is required.\n");
+		log("        to the actual clock source.\n");
 		log("\n");
 		log("    -inpad <celltype> <portname_out>:<portname_in>\n");
 		log("        If specified, a PAD cell of the given type is inserted on\n");
 		log("        clock nets that are also top module's inputs (in addition\n");
-		log("        to the global buffer).\n");
+		log("        to the clock buffer, if any).\n");
 		log("\n");
+		log("At least one of -buf or -inpad should be specified.\n");
 	}
 
 	void module_queue(Design *design, Module *module, std::vector<Module *> &modules_sorted, pool<Module *> &modules_processed) {
@@ -78,7 +79,7 @@ struct ClkbufmapPass : public Pass {
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		log_header(design, "Executing CLKBUFMAP pass (inserting global clock buffers).\n");
+		log_header(design, "Executing CLKBUFMAP pass (inserting clock buffers).\n");
 
 		std::string buf_celltype, buf_portname, buf_portname2;
 		std::string inpad_celltype, inpad_portname, inpad_portname2;
@@ -109,14 +110,24 @@ struct ClkbufmapPass : public Pass {
 			extra_args(args, argidx, design);
 		}
 
-		if (buf_celltype.empty())
-			log_error("The -buf option is required.\n");
+		if (buf_celltype.empty() && inpad_celltype.empty())
+			log_error("Either the -buf option or -inpad option is required.\n");
 
 		// Cell type, port name, bit index.
 		pool<pair<IdString, pair<IdString, int>>> sink_ports;
 		pool<pair<IdString, pair<IdString, int>>> buf_ports;
 		dict<pair<IdString, pair<IdString, int>>, pair<IdString, int>> inv_ports_out;
 		dict<pair<IdString, pair<IdString, int>>, pair<IdString, int>> inv_ports_in;
+
+		// If true, use both ther -buf and -inpad cell for input ports that are clocks.
+		bool buffer_inputs = true;
+
+		Module *inpad_mod = design->module(RTLIL::escape_id(inpad_celltype));
+		if (inpad_mod) {
+			Wire *buf_wire = inpad_mod->wire(RTLIL::escape_id(buf_portname));
+			if (buf_wire && buf_wire->get_bool_attribute(ID::clkbuf_driver))
+				buffer_inputs = false;
+		}
 
 		// Process submodules before module using them.
 		std::vector<Module *> modules_sorted;
@@ -242,19 +253,30 @@ struct ClkbufmapPass : public Pass {
 						// Clock network not yet buffered, driven by one of
 						// our cells or a top-level input -- buffer it.
 
-						log("Inserting %s on %s.%s[%d].\n", buf_celltype.c_str(), log_id(module), log_id(wire), i);
-						RTLIL::Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(buf_celltype));
-						Wire *iwire = module->addWire(NEW_ID);
-						cell->setPort(RTLIL::escape_id(buf_portname), mapped_wire_bit);
-						cell->setPort(RTLIL::escape_id(buf_portname2), iwire);
-						if (wire->port_input && !inpad_celltype.empty() && module->get_bool_attribute(ID::top)) {
+						Wire *iwire = nullptr;
+						RTLIL::Cell *cell = nullptr;
+						bool is_input = wire->port_input && !inpad_celltype.empty() && module->get_bool_attribute(ID::top);
+						if (!buf_celltype.empty() && (!is_input || buffer_inputs)) {
+							log("Inserting %s on %s.%s[%d].\n", buf_celltype.c_str(), log_id(module), log_id(wire), i);
+							cell = module->addCell(NEW_ID, RTLIL::escape_id(buf_celltype));
+							iwire = module->addWire(NEW_ID);
+							cell->setPort(RTLIL::escape_id(buf_portname), mapped_wire_bit);
+							cell->setPort(RTLIL::escape_id(buf_portname2), iwire);
+						}
+						if (is_input) {
 							log("Inserting %s on %s.%s[%d].\n", inpad_celltype.c_str(), log_id(module), log_id(wire), i);
 							RTLIL::Cell *cell2 = module->addCell(NEW_ID, RTLIL::escape_id(inpad_celltype));
-							cell2->setPort(RTLIL::escape_id(inpad_portname), iwire);
+							if (iwire) {
+								cell2->setPort(RTLIL::escape_id(inpad_portname), iwire);
+							} else {
+								cell2->setPort(RTLIL::escape_id(inpad_portname), mapped_wire_bit);
+								cell = cell2;
+							}
 							iwire = module->addWire(NEW_ID);
 							cell2->setPort(RTLIL::escape_id(inpad_portname2), iwire);
 						}
-						buffered_bits[mapped_wire_bit] = make_pair(cell, iwire);
+						if (iwire)
+							buffered_bits[mapped_wire_bit] = make_pair(cell, iwire);
 
 						if (wire->port_input) {
 							input_bits.insert(i);

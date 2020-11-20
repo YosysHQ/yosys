@@ -294,8 +294,8 @@ struct Abc9Pass : public ScriptPass
 			run("design -load $abc9_map");
 			run("proc");
 			run("wbflip");
-			run("techmap");
-			run("opt");
+			run("techmap -wb -map %$abc9 -map +/techmap.v A:abc9_flop");
+			run("opt -nodffe -nosdff");
 			if (dff_mode || help_mode) {
 				if (!help_mode)
 					active_design->scratchpad_unset("abc9_ops.prep_dff_submod.did_something");

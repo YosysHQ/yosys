@@ -1,0 +1,14 @@
+read_verilog -icells << EOT
+
+module top(...);
+
+input A;
+output Y;
+
+$_XNOR_ x (.A(A), .B(A), .Y(Y));
+
+endmodule
+
+EOT
+
+equiv_opt -assert opt_expr

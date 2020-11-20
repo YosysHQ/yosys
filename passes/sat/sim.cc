@@ -20,6 +20,9 @@
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
+#include "kernel/mem.h"
+
+#include <ctime>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -62,6 +65,7 @@ struct SimInstance
 
 	pool<SigBit> dirty_bits;
 	pool<Cell*> dirty_cells;
+	pool<IdString> dirty_memories;
 	pool<SimInstance*, hash_ptr_ops> dirty_children;
 
 	struct ff_state_t
@@ -72,16 +76,20 @@ struct SimInstance
 
 	struct mem_state_t
 	{
-		Const past_wr_clk;
-		Const past_wr_en;
-		Const past_wr_addr;
-		Const past_wr_data;
+		Mem *mem;
+		std::vector<Const> past_wr_clk;
+		std::vector<Const> past_wr_en;
+		std::vector<Const> past_wr_addr;
+		std::vector<Const> past_wr_data;
 		Const data;
 	};
 
 	dict<Cell*, ff_state_t> ff_database;
-	dict<Cell*, mem_state_t> mem_database;
+	dict<IdString, mem_state_t> mem_database;
 	pool<Cell*> formal_database;
+	dict<Cell*, IdString> mem_cells;
+
+	std::vector<Mem> memories;
 
 	dict<Wire*, pair<int, Const>> vcd_database;
 
@@ -118,6 +126,19 @@ struct SimInstance
 			}
 		}
 
+		memories = Mem::get_all_memories(module);
+		for (auto &mem : memories) {
+			auto &mdb = mem_database[mem.memid];
+			mdb.mem = &mem;
+			for (auto &port : mem.wr_ports) {
+				mdb.past_wr_clk.push_back(Const(State::Sx));
+				mdb.past_wr_en.push_back(Const(State::Sx, GetSize(port.en)));
+				mdb.past_wr_addr.push_back(Const(State::Sx, GetSize(port.addr)));
+				mdb.past_wr_data.push_back(Const(State::Sx, GetSize(port.data)));
+			}
+			mdb.data = mem.get_init_data();
+		}
+
 		for (auto cell : module->cells())
 		{
 			Module *mod = module->design->module(cell->type);
@@ -143,27 +164,10 @@ struct SimInstance
 				ff_database[cell] = ff;
 			}
 
-			if (cell->type == ID($mem))
+			if (cell->type.in(ID($mem), ID($meminit), ID($memwr), ID($memrd)))
 			{
-				mem_state_t mem;
-
-				mem.past_wr_clk = Const(State::Sx, GetSize(cell->getPort(ID::WR_CLK)));
-				mem.past_wr_en = Const(State::Sx, GetSize(cell->getPort(ID::WR_EN)));
-				mem.past_wr_addr = Const(State::Sx, GetSize(cell->getPort(ID::WR_ADDR)));
-				mem.past_wr_data = Const(State::Sx, GetSize(cell->getPort(ID::WR_DATA)));
-
-				mem.data = cell->getParam(ID::INIT);
-				int sz = cell->getParam(ID::SIZE).as_int() * cell->getParam(ID::WIDTH).as_int();
-
-				if (GetSize(mem.data) > sz)
-					mem.data.bits.resize(sz);
-
-				while (GetSize(mem.data) < sz)
-					mem.data.bits.push_back(State::Sx);
-
-				mem_database[cell] = mem;
+				mem_cells[cell] = cell->parameters.at(ID::MEMID).decode_string();
 			}
-
 			if (cell->type.in(ID($assert), ID($cover), ID($assume))) {
 				formal_database.insert(cell);
 			}
@@ -185,7 +189,8 @@ struct SimInstance
 
 			for (auto &it : mem_database) {
 				mem_state_t &mem = it.second;
-				zinit(mem.past_wr_en);
+				for (auto &val : mem.past_wr_en)
+					zinit(val);
 				zinit(mem.data);
 			}
 		}
@@ -256,37 +261,9 @@ struct SimInstance
 		if (formal_database.count(cell))
 			return;
 
-		if (mem_database.count(cell))
+		if (mem_cells.count(cell))
 		{
-			mem_state_t &mem = mem_database.at(cell);
-
-			int num_rd_ports = cell->getParam(ID::RD_PORTS).as_int();
-
-			int size = cell->getParam(ID::SIZE).as_int();
-			int offset = cell->getParam(ID::OFFSET).as_int();
-			int abits = cell->getParam(ID::ABITS).as_int();
-			int width = cell->getParam(ID::WIDTH).as_int();
-
-			if (cell->getParam(ID::RD_CLK_ENABLE).as_bool())
-				log_error("Memory %s.%s has clocked read ports. Run 'memory' with -nordff.\n", log_id(module), log_id(cell));
-
-			SigSpec rd_addr_sig = cell->getPort(ID::RD_ADDR);
-			SigSpec rd_data_sig = cell->getPort(ID::RD_DATA);
-
-			for (int port_idx = 0; port_idx < num_rd_ports; port_idx++)
-			{
-				Const addr = get_state(rd_addr_sig.extract(port_idx*abits, abits));
-				Const data = Const(State::Sx, width);
-
-				if (addr.is_fully_def()) {
-					int index = addr.as_int() - offset;
-					if (index >= 0 && index < size)
-						data = mem.data.extract(index*width, width);
-				}
-
-				set_state(rd_data_sig.extract(port_idx*width, width), data);
-			}
-
+			dirty_memories.insert(mem_cells[cell]);
 			return;
 		}
 
@@ -349,6 +326,29 @@ struct SimInstance
 		log_error("Unsupported cell type: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
 	}
 
+	void update_memory(IdString id) {
+		auto &mdb = mem_database[id];
+		auto &mem = *mdb.mem;
+
+		for (int port_idx = 0; port_idx < GetSize(mem.rd_ports); port_idx++)
+		{
+			auto &port = mem.rd_ports[port_idx];
+			Const addr = get_state(port.addr);
+			Const data = Const(State::Sx, mem.width);
+
+			if (port.clk_enable)
+				log_error("Memory %s.%s has clocked read ports. Run 'memory' with -nordff.\n", log_id(module), log_id(mem.memid));
+
+			if (addr.is_fully_def()) {
+				int index = addr.as_int() - mem.start_offset;
+				if (index >= 0 && index < mem.size)
+					data = mdb.data.extract(index*mem.width, mem.width);
+			}
+
+			set_state(port.data, data);
+		}
+	}
+
 	void update_ph1()
 	{
 		pool<Cell*> queue_cells;
@@ -379,6 +379,10 @@ struct SimInstance
 				queue_cells.clear();
 				continue;
 			}
+
+			for (auto &memid : dirty_memories)
+				update_memory(memid);
+			dirty_memories.clear();
 
 			for (auto wire : queue_outports)
 				if (instance->hasPort(wire->name)) {
@@ -423,50 +427,40 @@ struct SimInstance
 
 		for (auto &it : mem_database)
 		{
-			Cell *cell = it.first;
-			mem_state_t &mem = it.second;
+			mem_state_t &mdb = it.second;
+			auto &mem = *mdb.mem;
 
-			int num_wr_ports = cell->getParam(ID::WR_PORTS).as_int();
-
-			int size = cell->getParam(ID::SIZE).as_int();
-			int offset = cell->getParam(ID::OFFSET).as_int();
-			int abits = cell->getParam(ID::ABITS).as_int();
-			int width = cell->getParam(ID::WIDTH).as_int();
-
-			Const wr_clk_enable = cell->getParam(ID::WR_CLK_ENABLE);
-			Const wr_clk_polarity = cell->getParam(ID::WR_CLK_POLARITY);
-			Const current_wr_clk  = get_state(cell->getPort(ID::WR_CLK));
-
-			for (int port_idx = 0; port_idx < num_wr_ports; port_idx++)
+			for (int port_idx = 0; port_idx < GetSize(mem.wr_ports); port_idx++)
 			{
+				auto &port = mem.wr_ports[port_idx];
 				Const addr, data, enable;
 
-				if (wr_clk_enable[port_idx] == State::S0)
+				if (!port.clk_enable)
 				{
-					addr = get_state(cell->getPort(ID::WR_ADDR).extract(port_idx*abits, abits));
-					data = get_state(cell->getPort(ID::WR_DATA).extract(port_idx*width, width));
-					enable = get_state(cell->getPort(ID::WR_EN).extract(port_idx*width, width));
+					addr = get_state(port.addr);
+					data = get_state(port.data);
+					enable = get_state(port.en);
 				}
 				else
 				{
-					if (wr_clk_polarity[port_idx] == State::S1 ?
-							(mem.past_wr_clk[port_idx] == State::S1 || current_wr_clk[port_idx] != State::S1) :
-							(mem.past_wr_clk[port_idx] == State::S0 || current_wr_clk[port_idx] != State::S0))
+					if (port.clk_polarity ?
+							(mdb.past_wr_clk[port_idx] == State::S1 || get_state(port.clk) != State::S1) :
+							(mdb.past_wr_clk[port_idx] == State::S0 || get_state(port.clk) != State::S0))
 						continue;
 
-					addr = mem.past_wr_addr.extract(port_idx*abits, abits);
-					data = mem.past_wr_data.extract(port_idx*width, width);
-					enable = mem.past_wr_en.extract(port_idx*width, width);
+					addr = mdb.past_wr_addr[port_idx];
+					data = mdb.past_wr_data[port_idx];
+					enable = mdb.past_wr_en[port_idx];
 				}
 
 				if (addr.is_fully_def())
 				{
-					int index = addr.as_int() - offset;
-					if (index >= 0 && index < size)
-						for (int i = 0; i < width; i++)
-							if (enable[i] == State::S1 && mem.data.bits.at(index*width+i) != data[i]) {
-								mem.data.bits.at(index*width+i) = data[i];
-								dirty_cells.insert(cell);
+					int index = addr.as_int() - mem.start_offset;
+					if (index >= 0 && index < mem.size)
+						for (int i = 0; i < mem.width; i++)
+							if (enable[i] == State::S1 && mdb.data.bits.at(index*mem.width+i) != data[i]) {
+								mdb.data.bits.at(index*mem.width+i) = data[i];
+								dirty_memories.insert(mem.memid);
 								did_something = true;
 							}
 				}
@@ -497,13 +491,15 @@ struct SimInstance
 
 		for (auto &it : mem_database)
 		{
-			Cell *cell = it.first;
 			mem_state_t &mem = it.second;
 
-			mem.past_wr_clk  = get_state(cell->getPort(ID::WR_CLK));
-			mem.past_wr_en   = get_state(cell->getPort(ID::WR_EN));
-			mem.past_wr_addr = get_state(cell->getPort(ID::WR_ADDR));
-			mem.past_wr_data = get_state(cell->getPort(ID::WR_DATA));
+			for (int i = 0; i < GetSize(mem.mem->wr_ports); i++) {
+				auto &port = mem.mem->wr_ports[i];
+				mem.past_wr_clk[i]  = get_state(port.clk);
+				mem.past_wr_en[i]   = get_state(port.en);
+				mem.past_wr_addr[i] = get_state(port.addr);
+				mem.past_wr_data[i] = get_state(port.data);
+			}
 		}
 
 		for (auto cell : formal_database)
@@ -558,17 +554,13 @@ struct SimInstance
 
 		for (auto &it : mem_database)
 		{
-			Cell *cell = it.first;
 			mem_state_t &mem = it.second;
-			Const initval = mem.data;
-
-			while (GetSize(initval) >= 2) {
-				if (initval[GetSize(initval)-1] != State::Sx) break;
-				if (initval[GetSize(initval)-2] != State::Sx) break;
-				initval.bits.pop_back();
-			}
-
-			cell->setParam(ID::INIT, initval);
+			mem.mem->clear_inits();
+			MemInit minit;
+			minit.addr = mem.mem->start_offset;
+			minit.data = mem.data;
+			mem.mem->inits.push_back(minit);
+			mem.mem->emit();
 		}
 
 		for (auto it : children)
@@ -630,6 +622,7 @@ struct SimWorker : SimShared
 	SimInstance *top = nullptr;
 	std::ofstream vcdfile;
 	pool<IdString> clock, clockn, reset, resetn;
+	std::string timescale;
 
 	~SimWorker()
 	{
@@ -640,6 +633,17 @@ struct SimWorker : SimShared
 	{
 		if (!vcdfile.is_open())
 			return;
+
+		vcdfile << stringf("$version %s $end\n", yosys_version_str);
+
+		std::time_t t = std::time(nullptr);
+		char mbstr[255];
+		if (std::strftime(mbstr, sizeof(mbstr), "%c", std::localtime(&t))) {
+			vcdfile << stringf("$date ") << mbstr << stringf(" $end\n");
+		}
+
+		if (!timescale.empty())
+			vcdfile << stringf("$timescale %s $end\n", timescale.c_str());
 
 		int id = 1;
 		top->write_vcd_header(vcdfile, id);
@@ -780,6 +784,9 @@ struct SimPass : public Pass {
 		log("    -zinit\n");
 		log("        zero-initialize all uninitialized regs and memories\n");
 		log("\n");
+		log("    -timescale <string>\n");
+		log("        include the specified timescale declaration in the vcd\n");
+		log("\n");
 		log("    -n <integer>\n");
 		log("        number of cycles to simulate (default: 20)\n");
 		log("\n");
@@ -828,6 +835,10 @@ struct SimPass : public Pass {
 			}
 			if (args[argidx] == "-resetn" && argidx+1 < args.size()) {
 				worker.resetn.insert(RTLIL::escape_id(args[++argidx]));
+				continue;
+			}
+			if (args[argidx] == "-timescale" && argidx+1 < args.size()) {
+				worker.timescale = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-a") {

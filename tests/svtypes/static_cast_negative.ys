@@ -1,0 +1,4 @@
+logger -expect error "Static cast with zero or negative size" 1
+read_verilog -sv <<EOT
+module top; wire [7:0] a = (-1)'(a); endmodule
+EOT

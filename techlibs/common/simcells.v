@@ -2986,7 +2986,7 @@ module \$_DLATCH_NP0_ (E, R, D, Q);
 input E, R, D;
 output reg Q;
 always @* begin
-	if (R == 0)
+	if (R == 1)
                 Q <= 0;
 	else if (E == 0)
 		Q <= D;
@@ -3009,7 +3009,7 @@ module \$_DLATCH_NP1_ (E, R, D, Q);
 input E, R, D;
 output reg Q;
 always @* begin
-	if (R == 0)
+	if (R == 1)
                 Q <= 1;
 	else if (E == 0)
 		Q <= D;
@@ -3032,7 +3032,7 @@ module \$_DLATCH_PN0_ (E, R, D, Q);
 input E, R, D;
 output reg Q;
 always @* begin
-	if (R == 1)
+	if (R == 0)
                 Q <= 0;
 	else if (E == 1)
 		Q <= D;
@@ -3055,7 +3055,7 @@ module \$_DLATCH_PN1_ (E, R, D, Q);
 input E, R, D;
 output reg Q;
 always @* begin
-	if (R == 1)
+	if (R == 0)
                 Q <= 1;
 	else if (E == 1)
 		Q <= D;

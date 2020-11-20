@@ -1,0 +1,43 @@
+read_verilog -icells <<EOT
+
+module top(input D, C, E, input [3:0] R, output [11:0] Q);
+$_SDFF_PP0_ ff0(.D(D), .C(C), .R(R[0]), .Q(Q[0]));
+$_SDFF_PP1_ ff1(.D(D), .C(C), .R(R[0]), .Q(Q[1]));
+$_SDFFE_PP0P_ ff2(.D(D), .C(C), .R(R[0]), .E(E), .Q(Q[2]));
+$_SDFFE_PP1P_ ff3(.D(D), .C(C), .R(R[0]), .E(E), .Q(Q[3]));
+$_SDFFCE_PP0P_ ff4(.D(D), .C(C), .R(R[0]), .E(E), .Q(Q[4]));
+$_SDFFCE_PP1P_ ff5(.D(D), .C(C), .R(R[0]), .E(E), .Q(Q[5]));
+$_SDFF_PP0_ ff6(.D(D), .C(C), .R(R[1]), .Q(Q[6]));
+$_SDFF_PP1_ ff7(.D(D), .C(C), .R(R[1]), .Q(Q[7]));
+$_SDFFE_PP0P_ ff8(.D(D), .C(C), .R(R[2]), .E(E), .Q(Q[8]));
+$_SDFFE_PP1P_ ff9(.D(D), .C(C), .R(R[2]), .E(E), .Q(Q[9]));
+$_SDFFCE_PP0P_ ff10(.D(D), .C(C), .R(R[3]), .E(E), .Q(Q[10]));
+$_SDFFCE_PP1P_ ff11(.D(D), .C(C), .R(R[3]), .E(E), .Q(Q[11]));
+endmodule
+
+EOT
+
+design -save orig
+equiv_opt -assert -multiclock dfflegalize -cell $_SDFF_PP?_ x -cell $_SDFFE_PP?P_ x -cell $_SDFFCE_PP?P_ x -minsrst 3
+design -load postopt
+
+select -assert-count 5 t:$_SDFF_PP0_
+select -assert-count 1 t:$_SDFF_PP1_
+select -assert-count 3 t:$_SDFFE_PP0P_
+select -assert-count 1 t:$_SDFFE_PP1P_
+select -assert-count 1 t:$_SDFFCE_PP0P_
+select -assert-count 1 t:$_SDFFCE_PP1P_
+select -assert-count 8 t:$_MUX_
+select -assert-count 0 n:ff0 %ci %ci t:$_MUX_ %i
+select -assert-count 0 n:ff1 %ci %ci t:$_MUX_ %i
+select -assert-count 0 n:ff2 %ci %ci t:$_MUX_ %i
+select -assert-count 0 n:ff3 %ci %ci t:$_MUX_ %i
+select -assert-count 0 n:ff4 %ci %ci t:$_MUX_ %i
+select -assert-count 0 n:ff5 %ci %ci t:$_MUX_ %i
+select -assert-count 1 n:ff6 %ci %ci t:$_MUX_ %i
+select -assert-count 1 n:ff7 %ci %ci t:$_MUX_ %i
+select -assert-count 1 n:ff8 %ci %ci t:$_MUX_ %i
+select -assert-count 1 n:ff9 %ci %ci t:$_MUX_ %i
+select -assert-count 1 n:ff10 %ci %ci t:$_MUX_ %i
+select -assert-count 1 n:ff11 %ci %ci t:$_MUX_ %i
+select -assert-none n:ff* t:$_MUX_ %% %n t:* %i

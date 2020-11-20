@@ -1,0 +1,41 @@
+read_verilog << EOT
+
+module sub (input i, output o);
+parameter _TECHMAP_CELLNAME_ = "";
+namedsub #(.name(_TECHMAP_CELLNAME_)) _TECHMAP_REPLACE_ (i, o);
+endmodule
+
+EOT
+
+design -stash map
+
+read_verilog << EOT
+
+(* blackbox *)
+module sub (input i, output o);
+endmodule
+
+(* blackbox *)
+module namedsub (input i, output o);
+parameter name = "";
+endmodule
+
+module top(input [3:0] i, output [3:0] o);
+
+sub s1 (i[0], o[0]);
+sub subsubsub (i[1], o[1]);
+sub s2 (i[2], o[2]);
+sub xxx (i[3], o[3]);
+
+endmodule
+
+EOT
+
+techmap -map %map
+
+select -assert-count 4 t:namedsub
+select -assert-count 0 t:sub
+select -assert-count 1 t:namedsub r:name=s1 %i
+select -assert-count 1 t:namedsub r:name=subsubsub %i
+select -assert-count 1 t:namedsub r:name=s2 %i
+select -assert-count 1 t:namedsub r:name=xxx %i

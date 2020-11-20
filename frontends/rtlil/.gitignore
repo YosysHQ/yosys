@@ -1,0 +1,4 @@
+rtlil_lexer.cc
+rtlil_parser.output
+rtlil_parser.tab.cc
+rtlil_parser.tab.hh

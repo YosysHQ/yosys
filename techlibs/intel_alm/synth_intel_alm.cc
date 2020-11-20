@@ -38,19 +38,25 @@ struct SynthIntelALMPass : public ScriptPass {
 		log("This command runs synthesis for ALM-based Intel FPGAs.\n");
 		log("\n");
 		log("    -top <module>\n");
-		log("        use the specified module as top module (default='top')\n");
+		log("        use the specified module as top module\n");
 		log("\n");
 		log("    -family <family>\n");
 		log("        target one of:\n");
 		log("        \"cyclonev\"    - Cyclone V (default)\n");
 		log("        \"cyclone10gx\" - Cyclone 10GX\n");
 		log("\n");
-		log("    -quartus\n");
-		log("        output a netlist using Quartus cells instead of MISTRAL_* cells\n");
-		log("\n");
 		log("    -vqm <file>\n");
 		log("        write the design to the specified Verilog Quartus Mapping File. Writing of an\n");
 		log("        output file is omitted if this parameter is not specified. Implies -quartus.\n");
+		log("\n");
+		log("    -noflatten\n");
+		log("        do not flatten design before synthesis; useful for per-module area statistics\n");
+		log("\n");
+		log("    -quartus\n");
+		log("        output a netlist using Quartus cells instead of MISTRAL_* cells\n");
+		log("\n");
+		log("    -dff\n");
+		log("        pass DFFs to ABC to perform sequential logic optimisations (EXPERIMENTAL)\n");
 		log("\n");
 		log("    -run <from_label>:<to_label>\n");
 		log("        only run the commands between the labels (see below). an empty\n");
@@ -63,8 +69,8 @@ struct SynthIntelALMPass : public ScriptPass {
 		log("    -nobram\n");
 		log("        do not use block RAM cells in output netlist\n");
 		log("\n");
-		log("    -noflatten\n");
-		log("        do not flatten design before synthesis\n");
+		log("    -nodsp\n");
+		log("        do not map multipliers to MISTRAL_MUL cells\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
@@ -72,7 +78,7 @@ struct SynthIntelALMPass : public ScriptPass {
 	}
 
 	string top_opt, family_opt, bram_type, vout_file;
-	bool flatten, quartus, nolutram, nobram;
+	bool flatten, quartus, nolutram, nobram, dff, nodsp;
 
 	void clear_flags() override
 	{
@@ -84,6 +90,8 @@ struct SynthIntelALMPass : public ScriptPass {
 		quartus = false;
 		nolutram = false;
 		nobram = false;
+		dff = false;
+		nodsp = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -126,8 +134,16 @@ struct SynthIntelALMPass : public ScriptPass {
 				nobram = true;
 				continue;
 			}
+			if (args[argidx] == "-nodsp") {
+				nodsp = true;
+				continue;
+			}
 			if (args[argidx] == "-noflatten") {
 				flatten = false;
+				continue;
+			}
+			if (args[argidx] == "-dff") {
+				dff = true;
 				continue;
 			}
 			break;
@@ -161,10 +177,13 @@ struct SynthIntelALMPass : public ScriptPass {
 		}
 
 		if (check_label("begin")) {
-			run(stringf("read_verilog -sv -lib +/intel/%s/cells_sim.v", family_opt.c_str()));
+			if (family_opt == "cyclonev")
+				run(stringf("read_verilog -sv -lib +/intel_alm/%s/cells_sim.v", family_opt.c_str()));
 			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/alm_sim.v", family_opt.c_str()));
 			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/dff_sim.v", family_opt.c_str()));
+			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/dsp_sim.v", family_opt.c_str()));
 			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/mem_sim.v", family_opt.c_str()));
+			run(stringf("read_verilog -specify -lib -D %s -icells +/intel_alm/common/abc9_model.v", family_opt.c_str()));
 
 			// Misc and common cells
 			run("read_verilog -lib +/intel/common/altpll_bb.v");
@@ -172,21 +191,56 @@ struct SynthIntelALMPass : public ScriptPass {
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 		}
 
-		if (flatten && check_label("flatten", "(unless -noflatten)")) {
+		if (check_label("coarse")) {
 			run("proc");
-			run("flatten");
+			if (flatten || help_mode)
+				run("flatten", "(skip if -noflatten)");
 			run("tribuf -logic");
 			run("deminout");
-		}
-
-		if (check_label("coarse")) {
-			run("synth -run coarse -lut 6");
-			run("techmap -map +/intel_alm/common/arith_alm_map.v");
+			run("opt_expr");
+			run("opt_clean");
+			run("check");
+			run("opt -nodffe -nosdff");
+			run("fsm");
+			run("opt");
+			run("wreduce");
+			run("peepopt");
+			run("opt_clean");
+			run("share");
+			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=6");
+			run("opt_expr");
+			run("opt_clean");
+			if (help_mode) {
+				run("techmap -map +/mul2dsp.v [...]", "(unless -nodsp)");
+			} else if (!nodsp) {
+				// Cyclone V supports 9x9 multiplication, Cyclone 10 GX does not.
+				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=27 -D DSP_B_MAXWIDTH=27  -D DSP_A_MINWIDTH=19 -D DSP_B_MINWIDTH=4 -D DSP_NAME=__MUL27X27");
+				run("chtype -set $mul t:$__soft_mul");
+				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=27 -D DSP_B_MAXWIDTH=27  -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=19 -D DSP_NAME=__MUL27X27");
+				run("chtype -set $mul t:$__soft_mul");
+				if (family_opt == "cyclonev") {
+					run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18  -D DSP_A_MINWIDTH=10 -D DSP_B_MINWIDTH=4 -D DSP_NAME=__MUL18X18");
+					run("chtype -set $mul t:$__soft_mul");
+					run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18  -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=10 -D DSP_NAME=__MUL18X18");
+					run("chtype -set $mul t:$__soft_mul");
+					run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=9 -D DSP_B_MAXWIDTH=9  -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=4 -D DSP_NAME=__MUL9X9");
+					run("chtype -set $mul t:$__soft_mul");
+				} else if (family_opt == "cyclone10gx") {
+					run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18  -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=4 -D DSP_NAME=__MUL18X18");
+					run("chtype -set $mul t:$__soft_mul");
+				}
+			}
+			run("alumacc");
+			run("techmap -map +/intel_alm/common/arith_alm_map.v -map +/intel_alm/common/dsp_map.v");
+			run("opt");
+			run("memory -nomap");
+			run("opt_clean");
 		}
 
 		if (!nobram && check_label("map_bram", "(skip if -nobram)")) {
 			run(stringf("memory_bram -rules +/intel_alm/common/bram_%s.txt", bram_type.c_str()));
-			run(stringf("techmap -map +/intel_alm/common/bram_%s_map.v", bram_type.c_str()));
+			if (help_mode || bram_type != "m10k")
+				run(stringf("techmap -map +/intel_alm/common/bram_%s_map.v", bram_type.c_str()));
 		}
 
 		if (!nolutram && check_label("map_lutram", "(skip if -nolutram)")) {
@@ -199,17 +253,17 @@ struct SynthIntelALMPass : public ScriptPass {
 		}
 
 		if (check_label("map_ffs")) {
-			run("dff2dffe");
-			// As mentioned in common/dff_sim.v, Intel flops power up to zero,
-			// so use `zinit` to add inverters where needed.
-			run("zinit");
-			run("techmap -map +/techmap.v -map +/intel_alm/common/dff_map.v");
+			run("techmap");
+			run("dfflegalize -cell $_DFFE_PN0P_ 0 -cell $_SDFFCE_PP0P_ 0");
+			run("techmap -map +/intel_alm/common/dff_map.v");
 			run("opt -full -undriven -mux_undef");
 			run("clean -purge");
 		}
 
 		if (check_label("map_luts")) {
-			run("abc9 -maxlut 6 -W 200");
+			run("techmap -map +/intel_alm/common/abc9_map.v");
+			run(stringf("abc9 %s -maxlut 6 -W 600", help_mode ? "[-dff]" : dff ? "-dff" : ""));
+			run("techmap -map +/intel_alm/common/abc9_unmap.v");
 			run("techmap -map +/intel_alm/common/alm_map.v");
 			run("opt -fast");
 			run("autoname");

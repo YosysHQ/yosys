@@ -22,7 +22,7 @@
 	\node[data] (rtlil) [below of=astfe, node distance=5em, xshift=7.5em] {RTLIL};
 	\node[process] (pass) [right of=rtlil, node distance=5em, xshift=7.5em] {Passes};
 	\node[process] (vlbe) [below of=rtlil, node distance=7em, xshift=-13em] {Verilog Backend};
-	\node[process] (ilangbe) [below of=rtlil, node distance=7em, xshift=0em] {ILANG Backend};
+	\node[process] (ilangbe) [below of=rtlil, node distance=7em, xshift=0em] {RTLIL Backend};
 	\node[process, fill=green!5] (otherbe) [below of=rtlil, node distance=7em, xshift=+13em] {Other Backends};
 
 	\draw[-latex] (vlog) -- (ast);
@@ -105,8 +105,7 @@ For simplicity we only discuss this version of RTLIL in this presentation.
 
 \begin{frame}{\subsecname}
 \begin{itemize}
-\item The {\tt dump} command prints the design (or parts of it) in ILANG format. This is
-a text representation of RTLIL.
+\item The {\tt dump} command prints the design (or parts of it) in the text representation of RTLIL.
 
 \bigskip
 \item The {\tt show} command visualizes how the components in the design are connected.

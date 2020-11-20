@@ -144,12 +144,12 @@ struct SynthAchronixPass : public ScriptPass {
         run("opt -fast -mux_undef -undriven -fine -full");
         run("memory_map");
         run("opt -undriven -fine");
-        run("dff2dffe -direct-match $_DFF_*");
         run("opt -fine");
         run("techmap -map +/techmap.v");
         run("opt -full");
         run("clean -purge");
         run("setundef -undriven -zero");
+        run("dfflegalize -cell $_DFF_P_ x");
         if (retime || help_mode)
           run("abc -markgroups -dff -D 1", "(only if -retime)");
       }

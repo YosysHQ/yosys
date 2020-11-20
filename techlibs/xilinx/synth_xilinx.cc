@@ -77,10 +77,6 @@ struct SynthXilinxPass : public ScriptPass
 		log("        write the design to the specified BLIF file. writing of an output file\n");
 		log("        is omitted if this parameter is not specified.\n");
 		log("\n");
-		log("    -vpr\n");
-		log("        generate an output netlist (and BLIF file) suitable for VPR\n");
-		log("        (this feature is experimental and incomplete)\n");
-		log("\n");
 		log("    -ise\n");
 		log("        generate an output netlist suitable for ISE\n");
 		log("\n");
@@ -142,7 +138,7 @@ struct SynthXilinxPass : public ScriptPass
 	}
 
 	std::string top_opt, edif_file, blif_file, family;
-	bool flatten, retime, vpr, ise, noiopad, noclkbuf, nobram, nolutram, nosrl, nocarry, nowidelut, nodsp, uram;
+	bool flatten, retime, ise, noiopad, noclkbuf, nobram, nolutram, nosrl, nocarry, nowidelut, nodsp, uram;
 	bool abc9, dff;
 	bool flatten_before_abc;
 	int widemux;
@@ -157,7 +153,6 @@ struct SynthXilinxPass : public ScriptPass
 		family = "xc7";
 		flatten = false;
 		retime = false;
-		vpr = false;
 		ise = false;
 		noiopad = false;
 		noclkbuf = false;
@@ -227,10 +222,6 @@ struct SynthXilinxPass : public ScriptPass
 			}
 			if (args[argidx] == "-nowidelut") {
 				nowidelut = true;
-				continue;
-			}
-			if (args[argidx] == "-vpr") {
-				vpr = true;
 				continue;
 			}
 			if (args[argidx] == "-ise") {
@@ -342,18 +333,9 @@ struct SynthXilinxPass : public ScriptPass
 		std::string lut_size_s = std::to_string(lut_size);
 		if (help_mode)
 			lut_size_s = "[46]";
-		std::string ff_map_file;
-		if (help_mode)
-			ff_map_file = "+/xilinx/{family}_ff_map.v";
-		else if (family == "xc6s")
-			ff_map_file = "+/xilinx/xc6s_ff_map.v";
-		else
-			ff_map_file = "+/xilinx/xc7_ff_map.v";
 
 		if (check_label("begin")) {
 			std::string read_args;
-			if (vpr)
-				read_args += " -D_EXPLICIT_CARRY";
 			read_args += " -lib -specify +/xilinx/cells_sim.v";
 			run("read_verilog" + read_args);
 
@@ -375,6 +357,8 @@ struct SynthXilinxPass : public ScriptPass
 			run("opt_expr");
 			run("opt_clean");
 			run("check");
+			run("opt -nodffe -nosdff");
+			run("fsm");
 			run("opt");
 			if (help_mode)
 				run("wreduce [-keepdc]", "(option for '-widemux')");
@@ -462,8 +446,6 @@ struct SynthXilinxPass : public ScriptPass
 			run("alumacc");
 			run("share");
 			run("opt");
-			run("fsm");
-			run("opt -fast");
 			run("memory -nomap");
 			run("opt_clean");
 		}
@@ -522,28 +504,21 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("map_ffram")) {
-			// Required for dff2dffs to work.
-			run("simplemap t:$dff t:$adff t:$mux");
-			// Needs to be done before opt -mux_bool happens.
-			if (help_mode)
-				run("dff2dffs [-match-init]", "(-match-init for xc6s only)");
-			else if (family == "xc6s")
-				run("dff2dffs -match-init");
-			else
-				run("dff2dffs");
-			if (widemux > 0)
+			if (widemux > 0) {
 				run("opt -fast -mux_bool -undriven -fine"); // Necessary to omit -mux_undef otherwise muxcover
 									    // performs less efficiently
-			else
+			} else {
 				run("opt -fast -full");
+			}
 			run("memory_map");
 		}
 
 		if (check_label("fine")) {
-			run("dff2dffe -direct-match $_DFF_* -direct-match $_SDFF_*");
-			if (help_mode)
-				run("muxcover <internal options> ('-widemux' only)");
-			else if (widemux > 0) {
+			if (help_mode) {
+				run("simplemap t:$mux", "('-widemux' only)");
+				run("muxcover <internal options>", "('-widemux' only)");
+			} else if (widemux > 0) {
+				run("simplemap t:$mux");
 				constexpr int cost_mux2 = 100;
 				std::string muxcover_args = stringf(" -nodecode -mux2=%d", cost_mux2);
 				switch (widemux) {
@@ -577,8 +552,6 @@ struct SynthXilinxPass : public ScriptPass
 				techmap_args += stringf(" -D MIN_MUX_INPUTS=%d -map +/xilinx/mux_map.v", widemux);
 			if (!nocarry) {
 				techmap_args += " -map +/xilinx/arith_map.v";
-				if (vpr)
-					techmap_args += " -D _EXPLICIT_CARRY";
 			}
 			run("techmap " + techmap_args);
 			run("opt -fast");
@@ -595,16 +568,22 @@ struct SynthXilinxPass : public ScriptPass
 			run("clean");
 		}
 
-		if (check_label("map_ffs", "('-abc9' only)")) {
+		if (check_label("map_ffs")) {
+			if (family == "xc6s")
+				run("dfflegalize -cell $_DFFE_?P?P_ r -cell $_SDFFE_?P?P_ r -cell $_DLATCH_?P?_ r", "(for xc6s)");
+			else if (family == "xc6v" || family == "xc7" || family == "xcu" || family == "xcup")
+				run("dfflegalize -cell $_DFFE_?P?P_ 01 -cell $_SDFFE_?P?P_ 01 -cell $_DLATCH_?P?_ 01", "(for xc6v, xc7, xcu, xcup)");
+			else
+				run("dfflegalize -cell $_DFFE_?P?P_ 01 -cell $_DFFSRE_?PPP_ 01 -cell $_SDFFE_?P?P_ 01 -cell $_DLATCH_?P?_ 01 -cell $_DLATCHSR_?PP_ 01", "(for xc5v and older)");
 			if (abc9 || help_mode) {
 				if (dff || help_mode)
-					run("zinit -all w:* t:$_DFF_?_ t:$_DFFE_??_ t:$_SDFF*", "('-dff' only)");
-				run("techmap -map " + ff_map_file);
+					run("zinit -all w:* t:$_SDFFE_*", "('-dff' only)");
+				run("techmap -map +/xilinx/ff_map.v", "('-abc9' only)");
 			}
 		}
 
 		if (check_label("map_luts")) {
-			run("opt_expr -mux_undef");
+			run("opt_expr -mux_undef -noclkinv");
 			if (flatten_before_abc)
 				run("flatten");
 			if (help_mode)
@@ -653,13 +632,13 @@ struct SynthXilinxPass : public ScriptPass
 			}
 			run("clean");
 
+			if (help_mode || !abc9)
+				run("techmap -map +/xilinx/ff_map.v", "(only if not '-abc9')");
 			// This shregmap call infers fixed length shift registers after abc
 			//   has performed any necessary retiming
 			if (!nosrl || help_mode)
 				run("xilinx_srl -fixed -minlen 3", "(skip if '-nosrl')");
 			std::string techmap_args = "-map +/xilinx/lut_map.v -map +/xilinx/cells_map.v";
-			if (help_mode || !abc9)
-				techmap_args += stringf(" -map %s", ff_map_file.c_str());
 			techmap_args += " -D LUT_WIDTH=" + lut_size_s;
 			run("techmap " + techmap_args);
 			if (help_mode)

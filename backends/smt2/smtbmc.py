@@ -817,6 +817,24 @@ def write_vcd_trace(steps_start, steps_stop, index):
 
         vcd.set_time(steps_stop)
 
+def char_ok_in_verilog(c,i):
+    if ('A' <= c <= 'Z'): return True
+    if ('a' <= c <= 'z'): return True
+    if ('0' <= c <= '9' and i>0): return True
+    if (c == '_'): return True
+    if (c == '$'): return True
+    return False
+
+def escape_identifier(identifier):
+    if type(identifier) is list: 
+        return map(escape_identifier, identifier)
+    if "." in identifier:
+        return ".".join(escape_identifier(identifier.split(".")))
+    if (all(char_ok_in_verilog(identifier[i],i) for i in range(0, len(identifier)))):
+        return identifier
+    return "\\"+identifier+" "
+
+
 
 def write_vlogtb_trace(steps_start, steps_stop, index):
     filename = vlogtbfile.replace("%", index)
@@ -858,12 +876,12 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
 
         for name, width in primary_inputs:
             if name in clock_inputs:
-                print("  wire [%d:0] PI_%s = clock;" % (width-1, name), file=f)
+                print("  wire [%d:0] %s = clock;" % (width-1, escape_identifier("PI_"+name)), file=f)
             else:
-                print("  reg [%d:0] PI_%s;" % (width-1, name), file=f)
+                print("  reg [%d:0] %s;" % (width-1, escape_identifier("PI_"+name)), file=f)
 
-        print("  %s UUT (" % vlogtb_topmod, file=f)
-        print(",\n".join("    .{name}(PI_{name})".format(name=name) for name, _ in primary_inputs), file=f)
+        print("  %s UUT (" % escape_identifier(vlogtb_topmod), file=f)
+        print(",\n".join("    .%s(%s)" % (escape_identifier(name), escape_identifier("PI_"+name)) for name, _ in primary_inputs), file=f)
         print("  );", file=f)
 
         print("`ifndef VERILATOR", file=f)
@@ -893,14 +911,14 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
             for n in reg:
                 if n.startswith("$"):
                     hidden_net = True
-            print("    %sUUT.%s = %d'b%s;" % ("// " if hidden_net else "", ".".join(reg), len(val), val), file=f)
+            print("    %sUUT.%s = %d'b%s;" % ("// " if hidden_net else "", ".".join(escape_identifier(reg)), len(val), val), file=f)
 
         anyconsts = sorted(smt.hieranyconsts(vlogtb_topmod))
         for info in anyconsts:
             if info[3] is not None:
                 modstate = smt.net_expr(vlogtb_topmod, vlogtb_state.replace("@@step_idx@@", str(steps_start)), info[0])
                 value = smt.bv2bin(smt.get("(|%s| %s)" % (info[1], modstate)))
-                print("    UUT.%s = %d'b%s;" % (".".join(info[0] + [info[3]]), len(value), value), file=f);
+                print("    UUT.%s = %d'b%s;" % (".".join(escape_identifier(info[0] + [info[3]])), len(value), value), file=f);
 
         mems = sorted(smt.hiermems(vlogtb_topmod))
         for mempath in mems:
@@ -924,7 +942,7 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
                     addr_data[addr] = data
 
             for addr, data in addr_data.items():
-                print("    UUT.%s[%d'b%s] = %d'b%s;" % (".".join(mempath), len(addr), addr, len(data), data), file=f)
+                print("    UUT.%s[%d'b%s] = %d'b%s;" % (".".join(escape_identifier(mempath)), len(addr), addr, len(data), data), file=f)
 
         print("", file=f)
         anyseqs = sorted(smt.hieranyseqs(vlogtb_topmod))
@@ -940,18 +958,18 @@ def write_vlogtb_trace(steps_start, steps_stop, index):
 
             for name, val in zip(pi_names, pi_values):
                 if i > 0:
-                    print("      PI_%s <= %d'b%s;" % (".".join(name), len(val), val), file=f)
+                    print("      %s <= %d'b%s;" % (escape_identifier("PI_"+".".join(name)), len(val), val), file=f)
                 else:
-                    print("    PI_%s = %d'b%s;" % (".".join(name), len(val), val), file=f)
+                    print("    %s = %d'b%s;" % (escape_identifier("PI_"+".".join(name)), len(val), val), file=f)
 
             for info in anyseqs:
                 if info[3] is not None:
                     modstate = smt.net_expr(vlogtb_topmod, vlogtb_state.replace("@@step_idx@@", str(i)), info[0])
                     value = smt.bv2bin(smt.get("(|%s| %s)" % (info[1], modstate)))
                     if i > 0:
-                        print("      UUT.%s <= %d'b%s;" % (".".join(info[0] + [info[3]]), len(value), value), file=f);
+                        print("      UUT.%s <= %d'b%s;" % (".".join(escape_identifier(info[0] + [info[3]])), len(value), value), file=f);
                     else:
-                        print("    UUT.%s = %d'b%s;" % (".".join(info[0] + [info[3]]), len(value), value), file=f);
+                        print("    UUT.%s = %d'b%s;" % (".".join(escape_identifier(info[0] + [info[3]])), len(value), value), file=f);
 
             if i > 0:
                 print("    end", file=f)
@@ -1275,10 +1293,10 @@ def smt_pop():
     asserts_consequent_cache.pop()
     smt.write("(pop 1)")
 
-def smt_check_sat():
+def smt_check_sat(expected=["sat", "unsat"]):
     if asserts_cache_dirty:
         smt_forall_assert()
-    return smt.check_sat()
+    return smt.check_sat(expected=expected)
 
 if tempind:
     retstatus = "FAILED"

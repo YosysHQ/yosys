@@ -220,6 +220,9 @@ struct SynthPass : public ScriptPass
 			run("opt_expr");
 			run("opt_clean");
 			run("check");
+			run("opt -nodffe -nosdff");
+			if (!nofsm)
+				run("fsm" + fsm_opts, "      (unless -nofsm)");
 			run("opt");
 			run("wreduce");
 			run("peepopt");
@@ -233,9 +236,6 @@ struct SynthPass : public ScriptPass
 			if (!noshare)
 				run("share", "    (unless -noshare)");
 			run("opt");
-			if (!nofsm)
-				run("fsm" + fsm_opts, "      (unless -nofsm)");
-			run("opt -fast");
 			run("memory -nomap" + memory_opts);
 			run("opt_clean");
 		}

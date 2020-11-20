@@ -69,6 +69,14 @@
 
 `default_nettype none
 
+// Cyclone V LUT output timings (picoseconds):
+//
+//          CARRY   A    B    C   D   E    F   G
+//  COMBOUT    -  605  583  510 512   -   97 400 (LUT6)
+//  COMBOUT    -  602  583  457 510 302   93 483 (LUT7)
+//   SUMOUT  368 1342 1323  887 927   -  785   -
+// CARRYOUT   71 1082 1062  866 813   - 1198   -
+
 (* abc9_lut=2, lib_whitebox *)
 module MISTRAL_ALUT6(input A, B, C, D, E, F, output Q);
 
@@ -76,12 +84,12 @@ parameter [63:0] LUT = 64'h0000_0000_0000_0000;
 
 `ifdef cyclonev
 specify
-    (A => Q) = 602;
-    (B => Q) = 584;
+    (A => Q) = 605;
+    (B => Q) = 583;
     (C => Q) = 510;
-    (D => Q) = 510;
-    (E => Q) = 339;
-    (F => Q) = 94;
+    (D => Q) = 512;
+    (E => Q) = 400;
+    (F => Q) = 97;
 endspecify
 `endif
 `ifdef cyclone10gx
@@ -107,11 +115,11 @@ parameter [31:0] LUT = 32'h0000_0000;
 
 `ifdef cyclonev
 specify
-    (A => Q) = 584;
+    (A => Q) = 583;
     (B => Q) = 510;
-    (C => Q) = 510;
-    (D => Q) = 339;
-    (E => Q) = 94;
+    (C => Q) = 512;
+    (D => Q) = 400;
+    (E => Q) = 97;
 endspecify
 `endif
 `ifdef cyclone10gx
@@ -137,9 +145,9 @@ parameter [15:0] LUT = 16'h0000;
 `ifdef cyclonev
 specify
     (A => Q) = 510;
-    (B => Q) = 510;
-    (C => Q) = 339;
-    (D => Q) = 94;
+    (B => Q) = 512;
+    (C => Q) = 400;
+    (D => Q) = 97;
 endspecify
 `endif
 `ifdef cyclone10gx
@@ -164,8 +172,8 @@ parameter [7:0] LUT = 8'h00;
 `ifdef cyclonev
 specify
     (A => Q) = 510;
-    (B => Q) = 339;
-    (C => Q) = 94;
+    (B => Q) = 400;
+    (C => Q) = 97;
 endspecify
 `endif
 `ifdef cyclone10gx
@@ -188,8 +196,8 @@ parameter [3:0] LUT = 4'h0;
 
 `ifdef cyclonev
 specify
-    (A => Q) = 339;
-    (B => Q) = 94;
+    (A => Q) = 400;
+    (B => Q) = 97;
 endspecify
 `endif
 `ifdef cyclone10gx
@@ -209,7 +217,7 @@ module MISTRAL_NOT(input A, output Q);
 
 `ifdef cyclonev
 specify
-    (A => Q) = 94;
+    (A => Q) = 97;
 endspecify
 `endif
 `ifdef cyclone10gx
@@ -230,31 +238,33 @@ parameter LUT1 = 16'h0000;
 
 `ifdef cyclonev
 specify
-    (A => SO) = 1283;
-    (B => SO) = 1167;
-    (C => SO) = 866;
-    (D0 => SO) = 756;
-    (D1 => SO) = 756;
-    (CI => SO) = 355;
-    (A => CO) = 950;
-    (B => CO) = 1039;
-    (C => CO) = 820;
-    (D0 => CO) = 1006;
-    (D1 => CO) = 1006;
-    (CI => CO) = 23;
+    (A  => SO) = 1342;
+    (B  => SO) = 1323;
+    (C  => SO) = 927;
+    (D0 => SO) = 887;
+    (D1 => SO) = 785;
+    (CI => SO) = 368;
+
+    (A  => CO) = 1082;
+    (B  => CO) = 1062;
+    (C  => CO) = 813;
+    (D0 => CO) = 866;
+    (D1 => CO) = 1198;
+    (CI => CO) = 36; // Divided by 2 to account for there being two ALUT_ARITHs in an ALM)
 endspecify
 `endif
 `ifdef cyclone10gx
 specify
-    (A => SO) = 644;
-    (B => SO) = 477;
-    (C => SO) = 416;
+    (A  => SO) = 644;
+    (B  => SO) = 477;
+    (C  => SO) = 416;
     (D0 => SO) = 380;
     (D1 => SO) = 431;
     (CI => SO) = 276;
-    (A => CO) = 525;
-    (B => CO) = 433;
-    (C => CO) = 712;
+
+    (A  => CO) = 525;
+    (B  => CO) = 433;
+    (C  => CO) = 712;
     (D0 => CO) = 653;
     (D1 => CO) = 593;
     (CI => CO) = 16;

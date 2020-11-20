@@ -55,5 +55,5 @@ done
 
 for y in *.ys; do
     echo "Running $y."
-    ../../yosys $y -ql ${y%.*}.log
+    ../../yosys -ql ${y%.*}.log $y
 done

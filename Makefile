@@ -30,6 +30,7 @@ ENABLE_GCOV := 0
 ENABLE_GPROF := 0
 ENABLE_DEBUG := 0
 ENABLE_NDEBUG := 0
+ENABLE_CCACHE := 0
 LINK_CURSES := 0
 LINK_TERMCAP := 0
 LINK_ABC := 0
@@ -81,7 +82,7 @@ all: top-all
 YOSYS_SRC := $(dir $(firstword $(MAKEFILE_LIST)))
 VPATH := $(YOSYS_SRC)
 
-CXXFLAGS := $(CXXFLAGS) -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -D_YOSYS_ -fPIC -I$(PREFIX)/include
+CXXFLAGS := $(CXXFLAGS) -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -MP -D_YOSYS_ -fPIC -I$(PREFIX)/include
 LDLIBS := $(LDLIBS) -lstdc++ -lm
 PLUGIN_LDFLAGS :=
 
@@ -122,7 +123,7 @@ LDFLAGS += -rdynamic
 LDLIBS += -lrt
 endif
 
-YOSYS_VER := 0.9+2406
+YOSYS_VER := 0.9+3683
 GIT_REV := $(shell cd $(YOSYS_SRC) && git rev-parse --short HEAD 2> /dev/null || echo UNKNOWN)
 OBJS = kernel/version_$(GIT_REV).o
 
@@ -170,8 +171,7 @@ else
 PYTHON_CONFIG := $(PYTHON_EXECUTABLE)-config
 endif
 
-PYTHON_PREFIX := $(shell $(PYTHON_CONFIG) --prefix)
-PYTHON_DESTDIR := $(PYTHON_PREFIX)/lib/python$(PYTHON_VERSION)/site-packages
+PYTHON_DESTDIR := $(shell $(PYTHON_EXECUTABLE) -c "import site; print(site.getsitepackages()[-1]);")
 
 # Reload Makefile.conf to override python specific variables if defined
 ifneq ($(wildcard Makefile.conf),)
@@ -246,7 +246,7 @@ CXXFLAGS := -std=c++11 $(filter-out -fPIC -ggdb,$(CXXFLAGS))
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DABC_MEMALIGN=8"
 EMCCFLAGS := -Os -Wno-warn-absolute-paths
 EMCCFLAGS += --memory-init-file 0 --embed-file share -s NO_EXIT_RUNTIME=1
-EMCCFLAGS += -s EXPORTED_FUNCTIONS="['_main','_run','_prompt','_errmsg']"
+EMCCFLAGS += -s EXPORTED_FUNCTIONS="['_main','_run','_prompt','_errmsg','_memset']"
 EMCCFLAGS += -s TOTAL_MEMORY=134217728
 EMCCFLAGS += -s EXTRA_EXPORTED_RUNTIME_METHODS='["ccall", "cwrap"]'
 # https://github.com/kripken/emscripten/blob/master/src/settings.js
@@ -528,6 +528,10 @@ ifeq ($(ENABLE_COVER),1)
 CXXFLAGS += -DYOSYS_ENABLE_COVER
 endif
 
+ifeq ($(ENABLE_CCACHE),1)
+CXX := ccache $(CXX)
+endif
+
 define add_share_file
 EXTRA_TARGETS += $(subst //,/,$(1)/$(notdir $(2)))
 $(subst //,/,$(1)/$(notdir $(2))): $(2)
@@ -580,13 +584,16 @@ $(eval $(call add_include_file,kernel/modtools.h))
 $(eval $(call add_include_file,kernel/macc.h))
 $(eval $(call add_include_file,kernel/utils.h))
 $(eval $(call add_include_file,kernel/satgen.h))
+$(eval $(call add_include_file,kernel/ff.h))
+$(eval $(call add_include_file,kernel/ffinit.h))
+$(eval $(call add_include_file,kernel/mem.h))
 $(eval $(call add_include_file,libs/ezsat/ezsat.h))
 $(eval $(call add_include_file,libs/ezsat/ezminisat.h))
 $(eval $(call add_include_file,libs/sha1/sha1.h))
 $(eval $(call add_include_file,libs/json11/json11.hpp))
 $(eval $(call add_include_file,passes/fsm/fsmdata.h))
 $(eval $(call add_include_file,frontends/ast/ast.h))
-$(eval $(call add_include_file,backends/ilang/ilang_backend.h))
+$(eval $(call add_include_file,backends/rtlil/rtlil_backend.h))
 $(eval $(call add_include_file,backends/cxxrtl/cxxrtl.h))
 $(eval $(call add_include_file,backends/cxxrtl/cxxrtl_vcd.h))
 $(eval $(call add_include_file,backends/cxxrtl/cxxrtl_capi.cc))
@@ -595,7 +602,7 @@ $(eval $(call add_include_file,backends/cxxrtl/cxxrtl_vcd_capi.cc))
 $(eval $(call add_include_file,backends/cxxrtl/cxxrtl_vcd_capi.h))
 
 OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/yosys.o
-OBJS += kernel/cellaigs.o kernel/celledges.o
+OBJS += kernel/cellaigs.o kernel/celledges.o kernel/satgen.o kernel/mem.o
 
 kernel/log.o: CXXFLAGS += -DYOSYS_SRC='"$(YOSYS_SRC)"'
 kernel/yosys.o: CXXFLAGS += -DYOSYS_DATDIR='"$(DATDIR)"' -DYOSYS_PROGRAM_PREFIX='"$(PROGRAM_PREFIX)"'
@@ -627,7 +634,7 @@ include $(YOSYS_SRC)/techlibs/*/Makefile.inc
 else
 
 include $(YOSYS_SRC)/frontends/verilog/Makefile.inc
-include $(YOSYS_SRC)/frontends/ilang/Makefile.inc
+include $(YOSYS_SRC)/frontends/rtlil/Makefile.inc
 include $(YOSYS_SRC)/frontends/ast/Makefile.inc
 include $(YOSYS_SRC)/frontends/blif/Makefile.inc
 
@@ -644,7 +651,7 @@ include $(YOSYS_SRC)/passes/opt/Makefile.inc
 include $(YOSYS_SRC)/passes/techmap/Makefile.inc
 
 include $(YOSYS_SRC)/backends/verilog/Makefile.inc
-include $(YOSYS_SRC)/backends/ilang/Makefile.inc
+include $(YOSYS_SRC)/backends/rtlil/Makefile.inc
 
 include $(YOSYS_SRC)/techlibs/common/Makefile.inc
 
@@ -653,6 +660,10 @@ endif
 ifeq ($(LINK_ABC),1)
 OBJS += $(PROGRAM_PREFIX)yosys-libabc.a
 endif
+
+# prevent the CXXFLAGS set by this Makefile from reaching abc/Makefile,
+# especially the -MD flag which will break the build when CXX is clang
+unexport CXXFLAGS
 
 top-all: $(TARGETS) $(EXTRA_TARGETS)
 	@echo ""
@@ -679,7 +690,7 @@ endif
 
 %.pyh: %.h
 	$(Q) mkdir -p $(dir $@)
-	$(P) cat $< | grep -E -v "#[ ]*(include|error)" | $(LD) -x c++ -o $@ -E -P -
+	$(P) cat $< | grep -E -v "#[ ]*(include|error)" | $(LD) $(CXXFLAGS) -x c++ -o $@ -E -P -
 
 ifeq ($(ENABLE_PYOSYS),1)
 $(PY_WRAPPER_FILE).cc: misc/$(PY_GEN_SCRIPT).py $(PY_WRAP_INCLUDES)
@@ -783,6 +794,7 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/arch/anlogic && bash run-test.sh $(SEEDOPT)
 	+cd tests/arch/gowin && bash run-test.sh $(SEEDOPT)
 	+cd tests/arch/intel_alm && bash run-test.sh $(SEEDOPT)
+	+cd tests/arch/nexus && bash run-test.sh $(SEEDOPT)
 	+cd tests/rpc && bash run-test.sh
 	+cd tests/memfile && bash run-test.sh
 	+cd tests/verilog && bash run-test.sh
@@ -839,9 +851,9 @@ ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(LIBDIR)/
 	$(INSTALL_SUDO) $(STRIP) -S $(DESTDIR)$(LIBDIR)/libyosys.so
 ifeq ($(ENABLE_PYOSYS),1)
-	$(INSTALL_SUDO) mkdir -p $(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys
-	$(INSTALL_SUDO) cp libyosys.so $(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/libyosys.so
-	$(INSTALL_SUDO) cp misc/__init__.py $(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/
+	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys
+	$(INSTALL_SUDO) cp libyosys.so $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/libyosys.so
+	$(INSTALL_SUDO) cp misc/__init__.py $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/
 endif
 endif
 
@@ -851,9 +863,9 @@ uninstall:
 ifeq ($(ENABLE_LIBYOSYS),1)
 	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(LIBDIR)/libyosys.so
 ifeq ($(ENABLE_PYOSYS),1)
-	$(INSTALL_SUDO) rm -vf $(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/libyosys.so
-	$(INSTALL_SUDO) rm -vf $(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/__init__.py
-	$(INSTALL_SUDO) rmdir $(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys
+	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/libyosys.so
+	$(INSTALL_SUDO) rm -vf $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/__init__.py
+	$(INSTALL_SUDO) rmdir $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys
 endif
 endif
 

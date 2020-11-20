@@ -187,6 +187,7 @@ struct SynthSf2Pass : public ScriptPass
 
 		if (check_label("map_ffs"))
 		{
+			run("dfflegalize -cell $_DFFE_PN?P_ x -cell $_SDFFCE_PN?P_ x -cell $_DLATCH_PN?_ x");
 			run("techmap -D NO_LUT -map +/sf2/cells_map.v");
 			run("opt_expr -mux_undef");
 			run("simplemap");
@@ -209,10 +210,16 @@ struct SynthSf2Pass : public ScriptPass
 
 		if (check_label("map_iobs"))
 		{
-			if (help_mode)
-				run("sf2_iobs [-clkbuf]", "(unless -noiobs)");
-			else if (iobs)
-				run(clkbuf ? "sf2_iobs -clkbuf" : "sf2_iobs");
+			if (help_mode || iobs) {
+				if (help_mode) {
+					run("clkbufmap -buf CLKINT Y:A [-inpad CLKBUF Y:PAD]", "(unless -noiobs, -inpad only passed if -clkbuf)");
+				} else if (clkbuf) {
+					run("clkbufmap -buf CLKINT Y:A -inpad CLKBUF Y:PAD");
+				} else {
+					run("clkbufmap -buf CLKINT Y:A");
+				}
+				run("iopadmap -bits -inpad INBUF Y:PAD -outpad OUTBUF D:PAD -toutpad TRIBUFF E:D:PAD -tinoutpad BIBUF E:Y:D:PAD", "(unless -noiobs");
+			}
 			run("clean");
 		}
 

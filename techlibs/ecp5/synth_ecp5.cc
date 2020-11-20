@@ -257,6 +257,8 @@ struct SynthEcp5Pass : public ScriptPass
 			run("opt_expr");
 			run("opt_clean");
 			run("check");
+			run("opt -nodffe -nosdff");
+			run("fsm");
 			run("opt");
 			run("wreduce");
 			run("peepopt");
@@ -271,8 +273,6 @@ struct SynthEcp5Pass : public ScriptPass
 			}
 			run("alumacc");
 			run("opt");
-			run("fsm");
-			run("opt -fast");
 			run("memory -nomap");
 			run("opt_clean");
 		}
@@ -311,16 +311,25 @@ struct SynthEcp5Pass : public ScriptPass
 
 		if (check_label("map_ffs"))
 		{
-			run("dff2dffs");
 			run("opt_clean");
-			if (!nodffe)
-				run("dff2dffe -direct-match $_DFF_* -direct-match $_SDFF_*");
+			std::string dfflegalize_args = " -cell $_DFF_?_ 01 -cell $_DFF_?P?_ r -cell $_SDFF_?P?_ r";
+			if (help_mode) {
+				dfflegalize_args += " [-cell $_DFFE_??_ 01 -cell $_DFFE_?P??_ r -cell $_SDFFE_?P??_ r]";
+			} else if (!nodffe) {
+				dfflegalize_args += " -cell $_DFFE_??_ 01 -cell $_DFFE_?P??_ r -cell $_SDFFE_?P??_ r";
+			}
+			dfflegalize_args += " -cell $_DLATCH_?_ x";
+			if (help_mode) {
+				dfflegalize_args += " [-cell $_DFFSR_?PP_ x]";
+			} else if (asyncprld) {
+				dfflegalize_args += " -cell $_DFFSR_?PP_ x";
+			}
+			run("dfflegalize" + dfflegalize_args, "($_DFFSR_*_ only if -asyncprld, $_*DFFE_* only if not -nodffe)");
 			if ((abc9 && dff) || help_mode)
 				run("zinit -all w:* t:$_DFF_?_ t:$_DFFE_??_ t:$_SDFF*", "(only if -abc9 and -dff");
 			run(stringf("techmap -D NO_LUT %s -map +/ecp5/cells_map.v", help_mode ? "[-D ASYNC_PRLD]" : (asyncprld ? "-D ASYNC_PRLD" : "")));
 			run("opt_expr -undriven -mux_undef");
 			run("simplemap");
-			run("ecp5_ffinit");
 			run("ecp5_gsr");
 			run("attrmvcp -copy -attr syn_useioff");
 			run("opt_clean");

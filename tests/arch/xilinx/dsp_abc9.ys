@@ -1,0 +1,37 @@
+read_verilog <<EOT
+module top(input [24:0] A, input [17:0] B, output [47:0] P);
+DSP48E1 #(.PREG(0)) dsp(.A(A), .B(B), .P(P));
+endmodule
+EOT
+techmap -autoproc -wb -map +/xilinx/cells_sim.v
+opt
+scc -expect 0
+
+
+design -reset
+read_verilog <<EOT
+module top(input signed [24:0] A, input signed [17:0] B, output [47:0] P);
+assign P = A * B;
+endmodule
+EOT
+synth_xilinx -abc9
+techmap -autoproc -wb -map +/xilinx/cells_sim.v
+opt -full -fine
+select -assert-count 1 t:$mul
+select -assert-count 0 t:* t:$mul %D
+
+
+design -reset
+read_verilog -icells -formal <<EOT
+module top(output [42:0] P);
+\$__MUL25X18 mul (.A(42), .B(42), .Y(P));
+assert property (P == 42*42);
+endmodule
+EOT
+techmap -map +/xilinx/xc7_dsp_map.v
+verilog_defaults -add -D ALLOW_WHITEBOX_DSP48E1
+synth_xilinx -abc9
+techmap -autoproc -wb -map +/xilinx/cells_sim.v
+opt -full -fine
+select -assert-count 0 t:* t:$assert %d
+sat -verify -prove-asserts

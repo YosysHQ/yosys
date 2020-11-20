@@ -67,8 +67,6 @@ struct PeepoptPass : public Pass {
 				GENERATE_PATTERN(peepopt_pm, shiftmul);
 			else if (genmode == "muldiv")
 				GENERATE_PATTERN(peepopt_pm, muldiv);
-			else if (genmode == "dffmux")
-				GENERATE_PATTERN(peepopt_pm, dffmux);
 			else
 				log_abort();
 			return;
@@ -106,7 +104,6 @@ struct PeepoptPass : public Pass {
 
 				pm.run_shiftmul();
 				pm.run_muldiv();
-				pm.run_dffmux();
 
 				for (auto w : module->wires()) {
 					auto it = w->attributes.find(ID::init);

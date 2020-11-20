@@ -1,5 +1,5 @@
 `ifdef DFF
-(* techmap_celltype = "$_DFF_N_ $_DFF_P_" *)
+(* techmap_celltype = "$_DFF_[PN]_" *)
 module $_DFF_x_(input C, D, output Q);
   parameter [0:0] _TECHMAP_WIREINIT_Q_ = 1'bx;
   parameter _TECHMAP_CELLTYPE_ = "";

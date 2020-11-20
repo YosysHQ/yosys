@@ -20,6 +20,7 @@
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/modtools.h"
+#include "kernel/ffinit.h"
 
 USING_YOSYS_NAMESPACE
 
@@ -54,8 +55,7 @@ struct WreduceWorker
 	std::set<Cell*, IdString::compare_ptr_by_name<Cell>> work_queue_cells;
 	std::set<SigBit> work_queue_bits;
 	pool<SigBit> keep_bits;
-	dict<SigBit, State> init_bits;
-	pool<SigBit> remove_init_bits;
+	FfInitVals initvals;
 
 	WreduceWorker(WreduceConfig *config, Module *module) :
 			config(config), module(module), mi(module) { }
@@ -145,7 +145,7 @@ struct WreduceWorker
 		SigSpec sig_d = mi.sigmap(cell->getPort(ID::D));
 		SigSpec sig_q = mi.sigmap(cell->getPort(ID::Q));
 		bool has_reset = false;
-		Const initval, rst_value;
+		Const initval = initvals(sig_q), rst_value;
 
 		int width_before = GetSize(sig_q);
 
@@ -163,20 +163,12 @@ struct WreduceWorker
 		bool zero_ext = sig_d[GetSize(sig_d)-1] == State::S0;
 		bool sign_ext = !zero_ext;
 
-		for (int i = 0; i < GetSize(sig_q); i++) {
-			SigBit bit = sig_q[i];
-			if (init_bits.count(bit))
-				initval.bits.push_back(init_bits.at(bit));
-			else
-				initval.bits.push_back(State::Sx);
-		}
-
 		for (int i = GetSize(sig_q)-1; i >= 0; i--)
 		{
 			if (zero_ext && sig_d[i] == State::S0 && (initval[i] == State::S0 || initval[i] == State::Sx) &&
 					(!has_reset || i >= GetSize(rst_value) || rst_value[i] == State::S0 || rst_value[i] == State::Sx)) {
 				module->connect(sig_q[i], State::S0);
-				remove_init_bits.insert(sig_q[i]);
+				initvals.remove_init(sig_q[i]);
 				sig_d.remove(i);
 				sig_q.remove(i);
 				continue;
@@ -185,7 +177,7 @@ struct WreduceWorker
 			if (sign_ext && i > 0 && sig_d[i] == sig_d[i-1] && initval[i] == initval[i-1] &&
 					(!has_reset || i >= GetSize(rst_value) || rst_value[i] == rst_value[i-1])) {
 				module->connect(sig_q[i], sig_q[i-1]);
-				remove_init_bits.insert(sig_q[i]);
+				initvals.remove_init(sig_q[i]);
 				sig_d.remove(i);
 				sig_q.remove(i);
 				continue;
@@ -195,7 +187,7 @@ struct WreduceWorker
 			if (info == nullptr)
 				return;
 			if (!info->is_output && GetSize(info->ports) == 1 && !keep_bits.count(mi.sigmap(sig_q[i]))) {
-				remove_init_bits.insert(sig_q[i]);
+				initvals.remove_init(sig_q[i]);
 				sig_d.remove(i);
 				sig_q.remove(i);
 				zero_ext = false;
@@ -409,18 +401,12 @@ struct WreduceWorker
 	{
 		// create a copy as mi.sigmap will be updated as we process the module
 		SigMap init_attr_sigmap = mi.sigmap;
+		initvals.set(&init_attr_sigmap, module);
 
 		for (auto w : module->wires()) {
 			if (w->get_bool_attribute(ID::keep))
 				for (auto bit : mi.sigmap(w))
 					keep_bits.insert(bit);
-			if (w->attributes.count(ID::init)) {
-				Const initval = w->attributes.at(ID::init);
-				SigSpec initsig = init_attr_sigmap(w);
-				int width = std::min(GetSize(initval), GetSize(initsig));
-				for (int i = 0; i < width; i++)
-					init_bits[initsig[i]] = initval[i];
-			}
 		}
 
 		for (auto c : module->selected_cells())
@@ -468,22 +454,6 @@ struct WreduceWorker
 			Wire *nw = module->addWire(NEW_ID, GetSize(w) - unused_top_bits);
 			module->connect(nw, SigSpec(w).extract(0, GetSize(nw)));
 			module->swap_names(w, nw);
-		}
-
-		if (!remove_init_bits.empty()) {
-			for (auto w : module->wires()) {
-				if (w->attributes.count(ID::init)) {
-					Const initval = w->attributes.at(ID::init);
-					Const new_initval(State::Sx, GetSize(w));
-					SigSpec initsig = init_attr_sigmap(w);
-					int width = std::min(GetSize(initval), GetSize(initsig));
-					for (int i = 0; i < width; i++) {
-						if (!remove_init_bits.count(initsig[i]))
-							new_initval[i] = initval[i];
-					}
-					w->attributes.at(ID::init) = new_initval;
-				}
-			}
 		}
 	}
 };

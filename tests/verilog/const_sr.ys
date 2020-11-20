@@ -1,0 +1,25 @@
+read_verilog <<EOT
+module test (
+	input clk, rst, d,
+	output reg q
+);
+wire nop = 1'h0;
+always @(posedge clk, posedge nop, posedge rst) begin
+	if (rst) q <= 1'b0;
+	else if (nop) q <= 1'b1;
+	else q <= d;
+end
+endmodule
+EOT
+prep -top test
+write_verilog const_sr.v
+design -stash gold
+read_verilog const_sr.v
+prep -top test
+design -stash gate
+design -copy-from gold -as gold A:top
+design -copy-from gate -as gate A:top
+miter -equiv -flatten -make_assert gold gate miter
+prep -top miter
+clk2fflogic
+sat -set-init-zero -tempinduct -prove-asserts -verify

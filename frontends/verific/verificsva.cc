@@ -1040,8 +1040,14 @@ struct VerificSvaImporter
 
 	[[noreturn]] void parser_error(Instance *inst)
 	{
-		parser_error(stringf("Verific SVA primitive %s (%s) is currently unsupported in this context",
-				inst->View()->Owner()->Name(), inst->Name()), inst->Linefile());
+		std::string msg;
+		if (inst->Type() == PRIM_SVA_MATCH_ITEM_TRIGGER || inst->Type() == PRIM_SVA_MATCH_ITEM_ASSIGN)
+		{
+			msg = "SVA sequences with local variable assignments are currently not supported.\n";
+		}
+
+		parser_error(stringf("%sVerific SVA primitive %s (%s) is currently unsupported in this context",
+				msg.c_str(), inst->View()->Owner()->Name(), inst->Name()), inst->Linefile());
 	}
 
 	dict<Net*, bool, hash_ptr_ops> check_expression_cache;

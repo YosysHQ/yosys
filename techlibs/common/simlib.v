@@ -480,10 +480,18 @@ input [B_WIDTH-1:0] B;
 output [Y_WIDTH-1:0] Y;
 
 generate
-	if (B_SIGNED) begin:BLOCK1
-		assign Y = $signed(B) < 0 ? A << -B : A >> B;
-	end else begin:BLOCK2
-		assign Y = A >> B;
+	if (A_SIGNED) begin:BLOCK1
+		if (B_SIGNED) begin:BLOCK2
+			assign Y = $signed(B) < 0 ? $signed(A) << -B : $signed(A) >> B;
+		end else begin:BLOCK3
+			assign Y = $signed(A) >> B;
+		end
+	end else begin:BLOCK4
+		if (B_SIGNED) begin:BLOCK5
+			assign Y = $signed(B) < 0 ? A << -B : A >> B;
+		end else begin:BLOCK6
+			assign Y = A >> B;
+		end
 	end
 endgenerate
 

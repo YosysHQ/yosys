@@ -231,7 +231,7 @@ as Qflow\footnote[frame]{\url{http://opencircuitdesign.com/qflow/}} for ASIC des
 		\node[data] (rtlil) [below of=astfe, node distance=5em, xshift=7.5em] {RTLIL};
 		\node[process] (pass) [right of=rtlil, node distance=5em, xshift=7.5em] {Passes};
 		\node[process] (vlbe) [below of=rtlil, node distance=7em, xshift=-13em] {Verilog Backend};
-		\node[process] (ilangbe) [below of=rtlil, node distance=7em, xshift=0em] {ILANG Backend};
+		\node[process] (ilangbe) [below of=rtlil, node distance=7em, xshift=0em] {RTLIL Backend};
 		\node[process, fill=green!5] (otherbe) [below of=rtlil, node distance=7em, xshift=+13em] {Other Backends};
 
 		\draw[-latex] (vlog) -- (ast);
@@ -484,7 +484,7 @@ Commands for design navigation and investigation:
 \begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
     cd                   # a shortcut for 'select -module <name>'
     ls                   # list modules or objects in modules
-    dump                 # print parts of the design in ilang format
+    dump                 # print parts of the design in RTLIL format
     show                 # generate schematics using graphviz
     select               # modify and view the list of selected objects
 \end{lstlisting}
@@ -502,7 +502,7 @@ Commands for executing scripts or entering interactive mode:
 \begin{frame}[fragile]{\subsecname{} 2/3 \hspace{0pt plus 1 filll} (excerpt)}
 Commands for reading and elaborating the design:
 \begin{lstlisting}[xleftmargin=1cm, basicstyle=\ttfamily\fontsize{8pt}{10pt}\selectfont, language=ys]
-    read_ilang           # read modules from ilang file
+    read_rtlil           # read modules from RTLIL file
     read_verilog         # read modules from Verilog file
     hierarchy            # check, expand and clean up design hierarchy
 \end{lstlisting}
@@ -534,7 +534,7 @@ Commands for writing the results:
     write_blif           # write design to BLIF file
     write_btor           # write design to BTOR file
     write_edif           # write design to EDIF netlist file
-    write_ilang          # write design to ilang file
+    write_rtlil          # write design to RTLIL file
     write_spice          # write design to SPICE netlist file
     write_verilog        # write design to Verilog file
 \end{lstlisting}

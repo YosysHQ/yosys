@@ -1,0 +1,103 @@
+read_verilog -icells <<EOT
+
+module adff0(input C, R, D, output [2:0] Q);
+$_DFF_PP0_ ff0 (.C(C), .R(R), .D(D), .Q(Q[0]));
+$_DFF_PN0_ ff1 (.C(C), .R(R), .D(D), .Q(Q[1]));
+$_DFF_NP0_ ff2 (.C(C), .R(R), .D(D), .Q(Q[2]));
+endmodule
+
+module adff1(input C, R, D, output [2:0] Q);
+$_DFF_PP1_ ff0 (.C(C), .R(R), .D(D), .Q(Q[0]));
+$_DFF_PN1_ ff1 (.C(C), .R(R), .D(D), .Q(Q[1]));
+$_DFF_NP1_ ff2 (.C(C), .R(R), .D(D), .Q(Q[2]));
+endmodule
+
+module adffe0(input C, E, R, D, output [3:0] Q);
+$_DFFE_PP0P_ ff0 (.C(C), .R(R), .E(E), .D(D), .Q(Q[0]));
+$_DFFE_PP0N_ ff1 (.C(C), .R(R), .E(E), .D(D), .Q(Q[1]));
+$_DFFE_PN0P_ ff2 (.C(C), .R(R), .E(E), .D(D), .Q(Q[2]));
+$_DFFE_NP0P_ ff3 (.C(C), .R(R), .E(E), .D(D), .Q(Q[3]));
+endmodule
+
+module adffe1(input C, E, R, D, output [3:0] Q);
+$_DFFE_PP1P_ ff0 (.C(C), .R(R), .E(E), .D(D), .Q(Q[0]));
+$_DFFE_PP1N_ ff1 (.C(C), .R(R), .E(E), .D(D), .Q(Q[1]));
+$_DFFE_PN1P_ ff2 (.C(C), .R(R), .E(E), .D(D), .Q(Q[2]));
+$_DFFE_NP1P_ ff3 (.C(C), .R(R), .E(E), .D(D), .Q(Q[3]));
+endmodule
+
+module top(input C, E, R, D, output [13:0] Q);
+adff0 adff0_(.C(C), .R(R), .D(D), .Q(Q[2:0]));
+adff1 adff1_(.C(C), .R(R), .D(D), .Q(Q[5:3]));
+adffe0 adffe0_(.C(C), .R(R), .E(E), .D(D), .Q(Q[9:6]));
+adffe1 adffe1_(.C(C), .R(R), .E(E), .D(D), .Q(Q[13:10]));
+endmodule
+
+EOT
+
+design -save orig
+flatten
+equiv_opt -assert -multiclock dfflegalize -cell $_DFF_PP0_ x
+equiv_opt -assert -multiclock dfflegalize -cell $_DFFE_PP0P_ x
+equiv_opt -assert -multiclock dfflegalize -cell $_DFFSR_PPP_ x
+equiv_opt -assert -multiclock dfflegalize -cell $_DFFSRE_PPPP_ x
+
+
+# Convert everything to ADFFs.
+
+design -load orig
+dfflegalize -cell $_DFF_PP0_ x
+
+select -assert-count 2 adff0/t:$_NOT_
+select -assert-count 8 adff1/t:$_NOT_
+select -assert-count 2 adffe0/t:$_NOT_
+select -assert-count 10 adffe1/t:$_NOT_
+select -assert-count 0 adff0/t:$_MUX_
+select -assert-count 0 adff1/t:$_MUX_
+select -assert-count 4 adffe0/t:$_MUX_
+select -assert-count 4 adffe1/t:$_MUX_
+select -assert-count 14 t:$_DFF_PP0_
+select -assert-none t:$_DFF_PP0_ t:$_MUX_ t:$_NOT_ top/* %% %n t:* %i
+
+
+# Convert everything to ADFFEs.
+
+design -load orig
+dfflegalize -cell $_DFFE_PP0P_ x
+
+select -assert-count 2 adff0/t:$_NOT_
+select -assert-count 8 adff1/t:$_NOT_
+select -assert-count 3 adffe0/t:$_NOT_
+select -assert-count 11 adffe1/t:$_NOT_
+select -assert-count 14 t:$_DFFE_PP0P_
+select -assert-none t:$_DFFE_PP0P_ t:$_NOT_ top/* %% %n t:* %i
+
+
+# Convert everything to DFFSRs.
+
+design -load orig
+dfflegalize -cell $_DFFSR_PPP_ x
+
+select -assert-count 2 adff0/t:$_NOT_
+select -assert-count 2 adff1/t:$_NOT_
+select -assert-count 2 adffe0/t:$_NOT_
+select -assert-count 2 adffe1/t:$_NOT_
+select -assert-count 0 adff0/t:$_MUX_
+select -assert-count 0 adff1/t:$_MUX_
+select -assert-count 4 adffe0/t:$_MUX_
+select -assert-count 4 adffe1/t:$_MUX_
+select -assert-count 14 t:$_DFFSR_PPP_
+select -assert-none t:$_DFFSR_PPP_ t:$_MUX_ t:$_NOT_ top/* %% %n t:* %i
+
+
+# Convert everything to DFFSREs.
+
+design -load orig
+dfflegalize -cell $_DFFSRE_PPPP_ x
+
+select -assert-count 2 adff0/t:$_NOT_
+select -assert-count 2 adff1/t:$_NOT_
+select -assert-count 3 adffe0/t:$_NOT_
+select -assert-count 3 adffe1/t:$_NOT_
+select -assert-count 14 t:$_DFFSRE_PPPP_
+select -assert-none t:$_DFFSRE_PPPP_ t:$_NOT_ top/* %% %n t:* %i

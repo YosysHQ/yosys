@@ -1,0 +1,230 @@
+read_verilog -icells <<EOT
+
+module sr0(input R, S, (* init = 3'h0 *) output [2:0] Q);
+$_SR_PP_ ff0 (.R(R), .S(S), .Q(Q[0]));
+$_SR_PN_ ff1 (.R(R), .S(S), .Q(Q[1]));
+$_SR_NP_ ff2 (.R(R), .S(S), .Q(Q[2]));
+endmodule
+
+module sr1(input R, S, (* init = 3'h7 *) output [2:0] Q);
+$_SR_PP_ ff0 (.R(R), .S(S), .Q(Q[0]));
+$_SR_PN_ ff1 (.R(R), .S(S), .Q(Q[1]));
+$_SR_NP_ ff2 (.R(R), .S(S), .Q(Q[2]));
+endmodule
+
+module top(input C, E, R, D, output [5:0] Q);
+sr0 sr0_(.S(S), .R(R), .Q(Q[2:0]));
+sr1 sr1_(.S(S), .R(R), .Q(Q[5:3]));
+endmodule
+
+EOT
+
+design -save orig
+flatten
+#equiv_opt -assert -multiclock dfflegalize -cell $_SR_PP_ 0
+#equiv_opt -assert -multiclock dfflegalize -cell $_SR_PP_ 1
+#equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_PP0_ 0
+#equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_PP0_ 1
+#equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_PP1_ 0
+#equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_PP1_ 1
+#equiv_opt -assert -multiclock dfflegalize -cell $_DLATCHSR_PPP_ 0
+#equiv_opt -assert -multiclock dfflegalize -cell $_DLATCHSR_PPP_ 1
+#equiv_opt -assert -multiclock dfflegalize -cell $_DFFSR_PPP_ 0
+#equiv_opt -assert -multiclock dfflegalize -cell $_DFFSR_PPP_ 1
+#equiv_opt -assert -multiclock dfflegalize -cell $_DFFSRE_PPPP_ 0
+#equiv_opt -assert -multiclock dfflegalize -cell $_DFFSRE_PPPP_ 1
+
+
+# Convert everything to SRs.
+
+design -load orig
+dfflegalize -cell $_SR_PP_ 0
+
+select -assert-count 2 sr0/t:$_NOT_
+select -assert-count 5 sr1/t:$_NOT_
+select -assert-count 3 sr0/t:$_SR_PP_
+select -assert-count 3 sr1/t:$_SR_PP_
+select -assert-count 0 sr0/t:$_ANDNOT_
+select -assert-count 1 sr1/t:$_ANDNOT_
+select -assert-count 0 sr0/t:$_AND_
+select -assert-count 1 sr1/t:$_AND_
+select -assert-count 0 sr0/t:$_OR_
+select -assert-count 1 sr1/t:$_OR_
+select -assert-none t:$_SR_PP_ t:$_NOT_ t:$_ANDNOT_ t:$_OR_ t:$_AND_ top/* %% %n t:* %i
+
+design -load orig
+dfflegalize -cell $_SR_PP_ 1
+
+select -assert-count 5 sr0/t:$_NOT_
+select -assert-count 2 sr1/t:$_NOT_
+select -assert-count 3 sr0/t:$_SR_PP_
+select -assert-count 3 sr1/t:$_SR_PP_
+select -assert-count 1 sr0/t:$_ANDNOT_
+select -assert-count 0 sr1/t:$_ANDNOT_
+select -assert-count 1 sr0/t:$_AND_
+select -assert-count 0 sr1/t:$_AND_
+select -assert-count 1 sr0/t:$_OR_
+select -assert-count 0 sr1/t:$_OR_
+select -assert-none t:$_SR_PP_ t:$_NOT_ t:$_ANDNOT_ t:$_OR_ t:$_AND_ top/* %% %n t:* %i
+
+
+# Convert everything to ADLATCHs.
+
+design -load orig
+dfflegalize -cell $_DLATCH_PP0_ 0
+
+select -assert-count 2 sr0/t:$_NOT_
+select -assert-count 5 sr1/t:$_NOT_
+select -assert-count 3 sr0/t:$_DLATCH_PP0_
+select -assert-count 3 sr1/t:$_DLATCH_PP0_
+select -assert-count 0 sr0/t:$_ANDNOT_
+select -assert-count 1 sr1/t:$_ANDNOT_
+select -assert-count 0 sr0/t:$_AND_
+select -assert-count 1 sr1/t:$_AND_
+select -assert-count 0 sr0/t:$_OR_
+select -assert-count 1 sr1/t:$_OR_
+select -assert-none t:$_DLATCH_PP0_ t:$_NOT_ t:$_ANDNOT_ t:$_OR_ t:$_AND_ top/* %% %n t:* %i
+
+design -load orig
+dfflegalize -cell $_DLATCH_PP0_ 1
+
+select -assert-count 5 sr0/t:$_NOT_
+select -assert-count 2 sr1/t:$_NOT_
+select -assert-count 3 sr0/t:$_DLATCH_PP0_
+select -assert-count 3 sr1/t:$_DLATCH_PP0_
+select -assert-count 1 sr0/t:$_ANDNOT_
+select -assert-count 0 sr1/t:$_ANDNOT_
+select -assert-count 1 sr0/t:$_AND_
+select -assert-count 0 sr1/t:$_AND_
+select -assert-count 1 sr0/t:$_OR_
+select -assert-count 0 sr1/t:$_OR_
+select -assert-none t:$_DLATCH_PP0_ t:$_NOT_ t:$_ANDNOT_ t:$_OR_ t:$_AND_ top/* %% %n t:* %i
+
+design -load orig
+dfflegalize -cell $_DLATCH_PP1_ 0
+
+select -assert-count 11 sr0/t:$_NOT_
+select -assert-count 8 sr1/t:$_NOT_
+select -assert-count 3 sr0/t:$_DLATCH_PP1_
+select -assert-count 3 sr1/t:$_DLATCH_PP1_
+select -assert-count 1 sr0/t:$_ANDNOT_
+select -assert-count 0 sr1/t:$_ANDNOT_
+select -assert-count 1 sr0/t:$_AND_
+select -assert-count 0 sr1/t:$_AND_
+select -assert-count 1 sr0/t:$_OR_
+select -assert-count 0 sr1/t:$_OR_
+select -assert-none t:$_DLATCH_PP1_ t:$_NOT_ t:$_ANDNOT_ t:$_OR_ t:$_AND_ top/* %% %n t:* %i
+
+design -load orig
+dfflegalize -cell $_DLATCH_PP1_ 1
+
+select -assert-count 8 sr0/t:$_NOT_
+select -assert-count 11 sr1/t:$_NOT_
+select -assert-count 3 sr0/t:$_DLATCH_PP1_
+select -assert-count 3 sr1/t:$_DLATCH_PP1_
+select -assert-count 0 sr0/t:$_ANDNOT_
+select -assert-count 1 sr1/t:$_ANDNOT_
+select -assert-count 0 sr0/t:$_AND_
+select -assert-count 1 sr1/t:$_AND_
+select -assert-count 0 sr0/t:$_OR_
+select -assert-count 1 sr1/t:$_OR_
+select -assert-none t:$_DLATCH_PP1_ t:$_NOT_ t:$_ANDNOT_ t:$_OR_ t:$_AND_ top/* %% %n t:* %i
+
+
+# Convert everything to DLATCHSRs.
+
+design -load orig
+dfflegalize -cell $_DLATCHSR_PPP_ 0
+
+select -assert-count 2 sr0/t:$_NOT_
+select -assert-count 5 sr1/t:$_NOT_
+select -assert-count 3 sr0/t:$_DLATCHSR_PPP_
+select -assert-count 3 sr1/t:$_DLATCHSR_PPP_
+select -assert-count 0 sr0/t:$_ANDNOT_
+select -assert-count 1 sr1/t:$_ANDNOT_
+select -assert-count 0 sr0/t:$_AND_
+select -assert-count 1 sr1/t:$_AND_
+select -assert-count 0 sr0/t:$_OR_
+select -assert-count 1 sr1/t:$_OR_
+select -assert-none t:$_DLATCHSR_PPP_ t:$_NOT_ t:$_ANDNOT_ t:$_OR_ t:$_AND_ top/* %% %n t:* %i
+
+design -load orig
+dfflegalize -cell $_DLATCHSR_PPP_ 1
+
+select -assert-count 5 sr0/t:$_NOT_
+select -assert-count 2 sr1/t:$_NOT_
+select -assert-count 3 sr0/t:$_DLATCHSR_PPP_
+select -assert-count 3 sr1/t:$_DLATCHSR_PPP_
+select -assert-count 1 sr0/t:$_ANDNOT_
+select -assert-count 0 sr1/t:$_ANDNOT_
+select -assert-count 1 sr0/t:$_AND_
+select -assert-count 0 sr1/t:$_AND_
+select -assert-count 1 sr0/t:$_OR_
+select -assert-count 0 sr1/t:$_OR_
+select -assert-none t:$_DLATCHSR_PPP_ t:$_NOT_ t:$_ANDNOT_ t:$_OR_ t:$_AND_ top/* %% %n t:* %i
+
+
+# Convert everything to DFFSRs.
+
+design -load orig
+dfflegalize -cell $_DFFSR_PPP_ 0
+
+select -assert-count 2 sr0/t:$_NOT_
+select -assert-count 5 sr1/t:$_NOT_
+select -assert-count 3 sr0/t:$_DFFSR_PPP_
+select -assert-count 3 sr1/t:$_DFFSR_PPP_
+select -assert-count 0 sr0/t:$_ANDNOT_
+select -assert-count 1 sr1/t:$_ANDNOT_
+select -assert-count 0 sr0/t:$_AND_
+select -assert-count 1 sr1/t:$_AND_
+select -assert-count 0 sr0/t:$_OR_
+select -assert-count 1 sr1/t:$_OR_
+select -assert-none t:$_DFFSR_PPP_ t:$_NOT_ t:$_ANDNOT_ t:$_OR_ t:$_AND_ top/* %% %n t:* %i
+
+design -load orig
+dfflegalize -cell $_DFFSR_PPP_ 1
+
+select -assert-count 5 sr0/t:$_NOT_
+select -assert-count 2 sr1/t:$_NOT_
+select -assert-count 3 sr0/t:$_DFFSR_PPP_
+select -assert-count 3 sr1/t:$_DFFSR_PPP_
+select -assert-count 1 sr0/t:$_ANDNOT_
+select -assert-count 0 sr1/t:$_ANDNOT_
+select -assert-count 1 sr0/t:$_AND_
+select -assert-count 0 sr1/t:$_AND_
+select -assert-count 1 sr0/t:$_OR_
+select -assert-count 0 sr1/t:$_OR_
+select -assert-none t:$_DFFSR_PPP_ t:$_NOT_ t:$_ANDNOT_ t:$_OR_ t:$_AND_ top/* %% %n t:* %i
+
+
+# Convert everything to DFFSREs.
+
+design -load orig
+dfflegalize -cell $_DFFSRE_PPPP_ 0
+
+select -assert-count 2 sr0/t:$_NOT_
+select -assert-count 5 sr1/t:$_NOT_
+select -assert-count 3 sr0/t:$_DFFSRE_PPPP_
+select -assert-count 3 sr1/t:$_DFFSRE_PPPP_
+select -assert-count 0 sr0/t:$_ANDNOT_
+select -assert-count 1 sr1/t:$_ANDNOT_
+select -assert-count 0 sr0/t:$_AND_
+select -assert-count 1 sr1/t:$_AND_
+select -assert-count 0 sr0/t:$_OR_
+select -assert-count 1 sr1/t:$_OR_
+select -assert-none t:$_DFFSRE_PPPP_ t:$_NOT_ t:$_ANDNOT_ t:$_OR_ t:$_AND_ top/* %% %n t:* %i
+
+design -load orig
+dfflegalize -cell $_DFFSRE_PPPP_ 1
+
+select -assert-count 5 sr0/t:$_NOT_
+select -assert-count 2 sr1/t:$_NOT_
+select -assert-count 3 sr0/t:$_DFFSRE_PPPP_
+select -assert-count 3 sr1/t:$_DFFSRE_PPPP_
+select -assert-count 1 sr0/t:$_ANDNOT_
+select -assert-count 0 sr1/t:$_ANDNOT_
+select -assert-count 1 sr0/t:$_AND_
+select -assert-count 0 sr1/t:$_AND_
+select -assert-count 1 sr0/t:$_OR_
+select -assert-count 0 sr1/t:$_OR_
+select -assert-none t:$_DFFSRE_PPPP_ t:$_NOT_ t:$_ANDNOT_ t:$_OR_ t:$_AND_ top/* %% %n t:* %i
