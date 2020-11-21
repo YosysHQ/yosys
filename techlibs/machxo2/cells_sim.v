@@ -46,6 +46,8 @@ module FACADE_FF #(
 	wire muxclk = (CLKMUX == "INV") ? ~CLK : CLK;
 	wire srval = (REGSET == "SET") ? 1'b1 : 1'b0;
 
+	initial Q = srval;
+
 	generate
 		if (REGMODE == "FF") begin
 			if (SRMODE == "ASYNC") begin
