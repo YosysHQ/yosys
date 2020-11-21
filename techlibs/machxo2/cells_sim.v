@@ -24,7 +24,8 @@ module FACADE_FF #(
 	parameter LSRMUX = "LSR",
 	parameter LSRONMUX = "LSRMUX",
 	parameter SRMODE = "LSR_OVER_CE",
-	parameter REGSET = "SET"
+	parameter REGSET = "SET",
+	parameter REGMODE = "FF"
 ) (
 	input CLK, DI, LSR, CE,
 	output reg Q
@@ -41,22 +42,29 @@ module FACADE_FF #(
 	endgenerate
 
 	wire muxlsr = (LSRMUX == "INV") ? ~LSR : LSR;
+	wire muxlsron = (LSRONMUX == "LSRMUX") ? muxlsr : 1'b0;
 	wire muxclk = (CLKMUX == "INV") ? ~CLK : CLK;
 	wire srval = (REGSET == "SET") ? 1'b1 : 1'b0;
 
 	generate
-		if (SRMODE == "ASYNC") begin
-			always @(posedge muxclk, posedge muxlsr)
-				if (muxlsr)
-					Q <= srval;
-				else if (muxce)
-					Q <= DI;
+		if (REGMODE == "FF") begin
+			if (SRMODE == "ASYNC") begin
+				always @(posedge muxclk, posedge muxlsron)
+					if (muxlsron)
+						Q <= srval;
+					else if (muxce)
+						Q <= DI;
+			end else begin
+				always @(posedge muxclk)
+					if (muxlsron)
+						Q <= srval;
+					else if (muxce)
+						Q <= DI;
+			end
+		end else if (REGMODE == "LATCH") begin
+			ERROR_UNSUPPORTED_FF_MODE error();
 		end else begin
-			always @(posedge muxclk)
-				if (muxlsr)
-					Q <= srval;
-				else if (muxce)
-					Q <= DI;
+			ERROR_UNKNOWN_FF_MODE error();
 		end
 	endgenerate
 endmodule
