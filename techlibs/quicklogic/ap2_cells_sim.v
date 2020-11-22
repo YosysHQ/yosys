@@ -242,11 +242,11 @@ endmodule /* out buff */
 
 module d_buff ( 
     (* iopad_external_pin *)
-	output OUT_DBUF,
-	input IN_DBUF
+	output Q
 );
 
-	assign Q = IN_DBUF ? 1'b1 : 1'b0;
+	parameter DSEL = 1'b0;
+	assign Q = DSEL ? 1'b1 : 1'b0;
 	
 endmodule /* d buff */
 

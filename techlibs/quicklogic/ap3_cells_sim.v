@@ -39,6 +39,20 @@ module ff(
             CQZ <= D;
 endmodule
 
+(* abc9_flop, lib_whitebox *)
+module openfpga_ff(
+    output reg CQZ,
+    input D,
+    //(* clkbuf_sink *)
+    input QCK
+);
+    parameter [0:0] INIT = 1'b0;
+    initial CQZ = INIT;
+
+    always @(posedge QCK)
+        CQZ <= D;
+endmodule
+
 module full_adder(
    output S,
    output CO,
