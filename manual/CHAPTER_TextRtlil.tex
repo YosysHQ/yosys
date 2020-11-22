@@ -1,0 +1,252 @@
+\chapter{RTLIL Text Representation}
+\label{chapter:textrtlil}
+
+% Stolen from stackexchange: calculate indent based on given keyword,
+% with some nice hrules added in.
+\newlength{\myl}
+
+\newenvironment{indentgrammar}[1]
+    {\vspace{0.5cm}\hrule
+    \setlength{\myl}{\widthof{#1}+2em}
+    \grammarindent\the\myl
+    \begin{grammar}}
+    {\end{grammar}
+    \hrule}
+
+This appendix documents the text representation of RTLIL in extended Backus-Naur form (EBNF).
+
+The grammar is not meant to represent semantic limitations. For example, processes must contain exactly one switch statement, but the grammar allows zero or more than one. That is, the grammar is "permissive", and later stages of processing perform more rigorous checks.
+
+The grammar is also not meant to represent the exact grammar used in the RTLIL frontend, since that grammar is specific to processing by lex and yacc, and is somewhat less understandable than simple EBNF notation.
+
+\section{Lexical elements}
+
+\subsection{Identifiers}
+
+There are three types of identifiers in RTLIL:
+
+\begin{itemize}
+    \item Publically visible identifiers
+    \item Auto-generated identifiers
+    \item Dotted numeric identifiers
+\end{itemize}
+
+\begin{indentgrammar}{<autogen-id>}
+<id> ::= <public-id> | <autogen-id> | <dotted-id>
+
+<public-id> ::= "\textbackslash" <nonws>$+$
+
+<autogen-id> ::= "\textdollar" <nonws>$+$
+
+<dotted-id> ::= "." <decimal-digit>$+$
+\end{indentgrammar}
+
+\subsection{Values}
+
+A \textit{value} consists of a width in bits and a bit representation, most significant bit first. Bits may be any of:
+\begin{itemize}
+    \item \texttt{0}: A logic zero value
+    \item \texttt{1}: A logic one value
+    \item \texttt{x}: An unknown logic value
+    \item \texttt{z}: A high-impedance value
+    \item \texttt{m}: ?
+    \item \texttt{-}: A don't care value
+\end{itemize}
+
+An \textit{integer} is simply a signed integer value in decimal format.
+
+\begin{indentgrammar}{<binary-digit>}
+<value> ::= <decimal-digit>$+$ \texttt{\textbf{'}} <binary-digit>$*$
+
+<binary-digit> ::= "0" | "1" | "x" | "z" | "m" | "-"
+
+<integer> ::= "-"$?$ <decimal-digit>$+$
+\end{indentgrammar}
+
+\subsection{Strings}
+
+A string is a series of characters delimited by double-quote characters. Within a string, certain escapes can be used:
+
+\begin{itemize}
+    \item \texttt{\textbackslash n}: A newline
+    \item \texttt{\textbackslash t}: A tab
+    \item \texttt{\textbackslash \textit{ooo}}: A character specified as a one, two, or three digit octal value
+\end{itemize}
+
+All other characters may be escaped by a backslash, and become the following character. Thus:
+
+\begin{itemize}
+    \item \texttt{\textbackslash \textbackslash}: A backslash
+    \item \texttt{\textbackslash \"}: A double-quote
+    \item \texttt{\textbackslash r}: An 'r' character
+\end{itemize}
+
+\subsection{Comments}
+
+A comment starts with a \texttt{\textbf{\#}} character and proceeds to the end of the line. All comments are ignored.
+
+\section{File}
+
+A file consists of zero or more designs. A design may be a module, an attribute statement, or an autoindex statement.
+
+Note that in general, statements are terminated by an end of line.
+
+\begin{indentgrammar}{<design>}
+<file> ::= <design>$*$
+
+<design> ::= <module> | <attr-stmt> | <autoidx-stmt>
+\end{indentgrammar}
+
+\subsection{Modules}
+
+A module consists of zero or more module statements.
+
+\begin{indentgrammar}{<module-stmt>}
+<module> ::= "module" <id> <eol> <module-stmt>$*$
+
+<module-stmt> ::= 
+<param-stmt>
+  \alt <attr-stmt>
+  \alt <wire-stmt>
+  \alt <memory-stmt>
+  \alt <cell-stmt>
+  \alt <proc-stmt>
+  \alt <conn-stmt>
+\end{indentgrammar}
+
+\subsection{Signal specifications}
+
+A signal is anything that can be applied to a cell port, i.e. a constant value, all bits or a selection of bits from a wire, or concatenations of those.
+
+See Sec.~\ref{sec:rtlil_sigspec} for an overview of signal specifications.
+
+\begin{indentgrammar}{<sigspec>}
+<sigspec> ::=
+<constant>
+    \alt <wire-id>
+    \alt <sigspec> "[" <integer> (":" <integer>)$?$ "]"
+    \alt "\{" <sigspec>$*$ "\}"
+\end{indentgrammar}
+
+\subsection{Connection statements}
+
+Declares a connection between the given signals.
+
+\begin{indentgrammar}{<conn-stmt>}
+<conn-stmt> ::= "connect" <sigspec> <sigspec> <eol>
+\end{indentgrammar}
+
+\subsection{Attribute statements}
+
+Declares an attribute with the given identifier and value for the following non-attribute statement.
+
+\begin{indentgrammar}{<attr-stmt>}
+<attr-stmt> ::= "attribute" <id> <constant> <eol>
+
+<constant> ::= <value> | <integer> | <string>
+\end{indentgrammar}
+
+\subsection{Autoindex statements}
+
+The function of this statement is currently undocumented.
+
+\begin{indentgrammar}{<autoidx-stmt>}
+<autoidx-stmt> ::= "autoidx" <integer> <eol>
+\end{indentgrammar}
+
+\subsection{Parameter statements}
+
+Declares a parameter with the given identifier for the enclosing module, optionally with the given default value.
+
+\begin{indentgrammar}{<param-stmt>}
+<param-stmt> ::= "parameter" <id> <constant>$?$ <eol>
+\end{indentgrammar}
+
+\subsection{Wire statements}
+
+Declares a wire with the given identifier in the enclosing module, with options.
+
+See Sec.~\ref{sec:rtlil_cell_wire} for an overview of wires.
+
+\begin{indentgrammar}{<wire-option>}
+<wire-stmt> ::= "wire" <wire-option>$*$ <wire-id> <eol>
+
+<wire-id> ::= <id>
+
+<wire-option> ::= 
+"width" <integer>
+  \alt "offset" <integer>
+  \alt "input" <integer>
+  \alt "output" <integer>
+  \alt "inout" <integer>
+  \alt "upto"
+  \alt "signed"
+\end{indentgrammar}
+
+\subsection{Memory statements}
+
+Declares a memory with the given identifier in the enclosing module, with options.
+
+See Sec.~\ref{sec:rtlil_memory} for an overview of memory cells, and Sec.~\ref{sec:memcells} for details about memory cell types.
+
+\begin{indentgrammar}{<memory-option>}
+<memory-stmt> ::= "memory" <memory-option>$*$ <id> <eol>
+
+<memory-option> ::= 
+"width" <integer>
+  \alt "size" <integer>
+  \alt "offset" <integer>
+\end{indentgrammar}
+
+\subsection{Cell statements}
+
+Declares a cell with the given identifier in the enclosing module.
+
+See Chap.~\ref{chapter:celllib} for a detailed list of cell types.
+
+\begin{indentgrammar}{<cell-body-stmt>}
+<cell-stmt> ::= "cell" <cell-id> <cell-type> <eol> <cell-body-stmt> "end" <eol>
+
+<cell-id> ::= <id>
+
+<cell-type> ::= <id>
+
+<cell-body-stmt> ::= 
+"parameter" ("signed" | "real")$?$ <id> <constant> <eol>
+  \alt "connect" <id> <sigspec> <eol>
+\end{indentgrammar}
+
+\subsection{Process statements}
+
+Declares a process with the given identifier in the enclosing module.
+
+See Sec.~\ref{sec:rtlil_process} for an overview of processes.
+
+\begin{indentgrammar}{<switch-element>}
+<proc-stmt> ::= "process" <id> <eol> <case-stmt>$*$ <sync-stmt>$*$ "end" <eol>
+
+<case-stmt> ::= <attr-stmt> | <switch-stmt> | <assign-stmt>
+
+<switch-stmt> ::= "switch" <sigspec> <eol> <attr-stmt>$*$ <switch-element>$*$ "end" <eol>
+
+<switch-element> ::= "case" <compare>$?$ <eol> <case-stmt>$*$
+
+<compare> ::= <sigspec> ("," <sigspec>)$*$
+
+<sync-stmt> ::= 
+"sync" <sync-type> <sigspec> <eol> <update-stmt>$*$
+  \alt "sync" "always" <eol> <update-stmt>$*$
+  \alt "sync" "global" <eol> <update-stmt>$*$
+  \alt "sync" "init" <eol> <update-stmt>$*$
+
+<sync-type> ::= "low" | "high" | "posedge" | "negedge" | "edge"
+
+<assign-stmt> ::= "assign" <dest-sigspec> <src-sigspec> <eol>
+
+<update-stmt> ::= "update" <dest-sigspec> <src-sigspec> <eol>
+
+<dest-sigspec> ::= <sigspec>
+
+<src-sigspec> ::= <sigspec>
+\end{indentgrammar}
+
