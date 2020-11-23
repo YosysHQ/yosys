@@ -178,11 +178,8 @@ std::string dump_const(const RTLIL::Const &data)
 		else
 		{
 			// If value is larger than 32 bits, then emit a binary representation of
-			// the number. We have to do this as firrtl number literals don't support
-			// specifying their width, therefore a binary literal is the only way to
-			// guarantee the parameter widths match that provided on the RHS of a
-			// verilog parameter assignment. There is a caveat to this approach
-			// though:
+			// the number as integers are not large enough to contain the result.
+			// There is a caveat to this approach though:
 			//
 			// Note that parameter may be defined as having a fixed width as follows:
 			//
@@ -194,12 +191,12 @@ std::string dump_const(const RTLIL::Const &data)
 			// precision, then yosys considers the value you used as an int and
 			// assigns it a width of 32 bits regardless of the type of the parameter.
 			//
-			// 		defparam <inst_name> .test_signed = 49;						(width = 32, though should be 27 based on definition)
-			// 		defparam <inst_name> .test_unsigned = 40'd35;			(width = 40, though should be 27 based on definition)
-			// 		defparam <inst_name> .test_signed_large = 40'd12;	(width = 40)
+			//     defparam <inst_name> .test_signed = 49;           (width = 32, though should be 27 based on definition)
+			//     defparam <inst_name> .test_unsigned = 40'd35;     (width = 40, though should be 27 based on definition)
+			//     defparam <inst_name> .test_signed_large = 40'd12; (width = 40)
 			//
 			// We therefore may lose the precision of the original verilog literal if
-			// it was written without it's bitwidth specifier.
+			// it was written without its bitwidth specifier.
 
 			// Emit binary prefix for string.
 			res_str += "\"b";
@@ -329,7 +326,7 @@ void emit_extmodule(RTLIL::Cell *cell, RTLIL::Module *mod_instance, std::ostream
  * and emit parameterized extmodules with a unique name for each of them. The
  * name that's given to the extmodule is
  *
- * 		<blackbox_name>_<instance_name>
+ *     <blackbox_name>_<instance_name>
  *
  * Beware that it is therefore necessary for users to replace "parameterized"
  * instances in the RTLIL sense with these custom extmodules for the firrtl to
