@@ -35,30 +35,28 @@ struct CheckPass : public Pass {
 		log("\n");
 		log("This pass identifies the following problems in the current design:\n");
 		log("\n");
-		log(" - combinatorial loops\n");
-		log("\n");
-		log(" - two or more conflicting drivers for one wire\n");
-		log("\n");
-		log(" - used wires that do not have a driver\n");
+		log("  - combinatorial loops\n");
+		log("  - two or more conflicting drivers for one wire\n");
+		log("  - used wires that do not have a driver\n");
 		log("\n");
 		log("Options:\n");
 		log("\n");
-		log("  -noinit\n");
-		log("    Also check for wires which have the 'init' attribute set.\n");
+		log("    -noinit\n");
+		log("        also check for wires which have the 'init' attribute set\n");
 		log("\n");
-		log("  -initdrv\n");
-		log("    Also check for wires that have the 'init' attribute set and are not\n");
-		log("    driven by an FF cell type.\n");
+		log("    -initdrv\n");
+		log("        also check for wires that have the 'init' attribute set and are not\n");
+		log("        driven by an FF cell type\n");
 		log("\n");
-		log("  -mapped\n");
-		log("    Also check for internal cells that have not been mapped to cells of the\n");
-		log("    target architecture.\n");
+		log("    -mapped\n");
+		log("        also check for internal cells that have not been mapped to cells of the\n");
+		log("        target architecture\n");
 		log("\n");
-		log("  -allow-tbuf\n");
-		log("    Modify the -mapped behavior to still allow $_TBUF_ cells.\n");
+		log("    -allow-tbuf\n");
+		log("        modify the -mapped behavior to still allow $_TBUF_ cells\n");
 		log("\n");
-		log("  -assert\n");
-		log("    Produce a runtime error if any problems are found in the current design.\n");
+		log("    -assert\n");
+		log("        produce a runtime error if any problems are found in the current design\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -100,16 +98,51 @@ struct CheckPass : public Pass {
 
 		for (auto module : design->selected_whole_modules_warn())
 		{
-			if (module->has_processes_warn())
-				continue;
-
-			log("checking module %s..\n", log_id(module));
+			log("Checking module %s...\n", log_id(module));
 
 			SigMap sigmap(module);
 			dict<SigBit, vector<string>> wire_drivers;
 			dict<SigBit, int> wire_drivers_count;
 			pool<SigBit> used_wires;
 			TopoSort<string> topo;
+
+			for (auto &proc_it : module->processes)
+			{
+				std::vector<RTLIL::CaseRule*> all_cases = {&proc_it.second->root_case};
+				for (size_t i = 0; i < all_cases.size(); i++) {
+					for (auto action : all_cases[i]->actions) {
+						for (auto bit : sigmap(action.first))
+							if (bit.wire) {
+								wire_drivers[bit].push_back(
+									stringf("action %s <= %s (case rule) in process %s",
+									        log_signal(action.first), log_signal(action.second), log_id(proc_it.first)));
+							}
+						for (auto bit : sigmap(action.second))
+							if (bit.wire) used_wires.insert(bit);
+					}
+					for (auto switch_ : all_cases[i]->switches) {
+						for (auto case_ : switch_->cases) {
+							all_cases.push_back(case_);
+							for (auto compare : case_->compare)
+								for (auto bit : sigmap(compare))
+									if (bit.wire) used_wires.insert(bit);
+						}
+					}
+				}
+				for (auto &sync : proc_it.second->syncs) {
+					for (auto bit : sigmap(sync->signal))
+						if (bit.wire) used_wires.insert(bit);
+					for (auto action : sync->actions) {
+						for (auto bit : sigmap(action.first))
+							if (bit.wire)
+								wire_drivers[bit].push_back(
+									stringf("action %s <= %s (sync rule) in process %s",
+									        log_signal(action.first), log_signal(action.second), log_id(proc_it.first)));
+						for (auto bit : sigmap(action.second))
+							if (bit.wire) used_wires.insert(bit);
+					}
+				}
+			}
 
 			for (auto cell : module->cells())
 			{
@@ -216,7 +249,7 @@ struct CheckPass : public Pass {
 			}
 		}
 
-		log("found and reported %d problems.\n", counter);
+		log("Found and reported %d problems.\n", counter);
 
 		if (assert_mode && counter > 0)
 			log_error("Found %d problems in 'check -assert'.\n", counter);
