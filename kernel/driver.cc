@@ -267,9 +267,11 @@ int main(int argc, char **argv)
 		printf("\n");
 		printf("    -s scriptfile\n");
 		printf("        execute the commands in the script file\n");
+#ifdef YOSYS_ENABLE_TCL
 		printf("\n");
 		printf("    -c tcl_scriptfile\n");
 		printf("        execute the commands in the tcl script file (see 'help tcl' for details)\n");
+#endif
 		printf("\n");
 		printf("    -p command\n");
 		printf("        execute the commands\n");
