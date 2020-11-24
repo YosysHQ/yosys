@@ -810,7 +810,9 @@ struct SimPass : public Pass {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-vcd" && argidx+1 < args.size()) {
-				worker.vcdfile.open(args[++argidx].c_str());
+				std::string vcd_filename = args[++argidx];
+				rewrite_filename(vcd_filename);
+				worker.vcdfile.open(vcd_filename.c_str());
 				continue;
 			}
 			if (args[argidx] == "-n" && argidx+1 < args.size()) {
