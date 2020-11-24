@@ -87,32 +87,34 @@ A comment starts with a \texttt{\textbf{\#}} character and proceeds to the end o
 
 \section{File}
 
-A file consists of zero or more designs. A design may be a module, an attribute statement, or an autoindex statement.
+A file consists of zero or more modules, attribute statements, and auto-index statements. All statements terminate in an end-of-line. Because of this, statements cannot contain end-of-lines.
 
-Note that in general, statements are terminated by an end of line.
+Attributes at the file level are applied to the following module.
 
 \begin{indentgrammar}{<design>}
-<file> ::= <design>$*$
-
-<design> ::= <module> | <attr-stmt> | <autoidx-stmt>
+<file> ::= (<module> | <attr-stmt> | <autoidx-stmt>)$*$
 \end{indentgrammar}
 
 \subsection{Modules}
 
-A module consists of zero or more module statements.
+Declares a module consisting of zero or more attributes, wires, memories, cells, processes, and connections.
 
-\begin{indentgrammar}{<module-stmt>}
-<module> ::= "module" <id> <eol> <module-stmt>$*$ "end" <eol>
+\begin{indentgrammar}{<module-body-stmt>}
+<module> ::= <module-stmt> <module-body> <module-end-stmt>
 
-<module-stmt> ::= 
-<param-stmt>
+<module-stmt> ::= "module" <id> <eol>
+
+<module-body> ::= 
+(<param-stmt>
   \alt <attr-stmt>
   \alt <wire-stmt>
   \alt <memory-stmt>
-  \alt <cell-stmt>
-  \alt <proc-stmt>
-  \alt <conn-stmt>
+  \alt <cell>
+  \alt <process>
+  \alt <conn-stmt>)$*$
 \end{indentgrammar}
+
+<module-end-stmt> ::= "end" <eol>
 
 \subsection{Signal specifications}
 
@@ -138,7 +140,7 @@ Declares a connection between the given signals.
 
 \subsection{Attribute statements}
 
-Declares an attribute with the given identifier and value for the following non-attribute statement.
+Declares an attribute with the given identifier and value. Attributes at the file level apply to the following module. Attributes within a module apply to the following non-attribute statement.
 
 \begin{indentgrammar}{<attr-stmt>}
 <attr-stmt> ::= "attribute" <id> <constant> <eol>
@@ -198,14 +200,16 @@ See Sec.~\ref{sec:rtlil_memory} for an overview of memory cells, and Sec.~\ref{s
   \alt "offset" <integer>
 \end{indentgrammar}
 
-\subsection{Cell statements}
+\subsection{Cells}
 
 Declares a cell with the given identifier in the enclosing module.
 
 See Chap.~\ref{chapter:celllib} for a detailed list of cell types.
 
 \begin{indentgrammar}{<cell-body-stmt>}
-<cell-stmt> ::= "cell" <cell-id> <cell-type> <eol> <cell-body-stmt> "end" <eol>
+<cell> ::= <cell-stmt> <cell-body-stmt> <cell-end-stmt>
+
+<cell-stmt> ::= "cell" <cell-id> <cell-type> <eol>
 
 <cell-id> ::= <id>
 
@@ -214,6 +218,8 @@ See Chap.~\ref{chapter:celllib} for a detailed list of cell types.
 <cell-body-stmt> ::= 
 "parameter" ("signed" | "real")$?$ <id> <constant> <eol>
   \alt "connect" <id> <sigspec> <eol>
+
+<cell-end-stmt> ::= "end" <eol>
 \end{indentgrammar}
 
 \subsection{Process statements}
@@ -222,22 +228,34 @@ Declares a process with the given identifier in the enclosing module.
 
 See Sec.~\ref{sec:rtlil_process} for an overview of processes.
 
-\begin{indentgrammar}{<switch-element>}
-<proc-stmt> ::= "process" <id> <eol> <case-stmt>$*$ <sync-stmt>$*$ "end" <eol>
+\begin{indentgrammar}{<switch-end-stmt>}
+<process> ::= <proc-stmt> <case-body> <sync>$*$ <proc-end-stmt>
 
-<case-stmt> ::= <attr-stmt> | <switch-stmt> | <assign-stmt>
+<proc-stmt> ::= "process" <id> <eol>
 
-<switch-stmt> ::= "switch" <sigspec> <eol> <attr-stmt>$*$ <switch-element>$*$ "end" <eol>
+<proc-end-stmt> ::= "end" <eol>
 
-<switch-element> ::= "case" <compare>$?$ <eol> <case-stmt>$*$
+<case-body> ::= (<attr-stmt> | <switch> | <assign-stmt>)$*$
+
+<switch> ::= <switch-stmt> <attr-stmt>$*$ <case>$*$ <switch-end-stmt>
+
+<switch-stmt> := "switch" <sigspec> <eol>
+
+<switch-end-stmt> ::= "end" <eol>
+
+<case> ::= <case-stmt> <case-body>
+
+<case-stmt> ::= "case" <compare>$?$ <eol>
 
 <compare> ::= <sigspec> ("," <sigspec>)$*$
 
+<sync> ::= <sync-stmt> <update-stmt>$*$
+
 <sync-stmt> ::= 
-"sync" <sync-type> <sigspec> <eol> <update-stmt>$*$
-  \alt "sync" "always" <eol> <update-stmt>$*$
-  \alt "sync" "global" <eol> <update-stmt>$*$
-  \alt "sync" "init" <eol> <update-stmt>$*$
+"sync" <sync-type> <sigspec> <eol>
+  \alt "sync" "always" <eol>
+  \alt "sync" "global" <eol>
+  \alt "sync" "init" <eol>
 
 <sync-type> ::= "low" | "high" | "posedge" | "negedge" | "edge"
 
