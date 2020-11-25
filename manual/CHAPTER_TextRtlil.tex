@@ -15,22 +15,21 @@
 
 This appendix documents the text representation of RTLIL in extended Backus-Naur form (EBNF).
 
-The grammar is not meant to represent semantic limitations. For example, processes must contain exactly one switch statement, but the grammar allows zero or more than one. That is, the grammar is "permissive", and later stages of processing perform more rigorous checks.
+The grammar is not meant to represent semantic limitations. That is, the grammar is "permissive", and later stages of processing perform more rigorous checks.
 
-The grammar is also not meant to represent the exact grammar used in the RTLIL frontend, since that grammar is specific to processing by lex and yacc, and is somewhat less understandable than simple EBNF notation.
+The grammar is also not meant to represent the exact grammar used in the RTLIL frontend, since that grammar is specific to processing by lex and yacc, is even more permissive, and is somewhat less understandable than simple EBNF notation.
 
-Finally, note that all statements (rules ending in \texttt{-stmt}) terminate in an end-of-line. Because of this, statements cannot contain end-of-lines.
+Finally, note that all statements (rules ending in \texttt{-stmt}) terminate in an end-of-line. Because of this, a statement cannot be broken into multiple lines.
 
 \section{Lexical elements}
 
 \subsection{Identifiers}
 
-There are three types of identifiers in RTLIL:
+There are two types of identifiers in RTLIL:
 
 \begin{itemize}
     \item Publically visible identifiers
     \item Auto-generated identifiers
-    \item Dotted numeric identifiers
 \end{itemize}
 
 \begin{indentgrammar}{<autogen-id>}
@@ -39,8 +38,6 @@ There are three types of identifiers in RTLIL:
 <public-id> ::= "\textbackslash" <nonws>$+$
 
 <autogen-id> ::= "\textdollar" <nonws>$+$
-
-<dotted-id> ::= "." <decimal-digit>$+$
 \end{indentgrammar}
 
 \subsection{Values}
@@ -118,7 +115,7 @@ Declares a module, with zero or more attributes, consisting of zero or more wire
   \alt <memory>
   \alt <cell>
   \alt <process>
-  \alt <connection>)$*$
+  \alt <conn-stmt>)$*$
 
 <param-stmt> ::= "parameter" <id> <constant>$?$ <eol>
 
@@ -131,7 +128,7 @@ Declares a module, with zero or more attributes, consisting of zero or more wire
 
 Declares an attribute with the given identifier and value.
 
-\textbf{Warning:} There is currently a bug where integer constants are silently truncated to 32 bits and treated as unsigned.
+\textbf{Warning:} Integer constants greater than 32 bits are silently truncated to 32 bits and treated as unsigned.
 
 \begin{indentgrammar}{<attr-stmt>}
 <attr-stmt> ::= "attribute" <id> <constant> <eol>
@@ -153,11 +150,9 @@ See Sec.~\ref{sec:rtlil_sigspec} for an overview of signal specifications.
 
 \subsection{Connections}
 
-Declares a connection, with zero or more attributes, between the given signals.
+Declares a connection between the given signals.
 
-\begin{indentgrammar}{<connection>}
-<connection> ::= <attr-stmt>$*$ <conn-stmt>
-
+\begin{indentgrammar}{<conn-stmt>}
 <conn-stmt> ::= "connect" <sigspec> <sigspec> <eol>
 \end{indentgrammar}
 
@@ -203,9 +198,9 @@ See Sec.~\ref{sec:rtlil_memory} for an overview of memory cells, and Sec.~\ref{s
 
 \subsection{Cells}
 
-Declares a cell, with zero or more attributes, with the given identifier and type in the enclosing module.
+Declares a cell, with zero or more attributes, with the given identifier and type in the enclosing module. 
 
-See Chap.~\ref{chapter:celllib} for a detailed list of cell types.
+Cells perform functions on input signals. See Chap.~\ref{chapter:celllib} for a detailed list of cell types.
 
 \begin{indentgrammar}{<cell-body-stmt>}
 <cell> ::= <attr-stmt>$*$ <cell-stmt> <cell-body-stmt>$*$ <cell-end-stmt>
@@ -225,46 +220,68 @@ See Chap.~\ref{chapter:celllib} for a detailed list of cell types.
 
 \subsection{Processes}
 
-Declares a process, with zero or more attributes, with the given identifier in the enclosing module.
+Declares a process, with zero or more attributes, with the given identifier in the enclosing module. The body of a process consists of zero or more assignments, exactly one switch, and zero or more syncs.
 
 See Sec.~\ref{sec:rtlil_process} for an overview of processes.
 
 \begin{indentgrammar}{<switch-end-stmt>}
-<process> ::= <attr-stmt>$*$ <proc-stmt> <case-body> <sync>$*$ <proc-end-stmt>
+<process> ::= <attr-stmt>$*$ <proc-stmt> <process-body> <proc-end-stmt>
 
 <proc-stmt> ::= "process" <id> <eol>
 
+<process-body> ::= <assign-stmt>$*$ <switch> <assign-stmt>$*$ <sync>$*$
+
+<assign-stmt> ::= "assign" <dest-sigspec> <src-sigspec> <eol>
+
+<dest-sigspec> ::= <sigspec>
+
+<src-sigspec> ::= <sigspec>
+
 <proc-end-stmt> ::= "end" <eol>
 
-<case-body> ::= (<attr-stmt> | <switch> | <assign-stmt>)$*$
+\end{indentgrammar}
 
-<switch> ::= <switch-stmt> <attr-stmt>$*$ <case>$*$ <switch-end-stmt>
+\subsection{Switches}
 
-<switch-stmt> := "switch" <sigspec> <eol>
+Switches test a signal for equality against a list of cases. Each case specifies a comma-separated list of signals to check against. If there are no signals in the list, then the case is the default case. The body of a case consists of zero or more switches and assignments. Both switches and cases may have zero or more attributes.
 
-<switch-end-stmt> ::= "end" <eol>
+\begin{indentgrammar}{<switch-end-stmt>}
+<switch> ::= <switch-stmt> <case>$*$ <switch-end-stmt>
 
-<case> ::= <case-stmt> <case-body>
+<switch-stmt> := <attr-stmt>$*$ "switch" <sigspec> <eol>
+
+<case> ::= <attr-stmt>$*$ <case-stmt> <case-body>
 
 <case-stmt> ::= "case" <compare>$?$ <eol>
 
 <compare> ::= <sigspec> ("," <sigspec>)$*$
 
+<case-body> ::= (<switch> | <assign-stmt>)$*$
+
+<switch-end-stmt> ::= "end" <eol>
+\end{indentgrammar}
+
+\subsection{Syncs}
+
+Syncs update signals with other signals when an event happens. Such an event may be:
+
+\begin{itemize}
+  \item An edge or level on a signal
+  \item Global clock ticks
+  \item Initialization
+  \item Always
+\end{itemize}
+
+\begin{indentgrammar}{<dest-sigspec>}
 <sync> ::= <sync-stmt> <update-stmt>$*$
 
 <sync-stmt> ::= 
 "sync" <sync-type> <sigspec> <eol>
-  \alt "sync" "always" <eol>
   \alt "sync" "global" <eol>
   \alt "sync" "init" <eol>
+  \alt "sync" "always" <eol>
 
 <sync-type> ::= "low" | "high" | "posedge" | "negedge" | "edge"
 
-<assign-stmt> ::= "assign" <dest-sigspec> <src-sigspec> <eol>
-
 <update-stmt> ::= "update" <dest-sigspec> <src-sigspec> <eol>
-
-<dest-sigspec> ::= <sigspec>
-
-<src-sigspec> ::= <sigspec>
 \end{indentgrammar}
