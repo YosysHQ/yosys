@@ -25,7 +25,7 @@ Finally, note that all statements (rules ending in \texttt{-stmt}) terminate in 
 
 \subsection{Characters}
 
-The characters accepted in an RTLIL file are those encodable in 8 bits. UTF-8 is safe to use. Byte order marks at the beginning of the file will cause an error.
+An RTLIL file is a stream of bytes. Strictly speaking, a ``character'' in an RTLIL file is a single byte. The lexer treats multi-byte encoded characters as consecutive single-byte characters. While other encodings \textit{may} work, UTF-8 is known to be safe to use. Byte order marks at the beginning of the file will cause an error.
 
 ASCII spaces (32) and tabs (9) separate lexer tokens.
 
