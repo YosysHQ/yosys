@@ -25,13 +25,13 @@ Finally, note that all statements (rules ending in \texttt{-stmt}) terminate in 
 
 \subsection{Characters}
 
-The characters accepted in an RTLIL file are those encodable in 8 bits. Unicode is not supported. For maximum safety, limit characters to the 7-bit ASCII range $[0,127]$.
+The characters accepted in an RTLIL file are those encodable in 8 bits. UTF-8 is safe to use. Byte order marks at the beginning of the file will cause an error.
 
-Between lexer tokens outside of strings, spaces (ASCII 32) and tabs (ASCII 9) are ignored.
+ASCII spaces (32) and tabs (9) separate lexer tokens.
 
-A \texttt{nonws} character is any character other than a space (ASCII 32), tab (ASCII 9), newline (ASCII 10), or carriage return (ASCII 13).
+A \texttt{nonws} character, used in identifiers, is any character whose encoding consists solely of bytes above ASCII space (32).
 
-An \texttt{eol} is any number of consecutive newlines (ASCII 10) and carriage returns (ASCII 13).
+An \texttt{eol} is one or more consecutive ASCII newlines (10) and carriage returns (13).
 
 \subsection{Identifiers}
 
@@ -76,7 +76,7 @@ An \textit{integer} is simply a signed integer value in decimal format. \textbf{
 
 \subsection{Strings}
 
-A string is a series of characters delimited by double-quote characters. Within a string, certain escapes can be used:
+A string is a series of characters delimited by double-quote characters. Within a string, any character except ASCII NUL (0) may be used. In addition, certain escapes can be used:
 
 \begin{itemize}
     \item \texttt{\textbackslash n}: A newline
