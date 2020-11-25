@@ -27,6 +27,12 @@ Finally, note that all statements (rules ending in \texttt{-stmt}) terminate in 
 
 The characters accepted in an RTLIL file are those encodable in 8 bits. Unicode is not supported. For maximum safety, limit characters to the 7-bit ASCII range $[0,127]$.
 
+Between lexer tokens outside of strings, spaces (ASCII 32) and tabs (ASCII 9) are ignored.
+
+A \texttt{nonws} character is any character other than a space (ASCII 32), tab (ASCII 9), newline (ASCII 10), or carriage return (ASCII 13).
+
+An \texttt{eol} is any number of consecutive newlines (ASCII 10) and carriage returns (ASCII 13).
+
 \subsection{Identifiers}
 
 There are two types of identifiers in RTLIL:
@@ -43,8 +49,6 @@ There are two types of identifiers in RTLIL:
 
 <autogen-id> ::= "\textdollar" <nonws>$+$
 \end{indentgrammar}
-
-A \texttt{nonws} character is any character other than a space (ASCII 32), tab (ASCII 9), newline (ASCII 10), or carriage return (ASCII 13).
 
 \subsection{Values}
 
