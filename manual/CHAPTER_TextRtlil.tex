@@ -19,6 +19,8 @@ The grammar is not meant to represent semantic limitations. For example, process
 
 The grammar is also not meant to represent the exact grammar used in the RTLIL frontend, since that grammar is specific to processing by lex and yacc, and is somewhat less understandable than simple EBNF notation.
 
+Finally, note that all statements (rules ending in \texttt{-stmt}) terminate in an end-of-line. Because of this, statements cannot contain end-of-lines.
+
 \section{Lexical elements}
 
 \subsection{Identifiers}
@@ -87,34 +89,53 @@ A comment starts with a \texttt{\textbf{\#}} character and proceeds to the end o
 
 \section{File}
 
-A file consists of zero or more modules, attribute statements, and auto-index statements. All statements terminate in an end-of-line. Because of this, statements cannot contain end-of-lines.
-
-Attributes at the file level are applied to the following module.
+A file consists of an optional autoindex statement followed by zero or more modules.
 
 \begin{indentgrammar}{<design>}
-<file> ::= (<module> | <attr-stmt> | <autoidx-stmt>)$*$
+<file> ::= <autoidx-stmt>$?$ <module>*
+\end{indentgrammar}
+
+\subsection{Autoindex statements}
+
+The autoindex statement sets the global autoindex value used by Yosys when it needs to generate a unique name, e.g. \texttt{\textdollar{}flatten\textdollar{}N}. The N part is filled with the value of the global autoindex value, which is subsequently incremented. This global has to be dumped into RTLIL, otherwise e.g. dumping and running a pass would have different properties than just running a pass on a warm design.
+
+\begin{indentgrammar}{<autoidx-stmt>}
+<autoidx-stmt> ::= "autoidx" <integer> <eol>
 \end{indentgrammar}
 
 \subsection{Modules}
 
-Declares a module consisting of zero or more attributes, wires, memories, cells, processes, and connections.
+Declares a module, with zero or more attributes, consisting of zero or more wires, memories, cells, processes, and connections.
 
 \begin{indentgrammar}{<module-body-stmt>}
-<module> ::= <module-stmt> <module-body> <module-end-stmt>
+<module> ::= <attr-stmt>$*$ <module-stmt> <module-body> <module-end-stmt>
 
 <module-stmt> ::= "module" <id> <eol>
 
 <module-body> ::= 
 (<param-stmt>
-  \alt <attr-stmt>
-  \alt <wire-stmt>
-  \alt <memory-stmt>
+  \alt <wire>
+  \alt <memory>
   \alt <cell>
   \alt <process>
-  \alt <conn-stmt>)$*$
-\end{indentgrammar}
+  \alt <connection>)$*$
+
+<param-stmt> ::= "parameter" <id> <constant>$?$ <eol>
+
+<constant> ::= <value> | <integer> | <string>
 
 <module-end-stmt> ::= "end" <eol>
+\end{indentgrammar}
+
+\subsection{Attribute statements}
+
+Declares an attribute with the given identifier and value.
+
+\textbf{Warning:} There is currently a bug where integer constants are silently truncated to 32 bits and treated as unsigned.
+
+\begin{indentgrammar}{<attr-stmt>}
+<attr-stmt> ::= "attribute" <id> <constant> <eol>
+\end{indentgrammar}
 
 \subsection{Signal specifications}
 
@@ -130,47 +151,25 @@ See Sec.~\ref{sec:rtlil_sigspec} for an overview of signal specifications.
     \alt "\{" <sigspec>$*$ "\}"
 \end{indentgrammar}
 
-\subsection{Connection statements}
+\subsection{Connections}
 
-Declares a connection between the given signals.
+Declares a connection, with zero or more attributes, between the given signals.
 
-\begin{indentgrammar}{<conn-stmt>}
+\begin{indentgrammar}{<connection>}
+<connection> ::= <attr-stmt>$*$ <conn-stmt>
+
 <conn-stmt> ::= "connect" <sigspec> <sigspec> <eol>
 \end{indentgrammar}
 
-\subsection{Attribute statements}
+\subsection{Wires}
 
-Declares an attribute with the given identifier and value. Attributes at the file level apply to the following module. Attributes within a module apply to the following non-attribute statement.
-
-\begin{indentgrammar}{<attr-stmt>}
-<attr-stmt> ::= "attribute" <id> <constant> <eol>
-
-<constant> ::= <value> | <integer> | <string>
-\end{indentgrammar}
-
-\subsection{Autoindex statements}
-
-The function of this statement is currently undocumented.
-
-\begin{indentgrammar}{<autoidx-stmt>}
-<autoidx-stmt> ::= "autoidx" <integer> <eol>
-\end{indentgrammar}
-
-\subsection{Parameter statements}
-
-Declares a parameter with the given identifier for the enclosing module, optionally with the given default value.
-
-\begin{indentgrammar}{<param-stmt>}
-<param-stmt> ::= "parameter" <id> <constant>$?$ <eol>
-\end{indentgrammar}
-
-\subsection{Wire statements}
-
-Declares a wire with the given identifier in the enclosing module, with options.
+Declares a wire, with zero or more attributes, with the given identifier and options in the enclosing module.
 
 See Sec.~\ref{sec:rtlil_cell_wire} for an overview of wires.
 
 \begin{indentgrammar}{<wire-option>}
+<wire> ::= <attr-stmt>$*$ <wire-stmt>
+
 <wire-stmt> ::= "wire" <wire-option>$*$ <wire-id> <eol>
 
 <wire-id> ::= <id>
@@ -185,13 +184,15 @@ See Sec.~\ref{sec:rtlil_cell_wire} for an overview of wires.
   \alt "signed"
 \end{indentgrammar}
 
-\subsection{Memory statements}
+\subsection{Memories}
 
-Declares a memory with the given identifier in the enclosing module, with options.
+Declares a memory, with zero or more attributes, with the given identifier and options in the enclosing module.
 
 See Sec.~\ref{sec:rtlil_memory} for an overview of memory cells, and Sec.~\ref{sec:memcells} for details about memory cell types.
 
 \begin{indentgrammar}{<memory-option>}
+<memory> ::= <attr-stmt>$*$ <memory-stmt>
+
 <memory-stmt> ::= "memory" <memory-option>$*$ <id> <eol>
 
 <memory-option> ::= 
@@ -202,12 +203,12 @@ See Sec.~\ref{sec:rtlil_memory} for an overview of memory cells, and Sec.~\ref{s
 
 \subsection{Cells}
 
-Declares a cell with the given identifier in the enclosing module.
+Declares a cell, with zero or more attributes, with the given identifier and type in the enclosing module.
 
 See Chap.~\ref{chapter:celllib} for a detailed list of cell types.
 
 \begin{indentgrammar}{<cell-body-stmt>}
-<cell> ::= <cell-stmt> <cell-body-stmt> <cell-end-stmt>
+<cell> ::= <attr-stmt>$*$ <cell-stmt> <cell-body-stmt>$*$ <cell-end-stmt>
 
 <cell-stmt> ::= "cell" <cell-id> <cell-type> <eol>
 
@@ -222,14 +223,14 @@ See Chap.~\ref{chapter:celllib} for a detailed list of cell types.
 <cell-end-stmt> ::= "end" <eol>
 \end{indentgrammar}
 
-\subsection{Process statements}
+\subsection{Processes}
 
-Declares a process with the given identifier in the enclosing module.
+Declares a process, with zero or more attributes, with the given identifier in the enclosing module.
 
 See Sec.~\ref{sec:rtlil_process} for an overview of processes.
 
 \begin{indentgrammar}{<switch-end-stmt>}
-<process> ::= <proc-stmt> <case-body> <sync>$*$ <proc-end-stmt>
+<process> ::= <attr-stmt>$*$ <proc-stmt> <case-body> <sync>$*$ <proc-end-stmt>
 
 <proc-stmt> ::= "process" <id> <eol>
 
@@ -267,4 +268,3 @@ See Sec.~\ref{sec:rtlil_process} for an overview of processes.
 
 <src-sigspec> ::= <sigspec>
 \end{indentgrammar}
-
