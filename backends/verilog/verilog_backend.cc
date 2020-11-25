@@ -1546,11 +1546,15 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 
 void dump_conn(std::ostream &f, std::string indent, const RTLIL::SigSpec &left, const RTLIL::SigSpec &right)
 {
-	f << stringf("%s" "assign ", indent.c_str());
-	dump_sigspec(f, left);
-	f << stringf(" = ");
-	dump_sigspec(f, right);
-	f << stringf(";\n");
+	int offset = 0;
+	for (auto &chunk : left.chunks()) {
+		f << stringf("%s" "assign ", indent.c_str());
+		dump_sigspec(f, chunk);
+		f << stringf(" = ");
+		dump_sigspec(f, right.extract(offset, GetSize(chunk)));
+		f << stringf(";\n");
+		offset += GetSize(chunk);
+	}
 }
 
 void dump_proc_switch(std::ostream &f, std::string indent, RTLIL::SwitchRule *sw);
