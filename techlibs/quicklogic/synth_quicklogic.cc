@@ -61,6 +61,9 @@ struct SynthQuickLogicPass : public ScriptPass {
         log("    -adder\n");
         log("        use adder cells in output netlist\n");
         log("\n");
+        log("    -infer_dbuff\n");
+        log("        Infer d_buff for const driver IO signals (applicable for AP, AP2 & AP3 device)\n");
+        log("\n");
         log("    -vpr\n");
         log("        generate an output netlist (and BLIF file) suitable for VPR\n");
         log("        (this feature is experimental and incomplete)\n");
@@ -74,7 +77,7 @@ struct SynthQuickLogicPass : public ScriptPass {
     }
 
     string top_opt, edif_file, blif_file, family, currmodule;
-    bool inferAdder, vpr, openfpga;
+    bool inferAdder, vpr, openfpga, infer_dbuff;
     bool abcOpt;
 
     void clear_flags() YS_OVERRIDE
@@ -88,6 +91,7 @@ struct SynthQuickLogicPass : public ScriptPass {
         abcOpt = true;
         vpr=false;
         openfpga=false;
+        infer_dbuff = false;
     }
 
     void execute(std::vector<std::string> args, RTLIL::Design *design) YS_OVERRIDE
@@ -116,6 +120,10 @@ struct SynthQuickLogicPass : public ScriptPass {
             }
             if (args[argidx] == "-adder") {
                 inferAdder = true;
+                continue;
+            }
+            if (args[argidx] == "-infer_dbuff") {
+                infer_dbuff = true;
                 continue;
             }
             if (args[argidx] == "-no_abc_opt") {
@@ -318,7 +326,14 @@ struct SynthQuickLogicPass : public ScriptPass {
                 if (!openfpga) {
                     run("clkbufmap -buf $_BUF_ Y:A -inpad ck_buff Q:A");
                     run("iopadmap -bits -outpad $__out_buff A:Q -inpad $__in_buff Q:A");
-                    std::string techMapArgs = " -map +/quicklogic/" + family + "_io_map.v -autoproc";
+                    string ioTechmapFile;
+                    if(infer_dbuff) {
+                        ioTechmapFile = family + "_io_map_dbuff.v";
+                    } else {
+                        ioTechmapFile = family + "_io_map.v";
+
+                    }
+                    std::string techMapArgs = " -map +/quicklogic/" + ioTechmapFile + " -autoproc ";
                     run("techmap" + techMapArgs);
                 }
             } 
