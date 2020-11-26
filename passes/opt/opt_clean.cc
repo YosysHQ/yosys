@@ -365,13 +365,17 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 			initval.bits.resize(GetSize(wire), State::Sx);
 		if (initval.is_fully_undef())
 			wire->attributes.erase(ID::init);
+		Const used_initval = initval;
+		for (auto i = 0; i < GetSize(wire); i++)
+			if (used_initval[i] != State::Sx && !raw_used_signals.check(s1[i]) && !used_signals.check(s2[i]))
+				used_initval[i] = State::Sx;
 
 		if (GetSize(wire) == 0) {
 			// delete zero-width wires, unless they are module ports
 			if (wire->port_id == 0)
 				goto delete_this_wire;
 		} else
-		if (wire->port_id != 0 || wire->get_bool_attribute(ID::keep) || !initval.is_fully_undef()) {
+		if (wire->port_id != 0 || wire->get_bool_attribute(ID::keep) || !used_initval.is_fully_undef()) {
 			// do not delete anything with "keep" or module ports or initialized wires
 		} else
 		if (!purge_mode && check_public_name(wire->name) && (raw_used_signals.check_any(s1) || used_signals.check_any(s2) || s1 != s2)) {
