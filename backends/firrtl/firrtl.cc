@@ -1457,8 +1457,8 @@ struct FirrtlBackend : public Backend {
 				module->addWire(intermediate_wire_id, module->wire(port_wire_id)->width);
 			}
 
-			// Replace all references to output port with a reference to
-			// the intermediate wire instead.
+			// Replace all references to output port in the module's connections with
+			// a reference to the intermediate wire instead.
 			std::vector<RTLIL::SigSig> new_connections;
 			for (const auto conn : module->connections())
 			{
@@ -1469,6 +1469,25 @@ struct FirrtlBackend : public Backend {
 				RTLIL::SigSpec new_rhs = replaceReferences(rhs, module, outputPortDriver);
 
 				new_connections.push_back(std::make_pair(new_lhs, new_rhs));
+			}
+
+			// Replace all references to output port in the module's cells' connections with
+			// a reference to the intermediate wire instead.
+			for (auto cell : module->cells())
+			{
+				// Is this cell is a module instance?
+				if (cell->type[0] != '$')
+				{
+					for (auto it = cell->connections().begin(); it != cell->connections().end(); ++it) {
+						if (it->second.size() > 0) {
+							const RTLIL::IdString port_name = it->first;
+							const RTLIL::SigSpec &signal = it->second;
+							RTLIL::SigSpec new_signal = replaceReferences(signal, module, outputPortDriver);
+							cell->unsetPort(port_name);
+							cell->setPort(port_name, new_signal);
+						}
+					}
+				}
 			}
 
 			// Connect intermediate wire to the port wire.
