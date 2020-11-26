@@ -1511,6 +1511,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 		}
 
 	} else {
+		modname = new_modname;
 		log("Found cached RTLIL representation for module `%s'.\n", modname.c_str());
 	}
 
