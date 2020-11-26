@@ -173,6 +173,11 @@ struct SynthMachXO2Pass : public ScriptPass
 			run("opt -fast");
 		}
 
+		if (check_label("map_ios"))
+		{
+			run("iopadmap -bits -outpad $__FACADE_OUTPAD I:O -inpad $__FACADE_INPAD O:I -toutpad $__FACADE_TOUTPAD OE:I:O -tinoutpad $__FACADE_TINOUTPAD OE:O:I:B A:top");
+		}
+
 		if (check_label("map_ffs"))
 		{
 			run("dfflegalize -cell $_DFF_P_ 0");
