@@ -60,6 +60,9 @@ struct SynthMachXO2Pass : public ScriptPass
 		log("    -noflatten\n");
 		log("        do not flatten design before synthesis\n");
 		log("\n");
+		log("    -noiopad\n");
+		log("        do not insert IO buffers\n");
+		log("\n");
 		log("    -vpr\n");
 		log("        generate an output netlist (and BLIF file) suitable for VPR\n");
 		log("        (this feature is experimental and incomplete)\n");
@@ -71,7 +74,7 @@ struct SynthMachXO2Pass : public ScriptPass
 	}
 
 	string top_opt, blif_file, edif_file, json_file;
-	bool flatten, vpr;
+	bool flatten, vpr, noiopad;
 
 	void clear_flags() override
 	{
@@ -81,6 +84,7 @@ struct SynthMachXO2Pass : public ScriptPass
 		json_file = "";
 		flatten = true;
 		vpr = false;
+		noiopad = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -121,6 +125,10 @@ struct SynthMachXO2Pass : public ScriptPass
 			}
 			if (args[argidx] == "-noflatten") {
 				flatten = false;
+				continue;
+			}
+			if (args[argidx] == "-noiopad") {
+				noiopad = true;
 				continue;
 			}
 			if (args[argidx] == "-vpr") {
@@ -175,7 +183,8 @@ struct SynthMachXO2Pass : public ScriptPass
 
 		if (check_label("map_ios"))
 		{
-			run("iopadmap -bits -outpad $__FACADE_OUTPAD I:O -inpad $__FACADE_INPAD O:I -toutpad $__FACADE_TOUTPAD OE:I:O -tinoutpad $__FACADE_TINOUTPAD OE:O:I:B A:top");
+			if (!noiopad || help_mode)
+				run("iopadmap -bits -outpad $__FACADE_OUTPAD I:O -inpad $__FACADE_INPAD O:I -toutpad $__FACADE_TOUTPAD OE:I:O -tinoutpad $__FACADE_TINOUTPAD OE:O:I:B A:top", "(skip if '-noiopad')");
 		}
 
 		if (check_label("map_ffs"))
