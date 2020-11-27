@@ -42,13 +42,18 @@ static const FDirection FD_OUT = 0x2;
 static const FDirection FD_INOUT = 0x3;
 static const int FIRRTL_MAX_DSH_WIDTH_ERROR = 20; // For historic reasons, this is actually one greater than the maximum allowed shift width
 
-RTLIL::SigSpec replaceReferences(const RTLIL::SigSpec& sig, RTLIL::Module * const module, const dict<RTLIL::IdString, RTLIL::IdString>& outputPortDriver)
+/**
+ * Replaces references in input signal "sig" of module "module" that are found
+ * in the rename_map. The rename_map maps the old name of an identifier to its
+ * new name.
+ */
+RTLIL::SigSpec replaceReferences(const RTLIL::SigSpec& sig, RTLIL::Module * const module, const dict<RTLIL::IdString, RTLIL::IdString>& rename_map)
 {
 	RTLIL::SigSpec new_sig;
 
 	for (auto chunk : sig.chunks())
 	{
-		if ((chunk.wire == nullptr) || outputPortDriver.count(chunk.wire->name) == 0)
+		if ((chunk.wire == nullptr) || rename_map.count(chunk.wire->name) == 0)
 		{
 			// Take literals and wires that don't need renaming as-is.
 			new_sig.append(chunk);
@@ -56,13 +61,106 @@ RTLIL::SigSpec replaceReferences(const RTLIL::SigSpec& sig, RTLIL::Module * cons
 		else
 		{
 			RTLIL::SigChunk new_chunk = chunk;
-			RTLIL::Wire *new_wire = module->wire(outputPortDriver.at(chunk.wire->name));
+			RTLIL::Wire *new_wire = module->wire(rename_map.at(chunk.wire->name));
 			new_chunk.wire = new_wire;
 			new_sig.append(new_chunk);
 		}
 	}
 
 	return new_sig;
+}
+
+/**
+ * Renames RHS references to output ports.
+ *
+ * Yosys represents ports as wires, therefore outgoing ports can be referenced
+ * by other signals. Firrtl does not support this and there is a distinction
+ * between a wire and a port. An output port can only be written to and cannot
+ * be used as references in other signals' expressions.
+ *
+ * This function modifies the RTLIL structure of the module to work around
+ * Yosys' representation by introducing a dedicated wire for each outgoing port
+ * of the module. This new intermediate wire will be used as a placeholder for
+ * all existing references to RTLIL wires that represent output ports. We then
+ * connect this intermediate wire in a single assignment to the output port so
+ * the generated Firrtl is legal with no RHS references to the port name.
+ */
+void rename_invalid_rhs_references(RTLIL::Design *design)
+{
+	for (auto module : design->modules())
+	{
+		// Create intermediate wire and keep track of mapping between
+		// output ports and their intermediate wire.
+		dict<RTLIL::IdString, RTLIL::IdString> outputPortDriver;
+		for (const auto wire : module->wires())
+		{
+			if (wire->port_output)
+			{
+				RTLIL::IdString intermediate_wire_id = NEW_ID;
+				outputPortDriver[wire->name] = intermediate_wire_id;
+			}
+		}
+
+		// Add intermediate wire to module.
+		for (const auto portWire_intermediateWire : outputPortDriver)
+		{
+			RTLIL::IdString port_wire_id = portWire_intermediateWire.first;
+			RTLIL::IdString intermediate_wire_id = portWire_intermediateWire.second;
+
+			// Does NOT mark this wire as a port.
+			module->addWire(intermediate_wire_id, module->wire(port_wire_id)->width);
+		}
+
+		// Replace all references to output port in the module's connections with
+		// a reference to the intermediate wire instead.
+		std::vector<RTLIL::SigSig> new_connections;
+		for (const auto conn : module->connections())
+		{
+			RTLIL::SigSpec lhs = conn.first;
+			RTLIL::SigSpec rhs = conn.second;
+
+			RTLIL::SigSpec new_lhs = replaceReferences(lhs, module, outputPortDriver);
+			RTLIL::SigSpec new_rhs = replaceReferences(rhs, module, outputPortDriver);
+
+			new_connections.push_back(std::make_pair(new_lhs, new_rhs));
+		}
+
+		// Replace all references to output port in the module's cells' connections with
+		// a reference to the intermediate wire instead.
+		for (auto cell : module->cells())
+		{
+			// Is this cell is a module instance?
+			if (cell->type[0] != '$')
+			{
+				for (auto it = cell->connections().begin(); it != cell->connections().end(); ++it) {
+					if (it->second.size() > 0) {
+						const RTLIL::IdString port_name = it->first;
+						const RTLIL::SigSpec &signal = it->second;
+						RTLIL::SigSpec new_signal = replaceReferences(signal, module, outputPortDriver);
+						cell->unsetPort(port_name);
+						cell->setPort(port_name, new_signal);
+					}
+				}
+			}
+		}
+
+		// Connect intermediate wire to the port wire.
+		for (const auto portWire_intermediateWire : outputPortDriver)
+		{
+			RTLIL::IdString port_wire_id = portWire_intermediateWire.first;
+			RTLIL::IdString intermediate_wire_id = portWire_intermediateWire.second;
+			RTLIL::Wire *port_wire = module->wire(port_wire_id);
+			RTLIL::Wire *intermediate_wire = module->wire(intermediate_wire_id);
+
+			RTLIL::SigSpec lhs = SigSpec(port_wire);
+			RTLIL::SigSpec rhs = SigSpec(intermediate_wire);
+
+			new_connections.push_back(std::make_pair(lhs, rhs));
+		}
+
+		// Update module connections.
+		module->new_connections(new_connections);
+	}
 }
 
 std::string getFileinfo(const RTLIL::AttrObject *design_entity)
@@ -176,6 +274,10 @@ std::string make_expr(const SigSpec &sig)
 	return expr;
 }
 
+/**
+ * Emits an std::string representation of an RTLIL constant that is known
+ * to be a string.
+ */
 std::string dump_const_string(const RTLIL::Const &data)
 {
 	std::string res_str;
@@ -200,6 +302,9 @@ std::string dump_const_string(const RTLIL::Const &data)
 	return res_str;
 }
 
+/**
+ * Emits an std::string representation of a generic RTLIL constant.
+ */
 std::string dump_const(const RTLIL::Const &data)
 {
 	std::string res_str;
@@ -297,11 +402,15 @@ std::string dump_const(const RTLIL::Const &data)
 	return res_str;
 }
 
+/**
+ * Creates a unique name for an extmodule.
+ *
+ * Since we are creating a custom extmodule for every cell that instantiates
+ * this blackbox, we need to create a custom name for it. We just use the
+ * name of the blackbox itself followed by the name of the cell.
+ */
 std::string extmodule_name(RTLIL::Cell *cell, RTLIL::Module *mod_instance)
 {
-	// Since we are creating a custom extmodule for every cell that instantiates
-	// this blackbox, we need to create a custom name for it. We just use the
-	// name of the blackbox itself followed by the name of the cell.
 	const std::string cell_name = std::string(make_id(cell->name));
 	const std::string blackbox_name = std::string(make_id(mod_instance->name));
 	const std::string extmodule_name = blackbox_name + "_" + cell_name;
@@ -652,7 +761,7 @@ struct FirrtlWorker
 
 				// Check for subfield assignment with `bits(` or concatenation with
 				// `cat(` as these are the two expressions that can be generated by
-				// `make_expr()`.  Such expressions cannot be on the LHS of a Connect
+				// `make_expr()`. Such expressions cannot be on the LHS of a Connect
 				// statement and we handle them later through the reverse_wire_map.
 				const std::string bitsString = "bits(";
 				const std::string catString = "cat(";
@@ -1422,96 +1531,7 @@ struct FirrtlBackend : public Backend {
 		namecache.clear();
 		autoid_counter = 0;
 
-		// Yosys represents ports as wires, therefore outgoing ports can be
-		// referenced by other signals. Firrtl does not support this and
-		// there is a distinction between a wire and a port. An output port
-		// can only be written to and cannot be used as references in other
-		// signals' expressions.
-		// We therefore modify RTLIL here and work around Yosys' representation
-		// by introducing a dedicated wire for each outgoing port of the module.
-		// This new intermediate wire will be used as a placeholder for all existing
-		// references to RTLIL wires that represent output ports. We will then
-		// connect this intermediate wire in a single assignment to the output port
-		// so the generated Firrtl is legal with no RHS references to the port name.
-		for (auto module : design->modules())
-		{
-			// Create intermediate wire and keep track of mapping between
-			// output ports and their intermediate wire.
-			dict<RTLIL::IdString, RTLIL::IdString> outputPortDriver;
-			for (const auto wire : module->wires())
-			{
-				if (wire->port_output)
-				{
-					RTLIL::IdString intermediate_wire_id = NEW_ID;
-					outputPortDriver[wire->name] = intermediate_wire_id;
-				}
-			}
-
-			// Add intermediate wire to module.
-			for (const auto portWire_intermediateWire : outputPortDriver)
-			{
-				RTLIL::IdString port_wire_id = portWire_intermediateWire.first;
-				RTLIL::IdString intermediate_wire_id = portWire_intermediateWire.second;
-
-				// Does NOT mark this wire as a port.
-				module->addWire(intermediate_wire_id, module->wire(port_wire_id)->width);
-			}
-
-			// Replace all references to output port in the module's connections with
-			// a reference to the intermediate wire instead.
-			std::vector<RTLIL::SigSig> new_connections;
-			for (const auto conn : module->connections())
-			{
-				RTLIL::SigSpec lhs = conn.first;
-				RTLIL::SigSpec rhs = conn.second;
-
-				RTLIL::SigSpec new_lhs = replaceReferences(lhs, module, outputPortDriver);
-				RTLIL::SigSpec new_rhs = replaceReferences(rhs, module, outputPortDriver);
-
-				new_connections.push_back(std::make_pair(new_lhs, new_rhs));
-			}
-
-			// Replace all references to output port in the module's cells' connections with
-			// a reference to the intermediate wire instead.
-			for (auto cell : module->cells())
-			{
-				// Is this cell is a module instance?
-				if (cell->type[0] != '$')
-				{
-					for (auto it = cell->connections().begin(); it != cell->connections().end(); ++it) {
-						if (it->second.size() > 0) {
-							const RTLIL::IdString port_name = it->first;
-							const RTLIL::SigSpec &signal = it->second;
-							RTLIL::SigSpec new_signal = replaceReferences(signal, module, outputPortDriver);
-							cell->unsetPort(port_name);
-							cell->setPort(port_name, new_signal);
-						}
-					}
-				}
-			}
-
-			// Connect intermediate wire to the port wire.
-			for (const auto portWire_intermediateWire : outputPortDriver)
-			{
-				RTLIL::IdString port_wire_id = portWire_intermediateWire.first;
-				RTLIL::IdString intermediate_wire_id = portWire_intermediateWire.second;
-				RTLIL::Wire *port_wire = module->wire(port_wire_id);
-				RTLIL::Wire *intermediate_wire = module->wire(intermediate_wire_id);
-
-				printf("port_wire_id = %s\n", port_wire_id.c_str());
-				printf("intermediate_wire_id = %s\n", intermediate_wire_id.c_str());
-				printf("port_wire_name = %s\n", port_wire->name.c_str());
-				printf("intermediate_wire_name = %s\n", intermediate_wire->name.c_str());
-
-				RTLIL::SigSpec lhs = SigSpec(port_wire);
-				RTLIL::SigSpec rhs = SigSpec(intermediate_wire);
-
-				new_connections.push_back(std::make_pair(lhs, rhs));
-			}
-
-			// Update module connections.
-			module->new_connections(new_connections);
-		}
+		rename_invalid_rhs_references(design);
 
 		// Get the top module, or a reasonable facsimile - we need something for the circuit name.
 		Module *top = design->top_module();
