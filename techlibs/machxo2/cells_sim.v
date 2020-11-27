@@ -132,7 +132,7 @@ module FACADE_SLICE #(
 			PFUMX K0K1MUX (.ALUT(k1), .BLUT(k0), .C0(M0), .Z(OFX0));
 
 			LUT4 #(.INIT(LUT0_INITVAL)) LUT_0 (.A(A0), .B(B0), .C(C0), .D(D0), .Z(k0));
-			LUT4 #(.INIT(LUT0_INITVAL)) LUT_1 (.A(A0), .B(B0), .C(C0), .D(D0), .Z(k1));
+			LUT4 #(.INIT(LUT1_INITVAL)) LUT_1 (.A(A0), .B(B0), .C(C0), .D(D0), .Z(k1));
 
 			assign F0 = k0;
 			assign F1 = k1;
