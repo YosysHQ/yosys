@@ -129,17 +129,13 @@ void rename_invalid_rhs_references(RTLIL::Design *design)
 		// a reference to the intermediate wire instead.
 		for (auto cell : module->cells())
 		{
-			// Is this cell is a module instance?
-			if (cell->type[0] != '$')
-			{
-				for (auto it = cell->connections().begin(); it != cell->connections().end(); ++it) {
-					if (it->second.size() > 0) {
-						const RTLIL::IdString port_name = it->first;
-						const RTLIL::SigSpec &signal = it->second;
-						RTLIL::SigSpec new_signal = replaceReferences(signal, module, outputPortDriver);
-						cell->unsetPort(port_name);
-						cell->setPort(port_name, new_signal);
-					}
+			for (auto it = cell->connections().begin(); it != cell->connections().end(); ++it) {
+				if (it->second.size() > 0) {
+					const RTLIL::IdString port_name = it->first;
+					const RTLIL::SigSpec &signal = it->second;
+					RTLIL::SigSpec new_signal = replaceReferences(signal, module, outputPortDriver);
+					cell->unsetPort(port_name);
+					cell->setPort(port_name, new_signal);
 				}
 			}
 		}
