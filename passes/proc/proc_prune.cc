@@ -65,6 +65,7 @@ struct PruneWorker
 			pool<RTLIL::SigBit> sw_assigned = do_switch((*it), assigned, affected);
 			assigned.insert(sw_assigned.begin(), sw_assigned.end());
 		}
+		std::vector<RTLIL::SigSig> new_actions;
 		for (auto it = cs->actions.rbegin(); it != cs->actions.rend(); ) {
 			RTLIL::SigSpec lhs = sigmap(it->first);
 			bool redundant = true;
@@ -80,39 +81,41 @@ struct PruneWorker
 				remove = true;
 			} else {
 				if (root) {
+					RTLIL::SigSig new_action;
+					RTLIL::SigSpec rhs = sigmap(it->second);
+					for (int i = 0; i < lhs.size(); i++) {
+						RTLIL::SigBit lhs_bit = lhs[i];
+						RTLIL::SigBit rhs_bit = rhs[i];
+						if (lhs_bit.wire && !assigned[lhs_bit]) {
+							new_action.first .append(lhs_bit);
+							new_action.second.append(rhs_bit);
+						}
+					}
 					bool promotable = true;
-					for (auto &bit : lhs) {
-						if (bit.wire && affected[bit] && !assigned[bit]) {
+					for (auto &bit: lhs) {
+						if (bit.wire && affected[bit]) {
 							promotable = false;
 							break;
 						}
 					}
 					if (promotable) {
-						RTLIL::SigSpec rhs = sigmap(it->second);
-						RTLIL::SigSig conn;
-						for (int i = 0; i < GetSize(lhs); i++) {
-							RTLIL::SigBit lhs_bit = lhs[i];
-							if (lhs_bit.wire && !assigned[lhs_bit]) {
-								conn.first.append(lhs_bit);
-								conn.second.append(rhs.extract(i));
-							}
-						}
 						promoted_count++;
-						module->connect(conn);
-						remove = true;
+						module->connect(new_action);
+					} else {
+						new_actions.push_back(new_action);
 					}
+					remove = true;
 				}
 				for (auto &bit : lhs)
 					if (bit.wire)
 						assigned.insert(bit);
-				for (auto &bit : lhs)
-					if (bit.wire)
-						affected.insert(bit);
 			}
 			if (remove)
 				cs->actions.erase((it++).base() - 1);
 			else it++;
 		}
+		cs->actions.insert(cs->actions.end(), new_actions.begin(), new_actions.end());
+		affected.insert(assigned.begin(), assigned.end());
 		return assigned;
 	}
 
