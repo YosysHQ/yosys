@@ -79,6 +79,9 @@ struct keep_cache_t
 		if (!ignore_specify && cell->type.in(ID($specify2), ID($specify3), ID($specrule)))
 			return true;
 
+		if (cell->type == ID($print))
+			return true;
+
 		if (cell->has_keep_attr())
 			return true;
 
