@@ -278,6 +278,8 @@ namespace AST
 		bool replace_variables(std::map<std::string, varinfo_t> &variables, AstNode *fcall, bool must_succeed);
 		AstNode *eval_const_function(AstNode *fcall, bool must_succeed);
 		bool is_simple_const_expr();
+
+		// helper for parsing format strings
 		Fmt processFormat(int stage, bool sformat_like, int default_base = 10, size_t first_arg_at = 0);
 
 		bool is_recursive_function() const;

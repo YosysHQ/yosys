@@ -1720,6 +1720,17 @@ namespace {
 				return;
 			}
 
+			if (cell->type == ID($print)) {
+				param(ID(FORMAT));
+				param_bool(ID::TRG_ENABLE);
+				param(ID::TRG_POLARITY);
+				port(ID::EN, 1);
+				port(ID::TRG, param(ID::TRG_WIDTH));
+				port(ID::ARGS, param(ID::ARGS_WIDTH));
+				check_expected();
+				return;
+			}
+
 			if (cell->type == ID($_BUF_))    { port(ID::A,1); port(ID::Y,1); check_expected(); return; }
 			if (cell->type == ID($_NOT_))    { port(ID::A,1); port(ID::Y,1); check_expected(); return; }
 			if (cell->type == ID($_AND_))    { port(ID::A,1); port(ID::B,1); port(ID::Y,1); check_expected(); return; }
