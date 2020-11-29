@@ -30,6 +30,7 @@
 #define AST_H
 
 #include "kernel/rtlil.h"
+#include "kernel/fmt.h"
 #include <stdint.h>
 #include <set>
 
@@ -267,7 +268,7 @@ namespace AST
 		void replace_variables(std::map<std::string, varinfo_t> &variables, AstNode *fcall);
 		AstNode *eval_const_function(AstNode *fcall);
 		bool is_simple_const_expr();
-		std::string process_format_str(const std::string &sformat, int next_arg, int stage, int width_hint, bool sign_hint);
+		Fmt processFormat(int stage, bool sformat_like, int default_base = 10, size_t first_arg_at = 0);
 
 		// create a human-readable text representation of the AST (for debugging)
 		void dumpAst(FILE *f, std::string indent) const;
