@@ -437,23 +437,26 @@ void emit_extmodule(RTLIL::Cell *cell, RTLIL::Module *mod_instance, std::ostream
 	// Emit extmodule ports.
 	for (auto wire : mod_instance->wires())
 	{
-		const auto wireName = make_id(wire->name);
-		const std::string wireFileinfo = getFileinfo(wire);
-
-		if (wire->port_input && wire->port_output)
+		if (wire->port_id)
 		{
-			log_error("Module port %s.%s is inout!\n", log_id(mod_instance), log_id(wire));
+			const auto wireName = make_id(wire->name);
+			const std::string wireFileinfo = getFileinfo(wire);
+
+			if (wire->port_input && wire->port_output)
+			{
+				log_error("Module port %s.%s is inout!\n", log_id(mod_instance), log_id(wire));
+			}
+
+			const std::string portDecl = stringf("%s%s %s: UInt<%d> %s\n",
+				indent.c_str(),
+				wire->port_input ? "input" : "output",
+				wireName,
+				wire->width,
+				wireFileinfo.c_str()
+			);
+
+			f << portDecl;
 		}
-
-		const std::string portDecl = stringf("%s%s %s: UInt<%d> %s\n",
-			indent.c_str(),
-			wire->port_input ? "input" : "output",
-			wireName,
-			wire->width,
-			wireFileinfo.c_str()
-		);
-
-		f << portDecl;
 	}
 
 	// Emit extmodule "defname" field. This is the name of the verilog blackbox
