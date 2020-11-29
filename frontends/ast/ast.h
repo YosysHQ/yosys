@@ -268,6 +268,8 @@ namespace AST
 		void replace_variables(std::map<std::string, varinfo_t> &variables, AstNode *fcall);
 		AstNode *eval_const_function(AstNode *fcall);
 		bool is_simple_const_expr();
+
+		// helper for parsing format strings
 		Fmt processFormat(int stage, bool sformat_like, int default_base = 10, size_t first_arg_at = 0);
 
 		// create a human-readable text representation of the AST (for debugging)

@@ -595,29 +595,33 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		str = std::string();
 	}
 
-	if ((type == AST_TCALL) && (str.substr(0, 8) == "$display" || str.substr(0, 6) == "$write") && (!current_always || current_always->type != AST_INITIAL)) {
-		log_file_warning(filename, location.first_line, "System task `%s' outside initial block is unsupported.\n", str.c_str());
-		delete_children();
-		str = std::string();
-	}
-
-	// print messages if this a call to $display() or $write() family of functions
 	if ((type == AST_TCALL) &&
 	    (str == "$display" || str == "$displayb" || str == "$displayh" || str == "$displayo" ||
 	     str == "$write"   || str == "$writeb"   || str == "$writeh"   || str == "$writeo"))
 	{
-		int default_base = 10;
-		if (str.back() == 'b')
-			default_base = 2;
-		else if (str.back() == 'o')
-			default_base = 8;
-		else if (str.back() == 'h')
-			default_base = 16;
+		if (!current_always) {
+			log_file_warning(filename, location.first_line, "System task `%s' outside initial or always block is unsupported.\n", str.c_str());
+		} else if (current_always->type == AST_INITIAL) {
+			int default_base = 10;
+			if (str.back() == 'b')
+				default_base = 2;
+			else if (str.back() == 'o')
+				default_base = 8;
+			else if (str.back() == 'h')
+				default_base = 16;
 
-		Fmt fmt = processFormat(stage, /*sformat_like=*/false, default_base);
-		if (str.substr(0, 8) == "$display")
-			fmt.append_string("\n");
-		log("%s", fmt.render().c_str());
+			// when $display()/$write() functions are used in an initial block, print them during synthesis
+			Fmt fmt = processFormat(stage, /*sformat_like=*/false, default_base);
+			if (str.substr(0, 8) == "$display")
+				fmt.append_string("\n");
+			log("%s", fmt.render().c_str());
+		} else {
+			// when $display()/$write() functions are used in an always block, simplify the expressions and
+			// convert them to a special cell later in genrtlil
+			for (auto node : children)
+				while (node->simplify(true, false, false, stage, -1, false, false)) {}
+			return false;
+		}
 
 		delete_children();
 		str = std::string();

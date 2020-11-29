@@ -683,8 +683,80 @@ struct AST_INTERNAL::ProcessGenerator
 			log_file_error(ast->filename, ast->location.first_line, "Found parameter declaration in block without label!\n");
 			break;
 
-		case AST_NONE:
 		case AST_TCALL:
+			if (ast->str == "$display" || ast->str == "$displayb" || ast->str == "$displayh" || ast->str == "$displayo" ||
+		  ast->str == "$write"   || ast->str == "$writeb"   || ast->str == "$writeh"   || ast->str == "$writeo") {
+				std::stringstream sstr;
+				sstr << ast->str << "$" << ast->filename << ":" << ast->location.first_line << "$" << (autoidx++);
+
+				RTLIL::Cell *cell = current_module->addCell(sstr.str(), ID($print));
+				cell->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", ast->filename.c_str(), ast->location.first_line, ast->location.first_column, ast->location.last_line, ast->location.last_column);
+
+				RTLIL::SigSpec triggers;
+				RTLIL::Const polarity;
+				for (auto sync : proc->syncs) {
+					if (sync->type == RTLIL::STp) {
+						triggers.append(sync->signal);
+						polarity.bits.push_back(RTLIL::S1);
+					} else if (sync->type == RTLIL::STn) {
+						triggers.append(sync->signal);
+						polarity.bits.push_back(RTLIL::S0);
+					}
+				}
+				cell->parameters[ID::TRG_WIDTH] = triggers.size();
+				cell->parameters[ID::TRG_ENABLE] = !triggers.empty();
+				cell->parameters[ID::TRG_POLARITY] = polarity;
+				cell->setPort(ID::TRG, triggers);
+
+				Wire *wire = current_module->addWire(sstr.str() + "_EN", 1);
+				wire->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", ast->filename.c_str(), ast->location.first_line, ast->location.first_column, ast->location.last_line, ast->location.last_column);
+				cell->setPort(ID::EN, wire);
+
+				proc->root_case.actions.push_back(SigSig(wire, false));
+				current_case->actions.push_back(SigSig(wire, true));
+
+				int default_base = 10;
+				if (ast->str.back() == 'b')
+					default_base = 2;
+				else if (ast->str.back() == 'o')
+					default_base = 8;
+				else if (ast->str.back() == 'h')
+					default_base = 16;
+
+				std::vector<VerilogFmtArg> args;
+				for (auto node : ast->children) {
+					int width;
+					bool is_signed;
+					node->detectSignWidth(width, is_signed, nullptr);
+
+					VerilogFmtArg arg = {};
+					arg.filename = node->filename;
+					arg.first_line = node->location.first_line;
+					if (node->type == AST_CONSTANT && node->is_string) {
+						arg.type = VerilogFmtArg::STRING;
+						arg.str = node->bitsAsConst().decode_string();
+						// and in case this will be used as an argument...
+						arg.sig = node->bitsAsConst();
+						arg.signed_ = false;
+					} else {
+						arg.type = VerilogFmtArg::INTEGER;
+						arg.sig = node->genRTLIL();
+						arg.signed_ = is_signed;
+					}
+					args.push_back(arg);
+				}
+
+				Fmt fmt = {};
+				fmt.parse_verilog(args, /*sformat_like=*/false, default_base, /*task_name=*/ast->str, current_module->name);
+				if (ast->str.substr(0, 8) == "$display")
+					fmt.append_string("\n");
+				fmt.emit_rtlil(cell);
+			} else if (!ast->str.empty()) {
+				log_file_error(ast->filename, ast->location.first_line, "Found unsupported invocation of system task `%s'!\n", ast->str.c_str());
+			}
+			break;
+
+		case AST_NONE:
 		case AST_FOR:
 			break;
 
