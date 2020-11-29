@@ -43,141 +43,35 @@ using namespace AST_INTERNAL;
 
 // Process a format string and arguments for $display, $write, $sprintf, etc
 
-std::string AstNode::process_format_str(const std::string &sformat, int next_arg, int stage, int width_hint, bool sign_hint) {
-	// Other arguments are placeholders. Process the string as we go through it
-	std::string sout;
-	for (size_t i = 0; i < sformat.length(); i++)
-	{
-		// format specifier
-		if (sformat[i] == '%')
-		{
-			// If there's no next character, that's a problem
-			if (i+1 >= sformat.length())
-				input_error("System task `%s' called with `%%' at end of string.\n", str.c_str());
+Fmt AstNode::processFormat(int stage, bool sformat_like, int default_base, size_t first_arg_at) {
+	std::vector<VerilogFmtArg> args;
+	for (size_t index = first_arg_at; index < children.size(); index++) {
+		AstNode *node_arg = children[index];
+		while (node_arg->simplify(true, false, stage, -1, false, false)) { }
+		if (node_arg->type != AST_CONSTANT)
+			input_error("Failed to evaluate system task `%s' with non-constant argument at position %zu.\n", str.c_str(), index + 1);
 
-			char cformat = sformat[++i];
-
-			// %% is special, does not need a matching argument
-			if (cformat == '%')
-			{
-				sout += '%';
-				continue;
-			}
-
-			bool got_len = false;
-			bool got_zlen = false;
-			int len_value = 0;
-
-			while ('0' <= cformat && cformat <= '9')
-			{
-				if (!got_len && cformat == '0')
-					got_zlen = true;
-
-				got_len = true;
-				len_value = 10*len_value + (cformat - '0');
-
-				cformat = sformat[++i];
-			}
-
-			// Simplify the argument
-			AstNode *node_arg = nullptr;
-
-			// Everything from here on depends on the format specifier
-			switch (cformat)
-			{
-				case 's':
-				case 'S':
-				case 'd':
-				case 'D':
-					if (got_len && len_value != 0)
-						goto unsupported_format;
-					YS_FALLTHROUGH
-				case 'x':
-				case 'X':
-					if (next_arg >= GetSize(children))
-						input_error("Missing argument for %%%c format specifier in system task `%s'.\n",
-								cformat, str.c_str());
-
-					node_arg = children[next_arg++];
-					while (node_arg->simplify(true, false, stage, width_hint, sign_hint, false)) { }
-					if (node_arg->type != AST_CONSTANT)
-						input_error("Failed to evaluate system task `%s' with non-constant argument.\n", str.c_str());
-					break;
-
-				case 'm':
-				case 'M':
-					if (got_len)
-						goto unsupported_format;
-					break;
-
-				case 'l':
-				case 'L':
-					if (got_len)
-						goto unsupported_format;
-					break;
-
-				default:
-				unsupported_format:
-					input_error("System task `%s' called with invalid/unsupported format specifier.\n", str.c_str());
-					break;
-			}
-
-			switch (cformat)
-			{
-				case 's':
-				case 'S':
-					sout += node_arg->bitsAsConst().decode_string();
-					break;
-
-				case 'd':
-				case 'D':
-					sout += stringf("%d", node_arg->bitsAsConst().as_int());
-					break;
-
-				case 'x':
-				case 'X':
-					{
-						Const val = node_arg->bitsAsConst();
-
-						while (GetSize(val) % 4 != 0)
-							val.bits.push_back(State::S0);
-
-						int len = GetSize(val) / 4;
-						for (int i = len; i < len_value; i++)
-							sout += got_zlen ? '0' : ' ';
-
-						for (int i = len-1; i >= 0; i--) {
-							Const digit = val.extract(4*i, 4);
-							if (digit.is_fully_def())
-								sout += stringf(cformat == 'x' ? "%x" : "%X", digit.as_int());
-							else
-								sout += cformat == 'x' ? "x" : "X";
-						}
-					}
-					break;
-
-				case 'm':
-				case 'M':
-					sout += log_id(current_module->name);
-					break;
-
-				case 'l':
-				case 'L':
-					sout += log_id(current_module->name);
-					break;
-
-				default:
-					log_abort();
-			}
+		VerilogFmtArg arg = {};
+		arg.filename = filename;
+		arg.first_line = location.first_line;
+		if (node_arg->is_string) {
+			arg.type = VerilogFmtArg::STRING;
+			arg.str = node_arg->bitsAsConst().decode_string();
+			// and in case this will be used as an argument...
+			arg.sig = node_arg->bitsAsConst();
+			arg.signed_ = false;
+		} else {
+			arg.type = VerilogFmtArg::INTEGER;
+			arg.sig = node_arg->bitsAsConst();
+			arg.signed_ = node_arg->is_signed;
 		}
-
-		// not a format specifier
-		else
-			sout += sformat[i];
+		args.push_back(arg);
 	}
-	return sout;
-}
 
+	Fmt fmt = {};
+	fmt.parse_verilog(args, sformat_like, default_base, /*task_name=*/str, current_module->name);
+	return fmt;
+}
 
 void AstNode::annotateTypedEnums(AstNode *template_node)
 {
@@ -1057,33 +951,30 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 		str = std::string();
 	}
 
-	if ((type == AST_TCALL) && (str == "$display" || str == "$write") && (!current_always || current_always->type != AST_INITIAL)) {
+	if ((type == AST_TCALL) && (str.substr(0, 8) == "$display" || str.substr(0, 6) == "$write") && (!current_always || current_always->type != AST_INITIAL)) {
 		log_file_warning(filename, location.first_line, "System task `%s' outside initial block is unsupported.\n", str.c_str());
 		delete_children();
 		str = std::string();
 	}
 
-	// print messages if this a call to $display() or $write()
-	// This code implements only a small subset of Verilog-2005 $display() format specifiers,
-	// but should be good enough for most uses
-	if ((type == AST_TCALL) && ((str == "$display") || (str == "$write")))
+	// print messages if this a call to $display() or $write() family of functions
+	if ((type == AST_TCALL) &&
+	    (str == "$display" || str == "$displayb" || str == "$displayh" || str == "$displayo" ||
+	     str == "$write"   || str == "$writeb"   || str == "$writeh"   || str == "$writeo"))
 	{
-		int nargs = GetSize(children);
-		if (nargs < 1)
-			input_error("System task `%s' got %d arguments, expected >= 1.\n",
-					str.c_str(), int(children.size()));
+		int default_base = 10;
+		if (str.back() == 'b')
+			default_base = 2;
+		else if (str.back() == 'o')
+			default_base = 8;
+		else if (str.back() == 'h')
+			default_base = 16;
 
-		// First argument is the format string
-		AstNode *node_string = children[0];
-		while (node_string->simplify(true, false, stage, width_hint, sign_hint, false)) { }
-		if (node_string->type != AST_CONSTANT)
-			input_error("Failed to evaluate system task `%s' with non-constant 1st argument.\n", str.c_str());
-		std::string sformat = node_string->bitsAsConst().decode_string();
-		std::string sout = process_format_str(sformat, 1, stage, width_hint, sign_hint);
-		// Finally, print the message (only include a \n for $display, not for $write)
-		log("%s", sout.c_str());
-		if (str == "$display")
-			log("\n");
+		Fmt fmt = processFormat(stage, /*sformat_like=*/false, default_base);
+		if (str.substr(0, 8) == "$display")
+			fmt.append_string("\n");
+		log("%s", fmt.render().c_str());
+
 		delete_children();
 		str = std::string();
 	}
@@ -3735,13 +3626,8 @@ skip_dynamic_range_lvalue_expansion:;
 			}
 
 			if (str == "\\$sformatf") {
-				AstNode *node_string = children[0];
-				while (node_string->simplify(true, false, stage, width_hint, sign_hint, false)) { }
-				if (node_string->type != AST_CONSTANT)
-					input_error("Failed to evaluate system function `%s' with non-constant 1st argument.\n", str.c_str());
-				std::string sformat = node_string->bitsAsConst().decode_string();
-				std::string sout = process_format_str(sformat, 1, stage, width_hint, sign_hint);
-				newNode = AstNode::mkconst_str(sout);
+				Fmt fmt = processFormat(stage, /*sformat_like=*/true);
+				newNode = AstNode::mkconst_str(fmt.render());
 				goto apply_newNode;
 			}
 

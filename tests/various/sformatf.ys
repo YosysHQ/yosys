@@ -5,7 +5,7 @@ module top;
 	localparam b = $sformatf("%d", 4'b011);
 	generate
 		if (a != "0x5a") $error("a incorrect!");
-		if (b != "3") $error("b incorrect!");
+		if (b != " 3") $error("b incorrect!");
 	endgenerate
 endmodule
 
