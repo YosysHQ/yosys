@@ -44,6 +44,11 @@ struct SynthGowinPass : public ScriptPass
 		log("        write the design to the specified Verilog netlist file. writing of an\n");
 		log("        output file is omitted if this parameter is not specified.\n");
 		log("\n");
+		log("    -json <file>\n");
+		log("        write the design to the specified JSON netlist file. writing of an\n");
+		log("        output file is omitted if this parameter is not specified.\n");
+		log("        This disables features not yet supported by nexpnr-gowin.\n");
+		log("\n");
 		log("    -run <from_label>:<to_label>\n");
 		log("        only run the commands between the labels (see below). an empty\n");
 		log("        from label is synonymous to 'begin', and empty to label is\n");
@@ -70,6 +75,9 @@ struct SynthGowinPass : public ScriptPass
 		log("    -noiopads\n");
 		log("        do not emit IOB at top level ports\n");
 		log("\n");
+		log("    -noalu\n");
+		log("        do not use ALU cells\n");
+		log("\n");
 		log("    -abc9\n");
 		log("        use new ABC9 flow (EXPERIMENTAL)\n");
 		log("\n");
@@ -79,13 +87,14 @@ struct SynthGowinPass : public ScriptPass
 		log("\n");
 	}
 
-	string top_opt, vout_file;
-	bool retime, nobram, nolutram, flatten, nodffe, nowidelut, abc9, noiopads;
+	string top_opt, vout_file, json_file;
+	bool retime, nobram, nolutram, flatten, nodffe, nowidelut, abc9, noiopads, noalu;
 
 	void clear_flags() override
 	{
 		top_opt = "-auto-top";
 		vout_file = "";
+		json_file = "";
 		retime = false;
 		flatten = true;
 		nobram = false;
@@ -94,6 +103,7 @@ struct SynthGowinPass : public ScriptPass
 		nowidelut = false;
 		abc9 = false;
 		noiopads = false;
+		noalu = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -110,6 +120,14 @@ struct SynthGowinPass : public ScriptPass
 			}
 			if (args[argidx] == "-vout" && argidx+1 < args.size()) {
 				vout_file = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-json" && argidx+1 < args.size()) {
+				json_file = args[++argidx];
+				nobram = true;
+				nolutram = true;
+				nowidelut = true;
+				noalu = true;
 				continue;
 			}
 			if (args[argidx] == "-run" && argidx+1 < args.size()) {
@@ -142,6 +160,10 @@ struct SynthGowinPass : public ScriptPass
 			}
 			if (args[argidx] == "-nowidelut") {
 				nowidelut = true;
+				continue;
+			}
+			if (args[argidx] == "-noalu") {
+				noalu = true;
 				continue;
 			}
 			if (args[argidx] == "-abc9") {
@@ -210,7 +232,11 @@ struct SynthGowinPass : public ScriptPass
 
 		if (check_label("map_gates"))
 		{
-			run("techmap -map +/techmap.v -map +/gowin/arith_map.v");
+			if (noalu) {
+				run("techmap -map +/techmap.v");
+			} else {
+				run("techmap -map +/techmap.v -map +/gowin/arith_map.v");
+			}
 			run("opt -fast");
 			if (retime || help_mode)
 				run("abc -dff -D 1", "(only if -retime)");
@@ -270,6 +296,9 @@ struct SynthGowinPass : public ScriptPass
 			if (!vout_file.empty() || help_mode)
 				 run(stringf("write_verilog -decimal -attr2comment -defparam -renameprefix gen %s",
 						help_mode ? "<file-name>" : vout_file.c_str()));
+			if (!json_file.empty() || help_mode)
+				 run(stringf("write_json %s",
+						help_mode ? "<file-name>" : json_file.c_str()));
 		}
 	}
 } SynthGowinPass;
