@@ -1,4 +1,4 @@
-(* abc9_box, lib_whitebox *)
+/*(* abc9_box, lib_whitebox *)
 module \$__AP3_CARRY_WRAPPER (
   (* abc9_carry *)
   output CO,
@@ -28,4 +28,16 @@ module \$__AP3_CARRY_WRAPPER (
     .I3(I3),
     .O(O)
   );
+endmodule */
+
+(* abc9_flop, lib_whitebox *)
+module \$__PP3_DFFEPC_SYNCONLY (
+  output reg Q,
+  input D,
+  input CLK,
+  input EN,
+);
+
+  dffepc ff (.Q(Q), .D(D), .CLK(CLK), .EN(EN), .PRE(1'b0), .CLR(1'b0));
+
 endmodule

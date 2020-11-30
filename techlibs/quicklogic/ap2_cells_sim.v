@@ -1,34 +1,52 @@
-(* abc9_lut=1, lib_whitebox *)
-module LUT4 (
-  output O,
-  input I0,
-  input I1,
-  input I2,
-  input I3
+//(* abc9_flop, lib_whitebox *)
+module dff (
+  output reg Q,
+  input D,
+  (* clkbuf_sink *)
+  input CLK
 );
-  parameter [15:0] INIT = 16'h0;
-  parameter EQN = "(I0)";
-  assign O = INIT[{I3, I2, I1, I0}];
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @(posedge CLK) Q <= D;
 endmodule
 
-(* abc9_lut=1, lib_whitebox *)
-module LUT5 (
-  output O,
-  input I0,
-  input I1,
-  input I2,
-  input I3,
-  input I4
+//(* abc9_box, lib_whitebox *)
+module dffc (
+  output reg Q,
+  input D,
+  (* clkbuf_sink *)
+  input CLK,
+  (* clkbuf_sink *)
+  input CLR
 );
-  parameter [31:0] INIT = 32'h0;
-  parameter EQN = "(I0)";
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
 
-  assign O = INIT[{I4, I3, I2, I1, I0}];
+  always @(posedge CLK or posedge CLR)
+    if (CLR) Q <= 1'b0;
+    else Q <= D;
 endmodule
 
-(* abc9_flop, lib_whitebox *)
-module ff(
-  output reg CQZ,
+//(* abc9_box, lib_whitebox *)
+module dffp (
+  output reg Q,
+  input D,
+  (* clkbuf_sink *)
+  input CLK,
+  (* clkbuf_sink *)
+  input PRE
+);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+
+  always @(posedge CLK or posedge PRE)
+    if (PRE) Q <= 1'b1;
+    else Q <= D;
+endmodule
+
+//(* abc9_box, lib_whitebox *)
+module dffpc (
+  output reg Q,
   input D,
   (* clkbuf_sink *)
   input QCK,
@@ -39,15 +57,92 @@ module ff(
   input QST
 );
   parameter [0:0] INIT = 1'b0;
-  initial CQZ = INIT;
+  initial Q = INIT;
 
-  always @(posedge QCK or posedge QRT or posedge QST)
-      if (QRT)
-          CQZ <= 1'b0;
-      else if (QST)
-          CQZ <= 1'b1;
-      else if (QEN)
-          CQZ <= D;
+  always @(posedge CLK or posedge CLR or posedge PRE)
+    if (CLR) Q <= 1'b0;
+    else if (PRE) Q <= 1'b1;
+    else Q <= D;
+endmodule
+
+//(* abc9_flop, lib_whitebox *)
+module dffe (
+  output reg Q,
+  input D,
+  (* clkbuf_sink *)
+  input CLK,
+  input EN
+);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+  always @(posedge CLK) if (EN) Q <= D;
+endmodule
+
+(* abc9_box, lib_whitebox *)
+module dffepc (
+  output reg Q,
+  input D,
+  (* clkbuf_sink *)
+  input CLK,
+  input EN,
+  (* clkbuf_sink *)
+  input CLR,
+  (* clkbuf_sink *)
+  input PRE
+);
+  parameter [0:0] INIT = 1'b0;
+
+  specify
+    if (EN) (posedge CLK => (Q : D)) = 0;
+
+    if (CLR) (CLR => Q) = 0;
+    if (PRE) (PRE => Q) = 0;
+
+    $setup(D, posedge CLK, 0);
+    $setup(EN, posedge CLK, 0);
+  endspecify
+
+  initial Q = INIT;
+  always @(posedge CLK or posedge CLR or posedge PRE)
+    if (CLR) Q <= 1'b0;
+    else if (PRE) Q <= 1'b1;
+    else if (EN) Q <= D;
+endmodule
+
+//(* abc9_box, lib_whitebox *)
+module dffsec (
+  output reg Q,
+  input D,
+  (* clkbuf_sink *)
+  input CLK,
+  input EN,
+  (* clkbuf_sink *)
+  input CLR
+);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+
+  always @(posedge CLK or posedge CLR)
+    if (CLR) Q <= 1'b0;
+    else if (EN) Q <= D;
+endmodule
+
+//(* abc9_box, lib_whitebox *)
+module dffsep (
+  output reg Q,
+  input D,
+  (* clkbuf_sink *)
+  input CLK,
+  input EN,
+  (* clkbuf_sink *)
+  input P
+);
+  parameter [0:0] INIT = 1'b0;
+  initial Q = INIT;
+
+  always @(posedge CLK or posedge P)
+    if (P) Q <= 1'b1;
+    else if (EN) Q <= D;
 endmodule
 
 module full_adder (

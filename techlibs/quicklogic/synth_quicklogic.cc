@@ -68,6 +68,9 @@ struct SynthQuickLogicPass : public ScriptPass {
                 log("    -infer_dbuff\n");
                 log("        Infer d_buff for const driver IO signals (applicable for AP, AP2 & AP3 device)\n");
                 log("\n");
+                log("    -abc9\n");
+                log("        (EXPERIMENTAL) use timing-aware LUT mapping\n");
+                log("\n");
                 log("    -openfpga\n");
                 log("        to generate blif file compliant with openfpga flow\n");
                 log("        (this feature is experimental and incomplete)\n");
@@ -79,7 +82,7 @@ struct SynthQuickLogicPass : public ScriptPass {
         }
 
         string top_opt, edif_file, blif_file, family, currmodule, verilog_file;
-        bool inferAdder, openfpga, infer_dbuff;
+        bool inferAdder, openfpga, infer_dbuff, abc9;
         bool abcOpt;
 
         void clear_flags() override
@@ -92,6 +95,7 @@ struct SynthQuickLogicPass : public ScriptPass {
                 family = "pp3";
                 inferAdder = false;
                 abcOpt = true;
+                abc9 = false;
                 openfpga=false;
                 infer_dbuff = false;
         }
@@ -136,6 +140,10 @@ struct SynthQuickLogicPass : public ScriptPass {
                                 abcOpt = false;
                                 continue;
                         }
+                        if (args[argidx] == "-abc9") {
+                                abc9 = true;
+                                continue;
+                        }
                         if (args[argidx] == "-openfpga") {
                                 openfpga = true;
                                 // pick ap3 related cells in openfpga mode
@@ -151,6 +159,9 @@ struct SynthQuickLogicPass : public ScriptPass {
 
                 log_header(design, "Executing SYNTH_QUICKLOGIC pass.\n");
                 log_push();
+
+                log_warning("delay target has not been set via SDC or scratchpad; assuming 12 MHz clock.\n");
+                design->scratchpad_set_int("abc9.D", 41667); // 12MHz = 83.33.. ns; divided by two to allow for interconnect delay.
 
                 run_script(design, run_from, run_to);
 
@@ -237,12 +248,11 @@ struct SynthQuickLogicPass : public ScriptPass {
                 if (check_label("map_ffs")) {
                         if(family != "qlf_k4n8") {
                                 run("opt_expr");
-                                }
+                        }
                         run("opt_dff");
 
-                        std::string techMapArgs = " -map +/quicklogic/" + family;
-
-                        techMapArgs += "_ffs_map.v";
+                        run("dfflegalize -cell $_DFFSRE_PPPP_ 0 -cell $_DLATCH_?_ x");
+                        std::string techMapArgs = " -map +/quicklogic/" + family + "_ffs_map.v";
 
                         if (!openfpga) {
                                 run("techmap " + techMapArgs);
@@ -257,6 +267,8 @@ struct SynthQuickLogicPass : public ScriptPass {
                                 run("opt_clean");
                                 run("opt");
                         }
+                        // hack to work around upstream bug 2546.
+                        run("attrmap -remove init");
                 }
 
                 if (check_label("map_luts")) {
@@ -264,7 +276,12 @@ struct SynthQuickLogicPass : public ScriptPass {
                         if (!openfpga) {
                                 run("techmap " + techMapArgs);
 
-                                if (abcOpt) {
+                                if (abc9) {
+                                        run("read_verilog -lib -specify -icells +/quicklogic/abc9_model.v");
+                                        run(stringf("techmap -map +/quicklogic/%s_cells_map.v t:$_MUX4_ t:$_MUX8_", family.c_str()));
+                                        run("abc9 -maxlut 4 -dff");
+                                        run("techmap -map +/quicklogic/abc9_unmap.v");
+                                } else if (abcOpt) {
                                         std::string lutDefs = "+/quicklogic/" + family + "_lutdefs.txt";
                                         rewrite_filename(lutDefs);
 

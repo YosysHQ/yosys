@@ -30,6 +30,10 @@ module gclkbuff (
   output Z
 );
 
+  specify
+    (A => Z) = 0;
+  endspecify
+
   assign Z = A;
 
 endmodule
