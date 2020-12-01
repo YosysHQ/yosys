@@ -321,7 +321,6 @@ struct define_body_t
 define_map_t::define_map_t()
 {
 	add("YOSYS", "1");
-	add(formal_mode ? "FORMAL" : "SYNTHESIS", "1");
 }
 
 // We must define this destructor here (rather than relying on the default), because we need to
