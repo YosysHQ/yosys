@@ -446,6 +446,9 @@ struct VerilogFrontend : public Frontend {
 			}
 			break;
 		}
+
+		defines_map.add(formal_mode ? "FORMAL" : "SYNTHESIS", "1");
+
 		extra_args(f, filename, args, argidx);
 
 		log_header(design, "Executing Verilog-2005 frontend: %s\n", filename.c_str());
