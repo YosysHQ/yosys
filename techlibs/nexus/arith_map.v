@@ -88,9 +88,9 @@ module _80_nexus_alu (A, B, CI, BI, X, Y, CO);
 			.COUT(FCO[i+2])
 		);
 
-		assign CO[i] = (AA[i] && BB[i]) || (((i == 0) ? CI : CO[i-1]) && (AA[i] || BB[i]));
+		assign CO[i] = (AA[i] && BB[i]) || ((Y[i] ^ AA[i] ^ BB[i]) && (AA[i] || BB[i]));
 		if (i+1 < Y_WIDTH) begin
-			assign CO[i+1] = (AA[i+1] && BB[i+1]) || (CO[i] && (AA[i+1] || BB[i+1]));
+			assign CO[i + 1] = (AA[i] && BB[i]) || ((Y[i] ^ AA[i] ^ BB[i]) && (AA[i] || BB[i]));
 			assign Y[i+1] = Y1[i];
 		end
 	end endgenerate
