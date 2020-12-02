@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <algorithm>
+#include <limits>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
