@@ -1869,6 +1869,46 @@ struct CxxrtlWorker {
 				}
 				if (has_cells)
 					f << "\n";
+				f << indent << mangle(module) << "() {}\n";
+				if (has_cells) {
+					f << indent << mangle(module) << "(adopt, " << mangle(module) << " other) :\n";
+					bool first = true;
+					for (auto cell : module->cells()) {
+						if (is_internal_cell(cell->type))
+							continue;
+						if (first) {
+							first = false;
+						} else {
+							f << ",\n";
+						}
+						RTLIL::Module *cell_module = module->design->module(cell->type);
+						if (cell_module->get_bool_attribute(ID(cxxrtl_blackbox))) {
+							f << indent << "  " << mangle(cell) << "(std::move(other." << mangle(cell) << "))";
+						} else {
+							f << indent << "  " << mangle(cell) << "(adopt {}, std::move(other." << mangle(cell) << "))";
+						}
+					}
+					f << " {\n";
+					inc_indent();
+						for (auto cell : module->cells()) {
+							if (is_internal_cell(cell->type))
+								continue;
+							RTLIL::Module *cell_module = module->design->module(cell->type);
+							if (cell_module->get_bool_attribute(ID(cxxrtl_blackbox)))
+								f << indent << mangle(cell) << "->reset();\n";
+						}
+					dec_indent();
+					f << indent << "}\n";
+				} else {
+					f << indent << mangle(module) << "(adopt, " << mangle(module) << " other) {}\n";
+				}
+				f << "\n";
+				f << indent << "void reset() override {\n";
+				inc_indent();
+					f << indent << "*this = " << mangle(module) << "(adopt {}, std::move(*this));\n";
+				dec_indent();
+				f << indent << "}\n";
+				f << "\n";
 				f << indent << "bool eval() override;\n";
 				f << indent << "bool commit() override;\n";
 				if (debug_info)
