@@ -1,0 +1,299 @@
+\chapter{RTLIL Text Representation}
+\label{chapter:textrtlil}
+
+% Stolen from stackexchange: calculate indent based on given keyword,
+% with some nice hrules added in.
+\newlength{\myl}
+
+\newenvironment{indentgrammar}[1]
+    {\vspace{0.5cm}\hrule
+    \setlength{\myl}{\widthof{#1}+2em}
+    \grammarindent\the\myl
+    \begin{grammar}}
+    {\end{grammar}
+    \hrule}
+
+This appendix documents the text representation of RTLIL in extended Backus-Naur form (EBNF).
+
+The grammar is not meant to represent semantic limitations. That is, the grammar is ``permissive'', and later stages of processing perform more rigorous checks.
+
+The grammar is also not meant to represent the exact grammar used in the RTLIL frontend, since that grammar is specific to processing by lex and yacc, is even more permissive, and is somewhat less understandable than simple EBNF notation.
+
+Finally, note that all statements (rules ending in \texttt{-stmt}) terminate in an end-of-line. Because of this, a statement cannot be broken into multiple lines.
+
+\section{Lexical elements}
+
+\subsection{Characters}
+
+An RTLIL file is a stream of bytes. Strictly speaking, a ``character'' in an RTLIL file is a single byte. The lexer treats multi-byte encoded characters as consecutive single-byte characters. While other encodings \textit{may} work, UTF-8 is known to be safe to use. Byte order marks at the beginning of the file will cause an error.
+
+ASCII spaces (32) and tabs (9) separate lexer tokens.
+
+A \texttt{nonws} character, used in identifiers, is any character whose encoding consists solely of bytes above ASCII space (32).
+
+An \texttt{eol} is one or more consecutive ASCII newlines (10) and carriage returns (13).
+
+\subsection{Identifiers}
+
+There are two types of identifiers in RTLIL:
+
+\begin{itemize}
+    \item Publically visible identifiers
+    \item Auto-generated identifiers
+\end{itemize}
+
+\begin{indentgrammar}{<autogen-id>}
+<id> ::= <public-id> | <autogen-id>
+
+<public-id> ::= "\textbackslash" <nonws>$+$
+
+<autogen-id> ::= "\textdollar" <nonws>$+$
+\end{indentgrammar}
+
+\subsection{Values}
+
+A \textit{value} consists of a width in bits and a bit representation, most significant bit first. Bits may be any of:
+\begin{itemize}
+    \item \texttt{0}: A logic zero value
+    \item \texttt{1}: A logic one value
+    \item \texttt{x}: An unknown logic value (or don't care in case patterns)
+    \item \texttt{z}: A high-impedance value (or don't care in case patterns)
+    \item \texttt{m}: A marked bit (internal use only)
+    \item \texttt{-}: A don't care value
+\end{itemize}
+
+An \textit{integer} is simply a signed integer value in decimal format. \textbf{Warning:} Integer constants are limited to 32 bits. That is, they may only be in the range $[-2147483648, 2147483648)$. Integers outside this range will result in an error.
+
+\begin{indentgrammar}{<binary-digit>}
+<value> ::= <decimal-digit>$+$ \texttt{\textbf{'}} <binary-digit>$*$
+
+<decimal-digit> ::= "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+
+<binary-digit> ::= "0" | "1" | "x" | "z" | "m" | "-"
+
+<integer> ::= "-"$?$ <decimal-digit>$+$
+\end{indentgrammar}
+
+\subsection{Strings}
+
+A string is a series of characters delimited by double-quote characters. Within a string, any character except ASCII NUL (0) may be used. In addition, certain escapes can be used:
+
+\begin{itemize}
+    \item \texttt{\textbackslash n}: A newline
+    \item \texttt{\textbackslash t}: A tab
+    \item \texttt{\textbackslash \textit{ooo}}: A character specified as a one, two, or three digit octal value
+\end{itemize}
+
+All other characters may be escaped by a backslash, and become the following character. Thus:
+
+\begin{itemize}
+    \item \texttt{\textbackslash \textbackslash}: A backslash
+    \item \texttt{\textbackslash ''}: A double-quote
+    \item \texttt{\textbackslash r}: An 'r' character
+\end{itemize}
+
+\subsection{Comments}
+
+A comment starts with a \texttt{\textbf{\#}} character and proceeds to the end of the line. All comments are ignored.
+
+\section{File}
+
+A file consists of an optional autoindex statement followed by zero or more modules.
+
+\begin{indentgrammar}{<design>}
+<file> ::= <autoidx-stmt>$?$ <module>*
+\end{indentgrammar}
+
+\subsection{Autoindex statements}
+
+The autoindex statement sets the global autoindex value used by Yosys when it needs to generate a unique name, e.g. \texttt{\textdollar{}flatten\textdollar{}N}. The N part is filled with the value of the global autoindex value, which is subsequently incremented. This global has to be dumped into RTLIL, otherwise e.g. dumping and running a pass would have different properties than just running a pass on a warm design.
+
+\begin{indentgrammar}{<autoidx-stmt>}
+<autoidx-stmt> ::= "autoidx" <integer> <eol>
+\end{indentgrammar}
+
+\subsection{Modules}
+
+Declares a module, with zero or more attributes, consisting of zero or more wires, memories, cells, processes, and connections.
+
+\begin{indentgrammar}{<module-body-stmt>}
+<module> ::= <attr-stmt>$*$ <module-stmt> <module-body> <module-end-stmt>
+
+<module-stmt> ::= "module" <id> <eol>
+
+<module-body> ::= 
+(<param-stmt>
+  \alt <wire>
+  \alt <memory>
+  \alt <cell>
+  \alt <process>
+  \alt <conn-stmt>)$*$
+
+<param-stmt> ::= "parameter" <id> <constant>$?$ <eol>
+
+<constant> ::= <value> | <integer> | <string>
+
+<module-end-stmt> ::= "end" <eol>
+\end{indentgrammar}
+
+\subsection{Attribute statements}
+
+Declares an attribute with the given identifier and value.
+
+\begin{indentgrammar}{<attr-stmt>}
+<attr-stmt> ::= "attribute" <id> <constant> <eol>
+\end{indentgrammar}
+
+\subsection{Signal specifications}
+
+A signal is anything that can be applied to a cell port, i.e. a constant value, all bits or a selection of bits from a wire, or concatenations of those.
+
+\textbf{Warning:} When an integer constant is a sigspec, it is always 32 bits wide, 2's complement. For example, a constant of $-1$ is the same as \texttt{32'11111111111111111111111111111111}, while a constant of $1$ is the same as \texttt{32'1}.
+
+See Sec.~\ref{sec:rtlil_sigspec} for an overview of signal specifications.
+
+\begin{indentgrammar}{<sigspec>}
+<sigspec> ::=
+<constant>
+    \alt <wire-id>
+    \alt <sigspec> "[" <integer> (":" <integer>)$?$ "]"
+    \alt "\{" <sigspec>$*$ "\}"
+\end{indentgrammar}
+
+\subsection{Connections}
+
+Declares a connection between the given signals.
+
+\begin{indentgrammar}{<conn-stmt>}
+<conn-stmt> ::= "connect" <sigspec> <sigspec> <eol>
+\end{indentgrammar}
+
+\subsection{Wires}
+
+Declares a wire, with zero or more attributes, with the given identifier and options in the enclosing module.
+
+See Sec.~\ref{sec:rtlil_cell_wire} for an overview of wires.
+
+\begin{indentgrammar}{<wire-option>}
+<wire> ::= <attr-stmt>$*$ <wire-stmt>
+
+<wire-stmt> ::= "wire" <wire-option>$*$ <wire-id> <eol>
+
+<wire-id> ::= <id>
+
+<wire-option> ::= 
+"width" <integer>
+  \alt "offset" <integer>
+  \alt "input" <integer>
+  \alt "output" <integer>
+  \alt "inout" <integer>
+  \alt "upto"
+  \alt "signed"
+\end{indentgrammar}
+
+\subsection{Memories}
+
+Declares a memory, with zero or more attributes, with the given identifier and options in the enclosing module.
+
+See Sec.~\ref{sec:rtlil_memory} for an overview of memory cells, and Sec.~\ref{sec:memcells} for details about memory cell types.
+
+\begin{indentgrammar}{<memory-option>}
+<memory> ::= <attr-stmt>$*$ <memory-stmt>
+
+<memory-stmt> ::= "memory" <memory-option>$*$ <id> <eol>
+
+<memory-option> ::= 
+"width" <integer>
+  \alt "size" <integer>
+  \alt "offset" <integer>
+\end{indentgrammar}
+
+\subsection{Cells}
+
+Declares a cell, with zero or more attributes, with the given identifier and type in the enclosing module. 
+
+Cells perform functions on input signals. See Chap.~\ref{chapter:celllib} for a detailed list of cell types.
+
+\begin{indentgrammar}{<cell-body-stmt>}
+<cell> ::= <attr-stmt>$*$ <cell-stmt> <cell-body-stmt>$*$ <cell-end-stmt>
+
+<cell-stmt> ::= "cell" <cell-id> <cell-type> <eol>
+
+<cell-id> ::= <id>
+
+<cell-type> ::= <id>
+
+<cell-body-stmt> ::= 
+"parameter" ("signed" | "real")$?$ <id> <constant> <eol>
+  \alt "connect" <id> <sigspec> <eol>
+
+<cell-end-stmt> ::= "end" <eol>
+\end{indentgrammar}
+
+\subsection{Processes}
+
+Declares a process, with zero or more attributes, with the given identifier in the enclosing module. The body of a process consists of zero or more assignments, exactly one switch, and zero or more syncs.
+
+See Sec.~\ref{sec:rtlil_process} for an overview of processes.
+
+\begin{indentgrammar}{<switch-end-stmt>}
+<process> ::= <attr-stmt>$*$ <proc-stmt> <process-body> <proc-end-stmt>
+
+<proc-stmt> ::= "process" <id> <eol>
+
+<process-body> ::= <assign-stmt>$*$ <switch> <assign-stmt>$*$ <sync>$*$
+
+<assign-stmt> ::= "assign" <dest-sigspec> <src-sigspec> <eol>
+
+<dest-sigspec> ::= <sigspec>
+
+<src-sigspec> ::= <sigspec>
+
+<proc-end-stmt> ::= "end" <eol>
+
+\end{indentgrammar}
+
+\subsection{Switches}
+
+Switches test a signal for equality against a list of cases. Each case specifies a comma-separated list of signals to check against. If there are no signals in the list, then the case is the default case. The body of a case consists of zero or more switches and assignments. Both switches and cases may have zero or more attributes.
+
+\begin{indentgrammar}{<switch-end-stmt>}
+<switch> ::= <switch-stmt> <case>$*$ <switch-end-stmt>
+
+<switch-stmt> := <attr-stmt>$*$ "switch" <sigspec> <eol>
+
+<case> ::= <attr-stmt>$*$ <case-stmt> <case-body>
+
+<case-stmt> ::= "case" <compare>$?$ <eol>
+
+<compare> ::= <sigspec> ("," <sigspec>)$*$
+
+<case-body> ::= (<switch> | <assign-stmt>)$*$
+
+<switch-end-stmt> ::= "end" <eol>
+\end{indentgrammar}
+
+\subsection{Syncs}
+
+Syncs update signals with other signals when an event happens. Such an event may be:
+
+\begin{itemize}
+  \item An edge or level on a signal
+  \item Global clock ticks
+  \item Initialization
+  \item Always
+\end{itemize}
+
+\begin{indentgrammar}{<dest-sigspec>}
+<sync> ::= <sync-stmt> <update-stmt>$*$
+
+<sync-stmt> ::= 
+"sync" <sync-type> <sigspec> <eol>
+  \alt "sync" "global" <eol>
+  \alt "sync" "init" <eol>
+  \alt "sync" "always" <eol>
+
+<sync-type> ::= "low" | "high" | "posedge" | "negedge" | "edge"
+
+<update-stmt> ::= "update" <dest-sigspec> <src-sigspec> <eol>
+\end{indentgrammar}

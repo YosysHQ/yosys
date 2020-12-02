@@ -230,6 +230,7 @@ generated twice. For modules with only a few parameters, a name directly contain
 is generated instead of a hash string.)
 
 \subsection{RTLIL::Cell and RTLIL::Wire}
+\label{sec:rtlil_cell_wire}
 
 A module contains zero to many RTLIL::Cell and RTLIL::Wire objects. Objects of
 these types are used to model netlists. Usually the goal of all synthesis efforts is to convert
@@ -275,6 +276,7 @@ The connections of ports to wires are coded by assigning an RTLIL::SigSpec
 to each cell port. The RTLIL::SigSpec data type is described in the next section.
 
 \subsection{RTLIL::SigSpec}
+\label{sec:rtlil_sigspec}
 
 A ``signal'' is everything that can be applied to a cell port. I.e.
 
@@ -295,6 +297,7 @@ RTLIL::SigSpec objects. Such pairs are needed in different locations. Therefore
 the type name RTLIL::SigSig was defined for such a pair.
 
 \subsection{RTLIL::Process}
+\label{sec:rtlil_process}
 
 When a high-level HDL frontend processes behavioural code it splits it up into
 data path logic (e.g.~the expression {\tt a + b} is replaced by the output of an
@@ -444,6 +447,7 @@ pass calls a series of other passes that together perform this conversion in a w
 for most synthesis tasks.
 
 \subsection{RTLIL::Memory}
+\label{sec:rtlil_memory}
 
 For every array (memory) in the HDL code an RTLIL::Memory object is created. A
 memory object has the following properties:

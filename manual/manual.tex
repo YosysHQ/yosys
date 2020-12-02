@@ -75,6 +75,9 @@ bookmarksopen=false%
 \usetikzlibrary{through}
 \usetikzlibrary{shapes.geometric}
 
+\usepackage{calc}
+\usepackage[nounderscore]{syntax}
+
 \lstset{basicstyle=\ttfamily}
 
 \def\B#1{{\tt\textbackslash{}#1}}
@@ -214,6 +217,7 @@ YOSYS       & Yosys Open SYnthesis Suite \\
 \label{commandref}
 \input{command-reference-manual}
 
+\include{CHAPTER_TextRtlil}
 \include{CHAPTER_Appnotes}
 % \include{CHAPTER_StateOfTheArt}
 
