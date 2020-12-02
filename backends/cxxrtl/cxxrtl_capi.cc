@@ -43,6 +43,10 @@ void cxxrtl_destroy(cxxrtl_handle handle) {
 	delete handle;
 }
 
+void cxxrtl_reset(cxxrtl_handle handle) {
+	handle->module->reset();
+}
+
 int cxxrtl_eval(cxxrtl_handle handle) {
 	return handle->module->eval();
 }

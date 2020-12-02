@@ -55,6 +55,14 @@ cxxrtl_handle cxxrtl_create(cxxrtl_toplevel design);
 // Release all resources used by a design and its handle.
 void cxxrtl_destroy(cxxrtl_handle handle);
 
+// Reinitialize the design, replacing the internal state with the reset values while preserving
+// black boxes.
+//
+// This operation is essentially equivalent to a power-on reset. Values, wires, and memories are
+// returned to their reset state while preserving the state of black boxes and keeping all of
+// the interior pointers obtained with e.g. `cxxrtl_get` valid.
+void cxxrtl_reset(cxxrtl_handle handle);
+
 // Evaluate the design, propagating changes on inputs to the `next` value of internal state and
 // output wires.
 //
