@@ -53,6 +53,20 @@
 #define CXXRTL_ALWAYS_INLINE inline
 #endif
 
+// CXXRTL uses assert() to check for C++ contract violations (which may result in e.g. undefined behavior
+// of the simulation code itself), and CXXRTL_ASSERT to check for RTL contract violations (which may at
+// most result in undefined simulation results).
+//
+// Though by default, CXXRTL_ASSERT() expands to assert(), it may be overridden e.g. when integrating
+// the simulation into another process that should survive violating RTL contracts.
+#ifndef CXXRTL_ASSERT
+#ifndef CXXRTL_NDEBUG
+#define CXXRTL_ASSERT(x) assert(x)
+#else
+#define CXXRTL_ASSERT(x)
+#endif
+#endif
+
 namespace cxxrtl {
 
 // All arbitrary-width values in CXXRTL are backed by arrays of unsigned integers called chunks. The chunk size

@@ -1154,7 +1154,7 @@ struct CxxrtlWorker {
 				// larger program) will never crash the code that calls into it.
 				//
 				// If assertions are disabled, out of bounds reads are defined to return zero.
-				f << indent << "assert(" << valid_index_temp << ".valid && \"out of bounds read\");\n";
+				f << indent << "CXXRTL_ASSERT(" << valid_index_temp << ".valid && \"out of bounds read\");\n";
 				f << indent << "if(" << valid_index_temp << ".valid) {\n";
 				inc_indent();
 					if (writable_memories[memory]) {
@@ -1211,7 +1211,7 @@ struct CxxrtlWorker {
 				// See above for rationale of having both the assert and the condition.
 				//
 				// If assertions are disabled, out of bounds writes are defined to do nothing.
-				f << indent << "assert(" << valid_index_temp << ".valid && \"out of bounds write\");\n";
+				f << indent << "CXXRTL_ASSERT(" << valid_index_temp << ".valid && \"out of bounds write\");\n";
 				f << indent << "if (" << valid_index_temp << ".valid) {\n";
 				inc_indent();
 					f << indent << mangle(memory) << ".update(" << valid_index_temp << ".index, ";
