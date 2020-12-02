@@ -55,7 +55,7 @@ USING_YOSYS_NAMESPACE
 #  error "Only Symbiotic EDA flavored Verific is supported. Please contact office@symbioticeda.com for commercial support for Yosys+Verific."
 #endif
 
-#if SYMBIOTIC_VERIFIC_API_VERSION < 20201001
+#if SYMBIOTIC_VERIFIC_API_VERSION < 20201101
 #  error "Please update your version of Symbiotic EDA flavored Verific."
 #endif
 
