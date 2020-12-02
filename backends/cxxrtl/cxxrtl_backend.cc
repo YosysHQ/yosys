@@ -1036,8 +1036,12 @@ struct CxxrtlWorker {
 				// Edge-sensitive logic
 				RTLIL::SigBit clk_bit = cell->getPort(ID::CLK)[0];
 				clk_bit = sigmaps[clk_bit.wire->module](clk_bit);
-				f << indent << "if (" << (cell->getParam(ID::CLK_POLARITY).as_bool() ? "posedge_" : "negedge_")
-				            << mangle(clk_bit) << ") {\n";
+				if (clk_bit.wire) {
+					f << indent << "if (" << (cell->getParam(ID::CLK_POLARITY).as_bool() ? "posedge_" : "negedge_")
+					            << mangle(clk_bit) << ") {\n";
+				} else {
+					f << indent << "if (false) {\n";
+				}
 				inc_indent();
 					if (cell->hasPort(ID::EN)) {
 						f << indent << "if (";
@@ -1130,8 +1134,12 @@ struct CxxrtlWorker {
 			if (cell->getParam(ID::CLK_ENABLE).as_bool()) {
 				RTLIL::SigBit clk_bit = cell->getPort(ID::CLK)[0];
 				clk_bit = sigmaps[clk_bit.wire->module](clk_bit);
-				f << indent << "if (" << (cell->getParam(ID::CLK_POLARITY).as_bool() ? "posedge_" : "negedge_")
-				            << mangle(clk_bit) << ") {\n";
+				if (clk_bit.wire) {
+					f << indent << "if (" << (cell->getParam(ID::CLK_POLARITY).as_bool() ? "posedge_" : "negedge_")
+					            << mangle(clk_bit) << ") {\n";
+				} else {
+					f << indent << "if (false) {\n";
+				}
 				inc_indent();
 			}
 			RTLIL::Memory *memory = cell->module->memories[cell->getParam(ID::MEMID).decode_string()];
@@ -2145,14 +2153,14 @@ struct CxxrtlWorker {
 
 				// Various DFF cells are treated like posedge/negedge processes, see above for details.
 				if (cell->type.in(ID($dff), ID($dffe), ID($adff), ID($adffe), ID($dffsr), ID($dffsre), ID($sdff), ID($sdffe), ID($sdffce))) {
-					if (cell->getPort(ID::CLK).is_wire())
+					if (sigmap(cell->getPort(ID::CLK)).is_wire())
 						register_edge_signal(sigmap, cell->getPort(ID::CLK),
 							cell->parameters[ID::CLK_POLARITY].as_bool() ? RTLIL::STp : RTLIL::STn);
 				}
 				// Similar for memory port cells.
 				if (cell->type.in(ID($memrd), ID($memwr))) {
 					if (cell->getParam(ID::CLK_ENABLE).as_bool()) {
-						if (cell->getPort(ID::CLK).is_wire())
+						if (sigmap(cell->getPort(ID::CLK)).is_wire())
 							register_edge_signal(sigmap, cell->getPort(ID::CLK),
 								cell->parameters[ID::CLK_POLARITY].as_bool() ? RTLIL::STp : RTLIL::STn);
 					}
