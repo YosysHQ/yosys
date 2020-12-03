@@ -2503,25 +2503,73 @@ module SB_SPRAM256KA (
 `ifndef BLACKBOX
 `ifndef EQUIV
 	reg [15:0] mem [0:16383];
-	wire off = SLEEP || !POWEROFF;
+
+	// We provide a very coarse-grained simulation of the internal logic in the
+	// SPRAM, emulating the power-on delays of 2 virtual power domains: the
+	// "standby" logic and the "main" logic. The main logic takes longer to boot,
+	// and provides memory retention. Standby logic is ready faster but requires
+	// more power to operate, as it maintains memory contents.
+	//
+	// For details on the canonical power states, please consult Lattice FPGA
+	// Technical Note TN2022.
+	//
+	// First we need some counters for the number of simulation ticks until the
+	// respective power domain is enabled. These counters are reset to the full
+	// duration of the delay every time the respective power domain is disabled
+	// and count down once per simulation tick.
+	integer standby_power_delay = 0;
+	integer main_power_delay    = 0;
+	// We also define some handy wires which represent the state of our simulated
+	// power domains.
+	wire power_inputs = POWEROFF & ~SLEEP & ~STANDBY;
+	wire main_power    = (main_power_delay == 0) & power_inputs;
+	wire standby_power = (standby_power_delay == 0) & power_inputs;
+
+	wire off = ~(standby_power & main_power);
 	integer i;
+
+	always @(negedge (main_power_delay == 0)) begin
+		while (main_power_delay != 0) begin
+			#100 main_power_delay = main_power_delay - 100;
+		end
+	end
+
+	always @(negedge (standby_power_delay == 0)) begin
+		while (standby_power_delay != 0) begin
+			#100 standby_power_delay = standby_power_delay - 100;
+		end
+	end
 
 	always @(negedge POWEROFF) begin
 		for (i = 0; i <= 16383; i = i+1)
 			mem[i] = 16'bx;
 	end
 
-	always @(posedge CLOCK, posedge off) begin
+	always @(posedge POWEROFF) begin
+		main_power_delay = 41800;
+	end
+
+	always @(negedge SLEEP) begin
+		main_power_delay = 41800;
+	end
+
+	always @(negedge STANDBY) begin
+		standby_power_delay = 1700;
+	end
+
+	always @(posedge CLOCK, main_power, standby_power) begin
 		if (off) begin
 			DATAOUT <= 0;
 		end else
 		if (STANDBY) begin
-			DATAOUT <= 16'bx;
+			// Leave DATAOUT alone in this case, as the memory is specified to leave
+			// outputs unchanged when entering the standby state. (TN2022-1.2)
 		end else
 		if (CHIPSELECT) begin
 			if (!WREN) begin
 				DATAOUT <= mem[ADDRESS];
-			end else begin
+			end else
+			if (main_power & standby_power) begin
 				if (MASKWREN[0]) mem[ADDRESS][ 3: 0] <= DATAIN[ 3: 0];
 				if (MASKWREN[1]) mem[ADDRESS][ 7: 4] <= DATAIN[ 7: 4];
 				if (MASKWREN[2]) mem[ADDRESS][11: 8] <= DATAIN[11: 8];
