@@ -52,6 +52,12 @@ typedef struct _cxxrtl_handle *cxxrtl_handle;
 // The `design` is consumed by this operation and cannot be used afterwards.
 cxxrtl_handle cxxrtl_create(cxxrtl_toplevel design);
 
+// Create a design handle at a given hierarchy position from a design toplevel.
+//
+// This operation is similar to `cxxrtl_create`, except the full hierarchical name of every object
+// is prepended with `root`.
+cxxrtl_handle cxxrtl_create_at(cxxrtl_toplevel design, const char *root);
+
 // Release all resources used by a design and its handle.
 void cxxrtl_destroy(cxxrtl_handle handle);
 
