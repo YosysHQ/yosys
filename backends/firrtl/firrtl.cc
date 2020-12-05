@@ -678,6 +678,9 @@ struct FirrtlWorker
 	{
 	}
 
+	/**
+	 * Returns a firrtl-compatible identifier for a Yosys IdString
+	 */
 	std::string fid(RTLIL::IdString internal_id)
 	{
 		return make_id(internal_id);
@@ -690,51 +693,35 @@ struct FirrtlWorker
 
 	void process_instance(RTLIL::Cell *cell, vector<string> &wire_exprs)
 	{
-		std::string cell_type = fid(cell->type);
-		std::string instanceOf;
-		// If this is a parameterized module, its parent module is encoded in the cell type
-		if (cell->type.begins_with("$paramod"))
-		{
-			log_assert(cell->has_attribute(ID::hdlname));
-			instanceOf = cell->get_string_attribute(ID::hdlname);
-		}
-		else
-		{
-			instanceOf = cell_type;
-		}
+		// Firrtl names.
+		const std::string f_mod_type = fid(cell->type);
+		const std::string f_inst_name = cellname(cell);
 
-		std::string cell_name = cellname(cell);
-		std::string cell_name_comment;
-		if (cell_name != fid(cell->name))
-			cell_name_comment = " /* " + fid(cell->name) + " */ ";
-		else
-			cell_name_comment = "";
-		// Find the module corresponding to this instance.
-		auto instModule = design->module(cell->type);
-		// If there is no instance for this, just return.
-		if (instModule == NULL)
+		// Find the module corresponding to this instance. If none found,
+		// report error and exit.
+		auto instantiated_mod = design->module(cell->type);
+		if (instantiated_mod == NULL)
 		{
-			log_warning("No instance for %s.%s\n", cell_type.c_str(), cell_name.c_str());
-			return;
+			log_error("No module definition found for instance \"%s\" of module \"%s\".", f_inst_name.c_str(), f_mod_type.c_str());
 		}
 
 		// If the instance is that of a blackbox, use the modified extmodule name
 		// that contains per-instance parameterizations. These instances were
 		// emitted earlier in the firrtl backend.
-		const std::string instanceName = instModule->get_blackbox_attribute() ?
-			extmodule_name(cell, instModule) :
-			instanceOf;
+		const std::string f_expanded_mod_type = instantiated_mod->get_blackbox_attribute() ?
+			extmodule_name(cell, instantiated_mod) :
+			f_mod_type;
 
 		std::string cellFileinfo = getFileinfo(cell);
-		wire_exprs.push_back(stringf("%s" "inst %s%s of %s %s", indent.c_str(), cell_name.c_str(), cell_name_comment.c_str(), instanceName.c_str(), cellFileinfo.c_str()));
+		wire_exprs.push_back(stringf("%s" "inst %s of %s %s", indent.c_str(), f_inst_name.c_str(), f_expanded_mod_type.c_str(), cellFileinfo.c_str()));
 
 		for (auto it = cell->connections().begin(); it != cell->connections().end(); ++it) {
 			if (it->second.size() > 0) {
 				const SigSpec &secondSig = it->second;
-				const std::string firstName = cell_name + "." + make_id(it->first);
+				const std::string firstName = f_inst_name + "." + make_id(it->first);
 				const std::string secondExpr = make_expr(secondSig);
 				// Find the direction for this port.
-				FDirection dir = getPortFDirection(it->first, instModule);
+				FDirection dir = getPortFDirection(it->first, instantiated_mod);
 				std::string sourceExpr, sinkExpr;
 				const SigSpec *sinkSig = nullptr;
 
@@ -744,7 +731,7 @@ struct FirrtlWorker
 
 				switch (dir) {
 					case FD_INOUT:
-						log_warning("Instance port connection %s.%s is INOUT; treating as OUT\n", cell_type.c_str(), log_signal(it->second));
+						log_warning("Instance port connection %s.%s is INOUT; treating as OUT\n", f_expanded_mod_type.c_str(), log_signal(it->second));
 						YS_FALLTHROUGH
 					case FD_OUT:
 						sourceExpr = firstName;
@@ -758,7 +745,7 @@ struct FirrtlWorker
 						is_subfield_assignment = (sinkExpr.compare(0, bitsString.length(), bitsString) == 0) || (sinkExpr.compare(0, catString.length(), catString) == 0);
 						if (is_subfield_assignment) {
 							if (sinkSig == nullptr)
-								log_error("Unknown subfield %s.%s\n", cell_type.c_str(), sinkExpr.c_str());
+								log_error("Unknown subfield %s.%s\n", f_expanded_mod_type.c_str(), sinkExpr.c_str());
 						}
 
 						// Always use reverse_wire_map so we can track if the full width of the wire
@@ -770,7 +757,7 @@ struct FirrtlWorker
 						register_reverse_wire_map(sourceExpr, *sinkSig);
 						break;
 					case FD_NODIRECTION:
-						log_warning("Instance port connection %s.%s is NODIRECTION; treating as IN\n", cell_type.c_str(), log_signal(it->second));
+						log_warning("Instance port connection %s.%s is NODIRECTION; treating as IN\n", f_expanded_mod_type.c_str(), log_signal(it->second));
 						YS_FALLTHROUGH
 					case FD_IN:
 						sourceExpr = secondExpr;
@@ -778,13 +765,12 @@ struct FirrtlWorker
 						wire_exprs.push_back(stringf("\n%s%s <= %s %s", indent.c_str(), sinkExpr.c_str(), sourceExpr.c_str(), cellFileinfo.c_str()));
 						break;
 					default:
-						log_error("Instance port %s.%s unrecognized connection direction 0x%x !\n", cell_type.c_str(), log_signal(it->second), dir);
+						log_error("Instance port %s.%s unrecognized connection direction 0x%x !\n", f_expanded_mod_type.c_str(), log_signal(it->second), dir);
 						break;
 				}
 			}
 		}
 		wire_exprs.push_back(stringf("\n"));
-
 	}
 
 	// Given an expression for a shift amount, and a maximum width,
@@ -833,15 +819,21 @@ struct FirrtlWorker
 
 		for (auto cell : module->cells())
 		{
-			static Const ndef(0, 0);
-
 			// Is this cell is a module instance?
-			if (cell->type[0] != '$')
+			// - A non-parametric module is a module with a publicly-visible
+			//   name (something that doesn't start with "$").
+			// - A parametric module is a module with an auto-generated
+			//   name (something that starts with "$", "$paramod" specifically).
+			const bool is_standard_module_instance = cell->type[0] != '$';
+			const bool is_parametric_module_instance = cell->type.begins_with("$paramod");
+			if (is_standard_module_instance || is_parametric_module_instance)
 			{
 				process_instance(cell, wire_exprs);
 				continue;
 			}
+
 			// Not a module instance. Set up cell properties
+			static Const ndef(0, 0);
 			bool extract_y_bits = false;		// Assume no extraction of final bits will be required.
 			int a_width = cell->parameters.at(ID::A_WIDTH, ndef).as_int();	// The width of "A"
 			int b_width = cell->parameters.at(ID::B_WIDTH, ndef).as_int();	// The width of "A"
@@ -1292,12 +1284,6 @@ struct FirrtlWorker
 				continue;
 			}
 
-			// This may be a parameterized module - paramod.
-			if (cell->type.begins_with("$paramod"))
-			{
-				process_instance(cell, wire_exprs);
-				continue;
-			}
 			if (cell->type == ID($shiftx)) {
 				// assign y = a[b +: y_width];
 				// We'll extract the correct bits as part of the primop.
