@@ -17,8 +17,10 @@ proc
 equiv_opt -assert -map +/intel_le/common/le_sim.v synth_intel_le -family cycloneiv # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd mux4 # Constrain all select calls below inside the top module
-select -assert-count 3 t:MISTRAL_ALUT3
-select -assert-none t:MISTRAL_ALUT3 %% t:* %D
+select -assert-count 1 t:MISTRAL_ALUT3
+select -assert-count 2 t:MISTRAL_ALUT4
+select -assert-none t:MISTRAL_ALUT3 t:MISTRAL_ALUT4 %% t:* %D
+
 
 
 design -load read
@@ -27,9 +29,9 @@ proc
 equiv_opt -assert -map +/intel_le/common/le_sim.v synth_intel_le -family cycloneiv # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd mux8 # Constrain all select calls below inside the top module
-select -assert-count 3 t:MISTRAL_ALUT3
-select -assert-count 3 t:MISTRAL_ALUT4
-select -assert-none t:MISTRAL_ALUT3 t:MISTRAL_ALUT4 %% t:* %D
+select -assert-count 2 t:MISTRAL_ALUT2
+select -assert-count 5 t:MISTRAL_ALUT4
+select -assert-none t:MISTRAL_ALUT2 t:MISTRAL_ALUT4 %% t:* %D
 
 
 design -load read
@@ -38,8 +40,7 @@ proc
 equiv_opt -assert -map +/intel_le/common/le_sim.v synth_intel_le -family cycloneiv # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd mux16 # Constrain all select calls below inside the top module
-select -assert-count 1 t:MISTRAL_ALUT2
-select -assert-max 6 t:MISTRAL_ALUT3
-select -assert-max 7 t:MISTRAL_ALUT4
-select -assert-none t:MISTRAL_ALUT2 t:MISTRAL_ALUT3 t:MISTRAL_ALUT4 %% t:* %D
+select -assert-max 4 t:MISTRAL_ALUT3
+select -assert-max 9 t:MISTRAL_ALUT4
+select -assert-none t:MISTRAL_ALUT3 t:MISTRAL_ALUT4 %% t:* %D
 

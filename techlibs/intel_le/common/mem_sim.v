@@ -5,8 +5,8 @@
 
 module MISTRAL_M9K(CLK1, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
 
-parameter CFG_ABITS = 10;
-parameter CFG_DBITS = 10;
+parameter CFG_ABITS = 9;
+parameter CFG_DBITS = 9;
 
 input CLK1;
 input [CFG_ABITS-1:0] A1ADDR, B1ADDR;
