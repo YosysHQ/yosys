@@ -25,7 +25,7 @@
 // Cyclone V LUT output timings (picoseconds):
 //
 //          CARRY   A    B    C   D  
-//  COMBOUT  ?408? 319  323  211 114  
+//  COMBOUT  ?408? 332  337  220 119  
 // CARRYOUT   200  376  385    ?   -
 
 
@@ -36,10 +36,10 @@ parameter [15:0] LUT = 16'h0000;
 
 `ifdef cycloneiv
 specify
-    (A => Q) = 319;
-    (B => Q) = 323;
-    (C => Q) = 211;
-    (D => Q) = 114;
+    (A => Q) = 337; 
+    (B => Q) = 332;
+    (C => Q) = 220;
+    (D => Q) = 119;
 endspecify
 `endif
 
@@ -55,9 +55,9 @@ parameter [7:0] LUT = 8'h00;
 
 `ifdef cycloneiv 
 specify 
-    (A => Q) = 510;
-    (B => Q) = 400;
-    (C => Q) = 97;
+    (A => Q) = 332;
+    (B => Q) = 220;
+    (C => Q) = 119;
 endspecify
 `endif
 assign Q = LUT >> {C, B, A};
@@ -72,8 +72,8 @@ parameter [3:0] LUT = 4'h0;
 
 `ifdef cycloneiv 
 specify
-    (A => Q) = 400;
-    (B => Q) = 97;
+    (A => Q) = 220;
+    (B => Q) = 119;
 endspecify
 `endif
 assign Q = LUT >> {B, A};
@@ -84,9 +84,9 @@ endmodule
 (* abc9_lut=1, lib_whitebox *)
 module MISTRAL_NOT(input A, output Q);
 
-`ifdef cycloneiv 
+`ifdef cycloneiv  
 specify
-    (A => Q) = 97;
+    (A => Q) = 119;
 endspecify
 `endif
 assign Q = ~A;
@@ -98,16 +98,17 @@ module MISTRAL_ALUT_ARITH(input A, B, C, D, (* abc9_carry *) input CI, output SO
 
 parameter LUT = 16'h0000;
 
-`ifdef cycloneiv  
-specify
-    (A  => SO) = 1342;
-    (B  => SO) = 1323;
-    (C  => SO) = 927;
-    (D => SO) = 887;
-    (CI => SO) = 368;
 
-    (A  => CO) = 376;
-    (B  => CO) = 385;
+`ifdef cycloneiv   
+specify
+    (A  => SO) = 337;
+    (B  => SO) = 332;
+    (C  => SO) = 220;
+    (D => SO) = 119;
+    (CI => SO) = 08;
+
+    (A  => CO) = 385;
+    (B  => CO) = 376;
     (CI => CO) = 200;
 endspecify
 `endif
