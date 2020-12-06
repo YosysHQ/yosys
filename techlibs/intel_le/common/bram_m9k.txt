@@ -26,7 +26,7 @@ bram MISTRAL_M9K
 endbram
 
 
-match MISTRAL_M10K
+match MISTRAL_M9K
     min efficiency 5
     make_transp
 endmatch
