@@ -30,7 +30,7 @@ struct BugpointPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    bugpoint [options] -script <filename>\n");
+		log("    bugpoint [options] [-script <filename> | -command \"<command>\"]\n");
 		log("\n");
 		log("This command minimizes the current design that is known to crash Yosys with the\n");
 		log("given script into a smaller testcase. It does this by removing an arbitrary part\n");
@@ -39,8 +39,8 @@ struct BugpointPass : public Pass {
 		log("still causes a crash. Once this command finishes, it replaces the current design\n");
 		log("with the smallest testcase it was able to produce.\n");
 		log("\n");
-		log("    -script <filename>\n");
-		log("        use this script to crash Yosys. required.\n");
+		log("    -script <filename> | -command \"<command>\"\n");
+		log("        use this script file or command to crash Yosys. required.\n");
 		log("\n");
 		log("    -yosys <filename>\n");
 		log("        use this Yosys binary. if not specified, `yosys` is used.\n");
@@ -85,7 +85,7 @@ struct BugpointPass : public Pass {
 		log("\n");
 	}
 
-	bool run_yosys(RTLIL::Design *design, string yosys_cmd, string script)
+	bool run_yosys(RTLIL::Design *design, string yosys_cmd, string yosys_arg)
 	{
 		design->sort();
 
@@ -93,7 +93,7 @@ struct BugpointPass : public Pass {
 		RTLIL_BACKEND::dump_design(f, design, /*only_selected=*/false, /*flag_m=*/true, /*flag_n=*/false);
 		f.close();
 
-		string yosys_cmdline = stringf("%s -qq -L bugpoint-case.log -s %s bugpoint-case.il", yosys_cmd.c_str(), script.c_str());
+		string yosys_cmdline = stringf("%s -qq -L bugpoint-case.log %s bugpoint-case.il", yosys_cmd.c_str(), yosys_arg.c_str());
 		return run_command(yosys_cmdline) == 0;
 	}
 
@@ -315,7 +315,7 @@ struct BugpointPass : public Pass {
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		string yosys_cmd = "yosys", script, grep;
+		string yosys_cmd = "yosys", yosys_arg, grep;
 		bool fast = false, clean = false;
 		bool modules = false, ports = false, cells = false, connections = false, assigns = false, updates = false, has_part = false;
 
@@ -330,7 +330,15 @@ struct BugpointPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-script" && argidx + 1 < args.size()) {
-				script = args[++argidx];
+				if (!yosys_arg.empty())
+					log_cmd_error("A -script or -command option can be only provided once!\n");
+				yosys_arg = stringf("-s %s", args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-command" && argidx + 1 < args.size()) {
+				if (!yosys_arg.empty())
+					log_cmd_error("A -script or -command option can be only provided once!\n");
+				yosys_arg = stringf("-p %s", args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-grep" && argidx + 1 < args.size()) {
@@ -379,8 +387,8 @@ struct BugpointPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		if (script.empty())
-			log_cmd_error("Missing -script option.\n");
+		if (yosys_arg.empty())
+			log_cmd_error("Missing -script or -command option.\n");
 
 		if (!has_part)
 		{
@@ -396,8 +404,8 @@ struct BugpointPass : public Pass {
 			log_cmd_error("This command only operates on fully selected designs!\n");
 
 		RTLIL::Design *crashing_design = clean_design(design, clean);
-		if (run_yosys(crashing_design, yosys_cmd, script))
-			log_cmd_error("The provided script file and Yosys binary do not crash on this design!\n");
+		if (run_yosys(crashing_design, yosys_cmd, yosys_arg))
+			log_cmd_error("The provided script file or command and Yosys binary do not crash on this design!\n");
 		if (!check_logfile(grep))
 			log_cmd_error("The provided grep string is not found in the log file!\n");
 
@@ -413,12 +421,12 @@ struct BugpointPass : public Pass {
 				if (clean)
 				{
 					RTLIL::Design *testcase = clean_design(simplified);
-					crashes = !run_yosys(testcase, yosys_cmd, script);
+					crashes = !run_yosys(testcase, yosys_cmd, yosys_arg);
 					delete testcase;
 				}
 				else
 				{
-					crashes = !run_yosys(simplified, yosys_cmd, script);
+					crashes = !run_yosys(simplified, yosys_cmd, yosys_arg);
 				}
 
 				if (crashes && check_logfile(grep))
