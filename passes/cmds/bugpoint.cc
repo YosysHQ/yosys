@@ -77,6 +77,10 @@ struct BugpointPass : public Pass {
 		log("    -connections\n");
 		log("        try to reconnect ports to 'x.\n");
 		log("\n");
+		log("    -processes\n");
+		log("        try to remove processes. processes with a (* bugpoint_keep *) attribute\n");
+		log("        will be skipped.\n");
+		log("\n");
 		log("    -assigns\n");
 		log("        try to remove process assigns from cases.\n");
 		log("\n");
@@ -132,7 +136,7 @@ struct BugpointPass : public Pass {
 		return design_copy;
 	}
 
-	RTLIL::Design *simplify_something(RTLIL::Design *design, int &seed, bool stage2, bool modules, bool ports, bool cells, bool connections, bool assigns, bool updates)
+	RTLIL::Design *simplify_something(RTLIL::Design *design, int &seed, bool stage2, bool modules, bool ports, bool cells, bool connections, bool processes, bool assigns, bool updates)
 	{
 		RTLIL::Design *design_copy = new RTLIL::Design;
 		for (auto module : design->modules())
@@ -197,7 +201,6 @@ struct BugpointPass : public Pass {
 				if (mod->get_blackbox_attribute())
 					continue;
 
-
 				Cell *removed_cell = nullptr;
 				for (auto cell : mod->cells())
 				{
@@ -257,6 +260,33 @@ struct BugpointPass : public Pass {
 							return design_copy;
 						}
 					}
+				}
+			}
+		}
+		if (processes)
+		{
+			for (auto mod : design_copy->modules())
+			{
+				if (mod->get_blackbox_attribute())
+					continue;
+
+				RTLIL::IdString removed_process;
+				for (auto process : mod->processes)
+				{
+					if (process.second->get_bool_attribute(ID::bugpoint_keep))
+						continue;
+
+					if (index++ == seed)
+					{
+						log_header(design, "Trying to remove process %s.%s.\n", log_id(mod), log_id(process.first));
+						removed_process = process.first;
+						break;
+					}
+				}
+				if (!removed_process.empty()) {
+					delete mod->processes[removed_process];
+					mod->processes.erase(removed_process);
+					return design_copy;
 				}
 			}
 		}
@@ -320,7 +350,7 @@ struct BugpointPass : public Pass {
 	{
 		string yosys_cmd = "yosys", yosys_arg, grep;
 		bool fast = false, clean = false;
-		bool modules = false, ports = false, cells = false, connections = false, assigns = false, updates = false, has_part = false;
+		bool modules = false, ports = false, cells = false, connections = false, processes = false, assigns = false, updates = false, has_part = false;
 
 		log_header(design, "Executing BUGPOINT pass (minimize testcases).\n");
 		log_push();
@@ -376,6 +406,11 @@ struct BugpointPass : public Pass {
 				has_part = true;
 				continue;
 			}
+			if (args[argidx] == "-processes") {
+				processes = true;
+				has_part = true;
+				continue;
+			}
 			if (args[argidx] == "-assigns") {
 				assigns = true;
 				has_part = true;
@@ -399,6 +434,7 @@ struct BugpointPass : public Pass {
 			ports = true;
 			cells = true;
 			connections = true;
+			processes = true;
 			assigns = true;
 			updates = true;
 		}
@@ -416,7 +452,7 @@ struct BugpointPass : public Pass {
 		bool found_something = false, stage2 = false;
 		while (true)
 		{
-			if (RTLIL::Design *simplified = simplify_something(crashing_design, seed, stage2, modules, ports, cells, connections, assigns, updates))
+			if (RTLIL::Design *simplified = simplify_something(crashing_design, seed, stage2, modules, ports, cells, connections, processes, assigns, updates))
 			{
 				simplified = clean_design(simplified, fast, /*do_delete=*/true);
 
