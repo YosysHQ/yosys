@@ -45,7 +45,7 @@ struct BugpointPass : public Pass {
 		log("    -yosys <filename>\n");
 		log("        use this Yosys binary. if not specified, `yosys` is used.\n");
 		log("\n");
-		log("    -grep <string>\n");
+		log("    -grep \"<string>\"\n");
 		log("        only consider crashes that place this string in the log file.\n");
 		log("\n");
 		log("    -fast\n");
@@ -101,6 +101,9 @@ struct BugpointPass : public Pass {
 	{
 		if (grep.empty())
 			return true;
+
+		if (grep.size() > 2 && grep.front() == '"' && grep.back() == '"')
+			grep = grep.substr(1, grep.size() - 2);
 
 		std::ifstream f("bugpoint-case.log");
 		while (!f.eof())
