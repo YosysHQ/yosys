@@ -1,0 +1,22 @@
+bram $__NX_PDPSC512K
+  init 1
+
+  abits 14
+  dbits 32
+
+  groups 2
+  ports 1 1
+  wrmode 1 0
+  enable 4 1
+  transp 0 0
+  clocks 2 2
+  clkpol 2 2
+endbram
+
+match $__NX_PDPSC512K
+  # explicitly requested LRAM only, due to limited availability and
+  # slower Fmax
+  attribute lram
+  shuffle_enable A
+  make_transp
+endmatch
