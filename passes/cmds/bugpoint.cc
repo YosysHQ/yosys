@@ -136,7 +136,7 @@ struct BugpointPass : public Pass {
 		return design_copy;
 	}
 
-	RTLIL::Design *simplify_something(RTLIL::Design *design, int &seed, bool stage2, bool modules, bool ports, bool cells, bool connections, bool processes, bool assigns, bool updates)
+	RTLIL::Design *simplify_something(RTLIL::Design *design, int &seed, bool stage2, bool modules, bool ports, bool cells, bool connections, bool processes, bool assigns, bool updates, bool wires)
 	{
 		RTLIL::Design *design_copy = new RTLIL::Design;
 		for (auto module : design->modules())
@@ -343,6 +343,35 @@ struct BugpointPass : public Pass {
 				}
 			}
 		}
+		if (wires)
+		{
+			for (auto mod : design_copy->modules())
+			{
+				if (mod->get_blackbox_attribute())
+					continue;
+
+				Wire *removed_wire = nullptr;
+				for (auto wire : mod->wires())
+				{
+					if (wire->get_bool_attribute(ID::bugpoint_keep))
+						continue;
+
+					if (wire->name.begins_with("$delete_wire"))
+						continue;
+
+					if (index++ == seed)
+					{
+						log_header(design, "Trying to remove wire %s.%s.\n", log_id(mod), log_id(wire));
+						removed_wire = wire;
+						break;
+					}
+				}
+				if (removed_wire) {
+					mod->remove({removed_wire});
+					return design_copy;
+				}
+			}
+		}
 		return nullptr;
 	}
 
@@ -350,7 +379,7 @@ struct BugpointPass : public Pass {
 	{
 		string yosys_cmd = "yosys", yosys_arg, grep;
 		bool fast = false, clean = false;
-		bool modules = false, ports = false, cells = false, connections = false, processes = false, assigns = false, updates = false, has_part = false;
+		bool modules = false, ports = false, cells = false, connections = false, processes = false, assigns = false, updates = false, wires = false, has_part = false;
 
 		log_header(design, "Executing BUGPOINT pass (minimize testcases).\n");
 		log_push();
@@ -421,6 +450,11 @@ struct BugpointPass : public Pass {
 				has_part = true;
 				continue;
 			}
+			if (args[argidx] == "-wires") {
+				wires = true;
+				has_part = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -437,6 +471,7 @@ struct BugpointPass : public Pass {
 			processes = true;
 			assigns = true;
 			updates = true;
+			wires = true;
 		}
 
 		if (!design->full_selection())
@@ -452,7 +487,7 @@ struct BugpointPass : public Pass {
 		bool found_something = false, stage2 = false;
 		while (true)
 		{
-			if (RTLIL::Design *simplified = simplify_something(crashing_design, seed, stage2, modules, ports, cells, connections, processes, assigns, updates))
+			if (RTLIL::Design *simplified = simplify_something(crashing_design, seed, stage2, modules, ports, cells, connections, processes, assigns, updates, wires))
 			{
 				simplified = clean_design(simplified, fast, /*do_delete=*/true);
 
