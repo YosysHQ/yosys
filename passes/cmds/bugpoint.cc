@@ -30,7 +30,7 @@ struct BugpointPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    bugpoint [options] -script <filename>\n");
+		log("    bugpoint [options] [-script <filename> | -command \"<command>\"]\n");
 		log("\n");
 		log("This command minimizes the current design that is known to crash Yosys with the\n");
 		log("given script into a smaller testcase. It does this by removing an arbitrary part\n");
@@ -39,13 +39,13 @@ struct BugpointPass : public Pass {
 		log("still causes a crash. Once this command finishes, it replaces the current design\n");
 		log("with the smallest testcase it was able to produce.\n");
 		log("\n");
-		log("    -script <filename>\n");
-		log("        use this script to crash Yosys. required.\n");
+		log("    -script <filename> | -command \"<command>\"\n");
+		log("        use this script file or command to crash Yosys. required.\n");
 		log("\n");
 		log("    -yosys <filename>\n");
 		log("        use this Yosys binary. if not specified, `yosys` is used.\n");
 		log("\n");
-		log("    -grep <string>\n");
+		log("    -grep \"<string>\"\n");
 		log("        only consider crashes that place this string in the log file.\n");
 		log("\n");
 		log("    -fast\n");
@@ -77,6 +77,10 @@ struct BugpointPass : public Pass {
 		log("    -connections\n");
 		log("        try to reconnect ports to 'x.\n");
 		log("\n");
+		log("    -processes\n");
+		log("        try to remove processes. processes with a (* bugpoint_keep *) attribute\n");
+		log("        will be skipped.\n");
+		log("\n");
 		log("    -assigns\n");
 		log("        try to remove process assigns from cases.\n");
 		log("\n");
@@ -85,7 +89,7 @@ struct BugpointPass : public Pass {
 		log("\n");
 	}
 
-	bool run_yosys(RTLIL::Design *design, string yosys_cmd, string script)
+	bool run_yosys(RTLIL::Design *design, string yosys_cmd, string yosys_arg)
 	{
 		design->sort();
 
@@ -93,7 +97,7 @@ struct BugpointPass : public Pass {
 		RTLIL_BACKEND::dump_design(f, design, /*only_selected=*/false, /*flag_m=*/true, /*flag_n=*/false);
 		f.close();
 
-		string yosys_cmdline = stringf("%s -qq -L bugpoint-case.log -s %s bugpoint-case.il", yosys_cmd.c_str(), script.c_str());
+		string yosys_cmdline = stringf("%s -qq -L bugpoint-case.log %s bugpoint-case.il", yosys_cmd.c_str(), yosys_arg.c_str());
 		return run_command(yosys_cmdline) == 0;
 	}
 
@@ -101,6 +105,9 @@ struct BugpointPass : public Pass {
 	{
 		if (grep.empty())
 			return true;
+
+		if (grep.size() > 2 && grep.front() == '"' && grep.back() == '"')
+			grep = grep.substr(1, grep.size() - 2);
 
 		std::ifstream f("bugpoint-case.log");
 		while (!f.eof())
@@ -129,7 +136,7 @@ struct BugpointPass : public Pass {
 		return design_copy;
 	}
 
-	RTLIL::Design *simplify_something(RTLIL::Design *design, int &seed, bool stage2, bool modules, bool ports, bool cells, bool connections, bool assigns, bool updates)
+	RTLIL::Design *simplify_something(RTLIL::Design *design, int &seed, bool stage2, bool modules, bool ports, bool cells, bool connections, bool processes, bool assigns, bool updates, bool wires)
 	{
 		RTLIL::Design *design_copy = new RTLIL::Design;
 		for (auto module : design->modules())
@@ -194,7 +201,6 @@ struct BugpointPass : public Pass {
 				if (mod->get_blackbox_attribute())
 					continue;
 
-
 				Cell *removed_cell = nullptr;
 				for (auto cell : mod->cells())
 				{
@@ -257,6 +263,33 @@ struct BugpointPass : public Pass {
 				}
 			}
 		}
+		if (processes)
+		{
+			for (auto mod : design_copy->modules())
+			{
+				if (mod->get_blackbox_attribute())
+					continue;
+
+				RTLIL::IdString removed_process;
+				for (auto process : mod->processes)
+				{
+					if (process.second->get_bool_attribute(ID::bugpoint_keep))
+						continue;
+
+					if (index++ == seed)
+					{
+						log_header(design, "Trying to remove process %s.%s.\n", log_id(mod), log_id(process.first));
+						removed_process = process.first;
+						break;
+					}
+				}
+				if (!removed_process.empty()) {
+					delete mod->processes[removed_process];
+					mod->processes.erase(removed_process);
+					return design_copy;
+				}
+			}
+		}
 		if (assigns)
 		{
 			for (auto mod : design_copy->modules())
@@ -310,14 +343,43 @@ struct BugpointPass : public Pass {
 				}
 			}
 		}
+		if (wires)
+		{
+			for (auto mod : design_copy->modules())
+			{
+				if (mod->get_blackbox_attribute())
+					continue;
+
+				Wire *removed_wire = nullptr;
+				for (auto wire : mod->wires())
+				{
+					if (wire->get_bool_attribute(ID::bugpoint_keep))
+						continue;
+
+					if (wire->name.begins_with("$delete_wire"))
+						continue;
+
+					if (index++ == seed)
+					{
+						log_header(design, "Trying to remove wire %s.%s.\n", log_id(mod), log_id(wire));
+						removed_wire = wire;
+						break;
+					}
+				}
+				if (removed_wire) {
+					mod->remove({removed_wire});
+					return design_copy;
+				}
+			}
+		}
 		return nullptr;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		string yosys_cmd = "yosys", script, grep;
+		string yosys_cmd = "yosys", yosys_arg, grep;
 		bool fast = false, clean = false;
-		bool modules = false, ports = false, cells = false, connections = false, assigns = false, updates = false, has_part = false;
+		bool modules = false, ports = false, cells = false, connections = false, processes = false, assigns = false, updates = false, wires = false, has_part = false;
 
 		log_header(design, "Executing BUGPOINT pass (minimize testcases).\n");
 		log_push();
@@ -330,7 +392,15 @@ struct BugpointPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-script" && argidx + 1 < args.size()) {
-				script = args[++argidx];
+				if (!yosys_arg.empty())
+					log_cmd_error("A -script or -command option can be only provided once!\n");
+				yosys_arg = stringf("-s %s", args[++argidx].c_str());
+				continue;
+			}
+			if (args[argidx] == "-command" && argidx + 1 < args.size()) {
+				if (!yosys_arg.empty())
+					log_cmd_error("A -script or -command option can be only provided once!\n");
+				yosys_arg = stringf("-p %s", args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-grep" && argidx + 1 < args.size()) {
@@ -365,6 +435,11 @@ struct BugpointPass : public Pass {
 				has_part = true;
 				continue;
 			}
+			if (args[argidx] == "-processes") {
+				processes = true;
+				has_part = true;
+				continue;
+			}
 			if (args[argidx] == "-assigns") {
 				assigns = true;
 				has_part = true;
@@ -375,12 +450,17 @@ struct BugpointPass : public Pass {
 				has_part = true;
 				continue;
 			}
+			if (args[argidx] == "-wires") {
+				wires = true;
+				has_part = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
-		if (script.empty())
-			log_cmd_error("Missing -script option.\n");
+		if (yosys_arg.empty())
+			log_cmd_error("Missing -script or -command option.\n");
 
 		if (!has_part)
 		{
@@ -388,16 +468,18 @@ struct BugpointPass : public Pass {
 			ports = true;
 			cells = true;
 			connections = true;
+			processes = true;
 			assigns = true;
 			updates = true;
+			wires = true;
 		}
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
 
 		RTLIL::Design *crashing_design = clean_design(design, clean);
-		if (run_yosys(crashing_design, yosys_cmd, script))
-			log_cmd_error("The provided script file and Yosys binary do not crash on this design!\n");
+		if (run_yosys(crashing_design, yosys_cmd, yosys_arg))
+			log_cmd_error("The provided script file or command and Yosys binary do not crash on this design!\n");
 		if (!check_logfile(grep))
 			log_cmd_error("The provided grep string is not found in the log file!\n");
 
@@ -405,7 +487,7 @@ struct BugpointPass : public Pass {
 		bool found_something = false, stage2 = false;
 		while (true)
 		{
-			if (RTLIL::Design *simplified = simplify_something(crashing_design, seed, stage2, modules, ports, cells, connections, assigns, updates))
+			if (RTLIL::Design *simplified = simplify_something(crashing_design, seed, stage2, modules, ports, cells, connections, processes, assigns, updates, wires))
 			{
 				simplified = clean_design(simplified, fast, /*do_delete=*/true);
 
@@ -413,12 +495,12 @@ struct BugpointPass : public Pass {
 				if (clean)
 				{
 					RTLIL::Design *testcase = clean_design(simplified);
-					crashes = !run_yosys(testcase, yosys_cmd, script);
+					crashes = !run_yosys(testcase, yosys_cmd, yosys_arg);
 					delete testcase;
 				}
 				else
 				{
-					crashes = !run_yosys(simplified, yosys_cmd, script);
+					crashes = !run_yosys(simplified, yosys_cmd, yosys_arg);
 				}
 
 				if (crashes && check_logfile(grep))
