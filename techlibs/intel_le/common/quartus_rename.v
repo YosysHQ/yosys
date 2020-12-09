@@ -58,7 +58,7 @@ assign Q = ~A;
 endmodule
 
 
-module MISTRAL_ALUT_ARITH(input A, B, C, D, CI, output SO, CO);
+module MISTRAL_LE_LUT_ARITH(input A, B, C, D, CI, output SO, CO);
 parameter LUT = 16'h0000;
 
 `LCELL #(.lut_mask({LUT}),.sum_lutc_input("cin")) _TECHMAP_REPLACE_ (.dataa(A), .datab(B), .datac(C), .datad(D), .cin(CI), .combout(SO), .cout(CO));

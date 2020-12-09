@@ -169,7 +169,7 @@ module MISTRAL_ALUT3(input A, B, C, output Q);
 
 parameter [7:0] LUT = 8'h00;
 
-`ifdef cyclonev 
+`ifdef cyclonev
 specify
     (A => Q) = 510;
     (B => Q) = 400;
