@@ -451,7 +451,9 @@ with open(outfile, "w") as f:
     current_pattern = None
 
     print("  SigSpec port(Cell *cell, IdString portname) {", file=f)
-    print("    return sigmap(cell->getPort(portname));", file=f)
+    print("    try {", file=f)
+    print("      return sigmap(cell->getPort(portname));", file=f)
+    print("    } catch(std::out_of_range) { log_error(\"Accessing non existing port %s\\n\",portname.c_str()); }", file=f)
     print("  }", file=f)
     print("", file=f)
     print("  SigSpec port(Cell *cell, IdString portname, const SigSpec& defval) {", file=f)
@@ -460,7 +462,9 @@ with open(outfile, "w") as f:
     print("", file=f)
 
     print("  Const param(Cell *cell, IdString paramname) {", file=f)
-    print("    return cell->getParam(paramname);", file=f)
+    print("    try {", file=f)
+    print("      return cell->getParam(paramname);", file=f)
+    print("    } catch(std::out_of_range) { log_error(\"Accessing non existing parameter %s\\n\",paramname.c_str()); }", file=f)
     print("  }", file=f)
     print("", file=f)
     print("  Const param(Cell *cell, IdString paramname, const Const& defval) {", file=f)
