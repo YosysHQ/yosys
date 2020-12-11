@@ -1240,10 +1240,19 @@ struct CxxrtlWorker {
 		// User cells
 		} else {
 			log_assert(cell->known());
+			bool buffered_inputs = false;
 			const char *access = is_cxxrtl_blackbox_cell(cell) ? "->" : ".";
 			for (auto conn : cell->connections())
-				if (cell->input(conn.first) && !cell->output(conn.first)) {
-					f << indent << mangle(cell) << access << mangle_wire_name(conn.first) << " = ";
+				if (cell->input(conn.first)) {
+					RTLIL::Module *cell_module = cell->module->design->module(cell->type);
+					log_assert(cell_module != nullptr && cell_module->wire(conn.first) && conn.second.is_wire());
+					RTLIL::Wire *cell_module_wire = cell_module->wire(conn.first);
+					f << indent << mangle(cell) << access << mangle_wire_name(conn.first);
+					if (!is_cxxrtl_blackbox_cell(cell) && !unbuffered_wires[cell_module_wire]) {
+						buffered_inputs = true;
+						f << ".next";
+					}
+					f << " = ";
 					dump_sigspec_rhs(conn.second);
 					f << ";\n";
 					if (getenv("CXXRTL_VOID_MY_WARRANTY")) {
@@ -1255,19 +1264,11 @@ struct CxxrtlWorker {
 						// with:
 						//   top.prev_p_clk = value<1>{0u}; top.p_clk = value<1>{1u}; top.step();
 						// Don't rely on this; it will be removed without warning.
-						RTLIL::Module *cell_module = cell->module->design->module(cell->type);
-						if (cell_module != nullptr && cell_module->wire(conn.first) && conn.second.is_wire()) {
-							RTLIL::Wire *cell_module_wire = cell_module->wire(conn.first);
-							if (edge_wires[conn.second.as_wire()] && edge_wires[cell_module_wire]) {
-								f << indent << mangle(cell) << access << "prev_" << mangle(cell_module_wire) << " = ";
-								f << "prev_" << mangle(conn.second.as_wire()) << ";\n";
-							}
+						if (edge_wires[conn.second.as_wire()] && edge_wires[cell_module_wire]) {
+							f << indent << mangle(cell) << access << "prev_" << mangle(cell_module_wire) << " = ";
+							f << "prev_" << mangle(conn.second.as_wire()) << ";\n";
 						}
 					}
-				} else if (cell->input(conn.first)) {
-					f << indent << mangle(cell) << access << mangle_wire_name(conn.first) << ".next = ";
-					dump_sigspec_rhs(conn.second);
-					f << ";\n";
 				}
 			auto assign_from_outputs = [&](bool cell_converged) {
 				for (auto conn : cell->connections()) {
@@ -1285,9 +1286,9 @@ struct CxxrtlWorker {
 						// have any buffered wires if they were not output ports. Imagine inlining the cell's eval() function,
 						// and consider the fate of the localized wires that used to be output ports.)
 						//
-						// Unlike cell inputs (which are never buffered), it is not possible to know apriori whether the cell
-						// (which may be late bound) will converge immediately. Because of this, the choice between using .curr
-						// (appropriate for buffered outputs) and .next (appropriate for unbuffered outputs) is made at runtime.
+						// It is not possible to know apriori whether the cell (which may be late bound) will converge immediately.
+						// Because of this, the choice between using .curr (appropriate for buffered outputs) and .next (appropriate
+						// for unbuffered outputs) is made at runtime.
 						if (cell_converged && is_cxxrtl_comb_port(cell, conn.first))
 							f << ".next;\n";
 						else
@@ -1295,16 +1296,23 @@ struct CxxrtlWorker {
 					}
 				}
 			};
-			f << indent << "if (" << mangle(cell) << access << "eval()) {\n";
-			inc_indent();
-				assign_from_outputs(/*cell_converged=*/true);
-			dec_indent();
-			f << indent << "} else {\n";
-			inc_indent();
+			if (buffered_inputs) {
+				// If we have any buffered inputs, there's no chance of converging immediately.
+				f << indent << mangle(cell) << access << "eval();\n";
 				f << indent << "converged = false;\n";
 				assign_from_outputs(/*cell_converged=*/false);
-			dec_indent();
-			f << indent << "}\n";
+			} else {
+				f << indent << "if (" << mangle(cell) << access << "eval()) {\n";
+				inc_indent();
+					assign_from_outputs(/*cell_converged=*/true);
+				dec_indent();
+				f << indent << "} else {\n";
+				inc_indent();
+					f << indent << "converged = false;\n";
+					assign_from_outputs(/*cell_converged=*/false);
+				dec_indent();
+				f << indent << "}\n";
+			}
 		}
 	}
 
