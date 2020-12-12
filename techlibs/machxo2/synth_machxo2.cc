@@ -154,7 +154,7 @@ struct SynthMachXO2Pass : public ScriptPass
 	{
 		if (check_label("begin"))
 		{
-			run("read_verilog -lib +/machxo2/cells_sim.v");
+			run("read_verilog -lib -icells +/machxo2/cells_sim.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 		}
 
@@ -184,7 +184,11 @@ struct SynthMachXO2Pass : public ScriptPass
 		if (check_label("map_ios"))
 		{
 			if (!noiopad || help_mode)
+			{
 				run("iopadmap -bits -outpad $__FACADE_OUTPAD I:O -inpad $__FACADE_INPAD O:I -toutpad $__FACADE_TOUTPAD OE:I:O -tinoutpad $__FACADE_TINOUTPAD OE:O:I:B A:top", "(skip if '-noiopad')");
+				run("attrmvcp -attr src -attr LOC t:$__FACADE_OUTPAD %x:+[O] t:$__FACADE_TOUTPAD %x:+[O] t:$__FACADE_TINOUTPAD %x:+[B]", "(skip if '-noiopad')");
+				run("attrmvcp -attr src -attr LOC -driven t:$__FACADE_INPAD %x:+[I]", "(skip if '-noiopad')");
+			}
 		}
 
 		if (check_label("map_ffs"))
