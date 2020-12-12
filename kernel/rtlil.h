@@ -376,7 +376,7 @@ namespace RTLIL
 		bool in(const std::string &rhs) const { return *this == rhs; }
 		bool in(const pool<IdString> &rhs) const { return rhs.count(*this) != 0; }
 
-		bool isPublic() { return begins_with("\\"); }
+		bool isPublic() const { return begins_with("\\"); }
 	};
 
 	namespace ID {
