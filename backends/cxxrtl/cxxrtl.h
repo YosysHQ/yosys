@@ -659,7 +659,7 @@ struct wire {
 	value<Bits> next;
 
 	wire() = default;
-	constexpr wire(const value<Bits> &init) : curr(init), next(init) {}
+	explicit constexpr wire(const value<Bits> &init) : curr(init), next(init) {}
 	template<typename... Init>
 	explicit constexpr wire(Init ...init) : curr{init...}, next{init...} {}
 
