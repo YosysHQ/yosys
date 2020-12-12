@@ -1157,8 +1157,8 @@ struct CxxrtlWorker {
 				}
 				// The generated code has two bounds checks; one in an assertion, and another that guards the read.
 				// This is done so that the code does not invoke undefined behavior under any conditions, but nevertheless
-				// loudly crashes if an illegal condition is encountered. The assert may be turned off with -DNDEBUG not
-				// just for release builds, but also to make sure the simulator (which is presumably embedded in some
+				// loudly crashes if an illegal condition is encountered. The assert may be turned off with -DCXXRTL_NDEBUG
+				// not only for release builds, but also to make sure the simulator (which is presumably embedded in some
 				// larger program) will never crash the code that calls into it.
 				//
 				// If assertions are disabled, out of bounds reads are defined to return zero.
