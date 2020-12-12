@@ -188,3 +188,15 @@ module OSCH #(
 	output SEDSTDBY
 );
 endmodule
+
+// IO- "$__" cells for the iopadmap pass. These are temporary cells not meant
+// to be instantiated by the end user. They are required in this file for
+// attrmvcp to work.
+(* blackbox *)
+module  \$__FACADE_OUTPAD (input I, output O); endmodule
+(* blackbox *)
+module  \$__FACADE_INPAD (input I, output O); endmodule
+(* blackbox *)
+module  \$__FACADE_TOUTPAD (input I, OE, output O); endmodule
+(* blackbox *)
+module  \$__FACADE_TINOUTPAD (input I, OE, output O, inout B); endmodule
