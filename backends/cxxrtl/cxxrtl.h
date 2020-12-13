@@ -36,6 +36,7 @@
 #include <map>
 #include <algorithm>
 #include <memory>
+#include <functional>
 #include <sstream>
 
 #include <backends/cxxrtl/cxxrtl_capi.h>
@@ -843,6 +844,9 @@ typedef std::map<std::string, metadata> metadata_map;
 // Tag class to disambiguate values/wires and their aliases.
 struct debug_alias {};
 
+// Tag declaration to disambiguate values and debug outlines.
+using debug_outline = ::_cxxrtl_outline;
+
 // This structure is intended for consumption via foreign function interfaces, like Python's ctypes.
 // Because of this it uses a C-style layout that is easy to parse rather than more idiomatic C++.
 //
@@ -851,10 +855,11 @@ struct debug_alias {};
 struct debug_item : ::cxxrtl_object {
 	// Object types.
 	enum : uint32_t {
-		VALUE  = CXXRTL_VALUE,
-		WIRE   = CXXRTL_WIRE,
-		MEMORY = CXXRTL_MEMORY,
-		ALIAS  = CXXRTL_ALIAS,
+		VALUE   = CXXRTL_VALUE,
+		WIRE    = CXXRTL_WIRE,
+		MEMORY  = CXXRTL_MEMORY,
+		ALIAS   = CXXRTL_ALIAS,
+		OUTLINE = CXXRTL_OUTLINE,
 	};
 
 	// Object flags.
@@ -881,6 +886,7 @@ struct debug_item : ::cxxrtl_object {
 		zero_at = 0;
 		curr    = item.data;
 		next    = item.data;
+		outline = nullptr;
 	}
 
 	template<size_t Bits>
@@ -895,6 +901,7 @@ struct debug_item : ::cxxrtl_object {
 		zero_at = 0;
 		curr    = const_cast<chunk_t*>(item.data);
 		next    = nullptr;
+		outline = nullptr;
 	}
 
 	template<size_t Bits>
@@ -910,6 +917,7 @@ struct debug_item : ::cxxrtl_object {
 		zero_at = 0;
 		curr    = item.curr.data;
 		next    = item.next.data;
+		outline = nullptr;
 	}
 
 	template<size_t Width>
@@ -924,6 +932,7 @@ struct debug_item : ::cxxrtl_object {
 		zero_at = zero_offset;
 		curr    = item.data.empty() ? nullptr : item.data[0].data;
 		next    = nullptr;
+		outline = nullptr;
 	}
 
 	template<size_t Bits>
@@ -938,6 +947,7 @@ struct debug_item : ::cxxrtl_object {
 		zero_at = 0;
 		curr    = const_cast<chunk_t*>(item.data);
 		next    = nullptr;
+		outline = nullptr;
 	}
 
 	template<size_t Bits>
@@ -953,6 +963,22 @@ struct debug_item : ::cxxrtl_object {
 		zero_at = 0;
 		curr    = const_cast<chunk_t*>(item.curr.data);
 		next    = nullptr;
+		outline = nullptr;
+	}
+
+	template<size_t Bits>
+	debug_item(debug_outline &group, const value<Bits> &item, size_t lsb_offset = 0) {
+		static_assert(sizeof(item) == value<Bits>::chunks * sizeof(chunk_t),
+		              "value<Bits> is not compatible with C layout");
+		type    = OUTLINE;
+		flags   = DRIVEN_COMB;
+		width   = Bits;
+		lsb_at  = lsb_offset;
+		depth   = 1;
+		zero_at = 0;
+		curr    = const_cast<chunk_t*>(item.data);
+		next    = nullptr;
+		outline = &group;
 	}
 };
 static_assert(std::is_standard_layout<debug_item>::value, "debug_item is not compatible with C layout");
@@ -1029,10 +1055,15 @@ struct module {
 
 } // namespace cxxrtl
 
-// Internal structure used to communicate with the implementation of the C interface.
+// Internal structures used to communicate with the implementation of the C interface.
+
 typedef struct _cxxrtl_toplevel {
 	std::unique_ptr<cxxrtl::module> module;
 } *cxxrtl_toplevel;
+
+typedef struct _cxxrtl_outline {
+	std::function<void()> eval;
+} *cxxrtl_outline;
 
 // Definitions of internal Yosys cells. Other than the functions in this namespace, CXXRTL is fully generic
 // and indepenent of Yosys implementation details.

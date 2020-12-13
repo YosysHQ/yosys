@@ -539,6 +539,7 @@ struct CxxrtlWorker {
 	bool inline_public = false;
 
 	bool debug_info = false;
+	bool debug_eval = false;
 
 	std::ostringstream f;
 	std::string indent;
@@ -553,8 +554,9 @@ struct CxxrtlWorker {
 	pool<const RTLIL::Wire*> unbuffered_wires;
 	pool<const RTLIL::Wire*> localized_wires;
 	dict<const RTLIL::Wire*, FlowGraph::Node> inlined_wires;
-	dict<const RTLIL::Wire*, const RTLIL::Wire*> debug_alias_wires;
 	dict<const RTLIL::Wire*, RTLIL::Const> debug_const_wires;
+	dict<const RTLIL::Wire*, const RTLIL::Wire*> debug_alias_wires;
+	pool<const RTLIL::Wire*> debug_outlined_wires;
 	dict<RTLIL::SigBit, bool> bit_has_state;
 	dict<const RTLIL::Module*, pool<std::string>> blackbox_specializations;
 	dict<const RTLIL::Module*, bool> eval_converges;
@@ -786,22 +788,22 @@ struct CxxrtlWorker {
 		dump_const(data, data.size());
 	}
 
-	bool dump_sigchunk(const RTLIL::SigChunk &chunk, bool is_lhs)
+	bool dump_sigchunk(const RTLIL::SigChunk &chunk, bool is_lhs, bool for_debug = false)
 	{
 		if (chunk.wire == NULL) {
 			dump_const(chunk.data, chunk.width, chunk.offset);
 			return false;
 		} else {
-			if (inlined_wires.count(chunk.wire)) {
+			if (inlined_wires.count(chunk.wire) && (!for_debug || !debug_outlined_wires[chunk.wire])) {
 				log_assert(!is_lhs);
 				const FlowGraph::Node &node = inlined_wires[chunk.wire];
 				switch (node.type) {
 					case FlowGraph::Node::Type::CONNECT:
-						dump_connect_expr(node.connect);
+						dump_connect_expr(node.connect, for_debug);
 						break;
 					case FlowGraph::Node::Type::CELL_EVAL:
 						log_assert(is_inlinable_cell(node.cell->type));
-						dump_cell_expr(node.cell);
+						dump_cell_expr(node.cell, for_debug);
 						break;
 					default:
 						log_assert(false);
@@ -821,36 +823,36 @@ struct CxxrtlWorker {
 		}
 	}
 
-	bool dump_sigspec(const RTLIL::SigSpec &sig, bool is_lhs)
+	bool dump_sigspec(const RTLIL::SigSpec &sig, bool is_lhs, bool for_debug = false)
 	{
 		if (sig.empty()) {
 			f << "value<0>()";
 			return false;
 		} else if (sig.is_chunk()) {
-			return dump_sigchunk(sig.as_chunk(), is_lhs);
+			return dump_sigchunk(sig.as_chunk(), is_lhs, for_debug);
 		} else {
-			dump_sigchunk(*sig.chunks().rbegin(), is_lhs);
+			dump_sigchunk(*sig.chunks().rbegin(), is_lhs, for_debug);
 			for (auto it = sig.chunks().rbegin() + 1; it != sig.chunks().rend(); ++it) {
 				f << ".concat(";
-				dump_sigchunk(*it, is_lhs);
+				dump_sigchunk(*it, is_lhs, for_debug);
 				f << ")";
 			}
 			return true;
 		}
 	}
 
-	void dump_sigspec_lhs(const RTLIL::SigSpec &sig)
+	void dump_sigspec_lhs(const RTLIL::SigSpec &sig, bool for_debug = false)
 	{
-		dump_sigspec(sig, /*is_lhs=*/true);
+		dump_sigspec(sig, /*is_lhs=*/true, for_debug);
 	}
 
-	void dump_sigspec_rhs(const RTLIL::SigSpec &sig)
+	void dump_sigspec_rhs(const RTLIL::SigSpec &sig, bool for_debug = false)
 	{
 		// In the contexts where we want template argument deduction to occur for `template<size_t Bits> ... value<Bits>`,
 		// it is necessary to have the argument to already be a `value<N>`, since template argument deduction and implicit
 		// type conversion are mutually exclusive. In these contexts, we use dump_sigspec_rhs() to emit an explicit
 		// type conversion, but only if the expression needs it.
-		bool is_complex = dump_sigspec(sig, /*is_lhs=*/false);
+		bool is_complex = dump_sigspec(sig, /*is_lhs=*/false, for_debug);
 		if (is_complex)
 			f << ".val()";
 	}
@@ -875,14 +877,22 @@ struct CxxrtlWorker {
 		}
 	}
 
-	void dump_connect_expr(const RTLIL::SigSig &conn)
+	void dump_connect_expr(const RTLIL::SigSig &conn, bool for_debug = false)
 	{
-		dump_sigspec_rhs(conn.second);
+		dump_sigspec_rhs(conn.second, for_debug);
 	}
 
 	bool is_connect_inlined(const RTLIL::SigSig &conn)
 	{
 		return conn.first.is_wire() && inlined_wires.count(conn.first.as_wire());
+	}
+
+	bool is_connect_outlined(const RTLIL::SigSig &conn)
+	{
+		for (auto chunk : conn.first.chunks())
+			if (debug_outlined_wires.count(chunk.wire))
+				return true;
+		return false;
 	}
 
 	void collect_connect(const RTLIL::SigSig &conn, std::vector<RTLIL::IdString> &cells)
@@ -893,16 +903,18 @@ struct CxxrtlWorker {
 		collect_sigspec_rhs(conn.second, cells);
 	}
 
-	void dump_connect(const RTLIL::SigSig &conn)
+	void dump_connect(const RTLIL::SigSig &conn, bool for_debug = false)
 	{
-		if (is_connect_inlined(conn))
+		if (!for_debug && is_connect_inlined(conn))
+			return;
+		if (for_debug && !is_connect_outlined(conn))
 			return;
 
 		f << indent << "// connection\n";
 		f << indent;
-		dump_sigspec_lhs(conn.first);
+		dump_sigspec_lhs(conn.first, for_debug);
 		f << " = ";
-		dump_connect_expr(conn);
+		dump_connect_expr(conn, for_debug);
 		f << ";\n";
 	}
 
@@ -919,7 +931,7 @@ struct CxxrtlWorker {
 				}
 	}
 
-	void dump_cell_expr(const RTLIL::Cell *cell)
+	void dump_cell_expr(const RTLIL::Cell *cell, bool for_debug = false)
 	{
 		// Unary cells
 		if (is_unary_cell(cell->type)) {
@@ -927,7 +939,7 @@ struct CxxrtlWorker {
 			if (is_extending_cell(cell->type))
 				f << '_' << (cell->getParam(ID::A_SIGNED).as_bool() ? 's' : 'u');
 			f << "<" << cell->getParam(ID::Y_WIDTH).as_int() << ">(";
-			dump_sigspec_rhs(cell->getPort(ID::A));
+			dump_sigspec_rhs(cell->getPort(ID::A), for_debug);
 			f << ")";
 		// Binary cells
 		} else if (is_binary_cell(cell->type)) {
@@ -936,18 +948,18 @@ struct CxxrtlWorker {
 				f << '_' << (cell->getParam(ID::A_SIGNED).as_bool() ? 's' : 'u') <<
 				            (cell->getParam(ID::B_SIGNED).as_bool() ? 's' : 'u');
 			f << "<" << cell->getParam(ID::Y_WIDTH).as_int() << ">(";
-			dump_sigspec_rhs(cell->getPort(ID::A));
+			dump_sigspec_rhs(cell->getPort(ID::A), for_debug);
 			f << ", ";
-			dump_sigspec_rhs(cell->getPort(ID::B));
+			dump_sigspec_rhs(cell->getPort(ID::B), for_debug);
 			f << ")";
 		// Muxes
 		} else if (cell->type == ID($mux)) {
 			f << "(";
-			dump_sigspec_rhs(cell->getPort(ID::S));
+			dump_sigspec_rhs(cell->getPort(ID::S), for_debug);
 			f << " ? ";
-			dump_sigspec_rhs(cell->getPort(ID::B));
+			dump_sigspec_rhs(cell->getPort(ID::B), for_debug);
 			f << " : ";
-			dump_sigspec_rhs(cell->getPort(ID::A));
+			dump_sigspec_rhs(cell->getPort(ID::A), for_debug);
 			f << ")";
 		// Parallel (one-hot) muxes
 		} else if (cell->type == ID($pmux)) {
@@ -955,24 +967,24 @@ struct CxxrtlWorker {
 			int s_width = cell->getParam(ID::S_WIDTH).as_int();
 			for (int part = 0; part < s_width; part++) {
 				f << "(";
-				dump_sigspec_rhs(cell->getPort(ID::S).extract(part));
+				dump_sigspec_rhs(cell->getPort(ID::S).extract(part), for_debug);
 				f << " ? ";
-				dump_sigspec_rhs(cell->getPort(ID::B).extract(part * width, width));
+				dump_sigspec_rhs(cell->getPort(ID::B).extract(part * width, width), for_debug);
 				f << " : ";
 			}
-			dump_sigspec_rhs(cell->getPort(ID::A));
+			dump_sigspec_rhs(cell->getPort(ID::A), for_debug);
 			for (int part = 0; part < s_width; part++) {
 				f << ")";
 			}
 		// Concats
 		} else if (cell->type == ID($concat)) {
-			dump_sigspec_rhs(cell->getPort(ID::B));
+			dump_sigspec_rhs(cell->getPort(ID::B), for_debug);
 			f << ".concat(";
-			dump_sigspec_rhs(cell->getPort(ID::A));
+			dump_sigspec_rhs(cell->getPort(ID::A), for_debug);
 			f << ").val()";
 		// Slices
 		} else if (cell->type == ID($slice)) {
-			dump_sigspec_rhs(cell->getPort(ID::A));
+			dump_sigspec_rhs(cell->getPort(ID::A), for_debug);
 			f << ".slice<";
 			f << cell->getParam(ID::OFFSET).as_int() + cell->getParam(ID::Y_WIDTH).as_int() - 1;
 			f << ",";
@@ -989,6 +1001,17 @@ struct CxxrtlWorker {
 			inlined_wires.count(cell->getPort(ID::Y).as_wire());
 	}
 
+	bool is_cell_outlined(const RTLIL::Cell *cell)
+	{
+		if (is_internal_cell(cell->type))
+			for (auto conn : cell->connections())
+				if (cell->output(conn.first))
+					for (auto chunk : conn.second.chunks())
+						if (debug_outlined_wires.count(chunk.wire))
+							return true;
+		return false;
+	}
+
 	void collect_cell_eval(const RTLIL::Cell *cell, std::vector<RTLIL::IdString> &cells)
 	{
 		if (!is_cell_inlined(cell))
@@ -1000,9 +1023,11 @@ struct CxxrtlWorker {
 				collect_sigspec_rhs(port.second, cells);
 	}
 
-	void dump_cell_eval(const RTLIL::Cell *cell)
+	void dump_cell_eval(const RTLIL::Cell *cell, bool for_debug = false)
 	{
-		if (is_cell_inlined(cell))
+		if (!for_debug && is_cell_inlined(cell))
+			return;
+		if (for_debug && !is_cell_outlined(cell))
 			return;
 		if (cell->type == ID($meminit))
 			return; // Handled elsewhere.
@@ -1026,9 +1051,9 @@ struct CxxrtlWorker {
 		// Elidable cells
 		if (is_inlinable_cell(cell->type)) {
 			f << indent;
-			dump_sigspec_lhs(cell->getPort(ID::Y));
+			dump_sigspec_lhs(cell->getPort(ID::Y), for_debug);
 			f << " = ";
-			dump_cell_expr(cell);
+			dump_cell_expr(cell, for_debug);
 			f << ";\n";
 		// Flip-flops
 		} else if (is_ff_cell(cell->type)) {
@@ -1460,14 +1485,11 @@ struct CxxrtlWorker {
 
 	void dump_wire(const RTLIL::Wire *wire, bool is_local)
 	{
-		if (inlined_wires.count(wire))
-			return;
-
-		if (localized_wires[wire] && is_local) {
+		if (is_local && localized_wires[wire] && !inlined_wires.count(wire)) {
 			dump_attrs(wire);
 			f << indent << "value<" << wire->width << "> " << mangle(wire) << ";\n";
 		}
-		if (!localized_wires[wire] && !is_local) {
+		if (!is_local && !localized_wires[wire]) {
 			std::string width;
 			if (wire->module->has_attribute(ID(cxxrtl_blackbox)) && wire->has_attribute(ID(cxxrtl_width))) {
 				width = wire->get_string_attribute(ID(cxxrtl_width));
@@ -1527,6 +1549,23 @@ struct CxxrtlWorker {
 					}
 				}
 			}
+		}
+	}
+
+	void dump_debug_wire(const RTLIL::Wire *wire, bool is_local)
+	{
+		if (!debug_outlined_wires[wire])
+			return;
+
+		bool is_outlined_member = wire->name.isPublic() &&
+			!(debug_const_wires.count(wire) || debug_alias_wires.count(wire));
+		if (is_local && !is_outlined_member) {
+			dump_attrs(wire);
+			f << indent << "value<" << wire->width << "> " << mangle(wire) << ";\n";
+		}
+		if (!is_local && is_outlined_member) {
+			dump_attrs(wire);
+			f << indent << "/*outline*/ value<" << wire->width << "> " << mangle(wire) << ";\n";
 		}
 	}
 
@@ -1619,6 +1658,27 @@ struct CxxrtlWorker {
 		dec_indent();
 	}
 
+	void dump_debug_eval_method(RTLIL::Module *module)
+	{
+		inc_indent();
+			for (auto wire : module->wires())
+				dump_debug_wire(wire, /*is_local=*/true);
+			for (auto node : schedule[module]) {
+				switch (node.type) {
+					case FlowGraph::Node::Type::CONNECT:
+						dump_connect(node.connect, /*for_debug=*/true);
+						break;
+					case FlowGraph::Node::Type::CELL_EVAL:
+						dump_cell_eval(node.cell, /*for_debug=*/true);
+						break;
+					case FlowGraph::Node::Type::CELL_SYNC:
+					case FlowGraph::Node::Type::PROCESS:
+						break;
+				}
+			}
+		dec_indent();
+	}
+
 	void dump_commit_method(RTLIL::Module *module)
 	{
 		inc_indent();
@@ -1656,6 +1716,7 @@ struct CxxrtlWorker {
 		size_t count_public_wires = 0;
 		size_t count_const_wires = 0;
 		size_t count_alias_wires = 0;
+		size_t count_inline_wires = 0;
 		size_t count_member_wires = 0;
 		size_t count_skipped_wires = 0;
 		size_t count_driven_sync = 0;
@@ -1685,6 +1746,12 @@ struct CxxrtlWorker {
 					f << ", debug_item(debug_alias(), " << mangle(debug_alias_wires[wire]) << ", ";
 					f << wire->start_offset << "));\n";
 					count_alias_wires++;
+				} else if (debug_outlined_wires.count(wire)) {
+					// Inlined but rematerializable wire
+					f << indent << "items.add(path + " << escape_cxx_string(get_hdl_name(wire));
+					f << ", debug_item(debug_eval_outline, " << mangle(wire) << ", ";
+					f << wire->start_offset << "));\n";
+					count_inline_wires++;
 				} else if (!localized_wires.count(wire)) {
 					// Member wire
 					std::vector<std::string> flags;
@@ -1738,6 +1805,7 @@ struct CxxrtlWorker {
 					f << "));\n";
 					count_member_wires++;
 				} else {
+					// Localized or inlined wire with no debug information
 					count_skipped_wires++;
 				}
 			}
@@ -1761,14 +1829,16 @@ struct CxxrtlWorker {
 
 		log_debug("Debug information statistics for module `%s':\n", log_id(module));
 		log_debug("  Public wires: %zu, of which:\n", count_public_wires);
-		log_debug("    Const wires:  %zu\n", count_const_wires);
-		log_debug("    Alias wires:  %zu\n", count_alias_wires);
 		log_debug("    Member wires: %zu, of which:\n", count_member_wires);
 		log_debug("      Driven sync:  %zu\n", count_driven_sync);
 		log_debug("      Driven comb:  %zu\n", count_driven_comb);
-		log_debug("      Undriven:     %zu\n", count_undriven);
 		log_debug("      Mixed driver: %zu\n", count_mixed_driver);
-		log_debug("    Other wires:  %zu (no debug information)\n", count_skipped_wires);
+		log_debug("      Undriven:     %zu\n", count_undriven);
+		log_debug("    Inline wires:   %zu\n", count_inline_wires);
+		log_debug("    Alias wires:    %zu\n", count_alias_wires);
+		log_debug("    Const wires:    %zu\n", count_const_wires);
+		log_debug("    Other wires:    %zu%s\n", count_skipped_wires,
+		          count_skipped_wires > 0 ? " (debug information unavailable)" : "");
 	}
 
 	void dump_metadata_map(const dict<RTLIL::IdString, RTLIL::Const> &metadata_map)
@@ -1855,7 +1925,8 @@ struct CxxrtlWorker {
 			inc_indent();
 				for (auto wire : module->wires())
 					dump_wire(wire, /*is_local=*/false);
-				f << "\n";
+				for (auto wire : module->wires())
+					dump_debug_wire(wire, /*is_local=*/false);
 				bool has_memories = false;
 				for (auto memory : module->memories) {
 					dump_memory(module, memory.second);
@@ -1927,8 +1998,20 @@ struct CxxrtlWorker {
 				f << "\n";
 				f << indent << "bool eval() override;\n";
 				f << indent << "bool commit() override;\n";
-				if (debug_info)
+				if (debug_info) {
+					if (debug_eval) {
+						f << "\n";
+						f << indent << "void debug_eval();\n";
+						for (auto wire : module->wires())
+							if (debug_outlined_wires.count(wire)) {
+								f << indent << "debug_outline debug_eval_outline { std::bind(&"
+								            << mangle(module) << "::debug_eval, this) };\n";
+								break;
+							}
+					}
+					f << "\n";
 					f << indent << "void debug_info(debug_items &items, std::string path = \"\") override;\n";
+				}
 			dec_indent();
 			f << indent << "}; // struct " << mangle(module) << "\n";
 			f << "\n";
@@ -1948,6 +2031,12 @@ struct CxxrtlWorker {
 		f << indent << "}\n";
 		f << "\n";
 		if (debug_info) {
+			if (debug_eval) {
+				f << indent << "void " << mangle(module) << "::debug_eval() {\n";
+				dump_debug_eval_method(module);
+				f << indent << "}\n";
+				f << "\n";
+			}
 			f << indent << "void " << mangle(module) << "::debug_info(debug_items &items, std::string path) {\n";
 			dump_debug_info_method(module);
 			f << indent << "}\n";
@@ -2251,6 +2340,11 @@ struct CxxrtlWorker {
 				for (auto node : wire_comb_def.second)
 					node_defs[node].insert(wire_comb_def.first);
 
+			dict<FlowGraph::Node*, pool<const RTLIL::Wire*>, hash_ptr_ops> node_uses;
+			for (auto wire_use : flow.wire_uses)
+				for (auto node : wire_use.second)
+					node_uses[node].insert(wire_use.first);
+
 			Scheduler<FlowGraph::Node> scheduler;
 			dict<FlowGraph::Node*, Scheduler<FlowGraph::Node>::Vertex*, hash_ptr_ops> node_map;
 			for (auto node : flow.nodes)
@@ -2368,6 +2462,30 @@ struct CxxrtlWorker {
 					}
 				}
 			}
+			if (debug_info && debug_eval) {
+				// Find wires that can be be outlined, i.e. whose values can be always recovered from
+				// the values of other wires. (This is the inverse of inlining--any wire that can be
+				// inlined can also be outlined.) Although this may seem strictly less efficient, since
+				// such values are computed at least twice, second-order effects make outlining useful.
+				pool<const RTLIL::Wire*> worklist, visited;
+				for (auto wire : module->wires()) {
+					if (!wire->name.isPublic())
+						continue; // only outline public wires
+					worklist.insert(wire);
+				}
+				while (!worklist.empty()) {
+					const RTLIL::Wire *wire = worklist.pop();
+					visited.insert(wire);
+					if (!localized_wires.count(wire) && !inlined_wires.count(wire))
+						continue; // member wire, doesn't need outlining
+					if (wire->name.isPublic() || !inlined_wires.count(wire))
+						debug_outlined_wires.insert(wire); // allow outlining of internal wires only
+					for (auto node : flow.wire_comb_defs[wire])
+						for (auto node_use : node_uses[node])
+							if (!visited.count(node_use))
+								worklist.insert(node_use);
+				}
+			}
 		}
 		if (has_feedback_arcs || has_buffered_comb_wires) {
 			// Although both non-feedback buffered combinatorial wires and apparent feedback wires may be eliminated
@@ -2457,8 +2575,7 @@ struct CxxrtlWorker {
 
 struct CxxrtlBackend : public Backend {
 	static const int DEFAULT_OPT_LEVEL = 6;
-	static const int OPT_LEVEL_DEBUG = 4;
-	static const int DEFAULT_DEBUG_LEVEL = 1;
+	static const int DEFAULT_DEBUG_LEVEL = 2;
 
 	CxxrtlBackend() : Backend("cxxrtl", "convert design to C++ RTL simulation") { }
 	void help() override
@@ -2671,10 +2788,6 @@ struct CxxrtlBackend : public Backend {
 		log("    -O6\n");
 		log("        like -O5, and inline public wires not marked (*keep*) if possible.\n");
 		log("\n");
-		log("    -Og\n");
-		log("        highest optimization level that provides debug information for all\n");
-		log("        public wires. currently, alias for -O%d.\n", OPT_LEVEL_DEBUG);
-		log("\n");
 		log("    -g <level>\n");
 		log("        set the debug level. the default is -g%d. higher debug levels provide\n", DEFAULT_DEBUG_LEVEL);
 		log("        more visibility and generate more code, but do not pessimize evaluation.\n");
@@ -2685,6 +2798,10 @@ struct CxxrtlBackend : public Backend {
 		log("    -g1\n");
 		log("        debug information for non-optimized public wires. this also makes it\n");
 		log("        possible to use the C API.\n");
+		log("\n");
+		log("    -g2\n");
+		log("        like -g1, and compute debug information on demand for all public wires\n");
+		log("        that were optimized out.\n");
 		log("\n");
 	}
 
@@ -2715,12 +2832,14 @@ struct CxxrtlBackend : public Backend {
 				continue;
 			}
 			if (args[argidx] == "-Og") {
-				opt_level = OPT_LEVEL_DEBUG;
+				log_warning("The `-Og` option has been removed. Use `-g2` instead for complete "
+				            "design coverage regardless of optimization level.\n");
 				continue;
 			}
 			if (args[argidx] == "-O" && argidx+1 < args.size() && args[argidx+1] == "g") {
 				argidx++;
-				opt_level = OPT_LEVEL_DEBUG;
+				log_warning("The `-Og` option has been removed. Use `-g2` instead for complete "
+				            "design coverage regardless of optimization level.\n");
 				continue;
 			}
 			if (args[argidx] == "-O" && argidx+1 < args.size()) {
@@ -2781,6 +2900,9 @@ struct CxxrtlBackend : public Backend {
 		}
 		switch (debug_level) {
 			// the highest level here must match DEFAULT_DEBUG_LEVEL
+			case 2:
+				worker.debug_eval = true;
+				YS_FALLTHROUGH
 			case 1:
 				worker.debug_info = true;
 				YS_FALLTHROUGH
