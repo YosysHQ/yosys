@@ -41,17 +41,28 @@
 
 #include <backends/cxxrtl/cxxrtl_capi.h>
 
+#ifndef __has_attribute
+#	define __has_attribute(x) 0
+#endif
+
 // CXXRTL essentially uses the C++ compiler as a hygienic macro engine that feeds an instruction selector.
 // It generates a lot of specialized template functions with relatively large bodies that, when inlined
 // into the caller and (for those with loops) unrolled, often expose many new optimization opportunities.
 // Because of this, most of the CXXRTL runtime must be always inlined for best performance.
-#ifndef __has_attribute
-#	define __has_attribute(x) 0
-#endif
 #if __has_attribute(always_inline)
 #define CXXRTL_ALWAYS_INLINE inline __attribute__((__always_inline__))
 #else
 #define CXXRTL_ALWAYS_INLINE inline
+#endif
+// Conversely, some functions in the generated code are extremely large yet very cold, with both of these
+// properties being extreme enough to confuse C++ compilers into spending pathological amounts of time
+// on a futile (the code becomes worse) attempt to optimize the least important parts of code.
+#if __has_attribute(optnone)
+#define CXXRTL_EXTREMELY_COLD __attribute__((__optnone__))
+#elif __has_attribute(optimize)
+#define CXXRTL_EXTREMELY_COLD __attribute__((__optimize__(0)))
+#else
+#define CXXRTL_EXTREMELY_COLD
 #endif
 
 // CXXRTL uses assert() to check for C++ contract violations (which may result in e.g. undefined behavior

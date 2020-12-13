@@ -2038,6 +2038,7 @@ struct CxxrtlWorker {
 				f << indent << "}\n";
 				f << "\n";
 			}
+			f << indent << "CXXRTL_EXTREMELY_COLD\n";
 			f << indent << "void " << mangle(module) << "::debug_info(debug_items &items, std::string path) {\n";
 			dump_debug_info_method(module);
 			f << indent << "}\n";
