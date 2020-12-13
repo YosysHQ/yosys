@@ -195,7 +195,7 @@ bool is_extending_cell(RTLIL::IdString type)
 		ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool));
 }
 
-bool is_elidable_cell(RTLIL::IdString type)
+bool is_inlinable_cell(RTLIL::IdString type)
 {
 	return is_unary_cell(type) || is_binary_cell(type) || type.in(
 		ID($mux), ID($concat), ID($slice), ID($pmux));
@@ -273,7 +273,7 @@ struct FlowGraph {
 
 	std::vector<Node*> nodes;
 	dict<const RTLIL::Wire*, pool<Node*, hash_ptr_ops>> wire_comb_defs, wire_sync_defs, wire_uses;
-	dict<const RTLIL::Wire*, bool> wire_def_elidable, wire_use_elidable;
+	dict<const RTLIL::Wire*, bool> wire_def_inlinable, wire_use_inlinable;
 	dict<RTLIL::SigBit, bool> bit_has_state;
 
 	~FlowGraph()
@@ -282,7 +282,7 @@ struct FlowGraph {
 			delete node;
 	}
 
-	void add_defs(Node *node, const RTLIL::SigSpec &sig, bool is_ff, bool elidable)
+	void add_defs(Node *node, const RTLIL::SigSpec &sig, bool is_ff, bool inlinable)
 	{
 		for (auto chunk : sig.chunks())
 			if (chunk.wire) {
@@ -298,9 +298,9 @@ struct FlowGraph {
 			}
 		for (auto bit : sig.bits())
 			bit_has_state[bit] |= is_ff;
-		// Only comb defs of an entire wire in the right order can be elided.
+		// Only comb defs of an entire wire in the right order can be inlined.
 		if (!is_ff && sig.is_wire())
-			wire_def_elidable[sig.as_wire()] = elidable;
+			wire_def_inlinable[sig.as_wire()] = inlinable;
 	}
 
 	void add_uses(Node *node, const RTLIL::SigSpec &sig)
@@ -308,26 +308,26 @@ struct FlowGraph {
 		for (auto chunk : sig.chunks())
 			if (chunk.wire) {
 				wire_uses[chunk.wire].insert(node);
-				// Only a single use of an entire wire in the right order can be elided.
+				// Only a single use of an entire wire in the right order can be inlined.
 				// (But the use can include other chunks.)
-				if (!wire_use_elidable.count(chunk.wire))
-					wire_use_elidable[chunk.wire] = true;
+				if (!wire_use_inlinable.count(chunk.wire))
+					wire_use_inlinable[chunk.wire] = true;
 				else
-					wire_use_elidable[chunk.wire] = false;
+					wire_use_inlinable[chunk.wire] = false;
 			}
 	}
 
-	bool is_elidable(const RTLIL::Wire *wire) const
+	bool is_inlinable(const RTLIL::Wire *wire) const
 	{
-		if (wire_def_elidable.count(wire) && wire_use_elidable.count(wire))
-			return wire_def_elidable.at(wire) && wire_use_elidable.at(wire);
+		if (wire_def_inlinable.count(wire) && wire_use_inlinable.count(wire))
+			return wire_def_inlinable.at(wire) && wire_use_inlinable.at(wire);
 		return false;
 	}
 
 	// Connections
 	void add_connect_defs_uses(Node *node, const RTLIL::SigSig &conn)
 	{
-		add_defs(node, conn.first, /*is_ff=*/false, /*elidable=*/true);
+		add_defs(node, conn.first, /*is_ff=*/false, /*inlinable=*/true);
 		add_uses(node, conn.second);
 	}
 
@@ -373,8 +373,8 @@ struct FlowGraph {
 		for (auto conn : cell->connections())
 			if (cell->output(conn.first))
 				if (is_cxxrtl_sync_port(cell, conn.first)) {
-					// See note regarding elidability below.
-					add_defs(node, conn.second, /*is_ff=*/false, /*elidable=*/false);
+					// See note regarding inlinability below.
+					add_defs(node, conn.second, /*is_ff=*/false, /*inlinable=*/false);
 				}
 	}
 
@@ -382,19 +382,19 @@ struct FlowGraph {
 	{
 		for (auto conn : cell->connections()) {
 			if (cell->output(conn.first)) {
-				if (is_elidable_cell(cell->type))
-					add_defs(node, conn.second, /*is_ff=*/false, /*elidable=*/true);
+				if (is_inlinable_cell(cell->type))
+					add_defs(node, conn.second, /*is_ff=*/false, /*inlinable=*/true);
 				else if (is_ff_cell(cell->type) || (cell->type == ID($memrd) && cell->getParam(ID::CLK_ENABLE).as_bool()))
-					add_defs(node, conn.second, /*is_ff=*/true,  /*elidable=*/false);
+					add_defs(node, conn.second, /*is_ff=*/true,  /*inlinable=*/false);
 				else if (is_internal_cell(cell->type))
-					add_defs(node, conn.second, /*is_ff=*/false, /*elidable=*/false);
+					add_defs(node, conn.second, /*is_ff=*/false, /*inlinable=*/false);
 				else if (!is_cxxrtl_sync_port(cell, conn.first)) {
-					// Although at first it looks like outputs of user-defined cells may always be elided, the reality is
-					// more complex. Fully sync outputs produce no defs and so don't participate in elision. Fully comb
+					// Although at first it looks like outputs of user-defined cells may always be inlined, the reality is
+					// more complex. Fully sync outputs produce no defs and so don't participate in inlining. Fully comb
 					// outputs are assigned in a different way depending on whether the cell's eval() immediately converged.
-					// Unknown/mixed outputs could be elided, but should be rare in practical designs and don't justify
-					// the infrastructure required to elide outputs of cells with many of them.
-					add_defs(node, conn.second, /*is_ff=*/false, /*elidable=*/false);
+					// Unknown/mixed outputs could be inlined, but should be rare in practical designs and don't justify
+					// the infrastructure required to inline outputs of cells with many of them.
+					add_defs(node, conn.second, /*is_ff=*/false, /*inlinable=*/false);
 				}
 			}
 			if (cell->input(conn.first))
@@ -432,7 +432,7 @@ struct FlowGraph {
 	void add_case_defs_uses(Node *node, const RTLIL::CaseRule *case_)
 	{
 		for (auto &action : case_->actions) {
-			add_defs(node, action.first, /*is_ff=*/false, /*elidable=*/false);
+			add_defs(node, action.first, /*is_ff=*/false, /*inlinable=*/false);
 			add_uses(node, action.second);
 		}
 		for (auto sub_switch : case_->switches) {
@@ -451,9 +451,9 @@ struct FlowGraph {
 		for (auto sync : process->syncs)
 			for (auto action : sync->actions) {
 				if (sync->type == RTLIL::STp || sync->type == RTLIL::STn || sync->type == RTLIL::STe)
-				  add_defs(node, action.first, /*is_ff=*/true,  /*elidable=*/false);
+				  add_defs(node, action.first, /*is_ff=*/true,  /*inlinable=*/false);
 				else
-					add_defs(node, action.first, /*is_ff=*/false, /*elidable=*/false);
+					add_defs(node, action.first, /*is_ff=*/false, /*inlinable=*/false);
 				add_uses(node, action.second);
 			}
 	}
@@ -535,8 +535,8 @@ struct CxxrtlWorker {
 	bool unbuffer_public = false;
 	bool localize_internal = false;
 	bool localize_public = false;
-	bool elide_internal = false;
-	bool elide_public = false;
+	bool inline_internal = false;
+	bool inline_public = false;
 
 	bool debug_info = false;
 
@@ -549,10 +549,10 @@ struct CxxrtlWorker {
 	dict<RTLIL::SigBit, RTLIL::SyncType> edge_types;
 	pool<const RTLIL::Memory*> writable_memories;
 	dict<const RTLIL::Cell*, pool<const RTLIL::Cell*>> transparent_for;
-	dict<const RTLIL::Wire*, FlowGraph::Node> elided_wires;
 	dict<const RTLIL::Module*, std::vector<FlowGraph::Node>> schedule;
 	pool<const RTLIL::Wire*> unbuffered_wires;
 	pool<const RTLIL::Wire*> localized_wires;
+	dict<const RTLIL::Wire*, FlowGraph::Node> inlined_wires;
 	dict<const RTLIL::Wire*, const RTLIL::Wire*> debug_alias_wires;
 	dict<const RTLIL::Wire*, RTLIL::Const> debug_const_wires;
 	dict<RTLIL::SigBit, bool> bit_has_state;
@@ -792,16 +792,16 @@ struct CxxrtlWorker {
 			dump_const(chunk.data, chunk.width, chunk.offset);
 			return false;
 		} else {
-			if (elided_wires.count(chunk.wire)) {
+			if (inlined_wires.count(chunk.wire)) {
 				log_assert(!is_lhs);
-				const FlowGraph::Node &node = elided_wires[chunk.wire];
+				const FlowGraph::Node &node = inlined_wires[chunk.wire];
 				switch (node.type) {
 					case FlowGraph::Node::Type::CONNECT:
-						dump_connect_elided(node.connect);
+						dump_connect_expr(node.connect);
 						break;
 					case FlowGraph::Node::Type::CELL_EVAL:
-						log_assert(is_elidable_cell(node.cell->type));
-						dump_cell_elided(node.cell);
+						log_assert(is_inlinable_cell(node.cell->type));
+						dump_cell_expr(node.cell);
 						break;
 					default:
 						log_assert(false);
@@ -858,10 +858,10 @@ struct CxxrtlWorker {
 	void collect_sigspec_rhs(const RTLIL::SigSpec &sig, std::vector<RTLIL::IdString> &cells)
 	{
 		for (auto chunk : sig.chunks()) {
-			if (!chunk.wire || !elided_wires.count(chunk.wire))
+			if (!chunk.wire || !inlined_wires.count(chunk.wire))
 				continue;
 
-			const FlowGraph::Node &node = elided_wires[chunk.wire];
+			const FlowGraph::Node &node = inlined_wires[chunk.wire];
 			switch (node.type) {
 				case FlowGraph::Node::Type::CONNECT:
 					collect_connect(node.connect, cells);
@@ -875,19 +875,19 @@ struct CxxrtlWorker {
 		}
 	}
 
-	void dump_connect_elided(const RTLIL::SigSig &conn)
+	void dump_connect_expr(const RTLIL::SigSig &conn)
 	{
 		dump_sigspec_rhs(conn.second);
 	}
 
-	bool is_connect_elided(const RTLIL::SigSig &conn)
+	bool is_connect_inlined(const RTLIL::SigSig &conn)
 	{
-		return conn.first.is_wire() && elided_wires.count(conn.first.as_wire());
+		return conn.first.is_wire() && inlined_wires.count(conn.first.as_wire());
 	}
 
 	void collect_connect(const RTLIL::SigSig &conn, std::vector<RTLIL::IdString> &cells)
 	{
-		if (!is_connect_elided(conn))
+		if (!is_connect_inlined(conn))
 			return;
 
 		collect_sigspec_rhs(conn.second, cells);
@@ -895,14 +895,14 @@ struct CxxrtlWorker {
 
 	void dump_connect(const RTLIL::SigSig &conn)
 	{
-		if (is_connect_elided(conn))
+		if (is_connect_inlined(conn))
 			return;
 
 		f << indent << "// connection\n";
 		f << indent;
 		dump_sigspec_lhs(conn.first);
 		f << " = ";
-		dump_connect_elided(conn);
+		dump_connect_expr(conn);
 		f << ";\n";
 	}
 
@@ -919,7 +919,7 @@ struct CxxrtlWorker {
 				}
 	}
 
-	void dump_cell_elided(const RTLIL::Cell *cell)
+	void dump_cell_expr(const RTLIL::Cell *cell)
 	{
 		// Unary cells
 		if (is_unary_cell(cell->type)) {
@@ -983,15 +983,15 @@ struct CxxrtlWorker {
 		}
 	}
 
-	bool is_cell_elided(const RTLIL::Cell *cell)
+	bool is_cell_inlined(const RTLIL::Cell *cell)
 	{
-		return is_elidable_cell(cell->type) && cell->hasPort(ID::Y) && cell->getPort(ID::Y).is_wire() &&
-			elided_wires.count(cell->getPort(ID::Y).as_wire());
+		return is_inlinable_cell(cell->type) && cell->hasPort(ID::Y) && cell->getPort(ID::Y).is_wire() &&
+			inlined_wires.count(cell->getPort(ID::Y).as_wire());
 	}
 
 	void collect_cell_eval(const RTLIL::Cell *cell, std::vector<RTLIL::IdString> &cells)
 	{
-		if (!is_cell_elided(cell))
+		if (!is_cell_inlined(cell))
 			return;
 
 		cells.push_back(cell->name);
@@ -1002,33 +1002,33 @@ struct CxxrtlWorker {
 
 	void dump_cell_eval(const RTLIL::Cell *cell)
 	{
-		if (is_cell_elided(cell))
+		if (is_cell_inlined(cell))
 			return;
 		if (cell->type == ID($meminit))
 			return; // Handled elsewhere.
 
-		std::vector<RTLIL::IdString> elided_cells;
-		if (is_elidable_cell(cell->type)) {
+		std::vector<RTLIL::IdString> inlined_cells;
+		if (is_inlinable_cell(cell->type)) {
 			for (auto port : cell->connections())
 				if (port.first != ID::Y)
-					collect_sigspec_rhs(port.second, elided_cells);
+					collect_sigspec_rhs(port.second, inlined_cells);
 		}
-		if (elided_cells.empty()) {
+		if (inlined_cells.empty()) {
 			dump_attrs(cell);
 			f << indent << "// cell " << cell->name.str() << "\n";
 		} else {
 			f << indent << "// cells";
-			for (auto elided_cell : elided_cells)
-				f << " " << elided_cell.str();
+			for (auto inlined_cell : inlined_cells)
+				f << " " << inlined_cell.str();
 			f << "\n";
 		}
 
 		// Elidable cells
-		if (is_elidable_cell(cell->type)) {
+		if (is_inlinable_cell(cell->type)) {
 			f << indent;
 			dump_sigspec_lhs(cell->getPort(ID::Y));
 			f << " = ";
-			dump_cell_elided(cell);
+			dump_cell_expr(cell);
 			f << ";\n";
 		// Flip-flops
 		} else if (is_ff_cell(cell->type)) {
@@ -1458,16 +1458,16 @@ struct CxxrtlWorker {
 		}
 	}
 
-	void dump_wire(const RTLIL::Wire *wire, bool is_local_context)
+	void dump_wire(const RTLIL::Wire *wire, bool is_local)
 	{
-		if (elided_wires.count(wire))
+		if (inlined_wires.count(wire))
 			return;
 
-		if (localized_wires[wire] && is_local_context) {
+		if (localized_wires[wire] && is_local) {
 			dump_attrs(wire);
 			f << indent << "value<" << wire->width << "> " << mangle(wire) << ";\n";
 		}
-		if (!localized_wires[wire] && !is_local_context) {
+		if (!localized_wires[wire] && !is_local) {
 			std::string width;
 			if (wire->module->has_attribute(ID(cxxrtl_blackbox)) && wire->has_attribute(ID(cxxrtl_width))) {
 				width = wire->get_string_attribute(ID(cxxrtl_width));
@@ -1597,7 +1597,7 @@ struct CxxrtlWorker {
 					}
 				}
 				for (auto wire : module->wires())
-					dump_wire(wire, /*is_local_context=*/true);
+					dump_wire(wire, /*is_local=*/true);
 				for (auto node : schedule[module]) {
 					switch (node.type) {
 						case FlowGraph::Node::Type::CONNECT:
@@ -1624,7 +1624,7 @@ struct CxxrtlWorker {
 		inc_indent();
 			f << indent << "bool changed = false;\n";
 			for (auto wire : module->wires()) {
-				if (elided_wires.count(wire))
+				if (inlined_wires.count(wire))
 					continue;
 				if (unbuffered_wires[wire]) {
 					if (edge_wires[wire])
@@ -1808,7 +1808,7 @@ struct CxxrtlWorker {
 			inc_indent();
 				for (auto wire : module->wires()) {
 					if (wire->port_id != 0)
-						dump_wire(wire, /*is_local_context=*/false);
+						dump_wire(wire, /*is_local=*/false);
 				}
 				f << "\n";
 				f << indent << "bool eval() override {\n";
@@ -1854,7 +1854,7 @@ struct CxxrtlWorker {
 			f << indent << "struct " << mangle(module) << " : public module {\n";
 			inc_indent();
 				for (auto wire : module->wires())
-					dump_wire(wire, /*is_local_context=*/false);
+					dump_wire(wire, /*is_local=*/false);
 				f << "\n";
 				bool has_memories = false;
 				for (auto memory : module->memories) {
@@ -2234,16 +2234,16 @@ struct CxxrtlWorker {
 			}
 
 			for (auto wire : module->wires()) {
-				if (!flow.is_elidable(wire)) continue;
+				if (!flow.is_inlinable(wire)) continue;
 				if (wire->port_id != 0) continue;
 				if (wire->get_bool_attribute(ID::keep)) continue;
-				if (wire->name.begins_with("$") && !elide_internal) continue;
-				if (wire->name.begins_with("\\") && !elide_public) continue;
+				if (wire->name.begins_with("$") && !inline_internal) continue;
+				if (wire->name.begins_with("\\") && !inline_public) continue;
 				if (edge_wires[wire]) continue;
 				if (flow.wire_comb_defs[wire].size() > 1)
 					log_cmd_error("Wire %s.%s has multiple drivers.\n", log_id(module), log_id(wire));
 				log_assert(flow.wire_comb_defs[wire].size() == 1);
-				elided_wires[wire] = **flow.wire_comb_defs[wire].begin();
+				inlined_wires[wire] = **flow.wire_comb_defs[wire].begin();
 			}
 
 			dict<FlowGraph::Node*, pool<const RTLIL::Wire*>, hash_ptr_ops> node_defs;
@@ -2280,9 +2280,9 @@ struct CxxrtlWorker {
 					for (auto succ_node : flow.wire_uses[wire])
 						if (evaluated[succ_node]) {
 							feedback_wires.insert(wire);
-							// Feedback wires may never be elided because feedback requires state, but the point of elision
-							// (and localization) is to eliminate state.
-							elided_wires.erase(wire);
+							// Feedback wires may never be inlined because feedback requires state, but the point of
+							// inlining (and localization) is to eliminate state.
+							inlined_wires.erase(wire);
 						}
 			}
 
@@ -2344,7 +2344,7 @@ struct CxxrtlWorker {
 						continue;
 					const RTLIL::Wire *wire_it = wire;
 					while (1) {
-						if (!(flow.wire_def_elidable.count(wire_it) && flow.wire_def_elidable[wire_it]))
+						if (!(flow.wire_def_inlinable.count(wire_it) && flow.wire_def_inlinable[wire_it]))
 							break; // not an alias: complex def
 						log_assert(flow.wire_comb_defs[wire_it].size() == 1);
 						FlowGraph::Node *node = *flow.wire_comb_defs[wire_it].begin();
@@ -2660,7 +2660,7 @@ struct CxxrtlBackend : public Backend {
 		log("        like -O1, and unbuffer internal wires if possible.\n");
 		log("\n");
 		log("    -O3\n");
-		log("        like -O2, and elide internal wires if possible.\n");
+		log("        like -O2, and inline internal wires if possible.\n");
 		log("\n");
 		log("    -O4\n");
 		log("        like -O3, and unbuffer public wires not marked (*keep*) if possible.\n");
@@ -2669,7 +2669,7 @@ struct CxxrtlBackend : public Backend {
 		log("        like -O4, and localize public wires not marked (*keep*) if possible.\n");
 		log("\n");
 		log("    -O6\n");
-		log("        like -O5, and elide public wires not marked (*keep*) if possible.\n");
+		log("        like -O5, and inline public wires not marked (*keep*) if possible.\n");
 		log("\n");
 		log("    -Og\n");
 		log("        highest optimization level that provides debug information for all\n");
@@ -2757,7 +2757,7 @@ struct CxxrtlBackend : public Backend {
 		switch (opt_level) {
 			// the highest level here must match DEFAULT_OPT_LEVEL
 			case 6:
-				worker.elide_public = true;
+				worker.inline_public = true;
 				YS_FALLTHROUGH
 			case 5:
 				worker.localize_public = true;
@@ -2766,7 +2766,7 @@ struct CxxrtlBackend : public Backend {
 				worker.unbuffer_public = true;
 				YS_FALLTHROUGH
 			case 3:
-				worker.elide_internal = true;
+				worker.inline_internal = true;
 				YS_FALLTHROUGH
 			case 2:
 				worker.localize_internal = true;
