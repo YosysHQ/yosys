@@ -2426,43 +2426,6 @@ struct CxxrtlWorker {
 			for (auto item : flow.bit_has_state)
 				bit_has_state.insert(item);
 
-			if (debug_info && debug_alias) {
-				// Find wires that alias other wires or are tied to a constant; debug information can be enriched with these
-				// at essentially zero additional cost.
-				//
-				// Note that the information collected here can't be used for optimizing the netlist: debug information queries
-				// are pure and run on a design in a stable state, which allows assumptions that do not otherwise hold.
-				for (auto wire : module->wires()) {
-					if (!wire->name.isPublic())
-						continue;
-					if (!unbuffered_wires[wire])
-						continue;
-					const RTLIL::Wire *wire_it = wire;
-					while (1) {
-						if (!(flow.wire_def_inlinable.count(wire_it) && flow.wire_def_inlinable[wire_it]))
-							break; // not an alias: complex def
-						log_assert(flow.wire_comb_defs[wire_it].size() == 1);
-						FlowGraph::Node *node = *flow.wire_comb_defs[wire_it].begin();
-						if (node->type != FlowGraph::Node::Type::CONNECT)
-							break; // not an alias: def by cell
-						RTLIL::SigSpec rhs_sig = node->connect.second;
-						if (rhs_sig.is_wire()) {
-							RTLIL::Wire *rhs_wire = rhs_sig.as_wire();
-							if (unbuffered_wires[rhs_wire]) {
-								wire_it = rhs_wire; // maybe an alias
-							} else {
-								debug_alias_wires[wire] = rhs_wire; // is an alias
-								break;
-							}
-						} else if (rhs_sig.is_fully_const()) {
-							debug_const_wires[wire] = rhs_sig.as_const(); // is a const
-							break;
-						} else {
-							break; // not an alias: complex rhs
-						}
-					}
-				}
-			}
 			if (debug_info && debug_eval) {
 				// Find wires that can be be outlined, i.e. whose values can be always recovered from
 				// the values of other wires. (This is the inverse of inlining--any wire that can be
@@ -2471,7 +2434,7 @@ struct CxxrtlWorker {
 				pool<const RTLIL::Wire*> worklist, visited;
 				for (auto wire : module->wires()) {
 					if (!wire->name.isPublic())
-						continue; // only outline public wires
+						continue;
 					worklist.insert(wire);
 				}
 				while (!worklist.empty()) {
@@ -2485,6 +2448,53 @@ struct CxxrtlWorker {
 						for (auto node_use : node_uses[node])
 							if (!visited.count(node_use))
 								worklist.insert(node_use);
+				}
+			}
+			if (debug_info && debug_alias) {
+				// Find wires that alias other wires or are tied to a constant. Both of these cases are
+				// directly expressible in the debug information, improving coverage at zero cost.
+				for (auto wire : module->wires()) {
+					if (!wire->name.isPublic())
+						continue;
+					const RTLIL::Wire *cursor = wire;
+					RTLIL::SigSpec alias_of;
+					while (1) {
+						if (!(flow.wire_def_inlinable.count(cursor) && flow.wire_def_inlinable[cursor]))
+							break; // not an alias: complex def
+						log_assert(flow.wire_comb_defs[cursor].size() == 1);
+						FlowGraph::Node *node = *flow.wire_comb_defs[cursor].begin();
+						if (node->type != FlowGraph::Node::Type::CONNECT)
+							break; // not an alias: def by cell
+						RTLIL::SigSpec rhs_sig = node->connect.second;
+						if (rhs_sig.is_fully_const()) {
+							alias_of = rhs_sig; // alias of const
+							break;
+						} else if (rhs_sig.is_wire()) {
+							RTLIL::Wire *rhs_wire = rhs_sig.as_wire(); // possible alias of wire
+							if (rhs_wire->port_input && !rhs_wire->port_output) {
+								alias_of = rhs_wire; // alias of input
+								break;
+							} else if (!localized_wires.count(rhs_wire) && !inlined_wires.count(rhs_wire)) {
+								alias_of = rhs_wire; // alias of member
+								break;
+							} else {
+								if (rhs_wire->name.isPublic() && debug_outlined_wires.count(rhs_wire))
+									alias_of = rhs_wire; // alias of either outline or another alias
+								cursor = rhs_wire; // keep looking
+							}
+						} else {
+							break; // not an alias: complex rhs
+						}
+					}
+					if (alias_of.empty()) {
+						continue;
+					} else if (alias_of.is_fully_const()) {
+						debug_const_wires[wire] = alias_of.as_const();
+					} else if (alias_of.is_wire()) {
+						debug_alias_wires[wire] = alias_of.as_wire();
+					} else log_abort();
+					if (inlined_wires.count(wire))
+						debug_outlined_wires.erase(wire);
 				}
 			}
 		}
