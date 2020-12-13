@@ -539,6 +539,7 @@ struct CxxrtlWorker {
 	bool inline_public = false;
 
 	bool debug_info = false;
+	bool debug_alias = false;
 	bool debug_eval = false;
 
 	std::ostringstream f;
@@ -2425,7 +2426,7 @@ struct CxxrtlWorker {
 			for (auto item : flow.bit_has_state)
 				bit_has_state.insert(item);
 
-			if (debug_info) {
+			if (debug_info && debug_alias) {
 				// Find wires that alias other wires or are tied to a constant; debug information can be enriched with these
 				// at essentially zero additional cost.
 				//
@@ -2575,7 +2576,7 @@ struct CxxrtlWorker {
 
 struct CxxrtlBackend : public Backend {
 	static const int DEFAULT_OPT_LEVEL = 6;
-	static const int DEFAULT_DEBUG_LEVEL = 2;
+	static const int DEFAULT_DEBUG_LEVEL = 3;
 
 	CxxrtlBackend() : Backend("cxxrtl", "convert design to C++ RTL simulation") { }
 	void help() override
@@ -2793,14 +2794,18 @@ struct CxxrtlBackend : public Backend {
 		log("        more visibility and generate more code, but do not pessimize evaluation.\n");
 		log("\n");
 		log("    -g0\n");
-		log("        no debug information.\n");
+		log("        no debug information. the C API is unavailable.\n");
 		log("\n");
 		log("    -g1\n");
-		log("        debug information for non-optimized public wires. this also makes it\n");
-		log("        possible to use the C API.\n");
+		log("        debug information for member public wires only. this is the bare minimum\n");
+		log("        necessary to access all design state. enables the C API.\n");
 		log("\n");
 		log("    -g2\n");
-		log("        like -g1, and compute debug information on demand for all public wires\n");
+		log("        like -g1, and include debug information for public wires that are tied\n");
+		log("        to a constant or another public wire.\n");
+		log("\n");
+		log("    -g3\n");
+		log("        like -g2, and compute debug information on demand for all public wires\n");
 		log("        that were optimized out.\n");
 		log("\n");
 	}
@@ -2832,13 +2837,13 @@ struct CxxrtlBackend : public Backend {
 				continue;
 			}
 			if (args[argidx] == "-Og") {
-				log_warning("The `-Og` option has been removed. Use `-g2` instead for complete "
+				log_warning("The `-Og` option has been removed. Use `-g3` instead for complete "
 				            "design coverage regardless of optimization level.\n");
 				continue;
 			}
 			if (args[argidx] == "-O" && argidx+1 < args.size() && args[argidx+1] == "g") {
 				argidx++;
-				log_warning("The `-Og` option has been removed. Use `-g2` instead for complete "
+				log_warning("The `-Og` option has been removed. Use `-g3` instead for complete "
 				            "design coverage regardless of optimization level.\n");
 				continue;
 			}
@@ -2900,8 +2905,11 @@ struct CxxrtlBackend : public Backend {
 		}
 		switch (debug_level) {
 			// the highest level here must match DEFAULT_DEBUG_LEVEL
-			case 2:
+			case 3:
 				worker.debug_eval = true;
+				YS_FALLTHROUGH
+			case 2:
+				worker.debug_alias = true;
 				YS_FALLTHROUGH
 			case 1:
 				worker.debug_info = true;
