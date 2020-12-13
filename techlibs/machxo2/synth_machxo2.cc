@@ -160,7 +160,7 @@ struct SynthMachXO2Pass : public ScriptPass
 
 		if (check_label("flatten", "(unless -noflatten)"))
 		{
-			if (flatten) {
+			if (flatten || help_mode) {
 				run("proc");
 				run("flatten");
 				run("tribuf -logic");
@@ -181,13 +181,13 @@ struct SynthMachXO2Pass : public ScriptPass
 			run("opt -fast");
 		}
 
-		if (check_label("map_ios"))
+		if (check_label("map_ios", "(unless -noiopad)"))
 		{
 			if (!noiopad || help_mode)
 			{
-				run("iopadmap -bits -outpad $__FACADE_OUTPAD I:O -inpad $__FACADE_INPAD O:I -toutpad $__FACADE_TOUTPAD OE:I:O -tinoutpad $__FACADE_TINOUTPAD OE:O:I:B A:top", "(skip if '-noiopad')");
-				run("attrmvcp -attr src -attr LOC t:$__FACADE_OUTPAD %x:+[O] t:$__FACADE_TOUTPAD %x:+[O] t:$__FACADE_TINOUTPAD %x:+[B]", "(skip if '-noiopad')");
-				run("attrmvcp -attr src -attr LOC -driven t:$__FACADE_INPAD %x:+[I]", "(skip if '-noiopad')");
+				run("iopadmap -bits -outpad $__FACADE_OUTPAD I:O -inpad $__FACADE_INPAD O:I -toutpad $__FACADE_TOUTPAD OE:I:O -tinoutpad $__FACADE_TINOUTPAD OE:O:I:B A:top");
+				run("attrmvcp -attr src -attr LOC t:$__FACADE_OUTPAD %x:+[O] t:$__FACADE_TOUTPAD %x:+[O] t:$__FACADE_TINOUTPAD %x:+[B]");
+				run("attrmvcp -attr src -attr LOC -driven t:$__FACADE_INPAD %x:+[I]");
 			}
 		}
 
