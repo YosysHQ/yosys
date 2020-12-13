@@ -211,7 +211,7 @@ bool is_ff_cell(RTLIL::IdString type)
 
 bool is_internal_cell(RTLIL::IdString type)
 {
-	return type[0] == '$' && !type.begins_with("$paramod");
+	return !type.isPublic() && !type.begins_with("$paramod");
 }
 
 bool is_cxxrtl_blackbox_cell(const RTLIL::Cell *cell)
@@ -1665,7 +1665,7 @@ struct CxxrtlWorker {
 		inc_indent();
 			f << indent << "assert(path.empty() || path[path.size() - 1] == ' ');\n";
 			for (auto wire : module->wires()) {
-				if (wire->name[0] != '\\')
+				if (!wire->name.isPublic())
 					continue;
 				if (module->get_bool_attribute(ID(cxxrtl_blackbox)) && (wire->port_id == 0))
 					continue;
@@ -1743,7 +1743,7 @@ struct CxxrtlWorker {
 			}
 			if (!module->get_bool_attribute(ID(cxxrtl_blackbox))) {
 				for (auto &memory_it : module->memories) {
-					if (memory_it.first[0] != '\\')
+					if (!memory_it.first.isPublic())
 						continue;
 					f << indent << "items.add(path + " << escape_cxx_string(get_hdl_name(memory_it.second));
 					f << ", debug_item(" << mangle(memory_it.second) << ", ";
@@ -2338,7 +2338,7 @@ struct CxxrtlWorker {
 				// Note that the information collected here can't be used for optimizing the netlist: debug information queries
 				// are pure and run on a design in a stable state, which allows assumptions that do not otherwise hold.
 				for (auto wire : module->wires()) {
-					if (wire->name[0] != '\\')
+					if (!wire->name.isPublic())
 						continue;
 					if (!unbuffered_wires[wire])
 						continue;
