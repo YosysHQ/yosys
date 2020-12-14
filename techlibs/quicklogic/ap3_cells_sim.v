@@ -16,12 +16,10 @@ endmodule
 module ff(
     output reg CQZ,
     input D,
-    //(* clkbuf_sink *)
+    (* clkbuf_sink *)
     input QCK,
     input QEN,
-    //(* clkbuf_sink *)
     input QRT,
-    //(* clkbuf_sink *)
     input QST
 );
     parameter [0:0] INIT = 1'b0;
@@ -40,7 +38,6 @@ endmodule
 module openfpga_ff(
     output reg CQZ,
     input D,
-    //(* clkbuf_sink *)
     input QCK
 );
     parameter [0:0] INIT = 1'b0;
@@ -112,7 +109,7 @@ endmodule /* d buff */
 
 module in_reg (
 	output dataOut,
-	(* clkbuf_inhibit *) 
+    (* clkbuf_sink *)
 	input clk, 
 	(* iopad_external_pin *)
 	input rst, 
@@ -149,7 +146,7 @@ endmodule /* in_reg*/
 module out_reg (
 	(* iopad_external_pin *)
 	output dataOut,
-	(* clkbuf_inhibit *) 
+    (* clkbuf_sink *)
 	input clk, 
 	(* iopad_external_pin *)
 	input rst, 
@@ -184,7 +181,9 @@ module RAM (RADDR,RRLSEL,REN,RMODE,
 
    input [10:0] RADDR,WADDR;
    input [1:0] 	RRLSEL,RMODE,WMODE;
-   input 	REN,WEN,FFLUSH,RCLK,WCLK;
+   input 	REN,WEN,FFLUSH;
+   (* clkbuf_sink *)
+   input RCLK, WCLK;
    input [31:0] WDATA;
    input [1:0] 	SBOG, ENDIAN, UPAF, UPAE;
    output [31:0] RDATA;
@@ -221,7 +220,9 @@ input [1:0] MODE_SEL,OUT_SEL;
 input [1:0] CSEL;
 input [1:0] OSEL;
 input [31:0] COEF_DATA,OPER_DATA;
-input ENABLE,CLR,RND,SAT,CLOCK;
+input ENABLE,CLR,RND,SAT;
+(* clkbuf_sink *)
+input CLOCK;
 input [1:0]SBOG;
 output [63:0] MAC_OUT;
 
