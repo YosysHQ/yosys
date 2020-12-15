@@ -911,7 +911,16 @@ struct CxxrtlWorker {
 		if (for_debug && !is_connect_outlined(conn))
 			return;
 
-		f << indent << "// connection\n";
+		std::vector<RTLIL::IdString> inlined_cells;
+		collect_sigspec_rhs(conn.second, inlined_cells);
+		if (for_debug || inlined_cells.empty()) {
+			f << indent << "// connection\n";
+		} else {
+			f << indent << "// cells";
+			for (auto inlined_cell : inlined_cells)
+				f << " " << inlined_cell.str();
+			f << "\n";
+		}
 		f << indent;
 		dump_sigspec_lhs(conn.first, for_debug);
 		f << " = ";
