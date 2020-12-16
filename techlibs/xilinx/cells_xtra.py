@@ -188,6 +188,11 @@ CELLS = [
 
     # I/O logic.
     # Virtex 2, Spartan 3.
+    # Note: these two are not officially listed in the HDL library guide, but
+    # they are more fundamental than OFDDR* and are necessary to construct
+    # differential DDR outputs (OFDDR* can only do single-ended).
+    Cell('FDDRCPE', port_attrs={'C0': ['clkbuf_sink'], 'C1': ['clkbuf_sink']}),
+    Cell('FDDRRSE', port_attrs={'C0': ['clkbuf_sink'], 'C1': ['clkbuf_sink']}),
     Cell('IFDDRCPE', port_attrs={'C0': ['clkbuf_sink'], 'C1': ['clkbuf_sink'], 'D': ['iopad_external_pin']}),
     Cell('IFDDRRSE', port_attrs={'C0': ['clkbuf_sink'], 'C1': ['clkbuf_sink'], 'D': ['iopad_external_pin']}),
     Cell('OFDDRCPE', port_attrs={'C0': ['clkbuf_sink'], 'C1': ['clkbuf_sink'], 'Q': ['iopad_external_pin']}),
