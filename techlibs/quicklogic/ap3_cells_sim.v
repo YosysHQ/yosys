@@ -111,7 +111,6 @@ module in_reg (
 	output dataOut,
     (* clkbuf_sink *)
 	input clk, 
-	(* iopad_external_pin *)
 	input rst, 
 	(* iopad_external_pin *)
 	input dataIn
@@ -148,7 +147,6 @@ module out_reg (
 	output dataOut,
     (* clkbuf_sink *)
 	input clk, 
-	(* iopad_external_pin *)
 	input rst, 
 	input dataIn
 );
