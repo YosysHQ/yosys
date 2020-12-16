@@ -5301,6 +5301,34 @@ module DSP48E2 (...);
     input RSTP;
 endmodule
 
+module FDDRCPE (...);
+    parameter INIT = 1'b0;
+    (* clkbuf_sink *)
+    input C0;
+    (* clkbuf_sink *)
+    input C1;
+    input CE;
+    input D0;
+    input D1;
+    input CLR;
+    input PRE;
+    output Q;
+endmodule
+
+module FDDRRSE (...);
+    parameter INIT = 1'b0;
+    output Q;
+    (* clkbuf_sink *)
+    input C0;
+    (* clkbuf_sink *)
+    input C1;
+    input CE;
+    input D0;
+    input D1;
+    input R;
+    input S;
+endmodule
+
 module IFDDRCPE (...);
     output Q0;
     output Q1;
