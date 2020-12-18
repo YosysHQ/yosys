@@ -31,12 +31,12 @@ endmodule
 module ff(
     output reg CQZ,
     input D,
-    //(* clkbuf_sink *)
+    (* clkbuf_sink *)
     input QCK,
     input QEN,
-    //(* clkbuf_sink *)
+    (* clkbuf_sink *)
     input QRT,
-    //(* clkbuf_sink *)
+    (* clkbuf_sink *)
     input QST
 );
     parameter [0:0] INIT = 1'b0;
@@ -147,7 +147,9 @@ module RAM (RADDR,RRLSEL,REN,RMODE,
 
    input [10:0] RADDR,WADDR;
    input [1:0] 	RRLSEL,RMODE,WMODE;
-   input 	REN,WEN,FFLUSH,RCLK,WCLK;
+   input 	REN,WEN,FFLUSH;
+   (* clkbuf_sink *)
+   input RCLK, WCLK;
    input [31:0] WDATA;
    input [1:0] 	SBOG, ENDIAN, UPAF, UPAE;
    output [31:0] RDATA;
