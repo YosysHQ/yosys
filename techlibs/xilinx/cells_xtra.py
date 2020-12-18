@@ -664,6 +664,7 @@ if __name__ == '__main__':
 
     dirs = [
         os.path.join(args.vivado_dir, 'data/verilog/src/xeclib'),
+        os.path.join(args.vivado_dir, 'data/verilog/src/unisims'),
         os.path.join(args.vivado_dir, 'data/verilog/src/retarget'),
         os.path.join(args.ise_dir, 'ISE_DS/ISE/verilog/xeclib/unisims'),
     ]
