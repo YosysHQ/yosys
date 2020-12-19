@@ -57,6 +57,8 @@ CELLS = [
     # Cell('RAM32M16', port_attrs={'WCLK': ['clkbuf_sink']}),
     # Cell('RAM64M', port_attrs={'WCLK': ['clkbuf_sink']}),
     # Cell('RAM64M8', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM32X16DR8', port_attrs={'WCLK': ['clkbuf_sink']}),
+    # Cell('RAM64X8SW', port_attrs={'WCLK': ['clkbuf_sink']}),
     # Cell('ROM16X1'),
     # Cell('ROM32X1'),
     # Cell('ROM64X1'),
@@ -243,12 +245,12 @@ CELLS = [
         'CLKDIVP': ['clkbuf_sink'],
     }),
     Cell('OSERDESE2', port_attrs={'CLK': ['clkbuf_sink'], 'CLKDIV': ['clkbuf_sink']}),
-    Cell('PHASER_IN'),
-    Cell('PHASER_IN_PHY'),
-    Cell('PHASER_OUT'),
-    Cell('PHASER_OUT_PHY'),
-    Cell('PHASER_REF'),
-    Cell('PHY_CONTROL'),
+    Cell('PHASER_IN', keep=True),
+    Cell('PHASER_IN_PHY', keep=True),
+    Cell('PHASER_OUT', keep=True),
+    Cell('PHASER_OUT_PHY', keep=True),
+    Cell('PHASER_REF', keep=True),
+    Cell('PHY_CONTROL', keep=True),
     # Ultrascale.
     Cell('IDDRE1', port_attrs={'C': ['clkbuf_sink'], 'CB': ['clkbuf_sink']}),
     Cell('ODDRE1', port_attrs={'C': ['clkbuf_sink']}),
@@ -262,7 +264,7 @@ CELLS = [
     }),
     Cell('OSERDESE3', port_attrs={'CLK': ['clkbuf_sink'], 'CLKDIV': ['clkbuf_sink']}),
     Cell('BITSLICE_CONTROL', keep=True),
-    Cell('RIU_OR'),
+    Cell('RIU_OR', keep=True),
     Cell('RX_BITSLICE'),
     Cell('RXTX_BITSLICE'),
     Cell('TX_BITSLICE'),
@@ -327,7 +329,7 @@ CELLS = [
     Cell('PULLUP'),
     # Misc.
     Cell('DCIRESET', keep=True),
-    Cell('HPIO_VREF'), # Ultrascale
+    Cell('HPIO_VREF', keep=True), # Ultrascale
 
     # Clock buffers (global).
     # Cell('BUFG', port_attrs={'O': ['clkbuf_driver']}),
@@ -456,6 +458,7 @@ CELLS = [
     Cell('FRAME_ECC_VIRTEX6'),
     Cell('FRAME_ECCE2'), # Series 7
     Cell('FRAME_ECCE3'), # Ultrascale
+    Cell('FRAME_ECCE4'), # Ultrascale+
     # AXSS command access.
     Cell('USR_ACCESS_VIRTEX4'),
     Cell('USR_ACCESS_VIRTEX5'),
@@ -470,10 +473,10 @@ CELLS = [
     Cell('EFUSE_USR'),
 
     # ADC.
-    Cell('SYSMON'), # Virtex 5/6
-    Cell('XADC'), # Series 7
-    Cell('SYSMONE1'), # Ultrascale
-    Cell('SYSMONE4'), # Ultrascale+
+    Cell('SYSMON', keep=True), # Virtex 5/6
+    Cell('XADC', keep=True), # Series 7
+    Cell('SYSMONE1', keep=True), # Ultrascale
+    Cell('SYSMONE4', keep=True), # Ultrascale+
 
     # Gigabit transceivers.
     # Spartan 6.
@@ -507,18 +510,30 @@ CELLS = [
     # Ultrascale.
     Cell('GTHE3_CHANNEL'),
     Cell('GTHE3_COMMON'),
-    Cell('GTHE4_CHANNEL'),
-    Cell('GTHE4_COMMON'),
     Cell('GTYE3_CHANNEL'),
     Cell('GTYE3_COMMON'),
-    Cell('GTYE4_CHANNEL'),
-    Cell('GTYE4_COMMON'),
     Cell('IBUFDS_GTE3', port_attrs={'I': ['iopad_external_pin'], 'IB': ['iopad_external_pin']}),
-    Cell('IBUFDS_GTE4', port_attrs={'I': ['iopad_external_pin'], 'IB': ['iopad_external_pin']}),
     Cell('OBUFDS_GTE3', port_attrs={'O': ['iopad_external_pin'], 'OB': ['iopad_external_pin']}),
     Cell('OBUFDS_GTE3_ADV', port_attrs={'O': ['iopad_external_pin'], 'OB': ['iopad_external_pin']}),
+    # Ultrascale+.
+    Cell('GTHE4_CHANNEL'),
+    Cell('GTHE4_COMMON'),
+    Cell('GTYE4_CHANNEL'),
+    Cell('GTYE4_COMMON'),
+    Cell('IBUFDS_GTE4', port_attrs={'I': ['iopad_external_pin'], 'IB': ['iopad_external_pin']}),
     Cell('OBUFDS_GTE4', port_attrs={'O': ['iopad_external_pin'], 'OB': ['iopad_external_pin']}),
     Cell('OBUFDS_GTE4_ADV', port_attrs={'O': ['iopad_external_pin'], 'OB': ['iopad_external_pin']}),
+    # Ultrascale+ GTM.
+    Cell('GTM_DUAL'), # not in the libraries guide
+    Cell('IBUFDS_GTM', port_attrs={'I': ['iopad_external_pin'], 'IB': ['iopad_external_pin']}),
+    Cell('OBUFDS_GTM', port_attrs={'O': ['iopad_external_pin'], 'OB': ['iopad_external_pin']}),
+    Cell('OBUFDS_GTM_ADV', port_attrs={'O': ['iopad_external_pin'], 'OB': ['iopad_external_pin']}),
+
+    # High-speed ADC/DAC.
+    Cell('HSDAC'), # not in libraries guide
+    Cell('HSADC'), # not in libraries guide
+    Cell('RFDAC'), # not in libraries guide
+    Cell('RFADC'), # not in libraries guide
 
     # PCIE IP.
     Cell('PCIE_A1'), # Spartan 6
@@ -528,6 +543,7 @@ CELLS = [
     Cell('PCIE_3_0'), # Series 7
     Cell('PCIE_3_1'), # Ultrascale
     Cell('PCIE40E4'), # Ultrascale+
+    Cell('PCIE4CE4'), # Ultrascale+ v2 (not in the libraries guide)
 
     # Ethernet IP.
     Cell('EMAC'), # Virtex 4
@@ -536,17 +552,29 @@ CELLS = [
     Cell('CMAC'), # Ultrascale
     Cell('CMACE4'), # Ultrsacale+
 
+    # Hard memory controllers.
+    Cell('MCB'), # Spartan 6 Memory Controller Block
+    Cell('HBM_REF_CLK', keep=True), # not in liraries guide
+    # not sure how the following relate to the hw
+    Cell('HBM_SNGLBLI_INTF_APB', keep=True), # not in liraries guide
+    Cell('HBM_SNGLBLI_INTF_AXI', keep=True), # not in liraries guide
+    Cell('HBM_ONE_STACK_INTF', keep=True), # not in liraries guide
+    Cell('HBM_TWO_STACK_INTF', keep=True), # not in liraries guide
+
     # PowerPC.
     # TODO PPC405 (Virtex 2)
     Cell('PPC405_ADV'), # Virtex 4
     Cell('PPC440'), # Virtex 5
 
+    # ARM.
+    Cell('PS7', keep=True), # The Zynq 7000 ARM Processor System (not in libraries guide).
+    Cell('PS8', keep=True), # The Zynq Ultrascale+ ARM Processor System (not in libraries guide).
+
     # Misc hard IP.
-    Cell('MCB'), # Spartan 6 Memory Controller Block
-    Cell('PS7', keep=True), # The Zynq 7000 ARM Processor System.
-    Cell('PS8', keep=True), # The Zynq Ultrascale+ ARM Processor System.
     Cell('ILKN'), # Ultrascale Interlaken
     Cell('ILKNE4'), # Ultrascale+ Interlaken
+    Cell('VCU', keep=True), # Zynq MPSoC Video Codec Unit (not in libraries guide).
+    Cell('FE'), # Zynq RFSoC Forward Error Correction (not in libraries guide).
 ]
 
 
@@ -559,100 +587,101 @@ class State(Enum):
 
 def xtract_cell_decl(cell, dirs, outf):
     for dir in dirs:
-        fname = os.path.join(dir, cell.name + '.v')
-        try:
-            with open(fname) as f:
-                state = State.OUTSIDE
-                found = False
-                # Probably the most horrible Verilog "parser" ever written.
-                module_ports = []
-                invertible_ports = set()
-                for l in f:
-                    l = l.partition('//')[0]
-                    l = l.strip()
-                    if l == 'module {}'.format(cell.name) or l.startswith('module {} '.format(cell.name)):
-                        if found:
-                            print('Multiple modules in {}.'.format(fname))
-                            sys.exit(1)
-                        elif state != State.OUTSIDE:
-                            print('Nested modules in {}.'.format(fname))
-                            sys.exit(1)
-                        found = True
-                        state = State.IN_MODULE
-                        if cell.keep:
-                            outf.write('(* keep *)\n')
-                        outf.write('module {} (...);\n'.format(cell.name))
-                    elif l.startswith('module '):
-                        if state != State.OUTSIDE:
-                            print('Nested modules in {}.'.format(fname))
-                            sys.exit(1)
-                        state = State.IN_OTHER_MODULE
-                    elif l.startswith('task '):
-                        if state == State.IN_MODULE:
-                            state = State.IN_TASK
-                    elif l.startswith('function '):
-                        if state == State.IN_MODULE:
-                            state = State.IN_FUNCTION
-                    elif l == 'endtask':
-                        if state == State.IN_TASK:
+        for ext in ['.v', '.sv']:
+            fname = os.path.join(dir, cell.name + ext)
+            try:
+                with open(fname) as f:
+                    state = State.OUTSIDE
+                    found = False
+                    # Probably the most horrible Verilog "parser" ever written.
+                    module_ports = []
+                    invertible_ports = set()
+                    for l in f:
+                        l = l.partition('//')[0]
+                        l = l.strip()
+                        if l == 'module {}'.format(cell.name) or l.startswith('module {} '.format(cell.name)):
+                            if found:
+                                print('Multiple modules in {}.'.format(fname))
+                                sys.exit(1)
+                            elif state != State.OUTSIDE:
+                                print('Nested modules in {}.'.format(fname))
+                                sys.exit(1)
+                            found = True
                             state = State.IN_MODULE
-                    elif l == 'endfunction':
-                        if state == State.IN_FUNCTION:
-                            state = State.IN_MODULE
-                    elif l == 'endmodule':
-                        if state == State.IN_MODULE:
-                            for kind, rng, port in module_ports:
-                                for attr in cell.port_attrs.get(port, []):
-                                    outf.write('    (* {} *)\n'.format(attr))
-                                if port in invertible_ports:
-                                    outf.write('    (* invertible_pin = "IS_{}_INVERTED" *)\n'.format(port))
-                                if rng is None:
-                                    outf.write('    {} {};\n'.format(kind, port))
+                            if cell.keep:
+                                outf.write('(* keep *)\n')
+                            outf.write('module {} (...);\n'.format(cell.name))
+                        elif l.startswith('module '):
+                            if state != State.OUTSIDE:
+                                print('Nested modules in {}.'.format(fname))
+                                sys.exit(1)
+                            state = State.IN_OTHER_MODULE
+                        elif l.startswith('task '):
+                            if state == State.IN_MODULE:
+                                state = State.IN_TASK
+                        elif l.startswith('function '):
+                            if state == State.IN_MODULE:
+                                state = State.IN_FUNCTION
+                        elif l == 'endtask':
+                            if state == State.IN_TASK:
+                                state = State.IN_MODULE
+                        elif l == 'endfunction':
+                            if state == State.IN_FUNCTION:
+                                state = State.IN_MODULE
+                        elif l == 'endmodule':
+                            if state == State.IN_MODULE:
+                                for kind, rng, port in module_ports:
+                                    for attr in cell.port_attrs.get(port, []):
+                                        outf.write('    (* {} *)\n'.format(attr))
+                                    if port in invertible_ports:
+                                        outf.write('    (* invertible_pin = "IS_{}_INVERTED" *)\n'.format(port))
+                                    if rng is None:
+                                        outf.write('    {} {};\n'.format(kind, port))
+                                    else:
+                                        outf.write('    {} {} {};\n'.format(kind, rng, port))
+                                outf.write(l + '\n')
+                                outf.write('\n')
+                            elif state != State.IN_OTHER_MODULE:
+                                print('endmodule in weird place in {}.'.format(cell.name, fname))
+                                sys.exit(1)
+                            state = State.OUTSIDE
+                        elif l.startswith(('input ', 'output ', 'inout ')) and state == State.IN_MODULE:
+                            if l.endswith((';', ',')):
+                                l = l[:-1]
+                            if ';' in l:
+                                print('Weird port line in {} [{}].'.format(fname, l))
+                                sys.exit(1)
+                            kind, _, ports = l.partition(' ')
+                            for port in ports.split(','):
+                                port = port.strip()
+                                if port.startswith('['):
+                                    rng, port = port.split()
                                 else:
-                                    outf.write('    {} {} {};\n'.format(kind, rng, port))
-                            outf.write(l + '\n')
-                            outf.write('\n')
-                        elif state != State.IN_OTHER_MODULE:
-                            print('endmodule in weird place in {}.'.format(cell.name, fname))
-                            sys.exit(1)
-                        state = State.OUTSIDE
-                    elif l.startswith(('input ', 'output ', 'inout ')) and state == State.IN_MODULE:
-                        if l.endswith((';', ',')):
-                            l = l[:-1]
-                        if ';' in l:
-                            print('Weird port line in {} [{}].'.format(fname, l))
-                            sys.exit(1)
-                        kind, _, ports = l.partition(' ')
-                        for port in ports.split(','):
-                            port = port.strip()
-                            if port.startswith('['):
-                                rng, port = port.split()
-                            else:
-                                rng = None
-                            module_ports.append((kind, rng, port))
-                    elif l.startswith('parameter ') and state == State.IN_MODULE:
-                        if 'UNPLACED' in l:
-                            continue
-                        if l.endswith((';', ',')):
-                            l = l[:-1]
-                        while '  ' in l:
-                            l = l.replace('  ', ' ')
-                        if ';' in l:
-                            print('Weird parameter line in {} [{}].'.format(fname, l))
-                            sys.exit(1)
-                        outf.write('    {};\n'.format(l))
-                        match = re.search('IS_([a-zA-Z0-9_]+)_INVERTED', l)
-                        if match:
-                            invertible_ports.add(match[1])
-                if state != State.OUTSIDE:
-                    print('endmodule not found in {}.'.format(fname))
-                    sys.exit(1)
-                if not found:
-                    print('Cannot find module {} in {}.'.format(cell.name, fname))
-                    sys.exit(1)
-            return
-        except FileNotFoundError:
-            continue
+                                    rng = None
+                                module_ports.append((kind, rng, port))
+                        elif l.startswith('parameter ') and state == State.IN_MODULE:
+                            if 'UNPLACED' in l:
+                                continue
+                            if l.endswith((';', ',')):
+                                l = l[:-1]
+                            while '  ' in l:
+                                l = l.replace('  ', ' ')
+                            if ';' in l:
+                                print('Weird parameter line in {} [{}].'.format(fname, l))
+                                sys.exit(1)
+                            outf.write('    {};\n'.format(l))
+                            match = re.search('IS_([a-zA-Z0-9_]+)_INVERTED', l)
+                            if match:
+                                invertible_ports.add(match[1])
+                    if state != State.OUTSIDE:
+                        print('endmodule not found in {}.'.format(fname))
+                        sys.exit(1)
+                    if not found:
+                        print('Cannot find module {} in {}.'.format(cell.name, fname))
+                        sys.exit(1)
+                return
+            except FileNotFoundError:
+                continue
     print('Cannot find {}.'.format(cell.name))
     sys.exit(1)
 
