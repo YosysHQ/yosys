@@ -86,3 +86,7 @@ void cxxrtl_enum(cxxrtl_handle handle, void *data,
 	for (auto &it : handle->objects.table)
 		callback(data, it.first.c_str(), static_cast<cxxrtl_object*>(&it.second[0]), it.second.size());
 }
+
+void cxxrtl_outline_eval(cxxrtl_outline outline) {
+	outline->eval();
+}

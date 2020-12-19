@@ -128,6 +128,18 @@ enum cxxrtl_type {
 	// pointer is always NULL.
 	CXXRTL_ALIAS = 3,
 
+	// Outlines correspond to netlist nodes that were optimized in a way that makes them inaccessible
+	// outside of a module's `eval()` function. At the highest debug information level, every inlined
+	// node has a corresponding outline object.
+	//
+	// Outlines can be inspected via the `curr` pointer and can never be modified; the `next` pointer
+	// is always NULL. Unlike all other objects, the bits of an outline object are meaningful only
+	// after a call to `cxxrtl_outline_eval` and until any subsequent modification to the netlist.
+	// Observing this requirement is the responsibility of the caller; it is not enforced.
+	//
+	// Outlines always correspond to combinatorial netlist nodes that are not ports.
+	CXXRTL_OUTLINE = 4,
+
 	// More object types may be added in the future, but the existing ones will never change.
 };
 
@@ -171,8 +183,8 @@ enum cxxrtl_flag {
 
 	// Node has bits that are driven by a combinatorial cell or another node.
 	//
-	// This flag can be set on objects of type `CXXRTL_VALUE` and `CXXRTL_WIRE`. It may be combined
-	// with `CXXRTL_DRIVEN_SYNC` and `CXXRTL_UNDRIVEN`, as well as other flags.
+	// This flag can be set on objects of type `CXXRTL_VALUE`, `CXXRTL_WIRE`, and `CXXRTL_OUTLINE`.
+	// It may be combined with `CXXRTL_DRIVEN_SYNC` and `CXXRTL_UNDRIVEN`, as well as other flags.
 	//
 	// This flag is set on objects that have bits connected to the output of a combinatorial cell,
 	// or directly to another node. For designs without combinatorial loops, writing to such bits
@@ -193,8 +205,8 @@ enum cxxrtl_flag {
 
 // Description of a simulated object.
 //
-// The `data` array can be accessed directly to inspect and, if applicable, modify the bits
-// stored in the object.
+// The `curr` and `next` arrays can be accessed directly to inspect and, if applicable, modify
+// the bits stored in the object.
 struct cxxrtl_object {
 	// Type of the object.
 	//
@@ -230,6 +242,12 @@ struct cxxrtl_object {
 	// that cannot be modified, or cannot be modified in a race-free way, `next` is NULL.
 	uint32_t *curr;
 	uint32_t *next;
+
+	// Opaque reference to an outline. Only meaningful for outline objects.
+	//
+	// See the documentation of `cxxrtl_outline` for details. When creating a `cxxrtl_object`, set
+	// this field to NULL.
+	struct _cxxrtl_outline *outline;
 
 	// More description fields may be added in the future, but the existing ones will never change.
 };
@@ -271,6 +289,20 @@ inline struct cxxrtl_object *cxxrtl_get(cxxrtl_handle handle, const char *name) 
 void cxxrtl_enum(cxxrtl_handle handle, void *data,
                  void (*callback)(void *data, const char *name,
                                   struct cxxrtl_object *object, size_t parts));
+
+// Opaque reference to an outline.
+//
+// An outline is a group of outline objects that are evaluated simultaneously. The identity of
+// an outline can be compared to determine whether any two objects belong to the same outline.
+typedef struct _cxxrtl_outline *cxxrtl_outline;
+
+// Evaluate an outline.
+//
+// After evaluating an outline, the bits of every outline object contained in it are consistent
+// with the current state of the netlist. In general, any further modification to the netlist
+// causes every outline object to become stale, after which the corresponding outline must be
+// re-evaluated, otherwise the bits read from that object are meaningless.
+void cxxrtl_outline_eval(cxxrtl_outline outline);
 
 #ifdef __cplusplus
 }
