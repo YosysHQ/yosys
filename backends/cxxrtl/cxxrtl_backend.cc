@@ -626,7 +626,8 @@ struct CxxrtlWorker {
 
 	std::ostringstream f;
 	std::string indent;
-	int temporary = 0;
+	int temporary_idx = 0;
+	int memory_init_idx = 0;
 
 	dict<const RTLIL::Module*, SigMap> sigmaps;
 	pool<const RTLIL::Wire*> edge_wires;
@@ -815,7 +816,7 @@ struct CxxrtlWorker {
 
 	std::string fresh_temporary()
 	{
-		return stringf("tmp_%d", temporary++);
+		return stringf("tmp_%d", temporary_idx++);
 	}
 
 	void dump_attrs(const RTLIL::AttrObject *object)
@@ -1635,49 +1636,49 @@ struct CxxrtlWorker {
 		f << "value<" << wire->width << "> " << mangle(wire) << ";\n";
 	}
 
-	void dump_memory(RTLIL::Module *module, const RTLIL::Memory *memory)
+	void dump_memory(const RTLIL::Memory *memory)
 	{
-		vector<const RTLIL::Cell*> init_cells;
+		dump_attrs(memory);
+		f << indent << "memory<" << memory->width << "> " << mangle(memory)
+		            << " { " << memory->size << "u" << " };\n";
+	}
+
+	std::vector<std::string> dump_memory_init(RTLIL::Module *module, const RTLIL::Memory *memory)
+	{
+		std::vector<const RTLIL::Cell*> init_cells;
 		for (auto cell : module->cells())
 			if (cell->type == ID($meminit) && cell->getParam(ID::MEMID).decode_string() == memory->name.str())
 				init_cells.push_back(cell);
-
 		std::sort(init_cells.begin(), init_cells.end(), [](const RTLIL::Cell *a, const RTLIL::Cell *b) {
 			int a_addr = a->getPort(ID::ADDR).as_int(), b_addr = b->getPort(ID::ADDR).as_int();
 			int a_prio = a->getParam(ID::PRIORITY).as_int(), b_prio = b->getParam(ID::PRIORITY).as_int();
 			return a_prio > b_prio || (a_prio == b_prio && a_addr < b_addr);
 		});
 
-		dump_attrs(memory);
-		f << indent << "memory<" << memory->width << "> " << mangle(memory)
-		            << " { " << memory->size << "u";
-		if (init_cells.empty()) {
-			f << " };\n";
-		} else {
-			f << ",\n";
+		std::vector<std::string> init_names;
+		for (auto cell : init_cells) {
+			dump_attrs(cell);
+			RTLIL::Const data = cell->getPort(ID::DATA).as_const();
+			size_t width = cell->getParam(ID::WIDTH).as_int();
+			size_t words = cell->getParam(ID::WORDS).as_int();
+			std::string init_name = stringf("memory_init_%d", memory_init_idx++);
+			f << indent << "static const memory<" << memory->width << ">::init<" << words << "> " << init_name;
+			f << " { " << stringf("%#x", cell->getPort(ID::ADDR).as_int()) << ", {";
 			inc_indent();
-				for (auto cell : init_cells) {
-					dump_attrs(cell);
-					RTLIL::Const data = cell->getPort(ID::DATA).as_const();
-					size_t width = cell->getParam(ID::WIDTH).as_int();
-					size_t words = cell->getParam(ID::WORDS).as_int();
-					f << indent << "memory<" << memory->width << ">::init<" << words << "> { "
-					            << stringf("%#x", cell->getPort(ID::ADDR).as_int()) << ", {";
-					inc_indent();
-						for (size_t n = 0; n < words; n++) {
-							if (n % 4 == 0)
-								f << "\n" << indent;
-							else
-								f << " ";
-							dump_const(data, width, n * width, /*fixed_width=*/true);
-							f << ",";
-						}
-					dec_indent();
-					f << "\n" << indent << "}},\n";
+				for (size_t n = 0; n < words; n++) {
+					if (n % 4 == 0)
+						f << "\n" << indent;
+					else
+						f << " ";
+					dump_const(data, width, n * width, /*fixed_width=*/true);
+					f << ",";
 				}
 			dec_indent();
-			f << indent << "};\n";
+			f << "\n" << indent << "}};\n";
+			f << "\n";
+			init_names.push_back(init_name);
 		}
+		return init_names;
 	}
 
 	void dump_eval_method(RTLIL::Module *module)
@@ -2028,7 +2029,7 @@ struct CxxrtlWorker {
 					dump_debug_wire(wire, /*is_local=*/false);
 				bool has_memories = false;
 				for (auto memory : module->memories) {
-					dump_memory(module, memory.second);
+					dump_memory(memory.second);
 					has_memories = true;
 				}
 				if (has_memories)
@@ -2055,43 +2056,12 @@ struct CxxrtlWorker {
 				}
 				if (has_cells)
 					f << "\n";
-				f << indent << mangle(module) << "() {}\n";
-				if (has_cells) {
-					f << indent << mangle(module) << "(adopt, " << mangle(module) << " other) :\n";
-					bool first = true;
-					for (auto cell : module->cells()) {
-						if (is_internal_cell(cell->type))
-							continue;
-						if (first) {
-							first = false;
-						} else {
-							f << ",\n";
-						}
-						RTLIL::Module *cell_module = module->design->module(cell->type);
-						if (cell_module->get_bool_attribute(ID(cxxrtl_blackbox))) {
-							f << indent << "  " << mangle(cell) << "(std::move(other." << mangle(cell) << "))";
-						} else {
-							f << indent << "  " << mangle(cell) << "(adopt {}, std::move(other." << mangle(cell) << "))";
-						}
-					}
-					f << " {\n";
-					inc_indent();
-						for (auto cell : module->cells()) {
-							if (is_internal_cell(cell->type))
-								continue;
-							RTLIL::Module *cell_module = module->design->module(cell->type);
-							if (cell_module->get_bool_attribute(ID(cxxrtl_blackbox)))
-								f << indent << mangle(cell) << "->reset();\n";
-						}
-					dec_indent();
-					f << indent << "}\n";
-				} else {
-					f << indent << mangle(module) << "(adopt, " << mangle(module) << " other) {}\n";
-				}
+				f << indent << mangle(module) << "();\n";
+				f << indent << mangle(module) << "(adopt, " << mangle(module) << " other);\n";
 				f << "\n";
 				f << indent << "void reset() override {\n";
 				inc_indent();
-					f << indent << "*this = " << mangle(module) << "(adopt {}, std::move(*this));\n";
+					f << indent << "*this = " << mangle(module) << "(adopt(), std::move(*this));\n";
 				dec_indent();
 				f << indent << "}\n";
 				f << "\n";
@@ -2121,6 +2091,55 @@ struct CxxrtlWorker {
 	{
 		if (module->get_bool_attribute(ID(cxxrtl_blackbox)))
 			return;
+		dict<const RTLIL::Memory*, std::vector<std::string>> memory_inits;
+		for (auto memory : module->memories)
+			memory_inits[memory.second] = dump_memory_init(module, memory.second);
+		f << indent << mangle(module) << "::" << mangle(module) << "() {\n";
+		inc_indent();
+			for (auto memory : module->memories)
+				for (auto memory_init : memory_inits[memory.second])
+					f << indent << mangle(memory.second) << ".initialize(" << memory_init << ");\n";
+		dec_indent();
+		f << indent << "}\n";
+		f << "\n";
+		f << indent << mangle(module) << "::" << mangle(module) << "(adopt, " << mangle(module) << " other) :\n";
+		inc_indent();
+			bool first = true;
+			for (auto memory : module->memories) {
+				if (!first)
+					f << ",\n";
+				first = false;
+				f << indent << "  " << mangle(memory.second) << "(std::move(other." << mangle(memory.second) << "))";
+			}
+			for (auto cell : module->cells()) {
+				if (is_internal_cell(cell->type))
+					continue;
+				if (!first)
+					f << ",\n";
+				first = false;
+				RTLIL::Module *cell_module = module->design->module(cell->type);
+				if (cell_module->get_bool_attribute(ID(cxxrtl_blackbox))) {
+					f << indent << "  " << mangle(cell) << "(std::move(other." << mangle(cell) << "))";
+				} else {
+					f << indent << "  " << mangle(cell) << "(adopt {}, std::move(other." << mangle(cell) << "))";
+				}
+			}
+		dec_indent();
+		f << " {\n";
+		inc_indent();
+			for (auto memory : module->memories)
+				for (auto memory_init : memory_inits[memory.second])
+					f << indent << mangle(memory.second) << ".initialize(" << memory_init << ");\n";
+			for (auto cell : module->cells()) {
+				if (is_internal_cell(cell->type))
+					continue;
+				RTLIL::Module *cell_module = module->design->module(cell->type);
+				if (cell_module->get_bool_attribute(ID(cxxrtl_blackbox)))
+					f << indent << mangle(cell) << "->reset();\n";
+			}
+		dec_indent();
+		f << indent << "}\n";
+		f << "\n";
 		f << indent << "bool " << mangle(module) << "::eval() {\n";
 		dump_eval_method(module);
 		f << indent << "}\n";

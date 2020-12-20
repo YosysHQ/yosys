@@ -738,22 +738,16 @@ struct memory {
 		return *this;
 	}
 
-	// The only way to get the compiler to put the initializer in .rodata and do not copy it on stack is to stuff it
-	// into a plain array. You'd think an std::initializer_list would work here, but it doesn't, because you can't
-	// construct an initializer_list in a constexpr (or something) and so if you try to do that the whole thing is
-	// first copied on the stack (probably overflowing it) and then again into `data`.
+	// A helper for initializing contiguous memory ranges.
 	template<size_t Size>
 	struct init {
 		size_t offset;
 		value<Width> data[Size];
 	};
 
-	template<size_t... InitSize>
-	explicit memory(size_t depth, const init<InitSize> &...init) : depth(depth), data(new value<Width>[depth]) {
-		// This utterly reprehensible construct is the most reasonable way to apply a function to every element
-		// of a parameter pack, if the elements all have different types and so cannot be cast to an initializer list.
-		auto _ = {std::move(std::begin(init.data), std::end(init.data), &data[init.offset])...};
-		(void)_;
+	template<size_t InitSize>
+	void initialize(const init<InitSize> &init) {
+		std::move(std::begin(init.data), std::end(init.data), &data[init.offset]);
 	}
 
 	// An operator for direct memory reads. May be used at any time during the simulation.
