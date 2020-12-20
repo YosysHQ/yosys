@@ -722,20 +722,21 @@ std::ostream &operator<<(std::ostream &os, const wire<Bits> &val) {
 
 template<size_t Width>
 struct memory {
-	std::vector<value<Width>> data;
+	const size_t depth;
+	std::unique_ptr<value<Width>[]> data;
 
-	size_t depth() const {
-		return data.size();
-	}
-
-	memory() = delete;
-	explicit memory(size_t depth) : data(depth) {}
+	explicit memory(size_t depth) : depth(depth), data(new value<Width>[depth]) {}
 
 	memory(const memory<Width> &) = delete;
 	memory<Width> &operator=(const memory<Width> &) = delete;
 
 	memory(memory<Width> &&) = default;
-	memory<Width> &operator=(memory<Width> &&) = default;
+	memory<Width> &operator=(memory<Width> &&other) {
+		assert(depth == other.depth);
+		data = std::move(other.data);
+		write_queue = std::move(other.write_queue);
+		return *this;
+	}
 
 	// The only way to get the compiler to put the initializer in .rodata and do not copy it on stack is to stuff it
 	// into a plain array. You'd think an std::initializer_list would work here, but it doesn't, because you can't
@@ -748,24 +749,23 @@ struct memory {
 	};
 
 	template<size_t... InitSize>
-	explicit memory(size_t depth, const init<InitSize> &...init) : data(depth) {
-		data.resize(depth);
+	explicit memory(size_t depth, const init<InitSize> &...init) : depth(depth), data(new value<Width>[depth]) {
 		// This utterly reprehensible construct is the most reasonable way to apply a function to every element
 		// of a parameter pack, if the elements all have different types and so cannot be cast to an initializer list.
-		auto _ = {std::move(std::begin(init.data), std::end(init.data), data.begin() + init.offset)...};
+		auto _ = {std::move(std::begin(init.data), std::end(init.data), &data[init.offset])...};
 		(void)_;
 	}
 
 	// An operator for direct memory reads. May be used at any time during the simulation.
 	const value<Width> &operator [](size_t index) const {
-		assert(index < data.size());
+		assert(index < depth);
 		return data[index];
 	}
 
 	// An operator for direct memory writes. May only be used before the simulation is started. If used
 	// after the simulation is started, the design may malfunction.
 	value<Width> &operator [](size_t index) {
-		assert(index < data.size());
+		assert(index < depth);
 		return data[index];
 	}
 
@@ -790,7 +790,7 @@ struct memory {
 	std::vector<write> write_queue;
 
 	void update(size_t index, const value<Width> &val, const value<Width> &mask, int priority = 0) {
-		assert(index < data.size());
+		assert(index < depth);
 		// Queue up the write while keeping the queue sorted by priority.
 		write_queue.insert(
 			std::upper_bound(write_queue.begin(), write_queue.end(), priority,
@@ -947,9 +947,9 @@ struct debug_item : ::cxxrtl_object {
 		flags   = 0;
 		width   = Width;
 		lsb_at  = 0;
-		depth   = item.data.size();
+		depth   = item.depth;
 		zero_at = zero_offset;
-		curr    = item.data.empty() ? nullptr : item.data[0].data;
+		curr    = item.data ? item.data[0].data : nullptr;
 		next    = nullptr;
 		outline = nullptr;
 	}
