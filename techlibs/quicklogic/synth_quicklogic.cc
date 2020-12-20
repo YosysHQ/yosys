@@ -70,6 +70,9 @@ struct SynthQuickLogicPass : public ScriptPass {
                 log("\n");
                 log("    -abc9\n");
                 log("        (EXPERIMENTAL) use timing-aware LUT mapping\n");
+		log("\n");
+		log("    -mult\n");
+		log("        use multiplier cells in output netlist\n");
                 log("\n");
                 log("    -openfpga\n");
                 log("        to generate blif file compliant with openfpga flow\n");
@@ -82,7 +85,7 @@ struct SynthQuickLogicPass : public ScriptPass {
         }
 
         string top_opt, edif_file, blif_file, family, currmodule, verilog_file;
-        bool inferAdder, openfpga, infer_dbuff, abc9;
+        bool inferAdder, openfpga, infer_dbuff, abc9, inferMult;
         bool abcOpt;
 
         void clear_flags() override
@@ -96,7 +99,8 @@ struct SynthQuickLogicPass : public ScriptPass {
                 inferAdder = false;
                 abcOpt = true;
                 abc9 = false;
-                openfpga=false;
+                inferMult = false;
+                openfpga = false;
                 infer_dbuff = false;
         }
 
@@ -142,6 +146,10 @@ struct SynthQuickLogicPass : public ScriptPass {
                         }
                         if (args[argidx] == "-abc9") {
                                 abc9 = true;
+                                continue;
+                        }
+                        if (args[argidx] == "-mult") {
+                                inferMult = true;
                                 continue;
                         }
                         if (args[argidx] == "-openfpga") {
@@ -198,6 +206,16 @@ struct SynthQuickLogicPass : public ScriptPass {
                         run("peepopt");
                         run("pmuxtree");
                         run("opt_clean");
+
+                        if (family == "pp3" && inferMult) {
+                                run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=32 -D DSP_B_MAXWIDTH=32  -D DSP_A_MINWIDTH=17 -D DSP_B_MINWIDTH=4 -D DSP_NAME=__MUL32X32 -D DSP_SIGNEDONLY");
+                                run("chtype -set $mul t:$__soft_mul");
+                                run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=32 -D DSP_B_MAXWIDTH=32  -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=17 -D DSP_NAME=__MUL32X32 -D DSP_SIGNEDONLY");
+                                run("chtype -set $mul t:$__soft_mul");
+                                run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=16 -D DSP_B_MAXWIDTH=16  -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=4 -D DSP_NAME=__MUL16X16 -D DSP_SIGNEDONLY");
+                                run("chtype -set $mul t:$__soft_mul");
+                                run("techmap -map +/quicklogic/pp3_mul_map.v");
+                        }
 
                         run("alumacc");
                         run("opt");

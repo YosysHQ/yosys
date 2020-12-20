@@ -46,6 +46,7 @@ $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/abc9_map.v))
 $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/abc9_unmap.v))
 $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/pp3_brams.txt))
 $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/pp3_brams_map.v))
+$(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/pp3_mul_map.v))
 
 $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/pp3_lutdefs.txt))
 $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/ap_lutdefs.txt))
