@@ -832,11 +832,26 @@ struct CxxrtlWorker {
 		} else if (sig.is_chunk()) {
 			return dump_sigchunk(sig.as_chunk(), is_lhs, for_debug);
 		} else {
-			dump_sigchunk(*sig.chunks().rbegin(), is_lhs, for_debug);
-			for (auto it = sig.chunks().rbegin() + 1; it != sig.chunks().rend(); ++it) {
-				f << ".concat(";
-				dump_sigchunk(*it, is_lhs, for_debug);
-				f << ")";
+			bool first = true;
+			auto chunks = sig.chunks();
+			for (auto it = chunks.rbegin(); it != chunks.rend(); it++) {
+				if (!first)
+					f << ".concat(";
+				bool is_complex = dump_sigchunk(*it, is_lhs, for_debug);
+				if (!is_lhs && it->width == 1) {
+					size_t repeat = 1;
+					while ((it + repeat) != chunks.rend() && *(it + repeat) == *it)
+						repeat++;
+					if (repeat > 1) {
+						if (is_complex)
+							f << ".val()";
+						f << ".repeat<" << repeat << ">()";
+					}
+					it += repeat - 1;
+				}
+				if (!first)
+					f << ")";
+				first = false;
 			}
 			return true;
 		}
