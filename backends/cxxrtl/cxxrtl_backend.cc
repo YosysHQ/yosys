@@ -2807,10 +2807,10 @@ struct CxxrtlBackend : public Backend {
 		log("        no optimization.\n");
 		log("\n");
 		log("    -O1\n");
-		log("        localize internal wires if possible.\n");
+		log("        unbuffer internal wires if possible.\n");
 		log("\n");
 		log("    -O2\n");
-		log("        like -O1, and unbuffer internal wires if possible.\n");
+		log("        like -O1, and localize internal wires if possible.\n");
 		log("\n");
 		log("    -O3\n");
 		log("        like -O2, and inline internal wires if possible.\n");
