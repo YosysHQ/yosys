@@ -1702,19 +1702,19 @@ struct CxxrtlWorker {
 					continue;
 				}
 				if (!module->get_bool_attribute(ID(cxxrtl_blackbox)) || wire->port_id != 0)
-					f << indent << "changed |= " << mangle(wire) << ".commit();\n";
+					f << indent << "if (" << mangle(wire) << ".commit()) changed = true;\n";
 			}
 			if (!module->get_bool_attribute(ID(cxxrtl_blackbox))) {
 				for (auto memory : module->memories) {
 					if (!writable_memories[memory.second])
 						continue;
-					f << indent << "changed |= " << mangle(memory.second) << ".commit();\n";
+					f << indent << "if (" << mangle(memory.second) << ".commit()) changed = true;\n";
 				}
 				for (auto cell : module->cells()) {
 					if (is_internal_cell(cell->type))
 						continue;
 					const char *access = is_cxxrtl_blackbox_cell(cell) ? "->" : ".";
-					f << indent << "changed |= " << mangle(cell) << access << "commit();\n";
+					f << indent << "if (" << mangle(cell) << access << "commit()) changed = true;\n";
 				}
 			}
 			f << indent << "return changed;\n";
