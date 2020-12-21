@@ -2351,19 +2351,6 @@ struct CxxrtlWorker {
 					}
 			}
 
-			for (auto wire : module->wires()) {
-				if (!flow.is_inlinable(wire)) continue;
-				if (wire->port_id != 0) continue;
-				if (wire->get_bool_attribute(ID::keep)) continue;
-				if (wire->name.begins_with("$") && !inline_internal) continue;
-				if (wire->name.begins_with("\\") && !inline_public) continue;
-				if (edge_wires[wire]) continue;
-				if (flow.wire_comb_defs[wire].size() > 1)
-					log_cmd_error("Wire %s.%s has multiple drivers.\n", log_id(module), log_id(wire));
-				log_assert(flow.wire_comb_defs[wire].size() == 1);
-				inlined_wires[wire] = **flow.wire_comb_defs[wire].begin();
-			}
-
 			Scheduler<FlowGraph::Node> scheduler;
 			dict<FlowGraph::Node*, Scheduler<FlowGraph::Node>::Vertex*, hash_ptr_ops> node_vertex_map;
 			for (auto node : flow.nodes)
@@ -2391,14 +2378,9 @@ struct CxxrtlWorker {
 				evaluated.insert(node);
 				for (auto wire : flow.node_comb_defs[node])
 					for (auto succ_node : flow.wire_uses[wire])
-						if (evaluated[succ_node]) {
+						if (evaluated[succ_node])
 							feedback_wires.insert(wire);
-							// Feedback wires may never be inlined because feedback requires state, but the point of
-							// inlining (and localization) is to eliminate state.
-							inlined_wires.erase(wire);
-						}
 			}
-
 			if (!feedback_wires.empty()) {
 				has_feedback_arcs = true;
 				log("Module `%s' contains feedback arcs through wires:\n", log_id(module));
@@ -2419,6 +2401,13 @@ struct CxxrtlWorker {
 				if (wire->name.begins_with("$") && !localize_internal) continue;
 				if (wire->name.begins_with("\\") && !localize_public) continue;
 				localized_wires.insert(wire);
+				if (!flow.is_inlinable(wire)) continue;
+				if (wire->name.begins_with("$") && !inline_internal) continue;
+				if (wire->name.begins_with("\\") && !inline_public) continue;
+				if (flow.wire_comb_defs[wire].size() > 1)
+					log_cmd_error("Wire %s.%s has multiple drivers.\n", log_id(module), log_id(wire));
+				log_assert(flow.wire_comb_defs[wire].size() == 1);
+				inlined_wires[wire] = **flow.wire_comb_defs[wire].begin();
 			}
 
 			// For maximum performance, the state of the simulation (which is the same as the set of its double buffered
