@@ -272,7 +272,7 @@ struct cxxrtl_object *cxxrtl_get_parts(cxxrtl_handle handle, const char *name, s
 // This function is a shortcut for the most common use of `cxxrtl_get_parts`. It asserts that,
 // if the object exists, it consists of a single part. If assertions are disabled, it returns NULL
 // for multi-part objects.
-inline struct cxxrtl_object *cxxrtl_get(cxxrtl_handle handle, const char *name) {
+static inline struct cxxrtl_object *cxxrtl_get(cxxrtl_handle handle, const char *name) {
 	size_t parts = 0;
 	struct cxxrtl_object *object = cxxrtl_get_parts(handle, name, &parts);
 	assert(object == NULL || parts == 1);

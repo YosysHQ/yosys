@@ -317,6 +317,14 @@ struct value : public expr_base<value<Bits>> {
 		return sext_cast<NewBits>()(*this);
 	}
 
+	// Bit replication is far more efficient than the equivalent concatenation.
+	template<size_t Count>
+	CXXRTL_ALWAYS_INLINE
+	value<Bits * Count> repeat() const {
+		static_assert(Bits == 1, "repeat() is implemented only for 1-bit values");
+		return *this ? value<Bits * Count>().bit_not() : value<Bits * Count>();
+	}
+
 	// Operations with run-time parameters (offsets, amounts, etc).
 	//
 	// These operations are used for computations.
