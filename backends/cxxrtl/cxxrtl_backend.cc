@@ -273,6 +273,7 @@ struct FlowGraph {
 
 	std::vector<Node*> nodes;
 	dict<const RTLIL::Wire*, pool<Node*, hash_ptr_ops>> wire_comb_defs, wire_sync_defs, wire_uses;
+	dict<Node*, pool<const RTLIL::Wire*>, hash_ptr_ops> node_comb_defs, node_uses;
 	dict<const RTLIL::Wire*, bool> wire_def_inlinable, wire_use_inlinable;
 	dict<RTLIL::SigBit, bool> bit_has_state;
 
@@ -294,6 +295,7 @@ struct FlowGraph {
 					// A comb def means that a wire doesn't hold design state. It might still be connected,
 					// indirectly, to a flip-flop output.
 					wire_comb_defs[chunk.wire].insert(node);
+					node_comb_defs[node].insert(chunk.wire);
 				}
 			}
 		for (auto bit : sig.bits())
@@ -308,6 +310,7 @@ struct FlowGraph {
 		for (auto chunk : sig.chunks())
 			if (chunk.wire) {
 				wire_uses[chunk.wire].insert(node);
+				node_uses[node].insert(chunk.wire);
 				// Only a single use of an entire wire in the right order can be inlined.
 				// (But the use can include other chunks.)
 				if (!wire_use_inlinable.count(chunk.wire))
@@ -2361,25 +2364,15 @@ struct CxxrtlWorker {
 				inlined_wires[wire] = **flow.wire_comb_defs[wire].begin();
 			}
 
-			dict<FlowGraph::Node*, pool<const RTLIL::Wire*>, hash_ptr_ops> node_defs;
-			for (auto wire_comb_def : flow.wire_comb_defs)
-				for (auto node : wire_comb_def.second)
-					node_defs[node].insert(wire_comb_def.first);
-
-			dict<FlowGraph::Node*, pool<const RTLIL::Wire*>, hash_ptr_ops> node_uses;
-			for (auto wire_use : flow.wire_uses)
-				for (auto node : wire_use.second)
-					node_uses[node].insert(wire_use.first);
-
 			Scheduler<FlowGraph::Node> scheduler;
-			dict<FlowGraph::Node*, Scheduler<FlowGraph::Node>::Vertex*, hash_ptr_ops> node_map;
+			dict<FlowGraph::Node*, Scheduler<FlowGraph::Node>::Vertex*, hash_ptr_ops> node_vertex_map;
 			for (auto node : flow.nodes)
-				node_map[node] = scheduler.add(node);
-			for (auto node_def : node_defs) {
-				auto vertex = node_map[node_def.first];
-				for (auto wire : node_def.second)
+				node_vertex_map[node] = scheduler.add(node);
+			for (auto node_comb_def : flow.node_comb_defs) {
+				auto vertex = node_vertex_map[node_comb_def.first];
+				for (auto wire : node_comb_def.second)
 					for (auto succ_node : flow.wire_uses[wire]) {
-						auto succ_vertex = node_map[succ_node];
+						auto succ_vertex = node_vertex_map[succ_node];
 						vertex->succs.insert(succ_vertex);
 						succ_vertex->preds.insert(vertex);
 					}
@@ -2396,7 +2389,7 @@ struct CxxrtlWorker {
 				// caused by a true logic loop, but usually are a benign result of dependency tracking that works
 				// on wire, not bit, level. Nevertheless, feedback wires cannot be localized.
 				evaluated.insert(node);
-				for (auto wire : node_defs[node])
+				for (auto wire : flow.node_comb_defs[node])
 					for (auto succ_node : flow.wire_uses[wire])
 						if (evaluated[succ_node]) {
 							feedback_wires.insert(wire);
@@ -2470,7 +2463,7 @@ struct CxxrtlWorker {
 					if (wire->name.isPublic() || !inlined_wires.count(wire))
 						debug_outlined_wires.insert(wire); // allow outlining of internal wires only
 					for (auto node : flow.wire_comb_defs[wire])
-						for (auto node_use : node_uses[node])
+						for (auto node_use : flow.node_uses[node])
 							if (!visited.count(node_use))
 								worklist.insert(node_use);
 				}
