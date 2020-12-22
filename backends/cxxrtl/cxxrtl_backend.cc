@@ -272,7 +272,8 @@ struct FlowGraph {
 			CONNECT,
 			CELL_SYNC,
 			CELL_EVAL,
-			PROCESS
+			PROCESS_SYNC,
+			PROCESS_CASE,
 		};
 
 		Type type;
@@ -458,7 +459,7 @@ struct FlowGraph {
 	}
 
 	// Processes
-	void add_case_defs_uses(Node *node, const RTLIL::CaseRule *case_)
+	void add_case_rule_defs_uses(Node *node, const RTLIL::CaseRule *case_)
 	{
 		for (auto &action : case_->actions) {
 			add_defs(node, action.first, /*is_ff=*/false, /*inlinable=*/false);
@@ -469,14 +470,13 @@ struct FlowGraph {
 			for (auto sub_case : sub_switch->cases) {
 				for (auto &compare : sub_case->compare)
 					add_uses(node, compare);
-				add_case_defs_uses(node, sub_case);
+				add_case_rule_defs_uses(node, sub_case);
 			}
 		}
 	}
 
-	void add_process_defs_uses(Node *node, const RTLIL::Process *process)
+	void add_sync_rules_defs_uses(Node *node, const RTLIL::Process *process)
 	{
-		add_case_defs_uses(node, &process->root_case);
 		for (auto sync : process->syncs)
 			for (auto action : sync->actions) {
 				if (sync->type == RTLIL::STp || sync->type == RTLIL::STn || sync->type == RTLIL::STe)
@@ -490,10 +490,16 @@ struct FlowGraph {
 	Node *add_node(const RTLIL::Process *process)
 	{
 		Node *node = new Node;
-		node->type = Node::Type::PROCESS;
+		node->type = Node::Type::PROCESS_SYNC;
 		node->process = process;
 		nodes.push_back(node);
-		add_process_defs_uses(node, process);
+		add_sync_rules_defs_uses(node, process);
+
+		node = new Node;
+		node->type = Node::Type::PROCESS_CASE;
+		node->process = process;
+		nodes.push_back(node);
+		add_case_rule_defs_uses(node, &process->root_case);
 		return node;
 	}
 };
@@ -1481,13 +1487,19 @@ struct CxxrtlWorker {
 		f << indent << "}\n";
 	}
 
-	void dump_process(const RTLIL::Process *proc)
+	void dump_process_case(const RTLIL::Process *proc)
 	{
 		dump_attrs(proc);
-		f << indent << "// process " << proc->name.str() << "\n";
+		f << indent << "// process " << proc->name.str() << " case\n";
 		// The case attributes (for root case) are always empty.
 		log_assert(proc->root_case.attributes.empty());
 		dump_case_rule(&proc->root_case);
+	}
+
+	void dump_process_syncs(const RTLIL::Process *proc)
+	{
+		dump_attrs(proc);
+		f << indent << "// process " << proc->name.str() << " syncs\n";
 		for (auto sync : proc->syncs) {
 			RTLIL::SigBit sync_bit;
 			if (!sync->signal.empty()) {
@@ -1702,8 +1714,11 @@ struct CxxrtlWorker {
 						case FlowGraph::Node::Type::CELL_EVAL:
 							dump_cell_eval(node.cell);
 							break;
-						case FlowGraph::Node::Type::PROCESS:
-							dump_process(node.process);
+						case FlowGraph::Node::Type::PROCESS_SYNC:
+							dump_process_syncs(node.process);
+							break;
+						case FlowGraph::Node::Type::PROCESS_CASE:
+							dump_process_case(node.process);
 							break;
 					}
 				}
