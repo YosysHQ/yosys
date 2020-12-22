@@ -2578,6 +2578,7 @@ struct CxxrtlWorker {
 				for (auto wire : module->wires()) {
 					const auto &wire_type = wire_types[wire];
 					auto &debug_wire_type = debug_wire_types[wire];
+					if (wire_type.type == WireType::UNUSED) continue;
 					if (!wire->name.isPublic()) continue;
 
 					if (!debug_info) continue;
@@ -2622,19 +2623,19 @@ struct CxxrtlWorker {
 							if (debug_wire_types[wire].is_outline())
 								worklist.insert(node); // node drives outline
 				}
-				dict<const RTLIL::Wire*, pool<FlowGraph::Node*, hash_ptr_ops>> live_wires;
-				pool<FlowGraph::Node*, hash_ptr_ops> live_nodes;
+				dict<const RTLIL::Wire*, pool<FlowGraph::Node*, hash_ptr_ops>> debug_live_wires;
+				pool<FlowGraph::Node*, hash_ptr_ops> debug_live_nodes;
 				while (!worklist.empty()) {
 					auto node = worklist.pop();
-					live_nodes.insert(node);
+					debug_live_nodes.insert(node);
 					for (auto wire : flow.node_uses[node]) {
 						if (debug_wire_types[wire].is_member())
 							continue; // node uses member
 						if (debug_wire_types[wire].is_exact())
 							continue; // node uses alias or const
-						live_wires[wire].insert(node);
+						debug_live_wires[wire].insert(node);
 						for (auto pred_node : flow.wire_comb_defs[wire])
-							if (!live_nodes[pred_node])
+							if (!debug_live_nodes[pred_node])
 								worklist.insert(pred_node);
 					}
 				}
@@ -2646,9 +2647,9 @@ struct CxxrtlWorker {
 					auto &debug_wire_type = debug_wire_types[wire];
 					if (wire->name.isPublic()) continue;
 
-					if (live_wires[wire].empty()) {
+					if (live_wires[wire].empty() || debug_live_wires[wire].empty()) {
 						continue; // wire never used
-					} else if (flow.is_inlinable(wire, live_wires[wire])) {
+					} else if (flow.is_inlinable(wire, debug_live_wires[wire])) {
 						log_assert(flow.wire_comb_defs[wire].size() == 1);
 						FlowGraph::Node *node = *flow.wire_comb_defs[wire].begin();
 						switch (node->type) {
@@ -2661,7 +2662,7 @@ struct CxxrtlWorker {
 								break;
 							default: continue;
 						}
-						live_nodes.erase(node);
+						debug_live_nodes.erase(node);
 					} else if (wire_type.is_local()) {
 						debug_wire_type = {WireType::LOCAL}; // wire not inlinable
 					} else {
@@ -2672,7 +2673,7 @@ struct CxxrtlWorker {
 
 				// Emit reachable nodes in debug_eval().
 				for (auto node : node_order)
-					if (live_nodes[node])
+					if (debug_live_nodes[node])
 						debug_schedule[module].push_back(*node);
 			}
 		}
