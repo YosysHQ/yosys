@@ -93,6 +93,8 @@ extern Tcl_Obj *Tcl_NewIntObj(int intValue);
 extern Tcl_Obj *Tcl_NewListObj(int objc, Tcl_Obj *const objv[]);
 extern Tcl_Obj *Tcl_ObjSetVar2(Tcl_Interp *interp, Tcl_Obj *part1Ptr, Tcl_Obj *part2Ptr, Tcl_Obj *newValuePtr, int flags);
 #  endif
+#  undef CONST
+#  undef INLINE
 #endif
 
 #ifdef _WIN32
