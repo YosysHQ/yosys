@@ -277,12 +277,13 @@ struct OptLutWorker
 					module->connect(lut_output, value);
 					sigmap.add(lut_output, value);
 
-					module->remove(lut);
 					luts.erase(lut);
 					luts_arity.erase(lut);
 					luts_dlogics.erase(lut);
 					luts_dlogic_inputs.erase(lut);
 
+					module->remove(lut);
+					
 					eliminated_count++;
 					if (limit > 0)
 						limit--;
@@ -493,10 +494,11 @@ struct OptLutWorker
 					luts_arity[lutM] = lutM_arity;
 					luts.erase(lutR);
 					luts_arity.erase(lutR);
-					lutR->module->remove(lutR);
 
 					worklist.insert(lutM);
 					worklist.erase(lutR);
+
+					lutR->module->remove(lutR);
 
 					combined_count++;
 					if (limit > 0)
