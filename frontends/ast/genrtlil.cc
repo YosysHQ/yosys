@@ -141,6 +141,7 @@ static RTLIL::SigSpec mux2rtlil(AstNode *that, const RTLIL::SigSpec &cond, const
 
 	RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_Y", left.size());
 	wire->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", that->filename.c_str(), that->location.first_line, that->location.first_column, that->location.last_line, that->location.last_column);
+	wire->is_signed = that->is_signed;
 
 	for (auto &attr : that->attributes) {
 		if (attr.second->type != AST_CONSTANT)

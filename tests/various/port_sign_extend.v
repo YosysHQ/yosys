@@ -24,8 +24,8 @@ module PassThrough(a, b);
 	assign b = a;
 endmodule
 
-module act(o1, o2, o3, o4, o5, yay1, nay1, yay2, nay2);
-	output wire [3:0] o1, o2, o3, o4, o5;
+module act(o1, o2, o3, o4, o5, o6, yay1, nay1, yay2, nay2);
+	output wire [3:0] o1, o2, o3, o4, o5, o6;
 
 	// unsigned constant
 	PassThrough pt1(1'b1, o1);
@@ -48,6 +48,10 @@ module act(o1, o2, o3, o4, o5, yay1, nay1, yay2, nay2);
 	wire signed [1:0] tmp5b = 2'b01;
 	PassThrough pt5(tmp5a ^ tmp5b, o5);
 
+	wire signed [2:0] tmp6a = 3'b100;
+	wire signed [2:0] tmp6b = 3'b001;
+	PassThrough pt6(tmp6a ? tmp6a : tmp6b, o6);
+
 	output wire [2:0] yay1, nay1;
 	GeneratorSigned1   os1(yay1);
 	GeneratorUnsigned1 ou1(nay1);
@@ -57,14 +61,15 @@ module act(o1, o2, o3, o4, o5, yay1, nay1, yay2, nay2);
 	GeneratorUnsigned2 ou2(nay2);
 endmodule
 
-module ref(o1, o2, o3, o4, o5, yay1, nay1, yay2, nay2);
-	output wire [3:0] o1, o2, o3, o4, o5;
+module ref(o1, o2, o3, o4, o5, o6, yay1, nay1, yay2, nay2);
+	output wire [3:0] o1, o2, o3, o4, o5, o6;
 
 	assign o1 = 4'b0001;
 	assign o2 = 4'b0001;
 	assign o3 = 4'b1111;
 	assign o4 = 4'b1111;
 	assign o5 = 4'b1110;
+	assign o6 = 4'b1100;
 
 	output wire [2:0] yay1, nay1;
 	assign yay1 = 3'b111;
