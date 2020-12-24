@@ -106,6 +106,7 @@ static RTLIL::SigSpec binop2rtlil(AstNode *that, IdString type, int result_width
 
 	RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_Y", result_width);
 	wire->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", that->filename.c_str(), that->location.first_line, that->location.first_column, that->location.last_line, that->location.last_column);
+	wire->is_signed = that->is_signed;
 
 	for (auto &attr : that->attributes) {
 		if (attr.second->type != AST_CONSTANT)
@@ -140,6 +141,7 @@ static RTLIL::SigSpec mux2rtlil(AstNode *that, const RTLIL::SigSpec &cond, const
 
 	RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_Y", left.size());
 	wire->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", that->filename.c_str(), that->location.first_line, that->location.first_column, that->location.last_line, that->location.last_column);
+	wire->is_signed = that->is_signed;
 
 	for (auto &attr : that->attributes) {
 		if (attr.second->type != AST_CONSTANT)
@@ -1721,8 +1723,29 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				}
 				if (child->type == AST_ARGUMENT) {
 					RTLIL::SigSpec sig;
-					if (child->children.size() > 0)
-						sig = child->children[0]->genRTLIL();
+					if (child->children.size() > 0) {
+						AstNode *arg = child->children[0];
+						int local_width_hint = -1;
+						bool local_sign_hint = false;
+						// don't inadvertently attempt to detect the width of interfaces
+						if (arg->type != AST_IDENTIFIER || !arg->id2ast || arg->id2ast->type != AST_CELL)
+							arg->detectSignWidth(local_width_hint, local_sign_hint);
+						sig = arg->genRTLIL(local_width_hint, local_sign_hint);
+						log_assert(local_sign_hint == arg->is_signed);
+						if (sig.is_wire()) {
+							// if the resulting SigSpec is a wire, its
+							// signedness should match that of the AstNode
+							log_assert(arg->is_signed == sig.as_wire()->is_signed);
+						} else if (arg->is_signed) {
+							// non-trivial signed nodes are indirected through
+							// signed wires to enable sign extension
+							RTLIL::IdString wire_name = NEW_ID;
+							RTLIL::Wire *wire = current_module->addWire(wire_name, arg->bits.size());
+							wire->is_signed = true;
+							current_module->connect(wire, sig);
+							sig = wire;
+						}
+					}
 					if (child->str.size() == 0) {
 						char buf[100];
 						snprintf(buf, 100, "$%d", ++port_counter);

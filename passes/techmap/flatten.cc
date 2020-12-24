@@ -180,12 +180,15 @@ struct FlattenWorker
 
 			RTLIL::Wire *tpl_wire = tpl->wire(port_name);
 			RTLIL::SigSig new_conn;
+			bool is_signed = false;
 			if (tpl_wire->port_output && !tpl_wire->port_input) {
 				new_conn.first = port_it.second;
 				new_conn.second = tpl_wire;
+				is_signed = tpl_wire->is_signed;
 			} else if (!tpl_wire->port_output && tpl_wire->port_input) {
 				new_conn.first = tpl_wire;
 				new_conn.second = port_it.second;
+				is_signed = new_conn.second.is_wire() && new_conn.second.as_wire()->is_signed;
 			} else {
 				SigSpec sig_tpl = tpl_wire, sig_mod = port_it.second;
 				for (int i = 0; i < GetSize(sig_tpl) && i < GetSize(sig_mod); i++) {
@@ -204,7 +207,7 @@ struct FlattenWorker
 			if (new_conn.second.size() > new_conn.first.size())
 				new_conn.second.remove(new_conn.first.size(), new_conn.second.size() - new_conn.first.size());
 			if (new_conn.second.size() < new_conn.first.size())
-				new_conn.second.append(RTLIL::SigSpec(RTLIL::State::S0, new_conn.first.size() - new_conn.second.size()));
+				new_conn.second.extend_u0(new_conn.first.size(), is_signed);
 			log_assert(new_conn.first.size() == new_conn.second.size());
 
 			if (sigmap(new_conn.first).has_const())

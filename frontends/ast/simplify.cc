@@ -1205,6 +1205,11 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				current_block = this;
 				current_block_child = children[i];
 			}
+			if (!in_param_here && type == AST_FCALL) {
+				bool recommend_const_eval = false;
+				bool require_const_eval = has_const_only_constructs(recommend_const_eval);
+				in_param_here = recommend_const_eval || require_const_eval;
+			}
 			if ((type == AST_ALWAYS || type == AST_INITIAL) && children[i]->type == AST_BLOCK)
 				current_top_block = children[i];
 			if (i == 0 && child_0_is_self_determined)
@@ -3337,6 +3342,14 @@ skip_dynamic_range_lvalue_expansion:;
 						wire->type = AST_LOCALPARAM;
 						wire->attributes.erase(ID::nosync);
 						wire->children.insert(wire->children.begin(), arg->clone());
+						// args without a range implicitly have width 1
+						if (wire->children.back()->type != AST_RANGE) {
+							AstNode* range = new AstNode();
+							range->type = AST_RANGE;
+							wire->children.push_back(range);
+							range->children.push_back(mkconst_int(0, true));
+							range->children.push_back(mkconst_int(0, true));
+						}
 						continue;
 					}
 					AstNode *wire_id = new AstNode(AST_IDENTIFIER);
