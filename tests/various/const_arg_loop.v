@@ -50,6 +50,12 @@ module top;
 		operation4 = {a, b};
 	endfunction
 
+	function automatic integer operation5;
+		input x;
+		integer x;
+		operation5 = x;
+	endfunction
+
 	wire [31:0] a;
 	assign a = 2;
 
@@ -70,6 +76,9 @@ module top;
 	wire [16:0] x4;
 	assign x4 = operation4(a[15:0], 0);
 
+	wire [31:0] x5;
+	assign x5 = operation5(64);
+
 // `define VERIFY
 `ifdef VERIFY
     assert property (a == 2);
@@ -79,5 +88,6 @@ module top;
     assert property (x2 == 4);
     assert property (x3 == 16);
     assert property (x4 == a << 1);
+    assert property (x5 == 64);
 `endif
 endmodule
