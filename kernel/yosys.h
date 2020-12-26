@@ -121,8 +121,9 @@ extern Tcl_Obj *Tcl_ObjSetVar2(Tcl_Interp *interp, Tcl_Obj *part1Ptr, Tcl_Obj *p
 #    define fileno _fileno
 #  endif
 
-// mingw and msvc include `wingdi.h` which defines a TRANSPARENT macro
-// that conflicts with X(TRANSPARENT) entry in kernel/constids.inc
+// The following defines conflict with our identifiers:
+#  undef CONST
+// `wingdi.h` defines a TRANSPARENT macro that conflicts with X(TRANSPARENT) entry in kernel/constids.inc
 #  undef TRANSPARENT
 #endif
 
