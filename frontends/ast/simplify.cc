@@ -3344,11 +3344,22 @@ skip_dynamic_range_lvalue_expansion:;
 						wire->children.insert(wire->children.begin(), arg->clone());
 						// args without a range implicitly have width 1
 						if (wire->children.back()->type != AST_RANGE) {
-							AstNode* range = new AstNode();
-							range->type = AST_RANGE;
-							wire->children.push_back(range);
-							range->children.push_back(mkconst_int(0, true));
-							range->children.push_back(mkconst_int(0, true));
+							// check if this wire is redeclared with an explicit size
+							bool uses_explicit_size = false;
+							for (const AstNode *other_child : decl->children)
+								if (other_child->type == AST_WIRE && child->str == other_child->str
+										&& !other_child->children.empty()
+										&& other_child->children.back()->type == AST_RANGE) {
+									uses_explicit_size = true;
+									break;
+								}
+							if (!uses_explicit_size) {
+								AstNode* range = new AstNode();
+								range->type = AST_RANGE;
+								wire->children.push_back(range);
+								range->children.push_back(mkconst_int(0, true));
+								range->children.push_back(mkconst_int(0, true));
+							}
 						}
 						continue;
 					}
