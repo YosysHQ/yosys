@@ -6,7 +6,7 @@ CONFIG := clang
 # CONFIG := emcc
 # CONFIG := wasi
 # CONFIG := mxe
-# CONFIG := msys2
+# CONFIG := msys2-32
 # CONFIG := msys2-64
 
 # features (the more the better)
@@ -322,7 +322,7 @@ ABCMKARGS += ARCHFLAGS="-DWIN32_NO_DLL -DHAVE_STRUCT_TIMESPEC -fpermissive -w"
 ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib -s" LDFLAGS="-Wl,--allow-multiple-definition" ABC_USE_NO_READLINE=1 CC="/usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-gcc"
 EXE = .exe
 
-else ifeq ($(CONFIG),msys2)
+else ifeq ($(CONFIG),msys2-32)
 CXX = i686-w64-mingw32-g++
 LD = i686-w64-mingw32-g++
 CXXFLAGS += -std=c++11 -Os -D_POSIX_SOURCE -DYOSYS_WIN32_UNIX_DIR
@@ -345,7 +345,7 @@ ABCMKARGS += LIBS="-lpthread -s" ABC_USE_NO_READLINE=0 CC="x86_64-w64-mingw32-gc
 EXE = .exe
 
 else ifneq ($(CONFIG),none)
-$(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, gcc-4.8, emcc, mxe, msys2, msys2-64)
+$(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, gcc-4.8, emcc, mxe, msys2-32, msys2-64)
 endif
 
 ifeq ($(ENABLE_LIBYOSYS),1)
@@ -989,13 +989,15 @@ config-mxe: clean
 	echo 'CONFIG := mxe' > Makefile.conf
 	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
 
-config-msys2: clean
-	echo 'CONFIG := msys2' > Makefile.conf
+config-msys2-32: clean
+	echo 'CONFIG := msys2-32' > Makefile.conf
 	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
+	echo "PREFIX := $(MINGW_PREFIX)" >> Makefile.conf
 
 config-msys2-64: clean
 	echo 'CONFIG := msys2-64' > Makefile.conf
 	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
+	echo "PREFIX := $(MINGW_PREFIX)" >> Makefile.conf
 
 config-cygwin: clean
 	echo 'CONFIG := cygwin' > Makefile.conf
