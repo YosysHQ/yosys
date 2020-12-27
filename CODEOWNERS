@@ -25,6 +25,9 @@ passes/opt/opt_lut.cc          @whitequark
 # These still override previous lines, so be careful not to
 # accidentally disable any of the above rules.
 
+frontends/verilog/             @zachjs
+frontends/ast/                 @zachjs
+
 techlibs/intel_alm/            @ZirconiumX
 
 # pyosys
