@@ -1,0 +1,23 @@
+read_verilog memory_word_as_index.v
+
+hierarchy
+proc
+memory
+flatten
+opt -full
+
+equiv_make gold gate1 equiv
+equiv_simple
+equiv_status -assert
+
+delete equiv
+
+equiv_make gold gate2 equiv
+equiv_simple
+equiv_status -assert
+
+delete equiv
+
+equiv_make gold gate3 equiv
+equiv_simple
+equiv_status -assert
