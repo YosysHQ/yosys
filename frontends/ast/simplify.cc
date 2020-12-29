@@ -3451,7 +3451,14 @@ replace_fcall_later:;
 				if (current_scope[str]->children[0]->isConst())
 					newNode = current_scope[str]->children[0]->clone();
 			}
-			else if (at_zero && current_scope.count(str) > 0 && (current_scope[str]->type == AST_WIRE || current_scope[str]->type == AST_AUTOWIRE)) {
+			else if (at_zero && current_scope.count(str) > 0) {
+				AstNode *node = current_scope[str];
+				if (node->type == AST_WIRE || node->type == AST_AUTOWIRE || node->type == AST_MEMORY)
+					newNode = mkconst_int(0, sign_hint, width_hint);
+			}
+			break;
+		case AST_MEMRD:
+			if (at_zero) {
 				newNode = mkconst_int(0, sign_hint, width_hint);
 			}
 			break;
