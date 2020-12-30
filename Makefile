@@ -514,8 +514,8 @@ endif
 
 ifeq ($(ENABLE_GHDL),1)
 GHDL_PREFIX ?= $(PREFIX)
-GHDL_INCLUDE_DIR ?= $(GHDL_DIR)/include
-GHDL_LIB_DIR ?= $(GHDL_DIR)/lib
+GHDL_INCLUDE_DIR ?= $(GHDL_PREFIX)/include
+GHDL_LIB_DIR ?= $(GHDL_PREFIX)/lib
 CXXFLAGS += -I$(GHDL_INCLUDE_DIR) -DYOSYS_ENABLE_GHDL
 LDLIBS += $(GHDL_LIB_DIR)/libghdl.a $(file <$(GHDL_LIB_DIR)/libghdl.link)
 endif
