@@ -1,0 +1,6 @@
+read_verilog -sv func_port_implied_dir.sv
+hierarchy
+proc
+equiv_make gold gate equiv
+equiv_simple
+equiv_status -assert
