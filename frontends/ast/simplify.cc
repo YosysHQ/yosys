@@ -3175,6 +3175,8 @@ skip_dynamic_range_lvalue_expansion:;
 
 			if (all_args_const) {
 				AstNode *func_workspace = current_scope[str]->clone();
+				func_workspace->str = NEW_ID.str();
+				func_workspace->replace_result_wire_name_in_function(str, func_workspace->str);
 				newNode = func_workspace->eval_const_function(this);
 				delete func_workspace;
 				goto apply_newNode;
@@ -3714,12 +3716,12 @@ apply_newNode:
 	return did_something;
 }
 
-static void replace_result_wire_name_in_function(AstNode *node, std::string &from, std::string &to)
+void AstNode::replace_result_wire_name_in_function(const std::string &from, const std::string &to)
 {
-	for (auto &it : node->children)
-		replace_result_wire_name_in_function(it, from, to);
-	if (node->str == from)
-		node->str = to;
+	for (AstNode *child : children)
+		child->replace_result_wire_name_in_function(from, to);
+	if (str == from && type != AST_FCALL && type != AST_TCALL)
+		str = to;
 }
 
 // replace a readmem[bh] TCALL ast node with a block of memory assignments
@@ -3912,7 +3914,7 @@ void AstNode::expand_genblock(std::string index_var, std::string prefix, std::ma
 
 		name_map[child->str] = new_name;
 		if (child->type == AST_FUNCTION)
-			replace_result_wire_name_in_function(child, child->str, new_name);
+			child->replace_result_wire_name_in_function(child->str, new_name);
 		else
 			child->str = new_name;
 		current_scope[new_name] = child;
@@ -4492,15 +4494,31 @@ bool AstNode::detect_latch(const std::string &var)
 
 bool AstNode::has_const_only_constructs(bool &recommend_const_eval)
 {
+	std::set<std::string> visited;
+	return has_const_only_constructs(visited, recommend_const_eval);
+}
+
+bool AstNode::has_const_only_constructs(std::set<std::string>& visited, bool &recommend_const_eval)
+{
+	if (type == AST_FUNCTION || type == AST_TASK)
+	{
+		if (visited.count(str))
+		{
+			recommend_const_eval = true;
+			return false;
+		}
+		visited.insert(str);
+	}
+
 	if (type == AST_FOR)
 		recommend_const_eval = true;
 	if (type == AST_WHILE || type == AST_REPEAT)
 		return true;
 	if (type == AST_FCALL && current_scope.count(str))
-		if (current_scope[str]->has_const_only_constructs(recommend_const_eval))
+		if (current_scope[str]->has_const_only_constructs(visited, recommend_const_eval))
 			return true;
 	for (auto child : children)
-		if (child->AstNode::has_const_only_constructs(recommend_const_eval))
+		if (child->AstNode::has_const_only_constructs(visited, recommend_const_eval))
 			return true;
 	return false;
 }
