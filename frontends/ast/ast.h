@@ -250,6 +250,7 @@ namespace AST
 		// simplify() creates a simpler AST by unrolling for-loops, expanding generate blocks, etc.
 		// it also sets the id2ast pointers so that identifier lookups are fast in genRTLIL()
 		bool simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage, int width_hint, bool sign_hint, bool in_param);
+		void replace_result_wire_name_in_function(const std::string &from, const std::string &to);
 		AstNode *readmem(bool is_readmemh, std::string mem_filename, AstNode *memory, int start_addr, int finish_addr, bool unconditional_init);
 		void expand_genblock(std::string index_var, std::string prefix, std::map<std::string, std::string> &name_map, bool original_scope = true);
 		void replace_ids(const std::string &prefix, const std::map<std::string, std::string> &rules);
@@ -264,6 +265,7 @@ namespace AST
 		// additional functionality for evaluating constant functions
 		struct varinfo_t { RTLIL::Const val; int offset; bool is_signed; };
 		bool has_const_only_constructs(bool &recommend_const_eval);
+		bool has_const_only_constructs(std::set<std::string>& visited, bool &recommend_const_eval);
 		void replace_variables(std::map<std::string, varinfo_t> &variables, AstNode *fcall);
 		AstNode *eval_const_function(AstNode *fcall);
 		bool is_simple_const_expr();
