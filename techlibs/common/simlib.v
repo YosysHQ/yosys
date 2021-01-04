@@ -237,7 +237,7 @@ endmodule
 
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
-//-     $reduce_and (A, B, Y)
+//-     $reduce_and (A, Y)
 //-
 //- An AND reduction. This corresponds to the Verilog unary prefix '&' operator.
 //-
@@ -264,7 +264,7 @@ endmodule
 
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
-//-     $reduce_or (A, B, Y)
+//-     $reduce_or (A, Y)
 //-
 //- An OR reduction. This corresponds to the Verilog unary prefix '|' operator.
 //-
@@ -291,7 +291,7 @@ endmodule
 
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
-//-     $reduce_xor (A, B, Y)
+//-     $reduce_xor (A, Y)
 //-
 //- A XOR reduction. This corresponds to the Verilog unary prefix '^' operator.
 //-
@@ -318,7 +318,7 @@ endmodule
 
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
-//-     $reduce_xnor (A, B, Y)
+//-     $reduce_xnor (A, Y)
 //-
 //- A XNOR reduction. This corresponds to the Verilog unary prefix '~^' operator.
 //-
@@ -345,7 +345,7 @@ endmodule
 
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
-//-     $reduce_bool (A, B, Y)
+//-     $reduce_bool (A, Y)
 //-
 //- An OR reduction. This cell type is used instead of $reduce_or when a signal is
 //- implicitly converted to a boolean signal, e.g. for operands of '&&' and '||'.
