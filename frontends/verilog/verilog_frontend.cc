@@ -229,7 +229,7 @@ struct VerilogFrontend : public Frontend {
 		log("\n");
 		log("Depending on if read_verilog is run in -formal mode, either the macro\n");
 		log("SYNTHESIS or FORMAL is defined automatically, unless -nosynthesis is used.\n");
-                log("In addition, read_verilog always defines the macro YOSYS.\n");
+		log("In addition, read_verilog always defines the macro YOSYS.\n");
 		log("\n");
 		log("See the Yosys README file for a list of non-standard Verilog features\n");
 		log("supported by the Yosys Verilog front-end.\n");
@@ -258,7 +258,7 @@ struct VerilogFrontend : public Frontend {
 		bool flag_defer = false;
 		bool flag_noblackbox = false;
 		bool flag_nowb = false;
-                bool flag_nosynthesis = false;
+		bool flag_nosynthesis = false;
 		define_map_t defines_map;
 
 		std::list<std::string> include_dirs;
