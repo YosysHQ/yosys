@@ -339,7 +339,7 @@ struct Abc9Pass : public ScriptPass
 
 		if (check_label("pre")) {
 			run("read_verilog -icells -lib -specify +/abc9_model.v");
-			run("scc -set_attr abc9_scc_id {}");
+			run("scc -specify -set_attr abc9_scc_id {}");
 			if (help_mode)
 				run("abc9_ops -mark_scc -prep_delays -prep_xaiger [-dff]", "(option for -dff)");
 			else
