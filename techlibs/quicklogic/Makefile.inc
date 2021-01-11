@@ -44,12 +44,17 @@ $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/ap_cells_sim.v
 
 $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/MULT_16BIT_X2.v))
 $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/MULT_32BIT.v))
-$(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/abc9_model.v))
+$(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/pp3_brams.txt))
+$(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/pp3_brams_map.v))
 
 $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/pp3_lutdefs.txt))
 $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/ap_lutdefs.txt))
 $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/ap2_lutdefs.txt))
 $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/ap3_lutdefs.txt))
+
+$(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/openfpga_cells_sim.v))
+$(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/openfpga_arith_map.v))
+$(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/abc9_softadder_model.v))
 
 EXTRA_OBJS += techlibs/quicklogic/brams_init.mk 
 .SECONDARY: techlibs/quicklogic/brams_init.mk 
