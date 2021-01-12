@@ -1794,6 +1794,7 @@ struct AbcPass : public Pass {
 					gate_list.push_back("OAI4");
 					gate_list.push_back("MUX");
 					gate_list.push_back("NMUX");
+					goto ok_alias;
 				}
 				if (g_arg_from_cmd)
 					cmd_error(args, g_argidx, stringf("Unsupported gate type: %s", g.c_str()));
