@@ -1,3 +1,4 @@
+(* keep_hierarchy *)
 module my_lut (
     input  wire [3:0] i,
     output wire       o

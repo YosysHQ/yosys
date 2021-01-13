@@ -1,7 +1,7 @@
 read_verilog v/logic.v
 hierarchy -top top
 proc
-equiv_opt -assert -map +/quicklogic/cells_sim.v synth_quicklogic -flatten
+equiv_opt -assert -map +/quicklogic/pp3_cells_sim.v synth_quicklogic
 design -load postopt
 cd top
 

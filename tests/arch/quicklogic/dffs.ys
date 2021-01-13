@@ -4,7 +4,7 @@ design -save read
 # DFF
 hierarchy -top my_dff
 proc
-equiv_opt -assert -map +/quicklogic/cells_sim.v synth_quicklogic -top my_dff -flatten
+equiv_opt -assert -map +/quicklogic/pp3_cells_sim.v synth_quicklogic -top my_dff
 design -load postopt
 cd my_dff
 stat
@@ -16,7 +16,7 @@ select -assert-count 4 t:*
 
 # DFFC
 design -load read
-synth_quicklogic -top my_dffc -flatten
+synth_quicklogic -top my_dffc
 cd my_dffc
 stat
 select -assert-count 1 t:dffc
@@ -27,7 +27,7 @@ select -assert-count 5 t:*
 
 # DFFP
 design -load read
-synth_quicklogic -top my_dffp -flatten
+synth_quicklogic -top my_dffp
 cd my_dffp
 stat
 select -assert-count 1 t:dffp
