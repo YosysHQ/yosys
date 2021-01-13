@@ -1,0 +1,13 @@
+# Equivalence check for adder synthesis
+read_verilog -icells -DWIDTH=4 v/add.v
+hierarchy -check -auto-top
+proc
+equiv_opt -assert -map +/quicklogic/abc9_softadder_model.v synth_quicklogic -openfpga -adder
+
+design -reset
+
+# Equivalence check for subtractor synthesis
+read_verilog -icells -DWIDTH=4 v/sub.v
+hierarchy -check -auto-top
+proc
+equiv_opt -assert -map +/quicklogic/abc9_softadder_model.v synth_quicklogic -openfpga -adder
