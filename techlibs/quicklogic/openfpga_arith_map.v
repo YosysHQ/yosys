@@ -49,8 +49,8 @@ module _80_quicklogic_alu (A, B, CI, BI, X, Y, CO);
             if (_TECHMAP_CONSTMSK_CI_ == 1) begin
 
                 localparam INIT = (_TECHMAP_CONSTVAL_CI_ == 0) ?
-                    16'b11100110_01100110 :
-                    16'b11111000_10011001;
+                    16'b10000000_00000110 :
+                    16'b11100000_00001001;
 
                 // LUT4 configured as 1-bit adder with CI=const
                 soft_adder #(
@@ -59,7 +59,7 @@ module _80_quicklogic_alu (A, B, CI, BI, X, Y, CO);
                 ) lut_ci_adder (
                     .A(AA[i]),
                     .B(BB[i]),
-                    .I2(),
+                    .I2(1'b0),
                     .I3(1'b0),
                     .O(Y[i]),
                     .CI(),
@@ -94,8 +94,7 @@ module _80_quicklogic_alu (A, B, CI, BI, X, Y, CO);
 
         // Single 1-bit adder, mid-chain adder or non-const CI
         // adder
-        generate if ((i == 0 && _TECHMAP_CONSTMSK_CI_ == 0) ||
-                     (i  > 0 && i < Y_WIDTH-1)) begin
+        generate if ((i == 0 && _TECHMAP_CONSTMSK_CI_ == 0) || (i > 0)) begin
             
             // LUT4 configured as full 1-bit adder
             soft_adder #(
