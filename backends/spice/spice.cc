@@ -64,7 +64,7 @@ static void print_spice_net(std::ostream &f, RTLIL::SigBit s, std::string &neg, 
 	}
 }
 
-static void print_spice_module(std::ostream &f, RTLIL::Module *module, RTLIL::Design *design, std::string &neg, std::string &pos, std::string &ncpf, bool big_endian, bool use_inames)
+static void print_spice_module(std::ostream &f, RTLIL::Module *module, RTLIL::Design *design, std::string &neg, std::string &pos, std::string &buf, std::string &ncpf, bool big_endian, bool use_inames)
 {
 	SigMap sigmap(module);
 	idict<IdString, 1> inums;
@@ -121,10 +121,10 @@ static void print_spice_module(std::ostream &f, RTLIL::Module *module, RTLIL::De
 
 	for (auto &conn : module->connections())
 	for (int i = 0; i < conn.first.size(); i++) {
-		f << stringf("V%d", conn_counter++);
-		print_spice_net(f, conn.first.extract(i, 1), neg, pos, ncpf, nc_counter, use_inames, inums);
+		f << (buf == "DC" ? stringf("V%d", conn_counter++) : stringf("X%d", cell_counter++));
 		print_spice_net(f, conn.second.extract(i, 1), neg, pos, ncpf, nc_counter, use_inames, inums);
-		f << stringf(" DC 0\n");
+		print_spice_net(f, conn.first.extract(i, 1), neg, pos, ncpf, nc_counter, use_inames, inums);
+		f << (buf == "DC" ? " DC 0\n" : stringf(" %s\n", buf.c_str()));
 	}
 }
 
@@ -148,6 +148,10 @@ struct SpiceBackend : public Backend {
 		log("    -pos net_name\n");
 		log("        set the net name for constant 1 (default: Vdd)\n");
 		log("\n");
+		log("    -buf DC|subckt_name\n");
+		log("        set the name for jumper element (default: DC)\n");
+		log("        (used to connect different nets)\n");
+		log("\n");
 		log("    -nc_prefix\n");
 		log("        prefix for not-connected nets (default: _NC)\n");
 		log("\n");
@@ -164,7 +168,7 @@ struct SpiceBackend : public Backend {
 		std::string top_module_name;
 		RTLIL::Module *top_module = NULL;
 		bool big_endian = false, use_inames = false;
-		std::string neg = "Vss", pos = "Vdd", ncpf = "_NC";
+		std::string neg = "Vss", pos = "Vdd", ncpf = "_NC", buf = "DC";
 
 		log_header(design, "Executing SPICE backend.\n");
 
@@ -185,6 +189,10 @@ struct SpiceBackend : public Backend {
 			}
 			if (args[argidx] == "-pos" && argidx+1 < args.size()) {
 				pos = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-buf" && argidx+1 < args.size()) {
+				buf = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-nc_prefix" && argidx+1 < args.size()) {
@@ -241,14 +249,14 @@ struct SpiceBackend : public Backend {
 					*f << stringf(" %s", spice_id2str(wire->name).c_str());
 			}
 			*f << stringf("\n");
-			print_spice_module(*f, module, design, neg, pos, ncpf, big_endian, use_inames);
+			print_spice_module(*f, module, design, neg, pos, buf, ncpf, big_endian, use_inames);
 			*f << stringf(".ENDS %s\n\n", spice_id2str(module->name).c_str());
 		}
 
 		if (!top_module_name.empty()) {
 			if (top_module == NULL)
 				log_error("Can't find top module `%s'!\n", top_module_name.c_str());
-			print_spice_module(*f, top_module, design, neg, pos, ncpf, big_endian, use_inames);
+			print_spice_module(*f, top_module, design, neg, pos, buf, ncpf, big_endian, use_inames);
 			*f << stringf("\n");
 		}
 
