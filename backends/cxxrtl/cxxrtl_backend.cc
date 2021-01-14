@@ -2647,7 +2647,7 @@ struct CxxrtlWorker {
 					auto &debug_wire_type = debug_wire_types[wire];
 					if (wire->name.isPublic()) continue;
 
-					if (live_wires[wire].empty() || debug_live_wires[wire].empty()) {
+					if (live_wires[wire].empty() && debug_live_wires[wire].empty()) {
 						continue; // wire never used
 					} else if (flow.is_inlinable(wire, debug_live_wires[wire])) {
 						log_assert(flow.wire_comb_defs[wire].size() == 1);
