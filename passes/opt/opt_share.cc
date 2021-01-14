@@ -244,8 +244,8 @@ void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<
 	}
 
 	if (shared_op->type.in(ID($alu))) {
-		shared_op->setPort(ID::X, module->addWire(NEW_ID, GetSize(new_sig_out)));
-		shared_op->setPort(ID::CO, module->addWire(NEW_ID, GetSize(new_sig_out)));
+		shared_op->setPort(ID::X, module->addWire(NEW_ID, GetSize(new_out)));
+		shared_op->setPort(ID::CO, module->addWire(NEW_ID, GetSize(new_out)));
 	}
 
 	bool is_fine = shared_op->type.in(FINE_BITWISE_OPS);
