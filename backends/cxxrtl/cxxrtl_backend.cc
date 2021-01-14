@@ -601,6 +601,13 @@ struct WireType {
 	bool is_exact() const { return type == ALIAS || type == CONST; }
 };
 
+// Tests for a SigSpec that is backed by a specific slice of a wire, this is used
+// instead of .is_wire() on clocks because they can be only a portion of an underlying
+// wire
+bool is_wire_slice(const RTLIL::SigSpec& sig) {
+	return sig.is_chunk() && sig.chunks()[0].wire;
+}
+
 struct CxxrtlWorker {
 	bool split_intf = false;
 	std::string intf_filename;
@@ -1110,7 +1117,8 @@ struct CxxrtlWorker {
 		// Flip-flops
 		} else if (is_ff_cell(cell->type)) {
 			log_assert(!for_debug);
-			if (cell->hasPort(ID::CLK) && cell->getPort(ID::CLK).is_wire()) {
+			// Clocks might be slices of larger signals but should only ever be single bit
+			if (cell->hasPort(ID::CLK) && is_wire_slice(cell->getPort(ID::CLK))) {
 				// Edge-sensitive logic
 				RTLIL::SigBit clk_bit = cell->getPort(ID::CLK)[0];
 				clk_bit = sigmaps[clk_bit.wire->module](clk_bit);
@@ -2372,7 +2380,7 @@ struct CxxrtlWorker {
 				if (cell->type == ID($memwr))
 					writable_memories.insert(module->memories[cell->getParam(ID::MEMID).decode_string()]);
 				// Collect groups of memory write ports in the same domain.
-				if (cell->type == ID($memwr) && cell->getParam(ID::CLK_ENABLE).as_bool() && cell->getPort(ID::CLK).is_wire()) {
+				if (cell->type == ID($memwr) && cell->getParam(ID::CLK_ENABLE).as_bool() && is_wire_slice(cell->getPort(ID::CLK))) {
 					RTLIL::SigBit clk_bit = sigmap(cell->getPort(ID::CLK))[0];
 					const RTLIL::Memory *memory = module->memories[cell->getParam(ID::MEMID).decode_string()];
 					memwr_per_domain[{clk_bit, memory}].insert(cell);
@@ -2384,7 +2392,7 @@ struct CxxrtlWorker {
 			}
 			for (auto cell : module->cells()) {
 				// Collect groups of memory write ports read by every transparent read port.
-				if (cell->type == ID($memrd) && cell->getParam(ID::CLK_ENABLE).as_bool() && cell->getPort(ID::CLK).is_wire() &&
+				if (cell->type == ID($memrd) && cell->getParam(ID::CLK_ENABLE).as_bool() && is_wire_slice(cell->getPort(ID::CLK)) &&
 				    cell->getParam(ID::TRANSPARENT).as_bool()) {
 					RTLIL::SigBit clk_bit = sigmap(cell->getPort(ID::CLK))[0];
 					const RTLIL::Memory *memory = module->memories[cell->getParam(ID::MEMID).decode_string()];
