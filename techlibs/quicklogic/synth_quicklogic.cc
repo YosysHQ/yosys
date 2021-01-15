@@ -158,13 +158,10 @@ struct SynthQuickLogicPass : public ScriptPass {
                 readVelArgs = " +/quicklogic/" + family + "_cells_sim.v";
             }
             run("read_verilog -lib -specify +/quicklogic/cells_sim.v" + readVelArgs);
-            if(openfpga) {
-                run("read_verilog -lib -specify +/quicklogic/abc9_softadder_model.v");
-            }
             run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
         }
 
-        if (check_label("prepare") && !openfpga) {
+        if (check_label("prepare"))  {
             run("proc");
             run("flatten");
             if(family == "pp3" || family == "ap") {
@@ -176,7 +173,7 @@ struct SynthQuickLogicPass : public ScriptPass {
             run("opt");
         }
 
-        if (check_label("coarse") && !openfpga) {
+        if (check_label("coarse")) {
             run("opt_expr");
             run("opt_clean");
             run("check");
@@ -200,13 +197,6 @@ struct SynthQuickLogicPass : public ScriptPass {
             run("opt_clean");
         }
 
-        if(openfpga) {
-            run("proc");
-            run("techmap  -D NO_LUT -map +/adff2dff.v");
-            run("synth " + top_opt + " -flatten");
-            run("clean");
-        }
-
         if (check_label("map_bram", "(skip if -nobram)") && family == "pp3") {
             run("memory_bram -rules +/quicklogic/" + family + "_brams.txt");
             run("pp3_braminit");
@@ -222,9 +212,11 @@ struct SynthQuickLogicPass : public ScriptPass {
         }
 
         if (check_label("map_gates")) {
+            if(openfpga) {
+                run("async2sync");
+            }
             if (inferAdder && family != "pp3" && family != "ap") {
                 if(openfpga) {
-                    //run("ql_wrapcarry");
                     run("techmap -map +/techmap.v -map +/quicklogic/openfpga_arith_map.v");
                 } else {
                     run("techmap -map +/techmap.v -map +/quicklogic/" + family + "_arith_map.v");
@@ -303,10 +295,6 @@ struct SynthQuickLogicPass : public ScriptPass {
                 run("abc -lut 4 ");
             }
 
-            //if(family != "pp3") {
-            //run("ap3_wrapcarry -unwrap");
-            //}
-
             techMapArgs = " -map +/quicklogic/" + family + "_ffs_map.v";
             if(!openfpga) {
                 run("techmap " + techMapArgs);
@@ -314,7 +302,6 @@ struct SynthQuickLogicPass : public ScriptPass {
 
             run("clean");
             if(family != "pp3" && family != "ap") {
-                //run("opt_lut -dlogic QL_CARRY:I0=2:I1=1:CI=0");
                 run("opt_lut");
             }
         }
@@ -381,11 +368,13 @@ struct SynthQuickLogicPass : public ScriptPass {
                 if(openfpga && family != "pp3") {
                     run(stringf("opt_clean -purge"),
                             "                                 (openfpga mode)");
-                    run(stringf("write_blif %s",
-                                help_mode ? "<file-name>" : blif_file.c_str()),
-                            " (vpr mode)");
+		    if (inferAdder) {
+			    run(stringf("write_blif -param %s", help_mode ? "<file-name>" : blif_file.c_str()));
+		    } else {
+			    run(stringf("write_blif %s", help_mode ? "<file-name>" : blif_file.c_str()));
+		    }
 
-                } else {
+		} else {
                     run(stringf("write_blif -attr -param %s %s", top_opt.c_str(), blif_file.c_str()));
                 }
             }
