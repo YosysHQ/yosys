@@ -2647,7 +2647,10 @@ struct CxxrtlWorker {
 					auto &debug_wire_type = debug_wire_types[wire];
 					if (wire->name.isPublic()) continue;
 
-					if (live_wires[wire].empty() && debug_live_wires[wire].empty()) {
+					// In constructing liveness for debug nodes, we skip member nodes updated during regular eval()
+					// this prevents debug_eval() from messing with eval()'s state, that process skips tagging members
+					// as live. By considering member wires live, debug wires that alias members work properly
+					if (debug_live_wires[wire].empty() && !wire_type.is_member()) {
 						continue; // wire never used
 					} else if (flow.is_inlinable(wire, debug_live_wires[wire])) {
 						log_assert(flow.wire_comb_defs[wire].size() == 1);
