@@ -1,0 +1,8 @@
+logger -expect-no-warnings
+read_verilog hier_bind_offset.v
+hierarchy
+flatten
+proc
+equiv_make gold gate equiv
+equiv_simple
+equiv_status -assert

@@ -1306,6 +1306,30 @@ AstNode * AST::find_modport(AstNode *intf, std::string name)
 	return NULL;
 }
 
+// Replace an existing (in use) module with a new one by renaming the previous
+// instance, marking it for deletion, adding the new one, and transferring the
+// initial_top => top attribute for feedback as needed.
+static void replace_module(RTLIL::Design *design, RTLIL::Module *prev_mod, RTLIL::Module *new_mod)
+{
+	// The old module will be deleted. Rename and mark for deletion:
+	std::string original_name = prev_mod->name.str();
+	std::string changed_name = original_name + "_before_rewrite";
+	design->rename(prev_mod, changed_name);
+	prev_mod->set_bool_attribute(ID::to_delete);
+
+	// Check if the module was the top module. If it was, we need to remove the
+	// top attribute and put it on the new module.
+	if (prev_mod->get_bool_attribute(ID::initial_top)) {
+		prev_mod->attributes.erase(ID::initial_top);
+		new_mod->set_bool_attribute(ID::top);
+	} else if (prev_mod->get_bool_attribute(ID::top)) {
+		prev_mod->attributes.erase(ID::top);
+		new_mod->set_bool_attribute(ID::top);
+	}
+
+	design->add(new_mod);
+}
+
 // Iterate over all wires in an interface and add them as wires in the AST module:
 void AST::explode_interface_port(AstNode *module_ast, RTLIL::Module * intfmodule, std::string intfname, AstNode *modport)
 {
@@ -1349,7 +1373,6 @@ void AstModule::reprocess_module(RTLIL::Design *design, const dict<RTLIL::IdStri
 {
 	loadconfig();
 
-	bool is_top = false;
 	AstNode *new_ast = ast->clone();
 	for (auto &intf : local_interfaces) {
 		std::string intfname = intf.first.str();
@@ -1406,29 +1429,54 @@ void AstModule::reprocess_module(RTLIL::Design *design, const dict<RTLIL::IdStri
 		}
 	}
 
-	// The old module will be deleted. Rename and mark for deletion:
-	std::string original_name = this->name.str();
-	std::string changed_name = original_name + "_before_replacing_local_interfaces";
-	design->rename(this, changed_name);
-	this->set_bool_attribute(ID::to_delete);
-
-	// Check if the module was the top module. If it was, we need to remove the top attribute and put it on the
-	// new module.
-	if (this->get_bool_attribute(ID::initial_top)) {
-		this->attributes.erase(ID::initial_top);
-		is_top = true;
-	}
-
-	// Generate RTLIL from AST for the new module and add to the design:
+	// Generate RTLIL from AST for the new module
 	AstModule *newmod = process_module(new_ast, false, ast_before_replacing_interface_ports);
 	delete(new_ast);
-	design->add(newmod);
-	RTLIL::Module* mod = design->module(original_name);
-	if (is_top)
-		mod->set_bool_attribute(ID::top);
 
 	// Set the attribute "interfaces_replaced_in_module" so that it does not happen again.
-	mod->set_bool_attribute(ID::interfaces_replaced_in_module);
+	newmod->set_bool_attribute(ID::interfaces_replaced_in_module);
+
+	replace_module(design, this, newmod);
+}
+
+// Wires marked with ID::hierconn_auto are created by the AST frontend for
+// unresolved identifiers which appear to be a hierarchical reference to an
+// object within a cell. This operation creates ID::hierconn wires with the
+// appropriate dimensions based on the internal wires identified by the
+// hierarchy pass.
+void AstModule::reprocess_with_hierconns(RTLIL::Design *design, const std::vector<std::pair<RTLIL::IdString, const RTLIL::Wire *>> &hierconns)
+{
+	loadconfig();
+
+	AstNode *new_ast = ast->clone();
+
+	log("Resolved automatic hierarchical connections for %s:\n", name.c_str());
+	for (const auto &elem : hierconns)
+	{
+		RTLIL::IdString name = elem.first;
+		const RTLIL::Wire *ref = elem.second;
+
+		AstNode *left = AstNode::mkconst_int(ref->width - 1 + ref->start_offset, true);
+		AstNode *right = AstNode::mkconst_int(ref->start_offset, true);
+		if (ref->upto)
+			std::swap(left, right);
+		AstNode *range = new AstNode(AST_RANGE, left, right);
+		AstNode *wire = new AstNode(AST_WIRE, range);
+		wire->str = name.str();
+		wire->is_signed = ref->is_signed;
+		wire->attributes[ID::hierconn] = AstNode::mkconst_int(1, false);
+
+		log("  wire%s [%llu:%llu] %s\n",
+				ref->is_signed ? " signed" : "",
+				left->asInt(true), right->asInt(true), name.c_str());
+		new_ast->children.push_back(wire);
+	}
+
+	// Generate RTLIL from AST for the new module
+	AstModule *new_mod = process_module(new_ast, false);
+	delete new_ast;
+
+	replace_module(design, this, new_mod);
 }
 
 // create a new parametric module (when needed) and return the name of the generated module - WITH support for interfaces

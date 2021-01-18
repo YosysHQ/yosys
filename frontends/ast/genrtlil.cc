@@ -1164,7 +1164,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				RTLIL::Wire *wire = current_module->addWire(str);
 				wire->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", filename.c_str(), location.first_line, location.first_column, location.last_line, location.last_column);
 				wire->name = str;
-				if (flag_autowire)
+				if (id2ast->attributes.count(ID::hierconn_auto))
+					wire->attributes[ID::hierconn_auto] = true;
+				else if (flag_autowire)
 					log_file_warning(filename, location.first_line, "Identifier `%s' is implicitly declared.\n", str.c_str());
 				else
 					log_file_error(filename, location.first_line, "Identifier `%s' is implicitly declared and `default_nettype is set to none.\n", str.c_str());
@@ -1254,7 +1256,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					if (id2ast->range_swapped)
 						chunk.offset = (id2ast->range_left - id2ast->range_right + 1) - (chunk.offset + chunk.width);
 					if (chunk.offset >= source_width || chunk.offset + chunk.width < 0) {
-						if (chunk.width == 1)
+						if (id2ast->type == AST_AUTOWIRE && id2ast->attributes.count(ID::hierconn_auto))
+							; // don't generate these warnings for automatic hierarchical connections
+						else if (chunk.width == 1)
 							log_file_warning(filename, location.first_line, "Range select out of bounds on signal `%s': Setting result bit to undef.\n",
 									str.c_str());
 						else

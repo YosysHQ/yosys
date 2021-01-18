@@ -1660,13 +1660,25 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			}
 		}
 		if (current_scope.count(str) == 0) {
+			bool hierconn_auto = false;
+			for (size_t pos = str.size() - 1; pos > 0; --pos) {
+				if (str.at(pos) != '.')
+					continue;
+				auto it = current_scope.find(str.substr(0, pos));
+				if (it != current_scope.end() && it->second->type == AST_CELL) {
+					hierconn_auto = true;
+					break;
+				}
+			}
 			if (current_ast_mod == nullptr) {
 				log_file_error(filename, location.first_line, "Identifier `%s' is implicitly declared outside of a module.\n", str.c_str());
-			} else if (flag_autowire || str == "\\$global_clock") {
+			} else if (hierconn_auto || flag_autowire || str == "\\$global_clock") {
 				AstNode *auto_wire = new AstNode(AST_AUTOWIRE);
 				auto_wire->str = str;
 				current_ast_mod->children.push_back(auto_wire);
 				current_scope[str] = auto_wire;
+				if (hierconn_auto)
+					auto_wire->attributes[ID::hierconn_auto] = AstNode::mkconst_int(1, false);
 				did_something = true;
 			} else {
 				log_file_error(filename, location.first_line, "Identifier `%s' is implicitly declared and `default_nettype is set to none.\n", str.c_str());

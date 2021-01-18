@@ -1,0 +1,3 @@
+read_verilog hier_bind_missing.v
+logger -expect error "Could not resolve hierarchical identifier `\\m\.does_not_exist' in module `\\top'" 1
+hierarchy

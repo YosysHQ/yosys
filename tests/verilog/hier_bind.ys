@@ -1,0 +1,23 @@
+logger -expect-no-warnings
+
+read_verilog hier_bind.v
+hierarchy -top gate
+flatten
+eval -set i1 1 -set i2 1 gate
+
+delete
+
+read_verilog hier_bind.v
+hierarchy -top gold
+flatten
+eval -set i1 1 -set i2 1 gold
+
+delete
+
+read_verilog hier_bind.v
+hierarchy
+flatten
+proc
+equiv_make gold gate equiv
+equiv_simple
+equiv_status -assert

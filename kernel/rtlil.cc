@@ -890,6 +890,11 @@ void RTLIL::Module::reprocess_module(RTLIL::Design *, const dict<RTLIL::IdString
 	log_error("Cannot reprocess_module module `%s' !\n", id2cstr(name));
 }
 
+void RTLIL::Module::reprocess_with_hierconns(RTLIL::Design *, const std::vector<std::pair<RTLIL::IdString, const RTLIL::Wire *>> &)
+{
+	log_error("Cannot reprocess_with_hierconns module `%s' !\n", id2cstr(name));
+}
+
 RTLIL::IdString RTLIL::Module::derive(RTLIL::Design*, const dict<RTLIL::IdString, RTLIL::Const> &, bool mayfail)
 {
 	if (mayfail)

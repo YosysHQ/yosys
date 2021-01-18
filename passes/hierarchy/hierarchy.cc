@@ -156,6 +156,38 @@ std::string basic_cell_type(const std::string celltype, int pos[3] = nullptr) {
 	return basicType;
 }
 
+RTLIL::Wire *lookup_hierconn(RTLIL::Design *design, RTLIL::Module *module, RTLIL::IdString name)
+{
+	for (size_t pos = name.size() - 1; pos > 0; --pos)
+	{
+		if (name[pos] != '.')
+			continue;
+
+		RTLIL::Cell *cell = module->cell(name.substr(0, pos));
+		if (!cell)
+			continue;
+
+		RTLIL::Module *submodule = design->module(cell->type);
+		if (!submodule)
+			return nullptr;
+
+		module = submodule;
+		name = std::string("\\") + name.substr(pos + 1);
+		pos = name.size();
+
+		if (RTLIL::Wire *wire = module->wire(name))
+		{
+			// if this hierconn resolves to another one, we must wait for it to
+			// be fully resolved
+			if (wire->get_bool_attribute(ID::hierconn_auto))
+				return nullptr;
+			return wire;
+		}
+	}
+
+	return nullptr;
+}
+
 bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check, bool flag_simcheck, std::vector<std::string> &libdirs)
 {
 	bool did_something = false;
@@ -404,6 +436,25 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 		return did_something;
 	}
 
+	std::vector<std::pair<RTLIL::IdString, const RTLIL::Wire *>> hierconns;
+	for (const RTLIL::Wire *wire : module->wires())
+	{
+		if (!wire->get_bool_attribute(ID::hierconn_auto))
+			continue;
+
+		if (const RTLIL::Wire *ref = lookup_hierconn(design, module, wire->name)) {
+			hierconns.emplace_back(std::make_pair(wire->name, ref));
+		} else {
+			hierconns.clear();
+			break;
+		}
+	}
+
+	if (!hierconns.empty())
+	{
+		module->reprocess_with_hierconns(design, hierconns);
+		return true;
+	}
 
 	for (auto &it : array_cells)
 	{
@@ -1080,6 +1131,26 @@ struct HierarchyPass : public Pass {
 						if (!cell->hasPort(it.first))
 							cell->setPort(it.first, it.second);
 				}
+		}
+
+		// check for automatic hierarchical connections that failed to resolve
+		for (auto module : design->modules())
+		{
+			for (const RTLIL::Wire *wire : module->wires())
+			{
+				if (!wire->get_bool_attribute(ID::hierconn_auto))
+					continue;
+
+				// only error for the first truly unresolved reference
+				if (lookup_hierconn(design, module, wire->name))
+					continue; // this one resolves, but something else in this module doesn't
+
+				std::string location = "";
+				if (wire->attributes.count(ID::src))
+					location = " (at " + wire->attributes.at(ID::src).decode_string() + ")";
+				log_error("Could not resolve hierarchical identifier `%s' in module `%s'.%s\n",
+					wire->name.c_str(), module->name.c_str(), location.c_str());
+			}
 		}
 
 		for (auto module : design_modules)

@@ -331,6 +331,7 @@ namespace AST
 		RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, const dict<RTLIL::IdString, RTLIL::Module*> &interfaces, const dict<RTLIL::IdString, RTLIL::IdString> &modports, bool mayfail) override;
 		std::string derive_common(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, AstNode **new_ast_out, bool quiet = false);
 		void reprocess_module(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Module *> &local_interfaces) override;
+		void reprocess_with_hierconns(RTLIL::Design *design, const std::vector<std::pair<RTLIL::IdString, const RTLIL::Wire *>> &hierconns) override;
 		RTLIL::Module *clone() const override;
 		void loadconfig() const;
 	};
