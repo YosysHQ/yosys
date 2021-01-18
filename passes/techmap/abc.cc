@@ -54,6 +54,7 @@
 #include <cerrno>
 #include <sstream>
 #include <climits>
+#include <vector>
 
 #ifndef _WIN32
 #  include <unistd.h>
@@ -654,7 +655,7 @@ struct abc_output_filter
 };
 
 void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
-		std::string liberty_file, std::string constr_file, bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str,
+		std::vector<std::string> &liberty_files, std::string constr_file, bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str,
 		bool keepff, std::string delay_target, std::string sop_inputs, std::string sop_products, std::string lutin_shared, bool fast_mode,
 		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode, bool abc_dress)
 {
@@ -709,8 +710,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 
 	std::string abc_script = stringf("read_blif %s/input.blif; ", tempdir_name.c_str());
 
-	if (!liberty_file.empty()) {
-		abc_script += stringf("read_lib -w %s; ", liberty_file.c_str());
+	if (!liberty_files.empty()) {
+		for (std::string liberty_file : liberty_files) abc_script += stringf("read_lib -w %s; ", liberty_file.c_str());
 		if (!constr_file.empty())
 			abc_script += stringf("read_constr -v %s; ", constr_file.c_str());
 	} else
@@ -738,7 +739,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		abc_script += fast_mode ? ABC_FAST_COMMAND_LUT : ABC_COMMAND_LUT;
 		if (all_luts_cost_same && !fast_mode)
 			abc_script += "; lutpack {S}";
-	} else if (!liberty_file.empty())
+	} else if (!liberty_files.empty())
 		abc_script += constr_file.empty() ? (fast_mode ? ABC_FAST_COMMAND_LIB : ABC_COMMAND_LIB) : (fast_mode ? ABC_FAST_COMMAND_CTR : ABC_COMMAND_CTR);
 	else if (sop_mode)
 		abc_script += fast_mode ? ABC_FAST_COMMAND_SOP : ABC_COMMAND_SOP;
@@ -1019,7 +1020,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		if (ifs.fail())
 			log_error("Can't open ABC output file `%s'.\n", buffer.c_str());
 
-		bool builtin_lib = liberty_file.empty();
+		bool builtin_lib = liberty_files.empty();
 		RTLIL::Design *mapped_design = new RTLIL::Design;
 		parse_blif(mapped_design, ifs, builtin_lib ? ID(DFF) : ID(_dff_), false, sop_mode);
 
@@ -1471,7 +1472,8 @@ struct AbcPass : public Pass {
 		po_map.clear();
 
 		std::string exe_file = yosys_abc_executable;
-		std::string script_file, liberty_file, constr_file, clk_str;
+		std::string script_file, default_liberty_file, constr_file, clk_str;
+		std::vector<std::string> liberty_files;
 		std::string delay_target, sop_inputs, sop_products, lutin_shared = "-S 1";
 		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
 		bool show_tempdir = false, sop_mode = false;
@@ -1489,7 +1491,7 @@ struct AbcPass : public Pass {
 		std::string lut_arg, luts_arg, g_arg;
 		exe_file = design->scratchpad_get_string("abc.exe", exe_file /* inherit default value if not set */);
 		script_file = design->scratchpad_get_string("abc.script", script_file);
-		liberty_file = design->scratchpad_get_string("abc.liberty", liberty_file);
+		default_liberty_file = design->scratchpad_get_string("abc.liberty", default_liberty_file);
 		constr_file = design->scratchpad_get_string("abc.constr", constr_file);
 		if (design->scratchpad.count("abc.D")) {
 			delay_target = "-D " + design->scratchpad_get_string("abc.D");
@@ -1551,7 +1553,7 @@ struct AbcPass : public Pass {
 				continue;
 			}
 			if (arg == "-liberty" && argidx+1 < args.size()) {
-				liberty_file = args[++argidx];
+				liberty_files.push_back(args[++argidx]);
 				continue;
 			}
 			if (arg == "-constr" && argidx+1 < args.size()) {
@@ -1643,12 +1645,16 @@ struct AbcPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		if (liberty_files.empty() && !default_liberty_file.empty()) liberty_files.push_back(default_liberty_file);
+
 		rewrite_filename(script_file);
 		if (!script_file.empty() && !is_absolute_path(script_file) && script_file[0] != '+')
 			script_file = std::string(pwd) + "/" + script_file;
-		rewrite_filename(liberty_file);
-		if (!liberty_file.empty() && !is_absolute_path(liberty_file))
-			liberty_file = std::string(pwd) + "/" + liberty_file;
+		for (int i = 0; i < GetSize(liberty_files); i++) {
+			rewrite_filename(liberty_files[i]);
+			if (!liberty_files[i].empty() && !is_absolute_path(liberty_files[i]))
+				liberty_files[i] = std::string(pwd) + "/" + liberty_files[i];
+		}
 		rewrite_filename(constr_file);
 		if (!constr_file.empty() && !is_absolute_path(constr_file))
 			constr_file = std::string(pwd) + "/" + constr_file;
@@ -1811,9 +1817,9 @@ struct AbcPass : public Pass {
 			}
 		}
 
-		if (!lut_costs.empty() && !liberty_file.empty())
+		if (!lut_costs.empty() && !liberty_files.empty())
 			log_cmd_error("Got -lut and -liberty! These two options are exclusive.\n");
-		if (!constr_file.empty() && liberty_file.empty())
+		if (!constr_file.empty() && liberty_files.empty())
 			log_cmd_error("Got -constr but no -liberty!\n");
 
 		if (enabled_gates.empty()) {
@@ -1844,7 +1850,7 @@ struct AbcPass : public Pass {
 			initvals.set(&assign_map, mod);
 
 			if (!dff_mode || !clk_str.empty()) {
-				abc_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
+				abc_module(design, mod, script_file, exe_file, liberty_files, constr_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
 						delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, mod->selected_cells(), show_tempdir, sop_mode, abc_dress);
 				continue;
 			}
@@ -1989,7 +1995,7 @@ struct AbcPass : public Pass {
 				clk_sig = assign_map(std::get<1>(it.first));
 				en_polarity = std::get<2>(it.first);
 				en_sig = assign_map(std::get<3>(it.first));
-				abc_module(design, mod, script_file, exe_file, liberty_file, constr_file, cleanup, lut_costs, !clk_sig.empty(), "$",
+				abc_module(design, mod, script_file, exe_file, liberty_files, constr_file, cleanup, lut_costs, !clk_sig.empty(), "$",
 						keepff, delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, it.second, show_tempdir, sop_mode, abc_dress);
 				assign_map.set(mod);
 			}
