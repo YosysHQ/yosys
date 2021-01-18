@@ -282,7 +282,7 @@ static void rewriteAsMemoryNode(AstNode *node, AstNode *rangeNode)
 %token TOK_OR_ASSIGN TOK_XOR_ASSIGN TOK_AND_ASSIGN TOK_SUB_ASSIGN
 
 %type <ast> range range_or_multirange  non_opt_range non_opt_multirange range_or_signed_int
-%type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list
+%type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list non_io_wire_type io_wire_type
 %type <string> opt_label opt_sva_label tok_prim_wrapper hierarchical_id hierarchical_type_id integral_number
 %type <string> type_name
 %type <ast> opt_enum_init enum_type struct_type non_wire_data_type
@@ -619,26 +619,19 @@ non_opt_delay:
 delay:
 	non_opt_delay | %empty;
 
-wire_type:
-	{
-		astbuf3 = new AstNode(AST_WIRE);
-		current_wire_rand = false;
-		current_wire_const = false;
-	} wire_type_token_list {
-		$$ = astbuf3;
-		SET_RULE_LOC(@$, @2, @$);
-	};
+io_wire_type:
+	{ astbuf3 = new AstNode(AST_WIRE); current_wire_rand = false; current_wire_const = false; }
+	wire_type_token_io wire_type_const_rand opt_wire_type_token wire_type_signedness
+	{ $$ = astbuf3; SET_RULE_LOC(@$, @2, @$); };
 
-wire_type_token_list:
-	wire_type_token |
-	wire_type_token_list wire_type_token |
-	wire_type_token_io |
-	hierarchical_type_id {
-		astbuf3->is_custom_type = true;
-		astbuf3->children.push_back(new AstNode(AST_WIRETYPE));
-		astbuf3->children.back()->str = *$1;
-		delete $1;
-	};
+non_io_wire_type:
+	{ astbuf3 = new AstNode(AST_WIRE); current_wire_rand = false; current_wire_const = false; }
+	wire_type_const_rand wire_type_token wire_type_signedness
+	{ $$ = astbuf3; SET_RULE_LOC(@$, @2, @$); };
+
+wire_type:
+	io_wire_type  |
+	non_io_wire_type;
 
 wire_type_token_io:
 	TOK_INPUT {
@@ -652,7 +645,25 @@ wire_type_token_io:
 		astbuf3->is_output = true;
 	};
 
+wire_type_signedness:
+	TOK_SIGNED   { astbuf3->is_signed = true;  } |
+	TOK_UNSIGNED { astbuf3->is_signed = false; } |
+	%empty;
+
+wire_type_const_rand:
+	TOK_CONST { current_wire_const = true; } |
+	TOK_RAND  { current_wire_rand = true;  } |
+	%empty;
+
+opt_wire_type_token:
+	wire_type_token | %empty;
+
 wire_type_token:
+	hierarchical_type_id {
+		astbuf3->is_custom_type = true;
+		astbuf3->children.push_back(new AstNode(AST_WIRETYPE));
+		astbuf3->children.back()->str = *$1;
+	} |
 	TOK_WIRE {
 	} |
 	TOK_WOR {
@@ -682,15 +693,6 @@ wire_type_token:
 		astbuf3->is_signed = true;
 		astbuf3->range_left = 31;
 		astbuf3->range_right = 0;
-	} |
-	TOK_SIGNED {
-		astbuf3->is_signed = true;
-	} |
-	TOK_RAND {
-		current_wire_rand = true;
-	} |
-	TOK_CONST {
-		current_wire_const = true;
 	};
 
 non_opt_range:
@@ -1803,7 +1805,7 @@ type_name: TOK_ID		// first time seen
 	 ;
 
 typedef_decl:
-	TOK_TYPEDEF wire_type range type_name range_or_multirange ';' {
+	TOK_TYPEDEF non_io_wire_type range type_name range_or_multirange ';' {
 		astbuf1 = $2;
 		astbuf2 = checkRange(astbuf1, $3);
 		if (astbuf2)
