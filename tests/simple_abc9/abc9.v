@@ -213,7 +213,7 @@ module arbiter (clk, rst, request, acknowledge, grant, grant_valid, grant_encode
   input rst;
 endmodule
 
-(* abc9_box_id=1, blackbox *)
+(* abc9_box, abc9_box_id=1, blackbox *)
 module MUXF8(input I0, I1, S, output O);
 specify
     (I0 => O) = 0;
@@ -300,15 +300,23 @@ endmodule
 module abc9_test036(input A, B, S, output [1:0] O);
   (* keep *)
   MUXF8 m  (
-    .I0(I0),
-    .I1(I1),
+    .I0(A),
+    .I1(B),
     .O(O[0]),
     .S(S)
   );
   MUXF8 m2  (
-    .I0(I0),
-    .I1(I1),
+    .I0(A),
+    .I1(B),
     .O(O[1]),
     .S(S)
   );
+endmodule
+
+(* blackbox *)
+module MUXF7(input I0, I1, S, output O);
+endmodule
+
+module abc9_test037(output o);
+MUXF7 m(.I0(1'b1), .I1(1'b0), .S(o), .O(o));
 endmodule
