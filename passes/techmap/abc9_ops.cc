@@ -552,6 +552,7 @@ void mark_scc(RTLIL::Module *module)
 	//   special (* abc9_keep *) attribute set (which is used by
 	//   write_xaiger to break this wire into PI and POs)
 	pool<RTLIL::Const> ids_seen;
+	SigSpec I, O;
 	for (auto cell : module->cells()) {
 		auto it = cell->attributes.find(ID::abc9_scc_id);
 		if (it == cell->attributes.end())
@@ -565,11 +566,20 @@ void mark_scc(RTLIL::Module *module)
 			if (c.second.is_fully_const()) continue;
 			if (cell->output(c.first)) {
 				Wire *w = module->addWire(NEW_ID, GetSize(c.second));
-				w->set_bool_attribute(ID::abc9_keep);
-				module->connect(w, c.second);
+				I.append(w);
+				O.append(c.second);
 				c.second = w;
 			}
 		}
+	}
+
+	if (!I.empty())
+	{
+		auto cell = module->addCell(NEW_ID, "$__ABC9_SCC_BREAKER");
+		log_assert(GetSize(I) == GetSize(O));
+		cell->setParam(ID::WIDTH, GetSize(I));
+		cell->setPort(ID::I, std::move(I));
+		cell->setPort(ID::O, std::move(O));
 	}
 }
 

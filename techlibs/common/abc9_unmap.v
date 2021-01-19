@@ -9,3 +9,8 @@ module $__DFF_x__$abc9_flop (input C, D, (* init = 1'b0 *) input Q, output n1);
     $error("Unrecognised _TECHMAP_CELLTYPE_");
   endgenerate
 endmodule
+
+module $__ABC9_SCC_BREAKER (input [WIDTH-1:0] I, output [WIDTH-1:0] O);
+parameter WIDTH = 0;
+assign O = I;
+endmodule
