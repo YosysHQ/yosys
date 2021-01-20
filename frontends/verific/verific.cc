@@ -51,12 +51,12 @@ USING_YOSYS_NAMESPACE
 #include "VeriLibrary.h"
 #include "VeriExtensions.h"
 
-#ifndef SYMBIOTIC_VERIFIC_API_VERSION
-#  error "Only Symbiotic EDA flavored Verific is supported. Please contact office@symbioticeda.com for commercial support for Yosys+Verific."
+#ifndef YOSYSHQ_VERIFIC_API_VERSION
+#  error "Only YosysHQ flavored Verific is supported. Please contact office@yosyshq.com for commercial support for Yosys+Verific."
 #endif
 
-#if SYMBIOTIC_VERIFIC_API_VERSION < 20201101
-#  error "Please update your version of Symbiotic EDA flavored Verific."
+#if YOSYSHQ_VERIFIC_API_VERSION < 20201201
+#  error "Please update your version of YosysHQ flavored Verific."
 #endif
 
 #ifdef __clang__
@@ -1471,7 +1471,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 				continue;
 		}
 
-		if (inst->Type() == PRIM_SEDA_INITSTATE)
+		if (inst->Type() == PRIM_YOSYSHQ_INITSTATE)
 		{
 			SigBit initstate = module->Initstate(new_verific_id(inst));
 			SigBit sig_o = net_map_at(inst->GetOutput());
@@ -2199,7 +2199,7 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("    verific -app <application>..\n");
 		log("\n");
-		log("Execute SEDA formal application on loaded Verilog files.\n");
+		log("Execute YosysHQ formal application on loaded Verilog files.\n");
 		log("\n");
 		log("Application options:\n");
 		log("\n");
@@ -2250,11 +2250,11 @@ struct VerificPass : public Pass {
 		log("  WARNING: Templates only available in commercial build.\n");
 		log("\n");
 #endif
-		log("Use Symbiotic EDA Suite if you need Yosys+Verifc.\n");
-		log("https://www.symbioticeda.com/seda-suite\n");
+		log("Use YosysHQ Tabby CAD Suite if you need Yosys+Verific.\n");
+		log("https://www.yosyshq.com/\n");
 		log("\n");
-		log("Contact office@symbioticeda.com for free evaluation\n");
-		log("binaries of Symbiotic EDA Suite.\n");
+		log("Contact office@yosyshq.com for free evaluation\n");
+		log("binaries of YosysHQ Tabby CAD Suite.\n");
 		log("\n");
 	}
 #ifdef YOSYS_ENABLE_VERIFIC
@@ -2265,11 +2265,11 @@ struct VerificPass : public Pass {
 		if (check_noverific_env())
 			log_cmd_error("This version of Yosys is built without Verific support.\n"
 					"\n"
-					"Use Symbiotic EDA Suite if you need Yosys+Verifc.\n"
-					"https://www.symbioticeda.com/seda-suite\n"
+					"Use YosysHQ Tabby CAD Suite if you need Yosys+Verific.\n"
+					"https://www.yosyshq.com/\n"
 					"\n"
-					"Contact office@symbioticeda.com for free evaluation\n"
-					"binaries of Symbiotic EDA Suite.\n");
+					"Contact office@yosyshq.com for free evaluation\n"
+					"binaries of YosysHQ Tabby CAD Suite.\n");
 
 		log_header(design, "Executing VERIFIC (loading SystemVerilog and VHDL designs using Verific).\n");
 
@@ -2926,11 +2926,11 @@ struct VerificPass : public Pass {
 	void execute(std::vector<std::string>, RTLIL::Design *) override {
 		log_cmd_error("This version of Yosys is built without Verific support.\n"
 				"\n"
-				"Use Symbiotic EDA Suite if you need Yosys+Verifc.\n"
-				"https://www.symbioticeda.com/seda-suite\n"
+				"Use YosysHQ Tabby CAD Suite if you need Yosys+Verific.\n"
+				"https://www.yosyshq.com/\n"
 				"\n"
-				"Contact office@symbioticeda.com for free evaluation\n"
-				"binaries of Symbiotic EDA Suite.\n");
+				"Contact office@yosyshq.com for free evaluation\n"
+				"binaries of YosysHQ Tabby CAD Suite.\n");
 	}
 #endif
 } VerificPass;
