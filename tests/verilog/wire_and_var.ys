@@ -1,0 +1,9 @@
+logger -expect warning "wire '\\wire_1' is assigned in a block" 1
+logger -expect warning "reg '\\reg_2' is assigned in a continuous assignment" 1
+
+logger -expect warning "reg '\\var_reg_2' is assigned in a continuous assignment" 1
+
+logger -expect warning "wire '\\wire_logic_1' is assigned in a block" 1
+logger -expect warning "wire '\\wire_integer_1' is assigned in a block" 1
+
+read_verilog -sv wire_and_var.sv

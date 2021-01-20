@@ -664,28 +664,33 @@ wire_type_token:
 		astbuf3->children.push_back(new AstNode(AST_WIRETYPE));
 		astbuf3->children.back()->str = *$1;
 	} |
-	TOK_WIRE {
-	} |
 	TOK_WOR {
 		astbuf3->is_wor = true;
 	} |
 	TOK_WAND {
 		astbuf3->is_wand = true;
 	} |
+	// wires
+	TOK_WIRE {
+	} |
+	TOK_WIRE logic_type {
+	} |
+	// regs
 	TOK_REG {
 		astbuf3->is_reg = true;
 	} |
-	TOK_LOGIC {
-		astbuf3->is_logic = true;
+	TOK_VAR TOK_REG {
+		astbuf3->is_reg = true;
 	} |
+	// logics
 	TOK_VAR {
 		astbuf3->is_logic = true;
 	} |
-	TOK_INTEGER {
-		astbuf3->is_reg = true;
-		astbuf3->range_left = 31;
-		astbuf3->range_right = 0;
-		astbuf3->is_signed = true;
+	TOK_VAR logic_type {
+		astbuf3->is_logic = true;
+	} |
+	logic_type {
+		astbuf3->is_logic = true;
 	} |
 	TOK_GENVAR {
 		astbuf3->type = AST_GENVAR;
@@ -693,6 +698,15 @@ wire_type_token:
 		astbuf3->is_signed = true;
 		astbuf3->range_left = 31;
 		astbuf3->range_right = 0;
+	};
+
+logic_type:
+	TOK_LOGIC {
+	} |
+	TOK_INTEGER {
+		astbuf3->range_left = 31;
+		astbuf3->range_right = 0;
+		astbuf3->is_signed = true;
 	};
 
 non_opt_range:
