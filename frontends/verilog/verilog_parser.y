@@ -651,8 +651,16 @@ wire_type_signedness:
 	%empty;
 
 wire_type_const_rand:
-	TOK_CONST { current_wire_const = true; } |
-	TOK_RAND  { current_wire_rand = true;  } |
+	TOK_RAND TOK_CONST {
+	    current_wire_rand = true;
+	    current_wire_const = true;
+	} |
+	TOK_CONST {
+	    current_wire_const = true;
+	} |
+	TOK_RAND {
+	    current_wire_rand = true;
+	} |
 	%empty;
 
 opt_wire_type_token:
