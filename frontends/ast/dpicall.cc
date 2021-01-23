@@ -67,7 +67,7 @@ static ffi_fptr resolve_fn (std::string symbol_name)
 AST::AstNode *AST::dpi_call(const std::string &rtype, const std::string &fname, const std::vector<std::string> &argtypes, const std::vector<AstNode*> &args)
 {
 	AST::AstNode *newNode = nullptr;
-	union { double f64; float f32; int32_t i32; } value_store [args.size() + 1];
+	union { double f64; float f32; int32_t i32; void *ptr; } value_store [args.size() + 1];
 	ffi_type *types [args.size() + 1];
 	void *values [args.size() + 1];
 	ffi_cif cif;
@@ -92,6 +92,11 @@ AST::AstNode *AST::dpi_call(const std::string &rtype, const std::string &fname, 
 			value_store[i].i32 = args[i]->asInt(args[i]->is_signed);
 			values[i] = &value_store[i].i32;
 			types[i] = &ffi_type_sint32;
+		} else if (argtypes[i] == "chandle") {
+			log("  arg %d (%s): %llx\n", i, argtypes[i].c_str(), (unsigned long long)args[i]->asInt(false));
+			value_store[i].ptr = (void *)args[i]->asInt(args[i]->is_signed);
+			values[i] = &value_store[i].ptr;
+			types[i] = &ffi_type_pointer;
 		} else {
 			log_error("invalid argtype '%s' for argument %d.\n", argtypes[i].c_str(), i);
 		}
@@ -106,6 +111,9 @@ AST::AstNode *AST::dpi_call(const std::string &rtype, const std::string &fname, 
         } else if (rtype == "real") {
                 types[args.size()] = &ffi_type_double;
                 values[args.size()] = &value_store[args.size()].f64;
+        } else if (rtype == "chandle") {
+                types[args.size()] = &ffi_type_pointer;
+                values[args.size()] = &value_store[args.size()].ptr;
         } else {
                 log_error("invalid rtype '%s'.\n", rtype.c_str());
         }
@@ -123,6 +131,13 @@ AST::AstNode *AST::dpi_call(const std::string &rtype, const std::string &fname, 
 		newNode = new AstNode(AST_REALVALUE);
 		newNode->realvalue = value_store[args.size()].f32;
 		log("  return realvalue: %g\n", newNode->asReal(true));
+	} else if (rtype == "chandle") {
+		uint64_t rawval = (uint64_t)value_store[args.size()].ptr;
+		std::vector<RTLIL::State> bits(64);
+		for (int i = 0; i < 64; i++)
+			bits.at(i) = (rawval & (1ULL << i)) ? RTLIL::State::S1 : RTLIL::State::S0;
+		newNode = AstNode::mkconst_bits(bits, false);
+		log("  return chandle: %llx\n", (unsigned long long)newNode->asInt(false));
 	} else {
 		newNode = AstNode::mkconst_int(value_store[args.size()].i32, false);
 		log("  return integer: %lld\n", (long long)newNode->asInt(true));
