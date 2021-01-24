@@ -944,6 +944,122 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				if (!is_rand_reg)
 					log_warning("reg '%s' is assigned in a continuous assignment at %s:%d.%d-%d.%d.\n", children[0]->str.c_str(), filename.c_str(), location.first_line, location.first_column, location.last_line, location.last_column);
 			}
+
+			// Copy entire (unpacked) array
+			if (children[0]->id2ast->type == AST_MEMORY &&
+					children[1]->type == AST_IDENTIFIER && children[1]->id2ast && children[1]->id2ast->type == AST_MEMORY &&
+					children[0]->children.empty() && children[1]->children.empty()) {
+				const auto& lhs_unpacked_range = children[0]->id2ast->children[1];
+				log_assert(lhs_unpacked_range->basic_prep);
+				const auto& rhs_unpacked_range = children[1]->id2ast->children[1];
+				log_assert(rhs_unpacked_range->basic_prep);
+
+				log_assert(lhs_unpacked_range->range_valid && rhs_unpacked_range->range_valid);
+
+				int lhs_width = lhs_unpacked_range->range_left - lhs_unpacked_range->range_right + 1;
+				int rhs_width = rhs_unpacked_range->range_left - rhs_unpacked_range->range_right + 1;
+
+				if (lhs_width != rhs_width)
+					log_error("Array '%s' and '%s' differs in size: %s:%d.%d-%d.%d.\n",
+						children[0]->str.c_str(), children[1]->str.c_str(), filename.c_str(),
+						location.first_line, location.first_column, location.last_line, location.last_column);
+
+				const auto& lhs_multirange = children[0]->id2ast->multirange_dimensions;
+				const auto& lhs_multirange_swapped = children[0]->id2ast->multirange_swapped;
+				log_assert(lhs_multirange.size() == 2*lhs_multirange_swapped.size());
+
+				const auto& rhs_multirange = children[1]->id2ast->multirange_dimensions;
+				const auto& rhs_multirange_swapped = children[1]->id2ast->multirange_swapped;
+				log_assert(rhs_multirange.size() == 2*rhs_multirange_swapped.size());
+
+				if (lhs_multirange.size() != rhs_multirange.size())
+					log_error("Array '%s' and '%s' differs in size: %s:%d.%d-%d.%d.\n",
+						children[0]->str.c_str(), children[1]->str.c_str(), filename.c_str(),
+						location.first_line, location.first_column, location.last_line, location.last_column);
+
+				// Create template from (this) assignment
+				const auto* tmpl = this->clone();
+
+				// Replace assignment with [gen]block
+				log_assert(type == AST_ASSIGN_EQ || type == AST_ASSIGN_LE || type == AST_ASSIGN);
+				if (type == AST_ASSIGN) {
+					type = AST_GENBLOCK;
+				} else {
+					type = AST_BLOCK;
+				}
+				children.clear();
+
+				// multirange_combined combines multirange offset, dimension and swapped parameter
+				std::vector<int> lhs_multirange_combined, rhs_multirange_combined;
+				for (size_t i = 0; i < lhs_multirange.size() / 2; ++i) {
+					lhs_multirange_combined.push_back(lhs_multirange[2*i+0]); // offset
+					lhs_multirange_combined.push_back(lhs_multirange[2*i+1]); // size
+					lhs_multirange_combined.push_back(lhs_multirange_swapped[i]);  // swapped
+
+					rhs_multirange_combined.push_back(rhs_multirange[2*i+0]); // offset
+					rhs_multirange_combined.push_back(rhs_multirange[2*i+1]); // size
+					rhs_multirange_combined.push_back(rhs_multirange_swapped[i]);  // swapped
+				}
+
+				std::vector<std::tuple<int, int>> unrolled_assigment;
+				std::function<void(
+						const std::vector<int>&,
+						const std::vector<int>&,
+						const int, const int)> unroll_array_assigment =
+					[&unroll_array_assigment,&unrolled_assigment](
+							const std::vector<int>& lhs_multirange_combined,
+							const std::vector<int>& rhs_multirange_combined,
+							const int lhs_offset, const int rhs_offset) {
+						if (lhs_multirange_combined.empty() || rhs_multirange_combined.empty()) {
+							unrolled_assigment.push_back(std::tuple<int, int>(lhs_offset, rhs_offset));
+							return;
+						}
+
+						for (int idx = 0; idx < lhs_multirange_combined[1]; ++idx) {
+							std::vector<int> lhs_subrange_combined, rhs_subrange_combined;
+							lhs_subrange_combined = std::vector<int>(
+								lhs_multirange_combined.begin()+3, lhs_multirange_combined.end());
+							rhs_subrange_combined = std::vector<int>(
+								rhs_multirange_combined.begin()+3, rhs_multirange_combined.end());
+							int lhs_idx = !lhs_multirange_combined[2]?idx:lhs_multirange_combined[1] - idx - 1;
+							int rhs_idx = !rhs_multirange_combined[2]?idx:rhs_multirange_combined[1] - idx - 1;
+							unroll_array_assigment(lhs_subrange_combined, rhs_subrange_combined,
+								lhs_offset*lhs_multirange_combined[1]+lhs_idx,
+								rhs_offset*rhs_multirange_combined[1]+rhs_idx);
+						}
+					};
+
+				// Recursively unroll array assignment
+				unroll_array_assigment(lhs_multirange_combined, rhs_multirange_combined, 0, 0);
+
+				// Generate assigments from unrolled array
+				for (const auto& itr : unrolled_assigment) {
+					auto* assign = tmpl->clone();
+
+					assign->children[0]->children.push_back(new AstNode(AST_RANGE));
+					assign->children[1]->children.push_back(new AstNode(AST_RANGE));
+
+					assign->children[0]->children[0]->children.push_back(AstNode::mkconst_int(std::get<0>(itr), true));
+					assign->children[1]->children[0]->children.push_back(AstNode::mkconst_int(std::get<1>(itr), true));
+
+					// simplify
+					assign->children[0]->basic_prep = false;
+					while (!assign->children[0]->basic_prep && assign->children[0]->simplify(false, false, true, stage, -1, false, in_param))
+						did_something = true;
+					assign->children[1]->basic_prep = false;
+					while (!assign->children[1]->basic_prep && assign->children[1]->simplify(false, false, true, stage, -1, false, in_param))
+						did_something = true;
+
+					assign->children[0]->was_checked = true;
+					assign->children[1]->was_checked = true;
+
+					children.push_back(assign);
+				}
+
+				log_assert(GetSize(this->children) == lhs_width);
+				did_something = true;
+			}
+
 			children[0]->was_checked = true;
 		}
 		break;
