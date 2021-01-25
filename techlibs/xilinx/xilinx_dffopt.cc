@@ -209,7 +209,7 @@ lut_sigin_done:
 					continue;
 				LutData lut_d = it_D->second.first;
 				Cell *cell_d = it_D->second.second;
-				if (cell->getParam(ID(IS_D_INVERTED)).as_bool()) {
+				if (cell->hasParam(ID(IS_D_INVERTED)) && cell->getParam(ID(IS_D_INVERTED)).as_bool()) {
 					// Flip all bits in the LUT.
 					for (int i = 0; i < GetSize(lut_d.first); i++)
 						lut_d.first.bits[i] = (lut_d.first.bits[i] == State::S1) ? State::S0 : State::S1;
@@ -249,7 +249,7 @@ lut_sigin_done:
 				if (has_s) {
 					SigBit sig_S = sigmap(cell->getPort(ID::S));
 					LutData lut_s = LutData(Const(2, 2), {sig_S});
-					bool inv_s = cell->getParam(ID(IS_S_INVERTED)).as_bool();
+					bool inv_s = cell->hasParam(ID(IS_S_INVERTED)) && cell->getParam(ID(IS_S_INVERTED)).as_bool();
 					auto it_S = bit_to_lut.find(sig_S);
 					if (it_S != bit_to_lut.end())
 						lut_s = it_S->second.first;
@@ -271,7 +271,7 @@ lut_sigin_done:
 				if (has_r) {
 					SigBit sig_R = sigmap(cell->getPort(ID::R));
 					LutData lut_r = LutData(Const(2, 2), {sig_R});
-					bool inv_r = cell->getParam(ID(IS_R_INVERTED)).as_bool();
+					bool inv_r = cell->hasParam(ID(IS_R_INVERTED)) && cell->getParam(ID(IS_R_INVERTED)).as_bool();
 					auto it_R = bit_to_lut.find(sig_R);
 					if (it_R != bit_to_lut.end())
 						lut_r = it_R->second.first;
