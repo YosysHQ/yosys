@@ -392,7 +392,6 @@ static bool read_argument(std::string &dest)
 {
 	std::vector<char> openers;
 	for (;;) {
-		skip_spaces();
 		std::string tok = next_token(true);
 		if (tok == ")") {
 			if (openers.empty())
