@@ -228,13 +228,13 @@ public:
 	}
 
 	void add(const debug_items &items) {
-		this->template add(items, [](const std::string &, const debug_item &) {
+		this->add(items, [](const std::string &, const debug_item &) {
 			return true;
 		});
 	}
 
 	void add_without_memories(const debug_items &items) {
-		this->template add(items, [](const std::string &, const debug_item &item) {
+		this->add(items, [](const std::string &, const debug_item &item) {
 			return item.type != debug_item::MEMORY;
 		});
 	}

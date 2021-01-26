@@ -1217,49 +1217,49 @@ value<BitsY> xnor_ss(const value<BitsA> &a, const value<BitsB> &b) {
 template<size_t BitsY, size_t BitsA, size_t BitsB>
 CXXRTL_ALWAYS_INLINE
 value<BitsY> shl_uu(const value<BitsA> &a, const value<BitsB> &b) {
-	return a.template zcast<BitsY>().template shl(b);
+	return a.template zcast<BitsY>().shl(b);
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
 CXXRTL_ALWAYS_INLINE
 value<BitsY> shl_su(const value<BitsA> &a, const value<BitsB> &b) {
-	return a.template scast<BitsY>().template shl(b);
+	return a.template scast<BitsY>().shl(b);
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
 CXXRTL_ALWAYS_INLINE
 value<BitsY> sshl_uu(const value<BitsA> &a, const value<BitsB> &b) {
-	return a.template zcast<BitsY>().template shl(b);
+	return a.template zcast<BitsY>().shl(b);
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
 CXXRTL_ALWAYS_INLINE
 value<BitsY> sshl_su(const value<BitsA> &a, const value<BitsB> &b) {
-	return a.template scast<BitsY>().template shl(b);
+	return a.template scast<BitsY>().shl(b);
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
 CXXRTL_ALWAYS_INLINE
 value<BitsY> shr_uu(const value<BitsA> &a, const value<BitsB> &b) {
-	return a.template shr(b).template zcast<BitsY>();
+	return a.shr(b).template zcast<BitsY>();
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
 CXXRTL_ALWAYS_INLINE
 value<BitsY> shr_su(const value<BitsA> &a, const value<BitsB> &b) {
-	return a.template shr(b).template scast<BitsY>();
+	return a.shr(b).template scast<BitsY>();
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
 CXXRTL_ALWAYS_INLINE
 value<BitsY> sshr_uu(const value<BitsA> &a, const value<BitsB> &b) {
-	return a.template shr(b).template zcast<BitsY>();
+	return a.shr(b).template zcast<BitsY>();
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
 CXXRTL_ALWAYS_INLINE
 value<BitsY> sshr_su(const value<BitsA> &a, const value<BitsB> &b) {
-	return a.template sshr(b).template scast<BitsY>();
+	return a.sshr(b).template scast<BitsY>();
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
