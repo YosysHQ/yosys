@@ -601,6 +601,12 @@ struct WireType {
 	bool is_exact() const { return type == ALIAS || type == CONST; }
 };
 
+// Tests for a SigSpec that is a valid clock input, clocks have to have a backing wire and be a single bit
+// using this instead of sig.is_wire() solves issues when the clock is a slice instead of a full wire
+bool is_valid_clock(const RTLIL::SigSpec& sig) {
+	return sig.is_chunk() && sig.is_bit() && sig[0].wire;
+}
+
 struct CxxrtlWorker {
 	bool split_intf = false;
 	std::string intf_filename;
@@ -1110,7 +1116,8 @@ struct CxxrtlWorker {
 		// Flip-flops
 		} else if (is_ff_cell(cell->type)) {
 			log_assert(!for_debug);
-			if (cell->hasPort(ID::CLK) && cell->getPort(ID::CLK).is_wire()) {
+			// Clocks might be slices of larger signals but should only ever be single bit
+			if (cell->hasPort(ID::CLK) && is_valid_clock(cell->getPort(ID::CLK))) {
 				// Edge-sensitive logic
 				RTLIL::SigBit clk_bit = cell->getPort(ID::CLK)[0];
 				clk_bit = sigmaps[clk_bit.wire->module](clk_bit);
@@ -2266,7 +2273,7 @@ struct CxxrtlWorker {
 	void register_edge_signal(SigMap &sigmap, RTLIL::SigSpec signal, RTLIL::SyncType type)
 	{
 		signal = sigmap(signal);
-		log_assert(signal.is_wire() && signal.is_bit());
+		log_assert(is_valid_clock(signal));
 		log_assert(type == RTLIL::STp || type == RTLIL::STn || type == RTLIL::STe);
 
 		RTLIL::SigBit sigbit = signal[0];
@@ -2274,7 +2281,8 @@ struct CxxrtlWorker {
 			edge_types[sigbit] = type;
 		else if (edge_types[sigbit] != type)
 			edge_types[sigbit] = RTLIL::STe;
-		edge_wires.insert(signal.as_wire());
+		// Cannot use as_wire because signal might not be a full wire, instead extract the wire from the sigbit
+		edge_wires.insert(sigbit.wire);
 	}
 
 	void analyze_design(RTLIL::Design *design)
@@ -2355,14 +2363,14 @@ struct CxxrtlWorker {
 
 				// Various DFF cells are treated like posedge/negedge processes, see above for details.
 				if (cell->type.in(ID($dff), ID($dffe), ID($adff), ID($adffe), ID($dffsr), ID($dffsre), ID($sdff), ID($sdffe), ID($sdffce))) {
-					if (sigmap(cell->getPort(ID::CLK)).is_wire())
+					if (is_valid_clock(cell->getPort(ID::CLK)))
 						register_edge_signal(sigmap, cell->getPort(ID::CLK),
 							cell->parameters[ID::CLK_POLARITY].as_bool() ? RTLIL::STp : RTLIL::STn);
 				}
 				// Similar for memory port cells.
 				if (cell->type.in(ID($memrd), ID($memwr))) {
 					if (cell->getParam(ID::CLK_ENABLE).as_bool()) {
-						if (sigmap(cell->getPort(ID::CLK)).is_wire())
+						if (is_valid_clock(cell->getPort(ID::CLK)))
 							register_edge_signal(sigmap, cell->getPort(ID::CLK),
 								cell->parameters[ID::CLK_POLARITY].as_bool() ? RTLIL::STp : RTLIL::STn);
 					}
@@ -2372,7 +2380,7 @@ struct CxxrtlWorker {
 				if (cell->type == ID($memwr))
 					writable_memories.insert(module->memories[cell->getParam(ID::MEMID).decode_string()]);
 				// Collect groups of memory write ports in the same domain.
-				if (cell->type == ID($memwr) && cell->getParam(ID::CLK_ENABLE).as_bool() && cell->getPort(ID::CLK).is_wire()) {
+				if (cell->type == ID($memwr) && cell->getParam(ID::CLK_ENABLE).as_bool() && is_valid_clock(cell->getPort(ID::CLK))) {
 					RTLIL::SigBit clk_bit = sigmap(cell->getPort(ID::CLK))[0];
 					const RTLIL::Memory *memory = module->memories[cell->getParam(ID::MEMID).decode_string()];
 					memwr_per_domain[{clk_bit, memory}].insert(cell);
@@ -2384,7 +2392,7 @@ struct CxxrtlWorker {
 			}
 			for (auto cell : module->cells()) {
 				// Collect groups of memory write ports read by every transparent read port.
-				if (cell->type == ID($memrd) && cell->getParam(ID::CLK_ENABLE).as_bool() && cell->getPort(ID::CLK).is_wire() &&
+				if (cell->type == ID($memrd) && cell->getParam(ID::CLK_ENABLE).as_bool() && is_valid_clock(cell->getPort(ID::CLK)) &&
 				    cell->getParam(ID::TRANSPARENT).as_bool()) {
 					RTLIL::SigBit clk_bit = sigmap(cell->getPort(ID::CLK))[0];
 					const RTLIL::Memory *memory = module->memories[cell->getParam(ID::MEMID).decode_string()];
