@@ -211,7 +211,7 @@ struct FlattenWorker
 			log_assert(new_conn.first.size() == new_conn.second.size());
 
 			if (sigmap(new_conn.first).has_const())
-				log_error("Mismatch in directionality for cell port %s.%s.%s: %s <= %s\n",
+				log_error("Cell port %s.%s.%s is driving constant bits: %s <= %s\n",
 					log_id(module), log_id(cell), log_id(port_it.first), log_signal(new_conn.first), log_signal(new_conn.second));
 
 			module->connect(new_conn);
