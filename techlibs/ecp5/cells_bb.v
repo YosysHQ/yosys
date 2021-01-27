@@ -27,16 +27,23 @@ module MULT18X18D(
 	parameter REG_INPUTB_CE = "CE0";
 	parameter REG_INPUTB_RST = "RST0";
 	parameter REG_INPUTC_CLK = "NONE";
+	parameter REG_INPUTC_CE = "CE0";
+	parameter REG_INPUTC_RST = "RST0";
 	parameter REG_PIPELINE_CLK = "NONE";
 	parameter REG_PIPELINE_CE = "CE0";
 	parameter REG_PIPELINE_RST = "RST0";
 	parameter REG_OUTPUT_CLK = "NONE";
+	parameter REG_OUTPUT_CE = "CE0";
+	parameter REG_OUTPUT_RST = "RST0";
 	parameter [127:0] CLK0_DIV = "ENABLED";
 	parameter [127:0] CLK1_DIV = "ENABLED";
 	parameter [127:0] CLK2_DIV = "ENABLED";
 	parameter [127:0] CLK3_DIV = "ENABLED";
+	parameter HIGHSPEED_CLK = "NONE";
 	parameter [127:0] GSR = "ENABLED";
+	parameter CAS_MATCH_REG = "FALSE";
 	parameter [127:0] SOURCEB_MODE = "B_SHIFT";
+	parameter [127:0] MULT_BYPASS = "DISABLED";
 	parameter [127:0] RESETMODE = "SYNC";
 endmodule
 
@@ -61,7 +68,11 @@ module ALU54B(
 	output SIGNEDR
 );
 	parameter REG_INPUTC0_CLK = "NONE";
+	parameter REG_INPUTC0_CE = "CE0";
+	parameter REG_INPUTC0_RST = "RST0";
 	parameter REG_INPUTC1_CLK = "NONE";
+	parameter REG_INPUTC1_CE = "CE0";
+	parameter REG_INPUTC1_RST = "RST0";
 	parameter REG_OPCODEOP0_0_CLK = "NONE";
 	parameter REG_OPCODEOP0_0_CE = "CE0";
 	parameter REG_OPCODEOP0_0_RST = "RST0";
@@ -69,6 +80,7 @@ module ALU54B(
 	parameter REG_OPCODEOP0_1_CLK = "NONE";
 	parameter REG_OPCODEOP0_1_CE = "CE0";
 	parameter REG_OPCODEOP0_1_RST = "RST0";
+	parameter REG_OPCODEOP1_1_CLK = "NONE";
 	parameter REG_OPCODEIN_0_CLK = "NONE";
 	parameter REG_OPCODEIN_0_CE = "CE0";
 	parameter REG_OPCODEIN_0_RST = "RST0";
@@ -76,8 +88,17 @@ module ALU54B(
 	parameter REG_OPCODEIN_1_CE = "CE0";
 	parameter REG_OPCODEIN_1_RST = "RST0";
 	parameter REG_OUTPUT0_CLK = "NONE";
+	parameter REG_OUTPUT0_CE = "CE0";
+	parameter REG_OUTPUT0_RST = "RST0";
 	parameter REG_OUTPUT1_CLK = "NONE";
+	parameter REG_OUTPUT1_CE = "CE0";
+	parameter REG_OUTPUT1_RST = "RST0";
 	parameter REG_FLAG_CLK = "NONE";
+	parameter REG_FLAG_CE = "CE0";
+	parameter REG_FLAG_RST = "RST0";
+	parameter REG_INPUTCFB_CLK = "NONE";
+	parameter REG_INPUTCFB_CE = "CE0";
+	parameter REG_INPUTCFB_RST = "RST0";
 	parameter [127:0] MCPAT_SOURCE = "STATIC";
 	parameter [127:0] MASKPAT_SOURCE = "STATIC";
 	parameter MASK01 = "0x00000000000000";
@@ -90,6 +111,7 @@ module ALU54B(
 	parameter RNDPAT = "0x00000000000000";
 	parameter [127:0] GSR = "ENABLED";
 	parameter [127:0] RESETMODE = "SYNC";
+	parameter MULT9_MODE = "DISABLED";
 	parameter FORCE_ZERO_BARREL_SHIFT = "DISABLED";
 	parameter LEGACY = "DISABLED";
 endmodule
