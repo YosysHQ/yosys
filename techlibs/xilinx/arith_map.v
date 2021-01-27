@@ -151,6 +151,8 @@ generate if (`LUT_SIZE == 4) begin
 		);
 	end endgenerate
 
+	assign X = S;
+
 end else begin
 
 	localparam CARRY4_COUNT = (Y_WIDTH + 3) / 4;
@@ -193,8 +195,8 @@ end else begin
 		end
 	end endgenerate
 
-end endgenerate
-
 	assign X = S;
+
+end endgenerate
 endmodule
 

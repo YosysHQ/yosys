@@ -1,0 +1,8 @@
+read_verilog -sv unnamed_genblk.sv
+select -assert-count 0 top/genblk1.a
+select -assert-count 1 top/genblk02.b
+select -assert-count 0 top/genblk1.a
+select -assert-count 1 top/genblk02.b
+select -assert-count 1 top/g1[0].genblk1.a
+select -assert-count 1 top/genblk4[0].genblk1.a
+select -assert-count 1 top/genblk5.a

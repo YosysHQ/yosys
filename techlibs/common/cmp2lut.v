@@ -66,14 +66,12 @@ function automatic [(1 << `LUT_WIDTH)-1:0] gen_lut;
 endfunction
 
 generate
-	if (_TECHMAP_CELLTYPE_ == "$lt")
-		localparam operation = 0;
-	if (_TECHMAP_CELLTYPE_ == "$le")
-		localparam operation = 1;
-	if (_TECHMAP_CELLTYPE_ == "$gt")
-		localparam operation = 2;
-	if (_TECHMAP_CELLTYPE_ == "$ge")
-		localparam operation = 3;
+	localparam operation =
+		_TECHMAP_CELLTYPE_ == "$lt" ? 0 :
+		_TECHMAP_CELLTYPE_ == "$le" ? 1 :
+		_TECHMAP_CELLTYPE_ == "$gt" ? 2 :
+		_TECHMAP_CELLTYPE_ == "$ge" ? 3 :
+		-1;
 
 	if (A_WIDTH > `LUT_WIDTH || B_WIDTH > `LUT_WIDTH || Y_WIDTH != 1)
 		wire _TECHMAP_FAIL_ = 1;

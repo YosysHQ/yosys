@@ -118,19 +118,14 @@ struct TechmapWorker
 			return result;
 
 		for (auto w : module->wires()) {
-			const char *p = w->name.c_str();
-			if (*p == '$')
+			if (*w->name.c_str() == '$')
 				continue;
 
-			const char *q = strrchr(p+1, '.');
-			if (q)
-				p = q;
-
-			if (!strncmp(p, "\\_TECHMAP_", 10)) {
+			if (w->name.contains("_TECHMAP_") && !w->name.contains("_TECHMAP_REPLACE_")) {
 				TechmapWireData record;
 				record.wire = w;
 				record.value = w;
-				result[p].push_back(record);
+				result[w->name].push_back(record);
 				w->set_bool_attribute(ID::keep);
 				w->set_bool_attribute(ID::_techmap_special_);
 			}
@@ -165,7 +160,7 @@ struct TechmapWorker
 
 		orig_cell_name = cell->name.str();
 		for (auto tpl_cell : tpl->cells())
-			if (tpl_cell->name == ID::_TECHMAP_REPLACE_) {
+			if (tpl_cell->name.ends_with("_TECHMAP_REPLACE_")) {
 				module->rename(cell, stringf("$techmap%d", autoidx++) + cell->name.str());
 				break;
 			}
@@ -226,8 +221,8 @@ struct TechmapWorker
 			}
 			design->select(module, w);
 
-			if (tpl_w->name.begins_with("\\_TECHMAP_REPLACE_.")) {
-				IdString replace_name = stringf("%s%s", orig_cell_name.c_str(), tpl_w->name.c_str() + strlen("\\_TECHMAP_REPLACE_"));
+			if (const char *p = strstr(tpl_w->name.c_str(), "_TECHMAP_REPLACE_.")) {
+				IdString replace_name = stringf("%s%s", orig_cell_name.c_str(), p + strlen("_TECHMAP_REPLACE_"));
 				Wire *replace_w = module->addWire(replace_name, tpl_w);
 				module->connect(replace_w, w);
 			}
@@ -327,12 +322,12 @@ struct TechmapWorker
 		for (auto tpl_cell : tpl->cells())
 		{
 			IdString c_name = tpl_cell->name;
-			bool techmap_replace_cell = (c_name == ID::_TECHMAP_REPLACE_);
+			bool techmap_replace_cell = c_name.ends_with("_TECHMAP_REPLACE_");
 
 			if (techmap_replace_cell)
 				c_name = orig_cell_name;
-			else if (tpl_cell->name.begins_with("\\_TECHMAP_REPLACE_."))
-				c_name = stringf("%s%s", orig_cell_name.c_str(), c_name.c_str() + strlen("\\_TECHMAP_REPLACE_"));
+			else if (const char *p = strstr(tpl_cell->name.c_str(), "_TECHMAP_REPLACE_."))
+				c_name = stringf("%s%s", orig_cell_name.c_str(), p + strlen("_TECHMAP_REPLACE_"));
 			else
 				apply_prefix(cell->name, c_name);
 
@@ -730,12 +725,16 @@ struct TechmapWorker
 						for (auto &it : twd)
 							techmap_wire_names.insert(it.first);
 
-						for (auto &it : twd[ID::_TECHMAP_FAIL_]) {
-							RTLIL::SigSpec value = it.value;
-							if (value.is_fully_const() && value.as_bool()) {
-								log("Not using module `%s' from techmap as it contains a %s marker wire with non-zero value %s.\n",
-										derived_name.c_str(), log_id(it.wire->name), log_signal(value));
-								techmap_do_cache[tpl] = false;
+						for (auto &it : twd) {
+							if (!it.first.ends_with("_TECHMAP_FAIL_"))
+								continue;
+							for (const TechmapWireData &elem : it.second) {
+								RTLIL::SigSpec value = elem.value;
+								if (value.is_fully_const() && value.as_bool()) {
+									log("Not using module `%s' from techmap as it contains a %s marker wire with non-zero value %s.\n",
+											derived_name.c_str(), log_id(elem.wire->name), log_signal(value));
+									techmap_do_cache[tpl] = false;
+								}
 							}
 						}
 
@@ -744,7 +743,7 @@ struct TechmapWorker
 
 						for (auto &it : twd)
 						{
-							if (!it.first.begins_with("\\_TECHMAP_DO_") || it.second.empty())
+							if (!it.first.contains("_TECHMAP_DO_") || it.second.empty())
 								continue;
 
 							auto &data = it.second.front();
@@ -756,7 +755,7 @@ struct TechmapWorker
 
 							const char *p = data.wire->name.c_str();
 							const char *q = strrchr(p+1, '.');
-							q = q ? q : p+1;
+							q = q ? q+1 : p+1;
 
 							std::string cmd_string = data.value.as_const().decode_string();
 
@@ -873,7 +872,7 @@ struct TechmapWorker
 
 					TechmapWires twd = techmap_find_special_wires(tpl);
 					for (auto &it : twd) {
-						if (it.first != ID::_TECHMAP_FAIL_ && (!it.first.begins_with("\\_TECHMAP_REMOVEINIT_") || !it.first.ends_with("_")) && !it.first.begins_with("\\_TECHMAP_DO_") && !it.first.begins_with("\\_TECHMAP_DONE_"))
+						if (!it.first.ends_with("_TECHMAP_FAIL_") && (!it.first.begins_with("\\_TECHMAP_REMOVEINIT_") || !it.first.ends_with("_")) && !it.first.contains("_TECHMAP_DO_") && !it.first.contains("_TECHMAP_DONE_"))
 							log_error("Techmap yielded unknown config wire %s.\n", log_id(it.first));
 						if (techmap_do_cache[tpl])
 							for (auto &it2 : it.second)

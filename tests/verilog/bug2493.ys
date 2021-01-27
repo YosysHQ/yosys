@@ -1,0 +1,12 @@
+logger -expect error "Failed to detect width for identifier \\genblk1\.y!" 1
+read_verilog <<EOT
+module top1;
+    wire x;
+    generate
+        if (1) begin
+            mod y();
+            assign x = y;
+        end
+    endgenerate
+endmodule
+EOT

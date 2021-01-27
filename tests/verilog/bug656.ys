@@ -1,0 +1,13 @@
+read_verilog bug656.v
+
+select -assert-count 1 top/a_i
+select -assert-count 1 top/b_i
+select -assert-count 1 top/z_o
+
+select -assert-none top/genblk1[0].genblk1.tmp
+select -assert-none top/genblk1[1].genblk1.tmp
+select -assert-none top/genblk1[2].genblk1.tmp
+
+select -assert-count 1 top/genblk1[3].genblk1.tmp
+select -assert-count 1 top/genblk1[4].genblk1.tmp
+select -assert-count 1 top/genblk1[5].genblk1.tmp

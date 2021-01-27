@@ -549,6 +549,16 @@ static bool node_contains_assignment_to(const AstNode* node, const AstNode* var)
 	return true;
 }
 
+static std::string prefix_id(const std::string &prefix, const std::string &str)
+{
+	log_assert(!prefix.empty() && (prefix.front() == '$' || prefix.front() == '\\'));
+	log_assert(!str.empty() && (str.front() == '$' || str.front() == '\\'));
+	log_assert(prefix.back() == '.');
+	if (str.front() == '\\')
+		return prefix + str.substr(1);
+	return prefix + str;
+}
+
 // convert the AST into a simpler AST that has all parameters substituted by their
 // values, unrolled for-loops, expanded generate blocks, etc. when this function
 // is done with an AST it can be converted into RTLIL using genRTLIL().
@@ -748,6 +758,9 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	// also merge multiple declarations for the same wire (e.g. "output foobar; reg foobar;")
 	if (type == AST_MODULE) {
 		current_scope.clear();
+		std::set<std::string> existing;
+		int counter = 0;
+		label_genblks(existing, counter);
 		std::map<std::string, AstNode*> this_wire_scope;
 		for (size_t i = 0; i < children.size(); i++) {
 			AstNode *node = children[i];
@@ -1855,19 +1868,24 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 			// expand body
 			int index = varbuf->children[0]->integer;
-			if (body_ast->type == AST_GENBLOCK)
-				buf = body_ast->clone();
-			else
-				buf = new AstNode(AST_GENBLOCK, body_ast->clone());
-			if (buf->str.empty()) {
-				std::stringstream sstr;
-				sstr << "$genblock$" << filename << ":" << location.first_line << "$" << (autoidx++);
-				buf->str = sstr.str();
-			}
-			std::map<std::string, std::string> name_map;
+			log_assert(body_ast->type == AST_GENBLOCK || body_ast->type == AST_BLOCK);
+			log_assert(!body_ast->str.empty());
+			buf = body_ast->clone();
+
 			std::stringstream sstr;
 			sstr << buf->str << "[" << index << "].";
-			buf->expand_genblock(varbuf->str, sstr.str(), name_map);
+			std::string prefix = sstr.str();
+
+			// create a scoped localparam for the current value of the loop variable
+			AstNode *local_index = varbuf->clone();
+			size_t pos = local_index->str.rfind('.');
+			if (pos != std::string::npos) // remove outer prefix
+				local_index->str = "\\" + local_index->str.substr(pos + 1);
+			local_index->str = prefix_id(prefix, local_index->str);
+			current_scope[local_index->str] = local_index;
+			current_ast_mod->children.push_back(local_index);
+
+			buf->expand_genblock(prefix);
 
 			if (type == AST_GENFOR) {
 				for (size_t i = 0; i < buf->children.size(); i++) {
@@ -1915,14 +1933,16 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	{
 		for (size_t i = 0; i < children.size(); i++)
 			if (children[i]->type == AST_WIRE || children[i]->type == AST_MEMORY || children[i]->type == AST_PARAMETER || children[i]->type == AST_LOCALPARAM || children[i]->type == AST_TYPEDEF)
-				log_file_error(children[i]->filename, children[i]->location.first_line, "Local declaration in unnamed block is an unsupported SystemVerilog feature!\n");
+			{
+				log_assert(!VERILOG_FRONTEND::sv_mode);
+				log_file_error(children[i]->filename, children[i]->location.first_line, "Local declaration in unnamed block is only supported in SystemVerilog mode!\n");
+			}
 	}
 
 	// transform block with name
 	if (type == AST_BLOCK && !str.empty())
 	{
-		std::map<std::string, std::string> name_map;
-		expand_genblock(std::string(), str + ".", name_map);
+		expand_genblock(str + ".");
 
 		std::vector<AstNode*> new_children;
 		for (size_t i = 0; i < children.size(); i++)
@@ -1942,8 +1962,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	if (type == AST_GENBLOCK && children.size() != 0)
 	{
 		if (!str.empty()) {
-			std::map<std::string, std::string> name_map;
-			expand_genblock(std::string(), str + ".", name_map);
+			expand_genblock(str + ".");
 		}
 
 		for (size_t i = 0; i < children.size(); i++) {
@@ -1979,8 +1998,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				buf = new AstNode(AST_GENBLOCK, buf);
 
 			if (!buf->str.empty()) {
-				std::map<std::string, std::string> name_map;
-				buf->expand_genblock(std::string(), buf->str + ".", name_map);
+				buf->expand_genblock(buf->str + ".");
 			}
 
 			for (size_t i = 0; i < buf->children.size(); i++) {
@@ -2058,8 +2076,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			buf = selected_case->clone();
 
 			if (!buf->str.empty()) {
-				std::map<std::string, std::string> name_map;
-				buf->expand_genblock(std::string(), buf->str + ".", name_map);
+				buf->expand_genblock(buf->str + ".");
 			}
 
 			for (size_t i = 0; i < buf->children.size(); i++) {
@@ -3159,11 +3176,15 @@ skip_dynamic_range_lvalue_expansion:;
 				log_file_error(filename, location.first_line, "Can't resolve task name `%s'.\n", str.c_str());
 		}
 
-		AstNode *decl = current_scope[str];
 
 		std::stringstream sstr;
-		sstr << "$func$" << str << "$" << filename << ":" << location.first_line << "$" << (autoidx++) << "$";
+		sstr << str << "$func$" << filename << ":" << location.first_line << "$" << (autoidx++) << '.';
 		std::string prefix = sstr.str();
+
+		AstNode *decl = current_scope[str];
+		decl = decl->clone();
+		decl->replace_result_wire_name_in_function(str, "$result"); // enables recursion
+		decl->expand_genblock(prefix);
 
 		bool recommend_const_eval = false;
 		bool require_const_eval = in_param ? false : has_const_only_constructs(recommend_const_eval);
@@ -3177,11 +3198,11 @@ skip_dynamic_range_lvalue_expansion:;
 			}
 
 			if (all_args_const) {
-				AstNode *func_workspace = current_scope[str]->clone();
-				func_workspace->str = NEW_ID.str();
-				func_workspace->replace_result_wire_name_in_function(str, func_workspace->str);
+				AstNode *func_workspace = decl->clone();
+				func_workspace->str = prefix_id(prefix, "$result");
 				newNode = func_workspace->eval_const_function(this);
 				delete func_workspace;
+				delete decl;
 				goto apply_newNode;
 			}
 
@@ -3192,8 +3213,6 @@ skip_dynamic_range_lvalue_expansion:;
 		}
 
 		size_t arg_count = 0;
-		std::map<std::string, std::string> replace_rules;
-		vector<AstNode*> added_mod_children;
 		dict<std::string, AstNode*> wire_cache;
 		vector<AstNode*> new_stmts;
 		vector<AstNode*> output_assignments;
@@ -3203,16 +3222,17 @@ skip_dynamic_range_lvalue_expansion:;
 			log_assert(type == AST_FCALL);
 
 			AstNode *wire = NULL;
+			std::string res_name = prefix_id(prefix, "$result");
 			for (auto child : decl->children)
-				if (child->type == AST_WIRE && child->str == str)
+				if (child->type == AST_WIRE && child->str == res_name)
 					wire = child->clone();
 			log_assert(wire != NULL);
 
-			wire->str = prefix + str;
 			wire->port_id = 0;
 			wire->is_input = false;
 			wire->is_output = false;
 
+			current_scope[wire->str] = wire;
 			current_ast_mod->children.push_back(wire);
 			while (wire->simplify(true, false, false, 1, -1, false, false)) { }
 
@@ -3256,7 +3276,6 @@ skip_dynamic_range_lvalue_expansion:;
 				if (child->type == AST_WIRE && (child->is_input || child->is_output || (type == AST_FCALL && child->str == str)))
 				{
 					AstNode *wire = child->clone();
-					wire->str = prefix + wire->str;
 					wire->port_id = 0;
 					wire->is_input = false;
 					wire->is_output = false;
@@ -3318,7 +3337,6 @@ skip_dynamic_range_lvalue_expansion:;
 				else
 				{
 					wire = child->clone();
-					wire->str = prefix + wire->str;
 					wire->port_id = 0;
 					wire->is_input = false;
 					wire->is_output = false;
@@ -3329,15 +3347,11 @@ skip_dynamic_range_lvalue_expansion:;
 
 					wire_cache[child->str] = wire;
 
+					current_scope[wire->str] = wire;
 					current_ast_mod->children.push_back(wire);
-					added_mod_children.push_back(wire);
 				}
 
-				if (child->type == AST_WIRE)
-					while (wire->simplify(true, false, false, 1, -1, false, false)) { }
-
-				replace_rules[child->str] = wire->str;
-				current_scope[wire->str] = wire;
+				while (wire->simplify(true, false, false, 1, -1, false, false)) { }
 
 				if ((child->is_input || child->is_output) && arg_count < children.size())
 				{
@@ -3381,18 +3395,9 @@ skip_dynamic_range_lvalue_expansion:;
 				}
 			}
 
-		for (auto child : added_mod_children) {
-			child->replace_ids(prefix, replace_rules);
-			while (child->simplify(true, false, false, 1, -1, false, false)) { }
-		}
-
 		for (auto child : decl->children)
 			if (child->type != AST_WIRE && child->type != AST_MEMORY && child->type != AST_PARAMETER && child->type != AST_LOCALPARAM)
-			{
-				AstNode *stmt = child->clone();
-				stmt->replace_ids(prefix, replace_rules);
-				new_stmts.push_back(stmt);
-			}
+				new_stmts.push_back(child->clone());
 
 		new_stmts.insert(new_stmts.end(), output_assignments.begin(), output_assignments.end());
 
@@ -3405,10 +3410,11 @@ skip_dynamic_range_lvalue_expansion:;
 		}
 
 	replace_fcall_with_id:
+		delete decl;
 		if (type == AST_FCALL) {
 			delete_children();
 			type = AST_IDENTIFIER;
-			str = prefix + str;
+			str = prefix_id(prefix, "$result");
 		}
 		if (type == AST_TCALL)
 			str = "";
@@ -3859,63 +3865,52 @@ AstNode *AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *m
 	return block;
 }
 
-// annotate the names of all wires and other named objects in a generate block
-void AstNode::expand_genblock(std::string index_var, std::string prefix, std::map<std::string, std::string> &name_map, bool original_scope)
+// annotate the names of all wires and other named objects in a named generate
+// or procedural block; nested blocks are themselves annotated such that the
+// prefix is carried forward, but resolution of their children is deferred
+void AstNode::expand_genblock(const std::string &prefix)
 {
-	// `original_scope` defaults to false, and is used to prevent the premature
-	// prefixing of items in named sub-blocks
-
-	if (!index_var.empty() && type == AST_IDENTIFIER && str == index_var) {
-		if (children.empty()) {
-			current_scope[index_var]->children[0]->cloneInto(this);
-		} else {
-			AstNode *p = new AstNode(AST_LOCALPARAM, current_scope[index_var]->children[0]->clone());
-			p->str = stringf("$genval$%d", autoidx++);
-			current_ast_mod->children.push_back(p);
-			str = p->str;
-			id2ast = p;
-		}
-	}
-
 	if (type == AST_IDENTIFIER || type == AST_FCALL || type == AST_TCALL || type == AST_WIRETYPE) {
-		if (name_map.count(str) > 0) {
-			str = name_map[str];
-		} else {
-			// remap the prefix of this ident if it is a local generate scope
-			size_t pos = str.rfind('.');
-			if (pos != std::string::npos) {
-				std::string existing_prefix = str.substr(0, pos);
-				if (name_map.count(existing_prefix) > 0) {
-					str = name_map[existing_prefix] + str.substr(pos);
+		log_assert(!str.empty());
+
+		// search starting in the innermost scope and then stepping outward
+		for (size_t ppos = prefix.size() - 1; ppos; --ppos) {
+			if (prefix.at(ppos) != '.') continue;
+
+			std::string new_prefix = prefix.substr(0, ppos + 1);
+			auto attempt_resolve = [&new_prefix](const std::string &ident) -> std::string {
+				std::string new_name = prefix_id(new_prefix, ident);
+				if (current_scope.count(new_name))
+					return new_name;
+				return {};
+			};
+
+			// attempt to resolve the full identifier
+			std::string resolved = attempt_resolve(str);
+			if (!resolved.empty()) {
+				str = resolved;
+				break;
+			}
+
+			// attempt to resolve hierarchical prefixes within the identifier,
+			// as the prefix could refer to a local scope which exists but
+			// hasn't yet been elaborated
+			for (size_t spos = str.size() - 1; spos; --spos) {
+				if (str.at(spos) != '.') continue;
+				resolved = attempt_resolve(str.substr(0, spos));
+				if (!resolved.empty()) {
+					str = resolved + str.substr(spos);
+					ppos = 1; // break outer loop
+					break;
 				}
 			}
+
 		}
 	}
 
-	std::map<std::string, std::string> backup_name_map;
-
-	auto prefix_node = [&](AstNode* child) {
-		if (backup_name_map.size() == 0)
-			backup_name_map = name_map;
-
-		// if within a nested scope
-		if (!original_scope) {
-			// this declaration shadows anything in the parent scope(s)
-			name_map[child->str] = child->str;
-			return;
-		}
-
-		std::string new_name = prefix[0] == '\\' ? prefix.substr(1) : prefix;
-		size_t pos = child->str.rfind('.');
-		if (pos == std::string::npos)
-			pos = child->str[0] == '\\' && prefix[0] == '\\' ? 1 : 0;
-		else
-			pos = pos + 1;
-		new_name = child->str.substr(0, pos) + new_name + child->str.substr(pos);
-		if (new_name[0] != '$' && new_name[0] != '\\')
-			new_name = prefix[0] + new_name;
-
-		name_map[child->str] = new_name;
+	auto prefix_node = [&prefix](AstNode* child) {
+		if (child->str.empty()) return;
+		std::string new_name = prefix_id(prefix, child->str);
 		if (child->type == AST_FUNCTION)
 			child->replace_result_wire_name_in_function(child->str, new_name);
 		else
@@ -3967,43 +3962,55 @@ void AstNode::expand_genblock(std::string index_var, std::string prefix, std::ma
 			continue;
 		// functions/tasks may reference wires, constants, etc. in this scope
 		if (child->type == AST_FUNCTION || child->type == AST_TASK)
-			child->expand_genblock(index_var, prefix, name_map, false);
-		// continue prefixing if this child block is anonymous
-		else if (child->type == AST_GENBLOCK || child->type == AST_BLOCK)
-			child->expand_genblock(index_var, prefix, name_map, original_scope && child->str.empty());
-		else
-			child->expand_genblock(index_var, prefix, name_map, original_scope);
+			continue;
+		// named blocks pick up the current prefix and will expanded later
+		if ((child->type == AST_GENBLOCK || child->type == AST_BLOCK) && !child->str.empty())
+			continue;
+
+		child->expand_genblock(prefix);
 	}
-
-
-	if (backup_name_map.size() > 0)
-		name_map.swap(backup_name_map);
 }
 
-// rename stuff (used when tasks of functions are instantiated)
-void AstNode::replace_ids(const std::string &prefix, const std::map<std::string, std::string> &rules)
+// add implicit AST_GENBLOCK names according to IEEE 1364-2005 Section 12.4.3 or
+// IEEE 1800-2017 Section 27.6
+void AstNode::label_genblks(std::set<std::string>& existing, int &counter)
 {
-	if (type == AST_BLOCK)
-	{
-		std::map<std::string, std::string> new_rules = rules;
-		std::string new_prefix = prefix + str;
+	switch (type) {
+	case AST_GENIF:
+	case AST_GENFOR:
+	case AST_GENCASE:
+		// seeing a proper generate control flow construct increments the
+		// counter once
+		++counter;
+		for (AstNode *child : children)
+			child->label_genblks(existing, counter);
+		break;
 
-		for (auto child : children)
-			if (child->type == AST_WIRE) {
-				new_rules[child->str] = new_prefix + child->str;
-				child->str = new_prefix + child->str;
-			}
-
-		for (auto child : children)
-			if (child->type != AST_WIRE)
-				child->replace_ids(new_prefix, new_rules);
+	case AST_GENBLOCK: {
+		// if this block is unlabeled, generate its corresponding unique name
+		for (int padding = 0; str.empty(); ++padding) {
+			std::string candidate = "\\genblk";
+			for (int i = 0; i < padding; ++i)
+				candidate += '0';
+			candidate += std::to_string(counter);
+			if (!existing.count(candidate))
+				str = candidate;
+		}
+		// within a genblk, the counter starts fresh
+		std::set<std::string> existing_local = existing;
+		int counter_local = 0;
+		for (AstNode *child : children)
+			child->label_genblks(existing_local, counter_local);
+		break;
 	}
-	else
-	{
-		if (type == AST_IDENTIFIER && rules.count(str) > 0)
-			str = rules.at(str);
-		for (auto child : children)
-			child->replace_ids(prefix, rules);
+
+	default:
+		// track names which could conflict with implicit genblk names
+		if (str.rfind("\\genblk", 0) == 0)
+			existing.insert(str);
+		for (AstNode *child : children)
+			child->label_genblks(existing, counter);
+		break;
 	}
 }
 
@@ -4773,6 +4780,9 @@ AstNode *AstNode::eval_const_function(AstNode *fcall)
 
 		if (stmt->type == AST_BLOCK)
 		{
+			if (!stmt->str.empty())
+				stmt->expand_genblock(stmt->str + ".");
+
 			block->children.erase(block->children.begin());
 			block->children.insert(block->children.begin(), stmt->children.begin(), stmt->children.end());
 			stmt->children.clear();

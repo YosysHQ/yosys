@@ -1,0 +1,15 @@
+read_verilog genblk_case.v
+
+select -assert-count 0 top/genblk1.n
+select -assert-count 0 top/genblk2.n
+select -assert-count 0 top/genblk3.n
+select -assert-count 0 top/genblk4.n
+select -assert-count 0 top/genblk5.n
+select -assert-count 0 top/genblk6.n
+
+select -assert-count 1 top/genblk1.y
+select -assert-count 1 top/genblk2.y
+select -assert-count 1 top/genblk3.y
+select -assert-count 1 top/genblk4.y
+select -assert-count 1 top/genblk5.y
+select -assert-count 1 top/genblk6.y
