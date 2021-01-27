@@ -72,10 +72,17 @@ struct JsonNode
 				break;
 			}
 
-			if ('0' <= ch && ch <= '9')
+			if (('0' <= ch && ch <= '9') || ch == '-')
 			{
+				bool negative = false;
 				type = 'N';
-				data_number = ch - '0';
+				if (ch == '-') {
+					data_number = 0;
+				       	negative = true;
+				} else {
+					data_number = ch - '0';
+				}
+
 				data_string += ch;
 
 				while (1)
@@ -97,6 +104,7 @@ struct JsonNode
 					data_string += ch;
 				}
 
+				data_number = negative ? -data_number : data_number;
 				data_string = "";
 				break;
 
