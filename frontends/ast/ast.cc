@@ -548,9 +548,9 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 		break;
 
 	case AST_CASE:
-		if (!children.empty() && children[0]->type == AST_CONDX)
+		if (children.size() > 1 && children[1]->type == AST_CONDX)
 			fprintf(f, "%s" "casex (", indent.c_str());
-		else if (!children.empty() && children[0]->type == AST_CONDZ)
+		else if (children.size() > 1 && children[1]->type == AST_CONDZ)
 			fprintf(f, "%s" "casez (", indent.c_str());
 		else
 			fprintf(f, "%s" "case (", indent.c_str());
