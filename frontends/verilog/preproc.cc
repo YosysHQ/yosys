@@ -390,12 +390,16 @@ static void input_file(std::istream &f, std::string filename)
 // the argument list); false if we finished with ','.
 static bool read_argument(std::string &dest)
 {
+	skip_spaces();
 	std::vector<char> openers;
 	for (;;) {
 		std::string tok = next_token(true);
 		if (tok == ")") {
-			if (openers.empty())
+			if (openers.empty()) {
+				while (dest.size() && (dest.back() == ' ' || dest.back() == '\t'))
+					dest = dest.substr(0, dest.size() - 1);
 				return true;
+			}
 			if (openers.back() != '(')
 				log_error("Mismatched brackets in macro argument: %c and %c.\n",
 				          openers.back(), tok[0]);
