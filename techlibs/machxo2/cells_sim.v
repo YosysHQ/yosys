@@ -162,16 +162,16 @@ module FACADE_IO #(
 	parameter DIR = "INPUT"
 ) (
 	inout PAD,
-	input I, EN,
+	input I, T,
 	output O
 );
 	generate
 		if (DIR == "INPUT") begin
 			assign O = PAD;
 		end else if (DIR == "OUTPUT") begin
-			assign PAD = EN ? I : 1'bz;
+			assign PAD = T ? I : 1'bz;
 		end else if (DIR == "BIDIR") begin
-			assign PAD = EN ? I : 1'bz;
+			assign PAD = T ? I : 1'bz;
 			assign O = PAD;
 		end else begin
 			ERROR_UNKNOWN_IO_MODE error();
