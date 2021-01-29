@@ -28,7 +28,7 @@ endmodule
 module  \$_DFF_P_ (input D, C, output Q); FACADE_FF #(.CEMUX("1"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET")) _TECHMAP_REPLACE_ (.CLK(C), .LSR(1'b0), .DI(D), .Q(Q)); endmodule
 
 // IO- "$__" cells for the iopadmap pass.
-module  \$__FACADE_OUTPAD (input I, output O); FACADE_IO #(.DIR("OUTPUT")) _TECHMAP_REPLACE_ (.PAD(O), .I(I), .EN(1'b1)); endmodule
+module  \$__FACADE_OUTPAD (input I, output O); FACADE_IO #(.DIR("OUTPUT")) _TECHMAP_REPLACE_ (.PAD(O), .I(I), .T(1'b1)); endmodule
 module  \$__FACADE_INPAD (input I, output O); FACADE_IO #(.DIR("INPUT")) _TECHMAP_REPLACE_ (.PAD(I), .O(O)); endmodule
-module  \$__FACADE_TOUTPAD (input I, OE, output O); FACADE_IO #(.DIR("OUTPUT")) _TECHMAP_REPLACE_ (.PAD(O), .I(I), .EN(OE)); endmodule
-module  \$__FACADE_TINOUTPAD (input I, OE, output O, inout B); FACADE_IO #(.DIR("BIDIR")) _TECHMAP_REPLACE_ (.PAD(B), .I(I), .O(O), .EN(OE)); endmodule
+module  \$__FACADE_TOUTPAD (input I, OE, output O); FACADE_IO #(.DIR("OUTPUT")) _TECHMAP_REPLACE_ (.PAD(O), .I(I), .T(OE)); endmodule
+module  \$__FACADE_TINOUTPAD (input I, OE, output O, inout B); FACADE_IO #(.DIR("BIDIR")) _TECHMAP_REPLACE_ (.PAD(B), .I(I), .O(O), .T(OE)); endmodule
