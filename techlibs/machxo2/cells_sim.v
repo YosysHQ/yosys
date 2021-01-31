@@ -93,12 +93,11 @@ module FACADE_SLICE #(
 	parameter LSRONMUX = "LSRMUX",
 	parameter LUT0_INITVAL = 16'hFFFF,
 	parameter LUT1_INITVAL = 16'hFFFF,
+	parameter REGMODE = "FF",
 	parameter REG0_SD = "1",
 	parameter REG1_SD = "1",
 	parameter REG0_REGSET = "SET",
 	parameter REG1_REGSET = "SET",
-	parameter REG0_REGMODE = "FF",
-	parameter REG1_REGMODE = "FF",
 	parameter CCU2_INJECT1_0 = "YES",
 	parameter CCU2_INJECT1_1 = "YES",
 	parameter WREMUX = "INV"
@@ -148,14 +147,14 @@ module FACADE_SLICE #(
 	/* Reg can be fed either by M, or DI inputs; DI inputs muxes OFX and F
 	outputs (in other words, feeds back into FACADE_SLICE). */
 	wire di0 = (REG0_SD == "1") ? M0 : DI0;
-	wire di1 = (REG0_SD == "1") ? M1 : DI1;
+	wire di1 = (REG1_SD == "1") ? M1 : DI1;
 
 	FACADE_FF#(.GSR(GSR), .CEMUX(CEMUX), .CLKMUX(CLKMUX), .LSRMUX(LSRMUX),
 		.LSRONMUX(LSRONMUX), .SRMODE(SRMODE), .REGSET(REG0_REGSET),
-		.REGMODE(REG0_REGMODE)) REG_0 (.CLK(CLK), .DI(di0), .LSR(LSR), .CE(CE), .Q(Q0));
+		.REGMODE(REGMODE)) REG_0 (.CLK(CLK), .DI(di0), .LSR(LSR), .CE(CE), .Q(Q0));
 	FACADE_FF#(.GSR(GSR), .CEMUX(CEMUX), .CLKMUX(CLKMUX), .LSRMUX(LSRMUX),
 		.LSRONMUX(LSRONMUX), .SRMODE(SRMODE), .REGSET(REG1_REGSET),
-		.REGMODE(REG1_REGMODE)) REG_1 (.CLK(CLK), .DI(di1), .LSR(LSR), .CE(CE), .Q(Q1));
+		.REGMODE(REGMODE)) REG_1 (.CLK(CLK), .DI(di1), .LSR(LSR), .CE(CE), .Q(Q1));
 endmodule
 
 module FACADE_IO #(
