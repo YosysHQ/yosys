@@ -168,9 +168,9 @@ module FACADE_IO #(
 		if (DIR == "INPUT") begin
 			assign O = PAD;
 		end else if (DIR == "OUTPUT") begin
-			assign PAD = T ? I : 1'bz;
+			assign PAD = T ? 1'bz : I;
 		end else if (DIR == "BIDIR") begin
-			assign PAD = T ? I : 1'bz;
+			assign PAD = T ? 1'bz : I;
 			assign O = PAD;
 		end else begin
 			ERROR_UNKNOWN_IO_MODE error();
