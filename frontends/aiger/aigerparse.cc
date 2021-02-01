@@ -55,8 +55,15 @@ inline int32_t from_big_endian(int32_t i32) {
 #define log_debug2(...) ;
 //#define log_debug2(...) log_debug(__VA_ARGS__)
 
-static int decimal_digits(unsigned n) {
-	return n > 1 ? ceil(log10(n)) : 1;
+static int decimal_digits(uint32_t n) {
+	static uint32_t digit_cutoff[9] = {
+		10, 100, 1000, 10000, 100000,
+		1000000, 10000000, 100000000, 1000000000
+	};
+	for (int i = 0; i < 9; ++i) {
+		if (n < digit_cutoff[i]) return i + 1;
+	}
+	return 10;
 }
 
 struct ConstEvalAig
