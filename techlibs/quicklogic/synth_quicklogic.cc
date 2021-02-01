@@ -58,6 +58,10 @@ struct SynthQuickLogicPass : public ScriptPass {
         log("        write the design to the specified BLIF file. writing of an output file\n");
         log("        is omitted if this parameter is not specified.\n");
         log("\n");
+        log("    -verilog <file>\n");
+        log("        write the design to the specified cerilog file. writing of an output file\n");
+        log("        is omitted if this parameter is not specified.\n");
+        log("\n");
         log("    -adder\n");
         log("        use adder cells in output netlist\n");
         log("\n");
@@ -74,7 +78,7 @@ struct SynthQuickLogicPass : public ScriptPass {
         log("\n");
     }
 
-    string top_opt, edif_file, blif_file, family, currmodule;
+    string top_opt, edif_file, blif_file, family, currmodule, verilog_file;
     bool inferAdder, openfpga, infer_dbuff;
     bool abcOpt;
 
@@ -83,6 +87,7 @@ struct SynthQuickLogicPass : public ScriptPass {
         top_opt = "-auto-top";
         edif_file = "";
         blif_file = "";
+        verilog_file = "";
         currmodule = "";
         family = "pp3";
         inferAdder = false;
@@ -113,6 +118,10 @@ struct SynthQuickLogicPass : public ScriptPass {
             }
             if (args[argidx] == "-blif" && argidx+1 < args.size()) {
                 blif_file = args[++argidx];
+                continue;
+            }
+            if (args[argidx] == "-verilog" && argidx+1 < args.size()) {
+                verilog_file = args[++argidx];
                 continue;
             }
             if (args[argidx] == "-adder") {
@@ -368,18 +377,23 @@ struct SynthQuickLogicPass : public ScriptPass {
                 if(openfpga && family != "pp3") {
                     run(stringf("opt_clean -purge"),
                             "                                 (openfpga mode)");
-		    if (inferAdder) {
-			    run(stringf("write_blif -param %s", help_mode ? "<file-name>" : blif_file.c_str()));
-		    } else {
-			    run(stringf("write_blif %s", help_mode ? "<file-name>" : blif_file.c_str()));
-		    }
+                    if (inferAdder) {
+                        run(stringf("write_blif -param %s", help_mode ? "<file-name>" : blif_file.c_str()));
+                    } else {
+                        run(stringf("write_blif %s", help_mode ? "<file-name>" : blif_file.c_str()));
+                    }
 
-		} else {
+                } else {
                     run(stringf("write_blif -attr -param %s %s", top_opt.c_str(), blif_file.c_str()));
                 }
             }
         }
 
+        if (check_label("verilog")) {
+            if (!verilog_file.empty()) {
+                run("write_verilog -noattr -nohex " + verilog_file);
+            }
+        }
     }
 
 } SynthQuicklogicPass;
