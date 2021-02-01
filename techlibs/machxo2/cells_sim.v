@@ -146,8 +146,8 @@ module FACADE_SLICE #(
 
 	/* Reg can be fed either by M, or DI inputs; DI inputs muxes OFX and F
 	outputs (in other words, feeds back into FACADE_SLICE). */
-	wire di0 = (REG0_SD == "1") ? M0 : DI0;
-	wire di1 = (REG1_SD == "1") ? M1 : DI1;
+	wire di0 = (REG0_SD == "1") ? DI0 : M0;
+	wire di1 = (REG1_SD == "1") ? DI1 : M1;
 
 	FACADE_FF#(.GSR(GSR), .CEMUX(CEMUX), .CLKMUX(CLKMUX), .LSRMUX(LSRMUX),
 		.LSRONMUX(LSRONMUX), .SRMODE(SRMODE), .REGSET(REG0_REGSET),
