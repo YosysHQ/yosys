@@ -188,6 +188,23 @@ module OSCH #(
 );
 endmodule
 
+(* blackbox *)
+module DCCA (
+	input CLKI,
+	input CE,
+	output CLKO
+);
+endmodule
+
+(* blackbox *)
+module DCMA (
+	input CLK0,
+	input CLK1,
+	input SEL,
+	output DCMOUT
+);
+endmodule
+
 // IO- "$__" cells for the iopadmap pass. These are temporary cells not meant
 // to be instantiated by the end user. They are required in this file for
 // attrmvcp to work.
