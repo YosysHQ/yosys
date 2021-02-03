@@ -21,9 +21,6 @@ module top;
 		end
 	end
 	generate
-		begin : unconditional_block
-			initial `CONSTANT_CHECK
-		end
 		if (WIDTH == 32) begin : conditional_block
 			initial `CONSTANT_CHECK
 		end
