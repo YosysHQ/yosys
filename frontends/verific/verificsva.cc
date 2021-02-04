@@ -1759,6 +1759,11 @@ struct VerificSvaImporter
 						clocking.addDff(NEW_ID, sig_en, sig_en_q, State::S0);
 					}
 
+					// accept in disable case
+
+					if (clocking.disable_sig != State::S0)
+						sig_a_q = module->Or(NEW_ID, sig_a_q, clocking.disable_sig);
+
 					// generate fair/live cell
 
 					RTLIL::Cell *c = nullptr;
