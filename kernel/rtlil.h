@@ -334,6 +334,10 @@ namespace RTLIL
 			return compare(size()-len, len, suffix) == 0;
 		}
 
+		bool contains(const char* str) const {
+			return strstr(c_str(), str);
+		}
+
 		size_t size() const {
 			return strlen(c_str());
 		}

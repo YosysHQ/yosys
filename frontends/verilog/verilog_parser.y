@@ -770,6 +770,7 @@ module_body:
 	module_body module_body_stmt |
 	/* the following line makes the generate..endgenrate keywords optional */
 	module_body gen_stmt |
+	module_body gen_block |
 	module_body ';' |
 	%empty;
 
@@ -2459,6 +2460,16 @@ behavioral_stmt:
 		exitTypeScope();
 		if ($4 != NULL && $8 != NULL && *$4 != *$8)
 			frontend_verilog_yyerror("Begin label (%s) and end label (%s) don't match.", $4->c_str()+1, $8->c_str()+1);
+		AstNode *node = ast_stack.back();
+		// In SystemVerilog, unnamed blocks with block item declarations
+		// create an implicit hierarchy scope
+		if (sv_mode && node->str.empty())
+		    for (const AstNode* child : node->children)
+			if (child->type == AST_WIRE || child->type == AST_MEMORY || child->type == AST_PARAMETER
+				|| child->type == AST_LOCALPARAM || child->type == AST_TYPEDEF) {
+			    node->str = "$unnamed_block$" + std::to_string(autoidx++);
+			    break;
+			}
 		SET_AST_NODE_LOC(ast_stack.back(), @2, @8);
 		delete $4;
 		delete $8;
@@ -2473,6 +2484,7 @@ behavioral_stmt:
 		ast_stack.back()->children.push_back($7);
 	} ';' simple_behavioral_stmt ')' {
 		AstNode *block = new AstNode(AST_BLOCK);
+		block->str = "$for_loop$" + std::to_string(autoidx++);
 		ast_stack.back()->children.push_back(block);
 		ast_stack.push_back(block);
 	} behavioral_stmt {
@@ -2722,6 +2734,7 @@ single_arg:
 
 module_gen_body:
 	module_gen_body gen_stmt_or_module_body_stmt |
+	module_gen_body gen_block |
 	%empty;
 
 gen_stmt_or_module_body_stmt:
@@ -2747,12 +2760,7 @@ gen_stmt:
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 		ast_stack.back()->children.push_back($3);
-		AstNode *block = new AstNode(AST_GENBLOCK);
-		ast_stack.back()->children.push_back(block);
-		ast_stack.push_back(block);
-	} gen_stmt_block {
-		ast_stack.pop_back();
-	} opt_gen_else {
+	} gen_stmt_block opt_gen_else {
 		SET_AST_NODE_LOC(ast_stack.back(), @1, @7);
 		ast_stack.pop_back();
 	} |
@@ -2762,20 +2770,6 @@ gen_stmt:
 		ast_stack.push_back(node);
 	} gen_case_body TOK_ENDCASE {
 		case_type_stack.pop_back();
-		SET_AST_NODE_LOC(ast_stack.back(), @1, @7);
-		ast_stack.pop_back();
-	} |
-	TOK_BEGIN {
-		enterTypeScope();
-	} opt_label {
-		AstNode *node = new AstNode(AST_GENBLOCK);
-		node->str = $3 ? *$3 : std::string();
-		ast_stack.back()->children.push_back(node);
-		ast_stack.push_back(node);
-	} module_gen_body TOK_END opt_label {
-		exitTypeScope();
-		delete $3;
-		delete $7;
 		SET_AST_NODE_LOC(ast_stack.back(), @1, @7);
 		ast_stack.pop_back();
 	} |
@@ -2790,6 +2784,23 @@ gen_stmt:
 		ast_stack.pop_back();
 	};
 
+gen_block:
+	TOK_BEGIN {
+		enterTypeScope();
+	} opt_label {
+		AstNode *node = new AstNode(AST_GENBLOCK);
+		node->str = $3 ? *$3 : std::string();
+		ast_stack.back()->children.push_back(node);
+		ast_stack.push_back(node);
+	} module_gen_body TOK_END opt_label {
+		exitTypeScope();
+		delete $3;
+		delete $7;
+		SET_AST_NODE_LOC(ast_stack.back(), @1, @7);
+		ast_stack.pop_back();
+	};
+
+// result is wrapped in a genblock only if necessary
 gen_stmt_block:
 	{
 		AstNode *node = new AstNode(AST_GENBLOCK);
@@ -2798,7 +2809,7 @@ gen_stmt_block:
 	} gen_stmt_or_module_body_stmt {
 		SET_AST_NODE_LOC(ast_stack.back(), @2, @2);
 		ast_stack.pop_back();
-	};
+	} | gen_block;
 
 opt_gen_else:
 	TOK_ELSE gen_stmt_block | %empty %prec FAKE_THEN;

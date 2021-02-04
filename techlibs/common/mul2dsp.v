@@ -121,7 +121,7 @@ module _80_mul (A, B, Y);
 			localparam partial_Y_WIDTH = `MIN(Y_WIDTH, B_WIDTH+`DSP_A_MAXWIDTH_PARTIAL);
 			localparam last_A_WIDTH = A_WIDTH-n*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom);
 			localparam last_Y_WIDTH = B_WIDTH+last_A_WIDTH;
-			if (A_SIGNED && B_SIGNED) begin
+			if (A_SIGNED && B_SIGNED) begin : blk
 				(* force_downto *)
 				wire signed [partial_Y_WIDTH-1:0] partial [n-1:0];
 				(* force_downto *)
@@ -129,7 +129,7 @@ module _80_mul (A, B, Y);
 				(* force_downto *)
 				wire signed [Y_WIDTH-1:0] partial_sum [n:0];
 			end
-			else begin
+			else begin : blk
 				(* force_downto *)
 				wire [partial_Y_WIDTH-1:0] partial [n-1:0];
 				(* force_downto *)
@@ -148,15 +148,15 @@ module _80_mul (A, B, Y);
 				) mul (
 					.A({{sign_headroom{1'b0}}, A[i*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom) +: `DSP_A_MAXWIDTH_PARTIAL-sign_headroom]}),
 					.B(B),
-					.Y(partial[i])
+					.Y(blk.partial[i])
 				);
 				// TODO: Currently a 'cascade' approach to summing the partial
 				//       products is taken here, but a more efficient 'binary
 				//       reduction' approach also exists...
 				if (i == 0)
-					assign partial_sum[i] = partial[i];
+					assign blk.partial_sum[i] = blk.partial[i];
 				else
-					assign partial_sum[i] = (partial[i] << (* mul2dsp *) i*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom)) + (* mul2dsp *) partial_sum[i-1];
+					assign blk.partial_sum[i] = (blk.partial[i] << (* mul2dsp *) i*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom)) + (* mul2dsp *) blk.partial_sum[i-1];
 			end
 
 			\$__mul #(
@@ -168,17 +168,17 @@ module _80_mul (A, B, Y);
 			) sliceA.last (
 				.A(A[A_WIDTH-1 -: last_A_WIDTH]),
 				.B(B),
-				.Y(last_partial)
+				.Y(blk.last_partial)
 			);
-			assign partial_sum[n] = (last_partial << (* mul2dsp *) n*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom)) + (* mul2dsp *) partial_sum[n-1];
-			assign Y = partial_sum[n];
+			assign blk.partial_sum[n] = (blk.last_partial << (* mul2dsp *) n*(`DSP_A_MAXWIDTH_PARTIAL-sign_headroom)) + (* mul2dsp *) blk.partial_sum[n-1];
+			assign Y = blk.partial_sum[n];
 		end
 		else if (B_WIDTH > `DSP_B_MAXWIDTH) begin
 			localparam n = (B_WIDTH-`DSP_B_MAXWIDTH+`DSP_B_MAXWIDTH_PARTIAL-sign_headroom-1) / (`DSP_B_MAXWIDTH_PARTIAL-sign_headroom);
 			localparam partial_Y_WIDTH = `MIN(Y_WIDTH, A_WIDTH+`DSP_B_MAXWIDTH_PARTIAL);
 			localparam last_B_WIDTH = B_WIDTH-n*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom);
 			localparam last_Y_WIDTH = A_WIDTH+last_B_WIDTH;
-			if (A_SIGNED && B_SIGNED) begin
+			if (A_SIGNED && B_SIGNED) begin : blk
 				(* force_downto *)
 				wire signed [partial_Y_WIDTH-1:0] partial [n-1:0];
 				(* force_downto *)
@@ -186,7 +186,7 @@ module _80_mul (A, B, Y);
 				(* force_downto *)
 				wire signed [Y_WIDTH-1:0] partial_sum [n:0];
 			end
-			else begin
+			else begin : blk
 				(* force_downto *)
 				wire [partial_Y_WIDTH-1:0] partial [n-1:0];
 				(* force_downto *)
@@ -205,15 +205,15 @@ module _80_mul (A, B, Y);
 				) mul (
 					.A(A),
 					.B({{sign_headroom{1'b0}}, B[i*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom) +: `DSP_B_MAXWIDTH_PARTIAL-sign_headroom]}),
-					.Y(partial[i])
+					.Y(blk.partial[i])
 				);
 				// TODO: Currently a 'cascade' approach to summing the partial
 				//       products is taken here, but a more efficient 'binary
 				//       reduction' approach also exists...
 				if (i == 0)
-					assign partial_sum[i] = partial[i];
+					assign blk.partial_sum[i] = blk.partial[i];
 				else
-					assign partial_sum[i] = (partial[i] << (* mul2dsp *) i*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)) + (* mul2dsp *) partial_sum[i-1];
+					assign blk.partial_sum[i] = (blk.partial[i] << (* mul2dsp *) i*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)) + (* mul2dsp *) blk.partial_sum[i-1];
 			end
 
 			\$__mul #(
@@ -225,20 +225,24 @@ module _80_mul (A, B, Y);
 			) mul_sliceB_last (
 				.A(A),
 				.B(B[B_WIDTH-1 -: last_B_WIDTH]),
-				.Y(last_partial)
+				.Y(blk.last_partial)
 			);
-			assign partial_sum[n] = (last_partial << (* mul2dsp *) n*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)) + (* mul2dsp *) partial_sum[n-1];
-			assign Y = partial_sum[n];
+			assign blk.partial_sum[n] = (blk.last_partial << (* mul2dsp *) n*(`DSP_B_MAXWIDTH_PARTIAL-sign_headroom)) + (* mul2dsp *) blk.partial_sum[n-1];
+			assign Y = blk.partial_sum[n];
 		end
 		else begin
-			if (A_SIGNED)
+			if (A_SIGNED) begin : blkA
 				wire signed [`DSP_A_MAXWIDTH-1:0] Aext = $signed(A);
-			else
+			end
+			else begin : blkA
 				wire [`DSP_A_MAXWIDTH-1:0] Aext = A;
-			if (B_SIGNED)
+			end
+			if (B_SIGNED) begin : blkB
 				wire signed [`DSP_B_MAXWIDTH-1:0] Bext = $signed(B);
-			else
+			end
+			else begin : blkB
 				wire [`DSP_B_MAXWIDTH-1:0] Bext = B;
+			end
 
 			`DSP_NAME #(
 				.A_SIGNED(A_SIGNED),
@@ -247,8 +251,8 @@ module _80_mul (A, B, Y);
 				.B_WIDTH(`DSP_B_MAXWIDTH),
 				.Y_WIDTH(`MIN(Y_WIDTH,`DSP_A_MAXWIDTH+`DSP_B_MAXWIDTH)),
 			) _TECHMAP_REPLACE_ (
-				.A(Aext),
-				.B(Bext),
+				.A(blkA.Aext),
+				.B(blkB.Bext),
 				.Y(Y)
 			);
 		end

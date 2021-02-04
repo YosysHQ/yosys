@@ -252,8 +252,8 @@ namespace AST
 		bool simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage, int width_hint, bool sign_hint, bool in_param);
 		void replace_result_wire_name_in_function(const std::string &from, const std::string &to);
 		AstNode *readmem(bool is_readmemh, std::string mem_filename, AstNode *memory, int start_addr, int finish_addr, bool unconditional_init);
-		void expand_genblock(std::string index_var, std::string prefix, std::map<std::string, std::string> &name_map, bool original_scope = true);
-		void replace_ids(const std::string &prefix, const std::map<std::string, std::string> &rules);
+		void expand_genblock(const std::string &prefix);
+		void label_genblks(std::set<std::string>& existing, int &counter);
 		void mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg_places,
 				dict<AstNode*, uint32_t> &mem2reg_flags, dict<AstNode*, uint32_t> &proc_flags, uint32_t &status_flags);
 		bool mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod, AstNode *block, AstNode *&async_block);
