@@ -1,0 +1,26 @@
+read_verilog <<EOT
+module foo;
+
+	genvar a = 0;
+	for (a = 0; a < 10; a++) begin : a
+	end : a
+endmodule
+EOT
+read_verilog <<EOT
+module foo2;
+
+	genvar a = 0;
+	for (a = 0; a < 10; a++) begin : a
+	end
+endmodule
+EOT
+
+logger -expect error "Begin label \(a\) and end label \(b\) don't match\." 1
+read_verilog <<EOT
+module foo3;
+
+	genvar a = 0;
+	for (a = 0; a < 10; a++) begin : a
+	end : b
+endmodule
+EOT

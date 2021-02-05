@@ -2794,6 +2794,8 @@ gen_block:
 		ast_stack.push_back(node);
 	} module_gen_body TOK_END opt_label {
 		exitTypeScope();
+		if ($3 != NULL && $7 != NULL && *$3 != *$7)
+			frontend_verilog_yyerror("Begin label (%s) and end label (%s) don't match.", $3->c_str()+1, $7->c_str()+1);
 		delete $3;
 		delete $7;
 		SET_AST_NODE_LOC(ast_stack.back(), @1, @7);
