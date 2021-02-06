@@ -49,6 +49,7 @@ static RTLIL::SigSpec uniop2rtlil(AstNode *that, IdString type, int result_width
 
 	RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_Y", result_width);
 	wire->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", that->filename.c_str(), that->location.first_line, that->location.first_column, that->location.last_line, that->location.last_column);
+	wire->is_signed = that->is_signed;
 
 	if (gen_attributes)
 		for (auto &attr : that->attributes) {
@@ -80,6 +81,7 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 
 	RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_Y", width);
 	wire->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", that->filename.c_str(), that->location.first_line, that->location.first_column, that->location.last_line, that->location.last_column);
+	wire->is_signed = that->is_signed;
 
 	if (that != NULL)
 		for (auto &attr : that->attributes) {
@@ -1050,6 +1052,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			RTLIL::Const val = children[0]->bitsAsConst();
 			RTLIL::Wire *wire = current_module->addWire(str, GetSize(val));
 			current_module->connect(wire, val);
+			wire->is_signed = children[0]->is_signed;
 
 			wire->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", filename.c_str(), location.first_line, location.first_column, location.last_line, location.last_column);
 			wire->attributes[type == AST_PARAMETER ? ID::parameter : ID::localparam] = 1;
@@ -1551,6 +1554,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			int mem_width, mem_size, addr_bits;
 			is_signed = id2ast->is_signed;
+			wire->is_signed = is_signed;
 			id2ast->meminfo(mem_width, mem_size, addr_bits);
 
 			RTLIL::SigSpec addr_sig = children[0]->genRTLIL();
@@ -1740,7 +1744,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 							// non-trivial signed nodes are indirected through
 							// signed wires to enable sign extension
 							RTLIL::IdString wire_name = NEW_ID;
-							RTLIL::Wire *wire = current_module->addWire(wire_name, arg->bits.size());
+							RTLIL::Wire *wire = current_module->addWire(wire_name, GetSize(sig));
 							wire->is_signed = true;
 							current_module->connect(wire, sig);
 							sig = wire;
