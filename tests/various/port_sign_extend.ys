@@ -1,22 +1,29 @@
-read_verilog port_sign_extend.v
+read_verilog -nomem2reg port_sign_extend.v
 hierarchy
 flatten
+proc
+memory
 equiv_make ref act equiv
 equiv_simple
 equiv_status -assert
 
 delete
 
-read_verilog port_sign_extend.v
+read_verilog -nomem2reg port_sign_extend.v
 flatten
+proc
+memory
 equiv_make ref act equiv
 equiv_simple
 equiv_status -assert
 
 delete
 
-read_verilog port_sign_extend.v
+read_verilog -nomem2reg port_sign_extend.v
 hierarchy
+proc
+memory
 equiv_make ref act equiv
 prep -flatten -top equiv
+equiv_induct
 equiv_status -assert
