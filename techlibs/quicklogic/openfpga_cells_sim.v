@@ -35,3 +35,16 @@ module frac_lut4(
     assign  lut4_out = li[3] ? s3[1] : s3[0];
 
 endmodule
+
+(* abc9_flop, lib_whitebox *)
+module scff(
+    output reg Q,
+    input D,
+    input clk
+);
+    parameter [0:0] INIT = 1'b0;
+    initial Q = INIT;
+
+    always @(posedge clk)
+        Q <= D;
+endmodule
