@@ -1784,7 +1784,13 @@ wire_name:
 			}
 			rewriteAsMemoryNode(node, $2);
 		}
-		if (current_function_or_task == NULL) {
+		if (current_function_or_task) {
+			if (node->is_input || node->is_output)
+				node->port_id = current_function_or_task_port_id++;
+		} else if (ast_stack.back()->type == AST_GENBLOCK) {
+			if (node->is_input || node->is_output)
+				frontend_verilog_yyerror("Cannot declare module port `%s' within a generate block.", $1->c_str());
+		} else {
 			if (do_not_require_port_stubs && (node->is_input || node->is_output) && port_stubs.count(*$1) == 0) {
 				port_stubs[*$1] = ++port_counter;
 			}
@@ -1799,9 +1805,6 @@ wire_name:
 				if (node->is_input || node->is_output)
 					frontend_verilog_yyerror("Module port `%s' is not declared in module header.", $1->c_str());
 			}
-		} else {
-			if (node->is_input || node->is_output)
-				node->port_id = current_function_or_task_port_id++;
 		}
 		//FIXME: for some reason, TOK_ID has a location which always points to one column *after* the real last column...
 		SET_AST_NODE_LOC(node, @1, @1);
