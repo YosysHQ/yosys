@@ -27,7 +27,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct SynthMachXO2Pass : public ScriptPass
 {
-	SynthMachXO2Pass() : ScriptPass("synth_machxo2", "synthesis for MachXO2 FPGAs") { }
+	SynthMachXO2Pass() : ScriptPass("synth_machxo2", "synthesis for MachXO2 FPGAs. This work is experimental.") { }
 
 	void help() override
 	{
