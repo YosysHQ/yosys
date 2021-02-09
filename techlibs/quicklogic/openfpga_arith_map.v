@@ -42,10 +42,6 @@ module _80_quicklogic_alu (A, B, CI, BI, X, Y, CO);
         wire ci;
         wire co;
 
-        wire [0:1] lut2_out_1;
-        wire [0:1] lut2_out_2;
-        wire [0:1] lut2_out_3;
-
         // First in chain
         generate if (i == 0) begin
 
@@ -57,17 +53,13 @@ module _80_quicklogic_alu (A, B, CI, BI, X, Y, CO);
                     16'b1001_0000_0000_0111;
 
                 // LUT4 configured as 1-bit adder with CI=const
-                frac_lut4 #(
-                    .LUT(INIT)
-                ) lut_inst_1 (
-                    .in({AA[i], BB[i], 1'b0, 1'b0}),
-                    .lut2_out(lut2_out_1),
-                    .lut4_out(Y[i])
-                );
-                carry_follower carry_inst_1(
-                    .a(lut2_out_1[1]),
-                    .b(),
-                    .cin(lut2_out_1[0]),
+                adder_lut4 #(
+                    .LUT(INIT),
+                    .IN2_IS_CIN(1'b0)
+                ) lut_ci_adder (
+                    .in({AA[i], BB[i], 1'b0, 1'b0}), 
+                    .cin(), 
+                    .lut4_out(Y[i]), 
                     .cout(ci)
                 );
 
@@ -75,17 +67,13 @@ module _80_quicklogic_alu (A, B, CI, BI, X, Y, CO);
             end else begin
 
                 // LUT4 configured as passthrough to drive CI of the next stage
-                frac_lut4 #(
-                    .LUT(16'b1100_0000_0000_0011)
-                ) lut_inst_2 (
-                    .in({1'b0, CI, 1'b0, 1'b0}),
-                    .lut2_out(lut2_out_1),
-                    .lut4_out()
-                );
-                carry_follower carry_inst_2(
-                    .a(lut2_out_1[1]),
-                    .b(),
-                    .cin(lut2_out_1[0]),
+                adder_lut4 #(
+                    .LUT(16'b1100_0000_0000_0011),
+                    .IN2_IS_CIN(1'b0)
+                ) lut_ci (
+                    .in({1'b0,CI,1'b0,1'b0}), 
+                    .cin(), 
+                    .lut4_out(), 
                     .cout(ci)
                 );
             end
@@ -103,20 +91,15 @@ module _80_quicklogic_alu (A, B, CI, BI, X, Y, CO);
         generate if ((i == 0 && _TECHMAP_CONSTMSK_CI_ == 0) || (i > 0)) begin
             
             // LUT4 configured as full 1-bit adder
-            frac_lut4 #(
-                .LUT(16'b0110_1001_0110_0001)
-            ) lut_inst_3 (
-                .in({AA[i], BB[i], ci, 1'b0}),
-                .lut2_out(lut2_out_2),
-                .lut4_out(Y[i])
-            );
-            carry_follower carry_inst_3(
-                .a(lut2_out_2[1]),
-                .b(ci),
-                .cin(lut2_out_2[0]),
-                .cout(co)
-            );
-                         
+            adder_lut4 #(
+                    .LUT(16'b0110_1001_0110_0001),
+                    .IN2_IS_CIN(1'b1)
+                ) lut_adder (
+                    .in({AA[i], BB[i],ci,1'b0}), 
+                    .cin(ci), 
+                    .lut4_out(Y[i]), 
+                    .cout(co)
+                );
         end else begin
             assign co = ci;
 
@@ -129,19 +112,15 @@ module _80_quicklogic_alu (A, B, CI, BI, X, Y, CO);
 
             // LUT4 configured for passing its CI input to output. This should
             // get pruned if the actual CO port is not connected anywhere.
-            frac_lut4 #(
-                .LUT(16'b0000_1111_0000_1111)
-            ) lut_inst_4 (
-                .in({1'b0, co, 1'b0, 1'b0}),
-                .lut2_out(lut2_out_3),
-                .lut4_out(C[i])
-            );
-            carry_follower carry_inst_4(
-                .a(lut2_out_3[1]),
-                .b(co),
-                .cin(lut2_out_3[0]),
-                .cout()
-            );
+            adder_lut4 #(
+                    .LUT(16'b0000_1111_0000_1111),
+                    .IN2_IS_CIN(1'b1)
+                ) lut_co (
+                    .in({1'b0, co, 1'b0, 1'b0}),
+                    .cin(co),
+                    .lut4_out(C[i]),
+                    .cout()
+                );
         // Not last in chain
         end else begin
             assign C[i] = co;
