@@ -1,4 +1,13 @@
 module foo;
+integer out;
+initial begin
+int i;
+i = 10;
+for (int i = 0; i < 5; i++)
+  out = i;
+out = i;
+end
+
 logic [7:0] outa = 8'b00000000;
 genvar a;
 for (a = 0 ; a < 8; a++) begin
@@ -37,6 +46,7 @@ always_comb begin
   assert(6'b111111 == outc);
   assert(5'b00000 == outd);
   assert(4'b1111 == oute);
+  assert(10 == out);
 end
 
 endmodule

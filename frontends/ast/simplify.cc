@@ -943,14 +943,20 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 	if ((type == AST_GENFOR || type == AST_FOR) && children.size() != 0)
 	{
+		AstNode *scope_node = current_block ? current_block : current_ast_mod;
 		AstNode *init_ast = children[0];
 		if (init_ast->type == AST_ASSIGN_EQ && init_ast->children[0]->type != AST_IDENTIFIER) {
+			if (type == AST_FOR) {
+				scope_node->str = str;
+			}
+			scope_node->children.insert(scope_node->children.begin(), init_ast->children[0]);
+			init_ast->children[0]->simplify(false, false, true, stage, -1, false, in_param);
 			auto *clone = init_ast->children[0]->clone();
-			clone->simplify(false, false, true, stage, -1, false, in_param);
-			current_ast_mod->children.push_back(clone);
-			init_ast->children[0]->type = AST_IDENTIFIER;
-			init_ast->children[0]->id2ast = clone;
-			init_ast->children[0]->children.clear();
+			clone->type = AST_IDENTIFIER;
+			clone->id2ast = init_ast->children[0];
+			clone->children.clear();
+
+			init_ast->children[0] = clone;
 		}
 	}
 
