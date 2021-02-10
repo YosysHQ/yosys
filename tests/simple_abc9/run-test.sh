@@ -17,6 +17,24 @@ if ! command -v iverilog > /dev/null ; then
   exit 1
 fi
 
+for file in `ls *.v *.sv`; do
+    if [ ! -f "../simple/$file" -a "$file" != "abc9.v" ]; then
+	echo "Warning: $file is in simple_abc9/, but not in simple/"
+	backup="$file.bak"
+	if [ -f "$backup" ]; then
+	    if cmp "$file" "$backup" > /dev/null; then
+		echo " => $backup already exists and matches; removing $file"
+		rm "$file"
+	    else
+		echo " => $backup already exists but differs; leaving $file in place"
+	    fi
+	else
+	    echo " => moving $file to $backup"
+	    mv -i "$file" "$backup"
+	fi
+    fi
+done
+
 cp ../simple/*.v .
 cp ../simple/*.sv .
 DOLLAR='?'
