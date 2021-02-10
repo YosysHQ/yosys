@@ -95,7 +95,7 @@ module _80_quicklogic_alu (A, B, CI, BI, X, Y, CO);
                     .LUT(16'b0110_1001_0110_0001),
                     .IN2_IS_CIN(1'b1)
                 ) lut_adder (
-                    .in({AA[i], BB[i],ci,1'b0}), 
+                    .in({AA[i], BB[i], 1'b0, 1'b0}),
                     .cin(ci), 
                     .lut4_out(Y[i]), 
                     .cout(co)
