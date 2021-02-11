@@ -1,0 +1,12 @@
+logger -expect error "Cannot declare module port `\\x' within a generate block\." 1
+read_verilog <<EOT
+module top(x);
+    generate
+        if (1) begin : blk
+            output wire x;
+            assign x = 1;
+        end
+    endgenerate
+    output wire x;
+endmodule
+EOT
