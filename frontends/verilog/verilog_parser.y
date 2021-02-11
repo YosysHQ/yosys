@@ -1491,10 +1491,10 @@ enum_base_type: type_atom type_signing
 	| %empty			{ astbuf1->is_reg = true; addRange(astbuf1); }
 	;
 
-type_atom: TOK_INTEGER		{ astbuf1->is_reg = true; addRange(astbuf1); }		// 4-state signed
-	|  TOK_INT		{ astbuf1->is_reg = true; addRange(astbuf1); }		// 2-state signed
-	|  TOK_SHORTINT		{ astbuf1->is_reg = true; addRange(astbuf1, 15, 0); }	// 2-state signed
-	|  TOK_BYTE		{ astbuf1->is_reg = true; addRange(astbuf1,  7, 0); }	// 2-state signed
+type_atom: TOK_INTEGER		{ astbuf1->is_reg = true; astbuf1->is_signed = true; addRange(astbuf1); }		// 4-state signed
+	|  TOK_INT		{ astbuf1->is_reg = true; astbuf1->is_signed = true; addRange(astbuf1); }		// 2-state signed
+	|  TOK_SHORTINT		{ astbuf1->is_reg = true; astbuf1->is_signed = true; addRange(astbuf1, 15, 0); }	// 2-state signed
+	|  TOK_BYTE		{ astbuf1->is_reg = true; astbuf1->is_signed = true; addRange(astbuf1,  7, 0); }	// 2-state signed
 	;
 
 type_vec: TOK_REG		{ astbuf1->is_reg   = true; }		// unsigned
