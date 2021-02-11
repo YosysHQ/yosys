@@ -264,10 +264,9 @@ namespace AST
 
 		// additional functionality for evaluating constant functions
 		struct varinfo_t { RTLIL::Const val; int offset; bool is_signed; };
-		bool has_const_only_constructs(bool &recommend_const_eval);
-		bool has_const_only_constructs(std::set<std::string>& visited, bool &recommend_const_eval);
-		void replace_variables(std::map<std::string, varinfo_t> &variables, AstNode *fcall);
-		AstNode *eval_const_function(AstNode *fcall);
+		bool has_const_only_constructs();
+		bool replace_variables(std::map<std::string, varinfo_t> &variables, AstNode *fcall, bool must_succeed);
+		AstNode *eval_const_function(AstNode *fcall, bool must_succeed);
 		bool is_simple_const_expr();
 		std::string process_format_str(const std::string &sformat, int next_arg, int stage, int width_hint, bool sign_hint);
 
