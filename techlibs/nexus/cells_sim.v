@@ -941,3 +941,118 @@ module MULTADDSUB36X36 #(
 		.Z(Z)
 	);
 endmodule
+
+module MULTADDSUB9X9WIDE #(
+	parameter REGINPUTAB0 = "REGISTER",
+	parameter REGINPUTAB1 = "REGISTER",
+	parameter REGINPUTAB2 = "REGISTER",
+	parameter REGINPUTAB3 = "REGISTER",
+	parameter REGINPUTC = "REGISTER",
+	parameter REGADDSUB = "REGISTER",
+	parameter REGLOADC = "REGISTER",
+	parameter REGLOADC2 = "REGISTER",
+	parameter REGPIPELINE = "REGISTER",
+	parameter REGOUTPUT = "REGISTER",
+	parameter GSR = "ENABLED",
+	parameter RESETMODE = "SYNC"
+) (
+	input [8:0] A0, B0, A1, B1, A2, B2, A3, B3,
+	input [53:0] C,
+	input CLK,
+	input CEA0A1, CEA2A3,
+	input RSTA0A1, RSTA2A3,
+	input CEB0B1, CEB2B3,
+	input RSTB0B1, RSTB2B3,
+	input CEC, RSTC,
+	input CECTRL, RSTCTRL,
+	input SIGNED,
+	input RSTPIPE, CEPIPE,
+	input RSTOUT, CEOUT,
+	input LOADC,
+	input [3:0] ADDSUB,
+	output [53:0] Z
+);
+	wire [17:0] m0, m1, m2, m3;
+
+	localparam M_WIDTH = 18;
+	localparam Z_WIDTH = 54;
+
+	MULT9X9 #(
+		.REGINPUTA(REGINPUTAB0), .REGINPUTB(REGINPUTAB0), .REGOUTPUT(REGPIPELINE), .GSR(GSR), .RESETMODE(RESETMODE)
+	) m9_0 (
+		.A(A0), .B(B0), .SIGNEDA(SIGNED), .SIGNEDB(SIGNED),
+		.CLK(CLK),
+		.CEA(CEA0A1), .RSTA(RSTA0A1),
+		.CEB(CEB0B1), .RSTB(RSTB0B1),
+		.CEOUT(CEPIPE), .RSTOUT(RSTPIPE),
+		.Z(m0)
+	);
+	MULT9X9 #(
+		.REGINPUTA(REGINPUTAB1), .REGINPUTB(REGINPUTAB1), .REGOUTPUT(REGPIPELINE), .GSR(GSR), .RESETMODE(RESETMODE)
+	) m9_1 (
+		.A(A1), .B(B1), .SIGNEDA(SIGNED), .SIGNEDB(SIGNED),
+		.CLK(CLK),
+		.CEA(CEA0A1), .RSTA(RSTA0A1),
+		.CEB(CEB0B1), .RSTB(RSTB0B1),
+		.CEOUT(CEPIPE), .RSTOUT(RSTPIPE),
+		.Z(m1)
+	);
+	MULT9X9 #(
+		.REGINPUTA(REGINPUTAB2), .REGINPUTB(REGINPUTAB2), .REGOUTPUT(REGPIPELINE), .GSR(GSR), .RESETMODE(RESETMODE)
+	) m9_2 (
+		.A(A2), .B(B2), .SIGNEDA(SIGNED), .SIGNEDB(SIGNED),
+		.CLK(CLK),
+		.CEA(CEA2A3), .RSTA(RSTA2A3),
+		.CEB(CEB2B3), .RSTB(RSTB2B3),
+		.CEOUT(CEPIPE), .RSTOUT(RSTPIPE),
+		.Z(m2)
+	);
+	MULT9X9 #(
+		.REGINPUTA(REGINPUTAB3), .REGINPUTB(REGINPUTAB3), .REGOUTPUT(REGPIPELINE), .GSR(GSR), .RESETMODE(RESETMODE)
+	) m9_3 (
+		.A(A3), .B(B3), .SIGNEDA(SIGNED), .SIGNEDB(SIGNED),
+		.CLK(CLK),
+		.CEA(CEA2A3), .RSTA(RSTA2A3),
+		.CEB(CEB2B3), .RSTB(RSTB2B3),
+		.CEOUT(CEPIPE), .RSTOUT(RSTPIPE),
+		.Z(m3)
+	);
+
+	wire [53:0] c_r, c_r2;
+	wire [3:0] addsub_r, addsub_r2;
+	wire sgd_r, sgd_r2, csgd_r, csgd_r2;
+	wire loadc_r, loadc_r2;
+
+	OXIDE_DSP_REG #(5, REGADDSUB, RESETMODE) addsub_reg(CLK, CECTRL, RSTCTRL, {SIGNED, ADDSUB}, {sgd_r, addsub_r});
+	OXIDE_DSP_REG #(5, REGADDSUB, RESETMODE) addsub2_reg(CLK, CECTRL, RSTCTRL, {sgd_r, addsub_r}, {sgd_r2, addsub_r2});
+
+	OXIDE_DSP_REG #(1, REGLOADC, RESETMODE) loadc_reg(CLK, CECTRL, RSTCTRL, LOADC, loadc_r);
+	OXIDE_DSP_REG #(1, REGLOADC2, RESETMODE) loadc2_reg(CLK, CECTRL, RSTCTRL, loadc_r, loadc_r2);
+
+	OXIDE_DSP_REG #(55, REGINPUTC, RESETMODE) c_reg(CLK, CEC, RSTC, {SIGNED, C}, {csgd_r, c_r});
+	OXIDE_DSP_REG #(55, REGPIPELINE, RESETMODE) c2_reg(CLK, CEC, RSTC, {csgd_r, c_r}, {csgd_r2, c_r2});
+
+
+	wire [18:0] m0_ext, m1_ext, m2_ext, m3_ext;
+
+	assign m0_ext = {sgd_r2 ? m0[M_WIDTH-1] : 1'b0, m0};
+	assign m1_ext = {sgd_r2 ? m1[M_WIDTH-1] : 1'b0, m1};
+	assign m2_ext = {sgd_r2 ? m2[M_WIDTH-1] : 1'b0, m2};
+	assign m3_ext = {sgd_r2 ? m3[M_WIDTH-1] : 1'b0, m3};
+
+	wire [18:0] s0 = addsub_r2[2] ? (m0_ext - m1_ext) : (m0_ext + m1_ext);
+	wire [18:0] s1 = addsub_r2[3] ? (m2_ext - m3_ext) : (m2_ext + m3_ext);
+
+	wire [53:0] s0_ext = {{(54-19){sgd_r2 ? s0[18] : 1'b0}}, s0};
+	wire [53:0] s1_ext = {{(54-19){sgd_r2 ? s1[18] : 1'b0}}, s1};
+
+	wire [53:0] c_op = loadc_r2 ? c_r2 : Z;
+
+	// The diagram in the docs is wrong! It is not two cascaded 2-input add/subs as shown,
+	// but a three-input unit with negation controls on two inputs (i.e. addsub_r2[0]
+	// negates s1 not (s1 +/- s0))
+	wire [53:0] z_d =  c_op + (addsub_r2[0] ? -s1_ext : s1_ext) + (addsub_r2[1] ? -s0_ext : s0_ext);
+
+	OXIDE_DSP_REG #(Z_WIDTH, REGOUTPUT, RESETMODE) z_reg(CLK, CEOUT, RSTOUT, z_d, Z);
+
+endmodule
