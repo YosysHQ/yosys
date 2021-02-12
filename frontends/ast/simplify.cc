@@ -575,6 +575,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		deep_recursion_warning = false;
 	}
 
+	static bool unevaluated_tern_branch = false;
+
 	AstNode *newNode = NULL;
 	bool did_something = false;
 
@@ -1091,7 +1093,6 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		break;
 
 	case AST_TERNARY:
-		detect_width_simple = true;
 		child_0_is_self_determined = true;
 		break;
 
@@ -1124,6 +1125,24 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		detectSignWidth(width_hint, sign_hint);
 
 	if (type == AST_TERNARY) {
+		if (width_hint < 0) {
+			while (!children[0]->basic_prep && children[0]->simplify(true, false, in_lvalue, stage, -1, false, in_param))
+				did_something = true;
+
+			bool backup_unevaluated_tern_branch = unevaluated_tern_branch;
+			AstNode *chosen = get_tern_choice().first;
+
+			unevaluated_tern_branch = backup_unevaluated_tern_branch || chosen == children[2];
+			while (!children[1]->basic_prep && children[1]->simplify(false, false, in_lvalue, stage, -1, false, in_param))
+				did_something = true;
+
+			unevaluated_tern_branch = backup_unevaluated_tern_branch || chosen == children[1];
+			while (!children[2]->basic_prep && children[2]->simplify(false, false, in_lvalue, stage, -1, false, in_param))
+				did_something = true;
+
+			unevaluated_tern_branch = backup_unevaluated_tern_branch;
+			detectSignWidth(width_hint, sign_hint);
+		}
 		int width_hint_left, width_hint_right;
 		bool sign_hint_left, sign_hint_right;
 		bool found_real_left, found_real_right;
@@ -1187,6 +1206,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	for (size_t i = 0; i < children.size(); i++) {
 		bool did_something_here = true;
 		bool backup_flag_autowire = flag_autowire;
+		bool backup_unevaluated_tern_branch = unevaluated_tern_branch;
 		if ((type == AST_GENFOR || type == AST_FOR) && i >= 3)
 			break;
 		if ((type == AST_GENIF || type == AST_GENCASE) && i >= 1)
@@ -1199,6 +1219,10 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			break;
 		if (type == AST_DEFPARAM && i == 0)
 			flag_autowire = true;
+		if (type == AST_TERNARY && i > 0 && !unevaluated_tern_branch) {
+			AstNode *chosen = get_tern_choice().first;
+			unevaluated_tern_branch = chosen && chosen != children[i];
+		}
 		while (did_something_here && i < children.size()) {
 			bool const_fold_here = const_fold, in_lvalue_here = in_lvalue;
 			int width_hint_here = width_hint;
@@ -1238,6 +1262,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			did_something = true;
 		}
 		flag_autowire = backup_flag_autowire;
+		unevaluated_tern_branch = backup_unevaluated_tern_branch;
 	}
 	for (auto &attr : attributes) {
 		while (attr.second->simplify(true, false, false, stage, -1, false, true))
@@ -3177,6 +3202,8 @@ skip_dynamic_range_lvalue_expansion:;
 		std::string prefix = sstr.str();
 
 		AstNode *decl = current_scope[str];
+		if (unevaluated_tern_branch && decl->is_recursive_function())
+			goto replace_fcall_later;
 		decl = decl->clone();
 		decl->replace_result_wire_name_in_function(str, "$result"); // enables recursion
 		decl->expand_genblock(prefix);
@@ -3610,24 +3637,9 @@ replace_fcall_later:;
 		case AST_TERNARY:
 			if (children[0]->isConst())
 			{
-				bool found_sure_true = false;
-				bool found_maybe_true = false;
-
-				if (children[0]->type == AST_CONSTANT)
-					for (auto &bit : children[0]->bits) {
-						if (bit == RTLIL::State::S1)
-							found_sure_true = true;
-						if (bit > RTLIL::State::S1)
-							found_maybe_true = true;
-					}
-				else
-					found_sure_true = children[0]->asReal(sign_hint) != 0;
-
-				AstNode *choice = NULL, *not_choice = NULL;
-				if (found_sure_true)
-					choice = children[1], not_choice = children[2];
-				else if (!found_maybe_true)
-					choice = children[2], not_choice = children[1];
+				auto pair = get_tern_choice();
+				AstNode *choice = pair.first;
+				AstNode *not_choice = pair.second;
 
 				if (choice != NULL) {
 					if (choice->type == AST_CONSTANT) {
@@ -4843,6 +4855,56 @@ void AstNode::allocateDefaultEnumValues()
 			// TODO: range check
 		}
 	}
+}
+
+bool AstNode::is_recursive_function() const
+{
+	std::set<const AstNode *> visited;
+	std::function<bool(const AstNode *node)> visit = [&](const AstNode *node) {
+		if (visited.count(node))
+			return node == this;
+		visited.insert(node);
+		if (node->type == AST_FCALL) {
+			auto it = current_scope.find(node->str);
+			if (it != current_scope.end() && visit(it->second))
+				return true;
+		}
+		for (const AstNode *child : node->children) {
+			if (visit(child))
+				return true;
+		}
+		return false;
+	};
+
+	log_assert(type == AST_FUNCTION);
+	return visit(this);
+}
+
+std::pair<AstNode*, AstNode*> AstNode::get_tern_choice()
+{
+	if (!children[0]->isConst())
+		return {};
+
+	bool found_sure_true = false;
+	bool found_maybe_true = false;
+
+	if (children[0]->type == AST_CONSTANT)
+		for (auto &bit : children[0]->bits) {
+			if (bit == RTLIL::State::S1)
+				found_sure_true = true;
+			if (bit > RTLIL::State::S1)
+				found_maybe_true = true;
+		}
+	else
+		found_sure_true = children[0]->asReal(true) != 0;
+
+	AstNode *choice = nullptr, *not_choice = nullptr;
+	if (found_sure_true)
+		choice = children[1], not_choice = children[2];
+	else if (!found_maybe_true)
+		choice = children[2], not_choice = children[1];
+
+	return {choice, not_choice};
 }
 
 YOSYS_NAMESPACE_END

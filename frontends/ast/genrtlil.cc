@@ -944,6 +944,41 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 			}
 			break;
 		}
+		if (current_scope.count(str))
+		{
+			// This width detection is needed for function calls which are
+			// unelaborated, which currently only applies to calls to recursive
+			// functions reached by unevaluated ternary branches.
+			const AstNode *func = current_scope.at(str);
+			if (func->type != AST_FUNCTION)
+				log_file_error(filename, location.first_line, "Function call to %s resolved to something that isn't a function!\n", RTLIL::unescape_id(str).c_str());
+			const AstNode *wire = nullptr;
+			for (const AstNode *child : func->children)
+				if (child->str == func->str) {
+					wire = child;
+					break;
+				}
+			log_assert(wire && wire->type == AST_WIRE);
+			sign_hint = wire->is_signed;
+			width_hint = 1;
+			if (!wire->children.empty())
+			{
+				log_assert(wire->children.size() == 1);
+				const AstNode *range = wire->children.at(0);
+				log_assert(range->type == AST_RANGE && range->children.size() == 2);
+				AstNode *left = range->children.at(0)->clone();
+				AstNode *right = range->children.at(1)->clone();
+				while (left->simplify(true, false, false, 1, -1, false, true)) { }
+				while (right->simplify(true, false, false, 1, -1, false, true)) { }
+				if (left->type != AST_CONSTANT || right->type != AST_CONSTANT)
+					log_file_error(filename, location.first_line, "Function %s has non-constant width!",
+							RTLIL::unescape_id(str).c_str());
+				width_hint = abs(int(left->asInt(true) - right->asInt(true)));
+				delete left;
+				delete right;
+			}
+			break;
+		}
 		YS_FALLTHROUGH
 
 	// everything should have been handled above -> print error if not.

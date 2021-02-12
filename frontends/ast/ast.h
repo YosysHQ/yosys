@@ -270,6 +270,9 @@ namespace AST
 		bool is_simple_const_expr();
 		std::string process_format_str(const std::string &sformat, int next_arg, int stage, int width_hint, bool sign_hint);
 
+		bool is_recursive_function() const;
+		std::pair<AstNode*, AstNode*> get_tern_choice();
+
 		// create a human-readable text representation of the AST (for debugging)
 		void dumpAst(FILE *f, std::string indent) const;
 		void dumpVlog(FILE *f, std::string indent) const;
