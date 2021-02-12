@@ -49,13 +49,16 @@ USING_YOSYS_NAMESPACE
 #include "VeriWrite.h"
 #include "VhdlUnits.h"
 #include "VeriLibrary.h"
+
+#if defined(YOSYSHQ_VERIFIC_INITSTATE) || defined(YOSYSHQ_VERIFIC_TEMPLATES) || defined(YOSYSHQ_VERIFIC_FORMALAPPS)
 #include "VeriExtensions.h"
+#endif
 
 #ifndef YOSYSHQ_VERIFIC_API_VERSION
 #  error "Only YosysHQ flavored Verific is supported. Please contact office@yosyshq.com for commercial support for Yosys+Verific."
 #endif
 
-#if YOSYSHQ_VERIFIC_API_VERSION < 20210101
+#if YOSYSHQ_VERIFIC_API_VERSION < 20210103
 #  error "Please update your version of YosysHQ flavored Verific."
 #endif
 
@@ -1471,6 +1474,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 				continue;
 		}
 
+#ifdef YOSYSHQ_VERIFIC_INITSTATE
 		if (inst->Type() == PRIM_YOSYSHQ_INITSTATE)
 		{
 			SigBit initstate = module->Initstate(new_verific_id(inst));
@@ -1480,7 +1484,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 			if (!mode_keep)
 				continue;
 		}
-
+#endif
 		if (!mode_keep && verific_sva_prims.count(inst->Type())) {
 			if (verific_verbose)
 				log("    skipping SVA cell in non k-mode\n");
@@ -1958,9 +1962,10 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 	for (const auto &i : parameters)
 		verific_params.Insert(i.first.c_str(), i.second.c_str());
 
+#ifdef YOSYSHQ_VERIFIC_INITSTATE
 	InitialAssertionRewriter rw;
 	rw.RegisterCallBack();
-
+#endif
 	if (top.empty()) {
 		netlists = hier_tree::ElaborateAll(&veri_libs, &vhdl_libs, &verific_params);
 	}
@@ -2217,7 +2222,7 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("Applications:\n");
 		log("\n");
-#ifdef YOSYS_ENABLE_VERIFIC
+#if defined(YOSYS_ENABLE_VERIFIC) && defined(YOSYSHQ_VERIFIC_FORMALAPPS)
 		VerificFormalApplications vfa;
 		log("%s\n",vfa.GetHelp().c_str());
 #else
@@ -2243,7 +2248,7 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("Templates:\n");
 		log("\n");
-#ifdef YOSYS_ENABLE_VERIFIC
+#if defined(YOSYS_ENABLE_VERIFIC) && defined(YOSYSHQ_VERIFIC_TEMPLATES)
 		VerificTemplateGenerator vfg;
 		log("%s\n",vfg.GetHelp().c_str());
 #else
@@ -2494,6 +2499,7 @@ struct VerificPass : public Pass {
 			goto check_error;
 		}
 
+#ifdef YOSYSHQ_VERIFIC_FORMALAPPS
 		if (argidx < GetSize(args) && args[argidx] == "-app")
 		{
 			if (!(argidx+1 < GetSize(args)))
@@ -2587,7 +2593,7 @@ struct VerificPass : public Pass {
 			}
 			goto check_error;
 		}
-
+#endif
 		if (argidx < GetSize(args) && args[argidx] == "-pp")
 		{
 			const char* filename = nullptr;
@@ -2630,6 +2636,7 @@ struct VerificPass : public Pass {
 			goto check_error;
 		}
 
+#ifdef YOSYSHQ_VERIFIC_TEMPLATES
 		if (argidx < GetSize(args) && args[argidx] == "-template")
 		{
 			if (!(argidx+1 < GetSize(args)))
@@ -2713,7 +2720,7 @@ struct VerificPass : public Pass {
 				fclose(of);
 			goto check_error;
 		}
-
+#endif
 		if (GetSize(args) > argidx && args[argidx] == "-import")
 		{
 			std::set<Netlist*> nl_todo, nl_done;
@@ -2798,9 +2805,10 @@ struct VerificPass : public Pass {
 
 			std::set<std::string> top_mod_names;
 
+#ifdef YOSYSHQ_VERIFIC_INITSTATE
 			InitialAssertionRewriter rw;
 			rw.RegisterCallBack();
-
+#endif
 			if (mode_all)
 			{
 				log("Running hier_tree::ElaborateAll().\n");
