@@ -183,9 +183,28 @@ module test;
         sig_036_S <= #(2) 0;
         #(100, 200, 300);
         sig_036_A <= #(2 : 3 : 5) ~0;
-        sig_036_B <= #(4 : 6 : 6) ~0;
-        sig_036_S <= #(1.5 : 2.5 : 3) ~0;
+        sig_036_B <= #(4 : 6 : 6, 10) ~0;
+        sig_036_S <= #(1 : 2 : 3, 2 : 2 : 3, 10) ~0;
         #100;
     endtask
+endmodule
+EOT
+
+design -reset
+logger -expect-no-warnings
+read_verilog <<EOT
+module test (clk, en, i, o);
+    input clk, en, i;
+    reg p;
+    output o;
+    always @ (posedge clk)
+    begin
+        if (en) begin
+            p <= #(5:15:25, 20, 30) i;
+        end else begin
+            #(5, 3:5:8, 10) p <= i;
+        end
+    end
+    assign #(10, 20, 15:20:30) o = p;
 endmodule
 EOT

@@ -609,16 +609,17 @@ interface_body_stmt:
 	param_decl | localparam_decl | typedef_decl | defparam_decl | wire_decl | always_stmt | assign_stmt |
 	modport_stmt;
 
+mintypmax_expr:
+	expr { delete $1; } |
+	expr ':' expr ':' expr { delete $1; delete $3; delete $5; };
+
 non_opt_delay:
 	'#' TOK_ID { delete $2; } |
 	'#' TOK_CONSTVAL { delete $2; } |
 	'#' TOK_REALVAL { delete $2; } |
-	'#' '(' expr ')' { delete $3; } |
-	'#' '(' expr ',' expr ')' { delete $3; delete $5; } |
-	'#' '(' expr ',' expr ',' expr ')' { delete $3; delete $5; delete $7; } |
-	'#' '(' expr ':' expr ':' expr ')' { delete $3; delete $5; delete $7; } |
-	'#' '(' expr ':' expr ':' expr ',' expr ':' expr ':' expr ')' { delete $3; delete $5; delete $7; delete $9; delete $11; delete $13; } |
-	'#' '(' expr ':' expr ':' expr ',' expr ':' expr ':' expr ',' expr ':' expr ':' expr ')' { delete $3; delete $5; delete $7; delete $9; delete $11; delete $13; delete $15; delete $17; delete $19; };
+	'#' '(' mintypmax_expr ')' |
+	'#' '(' mintypmax_expr ',' mintypmax_expr ')' |
+	'#' '(' mintypmax_expr ',' mintypmax_expr ',' mintypmax_expr ')';
 
 delay:
 	non_opt_delay | %empty;
