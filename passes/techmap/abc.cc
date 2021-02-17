@@ -38,7 +38,7 @@
 #define ABC_FAST_COMMAND_LIB "strash; dretime; map {D}"
 #define ABC_FAST_COMMAND_CTR "strash; dretime; map {D}; buffer; upsize {D}; dnsize {D}; stime -p"
 #define ABC_FAST_COMMAND_LUT "strash; dretime; if"
-#define ABC_FAST_COMMAND_SOP "strash; dretime; cover -I {I} -P {P}"
+#define ABC_FAST_COMMAND_SOP "strash; dretime; cover {I} {P}"
 #define ABC_FAST_COMMAND_DFL "strash; dretime; map"
 
 #include "kernel/register.h"
