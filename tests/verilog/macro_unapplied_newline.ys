@@ -1,0 +1,5 @@
+logger -expect error "Expected to find '\(' to begin macro arguments for 'foo', but instead found '\\x0a'" 1
+read_verilog -sv <<EOT
+`define foo(a=1) (a)
+`foo
+EOT
