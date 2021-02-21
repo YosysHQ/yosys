@@ -62,26 +62,25 @@ module top(out);
     localparam signed Y = $floor(W / X);
     localparam signed Z = negate($floor(W / X));
 
-// `define VERIFY
-`ifdef VERIFY
-    assert property (a1 == 0);
-    assert property (a2 == 0);
-    assert property (a3 == "BAR");
-    assert property (a4 == 0);
-    assert property (b1 == "FOO");
-    assert property (b2 == "FOO");
-    assert property (b3 == 0);
-    assert property (b4 == "HI");
-    assert property (c1 == 1);
-    assert property (c2 == 1);
-    assert property (c3 == 0);
-    assert property (c4 == 0);
-    assert property (d1 == 0);
-    assert property (d2 == 0);
-    assert property (d3 == 1);
-    assert property (d4 == 1);
+    always_comb begin
+        assert(a1 == 0);
+        assert(a2 == 0);
+        assert(a3 == "BAR");
+        assert(a4 == 0);
+        assert(b1 == "FOO");
+        assert(b2 == "FOO");
+        assert(b3 == 0);
+        assert(b4 == "HI");
+        assert(c1 == 1);
+        assert(c2 == 1);
+        assert(c3 == 0);
+        assert(c4 == 0);
+        assert(d1 == 0);
+        assert(d2 == 0);
+        assert(d3 == 1);
+        assert(d4 == 1);
 
-    assert property (Y == 3);
-    assert property (Z == ~3);
-`endif
+        assert(Y == 3);
+        assert(Z == ~3);
+    end
 endmodule

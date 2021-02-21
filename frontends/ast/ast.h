@@ -263,7 +263,13 @@ namespace AST
 		bool detect_latch(const std::string &var);
 
 		// additional functionality for evaluating constant functions
-		struct varinfo_t { RTLIL::Const val; int offset; bool is_signed; };
+		struct varinfo_t {
+			RTLIL::Const val;
+			int offset;
+			bool is_signed;
+			AstNode *arg = nullptr;
+			bool explicitly_sized;
+		};
 		bool has_const_only_constructs();
 		bool replace_variables(std::map<std::string, varinfo_t> &variables, AstNode *fcall, bool must_succeed);
 		AstNode *eval_const_function(AstNode *fcall, bool must_succeed);

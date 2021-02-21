@@ -20,11 +20,11 @@ module top;
 	endfunction
 
 	function automatic [31:0] operation2;
-		input [4:0] var;
+		input [4:0] inp;
 		input integer num;
 		begin
-			var[0] = var[0] ^ 1;
-			operation2 = num * var;
+			inp[0] = inp[0] ^ 1;
+			operation2 = num * inp;
 		end
 	endfunction
 
@@ -79,15 +79,14 @@ module top;
 	wire [31:0] x5;
 	assign x5 = operation5(64);
 
-// `define VERIFY
-`ifdef VERIFY
-    assert property (a == 2);
-    assert property (A == 3);
-    assert property (x1 == 16);
-    assert property (x1b == 16);
-    assert property (x2 == 4);
-    assert property (x3 == 16);
-    assert property (x4 == a << 1);
-    assert property (x5 == 64);
-`endif
+	always_comb begin
+		assert(a == 2);
+		assert(A == 3);
+		assert(x1 == 16);
+		assert(x1b == 16);
+		assert(x2 == 4);
+		assert(x3 == 16);
+		assert(x4 == a << 1);
+		assert(x5 == 64);
+	end
 endmodule
