@@ -234,7 +234,7 @@ static bool isUserType(std::string &s)
 "automatic"    { return TOK_AUTOMATIC; }
 
 "unique"       { SV_KEYWORD(TOK_UNIQUE); }
-"unique0"      { SV_KEYWORD(TOK_UNIQUE); }
+"unique0"      { SV_KEYWORD(TOK_UNIQUE0); }
 "priority"     { SV_KEYWORD(TOK_PRIORITY); }
 
 "always_comb"  { SV_KEYWORD(TOK_ALWAYS_COMB); }
