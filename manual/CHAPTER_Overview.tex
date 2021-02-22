@@ -350,8 +350,9 @@ to update {\tt \textbackslash{}q}.
 An RTLIL::Process is a container for zero or more RTLIL::SyncRule objects and
 exactly one RTLIL::CaseRule object, which is called the {\it root case}.
 
-An RTLIL::SyncRule object contains an (optional) synchronization condition (signal and edge-type) and zero or
-more assignments (RTLIL::SigSig). The {\tt always} synchronization condition is used to break combinatorial
+An RTLIL::SyncRule object contains an (optional) synchronization condition (signal and edge-type), zero or
+more assignments (RTLIL::SigSig), and zero or more memory writes (RTLIL::MemWriteAction).
+The {\tt always} synchronization condition is used to break combinatorial
 loops when a latch should be inferred instead.
 
 An RTLIL::CaseRule is a container for zero or more assignments (RTLIL::SigSig)

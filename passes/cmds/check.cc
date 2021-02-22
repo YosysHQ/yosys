@@ -141,6 +141,14 @@ struct CheckPass : public Pass {
 						for (auto bit : sigmap(action.second))
 							if (bit.wire) used_wires.insert(bit);
 					}
+					for (auto memwr : sync->mem_write_actions) {
+						for (auto bit : sigmap(memwr.address))
+							if (bit.wire) used_wires.insert(bit);
+						for (auto bit : sigmap(memwr.data))
+							if (bit.wire) used_wires.insert(bit);
+						for (auto bit : sigmap(memwr.enable))
+							if (bit.wire) used_wires.insert(bit);
+					}
 				}
 			}
 

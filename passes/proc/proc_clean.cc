@@ -161,7 +161,7 @@ void proc_clean(RTLIL::Module *mod, RTLIL::Process *proc, int &total_count, bool
 		for (size_t j = 0; j < proc->syncs[i]->actions.size(); j++)
 			if (proc->syncs[i]->actions[j].first.size() == 0)
 				proc->syncs[i]->actions.erase(proc->syncs[i]->actions.begin() + (j--));
-		if (proc->syncs[i]->actions.size() == 0) {
+		if (proc->syncs[i]->actions.size() == 0 && proc->syncs[i]->mem_write_actions.size() == 0) {
 			delete proc->syncs[i];
 			proc->syncs.erase(proc->syncs.begin() + (i--));
 		}

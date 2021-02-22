@@ -339,6 +339,11 @@ struct ShowWorker
 	{
 		input_signals.insert(obj->signal);
 		collect_proc_signals(obj->actions, input_signals, output_signals);
+		for (auto it : obj->mem_write_actions) {
+			input_signals.insert(it.address);
+			input_signals.insert(it.data);
+			input_signals.insert(it.enable);
+		}
 	}
 
 	void collect_proc_signals(RTLIL::Process *obj, std::set<RTLIL::SigSpec> &input_signals, std::set<RTLIL::SigSpec> &output_signals)

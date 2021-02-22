@@ -4538,6 +4538,7 @@ RTLIL::SyncRule *RTLIL::SyncRule::clone() const
 	new_syncrule->type = type;
 	new_syncrule->signal = signal;
 	new_syncrule->actions = actions;
+	new_syncrule->mem_write_actions = mem_write_actions;
 	return new_syncrule;
 }
 
