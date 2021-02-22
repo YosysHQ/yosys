@@ -88,7 +88,7 @@ struct AssertpmuxWorker
 		{
 			SigSpec output;
 
-			for (auto muxuser : sigbit_muxusers.at(bit))
+			for (auto muxuser : sigbit_muxusers[bit])
 			{
 				Cell *cell = std::get<0>(muxuser);
 				int portidx = std::get<1>(muxuser);
