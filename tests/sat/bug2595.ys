@@ -1,0 +1,18 @@
+read_ilang <<EOT
+module \top
+  wire input 3 \A
+  wire width 2 input 2 \B
+  wire width 2 input 1 \S
+  wire \Y
+  cell $pmux \my_pmux
+    parameter signed \S_WIDTH 2
+    parameter signed \WIDTH 1
+    connect \A \A
+    connect \B \B
+    connect \S \S
+    connect \Y \Y
+  end
+end
+EOT
+
+assertpmux
