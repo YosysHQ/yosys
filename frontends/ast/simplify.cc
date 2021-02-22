@@ -3089,6 +3089,65 @@ skip_dynamic_range_lvalue_expansion:;
 				goto apply_newNode;
 			}
 
+			if (str == "\\$countbits") {
+				if (children.size() < 2)
+					log_file_error(filename, location.first_line, "System function %s got %d arguments, expected at least 2.\n",
+							RTLIL::unescape_id(str).c_str(), int(children.size()));
+
+				std::vector<RTLIL::State> control_bits;
+
+				// Determine which bits to count
+				for (size_t i = 1; i < children.size(); i++) {
+					AstNode *node = children[i];
+					while (node->simplify(true, false, false, stage, -1, false, false)) { }
+					if (node->type != AST_CONSTANT)
+						log_file_error(filename, location.first_line, "Failed to evaluate system function `%s' with non-constant control bit argument.\n", str.c_str());
+					if (node->bits.size() != 1)
+						log_file_error(filename, location.first_line, "Failed to evaluate system function `%s' with control bit width != 1.\n", str.c_str());
+					control_bits.push_back(node->bits[0]);
+				}
+
+				// Detect width of exp (first argument of $countbits)
+				int  exp_width = -1;
+				bool exp_sign  = false;
+				AstNode *exp = children[0];
+				exp->detectSignWidth(exp_width, exp_sign, NULL);
+
+				newNode = mkconst_int(0, false);
+
+				for (int i = 0; i < exp_width; i++) {
+					// Generate nodes for:  exp << i >> ($size(exp) - 1)
+					//                          ^^   ^^
+					AstNode *lsh_node = new AstNode(AST_SHIFT_LEFT, exp->clone(), mkconst_int(i, false));
+					AstNode *rsh_node = new AstNode(AST_SHIFT_RIGHT, lsh_node, mkconst_int(exp_width - 1, false));
+
+					AstNode *or_node = nullptr;
+
+					for (RTLIL::State control_bit : control_bits) {
+						// Generate node for:  (exp << i >> ($size(exp) - 1)) === control_bit
+						//                                                    ^^^
+						AstNode *eq_node = new AstNode(AST_EQX, rsh_node->clone(), mkconst_bits({control_bit}, false));
+
+						// Or the result for each checked bit value
+						if (or_node)
+							or_node = new AstNode(AST_LOGIC_OR, or_node, eq_node);
+						else
+							or_node = eq_node;
+					}
+
+					// We should have at least one element in control_bits,
+					// because we checked for the number of arguments above
+					log_assert(or_node != nullptr);
+
+					delete rsh_node;
+
+					// Generate node for adding with result of previous bit
+					newNode = new AstNode(AST_ADD, newNode, or_node);
+				}
+
+				goto apply_newNode;
+			}
+
 			if (current_scope.count(str) != 0 && current_scope[str]->type == AST_DPI_FUNCTION)
 			{
 				AstNode *dpi_decl = current_scope[str];
