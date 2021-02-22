@@ -735,7 +735,7 @@ struct RTLIL::SigChunk
 
 	RTLIL::SigChunk extract(int offset, int length) const;
 	inline int size() const { return width; }
-	inline int is_wire() const { return wire != NULL; }
+	inline bool is_wire() const { return wire != NULL; }
 
 	bool operator <(const RTLIL::SigChunk &other) const;
 	bool operator ==(const RTLIL::SigChunk &other) const;
@@ -761,7 +761,7 @@ struct RTLIL::SigBit
 	SigBit(const RTLIL::SigBit &sigbit) = default;
 	RTLIL::SigBit &operator =(const RTLIL::SigBit &other) = default;
 
-	inline int is_wire() const { return wire != NULL; }
+	inline bool is_wire() const { return wire != NULL; }
 
 	bool operator <(const RTLIL::SigBit &other) const;
 	bool operator ==(const RTLIL::SigBit &other) const;
