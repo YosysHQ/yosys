@@ -277,7 +277,7 @@ static void rewriteAsMemoryNode(AstNode *node, AstNode *rangeNode)
 %token TOK_SUPPLY0 TOK_SUPPLY1 TOK_TO_SIGNED TOK_TO_UNSIGNED
 %token TOK_POS_INDEXED TOK_NEG_INDEXED TOK_PROPERTY TOK_ENUM TOK_TYPEDEF
 %token TOK_RAND TOK_CONST TOK_CHECKER TOK_ENDCHECKER TOK_EVENTUALLY
-%token TOK_INCREMENT TOK_DECREMENT TOK_UNIQUE TOK_PRIORITY
+%token TOK_INCREMENT TOK_DECREMENT TOK_UNIQUE TOK_UNIQUE0 TOK_PRIORITY
 %token TOK_STRUCT TOK_PACKED TOK_UNSIGNED TOK_INT TOK_BYTE TOK_SHORTINT TOK_UNION
 %token TOK_OR_ASSIGN TOK_XOR_ASSIGN TOK_AND_ASSIGN TOK_SUB_ASSIGN
 
@@ -286,7 +286,7 @@ static void rewriteAsMemoryNode(AstNode *node, AstNode *rangeNode)
 %type <string> opt_label opt_sva_label tok_prim_wrapper hierarchical_id hierarchical_type_id integral_number
 %type <string> type_name
 %type <ast> opt_enum_init enum_type struct_type non_wire_data_type
-%type <boolean> opt_signed opt_property unique_case_attr always_comb_or_latch always_or_always_ff
+%type <boolean> opt_signed opt_property always_comb_or_latch always_or_always_ff
 %type <al> attr case_attr
 %type <ast> struct_union
 
@@ -2554,20 +2554,21 @@ behavioral_stmt:
 		ast_stack.pop_back();
 	};
 
-unique_case_attr:
-	%empty {
-		$$ = false;
-	} |
-	TOK_PRIORITY case_attr {
-		$$ = $2;
-	} |
-	TOK_UNIQUE case_attr {
-		$$ = true;
-	};
-
 case_attr:
-	attr unique_case_attr {
-		if ($2) (*$1)[ID::parallel_case] = AstNode::mkconst_int(1, false);
+	attr {
+		$$ = $1;
+	} |
+	attr TOK_UNIQUE0 {
+		(*$1)[ID::parallel_case] = AstNode::mkconst_int(1, false);
+		$$ = $1;
+	} |
+	attr TOK_PRIORITY {
+		(*$1)[ID::full_case] = AstNode::mkconst_int(1, false);
+		$$ = $1;
+	} |
+	attr TOK_UNIQUE {
+		(*$1)[ID::full_case] = AstNode::mkconst_int(1, false);
+		(*$1)[ID::parallel_case] = AstNode::mkconst_int(1, false);
 		$$ = $1;
 	};
 
