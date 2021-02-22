@@ -71,17 +71,8 @@ void proc_init(RTLIL::Module *mod, SigMap &sigmap, RTLIL::Process *proc)
 					offset += lhs_c.width;
 				}
 			}
+			sync->actions.clear();
 		}
-
-	if (found_init) {
-		std::vector<RTLIL::SyncRule*> new_syncs;
-		for (auto &sync : proc->syncs)
-			if (sync->type == RTLIL::SyncType::STi)
-				delete sync;
-			else
-				new_syncs.push_back(sync);
-		proc->syncs.swap(new_syncs);
-	}
 }
 
 struct ProcInitPass : public Pass {

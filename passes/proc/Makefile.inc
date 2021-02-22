@@ -8,3 +8,4 @@ OBJS += passes/proc/proc_arst.o
 OBJS += passes/proc/proc_mux.o
 OBJS += passes/proc/proc_dlatch.o
 OBJS += passes/proc/proc_dff.o
+OBJS += passes/proc/proc_memwr.o

@@ -153,6 +153,30 @@ void eliminate_const(RTLIL::Module *mod, RTLIL::CaseRule *cs, RTLIL::SigSpec con
 	}
 }
 
+RTLIL::SigSpec apply_reset(RTLIL::Module *mod, RTLIL::Process *proc, RTLIL::SyncRule *sync, SigMap &assign_map, RTLIL::SigSpec root_sig, bool polarity, RTLIL::SigSpec sig, RTLIL::SigSpec log_sig) {
+	RTLIL::SigSpec rspec = assign_map(sig);
+	RTLIL::SigSpec rval = RTLIL::SigSpec(RTLIL::State::Sm, rspec.size());
+	for (int i = 0; i < GetSize(rspec); i++)
+		if (rspec[i].wire == NULL)
+			rval[i] = rspec[i];
+	RTLIL::SigSpec last_rval;
+	for (int count = 0; rval != last_rval; count++) {
+		last_rval = rval;
+		apply_const(mod, rspec, rval, &proc->root_case, root_sig, polarity, false);
+		assign_map.apply(rval);
+		if (rval.is_fully_const())
+			break;
+		if (count > 100)
+			log_error("Async reset %s yields endless loop at value %s for signal %s.\n",
+					log_signal(sync->signal), log_signal(rval), log_signal(log_sig));
+		rspec = rval;
+	}
+	if (rval.has_marked_bits())
+		log_error("Async reset %s yields non-constant value %s for signal %s.\n",
+				log_signal(sync->signal), log_signal(rval), log_signal(log_sig));
+	return rval;
+}
+
 void proc_arst(RTLIL::Module *mod, RTLIL::Process *proc, SigMap &assign_map)
 {
 restart_proc_arst:
@@ -172,28 +196,18 @@ restart_proc_arst:
 					sync->type = sync->type == RTLIL::SyncType::STp ? RTLIL::SyncType::ST1 : RTLIL::SyncType::ST0;
 				}
 				for (auto &action : sync->actions) {
-					RTLIL::SigSpec rspec = assign_map(action.second);
-					RTLIL::SigSpec rval = RTLIL::SigSpec(RTLIL::State::Sm, rspec.size());
-					for (int i = 0; i < GetSize(rspec); i++)
-						if (rspec[i].wire == NULL)
-							rval[i] = rspec[i];
-					RTLIL::SigSpec last_rval;
-					for (int count = 0; rval != last_rval; count++) {
-						last_rval = rval;
-						apply_const(mod, rspec, rval, &proc->root_case, root_sig, polarity, false);
-						assign_map.apply(rval);
-						if (rval.is_fully_const())
-							break;
-						if (count > 100)
-							log_error("Async reset %s yields endless loop at value %s for signal %s.\n",
-									log_signal(sync->signal), log_signal(rval), log_signal(action.first));
-						rspec = rval;
-					}
-					if (rval.has_marked_bits())
-						log_error("Async reset %s yields non-constant value %s for signal %s.\n",
-								log_signal(sync->signal), log_signal(rval), log_signal(action.first));
-					action.second = rval;
+					action.second = apply_reset(mod, proc, sync, assign_map, root_sig, polarity, action.second, action.first);
 				}
+				for (auto &memwr : sync->mem_write_actions) {
+					RTLIL::SigSpec en = apply_reset(mod, proc, sync, assign_map, root_sig, polarity, memwr.enable, memwr.enable);
+					if (!en.is_fully_zero()) {
+						log_error("Async reset %s causes memory write to %s.\n",
+								log_signal(sync->signal), log_id(memwr.memid));
+					}
+					apply_reset(mod, proc, sync, assign_map, root_sig, polarity, memwr.address, memwr.address);
+					apply_reset(mod, proc, sync, assign_map, root_sig, polarity, memwr.data, memwr.data);
+				}
+				sync->mem_write_actions.clear();
 				eliminate_const(mod, &proc->root_case, root_sig, polarity);
 				goto restart_proc_arst;
 			}

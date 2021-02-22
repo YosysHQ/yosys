@@ -342,7 +342,6 @@ struct proc_dlatch_db_t
 
 void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 {
-	std::vector<RTLIL::SyncRule*> new_syncs;
 	RTLIL::SigSig latches_bits, nolatches_bits;
 	dict<SigBit, SigBit> latches_out_in;
 	dict<SigBit, int> latches_hold;
@@ -351,7 +350,6 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 	for (auto sr : proc->syncs)
 	{
 		if (sr->type != RTLIL::SyncType::STa) {
-			new_syncs.push_back(sr);
 			continue;
 		}
 
@@ -373,8 +371,7 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 			for (int i = 0; i < GetSize(ss.first); i++)
 				latches_out_in[ss.first[i]] = ss.second[i];
 		}
-
-		delete sr;
+		sr->actions.clear();
 	}
 
 	latches_out_in.sort();
@@ -441,8 +438,6 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 
 		offset += width;
 	}
-
-	new_syncs.swap(proc->syncs);
 }
 
 struct ProcDlatchPass : public Pass {

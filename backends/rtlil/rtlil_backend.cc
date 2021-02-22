@@ -242,11 +242,28 @@ void RTLIL_BACKEND::dump_proc_sync(std::ostream &f, std::string indent, const RT
 	case RTLIL::STi: f << stringf("init\n"); break;
 	}
 
-	for (auto it = sy->actions.begin(); it != sy->actions.end(); ++it) {
+	for (auto &it: sy->actions) {
 		f << stringf("%s  update ", indent.c_str());
-		dump_sigspec(f, it->first);
+		dump_sigspec(f, it.first);
 		f << stringf(" ");
-		dump_sigspec(f, it->second);
+		dump_sigspec(f, it.second);
+		f << stringf("\n");
+	}
+
+	for (auto &it: sy->mem_write_actions) {
+		for (auto it2 = it.attributes.begin(); it2 != it.attributes.end(); ++it2) {
+			f << stringf("%s  attribute %s ", indent.c_str(), it2->first.c_str());
+			dump_const(f, it2->second);
+			f << stringf("\n");
+		}
+		f << stringf("%s  memwr %s ", indent.c_str(), it.memid.c_str());
+		dump_sigspec(f, it.address);
+		f << stringf(" ");
+		dump_sigspec(f, it.data);
+		f << stringf(" ");
+		dump_sigspec(f, it.enable);
+		f << stringf(" ");
+		dump_sigspec(f, it.priority_mask);
 		f << stringf("\n");
 	}
 }

@@ -43,6 +43,7 @@ struct ProcPass : public Pass {
 		log("    proc_mux\n");
 		log("    proc_dlatch\n");
 		log("    proc_dff\n");
+		log("    proc_memwr\n");
 		log("    proc_clean\n");
 		log("\n");
 		log("This replaces the processes in the design with multiplexers,\n");
@@ -102,6 +103,7 @@ struct ProcPass : public Pass {
 			Pass::call(design, ifxmode ? "proc_mux -ifx" : "proc_mux");
 		Pass::call(design, "proc_dlatch");
 		Pass::call(design, "proc_dff");
+		Pass::call(design, "proc_memwr");
 		Pass::call(design, "proc_clean");
 
 		log_pop();

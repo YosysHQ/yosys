@@ -79,6 +79,7 @@ USING_YOSYS_NAMESPACE
 "global"	{ return TOK_GLOBAL; }
 "init"		{ return TOK_INIT; }
 "update"	{ return TOK_UPDATE; }
+"memwr"		{ return TOK_MEMWR; }
 "process"	{ return TOK_PROCESS; }
 "end"		{ return TOK_END; }
 

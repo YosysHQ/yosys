@@ -339,6 +339,23 @@ struct BugpointPass : public Pass {
 								return design_copy;
 							}
 						}
+						int i = 0;
+						for (auto it = sy->mem_write_actions.begin(); it != sy->mem_write_actions.end(); ++it, ++i)
+						{
+							if (index++ == seed)
+							{
+								log_header(design, "Trying to remove sync %s memwr %s %s %s %s in %s.%s.\n", log_signal(sy->signal), log_id(it->memid), log_signal(it->address), log_signal(it->data), log_signal(it->enable), log_id(mod), log_id(pr.first));
+								sy->mem_write_actions.erase(it);
+								// Remove the bit for removed action from other actions' priority masks.
+								for (auto it2 = sy->mem_write_actions.begin(); it2 != sy->mem_write_actions.end(); ++it2) {
+									auto &mask = it2->priority_mask;
+									if (GetSize(mask) > i) {
+										mask.bits.erase(mask.bits.begin() + i);
+									}
+								}
+								return design_copy;
+							}
+						}
 					}
 				}
 			}
