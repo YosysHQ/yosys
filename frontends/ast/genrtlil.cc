@@ -45,10 +45,10 @@ static RTLIL::SigSpec uniop2rtlil(AstNode *that, IdString type, int result_width
 {
 	IdString name = stringf("%s$%s:%d$%d", type.c_str(), that->filename.c_str(), that->location.first_line, autoidx++);
 	RTLIL::Cell *cell = current_module->addCell(name, type);
-	cell->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", that->filename.c_str(), that->location.first_line, that->location.first_column, that->location.last_line, that->location.last_column);
+	set_src_attr(cell, that);
 
 	RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_Y", result_width);
-	wire->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", that->filename.c_str(), that->location.first_line, that->location.first_column, that->location.last_line, that->location.last_column);
+	set_src_attr(wire, that);
 	wire->is_signed = that->is_signed;
 
 	if (gen_attributes)
@@ -77,10 +77,10 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 
 	IdString name = stringf("$extend$%s:%d$%d", that->filename.c_str(), that->location.first_line, autoidx++);
 	RTLIL::Cell *cell = current_module->addCell(name, ID($pos));
-	cell->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", that->filename.c_str(), that->location.first_line, that->location.first_column, that->location.last_line, that->location.last_column);
+	set_src_attr(cell, that);
 
 	RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_Y", width);
-	wire->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", that->filename.c_str(), that->location.first_line, that->location.first_column, that->location.last_line, that->location.last_column);
+	set_src_attr(wire, that);
 	wire->is_signed = that->is_signed;
 
 	if (that != NULL)
@@ -104,10 +104,10 @@ static RTLIL::SigSpec binop2rtlil(AstNode *that, IdString type, int result_width
 {
 	IdString name = stringf("%s$%s:%d$%d", type.c_str(), that->filename.c_str(), that->location.first_line, autoidx++);
 	RTLIL::Cell *cell = current_module->addCell(name, type);
-	cell->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", that->filename.c_str(), that->location.first_line, that->location.first_column, that->location.last_line, that->location.last_column);
+	set_src_attr(cell, that);
 
 	RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_Y", result_width);
-	wire->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", that->filename.c_str(), that->location.first_line, that->location.first_column, that->location.last_line, that->location.last_column);
+	set_src_attr(wire, that);
 	wire->is_signed = that->is_signed;
 
 	for (auto &attr : that->attributes) {
@@ -139,10 +139,10 @@ static RTLIL::SigSpec mux2rtlil(AstNode *that, const RTLIL::SigSpec &cond, const
 	sstr << "$ternary$" << that->filename << ":" << that->location.first_line << "$" << (autoidx++);
 
 	RTLIL::Cell *cell = current_module->addCell(sstr.str(), ID($mux));
-	cell->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", that->filename.c_str(), that->location.first_line, that->location.first_column, that->location.last_line, that->location.last_column);
+	set_src_attr(cell, that);
 
 	RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_Y", left.size());
-	wire->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", that->filename.c_str(), that->location.first_line, that->location.first_column, that->location.last_line, that->location.last_column);
+	set_src_attr(wire, that);
 	wire->is_signed = that->is_signed;
 
 	for (auto &attr : that->attributes) {
@@ -320,7 +320,7 @@ struct AST_INTERNAL::ProcessGenerator
 
 		// generate process and simple root case
 		proc = new RTLIL::Process;
-		proc->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", always->filename.c_str(), always->location.first_line, always->location.first_column, always->location.last_line, always->location.last_column);
+		set_src_attr(proc, always);
 		proc->name = stringf("$proc$%s:%d$%d", always->filename.c_str(), always->location.first_line, autoidx++);
 		for (auto &attr : always->attributes) {
 			if (attr.second->type != AST_CONSTANT)
@@ -356,7 +356,7 @@ struct AST_INTERNAL::ProcessGenerator
 		if (found_anyedge_syncs) {
 			if (found_global_syncs)
 				log_file_error(always->filename, always->location.first_line, "Found non-synthesizable event list!\n");
-			log("Note: Assuming pure combinatorial block at %s:%d.%d-%d.%d in\n", always->filename.c_str(), always->location.first_line, always->location.first_column, always->location.last_line, always->location.last_column);
+			log("Note: Assuming pure combinatorial block at %s in\n", always->loc_string().c_str());
 			log("compliance with IEC 62142(E):2005 / IEEE Std. 1364.1(E):2002. Recommending\n");
 			log("use of @* instead of @(...) for better match of synthesis and simulation.\n");
 		}
@@ -456,7 +456,7 @@ struct AST_INTERNAL::ProcessGenerator
 			} while (current_module->wires_.count(wire_name) > 0);
 
 			RTLIL::Wire *wire = current_module->addWire(wire_name, chunk.width);
-			wire->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", always->filename.c_str(), always->location.first_line, always->location.first_column, always->location.last_line, always->location.last_column);
+			set_src_attr(wire, always);
 
 			chunk.wire = wire;
 			chunk.offset = 0;
@@ -591,7 +591,7 @@ struct AST_INTERNAL::ProcessGenerator
 		case AST_CASE:
 			{
 				RTLIL::SwitchRule *sw = new RTLIL::SwitchRule;
-				sw->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", ast->filename.c_str(), ast->location.first_line, ast->location.first_column, ast->location.last_line, ast->location.last_column);
+				set_src_attr(sw, ast);
 				sw->signal = ast->children[0]->genWidthRTLIL(-1, &subst_rvalue_map.stdmap());
 				current_case->switches.push_back(sw);
 
@@ -625,7 +625,7 @@ struct AST_INTERNAL::ProcessGenerator
 
 					RTLIL::CaseRule *backup_case = current_case;
 					current_case = new RTLIL::CaseRule;
-					current_case->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", child->filename.c_str(), child->location.first_line, child->location.first_column, child->location.last_line, child->location.last_column);
+					set_src_attr(current_case, child);
 					last_generated_case = current_case;
 					addChunkActions(current_case->actions, this_case_eq_ltemp, this_case_eq_rvalue);
 					for (auto node : child->children) {
@@ -1048,7 +1048,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 		// This is used by the hierarchy pass to know when it can replace interface connection with the individual
 		// signals.
 		RTLIL::Wire *wire = current_module->addWire(str, 1);
-		wire->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", filename.c_str(), location.first_line, location.first_column, location.last_line, location.last_column);
+		set_src_attr(wire, this);
 		wire->start_offset = 0;
 		wire->port_id = port_id;
 		wire->port_input = true;
@@ -1089,7 +1089,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			current_module->connect(wire, val);
 			wire->is_signed = children[0]->is_signed;
 
-			wire->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", filename.c_str(), location.first_line, location.first_column, location.last_line, location.last_column);
+			set_src_attr(wire, this);
 			wire->attributes[type == AST_PARAMETER ? ID::parameter : ID::localparam] = 1;
 
 			for (auto &attr : attributes) {
@@ -1111,7 +1111,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				log_file_error(filename, location.first_line, "Signal `%s' with invalid width range %d!\n", str.c_str(), range_left - range_right + 1);
 
 			RTLIL::Wire *wire = current_module->addWire(str, range_left - range_right + 1);
-			wire->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", filename.c_str(), location.first_line, location.first_column, location.last_line, location.last_column);
+			set_src_attr(wire, this);
 			wire->start_offset = range_right;
 			wire->port_id = port_id;
 			wire->port_input = is_input;
@@ -1143,7 +1143,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				log_file_error(filename, location.first_line, "Memory `%s' with non-constant width or size!\n", str.c_str());
 
 			RTLIL::Memory *memory = new RTLIL::Memory;
-			memory->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", filename.c_str(), location.first_line, location.first_column, location.last_line, location.last_column);
+			set_src_attr(memory, this);
 			memory->name = str;
 			memory->width = children[0]->range_left - children[0]->range_right + 1;
 			if (children[1]->range_right < children[1]->range_left) {
@@ -1200,7 +1200,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			if (id2ast->type == AST_AUTOWIRE && current_module->wires_.count(str) == 0) {
 				RTLIL::Wire *wire = current_module->addWire(str);
-				wire->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", filename.c_str(), location.first_line, location.first_column, location.last_line, location.last_column);
+				set_src_attr(wire, this);
 				wire->name = str;
 				if (flag_autowire)
 					log_file_warning(filename, location.first_line, "Identifier `%s' is implicitly declared.\n", str.c_str());
@@ -1582,10 +1582,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			sstr << "$memrd$" << str << "$" << filename << ":" << location.first_line << "$" << (autoidx++);
 
 			RTLIL::Cell *cell = current_module->addCell(sstr.str(), ID($memrd));
-			cell->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", filename.c_str(), location.first_line, location.first_column, location.last_line, location.last_column);
+			set_src_attr(cell, this);
 
 			RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_DATA", current_module->memories[str]->width);
-			wire->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", filename.c_str(), location.first_line, location.first_column, location.last_line, location.last_column);
+			set_src_attr(wire, this);
 
 			int mem_width, mem_size, addr_bits;
 			is_signed = id2ast->is_signed;
@@ -1621,7 +1621,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			sstr << (type == AST_MEMWR ? "$memwr$" : "$meminit$") << str << "$" << filename << ":" << location.first_line << "$" << (autoidx++);
 
 			RTLIL::Cell *cell = current_module->addCell(sstr.str(), type == AST_MEMWR ? ID($memwr) : ID($meminit));
-			cell->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", filename.c_str(), location.first_line, location.first_column, location.last_line, location.last_column);
+			set_src_attr(cell, this);
 
 			int mem_width, mem_size, addr_bits;
 			id2ast->meminfo(mem_width, mem_size, addr_bits);
@@ -1685,7 +1685,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				cellname = str;
 
 			RTLIL::Cell *cell = current_module->addCell(cellname, celltype);
-			cell->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", filename.c_str(), location.first_line, location.first_column, location.last_line, location.last_column);
+			set_src_attr(cell, this);
 
 			for (auto &attr : attributes) {
 				if (attr.second->type != AST_CONSTANT)
@@ -1730,7 +1730,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				log_file_error(filename, location.first_line, "Re-definition of cell `%s'!\n", str.c_str());
 
 			RTLIL::Cell *cell = current_module->addCell(str, "");
-			cell->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", filename.c_str(), location.first_line, location.first_column, location.last_line, location.last_column);
+			set_src_attr(cell, this);
 			// Set attribute 'module_not_derived' which will be cleared again after the hierarchy pass
 			cell->set_bool_attribute(ID::module_not_derived);
 
@@ -1894,7 +1894,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					log_file_error(filename, location.first_line, "Failed to detect width of %s!\n", RTLIL::unescape_id(str).c_str());
 
 				Cell *cell = current_module->addCell(myid, str.substr(1));
-				cell->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", filename.c_str(), location.first_line, location.first_column, location.last_line, location.last_column);
+				set_src_attr(cell, this);
 				cell->parameters[ID::WIDTH] = width;
 
 				if (attributes.count(ID::reg)) {
@@ -1905,7 +1905,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				}
 
 				Wire *wire = current_module->addWire(myid + "_wire", width);
-				wire->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", filename.c_str(), location.first_line, location.first_column, location.last_line, location.last_column);
+				set_src_attr(wire, this);
 				cell->setPort(ID::Y, wire);
 
 				is_signed = sign_hint;

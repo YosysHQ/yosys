@@ -943,7 +943,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			if ((type == AST_ASSIGN_LE || type == AST_ASSIGN_EQ) && children[0]->id2ast->is_logic)
 				children[0]->id2ast->is_reg = true; // if logic type is used in a block asignment
 			if ((type == AST_ASSIGN_LE || type == AST_ASSIGN_EQ) && !children[0]->id2ast->is_reg)
-				log_warning("wire '%s' is assigned in a block at %s:%d.%d-%d.%d.\n", children[0]->str.c_str(), filename.c_str(), location.first_line, location.first_column, location.last_line, location.last_column);
+				log_warning("wire '%s' is assigned in a block at %s.\n", children[0]->str.c_str(), loc_string().c_str());
 			if (type == AST_ASSIGN && children[0]->id2ast->is_reg) {
 				bool is_rand_reg = false;
 				if (children[1]->type == AST_FCALL) {
@@ -957,7 +957,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 						is_rand_reg = true;
 				}
 				if (!is_rand_reg)
-					log_warning("reg '%s' is assigned in a continuous assignment at %s:%d.%d-%d.%d.\n", children[0]->str.c_str(), filename.c_str(), location.first_line, location.first_column, location.last_line, location.last_column);
+					log_warning("reg '%s' is assigned in a continuous assignment at %s.\n", children[0]->str.c_str(), loc_string().c_str());
 			}
 			children[0]->was_checked = true;
 		}
@@ -4539,8 +4539,8 @@ bool AstNode::replace_variables(std::map<std::string, AstNode::varinfo_t> &varia
 			if (children.size() != 1 || children.at(0)->type != AST_RANGE) {
 				if (!must_succeed)
 					return false;
-				log_file_error(filename, location.first_line, "Memory access in constant function is not supported\n%s:%d.%d-%d.%d: ...called from here.\n",
-						fcall->filename.c_str(), fcall->location.first_line, fcall->location.first_column, fcall->location.last_line, fcall->location.last_column);
+				log_file_error(filename, location.first_line, "Memory access in constant function is not supported\n%s: ...called from here.\n",
+						fcall->loc_string().c_str());
 			}
 			if (!children.at(0)->replace_variables(variables, fcall, must_succeed))
 				return false;
@@ -4548,8 +4548,8 @@ bool AstNode::replace_variables(std::map<std::string, AstNode::varinfo_t> &varia
 			if (!children.at(0)->range_valid) {
 				if (!must_succeed)
 					return false;
-				log_file_error(filename, location.first_line, "Non-constant range\n%s:%d.%d-%d.%d: ... called from here.\n",
-						fcall->filename.c_str(), fcall->location.first_line, fcall->location.first_column, fcall->location.last_line, fcall->location.last_column);
+				log_file_error(filename, location.first_line, "Non-constant range\n%s: ... called from here.\n",
+						fcall->loc_string().c_str());
 			}
 			offset = min(children.at(0)->range_left, children.at(0)->range_right);
 			width = min(std::abs(children.at(0)->range_left - children.at(0)->range_right) + 1, width);
@@ -4600,8 +4600,8 @@ AstNode *AstNode::eval_const_function(AstNode *fcall, bool must_succeed)
 			if (!stmt->range_valid) {
 				if (!must_succeed)
 					goto finished;
-				log_file_error(stmt->filename, stmt->location.first_line, "Can't determine size of variable %s\n%s:%d.%d-%d.%d: ... called from here.\n",
-						stmt->str.c_str(), fcall->filename.c_str(), fcall->location.first_line, fcall->location.first_column, fcall->location.last_line, fcall->location.last_column);
+				log_file_error(stmt->filename, stmt->location.first_line, "Can't determine size of variable %s\n%s: ... called from here.\n",
+						stmt->str.c_str(), fcall->loc_string().c_str());
 			}
 			variables[stmt->str].val = RTLIL::Const(RTLIL::State::Sx, abs(stmt->range_left - stmt->range_right)+1);
 			variables[stmt->str].offset = min(stmt->range_left, stmt->range_right);
@@ -4650,22 +4650,22 @@ AstNode *AstNode::eval_const_function(AstNode *fcall, bool must_succeed)
 			if (stmt->children.at(1)->type != AST_CONSTANT) {
 				if (!must_succeed)
 					goto finished;
-				log_file_error(stmt->filename, stmt->location.first_line, "Non-constant expression in constant function\n%s:%d.%d-%d.%d: ... called from here. X\n",
-						fcall->filename.c_str(), fcall->location.first_line, fcall->location.first_column, fcall->location.last_line, fcall->location.last_column);
+				log_file_error(stmt->filename, stmt->location.first_line, "Non-constant expression in constant function\n%s: ... called from here. X\n",
+						fcall->loc_string().c_str());
 			}
 
 			if (stmt->children.at(0)->type != AST_IDENTIFIER) {
 				if (!must_succeed)
 					goto finished;
-				log_file_error(stmt->filename, stmt->location.first_line, "Unsupported composite left hand side in constant function\n%s:%d.%d-%d.%d: ... called from here.\n",
-						fcall->filename.c_str(), fcall->location.first_line, fcall->location.first_column, fcall->location.last_line, fcall->location.last_column);
+				log_file_error(stmt->filename, stmt->location.first_line, "Unsupported composite left hand side in constant function\n%s: ... called from here.\n",
+						fcall->loc_string().c_str());
 			}
 
 			if (!variables.count(stmt->children.at(0)->str)) {
 				if (!must_succeed)
 					goto finished;
-				log_file_error(stmt->filename, stmt->location.first_line, "Assignment to non-local variable in constant function\n%s:%d.%d-%d.%d: ... called from here.\n",
-						fcall->filename.c_str(), fcall->location.first_line, fcall->location.first_column, fcall->location.last_line, fcall->location.last_column);
+				log_file_error(stmt->filename, stmt->location.first_line, "Assignment to non-local variable in constant function\n%s: ... called from here.\n",
+						fcall->loc_string().c_str());
 			}
 
 			if (stmt->children.at(0)->children.empty()) {
@@ -4675,8 +4675,8 @@ AstNode *AstNode::eval_const_function(AstNode *fcall, bool must_succeed)
 				if (!range->range_valid) {
 					if (!must_succeed)
 						goto finished;
-					log_file_error(range->filename, range->location.first_line, "Non-constant range\n%s:%d.%d-%d.%d: ... called from here.\n",
-							fcall->filename.c_str(), fcall->location.first_line, fcall->location.first_column, fcall->location.last_line, fcall->location.last_column);
+					log_file_error(range->filename, range->location.first_line, "Non-constant range\n%s: ... called from here.\n",
+							fcall->loc_string().c_str());
 				}
 				int offset = min(range->range_left, range->range_right);
 				int width = std::abs(range->range_left - range->range_right) + 1;
@@ -4711,8 +4711,8 @@ AstNode *AstNode::eval_const_function(AstNode *fcall, bool must_succeed)
 			if (cond->type != AST_CONSTANT) {
 				if (!must_succeed)
 					goto finished;
-				log_file_error(stmt->filename, stmt->location.first_line, "Non-constant expression in constant function\n%s:%d.%d-%d.%d: ... called from here.\n",
-						fcall->filename.c_str(), fcall->location.first_line, fcall->location.first_column, fcall->location.last_line, fcall->location.last_column);
+				log_file_error(stmt->filename, stmt->location.first_line, "Non-constant expression in constant function\n%s: ... called from here.\n",
+						fcall->loc_string().c_str());
 			}
 
 			if (cond->asBool()) {
@@ -4736,8 +4736,8 @@ AstNode *AstNode::eval_const_function(AstNode *fcall, bool must_succeed)
 			if (num->type != AST_CONSTANT) {
 				if (!must_succeed)
 					goto finished;
-				log_file_error(stmt->filename, stmt->location.first_line, "Non-constant expression in constant function\n%s:%d.%d-%d.%d: ... called from here.\n",
-						fcall->filename.c_str(), fcall->location.first_line, fcall->location.first_column, fcall->location.last_line, fcall->location.last_column);
+				log_file_error(stmt->filename, stmt->location.first_line, "Non-constant expression in constant function\n%s: ... called from here.\n",
+						fcall->loc_string().c_str());
 			}
 
 			block->children.erase(block->children.begin());
@@ -4779,8 +4779,8 @@ AstNode *AstNode::eval_const_function(AstNode *fcall, bool must_succeed)
 					if (cond->type != AST_CONSTANT) {
 						if (!must_succeed)
 							goto finished;
-						log_file_error(stmt->filename, stmt->location.first_line, "Non-constant expression in constant function\n%s:%d.%d-%d.%d: ... called from here.\n",
-								fcall->filename.c_str(), fcall->location.first_line, fcall->location.first_column, fcall->location.last_line, fcall->location.last_column);
+						log_file_error(stmt->filename, stmt->location.first_line, "Non-constant expression in constant function\n%s: ... called from here.\n",
+								fcall->loc_string().c_str());
 					}
 
 					found_match = cond->asBool();
@@ -4815,8 +4815,8 @@ AstNode *AstNode::eval_const_function(AstNode *fcall, bool must_succeed)
 
 		if (!must_succeed)
 			goto finished;
-		log_file_error(stmt->filename, stmt->location.first_line, "Unsupported language construct in constant function\n%s:%d.%d-%d.%d: ... called from here.\n",
-				fcall->filename.c_str(), fcall->location.first_line, fcall->location.first_column, fcall->location.last_line, fcall->location.last_column);
+		log_file_error(stmt->filename, stmt->location.first_line, "Unsupported language construct in constant function\n%s: ... called from here.\n",
+				fcall->loc_string().c_str());
 		log_abort();
 	}
 
