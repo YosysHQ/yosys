@@ -33,7 +33,6 @@ struct MemoryDffWorker
 	vector<Cell*> dff_cells;
 	dict<SigBit, SigBit> invbits;
 	dict<SigBit, int> sigbit_users_count;
-	pool<Cell*> forward_merged_dffs, candidate_dffs;
 	FfInitVals initvals;
 
 	MemoryDffWorker(Module *module) : module(module), sigmap(module)
@@ -113,7 +112,6 @@ struct MemoryDffWorker
 				bit = d;
 				clk = this_clk;
 				clk_polarity = this_clk_polarity;
-				candidate_dffs.insert(cell);
 				goto replaced_this_bit;
 			}
 
@@ -135,8 +133,6 @@ struct MemoryDffWorker
 
 			for (auto cell : dff_cells)
 			{
-				if (forward_merged_dffs.count(cell))
-					continue;
 				if (!cell->type.in(ID($dff), ID($dffe)))
 					continue;
 
@@ -186,7 +182,6 @@ struct MemoryDffWorker
 				clk_polarity = this_clk_polarity;
 				en = this_en;
 				en_polarity = this_en_polarity;
-				candidate_dffs.insert(cell);
 				goto replaced_this_bit;
 			}
 
@@ -195,51 +190,6 @@ struct MemoryDffWorker
 		}
 
 		return true;
-	}
-
-	void handle_wr_cell(RTLIL::Cell *cell)
-	{
-		log("Checking cell `%s' in module `%s': ", cell->name.c_str(), module->name.c_str());
-
-		RTLIL::SigSpec clk = RTLIL::SigSpec(RTLIL::State::Sx);
-		bool clk_polarity = 0;
-		candidate_dffs.clear();
-
-		RTLIL::SigSpec sig_addr = cell->getPort(ID::ADDR);
-		if (!find_sig_before_dff(sig_addr, clk, clk_polarity)) {
-			log("no (compatible) $dff for address input found.\n");
-			return;
-		}
-
-		RTLIL::SigSpec sig_data = cell->getPort(ID::DATA);
-		if (!find_sig_before_dff(sig_data, clk, clk_polarity)) {
-			log("no (compatible) $dff for data input found.\n");
-			return;
-		}
-
-		RTLIL::SigSpec sig_en = cell->getPort(ID::EN);
-		if (!find_sig_before_dff(sig_en, clk, clk_polarity)) {
-			log("no (compatible) $dff for enable input found.\n");
-			return;
-		}
-
-		if (clk != RTLIL::SigSpec(RTLIL::State::Sx))
-		{
-			for (auto cell : candidate_dffs)
-				forward_merged_dffs.insert(cell);
-
-			cell->setPort(ID::CLK, clk);
-			cell->setPort(ID::ADDR, sig_addr);
-			cell->setPort(ID::DATA, sig_data);
-			cell->setPort(ID::EN, sig_en);
-			cell->parameters[ID::CLK_ENABLE] = RTLIL::Const(1);
-			cell->parameters[ID::CLK_POLARITY] = RTLIL::Const(clk_polarity);
-
-			log("merged $dff to cell.\n");
-			return;
-		}
-
-		log("no (compatible) $dff found.\n");
 	}
 
 	void disconnect_dff(RTLIL::SigSpec sig)
@@ -309,7 +259,7 @@ struct MemoryDffWorker
 		log("no (compatible) $dff found.\n");
 	}
 
-	void run(bool flag_wr_only)
+	void run()
 	{
 		for (auto wire : module->wires()) {
 			if (wire->port_output)
@@ -337,51 +287,37 @@ struct MemoryDffWorker
 		}
 
 		for (auto cell : module->selected_cells())
-			if (cell->type == ID($memwr) && !cell->parameters[ID::CLK_ENABLE].as_bool())
-				handle_wr_cell(cell);
-
-		if (!flag_wr_only)
-			for (auto cell : module->selected_cells())
-				if (cell->type == ID($memrd) && !cell->parameters[ID::CLK_ENABLE].as_bool())
-					handle_rd_cell(cell);
+			if (cell->type == ID($memrd) && !cell->parameters[ID::CLK_ENABLE].as_bool())
+				handle_rd_cell(cell);
 	}
 };
 
 struct MemoryDffPass : public Pass {
-	MemoryDffPass() : Pass("memory_dff", "merge input/output DFFs into memories") { }
+	MemoryDffPass() : Pass("memory_dff", "merge input/output DFFs into memory read ports") { }
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    memory_dff [options] [selection]\n");
 		log("\n");
-		log("This pass detects DFFs at memory ports and merges them into the memory port.\n");
+		log("This pass detects DFFs at memory read ports and merges them into the memory port.\n");
 		log("I.e. it consumes an asynchronous memory port and the flip-flops at its\n");
 		log("interface and yields a synchronous memory port.\n");
-		log("\n");
-		log("    -nordfff\n");
-		log("        do not merge registers on read ports\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		bool flag_wr_only = false;
-
-		log_header(design, "Executing MEMORY_DFF pass (merging $dff cells to $memrd and $memwr).\n");
+		log_header(design, "Executing MEMORY_DFF pass (merging $dff cells to $memrd).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			if (args[argidx] == "-nordff" || args[argidx] == "-wr_only") {
-				flag_wr_only = true;
-				continue;
-			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		for (auto mod : design->selected_modules()) {
 			MemoryDffWorker worker(mod);
-			worker.run(flag_wr_only);
+			worker.run();
 		}
 	}
 } MemoryDffPass;

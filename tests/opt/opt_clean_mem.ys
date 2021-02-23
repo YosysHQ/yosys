@@ -22,7 +22,6 @@ endmodule
 EOT
 
 proc
-memory_dff
 
 select -assert-count 2 t:$memrd
 select -assert-count 1 t:$memwr
