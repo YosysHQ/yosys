@@ -573,8 +573,22 @@ struct SmvWorker
 				continue;
 			}
 
-			if (cell->type[0] == '$')
-				log_error("Found currently unsupported cell type %s (%s.%s).\n", log_id(cell->type), log_id(module), log_id(cell));
+			if (cell->type[0] == '$') {
+				if (cell->type.in(ID($dffe), ID($sdff), ID($sdffe), ID($sdffce)) || cell->type.str().substr(0, 6) == "$_SDFF" || (cell->type.str().substr(0, 6) == "$_DFFE" && cell->type.str().size() == 10)) {
+					log_error("Unsupported cell type %s for cell %s.%s -- please run `dffunmap` before `write_smv`.\n",
+							log_id(cell->type), log_id(module), log_id(cell));
+				}
+				if (cell->type.in(ID($adff), ID($adffe), ID($dffsr), ID($dffsre)) || cell->type.str().substr(0, 5) == "$_DFF") {
+					log_error("Unsupported cell type %s for cell %s.%s -- please run `async2sync; dffunmap` or `clk2fflogic` before `write_smv`.\n",
+							log_id(cell->type), log_id(module), log_id(cell));
+				}
+				if (cell->type.in(ID($sr), ID($dlatch), ID($adlatch), ID($dlatchsr)) || cell->type.str().substr(0, 8) == "$_DLATCH" || cell->type.str().substr(0, 5) == "$_SR_") {
+					log_error("Unsupported cell type %s for cell %s.%s -- please run `clk2fflogic` before `write_smv`.\n",
+							log_id(cell->type), log_id(module), log_id(cell));
+				}
+				log_error("Unsupported cell type %s for cell %s.%s.\n",
+						log_id(cell->type), log_id(module), log_id(cell));
+			}
 
 //			f << stringf("    %s : %s;\n", cid(cell->name), cid(cell->type));
 
