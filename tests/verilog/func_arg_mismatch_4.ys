@@ -1,0 +1,12 @@
+logger -expect error "Incompatible re-declaration of constant function wire" 1
+read_verilog -sv <<EOT
+module top;
+    function automatic integer f;
+        input [1:0] inp;
+        integer inp;
+        f = inp;
+    endfunction
+    integer x;
+    initial x = f(0);
+endmodule
+EOT

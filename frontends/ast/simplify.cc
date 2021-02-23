@@ -3403,6 +3403,8 @@ skip_dynamic_range_lvalue_expansion:;
 								range->children.push_back(mkconst_int(0, true));
 							}
 						}
+						// updates the sizing
+						while (wire->simplify(true, false, false, 1, -1, false, false)) { }
 						continue;
 					}
 					AstNode *wire_id = new AstNode(AST_IDENTIFIER);
@@ -4603,17 +4605,29 @@ AstNode *AstNode::eval_const_function(AstNode *fcall, bool must_succeed)
 				log_file_error(stmt->filename, stmt->location.first_line, "Can't determine size of variable %s\n%s:%d.%d-%d.%d: ... called from here.\n",
 						stmt->str.c_str(), fcall->filename.c_str(), fcall->location.first_line, fcall->location.first_column, fcall->location.last_line, fcall->location.last_column);
 			}
-			variables[stmt->str].val = RTLIL::Const(RTLIL::State::Sx, abs(stmt->range_left - stmt->range_right)+1);
-			variables[stmt->str].offset = min(stmt->range_left, stmt->range_right);
-			variables[stmt->str].is_signed = stmt->is_signed;
+			AstNode::varinfo_t &variable = variables[stmt->str];
+			int width = abs(stmt->range_left - stmt->range_right) + 1;
+			// if this variable has already been declared as an input, check the
+			// sizes match if it already had an explicit size
+			if (variable.arg && variable.explicitly_sized && variable.val.size() != width) {
+				log_file_error(filename, location.first_line, "Incompatible re-declaration of constant function wire %s.\n", stmt->str.c_str());
+			}
+			variable.val = RTLIL::Const(RTLIL::State::Sx, width);
+			variable.offset = min(stmt->range_left, stmt->range_right);
+			variable.is_signed = stmt->is_signed;
+			variable.explicitly_sized = stmt->children.size() &&
+				stmt->children.back()->type == AST_RANGE;
+			// identify the argument corresponding to this wire, if applicable
 			if (stmt->is_input && argidx < fcall->children.size()) {
-				int width = variables[stmt->str].val.bits.size();
-				auto* arg_node = fcall->children.at(argidx++);
-				if (arg_node->type == AST_CONSTANT) {
-					variables[stmt->str].val = arg_node->bitsAsConst(width);
+				variable.arg = fcall->children.at(argidx++);
+			}
+			// load the constant arg's value into this variable
+			if (variable.arg) {
+				if (variable.arg->type == AST_CONSTANT) {
+					variable.val = variable.arg->bitsAsConst(width);
 				} else {
-					log_assert(arg_node->type == AST_REALVALUE);
-					variables[stmt->str].val = arg_node->realAsConst(width);
+					log_assert(variable.arg->type == AST_REALVALUE);
+					variable.val = variable.arg->realAsConst(width);
 				}
 			}
 			current_scope[stmt->str] = stmt;

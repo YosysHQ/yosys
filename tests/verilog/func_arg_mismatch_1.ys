@@ -1,0 +1,12 @@
+logger -expect error "Incompatible re-declaration of wire" 1
+read_verilog -sv <<EOT
+module top;
+    function automatic integer f;
+        input [0:0] inp;
+        integer inp;
+        f = inp;
+    endfunction
+    integer x, y;
+    initial x = f(y);
+endmodule
+EOT

@@ -1,1 +1,6 @@
-read_verilog const_arg_loop.v
+read_verilog -sv const_arg_loop.sv
+hierarchy
+proc
+opt -full
+select -module top
+sat -verify -seq 1 -tempinduct -prove-asserts -show-all
