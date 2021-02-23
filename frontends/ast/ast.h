@@ -381,6 +381,8 @@ namespace AST_INTERNAL
 	extern AST::AstNode *current_always, *current_top_block, *current_block, *current_block_child;
 	extern AST::AstModule *current_module;
 	extern bool current_always_clocked;
+	extern dict<std::string, int> current_memwr_count;
+	extern dict<std::string, pool<int>> current_memwr_visible;
 	struct LookaheadRewriter;
 	struct ProcessGenerator;
 }

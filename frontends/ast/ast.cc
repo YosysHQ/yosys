@@ -54,6 +54,8 @@ namespace AST_INTERNAL {
 	AstNode *current_always, *current_top_block, *current_block, *current_block_child;
 	AstModule *current_module;
 	bool current_always_clocked;
+	dict<std::string, int> current_memwr_count;
+	dict<std::string, pool<int>> current_memwr_visible;
 }
 
 // convert node types to string
