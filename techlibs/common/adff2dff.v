@@ -11,7 +11,7 @@ module adff2dff (CLK, ARST, D, Q);
 	(* force_downto *)
 	output reg [WIDTH-1:0] Q;
 	(* force_downto *)
-	wire reg [WIDTH-1:0] NEXT_Q;
+	reg [WIDTH-1:0] NEXT_Q;
 
 	wire [1023:0] _TECHMAP_DO_ = "proc;;";
 
