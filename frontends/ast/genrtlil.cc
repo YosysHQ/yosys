@@ -399,6 +399,9 @@ struct AST_INTERNAL::ProcessGenerator
 			if (child->type == AST_BLOCK)
 				processAst(child);
 
+		for (auto sync: proc->syncs)
+			processMemWrites(sync);
+
 		if (initSyncSignals.size() > 0)
 		{
 			RTLIL::SyncRule *sync = new RTLIL::SyncRule;
@@ -697,6 +700,34 @@ struct AST_INTERNAL::ProcessGenerator
 			// current_ast_mod->dumpAst(NULL, "mod> ");
 			log_abort();
 		}
+	}
+
+	void processMemWrites(RTLIL::SyncRule *sync)
+	{
+		// Maps per-memid AST_MEMWR IDs to indices in the mem_write_actions array.
+		dict<std::pair<std::string, int>, int> port_map;
+		for (auto child : always->children)
+			if (child->type == AST_MEMWR)
+			{
+				std::string memid = child->str;
+				int portid = child->children[3]->asInt(false);
+				int cur_idx = GetSize(sync->mem_write_actions);
+				RTLIL::MemWriteAction action;
+				set_src_attr(&action, child);
+				action.memid = memid;
+				action.address = child->children[0]->genWidthRTLIL(-1, &subst_rvalue_map.stdmap());
+				action.data = child->children[1]->genWidthRTLIL(current_module->memories[memid]->width, &subst_rvalue_map.stdmap());
+				action.enable = child->children[2]->genWidthRTLIL(-1, &subst_rvalue_map.stdmap());
+				RTLIL::Const orig_priority_mask = child->children[4]->bitsAsConst();
+				RTLIL::Const priority_mask = RTLIL::Const(0, cur_idx);
+				for (int i = 0; i < portid; i++) {
+					int new_bit = port_map[std::make_pair(memid, i)];
+					priority_mask.bits[new_bit] = orig_priority_mask.bits[i];
+				}
+				action.priority_mask = priority_mask;
+				sync->mem_write_actions.push_back(action);
+				port_map[std::make_pair(memid, portid)] = cur_idx;
+			}
 	}
 };
 
@@ -1644,26 +1675,22 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			return RTLIL::SigSpec(wire);
 		}
 
-	// generate $memwr cells for memory write ports
-	case AST_MEMWR:
+	// generate $meminit cells
 	case AST_MEMINIT:
 		{
 			std::stringstream sstr;
-			sstr << (type == AST_MEMWR ? "$memwr$" : "$meminit$") << str << "$" << filename << ":" << location.first_line << "$" << (autoidx++);
+			sstr << "$meminit$" << str << "$" << filename << ":" << location.first_line << "$" << (autoidx++);
 
-			RTLIL::Cell *cell = current_module->addCell(sstr.str(), type == AST_MEMWR ? ID($memwr) : ID($meminit));
+			RTLIL::Cell *cell = current_module->addCell(sstr.str(), ID($meminit));
 			set_src_attr(cell, this);
 
 			int mem_width, mem_size, addr_bits;
 			id2ast->meminfo(mem_width, mem_size, addr_bits);
 
-			int num_words = 1;
-			if (type == AST_MEMINIT) {
-				if (children[2]->type != AST_CONSTANT)
-					log_file_error(filename, location.first_line, "Memory init with non-constant word count!\n");
-				num_words = int(children[2]->asInt(false));
-				cell->parameters[ID::WORDS] = RTLIL::Const(num_words);
-			}
+			if (children[2]->type != AST_CONSTANT)
+				log_file_error(filename, location.first_line, "Memory init with non-constant word count!\n");
+			int num_words = int(children[2]->asInt(false));
+			cell->parameters[ID::WORDS] = RTLIL::Const(num_words);
 
 			SigSpec addr_sig = children[0]->genRTLIL();
 
@@ -1673,13 +1700,6 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			cell->parameters[ID::MEMID] = RTLIL::Const(str);
 			cell->parameters[ID::ABITS] = RTLIL::Const(GetSize(addr_sig));
 			cell->parameters[ID::WIDTH] = RTLIL::Const(current_module->memories[str]->width);
-
-			if (type == AST_MEMWR) {
-				cell->setPort(ID::CLK, RTLIL::SigSpec(RTLIL::State::Sx, 1));
-				cell->setPort(ID::EN, children[2]->genRTLIL());
-				cell->parameters[ID::CLK_ENABLE] = RTLIL::Const(0);
-				cell->parameters[ID::CLK_POLARITY] = RTLIL::Const(0);
-			}
 
 			cell->parameters[ID::PRIORITY] = RTLIL::Const(autoidx-1);
 		}

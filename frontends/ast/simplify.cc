@@ -1217,6 +1217,14 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		}
 	}
 
+	dict<std::string, pool<int>> backup_memwr_visible;
+	dict<std::string, pool<int>> final_memwr_visible;
+
+	if (type == AST_CASE && stage == 2) {
+		backup_memwr_visible = current_memwr_visible;
+		final_memwr_visible = current_memwr_visible;
+	}
+
 	// simplify all children first
 	// (iterate by index as e.g. auto wires can add new children in the process)
 	for (size_t i = 0; i < children.size(); i++) {
@@ -1279,10 +1287,24 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		}
 		flag_autowire = backup_flag_autowire;
 		unevaluated_tern_branch = backup_unevaluated_tern_branch;
+		if (stage == 2 && type == AST_CASE) {
+			for (auto &x : current_memwr_visible) {
+				for (int y : x.second)
+					final_memwr_visible[x.first].insert(y);
+			}
+			current_memwr_visible = backup_memwr_visible;
+		}
 	}
 	for (auto &attr : attributes) {
 		while (attr.second->simplify(true, false, false, stage, -1, false, true))
 			did_something = true;
+	}
+	if (type == AST_CASE && stage == 2) {
+		current_memwr_visible = final_memwr_visible;
+	}
+	if (type == AST_ALWAYS && stage == 2) {
+		current_memwr_visible.clear();
+		current_memwr_count.clear();
 	}
 
 	if (reset_width_after_children) {
@@ -2570,12 +2592,12 @@ skip_dynamic_range_lvalue_expansion:;
 			current_scope[wire_addr->str] = wire_addr;
 			while (wire_addr->simplify(true, false, false, 1, -1, false, false)) { }
 
-			AstNode *assign_addr = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_bits(x_bits_addr, false));
+			AstNode *assign_addr = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), mkconst_bits(x_bits_addr, false));
 			assign_addr->children[0]->str = id_addr;
 			assign_addr->children[0]->was_checked = true;
 			defNode->children.push_back(assign_addr);
 
-			assign_addr = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), children[0]->children[0]->children[0]->clone());
+			assign_addr = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), children[0]->children[0]->children[0]->clone());
 			assign_addr->children[0]->str = id_addr;
 			assign_addr->children[0]->was_checked = true;
 			newNode->children.push_back(assign_addr);
@@ -2596,7 +2618,7 @@ skip_dynamic_range_lvalue_expansion:;
 			current_scope[wire_data->str] = wire_data;
 			while (wire_data->simplify(true, false, false, 1, -1, false, false)) { }
 
-			AstNode *assign_data = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_bits(x_bits_data, false));
+			AstNode *assign_data = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), mkconst_bits(x_bits_data, false));
 			assign_data->children[0]->str = id_data;
 			assign_data->children[0]->was_checked = true;
 			defNode->children.push_back(assign_data);
@@ -2616,7 +2638,7 @@ skip_dynamic_range_lvalue_expansion:;
 			current_scope[wire_en->str] = wire_en;
 			while (wire_en->simplify(true, false, false, 1, -1, false, false)) { }
 
-			AstNode *assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_int(0, false, mem_width));
+			AstNode *assign_en = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), mkconst_int(0, false, mem_width));
 			assign_en->children[0]->str = id_en;
 			assign_en->children[0]->was_checked = true;
 			defNode->children.push_back(assign_en);
@@ -2642,7 +2664,7 @@ skip_dynamic_range_lvalue_expansion:;
 
 				std::vector<RTLIL::State> padding_x(offset, RTLIL::State::Sx);
 
-				assign_data = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER),
+				assign_data = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER),
 						new AstNode(AST_CONCAT, mkconst_bits(padding_x, false), children[1]->clone()));
 				assign_data->children[0]->str = id_data;
 				assign_data->children[0]->was_checked = true;
@@ -2650,7 +2672,7 @@ skip_dynamic_range_lvalue_expansion:;
 				if (current_always->type != AST_INITIAL) {
 					for (int i = 0; i < mem_width; i++)
 						set_bits_en[i] = offset <= i && i < offset+width ? RTLIL::State::S1 : RTLIL::State::S0;
-					assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_bits(set_bits_en, false));
+					assign_en = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), mkconst_bits(set_bits_en, false));
 					assign_en->children[0]->str = id_en;
 					assign_en->children[0]->was_checked = true;
 				}
@@ -2671,7 +2693,7 @@ skip_dynamic_range_lvalue_expansion:;
 					log_file_error(filename, location.first_line, "Unsupported expression on dynamic range select on signal `%s'!\n", str.c_str());
 				int width = abs(int(left_at_zero_ast->integer - right_at_zero_ast->integer)) + 1;
 
-				assign_data = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER),
+				assign_data = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER),
 						new AstNode(AST_SHIFT_LEFT, children[1]->clone(), offset_ast->clone()));
 				assign_data->children[0]->str = id_data;
 				assign_data->children[0]->was_checked = true;
@@ -2679,7 +2701,7 @@ skip_dynamic_range_lvalue_expansion:;
 				if (current_always->type != AST_INITIAL) {
 					for (int i = 0; i < mem_width; i++)
 						set_bits_en[i] = i < width ? RTLIL::State::S1 : RTLIL::State::S0;
-					assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER),
+					assign_en = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER),
 							new AstNode(AST_SHIFT_LEFT, mkconst_bits(set_bits_en, false), offset_ast->clone()));
 					assign_en->children[0]->str = id_en;
 					assign_en->children[0]->was_checked = true;
@@ -2693,13 +2715,13 @@ skip_dynamic_range_lvalue_expansion:;
 		else
 		{
 			if (!(children[0]->children.size() == 1 && children[1]->isConst())) {
-				assign_data = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), children[1]->clone());
+				assign_data = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), children[1]->clone());
 				assign_data->children[0]->str = id_data;
 				assign_data->children[0]->was_checked = true;
 			}
 
 			if (current_always->type != AST_INITIAL) {
-				assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_bits(set_bits_en, false));
+				assign_en = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), mkconst_bits(set_bits_en, false));
 				assign_en->children[0]->str = id_en;
 				assign_en->children[0]->was_checked = true;
 			}
@@ -2712,7 +2734,21 @@ skip_dynamic_range_lvalue_expansion:;
 		AstNode *wrnode = new AstNode(current_always->type == AST_INITIAL ? AST_MEMINIT : AST_MEMWR, node_addr, node_data, node_en);
 		wrnode->str = children[0]->str;
 		wrnode->id2ast = children[0]->id2ast;
-		current_ast_mod->children.push_back(wrnode);
+		wrnode->location = location;
+		if (wrnode->type == AST_MEMWR) {
+			int portid = current_memwr_count[wrnode->str]++;
+			wrnode->children.push_back(mkconst_int(portid, false));
+			std::vector<RTLIL::State> priority_mask;
+			for (int i = 0; i < portid; i++) {
+				bool has_prio = current_memwr_visible[wrnode->str].count(i);
+				priority_mask.push_back(State(has_prio));
+			}
+			wrnode->children.push_back(mkconst_bits(priority_mask, false));
+			current_memwr_visible[wrnode->str].insert(portid);
+			current_always->children.push_back(wrnode);
+		} else {
+			current_ast_mod->children.push_back(wrnode);
+		}
 
 		if (newNode->children.empty()) {
 			delete newNode;
