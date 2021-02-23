@@ -3148,6 +3148,34 @@ skip_dynamic_range_lvalue_expansion:;
 				goto apply_newNode;
 			}
 
+			if (str == "\\$countones" || str == "\\$isunknown" || str == "\\$onehot" || str == "\\$onehot0") {
+				if (children.size() != 1)
+					log_file_error(filename, location.first_line, "System function %s got %d arguments, expected 1.\n",
+							RTLIL::unescape_id(str).c_str(), int(children.size()));
+
+				AstNode *countbits = clone();
+				countbits->str = "\\$countbits";
+
+				if (str == "\\$countones") {
+					countbits->children.push_back(mkconst_bits({RTLIL::State::S1}, false));
+					newNode = countbits;
+				} else if (str == "\\$isunknown") {
+					countbits->children.push_back(mkconst_bits({RTLIL::Sx}, false));
+					countbits->children.push_back(mkconst_bits({RTLIL::Sz}, false));
+					newNode = new AstNode(AST_GT, countbits, mkconst_int(0, false));
+				} else if (str == "\\$onehot") {
+					countbits->children.push_back(mkconst_bits({RTLIL::State::S1}, false));
+					newNode = new AstNode(AST_EQ, countbits, mkconst_int(1, false));
+				} else if (str == "\\$onehot0") {
+					countbits->children.push_back(mkconst_bits({RTLIL::State::S1}, false));
+					newNode = new AstNode(AST_LE, countbits, mkconst_int(1, false));
+				} else {
+					log_abort();
+				}
+
+				goto apply_newNode;
+			}
+
 			if (current_scope.count(str) != 0 && current_scope[str]->type == AST_DPI_FUNCTION)
 			{
 				AstNode *dpi_decl = current_scope[str];
