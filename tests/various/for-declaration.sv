@@ -40,6 +40,16 @@ always @(*) begin
     oute[e] = 1'b1;
   end
 end
+
+`default_nettype none
+logic x;
+for (genvar x = 0; x < 2; x++) begin : loop
+    logic [x:0] y;
+end
+assign x = 1'sb1;
+assign loop[0].y = 1'sb1;
+assign loop[1].y = 2'sb10;
+
 always_comb begin
   assert(8'b11111111 == outa);
   assert(7'b0000000 == outb);
@@ -47,6 +57,9 @@ always_comb begin
   assert(5'b00000 == outd);
   assert(4'b1111 == oute);
   assert(10 == out);
+  assert(1'sb1 == x);
+  assert(1'sb1 == loop[0].y);
+  assert(2'sb10 == loop[1].y);
 end
 
 endmodule

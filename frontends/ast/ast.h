@@ -279,6 +279,9 @@ namespace AST
 		bool is_recursive_function() const;
 		std::pair<AstNode*, AstNode*> get_tern_choice();
 
+		// Visit each descendant of this node and call the passed function on it
+		void visitEachDescendant(const std::function<void(AST::AstNode*)>& f);
+
 		// create a human-readable text representation of the AST (for debugging)
 		void dumpAst(FILE *f, std::string indent) const;
 		void dumpVlog(FILE *f, std::string indent) const;
