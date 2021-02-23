@@ -33,7 +33,7 @@ struct MemoryNordffPass : public Pass {
 		log("    memory_nordff [options] [selection]\n");
 		log("\n");
 		log("This pass extracts FFs from memory read ports. This results in a netlist\n");
-		log("similar to what one would get from calling memory_dff with -nordff.\n");
+		log("similar to what one would get from not calling memory_dff.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override

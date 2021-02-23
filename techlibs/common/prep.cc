@@ -61,7 +61,7 @@ struct PrepPass : public ScriptPass
 		log("        do not run any of the memory_* passes\n");
 		log("\n");
 		log("    -rdff\n");
-		log("        do not pass -nordff to 'memory_dff'. This enables merging of FFs into\n");
+		log("        call 'memory_dff'. This enables merging of FFs into\n");
 		log("        memory read ports.\n");
 		log("\n");
 		log("    -nokeepdc\n");
@@ -79,7 +79,7 @@ struct PrepPass : public ScriptPass
 	}
 
 	string top_module, fsm_opts;
-	bool autotop, flatten, ifxmode, memxmode, nomemmode, nokeepdc, nordff;
+	bool autotop, flatten, ifxmode, memxmode, nomemmode, nokeepdc, rdff;
 
 	void clear_flags() override
 	{
@@ -91,7 +91,7 @@ struct PrepPass : public ScriptPass
 		memxmode = false;
 		nomemmode = false;
 		nokeepdc = false;
-		nordff = true;
+		rdff = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -137,11 +137,11 @@ struct PrepPass : public ScriptPass
 				continue;
 			}
 			if (args[argidx] == "-nordff") {
-				nordff = true;
+				rdff = false;
 				continue;
 			}
 			if (args[argidx] == "-rdff") {
-				nordff = false;
+				rdff = true;
 				continue;
 			}
 			if (args[argidx] == "-nokeepdc") {
@@ -202,7 +202,8 @@ struct PrepPass : public ScriptPass
 					run(memxmode ? "wreduce -keepdc -memx" : "wreduce -keepdc");
 			}
 			if (!nomemmode) {
-				run(string("memory_dff") + (help_mode ? " [-nordff]" : nordff ? " -nordff" : ""));
+				if (help_mode || rdff)
+					run("memory_dff", "(if -rdff)");
 				if (help_mode || memxmode)
 					run("memory_memx", "(if -memx)");
 				run("opt_clean");
