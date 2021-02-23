@@ -323,6 +323,9 @@ namespace AST
 		// helpers for enum
 		void allocateDefaultEnumValues();
 		void annotateTypedEnums(AstNode *template_node);
+
+		// helpers for locations
+		std::string loc_string() const;
 	};
 
 	// process an AST tree (ast must point to an AST_DESIGN node) and generate RTLIL code
@@ -361,6 +364,9 @@ namespace AST
 	std::pair<std::string,std::string> split_modport_from_type(std::string name_type);
 	AstNode * find_modport(AstNode *intf, std::string name);
 	void explode_interface_port(AstNode *module_ast, RTLIL::Module * intfmodule, std::string intfname, AstNode *modport);
+
+	// Helper for setting the src attribute.
+	void set_src_attr(RTLIL::AttrObject *obj, const AstNode *ast);
 }
 
 namespace AST_INTERNAL
