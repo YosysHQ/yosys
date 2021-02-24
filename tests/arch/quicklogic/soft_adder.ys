@@ -2,7 +2,7 @@
 read_verilog -icells -DWIDTH=4 v/add.v
 hierarchy -check -auto-top
 proc
-equiv_opt -assert -map +/quicklogic/openfpga_cells_sim.v synth_quicklogic -openfpga -adder
+equiv_opt -assert -map +/quicklogic/qlf_k4n8_cells_sim.v synth_quicklogic -family qlf_k4n8 
 
 design -reset
 
@@ -10,4 +10,4 @@ design -reset
 read_verilog -icells -DWIDTH=4 v/sub.v
 hierarchy -check -auto-top
 proc
-equiv_opt -assert  -map +/quicklogic/openfpga_cells_sim.v synth_quicklogic -openfpga -adder
+equiv_opt -assert  -map +/quicklogic/qlf_k4n8_cells_sim.v synth_quicklogic -family qlf_k4n8 

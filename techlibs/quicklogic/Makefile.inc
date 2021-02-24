@@ -8,7 +8,6 @@ GENFILES += techlibs/quicklogic/bram_init_8_16.vh
 GENFILES += techlibs/quicklogic/bram_init_32.vh
 
 $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/ap3_ffs_map.v))
-$(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/ap3_openfpga_ffs_map.v))
 $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/ap2_ffs_map.v))
 $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/ap_ffs_map.v))
 $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/pp3_ffs_map.v))
@@ -53,8 +52,8 @@ $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/ap_lutdefs.txt
 $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/ap2_lutdefs.txt))
 $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/ap3_lutdefs.txt))
 
-$(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/openfpga_cells_sim.v))
-$(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/openfpga_arith_map.v))
+$(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/qlf_k4n8_cells_sim.v))
+$(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/qlf_k4n8_arith_map.v))
 $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/abc9_softadder_model.v))
 
 EXTRA_OBJS += techlibs/quicklogic/brams_init.mk 

@@ -77,6 +77,7 @@ module _80_quicklogic_alu (
       .CO(CO[Y_WIDTH-1]),
       .S(Y[Y_WIDTH-1])
     );
+  end
   endgenerate
 
   /* End implementation */
