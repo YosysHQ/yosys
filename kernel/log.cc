@@ -345,15 +345,15 @@ static void logv_error_with_prefix(const char *prefix,
 
 	log_make_debug = bak_log_make_debug;
 
-	if (log_error_atexit)
-		log_error_atexit();
-
 	for (auto &item : log_expect_error)
 		if (YS_REGEX_NS::regex_search(log_last_error, item.second.pattern))
 			item.second.current_count++;
 
 	if (check_expected_logs)
 		log_check_expected();
+
+	if (log_error_atexit)
+		log_error_atexit();
 
 	YS_DEBUGTRAP_IF_DEBUGGING;
 
