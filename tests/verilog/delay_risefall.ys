@@ -1,0 +1,225 @@
+logger -expect-no-warnings
+read_verilog <<EOT
+module test (a, b, c, y);
+    input a;
+    input signed [1:0] b;
+    input signed [2:0] c;
+    output y;
+    assign #(12.5, 14.5) y = ^(a ? b : c);
+endmodule
+EOT
+
+design -reset
+logger -expect-no-warnings
+read_verilog << EOT
+module test (input [7:0] a, b, c, d, output [7:0] x, y, z);
+    assign #(20, 20, 25) x = a + b, y = b + c, z = c + d;
+endmodule
+EOT
+
+design -reset
+logger -expect-no-warnings
+read_verilog <<EOT
+module test (a, b, c, y);
+    localparam TIME_STEP = 0.011;
+    input signed [3:0] a;
+    input signed [1:0] b;
+    input signed [1:0] c;
+    output [5:0] y;
+    assign #(TIME_STEP, TIME_STEP, TIME_STEP) y = (a >> b) >>> c;
+endmodule
+EOT
+
+design -reset
+logger -expect-no-warnings
+read_verilog <<EOT
+module test;
+    localparam TIME_STEP = 0.7;
+    wire o, a, b;
+    and #(TIME_STEP, 2) and_gate (o, a, b);
+    wire #(0, TIME_STEP, TIME_STEP) x;
+    assign o = x;
+endmodule
+EOT
+
+design -reset
+logger -expect warning "Yosys has only limited support for tri-state logic at the moment." 1
+read_verilog <<EOT
+module test (input en, input a, input b, output c);
+    wire [15:0] add0_res = a + b;
+    assign #(3, 3) c = (en) ? a : 1'bz;
+endmodule
+EOT
+
+design -reset
+logger -expect-no-warnings
+read_verilog <<EOT
+module test (input en, d, t_rise, t_fall);
+    reg o;
+    always @*
+        if (en)
+            o = #(t_rise, t_fall, 50) ~d;
+endmodule
+EOT
+
+design -reset
+logger -expect-no-warnings
+read_verilog <<EOT
+module test #(parameter DELAY_RISE = 0, DELAY_FALL = 0, DELAY_Z = 0)
+            (input clock, input reset, input req_0, input req_1, output gnt_0, output gnt_1);
+    parameter SIZE = 3;
+    parameter IDLE = 3'b001, GNT0 = 3'b010, GNT1 = 3'b100;
+    reg [SIZE-1:0] state;
+    reg [SIZE-1:0] next_state;
+    reg gnt_0, gnt_1;
+
+    always @ (state or req_0 or req_1)
+    begin : FSM_COMBO
+        next_state = 3'b000;
+        case (state)
+        IDLE : if (req_0 == 1'b1) begin
+                    next_state = #(DELAY_RISE * 2) GNT0;
+                end else if (req_1 == 1'b1) begin
+                    next_state = #(DELAY_RISE * 2.5, DELAY_FALL) GNT1;
+                end else begin
+                    next_state = #(DELAY_RISE * 2.5, DELAY_FALL, DELAY_Z) IDLE;
+                end
+        GNT0 : if (req_0 == 1'b1) begin
+                    #(DELAY_RISE, DELAY_FALL) next_state = GNT0;
+                end else begin
+                    #DELAY_RISE next_state = IDLE;
+                end
+        GNT1 : if (req_1 == 1'b1) begin
+                    #10 next_state = GNT1;
+                end else begin
+                    #(10) next_state = IDLE;
+                end
+        default : next_state = IDLE;
+        endcase
+    end
+
+    always @ (posedge clock)
+    begin : FSM_SEQ
+        if (reset == 1'b1) begin
+            #3 state <= IDLE;
+        end else begin
+            #(1, 3) state <= next_state;
+        end
+    end
+
+    always @ (posedge clock)
+    begin : FSM_OUTPUT
+        if (reset == 1'b1) begin
+            gnt_0 <= #(DELAY_RISE, DELAY_FALL, DELAY_Z) 1'b0;
+            gnt_1 <= #1 1'b0;
+        end else begin
+            case (state)
+            IDLE : begin
+                        gnt_0 <= #(DELAY_RISE, DELAY_FALL, DELAY_Z) 1'b0;
+                        gnt_1 <= #1 1'b0;
+                    end
+            GNT0 : begin
+                        gnt_0 <= #(DELAY_RISE, DELAY_FALL) 1'b1;
+                        gnt_1 <= #1 1'b0;
+                    end
+            GNT1 : begin
+                        gnt_0 <= #(DELAY_RISE) 1'b0;
+                        gnt_1 <= #1 1'b1;
+                    end
+            default : begin
+                        gnt_0 <= 1'b0;
+                        gnt_1 <= 1'b0;
+                    end
+            endcase
+        end
+    end
+endmodule
+EOT
+
+design -reset
+logger -expect-no-warnings
+read_verilog <<EOT
+module test;
+    reg q;
+    initial #(1,2) q = 1;
+endmodule
+EOT
+
+design -reset
+logger -expect-no-warnings
+read_verilog <<EOT
+module test #(parameter hyst = 16)
+            (input [0:1] inA, input rst, output reg out);
+    parameter real updatePeriod = 100.0;
+    initial out = 1'b0;
+    always #updatePeriod begin
+        if (rst) out <= 1'b0;
+        else if (inA[0] > inA[1]) out <= 1'b1;
+        else if (inA[0] < inA[1] - hyst) out <= 1'b0;
+    end
+endmodule
+EOT
+
+design -reset
+logger -expect-no-warnings
+read_verilog <<EOT
+module test #(parameter hyst = 16)
+            (input [0:1] inA, input rst, output reg out);
+    parameter updatePeriod = (100:125:200);
+    initial out = 1'b0;
+    always #updatePeriod begin
+        if (rst) out <= 1'b0;
+        else if (inA[0] > inA[1]) out <= 1'b1;
+        else if (inA[0] < inA[1] - hyst) out <= 1'b0;
+    end
+endmodule
+EOT
+
+design -reset
+logger -expect-no-warnings
+read_verilog <<EOT
+module test;
+    reg clk;
+    initial clk = 1'b0;
+    always #(100, 180, 230) clk = ~clk;
+endmodule
+EOT
+
+design -reset
+logger -expect-no-warnings
+read_verilog <<EOT
+module test;
+    reg clk;
+    initial clk = 1'b0;
+    always clk = #(100, 180, 230) ~clk;
+    task t_test;
+        sig_036_A <= #(2, 4, 5.5) 0;
+        sig_036_B <= #(1.3, 3) 0;
+        sig_036_S <= #(2) 0;
+        #(100, 200, 300);
+        sig_036_A <= #(2 : 3 : 5) ~0;
+        sig_036_B <= #(4 : 6 : 6, 10) ~0;
+        sig_036_S <= #(1 : 2 : 3, 2 : 2 : 3, 10) ~0;
+        #100;
+    endtask
+endmodule
+EOT
+
+design -reset
+logger -expect-no-warnings
+read_verilog <<EOT
+module test (clk, en, i, o);
+    input clk, en, i;
+    reg p;
+    output o;
+    always @ (posedge clk)
+    begin
+        if (en) begin
+            p <= #(5:15:25, 20, 30) i;
+        end else begin
+            #(5, 3:5:8, 10) p <= i;
+        end
+    end
+    assign #(10, 20, 15:20:30) o = p;
+endmodule
+EOT
