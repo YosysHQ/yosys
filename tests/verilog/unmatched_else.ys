@@ -1,0 +1,6 @@
+logger -expect error "Found `else outside of macro conditional branch!" 1
+read_verilog <<EOT
+module top;
+`else
+endmodule
+EOT

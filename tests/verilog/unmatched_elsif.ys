@@ -1,0 +1,6 @@
+logger -expect error "Found `elsif outside of macro conditional branch!" 1
+read_verilog <<EOT
+module top;
+`elsif
+endmodule
+EOT

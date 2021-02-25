@@ -1,0 +1,6 @@
+logger -expect error "Found `endif outside of macro conditional branch!" 1
+read_verilog <<EOT
+module top;
+`endif
+endmodule
+EOT
