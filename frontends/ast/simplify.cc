@@ -571,7 +571,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	static bool deep_recursion_warning = false;
 
 	if (recursion_counter++ == 1000 && deep_recursion_warning) {
-		log_warning("Deep recursion in AST simplifier.\nDoes this design contain insanely long expressions?\n");
+		log_warning("Deep recursion in AST simplifier.\nDoes this design contain overly long or deeply nested expressions, or excessive recursion?\n");
 		deep_recursion_warning = false;
 	}
 
