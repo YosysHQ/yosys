@@ -55,6 +55,17 @@ inline int32_t from_big_endian(int32_t i32) {
 #define log_debug2(...) ;
 //#define log_debug2(...) log_debug(__VA_ARGS__)
 
+static int decimal_digits(uint32_t n) {
+	static uint32_t digit_cutoff[9] = {
+		10, 100, 1000, 10000, 100000,
+		1000000, 10000000, 100000000, 1000000000
+	};
+	for (int i = 0; i < 9; ++i) {
+		if (n < digit_cutoff[i]) return i + 1;
+	}
+	return 10;
+}
+
 struct ConstEvalAig
 {
 	RTLIL::Module *module;
@@ -515,7 +526,7 @@ void AigerReader::parse_aiger_ascii()
 	unsigned l1, l2, l3;
 
 	// Parse inputs
-	int digits = ceil(log10(I));
+	int digits = decimal_digits(I);
 	for (unsigned i = 1; i <= I; ++i, ++line_count) {
 		if (!(f >> l1))
 			log_error("Line %u cannot be interpreted as an input!\n", line_count);
@@ -537,7 +548,7 @@ void AigerReader::parse_aiger_ascii()
 		clk_wire->port_input = true;
 		clk_wire->port_output = false;
 	}
-	digits = ceil(log10(L));
+	digits = decimal_digits(L);
 	for (unsigned i = 0; i < L; ++i, ++line_count) {
 		if (!(f >> l1 >> l2))
 			log_error("Line %u cannot be interpreted as a latch!\n", line_count);
@@ -575,7 +586,7 @@ void AigerReader::parse_aiger_ascii()
 	}
 
 	// Parse outputs
-	digits = ceil(log10(O));
+	digits = decimal_digits(O);
 	for (unsigned i = 0; i < O; ++i, ++line_count) {
 		if (!(f >> l1))
 			log_error("Line %u cannot be interpreted as an output!\n", line_count);
@@ -643,7 +654,7 @@ void AigerReader::parse_aiger_binary()
 	std::string line;
 
 	// Parse inputs
-	int digits = ceil(log10(I));
+	int digits = decimal_digits(I);
 	for (unsigned i = 1; i <= I; ++i) {
 		log_debug2("%d is an input\n", i);
 		RTLIL::Wire *wire = module->addWire(stringf("$i%0*d", digits, i));
@@ -662,7 +673,7 @@ void AigerReader::parse_aiger_binary()
 		clk_wire->port_input = true;
 		clk_wire->port_output = false;
 	}
-	digits = ceil(log10(L));
+	digits = decimal_digits(L);
 	l1 = (I+1) * 2;
 	for (unsigned i = 0; i < L; ++i, ++line_count, l1 += 2) {
 		if (!(f >> l2))
@@ -700,7 +711,7 @@ void AigerReader::parse_aiger_binary()
 	}
 
 	// Parse outputs
-	digits = ceil(log10(O));
+	digits = decimal_digits(O);
 	for (unsigned i = 0; i < O; ++i, ++line_count) {
 		if (!(f >> l1))
 			log_error("Line %u cannot be interpreted as an output!\n", line_count);
