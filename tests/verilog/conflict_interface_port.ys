@@ -1,0 +1,17 @@
+logger -expect error "Cannot add interface port `\\i' because a signal with the same name was already created" 1
+read_verilog -sv <<EOT
+interface intf;
+    logic x;
+    assign x = 1;
+    modport m(input x);
+endinterface
+module mod(intf.m i);
+    wire x;
+    assign x = i.x;
+    wire i;
+endmodule
+module top;
+    intf i();
+    mod m(i);
+endmodule
+EOT

@@ -1,0 +1,8 @@
+logger -expect error "Cannot add procedural assertion `\\x' because a signal with the same name was already created" 1
+read_verilog -sv <<EOT
+module top;
+    wire x, y;
+    always @*
+        x: assert(y == 1);
+endmodule
+EOT
