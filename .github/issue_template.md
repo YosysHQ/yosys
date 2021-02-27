@@ -13,7 +13,7 @@ create a Minimal, Complete, and Verifiable example (MCVE).
 Please do not waste our time with issues that lack sufficient information
 to reproduce the issue easily. We will simply close those issues.
 
-Contact https://www.symbioticeda.com/ if you need commercial support for Yosys.
+Contact https://www.yosyshq.com/ if you need commercial support for Yosys.
 
 ## Expected behavior
 
