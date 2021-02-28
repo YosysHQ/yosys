@@ -253,6 +253,7 @@ static void rewriteAsMemoryNode(AstNode *node, AstNode *rangeNode)
 	struct specify_rise_fall *specify_rise_fall_ptr;
 	bool boolean;
 	char ch;
+	int integer;
 }
 
 %token <string> TOK_STRING TOK_ID TOK_CONSTVAL TOK_REALVAL TOK_PRIMITIVE
@@ -278,15 +279,17 @@ static void rewriteAsMemoryNode(AstNode *node, AstNode *rangeNode)
 %token TOK_POS_INDEXED TOK_NEG_INDEXED TOK_PROPERTY TOK_ENUM TOK_TYPEDEF
 %token TOK_RAND TOK_CONST TOK_CHECKER TOK_ENDCHECKER TOK_EVENTUALLY
 %token TOK_INCREMENT TOK_DECREMENT TOK_UNIQUE TOK_UNIQUE0 TOK_PRIORITY
-%token TOK_STRUCT TOK_PACKED TOK_UNSIGNED TOK_INT TOK_BYTE TOK_SHORTINT TOK_UNION
+%token TOK_STRUCT TOK_PACKED TOK_UNSIGNED TOK_INT TOK_BYTE TOK_SHORTINT TOK_LONGINT TOK_UNION
 %token TOK_OR_ASSIGN TOK_XOR_ASSIGN TOK_AND_ASSIGN TOK_SUB_ASSIGN
 
-%type <ast> range range_or_multirange  non_opt_range non_opt_multirange range_or_signed_int
+%type <ast> range range_or_multirange non_opt_range non_opt_multirange
 %type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list non_io_wire_type io_wire_type
 %type <string> opt_label opt_sva_label tok_prim_wrapper hierarchical_id hierarchical_type_id integral_number
 %type <string> type_name
-%type <ast> opt_enum_init enum_type struct_type non_wire_data_type
-%type <boolean> opt_signed opt_property always_comb_or_latch always_or_always_ff
+%type <ast> opt_enum_init enum_type struct_type non_wire_data_type func_return_type
+%type <boolean> opt_property always_comb_or_latch always_or_always_ff
+%type <boolean> opt_signedness_default_signed opt_signedness_default_unsigned
+%type <integer> integer_atom_type
 %type <al> attr case_attr
 %type <ast> struct_union
 
@@ -716,11 +719,18 @@ wire_type_token:
 logic_type:
 	TOK_LOGIC {
 	} |
-	TOK_INTEGER {
-		astbuf3->range_left = 31;
+	integer_atom_type {
+		astbuf3->range_left = $1 - 1;
 		astbuf3->range_right = 0;
 		astbuf3->is_signed = true;
 	};
+
+integer_atom_type:
+	TOK_INTEGER	{ $$ = 32; } |
+	TOK_INT		{ $$ = 32; } |
+	TOK_SHORTINT	{ $$ = 16; } |
+	TOK_LONGINT	{ $$ = 64; } |
+	TOK_BYTE	{ $$ =  8; } ;
 
 non_opt_range:
 	'[' expr ':' expr ']' {
@@ -765,11 +775,6 @@ range:
 range_or_multirange:
 	range { $$ = $1; } |
 	non_opt_multirange { $$ = $1; };
-
-range_or_signed_int:
-	  range 		{ $$ = $1; }
-	| TOK_INTEGER		{ $$ = makeRange(); }
-	;
 
 module_body:
 	module_body module_body_stmt |
@@ -841,28 +846,57 @@ task_func_decl:
 		current_function_or_task = NULL;
 		ast_stack.pop_back();
 	} |
-	attr TOK_FUNCTION opt_automatic opt_signed range_or_signed_int TOK_ID {
+	attr TOK_FUNCTION opt_automatic func_return_type TOK_ID {
 		current_function_or_task = new AstNode(AST_FUNCTION);
-		current_function_or_task->str = *$6;
+		current_function_or_task->str = *$5;
 		append_attr(current_function_or_task, $1);
 		ast_stack.back()->children.push_back(current_function_or_task);
 		ast_stack.push_back(current_function_or_task);
 		AstNode *outreg = new AstNode(AST_WIRE);
-		outreg->str = *$6;
-		outreg->is_signed = $4;
+		outreg->str = *$5;
+		outreg->is_signed = false;
 		outreg->is_reg = true;
-		if ($5 != NULL) {
-			outreg->children.push_back($5);
-			outreg->is_signed = $4 || $5->is_signed;
-			$5->is_signed = false;
+		if ($4 != NULL) {
+			outreg->children.push_back($4);
+			outreg->is_signed = $4->is_signed;
+			$4->is_signed = false;
 		}
 		current_function_or_task->children.push_back(outreg);
 		current_function_or_task_port_id = 1;
-		delete $6;
+		delete $5;
 	} task_func_args_opt ';' task_func_body TOK_ENDFUNCTION {
 		current_function_or_task = NULL;
 		ast_stack.pop_back();
 	};
+
+func_return_type:
+	opt_type_vec opt_signedness_default_unsigned {
+		$$ = makeRange(0, 0, $2);
+	} |
+	opt_type_vec opt_signedness_default_unsigned non_opt_range {
+		$$ = $3;
+		$$->is_signed = $2;
+	} |
+	integer_atom_type opt_signedness_default_signed {
+		$$ = makeRange($1 - 1, 0, $2);
+	};
+
+opt_type_vec:
+	  %empty
+	| TOK_REG
+	| TOK_LOGIC
+	;
+
+opt_signedness_default_signed:
+	  %empty	{ $$ = true; }
+	| TOK_SIGNED	{ $$ = true; }
+	| TOK_UNSIGNED	{ $$ = false; }
+	;
+opt_signedness_default_unsigned:
+	  %empty	{ $$ = false; }
+	| TOK_SIGNED	{ $$ = true; }
+	| TOK_UNSIGNED	{ $$ = false; }
+	;
 
 dpi_function_arg:
 	TOK_ID TOK_ID {
@@ -888,14 +922,6 @@ dpi_function_args:
 opt_automatic:
 	TOK_AUTOMATIC |
 	%empty;
-
-opt_signed:
-	TOK_SIGNED {
-		$$ = true;
-	} |
-	%empty {
-		$$ = false;
-	};
 
 task_func_args_opt:
 	'(' ')' | %empty | '(' {
@@ -1379,11 +1405,8 @@ param_signed:
 	} | %empty;
 
 param_integer:
-	TOK_INTEGER {
-		astbuf1->children.push_back(new AstNode(AST_RANGE));
-		astbuf1->children.back()->children.push_back(AstNode::mkconst_int(31, true));
-		astbuf1->children.back()->children.push_back(AstNode::mkconst_int(0, true));
-		astbuf1->is_signed = true;
+	type_atom {
+		astbuf1->is_reg = false;
 	};
 
 param_real:
@@ -1399,7 +1422,13 @@ param_range:
 	};
 
 param_integer_type: param_integer param_signed;
-param_range_type: type_vec param_signed param_range;
+param_range_type:
+	type_vec param_signed {
+		addRange(astbuf1, 0, 0);
+	} |
+	type_vec param_signed non_opt_range {
+		astbuf1->children.push_back($3);
+	};
 param_implicit_type: param_signed param_range;
 
 param_type:
@@ -1496,11 +1525,12 @@ enum_base_type: type_atom type_signing
 	| %empty			{ astbuf1->is_reg = true; addRange(astbuf1); }
 	;
 
-type_atom: TOK_INTEGER		{ astbuf1->is_reg = true; astbuf1->is_signed = true; addRange(astbuf1); }		// 4-state signed
-	|  TOK_INT		{ astbuf1->is_reg = true; astbuf1->is_signed = true; addRange(astbuf1); }		// 2-state signed
-	|  TOK_SHORTINT		{ astbuf1->is_reg = true; astbuf1->is_signed = true; addRange(astbuf1, 15, 0); }	// 2-state signed
-	|  TOK_BYTE		{ astbuf1->is_reg = true; astbuf1->is_signed = true; addRange(astbuf1,  7, 0); }	// 2-state signed
-	;
+type_atom:
+	integer_atom_type {
+		astbuf1->is_reg = true;
+		astbuf1->is_signed = true;
+		addRange(astbuf1, $1 - 1, 0);
+	};
 
 type_vec: TOK_REG		{ astbuf1->is_reg   = true; }		// unsigned
 	| TOK_LOGIC		{ astbuf1->is_logic = true; }		// unsigned
