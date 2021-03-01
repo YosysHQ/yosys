@@ -84,6 +84,9 @@ struct VerilogFrontend : public Frontend {
 		log("        enable support for SystemVerilog assertions and some Yosys extensions\n");
 		log("        replace the implicit -D SYNTHESIS with -D FORMAL\n");
 		log("\n");
+		log("    -nosynthesis\n");
+		log("        don't add implicit -D SYNTHESIS\n");
+		log("\n");
 		log("    -noassert\n");
 		log("        ignore assert() statements\n");
 		log("\n");
@@ -225,8 +228,8 @@ struct VerilogFrontend : public Frontend {
 		log("the syntax of the code, rather than to rely on read_verilog for that.\n");
 		log("\n");
 		log("Depending on if read_verilog is run in -formal mode, either the macro\n");
-		log("SYNTHESIS or FORMAL is defined automatically. In addition, read_verilog\n");
-		log("always defines the macro YOSYS.\n");
+		log("SYNTHESIS or FORMAL is defined automatically, unless -nosynthesis is used.\n");
+		log("In addition, read_verilog always defines the macro YOSYS.\n");
 		log("\n");
 		log("See the Yosys README file for a list of non-standard Verilog features\n");
 		log("supported by the Yosys Verilog front-end.\n");
@@ -255,6 +258,7 @@ struct VerilogFrontend : public Frontend {
 		bool flag_defer = false;
 		bool flag_noblackbox = false;
 		bool flag_nowb = false;
+		bool flag_nosynthesis = false;
 		define_map_t defines_map;
 
 		std::list<std::string> include_dirs;
@@ -280,6 +284,10 @@ struct VerilogFrontend : public Frontend {
 			}
 			if (arg == "-formal") {
 				formal_mode = true;
+				continue;
+			}
+			if (arg == "-nosynthesis") {
+				flag_nosynthesis = true;
 				continue;
 			}
 			if (arg == "-noassert") {
@@ -447,7 +455,8 @@ struct VerilogFrontend : public Frontend {
 			break;
 		}
 
-		defines_map.add(formal_mode ? "FORMAL" : "SYNTHESIS", "1");
+		if (formal_mode || !flag_nosynthesis)
+			defines_map.add(formal_mode ? "FORMAL" : "SYNTHESIS", "1");
 
 		extra_args(f, filename, args, argidx);
 
