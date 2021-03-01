@@ -1,0 +1,9 @@
+logger -expect error "Cannot add cell `\\x' because a memory with the same name was already created" 1
+read_verilog <<EOT
+module mod;
+endmodule
+module top;
+    reg [2:0] x [0:0];
+    mod x();
+endmodule
+EOT

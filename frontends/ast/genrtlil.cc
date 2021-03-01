@@ -1002,6 +1002,29 @@ void AstNode::detectSignWidth(int &width_hint, bool &sign_hint, bool *found_real
 	detectSignWidthWorker(width_hint, sign_hint, found_real);
 }
 
+static void check_unique_id(RTLIL::Module *module, RTLIL::IdString id,
+		const AstNode *node, const char *to_add_kind)
+{
+	auto already_exists = [&](const RTLIL::AttrObject *existing, const char *existing_kind) {
+		std::string src = existing->get_string_attribute(ID::src);
+		std::string location_str = "earlier";
+		if (!src.empty())
+			location_str = "at " + src;
+		log_file_error(node->filename, node->location.first_line,
+			"Cannot add %s `%s' because a %s with the same name was already created %s!\n",
+			to_add_kind, id.c_str(), existing_kind, location_str.c_str());
+	};
+
+	if (const RTLIL::Wire *wire = module->wire(id))
+		already_exists(wire, "signal");
+	if (const RTLIL::Cell *cell = module->cell(id))
+		already_exists(cell, "cell");
+	if (module->processes.count(id))
+		already_exists(module->processes.at(id), "process");
+	if (module->memories.count(id))
+		already_exists(module->memories.at(id), "memory");
+}
+
 // create RTLIL from an AST node
 // all generated cells, wires and processes are added to the module pointed to by 'current_module'
 // when the AST node is an expression (AST_ADD, AST_BIT_XOR, etc.), the result signal is returned.
@@ -1047,7 +1070,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 		// If a port in a module with unknown type is found, mark it with the attribute 'is_interface'
 		// This is used by the hierarchy pass to know when it can replace interface connection with the individual
 		// signals.
-		RTLIL::Wire *wire = current_module->addWire(str, 1);
+		RTLIL::IdString id = str;
+		check_unique_id(current_module, id, this, "interface port");
+		RTLIL::Wire *wire = current_module->addWire(id, 1);
 		set_src_attr(wire, this);
 		wire->start_offset = 0;
 		wire->port_id = port_id;
@@ -1085,7 +1110,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				log_file_error(filename, location.first_line, "Parameter `%s' with non-constant value!\n", str.c_str());
 
 			RTLIL::Const val = children[0]->bitsAsConst();
-			RTLIL::Wire *wire = current_module->addWire(str, GetSize(val));
+			RTLIL::IdString id = str;
+			check_unique_id(current_module, id, this, "pwire");
+			RTLIL::Wire *wire = current_module->addWire(id, GetSize(val));
 			current_module->connect(wire, val);
 			wire->is_signed = children[0]->is_signed;
 
@@ -1102,15 +1129,15 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 	// create an RTLIL::Wire for an AST_WIRE node
 	case AST_WIRE: {
-			if (current_module->wires_.count(str) != 0)
-				log_file_error(filename, location.first_line, "Re-definition of signal `%s'!\n", str.c_str());
 			if (!range_valid)
 				log_file_error(filename, location.first_line, "Signal `%s' with non-constant width!\n", str.c_str());
 
 			if (!(range_left + 1 >= range_right))
 				log_file_error(filename, location.first_line, "Signal `%s' with invalid width range %d!\n", str.c_str(), range_left - range_right + 1);
 
-			RTLIL::Wire *wire = current_module->addWire(str, range_left - range_right + 1);
+			RTLIL::IdString id = str;
+			check_unique_id(current_module, id, this, "signal");
+			RTLIL::Wire *wire = current_module->addWire(id, range_left - range_right + 1);
 			set_src_attr(wire, this);
 			wire->start_offset = range_right;
 			wire->port_id = port_id;
@@ -1132,9 +1159,6 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 	// create an RTLIL::Memory for an AST_MEMORY node
 	case AST_MEMORY: {
-			if (current_module->memories.count(str) != 0)
-				log_file_error(filename, location.first_line, "Re-definition of memory `%s'!\n", str.c_str());
-
 			log_assert(children.size() >= 2);
 			log_assert(children[0]->type == AST_RANGE);
 			log_assert(children[1]->type == AST_RANGE);
@@ -1153,6 +1177,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				memory->start_offset = children[1]->range_left;
 				memory->size = children[1]->range_right - children[1]->range_left + 1;
 			}
+			check_unique_id(current_module, memory->name, this, "memory");
 			current_module->memories[memory->name] = memory;
 
 			for (auto &attr : attributes) {
@@ -1684,6 +1709,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			else
 				cellname = str;
 
+			check_unique_id(current_module, cellname, this, "procedural assertion");
 			RTLIL::Cell *cell = current_module->addCell(cellname, celltype);
 			set_src_attr(cell, this);
 
@@ -1726,10 +1752,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 		{
 			int port_counter = 0, para_counter = 0;
 
-			if (current_module->count_id(str) != 0)
-				log_file_error(filename, location.first_line, "Re-definition of cell `%s'!\n", str.c_str());
-
-			RTLIL::Cell *cell = current_module->addCell(str, "");
+			RTLIL::IdString id = str;
+			check_unique_id(current_module, id, this, "cell");
+			RTLIL::Cell *cell = current_module->addCell(id, "");
 			set_src_attr(cell, this);
 			// Set attribute 'module_not_derived' which will be cleared again after the hierarchy pass
 			cell->set_bool_attribute(ID::module_not_derived);

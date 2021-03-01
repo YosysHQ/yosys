@@ -1,0 +1,8 @@
+logger -expect error "Cannot add pwire `\\x' because a signal with the same name was already created" 1
+read_verilog -pwires <<EOT
+module top;
+    wire x;
+    assign x = 1;
+    localparam x = 2;
+endmodule
+EOT
