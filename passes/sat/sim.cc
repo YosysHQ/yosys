@@ -271,7 +271,7 @@ struct SimInstance
 		{
 			auto child = children.at(cell);
 			for (auto &conn: cell->connections())
-				if (cell->input(conn.first)) {
+				if (cell->input(conn.first) && GetSize(conn.second)) {
 					Const value = get_state(conn.second);
 					child->set_state(child->module->wire(conn.first), value);
 				}
