@@ -267,6 +267,7 @@ static bool isUserType(std::string &s)
 "int"        { SV_KEYWORD(TOK_INT); }
 "byte"       { SV_KEYWORD(TOK_BYTE); }
 "shortint"   { SV_KEYWORD(TOK_SHORTINT); }
+"longint"    { SV_KEYWORD(TOK_LONGINT); }
 
 "eventually"   { if (formal_mode) return TOK_EVENTUALLY; SV_KEYWORD(TOK_EVENTUALLY); }
 "s_eventually" { if (formal_mode) return TOK_EVENTUALLY; SV_KEYWORD(TOK_EVENTUALLY); }

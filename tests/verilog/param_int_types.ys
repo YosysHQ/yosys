@@ -1,0 +1,5 @@
+read_verilog -sv param_int_types.sv
+proc
+equiv_make gold gate equiv
+equiv_simple
+equiv_status -assert
