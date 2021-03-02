@@ -68,3 +68,50 @@ module scff(
     always @(posedge clk)
         Q <= D;
 endmodule
+
+(* abc9_flop, lib_whitebox *)
+module dff(
+    output reg Q,
+    input D,
+    (* clkbuf_sink *)
+    input C
+);
+    parameter [0:0] INIT = 1'b0;
+    initial Q = INIT;
+
+    always @(posedge C)
+            Q <= D;
+endmodule
+
+(* abc9_flop, lib_whitebox *)
+module dffr(
+    output reg Q,
+    input D,
+    (* clkbuf_sink *)
+    input C,
+    input R
+);
+    parameter [0:0] INIT = 1'b0;
+    initial Q = INIT;
+
+    always @(posedge C or negedge R)
+        if (!R)
+            Q <= 1'b0;
+        else 
+            Q <= D;
+endmodule
+
+(* abc9_flop, lib_whitebox *)
+module sh_dff(
+    output reg Q,
+    input D,
+    (* clkbuf_sink *)
+    input C
+);
+    parameter [0:0] INIT = 1'b0;
+    initial Q = INIT;
+
+    always @(posedge C)
+            Q <= D;
+endmodule
+

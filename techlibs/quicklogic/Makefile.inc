@@ -8,6 +8,7 @@ GENFILES += techlibs/quicklogic/bram_init_8_16.vh
 GENFILES += techlibs/quicklogic/bram_init_32.vh
 
 $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/ap3_ffs_map.v))
+$(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/qlf_k4n8_ffs_map.v))
 $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/ap2_ffs_map.v))
 $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/ap_ffs_map.v))
 $(eval $(call add_share_file,share/quicklogic,techlibs/quicklogic/pp3_ffs_map.v))
