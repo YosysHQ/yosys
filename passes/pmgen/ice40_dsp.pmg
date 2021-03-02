@@ -23,7 +23,7 @@ match mul
 endmatch
 
 code sigA sigB sigH
-	auto unextend = [](const SigSpec &sig) {
+	auto unextend = [](const SigSpec &sig,bool is_signed) {
 		int i;
 		for (i = GetSize(sig)-1; i > 0; i--)
 			if (sig[i] != sig[i-1])
@@ -31,10 +31,13 @@ code sigA sigB sigH
 		// Do not remove non-const sign bit
 		if (sig[i].wire)
 			++i;
+    // Do not remove const sign bit if signed
+    else if (is_signed)
+      ++i;
 		return sig.extract(0, i);
 	};
-	sigA = unextend(port(mul, \A));
-	sigB = unextend(port(mul, \B));
+	sigA = unextend(port(mul, \A), param(mul, \A_SIGNED).as_bool());
+	sigB = unextend(port(mul, \B), param(mul, \B_SIGNED).as_bool());
 
 	SigSpec O;
 	if (mul->type == $mul)
