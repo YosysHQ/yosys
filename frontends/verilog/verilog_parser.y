@@ -546,8 +546,9 @@ module_arg:
 		node->str = *$4;
 		SET_AST_NODE_LOC(node, @4, @4);
 		node->port_id = ++port_counter;
-		if ($3 != NULL)
-			node->children.push_back($3);
+		AstNode *range = checkRange(node, $3);
+		if (range != NULL)
+			node->children.push_back(range);
 		if (!node->is_input && !node->is_output)
 			frontend_verilog_yyerror("Module port `%s' is neither input nor output.", $4->c_str());
 		if (node->is_reg && node->is_input && !node->is_output && !sv_mode)
