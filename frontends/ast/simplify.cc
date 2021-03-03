@@ -915,6 +915,22 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			}
 	}
 
+	if (type == AST_ARGUMENT)
+	{
+		if (children.size() == 1 && children[0]->type == AST_CONSTANT)
+		{
+			// HACK: For port bindings using unbased unsized literals, mark them
+			// signed so they sign-extend. The hierarchy will still incorrectly
+			// generate a warning complaining about resizing the expression.
+			// This also doesn't handle the complex of something like a ternary
+			// expression bound to a port, where the actual size of the port is
+			// needed to resolve the expression correctly.
+			AstNode *arg = children[0];
+			if (arg->is_unsized)
+				arg->is_signed = true;
+		}
+	}
+
 	int backup_width_hint = width_hint;
 	bool backup_sign_hint = sign_hint;
 
@@ -3773,7 +3789,11 @@ replace_fcall_later:;
 		case AST_CAST_SIZE:
 			if (children.at(0)->type == AST_CONSTANT && children.at(1)->type == AST_CONSTANT) {
 				int width = children[0]->bitsAsConst().as_int();
-				RTLIL::Const val = children[1]->bitsAsConst(width);
+				RTLIL::Const val;
+				if (children[1]->is_unsized)
+					val = children[1]->bitsAsUnsizedConst(width);
+				else
+					val = children[1]->bitsAsConst(width);
 				newNode = mkconst_bits(val.bits, children[1]->is_signed);
 			}
 			break;

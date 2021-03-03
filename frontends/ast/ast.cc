@@ -317,6 +317,8 @@ void AstNode::dumpAst(FILE *f, std::string indent) const
 		fprintf(f, " reg");
 	if (is_signed)
 		fprintf(f, " signed");
+	if (is_unsized)
+		fprintf(f, " unsized");
 	if (basic_prep)
 		fprintf(f, " basic_prep");
 	if (lookahead)
