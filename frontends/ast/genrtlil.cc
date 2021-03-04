@@ -1000,6 +1000,12 @@ void AstNode::detectSignWidth(int &width_hint, bool &sign_hint, bool *found_real
 	if (found_real)
 		*found_real = false;
 	detectSignWidthWorker(width_hint, sign_hint, found_real);
+
+	constexpr int kWidthLimit = 1 << 24;
+	if (width_hint >= kWidthLimit)
+		log_file_error(filename, location.first_line,
+			"Expression width %d exceeds implementation limit of %d!\n",
+			width_hint, kWidthLimit);
 }
 
 static void check_unique_id(RTLIL::Module *module, RTLIL::IdString id,
