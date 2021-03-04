@@ -1826,8 +1826,13 @@ void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
 			sig.pack();
 			for (auto &c : sig.chunks_)
 				if (c.wire != NULL && wires_p->count(c.wire)) {
-					c.wire = module->addWire(stringf("$delete_wire$%d", autoidx++), c.width);
-					c.offset = 0;
+					if (c.width) {
+						c.wire = module->addWire(stringf("$delete_wire$%d", autoidx++), c.width);
+						c.offset = 0;
+					} else {
+						c.wire = nullptr;
+						c.offset = 0;
+					}
 				}
 		}
 
