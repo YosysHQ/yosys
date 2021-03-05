@@ -614,6 +614,8 @@ struct CxxrtlWorker {
 	std::ostream *impl_f = nullptr;
 	std::ostream *intf_f = nullptr;
 
+	bool print_wire_types = false;
+	bool print_debug_wire_types = false;
 	bool run_hierarchy = false;
 	bool run_flatten = false;
 	bool run_proc = false;
@@ -2684,6 +2686,35 @@ struct CxxrtlWorker {
 					if (debug_live_nodes[node])
 						debug_schedule[module].push_back(*node);
 			}
+
+			auto show_wire_type = [&](const RTLIL::Wire* wire, const WireType &wire_type) {
+				const char *type_str;
+				switch (wire_type.type) {
+					case WireType::UNUSED:   type_str = "UNUSED";   break;
+					case WireType::BUFFERED: type_str = "BUFFERED"; break;
+					case WireType::MEMBER:   type_str = "MEMBER";   break;
+					case WireType::OUTLINE:  type_str = "OUTLINE";  break;
+					case WireType::LOCAL:    type_str = "LOCAL";    break;
+					case WireType::INLINE:   type_str = "INLINE";   break;
+					case WireType::ALIAS:    type_str = "ALIAS";    break;
+					case WireType::CONST:    type_str = "CONST";    break;
+					default:                 type_str = "(invalid)";
+				}
+				if (wire_type.sig_subst.empty())
+					log_debug("  %s: %s\n", log_signal((RTLIL::Wire*)wire), type_str);
+				else
+					log_debug("  %s: %s = %s\n", log_signal((RTLIL::Wire*)wire), type_str, log_signal(wire_type.sig_subst));
+			};
+			if (print_wire_types && !wire_types.empty()) {
+				log_debug("Wire types:\n");
+				for (auto wire_type : wire_types)
+					show_wire_type(wire_type.first, wire_type.second);
+			}
+			if (print_debug_wire_types && !debug_wire_types.empty()) {
+				log_debug("Debug wire types:\n");
+				for (auto debug_wire_type : debug_wire_types)
+					show_wire_type(debug_wire_type.first, debug_wire_type.second);
+			}
 		}
 		if (has_feedback_arcs || has_buffered_comb_wires) {
 			// Although both non-feedback buffered combinatorial wires and apparent feedback wires may be eliminated
@@ -2934,6 +2965,9 @@ struct CxxrtlBackend : public Backend {
 		log("\n");
 		log("The following options are supported by this backend:\n");
 		log("\n");
+		log("    -print-wire-types, -print-debug-wire-types\n");
+		log("        enable additional debug logging, for pass developers.\n");
+		log("\n");
 		log("    -header\n");
 		log("        generate separate interface (.h) and implementation (.cc) files.\n");
 		log("        if specified, the backend must be called with a filename, and filename\n");
@@ -3013,6 +3047,8 @@ struct CxxrtlBackend : public Backend {
 
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		bool print_wire_types = false;
+		bool print_debug_wire_types = false;
 		bool nohierarchy = false;
 		bool noflatten = false;
 		bool noproc = false;
@@ -3025,6 +3061,14 @@ struct CxxrtlBackend : public Backend {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
+			if (args[argidx] == "-print-wire-types") {
+				print_wire_types = true;
+				continue;
+			}
+			if (args[argidx] == "-print-debug-wire-types") {
+				print_debug_wire_types = true;
+				continue;
+			}
 			if (args[argidx] == "-nohierarchy") {
 				nohierarchy = true;
 				continue;
@@ -3076,6 +3120,8 @@ struct CxxrtlBackend : public Backend {
 		}
 		extra_args(f, filename, args, argidx);
 
+		worker.print_wire_types = print_wire_types;
+		worker.print_debug_wire_types = print_debug_wire_types;
 		worker.run_hierarchy = !nohierarchy;
 		worker.run_flatten = !noflatten;
 		worker.run_proc = !noproc;
