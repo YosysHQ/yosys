@@ -1231,7 +1231,9 @@ struct CxxrtlWorker {
 			RTLIL::Memory *memory = cell->module->memories[cell->getParam(ID::MEMID).decode_string()];
 			std::string valid_index_temp = fresh_temporary();
 			f << indent << "auto " << valid_index_temp << " = memory_index(";
-			dump_sigspec_rhs(cell->getPort(ID::ADDR));
+			// Almost all non-elidable cells cannot appear in debug_eval(), but $memrd is an exception; asynchronous
+			// memory read ports can.
+			dump_sigspec_rhs(cell->getPort(ID::ADDR), for_debug);
 			f << ", " << memory->start_offset << ", " << memory->size << ");\n";
 			if (cell->type == ID($memrd)) {
 				bool has_enable = cell->getParam(ID::CLK_ENABLE).as_bool() && !cell->getPort(ID::EN).is_fully_ones();
