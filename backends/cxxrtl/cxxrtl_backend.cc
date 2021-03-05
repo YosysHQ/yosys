@@ -2763,7 +2763,7 @@ struct CxxrtlWorker {
 		// Recheck the design if it was modified.
 		if (did_anything)
 			check_design(design, has_top, has_sync_init, has_packed_mem);
-		log_assert(has_top && !has_sync_init && !has_packed_mem);
+		log_assert(!has_sync_init && !has_packed_mem);
 		log_pop();
 		if (did_anything)
 			log_spacer();
