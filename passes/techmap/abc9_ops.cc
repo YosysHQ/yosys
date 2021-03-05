@@ -778,7 +778,15 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 			continue;
 		if (!box_module->get_bool_attribute(ID::abc9_box))
 			continue;
-		log_assert(cell->parameters.empty());
+		if (!cell->parameters.empty())
+			// At this stage of the ABC9 flow, all modules must be nonparametric, because ABC itself requires concrete netlists, and the presence of
+			// parameters implies a non-concrete netlist. This error needs some explaining, because there are (at least) two ways to get this:
+			// 1) You have an (* abc9_box *) parametric whitebox but due to a bug somewhere this hasn't been monomorphised into a concrete blackbox.
+			//    This is a bug, and a bug report would be welcomed.
+			// 2) You have an (* abc9_box *) parametric blackbox (e.g. to store associated cell data) but want to provide timing data for ABC9.
+			//    This is not supported due to the presence of parameters. If you want to store associated cell data for a box, one approach could be
+			//    to techmap the parameters to constant module inputs, and then after ABC9 use _TECHMAP_CONSTVAL_XX_ to retrieve the values again.
+			log_error("Black box '%s' is marked (* abc9_box *) and has parameters, which is forbidden in prep_xaiger\n", log_id(cell_name));
 		log_assert(box_module->get_blackbox_attribute());
 
 		cell->attributes[ID::abc9_box_seq] = box_count++;
