@@ -76,22 +76,33 @@ void proc_clean_switch(RTLIL::SwitchRule *sw, RTLIL::CaseRule *parent, bool &did
 	}
 	else
 	{
-		bool all_fully_def = true;
 		for (auto cs : sw->cases)
-		{
 			if (max_depth != 0)
 				proc_clean_case(cs, did_something, count, max_depth-1);
-			int size = 0;
-			for (auto cmp : cs->compare)
+
+		bool is_parallel_case = sw->get_bool_attribute(ID::parallel_case);
+		bool is_full_case = sw->get_bool_attribute(ID::full_case);
+
+		// Empty case removal.  The rules are:
+		//
+		// - for full_case: only remove cases if *all* cases are empty
+		// - for parallel_case but not full_case: remove any empty case
+		// - for non-parallel and non-full case: remove the final case if it's empty
+
+		if (is_full_case)
+		{
+			bool all_empty = true;
+			for (auto cs : sw->cases)
+				if (!cs->empty())
+					all_empty = false;
+			if (all_empty)
 			{
-				size += cmp.size();
-				if (!cmp.is_fully_def())
-					all_fully_def = false;
+				for (auto cs : sw->cases)
+					delete cs;
+				sw->cases.clear();
 			}
-			if (sw->signal.size() != size)
-				all_fully_def = false;
 		}
-		if (all_fully_def)
+		else if (is_parallel_case)
 		{
 			for (auto cs = sw->cases.begin(); cs != sw->cases.end();)
 			{
