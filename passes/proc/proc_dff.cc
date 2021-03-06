@@ -328,6 +328,10 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 		ce.assign_map.apply(sig);
 
 		if (rstval == sig) {
+			if (sync_level->type == RTLIL::SyncType::ST1)
+				insig = mod->Mux(NEW_ID, insig, sig, sync_level->signal);
+			else
+				insig = mod->Mux(NEW_ID, sig, insig, sync_level->signal);
 			rstval = RTLIL::SigSpec(RTLIL::State::Sz, sig.size());
 			sync_level = NULL;
 		}
