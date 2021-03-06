@@ -997,7 +997,7 @@ sources = [
 	Source("kernel/cost",[])
 	]
 
-blacklist_methods = ["YOSYS_NAMESPACE::Pass::run_register", "YOSYS_NAMESPACE::Module::Pow", "YOSYS_NAMESPACE::Module::Bu0", "YOSYS_NAMESPACE::CaseRule::optimize"]
+blacklist_methods = ["YOSYS_NAMESPACE::Pass::run_register", "YOSYS_NAMESPACE::Module::Pow"]
 
 enum_names = ["State","SyncType","ConstFlags"]
 
