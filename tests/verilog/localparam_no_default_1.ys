@@ -1,0 +1,17 @@
+logger -expect-no-warnings
+read_verilog -sv <<EOF
+module Module #(
+    localparam X = 1
+);
+endmodule
+EOF
+
+design -reset
+
+logger -expect error "localparam initialization is missing!" 1
+read_verilog <<EOF
+module Module #(
+    localparam X
+);
+endmodule
+EOF

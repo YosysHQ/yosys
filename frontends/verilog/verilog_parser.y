@@ -1462,7 +1462,26 @@ param_decl_list:
 	single_param_decl | param_decl_list ',' single_param_decl;
 
 single_param_decl:
-	TOK_ID '=' expr {
+	single_param_decl_ident '=' expr {
+		AstNode *decl = ast_stack.back()->children.back();
+		log_assert(decl->type == AST_PARAMETER || decl->type == AST_LOCALPARAM);
+		delete decl->children[0];
+		decl->children[0] = $3;
+	} |
+	single_param_decl_ident {
+		AstNode *decl = ast_stack.back()->children.back();
+		if (decl->type != AST_PARAMETER) {
+			log_assert(decl->type == AST_LOCALPARAM);
+			frontend_verilog_yyerror("localparam initialization is missing!");
+		}
+		if (!sv_mode)
+			frontend_verilog_yyerror("Parameter defaults can only be omitted in SystemVerilog mode!");
+		delete decl->children[0];
+		decl->children.erase(decl->children.begin());
+	};
+
+single_param_decl_ident:
+	TOK_ID {
 		AstNode *node;
 		if (astbuf1 == nullptr) {
 			if (!sv_mode)
@@ -1473,10 +1492,9 @@ single_param_decl:
 			node = astbuf1->clone();
 		}
 		node->str = *$1;
-		delete node->children[0];
-		node->children[0] = $3;
 		ast_stack.back()->children.push_back(node);
 		delete $1;
+		SET_AST_NODE_LOC(node, @1, @1);
 	};
 
 defparam_decl:

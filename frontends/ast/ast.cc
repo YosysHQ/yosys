@@ -970,6 +970,14 @@ void AST::set_src_attr(RTLIL::AttrObject *obj, const AstNode *ast)
 	obj->attributes[ID::src] = ast->loc_string();
 }
 
+static bool param_has_no_default(const AstNode *param) {
+	const auto &children = param->children;
+	log_assert(param->type == AST_PARAMETER);
+	log_assert(children.size() <= 2);
+	return children.empty() ||
+		(children.size() == 1 && children[0]->type == AST_RANGE);
+}
+
 // create a new AstModule from an AST_MODULE AST node
 static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast = NULL, bool quiet = false)
 {
@@ -1008,6 +1016,10 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 
 	if (!defer)
 	{
+		for (const AstNode *node : ast->children)
+			if (node->type == AST_PARAMETER && param_has_no_default(node))
+				log_file_error(node->filename, node->location.first_line, "Parameter `%s' has no default value and has not been overridden!\n", node->str.c_str());
+
 		bool blackbox_module = flag_lib;
 
 		if (!blackbox_module && !flag_noblackbox) {
@@ -1231,7 +1243,18 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 			if (flag_icells && (*it)->str.compare(0, 2, "\\$") == 0)
 				(*it)->str = (*it)->str.substr(1);
 
-			if (defer)
+			bool defer_local = defer;
+			if (!defer_local)
+				for (const AstNode *node : (*it)->children)
+					if (node->type == AST_PARAMETER && param_has_no_default(node))
+					{
+						log("Deferring `%s' because it contains parameter(s) without defaults.\n", ast->str.c_str());
+						defer_local = true;
+						break;
+					}
+
+
+			if (defer_local)
 				(*it)->str = "$abstract" + (*it)->str;
 
 			if (design->has((*it)->str)) {
@@ -1250,7 +1273,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 				}
 			}
 
-			design->add(process_module(*it, defer));
+			design->add(process_module(*it, defer_local));
 			current_ast_mod = nullptr;
 		}
 		else if ((*it)->type == AST_PACKAGE) {
@@ -1621,6 +1644,8 @@ std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::Id
 		}
 		continue;
 	rewrite_parameter:
+		if (param_has_no_default(child))
+			child->children.insert(child->children.begin(), nullptr);
 		delete child->children.at(0);
 		if ((it->second.flags & RTLIL::CONST_FLAG_REAL) != 0) {
 			child->children[0] = new AstNode(AST_REALVALUE);
