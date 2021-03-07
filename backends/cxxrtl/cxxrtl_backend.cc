@@ -1518,6 +1518,8 @@ struct CxxrtlWorker {
 			if (!sync->signal.empty()) {
 				sync_bit = sync->signal[0];
 				sync_bit = sigmaps[sync_bit.wire->module](sync_bit);
+				if (!sync_bit.is_wire())
+					continue; // a clock, or more commonly a reset, can be tied to a constant driver
 			}
 
 			pool<std::string> events;
@@ -2285,6 +2287,8 @@ struct CxxrtlWorker {
 	void register_edge_signal(SigMap &sigmap, RTLIL::SigSpec signal, RTLIL::SyncType type)
 	{
 		signal = sigmap(signal);
+		if (signal.is_fully_const())
+			return; // a clock, or more commonly a reset, can be tied to a constant driver
 		log_assert(is_valid_clock(signal));
 		log_assert(type == RTLIL::STp || type == RTLIL::STn || type == RTLIL::STe);
 
