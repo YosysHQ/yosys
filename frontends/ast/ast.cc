@@ -1248,7 +1248,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 				for (const AstNode *node : (*it)->children)
 					if (node->type == AST_PARAMETER && param_has_no_default(node))
 					{
-						log("Deferring `%s' because it contains parameter(s) without defaults.\n", ast->str.c_str());
+						log("Deferring `%s' because it contains parameter(s) without defaults.\n", (*it)->str.c_str());
 						defer_local = true;
 						break;
 					}
