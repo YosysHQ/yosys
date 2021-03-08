@@ -2412,8 +2412,11 @@ assert_property:
 
 local_definition_stmt:
 	non_io_wire_type lvalue '=' delay expr {
+		if (!sv_mode)
+			frontend_verilog_yyerror("Found variable declaration in for declaration (%s). This is not supported unless read_verilog is called with -sv!", $2->str.c_str());
 		$2->is_signed = astbuf3->is_signed;
 		$2->is_reg = astbuf3->is_reg;
+		$2->is_logic = astbuf3->is_logic;
 		for(auto *child : astbuf3->children)
 			$2->children.push_back(child->clone());
 		$2->type = astbuf3->type;
@@ -2551,9 +2554,7 @@ behavioral_stmt:
 	attr TOK_FOR '(' {
 		AstNode *block = new AstNode(AST_BLOCK);
 		AstNode *node = new AstNode(AST_FOR);
-		static int loop_count;
-		node->str = std::string("$loop") + std::to_string(loop_count++);
-		block->str = node->str;
+		block->str = std::string("$loop") + std::to_string(autoidx++);
 		block->children.push_back(node);
 		ast_stack.back()->children.push_back(block);
 		ast_stack.push_back(node);
@@ -2826,9 +2827,6 @@ gen_stmt_or_module_body_stmt:
 gen_stmt:
 	TOK_FOR '(' {
 		AstNode *node = new AstNode(AST_GENFOR);
-		static int genfor_count;
-		node->str = std::string("$genfor");
-		node->str += std::to_string(genfor_count++);
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 	} for_initialization ';' expr {

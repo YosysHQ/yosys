@@ -1,4 +1,4 @@
-read_verilog -dump_ast1 -dump_ast2 -sv for-declaration.sv
+read_verilog -sv -dump_ast1 -dump_ast2 for-declaration.sv
 hierarchy; proc; opt
 select -module foo
 sat -verify -seq 1 -tempinduct -prove-asserts -show-all

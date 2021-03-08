@@ -1,4 +1,5 @@
 module foo;
+`default_nettype none
 integer out;
 initial begin
 int i;
@@ -41,7 +42,6 @@ always @(*) begin
   end
 end
 
-`default_nettype none
 logic x;
 for (genvar x = 0; x < 2; x++) begin : loop
     logic [x:0] y;
@@ -49,6 +49,30 @@ end
 assign x = 1'sb1;
 assign loop[0].y = 1'sb1;
 assign loop[1].y = 2'sb10;
+
+reg [15:0] k;
+if (1) begin : gen
+  integer k;
+  initial begin
+    for (integer k = 5; k < 10; k++)
+      if (k == 5)
+        gen.k = 0;
+      else
+        gen.k += 2 ** k;
+    k = k * 2;
+  end
+end
+initial k = gen.k;
+
+wire [3:0] l;
+for (genvar l = 0; l < 2; l++) begin : blk
+  localparam w = l;
+  if (l == 0) begin : sub
+    wire [w:0] l;
+  end
+end
+assign l = 2;
+assign blk[0].sub.l = 1;
 
 always_comb begin
   assert(8'b11111111 == outa);
@@ -60,6 +84,10 @@ always_comb begin
   assert(1'sb1 == x);
   assert(1'sb1 == loop[0].y);
   assert(2'sb10 == loop[1].y);
+  assert(k == gen.k);
+  assert(k == 16'b0000011110000000);
+  assert(l == 2);
+  assert(blk[0].sub.l == 1);
 end
 
 endmodule
