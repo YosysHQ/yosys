@@ -1,0 +1,14 @@
+read_rtlil << EOT
+
+module \top
+  wire output 1 \a
+  wire width 0 $dummy
+  cell \abc \abc
+    connect \a \a
+    connect \b $dummy
+  end
+end
+
+EOT
+
+opt_clean
