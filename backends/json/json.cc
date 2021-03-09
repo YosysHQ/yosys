@@ -135,6 +135,10 @@ struct JsonWriter
 		// reserve 0 and 1 to avoid confusion with "0" and "1"
 		sigidcounter = 2;
 
+		if (module->has_processes()) {
+			log_error("Module %s contains processes, which are not supported by JSON backend.\n", log_id(module));
+		}
+
 		f << stringf("    %s: {\n", get_name(module->name).c_str());
 
 		f << stringf("      \"attributes\": {");
@@ -215,6 +219,27 @@ struct JsonWriter
 			first = false;
 		}
 		f << stringf("\n      },\n");
+
+		if (!module->memories.empty()) {
+			f << stringf("      \"memories\": {");
+			first = true;
+			for (auto &it : module->memories) {
+				if (use_selection && !module->selected(it.second))
+					continue;
+				f << stringf("%s\n", first ? "" : ",");
+				f << stringf("        %s: {\n", get_name(it.second->name).c_str());
+				f << stringf("          \"hide_name\": %s,\n", it.second->name[0] == '$' ? "1" : "0");
+				f << stringf("          \"attributes\": {");
+				write_parameters(it.second->attributes);
+				f << stringf("\n          },\n");
+				f << stringf("          \"width\": %d,\n", it.second->width);
+				f << stringf("          \"start_offset\": %d,\n", it.second->start_offset);
+				f << stringf("          \"size\": %d\n", it.second->size);
+				f << stringf("        }");
+				first = false;
+			}
+			f << stringf("\n      },\n");
+		}
 
 		f << stringf("      \"netnames\": {");
 		first = true;
@@ -332,6 +357,10 @@ struct JsonBackend : public Backend {
 		log("            <cell_name>: <cell_details>,\n");
 		log("            ...\n");
 		log("          },\n");
+		log("          \"memories\": {\n");
+		log("            <memory_name>: <memory_details>,\n");
+		log("            ...\n");
+		log("          },\n");
 		log("          \"netnames\": {\n");
 		log("            <net_name>: <net_details>,\n");
 		log("            ...\n");
@@ -377,6 +406,19 @@ struct JsonBackend : public Backend {
 		log("        <port_name>: <bit_vector>,\n");
 		log("        ...\n");
 		log("      },\n");
+		log("    }\n");
+		log("\n");
+		log("And <memory_details> is:\n");
+		log("\n");
+		log("    {\n");
+		log("      \"hide_name\": <1 | 0>,\n");
+		log("      \"attributes\": {\n");
+		log("        <attribute_name>: <attribute_value>,\n");
+		log("        ...\n");
+		log("      },\n");
+		log("      \"width\": <memory width>\n");
+		log("      \"start_offset\": <the lowest valid memory address>\n");
+		log("      \"size\": <memory size>\n");
 		log("    }\n");
 		log("\n");
 		log("And <net_details> is:\n");
