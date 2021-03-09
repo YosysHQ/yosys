@@ -2411,17 +2411,12 @@ assert_property:
 	};
 
 local_definition_stmt:
-	non_io_wire_type lvalue '=' delay expr {
+	non_io_wire_type TOK_ID '=' delay expr {
 		if (!sv_mode)
-			frontend_verilog_yyerror("Found variable declaration in for declaration (%s). This is not supported unless read_verilog is called with -sv!", $2->str.c_str());
-		$2->is_signed = astbuf3->is_signed;
-		$2->is_reg = astbuf3->is_reg;
-		$2->is_logic = astbuf3->is_logic;
-		for(auto *child : astbuf3->children)
-			$2->children.push_back(child->clone());
-		$2->type = astbuf3->type;
+			frontend_verilog_yyerror("Found variable declaration in for declaration (%s). This is not supported unless read_verilog is called with -sv!", $2->c_str());
+		astbuf3->str = *($2);
+		AstNode *node = new AstNode(AST_ASSIGN_EQ, astbuf3->clone(), $5);
 		delete astbuf3;
-		AstNode *node = new AstNode(AST_ASSIGN_EQ, $2, $5);
 		ast_stack.back()->children.push_back(node);
 		SET_AST_NODE_LOC(node, @2, @5);
 	};
@@ -2554,7 +2549,7 @@ behavioral_stmt:
 	attr TOK_FOR '(' {
 		AstNode *block = new AstNode(AST_BLOCK);
 		AstNode *node = new AstNode(AST_FOR);
-		block->str = std::string("$loop") + std::to_string(autoidx++);
+		block->str = std::string("$loopvar$") + std::to_string(autoidx++);
 		block->children.push_back(node);
 		ast_stack.back()->children.push_back(block);
 		ast_stack.push_back(node);

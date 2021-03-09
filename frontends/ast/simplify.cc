@@ -947,14 +947,14 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		AstNode *init_ast = children[0];
 		if (init_ast->type == AST_ASSIGN_EQ && init_ast->children[0]->type != AST_IDENTIFIER) {
 			if (type == AST_GENFOR) {
-				std::string scope_str = "$genfor" + std::to_string(autoidx++);
+				std::string scope_str = "$loopvar$" + std::to_string(autoidx++);
 				std::string old_name = init_ast->children[0]->str;
 				this->visitEachDescendant([&](AST::AstNode* node) {
 						if (node->str == old_name && node->type == AST_IDENTIFIER) {
-							node->str = scope_str + "." + old_name.substr(1);
+							node->str = scope_str + "$" + old_name.substr(1);
 						}
 						});
-				init_ast->children[0]->str = scope_str + "." + old_name.substr(1);
+				init_ast->children[0]->str = scope_str + "$" + old_name.substr(1);
 			}
 			scope_node->children.insert(scope_node->children.begin(), init_ast->children[0]);
 			init_ast->children[0]->simplify(false, false, true, stage, -1, false, in_param);
