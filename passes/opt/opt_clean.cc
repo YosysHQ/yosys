@@ -21,6 +21,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
 #include "kernel/celltypes.h"
+#include "kernel/ffinit.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <set>
@@ -101,6 +102,7 @@ void rmunused_module_cells(Module *module, bool verbose)
 	pool<SigBit> used_raw_bits;
 	dict<SigBit, pool<Cell*>> wire2driver;
 	dict<SigBit, vector<string>> driver_driver_logs;
+	FfInitVals ffinit(&sigmap, module);
 
 	SigMap raw_sigmap;
 	for (auto &it : module->connections_) {
@@ -193,6 +195,8 @@ void rmunused_module_cells(Module *module, bool verbose)
 		if (verbose)
 			log_debug("  removing unused `%s' cell `%s'.\n", cell->type.c_str(), cell->name.c_str());
 		module->design->scratchpad_set_bool("opt.did_something", true);
+		if (RTLIL::builtin_ff_cell_types().count(cell->type))
+			ffinit.remove_init(cell->getPort(ID::Q));
 		module->remove(cell);
 		count_rm_cells++;
 	}
