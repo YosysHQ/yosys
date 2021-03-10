@@ -2583,10 +2583,10 @@ module qlal4s3b_cell_macro (
   input FB_Busy,
   output WB_RST,
   output Sys_PKfb_Rst,
-  output Clk16,
-  output Clk16_Rst,
-  output Clk21,
-  output Clk21_Rst,
+  output Clk_C16,
+  output Clk_C16_Rst,
+  output Clk_C21,
+  output Clk_C21_Rst,
   output Sys_Pclk,
   output Sys_Pclk_Rst,
   input Sys_PKfb_Clk,
@@ -2661,10 +2661,10 @@ module qlal4s3b_cell_macro (
     //
     // FB Clocks
     //
-    .Sys_Clk0(Sys_Clk12),
-    .Sys_Clk0_Rst(Sys_Clk12_Rst),
-    .Sys_Clk1(Sys_Clk21),
-    .Sys_Clk1_Rst(Sys_Clk21_Rst),
+    .Sys_Clk0(Clk_C16),
+    .Sys_Clk0_Rst(Clk_C16_Rst),
+    .Sys_Clk1(Clk_C21),
+    .Sys_Clk1_Rst(Clk_C21_Rst),
     //
     // Packet FIFO
     //
