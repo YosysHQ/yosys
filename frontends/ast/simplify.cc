@@ -192,6 +192,7 @@ void AstNode::annotateTypedEnums(AstNode *template_node)
 		log_assert(current_scope.count(enum_type) == 1);
 		AstNode *enum_node = current_scope.at(enum_type);
 		log_assert(enum_node->type == AST_ENUM);
+		while (enum_node->simplify(true, false, false, 1, -1, false, true)) { }
 		//get width from 1st enum item:
 		log_assert(enum_node->children.size() >= 1);
 		AstNode *enum_item0 = enum_node->children[0];
