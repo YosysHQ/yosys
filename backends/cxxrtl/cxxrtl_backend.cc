@@ -1415,30 +1415,30 @@ struct CxxrtlWorker {
 				collect_sigspec_rhs(port.second, for_debug, cells);
 	}
 
-	void dump_assign(const RTLIL::SigSig &sigsig)
+	void dump_assign(const RTLIL::SigSig &sigsig, bool for_debug = false)
 	{
 		f << indent;
-		dump_sigspec_lhs(sigsig.first);
+		dump_sigspec_lhs(sigsig.first, for_debug);
 		f << " = ";
-		dump_sigspec_rhs(sigsig.second);
+		dump_sigspec_rhs(sigsig.second, for_debug);
 		f << ";\n";
 	}
 
-	void dump_case_rule(const RTLIL::CaseRule *rule)
+	void dump_case_rule(const RTLIL::CaseRule *rule, bool for_debug = false)
 	{
 		for (auto action : rule->actions)
-			dump_assign(action);
+			dump_assign(action, for_debug);
 		for (auto switch_ : rule->switches)
-			dump_switch_rule(switch_);
+			dump_switch_rule(switch_, for_debug);
 	}
 
-	void dump_switch_rule(const RTLIL::SwitchRule *rule)
+	void dump_switch_rule(const RTLIL::SwitchRule *rule, bool for_debug = false)
 	{
 		// The switch attributes are printed before the switch condition is captured.
 		dump_attrs(rule);
 		std::string signal_temp = fresh_temporary();
 		f << indent << "const value<" << rule->signal.size() << "> &" << signal_temp << " = ";
-		dump_sigspec(rule->signal, /*is_lhs=*/false);
+		dump_sigspec(rule->signal, /*is_lhs=*/false, for_debug);
 		f << ";\n";
 
 		bool first = true;
@@ -1458,7 +1458,7 @@ struct CxxrtlWorker {
 					first = false;
 					if (compare.is_fully_def()) {
 						f << signal_temp << " == ";
-						dump_sigspec(compare, /*is_lhs=*/false);
+						dump_sigspec(compare, /*is_lhs=*/false, for_debug);
 					} else if (compare.is_fully_const()) {
 						RTLIL::Const compare_mask, compare_value;
 						for (auto bit : compare.as_const()) {
@@ -1492,30 +1492,34 @@ struct CxxrtlWorker {
 			}
 			f << "{\n";
 			inc_indent();
-				dump_case_rule(case_);
+				dump_case_rule(case_, for_debug);
 			dec_indent();
 		}
 		f << indent << "}\n";
 	}
 
-	void dump_process_case(const RTLIL::Process *proc)
+	void dump_process_case(const RTLIL::Process *proc, bool for_debug = false)
 	{
 		dump_attrs(proc);
 		f << indent << "// process " << proc->name.str() << " case\n";
 		// The case attributes (for root case) are always empty.
 		log_assert(proc->root_case.attributes.empty());
-		dump_case_rule(&proc->root_case);
+		dump_case_rule(&proc->root_case, for_debug);
 	}
 
-	void dump_process_syncs(const RTLIL::Process *proc)
+	void dump_process_syncs(const RTLIL::Process *proc, bool for_debug = false)
 	{
 		dump_attrs(proc);
 		f << indent << "// process " << proc->name.str() << " syncs\n";
 		for (auto sync : proc->syncs) {
+			log_assert(!for_debug || sync->type == RTLIL::STa);
+
 			RTLIL::SigBit sync_bit;
 			if (!sync->signal.empty()) {
 				sync_bit = sync->signal[0];
 				sync_bit = sigmaps[sync_bit.wire->module](sync_bit);
+				if (!sync_bit.is_wire())
+					continue; // a clock, or more commonly a reset, can be tied to a constant driver
 			}
 
 			pool<std::string> events;
@@ -1556,7 +1560,7 @@ struct CxxrtlWorker {
 				f << ") {\n";
 				inc_indent();
 					for (auto action : sync->actions)
-						dump_assign(action);
+						dump_assign(action, for_debug);
 				dec_indent();
 				f << indent << "}\n";
 			}
@@ -1725,11 +1729,11 @@ struct CxxrtlWorker {
 						case FlowGraph::Node::Type::CELL_EVAL:
 							dump_cell_eval(node.cell);
 							break;
-						case FlowGraph::Node::Type::PROCESS_SYNC:
-							dump_process_syncs(node.process);
-							break;
 						case FlowGraph::Node::Type::PROCESS_CASE:
 							dump_process_case(node.process);
+							break;
+						case FlowGraph::Node::Type::PROCESS_SYNC:
+							dump_process_syncs(node.process);
 							break;
 					}
 				}
@@ -1753,6 +1757,12 @@ struct CxxrtlWorker {
 						break;
 					case FlowGraph::Node::Type::CELL_EVAL:
 						dump_cell_eval(node.cell, /*for_debug=*/true);
+						break;
+					case FlowGraph::Node::Type::PROCESS_CASE:
+						dump_process_case(node.process, /*for_debug=*/true);
+						break;
+					case FlowGraph::Node::Type::PROCESS_SYNC:
+						dump_process_syncs(node.process, /*for_debug=*/true);
 						break;
 					default:
 						log_abort();
@@ -2277,6 +2287,8 @@ struct CxxrtlWorker {
 	void register_edge_signal(SigMap &sigmap, RTLIL::SigSpec signal, RTLIL::SyncType type)
 	{
 		signal = sigmap(signal);
+		if (signal.is_fully_const())
+			return; // a clock, or more commonly a reset, can be tied to a constant driver
 		log_assert(is_valid_clock(signal));
 		log_assert(type == RTLIL::STp || type == RTLIL::STn || type == RTLIL::STe);
 
