@@ -1286,6 +1286,8 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 		}
 		else {
 			// must be global definition
+			if ((*it)->type == AST_PARAMETER)
+				(*it)->type = AST_LOCALPARAM; // cannot be overridden
 			(*it)->simplify(false, false, false, 1, -1, false, false); //process enum/other declarations
 			design->verilog_globals.push_back((*it)->clone());
 			current_scope.clear();
