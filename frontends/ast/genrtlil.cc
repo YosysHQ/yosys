@@ -1383,6 +1383,15 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			RTLIL::SigSpec sig = { RTLIL::SigSpec(RTLIL::State::Sx, add_undef_bits_msb), chunk, RTLIL::SigSpec(RTLIL::State::Sx, add_undef_bits_lsb) };
 
+			// if wire is signed, and is sliced with a range that exactly covers
+			// the size of the wire, the resulting expression should be unsigned
+			if (wire->is_signed && children.size() && !add_undef_bits_msb && !add_undef_bits_lsb){
+				RTLIL::IdString indirect_name = NEW_ID;
+				RTLIL::Wire *indirect = current_module->addWire(indirect_name, GetSize(chunk));
+				current_module->connect(indirect, chunk);
+				sig = indirect;
+			}
+
 			if (genRTLIL_subst_ptr)
 				sig.replace(*genRTLIL_subst_ptr);
 
