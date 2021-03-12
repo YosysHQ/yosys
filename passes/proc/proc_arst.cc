@@ -179,39 +179,67 @@ RTLIL::SigSpec apply_reset(RTLIL::Module *mod, RTLIL::Process *proc, RTLIL::Sync
 
 void proc_arst(RTLIL::Module *mod, RTLIL::Process *proc, SigMap &assign_map)
 {
-restart_proc_arst:
-	if (proc->root_case.switches.size() != 1)
-		return;
-
-	RTLIL::SigSpec root_sig = proc->root_case.switches[0]->signal;
+	std::vector<RTLIL::SyncRule *> arst_syncs;
+	std::vector<RTLIL::SyncRule *> edge_syncs;
+	std::vector<RTLIL::SyncRule *> other_syncs;
 
 	for (auto &sync : proc->syncs) {
-		if (sync->type == RTLIL::SyncType::STp || sync->type == RTLIL::SyncType::STn) {
+		if (sync->type == RTLIL::SyncType::ST0 || sync->type == RTLIL::SyncType::ST1) {
+			arst_syncs.push_back(sync);
+		} else if (sync->type == RTLIL::SyncType::STp || sync->type == RTLIL::SyncType::STn) {
+			edge_syncs.push_back(sync);
+		} else {
+			other_syncs.push_back(sync);
+		}
+	}
+
+	bool did_something = false;
+
+	while (proc->root_case.switches.size() == 1) {
+		RTLIL::SigSpec root_sig = proc->root_case.switches[0]->signal;
+
+		bool found = false;
+		for (auto it = edge_syncs.begin(); it != edge_syncs.end(); ++it) {
+			auto sync = *it;
 			bool polarity = sync->type == RTLIL::SyncType::STp;
 			if (check_signal(mod, root_sig, sync->signal, polarity)) {
-				if (proc->syncs.size() == 1) {
-					log("Found VHDL-style edge-trigger %s in `%s.%s'.\n", log_signal(sync->signal), mod->name.c_str(), proc->name.c_str());
-				} else {
+				if (edge_syncs.size() > 1) {
 					log("Found async reset %s in `%s.%s'.\n", log_signal(sync->signal), mod->name.c_str(), proc->name.c_str());
 					sync->type = sync->type == RTLIL::SyncType::STp ? RTLIL::SyncType::ST1 : RTLIL::SyncType::ST0;
-				}
-				for (auto &action : sync->actions) {
-					action.second = apply_reset(mod, proc, sync, assign_map, root_sig, polarity, action.second, action.first);
-				}
-				for (auto &memwr : sync->mem_write_actions) {
-					RTLIL::SigSpec en = apply_reset(mod, proc, sync, assign_map, root_sig, polarity, memwr.enable, memwr.enable);
-					if (!en.is_fully_zero()) {
-						log_error("Async reset %s causes memory write to %s.\n",
-								log_signal(sync->signal), log_id(memwr.memid));
+					arst_syncs.push_back(sync);
+					edge_syncs.erase(it);
+					for (auto &action : sync->actions) {
+						action.second = apply_reset(mod, proc, sync, assign_map, root_sig, polarity, action.second, action.first);
 					}
-					apply_reset(mod, proc, sync, assign_map, root_sig, polarity, memwr.address, memwr.address);
-					apply_reset(mod, proc, sync, assign_map, root_sig, polarity, memwr.data, memwr.data);
+					for (auto &memwr : sync->mem_write_actions) {
+						RTLIL::SigSpec en = apply_reset(mod, proc, sync, assign_map, root_sig, polarity, memwr.enable, memwr.enable);
+						if (!en.is_fully_zero()) {
+							log_error("Async reset %s causes memory write to %s.\n",
+									log_signal(sync->signal), log_id(memwr.memid));
+						}
+						apply_reset(mod, proc, sync, assign_map, root_sig, polarity, memwr.address, memwr.address);
+						apply_reset(mod, proc, sync, assign_map, root_sig, polarity, memwr.data, memwr.data);
+					}
+					sync->mem_write_actions.clear();
+					eliminate_const(mod, &proc->root_case, root_sig, polarity);
+				} else {
+					log("Found VHDL-style edge-trigger %s in `%s.%s'.\n", log_signal(sync->signal), mod->name.c_str(), proc->name.c_str());
+					eliminate_const(mod, &proc->root_case, root_sig, !polarity);
 				}
-				sync->mem_write_actions.clear();
-				eliminate_const(mod, &proc->root_case, root_sig, polarity);
-				goto restart_proc_arst;
+				did_something = true;
+				found = true;
+				break;
 			}
 		}
+		if (!found)
+			break;
+	}
+
+	if (did_something) {
+		proc->syncs.clear();
+		proc->syncs.insert(proc->syncs.end(), arst_syncs.begin(), arst_syncs.end());
+		proc->syncs.insert(proc->syncs.end(), edge_syncs.begin(), edge_syncs.end());
+		proc->syncs.insert(proc->syncs.end(), other_syncs.begin(), other_syncs.end());
 	}
 }
 

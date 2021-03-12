@@ -1,0 +1,31 @@
+read_verilog <<EOT
+module top (...);
+
+input clk, rst, d1, d2;
+output q1, q2;
+
+always @(posedge clk)
+	if (clk)
+		q1 <= d1;
+
+always @(posedge clk, posedge rst)
+	if (rst)
+		q2 <= 0;
+	else if (clk)
+		q2 <= d2;
+
+endmodule
+EOT
+
+proc
+opt
+
+select -assert-count 1 t:$dff
+select -assert-count 1 w:clk %a %co t:$dff %i
+select -assert-count 1 w:d1 %a %co t:$dff %i
+select -assert-count 1 w:q1 %a %ci t:$dff %i
+select -assert-count 1 t:$adff
+select -assert-count 1 w:clk %a %co t:$adff %i
+select -assert-count 1 w:rst %a %co t:$adff %i
+select -assert-count 1 w:d2 %a %co t:$adff %i
+select -assert-count 1 w:q2 %a %ci t:$adff %i
