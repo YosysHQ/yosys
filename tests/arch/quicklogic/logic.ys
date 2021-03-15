@@ -1,0 +1,17 @@
+# Standard flow
+
+read_verilog ../common/logic.v
+hierarchy -top top
+proc
+equiv_opt -assert -map +/quicklogic/pp3_cells_sim.v -map +/quicklogic/lut_sim.v synth_quicklogic
+design -load postopt
+cd top
+
+stat
+select -assert-count 1 t:LUT1
+select -assert-count 6 t:LUT2
+select -assert-count 2 t:LUT4
+select -assert-count 8 t:inpad
+select -assert-count 10 t:outpad
+select -assert-count 27 t:*
+

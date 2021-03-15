@@ -1,0 +1,3 @@
+read_verilog rs_decoder.v
+#Run synthesis for AP2
+synth_quicklogic -family ap2 -top rs_decoder -edif rs_decoder.edif

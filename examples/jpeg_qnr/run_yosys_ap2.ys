@@ -1,0 +1,3 @@
+read_verilog div_su.v div_uu.v jpeg_qnr.v
+#Run synthesis for AP2
+synth_quicklogic -family ap2 -top jpeg_qnr -edif jpeg_qnr.edif
