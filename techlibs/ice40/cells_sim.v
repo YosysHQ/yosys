@@ -2,6 +2,16 @@
 `define SB_DFF_REG reg Q = 0
 // `define SB_DFF_REG reg Q
 
+`ifndef NO_ICE40_DEFAULT_ASSIGNMENTS
+`define ICE40_DEFAULT_ASSIGNMENT_V(v) = v
+`define ICE40_DEFAULT_ASSIGNMENT_0 = 1'b0
+`define ICE40_DEFAULT_ASSIGNMENT_1 = 1'b1
+`else
+`define ICE40_DEFAULT_ASSIGNMENT_V(v)
+`define ICE40_DEFAULT_ASSIGNMENT_0
+`define ICE40_DEFAULT_ASSIGNMENT_1
+`endif
+
 // SiliconBlue IO Cells
 
 module SB_IO (
@@ -164,7 +174,13 @@ endmodule
 // SiliconBlue Logic Cells
 
 (* abc9_lut=1, lib_whitebox *)
-module SB_LUT4 (output O, input I0, I1, I2, I3);
+module SB_LUT4 (
+	output O,
+	input I0 `ICE40_DEFAULT_ASSIGNMENT_0,
+	input I1 `ICE40_DEFAULT_ASSIGNMENT_0,
+	input I2 `ICE40_DEFAULT_ASSIGNMENT_0,
+	input I3 `ICE40_DEFAULT_ASSIGNMENT_0
+);
 	parameter [15:0] LUT_INIT = 0;
 	wire [7:0] s3 = I3 ? LUT_INIT[15:8] : LUT_INIT[7:0];
 	wire [3:0] s2 = I2 ?       s3[ 7:4] :       s3[3:0];
