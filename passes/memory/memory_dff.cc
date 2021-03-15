@@ -17,11 +17,12 @@
  *
  */
 
-#include <algorithm>
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/ffinit.h"
 #include "kernel/mem.h"
+#include "kernel/ff.h"
+#include "kernel/ffmerge.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -30,185 +31,13 @@ struct MemoryDffWorker
 {
 	Module *module;
 	SigMap sigmap;
-
-	vector<Cell*> dff_cells;
-	dict<SigBit, SigBit> invbits;
-	dict<SigBit, int> sigbit_users_count;
 	FfInitVals initvals;
+	FfMergeHelper merger;
 
 	MemoryDffWorker(Module *module) : module(module), sigmap(module)
 	{
 		initvals.set(&sigmap, module);
-	}
-
-	bool find_sig_before_dff(RTLIL::SigSpec &sig, RTLIL::SigSpec &clk, bool &clk_polarity)
-	{
-		sigmap.apply(sig);
-
-		dict<SigBit, SigBit> cache;
-
-		for (auto &bit : sig)
-		{
-			if (cache.count(bit)) {
-				bit = cache[bit];
-				continue;
-			}
-
-			if (bit.wire == NULL)
-				continue;
-
-			if (initvals(bit) != State::Sx)
-				return false;
-
-			for (auto cell : dff_cells)
-			{
-				SigSpec this_clk = cell->getPort(ID::CLK);
-				bool this_clk_polarity = cell->parameters[ID::CLK_POLARITY].as_bool();
-
-				if (invbits.count(this_clk)) {
-					this_clk = invbits.at(this_clk);
-					this_clk_polarity = !this_clk_polarity;
-				}
-
-				if (clk != RTLIL::SigSpec(RTLIL::State::Sx)) {
-					if (this_clk != clk)
-						continue;
-					if (this_clk_polarity != clk_polarity)
-						continue;
-				}
-
-				RTLIL::SigSpec q_norm = cell->getPort(ID::Q);
-				sigmap.apply(q_norm);
-
-				RTLIL::SigSpec d = q_norm.extract(bit, &cell->getPort(ID::D));
-				if (d.size() != 1)
-					continue;
-
-				if (cell->type == ID($sdffce)) {
-					SigSpec rval = cell->parameters[ID::SRST_VALUE];
-					SigSpec rbit = q_norm.extract(bit, &rval);
-					if (cell->parameters[ID::SRST_POLARITY].as_bool())
-						d = module->Mux(NEW_ID, d, rbit, cell->getPort(ID::SRST));
-					else
-						d = module->Mux(NEW_ID, rbit, d, cell->getPort(ID::SRST));
-				}
-
-				if (cell->type.in(ID($dffe), ID($sdffe), ID($sdffce))) {
-					if (cell->parameters[ID::EN_POLARITY].as_bool())
-						d = module->Mux(NEW_ID, bit, d, cell->getPort(ID::EN));
-					else
-						d = module->Mux(NEW_ID, d, bit, cell->getPort(ID::EN));
-				}
-
-				if (cell->type.in(ID($sdff), ID($sdffe))) {
-					SigSpec rval = cell->parameters[ID::SRST_VALUE];
-					SigSpec rbit = q_norm.extract(bit, &rval);
-					if (cell->parameters[ID::SRST_POLARITY].as_bool())
-						d = module->Mux(NEW_ID, d, rbit, cell->getPort(ID::SRST));
-					else
-						d = module->Mux(NEW_ID, rbit, d, cell->getPort(ID::SRST));
-				}
-
-				cache[bit] = d;
-				bit = d;
-				clk = this_clk;
-				clk_polarity = this_clk_polarity;
-				goto replaced_this_bit;
-			}
-
-			return false;
-		replaced_this_bit:;
-		}
-
-		return true;
-	}
-
-	bool find_sig_after_dffe(RTLIL::SigSpec &sig, RTLIL::SigSpec &clk, bool &clk_polarity, RTLIL::SigSpec &en, bool &en_polarity)
-	{
-		sigmap.apply(sig);
-
-		for (auto &bit : sig)
-		{
-			if (bit.wire == NULL)
-				continue;
-
-			for (auto cell : dff_cells)
-			{
-				if (!cell->type.in(ID($dff), ID($dffe)))
-					continue;
-
-				SigSpec this_clk = cell->getPort(ID::CLK);
-				bool this_clk_polarity = cell->parameters[ID::CLK_POLARITY].as_bool();
-				SigSpec this_en = State::S1;
-				bool this_en_polarity = true;
-
-				if (cell->type == ID($dffe)) {
-					this_en = cell->getPort(ID::EN);
-					this_en_polarity = cell->parameters[ID::EN_POLARITY].as_bool();
-				}
-
-				if (invbits.count(this_clk)) {
-					this_clk = invbits.at(this_clk);
-					this_clk_polarity = !this_clk_polarity;
-				}
-
-				if (invbits.count(this_en)) {
-					this_en = invbits.at(this_en);
-					this_en_polarity = !this_en_polarity;
-				}
-
-				if (clk != RTLIL::SigSpec(RTLIL::State::Sx)) {
-					if (this_clk != clk)
-						continue;
-					if (this_clk_polarity != clk_polarity)
-						continue;
-					if (this_en != en)
-						continue;
-					if (this_en_polarity != en_polarity)
-						continue;
-				}
-
-				RTLIL::SigSpec q_norm = cell->getPort(ID::D);
-				sigmap.apply(q_norm);
-
-				RTLIL::SigSpec d = q_norm.extract(bit, &cell->getPort(ID::Q));
-				if (d.size() != 1)
-					continue;
-
-				if (initvals(d) != State::Sx)
-					return false;
-
-				bit = d;
-				clk = this_clk;
-				clk_polarity = this_clk_polarity;
-				en = this_en;
-				en_polarity = this_en_polarity;
-				goto replaced_this_bit;
-			}
-
-			return false;
-		replaced_this_bit:;
-		}
-
-		return true;
-	}
-
-	void disconnect_dff(RTLIL::SigSpec sig)
-	{
-		sigmap.apply(sig);
-		sig.sort_and_unify();
-
-		std::stringstream sstr;
-		sstr << "$memory_dff_disconnected$" << (autoidx++);
-
-		RTLIL::SigSpec new_sig = module->addWire(sstr.str(), sig.size());
-
-		for (auto cell : module->cells())
-			if (cell->type.in(ID($dff), ID($dffe))) {
-				RTLIL::SigSpec new_q = cell->getPort(ID::Q);
-				new_q.replace(sig, new_sig);
-				cell->setPort(ID::Q, new_q);
-			}
+		merger.set(&initvals, module);
 	}
 
 	void handle_rd_port(Mem &mem, int idx)
@@ -216,84 +45,122 @@ struct MemoryDffWorker
 		auto &port = mem.rd_ports[idx];
 		log("Checking read port `%s'[%d] in module `%s': ", mem.memid.c_str(), idx, module->name.c_str());
 
-		bool clk_polarity = 0;
-		bool en_polarity = 0;
-
-		RTLIL::SigSpec clk_data = RTLIL::SigSpec(RTLIL::State::Sx);
-		RTLIL::SigSpec en_data;
-		RTLIL::SigSpec sig_data = port.data;
-
-		for (auto bit : sigmap(sig_data))
-			if (sigbit_users_count[bit] > 1)
-				goto skip_ff_after_read_merging;
-
-		if (find_sig_after_dffe(sig_data, clk_data, clk_polarity, en_data, en_polarity) && clk_data != RTLIL::SigSpec(RTLIL::State::Sx))
-		{
-			if (!en_polarity)
-				en_data = module->LogicNot(NEW_ID, en_data);
-			disconnect_dff(sig_data);
-			port.clk = clk_data;
-			port.en = en_data;
-			port.data = sig_data;
-			port.clk_enable = true;
-			port.clk_polarity = clk_polarity;
-			port.transparent = false;
-			mem.emit();
-			log("merged data $dff to cell.\n");
+		FfData ff;
+		pool<std::pair<Cell *, int>> bits;
+		if (!merger.find_output_ff(port.data, ff, bits)) {
+			log("no output FF found.\n");
 			return;
 		}
-
-	skip_ff_after_read_merging:;
-		RTLIL::SigSpec clk_addr = RTLIL::SigSpec(RTLIL::State::Sx);
-		RTLIL::SigSpec sig_addr = port.addr;
-		if (find_sig_before_dff(sig_addr, clk_addr, clk_polarity) &&
-				clk_addr != RTLIL::SigSpec(RTLIL::State::Sx))
-		{
-			port.clk = clk_addr;
+		if (!ff.has_clk) {
+			log("output latches are not supported.\n");
+			return;
+		}
+		if (ff.has_sr) {
+			// Latches and FFs with SR are not supported.
+			log("output FF has both set and reset, not supported.\n");
+			return;
+		}
+		if (ff.has_srst || ff.has_arst || !ff.val_init.is_fully_undef()) {
+			// TODO: not supported yet
+			log("output FF has reset and/or init value, not supported yet.\n");
+			return;
+		}
+		merger.remove_output_ff(bits);
+		if (ff.has_en && !ff.pol_en)
+			ff.sig_en = module->LogicNot(NEW_ID, ff.sig_en);
+		if (ff.has_arst && !ff.pol_arst)
+			ff.sig_arst = module->LogicNot(NEW_ID, ff.sig_arst);
+		if (ff.has_srst && !ff.pol_srst)
+			ff.sig_srst = module->LogicNot(NEW_ID, ff.sig_srst);
+		port.clk = ff.sig_clk;
+		port.clk_enable = true;
+		port.clk_polarity = ff.pol_clk;
+		if (ff.has_en)
+			port.en = ff.sig_en;
+		else
 			port.en = State::S1;
-			port.addr = sig_addr;
-			port.clk_enable = true;
-			port.clk_polarity = clk_polarity;
-			port.transparent = true;
-			mem.emit();
-			log("merged address $dff to cell.\n");
+#if 0
+		if (ff.has_arst) {
+			port.arst = ff.sig_arst;
+			port.arst_value = ff.val_arst;
+		} else {
+			port.arst = State::S0;
+		}
+		if (ff.has_srst) {
+			port.srst = ff.sig_srst;
+			port.srst_value = ff.val_srst;
+			port.ce_over_srst = ff.ce_over_srst;
+		} else {
+			port.srst = State::S0;
+		}
+		port.init_value = ff.val_init;
+#endif
+		port.data = ff.sig_q;
+		mem.emit();
+		log("merged output FF to cell.\n");
+	}
+
+	void handle_rd_port_addr(Mem &mem, int idx)
+	{
+		auto &port = mem.rd_ports[idx];
+		log("Checking read port address `%s'[%d] in module `%s': ", mem.memid.c_str(), idx, module->name.c_str());
+
+		FfData ff;
+		pool<std::pair<Cell *, int>> bits;
+		if (!merger.find_input_ff(port.addr, ff, bits)) {
+			log("no address FF found.\n");
 			return;
 		}
-
-		log("no (compatible) $dff found.\n");
+		if (!ff.has_clk) {
+			log("address latches are not supported.\n");
+			return;
+		}
+		if (ff.has_sr || ff.has_arst) {
+			log("address FF has async set and/or reset, not supported.\n");
+			return;
+		}
+		// Trick part: this transform is invalid if the initial
+		// value of the FF is fully-defined.  However, we
+		// cannot simply reject FFs with any defined init bit,
+		// as this is often the result of merging a const bit.
+		if (ff.val_init.is_fully_def()) {
+			log("address FF has fully-defined init value, not supported.\n");
+			return;
+		}
+		for (int i = 0; i < GetSize(mem.wr_ports); i++) {
+			auto &wport = mem.wr_ports[i];
+			if (!wport.clk_enable || wport.clk != ff.sig_clk || wport.clk_polarity != ff.pol_clk) {
+				log("address FF clock is not compatible with write clock.\n");
+				return;
+			}
+		}
+		// Now we're commited to merge it.
+		merger.mark_input_ff(bits);
+		// If the address FF has enable and/or sync reset, unmap it.
+		ff.unmap_ce_srst(module);
+		port.clk = ff.sig_clk;
+		port.en = State::S1;
+		port.addr = ff.sig_d;
+		port.clk_enable = true;
+		port.clk_polarity = ff.pol_clk;
+		port.transparent = true;
+		mem.emit();
+		log("merged address FF to cell.\n");
 	}
 
 	void run()
 	{
-		for (auto wire : module->wires()) {
-			if (wire->port_output)
-				for (auto bit : sigmap(wire))
-					sigbit_users_count[bit]++;
-		}
-
-		for (auto cell : module->cells()) {
-			if (cell->type.in(ID($dff), ID($dffe), ID($sdff), ID($sdffe), ID($sdffce)))
-				dff_cells.push_back(cell);
-			if (cell->type.in(ID($not), ID($_NOT_)) || (cell->type == ID($logic_not) && GetSize(cell->getPort(ID::A)) == 1)) {
-				SigSpec sig_a = cell->getPort(ID::A);
-				SigSpec sig_y = cell->getPort(ID::Y);
-				if (cell->type == ID($not))
-					sig_a.extend_u0(GetSize(sig_y), cell->getParam(ID::A_SIGNED).as_bool());
-				if (cell->type == ID($logic_not))
-					sig_y.extend_u0(1);
-				for (int i = 0; i < GetSize(sig_y); i++)
-					invbits[sig_y[i]] = sig_a[i];
-			}
-			for (auto &conn : cell->connections())
-				if (!cell->known() || cell->input(conn.first))
-					for (auto bit : sigmap(conn.second))
-						sigbit_users_count[bit]++;
-		}
-
-		for (auto &mem : Mem::get_selected_memories(module)) {
+		std::vector<Mem> memories = Mem::get_selected_memories(module);
+		for (auto &mem : memories) {
 			for (int i = 0; i < GetSize(mem.rd_ports); i++) {
 				if (!mem.rd_ports[i].clk_enable)
 					handle_rd_port(mem, i);
+			}
+		}
+		for (auto &mem : memories) {
+			for (int i = 0; i < GetSize(mem.rd_ports); i++) {
+				if (!mem.rd_ports[i].clk_enable)
+					handle_rd_port_addr(mem, i);
 			}
 		}
 	}

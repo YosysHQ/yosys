@@ -57,7 +57,7 @@ struct FfData {
 	int width;
 	dict<IdString, Const> attributes;
 
-	FfData(FfInitVals *initvals, Cell *cell = nullptr) : initvals(initvals) {
+	FfData(FfInitVals *initvals = nullptr, Cell *cell = nullptr) : initvals(initvals) {
 		width = 0;
 		has_d = true;
 		has_clk = false;
