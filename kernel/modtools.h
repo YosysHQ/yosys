@@ -395,6 +395,8 @@ struct ModWalker
 		signal_consumers.clear();
 		signal_inputs.clear();
 		signal_outputs.clear();
+		cell_inputs.clear();
+		cell_outputs.clear();
 
 		for (auto &it : module->wires_)
 			add_wire(it.second);
