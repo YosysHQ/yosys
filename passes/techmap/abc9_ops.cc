@@ -180,6 +180,9 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 			if (cell->parameters.empty()) {
 				derived_type = cell->type;
 				derived_module = inst_module;
+
+				if (derived_module->get_blackbox_attribute(true /* ignore_wb */))
+					continue;
 			}
 			else {
 				// Check potential for any one of those three
@@ -189,8 +192,6 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 				derived_type = inst_module->derive(design, cell->parameters);
 				derived_module = design->module(derived_type);
 			}
-			if (derived_module->get_blackbox_attribute(true /* ignore_wb */))
-				continue;
 
 			if (derived_module->get_bool_attribute(ID::abc9_flop)) {
 				if (!dff_mode)
