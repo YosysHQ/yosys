@@ -282,11 +282,12 @@ struct Abc9Pass : public ScriptPass
 		}
 
 		if (check_label("map")) {
+			run("abc9_ops -prep_hier");
 			run("scc -specify -set_attr abc9_scc_id {}");
 			if (help_mode)
-				run("abc9_ops -prep_hier -prep_bypass [-prep_dff -dff]", "(option if -dff)");
+				run("abc9_ops -prep_bypass [-prep_dff -dff]", "(option if -dff)");
 			else
-				run(stringf("abc9_ops -prep_hier -prep_bypass %s", dff_mode ? "-prep_dff -dff" : ""));
+				run(stringf("abc9_ops -prep_bypass %s", dff_mode ? "-prep_dff -dff" : ""));
 			if (dff_mode) {
 				run("design -copy-to $abc9_map @$abc9_flops", "(only if -dff)");
 				run("select -unset $abc9_flops", "             (only if -dff)");
