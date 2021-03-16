@@ -2223,6 +2223,21 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			children.push_back(node);
 			did_something = true;
 		}
+		else if (str == "buf" || str == "not")
+		{
+			AstNode *input = children_list.back();
+			if (str == "not")
+				input = new AstNode(AST_BIT_NOT, input);
+
+			newNode = new AstNode(AST_GENBLOCK);
+			for (auto it = children_list.begin(); it != std::prev(children_list.end()); it++) {
+				newNode->children.push_back(new AstNode(AST_ASSIGN, *it, input->clone()));
+				newNode->children.back()->was_checked = true;
+			}
+			delete input;
+
+			did_something = true;
+		}
 		else
 		{
 			AstNodeType op_type = AST_NONE;
@@ -2240,10 +2255,6 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				op_type = AST_BIT_XOR;
 			if (str == "xnor")
 				op_type = AST_BIT_XOR, invert_results = true;
-			if (str == "buf")
-				op_type = AST_POS;
-			if (str == "not")
-				op_type = AST_POS, invert_results = true;
 			log_assert(op_type != AST_NONE);
 
 			AstNode *node = children_list[1];
