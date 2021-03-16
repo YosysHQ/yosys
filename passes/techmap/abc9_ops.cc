@@ -567,7 +567,9 @@ void mark_scc(RTLIL::Module *module)
 
 	SigSpec I, O;
 	for (auto cell : scc_cells) {
-		auto id = cell->attributes.at(ID::abc9_scc_id);
+		auto it = cell->attributes.find(ID::abc9_scc_id);
+		log_assert(it != cell->attributes.end());
+		auto id = it->second;
 		auto r = ids_seen.insert(id);
 		cell->attributes.erase(it);
 		if (!r.second)
