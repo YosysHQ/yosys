@@ -194,14 +194,14 @@ ifneq ($(SANITIZER),)
 $(info [Clang Sanitizer] $(SANITIZER))
 CXXFLAGS += -g -O1 -fno-omit-frame-pointer -fno-optimize-sibling-calls -fsanitize=$(SANITIZER)
 LDFLAGS += -g -fsanitize=$(SANITIZER)
-ifeq ($(SANITIZER),address)
+ifneq ($(findstring address,$(SANITIZER)),)
 ENABLE_COVER := 0
 endif
-ifeq ($(SANITIZER),memory)
+ifneq ($(findstring memory,$(SANITIZER)),)
 CXXFLAGS += -fPIE -fsanitize-memory-track-origins
 LDFLAGS += -fPIE -fsanitize-memory-track-origins
 endif
-ifeq ($(SANITIZER),cfi)
+ifneq ($(findstring cfi,$(SANITIZER)),)
 CXXFLAGS += -flto
 LDFLAGS += -flto
 endif
