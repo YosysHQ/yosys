@@ -2006,8 +2006,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	default:
 		for (auto f : log_files)
 			current_ast_mod->dumpAst(f, "verilog-ast> ");
-		type_name = type2str(type);
-		log_file_error(filename, location.first_line, "Don't know how to generate RTLIL code for %s node!\n", type_name.c_str());
+		log_file_error(filename, location.first_line, "Don't know how to generate RTLIL code for %s node!\n", type2str(type).c_str());
 	}
 
 	return RTLIL::SigSpec();
