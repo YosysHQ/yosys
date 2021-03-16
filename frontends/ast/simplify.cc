@@ -2303,6 +2303,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			if (left_at_zero_ast->type != AST_CONSTANT || right_at_zero_ast->type != AST_CONSTANT)
 				log_file_error(filename, location.first_line, "Unsupported expression on dynamic range select on signal `%s'!\n", str.c_str());
 			result_width = abs(int(left_at_zero_ast->integer - right_at_zero_ast->integer)) + 1;
+			delete left_at_zero_ast;
+			delete right_at_zero_ast;
 		}
 
 		bool use_case_method = false;
@@ -3534,6 +3536,8 @@ skip_dynamic_range_lvalue_expansion:;
 					// convert purely constant arguments into localparams
 					if (child->is_input && child->type == AST_WIRE && arg->type == AST_CONSTANT && node_contains_assignment_to(decl, child)) {
 						wire->type = AST_LOCALPARAM;
+						if (wire->attributes.count(ID::nosync))
+							delete wire->attributes.at(ID::nosync);
 						wire->attributes.erase(ID::nosync);
 						wire->children.insert(wire->children.begin(), arg->clone());
 						// args without a range implicitly have width 1
@@ -3557,6 +3561,7 @@ skip_dynamic_range_lvalue_expansion:;
 						}
 						// updates the sizing
 						while (wire->simplify(true, false, false, 1, -1, false, false)) { }
+						delete arg;
 						continue;
 					}
 					AstNode *wire_id = new AstNode(AST_IDENTIFIER);

@@ -503,18 +503,19 @@ optional_comma:
 module_arg_opt_assignment:
 	'=' expr {
 		if (ast_stack.back()->children.size() > 0 && ast_stack.back()->children.back()->type == AST_WIRE) {
-			AstNode *wire = new AstNode(AST_IDENTIFIER);
-			wire->str = ast_stack.back()->children.back()->str;
 			if (ast_stack.back()->children.back()->is_input) {
 				AstNode *n = ast_stack.back()->children.back();
 				if (n->attributes.count(ID::defaultvalue))
 					delete n->attributes.at(ID::defaultvalue);
 				n->attributes[ID::defaultvalue] = $2;
-			} else
-			if (ast_stack.back()->children.back()->is_reg || ast_stack.back()->children.back()->is_logic)
-				ast_stack.back()->children.push_back(new AstNode(AST_INITIAL, new AstNode(AST_BLOCK, new AstNode(AST_ASSIGN_LE, wire, $2))));
-			else
-				ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, wire, $2));
+			} else {
+				AstNode *wire = new AstNode(AST_IDENTIFIER);
+				wire->str = ast_stack.back()->children.back()->str;
+				if (ast_stack.back()->children.back()->is_reg || ast_stack.back()->children.back()->is_logic)
+					ast_stack.back()->children.push_back(new AstNode(AST_INITIAL, new AstNode(AST_BLOCK, new AstNode(AST_ASSIGN_LE, wire, $2))));
+				else
+					ast_stack.back()->children.push_back(new AstNode(AST_ASSIGN, wire, $2));
+			}
 		} else
 			frontend_verilog_yyerror("SystemVerilog interface in module port list cannot have a default value.");
 	} |
@@ -1158,6 +1159,8 @@ specify_item:
 		cell->children.back()->str = "\\DST";
 
 		delete $1;
+		delete limit;
+		delete limit2;
 	};
 
 specify_opt_triple:
