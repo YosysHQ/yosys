@@ -61,8 +61,11 @@ static void add_package_types(dict<std::string, AST::AstNode *> &user_types, std
 			}
 		}
 	}
-	user_type_stack.clear();
-	user_type_stack.push_back(new UserTypeMap());
+
+	// carry over typedefs from previous files, but allow them to be overridden
+	// note that these type maps are currently never reclaimed
+	if (user_type_stack.empty() || !user_type_stack.back()->empty())
+		user_type_stack.push_back(new UserTypeMap());
 }
 
 struct VerilogFrontend : public Frontend {
