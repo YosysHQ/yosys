@@ -186,7 +186,6 @@ module PFUMX (input ALUT, BLUT, C0, output Z);
 endmodule
 
 // ---------------------------------------
-(* abc9_box, lib_whitebox *)
 module TRELLIS_DPR16X4 (
 	input  [3:0] DI,
 	input  [3:0] WAD,
@@ -232,7 +231,6 @@ endmodule
 
 // ---------------------------------------
 
-(* abc9_box, lib_whitebox *)
 module DPR16X4C (
 		input [3:0] DI,
 		input WCK, WRE,
