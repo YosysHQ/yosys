@@ -549,13 +549,25 @@ void mark_scc(RTLIL::Module *module)
 	// For every unique SCC found, (arbitrarily) find the first
 	//   cell in the component, and interrupt all its output connections
 	//   with the $__ABC9_SCC_BREAKER cell
+
+	// Do not break SCCs which have a cell instantiating an abc9_bypass-able
+	// module (but which wouldn't have been bypassed)
+	auto design = module->design;
+	pool<RTLIL::Cell*> scc_cells;
 	pool<RTLIL::Const> ids_seen;
-	SigSpec I, O;
 	for (auto cell : module->cells()) {
 		auto it = cell->attributes.find(ID::abc9_scc_id);
 		if (it == cell->attributes.end())
 			continue;
-		auto id = it->second;
+		scc_cells.insert(cell);
+		auto inst_module = design->module(cell->type);
+		if (inst_module && inst_module->has_attribute(ID::abc9_bypass))
+			ids_seen.insert(it->second);
+	}
+
+	SigSpec I, O;
+	for (auto cell : scc_cells) {
+		auto id = cell->attributes.at(ID::abc9_scc_id);
 		auto r = ids_seen.insert(id);
 		cell->attributes.erase(it);
 		if (!r.second)

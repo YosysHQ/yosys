@@ -282,6 +282,7 @@ struct Abc9Pass : public ScriptPass
 		}
 
 		if (check_label("map")) {
+			run("scc -specify -set_attr abc9_scc_id {}");
 			if (help_mode)
 				run("abc9_ops -prep_hier -prep_bypass [-prep_dff -dff]", "(option if -dff)");
 			else
@@ -330,16 +331,16 @@ struct Abc9Pass : public ScriptPass
 			run("design -stash $abc9_map");
 			run("design -load $abc9");
 			run("design -delete $abc9");
+			// Insert bypass modules (and perform +/abc9_map.v transformations), except for those cells part of a SCC
 			if (help_mode)
 				run("techmap -wb -max_iter 1 -map %$abc9_map -map +/abc9_map.v [-D DFF]", "(option if -dff)");
 			else
-				run(stringf("techmap -wb -max_iter 1 -map %%$abc9_map -map +/abc9_map.v %s", dff_mode ? "-D DFF" : ""));
+				run(stringf("techmap -wb -max_iter 1 -map %%$abc9_map -map +/abc9_map.v %s a:abc9_scc_id %%n", dff_mode ? "-D DFF" : ""));
 			run("design -delete $abc9_map");
 		}
 
 		if (check_label("pre")) {
 			run("read_verilog -icells -lib -specify +/abc9_model.v");
-			run("scc -specify -set_attr abc9_scc_id {}");
 			if (help_mode)
 				run("abc9_ops -mark_scc -prep_delays -prep_xaiger [-dff]", "(option for -dff)");
 			else
