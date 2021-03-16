@@ -547,10 +547,8 @@ void prep_dff_unmap(RTLIL::Design *design)
 void mark_scc(RTLIL::Module *module)
 {
 	// For every unique SCC found, (arbitrarily) find the first
-	//   cell in the component, and replace its output connections
-	//   with a new wire driven by the old connection but with a
-	//   special (* abc9_keep *) attribute set (which is used by
-	//   write_xaiger to break this wire into PI and POs)
+	//   cell in the component, and interrupt all its output connections
+	//   with the $__ABC9_SCC_BREAKER cell
 	pool<RTLIL::Const> ids_seen;
 	SigSpec I, O;
 	for (auto cell : module->cells()) {
@@ -731,10 +729,8 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 					bit_users[bit].insert(cell->name);
 
 			if (cell->output(conn.first) && !abc9_flop)
-				for (const auto &chunk : conn.second.chunks())
-				    if (!chunk.wire->get_bool_attribute(ID::abc9_keep))
-					    for (auto b : sigmap(SigSpec(chunk)))
-						    bit_drivers[b].insert(cell->name);
+				for (auto bit : SigSpec(conn.second))
+					bit_drivers[bit].insert(cell->name);
 		}
 		toposort.node(cell->name);
 	}
@@ -1434,7 +1430,6 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 		RTLIL::Wire *mapped_wire = mapped_mod->wire(port);
 		RTLIL::Wire *wire = module->wire(port);
 		log_assert(wire);
-		wire->attributes.erase(ID::abc9_keep);
 
 		RTLIL::Wire *remap_wire = module->wire(remap_name(port));
 		RTLIL::SigSpec signal(wire, remap_wire->start_offset-wire->start_offset, GetSize(remap_wire));
