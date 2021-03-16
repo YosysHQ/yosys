@@ -87,9 +87,12 @@ struct BugpointPass : public Pass {
 		log("    -updates\n");
 		log("        try to remove process updates from syncs.\n");
 		log("\n");
+		log("    -runner \"<prefix>\"\n");
+		log("        child process wrapping command, e.g., \"timeout 30\", or valgrind.\n");
+		log("\n");
 	}
 
-	bool run_yosys(RTLIL::Design *design, string yosys_cmd, string yosys_arg)
+	bool run_yosys(RTLIL::Design *design, string runner, string yosys_cmd, string yosys_arg)
 	{
 		design->sort();
 
@@ -97,7 +100,7 @@ struct BugpointPass : public Pass {
 		RTLIL_BACKEND::dump_design(f, design, /*only_selected=*/false, /*flag_m=*/true, /*flag_n=*/false);
 		f.close();
 
-		string yosys_cmdline = stringf("%s -qq -L bugpoint-case.log %s bugpoint-case.il", yosys_cmd.c_str(), yosys_arg.c_str());
+		string yosys_cmdline = stringf("%s %s -qq -L bugpoint-case.log %s bugpoint-case.il", runner.c_str(), yosys_cmd.c_str(), yosys_arg.c_str());
 		return run_command(yosys_cmdline) == 0;
 	}
 
@@ -394,7 +397,7 @@ struct BugpointPass : public Pass {
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		string yosys_cmd = "yosys", yosys_arg, grep;
+		string yosys_cmd = "yosys", yosys_arg, grep, runner;
 		bool fast = false, clean = false;
 		bool modules = false, ports = false, cells = false, connections = false, processes = false, assigns = false, updates = false, wires = false, has_part = false;
 
@@ -472,6 +475,14 @@ struct BugpointPass : public Pass {
 				has_part = true;
 				continue;
 			}
+			if (args[argidx] == "-runner" && argidx + 1 < args.size()) {
+				runner = args[++argidx];
+				if (runner.size() && runner.at(0) == '"') {
+					log_assert(runner.back() == '"');
+					runner = runner.substr(1, runner.size() - 2);
+				}
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -495,7 +506,7 @@ struct BugpointPass : public Pass {
 			log_cmd_error("This command only operates on fully selected designs!\n");
 
 		RTLIL::Design *crashing_design = clean_design(design, clean);
-		if (run_yosys(crashing_design, yosys_cmd, yosys_arg))
+		if (run_yosys(crashing_design, runner, yosys_cmd, yosys_arg))
 			log_cmd_error("The provided script file or command and Yosys binary do not crash on this design!\n");
 		if (!check_logfile(grep))
 			log_cmd_error("The provided grep string is not found in the log file!\n");
@@ -512,12 +523,12 @@ struct BugpointPass : public Pass {
 				if (clean)
 				{
 					RTLIL::Design *testcase = clean_design(simplified);
-					crashes = !run_yosys(testcase, yosys_cmd, yosys_arg);
+					crashes = !run_yosys(testcase, runner, yosys_cmd, yosys_arg);
 					delete testcase;
 				}
 				else
 				{
-					crashes = !run_yosys(simplified, yosys_cmd, yosys_arg);
+					crashes = !run_yosys(simplified, runner, yosys_cmd, yosys_arg);
 				}
 
 				if (crashes && check_logfile(grep))
