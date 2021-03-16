@@ -180,9 +180,6 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 			if (cell->parameters.empty()) {
 				derived_type = cell->type;
 				derived_module = inst_module;
-
-				if (derived_module->get_blackbox_attribute(true /* ignore_wb */))
-					continue;
 			}
 			else {
 				// Check potential for any one of those three
