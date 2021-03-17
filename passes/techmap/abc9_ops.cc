@@ -743,7 +743,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 					bit_users[bit].insert(cell->name);
 
 			if (cell->output(conn.first) && !abc9_flop)
-				for (auto bit : SigSpec(conn.second))
+				for (auto bit : sigmap(conn.second))
 					bit_drivers[bit].insert(cell->name);
 		}
 		toposort.node(cell->name);
