@@ -274,6 +274,7 @@ struct SynthIntelALMPass : public ScriptPass {
 			run("hierarchy -check");
 			run("stat");
 			run("check");
+			run("blackbox =A:whitebox");
 		}
 
 		if (check_label("quartus")) {

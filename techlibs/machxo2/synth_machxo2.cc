@@ -212,6 +212,7 @@ struct SynthMachXO2Pass : public ScriptPass
 		{
 			run("hierarchy -check");
 			run("stat");
+			run("blackbox =A:whitebox");
 		}
 
 		if (check_label("blif"))
