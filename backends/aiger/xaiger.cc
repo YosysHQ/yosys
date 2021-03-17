@@ -429,7 +429,7 @@ struct XAigerWriter
 			if (bit == State::Sx)
 				continue;
 			if (aig_map.count(bit))
-				log_error("Visited AIG node more than once; this could be a combinatorial loop that has not been broken - see Yosys bug 2530\n");
+				log_error("Visited AIG node more than once; this could be a combinatorial loop that has not been broken\n");
 			aig_map[bit] = 2*aig_m;
 		}
 
