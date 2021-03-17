@@ -174,6 +174,9 @@ struct XAigerWriter
 					continue;
 				}
 
+				if (wire->port_input)
+					input_bits.insert(bit);
+
 				undriven_bits.insert(bit);
 				unused_bits.insert(bit);
 
