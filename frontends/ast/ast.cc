@@ -1575,6 +1575,29 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 	return modname;
 }
 
+static std::string serialize_param_value(const RTLIL::Const &val) {
+	std::string res;
+	if (val.flags & RTLIL::ConstFlags::CONST_FLAG_STRING)
+		res.push_back('t');
+	if (val.flags & RTLIL::ConstFlags::CONST_FLAG_SIGNED)
+		res.push_back('s');
+	if (val.flags & RTLIL::ConstFlags::CONST_FLAG_REAL)
+		res.push_back('r');
+	res += stringf("%d", GetSize(val));
+	res.push_back('\'');
+	for (int i = GetSize(val) - 1; i >= 0; i--) {
+		switch (val.bits[i]) {
+			case RTLIL::State::S0: res.push_back('0'); break;
+			case RTLIL::State::S1: res.push_back('1'); break;
+			case RTLIL::State::Sx: res.push_back('x'); break;
+			case RTLIL::State::Sz: res.push_back('z'); break;
+			case RTLIL::State::Sa: res.push_back('?'); break;
+			case RTLIL::State::Sm: res.push_back('m'); break;
+		}
+	}
+	return res;
+}
+
 // create a new parametric module (when needed) and return the name of the generated module
 std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, AstNode **new_ast_out, bool quiet)
 {
@@ -1594,14 +1617,14 @@ std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::Id
 		if (it != parameters.end()) {
 			if (!quiet)
 				log("Parameter %s = %s\n", child->str.c_str(), log_signal(it->second));
-			para_info += stringf("%s=%s", child->str.c_str(), log_signal(it->second));
+			para_info += stringf("%s=%s", child->str.c_str(), serialize_param_value(it->second).c_str());
 			continue;
 		}
 		it = parameters.find(stringf("$%d", para_counter));
 		if (it != parameters.end()) {
 			if (!quiet)
 				log("Parameter %d (%s) = %s\n", para_counter, child->str.c_str(), log_signal(it->second));
-			para_info += stringf("%s=%s", child->str.c_str(), log_signal(it->second));
+			para_info += stringf("%s=%s", child->str.c_str(), serialize_param_value(it->second).c_str());
 			continue;
 		}
 	}
