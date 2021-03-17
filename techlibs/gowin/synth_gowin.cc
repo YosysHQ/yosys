@@ -289,6 +289,7 @@ struct SynthGowinPass : public ScriptPass
 			run("hierarchy -check");
 			run("stat");
 			run("check -noinit");
+			run("blackbox =A:whitebox");
 		}
 
 		if (check_label("vout"))

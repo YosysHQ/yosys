@@ -15,9 +15,9 @@ proc
 equiv_opt -assert -map +/ecp5/cells_sim.v synth_ecp5 # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd mux4 # Constrain all select calls below inside the top module
-select -assert-count 1 t:L6MUX21
-select -assert-count 4 t:LUT4
-select -assert-count 2 t:PFUMX
+select -assert-max 1 t:L6MUX21
+select -assert-max 4 t:LUT4
+select -assert-max 2 t:PFUMX
 
 select -assert-none t:LUT4 t:L6MUX21 t:PFUMX %% t:* %D
 
@@ -27,9 +27,9 @@ proc
 equiv_opt -assert -map +/ecp5/cells_sim.v synth_ecp5 # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd mux8 # Constrain all select calls below inside the top module
-select -assert-count 1 t:L6MUX21
-select -assert-count 7 t:LUT4
-select -assert-count 2 t:PFUMX
+select -assert-max 1 t:L6MUX21
+select -assert-max 7 t:LUT4
+select -assert-max 2 t:PFUMX
 
 select -assert-none t:LUT4 t:L6MUX21 t:PFUMX %% t:* %D
 
@@ -39,8 +39,8 @@ proc
 equiv_opt -assert -map +/ecp5/cells_sim.v synth_ecp5 # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd mux16 # Constrain all select calls below inside the top module
-select -assert-count 8 t:L6MUX21
-select -assert-count 26 t:LUT4
-select -assert-count 12 t:PFUMX
+select -assert-max 12 t:L6MUX21
+select -assert-max 34 t:LUT4
+select -assert-max 17 t:PFUMX
 
 select -assert-none t:LUT4 t:L6MUX21 t:PFUMX %% t:* %D

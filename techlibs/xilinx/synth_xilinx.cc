@@ -662,6 +662,7 @@ struct SynthXilinxPass : public ScriptPass
 			run("hierarchy -check");
 			run("stat -tech xilinx");
 			run("check -noinit");
+			run("blackbox =A:whitebox");
 		}
 
 		if (check_label("edif")) {
