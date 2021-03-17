@@ -37,10 +37,10 @@ done
 
 cp ../simple/*.v .
 cp ../simple/*.sv .
+rm specify.v # bug 2675
 DOLLAR='?'
-exec ${MAKE:-make} -f ../tools/autotest.mk $seed *.v *.sv EXTRA_FLAGS="-n 300 -p '\
+exec ${MAKE:-make} -f ../tools/autotest.mk $seed *.v *.sv EXTRA_FLAGS="-f \"verilog -noblackbox -specify\" -n 300 -p '\
     read_verilog -icells -lib +/abc9_model.v; \
-    read_verilog -specify ../muxf7.v; \
     hierarchy; \
     synth -run coarse; \
     opt -full; \
