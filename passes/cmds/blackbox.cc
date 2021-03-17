@@ -46,10 +46,11 @@ struct BlackboxPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto module : design->selected_whole_modules_warn())
+		for (auto module : design->selected_whole_modules_warn(true))
 		{
 			module->makeblackbox();
 			module->set_bool_attribute(ID::blackbox);
+			module->set_bool_attribute(ID::whitebox, false);
 		}
 	}
 } BlackboxPass;
