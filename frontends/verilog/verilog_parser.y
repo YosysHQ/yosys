@@ -692,6 +692,7 @@ wire_type_token:
 		astbuf3->is_custom_type = true;
 		astbuf3->children.push_back(new AstNode(AST_WIRETYPE));
 		astbuf3->children.back()->str = *$1;
+		delete $1;
 	} |
 	TOK_WOR {
 		astbuf3->is_wor = true;
@@ -1458,6 +1459,7 @@ param_type:
 		astbuf1->is_custom_type = true;
 		astbuf1->children.push_back(new AstNode(AST_WIRETYPE));
 		astbuf1->children.back()->str = *$1;
+		delete $1;
 	};
 
 param_decl:
