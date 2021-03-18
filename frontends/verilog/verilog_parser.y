@@ -2084,6 +2084,7 @@ cell_port:
 		if (!sv_mode)
 			frontend_verilog_yyerror("Wildcard port connections are only supported in SystemVerilog mode.");
 		astbuf2->attributes[ID::wildcard_port_conns] = AstNode::mkconst_int(1, false);
+		free_attr($1);
 	};
 
 always_comb_or_latch:
