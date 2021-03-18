@@ -861,6 +861,7 @@ task_func_decl:
 			outreg->children.push_back($4);
 			outreg->is_signed = $4->is_signed;
 			$4->is_signed = false;
+			outreg->is_custom_type = $4->type == AST_WIRETYPE;
 		}
 		current_function_or_task->children.push_back(outreg);
 		current_function_or_task_port_id = 1;
@@ -871,6 +872,11 @@ task_func_decl:
 	};
 
 func_return_type:
+	hierarchical_type_id {
+		$$ = new AstNode(AST_WIRETYPE);
+		$$->str = *$1;
+		delete $1;
+	} |
 	opt_type_vec opt_signedness_default_unsigned {
 		$$ = makeRange(0, 0, $2);
 	} |
