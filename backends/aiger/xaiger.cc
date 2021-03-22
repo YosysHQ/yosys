@@ -174,11 +174,11 @@ struct XAigerWriter
 					continue;
 				}
 
-				if (wire->port_input)
-					input_bits.insert(bit);
-
 				undriven_bits.insert(bit);
 				unused_bits.insert(bit);
+
+				if (wire->port_input)
+					input_bits.insert(bit);
 
 				bool keep = wire->get_bool_attribute(ID::keep);
 				if (wire->port_output || keep) {

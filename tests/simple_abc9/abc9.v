@@ -213,7 +213,7 @@ module arbiter (clk, rst, request, acknowledge, grant, grant_valid, grant_encode
   input rst;
 endmodule
 
-(* abc9_box, abc9_box_id=1, blackbox *)
+(* abc9_box, blackbox *)
 module MUXF8(input I0, I1, S, output O);
 specify
     (I0 => O) = 0;
@@ -313,7 +313,7 @@ module abc9_test036(input A, B, S, output [1:0] O);
   );
 endmodule
 
-(* abc9_box, abc9_box_id=2, whitebox *)
+(* abc9_box, whitebox *)
 module MUXF7(input I0, I1, S, output O);
 assign O = S ? I1 : I0;
 specify

@@ -587,7 +587,7 @@ void break_scc(RTLIL::Module *module)
 
 	if (!I.empty())
 	{
-		auto cell = module->addCell(NEW_ID, "$__ABC9_SCC_BREAKER");
+		auto cell = module->addCell(NEW_ID, ID($__ABC9_SCC_BREAKER));
 		log_assert(GetSize(I) == GetSize(O));
 		cell->setParam(ID::WIDTH, GetSize(I));
 		cell->setPort(ID::I, std::move(I));
