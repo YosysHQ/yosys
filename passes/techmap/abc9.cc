@@ -346,9 +346,9 @@ struct Abc9Pass : public ScriptPass
 		if (check_label("pre")) {
 			run("read_verilog -icells -lib -specify +/abc9_model.v");
 			if (help_mode)
-				run("abc9_ops -mark_scc -prep_delays -prep_xaiger [-dff]", "(option for -dff)");
+				run("abc9_ops -break_scc -prep_delays -prep_xaiger [-dff]", "(option for -dff)");
 			else
-				run("abc9_ops -mark_scc -prep_delays -prep_xaiger" + std::string(dff_mode ? " -dff" : ""));
+				run("abc9_ops -break_scc -prep_delays -prep_xaiger" + std::string(dff_mode ? " -dff" : ""));
 			if (help_mode)
 				run("abc9_ops -prep_lut <maxlut>", "(skip if -lut or -luts)");
 			else if (!lut_mode)

@@ -544,7 +544,7 @@ void prep_dff_unmap(RTLIL::Design *design)
 	}
 }
 
-void mark_scc(RTLIL::Module *module)
+void break_scc(RTLIL::Module *module)
 {
 	// For every unique SCC found, (arbitrarily) find the first
 	//   cell in the component, and interrupt all its output connections
@@ -1606,11 +1606,11 @@ struct Abc9OpsPass : public Pass {
 		log("        insert `$__ABC9_DELAY' blackbox cells into the design to account for\n");
 		log("        certain required times.\n");
 		log("\n");
-		log("    -mark_scc\n");
+		log("    -break_scc\n");
 		log("        for an arbitrarily chosen cell in each unique SCC of each selected module\n");
-		log("        (tagged with an (* abc9_scc_id = <int> *) attribute), temporarily mark all\n");
-		log("        wires driven by this cell's outputs with a (* keep *) attribute in order\n");
-		log("        to break the SCC. this temporary attribute will be removed on -reintegrate.\n");
+		log("        (tagged with an (* abc9_scc_id = <int> *) attribute), temporarily interrupt\n");
+		log("        all wires driven by this cell's outputs with a temporary $__ABC9_SCC_BREAKER\n");
+		log("        cell to break the SCC.\n");
 		log("\n");
 		log("    -prep_xaiger\n");
 		log("        prepare the design for XAIGER output. this includes computing the\n");
@@ -1647,7 +1647,7 @@ struct Abc9OpsPass : public Pass {
 
 		bool check_mode = false;
 		bool prep_delays_mode = false;
-		bool mark_scc_mode = false;
+		bool break_scc_mode = false;
 		bool prep_hier_mode = false;
 		bool prep_bypass_mode = false;
 		bool prep_dff_mode = false, prep_dff_submod_mode = false, prep_dff_unmap_mode = false;
@@ -1669,8 +1669,8 @@ struct Abc9OpsPass : public Pass {
 				valid = true;
 				continue;
 			}
-			if (arg == "-mark_scc") {
-				mark_scc_mode = true;
+			if (arg == "-break_scc") {
+				break_scc_mode = true;
 				valid = true;
 				continue;
 			}
@@ -1746,7 +1746,7 @@ struct Abc9OpsPass : public Pass {
 		extra_args(args, argidx, design);
 
 		if (!valid)
-			log_cmd_error("At least one of -check, -mark_scc, -prep_{delays,xaiger,dff[123],lut,box}, -write_{lut,box}, -reintegrate must be specified.\n");
+			log_cmd_error("At least one of -check, -break_scc, -prep_{delays,xaiger,dff[123],lut,box}, -write_{lut,box}, -reintegrate must be specified.\n");
 
 		if (dff_mode && !check_mode && !prep_hier_mode && !prep_delays_mode && !prep_xaiger_mode && !reintegrate_mode)
 			log_cmd_error("'-dff' option is only relevant for -prep_{hier,delay,xaiger} or -reintegrate.\n");
@@ -1783,8 +1783,8 @@ struct Abc9OpsPass : public Pass {
 				write_lut(mod, write_lut_dst);
 			if (!write_box_dst.empty())
 				write_box(mod, write_box_dst);
-			if (mark_scc_mode)
-				mark_scc(mod);
+			if (break_scc_mode)
+				break_scc(mod);
 			if (prep_xaiger_mode)
 				prep_xaiger(mod, dff_mode);
 			if (reintegrate_mode)
