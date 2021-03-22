@@ -1,0 +1,60 @@
+Creating the Visual Studio Template Project
+===========================================
+
+1. Create an empty Visual C++ Win32 Console App project
+
+	Microsoft Visual Studio Express 2013 for Windows Desktop
+	Open New Project Wizard (File -> New Project..)
+
+	Project Name: YosysVS
+	Solution Name: YosysVS
+	[X] Create directory for solution
+	[ ] Add to source control
+
+	[X] Console applications
+	[X] Empty Project
+	[ ] SDL checks
+
+2. Open YosysVS Project Properties
+
+	Select Configuration: All Configurations
+
+	C/C++ -> General -> Additional Include Directories
+		Add: ..\yosys
+
+	C/C++ -> Preprocessor -> Preprocessor Definitions
+		Add: _YOSYS_;_CRT_SECURE_NO_WARNINGS
+
+3. Resulting file system tree:
+
+	YosysVS/
+	YosysVS/YosysVS
+	YosysVS/YosysVS/YosysVS.vcxproj
+	YosysVS/YosysVS/YosysVS.vcxproj.filters
+	YosysVS/YosysVS.sdf
+	YosysVS/YosysVS.sln
+	YosysVS/YosysVS.v12.suo
+
+4. Zip YosysVS as YosysVS-Tpl-v1.zip
+
+Cross-Building for Windows with MXE
+===================================
+
+Check http://mxe.cc/#requirements and install all missing requirements.
+
+As root (or other user with write access to /usr/local/src):
+
+	cd /usr/local/src
+	git clone https://github.com/mxe/mxe.git
+	cd mxe
+
+	make -j$(nproc) MXE_PLUGIN_DIRS="plugins/tcl.tk" \
+			MXE_TARGETS="i686-w64-mingw32.static" \
+			gcc tcl readline
+
+Then as regular user in some directory where you build stuff:
+
+	git clone https://github.com/cliffordwolf/yosys.git yosys-win32
+	cd yosys-win32
+	make config-mxe
+	make -j$(nproc) mxebin
