@@ -580,6 +580,11 @@ RTLIL::Module *RTLIL::Design::module(RTLIL::IdString name)
 	return modules_.count(name) ? modules_.at(name) : NULL;
 }
 
+const RTLIL::Module *RTLIL::Design::module(RTLIL::IdString name) const
+{
+	return modules_.count(name) ? modules_.at(name) : NULL;
+}
+
 RTLIL::Module *RTLIL::Design::top_module()
 {
 	RTLIL::Module *module = nullptr;
