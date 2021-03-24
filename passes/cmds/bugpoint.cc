@@ -38,6 +38,8 @@ struct BugpointPass : public Pass {
 		log("and the same script, repeating these steps while it can find a smaller design that\n");
 		log("still causes a crash. Once this command finishes, it replaces the current design\n");
 		log("with the smallest testcase it was able to produce.\n");
+		log("In order to save the reduced testcase you must write this out to a file with\n");
+		log("another command after `bugpoint` like `write_rtlil` or `write_verilog`.\n");
 		log("\n");
 		log("    -script <filename> | -command \"<command>\"\n");
 		log("        use this script file or command to crash Yosys. required.\n");
