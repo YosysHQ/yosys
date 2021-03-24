@@ -1043,6 +1043,7 @@ struct RTLIL::Design
 
 	RTLIL::ObjRange<RTLIL::Module*> modules();
 	RTLIL::Module *module(RTLIL::IdString name);
+	const RTLIL::Module *module(RTLIL::IdString name) const;
 	RTLIL::Module *top_module();
 
 	bool has(RTLIL::IdString id) const {
@@ -1187,6 +1188,15 @@ public:
 		return it == wires_.end() ? nullptr : it->second;
 	}
 	RTLIL::Cell* cell(RTLIL::IdString id) {
+		auto it = cells_.find(id);
+		return it == cells_.end() ? nullptr : it->second;
+	}
+
+	const RTLIL::Wire* wire(RTLIL::IdString id) const{
+		auto it = wires_.find(id);
+		return it == wires_.end() ? nullptr : it->second;
+	}
+	const RTLIL::Cell* cell(RTLIL::IdString id) const {
 		auto it = cells_.find(id);
 		return it == cells_.end() ? nullptr : it->second;
 	}
