@@ -291,7 +291,7 @@ namespace AST
 		// for expressions the resulting signal vector is returned
 		// all generated cell instances, etc. are written to the RTLIL::Module pointed to by AST_INTERNAL::current_module
 		RTLIL::SigSpec genRTLIL(int width_hint = -1, bool sign_hint = false);
-		RTLIL::SigSpec genWidthRTLIL(int width, const dict<RTLIL::SigBit, RTLIL::SigBit> *new_subst_ptr = NULL);
+		RTLIL::SigSpec genWidthRTLIL(int width, bool sgn, const dict<RTLIL::SigBit, RTLIL::SigBit> *new_subst_ptr = NULL);
 
 		// compare AST nodes
 		bool operator==(const AstNode &other) const;
