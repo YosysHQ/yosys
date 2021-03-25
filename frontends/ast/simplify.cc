@@ -1185,8 +1185,12 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 	if (const_fold && type == AST_CASE)
 	{
+		int width_hint;
+		bool sign_hint;
+		detectSignWidth(width_hint, sign_hint);
 		while (children[0]->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param)) { }
 		if (children[0]->type == AST_CONSTANT && children[0]->bits_only_01()) {
+			RTLIL::Const case_expr = children[0]->bitsAsConst(width_hint, sign_hint);
 			std::vector<AstNode*> new_children;
 			new_children.push_back(children[0]);
 			for (int i = 1; i < GetSize(children); i++) {
@@ -1199,7 +1203,10 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 						continue;
 					while (v->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param)) { }
 					if (v->type == AST_CONSTANT && v->bits_only_01()) {
-						if (v->bits == children[0]->bits) {
+						RTLIL::Const case_item_expr = v->bitsAsConst(width_hint, sign_hint);
+						RTLIL::Const match = const_eq(case_expr, case_item_expr, sign_hint, sign_hint, 1);
+						log_assert(match.bits.size() == 1);
+						if (match.bits.front() == RTLIL::State::S1) {
 							while (i+1 < GetSize(children))
 								delete children[++i];
 							goto keep_const_cond;

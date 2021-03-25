@@ -566,7 +566,7 @@ struct AST_INTERNAL::ProcessGenerator
 		case AST_ASSIGN_LE:
 			{
 				RTLIL::SigSpec unmapped_lvalue = ast->children[0]->genRTLIL(), lvalue = unmapped_lvalue;
-				RTLIL::SigSpec rvalue = ast->children[1]->genWidthRTLIL(lvalue.size(), &subst_rvalue_map.stdmap());
+				RTLIL::SigSpec rvalue = ast->children[1]->genWidthRTLIL(lvalue.size(), true, &subst_rvalue_map.stdmap());
 
 				pool<SigBit> lvalue_sigbits;
 				for (int i = 0; i < GetSize(lvalue); i++) {
@@ -593,9 +593,13 @@ struct AST_INTERNAL::ProcessGenerator
 
 		case AST_CASE:
 			{
+				int width_hint;
+				bool sign_hint;
+				ast->detectSignWidth(width_hint, sign_hint);
+
 				RTLIL::SwitchRule *sw = new RTLIL::SwitchRule;
 				set_src_attr(sw, ast);
-				sw->signal = ast->children[0]->genWidthRTLIL(-1, &subst_rvalue_map.stdmap());
+				sw->signal = ast->children[0]->genWidthRTLIL(width_hint, sign_hint, &subst_rvalue_map.stdmap());
 				current_case->switches.push_back(sw);
 
 				for (auto &attr : ast->attributes) {
@@ -637,7 +641,7 @@ struct AST_INTERNAL::ProcessGenerator
 						else if (node->type == AST_BLOCK)
 							processAst(node);
 						else
-							current_case->compare.push_back(node->genWidthRTLIL(sw->signal.size(), &subst_rvalue_map.stdmap()));
+							current_case->compare.push_back(node->genWidthRTLIL(width_hint, sign_hint, &subst_rvalue_map.stdmap()));
 					}
 					if (default_case != current_case)
 						sw->cases.push_back(current_case);
@@ -715,9 +719,9 @@ struct AST_INTERNAL::ProcessGenerator
 				RTLIL::MemWriteAction action;
 				set_src_attr(&action, child);
 				action.memid = memid;
-				action.address = child->children[0]->genWidthRTLIL(-1, &subst_rvalue_map.stdmap());
-				action.data = child->children[1]->genWidthRTLIL(current_module->memories[memid]->width, &subst_rvalue_map.stdmap());
-				action.enable = child->children[2]->genWidthRTLIL(-1, &subst_rvalue_map.stdmap());
+				action.address = child->children[0]->genWidthRTLIL(-1, true, &subst_rvalue_map.stdmap());
+				action.data = child->children[1]->genWidthRTLIL(current_module->memories[memid]->width, true, &subst_rvalue_map.stdmap());
+				action.enable = child->children[2]->genWidthRTLIL(-1, true, &subst_rvalue_map.stdmap());
 				RTLIL::Const orig_priority_mask = child->children[4]->bitsAsConst();
 				RTLIL::Const priority_mask = RTLIL::Const(0, cur_idx);
 				for (int i = 0; i < portid; i++) {
@@ -953,6 +957,32 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		this_width = id2ast->children[0]->range_left - id2ast->children[0]->range_right + 1;
 		width_hint = max(width_hint, this_width);
 		break;
+
+	case AST_CASE:
+	{
+		// This detects the _overall_ sign and width to be used for comparing
+		// the case expression with the case item expressions. The case
+		// expression and case item expressions are extended to the maximum
+		// width among them, and are only interpreted as signed if all of them
+		// are signed.
+		width_hint = -1;
+		sign_hint = true;
+		auto visit_case_expr = [&width_hint, &sign_hint] (AstNode *node) {
+			int sub_width_hint = -1;
+			bool sub_sign_hint = true;
+			node->detectSignWidth(sub_width_hint, sub_sign_hint);
+			width_hint = max(width_hint, sub_width_hint);
+			sign_hint &= sub_sign_hint;
+		};
+		visit_case_expr(children[0]);
+		for (size_t i = 1; i < children.size(); i++) {
+			AstNode *child = children[i];
+			for (AstNode *v : child->children)
+				if (v->type != AST_DEFAULT && v->type != AST_BLOCK)
+					visit_case_expr(v);
+		}
+		break;
+	}
 
 	case AST_FCALL:
 		if (str == "\\$anyconst" || str == "\\$anyseq" || str == "\\$allconst" || str == "\\$allseq") {
@@ -1695,7 +1725,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			SigSpec addr_sig = children[0]->genRTLIL();
 
 			cell->setPort(ID::ADDR, addr_sig);
-			cell->setPort(ID::DATA, children[1]->genWidthRTLIL(current_module->memories[str]->width * num_words));
+			cell->setPort(ID::DATA, children[1]->genWidthRTLIL(current_module->memories[str]->width * num_words, true));
 
 			cell->parameters[ID::MEMID] = RTLIL::Const(str);
 			cell->parameters[ID::ABITS] = RTLIL::Const(GetSize(addr_sig));
@@ -1754,7 +1784,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_ASSIGN:
 		{
 			RTLIL::SigSpec left = children[0]->genRTLIL();
-			RTLIL::SigSpec right = children[1]->genWidthRTLIL(left.size());
+			RTLIL::SigSpec right = children[1]->genWidthRTLIL(left.size(), true);
 			if (left.has_const()) {
 				RTLIL::SigSpec new_left, new_right;
 				for (int i = 0; i < GetSize(left); i++)
@@ -1979,14 +2009,14 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 // this is a wrapper for AstNode::genRTLIL() when a specific signal width is requested and/or
 // signals must be substituted before being used as input values (used by ProcessGenerator)
 // note that this is using some global variables to communicate this special settings to AstNode::genRTLIL().
-RTLIL::SigSpec AstNode::genWidthRTLIL(int width, const dict<RTLIL::SigBit, RTLIL::SigBit> *new_subst_ptr)
+RTLIL::SigSpec AstNode::genWidthRTLIL(int width, bool sgn, const dict<RTLIL::SigBit, RTLIL::SigBit> *new_subst_ptr)
 {
 	const dict<RTLIL::SigBit, RTLIL::SigBit> *backup_subst_ptr = genRTLIL_subst_ptr;
 
 	if (new_subst_ptr)
 		genRTLIL_subst_ptr = new_subst_ptr;
 
-	bool sign_hint = true;
+	bool sign_hint = sgn;
 	int width_hint = width;
 	detectSignWidthWorker(width_hint, sign_hint);
 	RTLIL::SigSpec sig = genRTLIL(width_hint, sign_hint);
