@@ -1608,9 +1608,9 @@ struct Abc9OpsPass : public Pass {
 		log("\n");
 		log("    -break_scc\n");
 		log("        for an arbitrarily chosen cell in each unique SCC of each selected module\n");
-		log("        (tagged with an (* abc9_scc_id = <int> *) attribute), temporarily interrupt\n");
-		log("        all wires driven by this cell's outputs with a temporary $__ABC9_SCC_BREAKER\n");
-		log("        cell to break the SCC.\n");
+		log("        (tagged with an (* abc9_scc_id = <int> *) attribute) interrupt all wires\n");
+		log("        driven by this cell's outputs with a temporary $__ABC9_SCC_BREAKER cell\n");
+		log("        to break the SCC.\n");
 		log("\n");
 		log("    -prep_xaiger\n");
 		log("        prepare the design for XAIGER output. this includes computing the\n");
