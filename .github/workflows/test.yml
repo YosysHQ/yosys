@@ -23,9 +23,7 @@ jobs:
     - name: Install dependencies (macOS)
       if: runner.os == 'macOS'
       run: |
-        brew update
-        brew tap Homebrew/bundle
-        brew bundle
+        brew install bison gawk libffi pkg-config bash
 
     - name: Setup environment (Linux)
       if: runner.os == 'Linux'
