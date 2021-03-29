@@ -431,8 +431,13 @@ supply1 { return TOK_SUPPLY1; }
 "/*"[ \t]*(synopsys|synthesis)[ \t]*translate_off[ \t]*"*/" {
 	static bool printed_warning = false;
 	if (!printed_warning) {
-		log_warning("Found one of those horrible `(synopsys|synthesis) translate_off' comments.\n"
-				"Yosys does support them but it is recommended to use `ifdef constructs instead!\n");
+		log_warning(
+			"Encountered `translate_off' comment! Such legacy hot "
+			"comments are supported by Yosys, but are not part of "
+			"any formal language specification. Using a portable "
+			"and standards-compliant construct such as `ifdef is "
+			"recommended!\n"
+		);
 		printed_warning = true;
 	}
 	BEGIN(SYNOPSYS_TRANSLATE_OFF);
@@ -447,8 +452,13 @@ supply1 { return TOK_SUPPLY1; }
 <SYNOPSYS_FLAGS>full_case {
 	static bool printed_warning = false;
 	if (!printed_warning) {
-		log_warning("Found one of those horrible `(synopsys|synthesis) full_case' comments.\n"
-				"Yosys does support them but it is recommended to use Verilog `full_case' attributes instead!\n");
+		log_warning(
+			"Encountered `full_case' comment! Such legacy hot "
+			"comments are supported by Yosys, but are not part of "
+			"any formal language specification. Using the Verilog "
+			"`full_case' attribute or the SystemVerilog `unique' "
+			"or `unique0' keywords is recommended!\n"
+		);
 		printed_warning = true;
 	}
 	return TOK_SYNOPSYS_FULL_CASE;
@@ -456,8 +466,13 @@ supply1 { return TOK_SUPPLY1; }
 <SYNOPSYS_FLAGS>parallel_case {
 	static bool printed_warning = false;
 	if (!printed_warning) {
-		log_warning("Found one of those horrible `(synopsys|synthesis) parallel_case' comments.\n"
-				"Yosys does support them but it is recommended to use Verilog `parallel_case' attributes instead!\n");
+		log_warning(
+			"Encountered `parallel_case' comment! Such legacy hot "
+			"comments are supported by Yosys, but are not part of "
+			"any formal language specification. Using the Verilog "
+			"`parallel_case' attribute or the SystemVerilog "
+			"`unique' or `priority' keywords is recommended!\n"
+		);
 		printed_warning = true;
 	}
 	return TOK_SYNOPSYS_PARALLEL_CASE;
