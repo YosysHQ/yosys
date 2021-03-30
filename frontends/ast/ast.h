@@ -261,6 +261,7 @@ namespace AST
 		void mem2reg_remove(pool<AstNode*> &mem2reg_set, vector<AstNode*> &delnodes);
 		void meminfo(int &mem_width, int &mem_size, int &addr_bits);
 		bool detect_latch(const std::string &var);
+		const RTLIL::Module* lookup_cell_module();
 
 		// additional functionality for evaluating constant functions
 		struct varinfo_t {
@@ -309,8 +310,8 @@ namespace AST
 		RTLIL::Const bitsAsConst(int width, bool is_signed);
 		RTLIL::Const bitsAsConst(int width = -1);
 		RTLIL::Const bitsAsUnsizedConst(int width);
-		RTLIL::Const asAttrConst();
-		RTLIL::Const asParaConst();
+		RTLIL::Const asAttrConst() const;
+		RTLIL::Const asParaConst() const;
 		uint64_t asInt(bool is_signed);
 		bool bits_only_01() const;
 		bool asBool() const;
@@ -367,6 +368,14 @@ namespace AST
 
 	// Helper for setting the src attribute.
 	void set_src_attr(RTLIL::AttrObject *obj, const AstNode *ast);
+
+	// generate standard $paramod... derived module name; parameters should be
+	// in the order they are declared in the instantiated module
+	std::string derived_module_name(std::string stripped_name, const std::vector<std::pair<RTLIL::IdString, RTLIL::Const>> &parameters);
+
+	// used to provide simplify() access to the current design for looking up
+	// modules, ports, wires, etc.
+	void set_simplify_design_context(const RTLIL::Design *design);
 }
 
 namespace AST_INTERNAL

@@ -1,0 +1,6 @@
+read_verilog -sv unbased_unsized_tern.sv
+hierarchy
+proc
+equiv_make gold gate equiv
+equiv_simple
+equiv_status -assert
