@@ -184,8 +184,12 @@ struct EquivSimpleWorker
 
 			for (auto cell : problem_cells) {
 				auto key = pair<Cell*, int>(cell, step+1);
-				if (!imported_cells_cache.count(key) && !satgen.importCell(cell, step+1))
-					log_cmd_error("No SAT model available for cell %s (%s).\n", log_id(cell), log_id(cell->type));
+				if (!imported_cells_cache.count(key) && !satgen.importCell(cell, step+1)) {
+					if (RTLIL::builtin_ff_cell_types().count(cell->type))
+						log_cmd_error("No SAT model available for async FF cell %s (%s).  Consider running `async2sync` or `clk2fflogic` first.\n", log_id(cell), log_id(cell->type));
+					else
+						log_cmd_error("No SAT model available for cell %s (%s).\n", log_id(cell), log_id(cell->type));
+				}
 				imported_cells_cache.insert(key);
 			}
 
