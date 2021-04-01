@@ -156,7 +156,7 @@ struct XAigerWriter
 
 		// promote keep wires
 		for (auto wire : module->wires())
-			if (wire->get_bool_attribute(ID::keep) || wire->get_bool_attribute(ID::abc9_keep))
+			if (wire->get_bool_attribute(ID::keep))
 				sigmap.add(wire);
 
 		for (auto wire : module->wires()) {
@@ -177,11 +177,10 @@ struct XAigerWriter
 				undriven_bits.insert(bit);
 				unused_bits.insert(bit);
 
-				bool keep = wire->get_bool_attribute(ID::abc9_keep);
-				if (wire->port_input || keep)
+				if (wire->port_input)
 					input_bits.insert(bit);
 
-				keep = keep || wire->get_bool_attribute(ID::keep);
+				bool keep = wire->get_bool_attribute(ID::keep);
 				if (wire->port_output || keep) {
 					if (bit != wirebit)
 						alias_map[wirebit] = bit;
@@ -433,7 +432,7 @@ struct XAigerWriter
 			if (bit == State::Sx)
 				continue;
 			if (aig_map.count(bit))
-				log_error("Visited AIG node more than once; this could be a combinatorial loop that has not been broken - see Yosys bug 2530\n");
+				log_error("Visited AIG node more than once; this could be a combinatorial loop that has not been broken\n");
 			aig_map[bit] = 2*aig_m;
 		}
 

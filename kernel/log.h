@@ -24,9 +24,29 @@
 
 #include <time.h>
 
-// In GCC 4.8 std::regex is not working correctlty, in order to make features
-// using regular expressions to work replacement regex library is used
-#if defined(__GNUC__) && !defined( __clang__) && ( __GNUC__ == 4 && __GNUC_MINOR__ <= 8)
+// In the libstdc++ headers that are provided by GCC 4.8, std::regex is not
+// working correctly. In order to make features using regular expressions
+// work, a replacement regex library is used. Just checking for GCC version
+// is not enough though, because at least on RHEL7/CentOS7 even when compiling
+// with Clang instead of GCC, the GCC 4.8 headers are still used for std::regex.
+// We have to check the version of the libstdc++ headers specifically, not the
+// compiler version. GCC headers of libstdc++ before version 3.4 define
+// __GLIBCPP__, later versions define __GLIBCXX__. GCC 7 and newer additionaly
+// define _GLIBCXX_RELEASE with a version number.
+// Include limits std C++ header, so we get the version macros defined:
+#if defined(__cplusplus)
+#  include <limits>
+#endif
+// Check if libstdc++ is from GCC
+#if defined(__GLIBCPP__) || defined(__GLIBCXX__)
+// Check if version could be 4.8 or lower (this also matches for some 4.9 and
+// 5.0 releases). See:
+// https://gcc.gnu.org/onlinedocs/libstdc++/manual/abi.html#abi.versioning
+#  if !defined(_GLIBCXX_RELEASE) && (defined(__GLIBCPP__) || __GLIBCXX__ <= 20150623)
+#    define YS_HAS_BAD_STD_REGEX
+#  endif
+#endif
+#if defined(YS_HAS_BAD_STD_REGEX)
 	#include <boost/xpressive/xpressive.hpp>
 	#define YS_REGEX_TYPE boost::xpressive::sregex
 	#define YS_REGEX_MATCH_TYPE boost::xpressive::smatch

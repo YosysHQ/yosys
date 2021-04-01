@@ -44,7 +44,7 @@ The "Documentation" page on the web site contains links to more resources,
 including a manual that even describes some of the Yosys internals:
 - http://www.clifford.at/yosys/documentation.html
 
-The file `CodingReadme` in this directory contains additional information
+The directory `guidelines` contains additional information
 for people interested in using the Yosys C++ APIs.
 
 Users interested in formal verification might want to use the formal verification

@@ -580,6 +580,11 @@ RTLIL::Module *RTLIL::Design::module(RTLIL::IdString name)
 	return modules_.count(name) ? modules_.at(name) : NULL;
 }
 
+const RTLIL::Module *RTLIL::Design::module(RTLIL::IdString name) const
+{
+	return modules_.count(name) ? modules_.at(name) : NULL;
+}
+
 RTLIL::Module *RTLIL::Design::top_module()
 {
 	RTLIL::Module *module = nullptr;
@@ -808,12 +813,12 @@ std::vector<RTLIL::Module*> RTLIL::Design::selected_whole_modules() const
 	return result;
 }
 
-std::vector<RTLIL::Module*> RTLIL::Design::selected_whole_modules_warn() const
+std::vector<RTLIL::Module*> RTLIL::Design::selected_whole_modules_warn(bool include_wb) const
 {
 	std::vector<RTLIL::Module*> result;
 	result.reserve(modules_.size());
 	for (auto &it : modules_)
-		if (it.second->get_blackbox_attribute())
+		if (it.second->get_blackbox_attribute(include_wb))
 			continue;
 		else if (selected_whole_module(it.first))
 			result.push_back(it.second);

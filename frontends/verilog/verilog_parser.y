@@ -163,12 +163,18 @@ static bool isInLocalScope(const std::string *name)
 
 static AstNode *getTypeDefinitionNode(std::string type_name)
 {
-	// return the definition nodes from the typedef statement
-	auto user_types = user_type_stack.back();
-	log_assert(user_types->count(type_name) > 0);
-	auto typedef_node = (*user_types)[type_name];
-	log_assert(typedef_node->type == AST_TYPEDEF);
-	return typedef_node->children[0];
+	// check current scope then outer scopes for a name
+	for (auto it = user_type_stack.rbegin(); it != user_type_stack.rend(); ++it) {
+		if ((*it)->count(type_name) > 0) {
+			// return the definition nodes from the typedef statement
+			auto typedef_node = (**it)[type_name];
+			log_assert(typedef_node->type == AST_TYPEDEF);
+			return typedef_node->children[0];
+		}
+	}
+
+	// The lexer recognized the name as a TOK_USER_TYPE, but now we can't find it anymore?
+	log_error("typedef for user type `%s' not found", type_name.c_str());
 }
 
 static AstNode *copyTypeDefinition(std::string type_name)
@@ -861,6 +867,7 @@ task_func_decl:
 			outreg->children.push_back($4);
 			outreg->is_signed = $4->is_signed;
 			$4->is_signed = false;
+			outreg->is_custom_type = $4->type == AST_WIRETYPE;
 		}
 		current_function_or_task->children.push_back(outreg);
 		current_function_or_task_port_id = 1;
@@ -871,6 +878,11 @@ task_func_decl:
 	};
 
 func_return_type:
+	hierarchical_type_id {
+		$$ = new AstNode(AST_WIRETYPE);
+		$$->str = *$1;
+		delete $1;
+	} |
 	opt_type_vec opt_signedness_default_unsigned {
 		$$ = makeRange(0, 0, $2);
 	} |

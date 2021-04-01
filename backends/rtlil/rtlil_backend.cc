@@ -263,7 +263,7 @@ void RTLIL_BACKEND::dump_proc_sync(std::ostream &f, std::string indent, const RT
 		f << stringf(" ");
 		dump_sigspec(f, it.enable);
 		f << stringf(" ");
-		dump_sigspec(f, it.priority_mask);
+		dump_const(f, it.priority_mask);
 		f << stringf("\n");
 	}
 }

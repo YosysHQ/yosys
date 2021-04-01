@@ -136,7 +136,7 @@ struct JsonWriter
 		sigidcounter = 2;
 
 		if (module->has_processes()) {
-			log_error("Module %s contains processes, which are not supported by JSON backend.\n", log_id(module));
+			log_error("Module %s contains processes, which are not supported by JSON backend (run `proc` first).\n", log_id(module));
 		}
 
 		f << stringf("    %s: {\n", get_name(module->name).c_str());

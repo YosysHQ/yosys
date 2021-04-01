@@ -1691,11 +1691,15 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	if (type == AST_IDENTIFIER) {
 		if (current_scope.count(str) == 0) {
 			AstNode *current_scope_ast = (current_ast_mod == nullptr) ? current_ast : current_ast_mod;
-			const std::string& mod_scope = current_scope_ast->str;
-			if (str[0] == '\\' && str.substr(0, mod_scope.size()) == mod_scope) {
-				std::string new_str = "\\" + str.substr(mod_scope.size() + 1);
+			size_t pos = str.find('.', 1);
+			if (str[0] == '\\' && pos != std::string::npos) {
+				std::string new_str = "\\" + str.substr(pos + 1);
 				if (current_scope.count(new_str)) {
-					str = new_str;
+					std::string prefix = str.substr(0, pos);
+					auto it = current_scope_ast->attributes.find(ID::hdlname);
+					if ((it != current_scope_ast->attributes.end() && it->second->str == prefix)
+							|| prefix == current_scope_ast->str)
+						str = new_str;
 				}
 			}
 			for (auto node : current_scope_ast->children) {
@@ -2219,6 +2223,21 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			children.push_back(node);
 			did_something = true;
 		}
+		else if (str == "buf" || str == "not")
+		{
+			AstNode *input = children_list.back();
+			if (str == "not")
+				input = new AstNode(AST_BIT_NOT, input);
+
+			newNode = new AstNode(AST_GENBLOCK);
+			for (auto it = children_list.begin(); it != std::prev(children_list.end()); it++) {
+				newNode->children.push_back(new AstNode(AST_ASSIGN, *it, input->clone()));
+				newNode->children.back()->was_checked = true;
+			}
+			delete input;
+
+			did_something = true;
+		}
 		else
 		{
 			AstNodeType op_type = AST_NONE;
@@ -2236,10 +2255,6 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				op_type = AST_BIT_XOR;
 			if (str == "xnor")
 				op_type = AST_BIT_XOR, invert_results = true;
-			if (str == "buf")
-				op_type = AST_POS;
-			if (str == "not")
-				op_type = AST_POS, invert_results = true;
 			log_assert(op_type != AST_NONE);
 
 			AstNode *node = children_list[1];

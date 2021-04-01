@@ -980,8 +980,8 @@ static bool param_has_no_default(const AstNode *param) {
 		(children.size() == 1 && children[0]->type == AST_RANGE);
 }
 
-// create a new AstModule from an AST_MODULE AST node
-static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast = NULL, bool quiet = false)
+// create and add a new AstModule from an AST_MODULE AST node
+static void process_module(RTLIL::Design *design, AstNode *ast, bool defer, AstNode *original_ast = NULL, bool quiet = false)
 {
 	log_assert(current_scope.empty());
 	log_assert(ast->type == AST_MODULE || ast->type == AST_INTERFACE);
@@ -1039,6 +1039,7 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 			}
 		}
 
+		// TODO(zachjs): make design available to simplify() in the future
 		while (ast->simplify(!flag_noopt, false, false, 0, -1, false, false)) { }
 
 		if (flag_dump_ast2) {
@@ -1190,7 +1191,7 @@ static AstModule* process_module(AstNode *ast, bool defer, AstNode *original_ast
 		log("--- END OF RTLIL DUMP ---\n");
 	}
 
-	return current_module;
+	design->add(current_module);
 }
 
 // create AstModule instances for all modules in the AST tree and add them to 'design'
@@ -1275,7 +1276,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 				}
 			}
 
-			design->add(process_module(*it, defer_local));
+			process_module(design, *it, defer_local);
 			current_ast_mod = nullptr;
 		}
 		else if ((*it)->type == AST_PACKAGE) {
@@ -1456,9 +1457,8 @@ void AstModule::reprocess_module(RTLIL::Design *design, const dict<RTLIL::IdStri
 	}
 
 	// Generate RTLIL from AST for the new module and add to the design:
-	AstModule *newmod = process_module(new_ast, false, ast_before_replacing_interface_ports);
+	process_module(design, new_ast, false, ast_before_replacing_interface_ports);
 	delete(new_ast);
-	design->add(newmod);
 	RTLIL::Module* mod = design->module(original_name);
 	if (is_top)
 		mod->set_bool_attribute(ID::top);
@@ -1514,7 +1514,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 			explode_interface_port(new_ast, intfmodule, intfname, modport);
 		}
 
-		design->add(process_module(new_ast, false));
+		process_module(design, new_ast, false);
 		design->module(modname)->check();
 
 		RTLIL::Module* mod = design->module(modname);
@@ -1565,7 +1565,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 
 	if (!design->has(modname)) {
 		new_ast->str = modname;
-		design->add(process_module(new_ast, false, NULL, quiet));
+		process_module(design, new_ast, false, NULL, quiet);
 		design->module(modname)->check();
 	} else if (!quiet) {
 		log("Found cached RTLIL representation for module `%s'.\n", modname.c_str());
@@ -1573,6 +1573,29 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 
 	delete new_ast;
 	return modname;
+}
+
+static std::string serialize_param_value(const RTLIL::Const &val) {
+	std::string res;
+	if (val.flags & RTLIL::ConstFlags::CONST_FLAG_STRING)
+		res.push_back('t');
+	if (val.flags & RTLIL::ConstFlags::CONST_FLAG_SIGNED)
+		res.push_back('s');
+	if (val.flags & RTLIL::ConstFlags::CONST_FLAG_REAL)
+		res.push_back('r');
+	res += stringf("%d", GetSize(val));
+	res.push_back('\'');
+	for (int i = GetSize(val) - 1; i >= 0; i--) {
+		switch (val.bits[i]) {
+			case RTLIL::State::S0: res.push_back('0'); break;
+			case RTLIL::State::S1: res.push_back('1'); break;
+			case RTLIL::State::Sx: res.push_back('x'); break;
+			case RTLIL::State::Sz: res.push_back('z'); break;
+			case RTLIL::State::Sa: res.push_back('?'); break;
+			case RTLIL::State::Sm: res.push_back('m'); break;
+		}
+	}
+	return res;
 }
 
 // create a new parametric module (when needed) and return the name of the generated module
@@ -1594,14 +1617,14 @@ std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::Id
 		if (it != parameters.end()) {
 			if (!quiet)
 				log("Parameter %s = %s\n", child->str.c_str(), log_signal(it->second));
-			para_info += stringf("%s=%s", child->str.c_str(), log_signal(it->second));
+			para_info += stringf("%s=%s", child->str.c_str(), serialize_param_value(it->second).c_str());
 			continue;
 		}
 		it = parameters.find(stringf("$%d", para_counter));
 		if (it != parameters.end()) {
 			if (!quiet)
 				log("Parameter %d (%s) = %s\n", para_counter, child->str.c_str(), log_signal(it->second));
-			para_info += stringf("%s=%s", child->str.c_str(), log_signal(it->second));
+			para_info += stringf("%s=%s", child->str.c_str(), serialize_param_value(it->second).c_str());
 			continue;
 		}
 	}

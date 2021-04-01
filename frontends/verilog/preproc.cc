@@ -726,8 +726,16 @@ frontend_verilog_preproc(std::istream                 &f,
 	defines.merge(global_defines_cache);
 
 	std::vector<std::string> filename_stack;
+	// We are inside pass_level levels of satisfied ifdefs, and then within
+	// fail_level levels of unsatisfied ifdefs.  The unsatisfied ones are
+	// always within satisfied ones — even if some condition within is true,
+	// the parent condition failing renders it moot.
 	int ifdef_fail_level = 0;
 	int ifdef_pass_level = 0;
+	// For the outermost unsatisfied ifdef, true iff that ifdef already
+	// had a satisfied branch, and further elsif/else branches should be
+	// considered unsatisfied even if the condition is true.
+	// Meaningless if ifdef_fail_level == 0.
 	bool ifdef_already_satisfied = false;
 
 	output_code.clear();
@@ -745,7 +753,7 @@ frontend_verilog_preproc(std::istream                 &f,
 			if (ifdef_fail_level > 0)
 				ifdef_fail_level--;
 			else if (ifdef_pass_level > 0)
-				ifdef_already_satisfied = --ifdef_pass_level;
+				ifdef_pass_level--;
 			else
 				log_error("Found %s outside of macro conditional branch!\n", tok.c_str());
 			continue;
@@ -755,8 +763,9 @@ frontend_verilog_preproc(std::istream                 &f,
 			if (ifdef_fail_level == 0) {
 				if (ifdef_pass_level == 0)
 					log_error("Found %s outside of macro conditional branch!\n", tok.c_str());
-				log_assert(ifdef_already_satisfied);
+				ifdef_pass_level--;
 				ifdef_fail_level = 1;
+				ifdef_already_satisfied = true;
 			} else if (ifdef_fail_level == 1 && !ifdef_already_satisfied) {
 				ifdef_fail_level = 0;
 				ifdef_pass_level++;
@@ -771,8 +780,9 @@ frontend_verilog_preproc(std::istream                 &f,
 			if (ifdef_fail_level == 0) {
 				if (ifdef_pass_level == 0)
 					log_error("Found %s outside of macro conditional branch!\n", tok.c_str());
-				log_assert(ifdef_already_satisfied);
+				ifdef_pass_level--;
 				ifdef_fail_level = 1;
+				ifdef_already_satisfied = true;
 			} else if (ifdef_fail_level == 1 && !ifdef_already_satisfied && defines.find(name)) {
 				ifdef_fail_level = 0;
 				ifdef_pass_level++;
@@ -929,6 +939,10 @@ frontend_verilog_preproc(std::istream                 &f,
 			continue;
 
 		output_code.push_back(tok);
+	}
+
+	if (ifdef_fail_level > 0 || ifdef_pass_level > 0) {
+		log_error("Unterminated preprocessor conditional!\n");
 	}
 
 	std::string output;

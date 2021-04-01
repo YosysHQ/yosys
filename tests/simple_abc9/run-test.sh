@@ -37,14 +37,18 @@ done
 
 cp ../simple/*.v .
 cp ../simple/*.sv .
+rm specify.v # bug 2675
 DOLLAR='?'
-exec ${MAKE:-make} -f ../tools/autotest.mk $seed *.v *.sv EXTRA_FLAGS="-n 300 -p '\
+exec ${MAKE:-make} -f ../tools/autotest.mk $seed *.v *.sv EXTRA_FLAGS="-f \"verilog -noblackbox -specify\" -n 300 -p '\
+    read_verilog -icells -lib +/abc9_model.v; \
     hierarchy; \
     synth -run coarse; \
     opt -full; \
     techmap; \
-    abc9 -lut 4 -box ../abc9.box; \
+    abc9 -lut 4; \
     clean; \
-    check -assert; \
+    check -assert * abc9_test037 %d; \
     select -assert-none t:${DOLLAR}_NOT_ t:${DOLLAR}_AND_ %%; \
-    setattr -mod -unset blackbox'"
+    setattr -mod -unset blackbox -unset whitebox'"
+
+# NOTE: Skip 'check -assert' on abc9_test037 because it intentionally has a combinatorial loop

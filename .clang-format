@@ -6,7 +6,7 @@ BreakBeforeBraces: Linux
 AllowShortIfStatementsOnASingleLine: false
 IndentCaseLabels: false
 
-# From CodingReadme
+# From guidelines/CodingStyle
 TabWidth: 8
 ContinuationIndentWidth: 2
 ColumnLimit: 150

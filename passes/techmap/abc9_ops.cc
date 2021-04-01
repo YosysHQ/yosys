@@ -189,8 +189,6 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 				derived_type = inst_module->derive(design, cell->parameters);
 				derived_module = design->module(derived_type);
 			}
-			if (derived_module->get_blackbox_attribute(true /* ignore_wb */))
-				continue;
 
 			if (derived_module->get_bool_attribute(ID::abc9_flop)) {
 				if (!dff_mode)
@@ -544,18 +542,31 @@ void prep_dff_unmap(RTLIL::Design *design)
 	}
 }
 
-void mark_scc(RTLIL::Module *module)
+void break_scc(RTLIL::Module *module)
 {
 	// For every unique SCC found, (arbitrarily) find the first
-	//   cell in the component, and replace its output connections
-	//   with a new wire driven by the old connection but with a
-	//   special (* abc9_keep *) attribute set (which is used by
-	//   write_xaiger to break this wire into PI and POs)
+	//   cell in the component, and interrupt all its output connections
+	//   with the $__ABC9_SCC_BREAKER cell
+
+	// Do not break SCCs which have a cell instantiating an abc9_bypass-able
+	// module (but which wouldn't have been bypassed)
+	auto design = module->design;
+	pool<RTLIL::Cell*> scc_cells;
 	pool<RTLIL::Const> ids_seen;
 	for (auto cell : module->cells()) {
 		auto it = cell->attributes.find(ID::abc9_scc_id);
 		if (it == cell->attributes.end())
 			continue;
+		scc_cells.insert(cell);
+		auto inst_module = design->module(cell->type);
+		if (inst_module && inst_module->has_attribute(ID::abc9_bypass))
+			ids_seen.insert(it->second);
+	}
+
+	SigSpec I, O;
+	for (auto cell : scc_cells) {
+		auto it = cell->attributes.find(ID::abc9_scc_id);
+		log_assert(it != cell->attributes.end());
 		auto id = it->second;
 		auto r = ids_seen.insert(id);
 		cell->attributes.erase(it);
@@ -565,11 +576,20 @@ void mark_scc(RTLIL::Module *module)
 			if (c.second.is_fully_const()) continue;
 			if (cell->output(c.first)) {
 				Wire *w = module->addWire(NEW_ID, GetSize(c.second));
-				w->set_bool_attribute(ID::abc9_keep);
-				module->connect(w, c.second);
+				I.append(w);
+				O.append(c.second);
 				c.second = w;
 			}
 		}
+	}
+
+	if (!I.empty())
+	{
+		auto cell = module->addCell(NEW_ID, ID($__ABC9_SCC_BREAKER));
+		log_assert(GetSize(I) == GetSize(O));
+		cell->setParam(ID::WIDTH, GetSize(I));
+		cell->setPort(ID::I, std::move(I));
+		cell->setPort(ID::O, std::move(O));
 	}
 }
 
@@ -721,10 +741,8 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 					bit_users[bit].insert(cell->name);
 
 			if (cell->output(conn.first) && !abc9_flop)
-				for (const auto &chunk : conn.second.chunks())
-				    if (!chunk.wire->get_bool_attribute(ID::abc9_keep))
-					    for (auto b : sigmap(SigSpec(chunk)))
-						    bit_drivers[b].insert(cell->name);
+				for (auto bit : sigmap(conn.second))
+					bit_drivers[bit].insert(cell->name);
 		}
 		toposort.node(cell->name);
 	}
@@ -779,14 +797,12 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 		if (!box_module->get_bool_attribute(ID::abc9_box))
 			continue;
 		if (!cell->parameters.empty())
-			// At this stage of the ABC9 flow, all modules must be nonparametric, because ABC itself requires concrete netlists, and the presence of
-			// parameters implies a non-concrete netlist. This error needs some explaining, because there are (at least) two ways to get this:
-			// 1) You have an (* abc9_box *) parametric whitebox but due to a bug somewhere this hasn't been monomorphised into a concrete blackbox.
-			//    This is a bug, and a bug report would be welcomed.
-			// 2) You have an (* abc9_box *) parametric blackbox (e.g. to store associated cell data) but want to provide timing data for ABC9.
-			//    This is not supported due to the presence of parameters. If you want to store associated cell data for a box, one approach could be
-			//    to techmap the parameters to constant module inputs, and then after ABC9 use _TECHMAP_CONSTVAL_XX_ to retrieve the values again.
-			log_error("Black box '%s' is marked (* abc9_box *) and has parameters, which is forbidden in prep_xaiger\n", log_id(cell_name));
+		{
+		    // At this stage of the ABC9 flow, all modules must be nonparametric, because ABC itself requires concrete netlists, and the presence of
+		    // parameters implies a non-concrete netlist. This means an (* abc9_box *) parametric module but due to a bug somewhere this hasn't been
+		    // uniquified into a concrete parameter-free module. This is a bug, and a bug report would be welcomed.
+		    log_error("Not expecting parameters on module '%s'  marked (* abc9_box *)\n", log_id(cell_name));
+		}
 		log_assert(box_module->get_blackbox_attribute());
 
 		cell->attributes[ID::abc9_box_seq] = box_count++;
@@ -1424,7 +1440,6 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 		RTLIL::Wire *mapped_wire = mapped_mod->wire(port);
 		RTLIL::Wire *wire = module->wire(port);
 		log_assert(wire);
-		wire->attributes.erase(ID::abc9_keep);
 
 		RTLIL::Wire *remap_wire = module->wire(remap_name(port));
 		RTLIL::SigSpec signal(wire, remap_wire->start_offset-wire->start_offset, GetSize(remap_wire));
@@ -1587,11 +1602,11 @@ struct Abc9OpsPass : public Pass {
 		log("        insert `$__ABC9_DELAY' blackbox cells into the design to account for\n");
 		log("        certain required times.\n");
 		log("\n");
-		log("    -mark_scc\n");
+		log("    -break_scc\n");
 		log("        for an arbitrarily chosen cell in each unique SCC of each selected module\n");
-		log("        (tagged with an (* abc9_scc_id = <int> *) attribute), temporarily mark all\n");
-		log("        wires driven by this cell's outputs with a (* keep *) attribute in order\n");
-		log("        to break the SCC. this temporary attribute will be removed on -reintegrate.\n");
+		log("        (tagged with an (* abc9_scc_id = <int> *) attribute) interrupt all wires\n");
+		log("        driven by this cell's outputs with a temporary $__ABC9_SCC_BREAKER cell\n");
+		log("        to break the SCC.\n");
 		log("\n");
 		log("    -prep_xaiger\n");
 		log("        prepare the design for XAIGER output. this includes computing the\n");
@@ -1628,7 +1643,7 @@ struct Abc9OpsPass : public Pass {
 
 		bool check_mode = false;
 		bool prep_delays_mode = false;
-		bool mark_scc_mode = false;
+		bool break_scc_mode = false;
 		bool prep_hier_mode = false;
 		bool prep_bypass_mode = false;
 		bool prep_dff_mode = false, prep_dff_submod_mode = false, prep_dff_unmap_mode = false;
@@ -1650,8 +1665,8 @@ struct Abc9OpsPass : public Pass {
 				valid = true;
 				continue;
 			}
-			if (arg == "-mark_scc") {
-				mark_scc_mode = true;
+			if (arg == "-break_scc") {
+				break_scc_mode = true;
 				valid = true;
 				continue;
 			}
@@ -1727,7 +1742,7 @@ struct Abc9OpsPass : public Pass {
 		extra_args(args, argidx, design);
 
 		if (!valid)
-			log_cmd_error("At least one of -check, -mark_scc, -prep_{delays,xaiger,dff[123],lut,box}, -write_{lut,box}, -reintegrate must be specified.\n");
+			log_cmd_error("At least one of -check, -break_scc, -prep_{delays,xaiger,dff[123],lut,box}, -write_{lut,box}, -reintegrate must be specified.\n");
 
 		if (dff_mode && !check_mode && !prep_hier_mode && !prep_delays_mode && !prep_xaiger_mode && !reintegrate_mode)
 			log_cmd_error("'-dff' option is only relevant for -prep_{hier,delay,xaiger} or -reintegrate.\n");
@@ -1764,8 +1779,8 @@ struct Abc9OpsPass : public Pass {
 				write_lut(mod, write_lut_dst);
 			if (!write_box_dst.empty())
 				write_box(mod, write_box_dst);
-			if (mark_scc_mode)
-				mark_scc(mod);
+			if (break_scc_mode)
+				break_scc(mod);
 			if (prep_xaiger_mode)
 				prep_xaiger(mod, dff_mode);
 			if (reintegrate_mode)

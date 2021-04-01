@@ -283,9 +283,14 @@ struct Abc9Pass : public ScriptPass
 
 		if (check_label("map")) {
 			if (help_mode)
-				run("abc9_ops -prep_hier -prep_bypass [-prep_dff -dff]", "(option if -dff)");
+				run("abc9_ops -prep_hier [-dff]", "(option if -dff)");
 			else
-				run(stringf("abc9_ops -prep_hier -prep_bypass %s", dff_mode ? "-prep_dff -dff" : ""));
+				run(stringf("abc9_ops -prep_hier %s", dff_mode ? "-dff" : ""));
+			run("scc -specify -set_attr abc9_scc_id {}");
+			if (help_mode)
+				run("abc9_ops -prep_bypass [-prep_dff]", "(option if -dff)");
+			else
+				run(stringf("abc9_ops -prep_bypass %s", dff_mode ? "-prep_dff" : ""));
 			if (dff_mode) {
 				run("design -copy-to $abc9_map @$abc9_flops", "(only if -dff)");
 				run("select -unset $abc9_flops", "             (only if -dff)");
@@ -330,20 +335,20 @@ struct Abc9Pass : public ScriptPass
 			run("design -stash $abc9_map");
 			run("design -load $abc9");
 			run("design -delete $abc9");
+			// Insert bypass modules (and perform +/abc9_map.v transformations), except for those cells part of a SCC
 			if (help_mode)
 				run("techmap -wb -max_iter 1 -map %$abc9_map -map +/abc9_map.v [-D DFF]", "(option if -dff)");
 			else
-				run(stringf("techmap -wb -max_iter 1 -map %%$abc9_map -map +/abc9_map.v %s", dff_mode ? "-D DFF" : ""));
+				run(stringf("techmap -wb -max_iter 1 -map %%$abc9_map -map +/abc9_map.v %s a:abc9_scc_id %%n", dff_mode ? "-D DFF" : ""));
 			run("design -delete $abc9_map");
 		}
 
 		if (check_label("pre")) {
 			run("read_verilog -icells -lib -specify +/abc9_model.v");
-			run("scc -specify -set_attr abc9_scc_id {}");
 			if (help_mode)
-				run("abc9_ops -mark_scc -prep_delays -prep_xaiger [-dff]", "(option for -dff)");
+				run("abc9_ops -break_scc -prep_delays -prep_xaiger [-dff]", "(option for -dff)");
 			else
-				run("abc9_ops -mark_scc -prep_delays -prep_xaiger" + std::string(dff_mode ? " -dff" : ""));
+				run("abc9_ops -break_scc -prep_delays -prep_xaiger" + std::string(dff_mode ? " -dff" : ""));
 			if (help_mode)
 				run("abc9_ops -prep_lut <maxlut>", "(skip if -lut or -luts)");
 			else if (!lut_mode)

@@ -166,7 +166,8 @@ namespace RTLIL
 			log_assert(p[0] == '$' || p[0] == '\\');
 			log_assert(p[1] != 0);
 			for (const char *c = p; *c; c++)
-				log_assert((unsigned)*c > (unsigned)' ');
+				if ((unsigned)*c <= (unsigned)' ')
+					log_error("Found control character or space (0x%02hhx) in string '%s' which is not allowed in RTLIL identifiers\n", *c, p);
 
 		#ifndef YOSYS_NO_IDS_REFCNT
 			if (global_free_idx_list_.empty()) {
@@ -1042,6 +1043,7 @@ struct RTLIL::Design
 
 	RTLIL::ObjRange<RTLIL::Module*> modules();
 	RTLIL::Module *module(RTLIL::IdString name);
+	const RTLIL::Module *module(RTLIL::IdString name) const;
 	RTLIL::Module *top_module();
 
 	bool has(RTLIL::IdString id) const {
@@ -1111,7 +1113,7 @@ struct RTLIL::Design
 
 	std::vector<RTLIL::Module*> selected_modules() const;
 	std::vector<RTLIL::Module*> selected_whole_modules() const;
-	std::vector<RTLIL::Module*> selected_whole_modules_warn() const;
+	std::vector<RTLIL::Module*> selected_whole_modules_warn(bool include_wb = false) const;
 #ifdef WITH_PYTHON
 	static std::map<unsigned int, RTLIL::Design*> *get_all_designs(void);
 #endif
@@ -1186,6 +1188,15 @@ public:
 		return it == wires_.end() ? nullptr : it->second;
 	}
 	RTLIL::Cell* cell(RTLIL::IdString id) {
+		auto it = cells_.find(id);
+		return it == cells_.end() ? nullptr : it->second;
+	}
+
+	const RTLIL::Wire* wire(RTLIL::IdString id) const{
+		auto it = wires_.find(id);
+		return it == wires_.end() ? nullptr : it->second;
+	}
+	const RTLIL::Cell* cell(RTLIL::IdString id) const {
 		auto it = cells_.find(id);
 		return it == cells_.end() ? nullptr : it->second;
 	}

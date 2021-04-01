@@ -1,0 +1,4 @@
+logger -expect error "Unterminated preprocessor conditional!" 1
+read_verilog <<EOF
+`ifndef a
+EOF
