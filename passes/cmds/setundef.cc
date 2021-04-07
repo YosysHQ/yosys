@@ -146,6 +146,9 @@ struct SetundefPass : public Pass {
 		log("    -params\n");
 		log("        replace undef in cell parameters\n");
 		log("\n");
+		log("    -autoports\n");
+		log("        also create and replace missing cell ports\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -154,6 +157,7 @@ struct SetundefPass : public Pass {
 		bool expose_mode = false;
 		bool init_mode = false;
 		bool params_mode = false;
+		bool autoports_mode = false;
 		SetundefWorker worker;
 
 		log_header(design, "Executing SETUNDEF pass (replace undef values with defined constants).\n");
@@ -205,6 +209,10 @@ struct SetundefPass : public Pass {
 			}
 			if (args[argidx] == "-params") {
 				params_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-autoports") {
+				autoports_mode = true;
 				continue;
 			}
 			if (args[argidx] == "-random" && argidx+1 < args.size()) {
@@ -476,6 +484,32 @@ struct SetundefPass : public Pass {
 				}
 
 				log_assert(ffbits.empty());
+			}
+
+			if (autoports_mode)
+			{
+				for (auto cell : module->cells())
+				{
+					Module *cell_mod = design->module(cell->type);
+					if (cell_mod == nullptr)
+						continue;
+					for (auto mod_wire : cell_mod->wires())
+					{
+						if (!mod_wire->port_input)
+							continue;
+						SigSpec port_bits;
+						if (cell->hasPort(mod_wire->name))
+							port_bits = cell->getPort(mod_wire->name);
+						int ext_bits = mod_wire->width - GetSize(port_bits);
+						if (ext_bits <= 0)
+							continue;
+						std::vector<RTLIL::State> bits;
+						for (int i = 0; i < ext_bits; i++)
+							bits.push_back(worker.next_bit());
+						port_bits.append(RTLIL::Const(bits));
+						cell->setPort(mod_wire->name, port_bits);
+					}
+				}
 			}
 
 			module->rewrite_sigspecs(worker);

@@ -1,0 +1,24 @@
+read_verilog -sv <<EOT
+module submod(input [3:0] foo, input bar);
+	always @* begin
+		assert (foo === 4'b0001);
+		assert (bar === 1'b0);
+	end
+endmodule
+module top;
+(* keep *) submod submod_i(.foo(1'b1));
+endmodule
+EOT
+
+prep -top top
+
+# Check that it fails before setundef
+design -save postprep
+flatten
+sat -falsify -prove-asserts
+
+# Check that it passes after setundef
+design -load postprep
+setundef -zero -autoports
+flatten
+sat -verify -prove-asserts
