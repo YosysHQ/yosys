@@ -122,6 +122,9 @@ struct FlattenWorker
 		for (auto &tpl_proc_it : tpl->processes) {
 			RTLIL::Process *new_proc = module->addProcess(map_name(cell, tpl_proc_it.second), tpl_proc_it.second);
 			map_attributes(cell, new_proc, tpl_proc_it.second->name);
+			for (auto new_proc_sync : new_proc->syncs)
+				for (auto &memwr_action : new_proc_sync->mem_write_actions)
+					memwr_action.memid = memory_map.at(memwr_action.memid).str();
 			auto rewriter = [&](RTLIL::SigSpec &sig) { map_sigspec(wire_map, sig); };
 			new_proc->rewrite_sigspecs(rewriter);
 			design->select(module, new_proc);
