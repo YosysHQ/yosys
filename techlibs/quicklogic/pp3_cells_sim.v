@@ -328,3 +328,100 @@ module qlal4s3b_cell_macro (
 );
 
 endmodule
+
+
+(* blackbox *)
+module ram8k_2x1_cell_macro #(
+  parameter [18431:0] INIT = 18432'bx,
+  parameter INIT_FILE = "init.mem",
+  parameter data_width_int = 16,
+  parameter data_depth_int = 1024
+) (
+  input [10:0] A1_0,
+  input [10:0] A1_1,
+  input [10:0] A2_0,
+  input [10:0] A2_1,
+  (* clkbuf_sink *)
+  input CLK1_0,
+  (* clkbuf_sink *)
+  input CLK1_1,
+  (* clkbuf_sink *)
+  input CLK2_0,
+  (* clkbuf_sink *)
+  input CLK2_1,
+  output Almost_Empty_0,
+  Almost_Empty_1,
+  Almost_Full_0,
+  Almost_Full_1,
+  input ASYNC_FLUSH_0,
+  ASYNC_FLUSH_1,
+  ASYNC_FLUSH_S0,
+  ASYNC_FLUSH_S1,
+  CLK1EN_0,
+  CLK1EN_1,
+  CLK1S_0,
+  CLK1S_1,
+  CLK2EN_0,
+  CLK2EN_1,
+  CLK2S_0,
+  CLK2S_1,
+  CONCAT_EN_0,
+  CONCAT_EN_1,
+  CS1_0,
+  CS1_1,
+  CS2_0,
+  CS2_1,
+  DIR_0,
+  DIR_1,
+  FIFO_EN_0,
+  FIFO_EN_1,
+  P1_0,
+  P1_1,
+  P2_0,
+  P2_1,
+  PIPELINE_RD_0,
+  PIPELINE_RD_1,
+  output [3:0] POP_FLAG_0,
+  output [3:0] POP_FLAG_1,
+  output [3:0] PUSH_FLAG_0,
+  output [3:0] PUSH_FLAG_1,
+  output [17:0] RD_0,
+  output [17:0] RD_1,
+  input SYNC_FIFO_0,
+  SYNC_FIFO_1,
+  input [17:0] WD_0,
+  input [17:0] WD_1,
+  input [1:0] WEN1_0,
+  input [1:0] WEN1_1,
+  input [1:0] WIDTH_SELECT1_0,
+  input [1:0] WIDTH_SELECT1_1,
+  input [1:0] WIDTH_SELECT2_0,
+  input [1:0] WIDTH_SELECT2_1,
+  input SD,
+  DS,
+  LS,
+  SD_RB1,
+  LS_RB1,
+  DS_RB1,
+  RMEA,
+  RMEB,
+  TEST1A,
+  TEST1B,
+  input [3:0] RMA,
+  input [3:0] RMB
+);
+
+  specify
+    $setup(A1_0, posedge CLK1_0, 0);
+    $setup(A1_1, posedge CLK1_1, 0);
+    $setup(A2_0, posedge CLK2_0, 0);
+    $setup(A2_1, posedge CLK2_1, 0);
+
+    (posedge CLK1_0 => (RD_0 : WD_0)) = 0;
+    (posedge CLK2_0 => (RD_1 : WD_1)) = 0;
+  endspecify
+
+  // This is a black box of the block RAM.
+  // The actual simulation model is [TODO: somewhere else].
+
+endmodule  /* ram8k_2x1_cell_macro */
