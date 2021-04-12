@@ -51,12 +51,17 @@ struct SynthQuickLogicPass : public ScriptPass {
 		log("        write the design to the specified verilog file. writing of an output file\n");
 		log("        is omitted if this parameter is not specified.\n");
 		log("\n");
+		log("    -abc\n");
+		log("        use old ABC flow, which has generally worse mapping results but is less\n");
+		log("        likely to have bugs.\n");
+		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
 		log("\n");
 	}
 
 	string top_opt, blif_file, family, currmodule, verilog_file;
+	bool abc9;
 
 	void clear_flags() override
 	{
@@ -65,6 +70,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 		verilog_file = "";
 		currmodule = "";
 		family = "pp3";
+		abc9 = true;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -91,6 +97,10 @@ struct SynthQuickLogicPass : public ScriptPass {
 				verilog_file = args[++argidx];
 				continue;
 			}
+			if (args[argidx] == "-abc") {
+				abc9 = false;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -100,6 +110,11 @@ struct SynthQuickLogicPass : public ScriptPass {
 
 		if (family != "pp3")
 			log_cmd_error("Invalid family specified: '%s'\n", family.c_str());
+
+		if (abc9 && design->scratchpad_get_int("abc9.D", 0) == 0) {
+			log_warning("delay target has not been set via SDC or scratchpad; assuming 12 MHz clock.\n");
+			design->scratchpad_set_int("abc9.D", 41667); // 12MHz = 83.33.. ns; divided by two to allow for interconnect delay.
+		}
 
 		log_header(design, "Executing SYNTH_QUICKLOGIC pass.\n");
 		log_push();
@@ -167,8 +182,14 @@ struct SynthQuickLogicPass : public ScriptPass {
 
 		if (check_label("map_luts")) {
 			run(stringf("techmap -map +/quicklogic/%s_latches_map.v", family.c_str()));
-			run("abc -luts 1,2,2,4 -dress");
-
+			if (abc9) {
+				run("read_verilog -lib -specify -icells +/quicklogic/abc9_model.v");
+				run("techmap -map +/quicklogic/abc9_map.v");
+				run("abc9 -maxlut 4 -dff");
+				run("techmap -map +/quicklogic/abc9_unmap.v");
+			} else {
+				run("abc -luts 1,2,2,4 -dress");
+			}
 			run("clean");
 		}
 
