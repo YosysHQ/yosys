@@ -17,7 +17,7 @@
 module SB_IO (
 	inout  PACKAGE_PIN,
 	input  LATCH_INPUT_VALUE,
-	input  CLOCK_ENABLE,
+	input  CLOCK_ENABLE `ICE40_DEFAULT_ASSIGNMENT_1,
 	input  INPUT_CLK,
 	input  OUTPUT_CLK,
 	input  OUTPUT_ENABLE,
@@ -124,7 +124,7 @@ module SB_GB_IO (
 	inout  PACKAGE_PIN,
 	output GLOBAL_BUFFER_OUTPUT,
 	input  LATCH_INPUT_VALUE,
-	input  CLOCK_ENABLE,
+	input  CLOCK_ENABLE `ICE40_DEFAULT_ASSIGNMENT_1,
 	input  INPUT_CLK,
 	input  OUTPUT_CLK,
 	input  OUTPUT_ENABLE,
@@ -300,7 +300,7 @@ endmodule
 (* abc9_flop, lib_whitebox *)
 module SB_DFFE (
 	output `SB_DFF_REG,
-	input C, E, D
+	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, D
 );
 	always @(posedge C)
 		if (E)
@@ -577,7 +577,7 @@ endmodule
 (* abc9_flop, lib_whitebox *)
 module SB_DFFESR (
 	output `SB_DFF_REG,
-	input C, E, R, D
+	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, R, D
 );
 	always @(posedge C)
 		if (E) begin
@@ -633,7 +633,7 @@ endmodule
 (* abc9_box, lib_whitebox *)
 module SB_DFFER (
 	output `SB_DFF_REG,
-	input C, E, R, D
+	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, R, D
 );
 	always @(posedge C, posedge R)
 		if (R)
@@ -708,7 +708,7 @@ endmodule
 (* abc9_flop, lib_whitebox *)
 module SB_DFFESS (
 	output `SB_DFF_REG,
-	input C, E, S, D
+	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, S, D
 );
 	always @(posedge C)
 		if (E) begin
@@ -764,7 +764,7 @@ endmodule
 (* abc9_box, lib_whitebox *)
 module SB_DFFES (
 	output `SB_DFF_REG,
-	input C, E, S, D
+	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, S, D
 );
 	always @(posedge C, posedge S)
 		if (S)
@@ -877,7 +877,7 @@ endmodule
 (* abc9_flop, lib_whitebox *)
 module SB_DFFNE (
 	output `SB_DFF_REG,
-	input C, E, D
+	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, D
 );
 	always @(negedge C)
 		if (E)
@@ -1154,7 +1154,7 @@ endmodule
 (* abc9_flop, lib_whitebox *)
 module SB_DFFNESR (
 	output `SB_DFF_REG,
-	input C, E, R, D
+	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, R, D
 );
 	always @(negedge C)
 		if (E) begin
@@ -1210,7 +1210,7 @@ endmodule
 (* abc9_box, lib_whitebox *)
 module SB_DFFNER (
 	output `SB_DFF_REG,
-	input C, E, R, D
+	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, R, D
 );
 	always @(negedge C, posedge R)
 		if (R)
@@ -1285,7 +1285,7 @@ endmodule
 (* abc9_flop, lib_whitebox *)
 module SB_DFFNESS (
 	output `SB_DFF_REG,
-	input C, E, S, D
+	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, S, D
 );
 	always @(negedge C)
 		if (E) begin
@@ -1341,7 +1341,7 @@ endmodule
 (* abc9_box, lib_whitebox *)
 module SB_DFFNES (
 	output `SB_DFF_REG,
-	input C, E, S, D
+	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, S, D
 );
 	always @(negedge C, posedge S)
 		if (S)
@@ -1418,11 +1418,16 @@ endmodule
 
 module SB_RAM40_4K (
 	output [15:0] RDATA,
-	input         RCLK, RCLKE, RE,
+	input         RCLK,
+	input         RCLKE `ICE40_DEFAULT_ASSIGNMENT_1,
+	input         RE `ICE40_DEFAULT_ASSIGNMENT_0,
 	input  [10:0] RADDR,
-	input         WCLK, WCLKE, WE,
+	input         WCLK,
+	input         WCLKE `ICE40_DEFAULT_ASSIGNMENT_1,
+	input         WE `ICE40_DEFAULT_ASSIGNMENT_0,
 	input  [10:0] WADDR,
-	input  [15:0] MASK, WDATA
+	input  [15:0] MASK `ICE40_DEFAULT_ASSIGNMENT_V(16'h 0000),
+	input  [15:0] WDATA
 );
 	// MODE 0:  256 x 16
 	// MODE 1:  512 x 8
@@ -1652,11 +1657,16 @@ endmodule
 
 module SB_RAM40_4KNR (
 	output [15:0] RDATA,
-	input         RCLKN, RCLKE, RE,
+	input         RCLKN,
+	input         RCLKE `ICE40_DEFAULT_ASSIGNMENT_1,
+	input         RE `ICE40_DEFAULT_ASSIGNMENT_0,
 	input  [10:0] RADDR,
-	input         WCLK, WCLKE, WE,
+	input         WCLK,
+	input         WCLKE `ICE40_DEFAULT_ASSIGNMENT_1,
+	input         WE `ICE40_DEFAULT_ASSIGNMENT_0,
 	input  [10:0] WADDR,
-	input  [15:0] MASK, WDATA
+	input  [15:0] MASK `ICE40_DEFAULT_ASSIGNMENT_V(16'h 0000),
+	input  [15:0] WDATA
 );
 	parameter WRITE_MODE = 0;
 	parameter READ_MODE = 0;
@@ -1783,11 +1793,16 @@ endmodule
 
 module SB_RAM40_4KNW (
 	output [15:0] RDATA,
-	input         RCLK, RCLKE, RE,
+	input         RCLK,
+	input         RCLKE `ICE40_DEFAULT_ASSIGNMENT_1,
+	input         RE `ICE40_DEFAULT_ASSIGNMENT_0,
 	input  [10:0] RADDR,
-	input         WCLKN, WCLKE, WE,
+	input         WCLKN,
+	input         WCLKE `ICE40_DEFAULT_ASSIGNMENT_1,
+	input         WE `ICE40_DEFAULT_ASSIGNMENT_0,
 	input  [10:0] WADDR,
-	input  [15:0] MASK, WDATA
+	input  [15:0] MASK `ICE40_DEFAULT_ASSIGNMENT_V(16'h 0000),
+	input  [15:0] WDATA
 );
 	parameter WRITE_MODE = 0;
 	parameter READ_MODE = 0;
@@ -1914,11 +1929,16 @@ endmodule
 
 module SB_RAM40_4KNRNW (
 	output [15:0] RDATA,
-	input         RCLKN, RCLKE, RE,
+	input         RCLKN,
+	input         RCLKE `ICE40_DEFAULT_ASSIGNMENT_1,
+	input         RE `ICE40_DEFAULT_ASSIGNMENT_0,
 	input  [10:0] RADDR,
-	input         WCLKN, WCLKE, WE,
+	input         WCLKN,
+	input         WCLKE `ICE40_DEFAULT_ASSIGNMENT_1,
+	input         WE `ICE40_DEFAULT_ASSIGNMENT_0,
 	input  [10:0] WADDR,
-	input  [15:0] MASK, WDATA
+	input  [15:0] MASK `ICE40_DEFAULT_ASSIGNMENT_V(16'h 0000),
+	input  [15:0] WDATA
 );
 	parameter WRITE_MODE = 0;
 	parameter READ_MODE = 0;
