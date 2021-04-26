@@ -585,6 +585,10 @@ void json_import(Design *design, string &modname, JsonNode *node)
 			module->memories[mem->name] = mem;
 		}
 	}
+
+	// remove duplicates from connections array
+	pool<RTLIL::SigSig> unique_connections(module->connections_.begin(), module->connections_.end());
+	module->connections_ = std::vector<RTLIL::SigSig>(unique_connections.begin(), unique_connections.end());
 }
 
 struct JsonFrontend : public Frontend {
