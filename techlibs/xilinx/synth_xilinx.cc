@@ -672,7 +672,7 @@ struct SynthXilinxPass : public ScriptPass
 
 		if (check_label("blif")) {
 			if (!blif_file.empty() || help_mode)
-				run(stringf("write_blif %s", edif_file.c_str()));
+				run(stringf("write_blif %s", blif_file.c_str()));
 		}
 	}
 } SynthXilinxPass;
