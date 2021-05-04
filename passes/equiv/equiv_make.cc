@@ -30,7 +30,7 @@ struct EquivMakeWorker
 	pool<IdString> wire_names, cell_names;
 	CellTypes ct;
 
-	bool inames;
+	bool inames, norewire;
 	vector<string> blacklists;
 	vector<string> encfiles;
 
@@ -281,6 +281,8 @@ struct EquivMakeWorker
 		for (auto c : cells_list)
 		for (auto &conn : c->connections())
 			if (!ct.cell_output(c->type, conn.first)) {
+				if (norewire)
+					continue;
 				SigSpec old_sig = assign_map(conn.second);
 				SigSpec new_sig = rd_signal_map(old_sig);
 				if (old_sig != new_sig) {
@@ -403,6 +405,9 @@ struct EquivMakePass : public Pass {
 		log("    -inames\n");
 		log("        Also match cells and wires with $... names.\n");
 		log("\n");
+		log("    -norewire\n");
+		log("        Do not rewire cell inputs to $equiv outputs.\n");
+		log("\n");
 		log("    -blacklist <file>\n");
 		log("        Do not match cells or signals that match the names in the file.\n");
 		log("\n");
@@ -420,12 +425,17 @@ struct EquivMakePass : public Pass {
 		EquivMakeWorker worker;
 		worker.ct.setup(design);
 		worker.inames = false;
+		worker.norewire = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			if (args[argidx] == "-inames") {
 				worker.inames = true;
+				continue;
+			}
+			if (args[argidx] == "-norewire") {
+				worker.norewire = true;
 				continue;
 			}
 			if (args[argidx] == "-blacklist" && argidx+1 < args.size()) {
