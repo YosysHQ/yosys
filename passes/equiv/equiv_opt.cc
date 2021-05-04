@@ -51,11 +51,20 @@ struct EquivOptPass:public ScriptPass
 		log("    -assert\n");
 		log("        produce an error if the circuits are not equivalent.\n");
 		log("\n");
+		log("    -simple\n");
+		log("        run equiv_simple instead of equiv_induct\n");
+		log("\n");
 		log("    -multiclock\n");
 		log("        run clk2fflogic before equivalence checking.\n");
 		log("\n");
 		log("    -async2sync\n");
 		log("        run async2sync before equivalence checking.\n");
+		log("\n");
+		log("    -neghold\n");
+		log("        pass -neghold to clk2fflogic or async2sync\n");
+		log("\n");
+		log("    -negsetup\n");
+		log("        pass -negsetup to clk2fflogic or async2sync\n");
 		log("\n");
 		log("    -undef\n");
 		log("        enable modelling of undef states during equiv_induct.\n");
@@ -65,18 +74,20 @@ struct EquivOptPass:public ScriptPass
 		log("\n");
 	}
 
-	std::string command, techmap_opts, make_opts;
-	bool assert, undef, multiclock, async2sync;
+	std::string command, techmap_opts, make_opts, negsetuphold;
+	bool assert, undef, multiclock, async2sync, simple;
 
 	void clear_flags() override
 	{
 		command = "";
 		techmap_opts = "";
 		make_opts = "";
+		negsetuphold = "";
 		assert = false;
 		undef = false;
 		multiclock = false;
 		async2sync = false;
+		simple = false;
 	}
 
 	void execute(std::vector < std::string > args, RTLIL::Design * design) override
@@ -110,12 +121,24 @@ struct EquivOptPass:public ScriptPass
 				undef = true;
 				continue;
 			}
+			if (args[argidx] == "-simple") {
+				simple = true;
+				continue;
+			}
 			if (args[argidx] == "-multiclock") {
 				multiclock = true;
 				continue;
 			}
 			if (args[argidx] == "-async2sync") {
 				async2sync = true;
+				continue;
+			}
+			if (args[argidx] == "-negsetup") {
+				negsetuphold = "-negsetup";
+				continue;
+			}
+			if (args[argidx] == "-neghold") {
+				negsetuphold = "-neghold";
 				continue;
 			}
 			break;
@@ -150,6 +173,9 @@ struct EquivOptPass:public ScriptPass
 
 	void script() override
 	{
+		if (help_mode)
+			negsetuphold = "[-negsetup] [-neghold]";
+
 		if (check_label("run_pass")) {
 			run("hierarchy -auto-top");
 			run("design -save preopt");
@@ -176,21 +202,31 @@ struct EquivOptPass:public ScriptPass
 
 		if (check_label("prove")) {
 			if (multiclock || help_mode)
-				run("clk2fflogic", "(only with -multiclock)");
+				run(stringf("clk2fflogic %s", negsetuphold.c_str()), "(only with -multiclock)");
 			if (async2sync || help_mode)
-				run("async2sync", " (only with -async2sync)");
+				run(stringf("async2sync %s", negsetuphold.c_str()), " (only with -async2sync)");
 			string opts;
 			if (help_mode)
 				opts = " -blacklist <filename> ...";
 			else
 				opts = make_opts;
 			run("equiv_make" + opts + " gold gate equiv");
-			if (help_mode)
-				run("equiv_induct [-undef] equiv");
-			else if (undef)
-				run("equiv_induct -undef equiv");
-			else
-				run("equiv_induct equiv");
+			if (help_mode) {
+				run("equiv_simple [-undef] -short -seq 4 equiv", "(if -simple)");
+				run("equiv_induct [-undef] equiv", "              (unless -simple)");
+			} else {
+				if (simple) {
+					if (undef)
+						run("equiv_simple -undef -short -seq 4 equiv");
+					else
+						run("equiv_simple -short -seq 4 equiv");
+				} else {
+					if (undef)
+						run("equiv_induct -undef equiv");
+					else
+						run("equiv_induct equiv");
+				}
+			}
 			if (help_mode)
 				run("equiv_status [-assert] equiv");
 			else if (assert)
