@@ -137,6 +137,7 @@ struct EquivMakeWorker
 	{
 		SigMap assign_map(equiv_mod);
 		SigMap rd_signal_map;
+		SigPool primary_inputs;
 
 		// list of cells without added $equiv cells
 		auto cells_list = equiv_mod->cells().to_vector();
@@ -252,6 +253,9 @@ struct EquivMakeWorker
 				gate_wire->port_input = false;
 				equiv_mod->connect(gold_wire, wire);
 				equiv_mod->connect(gate_wire, wire);
+				primary_inputs.add(assign_map(gold_wire));
+				primary_inputs.add(assign_map(gate_wire));
+				primary_inputs.add(wire);
 			}
 			else
 			{
@@ -285,6 +289,9 @@ struct EquivMakeWorker
 					continue;
 				SigSpec old_sig = assign_map(conn.second);
 				SigSpec new_sig = rd_signal_map(old_sig);
+				for (int i = 0; i < GetSize(old_sig); i++)
+					if (primary_inputs.check(old_sig[i]))
+						new_sig[i] = old_sig[i];
 				if (old_sig != new_sig) {
 					log("Changing input %s of cell %s (%s): %s -> %s\n",
 							log_id(conn.first), log_id(c), log_id(c->type),
