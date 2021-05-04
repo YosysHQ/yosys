@@ -38,26 +38,34 @@ struct Clk2fflogicPass : public Pass {
 		log("implicit global clock. This is useful for formal verification of designs with\n");
 		log("multiple clocks.\n");
 		log("\n");
+		log("  -negsetup\n");
+		log("    By default this pass assumes negative hold time on async FF inputs. With\n");
+		log("    this option negative setup time is assumed instead.\n");
+		log("\n");
 	}
-	SigSpec wrap_async_control(Module *module, SigSpec sig, bool polarity) {
-		Wire *past_sig = module->addWire(NEW_ID, GetSize(sig));
-		module->addFf(NEW_ID, sig, past_sig);
-		if (polarity)
-			sig = module->Or(NEW_ID, sig, past_sig);
-		else
-			sig = module->And(NEW_ID, sig, past_sig);
+	SigSpec wrap_async_control(Module *module, SigSpec sig, bool polarity, bool negsetup) {
+		if (!negsetup) {
+			Wire *past_sig = module->addWire(NEW_ID, GetSize(sig));
+			module->addFf(NEW_ID, sig, past_sig);
+			if (polarity)
+				sig = module->Or(NEW_ID, sig, past_sig);
+			else
+				sig = module->And(NEW_ID, sig, past_sig);
+		}
 		if (polarity)
 			return sig;
 		else
 			return module->Not(NEW_ID, sig);
 	}
-	SigSpec wrap_async_control_gate(Module *module, SigSpec sig, bool polarity) {
-		Wire *past_sig = module->addWire(NEW_ID);
-		module->addFfGate(NEW_ID, sig, past_sig);
-		if (polarity)
-			sig = module->OrGate(NEW_ID, sig, past_sig);
-		else
-			sig = module->AndGate(NEW_ID, sig, past_sig);
+	SigSpec wrap_async_control_gate(Module *module, SigSpec sig, bool polarity, bool negsetup) {
+		if (!negsetup) {
+			Wire *past_sig = module->addWire(NEW_ID);
+			module->addFfGate(NEW_ID, sig, past_sig);
+			if (polarity)
+				sig = module->OrGate(NEW_ID, sig, past_sig);
+			else
+				sig = module->AndGate(NEW_ID, sig, past_sig);
+		}
 		if (polarity)
 			return sig;
 		else
@@ -65,17 +73,17 @@ struct Clk2fflogicPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		// bool flag_noinit = false;
+		bool negsetup = false;
 
 		log_header(design, "Executing CLK2FFLOGIC pass (convert clocked FFs to generic $ff cells).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			// if (args[argidx] == "-noinit") {
-			// 	flag_noinit = true;
-			// 	continue;
-			// }
+			if (args[argidx] == "-negsetup") {
+				negsetup = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -208,7 +216,7 @@ struct Clk2fflogicPass : public Pass {
 								log_id(module), log_id(cell), log_id(cell->type),
 								log_signal(ff.sig_en), log_signal(ff.sig_d), log_signal(ff.sig_q));
 
-						SigSpec sig_en = wrap_async_control(module, ff.sig_en, ff.pol_en);
+						SigSpec sig_en = wrap_async_control(module, ff.sig_en, ff.pol_en, negsetup);
 
 						if (!ff.is_fine)
 							qval = module->Mux(NEW_ID, past_q, ff.sig_d, sig_en);
@@ -224,8 +232,8 @@ struct Clk2fflogicPass : public Pass {
 					}
 
 					if (ff.has_sr) {
-						SigSpec setval = wrap_async_control(module, ff.sig_set, ff.pol_set);
-						SigSpec clrval = wrap_async_control(module, ff.sig_clr, ff.pol_clr);
+						SigSpec setval = wrap_async_control(module, ff.sig_set, ff.pol_set, negsetup);
+						SigSpec clrval = wrap_async_control(module, ff.sig_clr, ff.pol_clr, negsetup);
 						if (!ff.is_fine) {
 							clrval = module->Not(NEW_ID, clrval);
 							qval = module->Or(NEW_ID, qval, setval);
@@ -236,7 +244,7 @@ struct Clk2fflogicPass : public Pass {
 							module->addAndGate(NEW_ID, qval, clrval, ff.sig_q);
 						}
 					} else if (ff.has_arst) {
-						SigSpec arst = wrap_async_control(module, ff.sig_arst, ff.pol_arst);
+						SigSpec arst = wrap_async_control(module, ff.sig_arst, ff.pol_arst, negsetup);
 						if (!ff.is_fine)
 							module->addMux(NEW_ID, qval, ff.val_arst, arst, ff.sig_q);
 						else
