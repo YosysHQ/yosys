@@ -1,0 +1,20 @@
+read_verilog <<EOF
+
+module cell (input [2:12] I, output [5:-5] O);
+endmodule
+
+module top(input [10:0] A, output [10:0] B);
+cell my_cell(.I(A), .O(B));
+endmodule
+
+EOF
+
+write_blif tmp-bug2729.blif
+delete top
+read_blif -wideports tmp-bug2729.blif
+!rm tmp-bug2729.blif
+rename -enumerate t:cell
+dump
+cd top
+connect -assert -port _0_ I A
+connect -assert -port _0_ O B
