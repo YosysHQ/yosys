@@ -579,6 +579,8 @@ package:
 		append_attr(mod, $1);
 	} ';' package_body TOK_ENDPACKAGE opt_label {
 		ast_stack.pop_back();
+		if ($4 != NULL && $9 != NULL && *$4 != *$9)
+			frontend_verilog_yyerror("Package name (%s) and end label (%s) don't match.", $4->c_str()+1, $9->c_str()+1);
 		current_ast_mod = NULL;
 		exitTypeScope();
 	};
