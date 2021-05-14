@@ -43,6 +43,7 @@ struct SynthIntelALMPass : public ScriptPass {
 		log("    -family <family>\n");
 		log("        target one of:\n");
 		log("        \"cyclonev\"    - Cyclone V (default)\n");
+		log("        \"arriav\"      - Arria V (non-GZ)");
 		log("        \"cyclone10gx\" - Cyclone 10GX\n");
 		log("\n");
 		log("    -vqm <file>\n");
@@ -153,10 +154,14 @@ struct SynthIntelALMPass : public ScriptPass {
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
 
-		if (family_opt == "cyclonev") {
+		if (family_opt == "cyclonev" || family_opt == "arriav") {
 			bram_type = "m10k";
 		} else if (family_opt == "cyclone10gx") {
 			bram_type = "m20k";
+		} else if (family_opt == "arriva") {
+			// I have typoed "arriav" as "arriva" (a local bus company)
+			// so many times I thought it would be funny to have an easter egg.
+			log_cmd_error("synth_intel_alm cannot synthesize for bus companies. (did you mean '-family arriav'?)\n");
 		} else {
 			log_cmd_error("Invalid family specified: '%s'\n", family_opt.c_str());
 		}
@@ -213,12 +218,12 @@ struct SynthIntelALMPass : public ScriptPass {
 			if (help_mode) {
 				run("techmap -map +/mul2dsp.v [...]", "(unless -nodsp)");
 			} else if (!nodsp) {
-				// Cyclone V supports 9x9 multiplication, Cyclone 10 GX does not.
+				// Cyclone V/Arria V supports 9x9 multiplication, Cyclone 10 GX does not.
 				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=27 -D DSP_B_MAXWIDTH=27  -D DSP_A_MINWIDTH=19 -D DSP_B_MINWIDTH=4 -D DSP_NAME=__MUL27X27");
 				run("chtype -set $mul t:$__soft_mul");
 				run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=27 -D DSP_B_MAXWIDTH=27  -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=19 -D DSP_NAME=__MUL27X27");
 				run("chtype -set $mul t:$__soft_mul");
-				if (family_opt == "cyclonev") {
+				if (family_opt == "cyclonev" || family_opt == "arriav") {
 					run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18  -D DSP_A_MINWIDTH=10 -D DSP_B_MINWIDTH=4 -D DSP_NAME=__MUL18X18");
 					run("chtype -set $mul t:$__soft_mul");
 					run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18  -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=10 -D DSP_NAME=__MUL18X18");

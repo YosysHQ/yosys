@@ -77,6 +77,14 @@
 //   SUMOUT  368 1342 1323  887 927   -  785   -
 // CARRYOUT   71 1082 1062  866 813   - 1198   -
 
+// Arria V LUT output timings (picoseconds):
+//
+//          CARRY   A    B    C   D   E    F   G
+//  COMBOUT    -  387  375  316 317   -   76 319 (LUT6)
+//  COMBOUT    -  387  375  316 317 218   76 319 (LUT7)
+//   SUMOUT  249  744  732  562 576   -  511   -
+// CARRYOUT   19  629  623  530 514   -  696   -
+
 (* abc9_lut=2, lib_whitebox *)
 module MISTRAL_ALUT6(input A, B, C, D, E, F, output Q);
 
@@ -90,6 +98,16 @@ specify
     (D => Q) = 512;
     (E => Q) = 400;
     (F => Q) = 97;
+endspecify
+`endif
+`ifdef arriav
+specify
+    (A => Q) = 387;
+    (B => Q) = 375;
+    (C => Q) = 316;
+    (D => Q) = 317;
+    (E => Q) = 319;
+    (F => Q) = 76;
 endspecify
 `endif
 `ifdef cyclone10gx
@@ -122,6 +140,15 @@ specify
     (E => Q) = 97;
 endspecify
 `endif
+`ifdef arriav
+specify
+    (A => Q) = 375;
+    (B => Q) = 316;
+    (C => Q) = 317;
+    (D => Q) = 319;
+    (E => Q) = 76;
+endspecify
+`endif
 `ifdef cyclone10gx
 specify
     (A => Q) = 272;
@@ -150,6 +177,14 @@ specify
     (D => Q) = 97;
 endspecify
 `endif
+`ifdef arriav
+specify
+    (A => Q) = 316;
+    (B => Q) = 317;
+    (C => Q) = 319;
+    (D => Q) = 76;
+endspecify
+`endif
 `ifdef cyclone10gx
 specify
     (A => Q) = 175;
@@ -176,6 +211,13 @@ specify
     (C => Q) = 97;
 endspecify
 `endif
+`ifdef arriav
+specify
+    (A => Q) = 316;
+    (B => Q) = 317;
+    (C => Q) = 76;
+endspecify
+`endif
 `ifdef cyclone10gx
 specify
     (A => Q) = 165;
@@ -200,6 +242,12 @@ specify
     (B => Q) = 97;
 endspecify
 `endif
+`ifdef arriav
+specify
+    (A => Q) = 316;
+    (B => Q) = 76;
+endspecify
+`endif
 `ifdef cyclone10gx
 specify
     (A => Q) = 162;
@@ -218,6 +266,11 @@ module MISTRAL_NOT(input A, output Q);
 `ifdef cyclonev
 specify
     (A => Q) = 97;
+endspecify
+`endif
+`ifdef arriav
+specify
+    (A => Q) = 76;
 endspecify
 `endif
 `ifdef cyclone10gx
@@ -251,6 +304,23 @@ specify
     (D0 => CO) = 866;
     (D1 => CO) = 1198;
     (CI => CO) = 36; // Divided by 2 to account for there being two ALUT_ARITHs in an ALM)
+endspecify
+`endif
+`ifdef arriav
+specify
+    (A  => SO) = 744;
+    (B  => SO) = 732;
+    (C  => SO) = 562;
+    (D0 => SO) = 576;
+    (D1 => SO) = 511;
+    (CI => SO) = 249;
+
+    (A  => CO) = 629;
+    (B  => CO) = 623;
+    (C  => CO) = 530;
+    (D0 => CO) = 514;
+    (D1 => CO) = 696;
+    (CI => CO) = 10; // Divided by 2 to account for there being two ALUT_ARITHs in an ALM)
 endspecify
 `endif
 `ifdef cyclone10gx
