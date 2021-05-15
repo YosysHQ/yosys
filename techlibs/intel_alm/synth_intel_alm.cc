@@ -72,13 +72,16 @@ struct SynthIntelALMPass : public ScriptPass {
 		log("    -nodsp\n");
 		log("        do not map multipliers to MISTRAL_MUL cells\n");
 		log("\n");
+		log("    -noiopad\n");
+		log("        do not instantiate IO buffers\n");
+		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
 		log("\n");
 	}
 
 	string top_opt, family_opt, bram_type, vout_file;
-	bool flatten, quartus, nolutram, nobram, dff, nodsp;
+	bool flatten, quartus, nolutram, nobram, dff, nodsp, noiopad;
 
 	void clear_flags() override
 	{
@@ -92,6 +95,7 @@ struct SynthIntelALMPass : public ScriptPass {
 		nobram = false;
 		dff = false;
 		nodsp = false;
+		noiopad = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -146,6 +150,10 @@ struct SynthIntelALMPass : public ScriptPass {
 				dff = true;
 				continue;
 			}
+			if (args[argidx] == "-noiopad") {
+				noiopad = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -183,8 +191,8 @@ struct SynthIntelALMPass : public ScriptPass {
 			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/dff_sim.v", family_opt.c_str()));
 			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/dsp_sim.v", family_opt.c_str()));
 			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/mem_sim.v", family_opt.c_str()));
+			run(stringf("read_verilog -specify -lib -D %s +/intel_alm/common/misc_sim.v", family_opt.c_str()));
 			run(stringf("read_verilog -specify -lib -D %s -icells +/intel_alm/common/abc9_model.v", family_opt.c_str()));
-
 			// Misc and common cells
 			run("read_verilog -lib +/intel/common/altpll_bb.v");
 			run("read_verilog -lib +/intel_alm/common/megafunction_bb.v");
@@ -231,6 +239,8 @@ struct SynthIntelALMPass : public ScriptPass {
 				}
 			}
 			run("alumacc");
+			if (!noiopad)
+				run("iopadmap -bits -outpad MISTRAL_OB I:PAD -inpad MISTRAL_IB O:PAD -toutpad MISTRAL_IO OE:O:PAD -tinoutpad MISTRAL_IO OE:O:I:PAD A:top", "(unless -noiopad)");
 			run("techmap -map +/intel_alm/common/arith_alm_map.v -map +/intel_alm/common/dsp_map.v");
 			run("opt");
 			run("memory -nomap");

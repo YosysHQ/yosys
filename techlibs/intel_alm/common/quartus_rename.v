@@ -2,11 +2,15 @@
 `define LCELL cyclonev_lcell_comb
 `define MAC cyclonev_mac
 `define MLAB cyclonev_mlab_cell
+`define IBUF cyclonev_io_ibuf
+`define OBUF cyclonev_io_obuf
 `endif
 `ifdef cyclone10gx
 `define LCELL cyclone10gx_lcell_comb
 `define MAC cyclone10gx_mac
 `define MLAB cyclone10gx_mlab_cell
+`define IBUF cyclone10gx_io_ibuf
+`define OBUF cyclone10gx_io_obuf
 `endif
 
 module __MISTRAL_VCC(output Q);
@@ -232,4 +236,44 @@ parameter B_SIGNED = 1;
     .resulta(Y)
 );
 
+endmodule
+
+module MISTRAL_IB(input PAD, output O);
+`IBUF #(
+    .bus_hold("false"),
+    .differential_mode("false")
+) _TECHMAP_REPLACE_ (
+    .i(PAD),
+    .o(O)
+);
+endmodule
+
+module MISTRAL_OB(output PAD, input I, OE);
+`OBUF #(
+    .bus_hold("false"),
+    .differential_mode("false")
+) _TECHMAP_REPLACE_ (
+    .i(I),
+    .o(PAD),
+    .oe(OE)
+);
+endmodule
+
+module MISTRAL_IO(output PAD, input I, OE, output O);
+`IBUF #(
+    .bus_hold("false"),
+    .differential_mode("false")
+) ibuf (
+    .i(PAD),
+    .o(O)
+);
+
+`OBUF #(
+    .bus_hold("false"),
+    .differential_mode("false")
+) obuf (
+    .i(I),
+    .o(PAD),
+    .oe(OE)
+);
 endmodule

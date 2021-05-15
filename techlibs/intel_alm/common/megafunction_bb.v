@@ -627,3 +627,38 @@ output [port_b_data_width-1:0] portbdataout;
 input clk0, portawe, portbre;
 
 endmodule
+
+(* blackbox *)
+module cyclone10gx_io_ibuf(i, ibar, dynamicterminationcontrol, o);
+
+parameter differential_mode ="false";
+parameter bus_hold = "false";
+parameter simulate_z_as = "Z";
+parameter lpm_type = "cyclone10gx_io_ibuf";
+
+(* iopad_external_pin *) input i;
+(* iopad_external_pin *) input ibar;
+input dynamicterminationcontrol;
+output o;
+
+endmodule
+
+(* blackbox *)
+module cyclone10gx_io_obuf(i, oe, dynamicterminationcontrol, seriesterminationcontrol, parallelterminationcontrol, devoe, o, obar);
+
+parameter open_drain_output = "false";
+parameter bus_hold = "false";
+parameter shift_series_termination_control = "false";
+parameter sim_dynamic_termination_control_is_connected = "false";
+parameter lpm_type = "cyclone10gx_io_obuf";
+
+input i;
+input oe;
+input devoe;
+input dynamicterminationcontrol;
+input [15:0] seriesterminationcontrol;
+input [15:0] parallelterminationcontrol;
+(* iopad_external_pin *) output o;
+(* iopad_external_pin *) output obar;
+
+endmodule
