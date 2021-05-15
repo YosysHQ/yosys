@@ -4,6 +4,7 @@
 `define MLAB cyclonev_mlab_cell
 `define IBUF cyclonev_io_ibuf
 `define OBUF cyclonev_io_obuf
+`define CLKENA cyclonev_clkena
 `endif
 `ifdef cyclone10gx
 `define LCELL cyclone10gx_lcell_comb
@@ -11,6 +12,7 @@
 `define MLAB cyclone10gx_mlab_cell
 `define IBUF cyclone10gx_io_ibuf
 `define OBUF cyclone10gx_io_obuf
+`define CLKENA cyclone10gx_clkena
 `endif
 
 module __MISTRAL_VCC(output Q);
@@ -275,5 +277,19 @@ module MISTRAL_IO(output PAD, input I, OE, output O);
     .i(I),
     .o(PAD),
     .oe(OE)
+);
+endmodule
+
+module MISTRAL_CLKBUF (input A, output Q);
+`CLKENA #(
+    .clock_type("auto"),
+    .ena_register_mode("always enabled"),
+    .ena_register_power_up("high"),
+    .disable_mode("low"),
+    .test_syn("high")
+) _TECHMAP_REPLACE_ (
+    .inclk(A),
+    .ena(1'b1),
+    .outclk(Q)
 );
 endmodule

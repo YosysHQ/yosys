@@ -75,13 +75,16 @@ struct SynthIntelALMPass : public ScriptPass {
 		log("    -noiopad\n");
 		log("        do not instantiate IO buffers\n");
 		log("\n");
+		log("    -noclkbuf\n");
+		log("        do not insert global clock buffers\n");
+		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
 		log("\n");
 	}
 
 	string top_opt, family_opt, bram_type, vout_file;
-	bool flatten, quartus, nolutram, nobram, dff, nodsp, noiopad;
+	bool flatten, quartus, nolutram, nobram, dff, nodsp, noiopad, noclkbuf;
 
 	void clear_flags() override
 	{
@@ -96,6 +99,7 @@ struct SynthIntelALMPass : public ScriptPass {
 		dff = false;
 		nodsp = false;
 		noiopad = false;
+		noclkbuf = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -152,6 +156,10 @@ struct SynthIntelALMPass : public ScriptPass {
 			}
 			if (args[argidx] == "-noiopad") {
 				noiopad = true;
+				continue;
+			}
+			if (args[argidx] == "-noclkbuf") {
+				noclkbuf = true;
 				continue;
 			}
 			break;
@@ -268,6 +276,8 @@ struct SynthIntelALMPass : public ScriptPass {
 			run("techmap -map +/intel_alm/common/dff_map.v");
 			run("opt -full -undriven -mux_undef");
 			run("clean -purge");
+			if (!noclkbuf)
+				run("clkbufmap -buf MISTRAL_CLKBUF Q:A", "(unless -noclkbuf)");
 		}
 
 		if (check_label("map_luts")) {

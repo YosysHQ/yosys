@@ -2,7 +2,7 @@ read_verilog ../common/lutram.v
 hierarchy -top lutram_1w1r
 proc
 memory -nomap
-equiv_opt -run :prove -map +/intel_alm/common/alm_sim.v -map +/intel_alm/common/dff_sim.v -map +/intel_alm/common/mem_sim.v synth_intel_alm -family cyclonev -nobram -noiopad
+equiv_opt -run :prove -map +/intel_alm/common/alm_sim.v -map +/intel_alm/common/dff_sim.v -map +/intel_alm/common/mem_sim.v synth_intel_alm -family cyclonev -nobram -noiopad -noclkbuf
 memory
 opt -full
 
@@ -24,7 +24,7 @@ read_verilog ../common/lutram.v
 hierarchy -top lutram_1w1r
 proc
 memory -nomap
-equiv_opt -run :prove -map +/intel_alm/common/alm_sim.v -map +/intel_alm/common/dff_sim.v -map +/intel_alm/common/mem_sim.v synth_intel_alm -family cyclonev -nobram -noiopad
+equiv_opt -run :prove -map +/intel_alm/common/alm_sim.v -map +/intel_alm/common/dff_sim.v -map +/intel_alm/common/mem_sim.v synth_intel_alm -family cyclonev -nobram -noiopad -noclkbuf
 memory
 opt -full
 

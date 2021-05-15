@@ -50,7 +50,9 @@
 // model can be treated as always returning a defined result.
 
 (* abc9_box, lib_whitebox *)
-module MISTRAL_MLAB(input [4:0] A1ADDR, input A1DATA, A1EN, CLK1, input [4:0] B1ADDR, output B1DATA);
+module MISTRAL_MLAB(input [4:0] A1ADDR, input A1DATA, A1EN,
+    (* clkbuf_sink *) input CLK1,
+    input [4:0] B1ADDR, output B1DATA);
 
 reg [31:0] mem = 32'b0;
 
@@ -83,7 +85,7 @@ module MISTRAL_M10K(CLK1, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
 parameter CFG_ABITS = 10;
 parameter CFG_DBITS = 10;
 
-input CLK1;
+(* clkbuf_sink *) input CLK1;
 input [CFG_ABITS-1:0] A1ADDR, B1ADDR;
 input [CFG_DBITS-1:0] A1DATA;
 input A1EN, B1EN;
