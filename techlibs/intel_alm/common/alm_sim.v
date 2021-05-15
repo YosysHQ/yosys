@@ -230,8 +230,10 @@ assign Q = ~A;
 
 endmodule
 
-(* abc9_box, lib_whitebox *)
-module MISTRAL_ALUT_ARITH(input A, B, C, D0, D1, (* abc9_carry *) input CI, output SO, (* abc9_carry *) output CO);
+// Despite the abc9_carry attributes, this doesn't seem to stop ABC9 adding illegal fanout to the carry chain that nextpnr cannot handle.
+// So we treat it as a total blackbox from ABC9's perspective for now.
+// (* abc9_box, lib_whitebox *)
+module MISTRAL_ALUT_ARITH(input A, B, C, D0, D1, /* (* abc9_carry *) */ input CI, output SO, /* (* abc9_carry *) */ output CO);
 
 parameter LUT0 = 16'h0000;
 parameter LUT1 = 16'h0000;
