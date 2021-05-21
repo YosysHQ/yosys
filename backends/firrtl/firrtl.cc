@@ -42,6 +42,123 @@ static const FDirection FD_OUT = 0x2;
 static const FDirection FD_INOUT = 0x3;
 static const int FIRRTL_MAX_DSH_WIDTH_ERROR = 20; // For historic reasons, this is actually one greater than the maximum allowed shift width
 
+/**
+ * Replaces references in input signal "sig" of module "module" that are found
+ * in the rename_map. The rename_map maps the old name of an identifier to its
+ * new name.
+ */
+RTLIL::SigSpec replaceReferences(const RTLIL::SigSpec& sig, RTLIL::Module * const module, const dict<RTLIL::IdString, RTLIL::IdString>& rename_map)
+{
+	RTLIL::SigSpec new_sig;
+
+	for (auto chunk : sig.chunks())
+	{
+		if ((chunk.wire == nullptr) || rename_map.count(chunk.wire->name) == 0)
+		{
+			// Take literals and wires that don't need renaming as-is.
+			new_sig.append(chunk);
+		}
+		else
+		{
+			RTLIL::SigChunk new_chunk = chunk;
+			RTLIL::Wire *new_wire = module->wire(rename_map.at(chunk.wire->name));
+			new_chunk.wire = new_wire;
+			new_sig.append(new_chunk);
+		}
+	}
+
+	return new_sig;
+}
+
+/**
+ * Renames RHS references to output ports.
+ *
+ * Yosys represents ports as wires, therefore outgoing ports can be referenced
+ * by other signals. Firrtl does not support this and there is a distinction
+ * between a wire and a port. An output port can only be written to and cannot
+ * be used as references in other signals' expressions.
+ *
+ * This function modifies the RTLIL structure of the module to work around
+ * Yosys' representation by introducing a dedicated wire for each outgoing port
+ * of the module. This new intermediate wire will be used as a placeholder for
+ * all existing references to RTLIL wires that represent output ports. We then
+ * connect this intermediate wire in a single assignment to the output port so
+ * the generated Firrtl is legal with no RHS references to the port name.
+ */
+void rename_invalid_rhs_references(RTLIL::Design *design)
+{
+	for (auto module : design->modules())
+	{
+		// Create intermediate wire and keep track of mapping between
+		// output ports and their intermediate wire.
+		dict<RTLIL::IdString, RTLIL::IdString> outputPortDriver;
+		for (const auto wire : module->wires())
+		{
+			if (wire->port_output)
+			{
+				RTLIL::IdString intermediate_wire_id = NEW_ID;
+				outputPortDriver[wire->name] = intermediate_wire_id;
+			}
+		}
+
+		// Add intermediate wire to module.
+		for (const auto portWire_intermediateWire : outputPortDriver)
+		{
+			RTLIL::IdString port_wire_id = portWire_intermediateWire.first;
+			RTLIL::IdString intermediate_wire_id = portWire_intermediateWire.second;
+
+			// Does NOT mark this wire as a port.
+			module->addWire(intermediate_wire_id, module->wire(port_wire_id)->width);
+		}
+
+		// Replace all references to output port in the module's connections with
+		// a reference to the intermediate wire instead.
+		std::vector<RTLIL::SigSig> new_connections;
+		for (const auto conn : module->connections())
+		{
+			RTLIL::SigSpec lhs = conn.first;
+			RTLIL::SigSpec rhs = conn.second;
+
+			RTLIL::SigSpec new_lhs = replaceReferences(lhs, module, outputPortDriver);
+			RTLIL::SigSpec new_rhs = replaceReferences(rhs, module, outputPortDriver);
+
+			new_connections.push_back(std::make_pair(new_lhs, new_rhs));
+		}
+
+		// Replace all references to output port in the module's cells' connections with
+		// a reference to the intermediate wire instead.
+		for (auto cell : module->cells())
+		{
+			for (auto it = cell->connections().begin(); it != cell->connections().end(); ++it) {
+				if (it->second.size() > 0) {
+					const RTLIL::IdString port_name = it->first;
+					const RTLIL::SigSpec &signal = it->second;
+					RTLIL::SigSpec new_signal = replaceReferences(signal, module, outputPortDriver);
+					cell->unsetPort(port_name);
+					cell->setPort(port_name, new_signal);
+				}
+			}
+		}
+
+		// Connect intermediate wire to the port wire.
+		for (const auto portWire_intermediateWire : outputPortDriver)
+		{
+			RTLIL::IdString port_wire_id = portWire_intermediateWire.first;
+			RTLIL::IdString intermediate_wire_id = portWire_intermediateWire.second;
+			RTLIL::Wire *port_wire = module->wire(port_wire_id);
+			RTLIL::Wire *intermediate_wire = module->wire(intermediate_wire_id);
+
+			RTLIL::SigSpec lhs = SigSpec(port_wire);
+			RTLIL::SigSpec rhs = SigSpec(intermediate_wire);
+
+			new_connections.push_back(std::make_pair(lhs, rhs));
+		}
+
+		// Update module connections.
+		module->new_connections(new_connections);
+	}
+}
+
 std::string getFileinfo(const RTLIL::AttrObject *design_entity)
 {
 	std::string src(design_entity->get_src_attribute());
@@ -84,6 +201,7 @@ const char *make_id(IdString id)
 
 	string new_id = log_id(id);
 
+	// Replace special characters like ":" with underscores.
 	for (int i = 0; i < GetSize(new_id); i++)
 	{
 		char &ch = new_id[i];
@@ -102,6 +220,60 @@ const char *make_id(IdString id)
 	return namecache.at(id).c_str();
 }
 
+std::string make_expr(const SigSpec &sig)
+{
+	std::string expr;
+
+	for (auto chunk : sig.chunks())
+	{
+		std::string new_expr;
+
+		if (chunk.wire == nullptr)
+		{
+			// Literal.
+			std::vector<RTLIL::State> bits = chunk.data;
+			new_expr = stringf("UInt<%d>(\"h", GetSize(bits));
+
+			while (GetSize(bits) % 4 != 0)
+				bits.push_back(State::S0);
+
+			for (int i = GetSize(bits)-4; i >= 0; i -= 4)
+			{
+				int val = 0;
+				if (bits[i+0] == State::S1) val += 1;
+				if (bits[i+1] == State::S1) val += 2;
+				if (bits[i+2] == State::S1) val += 4;
+				if (bits[i+3] == State::S1) val += 8;
+				new_expr.push_back(val < 10 ? '0' + val : 'a' + val - 10);
+			}
+
+			new_expr += "\")";
+		}
+		else if (chunk.offset == 0 && chunk.width == chunk.wire->width)
+		{
+			// Full-width signal.
+			new_expr = make_id(chunk.wire->name);
+		}
+		else
+		{
+			// Sub-word signal.
+			string wire_id = make_id(chunk.wire->name);
+			new_expr = stringf("bits(%s, %d, %d)", wire_id.c_str(), chunk.offset + chunk.width - 1, chunk.offset);
+		}
+
+		if (expr.empty())
+			expr = new_expr;
+		else
+			expr = "cat(" + new_expr + ", " + expr + ")";
+	}
+
+	return expr;
+}
+
+/**
+ * Emits an std::string representation of an RTLIL constant that is known
+ * to be a string.
+ */
 std::string dump_const_string(const RTLIL::Const &data)
 {
 	std::string res_str;
@@ -126,6 +298,9 @@ std::string dump_const_string(const RTLIL::Const &data)
 	return res_str;
 }
 
+/**
+ * Emits an std::string representation of a generic RTLIL constant.
+ */
 std::string dump_const(const RTLIL::Const &data)
 {
 	std::string res_str;
@@ -223,11 +398,15 @@ std::string dump_const(const RTLIL::Const &data)
 	return res_str;
 }
 
+/**
+ * Creates a unique name for an extmodule.
+ *
+ * Since we are creating a custom extmodule for every cell that instantiates
+ * this blackbox, we need to create a custom name for it. We just use the
+ * name of the blackbox itself followed by the name of the cell.
+ */
 std::string extmodule_name(RTLIL::Cell *cell, RTLIL::Module *mod_instance)
 {
-	// Since we are creating a custom extmodule for every cell that instantiates
-	// this blackbox, we need to create a custom name for it. We just use the
-	// name of the blackbox itself followed by the name of the cell.
 	const std::string cell_name = std::string(make_id(cell->name));
 	const std::string blackbox_name = std::string(make_id(mod_instance->name));
 	const std::string extmodule_name = blackbox_name + "_" + cell_name;
@@ -258,23 +437,26 @@ void emit_extmodule(RTLIL::Cell *cell, RTLIL::Module *mod_instance, std::ostream
 	// Emit extmodule ports.
 	for (auto wire : mod_instance->wires())
 	{
-		const auto wireName = make_id(wire->name);
-		const std::string wireFileinfo = getFileinfo(wire);
-
-		if (wire->port_input && wire->port_output)
+		if (wire->port_id)
 		{
-			log_error("Module port %s.%s is inout!\n", log_id(mod_instance), log_id(wire));
+			const auto wireName = make_id(wire->name);
+			const std::string wireFileinfo = getFileinfo(wire);
+
+			if (wire->port_input && wire->port_output)
+			{
+				log_error("Module port %s.%s is inout!\n", log_id(mod_instance), log_id(wire));
+			}
+
+			const std::string portDecl = stringf("%s%s %s: UInt<%d> %s\n",
+				indent.c_str(),
+				wire->port_input ? "input" : "output",
+				wireName,
+				wire->width,
+				wireFileinfo.c_str()
+			);
+
+			f << portDecl;
 		}
-
-		const std::string portDecl = stringf("%s%s %s: UInt<%d> %s\n",
-			indent.c_str(),
-			wire->port_input ? "input" : "output",
-			wireName,
-			wire->width,
-			wireFileinfo.c_str()
-		);
-
-		f << portDecl;
 	}
 
 	// Emit extmodule "defname" field. This is the name of the verilog blackbox
@@ -496,53 +678,9 @@ struct FirrtlWorker
 	{
 	}
 
-	static string make_expr(const SigSpec &sig)
-	{
-		string expr;
-
-		for (auto chunk : sig.chunks())
-		{
-			string new_expr;
-
-			if (chunk.wire == nullptr)
-			{
-				std::vector<RTLIL::State> bits = chunk.data;
-				new_expr = stringf("UInt<%d>(\"h", GetSize(bits));
-
-				while (GetSize(bits) % 4 != 0)
-					bits.push_back(State::S0);
-
-				for (int i = GetSize(bits)-4; i >= 0; i -= 4)
-				{
-					int val = 0;
-					if (bits[i+0] == State::S1) val += 1;
-					if (bits[i+1] == State::S1) val += 2;
-					if (bits[i+2] == State::S1) val += 4;
-					if (bits[i+3] == State::S1) val += 8;
-					new_expr.push_back(val < 10 ? '0' + val : 'a' + val - 10);
-				}
-
-				new_expr += "\")";
-			}
-			else if (chunk.offset == 0 && chunk.width == chunk.wire->width)
-			{
-				new_expr = make_id(chunk.wire->name);
-			}
-			else
-			{
-				string wire_id = make_id(chunk.wire->name);
-				new_expr = stringf("bits(%s, %d, %d)", wire_id.c_str(), chunk.offset + chunk.width - 1, chunk.offset);
-			}
-
-			if (expr.empty())
-				expr = new_expr;
-			else
-				expr = "cat(" + new_expr + ", " + expr + ")";
-		}
-
-		return expr;
-	}
-
+	/**
+	 * Returns a firrtl-compatible identifier for a Yosys IdString
+	 */
 	std::string fid(RTLIL::IdString internal_id)
 	{
 		return make_id(internal_id);
@@ -555,89 +693,84 @@ struct FirrtlWorker
 
 	void process_instance(RTLIL::Cell *cell, vector<string> &wire_exprs)
 	{
-		std::string cell_type = fid(cell->type);
-		std::string instanceOf;
-		// If this is a parameterized module, its parent module is encoded in the cell type
-		if (cell->type.begins_with("$paramod"))
-		{
-			log_assert(cell->has_attribute(ID::hdlname));
-			instanceOf = cell->get_string_attribute(ID::hdlname);
-		}
-		else
-		{
-			instanceOf = cell_type;
-		}
+		// Firrtl names.
+		const std::string f_mod_type = fid(cell->type);
+		const std::string f_inst_name = cellname(cell);
 
-		std::string cell_name = cellname(cell);
-		std::string cell_name_comment;
-		if (cell_name != fid(cell->name))
-			cell_name_comment = " /* " + fid(cell->name) + " */ ";
-		else
-			cell_name_comment = "";
-		// Find the module corresponding to this instance.
-		auto instModule = design->module(cell->type);
-		// If there is no instance for this, just return.
-		if (instModule == NULL)
+		// Find the module corresponding to this instance. If none found,
+		// report error and exit.
+		auto instantiated_mod = design->module(cell->type);
+		if (instantiated_mod == NULL)
 		{
-			log_warning("No instance for %s.%s\n", cell_type.c_str(), cell_name.c_str());
-			return;
+			log_error("No module definition found for instance \"%s\" of module \"%s\".", f_inst_name.c_str(), f_mod_type.c_str());
 		}
 
 		// If the instance is that of a blackbox, use the modified extmodule name
 		// that contains per-instance parameterizations. These instances were
 		// emitted earlier in the firrtl backend.
-		const std::string instanceName = instModule->get_blackbox_attribute() ?
-			extmodule_name(cell, instModule) :
-			instanceOf;
+		const std::string f_expanded_mod_type = instantiated_mod->get_blackbox_attribute() ?
+			extmodule_name(cell, instantiated_mod) :
+			f_mod_type;
 
 		std::string cellFileinfo = getFileinfo(cell);
-		wire_exprs.push_back(stringf("%s" "inst %s%s of %s %s", indent.c_str(), cell_name.c_str(), cell_name_comment.c_str(), instanceName.c_str(), cellFileinfo.c_str()));
+		wire_exprs.push_back(stringf("%s" "inst %s of %s %s", indent.c_str(), f_inst_name.c_str(), f_expanded_mod_type.c_str(), cellFileinfo.c_str()));
 
 		for (auto it = cell->connections().begin(); it != cell->connections().end(); ++it) {
 			if (it->second.size() > 0) {
 				const SigSpec &secondSig = it->second;
-				const std::string firstName = cell_name + "." + make_id(it->first);
+				const std::string firstName = f_inst_name + "." + make_id(it->first);
 				const std::string secondExpr = make_expr(secondSig);
 				// Find the direction for this port.
-				FDirection dir = getPortFDirection(it->first, instModule);
+				FDirection dir = getPortFDirection(it->first, instantiated_mod);
 				std::string sourceExpr, sinkExpr;
 				const SigSpec *sinkSig = nullptr;
+
+				const std::string bitsString = "bits(";
+				const std::string catString = "cat(";
+				bool is_subfield_assignment = false;
+
 				switch (dir) {
 					case FD_INOUT:
-						log_warning("Instance port connection %s.%s is INOUT; treating as OUT\n", cell_type.c_str(), log_signal(it->second));
+						log_warning("Instance port connection %s.%s is INOUT; treating as OUT\n", f_expanded_mod_type.c_str(), log_signal(it->second));
 						YS_FALLTHROUGH
 					case FD_OUT:
 						sourceExpr = firstName;
 						sinkExpr = secondExpr;
 						sinkSig = &secondSig;
+
+						// Check for subfield assignment to the output port with `bits(` or
+						// concatenation with `cat(` as these are the two expressions that can be
+						// generated by `make_expr()`. Such expressions cannot be on the LHS of a
+						// Connect statement and we handle them later through the reverse_wire_map.
+						is_subfield_assignment = (sinkExpr.compare(0, bitsString.length(), bitsString) == 0) || (sinkExpr.compare(0, catString.length(), catString) == 0);
+						if (is_subfield_assignment) {
+							if (sinkSig == nullptr)
+								log_error("Unknown subfield %s.%s\n", f_expanded_mod_type.c_str(), sinkExpr.c_str());
+						}
+
+						// Always use reverse_wire_map so we can track if the full width of the wire
+						// is assigned later and declare "is invalid" statements if needed.
+
+						// Don't generate the assignment here.
+						// Add the source and sink to the "reverse_wire_map" and we'll output the assignment
+						// as part of the coalesced subfield assignments for this wire.
+						register_reverse_wire_map(sourceExpr, *sinkSig);
 						break;
 					case FD_NODIRECTION:
-						log_warning("Instance port connection %s.%s is NODIRECTION; treating as IN\n", cell_type.c_str(), log_signal(it->second));
+						log_warning("Instance port connection %s.%s is NODIRECTION; treating as IN\n", f_expanded_mod_type.c_str(), log_signal(it->second));
 						YS_FALLTHROUGH
 					case FD_IN:
 						sourceExpr = secondExpr;
 						sinkExpr = firstName;
+						wire_exprs.push_back(stringf("\n%s%s <= %s %s", indent.c_str(), sinkExpr.c_str(), sourceExpr.c_str(), cellFileinfo.c_str()));
 						break;
 					default:
-						log_error("Instance port %s.%s unrecognized connection direction 0x%x !\n", cell_type.c_str(), log_signal(it->second), dir);
+						log_error("Instance port %s.%s unrecognized connection direction 0x%x !\n", f_expanded_mod_type.c_str(), log_signal(it->second), dir);
 						break;
-				}
-				// Check for subfield assignment.
-				std::string bitsString = "bits(";
-				if (sinkExpr.compare(0, bitsString.length(), bitsString) == 0) {
-					if (sinkSig == nullptr)
-						log_error("Unknown subfield %s.%s\n", cell_type.c_str(), sinkExpr.c_str());
-					// Don't generate the assignment here.
-					// Add the source and sink to the "reverse_wire_map" and we'll output the assignment
-					//  as part of the coalesced subfield assignments for this wire.
-					register_reverse_wire_map(sourceExpr, *sinkSig);
-				} else {
-					wire_exprs.push_back(stringf("\n%s%s <= %s %s", indent.c_str(), sinkExpr.c_str(), sourceExpr.c_str(), cellFileinfo.c_str()));
 				}
 			}
 		}
 		wire_exprs.push_back(stringf("\n"));
-
 	}
 
 	// Given an expression for a shift amount, and a maximum width,
@@ -686,15 +819,21 @@ struct FirrtlWorker
 
 		for (auto cell : module->cells())
 		{
-			static Const ndef(0, 0);
-
 			// Is this cell is a module instance?
-			if (cell->type[0] != '$')
+			// - A non-parametric module is a module with a publicly-visible
+			//   name (something that doesn't start with "$").
+			// - A parametric module is a module with an auto-generated
+			//   name (something that starts with "$", "$paramod" specifically).
+			const bool is_standard_module_instance = cell->type[0] != '$';
+			const bool is_parametric_module_instance = cell->type.begins_with("$paramod");
+			if (is_standard_module_instance || is_parametric_module_instance)
 			{
 				process_instance(cell, wire_exprs);
 				continue;
 			}
+
 			// Not a module instance. Set up cell properties
+			static Const ndef(0, 0);
 			bool extract_y_bits = false;		// Assume no extraction of final bits will be required.
 			int a_width = cell->parameters.at(ID::A_WIDTH, ndef).as_int();	// The width of "A"
 			int b_width = cell->parameters.at(ID::B_WIDTH, ndef).as_int();	// The width of "A"
@@ -1145,12 +1284,6 @@ struct FirrtlWorker
 				continue;
 			}
 
-			// This may be a parameterized module - paramod.
-			if (cell->type.begins_with("$paramod"))
-			{
-				process_instance(cell, wire_exprs);
-				continue;
-			}
 			if (cell->type == ID($shiftx)) {
 				// assign y = a[b +: y_width];
 				// We'll extract the correct bits as part of the primop.
@@ -1388,6 +1521,8 @@ struct FirrtlBackend : public Backend {
 
 		namecache.clear();
 		autoid_counter = 0;
+
+		rename_invalid_rhs_references(design);
 
 		// Get the top module, or a reasonable facsimile - we need something for the circuit name.
 		Module *top = design->top_module();
