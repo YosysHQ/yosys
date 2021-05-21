@@ -1672,7 +1672,7 @@ struct_member_type: { astbuf1 = new AstNode(AST_STRUCT_ITEM); } member_type_toke
 	;
 
 member_type_token:
-	  member_type 
+	  member_type
 	| hierarchical_type_id {
 			// use a clone of the typedef definition nodes
 			auto template_node = copyTypeDefinition(*$1);
@@ -2506,6 +2506,7 @@ behavioral_stmt:
 		ast_stack.push_back(node);
 		append_attr(node, $1);
 	} opt_arg_list ';'{
+		SET_AST_NODE_LOC(ast_stack.back(), @2, @5);
 		ast_stack.pop_back();
 	} |
 	attr TOK_MSG_TASKS {
@@ -2516,6 +2517,7 @@ behavioral_stmt:
 		ast_stack.push_back(node);
 		append_attr(node, $1);
 	} opt_arg_list ';'{
+		SET_AST_NODE_LOC(ast_stack.back(), @2, @5);
 		ast_stack.pop_back();
 	} |
 	attr TOK_BEGIN {

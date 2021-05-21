@@ -27,6 +27,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/ff.h"
 #include "kernel/mem.h"
+#include "kernel/fmt.h"
 #include <string>
 #include <sstream>
 #include <set>
@@ -1453,6 +1454,57 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		decimal = bak_decimal;
 
 		f << stringf("%s" "endspecify\n", indent.c_str());
+		return true;
+	}
+
+	if (cell->type == ID($print))
+	{
+		Fmt fmt = {};
+		fmt.parse_rtlil(cell);
+		std::vector<VerilogFmtArg> args = fmt.emit_verilog();
+
+		if (cell->getParam(ID::TRG_ENABLE).as_bool()) {
+			f << stringf("%s" "always @(", indent.c_str());
+			for (size_t i = 0; i < (size_t)cell->getParam(ID::TRG_WIDTH).as_int(); i++) {
+				if (i != 0)
+					f << " or ";
+				if (cell->getParam(ID::TRG_POLARITY)[i])
+					f << "posedge ";
+				else
+					f << "negedge ";
+				dump_sigspec(f, cell->getPort(ID::TRG)[i]);
+			}
+			f << ")\n";
+		} else {
+			f << stringf("%s" "always @*\n", indent.c_str());
+		}
+
+		f << stringf("%s" "  if (", indent.c_str());
+		dump_sigspec(f, cell->getPort(ID::EN));
+		f << stringf(")\n");
+
+		f << stringf("%s" "    $write(", indent.c_str());
+		bool first = true;
+		for (auto &arg : args) {
+			if (first) {
+				first = false;
+			} else {
+				f << ", ";
+			}
+			switch (arg.type) {
+				case VerilogFmtArg::STRING:
+					dump_const(f, RTLIL::Const(arg.str));
+					break;
+				case VerilogFmtArg::INTEGER:
+					f << (arg.signed_ ? "$signed(" : "$unsigned(");
+					dump_sigspec(f, arg.sig);
+					f << ")";
+					break;
+				default: log_abort();
+			}
+		}
+		f << stringf(");\n");
+
 		return true;
 	}
 
