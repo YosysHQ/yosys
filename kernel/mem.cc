@@ -263,8 +263,11 @@ void Mem::emit() {
 		}
 		idx = 0;
 		for (auto &init : inits) {
+			bool v2 = !init.en.is_fully_ones();
 			if (!init.cell)
-				init.cell = module->addCell(NEW_ID, ID($meminit));
+				init.cell = module->addCell(NEW_ID, v2 ? ID($meminit_v2) : ID($meminit));
+			else
+				init.cell->type = v2 ? ID($meminit_v2) : ID($meminit);
 			init.cell->attributes = init.attributes;
 			init.cell->parameters[ID::MEMID] = memid.str();
 			init.cell->parameters[ID::ABITS] = GetSize(init.addr);
@@ -273,6 +276,10 @@ void Mem::emit() {
 			init.cell->parameters[ID::PRIORITY] = idx++;
 			init.cell->setPort(ID::ADDR, init.addr);
 			init.cell->setPort(ID::DATA, init.data);
+			if (v2)
+				init.cell->setPort(ID::EN, init.en);
+			else
+				init.cell->unsetPort(ID::EN);
 		}
 	}
 }
@@ -289,6 +296,14 @@ void Mem::coalesce_inits() {
 	for (auto &init : inits) {
 		if (init.removed)
 			continue;
+		bool valid = false;
+		for (auto bit : init.en)
+			if (bit == State::S1)
+				valid = true;
+		if (!valid) {
+			init.removed = true;
+			continue;
+		}
 		int addr = init.addr.as_int();
 		int addr_e = addr + GetSize(init.data) / width;
 		auto it_e = chunks.upper_bound(addr_e);
@@ -335,6 +350,13 @@ void Mem::coalesce_inits() {
 		int caddr_e = chunks[caddr];
 		auto &chunk_inits = it.second;
 		if (GetSize(chunk_inits) == 1) {
+			auto &init = inits[chunk_inits[0]];
+			if (!init.en.is_fully_ones()) {
+				for (int i = 0; i < GetSize(init.data); i++)
+					if (init.en[i % width] != State::S1)
+						init.data[i] = State::Sx;
+				init.en = Const(State::S1, width);
+			}
 			continue;
 		}
 		Const cdata(State::Sx, (caddr_e - caddr) * width);
@@ -344,12 +366,14 @@ void Mem::coalesce_inits() {
 			log_assert(offset >= 0);
 			log_assert(offset + GetSize(init.data) <= GetSize(cdata));
 			for (int i = 0; i < GetSize(init.data); i++)
-				cdata.bits[i+offset] = init.data.bits[i];
+				if (init.en[i % width] == State::S1)
+					cdata.bits[i+offset] = init.data.bits[i];
 			init.removed = true;
 		}
 		MemInit new_init;
 		new_init.addr = caddr;
 		new_init.data = cdata;
+		new_init.en = Const(State::S1, width);
 		inits.push_back(new_init);
 	}
 }
@@ -361,7 +385,7 @@ Const Mem::get_init_data() const {
 			continue;
 		int offset = (init.addr.as_int() - start_offset) * width;
 		for (int i = 0; i < GetSize(init.data); i++)
-			if (0 <= i+offset && i+offset < GetSize(init_data))
+			if (0 <= i+offset && i+offset < GetSize(init_data) && init.en[i % width] == State::S1)
 				init_data.bits[i+offset] = init.data.bits[i];
 	}
 	return init_data;
@@ -432,7 +456,7 @@ namespace {
 					wr_ports[cell->parameters.at(ID::MEMID).decode_string()].insert(cell);
 				else if (cell->type == ID($memrd))
 					rd_ports[cell->parameters.at(ID::MEMID).decode_string()].insert(cell);
-				else if (cell->type == ID($meminit))
+				else if (cell->type.in(ID($meminit), ID($meminit_v2)))
 					inits[cell->parameters.at(ID::MEMID).decode_string()].insert(cell);
 			}
 		}
@@ -507,6 +531,14 @@ namespace {
 					log_error("Non-constant data %s in memory initialization %s.\n", log_signal(data), log_id(cell));
 				init.addr = addr.as_const();
 				init.data = data.as_const();
+				if (cell->type == ID($meminit_v2)) {
+					auto en = cell->getPort(ID::EN);
+					if (!en.is_fully_const())
+						log_error("Non-constant enable %s in memory initialization %s.\n", log_signal(en), log_id(cell));
+					init.en = en.as_const();
+				} else {
+					init.en = RTLIL::Const(State::S1, mem->width);
+				}
 				inits.push_back(std::make_pair(cell->parameters.at(ID::PRIORITY).as_int(), init));
 			}
 			std::sort(inits.begin(), inits.end(), [](const std::pair<int, MemInit> &a, const std::pair<int, MemInit> &b) { return a.first < b.first; });
@@ -558,6 +590,7 @@ namespace {
 					MemInit minit;
 					minit.addr = res.start_offset + pos;
 					minit.data = init.extract(pos * res.width, (epos - pos) * res.width, State::Sx);
+					minit.en = RTLIL::Const(State::S1, res.width);
 					res.inits.push_back(minit);
 					pos = epos;
 				}
