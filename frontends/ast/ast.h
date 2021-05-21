@@ -221,7 +221,7 @@ namespace AST
 		AstSrcLocType location;
 
 		// creating and deleting nodes
-		AstNode(AstNodeType type = AST_NONE, AstNode *child1 = NULL, AstNode *child2 = NULL, AstNode *child3 = NULL);
+		AstNode(AstNodeType type = AST_NONE, AstNode *child1 = nullptr, AstNode *child2 = nullptr, AstNode *child3 = nullptr, AstNode *child4 = nullptr);
 		AstNode *clone() const;
 		void cloneInto(AstNode *other) const;
 		void delete_children();
