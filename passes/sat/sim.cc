@@ -559,6 +559,7 @@ struct SimInstance
 			MemInit minit;
 			minit.addr = mem.mem->start_offset;
 			minit.data = mem.data;
+			minit.en = Const(State::S1, mem.mem->width);
 			mem.mem->inits.push_back(minit);
 			mem.mem->emit();
 		}

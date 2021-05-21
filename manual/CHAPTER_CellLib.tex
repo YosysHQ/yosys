@@ -338,14 +338,14 @@ In addition to {\tt \$dlatch} ports and parameters, they also have multi-bit
 \subsection{Memories}
 \label{sec:memcells}
 
-Memories are either represented using RTLIL::Memory objects, {\tt \$memrd}, {\tt \$memwr}, and {\tt \$meminit}
+Memories are either represented using RTLIL::Memory objects, {\tt \$memrd}, {\tt \$memwr}, and {\tt \$meminit\_v2}
 cells, or by {\tt \$mem} cells alone.
 
 In the first alternative the RTLIL::Memory objects hold the general metadata for the memory (bit width,
 size in number of words, etc.) and for each port a {\tt \$memrd} (read port) or {\tt \$memwr} (write port)
 cell is created. Having individual cells for read and write ports has the advantage that they can be
 consolidated using resource sharing passes. In some cases this drastically reduces the number of required
-ports on the memory cell. In this alternative, memory initialization data is represented by {\tt \$meminit} cells,
+ports on the memory cell. In this alternative, memory initialization data is represented by {\tt \$meminit\_v2} cells,
 which allow delaying constant folding for initialization addresses and data until after the frontend finishes.
 
 The {\tt \$memrd} cells have a clock input \B{CLK}, an enable input \B{EN}, an
@@ -401,8 +401,9 @@ edge if this parameter is {\tt 1'b0}.
 The cell with the higher integer value in this parameter wins a write conflict.
 \end{itemize}
 
-The {\tt \$meminit} cells have an address input \B{ADDR} and a data input \B{DATA}, with the width
-of the \B{DATA} port equal to \B{WIDTH} parameter times \B{WORDS} parameter. Both of the inputs
+The {\tt \$meminit\_v2} cells have an address input \B{ADDR}, a data input \B{DATA}, with the width
+of the \B{DATA} port equal to \B{WIDTH} parameter times \B{WORDS} parameter, and a bit enable mask input
+\B{EN} with width equal to \B{WIDTH} parameter. All three of the inputs
 must resolve to a constant for synthesis to succeed.
 
 \begin{itemize}
@@ -497,7 +498,7 @@ This input is \B{WR\_PORTS}*\B{ABITS} bits wide, containing all address signals 
 This input is \B{WR\_PORTS}*\B{WIDTH} bits wide, containing all data signals for the write ports.
 \end{itemize}
 
-The {\tt memory\_collect} pass can be used to convert discrete {\tt \$memrd}, {\tt \$memwr}, and {\tt \$meminit} cells
+The {\tt memory\_collect} pass can be used to convert discrete {\tt \$memrd}, {\tt \$memwr}, and {\tt \$meminit\_v2} cells
 belonging to the same memory to a single {\tt \$mem} cell, whereas the {\tt memory\_unpack} pass performs the inverse operation.
 The {\tt memory\_dff} pass can combine asynchronous memory ports that are fed by or feeding registers into synchronous memory ports.
 The {\tt memory\_bram} pass can be used to recognize {\tt \$mem} cells that can be implemented with a block RAM resource on an FPGA.
