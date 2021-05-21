@@ -2648,25 +2648,20 @@ skip_dynamic_range_lvalue_expansion:;
 			node_data->str = id_data;
 		}
 
-		AstNode *node_en = nullptr;
-		if (current_always->type == AST_INITIAL) {
-			node_en = AstNode::mkconst_int(1, false);
-		} else {
-			AstNode *wire_en = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(mem_width-1, true), mkconst_int(0, true)));
-			wire_en->str = id_en;
-			wire_en->was_checked = true;
-			current_ast_mod->children.push_back(wire_en);
-			current_scope[wire_en->str] = wire_en;
-			while (wire_en->simplify(true, false, false, 1, -1, false, false)) { }
+		AstNode *wire_en = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(mem_width-1, true), mkconst_int(0, true)));
+		wire_en->str = id_en;
+		wire_en->was_checked = true;
+		current_ast_mod->children.push_back(wire_en);
+		current_scope[wire_en->str] = wire_en;
+		while (wire_en->simplify(true, false, false, 1, -1, false, false)) { }
 
-			AstNode *assign_en = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), mkconst_int(0, false, mem_width));
-			assign_en->children[0]->str = id_en;
-			assign_en->children[0]->was_checked = true;
-			defNode->children.push_back(assign_en);
+		AstNode *assign_en_first = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), mkconst_int(0, false, mem_width));
+		assign_en_first->children[0]->str = id_en;
+		assign_en_first->children[0]->was_checked = true;
+		defNode->children.push_back(assign_en_first);
 
-			node_en = new AstNode(AST_IDENTIFIER);
-			node_en->str = id_en;
-		}
+		AstNode *node_en = new AstNode(AST_IDENTIFIER);
+		node_en->str = id_en;
 
 		if (!defNode->children.empty())
 			current_top_block->children.insert(current_top_block->children.begin(), defNode);
@@ -2690,13 +2685,11 @@ skip_dynamic_range_lvalue_expansion:;
 				assign_data->children[0]->str = id_data;
 				assign_data->children[0]->was_checked = true;
 
-				if (current_always->type != AST_INITIAL) {
-					for (int i = 0; i < mem_width; i++)
-						set_bits_en[i] = offset <= i && i < offset+width ? RTLIL::State::S1 : RTLIL::State::S0;
-					assign_en = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), mkconst_bits(set_bits_en, false));
-					assign_en->children[0]->str = id_en;
-					assign_en->children[0]->was_checked = true;
-				}
+				for (int i = 0; i < mem_width; i++)
+					set_bits_en[i] = offset <= i && i < offset+width ? RTLIL::State::S1 : RTLIL::State::S0;
+				assign_en = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), mkconst_bits(set_bits_en, false));
+				assign_en->children[0]->str = id_en;
+				assign_en->children[0]->was_checked = true;
 			}
 			else
 			{
@@ -2719,14 +2712,12 @@ skip_dynamic_range_lvalue_expansion:;
 				assign_data->children[0]->str = id_data;
 				assign_data->children[0]->was_checked = true;
 
-				if (current_always->type != AST_INITIAL) {
-					for (int i = 0; i < mem_width; i++)
-						set_bits_en[i] = i < width ? RTLIL::State::S1 : RTLIL::State::S0;
-					assign_en = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER),
-							new AstNode(AST_SHIFT_LEFT, mkconst_bits(set_bits_en, false), offset_ast->clone()));
-					assign_en->children[0]->str = id_en;
-					assign_en->children[0]->was_checked = true;
-				}
+				for (int i = 0; i < mem_width; i++)
+					set_bits_en[i] = i < width ? RTLIL::State::S1 : RTLIL::State::S0;
+				assign_en = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER),
+						new AstNode(AST_SHIFT_LEFT, mkconst_bits(set_bits_en, false), offset_ast->clone()));
+				assign_en->children[0]->str = id_en;
+				assign_en->children[0]->was_checked = true;
 
 				delete left_at_zero_ast;
 				delete right_at_zero_ast;
@@ -2741,18 +2732,20 @@ skip_dynamic_range_lvalue_expansion:;
 				assign_data->children[0]->was_checked = true;
 			}
 
-			if (current_always->type != AST_INITIAL) {
-				assign_en = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), mkconst_bits(set_bits_en, false));
-				assign_en->children[0]->str = id_en;
-				assign_en->children[0]->was_checked = true;
-			}
+			assign_en = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER), mkconst_bits(set_bits_en, false));
+			assign_en->children[0]->str = id_en;
+			assign_en->children[0]->was_checked = true;
 		}
 		if (assign_data)
 			newNode->children.push_back(assign_data);
 		if (assign_en)
 			newNode->children.push_back(assign_en);
 
-		AstNode *wrnode = new AstNode(current_always->type == AST_INITIAL ? AST_MEMINIT : AST_MEMWR, node_addr, node_data, node_en);
+		AstNode *wrnode;
+		if (current_always->type == AST_INITIAL)
+			wrnode = new AstNode(AST_MEMINIT, node_addr, node_data, node_en, mkconst_int(1, false));
+		else
+			wrnode = new AstNode(AST_MEMWR, node_addr, node_data, node_en);
 		wrnode->str = children[0]->str;
 		wrnode->id2ast = children[0]->id2ast;
 		wrnode->location = location;
@@ -3921,7 +3914,11 @@ AstNode *AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *m
 	AstNode *meminit = nullptr;
 	int next_meminit_cursor=0;
 	vector<State> meminit_bits;
+	vector<State> en_bits;
 	int meminit_size=0;
+
+	for (int i = 0; i < mem_width; i++)
+		en_bits.push_back(State::S1);
 
 	std::ifstream f;
 	f.open(mem_filename.c_str());
@@ -3996,12 +3993,13 @@ AstNode *AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *m
 				{
 					if (meminit != nullptr) {
 						meminit->children[1] = AstNode::mkconst_bits(meminit_bits, false);
-						meminit->children[2] = AstNode::mkconst_int(meminit_size, false);
+						meminit->children[3] = AstNode::mkconst_int(meminit_size, false);
 					}
 
 					meminit = new AstNode(AST_MEMINIT);
 					meminit->children.push_back(AstNode::mkconst_int(cursor, false));
 					meminit->children.push_back(nullptr);
+					meminit->children.push_back(AstNode::mkconst_bits(en_bits, false));
 					meminit->children.push_back(nullptr);
 					meminit->str = memory->str;
 					meminit->id2ast = memory;
@@ -4036,7 +4034,7 @@ AstNode *AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *m
 
 	if (meminit != nullptr) {
 		meminit->children[1] = AstNode::mkconst_bits(meminit_bits, false);
-		meminit->children[2] = AstNode::mkconst_int(meminit_size, false);
+		meminit->children[3] = AstNode::mkconst_int(meminit_size, false);
 	}
 
 	return block;
@@ -4381,10 +4379,12 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 		log_assert(children[0]->type == AST_CONSTANT);
 		log_assert(children[1]->type == AST_CONSTANT);
 		log_assert(children[2]->type == AST_CONSTANT);
+		log_assert(children[3]->type == AST_CONSTANT);
 
 		int cursor = children[0]->asInt(false);
 		Const data = children[1]->bitsAsConst();
-		int length = children[2]->asInt(false);
+		Const en = children[2]->bitsAsConst();
+		int length = children[3]->asInt(false);
 
 		if (length != 0)
 		{
@@ -4395,10 +4395,37 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 			int wordsz = GetSize(data) / length;
 
 			for (int i = 0; i < length; i++) {
-				block->children.push_back(new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER, new AstNode(AST_RANGE, AstNode::mkconst_int(cursor+i, false))), mkconst_bits(data.extract(i*wordsz, wordsz).bits, false)));
-				block->children.back()->children[0]->str = str;
-				block->children.back()->children[0]->id2ast = id2ast;
-				block->children.back()->children[0]->was_checked = true;
+				int pos = 0;
+				while (pos < wordsz) {
+					if (en[pos] != State::S1) {
+						pos++;
+					} else {
+						int epos = pos + 1;
+						while (epos < wordsz && en[epos] == State::S1)
+							epos++;
+						int clen = epos - pos;
+						AstNode *range = new AstNode(AST_RANGE, AstNode::mkconst_int(cursor+i, false));
+						if (pos != 0 || epos != wordsz) {
+							int left;
+							int right;
+							AstNode *mrange = id2ast->children[0];
+							if (mrange->range_left < mrange->range_right) {
+								right = mrange->range_right - pos;
+								left = mrange->range_right - epos + 1;
+							} else {
+								right = mrange->range_right + pos;
+								left = mrange->range_right + epos - 1;
+							}
+							range = new AstNode(AST_MULTIRANGE, range, new AstNode(AST_RANGE, AstNode::mkconst_int(left, true), AstNode::mkconst_int(right, true)));
+						}
+						AstNode *target = new AstNode(AST_IDENTIFIER, range);
+						target->str = str;
+						target->id2ast = id2ast;
+						target->was_checked = true;
+						block->children.push_back(new AstNode(AST_ASSIGN_EQ, target, mkconst_bits(data.extract(i*wordsz + pos, clen).bits, false)));
+						pos = epos;
+					}
+				}
 			}
 		}
 
