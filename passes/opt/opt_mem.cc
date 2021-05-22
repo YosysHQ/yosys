@@ -52,6 +52,18 @@ struct OptMemPass : public Pass {
 		int total_count = 0;
 		for (auto module : design->selected_modules()) {
 			for (auto &mem : Mem::get_selected_memories(module)) {
+				bool changed = false;
+				for (auto &port : mem.wr_ports) {
+					if (port.en.is_fully_zero()) {
+						port.removed = true;
+						changed = true;
+						total_count++;
+					}
+				}
+				if (changed) {
+					mem.emit();
+				}
+
 				if (mem.wr_ports.empty() && mem.inits.empty()) {
 					mem.remove();
 					total_count++;
