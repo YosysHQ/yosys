@@ -85,7 +85,12 @@ void Mem::emit() {
 	wr_ports.resize(GetSize(wr_left));
 
 	// for future: handle transparency mask here
-	// for future: handle priority mask here
+
+	for (auto &port : wr_ports) {
+		for (int i = 0; i < GetSize(wr_left); i++)
+			port.priority_mask[i] = port.priority_mask[wr_left[i]];
+		port.priority_mask.resize(GetSize(wr_left));
+	}
 
 	if (packed) {
 		if (mem) {
@@ -276,6 +281,18 @@ void Mem::check() {
 		log_assert(GetSize(port.clk) == 1);
 		log_assert(GetSize(port.en) == width);
 		log_assert(GetSize(port.data) == width);
+		log_assert(GetSize(port.priority_mask) == GetSize(wr_ports));
+		for (int j = 0; j < GetSize(wr_ports); j++) {
+			auto &wport = wr_ports[j];
+			if (port.priority_mask[j] && !wport.removed) {
+				log_assert(j < i);
+				log_assert(port.clk_enable == wport.clk_enable);
+				if (port.clk_enable) {
+					log_assert(port.clk == wport.clk);
+					log_assert(port.clk_polarity == wport.clk_polarity);
+				}
+			}
+		}
 	}
 }
 
@@ -355,6 +372,20 @@ namespace {
 			for (auto &it : inits)
 				res.inits.push_back(it.second);
 		}
+		for (int i = 0; i < GetSize(res.wr_ports); i++) {
+			auto &port = res.wr_ports[i];
+			port.priority_mask.resize(GetSize(res.wr_ports));
+			for (int j = 0; j < i; j++) {
+				auto &oport = res.wr_ports[j];
+				if (port.clk_enable != oport.clk_enable)
+					continue;
+				if (port.clk_enable && port.clk != oport.clk)
+					continue;
+				if (port.clk_enable && port.clk_polarity != oport.clk_polarity)
+					continue;
+				port.priority_mask[j] = true;
+			}
+		}
 		res.check();
 		return res;
 	}
@@ -411,6 +442,20 @@ namespace {
 			mwr.addr = cell->getPort(ID::WR_ADDR).extract(i * abits, abits);
 			mwr.data = cell->getPort(ID::WR_DATA).extract(i * res.width, res.width);
 			res.wr_ports.push_back(mwr);
+		}
+		for (int i = 0; i < GetSize(res.wr_ports); i++) {
+			auto &port = res.wr_ports[i];
+			port.priority_mask.resize(GetSize(res.wr_ports));
+			for (int j = 0; j < i; j++) {
+				auto &oport = res.wr_ports[j];
+				if (port.clk_enable != oport.clk_enable)
+					continue;
+				if (port.clk_enable && port.clk != oport.clk)
+					continue;
+				if (port.clk_enable && port.clk_polarity != oport.clk_polarity)
+					continue;
+				port.priority_mask[j] = true;
+			}
 		}
 		res.check();
 		return res;
