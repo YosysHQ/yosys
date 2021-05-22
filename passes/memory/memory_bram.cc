@@ -1057,6 +1057,20 @@ void handle_memory(Mem &mem, const rules_t &rules)
 		log(" %s=%d", it.first.c_str(), it.second);
 	log("\n");
 
+	for (auto &port : mem.rd_ports) {
+		if (port.wide_log2) {
+			log("Wide read ports are not supported, skipping.\n");
+			return;
+		}
+	}
+
+	for (auto &port : mem.wr_ports) {
+		if (port.wide_log2) {
+			log("Wide write ports are not supported, skipping.\n");
+			return;
+		}
+	}
+
 	pool<pair<IdString, int>> failed_brams;
 	dict<pair<int, int>, tuple<int, int, int>> best_rule_cache;
 

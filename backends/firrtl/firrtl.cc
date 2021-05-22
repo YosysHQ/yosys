@@ -993,6 +993,8 @@ struct FirrtlWorker
 
 				if (port.clk_enable)
 					log_error("Clocked read port %d on memory %s.%s.\n", i, log_id(module), log_id(mem.memid));
+				if (port.wide_log2 != 0)
+					log_error("Wide read port %d on memory %s.%s.  Use memory_narrow to convert them first.\n", i, log_id(module), log_id(mem.memid));
 
 				std::ostringstream rpe;
 
@@ -1014,6 +1016,8 @@ struct FirrtlWorker
 
 				if (!port.clk_enable)
 					log_error("Unclocked write port %d on memory %s.%s.\n", i, log_id(module), log_id(mem.memid));
+				if (port.wide_log2 != 0)
+					log_error("Wide write port %d on memory %s.%s.  Use memory_narrow to convert them first.\n", i, log_id(module), log_id(mem.memid));
 				if (!port.clk_polarity)
 					log_error("Negedge write port %d on memory %s.%s.\n", i, log_id(module), log_id(mem.memid));
 				for (int i = 1; i < GetSize(port.en); i++)
