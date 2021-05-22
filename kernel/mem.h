@@ -29,6 +29,7 @@ struct MemRd {
 	bool removed;
 	dict<IdString, Const> attributes;
 	Cell *cell;
+	int wide_log2;
 	bool clk_enable, clk_polarity;
 	bool transparent;
 	SigSpec clk, en, addr, data;
@@ -39,6 +40,7 @@ struct MemWr {
 	bool removed;
 	dict<IdString, Const> attributes;
 	Cell *cell;
+	int wide_log2;
 	bool clk_enable, clk_polarity;
 	std::vector<bool> priority_mask;
 	SigSpec clk, en, addr, data;
