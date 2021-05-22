@@ -715,6 +715,12 @@ struct Smt2Worker
 					has_sync_wr = true;
 				else
 					has_async_wr = true;
+				if (port.wide_log2)
+					log_error("Memory %s.%s has wide write ports. This is not supported by \"write_smt2\".  Use memory_narrow to convert them first.\n", log_id(cell), log_id(module));
+			}
+			for (auto &port : mem->rd_ports) {
+				if (port.wide_log2)
+					log_error("Memory %s.%s has wide read ports. This is not supported by \"write_smt2\".  Use memory_narrow to convert them first.\n", log_id(cell), log_id(module));
 			}
 			if (has_async_wr && has_sync_wr)
 				log_error("Memory %s.%s has mixed clocked/nonclocked write ports. This is not supported by \"write_smt2\".\n", log_id(cell), log_id(module));
