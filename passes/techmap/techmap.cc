@@ -364,13 +364,11 @@ struct TechmapWorker
 			for (auto &it2 : autopurge_ports)
 				c->unsetPort(it2);
 
-			if (c->type.in(ID($memrd), ID($memwr), ID($meminit))) {
+			if (c->has_memid()) {
 				IdString memid = c->getParam(ID::MEMID).decode_string();
 				log_assert(memory_renames.count(memid) != 0);
 				c->setParam(ID::MEMID, Const(memory_renames[memid].str()));
-			}
-
-			if (c->type == ID($mem)) {
+			} else if (c->is_mem_cell()) {
 				IdString memid = c->getParam(ID::MEMID).decode_string();
 				apply_prefix(cell->name, memid);
 				c->setParam(ID::MEMID, Const(memid.c_str()));

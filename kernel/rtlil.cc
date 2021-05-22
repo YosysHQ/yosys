@@ -3125,6 +3125,16 @@ void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 	check();
 }
 
+bool RTLIL::Cell::has_memid() const
+{
+	return type.in(ID($memwr), ID($memrd), ID($meminit));
+}
+
+bool RTLIL::Cell::is_mem_cell() const
+{
+	return type == ID($mem) || has_memid();
+}
+
 RTLIL::SigChunk::SigChunk()
 {
 	wire = NULL;

@@ -133,10 +133,10 @@ struct FlattenWorker
 		for (auto tpl_cell : tpl->cells()) {
 			RTLIL::Cell *new_cell = module->addCell(map_name(cell, tpl_cell), tpl_cell);
 			map_attributes(cell, new_cell, tpl_cell->name);
-			if (new_cell->type.in(ID($memrd), ID($memwr), ID($meminit))) {
+			if (new_cell->has_memid()) {
 				IdString memid = new_cell->getParam(ID::MEMID).decode_string();
 				new_cell->setParam(ID::MEMID, Const(memory_map.at(memid).str()));
-			} else if (new_cell->type == ID($mem)) {
+			} else if (new_cell->is_mem_cell()) {
 				IdString memid = new_cell->getParam(ID::MEMID).decode_string();
 				new_cell->setParam(ID::MEMID, Const(concat_name(cell, memid).str()));
 			}
