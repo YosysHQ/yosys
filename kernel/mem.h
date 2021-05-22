@@ -40,6 +40,7 @@ struct MemWr {
 	dict<IdString, Const> attributes;
 	Cell *cell;
 	bool clk_enable, clk_polarity;
+	std::vector<bool> priority_mask;
 	SigSpec clk, en, addr, data;
 	MemWr() : removed(false), cell(nullptr) {}
 };
