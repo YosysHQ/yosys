@@ -52,6 +52,40 @@ void Mem::remove() {
 }
 
 void Mem::emit() {
+	std::vector<int> rd_left;
+	for (int i = 0; i < GetSize(rd_ports); i++) {
+		auto &port = rd_ports[i];
+		if (port.removed) {
+			if (port.cell) {
+				module->remove(port.cell);
+			}
+		} else {
+			rd_left.push_back(i);
+		}
+	}
+	std::vector<int> wr_left;
+	for (int i = 0; i < GetSize(wr_ports); i++) {
+		auto &port = wr_ports[i];
+		if (port.removed) {
+			if (port.cell) {
+				module->remove(port.cell);
+			}
+		} else {
+			wr_left.push_back(i);
+		}
+	}
+	for (int i = 0; i < GetSize(rd_left); i++)
+		if (i != rd_left[i])
+			std::swap(rd_ports[i], rd_ports[rd_left[i]]);
+	rd_ports.resize(GetSize(rd_left));
+	for (int i = 0; i < GetSize(wr_left); i++)
+		if (i != wr_left[i])
+			std::swap(wr_ports[i], wr_ports[wr_left[i]]);
+	wr_ports.resize(GetSize(wr_left));
+
+	// for future: handle transparency mask here
+	// for future: handle priority mask here
+
 	if (packed) {
 		if (mem) {
 			module->memories.erase(mem->name);
@@ -203,20 +237,6 @@ void Mem::emit() {
 			init.cell->setPort(ID::DATA, init.data);
 		}
 	}
-}
-
-void Mem::remove_wr_port(int idx) {
-	if (wr_ports[idx].cell) {
-		module->remove(wr_ports[idx].cell);
-	}
-	wr_ports.erase(wr_ports.begin() + idx);
-}
-
-void Mem::remove_rd_port(int idx) {
-	if (rd_ports[idx].cell) {
-		module->remove(rd_ports[idx].cell);
-	}
-	rd_ports.erase(rd_ports.begin() + idx);
 }
 
 void Mem::clear_inits() {
