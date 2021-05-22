@@ -18,6 +18,7 @@
  */
 
 #include "kernel/mem.h"
+#include "kernel/ff.h"
 
 USING_YOSYS_NAMESPACE
 
@@ -119,6 +120,10 @@ void Mem::emit() {
 			abits = std::max(abits, GetSize(port.addr));
 		cell->parameters[ID::ABITS] = Const(abits);
 		for (auto &port : rd_ports) {
+			// TODO: remove
+			log_assert(port.arst == State::S0);
+			log_assert(port.srst == State::S0);
+			log_assert(port.init_value == Const(State::Sx, width << port.wide_log2));
 			if (port.cell) {
 				module->remove(port.cell);
 				port.cell = nullptr;
@@ -210,6 +215,10 @@ void Mem::emit() {
 		mem->start_offset = start_offset;
 		mem->size = size;
 		for (auto &port : rd_ports) {
+			// TODO: remove
+			log_assert(port.arst == State::S0);
+			log_assert(port.srst == State::S0);
+			log_assert(port.init_value == Const(State::Sx, width << port.wide_log2));
 			if (!port.cell)
 				port.cell = module->addCell(NEW_ID, ID($memrd));
 			port.cell->parameters[ID::MEMID] = memid.str();
@@ -278,9 +287,16 @@ void Mem::check() {
 			continue;
 		log_assert(GetSize(port.clk) == 1);
 		log_assert(GetSize(port.en) == 1);
+		log_assert(GetSize(port.arst) == 1);
+		log_assert(GetSize(port.srst) == 1);
 		log_assert(GetSize(port.data) == (width << port.wide_log2));
+		log_assert(GetSize(port.init_value) == (width << port.wide_log2));
+		log_assert(GetSize(port.arst_value) == (width << port.wide_log2));
+		log_assert(GetSize(port.srst_value) == (width << port.wide_log2));
 		if (!port.clk_enable) {
 			log_assert(!port.transparent);
+			log_assert(port.arst == State::S0);
+			log_assert(port.srst == State::S0);
 		}
 		for (int j = 0; j < port.wide_log2; j++) {
 			log_assert(port.addr[j] == State::S0);
@@ -352,6 +368,12 @@ namespace {
 				mrd.addr = cell->getPort(ID::ADDR);
 				mrd.data = cell->getPort(ID::DATA);
 				mrd.wide_log2 = ceil_log2(GetSize(mrd.data) / mem->width);
+				mrd.ce_over_srst = false;
+				mrd.arst_value = Const(State::Sx, mem->width << mrd.wide_log2);
+				mrd.srst_value = Const(State::Sx, mem->width << mrd.wide_log2);
+				mrd.init_value = Const(State::Sx, mem->width << mrd.wide_log2);
+				mrd.srst = State::S0;
+				mrd.arst = State::S0;
 				res.rd_ports.push_back(mrd);
 			}
 		}
@@ -454,6 +476,12 @@ namespace {
 			mrd.en = cell->getPort(ID::RD_EN).extract(i, 1);
 			mrd.addr = cell->getPort(ID::RD_ADDR).extract(i * abits, abits);
 			mrd.data = cell->getPort(ID::RD_DATA).extract(i * res.width, res.width);
+			mrd.ce_over_srst = false;
+			mrd.arst_value = Const(State::Sx, res.width << mrd.wide_log2);
+			mrd.srst_value = Const(State::Sx, res.width << mrd.wide_log2);
+			mrd.init_value = Const(State::Sx, res.width << mrd.wide_log2);
+			mrd.srst = State::S0;
+			mrd.arst = State::S0;
 			res.rd_ports.push_back(mrd);
 		}
 		for (int i = 0; i < cell->parameters.at(ID::WR_PORTS).as_int(); i++) {
@@ -525,6 +553,9 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 	if (port.transparent)
 	{
 		log_assert(port.en == State::S1);
+		log_assert(port.srst == State::S0);
+		log_assert(port.arst == State::S0);
+		log_assert(port.init_value.is_fully_undef());
 
 		// Do not put a register in front of constant address bits — this is both
 		// unnecessary and will break wide ports.
@@ -547,10 +578,38 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 	}
 	else
 	{
+		log_assert(port.arst == State::S0 || port.srst == State::S0);
+
 		SigSpec sig_d = module->addWire(stringf("$%s$rdreg[%d]$d", memid.c_str(), idx), GetSize(port.data));
-		SigSpec sig_q = port.data;
+		IdString name = stringf("$%s$rdreg[%d]", memid.c_str(), idx);
+		FfData ff(initvals);
+		ff.width = GetSize(port.data);
+		ff.has_clk = true;
+		ff.sig_clk = port.clk;
+		ff.pol_clk = port.clk_polarity;
+		if (port.en != State::S1) {
+			ff.has_en = true;
+			ff.pol_en = true;
+			ff.sig_en = port.en;
+		}
+		if (port.arst != State::S0) {
+			ff.has_arst = true;
+			ff.pol_arst = true;
+			ff.sig_arst = port.arst;
+			ff.val_arst = port.arst_value;
+		}
+		if (port.srst != State::S0) {
+			ff.has_srst = true;
+			ff.pol_srst = true;
+			ff.sig_srst = port.srst;
+			ff.val_srst = port.srst_value;
+			ff.ce_over_srst = ff.has_en && port.ce_over_srst;
+		}
+		ff.sig_d = sig_d;
+		ff.sig_q = port.data;
+		ff.val_init = port.init_value;
 		port.data = sig_d;
-		c = module->addDffe(stringf("$%s$rdreg[%d]", memid.c_str(), idx), port.clk, port.en, sig_d, sig_q, port.clk_polarity, true);
+		c = ff.emit(module, name);
 	}
 
 	log("Extracted %s FF from read port %d of %s.%s: %s\n", port.transparent ? "addr" : "data",
@@ -558,9 +617,15 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 
 	port.en = State::S1;
 	port.clk = State::S0;
+	port.arst = State::S0;
+	port.srst = State::S0;
 	port.clk_enable = false;
 	port.clk_polarity = true;
 	port.transparent = false;
+	port.ce_over_srst = false;
+	port.arst_value = Const(State::Sx, GetSize(port.data));
+	port.srst_value = Const(State::Sx, GetSize(port.data));
+	port.init_value = Const(State::Sx, GetSize(port.data));
 
 	return c;
 }
@@ -589,6 +654,9 @@ void Mem::narrow() {
 			port.cell = nullptr;
 		if (port.wide_log2) {
 			port.data = port.data.extract(it.second * width, width);
+			port.init_value = port.init_value.extract(it.second * width, width);
+			port.arst_value = port.arst_value.extract(it.second * width, width);
+			port.srst_value = port.srst_value.extract(it.second * width, width);
 			for (int i = 0; i < port.wide_log2; i++)
 				port.addr[i] = State(it.second >> i & 1);
 			port.wide_log2 = 0;
