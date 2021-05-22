@@ -708,7 +708,7 @@ struct BtorWorker
 			goto okay;
 		}
 
-		if (cell->type.in(ID($mem), ID($memrd), ID($memwr), ID($meminit)))
+		if (cell->is_mem_cell())
 		{
 			Mem *mem = mem_cells[cell];
 

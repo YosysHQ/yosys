@@ -1464,7 +1464,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 {
 	// Handled by dump_memory
-	if (cell->type.in(ID($mem), ID($memwr), ID($memrd), ID($meminit)))
+	if (cell->is_mem_cell())
 		return;
 
 	if (cell->type[0] == '$' && !noexpr) {

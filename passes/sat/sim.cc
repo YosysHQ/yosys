@@ -164,7 +164,7 @@ struct SimInstance
 				ff_database[cell] = ff;
 			}
 
-			if (cell->type.in(ID($mem), ID($meminit), ID($memwr), ID($memrd)))
+			if (cell->is_mem_cell())
 			{
 				mem_cells[cell] = cell->parameters.at(ID::MEMID).decode_string();
 			}

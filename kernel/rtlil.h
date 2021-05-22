@@ -1522,6 +1522,9 @@ public:
 #ifdef WITH_PYTHON
 	static std::map<unsigned int, RTLIL::Cell*> *get_all_cells(void);
 #endif
+
+	bool has_memid() const;
+	bool is_mem_cell() const;
 };
 
 struct RTLIL::CaseRule : public RTLIL::AttrObject

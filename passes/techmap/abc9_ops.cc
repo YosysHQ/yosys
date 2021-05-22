@@ -155,21 +155,6 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 		r.first->second = new Design;
 	Design *unmap_design = r.first->second;
 
-	static const pool<IdString> seq_types{
-		ID($dff), ID($dffsr), ID($adff),
-		ID($dlatch), ID($dlatchsr), ID($sr),
-		ID($mem),
-		ID($_DFF_N_), ID($_DFF_P_),
-		ID($_DFFSR_NNN_), ID($_DFFSR_NNP_), ID($_DFFSR_NPN_), ID($_DFFSR_NPP_),
-		ID($_DFFSR_PNN_), ID($_DFFSR_PNP_), ID($_DFFSR_PPN_), ID($_DFFSR_PPP_),
-		ID($_DFF_N_), ID($_DFF_NN0_), ID($_DFF_NN1_), ID($_DFF_NP0_), ID($_DFF_NP1_),
-		ID($_DFF_P_), ID($_DFF_PN0_), ID($_DFF_PN1_), ID($_DFF_PP0_), ID($_DFF_PP1_),
-		ID($_DLATCH_N_), ID($_DLATCH_P_),
-		ID($_DLATCHSR_NNN_), ID($_DLATCHSR_NNP_), ID($_DLATCHSR_NPN_), ID($_DLATCHSR_NPP_),
-		ID($_DLATCHSR_PNN_), ID($_DLATCHSR_PNP_), ID($_DLATCHSR_PPN_), ID($_DLATCHSR_PPP_),
-		ID($_SR_NN_), ID($_SR_NP_), ID($_SR_PN_), ID($_SR_PP_)
-	};
-
 	for (auto module : design->selected_modules())
 		for (auto cell : module->cells()) {
 			auto inst_module = design->module(cell->type);
@@ -221,7 +206,7 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 				}
 				else if (derived_module->get_bool_attribute(ID::abc9_box)) {
 					for (auto derived_cell : derived_module->cells())
-						if (seq_types.count(derived_cell->type)) {
+						if (derived_cell->is_mem_cell() || RTLIL::builtin_ff_cell_types().count(derived_cell->type)) {
 							derived_module->set_bool_attribute(ID::abc9_box, false);
 							derived_module->set_bool_attribute(ID::abc9_bypass);
 							break;

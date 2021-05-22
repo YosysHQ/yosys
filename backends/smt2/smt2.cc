@@ -182,7 +182,7 @@ struct Smt2Worker
 				continue;
 
 			// Handled above.
-			if (cell->type.in(ID($mem), ID($memrd), ID($memwr), ID($meminit))) {
+			if (cell->is_mem_cell()) {
 				mem_cells[cell] = mem_dict[cell->parameters.at(ID::MEMID).decode_string()];
 				continue;
 			}
@@ -694,7 +694,7 @@ struct Smt2Worker
 			// FIXME: $slice $concat
 		}
 
-		if (memmode && cell->type.in(ID($mem), ID($memrd), ID($memwr), ID($meminit)))
+		if (memmode && cell->is_mem_cell())
 		{
 			Mem *mem = mem_cells[cell];
 
