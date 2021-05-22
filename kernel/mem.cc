@@ -52,6 +52,7 @@ void Mem::remove() {
 }
 
 void Mem::emit() {
+	check();
 	std::vector<int> rd_left;
 	for (int i = 0; i < GetSize(rd_ports); i++) {
 		auto &port = rd_ports[i];
@@ -257,6 +258,27 @@ Const Mem::get_init_data() const {
 	return init_data;
 }
 
+void Mem::check() {
+	for (auto &port : rd_ports) {
+		if (port.removed)
+			continue;
+		log_assert(GetSize(port.clk) == 1);
+		log_assert(GetSize(port.en) == 1);
+		log_assert(GetSize(port.data) == width);
+		if (!port.clk_enable) {
+			log_assert(!port.transparent);
+		}
+	}
+	for (int i = 0; i < GetSize(wr_ports); i++) {
+		auto &port = wr_ports[i];
+		if (port.removed)
+			continue;
+		log_assert(GetSize(port.clk) == 1);
+		log_assert(GetSize(port.en) == width);
+		log_assert(GetSize(port.data) == width);
+	}
+}
+
 namespace {
 
 	struct MemIndex {
@@ -333,6 +355,7 @@ namespace {
 			for (auto &it : inits)
 				res.inits.push_back(it.second);
 		}
+		res.check();
 		return res;
 	}
 
@@ -389,6 +412,7 @@ namespace {
 			mwr.data = cell->getPort(ID::WR_DATA).extract(i * res.width, res.width);
 			res.wr_ports.push_back(mwr);
 		}
+		res.check();
 		return res;
 	}
 
@@ -451,6 +475,7 @@ Cell *Mem::extract_rdff(int idx) {
 	port.clk = State::S0;
 	port.clk_enable = false;
 	port.clk_polarity = true;
+	port.transparent = false;
 
 	return c;
 }
