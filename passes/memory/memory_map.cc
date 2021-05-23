@@ -34,10 +34,12 @@ struct MemoryMapWorker
 
 	RTLIL::Design *design;
 	RTLIL::Module *module;
+	SigMap sigmap;
+	FfInitVals initvals;
 
 	std::map<std::pair<RTLIL::SigSpec, RTLIL::SigSpec>, RTLIL::SigBit> decoder_cache;
 
-	MemoryMapWorker(RTLIL::Design *design, RTLIL::Module *module) : design(design), module(module) {}
+	MemoryMapWorker(RTLIL::Design *design, RTLIL::Module *module) : design(design), module(module), sigmap(module), initvals(&sigmap, module) {}
 
 	std::string map_case(std::string value) const
 	{
@@ -228,7 +230,7 @@ struct MemoryMapWorker
 		for (int i = 0; i < GetSize(mem.rd_ports); i++)
 		{
 			auto &port = mem.rd_ports[i];
-			if (mem.extract_rdff(i))
+			if (mem.extract_rdff(i, &initvals))
 				count_dff++;
 			RTLIL::SigSpec rd_addr = port.addr;
 			rd_addr.extend_u0(abits, false);
