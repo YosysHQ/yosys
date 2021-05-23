@@ -18,22 +18,11 @@
  */
 
 #include "kernel/yosys.h"
-#include "kernel/satgen.h"
 #include "kernel/sigtools.h"
-#include "kernel/modtools.h"
+#include "kernel/mem.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
-
-bool memrd_cmp(RTLIL::Cell *a, RTLIL::Cell *b)
-{
-	return a->name < b->name;
-}
-
-bool memwr_cmp(RTLIL::Cell *a, RTLIL::Cell *b)
-{
-	return a->parameters.at(ID::PRIORITY).as_int() < b->parameters.at(ID::PRIORITY).as_int();
-}
 
 struct OptMemFeedbackWorker
 {
@@ -138,7 +127,7 @@ struct OptMemFeedbackWorker
 		return conditions_logic_cache[key] = terms;
 	}
 
-	void translate_rd_feedback_to_en(std::string memid, std::vector<RTLIL::Cell*> &rd_ports, std::vector<RTLIL::Cell*> &wr_ports)
+	void translate_rd_feedback_to_en(Mem &mem)
 	{
 		std::map<RTLIL::SigSpec, std::vector<std::set<RTLIL::SigBit>>> async_rd_bits;
 		std::map<RTLIL::SigBit, std::set<RTLIL::SigBit>> muxtree_upstream_map;
@@ -173,7 +162,7 @@ struct OptMemFeedbackWorker
 			}
 
 			if (cell->type.in(ID($memwr), ID($memrd)) &&
-					cell->parameters.at(ID::MEMID).decode_string() == memid)
+					IdString(cell->parameters.at(ID::MEMID).decode_string()) == mem.memid)
 				ignore_data_port = true;
 
 			for (auto conn : cell->connections())
@@ -201,21 +190,18 @@ struct OptMemFeedbackWorker
 			expand_non_feedback_nets.swap(new_expand_non_feedback_nets);
 		}
 
-		for (auto cell : rd_ports)
+		for (auto &port : mem.rd_ports)
 		{
-			if (cell->parameters.at(ID::CLK_ENABLE).as_bool())
+			if (port.clk_enable)
 				continue;
 
-			RTLIL::SigSpec sig_addr = sigmap(cell->getPort(ID::ADDR));
-			std::vector<RTLIL::SigBit> sig_data = sigmap(cell->getPort(ID::DATA));
-
-			for (int i = 0; i < int(sig_data.size()); i++)
-				if (non_feedback_nets.count(sig_data[i]))
+			for (auto &bit : port.data)
+				if (non_feedback_nets.count(bit))
 					goto not_pure_feedback_port;
 
-			async_rd_bits[sig_addr].resize(max(async_rd_bits.size(), sig_data.size()));
-			for (int i = 0; i < int(sig_data.size()); i++)
-				async_rd_bits[sig_addr][i].insert(sig_data[i]);
+			async_rd_bits[port.addr].resize(max(GetSize(async_rd_bits), GetSize(port.data)));
+			for (int i = 0; i < GetSize(port.data); i++)
+				async_rd_bits[port.addr][i].insert(port.data[i]);
 
 		not_pure_feedback_port:;
 		}
@@ -223,35 +209,37 @@ struct OptMemFeedbackWorker
 		if (async_rd_bits.empty())
 			return;
 
-		log("Populating enable bits on write ports of memory %s.%s with aync read feedback:\n", log_id(module), log_id(memid));
+		bool changed = false;
+		log("Populating enable bits on write ports of memory %s.%s with aync read feedback:\n", log_id(module), log_id(mem.memid));
 
-		for (auto cell : wr_ports)
+		for (int i = 0; i < GetSize(mem.wr_ports); i++)
 		{
-			RTLIL::SigSpec sig_addr = sigmap_xmux(cell->getPort(ID::ADDR));
-			if (!async_rd_bits.count(sig_addr))
+			auto &port = mem.wr_ports[i];
+
+			if (!async_rd_bits.count(port.addr))
 				continue;
 
-			log("  Analyzing write port %s.\n", log_id(cell));
-
-			std::vector<RTLIL::SigBit> cell_data = cell->getPort(ID::DATA);
-			std::vector<RTLIL::SigBit> cell_en = cell->getPort(ID::EN);
+			log("  Analyzing write port %d.\n", i);
 
 			int created_conditions = 0;
-			for (int i = 0; i < int(cell_data.size()); i++)
-				if (cell_en[i] != RTLIL::SigBit(RTLIL::State::S0))
+			for (int j = 0; j < GetSize(port.data); j++)
+				if (port.en[j] != RTLIL::SigBit(RTLIL::State::S0))
 				{
 					std::map<RTLIL::SigBit, bool> state;
 					std::set<std::map<RTLIL::SigBit, bool>> conditions;
 
-					find_data_feedback(async_rd_bits.at(sig_addr).at(i), cell_data[i], state, conditions);
-					cell_en[i] = conditions_to_logic(conditions, cell_en[i], created_conditions);
+					find_data_feedback(async_rd_bits.at(port.addr).at(j), port.data[j], state, conditions);
+					port.en[j] = conditions_to_logic(conditions, port.en[j], created_conditions);
 				}
 
 			if (created_conditions) {
 				log("    Added enable logic for %d different cases.\n", created_conditions);
-				cell->setPort(ID::EN, cell_en);
+				changed = true;
 			}
 		}
+
+		if (changed)
+			mem.emit();
 	}
 
 	// -------------
@@ -262,7 +250,7 @@ struct OptMemFeedbackWorker
 
 	void operator()(RTLIL::Module* module)
 	{
-		std::map<std::string, std::pair<std::vector<RTLIL::Cell*>, std::vector<RTLIL::Cell*>>> memindex;
+		std::vector<Mem> memories = Mem::get_selected_memories(module);
 
 		this->module = module;
 		sigmap.set(module);
@@ -272,12 +260,6 @@ struct OptMemFeedbackWorker
 		sigmap_xmux = sigmap;
 		for (auto cell : module->cells())
 		{
-			if (cell->type == ID($memrd))
-				memindex[cell->parameters.at(ID::MEMID).decode_string()].first.push_back(cell);
-
-			if (cell->type == ID($memwr))
-				memindex[cell->parameters.at(ID::MEMID).decode_string()].second.push_back(cell);
-
 			if (cell->type == ID($mux))
 			{
 				RTLIL::SigSpec sig_a = sigmap_xmux(cell->getPort(ID::A));
@@ -297,11 +279,8 @@ struct OptMemFeedbackWorker
 			}
 		}
 
-		for (auto &it : memindex) {
-			std::sort(it.second.first.begin(), it.second.first.end(), memrd_cmp);
-			std::sort(it.second.second.begin(), it.second.second.end(), memwr_cmp);
-			translate_rd_feedback_to_en(it.first, it.second.first, it.second.second);
-		}
+		for (auto &mem : memories)
+			translate_rd_feedback_to_en(mem);
 	}
 };
 
