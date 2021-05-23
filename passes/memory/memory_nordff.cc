@@ -51,15 +51,19 @@ struct MemoryNordffPass : public Pass {
 		extra_args(args, argidx, design);
 
 		for (auto module : design->selected_modules())
-		for (auto &mem : Mem::get_selected_memories(module))
 		{
-			bool changed = false;
-			for (int i = 0; i < GetSize(mem.rd_ports); i++)
-				if (mem.extract_rdff(i))
-					changed = true;
+			SigMap sigmap(module);
+			FfInitVals initvals(&sigmap, module);
+			for (auto &mem : Mem::get_selected_memories(module))
+			{
+				bool changed = false;
+				for (int i = 0; i < GetSize(mem.rd_ports); i++)
+					if (mem.extract_rdff(i, &initvals))
+						changed = true;
 
-			if (changed)
-				mem.emit();
+				if (changed)
+					mem.emit();
+			}
 		}
 	}
 } MemoryNordffPass;

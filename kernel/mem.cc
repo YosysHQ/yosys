@@ -445,7 +445,7 @@ std::vector<Mem> Mem::get_selected_memories(Module *module) {
 	return res;
 }
 
-Cell *Mem::extract_rdff(int idx) {
+Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 	MemRd &port = rd_ports[idx];
 
 	if (!port.clk_enable)
