@@ -1083,7 +1083,7 @@ struct BtorWorker
 		for (auto &mem : memories)
 			mem_dict[mem.memid] = &mem;
 		for (auto cell : module->cells())
-			if (cell->type.in(ID($mem), ID($memwr), ID($memrd), ID($meminit)))
+			if (cell->is_mem_cell())
 				mem_cells[cell] = mem_dict[cell->parameters.at(ID::MEMID).decode_string()];
 
 		btorf_push("inputs");
