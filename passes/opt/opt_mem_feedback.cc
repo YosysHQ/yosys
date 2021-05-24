@@ -24,30 +24,52 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+// Describes found feedback path.
+struct FeedbackPath {
+	// Which write port it is.
+	int wrport_idx;
+	// Which data bit of that write port it is.
+	int data_bit_idx;
+	// Values of all mux select signals that need to be set to select this path.
+	dict<RTLIL::SigBit, bool> condition;
+	// The exact feedback bit used (used to match read port).
+	SigBit feedback_bit;
+
+	FeedbackPath(int wrport_idx, int data_bit_idx, dict<RTLIL::SigBit, bool> condition, SigBit feedback_bit) : wrport_idx(wrport_idx), data_bit_idx(data_bit_idx), condition(condition), feedback_bit(feedback_bit) {}
+};
+
 struct OptMemFeedbackWorker
 {
 	RTLIL::Design *design;
 	RTLIL::Module *module;
 	SigMap sigmap, sigmap_xmux;
 
-	std::map<RTLIL::SigBit, std::pair<RTLIL::Cell*, int>> sig_to_mux;
-	std::map<pair<std::set<std::map<SigBit, bool>>, SigBit>, SigBit> conditions_logic_cache;
+	dict<RTLIL::SigBit, std::pair<RTLIL::Cell*, int>> sig_to_mux;
+	dict<RTLIL::SigBit, int> sig_users_count;
+	dict<pair<pool<dict<SigBit, bool>>, SigBit>, SigBit> conditions_logic_cache;
 
 
 	// -----------------------------------------------------------------
 	// Converting feedbacks to async read ports to proper enable signals
 	// -----------------------------------------------------------------
 
-	bool find_data_feedback(const std::set<RTLIL::SigBit> &async_rd_bits, RTLIL::SigBit sig,
-			std::map<RTLIL::SigBit, bool> &state, std::set<std::map<RTLIL::SigBit, bool>> &conditions)
+	void find_data_feedback(const pool<RTLIL::SigBit> &async_rd_bits, RTLIL::SigBit sig,
+			const dict<RTLIL::SigBit, bool> &state,
+			int wrport_idx, int data_bit_idx,
+			std::vector<FeedbackPath> &paths)
 	{
 		if (async_rd_bits.count(sig)) {
-			conditions.insert(state);
-			return true;
+			paths.push_back(FeedbackPath(wrport_idx, data_bit_idx, state, sig));
+			return;
+		}
+
+		if (sig_users_count[sig] != 1) {
+			// Only descend into muxes if we're the only user.
+			return;
 		}
 
 		if (sig_to_mux.count(sig) == 0)
-			return false;
+			return;
 
 		RTLIL::Cell *cell = sig_to_mux.at(sig).first;
 		int bit_idx = sig_to_mux.at(sig).second;
@@ -58,46 +80,32 @@ struct OptMemFeedbackWorker
 		std::vector<RTLIL::SigBit> sig_y = sigmap(cell->getPort(ID::Y));
 		log_assert(sig_y.at(bit_idx) == sig);
 
-		for (int i = 0; i < int(sig_s.size()); i++)
+		for (int i = 0; i < GetSize(sig_s); i++)
 			if (state.count(sig_s[i]) && state.at(sig_s[i]) == true) {
-				if (find_data_feedback(async_rd_bits, sig_b.at(bit_idx + i*sig_y.size()), state, conditions)) {
-					RTLIL::SigSpec new_b = cell->getPort(ID::B);
-					new_b.replace(bit_idx + i*sig_y.size(), RTLIL::State::Sx);
-					cell->setPort(ID::B, new_b);
-				}
-				return false;
+				find_data_feedback(async_rd_bits, sig_b.at(bit_idx + i*sig_y.size()), state, wrport_idx, data_bit_idx, paths);
+				return;
 			}
 
 
-		for (int i = 0; i < int(sig_s.size()); i++)
+		for (int i = 0; i < GetSize(sig_s); i++)
 		{
 			if (state.count(sig_s[i]) && state.at(sig_s[i]) == false)
 				continue;
 
-			std::map<RTLIL::SigBit, bool> new_state = state;
+			dict<RTLIL::SigBit, bool> new_state = state;
 			new_state[sig_s[i]] = true;
 
-			if (find_data_feedback(async_rd_bits, sig_b.at(bit_idx + i*sig_y.size()), new_state, conditions)) {
-				RTLIL::SigSpec new_b = cell->getPort(ID::B);
-				new_b.replace(bit_idx + i*sig_y.size(), RTLIL::State::Sx);
-				cell->setPort(ID::B, new_b);
-			}
+			find_data_feedback(async_rd_bits, sig_b.at(bit_idx + i*sig_y.size()), new_state, wrport_idx, data_bit_idx, paths);
 		}
 
-		std::map<RTLIL::SigBit, bool> new_state = state;
-		for (int i = 0; i < int(sig_s.size()); i++)
-			new_state[sig_s[i]] = false;
+		dict<RTLIL::SigBit, bool> new_state = state;
+		for (auto bit : sig_s)
+			new_state[bit] = false;
 
-		if (find_data_feedback(async_rd_bits, sig_a.at(bit_idx), new_state, conditions)) {
-			RTLIL::SigSpec new_a = cell->getPort(ID::A);
-			new_a.replace(bit_idx, RTLIL::State::Sx);
-			cell->setPort(ID::A, new_a);
-		}
-
-		return false;
+		find_data_feedback(async_rd_bits, sig_a.at(bit_idx), new_state, wrport_idx, data_bit_idx, paths);
 	}
 
-	RTLIL::SigBit conditions_to_logic(std::set<std::map<RTLIL::SigBit, bool>> &conditions, SigBit olden, int &created_conditions)
+	RTLIL::SigBit conditions_to_logic(pool<dict<RTLIL::SigBit, bool>> &conditions, SigBit olden)
 	{
 		auto key = make_pair(conditions, olden);
 
@@ -112,10 +120,9 @@ struct OptMemFeedbackWorker
 				sig2.append(it.second ? RTLIL::State::S1 : RTLIL::State::S0);
 			}
 			terms.append(module->Ne(NEW_ID, sig1, sig2));
-			created_conditions++;
 		}
 
-		if (olden.wire != nullptr || olden != State::S1)
+		if (olden != State::S1)
 			terms.append(olden);
 
 		if (GetSize(terms) == 0)
@@ -129,117 +136,113 @@ struct OptMemFeedbackWorker
 
 	void translate_rd_feedback_to_en(Mem &mem)
 	{
-		std::map<RTLIL::SigSpec, std::vector<std::set<RTLIL::SigBit>>> async_rd_bits;
-		std::map<RTLIL::SigBit, std::set<RTLIL::SigBit>> muxtree_upstream_map;
-		std::set<RTLIL::SigBit> non_feedback_nets;
-
-		for (auto wire : module->wires())
-			if (wire->port_output) {
-				std::vector<RTLIL::SigBit> bits = sigmap(wire);
-				non_feedback_nets.insert(bits.begin(), bits.end());
-			}
-
-		for (auto cell : module->cells())
-		{
-			bool ignore_data_port = false;
-
-			if (cell->type.in(ID($mux), ID($pmux)))
-			{
-				std::vector<RTLIL::SigBit> sig_a = sigmap(cell->getPort(ID::A));
-				std::vector<RTLIL::SigBit> sig_b = sigmap(cell->getPort(ID::B));
-				std::vector<RTLIL::SigBit> sig_s = sigmap(cell->getPort(ID::S));
-				std::vector<RTLIL::SigBit> sig_y = sigmap(cell->getPort(ID::Y));
-
-				non_feedback_nets.insert(sig_s.begin(), sig_s.end());
-
-				for (int i = 0; i < int(sig_y.size()); i++) {
-					muxtree_upstream_map[sig_y[i]].insert(sig_a[i]);
-					for (int j = 0; j < int(sig_s.size()); j++)
-						muxtree_upstream_map[sig_y[i]].insert(sig_b[i + j*sig_y.size()]);
-				}
-
-				continue;
-			}
-
-			if (cell->type.in(ID($memwr), ID($memrd)) &&
-					IdString(cell->parameters.at(ID::MEMID).decode_string()) == mem.memid)
-				ignore_data_port = true;
-
-			for (auto conn : cell->connections())
-			{
-				if (ignore_data_port && conn.first == ID::DATA)
-					continue;
-				std::vector<RTLIL::SigBit> bits = sigmap(conn.second);
-				non_feedback_nets.insert(bits.begin(), bits.end());
-			}
-		}
-
-		std::set<RTLIL::SigBit> expand_non_feedback_nets = non_feedback_nets;
-		while (!expand_non_feedback_nets.empty())
-		{
-			std::set<RTLIL::SigBit> new_expand_non_feedback_nets;
-
-			for (auto &bit : expand_non_feedback_nets)
-				if (muxtree_upstream_map.count(bit))
-					for (auto &new_bit : muxtree_upstream_map.at(bit))
-						if (!non_feedback_nets.count(new_bit)) {
-							non_feedback_nets.insert(new_bit);
-							new_expand_non_feedback_nets.insert(new_bit);
-						}
-
-			expand_non_feedback_nets.swap(new_expand_non_feedback_nets);
-		}
+		// Look for async read ports that may be suitable for feedback paths.
+		dict<RTLIL::SigSpec, std::vector<pool<RTLIL::SigBit>>> async_rd_bits;
 
 		for (auto &port : mem.rd_ports)
 		{
 			if (port.clk_enable)
 				continue;
 
-			for (auto &bit : port.data)
-				if (non_feedback_nets.count(bit))
-					goto not_pure_feedback_port;
+			SigSpec addr = sigmap_xmux(port.addr);
 
-			async_rd_bits[port.addr].resize(max(GetSize(async_rd_bits), GetSize(port.data)));
-			for (int i = 0; i < GetSize(port.data); i++)
-				async_rd_bits[port.addr][i].insert(port.data[i]);
-
-		not_pure_feedback_port:;
+			async_rd_bits[addr].resize(mem.width);
+			for (int i = 0; i < mem.width; i++)
+				async_rd_bits[addr][i].insert(sigmap(port.data[i]));
 		}
 
 		if (async_rd_bits.empty())
 			return;
 
-		bool changed = false;
-		log("Populating enable bits on write ports of memory %s.%s with aync read feedback:\n", log_id(module), log_id(mem.memid));
+		// Look for actual feedback paths.
+		std::vector<FeedbackPath> paths;
 
 		for (int i = 0; i < GetSize(mem.wr_ports); i++)
 		{
 			auto &port = mem.wr_ports[i];
 
-			if (!async_rd_bits.count(port.addr))
+			SigSpec addr = sigmap_xmux(port.addr);
+
+			if (!async_rd_bits.count(addr))
 				continue;
 
-			log("  Analyzing write port %d.\n", i);
+			log("  Analyzing %s.%s write port %d.\n", log_id(module), log_id(mem.memid), i);
 
-			int created_conditions = 0;
 			for (int j = 0; j < GetSize(port.data); j++)
-				if (port.en[j] != RTLIL::SigBit(RTLIL::State::S0))
-				{
-					std::map<RTLIL::SigBit, bool> state;
-					std::set<std::map<RTLIL::SigBit, bool>> conditions;
+			{
+				if (port.en[j] == State::S0)
+					continue;
 
-					find_data_feedback(async_rd_bits.at(port.addr).at(j), port.data[j], state, conditions);
-					port.en[j] = conditions_to_logic(conditions, port.en[j], created_conditions);
-				}
+				dict<RTLIL::SigBit, bool> state;
 
-			if (created_conditions) {
-				log("    Added enable logic for %d different cases.\n", created_conditions);
-				changed = true;
+				find_data_feedback(async_rd_bits.at(addr).at(j), sigmap(port.data[j]), state, i, j, paths);
 			}
 		}
 
-		if (changed)
-			mem.emit();
+		if (paths.empty())
+			return;
+
+		// Now determine which read ports are actually used only for
+		// feedback paths, and can be removed.
+
+		dict<SigBit, int> feedback_users_count;
+		for (auto &path : paths)
+			feedback_users_count[path.feedback_bit]++;
+
+		pool<SigBit> feedback_ok;
+		for (auto &port : mem.rd_ports)
+		{
+			if (port.clk_enable)
+				continue;
+
+			bool ok = true;
+			for (auto bit : sigmap(port.data))
+				if (sig_users_count[bit] != feedback_users_count[bit])
+					ok = false;
+
+			if (ok)
+			{
+				// This port is going bye-bye.
+				for (auto bit : sigmap(port.data))
+					feedback_ok.insert(bit);
+
+				port.removed = true;
+			}
+		}
+
+		if (feedback_ok.empty())
+			return;
+
+		// Prepare a feedback condition list grouped by port bits.
+
+		dict<std::pair<int, int>, pool<dict<SigBit, bool>>> portbit_conds;
+		for (auto &path : paths)
+			if (feedback_ok.count(path.feedback_bit))
+				portbit_conds[std::make_pair(path.wrport_idx, path.data_bit_idx)].insert(path.condition);
+
+		if (portbit_conds.empty())
+			return;
+
+		// Okay, let's do it.
+
+		log("Populating enable bits on write ports of memory %s.%s with async read feedback:\n", log_id(module), log_id(mem.memid));
+
+		for (auto &it : portbit_conds)
+		{
+			int wrport_idx = it.first.first;
+			int bit = it.first.second;
+			auto &port = mem.wr_ports[wrport_idx];
+
+			port.en[bit] = conditions_to_logic(it.second, port.en[bit]);
+			log("    Port %d bit %d: added enable logic for %d different cases.\n", wrport_idx, bit, GetSize(it.second));
+		}
+
+		mem.emit();
+
+		for (auto bit : feedback_ok)
+			module->connect(bit, State::Sx);
+
+		design->scratchpad_set_bool("opt.did_something", true);
 	}
 
 	// -------------
@@ -258,6 +261,13 @@ struct OptMemFeedbackWorker
 		conditions_logic_cache.clear();
 
 		sigmap_xmux = sigmap;
+
+		for (auto wire : module->wires()) {
+			if (wire->port_output)
+				for (auto bit : sigmap(wire))
+					sig_users_count[bit]++;
+		}
+
 		for (auto cell : module->cells())
 		{
 			if (cell->type == ID($mux))
@@ -277,6 +287,11 @@ struct OptMemFeedbackWorker
 				for (int i = 0; i < int(sig_y.size()); i++)
 					sig_to_mux[sig_y[i]] = std::pair<RTLIL::Cell*, int>(cell, i);
 			}
+
+			for (auto &conn : cell->connections())
+				if (!cell->known() || cell->input(conn.first))
+					for (auto bit : sigmap(conn.second))
+						sig_users_count[bit]++;
 		}
 
 		for (auto &mem : memories)
@@ -292,10 +307,10 @@ struct OptMemFeedbackPass : public Pass {
 		log("\n");
 		log("    opt_mem_feedback [selection]\n");
 		log("\n");
-		log("This pass detects cases where an asynchronous read port is connected via\n");
-		log("a mux tree to a write port with the same address.  When such a path is\n");
-		log("found, it is replaced with a new condition on an enable signal, possibly\n");
-		log("allowing for removal of the read port.\n");
+		log("This pass detects cases where an asynchronous read port is only connected via\n");
+		log("a mux tree to a write port with the same address.  When such a connection is\n");
+		log("found, it is replaced with a new condition on an enable signal, allowing\n");
+		log("for removal of the read port.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
