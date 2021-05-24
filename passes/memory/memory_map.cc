@@ -153,11 +153,9 @@ struct MemoryMapWorker
 				continue;
 			}
 			if (!port.clk_enable) {
-				if (port.addr.is_fully_const()) {
-					// FIXME: Actually we should check for port.en.is_fully_const() also and
-					// create a $adff cell with this ports port.en input as reset pin when port.en
-					// is not a simple static 1.
-					static_cells_map[port.addr.as_int() - mem.start_offset] = port.data;
+				if (port.addr.is_fully_const() && port.en.is_fully_ones()) {
+					for (int sub = 0; sub < (1 << port.wide_log2); sub++)
+						static_cells_map[port.addr.as_int() - mem.start_offset + sub] = port.data.extract(sub * mem.width, mem.width);
 					static_ports.insert(i);
 					continue;
 				}
@@ -241,20 +239,20 @@ struct MemoryMapWorker
 			std::vector<RTLIL::SigSpec> rd_signals;
 			rd_signals.push_back(port.data);
 
-			for (int j = 0; j < abits; j++)
+			for (int j = 0; j < abits - port.wide_log2; j++)
 			{
 				std::vector<RTLIL::SigSpec> next_rd_signals;
 
 				for (size_t k = 0; k < rd_signals.size(); k++)
 				{
 					RTLIL::Cell *c = module->addCell(genid(mem.memid, "$rdmux", i, "", j, "", k), ID($mux));
-					c->parameters[ID::WIDTH] = mem.width;
+					c->parameters[ID::WIDTH] = GetSize(port.data);
 					c->setPort(ID::Y, rd_signals[k]);
 					c->setPort(ID::S, rd_addr.extract(abits-j-1, 1));
 					count_mux++;
 
-					c->setPort(ID::A, module->addWire(genid(mem.memid, "$rdmux", i, "", j, "", k, "$a"), mem.width));
-					c->setPort(ID::B, module->addWire(genid(mem.memid, "$rdmux", i, "", j, "", k, "$b"), mem.width));
+					c->setPort(ID::A, module->addWire(genid(mem.memid, "$rdmux", i, "", j, "", k, "$a"), GetSize(port.data)));
+					c->setPort(ID::B, module->addWire(genid(mem.memid, "$rdmux", i, "", j, "", k, "$b"), GetSize(port.data)));
 
 					next_rd_signals.push_back(c->getPort(ID::A));
 					next_rd_signals.push_back(c->getPort(ID::B));
@@ -264,7 +262,7 @@ struct MemoryMapWorker
 			}
 
 			for (int j = 0; j < mem.size; j++)
-				module->connect(RTLIL::SigSig(rd_signals[j], data_reg_out[j]));
+				module->connect(RTLIL::SigSig(rd_signals[j >> port.wide_log2].extract((j & ((1 << port.wide_log2) - 1)) * mem.width, mem.width), data_reg_out[j]));
 		}
 
 		log("  read interface: %d $dff and %d $mux cells.\n", count_dff, count_mux);
@@ -284,16 +282,19 @@ struct MemoryMapWorker
 				if (mem.start_offset)
 					wr_addr = module->Sub(NEW_ID, wr_addr, SigSpec(mem.start_offset, GetSize(wr_addr)));
 
-				RTLIL::Wire *w_seladdr = addr_decode(wr_addr, RTLIL::SigSpec(i, GetSize(wr_addr)));
+				wr_addr = wr_addr.extract_end(port.wide_log2);
+				RTLIL::Wire *w_seladdr = addr_decode(wr_addr, RTLIL::SigSpec(i >> port.wide_log2, GetSize(wr_addr)));
+
+				int sub = i & ((1 << port.wide_log2) - 1);
 
 				int wr_offset = 0;
-				while (wr_offset < port.en.size())
+				while (wr_offset < mem.width)
 				{
 					int wr_width = 1;
-					RTLIL::SigSpec wr_bit = port.en.extract(wr_offset, 1);
+					RTLIL::SigSpec wr_bit = port.en.extract(wr_offset + sub * mem.width, 1);
 
-					while (wr_offset + wr_width < port.en.size()) {
-						RTLIL::SigSpec next_wr_bit = port.en.extract(wr_offset + wr_width, 1);
+					while (wr_offset + wr_width < mem.width) {
+						RTLIL::SigSpec next_wr_bit = port.en.extract(wr_offset + wr_width + sub * mem.width, 1);
 						if (next_wr_bit != wr_bit)
 							break;
 						wr_width++;
@@ -319,7 +320,7 @@ struct MemoryMapWorker
 					RTLIL::Cell *c = module->addCell(genid(mem.memid, "$wrmux", i, "", j, "", wr_offset), ID($mux));
 					c->parameters[ID::WIDTH] = wr_width;
 					c->setPort(ID::A, sig.extract(wr_offset, wr_width));
-					c->setPort(ID::B, port.data.extract(wr_offset, wr_width));
+					c->setPort(ID::B, port.data.extract(wr_offset + sub * mem.width, wr_width));
 					c->setPort(ID::S, RTLIL::SigSpec(w));
 
 					w = module->addWire(genid(mem.memid, "$wrmux", i, "", j, "", wr_offset, "$y"), wr_width);
