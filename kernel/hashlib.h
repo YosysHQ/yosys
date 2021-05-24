@@ -66,6 +66,12 @@ struct hash_int_ops {
 	}
 };
 
+template<> struct hash_ops<bool> : hash_int_ops
+{
+	static inline unsigned int hash(bool a) {
+		return a ? 1 : 0;
+	}
+};
 template<> struct hash_ops<int32_t> : hash_int_ops
 {
 	static inline unsigned int hash(int32_t a) {
