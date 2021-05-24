@@ -108,10 +108,8 @@ void Mem::emit() {
 		cell->parameters[ID::WIDTH] = Const(width);
 		cell->parameters[ID::OFFSET] = Const(start_offset);
 		cell->parameters[ID::SIZE] = Const(size);
-		cell->parameters[ID::RD_PORTS] = Const(GetSize(rd_ports));
-		cell->parameters[ID::WR_PORTS] = Const(GetSize(wr_ports));
-		Const rd_clk_enable, rd_clk_polarity, rd_transparent;
-		Const wr_clk_enable, wr_clk_polarity;
+		Const rd_wide_continuation, rd_clk_enable, rd_clk_polarity, rd_transparent;
+		Const wr_wide_continuation, wr_clk_enable, wr_clk_polarity;
 		SigSpec rd_clk, rd_en, rd_addr, rd_data;
 		SigSpec wr_clk, wr_en, wr_addr, wr_data;
 		int abits = 0;
@@ -121,31 +119,34 @@ void Mem::emit() {
 			abits = std::max(abits, GetSize(port.addr));
 		cell->parameters[ID::ABITS] = Const(abits);
 		for (auto &port : rd_ports) {
-			// TODO: remove
-			log_assert(port.wide_log2 == 0);
 			if (port.cell) {
 				module->remove(port.cell);
 				port.cell = nullptr;
 			}
-			rd_clk_enable.bits.push_back(State(port.clk_enable));
-			rd_clk_polarity.bits.push_back(State(port.clk_polarity));
-			rd_transparent.bits.push_back(State(port.transparent));
-			rd_clk.append(port.clk);
-			log_assert(GetSize(port.clk) == 1);
-			rd_en.append(port.en);
-			log_assert(GetSize(port.en) == 1);
-			SigSpec addr = port.addr;
-			addr.extend_u0(abits, false);
-			rd_addr.append(addr);
-			log_assert(GetSize(addr) == abits);
+			for (int sub = 0; sub < (1 << port.wide_log2); sub++)
+			{
+				rd_wide_continuation.bits.push_back(State(sub != 0));
+				rd_clk_enable.bits.push_back(State(port.clk_enable));
+				rd_clk_polarity.bits.push_back(State(port.clk_polarity));
+				rd_transparent.bits.push_back(State(port.transparent));
+				rd_clk.append(port.clk);
+				rd_en.append(port.en);
+				SigSpec addr = port.addr;
+				addr.extend_u0(abits, false);
+				for (int i = 0; i < port.wide_log2; i++)
+					addr[i] = State(sub >> i & 1);
+				rd_addr.append(addr);
+				log_assert(GetSize(addr) == abits);
+			}
 			rd_data.append(port.data);
-			log_assert(GetSize(port.data) == width);
 		}
 		if (rd_ports.empty()) {
+			rd_wide_continuation = State::S0;
 			rd_clk_enable = State::S0;
 			rd_clk_polarity = State::S0;
 			rd_transparent = State::S0;
 		}
+		cell->parameters[ID::RD_PORTS] = Const(GetSize(rd_clk));
 		cell->parameters[ID::RD_CLK_ENABLE] = rd_clk_enable;
 		cell->parameters[ID::RD_CLK_POLARITY] = rd_clk_polarity;
 		cell->parameters[ID::RD_TRANSPARENT] = rd_transparent;
@@ -154,29 +155,32 @@ void Mem::emit() {
 		cell->setPort(ID::RD_ADDR, rd_addr);
 		cell->setPort(ID::RD_DATA, rd_data);
 		for (auto &port : wr_ports) {
-			// TODO: remove
-			log_assert(port.wide_log2 == 0);
 			if (port.cell) {
 				module->remove(port.cell);
 				port.cell = nullptr;
 			}
-			wr_clk_enable.bits.push_back(State(port.clk_enable));
-			wr_clk_polarity.bits.push_back(State(port.clk_polarity));
-			wr_clk.append(port.clk);
-			log_assert(GetSize(port.clk) == 1);
+			for (int sub = 0; sub < (1 << port.wide_log2); sub++)
+			{
+				wr_wide_continuation.bits.push_back(State(sub != 0));
+				wr_clk_enable.bits.push_back(State(port.clk_enable));
+				wr_clk_polarity.bits.push_back(State(port.clk_polarity));
+				wr_clk.append(port.clk);
+				SigSpec addr = port.addr;
+				addr.extend_u0(abits, false);
+				for (int i = 0; i < port.wide_log2; i++)
+					addr[i] = State(sub >> i & 1);
+				wr_addr.append(addr);
+				log_assert(GetSize(addr) == abits);
+			}
 			wr_en.append(port.en);
-			log_assert(GetSize(port.en) == width);
-			SigSpec addr = port.addr;
-			addr.extend_u0(abits, false);
-			wr_addr.append(addr);
-			log_assert(GetSize(addr) == abits);
 			wr_data.append(port.data);
-			log_assert(GetSize(port.data) == width);
 		}
 		if (wr_ports.empty()) {
+			wr_wide_continuation = State::S0;
 			wr_clk_enable = State::S0;
 			wr_clk_polarity = State::S0;
 		}
+		cell->parameters[ID::WR_PORTS] = Const(GetSize(wr_clk));
 		cell->parameters[ID::WR_CLK_ENABLE] = wr_clk_enable;
 		cell->parameters[ID::WR_CLK_POLARITY] = wr_clk_polarity;
 		cell->setPort(ID::WR_CLK, wr_clk);
