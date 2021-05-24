@@ -143,6 +143,7 @@ struct MemoryShareWorker
 		bool cache_clk_enable = false;
 		bool cache_clk_polarity = false;
 		RTLIL::SigSpec cache_clk;
+		int cache_wide_log2 = 0;
 
 		bool changed = false;
 
@@ -152,12 +153,14 @@ struct MemoryShareWorker
 			RTLIL::SigSpec addr = sigmap_xmux(port.addr);
 
 			if (port.clk_enable != cache_clk_enable ||
+					port.wide_log2 != cache_wide_log2 ||
 					(cache_clk_enable && (sigmap(port.clk) != cache_clk ||
 					port.clk_polarity != cache_clk_polarity)))
 			{
 				cache_clk_enable = port.clk_enable;
 				cache_clk_polarity = port.clk_polarity;
 				cache_clk = sigmap(port.clk);
+				cache_wide_log2 = port.wide_log2;
 				last_port_by_addr.clear();
 
 				if (cache_clk_enable)
@@ -290,18 +293,21 @@ struct MemoryShareWorker
 		bool cache_clk_enable = false;
 		bool cache_clk_polarity = false;
 		RTLIL::SigSpec cache_clk;
+		int cache_wide_log2 = 0;
 
 		for (int i = 0; i < GetSize(mem.wr_ports); i++)
 		{
 			auto &port = mem.wr_ports[i];
 
 			if (port.clk_enable != cache_clk_enable ||
+					port.wide_log2 != cache_wide_log2 ||
 					(cache_clk_enable && (sigmap(port.clk) != cache_clk ||
 					port.clk_polarity != cache_clk_polarity)))
 			{
 				cache_clk_enable = port.clk_enable;
 				cache_clk_polarity = port.clk_polarity;
 				cache_clk = sigmap(port.clk);
+				cache_wide_log2 = port.wide_log2;
 			}
 			else if (i > 0 && considered_ports.count(i-1) && considered_ports.count(i))
 				considered_port_pairs.insert(i);
