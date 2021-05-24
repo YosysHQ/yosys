@@ -144,11 +144,14 @@ struct OptMemFeedbackWorker
 			if (port.clk_enable)
 				continue;
 
-			SigSpec addr = sigmap_xmux(port.addr);
-
-			async_rd_bits[addr].resize(mem.width);
-			for (int i = 0; i < mem.width; i++)
-				async_rd_bits[addr][i].insert(sigmap(port.data[i]));
+			for (int sub = 0; sub < (1 << port.wide_log2); sub++) {
+				SigSpec addr = sigmap_xmux(port.addr);
+				for (int i = 0; i < port.wide_log2; i++)
+					addr[i] = State(sub >> i & 1);
+				async_rd_bits[addr].resize(mem.width);
+				for (int i = 0; i < mem.width; i++)
+					async_rd_bits[addr][i].insert(sigmap(port.data[i + sub * mem.width]));
+			}
 		}
 
 		if (async_rd_bits.empty())
@@ -161,21 +164,28 @@ struct OptMemFeedbackWorker
 		{
 			auto &port = mem.wr_ports[i];
 
-			SigSpec addr = sigmap_xmux(port.addr);
-
-			if (!async_rd_bits.count(addr))
-				continue;
-
 			log("  Analyzing %s.%s write port %d.\n", log_id(module), log_id(mem.memid), i);
 
-			for (int j = 0; j < GetSize(port.data); j++)
+			for (int sub = 0; sub < (1 << port.wide_log2); sub++)
 			{
-				if (port.en[j] == State::S0)
+				SigSpec addr = sigmap_xmux(port.addr);
+				for (int k = 0; k < port.wide_log2; k++)
+					addr[k] = State(sub >> k & 1);
+
+				if (!async_rd_bits.count(addr))
 					continue;
 
-				dict<RTLIL::SigBit, bool> state;
+				for (int j = 0; j < mem.width; j++)
+				{
+					int bit_idx = sub * mem.width + j;
 
-				find_data_feedback(async_rd_bits.at(addr).at(j), sigmap(port.data[j]), state, i, j, paths);
+					if (port.en[bit_idx] == State::S0)
+						continue;
+
+					dict<RTLIL::SigBit, bool> state;
+
+					find_data_feedback(async_rd_bits.at(addr).at(j), sigmap(port.data[bit_idx]), state, i, bit_idx, paths);
+				}
 			}
 		}
 
