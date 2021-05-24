@@ -334,7 +334,7 @@ struct SimInstance
 		{
 			auto &port = mem.rd_ports[port_idx];
 			Const addr = get_state(port.addr);
-			Const data = Const(State::Sx, mem.width);
+			Const data = Const(State::Sx, mem.width << port.wide_log2);
 
 			if (port.clk_enable)
 				log_error("Memory %s.%s has clocked read ports. Run 'memory' with -nordff.\n", log_id(module), log_id(mem.memid));
@@ -342,7 +342,7 @@ struct SimInstance
 			if (addr.is_fully_def()) {
 				int index = addr.as_int() - mem.start_offset;
 				if (index >= 0 && index < mem.size)
-					data = mdb.data.extract(index*mem.width, mem.width);
+					data = mdb.data.extract(index*mem.width, mem.width << port.wide_log2);
 			}
 
 			set_state(port.data, data);
@@ -457,7 +457,7 @@ struct SimInstance
 				{
 					int index = addr.as_int() - mem.start_offset;
 					if (index >= 0 && index < mem.size)
-						for (int i = 0; i < mem.width; i++)
+						for (int i = 0; i < (mem.width << port.wide_log2); i++)
 							if (enable[i] == State::S1 && mdb.data.bits.at(index*mem.width+i) != data[i]) {
 								mdb.data.bits.at(index*mem.width+i) = data[i];
 								dirty_memories.insert(mem.memid);
