@@ -548,3 +548,54 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 
 	return c;
 }
+
+void Mem::narrow() {
+	std::vector<MemRd> new_rd_ports;
+	std::vector<MemWr> new_wr_ports;
+	std::vector<std::pair<int, int>> new_rd_map;
+	std::vector<std::pair<int, int>> new_wr_map;
+	for (int i = 0; i < GetSize(rd_ports); i++) {
+		auto &port = rd_ports[i];
+		for (int sub = 0; sub < (1 << port.wide_log2); sub++) {
+			new_rd_map.push_back(std::make_pair(i, sub));
+		}
+	}
+	for (int i = 0; i < GetSize(wr_ports); i++) {
+		auto &port = wr_ports[i];
+		for (int sub = 0; sub < (1 << port.wide_log2); sub++) {
+			new_wr_map.push_back(std::make_pair(i, sub));
+		}
+	}
+	for (auto &it : new_rd_map) {
+		MemRd &orig = rd_ports[it.first];
+		MemRd port = orig;
+		if (it.second != 0)
+			port.cell = nullptr;
+		if (port.wide_log2) {
+			port.data = port.data.extract(it.second * width, width);
+			for (int i = 0; i < port.wide_log2; i++)
+				port.addr[i] = State(it.second >> i & 1);
+			port.wide_log2 = 0;
+		}
+		new_rd_ports.push_back(port);
+	}
+	for (auto &it : new_wr_map) {
+		MemWr &orig = wr_ports[it.first];
+		MemWr port = orig;
+		if (it.second != 0)
+			port.cell = nullptr;
+		if (port.wide_log2) {
+			port.data = port.data.extract(it.second * width, width);
+			port.en = port.en.extract(it.second * width, width);
+			for (int i = 0; i < port.wide_log2; i++)
+				port.addr[i] = State(it.second >> i & 1);
+			port.wide_log2 = 0;
+		}
+		port.priority_mask.clear();
+		for (auto &it2 : new_wr_map)
+			port.priority_mask.push_back(orig.priority_mask[it2.first]);
+		new_wr_ports.push_back(port);
+	}
+	std::swap(rd_ports, new_rd_ports);
+	std::swap(wr_ports, new_wr_ports);
+}
