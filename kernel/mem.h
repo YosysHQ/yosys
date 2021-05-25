@@ -77,6 +77,12 @@ struct Mem {
 	Cell *extract_rdff(int idx, FfInitVals *initvals);
 	void narrow();
 
+	// If write port idx2 currently has priority over write port idx1,
+	// inserts extra logic on idx1's enable signal to disable writes
+	// when idx2 is writing to the same address, then removes the priority
+	// from the priority mask.
+	void emulate_priority(int idx1, int idx2);
+
 	Mem(Module *module, IdString memid, int width, int start_offset, int size) : module(module), memid(memid), packed(false), mem(nullptr), cell(nullptr), width(width), start_offset(start_offset), size(size) {}
 };
 
