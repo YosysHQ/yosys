@@ -579,7 +579,8 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 			if (port.addr[i].wire)
 				width++;
 
-		if (width) {
+		if (width)
+		{
 			SigSpec sig_q = module->addWire(stringf("$%s$rdreg[%d]$q", memid.c_str(), idx), width);
 			SigSpec sig_d;
 
@@ -591,6 +592,8 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 				}
 
 			c = module->addDff(stringf("$%s$rdreg[%d]", memid.c_str(), idx), port.clk, sig_d, sig_q, port.clk_polarity);
+		} else {
+			c = nullptr;
 		}
 	}
 	else

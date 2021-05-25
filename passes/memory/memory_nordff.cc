@@ -57,9 +57,12 @@ struct MemoryNordffPass : public Pass {
 			for (auto &mem : Mem::get_selected_memories(module))
 			{
 				bool changed = false;
-				for (int i = 0; i < GetSize(mem.rd_ports); i++)
-					if (mem.extract_rdff(i, &initvals))
+				for (int i = 0; i < GetSize(mem.rd_ports); i++) {
+					if (mem.rd_ports[i].clk_enable) {
+						mem.extract_rdff(i, &initvals);
 						changed = true;
+					}
+				}
 
 				if (changed)
 					mem.emit();
