@@ -550,13 +550,28 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 
 	Cell *c;
 
-	if (port.transparent)
-	{
-		log_assert(port.en == State::S1);
-		log_assert(port.srst == State::S0);
-		log_assert(port.arst == State::S0);
-		log_assert(port.init_value.is_fully_undef());
+	// There are two ways to handle rdff extraction when transparency is involved:
+	//
+	// - if all of the following conditions are true, put the FF on address input:
+	//
+	//   - the port has no clock enable, no reset, and no initial value
+	//   - the port is transparent wrt all write ports (implying they also share
+	//     the clock domain)
+	//
+	// - otherwise, put the FF on the data output, and make bypass paths for
+	//   all write ports wrt which this port is transparent
+	bool trans_use_addr = port.transparent;
 
+	// If there are no write ports at all, we could possibly use either way; do data
+	// FF in this case.
+	if (GetSize(wr_ports) == 0)
+		trans_use_addr = false;
+
+	if (port.en != State::S1 || port.srst != State::S0 || port.arst != State::S0 || !port.init_value.is_fully_undef())
+		trans_use_addr = false;
+
+	if (trans_use_addr)
+	{
 		// Do not put a register in front of constant address bits — this is both
 		// unnecessary and will break wide ports.
 		int width = 0;
@@ -564,23 +579,70 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 			if (port.addr[i].wire)
 				width++;
 
-		SigSpec sig_q = module->addWire(stringf("$%s$rdreg[%d]$q", memid.c_str(), idx), width);
-		SigSpec sig_d;
+		if (width) {
+			SigSpec sig_q = module->addWire(stringf("$%s$rdreg[%d]$q", memid.c_str(), idx), width);
+			SigSpec sig_d;
 
-		int pos = 0;
-		for (int i = 0; i < GetSize(port.addr); i++)
-			if (port.addr[i].wire) {
-				sig_d.append(port.addr[i]);
-				port.addr[i] = sig_q[pos++];
-			}
+			int pos = 0;
+			for (int i = 0; i < GetSize(port.addr); i++)
+				if (port.addr[i].wire) {
+					sig_d.append(port.addr[i]);
+					port.addr[i] = sig_q[pos++];
+				}
 
-		c = module->addDffe(stringf("$%s$rdreg[%d]", memid.c_str(), idx), port.clk, State::S1, sig_d, sig_q, port.clk_polarity, true);
+			c = module->addDff(stringf("$%s$rdreg[%d]", memid.c_str(), idx), port.clk, sig_d, sig_q, port.clk_polarity);
+		}
 	}
 	else
 	{
 		log_assert(port.arst == State::S0 || port.srst == State::S0);
 
-		SigSpec sig_d = module->addWire(stringf("$%s$rdreg[%d]$d", memid.c_str(), idx), GetSize(port.data));
+		SigSpec async_d = module->addWire(stringf("$%s$rdreg[%d]$d", memid.c_str(), idx), GetSize(port.data));
+		SigSpec sig_d = async_d;
+
+		for (int i = 0; i < GetSize(wr_ports); i++) {
+			auto &wport = wr_ports[i];
+			if (port.transparent) {
+				log_assert(wport.clk_enable);
+				log_assert(wport.clk == port.clk);
+				log_assert(wport.clk_enable == port.clk_enable);
+				int min_wide_log2 = std::min(port.wide_log2, wport.wide_log2);
+				int max_wide_log2 = std::max(port.wide_log2, wport.wide_log2);
+				bool wide_write = wport.wide_log2 > port.wide_log2;
+				for (int sub = 0; sub < (1 << max_wide_log2); sub += (1 << min_wide_log2)) {
+					SigSpec raddr = port.addr;
+					SigSpec waddr = wport.addr;
+					for (int j = min_wide_log2; j < max_wide_log2; j++)
+						if (wide_write)
+							waddr[j] = State(sub >> j & 1);
+						else
+							raddr[j] = State(sub >> j & 1);
+					SigSpec addr_eq;
+					if (raddr != waddr)
+						addr_eq = module->Eq(stringf("$%s$rdtransen[%d][%d][%d]$d", memid.c_str(), idx, i, sub), raddr, waddr);
+					int pos = 0;
+					int ewidth = width << min_wide_log2;
+					int wsub = wide_write ? sub : 0;
+					int rsub = wide_write ? 0 : sub;
+					while (pos < ewidth) {
+						int epos = pos;
+						while (epos < ewidth && wport.en[epos + wsub * width] == wport.en[pos + wsub * width])
+							epos++;
+						SigSpec cur = sig_d.extract(pos + rsub * width, epos-pos);
+						SigSpec other = wport.data.extract(pos + wsub * width, epos-pos);
+						SigSpec cond;
+						if (raddr != waddr)
+							cond = module->And(stringf("$%s$rdtransgate[%d][%d][%d][%d]$d", memid.c_str(), idx, i, sub, pos), wport.en[pos + wsub * width], addr_eq);
+						else
+							cond = wport.en[pos + wsub * width];
+						SigSpec merged = module->Mux(stringf("$%s$rdtransmux[%d][%d][%d][%d]$d", memid.c_str(), idx, i, sub, pos), cur, other, cond);
+						sig_d.replace(pos + rsub * width, merged);
+						pos = epos;
+					}
+				}
+			}
+		}
+
 		IdString name = stringf("$%s$rdreg[%d]", memid.c_str(), idx);
 		FfData ff(initvals);
 		ff.width = GetSize(port.data);
@@ -608,11 +670,11 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 		ff.sig_d = sig_d;
 		ff.sig_q = port.data;
 		ff.val_init = port.init_value;
-		port.data = sig_d;
+		port.data = async_d;
 		c = ff.emit(module, name);
 	}
 
-	log("Extracted %s FF from read port %d of %s.%s: %s\n", port.transparent ? "addr" : "data",
+	log("Extracted %s FF from read port %d of %s.%s: %s\n", trans_use_addr ? "addr" : "data",
 			idx, log_id(module), log_id(memid), log_id(c));
 
 	port.en = State::S1;
