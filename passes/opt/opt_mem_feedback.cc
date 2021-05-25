@@ -237,6 +237,21 @@ struct OptMemFeedbackWorker
 
 		log("Populating enable bits on write ports of memory %s.%s with async read feedback:\n", log_id(module), log_id(mem.memid));
 
+		// If a write port has a feedback path that we're about to bypass,
+		// but also has priority over some other write port, the feedback
+		// path is not necessarily a NOP — it may overwrite the other port.
+		// Emulate this effect by converting the priority to soft logic
+		// (this will affect the other port's enable signal).
+		for (auto &it : portbit_conds)
+		{
+			int wrport_idx = it.first.first;
+			auto &port = mem.wr_ports[wrport_idx];
+
+			for (int i = 0; i < wrport_idx; i++)
+				if (port.priority_mask[i])
+					mem.emulate_priority(i, wrport_idx);
+		}
+
 		for (auto &it : portbit_conds)
 		{
 			int wrport_idx = it.first.first;
