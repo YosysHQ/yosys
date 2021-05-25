@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/mem.h"
+#include "kernel/ffinit.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -401,7 +402,7 @@ struct rules_t
 	}
 };
 
-bool replace_memory(Mem &orig_mem, const rules_t &rules, const rules_t::bram_t &bram, const rules_t::match_t &match, dict<string, int> &match_properties, int mode)
+bool replace_memory(Mem &orig_mem, const rules_t &rules, FfInitVals *initvals, const rules_t::bram_t &bram, const rules_t::match_t &match, dict<string, int> &match_properties, int mode)
 {
 	// We will modify ports — make a copy of the structure.
 	Mem mem(orig_mem);
@@ -727,7 +728,18 @@ grow_read_ports:;
 					log("        Bram port %c%d.%d has no read enable input.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 					goto skip_bram_rport;
 				}
-			skip_bram_rport_clkcheck:
+				if (port.arst != State::S0) {
+					log("        Bram port %c%d.%d has no async reset input.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
+					goto skip_bram_rport;
+				}
+				if (port.srst != State::S0) {
+					log("        Bram port %c%d.%d has no sync reset input.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
+					goto skip_bram_rport;
+				}
+				if (!port.init_value.is_fully_undef()) {
+					log("        Bram port %c%d.%d has no initial value support.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
+					goto skip_bram_rport;
+				}
 				if (read_transp.count(pi.transp) && read_transp.at(pi.transp) != transp) {
 					if (match.make_transp && GetSize(mem.wr_ports) <= 1) {
 						pi.make_transp = true;
@@ -750,10 +762,11 @@ grow_read_ports:;
 				}
 			}
 
+		skip_bram_rport_clkcheck:
 			log("        Mapped to bram port %c%d.%d.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 			pi.mapped_port = cell_port_i;
 
-			if (port.clk_enable) {
+			if (port.clk_enable && !pi.make_outreg) {
 				clock_domains[pi.clocks] = clkdom;
 				clock_polarities[pi.clkpol] = clkdom.second;
 				if (!pi.make_transp)
@@ -868,6 +881,16 @@ grow_read_ports:;
 	for (auto &other_bram : rules.brams.at(bram.name))
 		bram.find_variant_params(variant_params, other_bram);
 
+	// Apply make_outreg where necessary.
+	for (auto &pi : portinfos) {
+		if (pi.make_outreg) {
+			mem.extract_rdff(pi.mapped_port, initvals);
+			auto &port = mem.rd_ports[pi.mapped_port];
+			pi.sig_addr = port.addr;
+			pi.sig_data = port.data;
+		}
+	}
+
 	// actually replace that memory cell
 
 	dict<SigSpec, pair<SigSpec, SigSpec>> dout_cache;
@@ -970,18 +993,7 @@ grow_read_ports:;
 				} else {
 					SigSpec bram_dout = module->addWire(NEW_ID, bram.dbits);
 					c->setPort(stringf("\\%sDATA", pf), bram_dout);
-					if (pi.make_outreg && pi.make_transp) {
-						log("        Moving output register to address for transparent port %c%d.%d.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
-						SigSpec sig_addr_q = module->addWire(NEW_ID, bram.abits);
-						module->addDff(NEW_ID, pi.sig_clock, sig_addr, sig_addr_q, pi.effective_clkpol);
-						c->setPort(stringf("\\%sADDR", pf), sig_addr_q);
-					} else if (pi.make_outreg) {
-						SigSpec bram_dout_q = module->addWire(NEW_ID, bram.dbits);
-						if (!pi.sig_en.empty())
-							bram_dout = module->Mux(NEW_ID, bram_dout_q, bram_dout, pi.sig_en);
-						module->addDff(NEW_ID, pi.sig_clock, bram_dout, bram_dout_q, pi.effective_clkpol);
-						bram_dout = bram_dout_q;
-					} else if (pi.make_transp) {
+					if (pi.make_transp) {
 						log("        Adding extra logic for transparent port %c%d.%d.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 
 						SigSpec transp_en_d = module->Mux(NEW_ID, SigSpec(0, make_transp_enbits),
@@ -1005,7 +1017,7 @@ grow_read_ports:;
 						}
 
 					SigSpec addr_ok_q = addr_ok;
-					if ((pi.clocks || pi.make_outreg) && !addr_ok.empty()) {
+					if (pi.clocks && !addr_ok.empty()) {
 						addr_ok_q = module->addWire(NEW_ID);
 						if (!pi.sig_en.empty())
 							addr_ok = module->Mux(NEW_ID, addr_ok_q, addr_ok, pi.sig_en);
@@ -1037,7 +1049,7 @@ grow_read_ports:;
 	return true;
 }
 
-void handle_memory(Mem &mem, const rules_t &rules)
+void handle_memory(Mem &mem, const rules_t &rules, FfInitVals *initvals)
 {
 	log("Processing %s.%s:\n", log_id(mem.module), log_id(mem.memid));
 
@@ -1217,7 +1229,7 @@ void handle_memory(Mem &mem, const rules_t &rules)
 				if (or_next_if_better && i+1 == GetSize(rules.matches) && vi+1 == GetSize(rules.brams.at(match.name)))
 					log_error("Found 'or_next_if_better' in last match rule.\n");
 
-				if (!replace_memory(mem, rules, bram, match, match_properties, 1)) {
+				if (!replace_memory(mem, rules, initvals, bram, match, match_properties, 1)) {
 					log("    Mapping to bram type %s failed.\n", log_id(match.name));
 					failed_brams.insert(pair<IdString, int>(bram.name, bram.variant));
 					goto next_match_rule;
@@ -1244,12 +1256,12 @@ void handle_memory(Mem &mem, const rules_t &rules)
 				best_rule_cache.clear();
 
 				auto &best_bram = rules.brams.at(rules.matches.at(best_rule.first).name).at(best_rule.second);
-				if (!replace_memory(mem, rules, best_bram, rules.matches.at(best_rule.first), match_properties, 2))
+				if (!replace_memory(mem, rules, initvals, best_bram, rules.matches.at(best_rule.first), match_properties, 2))
 					log_error("Mapping to bram type %s (variant %d) after pre-selection failed.\n", log_id(best_bram.name), best_bram.variant);
 				return;
 			}
 
-			if (!replace_memory(mem, rules, bram, match, match_properties, 0)) {
+			if (!replace_memory(mem, rules, initvals, bram, match, match_properties, 0)) {
 				log("    Mapping to bram type %s failed.\n", log_id(match.name));
 				failed_brams.insert(pair<IdString, int>(bram.name, bram.variant));
 				goto next_match_rule;
@@ -1381,9 +1393,12 @@ struct MemoryBramPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto mod : design->selected_modules())
-		for (auto &mem : Mem::get_selected_memories(mod))
-			handle_memory(mem, rules);
+		for (auto mod : design->selected_modules()) {
+			SigMap sigmap(mod);
+			FfInitVals initvals(&sigmap, mod);
+			for (auto &mem : Mem::get_selected_memories(mod))
+				handle_memory(mem, rules, &initvals);
+		}
 	}
 } MemoryBramPass;
 

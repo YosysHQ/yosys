@@ -13,7 +13,7 @@ design -load postopt
 cd lutram_1w1r
 stat
 select -assert-count 8 t:WIDEFN9
-select -assert-count 16 t:LUT4
+select -assert-count 12 t:LUT4
 select -assert-count 8 t:DPR16X4
-select -assert-count 36 t:FD1P3IX
+select -assert-count 8 t:FD1P3IX
 select -assert-none t:DPR16X4 t:FD1P3IX t:WIDEFN9 t:LUT4 t:INV t:IB t:OB t:VLO t:VHI %% t:* %D
