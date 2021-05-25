@@ -594,48 +594,100 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 		}
 	}
 
-	// write ports
-	for (auto &port : mem.wr_ports)
+	// Write ports.  Those are messy because we try to preserve priority, as much as we can:
+	//
+	// 1. We split all ports into several disjoint processes.
+	// 2. If a port has priority over another port, the two ports need to share
+	//    a process, so that priority can be reconstructed on the other end.
+	// 3. We want each process to be as small as possible, to avoid extra
+	//    priorities inferred on the other end.
+	pool<int> wr_ports_done;
+	for (int ridx = 0; ridx < GetSize(mem.wr_ports); ridx++)
 	{
+		if (wr_ports_done.count(ridx))
+			continue;
+
+		auto &root = mem.wr_ports[ridx];
+
+		// Start from a root.
+		pool<int> wr_ports_now;
+		wr_ports_now.insert(ridx);
+
+		// Transitively fill list of ports in this process by following priority edges.
+		while (true)
 		{
-			std::ostringstream os;
-			dump_sigspec(os, port.clk);
-			clk_domain_str = stringf("%sedge %s", port.clk_polarity ? "pos" : "neg", os.str().c_str());
-			if( clk_to_lof_body.count(clk_domain_str) == 0 )
-				clk_to_lof_body[clk_domain_str] = std::vector<std::string>();
-		}
-		//   make something like:
-		//   always @(posedge clk)
-		//      if (wr_en_bit) memid[w_addr][??] <= w_data[??];
-		//   ...
-		for (int i = 0; i < GetSize(port.en); i++)
-		{
-			int start_i = i, width = 1;
-			SigBit wen_bit = port.en[i];
+			bool changed = false;
 
-			while (i+1 < GetSize(port.en) && active_sigmap(port.en[i+1]) == active_sigmap(wen_bit))
-				i++, width++;
-
-			if (wen_bit == State::S0)
-				continue;
-
-			std::ostringstream os;
-			if (wen_bit != State::S1)
+			for (int i = 0; i < GetSize(mem.wr_ports); i++)
+			for (int j = 0; j < i; j++)
+			if (mem.wr_ports[i].priority_mask[j])
 			{
-				os << stringf("if (");
-				dump_sigspec(os, wen_bit);
-				os << stringf(") ");
+				if (wr_ports_now.count(i) && !wr_ports_now.count(j)) {
+					wr_ports_now.insert(j);
+					changed = true;
+				}
+				if (!wr_ports_now.count(i) && wr_ports_now.count(j)) {
+					wr_ports_now.insert(i);
+					changed = true;
+				}
 			}
-			os << stringf("%s[", mem_id.c_str());
-			dump_sigspec(os, port.addr);
-			if (width == GetSize(port.en))
-				os << stringf("] <= ");
-			else
-				os << stringf("][%d:%d] <= ", i, start_i);
-			dump_sigspec(os, port.data.extract(start_i, width));
-			os << stringf(";\n");
-			clk_to_lof_body[clk_domain_str].push_back(os.str());
+
+			if (!changed)
+				break;
 		}
+
+		f << stringf("%s" "always%s @(%sedge ", indent.c_str(), systemverilog ? "_ff" : "", root.clk_polarity ? "pos" : "neg");
+		dump_sigspec(f, root.clk);
+		f << ") begin\n";
+
+		for (int pidx = 0; pidx < GetSize(mem.wr_ports); pidx++)
+		{
+			if (!wr_ports_now.count(pidx))
+				continue;
+			wr_ports_done.insert(pidx);
+
+			auto &port = mem.wr_ports[pidx];
+			log_assert(port.clk_enable == root.clk_enable);
+			if (port.clk_enable) {
+				log_assert(port.clk == root.clk);
+				log_assert(port.clk_polarity == root.clk_polarity);
+			}
+
+			//   make something like:
+			//   always @(posedge clk)
+			//      if (wr_en_bit) memid[w_addr][??] <= w_data[??];
+			//   ...
+			for (int i = 0; i < GetSize(port.en); i++)
+			{
+				int start_i = i, width = 1;
+				SigBit wen_bit = port.en[i];
+
+				while (i+1 < GetSize(port.en) && active_sigmap(port.en[i+1]) == active_sigmap(wen_bit))
+					i++, width++;
+
+				if (wen_bit == State::S0)
+					continue;
+
+				f << stringf("%s%s", indent.c_str(), indent.c_str());
+				if (wen_bit != State::S1)
+				{
+					f << stringf("if (");
+					dump_sigspec(f, wen_bit);
+					f << stringf(")\n");
+					f << stringf("%s%s%s", indent.c_str(), indent.c_str(), indent.c_str());
+				}
+				f << stringf("%s[", mem_id.c_str());
+				dump_sigspec(f, port.addr);
+				if (width == GetSize(port.en))
+					f << stringf("] <= ");
+				else
+					f << stringf("][%d:%d] <= ", i, start_i);
+				dump_sigspec(f, port.data.extract(start_i, width));
+				f << stringf(";\n");
+			}
+		}
+
+		f << stringf("%s" "end\n", indent.c_str());
 	}
 	// Output Verilog that looks something like this:
 	// reg [..] _3_;
