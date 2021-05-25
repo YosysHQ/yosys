@@ -553,7 +553,17 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 					clk_to_arst_cond[clk_domain_str] = os2.str();
 				}
 			}
-			if (!port.transparent)
+
+			// Decide how to represent the transparency; same idea as Mem::extract_rdff.
+			bool trans_use_addr = port.transparent;
+
+			if (GetSize(mem.wr_ports) == 0)
+				trans_use_addr = false;
+
+			if (port.en != State::S1 || port.srst != State::S0 || port.arst != State::S0 || !port.init_value.is_fully_undef())
+				trans_use_addr = false;
+
+			if (!trans_use_addr)
 			{
 				// for clocked read ports make something like:
 				//   reg [..] temp_id;
@@ -616,6 +626,66 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 					dump_sigspec(os, addr);
 					os << stringf("];\n");
 					clk_to_lof_body[clk_domain_str].push_back(os.str());
+				}
+
+				for (int i = 0; i < GetSize(mem.wr_ports); i++) {
+					auto &wport = mem.wr_ports[i];
+					if (!port.transparent)
+						continue;
+					if (!wport.clk_enable)
+						continue;
+					if (wport.clk != port.clk)
+						continue;
+					if (wport.clk_polarity != port.clk_polarity)
+						continue;
+					int min_wide_log2 = std::min(port.wide_log2, wport.wide_log2);
+					int max_wide_log2 = std::max(port.wide_log2, wport.wide_log2);
+					bool wide_write = wport.wide_log2 > port.wide_log2;
+					for (int sub = 0; sub < (1 << max_wide_log2); sub += (1 << min_wide_log2)) {
+						SigSpec raddr = port.addr;
+						SigSpec waddr = wport.addr;
+						if (wide_write)
+							waddr = wport.sub_addr(sub);
+						else
+							raddr = port.sub_addr(sub);
+						int pos = 0;
+						int ewidth = mem.width << min_wide_log2;
+						int wsub = wide_write ? sub : 0;
+						int rsub = wide_write ? 0 : sub;
+						while (pos < ewidth) {
+							int epos = pos;
+							while (epos < ewidth && wport.en[epos + wsub * mem.width] == wport.en[pos + wsub * mem.width])
+								epos++;
+
+							std::ostringstream os;
+							if (has_indent)
+								os << indent;
+							os << "if (";
+							dump_sigspec(os, wport.en[pos + wsub * mem.width]);
+							if (raddr != waddr) {
+								os << " && ";
+								dump_sigspec(os, raddr);
+								os << " == ";
+								dump_sigspec(os, waddr);
+							}
+							os << ")\n";
+							clk_to_lof_body[clk_domain_str].push_back(os.str());
+
+							std::ostringstream os2;
+							if (has_indent)
+								os2 << indent;
+							os2 << indent;
+							os2 << temp_id;
+							if (epos-pos != GetSize(port.data))
+								os2 << stringf("[%d:%d]", rsub * mem.width + epos-1, rsub * mem.width + pos);
+							os2 << " <= ";
+							dump_sigspec(os2, wport.data.extract(wsub * mem.width + pos, epos-pos));
+							os2 << ";\n";
+							clk_to_lof_body[clk_domain_str].push_back(os2.str());
+
+							pos = epos;
+						}
+					}
 				}
 
 				if (port.srst != State::S0 && port.ce_over_srst)
