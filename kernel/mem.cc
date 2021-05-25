@@ -524,17 +524,33 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 
 	if (port.transparent)
 	{
-		SigSpec sig_q = module->addWire(stringf("%s$rdreg[%d]$q", memid.c_str(), idx), GetSize(port.addr));
-		SigSpec sig_d = port.addr;
-		port.addr = sig_q;
-		c = module->addDffe(stringf("%s$rdreg[%d]", memid.c_str(), idx), port.clk, port.en, sig_d, sig_q, port.clk_polarity, true);
+		log_assert(port.en == State::S1);
+
+		// Do not put a register in front of constant address bits — this is both
+		// unnecessary and will break wide ports.
+		int width = 0;
+		for (int i = 0; i < GetSize(port.addr); i++)
+			if (port.addr[i].wire)
+				width++;
+
+		SigSpec sig_q = module->addWire(stringf("$%s$rdreg[%d]$q", memid.c_str(), idx), width);
+		SigSpec sig_d;
+
+		int pos = 0;
+		for (int i = 0; i < GetSize(port.addr); i++)
+			if (port.addr[i].wire) {
+				sig_d.append(port.addr[i]);
+				port.addr[i] = sig_q[pos++];
+			}
+
+		c = module->addDffe(stringf("$%s$rdreg[%d]", memid.c_str(), idx), port.clk, State::S1, sig_d, sig_q, port.clk_polarity, true);
 	}
 	else
 	{
-		SigSpec sig_d = module->addWire(stringf("%s$rdreg[%d]$d", memid.c_str(), idx), GetSize(port.data));
+		SigSpec sig_d = module->addWire(stringf("$%s$rdreg[%d]$d", memid.c_str(), idx), GetSize(port.data));
 		SigSpec sig_q = port.data;
 		port.data = sig_d;
-		c = module->addDffe(stringf("%s$rdreg[%d]", memid.c_str(), idx), port.clk, port.en, sig_d, sig_q, port.clk_polarity, true);
+		c = module->addDffe(stringf("$%s$rdreg[%d]", memid.c_str(), idx), port.clk, port.en, sig_d, sig_q, port.clk_polarity, true);
 	}
 
 	log("Extracted %s FF from read port %d of %s.%s: %s\n", port.transparent ? "addr" : "data",
