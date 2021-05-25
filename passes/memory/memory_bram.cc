@@ -1071,6 +1071,20 @@ void handle_memory(Mem &mem, const rules_t &rules)
 		}
 	}
 
+	// This pass cannot deal with write port priority — we need to emulate it,
+	// if present.  Since priority emulation will change the enable signals,
+	// which in turn may change enable grouping and mapping eligibility in
+	// pathological cases, we need to do this before checking mapping
+	// eligibility.  This will create priority emulation logic for all
+	// memories in the design regardless of whether we end up mapping them
+	// or not, but since we never call Mem::emit(), the new priority masks
+	// and enables won't be commited to the design, and this logic will be
+	// unused (and removed by subsequent opt_clean) for unmapped memories.
+
+	for (int i = 0; i < GetSize(mem.wr_ports); i++)
+		for (int j = 0; j < i; j++)
+			mem.emulate_priority(j, i);
+
 	pool<pair<IdString, int>> failed_brams;
 	dict<pair<int, int>, tuple<int, int, int>> best_rule_cache;
 
