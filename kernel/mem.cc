@@ -599,3 +599,41 @@ void Mem::narrow() {
 	std::swap(rd_ports, new_rd_ports);
 	std::swap(wr_ports, new_wr_ports);
 }
+
+void Mem::emulate_priority(int idx1, int idx2)
+{
+	auto &port1 = wr_ports[idx1];
+	auto &port2 = wr_ports[idx2];
+	if (!port2.priority_mask[idx1])
+		return;
+	int min_wide_log2 = std::min(port1.wide_log2, port2.wide_log2);
+	int max_wide_log2 = std::max(port1.wide_log2, port2.wide_log2);
+	bool wide1 = port1.wide_log2 > port2.wide_log2;
+	for (int sub = 0; sub < (1 << max_wide_log2); sub += (1 << min_wide_log2)) {
+		SigSpec addr1 = port1.addr;
+		SigSpec addr2 = port2.addr;
+		for (int j = min_wide_log2; j < max_wide_log2; j++)
+			if (wide1)
+				addr1[j] = State(sub >> j & 1);
+			else
+				addr2[j] = State(sub >> j & 1);
+		SigSpec addr_eq = module->Eq(NEW_ID, addr1, addr2);
+		int ewidth = width << min_wide_log2;
+		int sub1 = wide1 ? sub : 0;
+		int sub2 = wide1 ? 0 : sub;
+		dict<std::pair<SigBit, SigBit>, SigBit> cache;
+		for (int pos = 0; pos < ewidth; pos++) {
+			SigBit &en1 = port1.en[pos + sub1 * width];
+			SigBit &en2 = port2.en[pos + sub2 * width];
+			std::pair<SigBit, SigBit> key(en1, en2);
+			if (cache.count(key)) {
+				en1 = cache[key];
+			} else {
+				SigBit active2 = module->And(NEW_ID, addr_eq, en2);
+				SigBit nactive2 = module->Not(NEW_ID, active2);
+				en1 = cache[key] = module->And(NEW_ID, en1, nactive2);
+			}
+		}
+	}
+	port2.priority_mask[idx1] = false;
+}
