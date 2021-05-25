@@ -541,19 +541,36 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 				//   assign r_data = temp_id;
 				std::string temp_id = next_auto_id();
 				lof_reg_declarations.push_back( stringf("reg [%d:0] %s;\n", port.data.size() - 1, temp_id.c_str()) );
+
+				bool has_en = port.en != State::S1;
+
+				if (has_en)
 				{
 					std::ostringstream os;
-					if (port.en != RTLIL::SigBit(true))
-					{
-						os << stringf("if (");
-						dump_sigspec(os, port.en);
-						os << stringf(") ");
-					}
-					os << stringf("%s <= %s[", temp_id.c_str(), mem_id.c_str());
-					dump_sigspec(os, port.addr);
+					os << stringf("if (");
+					dump_sigspec(os, port.en);
+					os << stringf(") begin\n");
+					clk_to_lof_body[clk_domain_str].push_back(os.str());
+				}
+
+				for (int sub = 0; sub < (1 << port.wide_log2); sub++)
+				{
+					SigSpec addr = port.sub_addr(sub);
+					std::ostringstream os;
+					if (has_en)
+						os << indent;
+					os << temp_id;
+					if (port.wide_log2)
+						os << stringf("[%d:%d]", (sub + 1) * mem.width - 1, sub * mem.width);
+					os << stringf(" <= %s[", mem_id.c_str());
+					dump_sigspec(os, addr);
 					os << stringf("];\n");
 					clk_to_lof_body[clk_domain_str].push_back(os.str());
 				}
+
+				if (has_en)
+					clk_to_lof_body[clk_domain_str].push_back("end\n");
+
 				{
 					std::ostringstream os;
 					dump_sigspec(os, port.data);
@@ -569,28 +586,48 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 				//     temp_id <= r_addr;
 				//   assign r_data = array_reg[temp_id];
 				std::string temp_id = next_auto_id();
-				lof_reg_declarations.push_back( stringf("reg [%d:0] %s;\n", port.addr.size() - 1, temp_id.c_str()) );
+				lof_reg_declarations.push_back( stringf("reg [%d:0] %s;\n", port.addr.size() - 1 - port.wide_log2, temp_id.c_str()) );
 				{
 					std::ostringstream os;
-					dump_sigspec(os, port.addr);
+					dump_sigspec(os, port.addr.extract_end(port.wide_log2));
 					std::string line = stringf("%s <= %s;\n", temp_id.c_str(), os.str().c_str());
 					clk_to_lof_body[clk_domain_str].push_back(line);
 				}
+				for (int sub = 0; sub < (1 << port.wide_log2); sub++)
 				{
 					std::ostringstream os;
-					dump_sigspec(os, port.data);
-					std::string line = stringf("assign %s = %s[%s];\n", os.str().c_str(), mem_id.c_str(), temp_id.c_str());
-					clk_to_lof_body[""].push_back(line);
+					os << "assign ";
+					dump_sigspec(os, port.data.extract(sub * mem.width, mem.width));
+					os << stringf(" = %s[", mem_id.c_str());;
+					if (port.wide_log2) {
+						Const addr_lo;
+						for (int i = 0; i < port.wide_log2; i++)
+							addr_lo.bits.push_back(State(sub >> i & 1));
+						os << "{";
+						os << temp_id;
+						os << ", ";
+						dump_const(os, addr_lo);
+						os << "}";
+					} else {
+						os << temp_id;
+					}
+					os << "];\n";
+					clk_to_lof_body[""].push_back(os.str());
 				}
 			}
 		} else {
 			// for non-clocked read-ports make something like:
 			//   assign r_data = array_reg[r_addr];
-			std::ostringstream os, os2;
-			dump_sigspec(os, port.data);
-			dump_sigspec(os2, port.addr);
-			std::string line = stringf("assign %s = %s[%s];\n", os.str().c_str(), mem_id.c_str(), os2.str().c_str());
-			clk_to_lof_body[""].push_back(line);
+			for (int sub = 0; sub < (1 << port.wide_log2); sub++)
+			{
+				SigSpec addr = port.sub_addr(sub);
+
+				std::ostringstream os, os2;
+				dump_sigspec(os, port.data.extract(sub * mem.width, mem.width));
+				dump_sigspec(os2, addr);
+				std::string line = stringf("assign %s = %s[%s];\n", os.str().c_str(), mem_id.c_str(), os2.str().c_str());
+				clk_to_lof_body[""].push_back(line);
+			}
 		}
 	}
 
@@ -636,9 +673,13 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 				break;
 		}
 
-		f << stringf("%s" "always%s @(%sedge ", indent.c_str(), systemverilog ? "_ff" : "", root.clk_polarity ? "pos" : "neg");
-		dump_sigspec(f, root.clk);
-		f << ") begin\n";
+		if (root.clk_enable) {
+			f << stringf("%s" "always%s @(%sedge ", indent.c_str(), systemverilog ? "_ff" : "", root.clk_polarity ? "pos" : "neg");
+			dump_sigspec(f, root.clk);
+			f << ") begin\n";
+		} else {
+			f << stringf("%s" "always%s begin\n", indent.c_str(), systemverilog ? "_latch" : " @*");
+		}
 
 		for (int pidx = 0; pidx < GetSize(mem.wr_ports); pidx++)
 		{
@@ -657,33 +698,37 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 			//   always @(posedge clk)
 			//      if (wr_en_bit) memid[w_addr][??] <= w_data[??];
 			//   ...
-			for (int i = 0; i < GetSize(port.en); i++)
+			for (int sub = 0; sub < (1 << port.wide_log2); sub++)
 			{
-				int start_i = i, width = 1;
-				SigBit wen_bit = port.en[i];
-
-				while (i+1 < GetSize(port.en) && active_sigmap(port.en[i+1]) == active_sigmap(wen_bit))
-					i++, width++;
-
-				if (wen_bit == State::S0)
-					continue;
-
-				f << stringf("%s%s", indent.c_str(), indent.c_str());
-				if (wen_bit != State::S1)
+				SigSpec addr = port.sub_addr(sub);
+				for (int i = 0; i < mem.width; i++)
 				{
-					f << stringf("if (");
-					dump_sigspec(f, wen_bit);
-					f << stringf(")\n");
-					f << stringf("%s%s%s", indent.c_str(), indent.c_str(), indent.c_str());
+					int start_i = i, width = 1;
+					SigBit wen_bit = port.en[sub * mem.width + i];
+
+					while (i+1 < mem.width && active_sigmap(port.en[sub * mem.width + i+1]) == active_sigmap(wen_bit))
+						i++, width++;
+
+					if (wen_bit == State::S0)
+						continue;
+
+					f << stringf("%s%s", indent.c_str(), indent.c_str());
+					if (wen_bit != State::S1)
+					{
+						f << stringf("if (");
+						dump_sigspec(f, wen_bit);
+						f << stringf(")\n");
+						f << stringf("%s%s%s", indent.c_str(), indent.c_str(), indent.c_str());
+					}
+					f << stringf("%s[", mem_id.c_str());
+					dump_sigspec(f, addr);
+					if (width == GetSize(port.en))
+						f << stringf("] <= ");
+					else
+						f << stringf("][%d:%d] <= ", i, start_i);
+					dump_sigspec(f, port.data.extract(sub * mem.width + start_i, width));
+					f << stringf(";\n");
 				}
-				f << stringf("%s[", mem_id.c_str());
-				dump_sigspec(f, port.addr);
-				if (width == GetSize(port.en))
-					f << stringf("] <= ");
-				else
-					f << stringf("][%d:%d] <= ", i, start_i);
-				dump_sigspec(f, port.data.extract(start_i, width));
-				f << stringf(";\n");
 			}
 		}
 
