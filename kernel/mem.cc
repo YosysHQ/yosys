@@ -136,10 +136,8 @@ void Mem::emit() {
 				rd_transparent.bits.push_back(State(port.transparent));
 				rd_clk.append(port.clk);
 				rd_en.append(port.en);
-				SigSpec addr = port.addr;
+				SigSpec addr = port.sub_addr(sub);
 				addr.extend_u0(abits, false);
-				for (int i = 0; i < port.wide_log2; i++)
-					addr[i] = State(sub >> i & 1);
 				rd_addr.append(addr);
 				log_assert(GetSize(addr) == abits);
 			}
@@ -170,10 +168,8 @@ void Mem::emit() {
 				wr_clk_enable.bits.push_back(State(port.clk_enable));
 				wr_clk_polarity.bits.push_back(State(port.clk_polarity));
 				wr_clk.append(port.clk);
-				SigSpec addr = port.addr;
+				SigSpec addr = port.sub_addr(sub);
 				addr.extend_u0(abits, false);
-				for (int i = 0; i < port.wide_log2; i++)
-					addr[i] = State(sub >> i & 1);
 				wr_addr.append(addr);
 				log_assert(GetSize(addr) == abits);
 			}
@@ -615,11 +611,10 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 				for (int sub = 0; sub < (1 << max_wide_log2); sub += (1 << min_wide_log2)) {
 					SigSpec raddr = port.addr;
 					SigSpec waddr = wport.addr;
-					for (int j = min_wide_log2; j < max_wide_log2; j++)
-						if (wide_write)
-							waddr[j] = State(sub >> j & 1);
-						else
-							raddr[j] = State(sub >> j & 1);
+					if (wide_write)
+						waddr = wport.sub_addr(sub);
+					else
+						raddr = port.sub_addr(sub);
 					SigSpec addr_eq;
 					if (raddr != waddr)
 						addr_eq = module->Eq(stringf("$%s$rdtransen[%d][%d][%d]$d", memid.c_str(), idx, i, sub), raddr, waddr);
@@ -722,8 +717,7 @@ void Mem::narrow() {
 			port.init_value = port.init_value.extract(it.second * width, width);
 			port.arst_value = port.arst_value.extract(it.second * width, width);
 			port.srst_value = port.srst_value.extract(it.second * width, width);
-			for (int i = 0; i < port.wide_log2; i++)
-				port.addr[i] = State(it.second >> i & 1);
+			port.addr = port.sub_addr(it.second);
 			port.wide_log2 = 0;
 		}
 		new_rd_ports.push_back(port);
@@ -736,8 +730,7 @@ void Mem::narrow() {
 		if (port.wide_log2) {
 			port.data = port.data.extract(it.second * width, width);
 			port.en = port.en.extract(it.second * width, width);
-			for (int i = 0; i < port.wide_log2; i++)
-				port.addr[i] = State(it.second >> i & 1);
+			port.addr = port.sub_addr(it.second);
 			port.wide_log2 = 0;
 		}
 		port.priority_mask.clear();
@@ -761,11 +754,10 @@ void Mem::emulate_priority(int idx1, int idx2)
 	for (int sub = 0; sub < (1 << max_wide_log2); sub += (1 << min_wide_log2)) {
 		SigSpec addr1 = port1.addr;
 		SigSpec addr2 = port2.addr;
-		for (int j = min_wide_log2; j < max_wide_log2; j++)
-			if (wide1)
-				addr1[j] = State(sub >> j & 1);
-			else
-				addr2[j] = State(sub >> j & 1);
+		if (wide1)
+			addr1 = port1.sub_addr(sub);
+		else
+			addr2 = port2.sub_addr(sub);
 		SigSpec addr_eq = module->Eq(NEW_ID, addr1, addr2);
 		int ewidth = width << min_wide_log2;
 		int sub1 = wide1 ? sub : 0;

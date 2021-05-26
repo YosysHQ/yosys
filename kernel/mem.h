@@ -34,7 +34,16 @@ struct MemRd {
 	Const arst_value, srst_value, init_value;
 	bool transparent;
 	SigSpec clk, en, arst, srst, addr, data;
+
 	MemRd() : removed(false), cell(nullptr) {}
+
+	// Returns the address of given subword index accessed by this port.
+	SigSpec sub_addr(int sub) {
+		SigSpec res = addr;
+		for (int i = 0; i < wide_log2; i++)
+			res[i] = State(sub >> i & 1);
+		return res;
+	}
 };
 
 struct MemWr {
@@ -45,7 +54,16 @@ struct MemWr {
 	bool clk_enable, clk_polarity;
 	std::vector<bool> priority_mask;
 	SigSpec clk, en, addr, data;
+
 	MemWr() : removed(false), cell(nullptr) {}
+
+	// Returns the address of given subword index accessed by this port.
+	SigSpec sub_addr(int sub) {
+		SigSpec res = addr;
+		for (int i = 0; i < wide_log2; i++)
+			res[i] = State(sub >> i & 1);
+		return res;
+	}
 };
 
 struct MemInit {
