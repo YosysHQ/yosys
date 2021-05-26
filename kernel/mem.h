@@ -84,6 +84,13 @@ struct Mem {
 	// from the priority mask.
 	void emulate_priority(int idx1, int idx2);
 
+	// Prepares for merging write port idx2 into idx1 (where idx1 < idx2).
+	// Specifically, takes care of priority masks: any priority relations
+	// that idx2 had are replicated onto idx1, unless they conflict with
+	// priorities already present on idx1, in which case emulate_priority
+	// is called.
+	void prepare_wr_merge(int idx1, int idx2);
+
 	Mem(Module *module, IdString memid, int width, int start_offset, int size) : module(module), memid(memid), packed(false), mem(nullptr), cell(nullptr), width(width), start_offset(start_offset), size(size) {}
 };
 

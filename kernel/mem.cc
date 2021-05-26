@@ -786,3 +786,23 @@ void Mem::emulate_priority(int idx1, int idx2)
 	}
 	port2.priority_mask[idx1] = false;
 }
+
+void Mem::prepare_wr_merge(int idx1, int idx2) {
+	log_assert(idx1 < idx2);
+	auto &port1 = wr_ports[idx1];
+	auto &port2 = wr_ports[idx2];
+	// If port 2 has priority over a port before port 1, make port 1 have priority too.
+	for (int i = 0; i < idx1; i++)
+		if (port2.priority_mask[i])
+			port1.priority_mask[i] = true;
+	// If port 2 has priority over a port after port 1, emulate it.
+	for (int i = idx1 + 1; i < idx2; i++)
+		if (port2.priority_mask[i])
+			emulate_priority(i, idx2);
+	// If some port had priority over port 2, make it have priority over the merged port too.
+	for (int i = idx2 + 1; i < GetSize(wr_ports); i++) {
+		auto &oport = wr_ports[i];
+		if (oport.priority_mask[idx2])
+			oport.priority_mask[idx1] = true;
+	}
+}
