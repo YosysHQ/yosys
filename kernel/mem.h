@@ -91,6 +91,17 @@ struct Mem {
 	// is called.
 	void prepare_wr_merge(int idx1, int idx2);
 
+	// Prepares the memory for widening a port to a given width.  This
+	// involves ensuring that start_offset and size are aligned to the
+	// target width.
+	void widen_prep(int wide_log2);
+
+	// Widens a write port up to a given width.  The newly port is
+	// equivalent to the original, made by replicating enable/data bits
+	// and masking enable bits with decoders on the low part of the
+	// original address.
+	void widen_wr_port(int idx, int wide_log2);
+
 	Mem(Module *module, IdString memid, int width, int start_offset, int size) : module(module), memid(memid), packed(false), mem(nullptr), cell(nullptr), width(width), start_offset(start_offset), size(size) {}
 };
 

@@ -806,3 +806,49 @@ void Mem::prepare_wr_merge(int idx1, int idx2) {
 			oport.priority_mask[idx1] = true;
 	}
 }
+
+void Mem::widen_prep(int wide_log2) {
+	// Make sure start_offset and size are aligned to the port width,
+	// adjust if necessary.
+	int mask = ((1 << wide_log2) - 1);
+	int delta = start_offset & mask;
+	start_offset -= delta;
+	size += delta;
+	if (size & mask) {
+		size |= mask;
+		size++;
+	}
+}
+
+void Mem::widen_wr_port(int idx, int wide_log2) {
+	widen_prep(wide_log2);
+	auto &port = wr_ports[idx];
+	log_assert(port.wide_log2 <= wide_log2);
+	if (port.wide_log2 < wide_log2) {
+		SigSpec new_data, new_en;
+		SigSpec addr_lo = port.addr.extract(0, wide_log2);
+		for (int sub = 0; sub < (1 << wide_log2); sub += (1 << port.wide_log2))
+		{
+			Const cur_addr_lo(sub, wide_log2);
+			if (addr_lo == cur_addr_lo) {
+				// Always writes to this subword.
+				new_data.append(port.data);
+				new_en.append(port.en);
+			} else if (addr_lo.is_fully_const()) {
+				// Never writes to this subword.
+				new_data.append(Const(State::Sx, GetSize(port.data)));
+				new_en.append(Const(State::S0, GetSize(port.data)));
+			} else {
+				// May or may not write to this subword.
+				new_data.append(port.data);
+				SigSpec addr_eq = module->Eq(NEW_ID, addr_lo, cur_addr_lo);
+				SigSpec en = module->Mux(NEW_ID, Const(State::S0, GetSize(port.data)), port.en, addr_eq);
+				new_en.append(en);
+			}
+		}
+		port.addr.replace(port.wide_log2, Const(State::S0, wide_log2 - port.wide_log2));
+		port.data = new_data;
+		port.en = new_en;
+		port.wide_log2 = wide_log2;
+	}
+}
