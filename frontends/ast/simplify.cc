@@ -1762,7 +1762,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	}
 
 	// split memory access with bit select to individual statements
-	if (type == AST_IDENTIFIER && children.size() == 2 && children[0]->type == AST_RANGE && children[1]->type == AST_RANGE && !in_lvalue)
+	if (type == AST_IDENTIFIER && children.size() == 2 && children[0]->type == AST_RANGE && children[1]->type == AST_RANGE && !in_lvalue && stage == 2)
 	{
 		if (id2ast == NULL || id2ast->type != AST_MEMORY || children[0]->children.size() != 1)
 			log_file_error(filename, location.first_line, "Invalid bit-select on memory access!\n");
@@ -4501,11 +4501,48 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 		if (children[0]->children[0]->type == AST_CONSTANT)
 		{
 			int id = children[0]->children[0]->integer;
-			str = stringf("%s[%d]", str.c_str(), id);
+			int left = id2ast->children[1]->children[0]->integer;
+			int right = id2ast->children[1]->children[1]->integer;
+			bool valid_const_access =
+				(left <= id && id <= right) ||
+				(right <= id && id <= left);
+			if (valid_const_access)
+			{
+				str = stringf("%s[%d]", str.c_str(), id);
+				delete_children();
+				range_valid = false;
+				id2ast = NULL;
+			}
+			else
+			{
+				int width;
+				if (bit_part_sel)
+				{
+					bit_part_sel->dumpAst(nullptr, "? ");
+					if (bit_part_sel->children.size() == 1)
+						width = 0;
+					else
+						width = bit_part_sel->children[0]->integer -
+							bit_part_sel->children[1]->integer;
+					delete bit_part_sel;
+					bit_part_sel = nullptr;
+				}
+				else
+				{
+					width = id2ast->children[0]->children[0]->integer -
+						id2ast->children[0]->children[1]->integer;
+				}
+				width = abs(width) + 1;
 
-			delete_children();
-			range_valid = false;
-			id2ast = NULL;
+				delete_children();
+
+				std::vector<RTLIL::State> x_bits;
+				for (int i = 0; i < width; i++)
+					x_bits.push_back(RTLIL::State::Sx);
+				AstNode *constant = AstNode::mkconst_bits(x_bits, false);
+				constant->cloneInto(this);
+				delete constant;
+			}
 		}
 		else
 		{
