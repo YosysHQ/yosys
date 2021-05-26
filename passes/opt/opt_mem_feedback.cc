@@ -145,9 +145,7 @@ struct OptMemFeedbackWorker
 				continue;
 
 			for (int sub = 0; sub < (1 << port.wide_log2); sub++) {
-				SigSpec addr = sigmap_xmux(port.addr);
-				for (int i = 0; i < port.wide_log2; i++)
-					addr[i] = State(sub >> i & 1);
+				SigSpec addr = sigmap_xmux(port.sub_addr(sub));
 				async_rd_bits[addr].resize(mem.width);
 				for (int i = 0; i < mem.width; i++)
 					async_rd_bits[addr][i].insert(sigmap(port.data[i + sub * mem.width]));
@@ -168,9 +166,7 @@ struct OptMemFeedbackWorker
 
 			for (int sub = 0; sub < (1 << port.wide_log2); sub++)
 			{
-				SigSpec addr = sigmap_xmux(port.addr);
-				for (int k = 0; k < port.wide_log2; k++)
-					addr[k] = State(sub >> k & 1);
+				SigSpec addr = sigmap_xmux(port.sub_addr(sub));
 
 				if (!async_rd_bits.count(addr))
 					continue;
