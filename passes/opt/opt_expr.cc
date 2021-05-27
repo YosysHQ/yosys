@@ -441,7 +441,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 		if (!noclkinv)
 		{
-			if (cell->type.in(ID($dff), ID($dffe), ID($dffsr), ID($dffsre), ID($adff), ID($adffe), ID($sdff), ID($sdffe), ID($sdffce), ID($fsm), ID($memrd), ID($memwr)))
+			if (cell->type.in(ID($dff), ID($dffe), ID($dffsr), ID($dffsre), ID($adff), ID($adffe), ID($sdff), ID($sdffe), ID($sdffce), ID($fsm), ID($memrd), ID($memrd_v2), ID($memwr), ID($memwr_v2)))
 				handle_polarity_inv(cell, ID::CLK, ID::CLK_POLARITY, assign_map, invert_map);
 
 			if (cell->type.in(ID($sr), ID($dffsr), ID($dffsre), ID($dlatchsr))) {

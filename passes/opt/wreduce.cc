@@ -558,7 +558,7 @@ struct WreducePass : public Pass {
 					}
 				}
 
-				if (!opt_memx && c->type.in(ID($memrd), ID($memwr), ID($meminit), ID($meminit_v2))) {
+				if (!opt_memx && c->type.in(ID($memrd), ID($memrd_v2), ID($memwr), ID($memwr_v2), ID($meminit), ID($meminit_v2))) {
 					IdString memid = c->getParam(ID::MEMID).decode_string();
 					RTLIL::Memory *mem = module->memories.at(memid);
 					if (mem->start_offset >= 0) {

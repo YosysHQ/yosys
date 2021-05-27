@@ -254,9 +254,9 @@ struct OptReduceWorker
 		SigPool mem_wren_sigs;
 		for (auto &cell_it : module->cells_) {
 			RTLIL::Cell *cell = cell_it.second;
-			if (cell->type == ID($mem))
+			if (cell->type.in(ID($mem), ID($mem_v2)))
 				mem_wren_sigs.add(assign_map(cell->getPort(ID::WR_EN)));
-			if (cell->type == ID($memwr))
+			if (cell->type.in(ID($memwr), ID($memwr_v2)))
 				mem_wren_sigs.add(assign_map(cell->getPort(ID::EN)));
 		}
 		for (auto &cell_it : module->cells_) {

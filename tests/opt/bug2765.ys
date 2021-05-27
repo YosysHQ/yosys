@@ -31,4 +31,4 @@ proc
 opt
 select -assert-count 2 t:$memwr
 opt_mem
-select -assert-count 1 t:$memwr
+select -assert-count 1 t:$memwr_v2

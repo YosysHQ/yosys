@@ -366,7 +366,7 @@ struct ShareWorker
 				continue;
 			}
 
-			if (cell->type == ID($memrd)) {
+			if (cell->type.in(ID($memrd), ID($memrd_v2))) {
 				if (cell->parameters.at(ID::CLK_ENABLE).as_bool())
 					continue;
 				if (config.opt_aggressive || !modwalker.sigmap(cell->getPort(ID::ADDR)).is_fully_const())
@@ -399,9 +399,12 @@ struct ShareWorker
 		if (c1->type != c2->type)
 			return false;
 
-		if (c1->type == ID($memrd))
+		if (c1->type.in(ID($memrd), ID($memrd_v2)))
 		{
 			if (c1->parameters.at(ID::MEMID).decode_string() != c2->parameters.at(ID::MEMID).decode_string())
+				return false;
+
+			if (c1->parameters.at(ID::WIDTH) != c2->parameters.at(ID::WIDTH))
 				return false;
 
 			return true;
@@ -703,7 +706,7 @@ struct ShareWorker
 			return supercell;
 		}
 
-		if (c1->type == ID($memrd))
+		if (c1->type.in(ID($memrd), ID($memrd_v2)))
 		{
 			RTLIL::Cell *supercell = module->addCell(NEW_ID, c1);
 			RTLIL::SigSpec addr1 = c1->getPort(ID::ADDR);
