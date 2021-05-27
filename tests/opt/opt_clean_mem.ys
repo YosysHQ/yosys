@@ -24,25 +24,25 @@ EOT
 proc
 
 select -assert-count 2 t:$memrd
-select -assert-count 1 t:$memwr
+select -assert-count 1 t:$memwr_v2
 select -assert-count 1 t:$meminit_v2
 design -save orig
 
 opt_clean
 select -assert-none t:$memrd
-select -assert-none t:$memwr
+select -assert-none t:$memwr_v2
 select -assert-none t:$meminit_v2
 
 design -load orig
 expose top/rd1
 opt_clean
 select -assert-count 1 t:$memrd
-select -assert-count 1 t:$memwr
+select -assert-count 1 t:$memwr_v2
 select -assert-count 1 t:$meminit_v2
 
 design -load orig
 expose top/rd1 top/rd2
 opt_clean
 select -assert-count 2 t:$memrd
-select -assert-count 1 t:$memwr
+select -assert-count 1 t:$memwr_v2
 select -assert-count 1 t:$meminit_v2
