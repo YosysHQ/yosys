@@ -18,7 +18,7 @@ ${MAKE:-make} -f ../tools/autotest.mk SEED="$seed" EXTRA_FLAGS="$abcopt" *.v
 
 for f in `egrep -l 'expect-(wr-ports|rd-ports|rd-clk)' *.v`; do
 	echo -n "Testing expectations for $f .."
-	../../yosys -qp "proc; opt; memory -nomap;; dump -outfile ${f%.v}.dmp t:\$mem" $f
+	../../yosys -qp "proc; opt; memory -nomap;; dump -outfile ${f%.v}.dmp t:\$mem_v2" $f
 	if grep -q expect-wr-ports $f; then
 		grep -q "parameter \\\\WR_PORTS $(gawk '/expect-wr-ports/ { print $3; }' $f)\$" ${f%.v}.dmp ||
 				{ echo " ERROR: Unexpected number of write ports."; false; }
