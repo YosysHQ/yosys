@@ -1052,6 +1052,7 @@ grow_read_ports:;
 void handle_memory(Mem &mem, const rules_t &rules, FfInitVals *initvals)
 {
 	log("Processing %s.%s:\n", log_id(mem.module), log_id(mem.memid));
+	mem.narrow();
 
 	bool cell_init = !mem.inits.empty();
 
@@ -1068,20 +1069,6 @@ void handle_memory(Mem &mem, const rules_t &rules, FfInitVals *initvals)
 	for (auto &it : match_properties)
 		log(" %s=%d", it.first.c_str(), it.second);
 	log("\n");
-
-	for (auto &port : mem.rd_ports) {
-		if (port.wide_log2) {
-			log("Wide read ports are not supported, skipping.\n");
-			return;
-		}
-	}
-
-	for (auto &port : mem.wr_ports) {
-		if (port.wide_log2) {
-			log("Wide write ports are not supported, skipping.\n");
-			return;
-		}
-	}
 
 	// This pass cannot deal with write port priority — we need to emulate it,
 	// if present.  Since priority emulation will change the enable signals,
