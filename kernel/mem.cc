@@ -691,6 +691,9 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 }
 
 void Mem::narrow() {
+	// NOTE: several passes depend on this function not modifying
+	// the design at all until (and unless) emit() is called.
+	// Be careful to preserve this.
 	std::vector<MemRd> new_rd_ports;
 	std::vector<MemWr> new_wr_ports;
 	std::vector<std::pair<int, int>> new_rd_map;

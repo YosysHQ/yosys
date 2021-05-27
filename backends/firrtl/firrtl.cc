@@ -542,6 +542,8 @@ struct FirrtlWorker
 		vector<string> port_decls, wire_decls, mem_exprs, cell_exprs, wire_exprs;
 
 		std::vector<Mem> memories = Mem::get_all_memories(module);
+		for (auto &mem : memories)
+			mem.narrow();
 
 		for (auto wire : module->wires())
 		{
@@ -993,8 +995,6 @@ struct FirrtlWorker
 
 				if (port.clk_enable)
 					log_error("Clocked read port %d on memory %s.%s.\n", i, log_id(module), log_id(mem.memid));
-				if (port.wide_log2 != 0)
-					log_error("Wide read port %d on memory %s.%s.  Use memory_narrow to convert them first.\n", i, log_id(module), log_id(mem.memid));
 
 				std::ostringstream rpe;
 
@@ -1016,8 +1016,6 @@ struct FirrtlWorker
 
 				if (!port.clk_enable)
 					log_error("Unclocked write port %d on memory %s.%s.\n", i, log_id(module), log_id(mem.memid));
-				if (port.wide_log2 != 0)
-					log_error("Wide write port %d on memory %s.%s.  Use memory_narrow to convert them first.\n", i, log_id(module), log_id(mem.memid));
 				if (!port.clk_polarity)
 					log_error("Negedge write port %d on memory %s.%s.\n", i, log_id(module), log_id(mem.memid));
 				for (int i = 1; i < GetSize(port.en); i++)

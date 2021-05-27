@@ -732,14 +732,6 @@ struct BtorWorker
 				if (port.clk_enable)
 					log_error("Memory %s.%s has sync read ports.  Please use memory_nordff to convert them first.\n",
 							log_id(module), log_id(mem->memid));
-				if (port.wide_log2)
-					log_error("Memory %s.%s has wide read ports.  Please use memory_narrow to convert them first.\n",
-							log_id(module), log_id(mem->memid));
-			}
-			for (auto &port : mem->wr_ports) {
-				if (port.wide_log2)
-					log_error("Memory %s.%s has wide write ports.  Please use memory_narrow to convert them first.\n",
-							log_id(module), log_id(mem->memid));
 			}
 
 			int data_sid = get_bv_sid(mem->width);
@@ -1089,8 +1081,10 @@ struct BtorWorker
 		memories = Mem::get_all_memories(module);
 
 		dict<IdString, Mem*> mem_dict;
-		for (auto &mem : memories)
+		for (auto &mem : memories) {
+			mem.narrow();
 			mem_dict[mem.memid] = &mem;
+		}
 		for (auto cell : module->cells())
 			if (cell->is_mem_cell())
 				mem_cells[cell] = mem_dict[cell->parameters.at(ID::MEMID).decode_string()];
