@@ -1196,6 +1196,25 @@ static void process_module(RTLIL::Design *design, AstNode *ast, bool defer, AstN
 	design->add(current_module);
 }
 
+// renames identifiers in tasks and functions within a package
+static void rename_in_package_stmts(AstNode *pkg)
+{
+	std::unordered_set<std::string> idents;
+	for (AstNode *item : pkg->children)
+		idents.insert(item->str);
+	std::function<void(AstNode*)> rename =
+		[&rename, &idents, pkg](AstNode *node) {
+			for (AstNode *child : node->children) {
+				if (idents.count(child->str))
+					child->str = pkg->str + "::" + child->str.substr(1);
+				rename(child);
+			}
+	};
+	for (AstNode *item : pkg->children)
+		if (item->type == AST_FUNCTION || item->type == AST_TASK)
+			rename(item);
+}
+
 // create AstModule instances for all modules in the AST tree and add them to 'design'
 void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool no_dump_ptr, bool dump_vlog1, bool dump_vlog2, bool dump_rtlil,
 		bool nolatches, bool nomeminit, bool nomem2reg, bool mem2reg, bool noblackbox, bool lib, bool nowb, bool noopt, bool icells, bool pwires, bool nooverwrite, bool overwrite, bool defer, bool autowire)
@@ -1284,6 +1303,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 		else if (child->type == AST_PACKAGE) {
 			// process enum/other declarations
 			child->simplify(true, false, false, 1, -1, false, false);
+			rename_in_package_stmts(child);
 			design->verilog_packages.push_back(child->clone());
 			current_scope.clear();
 		}

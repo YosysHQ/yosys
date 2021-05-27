@@ -593,7 +593,7 @@ package_body:
 	package_body package_body_stmt | %empty;
 
 package_body_stmt:
-	typedef_decl | localparam_decl | param_decl;
+	typedef_decl | localparam_decl | param_decl | task_func_decl;
 
 interface:
 	TOK_INTERFACE {
