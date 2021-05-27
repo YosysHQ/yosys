@@ -31,6 +31,30 @@ for f in `egrep -l 'expect-(wr-ports|rd-ports|rd-clk)' *.v`; do
 		grep -q "connect \\\\RD_CLK \\$(gawk '/expect-rd-clk/ { print $3; }' $f)\$" ${f%.v}.dmp ||
 				{ echo " ERROR: Unexpected read clock."; false; }
 	fi
+	if grep -q expect-rd-en $f; then
+		grep -q "connect \\\\RD_EN \\$(gawk '/expect-rd-en/ { print $3; }' $f)\$" ${f%.v}.dmp ||
+				{ echo " ERROR: Unexpected read enable."; false; }
+	fi
+	if grep -q expect-rd-srst-sig $f; then
+		grep -q "connect \\\\RD_SRST \\$(gawk '/expect-rd-srst-sig/ { print $3; }' $f)\$" ${f%.v}.dmp ||
+				{ echo " ERROR: Unexpected read sync reset."; false; }
+	fi
+	if grep -q expect-rd-srst-val $f; then
+		grep -q "parameter \\\\RD_SRST_VALUE $(gawk '/expect-rd-srst-val/ { print $3; }' $f)\$" ${f%.v}.dmp ||
+				{ echo " ERROR: Unexpected read sync reset value."; false; }
+	fi
+	if grep -q expect-rd-arst-sig $f; then
+		grep -q "connect \\\\RD_ARST \\$(gawk '/expect-rd-arst-sig/ { print $3; }' $f)\$" ${f%.v}.dmp ||
+				{ echo " ERROR: Unexpected read async reset."; false; }
+	fi
+	if grep -q expect-rd-arst-val $f; then
+		grep -q "parameter \\\\RD_ARST_VALUE $(gawk '/expect-rd-arst-val/ { print $3; }' $f)\$" ${f%.v}.dmp ||
+				{ echo " ERROR: Unexpected read async reset value."; false; }
+	fi
+	if grep -q expect-rd-init-val $f; then
+		grep -q "parameter \\\\RD_INIT_VALUE $(gawk '/expect-rd-init-val/ { print $3; }' $f)\$" ${f%.v}.dmp ||
+				{ echo " ERROR: Unexpected read init value."; false; }
+	fi
 	if grep -q expect-no-rd-clk $f; then
 		grep -q "connect \\\\RD_CLK 1'x\$" ${f%.v}.dmp ||
 				{ echo " ERROR: Expected no read clock."; false; }
