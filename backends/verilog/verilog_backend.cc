@@ -515,6 +515,8 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 
 	// create a map : "edge clk" -> expressions within that clock domain
 	dict<std::string, std::vector<std::string>> clk_to_lof_body;
+	dict<std::string, std::string> clk_to_arst_cond;
+	dict<std::string, std::vector<std::string>> clk_to_arst_body;
 	clk_to_lof_body[""] = std::vector<std::string>();
 	std::string clk_domain_str;
 	// create a list of reg declarations
@@ -529,8 +531,12 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 				std::ostringstream os;
 				dump_sigspec(os, port.clk);
 				clk_domain_str = stringf("%sedge %s", port.clk_polarity ? "pos" : "neg", os.str().c_str());
-				if( clk_to_lof_body.count(clk_domain_str) == 0 )
-					clk_to_lof_body[clk_domain_str] = std::vector<std::string>();
+				if (port.arst != State::S0) {
+					std::ostringstream os2;
+					dump_sigspec(os2, port.arst);
+					clk_domain_str += stringf(", posedge %s", os2.str().c_str());
+					clk_to_arst_cond[clk_domain_str] = os2.str();
+				}
 			}
 			if (!port.transparent)
 			{
@@ -542,22 +548,51 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 				std::string temp_id = next_auto_id();
 				lof_reg_declarations.push_back( stringf("reg [%d:0] %s;\n", port.data.size() - 1, temp_id.c_str()) );
 
-				bool has_en = port.en != State::S1;
+				bool has_indent = false;
 
-				if (has_en)
-				{
+				if (port.arst != State::S0) {
+					std::ostringstream os;
+					os << stringf("%s <= ", temp_id.c_str());
+					dump_sigspec(os, port.arst_value);
+					os << ";\n";
+					clk_to_arst_body[clk_domain_str].push_back(os.str());
+				}
+
+				if (port.srst != State::S0 && !port.ce_over_srst) {
+					std::ostringstream os;
+					os << stringf("if (");
+					dump_sigspec(os, port.srst);
+					os << stringf(")\n");
+					clk_to_lof_body[clk_domain_str].push_back(os.str());
+					std::ostringstream os2;
+					os2 << stringf("%s" "%s <= ", indent.c_str(), temp_id.c_str());
+					dump_sigspec(os2, port.srst_value);
+					os2 << ";\n";
+					clk_to_lof_body[clk_domain_str].push_back(os2.str());
+					std::ostringstream os3;
+					if (port.en == State::S1) {
+						os3 << "else begin\n";
+					} else {
+						os3 << "else if (";
+						dump_sigspec(os3, port.en);
+						os3 << ") begin\n";
+					}
+					clk_to_lof_body[clk_domain_str].push_back(os3.str());
+					has_indent = true;
+				} else if (port.en != State::S1) {
 					std::ostringstream os;
 					os << stringf("if (");
 					dump_sigspec(os, port.en);
 					os << stringf(") begin\n");
 					clk_to_lof_body[clk_domain_str].push_back(os.str());
+					has_indent = true;
 				}
 
 				for (int sub = 0; sub < (1 << port.wide_log2); sub++)
 				{
 					SigSpec addr = port.sub_addr(sub);
 					std::ostringstream os;
-					if (has_en)
+					if (has_indent)
 						os << indent;
 					os << temp_id;
 					if (port.wide_log2)
@@ -568,8 +603,34 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 					clk_to_lof_body[clk_domain_str].push_back(os.str());
 				}
 
-				if (has_en)
+				if (port.srst != State::S0 && port.ce_over_srst)
+				{
+					std::ostringstream os;
+					if (has_indent)
+						os << indent;
+					os << stringf("if (");
+					dump_sigspec(os, port.srst);
+					os << stringf(")\n");
+					clk_to_lof_body[clk_domain_str].push_back(os.str());
+					std::ostringstream os2;
+					if (has_indent)
+						os2 << indent;
+					os2 << stringf("%s" "%s <= ", indent.c_str(), temp_id.c_str());
+					dump_sigspec(os2, port.srst_value);
+					os2 << ";\n";
+					clk_to_lof_body[clk_domain_str].push_back(os2.str());
+				}
+
+				if (has_indent)
 					clk_to_lof_body[clk_domain_str].push_back("end\n");
+
+				if (!port.init_value.is_fully_undef())
+				{
+					std::ostringstream os;
+					dump_sigspec(os, port.init_value);
+					std::string line = stringf("initial %s = %s;\n", temp_id.c_str(), os.str().c_str());
+					clk_to_lof_body[""].push_back(line);
+				}
 
 				{
 					std::ostringstream os;
@@ -765,8 +826,19 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 		if( clk_domain != "")
 		{
 			f << stringf("%s" "always%s @(%s) begin\n", indent.c_str(), systemverilog ? "_ff" : "", clk_domain.c_str());
-			for(auto &line : lof_lines)
-				f << stringf("%s%s" "%s", indent.c_str(), indent.c_str(), line.c_str());
+			bool has_arst = clk_to_arst_cond.count(clk_domain) != 0;
+			if (has_arst) {
+				f << stringf("%s%s" "if (%s) begin\n", indent.c_str(), indent.c_str(), clk_to_arst_cond[clk_domain].c_str());
+				for(auto &line : clk_to_arst_body[clk_domain])
+					f << stringf("%s%s%s" "%s", indent.c_str(), indent.c_str(), indent.c_str(), line.c_str());
+				f << stringf("%s%s" "end else begin\n", indent.c_str(), indent.c_str());
+				for(auto &line : lof_lines)
+					f << stringf("%s%s%s" "%s", indent.c_str(), indent.c_str(), indent.c_str(), line.c_str());
+				f << stringf("%s%s" "end\n", indent.c_str(), indent.c_str());
+			} else {
+				for(auto &line : lof_lines)
+					f << stringf("%s%s" "%s", indent.c_str(), indent.c_str(), line.c_str());
+			}
 			f << stringf("%s" "end\n", indent.c_str());
 		}
 		else
