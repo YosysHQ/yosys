@@ -29,17 +29,26 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-void proc_memwr(RTLIL::Module *mod, RTLIL::Process *proc, dict<IdString, int> &next_priority)
+void proc_memwr(RTLIL::Module *mod, RTLIL::Process *proc, dict<IdString, int> &next_port_id)
 {
 	for (auto sr : proc->syncs)
 	{
+		std::vector<int> prev_port_ids;
 		for (auto memwr : sr->mem_write_actions) {
-			RTLIL::Cell *cell = mod->addCell(NEW_ID, ID($memwr));
+			int port_id = next_port_id[memwr.memid]++;
+			Const priority_mask(State::S0, port_id);
+			for (int i = 0; i < GetSize(prev_port_ids); i++)
+				if (memwr.priority_mask[i] == State::S1)
+					priority_mask[prev_port_ids[i]] = State::S1;
+			prev_port_ids.push_back(port_id);
+
+			RTLIL::Cell *cell = mod->addCell(NEW_ID, ID($memwr_v2));
 			cell->attributes = memwr.attributes;
 			cell->setParam(ID::MEMID, Const(memwr.memid.str()));
 			cell->setParam(ID::ABITS, GetSize(memwr.address));
 			cell->setParam(ID::WIDTH, GetSize(memwr.data));
-			cell->setParam(ID::PRIORITY, next_priority[memwr.memid]++);
+			cell->setParam(ID::PORTID, port_id);
+			cell->setParam(ID::PRIORITY_MASK, priority_mask);
 			cell->setPort(ID::ADDR, memwr.address);
 			cell->setPort(ID::DATA, memwr.data);
 			SigSpec enable = memwr.enable;
@@ -91,18 +100,19 @@ struct ProcMemWrPass : public Pass {
 		extra_args(args, 1, design);
 
 		for (auto module : design->selected_modules()) {
-			dict<IdString, int> next_priority;
+			dict<IdString, int> next_port_id;
 			for (auto cell : module->cells()) {
-				if (cell->type == ID($memwr)) {
+				if (cell->type.in(ID($memwr), ID($memwr_v2))) {
+					bool is_compat = cell->type == ID($memwr);
 					IdString memid = cell->parameters.at(ID::MEMID).decode_string();
-					int priority = cell->parameters.at(ID::PRIORITY).as_int();
-					if (priority >= next_priority[memid])
-						next_priority[memid] = priority + 1;
+					int port_id = cell->parameters.at(is_compat ? ID::PRIORITY : ID::PORTID).as_int();
+					if (port_id >= next_port_id[memid])
+						next_port_id[memid] = port_id + 1;
 				}
 			}
 			for (auto &proc_it : module->processes)
 				if (design->selected(module, proc_it.second))
-					proc_memwr(module, proc_it.second, next_priority);
+					proc_memwr(module, proc_it.second, next_port_id);
 		}
 	}
 } ProcMemWrPass;
