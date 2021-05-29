@@ -35,7 +35,7 @@ struct MemoryShareWorker
 	ModWalker modwalker;
 	FfInitVals initvals;
 	bool flag_widen;
-
+	bool flag_sat;
 
 	// --------------------------------------------------
 	// Consolidate read ports that read the same address
@@ -452,7 +452,7 @@ struct MemoryShareWorker
 	// Setup and run
 	// -------------
 
-	MemoryShareWorker(RTLIL::Design *design, bool flag_widen) : design(design), modwalker(design), flag_widen(flag_widen) {}
+	MemoryShareWorker(RTLIL::Design *design, bool flag_widen, bool flag_sat) : design(design), modwalker(design), flag_widen(flag_widen), flag_sat(flag_sat) {}
 
 	void operator()(RTLIL::Module* module)
 	{
@@ -482,6 +482,9 @@ struct MemoryShareWorker
 			while (consolidate_wr_by_addr(mem));
 		}
 
+		if (!flag_sat)
+			return;
+
 		modwalker.setup(module);
 
 		for (auto &mem : memories)
@@ -495,7 +498,7 @@ struct MemorySharePass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    memory_share [selection]\n");
+		log("    memory_share [-nosat] [-nowiden] [selection]\n");
 		log("\n");
 		log("This pass merges share-able memory ports into single memory ports.\n");
 		log("\n");
@@ -504,9 +507,13 @@ struct MemorySharePass : public Pass {
 		log("  - When multiple write ports access the same address then this is converted\n");
 		log("    to a single write port with a more complex data and/or enable logic path.\n");
 		log("\n");
+		log("  - When multiple read or write ports access adjacent aligned addresses, they are\n");
+		log("    merged to a single wide read or write port.  This transformation can be\n");
+		log("    disabled with the \"-nowiden\" option.\n");
+		log("\n");
 		log("  - When multiple write ports are never accessed at the same time (a SAT\n");
 		log("    solver is used to determine this), then the ports are merged into a single\n");
-		log("    write port.\n");
+		log("    write port.  This transformation can be disabled with the \"-nosat\" option.\n");
 		log("\n");
 		log("Note that in addition to the algorithms implemented in this pass, the $memrd\n");
 		log("and $memwr cells are also subject to generic resource sharing passes (and other\n");
@@ -514,11 +521,26 @@ struct MemorySharePass : public Pass {
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
+		bool flag_widen = true;
+		bool flag_sat = true;
 		log_header(design, "Executing MEMORY_SHARE pass (consolidating $memrd/$memwr cells).\n");
-		// TODO: expose when wide ports are actually supported.
-		bool flag_widen = false;
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++)
+		{
+			if (args[argidx] == "-nosat")
+			{
+				flag_sat = false;
+				continue;
+			}
+			if (args[argidx] == "-nowiden")
+			{
+				flag_widen = false;
+				continue;
+			}
+			break;
+		}
 		extra_args(args, 1, design);
-		MemoryShareWorker msw(design, flag_widen);
+		MemoryShareWorker msw(design, flag_widen, flag_sat);
 
 		for (auto module : design->selected_modules())
 			msw(module);

@@ -200,6 +200,10 @@ EOT
 hierarchy -auto-top
 proc
 opt
-memory -nomap
+opt_mem_priority
+memory_collect
 select -assert-count 1 t:$mem_v2
 select -assert-count 1 t:$mem_v2 r:WR_PRIORITY_MASK=64'h0804020100000000 %i
+memory_share
+select -assert-count 1 t:$mem_v2 r:WR_PRIORITY_MASK=64'h0f0f0f0f00000000 %i
+select -assert-count 1 t:$mem_v2 r:WR_WIDE_CONTINUATION=8'hee %i

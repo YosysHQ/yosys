@@ -23,6 +23,10 @@ for f in `egrep -l 'expect-(wr-ports|rd-ports|rd-clk)' *.v`; do
 		grep -q "parameter \\\\WR_PORTS $(gawk '/expect-wr-ports/ { print $3; }' $f)\$" ${f%.v}.dmp ||
 				{ echo " ERROR: Unexpected number of write ports."; false; }
 	fi
+	if grep -q expect-wr-wide-continuation $f; then
+		grep -q "parameter \\\\WR_WIDE_CONTINUATION $(gawk '/expect-wr-wide-continuation/ { print $3; }' $f)\$" ${f%.v}.dmp ||
+				{ echo " ERROR: Unexpected write wide continuation."; false; }
+	fi
 	if grep -q expect-rd-ports $f; then
 		grep -q "parameter \\\\RD_PORTS $(gawk '/expect-rd-ports/ { print $3; }' $f)\$" ${f%.v}.dmp ||
 				{ echo " ERROR: Unexpected number of read ports."; false; }
@@ -54,6 +58,10 @@ for f in `egrep -l 'expect-(wr-ports|rd-ports|rd-clk)' *.v`; do
 	if grep -q expect-rd-init-val $f; then
 		grep -q "parameter \\\\RD_INIT_VALUE $(gawk '/expect-rd-init-val/ { print $3; }' $f)\$" ${f%.v}.dmp ||
 				{ echo " ERROR: Unexpected read init value."; false; }
+	fi
+	if grep -q expect-rd-wide-continuation $f; then
+		grep -q "parameter \\\\RD_WIDE_CONTINUATION $(gawk '/expect-rd-wide-continuation/ { print $3; }' $f)\$" ${f%.v}.dmp ||
+				{ echo " ERROR: Unexpected read wide continuation."; false; }
 	fi
 	if grep -q expect-no-rd-clk $f; then
 		grep -q "connect \\\\RD_CLK 1'x\$" ${f%.v}.dmp ||
