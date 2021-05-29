@@ -759,6 +759,10 @@ memory_dff
 memory_collect
 select -assert-count 1 t:$mem_v2
 select -assert-count 1 t:$mem_v2 r:RD_TRANSPARENCY_MASK=4'b1111 r:RD_COLLISION_X_MASK=4'b0000 %i %i
+memory_share
+select -assert-count 1 t:$mem_v2
+select -assert-count 1 t:$mem_v2 r:RD_TRANSPARENCY_MASK=4'b1111 r:RD_COLLISION_X_MASK=4'b0000 %i %i
+select -assert-count 1 t:$mem_v2 r:RD_WIDE_CONTINUATION=4'b1110 %i
 
 design -reset
 
@@ -808,6 +812,10 @@ memory_dff
 memory_collect
 select -assert-count 1 t:$mem_v2
 select -assert-count 1 t:$mem_v2 r:RD_TRANSPARENCY_MASK=4'b1111 r:RD_COLLISION_X_MASK=4'b0000 %i %i
+memory_share
+select -assert-count 1 t:$mem_v2
+select -assert-count 1 t:$mem_v2 r:RD_TRANSPARENCY_MASK=4'b1111 r:RD_COLLISION_X_MASK=4'b0000 %i %i
+select -assert-count 1 t:$mem_v2 r:WR_WIDE_CONTINUATION=4'b1110 %i
 
 design -reset
 
@@ -858,5 +866,9 @@ select -assert-count 1 t:$memrd_v2 r:TRANSPARENCY_MASK=4'b0001 r:COLLISION_X_MAS
 select -assert-count 1 t:$memrd_v2 r:TRANSPARENCY_MASK=4'b0010 r:COLLISION_X_MASK=4'b1101 %i %i
 select -assert-count 1 t:$memrd_v2 r:TRANSPARENCY_MASK=4'b0100 r:COLLISION_X_MASK=4'b1011 %i %i
 select -assert-count 1 t:$memrd_v2 r:TRANSPARENCY_MASK=4'b1000 r:COLLISION_X_MASK=4'b0111 %i %i
+memory_share
+select -assert-count 1 t:$memrd_v2
+select -assert-count 1 t:$memwr_v2
+select -assert-count 1 t:$memrd_v2 r:TRANSPARENCY_MASK=1'b1 r:COLLISION_X_MASK=1'b0 %i %i
 
 design -reset
