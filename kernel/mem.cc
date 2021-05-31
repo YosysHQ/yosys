@@ -291,6 +291,7 @@ void Mem::check() {
 		log_assert(GetSize(port.srst_value) == (width << port.wide_log2));
 		if (!port.clk_enable) {
 			log_assert(!port.transparent);
+			log_assert(port.en == State::S1);
 			log_assert(port.arst == State::S0);
 			log_assert(port.srst == State::S0);
 		}
@@ -370,6 +371,15 @@ namespace {
 				mrd.init_value = Const(State::Sx, mem->width << mrd.wide_log2);
 				mrd.srst = State::S0;
 				mrd.arst = State::S0;
+				if (!mrd.clk_enable) {
+					// Fix some patterns that we'll allow for backwards compatibility,
+					// but don't want to see moving forwards: async transparent
+					// ports (inherently meaningless) and async ports without
+					// const 1 tied to EN bit (which may mean a latch in the future).
+					mrd.transparent = false;
+					if (mrd.en == State::Sx)
+						mrd.en = State::S1;
+				}
 				res.rd_ports.push_back(mrd);
 			}
 		}
