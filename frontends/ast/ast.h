@@ -326,6 +326,9 @@ namespace AST
 
 		// helpers for locations
 		std::string loc_string() const;
+
+		// Helper for looking up identifiers which are prefixed with the current module name
+		std::string try_pop_module_prefix() const;
 	};
 
 	// process an AST tree (ast must point to an AST_DESIGN node) and generate RTLIL code
