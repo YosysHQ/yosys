@@ -767,8 +767,15 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 
 	case AST_IDENTIFIER:
 		id_ast = id2ast;
-		if (id_ast == NULL && current_scope.count(str))
-			id_ast = current_scope.at(str);
+		if (!id_ast) {
+			if (current_scope.count(str))
+				id_ast = current_scope[str];
+			else {
+				std::string alt = try_pop_module_prefix();
+				if (current_scope.count(alt))
+					id_ast = current_scope[alt];
+			}
+		}
 		if (!id_ast)
 			log_file_error(filename, location.first_line, "Failed to resolve identifier %s for width detection!\n", str.c_str());
 		if (id_ast->type == AST_PARAMETER || id_ast->type == AST_LOCALPARAM || id_ast->type == AST_ENUM_ITEM) {

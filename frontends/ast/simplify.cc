@@ -1698,17 +1698,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	if (type == AST_IDENTIFIER) {
 		if (current_scope.count(str) == 0) {
 			AstNode *current_scope_ast = (current_ast_mod == nullptr) ? current_ast : current_ast_mod;
-			size_t pos = str.find('.', 1);
-			if (str[0] == '\\' && pos != std::string::npos) {
-				std::string new_str = "\\" + str.substr(pos + 1);
-				if (current_scope.count(new_str)) {
-					std::string prefix = str.substr(0, pos);
-					auto it = current_scope_ast->attributes.find(ID::hdlname);
-					if ((it != current_scope_ast->attributes.end() && it->second->str == prefix)
-							|| prefix == current_scope_ast->str)
-						str = new_str;
-				}
-			}
+			str = try_pop_module_prefix();
 			for (auto node : current_scope_ast->children) {
 				//log("looking at mod scope child %s\n", type2str(node->type).c_str());
 				switch (node->type) {
@@ -5085,6 +5075,23 @@ std::pair<AstNode*, AstNode*> AstNode::get_tern_choice()
 		choice = children[2], not_choice = children[1];
 
 	return {choice, not_choice};
+}
+
+std::string AstNode::try_pop_module_prefix() const
+{
+	AstNode *current_scope_ast = (current_ast_mod == nullptr) ? current_ast : current_ast_mod;
+	size_t pos = str.find('.', 1);
+	if (str[0] == '\\' && pos != std::string::npos) {
+		std::string new_str = "\\" + str.substr(pos + 1);
+		if (current_scope.count(new_str)) {
+			std::string prefix = str.substr(0, pos);
+			auto it = current_scope_ast->attributes.find(ID::hdlname);
+			if ((it != current_scope_ast->attributes.end() && it->second->str == prefix)
+					|| prefix == current_scope_ast->str)
+				return new_str;
+		}
+	}
+	return str;
 }
 
 YOSYS_NAMESPACE_END
