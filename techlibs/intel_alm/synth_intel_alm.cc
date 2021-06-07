@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Claire Wolf <claire@symbioticeda.com>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *  Copyright (C) 2019  Dan Ravensloft <dan.ravensloft@gmail.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
