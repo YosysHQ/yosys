@@ -6,7 +6,7 @@
 // means.
 
 // -------------------------------------------------------
-// Written by Clifford Wolf <clifford@clifford.at> in 2014
+// Written by Claire Xenia Wolf <claire@yosyshq.com> in 2014
 // -------------------------------------------------------
 
 #ifndef HASHLIB_H

@@ -1,7 +1,7 @@
 ```
 yosys -- Yosys Open SYnthesis Suite
 
-Copyright (C) 2012 - 2020  Claire Wolf <claire@symbioticeda.com>
+Copyright (C) 2012 - 2020  Claire Xenia Wolf <claire@yosyshq.com>
 
 Permission to use, copy, modify, and/or distribute this software for any
 purpose with or without fee is hereby granted, provided that the above
@@ -38,11 +38,11 @@ Web Site and Other Resources
 ============================
 
 More information and documentation can be found on the Yosys web site:
-- http://www.clifford.at/yosys/
+- https://yosyshq.net/yosys/
 
 The "Documentation" page on the web site contains links to more resources,
 including a manual that even describes some of the Yosys internals:
-- http://www.clifford.at/yosys/documentation.html
+- https://yosyshq.net/yosys/documentation.html
 
 The directory `guidelines` contains additional information
 for people interested in using the Yosys C++ APIs.
@@ -92,7 +92,7 @@ For Cygwin use the following command to install all prerequisites, or select the
 
 There are also pre-compiled Yosys binary packages for Ubuntu and Win32 as well
 as a source distribution for Visual Studio. Visit the Yosys download page for
-more information: http://www.clifford.at/yosys/download.html
+more information: https://yosyshq.net/yosys/download.html
 
 To configure the build system to use a specific compiler, use one of
 
@@ -568,7 +568,7 @@ Building the documentation
 ==========================
 
 Note that there is no need to build the manual if you just want to read it.
-Simply download the PDF from http://www.clifford.at/yosys/documentation.html
+Simply download the PDF from https://yosyshq.net/yosys/documentation.html
 instead.
 
 On Ubuntu, texlive needs these packages to be able to build the manual:

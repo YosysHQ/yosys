@@ -54,7 +54,7 @@ As root (or other user with write access to /usr/local/src):
 
 Then as regular user in some directory where you build stuff:
 
-	git clone https://github.com/cliffordwolf/yosys.git yosys-win32
+	git clone https://github.com/YosysHQ/yosys.git yosys-win32
 	cd yosys-win32
 	make config-mxe
 	make -j$(nproc) mxebin
