@@ -662,6 +662,7 @@ struct RTLIL::Const
 	bool is_fully_ones() const;
 	bool is_fully_def() const;
 	bool is_fully_undef() const;
+	bool is_onehot(int *pos = nullptr) const;
 
 	inline RTLIL::Const extract(int offset, int len = 1, RTLIL::State padding = RTLIL::State::S0) const {
 		RTLIL::Const ret;
@@ -934,6 +935,7 @@ public:
 	bool is_fully_undef() const;
 	bool has_const() const;
 	bool has_marked_bits() const;
+	bool is_onehot(int *pos = nullptr) const;
 
 	bool as_bool() const;
 	int as_int(bool is_signed = false) const;
