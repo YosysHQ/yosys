@@ -68,7 +68,7 @@ struct IntersynthBackend : public Backend {
 		log("        only write selected modules. modules must be selected entirely or\n");
 		log("        not at all.\n");
 		log("\n");
-		log("http://www.clifford.at/intersynth/\n");
+		log("http://bygone.clairexen.net/intersynth/\n");
 		log("\n");
 	}
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
