@@ -1648,7 +1648,7 @@ skip_identity:
 					goto next_cell;
 				}
 
-				for (int i = 1; i < (b_signed ? sig_b.size()-1 : sig_b.size()); i++)
+				for (int i = 0; i < (b_signed ? sig_b.size()-1 : sig_b.size()); i++)
 					if (b_val == (1 << i))
 					{
 						if (cell->type.in(ID($div), ID($divfloor)))
@@ -1672,7 +1672,7 @@ skip_identity:
 
 							// Truncating division is the same as flooring division, except when
 							// the result is negative and there is a remainder - then trunc = floor + 1
-							if (is_truncating && a_signed) {
+							if (is_truncating && a_signed && i != 0) {
 								Wire *flooring = module->addWire(NEW_ID, sig_y.size());
 								cell->setPort(ID::Y, flooring);
 
@@ -1698,7 +1698,7 @@ skip_identity:
 
 							std::vector<RTLIL::SigBit> new_b = RTLIL::SigSpec(State::S1, i);
 
-							if (b_signed)
+							if (b_signed || i == 0)
 								new_b.push_back(State::S0);
 
 							cell->type = ID($and);
@@ -1707,7 +1707,7 @@ skip_identity:
 
 							// truncating modulo has the same masked bits as flooring modulo, but
 							// the sign bits are those of A (except when R=0)
-							if (is_truncating && a_signed) {
+							if (is_truncating && a_signed && i != 0) {
 								Wire *flooring = module->addWire(NEW_ID, sig_y.size());
 								cell->setPort(ID::Y, flooring);
 								SigSpec truncating = SigSpec(flooring).extract(0, i);
