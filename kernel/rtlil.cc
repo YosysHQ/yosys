@@ -363,6 +363,26 @@ bool RTLIL::Const::is_fully_undef() const
 	return true;
 }
 
+bool RTLIL::Const::is_onehot(int *pos) const
+{
+	cover("kernel.rtlil.const.is_onehot");
+
+	bool found = false;
+	for (int i = 0; i < GetSize(*this); i++) {
+		auto &bit = bits[i];
+		if (bit != RTLIL::State::S0 && bit != RTLIL::State::S1)
+			return false;
+		if (bit == RTLIL::State::S1) {
+			if (found)
+				return false;
+			if (pos)
+				*pos = i;
+			found = true;
+		}
+	}
+	return found;
+}
+
 bool RTLIL::AttrObject::has_attribute(RTLIL::IdString id) const
 {
 	return attributes.count(id);
@@ -4208,6 +4228,19 @@ bool RTLIL::SigSpec::has_marked_bits() const
 				if (it->data[i] == RTLIL::State::Sm)
 					return true;
 		}
+	return false;
+}
+
+bool RTLIL::SigSpec::is_onehot(int *pos) const
+{
+	cover("kernel.rtlil.sigspec.is_onehot");
+
+	pack();
+	if (!is_fully_const())
+		return false;
+	log_assert(GetSize(chunks_) <= 1);
+	if (width_)
+		return RTLIL::Const(chunks_[0].data).is_onehot(pos);
 	return false;
 }
 
