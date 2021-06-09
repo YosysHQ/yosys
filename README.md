@@ -56,6 +56,20 @@ front-end for Yosys, SymbiYosys:
 Setup
 ======
 
+Installation
+------------
+
+Your Linux distribution may already ship a package for Yosys' most recent release and related tools, see e.g. [Debian](https://tracker.debian.org/pkg/yosys), [Ubuntu](https://launchpad.net/ubuntu/+source/yosys), [Fedora](https://pkgs.org/download/yosys%28x86-64%29), [SuSE](https://software.opensuse.org/download.html?project=electronics&package=yosys) and [MacOS X](https://formulae.brew.sh/formula/yosys).
+If in need for a an updated version on an older release of that distribution then
+ask for a backport or compile your own as instructed below.
+
+There are pre-compiled Yosys binary packages for Win32 as well
+as a source distribution for Visual Studio. Visit the Yosys download page for
+more information: http://www.clifford.at/yosys/download.html
+
+Build instructions
+------------------
+
 You need a C++ compiler with C++11 support (up-to-date CLANG or GCC is
 recommended) and some standard tools such as GNU Flex, GNU Bison, and GNU Make.
 TCL, readline and libffi are optional (see ``ENABLE_*`` settings in Makefile).
@@ -90,9 +104,6 @@ For Cygwin use the following command to install all prerequisites, or select the
 
 	setup-x86_64.exe -q --packages=bison,flex,gcc-core,gcc-g++,git,libffi-devel,libreadline-devel,make,pkg-config,python3,tcl-devel,boost-build,zlib-devel
 
-There are also pre-compiled Yosys binary packages for Ubuntu and Win32 as well
-as a source distribution for Visual Studio. Visit the Yosys download page for
-more information: http://www.clifford.at/yosys/download.html
 
 To configure the build system to use a specific compiler, use one of
 
