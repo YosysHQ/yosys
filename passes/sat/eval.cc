@@ -18,7 +18,7 @@
  */
 
 // [[CITE]] VlogHammer Verilog Regression Test Suite
-// http://yosyshq.net/yosys/vloghammer.html
+// https://yosyshq.net/yosys/vloghammer.html
 
 #include "kernel/register.h"
 #include "kernel/celltypes.h"

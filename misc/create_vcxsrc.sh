@@ -6,7 +6,7 @@ yosysver="$2"
 gitsha="$3"
 
 rm -rf YosysVS-Tpl-v2.zip YosysVS
-wget http://yosyshq.net/yosys/nogit/YosysVS-Tpl-v2.zip
+wget https://yosyshq.net/yosys/nogit/YosysVS-Tpl-v2.zip
 
 unzip YosysVS-Tpl-v2.zip
 rm -f YosysVS-Tpl-v2.zip
