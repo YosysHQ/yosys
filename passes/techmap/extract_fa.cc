@@ -33,7 +33,7 @@ struct ExtractFaConfig
 	int maxbreadth = 6;
 };
 
-// http://svn.clifford.at/handicraft/2016/bindec/bindec.c
+// http://svn.clairexen.net/handicraft/2016/bindec/bindec.c
 int bindec(unsigned char v)
 {
 	int r = v & 1;

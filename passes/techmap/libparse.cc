@@ -384,7 +384,7 @@ void LibertyParser::error(const std::string &str)
 	exit(1);
 }
 
-/**** BEGIN: http://svn.clifford.at/tools/trunk/examples/check.h ****/
+/**** BEGIN: http://svn.clairexen.net/tools/trunk/examples/check.h ****/
 
 #define CHECK_NV(result, check)                                      \
    do {                                                              \
@@ -405,7 +405,7 @@ void LibertyParser::error(const std::string &str)
 	 }                                                               \
    } while(0)
 
-/**** END: http://svn.clifford.at/tools/trunk/examples/check.h ****/
+/**** END: http://svn.clairexen.net/tools/trunk/examples/check.h ****/
 
 LibertyAst *find_non_null(LibertyAst *node, const char *name)
 {
