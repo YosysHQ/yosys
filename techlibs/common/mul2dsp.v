@@ -3,7 +3,7 @@
  *
  *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *                2019  Eddie Hung    <eddie@fpgeh.com>
- *                2019  David Shah <dave@ds0.me>
+ *                2019  gatecat <gatecat@ds0.me>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
