@@ -372,28 +372,27 @@ struct OptMuxtreeWorker
 		int port_idx = 0, port_off = 0;
 		vector<int> bits = sig2bits(sig, false);
 		for (int i = 0; i < GetSize(bits); i++) {
-			if (bits[i] < 0)
-				continue;
-			if (knowledge.known_inactive.at(bits[i])) {
-				sig[i] = State::S0;
-				did_something = true;
-			} else
-			if (knowledge.known_active.at(bits[i])) {
-				sig[i] = State::S1;
-				did_something = true;
-			}
-			if (width) {
-				if (ctrl_bits.count(bits[i])) {
-					sig[i] = ctrl_bits.at(bits[i]) == port_idx ? State::S1 : State::S0;
-					did_something = true;
-				}
-				if (++port_off == width)
-					port_idx++, port_off=0;
-			} else {
-				if (ctrl_bits.count(bits[i])) {
+			if (bits[i] >= 0) {
+				if (knowledge.known_inactive.at(bits[i])) {
 					sig[i] = State::S0;
 					did_something = true;
+				} else
+				if (knowledge.known_active.at(bits[i])) {
+					sig[i] = State::S1;
+					did_something = true;
 				}
+				if (ctrl_bits.count(bits[i])) {
+					if (width) {
+						sig[i] = ctrl_bits.at(bits[i]) == port_idx ? State::S1 : State::S0;
+					} else {
+						sig[i] = State::S0;
+					}
+					did_something = true;
+				}
+			}
+			if (width) {
+				if (++port_off == width)
+					port_idx++, port_off=0;
 			}
 		}
 
