@@ -54,7 +54,7 @@ namespace VERILOG_FRONTEND {
 	dict<IdString, AstNode*> *attr_list, default_attr_list;
 	std::stack<dict<IdString, AstNode*> *> attr_list_stack;
 	dict<IdString, AstNode*> *albuf;
-	std::vector<UserTypeMap*> user_type_stack;
+	std::vector<UserTypeMap> user_type_stack;
 	dict<std::string, AstNode*> pkg_user_types;
 	std::vector<AstNode*> ast_stack;
 	struct AstNode *astbuf1, *astbuf2, *astbuf3;
@@ -132,8 +132,8 @@ static void addTypedefNode(std::string *name, AstNode *node)
 	log_assert(node);
 	auto *tnode = new AstNode(AST_TYPEDEF, node);
 	tnode->str = *name;
-	auto user_types = user_type_stack.back();
-	(*user_types)[*name] = tnode;
+	auto &user_types = user_type_stack.back();
+	user_types[*name] = tnode;
 	if (current_ast_mod && current_ast_mod->type == AST_PACKAGE) {
 		// typedef inside a package so we need the qualified name
 		auto qname = current_ast_mod->str + "::" + (*name).substr(1);
@@ -145,8 +145,7 @@ static void addTypedefNode(std::string *name, AstNode *node)
 
 static void enterTypeScope()
 {
-	auto user_types = new UserTypeMap();
-	user_type_stack.push_back(user_types);
+	user_type_stack.push_back(UserTypeMap());
 }
 
 static void exitTypeScope()
@@ -157,17 +156,17 @@ static void exitTypeScope()
 static bool isInLocalScope(const std::string *name)
 {
 	// tests if a name was declared in the current block scope
-	auto user_types = user_type_stack.back();
-	return (user_types->count(*name) > 0);
+	auto &user_types = user_type_stack.back();
+	return (user_types.count(*name) > 0);
 }
 
 static AstNode *getTypeDefinitionNode(std::string type_name)
 {
 	// check current scope then outer scopes for a name
 	for (auto it = user_type_stack.rbegin(); it != user_type_stack.rend(); ++it) {
-		if ((*it)->count(type_name) > 0) {
+		if (it->count(type_name) > 0) {
 			// return the definition nodes from the typedef statement
-			auto typedef_node = (**it)[type_name];
+			auto typedef_node = (*it)[type_name];
 			log_assert(typedef_node->type == AST_TYPEDEF);
 			return typedef_node->children[0];
 		}

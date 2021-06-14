@@ -482,18 +482,18 @@ struct VerilogFrontend : public Frontend {
 		// make package typedefs available to parser
 		add_package_types(pkg_user_types, design->verilog_packages);
 
-		UserTypeMap *global_types_map = new UserTypeMap();
+		UserTypeMap global_types_map;
 		for (auto def : design->verilog_globals) {
 			if (def->type == AST::AST_TYPEDEF) {
-				(*global_types_map)[def->str] = def;
+				global_types_map[def->str] = def;
 			}
 		}
 
 		log_assert(user_type_stack.empty());
 		// use previous global typedefs as bottom level of user type stack
-		user_type_stack.push_back(global_types_map);
+		user_type_stack.push_back(std::move(global_types_map));
 		// add a new empty type map to allow overriding existing global definitions
-		user_type_stack.push_back(new UserTypeMap());
+		user_type_stack.push_back(UserTypeMap());
 
 		frontend_verilog_yyset_lineno(1);
 		frontend_verilog_yyrestart(NULL);
@@ -519,10 +519,6 @@ struct VerilogFrontend : public Frontend {
 
 		// only the previous and new global type maps remain
 		log_assert(user_type_stack.size() == 2);
-		for (auto it : user_type_stack) {
-			// the global typedefs have to remain valid for future invocations, so just drop the map without deleting values
-			delete it;
-		}
 		user_type_stack.clear();
 
 		delete current_ast;

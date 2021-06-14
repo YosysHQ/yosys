@@ -103,7 +103,7 @@ static bool isUserType(std::string &s)
 {
 	// check current scope then outer scopes for a name
 	for (auto it = user_type_stack.rbegin(); it != user_type_stack.rend(); ++it) {
-		if ((*it)->count(s) > 0) {
+		if (it->count(s) > 0) {
 			return true;
 		}
 	}
