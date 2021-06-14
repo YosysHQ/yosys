@@ -492,10 +492,8 @@ CXXFLAGS += -DYOSYS_LINK_ABC
 ifeq ($(DISABLE_ABC_THREADS),0)
 LDLIBS += -lpthread
 endif
-else
-ifeq ($(ABCEXTERNAL),)
+else ifeq ($(ABCEXTERNAL),)
 TARGETS += $(PROGRAM_PREFIX)yosys-abc$(EXE)
-endif
 endif
 endif
 
@@ -529,11 +527,9 @@ endif
 ifeq ($(ENABLE_CCACHE),1)
 CC := ccache $(CC)
 CXX := ccache $(CXX)
-else
-ifeq ($(ENABLE_SCCACHE),1)
+else ifeq ($(ENABLE_SCCACHE),1)
 CC := sccache $(CC)
 CXX := sccache $(CXX)
-endif
 endif
 
 define add_share_file
