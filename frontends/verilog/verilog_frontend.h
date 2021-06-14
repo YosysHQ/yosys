@@ -47,7 +47,7 @@ namespace VERILOG_FRONTEND
 
 	// names of locally typedef'ed types in a stack
 	typedef std::map<std::string, AST::AstNode*> UserTypeMap;
-	extern std::vector<UserTypeMap *> user_type_stack;
+	extern std::vector<UserTypeMap> user_type_stack;
 
 	// names of package typedef'ed types
 	extern dict<std::string, AST::AstNode*> pkg_user_types;
