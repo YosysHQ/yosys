@@ -142,7 +142,7 @@ bumpversion:
 ABCREV = 4f5f73d
 ABCPULL = 1
 ABCURL ?= https://github.com/YosysHQ/abc
-ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1
+ABCMKARGS = CC="$(CC)" CXX="$(CXX)" LD="$(LD)" ABC_USE_LIBSTDCXX=1
 
 # set ABCEXTERNAL = <abc-command> to use an external ABC instance
 # Note: The in-tree ABC (yosys-abc) will not be installed when ABCEXTERNAL is set.
@@ -184,7 +184,8 @@ endif
 endif
 
 ifeq ($(CONFIG),clang)
-CXX = clang
+CC = clang
+CXX = clang++
 LD = clang++
 CXXFLAGS += -std=c++11 -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
@@ -207,7 +208,8 @@ endif
 endif
 
 else ifeq ($(CONFIG),gcc)
-CXX = gcc
+CC = gcc
+CXX = g++
 LD = gcc
 CXXFLAGS += -std=c++11 -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
@@ -218,32 +220,36 @@ LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -static
 LDLIBS := $(filter-out -lrt,$(LDLIBS))
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 CXXFLAGS += -std=c++11 -Os
-ABCMKARGS = CC="$(CC)" CXX="$(CXX)" LD="$(LD)" ABC_USE_LIBSTDCXX=1 LIBS="-lm -lpthread -static" OPTFLAGS="-O" \
+ABCMKARGS += LIBS="-lm -lpthread -static" OPTFLAGS="-O" \
                        ARCHFLAGS="-DABC_USE_STDINT_H -DABC_NO_DYNAMIC_LINKING=1 -Wno-unused-but-set-variable $(ARCHFLAGS)" ABC_USE_NO_READLINE=1
 ifeq ($(DISABLE_ABC_THREADS),1)
 ABCMKARGS += "ABC_USE_NO_PTHREADS=1"
 endif
 
 else ifeq ($(CONFIG),gcc-4.8)
-CXX = gcc-4.8
+CC = gcc-4.8
+CXX = g++-4.8
 LD = gcc-4.8
 CXXFLAGS += -std=c++11 -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 
 else ifeq ($(CONFIG),afl-gcc)
-CXX = AFL_QUIET=1 AFL_HARDEN=1 afl-gcc
+CC = AFL_QUIET=1 AFL_HARDEN=1 afl-gcc
+CXX = AFL_QUIET=1 AFL_HARDEN=1 afl-g++
 LD = AFL_QUIET=1 AFL_HARDEN=1 afl-gcc
 CXXFLAGS += -std=c++11 -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 
 else ifeq ($(CONFIG),cygwin)
-CXX = gcc
+CC = gcc
+CXX = g++
 LD = gcc
 CXXFLAGS += -std=gnu++11 -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 
 else ifeq ($(CONFIG),emcc)
-CXX = emcc
+CC = emcc
+CXX = em++
 LD = emcc
 CXXFLAGS := -std=c++11 $(filter-out -fPIC -ggdb,$(CXXFLAGS))
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DABC_MEMALIGN=8"
@@ -283,13 +289,15 @@ yosys.html: misc/yosys.html
 
 else ifeq ($(CONFIG),wasi)
 ifeq ($(WASI_SDK),)
-CXX = clang
+CC = clang
+CXX = clang++
 LD = clang++
 AR = llvm-ar
 RANLIB = llvm-ranlib
 WASIFLAGS := -target wasm32-wasi --sysroot $(WASI_SYSROOT) $(WASIFLAGS)
 else
-CXX = $(WASI_SDK)/bin/clang
+CC = $(WASI_SDK)/bin/clang
+CXX = $(WASI_SDK)/bin/clang++
 LD = $(WASI_SDK)/bin/clang++
 AR = $(WASI_SDK)/bin/ar
 RANLIB = $(WASI_SDK)/bin/ranlib
@@ -312,6 +320,7 @@ endif
 
 else ifeq ($(CONFIG),mxe)
 PKG_CONFIG = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-pkg-config
+CC = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-gcc
 CXX = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-g++
 LD = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-g++
 CXXFLAGS += -std=c++11 -Os -D_POSIX_SOURCE -DYOSYS_MXE_HACKS -Wno-attributes
@@ -320,10 +329,11 @@ LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
 LDLIBS := $(filter-out -lrt,$(LDLIBS))
 ABCMKARGS += ARCHFLAGS="-DWIN32_NO_DLL -DHAVE_STRUCT_TIMESPEC -fpermissive -w"
 # TODO: Try to solve pthread linking issue in more appropriate way
-ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib -s" LDFLAGS="-Wl,--allow-multiple-definition" ABC_USE_NO_READLINE=1 CC="/usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-gcc"
+ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib -s" LDFLAGS="-Wl,--allow-multiple-definition" ABC_USE_NO_READLINE=1
 EXE = .exe
 
 else ifeq ($(CONFIG),msys2-32)
+CC = i686-w64-mingw32-gcc
 CXX = i686-w64-mingw32-g++
 LD = i686-w64-mingw32-g++
 CXXFLAGS += -std=c++11 -Os -D_POSIX_SOURCE -DYOSYS_WIN32_UNIX_DIR
@@ -331,10 +341,11 @@ CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
 LDLIBS := $(filter-out -lrt,$(LDLIBS))
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DWIN32_NO_DLL -DHAVE_STRUCT_TIMESPEC -fpermissive -w"
-ABCMKARGS += LIBS="-lpthread -s" ABC_USE_NO_READLINE=0 CC="i686-w64-mingw32-gcc" CXX="$(CXX)"
+ABCMKARGS += LIBS="-lpthread -s" ABC_USE_NO_READLINE=0
 EXE = .exe
 
 else ifeq ($(CONFIG),msys2-64)
+CC = x86_64-w64-mingw32-gcc
 CXX = x86_64-w64-mingw32-g++
 LD = x86_64-w64-mingw32-g++
 CXXFLAGS += -std=c++11 -Os -D_POSIX_SOURCE -DYOSYS_WIN32_UNIX_DIR
@@ -342,7 +353,7 @@ CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
 LDLIBS := $(filter-out -lrt,$(LDLIBS))
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DWIN32_NO_DLL -DHAVE_STRUCT_TIMESPEC -fpermissive -w"
-ABCMKARGS += LIBS="-lpthread -s" ABC_USE_NO_READLINE=0 CC="x86_64-w64-mingw32-gcc" CXX="$(CXX)"
+ABCMKARGS += LIBS="-lpthread -s" ABC_USE_NO_READLINE=0
 EXE = .exe
 
 else ifneq ($(CONFIG),none)
@@ -516,9 +527,11 @@ CXXFLAGS += -DYOSYS_ENABLE_COVER
 endif
 
 ifeq ($(ENABLE_CCACHE),1)
+CC := ccache $(CC)
 CXX := ccache $(CXX)
 else
 ifeq ($(ENABLE_SCCACHE),1)
+CC := sccache $(CC)
 CXX := sccache $(CXX)
 endif
 endif
