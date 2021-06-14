@@ -186,7 +186,7 @@ endif
 ifeq ($(CONFIG),clang)
 CC = clang
 CXX = clang++
-LD = clang++
+LD = clang
 CXXFLAGS += -std=c++11 -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 
@@ -215,7 +215,7 @@ CXXFLAGS += -std=c++11 -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 
 else ifeq ($(CONFIG),gcc-static)
-LD = $(CXX)
+LD = $(CC)
 LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -static
 LDLIBS := $(filter-out -lrt,$(LDLIBS))
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
@@ -291,14 +291,14 @@ else ifeq ($(CONFIG),wasi)
 ifeq ($(WASI_SDK),)
 CC = clang
 CXX = clang++
-LD = clang++
+LD = clang
 AR = llvm-ar
 RANLIB = llvm-ranlib
 WASIFLAGS := -target wasm32-wasi --sysroot $(WASI_SYSROOT) $(WASIFLAGS)
 else
 CC = $(WASI_SDK)/bin/clang
 CXX = $(WASI_SDK)/bin/clang++
-LD = $(WASI_SDK)/bin/clang++
+LD = $(WASI_SDK)/bin/clang
 AR = $(WASI_SDK)/bin/ar
 RANLIB = $(WASI_SDK)/bin/ranlib
 WASIFLAGS := --sysroot $(WASI_SDK)/share/wasi-sysroot $(WASIFLAGS)
@@ -322,7 +322,7 @@ else ifeq ($(CONFIG),mxe)
 PKG_CONFIG = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-pkg-config
 CC = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-gcc
 CXX = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-g++
-LD = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-g++
+LD = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-gcc
 CXXFLAGS += -std=c++11 -Os -D_POSIX_SOURCE -DYOSYS_MXE_HACKS -Wno-attributes
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
@@ -335,7 +335,7 @@ EXE = .exe
 else ifeq ($(CONFIG),msys2-32)
 CC = i686-w64-mingw32-gcc
 CXX = i686-w64-mingw32-g++
-LD = i686-w64-mingw32-g++
+LD = i686-w64-mingw32-gcc
 CXXFLAGS += -std=c++11 -Os -D_POSIX_SOURCE -DYOSYS_WIN32_UNIX_DIR
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
@@ -347,7 +347,7 @@ EXE = .exe
 else ifeq ($(CONFIG),msys2-64)
 CC = x86_64-w64-mingw32-gcc
 CXX = x86_64-w64-mingw32-g++
-LD = x86_64-w64-mingw32-g++
+LD = x86_64-w64-mingw32-gcc
 CXXFLAGS += -std=c++11 -Os -D_POSIX_SOURCE -DYOSYS_WIN32_UNIX_DIR
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
