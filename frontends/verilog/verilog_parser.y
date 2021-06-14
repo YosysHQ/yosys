@@ -235,6 +235,16 @@ static void rewriteAsMemoryNode(AstNode *node, AstNode *rangeNode)
 	node->children.push_back(rangeNode);
 }
 
+static void checkLabelsMatch(const char *element, const std::string *before, const std::string *after)
+{
+	if (!before && after)
+		frontend_verilog_yyerror("%s missing where end label (%s) was given.",
+			element, after->c_str() + 1);
+	if (before && after && *before != *after)
+		frontend_verilog_yyerror("%s (%s) and end label (%s) don't match.",
+			element, before->c_str() + 1, after->c_str() + 1);
+}
+
 %}
 
 %define api.prefix {frontend_verilog_yy}
@@ -457,7 +467,6 @@ module:
 		port_counter = 0;
 		mod->str = *$4;
 		append_attr(mod, $1);
-		delete $4;
 	} module_para_opt module_args_opt ';' module_body TOK_ENDMODULE opt_label {
 		if (port_stubs.size() != 0)
 			frontend_verilog_yyerror("Missing details for module port `%s'.",
@@ -465,7 +474,10 @@ module:
 		SET_AST_NODE_LOC(ast_stack.back(), @2, @$);
 		ast_stack.pop_back();
 		log_assert(ast_stack.size() == 1);
+		checkLabelsMatch("Module name", $4, $11);
 		current_ast_mod = NULL;
+		delete $4;
+		delete $11;
 		exitTypeScope();
 	};
 
@@ -583,9 +595,10 @@ package:
 		append_attr(mod, $1);
 	} ';' package_body TOK_ENDPACKAGE opt_label {
 		ast_stack.pop_back();
-		if ($4 != NULL && $9 != NULL && *$4 != *$9)
-			frontend_verilog_yyerror("Package name (%s) and end label (%s) don't match.", $4->c_str()+1, $9->c_str()+1);
+		checkLabelsMatch("Package name", $4, $9);
 		current_ast_mod = NULL;
+		delete $4;
+		delete $9;
 		exitTypeScope();
 	};
 
@@ -2526,8 +2539,7 @@ behavioral_stmt:
 			node->str = *$4;
 	} behavioral_stmt_list TOK_END opt_label {
 		exitTypeScope();
-		if ($4 != NULL && $8 != NULL && *$4 != *$8)
-			frontend_verilog_yyerror("Begin label (%s) and end label (%s) don't match.", $4->c_str()+1, $8->c_str()+1);
+		checkLabelsMatch("Begin label", $4, $8);
 		AstNode *node = ast_stack.back();
 		// In SystemVerilog, unnamed blocks with block item declarations
 		// create an implicit hierarchy scope
@@ -2863,8 +2875,7 @@ gen_block:
 		ast_stack.push_back(node);
 	} module_gen_body TOK_END opt_label {
 		exitTypeScope();
-		if ($3 != NULL && $7 != NULL && *$3 != *$7)
-			frontend_verilog_yyerror("Begin label (%s) and end label (%s) don't match.", $3->c_str()+1, $7->c_str()+1);
+		checkLabelsMatch("Begin label", $3, $7);
 		delete $3;
 		delete $7;
 		SET_AST_NODE_LOC(ast_stack.back(), @1, @7);
