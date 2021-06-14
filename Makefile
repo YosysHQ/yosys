@@ -700,7 +700,7 @@ endif
 
 %.pyh: %.h
 	$(Q) mkdir -p $(dir $@)
-	$(P) cat $< | grep -E -v "#[ ]*(include|error)" | $(LD) $(CXXFLAGS) -x c++ -o $@ -E -P -
+	$(P) cat $< | grep -E -v "#[ ]*(include|error)" | $(CXX) $(CXXFLAGS) -x c++ -o $@ -E -P -
 
 ifeq ($(ENABLE_PYOSYS),1)
 $(PY_WRAPPER_FILE).cc: misc/$(PY_GEN_SCRIPT).py $(PY_WRAP_INCLUDES)
