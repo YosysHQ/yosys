@@ -797,7 +797,9 @@ std::string proc_self_dirname()
 		path = (char *) realloc((void *) path, buflen);
 	while (buflen > 0 && path[buflen-1] != '/')
 		buflen--;
-	return std::string(path, buflen);
+	std::string str(path, buflen);
+	free(path);
+	return str;
 }
 #elif defined(_WIN32)
 std::string proc_self_dirname()
