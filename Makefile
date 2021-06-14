@@ -354,53 +354,29 @@ TARGETS += libyosys.so
 endif
 
 ifeq ($(ENABLE_PYOSYS),1)
-
-#Detect name of boost_python library. Some distros usbe boost_python-py<version>, other boost_python<version>, some only use the major version number, some a concatenation of major and minor version numbers
-ifeq ($(OS), Darwin)
+# Detect name of boost_python library. Some distros use boost_python-py<version>, other boost_python<version>, some only use the major version number, some a concatenation of major and minor version numbers
+CHECK_BOOST_PYTHON = (echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(shell $(PYTHON_CONFIG) --ldflags) -l$(1) - > /dev/null 2>&1 && echo "-l$(1)")
 BOOST_PYTHON_LIB ?= $(shell \
-	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(shell $(PYTHON_CONFIG) --ldflags) -lboost_python-py$(subst .,,$(PYTHON_VERSION)) - > /dev/null 2>&1;        then echo "-lboost_python-py$(subst .,,$(PYTHON_VERSION))";       else \
-	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(shell $(PYTHON_CONFIG) --ldflags) -lboost_python-py$(subst .,,$(PYTHON_MAJOR_VERSION)) - > /dev/null 2>&1;  then echo "-lboost_python-py$(subst .,,$(PYTHON_MAJOR_VERSION))"; else \
-	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(shell $(PYTHON_CONFIG) --ldflags) -lboost_python$(subst .,,$(PYTHON_VERSION)) - > /dev/null 2>&1;           then echo "-lboost_python$(subst .,,$(PYTHON_VERSION))";          else \
-	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null $(shell $(PYTHON_CONFIG) --ldflags) -lboost_python$(subst .,,$(PYTHON_MAJOR_VERSION)) - > /dev/null 2>&1;     then echo "-lboost_python$(subst .,,$(PYTHON_MAJOR_VERSION))";    else \
-                                                                                                                                                                                        echo ""; fi; fi; fi; fi;)
-else
-BOOST_PYTHON_LIB ?= $(shell \
-	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null `$(PYTHON_CONFIG) --libs` -lboost_python-py$(subst .,,$(PYTHON_VERSION)) - > /dev/null 2>&1;        then echo "-lboost_python-py$(subst .,,$(PYTHON_VERSION))";       else \
-	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null `$(PYTHON_CONFIG) --libs` -lboost_python-py$(subst .,,$(PYTHON_MAJOR_VERSION)) - > /dev/null 2>&1;  then echo "-lboost_python-py$(subst .,,$(PYTHON_MAJOR_VERSION))"; else \
-	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null `$(PYTHON_CONFIG) --libs` -lboost_python$(subst .,,$(PYTHON_VERSION)) - > /dev/null 2>&1;           then echo "-lboost_python$(subst .,,$(PYTHON_VERSION))";          else \
-	if echo "int main(int argc, char ** argv) {return 0;}" | $(CXX) -xc -o /dev/null `$(PYTHON_CONFIG) --libs` -lboost_python$(subst .,,$(PYTHON_MAJOR_VERSION)) - > /dev/null 2>&1;     then echo "-lboost_python$(subst .,,$(PYTHON_MAJOR_VERSION))";    else \
-                                                                                                                                                                                        echo ""; fi; fi; fi; fi;)
-endif
+	$(call CHECK_BOOST_PYTHON,boost_python-py$(subst .,,$(PYTHON_VERSION))) || \
+	$(call CHECK_BOOST_PYTHON,boost_python-py$(PYTHON_MAJOR_VERSION)) || \
+	$(call CHECK_BOOST_PYTHON,boost_python$(subst .,,$(PYTHON_VERSION))) || \
+	$(call CHECK_BOOST_PYTHON,boost_python$(PYTHON_MAJOR_VERSION)) \
+)
 
 ifeq ($(BOOST_PYTHON_LIB),)
 $(error BOOST_PYTHON_LIB could not be detected. Please define manually)
 endif
 
-ifeq ($(OS), Darwin)
-ifeq ($(PYTHON_MAJOR_VERSION),3)
-LDLIBS += $(shell $(PYTHON_CONFIG) --ldflags) $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
-CXXFLAGS += $(shell $(PYTHON_CONFIG) --includes) -DWITH_PYTHON
-else
-LDLIBS += $(shell $(PYTHON_CONFIG) --ldflags) $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
-CXXFLAGS += $(shell $(PYTHON_CONFIG) --includes) -DWITH_PYTHON
-endif
-else
-ifeq ($(PYTHON_MAJOR_VERSION),3)
 LDLIBS += $(shell $(PYTHON_CONFIG) --libs) $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
+# python-config --ldflags includes LDLIBS for some reason
+LDFLAGS += $(filter-out -l%,$(shell $(PYTHON_CONFIG) --ldflags))
 CXXFLAGS += $(shell $(PYTHON_CONFIG) --includes) -DWITH_PYTHON
-else
-LDLIBS += $(shell $(PYTHON_CONFIG) --libs) $(BOOST_PYTHON_LIB) -lboost_system -lboost_filesystem
-CXXFLAGS += $(shell $(PYTHON_CONFIG) --includes) -DWITH_PYTHON
-endif
-endif
 
-ifeq ($(ENABLE_PYOSYS),1)
 PY_WRAPPER_FILE = kernel/python_wrappers
 OBJS += $(PY_WRAPPER_FILE).o
 PY_GEN_SCRIPT= py_wrap_generator
 PY_WRAP_INCLUDES := $(shell python$(PYTHON_VERSION) -c "from misc import $(PY_GEN_SCRIPT); $(PY_GEN_SCRIPT).print_includes()")
-endif
-endif
+endif # ENABLE_PYOSYS
 
 ifeq ($(ENABLE_READLINE),1)
 CXXFLAGS += -DYOSYS_ENABLE_READLINE
