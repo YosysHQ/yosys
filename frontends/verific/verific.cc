@@ -2084,6 +2084,11 @@ struct VerificPass : public Pass {
 		log("Load the specified VHDL files into Verific.\n");
 		log("\n");
 		log("\n");
+		log("    verific {-f|-F} <command-file>\n");
+		log("\n");
+		log("Load and execute the specified command file.\n");
+		log("\n");
+		log("\n");
 		log("    verific [-work <libname>] {-sv|-vhdl|...} <hdl-file>\n");
 		log("\n");
 		log("Load the specified Verilog/SystemVerilog/VHDL file into the specified library.\n");
@@ -2405,6 +2410,25 @@ struct VerificPass : public Pass {
 				continue;
 			}
 			break;
+		}
+
+		if (GetSize(args) > argidx && (args[argidx] == "-f" || args[argidx] == "-F"))
+		{
+			unsigned verilog_mode = veri_file::VERILOG_95; // default recommended by Verific
+
+			Verific::veri_file::f_file_flags flags = (args[argidx] == "-f") ? veri_file::F_FILE_NONE : veri_file::F_FILE_CAPITAL;
+			Array *file_names = veri_file::ProcessFFile(args[++argidx].c_str(), flags, verilog_mode);
+
+			veri_file::DefineMacro("VERIFIC");
+
+			if (!veri_file::AnalyzeMultipleFiles(file_names, verilog_mode, work.c_str(), veri_file::MFCU)) {
+				verific_error_msg.clear();
+				log_cmd_error("Reading Verilog/SystemVerilog sources failed.\n");
+			}
+
+			delete file_names;
+			verific_import_pending = true;
+			goto check_error;
 		}
 
 		if (GetSize(args) > argidx && (args[argidx] == "-vlog95" || args[argidx] == "-vlog2k" || args[argidx] == "-sv2005" ||
@@ -2963,6 +2987,11 @@ struct ReadPass : public Pass {
 		log("Load the specified VHDL files. (Requires Verific.)\n");
 		log("\n");
 		log("\n");
+		log("    read {-f|-F} <command-file>\n");
+		log("\n");
+		log("Load and execute the specified command file. (Requires Verific.)\n");
+		log("\n");
+		log("\n");
 		log("    read -define <macro>[=<value>]..\n");
 		log("\n");
 		log("Set global Verilog/SystemVerilog defines.\n");
@@ -3040,6 +3069,16 @@ struct ReadPass : public Pass {
 		}
 
 		if (args[1] == "-vhdl87" || args[1] == "-vhdl93" || args[1] == "-vhdl2k" || args[1] == "-vhdl2008" || args[1] == "-vhdl") {
+			if (use_verific) {
+				args[0] = "verific";
+				Pass::call(design, args);
+			} else {
+				cmd_error(args, 1, "This version of Yosys is built without Verific support.\n");
+			}
+			return;
+		}
+
+		if (args[1] == "-f" || args[1] == "-F") {
 			if (use_verific) {
 				args[0] = "verific";
 				Pass::call(design, args);
