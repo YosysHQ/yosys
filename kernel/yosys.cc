@@ -71,6 +71,7 @@
 
 #include <limits.h>
 #include <errno.h>
+#include <signal.h>
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -540,6 +541,7 @@ void yosys_setup()
 		PyImport_AppendInittab((char*)"libyosys", INIT_MODULE);
 		Py_Initialize();
 		PyRun_SimpleString("import sys");
+		signal(SIGINT, SIG_DFL);
 	#endif
 
 	Pass::init_register();
