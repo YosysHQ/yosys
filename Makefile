@@ -201,8 +201,8 @@ CXXFLAGS += -fPIE -fsanitize-memory-track-origins
 LDFLAGS += -fPIE -fsanitize-memory-track-origins
 endif
 ifeq ($(SANITIZER),cfi)
-CXXFLAGS += -flto
-LDFLAGS += -flto
+CXXFLAGS += -flto -fvisibility=hidden
+LDFLAGS += -flto -fvisibility=hidden
 endif
 endif
 
