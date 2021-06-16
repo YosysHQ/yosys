@@ -5,6 +5,7 @@ on: [push, pull_request]
 jobs:
   sanitizers:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - sanitizer: address
