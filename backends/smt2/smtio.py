@@ -203,14 +203,14 @@ class SmtIo:
                 print('timeout option is not supported for mathsat.')
                 sys.exit(1)
 
-        if self.solver == "boolector":
+        if self.solver in ["boolector", "bitwuzla"]:
             if self.noincr:
-                self.popen_vargs = ['boolector', '--smt2'] + self.solver_opts
+                self.popen_vargs = [self.solver, '--smt2'] + self.solver_opts
             else:
-                self.popen_vargs = ['boolector', '--smt2', '-i'] + self.solver_opts
+                self.popen_vargs = [self.solver, '--smt2', '-i'] + self.solver_opts
             self.unroll = True
             if self.timeout != 0:
-                print('timeout option is not supported for boolector.')
+                print('timeout option is not supported for %s.' % self.solver)
                 sys.exit(1)
 
         if self.solver == "abc":
@@ -1010,7 +1010,7 @@ class SmtOpts:
     def helpmsg(self):
         return """
     -s <solver>
-        set SMT solver: z3, yices, boolector, cvc4, mathsat, dummy
+        set SMT solver: z3, yices, boolector, bitwuzla, cvc4, mathsat, dummy
         default: yices
 
     -S <opt>
