@@ -1711,10 +1711,12 @@ member_type_token:
 			delete astbuf1;
 			astbuf1 = template_node;
 		}
-	| struct_union {
+	| {
+		delete astbuf1;
+	} struct_union {
 			// stash state on ast_stack
 			ast_stack.push_back(astbuf2);
-			astbuf2 = $1;
+			astbuf2 = $2;
 		} struct_body  {
 		        astbuf1 = astbuf2;
 			// recover state
