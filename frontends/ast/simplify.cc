@@ -331,6 +331,8 @@ static int size_packed_struct(AstNode *snode, int base_offset)
 					}
 				}
 				// range nodes are now redundant
+				for (AstNode *child : node->children)
+					delete child;
 				node->children.clear();
 			}
 			else if (node->children.size() == 1 && node->children[0]->type == AST_MULTIRANGE) {
@@ -345,6 +347,8 @@ static int size_packed_struct(AstNode *snode, int base_offset)
 				save_struct_array_width(node, width);
 				width *= array_count;
 				// range nodes are now redundant
+				for (AstNode *child : node->children)
+					delete child;
 				node->children.clear();
 			}
 			else if (node->range_left < 0) {
@@ -5052,6 +5056,9 @@ finished:
 void AstNode::allocateDefaultEnumValues()
 {
 	log_assert(type==AST_ENUM);
+	log_assert(children.size() > 0);
+	if (children.front()->attributes.count(ID::enum_base_type))
+		return; // already elaborated
 	int last_enum_int = -1;
 	for (auto node : children) {
 		log_assert(node->type==AST_ENUM_ITEM);
