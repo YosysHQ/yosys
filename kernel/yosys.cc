@@ -67,11 +67,11 @@
 #   define INIT_MODULE initlibyosys
 	extern "C" void INIT_MODULE();
 #endif
+#include <signal.h>
 #endif
 
 #include <limits.h>
 #include <errno.h>
-#include <signal.h>
 
 YOSYS_NAMESPACE_BEGIN
 
