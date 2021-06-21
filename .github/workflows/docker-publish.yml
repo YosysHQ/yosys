@@ -33,6 +33,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
+        
+      - name: Cache sources
+        id: cache-sources
+        uses: actions/cache@v2
+        with:
+          path: .
+          key: cache-yosys
 
       # Login against a Docker registry except on PR
       # https://github.com/docker/login-action
