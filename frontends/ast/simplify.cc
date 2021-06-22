@@ -452,7 +452,7 @@ static AstNode *slice_range(AstNode *rnode, AstNode *snode)
 }
 
 
-static AstNode *make_struct_member_range(AstNode *node, AstNode *member_node)
+AstNode *AST::make_struct_member_range(AstNode *node, AstNode *member_node)
 {
 	// Work out the range in the packed array that corresponds to a struct member
 	// taking into account any range operations applicable to the current node
@@ -1689,6 +1689,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 					newNode = new AstNode(AST_IDENTIFIER, range);
 					newNode->str = sname;
 					newNode->basic_prep = true;
+					if (item_node->is_signed)
+						newNode = new AstNode(AST_TO_SIGNED, newNode);
 					goto apply_newNode;
 				}
 			}

@@ -814,6 +814,10 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 			this_width = id_ast->children[0]->range_left - id_ast->children[0]->range_right + 1;
 			if (children.size() > 1)
 				range = children[1];
+		} else if (id_ast->type == AST_STRUCT_ITEM) {
+			AstNode *tmp_range = make_struct_member_range(this, id_ast);
+			this_width = tmp_range->range_left - tmp_range->range_right + 1;
+			delete tmp_range;
 		} else
 			log_file_error(filename, location.first_line, "Failed to detect width for identifier %s!\n", str.c_str());
 		if (range) {
