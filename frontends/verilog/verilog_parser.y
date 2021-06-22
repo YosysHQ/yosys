@@ -702,6 +702,7 @@ opt_wire_type_token:
 
 wire_type_token:
 	hierarchical_type_id {
+		astbuf3->is_logic = true;
 		astbuf3->is_custom_type = true;
 		astbuf3->children.push_back(new AstNode(AST_WIRETYPE));
 		astbuf3->children.back()->str = *$1;

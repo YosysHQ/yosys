@@ -1,0 +1,7 @@
+logger -expect-no-warnings
+logger -expect warning "reg '\\var_3' is assigned in a continuous assignment" 1
+logger -expect warning "reg '\\var_4' is assigned in a continuous assignment" 1
+logger -expect warning "reg '\\var_5' is assigned in a continuous assignment" 1
+logger -expect warning "reg '\\var_6' is assigned in a continuous assignment" 1
+
+read_verilog -sv typedef_initial_and_assign.sv
