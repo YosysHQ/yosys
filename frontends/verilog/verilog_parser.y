@@ -127,6 +127,15 @@ struct specify_rise_fall {
 	specify_triple fall;
 };
 
+static void addWiretypeNode(std::string *name, AstNode *node)
+{
+	log_assert(node);
+	node->is_custom_type = true;
+	node->children.push_back(new AstNode(AST_WIRETYPE));
+	node->children.back()->str = *name;
+	delete name;
+}
+
 static void addTypedefNode(std::string *name, AstNode *node)
 {
 	log_assert(node);
@@ -305,10 +314,10 @@ static void checkLabelsMatch(const char *element, const std::string *before, con
 %type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list non_io_wire_type io_wire_type
 %type <string> opt_label opt_sva_label tok_prim_wrapper hierarchical_id hierarchical_type_id integral_number
 %type <string> type_name
-%type <ast> opt_enum_init enum_type struct_type non_wire_data_type func_return_type
+%type <ast> opt_enum_init enum_type struct_type enum_struct_type func_return_type typedef_base_type
 %type <boolean> opt_property always_comb_or_latch always_or_always_ff
 %type <boolean> opt_signedness_default_signed opt_signedness_default_unsigned
-%type <integer> integer_atom_type
+%type <integer> integer_atom_type integer_vector_type
 %type <al> attr case_attr
 %type <ast> struct_union
 %type <ast_node_type> asgn_binop
@@ -763,12 +772,6 @@ opt_wire_type_token:
 	wire_type_token | %empty;
 
 wire_type_token:
-	hierarchical_type_id {
-		astbuf3->is_custom_type = true;
-		astbuf3->children.push_back(new AstNode(AST_WIRETYPE));
-		astbuf3->children.back()->str = *$1;
-		delete $1;
-	} |
 	TOK_WOR {
 		astbuf3->is_wor = true;
 	} |
@@ -812,6 +815,9 @@ logic_type:
 		astbuf3->range_left = $1 - 1;
 		astbuf3->range_right = 0;
 		astbuf3->is_signed = true;
+	} |
+	hierarchical_type_id {
+		addWiretypeNode($1, astbuf3);
 	};
 
 integer_atom_type:
@@ -820,6 +826,10 @@ integer_atom_type:
 	TOK_SHORTINT	{ $$ = 16; } |
 	TOK_LONGINT	{ $$ = 64; } |
 	TOK_BYTE	{ $$ =  8; } ;
+
+integer_vector_type:
+	TOK_LOGIC { $$ = TOK_LOGIC; } |
+	TOK_REG   { $$ = TOK_REG; } ;
 
 non_opt_range:
 	'[' expr ':' expr ']' {
@@ -1985,7 +1995,7 @@ type_name: TOK_ID		// first time seen
 	 ;
 
 typedef_decl:
-	TOK_TYPEDEF non_io_wire_type range type_name range_or_multirange ';' {
+	TOK_TYPEDEF typedef_base_type range type_name range_or_multirange ';' {
 		astbuf1 = $2;
 		astbuf2 = checkRange(astbuf1, $3);
 		if (astbuf2)
@@ -1998,10 +2008,33 @@ typedef_decl:
 			rewriteAsMemoryNode(astbuf1, $5);
 		}
 		addTypedefNode($4, astbuf1); }
-	| TOK_TYPEDEF non_wire_data_type type_name ';'   { addTypedefNode($3, $2); }
+	| TOK_TYPEDEF enum_struct_type type_name ';'   { addTypedefNode($3, $2); }
 	;
 
-non_wire_data_type:
+typedef_base_type:
+	hierarchical_type_id {
+		$$ = new AstNode(AST_WIRE);
+		$$->is_logic = true;
+		addWiretypeNode($1, $$);
+	} |
+	integer_vector_type opt_signedness_default_unsigned {
+		$$ = new AstNode(AST_WIRE);
+		if ($1 == TOK_REG) {
+			$$->is_reg = true;
+		} else {
+			$$->is_logic = true;
+		}
+		$$->is_signed = $2;
+	} |
+	integer_atom_type opt_signedness_default_signed {
+		$$ = new AstNode(AST_WIRE);
+		$$->is_logic = true;
+		$$->is_signed = $2;
+		$$->range_left = $1 - 1;
+		$$->range_right = 0;
+	};
+
+enum_struct_type:
 	  enum_type
 	| struct_type
 	;
