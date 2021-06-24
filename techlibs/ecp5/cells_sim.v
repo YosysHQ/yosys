@@ -240,7 +240,7 @@ module DPR16X4C (
 		input [3:0] WAD,
 		output [3:0] DO
 );
-	// For legacy Lattice compatibility, INITIVAL is a hex
+	// For legacy Lattice compatibility, INITVAL is a hex
 	// string rather than a numeric parameter
 	parameter INITVAL = "0x0000000000000000";
 
@@ -530,6 +530,9 @@ module TRELLIS_SLICE(
 				.S0(F0), .S1(F1),
 				.COUT(FCO)
 			);
+			// TODO: confirm these connections
+			assign OFX0 = F0;
+			assign OFX1 = F1;
 		end else if (MODE == "RAMW") begin
 			assign WDO0 = C1m;
 			assign WDO1 = A1m;
