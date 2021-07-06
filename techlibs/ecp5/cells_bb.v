@@ -369,6 +369,16 @@ module DCCA(
 );
 endmodule
 
+(* blackbox *)
+module DCSC(
+	input CLK1, CLK0,
+	input SEL1, SEL0,
+	input MODESEL,
+	output DCSOUT
+);
+	parameter DCSMODE = "POS";
+endmodule
+
 (* blackbox *) (* keep *)
 module DCUA(
 	input CH0_HDINP, CH1_HDINP, CH0_HDINN, CH1_HDINN,
