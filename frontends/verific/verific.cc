@@ -50,15 +50,13 @@ USING_YOSYS_NAMESPACE
 #include "VhdlUnits.h"
 #include "VeriLibrary.h"
 
-#if defined(YOSYSHQ_VERIFIC_INITSTATE) || defined(YOSYSHQ_VERIFIC_TEMPLATES) || defined(YOSYSHQ_VERIFIC_FORMALAPPS)
-#include "VeriExtensions.h"
-#endif
+#include "InitialAssertions.h"
 
 #ifndef YOSYSHQ_VERIFIC_API_VERSION
 #  error "Only YosysHQ flavored Verific is supported. Please contact office@yosyshq.com for commercial support for Yosys+Verific."
 #endif
 
-#if YOSYSHQ_VERIFIC_API_VERSION < 20210103
+#if YOSYSHQ_VERIFIC_API_VERSION < 20210602
 #  error "Please update your version of YosysHQ flavored Verific."
 #endif
 
@@ -1474,9 +1472,10 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 				continue;
 		}
 
-#ifdef YOSYSHQ_VERIFIC_INITSTATE
 		if (inst->Type() == PRIM_YOSYSHQ_INITSTATE)
 		{
+			if (verific_verbose)
+				log("   adding YosysHQ init state\n");
 			SigBit initstate = module->Initstate(new_verific_id(inst));
 			SigBit sig_o = net_map_at(inst->GetOutput());
 			module->connect(sig_o, initstate);
@@ -1484,7 +1483,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 			if (!mode_keep)
 				continue;
 		}
-#endif
+
 		if (!mode_keep && verific_sva_prims.count(inst->Type())) {
 			if (verific_verbose)
 				log("    skipping SVA cell in non k-mode\n");
@@ -1962,10 +1961,8 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 	for (const auto &i : parameters)
 		verific_params.Insert(i.first.c_str(), i.second.c_str());
 
-#ifdef YOSYSHQ_VERIFIC_INITSTATE
-	InitialAssertionRewriter rw;
-	rw.RegisterCallBack();
-#endif
+	InitialAssertions::Rewrite("work");
+
 	if (top.empty()) {
 		netlists = hier_tree::ElaborateAll(&veri_libs, &vhdl_libs, &verific_params);
 	}
@@ -2850,10 +2847,8 @@ struct VerificPass : public Pass {
 
 			std::set<std::string> top_mod_names;
 
-#ifdef YOSYSHQ_VERIFIC_INITSTATE
-			InitialAssertionRewriter rw;
-			rw.RegisterCallBack();
-#endif
+			InitialAssertions::Rewrite(work);
+
 			if (mode_all)
 			{
 				log("Running hier_tree::ElaborateAll().\n");
