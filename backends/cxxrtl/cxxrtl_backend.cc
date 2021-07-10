@@ -686,6 +686,7 @@ struct CxxrtlWorker {
 	dict<const RTLIL::Module*, SigMap> sigmaps;
 	dict<const RTLIL::Module*, std::vector<Mem>> mod_memories;
 	pool<const RTLIL::Wire*> edge_wires;
+	dict<const RTLIL::Wire*, RTLIL::Const> wire_init;
 	dict<RTLIL::SigBit, RTLIL::SyncType> edge_types;
 	dict<const RTLIL::Module*, std::vector<FlowGraph::Node>> schedule, debug_schedule;
 	dict<const RTLIL::Wire*, WireType> wire_types, debug_wire_types;
@@ -1681,17 +1682,17 @@ struct CxxrtlWorker {
 			f << "<" << wire->width << ">";
 		}
 		f << " " << mangle(wire);
-		if (wire->has_attribute(ID::init)) {
+		if (wire_init.count(wire)) {
 			f << " ";
-			dump_const_init(wire->attributes.at(ID::init));
+			dump_const_init(wire_init.at(wire));
 		}
 		f << ";\n";
 		if (edge_wires[wire]) {
 			if (!wire_type.is_buffered()) {
 				f << indent << "value<" << wire->width << "> prev_" << mangle(wire);
-				if (wire->has_attribute(ID::init)) {
+				if (wire_init.count(wire)) {
 					f << " ";
-					dump_const_init(wire->attributes.at(ID::init));
+					dump_const_init(wire_init.at(wire));
 				}
 				f << ";\n";
 			}
@@ -2447,6 +2448,10 @@ struct CxxrtlWorker {
 				continue;
 			}
 
+			for (auto wire : module->wires())
+				if (wire->has_attribute(ID::init))
+					wire_init[wire] = wire->attributes.at(ID::init);
+
 			// Construct a flow graph where each node is a basic computational operation generally corresponding
 			// to a fragment of the RTLIL netlist.
 			FlowGraph flow;
@@ -2491,6 +2496,19 @@ struct CxxrtlWorker {
 						if (is_valid_clock(port.clk))
 							register_edge_signal(sigmap, port.clk,
 								port.clk_polarity ? RTLIL::STp : RTLIL::STn);
+					// For read ports, also move initial value to wire_init (if any).
+					for (int i = 0; i < GetSize(port.data); i++) {
+						if (port.init_value[i] != State::Sx) {
+							SigBit bit = port.data[i];
+							if (bit.wire) {
+								auto &init = wire_init[bit.wire];
+								if (init == RTLIL::Const()) {
+									init = RTLIL::Const(State::Sx, GetSize(bit.wire));
+								}
+								init[bit.offset] = port.init_value[i];
+							}
+						}
+					}
 				}
 				for (auto &port : mem.wr_ports) {
 					if (port.clk_enable)
