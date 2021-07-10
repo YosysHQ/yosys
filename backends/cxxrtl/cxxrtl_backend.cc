@@ -1600,11 +1600,51 @@ struct CxxrtlWorker {
 			f << " = value<" << mem->width << "> {};\n";
 		dec_indent();
 		f << indent << "}\n";
-		if (has_enable) {
+		if (has_enable && !port.ce_over_srst) {
+			dec_indent();
+			f << indent << "}\n";
+		}
+		if (port.srst != State::S0) {
+			// Synchronous reset
+			std::vector<const RTLIL::Cell*> inlined_cells_srst;
+			collect_sigspec_rhs(port.srst, for_debug, inlined_cells_srst);
+			if (!inlined_cells_srst.empty())
+				dump_inlined_cells(inlined_cells_srst);
+			f << indent << "if (";
+			dump_sigspec_rhs(port.srst);
+			f << " == value<1> {1u}) {\n";
+			inc_indent();
+				f << indent;
+				dump_sigspec_lhs(port.data);
+				f << " = ";
+				dump_const(port.srst_value);
+				f << ";\n";
+			dec_indent();
+			f << indent << "}\n";
+		}
+		if (has_enable && port.ce_over_srst) {
 			dec_indent();
 			f << indent << "}\n";
 		}
 		if (port.clk_enable) {
+			dec_indent();
+			f << indent << "}\n";
+		}
+		if (port.arst != State::S0) {
+			// Asynchronous reset
+			std::vector<const RTLIL::Cell*> inlined_cells_arst;
+			collect_sigspec_rhs(port.arst, for_debug, inlined_cells_arst);
+			if (!inlined_cells_arst.empty())
+				dump_inlined_cells(inlined_cells_arst);
+			f << indent << "if (";
+			dump_sigspec_rhs(port.arst);
+			f << " == value<1> {1u}) {\n";
+			inc_indent();
+				f << indent;
+				dump_sigspec_lhs(port.data);
+				f << " = ";
+				dump_const(port.arst_value);
+				f << ";\n";
 			dec_indent();
 			f << indent << "}\n";
 		}
