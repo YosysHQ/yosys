@@ -226,6 +226,14 @@ bool is_cxxrtl_blackbox_cell(const RTLIL::Cell *cell)
 	return cell_module->get_bool_attribute(ID(cxxrtl_blackbox));
 }
 
+bool is_memwr_process(const RTLIL::Process *process)
+{
+	for (auto sync : process->syncs)
+		if (!sync->mem_write_actions.empty())
+			return true;
+	return false;
+}
+
 enum class CxxrtlPortType {
 	UNKNOWN = 0, // or mixed comb/sync
 	COMB = 1,
@@ -481,14 +489,20 @@ struct FlowGraph {
 
 	void add_sync_rules_defs_uses(Node *node, const RTLIL::Process *process)
 	{
-		for (auto sync : process->syncs)
-			for (auto action : sync->actions) {
+		for (auto sync : process->syncs) {
+			for (auto &action : sync->actions) {
 				if (sync->type == RTLIL::STp || sync->type == RTLIL::STn || sync->type == RTLIL::STe)
-				  add_defs(node, action.first, /*is_ff=*/true,  /*inlinable=*/false);
+					add_defs(node, action.first, /*is_ff=*/true,  /*inlinable=*/false);
 				else
 					add_defs(node, action.first, /*is_ff=*/false, /*inlinable=*/false);
 				add_uses(node, action.second);
 			}
+			for (auto &memwr : sync->mem_write_actions) {
+				add_uses(node, memwr.address);
+				add_uses(node, memwr.data);
+				add_uses(node, memwr.enable);
+			}
+		}
 	}
 
 	Node *add_node(const RTLIL::Process *process)
@@ -685,6 +699,7 @@ struct CxxrtlWorker {
 
 	dict<const RTLIL::Module*, SigMap> sigmaps;
 	dict<const RTLIL::Module*, std::vector<Mem>> mod_memories;
+	pool<std::pair<const RTLIL::Module*, RTLIL::IdString>> writable_memories;
 	pool<const RTLIL::Wire*> edge_wires;
 	dict<const RTLIL::Wire*, RTLIL::Const> wire_init;
 	dict<RTLIL::SigBit, RTLIL::SyncType> edge_types;
@@ -774,6 +789,11 @@ struct CxxrtlWorker {
 	std::string mangle(const Mem *mem)
 	{
 		return mangle_memory_name(mem->memid);
+	}
+
+	std::string mangle(const RTLIL::Memory *memory)
+	{
+		return mangle_memory_name(memory->name);
 	}
 
 	std::string mangle(const RTLIL::Cell *cell)
@@ -1498,8 +1518,28 @@ struct CxxrtlWorker {
 				}
 				f << ") {\n";
 				inc_indent();
-					for (auto action : sync->actions)
+					for (auto &action : sync->actions)
 						dump_assign(action, for_debug);
+					for (auto &memwr : sync->mem_write_actions) {
+						RTLIL::Memory *memory = proc->module->memories.at(memwr.memid);
+						std::string valid_index_temp = fresh_temporary();
+						f << indent << "auto " << valid_index_temp << " = memory_index(";
+						dump_sigspec_rhs(memwr.address);
+						f << ", " << memory->start_offset << ", " << memory->size << ");\n";
+						// See below for rationale of having both the assert and the condition.
+						//
+						// If assertions are disabled, out of bounds writes are defined to do nothing.
+						f << indent << "CXXRTL_ASSERT(" << valid_index_temp << ".valid && \"out of bounds write\");\n";
+						f << indent << "if (" << valid_index_temp << ".valid) {\n";
+						inc_indent();
+							f << indent << mangle(memory) << ".update(" << valid_index_temp << ".index, ";
+							dump_sigspec_rhs(memwr.data);
+							f << ", ";
+							dump_sigspec_rhs(memwr.enable);
+							f << ");\n";
+						dec_indent();
+						f << indent << "}\n";
+					}
 				dec_indent();
 				f << indent << "}\n";
 			}
@@ -1917,7 +1957,7 @@ struct CxxrtlWorker {
 			}
 			if (!module->get_bool_attribute(ID(cxxrtl_blackbox))) {
 				for (auto &mem : mod_memories[module]) {
-					if (!GetSize(mem.wr_ports))
+					if (!writable_memories.count({module, mem.memid}))
 						continue;
 					f << indent << "if (" << mangle(&mem) << ".commit()) changed = true;\n";
 				}
@@ -2556,12 +2596,15 @@ struct CxxrtlWorker {
 							register_edge_signal(sigmap, port.clk,
 								port.clk_polarity ? RTLIL::STp : RTLIL::STn);
 				}
+
+				if (!mem.wr_ports.empty())
+					writable_memories.insert({module, mem.memid});
 			}
 
 			for (auto proc : module->processes) {
 				flow.add_node(proc.second);
 
-				for (auto sync : proc.second->syncs)
+				for (auto sync : proc.second->syncs) {
 					switch (sync->type) {
 						// Edge-type sync rules require pre-registration.
 						case RTLIL::STp:
@@ -2584,6 +2627,10 @@ struct CxxrtlWorker {
 						case RTLIL::STi:
 							log_assert(false);
 					}
+					for (auto &memwr : sync->mem_write_actions) {
+						writable_memories.insert({module, memwr.memid});
+					}
+				}
 			}
 
 			// Construct a linear order of the flow graph that minimizes the amount of feedback arcs. A flow graph
@@ -2654,6 +2701,8 @@ struct CxxrtlWorker {
 				if (node->type == FlowGraph::Node::Type::CELL_EVAL && is_effectful_cell(node->cell->type))
 					worklist.insert(node); // node has effects
 				else if (node->type == FlowGraph::Node::Type::MEM_WRPORTS)
+					worklist.insert(node); // node is memory write
+				else if (node->type == FlowGraph::Node::Type::PROCESS_SYNC && is_memwr_process(node->process))
 					worklist.insert(node); // node is memory write
 				else if (flow.node_sync_defs.count(node))
 					worklist.insert(node); // node is a flip-flop
