@@ -319,16 +319,14 @@ struct AST_INTERNAL::ProcessGenerator
 		LookaheadRewriter la_rewriter(always);
 
 		// generate process and simple root case
-		proc = new RTLIL::Process;
+		proc = current_module->addProcess(stringf("$proc$%s:%d$%d", always->filename.c_str(), always->location.first_line, autoidx++));
 		set_src_attr(proc, always);
-		proc->name = stringf("$proc$%s:%d$%d", always->filename.c_str(), always->location.first_line, autoidx++);
 		for (auto &attr : always->attributes) {
 			if (attr.second->type != AST_CONSTANT)
 				log_file_error(always->filename, always->location.first_line, "Attribute `%s' with non-constant value!\n",
 						attr.first.c_str());
 			proc->attributes[attr.first] = attr.second->asAttrConst();
 		}
-		current_module->processes[proc->name] = proc;
 		current_case = &proc->root_case;
 
 		// create initial temporary signal for all output registers

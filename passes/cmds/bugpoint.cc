@@ -275,7 +275,7 @@ struct BugpointPass : public Pass {
 				if (mod->get_blackbox_attribute())
 					continue;
 
-				RTLIL::IdString removed_process;
+				RTLIL::Process *removed_process = nullptr;
 				for (auto process : mod->processes)
 				{
 					if (process.second->get_bool_attribute(ID::bugpoint_keep))
@@ -284,13 +284,12 @@ struct BugpointPass : public Pass {
 					if (index++ == seed)
 					{
 						log_header(design, "Trying to remove process %s.%s.\n", log_id(mod), log_id(process.first));
-						removed_process = process.first;
+						removed_process = process.second;
 						break;
 					}
 				}
-				if (!removed_process.empty()) {
-					delete mod->processes[removed_process];
-					mod->processes.erase(removed_process);
+				if (removed_process) {
+					mod->remove(removed_process);
 					return design_copy;
 				}
 			}

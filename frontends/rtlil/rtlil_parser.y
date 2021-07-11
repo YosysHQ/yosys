@@ -283,10 +283,8 @@ proc_stmt:
 	TOK_PROCESS TOK_ID EOL {
 		if (current_module->processes.count($2) != 0)
 			rtlil_frontend_yyerror(stringf("RTLIL error: redefinition of process %s.", $2).c_str());
-		current_process = new RTLIL::Process;
-		current_process->name = $2;
+		current_process = current_module->addProcess($2);
 		current_process->attributes = attrbuf;
-		current_module->processes[$2] = current_process;
 		switch_stack.clear();
 		switch_stack.push_back(&current_process->root_case.switches);
 		case_stack.clear();

@@ -1129,6 +1129,7 @@ struct RTLIL::Module : public RTLIL::AttrObject
 protected:
 	void add(RTLIL::Wire *wire);
 	void add(RTLIL::Cell *cell);
+	void add(RTLIL::Process *process);
 
 public:
 	RTLIL::Design *design;
@@ -1209,6 +1210,7 @@ public:
 	// Removing wires is expensive. If you have to remove wires, remove them all at once.
 	void remove(const pool<RTLIL::Wire*> &wires);
 	void remove(RTLIL::Cell *cell);
+	void remove(RTLIL::Process *process);
 
 	void rename(RTLIL::Wire *wire, RTLIL::IdString new_name);
 	void rename(RTLIL::Cell *cell, RTLIL::IdString new_name);
@@ -1228,6 +1230,7 @@ public:
 
 	RTLIL::Memory *addMemory(RTLIL::IdString name, const RTLIL::Memory *other);
 
+	RTLIL::Process *addProcess(RTLIL::IdString name);
 	RTLIL::Process *addProcess(RTLIL::IdString name, const RTLIL::Process *other);
 
 	// The add* methods create a cell and return the created cell. All signals must exist in advance.
@@ -1581,11 +1584,20 @@ struct RTLIL::SyncRule
 
 struct RTLIL::Process : public RTLIL::AttrObject
 {
+	unsigned int hashidx_;
+	unsigned int hash() const { return hashidx_; }
+
+protected:
+	// use module->addProcess() and module->remove() to create or destroy processes
+	friend struct RTLIL::Module;
+	Process();
+	~Process();
+
+public:
 	RTLIL::IdString name;
+	RTLIL::Module *module;
 	RTLIL::CaseRule root_case;
 	std::vector<RTLIL::SyncRule*> syncs;
-
-	~Process();
 
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);
