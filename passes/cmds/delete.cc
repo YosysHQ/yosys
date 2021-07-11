@@ -90,7 +90,7 @@ struct DeletePass : public Pass {
 
 			pool<RTLIL::Wire*> delete_wires;
 			pool<RTLIL::Cell*> delete_cells;
-			pool<RTLIL::IdString> delete_procs;
+			pool<RTLIL::Process*> delete_procs;
 			pool<RTLIL::IdString> delete_mems;
 
 			for (auto wire : module->selected_wires())
@@ -110,7 +110,7 @@ struct DeletePass : public Pass {
 
 			for (auto &it : module->processes)
 				if (design->selected(module, it.second))
-					delete_procs.insert(it.first);
+					delete_procs.insert(it.second);
 
 			for (auto &it : delete_mems) {
 				delete module->memories.at(it);
@@ -120,10 +120,8 @@ struct DeletePass : public Pass {
 			for (auto &it : delete_cells)
 				module->remove(it);
 
-			for (auto &it : delete_procs) {
-				delete module->processes.at(it);
-				module->processes.erase(it);
-			}
+			for (auto &it : delete_procs)
+				module->remove(it);
 
 			module->remove(delete_wires);
 

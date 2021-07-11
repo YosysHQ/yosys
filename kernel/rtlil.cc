@@ -1839,6 +1839,14 @@ void RTLIL::Module::add(RTLIL::Cell *cell)
 	cell->module = this;
 }
 
+void RTLIL::Module::add(RTLIL::Process *process)
+{
+	log_assert(!process->name.empty());
+	log_assert(count_id(process->name) == 0);
+	processes[process->name] = process;
+	process->module = this;
+}
+
 void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
 {
 	log_assert(refcount_wires_ == 0);
@@ -1893,6 +1901,13 @@ void RTLIL::Module::remove(RTLIL::Cell *cell)
 	log_assert(refcount_cells_ == 0);
 	cells_.erase(cell->name);
 	delete cell;
+}
+
+void RTLIL::Module::remove(RTLIL::Process *process)
+{
+	log_assert(processes.count(process->name) != 0);
+	processes.erase(process->name);
+	delete process;
 }
 
 void RTLIL::Module::rename(RTLIL::Wire *wire, RTLIL::IdString new_name)
@@ -2120,11 +2135,19 @@ RTLIL::Memory *RTLIL::Module::addMemory(RTLIL::IdString name, const RTLIL::Memor
 	return mem;
 }
 
+RTLIL::Process *RTLIL::Module::addProcess(RTLIL::IdString name)
+{
+	RTLIL::Process *proc = new RTLIL::Process;
+	proc->name = name;
+	add(proc);
+	return proc;
+}
+
 RTLIL::Process *RTLIL::Module::addProcess(RTLIL::IdString name, const RTLIL::Process *other)
 {
 	RTLIL::Process *proc = other->clone();
 	proc->name = name;
-	processes[name] = proc;
+	add(proc);
 	return proc;
 }
 
@@ -2918,6 +2941,13 @@ RTLIL::Memory::Memory()
 #ifdef WITH_PYTHON
 	RTLIL::Memory::get_all_memorys()->insert(std::pair<unsigned int, RTLIL::Memory*>(hashidx_, this));
 #endif
+}
+
+RTLIL::Process::Process() : module(nullptr)
+{
+	static unsigned int hashidx_count = 123456789;
+	hashidx_count = mkhash_xorshift(hashidx_count);
+	hashidx_ = hashidx_count;
 }
 
 RTLIL::Cell::Cell() : module(nullptr)
