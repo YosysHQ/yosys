@@ -210,6 +210,7 @@ void Mem::emit() {
 		mem->width = width;
 		mem->start_offset = start_offset;
 		mem->size = size;
+		mem->attributes = attributes;
 		for (auto &port : rd_ports) {
 			// TODO: remove
 			log_assert(port.arst == State::S0);
@@ -217,6 +218,7 @@ void Mem::emit() {
 			log_assert(port.init_value == Const(State::Sx, width << port.wide_log2));
 			if (!port.cell)
 				port.cell = module->addCell(NEW_ID, ID($memrd));
+			port.cell->attributes = port.attributes;
 			port.cell->parameters[ID::MEMID] = memid.str();
 			port.cell->parameters[ID::ABITS] = GetSize(port.addr);
 			port.cell->parameters[ID::WIDTH] = width << port.wide_log2;
@@ -232,6 +234,7 @@ void Mem::emit() {
 		for (auto &port : wr_ports) {
 			if (!port.cell)
 				port.cell = module->addCell(NEW_ID, ID($memwr));
+			port.cell->attributes = port.attributes;
 			port.cell->parameters[ID::MEMID] = memid.str();
 			port.cell->parameters[ID::ABITS] = GetSize(port.addr);
 			port.cell->parameters[ID::WIDTH] = width << port.wide_log2;
@@ -247,6 +250,7 @@ void Mem::emit() {
 		for (auto &init : inits) {
 			if (!init.cell)
 				init.cell = module->addCell(NEW_ID, ID($meminit));
+			init.cell->attributes = init.attributes;
 			init.cell->parameters[ID::MEMID] = memid.str();
 			init.cell->parameters[ID::ABITS] = GetSize(init.addr);
 			init.cell->parameters[ID::WIDTH] = width;
