@@ -82,14 +82,48 @@ struct Mem : RTLIL::AttrObject {
 	std::vector<MemRd> rd_ports;
 	std::vector<MemWr> wr_ports;
 
+	// Removes this memory from the module.  The data in helper structures
+	// is unaffected except for the cell/mem fields.
 	void remove();
+
+	// Commits all changes in helper structures into the module — ports and
+	// inits marked as removed are actually removed, new ports/inits create
+	// new cells, modified port/inits are commited into their existing
+	// cells.  Note that this reindexes the ports and inits array (actually
+	// removing the ports/inits marked as removed).
 	void emit();
+
+	// Marks all inits as removed.
 	void clear_inits();
+
+	// Checks consistency of this memory and all its ports/inits, using
+	// log_assert.
 	void check();
+
+	// Gathers all initialization data into a single big const covering
+	// the whole memory.  For all non-initialized bits, Sx will be returned.
 	Const get_init_data() const;
+
+	// Constructs and returns the helper structures for all memories
+	// in a module.
 	static std::vector<Mem> get_all_memories(Module *module);
+
+	// Constructs and returns the helper structures for all selected
+	// memories in a module.
 	static std::vector<Mem> get_selected_memories(Module *module);
+
+	// Converts a synchronous read port into an asynchronous one by
+	// extracting the data (or, in some rare cases, address) register
+	// into a separate cell, together with any soft-transparency
+	// logic necessary to preserve its semantics.  Returns the created
+	// register cell, if any.  Note that in some rare cases this function
+	// may succeed and perform a conversion without creating a new
+	// register — a nullptr result doesn't imply nothing was done.
 	Cell *extract_rdff(int idx, FfInitVals *initvals);
+
+	// Splits all wide ports in this memory into equivalent narrow ones.
+	// This function performs no modifications at all to the actual
+	// netlist unless and until emit() is called.
 	void narrow();
 
 	// If write port idx2 currently has priority over write port idx1,
