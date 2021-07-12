@@ -25,9 +25,8 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-struct MemRd {
+struct MemRd : RTLIL::AttrObject {
 	bool removed;
-	dict<IdString, Const> attributes;
 	Cell *cell;
 	int wide_log2;
 	bool clk_enable, clk_polarity, ce_over_srst;
@@ -46,9 +45,8 @@ struct MemRd {
 	}
 };
 
-struct MemWr {
+struct MemWr : RTLIL::AttrObject {
 	bool removed;
-	dict<IdString, Const> attributes;
 	Cell *cell;
 	int wide_log2;
 	bool clk_enable, clk_polarity;
@@ -66,18 +64,16 @@ struct MemWr {
 	}
 };
 
-struct MemInit {
-	dict<IdString, Const> attributes;
+struct MemInit : RTLIL::AttrObject {
 	Cell *cell;
 	Const addr;
 	Const data;
 	MemInit() : cell(nullptr) {}
 };
 
-struct Mem {
+struct Mem : RTLIL::AttrObject {
 	Module *module;
 	IdString memid;
-	dict<IdString, Const> attributes;
 	bool packed;
 	RTLIL::Memory *mem;
 	Cell *cell;
