@@ -1835,6 +1835,8 @@ struct CxxrtlWorker {
 			f << ",\n";
 			inc_indent();
 				for (auto &init : mem->inits) {
+					if (init.removed)
+						continue;
 					dump_attrs(&init);
 					int words = GetSize(init.data) / mem->width;
 					f << indent << "memory<" << mem->width << ">::init<" << words << "> { "
@@ -2488,8 +2490,10 @@ struct CxxrtlWorker {
 
 			std::vector<Mem> &memories = mod_memories[module];
 			memories = Mem::get_all_memories(module);
-			for (auto &mem : memories)
+			for (auto &mem : memories) {
 				mem.narrow();
+				mem.coalesce_inits();
+			}
 
 			if (module->get_bool_attribute(ID(cxxrtl_blackbox))) {
 				for (auto port : module->ports) {
