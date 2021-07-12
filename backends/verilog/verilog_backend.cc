@@ -504,9 +504,24 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 				int start = init.addr.as_int();
 				for (int i=0; i<words; i++)
 				{
-					f << stringf("%s" "  %s[%d] = ", indent.c_str(), mem_id.c_str(), i + start);
-					dump_const(f, init.data.extract(i*mem.width, mem.width));
-					f << stringf(";\n");
+					for (int j = 0; j < mem.width; j++)
+					{
+						if (init.en[j] != State::S1)
+							continue;
+
+						int start_j = j, width = 1;
+
+						while (j+1 < mem.width && init.en[j+1] == State::S1)
+							j++, width++;
+
+						if (width == mem.width) {
+							f << stringf("%s" "  %s[%d] = ", indent.c_str(), mem_id.c_str(), i + start);
+						} else {
+							f << stringf("%s" "  %s[%d][%d:%d] = ", indent.c_str(), mem_id.c_str(), i + start, j, start_j);
+						}
+						dump_const(f, init.data.extract(i*mem.width+start_j, width));
+						f << stringf(";\n");
+					}
 				}
 			}
 			f << stringf("%s" "end\n", indent.c_str());
