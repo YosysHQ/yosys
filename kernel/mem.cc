@@ -76,6 +76,17 @@ void Mem::emit() {
 			wr_left.push_back(i);
 		}
 	}
+	std::vector<int> init_left;
+	for (int i = 0; i < GetSize(inits); i++) {
+		auto &init = inits[i];
+		if (init.removed) {
+			if (init.cell) {
+				module->remove(init.cell);
+			}
+		} else {
+			init_left.push_back(i);
+		}
+	}
 	for (int i = 0; i < GetSize(rd_left); i++)
 		if (i != rd_left[i])
 			std::swap(rd_ports[i], rd_ports[rd_left[i]]);
@@ -84,6 +95,10 @@ void Mem::emit() {
 		if (i != wr_left[i])
 			std::swap(wr_ports[i], wr_ports[wr_left[i]]);
 	wr_ports.resize(GetSize(wr_left));
+	for (int i = 0; i < GetSize(init_left); i++)
+		if (i != init_left[i])
+			std::swap(inits[i], inits[init_left[i]]);
+	inits.resize(GetSize(init_left));
 
 	// for future: handle transparency mask here
 
@@ -264,14 +279,14 @@ void Mem::emit() {
 
 void Mem::clear_inits() {
 	for (auto &init : inits)
-		if (init.cell)
-			module->remove(init.cell);
-	inits.clear();
+		init.removed = true;
 }
 
 Const Mem::get_init_data() const {
 	Const init_data(State::Sx, width * size);
 	for (auto &init : inits) {
+		if (init.removed)
+			continue;
 		int offset = (init.addr.as_int() - start_offset) * width;
 		for (int i = 0; i < GetSize(init.data); i++)
 			if (0 <= i+offset && i+offset < GetSize(init_data))

@@ -65,10 +65,11 @@ struct MemWr : RTLIL::AttrObject {
 };
 
 struct MemInit : RTLIL::AttrObject {
+	bool removed;
 	Cell *cell;
 	Const addr;
 	Const data;
-	MemInit() : cell(nullptr) {}
+	MemInit() : removed(false), cell(nullptr) {}
 };
 
 struct Mem : RTLIL::AttrObject {
