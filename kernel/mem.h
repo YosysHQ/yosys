@@ -97,6 +97,13 @@ struct Mem : RTLIL::AttrObject {
 	// Marks all inits as removed.
 	void clear_inits();
 
+	// Coalesces inits: whenever two inits have overlapping or touching
+	// address ranges, they are combined into one, with the higher-priority
+	// one's data overwriting the other.  Running this results in
+	// an inits list equivalent to the original, in which all entries
+	// cover disjoint (and non-touching) address ranges.
+	void coalesce_inits();
+
 	// Checks consistency of this memory and all its ports/inits, using
 	// log_assert.
 	void check();

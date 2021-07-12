@@ -282,6 +282,78 @@ void Mem::clear_inits() {
 		init.removed = true;
 }
 
+void Mem::coalesce_inits() {
+	// start address -> end address
+	std::map<int, int> chunks;
+	// Figure out chunk boundaries.
+	for (auto &init : inits) {
+		if (init.removed)
+			continue;
+		int addr = init.addr.as_int();
+		int addr_e = addr + GetSize(init.data) / width;
+		auto it_e = chunks.upper_bound(addr_e);
+		auto it = it_e;
+		while (it != chunks.begin()) {
+			--it;
+			if (it->second < addr) {
+				++it;
+				break;
+			}
+		}
+		if (it == it_e) {
+			// No overlapping inits — add this one to index.
+			chunks[addr] = addr_e;
+		} else {
+			// We have an overlap — all chunks in the [it, it_e)
+			// range will be merged with this init.
+			if (it->first < addr)
+				addr = it->first;
+			auto it_last = it_e;
+			it_last--;
+			if (it_last->second > addr_e)
+				addr_e = it_last->second;
+			chunks.erase(it, it_e);
+			chunks[addr] = addr_e;
+		}
+	}
+	// Group inits by the chunk they belong to.
+	dict<int, std::vector<int>> inits_by_chunk;
+	for (int i = 0; i < GetSize(inits); i++) {
+		auto &init = inits[i];
+		if (init.removed)
+			continue;
+		auto it = chunks.upper_bound(init.addr.as_int());
+		--it;
+		inits_by_chunk[it->first].push_back(i);
+		int addr = init.addr.as_int();
+		int addr_e = addr + GetSize(init.data) / width;
+		log_assert(addr >= it->first && addr_e <= it->second);
+	}
+	// Process each chunk.
+	for (auto &it : inits_by_chunk) {
+		int caddr = it.first;
+		int caddr_e = chunks[caddr];
+		auto &chunk_inits = it.second;
+		if (GetSize(chunk_inits) == 1) {
+			continue;
+		}
+		Const cdata(State::Sx, (caddr_e - caddr) * width);
+		for (int idx : chunk_inits) {
+			auto &init = inits[idx];
+			int offset = (init.addr.as_int() - caddr) * width;
+			log_assert(offset >= 0);
+			log_assert(offset + GetSize(init.data) <= GetSize(cdata));
+			for (int i = 0; i < GetSize(init.data); i++)
+				cdata.bits[i+offset] = init.data.bits[i];
+			init.removed = true;
+		}
+		MemInit new_init;
+		new_init.addr = caddr;
+		new_init.data = cdata;
+		inits.push_back(new_init);
+	}
+}
+
 Const Mem::get_init_data() const {
 	Const init_data(State::Sx, width * size);
 	for (auto &init : inits) {
