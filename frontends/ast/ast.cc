@@ -177,6 +177,7 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_STRUCT)
 	X(AST_UNION)
 	X(AST_STRUCT_ITEM)
+	X(AST_BIND)
 #undef X
 	default:
 		log_abort();
