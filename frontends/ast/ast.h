@@ -370,6 +370,9 @@ namespace AST
 
 	// Helper for setting the src attribute.
 	void set_src_attr(RTLIL::AttrObject *obj, const AstNode *ast);
+
+	// struct helper exposed from simplify for genrtlil
+	AstNode *make_struct_member_range(AstNode *node, AstNode *member_node);
 }
 
 namespace AST_INTERNAL

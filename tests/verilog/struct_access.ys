@@ -1,0 +1,4 @@
+read_verilog -formal -sv struct_access.sv
+proc
+opt -full
+sat -verify -seq 1 -prove-asserts -show-all
