@@ -28,12 +28,9 @@ PRIVATE_NAMESPACE_BEGIN
 
 void proc_init(RTLIL::Module *mod, SigMap &sigmap, RTLIL::Process *proc)
 {
-	bool found_init = false;
-
 	for (auto &sync : proc->syncs)
 		if (sync->type == RTLIL::SyncType::STi)
 		{
-			found_init = true;
 			log("Found init rule in `%s.%s'.\n", mod->name.c_str(), proc->name.c_str());
 
 			for (auto &action : sync->actions)
