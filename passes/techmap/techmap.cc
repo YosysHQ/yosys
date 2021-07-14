@@ -377,10 +377,12 @@ struct TechmapWorker
 			if (c->attributes.count(ID::src))
 				c->add_strpool_attribute(ID::src, extra_src_attrs);
 
-			if (techmap_replace_cell)
+			if (techmap_replace_cell) {
 				for (auto attr : cell->attributes)
 					if (!c->attributes.count(attr.first))
 						c->attributes[attr.first] = attr.second;
+				c->attributes.erase(ID::reprocess_after);
+			}
 		}
 
 		for (auto &it : tpl->connections()) {

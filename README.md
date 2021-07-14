@@ -489,6 +489,11 @@ Verilog Attributes and non-standard features
   for use in blackboxes and whiteboxes. Use ``read_verilog -specify`` to
   enable this functionality. (By default these blocks are ignored.)
 
+- The ``reprocess_after`` internal attribute is used by the Verilog frontend to
+  mark cells with bindings which might depend on the specified instantiated
+  module. Modules with such cells will be reprocessed during the ``hierarchy``
+  pass once the referenced module definition(s) become available.
+
 
 Non-standard or SystemVerilog features for formal verification
 ==============================================================

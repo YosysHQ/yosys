@@ -493,6 +493,20 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 		return did_something;
 	}
 
+	// Now that modules have been derived, we may want to reprocess this module
+	// to have additional context about the cells being instantiated.
+	for (const RTLIL::Cell *cell : module->cells())
+	{
+		std::string modname = cell->get_string_attribute(ID::reprocess_after);
+		if (modname.empty())
+			continue;
+		if (design->module(modname) || design->module("$abstract" + modname)) {
+			log("Reprocessing module %s because instantiated module %s has become available.\n",
+					log_id(module->name), log_id(modname));
+			module->reprocess_module(design, {});
+			return true;
+		}
+	}
 
 	for (auto &it : array_cells)
 	{
