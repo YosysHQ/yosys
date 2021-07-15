@@ -2182,6 +2182,34 @@ end
 
 endmodule
 
+module \$memrd_v2 (CLK, EN, ARST, SRST, ADDR, DATA);
+
+parameter MEMID = "";
+parameter ABITS = 8;
+parameter WIDTH = 8;
+
+parameter CLK_ENABLE = 0;
+parameter CLK_POLARITY = 0;
+parameter READ_OLD_MASK = 0;
+parameter READ_NEW_MASK = 0;
+parameter CE_OVER_SRST = 0;
+parameter ARST_VALUE = 0;
+parameter SRST_VALUE = 0;
+parameter INIT_VALUE = 0;
+
+input CLK, EN, ARST, SRST;
+input [ABITS-1:0] ADDR;
+output [WIDTH-1:0] DATA;
+
+initial begin
+	if (MEMID != "") begin
+		$display("ERROR: Found non-simulatable instance of $memrd!");
+		$finish;
+	end
+end
+
+endmodule
+
 // --------------------------------------------------------
 
 module \$memwr (CLK, EN, ADDR, DATA);
@@ -2193,6 +2221,31 @@ parameter WIDTH = 8;
 parameter CLK_ENABLE = 0;
 parameter CLK_POLARITY = 0;
 parameter PRIORITY = 0;
+
+input CLK;
+input [WIDTH-1:0] EN;
+input [ABITS-1:0] ADDR;
+input [WIDTH-1:0] DATA;
+
+initial begin
+	if (MEMID != "") begin
+		$display("ERROR: Found non-simulatable instance of $memwr!");
+		$finish;
+	end
+end
+
+endmodule
+
+module \$memwr_v2 (CLK, EN, ADDR, DATA);
+
+parameter MEMID = "";
+parameter ABITS = 8;
+parameter WIDTH = 8;
+
+parameter CLK_ENABLE = 0;
+parameter CLK_POLARITY = 0;
+parameter PORTID = 0;
+parameter PRIORITY_MASK = 0;
 
 input CLK;
 input [WIDTH-1:0] EN;
@@ -2221,6 +2274,28 @@ parameter PRIORITY = 0;
 
 input [ABITS-1:0] ADDR;
 input [WORDS*WIDTH-1:0] DATA;
+
+initial begin
+	if (MEMID != "") begin
+		$display("ERROR: Found non-simulatable instance of $meminit!");
+		$finish;
+	end
+end
+
+endmodule
+
+module \$meminit_v2 (EN, ADDR, DATA);
+
+parameter MEMID = "";
+parameter ABITS = 8;
+parameter WIDTH = 8;
+parameter WORDS = 1;
+
+parameter PRIORITY = 0;
+
+input [ABITS-1:0] ADDR;
+input [WORDS*WIDTH-1:0] DATA;
+input [WIDTH-1:0] EN;
 
 initial begin
 	if (MEMID != "") begin
@@ -2319,6 +2394,121 @@ always @(RD_CLK, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA) begin
 end
 
 endmodule
+
+module \$mem_v2 (RD_CLK, RD_EN, RD_ARST, RD_SRST, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA);
+
+parameter MEMID = "";
+parameter signed SIZE = 4;
+parameter signed OFFSET = 0;
+parameter signed ABITS = 2;
+parameter signed WIDTH = 8;
+parameter signed INIT = 1'bx;
+
+parameter signed RD_PORTS = 1;
+parameter RD_WIDE_CONTINUATION = 1'b0;
+parameter RD_CLK_ENABLE = 1'b1;
+parameter RD_CLK_POLARITY = 1'b1;
+parameter RD_READ_OLD_MASK = 1'b1;
+parameter RD_READ_NEW_MASK = 1'b1;
+parameter RD_ARST_VALUE = 1'b0;
+parameter RD_CE_OVER_SRST = 1'b0;
+parameter RD_SRST_VALUE = 1'b0;
+parameter RD_INIT_VALUE = 1'b0;
+
+parameter signed WR_PORTS = 1;
+parameter WR_WIDE_CONTINUATION = 1'b0;
+parameter WR_CLK_ENABLE = 1'b1;
+parameter WR_CLK_POLARITY = 1'b1;
+parameter WR_PRIORITY_MASK = 1'b1;
+
+input [RD_PORTS-1:0] RD_CLK;
+input [RD_PORTS-1:0] RD_EN;
+input [RD_PORTS-1:0] RD_ARST;
+input [RD_PORTS-1:0] RD_SRST;
+input [RD_PORTS*ABITS-1:0] RD_ADDR;
+output reg [RD_PORTS*WIDTH-1:0] RD_DATA;
+
+input [WR_PORTS-1:0] WR_CLK;
+input [WR_PORTS*WIDTH-1:0] WR_EN;
+input [WR_PORTS*ABITS-1:0] WR_ADDR;
+input [WR_PORTS*WIDTH-1:0] WR_DATA;
+
+reg [WIDTH-1:0] memory [SIZE-1:0];
+
+integer i, j, k;
+reg [WR_PORTS-1:0] LAST_WR_CLK;
+reg [RD_PORTS-1:0] LAST_RD_CLK;
+
+function port_active;
+	input clk_enable;
+	input clk_polarity;
+	input last_clk;
+	input this_clk;
+	begin
+		casez ({clk_enable, clk_polarity, last_clk, this_clk})
+			4'b0???: port_active = 1;
+			4'b1101: port_active = 1;
+			4'b1010: port_active = 1;
+			default: port_active = 0;
+		endcase
+	end
+endfunction
+
+initial begin
+	for (i = 0; i < SIZE; i = i+1)
+		memory[i] = INIT >>> (i*WIDTH);
+	RD_DATA <= RD_INIT_VALUE;
+end
+
+always @(RD_CLK, RD_ARST, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA) begin
+`ifdef SIMLIB_MEMDELAY
+	#`SIMLIB_MEMDELAY;
+`endif
+	for (i = 0; i < RD_PORTS; i = i+1) begin
+		if (RD_ARST[i]) begin
+			RD_DATA[i*WIDTH +: WIDTH] <= RD_ARST_VALUE[i*WIDTH +: WIDTH];
+		end else if (port_active(RD_CLK_ENABLE[i], RD_CLK_POLARITY[i], LAST_RD_CLK[i], RD_CLK[i])) begin
+			if (RD_SRST[i] && (!RD_CE_OVER_SRST[i] || RD_EN[i])) begin
+				RD_DATA[i*WIDTH +: WIDTH] <= RD_SRST_VALUE[i*WIDTH +: WIDTH];
+			end else if (RD_EN[i]) begin
+				// $display("Read from %s: addr=%b data=%b", MEMID, RD_ADDR[i*ABITS +: ABITS],  memory[RD_ADDR[i*ABITS +: ABITS] - OFFSET]);
+				RD_DATA[i*WIDTH +: WIDTH] <= memory[RD_ADDR[i*ABITS +: ABITS] - OFFSET];
+				for (j = 0; j < WR_PORTS; j = j+1) begin
+					// No check for port_active on write port — TRANSPARENCY_MASK only allowed on same-clock ports.
+					if (!RD_READ_OLD_MASK[i * WR_PORTS + j] && RD_ADDR[i*ABITS +: ABITS] == WR_ADDR[j*ABITS +: ABITS]) begin
+						for (k = 0; k < WIDTH; k = k+1) begin
+							if (WR_EN[j*WIDTH+k]) begin
+								RD_DATA[i*WIDTH + k] <= 'bx;
+							end
+						end
+					end
+					if (RD_READ_NEW_MASK[i * WR_PORTS + j] && RD_ADDR[i*ABITS +: ABITS] == WR_ADDR[j*ABITS +: ABITS]) begin
+						for (k = 0; k < WIDTH; k = k+1) begin
+							if (WR_EN[j*WIDTH+k]) begin
+								RD_DATA[i*WIDTH + k] <= WR_DATA[j*WIDTH+k];
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+
+	for (i = 0; i < WR_PORTS; i = i+1) begin
+		if (port_active(WR_CLK_ENABLE[i], WR_CLK_POLARITY[i], LAST_WR_CLK[i], WR_CLK[i]))
+			for (j = 0; j < WIDTH; j = j+1)
+				if (WR_EN[i*WIDTH+j]) begin
+					// $display("Write to %s: addr=%b data=%b", MEMID, WR_ADDR[i*ABITS +: ABITS], WR_DATA[i*WIDTH+j]);
+					memory[WR_ADDR[i*ABITS +: ABITS] - OFFSET][j] <= WR_DATA[i*WIDTH+j];
+				end
+	end
+
+	LAST_RD_CLK <= RD_CLK;
+	LAST_WR_CLK <= WR_CLK;
+end
+
+endmodule
+
 
 `endif
 
