@@ -2733,12 +2733,14 @@ struct CxxrtlWorker {
 			for (auto wire : module->wires()) {
 				auto &wire_type = wire_types[wire];
 				if (!wire_type.is_local()) continue;
-				if (!wire->name.isPublic() && !inline_internal) continue;
-				if (wire->name.isPublic() && !inline_public) continue;
-
 				if (live_wires[wire].empty()) {
 					wire_type = {WireType::UNUSED}; // wire never used
-				} else if (flow.is_inlinable(wire, live_wires[wire])) {
+					continue;
+				}
+
+				if (!wire->name.isPublic() && !inline_internal) continue;
+				if (wire->name.isPublic() && !inline_public) continue;
+				if (flow.is_inlinable(wire, live_wires[wire])) {
 					if (flow.wire_comb_defs[wire].size() > 1)
 						log_cmd_error("Wire %s.%s has multiple drivers!\n", log_id(module), log_id(wire));
 					log_assert(flow.wire_comb_defs[wire].size() == 1);
