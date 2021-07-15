@@ -1,8 +1,10 @@
 read_verilog dpram.v
 hierarchy -top top
 proc
+opt_clean
 memory -nomap
 equiv_opt -run :prove -map +/ice40/cells_sim.v synth_ice40
+opt_clean
 memory
 opt -full
 

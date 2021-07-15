@@ -2,6 +2,7 @@ read_verilog -nomem2reg port_sign_extend.v
 hierarchy
 flatten
 proc
+opt_clean
 memory
 equiv_make ref act equiv
 equiv_simple
@@ -12,6 +13,7 @@ delete
 read_verilog -nomem2reg port_sign_extend.v
 flatten
 proc
+opt_clean
 memory
 equiv_make ref act equiv
 equiv_simple
@@ -22,6 +24,7 @@ delete
 read_verilog -nomem2reg port_sign_extend.v
 hierarchy
 proc
+opt_clean
 memory
 equiv_make ref act equiv
 prep -flatten -top equiv

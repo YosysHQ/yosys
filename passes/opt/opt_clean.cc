@@ -117,7 +117,7 @@ void rmunused_module_cells(Module *module, bool verbose)
 	}
 
 	for (Cell *cell : module->cells()) {
-		if (cell->type.in(ID($memwr), ID($meminit))) {
+		if (cell->type.in(ID($memwr), ID($meminit), ID($meminit_v2))) {
 			IdString mem_id = cell->getParam(ID::MEMID).decode_string();
 			mem2cells[mem_id].insert(cell);
 		}

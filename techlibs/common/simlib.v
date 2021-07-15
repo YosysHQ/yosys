@@ -2233,6 +2233,30 @@ endmodule
 
 // --------------------------------------------------------
 
+module \$meminit_v2 (ADDR, DATA, EN);
+
+parameter MEMID = "";
+parameter ABITS = 8;
+parameter WIDTH = 8;
+parameter WORDS = 1;
+
+parameter PRIORITY = 0;
+
+input [ABITS-1:0] ADDR;
+input [WORDS*WIDTH-1:0] DATA;
+input [WIDTH-1:0] EN;
+
+initial begin
+	if (MEMID != "") begin
+		$display("ERROR: Found non-simulatable instance of $meminit_v2!");
+		$finish;
+	end
+end
+
+endmodule
+
+// --------------------------------------------------------
+
 module \$mem (RD_CLK, RD_EN, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA);
 
 parameter MEMID = "";

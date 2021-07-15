@@ -1414,6 +1414,16 @@ namespace {
 				return;
 			}
 
+			if (cell->type == ID($meminit_v2)) {
+				param(ID::MEMID);
+				param(ID::PRIORITY);
+				port(ID::ADDR, param(ID::ABITS));
+				port(ID::DATA, param(ID::WIDTH) * param(ID::WORDS));
+				port(ID::EN, param(ID::WIDTH));
+				check_expected();
+				return;
+			}
+
 			if (cell->type == ID($mem)) {
 				param(ID::MEMID);
 				param(ID::SIZE);
@@ -3177,7 +3187,7 @@ void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 
 bool RTLIL::Cell::has_memid() const
 {
-	return type.in(ID($memwr), ID($memrd), ID($meminit));
+	return type.in(ID($memwr), ID($memrd), ID($meminit), ID($meminit_v2));
 }
 
 bool RTLIL::Cell::is_mem_cell() const

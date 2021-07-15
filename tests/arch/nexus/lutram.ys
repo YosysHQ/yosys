@@ -1,8 +1,10 @@
 read_verilog ../common/lutram.v
 hierarchy -top lutram_1w1r
 proc
+opt_clean
 memory -nomap
 equiv_opt -run :prove -map +/nexus/cells_sim.v synth_nexus
+opt_clean
 memory
 opt -full
 
