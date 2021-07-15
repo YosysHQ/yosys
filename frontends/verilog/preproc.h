@@ -42,6 +42,7 @@ struct define_map_t
 
 	// Add a definition, overwriting any existing definition for name.
 	void add(const std::string &name, const std::string &txt, const arg_map_t *args = nullptr);
+	void add(const std::string &name, const define_body_t &body);
 
 	// Merge in another map of definitions (which take precedence
 	// over anything currently defined).
