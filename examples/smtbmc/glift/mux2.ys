@@ -1,0 +1,40 @@
+logger -expect log "SAT proof finished - no model found: SUCCESS!" 1
+logger -expect log "Number of cells:.*[\t ]12" 1
+logger -expect log "Number of cells:.*[\t ]20" 1
+logger -expect log "Problem is satisfiable with \\gate.__glift_weight = 11." 1
+logger -expect log "Problem is NOT satisfiable with \\gate.__glift_weight <= 10." 1
+logger -expect log "Wire \\gate.__glift_weight is minimized at 11." 1
+logger -expect log "Specializing .* from file with .* = 1." 2
+logger -expect log "Specializing .* from file with .* = 0." 4
+read_verilog <<EOT
+module mux2(a, b, s, y);
+	input a, b, s;
+	output y;
+
+	wire s_n = ~s;
+	wire t0 = s & a;
+	wire t1 = s_n & b;
+	assign y = t0 | t1;
+endmodule
+EOT
+techmap
+copy mux2 spec
+copy mux2 uut
+copy mux2 solved
+delete mux2
+glift -create-precise-model spec
+glift -create-instrumented-model uut
+glift -create-instrumented-model -no-cost-model solved
+design -push-copy
+miter -equiv spec uut qbfmiter
+flatten
+delete spec uut solved
+qbfsat -assume-outputs -assume-negative-polarity -write-solution mux2.soln qbfmiter
+design -pop
+qbfsat -specialize-from-file mux2.soln solved
+opt
+miter -equiv spec solved proofmiter
+flatten proofmiter
+sat -prove trigger 0 proofmiter
+delete proofmiter
+stat solved spec

@@ -1,5 +1,5 @@
 
-all: demo1 demo2 demo3 demo4 demo5 demo6 demo7 demo8 demo9
+all: demo1 demo2 demo3 demo4 demo5 demo6 demo7 demo8 demo9 glift_mux
 
 demo1: demo1.smt2
 	yosys-smtbmc --dump-vcd demo1.vcd demo1.smt2
@@ -30,6 +30,9 @@ demo8: demo8.smt2
 
 demo9: demo9.smt2
 	yosys-smtbmc -s z3 -t 1 -g demo9.smt2
+
+glift_mux:
+	yosys -ql glift_mux.yslog glift/mux2.ys
 
 demo1.smt2: demo1.v
 	yosys -ql demo1.yslog -p 'read_verilog -formal demo1.v; prep -top demo1 -nordff; write_smt2 -wires demo1.smt2'
@@ -68,6 +71,7 @@ clean:
 	rm -f demo7.yslog demo7.smt2
 	rm -f demo8.yslog demo8.smt2
 	rm -f demo9.yslog demo9.smt2
+	rm -f glift_mux.ys
 
 .PHONY: demo1 demo2 demo3 demo4 demo5 demo6 demo7 demo8 demo9 clean
 

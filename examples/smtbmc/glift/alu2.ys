@@ -1,0 +1,41 @@
+read_verilog alu2.v
+techmap
+flatten
+select alu2_lev2
+glift -create-instrumented-model
+techmap
+opt
+rename alu2_lev2 uut
+cd ..
+delete [AIONX][NVXR]2
+read_verilog alu2.v
+techmap
+flatten
+select alu2_lev2
+glift -create-precise-model
+techmap
+opt
+rename alu2_lev2 spec
+cd ..
+delete [AIONX][NVXR]2
+
+design -push-copy
+miter -equiv spec uut miter
+flatten
+delete uut spec
+techmap
+opt
+stat miter
+qbfsat -O2 -write-solution alu2.soln -solver yices -timeout 3600 -nocleanup -assume-outputs -assume-negative-polarity miter
+design -pop
+stat
+
+copy uut solved
+qbfsat -specialize-from-file alu2.soln solved
+opt solved
+miter -equiv spec solved satmiter
+flatten
+sat -prove trigger 0 satmiter
+delete satmiter 
+stat
+shell
