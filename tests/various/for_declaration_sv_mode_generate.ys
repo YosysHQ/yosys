@@ -1,0 +1,6 @@
+logger -expect error "Found variable declaration in for declaration .*" 1
+read_verilog <<EOF
+module foo();
+for (genvar      x = 0; x < 1; x++) begin end
+endmodule
+EOF

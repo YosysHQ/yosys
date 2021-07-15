@@ -1,0 +1,17 @@
+logger -expect-no-warnings
+read_verilog -sv <<EOF
+module foo();
+always_comb begin
+  for (integer  x = 0; x < 1; x++) begin end
+  for (int      x = 0; x < 1; x++) begin end
+  for (shortint x = 0; x < 1; x++) begin end
+
+  integer x;
+  int y;
+  shortint z;
+  for (x = 0; x < 1; x++) begin end
+  for (y = 0; y < 1; y++) begin end
+  for (z = 0; z < 1; z++) begin end
+end
+endmodule
+EOF
