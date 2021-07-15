@@ -237,7 +237,15 @@ LibertyAst *LibertyParser::parse()
 		if (tok == ':' && ast->value.empty()) {
 			tok = lexer(ast->value);
 			if (tok != 'v')
-				error();
+           {
+             while (tok == '(' || tok == '+' || tok == '-' || tok == '*' || tok == '/' || tok == '!' || tok == ')' || tok == 'v') {
+               if (tok == 'v')
+                 ast->value += str;
+               else
+                 ast->value += tok;
+                tok = lexer(str);
+             }
+           }
 			tok = lexer(str);
 			while (tok == '+' || tok == '-' || tok == '*' || tok == '/') {
 				ast->value += tok;

@@ -607,9 +607,13 @@ struct LibertyFrontend : public Frontend {
 							dir = pin->find("direction");
 					}
 
-					if (!dir || (dir->value != "input" && dir->value != "output" && dir->value != "inout" && dir->value != "internal"))
-						log_error("Missing or invalid direction for bus %s on cell %s.\n", node->args.at(0).c_str(), log_id(module->name));
-
+               if (dir)
+                 {
+                   std::string direction = dir->value;
+                   if (direction != "input" && direction != "output" && direction != "inout" && direction != "internal")
+                     log_error("Missing or invalid direction for bus %s on cell %s.\n", node->args.at(0).c_str(), log_id(module->name));
+                 }
+               
 					if (dir->value == "internal")
 						continue;
 
@@ -656,8 +660,8 @@ struct LibertyFrontend : public Frontend {
 				if (node->id == "pin" && node->args.size() == 1)
 				{
 					LibertyAst *dir = node->find("direction");
-
-					if (flag_lib && dir->value == "internal")
+               int internal = dir->value == "internal";
+					if (flag_lib && internal)
 						continue;
 
 					RTLIL::Wire *wire = module->wires_.at(RTLIL::escape_id(node->args.at(0)));
@@ -679,10 +683,19 @@ struct LibertyFrontend : public Frontend {
 						continue;
 
 					LibertyAst *func = node->find("function");
-					if (func == NULL)
+               LibertyAst *state_func = node->find("state_function");
+					if ((func == NULL) && (state_func == NULL))
 					{
-						if (!flag_ignore_miss_func)
+                 LibertyAst *driver = node->find("driver_type");
+                 int bus_hold = driver && (driver->value == "bus_hold");
+					  if (bus_hold) {
+							log("Ignoring bus keeper cell %s.\n", log_id(module->name));
+							delete module;
+							goto skip_cell;
+						}
+                 if (!flag_ignore_miss_func)
 						{
+                    if (!internal)
 							log_error("Missing function on output %s of cell %s.\n", log_id(wire->name), log_id(module->name));
 						} else {
 							log("Ignoring cell %s with missing function on output %s.\n", log_id(module->name), log_id(wire->name));
@@ -691,8 +704,11 @@ struct LibertyFrontend : public Frontend {
 						}
 					}
 
-					RTLIL::SigSpec out_sig = parse_func_expr(module, func->value.c_str());
-					module->connect(RTLIL::SigSig(wire, out_sig));
+               if (!internal)
+                 {
+                   RTLIL::SigSpec out_sig = parse_func_expr(module, func ? func->value.c_str() : state_func->value.c_str());
+                   module->connect(RTLIL::SigSig(wire, out_sig));
+                 }
 				}
 			}
 
