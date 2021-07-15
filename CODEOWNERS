@@ -41,3 +41,4 @@ passes/sat/qbfsat.cc           @boqwxp
 passes/sat/qbfsat.h            @boqwxp
 passes/cmds/exec.cc            @boqwxp
 passes/cmds/printattrs.cc      @boqwxp
+passes/cmds/partition.cc       @boqwxp
