@@ -37,7 +37,7 @@ design -save preopt
 
 design -load start
 opt_mem_feedback
-select -assert-count 1 t:$memrd
+select -assert-count 1 t:$memrd_v2
 memory_map
 design -save postopt
 
@@ -182,7 +182,7 @@ design -save preopt
 
 design -load start
 opt_mem_feedback
-select -assert-count 1 t:$memrd
+select -assert-count 1 t:$memrd_v2
 memory_map
 design -save postopt
 

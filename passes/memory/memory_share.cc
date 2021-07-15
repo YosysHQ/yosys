@@ -34,7 +34,7 @@ struct MemoryShareWorker
 	ModWalker modwalker;
 	CellTypes cone_ct;
 	bool flag_widen;
-
+	bool flag_sat;
 
 	// --------------------------------------------------
 	// Consolidate read ports that read the same address
@@ -484,7 +484,7 @@ struct MemoryShareWorker
 	// Setup and run
 	// -------------
 
-	MemoryShareWorker(RTLIL::Design *design, bool flag_widen) : design(design), modwalker(design), flag_widen(flag_widen) {}
+	MemoryShareWorker(RTLIL::Design *design, bool flag_widen, bool flag_sat) : design(design), modwalker(design), flag_widen(flag_widen), flag_sat(flag_sat) {}
 
 	void operator()(RTLIL::Module* module)
 	{
@@ -512,6 +512,9 @@ struct MemoryShareWorker
 			while (consolidate_rd_by_addr(mem));
 			while (consolidate_wr_by_addr(mem));
 		}
+
+		if (!flag_sat)
+			return;
 
 		cone_ct.setup_internals();
 		cone_ct.cell_types.erase(ID($mul));
@@ -559,11 +562,26 @@ struct MemorySharePass : public Pass {
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
+		bool flag_widen = true;
+		bool flag_sat = true;
 		log_header(design, "Executing MEMORY_SHARE pass (consolidating $memrd/$memwr cells).\n");
-		// TODO: expose when wide ports are actually supported.
-		bool flag_widen = false;
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++)
+		{
+			if (args[argidx] == "-nosat")
+			{
+				flag_sat = false;
+				continue;
+			}
+			if (args[argidx] == "-nowiden")
+			{
+				flag_widen = false;
+				continue;
+			}
+			break;
+		}
 		extra_args(args, 1, design);
-		MemoryShareWorker msw(design, flag_widen);
+		MemoryShareWorker msw(design, flag_widen, flag_sat);
 
 		for (auto module : design->selected_modules())
 			msw(module);

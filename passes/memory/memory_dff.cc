@@ -60,11 +60,6 @@ struct MemoryDffWorker
 			log("output FF has both set and reset, not supported.\n");
 			return;
 		}
-		if (ff.has_srst || ff.has_arst || !ff.val_init.is_fully_undef()) {
-			// TODO: not supported yet
-			log("output FF has reset and/or init value, not supported yet.\n");
-			return;
-		}
 		merger.remove_output_ff(bits);
 		if (ff.has_en && !ff.pol_en)
 			ff.sig_en = module->LogicNot(NEW_ID, ff.sig_en);
@@ -79,7 +74,6 @@ struct MemoryDffWorker
 			port.en = ff.sig_en;
 		else
 			port.en = State::S1;
-#if 0
 		if (ff.has_arst) {
 			port.arst = ff.sig_arst;
 			port.arst_value = ff.val_arst;
@@ -94,7 +88,6 @@ struct MemoryDffWorker
 			port.srst = State::S0;
 		}
 		port.init_value = ff.val_init;
-#endif
 		port.data = ff.sig_q;
 		mem.emit();
 		log("merged output FF to cell.\n");

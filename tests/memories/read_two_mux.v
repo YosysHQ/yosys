@@ -1,6 +1,7 @@
 // expect-wr-ports 1
 // expect-rd-ports 1
-// expect-no-rd-clk
+// expect-rd-clk \clk
+// expect-rd-srst \reset
 
 module top(input clk, input we, re, reset, input [7:0] addr, wdata, output reg [7:0] rdata);
 

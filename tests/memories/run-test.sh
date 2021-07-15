@@ -18,7 +18,7 @@ ${MAKE:-make} -f ../tools/autotest.mk SEED="$seed" EXTRA_FLAGS="$abcopt" *.v
 
 for f in `egrep -l 'expect-(wr-ports|rd-ports|rd-clk)' *.v`; do
 	echo -n "Testing expectations for $f .."
-	../../yosys -qp "proc; opt; memory -nomap;; dump -outfile ${f%.v}.dmp t:\$mem" $f
+	../../yosys -qp "proc; opt; memory -nomap;; dump -outfile ${f%.v}.dmp t:\$mem_v2" $f
 	if grep -q expect-wr-ports $f; then
 		grep -q "parameter \\\\WR_PORTS $(gawk '/expect-wr-ports/ { print $3; }' $f)\$" ${f%.v}.dmp ||
 				{ echo " ERROR: Unexpected number of write ports."; false; }
@@ -30,6 +30,10 @@ for f in `egrep -l 'expect-(wr-ports|rd-ports|rd-clk)' *.v`; do
 	if grep -q expect-rd-clk $f; then
 		grep -q "connect \\\\RD_CLK \\$(gawk '/expect-rd-clk/ { print $3; }' $f)\$" ${f%.v}.dmp ||
 				{ echo " ERROR: Unexpected read clock."; false; }
+	fi
+	if grep -q expect-rd-srst $f; then
+		grep -q "connect \\\\RD_SRST \\$(gawk '/expect-rd-srst/ { print $3; }' $f)\$" ${f%.v}.dmp ||
+				{ echo " ERROR: Unexpected read sync reset."; false; }
 	fi
 	if grep -q expect-no-rd-clk $f; then
 		grep -q "connect \\\\RD_CLK 1'x\$" ${f%.v}.dmp ||

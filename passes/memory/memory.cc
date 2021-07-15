@@ -31,7 +31,7 @@ struct MemoryPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    memory [-nomap] [-nordff] [-memx] [-bram <bram_rules>] [selection]\n");
+		log("    memory [-nomap] [-nordff] [-nowiden] [-nosat] [-memx] [-bram <bram_rules>] [selection]\n");
 		log("\n");
 		log("This pass calls all the other memory_* passes in a useful order:\n");
 		log("\n");
@@ -39,7 +39,7 @@ struct MemoryPass : public Pass {
 		log("    memory_dff                          (skipped if called with -nordff or -memx)\n");
 		log("    opt_clean\n");
 		log("    opt_mem_feedback\n");
-		log("    memory_share\n");
+		log("    memory_share [-nowiden] [-nosat]\n");
 		log("    memory_memx                         (when called with -memx)\n");
 		log("    opt_clean\n");
 		log("    memory_collect\n");
@@ -56,6 +56,7 @@ struct MemoryPass : public Pass {
 		bool flag_nordff = false;
 		bool flag_memx = false;
 		string memory_bram_opts;
+		string memory_share_opts;
 
 		log_header(design, "Executing MEMORY pass.\n");
 		log_push();
@@ -75,6 +76,14 @@ struct MemoryPass : public Pass {
 				flag_memx = true;
 				continue;
 			}
+			if (args[argidx] == "-nowiden") {
+				memory_share_opts += " -nowiden";
+				continue;
+			}
+			if (args[argidx] == "-nosat") {
+				memory_share_opts += " -nosat";
+				continue;
+			}
 			if (argidx+1 < args.size() && args[argidx] == "-bram") {
 				memory_bram_opts += " -rules " + args[++argidx];
 				continue;
@@ -88,7 +97,7 @@ struct MemoryPass : public Pass {
 			Pass::call(design, "memory_dff");
 		Pass::call(design, "opt_clean");
 		Pass::call(design, "opt_mem_feedback");
-		Pass::call(design, "memory_share");
+		Pass::call(design, "memory_share" + memory_share_opts);
 		if (flag_memx)
 			Pass::call(design, "memory_memx");
 		Pass::call(design, "opt_clean");
