@@ -72,6 +72,7 @@ namespace RTLIL
 	struct MemWriteAction;
 	struct SyncRule;
 	struct Process;
+	struct Binding;
 
 	typedef std::pair<SigSpec, SigSpec> SigSig;
 
@@ -1033,6 +1034,8 @@ struct RTLIL::Design
 
 	int refcount_modules_;
 	dict<RTLIL::IdString, RTLIL::Module*> modules_;
+	std::vector<RTLIL::Binding*> bindings_;
+
 	std::vector<AST::AstNode*> verilog_packages, verilog_globals;
 	std::unique_ptr<define_map_t> verilog_defines;
 
@@ -1053,6 +1056,8 @@ struct RTLIL::Design
 	}
 
 	void add(RTLIL::Module *module);
+	void add(RTLIL::Binding *binding);
+
 	RTLIL::Module *addModule(RTLIL::IdString name);
 	void remove(RTLIL::Module *module);
 	void rename(RTLIL::Module *module, RTLIL::IdString new_name);
@@ -1140,7 +1145,9 @@ public:
 
 	dict<RTLIL::IdString, RTLIL::Wire*> wires_;
 	dict<RTLIL::IdString, RTLIL::Cell*> cells_;
-	std::vector<RTLIL::SigSig> connections_;
+
+	std::vector<RTLIL::SigSig>   connections_;
+	std::vector<RTLIL::Binding*> bindings_;
 
 	RTLIL::IdString name;
 	idict<RTLIL::IdString> avail_parameters;
@@ -1153,7 +1160,7 @@ public:
 	virtual RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, bool mayfail = false);
 	virtual RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, const dict<RTLIL::IdString, RTLIL::Module*> &interfaces, const dict<RTLIL::IdString, RTLIL::IdString> &modports, bool mayfail = false);
 	virtual size_t count_id(RTLIL::IdString id);
-	virtual void reprocess_module(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Module *> &local_interfaces);
+	virtual void expand_interfaces(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Module *> &local_interfaces);
 
 	virtual void sort();
 	virtual void check();
@@ -1206,6 +1213,8 @@ public:
 
 	RTLIL::ObjRange<RTLIL::Wire*> wires() { return RTLIL::ObjRange<RTLIL::Wire*>(&wires_, &refcount_wires_); }
 	RTLIL::ObjRange<RTLIL::Cell*> cells() { return RTLIL::ObjRange<RTLIL::Cell*>(&cells_, &refcount_cells_); }
+
+	void add(RTLIL::Binding *binding);
 
 	// Removing wires is expensive. If you have to remove wires, remove them all at once.
 	void remove(const pool<RTLIL::Wire*> &wires);
@@ -1603,7 +1612,6 @@ public:
 	template<typename T> void rewrite_sigspecs2(T &functor);
 	RTLIL::Process *clone() const;
 };
-
 
 inline RTLIL::SigBit::SigBit() : wire(NULL), data(RTLIL::State::S0) { }
 inline RTLIL::SigBit::SigBit(RTLIL::State bit) : wire(NULL), data(bit) { }

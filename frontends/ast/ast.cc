@@ -177,6 +177,7 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_STRUCT)
 	X(AST_UNION)
 	X(AST_STRUCT_ITEM)
+	X(AST_BIND)
 #undef X
 	default:
 		log_abort();
@@ -980,8 +981,7 @@ static bool param_has_no_default(const AstNode *param) {
 		(children.size() == 1 && children[0]->type == AST_RANGE);
 }
 
-// create and add a new AstModule from an AST_MODULE AST node
-static void process_module(RTLIL::Design *design, AstNode *ast, bool defer, AstNode *original_ast = NULL, bool quiet = false)
+static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool defer, AstNode *original_ast = NULL, bool quiet = false)
 {
 	log_assert(current_scope.empty());
 	log_assert(ast->type == AST_MODULE || ast->type == AST_INTERFACE);
@@ -1194,6 +1194,42 @@ static void process_module(RTLIL::Design *design, AstNode *ast, bool defer, AstN
 	}
 
 	design->add(current_module);
+	return current_module;
+}
+
+RTLIL::Module *
+AST_INTERNAL::process_and_replace_module(RTLIL::Design *design,
+                                         RTLIL::Module *old_module,
+                                         AstNode *new_ast,
+                                         AstNode *original_ast)
+{
+	// The old module will be deleted. Rename and mark for deletion, using
+	// a static counter to make sure we get a unique name.
+	static unsigned counter;
+	std::ostringstream new_name;
+	new_name << old_module->name.str()
+		 << "_before_process_and_replace_module_"
+		 << counter;
+	++counter;
+
+	design->rename(old_module, new_name.str());
+	old_module->set_bool_attribute(ID::to_delete);
+
+	// Check if the module was the top module. If it was, we need to remove
+	// the top attribute and put it on the new module.
+	bool is_top = false;
+	if (old_module->get_bool_attribute(ID::initial_top)) {
+		old_module->attributes.erase(ID::initial_top);
+		is_top = true;
+	}
+
+	// Generate RTLIL from AST for the new module and add to the design:
+	RTLIL::Module* new_module = process_module(design, new_ast, false, original_ast);
+
+	if (is_top)
+		new_module->set_bool_attribute(ID::top);
+
+	return new_module;
 }
 
 // renames identifiers in tasks and functions within a package
@@ -1307,6 +1343,11 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 			design->verilog_packages.push_back(child->clone());
 			current_scope.clear();
 		}
+		else if (child->type == AST_BIND) {
+			// top-level bind construct
+			for (RTLIL::Binding *binding : child->genBindings())
+				design->add(binding);
+		}
 		else {
 			// must be global definition
 			if (child->type == AST_PARAMETER)
@@ -1404,11 +1445,10 @@ void AST::explode_interface_port(AstNode *module_ast, RTLIL::Module * intfmodule
 
 // When an interface instance is found in a module, the whole RTLIL for the module will be rederived again
 // from AST. The interface members are copied into the AST module with the prefix of the interface.
-void AstModule::reprocess_module(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Module*> &local_interfaces)
+void AstModule::expand_interfaces(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Module*> &local_interfaces)
 {
 	loadconfig();
 
-	bool is_top = false;
 	AstNode *new_ast = ast->clone();
 	for (auto &intf : local_interfaces) {
 		std::string intfname = intf.first.str();
@@ -1465,28 +1505,15 @@ void AstModule::reprocess_module(RTLIL::Design *design, const dict<RTLIL::IdStri
 		}
 	}
 
-	// The old module will be deleted. Rename and mark for deletion:
-	std::string original_name = this->name.str();
-	std::string changed_name = original_name + "_before_replacing_local_interfaces";
-	design->rename(this, changed_name);
-	this->set_bool_attribute(ID::to_delete);
+	// Generate RTLIL from AST for the new module and add to the design,
+	// renaming this module to move it out of the way.
+	RTLIL::Module* new_module =
+		process_and_replace_module(design, this, new_ast, ast_before_replacing_interface_ports);
 
-	// Check if the module was the top module. If it was, we need to remove the top attribute and put it on the
-	// new module.
-	if (this->get_bool_attribute(ID::initial_top)) {
-		this->attributes.erase(ID::initial_top);
-		is_top = true;
-	}
-
-	// Generate RTLIL from AST for the new module and add to the design:
-	process_module(design, new_ast, false, ast_before_replacing_interface_ports);
-	delete(new_ast);
-	RTLIL::Module* mod = design->module(original_name);
-	if (is_top)
-		mod->set_bool_attribute(ID::top);
+	delete new_ast;
 
 	// Set the attribute "interfaces_replaced_in_module" so that it does not happen again.
-	mod->set_bool_attribute(ID::interfaces_replaced_in_module);
+	new_module->set_bool_attribute(ID::interfaces_replaced_in_module);
 }
 
 // create a new parametric module (when needed) and return the name of the generated module - WITH support for interfaces
