@@ -26,8 +26,11 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-static SigBit get_bit_or_zero(const SigSpec &sig)
+static SigBit get_bit_or_zero(RTLIL::Cell *cell, IdString port)
 {
+	if (!cell->hasPort(port))
+		return State::S0;
+	RTLIL::SigSpec sig = cell->getPort(port);
 	if (GetSize(sig) == 0)
 		return State::S0;
 	return sig[0];
@@ -58,9 +61,9 @@ static void run_ice40_opts(Module *module)
 			int count_zeros = 0, count_ones = 0;
 
 			SigBit inbit[3] = {
-				get_bit_or_zero(cell->getPort(ID(I0))),
-				get_bit_or_zero(cell->getPort(ID(I1))),
-				get_bit_or_zero(cell->getPort(ID::CI))
+				get_bit_or_zero(cell, ID(I0)),
+				get_bit_or_zero(cell, ID(I1)),
+				get_bit_or_zero(cell, ID::CI)
 			};
 			for (int i = 0; i < 3; i++)
 				if (inbit[i].wire == nullptr) {
@@ -139,8 +142,8 @@ static void run_ice40_opts(Module *module)
 				log("Optimized $__ICE40_CARRY_WRAPPER cell back to logic (without SB_CARRY) %s.%s: CO=%s\n",
 						log_id(module), log_id(cell), log_signal(replacement_output));
 				cell->type = ID($lut);
-				auto I3 = get_bit_or_zero(cell->getPort(cell->getParam(ID(I3_IS_CI)).as_bool() ? ID::CI : ID(I3)));
-				cell->setPort(ID::A, { I3, inbit[1], inbit[0], get_bit_or_zero(cell->getPort(ID(I0))) });
+				auto I3 = get_bit_or_zero(cell, cell->getParam(ID(I3_IS_CI)).as_bool() ? ID::CI : ID(I3));
+				cell->setPort(ID::A, { I3, inbit[1], inbit[0], get_bit_or_zero(cell, ID(I0)) });
 				cell->setPort(ID::Y, cell->getPort(ID::O));
 				cell->unsetPort(ID::B);
 				cell->unsetPort(ID::CI);
@@ -159,10 +162,10 @@ static void run_ice40_opts(Module *module)
 	{
 		SigSpec inbits;
 
-		inbits.append(get_bit_or_zero(cell->getPort(ID(I0))));
-		inbits.append(get_bit_or_zero(cell->getPort(ID(I1))));
-		inbits.append(get_bit_or_zero(cell->getPort(ID(I2))));
-		inbits.append(get_bit_or_zero(cell->getPort(ID(I3))));
+		inbits.append(get_bit_or_zero(cell, ID(I0)));
+		inbits.append(get_bit_or_zero(cell, ID(I1)));
+		inbits.append(get_bit_or_zero(cell, ID(I2)));
+		inbits.append(get_bit_or_zero(cell, ID(I3)));
 		sigmap.apply(inbits);
 
 		if (optimized_co.count(inbits[0])) goto remap_lut;
@@ -183,10 +186,10 @@ static void run_ice40_opts(Module *module)
 		cell->unsetParam(ID(LUT_INIT));
 
 		cell->setPort(ID::A, SigSpec({
-			get_bit_or_zero(cell->getPort(ID(I3))),
-			get_bit_or_zero(cell->getPort(ID(I2))),
-			get_bit_or_zero(cell->getPort(ID(I1))),
-			get_bit_or_zero(cell->getPort(ID(I0)))
+			get_bit_or_zero(cell, ID(I3)),
+			get_bit_or_zero(cell, ID(I2)),
+			get_bit_or_zero(cell, ID(I1)),
+			get_bit_or_zero(cell, ID(I0))
 		}));
 		cell->setPort(ID::Y, cell->getPort(ID::O)[0]);
 		cell->unsetPort(ID(I0));
