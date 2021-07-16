@@ -1,4 +1,6 @@
-// An example of the bind construct using a hierarchical reference starting with $root
+// An example of a bind construct at top-level using a hierarchical reference
+// starting with $root
+//
 
 module foo (input logic a, input logic b, output logic c);
   // Magic happens here...
@@ -8,13 +10,12 @@ module bar (input a, input b, output c);
   assign c = a ^ b;
 endmodule
 
-module top ();
-  logic u, v, w;
+module act (input u, input v, output w);
   foo foo_i (.a (u), .b (v), .c (w));
-
-  always_comb begin
-    assert(w == u ^ v);
-  end
 endmodule
 
-bind $root.top.foo_i bar bound_i (.*);
+bind $root.act.foo_i bar bound_i (.*);
+
+module ref (input u, input v, output w);
+  assign w = u ^ v;
+endmodule

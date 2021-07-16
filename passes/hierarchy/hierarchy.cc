@@ -19,6 +19,7 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/binding.h"
 #include "frontends/verific/verific.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -439,7 +440,7 @@ void check_cell_connections(const RTLIL::Module &module, RTLIL::Cell &cell, RTLI
 	}
 }
 
-bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check, bool flag_simcheck, std::vector<std::string> &libdirs)
+bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check, bool flag_simcheck, const std::vector<std::string> &libdirs)
 {
 	bool did_something = false;
 	std::map<RTLIL::Cell*, std::pair<int, int>> array_cells;
@@ -712,6 +713,411 @@ RTLIL::Wire *find_implicit_port_wire(Module *module, Cell *cell, const std::stri
 			return found;
 	}
 	return module->wire(port);
+}
+
+// Expand any parameterised modules used in the design and fold away any
+// interfaces.
+//
+// This may change the current top module.
+void
+expand_design(RTLIL::Design &design,
+              RTLIL::Module **top_mod,
+              bool flag_check,
+              bool flag_simcheck,
+              const std::vector<std::string> &libdirs)
+{
+	int iters;
+	for (iters = 0; ; ++iters) {
+		bool did_something = false;
+
+		std::set<RTLIL::Module*, IdString::compare_ptr_by_name<Module>> used_modules;
+		if (*top_mod) {
+			log_header(&design, "Analyzing design hierarchy..\n");
+			hierarchy_worker(&design, used_modules, *top_mod, 0);
+		} else {
+			for (auto mod : design.modules())
+				used_modules.insert(mod);
+		}
+
+		for (auto module : used_modules) {
+			if (expand_module(&design, module, flag_check, flag_simcheck, libdirs))
+				did_something = true;
+		}
+
+		// The top module might have changed if interface instances have
+		// been detected in it:
+		RTLIL::Module *tmp_top_mod = check_if_top_has_changed(&design, *top_mod);
+		if (tmp_top_mod && (tmp_top_mod != *top_mod)) {
+			*top_mod = tmp_top_mod;
+			did_something = true;
+		}
+
+		// Delete modules marked as 'to_delete':
+		std::vector<RTLIL::Module *> modules_to_delete;
+		for(auto mod : design.modules()) {
+			if (mod->get_bool_attribute(ID::to_delete)) {
+				modules_to_delete.push_back(mod);
+			}
+		}
+		for (auto mod : modules_to_delete) {
+			design.remove(mod);
+		}
+
+		if (! did_something)
+			break;
+	}
+}
+
+// Generate a fresh name for a module by inserting a counter
+static RTLIL::IdString
+fresh_mod_name(const RTLIL::Design &design, const std::string &pfx, const std::string &suf)
+{
+	static int bind_counter;
+
+	for (;;) {
+		std::ostringstream oss;
+		oss << pfx << bind_counter << suf;
+		++bind_counter;
+
+		RTLIL::IdString name (oss.str());
+		if (!design.has(name))
+			return name;
+	}
+}
+
+// Generate a fresh name for a module by suffixing "\bound<i>" for some i.
+static RTLIL::IdString
+fresh_binding_mod_name(const RTLIL::Design &design, const RTLIL::Module &module)
+{
+	// Search for the last \bound<i> occurrence in the name
+	std::string old_name = module.name.str();
+	size_t idx = old_name.rfind("\\bound");
+
+	// If there is none, append one.
+	if (idx == std::string::npos)
+		return fresh_mod_name(design, old_name + "\\bound", "");
+
+	// The old name had something like "\bound123" in it. Walk to the next
+	// backslash or the end of string.
+	size_t end = old_name.find('\\', idx + 6);
+
+	// If there is no next backslash then we were at the the end of the
+	// string already.
+	if (end == std::string::npos)
+		return fresh_mod_name(design, old_name.substr(0, idx + 6), "");
+
+	// Otherwise, we need to pass everything from that backslash onwards as
+	// a suffix to use in the new name.
+	return fresh_mod_name(design,
+			      old_name.substr(0, idx + 6),
+			      old_name.substr(end));
+}
+
+// Clone a module with a fresh name and no blackbox flag and insert it
+// into the design.
+//
+// Also update counts, subtracting one from the count for the old module and
+// adding one to the count for the new one.
+static RTLIL::Module *
+fresh_binding_module(RTLIL::Design &design,
+                     dict<RTLIL::IdString, int> &counts,
+                     const RTLIL::Module &module)
+{
+	RTLIL::Module *new_mod = module.clone();
+	new_mod->name = fresh_binding_mod_name(design, module);
+	new_mod->set_bool_attribute(ID::blackbox, false);
+	design.add(new_mod);
+
+	// Look up the old module in counts (it will definitely have been found
+	// by get_cell_type_counts because it's a module in the design).
+	auto old_count_it = counts.find(module.name);
+	log_assert(old_count_it != counts.end());
+
+	// Subtract one from the count and add it to the new module. The count
+	// is at least 1 (because we found the module as the type of a cell at
+	// some path in the design).
+	log_assert(old_count_it->second >= 1);
+	old_count_it->second -= 1;
+
+	// Add one to the count for the new module. Since it's a fresh name, we
+	// can just insert a count of 1.
+	auto pr = counts.insert(std::make_pair(new_mod->name, 1));
+	log_assert(pr.second);
+
+	return new_mod;
+}
+
+// Apply a binding (if needed) all the way down a path. Return true if this did
+// anything. Update top_mod if necessary.
+//
+// See the comment above insert_binding for the exact rename vs. in-place
+// modification semantics and how we use the counts argument.
+static bool
+bind_path(RTLIL::Design               &design,
+          dict<RTLIL::IdString, int>  &counts,
+          const RTLIL::Binding::Path  &path,
+          const RTLIL::Binding        &binding,
+          RTLIL::Module              **top_mod)
+{
+	log_assert(path.size());
+
+	design.check();
+
+	// The first job is to grab the leaf cell and check whether we've
+	// already applied the binding. If so, stop.
+	const RTLIL::Binding::Item &last_item = path.back();
+	RTLIL::IdString orig_type = last_item.second->type;
+	RTLIL::Module *orig_module = design.module(orig_type);
+	log_assert(orig_module);
+	if (orig_module->get_bool_attribute(binding.get_attr_name()))
+		return false;
+
+	// Otherwise, we need to decide whether we can operate in place.
+	// Conceptually, we clone, rename and modify modules from the bottom of
+	// the path up. However, if a module and all modules above it in the
+	// path only appear once in the design then we can just edit it in
+	// place, avoiding spurious clones (and avoiding renaming the top-level
+	// module, which would be very confusing).
+	//
+	// Here, split_point is the index in the path for the first pair (m, c)
+	// where the module for c appears multiple times in the design. It is
+	// -1 if all modules appear just once.
+	int split_point = -1;
+	for (int i = 0; i < GetSize(path); ++i) {
+		const RTLIL::Binding::Item &item = path[i];
+		// Since item appears in a path, we can be certain that it was
+		// found by get_cell_type_counts and appears in counts with a
+		// count of at least 1.
+		auto count_it = counts.find(item.second->type);
+		log_assert(count_it != counts.end());
+		int count = count_it->second;
+		log_assert(count >= 1);
+
+		if (count > 1) {
+			split_point = i;
+			break;
+		}
+	}
+
+	// If split_point == -1, the target module and all its parents appear
+	// just once, so we can operate in place.
+	return binding.bind_into(design, *orig_module);
+
+	// Otherwise, use create_binding_module on the cell's module to make a
+	// version with the binding applied.
+	RTLIL::Module *last_mod =
+		fresh_binding_module(design, counts, *orig_module);
+
+	bool newly_bound = binding.bind_into(design, *last_mod);
+	// We checked at the start that the binding was needed.
+	log_assert(newly_bound);
+
+	// Update top_mod if necessary (this would be quite odd, because it
+	// would mean that the top module is a child of last_item.first)
+	if (orig_module == *top_mod) *top_mod = last_mod;
+
+	// Walk the path (from bottom to top). For each (mod, cell) pair, work
+	// as above: if we are at or below the split point, create a new
+	// version of mod where cell now points at lastmod and update lastmod
+	// to point at that module. If we're above the split point, operate in
+	// place to replace the old cell with the new one (in last_mod).
+	for (int i = GetSize(path) - 1; i >= 0; --i) {
+		const RTLIL::Binding::Item &item = path[i];
+
+		log_assert(i >= split_point - 1);
+		bool needs_rename = (i >= split_point);
+
+		RTLIL::Module *next_mod =
+			needs_rename ?
+			fresh_binding_module(design, counts, *item.first) :
+			item.first;
+
+		// Update top_mod if necessary (this can probably only happen
+		// when i == 0 and will only have any effect if needs_rename,
+		// but there's no need to check)
+		if (item.first == *top_mod) *top_mod = next_mod;
+
+		// Find the cell in next_mod with the right name and modify it
+		// to be an instance of last_mod.
+		RTLIL::Cell *new_cell = next_mod->cell(item.second->name);
+		log_assert(new_cell);
+		new_cell->type = last_mod->name;
+
+		last_mod = next_mod;
+		if (!needs_rename)
+			break;
+	}
+
+	return true;
+}
+
+// Apply a binding and return true if this had any effect.
+//
+// If mod is not null, it is the current module. Otherwise, this binding was at
+// top-level in the design. counts is a dictionary mapping cell types to the
+// number of places that a cell is instantiated in other modules.
+//
+// If this binding applies to a module (rather than a specific cell
+// instantiating that module), we can modify the module, operating in place. If
+// the binding applies to just one instance, we might have to make a copy
+// (because a version of the module without something bound in might be
+// instantiated somewhere else). We can tell whether that's needed by looking
+// at the counts dictionary. If the count is at most 1, we can still operate in
+// place: the module either only appears at top-level or only appears as the
+// instance into which we're binding. If the count is 2 or greater, we need to
+// take a copy. In this case, we take the copy and modify it. We then decrement
+// the count for the original and give the new copy a count of 1.
+//
+// Finally, this function updates top_mod if *top_mod is non-null and **top_mod
+// is a module that was updated.
+static bool
+insert_binding(RTLIL::Design               &design,
+               dict<RTLIL::IdString, int>  &counts,
+               RTLIL::Module               *mod,
+               const RTLIL::Binding        &binding,
+               RTLIL::Module              **top_mod)
+{
+	std::string desc = binding.describe();
+
+	// If we're not at top-level, look for a cell in mod with the right
+	// (hierarchical) name. This is what section 23.3.1 of IEEE 1800 refers
+	// to as "the local A.B.C".
+	if (mod) {
+		RTLIL::Binding::Path path = binding.find_rel_cell(design, *mod);
+		if (path.size()) {
+			log("Applying %s at a local path.\n", desc.c_str());
+			return bind_path(design, counts, path, binding, top_mod);
+		}
+	}
+
+	// If no luck, try to interpret the name as a hierarchical reference
+	// starting at the top level.
+	std::vector<RTLIL::Binding::Path> paths = binding.find_tl_cells(design);
+	if (!paths.empty()) {
+		bool did_something = false;
+		log("Applying %s at %d top-level path%s.\n",
+		    desc.c_str(), GetSize(paths), paths.size() > 1 ? "s" : "");
+		for (const auto &path : paths)
+			did_something |=
+				bind_path(design, counts, path, binding, top_mod);
+		return did_something;
+	}
+
+	// If neither of these worked, search for a module by name. Note that
+	// this takes no account of design hierarchy.
+	std::vector<RTLIL::Module *> mods = binding.find_concrete_module_targets(design);
+	if (!mods.empty()) {
+		// We can add the binding directly to the module, operating in place.
+		bool did_something = false;
+		log("Applying %s to %d module%s.\n",
+		    desc.c_str(), GetSize(mods), mods.size() > 1 ? "s" : "");
+		for (auto mod : mods)
+			did_something |= binding.bind_into(design, *mod);
+		return did_something;
+	}
+
+	log_error("Couldn't find a target for %s.\n", desc.c_str());
+}
+
+// Worker function for get_cell_type_counts. To avoid double counting, we
+// assume that any module that has already been processed has an entry in
+// counts. Top-level modules get a count of zero added just before calling this
+// function on them.
+static void
+get_cell_type_counts_worker(RTLIL::Design &design,
+                            dict<RTLIL::IdString, int> &counts,
+                            RTLIL::Module &mod)
+{
+	for (auto cell : mod.cells()) {
+		// Set counts[cell->type] to 1 if it isn't defined
+		// yet, or increment if it is.
+		auto pr = counts.insert(std::make_pair(cell->type, 1));
+		if (!pr.second)
+			++pr.first->second;
+
+		// If !pr.second, we have visited this cell type before, so we
+		// don't need to recurse.
+		if (!pr.second)
+			continue;
+
+		RTLIL::Module *child_mod = design.module(cell->type);
+		if (child_mod)
+			get_cell_type_counts_worker(design,
+						    counts, *child_mod);
+	}
+}
+
+// Count the number of times cell type in the design appears as a cell in
+// another module. Cell types for modules that only appear at top-level have a
+// count of zero.
+//
+// Returns a dictionary keyed by module name. Every module will appear in the
+// dictionary, plus any other cell that's used.
+static dict<RTLIL::IdString, int>
+get_cell_type_counts(RTLIL::Design &design)
+{
+	dict<RTLIL::IdString, int> counts;
+	for (auto mod : design.modules()) {
+		counts.insert(std::make_pair(mod->name, 0));
+		get_cell_type_counts_worker(design, counts, *mod);
+	}
+
+	return counts;
+}
+
+// Try to insert cells as instructed by bind directives
+//
+// Returns true if any were inserted. Update *top_mod if necessary.
+static bool insert_bindings(RTLIL::Design &design, RTLIL::Module **top_mod)
+{
+	dict<RTLIL::IdString, int> counts = get_cell_type_counts(design);
+
+	bool bound_something = false;
+
+	// First job: look at any top-level cells that we might need to insert.
+	// These are stored on the Design object itself.
+	for (RTLIL::Binding *binding : design.bindings_)
+		bound_something |=
+			insert_binding(design, counts, nullptr, *binding, top_mod);
+
+	// Now walk the design's modules, looking for binding statements. We
+	// walk all the modules in the design, regardless of whether we have a
+	// top module.
+	//
+	// Note that binding statements aren't allowed to nest (you can't bind
+	// something into a module that you bound in earlier), so we don't have
+	// to do any clever iterative thing.
+	std::vector<RTLIL::Module *> to_visit;
+	std::copy(design.modules().begin(), design.modules().end(),
+		  std::back_inserter(to_visit));
+
+	for (RTLIL::Module *mod : to_visit) {
+		for (RTLIL::Binding *binding : mod->bindings_)
+			bound_something |=
+				insert_binding(design, counts, mod, *binding, top_mod);
+	}
+
+	return bound_something;
+}
+
+// Completely expand the design, specialising parameterised modules, folding
+// away interfaces and inserting any bound cells. The top module might change.
+void
+expand_all(RTLIL::Module **top_mod,
+           RTLIL::Design &design,
+           bool flag_check,
+           bool flag_simcheck,
+           const std::vector<std::string> &libdirs)
+{
+	// Expand the design as necessary before trying to insert any bound cells.
+	expand_design(design, top_mod, flag_check, flag_simcheck, libdirs);
+
+	// At this point, we can assume that the design is fully elaborated and
+	// specialised. The only thing that might be missing is some bound
+	// cells. If insert_bindings returns true, it inserted some cells and we
+	// should run expand_design again on the result.
+	if (insert_bindings(design, top_mod))
+		expand_design(design, top_mod, flag_check, flag_simcheck, libdirs);
 }
 
 struct HierarchyPass : public Pass {
@@ -1024,47 +1430,7 @@ struct HierarchyPass : public Pass {
 					mod->attributes.erase(ID::initial_top);
 		}
 
-		bool did_something = true;
-		while (did_something)
-		{
-			did_something = false;
-
-			std::set<RTLIL::Module*, IdString::compare_ptr_by_name<Module>> used_modules;
-			if (top_mod != NULL) {
-				log_header(design, "Analyzing design hierarchy..\n");
-				hierarchy_worker(design, used_modules, top_mod, 0);
-			} else {
-				for (auto mod : design->modules())
-					used_modules.insert(mod);
-			}
-
-			for (auto module : used_modules) {
-				if (expand_module(design, module, flag_check, flag_simcheck, libdirs))
-					did_something = true;
-			}
-
-
-			// The top module might have changed if interface instances have been detected in it:
-			RTLIL::Module *tmp_top_mod = check_if_top_has_changed(design, top_mod);
-			if (tmp_top_mod != NULL) {
-				if (tmp_top_mod != top_mod){
-					top_mod = tmp_top_mod;
-					did_something = true;
-				}
-			}
-
-			// Delete modules marked as 'to_delete':
-			std::vector<RTLIL::Module *> modules_to_delete;
-			for(auto mod : design->modules()) {
-				if (mod->get_bool_attribute(ID::to_delete)) {
-					modules_to_delete.push_back(mod);
-				}
-			}
-			for(size_t i=0; i<modules_to_delete.size(); i++) {
-				design->remove(modules_to_delete[i]);
-			}
-		}
-
+		expand_all(&top_mod, *design, flag_check, flag_simcheck, libdirs);
 
 		if (top_mod != NULL) {
 			log_header(design, "Analyzing design hierarchy..\n");
