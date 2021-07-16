@@ -2794,12 +2794,12 @@ struct CxxrtlWorker {
 				for (auto wire : module->wires()) {
 					const auto &wire_type = wire_types[wire];
 					auto &debug_wire_type = debug_wire_types[wire];
-					if (wire_type.type == WireType::UNUSED) continue;
-					if (!wire->name.isPublic() && !wire_type.is_buffered()) continue;
 
 					if (!debug_info) continue;
 					if (wire->port_input || wire_type.is_buffered())
 						debug_wire_type = wire_type; // wire contains state
+					else if (!wire->name.isPublic())
+						continue; // internal and stateless
 
 					if (!debug_member) continue;
 					if (wire_type.is_member())
@@ -2863,7 +2863,7 @@ struct CxxrtlWorker {
 					auto &debug_wire_type = debug_wire_types[wire];
 					if (wire->name.isPublic()) continue;
 
-					if (live_wires[wire].empty() || debug_live_wires[wire].empty()) {
+					if (debug_live_wires[wire].empty()) {
 						continue; // wire never used
 					} else if (flow.is_inlinable(wire, debug_live_wires[wire])) {
 						log_assert(flow.wire_comb_defs[wire].size() == 1);
