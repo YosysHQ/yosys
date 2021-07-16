@@ -2795,7 +2795,7 @@ struct CxxrtlWorker {
 					const auto &wire_type = wire_types[wire];
 					auto &debug_wire_type = debug_wire_types[wire];
 					if (wire_type.type == WireType::UNUSED) continue;
-					if (!wire->name.isPublic()) continue;
+					if (!wire->name.isPublic() && !wire_type.is_buffered()) continue;
 
 					if (!debug_info) continue;
 					if (wire->port_input || wire_type.is_buffered())
