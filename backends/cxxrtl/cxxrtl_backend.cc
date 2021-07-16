@@ -2939,9 +2939,9 @@ struct CxxrtlWorker {
 		}
 	}
 
-	void check_design(RTLIL::Design *design, bool &has_top, bool &has_sync_init)
+	void check_design(RTLIL::Design *design, bool &has_sync_init)
 	{
-		has_sync_init = has_top = false;
+		has_sync_init = false;
 
 		for (auto module : design->modules()) {
 			if (module->get_blackbox_attribute() && !module->has_attribute(ID(cxxrtl_blackbox)))
@@ -2953,9 +2953,6 @@ struct CxxrtlWorker {
 			if (!design->selected_module(module))
 				continue;
 
-			if (module->get_bool_attribute(ID::top))
-				has_top = true;
-
 			for (auto proc : module->processes)
 				for (auto sync : proc.second->syncs)
 					if (sync->type == RTLIL::STi)
@@ -2966,10 +2963,10 @@ struct CxxrtlWorker {
 	void prepare_design(RTLIL::Design *design)
 	{
 		bool did_anything = false;
-		bool has_top, has_sync_init;
+		bool has_sync_init;
 		log_push();
-		check_design(design, has_top, has_sync_init);
-		if (run_hierarchy && !has_top) {
+		check_design(design, has_sync_init);
+		if (run_hierarchy) {
 			Pass::call(design, "hierarchy -auto-top");
 			did_anything = true;
 		}
@@ -2990,7 +2987,7 @@ struct CxxrtlWorker {
 		}
 		// Recheck the design if it was modified.
 		if (did_anything)
-			check_design(design, has_top, has_sync_init);
+			check_design(design, has_sync_init);
 		log_assert(!has_sync_init);
 		log_pop();
 		if (did_anything)
