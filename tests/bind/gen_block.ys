@@ -1,4 +1,4 @@
-read_verilog -sv param.sv
+read_verilog -sv gen_block.sv
 hierarchy
 flatten
 equiv_make gold act equiv

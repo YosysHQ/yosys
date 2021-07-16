@@ -47,6 +47,11 @@ namespace AST
 
 		std::string describe() const override;
 
+		bool bind_into(RTLIL::Design &design,
+		               RTLIL::Module &target) const override;
+
+      [[noreturn]] void report_error(const std::string &msg) const override;
+
 	private:
 		// The syntax-level representation of the cell to be bound.
 		std::unique_ptr<AstNode> ast_node;

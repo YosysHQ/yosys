@@ -10,17 +10,16 @@ module bar (input a, input b, output c);
   assign c = a ^ b;
 endmodule
 
-module top ();
-  logic u0, v0, w0;
-  logic u1, v1, w1;
-
+module act (input u0, input v0, output w0,
+            input u1, input v1, output w1);
   foo foo0 (.a0 (u0), .b0 (v0), .c0 (w0),
             .a1 (u1), .b1 (v1), .c1 (w1));
 
   bind foo bar bar0 (.a(a0), .b(b0), .c(c0)), bar1 (.a(a1), .b(b1), .c(c1));
+endmodule
 
-  always_comb begin
-    assert(w0 == u0 ^ v0);
-    assert(w1 == u1 ^ v1);
-  end
+module gold (input u0, input v0, output w0,
+             input u1, input v1, output w1);
+  assign w0 = u0 ^ v0;
+  assign w1 = u1 ^ v1;
 endmodule

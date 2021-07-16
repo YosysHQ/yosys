@@ -1,1 +1,6 @@
-read_verilog -sv inst_list.sv
+read_verilog -sv cell_list.sv
+hierarchy
+flatten
+equiv_make gold act equiv
+equiv_simple
+equiv_status -assert

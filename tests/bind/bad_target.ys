@@ -1,0 +1,3 @@
+read_verilog -sv bad_target.sv
+logger -expect error "Couldn't find a target for directive to bind \\bound_i to \\cabbage" 1
+hierarchy

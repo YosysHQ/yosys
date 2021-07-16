@@ -1,0 +1,3 @@
+read_verilog -sv bad_type.sv
+logger -expect error "cell has the wrong type" 1
+hierarchy

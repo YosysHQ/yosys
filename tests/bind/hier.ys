@@ -1,1 +1,14 @@
 read_verilog -sv hier.sv
+
+# Make sure that the hierarchy pass doesn't throw away the gold module
+# (which we're using as a reference in the mitre circuit below)
+setattr -mod -set whitebox 1 gold
+
+# Run the hierarchy pass, which inserts bindings. Explicitly set the
+# top of the instantiation tree to be the act module.
+hierarchy -top act
+
+flatten
+equiv_make gold act equiv
+equiv_simple
+equiv_status -assert

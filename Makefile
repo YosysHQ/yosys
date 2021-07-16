@@ -807,6 +807,7 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/rpc && bash run-test.sh
 	+cd tests/memfile && bash run-test.sh
 	+cd tests/verilog && bash run-test.sh
+	+cd tests/bind && bash run-test.sh
 	@echo ""
 	@echo "  Passed \"make test\"."
 	@echo ""
