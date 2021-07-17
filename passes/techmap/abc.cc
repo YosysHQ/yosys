@@ -50,11 +50,15 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+//#include <regex>
 #include <cctype>
 #include <cerrno>
 #include <sstream>
 #include <climits>
 #include <vector>
+
+#include <sys/stat.h>
+
 
 #ifndef _WIN32
 #  include <unistd.h>
@@ -120,6 +124,11 @@ bool recover_init, cmos_cost;
 bool clk_polarity, en_polarity;
 RTLIL::SigSpec clk_sig, en_sig;
 dict<int, std::string> pi_map, po_map;
+
+inline bool exists(const std::string& name) {
+    struct stat buffer;   
+    return (stat(name.c_str(), &buffer) == 0); 
+}
 
 int map_signal(RTLIL::SigBit bit, gate_type_t gate_type = G(NONE), int in1 = -1, int in2 = -1, int in3 = -1, int in4 = -1)
 {
@@ -654,13 +663,292 @@ struct abc_output_filter
 	}
 };
 
-void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
-		std::vector<std::string> &liberty_files, std::string constr_file, bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str,
-		bool keepff, std::string delay_target, std::string sop_inputs, std::string sop_products, std::string lutin_shared, bool fast_mode,
-		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode, bool abc_dress)
+void abc_reintegrate(RTLIL::Design *design, RTLIL::Module *current_module,
+		             std::vector<std::string> &liberty_files,
+                     bool sop_mode, std::string tempdir_name)
 {
 	module = current_module;
 	map_autoidx = autoidx++;
+	recover_init = false;
+
+	std::string buffer = stringf("%s/%s", tempdir_name.c_str(), "output.blif");
+
+    // Some modules are empty and do not have output.blif files.  We need a better way
+    // to check for these empty modules, but this will have to do for now.
+    if (!exists(buffer)) {
+        log("ABC file %s doesn't exist.  Skipping.\n", buffer.c_str());
+        return;
+    }
+
+	std::ifstream ifs;
+	ifs.open(buffer);
+	if (ifs.fail())
+		log_error("Can't open ABC output file `%s'.\n", buffer.c_str());
+
+	bool builtin_lib = liberty_files.empty();
+	RTLIL::Design *mapped_design = new RTLIL::Design;
+	parse_blif(mapped_design, ifs, builtin_lib ? ID(DFF) : ID(_dff_), false, sop_mode);
+
+	ifs.close();
+
+	log_header(design, "Re-integrating ABC results.\n");
+	RTLIL::Module *mapped_mod = mapped_design->module(ID(netlist));
+	if (mapped_mod == nullptr)
+		log_error("ABC output file does not contain a module `netlist'.\n");
+	for (auto w : mapped_mod->wires()) {
+		RTLIL::Wire *orig_wire = nullptr;
+		RTLIL::Wire *wire = module->addWire(remap_name(w->name, &orig_wire));
+		if (orig_wire != nullptr && orig_wire->attributes.count(ID::src))
+			wire->attributes[ID::src] = orig_wire->attributes[ID::src];
+		if (markgroups) wire->attributes[ID::abcgroup] = map_autoidx;
+		design->select(module, wire);
+	}
+
+	std::map<std::string, int> cell_stats;
+	for (auto c : mapped_mod->cells())
+	{
+		if (builtin_lib)
+		{
+			cell_stats[RTLIL::unescape_id(c->type)]++;
+			if (c->type.in(ID(ZERO), ID(ONE))) {
+				RTLIL::SigSig conn;
+				RTLIL::IdString name_y = remap_name(c->getPort(ID::Y).as_wire()->name);
+				conn.first = module->wire(name_y);
+				conn.second = RTLIL::SigSpec(c->type == ID(ZERO) ? 0 : 1, 1);
+				module->connect(conn);
+				continue;
+			}
+			if (c->type == ID(BUF)) {
+				RTLIL::SigSig conn;
+				RTLIL::IdString name_y = remap_name(c->getPort(ID::Y).as_wire()->name);
+				RTLIL::IdString name_a = remap_name(c->getPort(ID::A).as_wire()->name);
+				conn.first = module->wire(name_y);
+				conn.second = module->wire(name_a);
+				module->connect(conn);
+				continue;
+			}
+			if (c->type == ID(NOT)) {
+				RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_NOT_));
+				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
+				for (auto name : {ID::A, ID::Y}) {
+					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
+					cell->setPort(name, module->wire(remapped_name));
+				}
+				design->select(module, cell);
+				continue;
+			}
+			if (c->type.in(ID(AND), ID(OR), ID(XOR), ID(NAND), ID(NOR), ID(XNOR), ID(ANDNOT), ID(ORNOT))) {
+				RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
+				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
+				for (auto name : {ID::A, ID::B, ID::Y}) {
+                                    RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
+					cell->setPort(name, module->wire(remapped_name));
+				}
+				design->select(module, cell);
+				continue;
+			}
+			if (c->type.in(ID(MUX), ID(NMUX))) {
+				RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
+				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
+				for (auto name : {ID::A, ID::B, ID::S, ID::Y}) {
+					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
+					cell->setPort(name, module->wire(remapped_name));
+				}
+				design->select(module, cell);
+				continue;
+			}
+			if (c->type == ID(MUX4)) {
+				RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_MUX4_));
+				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
+				for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::S, ID::T, ID::Y}) {
+					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
+					cell->setPort(name, module->wire(remapped_name));
+				}
+				design->select(module, cell);
+				continue;
+			}
+			if (c->type == ID(MUX8)) {
+				RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_MUX8_));
+				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
+				for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::S, ID::T, ID::U, ID::Y}) {
+					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
+					cell->setPort(name, module->wire(remapped_name));
+				}
+				design->select(module, cell);
+				continue;
+			}
+			if (c->type == ID(MUX16)) {
+				RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_MUX16_));
+				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
+				for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::I, ID::J, ID::K,
+						ID::L, ID::M, ID::N, ID::O, ID::P, ID::S, ID::T, ID::U, ID::V, ID::Y}) {
+					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
+					cell->setPort(name, module->wire(remapped_name));
+				}
+				design->select(module, cell);
+				continue;
+			}
+			if (c->type.in(ID(AOI3), ID(OAI3))) {
+				RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
+				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
+				for (auto name : {ID::A, ID::B, ID::C, ID::Y}) {
+					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
+					cell->setPort(name, module->wire(remapped_name));
+				}
+				design->select(module, cell);
+				continue;
+			}
+			if (c->type.in(ID(AOI4), ID(OAI4))) {
+				RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
+				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
+				for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::Y}) {
+					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
+					cell->setPort(name, module->wire(remapped_name));
+				}
+				design->select(module, cell);
+				continue;
+			}
+			if (c->type == ID(DFF)) {
+				log_assert(clk_sig.size() == 1);
+				RTLIL::Cell *cell;
+				if (en_sig.size() == 0) {
+					cell = module->addCell(remap_name(c->name), clk_polarity ? ID($_DFF_P_) : ID($_DFF_N_));
+				} else {
+					log_assert(en_sig.size() == 1);
+					cell = module->addCell(remap_name(c->name), stringf("$_DFFE_%c%c_", clk_polarity ? 'P' : 'N', en_polarity ? 'P' : 'N'));
+					cell->setPort(ID::E, en_sig);
+				}
+				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
+				for (auto name : {ID::D, ID::Q}) {
+					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
+					cell->setPort(name, module->wire(remapped_name));
+				}
+				cell->setPort(ID::C, clk_sig);
+				design->select(module, cell);
+				continue;
+			}
+		}
+		else
+                {
+			cell_stats[RTLIL::unescape_id(c->type)]++;
+                }
+		if (c->type.in(ID(_const0_), ID(_const1_))) {
+			RTLIL::SigSig conn;
+			conn.first = module->wire(remap_name(c->connections().begin()->second.as_wire()->name));
+			conn.second = RTLIL::SigSpec(c->type == ID(_const0_) ? 0 : 1, 1);
+			module->connect(conn);
+			continue;
+		}
+
+		if (c->type == ID(_dff_)) {
+			log_assert(clk_sig.size() == 1);
+			RTLIL::Cell *cell;
+			if (en_sig.size() == 0) {
+				cell = module->addCell(remap_name(c->name), clk_polarity ? ID($_DFF_P_) : ID($_DFF_N_));
+			} else {
+				log_assert(en_sig.size() == 1);
+				cell = module->addCell(remap_name(c->name), stringf("$_DFFE_%c%c_", clk_polarity ? 'P' : 'N', en_polarity ? 'P' : 'N'));
+				cell->setPort(ID::E, en_sig);
+			}
+			if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
+			for (auto name : {ID::D, ID::Q}) {
+				RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
+				cell->setPort(name, module->wire(remapped_name));
+			}
+			cell->setPort(ID::C, clk_sig);
+			design->select(module, cell);
+			continue;
+		}
+
+		if (c->type == ID($lut) && GetSize(c->getPort(ID::A)) == 1 && c->getParam(ID::LUT).as_int() == 2) {
+			SigSpec my_a = module->wire(remap_name(c->getPort(ID::A).as_wire()->name));
+			SigSpec my_y = module->wire(remap_name(c->getPort(ID::Y).as_wire()->name));
+			module->connect(my_y, my_a);
+			continue;
+		}
+
+		RTLIL::Cell *cell = module->addCell(remap_name(c->name), c->type);
+		if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
+		cell->parameters = c->parameters;
+		for (auto &conn : c->connections()) {
+			RTLIL::SigSpec newsig;
+			for (auto &c : conn.second.chunks()) {
+				if (c.width == 0)
+					continue;
+				log_assert(c.width == 1);
+				newsig.append(module->wire(remap_name(c.wire->name)));
+			}
+			cell->setPort(conn.first, newsig);
+		}
+		design->select(module, cell);
+	}
+
+	for (auto conn : mapped_mod->connections()) {
+		if (!conn.first.is_fully_const())
+			conn.first = module->wire(remap_name(conn.first.as_wire()->name));
+		if (!conn.second.is_fully_const())
+			conn.second = module->wire(remap_name(conn.second.as_wire()->name));
+		module->connect(conn);
+	}
+
+	if (recover_init) {
+		for (auto wire : mapped_mod->wires()) {
+			if (wire->attributes.count(ID::init)) {
+				Wire *w = module->wire(remap_name(wire->name));
+				log_assert(w->attributes.count(ID::init) == 0);
+				w->attributes[ID::init] = wire->attributes.at(ID::init);
+			}
+		}
+    }
+        
+	for (auto &it : cell_stats) {
+		log("ABC RESULTS:   %15s cells: %8d\n", it.first.c_str(), it.second);
+        }
+	int in_wires = 0, out_wires = 0;
+	for (auto &si : signal_list) {
+		if (si.is_port) {
+			char buffer[100];
+			snprintf(buffer, 100, "\\ys__n%d", si.id);
+			RTLIL::SigSig conn;
+			if (si.type != G(NONE)) {
+				conn.first = si.bit;
+				conn.second = module->wire(remap_name(buffer));
+				out_wires++;
+			} else {
+				conn.first = module->wire(remap_name(buffer));
+				conn.second = si.bit;
+				in_wires++;
+			}
+			module->connect(conn);
+		}
+        }
+	log("ABC RESULTS:        internal signals: %8d\n", int(signal_list.size()) - in_wires - out_wires);
+	log("ABC RESULTS:           input signals: %8d\n", in_wires);
+	log("ABC RESULTS:          output signals: %8d\n", out_wires);
+
+	delete mapped_design;
+};
+
+std::string abc_module2name(RTLIL::Module *module, std::string topdir_name)
+{
+    // include module name in temp dir
+    std::string modname = module->name.c_str();
+
+    // remove problematic characters
+    std::regex re (R"~([\'\$\\])~");
+    modname = std::regex_replace(modname, re, "-");
+        
+	std::string tempdir_name = topdir_name  + "/" + modname.substr(1, std::string::npos);
+    return tempdir_name;
+}
+
+void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
+		std::vector<std::string> &liberty_files, std::string constr_file, vector<int> lut_costs, bool dff_mode, std::string clk_str,
+		bool keepff, std::string delay_target, std::string sop_inputs, std::string sop_products, std::string lutin_shared, bool fast_mode,
+        const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode, bool abc_dress, std::string topdir_name)
+{
+	module = current_module;
+	//map_autoidx = autoidx++;
 
 	signal_map.clear();
 	signal_list.clear();
@@ -701,10 +989,11 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	if (dff_mode && clk_sig.empty())
 		log_cmd_error("Clock domain %s not found.\n", clk_str.c_str());
 
-	std::string tempdir_name = "/tmp/" + proc_program_prefix()+ "yosys-abc-XXXXXX";
-	if (!cleanup)
-		tempdir_name[0] = tempdir_name[4] = '_';
-	tempdir_name = make_temp_dir(tempdir_name);
+	std::string tempdir_name = abc_module2name(module, topdir_name);
+    if (mkdir(tempdir_name.c_str(), 0777) != 0) {
+		log_cmd_error("Could not create %s directory.\n", tempdir_name.c_str());
+    }
+    
 	log_header(design, "Extracting gate netlist of module `%s' to `%s/input.blif'..\n",
 			module->name.c_str(), replace_tempdir(tempdir_name, tempdir_name, show_tempdir).c_str());
 
@@ -1013,265 +1302,11 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 #endif
 		if (ret != 0)
 			log_error("ABC: execution of command \"%s\" failed: return code %d.\n", buffer.c_str(), ret);
-
-		buffer = stringf("%s/%s", tempdir_name.c_str(), "output.blif");
-		std::ifstream ifs;
-		ifs.open(buffer);
-		if (ifs.fail())
-			log_error("Can't open ABC output file `%s'.\n", buffer.c_str());
-
-		bool builtin_lib = liberty_files.empty();
-		RTLIL::Design *mapped_design = new RTLIL::Design;
-		parse_blif(mapped_design, ifs, builtin_lib ? ID(DFF) : ID(_dff_), false, sop_mode);
-
-		ifs.close();
-
-		log_header(design, "Re-integrating ABC results.\n");
-		RTLIL::Module *mapped_mod = mapped_design->module(ID(netlist));
-		if (mapped_mod == nullptr)
-			log_error("ABC output file does not contain a module `netlist'.\n");
-		for (auto w : mapped_mod->wires()) {
-			RTLIL::Wire *orig_wire = nullptr;
-			RTLIL::Wire *wire = module->addWire(remap_name(w->name, &orig_wire));
-			if (orig_wire != nullptr && orig_wire->attributes.count(ID::src))
-				wire->attributes[ID::src] = orig_wire->attributes[ID::src];
-			if (markgroups) wire->attributes[ID::abcgroup] = map_autoidx;
-			design->select(module, wire);
-		}
-
-		std::map<std::string, int> cell_stats;
-		for (auto c : mapped_mod->cells())
-		{
-			if (builtin_lib)
-			{
-				cell_stats[RTLIL::unescape_id(c->type)]++;
-				if (c->type.in(ID(ZERO), ID(ONE))) {
-					RTLIL::SigSig conn;
-					RTLIL::IdString name_y = remap_name(c->getPort(ID::Y).as_wire()->name);
-					conn.first = module->wire(name_y);
-					conn.second = RTLIL::SigSpec(c->type == ID(ZERO) ? 0 : 1, 1);
-					module->connect(conn);
-					continue;
-				}
-				if (c->type == ID(BUF)) {
-					RTLIL::SigSig conn;
-					RTLIL::IdString name_y = remap_name(c->getPort(ID::Y).as_wire()->name);
-					RTLIL::IdString name_a = remap_name(c->getPort(ID::A).as_wire()->name);
-					conn.first = module->wire(name_y);
-					conn.second = module->wire(name_a);
-					module->connect(conn);
-					continue;
-				}
-				if (c->type == ID(NOT)) {
-					RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_NOT_));
-					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
-					for (auto name : {ID::A, ID::Y}) {
-						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
-						cell->setPort(name, module->wire(remapped_name));
-					}
-					design->select(module, cell);
-					continue;
-				}
-				if (c->type.in(ID(AND), ID(OR), ID(XOR), ID(NAND), ID(NOR), ID(XNOR), ID(ANDNOT), ID(ORNOT))) {
-					RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
-					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
-					for (auto name : {ID::A, ID::B, ID::Y}) {
-						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
-						cell->setPort(name, module->wire(remapped_name));
-					}
-					design->select(module, cell);
-					continue;
-				}
-				if (c->type.in(ID(MUX), ID(NMUX))) {
-					RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
-					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
-					for (auto name : {ID::A, ID::B, ID::S, ID::Y}) {
-						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
-						cell->setPort(name, module->wire(remapped_name));
-					}
-					design->select(module, cell);
-					continue;
-				}
-				if (c->type == ID(MUX4)) {
-					RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_MUX4_));
-					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
-					for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::S, ID::T, ID::Y}) {
-						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
-						cell->setPort(name, module->wire(remapped_name));
-					}
-					design->select(module, cell);
-					continue;
-				}
-				if (c->type == ID(MUX8)) {
-					RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_MUX8_));
-					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
-					for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::S, ID::T, ID::U, ID::Y}) {
-						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
-						cell->setPort(name, module->wire(remapped_name));
-					}
-					design->select(module, cell);
-					continue;
-				}
-				if (c->type == ID(MUX16)) {
-					RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_MUX16_));
-					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
-					for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::I, ID::J, ID::K,
-							ID::L, ID::M, ID::N, ID::O, ID::P, ID::S, ID::T, ID::U, ID::V, ID::Y}) {
-						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
-						cell->setPort(name, module->wire(remapped_name));
-					}
-					design->select(module, cell);
-					continue;
-				}
-				if (c->type.in(ID(AOI3), ID(OAI3))) {
-					RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
-					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
-					for (auto name : {ID::A, ID::B, ID::C, ID::Y}) {
-						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
-						cell->setPort(name, module->wire(remapped_name));
-					}
-					design->select(module, cell);
-					continue;
-				}
-				if (c->type.in(ID(AOI4), ID(OAI4))) {
-					RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
-					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
-					for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::Y}) {
-						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
-						cell->setPort(name, module->wire(remapped_name));
-					}
-					design->select(module, cell);
-					continue;
-				}
-				if (c->type == ID(DFF)) {
-					log_assert(clk_sig.size() == 1);
-					RTLIL::Cell *cell;
-					if (en_sig.size() == 0) {
-						cell = module->addCell(remap_name(c->name), clk_polarity ? ID($_DFF_P_) : ID($_DFF_N_));
-					} else {
-						log_assert(en_sig.size() == 1);
-						cell = module->addCell(remap_name(c->name), stringf("$_DFFE_%c%c_", clk_polarity ? 'P' : 'N', en_polarity ? 'P' : 'N'));
-						cell->setPort(ID::E, en_sig);
-					}
-					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
-					for (auto name : {ID::D, ID::Q}) {
-						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
-						cell->setPort(name, module->wire(remapped_name));
-					}
-					cell->setPort(ID::C, clk_sig);
-					design->select(module, cell);
-					continue;
-				}
-			}
-			else
-				cell_stats[RTLIL::unescape_id(c->type)]++;
-
-			if (c->type.in(ID(_const0_), ID(_const1_))) {
-				RTLIL::SigSig conn;
-				conn.first = module->wire(remap_name(c->connections().begin()->second.as_wire()->name));
-				conn.second = RTLIL::SigSpec(c->type == ID(_const0_) ? 0 : 1, 1);
-				module->connect(conn);
-				continue;
-			}
-
-			if (c->type == ID(_dff_)) {
-				log_assert(clk_sig.size() == 1);
-				RTLIL::Cell *cell;
-				if (en_sig.size() == 0) {
-					cell = module->addCell(remap_name(c->name), clk_polarity ? ID($_DFF_P_) : ID($_DFF_N_));
-				} else {
-					log_assert(en_sig.size() == 1);
-					cell = module->addCell(remap_name(c->name), stringf("$_DFFE_%c%c_", clk_polarity ? 'P' : 'N', en_polarity ? 'P' : 'N'));
-					cell->setPort(ID::E, en_sig);
-				}
-				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
-				for (auto name : {ID::D, ID::Q}) {
-					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
-					cell->setPort(name, module->wire(remapped_name));
-				}
-				cell->setPort(ID::C, clk_sig);
-				design->select(module, cell);
-				continue;
-			}
-
-			if (c->type == ID($lut) && GetSize(c->getPort(ID::A)) == 1 && c->getParam(ID::LUT).as_int() == 2) {
-				SigSpec my_a = module->wire(remap_name(c->getPort(ID::A).as_wire()->name));
-				SigSpec my_y = module->wire(remap_name(c->getPort(ID::Y).as_wire()->name));
-				module->connect(my_y, my_a);
-				continue;
-			}
-
-			RTLIL::Cell *cell = module->addCell(remap_name(c->name), c->type);
-			if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
-			cell->parameters = c->parameters;
-			for (auto &conn : c->connections()) {
-				RTLIL::SigSpec newsig;
-				for (auto &c : conn.second.chunks()) {
-					if (c.width == 0)
-						continue;
-					log_assert(c.width == 1);
-					newsig.append(module->wire(remap_name(c.wire->name)));
-				}
-				cell->setPort(conn.first, newsig);
-			}
-			design->select(module, cell);
-		}
-
-		for (auto conn : mapped_mod->connections()) {
-			if (!conn.first.is_fully_const())
-				conn.first = module->wire(remap_name(conn.first.as_wire()->name));
-			if (!conn.second.is_fully_const())
-				conn.second = module->wire(remap_name(conn.second.as_wire()->name));
-			module->connect(conn);
-		}
-
-		if (recover_init)
-			for (auto wire : mapped_mod->wires()) {
-				if (wire->attributes.count(ID::init)) {
-					Wire *w = module->wire(remap_name(wire->name));
-					log_assert(w->attributes.count(ID::init) == 0);
-					w->attributes[ID::init] = wire->attributes.at(ID::init);
-				}
-			}
-
-		for (auto &it : cell_stats)
-			log("ABC RESULTS:   %15s cells: %8d\n", it.first.c_str(), it.second);
-		int in_wires = 0, out_wires = 0;
-		for (auto &si : signal_list)
-			if (si.is_port) {
-				char buffer[100];
-				snprintf(buffer, 100, "\\ys__n%d", si.id);
-				RTLIL::SigSig conn;
-				if (si.type != G(NONE)) {
-					conn.first = si.bit;
-					conn.second = module->wire(remap_name(buffer));
-					out_wires++;
-				} else {
-					conn.first = module->wire(remap_name(buffer));
-					conn.second = si.bit;
-					in_wires++;
-				}
-				module->connect(conn);
-			}
-		log("ABC RESULTS:        internal signals: %8d\n", int(signal_list.size()) - in_wires - out_wires);
-		log("ABC RESULTS:           input signals: %8d\n", in_wires);
-		log("ABC RESULTS:          output signals: %8d\n", out_wires);
-
-		delete mapped_design;
-	}
-	else
-	{
-		log("Don't call ABC as there is nothing to map.\n");
-	}
-
-	if (cleanup)
-	{
-		log("Removing temp directory.\n");
-		remove_directory(tempdir_name);
-	}
-
-	log_pop();
+        
+        abc_reintegrate(design, current_module, liberty_files, sop_mode, tempdir_name);
+    }
 }
+
 
 struct AbcPass : public Pass {
 	AbcPass() : Pass("abc", "use ABC for technology mapping") { }
@@ -1445,6 +1480,13 @@ struct AbcPass : public Pass {
 		log("        run the 'dress' command after all other ABC commands. This aims to\n");
 		log("        preserve naming by an equivalence check between the original and post-ABC\n");
 		log("        netlists (experimental).\n");
+    	log("\n");
+		log("    -abctop_dir <directory name>\n");
+		log("        set the root level of the abc work directory to be <directory name>.\n");
+		log("        A sub-directory with the name 'yosys-abc-XXXXX' (where XXXXX will be replaced\n");
+        log("        by a random string) will be created here. Inside of this directory,\n");
+        log("        for each module a directory will be created for file transfer\n");
+		log("        to and from ABC. All will be deleted on exit if cleanup=true. The default is /tmp\n");
 		log("\n");
 		log("When neither -liberty nor -lut is used, the Yosys standard cell library is\n");
 		log("loaded into ABC before the ABC script is executed.\n");
@@ -1472,7 +1514,7 @@ struct AbcPass : public Pass {
 		po_map.clear();
 
 		std::string exe_file = yosys_abc_executable;
-		std::string script_file, default_liberty_file, constr_file, clk_str;
+		std::string script_file, default_liberty_file, constr_file, clk_str, tempdir_name, abctop_dir = "/tmp";
 		std::vector<std::string> liberty_files;
 		std::string delay_target, sop_inputs, sop_products, lutin_shared = "-S 1";
 		bool fast_mode = false, dff_mode = false, keepff = false, cleanup = true;
@@ -1641,10 +1683,20 @@ struct AbcPass : public Pass {
 				markgroups = true;
 				continue;
 			}
+			if (arg == "-abctop_dir") {
+				abctop_dir = args[++argidx];
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
+    	std::string topdir_name = abctop_dir + "/yosys-abc-XXXXXX";
+    
+    	topdir_name = make_temp_dir(topdir_name);
+        // This is how we get it to Python
+        design->scratchpad_set_string("ABC_TOPDIR", topdir_name.c_str());
+        
 		if (liberty_files.empty() && !default_liberty_file.empty()) liberty_files.push_back(default_liberty_file);
 
 		rewrite_filename(script_file);
@@ -1851,8 +1903,9 @@ struct AbcPass : public Pass {
 			initvals.set(&assign_map, mod);
 
 			if (!dff_mode || !clk_str.empty()) {
-				abc_module(design, mod, script_file, exe_file, liberty_files, constr_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
-						delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, mod->selected_cells(), show_tempdir, sop_mode, abc_dress);
+				abc_module(design, mod, script_file, exe_file, liberty_files, constr_file, lut_costs, dff_mode, clk_str, keepff,
+                           delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, mod->selected_cells(), show_tempdir, sop_mode, abc_dress,
+                           topdir_name);
 				continue;
 			}
 
@@ -1996,8 +2049,9 @@ struct AbcPass : public Pass {
 				clk_sig = assign_map(std::get<1>(it.first));
 				en_polarity = std::get<2>(it.first);
 				en_sig = assign_map(std::get<3>(it.first));
-				abc_module(design, mod, script_file, exe_file, liberty_files, constr_file, cleanup, lut_costs, !clk_sig.empty(), "$",
-						keepff, delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, it.second, show_tempdir, sop_mode, abc_dress);
+				abc_module(design, mod, script_file, exe_file, liberty_files, constr_file, lut_costs, !clk_sig.empty(), "$",
+                           keepff, delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, it.second, show_tempdir, sop_mode, abc_dress,
+                           topdir_name);
 				assign_map.set(mod);
 			}
 		}
@@ -2009,8 +2063,84 @@ struct AbcPass : public Pass {
 		pi_map.clear();
 		po_map.clear();
 
+        if (cleanup) {
+    		log("Removing temp directory.\n");
+		    remove_directory(topdir_name);
+	    }
+        
 		log_pop();
 	}
 } AbcPass;
+
+
+struct AbcReintegratePass : public Pass {
+	AbcReintegratePass() : Pass("abc-reint", "Reintegrate a mapped module into the current design") { }
+	void help() override
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    abc-reint [options] [selection]\n");
+		log("\n");
+		log("This pass reintegrates ABC mapped modules back into the design\n");
+    	log("\n");
+		log("    -abcdir_name <directory name>\n");
+		log("        set the root level of the abc work directory to be <directory name>.\n");
+		log("        sub-directories for each module are expected here, each with an output.blif\n");
+		log("        file produced by ABC.\n");
+		log("\n");
+		log("\n");
+        }
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
+	{
+        // are these all needed ?
+		assign_map.clear();
+		signal_list.clear();
+		signal_map.clear();
+		initvals.clear();
+		pi_map.clear();
+		po_map.clear();
+
+		std::vector<std::string> liberty_files;                
+		bool sop_mode = false;
+        size_t argidx;
+        std::string abcdir_name = "", tempdir_name = "";
+                
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			std::string arg = args[argidx];
+			if (arg == "-liberty" && argidx+1 < args.size()) {
+				liberty_files.push_back(args[++argidx]);
+				continue;
+			}
+			if (arg == "-abcdir_name" && argidx+1 < args.size()) {
+				abcdir_name = args[++argidx];
+				continue;
+			}
+        }
+		extra_args(args, argidx, design);
+
+        if (abcdir_name == "") {
+            log_error("An ABC work directory must be specified\n");
+        }
+        
+		log_header(design, "Executing Reintegrate pass.\n");
+		log_push();
+                
+		for (auto mod : design->selected_modules())
+		{
+            log_header(design, "\nReintegrating %s\n", mod->name.c_str());
+            tempdir_name = abc_module2name(mod, abcdir_name);
+            abc_reintegrate(design, mod, liberty_files, sop_mode, tempdir_name);
+        }
+
+		assign_map.clear();
+		signal_list.clear();
+		signal_map.clear();
+		initvals.clear();
+		pi_map.clear();
+		po_map.clear();
+
+        log_pop();
+        }
+} AbcReintegratePass;
 
 PRIVATE_NAMESPACE_END
