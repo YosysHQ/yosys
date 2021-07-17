@@ -2881,6 +2881,12 @@ struct CxxrtlWorker {
 						debug_live_nodes.erase(node);
 					} else if (wire_type.is_local()) {
 						debug_wire_type = {WireType::LOCAL}; // wire not inlinable
+					} else if (wire_type.type == WireType::UNUSED) {
+						if (wire_init.count(wire)) {
+							debug_wire_type = {WireType::CONST, wire_init.at(wire)};
+						} else {
+							debug_wire_type = {WireType::CONST, RTLIL::SigSpec(RTLIL::S0, wire->width)};
+						} // wire never modified
 					} else {
 						log_assert(wire_type.is_member());
 						debug_wire_type = wire_type; // wire is a member
