@@ -999,6 +999,22 @@ struct debug_item : ::cxxrtl_object {
 		next    = nullptr;
 		outline = &group;
 	}
+
+	template<size_t Bits, class IntegerT>
+	IntegerT get() const {
+		assert(width == Bits && depth == 1);
+		value<Bits> item;
+		std::copy(curr, curr + value<Bits>::chunks, item.data);
+		return item.template get<IntegerT>();
+	}
+
+	template<size_t Bits, class IntegerT>
+	void set(IntegerT other) const {
+		assert(width == Bits && depth == 1);
+		value<Bits> item;
+		item.template set<IntegerT>(other);
+		std::copy(item.data, item.data + value<Bits>::chunks, next);
+	}
 };
 static_assert(std::is_standard_layout<debug_item>::value, "debug_item is not compatible with C layout");
 
