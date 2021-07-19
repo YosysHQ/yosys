@@ -1106,8 +1106,8 @@ struct HierarchyPass : public Pass {
 
 				pool<std::pair<IdString, IdString>> params_rename;
 				for (const auto &p : cell->parameters) {
-					if (p.first[0] == '$' && '0' <= p.first[1] && p.first[1] <= '9') {
-						int id = atoi(p.first.c_str()+1);
+					int id;
+					if (read_id_num(p.first, &id)) {
 						if (id <= 0 || id > GetSize(cell_mod->avail_parameters)) {
 							log("  Failed to map positional parameter %d of cell %s.%s (%s).\n",
 									id, RTLIL::id2cstr(mod->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
@@ -1134,9 +1134,9 @@ struct HierarchyPass : public Pass {
 				log("Mapping positional arguments of cell %s.%s (%s).\n",
 						RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
 				dict<RTLIL::IdString, RTLIL::SigSpec> new_connections;
-				for (auto &conn : cell->connections())
-					if (conn.first[0] == '$' && '0' <= conn.first[1] && conn.first[1] <= '9') {
-						int id = atoi(conn.first.c_str()+1);
+				for (auto &conn : cell->connections()) {
+					int id;
+					if (read_id_num(conn.first, &id)) {
 						std::pair<RTLIL::Module*,int> key(design->module(cell->type), id);
 						if (pos_map.count(key) == 0) {
 							log("  Failed to map positional argument %d of cell %s.%s (%s).\n",
@@ -1146,6 +1146,7 @@ struct HierarchyPass : public Pass {
 							new_connections[pos_map.at(key)] = conn.second;
 					} else
 						new_connections[conn.first] = conn.second;
+				}
 				cell->connections_ = new_connections;
 			}
 		}
