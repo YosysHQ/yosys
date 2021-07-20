@@ -2879,17 +2879,19 @@ struct CxxrtlWorker {
 							default: continue;
 						}
 						debug_live_nodes.erase(node);
-					} else if (wire_type.is_local()) {
-						debug_wire_type = {WireType::LOCAL}; // wire not inlinable
-					} else if (wire_type.type == WireType::UNUSED) {
-						if (wire_init.count(wire)) {
-							debug_wire_type = {WireType::CONST, wire_init.at(wire)};
-						} else {
-							debug_wire_type = {WireType::CONST, RTLIL::SigSpec(RTLIL::S0, wire->width)};
-						} // wire never modified
+					} else if (wire_type.is_member() || wire_type.is_local()) {
+						debug_wire_type = wire_type; // wire not inlinable
 					} else {
-						log_assert(wire_type.is_member());
-						debug_wire_type = wire_type; // wire is a member
+						log_assert(wire_type.type == WireType::UNUSED);
+						if (flow.wire_comb_defs[wire].size() == 0) {
+							if (wire_init.count(wire)) { // wire never modified
+								debug_wire_type = {WireType::CONST, wire_init.at(wire)};
+							} else {
+								debug_wire_type = {WireType::CONST, RTLIL::SigSpec(RTLIL::S0, wire->width)};
+							}
+						} else {
+							debug_wire_type = {WireType::LOCAL}; // wire used only for debug
+						}
 					}
 				}
 
