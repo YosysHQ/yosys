@@ -326,8 +326,14 @@ struct FlowGraph {
 		for (auto bit : sig.bits())
 			bit_has_state[bit] |= is_ff;
 		// Only comb defs of an entire wire in the right order can be inlined.
-		if (!is_ff && sig.is_wire())
-			wire_def_inlinable[sig.as_wire()] = inlinable;
+		if (!is_ff && sig.is_wire()) {
+			// Only a single def of a wire can be inlined. (Multiple defs of a wire are unsound, but we
+			// handle them anyway to avoid assertion failures later.)
+			if (!wire_def_inlinable.count(sig.as_wire()))
+				wire_def_inlinable[sig.as_wire()] = inlinable;
+			else
+				wire_def_inlinable[sig.as_wire()] = false;
+		}
 	}
 
 	void add_uses(Node *node, const RTLIL::SigSpec &sig)
