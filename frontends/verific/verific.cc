@@ -56,7 +56,7 @@ USING_YOSYS_NAMESPACE
 #  error "Only YosysHQ flavored Verific is supported. Please contact office@yosyshq.com for commercial support for Yosys+Verific."
 #endif
 
-#if YOSYSHQ_VERIFIC_API_VERSION < 20210602
+#if YOSYSHQ_VERIFIC_API_VERSION < 20210603
 #  error "Please update your version of YosysHQ flavored Verific."
 #endif
 
@@ -1961,7 +1961,7 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 	for (const auto &i : parameters)
 		verific_params.Insert(i.first.c_str(), i.second.c_str());
 
-	InitialAssertions::Rewrite("work");
+	InitialAssertions::Rewrite("work", &verific_params);
 
 	if (top.empty()) {
 		netlists = hier_tree::ElaborateAll(&veri_libs, &vhdl_libs, &verific_params);
@@ -2847,7 +2847,7 @@ struct VerificPass : public Pass {
 
 			std::set<std::string> top_mod_names;
 
-			InitialAssertions::Rewrite(work);
+			InitialAssertions::Rewrite(work, &parameters);
 
 			if (mode_all)
 			{
