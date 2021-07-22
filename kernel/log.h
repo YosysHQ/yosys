@@ -54,8 +54,9 @@
 	#define YS_REGEX_COMPILE(param) boost::xpressive::sregex::compile(param, \
 					boost::xpressive::regex_constants::nosubs | \
 					boost::xpressive::regex_constants::optimize)
-	#define YS_REGEX_COMPILE_WITH_SUBS(param) boost::xpressive::sregex::compile(param, \
+ 	#define YS_REGEX_COMPILE_WITH_SUBS(param) boost::xpressive::sregex::compile(param, \
 					boost::xpressive::regex_constants::optimize)
+ 	#define YS_REGEX_REPLACE(input, re, target) boost::xpressive::regex_replace(input, re, target)
 # else
 	#include <regex>
 	#define YS_REGEX_TYPE std::regex
@@ -68,6 +69,7 @@
 	#define YS_REGEX_COMPILE_WITH_SUBS(param) std::regex(param, \
 					std::regex_constants::optimize | \
 					std::regex_constants::egrep)
+	#define YS_REGEX_REPLACE(input, re, target) std::regex_replace(input, re, target)
 #endif
 
 #if defined(_WIN32)

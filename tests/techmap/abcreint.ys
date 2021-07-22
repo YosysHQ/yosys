@@ -1,0 +1,52 @@
+read_verilog <<EOT
+module top (q, p, r, out);
+input   q, p, r;
+output  out;
+reg     out, intsig;
+
+bottom1 u1(.a(q), .b(p), .c(intsig));
+bottom2 u2(.l(intsig), .m(r), .n(out));
+endmodule
+
+module bottom1(a, b, c);
+input    a, b;
+output   c;
+reg      c;
+
+always
+begin
+     c <= a & b; 
+end 
+endmodule
+
+module bottom2(l, m, n);
+input     l, m;
+output    n;
+reg       n;
+
+always
+begin
+     n <= l | m; 
+end 
+endmodule
+EOT
+
+prep -auto-top
+opt -full
+techmap
+
+abc -nocleanup
+opt_clean -purge
+write_blif -gates post_abc.blif
+
+scratchpad -assert-set abc.dir
+
+abc-reint
+opt_clean -purge
+write_blif -gates post_reint.blif
+
+# Just diff the blif
+exec -expect-return 0 -- diff post_abc.blif post_reint.blif
+
+exec -- rm post_abc.blif
+exec -- rm post_reint.blif
