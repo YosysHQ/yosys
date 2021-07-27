@@ -395,9 +395,6 @@ int get_highest_hot_index(RTLIL::SigSpec signal)
 
 void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool consume_x, bool mux_undef, bool mux_bool, bool do_fine, bool keepdc, bool noclkinv)
 {
-	if (!design->selected(module))
-		return;
-
 	CellTypes ct_combinational;
 	ct_combinational.setup_internals();
 	ct_combinational.setup_stdcells();
@@ -2007,6 +2004,23 @@ skip_alu_split:
 	}
 }
 
+void replace_const_connections(RTLIL::Module *module) {
+	SigMap assign_map(module);
+	for (auto cell : module->selected_cells())
+	{
+		std::vector<std::pair<RTLIL::IdString, SigSpec>> changes;
+		for (auto &conn : cell->connections()) {
+			SigSpec mapped = assign_map(conn.second);
+			if (conn.second != mapped && mapped.is_fully_const())
+				changes.push_back({conn.first, mapped});
+		}
+		if (!changes.empty())
+			did_something = true;
+		for (auto &it : changes)
+			cell->setPort(it.first, it.second);
+	}
+}
+
 struct OptExprPass : public Pass {
 	OptExprPass() : Pass("opt_expr", "perform const folding and simple expression rewriting") { }
 	void help() override
@@ -2116,6 +2130,11 @@ struct OptExprPass : public Pass {
 				if (did_something)
 					design->scratchpad_set_bool("opt.did_something", true);
 			} while (did_something);
+
+			did_something = false;
+			replace_const_connections(module);
+			if (did_something)
+				design->scratchpad_set_bool("opt.did_something", true);
 
 			log_suppressed();
 		}
