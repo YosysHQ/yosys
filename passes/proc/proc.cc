@@ -45,6 +45,7 @@ struct ProcPass : public Pass {
 		log("    proc_dff\n");
 		log("    proc_memwr\n");
 		log("    proc_clean\n");
+		log("    opt_expr -keepdc\n");
 		log("\n");
 		log("This replaces the processes in the design with multiplexers,\n");
 		log("flip-flops and latches.\n");
@@ -61,12 +62,16 @@ struct ProcPass : public Pass {
 		log("        This option is passed through to proc_mux. proc_rmdead is not\n");
 		log("        executed in -ifx mode.\n");
 		log("\n");
+		log("    -noopt\n");
+		log("        Will omit the opt_expr pass.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::string global_arst;
 		bool ifxmode = false;
 		bool nomux = false;
+		bool noopt = false;
 
 		log_header(design, "Executing PROC pass (convert processes to netlists).\n");
 		log_push();
@@ -84,6 +89,10 @@ struct ProcPass : public Pass {
 			}
 			if (args[argidx] == "-ifx") {
 				ifxmode = true;
+				continue;
+			}
+			if (args[argidx] == "-noopt") {
+				noopt = true;
 				continue;
 			}
 			break;
@@ -105,6 +114,8 @@ struct ProcPass : public Pass {
 		Pass::call(design, "proc_dff");
 		Pass::call(design, "proc_memwr");
 		Pass::call(design, "proc_clean");
+		if (!noopt)
+			Pass::call(design, "opt_expr -keepdc");
 
 		log_pop();
 	}
