@@ -1,0 +1,4 @@
+read_verilog rmdead.v
+proc
+opt_clean
+select -assert-count 0 w:fail
