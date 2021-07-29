@@ -993,6 +993,14 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		break;
 	}
 
+	case AST_PREFIX:
+		// Prefix nodes always resolve to identifiers in generate loops, so we
+		// can simply perform the resolution to determine the sign and width.
+		simplify(true, false, false, 1, -1, false, false);
+		log_assert(type == AST_IDENTIFIER);
+		detectSignWidthWorker(width_hint, sign_hint, found_real);
+		break;
+
 	case AST_FCALL:
 		if (str == "\\$anyconst" || str == "\\$anyseq" || str == "\\$allconst" || str == "\\$allseq") {
 			if (GetSize(children) == 1) {
