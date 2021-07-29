@@ -16,8 +16,9 @@ module \$__XILINX_RAMB36_SDP (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, 
 	input [71:0] B1DATA;
 	input [7:0] B1EN;
 
-	wire [15:0] A1ADDR_16 = {A1ADDR, 6'b0};
-	wire [15:0] B1ADDR_16 = {B1ADDR, 6'b0};
+	// Set highest address bit to 1, as stated in UG473 (v1.14) July 3, 2019
+	wire [15:0] A1ADDR_16 = {1'b1, A1ADDR, 6'b0};
+	wire [15:0] B1ADDR_16 = {1'b1, B1ADDR, 6'b0};
 
 	wire [7:0] DIP, DOP;
 	wire [63:0] DI, DO;
@@ -153,8 +154,9 @@ module \$__XILINX_RAMB36_TDP (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, 
 	input [CFG_DBITS-1:0] B1DATA;
 	input [CFG_ENABLE_B-1:0] B1EN;
 
-	wire [15:0] A1ADDR_16 = A1ADDR << (15 - CFG_ABITS);
-	wire [15:0] B1ADDR_16 = B1ADDR << (15 - CFG_ABITS);
+	// Set highest address bit to 1, as stated in UG473 (v1.14) July 3, 2019
+	wire [15:0] A1ADDR_16 = {1'b1, A1ADDR} << (15 - CFG_ABITS);
+	wire [15:0] B1ADDR_16 = {1'b1, B1ADDR} << (15 - CFG_ABITS);
 	wire [7:0] B1EN_8 = B1EN;
 
 	wire [3:0] DIP, DOP;
