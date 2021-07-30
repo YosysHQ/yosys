@@ -16,8 +16,11 @@ jobs:
       - name: Take last commit
         id: log
         run: echo "::set-output name=message::$(git log --no-merges -1 --oneline)"
+      - name: Take repository
+        id: repo
+        run: echo "::set-output name=message::$GITHUB_REPOSITORY"
       - name: Bump version
-        if: "!contains(steps.log.outputs.message, 'Bump version')"
+        if: "!contains(steps.log.outputs.message, 'Bump version') && contains(steps.repo.outputs.message, 'YosysHQ/yosys')"
         run: |
           make bumpversion
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -25,7 +28,7 @@ jobs:
           git add Makefile
           git commit -m "Bump version"
       - name: Push changes # push the output folder to your repo
-        if: "!contains(steps.log.outputs.message, 'Bump version')"
+        if: "!contains(steps.log.outputs.message, 'Bump version') && contains(steps.repo.outputs.message, 'YosysHQ/yosys')"
         uses: ad-m/github-push-action@master
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
