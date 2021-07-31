@@ -326,8 +326,14 @@ struct FlowGraph {
 		for (auto bit : sig.bits())
 			bit_has_state[bit] |= is_ff;
 		// Only comb defs of an entire wire in the right order can be inlined.
-		if (!is_ff && sig.is_wire())
-			wire_def_inlinable[sig.as_wire()] = inlinable;
+		if (!is_ff && sig.is_wire()) {
+			// Only a single def of a wire can be inlined. (Multiple defs of a wire are unsound, but we
+			// handle them anyway to avoid assertion failures later.)
+			if (!wire_def_inlinable.count(sig.as_wire()))
+				wire_def_inlinable[sig.as_wire()] = inlinable;
+			else
+				wire_def_inlinable[sig.as_wire()] = false;
+		}
 	}
 
 	void add_uses(Node *node, const RTLIL::SigSpec &sig)
@@ -2879,11 +2885,19 @@ struct CxxrtlWorker {
 							default: continue;
 						}
 						debug_live_nodes.erase(node);
-					} else if (wire_type.is_local()) {
-						debug_wire_type = {WireType::LOCAL}; // wire not inlinable
+					} else if (wire_type.is_member() || wire_type.is_local()) {
+						debug_wire_type = wire_type; // wire not inlinable
 					} else {
-						log_assert(wire_type.is_member());
-						debug_wire_type = wire_type; // wire is a member
+						log_assert(wire_type.type == WireType::UNUSED);
+						if (flow.wire_comb_defs[wire].size() == 0) {
+							if (wire_init.count(wire)) { // wire never modified
+								debug_wire_type = {WireType::CONST, wire_init.at(wire)};
+							} else {
+								debug_wire_type = {WireType::CONST, RTLIL::SigSpec(RTLIL::S0, wire->width)};
+							}
+						} else {
+							debug_wire_type = {WireType::LOCAL}; // wire used only for debug
+						}
 					}
 				}
 

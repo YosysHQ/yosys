@@ -199,7 +199,7 @@ bool AstNode::get_bool_attribute(RTLIL::IdString id)
 
 // create new node (AstNode constructor)
 // (the optional child arguments make it easier to create AST trees)
-AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2, AstNode *child3)
+AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2, AstNode *child3, AstNode *child4)
 {
 	static unsigned int hashidx_count = 123456789;
 	hashidx_count = mkhash_xorshift(hashidx_count);
@@ -236,6 +236,8 @@ AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2, AstNode *ch
 		children.push_back(child2);
 	if (child3)
 		children.push_back(child3);
+	if (child4)
+		children.push_back(child4);
 }
 
 // create a (deep recursive) copy of a node

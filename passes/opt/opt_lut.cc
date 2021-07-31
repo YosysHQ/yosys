@@ -24,16 +24,22 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+struct dlogic_t {
+	IdString cell_type;
+	// LUT input idx -> hard cell's port name
+	dict<int, IdString> lut_input_port;
+};
+
 struct OptLutWorker
 {
-	dict<IdString, dict<int, IdString>> &dlogic;
+	const std::vector<dlogic_t> &dlogic;
 	RTLIL::Module *module;
 	ModIndex index;
 	SigMap sigmap;
 
 	pool<RTLIL::Cell*> luts;
 	dict<RTLIL::Cell*, int> luts_arity;
-	dict<RTLIL::Cell*, pool<RTLIL::Cell*>> luts_dlogics;
+	dict<RTLIL::Cell*, pool<std::pair<int, RTLIL::Cell*>>> luts_dlogics;
 	dict<RTLIL::Cell*, pool<int>> luts_dlogic_inputs;
 
 	int eliminated_count = 0, combined_count = 0;
@@ -64,7 +70,7 @@ struct OptLutWorker
 	void show_stats_by_arity()
 	{
 		dict<int, int> arity_counts;
-		dict<IdString, int> dlogic_counts;
+		std::vector<int> dlogic_counts(dlogic.size());
 		int max_arity = 0;
 
 		for (auto lut_arity : luts_arity)
@@ -77,7 +83,7 @@ struct OptLutWorker
 		{
 			for (auto &lut_dlogic : lut_dlogics.second)
 			{
-				dlogic_counts[lut_dlogic->type]++;
+				dlogic_counts[lut_dlogic.first]++;
 			}
 		}
 
@@ -87,13 +93,13 @@ struct OptLutWorker
 			if (arity_counts[arity])
 				log("  %d-LUT %16d\n", arity, arity_counts[arity]);
 		}
-		for (auto &dlogic_count : dlogic_counts)
+		for (int i = 0; i < GetSize(dlogic); i++)
 		{
-			log("  with %-12s %4d\n", dlogic_count.first.c_str(), dlogic_count.second);
+			log("  with %-12s (#%d) %4d\n", dlogic[i].cell_type.c_str(), i, dlogic_counts[i]);
 		}
 	}
 
-	OptLutWorker(dict<IdString, dict<int, IdString>> &dlogic, RTLIL::Module *module, int limit) :
+	OptLutWorker(const std::vector<dlogic_t> &dlogic, RTLIL::Module *module, int limit) :
 		dlogic(dlogic), module(module), index(module), sigmap(module)
 	{
 		log("Discovering LUTs.\n");
@@ -116,20 +122,19 @@ struct OptLutWorker
 
 				// First, find all dedicated logic we're connected to. This results in an overapproximation
 				// of such connections.
-				pool<RTLIL::Cell*> lut_all_dlogics;
+				pool<std::pair<int, RTLIL::Cell*>> lut_all_dlogics;
 				for (int i = 0; i < lut_width; i++)
 				{
 					SigBit bit = lut_input[i];
 					for (auto &port : index.query_ports(bit))
 					{
-						if (dlogic.count(port.cell->type))
+						for (int j = 0; j < GetSize(dlogic); j++)
 						{
-							auto &dlogic_map = dlogic[port.cell->type];
-							if (dlogic_map.count(i))
+							if (dlogic[j].cell_type == port.cell->type)
 							{
-								if (port.port == dlogic_map[i])
+								if (port.port == dlogic[j].lut_input_port.at(i, IdString()))
 								{
-									lut_all_dlogics.insert(port.cell);
+									lut_all_dlogics.insert({j, port.cell});
 								}
 							}
 						}
@@ -143,25 +148,25 @@ struct OptLutWorker
 				//   * The connection is illegal.
 				// In either of these cases, we don't need to concern ourselves with preserving the connection
 				// between this LUT and this dedicated logic cell.
-				pool<RTLIL::Cell*> lut_legal_dlogics;
+				pool<std::pair<int, RTLIL::Cell*>> lut_legal_dlogics;
 				pool<int> lut_dlogic_inputs;
 				for (auto lut_dlogic : lut_all_dlogics)
 				{
-					auto &dlogic_map = dlogic[lut_dlogic->type];
+					auto &dlogic_map = dlogic[lut_dlogic.first].lut_input_port;
 					bool legal = true;
 					for (auto &dlogic_conn : dlogic_map)
 					{
 						if (lut_width <= dlogic_conn.first)
 						{
-							log_debug("  LUT has illegal connection to %s cell %s.%s.\n", lut_dlogic->type.c_str(), log_id(module), log_id(lut_dlogic));
+							log_debug("  LUT has illegal connection to %s cell %s.%s.\n", lut_dlogic.second->type.c_str(), log_id(module), log_id(lut_dlogic.second));
 							log_debug("    LUT input A[%d] not present.\n", dlogic_conn.first);
 							legal = false;
 							break;
 						}
-						if (sigmap(lut_input[dlogic_conn.first]) != sigmap(lut_dlogic->getPort(dlogic_conn.second)))
+						if (sigmap(lut_input[dlogic_conn.first]) != sigmap(lut_dlogic.second->getPort(dlogic_conn.second)))
 						{
-							log_debug("  LUT has illegal connection to %s cell %s.%s.\n", lut_dlogic->type.c_str(), log_id(module), log_id(lut_dlogic));
-							log_debug("    LUT input A[%d] (wire %s) not connected to %s port %s (wire %s).\n", dlogic_conn.first, log_signal(lut_input[dlogic_conn.first]), lut_dlogic->type.c_str(), dlogic_conn.second.c_str(), log_signal(lut_dlogic->getPort(dlogic_conn.second)));
+							log_debug("  LUT has illegal connection to %s cell %s.%s.\n", lut_dlogic.second->type.c_str(), log_id(module), log_id(lut_dlogic.second));
+							log_debug("    LUT input A[%d] (wire %s) not connected to %s port %s (wire %s).\n", dlogic_conn.first, log_signal(lut_input[dlogic_conn.first]), lut_dlogic.second->type.c_str(), dlogic_conn.second.c_str(), log_signal(lut_dlogic.second->getPort(dlogic_conn.second)));
 							legal = false;
 							break;
 						}
@@ -169,7 +174,7 @@ struct OptLutWorker
 
 					if (legal)
 					{
-						log_debug("  LUT has legal connection to %s cell %s.%s.\n", lut_dlogic->type.c_str(), log_id(module), log_id(lut_dlogic));
+						log_debug("  LUT has legal connection to %s cell %s.%s.\n", lut_dlogic.second->type.c_str(), log_id(module), log_id(lut_dlogic.second));
 						lut_legal_dlogics.insert(lut_dlogic);
 						for (auto &dlogic_conn : dlogic_map)
 							lut_dlogic_inputs.insert(dlogic_conn.first);
@@ -544,7 +549,7 @@ struct OptLutPass : public Pass {
 	{
 		log_header(design, "Executing OPT_LUT pass (optimize LUTs).\n");
 
-		dict<IdString, dict<int, IdString>> dlogic;
+		std::vector<dlogic_t> dlogic;
 		int limit = -1;
 
 		size_t argidx;
@@ -556,7 +561,8 @@ struct OptLutPass : public Pass {
 				split(tokens, args[++argidx], ':');
 				if (tokens.size() < 2)
 					log_cmd_error("The -dlogic option requires at least one connection.\n");
-				IdString type = "\\" + tokens[0];
+				dlogic_t entry;
+				entry.cell_type = "\\" + tokens[0];
 				for (auto it = tokens.begin() + 1; it != tokens.end(); ++it) {
 					std::vector<std::string> conn_tokens;
 					split(conn_tokens, *it, '=');
@@ -564,8 +570,9 @@ struct OptLutPass : public Pass {
 						log_cmd_error("Invalid format of -dlogic signal mapping.\n");
 					IdString logic_port = "\\" + conn_tokens[0];
 					int lut_input = atoi(conn_tokens[1].c_str());
-					dlogic[type][lut_input] = logic_port;
+					entry.lut_input_port[lut_input] = logic_port;
 				}
+				dlogic.push_back(entry);
 				continue;
 			}
 			if (args[argidx] == "-limit" && argidx + 1 < args.size())

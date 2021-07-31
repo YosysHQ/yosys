@@ -376,6 +376,69 @@ RTLIL::Module *get_module(RTLIL::Design                  &design,
 	return nullptr;
 }
 
+// Try to read an IdString as a numbered connection name ("$123" or similar),
+// writing the result to dst. If the string isn't of the right format, ignore
+// dst and return false.
+bool read_id_num(RTLIL::IdString str, int *dst)
+{
+	log_assert(dst);
+
+	const char *c_str = str.c_str();
+	if (c_str[0] != '$' || !('0' <= c_str[1] && c_str[1] <= '9'))
+		return false;
+
+	*dst = atoi(c_str + 1);
+	return true;
+}
+
+// Check that the connections on the cell match those that are defined
+// on the type: each named connection should match the name of a port
+// and each positional connection should have an index smaller than
+// the number of ports.
+//
+// Also do the same checks on the specified parameters.
+void check_cell_connections(const RTLIL::Module &module, RTLIL::Cell &cell, RTLIL::Module &mod)
+{
+	int id;
+	for (auto &conn : cell.connections()) {
+		if (read_id_num(conn.first, &id)) {
+			if (id <= 0 || id > GetSize(mod.ports))
+				log_error("Module `%s' referenced in module `%s' in cell `%s' "
+				          "has only %d ports, requested port %d.\n",
+				          log_id(cell.type), log_id(&module), log_id(&cell),
+				          GetSize(mod.ports), id);
+			continue;
+		}
+
+		const RTLIL::Wire* wire = mod.wire(conn.first);
+		if (!wire || wire->port_id == 0) {
+			log_error("Module `%s' referenced in module `%s' in cell `%s' "
+			          "does not have a port named '%s'.\n",
+			          log_id(cell.type), log_id(&module), log_id(&cell),
+			          log_id(conn.first));
+		}
+	}
+	for (auto &param : cell.parameters) {
+		if (read_id_num(param.first, &id)) {
+			if (id <= 0 || id > GetSize(mod.avail_parameters))
+				log_error("Module `%s' referenced in module `%s' in cell `%s' "
+				          "has only %d parameters, requested parameter %d.\n",
+				          log_id(cell.type), log_id(&module), log_id(&cell),
+				          GetSize(mod.avail_parameters), id);
+			continue;
+		}
+
+		if (mod.avail_parameters.count(param.first) == 0 &&
+		    param.first[0] != '$' &&
+		    strchr(param.first.c_str(), '.') == NULL) {
+			log_error("Module `%s' referenced in module `%s' in cell `%s' "
+			          "does not have a parameter named '%s'.\n",
+			          log_id(cell.type), log_id(&module), log_id(&cell),
+			          log_id(param.first));
+		}
+	}
+}
+
 bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check, bool flag_simcheck, std::vector<std::string> &libdirs)
 {
 	bool did_something = false;
@@ -433,29 +496,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 		if_expander.visit_connections(*cell, *mod);
 
 		if (flag_check || flag_simcheck)
-		{
-			for (auto &conn : cell->connections()) {
-				if (conn.first[0] == '$' && '0' <= conn.first[1] && conn.first[1] <= '9') {
-					int id = atoi(conn.first.c_str()+1);
-					if (id <= 0 || id > GetSize(mod->ports))
-						log_error("Module `%s' referenced in module `%s' in cell `%s' has only %d ports, requested port %d.\n",
-								log_id(cell->type), log_id(module), log_id(cell), GetSize(mod->ports), id);
-				} else if (mod->wire(conn.first) == nullptr || mod->wire(conn.first)->port_id == 0)
-					log_error("Module `%s' referenced in module `%s' in cell `%s' does not have a port named '%s'.\n",
-							log_id(cell->type), log_id(module), log_id(cell), log_id(conn.first));
-			}
-			for (auto &param : cell->parameters) {
-				if (param.first[0] == '$' && '0' <= param.first[1] && param.first[1] <= '9') {
-					int id = atoi(param.first.c_str()+1);
-					if (id <= 0 || id > GetSize(mod->avail_parameters))
-						log_error("Module `%s' referenced in module `%s' in cell `%s' has only %d parameters, requested parameter %d.\n",
-								log_id(cell->type), log_id(module), log_id(cell), GetSize(mod->avail_parameters), id);
-				} else if (mod->avail_parameters.count(param.first) == 0 && param.first[0] != '$' && strchr(param.first.c_str(), '.') == NULL)
-					log_error("Module `%s' referenced in module `%s' in cell `%s' does not have a parameter named '%s'.\n",
-							log_id(cell->type), log_id(module), log_id(cell), log_id(param.first));
-			}
-
-		}
+			check_cell_connections(*module, *cell, *mod);
 
 		if (mod->get_blackbox_attribute()) {
 			if (flag_simcheck)
@@ -1065,8 +1106,8 @@ struct HierarchyPass : public Pass {
 
 				pool<std::pair<IdString, IdString>> params_rename;
 				for (const auto &p : cell->parameters) {
-					if (p.first[0] == '$' && '0' <= p.first[1] && p.first[1] <= '9') {
-						int id = atoi(p.first.c_str()+1);
+					int id;
+					if (read_id_num(p.first, &id)) {
 						if (id <= 0 || id > GetSize(cell_mod->avail_parameters)) {
 							log("  Failed to map positional parameter %d of cell %s.%s (%s).\n",
 									id, RTLIL::id2cstr(mod->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
@@ -1093,9 +1134,9 @@ struct HierarchyPass : public Pass {
 				log("Mapping positional arguments of cell %s.%s (%s).\n",
 						RTLIL::id2cstr(module->name), RTLIL::id2cstr(cell->name), RTLIL::id2cstr(cell->type));
 				dict<RTLIL::IdString, RTLIL::SigSpec> new_connections;
-				for (auto &conn : cell->connections())
-					if (conn.first[0] == '$' && '0' <= conn.first[1] && conn.first[1] <= '9') {
-						int id = atoi(conn.first.c_str()+1);
+				for (auto &conn : cell->connections()) {
+					int id;
+					if (read_id_num(conn.first, &id)) {
 						std::pair<RTLIL::Module*,int> key(design->module(cell->type), id);
 						if (pos_map.count(key) == 0) {
 							log("  Failed to map positional argument %d of cell %s.%s (%s).\n",
@@ -1105,6 +1146,7 @@ struct HierarchyPass : public Pass {
 							new_connections[pos_map.at(key)] = conn.second;
 					} else
 						new_connections[conn.first] = conn.second;
+				}
 				cell->connections_ = new_connections;
 			}
 		}

@@ -69,6 +69,7 @@ struct MemInit : RTLIL::AttrObject {
 	Cell *cell;
 	Const addr;
 	Const data;
+	Const en;
 	MemInit() : removed(false), cell(nullptr) {}
 };
 
@@ -101,7 +102,8 @@ struct Mem : RTLIL::AttrObject {
 	// address ranges, they are combined into one, with the higher-priority
 	// one's data overwriting the other.  Running this results in
 	// an inits list equivalent to the original, in which all entries
-	// cover disjoint (and non-touching) address ranges.
+	// cover disjoint (and non-touching) address ranges, and all enable
+	// masks are all-1.
 	void coalesce_inits();
 
 	// Checks consistency of this memory and all its ports/inits, using

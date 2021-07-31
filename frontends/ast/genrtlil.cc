@@ -993,6 +993,14 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		break;
 	}
 
+	case AST_PREFIX:
+		// Prefix nodes always resolve to identifiers in generate loops, so we
+		// can simply perform the resolution to determine the sign and width.
+		simplify(true, false, false, 1, -1, false, false);
+		log_assert(type == AST_IDENTIFIER);
+		detectSignWidthWorker(width_hint, sign_hint, found_real);
+		break;
+
 	case AST_FCALL:
 		if (str == "\\$anyconst" || str == "\\$anyseq" || str == "\\$allconst" || str == "\\$allseq") {
 			if (GetSize(children) == 1) {
@@ -1720,21 +1728,24 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			std::stringstream sstr;
 			sstr << "$meminit$" << str << "$" << filename << ":" << location.first_line << "$" << (autoidx++);
 
-			RTLIL::Cell *cell = current_module->addCell(sstr.str(), ID($meminit));
+			SigSpec en_sig = children[2]->genRTLIL();
+
+			RTLIL::Cell *cell = current_module->addCell(sstr.str(), ID($meminit_v2));
 			set_src_attr(cell, this);
 
 			int mem_width, mem_size, addr_bits;
 			id2ast->meminfo(mem_width, mem_size, addr_bits);
 
-			if (children[2]->type != AST_CONSTANT)
+			if (children[3]->type != AST_CONSTANT)
 				log_file_error(filename, location.first_line, "Memory init with non-constant word count!\n");
-			int num_words = int(children[2]->asInt(false));
+			int num_words = int(children[3]->asInt(false));
 			cell->parameters[ID::WORDS] = RTLIL::Const(num_words);
 
 			SigSpec addr_sig = children[0]->genRTLIL();
 
 			cell->setPort(ID::ADDR, addr_sig);
 			cell->setPort(ID::DATA, children[1]->genWidthRTLIL(current_module->memories[str]->width * num_words, true));
+			cell->setPort(ID::EN, en_sig);
 
 			cell->parameters[ID::MEMID] = RTLIL::Const(str);
 			cell->parameters[ID::ABITS] = RTLIL::Const(GetSize(addr_sig));
