@@ -143,7 +143,8 @@ struct MemoryDffWorker
 		port.addr = ff.sig_d;
 		port.clk_enable = true;
 		port.clk_polarity = ff.pol_clk;
-		port.transparent = true;
+		for (int i = 0; i < GetSize(mem.wr_ports); i++)
+			port.transparency_mask[i] = true;
 		mem.emit();
 		log("merged address FF to cell.\n");
 	}

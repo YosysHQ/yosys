@@ -555,7 +555,10 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 			}
 
 			// Decide how to represent the transparency; same idea as Mem::extract_rdff.
-			bool trans_use_addr = port.transparent;
+			bool trans_use_addr = true;
+			for (auto bit : port.transparency_mask)
+				if (!bit)
+					trans_use_addr = false;
 
 			if (GetSize(mem.wr_ports) == 0)
 				trans_use_addr = false;
@@ -630,13 +633,7 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 
 				for (int i = 0; i < GetSize(mem.wr_ports); i++) {
 					auto &wport = mem.wr_ports[i];
-					if (!port.transparent)
-						continue;
-					if (!wport.clk_enable)
-						continue;
-					if (wport.clk != port.clk)
-						continue;
-					if (wport.clk_polarity != port.clk_polarity)
+					if (!port.transparency_mask[i] && !port.collision_x_mask[i])
 						continue;
 					int min_wide_log2 = std::min(port.wide_log2, wport.wide_log2);
 					int max_wide_log2 = std::max(port.wide_log2, wport.wide_log2);
@@ -679,7 +676,10 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 							if (epos-pos != GetSize(port.data))
 								os2 << stringf("[%d:%d]", rsub * mem.width + epos-1, rsub * mem.width + pos);
 							os2 << " <= ";
-							dump_sigspec(os2, wport.data.extract(wsub * mem.width + pos, epos-pos));
+							if (port.transparency_mask[i])
+								dump_sigspec(os2, wport.data.extract(wsub * mem.width + pos, epos-pos));
+							else
+								dump_sigspec(os2, Const(State::Sx, epos - pos));
 							os2 << ";\n";
 							clk_to_lof_body[clk_domain_str].push_back(os2.str());
 

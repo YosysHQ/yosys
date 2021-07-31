@@ -405,10 +405,6 @@ bool replace_memory(Mem &mem, const rules_t &rules, FfInitVals *initvals, const 
 	auto portinfos = bram.make_portinfos();
 	int dup_count = 1;
 
-	pair<SigBit, bool> make_transp_clk;
-	bool enable_make_transp = false;
-	int make_transp_enbits = 0;
-
 	dict<int, pair<SigBit, bool>> clock_domains;
 	dict<int, bool> clock_polarities;
 	dict<int, bool> read_transp;
@@ -496,8 +492,6 @@ bool replace_memory(Mem &mem, const rules_t &rules, FfInitVals *initvals, const 
 		for (; bram_port_i < GetSize(portinfos); bram_port_i++)
 		{
 			auto &pi = portinfos[bram_port_i];
-			make_transp_enbits = pi.enable ? pi.enable : 1;
-			make_transp_clk = clkdom;
 
 			if (pi.wrmode != 1)
 		skip_bram_wport:
@@ -606,10 +600,16 @@ grow_read_ports:;
 	for (int cell_port_i = 0; cell_port_i < GetSize(mem.rd_ports); cell_port_i++)
 	{
 		auto &port = mem.rd_ports[cell_port_i];
-		bool transp = port.transparent;
+		bool transp = false;
+		bool non_transp = false;
 
-		if (mem.wr_ports.empty())
-			transp = false;
+		if (port.clk_enable) {
+			for (int i = 0; i < GetSize(mem.wr_ports); i++)
+				if (port.transparency_mask[i])
+					transp = true;
+				else if (!port.collision_x_mask[i])
+					non_transp = true;
+		}
 
 		pair<SigBit, bool> clkdom(port.clk, port.clk_polarity);
 		if (!port.clk_enable)
@@ -660,16 +660,13 @@ grow_read_ports:;
 					log("        Bram port %c%d.%d has no initial value support.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 					goto skip_bram_rport;
 				}
-				if (read_transp.count(pi.transp) && read_transp.at(pi.transp) != transp) {
-					if (match.make_transp && GetSize(mem.wr_ports) <= 1) {
+				if (non_transp && read_transp.count(pi.transp) && read_transp.at(pi.transp)) {
+					log("        Bram port %c%d.%d has incompatible read transparency.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
+					goto skip_bram_rport;
+				}
+				if (transp && (non_transp || (read_transp.count(pi.transp) && !read_transp.at(pi.transp)))) {
+					if (match.make_transp) {
 						pi.make_transp = true;
-						if (pi.clocks != 0) {
-							if (GetSize(mem.wr_ports) == 1 && wr_clkdom != clkdom) {
-								log("        Bram port %c%d.%d cannot have soft transparency logic added as read and write clock domains differ.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
-								goto skip_bram_rport;
-							}
-							enable_make_transp = true;
-						}
 					} else {
 						log("        Bram port %c%d.%d has incompatible read transparency.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 						goto skip_bram_rport;
@@ -689,8 +686,10 @@ grow_read_ports:;
 			if (pi.clocks) {
 				clock_domains[pi.clocks] = clkdom;
 				clock_polarities[pi.clkpol] = clkdom.second;
-				if (!pi.make_transp)
-					read_transp[pi.transp] = transp;
+				if (non_transp)
+					read_transp[pi.transp] = false;
+				if (transp && !pi.make_transp)
+					read_transp[pi.transp] = true;
 			}
 
 			if (grow_read_ports_cursor < cell_port_i) {
@@ -793,10 +792,22 @@ grow_read_ports:;
 
 	// At this point we are commited to replacing the RAM, and can mutate mem.
 
+	// Apply make_outreg and make_transp where necessary.
+	for (auto &pi : portinfos) {
+		if (pi.make_outreg)
+			mem.extract_rdff(pi.mapped_port, initvals);
+		if (pi.make_transp) {
+			auto &port = mem.rd_ports[pi.mapped_port];
+			for (int i = 0; i < GetSize(mem.wr_ports); i++)
+				if (port.transparency_mask[i])
+					mem.emulate_transparency(i, pi.mapped_port, initvals);
+		}
+	}
+
 	// We don't really support priorities, emulate them.
 	for (int i = 0; i < GetSize(mem.wr_ports); i++)
 		for (int j = 0; j < i; j++)
-			mem.emulate_priority(j, i);
+			mem.emulate_priority(j, i, initvals);
 
 	// Swizzle the init data.  Do this before changing mem.width, so that get_init_data works.
 	bool cell_init = !mem.inits.empty();
@@ -861,29 +872,12 @@ grow_read_ports:;
 	for (auto &other_bram : rules.brams.at(bram.name))
 		bram.find_variant_params(variant_params, other_bram);
 
-	// Apply make_outreg where necessary.
-	for (auto &pi : portinfos)
-		if (pi.make_outreg)
-			mem.extract_rdff(pi.mapped_port, initvals);
-
 	// actually replace that memory cell
 
 	dict<SigSpec, pair<SigSpec, SigSpec>> dout_cache;
 
 	for (int grid_d = 0; grid_d < dcells; grid_d++)
 	{
-		SigSpec mktr_wraddr, mktr_wrdata, mktr_wrdata_q;
-		vector<SigSpec> mktr_wren;
-
-		if (enable_make_transp) {
-			mktr_wraddr = module->addWire(NEW_ID, bram.abits);
-			mktr_wrdata = module->addWire(NEW_ID, bram.dbits);
-			mktr_wrdata_q = module->addWire(NEW_ID, bram.dbits);
-			module->addDff(NEW_ID, make_transp_clk.first, mktr_wrdata, mktr_wrdata_q, make_transp_clk.second);
-			for (int grid_a = 0; grid_a < acells; grid_a++)
-				mktr_wren.push_back(module->addWire(NEW_ID, make_transp_enbits));
-		}
-
 		for (int grid_a = 0; grid_a < acells; grid_a++)
 		for (int dupidx = 0; dupidx < dup_count; dupidx++)
 		{
@@ -964,15 +958,6 @@ grow_read_ports:;
 
 						c->setPort(stringf("\\%sEN", pf), sig_en);
 
-						if (enable_make_transp)
-							module->connect(mktr_wren[grid_a], sig_en);
-					}
-					else if (enable_make_transp)
-						module->connect(mktr_wren[grid_a], addr_ok);
-
-					if (enable_make_transp && grid_a == 0) {
-						module->connect(mktr_wraddr, sig_addr);
-						module->connect(mktr_wrdata, sig_data);
 					}
 				} else {
 					if (pi.mapped_port == -1)
@@ -986,22 +971,6 @@ grow_read_ports:;
 
 					SigSpec bram_dout = module->addWire(NEW_ID, bram.dbits);
 					c->setPort(stringf("\\%sDATA", pf), bram_dout);
-					if (pi.make_transp) {
-						log("        Adding extra logic for transparent port %c%d.%d.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
-
-						SigSpec transp_en_d = module->Mux(NEW_ID, SigSpec(0, make_transp_enbits),
-								mktr_wren[grid_a], module->Eq(NEW_ID, mktr_wraddr, sig_addr));
-
-						SigSpec transp_en_q = module->addWire(NEW_ID, make_transp_enbits);
-						module->addDff(NEW_ID, make_transp_clk.first, transp_en_d, transp_en_q, make_transp_clk.second);
-
-						for (int i = 0; i < make_transp_enbits; i++) {
-							int en_width = bram.dbits / make_transp_enbits;
-							SigSpec orig_bram_dout = bram_dout.extract(i * en_width, en_width);
-							SigSpec bypass_dout = mktr_wrdata_q.extract(i * en_width, en_width);
-							bram_dout.replace(i * en_width, module->Mux(NEW_ID, orig_bram_dout, bypass_dout, transp_en_q[i]));
-						}
-					}
 
 					SigSpec addr_ok_q = addr_ok;
 					if (port.clk_enable && !addr_ok.empty()) {

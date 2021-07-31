@@ -100,8 +100,14 @@ void Mem::emit() {
 			std::swap(inits[i], inits[init_left[i]]);
 	inits.resize(GetSize(init_left));
 
-	// for future: handle transparency mask here
-
+	for (auto &port : rd_ports) {
+		for (int i = 0; i < GetSize(wr_left); i++) {
+			port.transparency_mask[i] = port.transparency_mask[wr_left[i]];
+			port.collision_x_mask[i] = port.collision_x_mask[wr_left[i]];
+		}
+		port.transparency_mask.resize(GetSize(wr_left));
+		port.collision_x_mask.resize(GetSize(wr_left));
+	}
 	for (auto &port : wr_ports) {
 		for (int i = 0; i < GetSize(wr_left); i++)
 			port.priority_mask[i] = port.priority_mask[wr_left[i]];
@@ -139,6 +145,20 @@ void Mem::emit() {
 			log_assert(port.arst == State::S0);
 			log_assert(port.srst == State::S0);
 			log_assert(port.init_value == Const(State::Sx, width << port.wide_log2));
+			bool transparent = false;
+			bool non_transparent = false;
+			if (port.clk_enable) {
+				for (int i = 0; i < GetSize(wr_ports); i++) {
+					auto &oport = wr_ports[i];
+					if (oport.clk_enable && oport.clk == port.clk && oport.clk_polarity == port.clk_polarity) {
+						if (port.transparency_mask[i])
+							transparent = true;
+						else if (!port.collision_x_mask[i])
+							non_transparent = true;
+					}
+				}
+				log_assert(!transparent || !non_transparent);
+			}
 			if (port.cell) {
 				module->remove(port.cell);
 				port.cell = nullptr;
@@ -148,7 +168,7 @@ void Mem::emit() {
 				rd_wide_continuation.bits.push_back(State(sub != 0));
 				rd_clk_enable.bits.push_back(State(port.clk_enable));
 				rd_clk_polarity.bits.push_back(State(port.clk_polarity));
-				rd_transparent.bits.push_back(State(port.transparent));
+				rd_transparent.bits.push_back(State(transparent));
 				rd_clk.append(port.clk);
 				rd_en.append(port.en);
 				SigSpec addr = port.sub_addr(sub);
@@ -231,6 +251,20 @@ void Mem::emit() {
 			log_assert(port.arst == State::S0);
 			log_assert(port.srst == State::S0);
 			log_assert(port.init_value == Const(State::Sx, width << port.wide_log2));
+			bool transparent = false;
+			bool non_transparent = false;
+			if (port.clk_enable) {
+				for (int i = 0; i < GetSize(wr_ports); i++) {
+					auto &oport = wr_ports[i];
+					if (oport.clk_enable && oport.clk == port.clk && oport.clk_polarity == port.clk_polarity) {
+						if (port.transparency_mask[i])
+							transparent = true;
+						else if (!port.collision_x_mask[i])
+							non_transparent = true;
+					}
+				}
+				log_assert(!transparent || !non_transparent);
+			}
 			if (!port.cell)
 				port.cell = module->addCell(NEW_ID, ID($memrd));
 			port.cell->attributes = port.attributes;
@@ -239,7 +273,7 @@ void Mem::emit() {
 			port.cell->parameters[ID::WIDTH] = width << port.wide_log2;
 			port.cell->parameters[ID::CLK_ENABLE] = port.clk_enable;
 			port.cell->parameters[ID::CLK_POLARITY] = port.clk_polarity;
-			port.cell->parameters[ID::TRANSPARENT] = port.transparent;
+			port.cell->parameters[ID::TRANSPARENT] = transparent;
 			port.cell->setPort(ID::CLK, port.clk);
 			port.cell->setPort(ID::EN, port.en);
 			port.cell->setPort(ID::ADDR, port.addr);
@@ -405,7 +439,6 @@ void Mem::check() {
 		log_assert(GetSize(port.arst_value) == (width << port.wide_log2));
 		log_assert(GetSize(port.srst_value) == (width << port.wide_log2));
 		if (!port.clk_enable) {
-			log_assert(!port.transparent);
 			log_assert(port.en == State::S1);
 			log_assert(port.arst == State::S0);
 			log_assert(port.srst == State::S0);
@@ -414,6 +447,18 @@ void Mem::check() {
 			log_assert(port.addr[j] == State::S0);
 		}
 		max_wide_log2 = std::max(max_wide_log2, port.wide_log2);
+		log_assert(GetSize(port.transparency_mask) == GetSize(wr_ports));
+		log_assert(GetSize(port.collision_x_mask) == GetSize(wr_ports));
+		for (int j = 0; j < GetSize(wr_ports); j++) {
+			auto &wport = wr_ports[j];
+			if ((port.transparency_mask[j] || port.collision_x_mask[j]) && !wport.removed) {
+				log_assert(port.clk_enable);
+				log_assert(wport.clk_enable);
+				log_assert(port.clk == wport.clk);
+				log_assert(port.clk_polarity == wport.clk_polarity);
+			}
+			log_assert(!port.transparency_mask[j] || !port.collision_x_mask[j]);
+		}
 	}
 	for (int i = 0; i < GetSize(wr_ports); i++) {
 		auto &port = wr_ports[i];
@@ -467,6 +512,7 @@ namespace {
 		res.packed = false;
 		res.mem = mem;
 		res.attributes = mem->attributes;
+		std::vector<bool> rd_transparent;
 		if (index.rd_ports.count(mem->name)) {
 			for (auto cell : index.rd_ports.at(mem->name)) {
 				MemRd mrd;
@@ -474,7 +520,7 @@ namespace {
 				mrd.attributes = cell->attributes;
 				mrd.clk_enable = cell->parameters.at(ID::CLK_ENABLE).as_bool();
 				mrd.clk_polarity = cell->parameters.at(ID::CLK_POLARITY).as_bool();
-				mrd.transparent = cell->parameters.at(ID::TRANSPARENT).as_bool();
+				bool transparent = cell->parameters.at(ID::TRANSPARENT).as_bool();
 				mrd.clk = cell->getPort(ID::CLK);
 				mrd.en = cell->getPort(ID::EN);
 				mrd.addr = cell->getPort(ID::ADDR);
@@ -491,11 +537,12 @@ namespace {
 					// but don't want to see moving forwards: async transparent
 					// ports (inherently meaningless) and async ports without
 					// const 1 tied to EN bit (which may mean a latch in the future).
-					mrd.transparent = false;
+					transparent = false;
 					if (mrd.en == State::Sx)
 						mrd.en = State::S1;
 				}
 				res.rd_ports.push_back(mrd);
+				rd_transparent.push_back(transparent);
 			}
 		}
 		if (index.wr_ports.count(mem->name)) {
@@ -559,6 +606,25 @@ namespace {
 				port.priority_mask[j] = true;
 			}
 		}
+		for (int i = 0; i < GetSize(res.rd_ports); i++) {
+			auto &port = res.rd_ports[i];
+			port.transparency_mask.resize(GetSize(res.wr_ports));
+			port.collision_x_mask.resize(GetSize(res.wr_ports));
+			if (!rd_transparent[i])
+				continue;
+			if (!port.clk_enable)
+				continue;
+			for (int j = 0; j < GetSize(res.wr_ports); j++) {
+				auto &wport = res.wr_ports[j];
+				if (!wport.clk_enable)
+					continue;
+				if (port.clk != wport.clk)
+					continue;
+				if (port.clk_polarity != wport.clk_polarity)
+					continue;
+				port.transparency_mask[j] = true;
+			}
+		}
 		res.check();
 		return res;
 	}
@@ -601,7 +667,6 @@ namespace {
 			mrd.wide_log2 = 0;
 			mrd.clk_enable = cell->parameters.at(ID::RD_CLK_ENABLE).extract(i, 1).as_bool();
 			mrd.clk_polarity = cell->parameters.at(ID::RD_CLK_POLARITY).extract(i, 1).as_bool();
-			mrd.transparent = cell->parameters.at(ID::RD_TRANSPARENT).extract(i, 1).as_bool();
 			mrd.clk = cell->getPort(ID::RD_CLK).extract(i, 1);
 			mrd.en = cell->getPort(ID::RD_EN).extract(i, 1);
 			mrd.addr = cell->getPort(ID::RD_ADDR).extract(i * abits, abits);
@@ -637,6 +702,25 @@ namespace {
 				if (port.clk_enable && port.clk_polarity != oport.clk_polarity)
 					continue;
 				port.priority_mask[j] = true;
+			}
+		}
+		for (int i = 0; i < GetSize(res.rd_ports); i++) {
+			auto &port = res.rd_ports[i];
+			port.transparency_mask.resize(GetSize(res.wr_ports));
+			port.collision_x_mask.resize(GetSize(res.wr_ports));
+			if (!cell->parameters.at(ID::RD_TRANSPARENT).extract(i, 1).as_bool())
+				continue;
+			if (!port.clk_enable)
+				continue;
+			for (int j = 0; j < GetSize(res.wr_ports); j++) {
+				auto &wport = res.wr_ports[j];
+				if (!wport.clk_enable)
+					continue;
+				if (port.clk != wport.clk)
+					continue;
+				if (port.clk_polarity != wport.clk_polarity)
+					continue;
+				port.transparency_mask[j] = true;
 			}
 		}
 		res.check();
@@ -690,7 +774,10 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 	//
 	// - otherwise, put the FF on the data output, and make bypass paths for
 	//   all write ports wrt which this port is transparent
-	bool trans_use_addr = port.transparent;
+	bool trans_use_addr = true;
+	for (int i = 0; i < GetSize(wr_ports); i++)
+		if (!port.transparency_mask[i] && !wr_ports[i].removed)
+			trans_use_addr = false;
 
 	// If there are no write ports at all, we could possibly use either way; do data
 	// FF in this case.
@@ -735,7 +822,9 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 
 		for (int i = 0; i < GetSize(wr_ports); i++) {
 			auto &wport = wr_ports[i];
-			if (port.transparent) {
+			if (wport.removed)
+				continue;
+			if (port.transparency_mask[i] || port.collision_x_mask[i]) {
 				log_assert(wport.clk_enable);
 				log_assert(wport.clk == port.clk);
 				log_assert(wport.clk_enable == port.clk_enable);
@@ -761,7 +850,7 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 						while (epos < ewidth && wport.en[epos + wsub * width] == wport.en[pos + wsub * width])
 							epos++;
 						SigSpec cur = sig_d.extract(pos + rsub * width, epos-pos);
-						SigSpec other = wport.data.extract(pos + wsub * width, epos-pos);
+						SigSpec other = port.transparency_mask[i] ? wport.data.extract(pos + wsub * width, epos-pos) : Const(State::Sx, epos-pos);
 						SigSpec cond;
 						if (raddr != waddr)
 							cond = module->And(stringf("$%s$rdtransgate[%d][%d][%d][%d]$d", memid.c_str(), idx, i, sub, pos), wport.en[pos + wsub * width], addr_eq);
@@ -815,11 +904,15 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 	port.srst = State::S0;
 	port.clk_enable = false;
 	port.clk_polarity = true;
-	port.transparent = false;
 	port.ce_over_srst = false;
 	port.arst_value = Const(State::Sx, GetSize(port.data));
 	port.srst_value = Const(State::Sx, GetSize(port.data));
 	port.init_value = Const(State::Sx, GetSize(port.data));
+
+	for (int i = 0; i < GetSize(wr_ports); i++) {
+		port.transparency_mask[i] = false;
+		port.collision_x_mask[i] = false;
+	}
 
 	return c;
 }
@@ -857,6 +950,12 @@ void Mem::narrow() {
 			port.addr = port.sub_addr(it.second);
 			port.wide_log2 = 0;
 		}
+		port.transparency_mask.clear();
+		port.collision_x_mask.clear();
+		for (auto &it2 : new_wr_map)
+			port.transparency_mask.push_back(orig.transparency_mask[it2.first]);
+		for (auto &it2 : new_wr_map)
+			port.collision_x_mask.push_back(orig.collision_x_mask[it2.first]);
 		new_rd_ports.push_back(port);
 	}
 	for (auto &it : new_wr_map) {
@@ -879,12 +978,19 @@ void Mem::narrow() {
 	std::swap(wr_ports, new_wr_ports);
 }
 
-void Mem::emulate_priority(int idx1, int idx2)
+void Mem::emulate_priority(int idx1, int idx2, FfInitVals *initvals)
 {
 	auto &port1 = wr_ports[idx1];
 	auto &port2 = wr_ports[idx2];
 	if (!port2.priority_mask[idx1])
 		return;
+	for (int i = 0; i < GetSize(rd_ports); i++) {
+		auto &rport = rd_ports[i];
+		if (rport.removed)
+			continue;
+		if (rport.transparency_mask[idx1] && !(rport.transparency_mask[idx2] || rport.collision_x_mask[idx2]))
+			emulate_transparency(idx1, i, initvals);
+	}
 	int min_wide_log2 = std::min(port1.wide_log2, port2.wide_log2);
 	int max_wide_log2 = std::max(port1.wide_log2, port2.wide_log2);
 	bool wide1 = port1.wide_log2 > port2.wide_log2;
@@ -916,7 +1022,99 @@ void Mem::emulate_priority(int idx1, int idx2)
 	port2.priority_mask[idx1] = false;
 }
 
-void Mem::prepare_wr_merge(int idx1, int idx2) {
+void Mem::emulate_transparency(int widx, int ridx, FfInitVals *initvals) {
+	auto &wport = wr_ports[widx];
+	auto &rport = rd_ports[ridx];
+	log_assert(rport.transparency_mask[widx]);
+	// If other write ports have priority over this one, emulate their transparency too.
+	for (int i = GetSize(wr_ports) - 1; i > widx; i--) {
+		if (wr_ports[i].removed)
+			continue;
+		if (rport.transparency_mask[i] && wr_ports[i].priority_mask[widx])
+			emulate_transparency(i, ridx, initvals);
+	}
+	int min_wide_log2 = std::min(rport.wide_log2, wport.wide_log2);
+	int max_wide_log2 = std::max(rport.wide_log2, wport.wide_log2);
+	bool wide_write = wport.wide_log2 > rport.wide_log2;
+	// The write data FF doesn't need full reset/init behavior, as it'll be masked by
+	// the mux whenever this would be relevant.  It does, however, need to have the same
+	// clock enable signal as the read port.
+	SigSpec wdata_q = module->addWire(NEW_ID, GetSize(wport.data));
+	module->addDffe(NEW_ID, rport.clk, rport.en, wport.data, wdata_q, rport.clk_polarity, true);
+	for (int sub = 0; sub < (1 << max_wide_log2); sub += (1 << min_wide_log2)) {
+		SigSpec raddr = rport.addr;
+		SigSpec waddr = wport.addr;
+		for (int j = min_wide_log2; j < max_wide_log2; j++)
+			if (wide_write)
+				waddr = wport.sub_addr(sub);
+			else
+				raddr = rport.sub_addr(sub);
+		SigSpec addr_eq;
+		if (raddr != waddr)
+			addr_eq = module->Eq(NEW_ID, raddr, waddr);
+		int pos = 0;
+		int ewidth = width << min_wide_log2;
+		int wsub = wide_write ? sub : 0;
+		int rsub = wide_write ? 0 : sub;
+		SigSpec rdata_a = module->addWire(NEW_ID, ewidth);
+		while (pos < ewidth) {
+			int epos = pos;
+			while (epos < ewidth && wport.en[epos + wsub * width] == wport.en[pos + wsub * width])
+				epos++;
+			SigSpec cond;
+			if (raddr != waddr)
+				cond = module->And(NEW_ID, wport.en[pos + wsub * width], addr_eq);
+			else
+				cond = wport.en[pos + wsub * width];
+			SigSpec cond_q = module->addWire(NEW_ID);
+			// The FF for storing the bypass enable signal must be carefully
+			// constructed to preserve the overall init/reset/enable behavior
+			// of the whole port.
+			FfData ff(initvals);
+			ff.width = 1;
+			ff.sig_q = cond_q;
+			ff.has_d = true;
+			ff.sig_d = cond;
+			ff.has_clk = true;
+			ff.sig_clk = rport.clk;
+			ff.pol_clk = rport.clk_polarity;
+			if (rport.en != State::S1) {
+				ff.has_en = true;
+				ff.sig_en = rport.en;
+				ff.pol_en = true;
+			}
+			if (rport.arst != State::S0) {
+				ff.has_arst = true;
+				ff.sig_arst = rport.arst;
+				ff.pol_arst = true;
+				ff.val_arst = State::S0;
+			}
+			if (rport.srst != State::S0) {
+				ff.has_srst = true;
+				ff.sig_srst = rport.srst;
+				ff.pol_srst = true;
+				ff.val_srst = State::S0;
+				ff.ce_over_srst = rport.ce_over_srst;
+			}
+			if (!rport.init_value.is_fully_undef())
+				ff.val_init = State::S0;
+			else
+				ff.val_init = State::Sx;
+			ff.emit(module, NEW_ID);
+			// And the final bypass mux.
+			SigSpec cur = rdata_a.extract(pos, epos-pos);
+			SigSpec other = wdata_q.extract(pos + wsub * width, epos-pos);
+			SigSpec dest = rport.data.extract(pos + rsub * width, epos-pos);
+			module->addMux(NEW_ID, cur, other, cond_q, dest);
+			pos = epos;
+		}
+		rport.data.replace(rsub * width, rdata_a);
+	}
+	rport.transparency_mask[widx] = false;
+	rport.collision_x_mask[widx] = true;
+}
+
+void Mem::prepare_wr_merge(int idx1, int idx2, FfInitVals *initvals) {
 	log_assert(idx1 < idx2);
 	auto &port1 = wr_ports[idx1];
 	auto &port2 = wr_ports[idx2];
@@ -926,14 +1124,97 @@ void Mem::prepare_wr_merge(int idx1, int idx2) {
 			port1.priority_mask[i] = true;
 	// If port 2 has priority over a port after port 1, emulate it.
 	for (int i = idx1 + 1; i < idx2; i++)
-		if (port2.priority_mask[i])
-			emulate_priority(i, idx2);
+		if (port2.priority_mask[i] && !wr_ports[i].removed)
+			emulate_priority(i, idx2, initvals);
 	// If some port had priority over port 2, make it have priority over the merged port too.
 	for (int i = idx2 + 1; i < GetSize(wr_ports); i++) {
 		auto &oport = wr_ports[i];
 		if (oport.priority_mask[idx2])
 			oport.priority_mask[idx1] = true;
 	}
+	// Make sure all read ports have identical collision/transparency behavior wrt both
+	// ports.
+	for (int i = 0; i < GetSize(rd_ports); i++) {
+		auto &rport = rd_ports[i];
+		if (rport.removed)
+			continue;
+		// If collision already undefined with both ports, it's fine.
+		if (rport.collision_x_mask[idx1] && rport.collision_x_mask[idx2])
+			continue;
+		// If one port has undefined collision, change it to the behavior
+		// of the other port.
+		if (rport.collision_x_mask[idx1]) {
+			rport.collision_x_mask[idx1] = false;
+			rport.transparency_mask[idx1] = rport.transparency_mask[idx2];
+			continue;
+		}
+		if (rport.collision_x_mask[idx2]) {
+			rport.collision_x_mask[idx2] = false;
+			rport.transparency_mask[idx2] = rport.transparency_mask[idx1];
+			continue;
+		}
+		// If transparent with both ports, also fine.
+		if (rport.transparency_mask[idx1] && rport.transparency_mask[idx2])
+			continue;
+		// If transparent with only one, emulate it, and remove the collision-X
+		// flag that emulate_transparency will set (to align with the other port).
+		if (rport.transparency_mask[idx1]) {
+			emulate_transparency(i, idx1, initvals);
+			rport.collision_x_mask[idx1] = false;
+			continue;
+		}
+		if (rport.transparency_mask[idx2]) {
+			emulate_transparency(i, idx2, initvals);
+			rport.collision_x_mask[idx2] = false;
+			continue;
+		}
+		// If we got here, it's transparent with neither port, which is fine.
+	}
+}
+
+void Mem::prepare_rd_merge(int idx1, int idx2, FfInitVals *initvals) {
+	auto &port1 = rd_ports[idx1];
+	auto &port2 = rd_ports[idx2];
+	// Note that going through write ports in order is important, since
+	// emulating transparency of a write port can change transparency
+	// mask for higher-numbered ports (due to transitive transparency
+	// emulation needed because of write port priority).
+	for (int i = 0; i < GetSize(wr_ports); i++) {
+		if (wr_ports[i].removed)
+			continue;
+		// Both ports undefined, OK.
+		if (port1.collision_x_mask[i] && port2.collision_x_mask[i])
+			continue;
+		// Only one port undefined — change its behavior
+		// to align with the other port.
+		if (port1.collision_x_mask[i]) {
+			port1.collision_x_mask[i] = false;
+			port1.transparency_mask[i] = port2.transparency_mask[i];
+			continue;
+		}
+		if (port2.collision_x_mask[i]) {
+			port2.collision_x_mask[i] = false;
+			port2.transparency_mask[i] = port1.transparency_mask[i];
+			continue;
+		}
+		// Both ports transparent, OK.
+		if (port1.transparency_mask[i] && port2.transparency_mask[i])
+			continue;
+		// Only one port transparent — emulate transparency
+		// on the other.
+		if (port1.transparency_mask[i]) {
+			emulate_transparency(i, idx1, initvals);
+			port1.collision_x_mask[i] = false;
+			continue;
+		}
+		if (port2.transparency_mask[i]) {
+			emulate_transparency(i, idx2, initvals);
+			port2.collision_x_mask[i] = false;
+			continue;
+		}
+		// No ports transparent, OK.
+	}
+
 }
 
 void Mem::widen_prep(int wide_log2) {
