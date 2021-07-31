@@ -43,6 +43,7 @@ struct OptMemFeedbackWorker
 	RTLIL::Design *design;
 	RTLIL::Module *module;
 	SigMap sigmap, sigmap_xmux;
+	FfInitVals initvals;
 
 	dict<RTLIL::SigBit, std::pair<RTLIL::Cell*, int>> sig_to_mux;
 	dict<RTLIL::SigBit, int> sig_users_count;
@@ -245,7 +246,7 @@ struct OptMemFeedbackWorker
 
 			for (int i = 0; i < wrport_idx; i++)
 				if (port.priority_mask[i])
-					mem.emulate_priority(i, wrport_idx);
+					mem.emulate_priority(i, wrport_idx, &initvals);
 		}
 
 		for (auto &it : portbit_conds)
@@ -278,6 +279,7 @@ struct OptMemFeedbackWorker
 
 		this->module = module;
 		sigmap.set(module);
+		initvals.set(&sigmap, module);
 		sig_to_mux.clear();
 		conditions_logic_cache.clear();
 
