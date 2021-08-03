@@ -2832,6 +2832,7 @@ rvalue:
 	hierarchical_id '[' expr ']' '.' rvalue {
 		$$ = new AstNode(AST_PREFIX, $3, $6);
 		$$->str = *$1;
+		SET_AST_NODE_LOC($$, @1, @6);
 		delete $1;
 	} |
 	hierarchical_id range {

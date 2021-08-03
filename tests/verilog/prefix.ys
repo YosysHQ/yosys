@@ -1,0 +1,5 @@
+read_verilog -sv prefix.sv
+hierarchy
+proc
+select -module top
+sat -verify -seq 1 -prove-asserts -show-all
