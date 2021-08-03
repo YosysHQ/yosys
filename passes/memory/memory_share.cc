@@ -18,7 +18,7 @@
  */
 
 #include "kernel/yosys.h"
-#include "kernel/satgen.h"
+#include "kernel/qcsat.h"
 #include "kernel/sigtools.h"
 #include "kernel/modtools.h"
 #include "kernel/mem.h"
@@ -32,7 +32,6 @@ struct MemoryShareWorker
 	RTLIL::Module *module;
 	SigMap sigmap, sigmap_xmux;
 	ModWalker modwalker;
-	CellTypes cone_ct;
 	bool flag_widen;
 
 
@@ -358,56 +357,20 @@ struct MemoryShareWorker
 
 			// Okay, time to actually run the SAT solver.
 
-			ezSatPtr ez;
-			SatGen satgen(ez.get(), &modwalker.sigmap);
+			QuickConeSat qcsat(modwalker);
 
 			// create SAT representation of common input cone of all considered EN signals
 
-			pool<Wire*> one_hot_wires;
-			std::set<RTLIL::Cell*> sat_cells;
-			std::set<RTLIL::SigBit> bits_queue;
 			dict<int, int> port_to_sat_variable;
 
-			for (auto idx : group) {
-				RTLIL::SigSpec sig = modwalker.sigmap(mem.wr_ports[idx].en);
-				port_to_sat_variable[idx] = ez->expression(ez->OpOr, satgen.importSigSpec(sig));
+			for (auto idx : group)
+				port_to_sat_variable[idx] = qcsat.ez->expression(qcsat.ez->OpOr, qcsat.importSig(mem.wr_ports[idx].en));
 
-				std::vector<RTLIL::SigBit> bits = sig;
-				bits_queue.insert(bits.begin(), bits.end());
-			}
+			qcsat.prepare();
 
-			while (!bits_queue.empty())
-			{
-				for (auto bit : bits_queue)
-					if (bit.wire && bit.wire->get_bool_attribute(ID::onehot))
-						one_hot_wires.insert(bit.wire);
+			log("  Common input cone for all EN signals: %d cells.\n", GetSize(qcsat.imported_cells));
 
-				pool<ModWalker::PortBit> portbits;
-				modwalker.get_drivers(portbits, bits_queue);
-				bits_queue.clear();
-
-				for (auto &pbit : portbits)
-					if (sat_cells.count(pbit.cell) == 0 && cone_ct.cell_known(pbit.cell->type)) {
-						pool<RTLIL::SigBit> &cell_inputs = modwalker.cell_inputs[pbit.cell];
-						bits_queue.insert(cell_inputs.begin(), cell_inputs.end());
-						sat_cells.insert(pbit.cell);
-					}
-			}
-
-			for (auto wire : one_hot_wires) {
-				log("  Adding one-hot constraint for wire %s.\n", log_id(wire));
-				vector<int> ez_wire_bits = satgen.importSigSpec(wire);
-				for (int i : ez_wire_bits)
-				for (int j : ez_wire_bits)
-					if (i != j) ez->assume(ez->NOT(i), j);
-			}
-
-			log("  Common input cone for all EN signals: %d cells.\n", int(sat_cells.size()));
-
-			for (auto cell : sat_cells)
-				satgen.importCell(cell);
-
-			log("  Size of unconstrained SAT problem: %d variables, %d clauses\n", ez->numCnfVariables(), ez->numCnfClauses());
+			log("  Size of unconstrained SAT problem: %d variables, %d clauses\n", qcsat.ez->numCnfVariables(), qcsat.ez->numCnfClauses());
 
 			// now try merging the ports.
 
@@ -422,14 +385,14 @@ struct MemoryShareWorker
 					if (port2.removed)
 						continue;
 
-					if (ez->solve(port_to_sat_variable.at(idx1), port_to_sat_variable.at(idx2))) {
+					if (qcsat.ez->solve(port_to_sat_variable.at(idx1), port_to_sat_variable.at(idx2))) {
 						log("  According to SAT solver sharing of port %d with port %d is not possible.\n", idx1, idx2);
 						continue;
 					}
 
 					log("  Merging port %d into port %d.\n", idx2, idx1);
 					mem.prepare_wr_merge(idx1, idx2);
-					port_to_sat_variable.at(idx1) = ez->OR(port_to_sat_variable.at(idx1), port_to_sat_variable.at(idx2));
+					port_to_sat_variable.at(idx1) = qcsat.ez->OR(port_to_sat_variable.at(idx1), port_to_sat_variable.at(idx2));
 
 					RTLIL::SigSpec last_addr = port1.addr;
 					RTLIL::SigSpec last_data = port1.data;
@@ -511,21 +474,7 @@ struct MemoryShareWorker
 			while (consolidate_wr_by_addr(mem));
 		}
 
-		cone_ct.setup_internals();
-		cone_ct.cell_types.erase(ID($mul));
-		cone_ct.cell_types.erase(ID($mod));
-		cone_ct.cell_types.erase(ID($div));
-		cone_ct.cell_types.erase(ID($modfloor));
-		cone_ct.cell_types.erase(ID($divfloor));
-		cone_ct.cell_types.erase(ID($pow));
-		cone_ct.cell_types.erase(ID($shl));
-		cone_ct.cell_types.erase(ID($shr));
-		cone_ct.cell_types.erase(ID($sshl));
-		cone_ct.cell_types.erase(ID($sshr));
-		cone_ct.cell_types.erase(ID($shift));
-		cone_ct.cell_types.erase(ID($shiftx));
-
-		modwalker.setup(module, &cone_ct);
+		modwalker.setup(module);
 
 		for (auto &mem : memories)
 			consolidate_wr_using_sat(mem);
