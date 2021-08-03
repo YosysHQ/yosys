@@ -380,9 +380,11 @@ struct ModWalker
 		}
 	}
 
-	ModWalker(RTLIL::Design *design) : design(design), module(NULL)
+	ModWalker(RTLIL::Design *design, RTLIL::Module *module = nullptr) : design(design), module(NULL)
 	{
-            ct.setup(design);
+		ct.setup(design);
+		if (module)
+			setup(module);
 	}
 
 	void setup(RTLIL::Module *module, CellTypes *filter_ct = NULL)

@@ -18,7 +18,7 @@
  */
 
 #include "kernel/yosys.h"
-#include "kernel/satgen.h"
+#include "kernel/qcsat.h"
 #include "kernel/sigtools.h"
 #include "kernel/modtools.h"
 #include "kernel/utils.h"
@@ -57,8 +57,6 @@ struct ShareWorker
 	SigMap topo_sigmap;
 	std::map<RTLIL::Cell*, std::set<RTLIL::Cell*, cell_ptr_cmp>, cell_ptr_cmp> topo_cell_drivers;
 	std::map<RTLIL::SigBit, std::set<RTLIL::Cell*, cell_ptr_cmp>> topo_bit_drivers;
-
-	std::vector<std::pair<RTLIL::SigBit, RTLIL::SigBit>> exclusive_ctrls;
 
 
 	// ------------------------------------------------------------------------------
@@ -1156,7 +1154,6 @@ struct ShareWorker
 		recursion_state.clear();
 		topo_cell_drivers.clear();
 		topo_bit_drivers.clear();
-		exclusive_ctrls.clear();
 		terminal_bits.clear();
 		shareable_cells.clear();
 		forbidden_controls_cache.clear();
@@ -1170,13 +1167,6 @@ struct ShareWorker
 
 		log("Found %d cells in module %s that may be considered for resource sharing.\n",
 				GetSize(shareable_cells), log_id(module));
-
-		for (auto cell : module->cells())
-			if (cell->type == ID($pmux))
-				for (auto bit : cell->getPort(ID::S))
-				for (auto other_bit : cell->getPort(ID::S))
-					if (bit < other_bit)
-						exclusive_ctrls.push_back(std::pair<RTLIL::SigBit, RTLIL::SigBit>(bit, other_bit));
 
 		while (!shareable_cells.empty() && config.limit != 0)
 		{
@@ -1256,8 +1246,11 @@ struct ShareWorker
 				optimize_activation_patterns(filtered_cell_activation_patterns);
 				optimize_activation_patterns(filtered_other_cell_activation_patterns);
 
-				ezSatPtr ez;
-				SatGen satgen(ez.get(), &modwalker.sigmap);
+				QuickConeSat qcsat(modwalker);
+				if (config.opt_fast) {
+					qcsat.max_cell_outs = 3;
+					qcsat.max_cell_count = 100;
+				}
 
 				pool<RTLIL::Cell*> sat_cells;
 				std::set<RTLIL::SigBit> bits_queue;
@@ -1267,77 +1260,45 @@ struct ShareWorker
 
 				for (auto &p : filtered_cell_activation_patterns) {
 					log("      Activation pattern for cell %s: %s = %s\n", log_id(cell), log_signal(p.first), log_signal(p.second));
-					cell_active.push_back(ez->vec_eq(satgen.importSigSpec(p.first), satgen.importSigSpec(p.second)));
+					cell_active.push_back(qcsat.ez->vec_eq(qcsat.importSig(p.first), qcsat.importSig(p.second)));
 					all_ctrl_signals.append(p.first);
 				}
 
 				for (auto &p : filtered_other_cell_activation_patterns) {
 					log("      Activation pattern for cell %s: %s = %s\n", log_id(other_cell), log_signal(p.first), log_signal(p.second));
-					other_cell_active.push_back(ez->vec_eq(satgen.importSigSpec(p.first), satgen.importSigSpec(p.second)));
+					other_cell_active.push_back(qcsat.ez->vec_eq(qcsat.importSig(p.first), qcsat.importSig(p.second)));
 					all_ctrl_signals.append(p.first);
 				}
 
-				for (auto &bit : cell_activation_signals.to_sigbit_vector())
-					bits_queue.insert(bit);
+				qcsat.prepare();
 
-				for (auto &bit : other_cell_activation_signals.to_sigbit_vector())
-					bits_queue.insert(bit);
-
-				while (!bits_queue.empty())
-				{
-					pool<ModWalker::PortBit> portbits;
-					modwalker.get_drivers(portbits, bits_queue);
-					bits_queue.clear();
-
-					for (auto &pbit : portbits)
-						if (sat_cells.count(pbit.cell) == 0 && cone_ct.cell_known(pbit.cell->type)) {
-							if (config.opt_fast && modwalker.cell_outputs[pbit.cell].size() >= 4)
-								continue;
-							// log("      Adding cell %s (%s) to SAT problem.\n", log_id(pbit.cell), log_id(pbit.cell->type));
-							bits_queue.insert(modwalker.cell_inputs[pbit.cell].begin(), modwalker.cell_inputs[pbit.cell].end());
-							satgen.importCell(pbit.cell);
-							sat_cells.insert(pbit.cell);
-						}
-
-					if (config.opt_fast && sat_cells.size() > 100)
-						break;
-				}
-
-				for (auto it : exclusive_ctrls)
-					if (satgen.importedSigBit(it.first) && satgen.importedSigBit(it.second)) {
-						log("      Adding exclusive control bits: %s vs. %s\n", log_signal(it.first), log_signal(it.second));
-						int sub1 = satgen.importSigBit(it.first);
-						int sub2 = satgen.importSigBit(it.second);
-						ez->assume(ez->NOT(ez->AND(sub1, sub2)));
-					}
-
-				if (!ez->solve(ez->expression(ez->OpOr, cell_active))) {
+				int sub1 = qcsat.ez->expression(qcsat.ez->OpOr, cell_active);
+				if (!qcsat.ez->solve(sub1)) {
 					log("      According to the SAT solver the cell %s is never active. Sharing is pointless, we simply remove it.\n", log_id(cell));
 					cells_to_remove.insert(cell);
 					break;
 				}
 
-				if (!ez->solve(ez->expression(ez->OpOr, other_cell_active))) {
+				int sub2 = qcsat.ez->expression(qcsat.ez->OpOr, other_cell_active);
+				if (!qcsat.ez->solve(sub2)) {
 					log("      According to the SAT solver the cell %s is never active. Sharing is pointless, we simply remove it.\n", log_id(other_cell));
 					cells_to_remove.insert(other_cell);
 					shareable_cells.erase(other_cell);
 					continue;
 				}
 
-				ez->non_incremental();
+				qcsat.ez->non_incremental();
 
 				all_ctrl_signals.sort_and_unify();
-				std::vector<int> sat_model = satgen.importSigSpec(all_ctrl_signals);
+				std::vector<int> sat_model = qcsat.importSig(all_ctrl_signals);
 				std::vector<bool> sat_model_values;
 
-				int sub1 = ez->expression(ez->OpOr, cell_active);
-				int sub2 = ez->expression(ez->OpOr, other_cell_active);
-				ez->assume(ez->AND(sub1, sub2));
+				qcsat.ez->assume(qcsat.ez->AND(sub1, sub2));
 
 				log("      Size of SAT problem: %d cells, %d variables, %d clauses\n",
-						GetSize(sat_cells), ez->numCnfVariables(), ez->numCnfClauses());
+						GetSize(sat_cells), qcsat.ez->numCnfVariables(), qcsat.ez->numCnfClauses());
 
-				if (ez->solve(sat_model, sat_model_values)) {
+				if (qcsat.ez->solve(sat_model, sat_model_values)) {
 					log("      According to the SAT solver this pair of cells can not be shared.\n");
 					log("      Model from SAT solver: %s = %d'", log_signal(all_ctrl_signals), GetSize(sat_model_values));
 					for (int i = GetSize(sat_model_values)-1; i >= 0; i--)
