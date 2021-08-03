@@ -798,6 +798,24 @@ grow_read_ports:;
 		for (int j = 0; j < i; j++)
 			mem.emulate_priority(j, i);
 
+	// Swizzle the init data.  Do this before changing mem.width, so that get_init_data works.
+	bool cell_init = !mem.inits.empty();
+	vector<Const> initdata;
+	if (cell_init) {
+		Const initparam = mem.get_init_data();
+		initdata.reserve(mem.size);
+		for (int i = 0; i < mem.size; i++) {
+			std::vector<State> val;
+			for (auto idx : shuffle_map) {
+				if (idx == -1)
+					val.push_back(State::Sx);
+				else
+					val.push_back(initparam[mem.width * i + idx]);
+			}
+			initdata.push_back(Const(val));
+		}
+	}
+
 	// Now the big swizzle.
 	mem.width = GetSize(shuffle_map);
 
@@ -835,24 +853,6 @@ grow_read_ports:;
 		port.init_value = new_init_value;
 		port.arst_value = new_arst_value;
 		port.srst_value = new_srst_value;
-	}
-
-	// Swizzle the init data.
-	bool cell_init = !mem.inits.empty();
-	vector<Const> initdata;
-	if (cell_init) {
-		Const initparam = mem.get_init_data();
-		initdata.reserve(mem.size);
-		for (int i = 0; i < mem.size; i++) {
-			std::vector<State> val;
-			for (auto idx : shuffle_map) {
-				if (idx == -1)
-					val.push_back(State::Sx);
-				else
-					val.push_back(initparam[mem.width * i + idx]);
-			}
-			initdata.push_back(Const(val));
-		}
 	}
 
 	// prepare variant parameters
