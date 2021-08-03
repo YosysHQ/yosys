@@ -272,7 +272,7 @@ viz.js:
 	wget -O viz.js.part https://github.com/mdaines/viz.js/releases/download/0.0.3/viz.js
 	mv viz.js.part viz.js
 
-yosysjs-$(YOSYS_VER).zip: yosys.js yosys.wasm viz.js misc/yosysjs/*
+yosysjs-$(YOSYS_VER).zip: yosys.js viz.js misc/yosysjs/*
 	rm -rf yosysjs-$(YOSYS_VER) yosysjs-$(YOSYS_VER).zip
 	mkdir -p yosysjs-$(YOSYS_VER)
 	cp viz.js misc/yosysjs/* yosys.js yosys.wasm yosysjs-$(YOSYS_VER)/
