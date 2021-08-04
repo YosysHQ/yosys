@@ -288,8 +288,7 @@ struct MemoryShareWorker
 			for (auto bit : bits)
 				if (bit == RTLIL::State::S1)
 					goto port_is_always_active;
-			if (modwalker.has_drivers(bits))
-				eligible_ports.insert(i);
+			eligible_ports.insert(i);
 		port_is_always_active:;
 		}
 
@@ -309,7 +308,6 @@ struct MemoryShareWorker
 				continue;
 			if (checked_ports.count(i))
 				continue;
-
 
 			std::vector<int> group;
 			group.push_back(i);
