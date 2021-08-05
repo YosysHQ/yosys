@@ -1624,17 +1624,18 @@ enum_type: TOK_ENUM {
 		// create the template for the names
 		astbuf1 = new AstNode(AST_ENUM_ITEM);
 		astbuf1->children.push_back(AstNode::mkconst_int(0, true));
-	 } enum_base_type '{' enum_name_list '}' {	// create template for the enum vars
-							auto tnode = astbuf1->clone();
-							delete astbuf1;
-							astbuf1 = tnode;
-							tnode->type = AST_WIRE;
-							tnode->attributes[ID::enum_type] = AstNode::mkconst_str(astbuf2->str);
-							// drop constant but keep any range
-							delete tnode->children[0];
-							tnode->children.erase(tnode->children.begin());
-							$$ = astbuf1; }
-	 ;
+	} enum_base_type '{' enum_name_list optional_comma '}' {
+		// create template for the enum vars
+		auto tnode = astbuf1->clone();
+		delete astbuf1;
+		astbuf1 = tnode;
+		tnode->type = AST_WIRE;
+		tnode->attributes[ID::enum_type] = AstNode::mkconst_str(astbuf2->str);
+		// drop constant but keep any range
+		delete tnode->children[0];
+		tnode->children.erase(tnode->children.begin());
+		$$ = astbuf1;
+	};
 
 enum_base_type: type_atom type_signing
 	| type_vec type_signing range	{ if ($3) astbuf1->children.push_back($3); }
