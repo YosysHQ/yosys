@@ -1,0 +1,42 @@
+read_ilang <<EOT
+
+module \mod
+  wire input 1 \clk
+  attribute \init 2'00
+  wire width 2 $q1
+  attribute \init 2'00
+  wire width 2 $q2
+  wire output 2 width 4 \q
+  cell $dff $ff1
+    parameter \CLK_POLARITY 1'1
+    parameter \WIDTH 1
+    connect \CLK \clk
+    connect \D 1'0
+    connect \Q $q1 [0]
+  end
+  cell $dff $ff2
+    parameter \CLK_POLARITY 1'1
+    parameter \WIDTH 1
+    connect \CLK \clk
+    connect \D 1'0
+    connect \Q $q2 [0]
+  end
+  cell $dff $ff3
+    parameter \CLK_POLARITY 1'1
+    parameter \WIDTH 2
+    connect \CLK \clk
+    connect \D 2'00
+    connect \Q { $q1 [1] $q2 [1] }
+  end
+  connect \q [0] $q1 [0]
+  connect \q [1] $q2 [0]
+  connect \q [2] $q1 [1]
+  connect \q [3] $q2 [1]
+end
+
+EOT
+
+opt_clean
+opt_merge
+opt_dff
+opt_clean
