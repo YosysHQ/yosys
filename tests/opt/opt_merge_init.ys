@@ -48,7 +48,7 @@ EOT
 
 opt_merge
 select -assert-count 1 t:$dff
-select -assert-count 1 a:init=2'bx1
+select -assert-count 1 a:init=2'bx1 a:init=2'b1x
 
 
 design -reset
