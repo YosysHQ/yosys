@@ -41,6 +41,7 @@ struct MemoryPass : public Pass {
 		log("    memory_dff                          (skipped if called with -nordff or -memx)\n");
 		log("    opt_clean\n");
 		log("    memory_share [-nowiden] [-nosat]\n");
+		log("    opt_mem_widen\n");
 		log("    memory_memx                         (when called with -memx)\n");
 		log("    opt_clean\n");
 		log("    memory_collect\n");
@@ -100,6 +101,7 @@ struct MemoryPass : public Pass {
 			Pass::call(design, "memory_dff");
 		Pass::call(design, "opt_clean");
 		Pass::call(design, "memory_share" + memory_share_opts);
+		Pass::call(design, "opt_mem_widen");
 		if (flag_memx)
 			Pass::call(design, "memory_memx");
 		Pass::call(design, "opt_clean");
