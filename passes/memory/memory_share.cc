@@ -112,25 +112,27 @@ struct MemoryShareWorker
 				// merged by widening the narrow one.  Check if the conditions
 				// hold for that.
 				int wide_log2 = std::max(port1.wide_log2, port2.wide_log2);
-				if (GetSize(port1.addr) <= wide_log2)
+				SigSpec addr1 = sigmap_xmux(port1.addr);
+				SigSpec addr2 = sigmap_xmux(port2.addr);
+				if (GetSize(addr1) <= wide_log2)
 					continue;
-				if (GetSize(port2.addr) <= wide_log2)
+				if (GetSize(addr2) <= wide_log2)
 					continue;
-				if (!port1.addr.extract(0, wide_log2).is_fully_const())
+				if (!addr1.extract(0, wide_log2).is_fully_const())
 					continue;
-				if (!port2.addr.extract(0, wide_log2).is_fully_const())
+				if (!addr2.extract(0, wide_log2).is_fully_const())
 					continue;
-				if (sigmap_xmux(port1.addr.extract_end(wide_log2)) != sigmap_xmux(port2.addr.extract_end(wide_log2))) {
+				if (addr1.extract_end(wide_log2) != addr2.extract_end(wide_log2)) {
 					// Incompatible addresses after widening.  Last chance — widen both
 					// ports by one more bit to merge them.
 					if (!flag_widen)
 						continue;
 					wide_log2++;
-					if (sigmap_xmux(port1.addr.extract_end(wide_log2)) != sigmap_xmux(port2.addr.extract_end(wide_log2)))
+					if (addr1.extract_end(wide_log2) != addr2.extract_end(wide_log2))
 						continue;
-					if (!port1.addr.extract(0, wide_log2).is_fully_const())
+					if (!addr1.extract(0, wide_log2).is_fully_const())
 						continue;
-					if (!port2.addr.extract(0, wide_log2).is_fully_const())
+					if (!addr2.extract(0, wide_log2).is_fully_const())
 						continue;
 				}
 				// Combine init/reset values.
@@ -150,12 +152,13 @@ struct MemoryShareWorker
 				// At this point we are committed to the merge.
 				{
 					log("  Merging ports %d, %d (address %s).\n", i, j, log_signal(port1.addr));
+					port1.addr = addr1;
+					port2.addr = addr2;
 					mem.prepare_rd_merge(i, j, &initvals);
 					mem.widen_prep(wide_log2);
 					SigSpec new_data = module->addWire(NEW_ID, mem.width << wide_log2);
 					module->connect(port1.data, new_data.extract(sub1 * mem.width, mem.width << port1.wide_log2));
 					module->connect(port2.data, new_data.extract(sub2 * mem.width, mem.width << port2.wide_log2));
-					port1.addr = sigmap_xmux(port1.addr);
 					for (int k = 0; k < wide_log2; k++)
 						port1.addr[k] = State::S0;
 					port1.init_value = init_value;
@@ -211,31 +214,33 @@ struct MemoryShareWorker
 				// merged by widening the narrow one.  Check if the conditions
 				// hold for that.
 				int wide_log2 = std::max(port1.wide_log2, port2.wide_log2);
-				if (GetSize(port1.addr) <= wide_log2)
+				SigSpec addr1 = sigmap_xmux(port1.addr);
+				SigSpec addr2 = sigmap_xmux(port2.addr);
+				if (GetSize(addr1) <= wide_log2)
 					continue;
-				if (GetSize(port2.addr) <= wide_log2)
+				if (GetSize(addr2) <= wide_log2)
 					continue;
-				if (!port1.addr.extract(0, wide_log2).is_fully_const())
+				if (!addr1.extract(0, wide_log2).is_fully_const())
 					continue;
-				if (!port2.addr.extract(0, wide_log2).is_fully_const())
+				if (!addr2.extract(0, wide_log2).is_fully_const())
 					continue;
-				if (sigmap_xmux(port1.addr.extract_end(wide_log2)) != sigmap_xmux(port2.addr.extract_end(wide_log2))) {
+				if (addr1.extract_end(wide_log2) != addr2.extract_end(wide_log2)) {
 					// Incompatible addresses after widening.  Last chance — widen both
 					// ports by one more bit to merge them.
 					if (!flag_widen)
 						continue;
 					wide_log2++;
-					if (sigmap_xmux(port1.addr.extract_end(wide_log2)) != sigmap_xmux(port2.addr.extract_end(wide_log2)))
+					if (addr1.extract_end(wide_log2) != addr2.extract_end(wide_log2))
 						continue;
-					if (!port1.addr.extract(0, wide_log2).is_fully_const())
+					if (!addr1.extract(0, wide_log2).is_fully_const())
 						continue;
-					if (!port2.addr.extract(0, wide_log2).is_fully_const())
+					if (!addr2.extract(0, wide_log2).is_fully_const())
 						continue;
 				}
-				log("  Merging ports %d, %d (address %s).\n", i, j, log_signal(port1.addr));
+				log("  Merging ports %d, %d (address %s).\n", i, j, log_signal(addr1));
+				port1.addr = addr1;
+				port2.addr = addr2;
 				mem.prepare_wr_merge(i, j, &initvals);
-				port1.addr = sigmap_xmux(port1.addr);
-				port2.addr = sigmap_xmux(port2.addr);
 				mem.widen_wr_port(i, wide_log2);
 				mem.widen_wr_port(j, wide_log2);
 				int pos = 0;
