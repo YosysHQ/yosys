@@ -71,7 +71,6 @@ int string_buf_index = -1;
 static struct timeval initial_tv = { 0, 0 };
 static bool next_print_log = false;
 static int log_newline_count = 0;
-static bool check_expected_logs = true;
 static bool display_error_log_msg = true;
 
 static void log_id_cache_clear()
@@ -349,8 +348,7 @@ static void logv_error_with_prefix(const char *prefix,
 		if (YS_REGEX_NS::regex_search(log_last_error, item.second.pattern))
 			item.second.current_count++;
 
-	if (check_expected_logs)
-		log_check_expected();
+	log_check_expected();
 
 	if (log_error_atexit)
 		log_error_atexit();
@@ -667,8 +665,6 @@ void log_wire(RTLIL::Wire *wire, std::string indent)
 
 void log_check_expected()
 {
-	check_expected_logs = false;
-
 	for (auto &item : log_expect_warning) {
 		if (item.second.current_count == 0) {
 			log_warn_regexes.clear();
@@ -709,6 +705,10 @@ void log_check_expected()
 			log_warn_regexes.clear();
 			log_error("Expected error pattern '%s' not found !\n", item.first.c_str());
 		}
+
+	log_expect_warning.clear();
+	log_expect_log.clear();
+	log_expect_error.clear();
 }
 
 // ---------------------------------------------------
