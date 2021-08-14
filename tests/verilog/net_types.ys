@@ -1,0 +1,5 @@
+read_verilog -sv net_types.sv
+hierarchy
+proc
+opt -full
+sat -verify -prove-asserts -show-all

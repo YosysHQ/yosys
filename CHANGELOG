@@ -56,7 +56,7 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Added "portlist" command
     - Added "check -mapped"
     - Added "check -allow-tbuf"
-    - Added "autoname" pass 
+    - Added "autoname" pass
     - Added "write_verilog -extmem"
     - Added "opt_mem" pass
     - Added "scratchpad" pass
@@ -94,6 +94,7 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Added support for parsing the 'bind' construct
     - support declaration in procedural for initialization
     - support declaration in generate for initialization
+    - Support wand and wor of data types
 
  * Verific support
     - Added "verific -L"

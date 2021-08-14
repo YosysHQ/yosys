@@ -832,16 +832,10 @@ opt_wire_type_token:
 	wire_type_token | %empty;
 
 wire_type_token:
-	TOK_WOR {
-		astbuf3->is_wor = true;
+	// nets
+	net_type {
 	} |
-	TOK_WAND {
-		astbuf3->is_wand = true;
-	} |
-	// wires
-	TOK_WIRE {
-	} |
-	TOK_WIRE logic_type {
+	net_type logic_type {
 	} |
 	// regs
 	TOK_REG {
@@ -867,6 +861,15 @@ wire_type_token:
 		astbuf3->range_left = 31;
 		astbuf3->range_right = 0;
 	};
+
+net_type:
+	TOK_WOR {
+		astbuf3->is_wor = true;
+	} |
+	TOK_WAND {
+		astbuf3->is_wand = true;
+	} |
+	TOK_WIRE;
 
 logic_type:
 	TOK_LOGIC {
