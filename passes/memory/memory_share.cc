@@ -18,10 +18,11 @@
  */
 
 #include "kernel/yosys.h"
-#include "kernel/satgen.h"
+#include "kernel/qcsat.h"
 #include "kernel/sigtools.h"
 #include "kernel/modtools.h"
 #include "kernel/mem.h"
+#include "kernel/ffinit.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -32,9 +33,9 @@ struct MemoryShareWorker
 	RTLIL::Module *module;
 	SigMap sigmap, sigmap_xmux;
 	ModWalker modwalker;
-	CellTypes cone_ct;
+	FfInitVals initvals;
 	bool flag_widen;
-
+	bool flag_sat;
 
 	// --------------------------------------------------
 	// Consolidate read ports that read the same address
@@ -107,31 +108,31 @@ struct MemoryShareWorker
 					continue;
 				if (port1.ce_over_srst != port2.ce_over_srst)
 					continue;
-				if (port1.transparent != port2.transparent)
-					continue;
 				// If the width of the ports doesn't match, they can still be
 				// merged by widening the narrow one.  Check if the conditions
 				// hold for that.
 				int wide_log2 = std::max(port1.wide_log2, port2.wide_log2);
-				if (GetSize(port1.addr) <= wide_log2)
+				SigSpec addr1 = sigmap_xmux(port1.addr);
+				SigSpec addr2 = sigmap_xmux(port2.addr);
+				if (GetSize(addr1) <= wide_log2)
 					continue;
-				if (GetSize(port2.addr) <= wide_log2)
+				if (GetSize(addr2) <= wide_log2)
 					continue;
-				if (!port1.addr.extract(0, wide_log2).is_fully_const())
+				if (!addr1.extract(0, wide_log2).is_fully_const())
 					continue;
-				if (!port2.addr.extract(0, wide_log2).is_fully_const())
+				if (!addr2.extract(0, wide_log2).is_fully_const())
 					continue;
-				if (sigmap_xmux(port1.addr.extract_end(wide_log2)) != sigmap_xmux(port2.addr.extract_end(wide_log2))) {
+				if (addr1.extract_end(wide_log2) != addr2.extract_end(wide_log2)) {
 					// Incompatible addresses after widening.  Last chance — widen both
 					// ports by one more bit to merge them.
 					if (!flag_widen)
 						continue;
 					wide_log2++;
-					if (sigmap_xmux(port1.addr.extract_end(wide_log2)) != sigmap_xmux(port2.addr.extract_end(wide_log2)))
+					if (addr1.extract_end(wide_log2) != addr2.extract_end(wide_log2))
 						continue;
-					if (!port1.addr.extract(0, wide_log2).is_fully_const())
+					if (!addr1.extract(0, wide_log2).is_fully_const())
 						continue;
-					if (!port2.addr.extract(0, wide_log2).is_fully_const())
+					if (!addr2.extract(0, wide_log2).is_fully_const())
 						continue;
 				}
 				// Combine init/reset values.
@@ -148,13 +149,16 @@ struct MemoryShareWorker
 					continue;
 				if (!merge_rst_value(mem, srst_value, wide_log2, port1.srst_value, sub1, port2.srst_value, sub2))
 					continue;
+				// At this point we are committed to the merge.
 				{
 					log("  Merging ports %d, %d (address %s).\n", i, j, log_signal(port1.addr));
+					port1.addr = addr1;
+					port2.addr = addr2;
+					mem.prepare_rd_merge(i, j, &initvals);
 					mem.widen_prep(wide_log2);
 					SigSpec new_data = module->addWire(NEW_ID, mem.width << wide_log2);
 					module->connect(port1.data, new_data.extract(sub1 * mem.width, mem.width << port1.wide_log2));
 					module->connect(port2.data, new_data.extract(sub2 * mem.width, mem.width << port2.wide_log2));
-					port1.addr = sigmap_xmux(port1.addr);
 					for (int k = 0; k < wide_log2; k++)
 						port1.addr[k] = State::S0;
 					port1.init_value = init_value;
@@ -210,31 +214,33 @@ struct MemoryShareWorker
 				// merged by widening the narrow one.  Check if the conditions
 				// hold for that.
 				int wide_log2 = std::max(port1.wide_log2, port2.wide_log2);
-				if (GetSize(port1.addr) <= wide_log2)
+				SigSpec addr1 = sigmap_xmux(port1.addr);
+				SigSpec addr2 = sigmap_xmux(port2.addr);
+				if (GetSize(addr1) <= wide_log2)
 					continue;
-				if (GetSize(port2.addr) <= wide_log2)
+				if (GetSize(addr2) <= wide_log2)
 					continue;
-				if (!port1.addr.extract(0, wide_log2).is_fully_const())
+				if (!addr1.extract(0, wide_log2).is_fully_const())
 					continue;
-				if (!port2.addr.extract(0, wide_log2).is_fully_const())
+				if (!addr2.extract(0, wide_log2).is_fully_const())
 					continue;
-				if (sigmap_xmux(port1.addr.extract_end(wide_log2)) != sigmap_xmux(port2.addr.extract_end(wide_log2))) {
+				if (addr1.extract_end(wide_log2) != addr2.extract_end(wide_log2)) {
 					// Incompatible addresses after widening.  Last chance — widen both
 					// ports by one more bit to merge them.
 					if (!flag_widen)
 						continue;
 					wide_log2++;
-					if (sigmap_xmux(port1.addr.extract_end(wide_log2)) != sigmap_xmux(port2.addr.extract_end(wide_log2)))
+					if (addr1.extract_end(wide_log2) != addr2.extract_end(wide_log2))
 						continue;
-					if (!port1.addr.extract(0, wide_log2).is_fully_const())
+					if (!addr1.extract(0, wide_log2).is_fully_const())
 						continue;
-					if (!port2.addr.extract(0, wide_log2).is_fully_const())
+					if (!addr2.extract(0, wide_log2).is_fully_const())
 						continue;
 				}
-				log("  Merging ports %d, %d (address %s).\n", i, j, log_signal(port1.addr));
-				mem.prepare_wr_merge(i, j);
-				port1.addr = sigmap_xmux(port1.addr);
-				port2.addr = sigmap_xmux(port2.addr);
+				log("  Merging ports %d, %d (address %s).\n", i, j, log_signal(addr1));
+				port1.addr = addr1;
+				port2.addr = addr2;
+				mem.prepare_wr_merge(i, j, &initvals);
 				mem.widen_wr_port(i, wide_log2);
 				mem.widen_wr_port(j, wide_log2);
 				int pos = 0;
@@ -288,8 +294,7 @@ struct MemoryShareWorker
 			for (auto bit : bits)
 				if (bit == RTLIL::State::S1)
 					goto port_is_always_active;
-			if (modwalker.has_drivers(bits))
-				eligible_ports.insert(i);
+			eligible_ports.insert(i);
 		port_is_always_active:;
 		}
 
@@ -309,7 +314,6 @@ struct MemoryShareWorker
 				continue;
 			if (checked_ports.count(i))
 				continue;
-
 
 			std::vector<int> group;
 			group.push_back(i);
@@ -360,56 +364,20 @@ struct MemoryShareWorker
 
 			// Okay, time to actually run the SAT solver.
 
-			ezSatPtr ez;
-			SatGen satgen(ez.get(), &modwalker.sigmap);
+			QuickConeSat qcsat(modwalker);
 
 			// create SAT representation of common input cone of all considered EN signals
 
-			pool<Wire*> one_hot_wires;
-			std::set<RTLIL::Cell*> sat_cells;
-			std::set<RTLIL::SigBit> bits_queue;
 			dict<int, int> port_to_sat_variable;
 
-			for (auto idx : group) {
-				RTLIL::SigSpec sig = modwalker.sigmap(mem.wr_ports[idx].en);
-				port_to_sat_variable[idx] = ez->expression(ez->OpOr, satgen.importSigSpec(sig));
+			for (auto idx : group)
+				port_to_sat_variable[idx] = qcsat.ez->expression(qcsat.ez->OpOr, qcsat.importSig(mem.wr_ports[idx].en));
 
-				std::vector<RTLIL::SigBit> bits = sig;
-				bits_queue.insert(bits.begin(), bits.end());
-			}
+			qcsat.prepare();
 
-			while (!bits_queue.empty())
-			{
-				for (auto bit : bits_queue)
-					if (bit.wire && bit.wire->get_bool_attribute(ID::onehot))
-						one_hot_wires.insert(bit.wire);
+			log("  Common input cone for all EN signals: %d cells.\n", GetSize(qcsat.imported_cells));
 
-				pool<ModWalker::PortBit> portbits;
-				modwalker.get_drivers(portbits, bits_queue);
-				bits_queue.clear();
-
-				for (auto &pbit : portbits)
-					if (sat_cells.count(pbit.cell) == 0 && cone_ct.cell_known(pbit.cell->type)) {
-						pool<RTLIL::SigBit> &cell_inputs = modwalker.cell_inputs[pbit.cell];
-						bits_queue.insert(cell_inputs.begin(), cell_inputs.end());
-						sat_cells.insert(pbit.cell);
-					}
-			}
-
-			for (auto wire : one_hot_wires) {
-				log("  Adding one-hot constraint for wire %s.\n", log_id(wire));
-				vector<int> ez_wire_bits = satgen.importSigSpec(wire);
-				for (int i : ez_wire_bits)
-				for (int j : ez_wire_bits)
-					if (i != j) ez->assume(ez->NOT(i), j);
-			}
-
-			log("  Common input cone for all EN signals: %d cells.\n", int(sat_cells.size()));
-
-			for (auto cell : sat_cells)
-				satgen.importCell(cell);
-
-			log("  Size of unconstrained SAT problem: %d variables, %d clauses\n", ez->numCnfVariables(), ez->numCnfClauses());
+			log("  Size of unconstrained SAT problem: %d variables, %d clauses\n", qcsat.ez->numCnfVariables(), qcsat.ez->numCnfClauses());
 
 			// now try merging the ports.
 
@@ -424,14 +392,14 @@ struct MemoryShareWorker
 					if (port2.removed)
 						continue;
 
-					if (ez->solve(port_to_sat_variable.at(idx1), port_to_sat_variable.at(idx2))) {
+					if (qcsat.ez->solve(port_to_sat_variable.at(idx1), port_to_sat_variable.at(idx2))) {
 						log("  According to SAT solver sharing of port %d with port %d is not possible.\n", idx1, idx2);
 						continue;
 					}
 
 					log("  Merging port %d into port %d.\n", idx2, idx1);
-					mem.prepare_wr_merge(idx1, idx2);
-					port_to_sat_variable.at(idx1) = ez->OR(port_to_sat_variable.at(idx1), port_to_sat_variable.at(idx2));
+					mem.prepare_wr_merge(idx1, idx2, &initvals);
+					port_to_sat_variable.at(idx1) = qcsat.ez->OR(port_to_sat_variable.at(idx1), port_to_sat_variable.at(idx2));
 
 					RTLIL::SigSpec last_addr = port1.addr;
 					RTLIL::SigSpec last_data = port1.data;
@@ -484,7 +452,7 @@ struct MemoryShareWorker
 	// Setup and run
 	// -------------
 
-	MemoryShareWorker(RTLIL::Design *design, bool flag_widen) : design(design), modwalker(design), flag_widen(flag_widen) {}
+	MemoryShareWorker(RTLIL::Design *design, bool flag_widen, bool flag_sat) : design(design), modwalker(design), flag_widen(flag_widen), flag_sat(flag_sat) {}
 
 	void operator()(RTLIL::Module* module)
 	{
@@ -492,6 +460,7 @@ struct MemoryShareWorker
 
 		this->module = module;
 		sigmap.set(module);
+		initvals.set(&sigmap, module);
 
 		sigmap_xmux = sigmap;
 		for (auto cell : module->cells())
@@ -513,21 +482,10 @@ struct MemoryShareWorker
 			while (consolidate_wr_by_addr(mem));
 		}
 
-		cone_ct.setup_internals();
-		cone_ct.cell_types.erase(ID($mul));
-		cone_ct.cell_types.erase(ID($mod));
-		cone_ct.cell_types.erase(ID($div));
-		cone_ct.cell_types.erase(ID($modfloor));
-		cone_ct.cell_types.erase(ID($divfloor));
-		cone_ct.cell_types.erase(ID($pow));
-		cone_ct.cell_types.erase(ID($shl));
-		cone_ct.cell_types.erase(ID($shr));
-		cone_ct.cell_types.erase(ID($sshl));
-		cone_ct.cell_types.erase(ID($sshr));
-		cone_ct.cell_types.erase(ID($shift));
-		cone_ct.cell_types.erase(ID($shiftx));
+		if (!flag_sat)
+			return;
 
-		modwalker.setup(module, &cone_ct);
+		modwalker.setup(module);
 
 		for (auto &mem : memories)
 			consolidate_wr_using_sat(mem);
@@ -540,7 +498,7 @@ struct MemorySharePass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    memory_share [selection]\n");
+		log("    memory_share [-nosat] [-nowiden] [selection]\n");
 		log("\n");
 		log("This pass merges share-able memory ports into single memory ports.\n");
 		log("\n");
@@ -549,9 +507,13 @@ struct MemorySharePass : public Pass {
 		log("  - When multiple write ports access the same address then this is converted\n");
 		log("    to a single write port with a more complex data and/or enable logic path.\n");
 		log("\n");
+		log("  - When multiple read or write ports access adjacent aligned addresses, they are\n");
+		log("    merged to a single wide read or write port.  This transformation can be\n");
+		log("    disabled with the \"-nowiden\" option.\n");
+		log("\n");
 		log("  - When multiple write ports are never accessed at the same time (a SAT\n");
 		log("    solver is used to determine this), then the ports are merged into a single\n");
-		log("    write port.\n");
+		log("    write port.  This transformation can be disabled with the \"-nosat\" option.\n");
 		log("\n");
 		log("Note that in addition to the algorithms implemented in this pass, the $memrd\n");
 		log("and $memwr cells are also subject to generic resource sharing passes (and other\n");
@@ -559,11 +521,26 @@ struct MemorySharePass : public Pass {
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
+		bool flag_widen = true;
+		bool flag_sat = true;
 		log_header(design, "Executing MEMORY_SHARE pass (consolidating $memrd/$memwr cells).\n");
-		// TODO: expose when wide ports are actually supported.
-		bool flag_widen = false;
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++)
+		{
+			if (args[argidx] == "-nosat")
+			{
+				flag_sat = false;
+				continue;
+			}
+			if (args[argidx] == "-nowiden")
+			{
+				flag_widen = false;
+				continue;
+			}
+			break;
+		}
 		extra_args(args, 1, design);
-		MemoryShareWorker msw(design, flag_widen);
+		MemoryShareWorker msw(design, flag_widen, flag_sat);
 
 		for (auto module : design->selected_modules())
 			msw(module);

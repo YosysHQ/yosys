@@ -542,19 +542,21 @@ struct FlowGraph {
 			add_uses(node, port.arst);
 			add_uses(node, port.srst);
 			add_uses(node, port.addr);
-			if (port.transparent && port.clk_enable) {
-				// Our implementation of transparent read ports reads en, addr and data from every write port
-				// in the same domain.
-				for (auto &wrport : mem->wr_ports) {
-					if (wrport.clk_enable && wrport.clk == port.clk && wrport.clk_polarity == port.clk_polarity) {
-						add_uses(node, wrport.en);
-						add_uses(node, wrport.addr);
-						add_uses(node, wrport.data);
-					}
+			bool transparent = false;
+			for (int j = 0; j < GetSize(mem->wr_ports); j++) {
+				auto &wrport = mem->wr_ports[j];
+				if (port.transparency_mask[j]) {
+					// Our implementation of transparent read ports reads en, addr and data from every write port
+					// the read port is transparent with.
+					add_uses(node, wrport.en);
+					add_uses(node, wrport.addr);
+					add_uses(node, wrport.data);
+					transparent = true;
 				}
-				// Also we read the address twice in this case (prevent inlining).
-				add_uses(node, port.addr);
 			}
+			// Also we read the read address twice in this case (prevent inlining).
+			if (transparent)
+				add_uses(node, port.addr);
 		}
 		if (!mem->wr_ports.empty()) {
 			Node *node = new Node;
@@ -1604,17 +1606,18 @@ struct CxxrtlWorker {
 				std::string lhs_temp = fresh_temporary();
 				f << indent << "value<" << mem->width << "> " << lhs_temp << " = "
 					    << mangle(mem) << "[" << valid_index_temp << ".index];\n";
-				if (port.transparent && port.clk_enable) {
+				bool transparent = false;
+				for (auto bit : port.transparency_mask)
+					if (bit)
+						transparent = true;
+				if (transparent) {
 					std::string addr_temp = fresh_temporary();
 					f << indent << "const value<" << port.addr.size() << "> &" << addr_temp << " = ";
 					dump_sigspec_rhs(port.addr);
 					f << ";\n";
-					for (auto &wrport : mem->wr_ports) {
-						if (!wrport.clk_enable)
-							continue;
-						if (wrport.clk != port.clk)
-							continue;
-						if (wrport.clk_polarity != port.clk_polarity)
+					for (int i = 0; i < GetSize(mem->wr_ports); i++) {
+						auto &wrport = mem->wr_ports[i];
+						if (!port.transparency_mask[i])
 							continue;
 						f << indent << "if (" << addr_temp << " == ";
 						dump_sigspec_rhs(wrport.addr);

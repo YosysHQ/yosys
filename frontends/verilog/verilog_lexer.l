@@ -277,8 +277,11 @@ static bool isUserType(std::string &s)
 "output"  { return TOK_OUTPUT; }
 "inout"   { return TOK_INOUT; }
 "wire"    { return TOK_WIRE; }
+"tri"     { return TOK_WIRE; }
 "wor"     { return TOK_WOR; }
+"trior"   { return TOK_WOR; }
 "wand"    { return TOK_WAND; }
+"triand"  { return TOK_WAND; }
 "reg"     { return TOK_REG; }
 "integer" { return TOK_INTEGER; }
 "signed"  { return TOK_SIGNED; }

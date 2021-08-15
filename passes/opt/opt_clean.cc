@@ -117,7 +117,7 @@ void rmunused_module_cells(Module *module, bool verbose)
 	}
 
 	for (Cell *cell : module->cells()) {
-		if (cell->type.in(ID($memwr), ID($meminit), ID($meminit_v2))) {
+		if (cell->type.in(ID($memwr), ID($memwr_v2), ID($meminit), ID($meminit_v2))) {
 			IdString mem_id = cell->getParam(ID::MEMID).decode_string();
 			mem2cells[mem_id].insert(cell);
 		}
@@ -167,7 +167,7 @@ void rmunused_module_cells(Module *module, bool verbose)
 					for (auto bit : sigmap(it.second))
 						bits.insert(bit);
 
-			if (cell->type == ID($memrd)) {
+			if (cell->type.in(ID($memrd), ID($memrd_v2))) {
 				IdString mem_id = cell->getParam(ID::MEMID).decode_string();
 				if (mem_unused.count(mem_id)) {
 					mem_unused.erase(mem_id);

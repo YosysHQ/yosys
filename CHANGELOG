@@ -71,6 +71,11 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Added "_TECHMAP_CELLNAME_" parameter for "techmap" pass
     - Merged "dffsr2dff", "opt_rmdff", "dff2dffe", "dff2dffs", "peepopt.dffmux" passes into a new "opt_dff" pass
     - Added $meminit_v2 cells (with support for write mask)
+    - Added $mem_v2, $memrd_v2, $memwr_v2, with the following features:
+      - write priority masks, per write/write port pair
+      - transparency and undefined collision behavior masks, per read/write port pair
+      - read port reset and initialization
+      - wide ports (accessing a naturally aligned power-of-two number of memory cells)
 
 Yosys 0.8 .. Yosys 0.9
 ----------------------

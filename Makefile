@@ -126,7 +126,7 @@ LDFLAGS += -rdynamic
 LDLIBS += -lrt
 endif
 
-YOSYS_VER := 0.9+4236
+YOSYS_VER := 0.9+4270
 GIT_REV := $(shell git -C $(YOSYS_SRC) rev-parse --short HEAD 2> /dev/null || echo UNKNOWN)
 OBJS = kernel/version_$(GIT_REV).o
 
@@ -565,6 +565,7 @@ $(eval $(call add_include_file,kernel/yosys.h))
 $(eval $(call add_include_file,kernel/hashlib.h))
 $(eval $(call add_include_file,kernel/log.h))
 $(eval $(call add_include_file,kernel/rtlil.h))
+$(eval $(call add_include_file,kernel/binding.h))
 $(eval $(call add_include_file,kernel/register.h))
 $(eval $(call add_include_file,kernel/celltypes.h))
 $(eval $(call add_include_file,kernel/celledges.h))
@@ -575,6 +576,7 @@ $(eval $(call add_include_file,kernel/modtools.h))
 $(eval $(call add_include_file,kernel/macc.h))
 $(eval $(call add_include_file,kernel/utils.h))
 $(eval $(call add_include_file,kernel/satgen.h))
+$(eval $(call add_include_file,kernel/qcsat.h))
 $(eval $(call add_include_file,kernel/ff.h))
 $(eval $(call add_include_file,kernel/ffinit.h))
 $(eval $(call add_include_file,kernel/mem.h))
@@ -584,6 +586,7 @@ $(eval $(call add_include_file,libs/sha1/sha1.h))
 $(eval $(call add_include_file,libs/json11/json11.hpp))
 $(eval $(call add_include_file,passes/fsm/fsmdata.h))
 $(eval $(call add_include_file,frontends/ast/ast.h))
+$(eval $(call add_include_file,frontends/ast/ast_binding.h))
 $(eval $(call add_include_file,frontends/blif/blifparse.h))
 $(eval $(call add_include_file,backends/rtlil/rtlil_backend.h))
 $(eval $(call add_include_file,backends/cxxrtl/cxxrtl.h))
@@ -594,12 +597,13 @@ $(eval $(call add_include_file,backends/cxxrtl/cxxrtl_vcd_capi.cc))
 $(eval $(call add_include_file,backends/cxxrtl/cxxrtl_vcd_capi.h))
 
 OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/yosys.o
+OBJS += kernel/binding.o
 ifeq ($(ENABLE_ABC),1)
 ifneq ($(ABCEXTERNAL),)
 kernel/yosys.o: CXXFLAGS += -DABCEXTERNAL='"$(ABCEXTERNAL)"'
 endif
 endif
-OBJS += kernel/cellaigs.o kernel/celledges.o kernel/satgen.o kernel/mem.o kernel/ffmerge.o
+OBJS += kernel/cellaigs.o kernel/celledges.o kernel/satgen.o kernel/qcsat.o kernel/mem.o kernel/ffmerge.o
 
 kernel/log.o: CXXFLAGS += -DYOSYS_SRC='"$(YOSYS_SRC)"'
 kernel/yosys.o: CXXFLAGS += -DYOSYS_DATDIR='"$(DATDIR)"' -DYOSYS_PROGRAM_PREFIX='"$(PROGRAM_PREFIX)"'

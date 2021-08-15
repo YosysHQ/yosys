@@ -1310,6 +1310,11 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 			design->verilog_packages.push_back(child->clone());
 			current_scope.clear();
 		}
+		else if (child->type == AST_BIND) {
+			// top-level bind construct
+			for (RTLIL::Binding *binding : child->genBindings())
+				design->add(binding);
+		}
 		else {
 			// must be global definition
 			if (child->type == AST_PARAMETER)

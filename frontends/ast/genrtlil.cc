@@ -28,8 +28,10 @@
 
 #include "kernel/log.h"
 #include "kernel/utils.h"
+#include "kernel/binding.h"
 #include "libs/sha1/sha1.h"
 #include "ast.h"
+#include "ast_binding.h"
 
 #include <sstream>
 #include <stdarg.h>
@@ -733,6 +735,69 @@ struct AST_INTERNAL::ProcessGenerator
 	}
 };
 
+// Generate RTLIL for a bind construct
+//
+// The AST node will have one or more AST_IDENTIFIER children, which were added
+// by bind_target_instance in the parser. After these, it will have one or more
+// cells, as parsed by single_cell. These have type AST_CELL.
+//
+// If there is more than one AST_IDENTIFIER, the first one should be considered
+// a module identifier. If there is only one AST_IDENTIFIER, we can't tell at
+// this point whether it's a module/interface name or the name of an instance
+// because the correct interpretation depends on what's visible at elaboration
+// time. For now, we just treat it as a target instance with unknown type, and
+// we'll deal with the corner case in the hierarchy pass.
+//
+// To simplify downstream code, RTLIL::Binding only has a single target and
+// single bound instance. If we see the syntax that allows more than one of
+// either, we split it into multiple Binding objects.
+std::vector<RTLIL::Binding *> AstNode::genBindings() const
+{
+	// Partition children into identifiers and cells
+	int num_ids = 0;
+	for (int i = 0; i < GetSize(children); ++i) {
+		if (children[i]->type != AST_IDENTIFIER) {
+			log_assert(i > 0);
+			num_ids = i;
+			break;
+		}
+	}
+
+	// We should have found at least one child that's not an identifier
+	log_assert(num_ids > 0);
+
+	// Make sense of the identifiers, extracting a possible type name and a
+	// list of hierarchical IDs. We represent an unknown type with an empty
+	// string.
+	RTLIL::IdString tgt_type;
+	int first_tgt_inst = 0;
+	if (num_ids > 1) {
+		tgt_type = children[0]->str;
+		first_tgt_inst = 1;
+	}
+
+	std::vector<RTLIL::Binding *> ret;
+
+	// At this point, we know that children with index >= first_tgt_inst and
+	// index < num_ids are (hierarchical?) names of target instances. Make a
+	// binding object for each of them, and fill in the generated instance
+	// cells each time.
+	for (int i = first_tgt_inst; i < num_ids; ++i) {
+		const AstNode &tgt_child = *children[i];
+
+		for (int j = num_ids; j < GetSize(children); ++j) {
+			const AstNode &cell_child = *children[j];
+
+			log_assert(cell_child.type == AST_CELL);
+
+			ret.push_back(new AST::Binding(tgt_type, tgt_child.str,
+			                               cell_child));
+		}
+	}
+
+	return ret;
+}
+
 // detect sign and width of an expression
 void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *found_real)
 {
@@ -1311,7 +1376,15 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				RTLIL::Wire *wire = current_module->addWire(str);
 				set_src_attr(wire, this);
 				wire->name = str;
-				if (flag_autowire)
+
+				// If we are currently processing a bind directive which wires up
+				// signals or parameters explicitly, rather than with .*, then
+				// current_module will start out empty and we don't want to warn the
+				// user about it: we'll spot broken wiring later, when we run the
+				// hierarchy pass.
+				if (dynamic_cast<RTLIL::Binding*>(current_module)) {
+					/* nothing to do here */
+				} else if (flag_autowire)
 					log_file_warning(filename, location.first_line, "Identifier `%s' is implicitly declared.\n", str.c_str());
 				else
 					log_file_error(filename, location.first_line, "Identifier `%s' is implicitly declared and `default_nettype is set to none.\n", str.c_str());
@@ -1975,7 +2048,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 		} break;
 
 	case AST_BIND: {
-		// The bind construct. Currently unimplemented: just ignore it.
+		// Read a bind construct. This should have one or more cells as children.
+		for (RTLIL::Binding *binding : genBindings())
+			current_module->add(binding);
 		break;
 	}
 

@@ -20,6 +20,7 @@
 #include "kernel/yosys.h"
 #include "kernel/macc.h"
 #include "kernel/celltypes.h"
+#include "kernel/binding.h"
 #include "frontends/verilog/verilog_frontend.h"
 #include "frontends/verilog/preproc.h"
 #include "backends/rtlil/rtlil_backend.h"
@@ -573,6 +574,8 @@ RTLIL::Design::~Design()
 {
 	for (auto &pr : modules_)
 		delete pr.second;
+	for (auto n : bindings_)
+		delete n;
 	for (auto n : verilog_packages)
 		delete n;
 	for (auto n : verilog_globals)
@@ -634,6 +637,12 @@ void RTLIL::Design::add(RTLIL::Module *module)
 		log("#X# New Module: %s\n", log_id(module));
 		log_backtrace("-X- ", yosys_xtrace-1);
 	}
+}
+
+void RTLIL::Design::add(RTLIL::Binding *binding)
+{
+	log_assert(binding != nullptr);
+	bindings_.push_back(binding);
 }
 
 RTLIL::Module *RTLIL::Design::addModule(RTLIL::IdString name)
@@ -872,6 +881,8 @@ RTLIL::Module::~Module()
 		delete pr.second;
 	for (auto &pr : processes)
 		delete pr.second;
+	for (auto binding : bindings_)
+		delete binding;
 #ifdef WITH_PYTHON
 	RTLIL::Module::get_all_modules()->erase(hashidx_);
 #endif
@@ -1392,11 +1403,45 @@ namespace {
 				return;
 			}
 
+			if (cell->type == ID($memrd_v2)) {
+				param(ID::MEMID);
+				param_bool(ID::CLK_ENABLE);
+				param_bool(ID::CLK_POLARITY);
+				param(ID::TRANSPARENCY_MASK);
+				param(ID::COLLISION_X_MASK);
+				param_bool(ID::CE_OVER_SRST);
+				param_bits(ID::ARST_VALUE, param(ID::WIDTH));
+				param_bits(ID::SRST_VALUE, param(ID::WIDTH));
+				param_bits(ID::INIT_VALUE, param(ID::WIDTH));
+				port(ID::CLK, 1);
+				port(ID::EN, 1);
+				port(ID::ARST, 1);
+				port(ID::SRST, 1);
+				port(ID::ADDR, param(ID::ABITS));
+				port(ID::DATA, param(ID::WIDTH));
+				check_expected();
+				return;
+			}
+
 			if (cell->type == ID($memwr)) {
 				param(ID::MEMID);
 				param_bool(ID::CLK_ENABLE);
 				param_bool(ID::CLK_POLARITY);
 				param(ID::PRIORITY);
+				port(ID::CLK, 1);
+				port(ID::EN, param(ID::WIDTH));
+				port(ID::ADDR, param(ID::ABITS));
+				port(ID::DATA, param(ID::WIDTH));
+				check_expected();
+				return;
+			}
+
+			if (cell->type == ID($memwr_v2)) {
+				param(ID::MEMID);
+				param_bool(ID::CLK_ENABLE);
+				param_bool(ID::CLK_POLARITY);
+				param(ID::PORTID);
+				param(ID::PRIORITY_MASK);
 				port(ID::CLK, 1);
 				port(ID::EN, param(ID::WIDTH));
 				port(ID::ADDR, param(ID::ABITS));
@@ -1436,6 +1481,38 @@ namespace {
 				param_bits(ID::WR_CLK_POLARITY, max(1, param(ID::WR_PORTS)));
 				port(ID::RD_CLK, param(ID::RD_PORTS));
 				port(ID::RD_EN, param(ID::RD_PORTS));
+				port(ID::RD_ADDR, param(ID::RD_PORTS) * param(ID::ABITS));
+				port(ID::RD_DATA, param(ID::RD_PORTS) * param(ID::WIDTH));
+				port(ID::WR_CLK, param(ID::WR_PORTS));
+				port(ID::WR_EN, param(ID::WR_PORTS) * param(ID::WIDTH));
+				port(ID::WR_ADDR, param(ID::WR_PORTS) * param(ID::ABITS));
+				port(ID::WR_DATA, param(ID::WR_PORTS) * param(ID::WIDTH));
+				check_expected();
+				return;
+			}
+
+			if (cell->type == ID($mem_v2)) {
+				param(ID::MEMID);
+				param(ID::SIZE);
+				param(ID::OFFSET);
+				param(ID::INIT);
+				param_bits(ID::RD_CLK_ENABLE, max(1, param(ID::RD_PORTS)));
+				param_bits(ID::RD_CLK_POLARITY, max(1, param(ID::RD_PORTS)));
+				param_bits(ID::RD_TRANSPARENCY_MASK, max(1, param(ID::RD_PORTS) * param(ID::WR_PORTS)));
+				param_bits(ID::RD_COLLISION_X_MASK, max(1, param(ID::RD_PORTS) * param(ID::WR_PORTS)));
+				param_bits(ID::RD_WIDE_CONTINUATION, max(1, param(ID::RD_PORTS)));
+				param_bits(ID::RD_CE_OVER_SRST, max(1, param(ID::RD_PORTS)));
+				param_bits(ID::RD_ARST_VALUE, param(ID::RD_PORTS) * param(ID::WIDTH));
+				param_bits(ID::RD_SRST_VALUE, param(ID::RD_PORTS) * param(ID::WIDTH));
+				param_bits(ID::RD_INIT_VALUE, param(ID::RD_PORTS) * param(ID::WIDTH));
+				param_bits(ID::WR_CLK_ENABLE, max(1, param(ID::WR_PORTS)));
+				param_bits(ID::WR_CLK_POLARITY, max(1, param(ID::WR_PORTS)));
+				param_bits(ID::WR_WIDE_CONTINUATION, max(1, param(ID::WR_PORTS)));
+				param_bits(ID::WR_PRIORITY_MASK, max(1, param(ID::WR_PORTS) * param(ID::WR_PORTS)));
+				port(ID::RD_CLK, param(ID::RD_PORTS));
+				port(ID::RD_EN, param(ID::RD_PORTS));
+				port(ID::RD_ARST, param(ID::RD_PORTS));
+				port(ID::RD_SRST, param(ID::RD_PORTS));
 				port(ID::RD_ADDR, param(ID::RD_PORTS) * param(ID::ABITS));
 				port(ID::RD_DATA, param(ID::RD_PORTS) * param(ID::WIDTH));
 				port(ID::WR_CLK, param(ID::WR_PORTS));
@@ -1855,6 +1932,12 @@ void RTLIL::Module::add(RTLIL::Process *process)
 	log_assert(count_id(process->name) == 0);
 	processes[process->name] = process;
 	process->module = this;
+}
+
+void RTLIL::Module::add(RTLIL::Binding *binding)
+{
+	log_assert(binding != nullptr);
+	bindings_.push_back(binding);
 }
 
 void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
@@ -3187,12 +3270,12 @@ void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 
 bool RTLIL::Cell::has_memid() const
 {
-	return type.in(ID($memwr), ID($memrd), ID($meminit), ID($meminit_v2));
+	return type.in(ID($memwr), ID($memwr_v2), ID($memrd), ID($memrd_v2), ID($meminit), ID($meminit_v2));
 }
 
 bool RTLIL::Cell::is_mem_cell() const
 {
-	return type == ID($mem) || has_memid();
+	return type.in(ID($mem), ID($mem_v2)) || has_memid();
 }
 
 RTLIL::SigChunk::SigChunk()

@@ -1,0 +1,874 @@
+# Good case 1: single port.
+
+read_verilog << EOT
+
+module top(
+	input [3:0] addr,
+	input [3:0] wd,
+	input we,
+	input clk,
+	output reg [3:0] rd,
+);
+
+reg [3:0] mem[0:15];
+
+always @(posedge clk) begin
+	if (we) begin
+		mem[addr] <= wd;
+		rd <= wd;
+	end else begin
+		rd <= mem[addr];
+	end
+end
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt_dff
+opt_clean
+memory_dff
+memory_collect
+select -assert-count 1 t:$mem_v2
+select -assert-count 1 t:$mem_v2 r:RD_TRANSPARENCY_MASK=1'b1 r:RD_COLLISION_X_MASK=1'b0 %i %i
+
+design -reset
+
+# Good case 2: single port, exclusive.
+
+read_verilog << EOT
+
+module top(
+	input [3:0] addr,
+	input [3:0] wd,
+	input we,
+	input clk,
+	output reg [3:0] rd,
+);
+
+reg [3:0] mem[0:15];
+
+always @(posedge clk) begin
+	if (we) begin
+		mem[addr] <= wd;
+	end else begin
+		rd <= mem[addr];
+	end
+end
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt_dff
+opt_clean
+memory_dff
+memory_collect
+select -assert-count 1 t:$mem_v2
+select -assert-count 1 t:$mem_v2 r:RD_TRANSPARENCY_MASK=1'b0 r:RD_COLLISION_X_MASK=1'b1 %i %i
+
+design -reset
+
+# Good case 3: proper bypass muxes.
+
+read_verilog << EOT
+
+module top(
+	input [3:0] ra,
+	input [3:0] wa1,
+	input [3:0] wa2,
+	input [3:0] wd1,
+	input [3:0] wd2,
+	input we1, we2,
+	input re,
+	input clk,
+	output reg [3:0] rd,
+);
+
+reg [3:0] mem[0:15];
+
+always @(posedge clk) begin
+	if (we1)
+		mem[wa1] <= wd1;
+	if (we2)
+		mem[wa2] <= wd2;
+	if (re) begin
+		rd <= mem[ra];
+		if (we1 && wa1 == ra)
+			rd <= wd1;
+		if (we2 && wa2 == ra)
+			rd <= wd2;
+	end
+end
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt_dff
+opt_clean
+memory_dff
+memory_collect
+select -assert-count 1 t:$mem_v2
+select -assert-count 1 t:$mem_v2 r:RD_TRANSPARENCY_MASK=2'b11 r:RD_COLLISION_X_MASK=2'b00 %i %i
+
+design -reset
+
+# Good case 4: proper bypass mux, but only one.
+
+read_verilog << EOT
+
+module top(
+	input [3:0] ra,
+	input [3:0] wa1,
+	input [3:0] wa2,
+	input [3:0] wd1,
+	input [3:0] wd2,
+	input we1, we2,
+	input re,
+	input clk,
+	output reg [3:0] rd,
+);
+
+reg [3:0] mem[0:15];
+
+always @(posedge clk) begin
+	if (we1)
+		mem[wa1] <= wd1;
+	if (we2)
+		mem[wa2] <= wd2;
+	if (re) begin
+		rd <= mem[ra];
+		if (we1 && wa1 == ra)
+			rd <= wd1;
+	end
+end
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt_dff
+opt_clean
+memory_dff
+memory_collect
+select -assert-count 1 t:$mem_v2
+select -assert-count 1 t:$mem_v2 r:RD_TRANSPARENCY_MASK=2'b01 r:RD_COLLISION_X_MASK=2'b00 %i %i
+
+design -reset
+
+# Good case 5: proper bypass mux, but the other one.
+
+read_verilog << EOT
+
+module top(
+	input [3:0] ra,
+	input [3:0] wa1,
+	input [3:0] wa2,
+	input [3:0] wd1,
+	input [3:0] wd2,
+	input we1, we2,
+	input re,
+	input clk,
+	output reg [3:0] rd,
+);
+
+reg [3:0] mem[0:15];
+
+always @(posedge clk) begin
+	if (we1)
+		mem[wa1] <= wd1;
+	if (we2)
+		mem[wa2] <= wd2;
+	if (re) begin
+		rd <= mem[ra];
+		if (we2 && wa2 == ra)
+			rd <= wd2;
+	end
+end
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt_dff
+opt_clean
+memory_dff
+memory_collect
+select -assert-count 1 t:$mem_v2
+select -assert-count 1 t:$mem_v2 r:RD_TRANSPARENCY_MASK=2'b10 r:RD_COLLISION_X_MASK=2'b00 %i %i
+
+design -reset
+
+# Good case 6: 'x mux.
+
+read_verilog << EOT
+
+module top(
+	input [3:0] ra,
+	input [3:0] wa1,
+	input [3:0] wa2,
+	input [3:0] wd1,
+	input [3:0] wd2,
+	input we1, we2,
+	input re,
+	input clk,
+	output reg [3:0] rd,
+);
+
+reg [3:0] mem[0:15];
+
+always @(posedge clk) begin
+	if (we1)
+		mem[wa1] <= wd1;
+	if (we2)
+		mem[wa2] <= wd2;
+	if (re) begin
+		rd <= mem[ra];
+		if (we1 && wa1 == ra)
+			rd <= 4'hx;
+		if (we2 && wa2 == ra)
+			rd <= wd2;
+	end
+end
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt_dff
+opt_clean
+memory_dff
+memory_collect
+select -assert-count 1 t:$mem_v2
+select -assert-count 1 t:$mem_v2 r:RD_TRANSPARENCY_MASK=2'b10 r:RD_COLLISION_X_MASK=2'b01 %i %i
+
+design -reset
+
+# Good case 7: uncollidable addresses.
+
+read_verilog << EOT
+
+module top(
+	input [3:0] addr,
+	input [3:0] wd1,
+	input [3:0] wd2,
+	input we1, we2,
+	input re,
+	input clk,
+	output reg [3:0] rd,
+);
+
+reg [3:0] mem[0:15];
+
+wire [3:0] wa1 = addr;
+wire [3:0] wa2 = addr + 1;
+wire [3:0] ra = addr + 2;
+
+always @(posedge clk) begin
+	if (we1)
+		mem[wa1] <= wd1;
+	if (we2)
+		mem[wa2] <= wd2;
+	if (re) begin
+		rd <= mem[ra];
+	end
+end
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt_dff
+opt_clean
+memory_dff
+memory_collect
+select -assert-count 1 t:$mem_v2
+select -assert-count 1 t:$mem_v2 r:RD_TRANSPARENCY_MASK=2'b00 r:RD_COLLISION_X_MASK=2'b11 %i %i
+
+design -reset
+
+# Good case 8: uncollidable addresses, but still have soft transparency logic.
+
+read_verilog << EOT
+
+module top(
+	input [3:0] addr,
+	input [3:0] wd1,
+	input [3:0] wd2,
+	input we1, we2,
+	input re,
+	input clk,
+	output reg [3:0] rd,
+);
+
+reg [3:0] mem[0:15];
+
+wire [3:0] wa1 = addr;
+wire [3:0] wa2 = addr + 1;
+wire [3:0] ra = addr + 2;
+
+always @(posedge clk) begin
+	if (we1)
+		mem[wa1] <= wd1;
+	if (we2)
+		mem[wa2] <= wd2;
+	if (re) begin
+		rd <= mem[ra];
+		if (we1 && wa1 == ra)
+			rd <= wd1;
+		if (we2 && wa2 == ra)
+			rd <= wd2;
+	end
+end
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt_dff
+opt_clean
+memory_dff
+memory_collect
+select -assert-count 1 t:$mem_v2
+select -assert-count 1 t:$mem_v2 r:RD_TRANSPARENCY_MASK=2'b00 r:RD_COLLISION_X_MASK=2'b11 %i %i
+
+design -reset
+
+# Bad case 1: broken bypass signal.
+
+read_verilog << EOT
+
+module top(
+	input [3:0] ra,
+	input [3:0] wa1,
+	input [3:0] wa2,
+	input [3:0] wd1,
+	input [3:0] wd2,
+	input we1, we2,
+	input re,
+	input clk,
+	output reg [3:0] rd,
+);
+
+reg [3:0] mem[0:15];
+
+always @(posedge clk) begin
+	if (we1)
+		mem[wa1] <= wd1;
+	if (we2)
+		mem[wa2] <= wd2;
+	if (re) begin
+		rd <= mem[ra];
+		if (we1 && wa1 == ra)
+			rd <= wd1;
+		if (we2 && wa2 == ra && we1)
+			rd <= wd2;
+	end
+end
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt_dff
+opt_clean
+logger -expect log "FF found, but with a mux select that doesn't seem to correspond to transparency logic" 1
+memory_dff
+logger -check-expected
+memory_collect
+select -assert-count 1 t:$mem_v2
+select -assert-count 1 t:$mem_v2 r:RD_CLK_ENABLE=1'b0 %i
+
+design -reset
+
+# Bad case 2: bad data signal.
+
+read_verilog << EOT
+
+module top(
+	input [3:0] ra,
+	input [3:0] wa1,
+	input [3:0] wa2,
+	input [3:0] wd1,
+	input [3:0] wd2,
+	input we1, we2,
+	input re,
+	input clk,
+	output reg [3:0] rd,
+);
+
+reg [3:0] mem[0:15];
+
+always @(posedge clk) begin
+	if (we1)
+		mem[wa1] <= wd1;
+	if (we2)
+		mem[wa2] <= wd2;
+	if (re) begin
+		rd <= mem[ra];
+		if (we1 && wa1 == ra)
+			rd <= wd1;
+		if (we2 && wa2 == ra)
+			rd <= wd1;
+	end
+end
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt_dff
+opt_clean
+logger -expect log "FF found, but with a mux data input that doesn't seem to correspond to transparency logic" 1
+memory_dff
+logger -check-expected
+memory_collect
+select -assert-count 1 t:$mem_v2
+select -assert-count 1 t:$mem_v2 r:RD_CLK_ENABLE=1'b0 %i
+
+design -reset
+
+# Bad case 3: priority mismatch.
+
+read_verilog << EOT
+
+module top(
+	input [3:0] ra,
+	input [3:0] wa1,
+	input [3:0] wa2,
+	input [3:0] wd1,
+	input [3:0] wd2,
+	input we1, we2,
+	input re,
+	input clk,
+	output reg [3:0] rd,
+);
+
+reg [3:0] mem[0:15];
+
+always @(posedge clk) begin
+	if (we1)
+		mem[wa1] <= wd1;
+	if (we2)
+		mem[wa2] <= wd2;
+	if (re) begin
+		rd <= mem[ra];
+		if (we2 && wa2 == ra)
+			rd <= wd2;
+		if (we1 && wa1 == ra)
+			rd <= wd1;
+	end
+end
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt_dff
+opt_clean
+logger -expect log "FF found, but transparency logic priority doesn't match write priority." 1
+memory_dff
+logger -check-expected
+memory_collect
+select -assert-count 1 t:$mem_v2
+select -assert-count 1 t:$mem_v2 r:RD_CLK_ENABLE=1'b0 %i
+
+design -reset
+
+# Good case 10: priority mismatch, but since the second value is 'x, it's still OK.
+
+read_verilog << EOT
+
+module top(
+	input [3:0] ra,
+	input [3:0] wa1,
+	input [3:0] wa2,
+	input [3:0] wd1,
+	input [3:0] wd2,
+	input we1, we2,
+	input re,
+	input clk,
+	output reg [3:0] rd,
+);
+
+reg [3:0] mem[0:15];
+
+always @(posedge clk) begin
+	if (we1)
+		mem[wa1] <= wd1;
+	if (we2)
+		mem[wa2] <= wd2;
+	if (re) begin
+		rd <= mem[ra];
+		if (we2 && wa2 == ra)
+			rd <= wd2;
+		if (we1 && wa1 == ra)
+			rd <= 4'hx;
+	end
+end
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt_dff
+opt_clean
+memory_dff
+memory_collect
+select -assert-count 1 t:$mem_v2
+select -assert-count 1 t:$mem_v2 r:RD_TRANSPARENCY_MASK=2'b10 r:RD_COLLISION_X_MASK=2'b01 %i %i
+
+design -reset
+
+# Good case 11: priority mismatch, but since three-way collision cannot happen, it's still OK.
+
+read_verilog << EOT
+
+module top(
+	input [3:0] addr,
+	input [1:0] mode,
+	input [3:0] wd1,
+	input [3:0] wd2,
+	input we1, we2,
+	input re,
+	input clk,
+	output reg [3:0] rd,
+);
+
+reg [3:0] wa1, wa2, ra;
+
+always @* begin
+	case (mode)
+	0: begin
+		wa1 = addr+1;
+		wa2 = addr;
+		ra = addr;
+	end
+	1: begin
+		wa1 = addr;
+		wa2 = addr+1;
+		ra = addr;
+	end
+	2: begin
+		wa1 = addr;
+		wa2 = addr;
+		ra = addr+1;
+	end
+	3: begin
+		wa1 = addr;
+		wa2 = addr+1;
+		ra = addr+2;
+	end
+	endcase
+end
+
+reg [3:0] mem[0:15];
+
+always @(posedge clk) begin
+	if (we1)
+		mem[wa1] <= wd1;
+	if (we2)
+		mem[wa2] <= wd2;
+	if (re) begin
+		rd <= mem[ra];
+		if (we2 && wa2 == ra)
+			rd <= wd2;
+		if (we1 && wa1 == ra)
+			rd <= wd1;
+	end
+end
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt_dff
+opt_clean
+memory_dff
+memory_collect
+select -assert-count 1 t:$mem_v2
+select -assert-count 1 t:$mem_v2 r:RD_TRANSPARENCY_MASK=2'b11 r:RD_COLLISION_X_MASK=2'b00 %i %i
+
+design -reset
+
+# Bad case 4: half of the port is transparent.
+
+read_verilog << EOT
+
+module top(
+	input [3:0] ra,
+	input [3:0] wa1,
+	input [3:0] wa2,
+	input [3:0] wd1,
+	input [3:0] wd2,
+	input we1, we2,
+	input re,
+	input clk,
+	output reg [3:0] rd,
+);
+
+reg [3:0] mem[0:15];
+
+always @(posedge clk) begin
+	if (we1)
+		mem[wa1] <= wd1;
+	if (we2)
+		mem[wa2] <= wd2;
+	if (re) begin
+		rd <= mem[ra];
+		if (we1 && wa1 == ra)
+			rd <= wd1;
+		if (we2 && wa2 == ra)
+			rd[3:2] <= wd2[3:2];
+	end
+end
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt_dff
+opt_clean
+logger -expect log "FF found, but soft transparency logic is inconsistent for port 1." 1
+memory_dff
+logger -check-expected
+memory_collect
+select -assert-count 1 t:$mem_v2
+select -assert-count 1 t:$mem_v2 r:RD_CLK_ENABLE=1'b0 %i
+
+design -reset
+
+# Good case 12: like above, but the other bits aren't changed by the port anyway.
+
+read_verilog << EOT
+
+module top(
+	input [3:0] ra,
+	input [3:0] wa1,
+	input [3:0] wa2,
+	input [3:0] wd1,
+	input [3:0] wd2,
+	input we1, we2,
+	input re,
+	input clk,
+	output reg [3:0] rd,
+);
+
+reg [3:0] mem[0:15];
+
+always @(posedge clk) begin
+	if (we1)
+		mem[wa1] <= wd1;
+	if (we2)
+		mem[wa2][3:2] <= wd2[3:2];
+	if (re) begin
+		rd <= mem[ra];
+		if (we1 && wa1 == ra)
+			rd <= wd1;
+		if (we2 && wa2 == ra)
+			rd[3:2] <= wd2[3:2];
+	end
+end
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt_dff
+opt_clean
+memory_dff
+memory_collect
+select -assert-count 1 t:$mem_v2
+select -assert-count 1 t:$mem_v2 r:RD_TRANSPARENCY_MASK=2'b11 r:RD_COLLISION_X_MASK=2'b00 %i %i
+
+design -reset
+
+# Good case 13: wide read, narrow write.
+
+read_verilog << EOT
+
+module top(
+	input [7:0] addr,
+	input [7:0] wd,
+	input we,
+	input re,
+	input clk,
+	output reg [31:0] rd,
+);
+
+reg [7:0] mem[0:255];
+
+always @(posedge clk) begin
+	if (we)
+		mem[addr] <= wd;
+	if (re) begin
+		rd[7:0] <= mem[{addr[7:2], 2'b00}];
+		rd[15:8] <= mem[{addr[7:2], 2'b01}];
+		rd[23:16] <= mem[{addr[7:2], 2'b10}];
+		rd[31:24] <= mem[{addr[7:2], 2'b11}];
+		case ({we, addr[1:0]})
+		3'b100: rd[7:0] <= wd;
+		3'b101: rd[15:8] <= wd;
+		3'b110: rd[23:16] <= wd;
+		3'b111: rd[31:24] <= wd;
+		endcase
+	end
+end
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt_dff
+opt_clean
+dump
+memory_dff
+memory_collect
+select -assert-count 1 t:$mem_v2
+select -assert-count 1 t:$mem_v2 r:RD_TRANSPARENCY_MASK=4'b1111 r:RD_COLLISION_X_MASK=4'b0000 %i %i
+memory_share
+select -assert-count 1 t:$mem_v2
+select -assert-count 1 t:$mem_v2 r:RD_TRANSPARENCY_MASK=4'b1111 r:RD_COLLISION_X_MASK=4'b0000 %i %i
+select -assert-count 1 t:$mem_v2 r:RD_WIDE_CONTINUATION=4'b1110 %i
+
+design -reset
+
+# Good case 14: narrow read, wide write.
+
+read_verilog << EOT
+
+module top(
+	input [7:0] addr,
+	input [31:0] wd,
+	input we,
+	input re,
+	input clk,
+	output reg [7:0] rd,
+);
+
+reg [7:0] mem[0:255];
+
+always @(posedge clk) begin
+	if (we) begin
+		mem[{addr[7:2], 2'b00}] <= wd[7:0];
+		mem[{addr[7:2], 2'b01}] <= wd[15:8];
+		mem[{addr[7:2], 2'b10}] <= wd[23:16];
+		mem[{addr[7:2], 2'b11}] <= wd[31:24];
+	end
+	if (re) begin
+		rd <= mem[addr];
+		case ({we, addr[1:0]})
+		3'b100: rd <= wd[7:0];
+		3'b101: rd <= wd[15:8];
+		3'b110: rd <= wd[23:16];
+		3'b111: rd <= wd[31:24];
+		endcase
+	end
+end
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt_dff
+opt_clean
+dump
+memory_dff
+memory_collect
+select -assert-count 1 t:$mem_v2
+select -assert-count 1 t:$mem_v2 r:RD_TRANSPARENCY_MASK=4'b1111 r:RD_COLLISION_X_MASK=4'b0000 %i %i
+memory_share
+select -assert-count 1 t:$mem_v2
+select -assert-count 1 t:$mem_v2 r:RD_TRANSPARENCY_MASK=4'b1111 r:RD_COLLISION_X_MASK=4'b0000 %i %i
+select -assert-count 1 t:$mem_v2 r:WR_WIDE_CONTINUATION=4'b1110 %i
+
+design -reset
+
+# Good case 15: wide read, wide write.
+
+read_verilog << EOT
+
+module top(
+	input [7:0] addr,
+	input [31:0] wd,
+	input we,
+	input re,
+	input clk,
+	output reg [31:0] rd,
+);
+
+reg [7:0] mem[0:255];
+
+always @(posedge clk) begin
+	if (we) begin
+		mem[{addr[7:2], 2'b00}] <= wd[7:0];
+		mem[{addr[7:2], 2'b01}] <= wd[15:8];
+		mem[{addr[7:2], 2'b10}] <= wd[23:16];
+		mem[{addr[7:2], 2'b11}] <= wd[31:24];
+	end
+	if (re) begin
+		rd[7:0] <= mem[{addr[7:2], 2'b00}];
+		rd[15:8] <= mem[{addr[7:2], 2'b01}];
+		rd[23:16] <= mem[{addr[7:2], 2'b10}];
+		rd[31:24] <= mem[{addr[7:2], 2'b11}];
+		if (we)
+			rd <= wd;
+	end
+end
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt_dff
+opt_clean
+dump
+memory_dff
+select -assert-count 4 t:$memrd_v2
+select -assert-count 1 t:$memrd_v2 r:TRANSPARENCY_MASK=4'b0001 r:COLLISION_X_MASK=4'b1110 %i %i
+select -assert-count 1 t:$memrd_v2 r:TRANSPARENCY_MASK=4'b0010 r:COLLISION_X_MASK=4'b1101 %i %i
+select -assert-count 1 t:$memrd_v2 r:TRANSPARENCY_MASK=4'b0100 r:COLLISION_X_MASK=4'b1011 %i %i
+select -assert-count 1 t:$memrd_v2 r:TRANSPARENCY_MASK=4'b1000 r:COLLISION_X_MASK=4'b0111 %i %i
+memory_share
+select -assert-count 1 t:$memrd_v2
+select -assert-count 1 t:$memwr_v2
+select -assert-count 1 t:$memrd_v2 r:TRANSPARENCY_MASK=1'b1 r:COLLISION_X_MASK=1'b0 %i %i
+
+design -reset
