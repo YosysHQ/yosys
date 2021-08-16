@@ -202,6 +202,7 @@ void Mem::emit() {
 		cell->parameters[ID::RD_ARST_VALUE] = rd_arst_value;
 		cell->parameters[ID::RD_SRST_VALUE] = rd_srst_value;
 		cell->parameters[ID::RD_INIT_VALUE] = rd_init_value;
+		cell->parameters.erase(ID::RD_TRANSPARENT);
 		cell->setPort(ID::RD_CLK, rd_clk);
 		cell->setPort(ID::RD_EN, rd_en);
 		cell->setPort(ID::RD_ARST, rd_arst);
