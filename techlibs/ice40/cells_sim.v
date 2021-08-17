@@ -244,7 +244,7 @@ module SB_CARRY (output CO, input I0, I1, CI);
 		// https://github.com/YosysHQ/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_lp1k.txt#L82
 		(I0 => CO) = (382, 362);
 		// https://github.com/YosysHQ/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_lp1k.txt#L85
-		(I0 => CO) = (341, 196);
+		(I1 => CO) = (341, 196);
 	endspecify
 `endif
 `ifdef ICE40_U
@@ -254,7 +254,7 @@ module SB_CARRY (output CO, input I0, I1, CI);
 		// https://github.com/YosysHQ/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_up5k.txt#L94
 		(I0 => CO) = (675, 662);
 		// https://github.com/YosysHQ/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_up5k.txt#L97
-		(I0 => CO) = (609, 358);
+		(I1 => CO) = (609, 358);
 	endspecify
 `endif
 endmodule
