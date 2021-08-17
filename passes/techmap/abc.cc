@@ -926,12 +926,15 @@ std::string abc_module2name(RTLIL::Module *module, std::string topdir_name)
 {
 	// include module name in temp dir
 	std::string modname = module->name.c_str();
-
 	// remove problematic characters
     YS_REGEX_TYPE abc_regex = YS_REGEX_COMPILE(R"~([\'\$\\])~");
 	modname = YS_REGEX_REPLACE(modname, abc_regex, "-");
 
-	std::string tempdir_name = topdir_name + "/" + modname.substr(1, std::string::npos);
+    // After the regexp replace, we can have a variable number of leading '-', which we will skip
+    size_t idx;
+    for (idx = 0; modname[idx] == '-' && idx < modname.length(); idx++) ;
+
+	std::string tempdir_name = topdir_name + "/" + modname.substr(idx, std::string::npos);
 	return tempdir_name;
 }
 
