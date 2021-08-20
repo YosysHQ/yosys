@@ -9,5 +9,6 @@ design -load postopt # load the post-opt design (otherwise equiv_opt loads the p
 cd tristate # Constrain all select calls below inside the top module
 #Internal cell type used. Need support it.
 select -assert-count 1 t:TBUF
+select -assert-count 1 t:LUT1
 select -assert-count 2 t:IBUF
-select -assert-none t:TBUF t:IBUF %% t:* %D
+select -assert-none t:TBUF t:IBUF t:LUT1 %% t:* %D

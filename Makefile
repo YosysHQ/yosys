@@ -18,6 +18,7 @@ ENABLE_READLINE := 1
 ENABLE_EDITLINE := 0
 ENABLE_GHDL := 0
 ENABLE_VERIFIC := 0
+DISABLE_VERIFIC_EXTENSIONS := 0
 ENABLE_COVER := 1
 ENABLE_LIBYOSYS := 0
 ENABLE_PROTOBUF := 0
@@ -126,7 +127,7 @@ LDFLAGS += -rdynamic
 LDLIBS += -lrt
 endif
 
-YOSYS_VER := 0.9+4270
+YOSYS_VER := 0.9+4276
 GIT_REV := $(shell git -C $(YOSYS_SRC) rev-parse --short HEAD 2> /dev/null || echo UNKNOWN)
 OBJS = kernel/version_$(GIT_REV).o
 
@@ -498,7 +499,11 @@ endif
 
 ifeq ($(ENABLE_VERIFIC),1)
 VERIFIC_DIR ?= /usr/local/src/verific_lib
-VERIFIC_COMPONENTS ?= verilog vhdl database util containers hier_tree extensions
+VERIFIC_COMPONENTS ?= verilog vhdl database util containers hier_tree
+ifneq ($(DISABLE_VERIFIC_EXTENSIONS),1)
+VERIFIC_COMPONENTS += extensions
+CXXFLAGS += -DYOSYSHQ_VERIFIC_EXTENSIONS
+endif
 CXXFLAGS += $(patsubst %,-I$(VERIFIC_DIR)/%,$(VERIFIC_COMPONENTS)) -DYOSYS_ENABLE_VERIFIC
 ifeq ($(OS), Darwin)
 LDLIBS += $(patsubst %,$(VERIFIC_DIR)/%/*-mac.a,$(VERIFIC_COMPONENTS)) -lz
