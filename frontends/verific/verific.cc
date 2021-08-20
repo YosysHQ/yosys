@@ -50,7 +50,9 @@ USING_YOSYS_NAMESPACE
 #include "VhdlUnits.h"
 #include "VeriLibrary.h"
 
+#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 #include "InitialAssertions.h"
+#endif
 
 #ifndef YOSYSHQ_VERIFIC_API_VERSION
 #  error "Only YosysHQ flavored Verific is supported. Please contact office@yosyshq.com for commercial support for Yosys+Verific."
@@ -1961,7 +1963,9 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 	for (const auto &i : parameters)
 		verific_params.Insert(i.first.c_str(), i.second.c_str());
 
+#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 	InitialAssertions::Rewrite("work", &verific_params);
+#endif
 
 	if (top.empty()) {
 		netlists = hier_tree::ElaborateAll(&veri_libs, &vhdl_libs, &verific_params);
@@ -2847,8 +2851,9 @@ struct VerificPass : public Pass {
 
 			std::set<std::string> top_mod_names;
 
+#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 			InitialAssertions::Rewrite(work, &parameters);
-
+#endif
 			if (mode_all)
 			{
 				log("Running hier_tree::ElaborateAll().\n");
