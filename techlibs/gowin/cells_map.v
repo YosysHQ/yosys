@@ -127,7 +127,7 @@ module \$__GW_IOBUF (input I, OE, output O, inout IO);
 endmodule
 
 module \$__GW_TBUF (input I, OE, output O);
-	TBUF _TECHMAP_REPLACE_ (.I(I), .O(), .OEN(~OE), .O(O));
+	TBUF _TECHMAP_REPLACE_ (.I(I), .OEN(~OE), .O(O));
 endmodule
 
 module \$lut (A, Y);
