@@ -282,11 +282,12 @@ struct OptMergeWorker
 								RTLIL::SigSpec other_sig = r.first->second->getPort(it.first);
 								log_debug("    Redirecting output %s: %s = %s\n", it.first.c_str(),
 										log_signal(it.second), log_signal(other_sig));
+								Const init = initvals(other_sig);
+								initvals.remove_init(it.second);
+								initvals.remove_init(other_sig);
 								module->connect(RTLIL::SigSig(it.second, other_sig));
 								assign_map.add(it.second, other_sig);
-
-								if (it.first == ID::Q && RTLIL::builtin_ff_cell_types().count(cell->type))
-									initvals.remove_init(it.second);
+								initvals.set_init(other_sig, init);
 							}
 						}
 						log_debug("    Removing %s cell `%s' from module `%s'.\n", cell->type.c_str(), cell->name.c_str(), module->name.c_str());
