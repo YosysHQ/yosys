@@ -340,6 +340,15 @@ module DDRDLLA(
 endmodule
 
 (* blackbox *)
+module DLLDELD(
+	input A, DDRDEL, LOADN, MOVE, DIRECTION,
+	output Z, CFLAG
+);
+	parameter DEL_ADJ = "PLUS";
+	parameter DEL_VAL = 0;
+endmodule
+
+(* blackbox *)
 module CLKDIVF(
 	input CLKI, RST, ALIGNWD,
 	output CDIVX
