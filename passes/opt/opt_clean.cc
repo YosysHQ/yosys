@@ -339,6 +339,7 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 				used_signals_nodrivers.add(it2.second);
 		}
 	}
+	dict<RTLIL::SigBit, RTLIL::State> init_bits;
 	for (auto &it : module->wires_) {
 		RTLIL::Wire *wire = it.second;
 		if (wire->port_id > 0) {
@@ -354,6 +355,29 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 			assign_map.apply(sig);
 			used_signals.add(sig);
 		}
+		auto it2 = wire->attributes.find(ID::init);
+		if (it2 != wire->attributes.end()) {
+			RTLIL::Const &val = it2->second;
+			SigSpec sig = assign_map(wire);
+			for (int i = 0; i < GetSize(val) && i < GetSize(sig); i++)
+				if (val.bits[i] != State::Sx)
+					init_bits[sig[i]] = val.bits[i];
+			wire->attributes.erase(it2);
+		}
+	}
+
+	for (auto wire : module->wires()) {
+		bool found = false;
+		Const val(State::Sx, wire->width);
+		for (int i = 0; i < wire->width; i++) {
+			auto it = init_bits.find(RTLIL::SigBit(wire, i));
+			if (it != init_bits.end()) {
+				val.bits[i] = it->second;
+				found = true;
+			}
+		}
+		if (found)
+			wire->attributes[ID::init] = val;
 	}
 
 	pool<RTLIL::Wire*> del_wires_queue;
