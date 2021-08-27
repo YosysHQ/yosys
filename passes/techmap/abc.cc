@@ -934,7 +934,7 @@ std::string abc_module2name(RTLIL::Module *module, std::string topdir_name)
     size_t idx;
     for (idx = 0; modname[idx] == '-' && idx < modname.length(); idx++) ;
 
-	std::string tempdir_name = topdir_name + "/" + modname.substr(idx, std::string::npos);
+	std::string tempdir_name = topdir_name + "/" + modname.substr(idx, 255);
 	return tempdir_name;
 }
 
