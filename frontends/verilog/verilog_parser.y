@@ -2943,6 +2943,25 @@ gen_stmt:
 		SET_AST_NODE_LOC(ast_stack.back(), @1, @11);
 		ast_stack.pop_back();
 	} |
+		TOK_FOR '(' TOK_GENVAR {
+		astbuf3 = new AstNode(AST_GENVAR);
+		astbuf3->is_reg = true;
+		astbuf3->is_signed = true;
+		astbuf3->range_left = 31;
+		astbuf3->range_right = 0;
+		ast_stack.back()->children.push_back(astbuf3);
+		AstNode *node = new AstNode(AST_GENFOR);
+		ast_stack.back()->children.push_back(node);
+		ast_stack.push_back(node);
+	} simple_behavioral_stmt
+	{
+		astbuf3->str=ast_stack.back()->children.back()->children[0]->str;
+	} ';' expr {
+		ast_stack.back()->children.push_back($8);
+	} ';' simple_behavioral_stmt ')' gen_stmt_block {
+		SET_AST_NODE_LOC(ast_stack.back(), @1, @13);
+		ast_stack.pop_back();
+	} |
 	TOK_IF '(' expr ')' {
 		AstNode *node = new AstNode(AST_GENIF);
 		ast_stack.back()->children.push_back(node);
