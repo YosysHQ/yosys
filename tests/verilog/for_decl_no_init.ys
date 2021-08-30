@@ -1,0 +1,9 @@
+logger -expect error "For loop variable declaration is missing initialization!" 1
+read_verilog -sv <<EOT
+module top;
+    integer z;
+    initial
+        for (integer i; i < 10; i = i + 1)
+            z = i;
+endmodule
+EOT

@@ -2607,6 +2607,53 @@ asgn_binop:
 	TOK_SSHL_ASSIGN { $$ = AST_SHIFT_SLEFT; } |
 	TOK_SSHR_ASSIGN { $$ = AST_SHIFT_SRIGHT; } ;
 
+for_initialization:
+	TOK_ID '=' expr {
+		AstNode *ident = new AstNode(AST_IDENTIFIER);
+		ident->str = *$1;
+		AstNode *node = new AstNode(AST_ASSIGN_EQ, ident, $3);
+		ast_stack.back()->children.push_back(node);
+		SET_AST_NODE_LOC(node, @1, @3);
+	} |
+	non_io_wire_type range TOK_ID {
+		frontend_verilog_yyerror("For loop variable declaration is missing initialization!");
+	} |
+	non_io_wire_type range TOK_ID '=' expr {
+		if (!sv_mode)
+			frontend_verilog_yyerror("For loop inline variable declaration is only supported in SystemVerilog mode!");
+
+		// loop variable declaration
+		AstNode *wire = $1;
+		AstNode *range = checkRange(wire, $2);
+		if (range != nullptr)
+			wire->children.push_back(range);
+		SET_AST_NODE_LOC(wire, @1, @3);
+		SET_AST_NODE_LOC(range, @2, @2);
+
+		AstNode *ident = new AstNode(AST_IDENTIFIER);
+		ident->str = *$3;
+		wire->str = *$3;
+		delete $3;
+
+		AstNode *loop = ast_stack.back();
+		AstNode *parent = ast_stack.at(ast_stack.size() - 2);
+		log_assert(parent->children.back() == loop);
+
+		// loop variable initialization
+		AstNode *asgn = new AstNode(AST_ASSIGN_EQ, ident, $5);
+		loop->children.push_back(asgn);
+		SET_AST_NODE_LOC(asgn, @3, @5);
+		SET_AST_NODE_LOC(ident, @3, @3);
+
+		// inject a wrapping block to declare the loop variable and
+		// contain the current loop
+		AstNode *wrapper = new AstNode(AST_BLOCK);
+		wrapper->str = "$fordecl_block$" + std::to_string(autoidx++);
+		wrapper->children.push_back(wire);
+		wrapper->children.push_back(loop);
+		parent->children.back() = wrapper; // replaces `loop`
+	};
+
 // this production creates the obligatory if-else shift/reduce conflict
 behavioral_stmt:
 	defattr | assert | wire_decl | param_decl | localparam_decl | typedef_decl |
@@ -2667,7 +2714,7 @@ behavioral_stmt:
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 		append_attr(node, $1);
-	} simple_behavioral_stmt ';' expr {
+	} for_initialization ';' expr {
 		ast_stack.back()->children.push_back($7);
 	} ';' simple_behavioral_stmt ')' {
 		AstNode *block = new AstNode(AST_BLOCK);

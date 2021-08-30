@@ -1,0 +1,9 @@
+logger -expect error "For loop inline variable declaration is only supported in SystemVerilog mode!" 1
+read_verilog <<EOT
+module top;
+    integer z;
+    initial
+        for (integer i = 1; i < 10; i = i + 1)
+            z = i;
+endmodule
+EOT
