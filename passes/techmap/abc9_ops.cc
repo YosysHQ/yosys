@@ -797,10 +797,10 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 			continue;
 		if (!cell->parameters.empty())
 		{
-		    // At this stage of the ABC9 flow, all modules must be nonparametric, because ABC itself requires concrete netlists, and the presence of
-		    // parameters implies a non-concrete netlist. This means an (* abc9_box *) parametric module but due to a bug somewhere this hasn't been
-		    // uniquified into a concrete parameter-free module. This is a bug, and a bug report would be welcomed.
-		    log_error("Not expecting parameters on module '%s'  marked (* abc9_box *)\n", log_id(cell_name));
+			// At this stage of the ABC9 flow, all modules must be nonparametric, because ABC itself requires concrete netlists, and the presence of
+			// parameters implies a non-concrete netlist. This means an (* abc9_box *) parametric module but due to a bug somewhere this hasn't been
+			// uniquified into a concrete parameter-free module. This is a bug, and a bug report would be welcomed.
+			log_error("Not expecting parameters on cell '%s' instantiating module '%s' marked (* abc9_box *)\n", log_id(cell_name), log_id(cell->type));
 		}
 		log_assert(box_module->get_blackbox_attribute());
 
