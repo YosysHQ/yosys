@@ -796,7 +796,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 		auto &holes_cell = r.first->second;
 		if (r.second) {
 			if (box_module->get_bool_attribute(ID::whitebox)) {
-				holes_cell = holes_module->addCell(cell->name, cell->type);
+				holes_cell = holes_module->addCell(NEW_ID, cell->type);
 
 				if (box_module->has_processes())
 					Pass::call_on_module(design, box_module, "proc");
