@@ -289,8 +289,10 @@ struct Abc9Pass : public ScriptPass
 			run("scc -specify -set_attr abc9_scc_id {}");
 			if (help_mode)
 				run("abc9_ops -prep_bypass [-prep_dff]", "(option if -dff)");
-			else
+			else {
+				active_design->scratchpad_unset("abc9_ops.prep_bypass.did_something");
 				run(stringf("abc9_ops -prep_bypass %s", dff_mode ? "-prep_dff" : ""));
+			}
 			if (dff_mode) {
 				run("design -copy-to $abc9_map @$abc9_flops", "(only if -dff)");
 				run("select -unset $abc9_flops", "             (only if -dff)");
@@ -450,9 +452,9 @@ struct Abc9Pass : public ScriptPass
 			run("design -delete $abc9_unmap");
 			if (saved_designs.count("$abc9_holes") || help_mode)
 				run("design -delete $abc9_holes");
-                        run("delete =*_$abc9_byp");
-                        run("setattr -mod -unset abc9_box_id");
-
+			if (help_mode || active_design->scratchpad_get_bool("abc9_ops.prep_bypass.did_something"))
+				run("delete =*_$abc9_byp");
+			run("setattr -mod -unset abc9_box_id");
 		}
 	}
 } Abc9Pass;
