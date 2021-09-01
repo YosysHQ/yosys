@@ -935,6 +935,7 @@ struct FirrtlWorker
 				register_reverse_wire_map(y_id, cell->getPort(ID::Y));
 				continue;
 			}
+
 			if (cell->type == ID($shift)) {
 				// assign y = a >> b;
 				//  where b may be negative
@@ -961,6 +962,7 @@ struct FirrtlWorker
 				register_reverse_wire_map(y_id, cell->getPort(ID::Y));
 				continue;
 			}
+
 			if (cell->type == ID($pos)) {
 				// assign y = a;
 //				printCell(cell);
@@ -975,6 +977,19 @@ struct FirrtlWorker
 				register_reverse_wire_map(y_id, cell->getPort(ID::Y));
 				continue;
 			}
+
+      if (cell->type == ID($lut)) {
+				// Firrtl does not have a direct LUT cell, so we emit such operations as the LUT equation
+				// shifted by the concatenation of its inputs.
+				string lut_equation = make_expr(cell->parameters.at(ID::LUT));
+				string shift_amount = make_expr(cell->getPort(ID::A));
+
+				wire_decls.push_back(stringf("%swire %s: UInt<1>\n", indent.c_str(), y_id.c_str()));
+				cell_exprs.push_back(stringf("%s%s <= bits(dshr(%s, %s), 0, 0) %s\n", indent.c_str(), y_id.c_str(), lut_equation.c_str(), shift_amount.c_str(), cellFileinfo.c_str()));
+				register_reverse_wire_map(y_id, cell->getPort(ID::Y));
+				continue;
+      }
+
 			log_error("Cell type not supported: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
 		}
 
