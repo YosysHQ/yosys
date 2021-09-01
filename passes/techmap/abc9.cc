@@ -450,6 +450,9 @@ struct Abc9Pass : public ScriptPass
 			run("design -delete $abc9_unmap");
 			if (saved_designs.count("$abc9_holes") || help_mode)
 				run("design -delete $abc9_holes");
+                        run("delete =*_$abc9_byp");
+                        run("setattr -mod -unset abc9_box_id");
+
 		}
 	}
 } Abc9Pass;
