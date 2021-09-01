@@ -1,0 +1,7 @@
+logger -expect error "Generate for loop inline variable declaration is only supported in SystemVerilog mode!" 1
+read_verilog <<EOT
+module top;
+    for (genvar i = 1; i < 10; i = i + 1)
+        wire x;
+endmodule
+EOT

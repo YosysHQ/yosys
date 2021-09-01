@@ -1,0 +1,7 @@
+logger -expect error "Generate for loop variable declaration is missing initialization!" 1
+read_verilog -sv <<EOT
+module top;
+    for (genvar i; i < 10; i = i + 1)
+        wire x;
+endmodule
+EOT
