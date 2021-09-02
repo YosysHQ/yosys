@@ -1313,7 +1313,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		if (ret != 0)
 			log_error("ABC: execution of command \"%s\" failed: return code %d.\n", buffer.c_str(), ret);
 
-		abc_reintegrate(design, current_module, liberty_files, sop_mode, tempdir_name);
+		abc_reintegrate(design, module, liberty_files, sop_mode, tempdir_name);
 	}
 }
 
@@ -2087,6 +2087,87 @@ struct AbcPass : public Pass {
 	}
 } AbcPass;
 
+void abc_module_reint(RTLIL::Design *design, RTLIL::Module *current_module, 
+		std::vector<std::string> &liberty_files, bool dff_mode, std::string clk_str,
+		bool keepff, const std::vector<RTLIL::Cell *> &cells, bool sop_mode, std::string abc_dir)
+{
+	module = current_module;
+	// map_autoidx = autoidx++;
+
+	signal_map.clear();
+	signal_list.clear();
+	pi_map.clear();
+	po_map.clear();
+	recover_init = false;
+
+	if (clk_str != "$") {
+		clk_polarity = true;
+		clk_sig = RTLIL::SigSpec();
+
+		en_polarity = true;
+		en_sig = RTLIL::SigSpec();
+	}
+
+	if (!clk_str.empty() && clk_str != "$") {
+		if (clk_str.find(',') != std::string::npos) {
+			int pos = clk_str.find(',');
+			std::string en_str = clk_str.substr(pos + 1);
+			clk_str = clk_str.substr(0, pos);
+			if (en_str[0] == '!') {
+				en_polarity = false;
+				en_str = en_str.substr(1);
+			}
+			if (module->wire(RTLIL::escape_id(en_str)) != nullptr)
+				en_sig = assign_map(module->wire(RTLIL::escape_id(en_str)));
+		}
+		if (clk_str[0] == '!') {
+			clk_polarity = false;
+			clk_str = clk_str.substr(1);
+		}
+		if (module->wire(RTLIL::escape_id(clk_str)) != nullptr)
+			clk_sig = assign_map(module->wire(RTLIL::escape_id(clk_str)));
+	}
+
+	if (dff_mode && clk_sig.empty())
+		log_cmd_error("Clock domain %s not found.\n", clk_str.c_str());
+
+	if (dff_mode || !clk_str.empty()) {
+		if (clk_sig.size() == 0)
+			log("No%s clock domain found. Not extracting any FF cells.\n", clk_str.empty() ? "" : " matching");
+		else {
+			log("Found%s %s clock domain: %s", clk_str.empty() ? "" : " matching", clk_polarity ? "posedge" : "negedge",
+			    log_signal(clk_sig));
+			if (en_sig.size() != 0)
+				log(", enabled by %s%s", en_polarity ? "" : "!", log_signal(en_sig));
+			log("\n");
+		}
+	}
+
+	for (auto c : cells)
+		extract_cell(c, keepff);
+
+	for (auto wire : module->wires()) {
+		if (wire->port_id > 0 || wire->get_bool_attribute(ID::keep))
+			mark_port(wire);
+	}
+
+	for (auto cell : module->cells())
+		for (auto &port_it : cell->connections())
+			mark_port(port_it.second);
+
+	if (clk_sig.size() != 0)
+		mark_port(clk_sig);
+
+	if (en_sig.size() != 0)
+		mark_port(en_sig);
+
+	handle_loops();
+    std::string moddir_name;
+    moddir_name = abc_module2name(module, abc_dir);
+	abc_reintegrate(design, module, liberty_files, sop_mode, moddir_name);
+}
+
+
 struct AbcReintegratePass : public Pass {
 	AbcReintegratePass() : Pass("abc-reint", "Reintegrate a mapped module into the current design") {}
 	void help() override
@@ -2106,9 +2187,9 @@ struct AbcReintegratePass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		log_header(design, "Executing Reintegrate pass.\n");
+		log_header(design, "Executing ABC reintegrate pass.\n");
 		log_push();
-        
+
 		assign_map.clear();
 		signal_list.clear();
 		signal_map.clear();
@@ -2116,23 +2197,66 @@ struct AbcReintegratePass : public Pass {
 		pi_map.clear();
 		po_map.clear();
 
+		std::string default_liberty_file, clk_str;
 		std::vector<std::string> liberty_files;
+        std::string abc_dir = "";
+        
+		bool dff_mode = false, keepff = false;
 		bool sop_mode = false;
+
+		enabled_gates.clear();
+
+		default_liberty_file = design->scratchpad_get_string("abc.liberty", default_liberty_file);
+		sop_mode = design->scratchpad_get_bool("abc.sop", sop_mode);
+
+		dff_mode = design->scratchpad_get_bool("abc.dff", dff_mode);
+		if (design->scratchpad.count("abc.clk")) {
+			clk_str = design->scratchpad_get_string("abc.clk");
+			dff_mode = true;
+		}
+		keepff = design->scratchpad_get_bool("abc.keepff", keepff);
+
 		size_t argidx;
-		std::string abc_dir = "", tempdir_name = "";
+
+#if defined(__wasm)
+		const char *pwd = ".";
+#else
+		char pwd[PATH_MAX];
+		if (!getcwd(pwd, sizeof(pwd))) {
+			log_cmd_error("getcwd failed: %s\n", strerror(errno));
+			log_abort();
+		}
+#endif
 
         abc_dir = design->scratchpad_get_string("abc.dir");
-        
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];
 			if (arg == "-liberty" && argidx + 1 < args.size()) {
 				liberty_files.push_back(args[++argidx]);
 				continue;
 			}
-			if (arg == "-abc_dir" && argidx + 1 < args.size()) {
+			if (arg == "-sop") {
+				sop_mode = true;
+				continue;
+			}
+			if (arg == "-dff") {
+				dff_mode = true;
+				continue;
+			}
+			if (arg == "-clk" && argidx + 1 < args.size()) {
+				clk_str = args[++argidx];
+				dff_mode = true;
+				continue;
+			}
+			if (arg == "-keepff") {
+				keepff = true;
+				continue;
+			}
+			if (arg == "-abc_dir") {
 				abc_dir = args[++argidx];
 				continue;
 			}
+			break;
 		}
 		extra_args(args, argidx, design);
 
@@ -2140,10 +2264,168 @@ struct AbcReintegratePass : public Pass {
     	   log_error("An ABC work directory must be specified\n");
 		}
 
+
+		if (liberty_files.empty() && !default_liberty_file.empty())
+			liberty_files.push_back(default_liberty_file);
+
+		for (int i = 0; i < GetSize(liberty_files); i++) {
+			rewrite_filename(liberty_files[i]);
+			if (!liberty_files[i].empty() && !is_absolute_path(liberty_files[i]))
+				liberty_files[i] = std::string(pwd) + "/" + liberty_files[i];
+		}
+
+
 		for (auto mod : design->selected_modules()) {
-			log_header(design, "\nReintegrating %s\n", mod->name.c_str());
-			tempdir_name = abc_module2name(mod, abc_dir);
-			abc_reintegrate(design, mod, liberty_files, sop_mode, tempdir_name);
+			if (mod->processes.size() > 0) {
+				log("Skipping module %s as it contains processes.\n", log_id(mod));
+				continue;
+			}
+
+			assign_map.set(mod);
+			initvals.set(&assign_map, mod);
+
+			if (!dff_mode || !clk_str.empty()) {
+				abc_module_reint(design, mod, liberty_files, dff_mode, clk_str, keepff,
+					   mod->selected_cells(), sop_mode, abc_dir);
+					   
+				continue;
+			}
+
+			CellTypes ct(design);
+
+			std::vector<RTLIL::Cell *> all_cells = mod->selected_cells();
+			std::set<RTLIL::Cell *> unassigned_cells(all_cells.begin(), all_cells.end());
+
+			std::set<RTLIL::Cell *> expand_queue, next_expand_queue;
+			std::set<RTLIL::Cell *> expand_queue_up, next_expand_queue_up;
+			std::set<RTLIL::Cell *> expand_queue_down, next_expand_queue_down;
+
+			typedef tuple<bool, RTLIL::SigSpec, bool, RTLIL::SigSpec> clkdomain_t;
+			std::map<clkdomain_t, std::vector<RTLIL::Cell *>> assigned_cells;
+			std::map<RTLIL::Cell *, clkdomain_t> assigned_cells_reverse;
+
+			std::map<RTLIL::Cell *, std::set<RTLIL::SigBit>> cell_to_bit, cell_to_bit_up, cell_to_bit_down;
+			std::map<RTLIL::SigBit, std::set<RTLIL::Cell *>> bit_to_cell, bit_to_cell_up, bit_to_cell_down;
+
+			for (auto cell : all_cells) {
+				clkdomain_t key;
+
+				for (auto &conn : cell->connections())
+					for (auto bit : conn.second) {
+						bit = assign_map(bit);
+						if (bit.wire != nullptr) {
+							cell_to_bit[cell].insert(bit);
+							bit_to_cell[bit].insert(cell);
+							if (ct.cell_input(cell->type, conn.first)) {
+								cell_to_bit_up[cell].insert(bit);
+								bit_to_cell_down[bit].insert(cell);
+							}
+							if (ct.cell_output(cell->type, conn.first)) {
+								cell_to_bit_down[cell].insert(bit);
+								bit_to_cell_up[bit].insert(cell);
+							}
+						}
+					}
+
+				if (cell->type.in(ID($_DFF_N_), ID($_DFF_P_))) {
+					key = clkdomain_t(cell->type == ID($_DFF_P_), assign_map(cell->getPort(ID::C)), true, RTLIL::SigSpec());
+				} else if (cell->type.in(ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_))) {
+					bool this_clk_pol = cell->type.in(ID($_DFFE_PN_), ID($_DFFE_PP_));
+					bool this_en_pol = cell->type.in(ID($_DFFE_NP_), ID($_DFFE_PP_));
+					key =
+					  clkdomain_t(this_clk_pol, assign_map(cell->getPort(ID::C)), this_en_pol, assign_map(cell->getPort(ID::E)));
+				} else
+					continue;
+
+				unassigned_cells.erase(cell);
+				expand_queue.insert(cell);
+				expand_queue_up.insert(cell);
+				expand_queue_down.insert(cell);
+
+				assigned_cells[key].push_back(cell);
+				assigned_cells_reverse[cell] = key;
+			}
+
+			while (!expand_queue_up.empty() || !expand_queue_down.empty()) {
+				if (!expand_queue_up.empty()) {
+					RTLIL::Cell *cell = *expand_queue_up.begin();
+					clkdomain_t key = assigned_cells_reverse.at(cell);
+					expand_queue_up.erase(cell);
+
+					for (auto bit : cell_to_bit_up[cell])
+						for (auto c : bit_to_cell_up[bit])
+							if (unassigned_cells.count(c)) {
+								unassigned_cells.erase(c);
+								next_expand_queue_up.insert(c);
+								assigned_cells[key].push_back(c);
+								assigned_cells_reverse[c] = key;
+								expand_queue.insert(c);
+							}
+				}
+
+				if (!expand_queue_down.empty()) {
+					RTLIL::Cell *cell = *expand_queue_down.begin();
+					clkdomain_t key = assigned_cells_reverse.at(cell);
+					expand_queue_down.erase(cell);
+
+					for (auto bit : cell_to_bit_down[cell])
+						for (auto c : bit_to_cell_down[bit])
+							if (unassigned_cells.count(c)) {
+								unassigned_cells.erase(c);
+								next_expand_queue_up.insert(c);
+								assigned_cells[key].push_back(c);
+								assigned_cells_reverse[c] = key;
+								expand_queue.insert(c);
+							}
+				}
+
+				if (expand_queue_up.empty() && expand_queue_down.empty()) {
+					expand_queue_up.swap(next_expand_queue_up);
+					expand_queue_down.swap(next_expand_queue_down);
+				}
+			}
+
+			while (!expand_queue.empty()) {
+				RTLIL::Cell *cell = *expand_queue.begin();
+				clkdomain_t key = assigned_cells_reverse.at(cell);
+				expand_queue.erase(cell);
+
+				for (auto bit : cell_to_bit.at(cell)) {
+					for (auto c : bit_to_cell[bit])
+						if (unassigned_cells.count(c)) {
+							unassigned_cells.erase(c);
+							next_expand_queue.insert(c);
+							assigned_cells[key].push_back(c);
+							assigned_cells_reverse[c] = key;
+						}
+					bit_to_cell[bit].clear();
+				}
+
+				if (expand_queue.empty())
+					expand_queue.swap(next_expand_queue);
+			}
+
+			clkdomain_t key(true, RTLIL::SigSpec(), true, RTLIL::SigSpec());
+			for (auto cell : unassigned_cells) {
+				assigned_cells[key].push_back(cell);
+				assigned_cells_reverse[cell] = key;
+			}
+
+			log_header(design, "Summary of detected clock domains:\n");
+			for (auto &it : assigned_cells)
+				log("  %d cells in clk=%s%s, en=%s%s\n", GetSize(it.second), std::get<0>(it.first) ? "" : "!",
+				    log_signal(std::get<1>(it.first)), std::get<2>(it.first) ? "" : "!", log_signal(std::get<3>(it.first)));
+
+			for (auto &it : assigned_cells) {
+				clk_polarity = std::get<0>(it.first);
+				clk_sig = assign_map(std::get<1>(it.first));
+				en_polarity = std::get<2>(it.first);
+				en_sig = assign_map(std::get<3>(it.first));
+
+                abc_module_reint(design, mod, liberty_files, !clk_sig.empty(), "$", keepff,
+  					             it.second, sop_mode, abc_dir);
+				assign_map.set(mod);
+			}
 		}
 
 		assign_map.clear();
