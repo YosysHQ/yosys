@@ -452,9 +452,10 @@ void prep_dff(RTLIL::Design *design)
 			log_assert(!inst_module->get_blackbox_attribute(true /* ignore_wb */));
 			if (!cell->parameters.empty())
 			{
-				// At this stage of the ABC9 flow, all modules must be nonparametric, because ABC itself requires concrete netlists, and the presence of
-				// parameters implies a non-concrete netlist. This means an (* abc9_flop *) parametric module but due to a bug somewhere this hasn't been
-				// uniquified into a concrete parameter-free module. This is a bug, and a bug report would be welcomed.
+				// At this stage of the ABC9 flow, cells instantiating (* abc9_flop *) modules must not contain any parameters -- instead it should
+				// be instantiating the derived module which will have had any parameters constant-propagated.
+				// This task is expected to be performed by `abc9_ops -prep_hier`, but it looks like it failed to do so for this design.
+				// Please file a bug report!
 				log_error("Not expecting parameters on cell '%s' instantiating module '%s' marked (* abc9_flop *)\n", log_id(cell->name), log_id(cell->type));
 			}
 			modules_sel.select(inst_module);
@@ -797,9 +798,10 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 			continue;
 		if (!cell->parameters.empty())
 		{
-			// At this stage of the ABC9 flow, all modules must be nonparametric, because ABC itself requires concrete netlists, and the presence of
-			// parameters implies a non-concrete netlist. This means an (* abc9_box *) parametric module but due to a bug somewhere this hasn't been
-			// uniquified into a concrete parameter-free module. This is a bug, and a bug report would be welcomed.
+			// At this stage of the ABC9 flow, cells instantiating (* abc9_box *) modules must not contain any parameters -- instead it should
+			// be instantiating the derived module which will have had any parameters constant-propagated.
+			// This task is expected to be performed by `abc9_ops -prep_hier`, but it looks like it failed to do so for this design.
+			// Please file a bug report!
 			log_error("Not expecting parameters on cell '%s' instantiating module '%s' marked (* abc9_box *)\n", log_id(cell_name), log_id(cell->type));
 		}
 		log_assert(box_module->get_blackbox_attribute());
