@@ -55,6 +55,9 @@ struct ChformalPass : public Pass {
 		log("    -skip <N>\n");
 		log("        ignore activation of the constraint in the first <N> clock cycles\n");
 		log("\n");
+		log("    -coverprecond\n");
+		log("        add a cover statement for the precondition (enable signal) of the cells\n");
+		log("\n");
 		log("    -assert2assume\n");
 		log("    -assume2assert\n");
 		log("    -live2fair\n");
@@ -112,6 +115,10 @@ struct ChformalPass : public Pass {
 			if (mode == 0 && args[argidx] == "-skip" && argidx+1 < args.size()) {
 				mode = 's';
 				mode_arg = atoi(args[++argidx].c_str());
+				continue;
+			}
+			if (mode == 0 && args[argidx] == "-coverprecond") {
+				mode = 'p';
 				continue;
 			}
 			if ((mode == 0 || mode == 'c') && args[argidx] == "-assert2assume") {
@@ -261,6 +268,13 @@ struct ChformalPass : public Pass {
 
 				for (auto cell : constr_cells)
 					cell->setPort(ID::EN, module->LogicAnd(NEW_ID, en, cell->getPort(ID::EN)));
+			}
+			else
+			if (mode =='p')
+			{
+				for (auto cell : constr_cells)
+					module->addCover(NEW_ID, cell->getPort(ID::EN), State::S1,
+						"$auto$coverprecond$" + cell->get_src_attribute());
 			}
 			else
 			if (mode == 'c')
