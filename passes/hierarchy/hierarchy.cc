@@ -39,6 +39,9 @@ struct generate_port_decl_t {
 	int index;
 };
 
+typedef std::set<RTLIL::Module*, IdString::compare_ptr_by_name<Module>> module_set_t;
+typedef std::vector<RTLIL::Module *> module_vec_t;
+
 void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, const std::vector<generate_port_decl_t> &portdecls)
 {
 	std::set<RTLIL::IdString> found_celltypes;
@@ -595,32 +598,87 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 	return did_something;
 }
 
-void hierarchy_worker(RTLIL::Design *design, std::set<RTLIL::Module*, IdString::compare_ptr_by_name<Module>> &used, RTLIL::Module *mod, int indent)
+// Walk the hierarchy from mod, adding modules that have been seen to used_set
+// and used_vec (if non-null)
+//
+// If verbose is true, this prints log messages to allow a nice hierarchical
+// view (using the indent argument to control indentation).
+//
+// used_set must be non-null and every module that appears below mod in the
+// design hierarchy (including mod itself) will be added to it.
+//
+// If used_vec is not null, modules that haven't yet been seen will be added to
+// it, top to bottom. The end result is that the entries of used_vec will be
+// topologically sorted so that if module A appears below module B in the
+// instantiation tree then A will come before B in the vector (a "bottom-up"
+// traversal).
+static void
+hierarchy_worker(RTLIL::Design &design,
+                 RTLIL::Module &mod,
+                 bool           verbose,
+                 int            indent,
+                 module_set_t  *used_set,
+                 module_vec_t  *used_vec)
 {
-	if (used.count(mod) > 0)
+	log_assert(used_set);
+
+	if (used_set->count(&mod) > 0)
 		return;
+	used_set->insert(&mod);
 
-	if (indent == 0)
-		log("Top module:  %s\n", mod->name.c_str());
-	else if (!mod->get_blackbox_attribute())
-		log("Used module: %*s%s\n", indent, "", mod->name.c_str());
-	used.insert(mod);
+	if (verbose) {
+		if (indent == 0)
+			log("Top module:  %s\n", mod.name.c_str());
+		else if (!mod.get_blackbox_attribute())
+			log("Used module: %*s%s\n", indent, "", mod.name.c_str());
+	}
 
-	for (auto cell : mod->cells()) {
+	for (auto cell : mod.cells()) {
 		std::string celltype = cell->type.str();
 		if (celltype.compare(0, strlen("$array:"), "$array:") == 0)
 			celltype = basic_cell_type(celltype);
-		if (design->module(celltype))
-			hierarchy_worker(design, used, design->module(celltype), indent+4);
+
+		RTLIL::Module *cellmod = design.module(celltype);
+		if (cellmod)
+			hierarchy_worker(design, *cellmod, verbose, indent + 4,
+			                 used_set, used_vec);
 	}
+
+	if (used_vec) used_vec->push_back(&mod);
+}
+
+// Return a topologically sorted vector of the modules in the design.
+//
+// The returned list is sorted so that if module A appears below module B in
+// the instantiation tree then A will come before B in the vector (a
+// "bottom-up" traversal).
+//
+// If top_mod is non-null, the function returns all modules instantiated below
+// top_mod (including top_mod itself). Otherwise, it returns all modules in the
+// design.
+static module_vec_t
+toposort_modules(RTLIL::Design &design, RTLIL::Module *top_mod)
+{
+	module_set_t set;
+	module_vec_t vec;
+
+	if (top_mod) {
+		log_header(&design, "Analyzing design hierarchy..\n");
+		hierarchy_worker(design, *top_mod, true, 0, &set, &vec);
+	} else {
+		for (auto mod : design.modules())
+			hierarchy_worker(design, *mod, false, 0, &set, &vec);
+	}
+
+	return vec;
 }
 
 void hierarchy_clean(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib)
 {
-	std::set<RTLIL::Module*, IdString::compare_ptr_by_name<Module>> used;
-	hierarchy_worker(design, used, top, 0);
+	module_set_t used;
+	hierarchy_worker(*design, *top, true, 0, &used, nullptr);
 
-	std::vector<RTLIL::Module*> del_modules;
+	module_vec_t del_modules;
 	for (auto mod : design->modules())
 		if (used.count(mod) == 0)
 			del_modules.push_back(mod);
@@ -722,20 +780,10 @@ expand_design(RTLIL::Design &design,
               bool flag_simcheck,
               const std::vector<std::string> &libdirs)
 {
-	int iters;
-	for (iters = 0; ; ++iters) {
+	for (;;) {
 		bool did_something = false;
 
-		std::set<RTLIL::Module*, IdString::compare_ptr_by_name<Module>> used_modules;
-		if (*top_mod) {
-			log_header(&design, "Analyzing design hierarchy..\n");
-			hierarchy_worker(&design, used_modules, *top_mod, 0);
-		} else {
-			for (auto mod : design.modules())
-				used_modules.insert(mod);
-		}
-
-		for (auto module : used_modules) {
+		for (auto module : toposort_modules(design, *top_mod)) {
 			if (expand_module(&design, module, flag_check, flag_simcheck, libdirs))
 				did_something = true;
 		}
@@ -749,7 +797,7 @@ expand_design(RTLIL::Design &design,
 		}
 
 		// Delete modules marked as 'to_delete':
-		std::vector<RTLIL::Module *> modules_to_delete;
+		module_vec_t modules_to_delete;
 		for(auto mod : design.modules()) {
 			if (mod->get_bool_attribute(ID::to_delete)) {
 				modules_to_delete.push_back(mod);
@@ -1001,7 +1049,7 @@ insert_binding(RTLIL::Design               &design,
 
 	// If neither of these worked, search for a module by name. Note that
 	// this takes no account of design hierarchy.
-	std::vector<RTLIL::Module *> mods = binding.find_concrete_module_targets(design);
+	module_vec_t mods = binding.find_concrete_module_targets(design);
 	if (!mods.empty()) {
 		// We can add the binding directly to the module, operating in place.
 		bool did_something = false;
@@ -1092,7 +1140,7 @@ static bool insert_bindings(RTLIL::Design &design, RTLIL::Module **top_mod)
 	// container) and then iterate until done.
 	for (;;) {
 		bool bound_module = false;
-		std::vector<RTLIL::Module *> mods = design.modules();
+		module_vec_t mods = design.modules();
 		for (RTLIL::Module *mod : mods) {
 			for (RTLIL::Binding *binding : mod->bindings_)
 				bound_something |=
