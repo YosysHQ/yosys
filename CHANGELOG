@@ -8,14 +8,17 @@ Yosys 0.9 .. Yosys 0.9-dev
 
  * Various
     - Added "write_xaiger" backend
+    - Added "read_xaiger"
     - Added "abc9" pass for timing-aware techmapping (experimental, FPGA only)
     - Added "synth_xilinx -abc9" (experimental)
     - Added "synth_ice40 -abc9" (experimental)
+    - Added "synth_ecp5 -abc9" (experimental)
     - Added "synth -abc9" (experimental)
     - Added "script -scriptwire"
     - Added "synth_xilinx -nocarry"
     - Added "synth_xilinx -nowidelut"
     - Added "synth_ecp5 -nowidelut"
+    - Added "synth_ice40 -device"
     - "synth_xilinx" to now infer wide multiplexers (-widemux <min> to enable)
     - Renamed labels/options in synth_ice40 (e.g. dram -> map_lutram; -nodram -> -nolutram)
     - Renamed labels/options in synth_ecp5 (e.g. dram -> map_lutram; -nodram -> -nolutram)
@@ -31,9 +34,14 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Added "synth_xilinx -family xc6s" for Spartan 6 support (experimental)
     - Added "synth_xilinx -ise" (experimental)
     - Added "synth_xilinx -iopad"
+    - Added "proc_clean -quiet"
+    - Added "proc_prune" pass
+    - Added "stat -tech cmos"
     - "synth_xilinx" now automatically inserts clock buffers (add -noclkbuf to disable)
     - Improvements in pmgen: subpattern and recursive matches
     - Added "opt_share" pass, run as part of "opt -full"
+    - Support explicit FIRRTL properties
+    - Added initial EFINIX support
     - Added "ice40_wrapcarry" to encapsulate SB_LUT+SB_CARRY pairs for techmapping
     - Removed "ice40_unlut"
     - Improvements in pmgen: slices, choices, define, generate
@@ -41,8 +49,11 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Removed "shregmap -tech xilinx" (superseded by "xilinx_srl")
     - Added "_TECHMAP_WIREINIT_*_" parameter and "_TECHMAP_REMOVEINIT_*_" wire for "techmap" pass
     - Added "-match-init" option to "dff2dffs" pass
+    - Added equiv_opt -multiclock
     - Added "techmap_autopurge" support to techmap
     - Added "add -mod <modname[s]>"
+    - Added "paramap" pass
+    - Added "portlist" command
     - Added +/mul2dsp.v for decomposing wide multipliers to custom-sized ones
     - Added "ice40_dsp" for Lattice iCE40 DSP packing
     - Added "xilinx_dsp" for Xilinx DSP packing
@@ -52,23 +63,71 @@ Yosys 0.9 .. Yosys 0.9-dev
     - Added latch support to synth_xilinx
     - Added support for flip-flops with synchronous reset to synth_xilinx
     - Added support for flip-flops with reset and enable to synth_xilinx
+    - Added new frontend: rpc
     - Added "check -mapped"
+    - Added "check -allow-tbuf"
+    - Added "verific -L"
+    - Added "autoname" pass 
+    - Added "write_verilog -extmem"
     - Added checking of SystemVerilog always block types (always_comb,
       always_latch and always_ff)
     - Added support for SystemVerilog wildcard port connections (.*)
+    - Add Verific SVA support for "always" properties
+    - Improve handling of verific primitives in "verific -import -V" mode
+    - Add Verific support for SVA nexttime properties
+    - Added "opt_mem" pass
     - Added "xilinx_dffopt" pass
+    - synth_intel: cyclone10 -> cyclone10lp, a10gx -> arria10gx
     - Added "scratchpad" pass
     - Added "synth_xilinx -dff"
+    - Added --version and -version as aliases for -V
+    - Added "fminit" pass
+    - Added support for SystemVerilog enum typedefs
+    - Improve yosys-smtbmc "solver not found" handling
     - Improved support of $readmem[hb] Memory Content File inclusion
     - Added "opt_lut_ins" pass
     - Added "logger" pass
+    - Added "show -nobg"
+    - coolrunner2: Separate and improve buffer cell insertion pass
+    - coolrunner2: Use extract_counter to optimize counters
+    - Added "exec" command
     - Added "design -delete"
+    - Added "design -push-copy"
+    - Added "qbfsat" command
+    - Added CXXRTL backend
+    - synth_intel_alm: alternative synthesis for Intel FPGAs
     - Added "select -unset"
     - Use YosysHQ/abc instead of upstream berkeley-abc/abc
+    - Verific: import attributes for wires
+    - Verific: support VHDL enums
+    - Added WASI platform support.
+    - Added extmodule support to firrtl backend
+    - Added SystemVerilog support for structs and packed unions.
     - Added $divfloor and $modfloor cells
     - Added $adffe, $dffsre, $sdff, $sdffe, $sdffce, $adlatch cells
+    - Added SystemVerilog support for static cast
+    - Allow constant function calls in for loops and generate if and case
     - Added "dfflegalize" pass
+    - Added SystemVerilog support for logic typed parameters
     - Added "_TECHMAP_CELLNAME_" parameter for "techmap" pass
+    - Added "intel_alm -abc9" (experimental)
+    - Added firrtl backend support for generic parameters in blackbox components
+    - Removed "opt_expr -clkinv" option, made it the default
+    - SystemVerilog: Fixed generate scoping issues
+    - SystemVerilog: Added support for real-valued parameters
+    - SystemVerilog: Allow localparams in constant functions
+    - SystemVerilog: Module name scope support
+    - Added "proc -nomux
+    - Added initial Nexus support
+    - SystemVerilog: support recursive functions using ternary expressions
+    - Added initial MachXO2 support
+    - SystemVerilog: extended support for integer types
+    - SystemVerilog: support for parameters without default values
+    - SystemVerilog: allow globals in one file to depend on globals in another
+    - Added initial QuickLogic PolarPro 3 support
+    - SystemVerilog: Added support for: *=, /=, %=, <<=, >>=, <<<=, >>>=
+    - Verific: Added support for command files
+    - SystemVerilog: Added support for parsing the SystemVerilog 'bind' construct
     - Merged "dffsr2dff", "opt_rmdff", "dff2dffe", "dff2dffs", "peepopt.dffmux" passes into a new "opt_dff" pass
     - Added $meminit_v2 cells (with support for write mask)
     - Added $mem_v2, $memrd_v2, $memwr_v2, with the following features:
@@ -76,6 +135,9 @@ Yosys 0.9 .. Yosys 0.9-dev
       - transparency and undefined collision behavior masks, per read/write port pair
       - read port reset and initialization
       - wide ports (accessing a naturally aligned power-of-two number of memory cells)
+    - SystemVerilog: support declaration in procedural for initialization
+    - SystemVerilog: support declaration in generate for initialization
+
 
 Yosys 0.8 .. Yosys 0.9
 ----------------------
