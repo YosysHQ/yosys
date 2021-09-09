@@ -432,6 +432,8 @@ void prep_bypass(RTLIL::Design *design)
 				}
 			}
 			unmap_module->fixup_ports();
+
+			design->scratchpad_set_bool("abc9_ops.prep_bypass.did_something", true);
 		}
 }
 
@@ -942,15 +944,8 @@ void prep_box(RTLIL::Design *design)
 {
 	TimingInfo timing;
 
-	std::stringstream ss;
 	int abc9_box_id = 1;
-	for (auto module : design->modules()) {
-		auto it = module->attributes.find(ID::abc9_box_id);
-		if (it == module->attributes.end())
-			continue;
-		abc9_box_id = std::max(abc9_box_id, it->second.as_int());
-	}
-
+	std::stringstream ss;
 	dict<IdString,std::vector<IdString>> box_ports;
 	for (auto module : design->modules()) {
 		auto it = module->attributes.find(ID::abc9_box);
