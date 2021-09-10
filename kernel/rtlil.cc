@@ -1753,7 +1753,7 @@ void RTLIL::Module::check()
 		log_assert(!it.second->type.empty());
 		for (auto &it2 : it.second->connections()) {
 			log_assert(!it2.first.empty());
-			it2.second.check();
+			it2.second.check(this);
 		}
 		for (auto &it2 : it.second->attributes)
 			log_assert(!it2.first.empty());
@@ -1799,8 +1799,8 @@ void RTLIL::Module::check()
 	for (auto &it : connections_) {
 		log_assert(it.first.size() == it.second.size());
 		log_assert(!it.first.has_const());
-		it.first.check();
-		it.second.check();
+		it.first.check(this);
+		it.second.check(this);
 	}
 
 	for (auto &it : attributes)
@@ -4130,7 +4130,7 @@ RTLIL::SigSpec RTLIL::SigSpec::repeat(int num) const
 }
 
 #ifndef NDEBUG
-void RTLIL::SigSpec::check() const
+void RTLIL::SigSpec::check(Module *mod) const
 {
 	if (width_ > 64)
 	{
@@ -4156,6 +4156,8 @@ void RTLIL::SigSpec::check() const
 				log_assert(chunk.width >= 0);
 				log_assert(chunk.offset + chunk.width <= chunk.wire->width);
 				log_assert(chunk.data.size() == 0);
+				if (mod != nullptr)
+					log_assert(chunk.wire->module == mod);
 			}
 			w += chunk.width;
 		}
@@ -4165,6 +4167,12 @@ void RTLIL::SigSpec::check() const
 	else
 	{
 		cover("kernel.rtlil.sigspec.check.unpacked");
+
+		if (mod != nullptr) {
+			for (size_t i = 0; i < bits_.size(); i++)
+				if (bits_[i].wire != nullptr)
+					log_assert(bits_[i].wire->module == mod);
+		}
 
 		log_assert(width_ == GetSize(bits_));
 		log_assert(chunks_.empty());

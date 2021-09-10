@@ -965,9 +965,9 @@ public:
 	unsigned int hash() const { if (!hash_) updhash(); return hash_; };
 
 #ifndef NDEBUG
-	void check() const;
+	void check(Module *mod = nullptr) const;
 #else
-	void check() const { }
+	void check(Module *mod = nullptr) const { }
 #endif
 };
 
