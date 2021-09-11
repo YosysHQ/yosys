@@ -2169,14 +2169,14 @@ void abc_module_reint(RTLIL::Design *design, RTLIL::Module *current_module,
 
 
 struct AbcReintegratePass : public Pass {
-	AbcReintegratePass() : Pass("abc_reint", "Reintegrate a mapped module into the current design") {}
+	AbcReintegratePass() : Pass("abc_reint", "Reintegrate a mapped module into the current (unmapped) design") {}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    abc_reint [options] [selection]\n");
 		log("\n");
-		log("This pass reintegrates ABC mapped modules back an unmapped design\n");
+		log("This pass reintegrates ABC mapped modules back into an unmapped design\n");
 		log("\n");
 		log("    -abc_dir <directory name>\n");
 		log("        set the root level of the abc work directory to be <directory name>.\n");
