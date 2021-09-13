@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -1758,6 +1758,11 @@ struct VerificSvaImporter
 						clocking.addDff(NEW_ID, sig_a, sig_a_q, State::S0);
 						clocking.addDff(NEW_ID, sig_en, sig_en_q, State::S0);
 					}
+
+					// accept in disable case
+
+					if (clocking.disable_sig != State::S0)
+						sig_a_q = module->Or(NEW_ID, sig_a_q, clocking.disable_sig);
 
 					// generate fair/live cell
 

@@ -1,20 +1,20 @@
 // https://coredocs.s3.amazonaws.com/Libero/12_0_0/Tool/sf2_mlg.pdf
 
-module ADD2 (
+module AND2 (
 	input A, B,
 	output Y
 );
 	assign Y = A & B;
 endmodule
 
-module ADD3 (
+module AND3 (
 	input A, B, C,
 	output Y
 );
 	assign Y = A & B & C;
 endmodule
 
-module ADD4 (
+module AND4 (
 	input A, B, C, D,
 	output Y
 );

@@ -1,0 +1,7 @@
+read_verilog opt_expr_constconn.v
+select -assert-count 1 t:$add
+select -assert-count 1 t:$add %ci w:C %i
+equiv_opt -assert opt_expr
+design -load postopt
+select -assert-count 1 t:$add
+select -assert-count 0 t:$add %ci w:C %i

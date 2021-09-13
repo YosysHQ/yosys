@@ -1,0 +1,209 @@
+# Bad case: independent write ports.
+
+read_verilog << EOT
+
+module top(
+	input [3:0] wa1, wa2, ra, wd1, wd2,
+	input clk, we1, we2,
+	output [3:0] rd);
+
+reg [3:0] mem[0:15];
+assign rd = mem[ra];
+
+always @(posedge clk) begin
+	if (we1)
+		mem[wa1] <= wd1;
+	if (we2)
+		mem[wa2] <= wd2;
+end
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt
+memory -nomap
+select -assert-count 1 t:$mem_v2
+select -assert-count 1 t:$mem_v2 r:WR_PRIORITY_MASK=4'b0100 %i
+
+
+design -reset
+
+# Good case: write ports with definitely different addresses.
+
+read_verilog << EOT
+
+module top(
+	input [3:0] wa, ra, wd1, wd2,
+	input clk, we1, we2,
+	output [3:0] rd);
+
+reg [3:0] mem[0:15];
+assign rd = mem[ra];
+
+always @(posedge clk) begin
+	if (we1)
+		mem[wa] <= wd1;
+	if (we2)
+		mem[wa ^ 1] <= wd2;
+end
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt
+memory -nomap
+select -assert-count 1 t:$mem_v2
+select -assert-count 1 t:$mem_v2 r:WR_PRIORITY_MASK=4'b0000 %i
+
+
+design -reset
+
+# Bad case 2: the above, but broken.
+
+read_verilog << EOT
+
+module top(
+	input [3:0] wa, ra, wd1, wd2,
+	input clk, we1, we2,
+	output [3:0] rd);
+
+reg [3:0] mem[0:15];
+assign rd = mem[ra];
+
+always @(posedge clk) begin
+	if (we1)
+		mem[wa] <= wd1;
+	if (we2)
+		mem[wa | 1] <= wd2;
+end
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt
+memory -nomap
+select -assert-count 1 t:$mem_v2
+select -assert-count 1 t:$mem_v2 r:WR_PRIORITY_MASK=4'b0100 %i
+
+
+design -reset
+
+# Good case 2: write ports with disjoint bit enables.
+
+read_verilog << EOT
+
+module top(
+	input [3:0] wa1, wa2, ra,
+	input [1:0] wd1, wd2,
+	input clk, we1, we2,
+	output [3:0] rd);
+
+reg [3:0] mem[0:15];
+assign rd = mem[ra];
+
+always @(posedge clk) begin
+	if (we1)
+		mem[wa1][1:0] <= wd1;
+	if (we2)
+		mem[wa2][3:2] <= wd2;
+end
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt
+memory -nomap
+select -assert-count 1 t:$mem_v2
+select -assert-count 1 t:$mem_v2 r:WR_PRIORITY_MASK=4'b0000 %i
+
+
+design -reset
+
+# Good case 3: write ports with soft priority logic already
+
+read_verilog << EOT
+
+module top(
+	input [3:0] wa1, wa2, ra, wd1, wd2,
+	input clk, we1, we2,
+	output [3:0] rd);
+
+reg [3:0] mem[0:15];
+assign rd = mem[ra];
+
+always @(posedge clk) begin
+	if (we1)
+		mem[wa1] <= wd1;
+	if (we2 && wa1 != wa2)
+		mem[wa2] <= wd2;
+end
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt
+memory -nomap
+select -assert-count 1 t:$mem_v2
+select -assert-count 1 t:$mem_v2 r:WR_PRIORITY_MASK=4'b0000 %i
+
+
+design -reset
+
+# Good case 4: two wide write ports
+
+read_verilog << EOT
+
+module top(
+	input [5:0] wa1, wa2,
+	input [7:0] ra,
+	input [31:0] wd1, wd2,
+	input clk, we1, we2,
+	output [7:0] rd);
+
+reg [7:0] mem[0:255];
+assign rd = mem[ra];
+
+always @(posedge clk) begin
+	if (we1) begin
+		mem[{wa1, 2'b00}] <= wd1[7:0];
+		mem[{wa1, 2'b01}] <= wd1[15:8];
+		mem[{wa1, 2'b10}] <= wd1[23:16];
+		mem[{wa1, 2'b11}] <= wd1[31:24];
+	end
+	if (we2) begin
+		mem[{wa2, 2'b00}] <= wd2[7:0];
+		mem[{wa2, 2'b01}] <= wd2[15:8];
+		mem[{wa2, 2'b10}] <= wd2[23:16];
+		mem[{wa2, 2'b11}] <= wd2[31:24];
+	end
+end
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt
+opt_mem_priority
+memory_collect
+select -assert-count 1 t:$mem_v2
+select -assert-count 1 t:$mem_v2 r:WR_PRIORITY_MASK=64'h0804020100000000 %i
+memory_share
+select -assert-count 1 t:$mem_v2 r:WR_PRIORITY_MASK=64'h0f0f0f0f00000000 %i
+select -assert-count 1 t:$mem_v2 r:WR_WIDE_CONTINUATION=8'hee %i

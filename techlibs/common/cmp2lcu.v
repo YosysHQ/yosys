@@ -41,10 +41,7 @@ generate
         wire [WIDTH-1:0] BB = {{(WIDTH-B_WIDTH){B_SIGNED ? B[B_WIDTH-1] : 1'b0}}, B};
         // For $ge operation, start with the assumption that A and B are
         //   equal (propagating this equality if A and B turn out to be so)
-        if (_TECHMAP_CELLTYPE_ == "$ge")
-            localparam CI = 1'b1;
-        else
-            localparam CI = 1'b0;
+        localparam CI = _TECHMAP_CELLTYPE_ == "$ge";
         $__CMP2LCU #(.AB_WIDTH(WIDTH), .AB_SIGNED(A_SIGNED && B_SIGNED), .LCU_WIDTH(1), .BUDGET(`LUT_WIDTH), .CI(CI))
             _TECHMAP_REPLACE_ (.A(AA), .B(BB), .P(1'b1), .G(1'b0), .Y(Y));
     end
@@ -81,12 +78,12 @@ generate
         assign Y = CO[LCU_WIDTH-1];
     end
     else begin
-        if (_TECHMAP_CONSTMSK_A_[AB_WIDTH-1:0] && _TECHMAP_CONSTMSK_B_[AB_WIDTH-1:0])
-            localparam COST = 0;
-        else if (_TECHMAP_CONSTMSK_A_[AB_WIDTH-1:0] || _TECHMAP_CONSTMSK_B_[AB_WIDTH-1:0])
-            localparam COST = 1;
-        else
-            localparam COST = 2;
+        localparam COST =
+            _TECHMAP_CONSTMSK_A_[AB_WIDTH-1:0] && _TECHMAP_CONSTMSK_B_[AB_WIDTH-1:0]
+            ? 0
+            : (_TECHMAP_CONSTMSK_A_[AB_WIDTH-1:0] || _TECHMAP_CONSTMSK_B_[AB_WIDTH-1:0]
+                ? 1
+                : 2);
 
         if (BUDGET < COST)
              $__CMP2LCU #(.AB_WIDTH(AB_WIDTH), .AB_SIGNED(AB_SIGNED), .LCU_WIDTH(LCU_WIDTH+1), .BUDGET(`LUT_WIDTH), .CI(CI))
@@ -104,21 +101,21 @@ generate
                 //   from MSB down, deferring to less significant bits if the
                 //   MSBs are equal
                 assign GG = P[0] & (A[AB_WIDTH-1] & ~B[AB_WIDTH-1]);
+            (* force_downto *)
+            wire [LCU_WIDTH-1:0] P_, G_;
             if (LCU_WIDTH == 1) begin
                 // Propagate only if all pairs are equal
                 //   (inconclusive evidence to say A >= B)
-                wire P_ = P[0] & PP;
+                assign P_ = P[0] & PP;
                 // Generate if any comparisons call for it
-                wire G_ = G[0] | GG;
+                assign G_ = G[0] | GG;
             end
             else begin
                 // Propagate only if all pairs are equal
                 //   (inconclusive evidence to say A >= B)
-                (* force_downto *)
-                wire [LCU_WIDTH-1:0] P_ = {P[LCU_WIDTH-1:1], P[0] & PP};
+                assign P_ = {P[LCU_WIDTH-1:1], P[0] & PP};
                 // Generate if any comparisons call for it
-                (* force_downto *)
-                wire [LCU_WIDTH-1:0] G_ = {G[LCU_WIDTH-1:1], G[0] | GG};
+                assign G_ = {G[LCU_WIDTH-1:1], G[0] | GG};
             end
             if (AB_WIDTH == 1)
                $__CMP2LCU #(.AB_WIDTH(AB_WIDTH-1), .AB_SIGNED(1'b0), .LCU_WIDTH(LCU_WIDTH), .BUDGET(BUDGET-COST), .CI(CI))

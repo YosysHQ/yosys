@@ -1,0 +1,22 @@
+read_ilang << EOT
+module \top
+   wire width 4 input 1 \a
+   wire width 2 input 2 \b
+   wire input 3 \clk
+   wire width 4 output 4 \q
+   wire input 5 \en
+   wire width 4 \nq
+   process \p
+     assign \nq \a
+     assign \nq [1:0] \b
+     switch \en
+       case 1'1
+         assign \nq [3] 1'0
+     end
+     sync posedge \clk
+       update \q \nq
+   end
+end
+EOT
+proc
+check -assert

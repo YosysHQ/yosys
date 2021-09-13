@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -67,6 +67,7 @@
 #   define INIT_MODULE initlibyosys
 	extern "C" void INIT_MODULE();
 #endif
+#include <signal.h>
 #endif
 
 #include <limits.h>
@@ -137,7 +138,7 @@ void yosys_banner()
 	log(" |                                                                            |\n");
 	log(" |  yosys -- Yosys Open SYnthesis Suite                                       |\n");
 	log(" |                                                                            |\n");
-	log(" |  Copyright (C) 2012 - 2020  Claire Wolf <claire@symbioticeda.com>          |\n");
+	log(" |  Copyright (C) 2012 - 2020  Claire Xenia Wolf <claire@yosyshq.com>         |\n");
 	log(" |                                                                            |\n");
 	log(" |  Permission to use, copy, modify, and/or distribute this software for any  |\n");
 	log(" |  purpose with or without fee is hereby granted, provided that the above    |\n");
@@ -540,6 +541,7 @@ void yosys_setup()
 		PyImport_AppendInittab((char*)"libyosys", INIT_MODULE);
 		Py_Initialize();
 		PyRun_SimpleString("import sys");
+		signal(SIGINT, SIG_DFL);
 	#endif
 
 	Pass::init_register();
@@ -797,7 +799,9 @@ std::string proc_self_dirname()
 		path = (char *) realloc((void *) path, buflen);
 	while (buflen > 0 && path[buflen-1] != '/')
 		buflen--;
-	return std::string(path, buflen);
+	std::string str(path, buflen);
+	free(path);
+	return str;
 }
 #elif defined(_WIN32)
 std::string proc_self_dirname()

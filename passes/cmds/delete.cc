@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -90,7 +90,7 @@ struct DeletePass : public Pass {
 
 			pool<RTLIL::Wire*> delete_wires;
 			pool<RTLIL::Cell*> delete_cells;
-			pool<RTLIL::IdString> delete_procs;
+			pool<RTLIL::Process*> delete_procs;
 			pool<RTLIL::IdString> delete_mems;
 
 			for (auto wire : module->selected_wires())
@@ -103,14 +103,14 @@ struct DeletePass : public Pass {
 			for (auto cell : module->cells()) {
 				if (design->selected(module, cell))
 					delete_cells.insert(cell);
-				if (cell->type.in(ID($memrd), ID($memwr)) &&
+				if (cell->has_memid() &&
 						delete_mems.count(cell->parameters.at(ID::MEMID).decode_string()) != 0)
 					delete_cells.insert(cell);
 			}
 
 			for (auto &it : module->processes)
 				if (design->selected(module, it.second))
-					delete_procs.insert(it.first);
+					delete_procs.insert(it.second);
 
 			for (auto &it : delete_mems) {
 				delete module->memories.at(it);
@@ -120,10 +120,8 @@ struct DeletePass : public Pass {
 			for (auto &it : delete_cells)
 				module->remove(it);
 
-			for (auto &it : delete_procs) {
-				delete module->processes.at(it);
-				module->processes.erase(it);
-			}
+			for (auto &it : delete_procs)
+				module->remove(it);
 
 			module->remove(delete_wires);
 

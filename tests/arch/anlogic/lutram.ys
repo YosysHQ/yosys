@@ -13,9 +13,8 @@ miter -equiv -flatten -make_assert -make_outputs gold gate miter
 design -load postopt
 cd lutram_1w1r
 
-select -assert-count 8  t:AL_MAP_LUT2
-select -assert-count 8  t:AL_MAP_LUT4
-select -assert-count 8   t:AL_MAP_LUT5
-select -assert-count 36 t:AL_MAP_SEQ
+select -assert-count 4 t:AL_MAP_LUT3
+select -assert-count 8 t:AL_MAP_LUT6
+select -assert-count 8 t:AL_MAP_SEQ
 select -assert-count 8  t:EG_LOGIC_DRAM16X4 #Why not AL_LOGIC_BRAM?
-select -assert-none t:AL_MAP_LUT2 t:AL_MAP_LUT4 t:AL_MAP_LUT5 t:AL_MAP_SEQ t:EG_LOGIC_DRAM16X4 %% t:* %D
+select -assert-none t:AL_MAP_LUT3 t:AL_MAP_LUT6 t:AL_MAP_SEQ t:EG_LOGIC_DRAM16X4 %% t:* %D

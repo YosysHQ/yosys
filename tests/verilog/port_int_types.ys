@@ -1,0 +1,11 @@
+read_verilog -sv port_int_types.sv
+equiv_make gold gate_a equiv
+equiv_simple
+equiv_status -assert
+
+design -reset
+
+read_verilog -sv port_int_types.sv
+equiv_make gold gate_b equiv
+equiv_simple
+equiv_status -assert

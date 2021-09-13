@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -124,6 +124,7 @@ struct Smt2Worker
 		memories = Mem::get_all_memories(module);
 		for (auto &mem : memories)
 		{
+			mem.narrow();
 			mem_dict[mem.memid] = &mem;
 			for (auto &port : mem.wr_ports)
 			{
@@ -182,7 +183,7 @@ struct Smt2Worker
 				continue;
 
 			// Handled above.
-			if (cell->type.in(ID($mem), ID($memrd), ID($memwr), ID($meminit))) {
+			if (cell->is_mem_cell()) {
 				mem_cells[cell] = mem_dict[cell->parameters.at(ID::MEMID).decode_string()];
 				continue;
 			}
@@ -694,7 +695,7 @@ struct Smt2Worker
 			// FIXME: $slice $concat
 		}
 
-		if (memmode && cell->type.in(ID($mem), ID($memrd), ID($memwr), ID($meminit)))
+		if (memmode && cell->is_mem_cell())
 		{
 			Mem *mem = mem_cells[cell];
 
@@ -855,6 +856,18 @@ struct Smt2Worker
 			return;
 		}
 
+		if (cell->type.in(ID($dffe), ID($sdff), ID($sdffe), ID($sdffce)) || cell->type.str().substr(0, 6) == "$_SDFF" || (cell->type.str().substr(0, 6) == "$_DFFE" && cell->type.str().size() == 10)) {
+			log_error("Unsupported cell type %s for cell %s.%s -- please run `dffunmap` before `write_smt2`.\n",
+					log_id(cell->type), log_id(module), log_id(cell));
+		}
+		if (cell->type.in(ID($adff), ID($adffe), ID($dffsr), ID($dffsre)) || cell->type.str().substr(0, 5) == "$_DFF") {
+			log_error("Unsupported cell type %s for cell %s.%s -- please run `async2sync; dffunmap` or `clk2fflogic` before `write_smt2`.\n",
+					log_id(cell->type), log_id(module), log_id(cell));
+		}
+		if (cell->type.in(ID($sr), ID($dlatch), ID($adlatch), ID($dlatchsr)) || cell->type.str().substr(0, 8) == "$_DLATCH" || cell->type.str().substr(0, 5) == "$_SR_") {
+			log_error("Unsupported cell type %s for cell %s.%s -- please run `clk2fflogic` before `write_smt2`.\n",
+					log_id(cell->type), log_id(module), log_id(cell));
+		}
 		log_error("Unsupported cell type %s for cell %s.%s.\n",
 				log_id(cell->type), log_id(module), log_id(cell));
 	}

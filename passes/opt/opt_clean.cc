@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -21,6 +21,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
 #include "kernel/celltypes.h"
+#include "kernel/ffinit.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <set>
@@ -101,6 +102,7 @@ void rmunused_module_cells(Module *module, bool verbose)
 	pool<SigBit> used_raw_bits;
 	dict<SigBit, pool<Cell*>> wire2driver;
 	dict<SigBit, vector<string>> driver_driver_logs;
+	FfInitVals ffinit(&sigmap, module);
 
 	SigMap raw_sigmap;
 	for (auto &it : module->connections_) {
@@ -115,7 +117,7 @@ void rmunused_module_cells(Module *module, bool verbose)
 	}
 
 	for (Cell *cell : module->cells()) {
-		if (cell->type.in(ID($memwr), ID($meminit))) {
+		if (cell->type.in(ID($memwr), ID($memwr_v2), ID($meminit), ID($meminit_v2))) {
 			IdString mem_id = cell->getParam(ID::MEMID).decode_string();
 			mem2cells[mem_id].insert(cell);
 		}
@@ -165,7 +167,7 @@ void rmunused_module_cells(Module *module, bool verbose)
 					for (auto bit : sigmap(it.second))
 						bits.insert(bit);
 
-			if (cell->type == ID($memrd)) {
+			if (cell->type.in(ID($memrd), ID($memrd_v2))) {
 				IdString mem_id = cell->getParam(ID::MEMID).decode_string();
 				if (mem_unused.count(mem_id)) {
 					mem_unused.erase(mem_id);
@@ -193,6 +195,8 @@ void rmunused_module_cells(Module *module, bool verbose)
 		if (verbose)
 			log_debug("  removing unused `%s' cell `%s'.\n", cell->type.c_str(), cell->name.c_str());
 		module->design->scratchpad_set_bool("opt.did_something", true);
+		if (RTLIL::builtin_ff_cell_types().count(cell->type))
+			ffinit.remove_init(cell->getPort(ID::Q));
 		module->remove(cell);
 		count_rm_cells++;
 	}
@@ -335,6 +339,7 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 				used_signals_nodrivers.add(it2.second);
 		}
 	}
+	dict<RTLIL::SigBit, RTLIL::State> init_bits;
 	for (auto &it : module->wires_) {
 		RTLIL::Wire *wire = it.second;
 		if (wire->port_id > 0) {
@@ -350,6 +355,29 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 			assign_map.apply(sig);
 			used_signals.add(sig);
 		}
+		auto it2 = wire->attributes.find(ID::init);
+		if (it2 != wire->attributes.end()) {
+			RTLIL::Const &val = it2->second;
+			SigSpec sig = assign_map(wire);
+			for (int i = 0; i < GetSize(val) && i < GetSize(sig); i++)
+				if (val.bits[i] != State::Sx)
+					init_bits[sig[i]] = val.bits[i];
+			wire->attributes.erase(it2);
+		}
+	}
+
+	for (auto wire : module->wires()) {
+		bool found = false;
+		Const val(State::Sx, wire->width);
+		for (int i = 0; i < wire->width; i++) {
+			auto it = init_bits.find(RTLIL::SigBit(wire, i));
+			if (it != init_bits.end()) {
+				val.bits[i] = it->second;
+				found = true;
+			}
+		}
+		if (found)
+			wire->attributes[ID::init] = val;
 	}
 
 	pool<RTLIL::Wire*> del_wires_queue;

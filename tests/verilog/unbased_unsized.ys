@@ -1,0 +1,7 @@
+read_verilog -sv unbased_unsized.sv
+hierarchy
+proc
+flatten
+opt -full
+select -module top
+sat -verify -seq 1 -tempinduct -prove-asserts -show-all

@@ -1,0 +1,7 @@
+logger -expect error "Cannot add memory `\\x' because a signal with the same name was already created" 1
+read_verilog <<EOT
+module top;
+    reg [2:0] x;
+    reg [2:0] x [0:0];
+endmodule
+EOT

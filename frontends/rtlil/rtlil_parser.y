@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -69,7 +69,7 @@ USING_YOSYS_NAMESPACE
 %token TOK_AUTOIDX TOK_MODULE TOK_WIRE TOK_WIDTH TOK_INPUT TOK_OUTPUT TOK_INOUT
 %token TOK_CELL TOK_CONNECT TOK_SWITCH TOK_CASE TOK_ASSIGN TOK_SYNC
 %token TOK_LOW TOK_HIGH TOK_POSEDGE TOK_NEGEDGE TOK_EDGE TOK_ALWAYS TOK_GLOBAL TOK_INIT
-%token TOK_UPDATE TOK_PROCESS TOK_END TOK_INVALID TOK_EOL TOK_OFFSET
+%token TOK_UPDATE TOK_MEMWR TOK_PROCESS TOK_END TOK_INVALID TOK_EOL TOK_OFFSET
 %token TOK_PARAMETER TOK_ATTRIBUTE TOK_MEMORY TOK_SIZE TOK_SIGNED TOK_REAL TOK_UPTO
 
 %type <rsigspec> sigspec_list_reversed
@@ -155,6 +155,7 @@ param_defval_stmt:
 	TOK_PARAMETER TOK_ID constant EOL {
 		current_module->avail_parameters($2);
 		current_module->parameter_default_values[$2] = *$3;
+		delete $3;
 		free($2);
 	};
 
@@ -282,10 +283,8 @@ proc_stmt:
 	TOK_PROCESS TOK_ID EOL {
 		if (current_module->processes.count($2) != 0)
 			rtlil_frontend_yyerror(stringf("RTLIL error: redefinition of process %s.", $2).c_str());
-		current_process = new RTLIL::Process;
-		current_process->name = $2;
+		current_process = current_module->addProcess($2);
 		current_process->attributes = attrbuf;
-		current_module->processes[$2] = current_process;
 		switch_stack.clear();
 		switch_stack.push_back(&current_process->root_case.switches);
 		case_stack.clear();
@@ -388,6 +387,22 @@ update_list:
 		current_process->syncs.back()->actions.push_back(RTLIL::SigSig(*$3, *$4));
 		delete $3;
 		delete $4;
+	} |
+	update_list attr_list TOK_MEMWR TOK_ID sigspec sigspec sigspec constant EOL {
+		RTLIL::MemWriteAction act;
+		act.attributes = attrbuf;
+		act.memid = $4;
+		act.address = *$5;
+		act.data = *$6;
+		act.enable = *$7;
+		act.priority_mask = *$8;
+		current_process->syncs.back()->mem_write_actions.push_back(std::move(act));
+		attrbuf.clear();
+		free($4);
+		delete $5;
+		delete $6;
+		delete $7;
+		delete $8;
 	} |
 	/* empty */;
 

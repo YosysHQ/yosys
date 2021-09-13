@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -88,7 +88,7 @@ struct AssertpmuxWorker
 		{
 			SigSpec output;
 
-			for (auto muxuser : sigbit_muxusers.at(bit))
+			for (auto muxuser : sigbit_muxusers[bit])
 			{
 				Cell *cell = std::get<0>(muxuser);
 				int portidx = std::get<1>(muxuser);

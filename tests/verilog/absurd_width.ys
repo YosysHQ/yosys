@@ -1,0 +1,17 @@
+logger -expect error "Expression width 1073741824 exceeds implementation limit of 16777216!" 1
+read_verilog <<EOF
+module top(
+    input inp,
+    output out
+);
+    assign out =
+        {1024 {
+        {1024 {
+        {1024 {
+        inp
+        }}
+        }}
+        }}
+        ;
+endmodule
+EOF

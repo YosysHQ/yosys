@@ -2,12 +2,22 @@
 `define SB_DFF_REG reg Q = 0
 // `define SB_DFF_REG reg Q
 
+`ifndef NO_ICE40_DEFAULT_ASSIGNMENTS
+`define ICE40_DEFAULT_ASSIGNMENT_V(v) = v
+`define ICE40_DEFAULT_ASSIGNMENT_0 = 1'b0
+`define ICE40_DEFAULT_ASSIGNMENT_1 = 1'b1
+`else
+`define ICE40_DEFAULT_ASSIGNMENT_V(v)
+`define ICE40_DEFAULT_ASSIGNMENT_0
+`define ICE40_DEFAULT_ASSIGNMENT_1
+`endif
+
 // SiliconBlue IO Cells
 
 module SB_IO (
 	inout  PACKAGE_PIN,
 	input  LATCH_INPUT_VALUE,
-	input  CLOCK_ENABLE,
+	input  CLOCK_ENABLE `ICE40_DEFAULT_ASSIGNMENT_1,
 	input  INPUT_CLK,
 	input  OUTPUT_CLK,
 	input  OUTPUT_ENABLE,
@@ -114,7 +124,7 @@ module SB_GB_IO (
 	inout  PACKAGE_PIN,
 	output GLOBAL_BUFFER_OUTPUT,
 	input  LATCH_INPUT_VALUE,
-	input  CLOCK_ENABLE,
+	input  CLOCK_ENABLE `ICE40_DEFAULT_ASSIGNMENT_1,
 	input  INPUT_CLK,
 	input  OUTPUT_CLK,
 	input  OUTPUT_ENABLE,
@@ -164,7 +174,13 @@ endmodule
 // SiliconBlue Logic Cells
 
 (* abc9_lut=1, lib_whitebox *)
-module SB_LUT4 (output O, input I0, I1, I2, I3);
+module SB_LUT4 (
+	output O,
+	input I0 `ICE40_DEFAULT_ASSIGNMENT_0,
+	input I1 `ICE40_DEFAULT_ASSIGNMENT_0,
+	input I2 `ICE40_DEFAULT_ASSIGNMENT_0,
+	input I3 `ICE40_DEFAULT_ASSIGNMENT_0
+);
 	parameter [15:0] LUT_INIT = 0;
 	wire [7:0] s3 = I3 ? LUT_INIT[15:8] : LUT_INIT[7:0];
 	wire [3:0] s2 = I2 ?       s3[ 7:4] :       s3[3:0];
@@ -172,37 +188,37 @@ module SB_LUT4 (output O, input I0, I1, I2, I3);
 	assign O = I0 ? s1[1] : s1[0];
 `ifdef ICE40_HX
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L80
 		(I0 => O) = (449, 386);
-		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L83
+		// https://github.com/YosysHQ/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L83
 		(I1 => O) = (400, 379);
-		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L86
+		// https://github.com/YosysHQ/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L86
 		(I2 => O) = (379, 351);
-		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L88
+		// https://github.com/YosysHQ/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L88
 		(I3 => O) = (316, 288);
 	endspecify
 `endif
 `ifdef ICE40_LP
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_lp1k.txt#L80
 		(I0 => O) = (662, 569);
-		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_lp1k.txt#L83
+		// https://github.com/YosysHQ/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_lp1k.txt#L83
 		(I1 => O) = (589, 558);
-		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_lp1k.txt#L86
+		// https://github.com/YosysHQ/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_lp1k.txt#L86
 		(I2 => O) = (558, 517);
-		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_lp1k.txt#L88
+		// https://github.com/YosysHQ/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_lp1k.txt#L88
 		(I3 => O) = (465, 423);
 	endspecify
 `endif
 `ifdef ICE40_U
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_up5k.txt#L92
+		// https://github.com/YosysHQ/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_up5k.txt#L92
 		(I0 => O) = (1245, 1285);
-		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_up5k.txt#L95
+		// https://github.com/YosysHQ/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_up5k.txt#L95
 		(I1 => O) = (1179, 1232);
-		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_up5k.txt#L98
+		// https://github.com/YosysHQ/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_up5k.txt#L98
 		(I2 => O) = (1179, 1205);
-		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_up5k.txt#L100
+		// https://github.com/YosysHQ/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_up5k.txt#L100
 		(I3 => O) = (861, 874);
 	endspecify
 `endif
@@ -213,32 +229,32 @@ module SB_CARRY (output CO, input I0, I1, CI);
 	assign CO = (I0 && I1) || ((I0 || I1) && CI);
 `ifdef ICE40_HX
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L79
+		// https://github.com/YosysHQ/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L79
 		(CI => CO) = (126, 105);
-		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L82
+		// https://github.com/YosysHQ/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L82
 		(I0 => CO) = (259, 245);
-		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L85
+		// https://github.com/YosysHQ/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L85
 		(I1 => CO) = (231, 133);
 	endspecify
 `endif
 `ifdef ICE40_LP
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_lp1k.txt#L79
+		// https://github.com/YosysHQ/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_lp1k.txt#L79
 		(CI => CO) = (186, 155);
-		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_lp1k.txt#L82
+		// https://github.com/YosysHQ/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_lp1k.txt#L82
 		(I0 => CO) = (382, 362);
-		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_lp1k.txt#L85
-		(I0 => CO) = (341, 196);
+		// https://github.com/YosysHQ/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_lp1k.txt#L85
+		(I1 => CO) = (341, 196);
 	endspecify
 `endif
 `ifdef ICE40_U
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_up5k.txt#L91
+		// https://github.com/YosysHQ/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_up5k.txt#L91
 		(CI => CO) = (278, 278);
-		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_up5k.txt#L94
+		// https://github.com/YosysHQ/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_up5k.txt#L94
 		(I0 => CO) = (675, 662);
-		// https://github.com/cliffordwolf/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_up5k.txt#L97
-		(I0 => CO) = (609, 358);
+		// https://github.com/YosysHQ/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_up5k.txt#L97
+		(I1 => CO) = (609, 358);
 	endspecify
 `endif
 endmodule
@@ -254,28 +270,28 @@ module SB_DFF (
 		Q <= D;
 `ifdef ICE40_HX
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
 		$setup(D, posedge C, 470 - 449);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
 		(posedge C => (Q : D)) = 540;
 	endspecify
 `endif
 `ifdef ICE40_LP
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, posedge C, 693 - 662);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
 		(posedge C => (Q : D)) = 796;
 	endspecify
 `endif
 `ifdef ICE40_U
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, posedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
 		(posedge C => (Q : D)) = 1391;
 	endspecify
 `endif
@@ -284,41 +300,41 @@ endmodule
 (* abc9_flop, lib_whitebox *)
 module SB_DFFE (
 	output `SB_DFF_REG,
-	input C, E, D
+	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, D
 );
 	always @(posedge C)
 		if (E)
 			Q <= D;
 `ifdef ICE40_HX
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
 		$setup(D, posedge C &&& E, 470 - 449);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
 		$setup(E, posedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
 		if (E) (posedge C => (Q : D)) = 540;
 	endspecify
 `endif
 `ifdef ICE40_LP
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, posedge C &&& E, 693 - 662);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
 		$setup(E, posedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
 		if (E) (posedge C => (Q : D)) = 796;
 	endspecify
 `endif
 `ifdef ICE40_U
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, posedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
 		$setup(E, posedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
 		if (E) (posedge C => (Q : D)) = 1391;
 	endspecify
 `endif
@@ -336,36 +352,36 @@ module SB_DFFSR (
 			Q <= D;
 `ifdef ICE40_HX
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
 		$setup(D, posedge C, 470 - 449);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L78
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L78
 		$setup(R, posedge C, 203);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
 		if ( R) (posedge C => (Q : 1'b0)) = 540;
 		if (!R) (posedge C => (Q : D)) = 540;
 	endspecify
 `endif
 `ifdef ICE40_LP
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, posedge C, 693 - 662);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L78
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L78
 		$setup(R, posedge C, 299);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
 		if ( R) (posedge C => (Q : 1'b0)) = 796;
 		if (!R) (posedge C => (Q : D)) = 796;
 	endspecify
 `endif
 `ifdef ICE40_U
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, posedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
 		$setup(R, posedge C, 530);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
 		if ( R) (posedge C => (Q : 1'b0)) = 1391;
 		if (!R) (posedge C => (Q : D)) = 1391;
 	endspecify
@@ -384,12 +400,12 @@ module SB_DFFR (
 			Q <= D;
 `ifdef ICE40_HX
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
 		$setup(D, posedge C, 470 - 449);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L63
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L63
 		$setup(negedge R, posedge C, 160);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L91
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L91
 `ifndef YOSYS
 		(posedge R => (Q : 1'b0)) = 599;
 `else
@@ -397,18 +413,18 @@ module SB_DFFR (
 					// but for facilitating a bypass box, let's pretend it's
 					// a simple path
 `endif
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
 		if (!R) (posedge C => (Q : D)) = 540;
 	endspecify
 `endif
 `ifdef ICE40_LP
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, posedge C, 693 - 662);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L63
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L63
 		$setup(negedge R, posedge C, 235);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L91
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L91
 `ifndef YOSYS
 		(posedge R => (Q : 1'b0)) = 883;
 `else
@@ -416,18 +432,18 @@ module SB_DFFR (
 					// but for facilitating a bypass box, let's pretend it's
 					// a simple path
 `endif
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
 		if (!R) (posedge C => (Q : D)) = 796;
 	endspecify
 `endif
 `ifdef ICE40_U
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, posedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
 		$setup(negedge R, posedge C, 424);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103
 `ifndef YOSYS
 		(posedge R => (Q : 1'b0)) = 1589;
 `else
@@ -435,7 +451,7 @@ module SB_DFFR (
 					// but for facilitating a bypass box, let's pretend it's
 					// a simple path
 `endif
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
 		if (!R) (posedge C => (Q : D)) = 1391;
 	endspecify
 `endif
@@ -453,36 +469,36 @@ module SB_DFFSS (
 			Q <= D;
 `ifdef ICE40_HX
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
 		$setup(D, posedge C, 470 - 449);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L78
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L78
 		$setup(S, posedge C, 203);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
 		if ( S) (posedge C => (Q : 1'b1)) = 540;
 		if (!S) (posedge C => (Q : D)) = 540;
 	endspecify
 `endif
 `ifdef ICE40_LP
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, posedge C, 693 - 662);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L78
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L78
 		$setup(S, posedge C, 299);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
 		if ( S) (posedge C => (Q : 1'b1)) = 796;
 		if (!S) (posedge C => (Q : D)) = 796;
 	endspecify
 `endif
 `ifdef ICE40_U
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, posedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
 		$setup(S, posedge C, 530);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
 		if ( S) (posedge C => (Q : 1'b1)) = 1391;
 		if (!S) (posedge C => (Q : D)) = 1391;
 	endspecify
@@ -501,12 +517,12 @@ module SB_DFFS (
 			Q <= D;
 `ifdef ICE40_HX
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
 		$setup(D, posedge C, 470 - 449);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L63
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L63
 		$setup(negedge S, posedge C, 160);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L91
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L91
 `ifndef YOSYS
 		(posedge S => (Q : 1'b1)) = 599;
 `else
@@ -514,18 +530,18 @@ module SB_DFFS (
 					// but for facilitating a bypass box, let's pretend it's
 					// a simple path
 `endif
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
 		if (!S) (posedge C => (Q : D)) = 540;
 	endspecify
 `endif
 `ifdef ICE40_LP
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, posedge C, 693 - 662);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L63
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L63
 		$setup(negedge S, posedge C, 235);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L91
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L91
 `ifndef YOSYS
 		(posedge S => (Q : 1'b1)) = 883;
 `else
@@ -533,18 +549,18 @@ module SB_DFFS (
 					// but for facilitating a bypass box, let's pretend it's
 					// a simple path
 `endif
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
 		if (!S) (posedge C => (Q : D)) = 796;
 	endspecify
 `endif
 `ifdef ICE40_U
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, posedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
 		$setup(negedge S, posedge C, 424);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103
 `ifndef YOSYS
 		(posedge S => (Q : 1'b1)) = 1589;
 `else
@@ -552,7 +568,7 @@ module SB_DFFS (
 					// but for facilitating a bypass box, let's pretend it's
 					// a simple path
 `endif
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
 		if (!S) (posedge C => (Q : D)) = 1391;
 	endspecify
 `endif
@@ -561,7 +577,7 @@ endmodule
 (* abc9_flop, lib_whitebox *)
 module SB_DFFESR (
 	output `SB_DFF_REG,
-	input C, E, R, D
+	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, R, D
 );
 	always @(posedge C)
 		if (E) begin
@@ -572,42 +588,42 @@ module SB_DFFESR (
 		end
 `ifdef ICE40_HX
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
 		$setup(D, posedge C &&& E && !R, 470 - 449);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
 		$setup(E, posedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L78
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L78
 		$setup(R, posedge C &&& E, 203);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
 		if (E &&  R) (posedge C => (Q : 1'b0)) = 540;
 		if (E && !R) (posedge C => (Q : D)) = 540;
 	endspecify
 `endif
 `ifdef ICE40_LP
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, posedge C &&& E && !R, 693 - 662);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
 		$setup(E, posedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L78
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L78
 		$setup(R, posedge C &&& E, 299);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
 		if (E &&  R) (posedge C => (Q : 1'b0)) = 796;
 		if (E && !R) (posedge C => (Q : D)) = 796;
 	endspecify
 `endif
 `ifdef ICE40_U
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, posedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
 		$setup(E, posedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
 		$setup(R, posedge C &&& E, 530);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
 		if (E &&  R) (posedge C => (Q : 1'b0)) = 1391;
 		if (E && !R) (posedge C => (Q : D)) = 1391;
 	endspecify
@@ -617,7 +633,7 @@ endmodule
 (* abc9_box, lib_whitebox *)
 module SB_DFFER (
 	output `SB_DFF_REG,
-	input C, E, R, D
+	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, R, D
 );
 	always @(posedge C, posedge R)
 		if (R)
@@ -626,14 +642,14 @@ module SB_DFFER (
 			Q <= D;
 `ifdef ICE40_HX
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
 		$setup(D, posedge C &&& E, 470 - 449);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
 		$setup(E, posedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L63
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L63
 		$setup(negedge R, posedge C, 160);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L91
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L91
 `ifndef YOSYS
 		(posedge R => (Q : 1'b0)) = 599;
 `else
@@ -641,20 +657,20 @@ module SB_DFFER (
 					// but for facilitating a bypass box, let's pretend it's
 					// a simple path
 `endif
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
 		if (E && !R) (posedge C => (Q : D)) = 540;
 	endspecify
 `endif
 `ifdef ICE40_LP
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, posedge C &&& E, 693 - 662);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
 		$setup(E, posedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L63
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L63
 		$setup(negedge R, posedge C, 235);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L91
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L91
 `ifndef YOSYS
 		(posedge R => (Q : 1'b0)) = 883;
 `else
@@ -662,20 +678,20 @@ module SB_DFFER (
 					// but for facilitating a bypass box, let's pretend it's
 					// a simple path
 `endif
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
 		if (E && !R) (posedge C => (Q : D)) = 796;
 	endspecify
 `endif
 `ifdef ICE40_U
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, posedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
 		$setup(E, posedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
 		$setup(negedge R, posedge C, 424);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103
 `ifndef YOSYS
 		(posedge R => (Q : 1'b0)) = 1589;
 `else
@@ -683,7 +699,7 @@ module SB_DFFER (
 					// but for facilitating a bypass box, let's pretend it's
 					// a simple path
 `endif
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
 		if (E && !R) (posedge C => (Q : D)) = 1391;
 	endspecify
 `endif
@@ -692,7 +708,7 @@ endmodule
 (* abc9_flop, lib_whitebox *)
 module SB_DFFESS (
 	output `SB_DFF_REG,
-	input C, E, S, D
+	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, S, D
 );
 	always @(posedge C)
 		if (E) begin
@@ -703,42 +719,42 @@ module SB_DFFESS (
 		end
 `ifdef ICE40_HX
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
 		$setup(D, posedge C &&& E && !S, 470 - 449);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
 		$setup(E, posedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L78
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L78
 		$setup(S, posedge C &&& E, 203);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
 		if (E &&  S) (posedge C => (Q : 1'b1)) = 540;
 		if (E && !S) (posedge C => (Q : D)) = 540;
 	endspecify
 `endif
 `ifdef ICE40_LP
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, posedge C &&& E && !S, 693 - 662);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
 		$setup(E, posedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L78
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L78
 		$setup(S, posedge C &&& E, 299);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
 		if (E &&  S) (posedge C => (Q : 1'b1)) = 796;
 		if (E && !S) (posedge C => (Q : D)) = 796;
 	endspecify
 `endif
 `ifdef ICE40_U
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, posedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
 		$setup(E, posedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
 		$setup(S, posedge C &&& E, 530);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
 		if (E &&  S) (posedge C => (Q : 1'b1)) = 1391;
 		if (E && !S) (posedge C => (Q : D)) = 1391;
 	endspecify
@@ -748,7 +764,7 @@ endmodule
 (* abc9_box, lib_whitebox *)
 module SB_DFFES (
 	output `SB_DFF_REG,
-	input C, E, S, D
+	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, S, D
 );
 	always @(posedge C, posedge S)
 		if (S)
@@ -757,14 +773,14 @@ module SB_DFFES (
 			Q <= D;
 `ifdef ICE40_HX
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
 		$setup(D, posedge C &&& E, 470 - 449);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
 		$setup(E, posedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L63
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L63
 		$setup(posedge S, posedge C, 160);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L91
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L91
 `ifndef YOSYS
 		(posedge S => (Q : 1'b1)) = 599;
 `else
@@ -772,20 +788,20 @@ module SB_DFFES (
 					// but for facilitating a bypass box, let's pretend it's
 					// a simple path
 `endif
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
 		if (E && !S) (posedge C => (Q : D)) = 540;
 	endspecify
 `endif
 `ifdef ICE40_LP
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, posedge C &&& E, 693 - 662);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
 		$setup(E, posedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L63
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L63
 		$setup(posedge S, posedge C, 235);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L91
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L91
 `ifndef YOSYS
 		(posedge S => (Q : 1'b1)) = 883;
 `else
@@ -793,20 +809,20 @@ module SB_DFFES (
 							   // but for facilitating a bypass box, let's pretend it's
 							   // a simple path
 `endif
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
 		if (E && !S) (posedge C => (Q : D)) = 796;
 	endspecify
 `endif
 `ifdef ICE40_U
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, posedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
 		$setup(E, posedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
 		$setup(posedge S, posedge C, 424);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103
 `ifndef YOSYS
 		(posedge S => (Q : 1'b1)) = 1589;
 `else
@@ -814,7 +830,7 @@ module SB_DFFES (
 							   // but for facilitating a bypass box, let's pretend it's
 							   // a simple path
 `endif
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
 		if (E && !S) (posedge C => (Q : D)) = 1391;
 	endspecify
 `endif
@@ -831,28 +847,28 @@ module SB_DFFN (
 		Q <= D;
 `ifdef ICE40_HX
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
 		$setup(D, negedge C, 470 - 449);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
 		(negedge C => (Q : D)) = 540;
 	endspecify
 `endif
 `ifdef ICE40_LP
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, negedge C, 693 - 662);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
 		(negedge C => (Q : D)) = 796;
 	endspecify
 `endif
 `ifdef ICE40_U
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, negedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
 		(negedge C => (Q : D)) = 1391;
 	endspecify
 `endif
@@ -861,41 +877,41 @@ endmodule
 (* abc9_flop, lib_whitebox *)
 module SB_DFFNE (
 	output `SB_DFF_REG,
-	input C, E, D
+	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, D
 );
 	always @(negedge C)
 		if (E)
 			Q <= D;
 `ifdef ICE40_HX
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
 		$setup(D, negedge C &&& E, 470 - 449);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
 		$setup(E, negedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
 		if (E) (negedge C => (Q : D)) = 540;
 	endspecify
 `endif
 `ifdef ICE40_LP
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, negedge C &&& E, 693 - 662);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
 		$setup(E, negedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
 		if (E) (negedge C => (Q : D)) = 796;
 	endspecify
 `endif
 `ifdef ICE40_U
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, negedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
 		$setup(E, negedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
 		if (E) (negedge C => (Q : D)) = 1391;
 	endspecify
 `endif
@@ -913,36 +929,36 @@ module SB_DFFNSR (
 			Q <= D;
 `ifdef ICE40_HX
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
 		$setup(D, negedge C, 470 - 449);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
 		$setup(R, negedge C, 203);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
 		if ( R) (negedge C => (Q : 1'b0)) = 540;
 		if (!R) (negedge C => (Q : D)) = 540;
 	endspecify
 `endif
 `ifdef ICE40_LP
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, negedge C, 693 - 662);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L78
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L78
 		$setup(R, negedge C, 299);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
 		if ( R) (negedge C => (Q : 1'b0)) = 796;
 		if (!R) (negedge C => (Q : D)) = 796;
 	endspecify
 `endif
 `ifdef ICE40_U
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, negedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
 		$setup(R, negedge C, 530);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
 		if ( R) (negedge C => (Q : 1'b0)) = 1391;
 		if (!R) (negedge C => (Q : D)) = 1391;
 	endspecify
@@ -961,12 +977,12 @@ module SB_DFFNR (
 			Q <= D;
 `ifdef ICE40_HX
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
 		$setup(D, negedge C, 470 - 449);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L63
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L63
 		$setup(negedge R, negedge C, 160);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L91
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L91
 `ifndef YOSYS
 		(posedge R => (Q : 1'b0)) = 599;
 `else
@@ -974,18 +990,18 @@ module SB_DFFNR (
 					// but for facilitating a bypass box, let's pretend it's
 					// a simple path
 `endif
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
 		if (!R) (negedge C => (Q : D)) = 540;
 	endspecify
 `endif
 `ifdef ICE40_LP
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, negedge C, 693 - 662);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L63
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L63
 		$setup(negedge R, negedge C, 235);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L91
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L91
 `ifndef YOSYS
 		(posedge R => (Q : 1'b0)) = 883;
 `else
@@ -993,18 +1009,18 @@ module SB_DFFNR (
 					// but for facilitating a bypass box, let's pretend it's
 					// a simple path
 `endif
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
 		if (!R) (negedge C => (Q : D)) = 796;
 	endspecify
 `endif
 `ifdef ICE40_U
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, negedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
 		$setup(negedge R, negedge C, 424);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103
 `ifndef YOSYS
 		(posedge R => (Q : 1'b0)) = 1589;
 `else
@@ -1012,7 +1028,7 @@ module SB_DFFNR (
 					// but for facilitating a bypass box, let's pretend it's
 					// a simple path
 `endif
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
 		if (!R) (negedge C => (Q : D)) = 1391;
 	endspecify
 `endif
@@ -1030,36 +1046,36 @@ module SB_DFFNSS (
 			Q <= D;
 `ifdef ICE40_HX
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
 		$setup(D, negedge C, 470 - 449);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
 		$setup(S, negedge C, 203);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
 		if ( S) (negedge C => (Q : 1'b1)) = 540;
 		if (!S) (negedge C => (Q : D)) = 540;
 	endspecify
 `endif
 `ifdef ICE40_LP
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, negedge C, 693 - 662);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L78
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L78
 		$setup(S, negedge C, 299);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
 		if ( S) (negedge C => (Q : 1'b1)) = 796;
 		if (!S) (negedge C => (Q : D)) = 796;
 	endspecify
 `endif
 `ifdef ICE40_U
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, negedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
 		$setup(S, negedge C, 530);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
 		if ( S) (negedge C => (Q : 1'b1)) = 1391;
 		if (!S) (negedge C => (Q : D)) = 1391;
 	endspecify
@@ -1078,12 +1094,12 @@ module SB_DFFNS (
 			Q <= D;
 `ifdef ICE40_HX
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
 		$setup(D, negedge C, 470 - 449);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L63
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L63
 		$setup(negedge S, negedge C, 160);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L91
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L91
 `ifndef YOSYS
 		(posedge S => (Q : 1'b1)) = 599;
 `else
@@ -1091,18 +1107,18 @@ module SB_DFFNS (
 					// but for facilitating a bypass box, let's pretend it's
 					// a simple path
 `endif
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
 		if (!S) (negedge C => (Q : D)) = 540;
 	endspecify
 `endif
 `ifdef ICE40_LP
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, negedge C, 693 - 662);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L63
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L63
 		$setup(negedge S, negedge C, 235);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L91
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L91
 `ifndef YOSYS
 		(posedge S => (Q : 1'b1)) = 883;
 `else
@@ -1110,18 +1126,18 @@ module SB_DFFNS (
 					// but for facilitating a bypass box, let's pretend it's
 					// a simple path
 `endif
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
 		if (!S) (negedge C => (Q : D)) = 796;
 	endspecify
 `endif
 `ifdef ICE40_U
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, negedge C, /*1232 - 1285*/ 0); // Negative times not currently supported
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
 		$setup(negedge S, negedge C, 424);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103
 `ifndef YOSYS
 		(posedge S => (Q : 1'b1)) = 1589;
 `else
@@ -1129,7 +1145,7 @@ module SB_DFFNS (
 					// but for facilitating a bypass box, let's pretend it's
 					// a simple path
 `endif
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
 		if (!S) (negedge C => (Q : D)) = 1391;
 	endspecify
 `endif
@@ -1138,7 +1154,7 @@ endmodule
 (* abc9_flop, lib_whitebox *)
 module SB_DFFNESR (
 	output `SB_DFF_REG,
-	input C, E, R, D
+	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, R, D
 );
 	always @(negedge C)
 		if (E) begin
@@ -1149,42 +1165,42 @@ module SB_DFFNESR (
 		end
 `ifdef ICE40_HX
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
 		$setup(D, negedge C &&& E && !R, 470 - 449);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
 		$setup(E, negedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L78
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L78
 		$setup(R, negedge C &&& E, 203);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
 		if (E &&  R) (negedge C => (Q : 1'b0)) = 540;
 		if (E && !R) (negedge C => (Q : D)) = 540;
 	endspecify
 `endif
 `ifdef ICE40_LP
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, negedge C &&& E && !R, 693 - 662);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
 		$setup(E, negedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L78
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L78
 		$setup(R, negedge C &&& E, 299);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
 		if (E &&  R) (negedge C => (Q : 1'b0)) = 796;
 		if (E && !R) (negedge C => (Q : D)) = 796;
 	endspecify
 `endif
 `ifdef ICE40_U
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, negedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
 		$setup(E, negedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
 		$setup(R, negedge C &&& E, 530);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
 		if (E &&  R) (negedge C => (Q : 1'b0)) = 1391;
 		if (E && !R) (negedge C => (Q : D)) = 1391;
 	endspecify
@@ -1194,7 +1210,7 @@ endmodule
 (* abc9_box, lib_whitebox *)
 module SB_DFFNER (
 	output `SB_DFF_REG,
-	input C, E, R, D
+	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, R, D
 );
 	always @(negedge C, posedge R)
 		if (R)
@@ -1203,14 +1219,14 @@ module SB_DFFNER (
 			Q <= D;
 `ifdef ICE40_HX
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
 		$setup(D, negedge C &&& E, 470 - 449);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
 		$setup(E, negedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L63
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L63
 		$setup(R, negedge C, 2160);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L91
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L91
 `ifndef YOSYS
 		(posedge R => (Q : 1'b0)) = 599;
 `else
@@ -1218,20 +1234,20 @@ module SB_DFFNER (
 					// but for facilitating a bypass box, let's pretend it's
 					// a simple path
 `endif
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
 		if (E && !R) (negedge C => (Q : D)) = 540;
 	endspecify
 `endif
 `ifdef ICE40_LP
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, negedge C &&& E, 693 - 662);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
 		$setup(E, negedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L63
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L63
 		$setup(R, negedge C, 235);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L91
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L91
 `ifndef YOSYS
 		(posedge R => (Q : 1'b0)) = 883;
 `else
@@ -1239,20 +1255,20 @@ module SB_DFFNER (
 					// but for facilitating a bypass box, let's pretend it's
 					// a simple path
 `endif
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
 		if (E && !R) (negedge C => (Q : D)) = 796;
 	endspecify
 `endif
 `ifdef ICE40_U
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, negedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
 		$setup(E, negedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
 		$setup(negedge R, negedge C, 424);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103
 `ifndef YOSYS
 		(posedge R => (Q : 1'b0)) = 1589;
 `else
@@ -1260,7 +1276,7 @@ module SB_DFFNER (
 					// but for facilitating a bypass box, let's pretend it's
 					// a simple path
 `endif
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
 		if (E && !R) (negedge C => (Q : D)) = 1391;
 	endspecify
 `endif
@@ -1269,7 +1285,7 @@ endmodule
 (* abc9_flop, lib_whitebox *)
 module SB_DFFNESS (
 	output `SB_DFF_REG,
-	input C, E, S, D
+	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, S, D
 );
 	always @(negedge C)
 		if (E) begin
@@ -1280,42 +1296,42 @@ module SB_DFFNESS (
 		end
 `ifdef ICE40_HX
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
 		$setup(D, negedge C &&& E && !S, 470 - 449);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
 		$setup(E, negedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L78
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L78
 		$setup(S, negedge C &&& E, 203);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
 		if (E &&  S) (negedge C => (Q : 1'b1)) = 540;
 		if (E && !S) (negedge C => (Q : D)) = 540;
 	endspecify
 `endif
 `ifdef ICE40_LP
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, negedge C &&& E && !S, 693 - 662);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
 		$setup(E, negedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L78
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L78
 		$setup(S, negedge C &&& E, 299);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
 		if (E &&  S) (negedge C => (Q : 1'b1)) = 796;
 		if (E && !S) (negedge C => (Q : D)) = 796;
 	endspecify
 `endif
 `ifdef ICE40_U
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, negedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
 		$setup(E, negedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
 		$setup(S, negedge C &&& E, 530);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
 		if (E &&  S) (negedge C => (Q : 1'b1)) = 1391;
 		if (E && !S) (negedge C => (Q : D)) = 1391;
 	endspecify
@@ -1325,7 +1341,7 @@ endmodule
 (* abc9_box, lib_whitebox *)
 module SB_DFFNES (
 	output `SB_DFF_REG,
-	input C, E, S, D
+	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, S, D
 );
 	always @(negedge C, posedge S)
 		if (S)
@@ -1334,14 +1350,14 @@ module SB_DFFNES (
 			Q <= D;
 `ifdef ICE40_HX
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
 		$setup(D, negedge C &&& E, 470 - 449);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
 		$setup(E, negedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L63
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L63
 		$setup(negedge S, negedge C, 160);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L91
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L91
 `ifndef YOSYS
 		(posedge S => (Q : 1'b1)) = 599;
 `else
@@ -1350,20 +1366,20 @@ module SB_DFFNES (
                                // a simple path
 `endif
 
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
 		if (E && !S) (negedge C => (Q : D)) = 540;
 	endspecify
 `endif
 `ifdef ICE40_LP
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, negedge C &&& E, 693 - 662);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
 		$setup(E, negedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L63
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L63
 		$setup(negedge S, negedge C, 235);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L91
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L91
 `ifndef YOSYS
 		(posedge S => (Q : 1'b1)) = 883;
 `else
@@ -1371,20 +1387,20 @@ module SB_DFFNES (
                                // but for facilitating a bypass box, let's pretend it's
                                // a simple path
 `endif
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
 		if (E && !S) (negedge C => (Q : D)) = 796;
 	endspecify
 `endif
 `ifdef ICE40_U
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
-		//   minus https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+		//   minus https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 		$setup(D, negedge C &&& E, /*1232 - 1285*/ 0); // Negative times not currently supported
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
 		$setup(E, negedge C, 0);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L75
 		$setup(negedge S, negedge C, 424);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103
 `ifndef YOSYS
 		(posedge S => (Q : 1'b1)) = 1589;
 `else
@@ -1392,7 +1408,7 @@ module SB_DFFNES (
                                // but for facilitating a bypass box, let's pretend it's
                                // a simple path
 `endif
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
 		if (E && !S) (negedge C => (Q : D)) = 1391;
 	endspecify
 `endif
@@ -1402,11 +1418,16 @@ endmodule
 
 module SB_RAM40_4K (
 	output [15:0] RDATA,
-	input         RCLK, RCLKE, RE,
+	input         RCLK,
+	input         RCLKE `ICE40_DEFAULT_ASSIGNMENT_1,
+	input         RE `ICE40_DEFAULT_ASSIGNMENT_0,
 	input  [10:0] RADDR,
-	input         WCLK, WCLKE, WE,
+	input         WCLK,
+	input         WCLKE `ICE40_DEFAULT_ASSIGNMENT_1,
+	input         WE `ICE40_DEFAULT_ASSIGNMENT_0,
 	input  [10:0] WADDR,
-	input  [15:0] MASK, WDATA
+	input  [15:0] MASK `ICE40_DEFAULT_ASSIGNMENT_V(16'h 0000),
+	input  [15:0] WDATA
 );
 	// MODE 0:  256 x 16
 	// MODE 1:  512 x 8
@@ -1568,67 +1589,67 @@ module SB_RAM40_4K (
 `endif
 `ifdef ICE40_HX
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L343-L358
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L343-L358
 		$setup(MASK, posedge WCLK &&& WE && WCLKE, 274);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L359-L369
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L359-L369
 		$setup(RADDR, posedge RCLK &&& RE && RCLKE, 203);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L370
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L370
 		$setup(RCLKE, posedge RCLK, 267);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L371
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L371
 		$setup(RE, posedge RCLK, 98);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L372-L382
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L372-L382
 		$setup(WADDR, posedge WCLK &&& WE && WCLKE, 224);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L383
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L383
 		$setup(WCLKE, posedge WCLK, 267);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L384-L399
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L384-L399
 		$setup(WDATA, posedge WCLK &&& WE && WCLKE, 161);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L400
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L400
 		$setup(WE, posedge WCLK, 133);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
 		(posedge RCLK => (RDATA : 16'bx)) = 2146;
 	endspecify
 `endif
 `ifdef ICE40_LP
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L343-L358
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L343-L358
 		$setup(MASK, posedge WCLK &&& WE && WCLKE, 403);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L359-L369
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L359-L369
 		$setup(RADDR, posedge RCLK &&& RE && RCLKE, 300);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L370
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L370
 		$setup(RCLKE, posedge RCLK, 393);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L371
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L371
 		$setup(RE, posedge RCLK, 145);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L372-L382
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L372-L382
 		$setup(WADDR, posedge WCLK &&& WE && WCLKE, 331);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L383
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L383
 		$setup(WCLKE, posedge WCLK, 393);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L384-L399
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L384-L399
 		$setup(WDATA, posedge WCLK &&& WE && WCLKE, 238);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L400
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L400
 		$setup(WE, posedge WCLK, 196);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
 		(posedge RCLK => (RDATA : 16'bx)) = 3163;
 	endspecify
 `endif
 `ifdef ICE40_U
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12968-12983
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12968-12983
 		$setup(MASK, posedge WCLK &&& WE && WCLKE, 517);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12984-12994
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12984-12994
 		$setup(RADDR, posedge RCLK &&& RE && RCLKE, 384);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12995
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12995
 		$setup(RCLKE, posedge RCLK, 503);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12996
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12996
 		$setup(RE, posedge RCLK, 185);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12997-13007
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12997-13007
 		$setup(WADDR, posedge WCLK &&& WE && WCLKE, 424);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13008
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13008
 		$setup(WCLKE, posedge WCLK, 503);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13009-13024
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13009-13024
 		$setup(WDATA, posedge WCLK &&& WE && WCLKE, 305);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13025
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13025
 		$setup(WE, posedge WCLK, 252);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
 		(posedge RCLK => (RDATA : 16'bx)) = 1179;
 	endspecify
 `endif
@@ -1636,11 +1657,16 @@ endmodule
 
 module SB_RAM40_4KNR (
 	output [15:0] RDATA,
-	input         RCLKN, RCLKE, RE,
+	input         RCLKN,
+	input         RCLKE `ICE40_DEFAULT_ASSIGNMENT_1,
+	input         RE `ICE40_DEFAULT_ASSIGNMENT_0,
 	input  [10:0] RADDR,
-	input         WCLK, WCLKE, WE,
+	input         WCLK,
+	input         WCLKE `ICE40_DEFAULT_ASSIGNMENT_1,
+	input         WE `ICE40_DEFAULT_ASSIGNMENT_0,
 	input  [10:0] WADDR,
-	input  [15:0] MASK, WDATA
+	input  [15:0] MASK `ICE40_DEFAULT_ASSIGNMENT_V(16'h 0000),
+	input  [15:0] WDATA
 );
 	parameter WRITE_MODE = 0;
 	parameter READ_MODE = 0;
@@ -1699,67 +1725,67 @@ module SB_RAM40_4KNR (
 	);
 `ifdef ICE40_HX
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L343-L358
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L343-L358
 		$setup(MASK, posedge WCLK &&& WE && WCLKE, 274);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L359-L369
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L359-L369
 		$setup(RADDR, posedge RCLKN &&& RE && RCLKE, 203);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L370
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L370
 		$setup(RCLKE, posedge RCLKN, 267);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L371
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L371
 		$setup(RE, posedge RCLKN, 98);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L372-L382
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L372-L382
 		$setup(WADDR, posedge WCLK &&& WE && WCLKE, 224);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L383
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L383
 		$setup(WCLKE, posedge WCLK, 267);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L384-L399
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L384-L399
 		$setup(WDATA, posedge WCLK &&& WE && WCLKE, 161);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L400
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L400
 		$setup(WE, posedge WCLK, 133);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
 		(posedge RCLKN => (RDATA : 16'bx)) = 2146;
 	endspecify
 `endif
 `ifdef ICE40_LP
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L343-L358
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L343-L358
 		$setup(MASK, posedge WCLK &&& WE && WCLKE, 403);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L359-L369
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L359-L369
 		$setup(RADDR, posedge RCLKN &&& RE && RCLKE, 300);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L370
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L370
 		$setup(RCLKE, posedge RCLKN, 393);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L371
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L371
 		$setup(RE, posedge RCLKN, 145);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L372-L382
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L372-L382
 		$setup(WADDR, posedge WCLK &&& WE && WCLKE, 331);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L383
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L383
 		$setup(WCLKE, posedge WCLK, 393);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L384-L399
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L384-L399
 		$setup(WDATA, posedge WCLK &&& WE && WCLKE, 238);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L400
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L400
 		$setup(WE, posedge WCLK, 196);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
 		(posedge RCLKN => (RDATA : 16'bx)) = 3163;
 	endspecify
 `endif
 `ifdef ICE40_U
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12968-12983
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12968-12983
 		$setup(MASK, posedge WCLK &&& WE && WCLKE, 517);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12984-12994
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12984-12994
 		$setup(RADDR, posedge RCLKN &&& RE && RCLKE, 384);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12995
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12995
 		$setup(RCLKE, posedge RCLKN, 503);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12996
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12996
 		$setup(RE, posedge RCLKN, 185);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12997-13007
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12997-13007
 		$setup(WADDR, posedge WCLK &&& WE && WCLKE, 424);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13008
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13008
 		$setup(WCLKE, posedge WCLK, 503);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13009-13024
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13009-13024
 		$setup(WDATA, posedge WCLK &&& WE && WCLKE, 305);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13025
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13025
 		$setup(WE, posedge WCLK, 252);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
 		(posedge RCLKN => (RDATA : 16'bx)) = 1179;
 	endspecify
 `endif
@@ -1767,11 +1793,16 @@ endmodule
 
 module SB_RAM40_4KNW (
 	output [15:0] RDATA,
-	input         RCLK, RCLKE, RE,
+	input         RCLK,
+	input         RCLKE `ICE40_DEFAULT_ASSIGNMENT_1,
+	input         RE `ICE40_DEFAULT_ASSIGNMENT_0,
 	input  [10:0] RADDR,
-	input         WCLKN, WCLKE, WE,
+	input         WCLKN,
+	input         WCLKE `ICE40_DEFAULT_ASSIGNMENT_1,
+	input         WE `ICE40_DEFAULT_ASSIGNMENT_0,
 	input  [10:0] WADDR,
-	input  [15:0] MASK, WDATA
+	input  [15:0] MASK `ICE40_DEFAULT_ASSIGNMENT_V(16'h 0000),
+	input  [15:0] WDATA
 );
 	parameter WRITE_MODE = 0;
 	parameter READ_MODE = 0;
@@ -1830,67 +1861,67 @@ module SB_RAM40_4KNW (
 	);
 `ifdef ICE40_HX
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L343-L358
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L343-L358
 		$setup(MASK, posedge WCLKN &&& WE && WCLKE, 274);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L359-L369
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L359-L369
 		$setup(RADDR, posedge RCLK &&& RE && RCLKE, 203);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L370
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L370
 		$setup(RCLKE, posedge RCLK, 267);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L371
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L371
 		$setup(RE, posedge RCLK, 98);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L372-L382
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L372-L382
 		$setup(WADDR, posedge WCLKN &&& WE && WCLKE, 224);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L383
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L383
 		$setup(WCLKE, posedge WCLKN, 267);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L384-L399
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L384-L399
 		$setup(WDATA, posedge WCLKN &&& WE && WCLKE, 161);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L400
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L400
 		$setup(WE, posedge WCLKN, 133);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
 		(posedge RCLK => (RDATA : 16'bx)) = 2146;
 	endspecify
 `endif
 `ifdef ICE40_LP
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L343-L358
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L343-L358
 		$setup(MASK, posedge WCLKN &&& WE && WCLKE, 403);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L359-L369
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L359-L369
 		$setup(RADDR, posedge RCLK &&& RE && RCLKE, 300);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L370
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L370
 		$setup(RCLKE, posedge RCLK, 393);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L371
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L371
 		$setup(RE, posedge RCLK, 145);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L372-L382
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L372-L382
 		$setup(WADDR, posedge WCLKN &&& WE && WCLKE, 331);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L383
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L383
 		$setup(WCLKE, posedge WCLKN, 393);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L384-L399
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L384-L399
 		$setup(WDATA, posedge WCLKN &&& WE && WCLKE, 238);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L400
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L400
 		$setup(WE, posedge WCLKN, 196);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
 		(posedge RCLK => (RDATA : 16'bx)) = 3163;
 	endspecify
 `endif
 `ifdef ICE40_U
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12968-12983
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12968-12983
 		$setup(MASK, posedge WCLKN &&& WE && WCLKE, 517);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12984-12994
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12984-12994
 		$setup(RADDR, posedge RCLK &&& RE && RCLKE, 384);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12995
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12995
 		$setup(RCLKE, posedge RCLK, 503);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12996
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12996
 		$setup(RE, posedge RCLK, 185);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12997-13007
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12997-13007
 		$setup(WADDR, posedge WCLKN &&& WE && WCLKE, 424);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13008
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13008
 		$setup(WCLKE, posedge WCLKN, 503);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13009-13024
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13009-13024
 		$setup(WDATA, posedge WCLKN &&& WE && WCLKE, 305);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13025
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13025
 		$setup(WE, posedge WCLKN, 252);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
 		(posedge RCLK => (RDATA : 16'bx)) = 1179;
 	endspecify
 `endif
@@ -1898,11 +1929,16 @@ endmodule
 
 module SB_RAM40_4KNRNW (
 	output [15:0] RDATA,
-	input         RCLKN, RCLKE, RE,
+	input         RCLKN,
+	input         RCLKE `ICE40_DEFAULT_ASSIGNMENT_1,
+	input         RE `ICE40_DEFAULT_ASSIGNMENT_0,
 	input  [10:0] RADDR,
-	input         WCLKN, WCLKE, WE,
+	input         WCLKN,
+	input         WCLKE `ICE40_DEFAULT_ASSIGNMENT_1,
+	input         WE `ICE40_DEFAULT_ASSIGNMENT_0,
 	input  [10:0] WADDR,
-	input  [15:0] MASK, WDATA
+	input  [15:0] MASK `ICE40_DEFAULT_ASSIGNMENT_V(16'h 0000),
+	input  [15:0] WDATA
 );
 	parameter WRITE_MODE = 0;
 	parameter READ_MODE = 0;
@@ -1961,67 +1997,67 @@ module SB_RAM40_4KNRNW (
 	);
 `ifdef ICE40_HX
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L343-L358
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L343-L358
 		$setup(MASK, posedge WCLKN &&& WE && WCLKE, 274);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L359-L369
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L359-L369
 		$setup(RADDR, posedge RCLKN &&& RE && RCLKE, 203);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L370
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L370
 		$setup(RCLKE, posedge RCLKN, 267);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L371
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L371
 		$setup(RE, posedge RCLKN, 98);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L372-L382
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L372-L382
 		$setup(WADDR, posedge WCLKN &&& WE && WCLKE, 224);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L383
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L383
 		$setup(WCLKE, posedge WCLKN, 267);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L384-L399
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L384-L399
 		$setup(WDATA, posedge WCLKN &&& WE && WCLKE, 161);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L400
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L400
 		$setup(WE, posedge WCLKN, 133);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
 		(posedge RCLKN => (RDATA : 16'bx)) = 2146;
 	endspecify
 `endif
 `ifdef ICE40_LP
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L343-L358
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L343-L358
 		$setup(MASK, posedge WCLKN &&& WE && WCLKE, 403);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L359-L369
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L359-L369
 		$setup(RADDR, posedge RCLKN &&& RE && RCLKE, 300);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L370
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L370
 		$setup(RCLKE, posedge RCLKN, 393);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L371
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L371
 		$setup(RE, posedge RCLKN, 145);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L372-L382
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L372-L382
 		$setup(WADDR, posedge WCLKN &&& WE && WCLKE, 331);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L383
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L383
 		$setup(WCLKE, posedge WCLKN, 393);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L384-L399
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L384-L399
 		$setup(WDATA, posedge WCLKN &&& WE && WCLKE, 238);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L400
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L400
 		$setup(WE, posedge WCLKN, 196);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
 		(posedge RCLKN => (RDATA : 16'bx)) = 3163;
 	endspecify
 `endif
 `ifdef ICE40_U
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12968-12983
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12968-12983
 		$setup(MASK, posedge WCLKN &&& WE && WCLKE, 517);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12984-12994
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12984-12994
 		$setup(RADDR, posedge RCLKN &&& RE && RCLKE, 384);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12995
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12995
 		$setup(RCLKE, posedge RCLKN, 503);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12996
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12996
 		$setup(RE, posedge RCLKN, 185);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12997-13007
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L12997-13007
 		$setup(WADDR, posedge WCLKN &&& WE && WCLKE, 424);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13008
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13008
 		$setup(WCLKE, posedge WCLKN, 503);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13009-13024
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13009-13024
 		$setup(WDATA, posedge WCLKN &&& WE && WCLKE, 305);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13025
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13025
 		$setup(WE, posedge WCLKN, 252);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
 		(posedge RCLKN => (RDATA : 16'bx)) = 1179;
 	endspecify
 `endif
@@ -2123,63 +2159,63 @@ endspecify
 `endif
 `ifdef ICE40_HX
 specify
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L79
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L79
 	(CIN => COUT) = (101:112:126, 85:94:105);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L80
 	(I0 => O) = (361:399:449, 310:343:386);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L81
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L81
 	(I0 => LO) = (293:324:365, 310:343:386);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L82
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L82
 	(I1 => COUT) = (209:231:259, 197:218:245);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L83
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L83
 	(I1 => O) = (321:355:400, 304:337:379);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L84
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L84
 	(I1 => LO) = (259:287:323, 304:337:379);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L85
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L85
 	(I2 => COUT) = (186:206:231, 107:118:133);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L86
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L86
 	(I2 => O) = (304:337:379, 282:312:351);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L87
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L87
 	(I2 => LO) = (254:281:316, 231:256:288);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L88
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L88
 	(I3 => O) = (254:281:316, 231:256:288);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L89
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L89
 	(I3 => LO) = (214:237:267, 220:243:274);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L90
 	(posedge CLK => (O : 1'bx)) = (434:480:540, 434:480:540);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L91-L92
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L91-L92
 	(SR => O) = (482:535:599, 482:533:599);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
 	$setuphold(posedge CLK, posedge I0, 378:418:470, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L68
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L68
 	$setuphold(posedge CLK, negedge I0, 321:355:400, 0:0:0);
 	$setuphold(negedge CLK, posedge I0, 378:418:470, 0:0:0);
 	$setuphold(negedge CLK, negedge I0, 321:355:400, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L75
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L75
 	$setuphold(posedge CLK, posedge I1, 321:355:400, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L69
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L69
 	$setuphold(posedge CLK, negedge I1, 304:337:379, 0:0:0);
 	$setuphold(negedge CLK, posedge I1, 321:355:400, 0:0:0);
 	$setuphold(negedge CLK, negedge I1, 304:337:379, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L76
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L76
 	$setuphold(posedge CLK, posedge I2, 299:330:372, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L70
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L70
 	$setuphold(posedge CLK, negedge I2, 259:287:323, 0:0:0);
 	$setuphold(negedge CLK, posedge I2, 299:330:372, 0:0:0);
 	$setuphold(negedge CLK, negedge I2, 259:287:323, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L77
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L77
 	$setuphold(posedge CLK, posedge I3, 220:243:274, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L71
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L71
 	$setuphold(posedge CLK, negedge I3, 175:183:217, 0:0:0);
 	$setuphold(negedge CLK, posedge I3, 220:243:274, 0:0:0);
 	$setuphold(negedge CLK, negedge I3, 175:183:217, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L73
 	$setuphold(posedge CLK, negedge CEN, 0:0:0, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L67
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L67
 	$setuphold(posedge CLK, posedge CEN, 0:0:0, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L78
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L78
 	$setuphold(posedge CLK, posedge SR, 163:181:203, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L72
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L72
 	$setuphold(posedge CLK, negedge SR, 113:125:140, 0:0:0);
 	$setuphold(negedge CLK, posedge SR, 163:181:203, 0:0:0);
 	$setuphold(negedge CLK, negedge SR, 113:125:140, 0:0:0);
@@ -2187,63 +2223,63 @@ endspecify
 `endif
 `ifdef ICE40_LP
 specify
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L79
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L79
 	(CIN => COUT) = (118:153:186, 98:128:155);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L80
 	(I0 => O) = (419:545:662, 360:468:569);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L81
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L81
 	(I0 => LO) = (340:442:538, 360:468:569);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L82
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L82
 	(I1 => COUT) = (242:315:382, 229:298:362);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L83
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L83
 	(I1 => O) = (372:485:589, 353:459:558);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L84
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L84
 	(I1 => LO) = (301:391:475, 353:459:558);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L85
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L85
 	(I2 => COUT) = (216:281:341, 124:162:196);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L86
 	(I2 => O) = (353:459:558, 327:425:517);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L87
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L87
 	(I2 => LO) = (288:374:455, 321:417:507);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L88
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L88
 	(I3 => O) = (294:383:465, 268:349:424);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L89
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L89
 	(I3 => LO) = (249:323:393, 255:332:403);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L90
 	(posedge CLK => (O : 1'bx)) = (504:655:796, 504:655:796);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L91-L92
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L91-L92
 	(SR => O) = (559:726:883, 559:726:883);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L74
 	$setuphold(posedge CLK, posedge I0, 438:570:693, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L68
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L68
 	$setuphold(posedge CLK, negedge I0, 373:485:589, 0:0:0);
 	$setuphold(negedge CLK, posedge I0, 438:570:693, 0:0:0);
 	$setuphold(negedge CLK, negedge I0, 373:485:589, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L75
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L75
 	$setuphold(posedge CLK, posedge I1, 373:485:589, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L69
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L69
 	$setuphold(posedge CLK, negedge I1, 353:459:558, 0:0:0);
 	$setuphold(negedge CLK, posedge I1, 373:485:589, 0:0:0);
 	$setuphold(negedge CLK, negedge I1, 353:459:558, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L76
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L76
 	$setuphold(posedge CLK, posedge I2, 347:451:548, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L70
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L70
 	$setuphold(posedge CLK, negedge I2, 301:391:475, 0:0:0);
 	$setuphold(negedge CLK, posedge I2, 347:451:548, 0:0:0);
 	$setuphold(negedge CLK, negedge I2, 301:391:475, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L77
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L77
 	$setuphold(posedge CLK, posedge I3, 255:332:403, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L71
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L71
 	$setuphold(posedge CLK, negedge I3, 203:264:320, 0:0:0);
 	$setuphold(negedge CLK, posedge I3, 255:332:403, 0:0:0);
 	$setuphold(negedge CLK, negedge I3, 203:264:320, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L73
 	$setuphold(posedge CLK, negedge CEN, 0:0:0, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L67
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L67
 	$setuphold(posedge CLK, posedge CEN, 0:0:0, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L78
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L78
 	$setuphold(posedge CLK, posedge SR, 190:247:300, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L72
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L72
 	$setuphold(posedge CLK, negedge SR, 131:170:207, 0:0:0);
 	$setuphold(negedge CLK, posedge SR, 190:247:300, 0:0:0);
 	$setuphold(negedge CLK, negedge SR, 131:170:207, 0:0:0);
@@ -2251,63 +2287,63 @@ endspecify
 `endif
 `ifdef ICE40_U
 specify
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L91
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L91
 	(CIN => COUT) = (103:181:278, 103:181:278);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L92
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L92
 	(I0 => O) = (462:808:1255, 477:834:1285);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L93
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L93
 	(I0 => LO) = (315:550:848, 334:585:901);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L94
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L94
 	(I1 => COUT) = (251:438:675, 246:430:662);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L95
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L95
 	(I1 => O) = (438:765:1179, 457:799:1232);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L96
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L96
 	(I1 => LO) = (275:481:742, 329:576:887);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L97
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L97
 	(I2 => COUT) = (226:395:609, 133:232:358);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L98
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L98
 	(I2 => O) = (438:765:1179, 447:782:1205);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L99
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L99
 	(I2 => LO) = (261:456:702, 290:507:781);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L100
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L100
 	(I3 => O) = (320:559:861, 226:370:874);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L101
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L101
 	(I3 => LO) = (216:378:583, 226:395:609);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L102
 	(posedge CLK => (O : 1'bx)) = (516:903:1391, 516:903:1391);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103-104
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L103-104
 	(SR => O) = (420:734:1131, 590:1032:1589);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L86
 	$setuphold(posedge CLK, posedge I0, 457:799:1232, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L80
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L80
 	$setuphold(posedge CLK, negedge I0, 393:688:1060, 0:0:0);
 	$setuphold(negedge CLK, posedge I0, 457:799:1232, 0:0:0);
 	$setuphold(negedge CLK, negedge I0, 393:688:1060, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L87
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L87
 	$setuphold(posedge CLK, posedge I1, 393:688:1060, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L81
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L81
 	$setuphold(posedge CLK, negedge I1, 373:653:1007, 0:0:0);
 	$setuphold(negedge CLK, posedge I1, 393:688:1060, 0:0:0);
 	$setuphold(negedge CLK, negedge I1, 373:653:1007, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L88
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L88
 	$setuphold(posedge CLK, posedge I2, 364:636:980, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L82
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L82
 	$setuphold(posedge CLK, negedge I2, 320:559:861, 0:0:0);
 	$setuphold(negedge CLK, posedge I2, 364:636:980, 0:0:0);
 	$setuphold(negedge CLK, negedge I2, 320:559:861, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L89
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L89
 	$setuphold(posedge CLK, posedge I3, 279:473:728, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L83
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L83
 	$setuphold(posedge CLK, negedge I3, 216:378:583, 0:0:0);
 	$setuphold(negedge CLK, posedge I3, 279:473:728, 0:0:0);
 	$setuphold(negedge CLK, negedge I3, 216:378:583, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L85
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L85
 	$setuphold(posedge CLK, negedge CEN, 0:0:0, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L79
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L79
 	$setuphold(posedge CLK, posedge CEN, 0:0:0, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L90
 	$setuphold(posedge CLK, posedge SR, 197:344:530, 0:0:0);
-	// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L84
+	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L84
 	$setuphold(posedge CLK, negedge SR, 143:249:384, 0:0:0);
 	$setuphold(negedge CLK, posedge SR, 197:344:530, 0:0:0);
 	$setuphold(negedge CLK, negedge SR, 131:170:207, 0:0:0);
@@ -2534,23 +2570,23 @@ module SB_SPRAM256KA (
 `endif
 `ifdef ICE40_U
 	specify
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13169-L13182
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13169-L13182
 		$setup(posedge ADDRESS, posedge CLOCK, 268);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13183
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13183
 		$setup(CHIPSELECT, posedge CLOCK, 404);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13184-L13199
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13184-L13199
 		$setup(DATAIN, posedge CLOCK, 143);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13200-L13203
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13200-L13203
 		$setup(MASKWREN, posedge CLOCK, 143);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13167
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13167
 		//$setup(negedge SLEEP, posedge CLOCK, 41505);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13167
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13167
 		//$setup(negedge STANDBY, posedge CLOCK, 1715);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13206
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13206
 		$setup(WREN, posedge CLOCK, 289);
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13207-L13222
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13207-L13222
 		(posedge CLOCK => (DATAOUT : 16'bx)) = 1821;
-		// https://github.com/cliffordwolf/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13223-L13238
+		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13223-L13238
 		(posedge SLEEP => (DATAOUT : 16'b0)) = 1099;
 	endspecify
 `endif

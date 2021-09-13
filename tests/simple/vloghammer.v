@@ -1,6 +1,6 @@
 
 // test cases found using vloghammer
-// https://github.com/cliffordwolf/VlogHammer
+// https://github.com/YosysHQ/VlogHammer
 
 module test01(a, y);
   input [7:0] a;

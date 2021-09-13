@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -74,6 +74,7 @@ public:
 		param_int(ID::CTRL_IN_WIDTH)
 		param_int(ID::CTRL_OUT_WIDTH)
 		param_int(ID::OFFSET)
+		param_int(ID::PORTID)
 		param_int(ID::PRIORITY)
 		param_int(ID::RD_PORTS)
 		param_int(ID::SIZE)

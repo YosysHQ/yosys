@@ -1,7 +1,7 @@
 /* -*- c++ -*-
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -33,7 +33,7 @@
 // This header is very boring. It just defines some general things that
 // belong nowhere else and includes the interesting headers.
 //
-// Find more information in the "CodingReadme" file.
+// Find more information in the "guidelines/GettingStarted" file.
 
 
 #ifndef YOSYS_H
@@ -121,8 +121,9 @@ extern Tcl_Obj *Tcl_ObjSetVar2(Tcl_Interp *interp, Tcl_Obj *part1Ptr, Tcl_Obj *p
 #    define fileno _fileno
 #  endif
 
-// mingw and msvc include `wingdi.h` which defines a TRANSPARENT macro
-// that conflicts with X(TRANSPARENT) entry in kernel/constids.inc
+// The following defines conflict with our identifiers:
+#  undef CONST
+// `wingdi.h` defines a TRANSPARENT macro that conflicts with X(TRANSPARENT) entry in kernel/constids.inc
 #  undef TRANSPARENT
 #endif
 
@@ -221,6 +222,7 @@ namespace RTLIL {
 	struct Wire;
 	struct Cell;
 	struct Memory;
+	struct Process;
 	struct Module;
 	struct Design;
 	struct Monitor;
@@ -244,6 +246,7 @@ namespace hashlib {
 	template<> struct hash_ops<RTLIL::Wire*> : hash_obj_ops {};
 	template<> struct hash_ops<RTLIL::Cell*> : hash_obj_ops {};
 	template<> struct hash_ops<RTLIL::Memory*> : hash_obj_ops {};
+	template<> struct hash_ops<RTLIL::Process*> : hash_obj_ops {};
 	template<> struct hash_ops<RTLIL::Module*> : hash_obj_ops {};
 	template<> struct hash_ops<RTLIL::Design*> : hash_obj_ops {};
 	template<> struct hash_ops<RTLIL::Monitor*> : hash_obj_ops {};
@@ -252,6 +255,7 @@ namespace hashlib {
 	template<> struct hash_ops<const RTLIL::Wire*> : hash_obj_ops {};
 	template<> struct hash_ops<const RTLIL::Cell*> : hash_obj_ops {};
 	template<> struct hash_ops<const RTLIL::Memory*> : hash_obj_ops {};
+	template<> struct hash_ops<const RTLIL::Process*> : hash_obj_ops {};
 	template<> struct hash_ops<const RTLIL::Module*> : hash_obj_ops {};
 	template<> struct hash_ops<const RTLIL::Design*> : hash_obj_ops {};
 	template<> struct hash_ops<const RTLIL::Monitor*> : hash_obj_ops {};

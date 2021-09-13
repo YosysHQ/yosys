@@ -1,0 +1,28 @@
+read_verilog <<EOT
+module top;
+    initial begin : blk
+        integer x;
+    end
+endmodule
+EOT
+
+delete
+
+read_verilog -sv <<EOT
+module top;
+    initial begin
+        integer x;
+    end
+endmodule
+EOT
+
+delete
+
+logger -expect error "Local declaration in unnamed block is only supported in SystemVerilog mode!" 1
+read_verilog <<EOT
+module top;
+    initial begin
+        integer x;
+    end
+endmodule
+EOT

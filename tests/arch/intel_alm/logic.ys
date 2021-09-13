@@ -1,7 +1,7 @@
 read_verilog ../common/logic.v
 hierarchy -top top
 proc
-equiv_opt -assert -map +/intel_alm/common/alm_sim.v synth_intel_alm -family cyclonev # equivalency check
+equiv_opt -assert -map +/intel_alm/common/alm_sim.v synth_intel_alm -family cyclonev -noiopad -noclkbuf # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd top # Constrain all select calls below inside the top module
 
@@ -15,7 +15,7 @@ design -reset
 read_verilog ../common/logic.v
 hierarchy -top top
 proc
-equiv_opt -assert -map +/intel_alm/common/alm_sim.v synth_intel_alm -family cyclone10gx # equivalency check
+equiv_opt -assert -map +/intel_alm/common/alm_sim.v synth_intel_alm -family cyclone10gx -noiopad -noclkbuf # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd top # Constrain all select calls below inside the top module
 

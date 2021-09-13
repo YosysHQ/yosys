@@ -1,0 +1,37 @@
+name: Visual Studio Build
+
+on: [push, pull_request]
+
+jobs:
+  yosys-vcxsrc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cache sources
+        id: cache-sources
+        uses: actions/cache@v2
+        with:
+          path: .
+          key: cache-yosys
+      - name: Build
+        run: make vcxsrc YOSYS_VER=latest
+      - uses: actions/upload-artifact@v2
+        with:
+          name: vcxsrc
+          path: yosys-win32-vcxsrc-latest.zip
+  
+  build:
+    runs-on: windows-latest
+    needs: yosys-vcxsrc
+    steps:  
+      - uses: actions/download-artifact@v2
+        with:
+          name: vcxsrc
+          path: .
+      - name: unzip
+        run: unzip yosys-win32-vcxsrc-latest.zip
+      - name: setup-msbuild
+        uses: microsoft/setup-msbuild@v1
+      - name: MSBuild
+        working-directory: yosys-win32-vcxsrc-latest
+        run: msbuild YosysVS.sln /p:PlatformToolset=v142 /p:Configuration=Release /p:WindowsTargetPlatformVersion=10.0.17763.0

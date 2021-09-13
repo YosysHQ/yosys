@@ -999,6 +999,22 @@ struct debug_item : ::cxxrtl_object {
 		next    = nullptr;
 		outline = &group;
 	}
+
+	template<size_t Bits, class IntegerT>
+	IntegerT get() const {
+		assert(width == Bits && depth == 1);
+		value<Bits> item;
+		std::copy(curr, curr + value<Bits>::chunks, item.data);
+		return item.template get<IntegerT>();
+	}
+
+	template<size_t Bits, class IntegerT>
+	void set(IntegerT other) const {
+		assert(width == Bits && depth == 1);
+		value<Bits> item;
+		item.template set<IntegerT>(other);
+		std::copy(item.data, item.data + value<Bits>::chunks, next);
+	}
 };
 static_assert(std::is_standard_layout<debug_item>::value, "debug_item is not compatible with C layout");
 
@@ -1217,49 +1233,49 @@ value<BitsY> xnor_ss(const value<BitsA> &a, const value<BitsB> &b) {
 template<size_t BitsY, size_t BitsA, size_t BitsB>
 CXXRTL_ALWAYS_INLINE
 value<BitsY> shl_uu(const value<BitsA> &a, const value<BitsB> &b) {
-	return a.template zcast<BitsY>().template shl(b);
+	return a.template zcast<BitsY>().shl(b);
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
 CXXRTL_ALWAYS_INLINE
 value<BitsY> shl_su(const value<BitsA> &a, const value<BitsB> &b) {
-	return a.template scast<BitsY>().template shl(b);
+	return a.template scast<BitsY>().shl(b);
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
 CXXRTL_ALWAYS_INLINE
 value<BitsY> sshl_uu(const value<BitsA> &a, const value<BitsB> &b) {
-	return a.template zcast<BitsY>().template shl(b);
+	return a.template zcast<BitsY>().shl(b);
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
 CXXRTL_ALWAYS_INLINE
 value<BitsY> sshl_su(const value<BitsA> &a, const value<BitsB> &b) {
-	return a.template scast<BitsY>().template shl(b);
+	return a.template scast<BitsY>().shl(b);
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
 CXXRTL_ALWAYS_INLINE
 value<BitsY> shr_uu(const value<BitsA> &a, const value<BitsB> &b) {
-	return a.template shr(b).template zcast<BitsY>();
+	return a.shr(b).template zcast<BitsY>();
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
 CXXRTL_ALWAYS_INLINE
 value<BitsY> shr_su(const value<BitsA> &a, const value<BitsB> &b) {
-	return a.template shr(b).template scast<BitsY>();
+	return a.shr(b).template scast<BitsY>();
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
 CXXRTL_ALWAYS_INLINE
 value<BitsY> sshr_uu(const value<BitsA> &a, const value<BitsB> &b) {
-	return a.template shr(b).template zcast<BitsY>();
+	return a.shr(b).template zcast<BitsY>();
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
 CXXRTL_ALWAYS_INLINE
 value<BitsY> sshr_su(const value<BitsA> &a, const value<BitsB> &b) {
-	return a.template sshr(b).template scast<BitsY>();
+	return a.sshr(b).template scast<BitsY>();
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>

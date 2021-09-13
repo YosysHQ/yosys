@@ -1,7 +1,7 @@
 /* -*- c++ -*-
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -160,7 +160,8 @@ namespace AST
 		AST_TYPEDEF,
 		AST_STRUCT,
 		AST_UNION,
-		AST_STRUCT_ITEM
+		AST_STRUCT_ITEM,
+		AST_BIND
 	};
 
 	struct AstSrcLocType {
@@ -220,7 +221,7 @@ namespace AST
 		AstSrcLocType location;
 
 		// creating and deleting nodes
-		AstNode(AstNodeType type = AST_NONE, AstNode *child1 = NULL, AstNode *child2 = NULL, AstNode *child3 = NULL);
+		AstNode(AstNodeType type = AST_NONE, AstNode *child1 = nullptr, AstNode *child2 = nullptr, AstNode *child3 = nullptr, AstNode *child4 = nullptr);
 		AstNode *clone() const;
 		void cloneInto(AstNode *other) const;
 		void delete_children();
@@ -250,9 +251,10 @@ namespace AST
 		// simplify() creates a simpler AST by unrolling for-loops, expanding generate blocks, etc.
 		// it also sets the id2ast pointers so that identifier lookups are fast in genRTLIL()
 		bool simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage, int width_hint, bool sign_hint, bool in_param);
+		void replace_result_wire_name_in_function(const std::string &from, const std::string &to);
 		AstNode *readmem(bool is_readmemh, std::string mem_filename, AstNode *memory, int start_addr, int finish_addr, bool unconditional_init);
-		void expand_genblock(std::string index_var, std::string prefix, std::map<std::string, std::string> &name_map, bool original_scope = true);
-		void replace_ids(const std::string &prefix, const std::map<std::string, std::string> &rules);
+		void expand_genblock(const std::string &prefix);
+		void label_genblks(std::set<std::string>& existing, int &counter);
 		void mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg_places,
 				dict<AstNode*, uint32_t> &mem2reg_flags, dict<AstNode*, uint32_t> &proc_flags, uint32_t &status_flags);
 		bool mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod, AstNode *block, AstNode *&async_block);
@@ -262,16 +264,28 @@ namespace AST
 		bool detect_latch(const std::string &var);
 
 		// additional functionality for evaluating constant functions
-		struct varinfo_t { RTLIL::Const val; int offset; bool is_signed; };
-		bool has_const_only_constructs(bool &recommend_const_eval);
-		void replace_variables(std::map<std::string, varinfo_t> &variables, AstNode *fcall);
-		AstNode *eval_const_function(AstNode *fcall);
+		struct varinfo_t {
+			RTLIL::Const val;
+			int offset;
+			bool is_signed;
+			AstNode *arg = nullptr;
+			bool explicitly_sized;
+		};
+		bool has_const_only_constructs();
+		bool replace_variables(std::map<std::string, varinfo_t> &variables, AstNode *fcall, bool must_succeed);
+		AstNode *eval_const_function(AstNode *fcall, bool must_succeed);
 		bool is_simple_const_expr();
 		std::string process_format_str(const std::string &sformat, int next_arg, int stage, int width_hint, bool sign_hint);
+
+		bool is_recursive_function() const;
+		std::pair<AstNode*, AstNode*> get_tern_choice();
 
 		// create a human-readable text representation of the AST (for debugging)
 		void dumpAst(FILE *f, std::string indent) const;
 		void dumpVlog(FILE *f, std::string indent) const;
+
+		// Generate RTLIL for a bind construct
+		std::vector<RTLIL::Binding *> genBindings() const;
 
 		// used by genRTLIL() for detecting expression width and sign
 		void detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *found_real = NULL);
@@ -281,7 +295,7 @@ namespace AST
 		// for expressions the resulting signal vector is returned
 		// all generated cell instances, etc. are written to the RTLIL::Module pointed to by AST_INTERNAL::current_module
 		RTLIL::SigSpec genRTLIL(int width_hint = -1, bool sign_hint = false);
-		RTLIL::SigSpec genWidthRTLIL(int width, const dict<RTLIL::SigBit, RTLIL::SigBit> *new_subst_ptr = NULL);
+		RTLIL::SigSpec genWidthRTLIL(int width, bool sgn, const dict<RTLIL::SigBit, RTLIL::SigBit> *new_subst_ptr = NULL);
 
 		// compare AST nodes
 		bool operator==(const AstNode &other) const;
@@ -313,6 +327,12 @@ namespace AST
 		// helpers for enum
 		void allocateDefaultEnumValues();
 		void annotateTypedEnums(AstNode *template_node);
+
+		// helpers for locations
+		std::string loc_string() const;
+
+		// Helper for looking up identifiers which are prefixed with the current module name
+		std::string try_pop_module_prefix() const;
 	};
 
 	// process an AST tree (ast must point to an AST_DESIGN node) and generate RTLIL code
@@ -351,6 +371,12 @@ namespace AST
 	std::pair<std::string,std::string> split_modport_from_type(std::string name_type);
 	AstNode * find_modport(AstNode *intf, std::string name);
 	void explode_interface_port(AstNode *module_ast, RTLIL::Module * intfmodule, std::string intfname, AstNode *modport);
+
+	// Helper for setting the src attribute.
+	void set_src_attr(RTLIL::AttrObject *obj, const AstNode *ast);
+
+	// struct helper exposed from simplify for genrtlil
+	AstNode *make_struct_member_range(AstNode *node, AstNode *member_node);
 }
 
 namespace AST_INTERNAL
@@ -363,8 +389,10 @@ namespace AST_INTERNAL
 	extern const dict<RTLIL::SigBit, RTLIL::SigBit> *genRTLIL_subst_ptr;
 	extern RTLIL::SigSpec ignoreThisSignalsInInitial;
 	extern AST::AstNode *current_always, *current_top_block, *current_block, *current_block_child;
-	extern AST::AstModule *current_module;
+	extern RTLIL::Module *current_module;
 	extern bool current_always_clocked;
+	extern dict<std::string, int> current_memwr_count;
+	extern dict<std::string, pool<int>> current_memwr_visible;
 	struct LookaheadRewriter;
 	struct ProcessGenerator;
 }

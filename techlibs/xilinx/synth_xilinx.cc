@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *            (C) 2019  Eddie Hung    <eddie@fpgeh.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
@@ -662,6 +662,7 @@ struct SynthXilinxPass : public ScriptPass
 			run("hierarchy -check");
 			run("stat -tech xilinx");
 			run("check -noinit");
+			run("blackbox =A:whitebox");
 		}
 
 		if (check_label("edif")) {
@@ -671,7 +672,7 @@ struct SynthXilinxPass : public ScriptPass
 
 		if (check_label("blif")) {
 			if (!blif_file.empty() || help_mode)
-				run(stringf("write_blif %s", edif_file.c_str()));
+				run(stringf("write_blif %s", blif_file.c_str()));
 		}
 	}
 } SynthXilinxPass;

@@ -1,0 +1,19 @@
+read_verilog -dump_ast1 -dump_ast2 -sv <<EOT
+module dut();
+
+enum integer  { uInteger  = -10 } a;
+enum int      { uInt      = -11 } b;
+enum shortint { uShortInt = -12 } c;
+enum byte     { uByte     = -13 } d;
+
+always_comb begin
+  assert(-10 == uInteger);
+  assert(-11 == uInt);
+  assert(-12 == uShortInt);
+  assert(-13 == uByte);
+end
+endmodule
+EOT
+hierarchy; proc; opt
+select -module dut
+sat -verify -seq 1 -tempinduct -prove-asserts -show-all

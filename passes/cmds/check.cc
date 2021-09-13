@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -139,6 +139,14 @@ struct CheckPass : public Pass {
 									stringf("action %s <= %s (sync rule) in process %s",
 									        log_signal(action.first), log_signal(action.second), log_id(proc_it.first)));
 						for (auto bit : sigmap(action.second))
+							if (bit.wire) used_wires.insert(bit);
+					}
+					for (auto memwr : sync->mem_write_actions) {
+						for (auto bit : sigmap(memwr.address))
+							if (bit.wire) used_wires.insert(bit);
+						for (auto bit : sigmap(memwr.data))
+							if (bit.wire) used_wires.insert(bit);
+						for (auto bit : sigmap(memwr.enable))
 							if (bit.wire) used_wires.insert(bit);
 					}
 				}

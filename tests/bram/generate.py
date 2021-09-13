@@ -93,17 +93,21 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2, or_next):
     tb_dout = list()
     tb_addrlist = list()
 
+    addrmask = (1 << abits) - 1
+
     for i in range(10):
-        tb_addrlist.append(random.randrange(1048576))
+        tb_addrlist.append(random.randrange(1048576) & addrmask)
 
     t = random.randrange(1048576)
     for i in range(10):
-        tb_addrlist.append(t ^ (1 << i))
+        tb_addrlist.append((t ^ (1 << i)) & addrmask)
 
     v_stmts.append("(* nomem2reg *) reg [%d:0] memory [0:%d];" % (dbits-1, 2**abits-1))
 
     portindex = 0
     last_always_hdr = (-1, "")
+
+    addr2en = {}
 
     for p1 in range(groups):
         for p2 in range(ports[p1]):
@@ -143,6 +147,7 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2, or_next):
                 v_stmts.append("input [%d:0] %sEN;" % (enable[p1]-1, pf))
                 tb_decls.append("reg [%d:0] %sEN;" % (enable[p1]-1, pf))
                 tb_din.append("%sEN" % pf)
+                addr2en["%sADDR" % pf] = "%sEN" % pf
 
             assign_op = "<="
             if clocks[p1] == 0:
@@ -247,10 +252,23 @@ def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2, or_next):
         print("    #100;", file=tb_f)
         print("    $display(\"bram_%02d_%02d %3d: %%b %%b %%s\", %s, %s, error ? \"ERROR\" : \"OK\");" %
                 (k1, k2, i, expr_dout, expr_dout_ref), file=tb_f)
-        for p in tb_din:
-            print("    %s <= %d;" % (p, random.randrange(1048576)), file=tb_f)
+        a2e = {}
         for p in tb_addr:
-            print("    %s <= %d;" % (p, random.choice(tb_addrlist)), file=tb_f)
+            addr = random.choice(tb_addrlist)
+            if p in addr2en:
+                if addr not in a2e:
+                    a2e[addr] = []
+                a2e[addr].append(addr2en[p])
+            print("    %s <= %d;" % (p, addr), file=tb_f)
+        enzero = set()
+        for v in a2e.values():
+            x = random.choice(v)
+            for s in v:
+                if s != x:
+                    enzero.add(s)
+        for p in tb_din:
+            val = 0 if p in enzero else random.randrange(1048576)
+            print("    %s <= %d;" % (p, val), file=tb_f)
         print("    #900;", file=tb_f)
 
     print("  end", file=tb_f)

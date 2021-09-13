@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -241,6 +241,9 @@ struct SynthGowinPass : public ScriptPass
 			if (retime || help_mode)
 				run("abc -dff -D 1", "(only if -retime)");
 			run("splitnets");
+			if (!noiopads || help_mode)
+				run("iopadmap -bits -inpad IBUF O:I -outpad OBUF I:O "
+					"-toutpad $__GW_TBUF OE:I:O -tinoutpad $__GW_IOBUF OE:O:I:IO", "(unless -noiopads)");
 		}
 
 		if (check_label("map_ffs"))
@@ -277,9 +280,6 @@ struct SynthGowinPass : public ScriptPass
 			run("opt_lut_ins -tech gowin");
 			run("setundef -undriven -params -zero");
 			run("hilomap -singleton -hicell VCC V -locell GND G");
-			if (!noiopads || help_mode)
-				run("iopadmap -bits -inpad IBUF O:I -outpad OBUF I:O "
-					"-toutpad TBUF OEN:I:O -tinoutpad IOBUF OEN:O:I:IO", "(unless -noiopads)");
 			run("clean");
 			run("autoname");
 		}
@@ -289,6 +289,7 @@ struct SynthGowinPass : public ScriptPass
 			run("hierarchy -check");
 			run("stat");
 			run("check -noinit");
+			run("blackbox =A:whitebox");
 		}
 
 		if (check_label("vout"))

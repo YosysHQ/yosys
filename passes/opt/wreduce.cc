@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -558,7 +558,7 @@ struct WreducePass : public Pass {
 					}
 				}
 
-				if (!opt_memx && c->type.in(ID($memrd), ID($memwr), ID($meminit))) {
+				if (!opt_memx && c->type.in(ID($memrd), ID($memrd_v2), ID($memwr), ID($memwr_v2), ID($meminit), ID($meminit_v2))) {
 					IdString memid = c->getParam(ID::MEMID).decode_string();
 					RTLIL::Memory *mem = module->memories.at(memid);
 					if (mem->start_offset >= 0) {

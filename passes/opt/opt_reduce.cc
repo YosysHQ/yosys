@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -254,9 +254,9 @@ struct OptReduceWorker
 		SigPool mem_wren_sigs;
 		for (auto &cell_it : module->cells_) {
 			RTLIL::Cell *cell = cell_it.second;
-			if (cell->type == ID($mem))
+			if (cell->type.in(ID($mem), ID($mem_v2)))
 				mem_wren_sigs.add(assign_map(cell->getPort(ID::WR_EN)));
-			if (cell->type == ID($memwr))
+			if (cell->type.in(ID($memwr), ID($memwr_v2)))
 				mem_wren_sigs.add(assign_map(cell->getPort(ID::EN)));
 		}
 		for (auto &cell_it : module->cells_) {

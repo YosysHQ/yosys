@@ -573,14 +573,14 @@ endmodule
 module TBUF (O, I, OEN);
   input I, OEN;
   output O;
-  assign O = OEN ? I : 1'bz;
+  assign O = OEN ? 1'bz : I;
 endmodule
 
 module IOBUF (O, IO, I, OEN);
   input I,OEN;
   output O;
   inout IO;
-  assign IO = OEN ? I : 1'bz;
+  assign IO = OEN ? 1'bz : I;
   assign I = IO;
 endmodule
 

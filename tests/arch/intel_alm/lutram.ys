@@ -2,7 +2,7 @@ read_verilog ../common/lutram.v
 hierarchy -top lutram_1w1r
 proc
 memory -nomap
-equiv_opt -run :prove -map +/intel_alm/common/alm_sim.v -map +/intel_alm/common/dff_sim.v -map +/intel_alm/common/mem_sim.v synth_intel_alm -family cyclonev -nobram
+equiv_opt -run :prove -map +/intel_alm/common/alm_sim.v -map +/intel_alm/common/dff_sim.v -map +/intel_alm/common/mem_sim.v synth_intel_alm -family cyclonev -nobram -noiopad -noclkbuf
 memory
 opt -full
 
@@ -12,11 +12,10 @@ sat -verify -prove-asserts -seq 3 -set-init-zero -show-inputs -show-outputs mite
 design -load postopt
 cd lutram_1w1r
 select -assert-count 16 t:MISTRAL_MLAB
-select -assert-count 1 t:MISTRAL_NOT
 select -assert-count 2 t:MISTRAL_ALUT2
 select -assert-count 8 t:MISTRAL_ALUT3
-select -assert-count 17 t:MISTRAL_FF
-select -assert-none t:MISTRAL_NOT t:MISTRAL_ALUT2 t:MISTRAL_ALUT3 t:MISTRAL_FF t:MISTRAL_MLAB %% t:* %D
+select -assert-count 8 t:MISTRAL_FF
+select -assert-none t:MISTRAL_ALUT2 t:MISTRAL_ALUT3 t:MISTRAL_FF t:MISTRAL_MLAB %% t:* %D
 
 
 design -reset
@@ -24,7 +23,7 @@ read_verilog ../common/lutram.v
 hierarchy -top lutram_1w1r
 proc
 memory -nomap
-equiv_opt -run :prove -map +/intel_alm/common/alm_sim.v -map +/intel_alm/common/dff_sim.v -map +/intel_alm/common/mem_sim.v synth_intel_alm -family cyclonev -nobram
+equiv_opt -run :prove -map +/intel_alm/common/alm_sim.v -map +/intel_alm/common/dff_sim.v -map +/intel_alm/common/mem_sim.v synth_intel_alm -family cyclonev -nobram -noiopad -noclkbuf
 memory
 opt -full
 
@@ -34,8 +33,7 @@ sat -verify -prove-asserts -seq 3 -set-init-zero -show-inputs -show-outputs mite
 design -load postopt
 cd lutram_1w1r
 select -assert-count 16 t:MISTRAL_MLAB
-select -assert-count 1 t:MISTRAL_NOT
 select -assert-count 2 t:MISTRAL_ALUT2
 select -assert-count 8 t:MISTRAL_ALUT3
-select -assert-count 17 t:MISTRAL_FF
-select -assert-none t:MISTRAL_NOT t:MISTRAL_ALUT2 t:MISTRAL_ALUT3 t:MISTRAL_FF t:MISTRAL_MLAB %% t:* %D
+select -assert-count 8 t:MISTRAL_FF
+select -assert-none t:MISTRAL_ALUT2 t:MISTRAL_ALUT3 t:MISTRAL_FF t:MISTRAL_MLAB %% t:* %D

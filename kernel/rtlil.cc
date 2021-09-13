@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -20,6 +20,7 @@
 #include "kernel/yosys.h"
 #include "kernel/macc.h"
 #include "kernel/celltypes.h"
+#include "kernel/binding.h"
 #include "frontends/verilog/verilog_frontend.h"
 #include "frontends/verilog/preproc.h"
 #include "backends/rtlil/rtlil_backend.h"
@@ -363,6 +364,26 @@ bool RTLIL::Const::is_fully_undef() const
 	return true;
 }
 
+bool RTLIL::Const::is_onehot(int *pos) const
+{
+	cover("kernel.rtlil.const.is_onehot");
+
+	bool found = false;
+	for (int i = 0; i < GetSize(*this); i++) {
+		auto &bit = bits[i];
+		if (bit != RTLIL::State::S0 && bit != RTLIL::State::S1)
+			return false;
+		if (bit == RTLIL::State::S1) {
+			if (found)
+				return false;
+			if (pos)
+				*pos = i;
+			found = true;
+		}
+	}
+	return found;
+}
+
 bool RTLIL::AttrObject::has_attribute(RTLIL::IdString id) const
 {
 	return attributes.count(id);
@@ -551,8 +572,10 @@ RTLIL::Design::Design()
 
 RTLIL::Design::~Design()
 {
-	for (auto it = modules_.begin(); it != modules_.end(); ++it)
-		delete it->second;
+	for (auto &pr : modules_)
+		delete pr.second;
+	for (auto n : bindings_)
+		delete n;
 	for (auto n : verilog_packages)
 		delete n;
 	for (auto n : verilog_globals)
@@ -576,6 +599,11 @@ RTLIL::ObjRange<RTLIL::Module*> RTLIL::Design::modules()
 }
 
 RTLIL::Module *RTLIL::Design::module(RTLIL::IdString name)
+{
+	return modules_.count(name) ? modules_.at(name) : NULL;
+}
+
+const RTLIL::Module *RTLIL::Design::module(RTLIL::IdString name) const
 {
 	return modules_.count(name) ? modules_.at(name) : NULL;
 }
@@ -611,9 +639,16 @@ void RTLIL::Design::add(RTLIL::Module *module)
 	}
 }
 
+void RTLIL::Design::add(RTLIL::Binding *binding)
+{
+	log_assert(binding != nullptr);
+	bindings_.push_back(binding);
+}
+
 RTLIL::Module *RTLIL::Design::addModule(RTLIL::IdString name)
 {
-	log_assert(modules_.count(name) == 0);
+	if (modules_.count(name) != 0)
+		log_error("Attempted to add new module named '%s', but a module by that name already exists\n", name.c_str());
 	log_assert(refcount_modules_ == 0);
 
 	RTLIL::Module *module = new RTLIL::Module;
@@ -807,12 +842,12 @@ std::vector<RTLIL::Module*> RTLIL::Design::selected_whole_modules() const
 	return result;
 }
 
-std::vector<RTLIL::Module*> RTLIL::Design::selected_whole_modules_warn() const
+std::vector<RTLIL::Module*> RTLIL::Design::selected_whole_modules_warn(bool include_wb) const
 {
 	std::vector<RTLIL::Module*> result;
 	result.reserve(modules_.size());
 	for (auto &it : modules_)
-		if (it.second->get_blackbox_attribute())
+		if (it.second->get_blackbox_attribute(include_wb))
 			continue;
 		else if (selected_whole_module(it.first))
 			result.push_back(it.second);
@@ -838,14 +873,16 @@ RTLIL::Module::Module()
 
 RTLIL::Module::~Module()
 {
-	for (auto it = wires_.begin(); it != wires_.end(); ++it)
-		delete it->second;
-	for (auto it = memories.begin(); it != memories.end(); ++it)
-		delete it->second;
-	for (auto it = cells_.begin(); it != cells_.end(); ++it)
-		delete it->second;
-	for (auto it = processes.begin(); it != processes.end(); ++it)
-		delete it->second;
+	for (auto &pr : wires_)
+		delete pr.second;
+	for (auto &pr : memories)
+		delete pr.second;
+	for (auto &pr : cells_)
+		delete pr.second;
+	for (auto &pr : processes)
+		delete pr.second;
+	for (auto binding : bindings_)
+		delete binding;
 #ifdef WITH_PYTHON
 	RTLIL::Module::get_all_modules()->erase(hashidx_);
 #endif
@@ -1366,11 +1403,45 @@ namespace {
 				return;
 			}
 
+			if (cell->type == ID($memrd_v2)) {
+				param(ID::MEMID);
+				param_bool(ID::CLK_ENABLE);
+				param_bool(ID::CLK_POLARITY);
+				param(ID::TRANSPARENCY_MASK);
+				param(ID::COLLISION_X_MASK);
+				param_bool(ID::CE_OVER_SRST);
+				param_bits(ID::ARST_VALUE, param(ID::WIDTH));
+				param_bits(ID::SRST_VALUE, param(ID::WIDTH));
+				param_bits(ID::INIT_VALUE, param(ID::WIDTH));
+				port(ID::CLK, 1);
+				port(ID::EN, 1);
+				port(ID::ARST, 1);
+				port(ID::SRST, 1);
+				port(ID::ADDR, param(ID::ABITS));
+				port(ID::DATA, param(ID::WIDTH));
+				check_expected();
+				return;
+			}
+
 			if (cell->type == ID($memwr)) {
 				param(ID::MEMID);
 				param_bool(ID::CLK_ENABLE);
 				param_bool(ID::CLK_POLARITY);
 				param(ID::PRIORITY);
+				port(ID::CLK, 1);
+				port(ID::EN, param(ID::WIDTH));
+				port(ID::ADDR, param(ID::ABITS));
+				port(ID::DATA, param(ID::WIDTH));
+				check_expected();
+				return;
+			}
+
+			if (cell->type == ID($memwr_v2)) {
+				param(ID::MEMID);
+				param_bool(ID::CLK_ENABLE);
+				param_bool(ID::CLK_POLARITY);
+				param(ID::PORTID);
+				param(ID::PRIORITY_MASK);
 				port(ID::CLK, 1);
 				port(ID::EN, param(ID::WIDTH));
 				port(ID::ADDR, param(ID::ABITS));
@@ -1388,6 +1459,16 @@ namespace {
 				return;
 			}
 
+			if (cell->type == ID($meminit_v2)) {
+				param(ID::MEMID);
+				param(ID::PRIORITY);
+				port(ID::ADDR, param(ID::ABITS));
+				port(ID::DATA, param(ID::WIDTH) * param(ID::WORDS));
+				port(ID::EN, param(ID::WIDTH));
+				check_expected();
+				return;
+			}
+
 			if (cell->type == ID($mem)) {
 				param(ID::MEMID);
 				param(ID::SIZE);
@@ -1400,6 +1481,38 @@ namespace {
 				param_bits(ID::WR_CLK_POLARITY, max(1, param(ID::WR_PORTS)));
 				port(ID::RD_CLK, param(ID::RD_PORTS));
 				port(ID::RD_EN, param(ID::RD_PORTS));
+				port(ID::RD_ADDR, param(ID::RD_PORTS) * param(ID::ABITS));
+				port(ID::RD_DATA, param(ID::RD_PORTS) * param(ID::WIDTH));
+				port(ID::WR_CLK, param(ID::WR_PORTS));
+				port(ID::WR_EN, param(ID::WR_PORTS) * param(ID::WIDTH));
+				port(ID::WR_ADDR, param(ID::WR_PORTS) * param(ID::ABITS));
+				port(ID::WR_DATA, param(ID::WR_PORTS) * param(ID::WIDTH));
+				check_expected();
+				return;
+			}
+
+			if (cell->type == ID($mem_v2)) {
+				param(ID::MEMID);
+				param(ID::SIZE);
+				param(ID::OFFSET);
+				param(ID::INIT);
+				param_bits(ID::RD_CLK_ENABLE, max(1, param(ID::RD_PORTS)));
+				param_bits(ID::RD_CLK_POLARITY, max(1, param(ID::RD_PORTS)));
+				param_bits(ID::RD_TRANSPARENCY_MASK, max(1, param(ID::RD_PORTS) * param(ID::WR_PORTS)));
+				param_bits(ID::RD_COLLISION_X_MASK, max(1, param(ID::RD_PORTS) * param(ID::WR_PORTS)));
+				param_bits(ID::RD_WIDE_CONTINUATION, max(1, param(ID::RD_PORTS)));
+				param_bits(ID::RD_CE_OVER_SRST, max(1, param(ID::RD_PORTS)));
+				param_bits(ID::RD_ARST_VALUE, param(ID::RD_PORTS) * param(ID::WIDTH));
+				param_bits(ID::RD_SRST_VALUE, param(ID::RD_PORTS) * param(ID::WIDTH));
+				param_bits(ID::RD_INIT_VALUE, param(ID::RD_PORTS) * param(ID::WIDTH));
+				param_bits(ID::WR_CLK_ENABLE, max(1, param(ID::WR_PORTS)));
+				param_bits(ID::WR_CLK_POLARITY, max(1, param(ID::WR_PORTS)));
+				param_bits(ID::WR_WIDE_CONTINUATION, max(1, param(ID::WR_PORTS)));
+				param_bits(ID::WR_PRIORITY_MASK, max(1, param(ID::WR_PORTS) * param(ID::WR_PORTS)));
+				port(ID::RD_CLK, param(ID::RD_PORTS));
+				port(ID::RD_EN, param(ID::RD_PORTS));
+				port(ID::RD_ARST, param(ID::RD_PORTS));
+				port(ID::RD_SRST, param(ID::RD_PORTS));
 				port(ID::RD_ADDR, param(ID::RD_PORTS) * param(ID::ABITS));
 				port(ID::RD_DATA, param(ID::RD_PORTS) * param(ID::WIDTH));
 				port(ID::WR_CLK, param(ID::WR_PORTS));
@@ -1640,7 +1753,7 @@ void RTLIL::Module::check()
 		log_assert(!it.second->type.empty());
 		for (auto &it2 : it.second->connections()) {
 			log_assert(!it2.first.empty());
-			it2.second.check();
+			it2.second.check(this);
 		}
 		for (auto &it2 : it.second->attributes)
 			log_assert(!it2.first.empty());
@@ -1686,8 +1799,8 @@ void RTLIL::Module::check()
 	for (auto &it : connections_) {
 		log_assert(it.first.size() == it.second.size());
 		log_assert(!it.first.has_const());
-		it.first.check();
-		it.second.check();
+		it.first.check(this);
+		it.second.check(this);
 	}
 
 	for (auto &it : attributes)
@@ -1813,6 +1926,20 @@ void RTLIL::Module::add(RTLIL::Cell *cell)
 	cell->module = this;
 }
 
+void RTLIL::Module::add(RTLIL::Process *process)
+{
+	log_assert(!process->name.empty());
+	log_assert(count_id(process->name) == 0);
+	processes[process->name] = process;
+	process->module = this;
+}
+
+void RTLIL::Module::add(RTLIL::Binding *binding)
+{
+	log_assert(binding != nullptr);
+	bindings_.push_back(binding);
+}
+
 void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
 {
 	log_assert(refcount_wires_ == 0);
@@ -1867,6 +1994,13 @@ void RTLIL::Module::remove(RTLIL::Cell *cell)
 	log_assert(refcount_cells_ == 0);
 	cells_.erase(cell->name);
 	delete cell;
+}
+
+void RTLIL::Module::remove(RTLIL::Process *process)
+{
+	log_assert(processes.count(process->name) != 0);
+	processes.erase(process->name);
+	delete process;
 }
 
 void RTLIL::Module::rename(RTLIL::Wire *wire, RTLIL::IdString new_name)
@@ -2094,11 +2228,19 @@ RTLIL::Memory *RTLIL::Module::addMemory(RTLIL::IdString name, const RTLIL::Memor
 	return mem;
 }
 
+RTLIL::Process *RTLIL::Module::addProcess(RTLIL::IdString name)
+{
+	RTLIL::Process *proc = new RTLIL::Process;
+	proc->name = name;
+	add(proc);
+	return proc;
+}
+
 RTLIL::Process *RTLIL::Module::addProcess(RTLIL::IdString name, const RTLIL::Process *other)
 {
 	RTLIL::Process *proc = other->clone();
 	proc->name = name;
-	processes[name] = proc;
+	add(proc);
 	return proc;
 }
 
@@ -2894,6 +3036,13 @@ RTLIL::Memory::Memory()
 #endif
 }
 
+RTLIL::Process::Process() : module(nullptr)
+{
+	static unsigned int hashidx_count = 123456789;
+	hashidx_count = mkhash_xorshift(hashidx_count);
+	hashidx_ = hashidx_count;
+}
+
 RTLIL::Cell::Cell() : module(nullptr)
 {
 	static unsigned int hashidx_count = 123456789;
@@ -3119,6 +3268,16 @@ void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 	check();
 }
 
+bool RTLIL::Cell::has_memid() const
+{
+	return type.in(ID($memwr), ID($memwr_v2), ID($memrd), ID($memrd_v2), ID($meminit), ID($meminit_v2));
+}
+
+bool RTLIL::Cell::is_mem_cell() const
+{
+	return type.in(ID($mem), ID($mem_v2)) || has_memid();
+}
+
 RTLIL::SigChunk::SigChunk()
 {
 	wire = NULL;
@@ -3275,8 +3434,12 @@ RTLIL::SigSpec::SigSpec(const RTLIL::Const &value)
 {
 	cover("kernel.rtlil.sigspec.init.const");
 
-	chunks_.emplace_back(value);
-	width_ = chunks_.back().width;
+	if (GetSize(value) != 0) {
+		chunks_.emplace_back(value);
+		width_ = chunks_.back().width;
+	} else {
+		width_ = 0;
+	}
 	hash_ = 0;
 	check();
 }
@@ -3285,8 +3448,12 @@ RTLIL::SigSpec::SigSpec(const RTLIL::SigChunk &chunk)
 {
 	cover("kernel.rtlil.sigspec.init.chunk");
 
-	chunks_.emplace_back(chunk);
-	width_ = chunks_.back().width;
+	if (chunk.width != 0) {
+		chunks_.emplace_back(chunk);
+		width_ = chunks_.back().width;
+	} else {
+		width_ = 0;
+	}
 	hash_ = 0;
 	check();
 }
@@ -3295,8 +3462,12 @@ RTLIL::SigSpec::SigSpec(RTLIL::Wire *wire)
 {
 	cover("kernel.rtlil.sigspec.init.wire");
 
-	chunks_.emplace_back(wire);
-	width_ = chunks_.back().width;
+	if (wire->width != 0) {
+		chunks_.emplace_back(wire);
+		width_ = chunks_.back().width;
+	} else {
+		width_ = 0;
+	}
 	hash_ = 0;
 	check();
 }
@@ -3305,8 +3476,12 @@ RTLIL::SigSpec::SigSpec(RTLIL::Wire *wire, int offset, int width)
 {
 	cover("kernel.rtlil.sigspec.init.wire_part");
 
-	chunks_.emplace_back(wire, offset, width);
-	width_ = chunks_.back().width;
+	if (width != 0) {
+		chunks_.emplace_back(wire, offset, width);
+		width_ = chunks_.back().width;
+	} else {
+		width_ = 0;
+	}
 	hash_ = 0;
 	check();
 }
@@ -3315,8 +3490,12 @@ RTLIL::SigSpec::SigSpec(const std::string &str)
 {
 	cover("kernel.rtlil.sigspec.init.str");
 
-	chunks_.emplace_back(str);
-	width_ = chunks_.back().width;
+	if (str.size() != 0) {
+		chunks_.emplace_back(str);
+		width_ = chunks_.back().width;
+	} else {
+		width_ = 0;
+	}
 	hash_ = 0;
 	check();
 }
@@ -3325,7 +3504,8 @@ RTLIL::SigSpec::SigSpec(int val, int width)
 {
 	cover("kernel.rtlil.sigspec.init.int");
 
-	chunks_.emplace_back(val, width);
+	if (width != 0)
+		chunks_.emplace_back(val, width);
 	width_ = width;
 	hash_ = 0;
 	check();
@@ -3335,7 +3515,8 @@ RTLIL::SigSpec::SigSpec(RTLIL::State bit, int width)
 {
 	cover("kernel.rtlil.sigspec.init.state");
 
-	chunks_.emplace_back(bit, width);
+	if (width != 0)
+		chunks_.emplace_back(bit, width);
 	width_ = width;
 	hash_ = 0;
 	check();
@@ -3345,11 +3526,13 @@ RTLIL::SigSpec::SigSpec(const RTLIL::SigBit &bit, int width)
 {
 	cover("kernel.rtlil.sigspec.init.bit");
 
-	if (bit.wire == NULL)
-		chunks_.emplace_back(bit.data, width);
-	else
-		for (int i = 0; i < width; i++)
-			chunks_.push_back(bit);
+	if (width != 0) {
+		if (bit.wire == NULL)
+			chunks_.emplace_back(bit.data, width);
+		else
+			for (int i = 0; i < width; i++)
+				chunks_.push_back(bit);
+	}
 	width_ = width;
 	hash_ = 0;
 	check();
@@ -3794,7 +3977,13 @@ void RTLIL::SigSpec::remove_const()
 		width_ = 0;
 		for (auto &chunk : chunks_)
 			if (chunk.wire != NULL) {
-				new_chunks.push_back(chunk);
+				if (!new_chunks.empty() &&
+					new_chunks.back().wire == chunk.wire &&
+					new_chunks.back().offset + new_chunks.back().width == chunk.offset) {
+					new_chunks.back().width += chunk.width;
+				} else {
+					new_chunks.push_back(chunk);
+				}
 				width_ += chunk.width;
 			}
 
@@ -3941,7 +4130,7 @@ RTLIL::SigSpec RTLIL::SigSpec::repeat(int num) const
 }
 
 #ifndef NDEBUG
-void RTLIL::SigSpec::check() const
+void RTLIL::SigSpec::check(Module *mod) const
 {
 	if (width_ > 64)
 	{
@@ -3954,6 +4143,7 @@ void RTLIL::SigSpec::check() const
 		int w = 0;
 		for (size_t i = 0; i < chunks_.size(); i++) {
 			const RTLIL::SigChunk &chunk = chunks_[i];
+			log_assert(chunk.width != 0);
 			if (chunk.wire == NULL) {
 				if (i > 0)
 					log_assert(chunks_[i-1].wire != NULL);
@@ -3966,6 +4156,8 @@ void RTLIL::SigSpec::check() const
 				log_assert(chunk.width >= 0);
 				log_assert(chunk.offset + chunk.width <= chunk.wire->width);
 				log_assert(chunk.data.size() == 0);
+				if (mod != nullptr)
+					log_assert(chunk.wire->module == mod);
 			}
 			w += chunk.width;
 		}
@@ -3975,6 +4167,12 @@ void RTLIL::SigSpec::check() const
 	else
 	{
 		cover("kernel.rtlil.sigspec.check.unpacked");
+
+		if (mod != nullptr) {
+			for (size_t i = 0; i < bits_.size(); i++)
+				if (bits_[i].wire != nullptr)
+					log_assert(bits_[i].wire->module == mod);
+		}
 
 		log_assert(width_ == GetSize(bits_));
 		log_assert(chunks_.empty());
@@ -4161,6 +4359,19 @@ bool RTLIL::SigSpec::has_marked_bits() const
 				if (it->data[i] == RTLIL::State::Sm)
 					return true;
 		}
+	return false;
+}
+
+bool RTLIL::SigSpec::is_onehot(int *pos) const
+{
+	cover("kernel.rtlil.sigspec.is_onehot");
+
+	pack();
+	if (!is_fully_const())
+		return false;
+	log_assert(GetSize(chunks_) <= 1);
+	if (width_)
+		return RTLIL::Const(chunks_[0].data).is_onehot(pos);
 	return false;
 }
 
@@ -4537,6 +4748,7 @@ RTLIL::SyncRule *RTLIL::SyncRule::clone() const
 	new_syncrule->type = type;
 	new_syncrule->signal = signal;
 	new_syncrule->actions = actions;
+	new_syncrule->mem_write_actions = mem_write_actions;
 	return new_syncrule;
 }
 

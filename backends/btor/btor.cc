@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -18,7 +18,7 @@
  */
 
 // [[CITE]] Btor2 , BtorMC and Boolector 3.0
-// Aina Niemetz, Mathias Preiner, Clifford Wolf, Armin Biere
+// Aina Niemetz, Mathias Preiner, C. Wolf, Armin Biere
 // Computer Aided Verification - 30th International Conference, CAV 2018
 // https://cs.stanford.edu/people/niemetz/publication/2018/niemetzpreinerwolfbiere-cav18/
 
@@ -708,7 +708,7 @@ struct BtorWorker
 			goto okay;
 		}
 
-		if (cell->type.in(ID($mem), ID($memrd), ID($memwr), ID($meminit)))
+		if (cell->is_mem_cell())
 		{
 			Mem *mem = mem_cells[cell];
 
@@ -728,10 +728,11 @@ struct BtorWorker
 				log_error("Memory %s.%s has mixed async/sync write ports.\n",
 						log_id(module), log_id(mem->memid));
 
-			for (auto &port : mem->rd_ports)
+			for (auto &port : mem->rd_ports) {
 				if (port.clk_enable)
-					log_error("Memory %s.%s has sync read ports.\n",
+					log_error("Memory %s.%s has sync read ports.  Please use memory_nordff to convert them first.\n",
 							log_id(module), log_id(mem->memid));
+			}
 
 			int data_sid = get_bv_sid(mem->width);
 			int bool_sid = get_bv_sid(1);
@@ -860,7 +861,20 @@ struct BtorWorker
 			goto okay;
 		}
 
-		log_error("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
+		if (cell->type.in(ID($dffe), ID($sdff), ID($sdffe), ID($sdffce)) || cell->type.str().substr(0, 6) == "$_SDFF" || (cell->type.str().substr(0, 6) == "$_DFFE" && cell->type.str().size() == 10)) {
+			log_error("Unsupported cell type %s for cell %s.%s -- please run `dffunmap` before `write_btor`.\n",
+					log_id(cell->type), log_id(module), log_id(cell));
+		}
+		if (cell->type.in(ID($adff), ID($adffe), ID($dffsr), ID($dffsre)) || cell->type.str().substr(0, 5) == "$_DFF") {
+			log_error("Unsupported cell type %s for cell %s.%s -- please run `async2sync; dffunmap` or `clk2fflogic` before `write_btor`.\n",
+					log_id(cell->type), log_id(module), log_id(cell));
+		}
+		if (cell->type.in(ID($sr), ID($dlatch), ID($adlatch), ID($dlatchsr)) || cell->type.str().substr(0, 8) == "$_DLATCH" || cell->type.str().substr(0, 5) == "$_SR_") {
+			log_error("Unsupported cell type %s for cell %s.%s -- please run `clk2fflogic` before `write_btor`.\n",
+					log_id(cell->type), log_id(module), log_id(cell));
+		}
+		log_error("Unsupported cell type %s for cell %s.%s.\n",
+				log_id(cell->type), log_id(module), log_id(cell));
 
 	okay:
 		btorf_pop(log_id(cell));
@@ -1067,10 +1081,12 @@ struct BtorWorker
 		memories = Mem::get_all_memories(module);
 
 		dict<IdString, Mem*> mem_dict;
-		for (auto &mem : memories)
+		for (auto &mem : memories) {
+			mem.narrow();
 			mem_dict[mem.memid] = &mem;
+		}
 		for (auto cell : module->cells())
-			if (cell->type.in(ID($mem), ID($memwr), ID($memrd), ID($meminit)))
+			if (cell->is_mem_cell())
 				mem_cells[cell] = mem_dict[cell->parameters.at(ID::MEMID).decode_string()];
 
 		btorf_push("inputs");

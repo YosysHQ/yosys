@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *  Copyright (C) 2020  Marcelina Kościelnicka <mwk@0x04.net>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
@@ -21,7 +21,8 @@
 #include "kernel/log.h"
 #include "kernel/register.h"
 #include "kernel/rtlil.h"
-#include "kernel/satgen.h"
+#include "kernel/qcsat.h"
+#include "kernel/modtools.h"
 #include "kernel/sigtools.h"
 #include "kernel/ffinit.h"
 #include "kernel/ff.h"
@@ -51,26 +52,23 @@ struct OptDffWorker
 	FfInitVals initvals;
 	dict<SigBit, int> bitusers;
 	dict<SigBit, cell_int_t> bit2mux;
-	dict<SigBit, RTLIL::Cell*> bit2driver;
 
 	typedef std::map<RTLIL::SigBit, bool> pattern_t;
 	typedef std::set<pattern_t> patterns_t;
 	typedef std::pair<RTLIL::SigBit, bool> ctrl_t;
 	typedef std::set<ctrl_t> ctrls_t;
 
-	ezSatPtr ez;
-	SatGen satgen;
-	pool<Cell*> sat_cells;
+	ModWalker modwalker;
+	QuickConeSat qcsat;
 
 	// Used as a queue.
 	std::vector<Cell *> dff_cells;
 
-	OptDffWorker(const OptDffOptions &opt, Module *mod) : opt(opt), module(mod), sigmap(mod), initvals(&sigmap, mod), ez(), satgen(ez.get(), &sigmap) {
-		// Gathering three kinds of information here for every sigmapped SigBit:
+	OptDffWorker(const OptDffOptions &opt, Module *mod) : opt(opt), module(mod), sigmap(mod), initvals(&sigmap, mod), modwalker(module->design, module), qcsat(modwalker) {
+		// Gathering two kinds of information here for every sigmapped SigBit:
 		//
 		// - bitusers: how many users it has (muxes will only be merged into FFs if this is 1, making the FF the only user)
 		// - bit2mux: the mux cell and bit index that drives it, if any
-		// - bit2driver: the cell driving it, if any
 
 		for (auto wire : module->wires())
 		{
@@ -88,10 +86,6 @@ struct OptDffWorker
 
 			for (auto conn : cell->connections()) {
 				bool is_output = cell->output(conn.first);
-				if (is_output) {
-					for (auto bit : sigmap(conn.second))
-						bit2driver[bit] = cell;
-				}
 				if (!is_output || !cell->known()) {
 					for (auto bit : sigmap(conn.second))
 						bitusers[bit]++;
@@ -103,20 +97,6 @@ struct OptDffWorker
 		}
 
 	}
-
-	std::function<void(Cell*)> sat_import_cell = [&](Cell *c) {
-		if (!sat_cells.insert(c).second)
-			return;
-		if (!satgen.importCell(c))
-			return;
-		for (auto &conn : c->connections()) {
-			if (!c->input(conn.first))
-				continue;
-			for (auto bit : sigmap(conn.second))
-				if (bit2driver.count(bit))
-					sat_import_cell(bit2driver.at(bit));
-		}
-	};
 
 	State combine_const(State a, State b) {
 		if (a == State::Sx && !opt.keepdc)
@@ -318,9 +298,9 @@ struct OptDffWorker
 						if (!ff.pol_clr) {
 							module->connect(ff.sig_q[i], ff.sig_clr[i]);
 						} else if (ff.is_fine) {
-							module->addNotGate(NEW_ID, ff.sig_q[i], ff.sig_clr[i]);
+							module->addNotGate(NEW_ID, ff.sig_clr[i], ff.sig_q[i]);
 						} else {
-							module->addNot(NEW_ID, ff.sig_q[i], ff.sig_clr[i]);
+							module->addNot(NEW_ID, ff.sig_clr[i], ff.sig_q[i]);
 						}
 						log("Handling always-active SET at position %d on %s (%s) from module %s (changing to combinatorial circuit).\n",
 								i, log_id(cell), log_id(cell->type), log_id(module));
@@ -594,19 +574,19 @@ struct OptDffWorker
 						if (!opt.sat)
 							continue;
 						// For each register bit, try to prove that it cannot change from the initial value. If so, remove it
-						if (!bit2driver.count(ff.sig_d[i]))
+						if (!modwalker.has_drivers(ff.sig_d.extract(i)))
 							continue;
 						if (val != State::S0 && val != State::S1)
 							continue;
 
-						sat_import_cell(bit2driver.at(ff.sig_d[i]));
+						int init_sat_pi = qcsat.importSigBit(val);
+						int q_sat_pi = qcsat.importSigBit(ff.sig_q[i]);
+						int d_sat_pi = qcsat.importSigBit(ff.sig_d[i]);
 
-						int init_sat_pi = satgen.importSigSpec(val).front();
-						int q_sat_pi = satgen.importSigBit(ff.sig_q[i]);
-						int d_sat_pi = satgen.importSigBit(ff.sig_d[i]);
+						qcsat.prepare();
 
 						// Try to find out whether the register bit can change under some circumstances
-						bool counter_example_found = ez->solve(ez->IFF(q_sat_pi, init_sat_pi), ez->NOT(ez->IFF(d_sat_pi, init_sat_pi)));
+						bool counter_example_found = qcsat.ez->solve(qcsat.ez->IFF(q_sat_pi, init_sat_pi), qcsat.ez->NOT(qcsat.ez->IFF(d_sat_pi, init_sat_pi)));
 
 						// If the register bit cannot change, we can replace it with a constant
 						if (counter_example_found)

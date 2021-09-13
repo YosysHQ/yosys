@@ -5,13 +5,15 @@
 This chapter contains some bits and pieces of information about programming
 yosys extensions. Also consult the section on programming in the ``Yosys
 Presentation'' (can be downloaded from the Yosys website as PDF) and don't
-be afraid to ask questions on the Yosys Subreddit.
+be afraid to ask questions on the YosysHQ Slack.
 
-\section{The ``CodingReadme'' File}
+\section{Guidelines}
 
-The following is an excerpt of the {\tt CodingReadme} file from the Yosys source tree.
+The {\tt guidelines} directory contains notes on various aspects of Yosys development. The files {\tt GettingStarted} and {\tt CodingStyle} may be of particular interest, and are reproduced here.
 
-\lstinputlisting[title=CodingReadme,rangeprefix=--,rangesuffix=--,includerangemarker=false,linerange=snip-snap,numbers=left,frame=single]{../CodingReadme}
+\lstinputlisting[title=GettingStarted,numbers=left,frame=single]{../guidelines/GettingStarted}
+
+\lstinputlisting[title=CodingStyle,numbers=left,frame=single]{../guidelines/CodingStyle}
 
 \section{The ``stubsnets'' Example Module}
 
@@ -23,4 +25,3 @@ The following is the complete code of the ``stubsnets'' example module. It is in
 \lstinputlisting[title=Makefile,numbers=left,frame=single,language=make]{CHAPTER_Prog/Makefile}
 
 \lstinputlisting[title=test.v,numbers=left,frame=single,language=Verilog]{CHAPTER_Prog/test.v}
-

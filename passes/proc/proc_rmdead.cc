@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -28,9 +28,62 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-void proc_rmdead(RTLIL::SwitchRule *sw, int &counter, int &full_case_counter)
+static bool can_use_fully_defined_pool(RTLIL::SwitchRule *sw)
 {
-	BitPatternPool pool(sw->signal);
+	if (!GetSize(sw->signal))
+		return false;
+
+	for (const RTLIL::SigBit &bit : sw->signal)
+		if (bit.wire == NULL)
+			return false;
+
+	for (const RTLIL::CaseRule *cas : sw->cases)
+		for (const RTLIL::SigSpec &sig : cas->compare)
+			if (!sig.is_fully_def())
+				return false;
+
+	return true;
+}
+
+// This replicates the necessary parts of BitPatternPool's interface, but rather
+// than storing remaining patterns, this explicitly stores which fully-defined
+// constants have already been matched.
+struct FullyDefinedPool
+{
+	FullyDefinedPool(const RTLIL::SigSpec &signal)
+		: max_patterns{signal.size() >= 32 ? 0ul : 1ul << signal.size()}
+	{}
+
+	bool take(RTLIL::SigSpec sig)
+	{
+		if (default_reached || patterns.count(sig))
+			return false;
+		patterns.insert(sig);
+		return true;
+	}
+
+	void take_all()
+	{
+		default_reached = true;
+	}
+
+	bool empty()
+	{
+		return default_reached ||
+			(max_patterns && max_patterns == patterns.size());
+	}
+
+	pool<RTLIL::SigSpec> patterns;
+	bool default_reached = false;
+	size_t max_patterns;
+};
+
+void proc_rmdead(RTLIL::SwitchRule *sw, int &counter, int &full_case_counter);
+
+template <class Pool>
+static void proc_rmdead_impl(RTLIL::SwitchRule *sw, int &counter, int &full_case_counter)
+{
+	Pool pool(sw->signal);
 
 	for (size_t i = 0; i < sw->cases.size(); i++)
 	{
@@ -66,6 +119,14 @@ void proc_rmdead(RTLIL::SwitchRule *sw, int &counter, int &full_case_counter)
 		sw->set_bool_attribute(ID::full_case);
 		full_case_counter++;
 	}
+}
+
+void proc_rmdead(RTLIL::SwitchRule *sw, int &counter, int &full_case_counter)
+{
+	if (can_use_fully_defined_pool(sw))
+		proc_rmdead_impl<FullyDefinedPool>(sw, counter, full_case_counter);
+	else
+		proc_rmdead_impl<BitPatternPool>(sw, counter, full_case_counter);
 }
 
 struct ProcRmdeadPass : public Pass {

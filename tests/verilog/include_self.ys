@@ -1,0 +1,2 @@
+read_verilog include_self.v
+select -assert-count 1 top/x

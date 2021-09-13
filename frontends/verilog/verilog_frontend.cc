@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -61,8 +61,6 @@ static void add_package_types(dict<std::string, AST::AstNode *> &user_types, std
 			}
 		}
 	}
-	user_type_stack.clear();
-	user_type_stack.push_back(new UserTypeMap());
 }
 
 struct VerilogFrontend : public Frontend {
@@ -83,6 +81,9 @@ struct VerilogFrontend : public Frontend {
 		log("    -formal\n");
 		log("        enable support for SystemVerilog assertions and some Yosys extensions\n");
 		log("        replace the implicit -D SYNTHESIS with -D FORMAL\n");
+		log("\n");
+		log("    -nosynthesis\n");
+		log("        don't add implicit -D SYNTHESIS\n");
 		log("\n");
 		log("    -noassert\n");
 		log("        ignore assert() statements\n");
@@ -225,8 +226,8 @@ struct VerilogFrontend : public Frontend {
 		log("the syntax of the code, rather than to rely on read_verilog for that.\n");
 		log("\n");
 		log("Depending on if read_verilog is run in -formal mode, either the macro\n");
-		log("SYNTHESIS or FORMAL is defined automatically. In addition, read_verilog\n");
-		log("always defines the macro YOSYS.\n");
+		log("SYNTHESIS or FORMAL is defined automatically, unless -nosynthesis is used.\n");
+		log("In addition, read_verilog always defines the macro YOSYS.\n");
 		log("\n");
 		log("See the Yosys README file for a list of non-standard Verilog features\n");
 		log("supported by the Yosys Verilog front-end.\n");
@@ -255,6 +256,7 @@ struct VerilogFrontend : public Frontend {
 		bool flag_defer = false;
 		bool flag_noblackbox = false;
 		bool flag_nowb = false;
+		bool flag_nosynthesis = false;
 		define_map_t defines_map;
 
 		std::list<std::string> include_dirs;
@@ -280,6 +282,10 @@ struct VerilogFrontend : public Frontend {
 			}
 			if (arg == "-formal") {
 				formal_mode = true;
+				continue;
+			}
+			if (arg == "-nosynthesis") {
+				flag_nosynthesis = true;
 				continue;
 			}
 			if (arg == "-noassert") {
@@ -447,7 +453,8 @@ struct VerilogFrontend : public Frontend {
 			break;
 		}
 
-		defines_map.add(formal_mode ? "FORMAL" : "SYNTHESIS", "1");
+		if (formal_mode || !flag_nosynthesis)
+			defines_map.add(formal_mode ? "FORMAL" : "SYNTHESIS", "1");
 
 		extra_args(f, filename, args, argidx);
 
@@ -475,6 +482,19 @@ struct VerilogFrontend : public Frontend {
 		// make package typedefs available to parser
 		add_package_types(pkg_user_types, design->verilog_packages);
 
+		UserTypeMap global_types_map;
+		for (auto def : design->verilog_globals) {
+			if (def->type == AST::AST_TYPEDEF) {
+				global_types_map[def->str] = def;
+			}
+		}
+
+		log_assert(user_type_stack.empty());
+		// use previous global typedefs as bottom level of user type stack
+		user_type_stack.push_back(std::move(global_types_map));
+		// add a new empty type map to allow overriding existing global definitions
+		user_type_stack.push_back(UserTypeMap());
+
 		frontend_verilog_yyset_lineno(1);
 		frontend_verilog_yyrestart(NULL);
 		frontend_verilog_yyparse();
@@ -496,6 +516,10 @@ struct VerilogFrontend : public Frontend {
 
 		if (!flag_nopp)
 			delete lexin;
+
+		// only the previous and new global type maps remain
+		log_assert(user_type_stack.size() == 2);
+		user_type_stack.clear();
 
 		delete current_ast;
 		current_ast = NULL;

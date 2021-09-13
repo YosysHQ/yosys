@@ -1,0 +1,11 @@
+logger -expect error "Identifier `\\y' is implicitly declared and `default_nettype is set to none" 1
+read_verilog <<EOT
+`default_nettype none
+module top1;
+    wire x;
+    generate
+        if (1) wire y;
+    endgenerate
+    assign x = y;
+endmodule
+EOT

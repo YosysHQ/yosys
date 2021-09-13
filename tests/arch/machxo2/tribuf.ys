@@ -1,0 +1,10 @@
+read_verilog ../common/tribuf.v
+hierarchy -top tristate
+proc
+flatten
+equiv_opt -assert -map +/machxo2/cells_sim.v synth_machxo2 # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd tristate # Constrain all select calls below inside the top module
+select -assert-count 3 t:FACADE_IO
+select -assert-count 1 t:$not
+select -assert-none t:FACADE_IO t:$not %% t:* %D

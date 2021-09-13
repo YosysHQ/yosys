@@ -1,0 +1,12 @@
+read_verilog -sv <<EOF
+module Example #(
+    parameter X, Y
+);
+endmodule
+module top;
+    Example #(1) e();
+endmodule
+EOF
+
+logger -expect error "Parameter `\\Y' has no default value and has not been overridden!" 1
+hierarchy -top top

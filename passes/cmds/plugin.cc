@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2014  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2014  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -93,7 +93,11 @@ void load_plugin(std::string filename, std::vector<std::string> aliases)
 #else
 void load_plugin(std::string, std::vector<std::string>)
 {
-	log_error("This version of yosys is built without plugin support.\n");
+	log_error(
+		"\n  This version of Yosys cannot load plugins at runtime.\n"
+		"  Some plugins may have been included at build time.\n"
+		"  Use option `-H' to see the available built-in and plugin commands.\n"
+	);
 }
 #endif
 

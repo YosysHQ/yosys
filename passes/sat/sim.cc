@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -164,7 +164,7 @@ struct SimInstance
 				ff_database[cell] = ff;
 			}
 
-			if (cell->type.in(ID($mem), ID($meminit), ID($memwr), ID($memrd)))
+			if (cell->is_mem_cell())
 			{
 				mem_cells[cell] = cell->parameters.at(ID::MEMID).decode_string();
 			}
@@ -271,7 +271,7 @@ struct SimInstance
 		{
 			auto child = children.at(cell);
 			for (auto &conn: cell->connections())
-				if (cell->input(conn.first)) {
+				if (cell->input(conn.first) && GetSize(conn.second)) {
 					Const value = get_state(conn.second);
 					child->set_state(child->module->wire(conn.first), value);
 				}
@@ -334,7 +334,7 @@ struct SimInstance
 		{
 			auto &port = mem.rd_ports[port_idx];
 			Const addr = get_state(port.addr);
-			Const data = Const(State::Sx, mem.width);
+			Const data = Const(State::Sx, mem.width << port.wide_log2);
 
 			if (port.clk_enable)
 				log_error("Memory %s.%s has clocked read ports. Run 'memory' with -nordff.\n", log_id(module), log_id(mem.memid));
@@ -342,7 +342,7 @@ struct SimInstance
 			if (addr.is_fully_def()) {
 				int index = addr.as_int() - mem.start_offset;
 				if (index >= 0 && index < mem.size)
-					data = mdb.data.extract(index*mem.width, mem.width);
+					data = mdb.data.extract(index*mem.width, mem.width << port.wide_log2);
 			}
 
 			set_state(port.data, data);
@@ -457,7 +457,7 @@ struct SimInstance
 				{
 					int index = addr.as_int() - mem.start_offset;
 					if (index >= 0 && index < mem.size)
-						for (int i = 0; i < mem.width; i++)
+						for (int i = 0; i < (mem.width << port.wide_log2); i++)
 							if (enable[i] == State::S1 && mdb.data.bits.at(index*mem.width+i) != data[i]) {
 								mdb.data.bits.at(index*mem.width+i) = data[i];
 								dirty_memories.insert(mem.memid);
@@ -559,6 +559,7 @@ struct SimInstance
 			MemInit minit;
 			minit.addr = mem.mem->start_offset;
 			minit.data = mem.data;
+			minit.en = Const(State::S1, mem.mem->width);
 			mem.mem->inits.push_back(minit);
 			mem.mem->emit();
 		}

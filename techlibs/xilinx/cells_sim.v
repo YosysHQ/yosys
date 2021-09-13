@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -633,6 +633,41 @@ module FDRSE (
       Q <= d;
 endmodule
 
+module FDRSE_1 (
+  output reg Q,
+  (* clkbuf_sink *)
+  (* invertible_pin = "IS_C_INVERTED" *)
+  input C,
+  (* invertible_pin = "IS_CE_INVERTED" *)
+  input CE,
+  (* invertible_pin = "IS_D_INVERTED" *)
+  input D,
+  (* invertible_pin = "IS_R_INVERTED" *)
+  input R,
+  (* invertible_pin = "IS_S_INVERTED" *)
+  input S
+);
+  parameter [0:0] INIT = 1'b0;
+  parameter [0:0] IS_C_INVERTED = 1'b0;
+  parameter [0:0] IS_CE_INVERTED = 1'b0;
+  parameter [0:0] IS_D_INVERTED = 1'b0;
+  parameter [0:0] IS_R_INVERTED = 1'b0;
+  parameter [0:0] IS_S_INVERTED = 1'b0;
+  initial Q <= INIT;
+  wire c = C ^ IS_C_INVERTED;
+  wire ce = CE ^ IS_CE_INVERTED;
+  wire d = D ^ IS_D_INVERTED;
+  wire r = R ^ IS_R_INVERTED;
+  wire s = S ^ IS_S_INVERTED;
+  always @(negedge c)
+    if (r)
+      Q <= 0;
+    else if (s)
+      Q <= 1;
+    else if (ce)
+      Q <= d;
+endmodule
+
 (* abc9_box, lib_whitebox *)
 module FDCE (
   output reg Q,
@@ -823,6 +858,51 @@ module FDCPE (
       qc <= D;
   end
   always @(posedge c, posedge pre) begin
+    if (pre)
+      qp <= 1;
+    else if (CE)
+      qp <= D;
+  end
+  always @* begin
+    if (clr)
+      qs <= 0;
+    else if (pre)
+      qs <= 1;
+  end
+  assign Q = qs ? qp : qc;
+endmodule
+
+module FDCPE_1 (
+  output wire Q,
+  (* clkbuf_sink *)
+  (* invertible_pin = "IS_C_INVERTED" *)
+  input C,
+  input CE,
+  (* invertible_pin = "IS_CLR_INVERTED" *)
+  input CLR,
+  input D,
+  (* invertible_pin = "IS_PRE_INVERTED" *)
+  input PRE
+);
+  parameter [0:0] INIT = 1'b0;
+  parameter [0:0] IS_C_INVERTED = 1'b0;
+  parameter [0:0] IS_CLR_INVERTED = 1'b0;
+  parameter [0:0] IS_PRE_INVERTED = 1'b0;
+  wire c = C ^ IS_C_INVERTED;
+  wire clr = CLR ^ IS_CLR_INVERTED;
+  wire pre = PRE ^ IS_PRE_INVERTED;
+  // Hacky model to avoid simulation-synthesis mismatches.
+  reg qc, qp, qs;
+  initial qc = INIT;
+  initial qp = INIT;
+  initial qs = 0;
+  always @(negedge c, posedge clr) begin
+    if (clr)
+      qc <= 0;
+    else if (CE)
+      qc <= D;
+  end
+  always @(negedge c, posedge pre) begin
     if (pre)
       qp <= 1;
     else if (CE)

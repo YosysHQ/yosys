@@ -167,7 +167,7 @@ module gen_test7;
 	reg [2:0] out2;
 	wire [2:0] out3;
 	generate
-		begin : cond
+		if (1) begin : cond
 			reg [2:0] sub_out1;
 			reg [2:0] sub_out2;
 			wire [2:0] sub_out3;
@@ -215,9 +215,9 @@ module gen_test8;
 
 	wire [1:0] x = 2'b11;
 	generate
-		begin : A
+		if (1) begin : A
 			wire [1:0] x;
-			begin : B
+			if (1) begin : B
 				wire [1:0] x = 2'b00;
 				`ASSERT(x == 0)
 				`ASSERT(A.x == 2)
@@ -228,7 +228,7 @@ module gen_test8;
 				`ASSERT(gen_test8.A.C.x == 1)
 				`ASSERT(gen_test8.A.B.x == 0)
 			end
-			begin : C
+			if (1) begin : C
 				wire [1:0] x = 2'b01;
 				`ASSERT(x == 1)
 				`ASSERT(A.x == 2)
@@ -259,4 +259,67 @@ module gen_test8;
 	`ASSERT(gen_test8.A.x == 2)
 	`ASSERT(gen_test8.A.C.x == 1)
 	`ASSERT(gen_test8.A.B.x == 0)
+endmodule
+
+// ------------------------------------------
+
+module gen_test9;
+
+// `define VERIFY
+`ifdef VERIFY
+	`define ASSERT(expr) assert property (expr);
+`else
+	`define ASSERT(expr)
+`endif
+
+	wire [1:0] w = 2'b11;
+	generate
+		begin : A
+			wire [1:0] x;
+			begin : B
+				wire [1:0] y = 2'b00;
+				`ASSERT(w == 3)
+				`ASSERT(x == 2)
+				`ASSERT(y == 0)
+				`ASSERT(A.x == 2)
+				`ASSERT(A.C.z == 1)
+				`ASSERT(A.B.y == 0)
+				`ASSERT(gen_test9.w == 3)
+				`ASSERT(gen_test9.A.x == 2)
+				`ASSERT(gen_test9.A.C.z == 1)
+				`ASSERT(gen_test9.A.B.y == 0)
+			end
+			begin : C
+				wire [1:0] z = 2'b01;
+				`ASSERT(w == 3)
+				`ASSERT(x == 2)
+				`ASSERT(z == 1)
+				`ASSERT(A.x == 2)
+				`ASSERT(A.C.z == 1)
+				`ASSERT(A.B.y == 0)
+				`ASSERT(gen_test9.w == 3)
+				`ASSERT(gen_test9.A.x == 2)
+				`ASSERT(gen_test9.A.C.z == 1)
+				`ASSERT(gen_test9.A.B.y == 0)
+			end
+			assign x = B.y ^ 2'b11 ^ C.z;
+			`ASSERT(x == 2)
+			`ASSERT(A.x == 2)
+			`ASSERT(A.C.z == 1)
+			`ASSERT(A.B.y == 0)
+			`ASSERT(gen_test9.w == 3)
+			`ASSERT(gen_test9.A.x == 2)
+			`ASSERT(gen_test9.A.C.z == 1)
+			`ASSERT(gen_test9.A.B.y == 0)
+		end
+	endgenerate
+
+	`ASSERT(w == 3)
+	`ASSERT(A.x == 2)
+	`ASSERT(A.C.z == 1)
+	`ASSERT(A.B.y == 0)
+	`ASSERT(gen_test9.w == 3)
+	`ASSERT(gen_test9.A.x == 2)
+	`ASSERT(gen_test9.A.C.z == 1)
+	`ASSERT(gen_test9.A.B.y == 0)
 endmodule

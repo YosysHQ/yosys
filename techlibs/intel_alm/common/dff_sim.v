@@ -56,7 +56,9 @@
 
 (* abc9_box, lib_whitebox *)
 module MISTRAL_FF(
-    input DATAIN, CLK, ACLR, ENA, SCLR, SLOAD, SDATA,
+    input DATAIN,
+    (* clkbuf_sink *) input CLK,
+    input ACLR, ENA, SCLR, SLOAD, SDATA,
     output reg Q
 );
 

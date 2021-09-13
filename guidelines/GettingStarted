@@ -1,0 +1,249 @@
+Getting Started
+===============
+
+
+Outline of a Yosys command
+--------------------------
+
+Here is a the C++ code for a "hello_world" Yosys command (hello.cc):
+
+	#include "kernel/yosys.h"
+
+	USING_YOSYS_NAMESPACE
+	PRIVATE_NAMESPACE_BEGIN
+
+	struct HelloWorldPass : public Pass {
+		HelloWorldPass() : Pass("hello_world") { }
+		void execute(vector<string>, Design*) override {
+			log("Hello World!\n");
+		}
+	} HelloWorldPass;
+
+	PRIVATE_NAMESPACE_END
+
+This can be built into a Yosys module using the following command:
+
+	yosys-config --exec --cxx --cxxflags --ldflags -o hello.so -shared hello.cc --ldlibs
+
+Or short:
+
+	yosys-config --build hello.so hello.cc
+
+And then executed using the following command:
+
+	yosys -m hello.so -p hello_world
+
+
+Yosys Data Structures
+---------------------
+
+Here is a short list of data structures that you should make yourself familiar
+with before you write C++ code for Yosys. The following data structures are all
+defined when "kernel/yosys.h" is included and USING_YOSYS_NAMESPACE is used.
+
+  1. Yosys Container Classes
+
+Yosys uses dict<K, T> and pool<T> as main container classes. dict<K, T> is
+essentially a replacement for std::unordered_map<K, T> and pool<T> is a
+replacement for std::unordered_set<T>. The main characteristics are:
+
+	- dict<K, T> and pool<T> are about 2x faster than the std containers
+
+	- references to elements in a dict<K, T> or pool<T> are invalidated by
+	  insert and remove operations (similar to std::vector<T> on push_back()).
+
+	- some iterators are invalidated by erase(). specifically, iterators
+	  that have not passed the erased element yet are invalidated. (erase()
+	  itself returns valid iterator to the next element.)
+
+	- no iterators are invalidated by insert(). elements are inserted at
+	  begin(). i.e. only a new iterator that starts at begin() will see the
+	  inserted elements.
+
+	- the method .count(key, iterator) is like .count(key) but only
+	  considers elements that can be reached via the iterator.
+
+	- iterators can be compared. it1 < it2 means that the position of t2
+	  can be reached via t1 but not vice versa.
+
+	- the method .sort() can be used to sort the elements in the container
+	  the container stays sorted until elements are added or removed.
+
+	- dict<K, T> and pool<T> will have the same order of iteration across
+	  all compilers, standard libraries and architectures.
+
+In addition to dict<K, T> and pool<T> there is also an idict<K> that
+creates a bijective map from K to the integers. For example:
+
+	idict<string, 42> si;
+	log("%d\n", si("hello"));      // will print 42
+	log("%d\n", si("world"));      // will print 43
+	log("%d\n", si.at("world"));   // will print 43
+	log("%d\n", si.at("dummy"));   // will throw exception
+	log("%s\n", si[42].c_str()));  // will print hello
+	log("%s\n", si[43].c_str()));  // will print world
+	log("%s\n", si[44].c_str()));  // will throw exception
+
+It is not possible to remove elements from an idict.
+
+Finally mfp<K> implements a merge-find set data structure (aka. disjoint-set or
+union-find) over the type K ("mfp" = merge-find-promote).
+
+  2. Standard STL data types
+
+In Yosys we use std::vector<T> and std::string whenever applicable. When
+dict<K, T> and pool<T> are not suitable then std::map<K, T> and std::set<T>
+are used instead.
+
+The types std::vector<T> and std::string are also available as vector<T>
+and string in the Yosys namespace.
+
+  3. RTLIL objects
+
+The current design (essentially a collection of modules, each defined by a
+netlist) is stored in memory using RTLIL object (declared in kernel/rtlil.h,
+automatically included by kernel/yosys.h). You should glance over at least
+the declarations for the following types in kernel/rtlil.h:
+
+	RTLIL::IdString
+		This is a handle for an identifier (e.g. cell or wire name).
+		It feels a lot like a std::string, but is only a single int
+		in size. (The actual string is stored in a global lookup
+		table.)
+
+	RTLIL::SigBit
+		A single signal bit. I.e. either a constant state (0, 1,
+		x, z) or a single bit from a wire.
+
+	RTLIL::SigSpec
+		Essentially a vector of SigBits.
+
+	RTLIL::Wire
+	RTLIL::Cell
+		The building blocks of the netlist in a module.
+
+	RTLIL::Module
+	RTLIL::Design
+		The module is a container with connected cells and wires
+		in it. The design is a container with modules in it.
+
+All this types are also available without the RTLIL:: prefix in the Yosys
+namespace.
+
+  4. SigMap and other Helper Classes
+
+There are a couple of additional helper classes that are in wide use
+in Yosys. Most importantly there is SigMap (declared in kernel/sigtools.h).
+
+When a design has many wires in it that are connected to each other, then a
+single signal bit can have multiple valid names. The SigMap object can be used
+to map SigSpecs or SigBits to unique SigSpecs and SigBits that consistently
+only use one wire from such a group of connected wires. For example:
+
+	SigBit a = module->addWire(NEW_ID);
+	SigBit b = module->addWire(NEW_ID);
+	module->connect(a, b);
+
+	log("%d\n", a == b); // will print 0
+
+	SigMap sigmap(module);
+	log("%d\n", sigmap(a) == sigmap(b)); // will print 1
+
+
+Using the RTLIL Netlist Format
+------------------------------
+
+In the RTLIL netlist format the cell ports contain SigSpecs that point to the
+Wires. There are no references in the other direction. This has two direct
+consequences:
+
+(1) It is very easy to go from cells to wires but hard to go in the other way.
+
+(2) There is no danger in removing cells from the netlists, but removing wires
+can break the netlist format when there are still references to the wire
+somewhere in the netlist.
+
+The solution to (1) is easy: Create custom indexes that allow you to make fast
+lookups for the wire-to-cell direction. You can either use existing generic
+index structures to do that (such as the ModIndex class) or write your own
+index. For many application it is simplest to construct a custom index. For
+example:
+
+	SigMap sigmap(module);
+	dict<SigBit, Cell*> sigbit_to_driver_index;
+
+	for (auto cell : module->cells())
+		for (auto &conn : cell->connections())
+			if (cell->output(conn.first))
+				for (auto bit : sigmap(conn.second))
+					sigbit_to_driver_index[bit] = cell;
+
+Regarding (2): There is a general theme in Yosys that you don't remove wires
+from the design. You can rename them, unconnect them, but you do not actually remove
+the Wire object from the module. Instead you let the "clean" command take care
+of the dangling wires. On the other hand it is safe to remove cells (as long as
+you make sure this does not invalidate a custom index you are using in your code).
+
+
+Example Code
+------------
+
+The following yosys commands are a good starting point if you are looking for examples
+of how to use the Yosys API:
+
+	manual/CHAPTER_Prog/stubnets.cc
+	manual/PRESENTATION_Prog/my_cmd.cc
+
+
+Script Passes
+-------------
+
+The ScriptPass base class can be used to implement passes that just call other passes,
+like a script. Examples for such passes are:
+
+	techlibs/common/prep.cc
+	techlibs/common/synth.cc
+
+In some cases it is easier to implement such a pass as regular pass, for example when
+ScriptPass doesn't provide the type of flow control desired. (But many of the
+script passes in Yosys that don't use ScriptPass simply predate the ScriptPass base
+class.) Examples for such passes are:
+
+	passes/opt/opt.cc
+	passes/proc/proc.cc
+
+Whether they use the ScriptPass base-class or not, a pass should always either
+call other passes without doing any non-trivial work itself, or should implement
+a non-trivial algorithm but not call any other passes. The reason for this is that
+this helps containing complexity in individual passes and simplifies debugging the
+entire system.
+
+Exceptions to this rule should be rare and limited to cases where calling other
+passes is optional and only happens when requested by the user (such as for
+example `techmap -autoproc`), or where it is about commands that are "top-level
+commands" in their own right, not components to be used in regular synthesis
+flows (such as the `bugpoint` command).
+
+A pass that would "naturally" call other passes and also do some work itself
+should be re-written in one of two ways:
+
+1) It could be re-written as script pass with the parts that are not calls
+to other passes factored out into individual new passes. Usually in those
+cases the new sub passes share the same prefix as the top-level script pass.
+
+2) It could be re-written so that it already expects the design in a certain
+state, expecting the calling script to set up this state before calling the
+pass in questions.
+
+Many back-ends are examples for the 2nd approach. For example, `write_aiger`
+does not convert the design into AIG representation, but expects the design
+to be already in this form, and prints an `Unsupported cell type` error
+message otherwise.
+
+
+Notes on the existing codebase
+------------------------------
+
+For historical reasons not all parts of Yosys adhere to the current coding
+style. When adding code to existing parts of the system, adhere to this guide
+for the new code instead of trying to mimic the style of the surrounding code.

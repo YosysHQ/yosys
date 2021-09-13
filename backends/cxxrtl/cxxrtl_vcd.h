@@ -69,12 +69,25 @@ class vcd_writer {
 		} while (ident != 0);
 	}
 
+	void emit_name(const std::string &name) {
+		for (char c : name) {
+			if (c == ':') {
+				// Due to a bug, GTKWave cannot parse a colon in the variable name, causing the VCD file
+				// to be unreadable. It cannot be escaped either, so replace it with the sideways colon.
+				buffer += "..";
+			} else {
+				buffer += c;
+			}
+		}
+	}
+
 	void emit_var(const variable &var, const std::string &type, const std::string &name,
 	              size_t lsb_at, bool multipart) {
 		assert(!streaming);
 		buffer += "$var " + type + " " + std::to_string(var.width) + " ";
 		emit_ident(var.ident);
-		buffer += " " + name;
+		buffer += " ";
+		emit_name(name);
 		if (multipart || name.back() == ']' || lsb_at != 0) {
 			if (var.width == 1)
 				buffer += " [" + std::to_string(lsb_at) + "]";
@@ -228,13 +241,13 @@ public:
 	}
 
 	void add(const debug_items &items) {
-		this->template add(items, [](const std::string &, const debug_item &) {
+		this->add(items, [](const std::string &, const debug_item &) {
 			return true;
 		});
 	}
 
 	void add_without_memories(const debug_items &items) {
-		this->template add(items, [](const std::string &, const debug_item &item) {
+		this->add(items, [](const std::string &, const debug_item &item) {
 			return item.type != debug_item::MEMORY;
 		});
 	}

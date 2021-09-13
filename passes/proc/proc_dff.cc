@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -328,6 +328,10 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 		ce.assign_map.apply(sig);
 
 		if (rstval == sig) {
+			if (sync_level->type == RTLIL::SyncType::ST1)
+				insig = mod->Mux(NEW_ID, insig, sig, sync_level->signal);
+			else
+				insig = mod->Mux(NEW_ID, sig, insig, sync_level->signal);
 			rstval = RTLIL::SigSpec(RTLIL::State::Sz, sig.size());
 			sync_level = NULL;
 		}

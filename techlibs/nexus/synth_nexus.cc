@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2020 David Shah <dave@ds0.me>
+ *  Copyright (C) 2020 gatecat <gatecat@ds0.me>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -77,6 +77,11 @@ struct SynthNexusPass : public ScriptPass
 		log("    -nodffe\n");
 		log("        do not use flipflops with CE in output netlist\n");
 		log("\n");
+		log("    -nolram\n");
+		log("        do not use large RAM cells in output netlist\n");
+		log("        note that large RAM must be explicitly requested with a (* lram *)\n");
+		log("        attribute on the memory.\n");
+		log("\n");
 		log("    -nobram\n");
 		log("        do not use block RAM cells in output netlist\n");
 		log("\n");
@@ -101,7 +106,7 @@ struct SynthNexusPass : public ScriptPass
 	}
 
 	string top_opt, json_file, vm_file, family;
-	bool noccu2, nodffe, nobram, nolutram, nowidelut, noiopad, nodsp, flatten, dff, retime, abc9;
+	bool noccu2, nodffe, nolram, nobram, nolutram, nowidelut, noiopad, nodsp, flatten, dff, retime, abc9;
 
 	void clear_flags() override
 	{
@@ -111,6 +116,7 @@ struct SynthNexusPass : public ScriptPass
 		vm_file = "";
 		noccu2 = false;
 		nodffe = false;
+		nolram = false;
 		nobram = false;
 		nolutram = false;
 		nowidelut = false;
@@ -179,6 +185,10 @@ struct SynthNexusPass : public ScriptPass
 			}
 			if (args[argidx] == "-nodffe") {
 				nodffe = true;
+				continue;
+			}
+			if (args[argidx] == "-nolram") {
+				nolram = true;
 				continue;
 			}
 			if (args[argidx] == "-nobram") {
@@ -286,6 +296,13 @@ struct SynthNexusPass : public ScriptPass
 			run("opt_clean");
 		}
 
+		if (!nolram && check_label("map_lram", "(skip if -nolram)"))
+		{
+			run("memory_bram -rules +/nexus/lrams.txt");
+			run("setundef -zero -params t:$__NX_PDPSC512K");
+			run("techmap -map +/nexus/lrams_map.v");
+		}
+
 		if (!nobram && check_label("map_bram", "(skip if -nobram)"))
 		{
 			run("memory_bram -rules +/nexus/brams.txt");
@@ -389,6 +406,7 @@ struct SynthNexusPass : public ScriptPass
 			run("hierarchy -check");
 			run("stat");
 			run("check -noinit");
+			run("blackbox =A:whitebox");
 		}
 
 		if (check_label("json"))

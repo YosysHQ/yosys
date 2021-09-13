@@ -241,7 +241,7 @@ See Sec.~\ref{sec:rtlil_process} for an overview of processes.
 
 <proc-stmt> ::= "process" <id> <eol>
 
-<process-body> ::= <assign-stmt>$*$ <switch> <assign-stmt>$*$ <sync>$*$
+<process-body> ::= <assign-stmt>$*$ <switch>$?$ <assign-stmt>$*$ <sync>$*$
 
 <assign-stmt> ::= "assign" <dest-sigspec> <src-sigspec> <eol>
 

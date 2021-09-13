@@ -1,0 +1,6 @@
+read_verilog -sv load_and_derive.sv
+hierarchy -libdir . -check
+flatten
+equiv_make ref dut equiv
+equiv_simple
+equiv_status -assert

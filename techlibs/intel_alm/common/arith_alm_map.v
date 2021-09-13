@@ -34,7 +34,7 @@ wire [Y_WIDTH:0] ALM_CARRY;
 
 // Start of carry chain
 generate
-    if (_TECHMAP_CONSTMSK_CI_ == 1) begin
+    if (_TECHMAP_CONSTMSK_CI_ == 1 && _TECHMAP_CONSTVAL_CI_ == 1'b0) begin
         assign ALM_CARRY[0] = _TECHMAP_CONSTVAL_CI_;
     end else begin
         MISTRAL_ALUT_ARITH #(

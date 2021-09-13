@@ -1,8 +1,8 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012 Clifford Wolf <clifford@clifford.at>
- *  Copyright (C) 2018 David Shah <dave@ds0.me>
+ *  Copyright (C) 2012 Claire Xenia Wolf <claire@yosyshq.com>
+ *  Copyright (C) 2018 gatecat <gatecat@ds0.me>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -326,7 +326,7 @@ struct SynthEcp5Pass : public ScriptPass
 			}
 			run("dfflegalize" + dfflegalize_args, "($_DFFSR_*_ only if -asyncprld, $_*DFFE_* only if not -nodffe)");
 			if ((abc9 && dff) || help_mode)
-				run("zinit -all w:* t:$_DFF_?_ t:$_DFFE_??_ t:$_SDFF*", "(only if -abc9 and -dff");
+				run("zinit -all w:* t:$_DFF_?_ t:$_DFFE_??_ t:$_SDFF*", "(only if -abc9 and -dff)");
 			run(stringf("techmap -D NO_LUT %s -map +/ecp5/cells_map.v", help_mode ? "[-D ASYNC_PRLD]" : (asyncprld ? "-D ASYNC_PRLD" : "")));
 			run("opt_expr -undriven -mux_undef");
 			run("simplemap");
@@ -385,6 +385,7 @@ struct SynthEcp5Pass : public ScriptPass
 			run("hierarchy -check");
 			run("stat");
 			run("check -noinit");
+			run("blackbox =A:whitebox");
 		}
 
 		if (check_label("blif"))

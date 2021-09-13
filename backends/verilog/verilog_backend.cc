@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -504,9 +504,24 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 				int start = init.addr.as_int();
 				for (int i=0; i<words; i++)
 				{
-					f << stringf("%s" "  %s[%d] = ", indent.c_str(), mem_id.c_str(), i + start);
-					dump_const(f, init.data.extract(i*mem.width, mem.width));
-					f << stringf(";\n");
+					for (int j = 0; j < mem.width; j++)
+					{
+						if (init.en[j] != State::S1)
+							continue;
+
+						int start_j = j, width = 1;
+
+						while (j+1 < mem.width && init.en[j+1] == State::S1)
+							j++, width++;
+
+						if (width == mem.width) {
+							f << stringf("%s" "  %s[%d] = ", indent.c_str(), mem_id.c_str(), i + start);
+						} else {
+							f << stringf("%s" "  %s[%d][%d:%d] = ", indent.c_str(), mem_id.c_str(), i + start, j, start_j);
+						}
+						dump_const(f, init.data.extract(i*mem.width+start_j, width));
+						f << stringf(";\n");
+					}
 				}
 			}
 			f << stringf("%s" "end\n", indent.c_str());
@@ -515,6 +530,8 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 
 	// create a map : "edge clk" -> expressions within that clock domain
 	dict<std::string, std::vector<std::string>> clk_to_lof_body;
+	dict<std::string, std::string> clk_to_arst_cond;
+	dict<std::string, std::vector<std::string>> clk_to_arst_body;
 	clk_to_lof_body[""] = std::vector<std::string>();
 	std::string clk_domain_str;
 	// create a list of reg declarations
@@ -529,10 +546,27 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 				std::ostringstream os;
 				dump_sigspec(os, port.clk);
 				clk_domain_str = stringf("%sedge %s", port.clk_polarity ? "pos" : "neg", os.str().c_str());
-				if( clk_to_lof_body.count(clk_domain_str) == 0 )
-					clk_to_lof_body[clk_domain_str] = std::vector<std::string>();
+				if (port.arst != State::S0) {
+					std::ostringstream os2;
+					dump_sigspec(os2, port.arst);
+					clk_domain_str += stringf(", posedge %s", os2.str().c_str());
+					clk_to_arst_cond[clk_domain_str] = os2.str();
+				}
 			}
-			if (!port.transparent)
+
+			// Decide how to represent the transparency; same idea as Mem::extract_rdff.
+			bool trans_use_addr = true;
+			for (auto bit : port.transparency_mask)
+				if (!bit)
+					trans_use_addr = false;
+
+			if (GetSize(mem.wr_ports) == 0)
+				trans_use_addr = false;
+
+			if (port.en != State::S1 || port.srst != State::S0 || port.arst != State::S0 || !port.init_value.is_fully_undef())
+				trans_use_addr = false;
+
+			if (!trans_use_addr)
 			{
 				// for clocked read ports make something like:
 				//   reg [..] temp_id;
@@ -541,19 +575,148 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 				//   assign r_data = temp_id;
 				std::string temp_id = next_auto_id();
 				lof_reg_declarations.push_back( stringf("reg [%d:0] %s;\n", port.data.size() - 1, temp_id.c_str()) );
-				{
+
+				bool has_indent = false;
+
+				if (port.arst != State::S0) {
 					std::ostringstream os;
-					if (port.en != RTLIL::SigBit(true))
-					{
-						os << stringf("if (");
-						dump_sigspec(os, port.en);
-						os << stringf(") ");
+					os << stringf("%s <= ", temp_id.c_str());
+					dump_sigspec(os, port.arst_value);
+					os << ";\n";
+					clk_to_arst_body[clk_domain_str].push_back(os.str());
+				}
+
+				if (port.srst != State::S0 && !port.ce_over_srst) {
+					std::ostringstream os;
+					os << stringf("if (");
+					dump_sigspec(os, port.srst);
+					os << stringf(")\n");
+					clk_to_lof_body[clk_domain_str].push_back(os.str());
+					std::ostringstream os2;
+					os2 << stringf("%s" "%s <= ", indent.c_str(), temp_id.c_str());
+					dump_sigspec(os2, port.srst_value);
+					os2 << ";\n";
+					clk_to_lof_body[clk_domain_str].push_back(os2.str());
+					std::ostringstream os3;
+					if (port.en == State::S1) {
+						os3 << "else begin\n";
+					} else {
+						os3 << "else if (";
+						dump_sigspec(os3, port.en);
+						os3 << ") begin\n";
 					}
-					os << stringf("%s <= %s[", temp_id.c_str(), mem_id.c_str());
-					dump_sigspec(os, port.addr);
+					clk_to_lof_body[clk_domain_str].push_back(os3.str());
+					has_indent = true;
+				} else if (port.en != State::S1) {
+					std::ostringstream os;
+					os << stringf("if (");
+					dump_sigspec(os, port.en);
+					os << stringf(") begin\n");
+					clk_to_lof_body[clk_domain_str].push_back(os.str());
+					has_indent = true;
+				}
+
+				for (int sub = 0; sub < (1 << port.wide_log2); sub++)
+				{
+					SigSpec addr = port.sub_addr(sub);
+					std::ostringstream os;
+					if (has_indent)
+						os << indent;
+					os << temp_id;
+					if (port.wide_log2)
+						os << stringf("[%d:%d]", (sub + 1) * mem.width - 1, sub * mem.width);
+					os << stringf(" <= %s[", mem_id.c_str());
+					dump_sigspec(os, addr);
 					os << stringf("];\n");
 					clk_to_lof_body[clk_domain_str].push_back(os.str());
 				}
+
+				for (int i = 0; i < GetSize(mem.wr_ports); i++) {
+					auto &wport = mem.wr_ports[i];
+					if (!port.transparency_mask[i] && !port.collision_x_mask[i])
+						continue;
+					int min_wide_log2 = std::min(port.wide_log2, wport.wide_log2);
+					int max_wide_log2 = std::max(port.wide_log2, wport.wide_log2);
+					bool wide_write = wport.wide_log2 > port.wide_log2;
+					for (int sub = 0; sub < (1 << max_wide_log2); sub += (1 << min_wide_log2)) {
+						SigSpec raddr = port.addr;
+						SigSpec waddr = wport.addr;
+						if (wide_write)
+							waddr = wport.sub_addr(sub);
+						else
+							raddr = port.sub_addr(sub);
+						int pos = 0;
+						int ewidth = mem.width << min_wide_log2;
+						int wsub = wide_write ? sub : 0;
+						int rsub = wide_write ? 0 : sub;
+						while (pos < ewidth) {
+							int epos = pos;
+							while (epos < ewidth && wport.en[epos + wsub * mem.width] == wport.en[pos + wsub * mem.width])
+								epos++;
+
+							std::ostringstream os;
+							if (has_indent)
+								os << indent;
+							os << "if (";
+							dump_sigspec(os, wport.en[pos + wsub * mem.width]);
+							if (raddr != waddr) {
+								os << " && ";
+								dump_sigspec(os, raddr);
+								os << " == ";
+								dump_sigspec(os, waddr);
+							}
+							os << ")\n";
+							clk_to_lof_body[clk_domain_str].push_back(os.str());
+
+							std::ostringstream os2;
+							if (has_indent)
+								os2 << indent;
+							os2 << indent;
+							os2 << temp_id;
+							if (epos-pos != GetSize(port.data))
+								os2 << stringf("[%d:%d]", rsub * mem.width + epos-1, rsub * mem.width + pos);
+							os2 << " <= ";
+							if (port.transparency_mask[i])
+								dump_sigspec(os2, wport.data.extract(wsub * mem.width + pos, epos-pos));
+							else
+								dump_sigspec(os2, Const(State::Sx, epos - pos));
+							os2 << ";\n";
+							clk_to_lof_body[clk_domain_str].push_back(os2.str());
+
+							pos = epos;
+						}
+					}
+				}
+
+				if (port.srst != State::S0 && port.ce_over_srst)
+				{
+					std::ostringstream os;
+					if (has_indent)
+						os << indent;
+					os << stringf("if (");
+					dump_sigspec(os, port.srst);
+					os << stringf(")\n");
+					clk_to_lof_body[clk_domain_str].push_back(os.str());
+					std::ostringstream os2;
+					if (has_indent)
+						os2 << indent;
+					os2 << stringf("%s" "%s <= ", indent.c_str(), temp_id.c_str());
+					dump_sigspec(os2, port.srst_value);
+					os2 << ";\n";
+					clk_to_lof_body[clk_domain_str].push_back(os2.str());
+				}
+
+				if (has_indent)
+					clk_to_lof_body[clk_domain_str].push_back("end\n");
+
+				if (!port.init_value.is_fully_undef())
+				{
+					std::ostringstream os;
+					dump_sigspec(os, port.init_value);
+					std::string line = stringf("initial %s = %s;\n", temp_id.c_str(), os.str().c_str());
+					clk_to_lof_body[""].push_back(line);
+				}
+
 				{
 					std::ostringstream os;
 					dump_sigspec(os, port.data);
@@ -569,73 +732,153 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 				//     temp_id <= r_addr;
 				//   assign r_data = array_reg[temp_id];
 				std::string temp_id = next_auto_id();
-				lof_reg_declarations.push_back( stringf("reg [%d:0] %s;\n", port.addr.size() - 1, temp_id.c_str()) );
+				lof_reg_declarations.push_back( stringf("reg [%d:0] %s;\n", port.addr.size() - 1 - port.wide_log2, temp_id.c_str()) );
 				{
 					std::ostringstream os;
-					dump_sigspec(os, port.addr);
+					dump_sigspec(os, port.addr.extract_end(port.wide_log2));
 					std::string line = stringf("%s <= %s;\n", temp_id.c_str(), os.str().c_str());
 					clk_to_lof_body[clk_domain_str].push_back(line);
 				}
+				for (int sub = 0; sub < (1 << port.wide_log2); sub++)
 				{
 					std::ostringstream os;
-					dump_sigspec(os, port.data);
-					std::string line = stringf("assign %s = %s[%s];\n", os.str().c_str(), mem_id.c_str(), temp_id.c_str());
-					clk_to_lof_body[""].push_back(line);
+					os << "assign ";
+					dump_sigspec(os, port.data.extract(sub * mem.width, mem.width));
+					os << stringf(" = %s[", mem_id.c_str());;
+					if (port.wide_log2) {
+						Const addr_lo;
+						for (int i = 0; i < port.wide_log2; i++)
+							addr_lo.bits.push_back(State(sub >> i & 1));
+						os << "{";
+						os << temp_id;
+						os << ", ";
+						dump_const(os, addr_lo);
+						os << "}";
+					} else {
+						os << temp_id;
+					}
+					os << "];\n";
+					clk_to_lof_body[""].push_back(os.str());
 				}
 			}
 		} else {
 			// for non-clocked read-ports make something like:
 			//   assign r_data = array_reg[r_addr];
-			std::ostringstream os, os2;
-			dump_sigspec(os, port.data);
-			dump_sigspec(os2, port.addr);
-			std::string line = stringf("assign %s = %s[%s];\n", os.str().c_str(), mem_id.c_str(), os2.str().c_str());
-			clk_to_lof_body[""].push_back(line);
+			for (int sub = 0; sub < (1 << port.wide_log2); sub++)
+			{
+				SigSpec addr = port.sub_addr(sub);
+
+				std::ostringstream os, os2;
+				dump_sigspec(os, port.data.extract(sub * mem.width, mem.width));
+				dump_sigspec(os2, addr);
+				std::string line = stringf("assign %s = %s[%s];\n", os.str().c_str(), mem_id.c_str(), os2.str().c_str());
+				clk_to_lof_body[""].push_back(line);
+			}
 		}
 	}
 
-	// write ports
-	for (auto &port : mem.wr_ports)
+	// Write ports.  Those are messy because we try to preserve priority, as much as we can:
+	//
+	// 1. We split all ports into several disjoint processes.
+	// 2. If a port has priority over another port, the two ports need to share
+	//    a process, so that priority can be reconstructed on the other end.
+	// 3. We want each process to be as small as possible, to avoid extra
+	//    priorities inferred on the other end.
+	pool<int> wr_ports_done;
+	for (int ridx = 0; ridx < GetSize(mem.wr_ports); ridx++)
 	{
+		if (wr_ports_done.count(ridx))
+			continue;
+
+		auto &root = mem.wr_ports[ridx];
+
+		// Start from a root.
+		pool<int> wr_ports_now;
+		wr_ports_now.insert(ridx);
+
+		// Transitively fill list of ports in this process by following priority edges.
+		while (true)
 		{
-			std::ostringstream os;
-			dump_sigspec(os, port.clk);
-			clk_domain_str = stringf("%sedge %s", port.clk_polarity ? "pos" : "neg", os.str().c_str());
-			if( clk_to_lof_body.count(clk_domain_str) == 0 )
-				clk_to_lof_body[clk_domain_str] = std::vector<std::string>();
-		}
-		//   make something like:
-		//   always @(posedge clk)
-		//      if (wr_en_bit) memid[w_addr][??] <= w_data[??];
-		//   ...
-		for (int i = 0; i < GetSize(port.en); i++)
-		{
-			int start_i = i, width = 1;
-			SigBit wen_bit = port.en[i];
+			bool changed = false;
 
-			while (i+1 < GetSize(port.en) && active_sigmap(port.en[i+1]) == active_sigmap(wen_bit))
-				i++, width++;
-
-			if (wen_bit == State::S0)
-				continue;
-
-			std::ostringstream os;
-			if (wen_bit != State::S1)
+			for (int i = 0; i < GetSize(mem.wr_ports); i++)
+			for (int j = 0; j < i; j++)
+			if (mem.wr_ports[i].priority_mask[j])
 			{
-				os << stringf("if (");
-				dump_sigspec(os, wen_bit);
-				os << stringf(") ");
+				if (wr_ports_now.count(i) && !wr_ports_now.count(j)) {
+					wr_ports_now.insert(j);
+					changed = true;
+				}
+				if (!wr_ports_now.count(i) && wr_ports_now.count(j)) {
+					wr_ports_now.insert(i);
+					changed = true;
+				}
 			}
-			os << stringf("%s[", mem_id.c_str());
-			dump_sigspec(os, port.addr);
-			if (width == GetSize(port.en))
-				os << stringf("] <= ");
-			else
-				os << stringf("][%d:%d] <= ", i, start_i);
-			dump_sigspec(os, port.data.extract(start_i, width));
-			os << stringf(";\n");
-			clk_to_lof_body[clk_domain_str].push_back(os.str());
+
+			if (!changed)
+				break;
 		}
+
+		if (root.clk_enable) {
+			f << stringf("%s" "always%s @(%sedge ", indent.c_str(), systemverilog ? "_ff" : "", root.clk_polarity ? "pos" : "neg");
+			dump_sigspec(f, root.clk);
+			f << ") begin\n";
+		} else {
+			f << stringf("%s" "always%s begin\n", indent.c_str(), systemverilog ? "_latch" : " @*");
+		}
+
+		for (int pidx = 0; pidx < GetSize(mem.wr_ports); pidx++)
+		{
+			if (!wr_ports_now.count(pidx))
+				continue;
+			wr_ports_done.insert(pidx);
+
+			auto &port = mem.wr_ports[pidx];
+			log_assert(port.clk_enable == root.clk_enable);
+			if (port.clk_enable) {
+				log_assert(port.clk == root.clk);
+				log_assert(port.clk_polarity == root.clk_polarity);
+			}
+
+			//   make something like:
+			//   always @(posedge clk)
+			//      if (wr_en_bit) memid[w_addr][??] <= w_data[??];
+			//   ...
+			for (int sub = 0; sub < (1 << port.wide_log2); sub++)
+			{
+				SigSpec addr = port.sub_addr(sub);
+				for (int i = 0; i < mem.width; i++)
+				{
+					int start_i = i, width = 1;
+					SigBit wen_bit = port.en[sub * mem.width + i];
+
+					while (i+1 < mem.width && active_sigmap(port.en[sub * mem.width + i+1]) == active_sigmap(wen_bit))
+						i++, width++;
+
+					if (wen_bit == State::S0)
+						continue;
+
+					f << stringf("%s%s", indent.c_str(), indent.c_str());
+					if (wen_bit != State::S1)
+					{
+						f << stringf("if (");
+						dump_sigspec(f, wen_bit);
+						f << stringf(")\n");
+						f << stringf("%s%s%s", indent.c_str(), indent.c_str(), indent.c_str());
+					}
+					f << stringf("%s[", mem_id.c_str());
+					dump_sigspec(f, addr);
+					if (width == GetSize(port.en))
+						f << stringf("] <= ");
+					else
+						f << stringf("][%d:%d] <= ", i, start_i);
+					dump_sigspec(f, port.data.extract(sub * mem.width + start_i, width));
+					f << stringf(";\n");
+				}
+			}
+		}
+
+		f << stringf("%s" "end\n", indent.c_str());
 	}
 	// Output Verilog that looks something like this:
 	// reg [..] _3_;
@@ -668,8 +911,19 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 		if( clk_domain != "")
 		{
 			f << stringf("%s" "always%s @(%s) begin\n", indent.c_str(), systemverilog ? "_ff" : "", clk_domain.c_str());
-			for(auto &line : lof_lines)
-				f << stringf("%s%s" "%s", indent.c_str(), indent.c_str(), line.c_str());
+			bool has_arst = clk_to_arst_cond.count(clk_domain) != 0;
+			if (has_arst) {
+				f << stringf("%s%s" "if (%s) begin\n", indent.c_str(), indent.c_str(), clk_to_arst_cond[clk_domain].c_str());
+				for(auto &line : clk_to_arst_body[clk_domain])
+					f << stringf("%s%s%s" "%s", indent.c_str(), indent.c_str(), indent.c_str(), line.c_str());
+				f << stringf("%s%s" "end else begin\n", indent.c_str(), indent.c_str());
+				for(auto &line : lof_lines)
+					f << stringf("%s%s%s" "%s", indent.c_str(), indent.c_str(), indent.c_str(), line.c_str());
+				f << stringf("%s%s" "end\n", indent.c_str(), indent.c_str());
+			} else {
+				for(auto &line : lof_lines)
+					f << stringf("%s%s" "%s", indent.c_str(), indent.c_str(), line.c_str());
+			}
 			f << stringf("%s" "end\n", indent.c_str());
 		}
 		else
@@ -1464,7 +1718,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 {
 	// Handled by dump_memory
-	if (cell->type.in(ID($mem), ID($memwr), ID($memrd), ID($meminit)))
+	if (cell->is_mem_cell())
 		return;
 
 	if (cell->type[0] == '$' && !noexpr) {

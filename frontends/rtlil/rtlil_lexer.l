@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -79,6 +79,7 @@ USING_YOSYS_NAMESPACE
 "global"	{ return TOK_GLOBAL; }
 "init"		{ return TOK_INIT; }
 "update"	{ return TOK_UPDATE; }
+"memwr"		{ return TOK_MEMWR; }
 "process"	{ return TOK_PROCESS; }
 "end"		{ return TOK_END; }
 

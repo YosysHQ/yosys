@@ -1,0 +1,6 @@
+read_verilog fib_tern.v
+hierarchy
+proc
+equiv_make gold gate equiv
+equiv_simple
+equiv_status -assert

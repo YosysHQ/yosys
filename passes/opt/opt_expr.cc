@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -393,34 +393,8 @@ int get_highest_hot_index(RTLIL::SigSpec signal)
 	return -1;
 }
 
-// if the signal has only one bit set, return the index of that bit.
-// otherwise return -1
-int get_onehot_bit_index(RTLIL::SigSpec signal)
-{
-	int bit_index = -1;
-
-	for (int i = 0; i < GetSize(signal); i++)
-	{
-		if (signal[i] == RTLIL::State::S0)
-			continue;
-
-		if (signal[i] != RTLIL::State::S1)
-			return -1;
-
-		if (bit_index != -1)
-			return -1;
-
-		bit_index = i;
-	}
-
-	return bit_index;
-}
-
 void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool consume_x, bool mux_undef, bool mux_bool, bool do_fine, bool keepdc, bool noclkinv)
 {
-	if (!design->selected(module))
-		return;
-
 	CellTypes ct_combinational;
 	ct_combinational.setup_internals();
 	ct_combinational.setup_stdcells();
@@ -467,7 +441,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 		if (!noclkinv)
 		{
-			if (cell->type.in(ID($dff), ID($dffe), ID($dffsr), ID($dffsre), ID($adff), ID($adffe), ID($sdff), ID($sdffe), ID($sdffce), ID($fsm), ID($memrd), ID($memwr)))
+			if (cell->type.in(ID($dff), ID($dffe), ID($dffsr), ID($dffsre), ID($adff), ID($adffe), ID($sdff), ID($sdffe), ID($sdffce), ID($fsm), ID($memrd), ID($memrd_v2), ID($memwr), ID($memwr_v2)))
 				handle_polarity_inv(cell, ID::CLK, ID::CLK_POLARITY, assign_map, invert_map);
 
 			if (cell->type.in(ID($sr), ID($dffsr), ID($dffsre), ID($dlatchsr))) {
@@ -1526,14 +1500,12 @@ skip_identity:
 			RTLIL::SigSpec sig_b = assign_map(cell->getPort(ID::B));
 			RTLIL::SigSpec sig_y = assign_map(cell->getPort(ID::Y));
 
-			if (sig_b.is_fully_const() && sig_b.size() <= 32)
+			if (sig_b.is_fully_const())
 				std::swap(sig_a, sig_b), std::swap(a_signed, b_signed), swapped_ab = true;
 
-			if (sig_a.is_fully_def() && sig_a.size() <= 32)
+			if (sig_a.is_fully_def())
 			{
-				int a_val = sig_a.as_int();
-
-				if (a_val == 0)
+				if (sig_a.is_fully_zero())
 				{
 					cover("opt.opt_expr.mul_shift.zero");
 
@@ -1547,37 +1519,34 @@ skip_identity:
 					goto next_cell;
 				}
 
-				for (int i = 1; i < (a_signed ? sig_a.size()-1 : sig_a.size()); i++)
-					if (a_val == (1 << i))
-					{
-						if (swapped_ab)
-							cover("opt.opt_expr.mul_shift.swapped");
-						else
-							cover("opt.opt_expr.mul_shift.unswapped");
+				int exp;
+				if (sig_a.is_onehot(&exp) && !(a_signed && exp == GetSize(sig_a) - 1))
+				{
+					if (swapped_ab)
+						cover("opt.opt_expr.mul_shift.swapped");
+					else
+						cover("opt.opt_expr.mul_shift.unswapped");
 
-						log_debug("Replacing multiply-by-%d cell `%s' in module `%s' with shift-by-%d.\n",
-								a_val, cell->name.c_str(), module->name.c_str(), i);
+					log_debug("Replacing multiply-by-%s cell `%s' in module `%s' with shift-by-%d.\n",
+							log_signal(sig_a), cell->name.c_str(), module->name.c_str(), exp);
 
-						if (!swapped_ab) {
-							cell->setPort(ID::A, cell->getPort(ID::B));
-							cell->parameters.at(ID::A_WIDTH) = cell->parameters.at(ID::B_WIDTH);
-							cell->parameters.at(ID::A_SIGNED) = cell->parameters.at(ID::B_SIGNED);
-						}
-
-						std::vector<RTLIL::SigBit> new_b = RTLIL::SigSpec(i, 6);
-
-						while (GetSize(new_b) > 1 && new_b.back() == RTLIL::State::S0)
-							new_b.pop_back();
-
-						cell->type = ID($shl);
-						cell->parameters[ID::B_WIDTH] = GetSize(new_b);
-						cell->parameters[ID::B_SIGNED] = false;
-						cell->setPort(ID::B, new_b);
-						cell->check();
-
-						did_something = true;
-						goto next_cell;
+					if (!swapped_ab) {
+						cell->setPort(ID::A, cell->getPort(ID::B));
+						cell->parameters.at(ID::A_WIDTH) = cell->parameters.at(ID::B_WIDTH);
+						cell->parameters.at(ID::A_SIGNED) = cell->parameters.at(ID::B_SIGNED);
 					}
+
+					Const new_b = exp;
+
+					cell->type = ID($shl);
+					cell->parameters[ID::B_WIDTH] = GetSize(new_b);
+					cell->parameters[ID::B_SIGNED] = false;
+					cell->setPort(ID::B, new_b);
+					cell->check();
+
+					did_something = true;
+					goto next_cell;
+				}
 			}
 
 			sig_a = assign_map(cell->getPort(ID::A));
@@ -1622,7 +1591,7 @@ skip_identity:
 			}
 		}
 
-		if (!keepdc && cell->type.in(ID($div), ID($mod), ID($divfloor), ID($modfloor)))
+		if (cell->type.in(ID($div), ID($mod), ID($divfloor), ID($modfloor)))
 		{
 			bool a_signed = cell->parameters[ID::A_SIGNED].as_bool();
 			bool b_signed = cell->parameters[ID::B_SIGNED].as_bool();
@@ -1630,11 +1599,9 @@ skip_identity:
 			SigSpec sig_b = assign_map(cell->getPort(ID::B));
 			SigSpec sig_y = assign_map(cell->getPort(ID::Y));
 
-			if (sig_b.is_fully_def() && sig_b.size() <= 32)
+			if (sig_b.is_fully_def())
 			{
-				int b_val = sig_b.as_int();
-
-				if (b_val == 0)
+				if (sig_b.is_fully_zero())
 				{
 					cover("opt.opt_expr.divmod_zero");
 
@@ -1648,86 +1615,79 @@ skip_identity:
 					goto next_cell;
 				}
 
-				for (int i = 1; i < (b_signed ? sig_b.size()-1 : sig_b.size()); i++)
-					if (b_val == (1 << i))
+				int exp;
+				if (!keepdc && sig_b.is_onehot(&exp) && !(b_signed && exp == GetSize(sig_b) - 1))
+				{
+					if (cell->type.in(ID($div), ID($divfloor)))
 					{
-						if (cell->type.in(ID($div), ID($divfloor)))
-						{
-							cover("opt.opt_expr.div_shift");
+						cover("opt.opt_expr.div_shift");
 
-							bool is_truncating = cell->type == ID($div);
-							log_debug("Replacing %s-divide-by-%d cell `%s' in module `%s' with shift-by-%d.\n",
-									is_truncating ? "truncating" : "flooring",
-									b_val, cell->name.c_str(), module->name.c_str(), i);
+						bool is_truncating = cell->type == ID($div);
+						log_debug("Replacing %s-divide-by-%s cell `%s' in module `%s' with shift-by-%d.\n",
+								is_truncating ? "truncating" : "flooring",
+								log_signal(sig_b), cell->name.c_str(), module->name.c_str(), exp);
 
-							std::vector<RTLIL::SigBit> new_b = RTLIL::SigSpec(i, 6);
+						Const new_b = exp;
 
-							while (GetSize(new_b) > 1 && new_b.back() == RTLIL::State::S0)
-								new_b.pop_back();
+						cell->type = ID($sshr);
+						cell->parameters[ID::B_WIDTH] = GetSize(new_b);
+						cell->parameters[ID::B_SIGNED] = false;
+						cell->setPort(ID::B, new_b);
 
-							cell->type = ID($sshr);
-							cell->parameters[ID::B_WIDTH] = GetSize(new_b);
-							cell->parameters[ID::B_SIGNED] = false;
-							cell->setPort(ID::B, new_b);
+						// Truncating division is the same as flooring division, except when
+						// the result is negative and there is a remainder - then trunc = floor + 1
+						if (is_truncating && a_signed && GetSize(sig_a) != 0 && exp != 0) {
+							Wire *flooring = module->addWire(NEW_ID, sig_y.size());
+							cell->setPort(ID::Y, flooring);
 
-							// Truncating division is the same as flooring division, except when
-							// the result is negative and there is a remainder - then trunc = floor + 1
-							if (is_truncating && a_signed) {
-								Wire *flooring = module->addWire(NEW_ID, sig_y.size());
-								cell->setPort(ID::Y, flooring);
-
-								Wire *result_neg = module->addWire(NEW_ID);
-								module->addXor(NEW_ID, sig_a[sig_a.size()-1], sig_b[sig_b.size()-1], result_neg);
-								Wire *rem_nonzero = module->addWire(NEW_ID);
-								module->addReduceOr(NEW_ID, sig_a.extract(0, i), rem_nonzero);
-								Wire *should_add = module->addWire(NEW_ID);
-								module->addAnd(NEW_ID, result_neg, rem_nonzero, should_add);
-								module->addAdd(NEW_ID, flooring, should_add, sig_y);
-							}
-
-							cell->check();
+							SigSpec a_sign = sig_a[sig_a.size()-1];
+							SigSpec rem_nonzero = module->ReduceOr(NEW_ID, sig_a.extract(0, exp));
+							SigSpec should_add = module->And(NEW_ID, a_sign, rem_nonzero);
+							module->addAdd(NEW_ID, flooring, should_add, sig_y);
 						}
-						else if (cell->type.in(ID($mod), ID($modfloor)))
+
+						cell->check();
+					}
+					else if (cell->type.in(ID($mod), ID($modfloor)))
+					{
+						cover("opt.opt_expr.mod_mask");
+
+						bool is_truncating = cell->type == ID($mod);
+						log_debug("Replacing %s-modulo-by-%s cell `%s' in module `%s' with bitmask.\n",
+								is_truncating ? "truncating" : "flooring",
+								log_signal(sig_b), cell->name.c_str(), module->name.c_str());
+
+						// truncating modulo has the same masked bits as flooring modulo, but
+						// the sign bits are those of A (except when R=0)
+						if (is_truncating && a_signed && GetSize(sig_a) != 0 && exp != 0)
 						{
-							cover("opt.opt_expr.mod_mask");
+							module->remove(cell);
+							SigSpec truncating = sig_a.extract(0, exp);
 
-							bool is_truncating = cell->type == ID($mod);
-							log_debug("Replacing %s-modulo-by-%d cell `%s' in module `%s' with bitmask.\n",
-									is_truncating ? "truncating" : "flooring",
-									b_val, cell->name.c_str(), module->name.c_str());
+							SigSpec a_sign = sig_a[sig_a.size()-1];
+							SigSpec rem_nonzero = module->ReduceOr(NEW_ID, sig_a.extract(0, exp));
+							SigSpec extend_bit = module->And(NEW_ID, a_sign, rem_nonzero);
 
-							std::vector<RTLIL::SigBit> new_b = RTLIL::SigSpec(State::S1, i);
+							truncating.append(extend_bit);
+							module->addPos(NEW_ID, truncating, sig_y, true);
+						}
+						else
+						{
+							std::vector<RTLIL::SigBit> new_b = RTLIL::SigSpec(State::S1, exp);
 
-							if (b_signed)
+							if (b_signed || exp == 0)
 								new_b.push_back(State::S0);
 
 							cell->type = ID($and);
 							cell->parameters[ID::B_WIDTH] = GetSize(new_b);
 							cell->setPort(ID::B, new_b);
-
-							// truncating modulo has the same masked bits as flooring modulo, but
-							// the sign bits are those of A (except when R=0)
-							if (is_truncating && a_signed) {
-								Wire *flooring = module->addWire(NEW_ID, sig_y.size());
-								cell->setPort(ID::Y, flooring);
-								SigSpec truncating = SigSpec(flooring).extract(0, i);
-
-								Wire *rem_nonzero = module->addWire(NEW_ID);
-								module->addReduceOr(NEW_ID, truncating, rem_nonzero);
-								SigSpec a_sign = sig_a[sig_a.size()-1];
-								Wire *extend_bit = module->addWire(NEW_ID);
-								module->addAnd(NEW_ID, a_sign, rem_nonzero, extend_bit);
-
-								truncating.append(extend_bit);
-								module->addPos(NEW_ID, truncating, sig_y, true);
-							}
-
 							cell->check();
 						}
-
-						did_something = true;
-						goto next_cell;
 					}
+
+					did_something = true;
+					goto next_cell;
+				}
 			}
 		}
 
@@ -1957,8 +1917,8 @@ skip_alu_split:
 						replace = true;
 					}
 
-					int const_bit_hot = get_onehot_bit_index(const_sig);
-					if (const_bit_hot >= 0 && const_bit_hot < var_width)
+					int const_bit_hot;
+					if (const_sig.is_onehot(&const_bit_hot) && const_bit_hot < var_width)
 					{
 						RTLIL::SigSpec var_high_sig(RTLIL::State::S0, var_width - const_bit_hot);
 						for (int i = const_bit_hot; i < var_width; i++) {
@@ -2041,6 +2001,23 @@ skip_alu_split:
 #undef ACTION_DO_Y
 #undef FOLD_1ARG_CELL
 #undef FOLD_2ARG_CELL
+	}
+}
+
+void replace_const_connections(RTLIL::Module *module) {
+	SigMap assign_map(module);
+	for (auto cell : module->selected_cells())
+	{
+		std::vector<std::pair<RTLIL::IdString, SigSpec>> changes;
+		for (auto &conn : cell->connections()) {
+			SigSpec mapped = assign_map(conn.second);
+			if (conn.second != mapped && mapped.is_fully_const())
+				changes.push_back({conn.first, mapped});
+		}
+		if (!changes.empty())
+			did_something = true;
+		for (auto &it : changes)
+			cell->setPort(it.first, it.second);
 	}
 }
 
@@ -2153,6 +2130,11 @@ struct OptExprPass : public Pass {
 				if (did_something)
 					design->scratchpad_set_bool("opt.did_something", true);
 			} while (did_something);
+
+			did_something = false;
+			replace_const_connections(module);
+			if (did_something)
+				design->scratchpad_set_bool("opt.did_something", true);
 
 			log_suppressed();
 		}

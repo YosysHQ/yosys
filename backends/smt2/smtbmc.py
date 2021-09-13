@@ -2,7 +2,7 @@
 #
 # yosys -- Yosys Open SYnthesis Suite
 #
-# Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+# Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
 #
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -771,12 +771,12 @@ def write_vcd_trace(steps_start, steps_stop, index):
 
                         if gotread:
                             buf = data[:]
-                            for i in reversed(range(len(tdata))):
+                            for ii in reversed(range(len(tdata))):
                                 for k in range(width):
-                                    if tdata[i][k] == "x":
-                                        tdata[i][k] = buf[k]
+                                    if tdata[ii][k] == "x":
+                                        tdata[ii][k] = buf[k]
                                     else:
-                                        buf[k] = tdata[i][k]
+                                        buf[k] = tdata[ii][k]
 
                     if not asyncwr:
                         tdata.append(data[:])

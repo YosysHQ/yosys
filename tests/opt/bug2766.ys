@@ -1,0 +1,101 @@
+# Case 1.
+
+read_verilog << EOT
+
+module top(...);
+
+input clk;
+input sel;
+input [3:0] ra;
+input [3:0] wa;
+input wd;
+output [3:0] rd;
+
+reg [3:0] mem[0:15];
+
+integer i;
+initial begin
+        for (i = 0; i < 16; i = i + 1)
+                mem[i] <= i;
+end
+
+assign rd = mem[ra];
+
+always @(posedge clk) begin
+        mem[wa] <= {4{sel ? wd : mem[wa][0]}};
+end
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt_clean
+
+design -save start
+memory_map
+design -save preopt
+
+design -load start
+opt_mem_feedback
+memory_map
+design -save postopt
+
+equiv_opt -assert -run prepare: :
+
+
+
+design -reset
+
+# Case 2.
+
+read_verilog << EOT
+
+module top(...);
+
+input clk;
+input s1;
+input s2;
+input s3;
+input [3:0] ra;
+input [3:0] wa;
+input wd;
+output rd;
+
+reg mem[0:15];
+
+integer i;
+initial begin
+        for (i = 0; i < 16; i = i + 1)
+                mem[i] <= ^i;
+end
+
+assign rd = mem[ra];
+
+wire ta = s1 ? wd : mem[wa];
+wire tb = s2 ? wd : ta;
+wire tc = s3 ? tb : ta;
+
+always @(posedge clk) begin
+        mem[wa] <= tc;
+end
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt_clean
+
+design -save start
+memory_map
+design -save preopt
+
+design -load start
+opt_mem_feedback
+memory_map
+design -save postopt
+
+equiv_opt -assert -run prepare: :
