@@ -95,8 +95,6 @@ Yosys 0.9 .. Yosys 0.9-dev
     - support declaration in procedural for initialization
     - support declaration in generate for initialization
 
- * Formal Verification
-
  * Verific support
     - Added "verific -L"
     - Add Verific SVA support for "always" properties
