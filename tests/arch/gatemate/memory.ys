@@ -1,0 +1,34 @@
+# 512 x 40 bit -> CC_BRAM_20K SDP RAM
+read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 9 -set DATA_WIDTH 40 sync_ram_sdp
+synth_gatemate -top sync_ram_sdp -noiopad
+cd sync_ram_sdp
+select -assert-count 1 t:CC_BUFG
+select -assert-count 1 t:CC_BRAM_20K
+
+# 512 x 80 bit -> CC_BRAM_40K SDP RAM
+design -reset
+read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 9 -set DATA_WIDTH 80 sync_ram_sdp
+synth_gatemate -top sync_ram_sdp -noiopad
+cd sync_ram_sdp
+select -assert-count 1 t:CC_BUFG
+select -assert-count 1 t:CC_BRAM_40K
+
+# 512 x 40 bit -> CC_BRAM_20K SDP ROM
+design -reset
+read_verilog ../common/blockrom.v
+chparam -set ADDRESS_WIDTH 9 -set DATA_WIDTH 40 sync_rom
+synth_gatemate -top sync_rom -noiopad
+cd sync_rom
+select -assert-count 1 t:CC_BUFG
+select -assert-count 1 t:CC_BRAM_20K
+
+# 512 x 80 bit -> CC_BRAM_40K SDP ROM
+design -reset
+read_verilog ../common/blockrom.v
+chparam -set ADDRESS_WIDTH 9 -set DATA_WIDTH 80 sync_rom
+synth_gatemate -top sync_rom -noiopad
+cd sync_rom
+select -assert-count 1 t:CC_BUFG
+select -assert-count 1 t:CC_BRAM_40K
