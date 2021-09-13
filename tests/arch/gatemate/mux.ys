@@ -1,0 +1,20 @@
+read_verilog ../common/mux.v
+design -save read
+
+design -load read
+hierarchy -top mux4
+proc
+equiv_opt -assert -map +/gatemate/cells_sim.v synth_gatemate -noiopad # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mux4 # Constrain all select calls below inside the top module
+select -assert-count 1 t:CC_MX4
+select -assert-none t:CC_MX4 %% t:* %D
+
+design -load read
+hierarchy -top mux8
+proc
+equiv_opt -assert -map +/gatemate/cells_sim.v synth_gatemate -noiopad # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mux8 # Constrain all select calls below inside the top module
+select -assert-count 1 t:CC_MX8
+select -assert-none t:CC_MX8 %% t:* %D
