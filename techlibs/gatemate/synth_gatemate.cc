@@ -275,7 +275,7 @@ struct SynthGateMatePass : public ScriptPass
 			run("opt -undriven -fine");
 		}
 
-		if (check_label("map_addf", "(skip if '-noaddf')"))
+		if (check_label("map_gates"))
 		{
 			std::string techmap_args = "";
 			if (!noaddf) {
@@ -292,8 +292,8 @@ struct SynthGateMatePass : public ScriptPass
 		{
 			if (!noiopad) {
 				run("iopadmap -bits "
-					"-inpad $__inpad Y:I "
-					"-outpad $__outpad A:O "
+					"-inpad CC_IBUF Y:I "
+					"-outpad CC_OBUF A:O "
 					"-toutpad $__toutpad OE:A:O "
 					"-tinoutpad $__tinoutpad OE:Y:A:IO"
 				);
@@ -305,10 +305,7 @@ struct SynthGateMatePass : public ScriptPass
 		if (check_label("map_regs"))
 		{
 			run("opt_clean");
-			run("dfflegalize -cell $_DFF_?_ 0 -cell $_DFF_???_ 0 "
-				"-cell $_DFFE_??_ 0 -cell $_DFFE_????_ 0 "
-				"-cell $_DLATCH_?_ x -cell $_DLATCH_???_ x"
-			);
+			run("dfflegalize -cell $_DFFE_????_ x -cell $_DLATCH_???_ x");
 			run("techmap -map +/gatemate/reg_map.v");
 			run("opt_expr -mux_undef");
 			run("simplemap");
