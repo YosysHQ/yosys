@@ -17,8 +17,8 @@
  *
  */
 
-`define MAX(a,b) (a > b ? a : b)
-`define MIN(a,b) (a < b ? a : b)
+`define MAX(a,b) ((a) > (b) ? (a) : (b))
+`define MIN(a,b) ((a) < (b) ? (a) : (b))
 
 (* techmap_celltype = "$mul $__mul" *)
 module \$__MULMXN (A, B, Y);

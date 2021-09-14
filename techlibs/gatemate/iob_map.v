@@ -17,36 +17,6 @@
  *
  */
 
-module \$__inpad (input I, output Y);
-	CC_IBUF /*#(
-		.PIN_NAME("UNPLACED"),
-		.V_IO("UNDEFINED"),
-		.PULLUP(1'bx),
-		.PULLDOWN(1'bx),
-		.KEEPER(1'bx),
-		.SCHMITT_TRIGGER(1'bx),
-		.DELAY_IBF(4'bx),
-		.FF_IBF(1'bx)
-	)*/ _TECHMAP_REPLACE_ (
-		.I(I),
-		.Y(Y)
-	);
-endmodule
-
-module \$__outpad (input A, output O);
-	CC_OBUF /*#(
-		.PIN_NAME("UNPLACED"),
-		.V_IO("UNDEFINED"),
-		.SLEW("UNDEFINED"),
-		.DRIVE(1'bx),
-		.DELAY_OBF(4'bx),
-		.FF_OBF(1'bx)
-	)*/ _TECHMAP_REPLACE_ (
-		.A(A),
-		.O(O)
-	);
-endmodule
-
 module \$__toutpad (input A, input OE, output O);
 	CC_TOBUF /*#(
 		.PIN_NAME("UNPLACED"),

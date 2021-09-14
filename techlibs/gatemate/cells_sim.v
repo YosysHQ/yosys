@@ -294,7 +294,7 @@ module CC_DFF #(
 	assign en  = (EN_INV)  ?  ~EN :  EN;
 	assign sr  = (SR_INV)  ?  ~SR :  SR;
 
-	initial Q = 0;
+	initial Q = 1'bX;
 
 	always @(posedge clk or posedge sr)
 	begin
@@ -323,7 +323,7 @@ module CC_DLT #(
 	assign en  = (G_INV) ? ~G : G;
 	assign sr  = (SR_INV) ? ~SR : SR;
 
-	initial Q = 0;
+	initial Q = 1'bX;
 
 	always @(*)
 	begin
@@ -409,14 +409,9 @@ endmodule
 module CC_MX2 (
 	input  D0, D1,
 	input  S0,
-	output reg Y
+	output Y
 );
-	always @(*) begin
-		case (S0)
-			1'b0: Y <= D0;
-			1'b1: Y <= D1;
-		endcase
-	end
+	assign Y = S0 ? D1 : D0;
 
 	specify
 		(D0 => Y) = (0:0:0, 0:0:0);
@@ -429,16 +424,10 @@ endmodule
 module CC_MX4 (
 	input  D0, D1, D2, D3,
 	input  S0, S1,
-	output reg Y
+	output Y
 );
-	always @(*) begin
-		case ({S1, S0})
-			2'b00: Y <= D0;
-			2'b01: Y <= D1;
-			2'b10: Y <= D2;
-			2'b11: Y <= D3;
-		endcase
-	end
+	assign Y = S1 ? (S0 ? D3 : D2) :
+					(S0 ? D1 : D0);
 
 	specify
 		(D0 => Y) = (0:0:0, 0:0:0);
@@ -455,20 +444,12 @@ module CC_MX8 (
 	input  D0, D1, D2, D3,
 	input  D4, D5, D6, D7,
 	input  S0, S1, S2,
-	output reg Y
+	output Y
 );
-	always @(*) begin
-		case ({S2, S1, S0})
-			3'b000: Y <= D0;
-			3'b001: Y <= D1;
-			3'b010: Y <= D2;
-			3'b011: Y <= D3;
-			3'b100: Y <= D4;
-			3'b101: Y <= D5;
-			3'b110: Y <= D6;
-			3'b111: Y <= D7;
-		endcase
-	end
+	assign Y = S2 ? (S1 ? (S0 ? D7 : D6) :
+						  (S0 ? D5 : D4)) :
+					(S1 ? (S0 ? D3 : D2) :
+						  (S0 ? D1 : D0));
 
 	specify
 		(D0 => Y) = (0:0:0, 0:0:0);
@@ -531,7 +512,6 @@ module CC_BUFG (
 endmodule
 
 
-(* blackbox *)
 module CC_BRAM_20K (
 	output [19:0] A_DO,
 	output [19:0] B_DO,
@@ -941,7 +921,6 @@ module CC_BRAM_20K (
 endmodule
 
 
-(* blackbox *)
 module CC_BRAM_40K (
 	output [39:0] A_DO,
 	output [39:0] B_DO,
@@ -1503,72 +1482,4 @@ module CC_BRAM_40K (
 			assign B_DO = B_DO_out;
 		end
    endgenerate
-endmodule
-
-
-(* blackbox *)
-module CC_FIFO_40K (
-	output A_ECC_1B_ERR,
-	output B_ECC_1B_ERR,
-	output A_ECC_2B_ERR,
-	output B_ECC_2B_ERR,
-	// FIFO pop port
-	output [39:0] A_DO,
-	output [39:0] B_DO,
-	(* clkbuf_sink *)
-	input  A_CLK,
-	input  A_EN,
-	// FIFO push port
-	input  [39:0] A_DI,
-	input  [39:0] B_DI,
-	input  [39:0] A_BM,
-	input  [39:0] B_BM,
-	(* clkbuf_sink *)
-	input  B_CLK,
-	input  B_EN,
-	input  B_WE,
-	// FIFO control
-	input  F_RST_N,
-	input  [12:0] F_ALMOST_FULL_OFFSET,
-	input  [12:0] F_ALMOST_EMPTY_OFFSET,
-	// FIFO status signals
-	output F_FULL,
-	output F_EMPTY,
-	output F_ALMOST_FULL,
-	output F_ALMOST_EMPTY,
-	output F_RD_ERROR,
-	output F_WR_ERROR,
-	output [15:0] F_RD_PTR,
-	output [15:0] F_WR_PTR
-);
-	// Location format: D(0..N-1)X(0..3)Y(0..7) or UNPLACED
-	parameter LOC = "UNPLACED";
-
-	// Offset configuration
-	parameter [12:0] ALMOST_FULL_OFFSET = 12'b0;
-	parameter [12:0] ALMOST_EMPTY_OFFSET = 12'b0;
-
-	// Port Widths
-	parameter A_WIDTH = 0;
-	parameter B_WIDTH = 0;
-
-	// RAM and Write Modes
-	parameter RAM_MODE = "SDP"; // "TPD" or "SDP"
-	parameter FIFO_MODE = "SYNC"; // "ASYNC" or "SYNC"
-
-	// Inverting Control Pins
-	parameter A_CLK_INV = 1'b0;
-	parameter B_CLK_INV = 1'b0;
-	parameter A_EN_INV = 1'b0;
-	parameter B_EN_INV = 1'b0;
-	parameter A_WE_INV = 1'b0;
-	parameter B_WE_INV = 1'b0;
-
-	// Output Register
-	parameter A_DO_REG = 1'b0;
-	parameter B_DO_REG = 1'b0;
-
-	// Error Checking and Correction
-	parameter A_ECC_EN  = 1'b0;
-	parameter B_ECC_EN  = 1'b0;
 endmodule
