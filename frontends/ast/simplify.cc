@@ -1981,7 +1981,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			varbuf->children[0] = buf;
 		}
 
-		if (type == AST_FOR) {
+		if (type == AST_FOR && (init_ast->children[0]->id2ast->str.find("$fordecl_block") == std::string::npos &&
+					init_ast->children[0]->id2ast->str.find("$unnamed_block") == std::string::npos )) {
 			AstNode *buf = next_ast->clone();
 			delete buf->children[1];
 			buf->children[1] = varbuf->children[0]->clone();
