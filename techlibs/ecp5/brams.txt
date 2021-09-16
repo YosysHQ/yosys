@@ -38,7 +38,7 @@ bram $__ECP5_DP16KD
 endbram
 
 # The syn_* attributes are described in:
-# https://www.latticesemi.com/-/media/LatticeSemi/Documents/Tutorials/AK/LatticeDiamondTutorial311.ashx
+# https://www.latticesemi.com/view_document?document_id=51556
 attr_icase 1
 
 match $__ECP5_PDPW16KD

@@ -254,6 +254,65 @@ static void checkLabelsMatch(const char *element, const std::string *before, con
 			element, before->c_str() + 1, after->c_str() + 1);
 }
 
+// This transforms a loop like
+//   for (genvar i = 0; i < 10; i++) begin : blk
+// to
+//   genvar _i;
+//   for (_i = 0; _i < 10; _i++) begin : blk
+//     localparam i = _i;
+// where `_i` is actually some auto-generated name.
+static void rewriteGenForDeclInit(AstNode *loop)
+{
+	// check if this generate for loop contains an inline declaration
+	log_assert(loop->type == AST_GENFOR);
+	AstNode *decl = loop->children[0];
+	if (decl->type == AST_ASSIGN_EQ)
+		return;
+	log_assert(decl->type == AST_GENVAR);
+	log_assert(loop->children.size() == 5);
+
+	// identify each component of the loop
+	AstNode *init = loop->children[1];
+	AstNode *cond = loop->children[2];
+	AstNode *incr = loop->children[3];
+	AstNode *body = loop->children[4];
+	log_assert(init->type == AST_ASSIGN_EQ);
+	log_assert(incr->type == AST_ASSIGN_EQ);
+	log_assert(body->type == AST_GENBLOCK);
+
+	// create a unique name for the genvar
+	std::string old_str = decl->str;
+	std::string new_str = stringf("$genfordecl$%d$%s", autoidx++, old_str.c_str());
+
+	// rename and move the genvar declaration to the containing description
+	decl->str = new_str;
+	loop->children.erase(loop->children.begin());
+	log_assert(current_ast_mod != nullptr);
+	current_ast_mod->children.push_back(decl);
+
+	// create a new localparam with old name so that the items in the loop
+	// can simply use the old name and shadow it as necessary
+	AstNode *indirect = new AstNode(AST_LOCALPARAM);
+	indirect->str = old_str;
+	AstNode *ident = new AstNode(AST_IDENTIFIER);
+	ident->str = new_str;
+	indirect->children.push_back(ident);
+
+	body->children.insert(body->children.begin(), indirect);
+
+	// only perform the renaming for the initialization, guard, and
+	// incrementation to enable proper shadowing of the synthetic localparam
+	std::function<void(AstNode*)> substitute = [&](AstNode *node) {
+		if (node->type == AST_IDENTIFIER && node->str == old_str)
+			node->str = new_str;
+		for (AstNode *child : node->children)
+			substitute(child);
+	};
+	substitute(init);
+	substitute(cond);
+	substitute(incr);
+}
+
 %}
 
 %define api.prefix {frontend_verilog_yy}
@@ -321,6 +380,7 @@ static void checkLabelsMatch(const char *element, const std::string *before, con
 %type <al> attr case_attr
 %type <ast> struct_union
 %type <ast_node_type> asgn_binop
+%type <ast> genvar_identifier
 
 %type <specify_target_ptr> specify_target
 %type <specify_triple_ptr> specify_triple specify_opt_triple
@@ -2607,6 +2667,53 @@ asgn_binop:
 	TOK_SSHL_ASSIGN { $$ = AST_SHIFT_SLEFT; } |
 	TOK_SSHR_ASSIGN { $$ = AST_SHIFT_SRIGHT; } ;
 
+for_initialization:
+	TOK_ID '=' expr {
+		AstNode *ident = new AstNode(AST_IDENTIFIER);
+		ident->str = *$1;
+		AstNode *node = new AstNode(AST_ASSIGN_EQ, ident, $3);
+		ast_stack.back()->children.push_back(node);
+		SET_AST_NODE_LOC(node, @1, @3);
+	} |
+	non_io_wire_type range TOK_ID {
+		frontend_verilog_yyerror("For loop variable declaration is missing initialization!");
+	} |
+	non_io_wire_type range TOK_ID '=' expr {
+		if (!sv_mode)
+			frontend_verilog_yyerror("For loop inline variable declaration is only supported in SystemVerilog mode!");
+
+		// loop variable declaration
+		AstNode *wire = $1;
+		AstNode *range = checkRange(wire, $2);
+		if (range != nullptr)
+			wire->children.push_back(range);
+		SET_AST_NODE_LOC(wire, @1, @3);
+		SET_AST_NODE_LOC(range, @2, @2);
+
+		AstNode *ident = new AstNode(AST_IDENTIFIER);
+		ident->str = *$3;
+		wire->str = *$3;
+		delete $3;
+
+		AstNode *loop = ast_stack.back();
+		AstNode *parent = ast_stack.at(ast_stack.size() - 2);
+		log_assert(parent->children.back() == loop);
+
+		// loop variable initialization
+		AstNode *asgn = new AstNode(AST_ASSIGN_EQ, ident, $5);
+		loop->children.push_back(asgn);
+		SET_AST_NODE_LOC(asgn, @3, @5);
+		SET_AST_NODE_LOC(ident, @3, @3);
+
+		// inject a wrapping block to declare the loop variable and
+		// contain the current loop
+		AstNode *wrapper = new AstNode(AST_BLOCK);
+		wrapper->str = "$fordecl_block$" + std::to_string(autoidx++);
+		wrapper->children.push_back(wire);
+		wrapper->children.push_back(loop);
+		parent->children.back() = wrapper; // replaces `loop`
+	};
+
 // this production creates the obligatory if-else shift/reduce conflict
 behavioral_stmt:
 	defattr | assert | wire_decl | param_decl | localparam_decl | typedef_decl |
@@ -2667,7 +2774,7 @@ behavioral_stmt:
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
 		append_attr(node, $1);
-	} simple_behavioral_stmt ';' expr {
+	} for_initialization ';' expr {
 		ast_stack.back()->children.push_back($7);
 	} ';' simple_behavioral_stmt ')' {
 		AstNode *block = new AstNode(AST_BLOCK);
@@ -2931,16 +3038,50 @@ gen_stmt_or_module_body_stmt:
 		free_attr($1);
 	};
 
+genvar_identifier:
+	TOK_ID {
+		$$ = new AstNode(AST_IDENTIFIER);
+		$$->str = *$1;
+		delete $1;
+	};
+
+genvar_initialization:
+	TOK_GENVAR genvar_identifier {
+		frontend_verilog_yyerror("Generate for loop variable declaration is missing initialization!");
+	} |
+	TOK_GENVAR genvar_identifier '=' expr {
+		if (!sv_mode)
+			frontend_verilog_yyerror("Generate for loop inline variable declaration is only supported in SystemVerilog mode!");
+		AstNode *node = new AstNode(AST_GENVAR);
+		node->is_reg = true;
+		node->is_signed = true;
+		node->range_left = 31;
+		node->range_right = 0;
+		node->str = $2->str;
+		node->children.push_back(checkRange(node, nullptr));
+		ast_stack.back()->children.push_back(node);
+		SET_AST_NODE_LOC(node, @1, @4);
+		node = new AstNode(AST_ASSIGN_EQ, $2, $4);
+		ast_stack.back()->children.push_back(node);
+		SET_AST_NODE_LOC(node, @1, @4);
+	} |
+	genvar_identifier '=' expr {
+		AstNode *node = new AstNode(AST_ASSIGN_EQ, $1, $3);
+		ast_stack.back()->children.push_back(node);
+		SET_AST_NODE_LOC(node, @1, @3);
+	};
+
 // this production creates the obligatory if-else shift/reduce conflict
 gen_stmt:
 	TOK_FOR '(' {
 		AstNode *node = new AstNode(AST_GENFOR);
 		ast_stack.back()->children.push_back(node);
 		ast_stack.push_back(node);
-	} simple_behavioral_stmt ';' expr {
+	} genvar_initialization ';' expr {
 		ast_stack.back()->children.push_back($6);
 	} ';' simple_behavioral_stmt ')' gen_stmt_block {
 		SET_AST_NODE_LOC(ast_stack.back(), @1, @11);
+		rewriteGenForDeclInit(ast_stack.back());
 		ast_stack.pop_back();
 	} |
 	TOK_IF '(' expr ')' {
