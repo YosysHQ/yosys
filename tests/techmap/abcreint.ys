@@ -34,6 +34,9 @@ EOT
 prep -auto-top
 opt -full
 techmap
+write_rtlil abcreint.rtlil
+design -reset
+read_rtlil abcreint.rtlil
 
 abc -nocleanup
 opt_clean -purge
@@ -41,7 +44,10 @@ write_blif -gates post_abc.blif
 
 scratchpad -assert-set abc.dir
 
-abc-reint
+design -reset
+read_rtlil abcreint.rtlil
+
+abc_reint
 opt_clean -purge
 write_blif -gates post_reint.blif
 
@@ -50,3 +56,4 @@ exec -expect-return 0 -- diff post_abc.blif post_reint.blif
 
 exec -- rm post_abc.blif
 exec -- rm post_reint.blif
+exec -- rm abcreint.rtlil
