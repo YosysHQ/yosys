@@ -1,4 +1,4 @@
-module top(out);
+module loop_var_shadow_top(out);
 	genvar i;
 	generate
 		for (i = 0; i < 2; i = i + 1) begin : loop

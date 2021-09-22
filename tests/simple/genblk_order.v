@@ -1,5 +1,5 @@
 `default_nettype none
-module top(
+module genblk_order_top(
 	output wire out1,
 	output wire out2
 );

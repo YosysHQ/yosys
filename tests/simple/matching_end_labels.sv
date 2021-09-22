@@ -1,4 +1,4 @@
-module top(
+module matching_end_labels_top(
     output reg [7:0]
     out1, out2, out3, out4
 );

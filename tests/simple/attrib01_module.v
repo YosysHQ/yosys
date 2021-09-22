@@ -1,4 +1,4 @@
-module bar(clk, rst, inp, out);
+module attrib01_bar(clk, rst, inp, out);
   input  wire clk;
   input  wire rst;
   input  wire inp;
@@ -10,12 +10,12 @@ module bar(clk, rst, inp, out);
 
 endmodule
 
-module foo(clk, rst, inp, out);
+module attrib01_foo(clk, rst, inp, out);
   input  wire clk;
   input  wire rst;
   input  wire inp;
   output wire out;
 
-  bar bar_instance (clk, rst, inp, out);
+  attrib01_bar bar_instance (clk, rst, inp, out);
 endmodule
 

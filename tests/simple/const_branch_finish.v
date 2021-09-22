@@ -4,7 +4,7 @@
 		$finish; \
 	end
 
-module top;
+module case_branch_finish_top;
 	parameter WIDTH = 32;
 	integer j;
 	initial begin

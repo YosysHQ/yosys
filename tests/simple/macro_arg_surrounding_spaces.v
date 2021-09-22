@@ -1,4 +1,4 @@
-module top(
+module macr_arg_surrounding_spaces_top(
 	IDENT_V_,
 	IDENT_W_,
 	IDENT_X_,
