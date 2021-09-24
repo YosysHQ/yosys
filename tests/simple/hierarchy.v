@@ -1,6 +1,6 @@
 
 (* top *)
-module top(a, b, y1, y2, y3, y4);
+module hierarchy_top(a, b, y1, y2, y3, y4);
 input [3:0] a;
 input signed [3:0] b;
 output [7:0] y1, y2, y3, y4;

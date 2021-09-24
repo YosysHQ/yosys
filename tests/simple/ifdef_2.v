@@ -1,4 +1,4 @@
-module top(o1, o2, o3);
+module ifdef_2_top(o1, o2, o3);
 
 output wire o1;
 

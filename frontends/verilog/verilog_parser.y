@@ -2677,6 +2677,7 @@ for_initialization:
 		AstNode *node = new AstNode(AST_ASSIGN_EQ, ident, $3);
 		ast_stack.back()->children.push_back(node);
 		SET_AST_NODE_LOC(node, @1, @3);
+		delete $1;
 	} |
 	non_io_wire_type range TOK_ID {
 		frontend_verilog_yyerror("For loop variable declaration is missing initialization!");
