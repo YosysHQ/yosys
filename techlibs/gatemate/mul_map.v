@@ -17,9 +17,6 @@
  *
  */
 
-`define MAX(a,b) ((a) > (b) ? (a) : (b))
-`define MIN(a,b) ((a) < (b) ? (a) : (b))
-
 (* techmap_celltype = "$mul $__mul" *)
 module \$__MULMXN (A, B, Y);
 
@@ -36,27 +33,27 @@ module \$__MULMXN (A, B, Y);
 	(* force_downto *)
 	output [Y_WIDTH-1:0] Y;
 
-	localparam A_MAXWIDTH = A_WIDTH + (A_SIGNED ? 0 : 1);
-	localparam B_MAXWIDTH = B_WIDTH + (B_SIGNED ? 0 : 1);
+	localparam A_ADJWIDTH = A_WIDTH + (A_SIGNED ? 0 : 1);
+	localparam B_ADJWIDTH = B_WIDTH + (B_SIGNED ? 0 : 1);
 
 	generate
 		if (A_SIGNED) begin: blkA
-			wire signed [A_MAXWIDTH-1:0] Aext = $signed(A);
+			wire signed [A_ADJWIDTH-1:0] Aext = $signed(A);
 		end
 		else begin: blkA
-			wire [A_MAXWIDTH-1:0] Aext = A;
+			wire [A_ADJWIDTH-1:0] Aext = A;
 		end
 		if (B_SIGNED) begin: blkB
-			wire signed [B_MAXWIDTH-1:0] Bext = $signed(B);
+			wire signed [B_ADJWIDTH-1:0] Bext = $signed(B);
 		end
 		else begin: blkB
-			wire [B_MAXWIDTH-1:0] Bext = B;
+			wire [B_ADJWIDTH-1:0] Bext = B;
 		end
 
 		if (A_WIDTH >= B_WIDTH) begin
 			CC_MULT #(
-				.A_WIDTH(A_MAXWIDTH),
-				.B_WIDTH(B_MAXWIDTH),
+				.A_WIDTH(A_ADJWIDTH),
+				.B_WIDTH(B_ADJWIDTH),
 				.P_WIDTH(Y_WIDTH),
 			) _TECHMAP_REPLACE_ (
 				.A(blkA.Aext),
@@ -66,8 +63,8 @@ module \$__MULMXN (A, B, Y);
 		end
 		else begin // swap A,B
 			CC_MULT #(
-				.A_WIDTH(A_MAXWIDTH),
-				.B_WIDTH(B_MAXWIDTH),
+				.A_WIDTH(B_ADJWIDTH),
+				.B_WIDTH(A_ADJWIDTH),
 				.P_WIDTH(Y_WIDTH),
 			) _TECHMAP_REPLACE_ (
 				.A(blkB.Bext),
