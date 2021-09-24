@@ -294,7 +294,7 @@ module CC_DFF #(
 	assign en  = (EN_INV)  ?  ~EN :  EN;
 	assign sr  = (SR_INV)  ?  ~SR :  SR;
 
-	initial Q = 1'b0;
+	initial Q = 1'bX;
 
 	always @(posedge clk or posedge sr)
 	begin
@@ -323,7 +323,7 @@ module CC_DLT #(
 	assign en  = (G_INV) ? ~G : G;
 	assign sr  = (SR_INV) ? ~SR : SR;
 
-	initial Q = 1'b0;
+	initial Q = 1'bX;
 
 	always @(*)
 	begin
