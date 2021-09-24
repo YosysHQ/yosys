@@ -134,15 +134,11 @@ struct GateMateBramOptPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		Module *module = design->top_module();
-
-		if (module == nullptr)
+		for (auto module : design->selected_modules())
 		{
-			log_cmd_error("No top module found.\n");
-		}
-
-		if (!noglwren) {
-			proc_glwren(module);
+			if (!noglwren) {
+				proc_glwren(module);
+			}
 		}
 	}
 } GateMateBramOptPass;
