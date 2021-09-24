@@ -804,6 +804,7 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/arch/intel_alm && bash run-test.sh $(SEEDOPT)
 	+cd tests/arch/nexus && bash run-test.sh $(SEEDOPT)
 	+cd tests/arch/quicklogic && bash run-test.sh $(SEEDOPT)
+	+cd tests/arch/gatemate && bash run-test.sh $(SEEDOPT)
 	+cd tests/rpc && bash run-test.sh
 	+cd tests/memfile && bash run-test.sh
 	+cd tests/verilog && bash run-test.sh

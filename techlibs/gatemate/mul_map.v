@@ -36,27 +36,28 @@ module \$__MULMXN (A, B, Y);
 	(* force_downto *)
 	output [Y_WIDTH-1:0] Y;
 
-	localparam MAXWIDTH = `MAX(A_WIDTH, B_WIDTH) + ((A_SIGNED || B_SIGNED) ? 0 : 1);
+	localparam A_MAXWIDTH = A_WIDTH + (A_SIGNED ? 0 : 1);
+	localparam B_MAXWIDTH = B_WIDTH + (B_SIGNED ? 0 : 1);
 
 	generate
 		if (A_SIGNED) begin: blkA
-			wire signed [MAXWIDTH-1:0] Aext = $signed(A);
+			wire signed [A_MAXWIDTH-1:0] Aext = $signed(A);
 		end
 		else begin: blkA
-			wire [MAXWIDTH-1:0] Aext = A;
+			wire [A_MAXWIDTH-1:0] Aext = A;
 		end
 		if (B_SIGNED) begin: blkB
-			wire signed [MAXWIDTH-1:0] Bext = $signed(B);
+			wire signed [B_MAXWIDTH-1:0] Bext = $signed(B);
 		end
 		else begin: blkB
-			wire [MAXWIDTH-1:0] Bext = B;
+			wire [B_MAXWIDTH-1:0] Bext = B;
 		end
 
 		if (A_WIDTH >= B_WIDTH) begin
 			CC_MULT #(
-				.A_WIDTH(MAXWIDTH),
-				.B_WIDTH(MAXWIDTH),
-				.P_WIDTH(`MIN(Y_WIDTH,MAXWIDTH+MAXWIDTH)),
+				.A_WIDTH(A_MAXWIDTH),
+				.B_WIDTH(B_MAXWIDTH),
+				.P_WIDTH(Y_WIDTH),
 			) _TECHMAP_REPLACE_ (
 				.A(blkA.Aext),
 				.B(blkB.Bext),
@@ -65,9 +66,9 @@ module \$__MULMXN (A, B, Y);
 		end
 		else begin // swap A,B
 			CC_MULT #(
-				.A_WIDTH(MAXWIDTH),
-				.B_WIDTH(MAXWIDTH),
-				.P_WIDTH(`MIN(Y_WIDTH,MAXWIDTH+MAXWIDTH)),
+				.A_WIDTH(A_MAXWIDTH),
+				.B_WIDTH(B_MAXWIDTH),
+				.P_WIDTH(Y_WIDTH),
 			) _TECHMAP_REPLACE_ (
 				.A(blkB.Bext),
 				.B(blkA.Aext),
