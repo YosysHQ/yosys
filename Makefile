@@ -127,12 +127,12 @@ LDFLAGS += -rdynamic
 LDLIBS += -lrt
 endif
 
-YOSYS_VER := 0.9+4313
+YOSYS_VER := 0.10+0
 GIT_REV := $(shell git -C $(YOSYS_SRC) rev-parse --short HEAD 2> /dev/null || echo UNKNOWN)
 OBJS = kernel/version_$(GIT_REV).o
 
 bumpversion:
-	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline 8a4c6e6.. | wc -l`/;" Makefile
+	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline 1cac671.. | wc -l`/;" Makefile
 
 # set 'ABCREV = default' to use abc/ as it is
 #
