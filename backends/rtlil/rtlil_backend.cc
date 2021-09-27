@@ -51,15 +51,19 @@ void RTLIL_BACKEND::dump_const(std::ostream &f, const RTLIL::Const &data, int wi
 			}
 		}
 		f << stringf("%d'", width);
-		for (int i = offset+width-1; i >= offset; i--) {
-			log_assert(i < (int)data.bits.size());
-			switch (data.bits[i]) {
-			case State::S0: f << stringf("0"); break;
-			case State::S1: f << stringf("1"); break;
-			case RTLIL::Sx: f << stringf("x"); break;
-			case RTLIL::Sz: f << stringf("z"); break;
-			case RTLIL::Sa: f << stringf("-"); break;
-			case RTLIL::Sm: f << stringf("m"); break;
+		if (data.is_fully_undef()) {
+			f << "x";
+		} else {
+			for (int i = offset+width-1; i >= offset; i--) {
+				log_assert(i < (int)data.bits.size());
+				switch (data.bits[i]) {
+				case State::S0: f << stringf("0"); break;
+				case State::S1: f << stringf("1"); break;
+				case RTLIL::Sx: f << stringf("x"); break;
+				case RTLIL::Sz: f << stringf("z"); break;
+				case RTLIL::Sa: f << stringf("-"); break;
+				case RTLIL::Sm: f << stringf("m"); break;
+				}
 			}
 		}
 	} else {
