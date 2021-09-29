@@ -4045,7 +4045,7 @@ AstNode *AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *m
 // prefix is carried forward, but resolution of their children is deferred
 void AstNode::expand_genblock(const std::string &prefix)
 {
-	if (type == AST_IDENTIFIER || type == AST_FCALL || type == AST_TCALL || type == AST_WIRETYPE) {
+	if (type == AST_IDENTIFIER || type == AST_FCALL || type == AST_TCALL || type == AST_WIRETYPE || type == AST_PREFIX) {
 		log_assert(!str.empty());
 
 		// search starting in the innermost scope and then stepping outward
@@ -4131,10 +4131,15 @@ void AstNode::expand_genblock(const std::string &prefix)
 
 	for (size_t i = 0; i < children.size(); i++) {
 		AstNode *child = children[i];
-		// AST_PREFIX member names should not be prefixed; a nested AST_PREFIX
-		// still needs to recursed-into
-		if (type == AST_PREFIX && i == 1 && child->type == AST_IDENTIFIER)
+		// AST_PREFIX member names should not be prefixed; we recurse into them
+		// as normal to ensure indices and ranges are properly resolved, and
+		// then restore the previous string
+		if (type == AST_PREFIX && i == 1) {
+			std::string backup_scope_name = child->str;
+			child->expand_genblock(prefix);
+			child->str = backup_scope_name;
 			continue;
+		}
 		// functions/tasks may reference wires, constants, etc. in this scope
 		if (child->type == AST_FUNCTION || child->type == AST_TASK)
 			continue;

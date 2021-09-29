@@ -1,4 +1,4 @@
-module top(x);
+module genblock_port_shadow_top(x);
 	generate
 		if (1) begin : blk
 			wire x;

@@ -1,4 +1,4 @@
-module top(inp, out1, out2);
+module func_width_scope_top(inp, out1, out2);
 	input wire signed inp;
 
 	localparam WIDTH_A = 5;

@@ -1,4 +1,4 @@
-module top(o1, o2, o3, o4);
+module ifdef_1_top(o1, o2, o3, o4);
 
 `define FAIL input wire not_a_port;
 

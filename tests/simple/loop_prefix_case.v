@@ -1,4 +1,4 @@
-module top(
+module loop_prefix_case_top(
 	input wire x,
 	output reg y
 );

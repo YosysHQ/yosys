@@ -1,4 +1,4 @@
-module top(
+module const_fold_func_top(
 	input wire [3:0] inp,
 	output wire [3:0] out1, out2, out3, out4, out5,
 	output reg [3:0] out6

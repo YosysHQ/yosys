@@ -832,16 +832,10 @@ opt_wire_type_token:
 	wire_type_token | %empty;
 
 wire_type_token:
-	TOK_WOR {
-		astbuf3->is_wor = true;
+	// nets
+	net_type {
 	} |
-	TOK_WAND {
-		astbuf3->is_wand = true;
-	} |
-	// wires
-	TOK_WIRE {
-	} |
-	TOK_WIRE logic_type {
+	net_type logic_type {
 	} |
 	// regs
 	TOK_REG {
@@ -867,6 +861,15 @@ wire_type_token:
 		astbuf3->range_left = 31;
 		astbuf3->range_right = 0;
 	};
+
+net_type:
+	TOK_WOR {
+		astbuf3->is_wor = true;
+	} |
+	TOK_WAND {
+		astbuf3->is_wand = true;
+	} |
+	TOK_WIRE;
 
 logic_type:
 	TOK_LOGIC {
@@ -2674,6 +2677,7 @@ for_initialization:
 		AstNode *node = new AstNode(AST_ASSIGN_EQ, ident, $3);
 		ast_stack.back()->children.push_back(node);
 		SET_AST_NODE_LOC(node, @1, @3);
+		delete $1;
 	} |
 	non_io_wire_type range TOK_ID {
 		frontend_verilog_yyerror("For loop variable declaration is missing initialization!");
@@ -2973,6 +2977,7 @@ rvalue:
 	hierarchical_id '[' expr ']' '.' rvalue {
 		$$ = new AstNode(AST_PREFIX, $3, $6);
 		$$->str = *$1;
+		SET_AST_NODE_LOC($$, @1, @6);
 		delete $1;
 	} |
 	hierarchical_id range {
