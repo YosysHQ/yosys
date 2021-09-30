@@ -919,7 +919,8 @@ std::string abc_module2name(RTLIL::Module *module, std::string topdir_name, int 
     size_t idx;
     for (idx = 0; modname[idx] == '-' && idx < modname.length(); idx++) ;
 
-	std::string tempdir_name = topdir_name + "/" + modname.substr(idx, 255) + "_" + std::to_string(clk_domain);
+    // Can only have up to 100 clock domains.
+	std::string tempdir_name = topdir_name + "/" + modname.substr(idx, 252) + "_" + std::to_string(clk_domain);
 	return tempdir_name;
 }
 
