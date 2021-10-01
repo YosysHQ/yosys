@@ -287,13 +287,24 @@ The state of \B{Q} will be set to this value when the reset is active.
 
 Note that the {\tt \$adff} and {\tt \$sdff} cells can only be used when the reset value is constant.
 
+D-type flip-flops with asynchronous load are represented by {\tt \$aldff} cells. As the {\tt \$dff}
+cells they have \B{CLK}, \B{D} and \B{Q} ports. In addition they also have a single-bit \B{ALOAD}
+input port for the async load enable pin, a \B{AD} input port with the same width as data for
+the async load data, and the following additional parameter:
+
+\begin{itemize}
+\item \B{ALOAD\_POLARITY} \\
+The asynchronous load is active-high if this parameter has the value {\tt 1'b1} and active-low
+if this parameter is {\tt 1'b0}.
+\end{itemize}
+
 D-type flip-flops with asynchronous set and reset are represented by {\tt \$dffsr} cells.
 As the {\tt \$dff} cells they have \B{CLK}, \B{D} and \B{Q} ports. In addition they also have
 multi-bit \B{SET} and \B{CLR} input ports and the corresponding polarity parameters, like 
 {\tt \$sr} cells.
 
-D-type flip-flops with enable are represented by {\tt \$dffe}, {\tt \$adffe}, {\tt \$dffsre},
-{\tt \$sdffe}, and {\tt \$sdffce} cells, which are enhanced variants of {\tt \$dff}, {\tt \$adff}, {\tt \$dffsr},
+D-type flip-flops with enable are represented by {\tt \$dffe}, {\tt \$adffe}, {\tt \$aldffe}, {\tt \$dffsre},
+{\tt \$sdffe}, and {\tt \$sdffce} cells, which are enhanced variants of {\tt \$dff}, {\tt \$adff}, {\tt \$aldff}, {\tt \$dffsr},
 {\tt \$sdff} (with reset over enable) and {\tt \$sdff} (with enable over reset)
 cells, respectively.  They have the same ports and parameters as their base cell.
 In addition they also have a single-bit \B{EN} input port for the enable pin and the following parameter:
