@@ -312,7 +312,8 @@ struct FfData {
 				res.val_arst.bits.push_back(val_arst[i]);
 			if (has_srst)
 				res.val_srst.bits.push_back(val_srst[i]);
-			res.val_init.bits.push_back(val_init[i]);
+			if (initvals)
+				res.val_init.bits.push_back(val_init[i]);
 		}
 		res.width = GetSize(res.sig_q);
 		// Slicing bits out may cause D to become const.
@@ -382,12 +383,14 @@ struct FfData {
 				pol_en = pol_arst;
 			} else {
 				// No control inputs left.  Turn into a const driver.
-				initvals->remove_init(sig_q);
+				if (initvals)
+					initvals->remove_init(sig_q);
 				module->connect(sig_q, val_init);
 				return nullptr;
 			}
 		}
-		initvals->set_init(sig_q, val_init);
+		if (initvals)
+			initvals->set_init(sig_q, val_init);
 		Cell *cell;
 		if (!is_fine) {
 			if (!has_d) {
