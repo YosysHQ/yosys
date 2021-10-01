@@ -84,7 +84,7 @@ struct DffunmapPass : public Pass {
 					continue;
 
 				if (ce_only) {
-					if (!ff.has_en)
+					if (!ff.has_ce)
 						continue;
 					ff.unmap_ce(mod);
 				} else if (srst_only) {
@@ -92,7 +92,7 @@ struct DffunmapPass : public Pass {
 						continue;
 					ff.unmap_srst(mod);
 				} else {
-					if (!ff.has_en && !ff.has_srst)
+					if (!ff.has_ce && !ff.has_srst)
 						continue;
 					ff.unmap_ce_srst(mod);
 				}
