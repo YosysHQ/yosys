@@ -22,6 +22,8 @@
  *
  */
 
+%require "3.0"
+
 %{
 #include <list>
 #include "frontends/rtlil/rtlil_frontend.h"
