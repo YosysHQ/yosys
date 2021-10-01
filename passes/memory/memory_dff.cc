@@ -71,9 +71,9 @@ struct MemQueryCache
 		// port_ren is an upper bound on when we care about the value fetched
 		// from memory this cycle.
 		int ren = ezSAT::CONST_TRUE;
-		if (ff.has_en) {
-			ren = qcsat.importSigBit(ff.sig_en);
-			if (!ff.pol_en)
+		if (ff.has_ce) {
+			ren = qcsat.importSigBit(ff.sig_ce);
+			if (!ff.pol_ce)
 				ren = qcsat.ez->NOT(ren);
 		}
 		if (ff.has_srst) {
@@ -347,6 +347,10 @@ struct MemoryDffWorker
 			log("output latches are not supported.\n");
 			return;
 		}
+		if (ff.has_aload) {
+			log("output FF has async load, not supported.\n");
+			return;
+		}
 		if (ff.has_sr) {
 			// Latches and FFs with SR are not supported.
 			log("output FF has both set and reset, not supported.\n");
@@ -491,8 +495,8 @@ struct MemoryDffWorker
 		log("merging output FF to cell.\n");
 
 		merger.remove_output_ff(bits);
-		if (ff.has_en && !ff.pol_en)
-			ff.sig_en = module->LogicNot(NEW_ID, ff.sig_en);
+		if (ff.has_ce && !ff.pol_ce)
+			ff.sig_ce = module->LogicNot(NEW_ID, ff.sig_ce);
 		if (ff.has_arst && !ff.pol_arst)
 			ff.sig_arst = module->LogicNot(NEW_ID, ff.sig_arst);
 		if (ff.has_srst && !ff.pol_srst)
@@ -500,8 +504,8 @@ struct MemoryDffWorker
 		port.clk = ff.sig_clk;
 		port.clk_enable = true;
 		port.clk_polarity = ff.pol_clk;
-		if (ff.has_en)
-			port.en = ff.sig_en;
+		if (ff.has_ce)
+			port.en = ff.sig_ce;
 		else
 			port.en = State::S1;
 		if (ff.has_arst) {
@@ -549,6 +553,10 @@ struct MemoryDffWorker
 		}
 		if (!ff.has_clk) {
 			log("address latches are not supported.\n");
+			return;
+		}
+		if (ff.has_aload) {
+			log("address FF has async load, not supported.\n");
 			return;
 		}
 		if (ff.has_sr || ff.has_arst) {

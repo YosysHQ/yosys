@@ -148,7 +148,7 @@ struct Clk2fflogicPass : public Pass {
 				if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
 					FfData ff(&initvals, cell);
 
-					if (ff.has_d && !ff.has_clk && !ff.has_en) {
+					if (ff.has_gclk) {
 						// Already a $ff or $_FF_ cell.
 						continue;
 					}
@@ -202,25 +202,27 @@ struct Clk2fflogicPass : public Pass {
 							qval = module->Mux(NEW_ID, past_q, past_d, clock_edge);
 						else
 							qval = module->MuxGate(NEW_ID, past_q, past_d, clock_edge);
-					} else if (ff.has_d) {
+					} else {
+						if (ff.has_aload) {
+							log("Replacing %s.%s (%s): EN=%s, D=%s, Q=%s\n",
+									log_id(module), log_id(cell), log_id(cell->type),
+									log_signal(ff.sig_aload), log_signal(ff.sig_ad), log_signal(ff.sig_q));
+						} else {
+							// $sr.
+							log("Replacing %s.%s (%s): SET=%s, CLR=%s, Q=%s\n",
+									log_id(module), log_id(cell), log_id(cell->type),
+									log_signal(ff.sig_set), log_signal(ff.sig_clr), log_signal(ff.sig_q));
+						}
+						qval = past_q;
+					}
 
-						log("Replacing %s.%s (%s): EN=%s, D=%s, Q=%s\n",
-								log_id(module), log_id(cell), log_id(cell->type),
-								log_signal(ff.sig_en), log_signal(ff.sig_d), log_signal(ff.sig_q));
-
-						SigSpec sig_en = wrap_async_control(module, ff.sig_en, ff.pol_en);
+					if (ff.has_aload) {
+						SigSpec sig_aload = wrap_async_control(module, ff.sig_aload, ff.pol_aload);
 
 						if (!ff.is_fine)
-							qval = module->Mux(NEW_ID, past_q, ff.sig_d, sig_en);
+							qval = module->Mux(NEW_ID, qval, ff.sig_ad, sig_aload);
 						else
-							qval = module->MuxGate(NEW_ID, past_q, ff.sig_d, sig_en);
-					} else {
-
-						log("Replacing %s.%s (%s): SET=%s, CLR=%s, Q=%s\n",
-								log_id(module), log_id(cell), log_id(cell->type),
-								log_signal(ff.sig_set), log_signal(ff.sig_clr), log_signal(ff.sig_q));
-
-						qval = past_q;
+							qval = module->MuxGate(NEW_ID, qval, ff.sig_ad, sig_aload);
 					}
 
 					if (ff.has_sr) {

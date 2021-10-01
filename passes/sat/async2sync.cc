@@ -41,8 +41,6 @@ struct Async2syncPass : public Pass {
 		log("reset value in the next cycle regardless of the data-in value at the time of\n");
 		log("the clock edge.\n");
 		log("\n");
-		log("Currently only $adff, $dffsr, and $dlatch cells are supported by this pass.\n");
-		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -74,14 +72,11 @@ struct Async2syncPass : public Pass {
 				FfData ff(&initvals, cell);
 
 				// Skip for $_FF_ and $ff cells.
-				if (ff.has_d && !ff.has_clk && !ff.has_en)
+				if (ff.has_gclk)
 					continue;
 
 				if (ff.has_clk)
 				{
-					if (!ff.has_sr && !ff.has_arst)
-						continue;
-
 					if (ff.has_sr) {
 						ff.unmap_ce_srst(module);
 
@@ -128,6 +123,39 @@ struct Async2syncPass : public Pass {
 						ff.sig_d = new_d;
 						ff.sig_q = new_q;
 						ff.has_sr = false;
+					} else if (ff.has_aload) {
+						ff.unmap_ce_srst(module);
+
+						log("Replacing %s.%s (%s): ALOAD=%s, AD=%s, D=%s, Q=%s\n",
+								log_id(module), log_id(cell), log_id(cell->type),
+								log_signal(ff.sig_aload), log_signal(ff.sig_ad), log_signal(ff.sig_d), log_signal(ff.sig_q));
+
+						initvals.remove_init(ff.sig_q);
+
+						Wire *new_d = module->addWire(NEW_ID, ff.width);
+						Wire *new_q = module->addWire(NEW_ID, ff.width);
+
+						if (ff.pol_aload) {
+							if (!ff.is_fine) {
+								module->addMux(NEW_ID, new_q, ff.sig_ad, ff.sig_aload, ff.sig_q);
+								module->addMux(NEW_ID, ff.sig_d, ff.sig_ad, ff.sig_aload, new_d);
+							} else {
+								module->addMuxGate(NEW_ID, new_q, ff.sig_ad, ff.sig_aload, ff.sig_q);
+								module->addMuxGate(NEW_ID, ff.sig_d, ff.sig_ad, ff.sig_aload, new_d);
+							}
+						} else {
+							if (!ff.is_fine) {
+								module->addMux(NEW_ID, ff.sig_ad, new_q, ff.sig_aload, ff.sig_q);
+								module->addMux(NEW_ID, ff.sig_ad, ff.sig_d, ff.sig_aload, new_d);
+							} else {
+								module->addMuxGate(NEW_ID, ff.sig_ad, new_q, ff.sig_aload, ff.sig_q);
+								module->addMuxGate(NEW_ID, ff.sig_ad, ff.sig_d, ff.sig_aload, new_d);
+							}
+						}
+
+						ff.sig_d = new_d;
+						ff.sig_q = new_q;
+						ff.has_aload = false;
 					} else if (ff.has_arst) {
 						ff.unmap_srst(module);
 
@@ -154,9 +182,12 @@ struct Async2syncPass : public Pass {
 						ff.sig_q = new_q;
 						ff.has_arst = false;
 						ff.has_srst = true;
+						ff.ce_over_srst = false;
 						ff.val_srst = ff.val_arst;
 						ff.sig_srst = ff.sig_arst;
 						ff.pol_srst = ff.pol_arst;
+					} else {
+						continue;
 					}
 				}
 				else
@@ -164,25 +195,25 @@ struct Async2syncPass : public Pass {
 					// Latch.
 					log("Replacing %s.%s (%s): EN=%s, D=%s, Q=%s\n",
 							log_id(module), log_id(cell), log_id(cell->type),
-							log_signal(ff.sig_en), log_signal(ff.sig_d), log_signal(ff.sig_q));
+							log_signal(ff.sig_aload), log_signal(ff.sig_ad), log_signal(ff.sig_q));
 
 					initvals.remove_init(ff.sig_q);
 
 					Wire *new_q = module->addWire(NEW_ID, ff.width);
 					Wire *new_d;
 
-					if (ff.has_d) {
+					if (ff.has_aload) {
 						new_d = module->addWire(NEW_ID, ff.width);
-						if (ff.pol_en) {
+						if (ff.pol_aload) {
 							if (!ff.is_fine)
-								module->addMux(NEW_ID, new_q, ff.sig_d, ff.sig_en, new_d);
+								module->addMux(NEW_ID, new_q, ff.sig_ad, ff.sig_aload, new_d);
 							else
-								module->addMuxGate(NEW_ID, new_q, ff.sig_d, ff.sig_en, new_d);
+								module->addMuxGate(NEW_ID, new_q, ff.sig_ad, ff.sig_aload, new_d);
 						} else {
 							if (!ff.is_fine)
-								module->addMux(NEW_ID, ff.sig_d, new_q, ff.sig_en, new_d);
+								module->addMux(NEW_ID, ff.sig_ad, new_q, ff.sig_aload, new_d);
 							else
-								module->addMuxGate(NEW_ID, ff.sig_d, new_q, ff.sig_en, new_d);
+								module->addMuxGate(NEW_ID, ff.sig_ad, new_q, ff.sig_aload, new_d);
 						}
 					} else {
 						new_d = new_q;
@@ -231,10 +262,10 @@ struct Async2syncPass : public Pass {
 
 					ff.sig_d = new_d;
 					ff.sig_q = new_q;
-					ff.has_en = false;
+					ff.has_aload = false;
 					ff.has_arst = false;
 					ff.has_sr = false;
-					ff.has_d = true;
+					ff.has_gclk = true;
 				}
 
 				IdString name = cell->name;

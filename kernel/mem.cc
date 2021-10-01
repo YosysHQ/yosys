@@ -961,9 +961,9 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 		ff.sig_clk = port.clk;
 		ff.pol_clk = port.clk_polarity;
 		if (port.en != State::S1) {
-			ff.has_en = true;
-			ff.pol_en = true;
-			ff.sig_en = port.en;
+			ff.has_ce = true;
+			ff.pol_ce = true;
+			ff.sig_ce = port.en;
 		}
 		if (port.arst != State::S0) {
 			ff.has_arst = true;
@@ -976,7 +976,7 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 			ff.pol_srst = true;
 			ff.sig_srst = port.srst;
 			ff.val_srst = port.srst_value;
-			ff.ce_over_srst = ff.has_en && port.ce_over_srst;
+			ff.ce_over_srst = ff.has_ce && port.ce_over_srst;
 		}
 		ff.sig_d = sig_d;
 		ff.sig_q = port.data;
@@ -1163,15 +1163,14 @@ void Mem::emulate_transparency(int widx, int ridx, FfInitVals *initvals) {
 			FfData ff(initvals);
 			ff.width = 1;
 			ff.sig_q = cond_q;
-			ff.has_d = true;
 			ff.sig_d = cond;
 			ff.has_clk = true;
 			ff.sig_clk = rport.clk;
 			ff.pol_clk = rport.clk_polarity;
 			if (rport.en != State::S1) {
-				ff.has_en = true;
-				ff.sig_en = rport.en;
-				ff.pol_en = true;
+				ff.has_ce = true;
+				ff.sig_ce = rport.en;
+				ff.pol_ce = true;
 			}
 			if (rport.arst != State::S0) {
 				ff.has_arst = true;
