@@ -173,7 +173,7 @@ struct FfData {
 
 		std::string type_str = cell->type.str();
 
-		if (cell->type.in(ID($ff), ID($dff), ID($dffe), ID($dffsr), ID($dffsre), ID($adff), ID($adffe), ID($sdff), ID($sdffe), ID($sdffce), ID($dlatch), ID($adlatch), ID($dlatchsr), ID($sr))) {
+		if (cell->type.in(ID($ff), ID($dff), ID($dffe), ID($dffsr), ID($dffsre), ID($adff), ID($adffe), ID($aldff), ID($aldffe), ID($sdff), ID($sdffe), ID($sdffce), ID($dlatch), ID($adlatch), ID($dlatchsr), ID($sr))) {
 			if (cell->type == ID($ff)) {
 				has_gclk = true;
 				sig_d = cell->getPort(ID::D);
@@ -190,7 +190,7 @@ struct FfData {
 				pol_clk = cell->getParam(ID::CLK_POLARITY).as_bool();
 				sig_d = cell->getPort(ID::D);
 			}
-			if (cell->type.in(ID($dffe), ID($dffsre), ID($adffe), ID($sdffe), ID($sdffce))) {
+			if (cell->type.in(ID($dffe), ID($dffsre), ID($adffe), ID($aldffe), ID($sdffe), ID($sdffce))) {
 				has_ce = true;
 				sig_ce = cell->getPort(ID::EN);
 				pol_ce = cell->getParam(ID::EN_POLARITY).as_bool();
@@ -201,6 +201,12 @@ struct FfData {
 				sig_set = cell->getPort(ID::SET);
 				pol_clr = cell->getParam(ID::CLR_POLARITY).as_bool();
 				pol_set = cell->getParam(ID::SET_POLARITY).as_bool();
+			}
+			if (cell->type.in(ID($aldff), ID($aldffe))) {
+				has_aload = true;
+				sig_aload = cell->getPort(ID::ALOAD);
+				pol_aload = cell->getParam(ID::ALOAD_POLARITY).as_bool();
+				sig_ad = cell->getPort(ID::AD);
 			}
 			if (cell->type.in(ID($adff), ID($adffe), ID($adlatch))) {
 				has_arst = true;
@@ -263,6 +269,29 @@ struct FfData {
 			val_arst = type_str[9] == '1' ? State::S1 : State::S0;
 			has_ce = true;
 			pol_ce = type_str[10] == 'P';
+			sig_ce = cell->getPort(ID::E);
+		} else if (type_str.substr(0, 8) == "$_ALDFF_" && type_str.size() == 11) {
+			is_fine = true;
+			sig_d = cell->getPort(ID::D);
+			has_clk = true;
+			pol_clk = type_str[8] == 'P';
+			sig_clk = cell->getPort(ID::C);
+			has_aload = true;
+			pol_aload = type_str[9] == 'P';
+			sig_aload = cell->getPort(ID::L);
+			sig_ad = cell->getPort(ID::AD);
+		} else if (type_str.substr(0, 9) == "$_ALDFFE_" && type_str.size() == 13) {
+			is_fine = true;
+			sig_d = cell->getPort(ID::D);
+			has_clk = true;
+			pol_clk = type_str[9] == 'P';
+			sig_clk = cell->getPort(ID::C);
+			has_aload = true;
+			pol_aload = type_str[10] == 'P';
+			sig_aload = cell->getPort(ID::L);
+			sig_ad = cell->getPort(ID::AD);
+			has_ce = true;
+			pol_ce = type_str[11] == 'P';
 			sig_ce = cell->getPort(ID::E);
 		} else if (type_str.substr(0, 8) == "$_DFFSR_" && type_str.size() == 12) {
 			is_fine = true;
@@ -514,6 +543,11 @@ struct FfData {
 						cell = module->addAdffe(name, sig_clk, sig_ce, sig_arst, sig_d, sig_q, val_arst, pol_clk, pol_ce, pol_arst);
 					else
 						cell = module->addAdff(name, sig_clk, sig_arst, sig_d, sig_q, val_arst, pol_clk, pol_arst);
+				} else if (has_aload) {
+					if (has_ce)
+						cell = module->addAldffe(name, sig_clk, sig_ce, sig_aload, sig_d, sig_q, sig_ad, pol_clk, pol_ce, pol_aload);
+					else
+						cell = module->addAldff(name, sig_clk, sig_aload, sig_d, sig_q, sig_ad, pol_clk, pol_aload);
 				} else if (has_srst) {
 					if (has_ce)
 						if (ce_over_srst)
@@ -560,6 +594,11 @@ struct FfData {
 						cell = module->addAdffeGate(name, sig_clk, sig_ce, sig_arst, sig_d, sig_q, val_arst.as_bool(), pol_clk, pol_ce, pol_arst);
 					else
 						cell = module->addAdffGate(name, sig_clk, sig_arst, sig_d, sig_q, val_arst.as_bool(), pol_clk, pol_arst);
+				} else if (has_aload) {
+					if (has_ce)
+						cell = module->addAldffeGate(name, sig_clk, sig_ce, sig_aload, sig_d, sig_q, sig_ad, pol_clk, pol_ce, pol_aload);
+					else
+						cell = module->addAldffGate(name, sig_clk, sig_aload, sig_d, sig_q, sig_ad, pol_clk, pol_aload);
 				} else if (has_srst) {
 					if (has_ce)
 						if (ce_over_srst)

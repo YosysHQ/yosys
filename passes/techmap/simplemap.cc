@@ -415,6 +415,8 @@ void simplemap_get_mappers(dict<IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)>
 	mappers[ID($adffe)]       = simplemap_ff;
 	mappers[ID($sdffe)]       = simplemap_ff;
 	mappers[ID($sdffce)]      = simplemap_ff;
+	mappers[ID($aldff)]       = simplemap_ff;
+	mappers[ID($aldffe)]      = simplemap_ff;
 	mappers[ID($dlatch)]      = simplemap_ff;
 	mappers[ID($adlatch)]     = simplemap_ff;
 	mappers[ID($dlatchsr)]    = simplemap_ff;
@@ -450,7 +452,7 @@ struct SimplemapPass : public Pass {
 		log("  $not, $pos, $and, $or, $xor, $xnor\n");
 		log("  $reduce_and, $reduce_or, $reduce_xor, $reduce_xnor, $reduce_bool\n");
 		log("  $logic_not, $logic_and, $logic_or, $mux, $tribuf\n");
-		log("  $sr, $ff, $dff, $dffe, $dffsr, $dffsre, $adff, $adffe, $sdff, $sdffe, $sdffce, $dlatch, $adlatch, $dlatchsr\n");
+		log("  $sr, $ff, $dff, $dffe, $dffsr, $dffsre, $adff, $adffe, $aldff, $aldffe, $sdff, $sdffe, $sdffce, $dlatch, $adlatch, $dlatchsr\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override

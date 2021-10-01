@@ -578,7 +578,7 @@ struct SmvWorker
 					log_error("Unsupported cell type %s for cell %s.%s -- please run `dffunmap` before `write_smv`.\n",
 							log_id(cell->type), log_id(module), log_id(cell));
 				}
-				if (cell->type.in(ID($adff), ID($adffe), ID($dffsr), ID($dffsre)) || cell->type.str().substr(0, 5) == "$_DFF") {
+				if (cell->type.in(ID($adff), ID($adffe), ID($aldff), ID($aldffe), ID($dffsr), ID($dffsre)) || cell->type.str().substr(0, 5) == "$_DFF" || cell->type.str().substr(0, 7) == "$_ALDFF") {
 					log_error("Unsupported cell type %s for cell %s.%s -- please run `async2sync; dffunmap` or `clk2fflogic` before `write_smv`.\n",
 							log_id(cell->type), log_id(module), log_id(cell));
 				}
