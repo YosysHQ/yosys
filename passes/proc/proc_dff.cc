@@ -143,48 +143,23 @@ void gen_dffsr_complex(RTLIL::Module *mod, RTLIL::SigSpec sig_d, RTLIL::SigSpec 
 			cell->type.c_str(), cell->name.c_str(), clk_polarity ? "positive" : "negative");
 }
 
-void gen_dffsr(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_out,
+void gen_aldff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_out,
 		bool clk_polarity, bool set_polarity, RTLIL::SigSpec clk, RTLIL::SigSpec set, RTLIL::Process *proc)
 {
 	std::stringstream sstr;
 	sstr << "$procdff$" << (autoidx++);
 
-	RTLIL::SigSpec sig_set_inv = mod->addWire(NEW_ID, sig_in.size());
-	RTLIL::SigSpec sig_sr_set = mod->addWire(NEW_ID, sig_in.size());
-	RTLIL::SigSpec sig_sr_clr = mod->addWire(NEW_ID, sig_in.size());
-
-	RTLIL::Cell *inv_set = mod->addCell(NEW_ID, ID($not));
-	inv_set->parameters[ID::A_SIGNED] = RTLIL::Const(0);
-	inv_set->parameters[ID::A_WIDTH] = RTLIL::Const(sig_in.size());
-	inv_set->parameters[ID::Y_WIDTH] = RTLIL::Const(sig_in.size());
-	inv_set->setPort(ID::A, sig_set);
-	inv_set->setPort(ID::Y, sig_set_inv);
-
-	RTLIL::Cell *mux_sr_set = mod->addCell(NEW_ID, ID($mux));
-	mux_sr_set->parameters[ID::WIDTH] = RTLIL::Const(sig_in.size());
-	mux_sr_set->setPort(set_polarity ? ID::A : ID::B, RTLIL::Const(0, sig_in.size()));
-	mux_sr_set->setPort(set_polarity ? ID::B : ID::A, sig_set);
-	mux_sr_set->setPort(ID::Y, sig_sr_set);
-	mux_sr_set->setPort(ID::S, set);
-
-	RTLIL::Cell *mux_sr_clr = mod->addCell(NEW_ID, ID($mux));
-	mux_sr_clr->parameters[ID::WIDTH] = RTLIL::Const(sig_in.size());
-	mux_sr_clr->setPort(set_polarity ? ID::A : ID::B, RTLIL::Const(0, sig_in.size()));
-	mux_sr_clr->setPort(set_polarity ? ID::B : ID::A, sig_set_inv);
-	mux_sr_clr->setPort(ID::Y, sig_sr_clr);
-	mux_sr_clr->setPort(ID::S, set);
-
-	RTLIL::Cell *cell = mod->addCell(sstr.str(), ID($dffsr));
+	RTLIL::Cell *cell = mod->addCell(sstr.str(), ID($aldff));
 	cell->attributes = proc->attributes;
+
 	cell->parameters[ID::WIDTH] = RTLIL::Const(sig_in.size());
+	cell->parameters[ID::ALOAD_POLARITY] = RTLIL::Const(set_polarity, 1);
 	cell->parameters[ID::CLK_POLARITY] = RTLIL::Const(clk_polarity, 1);
-	cell->parameters[ID::SET_POLARITY] = RTLIL::Const(true, 1);
-	cell->parameters[ID::CLR_POLARITY] = RTLIL::Const(true, 1);
 	cell->setPort(ID::D, sig_in);
 	cell->setPort(ID::Q, sig_out);
+	cell->setPort(ID::AD, sig_set);
 	cell->setPort(ID::CLK, clk);
-	cell->setPort(ID::SET, sig_sr_set);
-	cell->setPort(ID::CLR, sig_sr_clr);
+	cell->setPort(ID::ALOAD, set);
 
 	log("  created %s cell `%s' with %s edge clock and %s level non-const reset.\n", cell->type.c_str(), cell->name.c_str(),
 			clk_polarity ? "positive" : "negative", set_polarity ? "positive" : "negative");
@@ -355,7 +330,7 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 		else if (!rstval.is_fully_const() && !ce.eval(rstval))
 		{
 			log_warning("Async reset value `%s' is not constant!\n", log_signal(rstval));
-			gen_dffsr(mod, insig, rstval, sig_q,
+			gen_aldff(mod, insig, rstval, sig_q,
 					sync_edge->type == RTLIL::SyncType::STp,
 					sync_level && sync_level->type == RTLIL::SyncType::ST1,
 					sync_edge->signal, sync_level->signal, proc);
