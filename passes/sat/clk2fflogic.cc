@@ -153,6 +153,23 @@ struct Clk2fflogicPass : public Pass {
 						continue;
 					}
 
+					if (ff.has_clk) {
+						log("Replacing %s.%s (%s): CLK=%s, D=%s, Q=%s\n",
+								log_id(module), log_id(cell), log_id(cell->type),
+								log_signal(ff.sig_clk), log_signal(ff.sig_d), log_signal(ff.sig_q));
+					} else if (ff.has_aload) {
+						log("Replacing %s.%s (%s): EN=%s, D=%s, Q=%s\n",
+								log_id(module), log_id(cell), log_id(cell->type),
+								log_signal(ff.sig_aload), log_signal(ff.sig_ad), log_signal(ff.sig_q));
+					} else {
+						// $sr.
+						log("Replacing %s.%s (%s): SET=%s, CLR=%s, Q=%s\n",
+								log_id(module), log_id(cell), log_id(cell->type),
+								log_signal(ff.sig_set), log_signal(ff.sig_clr), log_signal(ff.sig_q));
+					}
+
+					ff.remove();
+
 					Wire *past_q = module->addWire(NEW_ID, ff.width);
 					if (!ff.is_fine) {
 						module->addFf(NEW_ID, ff.sig_q, past_q);
@@ -163,7 +180,7 @@ struct Clk2fflogicPass : public Pass {
 						initvals.set_init(past_q, ff.val_init);
 
 					if (ff.has_clk) {
-						ff.unmap_ce_srst(module);
+						ff.unmap_ce_srst();
 
 						Wire *past_clk = module->addWire(NEW_ID);
 						initvals.set_init(past_clk, ff.pol_clk ? State::S1 : State::S0);
@@ -172,10 +189,6 @@ struct Clk2fflogicPass : public Pass {
 							module->addFf(NEW_ID, ff.sig_clk, past_clk);
 						else
 							module->addFfGate(NEW_ID, ff.sig_clk, past_clk);
-
-						log("Replacing %s.%s (%s): CLK=%s, D=%s, Q=%s\n",
-								log_id(module), log_id(cell), log_id(cell->type),
-								log_signal(ff.sig_clk), log_signal(ff.sig_d), log_signal(ff.sig_q));
 
 						SigSpec clock_edge_pattern;
 
@@ -203,16 +216,6 @@ struct Clk2fflogicPass : public Pass {
 						else
 							qval = module->MuxGate(NEW_ID, past_q, past_d, clock_edge);
 					} else {
-						if (ff.has_aload) {
-							log("Replacing %s.%s (%s): EN=%s, D=%s, Q=%s\n",
-									log_id(module), log_id(cell), log_id(cell->type),
-									log_signal(ff.sig_aload), log_signal(ff.sig_ad), log_signal(ff.sig_q));
-						} else {
-							// $sr.
-							log("Replacing %s.%s (%s): SET=%s, CLR=%s, Q=%s\n",
-									log_id(module), log_id(cell), log_id(cell->type),
-									log_signal(ff.sig_set), log_signal(ff.sig_clr), log_signal(ff.sig_q));
-						}
 						qval = past_q;
 					}
 
@@ -246,10 +249,6 @@ struct Clk2fflogicPass : public Pass {
 					} else {
 						module->connect(ff.sig_q, qval);
 					}
-
-					initvals.remove_init(ff.sig_q);
-					module->remove(cell);
-					continue;
 				}
 			}
 		}
