@@ -581,7 +581,7 @@ struct MemoryDffWorker
 		// Now we're commited to merge it.
 		merger.mark_input_ff(bits);
 		// If the address FF has enable and/or sync reset, unmap it.
-		ff.unmap_ce_srst(module);
+		ff.unmap_ce_srst();
 		port.clk = ff.sig_clk;
 		port.en = State::S1;
 		port.addr = ff.sig_d;

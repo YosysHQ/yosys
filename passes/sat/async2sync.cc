@@ -78,7 +78,7 @@ struct Async2syncPass : public Pass {
 				if (ff.has_clk)
 				{
 					if (ff.has_sr) {
-						ff.unmap_ce_srst(module);
+						ff.unmap_ce_srst();
 
 						log("Replacing %s.%s (%s): SET=%s, CLR=%s, D=%s, Q=%s\n",
 								log_id(module), log_id(cell), log_id(cell->type),
@@ -124,7 +124,7 @@ struct Async2syncPass : public Pass {
 						ff.sig_q = new_q;
 						ff.has_sr = false;
 					} else if (ff.has_aload) {
-						ff.unmap_ce_srst(module);
+						ff.unmap_ce_srst();
 
 						log("Replacing %s.%s (%s): ALOAD=%s, AD=%s, D=%s, Q=%s\n",
 								log_id(module), log_id(cell), log_id(cell->type),
@@ -157,7 +157,7 @@ struct Async2syncPass : public Pass {
 						ff.sig_q = new_q;
 						ff.has_aload = false;
 					} else if (ff.has_arst) {
-						ff.unmap_srst(module);
+						ff.unmap_srst();
 
 						log("Replacing %s.%s (%s): ARST=%s, D=%s, Q=%s\n",
 								log_id(module), log_id(cell), log_id(cell->type),
@@ -267,10 +267,7 @@ struct Async2syncPass : public Pass {
 					ff.has_sr = false;
 					ff.has_gclk = true;
 				}
-
-				IdString name = cell->name;
-				module->remove(cell);
-				ff.emit(module, name);
+				ff.emit();
 			}
 		}
 	}

@@ -25,14 +25,6 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-State invert(State s) {
-	switch (s) {
-		case State::S0: return State::S1;
-		case State::S1: return State::S0;
-		default: return s;
-	}
-}
-
 struct ZinitPass : public Pass {
 	ZinitPass() : Pass("zinit", "add inverters so all FF are zero-initialized") { }
 	void help() override
@@ -75,45 +67,19 @@ struct ZinitPass : public Pass {
 					continue;
 
 				FfData ff(&initvals, cell);
-				if (!ff.width)
-					continue;
-
-				// Supporting those would require a new cell type where S has priority over R.
-				if (ff.has_sr)
-					continue;
-
-				Wire *new_q = module->addWire(NEW_ID, ff.width);
 
 				log("FF init value for cell %s (%s): %s = %s\n", log_id(cell), log_id(cell->type),
 						log_signal(ff.sig_q), log_signal(ff.val_init));
 
-				IdString name = cell->name;
-				module->remove(cell);
-				initvals.remove_init(ff.sig_q);
-
-				for (int i = 0; i < ff.width; i++)
-					if (ff.val_init[i] == State::S1)
-					{
-						if (ff.has_clk || ff.has_gclk)
-							ff.sig_d[i] = module->NotGate(NEW_ID, ff.sig_d[i]);
-						if (ff.has_aload)
-							ff.sig_ad[i] = module->NotGate(NEW_ID, ff.sig_ad[i]);
-						if (ff.has_arst)
-							ff.val_arst[i] = invert(ff.val_arst[i]);
-						if (ff.has_srst)
-							ff.val_srst[i] = invert(ff.val_srst[i]);
-						module->addNotGate(NEW_ID, SigSpec(new_q, i), ff.sig_q[i]);
-						ff.val_init[i] = State::S0;
-					}
-					else
-					{
-						module->connect(ff.sig_q[i], SigSpec(new_q, i));
-						if (all_mode)
-							ff.val_init[i] = State::S0;
-					}
-
-				ff.sig_q = new_q;
-				ff.emit(module, name);
+				pool<int> bits;
+				for (int i = 0; i < ff.width; i++) {
+					if (ff.val_init.bits[i] == State::S1)
+						bits.insert(i);
+					else if (ff.val_init.bits[i] != State::S0 && all_mode)
+						ff.val_init.bits[i] = State::S0;
+				}
+				ff.flip_bits(bits);
+				ff.emit();
 			}
 		}
 	}

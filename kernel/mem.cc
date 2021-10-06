@@ -955,7 +955,7 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 		}
 
 		IdString name = stringf("$%s$rdreg[%d]", memid.c_str(), idx);
-		FfData ff(initvals);
+		FfData ff(module, initvals, name);
 		ff.width = GetSize(port.data);
 		ff.has_clk = true;
 		ff.sig_clk = port.clk;
@@ -982,7 +982,7 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 		ff.sig_q = port.data;
 		ff.val_init = port.init_value;
 		port.data = async_d;
-		c = ff.emit(module, name);
+		c = ff.emit();
 	}
 
 	log("Extracted %s FF from read port %d of %s.%s: %s\n", trans_use_addr ? "addr" : "data",
@@ -1160,7 +1160,7 @@ void Mem::emulate_transparency(int widx, int ridx, FfInitVals *initvals) {
 			// The FF for storing the bypass enable signal must be carefully
 			// constructed to preserve the overall init/reset/enable behavior
 			// of the whole port.
-			FfData ff(initvals);
+			FfData ff(module, initvals, NEW_ID);
 			ff.width = 1;
 			ff.sig_q = cond_q;
 			ff.sig_d = cond;
@@ -1189,7 +1189,7 @@ void Mem::emulate_transparency(int widx, int ridx, FfInitVals *initvals) {
 				ff.val_init = State::S0;
 			else
 				ff.val_init = State::Sx;
-			ff.emit(module, NEW_ID);
+			ff.emit();
 			// And the final bypass mux.
 			SigSpec cur = rdata_a.extract(pos, epos-pos);
 			SigSpec other = wdata_q.extract(pos + wsub * width, epos-pos);

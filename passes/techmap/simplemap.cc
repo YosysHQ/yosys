@@ -368,13 +368,13 @@ void simplemap_concat(RTLIL::Module *module, RTLIL::Cell *cell)
 	module->connect(RTLIL::SigSig(sig_y, sig_ab));
 }
 
-void simplemap_ff(RTLIL::Module *module, RTLIL::Cell *cell)
+void simplemap_ff(RTLIL::Module *, RTLIL::Cell *cell)
 {
 	FfData ff(nullptr, cell);
 	for (int i = 0; i < ff.width; i++) {
 		FfData fff = ff.slice({i});
 		fff.is_fine = true;
-		fff.emit(module, NEW_ID);
+		fff.emit();
 	}
 }
 

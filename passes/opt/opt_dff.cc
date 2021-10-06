@@ -275,7 +275,7 @@ struct OptDffWorker
 			bool changed = false;
 
 			if (!ff.width) {
-				module->remove(cell);
+				ff.remove();
 				did_something = true;
 				continue;
 			}
@@ -316,6 +316,7 @@ struct OptDffWorker
 						continue;
 					}
 					ff = ff.slice(keep_bits);
+					ff.cell = cell;
 					changed = true;
 				}
 
@@ -393,8 +394,7 @@ struct OptDffWorker
 					// Always-active enable.  Make a comb circuit, nuke the FF/latch.
 					log("Handling always-active async load on %s (%s) from module %s (changing to combinatorial circuit).\n",
 							log_id(cell), log_id(cell->type), log_id(module));
-					initvals.remove_init(ff.sig_q);
-					module->remove(cell);
+					ff.remove();
 					if (ff.has_sr) {
 						SigSpec tmp;
 						if (ff.is_fine) {
@@ -456,8 +456,7 @@ struct OptDffWorker
 					// Always-active async reset — change to const driver.
 					log("Handling always-active ARST on %s (%s) from module %s (changing to const driver).\n",
 							log_id(cell), log_id(cell->type), log_id(module));
-					initvals.remove_init(ff.sig_q);
-					module->remove(cell);
+					ff.remove();
 					module->connect(ff.sig_q, ff.val_arst);
 					did_something = true;
 					continue;
@@ -660,6 +659,7 @@ struct OptDffWorker
 					continue;
 				}
 				ff = ff.slice(keep_bits);
+				ff.cell = cell;
 				changed = true;
 			}
 
@@ -728,7 +728,7 @@ struct OptDffWorker
 						new_ff.pol_srst = srst.second;
 						if (new_ff.has_ce)
 							new_ff.ce_over_srst = true;
-						Cell *new_cell = new_ff.emit(module, NEW_ID);
+						Cell *new_cell = new_ff.emit();
 						if (new_cell)
 							dff_cells.push_back(new_cell);
 						log("Adding SRST signal on %s (%s) from module %s (D = %s, Q = %s, rval = %s).\n",
@@ -741,6 +741,7 @@ struct OptDffWorker
 						continue;
 					} else if (GetSize(remaining_indices) != ff.width) {
 						ff = ff.slice(remaining_indices);
+						ff.cell = cell;
 						changed = true;
 					}
 				}
@@ -790,7 +791,7 @@ struct OptDffWorker
 						new_ff.sig_ce = en.first;
 						new_ff.pol_ce = en.second;
 						new_ff.ce_over_srst = false;
-						Cell *new_cell = new_ff.emit(module, NEW_ID);
+						Cell *new_cell = new_ff.emit();
 						if (new_cell)
 							dff_cells.push_back(new_cell);
 						log("Adding EN signal on %s (%s) from module %s (D = %s, Q = %s).\n",
@@ -803,6 +804,7 @@ struct OptDffWorker
 						continue;
 					} else if (GetSize(remaining_indices) != ff.width) {
 						ff = ff.slice(remaining_indices);
+						ff.cell = cell;
 						changed = true;
 					}
 				}
@@ -810,9 +812,7 @@ struct OptDffWorker
 
 			if (changed) {
 				// Rebuild the FF.
-				IdString name = cell->name;
-				module->remove(cell);
-				ff.emit(module, name);
+				ff.emit();
 				did_something = true;
 			}
 		}
