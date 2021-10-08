@@ -410,19 +410,31 @@ bool VerificImporter::import_netlist_instance_gates(Instance *inst, RTLIL::IdStr
 		return true;
 	}
 
+	if (inst->Type() == PRIM_DLATCHRS)
+	{
+		if (inst->GetSet()->IsGnd() && inst->GetReset()->IsGnd())
+			module->addDlatch(inst_name, net_map_at(inst->GetControl()), net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
+		else
+			module->addDlatchsr(inst_name, net_map_at(inst->GetControl()), net_map_at(inst->GetSet()), net_map_at(inst->GetReset()),
+					net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
+		return true;
+	}
+
 	if (inst->Type() == PRIM_DFF)
 	{
 		VerificClocking clocking(this, inst->GetClock());
 		log_assert(clocking.disable_sig == State::S0);
 		log_assert(clocking.body_net == nullptr);
 
-		if (inst->GetAsyncVal()->IsGnd())
+		if (inst->GetAsyncCond()->IsGnd())
 			clocking.addDff(inst_name, net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
 		else
 			clocking.addAldff(inst_name, net_map_at(inst->GetAsyncCond()), net_map_at(inst->GetAsyncVal()),
 					net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
 		return true;
 	}
+
+	// FIXME: PRIM_DLATCH
 
 	return false;
 }
@@ -533,6 +545,23 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		import_attributes(cell->attributes, inst);
 		return true;
 	}
+
+	if (inst->Type() == PRIM_DFF)
+	{
+		VerificClocking clocking(this, inst->GetClock());
+		log_assert(clocking.disable_sig == State::S0);
+		log_assert(clocking.body_net == nullptr);
+
+		if (inst->GetAsyncCond()->IsGnd())
+			cell = clocking.addDff(inst_name, net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
+		else
+			cell = clocking.addAldff(inst_name, net_map_at(inst->GetAsyncCond()), net_map_at(inst->GetAsyncVal()),
+					net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
+		import_attributes(cell->attributes, inst);
+		return true;
+	}
+
+	// FIXME: PRIM_DLATCH
 
 	#define IN  operatorInput(inst)
 	#define IN1 operatorInput1(inst)
@@ -806,6 +835,8 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		return true;
 	}
 
+	// FIXME: OPER_WIDE_DLATCHSR
+
 	if (inst->Type() == OPER_WIDE_DFF)
 	{
 		VerificClocking clocking(this, inst->GetClock());
@@ -833,6 +864,8 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 
 		return true;
 	}
+
+	// FIXME: OPER_WIDE_DLATCH
 
 	#undef IN
 	#undef IN1
