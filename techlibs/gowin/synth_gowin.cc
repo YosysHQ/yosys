@@ -17,17 +17,16 @@
  *
  */
 
-#include "kernel/register.h"
 #include "kernel/celltypes.h"
-#include "kernel/rtlil.h"
 #include "kernel/log.h"
+#include "kernel/register.h"
+#include "kernel/rtlil.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct SynthGowinPass : public ScriptPass
-{
-	SynthGowinPass() : ScriptPass("synth_gowin", "synthesis for Gowin FPGAs") { }
+struct SynthGowinPass : public ScriptPass {
+	SynthGowinPass() : ScriptPass("synth_gowin", "synthesis for Gowin FPGAs") {}
 
 	void help() override
 	{
@@ -112,30 +111,28 @@ struct SynthGowinPass : public ScriptPass
 		clear_flags();
 
 		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
-			if (args[argidx] == "-top" && argidx+1 < args.size()) {
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-top" && argidx + 1 < args.size()) {
 				top_opt = "-top " + args[++argidx];
 				continue;
 			}
-			if (args[argidx] == "-vout" && argidx+1 < args.size()) {
+			if (args[argidx] == "-vout" && argidx + 1 < args.size()) {
 				vout_file = args[++argidx];
 				continue;
 			}
-			if (args[argidx] == "-json" && argidx+1 < args.size()) {
+			if (args[argidx] == "-json" && argidx + 1 < args.size()) {
 				json_file = args[++argidx];
 				nobram = true;
 				nolutram = true;
-				nowidelut = true;
 				noalu = true;
 				continue;
 			}
-			if (args[argidx] == "-run" && argidx+1 < args.size()) {
-				size_t pos = args[argidx+1].find(':');
+			if (args[argidx] == "-run" && argidx + 1 < args.size()) {
+				size_t pos = args[argidx + 1].find(':');
 				if (pos == std::string::npos)
 					break;
 				run_from = args[++argidx].substr(0, pos);
-				run_to = args[argidx].substr(pos+1);
+				run_to = args[argidx].substr(pos + 1);
 				continue;
 			}
 			if (args[argidx] == "-retime") {
@@ -146,7 +143,7 @@ struct SynthGowinPass : public ScriptPass
 				nobram = true;
 				continue;
 			}
-			if (args[argidx] == "-nolutram" || /*deprecated*/args[argidx] == "-nodram") {
+			if (args[argidx] == "-nolutram" || /*deprecated*/ args[argidx] == "-nodram") {
 				nolutram = true;
 				continue;
 			}
@@ -191,47 +188,40 @@ struct SynthGowinPass : public ScriptPass
 
 	void script() override
 	{
-		if (check_label("begin"))
-		{
+		if (check_label("begin")) {
 			run("read_verilog -specify -lib +/gowin/cells_sim.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 		}
 
-		if (flatten && check_label("flatten", "(unless -noflatten)"))
-		{
+		if (flatten && check_label("flatten", "(unless -noflatten)")) {
 			run("proc");
 			run("flatten");
 			run("tribuf -logic");
 			run("deminout");
 		}
 
-		if (check_label("coarse"))
-		{
+		if (check_label("coarse")) {
 			run("synth -run coarse");
 		}
 
-		if (!nobram && check_label("map_bram", "(skip if -nobram)"))
-		{
+		if (!nobram && check_label("map_bram", "(skip if -nobram)")) {
 			run("memory_bram -rules +/gowin/brams.txt");
 			run("techmap -map +/gowin/brams_map.v");
 		}
 
-		if (!nolutram && check_label("map_lutram", "(skip if -nolutram)"))
-		{
+		if (!nolutram && check_label("map_lutram", "(skip if -nolutram)")) {
 			run("memory_bram -rules +/gowin/lutrams.txt");
 			run("techmap -map +/gowin/lutrams_map.v");
 			run("setundef -params -zero t:RAM16S4");
 		}
 
-		if (check_label("map_ffram"))
-		{
+		if (check_label("map_ffram")) {
 			run("opt -fast -mux_undef -undriven -fine");
 			run("memory_map");
 			run("opt -undriven -fine");
 		}
 
-		if (check_label("map_gates"))
-		{
+		if (check_label("map_gates")) {
 			if (noalu) {
 				run("techmap -map +/techmap.v");
 			} else {
@@ -243,23 +233,23 @@ struct SynthGowinPass : public ScriptPass
 			run("splitnets");
 			if (!noiopads || help_mode)
 				run("iopadmap -bits -inpad IBUF O:I -outpad OBUF I:O "
-					"-toutpad $__GW_TBUF OE:I:O -tinoutpad $__GW_IOBUF OE:O:I:IO", "(unless -noiopads)");
+				    "-toutpad $__GW_TBUF OE:I:O -tinoutpad $__GW_IOBUF OE:O:I:IO",
+				    "(unless -noiopads)");
 		}
 
-		if (check_label("map_ffs"))
-		{
+		if (check_label("map_ffs")) {
 			run("opt_clean");
 			if (nodffe)
 				run("dfflegalize -cell $_DFF_?_ 0 -cell $_SDFF_?P?_ r -cell $_DFF_?P?_ r");
 			else
-				run("dfflegalize -cell $_DFF_?_ 0 -cell $_DFFE_?P_ 0 -cell $_SDFF_?P?_ r -cell $_SDFFE_?P?P_ r -cell $_DFF_?P?_ r -cell $_DFFE_?P?P_ r");
+				run("dfflegalize -cell $_DFF_?_ 0 -cell $_DFFE_?P_ 0 -cell $_SDFF_?P?_ r -cell $_SDFFE_?P?P_ r -cell $_DFF_?P?_ r "
+				    "-cell $_DFFE_?P?P_ r");
 			run("techmap -map +/gowin/cells_map.v");
 			run("opt_expr -mux_undef");
 			run("simplemap");
 		}
 
-		if (check_label("map_luts"))
-		{
+		if (check_label("map_luts")) {
 			if (nowidelut && abc9) {
 				run("read_verilog -icells -lib -specify +/abc9_model.v");
 				run("abc9 -maxlut 4 -W 500");
@@ -274,32 +264,32 @@ struct SynthGowinPass : public ScriptPass
 			run("clean");
 		}
 
-		if (check_label("map_cells"))
-		{
+		if (check_label("map_cells")) {
 			run("techmap -map +/gowin/cells_map.v");
 			run("opt_lut_ins -tech gowin");
 			run("setundef -undriven -params -zero");
+			run("extract -map +/gowin/mux2lut5_extract.v");
+			run("extract -map +/gowin/mux2lut5_1_extract.v");
+			run("extract -map +/gowin/mux2lut5_2_extract.v");
+			run("techmap -map +/gowin/mux2lut5_map.v");
 			run("hilomap -singleton -hicell VCC V -locell GND G");
 			run("clean");
 			run("autoname");
 		}
 
-		if (check_label("check"))
-		{
+		if (check_label("check")) {
 			run("hierarchy -check");
 			run("stat");
 			run("check -noinit");
 			run("blackbox =A:whitebox");
 		}
 
-		if (check_label("vout"))
-		{
+		if (check_label("vout")) {
 			if (!vout_file.empty() || help_mode)
-				 run(stringf("write_verilog -decimal -attr2comment -defparam -renameprefix gen %s",
-						help_mode ? "<file-name>" : vout_file.c_str()));
+				run(stringf("write_verilog -decimal -attr2comment -defparam -renameprefix gen %s",
+					    help_mode ? "<file-name>" : vout_file.c_str()));
 			if (!json_file.empty() || help_mode)
-				 run(stringf("write_json %s",
-						help_mode ? "<file-name>" : json_file.c_str()));
+				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file.c_str()));
 		}
 	}
 } SynthGowinPass;
