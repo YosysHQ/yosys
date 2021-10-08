@@ -410,6 +410,20 @@ bool VerificImporter::import_netlist_instance_gates(Instance *inst, RTLIL::IdStr
 		return true;
 	}
 
+	if (inst->Type() == PRIM_DFF)
+	{
+		VerificClocking clocking(this, inst->GetClock());
+		log_assert(clocking.disable_sig == State::S0);
+		log_assert(clocking.body_net == nullptr);
+
+		if (inst->GetAsyncVal()->IsGnd())
+			clocking.addDff(inst_name, net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
+		else
+			clocking.addAldff(inst_name, net_map_at(inst->GetAsyncCond()), net_map_at(inst->GetAsyncVal()),
+					net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
+		return true;
+	}
+
 	return false;
 }
 
@@ -788,6 +802,34 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		else
 			cell = clocking.addDffsr(inst_name, sig_set, sig_reset, IN, OUT);
 		import_attributes(cell->attributes, inst);
+
+		return true;
+	}
+
+	if (inst->Type() == OPER_WIDE_DFF)
+	{
+		VerificClocking clocking(this, inst->GetClock());
+		log_assert(clocking.disable_sig == State::S0);
+		log_assert(clocking.body_net == nullptr);
+
+		RTLIL::SigSpec sig_d = IN;
+		RTLIL::SigSpec sig_q = OUT;
+		RTLIL::SigSpec sig_adata = IN1;
+		RTLIL::SigSpec sig_acond = IN2;
+
+		if (sig_acond.is_fully_const() && !sig_acond.as_bool()) {
+			cell = clocking.addDff(inst_name, sig_d, sig_q);
+			import_attributes(cell->attributes, inst);
+		} else {
+			int offset = 0, width = 0;
+			for (offset = 0; offset < GetSize(sig_acond); offset += width) {
+				for (width = 1; offset+width < GetSize(sig_acond); width++)
+					if (sig_acond[offset] != sig_acond[offset+width]) break;
+				cell = clocking.addAldff(inst_name, sig_acond[offset], sig_adata.extract(offset, width),
+						sig_d.extract(offset, width), sig_q.extract(offset, width));
+				import_attributes(cell->attributes, inst);
+			}
+		}
 
 		return true;
 	}
@@ -1806,6 +1848,17 @@ Cell *VerificClocking::addDffsr(IdString name, RTLIL::SigSpec sig_set, RTLIL::Si
 	return module->addDffsr(name, clock_sig, sig_set, sig_clr, sig_d, sig_q, posedge);
 }
 
+Cell *VerificClocking::addAldff(IdString name, RTLIL::SigSpec sig_aload, RTLIL::SigSpec sig_adata, SigSpec sig_d, SigSpec sig_q)
+{
+	log_assert(gclk == false);
+	log_assert(disable_sig == State::S0);
+
+	if (enable_sig != State::S1)
+		sig_d = module->Mux(NEW_ID, sig_q, sig_d, enable_sig);
+
+	return module->addAldff(name, clock_sig, sig_aload, sig_d, sig_q, sig_adata, posedge);
+}
+
 // ==================================================================
 
 struct VerificExtNets
@@ -2313,7 +2366,7 @@ struct VerificPass : public Pass {
 			RuntimeFlags::SetVar("db_preserve_user_nets", 1);
 			RuntimeFlags::SetVar("db_allow_external_nets", 1);
 			RuntimeFlags::SetVar("db_infer_wide_operators", 1);
-			RuntimeFlags::SetVar("db_infer_set_reset_registers",1);
+			RuntimeFlags::SetVar("db_infer_set_reset_registers", 1);
 
 			RuntimeFlags::SetVar("veri_extract_dualport_rams", 0);
 			RuntimeFlags::SetVar("veri_extract_multiport_rams", 1);
