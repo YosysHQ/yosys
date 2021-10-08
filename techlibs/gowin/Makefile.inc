@@ -10,6 +10,10 @@ $(eval $(call add_share_file,share/gowin,techlibs/gowin/brams_map.v))
 $(eval $(call add_share_file,share/gowin,techlibs/gowin/brams.txt))
 $(eval $(call add_share_file,share/gowin,techlibs/gowin/lutrams_map.v))
 $(eval $(call add_share_file,share/gowin,techlibs/gowin/lutrams.txt))
+$(eval $(call add_share_file,share/gowin,techlibs/gowin/mux2lut5_extract.v))
+$(eval $(call add_share_file,share/gowin,techlibs/gowin/mux2lut5_1_extract.v))
+$(eval $(call add_share_file,share/gowin,techlibs/gowin/mux2lut5_2_extract.v))
+$(eval $(call add_share_file,share/gowin,techlibs/gowin/mux2lut5_map.v))
 
 $(eval $(call add_share_file,share/gowin,techlibs/gowin/brams_init3.vh))
 
