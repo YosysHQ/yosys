@@ -193,6 +193,15 @@ struct OptLutInsPass : public Pass {
 								swz += extra;
 					}
 				}
+				if (techname == "gowin") {
+					// Pad the LUT to 1 input, adding consts from the front.
+					if (new_inputs.empty()) {
+						new_inputs.insert(new_inputs.begin(), State::S0);
+						for (auto &swz : swizzle)
+							if (swz >= 0)
+								swz++;
+					}
+				}
 				Const new_lut(0, 1 << GetSize(new_inputs));
 				for (int i = 0; i < GetSize(new_lut); i++) {
 					int lidx = 0;
@@ -215,18 +224,6 @@ struct OptLutInsPass : public Pass {
 					// const driver.
 					remove_cells.push_back(cell);
 					module->connect(output, new_lut[0]);
-				} else if (new_inputs.empty() && techname == "gowin") {
-					log("  lut %s capped to LUT1\n", log_id(cell));
-					// Gowin requires a "full" wide LUT, but has LUT1-4 primitives
-					// They are all implemented in LUT4 though
-					// Since there is no LUT0, use a LUT1 instead of a const driver
-					cell->setParam(ID::INIT, Const(0, 2));
-					cell->type = ID(LUT1);
-					cell->unsetPort(ID(I0));
-					cell->unsetPort(ID(I1));
-					cell->unsetPort(ID(I2));
-					cell->unsetPort(ID(I3));
-					cell->setPort(ID(I0), State::S0);
 				} else {
 					if (techname == "") {
 						cell->setParam(ID::LUT, new_lut);
