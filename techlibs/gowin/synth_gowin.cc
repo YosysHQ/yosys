@@ -126,7 +126,6 @@ struct SynthGowinPass : public ScriptPass
 				json_file = args[++argidx];
 				nobram = true;
 				nolutram = true;
-				nowidelut = true;
 				noalu = true;
 				continue;
 			}
