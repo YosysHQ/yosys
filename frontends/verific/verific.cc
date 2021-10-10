@@ -917,6 +917,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 	} else {
 		log("Importing module %s.\n", RTLIL::id2cstr(module->name));
 	}
+	import_attributes(module->attributes, nl, nl);
 
 	SetIter si;
 	MapIter mi, mi2;
