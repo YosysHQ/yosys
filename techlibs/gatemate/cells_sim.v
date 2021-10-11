@@ -758,41 +758,41 @@ module CC_BRAM_20K (
 	generate
 		if (RAM_MODE == "SDP") begin
 			// Port A (write)
-			if (WIDTH_MODE_A <= 1) begin
+			if (A_WR_WIDTH <= 1) begin
 				assign addra = A_ADDR[15:7] + (A_ADDR[15:7]/4);
 			end
-			if (WIDTH_MODE_A <= 2) begin
+			else if (A_WR_WIDTH <= 2) begin
 				assign addra = A_ADDR[15:7]*2 + (A_ADDR[15:7]/2);
 			end
-			else if (WIDTH_MODE_A <= 5) begin
+			else if (A_WR_WIDTH <= 5) begin
 				assign addra = A_ADDR[15:7]*5;
 			end
-			else if (WIDTH_MODE_A <= 10) begin
+			else if (A_WR_WIDTH <= 10) begin
 				assign addra = A_ADDR[15:7]*10;
 			end
-			else if (WIDTH_MODE_A <= 20) begin
+			else if (A_WR_WIDTH <= 20) begin
 				assign addra = A_ADDR[15:7]*20;
 			end
-			else if (WIDTH_MODE_A <= 40) begin
+			else if (A_WR_WIDTH <= 40) begin
 				assign addra = A_ADDR[15:7]*40;
 			end
 			// Port B (read)
-			if (WIDTH_MODE_B <= 1) begin
+			if (B_RD_WIDTH <= 1) begin
 				assign addrb = B_ADDR[15:7] + (B_ADDR[15:7]/4);
 			end
-			else if (WIDTH_MODE_B <= 2) begin
+			else if (B_RD_WIDTH <= 2) begin
 				assign addrb = B_ADDR[15:7]*2 + (B_ADDR[15:7]/2);
 			end
-			else if (WIDTH_MODE_B <= 5) begin
+			else if (B_RD_WIDTH <= 5) begin
 				assign addrb = B_ADDR[15:7]*5;
 			end
-			else if (WIDTH_MODE_B <= 10) begin
+			else if (B_RD_WIDTH <= 10) begin
 				assign addrb = B_ADDR[15:7]*10;
 			end
-			else if (WIDTH_MODE_B <= 20) begin
+			else if (B_RD_WIDTH <= 20) begin
 				assign addrb = B_ADDR[15:7]*20;
 			end
-			else if (WIDTH_MODE_B <= 40) begin
+			else if (B_RD_WIDTH <= 40) begin
 				assign addrb = B_ADDR[15:7]*40;
 			end
 		end
@@ -841,7 +841,7 @@ module CC_BRAM_20K (
 			// SDP write port
 			always @(posedge clka)
 			begin
-				for (k=0; k < WIDTH_MODE_A; k=k+1) begin
+				for (k=0; k < A_WR_WIDTH; k=k+1) begin
 					if (k < 20) begin
 						if (ena && wea && A_BM[k]) memory[addra+k] <= A_DI[k];
 					end
@@ -853,12 +853,13 @@ module CC_BRAM_20K (
 			// SDP read port
 			always @(posedge clkb)
 			begin
-				for (k=0; k < WIDTH_MODE_B; k=k+1) begin
+				// "NO_CHANGE" only
+				for (k=0; k < B_RD_WIDTH; k=k+1) begin
 					if (k < 20) begin
-						if (enb) A_DO_out[k] <= memory[addrb+k];
+						if (enb && !wea) A_DO_out[k] <= memory[addrb+k];
 					end
 					else begin // use both ports
-						if (enb) B_DO_out[k-20] <= memory[addrb+k];
+						if (enb && !wea) B_DO_out[k-20] <= memory[addrb+k];
 					end
 				end
 			end
@@ -871,10 +872,17 @@ module CC_BRAM_20K (
 					if (ena && wea && A_BM[i]) memory[addra+i] <= A_DI[i];
 
 					if (A_WR_MODE == "NO_CHANGE") begin
-						if (ena) A_DO_out[i] <= memory[addra+i];
+						if (ena && !wea) A_DO_out[i] <= memory[addra+i];
 					end
 					else if (A_WR_MODE == "WRITE_THROUGH") begin
-						if (ena) A_DO_out[i] <= A_DI[i];
+						if (ena) begin
+							if (wea && A_BM[i]) begin
+								A_DO_out[i] <= A_DI[i];
+							end
+							else begin
+								A_DO_out[i] <= memory[addra+i];
+							end
+						end
 					end
 				end
 			end
@@ -885,10 +893,17 @@ module CC_BRAM_20K (
 					if (enb && web && B_BM[i]) memory[addrb+i] <= B_DI[i];
 
 					if (B_WR_MODE == "NO_CHANGE") begin
-						if (enb) B_DO_out[i] <= memory[addrb+i];
+						if (enb && !web) B_DO_out[i] <= memory[addrb+i];
 					end
 					else if (B_WR_MODE == "WRITE_THROUGH") begin
-						if (enb) B_DO_out[i] <= B_DI[i];
+						if (enb) begin
+							if (web && B_BM[i]) begin
+								B_DO_out[i] <= B_DI[i];
+							end
+							else begin
+								B_DO_out[i] <= memory[addrb+i];
+							end
+						end
 					end
 				end
 			end
@@ -1152,6 +1167,10 @@ module CC_BRAM_40K (
 			$display("ERROR: Illegal %s Port B width configuration %d.", RAM_MODE, WIDTH_MODE_B);
 			$finish();
 		end
+		if (CAS != "NONE") begin
+			$display("WARNING: Cascade simulation model not yet supported.");
+			$finish();
+		end
 		if ((CAS != "NONE") && ((WIDTH_MODE_A > 1) || (WIDTH_MODE_B > 1))) begin
 			$display("ERROR: Cascade feature only supported in 1 bit data width mode.");
 			$finish();
@@ -1308,47 +1327,47 @@ module CC_BRAM_40K (
 	generate
 		if (RAM_MODE == "SDP") begin
 			// Port A (write)
-			if (WIDTH_MODE_A <= 1) begin
+			if (A_WR_WIDTH <= 1) begin
 				assign addra = A_ADDR[15:7] + (A_ADDR[15:7]/4);
 			end
-			if (WIDTH_MODE_A <= 2) begin
+			else if (A_WR_WIDTH <= 2) begin
 				assign addra = A_ADDR[15:7]*2 + (A_ADDR[15:7]/2);
 			end
-			else if (WIDTH_MODE_A <= 5) begin
+			else if (A_WR_WIDTH <= 5) begin
 				assign addra = A_ADDR[15:7]*5;
 			end
-			else if (WIDTH_MODE_A <= 10) begin
+			else if (A_WR_WIDTH <= 10) begin
 				assign addra = A_ADDR[15:7]*10;
 			end
-			else if (WIDTH_MODE_A <= 20) begin
+			else if (A_WR_WIDTH <= 20) begin
 				assign addra = A_ADDR[15:7]*20;
 			end
-			else if (WIDTH_MODE_A <= 40) begin
+			else if (A_WR_WIDTH <= 40) begin
 				assign addra = A_ADDR[15:7]*40;
 			end
-			else if (WIDTH_MODE_A <= 80) begin
+			else if (A_WR_WIDTH <= 80) begin
 				assign addra = A_ADDR[15:7]*80;
 			end
 			// Port B (read)
-			if (WIDTH_MODE_B <= 1) begin
+			if (B_RD_WIDTH <= 1) begin
 				assign addrb = B_ADDR[15:7] + (B_ADDR[15:7]/4);
 			end
-			else if (WIDTH_MODE_B <= 2) begin
+			else if (B_RD_WIDTH <= 2) begin
 				assign addrb = B_ADDR[15:7]*2 + (B_ADDR[15:7]/2);
 			end
-			else if (WIDTH_MODE_B <= 5) begin
+			else if (B_RD_WIDTH <= 5) begin
 				assign addrb = B_ADDR[15:7]*5;
 			end
-			else if (WIDTH_MODE_B <= 10) begin
+			else if (B_RD_WIDTH <= 10) begin
 				assign addrb = B_ADDR[15:7]*10;
 			end
-			else if (WIDTH_MODE_B <= 20) begin
+			else if (B_RD_WIDTH <= 20) begin
 				assign addrb = B_ADDR[15:7]*20;
 			end
-			else if (WIDTH_MODE_B <= 40) begin
+			else if (B_RD_WIDTH <= 40) begin
 				assign addrb = B_ADDR[15:7]*40;
 			end
-			else if (WIDTH_MODE_B <= 80) begin
+			else if (B_RD_WIDTH <= 80) begin
 				assign addrb = B_ADDR[15:7]*80;
 			end
 		end
@@ -1403,7 +1422,7 @@ module CC_BRAM_40K (
 			// SDP write port
 			always @(posedge clka)
 			begin
-				for (k=0; k < WIDTH_MODE_A; k=k+1) begin
+				for (k=0; k < A_WR_WIDTH; k=k+1) begin
 					if (k < 40) begin
 						if (ena && wea && A_BM[k]) memory[addra+k] <= A_DI[k];
 					end
@@ -1415,12 +1434,13 @@ module CC_BRAM_40K (
 			// SDP read port
 			always @(posedge clkb)
 			begin
-				for (k=0; k < WIDTH_MODE_B; k=k+1) begin
+				// "NO_CHANGE" only
+				for (k=0; k < B_RD_WIDTH; k=k+1) begin
 					if (k < 40) begin
-						if (enb) A_DO_out[k] <= memory[addrb+k];
+						if (enb && !wea) A_DO_out[k] <= memory[addrb+k];
 					end
 					else begin // use both ports
-						if (enb) B_DO_out[k-40] <= memory[addrb+k];
+						if (enb && !wea) B_DO_out[k-40] <= memory[addrb+k];
 					end
 				end
 			end
@@ -1433,10 +1453,17 @@ module CC_BRAM_40K (
 					if (ena && wea && A_BM[i]) memory[addra+i] <= A_DI[i];
 
 					if (A_WR_MODE == "NO_CHANGE") begin
-						if (ena) A_DO_out[i] <= memory[addra+i];
+						if (ena && !wea) A_DO_out[i] <= memory[addra+i];
 					end
 					else if (A_WR_MODE == "WRITE_THROUGH") begin
-						if (ena) A_DO_out[i] <= A_DI[i];
+						if (ena) begin
+							if (wea && A_BM[i]) begin
+								A_DO_out[i] <= A_DI[i];
+							end
+							else begin
+								A_DO_out[i] <= memory[addra+i];
+							end
+						end
 					end
 				end
 			end
@@ -1447,10 +1474,17 @@ module CC_BRAM_40K (
 					if (enb && web && B_BM[i]) memory[addrb+i] <= B_DI[i];
 
 					if (B_WR_MODE == "NO_CHANGE") begin
-						if (enb) B_DO_out[i] <= memory[addrb+i];
+						if (enb && !web) B_DO_out[i] <= memory[addrb+i];
 					end
 					else if (B_WR_MODE == "WRITE_THROUGH") begin
-						if (enb) B_DO_out[i] <= B_DI[i];
+						if (enb) begin
+							if (web && B_BM[i]) begin
+								B_DO_out[i] <= B_DI[i];
+							end
+							else begin
+								B_DO_out[i] <= memory[addrb+i];
+							end
+						end
 					end
 				end
 			end

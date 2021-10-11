@@ -58,12 +58,7 @@ module \$__CC_BRAM_20K_SDP (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1
 		begin
 			if (CFG_DBITS <= 2) begin
 				for (i = 0; i < 64; i = i + 1) begin
-					if (^chunk[i * 4 +: 4] === 1'bx) begin
-						permute_init[i * 5 +: 5] = 5'b0;
-					end
-					else begin
-						permute_init[i * 5 +: 5] = {1'b0, chunk[i * 4 +: 4]};
-					end
+					permute_init[i * 5 +: 5] = {1'b0, chunk[i * 4 +: 4]};
 				end
 			end else begin
 				permute_init = chunk;
@@ -92,7 +87,7 @@ module \$__CC_BRAM_20K_SDP (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1
 		.B_CLK(CLK3),
 		.A_EN(1'b1),
 		.B_EN(B1EN),
-		.A_WE(1'b1),
+		.A_WE(|A1EN),
 		.B_WE(1'b0),
 		.A_ADDR(ADDRA),
 		.B_ADDR(ADDRB),
@@ -146,12 +141,7 @@ module \$__CC_BRAM_40K_SDP (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1
 		begin
 			if (CFG_DBITS <= 2) begin
 				for (i = 0; i < 64; i = i + 1) begin
-					if (^chunk[i * 4 +: 4] === 1'bx) begin
-						permute_init[i * 5 +: 5] = 5'b0;
-					end
-					else begin
-						permute_init[i * 5 +: 5] = {1'b0, chunk[i * 4 +: 4]};
-					end
+					permute_init[i * 5 +: 5] = {1'b0, chunk[i * 4 +: 4]};
 				end
 			end else begin
 				permute_init = chunk;
@@ -160,7 +150,9 @@ module \$__CC_BRAM_40K_SDP (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1
 	endfunction
 
 	CC_BRAM_40K #(
+		`define INIT_LOWER
 		`include "brams_init_40.vh"
+		`undef INIT_LOWER
 		.LOC("UNPLACED"),
 		.CAS("NONE"),
 		.A_RD_WIDTH(0), .B_RD_WIDTH(CFG_DBITS),
@@ -181,9 +173,9 @@ module \$__CC_BRAM_40K_SDP (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1
 		.B_ECC_2B_ERR(B_ECC_2B_ERR),
 		.A_CLK(CLK2),
 		.B_CLK(CLK3),
-		.A_EN(1'b1),
+		.A_EN(|A1EN),
 		.B_EN(B1EN),
-		.A_WE(1'b1),
+		.A_WE(|A1EN),
 		.B_WE(1'b0),
 		.A_ADDR(ADDRA),
 		.B_ADDR(ADDRB),
@@ -234,12 +226,7 @@ module \$__CC_BRAM_20K_TDP (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1
 		begin
 			if (CFG_DBITS <= 2) begin
 				for (i = 0; i < 64; i = i + 1) begin
-					if (^chunk[i * 4 +: 4] === 1'bx) begin
-						permute_init[i * 5 +: 5] = 5'b0;
-					end
-					else begin
-						permute_init[i * 5 +: 5] = {1'b0, chunk[i * 4 +: 4]};
-					end
+					permute_init[i * 5 +: 5] = {1'b0, chunk[i * 4 +: 4]};
 				end
 			end else begin
 				permute_init = chunk;
@@ -294,7 +281,7 @@ module \$__CC_BRAM_20K_TDP (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1
 			.B_CLK(CLK3),
 			.A_EN(1'b1),
 			.B_EN(B1EN),
-			.A_WE(1'b1),
+			.A_WE(|A1EN),
 			.B_WE(1'b0),
 			.A_ADDR(ADDRA),
 			.B_ADDR(ADDRB),
@@ -346,7 +333,7 @@ module \$__CC_BRAM_40K_TDP (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1
 		begin
 			if (CFG_DBITS <= 2) begin
 				for (i = 0; i < 64; i = i + 1) begin
-					permute_init[i * 5 +: 5] = {1'b0, chunk[i * 4 +: 4]} & 5'b11111;
+					permute_init[i * 5 +: 5] = {1'b0, chunk[i * 4 +: 4]};
 				end
 			end else begin
 				permute_init = chunk;
@@ -384,7 +371,9 @@ module \$__CC_BRAM_40K_TDP (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1
 		end
 
 		CC_BRAM_40K #(
+			`define INIT_LOWER
 			`include "brams_init_40.vh"
+			`undef INIT_LOWER
 			.LOC("UNPLACED"),
 			.CAS("NONE"),
 			.A_RD_WIDTH(0), .B_RD_WIDTH(CFG_DBITS),
@@ -407,7 +396,7 @@ module \$__CC_BRAM_40K_TDP (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1
 			.B_CLK(CLK3),
 			.A_EN(1'b1),
 			.B_EN(B1EN),
-			.A_WE(1'b1),
+			.A_WE(|A1EN),
 			.B_WE(1'b0),
 			.A_ADDR(ADDRA),
 			.B_ADDR(ADDRB),
@@ -461,14 +450,16 @@ module \$__CC_BRAM_CASCADE (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1
 		integer i;
 		begin
 			for (i = 0; i < 64; i = i + 1) begin
-				permute_init[i * 5 +: 5] = {1'b0, chunk[i * 4 +: 4]} & 5'b11111;
+				permute_init[i * 5 +: 5] = {1'b0, chunk[i * 4 +: 4]};
 			end
 		end
 	endfunction
 
 	generate
 		CC_BRAM_40K #(
-			`include "brams_init_40.vh"
+			`define INIT_UPPER
+			`include "brams_init_40.vh" // INIT_80 .. INIT_FF
+			`undef INIT_UPPER
 			.LOC("UNPLACED"),
 			.CAS("UPPER"),
 			.A_RD_WIDTH(0), .B_RD_WIDTH(CFG_DBITS),
@@ -493,7 +484,7 @@ module \$__CC_BRAM_CASCADE (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1
 			.B_CLK(CLK3),
 			.A_EN(1'b1),
 			.B_EN(B1EN),
-			.A_WE(1'b1),
+			.A_WE(|A1EN),
 			.B_WE(1'b0),
 			.A_ADDR(A1ADDR),
 			.B_ADDR(B1ADDR),
@@ -504,7 +495,9 @@ module \$__CC_BRAM_CASCADE (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1
 		);
 
 		CC_BRAM_40K #(
-			`include "brams_init_40.vh"
+			`define INIT_LOWER
+			`include "brams_init_40.vh" // INIT_00 .. INIT_7F
+			`undef INIT_LOWER
 			.LOC("UNPLACED"),
 			.CAS("LOWER"),
 			.A_RD_WIDTH(0), .B_RD_WIDTH(CFG_DBITS),
@@ -525,7 +518,7 @@ module \$__CC_BRAM_CASCADE (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1
 			.B_CLK(CLK3),
 			.A_EN(1'b1),
 			.B_EN(B1EN),
-			.A_WE(1'b1),
+			.A_WE(|A1EN),
 			.B_WE(1'b0),
 			.A_ADDR(A1ADDR),
 			.B_ADDR(B1ADDR),
