@@ -25,460 +25,175 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+// Describes a flip-flop or a latch.
+//
+// If has_gclk, this is a formal verification FF with implicit global clock:
+// Q is simply previous cycle's D.
+//
+// Otherwise, the FF/latch can have any number of features selected by has_*
+// attributes that determine Q's value (in order of decreasing priority):
+//
+// - on start, register is initialized to val_init
+// - if has_sr is present:
+//   - sig_clr is per-bit async clear, and sets the corresponding bit to 0
+//     if active
+//   - sig_set is per-bit async set, and sets the corresponding bit to 1
+//     if active
+// - if has_arst is present:
+//   - sig_arst is whole-reg async reset, and sets the whole register to val_arst
+// - if has_aload is present:
+//   - sig_aload is whole-reg async load (aka latch gate enable), and sets the whole
+//     register to sig_ad
+// - if has_clk is present, and we're currently on a clock edge:
+//   - if has_ce is present and ce_over_srst is true:
+//     - ignore clock edge (don't change value) unless sig_ce is active
+//   - if has_srst is present:
+//     - sig_srst is whole-reg sync reset and sets the register to val_srst
+//   - if has_ce is present and ce_over_srst is false:
+//     - ignore clock edge (don't change value) unless sig_ce is active
+//   - set whole reg to sig_d
+// - if nothing of the above applies, the reg value remains unchanged
+//
+// Since the yosys FF cell library isn't fully generic, not all combinations
+// of the features above can be supported:
+//
+// - only one of has_srst, has_arst, has_sr can be used
+// - if has_clk is used together with has_aload, then has_srst, has_arst,
+//   has_sr cannot be used
+//
+// The valid feature combinations are thus:
+//
+// - has_clk + optional has_ce [dff/dffe]
+// - has_clk + optional has_ce + has_arst [adff/adffe]
+// - has_clk + optional has_ce + has_aload [aldff/aldffe]
+// - has_clk + optional has_ce + has_sr [dffsr/dffsre]
+// - has_clk + optional has_ce + has_srst [sdff/sdffe/sdffce]
+// - has_aload [dlatch]
+// - has_aload + has_arst [adlatch]
+// - has_aload + has_sr [dlatchsr]
+// - has_sr [sr]
+// - has_arst [does not correspond to a native cell, represented as dlatch with const D input]
+// - empty set [not a cell — will be emitted as a simple direct connection]
+
 struct FfData {
+	Module *module;
 	FfInitVals *initvals;
+	Cell *cell;
+	IdString name;
+	// The FF output.
 	SigSpec sig_q;
+	// The sync data input, present if has_clk or has_gclk.
 	SigSpec sig_d;
+	// The async data input, present if has_aload.
+	SigSpec sig_ad;
+	// The sync clock, present if has_clk.
 	SigSpec sig_clk;
-	SigSpec sig_en;
+	// The clock enable, present if has_ce.
+	SigSpec sig_ce;
+	// The async load enable, present if has_aload.
+	SigSpec sig_aload;
+	// The async reset, preset if has_arst.
 	SigSpec sig_arst;
+	// The sync reset, preset if has_srst.
 	SigSpec sig_srst;
+	// The async clear (per-lane), present if has_sr.
 	SigSpec sig_clr;
+	// The async set (per-lane), present if has_sr.
 	SigSpec sig_set;
-	bool has_d;
+	// True if this is a clocked (edge-sensitive) flip-flop.
 	bool has_clk;
-	bool has_en;
+	// True if this is a $ff, exclusive with every other has_*.
+	bool has_gclk;
+	// True if this FF has a clock enable.  Depends on has_clk.
+	bool has_ce;
+	// True if this FF has async load function — this includes D latches.
+	// If this and has_clk are both set, has_arst and has_sr cannot be set.
+	bool has_aload;
+	// True if this FF has sync set/reset.  Depends on has_clk, exclusive
+	// with has_arst, has_sr, has_aload.
 	bool has_srst;
+	// True if this FF has async set/reset.  Exclusive with has_srst,
+	// has_sr.  If this and has_clk are both set, has_aload cannot be set.
 	bool has_arst;
+	// True if this FF has per-bit async set + clear.  Exclusive with
+	// has_srst, has_arst.  If this and has_clk are both set, has_aload
+	// cannot be set.
 	bool has_sr;
+	// If has_ce and has_srst are both set, determines their relative
+	// priorities: if true, inactive ce disables srst; if false, srst
+	// operates independent of ce.
 	bool ce_over_srst;
+	// True if this FF is a fine cell, false if it is a coarse cell.
+	// If true, width must be 1.
 	bool is_fine;
+	// Polarities, corresponding to sig_*.  True means active-high, false
+	// means active-low.
 	bool pol_clk;
-	bool pol_en;
+	bool pol_ce;
+	bool pol_aload;
 	bool pol_arst;
 	bool pol_srst;
 	bool pol_clr;
 	bool pol_set;
+	// The value loaded by sig_arst.
 	Const val_arst;
+	// The value loaded by sig_srst.
 	Const val_srst;
+	// The initial value at power-up.
 	Const val_init;
-	Const val_d;
-	bool d_is_const;
+	// The FF data width in bits.
 	int width;
 	dict<IdString, Const> attributes;
 
-	FfData(FfInitVals *initvals = nullptr, Cell *cell = nullptr) : initvals(initvals) {
+	FfData(Module *module = nullptr, FfInitVals *initvals = nullptr, IdString name = IdString()) : module(module), initvals(initvals), cell(nullptr), name(name) {
 		width = 0;
-		has_d = true;
 		has_clk = false;
-		has_en = false;
+		has_gclk = false;
+		has_ce = false;
+		has_aload = false;
 		has_srst = false;
 		has_arst = false;
 		has_sr = false;
 		ce_over_srst = false;
 		is_fine = false;
 		pol_clk = false;
-		pol_en = false;
+		pol_aload = false;
+		pol_ce = false;
 		pol_arst = false;
 		pol_srst = false;
 		pol_clr = false;
 		pol_set = false;
-		d_is_const = false;
-
-		if (!cell)
-			return;
-
-		sig_q = cell->getPort(ID::Q);
-		width = GetSize(sig_q);
-		attributes = cell->attributes;
-
-		if (initvals)
-			val_init = (*initvals)(sig_q);
-
-		std::string type_str = cell->type.str();
-
-		if (cell->type.in(ID($ff), ID($dff), ID($dffe), ID($dffsr), ID($dffsre), ID($adff), ID($adffe), ID($sdff), ID($sdffe), ID($sdffce), ID($dlatch), ID($adlatch), ID($dlatchsr), ID($sr))) {
-			if (cell->type == ID($sr)) {
-				has_d = false;
-			} else {
-				sig_d = cell->getPort(ID::D);
-			}
-			if (!cell->type.in(ID($ff), ID($dlatch), ID($adlatch), ID($dlatchsr), ID($sr))) {
-				has_clk = true;
-				sig_clk = cell->getPort(ID::CLK);
-				pol_clk = cell->getParam(ID::CLK_POLARITY).as_bool();
-			}
-			if (cell->type.in(ID($dffe), ID($dffsre), ID($adffe), ID($sdffe), ID($sdffce), ID($dlatch), ID($adlatch), ID($dlatchsr))) {
-				has_en = true;
-				sig_en = cell->getPort(ID::EN);
-				pol_en = cell->getParam(ID::EN_POLARITY).as_bool();
-			}
-			if (cell->type.in(ID($dffsr), ID($dffsre), ID($dlatchsr), ID($sr))) {
-				has_sr = true;
-				sig_clr = cell->getPort(ID::CLR);
-				sig_set = cell->getPort(ID::SET);
-				pol_clr = cell->getParam(ID::CLR_POLARITY).as_bool();
-				pol_set = cell->getParam(ID::SET_POLARITY).as_bool();
-			}
-			if (cell->type.in(ID($adff), ID($adffe), ID($adlatch))) {
-				has_arst = true;
-				sig_arst = cell->getPort(ID::ARST);
-				pol_arst = cell->getParam(ID::ARST_POLARITY).as_bool();
-				val_arst = cell->getParam(ID::ARST_VALUE);
-			}
-			if (cell->type.in(ID($sdff), ID($sdffe), ID($sdffce))) {
-				has_srst = true;
-				sig_srst = cell->getPort(ID::SRST);
-				pol_srst = cell->getParam(ID::SRST_POLARITY).as_bool();
-				val_srst = cell->getParam(ID::SRST_VALUE);
-				ce_over_srst = cell->type == ID($sdffce);
-			}
-		} else if (cell->type == ID($_FF_)) {
-			is_fine = true;
-			sig_d = cell->getPort(ID::D);
-		} else if (type_str.substr(0, 5) == "$_SR_") {
-			is_fine = true;
-			has_d = false;
-			has_sr = true;
-			pol_set = type_str[5] == 'P';
-			pol_clr = type_str[6] == 'P';
-			sig_set = cell->getPort(ID::S);
-			sig_clr = cell->getPort(ID::R);
-		} else if (type_str.substr(0, 6) == "$_DFF_" && type_str.size() == 8) {
-			is_fine = true;
-			sig_d = cell->getPort(ID::D);
-			has_clk = true;
-			pol_clk = type_str[6] == 'P';
-			sig_clk = cell->getPort(ID::C);
-		} else if (type_str.substr(0, 7) == "$_DFFE_" && type_str.size() == 10) {
-			is_fine = true;
-			sig_d = cell->getPort(ID::D);
-			has_clk = true;
-			pol_clk = type_str[7] == 'P';
-			sig_clk = cell->getPort(ID::C);
-			has_en = true;
-			pol_en = type_str[8] == 'P';
-			sig_en = cell->getPort(ID::E);
-		} else if (type_str.substr(0, 6) == "$_DFF_" && type_str.size() == 10) {
-			is_fine = true;
-			sig_d = cell->getPort(ID::D);
-			has_clk = true;
-			pol_clk = type_str[6] == 'P';
-			sig_clk = cell->getPort(ID::C);
-			has_arst = true;
-			pol_arst = type_str[7] == 'P';
-			sig_arst = cell->getPort(ID::R);
-			val_arst = type_str[8] == '1' ? State::S1 : State::S0;
-		} else if (type_str.substr(0, 7) == "$_DFFE_" && type_str.size() == 12) {
-			is_fine = true;
-			sig_d = cell->getPort(ID::D);
-			has_clk = true;
-			pol_clk = type_str[7] == 'P';
-			sig_clk = cell->getPort(ID::C);
-			has_arst = true;
-			pol_arst = type_str[8] == 'P';
-			sig_arst = cell->getPort(ID::R);
-			val_arst = type_str[9] == '1' ? State::S1 : State::S0;
-			has_en = true;
-			pol_en = type_str[10] == 'P';
-			sig_en = cell->getPort(ID::E);
-		} else if (type_str.substr(0, 8) == "$_DFFSR_" && type_str.size() == 12) {
-			is_fine = true;
-			sig_d = cell->getPort(ID::D);
-			has_clk = true;
-			pol_clk = type_str[8] == 'P';
-			sig_clk = cell->getPort(ID::C);
-			has_sr = true;
-			pol_set = type_str[9] == 'P';
-			pol_clr = type_str[10] == 'P';
-			sig_set = cell->getPort(ID::S);
-			sig_clr = cell->getPort(ID::R);
-		} else if (type_str.substr(0, 9) == "$_DFFSRE_" && type_str.size() == 14) {
-			is_fine = true;
-			sig_d = cell->getPort(ID::D);
-			has_clk = true;
-			pol_clk = type_str[9] == 'P';
-			sig_clk = cell->getPort(ID::C);
-			has_sr = true;
-			pol_set = type_str[10] == 'P';
-			pol_clr = type_str[11] == 'P';
-			sig_set = cell->getPort(ID::S);
-			sig_clr = cell->getPort(ID::R);
-			has_en = true;
-			pol_en = type_str[12] == 'P';
-			sig_en = cell->getPort(ID::E);
-		} else if (type_str.substr(0, 7) == "$_SDFF_" && type_str.size() == 11) {
-			is_fine = true;
-			sig_d = cell->getPort(ID::D);
-			has_clk = true;
-			pol_clk = type_str[7] == 'P';
-			sig_clk = cell->getPort(ID::C);
-			has_srst = true;
-			pol_srst = type_str[8] == 'P';
-			sig_srst = cell->getPort(ID::R);
-			val_srst = type_str[9] == '1' ? State::S1 : State::S0;
-		} else if (type_str.substr(0, 8) == "$_SDFFE_" && type_str.size() == 13) {
-			is_fine = true;
-			sig_d = cell->getPort(ID::D);
-			has_clk = true;
-			pol_clk = type_str[8] == 'P';
-			sig_clk = cell->getPort(ID::C);
-			has_srst = true;
-			pol_srst = type_str[9] == 'P';
-			sig_srst = cell->getPort(ID::R);
-			val_srst = type_str[10] == '1' ? State::S1 : State::S0;
-			has_en = true;
-			pol_en = type_str[11] == 'P';
-			sig_en = cell->getPort(ID::E);
-		} else if (type_str.substr(0, 9) == "$_SDFFCE_" && type_str.size() == 14) {
-			is_fine = true;
-			sig_d = cell->getPort(ID::D);
-			has_clk = true;
-			pol_clk = type_str[9] == 'P';
-			sig_clk = cell->getPort(ID::C);
-			has_srst = true;
-			pol_srst = type_str[10] == 'P';
-			sig_srst = cell->getPort(ID::R);
-			val_srst = type_str[11] == '1' ? State::S1 : State::S0;
-			has_en = true;
-			pol_en = type_str[12] == 'P';
-			sig_en = cell->getPort(ID::E);
-			ce_over_srst = true;
-		} else if (type_str.substr(0, 9) == "$_DLATCH_" && type_str.size() == 11) {
-			is_fine = true;
-			sig_d = cell->getPort(ID::D);
-			has_en = true;
-			pol_en = type_str[9] == 'P';
-			sig_en = cell->getPort(ID::E);
-		} else if (type_str.substr(0, 9) == "$_DLATCH_" && type_str.size() == 13) {
-			is_fine = true;
-			sig_d = cell->getPort(ID::D);
-			has_en = true;
-			pol_en = type_str[9] == 'P';
-			sig_en = cell->getPort(ID::E);
-			has_arst = true;
-			pol_arst = type_str[10] == 'P';
-			sig_arst = cell->getPort(ID::R);
-			val_arst = type_str[11] == '1' ? State::S1 : State::S0;
-		} else if (type_str.substr(0, 11) == "$_DLATCHSR_" && type_str.size() == 15) {
-			is_fine = true;
-			sig_d = cell->getPort(ID::D);
-			has_en = true;
-			pol_en = type_str[11] == 'P';
-			sig_en = cell->getPort(ID::E);
-			has_sr = true;
-			pol_set = type_str[12] == 'P';
-			pol_clr = type_str[13] == 'P';
-			sig_set = cell->getPort(ID::S);
-			sig_clr = cell->getPort(ID::R);
-		} else {
-			log_assert(0);
-		}
-		if (has_d && sig_d.is_fully_const()) {
-			d_is_const = true;
-			val_d = sig_d.as_const();
-			if (has_en && !has_clk && !has_sr && !has_arst) {
-				// Plain D latches with const D treated specially.
-				has_en = has_d = false;
-				has_arst = true;
-				sig_arst = sig_en;
-				pol_arst = pol_en;
-				val_arst = val_d;
-			}
-		}
 	}
+
+	FfData(FfInitVals *initvals, Cell *cell_);
 
 	// Returns a FF identical to this one, but only keeping bit indices from the argument.
-	FfData slice(const std::vector<int> &bits) {
-		FfData res(initvals);
-		res.sig_clk = sig_clk;
-		res.sig_en = sig_en;
-		res.sig_arst = sig_arst;
-		res.sig_srst = sig_srst;
-		res.has_d = has_d;
-		res.has_clk = has_clk;
-		res.has_en = has_en;
-		res.has_arst = has_arst;
-		res.has_srst = has_srst;
-		res.has_sr = has_sr;
-		res.ce_over_srst = ce_over_srst;
-		res.is_fine = is_fine;
-		res.pol_clk = pol_clk;
-		res.pol_en = pol_en;
-		res.pol_arst = pol_arst;
-		res.pol_srst = pol_srst;
-		res.pol_clr = pol_clr;
-		res.pol_set = pol_set;
-		res.attributes = attributes;
-		for (int i : bits) {
-			res.sig_q.append(sig_q[i]);
-			if (has_d)
-				res.sig_d.append(sig_d[i]);
-			if (has_sr) {
-				res.sig_clr.append(sig_clr[i]);
-				res.sig_set.append(sig_set[i]);
-			}
-			if (has_arst)
-				res.val_arst.bits.push_back(val_arst[i]);
-			if (has_srst)
-				res.val_srst.bits.push_back(val_srst[i]);
-			res.val_init.bits.push_back(val_init[i]);
-		}
-		res.width = GetSize(res.sig_q);
-		// Slicing bits out may cause D to become const.
-		if (has_d && res.sig_d.is_fully_const()) {
-			res.d_is_const = true;
-			res.val_d = res.sig_d.as_const();
-		}
-		return res;
+	FfData slice(const std::vector<int> &bits);
+
+	void unmap_ce();
+
+	void unmap_srst();
+
+	void unmap_ce_srst() {
+		unmap_ce();
+		unmap_srst();
 	}
 
-	void unmap_ce(Module *module) {
-		if (!has_en)
-			return;
-		log_assert(has_clk);
-		if (has_srst && ce_over_srst)
-			unmap_srst(module);
+	Cell *emit();
 
-		if (!is_fine) {
-			if (pol_en)
-				sig_d = module->Mux(NEW_ID, sig_q, sig_d, sig_en);
-			else
-				sig_d = module->Mux(NEW_ID, sig_d, sig_q, sig_en);
-		} else {
-			if (pol_en)
-				sig_d = module->MuxGate(NEW_ID, sig_q, sig_d, sig_en);
-			else
-				sig_d = module->MuxGate(NEW_ID, sig_d, sig_q, sig_en);
-		}
-		has_en = false;
+	// Removes init attribute from the Q output, but keeps val_init unchanged.
+	// It will be automatically reattached on emit.  Use this before changing sig_q.
+	void remove_init() {
+		if (initvals)
+			initvals->remove_init(sig_q);
 	}
 
-	void unmap_srst(Module *module) {
-		if (!has_srst)
-			return;
-		if (has_en && !ce_over_srst)
-			unmap_ce(module);
+	void remove();
 
-		if (!is_fine) {
-			if (pol_srst)
-				sig_d = module->Mux(NEW_ID, sig_d, val_srst, sig_srst);
-			else
-				sig_d = module->Mux(NEW_ID, val_srst, sig_d, sig_srst);
-		} else {
-			if (pol_srst)
-				sig_d = module->MuxGate(NEW_ID, sig_d, val_srst[0], sig_srst);
-			else
-				sig_d = module->MuxGate(NEW_ID, val_srst[0], sig_d, sig_srst);
-		}
-		has_srst = false;
-	}
-
-	void unmap_ce_srst(Module *module) {
-		unmap_ce(module);
-		unmap_srst(module);
-	}
-
-	Cell *emit(Module *module, IdString name) {
-		if (!width)
-			return nullptr;
-		if (!has_d && !has_sr) {
-			if (has_arst) {
-				// Convert this case to a D latch.
-				has_d = has_en = true;
-				has_arst = false;
-				sig_d = val_arst;
-				sig_en = sig_arst;
-				pol_en = pol_arst;
-			} else {
-				// No control inputs left.  Turn into a const driver.
-				initvals->remove_init(sig_q);
-				module->connect(sig_q, val_init);
-				return nullptr;
-			}
-		}
-		initvals->set_init(sig_q, val_init);
-		Cell *cell;
-		if (!is_fine) {
-			if (!has_d) {
-				log_assert(has_sr);
-				cell = module->addSr(name, sig_set, sig_clr, sig_q, pol_set, pol_clr);
-			} else if (!has_clk && !has_en) {
-				log_assert(!has_arst);
-				log_assert(!has_srst);
-				log_assert(!has_sr);
-				cell = module->addFf(name, sig_d, sig_q);
-			} else if (!has_clk) {
-				log_assert(!has_srst);
-				if (has_sr)
-					cell = module->addDlatchsr(name, sig_en, sig_set, sig_clr, sig_d, sig_q, pol_en, pol_set, pol_clr);
-				else if (has_arst)
-					cell = module->addAdlatch(name, sig_en, sig_arst, sig_d, sig_q, val_arst, pol_en, pol_arst);
-				else
-					cell = module->addDlatch(name, sig_en, sig_d, sig_q, pol_en);
-			} else {
-				if (has_sr) {
-					if (has_en)
-						cell = module->addDffsre(name, sig_clk, sig_en, sig_set, sig_clr, sig_d, sig_q, pol_clk, pol_en, pol_set, pol_clr);
-					else
-						cell = module->addDffsr(name, sig_clk, sig_set, sig_clr, sig_d, sig_q, pol_clk, pol_set, pol_clr);
-				} else if (has_arst) {
-					if (has_en)
-						cell = module->addAdffe(name, sig_clk, sig_en, sig_arst, sig_d, sig_q, val_arst, pol_clk, pol_en, pol_arst);
-					else
-						cell = module->addAdff(name, sig_clk, sig_arst, sig_d, sig_q, val_arst, pol_clk, pol_arst);
-				} else if (has_srst) {
-					if (has_en)
-						if (ce_over_srst)
-							cell = module->addSdffce(name, sig_clk, sig_en, sig_srst, sig_d, sig_q, val_srst, pol_clk, pol_en, pol_srst);
-						else
-							cell = module->addSdffe(name, sig_clk, sig_en, sig_srst, sig_d, sig_q, val_srst, pol_clk, pol_en, pol_srst);
-					else
-						cell = module->addSdff(name, sig_clk, sig_srst, sig_d, sig_q, val_srst, pol_clk, pol_srst);
-				} else {
-					if (has_en)
-						cell = module->addDffe(name, sig_clk, sig_en, sig_d, sig_q, pol_clk, pol_en);
-					else
-						cell = module->addDff(name, sig_clk, sig_d, sig_q, pol_clk);
-				}
-			}
-		} else {
-			if (!has_d) {
-				log_assert(has_sr);
-				cell = module->addSrGate(name, sig_set, sig_clr, sig_q, pol_set, pol_clr);
-			} else if (!has_clk && !has_en) {
-				log_assert(!has_arst);
-				log_assert(!has_srst);
-				log_assert(!has_sr);
-				cell = module->addFfGate(name, sig_d, sig_q);
-			} else if (!has_clk) {
-				log_assert(!has_srst);
-				if (has_sr)
-					cell = module->addDlatchsrGate(name, sig_en, sig_set, sig_clr, sig_d, sig_q, pol_en, pol_set, pol_clr);
-				else if (has_arst)
-					cell = module->addAdlatchGate(name, sig_en, sig_arst, sig_d, sig_q, val_arst.as_bool(), pol_en, pol_arst);
-				else
-					cell = module->addDlatchGate(name, sig_en, sig_d, sig_q, pol_en);
-			} else {
-				if (has_sr) {
-					if (has_en)
-						cell = module->addDffsreGate(name, sig_clk, sig_en, sig_set, sig_clr, sig_d, sig_q, pol_clk, pol_en, pol_set, pol_clr);
-					else
-						cell = module->addDffsrGate(name, sig_clk, sig_set, sig_clr, sig_d, sig_q, pol_clk, pol_set, pol_clr);
-				} else if (has_arst) {
-					if (has_en)
-						cell = module->addAdffeGate(name, sig_clk, sig_en, sig_arst, sig_d, sig_q, val_arst.as_bool(), pol_clk, pol_en, pol_arst);
-					else
-						cell = module->addAdffGate(name, sig_clk, sig_arst, sig_d, sig_q, val_arst.as_bool(), pol_clk, pol_arst);
-				} else if (has_srst) {
-					if (has_en)
-						if (ce_over_srst)
-							cell = module->addSdffceGate(name, sig_clk, sig_en, sig_srst, sig_d, sig_q, val_srst.as_bool(), pol_clk, pol_en, pol_srst);
-						else
-							cell = module->addSdffeGate(name, sig_clk, sig_en, sig_srst, sig_d, sig_q, val_srst.as_bool(), pol_clk, pol_en, pol_srst);
-					else
-						cell = module->addSdffGate(name, sig_clk, sig_srst, sig_d, sig_q, val_srst.as_bool(), pol_clk, pol_srst);
-				} else {
-					if (has_en)
-						cell = module->addDffeGate(name, sig_clk, sig_en, sig_d, sig_q, pol_clk, pol_en);
-					else
-						cell = module->addDffGate(name, sig_clk, sig_d, sig_q, pol_clk);
-				}
-			}
-		}
-		cell->attributes = attributes;
-		return cell;
-	}
+	// Flip the sense of the given bit slices of the FF: insert inverters on data
+	// inputs and output, flip the corresponding init/reset bits, swap clr/set
+	// inputs with proper priority fix.
+	void flip_bits(const pool<int> &bits);
 };
 
 YOSYS_NAMESPACE_END

@@ -58,6 +58,8 @@ const pool<IdString> &RTLIL::builtin_ff_cell_types() {
 		ID($dffsre),
 		ID($adff),
 		ID($adffe),
+		ID($aldff),
+		ID($aldffe),
 		ID($sdff),
 		ID($sdffe),
 		ID($sdffce),
@@ -118,6 +120,18 @@ const pool<IdString> &RTLIL::builtin_ff_cell_types() {
 		ID($_DFFE_PP0P_),
 		ID($_DFFE_PP1N_),
 		ID($_DFFE_PP1P_),
+		ID($_ALDFF_NN_),
+		ID($_ALDFF_NP_),
+		ID($_ALDFF_PN_),
+		ID($_ALDFF_PP_),
+		ID($_ALDFFE_NNN_),
+		ID($_ALDFFE_NNP_),
+		ID($_ALDFFE_NPN_),
+		ID($_ALDFFE_NPP_),
+		ID($_ALDFFE_PNN_),
+		ID($_ALDFFE_PNP_),
+		ID($_ALDFFE_PPN_),
+		ID($_ALDFFE_PPP_),
 		ID($_SDFF_NN0_),
 		ID($_SDFF_NN1_),
 		ID($_SDFF_NP0_),
@@ -1337,6 +1351,32 @@ namespace {
 				return;
 			}
 
+			if (cell->type == ID($aldff)) {
+				param_bool(ID::CLK_POLARITY);
+				param_bool(ID::ALOAD_POLARITY);
+				port(ID::CLK, 1);
+				port(ID::ALOAD, 1);
+				port(ID::D, param(ID::WIDTH));
+				port(ID::AD, param(ID::WIDTH));
+				port(ID::Q, param(ID::WIDTH));
+				check_expected();
+				return;
+			}
+
+			if (cell->type == ID($aldffe)) {
+				param_bool(ID::CLK_POLARITY);
+				param_bool(ID::EN_POLARITY);
+				param_bool(ID::ALOAD_POLARITY);
+				port(ID::CLK, 1);
+				port(ID::EN, 1);
+				port(ID::ALOAD, 1);
+				port(ID::D, param(ID::WIDTH));
+				port(ID::AD, param(ID::WIDTH));
+				port(ID::Q, param(ID::WIDTH));
+				check_expected();
+				return;
+			}
+
 			if (cell->type == ID($dlatch)) {
 				param_bool(ID::EN_POLARITY);
 				port(ID::EN, 1);
@@ -1647,6 +1687,15 @@ namespace {
 					ID($_DFFE_PN0N_), ID($_DFFE_PN0P_), ID($_DFFE_PN1N_), ID($_DFFE_PN1P_),
 					ID($_DFFE_PP0N_), ID($_DFFE_PP0P_), ID($_DFFE_PP1N_), ID($_DFFE_PP1P_)))
 				{ port(ID::D,1); port(ID::Q,1); port(ID::C,1); port(ID::R,1); port(ID::E,1); check_expected(); return; }
+
+			if (cell->type.in(
+					ID($_ALDFF_NN_), ID($_ALDFF_NP_), ID($_ALDFF_PN_), ID($_ALDFF_PP_)))
+				{ port(ID::D,1); port(ID::Q,1); port(ID::C,1); port(ID::L,1); port(ID::AD,1); check_expected(); return; }
+
+			if (cell->type.in(
+					ID($_ALDFFE_NNN_), ID($_ALDFFE_NNP_), ID($_ALDFFE_NPN_), ID($_ALDFFE_NPP_),
+					ID($_ALDFFE_PNN_), ID($_ALDFFE_PNP_), ID($_ALDFFE_PPN_), ID($_ALDFFE_PPP_)))
+				{ port(ID::D,1); port(ID::Q,1); port(ID::C,1); port(ID::L,1); port(ID::AD,1); port(ID::E,1); check_expected(); return; }
 
 			if (cell->type.in(
 					ID($_DFFSR_NNN_), ID($_DFFSR_NNP_), ID($_DFFSR_NPN_), ID($_DFFSR_NPP_),
@@ -2675,6 +2724,40 @@ RTLIL::Cell* RTLIL::Module::addAdffe(RTLIL::IdString name, const RTLIL::SigSpec 
 	return cell;
 }
 
+RTLIL::Cell* RTLIL::Module::addAldff(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_aload, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+		const RTLIL::SigSpec &sig_ad, bool clk_polarity, bool aload_polarity, const std::string &src)
+{
+	RTLIL::Cell *cell = addCell(name, ID($aldff));
+	cell->parameters[ID::CLK_POLARITY] = clk_polarity;
+	cell->parameters[ID::ALOAD_POLARITY] = aload_polarity;
+	cell->parameters[ID::WIDTH] = sig_q.size();
+	cell->setPort(ID::CLK, sig_clk);
+	cell->setPort(ID::ALOAD, sig_aload);
+	cell->setPort(ID::D, sig_d);
+	cell->setPort(ID::AD, sig_ad);
+	cell->setPort(ID::Q, sig_q);
+	cell->set_src_attribute(src);
+	return cell;
+}
+
+RTLIL::Cell* RTLIL::Module::addAldffe(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_aload, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+		const RTLIL::SigSpec &sig_ad, bool clk_polarity, bool en_polarity, bool aload_polarity, const std::string &src)
+{
+	RTLIL::Cell *cell = addCell(name, ID($aldffe));
+	cell->parameters[ID::CLK_POLARITY] = clk_polarity;
+	cell->parameters[ID::EN_POLARITY] = en_polarity;
+	cell->parameters[ID::ALOAD_POLARITY] = aload_polarity;
+	cell->parameters[ID::WIDTH] = sig_q.size();
+	cell->setPort(ID::CLK, sig_clk);
+	cell->setPort(ID::EN, sig_en);
+	cell->setPort(ID::ALOAD, sig_aload);
+	cell->setPort(ID::D, sig_d);
+	cell->setPort(ID::AD, sig_ad);
+	cell->setPort(ID::Q, sig_q);
+	cell->set_src_attribute(src);
+	return cell;
+}
+
 RTLIL::Cell* RTLIL::Module::addSdff(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_srst, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
 		RTLIL::Const srst_value, bool clk_polarity, bool srst_polarity, const std::string &src)
 {
@@ -2860,6 +2943,33 @@ RTLIL::Cell* RTLIL::Module::addAdffeGate(RTLIL::IdString name, const RTLIL::SigS
 	cell->setPort(ID::R, sig_arst);
 	cell->setPort(ID::E, sig_en);
 	cell->setPort(ID::D, sig_d);
+	cell->setPort(ID::Q, sig_q);
+	cell->set_src_attribute(src);
+	return cell;
+}
+
+RTLIL::Cell* RTLIL::Module::addAldffGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_aload, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+		const RTLIL::SigSpec &sig_ad, bool clk_polarity, bool aload_polarity, const std::string &src)
+{
+	RTLIL::Cell *cell = addCell(name, stringf("$_ALDFF_%c%c_", clk_polarity ? 'P' : 'N', aload_polarity ? 'P' : 'N'));
+	cell->setPort(ID::C, sig_clk);
+	cell->setPort(ID::L, sig_aload);
+	cell->setPort(ID::D, sig_d);
+	cell->setPort(ID::AD, sig_ad);
+	cell->setPort(ID::Q, sig_q);
+	cell->set_src_attribute(src);
+	return cell;
+}
+
+RTLIL::Cell* RTLIL::Module::addAldffeGate(RTLIL::IdString name, const RTLIL::SigSpec &sig_clk, const RTLIL::SigSpec &sig_en, const RTLIL::SigSpec &sig_aload, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q,
+		const RTLIL::SigSpec &sig_ad, bool clk_polarity, bool en_polarity, bool aload_polarity, const std::string &src)
+{
+	RTLIL::Cell *cell = addCell(name, stringf("$_ALDFFE_%c%c%c_", clk_polarity ? 'P' : 'N', aload_polarity ? 'P' : 'N', en_polarity ? 'P' : 'N'));
+	cell->setPort(ID::C, sig_clk);
+	cell->setPort(ID::L, sig_aload);
+	cell->setPort(ID::E, sig_en);
+	cell->setPort(ID::D, sig_d);
+	cell->setPort(ID::AD, sig_ad);
 	cell->setPort(ID::Q, sig_q);
 	cell->set_src_attribute(src);
 	return cell;

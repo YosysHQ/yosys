@@ -127,7 +127,7 @@ LDFLAGS += -rdynamic
 LDLIBS += -lrt
 endif
 
-YOSYS_VER := 0.10+1
+YOSYS_VER := 0.10+16
 GIT_REV := $(shell git -C $(YOSYS_SRC) rev-parse --short HEAD 2> /dev/null || echo UNKNOWN)
 OBJS = kernel/version_$(GIT_REV).o
 
@@ -608,7 +608,7 @@ ifneq ($(ABCEXTERNAL),)
 kernel/yosys.o: CXXFLAGS += -DABCEXTERNAL='"$(ABCEXTERNAL)"'
 endif
 endif
-OBJS += kernel/cellaigs.o kernel/celledges.o kernel/satgen.o kernel/qcsat.o kernel/mem.o kernel/ffmerge.o
+OBJS += kernel/cellaigs.o kernel/celledges.o kernel/satgen.o kernel/qcsat.o kernel/mem.o kernel/ffmerge.o kernel/ff.o
 
 kernel/log.o: CXXFLAGS += -DYOSYS_SRC='"$(YOSYS_SRC)"'
 kernel/yosys.o: CXXFLAGS += -DYOSYS_DATDIR='"$(DATDIR)"' -DYOSYS_PROGRAM_PREFIX='"$(PROGRAM_PREFIX)"'

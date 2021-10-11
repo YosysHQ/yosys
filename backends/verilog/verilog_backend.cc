@@ -1398,7 +1398,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		FfData ff(nullptr, cell);
 
 		// $ff / $_FF_ cell: not supported.
-		if (ff.has_d && !ff.has_clk && !ff.has_en)
+		if (ff.has_gclk)
 			return false;
 
 		std::string reg_name = cellname(cell);
@@ -1419,17 +1419,19 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 
 		for (int i = 0; i < chunks; i++)
 		{
-			SigSpec sig_d;
+			SigSpec sig_d, sig_ad;
 			Const val_arst, val_srst;
-			std::string reg_bit_name, sig_set_name, sig_clr_name, sig_arst_name;
+			std::string reg_bit_name, sig_set_name, sig_clr_name, sig_arst_name, sig_aload_name;
 			if (chunky) {
 				reg_bit_name = stringf("%s[%d]", reg_name.c_str(), i);
-				if (ff.has_d)
+				if (ff.has_gclk || ff.has_clk)
 					sig_d = ff.sig_d[i];
+				if (ff.has_aload)
+					sig_ad = ff.sig_ad[i];
 			} else {
 				reg_bit_name = reg_name;
-				if (ff.has_d)
-					sig_d = ff.sig_d;
+				sig_d = ff.sig_d;
+				sig_ad = ff.sig_ad;
 			}
 			if (ff.has_arst)
 				val_arst = chunky ? ff.val_arst[i] : ff.val_arst;
@@ -1437,28 +1439,38 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 				val_srst = chunky ? ff.val_srst[i] : ff.val_srst;
 
 			// If there are constants in the sensitivity list, replace them with an intermediate wire
-			if (ff.has_sr) {
-				if (ff.sig_set[i].wire == NULL)
-				{
-					sig_set_name = next_auto_id();
-					f << stringf("%s" "wire %s = ", indent.c_str(), sig_set_name.c_str());
-					dump_const(f, ff.sig_set[i].data);
-					f << stringf(";\n");
-				}
-				if (ff.sig_clr[i].wire == NULL)
-				{
-					sig_clr_name = next_auto_id();
-					f << stringf("%s" "wire %s = ", indent.c_str(), sig_clr_name.c_str());
-					dump_const(f, ff.sig_clr[i].data);
-					f << stringf(";\n");
-				}
-			} else if (ff.has_arst) {
-				if (ff.sig_arst[i].wire == NULL)
-				{
-					sig_arst_name = next_auto_id();
-					f << stringf("%s" "wire %s = ", indent.c_str(), sig_arst_name.c_str());
-					dump_const(f, ff.sig_arst[i].data);
-					f << stringf(";\n");
+			if (ff.has_clk) {
+				if (ff.has_sr) {
+					if (ff.sig_set[i].wire == NULL)
+					{
+						sig_set_name = next_auto_id();
+						f << stringf("%s" "wire %s = ", indent.c_str(), sig_set_name.c_str());
+						dump_const(f, ff.sig_set[i].data);
+						f << stringf(";\n");
+					}
+					if (ff.sig_clr[i].wire == NULL)
+					{
+						sig_clr_name = next_auto_id();
+						f << stringf("%s" "wire %s = ", indent.c_str(), sig_clr_name.c_str());
+						dump_const(f, ff.sig_clr[i].data);
+						f << stringf(";\n");
+					}
+				} else if (ff.has_arst) {
+					if (ff.sig_arst[0].wire == NULL)
+					{
+						sig_arst_name = next_auto_id();
+						f << stringf("%s" "wire %s = ", indent.c_str(), sig_arst_name.c_str());
+						dump_const(f, ff.sig_arst[0].data);
+						f << stringf(";\n");
+					}
+				} else if (ff.has_aload) {
+					if (ff.sig_aload[0].wire == NULL)
+					{
+						sig_aload_name = next_auto_id();
+						f << stringf("%s" "wire %s = ", indent.c_str(), sig_aload_name.c_str());
+						dump_const(f, ff.sig_aload[0].data);
+						f << stringf(";\n");
+					}
 				}
 			}
 
@@ -1480,13 +1492,18 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 						f << stringf("%s", sig_clr_name.c_str());
 					else
 						dump_sigspec(f, ff.sig_clr[i]);
-
 				} else if (ff.has_arst) {
 					f << stringf(", %sedge ", ff.pol_arst ? "pos" : "neg");
-					if (ff.sig_arst[i].wire == NULL)
+					if (ff.sig_arst[0].wire == NULL)
 						f << stringf("%s", sig_arst_name.c_str());
 					else
 						dump_sigspec(f, ff.sig_arst);
+				} else if (ff.has_aload) {
+					f << stringf(", %sedge ", ff.pol_aload ? "pos" : "neg");
+					if (ff.sig_aload[0].wire == NULL)
+						f << stringf("%s", sig_aload_name.c_str());
+					else
+						dump_sigspec(f, ff.sig_aload);
 				}
 				f << stringf(")\n");
 
@@ -1507,7 +1524,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 					f << stringf("%s" "  else ", indent.c_str());
 				} else if (ff.has_arst) {
 					f << stringf("if (%s", ff.pol_arst ? "" : "!");
-					if (ff.sig_arst[i].wire == NULL)
+					if (ff.sig_arst[0].wire == NULL)
 						f << stringf("%s", sig_arst_name.c_str());
 					else
 						dump_sigspec(f, ff.sig_arst);
@@ -1515,11 +1532,21 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 					dump_sigspec(f, val_arst);
 					f << stringf(";\n");
 					f << stringf("%s" "  else ", indent.c_str());
+				} else if (ff.has_aload) {
+					f << stringf("if (%s", ff.pol_aload ? "" : "!");
+					if (ff.sig_aload[0].wire == NULL)
+						f << stringf("%s", sig_aload_name.c_str());
+					else
+						dump_sigspec(f, ff.sig_aload);
+					f << stringf(") %s <= ", reg_bit_name.c_str());
+					dump_sigspec(f, sig_ad);
+					f << stringf(";\n");
+					f << stringf("%s" "  else ", indent.c_str());
 				}
 
-				if (ff.has_srst && ff.has_en && ff.ce_over_srst) {
-					f << stringf("if (%s", ff.pol_en ? "" : "!");
-					dump_sigspec(f, ff.sig_en);
+				if (ff.has_srst && ff.has_ce && ff.ce_over_srst) {
+					f << stringf("if (%s", ff.pol_ce ? "" : "!");
+					dump_sigspec(f, ff.sig_ce);
 					f << stringf(")\n");
 					f << stringf("%s" "    if (%s", indent.c_str(), ff.pol_srst ? "" : "!");
 					dump_sigspec(f, ff.sig_srst);
@@ -1536,9 +1563,9 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 						f << stringf(";\n");
 						f << stringf("%s" "  else ", indent.c_str());
 					}
-					if (ff.has_en) {
-						f << stringf("if (%s", ff.pol_en ? "" : "!");
-						dump_sigspec(f, ff.sig_en);
+					if (ff.has_ce) {
+						f << stringf("if (%s", ff.pol_ce ? "" : "!");
+						dump_sigspec(f, ff.sig_ce);
 						f << stringf(") ");
 					}
 				}
@@ -1560,7 +1587,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 					f << stringf("%s" "  else if (%s", indent.c_str(), ff.pol_set ? "" : "!");
 					dump_sigspec(f, ff.sig_set[i]);
 					f << stringf(") %s = 1'b1;\n", reg_bit_name.c_str());
-					if (ff.has_d)
+					if (ff.has_aload)
 						f << stringf("%s" "  else ", indent.c_str());
 				} else if (ff.has_arst) {
 					f << stringf("if (%s", ff.pol_arst ? "" : "!");
@@ -1568,14 +1595,14 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 					f << stringf(") %s = ", reg_bit_name.c_str());
 					dump_sigspec(f, val_arst);
 					f << stringf(";\n");
-					if (ff.has_d)
+					if (ff.has_aload)
 						f << stringf("%s" "  else ", indent.c_str());
 				}
-				if (ff.has_d) {
-					f << stringf("if (%s", ff.pol_en ? "" : "!");
-					dump_sigspec(f, ff.sig_en);
+				if (ff.has_aload) {
+					f << stringf("if (%s", ff.pol_aload ? "" : "!");
+					dump_sigspec(f, ff.sig_aload);
 					f << stringf(") %s = ", reg_bit_name.c_str());
-					dump_sigspec(f, sig_d);
+					dump_sigspec(f, sig_ad);
 					f << stringf(";\n");
 				}
 			}

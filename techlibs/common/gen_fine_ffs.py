@@ -133,6 +133,55 @@ endmodule
 """
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 //-
+//-     $_ALDFF_{C:N|P}{L:N|P}_ (D, C, L, AD, Q)
+//-
+//- A {C:negative|positive} edge D-type flip-flop with {L:negative|positive} polarity async load.
+//-
+//- Truth table:    D C L AD | Q
+//-                ----------+---
+//-                 - - {L:0|1} a  | a
+//-                 d {C:\\|/} - -  | d
+//-                 - - - -  | q
+//-
+module \$_ALDFF_{C:N|P}{L:N|P}_ (D, C, L, AD, Q);
+input D, C, L, AD;
+output reg Q;
+always @({C:neg|pos}edge C or {L:neg|pos}edge L) begin
+	if (L == {L:0|1})
+		Q <= AD;
+	else
+		Q <= D;
+end
+endmodule
+""",
+"""
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_ALDFFE_{C:N|P}{L:N|P}{E:N|P}_ (D, C, L, AD, E, Q)
+//-
+//- A {C:negative|positive} edge D-type flip-flop with {L:negative|positive} polarity async load and {E:negative|positive}
+//- polarity clock enable.
+//-
+//- Truth table:    D C L AD E | Q
+//-                ------------+---
+//-                 - - {L:0|1} a  - | a
+//-                 d {C:\\|/} - -  {E:0|1} | d
+//-                 - - - -  - | q
+//-
+module \$_ALDFFE_{C:N|P}{L:N|P}{E:N|P}_ (D, C, L, AD, E, Q);
+input D, C, L, AD, E;
+output reg Q;
+always @({C:neg|pos}edge C or {L:neg|pos}edge L) begin
+	if (L == {L:0|1})
+		Q <= AD;
+	else if (E == {E:0|1})
+		Q <= D;
+end
+endmodule
+""",
+"""
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
 //-     $_DFFSR_{C:N|P}{S:N|P}{R:N|P}_ (C, S, R, D, Q)
 //-
 //- A {C:negative|positive} edge D-type flip-flop with {S:negative|positive} polarity set and {R:negative|positive}
