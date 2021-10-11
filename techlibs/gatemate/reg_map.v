@@ -29,8 +29,6 @@ module \$_DFFE_xxxx_ (input D, C, R, E, output Q);
 		.SR_VAL(_TECHMAP_CELLTYPE_[23:16] == "1")
 	) _TECHMAP_REPLACE_ (.D(D), .EN(E), .CLK(C), .SR(R), .Q(Q));
 
-	wire _TECHMAP_REMOVEINIT_Q_ = 1'b1;
-
 endmodule
 
 (* techmap_celltype = "$_DLATCH_[NP][NP][01]_" *)
