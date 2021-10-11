@@ -1864,6 +1864,7 @@ Cell *VerificClocking::addAdff(IdString name, RTLIL::SigSpec sig_arst, SigSpec s
 	log_assert(gclk == false);
 	log_assert(disable_sig == State::S0);
 
+	// FIXME: Adffe
 	if (enable_sig != State::S1)
 		sig_d = module->Mux(NEW_ID, sig_q, sig_d, enable_sig);
 
@@ -1875,6 +1876,7 @@ Cell *VerificClocking::addDffsr(IdString name, RTLIL::SigSpec sig_set, RTLIL::Si
 	log_assert(gclk == false);
 	log_assert(disable_sig == State::S0);
 
+	// FIXME: Dffsre
 	if (enable_sig != State::S1)
 		sig_d = module->Mux(NEW_ID, sig_q, sig_d, enable_sig);
 
@@ -1886,6 +1888,7 @@ Cell *VerificClocking::addAldff(IdString name, RTLIL::SigSpec sig_aload, RTLIL::
 	log_assert(gclk == false);
 	log_assert(disable_sig == State::S0);
 
+	// FIXME: Aldffe
 	if (enable_sig != State::S1)
 		sig_d = module->Mux(NEW_ID, sig_q, sig_d, enable_sig);
 
