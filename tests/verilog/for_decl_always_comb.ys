@@ -1,0 +1,58 @@
+read_verilog -sv  <<EOT
+module top;
+   logic [9:0] x;
+   logic z;
+   assign z = 1'b1;
+   always_comb begin
+     x = '0;
+
+     if (z) begin
+       for (int i = 0 ; i < 10 ; i++) begin
+         x[i] = 1'b1;
+       end
+     end
+   end
+endmodule
+EOT
+hierarchy
+proc
+
+design -reset
+read_verilog -sv <<EOT
+module top;
+    logic [4:0] x;
+    logic z;
+    assign z = 1'b1;
+    always_comb begin
+        x = '0;
+        if (z) begin
+            for (int i = 0; i < 5; i++) begin : label
+                x[i] = 1'b1;
+            end
+        end
+    end
+endmodule
+EOT
+hierarchy
+proc
+
+design -reset
+read_verilog -sv <<EOT
+module top;
+    logic [4:0] x;
+    logic z;
+    assign z = 1'b1;
+    always_comb begin
+        x = '0;
+        if (z) begin
+            int i;
+            for (i = 0; i < 5; i++) begin
+                x[i] = 1'b1;
+            end
+        end
+    end
+endmodule
+EOT
+hierarchy
+proc
+
