@@ -1,0 +1,12 @@
+read_verilog -sv << EOF
+module dut();
+logic [5:0] a;
+assign a = '0;
+always_comb begin
+  unique case ($bits(a))
+    6   : a = 6'b111111;
+    default        : a = '0;
+  endcase
+end
+endmodule
+EOF
