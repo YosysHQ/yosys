@@ -1,0 +1,25 @@
+read_verilog -sv -dump_ast1 -dump_ast2 << EOF
+package p;
+typedef struct packed {
+  logic a;
+  logic b;
+} struct_t;
+
+parameter struct_t c = {1'b1, 1'b0};
+endpackage
+
+module dut ();
+parameter p::struct_t d = p::c;
+
+logic e = d.a;
+logic f = d.b;
+
+always_comb begin
+  assert(d == 2'b10);
+  assert(e == 1'b1);
+  assert(f == 1'b0);
+end
+endmodule
+EOF
+hierarchy; proc; opt
+sat -verify -seq 1 -tempinduct -prove-asserts -show-all
