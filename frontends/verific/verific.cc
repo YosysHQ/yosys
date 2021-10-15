@@ -371,7 +371,7 @@ bool VerificImporter::import_netlist_instance_gates(Instance *inst, RTLIL::IdStr
 		return true;
 	}
 
-	if (inst->Type() == PRIM_TRI) {
+	if ((inst->Type() == PRIM_TRI) || (inst->Type() == PRIM_BUFIF1)) {
 		module->addMuxGate(inst_name, RTLIL::State::Sz, net_map_at(inst->GetInput()), net_map_at(inst->GetControl()), net_map_at(inst->GetOutput()));
 		return true;
 	}
@@ -497,7 +497,7 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		return true;
 	}
 
-	if (inst->Type() == PRIM_TRI) {
+	if ((inst->Type() == PRIM_TRI) || (inst->Type() == PRIM_BUFIF1)) {
 		cell = module->addMux(inst_name, RTLIL::State::Sz, net_map_at(inst->GetInput()), net_map_at(inst->GetControl()), net_map_at(inst->GetOutput()));
 		import_attributes(cell->attributes, inst);
 		return true;
