@@ -25,5 +25,5 @@ equiv_opt -async2sync -assert -map +/gatemate/cells_sim.v synth_gatemate -noiopa
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd latchsr # Constrain all select calls below inside the top module
 select -assert-count 1 t:CC_DLT
-select -assert-count 2 t:CC_LUT3
+select -assert-max 2 t:CC_LUT3
 select -assert-none t:CC_DLT t:CC_LUT3 %% t:* %D

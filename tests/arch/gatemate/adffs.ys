@@ -28,7 +28,7 @@ design -load postopt # load the post-opt design (otherwise equiv_opt loads the p
 cd dffs # Constrain all select calls below inside the top module
 select -assert-count 1 t:CC_BUFG
 select -assert-count 1 t:CC_DFF
-select -assert-count 1 t:CC_LUT2
+select -assert-max 1 t:CC_LUT2
 select -assert-none t:CC_BUFG t:CC_DFF t:CC_LUT2 %% t:* %D
 
 design -load read
@@ -39,5 +39,5 @@ design -load postopt # load the post-opt design (otherwise equiv_opt loads the p
 cd ndffnr # Constrain all select calls below inside the top module
 select -assert-count 1 t:CC_BUFG
 select -assert-count 1 t:CC_DFF
-select -assert-count 1 t:CC_LUT2
+select -assert-max 1 t:CC_LUT2
 select -assert-none t:CC_BUFG t:CC_DFF t:CC_LUT2 %% t:* %D
