@@ -718,10 +718,6 @@ flip_dqisr:;
 					goto error;
 				}
 
-				if (!(supported_dlatch & ~INIT_X)) {
-					reason = "initialized dlatch are not supported";
-					goto error;
-				}
 				// If we got here, initialized dlatch is supported, but not this
 				// particular reset+init combination (nor its negation).
 				// The only hope left is breaking down to adff + dff + dlatch + mux.
