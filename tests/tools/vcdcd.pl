@@ -11,7 +11,7 @@ $| = 1;
 my $opt_width = 0;
 my $opt_delay = 0;
 
-while (1)
+while ($#ARGV >= 0)
 {
 	if ($ARGV[0] eq '-w') {
 		$opt_width = +$ARGV[1];
@@ -74,10 +74,10 @@ for my $net (sort keys %gold_signals_hash) {
 	# next unless $net eq "tst_bench_top.i2c_top.byte_controller.bit_controller.cnt";
 	my %orig_net_names;
 	print "common signal: $net";
-	for my $fullname (keys $gold_signals_hash{$net}) {
+	for my $fullname (keys %{$gold_signals_hash{$net}}) {
 		$orig_net_names{$fullname} = 1;
 	}
-	for my $fullname (keys $gate_signals_hash{$net}) {
+	for my $fullname (keys %{$gate_signals_hash{$net}}) {
 		$orig_net_names{$fullname} = 1;
 	}
 	for my $net (sort keys %orig_net_names) {
