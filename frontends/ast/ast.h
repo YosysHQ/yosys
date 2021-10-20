@@ -348,7 +348,7 @@ namespace AST
 		RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, bool mayfail) override;
 		RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, const dict<RTLIL::IdString, RTLIL::Module*> &interfaces, const dict<RTLIL::IdString, RTLIL::IdString> &modports, bool mayfail) override;
 		std::string derive_common(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, AstNode **new_ast_out, bool quiet = false);
-		void reprocess_module(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Module *> &local_interfaces) override;
+		void expand_interfaces(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Module *> &local_interfaces) override;
 		RTLIL::Module *clone() const override;
 		void loadconfig() const;
 	};
@@ -395,6 +395,18 @@ namespace AST_INTERNAL
 	extern dict<std::string, pool<int>> current_memwr_visible;
 	struct LookaheadRewriter;
 	struct ProcessGenerator;
+
+	// Create and add a new AstModule from new_ast, then use it to replace
+	// old_module in design, renaming old_module to move it out of the way.
+	// Return the new module.
+	//
+	// If original_ast is not null, it will be used as the AST node for the
+	// new module. Otherwise, new_ast will be used.
+	RTLIL::Module *
+	process_and_replace_module(RTLIL::Design *design,
+	                           RTLIL::Module *old_module,
+	                           AST::AstNode *new_ast,
+	                           AST::AstNode *original_ast = nullptr);
 }
 
 YOSYS_NAMESPACE_END
