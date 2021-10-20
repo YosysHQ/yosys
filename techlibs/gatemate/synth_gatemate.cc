@@ -264,7 +264,6 @@ struct SynthGateMatePass : public ScriptPass
 					"t:$__CC_BRAM_20K_TDP t:$__CC_BRAM_40K_TDP "
 				);
 				run("techmap -map +/gatemate/brams_map.v");
-				run("gatemate_bramopt");
 			}
 		}
 
