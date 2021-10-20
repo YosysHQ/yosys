@@ -1613,6 +1613,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			if (template_node->type == AST_STRUCT || template_node->type == AST_UNION) {
 				// replace with wire representing the packed structure
 				newNode = make_packed_struct(template_node, str);
+				newNode->attributes[ID::wiretype] = mkconst_str(resolved_type_node->str);
 				// add original input/output attribute to resolved wire
 				newNode->is_input = this->is_input;
 				newNode->is_output = this->is_output;
@@ -1677,6 +1678,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			if (template_node->type == AST_STRUCT || template_node->type == AST_UNION) {
 				// replace with wire representing the packed structure
 				newNode = make_packed_struct(template_node, str);
+				newNode->attributes[ID::wiretype] = mkconst_str(resolved_type_node->str);
 				newNode->type = type;
 				current_scope[str] = this;
 				// copy param value, it needs to be 1st value
