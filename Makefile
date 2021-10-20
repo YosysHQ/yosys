@@ -500,7 +500,7 @@ endif
 
 ifeq ($(ENABLE_VERIFIC),1)
 VERIFIC_DIR ?= /usr/local/src/verific_lib
-VERIFIC_COMPONENTS ?= verilog vhdl database util containers hier_tree
+VERIFIC_COMPONENTS ?= verilog database util containers hier_tree
 ifneq ($(DISABLE_VERIFIC_VHDL),1)
 VERIFIC_COMPONENTS += vhdl
 CXXFLAGS += -DVERIFIC_VHDL_SUPPORT
