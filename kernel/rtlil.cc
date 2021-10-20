@@ -941,6 +941,11 @@ void RTLIL::Module::expand_interfaces(RTLIL::Design *, const dict<RTLIL::IdStrin
 	log_error("Class doesn't support expand_interfaces (module: `%s')!\n", id2cstr(name));
 }
 
+bool RTLIL::Module::reprocess_if_necessary(RTLIL::Design *)
+{
+	return false;
+}
+
 RTLIL::IdString RTLIL::Module::derive(RTLIL::Design*, const dict<RTLIL::IdString, RTLIL::Const> &, bool mayfail)
 {
 	if (mayfail)
