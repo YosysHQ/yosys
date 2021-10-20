@@ -1161,6 +1161,7 @@ public:
 	virtual RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, const dict<RTLIL::IdString, RTLIL::Module*> &interfaces, const dict<RTLIL::IdString, RTLIL::IdString> &modports, bool mayfail = false);
 	virtual size_t count_id(RTLIL::IdString id);
 	virtual void expand_interfaces(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Module *> &local_interfaces);
+	virtual bool reprocess_if_necessary(RTLIL::Design *design);
 
 	virtual void sort();
 	virtual void check();

@@ -558,6 +558,10 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 		return did_something;
 	}
 
+	// Now that modules have been derived, we may want to reprocess this
+	// module given the additional available context.
+	if (module->reprocess_if_necessary(design))
+		return true;
 
 	for (auto &it : array_cells)
 	{

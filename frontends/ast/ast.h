@@ -262,6 +262,7 @@ namespace AST
 		void mem2reg_remove(pool<AstNode*> &mem2reg_set, vector<AstNode*> &delnodes);
 		void meminfo(int &mem_width, int &mem_size, int &addr_bits);
 		bool detect_latch(const std::string &var);
+		const RTLIL::Module* lookup_cell_module();
 
 		// additional functionality for evaluating constant functions
 		struct varinfo_t {
@@ -313,8 +314,8 @@ namespace AST
 		RTLIL::Const bitsAsConst(int width, bool is_signed);
 		RTLIL::Const bitsAsConst(int width = -1);
 		RTLIL::Const bitsAsUnsizedConst(int width);
-		RTLIL::Const asAttrConst();
-		RTLIL::Const asParaConst();
+		RTLIL::Const asAttrConst() const;
+		RTLIL::Const asParaConst() const;
 		uint64_t asInt(bool is_signed);
 		bool bits_only_01() const;
 		bool asBool() const;
@@ -349,6 +350,7 @@ namespace AST
 		RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, const dict<RTLIL::IdString, RTLIL::Module*> &interfaces, const dict<RTLIL::IdString, RTLIL::IdString> &modports, bool mayfail) override;
 		std::string derive_common(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, AstNode **new_ast_out, bool quiet = false);
 		void expand_interfaces(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Module *> &local_interfaces) override;
+		bool reprocess_if_necessary(RTLIL::Design *design) override;
 		RTLIL::Module *clone() const override;
 		void loadconfig() const;
 	};
@@ -377,6 +379,14 @@ namespace AST
 
 	// struct helper exposed from simplify for genrtlil
 	AstNode *make_struct_member_range(AstNode *node, AstNode *member_node);
+
+	// generate standard $paramod... derived module name; parameters should be
+	// in the order they are declared in the instantiated module
+	std::string derived_module_name(std::string stripped_name, const std::vector<std::pair<RTLIL::IdString, RTLIL::Const>> &parameters);
+
+	// used to provide simplify() access to the current design for looking up
+	// modules, ports, wires, etc.
+	void set_simplify_design_context(const RTLIL::Design *design);
 }
 
 namespace AST_INTERNAL

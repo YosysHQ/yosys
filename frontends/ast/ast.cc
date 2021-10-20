@@ -854,7 +854,7 @@ RTLIL::Const AstNode::bitsAsConst(int width)
 	return bitsAsConst(width, is_signed);
 }
 
-RTLIL::Const AstNode::asAttrConst()
+RTLIL::Const AstNode::asAttrConst() const
 {
 	log_assert(type == AST_CONSTANT);
 
@@ -869,8 +869,17 @@ RTLIL::Const AstNode::asAttrConst()
 	return val;
 }
 
-RTLIL::Const AstNode::asParaConst()
+RTLIL::Const AstNode::asParaConst() const
 {
+	if (type == AST_REALVALUE)
+	{
+		AstNode *strnode = AstNode::mkconst_str(stringf("%f", realvalue));
+		RTLIL::Const val = strnode->asAttrConst();
+		val.flags |= RTLIL::CONST_FLAG_REAL;
+		delete strnode;
+		return val;
+	}
+
 	RTLIL::Const val = asAttrConst();
 	if (is_signed)
 		val.flags |= RTLIL::CONST_FLAG_SIGNED;
@@ -1043,8 +1052,11 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 			}
 		}
 
-		// TODO(zachjs): make design available to simplify() in the future
+		// simplify this module or interface using the current design as context
+		// for lookup up ports and wires within cells
+		set_simplify_design_context(design);
 		while (ast->simplify(!flag_noopt, false, false, 0, -1, false, false)) { }
+		set_simplify_design_context(nullptr);
 
 		if (flag_dump_ast2) {
 			log("Dumping AST after simplification:\n");
@@ -1171,6 +1183,9 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 				continue;
 			module->attributes[attr.first] = attr.second->asAttrConst();
 		}
+		for (const AstNode *node : ast->children)
+			if (node->type == AST_PARAMETER)
+				current_module->avail_parameters(node->str);
 	}
 
 	if (ast->type == AST_INTERFACE)
@@ -1445,6 +1460,26 @@ void AST::explode_interface_port(AstNode *module_ast, RTLIL::Module * intfmodule
 	}
 }
 
+// AstModules may contain cells marked with ID::reprocess_after, which indicates
+// that it should be reprocessed once the specified module has been elaborated.
+bool AstModule::reprocess_if_necessary(RTLIL::Design *design)
+{
+	for (const RTLIL::Cell *cell : cells())
+	{
+		std::string modname = cell->get_string_attribute(ID::reprocess_after);
+		if (modname.empty())
+			continue;
+		if (design->module(modname) || design->module("$abstract" + modname)) {
+			log("Reprocessing module %s because instantiated module %s has become available.\n",
+					log_id(name), log_id(modname));
+			loadconfig();
+			process_and_replace_module(design, this, ast, NULL);
+			return true;
+		}
+	}
+	return false;
+}
+
 // When an interface instance is found in a module, the whole RTLIL for the module will be rederived again
 // from AST. The interface members are copied into the AST module with the prefix of the interface.
 void AstModule::expand_interfaces(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Module*> &local_interfaces)
@@ -1649,6 +1684,17 @@ static std::string serialize_param_value(const RTLIL::Const &val) {
 	return res;
 }
 
+std::string AST::derived_module_name(std::string stripped_name, const std::vector<std::pair<RTLIL::IdString, RTLIL::Const>> &parameters) {
+	std::string para_info;
+	for (const auto &elem : parameters)
+		para_info += stringf("%s=%s", elem.first.c_str(), serialize_param_value(elem.second).c_str());
+
+	if (para_info.size() > 60)
+		return "$paramod$" + sha1(para_info) + stripped_name;
+	else
+		return "$paramod" + stripped_name + para_info;
+}
+
 // create a new parametric module (when needed) and return the name of the generated module
 std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, AstNode **new_ast_out, bool quiet)
 {
@@ -1657,9 +1703,8 @@ std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::Id
 	if (stripped_name.compare(0, 9, "$abstract") == 0)
 		stripped_name = stripped_name.substr(9);
 
-	std::string para_info;
-
 	int para_counter = 0;
+	std::vector<std::pair<RTLIL::IdString, RTLIL::Const>> named_parameters;
 	for (const auto child : ast->children) {
 		if (child->type != AST_PARAMETER)
 			continue;
@@ -1668,25 +1713,21 @@ std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::Id
 		if (it != parameters.end()) {
 			if (!quiet)
 				log("Parameter %s = %s\n", child->str.c_str(), log_signal(it->second));
-			para_info += stringf("%s=%s", child->str.c_str(), serialize_param_value(it->second).c_str());
+			named_parameters.emplace_back(child->str, it->second);
 			continue;
 		}
 		it = parameters.find(stringf("$%d", para_counter));
 		if (it != parameters.end()) {
 			if (!quiet)
 				log("Parameter %d (%s) = %s\n", para_counter, child->str.c_str(), log_signal(it->second));
-			para_info += stringf("%s=%s", child->str.c_str(), serialize_param_value(it->second).c_str());
+			named_parameters.emplace_back(child->str, it->second);
 			continue;
 		}
 	}
 
-	std::string modname;
-	if (parameters.size() == 0)
-		modname = stripped_name;
-	else if (para_info.size() > 60)
-		modname = "$paramod$" + sha1(para_info) + stripped_name;
-	else
-		modname = "$paramod" + stripped_name + para_info;
+	std::string modname = stripped_name;
+	if (parameters.size()) // not named_parameters to cover hierarchical defparams
+		modname = derived_module_name(stripped_name, named_parameters);
 
 	if (design->has(modname))
 		return modname;

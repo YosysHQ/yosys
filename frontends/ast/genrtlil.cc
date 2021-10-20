@@ -1917,21 +1917,15 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					continue;
 				}
 				if (child->type == AST_PARASET) {
-					int extra_const_flags = 0;
 					IdString paraname = child->str.empty() ? stringf("$%d", ++para_counter) : child->str;
-					if (child->children[0]->type == AST_REALVALUE) {
+					const AstNode *value = child->children[0];
+					if (value->type == AST_REALVALUE)
 						log_file_warning(filename, location.first_line, "Replacing floating point parameter %s.%s = %f with string.\n",
-								log_id(cell), log_id(paraname), child->children[0]->realvalue);
-						extra_const_flags = RTLIL::CONST_FLAG_REAL;
-						auto strnode = AstNode::mkconst_str(stringf("%f", child->children[0]->realvalue));
-						strnode->cloneInto(child->children[0]);
-						delete strnode;
-					}
-					if (child->children[0]->type != AST_CONSTANT)
+								log_id(cell), log_id(paraname), value->realvalue);
+					else if (value->type != AST_CONSTANT)
 						log_file_error(filename, location.first_line, "Parameter %s.%s with non-constant value!\n",
 								log_id(cell), log_id(paraname));
-					cell->parameters[paraname] = child->children[0]->asParaConst();
-					cell->parameters[paraname].flags |= extra_const_flags;
+					cell->parameters[paraname] = value->asParaConst();
 					continue;
 				}
 				if (child->type == AST_ARGUMENT) {
@@ -1948,7 +1942,12 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 						if (sig.is_wire()) {
 							// if the resulting SigSpec is a wire, its
 							// signedness should match that of the AstNode
-							log_assert(arg->is_signed == sig.as_wire()->is_signed);
+							if (arg->type == AST_IDENTIFIER && arg->id2ast && arg->id2ast->is_signed && !arg->is_signed)
+								// fully-sliced signed wire will be resolved
+								// once the module becomes available
+								log_assert(attributes.count(ID::reprocess_after));
+							else
+								log_assert(arg->is_signed == sig.as_wire()->is_signed);
 						} else if (arg->is_signed) {
 							// non-trivial signed nodes are indirected through
 							// signed wires to enable sign extension
