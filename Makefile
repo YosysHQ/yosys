@@ -504,6 +504,10 @@ VERIFIC_COMPONENTS ?= verilog database util containers hier_tree
 ifneq ($(DISABLE_VERIFIC_VHDL),1)
 VERIFIC_COMPONENTS += vhdl
 CXXFLAGS += -DVERIFIC_VHDL_SUPPORT
+else
+ifneq ($(wildcard $(VERIFIC_DIR)/vhdl),)
+VERIFIC_COMPONENTS += vhdl
+endif
 endif
 ifneq ($(DISABLE_VERIFIC_EXTENSIONS),1)
 VERIFIC_COMPONENTS += extensions
