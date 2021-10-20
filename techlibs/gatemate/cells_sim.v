@@ -36,9 +36,6 @@ module CC_IBUF #(
 );
 	assign Y = I;
 
-	specify
-		(I => Y) = (0:0:0, 0:0:0);
-	endspecify
 endmodule
 
 
@@ -57,9 +54,6 @@ module CC_OBUF #(
 );
 	assign O = A;
 
-	specify
-		(A => O) = (0:0:0, 0:0:0);
-	endspecify
 endmodule
 
 
@@ -81,10 +75,6 @@ module CC_TOBUF #(
 );
 	assign O = T ? 1'bz : A;
 
-	specify
-		(A => O) = (0:0:0, 0:0:0);
-		(T => O) = (0:0:0, 0:0:0);
-	endspecify
 endmodule
 
 
@@ -111,10 +101,6 @@ module CC_IOBUF #(
 	assign IO = T ? 1'bz : A;
 	assign Y = IO;
 
-	specify
-		(A => Y) = (0:0:0, 0:0:0);
-		(T => Y) = (0:0:0, 0:0:0);
-	endspecify
 endmodule
 
 
@@ -133,10 +119,6 @@ module CC_LVDS_IBUF #(
 );
 	assign Y = IP;
 
-	specify
-		(IP => Y) = (0:0:0, 0:0:0);
-		(IN => Y) = (0:0:0, 0:0:0);
-	endspecify
 endmodule
 
 
@@ -156,10 +138,6 @@ module CC_LVDS_OBUF #(
 	assign OP = A;
 	assign ON = ~A;
 
-	specify
-		(A => OP) = (0:0:0, 0:0:0);
-		(A => ON) = (0:0:0, 0:0:0);
-	endspecify
 endmodule
 
 
@@ -179,12 +157,6 @@ module CC_LVDS_TOBUF #(
 	assign OP = T ? 1'bz :  A;
 	assign ON = T ? 1'bz : ~A;
 
-	specify
-		(A => OP) = (0:0:0, 0:0:0);
-		(A => OP) = (0:0:0, 0:0:0);
-		(A => ON) = (0:0:0, 0:0:0);
-		(A => ON) = (0:0:0, 0:0:0);
-	endspecify
 endmodule
 
 
@@ -209,16 +181,6 @@ module CC_LVDS_IOBUF #(
 	assign ION = T ? 1'bz : ~A;
 	assign Y = IOP;
 
-	specify
-		(A => Y)   = (0:0:0, 0:0:0);
-		(A => IOP) = (0:0:0, 0:0:0);
-		(A => ION) = (0:0:0, 0:0:0);
-		(T => Y)   = (0:0:0, 0:0:0);
-		(T => IOP) = (0:0:0, 0:0:0);
-		(T => ION) = (0:0:0, 0:0:0);
-		(IOP => Y) = (0:0:0, 0:0:0);
-		(ION => Y) = (0:0:0, 0:0:0);
-	endspecify
 endmodule
 
 
@@ -346,9 +308,6 @@ module CC_LUT1 (
 
 	assign O = I0 ? INIT[1] : INIT[0];
 
-	specify
-		(I0 => O) = (0:0:0, 0:0:0);
-	endspecify
 endmodule
 
 
@@ -361,10 +320,6 @@ module CC_LUT2 (
 	wire [1:0] s1 = I1 ? INIT[3:2] : INIT[1:0];
 	assign O = I0 ? s1[1] : s1[0];
 
-	specify
-		(I0 => O) = (0:0:0, 0:0:0);
-		(I1 => O) = (0:0:0, 0:0:0);
-	endspecify
 endmodule
 
 
@@ -378,11 +333,6 @@ module CC_LUT3 (
 	wire [1:0] s1 = I1 ? s2[3:2] : s2[1:0];
 	assign O = I0 ? s1[1] : s1[0];
 
-	specify
-		(I0 => O) = (0:0:0, 0:0:0);
-		(I1 => O) = (0:0:0, 0:0:0);
-		(I2 => O) = (0:0:0, 0:0:0);
-	endspecify
 endmodule
 
 
@@ -397,12 +347,6 @@ module CC_LUT4 (
 	wire [1:0] s1 = I1 ? s2[3:2] : s2[1:0];
 	assign O = I0 ? s1[1] : s1[0];
 
-	specify
-		(I0 => O) = (0:0:0, 0:0:0);
-		(I1 => O) = (0:0:0, 0:0:0);
-		(I2 => O) = (0:0:0, 0:0:0);
-		(I3 => O) = (0:0:0, 0:0:0);
-	endspecify
 endmodule
 
 
@@ -413,11 +357,6 @@ module CC_MX2 (
 );
 	assign Y = S0 ? D1 : D0;
 
-	specify
-		(D0 => Y) = (0:0:0, 0:0:0);
-		(D1 => Y) = (0:0:0, 0:0:0);
-		(S0 => Y) = (0:0:0, 0:0:0);
-	endspecify
 endmodule
 
 
@@ -429,14 +368,6 @@ module CC_MX4 (
 	assign Y = S1 ? (S0 ? D3 : D2) :
 					(S0 ? D1 : D0);
 
-	specify
-		(D0 => Y) = (0:0:0, 0:0:0);
-		(D1 => Y) = (0:0:0, 0:0:0);
-		(D2 => Y) = (0:0:0, 0:0:0);
-		(D3 => Y) = (0:0:0, 0:0:0);
-		(S0 => Y) = (0:0:0, 0:0:0);
-		(S1 => Y) = (0:0:0, 0:0:0);
-	endspecify
 endmodule
 
 
@@ -451,18 +382,6 @@ module CC_MX8 (
 					(S1 ? (S0 ? D3 : D2) :
 						  (S0 ? D1 : D0));
 
-	specify
-		(D0 => Y) = (0:0:0, 0:0:0);
-		(D1 => Y) = (0:0:0, 0:0:0);
-		(D2 => Y) = (0:0:0, 0:0:0);
-		(D3 => Y) = (0:0:0, 0:0:0);
-		(D4 => Y) = (0:0:0, 0:0:0);
-		(D5 => Y) = (0:0:0, 0:0:0);
-		(D6 => Y) = (0:0:0, 0:0:0);
-		(D7 => Y) = (0:0:0, 0:0:0);
-		(S0 => Y) = (0:0:0, 0:0:0);
-		(S1 => Y) = (0:0:0, 0:0:0);
-	endspecify
 endmodule
 
 
@@ -472,14 +391,6 @@ module CC_ADDF (
 );
 	assign {CO, S} = A + B + CI;
 
-	specify
-		(A => S)   = (0:0:0, 0:0:0);
-		(B => S)   = (0:0:0, 0:0:0);
-		(CI => S)  = (0:0:0, 0:0:0);
-		(A => CO)  = (0:0:0, 0:0:0);
-		(B => CO)  = (0:0:0, 0:0:0);
-		(CI => CO) = (0:0:0, 0:0:0);
-	endspecify
 endmodule
 
 
@@ -506,9 +417,6 @@ module CC_BUFG (
 );
 	assign O = I;
 
-	specify
-		(I => O) = (0:0:0, 0:0:0);
-	endspecify
 endmodule
 
 
