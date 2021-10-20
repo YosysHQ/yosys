@@ -1,6 +1,5 @@
 
 OBJS += techlibs/gatemate/synth_gatemate.o
-OBJS += techlibs/gatemate/gatemate_bramopt.o
 
 $(eval $(call add_share_file,share/gatemate,techlibs/gatemate/iob_map.v))
 $(eval $(call add_share_file,share/gatemate,techlibs/gatemate/reg_map.v))
