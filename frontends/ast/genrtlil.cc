@@ -1126,8 +1126,9 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 
 	// everything should have been handled above -> print error if not.
 	default:
+		AstNode *current_scope_ast = current_ast_mod == nullptr ? current_ast : current_ast_mod;
 		for (auto f : log_files)
-			current_ast_mod->dumpAst(f, "verilog-ast> ");
+			current_scope_ast->dumpAst(f, "verilog-ast> ");
 		log_file_error(filename, location.first_line, "Don't know how to detect sign and width for %s node!\n", type2str(type).c_str());
 	}
 
