@@ -936,9 +936,9 @@ void RTLIL::Module::makeblackbox()
 	set_bool_attribute(ID::blackbox);
 }
 
-void RTLIL::Module::reprocess_module(RTLIL::Design *, const dict<RTLIL::IdString, RTLIL::Module *> &)
+void RTLIL::Module::expand_interfaces(RTLIL::Design *, const dict<RTLIL::IdString, RTLIL::Module *> &)
 {
-	log_error("Cannot reprocess_module module `%s' !\n", id2cstr(name));
+	log_error("Class doesn't support expand_interfaces (module: `%s')!\n", id2cstr(name));
 }
 
 RTLIL::IdString RTLIL::Module::derive(RTLIL::Design*, const dict<RTLIL::IdString, RTLIL::Const> &, bool mayfail)
