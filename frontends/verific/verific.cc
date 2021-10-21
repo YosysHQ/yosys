@@ -441,7 +441,11 @@ bool VerificImporter::import_netlist_instance_gates(Instance *inst, RTLIL::IdStr
 		return true;
 	}
 
-	// FIXME: PRIM_DLATCH
+	if (inst->Type() == PRIM_DLATCH)
+	{
+		module->addDlatch(inst_name, net_map_at(inst->GetControl()), net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
+		return true;
+	}
 
 	return false;
 }
@@ -568,7 +572,18 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		return true;
 	}
 
-	// FIXME: PRIM_DLATCH
+	if (inst->Type() == PRIM_DLATCH)
+	{
+		if (inst->GetAsyncCond()->IsGnd()) {
+			cell = module->addDlatch(inst_name, net_map_at(inst->GetControl()), net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
+		} else {
+			RTLIL::SigSpec sig_set = module->And(NEW_ID, net_map_at(inst->GetAsyncCond()), net_map_at(inst->GetAsyncVal()));
+			RTLIL::SigSpec sig_clr = module->And(NEW_ID, net_map_at(inst->GetAsyncCond()), module->Not(NEW_ID, net_map_at(inst->GetAsyncVal())));
+			cell = module->addDlatchsr(inst_name, net_map_at(inst->GetControl()), sig_set, sig_clr, net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
+		}
+		import_attributes(cell->attributes, inst);
+		return true;
+	}
 
 	#define IN  operatorInput(inst)
 	#define IN1 operatorInput1(inst)
@@ -842,7 +857,19 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		return true;
 	}
 
-	// FIXME: OPER_WIDE_DLATCHSR
+	if (inst->Type() == OPER_WIDE_DLATCHRS)
+	{
+		RTLIL::SigSpec sig_set = operatorInport(inst, "set");
+		RTLIL::SigSpec sig_reset = operatorInport(inst, "reset");
+
+		if (sig_set.is_fully_const() && !sig_set.as_bool() && sig_reset.is_fully_const() && !sig_reset.as_bool())
+			cell = module->addDlatch(inst_name, net_map_at(inst->GetControl()), IN, OUT);
+		else
+			cell = module->addDlatchsr(inst_name, net_map_at(inst->GetControl()), sig_set, sig_reset, IN, OUT);
+		import_attributes(cell->attributes, inst);
+
+		return true;
+	}
 
 	if (inst->Type() == OPER_WIDE_DFF)
 	{
@@ -872,7 +899,31 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		return true;
 	}
 
-	// FIXME: OPER_WIDE_DLATCH
+	if (inst->Type() == OPER_WIDE_DLATCH)
+	{
+		RTLIL::SigSpec sig_d = IN;
+		RTLIL::SigSpec sig_q = OUT;
+		RTLIL::SigSpec sig_adata = IN1;
+		RTLIL::SigSpec sig_acond = IN2;
+
+		if (sig_acond.is_fully_const() && !sig_acond.as_bool()) {
+			cell = module->addDlatch(inst_name, net_map_at(inst->GetControl()), sig_d, sig_q);
+			import_attributes(cell->attributes, inst);
+		} else {
+			int offset = 0, width = 0;
+			for (offset = 0; offset < GetSize(sig_acond); offset += width) {
+				for (width = 1; offset+width < GetSize(sig_acond); width++)
+					if (sig_acond[offset] != sig_acond[offset+width]) break;
+				RTLIL::SigSpec sig_set = module->Mux(NEW_ID, RTLIL::SigSpec(0, width), sig_adata.extract(offset, width), sig_acond[offset]);
+				RTLIL::SigSpec sig_clr = module->Mux(NEW_ID, RTLIL::SigSpec(0, width), module->Not(NEW_ID, sig_adata.extract(offset, width)), sig_acond[offset]);
+				cell = module->addDlatchsr(inst_name, net_map_at(inst->GetControl()), sig_set, sig_clr,
+						sig_d.extract(offset, width), sig_q.extract(offset, width));
+				import_attributes(cell->attributes, inst);
+			}
+		}
+
+		return true;
+	}
 
 	#undef IN
 	#undef IN1
