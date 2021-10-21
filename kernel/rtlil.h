@@ -756,7 +756,7 @@ struct RTLIL::SigBit
 
 	SigBit();
 	SigBit(RTLIL::State bit);
-	SigBit(bool bit);
+	explicit SigBit(bool bit);
 	SigBit(RTLIL::Wire *wire);
 	SigBit(RTLIL::Wire *wire, int offset);
 	SigBit(const RTLIL::SigChunk &chunk);
@@ -838,7 +838,7 @@ public:
 	SigSpec(const std::vector<RTLIL::SigBit> &bits);
 	SigSpec(const pool<RTLIL::SigBit> &bits);
 	SigSpec(const std::set<RTLIL::SigBit> &bits);
-	SigSpec(bool bit);
+	explicit SigSpec(bool bit);
 
 	SigSpec(RTLIL::SigSpec &&other) {
 		width_ = other.width_;

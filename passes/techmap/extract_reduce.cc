@@ -152,10 +152,10 @@ struct ExtractReducePass : public Pass
 						log_assert(y.size() == 1);
 
 						// Should only continue if there is one fanout back into a cell (not to a port)
-						if (sig_to_sink[y[0]].size() != 1)
+						if (sig_to_sink[y].size() != 1 || port_sigs.count(y))
 							break;
 
-						x = *sig_to_sink[y[0]].begin();
+						x = *sig_to_sink[y].begin();
 					}
 
 					sinks.insert(head_cell);
@@ -183,13 +183,15 @@ struct ExtractReducePass : public Pass
 								continue;
 							}
 
+							auto xy = sigmap(x->getPort(ID::Y));
+
 							//If this signal drives a port, add it to the sinks
 							//(even though it may not be the end of a chain)
-							if(port_sigs.count(x) && !consumed_cells.count(x))
+							if(port_sigs.count(xy) && !consumed_cells.count(x))
 								sinks.insert(x);
 
 							//It's a match, search everything out from it
-							auto& next = sig_to_sink[x];
+							auto& next = sig_to_sink[xy];
 							for(auto z : next)
 								next_loads.insert(z);
 						}
