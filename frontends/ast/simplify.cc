@@ -564,6 +564,108 @@ static std::string prefix_id(const std::string &prefix, const std::string &str)
 	return prefix + str;
 }
 
+// try to remove and delete an attribute, and return whether it existed
+static bool consume_attribute(AstNode* node, const std::string& attr)
+{
+	auto it = node->attributes.find(attr);
+	if (it == node->attributes.end())
+		return false;
+	delete it->second;
+	node->attributes.erase(it);
+	return true;
+}
+
+// After unrolling a procedural loop, we generate a procedural assignment for
+// the ending value of the loop variable. However, if the loop variable is local
+// and unused, we'd like to remove this unneeded assignment, especially to avoid
+// an errant inferred latch in an `always_comb` block. To accomplish this, we
+// first mark loop variables and their corresponding "lvers" with this attribute
+// during unrolling. Then, after the module has been processed, we traverse the
+// AST, and, if no other identifier besides the one in the lver references the
+// loop variable, the lver is removed.
+static const std::string lver_attr = "\\LoopVariableEndingAssignment";
+
+// This is the core AST traversal for the above transformation. See `lver_attr`
+// and `remove_unneeded_lvers`.
+static void lver_traversal(std::map<std::string, AstNode*>& pending, AstNode* node) {
+	const std::string* should_mark_asgn = nullptr;
+
+	// loop var ending assigns replace the wire corresponding in the map if
+	// it hasn't already been invalidated
+	if (node->type == AST_ASSIGN_EQ && consume_attribute(node, lver_attr)) {
+		const std::string& var_id = node->children.at(0)->str;
+		// the var will be un-marked when the identifier in this assign is
+		// visited; it is safe to assume that is the only use of *this* var
+		// in the assign, but perhaps others might be seen, e.g., in a range
+		if (pending.at(var_id))
+			should_mark_asgn = &var_id;
+	}
+
+	// any usage of a pending identifier invalidates the removal
+	else if (node->type == AST_IDENTIFIER) {
+		auto it = pending.find(node->str);
+		if (it != pending.end())
+			it->second = nullptr;
+	}
+
+	for (AstNode* child : node->children)
+		lver_traversal(pending, child);
+
+	// if this is an ending assign pointer which hasn't been invalidated,
+	// update the mark to point to this node so it can be removed at the end
+	if (should_mark_asgn)
+		pending[*should_mark_asgn] = node;
+}
+
+// This is used after simplify()ing modules to remove assignments to loop vars
+// which aren't necessary because the loop var itself is never used.
+static void remove_unneeded_lvers(AstNode* root)
+{
+	std::map<std::string, AstNode*> pending;
+
+	// find any wires which have been marked as procedural loop vars
+	for (AstNode* node : root->children)
+		if (node->type == AST_WIRE && consume_attribute(node, lver_attr))
+			pending[node->str] = node;
+	if (!pending.size())
+		return;
+
+	// the "pending" elements in the map are replaced by the corresponding
+	// procedural assignment so long as no identifiers besides the one it
+	// contains references the corresponding loop variable
+	lver_traversal(pending, root);
+
+	// remove the identified unneeded assignments
+	for (auto& elem : pending) {
+		AstNode* node = elem.second;
+		// if the variable is only used in the lver
+		if (node && node->type == AST_ASSIGN_EQ) {
+			// remove the asgn by making it a silly stub node in place
+			node->delete_children();
+			node->type = AST_BLOCK;
+		}
+	}
+}
+
+// Used during loop unrolling to appropriately mark relevant nodes for the above
+// function remove_unneeded_lvers().
+static void mark_lver(AstNode* asgn)
+{
+	log_assert(asgn->type == AST_ASSIGN_EQ);
+	AstNode* wire = asgn->children.at(0)->id2ast;
+	log_assert(wire->type == AST_WIRE);
+
+	// don't try to handle reused loop variables
+	if (wire->attributes.count(lver_attr))
+		return;
+
+	if (wire->str.find("$fordecl_block") != std::string::npos ||
+			wire->str.find("$unnamed_block") != std::string::npos) {
+		asgn->attributes[lver_attr] = AstNode::mkconst_int(1, false);
+		wire->attributes[lver_attr] = AstNode::mkconst_int(1, false);
+	}
+}
+
 // convert the AST into a simpler AST that has all parameters substituted by their
 // values, unrolled for-loops, expanded generate blocks, etc. when this function
 // is done with an AST it can be converted into RTLIL using genRTLIL().
@@ -871,6 +973,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				}
 			}
 		}
+
+		remove_unneeded_lvers(this);
 	}
 
 	// create name resolution entries for all objects with names
@@ -1986,6 +2090,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			delete buf->children[1];
 			buf->children[1] = varbuf->children[0]->clone();
 			current_block->children.insert(current_block->children.begin() + current_block_idx++, buf);
+			mark_lver(buf);
 		}
 
 		current_scope[varbuf->str] = backup_scope_varbuf;
