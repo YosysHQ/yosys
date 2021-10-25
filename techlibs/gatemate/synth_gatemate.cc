@@ -44,14 +44,6 @@ struct SynthGateMatePass : public ScriptPass
 		log("        write the design to the specified verilog file. Writing of an output\n");
 		log("        file is omitted if this parameter is not specified.\n");
 		log("\n");
-		log("    -blif <file>\n");
-		log("        write the design to the specified BLIF file. Writing of an output file\n");
-		log("        is omitted if this parameter is not specified.\n");
-		log("\n");
-		log("    -edif <file>\n");
-		log("        write the design to the specified EDIF file. Writing of an output file\n");
-		log("        is omitted if this parameter is not specified.\n");
-		log("\n");
 		log("    -json <file>\n");
 		log("        write the design to the specified JSON file. Writing of an output file\n");
 		log("        is omitted if this parameter is not specified.\n");
@@ -77,7 +69,7 @@ struct SynthGateMatePass : public ScriptPass
 		log("        do not use CC_MX{8,4} multiplexer cells in output netlist.\n");
 		log("\n");;
 		log("    -dff\n");
-		log("        run 'abc'/'abc9' with -dff option\n");
+		log("        run 'abc' with -dff option\n");
 		log("\n");
 		log("    -retime\n");
 		log("        run 'abc' with '-dff -D 1' options\n");
@@ -94,15 +86,13 @@ struct SynthGateMatePass : public ScriptPass
 		log("\n");
 	}
 
-	string top_opt, vlog_file, blif_file, edif_file, json_file;
+	string top_opt, vlog_file, json_file;
 	bool noflatten, nobram, noaddf, nomult, nomx4, nomx8, dff, retime, noiopad, noclkbuf;
 
 	void clear_flags() override
 	{
 		top_opt = "-auto-top";
 		vlog_file = "";
-		blif_file = "";
-		edif_file = "";
 		json_file = "";
 		noflatten = false;
 		nobram = false;
@@ -130,14 +120,6 @@ struct SynthGateMatePass : public ScriptPass
 			}
 			if (args[argidx] == "-vlog" && argidx+1 < args.size()) {
 				vlog_file = args[++argidx];
-				continue;
-			}
-			if (args[argidx] == "-blif" && argidx+1 < args.size()) {
-				blif_file = args[++argidx];
-				continue;
-			}
-			if (args[argidx] == "-edif" && argidx+1 < args.size()) {
-				edif_file = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-json" && argidx+1 < args.size()) {
@@ -233,17 +215,16 @@ struct SynthGateMatePass : public ScriptPass
 			run("wreduce");
 			run("peepopt");
 			run("opt_clean");
+			run("muxpack");
 			run("share");
 			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=4");
 			run("opt_expr");
 			run("opt_clean");
 		}
 
-		if (check_label("map_mult", "(skip if '-nomult')"))
+		if (check_label("map_mult", "(skip if '-nomult')") && !nomult)
 		{
-			if (!nomult) {
-				run("techmap -map +/gatemate/mul_map.v");
-			}
+			run("techmap -map +/gatemate/mul_map.v");
 		}
 
 		if (check_label("coarse"))
@@ -254,17 +235,15 @@ struct SynthGateMatePass : public ScriptPass
 			run("opt_clean");
 		}
 
-		if (check_label("map_bram", "(skip if '-nobram')"))
+		if (check_label("map_bram", "(skip if '-nobram')") && !nobram)
 		{
-			if (!nobram) {
-				run("memory_bram -rules +/gatemate/brams.txt");
-				run("setundef -zero -params "
-					"t:$__CC_BRAM_CASCADE "
-					"t:$__CC_BRAM_40K_SDP t:$__CC_BRAM_20K_SDP "
-					"t:$__CC_BRAM_20K_TDP t:$__CC_BRAM_40K_TDP "
-				);
-				run("techmap -map +/gatemate/brams_map.v");
-			}
+			run("memory_bram -rules +/gatemate/brams.txt");
+			run("setundef -zero -params "
+				"t:$__CC_BRAM_CASCADE "
+				"t:$__CC_BRAM_40K_SDP t:$__CC_BRAM_20K_SDP "
+				"t:$__CC_BRAM_20K_TDP t:$__CC_BRAM_40K_TDP "
+			);
+			run("techmap -map +/gatemate/brams_map.v");
 		}
 
 		if (check_label("map_ffram"))
@@ -287,18 +266,16 @@ struct SynthGateMatePass : public ScriptPass
 			}
 		}
 
-		if (check_label("map_io", "(skip if '-noiopad')"))
+		if (check_label("map_io", "(skip if '-noiopad')") && !noiopad)
 		{
-			if (!noiopad) {
-				run("iopadmap -bits "
-					"-inpad CC_IBUF Y:I "
-					"-outpad CC_OBUF A:O "
-					"-toutpad $__toutpad OE:A:O "
-					"-tinoutpad $__tinoutpad OE:Y:A:IO"
-				);
-				run("techmap -map +/gatemate/iob_map.v");
-				run("clean");
-			}
+			run("iopadmap -bits "
+				"-inpad CC_IBUF Y:I "
+				"-outpad CC_OBUF A:O "
+				"-toutpad $__toutpad OE:A:O "
+				"-tinoutpad $__tinoutpad OE:Y:A:IO"
+			);
+			run("techmap -map +/gatemate/iob_map.v");
+			run("clean");
 		}
 
 		if (check_label("map_regs"))
@@ -313,7 +290,6 @@ struct SynthGateMatePass : public ScriptPass
 
 		if (check_label("map_muxs"))
 		{
-			run("abc -g simple"); // optimize design before muxcover
 			std::string muxcover_args;
 			if (!nomx4) {
 				muxcover_args += stringf(" -mux4");
@@ -342,12 +318,10 @@ struct SynthGateMatePass : public ScriptPass
 			run("clean");
 		}
 
-		if (check_label("map_bufg", "(skip if '-noclkbuf')"))
+		if (check_label("map_bufg", "(skip if '-noclkbuf')") && !noclkbuf)
 		{
-			if (!noclkbuf) {
-				run("clkbufmap -buf CC_BUFG O:I");
-				run("clean");
-			}
+			run("clkbufmap -buf CC_BUFG O:I");
+			run("clean");
 		}
 
 		if (check_label("check"))
@@ -366,24 +340,10 @@ struct SynthGateMatePass : public ScriptPass
 			}
 		}
 
-		if (check_label("edif"))
-		{
-			if (!edif_file.empty() || help_mode) {
-				run(stringf("write_edif %s", help_mode ? "<file-name>" : edif_file.c_str()));
-			}
-		}
-
 		if (check_label("json"))
 		{
 			if (!json_file.empty() || help_mode) {
 				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file.c_str()));
-			}
-		}
-
-		if (check_label("blif"))
-		{
-			if (!blif_file.empty() || help_mode) {
-				run(stringf("write_blif %s", edif_file.c_str()));
 			}
 		}
 	}
