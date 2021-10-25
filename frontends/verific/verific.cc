@@ -2474,8 +2474,11 @@ struct VerificPass : public Pass {
 			RuntimeFlags::SetVar("db_preserve_user_nets", 1);
 			RuntimeFlags::SetVar("db_allow_external_nets", 1);
 			RuntimeFlags::SetVar("db_infer_wide_operators", 1);
+#ifdef VERIFIC_ASYNC_LOAD
+			RuntimeFlags::SetVar("db_infer_set_reset_registers", 0);
+#else
 			RuntimeFlags::SetVar("db_infer_set_reset_registers", 1);
-
+#endif
 			RuntimeFlags::SetVar("veri_extract_dualport_rams", 0);
 			RuntimeFlags::SetVar("veri_extract_multiport_rams", 1);
 
