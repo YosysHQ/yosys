@@ -246,7 +246,7 @@ void gen_dff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::Const val_rst, RT
 	log(".\n");
 }
 
-void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
+void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce, bool asyncload)
 {
 	while (1)
 	{
@@ -377,10 +377,16 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 		else if (!rstval.is_fully_const() && !ce.eval(rstval))
 		{
 			log_warning("Async reset value `%s' is not constant!\n", log_signal(rstval));
-			gen_dffsr(mod, insig, rstval, sig_q,
-					sync_edge->type == RTLIL::SyncType::STp,
-					sync_level && sync_level->type == RTLIL::SyncType::ST1,
-					sync_edge->signal, sync_level->signal, proc);
+			if (asyncload)
+				gen_aldff(mod, insig, rstval, sig_q,
+						sync_edge->type == RTLIL::SyncType::STp,
+						sync_level && sync_level->type == RTLIL::SyncType::ST1,
+						sync_edge->signal, sync_level->signal, proc);
+			else
+				gen_dffsr(mod, insig, rstval, sig_q,
+						sync_edge->type == RTLIL::SyncType::STp,
+						sync_level && sync_level->type == RTLIL::SyncType::ST1,
+						sync_edge->signal, sync_level->signal, proc);
 		}
 		else
 			gen_dff(mod, insig, rstval.as_const(), sig_q,
@@ -400,24 +406,40 @@ struct ProcDffPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    proc_dff [selection]\n");
+		log("    proc_dff [options] [selection]\n");
 		log("\n");
 		log("This pass identifies flip-flops in the processes and converts them to\n");
 		log("d-type flip-flop cells.\n");
+		log("\n");
+		log("The following options are supported:\n");
+		log("\n");
+		log("    -async-load\n");
+		log("        This option is passed through to proc_dff.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing PROC_DFF pass (convert process syncs to FFs).\n");
 
-		extra_args(args, 1, design);
+		bool asyncload = false;
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++)
+		{
+			if (args[argidx] == "-async-load") {
+				asyncload = true;
+				continue;
+			}
+			break;
+		}
+
+		extra_args(args, argidx, design);
 
 		for (auto mod : design->modules())
 			if (design->selected(mod)) {
 				ConstEval ce(mod);
 				for (auto &proc_it : mod->processes)
 					if (design->selected(mod, proc_it.second))
-						proc_dff(mod, proc_it.second, ce);
+						proc_dff(mod, proc_it.second, ce, asyncload);
 			}
 	}
 } ProcDffPass;

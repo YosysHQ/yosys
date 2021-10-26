@@ -65,6 +65,9 @@ struct ProcPass : public Pass {
 		log("    -noopt\n");
 		log("        Will omit the opt_expr pass.\n");
 		log("\n");
+		log("    -async-load\n");
+		log("        This option is passed through to proc_dff.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -72,6 +75,7 @@ struct ProcPass : public Pass {
 		bool ifxmode = false;
 		bool nomux = false;
 		bool noopt = false;
+		bool asyncload = false;
 
 		log_header(design, "Executing PROC pass (convert processes to netlists).\n");
 		log_push();
@@ -95,6 +99,10 @@ struct ProcPass : public Pass {
 				noopt = true;
 				continue;
 			}
+			if (args[argidx] == "-async-load") {
+				asyncload = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -111,7 +119,7 @@ struct ProcPass : public Pass {
 		if (!nomux)
 			Pass::call(design, ifxmode ? "proc_mux -ifx" : "proc_mux");
 		Pass::call(design, "proc_dlatch");
-		Pass::call(design, "proc_dff");
+		Pass::call(design, asyncload ? "proc_dff -async-load" : "proc_dff");
 		Pass::call(design, "proc_memwr");
 		Pass::call(design, "proc_clean");
 		if (!noopt)

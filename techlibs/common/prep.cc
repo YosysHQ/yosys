@@ -53,6 +53,9 @@ struct PrepPass : public ScriptPass
 		log("        passed to 'proc'. uses verilog simulation behavior for verilog if/case\n");
 		log("        undef handling. this also prevents 'wreduce' from being run.\n");
 		log("\n");
+		log("    -async-load\n");
+		log("        passed to 'proc'. force emiting async-load FFs.\n");
+		log("\n");
 		log("    -memx\n");
 		log("        simulate verilog simulation behavior for out-of-bounds memory accesses\n");
 		log("        using the 'memory_memx' pass.\n");
@@ -79,7 +82,7 @@ struct PrepPass : public ScriptPass
 	}
 
 	string top_module, fsm_opts;
-	bool autotop, flatten, ifxmode, memxmode, nomemmode, nokeepdc, rdff;
+	bool autotop, flatten, ifxmode, memxmode, nomemmode, nokeepdc, rdff, asyncload;
 
 	void clear_flags() override
 	{
@@ -92,6 +95,7 @@ struct PrepPass : public ScriptPass
 		nomemmode = false;
 		nokeepdc = false;
 		rdff = false;
+		asyncload = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -148,6 +152,10 @@ struct PrepPass : public ScriptPass
 				nokeepdc = true;
 				continue;
 			}
+			if (args[argidx] == "-async-load") {
+				asyncload = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -184,9 +192,9 @@ struct PrepPass : public ScriptPass
 		if (check_label("coarse"))
 		{
 			if (help_mode)
-				run("proc [-ifx]");
+				run("proc [-ifx] [-async-load]");
 			else
-				run(ifxmode ? "proc -ifx" : "proc");
+				run(ifxmode ? (asyncload ? "proc -ifx -async-load" : "proc -ifx") : (asyncload ? "proc -async-load" : "proc"));
 			if (help_mode || flatten)
 				run("flatten", "(if -flatten)");
 			run(nokeepdc ? "opt_expr" : "opt_expr -keepdc");
