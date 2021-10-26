@@ -190,6 +190,28 @@ void gen_dffsr(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::SigSpec sig_set
 			clk_polarity ? "positive" : "negative", set_polarity ? "positive" : "negative");
 }
 
+void gen_aldff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_out,
+		bool clk_polarity, bool set_polarity, RTLIL::SigSpec clk, RTLIL::SigSpec set, RTLIL::Process *proc)
+{
+	std::stringstream sstr;
+	sstr << "$procdff$" << (autoidx++);
+
+	RTLIL::Cell *cell = mod->addCell(sstr.str(), ID($aldff));
+	cell->attributes = proc->attributes;
+
+	cell->parameters[ID::WIDTH] = RTLIL::Const(sig_in.size());
+	cell->parameters[ID::ALOAD_POLARITY] = RTLIL::Const(set_polarity, 1);
+	cell->parameters[ID::CLK_POLARITY] = RTLIL::Const(clk_polarity, 1);
+	cell->setPort(ID::D, sig_in);
+	cell->setPort(ID::Q, sig_out);
+	cell->setPort(ID::AD, sig_set);
+	cell->setPort(ID::CLK, clk);
+	cell->setPort(ID::ALOAD, set);
+
+	log("  created %s cell `%s' with %s edge clock and %s level non-const reset.\n", cell->type.c_str(), cell->name.c_str(),
+			clk_polarity ? "positive" : "negative", set_polarity ? "positive" : "negative");
+}
+
 void gen_dff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::Const val_rst, RTLIL::SigSpec sig_out,
 		bool clk_polarity, bool arst_polarity, RTLIL::SigSpec clk, RTLIL::SigSpec *arst, RTLIL::Process *proc)
 {
