@@ -2314,6 +2314,11 @@ struct VerificPass : public Pass {
 		log("is printed, such as VERI-1209.\n");
 		log("\n");
 		log("\n");
+		log("    verific -async-load\n");
+		log("\n");
+		log("Force emiting async-load FFs.\n");
+		log("\n");
+		log("\n");
 		log("    verific -import [options] <top-module>..\n");
 		log("\n");
 		log("Elaborate the design for the specified top modules, import to Yosys and\n");
@@ -2598,6 +2603,11 @@ struct VerificPass : public Pass {
 				continue;
 			}
 			break;
+		}
+
+		if (GetSize(args) > argidx && args[argidx] == "-async-load") {
+			RuntimeFlags::SetVar("db_infer_set_reset_registers", 0);
+			goto check_error;
 		}
 
 		if (GetSize(args) > argidx && (args[argidx] == "-f" || args[argidx] == "-F"))
