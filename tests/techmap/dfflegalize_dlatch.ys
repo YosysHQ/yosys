@@ -11,6 +11,8 @@ design -save orig
 equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_P_ x
 equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_PP0_ x
 equiv_opt -assert -multiclock dfflegalize -cell $_DLATCHSR_PPP_ x
+equiv_opt -assert -multiclock dfflegalize -cell $_ALDFF_PP_ x
+equiv_opt -assert -multiclock dfflegalize -cell $_ALDFFE_PPP_ x
 
 # Convert everything to DFFs.
 
@@ -40,3 +42,23 @@ dfflegalize -cell $_DLATCHSR_PPP_ x
 select -assert-count 1 t:$_NOT_
 select -assert-count 2 t:$_DLATCHSR_PPP_
 select -assert-none t:$_DLATCHSR_PPP_ t:$_NOT_ %% %n t:* %i
+
+
+# Convert everything to ALDFFs.
+
+design -load orig
+dfflegalize -cell $_ALDFF_PP_ x
+
+select -assert-count 1 t:$_NOT_
+select -assert-count 2 t:$_ALDFF_PP_
+select -assert-none t:$_ALDFF_PP_ t:$_NOT_ %% %n t:* %i
+
+
+# Convert everything to ALDFFEs.
+
+design -load orig
+dfflegalize -cell $_ALDFFE_PPP_ x
+
+select -assert-count 1 t:$_NOT_
+select -assert-count 2 t:$_ALDFFE_PPP_
+select -assert-none t:$_ALDFFE_PPP_ t:$_NOT_ %% %n t:* %i
