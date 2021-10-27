@@ -144,9 +144,9 @@ design -load orig
 dfflegalize -cell $_DFFE_PP0P_ 0 -cell $_DLATCH_P_ 1
 
 select -assert-count 2 adff0/t:$_NOT_
-select -assert-count 16 adff1/t:$_NOT_
+select -assert-count 13 adff1/t:$_NOT_
 select -assert-count 3 adffe0/t:$_NOT_
-select -assert-count 22 adffe1/t:$_NOT_
+select -assert-count 18 adffe1/t:$_NOT_
 select -assert-count 0 adff0/t:$_MUX_
 select -assert-count 3 adff1/t:$_MUX_
 select -assert-count 0 adffe0/t:$_MUX_
@@ -164,9 +164,9 @@ select -assert-none t:$_DFFE_PP0P_ t:$_DLATCH_P_ t:$_MUX_ t:$_NOT_ top/* %% %n t
 design -load orig
 dfflegalize -cell $_DFFE_PP0P_ 1 -cell $_DLATCH_P_ 1
 
-select -assert-count 16 adff0/t:$_NOT_
+select -assert-count 13 adff0/t:$_NOT_
 select -assert-count 8 adff1/t:$_NOT_
-select -assert-count 22 adffe0/t:$_NOT_
+select -assert-count 18 adffe0/t:$_NOT_
 select -assert-count 11 adffe1/t:$_NOT_
 select -assert-count 3 adff0/t:$_MUX_
 select -assert-count 0 adff1/t:$_MUX_
@@ -185,31 +185,27 @@ select -assert-none t:$_DFFE_PP0P_ t:$_DLATCH_P_ t:$_MUX_ t:$_NOT_ top/* %% %n t
 design -load orig
 dfflegalize -cell $_DFFE_PP1P_ 0 -cell $_DLATCH_P_ 1
 
-select -assert-count 16 adff0/t:$_NOT_
+select -assert-count 10 adff0/t:$_NOT_
 select -assert-count 2 adff1/t:$_NOT_
-select -assert-count 22 adffe0/t:$_NOT_
+select -assert-count 14 adffe0/t:$_NOT_
 select -assert-count 3 adffe1/t:$_NOT_
 select -assert-count 3 adff0/t:$_MUX_
 select -assert-count 0 adff1/t:$_MUX_
 select -assert-count 4 adffe0/t:$_MUX_
 select -assert-count 0 adffe1/t:$_MUX_
-select -assert-count 6 adff0/t:$_DFFE_PP1P_
+select -assert-count 9 adff0/t:$_DFFE_PP1P_
 select -assert-count 3 adff1/t:$_DFFE_PP1P_
-select -assert-count 8 adffe0/t:$_DFFE_PP1P_
+select -assert-count 12 adffe0/t:$_DFFE_PP1P_
 select -assert-count 4 adffe1/t:$_DFFE_PP1P_
-select -assert-count 3 adff0/t:$_DLATCH_P_
-select -assert-count 0 adff1/t:$_DLATCH_P_
-select -assert-count 4 adffe0/t:$_DLATCH_P_
-select -assert-count 0 adffe1/t:$_DLATCH_P_
-select -assert-none t:$_DFFE_PP1P_ t:$_DLATCH_P_ t:$_MUX_ t:$_NOT_ top/* %% %n t:* %i
+select -assert-none t:$_DFFE_PP1P_ t:$_MUX_ t:$_NOT_ top/* %% %n t:* %i
 
 design -load orig
 dfflegalize -cell $_DFFE_PP1P_ 1 -cell $_DLATCH_P_ 1
 
 select -assert-count 8 adff0/t:$_NOT_
-select -assert-count 16 adff1/t:$_NOT_
+select -assert-count 13 adff1/t:$_NOT_
 select -assert-count 11 adffe0/t:$_NOT_
-select -assert-count 22 adffe1/t:$_NOT_
+select -assert-count 18 adffe1/t:$_NOT_
 select -assert-count 0 adff0/t:$_MUX_
 select -assert-count 3 adff1/t:$_MUX_
 select -assert-count 0 adffe0/t:$_MUX_

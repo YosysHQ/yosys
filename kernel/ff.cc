@@ -303,6 +303,190 @@ FfData FfData::slice(const std::vector<int> &bits) {
 	return res;
 }
 
+void FfData::add_dummy_ce() {
+	if (has_ce)
+		return;
+	has_ce = true;
+	pol_ce = true;
+	sig_ce = State::S1;
+	ce_over_srst = false;
+}
+
+void FfData::add_dummy_srst() {
+	if (has_srst)
+		return;
+	has_srst = true;
+	pol_srst = true;
+	sig_srst = State::S0;
+	val_srst = Const(State::Sx, width);
+	ce_over_srst = false;
+}
+
+void FfData::add_dummy_arst() {
+	if (has_arst)
+		return;
+	has_arst = true;
+	pol_arst = true;
+	sig_arst = State::S0;
+	val_arst = Const(State::Sx, width);
+}
+
+void FfData::add_dummy_aload() {
+	if (has_aload)
+		return;
+	has_aload = true;
+	pol_aload = true;
+	sig_aload = State::S0;
+	sig_ad = Const(State::Sx, width);
+}
+
+void FfData::add_dummy_sr() {
+	if (has_sr)
+		return;
+	has_sr = true;
+	pol_clr = true;
+	pol_set = true;
+	sig_clr = Const(State::S0, width);
+	sig_set = Const(State::S0, width);
+}
+
+void FfData::add_dummy_clk() {
+	if (has_clk)
+		return;
+	has_clk = true;
+	pol_clk = true;
+	sig_clk = State::S0;
+	sig_d = Const(State::Sx, width);
+}
+
+void FfData::arst_to_aload() {
+	log_assert(has_arst);
+	log_assert(!has_aload);
+	pol_aload = pol_arst;
+	sig_aload = sig_arst;
+	sig_ad = val_arst;
+	has_aload = true;
+	has_arst = false;
+}
+
+void FfData::arst_to_sr() {
+	log_assert(has_arst);
+	log_assert(!has_sr);
+	pol_clr = pol_arst;
+	pol_set = pol_arst;
+	sig_clr = Const(pol_arst ? State::S0 : State::S1, width);
+	sig_set = Const(pol_arst ? State::S0 : State::S1, width);
+	has_sr = true;
+	has_arst = false;
+	for (int i = 0; i < width; i++) {
+		if (val_arst[i] == State::S1)
+			sig_set[i] = sig_arst;
+		else
+			sig_clr[i] = sig_arst;
+	}
+}
+
+void FfData::aload_to_sr() {
+	log_assert(has_aload);
+	log_assert(!has_sr);
+	has_sr = true;
+	has_aload = false;
+	if (!is_fine) {
+		pol_clr = false;
+		pol_set = true;
+		if (pol_aload) {
+			sig_clr = module->Mux(NEW_ID, Const(State::S1, width), sig_ad, sig_aload);
+			sig_set = module->Mux(NEW_ID, Const(State::S0, width), sig_ad, sig_aload);
+		} else {
+			sig_clr = module->Mux(NEW_ID, sig_ad, Const(State::S1, width), sig_aload);
+			sig_set = module->Mux(NEW_ID, sig_ad, Const(State::S0, width), sig_aload);
+		}
+	} else {
+		pol_clr = pol_aload;
+		pol_set = pol_aload;
+		if (pol_aload) {
+			sig_clr = module->AndnotGate(NEW_ID, sig_aload, sig_ad);
+			sig_set = module->AndGate(NEW_ID, sig_aload, sig_ad);
+		} else {
+			sig_clr = module->OrGate(NEW_ID, sig_aload, sig_ad);
+			sig_set = module->OrnotGate(NEW_ID, sig_aload, sig_ad);
+		}
+	}
+}
+
+void FfData::convert_ce_over_srst(bool val) {
+	if (!has_ce || !has_srst || ce_over_srst == val)
+		return;
+	if (val) {
+		// sdffe to sdffce
+		if (!is_fine) {
+			if (pol_ce) {
+				if (pol_srst) {
+					sig_ce = module->Or(NEW_ID, sig_ce, sig_srst);
+				} else {
+					SigSpec tmp = module->Not(NEW_ID, sig_srst);
+					sig_ce = module->Or(NEW_ID, sig_ce, tmp);
+				}
+			} else {
+				if (pol_srst) {
+					SigSpec tmp = module->Not(NEW_ID, sig_srst);
+					sig_ce = module->And(NEW_ID, sig_ce, tmp);
+				} else {
+					sig_ce = module->And(NEW_ID, sig_ce, sig_srst);
+				}
+			}
+		} else {
+			if (pol_ce) {
+				if (pol_srst) {
+					sig_ce = module->OrGate(NEW_ID, sig_ce, sig_srst);
+				} else {
+					sig_ce = module->OrnotGate(NEW_ID, sig_ce, sig_srst);
+				}
+			} else {
+				if (pol_srst) {
+					sig_ce = module->AndnotGate(NEW_ID, sig_ce, sig_srst);
+				} else {
+					sig_ce = module->AndGate(NEW_ID, sig_ce, sig_srst);
+				}
+			}
+		}
+	} else {
+		// sdffce to sdffe
+		if (!is_fine) {
+			if (pol_srst) {
+				if (pol_ce) {
+					sig_srst = cell->module->And(NEW_ID, sig_srst, sig_ce);
+				} else {
+					SigSpec tmp = module->Not(NEW_ID, sig_ce);
+					sig_srst = cell->module->And(NEW_ID, sig_srst, tmp);
+				}
+			} else {
+				if (pol_ce) {
+					SigSpec tmp = module->Not(NEW_ID, sig_ce);
+					sig_srst = cell->module->Or(NEW_ID, sig_srst, tmp);
+				} else {
+					sig_srst = cell->module->Or(NEW_ID, sig_srst, sig_ce);
+				}
+			}
+		} else {
+			if (pol_srst) {
+				if (pol_ce) {
+					sig_srst = cell->module->AndGate(NEW_ID, sig_srst, sig_ce);
+				} else {
+					sig_srst = cell->module->AndnotGate(NEW_ID, sig_srst, sig_ce);
+				}
+			} else {
+				if (pol_ce) {
+					sig_srst = cell->module->OrnotGate(NEW_ID, sig_srst, sig_ce);
+				} else {
+					sig_srst = cell->module->OrGate(NEW_ID, sig_srst, sig_ce);
+				}
+			}
+		}
+	}
+	ce_over_srst = val;
+}
+
 void FfData::unmap_ce() {
 	if (!has_ce)
 		return;
@@ -351,11 +535,7 @@ Cell *FfData::emit() {
 	if (!has_aload && !has_clk && !has_gclk && !has_sr) {
 		if (has_arst) {
 			// Convert this case to a D latch.
-			has_aload = true;
-			has_arst = false;
-			sig_ad = val_arst;
-			sig_aload = sig_arst;
-			pol_aload = pol_arst;
+			arst_to_aload();
 		} else {
 			// No control inputs left.  Turn into a const driver.
 			module->connect(sig_q, val_init);
@@ -506,7 +686,7 @@ void FfData::flip_bits(const pool<int> &bits) {
 	}
 
 	if (has_sr && cell) {
-		log_warning("Flipping D/Q/init and inserting priority fixup to legalize %s.%s [%s].", log_id(module->name), log_id(cell->name), log_id(cell->type));
+		log_warning("Flipping D/Q/init and inserting priority fixup to legalize %s.%s [%s].\n", log_id(module->name), log_id(cell->name), log_id(cell->type));
 	}
 
 	if (is_fine) {
