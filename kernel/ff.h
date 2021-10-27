@@ -170,8 +170,23 @@ struct FfData {
 	// Returns a FF identical to this one, but only keeping bit indices from the argument.
 	FfData slice(const std::vector<int> &bits);
 
-	void unmap_ce();
+	void add_dummy_ce();
+	void add_dummy_srst();
+	void add_dummy_arst();
+	void add_dummy_aload();
+	void add_dummy_sr();
+	void add_dummy_clk();
 
+	void arst_to_aload();
+	void arst_to_sr();
+
+	void aload_to_sr();
+
+	// Given a FF with both has_ce and has_srst, sets ce_over_srst to the given value and
+	// fixes up control signals appropriately to preserve semantics.
+	void convert_ce_over_srst(bool val);
+
+	void unmap_ce();
 	void unmap_srst();
 
 	void unmap_ce_srst() {

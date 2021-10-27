@@ -476,7 +476,7 @@ select -assert-count 2 sdff0/t:$_NOT_
 select -assert-count 1 sdff1/t:$_NOT_
 select -assert-count 2 sdffe0/t:$_NOT_
 select -assert-count 1 sdffe1/t:$_NOT_
-select -assert-count 2 sdffce0/t:$_NOT_
+select -assert-count 1 sdffce0/t:$_NOT_
 select -assert-count 1 sdffce1/t:$_NOT_
 select -assert-count 0 dff/t:$_MUX_
 select -assert-count 3 dffe/t:$_MUX_
@@ -484,14 +484,10 @@ select -assert-count 0 sdff0/t:$_MUX_
 select -assert-count 3 sdff1/t:$_MUX_
 select -assert-count 4 sdffe0/t:$_MUX_
 select -assert-count 8 sdffe1/t:$_MUX_
-select -assert-count 4 sdffce0/t:$_MUX_
+select -assert-count 8 sdffce0/t:$_MUX_
 select -assert-count 8 sdffce1/t:$_MUX_
-select -assert-count 0 t:$_AND_ t:$_ORNOT_ t:$_ANDNOT_ %% sdffce0/* %n %i
-select -assert-count 2 sdffce0/t:$_AND_
-select -assert-count 1 sdffce0/t:$_ORNOT_
-select -assert-count 1 sdffce0/t:$_ANDNOT_
 select -assert-count 27 t:$_SDFF_PP0_
-select -assert-none t:$_SDFF_PP0_ t:$_MUX_ t:$_NOT_ t:$_AND_ t:$_ORNOT_ t:$_ANDNOT_ top/* %% %n t:* %i
+select -assert-none t:$_SDFF_PP0_ t:$_MUX_ t:$_NOT_ top/* %% %n t:* %i
 
 design -load orig
 dfflegalize -cell $_SDFF_PP0_ 1
@@ -503,7 +499,7 @@ select -assert-count 8 sdff1/t:$_NOT_
 select -assert-count 9 sdffe0/t:$_NOT_
 select -assert-count 10 sdffe1/t:$_NOT_
 select -assert-count 9 sdffce0/t:$_NOT_
-select -assert-count 10 sdffce1/t:$_NOT_
+select -assert-count 9 sdffce1/t:$_NOT_
 select -assert-count 0 dff/t:$_MUX_
 select -assert-count 3 dffe/t:$_MUX_
 select -assert-count 3 sdff0/t:$_MUX_
@@ -511,13 +507,9 @@ select -assert-count 0 sdff1/t:$_MUX_
 select -assert-count 8 sdffe0/t:$_MUX_
 select -assert-count 4 sdffe1/t:$_MUX_
 select -assert-count 8 sdffce0/t:$_MUX_
-select -assert-count 4 sdffce1/t:$_MUX_
-select -assert-count 0 t:$_AND_ t:$_ORNOT_ t:$_ANDNOT_ %% sdffce1/* %n %i
-select -assert-count 2 sdffce1/t:$_AND_
-select -assert-count 1 sdffce1/t:$_ORNOT_
-select -assert-count 1 sdffce1/t:$_ANDNOT_
+select -assert-count 8 sdffce1/t:$_MUX_
 select -assert-count 27 t:$_SDFF_PP0_
-select -assert-none t:$_SDFF_PP0_ t:$_MUX_ t:$_NOT_ t:$_AND_ t:$_ORNOT_ t:$_ANDNOT_ top/* %% %n t:* %i
+select -assert-none t:$_SDFF_PP0_ t:$_MUX_ t:$_NOT_ top/* %% %n t:* %i
 
 design -load orig
 dfflegalize -cell $_SDFF_PP1_ 0
@@ -529,7 +521,7 @@ select -assert-count 2 sdff1/t:$_NOT_
 select -assert-count 1 sdffe0/t:$_NOT_
 select -assert-count 2 sdffe1/t:$_NOT_
 select -assert-count 1 sdffce0/t:$_NOT_
-select -assert-count 2 sdffce1/t:$_NOT_
+select -assert-count 1 sdffce1/t:$_NOT_
 select -assert-count 0 dff/t:$_MUX_
 select -assert-count 3 dffe/t:$_MUX_
 select -assert-count 3 sdff0/t:$_MUX_
@@ -537,13 +529,9 @@ select -assert-count 0 sdff1/t:$_MUX_
 select -assert-count 8 sdffe0/t:$_MUX_
 select -assert-count 4 sdffe1/t:$_MUX_
 select -assert-count 8 sdffce0/t:$_MUX_
-select -assert-count 4 sdffce1/t:$_MUX_
-select -assert-count 0 t:$_AND_ t:$_ORNOT_ t:$_ANDNOT_ %% sdffce1/* %n %i
-select -assert-count 2 sdffce1/t:$_AND_
-select -assert-count 1 sdffce1/t:$_ORNOT_
-select -assert-count 1 sdffce1/t:$_ANDNOT_
+select -assert-count 8 sdffce1/t:$_MUX_
 select -assert-count 27 t:$_SDFF_PP1_
-select -assert-none t:$_SDFF_PP1_ t:$_MUX_ t:$_NOT_ t:$_AND_ t:$_ORNOT_ t:$_ANDNOT_ top/* %% %n t:* %i
+select -assert-none t:$_SDFF_PP1_ t:$_MUX_ t:$_NOT_ top/* %% %n t:* %i
 
 design -load orig
 dfflegalize -cell $_SDFF_PP1_ 1
@@ -554,7 +542,7 @@ select -assert-count 8 sdff0/t:$_NOT_
 select -assert-count 7 sdff1/t:$_NOT_
 select -assert-count 10 sdffe0/t:$_NOT_
 select -assert-count 9 sdffe1/t:$_NOT_
-select -assert-count 10 sdffce0/t:$_NOT_
+select -assert-count 9 sdffce0/t:$_NOT_
 select -assert-count 9 sdffce1/t:$_NOT_
 select -assert-count 0 dff/t:$_MUX_
 select -assert-count 3 dffe/t:$_MUX_
@@ -562,14 +550,10 @@ select -assert-count 0 sdff0/t:$_MUX_
 select -assert-count 3 sdff1/t:$_MUX_
 select -assert-count 4 sdffe0/t:$_MUX_
 select -assert-count 8 sdffe1/t:$_MUX_
-select -assert-count 4 sdffce0/t:$_MUX_
+select -assert-count 8 sdffce0/t:$_MUX_
 select -assert-count 8 sdffce1/t:$_MUX_
-select -assert-count 0 t:$_AND_ t:$_ORNOT_ t:$_ANDNOT_ %% sdffce0/* %n %i
-select -assert-count 2 sdffce0/t:$_AND_
-select -assert-count 1 sdffce0/t:$_ORNOT_
-select -assert-count 1 sdffce0/t:$_ANDNOT_
 select -assert-count 27 t:$_SDFF_PP1_
-select -assert-none t:$_SDFF_PP1_ t:$_MUX_ t:$_NOT_ t:$_AND_ t:$_ORNOT_ t:$_ANDNOT_ top/* %% %n t:* %i
+select -assert-none t:$_SDFF_PP1_ t:$_MUX_ t:$_NOT_ top/* %% %n t:* %i
 
 
 # Convert everything to SDFFEs.
