@@ -1897,30 +1897,62 @@ Cell *VerificClocking::addDff(IdString name, SigSpec sig_d, SigSpec sig_q, Const
 {
 	log_assert(GetSize(sig_d) == GetSize(sig_q));
 
-	if (GetSize(init_value) != 0) {
-		log_assert(GetSize(sig_q) == GetSize(init_value));
-		if (sig_q.is_wire()) {
-			sig_q.as_wire()->attributes[ID::init] = init_value;
+	auto set_init_attribute = [&](SigSpec &s) {
+		if (GetSize(init_value) == 0)
+			return;
+		log_assert(GetSize(s) == GetSize(init_value));
+		if (s.is_wire()) {
+			s.as_wire()->attributes[ID::init] = init_value;
 		} else {
-			Wire *w = module->addWire(NEW_ID, GetSize(sig_q));
+			Wire *w = module->addWire(NEW_ID, GetSize(s));
 			w->attributes[ID::init] = init_value;
-			module->connect(sig_q, w);
-			sig_q = w;
+			module->connect(s, w);
+			s = w;
 		}
-	}
+	};
 
 	if (enable_sig != State::S1)
 		sig_d = module->Mux(NEW_ID, sig_q, sig_d, enable_sig);
 
 	if (disable_sig != State::S0) {
-		log_assert(gclk == false);
 		log_assert(GetSize(sig_q) == GetSize(init_value));
+
+		if (gclk) {
+			Wire *pre_d = module->addWire(NEW_ID, GetSize(sig_d));
+			Wire *post_q_w = module->addWire(NEW_ID, GetSize(sig_q));
+
+			Const initval(State::Sx, GetSize(sig_q));
+			int offset = 0;
+			for (auto c : sig_q.chunks()) {
+				if (c.wire && c.wire->attributes.count(ID::init)) {
+					Const val = c.wire->attributes.at(ID::init);
+					for (int i = 0; i < GetSize(c); i++)
+						initval[offset+i] = val[c.offset+i];
+				}
+				offset += GetSize(c);
+			}
+
+			if (!initval.is_fully_undef())
+				post_q_w->attributes[ID::init] = initval;
+
+			module->addMux(NEW_ID, sig_d, init_value, disable_sig, pre_d);
+			module->addMux(NEW_ID, post_q_w, init_value, disable_sig, sig_q);
+
+			SigSpec post_q(post_q_w);
+			set_init_attribute(post_q);
+			return module->addFf(name, pre_d, post_q);
+		}
+
+		set_init_attribute(sig_q);
 		return module->addAdff(name, clock_sig, disable_sig, sig_d, sig_q, init_value, posedge);
 	}
 
-	if (gclk)
+	if (gclk) {
+		set_init_attribute(sig_q);
 		return module->addFf(name, sig_d, sig_q);
+	}
 
+	set_init_attribute(sig_q);
 	return module->addDff(name, clock_sig, sig_d, sig_q, posedge);
 }
 
@@ -1950,12 +1982,35 @@ Cell *VerificClocking::addDffsr(IdString name, RTLIL::SigSpec sig_set, RTLIL::Si
 
 Cell *VerificClocking::addAldff(IdString name, RTLIL::SigSpec sig_aload, RTLIL::SigSpec sig_adata, SigSpec sig_d, SigSpec sig_q)
 {
-	log_assert(gclk == false);
 	log_assert(disable_sig == State::S0);
 
 	// FIXME: Aldffe
 	if (enable_sig != State::S1)
 		sig_d = module->Mux(NEW_ID, sig_q, sig_d, enable_sig);
+
+	if (gclk) {
+		Wire *pre_d = module->addWire(NEW_ID, GetSize(sig_d));
+		Wire *post_q = module->addWire(NEW_ID, GetSize(sig_q));
+
+		Const initval(State::Sx, GetSize(sig_q));
+		int offset = 0;
+		for (auto c : sig_q.chunks()) {
+			if (c.wire && c.wire->attributes.count(ID::init)) {
+				Const val = c.wire->attributes.at(ID::init);
+				for (int i = 0; i < GetSize(c); i++)
+					initval[offset+i] = val[c.offset+i];
+			}
+			offset += GetSize(c);
+		}
+
+		if (!initval.is_fully_undef())
+			post_q->attributes[ID::init] = initval;
+
+		module->addMux(NEW_ID, sig_d, sig_adata, sig_aload, pre_d);
+		module->addMux(NEW_ID, post_q, sig_adata, sig_aload, sig_q);
+
+		return module->addFf(name, pre_d, post_q);
+	}
 
 	return module->addAldff(name, clock_sig, sig_aload, sig_d, sig_q, sig_adata, posedge);
 }
@@ -2868,7 +2923,7 @@ struct VerificPass : public Pass {
 			if (!(argidx+1 < GetSize(args)))
 				cmd_error(args, argidx+1, "No top module specified.\n");
 			generator->setLogger([](std::string msg) { log("%s",msg.c_str()); } );
-			
+
 			std::string module = args[++argidx];
 			VeriLibrary* veri_lib = veri_file::GetLibrary(work.c_str(), 1);
 			VeriModule *veri_module = veri_lib ? veri_lib->GetModule(module.c_str(), 1) : nullptr;
