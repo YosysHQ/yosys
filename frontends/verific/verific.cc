@@ -2498,6 +2498,13 @@ struct VerificPass : public Pass {
 		log("  WARNING: Templates only available in commercial build.\n");
 		log("\n");
 #endif
+		log("\n");
+		log("\n");
+		log("    verific -cfg [<name> [<value>]]\n");
+		log("\n");
+		log("Get/set Verific runtime flags.\n");
+		log("\n");
+		log("\n");
 		log("Use YosysHQ Tabby CAD Suite if you need Yosys+Verific.\n");
 		log("https://www.yosyshq.com/\n");
 		log("\n");
@@ -2526,7 +2533,10 @@ struct VerificPass : public Pass {
 			Message::SetConsoleOutput(0);
 			Message::RegisterCallBackMsg(msg_func);
 
+			RuntimeFlags::SetVar("db_preserve_user_instances", 1);
 			RuntimeFlags::SetVar("db_preserve_user_nets", 1);
+			RuntimeFlags::SetVar("db_preserve_x", 1);
+
 			RuntimeFlags::SetVar("db_allow_external_nets", 1);
 			RuntimeFlags::SetVar("db_infer_wide_operators", 1);
 			RuntimeFlags::SetVar("db_infer_set_reset_registers", 0);
@@ -2542,10 +2552,12 @@ struct VerificPass : public Pass {
 			RuntimeFlags::SetVar("vhdl_ignore_assertion_statements", 0);
 
 			RuntimeFlags::SetVar("vhdl_preserve_assignments", 1);
-			//RuntimeFlags::SetVar("vhdl_preserve_comments",1);
+			//RuntimeFlags::SetVar("vhdl_preserve_comments", 1);
+			RuntimeFlags::SetVar("vhdl_preserve_drivers", 1);
 #endif
 			RuntimeFlags::SetVar("veri_preserve_assignments", 1);
-			RuntimeFlags::SetVar("veri_preserve_comments",1);
+			RuntimeFlags::SetVar("veri_preserve_comments", 1);
+			RuntimeFlags::SetVar("veri_preserve_drivers", 1);
 
 			// Workaround for VIPER #13851
 			RuntimeFlags::SetVar("veri_create_name_for_unnamed_gen_block", 1);
@@ -2555,6 +2567,8 @@ struct VerificPass : public Pass {
 
 			// https://github.com/YosysHQ/yosys/issues/1055
 			RuntimeFlags::SetVar("veri_elaborate_top_level_modules_having_interface_ports", 1) ;
+
+			RuntimeFlags::SetVar("verific_produce_verbose_syntax_error_message", 1);
 
 #ifndef DB_PRESERVE_INITIAL_VALUE
 #  warning Verific was built without DB_PRESERVE_INITIAL_VALUE.
@@ -3198,6 +3212,65 @@ struct VerificPass : public Pass {
 			verific_libdirs.clear();
 			verific_import_pending = false;
 			goto check_error;
+		}
+
+		if (argidx < GetSize(args) && args[argidx] == "-cfg")
+		{
+			if (argidx+1 == GetSize(args)) {
+				MapIter mi;
+				const char *k, *s;
+				unsigned long v;
+				pool<std::string> lines;
+				FOREACH_MAP_ITEM(RuntimeFlags::GetVarMap(), mi, &k, &v) {
+					lines.insert(stringf("%s %lu", k, v));
+				}
+				FOREACH_MAP_ITEM(RuntimeFlags::GetStringVarMap(), mi, &k, &s) {
+					if (s == nullptr)
+						lines.insert(stringf("%s NULL", k));
+					else
+						lines.insert(stringf("%s \"%s\"", k, s));
+				}
+				lines.sort();
+				for (auto &line : lines)
+					log("verific -cfg %s\n", line.c_str());
+				goto check_error;
+			}
+
+			if (argidx+2 == GetSize(args)) {
+				const char *k = args[argidx+1].c_str();
+				if (RuntimeFlags::HasUnsignedVar(k)) {
+					log("verific -cfg %s %lu\n", k, RuntimeFlags::GetVar(k));
+					goto check_error;
+				}
+				if (RuntimeFlags::HasStringVar(k)) {
+					const char *s = RuntimeFlags::GetStringVar(k);
+					if (s == nullptr)
+						log("verific -cfg %s NULL\n", k);
+					else
+						log("verific -cfg %s \"%s\"\n", k, s);
+					goto check_error;
+				}
+				log_cmd_error("Can't find Verific Runtime flag '%s'.\n", k);
+			}
+
+			if (argidx+3 == GetSize(args)) {
+				const auto &k = args[argidx+1], &v = args[argidx+2];
+				if (v == "NULL") {
+					RuntimeFlags::SetStringVar(k.c_str(), nullptr);
+					goto check_error;
+				}
+				if (v[0] == '"') {
+					std::string s = v.substr(1, GetSize(v)-2);
+					RuntimeFlags::SetStringVar(k.c_str(), v.c_str());
+					goto check_error;
+				}
+				char *endptr;
+				unsigned long n = strtol(v.c_str(), &endptr, 0);
+				if (*endptr == 0) {
+					RuntimeFlags::SetVar(k.c_str(), n);
+					goto check_error;
+				}
+			}
 		}
 
 		cmd_error(args, argidx, "Missing or unsupported mode parameter.\n");
