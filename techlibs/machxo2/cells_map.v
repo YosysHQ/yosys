@@ -30,5 +30,13 @@ module  \$_DFF_P_ (input D, C, output Q); FACADE_FF #(.CEMUX("1"), .CLKMUX("CLK"
 // IO- "$__" cells for the iopadmap pass.
 module  \$__FACADE_OUTPAD (input I, output O); FACADE_IO #(.DIR("OUTPUT")) _TECHMAP_REPLACE_ (.PAD(O), .I(I), .T(1'b0)); endmodule
 module  \$__FACADE_INPAD (input I, output O); FACADE_IO #(.DIR("INPUT")) _TECHMAP_REPLACE_ (.PAD(I), .O(O)); endmodule
-module  \$__FACADE_TOUTPAD (input I, OE, output O); FACADE_IO #(.DIR("OUTPUT")) _TECHMAP_REPLACE_ (.PAD(O), .I(I), .T(~OE)); endmodule
-module  \$__FACADE_TINOUTPAD (input I, OE, output O, inout B); FACADE_IO #(.DIR("BIDIR")) _TECHMAP_REPLACE_ (.PAD(B), .I(I), .O(O), .T(~OE)); endmodule
+// iopadmap doesn't have active-low tristate enables, so we techmap to
+// active-low enable early- before converting all logic to LUTs with ABC.
+// If we wait until after ABC is run, we'll end up with $not cells which
+// don't map to anything on device.
+// TODO: Perhaps converting $nots to LUT4s which only use one input might also
+// be acceptable?
+module  \$__FACADE_TOUTPAD_HI (input I, OE, output O); \$__FACADE_TOUTPAD _TECHMAP_REPLACE_ (.I(I), .OE(~OE), .O(O)); endmodule
+module  \$__FACADE_TINOUTPAD_HI (input I, OE, output O, inout B); \$__FACADE_TINOUTPAD _TECHMAP_REPLACE_ (.I(I), .OE(~OE), .O(O), .B(B)); endmodule
+module  \$__FACADE_TOUTPAD (input I, OE, output O); FACADE_IO #(.DIR("OUTPUT")) _TECHMAP_REPLACE_ (.PAD(O), .I(I), .T(OE)); endmodule
+module  \$__FACADE_TINOUTPAD (input I, OE, output O, inout B); FACADE_IO #(.DIR("BIDIR")) _TECHMAP_REPLACE_ (.PAD(B), .I(I), .O(O), .T(OE)); endmodule

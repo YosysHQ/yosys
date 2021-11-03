@@ -185,7 +185,8 @@ struct SynthMachXO2Pass : public ScriptPass
 		{
 			if (!noiopad || help_mode)
 			{
-				run("iopadmap -bits -outpad $__FACADE_OUTPAD I:O -inpad $__FACADE_INPAD O:I -toutpad $__FACADE_TOUTPAD OE:I:O -tinoutpad $__FACADE_TINOUTPAD OE:O:I:B A:top");
+				run("iopadmap -bits -outpad $__FACADE_OUTPAD I:O -inpad $__FACADE_INPAD O:I -toutpad $__FACADE_TOUTPAD_HI OE:I:O -tinoutpad $__FACADE_TINOUTPAD_HI OE:O:I:B A:top");
+				run("techmap -max_iter 1 -map +/machxo2/cells_map.v t:$__FACADE_T*OUTPAD_HI");
 				run("attrmvcp -attr src -attr LOC t:$__FACADE_OUTPAD %x:+[O] t:$__FACADE_TOUTPAD %x:+[O] t:$__FACADE_TINOUTPAD %x:+[B]");
 				run("attrmvcp -attr src -attr LOC -driven t:$__FACADE_INPAD %x:+[I]");
 			}
