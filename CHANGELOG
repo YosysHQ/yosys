@@ -8,6 +8,20 @@ Yosys 0.10 .. Yosys 0.10-dev
  * Various
     - Added $aldff and $aldffe (flip-flops with async load) cells
 
+ * SystemVerilog
+    - Fixed an issue which prevented writing directly to a memory word via a
+      connection to an output port
+    - Fixed an issue which prevented unbased unsized literals (e.g., `'1`) from
+      filling the width of a cell input
+    - Fixed an issue where connecting a slice covering the entirety of a signed
+      signal to a cell input would cause a failed assertion
+
+ * Verific support
+    - Importer support for {PRIM,WIDE_OPER}_DFF
+    - Importer support for PRIM_BUFIF1
+    - Option to use Verific without VHDL support
+    - Importer support for {PRIM,WIDE_OPER}_DLATCH{,RS}
+
 Yosys 0.9 .. Yosys 0.10
 --------------------------
 
