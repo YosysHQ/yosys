@@ -3654,6 +3654,11 @@ Additional -D<macro>[=<value>] options may be added after the option indicating
 the language version (and before file names) to set additional verilog defines.
 
 
+    read {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl} <vhdl-file>..
+
+Load the specified VHDL files. (Requires Verific.)
+
+
     read {-f|-F} <command-file>
 
 Load and execute the specified command file. (Requires Verific.)
@@ -7316,6 +7321,11 @@ The macros SYNTHESIS and VERIFIC are defined implicitly.
 Like -sv, but define FORMAL instead of SYNTHESIS.
 
 
+    verific {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl} <vhdl-file>..
+
+Load the specified VHDL files into Verific.
+
+
     verific {-f|-F} <command-file>
 
 Load and execute the specified command file.
@@ -7501,6 +7511,13 @@ Template options:
 Templates:
 
   WARNING: Templates only available in commercial build.
+
+
+
+    verific -cfg [<name> [<value>]]
+
+Get/set Verific runtime flags.
+
 
 Use YosysHQ Tabby CAD Suite if you need Yosys+Verific.
 https://www.yosyshq.com/
