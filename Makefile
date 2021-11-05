@@ -87,6 +87,7 @@ all: top-all
 YOSYS_SRC := $(dir $(firstword $(MAKEFILE_LIST)))
 VPATH := $(YOSYS_SRC)
 
+CXXSTD ?= c++11
 CXXFLAGS := $(CXXFLAGS) -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -MP -D_YOSYS_ -fPIC -I$(PREFIX)/include
 LDLIBS := $(LDLIBS) -lstdc++ -lm
 PLUGIN_LDFLAGS :=
@@ -188,7 +189,7 @@ endif
 ifeq ($(CONFIG),clang)
 CXX = clang
 LD = clang++
-CXXFLAGS += -std=c++11 -Os
+CXXFLAGS += -std=$(CXXSTD) -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 
 ifneq ($(SANITIZER),)
@@ -211,7 +212,7 @@ endif
 else ifeq ($(CONFIG),gcc)
 CXX = gcc
 LD = gcc
-CXXFLAGS += -std=c++11 -Os
+CXXFLAGS += -std=$(CXXSTD) -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 
 else ifeq ($(CONFIG),gcc-static)
@@ -219,7 +220,7 @@ LD = $(CXX)
 LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -static
 LDLIBS := $(filter-out -lrt,$(LDLIBS))
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
-CXXFLAGS += -std=c++11 -Os
+CXXFLAGS += -std=$(CXXSTD) -Os
 ABCMKARGS = CC="$(CC)" CXX="$(CXX)" LD="$(LD)" ABC_USE_LIBSTDCXX=1 LIBS="-lm -lpthread -static" OPTFLAGS="-O" \
                        ARCHFLAGS="-DABC_USE_STDINT_H -DABC_NO_DYNAMIC_LINKING=1 -Wno-unused-but-set-variable $(ARCHFLAGS)" ABC_USE_NO_READLINE=1
 ifeq ($(DISABLE_ABC_THREADS),1)
@@ -229,13 +230,13 @@ endif
 else ifeq ($(CONFIG),gcc-4.8)
 CXX = gcc-4.8
 LD = gcc-4.8
-CXXFLAGS += -std=c++11 -Os
+CXXFLAGS += -std=$(CXXSTD) -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 
 else ifeq ($(CONFIG),afl-gcc)
 CXX = AFL_QUIET=1 AFL_HARDEN=1 afl-gcc
 LD = AFL_QUIET=1 AFL_HARDEN=1 afl-gcc
-CXXFLAGS += -std=c++11 -Os
+CXXFLAGS += -std=$(CXXSTD) -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 
 else ifeq ($(CONFIG),cygwin)
@@ -247,7 +248,7 @@ ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 else ifeq ($(CONFIG),emcc)
 CXX = emcc
 LD = emcc
-CXXFLAGS := -std=c++11 $(filter-out -fPIC -ggdb,$(CXXFLAGS))
+CXXFLAGS := -std=$(CXXSTD) $(filter-out -fPIC -ggdb,$(CXXFLAGS))
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DABC_MEMALIGN=8"
 EMCCFLAGS := -Os -Wno-warn-absolute-paths
 EMCCFLAGS += --memory-init-file 0 --embed-file share -s NO_EXIT_RUNTIME=1
@@ -297,7 +298,7 @@ AR = $(WASI_SDK)/bin/ar
 RANLIB = $(WASI_SDK)/bin/ranlib
 WASIFLAGS := --sysroot $(WASI_SDK)/share/wasi-sysroot $(WASIFLAGS)
 endif
-CXXFLAGS := $(WASIFLAGS) -std=c++11 -Os $(filter-out -fPIC,$(CXXFLAGS))
+CXXFLAGS := $(WASIFLAGS) -std=$(CXXSTD) -Os $(filter-out -fPIC,$(CXXFLAGS))
 LDFLAGS := $(WASIFLAGS) -Wl,-z,stack-size=1048576 $(filter-out -rdynamic,$(LDFLAGS))
 LDLIBS := $(filter-out -lrt,$(LDLIBS))
 ABCMKARGS += AR="$(AR)" RANLIB="$(RANLIB)"
@@ -316,7 +317,7 @@ else ifeq ($(CONFIG),mxe)
 PKG_CONFIG = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-pkg-config
 CXX = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-g++
 LD = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-g++
-CXXFLAGS += -std=c++11 -Os -D_POSIX_SOURCE -DYOSYS_MXE_HACKS -Wno-attributes
+CXXFLAGS += -std=$(CXXSTD) -Os -D_POSIX_SOURCE -DYOSYS_MXE_HACKS -Wno-attributes
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
 LDLIBS := $(filter-out -lrt,$(LDLIBS))
@@ -328,7 +329,7 @@ EXE = .exe
 else ifeq ($(CONFIG),msys2-32)
 CXX = i686-w64-mingw32-g++
 LD = i686-w64-mingw32-g++
-CXXFLAGS += -std=c++11 -Os -D_POSIX_SOURCE -DYOSYS_WIN32_UNIX_DIR
+CXXFLAGS += -std=$(CXXSTD) -Os -D_POSIX_SOURCE -DYOSYS_WIN32_UNIX_DIR
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
 LDLIBS := $(filter-out -lrt,$(LDLIBS))
@@ -339,7 +340,7 @@ EXE = .exe
 else ifeq ($(CONFIG),msys2-64)
 CXX = x86_64-w64-mingw32-g++
 LD = x86_64-w64-mingw32-g++
-CXXFLAGS += -std=c++11 -Os -D_POSIX_SOURCE -DYOSYS_WIN32_UNIX_DIR
+CXXFLAGS += -std=$(CXXSTD) -Os -D_POSIX_SOURCE -DYOSYS_WIN32_UNIX_DIR
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LDFLAGS := $(filter-out -rdynamic,$(LDFLAGS)) -s
 LDLIBS := $(filter-out -lrt,$(LDLIBS))
