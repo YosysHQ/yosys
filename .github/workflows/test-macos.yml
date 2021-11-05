@@ -18,7 +18,7 @@ jobs:
     steps:
       - name: Install Dependencies
         run: |
-          brew install bison gawk libffi pkg-config bash
+          brew install bison flex gawk libffi pkg-config bash
 
       - name: Runtime environment
         shell: bash
@@ -28,6 +28,7 @@ jobs:
           echo "GITHUB_WORKSPACE=`pwd`" >> $GITHUB_ENV
           echo "$GITHUB_WORKSPACE/.local/bin" >> $GITHUB_PATH
           echo "$(brew --prefix bison)/bin" >> $GITHUB_PATH
+          echo "$(brew --prefix flex)/bin" >> $GITHUB_PATH
           echo "procs=$(sysctl -n hw.ncpu)" >> $GITHUB_ENV
 
       - name: Tool versions
@@ -90,7 +91,7 @@ jobs:
     steps:
       - name: Install Dependencies
         run: |
-          brew install bison gawk libffi pkg-config bash
+          brew install bison flex gawk libffi pkg-config bash
 
       - name: Runtime environment
         shell: bash
@@ -100,6 +101,7 @@ jobs:
           echo "GITHUB_WORKSPACE=`pwd`" >> $GITHUB_ENV
           echo "$GITHUB_WORKSPACE/.local/bin" >> $GITHUB_PATH
           echo "$(brew --prefix bison)/bin" >> $GITHUB_PATH
+          echo "$(brew --prefix flex)/bin" >> $GITHUB_PATH
           echo "procs=$(sysctl -n hw.ncpu)" >> $GITHUB_ENV
 
       - name: Setup compiler
