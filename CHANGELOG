@@ -21,6 +21,7 @@ Yosys 0.10 .. Yosys 0.10-dev
     - Importer support for PRIM_BUFIF1
     - Option to use Verific without VHDL support
     - Importer support for {PRIM,WIDE_OPER}_DLATCH{,RS}
+    - Added -cfg option for getting/setting Verific runtime flags
 
 Yosys 0.9 .. Yosys 0.10
 --------------------------
