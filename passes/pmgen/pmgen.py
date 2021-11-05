@@ -679,14 +679,16 @@ with open(outfile, "w") as f:
             print("#undef subpattern", file=f)
 
             print("", file=f)
-            print("YS_MAYBE_UNUSED rollback_label:;", file=f)
+            print("rollback_label:", file=f)
+            print("    YS_MAYBE_UNUSED;", file=f)
 
             if len(block["fcode"]):
                 print("#define accept do { accept_cnt++; on_accept(); } while(0)", file=f)
                 print("#define finish do { rollback = -1; goto finish_label; } while(0)", file=f)
                 for line in block["fcode"]:
                     print("  " + line, file=f)
-                print("YS_MAYBE_UNUSED finish_label:;", file=f)
+                print("finish_label:", file=f)
+                print("    YS_MAYBE_UNUSED;", file=f)
                 print("#undef accept", file=f)
                 print("#undef finish", file=f)
 
