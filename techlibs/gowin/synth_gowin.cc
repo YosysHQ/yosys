@@ -126,7 +126,6 @@ struct SynthGowinPass : public ScriptPass
 				json_file = args[++argidx];
 				nobram = true;
 				nolutram = true;
-				noalu = true;
 				continue;
 			}
 			if (args[argidx] == "-run" && argidx+1 < args.size()) {
