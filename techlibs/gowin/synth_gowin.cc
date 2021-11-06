@@ -294,7 +294,7 @@ struct SynthGowinPass : public ScriptPass
 		if (check_label("vout"))
 		{
 			if (!vout_file.empty() || help_mode)
-				 run(stringf("write_verilog -decimal -attr2comment -defparam -renameprefix gen %s",
+				 run(stringf("write_verilog -simple-lhs -decimal -attr2comment -defparam -renameprefix gen %s",
 						help_mode ? "<file-name>" : vout_file.c_str()));
 			if (!json_file.empty() || help_mode)
 				 run(stringf("write_json %s",
