@@ -197,9 +197,6 @@ struct OptLutInsPass : public Pass {
 					// Pad the LUT to 1 input, adding consts from the front.
 					if (new_inputs.empty()) {
 						new_inputs.insert(new_inputs.begin(), State::S0);
-						for (auto &swz : swizzle)
-							if (swz >= 0)
-								swz++;
 					}
 				}
 				Const new_lut(0, 1 << GetSize(new_inputs));
