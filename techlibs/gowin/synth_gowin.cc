@@ -277,7 +277,8 @@ struct SynthGowinPass : public ScriptPass
 			run("opt_lut_ins -tech gowin");
 			run("setundef -undriven -params -zero");
 			run("hilomap -singleton -hicell VCC V -locell GND G");
-			run("splitnets -ports");
+			if (!vout_file.empty() || help_mode) // vendor output requires 1-bit wires
+				run("splitnets -ports");
 			run("clean");
 			run("autoname");
 		}
