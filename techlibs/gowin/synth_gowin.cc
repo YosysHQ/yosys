@@ -238,7 +238,6 @@ struct SynthGowinPass : public ScriptPass
 			run("opt -fast");
 			if (retime || help_mode)
 				run("abc -dff -D 1", "(only if -retime)");
-			run("splitnets");
 			if (!noiopads || help_mode)
 				run("iopadmap -bits -inpad IBUF O:I -outpad OBUF I:O "
 					"-toutpad $__GW_TBUF OE:I:O -tinoutpad $__GW_IOBUF OE:O:I:IO", "(unless -noiopads)");
@@ -278,6 +277,7 @@ struct SynthGowinPass : public ScriptPass
 			run("opt_lut_ins -tech gowin");
 			run("setundef -undriven -params -zero");
 			run("hilomap -singleton -hicell VCC V -locell GND G");
+			run("splitnets");
 			run("clean");
 			run("autoname");
 		}
