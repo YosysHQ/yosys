@@ -238,7 +238,6 @@ struct SynthGowinPass : public ScriptPass
 			run("opt -fast");
 			if (retime || help_mode)
 				run("abc -dff -D 1", "(only if -retime)");
-			run("splitnets");
 			if (!noiopads || help_mode)
 				run("iopadmap -bits -inpad IBUF O:I -outpad OBUF I:O "
 					"-toutpad $__GW_TBUF OE:I:O -tinoutpad $__GW_IOBUF OE:O:I:IO", "(unless -noiopads)");
@@ -278,6 +277,8 @@ struct SynthGowinPass : public ScriptPass
 			run("opt_lut_ins -tech gowin");
 			run("setundef -undriven -params -zero");
 			run("hilomap -singleton -hicell VCC V -locell GND G");
+			if (!vout_file.empty() || help_mode) // vendor output requires 1-bit wires
+				run("splitnets -ports", "(only if -vout used)");
 			run("clean");
 			run("autoname");
 		}
@@ -293,7 +294,7 @@ struct SynthGowinPass : public ScriptPass
 		if (check_label("vout"))
 		{
 			if (!vout_file.empty() || help_mode)
-				 run(stringf("write_verilog -decimal -attr2comment -defparam -renameprefix gen %s",
+				 run(stringf("write_verilog -simple-lhs -decimal -attr2comment -defparam -renameprefix gen %s",
 						help_mode ? "<file-name>" : vout_file.c_str()));
 			if (!json_file.empty() || help_mode)
 				 run(stringf("write_json %s",
