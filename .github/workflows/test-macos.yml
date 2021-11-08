@@ -8,11 +8,9 @@ jobs:
     strategy:
       matrix:
         os:
-          - { id: macos-10.15, name: Catalina }
           - { id: macos-11, name: 'Big Sur' }
         cpp_std:
           - 'c++11'
-          - 'c++14'
           - 'c++17'
       fail-fast: false
     steps:
@@ -81,11 +79,8 @@ jobs:
         os:
           - { id: macos-10.15, name: Catalina }
         cpp_std:
-          - 'c++11'
-          - 'c++14'
           - 'c++17'
         compiler:
-          - gcc@10
           - gcc
       fail-fast: false
     steps:
