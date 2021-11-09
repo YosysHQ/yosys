@@ -558,9 +558,10 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("map_cells")) {
-			// Needs to be done before logic optimization, so that inverters (OE vs T) are handled.
+			// Needs to be done before logic optimization, so that inverters (inserted
+			// here because of negative-polarity output enable) are handled.
 			if (help_mode || !noiopad)
-				run("iopadmap -bits -outpad OBUF I:O -inpad IBUF O:I -toutpad $__XILINX_TOUTPAD OE:I:O -tinoutpad $__XILINX_TINOUTPAD OE:O:I:IO A:top", "(skip if '-noiopad')");
+				run("iopadmap -bits -outpad OBUF I:O -inpad IBUF O:I -toutpad OBUFT ~T:I:O -tinoutpad IOBUF ~T:O:I:IO A:top", "(skip if '-noiopad')");
 			std::string techmap_args = "-map +/techmap.v -map +/xilinx/cells_map.v";
 			if (widemux > 0)
 				techmap_args += stringf(" -D MIN_MUX_INPUTS=%d", widemux);

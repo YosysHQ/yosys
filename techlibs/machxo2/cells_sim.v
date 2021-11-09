@@ -207,6 +207,6 @@ module  \$__FACADE_OUTPAD (input I, output O); endmodule
 (* blackbox *)
 module  \$__FACADE_INPAD (input I, output O); endmodule
 (* blackbox *)
-module  \$__FACADE_TOUTPAD (input I, OE, output O); endmodule
+module  \$__FACADE_TOUTPAD (input I, T, output O); endmodule
 (* blackbox *)
-module  \$__FACADE_TINOUTPAD (input I, OE, output O, inout B); endmodule
+module  \$__FACADE_TINOUTPAD (input I, T, output O, inout B); endmodule
