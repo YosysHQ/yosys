@@ -333,7 +333,7 @@ struct SynthNexusPass : public ScriptPass
 			else
 				run("techmap -map +/techmap.v -map +/nexus/arith_map.v");
 			if (help_mode || !noiopad)
-				run("iopadmap -bits -outpad OB I:O -inpad IB O:I -toutpad $__NX_TOUTPAD OE:I:O -tinoutpad $__NX_TINOUTPAD OE:O:I:B A:top", "(skip if '-noiopad')");
+				run("iopadmap -bits -outpad OB I:O -inpad IB O:I -toutpad OBZ ~T:I:O -tinoutpad BB ~T:O:I:B A:top", "(skip if '-noiopad')");
 			run("opt -fast");
 			if (retime || help_mode)
 				run("abc -dff -D 1", "(only if -retime)");

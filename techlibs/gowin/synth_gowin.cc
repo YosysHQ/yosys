@@ -240,7 +240,7 @@ struct SynthGowinPass : public ScriptPass
 				run("abc -dff -D 1", "(only if -retime)");
 			if (!noiopads || help_mode)
 				run("iopadmap -bits -inpad IBUF O:I -outpad OBUF I:O "
-					"-toutpad $__GW_TBUF OE:I:O -tinoutpad $__GW_IOBUF OE:O:I:IO", "(unless -noiopads)");
+					"-toutpad TBUF ~OEN:I:O -tinoutpad IOBUF ~OEN:O:I:IO", "(unless -noiopads)");
 		}
 
 		if (check_label("map_ffs"))
