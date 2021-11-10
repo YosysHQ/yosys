@@ -152,7 +152,7 @@ struct IopadmapPass : public Pass {
 				split_portname_pair(tinoutpad_portname_oe, tinoutpad_portname_o);
 				split_portname_pair(tinoutpad_portname_o, tinoutpad_portname_i);
 				split_portname_pair(tinoutpad_portname_i, tinoutpad_portname_pad);
-				if (toutpad_portname_oe[0] == '~') {
+				if (tinoutpad_portname_oe[0] == '~') {
 					tinoutpad_neg_oe = true;
 					tinoutpad_portname_oe = tinoutpad_portname_oe.substr(1);
 				}
