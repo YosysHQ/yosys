@@ -274,7 +274,6 @@ struct SynthGateMatePass : public ScriptPass
 				"-toutpad CC_TOBUF ~T:A:O "
 				"-tinoutpad CC_IOBUF ~T:Y:A:IO"
 			);
-			run("techmap -map +/gatemate/iob_map.v");
 			run("clean");
 		}
 
