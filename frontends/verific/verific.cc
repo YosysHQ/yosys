@@ -1143,7 +1143,6 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 			module->memories[memory->name] = memory;
 
 			int number_of_bits = net->Size();
-			number_of_bits = 1 << ceil_log2(number_of_bits);
 			int bits_in_word = number_of_bits;
 			FOREACH_PORTREF_OF_NET(net, si, pr) {
 				if (pr->GetInst()->Type() == OPER_READ_PORT) {
