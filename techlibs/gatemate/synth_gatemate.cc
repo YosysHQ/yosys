@@ -271,8 +271,8 @@ struct SynthGateMatePass : public ScriptPass
 			run("iopadmap -bits "
 				"-inpad CC_IBUF Y:I "
 				"-outpad CC_OBUF A:O "
-				"-toutpad $__toutpad OE:A:O "
-				"-tinoutpad $__tinoutpad OE:Y:A:IO"
+				"-toutpad CC_TOBUF ~T:A:O "
+				"-tinoutpad CC_IOBUF ~T:Y:A:IO"
 			);
 			run("techmap -map +/gatemate/iob_map.v");
 			run("clean");
