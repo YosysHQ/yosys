@@ -666,41 +666,11 @@ module CC_BRAM_20K (
 	generate
 		if (RAM_MODE == "SDP") begin
 			// Port A (write)
-			if (A_WR_WIDTH <= 1) begin
-				assign addra = A_ADDR[15:7] + (A_ADDR[15:7]/4);
-			end
-			else if (A_WR_WIDTH <= 2) begin
-				assign addra = A_ADDR[15:7]*2 + (A_ADDR[15:7]/2);
-			end
-			else if (A_WR_WIDTH <= 5) begin
-				assign addra = A_ADDR[15:7]*5;
-			end
-			else if (A_WR_WIDTH <= 10) begin
-				assign addra = A_ADDR[15:7]*10;
-			end
-			else if (A_WR_WIDTH <= 20) begin
-				assign addra = A_ADDR[15:7]*20;
-			end
-			else if (A_WR_WIDTH <= 40) begin
+			if (A_WR_WIDTH == 40) begin
 				assign addra = A_ADDR[15:7]*40;
 			end
 			// Port B (read)
-			if (B_RD_WIDTH <= 1) begin
-				assign addrb = B_ADDR[15:7] + (B_ADDR[15:7]/4);
-			end
-			else if (B_RD_WIDTH <= 2) begin
-				assign addrb = B_ADDR[15:7]*2 + (B_ADDR[15:7]/2);
-			end
-			else if (B_RD_WIDTH <= 5) begin
-				assign addrb = B_ADDR[15:7]*5;
-			end
-			else if (B_RD_WIDTH <= 10) begin
-				assign addrb = B_ADDR[15:7]*10;
-			end
-			else if (B_RD_WIDTH <= 20) begin
-				assign addrb = B_ADDR[15:7]*20;
-			end
-			else if (B_RD_WIDTH <= 40) begin
+			if (B_RD_WIDTH == 40) begin
 				assign addrb = B_ADDR[15:7]*40;
 			end
 		end
@@ -849,8 +819,8 @@ module CC_BRAM_40K (
 	output B_ECC_1B_ERR,
 	output A_ECC_2B_ERR,
 	output B_ECC_2B_ERR,
-	output A_CO,
-	output B_CO,
+	output reg A_CO = 0,
+	output reg B_CO = 0,
 	(* clkbuf_sink *)
 	input A_CLK,
 	(* clkbuf_sink *)
@@ -1065,6 +1035,14 @@ module CC_BRAM_40K (
 			$display("ERROR: Port B width of 80 bits is only supported in SDP mode.");
 			$finish();
 		end
+		if (((CAS == "UPPER") || (CAS == "LOWER")) && (WIDTH_MODE_A > 1)) begin
+			$display("ERROR: Port A cascade mode only supported in 1 bit mode.");
+			$finish();
+		end
+		if (((CAS == "UPPER") || (CAS == "LOWER")) && (WIDTH_MODE_B > 1)) begin
+			$display("ERROR: Port B cascade mode only supported in 1 bit mode.");
+			$finish();
+		end
 		if ((WIDTH_MODE_A != 80) && (WIDTH_MODE_A != 40) && (WIDTH_MODE_A != 20) && (WIDTH_MODE_A != 10) &&
 			(WIDTH_MODE_A != 5)  && (WIDTH_MODE_A != 2)  && (WIDTH_MODE_A != 1) && (WIDTH_MODE_A != 0)) begin
 			$display("ERROR: Illegal %s Port A width configuration %d.", RAM_MODE, WIDTH_MODE_A);
@@ -1073,10 +1051,6 @@ module CC_BRAM_40K (
 		if ((WIDTH_MODE_B != 80) && (WIDTH_MODE_B != 40) && (WIDTH_MODE_B != 20) && (WIDTH_MODE_B != 10) &&
 			(WIDTH_MODE_B != 5)  && (WIDTH_MODE_B != 2)  && (WIDTH_MODE_B != 1) && (WIDTH_MODE_B != 0)) begin
 			$display("ERROR: Illegal %s Port B width configuration %d.", RAM_MODE, WIDTH_MODE_B);
-			$finish();
-		end
-		if (CAS != "NONE") begin
-			$display("WARNING: Cascade simulation model not yet supported.");
 			$finish();
 		end
 		if ((CAS != "NONE") && ((WIDTH_MODE_A > 1) || (WIDTH_MODE_B > 1))) begin
@@ -1235,47 +1209,11 @@ module CC_BRAM_40K (
 	generate
 		if (RAM_MODE == "SDP") begin
 			// Port A (write)
-			if (A_WR_WIDTH <= 1) begin
-				assign addra = A_ADDR[15:7] + (A_ADDR[15:7]/4);
-			end
-			else if (A_WR_WIDTH <= 2) begin
-				assign addra = A_ADDR[15:7]*2 + (A_ADDR[15:7]/2);
-			end
-			else if (A_WR_WIDTH <= 5) begin
-				assign addra = A_ADDR[15:7]*5;
-			end
-			else if (A_WR_WIDTH <= 10) begin
-				assign addra = A_ADDR[15:7]*10;
-			end
-			else if (A_WR_WIDTH <= 20) begin
-				assign addra = A_ADDR[15:7]*20;
-			end
-			else if (A_WR_WIDTH <= 40) begin
-				assign addra = A_ADDR[15:7]*40;
-			end
-			else if (A_WR_WIDTH <= 80) begin
+			 if (A_WR_WIDTH == 80) begin
 				assign addra = A_ADDR[15:7]*80;
 			end
 			// Port B (read)
-			if (B_RD_WIDTH <= 1) begin
-				assign addrb = B_ADDR[15:7] + (B_ADDR[15:7]/4);
-			end
-			else if (B_RD_WIDTH <= 2) begin
-				assign addrb = B_ADDR[15:7]*2 + (B_ADDR[15:7]/2);
-			end
-			else if (B_RD_WIDTH <= 5) begin
-				assign addrb = B_ADDR[15:7]*5;
-			end
-			else if (B_RD_WIDTH <= 10) begin
-				assign addrb = B_ADDR[15:7]*10;
-			end
-			else if (B_RD_WIDTH <= 20) begin
-				assign addrb = B_ADDR[15:7]*20;
-			end
-			else if (B_RD_WIDTH <= 40) begin
-				assign addrb = B_ADDR[15:7]*40;
-			end
-			else if (B_RD_WIDTH <= 80) begin
+			if (B_RD_WIDTH == 80) begin
 				assign addrb = B_ADDR[15:7]*80;
 			end
 		end
@@ -1354,22 +1292,66 @@ module CC_BRAM_40K (
 			end
 		end
 		else if (RAM_MODE == "TDP") begin
+			// {A,B}_ADDR[0]=0 selects lower, {A,B}_ADDR[0]=1 selects upper cascade memory
+			wire upper_sel_a = ((CAS == "UPPER") && (A_ADDR[0] == 1));
+			wire lower_sel_a = ((CAS == "LOWER") && (A_ADDR[0] == 0));
+			wire upper_sel_b = ((CAS == "UPPER") && (B_ADDR[0] == 1));
+			wire lower_sel_b = ((CAS == "LOWER") && (B_ADDR[0] == 0));
+
+			reg dumm;
+
+			// Cascade output port A
+			always @(*)
+			begin
+				if ((A_WR_MODE == "NO_CHANGE") && lower_sel_a) begin
+					A_CO = memory[addra];
+				end
+				else if ((A_WR_MODE == "WRITE_THROUGH") && lower_sel_a) begin
+					A_CO = ((wea && A_BM[0]) ? (A_DI[0]) : (memory[addra]));
+				end
+			end
+
+			// Cascade output port B
+			always @(*)
+			begin
+				if ((B_WR_MODE == "NO_CHANGE") && lower_sel_b) begin
+					B_CO = memory[addrb];
+				end
+				else if ((B_WR_MODE == "WRITE_THROUGH") && lower_sel_b) begin
+					B_CO = ((web && B_BM[0]) ? (B_DI[0]) : (memory[addrb]));
+				end
+			end
+
 			// TDP port A
 			always @(posedge clka)
 			begin
 				for (i=0; i < WIDTH_MODE_A; i=i+1) begin
-					if (ena && wea && A_BM[i]) memory[addra+i] <= A_DI[i];
+					if (upper_sel_a || lower_sel_a || (CAS == "NONE")) begin
+						if (ena && wea && A_BM[i])
+							memory[addra+i] <= A_DI[i];
+					end
 
 					if (A_WR_MODE == "NO_CHANGE") begin
-						if (ena && !wea) A_DO_out[i] <= memory[addra+i];
+						if (ena && !wea) begin
+							if (CAS == "UPPER") begin
+								A_DO_out[i] <= ((A_ADDR[0] == 1) ? (memory[addra+i]) : (A_CI));
+							end
+							else if (CAS == "NONE") begin
+								A_DO_out[i] <= memory[addra+i];
+							end
+						end
 					end
 					else if (A_WR_MODE == "WRITE_THROUGH") begin
 						if (ena) begin
-							if (wea && A_BM[i]) begin
-								A_DO_out[i] <= A_DI[i];
+							if (CAS == "UPPER") begin
+								if (A_ADDR[0] == 1) begin
+									A_DO_out[i] <= ((wea && A_BM[i]) ? (A_DI[i]) : (memory[addra+i]));
+								end else begin
+									A_DO_out[i] <= A_CI;
+								end
 							end
-							else begin
-								A_DO_out[i] <= memory[addra+i];
+							else if (CAS == "NONE") begin
+								A_DO_out[i] <= ((wea && A_BM[i]) ? (A_DI[i]) : (memory[addra+i]));
 							end
 						end
 					end
@@ -1379,18 +1361,32 @@ module CC_BRAM_40K (
 			always @(posedge clkb)
 			begin
 				for (i=0; i < WIDTH_MODE_B; i=i+1) begin
-					if (enb && web && B_BM[i]) memory[addrb+i] <= B_DI[i];
+					if (upper_sel_b || lower_sel_b || (CAS == "NONE")) begin
+						if (enb && web && B_BM[i])
+							memory[addrb+i] <= B_DI[i];
+					end
 
 					if (B_WR_MODE == "NO_CHANGE") begin
-						if (enb && !web) B_DO_out[i] <= memory[addrb+i];
+						if (enb && !web) begin
+							if (CAS == "UPPER") begin
+								B_DO_out[i] <= ((B_ADDR[0] == 1) ? (memory[addrb+i]) : (B_CI));
+							end
+							else if (CAS == "NONE") begin
+								B_DO_out[i] <= memory[addrb+i];
+							end
+						end
 					end
 					else if (B_WR_MODE == "WRITE_THROUGH") begin
 						if (enb) begin
-							if (web && B_BM[i]) begin
-								B_DO_out[i] <= B_DI[i];
+							if (CAS == "UPPER") begin
+								if (B_ADDR[0] == 1) begin
+									B_DO_out[i] <= ((web && B_BM[i]) ? (B_DI[i]) : (memory[addrb+i]));
+								end else begin
+									B_DO_out[i] <= B_CI;
+								end
 							end
-							else begin
-								B_DO_out[i] <= memory[addrb+i];
+							else if (CAS == "NONE") begin
+								B_DO_out[i] <= ((web && B_BM[i]) ? (B_DI[i]) : (memory[addrb+i]));
 							end
 						end
 					end
@@ -1419,5 +1415,5 @@ module CC_BRAM_40K (
 		else begin
 			assign B_DO = B_DO_out;
 		end
-   endgenerate
+	endgenerate
 endmodule

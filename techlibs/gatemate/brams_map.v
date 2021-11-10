@@ -50,19 +50,13 @@ module \$__CC_BRAM_20K_SDP (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1
 	wire [15:0] ADDRA = {A1ADDR, 7'b0};
 	wire [15:0] ADDRB = {B1ADDR, 7'b0};
 
-	localparam INIT_CHUNK_SIZE = (CFG_DBITS <= 2) ? 256 : 320;
+	localparam INIT_CHUNK_SIZE = 320;
 
 	function [319:0] permute_init;
 		input [INIT_CHUNK_SIZE-1:0] chunk;
 		integer i;
 		begin
-			if (CFG_DBITS <= 2) begin
-				for (i = 0; i < 64; i = i + 1) begin
-					permute_init[i * 5 +: 5] = {1'b0, chunk[i * 4 +: 4]};
-				end
-			end else begin
-				permute_init = chunk;
-			end
+			permute_init = chunk;
 		end
 	endfunction
 
@@ -133,19 +127,13 @@ module \$__CC_BRAM_40K_SDP (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1
 	wire [15:0] ADDRA = {A1ADDR, 7'b0};
 	wire [15:0] ADDRB = {B1ADDR, 7'b0};
 
-	localparam INIT_CHUNK_SIZE = (CFG_DBITS <= 2) ? 256 : 320;
+	localparam INIT_CHUNK_SIZE = 320;
 
 	function [319:0] permute_init;
 		input [INIT_CHUNK_SIZE-1:0] chunk;
 		integer i;
 		begin
-			if (CFG_DBITS <= 2) begin
-				for (i = 0; i < 64; i = i + 1) begin
-					permute_init[i * 5 +: 5] = {1'b0, chunk[i * 4 +: 4]};
-				end
-			end else begin
-				permute_init = chunk;
-			end
+			permute_init = chunk;
 		end
 	endfunction
 
@@ -173,7 +161,7 @@ module \$__CC_BRAM_40K_SDP (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1
 		.B_ECC_2B_ERR(B_ECC_2B_ERR),
 		.A_CLK(CLK2),
 		.B_CLK(CLK3),
-		.A_EN(|A1EN),
+		.A_EN(1'b1),
 		.B_EN(B1EN),
 		.A_WE(|A1EN),
 		.B_WE(1'b0),
@@ -440,7 +428,7 @@ module \$__CC_BRAM_CASCADE (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1
 	wire A_CAS, B_CAS;
 
 	// unconnected signals
-	wire [39:0] A_UP_DO, A_LO_DO, B_LO_DO;
+	wire [39:0] A_UP_DO;
 	wire A_ECC_1B_ERR, B_ECC_1B_ERR, A_ECC_2B_ERR, B_ECC_2B_ERR;
 
 	localparam INIT_CHUNK_SIZE = 256;
@@ -462,7 +450,7 @@ module \$__CC_BRAM_CASCADE (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1
 			`undef INIT_UPPER
 			.LOC("UNPLACED"),
 			.CAS("UPPER"),
-			.A_RD_WIDTH(0), .B_RD_WIDTH(CFG_DBITS),
+			.A_RD_WIDTH(CFG_DBITS), .B_RD_WIDTH(0),
 			.A_WR_WIDTH(CFG_DBITS), .B_WR_WIDTH(0),
 			.RAM_MODE("TDP"),
 			.A_WR_MODE("NO_CHANGE"), .B_WR_MODE("NO_CHANGE"),
@@ -474,8 +462,8 @@ module \$__CC_BRAM_CASCADE (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1
 		) upper_cell (
 			.A_CI(A_CAS),
 			.B_CI(B_CAS),
-			.A_DO(A_UP_DO),
-			.B_DO(B1DATA),
+			.A_DO(B1DATA),
+			.B_DO(A_UP_DO),
 			.A_ECC_1B_ERR(A_ECC_1B_ERR),
 			.B_ECC_1B_ERR(B_ECC_1B_ERR),
 			.A_ECC_2B_ERR(A_ECC_2B_ERR),
@@ -500,7 +488,7 @@ module \$__CC_BRAM_CASCADE (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1
 			`undef INIT_LOWER
 			.LOC("UNPLACED"),
 			.CAS("LOWER"),
-			.A_RD_WIDTH(0), .B_RD_WIDTH(CFG_DBITS),
+			.A_RD_WIDTH(CFG_DBITS), .B_RD_WIDTH(0),
 			.A_WR_WIDTH(CFG_DBITS), .B_WR_WIDTH(0),
 			.RAM_MODE("TDP"),
 			.A_WR_MODE("NO_CHANGE"), .B_WR_MODE("NO_CHANGE"),
@@ -510,7 +498,7 @@ module \$__CC_BRAM_CASCADE (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1
 			.A_DO_REG(1'b0), .B_DO_REG(1'b0),
 			.A_ECC_EN(1'b0), .B_ECC_EN(1'b0)
 		) lower_cell (
-			.A_CI(1'b1),
+			.A_CI(),
 			.B_CI(),
 			.A_CO(A_CAS),
 			.B_CO(B_CAS),
