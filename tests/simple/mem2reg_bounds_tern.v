@@ -1,4 +1,4 @@
-module top(
+module mem2reg_bounds_term_top(
     input clk,
     input wire [1:0] sel,
     input wire [7:0] base,

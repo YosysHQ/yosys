@@ -1,6 +1,6 @@
 `default_nettype none
 
-module top1;
+module genblock_collide_top1;
 	generate
 		if (1) begin : foo
 			if (1) begin : bar
@@ -12,7 +12,7 @@ module top1;
 	endgenerate
 endmodule
 
-module top2;
+module genblock_collide_top2;
 	genvar i;
 	generate
 		if (1) begin : foo

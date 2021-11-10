@@ -45,7 +45,7 @@ select -assert-none t:$_DLATCH_PP0_ t:$_MUX_ t:$_NOT_ top/* %% %n t:* %i
 design -load orig
 dfflegalize -cell $_DLATCH_PP0_ 1
 
-select -assert-count 16 adlatch0/t:$_NOT_
+select -assert-count 13 adlatch0/t:$_NOT_
 select -assert-count 8 adlatch1/t:$_NOT_
 select -assert-count 3 adlatch0/t:$_MUX_
 select -assert-count 0 adlatch1/t:$_MUX_
@@ -68,7 +68,7 @@ design -load orig
 dfflegalize -cell $_DLATCH_PP1_ 1
 
 select -assert-count 8 adlatch0/t:$_NOT_
-select -assert-count 16 adlatch1/t:$_NOT_
+select -assert-count 13 adlatch1/t:$_NOT_
 select -assert-count 0 adlatch0/t:$_MUX_
 select -assert-count 3 adlatch1/t:$_MUX_
 select -assert-count 3 adlatch0/t:$_DLATCH_PP1_

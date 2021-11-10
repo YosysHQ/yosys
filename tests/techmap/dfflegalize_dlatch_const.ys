@@ -24,14 +24,14 @@ equiv_opt -assert -multiclock dfflegalize -cell $_DFFSRE_PPPP_ 1
 design -load orig
 dfflegalize -cell $_DFF_PP0_ 01
 
-select -assert-count 12 t:$_NOT_
+select -assert-count 8 t:$_NOT_
 select -assert-count 8 t:$_DFF_PP0_
 select -assert-none t:$_DFF_PP0_ t:$_NOT_ %% %n t:* %i
 
 design -load orig
 dfflegalize -cell $_DFF_PP?_ 0
 
-select -assert-count 12 t:$_NOT_
+select -assert-count 8 t:$_NOT_
 select -assert-count 4 t:$_DFF_PP0_
 select -assert-count 4 t:$_DFF_PP1_
 select -assert-none t:$_DFF_PP0_ t:$_DFF_PP1_ t:$_NOT_ %% %n t:* %i
@@ -41,13 +41,13 @@ select -assert-none t:$_DFF_PP0_ t:$_DFF_PP1_ t:$_NOT_ %% %n t:* %i
 design -load orig
 dfflegalize -cell $_DFFSRE_PPPP_ 0
 
-select -assert-count 12 t:$_NOT_
+select -assert-count 8 t:$_NOT_
 select -assert-count 8 t:$_DFFSRE_PPPP_
 select -assert-none t:$_DFFSRE_PPPP_ t:$_NOT_ %% %n t:* %i
 
 design -load orig
 dfflegalize -cell $_DFFSRE_PPPP_ 1
 
-select -assert-count 12 t:$_NOT_
+select -assert-count 8 t:$_NOT_
 select -assert-count 8 t:$_DFFSRE_PPPP_
 select -assert-none t:$_DFFSRE_PPPP_ t:$_NOT_ %% %n t:* %i

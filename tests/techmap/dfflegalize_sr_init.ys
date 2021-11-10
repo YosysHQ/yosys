@@ -12,7 +12,7 @@ $_SR_PN_ ff1 (.R(R), .S(S), .Q(Q[1]));
 $_SR_NP_ ff2 (.R(R), .S(S), .Q(Q[2]));
 endmodule
 
-module top(input C, E, R, D, output [5:0] Q);
+module top(input R, S, output [5:0] Q);
 sr0 sr0_(.S(S), .R(R), .Q(Q[2:0]));
 sr1 sr1_(.S(S), .R(R), .Q(Q[5:3]));
 endmodule
@@ -103,8 +103,8 @@ select -assert-none t:$_DLATCH_PP0_ t:$_NOT_ t:$_ANDNOT_ t:$_OR_ t:$_AND_ top/* 
 design -load orig
 dfflegalize -cell $_DLATCH_PP1_ 0
 
-select -assert-count 11 sr0/t:$_NOT_
-select -assert-count 8 sr1/t:$_NOT_
+select -assert-count 8 sr0/t:$_NOT_
+select -assert-count 5 sr1/t:$_NOT_
 select -assert-count 3 sr0/t:$_DLATCH_PP1_
 select -assert-count 3 sr1/t:$_DLATCH_PP1_
 select -assert-count 1 sr0/t:$_ANDNOT_
@@ -118,8 +118,8 @@ select -assert-none t:$_DLATCH_PP1_ t:$_NOT_ t:$_ANDNOT_ t:$_OR_ t:$_AND_ top/* 
 design -load orig
 dfflegalize -cell $_DLATCH_PP1_ 1
 
-select -assert-count 8 sr0/t:$_NOT_
-select -assert-count 11 sr1/t:$_NOT_
+select -assert-count 5 sr0/t:$_NOT_
+select -assert-count 8 sr1/t:$_NOT_
 select -assert-count 3 sr0/t:$_DLATCH_PP1_
 select -assert-count 3 sr1/t:$_DLATCH_PP1_
 select -assert-count 0 sr0/t:$_ANDNOT_

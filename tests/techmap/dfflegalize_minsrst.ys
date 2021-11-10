@@ -23,9 +23,9 @@ design -load postopt
 
 select -assert-count 5 t:$_SDFF_PP0_
 select -assert-count 1 t:$_SDFF_PP1_
-select -assert-count 3 t:$_SDFFE_PP0P_
+select -assert-count 1 t:$_SDFFE_PP0P_
 select -assert-count 1 t:$_SDFFE_PP1P_
-select -assert-count 1 t:$_SDFFCE_PP0P_
+select -assert-count 3 t:$_SDFFCE_PP0P_
 select -assert-count 1 t:$_SDFFCE_PP1P_
 select -assert-count 8 t:$_MUX_
 select -assert-count 0 n:ff0 %ci %ci t:$_MUX_ %i

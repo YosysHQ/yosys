@@ -1,4 +1,4 @@
-module top(
+module macro_arg_spaces_top(
 	input wire [31:0] i,
 	output wire [31:0] x, y, z
 );

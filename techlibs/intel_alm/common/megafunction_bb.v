@@ -697,3 +697,21 @@ output outclk;
 
 endmodule
 
+// Internal interfaces
+(* keep *)
+module cyclonev_oscillator(oscena, clkout, clkout1);
+
+input oscena;
+output clkout;
+output clkout1;
+
+endmodule
+
+// HPS interfaces
+(* keep *)
+module cyclonev_hps_interface_mpu_general_purpose(gp_in, gp_out);
+
+input [31:0] gp_in;
+output [31:0] gp_out;
+
+endmodule

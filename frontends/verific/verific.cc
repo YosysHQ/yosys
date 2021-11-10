@@ -43,12 +43,15 @@ USING_YOSYS_NAMESPACE
 #endif
 
 #include "veri_file.h"
-#include "vhdl_file.h"
 #include "hier_tree.h"
 #include "VeriModule.h"
 #include "VeriWrite.h"
-#include "VhdlUnits.h"
 #include "VeriLibrary.h"
+
+#ifdef VERIFIC_VHDL_SUPPORT
+#include "vhdl_file.h"
+#include "VhdlUnits.h"
+#endif
 
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 #include "InitialAssertions.h"
@@ -175,8 +178,10 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 			return;
 		if (!type_range->IsTypeEnum())
 			return;
+#ifdef VERIFIC_VHDL_SUPPORT
 		if (nl->IsFromVhdl() && strcmp(type_range->GetTypeName(), "STD_LOGIC") == 0)
 			return;
+#endif
 		auto type_name = type_range->GetTypeName();
 		if (!type_name)
 			return;
@@ -202,6 +207,7 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 					log_error("Expected TypeRange value '%s' to be of form <decimal>'b<binary>.\n", v);
 				attributes.emplace(stringf("\\enum_value_%s", p+2), RTLIL::escape_id(k));
 			}
+#ifdef VERIFIC_VHDL_SUPPORT
 			else if (nl->IsFromVhdl()) {
 				// Expect "<binary>" or plain <binary>
 				auto p = v;
@@ -237,6 +243,7 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 				if (p == nullptr)
 					log_error("Expected TypeRange value '%s' to be of form \"<binary>\" or <binary>.\n", v);
 			}
+#endif
 		}
 	}
 }
@@ -371,7 +378,7 @@ bool VerificImporter::import_netlist_instance_gates(Instance *inst, RTLIL::IdStr
 		return true;
 	}
 
-	if (inst->Type() == PRIM_TRI) {
+	if ((inst->Type() == PRIM_TRI) || (inst->Type() == PRIM_BUFIF1)) {
 		module->addMuxGate(inst_name, RTLIL::State::Sz, net_map_at(inst->GetInput()), net_map_at(inst->GetControl()), net_map_at(inst->GetOutput()));
 		return true;
 	}
@@ -407,6 +414,42 @@ bool VerificImporter::import_netlist_instance_gates(Instance *inst, RTLIL::IdStr
 		else
 			clocking.addDffsr(inst_name, net_map_at(inst->GetSet()), net_map_at(inst->GetReset()),
 					net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
+		return true;
+	}
+
+	if (inst->Type() == PRIM_DLATCHRS)
+	{
+		if (inst->GetSet()->IsGnd() && inst->GetReset()->IsGnd())
+			module->addDlatch(inst_name, net_map_at(inst->GetControl()), net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
+		else
+			module->addDlatchsr(inst_name, net_map_at(inst->GetControl()), net_map_at(inst->GetSet()), net_map_at(inst->GetReset()),
+					net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
+		return true;
+	}
+
+	if (inst->Type() == PRIM_DFF)
+	{
+		VerificClocking clocking(this, inst->GetClock());
+		log_assert(clocking.disable_sig == State::S0);
+		log_assert(clocking.body_net == nullptr);
+
+		if (inst->GetAsyncCond()->IsGnd())
+			clocking.addDff(inst_name, net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
+		else
+			clocking.addAldff(inst_name, net_map_at(inst->GetAsyncCond()), net_map_at(inst->GetAsyncVal()),
+					net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
+		return true;
+	}
+
+	if (inst->Type() == PRIM_DLATCH)
+	{
+		if (inst->GetAsyncCond()->IsGnd()) {
+			module->addDlatch(inst_name, net_map_at(inst->GetControl()), net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
+		} else {
+			RTLIL::SigSpec sig_set = module->And(NEW_ID, net_map_at(inst->GetAsyncCond()), net_map_at(inst->GetAsyncVal()));
+			RTLIL::SigSpec sig_clr = module->And(NEW_ID, net_map_at(inst->GetAsyncCond()), module->Not(NEW_ID, net_map_at(inst->GetAsyncVal())));
+			module->addDlatchsr(inst_name, net_map_at(inst->GetControl()), sig_set, sig_clr, net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
+		}
 		return true;
 	}
 
@@ -471,7 +514,7 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		return true;
 	}
 
-	if (inst->Type() == PRIM_TRI) {
+	if ((inst->Type() == PRIM_TRI) || (inst->Type() == PRIM_BUFIF1)) {
 		cell = module->addMux(inst_name, RTLIL::State::Sz, net_map_at(inst->GetInput()), net_map_at(inst->GetControl()), net_map_at(inst->GetOutput()));
 		import_attributes(cell->attributes, inst);
 		return true;
@@ -516,6 +559,34 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		else
 			cell = module->addDlatchsr(inst_name, net_map_at(inst->GetControl()), net_map_at(inst->GetSet()), net_map_at(inst->GetReset()),
 					net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
+		import_attributes(cell->attributes, inst);
+		return true;
+	}
+
+	if (inst->Type() == PRIM_DFF)
+	{
+		VerificClocking clocking(this, inst->GetClock());
+		log_assert(clocking.disable_sig == State::S0);
+		log_assert(clocking.body_net == nullptr);
+
+		if (inst->GetAsyncCond()->IsGnd())
+			cell = clocking.addDff(inst_name, net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
+		else
+			cell = clocking.addAldff(inst_name, net_map_at(inst->GetAsyncCond()), net_map_at(inst->GetAsyncVal()),
+					net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
+		import_attributes(cell->attributes, inst);
+		return true;
+	}
+
+	if (inst->Type() == PRIM_DLATCH)
+	{
+		if (inst->GetAsyncCond()->IsGnd()) {
+			cell = module->addDlatch(inst_name, net_map_at(inst->GetControl()), net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
+		} else {
+			RTLIL::SigSpec sig_set = module->And(NEW_ID, net_map_at(inst->GetAsyncCond()), net_map_at(inst->GetAsyncVal()));
+			RTLIL::SigSpec sig_clr = module->And(NEW_ID, net_map_at(inst->GetAsyncCond()), module->Not(NEW_ID, net_map_at(inst->GetAsyncVal())));
+			cell = module->addDlatchsr(inst_name, net_map_at(inst->GetControl()), sig_set, sig_clr, net_map_at(inst->GetInput()), net_map_at(inst->GetOutput()));
+		}
 		import_attributes(cell->attributes, inst);
 		return true;
 	}
@@ -792,6 +863,74 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		return true;
 	}
 
+	if (inst->Type() == OPER_WIDE_DLATCHRS)
+	{
+		RTLIL::SigSpec sig_set = operatorInport(inst, "set");
+		RTLIL::SigSpec sig_reset = operatorInport(inst, "reset");
+
+		if (sig_set.is_fully_const() && !sig_set.as_bool() && sig_reset.is_fully_const() && !sig_reset.as_bool())
+			cell = module->addDlatch(inst_name, net_map_at(inst->GetControl()), IN, OUT);
+		else
+			cell = module->addDlatchsr(inst_name, net_map_at(inst->GetControl()), sig_set, sig_reset, IN, OUT);
+		import_attributes(cell->attributes, inst);
+
+		return true;
+	}
+
+	if (inst->Type() == OPER_WIDE_DFF)
+	{
+		VerificClocking clocking(this, inst->GetClock());
+		log_assert(clocking.disable_sig == State::S0);
+		log_assert(clocking.body_net == nullptr);
+
+		RTLIL::SigSpec sig_d = IN;
+		RTLIL::SigSpec sig_q = OUT;
+		RTLIL::SigSpec sig_adata = IN1;
+		RTLIL::SigSpec sig_acond = IN2;
+
+		if (sig_acond.is_fully_const() && !sig_acond.as_bool()) {
+			cell = clocking.addDff(inst_name, sig_d, sig_q);
+			import_attributes(cell->attributes, inst);
+		} else {
+			int offset = 0, width = 0;
+			for (offset = 0; offset < GetSize(sig_acond); offset += width) {
+				for (width = 1; offset+width < GetSize(sig_acond); width++)
+					if (sig_acond[offset] != sig_acond[offset+width]) break;
+				cell = clocking.addAldff(inst_name, sig_acond[offset], sig_adata.extract(offset, width),
+						sig_d.extract(offset, width), sig_q.extract(offset, width));
+				import_attributes(cell->attributes, inst);
+			}
+		}
+
+		return true;
+	}
+
+	if (inst->Type() == OPER_WIDE_DLATCH)
+	{
+		RTLIL::SigSpec sig_d = IN;
+		RTLIL::SigSpec sig_q = OUT;
+		RTLIL::SigSpec sig_adata = IN1;
+		RTLIL::SigSpec sig_acond = IN2;
+
+		if (sig_acond.is_fully_const() && !sig_acond.as_bool()) {
+			cell = module->addDlatch(inst_name, net_map_at(inst->GetControl()), sig_d, sig_q);
+			import_attributes(cell->attributes, inst);
+		} else {
+			int offset = 0, width = 0;
+			for (offset = 0; offset < GetSize(sig_acond); offset += width) {
+				for (width = 1; offset+width < GetSize(sig_acond); width++)
+					if (sig_acond[offset] != sig_acond[offset+width]) break;
+				RTLIL::SigSpec sig_set = module->Mux(NEW_ID, RTLIL::SigSpec(0, width), sig_adata.extract(offset, width), sig_acond[offset]);
+				RTLIL::SigSpec sig_clr = module->Mux(NEW_ID, RTLIL::SigSpec(0, width), module->Not(NEW_ID, sig_adata.extract(offset, width)), sig_acond[offset]);
+				cell = module->addDlatchsr(inst_name, net_map_at(inst->GetControl()), sig_set, sig_clr,
+						sig_d.extract(offset, width), sig_q.extract(offset, width));
+				import_attributes(cell->attributes, inst);
+			}
+		}
+
+		return true;
+	}
+
 	#undef IN
 	#undef IN1
 	#undef IN2
@@ -917,6 +1056,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 	} else {
 		log("Importing module %s.\n", RTLIL::id2cstr(module->name));
 	}
+	import_attributes(module->attributes, nl, nl);
 
 	SetIter si;
 	MapIter mi, mi2;
@@ -1757,30 +1897,62 @@ Cell *VerificClocking::addDff(IdString name, SigSpec sig_d, SigSpec sig_q, Const
 {
 	log_assert(GetSize(sig_d) == GetSize(sig_q));
 
-	if (GetSize(init_value) != 0) {
-		log_assert(GetSize(sig_q) == GetSize(init_value));
-		if (sig_q.is_wire()) {
-			sig_q.as_wire()->attributes[ID::init] = init_value;
+	auto set_init_attribute = [&](SigSpec &s) {
+		if (GetSize(init_value) == 0)
+			return;
+		log_assert(GetSize(s) == GetSize(init_value));
+		if (s.is_wire()) {
+			s.as_wire()->attributes[ID::init] = init_value;
 		} else {
-			Wire *w = module->addWire(NEW_ID, GetSize(sig_q));
+			Wire *w = module->addWire(NEW_ID, GetSize(s));
 			w->attributes[ID::init] = init_value;
-			module->connect(sig_q, w);
-			sig_q = w;
+			module->connect(s, w);
+			s = w;
 		}
-	}
+	};
 
 	if (enable_sig != State::S1)
 		sig_d = module->Mux(NEW_ID, sig_q, sig_d, enable_sig);
 
 	if (disable_sig != State::S0) {
-		log_assert(gclk == false);
 		log_assert(GetSize(sig_q) == GetSize(init_value));
+
+		if (gclk) {
+			Wire *pre_d = module->addWire(NEW_ID, GetSize(sig_d));
+			Wire *post_q_w = module->addWire(NEW_ID, GetSize(sig_q));
+
+			Const initval(State::Sx, GetSize(sig_q));
+			int offset = 0;
+			for (auto c : sig_q.chunks()) {
+				if (c.wire && c.wire->attributes.count(ID::init)) {
+					Const val = c.wire->attributes.at(ID::init);
+					for (int i = 0; i < GetSize(c); i++)
+						initval[offset+i] = val[c.offset+i];
+				}
+				offset += GetSize(c);
+			}
+
+			if (!initval.is_fully_undef())
+				post_q_w->attributes[ID::init] = initval;
+
+			module->addMux(NEW_ID, sig_d, init_value, disable_sig, pre_d);
+			module->addMux(NEW_ID, post_q_w, init_value, disable_sig, sig_q);
+
+			SigSpec post_q(post_q_w);
+			set_init_attribute(post_q);
+			return module->addFf(name, pre_d, post_q);
+		}
+
+		set_init_attribute(sig_q);
 		return module->addAdff(name, clock_sig, disable_sig, sig_d, sig_q, init_value, posedge);
 	}
 
-	if (gclk)
+	if (gclk) {
+		set_init_attribute(sig_q);
 		return module->addFf(name, sig_d, sig_q);
+	}
 
+	set_init_attribute(sig_q);
 	return module->addDff(name, clock_sig, sig_d, sig_q, posedge);
 }
 
@@ -1789,6 +1961,7 @@ Cell *VerificClocking::addAdff(IdString name, RTLIL::SigSpec sig_arst, SigSpec s
 	log_assert(gclk == false);
 	log_assert(disable_sig == State::S0);
 
+	// FIXME: Adffe
 	if (enable_sig != State::S1)
 		sig_d = module->Mux(NEW_ID, sig_q, sig_d, enable_sig);
 
@@ -1800,10 +1973,46 @@ Cell *VerificClocking::addDffsr(IdString name, RTLIL::SigSpec sig_set, RTLIL::Si
 	log_assert(gclk == false);
 	log_assert(disable_sig == State::S0);
 
+	// FIXME: Dffsre
 	if (enable_sig != State::S1)
 		sig_d = module->Mux(NEW_ID, sig_q, sig_d, enable_sig);
 
 	return module->addDffsr(name, clock_sig, sig_set, sig_clr, sig_d, sig_q, posedge);
+}
+
+Cell *VerificClocking::addAldff(IdString name, RTLIL::SigSpec sig_aload, RTLIL::SigSpec sig_adata, SigSpec sig_d, SigSpec sig_q)
+{
+	log_assert(disable_sig == State::S0);
+
+	// FIXME: Aldffe
+	if (enable_sig != State::S1)
+		sig_d = module->Mux(NEW_ID, sig_q, sig_d, enable_sig);
+
+	if (gclk) {
+		Wire *pre_d = module->addWire(NEW_ID, GetSize(sig_d));
+		Wire *post_q = module->addWire(NEW_ID, GetSize(sig_q));
+
+		Const initval(State::Sx, GetSize(sig_q));
+		int offset = 0;
+		for (auto c : sig_q.chunks()) {
+			if (c.wire && c.wire->attributes.count(ID::init)) {
+				Const val = c.wire->attributes.at(ID::init);
+				for (int i = 0; i < GetSize(c); i++)
+					initval[offset+i] = val[c.offset+i];
+			}
+			offset += GetSize(c);
+		}
+
+		if (!initval.is_fully_undef())
+			post_q->attributes[ID::init] = initval;
+
+		module->addMux(NEW_ID, sig_d, sig_adata, sig_aload, pre_d);
+		module->addMux(NEW_ID, post_q, sig_adata, sig_aload, sig_q);
+
+		return module->addFf(name, pre_d, post_q);
+	}
+
+	return module->addAldff(name, clock_sig, sig_aload, sig_d, sig_q, sig_adata, posedge);
 }
 
 // ==================================================================
@@ -1952,11 +2161,13 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 
 	std::set<Netlist*> nl_todo, nl_done;
 
-	VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary("work", 1);
 	VeriLibrary *veri_lib = veri_file::GetLibrary("work", 1);
 	Array *netlists = NULL;
 	Array veri_libs, vhdl_libs;
+#ifdef VERIFIC_VHDL_SUPPORT
+	VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary("work", 1);
 	if (vhdl_lib) vhdl_libs.InsertLast(vhdl_lib);
+#endif
 	if (veri_lib) veri_libs.InsertLast(veri_lib);
 
 	Map verific_params(STRING_HASH);
@@ -1987,12 +2198,13 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 			}
 		}
 
+#ifdef VERIFIC_VHDL_SUPPORT
 		if (vhdl_lib) {
 			VhdlDesignUnit *vhdl_unit = vhdl_lib->GetPrimUnit(top.c_str());
 			if (vhdl_unit)
 				vhdl_units.InsertLast(vhdl_unit);
 		}
-
+#endif
 		netlists = hier_tree::Elaborate(&veri_modules, &vhdl_units, &verific_params);
 	}
 
@@ -2029,7 +2241,9 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 	}
 
 	veri_file::Reset();
+#ifdef VERIFIC_VHDL_SUPPORT
 	vhdl_file::Reset();
+#endif
 	Libset::Reset();
 	verific_incdirs.clear();
 	verific_libdirs.clear();
@@ -2080,11 +2294,13 @@ struct VerificPass : public Pass {
 		log("Like -sv, but define FORMAL instead of SYNTHESIS.\n");
 		log("\n");
 		log("\n");
+#ifdef VERIFIC_VHDL_SUPPORT
 		log("    verific {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl} <vhdl-file>..\n");
 		log("\n");
 		log("Load the specified VHDL files into Verific.\n");
 		log("\n");
 		log("\n");
+#endif
 		log("    verific {-f|-F} <command-file>\n");
 		log("\n");
 		log("Load and execute the specified command file.\n");
@@ -2282,6 +2498,13 @@ struct VerificPass : public Pass {
 		log("  WARNING: Templates only available in commercial build.\n");
 		log("\n");
 #endif
+		log("\n");
+		log("\n");
+		log("    verific -cfg [<name> [<value>]]\n");
+		log("\n");
+		log("Get/set Verific runtime flags.\n");
+		log("\n");
+		log("\n");
 		log("Use YosysHQ Tabby CAD Suite if you need Yosys+Verific.\n");
 		log("https://www.yosyshq.com/\n");
 		log("\n");
@@ -2310,24 +2533,31 @@ struct VerificPass : public Pass {
 			Message::SetConsoleOutput(0);
 			Message::RegisterCallBackMsg(msg_func);
 
+			RuntimeFlags::SetVar("db_preserve_user_instances", 1);
 			RuntimeFlags::SetVar("db_preserve_user_nets", 1);
+			RuntimeFlags::SetVar("db_preserve_x", 1);
+
 			RuntimeFlags::SetVar("db_allow_external_nets", 1);
 			RuntimeFlags::SetVar("db_infer_wide_operators", 1);
+			RuntimeFlags::SetVar("db_infer_set_reset_registers", 0);
 
 			RuntimeFlags::SetVar("veri_extract_dualport_rams", 0);
 			RuntimeFlags::SetVar("veri_extract_multiport_rams", 1);
 
+#ifdef VERIFIC_VHDL_SUPPORT
 			RuntimeFlags::SetVar("vhdl_extract_dualport_rams", 0);
 			RuntimeFlags::SetVar("vhdl_extract_multiport_rams", 1);
 
 			RuntimeFlags::SetVar("vhdl_support_variable_slice", 1);
 			RuntimeFlags::SetVar("vhdl_ignore_assertion_statements", 0);
 
-			RuntimeFlags::SetVar("veri_preserve_assignments", 1);
 			RuntimeFlags::SetVar("vhdl_preserve_assignments", 1);
-
-			RuntimeFlags::SetVar("veri_preserve_comments",1);
-			//RuntimeFlags::SetVar("vhdl_preserve_comments",1);
+			//RuntimeFlags::SetVar("vhdl_preserve_comments", 1);
+			RuntimeFlags::SetVar("vhdl_preserve_drivers", 1);
+#endif
+			RuntimeFlags::SetVar("veri_preserve_assignments", 1);
+			RuntimeFlags::SetVar("veri_preserve_comments", 1);
+			RuntimeFlags::SetVar("veri_preserve_drivers", 1);
 
 			// Workaround for VIPER #13851
 			RuntimeFlags::SetVar("veri_create_name_for_unnamed_gen_block", 1);
@@ -2337,6 +2567,8 @@ struct VerificPass : public Pass {
 
 			// https://github.com/YosysHQ/yosys/issues/1055
 			RuntimeFlags::SetVar("veri_elaborate_top_level_modules_having_interface_ports", 1) ;
+
+			RuntimeFlags::SetVar("verific_produce_verbose_syntax_error_message", 1);
 
 #ifndef DB_PRESERVE_INITIAL_VALUE
 #  warning Verific was built without DB_PRESERVE_INITIAL_VALUE.
@@ -2509,6 +2741,7 @@ struct VerificPass : public Pass {
 			goto check_error;
 		}
 
+#ifdef VERIFIC_VHDL_SUPPORT
 		if (GetSize(args) > argidx && args[argidx] == "-vhdl87") {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_1987").c_str());
 			for (argidx++; argidx < GetSize(args); argidx++)
@@ -2544,6 +2777,7 @@ struct VerificPass : public Pass {
 			verific_import_pending = true;
 			goto check_error;
 		}
+#endif
 
 #ifdef YOSYSHQ_VERIFIC_FORMALAPPS
 		if (argidx < GetSize(args) && args[argidx] == "-app")
@@ -2646,10 +2880,12 @@ struct VerificPass : public Pass {
 			const char* module = nullptr;
 			bool mode_vhdl = false;
 			for (argidx++; argidx < GetSize(args); argidx++) {
+#ifdef VERIFIC_VHDL_SUPPORT
 				if (args[argidx] == "-vhdl") {
 					mode_vhdl = true;
 					continue;
 				}
+#endif
 				if (args[argidx] == "-verilog") {
 					mode_vhdl = false;
 					continue;
@@ -2676,7 +2912,11 @@ struct VerificPass : public Pass {
 				log_cmd_error("Filname must be specified.\n");
 
 			if (mode_vhdl)
+#ifdef VERIFIC_VHDL_SUPPORT
 				vhdl_file::PrettyPrint(filename, module, work.c_str());
+#else
+				goto check_error;
+#endif
 			else
 				veri_file::PrettyPrint(filename, module, work.c_str());
 			goto check_error;
@@ -2697,7 +2937,7 @@ struct VerificPass : public Pass {
 			if (!(argidx+1 < GetSize(args)))
 				cmd_error(args, argidx+1, "No top module specified.\n");
 			generator->setLogger([](std::string msg) { log("%s",msg.c_str()); } );
-			
+
 			std::string module = args[++argidx];
 			VeriLibrary* veri_lib = veri_file::GetLibrary(work.c_str(), 1);
 			VeriModule *veri_module = veri_lib ? veri_lib->GetModule(module.c_str(), 1) : nullptr;
@@ -2858,11 +3098,13 @@ struct VerificPass : public Pass {
 			{
 				log("Running hier_tree::ElaborateAll().\n");
 
-				VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary(work.c_str(), 1);
 				VeriLibrary *veri_lib = veri_file::GetLibrary(work.c_str(), 1);
 
 				Array veri_libs, vhdl_libs;
+#ifdef VERIFIC_VHDL_SUPPORT
+				VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary(work.c_str(), 1);
 				if (vhdl_lib) vhdl_libs.InsertLast(vhdl_lib);
+#endif
 				if (veri_lib) veri_libs.InsertLast(veri_lib);
 
 				Array *netlists = hier_tree::ElaborateAll(&veri_libs, &vhdl_libs, &parameters);
@@ -2879,7 +3121,9 @@ struct VerificPass : public Pass {
 					cmd_error(args, argidx, "No top module specified.\n");
 
 				VeriLibrary* veri_lib = veri_file::GetLibrary(work.c_str(), 1);
+#ifdef VERIFIC_VHDL_SUPPORT
 				VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary(work.c_str(), 1);
+#endif
 
 				Array veri_modules, vhdl_units;
 				for (; argidx < GetSize(args); argidx++)
@@ -2893,14 +3137,14 @@ struct VerificPass : public Pass {
 						veri_modules.InsertLast(veri_module);
 						continue;
 					}
-
+#ifdef VERIFIC_VHDL_SUPPORT
 					VhdlDesignUnit *vhdl_unit = vhdl_lib ? vhdl_lib->GetPrimUnit(name) : nullptr;
 					if (vhdl_unit) {
 						log("Adding VHDL unit '%s' to elaboration queue.\n", name);
 						vhdl_units.InsertLast(vhdl_unit);
 						continue;
 					}
-
+#endif
 					log_error("Can't find module/unit '%s'.\n", name);
 				}
 
@@ -2960,12 +3204,73 @@ struct VerificPass : public Pass {
 			}
 
 			veri_file::Reset();
+#ifdef VERIFIC_VHDL_SUPPORT
 			vhdl_file::Reset();
+#endif
 			Libset::Reset();
 			verific_incdirs.clear();
 			verific_libdirs.clear();
 			verific_import_pending = false;
 			goto check_error;
+		}
+
+		if (argidx < GetSize(args) && args[argidx] == "-cfg")
+		{
+			if (argidx+1 == GetSize(args)) {
+				MapIter mi;
+				const char *k, *s;
+				unsigned long v;
+				pool<std::string> lines;
+				FOREACH_MAP_ITEM(RuntimeFlags::GetVarMap(), mi, &k, &v) {
+					lines.insert(stringf("%s %lu", k, v));
+				}
+				FOREACH_MAP_ITEM(RuntimeFlags::GetStringVarMap(), mi, &k, &s) {
+					if (s == nullptr)
+						lines.insert(stringf("%s NULL", k));
+					else
+						lines.insert(stringf("%s \"%s\"", k, s));
+				}
+				lines.sort();
+				for (auto &line : lines)
+					log("verific -cfg %s\n", line.c_str());
+				goto check_error;
+			}
+
+			if (argidx+2 == GetSize(args)) {
+				const char *k = args[argidx+1].c_str();
+				if (RuntimeFlags::HasUnsignedVar(k)) {
+					log("verific -cfg %s %lu\n", k, RuntimeFlags::GetVar(k));
+					goto check_error;
+				}
+				if (RuntimeFlags::HasStringVar(k)) {
+					const char *s = RuntimeFlags::GetStringVar(k);
+					if (s == nullptr)
+						log("verific -cfg %s NULL\n", k);
+					else
+						log("verific -cfg %s \"%s\"\n", k, s);
+					goto check_error;
+				}
+				log_cmd_error("Can't find Verific Runtime flag '%s'.\n", k);
+			}
+
+			if (argidx+3 == GetSize(args)) {
+				const auto &k = args[argidx+1], &v = args[argidx+2];
+				if (v == "NULL") {
+					RuntimeFlags::SetStringVar(k.c_str(), nullptr);
+					goto check_error;
+				}
+				if (v[0] == '"') {
+					std::string s = v.substr(1, GetSize(v)-2);
+					RuntimeFlags::SetStringVar(k.c_str(), v.c_str());
+					goto check_error;
+				}
+				char *endptr;
+				unsigned long n = strtol(v.c_str(), &endptr, 0);
+				if (*endptr == 0) {
+					RuntimeFlags::SetVar(k.c_str(), n);
+					goto check_error;
+				}
+			}
 		}
 
 		cmd_error(args, argidx, "Missing or unsupported mode parameter.\n");
@@ -3003,11 +3308,13 @@ struct ReadPass : public Pass {
 		log("the language version (and before file names) to set additional verilog defines.\n");
 		log("\n");
 		log("\n");
+#ifdef VERIFIC_VHDL_SUPPORT
 		log("    read {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl} <vhdl-file>..\n");
 		log("\n");
 		log("Load the specified VHDL files. (Requires Verific.)\n");
 		log("\n");
 		log("\n");
+#endif
 		log("    read {-f|-F} <command-file>\n");
 		log("\n");
 		log("Load and execute the specified command file. (Requires Verific.)\n");
@@ -3090,6 +3397,7 @@ struct ReadPass : public Pass {
 			return;
 		}
 
+#ifdef VERIFIC_VHDL_SUPPORT
 		if (args[1] == "-vhdl87" || args[1] == "-vhdl93" || args[1] == "-vhdl2k" || args[1] == "-vhdl2008" || args[1] == "-vhdl") {
 			if (use_verific) {
 				args[0] = "verific";
@@ -3099,7 +3407,7 @@ struct ReadPass : public Pass {
 			}
 			return;
 		}
-
+#endif
 		if (args[1] == "-f" || args[1] == "-F") {
 			if (use_verific) {
 				args[0] = "verific";

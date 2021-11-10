@@ -19,6 +19,7 @@
 
 #include "simplemap.h"
 #include "kernel/sigtools.h"
+#include "kernel/ff.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -367,276 +368,13 @@ void simplemap_concat(RTLIL::Module *module, RTLIL::Cell *cell)
 	module->connect(RTLIL::SigSig(sig_y, sig_ab));
 }
 
-void simplemap_sr(RTLIL::Module *module, RTLIL::Cell *cell)
+void simplemap_ff(RTLIL::Module *, RTLIL::Cell *cell)
 {
-	int width = cell->parameters.at(ID::WIDTH).as_int();
-	char set_pol = cell->parameters.at(ID::SET_POLARITY).as_bool() ? 'P' : 'N';
-	char clr_pol = cell->parameters.at(ID::CLR_POLARITY).as_bool() ? 'P' : 'N';
-
-	RTLIL::SigSpec sig_s = cell->getPort(ID::SET);
-	RTLIL::SigSpec sig_r = cell->getPort(ID::CLR);
-	RTLIL::SigSpec sig_q = cell->getPort(ID::Q);
-
-	std::string gate_type = stringf("$_SR_%c%c_", set_pol, clr_pol);
-
-	for (int i = 0; i < width; i++) {
-		RTLIL::Cell *gate = module->addCell(NEW_ID, gate_type);
-		gate->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
-		gate->setPort(ID::S, sig_s[i]);
-		gate->setPort(ID::R, sig_r[i]);
-		gate->setPort(ID::Q, sig_q[i]);
-	}
-}
-
-void simplemap_ff(RTLIL::Module *module, RTLIL::Cell *cell)
-{
-	int width = cell->parameters.at(ID::WIDTH).as_int();
-
-	RTLIL::SigSpec sig_d = cell->getPort(ID::D);
-	RTLIL::SigSpec sig_q = cell->getPort(ID::Q);
-
-	IdString gate_type = ID($_FF_);
-
-	for (int i = 0; i < width; i++) {
-		RTLIL::Cell *gate = module->addCell(NEW_ID, gate_type);
-		gate->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
-		gate->setPort(ID::D, sig_d[i]);
-		gate->setPort(ID::Q, sig_q[i]);
-	}
-}
-
-void simplemap_dff(RTLIL::Module *module, RTLIL::Cell *cell)
-{
-	int width = cell->parameters.at(ID::WIDTH).as_int();
-	char clk_pol = cell->parameters.at(ID::CLK_POLARITY).as_bool() ? 'P' : 'N';
-
-	RTLIL::SigSpec sig_clk = cell->getPort(ID::CLK);
-	RTLIL::SigSpec sig_d = cell->getPort(ID::D);
-	RTLIL::SigSpec sig_q = cell->getPort(ID::Q);
-
-	IdString gate_type = stringf("$_DFF_%c_", clk_pol);
-
-	for (int i = 0; i < width; i++) {
-		RTLIL::Cell *gate = module->addCell(NEW_ID, gate_type);
-		gate->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
-		gate->setPort(ID::C, sig_clk);
-		gate->setPort(ID::D, sig_d[i]);
-		gate->setPort(ID::Q, sig_q[i]);
-	}
-}
-
-void simplemap_dffe(RTLIL::Module *module, RTLIL::Cell *cell)
-{
-	int width = cell->parameters.at(ID::WIDTH).as_int();
-	char clk_pol = cell->parameters.at(ID::CLK_POLARITY).as_bool() ? 'P' : 'N';
-	char en_pol = cell->parameters.at(ID::EN_POLARITY).as_bool() ? 'P' : 'N';
-
-	RTLIL::SigSpec sig_clk = cell->getPort(ID::CLK);
-	RTLIL::SigSpec sig_en = cell->getPort(ID::EN);
-	RTLIL::SigSpec sig_d = cell->getPort(ID::D);
-	RTLIL::SigSpec sig_q = cell->getPort(ID::Q);
-
-	IdString gate_type = stringf("$_DFFE_%c%c_", clk_pol, en_pol);
-
-	for (int i = 0; i < width; i++) {
-		RTLIL::Cell *gate = module->addCell(NEW_ID, gate_type);
-		gate->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
-		gate->setPort(ID::C, sig_clk);
-		gate->setPort(ID::E, sig_en);
-		gate->setPort(ID::D, sig_d[i]);
-		gate->setPort(ID::Q, sig_q[i]);
-	}
-}
-
-void simplemap_dffsr(RTLIL::Module *module, RTLIL::Cell *cell)
-{
-	int width = cell->parameters.at(ID::WIDTH).as_int();
-	char clk_pol = cell->parameters.at(ID::CLK_POLARITY).as_bool() ? 'P' : 'N';
-	char set_pol = cell->parameters.at(ID::SET_POLARITY).as_bool() ? 'P' : 'N';
-	char clr_pol = cell->parameters.at(ID::CLR_POLARITY).as_bool() ? 'P' : 'N';
-
-	RTLIL::SigSpec sig_clk = cell->getPort(ID::CLK);
-	RTLIL::SigSpec sig_s = cell->getPort(ID::SET);
-	RTLIL::SigSpec sig_r = cell->getPort(ID::CLR);
-	RTLIL::SigSpec sig_d = cell->getPort(ID::D);
-	RTLIL::SigSpec sig_q = cell->getPort(ID::Q);
-
-	IdString gate_type = stringf("$_DFFSR_%c%c%c_", clk_pol, set_pol, clr_pol);
-
-	for (int i = 0; i < width; i++) {
-		RTLIL::Cell *gate = module->addCell(NEW_ID, gate_type);
-		gate->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
-		gate->setPort(ID::C, sig_clk);
-		gate->setPort(ID::S, sig_s[i]);
-		gate->setPort(ID::R, sig_r[i]);
-		gate->setPort(ID::D, sig_d[i]);
-		gate->setPort(ID::Q, sig_q[i]);
-	}
-}
-
-void simplemap_dffsre(RTLIL::Module *module, RTLIL::Cell *cell)
-{
-	int width = cell->parameters.at(ID::WIDTH).as_int();
-	char clk_pol = cell->parameters.at(ID::CLK_POLARITY).as_bool() ? 'P' : 'N';
-	char set_pol = cell->parameters.at(ID::SET_POLARITY).as_bool() ? 'P' : 'N';
-	char clr_pol = cell->parameters.at(ID::CLR_POLARITY).as_bool() ? 'P' : 'N';
-	char en_pol = cell->parameters.at(ID::EN_POLARITY).as_bool() ? 'P' : 'N';
-
-	RTLIL::SigSpec sig_clk = cell->getPort(ID::CLK);
-	RTLIL::SigSpec sig_s = cell->getPort(ID::SET);
-	RTLIL::SigSpec sig_r = cell->getPort(ID::CLR);
-	RTLIL::SigSpec sig_e = cell->getPort(ID::EN);
-	RTLIL::SigSpec sig_d = cell->getPort(ID::D);
-	RTLIL::SigSpec sig_q = cell->getPort(ID::Q);
-
-	IdString gate_type = stringf("$_DFFSRE_%c%c%c%c_", clk_pol, set_pol, clr_pol, en_pol);
-
-	for (int i = 0; i < width; i++) {
-		RTLIL::Cell *gate = module->addCell(NEW_ID, gate_type);
-		gate->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
-		gate->setPort(ID::C, sig_clk);
-		gate->setPort(ID::S, sig_s[i]);
-		gate->setPort(ID::R, sig_r[i]);
-		gate->setPort(ID::E, sig_e);
-		gate->setPort(ID::D, sig_d[i]);
-		gate->setPort(ID::Q, sig_q[i]);
-	}
-}
-
-void simplemap_adff_sdff(RTLIL::Module *module, RTLIL::Cell *cell)
-{
-	int width = cell->parameters.at(ID::WIDTH).as_int();
-	bool is_async = cell->type == ID($adff);
-	char clk_pol = cell->parameters.at(ID::CLK_POLARITY).as_bool() ? 'P' : 'N';
-	char rst_pol = cell->parameters.at(is_async ? ID::ARST_POLARITY : ID::SRST_POLARITY).as_bool() ? 'P' : 'N';
-	const char *type = is_async ? "DFF" : "SDFF";
-
-	std::vector<RTLIL::State> rst_val = cell->parameters.at(is_async ? ID::ARST_VALUE : ID::SRST_VALUE).bits;
-	while (int(rst_val.size()) < width)
-		rst_val.push_back(RTLIL::State::S0);
-
-	RTLIL::SigSpec sig_clk = cell->getPort(ID::CLK);
-	RTLIL::SigSpec sig_rst = cell->getPort(is_async ? ID::ARST : ID::SRST);
-	RTLIL::SigSpec sig_d = cell->getPort(ID::D);
-	RTLIL::SigSpec sig_q = cell->getPort(ID::Q);
-
-	IdString gate_type_0 = stringf("$_%s_%c%c0_", type, clk_pol, rst_pol);
-	IdString gate_type_1 = stringf("$_%s_%c%c1_", type, clk_pol, rst_pol);
-
-	for (int i = 0; i < width; i++) {
-		RTLIL::Cell *gate = module->addCell(NEW_ID, rst_val.at(i) == RTLIL::State::S1 ? gate_type_1 : gate_type_0);
-		gate->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
-		gate->setPort(ID::C, sig_clk);
-		gate->setPort(ID::R, sig_rst);
-		gate->setPort(ID::D, sig_d[i]);
-		gate->setPort(ID::Q, sig_q[i]);
-	}
-}
-
-void simplemap_adffe_sdffe_sdffce(RTLIL::Module *module, RTLIL::Cell *cell)
-{
-	int width = cell->parameters.at(ID::WIDTH).as_int();
-	bool is_async = cell->type == ID($adffe);
-	char clk_pol = cell->parameters.at(ID::CLK_POLARITY).as_bool() ? 'P' : 'N';
-	char rst_pol = cell->parameters.at(is_async ? ID::ARST_POLARITY : ID::SRST_POLARITY).as_bool() ? 'P' : 'N';
-	char en_pol = cell->parameters.at(ID::EN_POLARITY).as_bool() ? 'P' : 'N';
-	const char *type = is_async ? "DFFE" : cell->type == ID($sdffe) ? "SDFFE" : "SDFFCE";
-
-	std::vector<RTLIL::State> rst_val = cell->parameters.at(is_async ? ID::ARST_VALUE : ID::SRST_VALUE).bits;
-	while (int(rst_val.size()) < width)
-		rst_val.push_back(RTLIL::State::S0);
-
-	RTLIL::SigSpec sig_clk = cell->getPort(ID::CLK);
-	RTLIL::SigSpec sig_rst = cell->getPort(is_async ? ID::ARST : ID::SRST);
-	RTLIL::SigSpec sig_e = cell->getPort(ID::EN);
-	RTLIL::SigSpec sig_d = cell->getPort(ID::D);
-	RTLIL::SigSpec sig_q = cell->getPort(ID::Q);
-
-	IdString gate_type_0 = stringf("$_%s_%c%c0%c_", type, clk_pol, rst_pol, en_pol);
-	IdString gate_type_1 = stringf("$_%s_%c%c1%c_", type, clk_pol, rst_pol, en_pol);
-
-	for (int i = 0; i < width; i++) {
-		RTLIL::Cell *gate = module->addCell(NEW_ID, rst_val.at(i) == RTLIL::State::S1 ? gate_type_1 : gate_type_0);
-		gate->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
-		gate->setPort(ID::C, sig_clk);
-		gate->setPort(ID::R, sig_rst);
-		gate->setPort(ID::E, sig_e);
-		gate->setPort(ID::D, sig_d[i]);
-		gate->setPort(ID::Q, sig_q[i]);
-	}
-}
-
-void simplemap_dlatch(RTLIL::Module *module, RTLIL::Cell *cell)
-{
-	int width = cell->parameters.at(ID::WIDTH).as_int();
-	char en_pol = cell->parameters.at(ID::EN_POLARITY).as_bool() ? 'P' : 'N';
-
-	RTLIL::SigSpec sig_en = cell->getPort(ID::EN);
-	RTLIL::SigSpec sig_d = cell->getPort(ID::D);
-	RTLIL::SigSpec sig_q = cell->getPort(ID::Q);
-
-	IdString gate_type = stringf("$_DLATCH_%c_", en_pol);
-
-	for (int i = 0; i < width; i++) {
-		RTLIL::Cell *gate = module->addCell(NEW_ID, gate_type);
-		gate->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
-		gate->setPort(ID::E, sig_en);
-		gate->setPort(ID::D, sig_d[i]);
-		gate->setPort(ID::Q, sig_q[i]);
-	}
-}
-
-void simplemap_adlatch(RTLIL::Module *module, RTLIL::Cell *cell)
-{
-	int width = cell->parameters.at(ID::WIDTH).as_int();
-	char en_pol = cell->parameters.at(ID::EN_POLARITY).as_bool() ? 'P' : 'N';
-	char rst_pol = cell->parameters.at(ID::ARST_POLARITY).as_bool() ? 'P' : 'N';
-
-	std::vector<RTLIL::State> rst_val = cell->parameters.at(ID::ARST_VALUE).bits;
-	while (int(rst_val.size()) < width)
-		rst_val.push_back(RTLIL::State::S0);
-
-	RTLIL::SigSpec sig_en = cell->getPort(ID::EN);
-	RTLIL::SigSpec sig_rst = cell->getPort(ID::ARST);
-	RTLIL::SigSpec sig_d = cell->getPort(ID::D);
-	RTLIL::SigSpec sig_q = cell->getPort(ID::Q);
-
-	IdString gate_type_0 = stringf("$_DLATCH_%c%c0_", en_pol, rst_pol);
-	IdString gate_type_1 = stringf("$_DLATCH_%c%c1_", en_pol, rst_pol);
-
-	for (int i = 0; i < width; i++) {
-		RTLIL::Cell *gate = module->addCell(NEW_ID, rst_val.at(i) == RTLIL::State::S1 ? gate_type_1 : gate_type_0);
-		gate->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
-		gate->setPort(ID::E, sig_en);
-		gate->setPort(ID::R, sig_rst);
-		gate->setPort(ID::D, sig_d[i]);
-		gate->setPort(ID::Q, sig_q[i]);
-	}
-}
-
-void simplemap_dlatchsr(RTLIL::Module *module, RTLIL::Cell *cell)
-{
-	int width = cell->parameters.at(ID::WIDTH).as_int();
-	char en_pol = cell->parameters.at(ID::EN_POLARITY).as_bool() ? 'P' : 'N';
-	char set_pol = cell->parameters.at(ID::SET_POLARITY).as_bool() ? 'P' : 'N';
-	char clr_pol = cell->parameters.at(ID::CLR_POLARITY).as_bool() ? 'P' : 'N';
-
-	RTLIL::SigSpec sig_en = cell->getPort(ID::EN);
-	RTLIL::SigSpec sig_s = cell->getPort(ID::SET);
-	RTLIL::SigSpec sig_r = cell->getPort(ID::CLR);
-	RTLIL::SigSpec sig_d = cell->getPort(ID::D);
-	RTLIL::SigSpec sig_q = cell->getPort(ID::Q);
-
-	IdString gate_type = stringf("$_DLATCHSR_%c%c%c_", en_pol, set_pol, clr_pol);
-
-	for (int i = 0; i < width; i++) {
-		RTLIL::Cell *gate = module->addCell(NEW_ID, gate_type);
-		gate->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
-		gate->setPort(ID::E, sig_en);
-		gate->setPort(ID::S, sig_s[i]);
-		gate->setPort(ID::R, sig_r[i]);
-		gate->setPort(ID::D, sig_d[i]);
-		gate->setPort(ID::Q, sig_q[i]);
+	FfData ff(nullptr, cell);
+	for (int i = 0; i < ff.width; i++) {
+		FfData fff = ff.slice({i});
+		fff.is_fine = true;
+		fff.emit();
 	}
 }
 
@@ -666,20 +404,22 @@ void simplemap_get_mappers(dict<IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)>
 	mappers[ID($sop)]         = simplemap_sop;
 	mappers[ID($slice)]       = simplemap_slice;
 	mappers[ID($concat)]      = simplemap_concat;
-	mappers[ID($sr)]          = simplemap_sr;
+	mappers[ID($sr)]          = simplemap_ff;
 	mappers[ID($ff)]          = simplemap_ff;
-	mappers[ID($dff)]         = simplemap_dff;
-	mappers[ID($dffe)]        = simplemap_dffe;
-	mappers[ID($dffsr)]       = simplemap_dffsr;
-	mappers[ID($dffsre)]      = simplemap_dffsre;
-	mappers[ID($adff)]        = simplemap_adff_sdff;
-	mappers[ID($sdff)]        = simplemap_adff_sdff;
-	mappers[ID($adffe)]       = simplemap_adffe_sdffe_sdffce;
-	mappers[ID($sdffe)]       = simplemap_adffe_sdffe_sdffce;
-	mappers[ID($sdffce)]      = simplemap_adffe_sdffe_sdffce;
-	mappers[ID($dlatch)]      = simplemap_dlatch;
-	mappers[ID($adlatch)]     = simplemap_adlatch;
-	mappers[ID($dlatchsr)]    = simplemap_dlatchsr;
+	mappers[ID($dff)]         = simplemap_ff;
+	mappers[ID($dffe)]        = simplemap_ff;
+	mappers[ID($dffsr)]       = simplemap_ff;
+	mappers[ID($dffsre)]      = simplemap_ff;
+	mappers[ID($adff)]        = simplemap_ff;
+	mappers[ID($sdff)]        = simplemap_ff;
+	mappers[ID($adffe)]       = simplemap_ff;
+	mappers[ID($sdffe)]       = simplemap_ff;
+	mappers[ID($sdffce)]      = simplemap_ff;
+	mappers[ID($aldff)]       = simplemap_ff;
+	mappers[ID($aldffe)]      = simplemap_ff;
+	mappers[ID($dlatch)]      = simplemap_ff;
+	mappers[ID($adlatch)]     = simplemap_ff;
+	mappers[ID($dlatchsr)]    = simplemap_ff;
 }
 
 void simplemap(RTLIL::Module *module, RTLIL::Cell *cell)
@@ -712,7 +452,7 @@ struct SimplemapPass : public Pass {
 		log("  $not, $pos, $and, $or, $xor, $xnor\n");
 		log("  $reduce_and, $reduce_or, $reduce_xor, $reduce_xnor, $reduce_bool\n");
 		log("  $logic_not, $logic_and, $logic_or, $mux, $tribuf\n");
-		log("  $sr, $ff, $dff, $dffe, $dffsr, $dffsre, $adff, $adffe, $sdff, $sdffe, $sdffce, $dlatch, $adlatch, $dlatchsr\n");
+		log("  $sr, $ff, $dff, $dffe, $dffsr, $dffsre, $adff, $adffe, $aldff, $aldffe, $sdff, $sdffe, $sdffce, $dlatch, $adlatch, $dlatchsr\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override

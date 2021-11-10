@@ -955,15 +955,15 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 		}
 
 		IdString name = stringf("$%s$rdreg[%d]", memid.c_str(), idx);
-		FfData ff(initvals);
+		FfData ff(module, initvals, name);
 		ff.width = GetSize(port.data);
 		ff.has_clk = true;
 		ff.sig_clk = port.clk;
 		ff.pol_clk = port.clk_polarity;
 		if (port.en != State::S1) {
-			ff.has_en = true;
-			ff.pol_en = true;
-			ff.sig_en = port.en;
+			ff.has_ce = true;
+			ff.pol_ce = true;
+			ff.sig_ce = port.en;
 		}
 		if (port.arst != State::S0) {
 			ff.has_arst = true;
@@ -976,13 +976,13 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 			ff.pol_srst = true;
 			ff.sig_srst = port.srst;
 			ff.val_srst = port.srst_value;
-			ff.ce_over_srst = ff.has_en && port.ce_over_srst;
+			ff.ce_over_srst = ff.has_ce && port.ce_over_srst;
 		}
 		ff.sig_d = sig_d;
 		ff.sig_q = port.data;
 		ff.val_init = port.init_value;
 		port.data = async_d;
-		c = ff.emit(module, name);
+		c = ff.emit();
 	}
 
 	log("Extracted %s FF from read port %d of %s.%s: %s\n", trans_use_addr ? "addr" : "data",
@@ -1160,18 +1160,17 @@ void Mem::emulate_transparency(int widx, int ridx, FfInitVals *initvals) {
 			// The FF for storing the bypass enable signal must be carefully
 			// constructed to preserve the overall init/reset/enable behavior
 			// of the whole port.
-			FfData ff(initvals);
+			FfData ff(module, initvals, NEW_ID);
 			ff.width = 1;
 			ff.sig_q = cond_q;
-			ff.has_d = true;
 			ff.sig_d = cond;
 			ff.has_clk = true;
 			ff.sig_clk = rport.clk;
 			ff.pol_clk = rport.clk_polarity;
 			if (rport.en != State::S1) {
-				ff.has_en = true;
-				ff.sig_en = rport.en;
-				ff.pol_en = true;
+				ff.has_ce = true;
+				ff.sig_ce = rport.en;
+				ff.pol_ce = true;
 			}
 			if (rport.arst != State::S0) {
 				ff.has_arst = true;
@@ -1190,7 +1189,7 @@ void Mem::emulate_transparency(int widx, int ridx, FfInitVals *initvals) {
 				ff.val_init = State::S0;
 			else
 				ff.val_init = State::Sx;
-			ff.emit(module, NEW_ID);
+			ff.emit();
 			// And the final bypass mux.
 			SigSpec cur = rdata_a.extract(pos, epos-pos);
 			SigSpec other = wdata_q.extract(pos + wsub * width, epos-pos);

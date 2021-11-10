@@ -206,6 +206,7 @@ bool is_ff_cell(RTLIL::IdString type)
 	return type.in(
 		ID($dff), ID($dffe), ID($sdff), ID($sdffe), ID($sdffce),
 		ID($adff), ID($adffe), ID($dffsr), ID($dffsre),
+		ID($aldff), ID($aldffe),
 		ID($dlatch), ID($adlatch), ID($dlatchsr), ID($sr));
 }
 
@@ -1263,6 +1264,20 @@ struct CxxrtlWorker {
 					dump_sigspec_lhs(cell->getPort(ID::Q));
 					f << " = ";
 					dump_const(cell->getParam(ID::ARST_VALUE));
+					f << ";\n";
+				dec_indent();
+				f << indent << "}\n";
+			}
+			if (cell->hasPort(ID::ALOAD)) {
+				// Asynchronous load
+				f << indent << "if (";
+				dump_sigspec_rhs(cell->getPort(ID::ALOAD));
+				f << " == value<1> {" << cell->getParam(ID::ALOAD_POLARITY).as_bool() << "u}) {\n";
+				inc_indent();
+					f << indent;
+					dump_sigspec_lhs(cell->getPort(ID::Q));
+					f << " = ";
+					dump_sigspec_rhs(cell->getPort(ID::AD));
 					f << ";\n";
 				dec_indent();
 				f << indent << "}\n";
@@ -2573,7 +2588,7 @@ struct CxxrtlWorker {
 				flow.add_node(cell);
 
 				// Various DFF cells are treated like posedge/negedge processes, see above for details.
-				if (cell->type.in(ID($dff), ID($dffe), ID($adff), ID($adffe), ID($dffsr), ID($dffsre), ID($sdff), ID($sdffe), ID($sdffce))) {
+				if (cell->type.in(ID($dff), ID($dffe), ID($adff), ID($adffe), ID($aldff), ID($aldffe), ID($dffsr), ID($dffsre), ID($sdff), ID($sdffe), ID($sdffce))) {
 					if (is_valid_clock(cell->getPort(ID::CLK)))
 						register_edge_signal(sigmap, cell->getPort(ID::CLK),
 							cell->parameters[ID::CLK_POLARITY].as_bool() ? RTLIL::STp : RTLIL::STn);

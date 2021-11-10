@@ -77,7 +77,7 @@ struct FlattenWorker
 {
 	bool ignore_wb = false;
 
-	void flatten_cell(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Cell *cell, RTLIL::Module *tpl, std::vector<RTLIL::Cell*> &new_cells)
+	void flatten_cell(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Cell *cell, RTLIL::Module *tpl, SigMap &sigmap, std::vector<RTLIL::Cell*> &new_cells)
 	{
 		// Copy the contents of the flattened cell
 
@@ -165,7 +165,6 @@ struct FlattenWorker
 			for (auto bit : tpl_conn.first)
 				tpl_driven.insert(bit);
 
-		SigMap sigmap(module);
 		for (auto &port_it : cell->connections())
 		{
 			IdString port_name = port_it.first;
@@ -218,6 +217,7 @@ struct FlattenWorker
 					log_id(module), log_id(cell), log_id(port_it.first), log_signal(new_conn.first), log_signal(new_conn.second));
 
 			module->connect(new_conn);
+			sigmap.add(new_conn.first, new_conn.second);
 		}
 
 		module->remove(cell);
@@ -228,6 +228,7 @@ struct FlattenWorker
 		if (!design->selected(module) || module->get_blackbox_attribute(ignore_wb))
 			return;
 
+		SigMap sigmap(module);
 		std::vector<RTLIL::Cell*> worklist = module->selected_cells();
 		while (!worklist.empty())
 		{
@@ -251,7 +252,7 @@ struct FlattenWorker
 			// If a design is fully selected and has a top module defined, topological sorting ensures that all cells
 			// added during flattening are black boxes, and flattening is finished in one pass. However, when flattening
 			// individual modules, this isn't the case, and the newly added cells might have to be flattened further.
-			flatten_cell(design, module, cell, tpl, worklist);
+			flatten_cell(design, module, cell, tpl, sigmap, worklist);
 		}
 	}
 };

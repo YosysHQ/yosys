@@ -1,6 +1,6 @@
 // Note: case_expr_{,non_}const.v should be modified in tandem to ensure both
 // the constant and non-constant case evaluation logic is covered
-module top(
+module case_expr_non_const_top(
 	// expected to output all 1s
     output reg a, b, c, d, e, f, g, h
 );
