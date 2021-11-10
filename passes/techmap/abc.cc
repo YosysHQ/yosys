@@ -1348,7 +1348,7 @@ struct AbcPass : public Pass {
 		log("        file format).\n");
 		log("\n");
 		log("    -genlib <file>\n");
-		log("        generate netlists for the specified cell library (using the SIS Genib\n");
+		log("        generate netlists for the specified cell library (using the SIS Genlib\n");
 		log("        file format).\n");
 		log("\n");
 		log("    -constr <file>\n");
