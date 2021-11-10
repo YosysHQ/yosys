@@ -1,7 +1,6 @@
 
 OBJS += techlibs/gatemate/synth_gatemate.o
 
-$(eval $(call add_share_file,share/gatemate,techlibs/gatemate/iob_map.v))
 $(eval $(call add_share_file,share/gatemate,techlibs/gatemate/reg_map.v))
 $(eval $(call add_share_file,share/gatemate,techlibs/gatemate/mux_map.v))
 $(eval $(call add_share_file,share/gatemate,techlibs/gatemate/lut_map.v))
