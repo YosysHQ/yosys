@@ -1035,14 +1035,6 @@ module CC_BRAM_40K (
 			$display("ERROR: Port B width of 80 bits is only supported in SDP mode.");
 			$finish();
 		end
-		if (((CAS == "UPPER") || (CAS == "LOWER")) && (WIDTH_MODE_A > 1)) begin
-			$display("ERROR: Port A cascade mode only supported in 1 bit mode.");
-			$finish();
-		end
-		if (((CAS == "UPPER") || (CAS == "LOWER")) && (WIDTH_MODE_B > 1)) begin
-			$display("ERROR: Port B cascade mode only supported in 1 bit mode.");
-			$finish();
-		end
 		if ((WIDTH_MODE_A != 80) && (WIDTH_MODE_A != 40) && (WIDTH_MODE_A != 20) && (WIDTH_MODE_A != 10) &&
 			(WIDTH_MODE_A != 5)  && (WIDTH_MODE_A != 2)  && (WIDTH_MODE_A != 1) && (WIDTH_MODE_A != 0)) begin
 			$display("ERROR: Illegal %s Port A width configuration %d.", RAM_MODE, WIDTH_MODE_A);
