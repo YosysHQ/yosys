@@ -1,23 +1,49 @@
-read_verilog -sv -dump_ast1 -dump_ast2 << EOF
+read_verilog -sv << EOF
 package p;
 typedef struct packed {
   logic a;
   logic b;
 } struct_t;
 
+typedef struct packed {
+  struct_t g;
+  logic [2:0] h;
+} nested_struct_t;
+
+typedef union packed {
+  logic [4:0] x;
+} nested_union_t;
+
 parameter struct_t c = {1'b1, 1'b0};
+parameter nested_struct_t x = {{1'b1, 1'b0}, 1'b1, 1'b1, 1'b1};
 endpackage
 
 module dut ();
 parameter p::struct_t d = p::c;
+parameter p::nested_struct_t i = p::x;
 
-logic e = d.a;
-logic f = d.b;
+parameter p::nested_union_t u = {5'b11001};
+
+localparam e = d.a;
+localparam f = d.b;
+
+localparam j = i.g.a;
+localparam k = i.g.b;
+localparam l = i.h;
+localparam m = i.g;
+
+localparam o = u.x;
 
 always_comb begin
   assert(d == 2'b10);
   assert(e == 1'b1);
   assert(f == 1'b0);
+  assert(j == 1'b1);
+  assert(k == 1'b0);
+  assert(l == 3'b111);
+// TODO: support access to whole sub-structs and unions
+//  assert(m == 2'b10);
+  assert(u == 5'b11001);
 end
 endmodule
 EOF
