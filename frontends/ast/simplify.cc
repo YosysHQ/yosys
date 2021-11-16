@@ -1613,6 +1613,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			if (template_node->type == AST_STRUCT || template_node->type == AST_UNION) {
 				// replace with wire representing the packed structure
 				newNode = make_packed_struct(template_node, str);
+				newNode->attributes[ID::wiretype] = mkconst_str(resolved_type_node->str);
 				// add original input/output attribute to resolved wire
 				newNode->is_input = this->is_input;
 				newNode->is_output = this->is_output;
@@ -1661,18 +1662,33 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		if (is_custom_type) {
 			log_assert(children.size() == 2);
 			log_assert(children[1]->type == AST_WIRETYPE);
-			if (!current_scope.count(children[1]->str))
-				log_file_error(filename, location.first_line, "Unknown identifier `%s' used as type name\n", children[1]->str.c_str());
-			AstNode *resolved_type_node = current_scope.at(children[1]->str);
+			auto type_name = children[1]->str;
+			if (!current_scope.count(type_name)) {
+				log_file_error(filename, location.first_line, "Unknown identifier `%s' used as type name\n", type_name.c_str());
+			}
+			AstNode *resolved_type_node = current_scope.at(type_name);
 			if (resolved_type_node->type != AST_TYPEDEF)
-				log_file_error(filename, location.first_line, "`%s' does not name a type\n", children[1]->str.c_str());
+				log_file_error(filename, location.first_line, "`%s' does not name a type\n", type_name.c_str());
 			log_assert(resolved_type_node->children.size() == 1);
 			AstNode *template_node = resolved_type_node->children[0];
-			delete children[1];
-			children.pop_back();
 
 			// Ensure typedef itself is fully simplified
-			while(template_node->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param)) {};
+			while (template_node->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param)) {};
+
+			if (template_node->type == AST_STRUCT || template_node->type == AST_UNION) {
+				// replace with wire representing the packed structure
+				newNode = make_packed_struct(template_node, str);
+				newNode->attributes[ID::wiretype] = mkconst_str(resolved_type_node->str);
+				newNode->type = type;
+				current_scope[str] = this;
+				// copy param value, it needs to be 1st value
+				delete children[1];
+				children.pop_back();
+				newNode->children.insert(newNode->children.begin(), children[0]->clone());
+				goto apply_newNode;
+			}
+			delete children[1];
+			children.pop_back();
 
 			if (template_node->type == AST_MEMORY)
 				log_file_error(filename, location.first_line, "unpacked array type `%s' cannot be used for a parameter\n", children[1]->str.c_str());
