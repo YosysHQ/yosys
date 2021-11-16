@@ -177,13 +177,41 @@ struct MetadataWriter
     {
         log_assert(cell != nullptr);
 
-        f << stringf("          {\n");
-        f << stringf("            \"name\": %s,\n", get_string(RTLIL::unescape_id(cell->name)).c_str());
-        f << stringf("            \"attributes\": {\n");
-        f << stringf("            },\n");
-        f << stringf("            \"parameters\": {\n");
-        f << stringf("            },\n");
-        f << stringf("          }");
+        f << stringf("            {\n");
+        f << stringf("              \"name\": %s,\n", get_string(RTLIL::unescape_id(cell->name)).c_str());
+        f << stringf("              \"attributes\": {\n");
+
+        bool first_attr{true};
+        for (auto& attr : cell->attributes) {
+            if (!first_attr)
+                f << stringf(",\n");
+            const auto attr_val = attr.second.decode_string();
+            if (attr_val.size() > 0)
+                f << stringf("                %s: \"%s\"\n", get_string(RTLIL::unescape_id(attr.first)).c_str(), attr_val.c_str());
+            else
+                f << stringf("                %s: true\n", get_string(RTLIL::unescape_id(attr.first)).c_str());
+
+            first_attr = false;
+        }
+
+        f << stringf("              },\n");
+        f << stringf("              \"parameters\": {\n");
+
+        bool first_param{true};
+        for (auto& param : cell->parameters) {
+            if (!first_param)
+                f << stringf(",\n");
+            const auto param_val = param.second.decode_string();
+            if (param_val.size() > 0)
+                f << stringf("                %s: \"%s\"\n", get_string(RTLIL::unescape_id(param.first)).c_str(), param_val.c_str());
+            else
+                f << stringf("                %s: true\n", get_string(RTLIL::unescape_id(param.first)).c_str());
+
+            first_param = false;
+        }
+
+        f << stringf("              },\n");
+        f << stringf("            }");
     }
 };
 
