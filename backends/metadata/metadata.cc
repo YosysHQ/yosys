@@ -117,6 +117,7 @@ struct MetadataWriter
 
             first_sort = false;
         }
+        f << stringf("\n");
 
         f << stringf("      ],\n");
         f << stringf("      \"connections\": [\n");
@@ -155,6 +156,7 @@ struct MetadataWriter
 
             first_port = false;
         }
+        f << stringf("\n");
 
         f << stringf("          ],\n          \"cells\": [\n");
         bool first_cell{true};
@@ -166,6 +168,7 @@ struct MetadataWriter
 
             first_cell = false;
         }
+        f << stringf("\n");
         f << stringf("          ]\n");
         f << stringf("        }");
     }
