@@ -44,6 +44,7 @@ std::string auto_prefix, extmem_prefix;
 RTLIL::Module *active_module;
 dict<RTLIL::SigBit, RTLIL::State> active_initdata;
 SigMap active_sigmap;
+IdString initial_id;
 
 void reset_auto_counter_id(RTLIL::IdString id, bool may_rename)
 {
@@ -1943,7 +1944,7 @@ void dump_process(std::ostream &f, std::string indent, RTLIL::Process *proc, boo
 
 	f << stringf("%s" "always%s begin\n", indent.c_str(), systemverilog ? "_comb" : " @*");
 	if (!systemverilog)
-		f << indent + "  " << "if (" << id("\\initial") << ") begin end\n";
+		f << indent + "  " << "if (" << id(initial_id) << ") begin end\n";
 	dump_case_body(f, indent, &proc->root_case, true);
 
 	std::string backup_indent = indent;
@@ -2077,9 +2078,10 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 		}
 	}
 	f << stringf(");\n");
-
-	if (!systemverilog && !module->processes.empty())
-		f << indent + "  " << "reg " << id("\\initial") << " = 0;\n";
+	if (!systemverilog && !module->processes.empty()) {
+		initial_id = NEW_ID;
+		f << indent + "  " << "reg " << id(initial_id) << " = 0;\n";
+	}
 
 	for (auto w : module->wires())
 		dump_wire(f, indent + "  ", w);
