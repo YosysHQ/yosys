@@ -69,7 +69,7 @@ struct MetadataWriter
         }
 
     public:
-    MetadataWriter(std::ostream &f, bool use_selection) noexcept: f{f}, _use_selection{use_selection} { }
+    MetadataWriter(std::ostream &f, bool use_selection) noexcept: f(f), _use_selection(use_selection) { }
 
     void write_metadata(Design *design)
     {
