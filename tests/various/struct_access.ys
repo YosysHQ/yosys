@@ -1,0 +1,5 @@
+read_verilog -sv struct_access.sv
+hierarchy
+proc
+opt
+sat -verify -seq 1 -prove-asserts -show-all
