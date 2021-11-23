@@ -228,9 +228,9 @@ struct SynthSf2Pass : public ScriptPass
 				} else {
 					run("clkbufmap -buf CLKINT Y:A");
 				}
-				run("iopadmap -bits -inpad INBUF Y:PAD -outpad OUTBUF D:PAD -toutpad TRIBUFF E:D:PAD -tinoutpad BIBUF E:Y:D:PAD", "(unless -noiobs");
+				run("iopadmap -bits -inpad INBUF Y:PAD -outpad OUTBUF D:PAD -toutpad TRIBUFF E:D:PAD -tinoutpad BIBUF E:Y:D:PAD", "(unless -noiobs)");
 			}
-			run("clean");
+			run("clean -purge");
 		}
 
 		if (check_label("check"))
