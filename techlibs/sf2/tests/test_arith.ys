@@ -1,0 +1,22 @@
+# Our implementation
+read_verilog ../arith_map.v
+read_verilog ../cells_sim.v
+read_verilog -DSIMLIB_NOCHECKS ../../common/simlib.v
+rename \$__SF2_ALU gate
+hierarchy -top gate -chparam A_WIDTH 4 -chparam B_WIDTH 5 -chparam Y_WIDTH 5
+flatten
+opt
+write_verilog gate.v
+
+# The reference
+read_verilog -DSIMLIB_NOCHECKS ../../common/simlib.v
+rename \$alu gold
+hierarchy -top gold -chparam A_WIDTH 4 -chparam B_WIDTH 5 -chparam Y_WIDTH 5
+flatten
+proc
+clean
+write_verilog gold.v
+
+read_verilog gate.v
+miter -equiv -flatten -make_outputs gold gate miter
+sat -verify -prove trigger 0 -show-ports miter
