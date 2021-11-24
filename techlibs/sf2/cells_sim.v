@@ -152,7 +152,22 @@ module SLE (
 	assign Q = LAT ? q_latch : q_ff;
 endmodule
 
-// module AR1
+module ARI1 (
+	input A, B, C, D, FCI,
+	output Y, S, FCO
+);
+	parameter [19:0] INIT = 20'h0;
+	wire [2:0] Fsel = {D, C, B};
+	wire F0 = INIT[Fsel];
+	wire F1 = INIT[8 + Fsel];
+	wire Yout = A ? F1 : F0;
+	assign Y = Yout;
+	wire S = FCI ^ Yout;
+	wire G = INIT[16] ? (INIT[17] ? F1 : F0) : INIT[17];
+	wire P = INIT[19] ? 1'b1 : (INIT[18] ? Yout : 1'b0);
+	assign FCO = P ? FCI : G;
+endmodule
+
 // module FCEND_BUFF
 // module FCINIT_BUFF
 // module FLASH_FREEZE
