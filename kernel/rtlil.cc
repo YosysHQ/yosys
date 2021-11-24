@@ -480,6 +480,35 @@ vector<string> RTLIL::AttrObject::get_hdlname_attribute() const
 	return split_tokens(get_string_attribute(ID::hdlname), " ");
 }
 
+void RTLIL::AttrObject::set_intvec_attribute(RTLIL::IdString id, const vector<int> &data)
+{
+	std::stringstream attrval;
+	for (auto &i : data) {
+		if (attrval.tellp() > 0)
+			attrval << " ";
+		attrval << i;
+	}
+	attributes[id] = RTLIL::Const(attrval.str());
+}
+
+vector<int> RTLIL::AttrObject::get_intvec_attribute(RTLIL::IdString id) const
+{
+	vector<int> data;
+	auto it = attributes.find(id);
+	if (it != attributes.end())
+		for (const auto &s : split_tokens(attributes.at(id).decode_string())) {
+			char *end = nullptr;
+			errno = 0;
+			long value = strtol(s.c_str(), &end, 10);
+			if (end != s.c_str() + s.size())
+				log_cmd_error("Literal for intvec attribute has invalid format");
+			if (errno == ERANGE || value < INT_MIN || value > INT_MAX)
+				log_cmd_error("Literal for intvec attribute is out of range");
+			data.push_back(value);
+		}
+	return data;
+}
+
 bool RTLIL::Selection::selected_module(RTLIL::IdString mod_name) const
 {
 	if (full_selection)
