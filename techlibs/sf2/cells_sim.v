@@ -333,6 +333,7 @@ module BIBUF (
 	inout PAD,
 	output Y
 );
+	parameter IOSTD = "";
 	assign PAD = E ? D : 1'bz;
 	assign Y = PAD;
 endmodule
@@ -347,6 +348,7 @@ module BIBUF_DIFF (
 	inout PADN,
 	output Y
 );
+	parameter IOSTD = "";
 endmodule
 
 module CLKBIBUF (
@@ -357,6 +359,7 @@ module CLKBIBUF (
 	(* clkbuf_driver *)
 	output Y
 );
+	parameter IOSTD = "";
 	assign PAD = E ? D : 1'bz;
 	assign Y = PAD;
 endmodule
@@ -367,6 +370,7 @@ module CLKBUF (
 	(* clkbuf_driver *)
 	output Y
 );
+	parameter IOSTD = "";
 	assign Y = PAD;
 endmodule
 
@@ -379,6 +383,7 @@ module CLKBUF_DIFF (
 	(* clkbuf_driver *)
 	output Y
 );
+	parameter IOSTD = "";
 endmodule
 
 module INBUF (
@@ -386,6 +391,7 @@ module INBUF (
 	input PAD,
 	output Y
 );
+	parameter IOSTD = "";
 	assign Y = PAD;
 endmodule
 
@@ -397,6 +403,7 @@ module INBUF_DIFF (
 	input PADN,
 	output Y
 );
+	parameter IOSTD = "";
 endmodule
 
 module OUTBUF (
@@ -404,6 +411,7 @@ module OUTBUF (
 	(* iopad_external_pin *)
 	output PAD
 );
+	parameter IOSTD = "";
 	assign PAD = D;
 endmodule
 
@@ -415,6 +423,7 @@ module OUTBUF_DIFF (
 	(* iopad_external_pin *)
 	output PADN
 );
+	parameter IOSTD = "";
 endmodule
 
 module TRIBUFF (
@@ -423,6 +432,7 @@ module TRIBUFF (
 	(* iopad_external_pin *)
 	output PAD
 );
+	parameter IOSTD = "";
 	assign PAD = E ? D : 1'bz;
 endmodule
 
@@ -435,6 +445,7 @@ module TRIBUFF_DIFF (
 	(* iopad_external_pin *)
 	output PADN
 );
+	parameter IOSTD = "";
 endmodule
 
 // module DDR_IN
