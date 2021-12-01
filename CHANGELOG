@@ -5,6 +5,27 @@ List of major changes and improvements between releases
 Yosys 0.11 .. Yosys 0.11-dev
 --------------------------
 
+ * Various
+    - Added iopadmap native support for negative-polarity output enable
+    - ABC update
+
+ * SystemVerilog
+    - Support parameters using struct as a wiretype
+
+ * New commands and options
+    - Added "-genlib" option to "abc" pass
+    - Added "sta" very crude static timing analysis pass
+
+ * Verific support
+    - Fixed memory block size in import
+
+ * New back-ends
+    - Added support for GateMate FPGA from Cologne Chip AG
+
+ * Intel ALM support
+    - Added preliminary Arria V support
+
+
 Yosys 0.10 .. Yosys 0.11
 --------------------------
 
