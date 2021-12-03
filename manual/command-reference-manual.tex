@@ -22,11 +22,11 @@ library to a target architecture.
 
         if no -script parameter is given, the following scripts are used:
 
-        for -liberty without -constr:
+        for -liberty/-genlib without -constr:
           strash; ifraig; scorr; dc2; dretime; strash; &get -n; &dch -f;
                &nf {D}; &put
 
-        for -liberty with -constr:
+        for -liberty/-genlib with -constr:
           strash; ifraig; scorr; dc2; dretime; strash; &get -n; &dch -f;
                &nf {D}; &put; buffer; upsize {D}; dnsize {D}; stime -p
 
@@ -49,10 +49,10 @@ library to a target architecture.
         use different default scripts that are slightly faster (at the cost
         of output quality):
 
-        for -liberty without -constr:
+        for -liberty/-genlib without -constr:
           strash; dretime; map {D}
 
-        for -liberty with -constr:
+        for -liberty/-genlib with -constr:
           strash; dretime; map {D}; buffer; upsize {D}; dnsize {D};
                stime -p
 
@@ -69,8 +69,13 @@ library to a target architecture.
         generate netlists for the specified cell library (using the liberty
         file format).
 
+    -genlib <file>
+        generate netlists for the specified cell library (using the SIS Genlib
+        file format).
+
     -constr <file>
-        pass this file with timing constraints to ABC. use with -liberty.
+        pass this file with timing constraints to ABC.
+        use with -liberty/-genlib.
 
         a constr file contains two lines:
             set_driving_cell <cell_name>
@@ -167,7 +172,7 @@ library to a target architecture.
         preserve naming by an equivalence check between the original and post-ABC
         netlists (experimental).
 
-When neither -liberty nor -lut is used, the Yosys standard cell library is
+When no target cell library is specified the Yosys standard cell library is
 loaded into ABC before the ABC script is executed.
 
 Note that this is a logic optimization pass within Yosys that is calling ABC
@@ -2402,26 +2407,28 @@ Map module inputs/outputs to PAD cells from a library. This pass
 can only map to very simple PAD cells. Use 'techmap' to further map
 the resulting cells to more sophisticated PAD cells.
 
-    -inpad <celltype> <portname>[:<portname>]
+    -inpad <celltype> <in_port>[:<ext_port>]
         Map module input ports to the given cell type with the
         given output port name. if a 2nd portname is given, the
         signal is passed through the pad call, using the 2nd
         portname as the port facing the module port.
 
-    -outpad <celltype> <portname>[:<portname>]
-    -inoutpad <celltype> <portname>[:<portname>]
+    -outpad <celltype> <out_port>[:<ext_port>]
+    -inoutpad <celltype> <io_port>[:<ext_port>]
         Similar to -inpad, but for output and inout ports.
 
-    -toutpad <celltype> <portname>:<portname>[:<portname>]
+    -toutpad <celltype> <oe_port>:<out_port>[:<ext_port>]
         Merges $_TBUF_ cells into the output pad cell. This takes precedence
         over the other -outpad cell. The first portname is the enable input
-        of the tristate driver.
+        of the tristate driver, which can be prefixed with `~` for negative
+        polarity enable.
 
-    -tinoutpad <celltype> <portname>:<portname>:<portname>[:<portname>]
+    -tinoutpad <celltype> <oe_port>:<in_port>:<out_port>[:<ext_port>]
         Merges $_TBUF_ cells into the inout pad cell. This takes precedence
         over the other -inoutpad cell. The first portname is the enable input
         of the tristate driver and the 2nd portname is the internal output
-        buffering the external signal.
+        buffering the external signal.  Like with `-toutpad`, the enable can
+        be marked as negative polarity by prefixing the name with `~`.
 
     -ignore <celltype> <portname>[:<portname>]*
         Skips mapping inputs/outputs that are already connected to given
@@ -3156,7 +3163,7 @@ for removal of the read port.
     opt_mem_priority [selection]
 
 This pass detects cases where one memory write port has priority over another
-even though they can never collide with each other -- ie. there can never be
+even though they can never collide with each other — ie. there can never be
 a situation where a given memory bit is written by both ports at the same
 time, for example because of always-different addresses, or mutually exclusive
 enable signals. In such cases, the priority relation is removed.
@@ -4705,7 +4712,7 @@ to a graphics file (usually SVG or PostScript).
         (including inout ports) are on the right side.
 
     -pause
-        wait for the use to press enter to before returning
+        wait for the user to press enter to before returning
 
     -enum
         enumerate objects with internal ($-prefixed) names
@@ -4905,6 +4912,15 @@ This command splits multi-bit nets into single-bit nets.
     -driver
         don't blindly split nets in individual bits. instead look at the driver
         and split nets so that no driver drives only part of a net.
+\end{lstlisting}
+
+\section{sta -- perform static timing analysis}
+\label{cmd:sta}
+\begin{lstlisting}[numbers=left,frame=single]
+    sta [options] [selection]
+
+This command performs static timing analysis on the design. (Only considers
+paths within a single module, so the design must be flattened.)
 \end{lstlisting}
 
 \section{stat -- print some statistics}
@@ -5639,6 +5655,149 @@ The following commands are executed by this synthesis command:
         write_json <file-name>
 \end{lstlisting}
 
+\section{synth\_gatemate -- synthesis for Cologne Chip GateMate FPGAs}
+\label{cmd:synth_gatemate}
+\begin{lstlisting}[numbers=left,frame=single]
+    synth_gatemate [options]
+
+This command runs synthesis for Cologne Chip AG GateMate FPGAs.
+
+    -top <module>
+        use the specified module as top module.
+
+    -vlog <file>
+        write the design to the specified verilog file. Writing of an output
+        file is omitted if this parameter is not specified.
+
+    -json <file>
+        write the design to the specified JSON file. Writing of an output file
+        is omitted if this parameter is not specified.
+
+    -run <from_label>:<to_label>
+        only run the commands between the labels (see below). An empty
+        from label is synonymous to 'begin', and empty to label is
+        synonymous to the end of the command list.
+
+    -noflatten
+        do not flatten design before synthesis.
+
+    -nobram
+        do not use CC_BRAM_20K or CC_BRAM_40K cells in output netlist.
+
+    -noaddf
+        do not use CC_ADDF full adder cells in output netlist.
+
+    -nomult
+        do not use CC_MULT multiplier cells in output netlist.
+
+    -nomx8, -nomx4
+        do not use CC_MX{8,4} multiplexer cells in output netlist.
+
+    -dff
+        run 'abc' with -dff option
+
+    -retime
+        run 'abc' with '-dff -D 1' options
+
+    -noiopad
+        disable I/O buffer insertion (useful for hierarchical or 
+        out-of-context flows).
+
+    -noclkbuf
+        disable automatic clock buffer insertion.
+
+The following commands are executed by this synthesis command:
+
+    begin:
+        read_verilog -lib -specify +/gatemate/cells_sim.v +/gatemate/cells_bb.v
+        hierarchy -check -top <top>
+
+    prepare:
+        proc
+        flatten
+        tribuf -logic
+        deminout
+        opt_expr
+        opt_clean
+        check
+        opt -nodffe -nosdff
+        fsm
+        opt
+        wreduce
+        peepopt
+        opt_clean
+        muxpack
+        share
+        techmap -map +/cmp2lut.v -D LUT_WIDTH=4
+        opt_expr
+        opt_clean
+
+    map_mult:    (skip if '-nomult')
+        techmap -map +/gatemate/mul_map.v
+
+    coarse:
+        alumacc
+        opt
+        memory -nomap
+        opt_clean
+
+    map_bram:    (skip if '-nobram')
+        memory_bram -rules +/gatemate/brams.txt
+        setundef -zero -params t:$__CC_BRAM_CASCADE t:$__CC_BRAM_40K_SDP t:$__CC_BRAM_20K_SDP t:$__CC_BRAM_20K_TDP t:$__CC_BRAM_40K_TDP 
+        techmap -map +/gatemate/brams_map.v
+
+    map_ffram:
+        opt -fast -mux_undef -undriven -fine
+        memory_map
+        opt -undriven -fine
+
+    map_gates:
+        techmap -map +/techmap.v  -map +/gatemate/arith_map.v
+        opt -fast
+
+    map_io:    (skip if '-noiopad')
+        iopadmap -bits -inpad CC_IBUF Y:I -outpad CC_OBUF A:O -toutpad CC_TOBUF ~T:A:O -tinoutpad CC_IOBUF ~T:Y:A:IO
+        clean
+
+    map_regs:
+        opt_clean
+        dfflegalize -cell $_DFFE_????_ x -cell $_DLATCH_???_ x
+        techmap -map +/gatemate/reg_map.v
+        opt_expr -mux_undef
+        simplemap
+        opt_clean
+
+    map_muxs:
+        muxcover  -mux4 -mux8
+        opt -full
+        techmap -map +/gatemate/mux_map.v
+
+    map_luts:
+        abc  -dress -lut 4
+        clean
+
+    map_cells:
+        techmap -map +/gatemate/lut_map.v
+        clean
+
+    map_bufg:    (skip if '-noclkbuf')
+        clkbufmap -buf CC_BUFG O:I
+        clean
+
+    check:
+        hierarchy -check
+        stat -width
+        check -noinit
+        blackbox =A:whitebox
+
+    vlog:
+        opt_clean -purge
+        write_verilog -noattr <file-name>
+
+    json:
+        write_json <file-name>
+\end{lstlisting}
+
 \section{synth\_gowin -- synthesis for Gowin FPGAs}
 \label{cmd:synth_gowin}
 \begin{lstlisting}[numbers=left,frame=single]
@@ -5724,8 +5883,7 @@ The following commands are executed by this synthesis command:
         techmap -map +/techmap.v -map +/gowin/arith_map.v
         opt -fast
         abc -dff -D 1    (only if -retime)
-        splitnets
-        iopadmap -bits -inpad IBUF O:I -outpad OBUF I:O -toutpad $__GW_TBUF OE:I:O -tinoutpad $__GW_IOBUF OE:O:I:IO    (unless -noiopads)
+        iopadmap -bits -inpad IBUF O:I -outpad OBUF I:O -toutpad TBUF ~OEN:I:O -tinoutpad IOBUF ~OEN:O:I:IO    (unless -noiopads)
 
     map_ffs:
         opt_clean
@@ -5743,6 +5901,7 @@ The following commands are executed by this synthesis command:
         opt_lut_ins -tech gowin
         setundef -undriven -params -zero
         hilomap -singleton -hicell VCC V -locell GND G
+        splitnets -ports    (only if -vout used)
         clean
         autoname
 
@@ -5753,7 +5912,7 @@ The following commands are executed by this synthesis command:
         blackbox =A:whitebox
 
     vout:
-        write_verilog -decimal -attr2comment -defparam -renameprefix gen <file-name>
+        write_verilog -simple-lhs -decimal -attr2comment -defparam -renameprefix gen <file-name>
         write_json <file-name>
 \end{lstlisting}
 
@@ -6138,7 +6297,7 @@ This command runs synthesis for ALM-based Intel FPGAs.
     -family <family>
         target one of:
         "cyclonev"    - Cyclone V (default)
-        "cyclone10gx" - Cyclone 10GX
+        "arriav"      - Arria V (non-GZ)        "cyclone10gx" - Cyclone 10GX
 
     -vqm <file>
         write the design to the specified Verilog Quartus Mapping File. Writing of an
@@ -6316,7 +6475,7 @@ The following commands are executed by this synthesis command:
         opt -fast
 
     map_ios:    (unless -noiopad)
-        iopadmap -bits -outpad $__FACADE_OUTPAD I:O -inpad $__FACADE_INPAD O:I -toutpad $__FACADE_TOUTPAD OE:I:O -tinoutpad $__FACADE_TINOUTPAD OE:O:I:B A:top
+        iopadmap -bits -outpad $__FACADE_OUTPAD I:O -inpad $__FACADE_INPAD O:I -toutpad $__FACADE_TOUTPAD ~T:I:O -tinoutpad $__FACADE_TINOUTPAD ~T:O:I:B A:top
         attrmvcp -attr src -attr LOC t:$__FACADE_OUTPAD %x:+[O] t:$__FACADE_TOUTPAD %x:+[O] t:$__FACADE_TINOUTPAD %x:+[B]
         attrmvcp -attr src -attr LOC -driven t:$__FACADE_INPAD %x:+[I]
 
@@ -6466,7 +6625,7 @@ The following commands are executed by this synthesis command:
 
     map_gates:
         techmap -map +/techmap.v -map +/nexus/arith_map.v
-        iopadmap -bits -outpad OB I:O -inpad IB O:I -toutpad $__NX_TOUTPAD OE:I:O -tinoutpad $__NX_TINOUTPAD OE:O:I:B A:top    (skip if '-noiopad')
+        iopadmap -bits -outpad OB I:O -inpad IB O:I -toutpad OBZ ~T:I:O -tinoutpad BB ~T:O:I:B A:top    (skip if '-noiopad')
         opt -fast
         abc -dff -D 1    (only if -retime)
 
@@ -6876,7 +7035,7 @@ The following commands are executed by this synthesis command:
         opt -fast
 
     map_cells:
-        iopadmap -bits -outpad OBUF I:O -inpad IBUF O:I -toutpad $__XILINX_TOUTPAD OE:I:O -tinoutpad $__XILINX_TINOUTPAD OE:O:I:IO A:top    (skip if '-noiopad')
+        iopadmap -bits -outpad OBUF I:O -inpad IBUF O:I -toutpad OBUFT ~T:I:O -tinoutpad IOBUF ~T:O:I:IO A:top    (skip if '-noiopad')
         techmap -map +/techmap.v -map +/xilinx/cells_map.v
         clean
 
