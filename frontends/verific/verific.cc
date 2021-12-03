@@ -896,7 +896,7 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 			for (offset = 0; offset < GetSize(sig_acond); offset += width) {
 				for (width = 1; offset+width < GetSize(sig_acond); width++)
 					if (sig_acond[offset] != sig_acond[offset+width]) break;
-				cell = clocking.addAldff(inst_name, sig_acond[offset], sig_adata.extract(offset, width),
+				cell = clocking.addAldff(module->uniquify(inst_name), sig_acond[offset], sig_adata.extract(offset, width),
 						sig_d.extract(offset, width), sig_q.extract(offset, width));
 				import_attributes(cell->attributes, inst);
 			}
@@ -922,7 +922,7 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 					if (sig_acond[offset] != sig_acond[offset+width]) break;
 				RTLIL::SigSpec sig_set = module->Mux(NEW_ID, RTLIL::SigSpec(0, width), sig_adata.extract(offset, width), sig_acond[offset]);
 				RTLIL::SigSpec sig_clr = module->Mux(NEW_ID, RTLIL::SigSpec(0, width), module->Not(NEW_ID, sig_adata.extract(offset, width)), sig_acond[offset]);
-				cell = module->addDlatchsr(inst_name, net_map_at(inst->GetControl()), sig_set, sig_clr,
+				cell = module->addDlatchsr(module->uniquify(inst_name), net_map_at(inst->GetControl()), sig_set, sig_clr,
 						sig_d.extract(offset, width), sig_q.extract(offset, width));
 				import_attributes(cell->attributes, inst);
 			}
