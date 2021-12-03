@@ -77,25 +77,25 @@ struct MetadataWriter
 
         design->sort();
 
-        f << stringf("{\n");
+        f << "{\n";
         f << stringf("  \"generator\": %s,\n", get_string(yosys_version_str).c_str());
         // XXX(aki): Replace this with a proper version info eventually:tm:
-        f << stringf("  \"version\": \"0.0.0\",\n");
-        f << stringf("  \"modules\": [\n");
+        f << "  \"version\": \"0.0.0\",\n";
+        f << "  \"modules\": [\n";
 
         bool first{true};
         for (auto mod : _use_selection ? design->selected_modules() : design->modules()) {
             if (!first)
-                f << stringf(",\n");
+                f << ",\n";
             write_module(mod);
 
-            f << stringf("\n");
+            f << "\n";
 
             first = false;
         }
 
-        f << stringf("  ]\n");
-        f << stringf("}\n");
+        f << "  ]\n";
+        f << "}\n";
     }
 
     void write_module(Module* mod)
@@ -104,26 +104,26 @@ struct MetadataWriter
 
         coalesce_cells(mod);
 
-        f << stringf("    {\n");
+        f << "    {\n";
         f << stringf("      \"name\": %s,\n", get_string(RTLIL::unescape_id(mod->name)).c_str());
-        f << stringf("      \"cell_sorts\": [\n");
+        f << "      \"cell_sorts\": [\n";
 
         bool first_sort{true};
         for (auto& sort : _cells) {
             if (!first_sort)
-                f << stringf(",\n");
+                f << ",\n";
 
             write_cell_sort(sort);
 
             first_sort = false;
         }
-        f << stringf("\n");
+        f << "\n";
 
-        f << stringf("      ],\n");
-        f << stringf("      \"connections\": [\n");
+        f << "      ],\n";
+        f << "      \"connections\": [\n";
 
-        f << stringf("      ]\n");
-        f << stringf("    }");
+        f << "      ]\n";
+        f << "    }";
     }
 
 
@@ -131,55 +131,56 @@ struct MetadataWriter
     {
         const auto port_cell = sort.second.front();
 
-        f << stringf("        {\n");
+        f << "        {\n";
         f << stringf("          \"type\": %s,\n", sort.first.c_str());
-        f << stringf("          \"ports\": [\n");
+        f << "          \"ports\": [\n";
 
         bool first_port{true};
         for (auto con : port_cell->connections()) {
             if (!first_port)
-                f << stringf(",\n");
+                f << ",\n";
 
-            f << stringf("          {\n");
+            f << "          {\n";
             f << stringf("            \"name\": %s,\n", get_string(RTLIL::unescape_id(con.first)).c_str());
-            f << stringf("            \"direction\": \"");
+            f << "            \"direction\": \"";
             if (port_cell->input(con.first))
-                f << stringf("i");
+                f << "i";
             if (port_cell->input(con.first))
-                f << stringf("o");
-            f << stringf("\",\n");
+                f << "o";
+            f << "\",\n";
             if (con.second.size() == 1)
-                f << stringf("            \"range\": [0, 0]\n");
+                f << "            \"range\": [0, 0]\n";
             else
                 f << stringf("            \"range\": [%d, %d]\n", con.second.size(), 0);
-            f << stringf("          }");
+            f << "          }";
 
             first_port = false;
         }
-        f << stringf("\n");
+        f << "\n";
 
-        f << stringf("          ],\n          \"cells\": [\n");
+        f << "          ],\n          \"cells\": [\n";
         bool first_cell{true};
         for (auto& cell : sort.second) {
             if (!first_cell)
-                f << stringf(",\n");
+                f << ",\n";
 
             write_cell(cell);
 
             first_cell = false;
         }
-        f << stringf("\n");
-        f << stringf("          ]\n");
-        f << stringf("        }");
+        f << "\n";
+        f << "          ]\n";
+        f << "        }";
+    }
     }
 
     void write_cell(Cell* cell)
     {
         log_assert(cell != nullptr);
 
-        f << stringf("            {\n");
+        f << "            {\n";
         f << stringf("              \"name\": %s,\n", get_string(RTLIL::unescape_id(cell->name)).c_str());
-        f << stringf("              \"attributes\": {\n");
+        f << "              \"attributes\": {\n";
 
         bool first_attr{true};
         for (auto& attr : cell->attributes) {
@@ -193,9 +194,10 @@ struct MetadataWriter
 
             first_attr = false;
         }
+        f << "\n";
 
-        f << stringf("              },\n");
-        f << stringf("              \"parameters\": {\n");
+        f << "              },\n";
+        f << "              \"parameters\": {\n";
 
         bool first_param{true};
         for (auto& param : cell->parameters) {
@@ -209,9 +211,10 @@ struct MetadataWriter
 
             first_param = false;
         }
+        f << "\n";
 
-        f << stringf("              },\n");
-        f << stringf("            }");
+        f << "              },\n";
+        f << "            }";
     }
 };
 
