@@ -172,6 +172,21 @@ struct MetadataWriter
         f << "          ]\n";
         f << "        }";
     }
+
+    void write_param_val(const Const& v)
+    {
+        if ((v.flags & RTLIL::ConstFlags::CONST_FLAG_STRING) == RTLIL::ConstFlags::CONST_FLAG_STRING) {
+            const auto str = v.decode_string();
+
+
+            f << get_string(str);
+        } else if ((v.flags & RTLIL::ConstFlags::CONST_FLAG_SIGNED) == RTLIL::ConstFlags::CONST_FLAG_SIGNED) {
+            f << stringf("\"%dsd %d\"", v.size(), v.as_int());
+        } else if ((v.flags & RTLIL::ConstFlags::CONST_FLAG_REAL) == RTLIL::ConstFlags::CONST_FLAG_REAL) {
+
+        } else {
+            f << get_string(v.as_string());
+        }
     }
 
     void write_cell(Cell* cell)
@@ -187,10 +202,12 @@ struct MetadataWriter
             if (!first_attr)
                 f << stringf(",\n");
             const auto attr_val = attr.second;
-            if (!attr_val.empty())
-                f << stringf("                %s: \"%s\"\n", get_string(RTLIL::unescape_id(attr.first)).c_str(), attr_val.decode_string().c_str());
-            else
-                f << stringf("                %s: true\n", get_string(RTLIL::unescape_id(attr.first)).c_str());
+            if (!attr_val.empty()) {
+                f << stringf("                %s: ", get_string(RTLIL::unescape_id(attr.first)).c_str());
+                write_param_val(attr_val);
+            } else {
+                f << stringf("                %s: true", get_string(RTLIL::unescape_id(attr.first)).c_str());
+            }
 
             first_attr = false;
         }
@@ -204,10 +221,12 @@ struct MetadataWriter
             if (!first_param)
                 f << stringf(",\n");
             const auto param_val = param.second;
-            if (!param_val.empty())
-                f << stringf("                %s: \"%s\"\n", get_string(RTLIL::unescape_id(param.first)).c_str(), param_val.decode_string().c_str());
-            else
-                f << stringf("                %s: true\n", get_string(RTLIL::unescape_id(param.first)).c_str());
+            if (!param_val.empty()) {
+                f << stringf("                %s: ", get_string(RTLIL::unescape_id(param.first)).c_str());
+                write_param_val(param_val);
+            } else {
+                f << stringf("                %s: true", get_string(RTLIL::unescape_id(param.first)).c_str());
+            }
 
             first_param = false;
         }
