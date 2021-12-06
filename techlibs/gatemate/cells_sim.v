@@ -1409,3 +1409,47 @@ module CC_BRAM_40K (
 		end
 	endgenerate
 endmodule
+
+// Models of the LUT2 tree primitives
+module CC_L2T4(
+	output O,
+	input I0, I1, I2, I3
+);
+	parameter [3:0] INIT_L00 = 4'b0000;
+	parameter [3:0] INIT_L01 = 4'b0000;
+	parameter [3:0] INIT_L10 = 4'b0000;
+
+	wire [1:0] l00_s1 = I1 ? INIT_L00[3:2] : INIT_L00[1:0];
+	wire l00 = I0 ? l00_s1[1] : l00_s1[0];
+
+	wire [1:0] l01_s1 = I3 ? INIT_L01[3:2] : INIT_L01[1:0];
+	wire l01 = I2 ? l01_s1[1] : l01_s1[0];
+
+	wire [1:0] l10_s1 = l01 ? INIT_L10[3:2] : INIT_L10[1:0];
+	assign O = l00 ? l10_s1[1] : l10_s1[0];
+
+endmodule
+
+
+module CC_L2T5(
+	output O,
+	input I0, I1, I2, I3, I4
+);
+	parameter [3:0] INIT_L02 = 4'b0000;
+	parameter [3:0] INIT_L03 = 4'b0000;
+	parameter [3:0] INIT_L11 = 4'b0000;
+	parameter [3:0] INIT_L20 = 4'b0000;
+
+	wire [1:0] l02_s1 = I1 ? INIT_L02[3:2] : INIT_L02[1:0];
+	wire l02 = I0 ? l02_s1[1] : l02_s1[0];
+
+	wire [1:0] l03_s1 = I3 ? INIT_L03[3:2] : INIT_L03[1:0];
+	wire l03 = I2 ? l03_s1[1] : l03_s1[0];
+
+	wire [1:0] l11_s1 = l03 ? INIT_L11[3:2] : INIT_L11[1:0];
+	wire l11 = l02 ? l11_s1[1] : l11_s1[0];
+
+	wire [1:0] l20_s1 = l11 ? INIT_L20[3:2] : INIT_L20[1:0];
+	assign O = I4 ? l20_s1[1] : l20_s1[0];
+
+endmodule
