@@ -3163,7 +3163,7 @@ for removal of the read port.
     opt_mem_priority [selection]
 
 This pass detects cases where one memory write port has priority over another
-even though they can never collide with each other — ie. there can never be
+even though they can never collide with each other -- ie. there can never be
 a situation where a given memory bit is written by both ports at the same
 time, for example because of always-different addresses, or mutually exclusive
 enable signals. In such cases, the priority relation is removed.
@@ -3659,11 +3659,6 @@ is only available via Verific.)
 
 Additional -D<macro>[=<value>] options may be added after the option indicating
 the language version (and before file names) to set additional verilog defines.
-
-
-    read {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl} <vhdl-file>..
-
-Load the specified VHDL files. (Requires Verific.)
 
 
     read {-f|-F} <command-file>
@@ -7478,11 +7473,6 @@ The macros SYNTHESIS and VERIFIC are defined implicitly.
     verific -formal <verilog-file>..
 
 Like -sv, but define FORMAL instead of SYNTHESIS.
-
-
-    verific {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl} <vhdl-file>..
-
-Load the specified VHDL files into Verific.
 
 
     verific {-f|-F} <command-file>
