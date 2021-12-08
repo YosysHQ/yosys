@@ -1112,6 +1112,13 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 
 		for (int i = portbus->LeftIndex();; i += portbus->IsUp() ? +1 : -1) {
 			if (portbus->ElementAtIndex(i) && portbus->ElementAtIndex(i)->GetNet()) {
+				if (portbus->GetDir() == DIR_NONE && !wire->port_input && !wire->port_output)  {
+					Port *p = portbus->ElementAtIndex(i);
+					if (p->GetDir() == DIR_INOUT || p->GetDir() == DIR_IN)
+						wire->port_input = true;
+					if (p->GetDir() == DIR_INOUT || p->GetDir() == DIR_OUT)
+						wire->port_output = true;
+				}
 				net = portbus->ElementAtIndex(i)->GetNet();
 				RTLIL::SigBit bit(wire, i - wire->start_offset);
 				if (net_map.count(net) == 0)
