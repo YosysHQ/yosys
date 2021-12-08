@@ -34,7 +34,7 @@ struct OptMemPriorityPass : public Pass {
 		log("    opt_mem_priority [selection]\n");
 		log("\n");
 		log("This pass detects cases where one memory write port has priority over another\n");
-		log("even though they can never collide with each other — ie. there can never be\n");
+		log("even though they can never collide with each other -- ie. there can never be\n");
 		log("a situation where a given memory bit is written by both ports at the same\n");
 		log("time, for example because of always-different addresses, or mutually exclusive\n");
 		log("enable signals. In such cases, the priority relation is removed.\n");
