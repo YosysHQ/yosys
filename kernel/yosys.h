@@ -347,8 +347,7 @@ std::vector<std::string> glob_filename(const std::string &filename_pattern);
 void rewrite_filename(std::string &filename);
 
 void run_pass(std::string command, RTLIL::Design *design = nullptr);
-void run_frontend(std::string filename, std::string command, std::string *backend_command, std::string *from_to_label = nullptr, RTLIL::Design *design = nullptr);
-void run_frontend(std::string filename, std::string command, RTLIL::Design *design = nullptr);
+bool run_frontend(std::string filename, std::string command, RTLIL::Design *design = nullptr, std::string *from_to_label = nullptr);
 void run_backend(std::string filename, std::string command, RTLIL::Design *design = nullptr);
 void shell(RTLIL::Design *design);
 
