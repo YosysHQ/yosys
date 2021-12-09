@@ -966,11 +966,11 @@ void run_frontend(std::string filename, std::string command, std::string *backen
 		if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".gz") == 0)
 			filename_trim.erase(filename_trim.size()-3);
 		if (filename_trim.size() > 2 && filename_trim.compare(filename_trim.size()-2, std::string::npos, ".v") == 0)
-			command = "verilog";
+			command = " -vlog2k";
 		else if (filename_trim.size() > 2 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".sv") == 0)
-			command = "verilog -sv";
+			command = " -sv";
 		else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".vhd") == 0)
-			command = "vhdl";
+			command = " -vhdl";
 		else if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-5, std::string::npos, ".blif") == 0)
 			command = "blif";
 		else if (filename_trim.size() > 5 && filename_trim.compare(filename_trim.size()-6, std::string::npos, ".eblif") == 0)
@@ -1070,7 +1070,11 @@ void run_frontend(std::string filename, std::string command, std::string *backen
 
 	if (command == "tcl")
 		Pass::call(design, vector<string>({command, filename}));
-	else
+	else if (command[0] == ' ') {
+		auto argv = split_tokens("read" + command);
+		argv.push_back(filename);
+		Pass::call(design, argv);
+	} else
 		Frontend::frontend_call(design, NULL, filename, command);
 	design->check();
 }
