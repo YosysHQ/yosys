@@ -2,7 +2,7 @@
 
 set -e
 
-../../yosys -b 'verilog -noattr' -o mem_simple_4x1_synth.v -p 'proc; opt; memory -nomap; techmap -map mem_simple_4x1_map.v;; techmap; opt; abc;; stat' mem_simple_4x1_uut.v
+../../yosys -b 'verilog -noattr' -o mem_simple_4x1_synth.v -p 'read_verilog mem_simple_4x1_uut.v; proc; opt; memory -nomap; techmap -map mem_simple_4x1_map.v;; techmap; opt; abc;; stat'
 
 iverilog -o mem_simple_4x1_gold_tb mem_simple_4x1_tb.v mem_simple_4x1_uut.v
 iverilog -o mem_simple_4x1_gate_tb mem_simple_4x1_tb.v mem_simple_4x1_synth.v mem_simple_4x1_cells.v
