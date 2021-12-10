@@ -198,7 +198,7 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 						p = nullptr;
 					else
 						for (auto q = p+2; *q != '\0'; q++)
-							if (*q != '0' && *q != '1') {
+							if (*q != '0' && *q != '1' && *q != 'x' && *q != 'z') {
 								p = nullptr;
 								break;
 							}
