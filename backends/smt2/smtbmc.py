@@ -771,12 +771,12 @@ def write_vcd_trace(steps_start, steps_stop, index):
 
                         if gotread:
                             buf = data[:]
-                            for i in reversed(range(len(tdata))):
+                            for ii in reversed(range(len(tdata))):
                                 for k in range(width):
-                                    if tdata[i][k] == "x":
-                                        tdata[i][k] = buf[k]
+                                    if tdata[ii][k] == "x":
+                                        tdata[ii][k] = buf[k]
                                     else:
-                                        buf[k] = tdata[i][k]
+                                        buf[k] = tdata[ii][k]
 
                     if not asyncwr:
                         tdata.append(data[:])

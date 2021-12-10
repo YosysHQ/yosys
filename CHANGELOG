@@ -2,80 +2,206 @@
 List of major changes and improvements between releases
 =======================================================
 
+Yosys 0.12 .. Yosys 0.12-dev
+--------------------------
 
-Yosys 0.9 .. Yosys 0.9-dev
+Yosys 0.11 .. Yosys 0.12
 --------------------------
 
  * Various
-    - Added "write_xaiger" backend
-    - Added "abc9" pass for timing-aware techmapping (experimental, FPGA only)
-    - Added "synth_xilinx -abc9" (experimental)
-    - Added "synth_ice40 -abc9" (experimental)
-    - Added "synth -abc9" (experimental)
-    - Added "script -scriptwire"
-    - Added "synth_xilinx -nocarry"
-    - Added "synth_xilinx -nowidelut"
-    - Added "synth_ecp5 -nowidelut"
-    - "synth_xilinx" to now infer wide multiplexers (-widemux <min> to enable)
-    - Renamed labels/options in synth_ice40 (e.g. dram -> map_lutram; -nodram -> -nolutram)
-    - Renamed labels/options in synth_ecp5 (e.g. dram -> map_lutram; -nodram -> -nolutram)
-    - Renamed labels in synth_intel (e.g. bram -> map_bram)
-    - Renamed labels/options in synth_xilinx (e.g. dram -> map_lutram; -nodram -> -nolutram)
+    - Added iopadmap native support for negative-polarity output enable
+    - ABC update
+
+ * SystemVerilog
+    - Support parameters using struct as a wiretype
+
+ * New commands and options
+    - Added "-genlib" option to "abc" pass
+    - Added "sta" very crude static timing analysis pass
+
+ * Verific support
+    - Fixed memory block size in import
+
+ * New back-ends
+    - Added support for GateMate FPGA from Cologne Chip AG
+
+ * Intel ALM support
+    - Added preliminary Arria V support
+
+
+Yosys 0.10 .. Yosys 0.11
+--------------------------
+
+ * Various
+    - Added $aldff and $aldffe (flip-flops with async load) cells
+
+ * SystemVerilog
+    - Fixed an issue which prevented writing directly to a memory word via a
+      connection to an output port
+    - Fixed an issue which prevented unbased unsized literals (e.g., `'1`) from
+      filling the width of a cell input
+    - Fixed an issue where connecting a slice covering the entirety of a signed
+      signal to a cell input would cause a failed assertion
+
+ * Verific support
+    - Importer support for {PRIM,WIDE_OPER}_DFF
+    - Importer support for PRIM_BUFIF1
+    - Option to use Verific without VHDL support
+    - Importer support for {PRIM,WIDE_OPER}_DLATCH{,RS}
+    - Added -cfg option for getting/setting Verific runtime flags
+
+Yosys 0.9 .. Yosys 0.10
+--------------------------
+
+ * Various
     - Added automatic gzip decompression for frontends
     - Added $_NMUX_ cell type
     - Added automatic gzip compression (based on filename extension) for backends
     - Improve attribute and parameter encoding in JSON to avoid ambiguities between
       bit vectors and strings containing [01xz]*
-    - Added "clkbufmap" pass
-    - Added "extractinv" pass and "invertible_pin" attribute
-    - Added "synth_xilinx -family xc6s" for Spartan 6 support (experimental)
-    - Added "synth_xilinx -ise" (experimental)
-    - Added "synth_xilinx -iopad"
-    - "synth_xilinx" now automatically inserts clock buffers (add -noclkbuf to disable)
     - Improvements in pmgen: subpattern and recursive matches
-    - Added "opt_share" pass, run as part of "opt -full"
-    - Added "ice40_wrapcarry" to encapsulate SB_LUT+SB_CARRY pairs for techmapping
-    - Removed "ice40_unlut"
+    - Support explicit FIRRTL properties
     - Improvements in pmgen: slices, choices, define, generate
-    - Added "xilinx_srl" for Xilinx shift register extraction
-    - Removed "shregmap -tech xilinx" (superseded by "xilinx_srl")
     - Added "_TECHMAP_WIREINIT_*_" parameter and "_TECHMAP_REMOVEINIT_*_" wire for "techmap" pass
-    - Added "-match-init" option to "dff2dffs" pass
-    - Added "techmap_autopurge" support to techmap
-    - Added "add -mod <modname[s]>"
     - Added +/mul2dsp.v for decomposing wide multipliers to custom-sized ones
-    - Added "ice40_dsp" for Lattice iCE40 DSP packing
-    - Added "xilinx_dsp" for Xilinx DSP packing
-    - "synth_xilinx" to now infer DSP blocks (-nodsp to disable)
-    - "synth_ecp5" to now infer DSP blocks (-nodsp to disable, experimental)
-    - "synth_ice40 -dsp" to infer DSP blocks
-    - Added latch support to synth_xilinx
-    - Added support for flip-flops with synchronous reset to synth_xilinx
-    - Added support for flip-flops with reset and enable to synth_xilinx
-    - Added "check -mapped"
-    - Added checking of SystemVerilog always block types (always_comb,
-      always_latch and always_ff)
-    - Added support for SystemVerilog wildcard port connections (.*)
-    - Added "xilinx_dffopt" pass
-    - Added "scratchpad" pass
-    - Added "synth_xilinx -dff"
+    - Added new frontend: rpc
+    - Added --version and -version as aliases for -V
+    - Improve yosys-smtbmc "solver not found" handling
     - Improved support of $readmem[hb] Memory Content File inclusion
-    - Added "opt_lut_ins" pass
-    - Added "logger" pass
-    - Added "design -delete"
-    - Added "select -unset"
+    - Added CXXRTL backend
     - Use YosysHQ/abc instead of upstream berkeley-abc/abc
+    - Added WASI platform support.
+    - Added extmodule support to firrtl backend
     - Added $divfloor and $modfloor cells
     - Added $adffe, $dffsre, $sdff, $sdffe, $sdffce, $adlatch cells
-    - Added "dfflegalize" pass
     - Added "_TECHMAP_CELLNAME_" parameter for "techmap" pass
-    - Merged "dffsr2dff", "opt_rmdff", "dff2dffe", "dff2dffs", "peepopt.dffmux" passes into a new "opt_dff" pass
+    - Added firrtl backend support for generic parameters in blackbox components
     - Added $meminit_v2 cells (with support for write mask)
     - Added $mem_v2, $memrd_v2, $memwr_v2, with the following features:
       - write priority masks, per write/write port pair
       - transparency and undefined collision behavior masks, per read/write port pair
       - read port reset and initialization
       - wide ports (accessing a naturally aligned power-of-two number of memory cells)
+
+ * New commands and options
+    - Added "write_xaiger" backend
+    - Added "read_xaiger"
+    - Added "abc9" pass for timing-aware techmapping (experimental, FPGA only)
+    - Added "synth -abc9" (experimental)
+    - Added "script -scriptwire"
+    - Added "clkbufmap" pass
+    - Added "extractinv" pass and "invertible_pin" attribute
+    - Added "proc_clean -quiet"
+    - Added "proc_prune" pass
+    - Added "stat -tech cmos"
+    - Added "opt_share" pass, run as part of "opt -full"
+    - Added "-match-init" option to "dff2dffs" pass
+    - Added "equiv_opt -multiclock"
+    - Added "techmap_autopurge" support to techmap
+    - Added "add -mod <modname[s]>"
+    - Added "paramap" pass
+    - Added "portlist" command
+    - Added "check -mapped"
+    - Added "check -allow-tbuf"
+    - Added "autoname" pass
+    - Added "write_verilog -extmem"
+    - Added "opt_mem" pass
+    - Added "scratchpad" pass
+    - Added "fminit" pass
+    - Added "opt_lut_ins" pass
+    - Added "logger" pass
+    - Added "show -nobg"
+    - Added "exec" command
+    - Added "design -delete"
+    - Added "design -push-copy"
+    - Added "qbfsat" command
+    - Added "select -unset"
+    - Added "dfflegalize" pass
+    - Removed "opt_expr -clkinv" option, made it the default
+    - Added "proc -nomux
+    - Merged "dffsr2dff", "opt_rmdff", "dff2dffe", "dff2dffs", "peepopt.dffmux" passes into a new "opt_dff" pass
+
+ * SystemVerilog
+    - Added checking of always block types (always_comb, always_latch and always_ff)
+    - Added support for wildcard port connections (.*)
+    - Added support for enum typedefs
+    - Added support for structs and packed unions.
+    - Allow constant function calls in for loops and generate if and case
+    - Added support for static cast
+    - Added support for logic typed parameters
+    - Fixed generate scoping issues
+    - Added support for real-valued parameters
+    - Allow localparams in constant functions
+    - Module name scope support
+    - Support recursive functions using ternary expressions
+    - Extended support for integer types
+    - Support for parameters without default values
+    - Allow globals in one file to depend on globals in another
+    - Added support for: *=, /=, %=, <<=, >>=, <<<=, >>>=
+    - Added support for parsing the 'bind' construct
+    - support declaration in procedural for initialization
+    - support declaration in generate for initialization
+    - Support wand and wor of data types
+
+ * Verific support
+    - Added "verific -L"
+    - Add Verific SVA support for "always" properties
+    - Add Verific support for SVA nexttime properties
+    - Improve handling of verific primitives in "verific -import -V" mode
+    - Import attributes for wires
+    - Support VHDL enums
+    - Added support for command files
+
+ * New back-ends
+    - Added initial EFINIX support
+    - Added Intel ALM: alternative synthesis for Intel FPGAs
+    - Added initial Nexus support
+    - Added initial MachXO2 support
+    - Added initial QuickLogic PolarPro 3 support
+
+ * ECP5 support
+    - Renamed labels/options in synth_ecp5 (e.g. dram -> map_lutram; -nodram -> -nolutram)
+    - Added "synth_ecp5 -abc9" (experimental)
+    - Added "synth_ecp5 -nowidelut"
+    - "synth_ecp5" to now infer DSP blocks (-nodsp to disable, experimental)
+
+ * iCE40 support
+    - Added "synth_ice40 -abc9" (experimental)
+    - Added "synth_ice40 -device"
+    - Renamed labels/options in synth_ice40 (e.g. dram -> map_lutram; -nodram -> -nolutram)
+    - Added "ice40_wrapcarry" to encapsulate SB_LUT+SB_CARRY pairs for techmapping
+    - Removed "ice40_unlut"
+    - Added "ice40_dsp" for Lattice iCE40 DSP packing
+    - "synth_ice40 -dsp" to infer DSP blocks
+
+ * Xilinx support
+    - Added "synth_xilinx -abc9" (experimental)
+    - Added "synth_xilinx -nocarry"
+    - Added "synth_xilinx -nowidelut"
+    - "synth_xilinx" to now infer wide multiplexers (-widemux <min> to enable)
+    - Renamed labels/options in synth_xilinx (e.g. dram -> map_lutram; -nodram -> -nolutram)
+    - Added "synth_xilinx -family xc6s" for Spartan 6 support (experimental)
+    - Added "synth_xilinx -ise" (experimental)
+    - Added "synth_xilinx -iopad"
+    - "synth_xilinx" now automatically inserts clock buffers (add -noclkbuf to disable)
+    - Added "xilinx_srl" for Xilinx shift register extraction
+    - Removed "shregmap -tech xilinx" (superseded by "xilinx_srl")
+    - Added "xilinx_dsp" for Xilinx DSP packing
+    - "synth_xilinx" to now infer DSP blocks (-nodsp to disable)
+    - Added latch support to synth_xilinx
+    - Added support for flip-flops with synchronous reset to synth_xilinx
+    - Added support for flip-flops with reset and enable to synth_xilinx
+    - Added "xilinx_dffopt" pass
+    - Added "synth_xilinx -dff"
+
+ * Intel support
+    - Renamed labels in synth_intel (e.g. bram -> map_bram)
+    - synth_intel: cyclone10 -> cyclone10lp, a10gx -> arria10gx
+    - Added "intel_alm -abc9" (experimental)
+
+ * CoolRunner2 support
+    - Separate and improve buffer cell insertion pass
+    - Use extract_counter to optimize counters
 
 Yosys 0.8 .. Yosys 0.9
 ----------------------

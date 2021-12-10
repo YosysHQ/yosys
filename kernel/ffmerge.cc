@@ -29,7 +29,7 @@ bool FfMergeHelper::is_output_unused(RTLIL::SigSpec sig) {
 }
 
 bool FfMergeHelper::find_output_ff(RTLIL::SigSpec sig, FfData &ff, pool<std::pair<Cell *, int>> &bits) {
-	ff = FfData();
+	ff = FfData(module, initvals, NEW_ID);
 	sigmap->apply(sig);
 
 	bool found = false;
@@ -62,22 +62,28 @@ bool FfMergeHelper::find_output_ff(RTLIL::SigSpec sig, FfData &ff, pool<std::pai
 
 		FfData cur_ff(initvals, cell);
 
-		log_assert(cur_ff.has_d);
+		// Reject latches and $ff.
+		if (!cur_ff.has_clk)
+			return false;
+
 		log_assert((*sigmap)(cur_ff.sig_d[idx]) == bit);
 
 		if (!found) {
 			ff.sig_clk = cur_ff.sig_clk;
-			ff.sig_en = cur_ff.sig_en;
+			ff.sig_ce = cur_ff.sig_ce;
+			ff.sig_aload = cur_ff.sig_aload;
 			ff.sig_srst = cur_ff.sig_srst;
 			ff.sig_arst = cur_ff.sig_arst;
 			ff.has_clk = cur_ff.has_clk;
-			ff.has_en = cur_ff.has_en;
+			ff.has_ce = cur_ff.has_ce;
+			ff.has_aload = cur_ff.has_aload;
 			ff.has_srst = cur_ff.has_srst;
 			ff.has_arst = cur_ff.has_arst;
 			ff.has_sr = cur_ff.has_sr;
 			ff.ce_over_srst = cur_ff.ce_over_srst;
 			ff.pol_clk = cur_ff.pol_clk;
-			ff.pol_en = cur_ff.pol_en;
+			ff.pol_ce = cur_ff.pol_ce;
+			ff.pol_aload = cur_ff.pol_aload;
 			ff.pol_arst = cur_ff.pol_arst;
 			ff.pol_srst = cur_ff.pol_srst;
 			ff.pol_clr = cur_ff.pol_clr;
@@ -85,7 +91,9 @@ bool FfMergeHelper::find_output_ff(RTLIL::SigSpec sig, FfData &ff, pool<std::pai
 		} else {
 			if (ff.has_clk != cur_ff.has_clk)
 				return false;
-			if (ff.has_en != cur_ff.has_en)
+			if (ff.has_ce != cur_ff.has_ce)
+				return false;
+			if (ff.has_aload != cur_ff.has_aload)
 				return false;
 			if (ff.has_srst != cur_ff.has_srst)
 				return false;
@@ -99,10 +107,16 @@ bool FfMergeHelper::find_output_ff(RTLIL::SigSpec sig, FfData &ff, pool<std::pai
 				if (ff.pol_clk != cur_ff.pol_clk)
 					return false;
 			}
-			if (ff.has_en) {
-				if (ff.sig_en != cur_ff.sig_en)
+			if (ff.has_ce) {
+				if (ff.sig_ce != cur_ff.sig_ce)
 					return false;
-				if (ff.pol_en != cur_ff.pol_en)
+				if (ff.pol_ce != cur_ff.pol_ce)
+					return false;
+			}
+			if (ff.has_aload) {
+				if (ff.sig_aload != cur_ff.sig_aload)
+					return false;
+				if (ff.pol_aload != cur_ff.pol_aload)
 					return false;
 			}
 			if (ff.has_srst) {
@@ -110,7 +124,7 @@ bool FfMergeHelper::find_output_ff(RTLIL::SigSpec sig, FfData &ff, pool<std::pai
 					return false;
 				if (ff.pol_srst != cur_ff.pol_srst)
 					return false;
-				if (ff.has_en && ff.ce_over_srst != cur_ff.ce_over_srst)
+				if (ff.has_ce && ff.ce_over_srst != cur_ff.ce_over_srst)
 					return false;
 			}
 			if (ff.has_arst) {
@@ -129,6 +143,7 @@ bool FfMergeHelper::find_output_ff(RTLIL::SigSpec sig, FfData &ff, pool<std::pai
 
 		ff.width++;
 		ff.sig_d.append(cur_ff.sig_d[idx]);
+		ff.sig_ad.append(ff.has_aload ? cur_ff.sig_ad[idx] : State::Sx);
 		ff.sig_q.append(cur_ff.sig_q[idx]);
 		ff.sig_clr.append(ff.has_sr ? cur_ff.sig_clr[idx] : State::S0);
 		ff.sig_set.append(ff.has_sr ? cur_ff.sig_set[idx] : State::S0);
@@ -142,7 +157,7 @@ bool FfMergeHelper::find_output_ff(RTLIL::SigSpec sig, FfData &ff, pool<std::pai
 }
 
 bool FfMergeHelper::find_input_ff(RTLIL::SigSpec sig, FfData &ff, pool<std::pair<Cell *, int>> &bits) {
-	ff = FfData();
+	ff = FfData(module, initvals, NEW_ID);
 	sigmap->apply(sig);
 
 	bool found = false;
@@ -179,28 +194,33 @@ bool FfMergeHelper::find_input_ff(RTLIL::SigSpec sig, FfData &ff, pool<std::pair
 
 		if (!found) {
 			ff.sig_clk = cur_ff.sig_clk;
-			ff.sig_en = cur_ff.sig_en;
+			ff.sig_ce = cur_ff.sig_ce;
+			ff.sig_aload = cur_ff.sig_aload;
 			ff.sig_srst = cur_ff.sig_srst;
 			ff.sig_arst = cur_ff.sig_arst;
-			ff.has_d = cur_ff.has_d;
 			ff.has_clk = cur_ff.has_clk;
-			ff.has_en = cur_ff.has_en;
+			ff.has_gclk = cur_ff.has_gclk;
+			ff.has_ce = cur_ff.has_ce;
+			ff.has_aload = cur_ff.has_aload;
 			ff.has_srst = cur_ff.has_srst;
 			ff.has_arst = cur_ff.has_arst;
 			ff.has_sr = cur_ff.has_sr;
 			ff.ce_over_srst = cur_ff.ce_over_srst;
 			ff.pol_clk = cur_ff.pol_clk;
-			ff.pol_en = cur_ff.pol_en;
+			ff.pol_ce = cur_ff.pol_ce;
+			ff.pol_aload = cur_ff.pol_aload;
 			ff.pol_arst = cur_ff.pol_arst;
 			ff.pol_srst = cur_ff.pol_srst;
 			ff.pol_clr = cur_ff.pol_clr;
 			ff.pol_set = cur_ff.pol_set;
 		} else {
-			if (ff.has_d != cur_ff.has_d)
+			if (ff.has_gclk != cur_ff.has_gclk)
 				return false;
 			if (ff.has_clk != cur_ff.has_clk)
 				return false;
-			if (ff.has_en != cur_ff.has_en)
+			if (ff.has_ce != cur_ff.has_ce)
+				return false;
+			if (ff.has_aload != cur_ff.has_aload)
 				return false;
 			if (ff.has_srst != cur_ff.has_srst)
 				return false;
@@ -214,10 +234,16 @@ bool FfMergeHelper::find_input_ff(RTLIL::SigSpec sig, FfData &ff, pool<std::pair
 				if (ff.pol_clk != cur_ff.pol_clk)
 					return false;
 			}
-			if (ff.has_en) {
-				if (ff.sig_en != cur_ff.sig_en)
+			if (ff.has_ce) {
+				if (ff.sig_ce != cur_ff.sig_ce)
 					return false;
-				if (ff.pol_en != cur_ff.pol_en)
+				if (ff.pol_ce != cur_ff.pol_ce)
+					return false;
+			}
+			if (ff.has_aload) {
+				if (ff.sig_aload != cur_ff.sig_aload)
+					return false;
+				if (ff.pol_aload != cur_ff.pol_aload)
 					return false;
 			}
 			if (ff.has_srst) {
@@ -225,7 +251,7 @@ bool FfMergeHelper::find_input_ff(RTLIL::SigSpec sig, FfData &ff, pool<std::pair
 					return false;
 				if (ff.pol_srst != cur_ff.pol_srst)
 					return false;
-				if (ff.has_en && ff.ce_over_srst != cur_ff.ce_over_srst)
+				if (ff.has_ce && ff.ce_over_srst != cur_ff.ce_over_srst)
 					return false;
 			}
 			if (ff.has_arst) {
@@ -243,7 +269,8 @@ bool FfMergeHelper::find_input_ff(RTLIL::SigSpec sig, FfData &ff, pool<std::pair
 		}
 
 		ff.width++;
-		ff.sig_d.append(ff.has_d ? cur_ff.sig_d[idx] : State::Sx);
+		ff.sig_d.append((ff.has_clk || ff.has_gclk) ? cur_ff.sig_d[idx] : State::Sx);
+		ff.sig_ad.append(ff.has_aload ? cur_ff.sig_ad[idx] : State::Sx);
 		ff.sig_q.append(cur_ff.sig_q[idx]);
 		ff.sig_clr.append(ff.has_sr ? cur_ff.sig_clr[idx] : State::S0);
 		ff.sig_set.append(ff.has_sr ? cur_ff.sig_set[idx] : State::S0);

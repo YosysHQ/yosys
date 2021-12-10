@@ -239,6 +239,19 @@ struct ShowWorker
 			int idx = single_idx_count++;
 			for (int rep, i = int(sig.chunks().size())-1; i >= 0; i -= rep) {
 				const RTLIL::SigChunk &c = sig.chunks().at(i);
+				int cl, cr;
+				if (c.wire) {
+					if (c.wire->upto) {
+						cr = c.wire->start_offset + (c.wire->width - c.offset - 1);
+						cl = cr - (c.width - 1);
+					} else {
+						cr = c.wire->start_offset + c.offset;
+						cl = cr + c.width - 1;
+					}
+				} else {
+					cl = c.offset + c.width - 1;
+					cr = c.offset;
+				}
 				if (!driver && c.wire == nullptr) {
 					RTLIL::State s1 = c.data.front();
 					for (auto s2 : c.data)
@@ -254,7 +267,7 @@ struct ShowWorker
 				std::string repinfo = rep > 1 ? stringf("%dx ", rep) : "";
 				if (driver) {
 					log_assert(!net.empty());
-					label_string += stringf("<s%d> %d:%d - %s%d:%d |", i, pos, pos-c.width+1, repinfo.c_str(), c.offset+c.width-1, c.offset);
+					label_string += stringf("<s%d> %d:%d - %s%d:%d |", i, pos, pos-c.width+1, repinfo.c_str(), cl, cr);
 					net_conn_map[net].in.insert(stringf("x%d:s%d", idx, i));
 					net_conn_map[net].bits = rep*c.width;
 					net_conn_map[net].color = nextColor(c, net_conn_map[net].color);
@@ -268,7 +281,7 @@ struct ShowWorker
 							c.data.front() == State::Sz ? 'Z' : '?',
 							pos, pos-rep*c.width+1);
 				} else {
-					label_string += stringf("<s%d> %s%d:%d - %d:%d |", i, repinfo.c_str(), c.offset+c.width-1, c.offset, pos, pos-rep*c.width+1);
+					label_string += stringf("<s%d> %s%d:%d - %d:%d |", i, repinfo.c_str(), cl, cr, pos, pos-rep*c.width+1);
 					net_conn_map[net].out.insert(stringf("x%d:s%d", idx, i));
 					net_conn_map[net].bits = rep*c.width;
 					net_conn_map[net].color = nextColor(c, net_conn_map[net].color);
@@ -653,7 +666,7 @@ struct ShowPass : public Pass {
 		log("        (including inout ports) are on the right side.\n");
 		log("\n");
 		log("    -pause\n");
-		log("        wait for the use to press enter to before returning\n");
+		log("        wait for the user to press enter to before returning\n");
 		log("\n");
 		log("    -enum\n");
 		log("        enumerate objects with internal ($-prefixed) names\n");

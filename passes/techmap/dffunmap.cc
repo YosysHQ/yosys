@@ -84,21 +84,20 @@ struct DffunmapPass : public Pass {
 					continue;
 
 				if (ce_only) {
-					if (!ff.has_en)
+					if (!ff.has_ce)
 						continue;
-					ff.unmap_ce(mod);
+					ff.unmap_ce();
 				} else if (srst_only) {
 					if (!ff.has_srst)
 						continue;
-					ff.unmap_srst(mod);
+					ff.unmap_srst();
 				} else {
-					if (!ff.has_en && !ff.has_srst)
+					if (!ff.has_ce && !ff.has_srst)
 						continue;
-					ff.unmap_ce_srst(mod);
+					ff.unmap_ce_srst();
 				}
 
-				mod->remove(cell);
-				ff.emit(mod, name);
+				ff.emit();
 			}
 		}
 	}

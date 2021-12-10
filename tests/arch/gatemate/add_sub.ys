@@ -1,0 +1,9 @@
+read_verilog ../common/add_sub.v
+hierarchy -top top
+proc
+equiv_opt -assert -map +/gatemate/cells_sim.v synth_gatemate -noiopad # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd top # Constrain all select calls below inside the top module
+select -assert-count 8 t:CC_ADDF
+select -assert-max 4 t:CC_LUT1
+select -assert-none t:CC_ADDF t:CC_LUT1 %% t:* %D

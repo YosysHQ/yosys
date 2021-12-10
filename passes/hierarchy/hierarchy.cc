@@ -554,10 +554,14 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 
 	// If any interface instances or interface ports were found in the module, we need to rederive it completely:
 	if ((if_expander.interfaces_in_module.size() > 0 || has_interface_ports) && !module->get_bool_attribute(ID::interfaces_replaced_in_module)) {
-		module->reprocess_module(design, if_expander.interfaces_in_module);
+		module->expand_interfaces(design, if_expander.interfaces_in_module);
 		return did_something;
 	}
 
+	// Now that modules have been derived, we may want to reprocess this
+	// module given the additional available context.
+	if (module->reprocess_if_necessary(design))
+		return true;
 
 	for (auto &it : array_cells)
 	{

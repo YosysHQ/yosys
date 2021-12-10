@@ -1,4 +1,4 @@
-module top(
+module func_recurse_top(
 	input wire [3:0] inp,
 	output wire [3:0] out1, out2
 );

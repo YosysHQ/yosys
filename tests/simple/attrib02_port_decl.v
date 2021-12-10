@@ -1,4 +1,4 @@
-module bar(clk, rst, inp, out);
+module attrib02_bar(clk, rst, inp, out);
   (* this_is_clock = 1 *)
   input  wire clk;
   (* this_is_reset = 1 *)
@@ -13,13 +13,13 @@ module bar(clk, rst, inp, out);
 
 endmodule
 
-module foo(clk, rst, inp, out);
+module attrib02_foo(clk, rst, inp, out);
   (* this_is_the_master_clock *)
   input  wire clk;
   input  wire rst;
   input  wire inp;
   output wire out;
 
-  bar bar_instance (clk, rst, inp, out);
+  attrib02_bar bar_instance (clk, rst, inp, out);
 endmodule
 

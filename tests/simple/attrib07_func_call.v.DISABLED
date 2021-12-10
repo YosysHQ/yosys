@@ -1,4 +1,4 @@
-function [7:0] do_add;
+function [7:0] attrib07_do_add;
   input [7:0] inp_a;
   input [7:0] inp_b;
 
@@ -6,7 +6,7 @@ function [7:0] do_add;
 
 endfunction
 
-module foo(clk, rst, inp_a, inp_b, out);
+module attri07_foo(clk, rst, inp_a, inp_b, out);
   input  wire clk;
   input  wire rst;
   input  wire [7:0] inp_a;
@@ -15,7 +15,7 @@ module foo(clk, rst, inp_a, inp_b, out);
 
   always @(posedge clk)
     if (rst) out <= 0;
-    else     out <= do_add (* combinational_adder *) (inp_a, inp_b);
+    else     out <= attrib07_do_add (* combinational_adder *) (inp_a, inp_b);
 
 endmodule
 

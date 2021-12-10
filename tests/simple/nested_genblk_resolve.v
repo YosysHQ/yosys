@@ -1,5 +1,5 @@
 `default_nettype none
-module top;
+module nested_genblk_resolve_top;
     generate
         if (1) begin
             wire x;

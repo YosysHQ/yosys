@@ -70,6 +70,8 @@ equiv_opt -assert -multiclock dfflegalize -cell $_DFF_P_ x
 equiv_opt -assert -multiclock dfflegalize -cell $_DFFE_PP_ x
 equiv_opt -assert -multiclock dfflegalize -cell $_DFF_PP0_ x
 equiv_opt -assert -multiclock dfflegalize -cell $_DFFE_PP0P_ x
+equiv_opt -assert -multiclock dfflegalize -cell $_ALDFF_PP_ x
+equiv_opt -assert -multiclock dfflegalize -cell $_ALDFFE_PPP_ x
 equiv_opt -assert -multiclock dfflegalize -cell $_DFFSR_PPP_ x
 equiv_opt -assert -multiclock dfflegalize -cell $_DFFSRE_PPPP_ x
 equiv_opt -assert -multiclock dfflegalize -cell $_SDFF_PP0_ x
@@ -176,6 +178,56 @@ select -assert-count 27 t:$_DFFE_PP0P_
 select -assert-none t:$_DFFE_PP0P_ t:$_MUX_ t:$_NOT_ top/* %% %n t:* %i
 
 
+# Convert everything to ALDFFs.
+
+design -load orig
+dfflegalize -cell $_ALDFF_PP_ x
+
+select -assert-count 1 dff/t:$_NOT_
+select -assert-count 1 dffe/t:$_NOT_
+select -assert-count 1 sdff0/t:$_NOT_
+select -assert-count 1 sdff1/t:$_NOT_
+select -assert-count 1 sdffe0/t:$_NOT_
+select -assert-count 1 sdffe1/t:$_NOT_
+select -assert-count 1 sdffce0/t:$_NOT_
+select -assert-count 1 sdffce1/t:$_NOT_
+select -assert-count 0 dff/t:$_MUX_
+select -assert-count 3 dffe/t:$_MUX_
+select -assert-count 3 sdff0/t:$_MUX_
+select -assert-count 3 sdff1/t:$_MUX_
+select -assert-count 8 sdffe0/t:$_MUX_
+select -assert-count 8 sdffe1/t:$_MUX_
+select -assert-count 8 sdffce0/t:$_MUX_
+select -assert-count 8 sdffce1/t:$_MUX_
+select -assert-count 27 t:$_ALDFF_PP_
+select -assert-none t:$_ALDFF_PP_ t:$_MUX_ t:$_NOT_ top/* %% %n t:* %i
+
+
+# Convert everything to ALDFFEs.
+
+design -load orig
+dfflegalize -cell $_ALDFFE_PPP_ x
+
+select -assert-count 1 dff/t:$_NOT_
+select -assert-count 2 dffe/t:$_NOT_
+select -assert-count 1 sdff0/t:$_NOT_
+select -assert-count 1 sdff1/t:$_NOT_
+select -assert-count 1 sdffe0/t:$_NOT_
+select -assert-count 1 sdffe1/t:$_NOT_
+select -assert-count 2 sdffce0/t:$_NOT_
+select -assert-count 2 sdffce1/t:$_NOT_
+select -assert-count 0 dff/t:$_MUX_
+select -assert-count 0 dffe/t:$_MUX_
+select -assert-count 3 sdff0/t:$_MUX_
+select -assert-count 3 sdff1/t:$_MUX_
+select -assert-count 8 sdffe0/t:$_MUX_
+select -assert-count 8 sdffe1/t:$_MUX_
+select -assert-count 4 sdffce0/t:$_MUX_
+select -assert-count 4 sdffce1/t:$_MUX_
+select -assert-count 27 t:$_ALDFFE_PPP_
+select -assert-none t:$_ALDFFE_PPP_ t:$_MUX_ t:$_NOT_ top/* %% %n t:* %i
+
+
 # Convert everything to DFFSRs.
 
 design -load orig
@@ -237,25 +289,18 @@ select -assert-count 2 sdff0/t:$_NOT_
 select -assert-count 8 sdff1/t:$_NOT_
 select -assert-count 2 sdffe0/t:$_NOT_
 select -assert-count 10 sdffe1/t:$_NOT_
-select -assert-count 2 sdffce0/t:$_NOT_
-select -assert-count 10 sdffce1/t:$_NOT_
+select -assert-count 1 sdffce0/t:$_NOT_
+select -assert-count 1 sdffce1/t:$_NOT_
 select -assert-count 0 dff/t:$_MUX_
 select -assert-count 3 dffe/t:$_MUX_
 select -assert-count 0 sdff0/t:$_MUX_
 select -assert-count 0 sdff1/t:$_MUX_
 select -assert-count 4 sdffe0/t:$_MUX_
 select -assert-count 4 sdffe1/t:$_MUX_
-select -assert-count 4 sdffce0/t:$_MUX_
-select -assert-count 4 sdffce1/t:$_MUX_
-select -assert-count 0 t:$_AND_ t:$_ORNOT_ t:$_ANDNOT_ %% sdffce0/* sdffce1/* %u %n %i
-select -assert-count 2 sdffce0/t:$_AND_
-select -assert-count 2 sdffce1/t:$_AND_
-select -assert-count 1 sdffce0/t:$_ORNOT_
-select -assert-count 1 sdffce1/t:$_ORNOT_
-select -assert-count 1 sdffce0/t:$_ANDNOT_
-select -assert-count 1 sdffce1/t:$_ANDNOT_
+select -assert-count 8 sdffce0/t:$_MUX_
+select -assert-count 8 sdffce1/t:$_MUX_
 select -assert-count 27 t:$_SDFF_PP0_
-select -assert-none t:$_SDFF_PP0_ t:$_MUX_ t:$_NOT_ t:$_AND_ t:$_ORNOT_ t:$_ANDNOT_ top/* %% %n t:* %i
+select -assert-none t:$_SDFF_PP0_ t:$_MUX_ t:$_NOT_ top/* %% %n t:* %i
 
 
 # Convert everything to SDFFEs.

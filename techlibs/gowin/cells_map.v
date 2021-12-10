@@ -122,14 +122,6 @@ module	\$_DFFE_NP0P_ (input D, C, R, E, output Q);
 	wire _TECHMAP_REMOVEINIT_Q_ = 1;
 endmodule
 
-module \$__GW_IOBUF (input I, OE, output O, inout IO);
-	IOBUF _TECHMAP_REPLACE_ (.I(I), .O(O), .OEN(~OE), .IO(IO));
-endmodule
-
-module \$__GW_TBUF (input I, OE, output O);
-	TBUF _TECHMAP_REPLACE_ (.I(I), .OEN(~OE), .O(O));
-endmodule
-
 module \$lut (A, Y);
 	parameter WIDTH = 0;
 	parameter LUT = 0;

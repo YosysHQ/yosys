@@ -1081,7 +1081,7 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 		FfData ff(nullptr, cell);
 
 		// Latches and FFs with async inputs are not supported — use clk2fflogic or async2sync first.
-		if (!ff.has_d || ff.has_arst || ff.has_sr || (ff.has_en && !ff.has_clk))
+		if (ff.has_aload || ff.has_arst || ff.has_sr)
 			return false;
 
 		if (timestep == 1)
@@ -1094,7 +1094,7 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 			std::vector<int> undef_d;
 			if (model_undef)
 				undef_d = importUndefSigSpec(cell->getPort(ID::D), timestep-1);
-			if (ff.has_srst && ff.has_en && ff.ce_over_srst) {
+			if (ff.has_srst && ff.has_ce && ff.ce_over_srst) {
 				int srst = importDefSigSpec(ff.sig_srst, timestep-1).at(0);
 				std::vector<int> rval = importDefSigSpec(ff.val_srst, timestep-1);
 				int undef_srst;
@@ -1108,21 +1108,21 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 				else
 					std::tie(d, undef_d) = mux(srst, undef_srst, rval, undef_rval, d, undef_d);
 			}
-			if (ff.has_en) {
-				int en = importDefSigSpec(ff.sig_en, timestep-1).at(0);
+			if (ff.has_ce) {
+				int ce = importDefSigSpec(ff.sig_ce, timestep-1).at(0);
 				std::vector<int> old_q = importDefSigSpec(ff.sig_q, timestep-1);
-				int undef_en;
+				int undef_ce;
 				std::vector<int> undef_old_q;
 				if (model_undef) {
-					undef_en = importUndefSigSpec(ff.sig_en, timestep-1).at(0);
+					undef_ce = importUndefSigSpec(ff.sig_ce, timestep-1).at(0);
 					undef_old_q = importUndefSigSpec(ff.sig_q, timestep-1);
 				}
-				if (ff.pol_en)
-					std::tie(d, undef_d) = mux(en, undef_en, old_q, undef_old_q, d, undef_d);
+				if (ff.pol_ce)
+					std::tie(d, undef_d) = mux(ce, undef_ce, old_q, undef_old_q, d, undef_d);
 				else
-					std::tie(d, undef_d) = mux(en, undef_en, d, undef_d, old_q, undef_old_q);
+					std::tie(d, undef_d) = mux(ce, undef_ce, d, undef_d, old_q, undef_old_q);
 			}
-			if (ff.has_srst && !(ff.has_en && ff.ce_over_srst)) {
+			if (ff.has_srst && !(ff.has_ce && ff.ce_over_srst)) {
 				int srst = importDefSigSpec(ff.sig_srst, timestep-1).at(0);
 				std::vector<int> rval = importDefSigSpec(ff.val_srst, timestep-1);
 				int undef_srst;

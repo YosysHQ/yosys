@@ -1,4 +1,4 @@
-module top (
+module case_lage_top (
     input wire [127:0] x,
     output reg [31:0] y
 );

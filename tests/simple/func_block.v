@@ -1,6 +1,6 @@
 `default_nettype none
 
-module top(inp, out1, out2, out3);
+module func_block_top(inp, out1, out2, out3);
 	input wire [31:0] inp;
 
 	function automatic [31:0] func1;

@@ -20,6 +20,7 @@
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/ffinit.h"
+#include "kernel/ff.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -27,38 +28,42 @@ PRIVATE_NAMESPACE_BEGIN
 enum FfType {
 	FF_DFF,
 	FF_DFFE,
-	FF_ADFF0,
-	FF_ADFF1,
-	FF_ADFFE0,
-	FF_ADFFE1,
+	FF_ADFF,
+	FF_ADFFE,
+	FF_ALDFF,
+	FF_ALDFFE,
 	FF_DFFSR,
 	FF_DFFSRE,
-	FF_SDFF0,
-	FF_SDFF1,
-	FF_SDFFE0,
-	FF_SDFFE1,
-	FF_SDFFCE0,
-	FF_SDFFCE1,
+	FF_SDFF,
+	FF_SDFFE,
+	FF_SDFFCE,
+	FF_RLATCH,
 	FF_SR,
 	FF_DLATCH,
-	FF_ADLATCH0,
-	FF_ADLATCH1,
+	FF_ADLATCH,
 	FF_DLATCHSR,
 	NUM_FFTYPES,
 };
 
 enum FfNeg {
-	NEG_R = 0x1,
-	NEG_S = 0x2,
-	NEG_E = 0x4,
-	NEG_C = 0x8,
-	NUM_NEG = 0x10,
+	NEG_CE = 0x1,
+	NEG_R = 0x2,
+	NEG_S = 0x4,
+	NEG_L = 0x8,
+	NEG_C = 0x10,
+	NUM_NEG = 0x20,
 };
 
 enum FfInit {
 	INIT_X = 0x1,
 	INIT_0 = 0x2,
 	INIT_1 = 0x4,
+	INIT_X_R0 = 0x10,
+	INIT_0_R0 = 0x20,
+	INIT_1_R0 = 0x40,
+	INIT_X_R1 = 0x100,
+	INIT_0_R1 = 0x200,
+	INIT_1_R1 = 0x400,
 };
 
 struct DffLegalizePass : public Pass {
@@ -101,6 +106,8 @@ struct DffLegalizePass : public Pass {
 		log("- $_DFFE_[NP][NP]_\n");
 		log("- $_DFF_[NP][NP][01]_\n");
 		log("- $_DFFE_[NP][NP][01][NP]_\n");
+		log("- $_ALDFF_[NP][NP]_\n");
+		log("- $_ALDFFE_[NP][NP][NP]_\n");
 		log("- $_DFFSR_[NP][NP][NP]_\n");
 		log("- $_DFFSRE_[NP][NP][NP][NP]_\n");
 		log("- $_SDFF_[NP][NP][01]_\n");
@@ -151,18 +158,30 @@ struct DffLegalizePass : public Pass {
 	int supported_cells[NUM_FFTYPES];
 	// Aggregated for all *dff* cells.
 	int supported_dff;
+	// Aggregated for all *dffe* cells.
+	int supported_dffe;
 	// Aggregated for all dffsr* cells.
 	int supported_dffsr;
-	// Aggregated for all adff* cells.
-	int supported_adff0;
-	int supported_adff1;
+	// Aggregated for all aldff cells.
+	int supported_aldff;
+	// Aggregated for all aldffe cells.
+	int supported_aldffe;
+	// Aggregated for all adff* cells and trivial emulations.
+	int supported_adff;
+	// Aggregated for all adffe* cells and trivial emulations.
+	int supported_adffe;
 	// Aggregated for all sdff* cells.
-	int supported_sdff0;
-	int supported_sdff1;
+	int supported_sdff;
 	// Aggregated for all ways to obtain a SR latch.
 	int supported_sr;
+	int supported_sr_plain;
 	// Aggregated for all *dlatch* cells.
 	int supported_dlatch;
+	int supported_dlatch_plain;
+	// Aggregated for all ways to obtain an R latch.
+	int supported_rlatch;
+	// Aggregated for all adlatch cells and trivial emulations.
+	int supported_adlatch;
 
 	int mince;
 	int minsrst;
@@ -179,736 +198,794 @@ struct DffLegalizePass : public Pass {
 			res |= INIT_1;
 		if (mask & INIT_1)
 			res |= INIT_0;
+		if (mask & INIT_X_R0)
+			res |= INIT_X_R1;
+		if (mask & INIT_0_R0)
+			res |= INIT_1_R1;
+		if (mask & INIT_1_R0)
+			res |= INIT_0_R1;
+		if (mask & INIT_X_R1)
+			res |= INIT_X_R0;
+		if (mask & INIT_0_R1)
+			res |= INIT_1_R0;
+		if (mask & INIT_1_R1)
+			res |= INIT_0_R0;
 		return res;
 	}
 
-	void handle_ff(Cell *cell) {
-		std::string type_str = cell->type.str();
-
-		FfType ff_type;
-		int ff_neg = 0;
-		SigSpec sig_d;
-		SigSpec sig_q;
-		SigSpec sig_c;
-		SigSpec sig_e;
-		SigSpec sig_r;
-		SigSpec sig_s;
-		bool has_srst = false;
-
-		if (cell->hasPort(ID::D))
-			sig_d = cell->getPort(ID::D);
-		if (cell->hasPort(ID::Q))
-			sig_q = cell->getPort(ID::Q);
-		if (cell->hasPort(ID::C))
-			sig_c = cell->getPort(ID::C);
-		if (cell->hasPort(ID::E))
-			sig_e = cell->getPort(ID::E);
-		if (cell->hasPort(ID::R))
-			sig_r = cell->getPort(ID::R);
-		if (cell->hasPort(ID::S))
-			sig_s = cell->getPort(ID::S);
-		
-		if (type_str.substr(0, 5) == "$_SR_") {
-			ff_type = FF_SR;
-			if (type_str[5] == 'N')
-				ff_neg |= NEG_S;
-			if (type_str[6] == 'N')
-				ff_neg |= NEG_R;
-		} else if (type_str.substr(0, 6) == "$_DFF_" && type_str.size() == 8) {
-			ff_type = FF_DFF;
-			if (type_str[6] == 'N')
-				ff_neg |= NEG_C;
-		} else if (type_str.substr(0, 7) == "$_DFFE_" && type_str.size() == 10) {
-			ff_type = FF_DFFE;
-			if (type_str[7] == 'N')
-				ff_neg |= NEG_C;
-			if (type_str[8] == 'N')
-				ff_neg |= NEG_E;
-		} else if (type_str.substr(0, 6) == "$_DFF_" && type_str.size() == 10) {
-			ff_type = type_str[8] == '1' ? FF_ADFF1 : FF_ADFF0;
-			if (type_str[6] == 'N')
-				ff_neg |= NEG_C;
-			if (type_str[7] == 'N')
-				ff_neg |= NEG_R;
-		} else if (type_str.substr(0, 7) == "$_DFFE_" && type_str.size() == 12) {
-			ff_type = type_str[9] == '1' ? FF_ADFFE1 : FF_ADFFE0;
-			if (type_str[7] == 'N')
-				ff_neg |= NEG_C;
-			if (type_str[8] == 'N')
-				ff_neg |= NEG_R;
-			if (type_str[10] == 'N')
-				ff_neg |= NEG_E;
-		} else if (type_str.substr(0, 8) == "$_DFFSR_" && type_str.size() == 12) {
-			ff_type = FF_DFFSR;
-			if (type_str[8] == 'N')
-				ff_neg |= NEG_C;
-			if (type_str[9] == 'N')
-				ff_neg |= NEG_S;
-			if (type_str[10] == 'N')
-				ff_neg |= NEG_R;
-		} else if (type_str.substr(0, 9) == "$_DFFSRE_" && type_str.size() == 14) {
-			ff_type = FF_DFFSRE;
-			if (type_str[9] == 'N')
-				ff_neg |= NEG_C;
-			if (type_str[10] == 'N')
-				ff_neg |= NEG_S;
-			if (type_str[11] == 'N')
-				ff_neg |= NEG_R;
-			if (type_str[12] == 'N')
-				ff_neg |= NEG_E;
-		} else if (type_str.substr(0, 7) == "$_SDFF_" && type_str.size() == 11) {
-			ff_type = type_str[9] == '1' ? FF_SDFF1 : FF_SDFF0;
-			if (type_str[7] == 'N')
-				ff_neg |= NEG_C;
-			if (type_str[8] == 'N')
-				ff_neg |= NEG_R;
-			has_srst = true;
-		} else if (type_str.substr(0, 8) == "$_SDFFE_" && type_str.size() == 13) {
-			ff_type = type_str[10] == '1' ? FF_SDFFE1 : FF_SDFFE0;
-			if (type_str[8] == 'N')
-				ff_neg |= NEG_C;
-			if (type_str[9] == 'N')
-				ff_neg |= NEG_R;
-			if (type_str[11] == 'N')
-				ff_neg |= NEG_E;
-			has_srst = true;
-		} else if (type_str.substr(0, 9) == "$_SDFFCE_" && type_str.size() == 14) {
-			ff_type = type_str[11] == '1' ? FF_SDFFCE1 : FF_SDFFCE0;
-			if (type_str[9] == 'N')
-				ff_neg |= NEG_C;
-			if (type_str[10] == 'N')
-				ff_neg |= NEG_R;
-			if (type_str[12] == 'N')
-				ff_neg |= NEG_E;
-			has_srst = true;
-		} else if (type_str.substr(0, 9) == "$_DLATCH_" && type_str.size() == 11) {
-			ff_type = FF_DLATCH;
-			if (type_str[9] == 'N')
-				ff_neg |= NEG_E;
-		} else if (type_str.substr(0, 9) == "$_DLATCH_" && type_str.size() == 13) {
-			ff_type = type_str[11] == '1' ? FF_ADLATCH1 : FF_ADLATCH0;
-			if (type_str[9] == 'N')
-				ff_neg |= NEG_E;
-			if (type_str[10] == 'N')
-				ff_neg |= NEG_R;
-		} else if (type_str.substr(0, 11) == "$_DLATCHSR_" && type_str.size() == 15) {
-			ff_type = FF_DLATCHSR;
-			if (type_str[11] == 'N')
-				ff_neg |= NEG_E;
-			if (type_str[12] == 'N')
-				ff_neg |= NEG_S;
-			if (type_str[13] == 'N')
-				ff_neg |= NEG_R;
+	int get_ff_type(const FfData &ff) {
+		if (ff.has_clk) {
+			if (ff.has_sr) {
+				return ff.has_ce ? FF_DFFSRE : FF_DFFSR;
+			} else if (ff.has_arst) {
+				return ff.has_ce ? FF_ADFFE : FF_ADFF;
+			} else if (ff.has_aload) {
+				return ff.has_ce ? FF_ALDFFE : FF_ALDFF;
+			} else if (ff.has_srst) {
+				if (ff.has_ce)
+					return ff.ce_over_srst ? FF_SDFFCE : FF_SDFFE;
+				else
+					return FF_SDFF;
+			} else {
+				return ff.has_ce ? FF_DFFE : FF_DFF;
+			}
 		} else {
-			log_warning("Ignoring unknown ff type %s [%s.%s].\n", log_id(cell->type), log_id(cell->module->name), log_id(cell->name));
+			if (ff.has_aload) {
+				if (ff.has_sr)
+					return FF_DLATCHSR;
+				else if (ff.has_arst)
+					return FF_ADLATCH;
+				else
+					return FF_DLATCH;
+			} else {
+				if (ff.has_sr) {
+					return FF_SR;
+				} else if (ff.has_arst) {
+					return FF_RLATCH;
+				} else {
+					log_assert(0);
+					return 0;
+				}
+			}
+		}
+	}
+
+	int get_initmask(FfData &ff) {
+		int res = 0;
+		if (ff.val_init[0] == State::S0)
+			res = INIT_0;
+		else if (ff.val_init[0] == State::S1)
+			res = INIT_1;
+		else
+			res = INIT_X;
+		if (ff.has_arst) {
+			if (ff.val_arst[0] == State::S0)
+				res <<= 4;
+			else if (ff.val_arst[0] == State::S1)
+				res <<= 8;
+		} else if (ff.has_srst) {
+			if (ff.val_srst[0] == State::S0)
+				res <<= 4;
+			else if (ff.val_srst[0] == State::S1)
+				res <<= 8;
+		}
+		return res;
+	}
+
+	void fail_ff(const FfData &ff, const char *reason) {
+		log_error("FF %s.%s (type %s) cannot be legalized: %s\n", log_id(ff.module->name), log_id(ff.cell->name), log_id(ff.cell->type), reason);
+	}
+
+	bool try_flip(FfData &ff, int supported_mask) {
+		int initmask = get_initmask(ff);
+		if (supported_mask & initmask)
+			return true;
+		if (supported_mask & flip_initmask(initmask)) {
+			ff.flip_bits({0});
+			return true;
+		}
+		return false;
+	}
+
+	void emulate_split_init_arst(FfData &ff) {
+		ff.remove();
+
+		FfData ff_dff(ff.module, &initvals, NEW_ID);
+		ff_dff.width = ff.width;
+		ff_dff.has_aload = ff.has_aload;
+		ff_dff.sig_aload = ff.sig_aload;
+		ff_dff.pol_aload = ff.pol_aload;
+		ff_dff.sig_ad = ff.sig_ad;
+		ff_dff.has_clk = ff.has_clk;
+		ff_dff.sig_clk = ff.sig_clk;
+		ff_dff.pol_clk = ff.pol_clk;
+		ff_dff.sig_d = ff.sig_d;
+		ff_dff.has_ce = ff.has_ce;
+		ff_dff.sig_ce = ff.sig_ce;
+		ff_dff.pol_ce = ff.pol_ce;
+		ff_dff.sig_q = ff.module->addWire(NEW_ID, ff.width);
+		ff_dff.val_init = ff.val_init;
+		ff_dff.is_fine = ff.is_fine;
+
+		FfData ff_adff(ff.module, &initvals, NEW_ID);
+		ff_adff.width = ff.width;
+		ff_adff.has_aload = ff.has_aload;
+		ff_adff.sig_aload = ff.sig_aload;
+		ff_adff.pol_aload = ff.pol_aload;
+		ff_adff.sig_ad = ff.sig_ad;
+		ff_adff.has_clk = ff.has_clk;
+		ff_adff.sig_clk = ff.sig_clk;
+		ff_adff.pol_clk = ff.pol_clk;
+		ff_adff.sig_d = ff.sig_d;
+		ff_adff.has_ce = ff.has_ce;
+		ff_adff.sig_ce = ff.sig_ce;
+		ff_adff.pol_ce = ff.pol_ce;
+		ff_adff.sig_q = ff.module->addWire(NEW_ID, ff.width);
+		ff_adff.val_init = Const(State::Sx, ff.width);
+		ff_adff.has_arst = true;
+		ff_adff.sig_arst = ff.sig_arst;
+		ff_adff.pol_arst = ff.pol_arst;
+		ff_adff.val_arst = ff.val_arst;
+		ff_adff.is_fine = ff.is_fine;
+
+		FfData ff_sel(ff.module, &initvals, NEW_ID);
+		ff_sel.width = 1;
+		ff_sel.sig_q = ff.module->addWire(NEW_ID);
+		ff_sel.has_arst = true;
+		ff_sel.sig_arst = ff.sig_arst;
+		ff_sel.pol_arst = ff.pol_arst;
+		ff_sel.val_arst = State::S1;
+		ff_sel.val_init = State::S0;
+		ff_sel.is_fine = ff.is_fine;
+
+		if (ff.is_fine)
+			ff.module->addMuxGate(NEW_ID, ff_dff.sig_q, ff_adff.sig_q, ff_sel.sig_q, ff.sig_q);
+		else
+			ff.module->addMux(NEW_ID, ff_dff.sig_q, ff_adff.sig_q, ff_sel.sig_q, ff.sig_q);
+
+		legalize_ff(ff_dff);
+		legalize_ff(ff_adff);
+		legalize_ff(ff_sel);
+	}
+
+	void emulate_split_set_clr(FfData &ff) {
+		// No native DFFSR.  However, if we can conjure
+		// a SR latch and ADFF, it can still be emulated.
+		int initmask = get_initmask(ff);
+		int flipmask = flip_initmask(initmask);
+		bool init_clr = true;
+		bool init_set = true;
+		State initsel = State::Sx;
+		int supported_arst = ff.has_clk ? supported_adff : supported_adlatch;
+		bool init_clr_ok = (supported_arst & initmask << 4) || (supported_arst & flipmask << 8);
+		bool init_set_ok = (supported_arst & initmask << 8) || (supported_arst & flipmask << 4);
+		if (init_clr_ok && init_set_ok && supported_sr) {
+			// OK
+		} else if (init_clr_ok && (supported_sr & INIT_0)) {
+			init_set = false;
+			initsel = State::S0;
+		} else if (init_set_ok && (supported_sr & INIT_1)) {
+			init_clr = false;
+			initsel = State::S1;
+		} else if (init_clr_ok && (supported_sr & INIT_1)) {
+			init_set = false;
+			initsel = State::S0;
+		} else if (init_set_ok && (supported_sr & INIT_0)) {
+			init_clr = false;
+			initsel = State::S1;
+		} else {
+			if (ff.has_clk) {
+				if (!supported_dffsr)
+					fail_ff(ff, "dffs with async set and reset are not supported");
+				else
+					fail_ff(ff, "initialized dffs with async set and reset are not supported");
+			} else {
+				if (!supported_cells[FF_DLATCHSR])
+					fail_ff(ff, "dlatch with async set and reset are not supported");
+				else
+					fail_ff(ff, "initialized dlatch with async set and reset are not supported");
+			}
+		}
+
+		// If we have to unmap enable anyway, do it before breakdown.
+		if (ff.has_ce && !supported_cells[FF_ADFFE])
+			ff.unmap_ce();
+
+		log_warning("Emulating async set + reset with several FFs and a mux for %s.%s\n", log_id(ff.module->name), log_id(ff.cell->name));
+
+		log_assert(ff.width == 1);
+		ff.remove();
+
+		FfData ff_clr(ff.module, &initvals, NEW_ID);
+		ff_clr.width = ff.width;
+		ff_clr.has_aload = ff.has_aload;
+		ff_clr.sig_aload = ff.sig_aload;
+		ff_clr.pol_aload = ff.pol_aload;
+		ff_clr.sig_ad = ff.sig_ad;
+		ff_clr.has_clk = ff.has_clk;
+		ff_clr.sig_clk = ff.sig_clk;
+		ff_clr.pol_clk = ff.pol_clk;
+		ff_clr.sig_d = ff.sig_d;
+		ff_clr.has_ce = ff.has_ce;
+		ff_clr.sig_ce = ff.sig_ce;
+		ff_clr.pol_ce = ff.pol_ce;
+		ff_clr.has_arst = true;
+		ff_clr.sig_arst = ff.sig_clr;
+		ff_clr.pol_arst = ff.pol_clr;
+		ff_clr.val_arst = Const(State::S0, ff.width);
+		ff_clr.sig_q = ff.module->addWire(NEW_ID, ff.width);
+		ff_clr.val_init = init_clr ? ff.val_init : Const(State::Sx, ff.width);
+		ff_clr.is_fine = ff.is_fine;
+
+		FfData ff_set(ff.module, &initvals, NEW_ID);
+		ff_set.width = ff.width;
+		ff_set.has_aload = ff.has_aload;
+		ff_set.sig_aload = ff.sig_aload;
+		ff_set.pol_aload = ff.pol_aload;
+		ff_set.sig_ad = ff.sig_ad;
+		ff_set.has_clk = ff.has_clk;
+		ff_set.sig_clk = ff.sig_clk;
+		ff_set.pol_clk = ff.pol_clk;
+		ff_set.sig_d = ff.sig_d;
+		ff_set.has_ce = ff.has_ce;
+		ff_set.sig_ce = ff.sig_ce;
+		ff_set.pol_ce = ff.pol_ce;
+		ff_set.has_arst = true;
+		ff_set.sig_arst = ff.sig_set;
+		ff_set.pol_arst = ff.pol_set;
+		ff_set.val_arst = Const(State::S1, ff.width);
+		ff_set.sig_q = ff.module->addWire(NEW_ID, ff.width);
+		ff_set.val_init = init_set ? ff.val_init : Const(State::Sx, ff.width);
+		ff_set.is_fine = ff.is_fine;
+
+		FfData ff_sel(ff.module, &initvals, NEW_ID);
+		ff_sel.width = ff.width;
+		ff_sel.has_sr = true;
+		ff_sel.pol_clr = ff.pol_clr;
+		ff_sel.pol_set = ff.pol_set;
+		ff_sel.sig_clr = ff.sig_clr;
+		ff_sel.sig_set = ff.sig_set;
+		ff_sel.sig_q = ff.module->addWire(NEW_ID, ff.width);
+		ff_sel.val_init = Const(initsel, ff.width);
+		ff_sel.is_fine = ff.is_fine;
+
+		if (!ff.is_fine)
+			ff.module->addMux(NEW_ID, ff_clr.sig_q, ff_set.sig_q, ff_sel.sig_q, ff.sig_q);
+		else
+			ff.module->addMuxGate(NEW_ID, ff_clr.sig_q, ff_set.sig_q, ff_sel.sig_q, ff.sig_q);
+
+		legalize_ff(ff_clr);
+		legalize_ff(ff_set);
+		legalize_ff(ff_sel);
+	}
+
+	void legalize_dff(FfData &ff) {
+		if (!try_flip(ff, supported_dff)) {
+			if (!supported_dff)
+				fail_ff(ff, "D flip-flops are not supported");
+			else
+				fail_ff(ff, "initialized D flip-flops are not supported");
+		}
+
+		int initmask = get_initmask(ff);
+		// Some DFF is supported with this init val.  Just pick a type.
+		if (ff.has_ce && !(supported_dffe & initmask)) {
+			ff.unmap_ce();
+		}
+
+		if (!ff.has_ce) {
+			if (supported_cells[FF_DFF] & initmask) {
+				legalize_finish(ff);
+				return;
+			}
+			// Try adding a set or reset pin.
+			if (supported_cells[FF_SDFF] & initmask) {
+				ff.add_dummy_srst();
+				legalize_finish(ff);
+				return;
+			}
+			if (supported_cells[FF_ADFF] & initmask) {
+				ff.add_dummy_arst();
+				legalize_finish(ff);
+				return;
+			}
+			// Try adding async load.
+			if (supported_cells[FF_ALDFF] & initmask) {
+				ff.add_dummy_aload();
+				legalize_finish(ff);
+				return;
+			}
+			// Try adding both.
+			if (supported_cells[FF_DFFSR] & initmask) {
+				ff.add_dummy_sr();
+				legalize_finish(ff);
+				return;
+			}
+			// Nope.  Will need to add enable and go the DFFE route.
+			ff.add_dummy_ce();
+		}
+		if (supported_cells[FF_DFFE] & initmask) {
+			legalize_finish(ff);
+			return;
+		}
+		// Try adding a set or reset pin.
+		if (supported_cells[FF_SDFFCE] & initmask) {
+			ff.add_dummy_srst();
+			ff.ce_over_srst = true;
+			legalize_finish(ff);
+			return;
+		}
+		if (supported_cells[FF_SDFFE] & initmask) {
+			ff.add_dummy_srst();
+			legalize_finish(ff);
+			return;
+		}
+		if (supported_cells[FF_ADFFE] & initmask) {
+			ff.add_dummy_arst();
+			legalize_finish(ff);
+			return;
+		}
+		if (supported_cells[FF_ALDFFE] & initmask) {
+			ff.add_dummy_aload();
+			legalize_finish(ff);
+			return;
+		}
+		// Try adding both.
+		if (supported_cells[FF_DFFSRE] & initmask) {
+			ff.add_dummy_sr();
+			legalize_finish(ff);
+			return;
+		}
+		log_assert(0);
+	}
+
+	void legalize_sdffce(FfData &ff) {
+		if (!try_flip(ff, supported_cells[FF_SDFFCE] | supported_cells[FF_SDFFE])) {
+			ff.unmap_srst();
+			legalize_dff(ff);
 			return;
 		}
 
-		State initval = initvals(sig_q[0]);
-		
-		FfInit initmask = INIT_X;
-		if (initval == State::S0)
-			initmask = INIT_0;
-		else if (initval == State::S1)
-			initmask = INIT_1;
-		const char *reason;
+		int initmask = get_initmask(ff);
+		if (supported_cells[FF_SDFFCE] & initmask) {
+			// OK
+		} else if (supported_cells[FF_SDFFE] & initmask) {
+			ff.convert_ce_over_srst(false);
+		} else {
+			log_assert(0);
+		}
+		legalize_finish(ff);
+	}
 
-		bool kill_ce = mince && GetSize(sig_c) && GetSize(sig_e) && sig_e[0].wire && ce_used[sig_e[0]] < mince;
-		bool kill_srst = minsrst && has_srst && sig_r[0].wire && srst_used[sig_r[0]] < minsrst;
+	void legalize_sdff(FfData &ff) {
+		if (!try_flip(ff, supported_sdff)) {
+			ff.unmap_srst();
+			legalize_dff(ff);
+			return;
+		}
 
-		while (!(supported_cells[ff_type] & initmask) || kill_ce || kill_srst) {
-			// Well, cell is not directly supported.  Decide how to deal with it.
-
-			if (ff_type == FF_DFF || ff_type == FF_DFFE) {
-				if (kill_ce) {
-					ff_type = FF_DFF;
-					goto unmap_enable;
-				}
-				if (!(supported_dff & initmask)) {
-					// This init value is not supported at all...
-					if (supported_dff & flip_initmask(initmask)) {
-						// The other one is, though.  Negate D, Q, and init.
-flip_dqi:
-						if (initval == State::S0) {
-							initval = State::S1;
-							initmask = INIT_1;
-						} else if (initval == State::S1) {
-							initval = State::S0;
-							initmask = INIT_0;
-						}
-						if (ff_type != FF_SR)
-							sig_d = cell->module->NotGate(NEW_ID, sig_d[0]);
-						SigBit new_q = SigSpec(cell->module->addWire(NEW_ID))[0];
-						cell->module->addNotGate(NEW_ID, new_q, sig_q[0]);
-						initvals.remove_init(sig_q[0]);
-						initvals.set_init(new_q, initval);
-						sig_q = new_q;
-						continue;
-					}
-					if (!supported_dff)
-						reason = "dffs are not supported";
-					else
-						reason = "initialized dffs are not supported";
-					goto error;
-				}
-
-				// Some DFF is supported with this init val.  Just pick a type.
-				if (ff_type == FF_DFF) {
-					// Try adding a set or reset pin.
-					for (auto new_type: {FF_SDFF0, FF_SDFF1, FF_ADFF0, FF_ADFF1})
-						if (supported_cells[new_type] & initmask) {
-							ff_type = new_type;
-							sig_r = State::S0;
-							goto cell_ok;
-						}
-					// Try adding both.
-					if (supported_cells[FF_DFFSR] & initmask) {
-						ff_type = FF_DFFSR;
-						sig_r = State::S0;
-						sig_s = State::S0;
-						break;
-					}
-					// Nope.  Will need to add enable and go the DFFE route.
-					sig_e = State::S1;
-					if (supported_cells[FF_DFFE] & initmask) {
-						ff_type = FF_DFFE;
-						break;
-					}
-				}
-				// Try adding a set or reset pin.
-				for (auto new_type: {FF_SDFFE0, FF_SDFFE1, FF_SDFFCE0, FF_SDFFCE1, FF_ADFFE0, FF_ADFFE1})
-					if (supported_cells[new_type] & initmask) {
-						ff_type = new_type;
-						sig_r = State::S0;
-						goto cell_ok;
-					}
-				// Try adding both.
-				if (supported_cells[FF_DFFSRE] & initmask) {
-					ff_type = FF_DFFSRE;
-					sig_r = State::S0;
-					sig_s = State::S0;
-					break;
-				}
-
-				// Seems that no DFFs with enable are supported.
-				// The enable input needs to be unmapped.
-				// This should not be reached if we started from plain DFF.
-				log_assert(ff_type == FF_DFFE);
-				ff_type = FF_DFF;
-unmap_enable:
-				if (ff_neg & NEG_E)
-					sig_d = cell->module->MuxGate(NEW_ID, sig_d[0], sig_q[0], sig_e[0]);
-				else
-					sig_d = cell->module->MuxGate(NEW_ID, sig_q[0], sig_d[0], sig_e[0]);
-				ff_neg &= ~NEG_E;
-				sig_e = SigSpec();
-				kill_ce = false;
-				// Now try again as plain DFF.
-				continue;
-			} else if (ff_type == FF_ADFF0 || ff_type == FF_ADFF1 || ff_type == FF_ADFFE0 || ff_type == FF_ADFFE1) {
-				bool has_set = ff_type == FF_ADFF1 || ff_type == FF_ADFFE1;
-				bool has_en = ff_type == FF_ADFFE0 || ff_type == FF_ADFFE1;
-				if (kill_ce) {
-					ff_type = has_set ? FF_ADFF1 : FF_ADFF0;
-					goto unmap_enable;
-				}
-				if (!has_en && (supported_cells[has_set ? FF_ADFFE1 : FF_ADFFE0] & initmask)) {
-					// Just add enable.
-					sig_e = State::S1;
-					ff_type = has_set ? FF_ADFFE1 : FF_ADFFE0;
-					break;
-				}
-				if (supported_cells[has_en ? FF_DFFSRE : FF_DFFSR] & initmask) {
-adff_to_dffsr:
-					// Throw in a set/reset, retry in DFFSR/DFFSRE branch.
-					if (has_set) {
-						sig_s = sig_r;
-						sig_r = State::S0;
-						if (ff_neg & NEG_R) {
-							ff_neg &= ~NEG_R;
-							ff_neg |= NEG_S;
-						}
-					} else {
-						sig_s = State::S0;
-					}
-					if (has_en)
-						ff_type = FF_DFFSRE;
-					else
-						ff_type = FF_DFFSR;
-					continue;
-				}
-				if (has_en && (supported_cells[has_set ? FF_ADFF1 : FF_ADFF0] & initmask)) {
-					// Unmap enable.
-					ff_type = has_set ? FF_ADFF1 : FF_ADFF0;
-					goto unmap_enable;
-				}
-				if (supported_dffsr & initmask) {
-					goto adff_to_dffsr;
-				}
-				log_assert(!((has_set ? supported_adff1 : supported_adff0) & initmask));
-				// Alright, so this particular combination of initval and
-				// resetval is not natively supported.  First, try flipping
-				// them both to see whether this helps.
-				int flipmask = flip_initmask(initmask);
-				if ((has_set ? supported_adff0 : supported_adff1) & flipmask) {
-					// Checks out, do it.
-					ff_type = has_en ? (has_set ? FF_ADFFE0 : FF_ADFFE1) : (has_set ? FF_ADFF0 : FF_ADFF1);
-					goto flip_dqi;
-				}
-
-				if (!supported_adff0 && !supported_adff1) {
-					reason = "dffs with async set or reset are not supported";
-					goto error;
-				}
-				if (!(supported_dff & ~INIT_X)) {
-					reason = "initialized dffs are not supported";
-					goto error;
-				}
-				// If we got here, initialized dff is supported, but not this
-				// particular reset+init combination (nor its negation).
-				// The only hope left is breaking down to adff + dff + dlatch + mux.
-				if (!(supported_dlatch & ~INIT_X)) {
-					reason = "unsupported initial value and async reset value combination";
-					goto error;
-				}
-
-				// If we have to unmap enable anyway, do it before breakdown.
-				if (has_en && !supported_cells[FF_ADFFE0] && !supported_cells[FF_ADFFE1]) {
-					ff_type = has_set ? FF_ADFF1 : FF_ADFF0;
-					goto unmap_enable;
-				}
-
-				log_warning("Emulating mismatched async reset and init with several FFs and a mux for %s.%s\n", log_id(cell->module->name), log_id(cell->name));
-				initvals.remove_init(sig_q[0]);
-				Wire *adff_q = cell->module->addWire(NEW_ID);
-				Wire *dff_q = cell->module->addWire(NEW_ID);
-				Wire *sel_q = cell->module->addWire(NEW_ID);
-				initvals.set_init(SigBit(dff_q, 0), initval);
-				initvals.set_init(SigBit(sel_q, 0), State::S0);
-				Cell *cell_dff;
-				Cell *cell_adff;
-				Cell *cell_sel;
-				if (!has_en) {
-					cell_dff = cell->module->addDffGate(NEW_ID, sig_c, sig_d, dff_q, !(ff_neg & NEG_C));
-					cell_adff = cell->module->addAdffGate(NEW_ID, sig_c, sig_r, sig_d, adff_q, has_set, !(ff_neg & NEG_C), !(ff_neg & NEG_R));
-				} else {
-					cell_dff = cell->module->addDffeGate(NEW_ID, sig_c, sig_e, sig_d, dff_q, !(ff_neg & NEG_C), !(ff_neg & NEG_E));
-					cell_adff = cell->module->addAdffeGate(NEW_ID, sig_c, sig_e, sig_r, sig_d, adff_q, has_set, !(ff_neg & NEG_C), !(ff_neg & NEG_E), !(ff_neg & NEG_R));
-				}
-				cell_sel = cell->module->addDlatchGate(NEW_ID, sig_r, State::S1, sel_q, !(ff_neg & NEG_R));
-				cell->module->addMuxGate(NEW_ID, dff_q, adff_q, sel_q, sig_q);
-
-				// Bye, cell.
-				cell->module->remove(cell);
-				handle_ff(cell_dff);
-				handle_ff(cell_adff);
-				handle_ff(cell_sel);
-				return;
-			} else if (ff_type == FF_DFFSR || ff_type == FF_DFFSRE) {
-				if (kill_ce) {
-					ff_type = FF_DFFSR;
-					goto unmap_enable;
-				}
-				// First, see if mapping/unmapping enable will help.
-				if (supported_cells[FF_DFFSRE] & initmask) {
-					ff_type = FF_DFFSRE;
-					sig_e = State::S1;
-					break;
-				}
-				if (supported_cells[FF_DFFSR] & initmask) {
-					ff_type = FF_DFFSR;
-					goto unmap_enable;
-				}
-				if (supported_dffsr & flip_initmask(initmask)) {
-flip_dqisr:;
-					log_warning("Flipping D/Q/init and inserting set/reset fixup to handle init value on %s.%s [%s]\n", log_id(cell->module->name), log_id(cell->name), log_id(cell->type));
-					SigSpec new_r;
-					bool neg_r = (ff_neg & NEG_R);
-					bool neg_s = (ff_neg & NEG_S);
-					if (!(ff_neg & NEG_S)) {
-						if (!(ff_neg & NEG_R))
-							new_r = cell->module->AndnotGate(NEW_ID, sig_s, sig_r);
-						else
-							new_r = cell->module->AndGate(NEW_ID, sig_s, sig_r);
-					} else {
-						if (!(ff_neg & NEG_R))
-							new_r = cell->module->OrGate(NEW_ID, sig_s, sig_r);
-						else
-							new_r = cell->module->OrnotGate(NEW_ID, sig_s, sig_r);
-					}
-					ff_neg &= ~(NEG_R | NEG_S);
-					if (neg_r)
-						ff_neg |= NEG_S;
-					if (neg_s)
-						ff_neg |= NEG_R;
-					sig_s = sig_r;
-					sig_r = new_r;
-					goto flip_dqi;
-				}
-				// No native DFFSR.  However, if we can conjure
-				// a SR latch and ADFF, it can still be emulated.
-				int flipmask = flip_initmask(initmask);
-				bool init0 = true;
-				bool init1 = true;
-				State initsel = State::Sx;
-				if (((supported_adff0 & initmask) || (supported_adff1 & flipmask)) && ((supported_adff1 & initmask) || (supported_adff0 & flipmask)) && supported_sr) {
-					// OK
-				} else if (((supported_adff0 & initmask) || (supported_adff1 & flipmask)) && (supported_sr & INIT_0)) {
-					init1 = false;
-					initsel = State::S0;
-				} else if (((supported_adff1 & initmask) || (supported_adff0 & flipmask)) && (supported_sr & INIT_1)) {
-					init0 = false;
-					initsel = State::S1;
-				} else if (((supported_adff0 & initmask) || (supported_adff1 & flipmask)) && (supported_sr & INIT_1)) {
-					init1 = false;
-					initsel = State::S0;
-				} else if (((supported_adff1 & initmask) || (supported_adff0 & flipmask)) && (supported_sr & INIT_0)) {
-					init0 = false;
-					initsel = State::S1;
-				} else {
-					if (!supported_dffsr)
-						reason = "dffs with async set and reset are not supported";
-					else
-						reason = "initialized dffs with async set and reset are not supported";
-					goto error;
-				}
-
-				// If we have to unmap enable anyway, do it before breakdown.
-				if (ff_type == FF_DFFSRE && !supported_cells[FF_ADFFE0] && !supported_cells[FF_ADFFE1]) {
-					ff_type = FF_DFFSR;
-					goto unmap_enable;
-				}
-
-				log_warning("Emulating async set + reset with several FFs and a mux for %s.%s\n", log_id(cell->module->name), log_id(cell->name));
-				initvals.remove_init(sig_q[0]);
-				Wire *adff0_q = cell->module->addWire(NEW_ID);
-				Wire *adff1_q = cell->module->addWire(NEW_ID);
-				Wire *sel_q = cell->module->addWire(NEW_ID);
-				if (init0)
-					initvals.set_init(SigBit(adff0_q, 0), initval);
-				if (init1)
-					initvals.set_init(SigBit(adff1_q, 0), initval);
-				initvals.set_init(SigBit(sel_q, 0), initsel);
-				Cell *cell_adff0;
-				Cell *cell_adff1;
-				Cell *cell_sel;
-				if (ff_type == FF_DFFSR) {
-					cell_adff0 = cell->module->addAdffGate(NEW_ID, sig_c, sig_r, sig_d, adff0_q, false, !(ff_neg & NEG_C), !(ff_neg & NEG_R));
-					cell_adff1 = cell->module->addAdffGate(NEW_ID, sig_c, sig_s, sig_d, adff1_q, true, !(ff_neg & NEG_C), !(ff_neg & NEG_S));
-				} else {
-					cell_adff0 = cell->module->addAdffeGate(NEW_ID, sig_c, sig_e, sig_r, sig_d, adff0_q, false, !(ff_neg & NEG_C), !(ff_neg & NEG_E), !(ff_neg & NEG_R));
-					cell_adff1 = cell->module->addAdffeGate(NEW_ID, sig_c, sig_e, sig_s, sig_d, adff1_q, true, !(ff_neg & NEG_C), !(ff_neg & NEG_E), !(ff_neg & NEG_S));
-				}
-				cell_sel = cell->module->addSrGate(NEW_ID, sig_s, sig_r, sel_q, !(ff_neg & NEG_S), !(ff_neg & NEG_R));
-				cell->module->addMuxGate(NEW_ID, adff0_q, adff1_q, sel_q, sig_q);
-
-				// Bye, cell.
-				cell->module->remove(cell);
-				handle_ff(cell_adff0);
-				handle_ff(cell_adff1);
-				handle_ff(cell_sel);
-				return;
-			} else if (ff_type == FF_SR) {
-				if (supported_cells[FF_ADLATCH0] & initmask || supported_cells[FF_ADLATCH1] & flip_initmask(initmask)) {
-					// Convert to ADLATCH0.  May get converted to ADLATCH1.
-					ff_type = FF_ADLATCH0;
-					sig_e = sig_s;
-					sig_d = State::S1;
-					if (ff_neg & NEG_S) {
-						ff_neg &= ~NEG_S;
-						ff_neg |= NEG_E;
-					}
-					continue;
-				} else if (supported_cells[FF_DLATCHSR] & initmask) {
-					// Upgrade to DLATCHSR.
-					ff_type = FF_DLATCHSR;
-					sig_e = State::S0;
-					sig_d = State::Sx;
-					break;
-				} else if (supported_dffsr & initmask) {
-					// Upgrade to DFFSR.  May get further upgraded to DFFSRE.
-					ff_type = FF_DFFSR;
-					sig_c = State::S0;
-					sig_d = State::Sx;
-					continue;
-				} else if (supported_sr & flip_initmask(initmask)) {
-					goto flip_dqisr;
-				} else {
-					if (!supported_sr)
-						reason = "sr latches are not supported";
-					else
-						reason = "initialized sr latches are not supported";
-					goto error;
-				}
-			} else if (ff_type == FF_DLATCH) {
-				if (!(supported_dlatch & initmask)) {
-					// This init value is not supported at all...
-					if (supported_dlatch & flip_initmask(initmask))
-						goto flip_dqi;
-
-					if ((sig_d == State::S0 && (supported_adff0 & initmask)) ||
-							(sig_d == State::S1 && (supported_adff1 & initmask)) ||
-							(sig_d == State::S0 && (supported_adff1 & flip_initmask(initmask))) ||
-							(sig_d == State::S1 && (supported_adff0 & flip_initmask(initmask)))
-					) {
-						// Special case: const-D dlatch can be converted into adff with const clock.
-						ff_type = (sig_d == State::S0) ? FF_ADFF0 : FF_ADFF1;
-						if (ff_neg & NEG_E) {
-							ff_neg &= ~NEG_E;
-							ff_neg |= NEG_R;
-						}
-						sig_r = sig_e;
-						sig_d = State::Sx;
-						sig_c = State::S1;
-						continue;
-					}
-
-					if (!supported_dlatch)
-						reason = "dlatch are not supported";
-					else
-						reason = "initialized dlatch are not supported";
-					goto error;
-				}
-
-				// Some DLATCH is supported with this init val.  Just pick a type.
-				if (supported_cells[FF_ADLATCH0] & initmask) {
-					ff_type = FF_ADLATCH0;
-					sig_r = State::S0;
-					break;
-				}
-				if (supported_cells[FF_ADLATCH1] & initmask) {
-					ff_type = FF_ADLATCH1;
-					sig_r = State::S0;
-					break;
-				}
-				if (supported_cells[FF_DLATCHSR] & initmask) {
-					ff_type = FF_DLATCHSR;
-					sig_r = State::S0;
-					sig_s = State::S0;
-					break;
-				}
+		int initmask = get_initmask(ff);
+		if (!ff.has_ce) {
+			if (supported_cells[FF_SDFF] & initmask) {
+				// OK
+			} else if (supported_cells[FF_SDFFE] & initmask) {
+				ff.add_dummy_ce();
+			} else if (supported_cells[FF_SDFFCE] & initmask) {
+				ff.add_dummy_ce();
+				ff.ce_over_srst = true;
+			} else {
 				log_assert(0);
-			} else if (ff_type == FF_ADLATCH0 || ff_type == FF_ADLATCH1) {
-				if (supported_cells[FF_DLATCHSR] & initmask) {
-					if (ff_type == FF_ADLATCH1) {
-						sig_s = sig_r;
-						sig_r = State::S0;
-						if (ff_neg & NEG_R) {
-							ff_neg &= ~NEG_R;
-							ff_neg |= NEG_S;
-						}
-					} else {
-						sig_s = State::S0;
-					}
-					ff_type = FF_DLATCHSR;
-					break;
-				}
-				FfType flip_type = ff_type == FF_ADLATCH0 ? FF_ADLATCH1 : FF_ADLATCH0;
-				if ((supported_cells[flip_type] | supported_cells[FF_DLATCHSR]) & flip_initmask(initmask)) {
-					ff_type = flip_type;
-					goto flip_dqi;
-				}
-
-				if (!supported_cells[FF_ADLATCH0] && !supported_cells[FF_ADLATCH1] && !supported_cells[FF_DLATCHSR]) {
-					reason = "dlatch with async set or reset are not supported";
-					goto error;
-				}
-				if (!(supported_dlatch & ~INIT_X)) {
-					reason = "initialized dlatch are not supported";
-					goto error;
-				}
-
-				if (!(supported_dlatch & ~INIT_X)) {
-					reason = "initialized dlatch are not supported";
-					goto error;
-				}
-				// If we got here, initialized dlatch is supported, but not this
-				// particular reset+init combination (nor its negation).
-				// The only hope left is breaking down to adff + dff + dlatch + mux.
-
-				log_warning("Emulating mismatched async reset and init with several latches and a mux for %s.%s\n", log_id(cell->module->name), log_id(cell->name));
-				initvals.remove_init(sig_q[0]);
-				Wire *adlatch_q = cell->module->addWire(NEW_ID);
-				Wire *dlatch_q = cell->module->addWire(NEW_ID);
-				Wire *sel_q = cell->module->addWire(NEW_ID);
-				initvals.set_init(SigBit(dlatch_q, 0), initval);
-				initvals.set_init(SigBit(sel_q, 0), State::S0);
-				Cell *cell_dlatch;
-				Cell *cell_adlatch;
-				Cell *cell_sel;
-				cell_dlatch = cell->module->addDlatchGate(NEW_ID, sig_e, sig_d, dlatch_q, !(ff_neg & NEG_E));
-				cell_adlatch = cell->module->addAdlatchGate(NEW_ID, sig_e, sig_r, sig_d, adlatch_q, ff_type == FF_ADLATCH1, !(ff_neg & NEG_E), !(ff_neg & NEG_R));
-				cell_sel = cell->module->addDlatchGate(NEW_ID, sig_r, State::S1, sel_q, !(ff_neg & NEG_R));
-				cell->module->addMuxGate(NEW_ID, dlatch_q, adlatch_q, sel_q, sig_q);
-
-				// Bye, cell.
-				cell->module->remove(cell);
-				handle_ff(cell_dlatch);
-				handle_ff(cell_adlatch);
-				handle_ff(cell_sel);
-				return;
-			} else if (ff_type == FF_DLATCHSR) {
-				if (supported_cells[FF_DLATCHSR] & flip_initmask(initmask)) {
-					goto flip_dqisr;
-				}
-				// No native DFFSR.  However, if we can conjure
-				// a SR latch and ADFF, it can still be emulated.
-				int flipmask = flip_initmask(initmask);
-				bool init0 = true;
-				bool init1 = true;
-				State initsel = State::Sx;
-				if (((supported_cells[FF_ADLATCH0] & initmask) || (supported_cells[FF_ADLATCH1] & flipmask)) && ((supported_cells[FF_ADLATCH1] & initmask) || (supported_cells[FF_ADLATCH0] & flipmask)) && supported_sr) {
-					// OK
-				} else if (((supported_cells[FF_ADLATCH0] & initmask) || (supported_cells[FF_ADLATCH1] & flipmask)) && (supported_sr & INIT_0)) {
-					init1 = false;
-					initsel = State::S0;
-				} else if (((supported_cells[FF_ADLATCH1] & initmask) || (supported_cells[FF_ADLATCH0] & flipmask)) && (supported_sr & INIT_1)) {
-					init0 = false;
-					initsel = State::S1;
-				} else if (((supported_cells[FF_ADLATCH0] & initmask) || (supported_cells[FF_ADLATCH1] & flipmask)) && (supported_sr & INIT_1)) {
-					init1 = false;
-					initsel = State::S0;
-				} else if (((supported_cells[FF_ADLATCH1] & initmask) || (supported_cells[FF_ADLATCH0] & flipmask)) && (supported_sr & INIT_0)) {
-					init0 = false;
-					initsel = State::S1;
-				} else {
-					if (!supported_cells[FF_DLATCHSR])
-						reason = "dlatch with async set and reset are not supported";
-					else
-						reason = "initialized dlatch with async set and reset are not supported";
-					goto error;
-				}
-
-				log_warning("Emulating async set + reset with several latches and a mux for %s.%s\n", log_id(cell->module->name), log_id(cell->name));
-				initvals.remove_init(sig_q[0]);
-				Wire *adlatch0_q = cell->module->addWire(NEW_ID);
-				Wire *adlatch1_q = cell->module->addWire(NEW_ID);
-				Wire *sel_q = cell->module->addWire(NEW_ID);
-				if (init0)
-					initvals.set_init(SigBit(adlatch0_q, 0), initval);
-				if (init1)
-					initvals.set_init(SigBit(adlatch1_q, 0), initval);
-				initvals.set_init(SigBit(sel_q, 0), initsel);
-				Cell *cell_adlatch0;
-				Cell *cell_adlatch1;
-				Cell *cell_sel;
-				cell_adlatch0 = cell->module->addAdlatchGate(NEW_ID, sig_e, sig_r, sig_d, adlatch0_q, false, !(ff_neg & NEG_E), !(ff_neg & NEG_R));
-				cell_adlatch1 = cell->module->addAdlatchGate(NEW_ID, sig_e, sig_s, sig_d, adlatch1_q, true, !(ff_neg & NEG_E), !(ff_neg & NEG_S));
-				cell_sel = cell->module->addSrGate(NEW_ID, sig_s, sig_r, sel_q, !(ff_neg & NEG_S), !(ff_neg & NEG_R));
-				cell->module->addMuxGate(NEW_ID, adlatch0_q, adlatch1_q, sel_q, sig_q);
-
-				// Bye, cell.
-				cell->module->remove(cell);
-				handle_ff(cell_adlatch0);
-				handle_ff(cell_adlatch1);
-				handle_ff(cell_sel);
-				return;
-			} else if (ff_type == FF_SDFF0 || ff_type == FF_SDFF1 || ff_type == FF_SDFFE0 || ff_type == FF_SDFFE1 || ff_type == FF_SDFFCE0 || ff_type == FF_SDFFCE1) {
-				bool has_set = ff_type == FF_SDFF1 || ff_type == FF_SDFFE1 || ff_type == FF_SDFFCE1;
-				bool has_en = ff_type == FF_SDFFE0 || ff_type == FF_SDFFE1;
-				bool has_ce = ff_type == FF_SDFFCE0 || ff_type == FF_SDFFCE1;
-
-				if (has_en) {
-					if (kill_ce || kill_srst) {
-						ff_type = has_set ? FF_SDFF1 : FF_SDFF0;
-						goto unmap_enable;
-					}
-				} else if (has_ce) {
-					if (kill_ce || kill_srst)
-						goto unmap_srst;
-				} else {
-					log_assert(!kill_ce);
-					if (kill_srst)
-						goto unmap_srst;
-				}
-
-				if (!has_ce) {
-					if (!has_en && (supported_cells[has_set ? FF_SDFFE1 : FF_SDFFE0] & initmask)) {
-						// Just add enable.
-						sig_e = State::S1;
-						ff_type = has_set ? FF_SDFFE1 : FF_SDFFE0;
-						break;
-					}
-					if (!has_en && (supported_cells[has_set ? FF_SDFFCE1 : FF_SDFFCE0] & initmask)) {
-						// Just add enable.
-						sig_e = State::S1;
-						ff_type = has_set ? FF_SDFFCE1 : FF_SDFFCE0;
-						break;
-					}
-					if (has_en && (supported_cells[has_set ? FF_SDFFCE1 : FF_SDFFCE0] & initmask)) {
-						// Convert sdffe to sdffce
-						if (!(ff_neg & NEG_E)) {
-							if (!(ff_neg & NEG_R))
-								sig_e = cell->module->OrGate(NEW_ID, sig_e, sig_r);
-							else
-								sig_e = cell->module->OrnotGate(NEW_ID, sig_e, sig_r);
-						} else {
-							if (!(ff_neg & NEG_R))
-								sig_e = cell->module->AndnotGate(NEW_ID, sig_e, sig_r);
-							else
-								sig_e = cell->module->AndGate(NEW_ID, sig_e, sig_r);
-						}
-						ff_type = has_set ? FF_SDFFCE1 : FF_SDFFCE0;
-						break;
-					}
-					if (has_en && (supported_cells[has_set ? FF_SDFF1 : FF_SDFF0] & initmask)) {
-						// Unmap enable.
-						ff_type = has_set ? FF_SDFF1 : FF_SDFF0;
-						goto unmap_enable;
-					}
-					log_assert(!((has_set ? supported_sdff1 : supported_sdff0) & initmask));
-				} else {
-					if ((has_set ? supported_sdff1 : supported_sdff0) & initmask) {
-						// Convert sdffce to sdffe, which may be further converted to sdff.
-						if (!(ff_neg & NEG_R)) {
-							if (!(ff_neg & NEG_E))
-								sig_r = cell->module->AndGate(NEW_ID, sig_r, sig_e);
-							else
-								sig_r = cell->module->AndnotGate(NEW_ID, sig_r, sig_e);
-						} else {
-							if (!(ff_neg & NEG_E))
-								sig_r = cell->module->OrnotGate(NEW_ID, sig_r, sig_e);
-							else
-								sig_r = cell->module->OrGate(NEW_ID, sig_r, sig_e);
-						}
-						ff_type = has_set ? FF_SDFFE1 : FF_SDFFE0;
-						continue;
-					}
-				}
-				// Alright, so this particular combination of initval and
-				// resetval is not natively supported.  First, try flipping
-				// them both to see whether this helps.
-				if ((has_set ? supported_sdff0 : supported_sdff1) & flip_initmask(initmask)) {
-					// Checks out, do it.
-					ff_type = has_ce ? (has_set ? FF_SDFFCE0 : FF_SDFFCE1) : has_en ? (has_set ? FF_SDFFE0 : FF_SDFFE1) : (has_set ? FF_SDFF0 : FF_SDFF1);
-					goto flip_dqi;
-				}
-
-				// Nope.  No way to get SDFF* of the right kind, so unmap it.
-				// For SDFFE, the enable has to be unmapped first.
-				if (has_en) {
-					ff_type = has_set ? FF_SDFF1 : FF_SDFF0;
-					goto unmap_enable;
-				}
-unmap_srst:
-				if (has_ce)
-					ff_type = FF_DFFE;
-				else
-					ff_type = FF_DFF;
-				if (ff_neg & NEG_R)
-					sig_d = cell->module->MuxGate(NEW_ID, has_set ? State::S1 : State::S0, sig_d[0], sig_r[0]);
-				else
-					sig_d = cell->module->MuxGate(NEW_ID, sig_d[0], has_set ? State::S1 : State::S0, sig_r[0]);
-				ff_neg &= ~NEG_R;
-				sig_r = SigSpec();
-				kill_srst = false;
-				continue;
+			}
+		} else {
+			log_assert(!ff.ce_over_srst);
+			if (supported_cells[FF_SDFFE] & initmask) {
+				// OK
+			} else if (supported_cells[FF_SDFFCE] & initmask) {
+				ff.convert_ce_over_srst(true);
+			} else if (supported_cells[FF_SDFF] & initmask) {
+				ff.unmap_ce();
 			} else {
 				log_assert(0);
 			}
 		}
-cell_ok:
+		legalize_finish(ff);
+	}
 
+	void legalize_adff(FfData &ff) {
+		if (!try_flip(ff, supported_adff)) {
+			if (!supported_adff)
+				fail_ff(ff, "dffs with async set or reset are not supported");
+			if (!(supported_dff & (INIT_0 | INIT_1)))
+				fail_ff(ff, "initialized dffs are not supported");
+
+			// If we got here, initialized dff is supported, but not this
+			// particular reset+init combination (nor its negation).
+			// The only hope left is breaking down to adff + dff + dlatch + mux.
+
+			if (!((supported_rlatch) & (INIT_0_R1 | INIT_1_R0)))
+				fail_ff(ff, "unsupported initial value and async reset value combination");
+
+			// If we have to unmap enable anyway, do it before breakdown.
+			if (ff.has_ce && !supported_cells[FF_ADFFE])
+				ff.unmap_ce();
+
+			if (ff.cell)
+				log_warning("Emulating mismatched async reset and init with several FFs and a mux for %s.%s\n", log_id(ff.module->name), log_id(ff.cell->name));
+			emulate_split_init_arst(ff);
+			return;
+		}
+
+		int initmask = get_initmask(ff);
+		if (ff.has_ce && !(supported_adffe & initmask)) {
+			ff.unmap_ce();
+		}
+
+		if (!ff.has_ce) {
+			if (supported_cells[FF_ADFF] & initmask) {
+				legalize_finish(ff);
+				return;
+			}
+			// Try converting to async load.
+			if (supported_cells[FF_ALDFF] & initmask) {
+				ff.arst_to_aload();
+				legalize_finish(ff);
+				return;
+			}
+			// Try convertint to SR.
+			if (supported_cells[FF_DFFSR] & initmask) {
+				ff.arst_to_sr();
+				legalize_finish(ff);
+				return;
+			}
+			ff.add_dummy_ce();
+		}
+		if (supported_cells[FF_ADFFE] & initmask) {
+			legalize_finish(ff);
+			return;
+		}
+		// Try converting to async load.
+		if (supported_cells[FF_ALDFFE] & initmask) {
+			ff.arst_to_aload();
+			legalize_finish(ff);
+			return;
+		}
+		// Try convertint to SR.
+		if (supported_cells[FF_DFFSRE] & initmask) {
+			ff.arst_to_sr();
+			legalize_finish(ff);
+			return;
+		}
+		log_assert(0);
+	}
+
+	void legalize_aldff(FfData &ff) {
+		if (!try_flip(ff, supported_aldff)) {
+			ff.aload_to_sr();
+			emulate_split_set_clr(ff);
+			return;
+		}
+
+		int initmask = get_initmask(ff);
+		if (ff.has_ce && !(supported_aldffe & initmask)) {
+			ff.unmap_ce();
+		}
+
+		if (!ff.has_ce) {
+			if (supported_cells[FF_ALDFF] & initmask) {
+				legalize_finish(ff);
+				return;
+			}
+			if (supported_cells[FF_DFFSR] & initmask) {
+				ff.aload_to_sr();
+				legalize_finish(ff);
+				return;
+			}
+			ff.add_dummy_ce();
+		}
+		if (supported_cells[FF_ALDFFE] & initmask) {
+			legalize_finish(ff);
+			return;
+		}
+		if (supported_cells[FF_DFFSRE] & initmask) {
+			ff.aload_to_sr();
+			legalize_finish(ff);
+			return;
+		}
+		log_assert(0);
+	}
+
+	void legalize_dffsr(FfData &ff) {
+		if (!try_flip(ff, supported_dffsr)) {
+			emulate_split_set_clr(ff);
+			return;
+		}
+
+		int initmask = get_initmask(ff);
+		if (ff.has_ce && !(supported_cells[FF_DFFSRE] & initmask)) {
+			ff.unmap_ce();
+		}
+
+		if (!ff.has_ce) {
+			if (supported_cells[FF_DFFSR] & initmask) {
+				legalize_finish(ff);
+				return;
+			}
+			ff.add_dummy_ce();
+		}
+
+		log_assert(supported_cells[FF_DFFSRE] & initmask);
+		legalize_finish(ff);
+	}
+
+	void legalize_dlatch(FfData &ff) {
+		if (!try_flip(ff, supported_dlatch)) {
+			if (!supported_dlatch)
+				fail_ff(ff, "D latches are not supported");
+			else
+				fail_ff(ff, "initialized D latches are not supported");
+		}
+
+		int initmask = get_initmask(ff);
+		// Some DLATCH is supported with this init val.  Just pick a type.
+		if (supported_cells[FF_DLATCH] & initmask) {
+			legalize_finish(ff);
+		} else if (supported_cells[FF_ADLATCH] & initmask) {
+			ff.add_dummy_arst();
+			legalize_finish(ff);
+		} else if (supported_cells[FF_DLATCHSR] & initmask) {
+			ff.add_dummy_sr();
+			legalize_finish(ff);
+		} else if (supported_cells[FF_ALDFF] & initmask) {
+			ff.add_dummy_clk();
+			legalize_finish(ff);
+		} else if (supported_cells[FF_ALDFFE] & initmask) {
+			ff.add_dummy_clk();
+			ff.add_dummy_ce();
+			legalize_finish(ff);
+		} else if (supported_sr & initmask) {
+			ff.aload_to_sr();
+			legalize_sr(ff);
+		} else {
+			log_assert(0);
+		}
+	}
+
+	void legalize_adlatch(FfData &ff) {
+		if (!try_flip(ff, supported_adlatch)) {
+			if (!supported_adlatch)
+				fail_ff(ff, "D latches with async set or reset are not supported");
+			if (!(supported_dlatch & (INIT_0 | INIT_1)))
+				fail_ff(ff, "initialized D latches are not supported");
+
+			// If we got here, initialized dlatch is supported, but not this
+			// particular reset+init combination (nor its negation).
+			// The only hope left is breaking down to adlatch + dlatch + dlatch + mux.
+
+			if (ff.cell)
+				log_warning("Emulating mismatched async reset and init with several latches and a mux for %s.%s\n", log_id(ff.module->name), log_id(ff.cell->name));
+			ff.remove();
+
+			emulate_split_init_arst(ff);
+			return;
+		}
+		int initmask = get_initmask(ff);
+		if (supported_cells[FF_ADLATCH] & initmask) {
+			// OK
+		} else if (supported_cells[FF_DLATCHSR] & initmask) {
+			ff.arst_to_sr();
+		} else {
+			log_assert(0);
+		}
+		legalize_finish(ff);
+	}
+
+	void legalize_dlatchsr(FfData &ff) {
+		if (!try_flip(ff, supported_cells[FF_DLATCHSR])) {
+			emulate_split_set_clr(ff);
+			return;
+		}
+		legalize_finish(ff);
+	}
+
+	void legalize_rlatch(FfData &ff) {
+		if (!try_flip(ff, supported_rlatch)) {
+			if (!supported_dlatch)
+				fail_ff(ff, "D latches are not supported");
+			else
+				fail_ff(ff, "initialized D latches are not supported");
+		}
+
+		int initmask = get_initmask(ff);
+		if (((supported_dlatch_plain & 7) * 0x111) & initmask) {
+			ff.arst_to_aload();
+			legalize_dlatch(ff);
+		} else if (supported_sr & initmask) {
+			ff.arst_to_sr();
+			legalize_sr(ff);
+		} else if (supported_adff & initmask) {
+			ff.add_dummy_clk();
+			legalize_adff(ff);
+		} else {
+			log_assert(0);
+		}
+	}
+
+	void legalize_sr(FfData &ff) {
+		if (!try_flip(ff, supported_sr)) {
+			if (!supported_sr)
+				fail_ff(ff, "sr latches are not supported");
+			else
+				fail_ff(ff, "initialized sr latches are not supported");
+		}
+		int initmask = get_initmask(ff);
+		if (supported_cells[FF_SR] & initmask) {
+			// OK
+		} else if (supported_cells[FF_DLATCHSR] & initmask) {
+			// Upgrade to DLATCHSR.
+			ff.add_dummy_aload();
+		} else if (supported_cells[FF_DFFSR] & initmask) {
+			// Upgrade to DFFSR.
+			ff.add_dummy_clk();
+		} else if (supported_cells[FF_DFFSRE] & initmask) {
+			// Upgrade to DFFSRE.
+			ff.add_dummy_clk();
+			ff.add_dummy_ce();
+		} else if (supported_cells[FF_ADLATCH] & (initmask << 4)) {
+			ff.has_sr = false;
+			ff.has_aload = true;
+			ff.has_arst = true;
+			ff.pol_arst = ff.pol_clr;
+			ff.sig_arst = ff.sig_clr;
+			ff.sig_aload = ff.sig_set;
+			ff.pol_aload = ff.pol_set;
+			ff.sig_ad = State::S1;
+			ff.val_arst = State::S0;
+		} else if (supported_cells[FF_ADLATCH] & (flip_initmask(initmask) << 8)) {
+			ff.has_sr = false;
+			ff.has_aload = true;
+			ff.has_arst = true;
+			ff.pol_arst = ff.pol_clr;
+			ff.sig_arst = ff.sig_clr;
+			ff.sig_aload = ff.sig_set;
+			ff.pol_aload = ff.pol_set;
+			ff.sig_ad = State::S0;
+			ff.val_arst = State::S1;
+			ff.remove_init();
+			Wire *new_q = ff.module->addWire(NEW_ID);
+			if (ff.is_fine)
+				ff.module->addNotGate(NEW_ID, new_q, ff.sig_q);
+			else
+				ff.module->addNot(NEW_ID, new_q, ff.sig_q);
+			ff.sig_q = new_q;
+			if (ff.val_init == State::S0)
+				ff.val_init = State::S1;
+			else if (ff.val_init == State::S1)
+				ff.val_init = State::S0;
+		} else {
+			log_assert(0);
+		}
+		legalize_finish(ff);
+	}
+
+	void fixup_reset_x(FfData &ff, int supported) {
+		for (int i = 0; i < ff.width; i++) {
+			int mask;
+			if (ff.val_init[i] == State::S0)
+				mask = INIT_0;
+			else if (ff.val_init[i] == State::S1)
+				mask = INIT_1;
+			else
+				mask = INIT_X;
+			if (ff.has_arst) {
+				if (ff.val_arst[i] == State::Sx) {
+					if (!(supported & (mask << 8)))
+						ff.val_arst[i] = State::S0;
+					if (!(supported & (mask << 4)))
+						ff.val_arst[i] = State::S1;
+				}
+			}
+			if (ff.has_srst) {
+				if (ff.val_srst[i] == State::Sx) {
+					if (!(supported & (mask << 8)))
+						ff.val_srst[i] = State::S0;
+					if (!(supported & (mask << 4)))
+						ff.val_srst[i] = State::S1;
+				}
+			}
+		}
+	}
+
+	void legalize_ff(FfData &ff) {
+		if (ff.has_gclk)
+			return;
+
+		// TODO: consider supporting coarse as well.
+		if (!ff.is_fine)
+			return;
+
+		if (mince && ff.has_ce && ff.sig_ce[0].wire && ce_used[ff.sig_ce[0]] < mince)
+			ff.unmap_ce();
+		if (minsrst && ff.has_srst && ff.sig_srst[0].wire && srst_used[ff.sig_srst[0]] < minsrst)
+			ff.unmap_srst();
+
+		if (ff.has_clk) {
+			if (ff.has_sr) {
+				legalize_dffsr(ff);
+			} else if (ff.has_aload) {
+				legalize_aldff(ff);
+			} else if (ff.has_arst) {
+				legalize_adff(ff);
+			} else if (ff.has_srst) {
+				if (ff.has_ce && ff.ce_over_srst)
+					legalize_sdffce(ff);
+				else
+					legalize_sdff(ff);
+			} else {
+				legalize_dff(ff);
+			}
+		} else if (ff.has_aload) {
+			if (ff.has_sr) {
+				legalize_dlatchsr(ff);
+			} else if (ff.has_arst) {
+				legalize_adlatch(ff);
+			} else {
+				legalize_dlatch(ff);
+			}
+		} else {
+			if (ff.has_sr) {
+				legalize_sr(ff);
+			} else if (ff.has_arst) {
+				legalize_rlatch(ff);
+			} else {
+				log_assert(0);
+			}
+		}
+	}
+
+	void flip_pol(FfData &ff, SigSpec &sig, bool &pol) {
+		if (sig == State::S0) {
+			sig = State::S1;
+		} else if (sig == State::S1) {
+			sig = State::S0;
+		} else if (ff.is_fine) {
+			sig = ff.module->NotGate(NEW_ID, sig);
+		} else {
+			sig = ff.module->Not(NEW_ID, sig);
+		}
+		pol = !pol;
+	}
+
+	void legalize_finish(FfData &ff) {
+		int ff_type = get_ff_type(ff);
+		int initmask = get_initmask(ff);
+		log_assert(supported_cells[ff_type] & initmask);
+		int ff_neg = 0;
+		if (ff.has_sr) {
+			if (!ff.pol_clr)
+				ff_neg |= NEG_R;
+			if (!ff.pol_set)
+				ff_neg |= NEG_S;
+		}
+		if (ff.has_arst) {
+			if (!ff.pol_arst)
+				ff_neg |= NEG_R;
+		}
+		if (ff.has_srst) {
+			if (!ff.pol_srst)
+				ff_neg |= NEG_R;
+		}
+		if (ff.has_aload) {
+			if (!ff.pol_aload)
+				ff_neg |= NEG_L;
+		}
+		if (ff.has_clk) {
+			if (!ff.pol_clk)
+				ff_neg |= NEG_C;
+		}
+		if (ff.has_ce) {
+			if (!ff.pol_ce)
+				ff_neg |= NEG_CE;
+		}
 		if (!(supported_cells_neg[ff_type][ff_neg] & initmask)) {
 			// Cell is supported, but not with those polarities.
 			// Will need to add some inverters.
@@ -921,182 +998,27 @@ cell_ok:
 				if (supported_cells_neg[ff_type][ff_neg ^ xneg] & initmask)
 					break;
 			log_assert(xneg < NUM_NEG);
-			if (xneg & NEG_R)
-				sig_r = cell->module->NotGate(NEW_ID, sig_r[0]);
-			if (xneg & NEG_S)
-				sig_s = cell->module->NotGate(NEW_ID, sig_s[0]);
-			if (xneg & NEG_E)
-				sig_e = cell->module->NotGate(NEW_ID, sig_e[0]);
+			if (xneg & NEG_CE)
+				flip_pol(ff, ff.sig_ce, ff.pol_ce);
+			if (ff.has_sr) {
+				if (xneg & NEG_R)
+					flip_pol(ff, ff.sig_clr, ff.pol_clr);
+				if (xneg & NEG_S)
+					flip_pol(ff, ff.sig_set, ff.pol_set);
+			}
+			if (ff.has_arst && xneg & NEG_R)
+				flip_pol(ff, ff.sig_arst, ff.pol_arst);
+			if (ff.has_srst && xneg & NEG_R)
+				flip_pol(ff, ff.sig_srst, ff.pol_srst);
+			if (xneg & NEG_L)
+				flip_pol(ff, ff.sig_aload, ff.pol_aload);
 			if (xneg & NEG_C)
-				sig_c = cell->module->NotGate(NEW_ID, sig_c[0]);
+				flip_pol(ff, ff.sig_clk, ff.pol_clk);
 			ff_neg ^= xneg;
 		}
 
-		cell->unsetPort(ID::D);
-		cell->unsetPort(ID::Q);
-		cell->unsetPort(ID::C);
-		cell->unsetPort(ID::E);
-		cell->unsetPort(ID::S);
-		cell->unsetPort(ID::R);
-		switch (ff_type) {
-			case FF_DFF:
-				cell->type = IdString(stringf("$_DFF_%c_",
-						(ff_neg & NEG_C) ? 'N' : 'P'
-					));
-				cell->setPort(ID::D, sig_d);
-				cell->setPort(ID::Q, sig_q);
-				cell->setPort(ID::C, sig_c);
-				break;
-			case FF_DFFE:
-				cell->type = IdString(stringf("$_DFFE_%c%c_",
-						(ff_neg & NEG_C) ? 'N' : 'P',
-						(ff_neg & NEG_E) ? 'N' : 'P'
-					));
-				cell->setPort(ID::D, sig_d);
-				cell->setPort(ID::Q, sig_q);
-				cell->setPort(ID::C, sig_c);
-				cell->setPort(ID::E, sig_e);
-				break;
-			case FF_ADFF0:
-			case FF_ADFF1:
-				cell->type = IdString(stringf("$_DFF_%c%c%c_",
-						(ff_neg & NEG_C) ? 'N' : 'P',
-						(ff_neg & NEG_R) ? 'N' : 'P',
-						(ff_type == FF_ADFF1) ? '1' : '0'
-					));
-				cell->setPort(ID::D, sig_d);
-				cell->setPort(ID::Q, sig_q);
-				cell->setPort(ID::C, sig_c);
-				cell->setPort(ID::R, sig_r);
-				break;
-			case FF_ADFFE0:
-			case FF_ADFFE1:
-				cell->type = IdString(stringf("$_DFFE_%c%c%c%c_",
-						(ff_neg & NEG_C) ? 'N' : 'P',
-						(ff_neg & NEG_R) ? 'N' : 'P',
-						(ff_type == FF_ADFFE1) ? '1' : '0',
-						(ff_neg & NEG_E) ? 'N' : 'P'
-					));
-				cell->setPort(ID::D, sig_d);
-				cell->setPort(ID::Q, sig_q);
-				cell->setPort(ID::C, sig_c);
-				cell->setPort(ID::E, sig_e);
-				cell->setPort(ID::R, sig_r);
-				break;
-			case FF_DFFSR:
-				cell->type = IdString(stringf("$_DFFSR_%c%c%c_",
-						(ff_neg & NEG_C) ? 'N' : 'P',
-						(ff_neg & NEG_S) ? 'N' : 'P',
-						(ff_neg & NEG_R) ? 'N' : 'P'
-					));
-				cell->setPort(ID::D, sig_d);
-				cell->setPort(ID::Q, sig_q);
-				cell->setPort(ID::C, sig_c);
-				cell->setPort(ID::S, sig_s);
-				cell->setPort(ID::R, sig_r);
-				break;
-			case FF_DFFSRE:
-				cell->type = IdString(stringf("$_DFFSRE_%c%c%c%c_",
-						(ff_neg & NEG_C) ? 'N' : 'P',
-						(ff_neg & NEG_S) ? 'N' : 'P',
-						(ff_neg & NEG_R) ? 'N' : 'P',
-						(ff_neg & NEG_E) ? 'N' : 'P'
-					));
-				cell->setPort(ID::D, sig_d);
-				cell->setPort(ID::Q, sig_q);
-				cell->setPort(ID::C, sig_c);
-				cell->setPort(ID::E, sig_e);
-				cell->setPort(ID::S, sig_s);
-				cell->setPort(ID::R, sig_r);
-				break;
-			case FF_SDFF0:
-			case FF_SDFF1:
-				cell->type = IdString(stringf("$_SDFF_%c%c%c_",
-						(ff_neg & NEG_C) ? 'N' : 'P',
-						(ff_neg & NEG_R) ? 'N' : 'P',
-						(ff_type == FF_SDFF1) ? '1' : '0'
-					));
-				cell->setPort(ID::D, sig_d);
-				cell->setPort(ID::Q, sig_q);
-				cell->setPort(ID::C, sig_c);
-				cell->setPort(ID::R, sig_r);
-				break;
-			case FF_SDFFE0:
-			case FF_SDFFE1:
-				cell->type = IdString(stringf("$_SDFFE_%c%c%c%c_",
-						(ff_neg & NEG_C) ? 'N' : 'P',
-						(ff_neg & NEG_R) ? 'N' : 'P',
-						(ff_type == FF_SDFFE1) ? '1' : '0',
-						(ff_neg & NEG_E) ? 'N' : 'P'
-					));
-				cell->setPort(ID::D, sig_d);
-				cell->setPort(ID::Q, sig_q);
-				cell->setPort(ID::C, sig_c);
-				cell->setPort(ID::E, sig_e);
-				cell->setPort(ID::R, sig_r);
-				break;
-			case FF_SDFFCE0:
-			case FF_SDFFCE1:
-				cell->type = IdString(stringf("$_SDFFCE_%c%c%c%c_",
-						(ff_neg & NEG_C) ? 'N' : 'P',
-						(ff_neg & NEG_R) ? 'N' : 'P',
-						(ff_type == FF_SDFFCE1) ? '1' : '0',
-						(ff_neg & NEG_E) ? 'N' : 'P'
-					));
-				cell->setPort(ID::D, sig_d);
-				cell->setPort(ID::Q, sig_q);
-				cell->setPort(ID::C, sig_c);
-				cell->setPort(ID::E, sig_e);
-				cell->setPort(ID::R, sig_r);
-				break;
-			case FF_DLATCH:
-				cell->type = IdString(stringf("$_DLATCH_%c_",
-						(ff_neg & NEG_E) ? 'N' : 'P'
-					));
-				cell->setPort(ID::D, sig_d);
-				cell->setPort(ID::Q, sig_q);
-				cell->setPort(ID::E, sig_e);
-				break;
-			case FF_ADLATCH0:
-			case FF_ADLATCH1:
-				cell->type = IdString(stringf("$_DLATCH_%c%c%c_",
-						(ff_neg & NEG_E) ? 'N' : 'P',
-						(ff_neg & NEG_R) ? 'N' : 'P',
-						(ff_type == FF_ADLATCH1) ? '1' : '0'
-					));
-				cell->setPort(ID::D, sig_d);
-				cell->setPort(ID::Q, sig_q);
-				cell->setPort(ID::E, sig_e);
-				cell->setPort(ID::R, sig_r);
-				break;
-			case FF_DLATCHSR:
-				cell->type = IdString(stringf("$_DLATCHSR_%c%c%c_",
-						(ff_neg & NEG_E) ? 'N' : 'P',
-						(ff_neg & NEG_S) ? 'N' : 'P',
-						(ff_neg & NEG_R) ? 'N' : 'P'
-					));
-				cell->setPort(ID::D, sig_d);
-				cell->setPort(ID::Q, sig_q);
-				cell->setPort(ID::E, sig_e);
-				cell->setPort(ID::S, sig_s);
-				cell->setPort(ID::R, sig_r);
-				break;
-			case FF_SR:
-				cell->type = IdString(stringf("$_SR_%c%c_",
-						(ff_neg & NEG_S) ? 'N' : 'P',
-						(ff_neg & NEG_R) ? 'N' : 'P'
-					));
-				cell->setPort(ID::Q, sig_q);
-				cell->setPort(ID::S, sig_s);
-				cell->setPort(ID::R, sig_r);
-				break;
-			default:
-				log_assert(0);
-		}
-		return;
-
-error:
-		log_error("FF %s.%s (type %s) cannot be legalized: %s\n", log_id(cell->module->name), log_id(cell->name), log_id(cell->type), reason);
+		fixup_reset_x(ff, supported_cells_neg[ff_type][ff_neg]);
+		ff.emit();
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -1118,79 +1040,83 @@ error:
 			if (args[argidx] == "-cell" && argidx + 2 < args.size()) {
 				std::string celltype = args[++argidx];
 				std::string inittype = args[++argidx];
-				enum FfType ff_type[2] = {NUM_FFTYPES, NUM_FFTYPES};
+				enum FfType ff_type;
 				char pol_c = 0;
-				char pol_e = 0;
+				char pol_l = 0;
 				char pol_s = 0;
 				char pol_r = 0;
+				char pol_ce = 0;
 				char srval = 0;
 				if (celltype.substr(0, 5) == "$_SR_" && celltype.size() == 8 && celltype[7] == '_') {
-					ff_type[0] = FF_SR;
+					ff_type = FF_SR;
 					pol_s = celltype[5];
 					pol_r = celltype[6];
 				} else if (celltype.substr(0, 6) == "$_DFF_" && celltype.size() == 8 && celltype[7] == '_') {
-					ff_type[0] = FF_DFF;
+					ff_type = FF_DFF;
 					pol_c = celltype[6];
 				} else if (celltype.substr(0, 7) == "$_DFFE_" && celltype.size() == 10 && celltype[9] == '_') {
-					ff_type[0] = FF_DFFE;
+					ff_type = FF_DFFE;
 					pol_c = celltype[7];
-					pol_e = celltype[8];
+					pol_ce = celltype[8];
 				} else if (celltype.substr(0, 6) == "$_DFF_" && celltype.size() == 10 && celltype[9] == '_') {
-					ff_type[0] = FF_ADFF0;
-					ff_type[1] = FF_ADFF1;
+					ff_type = FF_ADFF;
 					pol_c = celltype[6];
 					pol_r = celltype[7];
 					srval = celltype[8];
 				} else if (celltype.substr(0, 7) == "$_DFFE_" && celltype.size() == 12 && celltype[11] == '_') {
-					ff_type[0] = FF_ADFFE0;
-					ff_type[1] = FF_ADFFE1;
+					ff_type = FF_ADFFE;
 					pol_c = celltype[7];
 					pol_r = celltype[8];
 					srval = celltype[9];
-					pol_e = celltype[10];
+					pol_ce = celltype[10];
+				} else if (celltype.substr(0, 8) == "$_ALDFF_" && celltype.size() == 11 && celltype[10] == '_') {
+					ff_type = FF_ALDFF;
+					pol_c = celltype[8];
+					pol_l = celltype[9];
+				} else if (celltype.substr(0, 9) == "$_ALDFFE_" && celltype.size() == 13 && celltype[12] == '_') {
+					ff_type = FF_ALDFFE;
+					pol_c = celltype[9];
+					pol_l = celltype[10];
+					pol_ce = celltype[11];
 				} else if (celltype.substr(0, 8) == "$_DFFSR_" && celltype.size() == 12 && celltype[11] == '_') {
-					ff_type[0] = FF_DFFSR;
+					ff_type = FF_DFFSR;
 					pol_c = celltype[8];
 					pol_s = celltype[9];
 					pol_r = celltype[10];
 				} else if (celltype.substr(0, 9) == "$_DFFSRE_" && celltype.size() == 14 && celltype[13] == '_') {
-					ff_type[0] = FF_DFFSRE;
+					ff_type = FF_DFFSRE;
 					pol_c = celltype[9];
 					pol_s = celltype[10];
 					pol_r = celltype[11];
-					pol_e = celltype[12];
+					pol_ce = celltype[12];
 				} else if (celltype.substr(0, 7) == "$_SDFF_" && celltype.size() == 11 && celltype[10] == '_') {
-					ff_type[0] = FF_SDFF0;
-					ff_type[1] = FF_SDFF1;
+					ff_type = FF_SDFF;
 					pol_c = celltype[7];
 					pol_r = celltype[8];
 					srval = celltype[9];
 				} else if (celltype.substr(0, 8) == "$_SDFFE_" && celltype.size() == 13 && celltype[12] == '_') {
-					ff_type[0] = FF_SDFFE0;
-					ff_type[1] = FF_SDFFE1;
+					ff_type = FF_SDFFE;
 					pol_c = celltype[8];
 					pol_r = celltype[9];
 					srval = celltype[10];
-					pol_e = celltype[11];
+					pol_ce = celltype[11];
 				} else if (celltype.substr(0, 9) == "$_SDFFCE_" && celltype.size() == 14 && celltype[13] == '_') {
-					ff_type[0] = FF_SDFFCE0;
-					ff_type[1] = FF_SDFFCE1;
+					ff_type = FF_SDFFCE;
 					pol_c = celltype[9];
 					pol_r = celltype[10];
 					srval = celltype[11];
-					pol_e = celltype[12];
+					pol_ce = celltype[12];
 				} else if (celltype.substr(0, 9) == "$_DLATCH_" && celltype.size() == 11 && celltype[10] == '_') {
-					ff_type[0] = FF_DLATCH;
-					pol_e = celltype[9];
+					ff_type = FF_DLATCH;
+					pol_l = celltype[9];
 				} else if (celltype.substr(0, 9) == "$_DLATCH_" && celltype.size() == 13 && celltype[12] == '_') {
-					ff_type[0] = FF_ADLATCH0;
-					ff_type[1] = FF_ADLATCH1;
-					pol_e = celltype[9];
+					ff_type = FF_ADLATCH;
+					pol_l = celltype[9];
 					pol_r = celltype[10];
 					srval = celltype[11];
 				} else if (celltype.substr(0, 11) == "$_DLATCHSR_" && celltype.size() == 15 && celltype[14] == '_') {
-					ff_type[0] = FF_DLATCHSR;
-					pol_e = celltype[11];
+					ff_type = FF_DLATCHSR;
+					pol_l = celltype[11];
 					pol_s = celltype[12];
 					pol_r = celltype[13];
 				} else {
@@ -1201,9 +1127,10 @@ unrecognized:
 				int match = 0;
 				for (auto pair : {
 					std::make_pair(pol_c, NEG_C),
-					std::make_pair(pol_e, NEG_E),
+					std::make_pair(pol_l, NEG_L),
 					std::make_pair(pol_s, NEG_S),
 					std::make_pair(pol_r, NEG_R),
+					std::make_pair(pol_ce, NEG_CE),
 				}) {
 					if (pair.first == 'N') {
 						mask |= pair.second;
@@ -1214,40 +1141,33 @@ unrecognized:
 						goto unrecognized;
 					}
 				}
+				int initmask;
+				if (inittype == "x") {
+					initmask = 0x111;
+				} else if (inittype == "0") {
+					initmask = 0x333;
+				} else if (inittype == "1") {
+					initmask = 0x555;
+				} else if (inittype == "r") {
+					if (srval == 0)
+						log_error("init type r not valid for cell type %s.\n", celltype.c_str());
+					initmask = 0x537;
+				} else if (inittype == "01") {
+					initmask = 0x777;
+				} else {
+					log_error("unrecognized init type %s for cell type %s.\n", inittype.c_str(), celltype.c_str());
+				}
 				if (srval == '0') {
-					ff_type[1] = NUM_FFTYPES;
+					initmask &= 0x0ff;
 				} else if (srval == '1') {
-					ff_type[0] = NUM_FFTYPES;
+					initmask &= 0xf0f;
 				} else if (srval != 0 && srval != '?') {
 					goto unrecognized;
 				}
-				for (int i = 0; i < 2; i++) {
-					if (ff_type[i] == NUM_FFTYPES)
-						continue;
-					int initmask;
-					if (inittype == "x") {
-						initmask = INIT_X;
-					} else if (inittype == "0") {
-						initmask = INIT_X | INIT_0;
-					} else if (inittype == "1") {
-						initmask = INIT_X | INIT_1;
-					} else if (inittype == "r") {
-						if (srval == 0)
-							log_error("init type r not valid for cell type %s.\n", celltype.c_str());
-						if (i == 0)
-							initmask = INIT_X | INIT_0;
-						else
-							initmask = INIT_X | INIT_1;
-					} else if (inittype == "01") {
-						initmask = INIT_X | INIT_0 | INIT_1;
-					} else {
-						log_error("unrecognized init type %s for cell type %s.\n", inittype.c_str(), celltype.c_str());
-					}
-					for (int neg = 0; neg < NUM_NEG; neg++)
-						if ((neg & mask) == match)
-							supported_cells_neg[ff_type[i]][neg] |= initmask;
-					supported_cells[ff_type[i]] |= initmask;
-				}
+				for (int neg = 0; neg < NUM_NEG; neg++)
+					if ((neg & mask) == match)
+						supported_cells_neg[ff_type][neg] |= initmask;
+				supported_cells[ff_type] |= initmask;
 				continue;
 			} else if (args[argidx] == "-mince" && argidx + 1 < args.size()) {
 				mince = atoi(args[++argidx].c_str());
@@ -1260,13 +1180,21 @@ unrecognized:
 		}
 		extra_args(args, argidx, design);
 		supported_dffsr = supported_cells[FF_DFFSR] | supported_cells[FF_DFFSRE];
-		supported_adff0 = supported_cells[FF_ADFF0] | supported_cells[FF_ADFFE0] | supported_dffsr;
-		supported_adff1 = supported_cells[FF_ADFF1] | supported_cells[FF_ADFFE1] | supported_dffsr;
-		supported_sdff0 = supported_cells[FF_SDFF0] | supported_cells[FF_SDFFE0] | supported_cells[FF_SDFFCE0];
-		supported_sdff1 = supported_cells[FF_SDFF1] | supported_cells[FF_SDFFE1] | supported_cells[FF_SDFFCE1];
-		supported_dff = supported_cells[FF_DFF] | supported_cells[FF_DFFE] | supported_dffsr | supported_adff0 | supported_adff1 | supported_sdff0 | supported_sdff1;
-		supported_sr = supported_dffsr | supported_cells[FF_DLATCHSR] | supported_cells[FF_SR] | supported_cells[FF_ADLATCH0] | flip_initmask(supported_cells[FF_ADLATCH1]);
-		supported_dlatch = supported_cells[FF_DLATCH] | supported_cells[FF_ADLATCH0] | supported_cells[FF_ADLATCH1] | supported_cells[FF_DLATCHSR];
+		supported_aldff = supported_cells[FF_ALDFF] | supported_cells[FF_ALDFFE] | supported_dffsr;
+		supported_aldffe = supported_cells[FF_ALDFFE] | supported_cells[FF_DFFSRE];
+		supported_adff = supported_cells[FF_ADFF] | supported_cells[FF_ADFFE] | supported_dffsr | supported_aldff;
+		supported_adffe = supported_cells[FF_ADFFE] | supported_cells[FF_ALDFFE] | supported_cells[FF_DFFSRE];
+		supported_sdff = supported_cells[FF_SDFF] | supported_cells[FF_SDFFE] | supported_cells[FF_SDFFCE];
+		supported_dff = supported_cells[FF_DFF] | supported_cells[FF_DFFE] | supported_adff | supported_sdff;
+		supported_dffe = supported_cells[FF_DFFE] | supported_cells[FF_DFFSRE] | supported_cells[FF_ALDFFE] | supported_cells[FF_ADFFE] | supported_cells[FF_SDFFE] | supported_cells[FF_SDFFCE];
+		supported_sr_plain = supported_dffsr | supported_cells[FF_DLATCHSR] | supported_cells[FF_SR];
+		supported_sr = supported_sr_plain;
+		supported_sr |= (supported_cells[FF_ADLATCH] >> 4 & 7) * 0x111;
+		supported_sr |= (flip_initmask(supported_cells[FF_ADLATCH]) >> 4 & 7) * 0x111;
+		supported_dlatch_plain = supported_cells[FF_DLATCH] | supported_cells[FF_ADLATCH] | supported_cells[FF_DLATCHSR] | supported_cells[FF_ALDFF] | supported_cells[FF_ALDFFE];
+		supported_dlatch = supported_dlatch_plain | supported_sr_plain;
+		supported_rlatch = supported_adff | (supported_dlatch & 7) * 0x111;
+		supported_adlatch = supported_cells[FF_ADLATCH] | supported_cells[FF_DLATCHSR];
 
 		for (auto module : design->selected_modules())
 		{
@@ -1281,36 +1209,20 @@ unrecognized:
 					if (!RTLIL::builtin_ff_cell_types().count(cell->type))
 						continue;
 
-					if (cell->hasPort(ID::C) && cell->hasPort(ID::E)) {
-						SigSpec sig = cell->getPort(ID::E);
-						// Do not count const enable signals.
-						if (GetSize(sig) == 1 && sig[0].wire)
-							ce_used[sig[0]]++;
-					}
-					if (cell->type.str().substr(0, 6) == "$_SDFF") {
-						SigSpec sig = cell->getPort(ID::R);
-						// Do not count const srst signals.
-						if (GetSize(sig) == 1 && sig[0].wire)
-							srst_used[sig[0]]++;
-					}
+					FfData ff(&initvals, cell);
+					if (ff.has_ce && ff.sig_ce[0].wire)
+						ce_used[ff.sig_ce[0]] += ff.width;
+					if (ff.has_srst && ff.sig_srst[0].wire)
+						srst_used[ff.sig_srst[0]] += ff.width;
 				}
 			}
-
-			// First gather FF cells, then iterate over them later.
-			// We may need to split an FF into several cells.
-			std::vector<Cell *> ff_cells;
-
 			for (auto cell : module->selected_cells())
 			{
-				// Early exit for non-FFs.
 				if (!RTLIL::builtin_ff_cell_types().count(cell->type))
 					continue;
-
-				ff_cells.push_back(cell);
+				FfData ff(&initvals, cell);
+				legalize_ff(ff);
 			}
-
-			for (auto cell: ff_cells)
-				handle_ff(cell);
 		}
 
 		sigmap.clear();

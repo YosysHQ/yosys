@@ -1,4 +1,4 @@
-module top(z);
+module unnamed_block_decl(z);
 	output integer z;
 	initial begin
 		integer x;

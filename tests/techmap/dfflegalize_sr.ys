@@ -39,7 +39,7 @@ select -assert-none t:$_DLATCH_PP0_ t:$_NOT_ %% %n t:* %i
 design -load orig
 dfflegalize -cell $_DLATCH_PP1_ x
 
-select -assert-count 8 t:$_NOT_
+select -assert-count 5 t:$_NOT_
 select -assert-count 3 t:$_DLATCH_PP1_
 select -assert-none t:$_DLATCH_PP1_ t:$_NOT_ %% %n t:* %i
 

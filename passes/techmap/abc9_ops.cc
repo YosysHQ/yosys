@@ -180,8 +180,16 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 					continue;
 			}
 			else {
-				if (!derived_module->get_bool_attribute(ID::abc9_box) && !derived_module->get_bool_attribute(ID::abc9_bypass))
+				if (!derived_module->get_bool_attribute(ID::abc9_box) && !derived_module->get_bool_attribute(ID::abc9_bypass)) {
+					if (unmap_design->module(derived_type)) {
+						// If derived_type is present in unmap_design, it means that it was processed previously, but found to be incompatible -- e.g. if
+						// it contained a non-zero initial state. In this case, continue to replace the cell type/parameters so that it has the same properties
+						// as a compatible type, yet will be safely unmapped later
+						cell->type = derived_type;
+						cell->parameters.clear();
+					}
 					continue;
+				}
 			}
 
 			if (!unmap_design->module(derived_type)) {
@@ -424,6 +432,8 @@ void prep_bypass(RTLIL::Design *design)
 				}
 			}
 			unmap_module->fixup_ports();
+
+			design->scratchpad_set_bool("abc9_ops.prep_bypass.did_something", true);
 		}
 }
 
@@ -442,7 +452,14 @@ void prep_dff(RTLIL::Design *design)
 			if (!inst_module->get_bool_attribute(ID::abc9_flop))
 				continue;
 			log_assert(!inst_module->get_blackbox_attribute(true /* ignore_wb */));
-			log_assert(cell->parameters.empty());
+			if (!cell->parameters.empty())
+			{
+				// At this stage of the ABC9 flow, cells instantiating (* abc9_flop *) modules must not contain any parameters -- instead it should
+				// be instantiating the derived module which will have had any parameters constant-propagated.
+				// This task is expected to be performed by `abc9_ops -prep_hier`, but it looks like it failed to do so for this design.
+				// Please file a bug report!
+				log_error("Not expecting parameters on cell '%s' instantiating module '%s' marked (* abc9_flop *)\n", log_id(cell->name), log_id(cell->type));
+			}
 			modules_sel.select(inst_module);
 		}
 }
@@ -631,40 +648,38 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 		auto inst_module = design->module(cell->type);
 		log_assert(inst_module);
 
-		auto &t = timing.at(cell->type).required;
-		for (auto &conn : cell->connections_) {
-			auto port_wire = inst_module->wire(conn.first);
+		for (auto &i : timing.at(cell->type).required) {
+			auto port_wire = inst_module->wire(i.first.name);
 			if (!port_wire)
 				log_error("Port %s in cell %s (type %s) from module %s does not actually exist",
-						log_id(conn.first), log_id(cell), log_id(cell->type), log_id(module));
-			if (!port_wire->port_input)
-				continue;
-			if (conn.second.is_fully_const())
+						log_id(i.first.name), log_id(cell), log_id(cell->type), log_id(module));
+			log_assert(port_wire->port_input);
+
+			auto d = i.second.first;
+			if (d == 0)
 				continue;
 
-			SigSpec O = module->addWire(NEW_ID, GetSize(conn.second));
-			for (int i = 0; i < GetSize(conn.second); i++) {
-				auto d = t.at(TimingInfo::NameBit(conn.first,i), 0);
-				if (d == 0)
-					continue;
+			auto offset = i.first.offset;
+			auto O = module->addWire(NEW_ID);
+			auto rhs = cell->getPort(i.first.name);
 
 #ifndef NDEBUG
-				if (ys_debug(1)) {
-					static std::set<std::tuple<IdString,IdString,int>> seen;
-					if (seen.emplace(cell->type, conn.first, i).second) log("%s.%s[%d] abc9_required = %d\n",
-							log_id(cell->type), log_id(conn.first), i, d);
-				}
-#endif
-				auto r = box_cache.insert(d);
-				if (r.second) {
-					r.first->second = delay_module->derive(design, {{ID::DELAY, d}});
-					log_assert(r.first->second.begins_with("$paramod$__ABC9_DELAY\\DELAY="));
-				}
-				auto box = module->addCell(NEW_ID, r.first->second);
-				box->setPort(ID::I, conn.second[i]);
-				box->setPort(ID::O, O[i]);
-				conn.second[i] = O[i];
+			if (ys_debug(1)) {
+				static pool<std::pair<IdString,TimingInfo::NameBit>> seen;
+				if (seen.emplace(cell->type, i.first).second) log("%s.%s[%d] abc9_required = %d\n",
+						log_id(cell->type), log_id(i.first.name), offset, d);
 			}
+#endif
+			auto r = box_cache.insert(d);
+			if (r.second) {
+				r.first->second = delay_module->derive(design, {{ID::DELAY, d}});
+				log_assert(r.first->second.begins_with("$paramod$__ABC9_DELAY\\DELAY="));
+			}
+			auto box = module->addCell(NEW_ID, r.first->second);
+			box->setPort(ID::I, rhs[offset]);
+			box->setPort(ID::O, O);
+			rhs[offset] = O;
+			cell->setPort(i.first.name, rhs);
 		}
 	}
 }
@@ -783,10 +798,11 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 			continue;
 		if (!cell->parameters.empty())
 		{
-		    // At this stage of the ABC9 flow, all modules must be nonparametric, because ABC itself requires concrete netlists, and the presence of
-		    // parameters implies a non-concrete netlist. This means an (* abc9_box *) parametric module but due to a bug somewhere this hasn't been
-		    // uniquified into a concrete parameter-free module. This is a bug, and a bug report would be welcomed.
-		    log_error("Not expecting parameters on module '%s'  marked (* abc9_box *)\n", log_id(cell_name));
+			// At this stage of the ABC9 flow, cells instantiating (* abc9_box *) modules must not contain any parameters -- instead it should
+			// be instantiating the derived module which will have had any parameters constant-propagated.
+			// This task is expected to be performed by `abc9_ops -prep_hier`, but it looks like it failed to do so for this design.
+			// Please file a bug report!
+			log_error("Not expecting parameters on cell '%s' instantiating module '%s' marked (* abc9_box *)\n", log_id(cell_name), log_id(cell->type));
 		}
 		log_assert(box_module->get_blackbox_attribute());
 
@@ -796,7 +812,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 		auto &holes_cell = r.first->second;
 		if (r.second) {
 			if (box_module->get_bool_attribute(ID::whitebox)) {
-				holes_cell = holes_module->addCell(cell->name, cell->type);
+				holes_cell = holes_module->addCell(NEW_ID, cell->type);
 
 				if (box_module->has_processes())
 					Pass::call_on_module(design, box_module, "proc");
@@ -926,15 +942,8 @@ void prep_box(RTLIL::Design *design)
 {
 	TimingInfo timing;
 
-	std::stringstream ss;
 	int abc9_box_id = 1;
-	for (auto module : design->modules()) {
-		auto it = module->attributes.find(ID::abc9_box_id);
-		if (it == module->attributes.end())
-			continue;
-		abc9_box_id = std::max(abc9_box_id, it->second.as_int());
-	}
-
+	std::stringstream ss;
 	dict<IdString,std::vector<IdString>> box_ports;
 	for (auto module : design->modules()) {
 		auto it = module->attributes.find(ID::abc9_box);
@@ -995,16 +1004,16 @@ void prep_box(RTLIL::Design *design)
 				log_assert(GetSize(wire) == 1);
 				auto it = t.find(TimingInfo::NameBit(port_name,0));
 				if (it == t.end())
-					// Assume no connectivity if no setup time
-					ss << "-";
+					// Assume that no setup time means zero
+					ss << 0;
 				else {
-					ss << it->second;
+					ss << it->second.first;
 
 #ifndef NDEBUG
 					if (ys_debug(1)) {
 						static std::set<std::pair<IdString,IdString>> seen;
 						if (seen.emplace(module->name, port_name).second) log("%s.%s abc9_required = %d\n", log_id(module),
-								log_id(port_name), it->second);
+								log_id(port_name), it->second.first);
 					}
 #endif
 				}

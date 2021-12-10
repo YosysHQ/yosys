@@ -31,6 +31,8 @@ frontends/verilog/             @zachjs
 frontends/ast/                 @zachjs
 
 techlibs/intel_alm/            @ZirconiumX
+techlibs/gowin/                @pepijndevos
+techlibs/gatemate/             @pu-cc
 
 # pyosys
 misc/*.py                      @btut

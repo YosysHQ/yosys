@@ -1,4 +1,4 @@
-module top(w, x, y, z);
+module const_func_shadow_top(w, x, y, z);
 	function [11:0] func;
 		input reg [2:0] x;
 		input reg [2:0] y;

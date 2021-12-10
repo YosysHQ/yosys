@@ -193,6 +193,12 @@ struct OptLutInsPass : public Pass {
 								swz += extra;
 					}
 				}
+				if (techname == "gowin") {
+					// Pad the LUT to 1 input, adding consts from the front.
+					if (new_inputs.empty()) {
+						new_inputs.insert(new_inputs.begin(), State::S0);
+					}
+				}
 				Const new_lut(0, 1 << GetSize(new_inputs));
 				for (int i = 0; i < GetSize(new_lut); i++) {
 					int lidx = 0;
@@ -209,9 +215,9 @@ struct OptLutInsPass : public Pass {
 					}
 					new_lut[i] = lut[lidx];
 				}
-				// For ecp5, do not replace with a const driver — the nextpnr
+				// For ecp5, and gowin do not replace with a const driver — the nextpnr
 				// packer requires a complete set of LUTs for wide LUT muxes.
-				if (new_inputs.empty() && techname != "ecp5") {
+				if (new_inputs.empty() && techname != "ecp5" && techname != "gowin") {
 					// const driver.
 					remove_cells.push_back(cell);
 					module->connect(output, new_lut[0]);

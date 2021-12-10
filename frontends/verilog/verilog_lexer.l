@@ -37,6 +37,8 @@
 #ifdef __clang__
 // bison generates code using the 'register' storage class specifier
 #pragma clang diagnostic ignored "-Wdeprecated-register"
+// flex generates weirdly-indented code
+#pragma clang diagnostic ignored "-Wmisleading-indentation"
 #endif
 
 #include "kernel/log.h"
