@@ -1105,16 +1105,19 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 		wire->start_offset = min(portbus->LeftIndex(), portbus->RightIndex());
 		import_attributes(wire->attributes, portbus, nl);
 
-		if (portbus->GetDir() == DIR_INOUT || portbus->GetDir() == DIR_IN)
+		bool portbus_input = portbus->GetDir() == DIR_INOUT || portbus->GetDir() == DIR_IN;
+		if (portbus_input)
 			wire->port_input = true;
 		if (portbus->GetDir() == DIR_INOUT || portbus->GetDir() == DIR_OUT)
 			wire->port_output = true;
 
 		for (int i = portbus->LeftIndex();; i += portbus->IsUp() ? +1 : -1) {
 			if (portbus->ElementAtIndex(i) && portbus->ElementAtIndex(i)->GetNet()) {
-				if (portbus->GetDir() == DIR_NONE && !wire->port_input && !wire->port_output)  {
+				bool bit_input = portbus_input;
+				if (portbus->GetDir() == DIR_NONE)  {
 					Port *p = portbus->ElementAtIndex(i);
-					if (p->GetDir() == DIR_INOUT || p->GetDir() == DIR_IN)
+					bit_input = p->GetDir() == DIR_INOUT || p->GetDir() == DIR_IN;
+					if (bit_input)
 						wire->port_input = true;
 					if (p->GetDir() == DIR_INOUT || p->GetDir() == DIR_OUT)
 						wire->port_output = true;
@@ -1123,7 +1126,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 				RTLIL::SigBit bit(wire, i - wire->start_offset);
 				if (net_map.count(net) == 0)
 					net_map[net] = bit;
-				else if (wire->port_input)
+				else if (bit_input)
 					module->connect(net_map_at(net), bit);
 				else
 					module->connect(bit, net_map_at(net));
