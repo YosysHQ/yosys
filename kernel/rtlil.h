@@ -970,7 +970,7 @@ public:
 #ifndef NDEBUG
 	void check(Module *mod = nullptr) const;
 #else
-	void check(Module *mod = nullptr) const { }
+	void check(Module *mod = nullptr) const { (void)mod; }
 #endif
 };
 
