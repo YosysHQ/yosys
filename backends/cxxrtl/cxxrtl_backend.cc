@@ -934,11 +934,6 @@ struct CxxrtlWorker {
 		f << "}";
 	}
 
-	void dump_const_init(const RTLIL::Const &data)
-	{
-		dump_const_init(data, data.size());
-	}
-
 	void dump_const(const RTLIL::Const &data, int width, int offset = 0, bool fixed_width = false)
 	{
 		f << "value<" << width << ">";
@@ -1785,20 +1780,10 @@ struct CxxrtlWorker {
 		} else {
 			f << "<" << wire->width << ">";
 		}
-		f << " " << mangle(wire);
-		if (wire_init.count(wire)) {
-			f << " ";
-			dump_const_init(wire_init.at(wire));
-		}
-		f << ";\n";
+		f << " " << mangle(wire) << ";\n";
 		if (edge_wires[wire]) {
 			if (!wire_type.is_buffered()) {
-				f << indent << "value<" << wire->width << "> prev_" << mangle(wire);
-				if (wire_init.count(wire)) {
-					f << " ";
-					dump_const_init(wire_init.at(wire));
-				}
-				f << ";\n";
+				f << indent << "value<" << wire->width << "> prev_" << mangle(wire) << ";\n";
 			}
 			for (auto edge_type : edge_types) {
 				if (edge_type.first.wire == wire) {
@@ -1848,38 +1833,65 @@ struct CxxrtlWorker {
 		f << "value<" << wire->width << "> " << mangle(wire) << ";\n";
 	}
 
-	void dump_memory(Mem *mem)
+	void dump_reset_method(RTLIL::Module *module)
 	{
-		dump_attrs(mem);
-		f << indent << "memory<" << mem->width << "> " << mangle(mem)
-		            << " { " << mem->size << "u";
-		if (!GetSize(mem->inits)) {
-			f << " };\n";
-		} else {
-			f << ",\n";
-			inc_indent();
-				for (auto &init : mem->inits) {
+		int mem_init_idx = 0;
+		inc_indent();
+			for (auto wire : module->wires()) {
+				if (!wire_init.count(wire)) continue;
+
+				f << indent << mangle(wire) << " = ";
+				if (wire_types[wire].is_buffered()) {
+					f << "wire<" << wire->width << ">";
+				} else {
+					f << "value<" << wire->width << ">";
+				}
+				dump_const_init(wire_init.at(wire), wire->width);
+				f << ";\n";
+
+				if (edge_wires[wire] && !wire_types[wire].is_buffered()) {
+					f << indent << "prev_" << mangle(wire) << " = ";
+					dump_const(wire_init.at(wire), wire->width);
+					f << ";\n";
+				}
+			}
+			for (auto &mem : mod_memories[module]) {
+				for (auto &init : mem.inits) {
 					if (init.removed)
 						continue;
 					dump_attrs(&init);
-					int words = GetSize(init.data) / mem->width;
-					f << indent << "memory<" << mem->width << ">::init<" << words << "> { "
-						    << stringf("%#x", init.addr.as_int()) << ", {";
+					int words = GetSize(init.data) / mem.width;
+					f << indent << "static const value<" << mem.width << "> ";
+					f << "mem_init_" << ++mem_init_idx << "[" << words << "] {";
 					inc_indent();
 						for (int n = 0; n < words; n++) {
 							if (n % 4 == 0)
 								f << "\n" << indent;
 							else
 								f << " ";
-							dump_const(init.data, mem->width, n * mem->width, /*fixed_width=*/true);
+							dump_const(init.data, mem.width, n * mem.width, /*fixed_width=*/true);
 							f << ",";
 						}
 					dec_indent();
-					f << "\n" << indent << "}},\n";
+					f << "\n";
+					f << indent << "};\n";
+					f << indent << "std::copy(std::begin(mem_init_" << mem_init_idx << "), ";
+					f << "std::end(mem_init_" << mem_init_idx << "), ";
+					f << "&" << mangle(&mem) << ".data[" << stringf("%#x", init.addr.as_int()) << "]);\n";
 				}
-			dec_indent();
-			f << indent << "};\n";
-		}
+			}
+			for (auto cell : module->cells()) {
+				if (is_internal_cell(cell->type))
+					continue;
+				f << indent << mangle(cell);
+				RTLIL::Module *cell_module = module->design->module(cell->type);
+				if (cell_module->get_bool_attribute(ID(cxxrtl_blackbox))) {
+					f << "->reset();\n";
+				} else {
+					f << ".reset();\n";
+				}
+			}
+		dec_indent();
 	}
 
 	void dump_eval_method(RTLIL::Module *module)
@@ -2200,6 +2212,10 @@ struct CxxrtlWorker {
 						dump_wire(wire, /*is_local=*/false);
 				}
 				f << "\n";
+				f << indent << "void reset() override {\n";
+				dump_reset_method(module);
+				f << indent << "}\n";
+				f << "\n";
 				f << indent << "bool eval() override {\n";
 				dump_eval_method(module);
 				f << indent << "}\n";
@@ -2248,7 +2264,9 @@ struct CxxrtlWorker {
 					dump_debug_wire(wire, /*is_local=*/false);
 				bool has_memories = false;
 				for (auto &mem : mod_memories[module]) {
-					dump_memory(&mem);
+					dump_attrs(&mem);
+					f << indent << "memory<" << mem.width << "> " << mangle(&mem)
+					            << " { " << mem.size << "u };\n";
 					has_memories = true;
 				}
 				if (has_memories)
@@ -2269,52 +2287,20 @@ struct CxxrtlWorker {
 						dump_metadata_map(cell->attributes);
 						f << ");\n";
 					} else {
-						f << indent << mangle(cell_module) << " " << mangle(cell) << ";\n";
+						f << indent << mangle(cell_module) << " " << mangle(cell) << " {interior()};\n";
 					}
 					has_cells = true;
 				}
 				if (has_cells)
 					f << "\n";
-				f << indent << mangle(module) << "() {}\n";
-				if (has_cells) {
-					f << indent << mangle(module) << "(adopt, " << mangle(module) << " other) :\n";
-					bool first = true;
-					for (auto cell : module->cells()) {
-						if (is_internal_cell(cell->type))
-							continue;
-						if (first) {
-							first = false;
-						} else {
-							f << ",\n";
-						}
-						RTLIL::Module *cell_module = module->design->module(cell->type);
-						if (cell_module->get_bool_attribute(ID(cxxrtl_blackbox))) {
-							f << indent << "  " << mangle(cell) << "(std::move(other." << mangle(cell) << "))";
-						} else {
-							f << indent << "  " << mangle(cell) << "(adopt {}, std::move(other." << mangle(cell) << "))";
-						}
-					}
-					f << " {\n";
-					inc_indent();
-						for (auto cell : module->cells()) {
-							if (is_internal_cell(cell->type))
-								continue;
-							RTLIL::Module *cell_module = module->design->module(cell->type);
-							if (cell_module->get_bool_attribute(ID(cxxrtl_blackbox)))
-								f << indent << mangle(cell) << "->reset();\n";
-						}
-					dec_indent();
-					f << indent << "}\n";
-				} else {
-					f << indent << mangle(module) << "(adopt, " << mangle(module) << " other) {}\n";
-				}
-				f << "\n";
-				f << indent << "void reset() override {\n";
+				f << indent << mangle(module) << "(interior) {}\n";
+				f << indent << mangle(module) << "() {\n";
 				inc_indent();
-					f << indent << "*this = " << mangle(module) << "(adopt {}, std::move(*this));\n";
+					f << indent << "reset();\n";
 				dec_indent();
-				f << indent << "}\n";
+				f << indent << "};\n";
 				f << "\n";
+				f << indent << "void reset() override;\n";
 				f << indent << "bool eval() override;\n";
 				f << indent << "bool commit() override;\n";
 				if (debug_info) {
@@ -2341,6 +2327,10 @@ struct CxxrtlWorker {
 	{
 		if (module->get_bool_attribute(ID(cxxrtl_blackbox)))
 			return;
+		f << indent << "void " << mangle(module) << "::reset() {\n";
+		dump_reset_method(module);
+		f << indent << "}\n";
+		f << "\n";
 		f << indent << "bool " << mangle(module) << "::eval() {\n";
 		dump_eval_method(module);
 		f << indent << "}\n";
