@@ -358,7 +358,8 @@ void dump_sigchunk(std::ostream &f, const RTLIL::SigChunk &chunk, bool no_decima
 void dump_sigspec(std::ostream &f, const RTLIL::SigSpec &sig)
 {
 	if (GetSize(sig) == 0) {
-		f << "\"\"";
+		// See IEEE 1364-2005 Clause 5.1.14.
+		f << "{0{1'b0}}";
 		return;
 	}
 	if (sig.is_chunk()) {
