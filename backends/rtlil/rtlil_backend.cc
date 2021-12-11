@@ -358,8 +358,8 @@ void RTLIL_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Modu
 
 		bool first_conn_line = true;
 		for (auto it = module->connections().begin(); it != module->connections().end(); ++it) {
-			bool show_conn = !only_selected;
-			if (only_selected) {
+			bool show_conn = !only_selected || design->selected_whole_module(module->name);
+			if (!show_conn) {
 				RTLIL::SigSpec sigs = it->first;
 				sigs.append(it->second);
 				for (auto &c : sigs.chunks()) {
