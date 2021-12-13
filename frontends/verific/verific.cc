@@ -2295,7 +2295,7 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("Additional -D<macro>[=<value>] options may be added after the option indicating\n");
 		log("the language version (and before file names) to set additional verilog defines.\n");
-		log("The macros SYNTHESIS and VERIFIC are defined implicitly.\n");
+		log("The macros YOSYS, SYNTHESIS, and VERIFIC are defined implicitly.\n");
 		log("\n");
 		log("\n");
 		log("    verific -formal <verilog-file>..\n");
@@ -2713,6 +2713,7 @@ struct VerificPass : public Pass {
 			else
 				log_abort();
 
+			veri_file::DefineMacro("YOSYS");
 			veri_file::DefineMacro("VERIFIC");
 			veri_file::DefineMacro(args[argidx] == "-formal" ? "FORMAL" : "SYNTHESIS");
 
