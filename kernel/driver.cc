@@ -370,6 +370,7 @@ int main(int argc, char **argv)
 			exit(0);
 		case 'S':
 			passes_commands.push_back("synth");
+			run_shell = false;
 			break;
 		case 'g':
 			log_force_debug++;
@@ -382,9 +383,11 @@ int main(int argc, char **argv)
 			break;
 		case 'H':
 			passes_commands.push_back("help");
+			run_shell = false;
 			break;
 		case 'h':
 			passes_commands.push_back(stringf("help %s", optarg));
+			run_shell = false;
 			break;
 		case 'b':
 			backend_command = optarg;
