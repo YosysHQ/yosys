@@ -985,7 +985,8 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 		c = ff.emit();
 	}
 
-	log("Extracted %s FF from read port %d of %s.%s: %s\n", trans_use_addr ? "addr" : "data",
+	if (c)
+		log("Extracted %s FF from read port %d of %s.%s: %s\n", trans_use_addr ? "addr" : "data",
 			idx, log_id(module), log_id(memid), log_id(c));
 
 	port.en = State::S1;
