@@ -2888,15 +2888,16 @@ struct CxxrtlWorker {
 								debug_wire_type = {WireType::INLINE, node->cell}; // wire replaced with cell
 								break;
 							case FlowGraph::Node::Type::CONNECT:
-							  debug_wire_type = {WireType::INLINE, node->connect.second}; // wire replaced with sig
+								debug_wire_type = {WireType::INLINE, node->connect.second}; // wire replaced with sig
 								break;
 							default: continue;
 						}
 						debug_live_nodes.erase(node);
-					} else if (wire_type.is_member() || wire_type.is_local()) {
+					} else if (wire_type.is_member() || wire_type.type == WireType::LOCAL) {
 						debug_wire_type = wire_type; // wire not inlinable
 					} else {
-						log_assert(wire_type.type == WireType::UNUSED);
+						log_assert(wire_type.type == WireType::INLINE ||
+						           wire_type.type == WireType::UNUSED);
 						if (flow.wire_comb_defs[wire].size() == 0) {
 							if (wire_init.count(wire)) { // wire never modified
 								debug_wire_type = {WireType::CONST, wire_init.at(wire)};
