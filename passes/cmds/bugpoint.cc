@@ -377,7 +377,7 @@ struct BugpointPass : public Pass {
 					if (wire->get_bool_attribute(ID::bugpoint_keep))
 						continue;
 
-					if (wire->name.begins_with("$delete_wire"))
+					if (wire->name.begins_with("$delete_wire") || wire->name.begins_with("$auto$bugpoint"))
 						continue;
 
 					if (index++ == seed)
