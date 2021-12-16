@@ -16,135 +16,147 @@
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #
 
+from collections import namedtuple
+
+Op = namedtuple("Op", ["op", "args", "tail"], defaults=[list, ""])
+
+def pp(v, indent=""):
+    if isinstance(v, Op):
+        lit = True
+        if isinstance(v.args, list):
+            for a in v.args:
+                if isinstance(a, str): continue
+                if isinstance(a, int): continue
+                lit = False
+        if lit:
+            print(indent + v.op + " " + str(v.args))
+        else:
+            print(indent + v.op + ":")
+            pp(v.args, indent=indent+"  ")
+    elif isinstance(v, list):
+        for a in v:
+            pp(a, indent=indent)
+    elif isinstance(v, str):
+        print(indent + '"' + v + '"')
+    else:
+        print(indent + "=" + str(v))
+
 class SvaParserError(Exception):
     def __init__(self, text, expected):
         self.text = text
         self.expected = expected
 
 def parse_str(text, s):
-    t1 = text.lstrip()
-    if not t1.startswith(s):
-        raise SvaParserError(t1, s)
-    return ("str", s), t1[len(s):]
+    text = text.lstrip()
+    if not text.startswith(s):
+        raise SvaParserError(text, s)
+    return Op("str", [s], text[len(s):])
 
 def parse_binop(text, ops, arg1_parser, arg2_parser=None):
     if arg2_parser is None:
         arg2_parser = arg1_parser
 
-    t1 = text.lstrip()
-    s1, t1 = arg1_parser(t1)
+    text = text.lstrip()
+    p = arg1_parser(text)
 
-    for op, label, chain in ops:
+    for op, cmd in ops:
         try:
-            _, t2 = parse_str(t1, op)
-            s2, t2 = arg2_parser(t2)
-            if chain and s2[0] == label:
-                return (label, s1) + s2[1:], t2
-            return (label, s1, s2), t2
+            q = parse_str(p.tail, op)
+            q = arg2_parser(q.tail)
+            return Op(cmd, [p, q], q.tail)
         except SvaParserError:
             pass
 
-    return s1, t1
+    return p
+
+def parse_int(text, label, base, digits):
+    text = text.lstrip()
+    tail = text.lstrip(digits)
+
+    if len(text) == len(tail) or text.startswith("_"):
+        raise SvaParserError(text, label)
+
+    text = text[:-len(tail)].replace("_", "")
+    return Op("int", int(text, base), tail)
 
 def parse_dec(text):
-    t1 = text.lstrip()
-    t2 = t1.lstrip("0123456789_")
-
-    if len(t1) == len(t2) or t1.startswith("_"):
-        raise SvaParserError(t1, "dec")
-
-    n = t1[:-len(t2)].replace("_", "")
-    return int(n, 10), t2
+    return parse_int(text, "dec", 10, "0123456789_")
 
 def parse_hex(text):
-    t1 = text.lstrip()
-    t2 = t1.lstrip("0123456789abcdefABCDEF_")
-
-    if len(t1) == len(t2) or t1.startswith("_"):
-        raise SvaParserError(t1, "hex")
-
-    n = t1[:-len(t2)].replace("_", "")
-    return int(n, 16), t2
+    return parse_int(text, "hex", 16, "0123456789abcdefABCDEF_")
 
 def parse_bin(text):
-    t1 = text.lstrip()
-    t2 = t1.lstrip("01_")
-
-    if len(t1) == len(t2) or t1.startswith("_"):
-        raise SvaParserError(t1, "bin")
-
-    n = t1[:-len(t2)].replace("_", "")
-    return int(n, 2), t2
+    return parse_int(text, "bin", 2, "01_")
 
 def parse_name(text):
-    t1 = text.lstrip()
+    text = text.lstrip()
 
-    t2 = t1
-    if len(t2) and t2[0].isalpha():
-        t2 = t2[1:]
-        while len(t2) and t2[0].isalnum():
-            t2 = t2[1:]
+    tail = text
+    if len(tail) and tail[0].isalpha():
+        tail = tail[1:]
+        while len(tail) and tail[0].isalnum():
+            tail = tail[1:]
 
-    if len(t1) == len(t2):
-        raise SvaParserError(t1, "name")
+    if len(text) == len(tail):
+        raise SvaParserError(text, "name")
 
-    return t1[:-len(t2)], t2
+    return Op("name", text[:-len(tail)], tail)
 
 # const: dec
 # const: dec 'h hex
 # const: dec 'b bin
 def parse_const(text):
-    s1, t1 = parse_dec(text)
+    p = parse_dec(text)
 
     try:
-        _, t2 = parse_str(t1, "'h")
-        s2, t2 = parse_hex(t2)
-        return ("const", s1, s2), t2
+        q = parse_str(p.tail, "'h")
+        q = parse_hex(q.tail)
+        return Op("const", [p.args, q.args], q.tail)
     except SvaParserError:
         pass
 
     try:
-        _, t2 = parse_str(t1, "'b")
-        s2, t2 = parse_bin(t2)
-        return ("const", s1, s2), t2
+        q = parse_str(p.tail, "'b")
+        q = parse_bin(q.tail)
+        return Op("const", [p.args, q.args], q.tail)
     except SvaParserError:
         pass
 
-    return ("const", 32, s1), t1
+    return Op("const", [32, p.args], p.tail)
 
 # signal: name
 # signal: name [ idx ]
 # signal: name [ msb : lsb ]
 # signal: name [ lsb +: width ]
 def parse_signal(text):
-    s1, t1 = parse_name(text)
+    p = parse_name(text)
 
     try:
-        _, t2 = parse_str(t1, "[")
-        s2, t2 = parse_dec(t2)
+        q = parse_str(p.tail, "[")
+        q = parse_dec(q.tail)
 
         try:
-            _, t3 = parse_str(t2, ":")
-            s3, t3 = parse_dec(t3)
-            _, t3 = parse_str(t3, "]")
-            return ("signal", s1, s3, s2-s3+1), t3
+            r = parse_str(q.tail, ":")
+            r = parse_dec(r.tail)
+            s = parse_str(r.tail, "]")
+            return Op("signal", [p.args, r.args, q.args-r.args+1], s.tail)
         except SvaParserError:
             pass
 
         try:
-            _, t3 = parse_str(t2, "+:")
-            s3, t3 = parse_dec(t3)
-            _, t3 = parse_str(t3, "]")
-            return ("signal", s1, s2, s3), t3
+            r = parse_str(q.tail, "+:")
+            r = parse_dec(r.tail)
+            s = parse_str(r.tail, "]")
+            return Op("signal", [p.args, q.args, r.args], s.tail)
         except SvaParserError:
             pass
 
-        _, t2 = parse_str(t2, "]")
-        return ("signal", s1, s2), t2
+        r = parse_str(q.tail, "]")
+        return Op("signal", [p.args, q.args], r.tail)
     except SvaParserError:
         pass
 
-    return ("signal", s1), t1
+    return Op("signal", [p.args], p.tail)
 
 # atom: ! atom
 # atom: const
@@ -152,9 +164,9 @@ def parse_signal(text):
 # atom: ( expr )
 def parse_atom(text):
     try:
-        _, t = parse_str(text, "!")
-        s, t = parse_atom(t)
-        return ("not", s), t
+        p = parse_str(text, "!")
+        p = parse_atom(p.tail)
+        return Op("not", [p], p.tail)
     except SvaParserError:
         pass
 
@@ -168,25 +180,25 @@ def parse_atom(text):
     except SvaParserError:
         pass
 
-    _, t = parse_str(text, "(")
-    s, t = parse_expr(t)
-    _, t = parse_str(t, ")")
-    return s, t
+    p = parse_str(text, "(")
+    p = parse_expr(p.tail)
+    q = parse_str(p.tail, ")")
+    return p._replace(tail=q.tail)
 
 # prod: atom
 # prod: atom & prod
 def parse_prod(text):
-    return parse_binop(text, [("&", "and", True)], parse_atom, parse_prod)
+    return parse_binop(text, [("&", "and")], parse_atom, parse_prod)
 
 # sum: prod
 # sum: prod | sum
 def parse_sum(text):
-    return parse_binop(text, [("|", "or", True)], parse_prod, parse_sum)
+    return parse_binop(text, [("|", "or")], parse_prod, parse_sum)
 
 # term: sum
 # term: sum ^ term
 def parse_term(text):
-    return parse_binop(text, [("^", "xor", True)], parse_sum, parse_term)
+    return parse_binop(text, [("^", "xor")], parse_sum, parse_term)
 
 # expr: term
 # expr: term < term
@@ -197,37 +209,35 @@ def parse_term(text):
 # expr: term != term
 def parse_expr(text):
     return parse_binop(text, [
-        ("<", "lt", False),
-        (">", "gt", False),
-        ("<=", "le", False),
-        (">=", "ge", False),
-        ("==", "eq", False),
-        ("!=", "ne", False)
+        ("<", "lt"),
+        (">", "gt"),
+        ("<=", "le"),
+        (">=", "ge"),
+        ("==", "eq"),
+        ("!=", "ne")
     ], parse_term)
 
 # conj: expr
 # conj: expr "and" conj
 def parse_conj(text):
-    return parse_binop(text, [("and", "conj", True)], parse_expr, parse_conj)
+    return parse_binop(text, [("and", "conj")], parse_expr, parse_conj)
 
 # prop:
 #   expr "|->" conj ";"
 #   expr ";"
 def parse_prop(text):
-    s, t = parse_binop(text, [("|->", "impl", False)], parse_expr, parse_conj)
-    _, t = parse_str(t, ";")
-    return s, t
+    p = parse_binop(text, [("|->", "impl")], parse_expr, parse_conj)
+    q = parse_str(p.tail, ";")
+    return p._replace(tail=q.tail)
 
 if __name__ == '__main__':
-    import fileinput, pprint
-    pp = pprint.PrettyPrinter(indent=4)
-
     if False:
+        import fileinput
         with fileinput.input() as f:
             sva_text = "".join(f).rstrip()
     else:
         sva_text = """
-1 & S[1] |-> S[3:2] and 8'h a_B | S[2+:2] ^ 3 'b 101 == S;
+1 & S[1] |-> S[3:2] and 8'h a_B | S[2+:2] | 1 ^ 3 'b 101 == S;
 
 a
   |-> b
@@ -241,13 +251,19 @@ x |-> c > d;
     print("-------------")
 
     props = []
-    while len(sva_text):
-        s, sva_text = parse_prop(sva_text)
-        props.append(s)
+    try:
+        while len(sva_text):
+            props.append(parse_prop(sva_text))
+            sva_text = props[-1].tail
+    except SvaParserError as e:
+        print(e)
+
+    if len(props) == 1:
+        props = props[0]
+    else:
+        props = Op("conj", props, sva_text)
 
     print()
-    print("--- S-Expr ---")
-    for s in props:
-        pp.pprint(s)
-        print("--------------")
-    print()
+    print("--- Property ---")
+    pp(props)
+    print("----------------")
