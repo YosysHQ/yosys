@@ -1087,6 +1087,11 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 			}
 			break;
 		}
+		if (str == "\\$size" || str == "\\$bits" || str == "\\$high" || str == "\\$low" || str == "\\$left" || str == "\\$right") {
+			width_hint = 32;
+			sign_hint = true;
+			break;
+		}
 		if (current_scope.count(str))
 		{
 			// This width detection is needed for function calls which are

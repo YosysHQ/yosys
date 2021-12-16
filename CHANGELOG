@@ -14,6 +14,8 @@ Yosys 0.11 .. Yosys 0.12
 
  * SystemVerilog
     - Support parameters using struct as a wiretype
+    - Fixed regression preventing the use array querying functions in case
+      expressions and case item expressions
 
  * New commands and options
     - Added "-genlib" option to "abc" pass
