@@ -416,7 +416,9 @@ struct MemoryShareWorker
 					else
 						this_addr.extend_u0(GetSize(last_addr));
 
-					port1.addr = module->Mux(NEW_ID, last_addr, this_addr, this_en_active);
+					SigSpec new_addr = module->Mux(NEW_ID, last_addr.extract_end(port1.wide_log2), this_addr.extract_end(port1.wide_log2), this_en_active);
+
+					port1.addr = SigSpec({new_addr, port1.addr.extract(0, port1.wide_log2)});
 					port1.data = module->Mux(NEW_ID, last_data, this_data, this_en_active);
 
 					std::map<std::pair<RTLIL::SigBit, RTLIL::SigBit>, int> groups_en;
