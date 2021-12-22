@@ -35,6 +35,8 @@ struct MemoryPass : public Pass {
 		log("\n");
 		log("This pass calls all the other memory_* passes in a useful order:\n");
 		log("\n");
+		log("    opt_mem_merge\n");
+		log("    opt_clean\n");
 		log("    opt_mem\n");
 		log("    opt_mem_priority\n");
 		log("    opt_mem_feedback\n");
@@ -94,6 +96,8 @@ struct MemoryPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		Pass::call(design, "opt_mem_merge");
+		Pass::call(design, "opt_clean");
 		Pass::call(design, "opt_mem");
 		Pass::call(design, "opt_mem_priority");
 		Pass::call(design, "opt_mem_feedback");
