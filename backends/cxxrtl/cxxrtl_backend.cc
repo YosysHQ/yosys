@@ -1838,6 +1838,8 @@ struct CxxrtlWorker {
 		int mem_init_idx = 0;
 		inc_indent();
 			for (auto wire : module->wires()) {
+				const auto &wire_type = wire_types[wire];
+				if (!wire_type.is_named() || wire_type.is_local()) continue;
 				if (!wire_init.count(wire)) continue;
 
 				f << indent << mangle(wire) << " = ";
