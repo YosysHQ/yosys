@@ -1,7 +1,7 @@
 module top(
     output logic [5:0] out
 );
-always_comb begin
+initial begin
     out = '0;
     case ($bits (out)) 6:
     case ($size (out)) 6:
