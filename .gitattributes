@@ -1,1 +1,2 @@
 *.v linguist-language=Verilog
+/.gitcommit export-subst

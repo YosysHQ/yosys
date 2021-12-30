@@ -130,7 +130,18 @@ LDLIBS += -lrt
 endif
 
 YOSYS_VER := 0.17+41
+
+# Note: We arrange for .gitcommit to contain the (short) commit hash in
+# tarballs generated with git-archive(1) using .gitattributes. The git repo
+# will have this file in its unexpanded form tough, in which case we fall
+# back to calling git directly.
+TARBALL_GIT_REV := $(shell cat $(YOSYS_SRC)/.gitcommit)
+ifeq ($(TARBALL_GIT_REV),$$Format:%h$$)
 GIT_REV := $(shell git ls-remote $(YOSYS_SRC) HEAD -q | $(AWK) 'BEGIN {R = "UNKNOWN"}; ($$2 == "HEAD") {R = substr($$1, 1, 9); exit} END {print R}')
+else
+GIT_REV := $(TARBALL_GIT_REV)
+endif
+
 OBJS = kernel/version_$(GIT_REV).o
 
 bumpversion:
