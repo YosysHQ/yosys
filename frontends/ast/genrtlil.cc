@@ -932,7 +932,8 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		if (children.at(0)->type != AST_CONSTANT)
 			log_file_error(filename, location.first_line, "Static cast with non constant expression!\n");
 		children.at(1)->detectSignWidthWorker(width_hint, sign_hint);
-		width_hint = children.at(0)->bitsAsConst().as_int();
+		this_width = children.at(0)->bitsAsConst().as_int();
+		width_hint = max(width_hint, this_width);
 		if (width_hint <= 0)
 			log_file_error(filename, location.first_line, "Static cast with zero or negative size!\n");
 		break;
