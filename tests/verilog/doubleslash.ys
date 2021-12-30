@@ -17,3 +17,5 @@ proc
 opt -full
 
 write_verilog doubleslash.v
+design -reset
+read_verilog doubleslash.v
