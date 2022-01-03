@@ -871,6 +871,16 @@ When commands are separated using the ';;;' token, this command will be executed
 in -purge mode between the commands.
 \end{lstlisting}
 
+\section{clean\_zerowidth -- clean zero-width connections from the design}
+\label{cmd:clean_zerowidth}
+\begin{lstlisting}[numbers=left,frame=single]
+    clean_zerowidth [selection]
+
+Fixes the selected cells and processes to contain no zero-width connections.
+Depending on the cell type, this may be implemented by removing the connection,
+widening it to 1-bit, or removing the cell altogether.
+\end{lstlisting}
+
 \section{clk2fflogic -- convert clocked FFs to generic \$ff cells}
 \label{cmd:clk2fflogic}
 \begin{lstlisting}[numbers=left,frame=single]
@@ -3659,6 +3669,11 @@ is only available via Verific.)
 
 Additional -D<macro>[=<value>] options may be added after the option indicating
 the language version (and before file names) to set additional verilog defines.
+
+
+    read {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl} <vhdl-file>..
+
+Load the specified VHDL files. (Requires Verific.)
 
 
     read {-f|-F} <command-file>
@@ -7467,12 +7482,17 @@ different compilation units.
 
 Additional -D<macro>[=<value>] options may be added after the option indicating
 the language version (and before file names) to set additional verilog defines.
-The macros SYNTHESIS and VERIFIC are defined implicitly.
+The macros YOSYS, SYNTHESIS, and VERIFIC are defined implicitly.
 
 
     verific -formal <verilog-file>..
 
 Like -sv, but define FORMAL instead of SYNTHESIS.
+
+
+    verific {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl} <vhdl-file>..
+
+Load the specified VHDL files into Verific.
 
 
     verific {-f|-F} <command-file>
