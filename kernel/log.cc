@@ -71,7 +71,6 @@ int string_buf_index = -1;
 static struct timeval initial_tv = { 0, 0 };
 static bool next_print_log = false;
 static int log_newline_count = 0;
-static bool display_error_log_msg = true;
 
 static void log_id_cache_clear()
 {
@@ -338,8 +337,7 @@ static void logv_error_with_prefix(const char *prefix,
 				f = stderr;
 
 	log_last_error = vstringf(format, ap);
-	if (display_error_log_msg)
-		log("%s%s", prefix, log_last_error.c_str());
+	log("%s%s", prefix, log_last_error.c_str());
 	log_flush();
 
 	log_make_debug = bak_log_make_debug;
@@ -665,7 +663,14 @@ void log_wire(RTLIL::Wire *wire, std::string indent)
 
 void log_check_expected()
 {
-	for (auto &item : log_expect_warning) {
+	// copy out all of the expected logs so that they cannot be re-checked
+	// or match against themselves
+	dict<std::string, LogExpectedItem> expect_log, expect_warning, expect_error;
+	std::swap(expect_warning, log_expect_warning);
+	std::swap(expect_log, log_expect_log);
+	std::swap(expect_error, log_expect_error);
+
+	for (auto &item : expect_warning) {
 		if (item.second.current_count == 0) {
 			log_warn_regexes.clear();
 			log_error("Expected warning pattern '%s' not found !\n", item.first.c_str());
@@ -677,7 +682,7 @@ void log_check_expected()
 		}
 	}
 
-	for (auto &item : log_expect_log) {
+	for (auto &item : expect_log) {
 		if (item.second.current_count == 0) {
 			log_warn_regexes.clear();
 			log_error("Expected log pattern '%s' not found !\n", item.first.c_str());
@@ -689,7 +694,7 @@ void log_check_expected()
 		}
 	}
 
-	for (auto &item : log_expect_error)
+	for (auto &item : expect_error)
 		if (item.second.current_count == item.second.expected_count) {
 			log_warn_regexes.clear();
 			log("Expected error pattern '%s' found !!!\n", item.first.c_str());
@@ -701,14 +706,9 @@ void log_check_expected()
 				_Exit(0);
 			#endif
 		} else {
-			display_error_log_msg = false;
 			log_warn_regexes.clear();
 			log_error("Expected error pattern '%s' not found !\n", item.first.c_str());
 		}
-
-	log_expect_warning.clear();
-	log_expect_log.clear();
-	log_expect_error.clear();
 }
 
 // ---------------------------------------------------
