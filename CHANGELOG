@@ -18,6 +18,8 @@ Yosys 0.11 .. Yosys 0.12
       expressions and case item expressions
     - Fixed static size casts inadvertently limiting the result width of binary
       operations
+    - Fixed static size casts ignoring expression signedness
+    - Fixed static size casts not extending unbased unsized literals
 
  * New commands and options
     - Added "-genlib" option to "abc" pass

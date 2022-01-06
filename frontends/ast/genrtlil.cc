@@ -1531,13 +1531,20 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// changing the size of signal can be done directly using RTLIL::SigSpec
 	case AST_CAST_SIZE: {
 			RTLIL::SigSpec size = children[0]->genRTLIL();
-			RTLIL::SigSpec sig = children[1]->genRTLIL();
 			if (!size.is_fully_const())
 				log_file_error(filename, location.first_line, "Static cast with non constant expression!\n");
 			int width = size.as_int();
 			if (width <= 0)
 				log_file_error(filename, location.first_line, "Static cast with zero or negative size!\n");
-			sig.extend_u0(width, sign_hint);
+			// determine the *signedness* of the expression
+			int sub_width_hint = -1;
+			bool sub_sign_hint = true;
+			children[1]->detectSignWidth(sub_width_hint, sub_sign_hint);
+			// generate the signal given the *cast's* size and the
+			// *expression's* signedness
+			RTLIL::SigSpec sig = children[1]->genWidthRTLIL(width, sub_sign_hint);
+			// context may effect this node's signedness, but not that of the
+			// casted expression
 			is_signed = sign_hint;
 			return sig;
 		}
