@@ -673,6 +673,118 @@ void add_wire_for_ref(const RTLIL::Wire *ref, const std::string &str)
 	current_scope[str] = wire;
 }
 
+enum class IdentUsage {
+	NotReferenced, // target variable is neither read or written in the block
+	Assigned, // target variable is always assigned before use
+	SyncRequired, // target variable may be used before it has been assigned
+};
+
+// determines whether a local variable a block is always assigned before it is
+// used, meaning the nosync attribute can automatically be added to that
+// variable
+static IdentUsage always_asgn_before_use(const AstNode *node, const std::string &target)
+{
+	// This variable has been referenced before it has necessarily been assigned
+	// a value in this procedure.
+	if (node->type == AST_IDENTIFIER && node->str == target)
+		return IdentUsage::SyncRequired;
+
+	// For case statements (which are also used for if/else), we check each
+	// possible branch. If the variable is assigned in all branches, then it is
+	// assigned, and a sync isn't required. If it used before assignment in any
+	// branch, then a sync is required.
+	if (node->type == AST_CASE) {
+		bool all_defined = true;
+		bool any_used = false;
+		bool has_default = false;
+		for (const AstNode *child : node->children) {
+			if (child->type == AST_COND && child->children.at(0)->type == AST_DEFAULT)
+				has_default = true;
+			IdentUsage nested = always_asgn_before_use(child, target);
+			if (nested != IdentUsage::Assigned && child->type == AST_COND)
+				all_defined = false;
+			if (nested == IdentUsage::SyncRequired)
+				any_used = true;
+		}
+		if (any_used)
+			return IdentUsage::SyncRequired;
+		else if (all_defined && has_default)
+			return IdentUsage::Assigned;
+		else
+			return IdentUsage::NotReferenced;
+	}
+
+	// Check if this is an assignment to the target variable. For simplicity, we
+	// don't analyze sub-ranges of the variable.
+	if (node->type == AST_ASSIGN_EQ) {
+		const AstNode *ident = node->children.at(0);
+		if (ident->type == AST_IDENTIFIER && ident->str == target)
+			return IdentUsage::Assigned;
+	}
+
+	for (const AstNode *child : node->children) {
+		IdentUsage nested = always_asgn_before_use(child, target);
+		if (nested != IdentUsage::NotReferenced)
+			return nested;
+	}
+	return IdentUsage::NotReferenced;
+}
+
+static const std::string auto_nosync_prefix = "\\AutoNosync";
+
+// mark a local variable in an always_comb block for automatic nosync
+// consideration
+static void mark_auto_nosync(AstNode *block, const AstNode *wire)
+{
+	log_assert(block->type == AST_BLOCK);
+	log_assert(wire->type == AST_WIRE);
+	block->attributes[auto_nosync_prefix + wire->str] = AstNode::mkconst_int(1,
+			false);
+}
+
+// check a procedural block for auto-nosync markings, remove them, and add
+// nosync to local variables as necessary
+static void check_auto_nosync(AstNode *node)
+{
+	std::vector<RTLIL::IdString> attrs_to_drop;
+	for (const auto& elem : node->attributes) {
+		// skip attributes that don't begin with the prefix
+		if (elem.first.compare(0, auto_nosync_prefix.size(),
+					auto_nosync_prefix.c_str()))
+			continue;
+
+		// delete and remove the attribute once we're done iterating
+		attrs_to_drop.push_back(elem.first);
+
+		// find the wire based on the attribute
+		std::string wire_name = elem.first.substr(auto_nosync_prefix.size());
+		auto it = current_scope.find(wire_name);
+		if (it == current_scope.end())
+			continue;
+
+		// analyze the usage of the local variable in this block
+		IdentUsage ident_usage = always_asgn_before_use(node, wire_name);
+		if (ident_usage != IdentUsage::Assigned)
+			continue;
+
+		// mark the wire with `nosync`
+		AstNode *wire = it->second;
+		log_assert(wire->type == AST_WIRE);
+		wire->attributes[ID::nosync] = AstNode::mkconst_int(1, false);
+	}
+
+	// remove the attributes we've "consumed"
+	for (const RTLIL::IdString &str : attrs_to_drop) {
+		auto it = node->attributes.find(str);
+		delete it->second;
+		node->attributes.erase(it);
+	}
+
+	// check local variables in any nested blocks
+	for (AstNode *child : node->children)
+		check_auto_nosync(child);
+}
+
 // convert the AST into a simpler AST that has all parameters substituted by their
 // values, unrolled for-loops, expanded generate blocks, etc. when this function
 // is done with an AST it can be converted into RTLIL using genRTLIL().
@@ -980,6 +1092,11 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 				}
 			}
 		}
+
+		for (AstNode *child : children)
+			if (child->type == AST_ALWAYS &&
+					child->attributes.count(ID::always_comb))
+				check_auto_nosync(child);
 	}
 
 	// create name resolution entries for all objects with names
@@ -2223,6 +2340,16 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	if (type == AST_BLOCK && !str.empty())
 	{
 		expand_genblock(str + ".");
+
+		// if this is an autonamed block is in an always_comb
+		if (current_always && current_always->attributes.count(ID::always_comb)
+				&& str.at(0) == '$')
+			// track local variables in this block so we can consider adding
+			// nosync once the block has been fully elaborated
+			for (AstNode *child : children)
+				if (child->type == AST_WIRE &&
+						!child->attributes.count(ID::nosync))
+					mark_auto_nosync(this, child);
 
 		std::vector<AstNode*> new_children;
 		for (size_t i = 0; i < children.size(); i++)
