@@ -20,6 +20,9 @@ Yosys 0.11 .. Yosys 0.12
       operations
     - Fixed static size casts ignoring expression signedness
     - Fixed static size casts not extending unbased unsized literals
+    - Added automatic `nosync` inference for local variables in `always_comb`
+      procedures which are always assigned before they are used to avoid errant
+      latch inference
 
  * New commands and options
     - Added "-genlib" option to "abc" pass
