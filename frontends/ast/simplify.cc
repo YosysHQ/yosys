@@ -2341,15 +2341,12 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 	{
 		expand_genblock(str + ".");
 
-		// if this is an autonamed block is in an always_comb
-		if (current_always && current_always->attributes.count(ID::always_comb)
-				&& str.at(0) == '$')
-			// track local variables in this block so we can consider adding
-			// nosync once the block has been fully elaborated
-			for (AstNode *child : children)
-				if (child->type == AST_WIRE &&
-						!child->attributes.count(ID::nosync))
-					mark_auto_nosync(this, child);
+		// track local variables in this block so we can consider adding
+		// nosync once the block has been fully elaborated
+		for (AstNode *child : children)
+			if (child->type == AST_WIRE &&
+					!child->attributes.count(ID::nosync))
+				mark_auto_nosync(this, child);
 
 		std::vector<AstNode*> new_children;
 		for (size_t i = 0; i < children.size(); i++)
