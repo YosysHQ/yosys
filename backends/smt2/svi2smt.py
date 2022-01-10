@@ -41,7 +41,7 @@ def pp(v, indent=""):
     else:
         print(indent + "=" + str(v))
 
-class SvaParserError(Exception):
+class SviParserError(Exception):
     def __init__(self, text, expected):
         self.text = text
         self.expected = expected
@@ -49,32 +49,47 @@ class SvaParserError(Exception):
 def parse_str(text, s):
     text = text.lstrip()
     if not text.startswith(s):
-        raise SvaParserError(text, s)
+        raise SviParserError(text, s)
     return Op("str", [s], text[len(s):])
 
-def parse_binop(text, ops, arg1_parser, arg2_parser=None):
-    if arg2_parser is None:
-        arg2_parser = arg1_parser
-
+def parse_binop(text, ops, arg_parser, assoc="L"):
     text = text.lstrip()
-    p = arg1_parser(text)
+    args = [arg_parser(text)]
+    opers = []
 
-    for op, cmd in ops:
-        try:
-            q = parse_str(p.tail, op)
-            q = arg2_parser(q.tail)
-            return Op(cmd, [p, q], q.tail)
-        except SvaParserError:
-            pass
+    while True:
+        for op, cmd in ops:
+            try:
+                q = parse_str(args[-1].tail, op)
+                q = arg2_parser(q.tail)
+                args.append(q)
+                opers.append(cmd)
+            except SviParserError:
+                pass
+        else:
+            break
 
-    return p
+    if len(opers) == 1:
+        args, opers = [Op(opers[0], args, args[-1].tail)], []
+    elif assoc == "L":
+        while len(opers) > 1:
+            args = [Op(opers[0], args[0:2], args[1].tail), *args[2:]]
+            opers = opers[1:]
+    elif assoc == "R":
+        while len(opers) > 1:
+            args = [Op(opers[-1], args[-2:], args[-1].tail), *args[0:-2]]
+            opers = opers[:-1]
+    else:
+        assert False
+
+    return args[0]
 
 def parse_int(text, label, base, digits):
     text = text.lstrip()
     tail = text.lstrip(digits)
 
     if len(text) == len(tail) or text.startswith("_"):
-        raise SvaParserError(text, label)
+        raise SviParserError(text, label)
 
     text = text[:-len(tail)].replace("_", "")
     return Op("int", int(text, base), tail)
@@ -98,7 +113,7 @@ def parse_name(text):
             tail = tail[1:]
 
     if len(text) == len(tail):
-        raise SvaParserError(text, "name")
+        raise SviParserError(text, "name")
 
     return Op("name", text[:-len(tail)], tail)
 
@@ -112,14 +127,14 @@ def parse_const(text):
         q = parse_str(p.tail, "'h")
         q = parse_hex(q.tail)
         return Op("const", [p.args, q.args], q.tail)
-    except SvaParserError:
+    except SviParserError:
         pass
 
     try:
         q = parse_str(p.tail, "'b")
         q = parse_bin(q.tail)
         return Op("const", [p.args, q.args], q.tail)
-    except SvaParserError:
+    except SviParserError:
         pass
 
     return Op("const", [32, p.args], p.tail)
@@ -140,7 +155,7 @@ def parse_signal(text):
             r = parse_dec(r.tail)
             s = parse_str(r.tail, "]")
             return Op("signal", [p.args, r.args, q.args-r.args+1], s.tail)
-        except SvaParserError:
+        except SviParserError:
             pass
 
         try:
@@ -148,36 +163,38 @@ def parse_signal(text):
             r = parse_dec(r.tail)
             s = parse_str(r.tail, "]")
             return Op("signal", [p.args, q.args, r.args], s.tail)
-        except SvaParserError:
+        except SviParserError:
             pass
 
         r = parse_str(q.tail, "]")
         return Op("signal", [p.args, q.args], r.tail)
-    except SvaParserError:
+    except SviParserError:
         pass
 
     return Op("signal", [p.args], p.tail)
 
-# atom: ! atom
-# atom: const
-# atom: signal
-# atom: ( expr )
-def parse_atom(text):
+# lvl0:
+#   "!" lvl0
+#   "~" lvl0
+#   const
+#   signal
+#   "(" expr ")"
+def parse_lvl0(text):
     try:
         p = parse_str(text, "!")
         p = parse_atom(p.tail)
         return Op("not", [p], p.tail)
-    except SvaParserError:
+    except SviParserError:
         pass
 
     try:
         return parse_const(text)
-    except SvaParserError:
+    except SviParserError:
         pass
 
     try:
         return parse_signal(text)
-    except SvaParserError:
+    except SviParserError:
         pass
 
     p = parse_str(text, "(")
@@ -185,15 +202,45 @@ def parse_atom(text):
     q = parse_str(p.tail, ")")
     return p._replace(tail=q.tail)
 
-# prod: atom
-# prod: atom & prod
-def parse_prod(text):
-    return parse_binop(text, [("&", "and")], parse_atom, parse_prod)
+# lvl1:
+#   lvl0
+#   lvl1 + lvl0
+#   lvl1 - lvl0
+def parse_lvl1(text):
+    return parse_binop(text, [("+", "add"), ("-", "sub")], parse_lvl0)
 
-# sum: prod
-# sum: prod | sum
-def parse_sum(text):
-    return parse_binop(text, [("|", "or")], parse_prod, parse_sum)
+# lvl2:
+#   lvl2 "<<" lvl1
+#   lvl2 ">>" lvl1
+def parse_lvl2(text):
+    return parse_binop(text, [("<<", "shl"), (">>", "shr")], parse_lvl1)
+
+# lvl3:
+#   lvl3 ("<"|">"|"<="|">="|"=="|"!=") lvl2
+def parse_lvl3(text):
+    return parse_binop(text, [
+        ("<", "lt"),
+        (">", "gt"),
+        ("<=", "le"),
+        (">=", "ge"),
+        ("==", "eq"),
+        ("!=", "ne")
+    ], parse_lvl2)
+
+# lvl4:
+#   lvl3 op lvl3
+def parse_lvl4(text):
+    return parse_binop(text, [("&", "or")], parse_lvl3)
+
+# lvl5:
+#   lvl4 op lvl4
+def parse_lvl4(text):
+    return parse_binop(text, [("&", "or")], parse_lvl3)
+
+# lvlN:
+#   lvlN op lvlK
+def parse_lvlN(text):
+    return parse_binop(text, [("|", "or")], parse_lvlK)
 
 # term: sum
 # term: sum ^ term
@@ -234,9 +281,9 @@ if __name__ == '__main__':
     if False:
         import fileinput
         with fileinput.input() as f:
-            sva_text = "".join(f).rstrip()
+            svi_text = "".join(f).rstrip()
     else:
-        sva_text = """
+        svi_text = """
 1 & S[1] |-> S[3:2] and 8'h a_B | S[2+:2] | 1 ^ 3 'b 101 == S;
 
 a
@@ -247,21 +294,21 @@ x |-> c > d;
         """.strip()
 
     print("--- Input ---")
-    print(sva_text)
+    print(svi_text)
     print("-------------")
 
     props = []
     try:
-        while len(sva_text):
-            props.append(parse_prop(sva_text))
-            sva_text = props[-1].tail
-    except SvaParserError as e:
+        while len(svi_text):
+            props.append(parse_prop(svi_text))
+            svi_text = props[-1].tail
+    except SviParserError as e:
         print(e)
 
     if len(props) == 1:
         props = props[0]
     else:
-        props = Op("conj", props, sva_text)
+        props = Op("conj", props, svi_text)
 
     print()
     print("--- Property ---")
