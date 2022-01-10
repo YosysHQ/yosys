@@ -1,0 +1,22 @@
+read_verilog -sv <<EOF
+module top();
+logic z;
+logic [3:0] a;
+logic [3:0] b;
+function automatic logic [3:0] transpose(logic [3:0] in);
+  logic [3:0] transpose;
+  transpose = '0;
+  for (int j=0; j<4; j++) begin
+    transpose[j] = in[3 - j];
+  end 
+endfunction 
+always_comb begin
+  unique case (z)
+    1'b0: a = '0;
+    1'b1: a = transpose(b);
+    default: a = '0;
+  endcase
+end
+endmodule
+EOF
+proc
