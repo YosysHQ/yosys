@@ -1,0 +1,13 @@
+
+read_verilog luttrees.v
+design -save read
+
+hierarchy -top luttrees
+proc
+equiv_opt -async2sync -assert -map +/gatemate/cells_sim.v synth_gatemate -noiopad -luttree -nomx4 -nomx8 # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd luttrees # Constrain all select calls below inside the top module
+
+select -assert-count 750 t:CC_LUT2 t:CC_L2T4 t:CC_L2T5 %%
+select -assert-none t:CC_LUT2 t:CC_L2T4 t:CC_L2T5 %% t:* %D
+
