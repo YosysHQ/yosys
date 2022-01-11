@@ -5,15 +5,12 @@ List of major changes and improvements between releases
 Yosys 0.12 .. Yosys 0.12-dev
 --------------------------
 
-Yosys 0.11 .. Yosys 0.12
---------------------------
-
  * Various
-    - Added iopadmap native support for negative-polarity output enable
-    - ABC update
+    - Use "read" command to parse HDL files from Yosys command-line
+    - Added "yosys -r <topmodule>" command line option
+    - write_verilog: dump zero width sigspecs correctly
 
  * SystemVerilog
-    - Support parameters using struct as a wiretype
     - Fixed regression preventing the use array querying functions in case
       expressions and case item expressions
     - Fixed static size casts inadvertently limiting the result width of binary
@@ -23,6 +20,22 @@ Yosys 0.11 .. Yosys 0.12
     - Added automatic `nosync` inference for local variables in `always_comb`
       procedures which are always assigned before they are used to avoid errant
       latch inference
+
+ * New commands and options
+    - Added "clean_zerowidth" pass
+
+ * Verific support
+    - Add YOSYS to the implicitly defined verilog macros in verific
+
+Yosys 0.11 .. Yosys 0.12
+--------------------------
+
+ * Various
+    - Added iopadmap native support for negative-polarity output enable
+    - ABC update
+
+ * SystemVerilog
+    - Support parameters using struct as a wiretype
 
  * New commands and options
     - Added "-genlib" option to "abc" pass
