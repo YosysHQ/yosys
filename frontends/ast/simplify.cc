@@ -5134,6 +5134,8 @@ bool AstNode::replace_variables(std::map<std::string, AstNode::varinfo_t> &varia
 			width = min(std::abs(children.at(0)->range_left - children.at(0)->range_right) + 1, width);
 		}
 		offset -= variables.at(str).offset;
+		if (variables.at(str).range_swapped)
+			offset = -offset;
 		std::vector<RTLIL::State> &var_bits = variables.at(str).val.bits;
 		std::vector<RTLIL::State> new_bits(var_bits.begin() + offset, var_bits.begin() + offset + width);
 		AstNode *newNode = mkconst_bits(new_bits, variables.at(str).is_signed);
@@ -5191,7 +5193,8 @@ AstNode *AstNode::eval_const_function(AstNode *fcall, bool must_succeed)
 				log_file_error(filename, location.first_line, "Incompatible re-declaration of constant function wire %s.\n", stmt->str.c_str());
 			}
 			variable.val = RTLIL::Const(RTLIL::State::Sx, width);
-			variable.offset = min(stmt->range_left, stmt->range_right);
+			variable.offset = stmt->range_swapped ? stmt->range_left : stmt->range_right;
+			variable.range_swapped = stmt->range_swapped;
 			variable.is_signed = stmt->is_signed;
 			variable.explicitly_sized = stmt->children.size() &&
 				stmt->children.back()->type == AST_RANGE;
@@ -5276,8 +5279,12 @@ AstNode *AstNode::eval_const_function(AstNode *fcall, bool must_succeed)
 				int width = std::abs(range->range_left - range->range_right) + 1;
 				varinfo_t &v = variables[stmt->children.at(0)->str];
 				RTLIL::Const r = stmt->children.at(1)->bitsAsConst(v.val.bits.size());
-				for (int i = 0; i < width; i++)
-					v.val.bits.at(i+offset-v.offset) = r.bits.at(i);
+				for (int i = 0; i < width; i++) {
+					int index = i + offset - v.offset;
+					if (v.range_swapped)
+						index = -index;
+					v.val.bits.at(index) = r.bits.at(i);
+				}
 			}
 
 			delete block->children.front();
