@@ -268,6 +268,7 @@ namespace AST
 		struct varinfo_t {
 			RTLIL::Const val;
 			int offset;
+			bool range_swapped;
 			bool is_signed;
 			AstNode *arg = nullptr;
 			bool explicitly_sized;

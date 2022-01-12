@@ -1,0 +1,7 @@
+read_verilog -sv func_upto.sv
+hierarchy -top top
+proc
+flatten
+opt -full
+select -module top
+sat -verify -seq 1 -prove-asserts -enable_undef

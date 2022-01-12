@@ -5,6 +5,10 @@ List of major changes and improvements between releases
 Yosys 0.14 .. Yosys 0.14-dev
 --------------------------
 
+ * Verilog
+    - Fixed evaluation of constant functions with variables or arguments with
+      reversed dimensions
+
 Yosys 0.13 .. Yosys 0.14
 --------------------------
 
