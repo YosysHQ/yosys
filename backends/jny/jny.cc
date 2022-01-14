@@ -17,8 +17,6 @@
  *
  */
 
-// MYAU - Metadata for Yosys-Assisted Utilities
-
 #include "kernel/rtlil.h"
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
@@ -33,7 +31,7 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 
-struct MetadataWriter
+struct JnyWriter
 {
     private:
         std::ostream &f;
@@ -69,7 +67,7 @@ struct MetadataWriter
         }
 
     public:
-    MetadataWriter(std::ostream &f, bool use_selection) noexcept: f(f), _use_selection(use_selection) { }
+    JnyWriter(std::ostream &f, bool use_selection) noexcept: f(f), _use_selection(use_selection) { }
 
     void write_metadata(Design *design)
     {
@@ -237,13 +235,13 @@ struct MetadataWriter
     }
 };
 
-struct MetadataBackend : public Backend {
-    MetadataBackend() : Backend("metadata", "generate design metadata") { }
+struct JnyBackend : public Backend {
+    JnyBackend() : Backend("jny", "generate design metadata") { }
     void help() override
     {
         //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
         log("\n");
-        log("    metadata [options] [selection]\n");
+        log("    jny [options] [selection]\n");
         log("\n");
         log("Write a JSON metadata for the current design\n");
         log("\n");
@@ -255,30 +253,30 @@ struct MetadataBackend : public Backend {
         size_t argidx{1};
         extra_args(f, filename, args, argidx);
 
-        log_header(design, "Executing metadata backend.\n");
+        log_header(design, "Executing jny backend.\n");
 
-        MetadataWriter metadata_writier(*f, false);
-        metadata_writier.write_metadata(design);
+        JnyWriter jny_writer(*f, false);
+        jny_writer.write_metadata(design);
     }
 
-} MetadataBackend;
+} JnyBackend;
 
 
-struct MetadataPass : public Pass {
-    MetadataPass() : Pass("metadata", "write design metadata") { }
+struct JnyPass : public Pass {
+    JnyPass() : Pass("jny", "write design and metadata") { }
 
     void help() override
     {
         //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
         log("\n");
-        log("    metadata [options] [selection]\n");
+        log("    jny [options] [selection]\n");
         log("\n");
-        log("Write a JSON metadata for the current design\n");
+        log("Write a JSON netlist metadata for the current design\n");
         log("\n");
         log("    -o <filename>\n");
         log("        write to the specified file.\n");
         log("\n");
-        log("See 'help write_metadata' for a description of the JSON format used.\n");
+        log("See 'help write_jny' for a description of the JSON format used.\n");
         log("\n");
     }
     void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -313,8 +311,8 @@ struct MetadataPass : public Pass {
         }
 
 
-        MetadataWriter metadata_writier(*f, false);
-        metadata_writier.write_metadata(design);
+        JnyWriter jny_writer(*f, false);
+        jny_writer.write_metadata(design);
 
         if (!filename.empty()) {
             delete f;
@@ -323,6 +321,6 @@ struct MetadataPass : public Pass {
         }
     }
 
-} MetadataPass;
+} JnyPass;
 
 PRIVATE_NAMESPACE_END
