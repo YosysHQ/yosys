@@ -53,8 +53,23 @@ front-end for Yosys, SymbiYosys:
 - https://github.com/YosysHQ/SymbiYosys
 
 
-Setup
-======
+Installation
+============
+
+Yosys is part of the [Tabby CAD Suite](https://www.yosyshq.com/tabby-cad-datasheet) and the [OSS CAD Suite](https://github.com/YosysHQ/oss-cad-suite-build)! The easiest way to use yosys is to install the binary software suite, which contains all required dependencies and related tools.
+
+* [Contact YosysHQ](https://www.yosyshq.com/contact) for a [Tabby CAD Suite](https://www.yosyshq.com/tabby-cad-datasheet) Evaluation License and download link
+* OR go to https://github.com/YosysHQ/oss-cad-suite-build/releases to download the free OSS CAD Suite
+* Follow the [Install Instructions on GitHub](https://github.com/YosysHQ/oss-cad-suite-build#installation)
+
+Make sure to get a Tabby CAD Suite Evaluation License if you need features such as industry-grade SystemVerilog and VHDL parsers!
+
+For more information about the difference between Tabby CAD Suite and the OSS CAD Suite, please visit https://www.yosyshq.com/tabby-cad-datasheet
+
+Many Linux distributions also provide Yosys binaries, some more up to date than others. Check with your package manager!
+
+Building from Source
+====================
 
 You need a C++ compiler with C++11 support (up-to-date CLANG or GCC is
 recommended) and some standard tools such as GNU Flex, GNU Bison, and GNU Make.
@@ -89,10 +104,6 @@ On FreeBSD system use gmake instead of make. To run tests use:
 For Cygwin use the following command to install all prerequisites, or select these additional packages:
 
 	setup-x86_64.exe -q --packages=bison,flex,gcc-core,gcc-g++,git,libffi-devel,libreadline-devel,make,pkg-config,python3,tcl-devel,boost-build,zlib-devel
-
-There are also pre-compiled Yosys binary packages for Ubuntu and Win32 as well
-as a source distribution for Visual Studio. Visit the Yosys download page for
-more information: https://yosyshq.net/yosys/download.html
 
 To configure the build system to use a specific compiler, use one of
 
