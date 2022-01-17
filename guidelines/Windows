@@ -37,6 +37,29 @@ Creating the Visual Studio Template Project
 
 4. Zip YosysVS as YosysVS-Tpl-v1.zip
 
+Compiling with Visual Studio
+============================
+
+Visual Studio builds are not directly supported by build scripts, but they are still possible.
+
+1. Easy way
+
+  - Go to https://github.com/YosysHQ/yosys/actions/workflows/vs.yml?query=branch%3Amaster
+  - Click on the most recent completed run
+  - In Artifacts region find vcxsrc and click on it to download
+  - Unpack downloaded ZIP file
+  - Open YosysVS.sln with Visual Studio
+  
+2. Using WSL or MSYS2
+
+  - Make sure to have make, python3 and git available
+  - Git clone yosys repository
+  - Execute ```make vcxsrc YOSYS_VER=latest```
+  - File yosys-win32-vcxsrc-latest.zip will be created
+  - Transfer that file to location visible by Windows application
+  - Unpack ZIP
+  - Open YosysVS.sln with Visual Studio
+
 Cross-Building for Windows with MXE
 ===================================
 
