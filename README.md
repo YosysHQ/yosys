@@ -66,6 +66,7 @@ Make sure to get a Tabby CAD Suite Evaluation License if you need features such 
 
 For more information about the difference between Tabby CAD Suite and the OSS CAD Suite, please visit https://www.yosyshq.com/tabby-cad-datasheet
 
+Many Linux distributions also provide Yosys binaries, some more up to date than others. Check with your package manager!
 
 Building from Source
 ====================
