@@ -8,6 +8,8 @@ Yosys 0.14 .. Yosys 0.14-dev
  * Verilog
     - Fixed evaluation of constant functions with variables or arguments with
       reversed dimensions
+    - Fixed elaboration of dynamic range assignments where the vector is
+      reversed or is not zero-indexed
 
 Yosys 0.13 .. Yosys 0.14
 --------------------------
