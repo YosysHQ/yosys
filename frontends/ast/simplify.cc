@@ -2704,6 +2704,18 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			while (wire_data->simplify(true, false, false, 1, -1, false, false)) { }
 			current_ast_mod->children.push_back(wire_data);
 
+			int shamt_width_hint = -1;
+			bool shamt_sign_hint = true;
+			shift_expr->detectSignWidth(shamt_width_hint, shamt_sign_hint);
+
+			AstNode *wire_sel = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(shamt_width_hint-1, true), mkconst_int(0, true)));
+			wire_sel->str = stringf("$bitselwrite$sel$%s:%d$%d", filename.c_str(), location.first_line, autoidx++);
+			wire_sel->attributes[ID::nosync] = AstNode::mkconst_int(1, false);
+			wire_sel->is_logic = true;
+			wire_sel->is_signed = shamt_sign_hint;
+			while (wire_sel->simplify(true, false, false, 1, -1, false, false)) { }
+			current_ast_mod->children.push_back(wire_sel);
+
 			did_something = true;
 			newNode = new AstNode(AST_BLOCK);
 
@@ -2720,39 +2732,44 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			ref_data->id2ast = wire_data;
 			ref_data->was_checked = true;
 
+			AstNode *ref_sel = new AstNode(AST_IDENTIFIER);
+			ref_sel->str = wire_sel->str;
+			ref_sel->id2ast = wire_sel;
+			ref_sel->was_checked = true;
+
 			AstNode *old_data = lvalue->clone();
 			if (type == AST_ASSIGN_LE)
 				old_data->lookahead = true;
 
-			AstNode *shamt = shift_expr;
+			AstNode *s = new AstNode(AST_ASSIGN_EQ, ref_sel->clone(), shift_expr);
+			newNode->children.push_back(s);
 
-			int shamt_width_hint = 0;
-			bool shamt_sign_hint = true;
-			shamt->detectSignWidth(shamt_width_hint, shamt_sign_hint);
+			AstNode *shamt = ref_sel;
 
+			// convert to signed while preserving the sign and value
+			shamt = new AstNode(AST_CAST_SIZE, mkconst_int(shamt_width_hint + 1, true), shamt);
+			shamt = new AstNode(AST_TO_SIGNED, shamt);
+
+			// offset the shift amount by the lower bound of the dimension
 			int start_bit = children[0]->id2ast->range_right;
-			bool use_shift = shamt_sign_hint;
+			shamt = new AstNode(AST_SUB, shamt, mkconst_int(start_bit, true));
 
-			if (start_bit != 0) {
-				shamt = new AstNode(AST_SUB, shamt, mkconst_int(start_bit, true));
-				use_shift = true;
-			}
+			// reflect the shift amount if the dimension is swapped
+			if (children[0]->id2ast->range_swapped)
+				shamt = new AstNode(AST_SUB, mkconst_int(source_width - result_width, true), shamt);
+
+			// AST_SHIFT uses negative amounts for shifting left
+			shamt = new AstNode(AST_NEG, shamt);
 
 			AstNode *t;
 
 			t = mkconst_bits(std::vector<RTLIL::State>(result_width, State::S1), false);
-			if (use_shift)
-				t = new AstNode(AST_SHIFT, t, new AstNode(AST_NEG, shamt->clone()));
-			else
-				t = new AstNode(AST_SHIFT_LEFT, t, shamt->clone());
+			t = new AstNode(AST_SHIFT, t, shamt->clone());
 			t = new AstNode(AST_ASSIGN_EQ, ref_mask->clone(), t);
 			newNode->children.push_back(t);
 
 			t = new AstNode(AST_BIT_AND, mkconst_bits(std::vector<RTLIL::State>(result_width, State::S1), false), children[1]->clone());
-			if (use_shift)
-				t = new AstNode(AST_SHIFT, t, new AstNode(AST_NEG, shamt));
-			else
-				t = new AstNode(AST_SHIFT_LEFT, t, shamt);
+			t = new AstNode(AST_SHIFT, t, shamt);
 			t = new AstNode(AST_ASSIGN_EQ, ref_data->clone(), t);
 			newNode->children.push_back(t);
 
