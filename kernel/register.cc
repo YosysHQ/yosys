@@ -838,7 +838,8 @@ struct HelpPass : public Pass {
 		fprintf(f, "Description\n");
 		fprintf(f, "-----------\n\n");
 		fprintf(f, ".. code-block:: none\n\n");
-		auto ss = std::stringstream{text};
+		std::stringstream ss;
+		ss << text;
 	    for (std::string line; std::getline(ss, line, '\n');)
 			fprintf(f, "	%s\n", line.c_str());
 		fclose(f);
