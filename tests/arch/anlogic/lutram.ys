@@ -2,7 +2,7 @@ read_verilog ../common/lutram.v
 hierarchy -top lutram_1w1r
 proc
 memory -nomap
-equiv_opt -run :prove -map +/anlogic/cells_sim.v synth_anlogic
+equiv_opt -run :prove -map +/anlogic/cells_sim.v synth_anlogic -nobram
 memory
 opt -full
 

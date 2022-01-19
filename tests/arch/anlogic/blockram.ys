@@ -1,0 +1,13 @@
+read_verilog ../common/blockram.v
+hierarchy -top sync_ram_sp
+proc
+memory -nomap
+equiv_opt -run :prove -map +/anlogic/cells_sim.v synth_anlogic
+memory
+opt -full
+
+design -load postopt
+cd sync_ram_sp
+
+select -assert-count 1 t:EG_PHY_BRAM
+select -assert-none t:EG_PHY_BRAM %% t:* %D
