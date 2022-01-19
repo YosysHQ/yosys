@@ -6,8 +6,6 @@ bram $__ANLOGIC_BRAM9K_TDP
   dbits  2  @a12d2
   abits  11 @a11d4
   dbits  4  @a11d4
-  abits  10 @a10d8
-  dbits  8  @a10d8
   abits  10 @a10d9
   dbits  9  @a10d9
   groups 2
