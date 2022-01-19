@@ -822,6 +822,27 @@ struct HelpPass : public Pass {
 
 		fclose(f);
 	}
+	void write_rst(FILE *idxf, std::string cmd, std::string title, std::string text)
+	{
+		fprintf(idxf, "- :ref:`cmd_%s`: %s\n", cmd.c_str(), title.c_str());
+
+		FILE *f = fopen(stringf("docs/source/cmd_%s.rst", cmd.c_str()).c_str(), "wt");
+
+		fprintf(f, ".. _cmd_%s:\n\n", cmd.c_str());
+		fprintf(f, "================================================================================\n");
+		fprintf(f, "%s\n", cmd.c_str());
+		fprintf(f, "================================================================================\n\n");
+		fprintf(f, ".. only:: html\n\n");
+		fprintf(f, "	%s\n\n", title.c_str());
+		fprintf(f, ".. Index:: cmd_%s\n\n", cmd.c_str());
+		fprintf(f, "Description\n");
+		fprintf(f, "-----------\n\n");
+		fprintf(f, ".. code-block:: none\n\n");
+		auto ss = std::stringstream{text};
+	    for (std::string line; std::getline(ss, line, '\n');)
+			fprintf(f, "	%s\n", line.c_str());
+		fclose(f);
+	}
 	void execute(std::vector<std::string> args, RTLIL::Design*) override
 	{
 		if (args.size() == 1) {
@@ -878,6 +899,34 @@ struct HelpPass : public Pass {
 					}
 					log_streams.pop_back();
 					write_tex(f, it.first, it.second->short_help, buf.str());
+				}
+				fclose(f);
+			}
+			// this option is undocumented as it is for internal use only
+			else if (args[1] == "-write-rst-command-reference-manual") {
+				FILE *f = fopen("docs/source/index.rst", "wt");
+				fprintf(f, "================================================================================\n");
+				fprintf(f, "Command line reference\n");
+				fprintf(f, "================================================================================\n");
+				fprintf(f, ".. _command_line_reference:\n\n");
+				fprintf(f, ".. toctree::\n");
+				fprintf(f, "	:maxdepth: 1\n");
+				fprintf(f, "	:hidden:\n\n");
+				for (auto &it : pass_register) {
+					fprintf(f, "	cmd_%s\n", it.first.c_str());
+				}
+				fprintf(f, "\n\n");
+				for (auto &it : pass_register) {
+					std::ostringstream buf;
+					log_streams.push_back(&buf);
+					it.second->help();
+					if (it.second->experimental_flag) {
+						log("\n");
+						log("WARNING: THE '%s' COMMAND IS EXPERIMENTAL.\n", it.first.c_str());
+						log("\n");
+					}
+					log_streams.pop_back();
+					write_rst(f, it.first, it.second->short_help, buf.str());
 				}
 				fclose(f);
 			}
