@@ -1292,6 +1292,33 @@ endmodule
 
 // --------------------------------------------------------
 
+module \$bmux (A, S, Y);
+
+parameter WIDTH = 0;
+parameter S_WIDTH = 0;
+
+input [(WIDTH << S_WIDTH)-1:0] A;
+input [S_WIDTH-1:0] S;
+output [WIDTH-1:0] Y;
+
+wire [WIDTH-1:0] bm0_out, bm1_out;
+
+generate
+	if (S_WIDTH > 1) begin:muxlogic
+		\$bmux #(.WIDTH(WIDTH), .S_WIDTH(S_WIDTH-1)) bm0 (.A(A), .S(S[S_WIDTH-2:0]), .Y(bm0_out));
+		\$bmux #(.WIDTH(WIDTH), .S_WIDTH(S_WIDTH-1)) bm1 (.A(A[(WIDTH << S_WIDTH)-1:WIDTH << (S_WIDTH - 1)]), .S(S[S_WIDTH-2:0]), .Y(bm1_out));
+		assign Y = S[S_WIDTH-1] ? bm1_out : bm0_out;
+	end else if (S_WIDTH == 1) begin:simple
+		assign Y = S ? A[1] : A[0];
+	end else begin:passthru
+		assign Y = A;
+	end
+endgenerate
+
+endmodule
+
+// --------------------------------------------------------
+
 module \$pmux (A, B, S, Y);
 
 parameter WIDTH = 0;
@@ -1318,6 +1345,26 @@ end
 endmodule
 
 // --------------------------------------------------------
+
+module \$demux (A, S, Y);
+
+parameter WIDTH = 1;
+parameter S_WIDTH = 1;
+
+input [WIDTH-1:0] A;
+input [S_WIDTH-1:0] S;
+output [(WIDTH << S_WIDTH)-1:0] Y;
+
+genvar i;
+generate
+	for (i = 0; i < (1 << S_WIDTH); i = i + 1) begin:slices
+		assign Y[i*WIDTH+:WIDTH] = (S == i) ? A : 0;
+	end
+endgenerate
+
+endmodule
+
+// --------------------------------------------------------
 `ifndef SIMLIB_NOLUT
 
 module \$lut (A, Y);
@@ -1326,30 +1373,9 @@ parameter WIDTH = 0;
 parameter LUT = 0;
 
 input [WIDTH-1:0] A;
-output reg Y;
+output Y;
 
-wire lut0_out, lut1_out;
-
-generate
-	if (WIDTH <= 1) begin:simple
-		assign {lut1_out, lut0_out} = LUT;
-	end else begin:complex
-		\$lut #( .WIDTH(WIDTH-1), .LUT(LUT                  ) ) lut0 ( .A(A[WIDTH-2:0]), .Y(lut0_out) );
-		\$lut #( .WIDTH(WIDTH-1), .LUT(LUT >> (2**(WIDTH-1))) ) lut1 ( .A(A[WIDTH-2:0]), .Y(lut1_out) );
-	end
-
-	if (WIDTH > 0) begin:lutlogic
-		always @* begin
-			casez ({A[WIDTH-1], lut0_out, lut1_out})
-				3'b?11: Y = 1'b1;
-				3'b?00: Y = 1'b0;
-				3'b0??: Y = lut0_out;
-				3'b1??: Y = lut1_out;
-				default: Y = 1'bx;
-			endcase
-		end
-	end
-endgenerate
+\$bmux #(.WIDTH(1), .S_WIDTH(WIDTH)) mux(.A(LUT), .S(A), .Y(Y));
 
 endmodule
 

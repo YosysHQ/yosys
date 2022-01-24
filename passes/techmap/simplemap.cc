@@ -299,6 +299,30 @@ void simplemap_tribuf(RTLIL::Module *module, RTLIL::Cell *cell)
 	}
 }
 
+void simplemap_bmux(RTLIL::Module *module, RTLIL::Cell *cell)
+{
+	SigSpec sel = cell->getPort(ID::S);
+	SigSpec data = cell->getPort(ID::A);
+	int width = GetSize(cell->getPort(ID::Y));
+
+	for (int idx = 0; idx < GetSize(sel); idx++) {
+		SigSpec new_data = module->addWire(NEW_ID, GetSize(data)/2);
+		for (int i = 0; i < GetSize(new_data); i += width) {
+			for (int k = 0; k < width; k++) {
+				RTLIL::Cell *gate = module->addCell(NEW_ID, ID($_MUX_));
+				gate->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
+				gate->setPort(ID::A, data[i*2+k]);
+				gate->setPort(ID::B, data[i*2+width+k]);
+				gate->setPort(ID::S, sel[idx]);
+				gate->setPort(ID::Y, new_data[i+k]);
+			}
+		}
+		data = new_data;
+	}
+
+	module->connect(cell->getPort(ID::Y), data);
+}
+
 void simplemap_lut(RTLIL::Module *module, RTLIL::Cell *cell)
 {
 	SigSpec lut_ctrl = cell->getPort(ID::A);
@@ -306,7 +330,6 @@ void simplemap_lut(RTLIL::Module *module, RTLIL::Cell *cell)
 	lut_data.extend_u0(1 << cell->getParam(ID::WIDTH).as_int());
 
 	for (int idx = 0; GetSize(lut_data) > 1; idx++) {
-		SigSpec sig_s = lut_ctrl[idx];
 		SigSpec new_lut_data = module->addWire(NEW_ID, GetSize(lut_data)/2);
 		for (int i = 0; i < GetSize(lut_data); i += 2) {
 			RTLIL::Cell *gate = module->addCell(NEW_ID, ID($_MUX_));
@@ -400,6 +423,7 @@ void simplemap_get_mappers(dict<IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)>
 	mappers[ID($nex)]         = simplemap_eqne;
 	mappers[ID($mux)]         = simplemap_mux;
 	mappers[ID($tribuf)]      = simplemap_tribuf;
+	mappers[ID($bmux)]        = simplemap_bmux;
 	mappers[ID($lut)]         = simplemap_lut;
 	mappers[ID($sop)]         = simplemap_sop;
 	mappers[ID($slice)]       = simplemap_slice;

@@ -69,6 +69,48 @@ static void create_gold_module(RTLIL::Design *design, RTLIL::IdString cell_type,
 		cell->setPort(ID::Y, wire);
 	}
 
+	if (cell_type == ID($bmux))
+	{
+		int width = 1 + xorshift32(8);
+		int swidth = 1 + xorshift32(4);
+
+		wire = module->addWire(ID::A);
+		wire->width = width << swidth;
+		wire->port_input = true;
+		cell->setPort(ID::A, wire);
+
+		wire = module->addWire(ID::S);
+		wire->width = swidth;
+		wire->port_input = true;
+		cell->setPort(ID::S, wire);
+
+		wire = module->addWire(ID::Y);
+		wire->width = width;
+		wire->port_output = true;
+		cell->setPort(ID::Y, wire);
+	}
+
+	if (cell_type == ID($demux))
+	{
+		int width = 1 + xorshift32(8);
+		int swidth = 1 + xorshift32(6);
+
+		wire = module->addWire(ID::A);
+		wire->width = width;
+		wire->port_input = true;
+		cell->setPort(ID::A, wire);
+
+		wire = module->addWire(ID::S);
+		wire->width = swidth;
+		wire->port_input = true;
+		cell->setPort(ID::S, wire);
+
+		wire = module->addWire(ID::Y);
+		wire->width = width << swidth;
+		wire->port_output = true;
+		cell->setPort(ID::Y, wire);
+	}
+
 	if (cell_type == ID($fa))
 	{
 		int width = 1 + xorshift32(8);
@@ -855,8 +897,10 @@ struct TestCellPass : public Pass {
 		cell_types[ID($logic_and)] = "ABSY";
 		cell_types[ID($logic_or)]  = "ABSY";
 
+		cell_types[ID($mux)] = "*";
+		cell_types[ID($bmux)] = "*";
+		cell_types[ID($demux)] = "*";
 		if (edges) {
-			cell_types[ID($mux)] = "*";
 			cell_types[ID($pmux)] = "*";
 		}
 

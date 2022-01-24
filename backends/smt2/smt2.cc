@@ -1531,6 +1531,11 @@ struct Smt2Backend : public Backend {
 
 		log_header(design, "Executing SMT2 backend.\n");
 
+		log_push();
+		Pass::call(design, "bmuxmap");
+		Pass::call(design, "demuxmap");
+		log_pop();
+
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{

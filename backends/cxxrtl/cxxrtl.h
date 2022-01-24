@@ -457,6 +457,42 @@ struct value : public expr_base<value<Bits>> {
 		return shr<AmountBits, /*Signed=*/true>(amount);
 	}
 
+	template<size_t ResultBits, size_t SelBits>
+	value<ResultBits> bmux(const value<SelBits> &sel) const {
+		static_assert(ResultBits << SelBits == Bits, "invalid sizes used in bmux()");
+		size_t amount = sel.data[0] * ResultBits;
+		size_t shift_chunks = amount / chunk::bits;
+		size_t shift_bits   = amount % chunk::bits;
+		value<ResultBits> result;
+		chunk::type carry = 0;
+		if (ResultBits % chunk::bits + shift_bits > chunk::bits)
+			carry = data[result.chunks + shift_chunks] << (chunk::bits - shift_bits);
+		for (size_t n = 0; n < result.chunks; n++) {
+			result.data[result.chunks - 1 - n] = carry | (data[result.chunks + shift_chunks - 1 - n] >> shift_bits);
+			carry = (shift_bits == 0) ? 0
+				: data[result.chunks + shift_chunks - 1 - n] << (chunk::bits - shift_bits);
+		}
+		return result;
+	}
+
+	template<size_t ResultBits, size_t SelBits>
+	value<ResultBits> demux(const value<SelBits> &sel) const {
+		static_assert(Bits << SelBits == ResultBits, "invalid sizes used in demux()");
+		size_t amount = sel.data[0] * Bits;
+		size_t shift_chunks = amount / chunk::bits;
+		size_t shift_bits   = amount % chunk::bits;
+		value<ResultBits> result;
+		chunk::type carry = 0;
+		for (size_t n = 0; n < chunks; n++) {
+			result.data[shift_chunks + n] = (data[n] << shift_bits) | carry;
+			carry = (shift_bits == 0) ? 0
+				: data[n] >> (chunk::bits - shift_bits);
+		}
+		if (Bits % chunk::bits + shift_bits > chunk::bits)
+			result.data[shift_chunks + chunks] = carry;
+		return result;
+	}
+
 	size_t ctpop() const {
 		size_t count = 0;
 		for (size_t n = 0; n < chunks; n++) {

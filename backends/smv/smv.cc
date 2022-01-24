@@ -741,6 +741,11 @@ struct SmvBackend : public Backend {
 
 		log_header(design, "Executing SMV backend.\n");
 
+		log_push();
+		Pass::call(design, "bmuxmap");
+		Pass::call(design, "demuxmap");
+		log_pop();
+
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
