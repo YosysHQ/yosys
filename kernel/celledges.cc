@@ -142,6 +142,36 @@ void mux_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 	}
 }
 
+void bmux_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
+{
+	int width = GetSize(cell->getPort(ID::Y));
+	int a_width = GetSize(cell->getPort(ID::A));
+	int s_width = GetSize(cell->getPort(ID::S));
+
+	for (int i = 0; i < width; i++)
+	{
+		for (int k = i; k < a_width; k += width)
+			db->add_edge(cell, ID::A, k, ID::Y, i, -1);
+
+		for (int k = 0; k < s_width; k++)
+			db->add_edge(cell, ID::S, k, ID::Y, i, -1);
+	}
+}
+
+void demux_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
+{
+	int width = GetSize(cell->getPort(ID::Y));
+	int a_width = GetSize(cell->getPort(ID::A));
+	int s_width = GetSize(cell->getPort(ID::S));
+
+	for (int i = 0; i < width; i++)
+	{
+		db->add_edge(cell, ID::A, i % a_width, ID::Y, i, -1);
+		for (int k = 0; k < s_width; k++)
+			db->add_edge(cell, ID::S, k, ID::Y, i, -1);
+	}
+}
+
 PRIVATE_NAMESPACE_END
 
 bool YOSYS_NAMESPACE_PREFIX AbstractCellEdgesDatabase::add_edges_from_cell(RTLIL::Cell *cell)
@@ -184,6 +214,16 @@ bool YOSYS_NAMESPACE_PREFIX AbstractCellEdgesDatabase::add_edges_from_cell(RTLIL
 
 	if (cell->type.in(ID($mux), ID($pmux))) {
 		mux_op(this, cell);
+		return true;
+	}
+
+	if (cell->type == ID($bmux)) {
+		bmux_op(this, cell);
+		return true;
+	}
+
+	if (cell->type == ID($demux)) {
+		demux_op(this, cell);
 		return true;
 	}
 

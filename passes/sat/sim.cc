@@ -313,6 +313,12 @@ struct SimInstance
 				return;
 			}
 
+			// (A,S -> Y) cells
+			if (has_a && !has_b && !has_c && !has_d && has_s && has_y) {
+				set_state(sig_y, CellTypes::eval(cell, get_state(sig_a), get_state(sig_s)));
+				return;
+			}
+
 			// (A,B,S -> Y) cells
 			if (has_a && has_b && !has_c && !has_d && has_s && has_y) {
 				set_state(sig_y, CellTypes::eval(cell, get_state(sig_a), get_state(sig_b), get_state(sig_s)));

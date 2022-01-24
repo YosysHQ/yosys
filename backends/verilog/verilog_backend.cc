@@ -2300,7 +2300,11 @@ struct VerilogBackend : public Backend {
 			extmem_prefix = filename.substr(0, filename.rfind('.'));
 		}
 
+		log_push();
+		Pass::call(design, "bmuxmap");
+		Pass::call(design, "demuxmap");
 		Pass::call(design, "clean_zerowidth");
+		log_pop();
 
 		design->sort();
 

@@ -84,7 +84,7 @@ int QuickConeSat::cell_complexity(RTLIL::Cell *cell)
 			ID($reduce_xnor), ID($reduce_bool),
 			ID($logic_not), ID($logic_and), ID($logic_or),
 			ID($eq), ID($ne), ID($eqx), ID($nex), ID($fa),
-			ID($mux), ID($pmux), ID($lut), ID($sop),
+			ID($mux), ID($pmux), ID($bmux), ID($demux), ID($lut), ID($sop),
 			ID($_NOT_), ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_),
 			ID($_XOR_), ID($_XNOR_), ID($_ANDNOT_), ID($_ORNOT_),
 			ID($_MUX_), ID($_NMUX_), ID($_MUX4_), ID($_MUX8_), ID($_MUX16_),

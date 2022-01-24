@@ -127,6 +127,9 @@ struct CellTypes
 		for (auto type : std::vector<RTLIL::IdString>({ID($mux), ID($pmux)}))
 			setup_type(type, {ID::A, ID::B, ID::S}, {ID::Y}, true);
 
+		for (auto type : std::vector<RTLIL::IdString>({ID($bmux), ID($demux)}))
+			setup_type(type, {ID::A, ID::S}, {ID::Y}, true);
+
 		setup_type(ID($lcu), {ID::P, ID::G, ID::CI}, {ID::CO}, true);
 		setup_type(ID($alu), {ID::A, ID::B, ID::CI, ID::BI}, {ID::X, ID::Y, ID::CO}, true);
 		setup_type(ID($fa), {ID::A, ID::B, ID::C}, {ID::X, ID::Y}, true);
@@ -411,6 +414,16 @@ struct CellTypes
 			return ret;
 		}
 
+		if (cell->type == ID($bmux))
+		{
+			return const_bmux(arg1, arg2);
+		}
+
+		if (cell->type == ID($demux))
+		{
+			return const_demux(arg1, arg2);
+		}
+
 		if (cell->type == ID($lut))
 		{
 			int width = cell->parameters.at(ID::WIDTH).as_int();
@@ -420,21 +433,7 @@ struct CellTypes
 				t.push_back(State::S0);
 			t.resize(1 << width);
 
-			for (int i = width-1; i >= 0; i--) {
-				RTLIL::State sel = arg1.bits.at(i);
-				std::vector<RTLIL::State> new_t;
-				if (sel == State::S0)
-					new_t = std::vector<RTLIL::State>(t.begin(), t.begin() + GetSize(t)/2);
-				else if (sel == State::S1)
-					new_t = std::vector<RTLIL::State>(t.begin() + GetSize(t)/2, t.end());
-				else
-					for (int j = 0; j < GetSize(t)/2; j++)
-						new_t.push_back(t[j] == t[j + GetSize(t)/2] ? t[j] : RTLIL::Sx);
-				t.swap(new_t);
-			}
-
-			log_assert(GetSize(t) == 1);
-			return t;
+			return const_bmux(t, arg1);
 		}
 
 		if (cell->type == ID($sop))

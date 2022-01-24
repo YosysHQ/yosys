@@ -80,7 +80,7 @@ struct CleanZeroWidthPass : public Pass {
 					if (GetSize(cell->getPort(ID::Q)) == 0) {
 						module->remove(cell);
 					}
-				} else if (cell->type == ID($pmux)) {
+				} else if (cell->type.in(ID($pmux), ID($bmux), ID($demux))) {
 					// Remove altogether if WIDTH is 0, replace with
 					// a connection if S_WIDTH is 0.
 					if (cell->getParam(ID::WIDTH).as_int() == 0) {
