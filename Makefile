@@ -642,6 +642,10 @@ OBJS += libs/minisat/SimpSolver.o
 OBJS += libs/minisat/Solver.o
 OBJS += libs/minisat/System.o
 
+OBJS += libs/fst/fstapi.o
+OBJS += libs/fst/fastlz.o
+OBJS += libs/fst/lz4.o
+
 include $(YOSYS_SRC)/frontends/*/Makefile.inc
 include $(YOSYS_SRC)/passes/*/Makefile.inc
 include $(YOSYS_SRC)/backends/*/Makefile.inc
