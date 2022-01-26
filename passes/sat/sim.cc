@@ -885,12 +885,18 @@ struct SimWorker : SimShared
 		SigMap sigmap(topmod);
 		log ("Get inputs\n");
 		std::map<Wire*,fstHandle> inputs;
+		std::map<Wire*,fstHandle> outputs;
 
 		for (auto wire : topmod->wires()) {
 			if (wire->port_input) {
 				fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
 				log("Input %s\n",log_id(wire));
 				inputs[wire] = id;
+			}
+			if (wire->port_output) {
+				fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
+				log("Output %s %d\n",log_id(wire), id);
+				outputs[wire] = id;
 			}
 		}
 
@@ -903,19 +909,11 @@ struct SimWorker : SimShared
 				top->set_state(item.first, Const::from_string(v));
 			}
 			update();
-
-			/*Wire *wire = topmod->wire("\\cnt");
-			Const value = top->get_state(wire);
-			std::stringstream ss;
-			for (int i = GetSize(value)-1; i >= 0; i--) {
-				switch (value[i]) {
-					case State::S0: ss << "0"; break;
-					case State::S1: ss << "1"; break;
-					case State::Sx: ss << "x"; break;
-					default: ss << "z";
-				}
+			for(auto &item : outputs) {
+				Const fst_val = Const::from_string(fst->valueAt(item.second, time));
+				Const sim_val = top->get_state(item.first);
+				log("%s %s\n", log_signal(fst_val), log_signal(sim_val));
 			}
-			log("%s\n",ss.str().c_str());*/
 		}
 	}
 };
