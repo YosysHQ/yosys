@@ -903,7 +903,21 @@ struct SimWorker : SimShared
 				top->set_state(item.first, Const::from_string(v));
 			}
 			update();
+
+			/*Wire *wire = topmod->wire("\\cnt");
+			Const value = top->get_state(wire);
+			std::stringstream ss;
+			for (int i = GetSize(value)-1; i >= 0; i--) {
+				switch (value[i]) {
+					case State::S0: ss << "0"; break;
+					case State::S1: ss << "1"; break;
+					case State::Sx: ss << "x"; break;
+					default: ss << "z";
+				}
+			}
+			log("%s\n",ss.str().c_str());*/
 		}
+	}
 };
 
 struct SimPass : public Pass {
