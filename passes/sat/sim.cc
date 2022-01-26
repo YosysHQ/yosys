@@ -21,6 +21,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
 #include "kernel/mem.h"
+#include "libs/fst/fstapi.h"
 
 #include <ctime>
 
@@ -92,6 +93,7 @@ struct SimInstance
 	std::vector<Mem> memories;
 
 	dict<Wire*, pair<int, Const>> vcd_database;
+	dict<Wire*, pair<fstHandle, Const>> fst_database;
 
 	SimInstance(SimShared *shared, Module *module, Cell *instance = nullptr, SimInstance *parent = nullptr) :
 			shared(shared), module(module), instance(instance), parent(parent), sigmap(module)
@@ -616,12 +618,60 @@ struct SimInstance
 		for (auto child : children)
 			child.second->write_vcd_step(f);
 	}
+
+	void write_fst_header(struct fstContext *f)
+	{
+		fstWriterSetScope(f, FST_ST_VCD_MODULE, stringf("%s",log_id(name())).c_str(), nullptr);
+		for (auto wire : module->wires())
+		{
+			if (shared->hide_internal && wire->name[0] == '$')
+				continue;
+
+			fstHandle id = fstWriterCreateVar(f, FST_VT_VCD_WIRE, FST_VD_IMPLICIT, GetSize(wire),
+												stringf("%s%s", wire->name[0] == '$' ? "\\" : "", log_id(wire)).c_str(), 0);
+			fst_database[wire] = make_pair(id, Const());
+		}
+
+		for (auto child : children)
+			child.second->write_fst_header(f);
+
+		fstWriterSetUpscope(f);
+	}
+
+	void write_fst_step(struct fstContext *f)
+	{
+		for (auto &it : fst_database)
+		{
+			Wire *wire = it.first;
+			Const value = get_state(wire);
+			fstHandle id = it.second.first;
+
+			if (it.second.second == value)
+				continue;
+
+			it.second.second = value;
+			std::stringstream ss;
+			for (int i = GetSize(value)-1; i >= 0; i--) {
+				switch (value[i]) {
+					case State::S0: ss << "0"; break;
+					case State::S1: ss << "1"; break;
+					case State::Sx: ss << "x"; break;
+					default: ss << "z";
+				}
+			}
+			fstWriterEmitValueChange(f, id, ss.str().c_str());
+		}
+
+		for (auto child : children)
+			child.second->write_fst_step(f);
+	}
 };
 
 struct SimWorker : SimShared
 {
 	SimInstance *top = nullptr;
 	std::ofstream vcdfile;
+	struct fstContext *fstfile = nullptr;
 	pool<IdString> clock, clockn, reset, resetn;
 	std::string timescale;
 
@@ -632,9 +682,6 @@ struct SimWorker : SimShared
 
 	void write_vcd_header()
 	{
-		if (!vcdfile.is_open())
-			return;
-
 		vcdfile << stringf("$version %s $end\n", yosys_version_str);
 
 		std::time_t t = std::time(nullptr);
@@ -654,11 +701,51 @@ struct SimWorker : SimShared
 
 	void write_vcd_step(int t)
 	{
-		if (!vcdfile.is_open())
-			return;
-
 		vcdfile << stringf("#%d\n", t);
 		top->write_vcd_step(vcdfile);
+	}
+
+	void write_fst_header()
+	{
+		std::time_t t = std::time(nullptr);
+	    fstWriterSetDate(fstfile, asctime(std::localtime(&t)));
+	    fstWriterSetVersion(fstfile, yosys_version_str);
+		if (!timescale.empty())
+	    	fstWriterSetTimescaleFromString(fstfile, timescale.c_str());
+
+		fstWriterSetPackType(fstfile, FST_WR_PT_FASTLZ);
+		fstWriterSetRepackOnClose(fstfile, 1);
+	   
+		top->write_fst_header(fstfile);
+	}
+
+	void write_fst_step(int t)
+	{
+		fstWriterEmitTimeChange(fstfile, t);
+
+		top->write_fst_step(fstfile);
+	}
+
+	void write_output_header()
+	{
+		if (vcdfile.is_open())
+			write_vcd_header();
+		if (fstfile)
+			write_fst_header();
+	}
+
+	void write_output_step(int t)
+	{
+		if (vcdfile.is_open())
+			write_vcd_step(t);
+		if (fstfile)
+			write_fst_step(t);
+	}
+
+	void write_output_end()
+	{
+		if (fstfile)
+			fstWriterClose(fstfile);
 	}
 
 	void update()
@@ -714,8 +801,8 @@ struct SimWorker : SimShared
 
 		update();
 
-		write_vcd_header();
-		write_vcd_step(0);
+		write_output_header();
+		write_output_step(0);
 
 		for (int cycle = 0; cycle < numcycles; cycle++)
 		{
@@ -726,7 +813,7 @@ struct SimWorker : SimShared
 			set_inports(clockn, State::S1);
 
 			update();
-			write_vcd_step(10*cycle + 5);
+			write_output_step(10*cycle + 5);
 
 			if (debug)
 				log("\n===== %d =====\n", 10*cycle + 10);
@@ -742,10 +829,12 @@ struct SimWorker : SimShared
 			}
 
 			update();
-			write_vcd_step(10*cycle + 10);
+			write_output_step(10*cycle + 10);
 		}
 
-		write_vcd_step(10*numcycles + 2);
+		write_output_step(10*numcycles + 2);
+
+		write_output_end();
 
 		if (writeback) {
 			pool<Module*> wbmods;
@@ -766,6 +855,9 @@ struct SimPass : public Pass {
 		log("\n");
 		log("    -vcd <filename>\n");
 		log("        write the simulation results to the given VCD file\n");
+		log("\n");
+		log("    -fst <filename>\n");
+		log("        write the simulation results to the given FST file\n");
 		log("\n");
 		log("    -clock <portname>\n");
 		log("        name of top-level clock input\n");
@@ -814,6 +906,12 @@ struct SimPass : public Pass {
 				std::string vcd_filename = args[++argidx];
 				rewrite_filename(vcd_filename);
 				worker.vcdfile.open(vcd_filename.c_str());
+				continue;
+			}
+			if (args[argidx] == "-fst" && argidx+1 < args.size()) {
+				std::string fst_filename = args[++argidx];
+				rewrite_filename(fst_filename);
+				worker.fstfile = (struct fstContext *)fstWriterCreate(fst_filename.c_str(),1);
 				continue;
 			}
 			if (args[argidx] == "-n" && argidx+1 < args.size()) {
