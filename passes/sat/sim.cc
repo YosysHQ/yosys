@@ -21,7 +21,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
 #include "kernel/mem.h"
-#include "libs/fst/fstapi.h"
+#include "kernel/fstdata.h"
 
 #include <ctime>
 
@@ -35,6 +35,7 @@ struct SimShared
 	bool writeback = false;
 	bool zinit = false;
 	int rstlen = 1;
+	FstData *fst = nullptr;
 };
 
 void zinit(State &v)
@@ -52,7 +53,8 @@ void zinit(Const &v)
 struct SimInstance
 {
 	SimShared *shared;
-
+	
+	std::string scope;
 	Module *module;
 	Cell *instance;
 
@@ -95,8 +97,8 @@ struct SimInstance
 	dict<Wire*, pair<int, Const>> vcd_database;
 	dict<Wire*, pair<fstHandle, Const>> fst_database;
 
-	SimInstance(SimShared *shared, Module *module, Cell *instance = nullptr, SimInstance *parent = nullptr) :
-			shared(shared), module(module), instance(instance), parent(parent), sigmap(module)
+	SimInstance(SimShared *shared, std::string scope, Module *module, Cell *instance = nullptr, SimInstance *parent = nullptr) :
+			shared(shared), scope(scope), module(module), instance(instance), parent(parent), sigmap(module)
 	{
 		log_assert(module);
 
@@ -146,7 +148,7 @@ struct SimInstance
 			Module *mod = module->design->module(cell->type);
 
 			if (mod != nullptr) {
-				dirty_children.insert(new SimInstance(shared, mod, cell, this));
+				dirty_children.insert(new SimInstance(shared, scope + "." + RTLIL::unescape_id(module->name), mod, cell, this));
 			}
 
 			for (auto &port : cell->connections()) {
@@ -674,6 +676,8 @@ struct SimWorker : SimShared
 	struct fstContext *fstfile = nullptr;
 	pool<IdString> clock, clockn, reset, resetn;
 	std::string timescale;
+	std::string sim_filename;
+	std::string scope;
 
 	~SimWorker()
 	{
@@ -708,10 +712,10 @@ struct SimWorker : SimShared
 	void write_fst_header()
 	{
 		std::time_t t = std::time(nullptr);
-	    fstWriterSetDate(fstfile, asctime(std::localtime(&t)));
-	    fstWriterSetVersion(fstfile, yosys_version_str);
+		fstWriterSetDate(fstfile, asctime(std::localtime(&t)));
+		fstWriterSetVersion(fstfile, yosys_version_str);
 		if (!timescale.empty())
-	    	fstWriterSetTimescaleFromString(fstfile, timescale.c_str());
+			fstWriterSetTimescaleFromString(fstfile, timescale.c_str());
 
 		fstWriterSetPackType(fstfile, FST_WR_PT_FASTLZ);
 		fstWriterSetRepackOnClose(fstfile, 1);
@@ -786,7 +790,7 @@ struct SimWorker : SimShared
 	void run(Module *topmod, int numcycles)
 	{
 		log_assert(top == nullptr);
-		top = new SimInstance(this, topmod);
+		top = new SimInstance(this, scope, topmod);
 
 		if (debug)
 			log("\n===== 0 =====\n");
@@ -841,6 +845,65 @@ struct SimWorker : SimShared
 			top->writeback(wbmods);
 		}
 	}
+
+	void run_cosim(Module *topmod, int numcycles)
+	{
+		log_assert(top == nullptr);
+		top = new SimInstance(this, scope, topmod);
+
+		fst = new FstData(sim_filename);
+
+		std::vector<fstHandle> fst_clock;
+
+		for (auto portname : clock)
+		{
+			Wire *w = topmod->wire(portname);
+			if (!w)
+				log_error("Can't find port %s on module %s.\n", log_id(portname), log_id(top->module));
+			if (!w->port_input)
+				log_error("Clock port %s on module %s is not input.\n", log_id(portname), log_id(top->module));
+			fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(portname));
+			if (id==0)
+				log_error("Can't find port %s.%s in FST.\n", scope.c_str(), log_id(portname));
+			fst_clock.push_back(id);
+		}
+		for (auto portname : clockn)
+		{
+			Wire *w = topmod->wire(portname);
+			if (!w)
+				log_error("Can't find port %s on module %s.\n", log_id(portname), log_id(top->module));
+			if (!w->port_input)
+				log_error("Clock port %s on module %s is not input.\n", log_id(portname), log_id(top->module));
+			fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(portname));
+			if (id==0)
+				log_error("Can't find port %s.%s in FST.\n", scope.c_str(), log_id(portname));
+			fst_clock.push_back(id);
+		}
+		if (fst_clock.size()==0)
+			log_error("No clock signals defined for input file\n");
+
+		SigMap sigmap(topmod);
+		log ("Get inputs\n");
+		std::map<Wire*,fstHandle> inputs;
+
+		for (auto wire : topmod->wires()) {
+			if (wire->port_input) {
+				fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
+				log("Input %s\n",log_id(wire));
+				inputs[wire] = id;
+			}
+		}
+
+		fst->reconstruct(fst_clock);
+		auto edges = fst->edges(fst_clock.back(), true, true);
+		fst->reconstructAllAtTimes(edges);
+		for(auto &time : edges) {
+			for(auto &item : inputs) {
+				std::string v = fst->valueAt(item.second, time);
+				top->set_state(item.first, Const::from_string(v));
+			}
+			update();
+		}
 };
 
 struct SimPass : public Pass {
@@ -888,6 +951,12 @@ struct SimPass : public Pass {
 		log("\n");
 		log("    -w\n");
 		log("        writeback mode: use final simulation state as new init state\n");
+		log("\n");
+		log("    -r\n");
+		log("        read simulation results file (file formats supported: FST)\n");
+		log("\n");
+		log("    -scope\n");
+		log("        scope of simulation top model\n");
 		log("\n");
 		log("    -d\n");
 		log("        enable debug output\n");
@@ -958,6 +1027,16 @@ struct SimPass : public Pass {
 				worker.zinit = true;
 				continue;
 			}
+			if (args[argidx] == "-r" && argidx+1 < args.size()) {
+				std::string sim_filename = args[++argidx];
+				rewrite_filename(sim_filename);
+				worker.sim_filename = sim_filename;
+				continue;
+			}
+			if (args[argidx] == "-scope" && argidx+1 < args.size()) {
+				worker.scope = args[++argidx];
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -976,7 +1055,10 @@ struct SimPass : public Pass {
 			top_mod = mods.front();
 		}
 
-		worker.run(top_mod, numcycles);
+		if (worker.sim_filename.empty())
+			worker.run(top_mod, numcycles);
+		else
+			worker.run_cosim(top_mod, numcycles);
 	}
 } SimPass;
 
