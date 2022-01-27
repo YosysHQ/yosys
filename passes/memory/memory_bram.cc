@@ -644,22 +644,6 @@ grow_read_ports:;
 					log("        Bram port %c%d.%d has incompatible clock polarity.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 					goto skip_bram_rport;
 				}
-				if (port.en != State::S1 && pi.enable == 0) {
-					log("        Bram port %c%d.%d has no read enable input.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
-					goto skip_bram_rport;
-				}
-				if (port.arst != State::S0) {
-					log("        Bram port %c%d.%d has no async reset input.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
-					goto skip_bram_rport;
-				}
-				if (port.srst != State::S0) {
-					log("        Bram port %c%d.%d has no sync reset input.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
-					goto skip_bram_rport;
-				}
-				if (!port.init_value.is_fully_undef()) {
-					log("        Bram port %c%d.%d has no initial value support.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
-					goto skip_bram_rport;
-				}
 				if (non_transp && read_transp.count(pi.transp) && read_transp.at(pi.transp)) {
 					log("        Bram port %c%d.%d has incompatible read transparency.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 					goto skip_bram_rport;
@@ -794,10 +778,18 @@ grow_read_ports:;
 
 	// Apply make_outreg and make_transp where necessary.
 	for (auto &pi : portinfos) {
-		if (pi.make_outreg)
+		if (pi.mapped_port == -1 || pi.wrmode)
+			continue;
+		auto &port = mem.rd_ports[pi.mapped_port];
+		if (pi.make_outreg) {
 			mem.extract_rdff(pi.mapped_port, initvals);
+		} else if (port.clk_enable) {
+			if (!pi.enable && port.en != State::S1)
+				mem.emulate_rden(pi.mapped_port, initvals);
+			else
+				mem.emulate_reset(pi.mapped_port, true, true, true, initvals);
+		}
 		if (pi.make_transp) {
-			auto &port = mem.rd_ports[pi.mapped_port];
 			for (int i = 0; i < GetSize(mem.wr_ports); i++)
 				if (port.transparency_mask[i])
 					mem.emulate_transparency(i, pi.mapped_port, initvals);
