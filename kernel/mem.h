@@ -191,6 +191,24 @@ struct Mem : RTLIL::AttrObject {
 	// original address.
 	void widen_wr_port(int idx, int wide_log2);
 
+	// Emulates a sync read port's enable functionality in soft logic,
+	// changing the actual read port's enable to be always-on.
+	void emulate_rden(int idx, FfInitVals *initvals);
+
+	// Emulates a sync read port's initial/reset value functionality in
+	// soft logic, removing it from the actual read port.
+	void emulate_reset(int idx, bool emu_init, bool emu_arst, bool emu_srst, FfInitVals *initvals);
+
+	// Given a read port with ce_over_srst set, converts it to a port
+	// with ce_over_srst unset without changing its behavior by adding
+	// emulation logic.
+	void emulate_rd_ce_over_srst(int idx);
+
+	// Given a read port with ce_over_srst unset, converts it to a port
+	// with ce_over_srst set without changing its behavior by adding
+	// emulation logic.
+	void emulate_rd_srst_over_ce(int idx);
+
 	Mem(Module *module, IdString memid, int width, int start_offset, int size) : module(module), memid(memid), packed(false), mem(nullptr), cell(nullptr), width(width), start_offset(start_offset), size(size) {}
 };
 

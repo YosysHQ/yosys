@@ -1352,3 +1352,211 @@ void Mem::widen_wr_port(int idx, int wide_log2) {
 		port.wide_log2 = wide_log2;
 	}
 }
+
+void Mem::emulate_rden(int idx, FfInitVals *initvals) {
+	auto &port = rd_ports[idx];
+	log_assert(port.clk_enable);
+	emulate_rd_ce_over_srst(idx);
+	Wire *new_data = module->addWire(NEW_ID, GetSize(port.data));
+	Wire *prev_data = module->addWire(NEW_ID, GetSize(port.data));
+	Wire *sel = module->addWire(NEW_ID);
+	FfData ff_sel(module, initvals, NEW_ID);
+	FfData ff_data(module, initvals, NEW_ID);
+	ff_sel.width = 1;
+	ff_sel.has_clk = true;
+	ff_sel.sig_clk = port.clk;
+	ff_sel.pol_clk = port.clk_polarity;
+	ff_sel.sig_d = port.en;
+	ff_sel.sig_q = sel;
+	ff_data.width = GetSize(port.data);
+	ff_data.has_clk = true;
+	ff_data.sig_clk = port.clk;
+	ff_data.pol_clk = port.clk_polarity;
+	ff_data.sig_d = port.data;
+	ff_data.sig_q = prev_data;
+	if (!port.init_value.is_fully_undef()) {
+		ff_sel.val_init = State::S0;
+		ff_data.val_init = port.init_value;
+		port.init_value = Const(State::Sx, GetSize(port.data));
+	} else {
+		ff_sel.val_init = State::Sx;
+		ff_data.val_init = Const(State::Sx, GetSize(port.data));
+	}
+	if (port.arst != State::S0) {
+		ff_sel.has_arst = true;
+		ff_sel.val_arst = State::S0;
+		ff_sel.sig_arst = port.arst;
+		ff_sel.pol_arst = true;
+		ff_data.has_arst = true;
+		ff_data.val_arst = port.arst_value;
+		ff_data.sig_arst = port.arst;
+		ff_data.pol_arst = true;
+		port.arst = State::S0;
+	}
+	if (port.srst != State::S0) {
+		log_assert(!port.ce_over_srst);
+		ff_sel.has_srst = true;
+		ff_sel.val_srst = State::S0;
+		ff_sel.sig_srst = port.srst;
+		ff_sel.pol_srst = true;
+		ff_sel.ce_over_srst = false;
+		ff_data.has_srst = true;
+		ff_data.val_srst = port.srst_value;
+		ff_data.sig_srst = port.srst;
+		ff_data.pol_srst = true;
+		ff_data.ce_over_srst = false;
+		port.srst = State::S0;
+	}
+	ff_sel.emit();
+	ff_data.emit();
+	module->addMux(NEW_ID, prev_data, new_data, sel, port.data);
+	port.data = new_data;
+	port.en = State::S1;
+}
+
+void Mem::emulate_reset(int idx, bool emu_init, bool emu_arst, bool emu_srst, FfInitVals *initvals) {
+	auto &port = rd_ports[idx];
+	if (emu_init && !port.init_value.is_fully_undef()) {
+		Wire *sel = module->addWire(NEW_ID);
+		FfData ff_sel(module, initvals, NEW_ID);
+		Wire *new_data = module->addWire(NEW_ID, GetSize(port.data));
+		ff_sel.width = 1;
+		ff_sel.has_clk = true;
+		ff_sel.sig_clk = port.clk;
+		ff_sel.pol_clk = port.clk_polarity;
+		ff_sel.sig_d = State::S1;
+		ff_sel.sig_q = sel;
+		ff_sel.val_init = State::S0;
+		if (port.en != State::S1) {
+			ff_sel.has_ce = true;
+			ff_sel.sig_ce = port.en;
+			ff_sel.pol_ce = true;
+			ff_sel.ce_over_srst = port.ce_over_srst;
+		}
+		if (port.arst != State::S0) {
+			ff_sel.has_arst = true;
+			ff_sel.sig_arst = port.arst;
+			ff_sel.pol_arst = true;
+			if (emu_arst && port.arst_value == port.init_value) {
+				// If we're going to emulate async reset anyway, and the reset
+				// value is the same as init value, reuse the same mux.
+				ff_sel.val_arst = State::S0;
+				port.arst = State::S0;
+			} else {
+				ff_sel.val_arst = State::S1;
+			}
+		}
+		if (port.srst != State::S0) {
+			ff_sel.has_srst = true;
+			ff_sel.sig_srst = port.srst;
+			ff_sel.pol_srst = true;
+			if (emu_srst && port.srst_value == port.init_value) {
+				ff_sel.val_srst = State::S0;
+				port.srst = State::S0;
+			} else {
+				ff_sel.val_srst = State::S1;
+			}
+		}
+		ff_sel.emit();
+		module->addMux(NEW_ID, port.init_value, new_data, sel, port.data);
+		port.data = new_data;
+		port.init_value = Const(State::Sx, GetSize(port.data));
+	}
+	if (emu_arst && port.arst != State::S0) {
+		Wire *sel = module->addWire(NEW_ID);
+		FfData ff_sel(module, initvals, NEW_ID);
+		Wire *new_data = module->addWire(NEW_ID, GetSize(port.data));
+		ff_sel.width = 1;
+		ff_sel.has_clk = true;
+		ff_sel.sig_clk = port.clk;
+		ff_sel.pol_clk = port.clk_polarity;
+		ff_sel.sig_d = State::S1;
+		ff_sel.sig_q = sel;
+		if (port.init_value.is_fully_undef())
+			ff_sel.val_init = State::Sx;
+		else
+			ff_sel.val_init = State::S1;
+		if (port.en != State::S1) {
+			ff_sel.has_ce = true;
+			ff_sel.sig_ce = port.en;
+			ff_sel.pol_ce = true;
+			ff_sel.ce_over_srst = port.ce_over_srst;
+		}
+		ff_sel.has_arst = true;
+		ff_sel.sig_arst = port.arst;
+		ff_sel.pol_arst = true;
+		ff_sel.val_arst = State::S0;
+		if (port.srst != State::S0) {
+			ff_sel.has_srst = true;
+			ff_sel.sig_srst = port.srst;
+			ff_sel.pol_srst = true;
+			if (emu_srst && port.srst_value == port.arst_value) {
+				ff_sel.val_srst = State::S0;
+				port.srst = State::S0;
+			} else {
+				ff_sel.val_srst = State::S1;
+			}
+		}
+		ff_sel.emit();
+		module->addMux(NEW_ID, port.arst_value, new_data, sel, port.data);
+		port.data = new_data;
+		port.arst = State::S0;
+	}
+	if (emu_srst && port.srst != State::S0) {
+		Wire *sel = module->addWire(NEW_ID);
+		FfData ff_sel(module, initvals, NEW_ID);
+		Wire *new_data = module->addWire(NEW_ID, GetSize(port.data));
+		ff_sel.width = 1;
+		ff_sel.has_clk = true;
+		ff_sel.sig_clk = port.clk;
+		ff_sel.pol_clk = port.clk_polarity;
+		ff_sel.sig_d = State::S1;
+		ff_sel.sig_q = sel;
+		if (port.init_value.is_fully_undef())
+			ff_sel.val_init = State::Sx;
+		else
+			ff_sel.val_init = State::S1;
+		if (port.en != State::S1) {
+			ff_sel.has_ce = true;
+			ff_sel.sig_ce = port.en;
+			ff_sel.pol_ce = true;
+			ff_sel.ce_over_srst = port.ce_over_srst;
+		}
+		ff_sel.has_srst = true;
+		ff_sel.sig_srst = port.srst;
+		ff_sel.pol_srst = true;
+		ff_sel.val_srst = State::S0;
+		if (port.arst != State::S0) {
+			ff_sel.has_arst = true;
+			ff_sel.sig_arst = port.arst;
+			ff_sel.pol_arst = true;
+			ff_sel.val_arst = State::S1;
+		}
+		ff_sel.emit();
+		module->addMux(NEW_ID, port.srst_value, new_data, sel, port.data);
+		port.data = new_data;
+		port.srst = State::S0;
+	}
+}
+
+void Mem::emulate_rd_ce_over_srst(int idx) {
+	auto &port = rd_ports[idx];
+	log_assert(port.clk_enable);
+	if (port.en == State::S1 || port.srst == State::S0 || !port.ce_over_srst) {
+		port.ce_over_srst = false;
+		return;
+	}
+	port.ce_over_srst = false;
+	port.srst = module->And(NEW_ID, port.en, port.srst);
+}
+
+void Mem::emulate_rd_srst_over_ce(int idx) {
+	auto &port = rd_ports[idx];
+	log_assert(port.clk_enable);
+	if (port.en == State::S1 || port.srst == State::S0 || port.ce_over_srst) {
+		port.ce_over_srst = true;
+		return;
+	}
+	port.ce_over_srst = true;
+	port.en = module->Or(NEW_ID, port.en, port.srst);
+}
