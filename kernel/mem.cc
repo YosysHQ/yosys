@@ -1560,3 +1560,107 @@ void Mem::emulate_rd_srst_over_ce(int idx) {
 	port.ce_over_srst = true;
 	port.en = module->Or(NEW_ID, port.en, port.srst);
 }
+
+bool Mem::emulate_read_first_ok() {
+	if (wr_ports.empty())
+		return false;
+	SigSpec clk = wr_ports[0].clk;
+	bool clk_polarity = wr_ports[0].clk_polarity;
+	for (auto &port: wr_ports) {
+		if (!port.clk_enable)
+			return false;
+		if (port.clk != clk)
+			return false;
+		if (port.clk_polarity != clk_polarity)
+			return false;
+	}
+	bool found_read_first = false;
+	for (auto &port: rd_ports) {
+		if (!port.clk_enable)
+			return false;
+		if (port.clk != clk)
+			return false;
+		if (port.clk_polarity != clk_polarity)
+			return false;
+		// No point doing this operation if there is no read-first relationship
+		// in the first place.
+		for (int j = 0; j < GetSize(wr_ports); j++)
+			if (!port.transparency_mask[j] && !port.collision_x_mask[j])
+				found_read_first = true;
+	}
+	return found_read_first;
+}
+
+void Mem::emulate_read_first(FfInitVals *initvals) {
+	log_assert(emulate_read_first_ok());
+	for (int i = 0; i < GetSize(rd_ports); i++)
+		for (int j = 0; j < GetSize(wr_ports); j++)
+			if (rd_ports[i].transparency_mask[j])
+				emulate_transparency(j, i, initvals);
+	for (int i = 0; i < GetSize(rd_ports); i++)
+		for (int j = 0; j < GetSize(wr_ports); j++) {
+			log_assert(!rd_ports[i].transparency_mask[j]);
+			rd_ports[i].collision_x_mask[j] = false;
+			rd_ports[i].transparency_mask[j] = true;
+		}
+	for (auto &port: wr_ports) {
+		Wire *new_data = module->addWire(NEW_ID, GetSize(port.data));
+		Wire *new_addr = module->addWire(NEW_ID, GetSize(port.addr));
+		auto compressed = port.compress_en();
+		Wire *new_en = module->addWire(NEW_ID, GetSize(compressed.first));
+		FfData ff_data(module, initvals, NEW_ID);
+		FfData ff_addr(module, initvals, NEW_ID);
+		FfData ff_en(module, initvals, NEW_ID);
+		ff_data.width = GetSize(port.data);
+		ff_data.has_clk = true;
+		ff_data.sig_clk = port.clk;
+		ff_data.pol_clk = port.clk_polarity;
+		ff_data.sig_d = port.data;
+		ff_data.sig_q = new_data;;
+		ff_data.val_init = Const(State::Sx, ff_data.width);
+		ff_data.emit();
+		ff_addr.width = GetSize(port.addr);
+		ff_addr.has_clk = true;
+		ff_addr.sig_clk = port.clk;
+		ff_addr.pol_clk = port.clk_polarity;
+		ff_addr.sig_d = port.addr;
+		ff_addr.sig_q = new_addr;;
+		ff_addr.val_init = Const(State::Sx, ff_addr.width);
+		ff_addr.emit();
+		ff_en.width = GetSize(compressed.first);
+		ff_en.has_clk = true;
+		ff_en.sig_clk = port.clk;
+		ff_en.pol_clk = port.clk_polarity;
+		ff_en.sig_d = compressed.first;
+		ff_en.sig_q = new_en;;
+		ff_en.val_init = Const(State::S0, ff_en.width);
+		ff_en.emit();
+		port.data = new_data;
+		port.addr = new_addr;
+		port.en = port.decompress_en(compressed.second, new_en);
+	}
+}
+
+std::pair<SigSpec, std::vector<int>> MemWr::compress_en() {
+	SigSpec sig = en[0];
+	std::vector<int> swizzle;
+	SigBit prev_bit = en[0];
+	int idx = 0;
+	for (auto &bit: en) {
+		if (bit != prev_bit) {
+			sig.append(bit);
+			prev_bit = bit;
+			idx++;
+		}
+		swizzle.push_back(idx);
+	}
+	log_assert(idx + 1 == GetSize(sig));
+	return {sig, swizzle};
+}
+
+SigSpec MemWr::decompress_en(const std::vector<int> &swizzle, SigSpec sig) {
+	SigSpec res;
+	for (int i: swizzle)
+		res.append(sig[i]);
+	return res;
+}
