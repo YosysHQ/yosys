@@ -58,13 +58,10 @@ struct OptDffWorker
 	typedef std::pair<RTLIL::SigBit, bool> ctrl_t;
 	typedef std::set<ctrl_t> ctrls_t;
 
-	ModWalker modwalker;
-	QuickConeSat qcsat;
-
 	// Used as a queue.
 	std::vector<Cell *> dff_cells;
 
-	OptDffWorker(const OptDffOptions &opt, Module *mod) : opt(opt), module(mod), sigmap(mod), initvals(&sigmap, mod), modwalker(module->design, module), qcsat(modwalker) {
+	OptDffWorker(const OptDffOptions &opt, Module *mod) : opt(opt), module(mod), sigmap(mod), initvals(&sigmap, mod) {
 		// Gathering two kinds of information here for every sigmapped SigBit:
 		//
 		// - bitusers: how many users it has (muxes will only be merged into FFs if this is 1, making the FF the only user)
@@ -569,100 +566,6 @@ struct OptDffWorker
 				changed = true;
 			}
 
-			// Now check if any bit can be replaced by a constant.
-			pool<int> removed_sigbits;
-			for (int i = 0; i < ff.width; i++) {
-				State val = ff.val_init[i];
-				if (ff.has_arst)
-					val = combine_const(val, ff.val_arst[i]);
-				if (ff.has_srst)
-					val = combine_const(val, ff.val_srst[i]);
-				if (ff.has_sr) {
-					if (ff.sig_clr[i] != (ff.pol_clr ? State::S0 : State::S1))
-						val = combine_const(val, State::S0);
-					if (ff.sig_set[i] != (ff.pol_set ? State::S0 : State::S1))
-						val = combine_const(val, State::S1);
-				}
-				if (val == State::Sm)
-					continue;
-				if (ff.has_clk || ff.has_gclk) {
-					if (!ff.sig_d[i].wire) {
-						val = combine_const(val, ff.sig_d[i].data);
-						if (val == State::Sm)
-							continue;
-					} else {
-						if (!opt.sat)
-							continue;
-						// For each register bit, try to prove that it cannot change from the initial value. If so, remove it
-						if (!modwalker.has_drivers(ff.sig_d.extract(i)))
-							continue;
-						if (val != State::S0 && val != State::S1)
-							continue;
-
-						int init_sat_pi = qcsat.importSigBit(val);
-						int q_sat_pi = qcsat.importSigBit(ff.sig_q[i]);
-						int d_sat_pi = qcsat.importSigBit(ff.sig_d[i]);
-
-						qcsat.prepare();
-
-						// Try to find out whether the register bit can change under some circumstances
-						bool counter_example_found = qcsat.ez->solve(qcsat.ez->IFF(q_sat_pi, init_sat_pi), qcsat.ez->NOT(qcsat.ez->IFF(d_sat_pi, init_sat_pi)));
-
-						// If the register bit cannot change, we can replace it with a constant
-						if (counter_example_found)
-							continue;
-					}
-				}
-				if (ff.has_aload) {
-					if (!ff.sig_ad[i].wire) {
-						val = combine_const(val, ff.sig_ad[i].data);
-						if (val == State::Sm)
-							continue;
-					} else {
-						if (!opt.sat)
-							continue;
-						// For each register bit, try to prove that it cannot change from the initial value. If so, remove it
-						if (!modwalker.has_drivers(ff.sig_ad.extract(i)))
-							continue;
-						if (val != State::S0 && val != State::S1)
-							continue;
-
-						int init_sat_pi = qcsat.importSigBit(val);
-						int q_sat_pi = qcsat.importSigBit(ff.sig_q[i]);
-						int d_sat_pi = qcsat.importSigBit(ff.sig_ad[i]);
-
-						qcsat.prepare();
-
-						// Try to find out whether the register bit can change under some circumstances
-						bool counter_example_found = qcsat.ez->solve(qcsat.ez->IFF(q_sat_pi, init_sat_pi), qcsat.ez->NOT(qcsat.ez->IFF(d_sat_pi, init_sat_pi)));
-
-						// If the register bit cannot change, we can replace it with a constant
-						if (counter_example_found)
-							continue;
-					}
-				}
-				log("Setting constant %d-bit at position %d on %s (%s) from module %s.\n", val ? 1 : 0,
-						i, log_id(cell), log_id(cell->type), log_id(module));
-
-				initvals.remove_init(ff.sig_q[i]);
-				module->connect(ff.sig_q[i], val);
-				removed_sigbits.insert(i);
-			}
-			if (!removed_sigbits.empty()) {
-				std::vector<int> keep_bits;
-				for (int i = 0; i < ff.width; i++)
-					if (!removed_sigbits.count(i))
-						keep_bits.push_back(i);
-				if (keep_bits.empty()) {
-					module->remove(cell);
-					did_something = true;
-					continue;
-				}
-				ff = ff.slice(keep_bits);
-				ff.cell = cell;
-				changed = true;
-			}
-
 			// The cell has been simplified as much as possible already.  Now try to spice it up with enables / sync resets.
 			if (ff.has_clk) {
 				if (!ff.has_arst && !ff.has_sr && (!ff.has_srst || !ff.has_ce || ff.ce_over_srst) && !opt.nosdff) {
@@ -818,6 +721,115 @@ struct OptDffWorker
 		}
 		return did_something;
 	}
+
+	bool run_constbits() {
+		ModWalker modwalker(module->design, module);
+		QuickConeSat qcsat(modwalker);
+
+		// Run as a separate sub-pass, so that we don't mutate (non-FF) cells under ModWalker.
+		bool did_something = false;
+		for (auto cell : module->selected_cells()) {
+			if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+				continue;
+			FfData ff(&initvals, cell);
+
+			// Now check if any bit can be replaced by a constant.
+			pool<int> removed_sigbits;
+			for (int i = 0; i < ff.width; i++) {
+				State val = ff.val_init[i];
+				if (ff.has_arst)
+					val = combine_const(val, ff.val_arst[i]);
+				if (ff.has_srst)
+					val = combine_const(val, ff.val_srst[i]);
+				if (ff.has_sr) {
+					if (ff.sig_clr[i] != (ff.pol_clr ? State::S0 : State::S1))
+						val = combine_const(val, State::S0);
+					if (ff.sig_set[i] != (ff.pol_set ? State::S0 : State::S1))
+						val = combine_const(val, State::S1);
+				}
+				if (val == State::Sm)
+					continue;
+				if (ff.has_clk || ff.has_gclk) {
+					if (!ff.sig_d[i].wire) {
+						val = combine_const(val, ff.sig_d[i].data);
+						if (val == State::Sm)
+							continue;
+					} else {
+						if (!opt.sat)
+							continue;
+						// For each register bit, try to prove that it cannot change from the initial value. If so, remove it
+						if (!modwalker.has_drivers(ff.sig_d.extract(i)))
+							continue;
+						if (val != State::S0 && val != State::S1)
+							continue;
+
+						int init_sat_pi = qcsat.importSigBit(val);
+						int q_sat_pi = qcsat.importSigBit(ff.sig_q[i]);
+						int d_sat_pi = qcsat.importSigBit(ff.sig_d[i]);
+
+						qcsat.prepare();
+
+						// Try to find out whether the register bit can change under some circumstances
+						bool counter_example_found = qcsat.ez->solve(qcsat.ez->IFF(q_sat_pi, init_sat_pi), qcsat.ez->NOT(qcsat.ez->IFF(d_sat_pi, init_sat_pi)));
+
+						// If the register bit cannot change, we can replace it with a constant
+						if (counter_example_found)
+							continue;
+					}
+				}
+				if (ff.has_aload) {
+					if (!ff.sig_ad[i].wire) {
+						val = combine_const(val, ff.sig_ad[i].data);
+						if (val == State::Sm)
+							continue;
+					} else {
+						if (!opt.sat)
+							continue;
+						// For each register bit, try to prove that it cannot change from the initial value. If so, remove it
+						if (!modwalker.has_drivers(ff.sig_ad.extract(i)))
+							continue;
+						if (val != State::S0 && val != State::S1)
+							continue;
+
+						int init_sat_pi = qcsat.importSigBit(val);
+						int q_sat_pi = qcsat.importSigBit(ff.sig_q[i]);
+						int d_sat_pi = qcsat.importSigBit(ff.sig_ad[i]);
+
+						qcsat.prepare();
+
+						// Try to find out whether the register bit can change under some circumstances
+						bool counter_example_found = qcsat.ez->solve(qcsat.ez->IFF(q_sat_pi, init_sat_pi), qcsat.ez->NOT(qcsat.ez->IFF(d_sat_pi, init_sat_pi)));
+
+						// If the register bit cannot change, we can replace it with a constant
+						if (counter_example_found)
+							continue;
+					}
+				}
+				log("Setting constant %d-bit at position %d on %s (%s) from module %s.\n", val ? 1 : 0,
+						i, log_id(cell), log_id(cell->type), log_id(module));
+
+				initvals.remove_init(ff.sig_q[i]);
+				module->connect(ff.sig_q[i], val);
+				removed_sigbits.insert(i);
+			}
+			if (!removed_sigbits.empty()) {
+				std::vector<int> keep_bits;
+				for (int i = 0; i < ff.width; i++)
+					if (!removed_sigbits.count(i))
+						keep_bits.push_back(i);
+				if (keep_bits.empty()) {
+					module->remove(cell);
+					did_something = true;
+					continue;
+				}
+				ff = ff.slice(keep_bits);
+				ff.cell = cell;
+				ff.emit();
+				did_something = true;
+			}
+		}
+		return did_something;
+	}
 };
 
 struct OptDffPass : public Pass {
@@ -893,6 +905,8 @@ struct OptDffPass : public Pass {
 		for (auto mod : design->selected_modules()) {
 			OptDffWorker worker(opt, mod);
 			if (worker.run())
+				did_something = true;
+			if (worker.run_constbits())
 				did_something = true;
 		}
 
