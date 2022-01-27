@@ -74,6 +74,9 @@ struct MemWr : RTLIL::AttrObject {
 			res[i] = State(sub >> i & 1);
 		return res;
 	}
+
+	std::pair<SigSpec, std::vector<int>> compress_en();
+	SigSpec decompress_en(const std::vector<int> &swizzle, SigSpec sig);
 };
 
 struct MemInit : RTLIL::AttrObject {
@@ -208,6 +211,15 @@ struct Mem : RTLIL::AttrObject {
 	// with ce_over_srst set without changing its behavior by adding
 	// emulation logic.
 	void emulate_rd_srst_over_ce(int idx);
+
+	// Returns true iff emulate_read_first makes sense to call.
+	bool emulate_read_first_ok();
+
+	// Emulates all read-first read-write port relationships in terms of
+	// all-transparent ports, by delaying all write ports by one cycle.
+	// This can only be used when all read ports and all write ports are
+	// in the same clock domain.
+	void emulate_read_first(FfInitVals *initvals);
 
 	Mem(Module *module, IdString memid, int width, int start_offset, int size) : module(module), memid(memid), packed(false), mem(nullptr), cell(nullptr), width(width), start_offset(start_offset), size(size) {}
 };
