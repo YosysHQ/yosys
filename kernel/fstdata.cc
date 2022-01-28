@@ -42,8 +42,7 @@ fstHandle FstData::getHandle(std::string name) {
 	if (name_to_handle.find(name) != name_to_handle.end())
 		return name_to_handle[name];
 	else 
-		log_warning("Unable to found wire %s in input file.\n", name.c_str());
-	return 0;	
+		return 0;
 };
 
 static std::string remove_spaces(std::string str)

@@ -161,6 +161,8 @@ struct SimInstance
 
 			if (shared->fst) {
 				fstHandle id = shared->fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
+				if (id==0 && wire->name.isPublic())
+					log_warning("Unable to found wire %s in input file.\n", (scope + "." + RTLIL::unescape_id(wire->name)).c_str());
 				fst_handles[wire] = id;
 			}
 
@@ -728,6 +730,7 @@ struct SimInstance
 					retVal = true;
 					log("signal: %s fst: %s  sim: %s\n", log_id(item.first), log_signal(fst_val), log_signal(sim_val));
 				}
+				//log("signal: %s fst: %s  sim: %s\n", log_id(item.first), log_signal(fst_val), log_signal(sim_val));
 			}
 		}
 		for (auto child : children)
