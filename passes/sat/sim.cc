@@ -714,6 +714,28 @@ struct SimInstance
 			child.second->write_fst_step(f);
 	}
 
+	void setInitState(uint64_t time)
+	{
+		for (auto &it : ff_database)
+		{
+			Cell *cell = it.first;
+			
+			SigSpec qsig = cell->getPort(ID::Q);
+			if (qsig.is_wire()) {
+				IdString name = qsig.as_wire()->name;
+				fstHandle id = shared->fst->getHandle(scope + "." + RTLIL::unescape_id(name));
+				if (id==0 && name.isPublic())
+					log_warning("Unable to found wire %s in input file.\n", (scope + "." + RTLIL::unescape_id(name)).c_str());
+				if (id!=0) {
+					Const fst_val = Const::from_string(shared->fst->valueAt(id, time));
+					set_state(qsig, fst_val);
+				}
+			}
+		}
+		for (auto child : children)
+			child.second->setInitState(time);
+	}
+
 	bool checkSignals(uint64_t time)
 	{
 		bool retVal = false;
@@ -730,8 +752,8 @@ struct SimInstance
 					retVal = true;
 					log("signal: %s fst: %s  sim: %s\n", log_id(item.first), log_signal(fst_val), log_signal(sim_val));
 				}
-				//log("signal: %s fst: %s  sim: %s\n", log_id(item.first), log_signal(fst_val), log_signal(sim_val));
 			}
+			//log("signal: %s fst: %s  sim: %s\n", log_id(item.first), log_signal(fst_val), log_signal(sim_val));
 		}
 		for (auto child : children)
 			retVal |= child.second->checkSignals(time);
@@ -992,10 +1014,15 @@ struct SimWorker : SimShared
 		}
 		auto edges = fst->getAllEdges(fst_clock, startCount, stopCount);
 		fst->reconstructAllAtTimes(edges);
+		bool initial = false;
 		for(auto &time : edges) {
 			for(auto &item : inputs) {
 				std::string v = fst->valueAt(item.second, time);
 				top->set_state(item.first, Const::from_string(v));
+			}
+			if (!initial) {
+				top->setInitState(time);
+				initial = true;
 			}
 			update();
 			
