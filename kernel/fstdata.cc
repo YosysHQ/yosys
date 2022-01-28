@@ -24,6 +24,7 @@ USING_YOSYS_NAMESPACE
 FstData::FstData(std::string filename) : ctx(nullptr)
 {
 	ctx = (fstReaderContext *)fstReaderOpen(filename.c_str());
+	timescale = pow(10.0, (int)fstReaderGetTimescale(ctx));
 	extractVarNames();
 }
 

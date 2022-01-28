@@ -58,6 +58,7 @@ class FstData
 	void recalc_time_offsets(fstHandle signal, std::vector<uint64_t> time);
 
 	fstHandle getHandle(std::string name);
+	double getTimescale() { return timescale; }
 private:
 	void extractVarNames();
 
@@ -72,6 +73,7 @@ private:
 	std::vector<uint64_t> sample_times;
 	size_t sample_times_ndx;
 	std::map<fstHandle, std::string> current;
+	double timescale;
 };
 
 YOSYS_NAMESPACE_END

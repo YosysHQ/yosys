@@ -28,6 +28,41 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+enum class SimulationMode {
+	cmp,
+	gold,
+	gate,
+};
+
+static const std::map<std::string, int> g_units =
+{
+	{ "",    -9 }, // default is ns
+	{ "s",    0 },
+	{ "ms",  -3 },
+	{ "us",  -6 },
+	{ "ns",  -9 },
+	{ "ps", -12 },
+	{ "fs", -15 },
+	{ "as", -18 },
+	{ "zs", -21 },
+};
+
+static double stringToTime(std::string str)
+{
+	if (str=="END") return -1;
+
+	char *endptr;
+	long value = strtol(str.c_str(), &endptr, 10);
+
+	if (g_units.find(endptr)==g_units.end())
+		log_error("Cannot parse '%s', bad unit '%s'\n", str.c_str(), endptr);
+
+	if (value < 0)
+		log_error("Time value '%s' must be positive\n", str.c_str());
+
+	return value * pow(10.0, g_units.at(endptr));
+}
+
 struct SimShared
 {
 	bool debug = false;
@@ -36,6 +71,9 @@ struct SimShared
 	bool zinit = false;
 	int rstlen = 1;
 	FstData *fst = nullptr;
+	double start_time = 0;
+	double stop_time = -1;
+	SimulationMode sim_mode = SimulationMode::cmp;
 };
 
 void zinit(State &v)
@@ -900,10 +938,38 @@ struct SimWorker : SimShared
 			}
 		}
 
+		uint64_t startCount = 0;
+		uint64_t stopCount = 0;
+		if (start_time==0) {
+			if (start_time < fst->getStartTime())
+				log_warning("Start time is before simulation file start time\n");
+			startCount = fst->getStartTime();
+		} else if (start_time==-1) 
+			startCount = fst->getEndTime();
+		else {
+			startCount = start_time / fst->getTimescale();
+			if (startCount > fst->getEndTime()) {
+				startCount = fst->getEndTime();
+				log_warning("Start time is after simulation file end time\n");
+			}
+		}
+		if (stop_time==0) {
+			if (stop_time < fst->getStartTime())
+				log_warning("Stop time is before simulation file start time\n");
+			stopCount = fst->getStartTime();
+		} else if (stop_time==-1) 
+			stopCount = fst->getEndTime();
+		else {
+			stopCount = stop_time / fst->getTimescale();
+			if (stopCount > fst->getEndTime()) {
+				stopCount = fst->getEndTime();
+				log_warning("Stop time is after simulation file end time\n");
+			}
+		}
 		fst->reconstruct(fst_clock);
 		auto edges = fst->edges(fst_clock.back(), true, true);
 		fst->reconstructAllAtTimes(edges);
-		for(auto &time : edges) {
+/*		for(auto &time : edges) {
 			for(auto &item : inputs) {
 				std::string v = fst->valueAt(item.second, time);
 				top->set_state(item.first, Const::from_string(v));
@@ -914,7 +980,7 @@ struct SimWorker : SimShared
 				Const sim_val = top->get_state(item.first);
 				log("%s %s\n", log_signal(fst_val), log_signal(sim_val));
 			}
-		}
+		}*/
 	}
 };
 
@@ -969,6 +1035,21 @@ struct SimPass : public Pass {
 		log("\n");
 		log("    -scope\n");
 		log("        scope of simulation top model\n");
+		log("\n");
+		log("    -start <time>\n");
+		log("        start co-simulation in arbitary time (default 0)\n");
+		log("\n");
+		log("    -stop <time>\n");
+		log("        stop co-simulation in arbitary time (default END)\n");
+		log("\n");
+		log("    -sim-cmp\n");
+		log("        co-simulation expect exact match (default)\n");
+		log("\n");
+		log("    -sim-gold\n");
+		log("        co-simulation, x in simulation can match any value in FST\n");
+		log("\n");
+		log("    -sim-gate\n");
+		log("        co-simulation, x in FST can match any value in simulation\n");
 		log("\n");
 		log("    -d\n");
 		log("        enable debug output\n");
@@ -1047,6 +1128,26 @@ struct SimPass : public Pass {
 			}
 			if (args[argidx] == "-scope" && argidx+1 < args.size()) {
 				worker.scope = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-start" && argidx+1 < args.size()) {
+				worker.start_time = stringToTime(args[++argidx]);
+				continue;
+			}
+			if (args[argidx] == "-stop" && argidx+1 < args.size()) {
+				worker.stop_time = stringToTime(args[++argidx]);
+				continue;
+			}
+			if (args[argidx] == "-sim-cmp") {
+				worker.sim_mode = SimulationMode::cmp;
+				continue;
+			}
+			if (args[argidx] == "-sim-gold") {
+				worker.sim_mode = SimulationMode::gold;
+				continue;
+			}
+			if (args[argidx] == "-sim-gate") {
+				worker.sim_mode = SimulationMode::gate;
 				continue;
 			}
 			break;
