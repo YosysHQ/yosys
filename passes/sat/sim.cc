@@ -134,6 +134,7 @@ struct SimInstance
 
 	dict<Wire*, pair<int, Const>> vcd_database;
 	dict<Wire*, pair<fstHandle, Const>> fst_database;
+	dict<Wire*, fstHandle> fst_handles;
 
 	SimInstance(SimShared *shared, std::string scope, Module *module, Cell *instance = nullptr, SimInstance *parent = nullptr) :
 			shared(shared), scope(scope), module(module), instance(instance), parent(parent), sigmap(module)
@@ -156,6 +157,11 @@ struct SimInstance
 					upd_outports[sig[i]].insert(wire);
 					dirty_bits.insert(sig[i]);
 				}
+			}
+
+			if (shared->fst) {
+				fstHandle id = shared->fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
+				fst_handles[wire] = id;
 			}
 
 			if (wire->attributes.count(ID::init)) {
@@ -705,6 +711,29 @@ struct SimInstance
 		for (auto child : children)
 			child.second->write_fst_step(f);
 	}
+
+	bool checkSignals(uint64_t time)
+	{
+		bool retVal = false;
+		for(auto &item : fst_handles) {
+			if (item.second==0) continue; // Ignore signals not found
+			Const fst_val = Const::from_string(shared->fst->valueAt(item.second, time));
+			Const sim_val = get_state(item.first);
+			if (shared->sim_mode == SimulationMode::gate && !fst_val.is_fully_def()) { // FST data contains X
+				// TODO: check bit by bit
+			} else if (shared->sim_mode == SimulationMode::gold && !sim_val.is_fully_def()) { // sim data contains X
+				// TODO: check bit by bit
+			} else {
+				if (fst_val!=sim_val) {
+					retVal = true;
+					log("signal: %s fst: %s  sim: %s\n", log_id(item.first), log_signal(fst_val), log_signal(sim_val));
+				}
+			}
+		}
+		for (auto child : children)
+			retVal |= child.second->checkSignals(time);
+		return retVal;
+	}
 };
 
 struct SimWorker : SimShared
@@ -887,9 +916,9 @@ struct SimWorker : SimShared
 	void run_cosim(Module *topmod, int numcycles)
 	{
 		log_assert(top == nullptr);
-		top = new SimInstance(this, scope, topmod);
-
 		fst = new FstData(sim_filename);
+
+		top = new SimInstance(this, scope, topmod);
 
 		std::vector<fstHandle> fst_clock;
 
@@ -921,20 +950,12 @@ struct SimWorker : SimShared
 			log_error("No clock signals defined for input file\n");
 
 		SigMap sigmap(topmod);
-		log ("Get inputs\n");
 		std::map<Wire*,fstHandle> inputs;
-		std::map<Wire*,fstHandle> outputs;
 
 		for (auto wire : topmod->wires()) {
 			if (wire->port_input) {
 				fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
-				log("Input %s\n",log_id(wire));
 				inputs[wire] = id;
-			}
-			if (wire->port_output) {
-				fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
-				log("Output %s %d\n",log_id(wire), id);
-				outputs[wire] = id;
 			}
 		}
 
@@ -974,22 +995,9 @@ struct SimWorker : SimShared
 				top->set_state(item.first, Const::from_string(v));
 			}
 			update();
-			bool status = true;
-			for(auto &item : outputs) {
-				Const fst_val = Const::from_string(fst->valueAt(item.second, time));
-				Const sim_val = top->get_state(item.first);
-				if (sim_mode == SimulationMode::gate && !fst_val.is_fully_def()) { // FST data contains X
-					// TODO: check bit by bit
-				} else if (sim_mode == SimulationMode::gold && !sim_val.is_fully_def()) { // sim data contains X
-					// TODO: check bit by bit
-				} else {
-					if (fst_val!=sim_val) {
-						status = false;
-						log("signal: %s fst: %s  sim: %s\n", log_id(item.first), log_signal(fst_val), log_signal(sim_val));
-					}
-				}
-			}
-			if (!status)
+			
+			bool status = top->checkSignals(time);
+			if (status)
 				log_error("Signal difference at %zu\n", time);
 		}
 	}
