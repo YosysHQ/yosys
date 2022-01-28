@@ -114,9 +114,9 @@ void FstData::reconstruct_edges_callback(uint64_t pnt_time, fstHandle pnt_facidx
 	std::string val = std::string((const char *)pnt_value);
 	std::string prev = last_data[pnt_facidx];
 	if (pnt_time>=start_time) {
-		if (prev=="0" && val=="1")
+		if (prev!="1" && val=="1")
 			edges.push_back(pnt_time);
-		if (prev=="1" && val=="0")
+		if (prev!="0" && val=="0")
 			edges.push_back(pnt_time);
 	}
 	last_data[pnt_facidx] = val;
