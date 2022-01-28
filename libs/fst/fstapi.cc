@@ -5198,6 +5198,15 @@ int fstReaderIterBlocks2(void *ctx,
                     }
                     previous_time = time_table[i];
                 }
+            } else {
+                if (time_table[i] != previous_time) {
+                    if (xc->limit_range_valid) {
+                        if (time_table[i] > xc->limit_range_end) {
+                            break;
+                        }
+                    }
+                    previous_time = time_table[i];
+                }
             }
 
             while (tc_head[i]) {
