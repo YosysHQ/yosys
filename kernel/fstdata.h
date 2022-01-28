@@ -66,7 +66,6 @@ private:
 	std::map<fstHandle, std::vector<std::pair<uint64_t, std::string>>> handle_to_data;
 	std::map<fstHandle, std::string> last_data;
 	std::map<fstHandle, std::map<uint64_t, size_t>> time_to_index;
-	std::map<fstHandle, std::map<size_t, uint64_t>> index_to_time;
 	std::vector<uint64_t> sample_times;
 	size_t sample_times_ndx;
 	double timescale;

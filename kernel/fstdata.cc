@@ -164,7 +164,6 @@ void FstData::reconstruct_callback_attimes(uint64_t pnt_time, fstHandle pnt_faci
 			handle_to_data[c.first].push_back(std::make_pair(time,c.second));
 			size_t index = handle_to_data[c.first].size() - 1;
 			time_to_index[c.first][time] = index;
-			index_to_time[c.first][index] = time;
 		}
 		sample_times_ndx++;
 	}
@@ -176,7 +175,6 @@ void FstData::reconstructAtTimes(std::vector<fstHandle> &signal, std::vector<uin
 {
 	handle_to_data.clear();
 	time_to_index.clear();
-	index_to_time.clear();
 	last_data.clear();
 	sample_times_ndx = 0;
 	sample_times = time;
@@ -192,7 +190,6 @@ void FstData::reconstructAtTimes(std::vector<fstHandle> &signal, std::vector<uin
 			handle_to_data[c.first].push_back(std::make_pair(time.back(),c.second));
 			size_t index = handle_to_data[c.first].size() - 1;
 			time_to_index[c.first][time.back()] = index;
-			index_to_time[c.first][index] = time.back();
 		}
 	}
 }
@@ -201,7 +198,6 @@ void FstData::reconstructAllAtTimes(std::vector<uint64_t> time)
 {
 	handle_to_data.clear();
 	time_to_index.clear();
-	index_to_time.clear();
 	last_data.clear();
 	sample_times_ndx = 0;
 	sample_times = time;
@@ -216,7 +212,6 @@ void FstData::reconstructAllAtTimes(std::vector<uint64_t> time)
 			handle_to_data[c.first].push_back(std::make_pair(time.back(),c.second));
 			size_t index = handle_to_data[c.first].size() - 1;
 			time_to_index[c.first][time.back()] = index;
-			index_to_time[c.first][index] = time.back();
 		}
 	}
 }
@@ -230,13 +225,6 @@ std::string FstData::valueAt(fstHandle signal, uint64_t time)
 		size_t index = time_to_index[signal][time];
 		return data.at(index).second;
 	} else {
-		size_t index = 0;
-		for(size_t i = 0; i< data.size(); i++) {
-			uint64_t t = index_to_time[signal][i];
-			if (t > time) 
-				break;
-			index = i;
-		}
-		return data.at(index).second;
+		log_error("No data for signal %d at time %d\n", (int)signal, (int)time);
 	}
 }
