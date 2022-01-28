@@ -96,45 +96,47 @@ void FstData::extractVarNames()
 	}
 }
 
-static void reconstruct_clb_varlen(void *user_data, uint64_t pnt_time, fstHandle pnt_facidx, const unsigned char *pnt_value, uint32_t plen)
+static void reconstruct_edges_varlen(void *user_data, uint64_t pnt_time, fstHandle pnt_facidx, const unsigned char *pnt_value, uint32_t plen)
 {
 	FstData *ptr = (FstData*)user_data;
-	ptr->reconstruct_callback(pnt_time, pnt_facidx, pnt_value, plen);
+	ptr->reconstruct_edges_callback(pnt_time, pnt_facidx, pnt_value, plen);
 }
 
-static void reconstruct_clb(void *user_data, uint64_t pnt_time, fstHandle pnt_facidx, const unsigned char *pnt_value)
+static void reconstruct_edges(void *user_data, uint64_t pnt_time, fstHandle pnt_facidx, const unsigned char *pnt_value)
 {
 	FstData *ptr = (FstData*)user_data;
 	uint32_t plen = (pnt_value) ?  strlen((const char *)pnt_value) : 0;
-	ptr->reconstruct_callback(pnt_time, pnt_facidx, pnt_value, plen);
+	ptr->reconstruct_edges_callback(pnt_time, pnt_facidx, pnt_value, plen);
 }
 
-void FstData::reconstruct_callback(uint64_t pnt_time, fstHandle pnt_facidx, const unsigned char *pnt_value, uint32_t /* plen */)
+void FstData::reconstruct_edges_callback(uint64_t pnt_time, fstHandle pnt_facidx, const unsigned char *pnt_value, uint32_t /* plen */)
 {
-	handle_to_data[pnt_facidx].push_back(std::make_pair(pnt_time, std::string((const char *)pnt_value)));
-	size_t index = handle_to_data[pnt_facidx].size() - 1;
-	time_to_index[pnt_facidx][pnt_time] = index;
-	index_to_time[pnt_facidx][index] = pnt_time;
+	std::string val = std::string((const char *)pnt_value);
+	std::string prev = last_data[pnt_facidx];
+	if (pnt_time>=start_time) {
+		if (prev=="0" && val=="1")
+			edges.push_back(pnt_time);
+		if (prev=="1" && val=="0")
+			edges.push_back(pnt_time);
+	}
+	last_data[pnt_facidx] = val;
 }
 
-void FstData::reconstruct(std::vector<fstHandle> &signal)
+std::vector<uint64_t> FstData::getAllEdges(std::vector<fstHandle> &signal, uint64_t start, uint64_t end)
 {
-	handle_to_data.clear();
-	time_to_index.clear();
-	index_to_time.clear();
+	start_time = start;
+	end_time = end;
+	last_data.clear();
+	for(auto &s : signal) {
+		last_data[s] = "x";
+	}
+	edges.clear();
+	fstReaderSetLimitTimeRange(ctx, start_time, end_time);
 	fstReaderClrFacProcessMaskAll(ctx);
 	for(const auto sig : signal)
 		fstReaderSetFacProcessMask(ctx,sig);
-	fstReaderIterBlocks2(ctx, reconstruct_clb, reconstruct_clb_varlen, this, nullptr);
-}
-
-void FstData::reconstuctAll()
-{
-	handle_to_data.clear();
-	time_to_index.clear();
-	index_to_time.clear();
-	fstReaderSetFacProcessMaskAll(ctx);
-	fstReaderIterBlocks2(ctx, reconstruct_clb, reconstruct_clb_varlen, this, nullptr);
+	fstReaderIterBlocks2(ctx, reconstruct_edges, reconstruct_edges_varlen, this, nullptr);
+	return edges;
 }
 
 static void reconstruct_clb_varlen_attimes(void *user_data, uint64_t pnt_time, fstHandle pnt_facidx, const unsigned char *pnt_value, uint32_t plen)
@@ -153,10 +155,11 @@ static void reconstruct_clb_attimes(void *user_data, uint64_t pnt_time, fstHandl
 void FstData::reconstruct_callback_attimes(uint64_t pnt_time, fstHandle pnt_facidx, const unsigned char *pnt_value, uint32_t /* plen */)
 {
 	if (sample_times_ndx > sample_times.size()) return;
+
 	uint64_t time = sample_times[sample_times_ndx];
 	// if we are past the timestamp
 	if (pnt_time > time) {
-		for (auto const& c : current)
+		for (auto const& c : last_data)
 		{
 			handle_to_data[c.first].push_back(std::make_pair(time,c.second));
 			size_t index = handle_to_data[c.first].size() - 1;
@@ -165,8 +168,8 @@ void FstData::reconstruct_callback_attimes(uint64_t pnt_time, fstHandle pnt_faci
 		}
 		sample_times_ndx++;
 	}
-	// always update current
-	current[pnt_facidx] =  std::string((const char *)pnt_value);
+	// always update last_data
+	last_data[pnt_facidx] =  std::string((const char *)pnt_value);
 }
 
 void FstData::reconstructAtTimes(std::vector<fstHandle> &signal, std::vector<uint64_t> time)
@@ -174,16 +177,17 @@ void FstData::reconstructAtTimes(std::vector<fstHandle> &signal, std::vector<uin
 	handle_to_data.clear();
 	time_to_index.clear();
 	index_to_time.clear();
-	current.clear();
+	last_data.clear();
 	sample_times_ndx = 0;
 	sample_times = time;
+	fstReaderSetUnlimitedTimeRange(ctx);
 	fstReaderClrFacProcessMaskAll(ctx);
 	for(const auto sig : signal)
 		fstReaderSetFacProcessMask(ctx,sig);
 	fstReaderIterBlocks2(ctx, reconstruct_clb_attimes, reconstruct_clb_varlen_attimes, this, nullptr);
 
 	if (time_to_index[signal.back()].count(time.back())==0) {
-		for (auto const& c : current)
+		for (auto const& c : last_data)
 		{
 			handle_to_data[c.first].push_back(std::make_pair(time.back(),c.second));
 			size_t index = handle_to_data[c.first].size() - 1;
@@ -198,26 +202,29 @@ void FstData::reconstructAllAtTimes(std::vector<uint64_t> time)
 	handle_to_data.clear();
 	time_to_index.clear();
 	index_to_time.clear();
-	current.clear();
+	last_data.clear();
 	sample_times_ndx = 0;
 	sample_times = time;
+
+	fstReaderSetUnlimitedTimeRange(ctx);
 	fstReaderSetFacProcessMaskAll(ctx);
 	fstReaderIterBlocks2(ctx, reconstruct_clb_attimes, reconstruct_clb_varlen_attimes, this, nullptr);
-/*
-	if (time_to_index[signal.back()].count(time.back())==0) {
-		for (auto const& c : current)
+
+	if (time_to_index[1].count(time.back())==0) {
+		for (auto const& c : last_data)
 		{
 			handle_to_data[c.first].push_back(std::make_pair(time.back(),c.second));
 			size_t index = handle_to_data[c.first].size() - 1;
 			time_to_index[c.first][time.back()] = index;
 			index_to_time[c.first][index] = time.back();
 		}
-	}*/
+	}
 }
 
 std::string FstData::valueAt(fstHandle signal, uint64_t time)
 {
-	// TODO: Check if signal exist
+	if (handle_to_data.find(signal) == handle_to_data.end())
+		log_error("Signal id %d not found\n", (int)signal);
 	auto &data = handle_to_data[signal];
 	if (time_to_index[signal].count(time)!=0) {
 		size_t index = time_to_index[signal][time];
@@ -231,36 +238,5 @@ std::string FstData::valueAt(fstHandle signal, uint64_t time)
 			index = i;
 		}
 		return data.at(index).second;
-	}
-}
-
-std::vector<uint64_t> FstData::edges(fstHandle signal, bool positive, bool negative)
-{
-	// TODO: Check if signal exist
-	auto &data = handle_to_data[signal];
-	std::string prev = "x";
-	std::vector<uint64_t> retVal;
-	for(auto &d : data) {
-		if (positive && prev=="0" && d.second=="1")
-			retVal.push_back(d.first);
-		if (negative && prev=="1" && d.second=="0")
-			retVal.push_back(d.first);
-		prev = d.second;
-	}
-	return retVal;
-}
-
-void FstData::recalc_time_offsets(fstHandle signal, std::vector<uint64_t> time)
-{
-	size_t index = 0;
-	auto &data = handle_to_data[signal];
-	for(auto curr : time) {
-		for(size_t i = index; i< data.size(); i++) {
-			uint64_t t = index_to_time[signal][i];
-			if (t > curr) 
-				break;
-			index = i;
-		}
-		time_to_index[signal][curr] = index;
 	}
 }

@@ -966,21 +966,32 @@ struct SimWorker : SimShared
 				log_warning("Stop time is after simulation file end time\n");
 			}
 		}
-		fst->reconstruct(fst_clock);
-		auto edges = fst->edges(fst_clock.back(), true, true);
+		auto edges = fst->getAllEdges(fst_clock, startCount, stopCount);
 		fst->reconstructAllAtTimes(edges);
-/*		for(auto &time : edges) {
+		for(auto &time : edges) {
 			for(auto &item : inputs) {
 				std::string v = fst->valueAt(item.second, time);
 				top->set_state(item.first, Const::from_string(v));
 			}
 			update();
+			bool status = true;
 			for(auto &item : outputs) {
 				Const fst_val = Const::from_string(fst->valueAt(item.second, time));
 				Const sim_val = top->get_state(item.first);
-				log("%s %s\n", log_signal(fst_val), log_signal(sim_val));
+				if (sim_mode == SimulationMode::gate && !fst_val.is_fully_def()) { // FST data contains X
+					// TODO: check bit by bit
+				} else if (sim_mode == SimulationMode::gold && !sim_val.is_fully_def()) { // sim data contains X
+					// TODO: check bit by bit
+				} else {
+					if (fst_val!=sim_val) {
+						status = false;
+						log("signal: %s fst: %s  sim: %s\n", log_id(item.first), log_signal(fst_val), log_signal(sim_val));
+					}
+				}
 			}
-		}*/
+			if (!status)
+				log_error("Signal difference at %zu\n", time);
+		}
 	}
 };
 
