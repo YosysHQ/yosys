@@ -1012,6 +1012,9 @@ struct SimWorker : SimShared
 				log_warning("Stop time is after simulation file end time\n");
 			}
 		}
+		if (stopCount<startCount) {
+			log_error("Stop time is before start time\n");
+		}
 		auto edges = fst->getAllEdges(fst_clock, startCount, stopCount);
 		fst->reconstructAllAtTimes(edges);
 		bool initial = false;
