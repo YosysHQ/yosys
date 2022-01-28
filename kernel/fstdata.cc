@@ -42,7 +42,7 @@ fstHandle FstData::getHandle(std::string name) {
 	if (name_to_handle.find(name) != name_to_handle.end())
 		return name_to_handle[name];
 	else 
-		log("Not found key %s\n", name.c_str());
+		log_warning("Unable to found wire %s in input file.\n", name.c_str());
 	return 0;	
 };
 
@@ -87,6 +87,8 @@ void FstData::extractVarNames()
 					if(c==' ') break;
 					clean_name += c;
 				}
+				if (clean_name[0]=='\\')
+					clean_name = clean_name.substr(1);
 				//log("adding %s.%s\n",var.scope.c_str(), clean_name.c_str());
 				
 				name_to_handle[var.scope+"."+clean_name] = h->u.var.handle;
