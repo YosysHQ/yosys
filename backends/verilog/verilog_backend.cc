@@ -432,7 +432,7 @@ void dump_wire(std::ostream &f, std::string indent, RTLIL::Wire *wire)
 			dump_const(f, wire->attributes.at(ID::init));
 		}
 		f << stringf(";\n");
-	} else if (!wire->port_input && !wire->port_output)
+	} else
 		f << stringf("%s" "wire%s %s;\n", indent.c_str(), range.c_str(), id(wire->name).c_str());
 #endif
 }
