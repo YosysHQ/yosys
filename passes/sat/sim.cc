@@ -194,7 +194,7 @@ struct SimInstance
 			Module *mod = module->design->module(cell->type);
 
 			if (mod != nullptr) {
-				dirty_children.insert(new SimInstance(shared, scope + "." + RTLIL::unescape_id(module->name), mod, cell, this));
+				dirty_children.insert(new SimInstance(shared, scope + "." + RTLIL::unescape_id(cell->name), mod, cell, this));
 			}
 
 			for (auto &port : cell->connections()) {
