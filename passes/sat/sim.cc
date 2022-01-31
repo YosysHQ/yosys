@@ -768,7 +768,6 @@ struct SimInstance
 					retVal = true;
 				}
 			}
-			//log("signal: %s fst: %s  sim: %s\n", log_id(item.first), log_signal(fst_val), log_signal(sim_val));
 		}
 		for (auto child : children)
 			retVal |= child.second->checkSignals(time);
@@ -1048,6 +1047,7 @@ struct SimWorker : SimShared
 			fst->reconstructAllAtTimes(edges);
 			bool initial = false;
 			int cycle = 0;
+			log("Co-simulation from %zu%s to %zu%s\n", startCount, fst->getTimescaleString(), stopCount, fst->getTimescaleString());
 			for(auto &time : edges) {
 				log("Co-simulating cycle %d [%zu%s].\n", cycle+1, time, fst->getTimescaleString());
 				for(auto &item : inputs) {
