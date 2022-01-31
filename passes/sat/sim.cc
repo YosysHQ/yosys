@@ -1035,7 +1035,7 @@ struct SimWorker : SimShared
 			bool initial = false;
 			int cycle = 0;
 			for(auto &time : edges) {
-				log("Simulating cycle %d [%zu %s].\n", cycle+1, time, fst->getTimescaleString());
+				log("Co-simulating cycle %d [%zu %s].\n", cycle+1, time, fst->getTimescaleString());
 				for(auto &item : inputs) {
 					std::string v = fst->valueAt(item.second, time);
 					top->set_state(item.first, Const::from_string(v));
