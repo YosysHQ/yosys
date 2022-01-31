@@ -1021,7 +1021,7 @@ struct SimWorker : SimShared
 			edges.erase(edges.begin() + (numcycles*2), edges.end());
 
 		if ((startCount == stopCount) && writeback) {
-			log("Update initial state with values from %zu\n",startCount);
+			log("Update initial state with values from [%zu%s]\n", startCount, fst->getTimescaleString());
 			if (edges.empty())
 				edges.push_back(startCount);
 			fst->reconstructAllAtTimes(edges);
@@ -1035,7 +1035,7 @@ struct SimWorker : SimShared
 			bool initial = false;
 			int cycle = 0;
 			for(auto &time : edges) {
-				log("Co-simulating cycle %d [%zu %s].\n", cycle+1, time, fst->getTimescaleString());
+				log("Co-simulating cycle %d [%zu%s].\n", cycle+1, time, fst->getTimescaleString());
 				for(auto &item : inputs) {
 					std::string v = fst->valueAt(item.second, time);
 					top->set_state(item.first, Const::from_string(v));

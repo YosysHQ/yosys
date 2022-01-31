@@ -43,7 +43,6 @@ FstData::FstData(std::string filename) : ctx(nullptr)
 		}
 	}
 	for (int i=0;i<zeros; i++) timescale_str += "0";
-	if (zeros>0)timescale_str += " ";
 	timescale_str += g_units[unit];
 	extractVarNames();
 }
