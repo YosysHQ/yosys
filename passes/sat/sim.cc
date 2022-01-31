@@ -74,6 +74,7 @@ struct SimShared
 	double start_time = 0;
 	double stop_time = -1;
 	SimulationMode sim_mode = SimulationMode::cmp;
+	bool cycles_set = false;
 };
 
 void zinit(State &v)
@@ -1016,7 +1017,9 @@ struct SimWorker : SimShared
 			log_error("Stop time is before start time\n");
 		}
 		auto edges = fst->getAllEdges(fst_clock, startCount, stopCount);
-		
+		if (cycles_set && ((size_t)(numcycles *2) < edges.size()))
+			edges.erase(edges.begin() + (numcycles*2), edges.end());
+
 		if ((startCount == stopCount) && writeback) {
 			log("Update initial state with values from %zu\n",startCount);
 			if (edges.empty())
@@ -1143,6 +1146,7 @@ struct SimPass : public Pass {
 			}
 			if (args[argidx] == "-n" && argidx+1 < args.size()) {
 				numcycles = atoi(args[++argidx].c_str());
+				worker.cycles_set = true;
 				continue;
 			}
 			if (args[argidx] == "-rstlen" && argidx+1 < args.size()) {
