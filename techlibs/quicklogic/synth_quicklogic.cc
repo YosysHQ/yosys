@@ -225,8 +225,8 @@ struct SynthQuickLogicPass : public ScriptPass {
 		}
 
 		if (check_label("verilog")) {
-			if (!verilog_file.empty()) {
-				run("write_verilog -noattr -nohex " + verilog_file);
+			if (!verilog_file.empty() || help_mode) {
+				run(stringf("write_verilog -noattr -nohex %s", help_mode ? "<file-name>" : verilog_file.c_str()));
 			}
 		}
 	}
