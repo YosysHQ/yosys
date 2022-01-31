@@ -744,14 +744,28 @@ struct SimInstance
 			if (item.second==0) continue; // Ignore signals not found
 			Const fst_val = Const::from_string(shared->fst->valueAt(item.second, time));
 			Const sim_val = get_state(item.first);
+			if (sim_val.size()!=fst_val.size())
+				log_error("Signal '%s' size is different in gold and gate.\n", log_id(item.first));
 			if (shared->sim_mode == SimulationMode::gate && !fst_val.is_fully_def()) { // FST data contains X
-				// TODO: check bit by bit
+				for(int i=0;i<fst_val.size();i++) {
+					if (fst_val[i]!=State::Sx && fst_val[i]!=sim_val[i]) {
+						log_warning("Signal '%s' in file '%s' in simulation '%s'\n", log_id(item.first), log_signal(fst_val), log_signal(sim_val));
+						retVal = true;
+						break;
+					}
+				}
 			} else if (shared->sim_mode == SimulationMode::gold && !sim_val.is_fully_def()) { // sim data contains X
-				// TODO: check bit by bit
+				for(int i=0;i<sim_val.size();i++) {
+					if (sim_val[i]!=State::Sx && fst_val[i]!=sim_val[i]) {
+						log_warning("Signal '%s' in file '%s' in simulation '%s'\n", log_id(item.first), log_signal(fst_val), log_signal(sim_val));
+						retVal = true;
+						break;
+					}
+				}
 			} else {
 				if (fst_val!=sim_val) {
+					log_warning("Signal '%s' in file '%s' in simulation '%s'\n", log_id(item.first), log_signal(fst_val), log_signal(sim_val));
 					retVal = true;
-					log("signal: %s fst: %s  sim: %s\n", log_id(item.first), log_signal(fst_val), log_signal(sim_val));
 				}
 			}
 			//log("signal: %s fst: %s  sim: %s\n", log_id(item.first), log_signal(fst_val), log_signal(sim_val));
