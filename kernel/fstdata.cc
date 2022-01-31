@@ -21,10 +21,30 @@
 
 USING_YOSYS_NAMESPACE
 
+
 FstData::FstData(std::string filename) : ctx(nullptr)
 {
+	const std::vector<std::string> g_units = { "s", "ms", "us", "ns", "ps", "fs", "as", "zs" };
 	ctx = (fstReaderContext *)fstReaderOpen(filename.c_str());
-	timescale = pow(10.0, (int)fstReaderGetTimescale(ctx));
+	int scale = (int)fstReaderGetTimescale(ctx);	
+	timescale = pow(10.0, scale);
+	timescale_str = "";
+	int unit = 0;
+	int zeros = 0;
+	if (scale > 0)  {
+		zeros = scale;
+	} else {
+		if ((scale % 3) == 0) {
+			zeros = (-scale % 3);
+			unit = (-scale / 3);
+		} else {
+			zeros = 3 - (-scale % 3);
+			unit = (-scale / 3) + 1;
+		}
+	}
+	for (int i=0;i<zeros; i++) timescale_str += "0";
+	if (zeros>0)timescale_str += " ";
+	timescale_str += g_units[unit];
 	extractVarNames();
 }
 

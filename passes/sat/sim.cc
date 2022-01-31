@@ -1033,7 +1033,9 @@ struct SimWorker : SimShared
 				log_error("No clock edges found in given time range\n");
 			fst->reconstructAllAtTimes(edges);
 			bool initial = false;
+			int cycle = 0;
 			for(auto &time : edges) {
+				log("Simulating cycle %d [%zu %s].\n", cycle+1, time, fst->getTimescaleString());
 				for(auto &item : inputs) {
 					std::string v = fst->valueAt(item.second, time);
 					top->set_state(item.first, Const::from_string(v));
@@ -1046,7 +1048,8 @@ struct SimWorker : SimShared
 
 				bool status = top->checkSignals(time);
 				if (status)
-					log_error("Signal difference at %zu\n", time);
+					log_error("Signal difference\n");
+				cycle++;
 			}
 		}
 	}

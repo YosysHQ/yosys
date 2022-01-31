@@ -55,6 +55,7 @@ class FstData
 	std::string valueAt(fstHandle signal, uint64_t time);
 	fstHandle getHandle(std::string name);
 	double getTimescale() { return timescale; }
+	const char *getTimescaleString() { return timescale_str.c_str(); }
 private:
 	void extractVarNames();
 
@@ -69,6 +70,7 @@ private:
 	std::vector<uint64_t> sample_times;
 	size_t sample_times_ndx;
 	double timescale;
+	std::string timescale_str;
 	uint64_t start_time;
 	uint64_t end_time;
 	std::vector<uint64_t> edges;
