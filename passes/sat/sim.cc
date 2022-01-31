@@ -1016,22 +1016,35 @@ struct SimWorker : SimShared
 			log_error("Stop time is before start time\n");
 		}
 		auto edges = fst->getAllEdges(fst_clock, startCount, stopCount);
-		fst->reconstructAllAtTimes(edges);
-		bool initial = false;
-		for(auto &time : edges) {
-			for(auto &item : inputs) {
-				std::string v = fst->valueAt(item.second, time);
-				top->set_state(item.first, Const::from_string(v));
+		
+		if ((startCount == stopCount) && writeback) {
+			log("Update initial state with values from %zu\n",startCount);
+			if (edges.empty())
+				edges.push_back(startCount);
+			fst->reconstructAllAtTimes(edges);
+			top->setInitState(startCount);
+			pool<Module*> wbmods;
+			top->writeback(wbmods);
+		} else {
+			if (edges.empty())
+				log_error("No clock edges found in given time range\n");
+			fst->reconstructAllAtTimes(edges);
+			bool initial = false;
+			for(auto &time : edges) {
+				for(auto &item : inputs) {
+					std::string v = fst->valueAt(item.second, time);
+					top->set_state(item.first, Const::from_string(v));
+				}
+				if (!initial) {
+					top->setInitState(time);
+					initial = true;
+				}
+				update();
+
+				bool status = top->checkSignals(time);
+				if (status)
+					log_error("Signal difference at %zu\n", time);
 			}
-			if (!initial) {
-				top->setInitState(time);
-				initial = true;
-			}
-			update();
-			
-			bool status = top->checkSignals(time);
-			if (status)
-				log_error("Signal difference at %zu\n", time);
 		}
 	}
 };
