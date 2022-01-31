@@ -994,6 +994,8 @@ struct SimWorker : SimShared
 		for (auto wire : topmod->wires()) {
 			if (wire->port_input) {
 				fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
+				if (id==0)
+					log_error("Unable to find required '%s' signal in file\n",(scope + "." + RTLIL::unescape_id(wire->name)).c_str());
 				inputs[wire] = id;
 			}
 		}
