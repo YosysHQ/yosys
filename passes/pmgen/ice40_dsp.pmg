@@ -29,8 +29,7 @@ code sigA sigB sigH
 			if (sig[i] != sig[i-1])
 				break;
 		// Do not remove non-const sign bit
-		if (sig[i].wire)
-			++i;
+		++i;
 		return sig.extract(0, i);
 	};
 	sigA = unextend(port(mul, \A));
