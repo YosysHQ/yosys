@@ -798,28 +798,14 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 	}
 
 	if (inst->Type() == OPER_NTO1MUX) {
-		cell = module->addShr(inst_name, IN2, IN1, net_map_at(inst->GetOutput()));
+		cell = module->addBmux(inst_name, IN2, IN1, net_map_at(inst->GetOutput()));
 		import_attributes(cell->attributes, inst);
 		return true;
 	}
 
 	if (inst->Type() == OPER_WIDE_NTO1MUX)
 	{
-		SigSpec data = IN2, out = OUT;
-
-		int wordsize_bits = ceil_log2(GetSize(out));
-		int wordsize = 1 << wordsize_bits;
-
-		SigSpec sel = {IN1, SigSpec(State::S0, wordsize_bits)};
-
-		SigSpec padded_data;
-		for (int i = 0; i < GetSize(data); i += GetSize(out)) {
-			SigSpec d = data.extract(i, GetSize(out));
-			d.extend_u0(wordsize);
-			padded_data.append(d);
-		}
-
-		cell = module->addShr(inst_name, padded_data, sel, out);
+		cell = module->addBmux(inst_name, IN2, IN1, OUT);
 		import_attributes(cell->attributes, inst);
 		return true;
 	}
