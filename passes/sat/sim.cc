@@ -161,7 +161,7 @@ struct SimInstance
 				}
 			}
 
-			if (shared->fst) {
+			if ((shared->fst) && !(shared->hide_internal && wire->name[0] == '$')) {
 				fstHandle id = shared->fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
 				if (id==0 && wire->name.isPublic())
 					log_warning("Unable to found wire %s in input file.\n", (scope + "." + RTLIL::unescape_id(wire->name)).c_str());
