@@ -29,6 +29,7 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 enum class SimulationMode {
+	sim,
 	cmp,
 	gold,
 	gate,
@@ -73,7 +74,7 @@ struct SimShared
 	FstData *fst = nullptr;
 	double start_time = 0;
 	double stop_time = -1;
-	SimulationMode sim_mode = SimulationMode::cmp;
+	SimulationMode sim_mode = SimulationMode::sim;
 	bool cycles_set = false;
 };
 
@@ -746,7 +747,9 @@ struct SimInstance
 			Const sim_val = get_state(item.first);
 			if (sim_val.size()!=fst_val.size())
 				log_error("Signal '%s' size is different in gold and gate.\n", log_id(item.first));
-			if (shared->sim_mode == SimulationMode::gate && !fst_val.is_fully_def()) { // FST data contains X
+			if (shared->sim_mode == SimulationMode::sim) {
+				// No checks performed when using stimulus
+			} else if (shared->sim_mode == SimulationMode::gate && !fst_val.is_fully_def()) { // FST data contains X
 				for(int i=0;i<fst_val.size();i++) {
 					if (fst_val[i]!=State::Sx && fst_val[i]!=sim_val[i]) {
 						log_warning("Signal '%s' in file '%s' in simulation '%s'\n", log_id(item.first), log_signal(fst_val), log_signal(sim_val));
@@ -1109,10 +1112,10 @@ struct SimPass : public Pass {
 		log("        include the specified timescale declaration in the vcd\n");
 		log("\n");
 		log("    -n <integer>\n");
-		log("        number of cycles to simulate (default: 20)\n");
+		log("        number of clock cycles to simulate (default: 20)\n");
 		log("\n");
 		log("    -a\n");
-		log("        include all nets in VCD output, not just those with public names\n");
+		log("        use all nets in VCD/FST operations, not just those with public names\n");
 		log("\n");
 		log("    -w\n");
 		log("        writeback mode: use final simulation state as new init state\n");
@@ -1123,14 +1126,20 @@ struct SimPass : public Pass {
 		log("    -scope\n");
 		log("        scope of simulation top model\n");
 		log("\n");
+		log("    -at <time>\n");
+		log("        sets start and stop time\n");
+		log("\n");
 		log("    -start <time>\n");
 		log("        start co-simulation in arbitary time (default 0)\n");
 		log("\n");
 		log("    -stop <time>\n");
 		log("        stop co-simulation in arbitary time (default END)\n");
 		log("\n");
+		log("    -sim\n");
+		log("        simulation with stimulus from FST (default)\n");
+		log("\n");
 		log("    -sim-cmp\n");
-		log("        co-simulation expect exact match (default)\n");
+		log("        co-simulation expect exact match\n");
 		log("\n");
 		log("    -sim-gold\n");
 		log("        co-simulation, x in simulation can match any value in FST\n");
@@ -1146,6 +1155,7 @@ struct SimPass : public Pass {
 	{
 		SimWorker worker;
 		int numcycles = 20;
+		bool start_set = false, stop_set = false, at_set = false;
 
 		log_header(design, "Executing SIM pass (simulate the circuit).\n");
 
@@ -1220,10 +1230,22 @@ struct SimPass : public Pass {
 			}
 			if (args[argidx] == "-start" && argidx+1 < args.size()) {
 				worker.start_time = stringToTime(args[++argidx]);
+				start_set = true;
 				continue;
 			}
 			if (args[argidx] == "-stop" && argidx+1 < args.size()) {
 				worker.stop_time = stringToTime(args[++argidx]);
+				stop_set = true;
+				continue;
+			}
+			if (args[argidx] == "-at" && argidx+1 < args.size()) {
+				worker.start_time = stringToTime(args[++argidx]);
+				worker.stop_time = worker.start_time;
+				at_set = true;
+				continue;
+			}
+			if (args[argidx] == "-sim") {
+				worker.sim_mode = SimulationMode::sim;
 				continue;
 			}
 			if (args[argidx] == "-sim-cmp") {
@@ -1241,6 +1263,10 @@ struct SimPass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design);
+		if (at_set && (start_set || stop_set || worker.cycles_set))
+			log_error("'at' option can only be defined separate of 'start','stop' and 'n'\n");
+		if (stop_set && worker.cycles_set)
+			log_error("'stop' and 'n' can only be used exclusively'\n");
 
 		Module *top_mod = nullptr;
 
