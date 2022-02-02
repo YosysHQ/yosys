@@ -28,7 +28,7 @@ code sigA sigB sigH
 		for (i = GetSize(sig)-1; i > 0; i--)
 			if (sig[i] != sig[i-1])
 				break;
-		// Do not remove non-const sign bit
+		// Do not remove sign bit
 		++i;
 		return sig.extract(0, i);
 	};
