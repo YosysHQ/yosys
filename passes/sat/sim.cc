@@ -921,7 +921,8 @@ struct SimWorker : SimShared
 		{
 			if (debug)
 				log("\n===== %d =====\n", 10*cycle + 5);
-
+			else
+				log("Simulating cycle %d.\n", (cycle*2)+1);
 			set_inports(clock, State::S0);
 			set_inports(clockn, State::S1);
 
@@ -931,7 +932,7 @@ struct SimWorker : SimShared
 			if (debug)
 				log("\n===== %d =====\n", 10*cycle + 10);
 			else
-				log("Simulating cycle %d.\n", cycle+1);
+				log("Simulating cycle %d.\n", (cycle*2)+2);
 
 			set_inports(clock, State::S1);
 			set_inports(clockn, State::S0);
@@ -1034,42 +1035,40 @@ struct SimWorker : SimShared
 		if (stopCount<startCount) {
 			log_error("Stop time is before start time\n");
 		}
-		auto edges = fst->getAllEdges(fst_clock, startCount, stopCount);
-		if (cycles_set && ((size_t)(numcycles *2) < edges.size()))
-			edges.erase(edges.begin() + (numcycles*2), edges.end());
+		auto samples = fst->getAllEdges(fst_clock, startCount, stopCount);
 
-		if ((startCount == stopCount) && writeback) {
-			log("Update initial state with values from [%zu%s]\n", startCount, fst->getTimescaleString());
-			if (edges.empty())
-				edges.push_back(startCount);
-			fst->reconstructAllAtTimes(edges);
-			top->setInitState(startCount);
+		// Limit to number of cycles if provided
+		if (cycles_set && ((size_t)(numcycles *2) < samples.size()))
+			samples.erase(samples.begin() + (numcycles*2), samples.end());
+
+		// Add setup time (start time)
+		if (samples.empty() || samples.front()!=startCount)
+			samples.insert(samples.begin(), startCount);
+
+		fst->reconstructAllAtTimes(samples);
+		bool initial = true;
+		int cycle = 0;
+		log("Co-simulation from %zu%s to %zu%s\n", startCount, fst->getTimescaleString(), stopCount, fst->getTimescaleString());
+		for(auto &time : samples) {
+			log("Co-simulating cycle %d [%zu%s].\n", cycle, time, fst->getTimescaleString());
+			for(auto &item : inputs) {
+				std::string v = fst->valueAt(item.second, time);
+				top->set_state(item.first, Const::from_string(v));
+			}
+			if (initial) {
+				top->setInitState(time);
+				initial = false;
+			}
+			update();
+
+			bool status = top->checkSignals(time);
+			if (status)
+				log_error("Signal difference\n");
+			cycle++;
+		}
+		if (writeback) {
 			pool<Module*> wbmods;
 			top->writeback(wbmods);
-		} else {
-			if (edges.empty())
-				log_error("No clock edges found in given time range\n");
-			fst->reconstructAllAtTimes(edges);
-			bool initial = false;
-			int cycle = 0;
-			log("Co-simulation from %zu%s to %zu%s\n", startCount, fst->getTimescaleString(), stopCount, fst->getTimescaleString());
-			for(auto &time : edges) {
-				log("Co-simulating cycle %d [%zu%s].\n", cycle+1, time, fst->getTimescaleString());
-				for(auto &item : inputs) {
-					std::string v = fst->valueAt(item.second, time);
-					top->set_state(item.first, Const::from_string(v));
-				}
-				if (!initial) {
-					top->setInitState(time);
-					initial = true;
-				}
-				update();
-
-				bool status = top->checkSignals(time);
-				if (status)
-					log_error("Signal difference\n");
-				cycle++;
-			}
 		}
 	}
 };
