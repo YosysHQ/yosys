@@ -46,7 +46,7 @@ struct IopadmapPass : public Pass {
 		log("    -inpad <celltype> <in_port>[:<ext_port>]\n");
 		log("        Map module input ports to the given cell type with the\n");
 		log("        given output port name. if a 2nd portname is given, the\n");
-		log("        signal is passed through the pad call, using the 2nd\n");
+		log("        signal is passed through the pad cell, using the 2nd\n");
 		log("        portname as the port facing the module port.\n");
 		log("\n");
 		log("    -outpad <celltype> <out_port>[:<ext_port>]\n");
