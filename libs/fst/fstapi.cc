@@ -156,7 +156,7 @@ void **JenkinsIns(void *base_i, const unsigned char *mem, uint32_t length, uint3
 /***                 ***/
 /***********************/
 
-#ifdef __MINGW32__
+#if defined(__MINGW32__) || defined(_MSC_VER)
 #include <io.h>
 #ifndef HAVE_FSEEKO
 #define ftello _ftelli64
@@ -306,7 +306,7 @@ static char *fstRealpath(const char *path, char *resolved_path)
 /*
  * mmap compatibility
  */
-#if defined __CYGWIN__ || defined __MINGW32__
+#if defined __CYGWIN__ || defined __MINGW32__ || defined _MSC_VER
 #include <limits.h>
 #define fstMmap(__addr, __len, __prot, __flags, __fd, __off) fstMmap2((__len), (__fd), (__off))
 #define fstMunmap(__addr, __len) free(__addr)
@@ -912,7 +912,7 @@ static void fstWriterEmitHdrBytes(struct fstWriterContext *xc)
  */
 static void fstWriterMmapSanity(void *pnt, const char *file, int line, const char *usage)
 {
-#if !defined(__CYGWIN__) && !defined(__MINGW32__)
+#if !defined(__CYGWIN__) && !defined(__MINGW32__) && !defined(_MSC_VER)
     if (pnt == MAP_FAILED) {
         fprintf(stderr, "fstMmap() assigned to %s failed: errno: %d, file %s, line %d.\n", usage, errno, file, line);
         perror("Why");

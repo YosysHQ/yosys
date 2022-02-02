@@ -33,11 +33,29 @@ extern "C" {
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <zlib.h>
 #include <inttypes.h>
 #if defined(_MSC_VER)
-#include "fst_win_unistd.h"
+#include "libs/zlib/zlib.h"
+#include <io.h>
+
+#include <process.h>
+
+#define ftruncate _chsize_s
+#define unlink _unlink
+#define fileno _fileno
+#define lseek _lseeki64
+
+#ifdef _WIN64
+#define ssize_t __int64
+#define SSIZE_MAX 9223372036854775807i64
 #else
+#define ssize_t long
+#define SSIZE_MAX 2147483647L
+#endif
+
+#include "stdint.h"
+#else
+#include <zlib.h>
 #include <unistd.h>
 #endif
 #include <time.h>

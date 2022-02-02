@@ -19,6 +19,7 @@
 #undef HAVE_ALLOCA_H
 #undef HAVE_REALPATH
 #undef HAVE_LIBPTHREAD
+#undef HAVE_FSEEKO
 #endif
 
 # ifndef __STDC_FORMAT_MACROS
