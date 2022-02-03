@@ -66,10 +66,21 @@ struct JnyWriter
             }
         }
 
+        // XXX(aki): this is a lazy way to do this i know,,,
+        std::string gen_indent(const uint16_t level)
+        {
+            std::stringstream s;
+            for (uint16_t i = 0; i <= level; ++i)
+            {
+                s << "  ";
+            }
+            return s.str();
+        }
+
     public:
     JnyWriter(std::ostream &f, bool use_selection) noexcept: f(f), _use_selection(use_selection) { }
 
-    void write_metadata(Design *design)
+    void write_metadata(Design *design, uint16_t indent_level = 0)
     {
         log_assert(design != nullptr);
 
@@ -85,97 +96,109 @@ struct JnyWriter
         for (auto mod : _use_selection ? design->selected_modules() : design->modules()) {
             if (!first)
                 f << ",\n";
-            write_module(mod);
-
-            f << "\n";
-
+            write_module(mod, indent_level + 2);
             first = false;
         }
 
+        f << "\n";
         f << "  ]\n";
         f << "}\n";
     }
 
-    void write_module(Module* mod)
-    {
+    void write_module(Module* mod, uint16_t indent_level = 0) {
         log_assert(mod != nullptr);
 
         coalesce_cells(mod);
 
-        f << "    {\n";
-        f << stringf("      \"name\": %s,\n", get_string(RTLIL::unescape_id(mod->name)).c_str());
-        f << "      \"cell_sorts\": [\n";
+        const auto _indent = gen_indent(indent_level);
+
+        f << _indent << "{\n";
+        f << stringf("  %s\"name\": %s,\n", _indent.c_str(), get_string(RTLIL::unescape_id(mod->name)).c_str());
+        f << _indent << "  \"cell_sorts\": [\n";
 
         bool first_sort{true};
         for (auto& sort : _cells) {
             if (!first_sort)
                 f << ",\n";
-
-            write_cell_sort(sort);
-
+            write_cell_sort(sort, indent_level + 2);
             first_sort = false;
         }
         f << "\n";
 
-        f << "      ],\n";
-        f << "      \"connections\": [\n";
+        f << _indent << "  ],\n";
+        f << _indent << "  \"connections\": [\n";
 
-        f << "      ]\n";
-        f << "    }";
+        f << _indent << "  ],\n";
+        f << _indent << "  \"attributes\": {\n";
+
+        write_prams(mod->attributes, indent_level + 2);
+
+        f << "\n";
+
+        f << _indent << "  }\n";
+        f << _indent << "}";
     }
 
-
-    void write_cell_sort(std::pair<const std::string, std::vector<Cell*>>& sort)
-    {
-        const auto port_cell = sort.second.front();
-
-        f << "        {\n";
-        f << stringf("          \"type\": %s,\n", sort.first.c_str());
-        f << "          \"ports\": [\n";
+    void write_cell_ports(RTLIL::Cell* port_cell, uint64_t indent_level = 0) {
+        const auto _indent = gen_indent(indent_level);
 
         bool first_port{true};
         for (auto con : port_cell->connections()) {
             if (!first_port)
                 f << ",\n";
 
-            f << "          {\n";
-            f << stringf("            \"name\": %s,\n", get_string(RTLIL::unescape_id(con.first)).c_str());
-            f << "            \"direction\": \"";
+            f << _indent << "  {\n";
+            f << stringf("    %s\"name\": %s,\n", _indent.c_str(), get_string(RTLIL::unescape_id(con.first)).c_str());
+            f << _indent << "    \"direction\": \"";
             if (port_cell->input(con.first))
                 f << "i";
             if (port_cell->input(con.first))
                 f << "o";
             f << "\",\n";
             if (con.second.size() == 1)
-                f << "            \"range\": [0, 0]\n";
+                f << _indent << "    \"range\": [0, 0]\n";
             else
-                f << stringf("            \"range\": [%d, %d]\n", con.second.size(), 0);
-            f << "          }";
+                f << stringf("    %s\"range\": [%d, %d]\n", _indent.c_str(), con.second.size(), 0);
+            f << _indent << "  }";
 
             first_port = false;
         }
         f << "\n";
+    }
 
-        f << "          ],\n          \"cells\": [\n";
+
+    void write_cell_sort(std::pair<const std::string, std::vector<Cell*>>& sort, uint16_t indent_level = 0) {
+        const auto port_cell = sort.second.front();
+        const auto _indent = gen_indent(indent_level);
+
+        f << _indent << "{\n";
+        f << stringf("  %s\"type\": %s,\n", _indent.c_str(), sort.first.c_str());
+        f << _indent << "  \"ports\": [\n";
+
+        write_cell_ports(port_cell, indent_level + 2);
+
+        f << _indent << "  ],\n" << _indent << "  \"cells\": [\n";
+
         bool first_cell{true};
         for (auto& cell : sort.second) {
             if (!first_cell)
                 f << ",\n";
 
-            write_cell(cell);
+            write_cell(cell, indent_level + 2);
 
             first_cell = false;
         }
+
         f << "\n";
-        f << "          ]\n";
-        f << "        }";
+        f << _indent << "  ]\n";
+        f << _indent << "}";
     }
 
-    void write_param_val(const Const& v)
-    {
+    void write_param_val(const Const& v) {
         if ((v.flags & RTLIL::ConstFlags::CONST_FLAG_STRING) == RTLIL::ConstFlags::CONST_FLAG_STRING) {
             const auto str = v.decode_string();
 
+            // XXX(aki): TODO, uh, yeah
 
             f << get_string(str);
         } else if ((v.flags & RTLIL::ConstFlags::CONST_FLAG_SIGNED) == RTLIL::ConstFlags::CONST_FLAG_SIGNED) {
@@ -187,58 +210,52 @@ struct JnyWriter
         }
     }
 
-    void write_cell(Cell* cell)
-    {
-        log_assert(cell != nullptr);
-
-        f << "            {\n";
-        f << stringf("              \"name\": %s,\n", get_string(RTLIL::unescape_id(cell->name)).c_str());
-        f << "              \"attributes\": {\n";
-
-        bool first_attr{true};
-        for (auto& attr : cell->attributes) {
-            if (!first_attr)
-                f << stringf(",\n");
-            const auto attr_val = attr.second;
-            if (!attr_val.empty()) {
-                f << stringf("                %s: ", get_string(RTLIL::unescape_id(attr.first)).c_str());
-                write_param_val(attr_val);
-            } else {
-                f << stringf("                %s: true", get_string(RTLIL::unescape_id(attr.first)).c_str());
-            }
-
-            first_attr = false;
-        }
-        f << "\n";
-
-        f << "              },\n";
-        f << "              \"parameters\": {\n";
+    void write_prams(dict<RTLIL::IdString, RTLIL::Const>& params, uint16_t indent_level = 0) {
+        const auto _indent = gen_indent(indent_level);
 
         bool first_param{true};
-        for (auto& param : cell->parameters) {
+        for (auto& param : params) {
             if (!first_param)
                 f << stringf(",\n");
             const auto param_val = param.second;
             if (!param_val.empty()) {
-                f << stringf("                %s: ", get_string(RTLIL::unescape_id(param.first)).c_str());
+                f << stringf("  %s%s: ", _indent.c_str(), get_string(RTLIL::unescape_id(param.first)).c_str());
                 write_param_val(param_val);
             } else {
-                f << stringf("                %s: true", get_string(RTLIL::unescape_id(param.first)).c_str());
+                f << stringf("  %s%s: true", _indent.c_str(), get_string(RTLIL::unescape_id(param.first)).c_str());
             }
 
             first_param = false;
         }
+    }
+
+    void write_cell(Cell* cell, uint16_t indent_level = 0) {
+        const auto _indent = gen_indent(indent_level);
+        log_assert(cell != nullptr);
+
+        f << _indent << "  {\n";
+        f << stringf("    %s\"name\": %s,\n", _indent.c_str(), get_string(RTLIL::unescape_id(cell->name)).c_str());
+        f << _indent << "    \"attributes\": {\n";
+
+        write_prams(cell->attributes, indent_level + 2);
+
         f << "\n";
 
-        f << "              },\n";
-        f << "            }";
+        f << _indent << "    },\n";
+        f << _indent << "    \"parameters\": {\n";
+
+        write_prams(cell->parameters, indent_level + 2);
+
+        f << "\n";
+
+        f << _indent << "    }\n";
+        f << _indent << "  }";
     }
 };
 
 struct JnyBackend : public Backend {
     JnyBackend() : Backend("jny", "generate design metadata") { }
-    void help() override
-    {
+    void help() override {
         //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
         log("\n");
         log("    jny [options] [selection]\n");
@@ -248,8 +265,7 @@ struct JnyBackend : public Backend {
         log("\n");
     }
 
-    void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
-    {
+    void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override {
         size_t argidx{1};
         extra_args(f, filename, args, argidx);
 
@@ -265,8 +281,7 @@ struct JnyBackend : public Backend {
 struct JnyPass : public Pass {
     JnyPass() : Pass("jny", "write design and metadata") { }
 
-    void help() override
-    {
+    void help() override {
         //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
         log("\n");
         log("    jny [options] [selection]\n");
@@ -279,8 +294,7 @@ struct JnyPass : public Pass {
         log("See 'help write_jny' for a description of the JSON format used.\n");
         log("\n");
     }
-    void execute(std::vector<std::string> args, RTLIL::Design *design) override
-    {
+    void execute(std::vector<std::string> args, RTLIL::Design *design) override {
         std::string filename{};
 
         size_t argidx;
