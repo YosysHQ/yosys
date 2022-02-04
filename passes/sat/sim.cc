@@ -752,7 +752,7 @@ struct SimInstance
 			} else if (shared->sim_mode == SimulationMode::gate && !fst_val.is_fully_def()) { // FST data contains X
 				for(int i=0;i<fst_val.size();i++) {
 					if (fst_val[i]!=State::Sx && fst_val[i]!=sim_val[i]) {
-						log_warning("Signal '%s' in file '%s' in simulation '%s'\n", log_id(item.first), log_signal(fst_val), log_signal(sim_val));
+						log_warning("Signal '%s' in file %s in simulation %s\n", log_id(item.first), log_signal(fst_val), log_signal(sim_val));
 						retVal = true;
 						break;
 					}
@@ -760,14 +760,14 @@ struct SimInstance
 			} else if (shared->sim_mode == SimulationMode::gold && !sim_val.is_fully_def()) { // sim data contains X
 				for(int i=0;i<sim_val.size();i++) {
 					if (sim_val[i]!=State::Sx && fst_val[i]!=sim_val[i]) {
-						log_warning("Signal '%s' in file '%s' in simulation '%s'\n", log_id(item.first), log_signal(fst_val), log_signal(sim_val));
+						log_warning("Signal '%s' in file %s in simulation %s\n", log_id(item.first), log_signal(fst_val), log_signal(sim_val));
 						retVal = true;
 						break;
 					}
 				}
 			} else {
 				if (fst_val!=sim_val) {
-					log_warning("Signal '%s' in file '%s' in simulation '%s'\n", log_id(item.first), log_signal(fst_val), log_signal(sim_val));
+					log_warning("Signal '%s' in file %s in simulation '%s'\n", log_id(item.first), log_signal(fst_val), log_signal(sim_val));
 					retVal = true;
 				}
 			}
@@ -1048,9 +1048,9 @@ struct SimWorker : SimShared
 		fst->reconstructAllAtTimes(samples);
 		bool initial = true;
 		int cycle = 0;
-		log("Co-simulation from %zu%s to %zu%s\n", startCount, fst->getTimescaleString(), stopCount, fst->getTimescaleString());
+		log("Co-simulation from %lu%s to %lu%s\n", (unsigned long)startCount, fst->getTimescaleString(), (unsigned long)stopCount, fst->getTimescaleString());
 		for(auto &time : samples) {
-			log("Co-simulating cycle %d [%zu%s].\n", cycle, time, fst->getTimescaleString());
+			log("Co-simulating cycle %d [%lu%s].\n", cycle, (unsigned long)time, fst->getTimescaleString());
 			for(auto &item : inputs) {
 				std::string v = fst->valueAt(item.second, time);
 				top->set_state(item.first, Const::from_string(v));

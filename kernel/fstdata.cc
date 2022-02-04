@@ -174,7 +174,7 @@ static void reconstruct_clb_attimes(void *user_data, uint64_t pnt_time, fstHandl
 
 void FstData::reconstruct_callback_attimes(uint64_t pnt_time, fstHandle pnt_facidx, const unsigned char *pnt_value, uint32_t /* plen */)
 {
-	if (sample_times_ndx > sample_times.size()) return;
+	if (sample_times_ndx >= sample_times.size()) return;
 
 	uint64_t time = sample_times[sample_times_ndx];
 	// if we are past the timestamp
