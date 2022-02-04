@@ -961,6 +961,9 @@ struct SimWorker : SimShared
 		log_assert(top == nullptr);
 		fst = new FstData(sim_filename);
 
+		if (scope.empty())
+			log_error("Scope must be defined for co-simulation.\n");
+
 		top = new SimInstance(this, scope, topmod);
 
 		std::vector<fstHandle> fst_clock;

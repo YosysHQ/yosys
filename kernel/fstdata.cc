@@ -26,6 +26,8 @@ FstData::FstData(std::string filename) : ctx(nullptr)
 {
 	const std::vector<std::string> g_units = { "s", "ms", "us", "ns", "ps", "fs", "as", "zs" };
 	ctx = (fstReaderContext *)fstReaderOpen(filename.c_str());
+	if (!ctx)
+		log_error("Error opening '%s'\n", filename.c_str());
 	int scale = (int)fstReaderGetTimescale(ctx);	
 	timescale = pow(10.0, scale);
 	timescale_str = "";
