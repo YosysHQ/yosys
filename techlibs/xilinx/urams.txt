@@ -1,0 +1,37 @@
+ram huge $__XILINX_URAM_ {
+	abits 12;
+	width 72;
+	cost 1024;
+	option "BYTEWIDTH" 8 byte 8;
+	option "BYTEWIDTH" 9 byte 9;
+	init zero;
+	port srsw "A" {
+		clock anyedge "C";
+		clken;
+		rdwr no_change;
+		rdinit zero;
+		portoption "RST_MODE" "SYNC" {
+			rdsrst zero ungated;
+		}
+		portoption "RST_MODE" "ASYNC" {
+			rdarst zero;
+		}
+		wrtrans all new;
+		wrbe_separate;
+	}
+	port srsw "B" {
+		clock anyedge "C";
+		clken;
+		rdwr no_change;
+		rdinit zero;
+		portoption "RST_MODE" "SYNC" {
+			rdsrst zero ungated;
+		}
+		portoption "RST_MODE" "ASYNC" {
+			rdarst zero;
+		}
+		wrtrans all old;
+		wrprio "A";
+		wrbe_separate;
+	}
+}

@@ -1,0 +1,120 @@
+# Block RAMs for Spartan 3A DSP and Spartan 6.
+# The corresponding mapping file is brams_xc3sda_map.v
+
+ram block $__XILINX_BLOCKRAM_TDP_ {
+	byte 9;
+	ifdef IS_SPARTAN6 {
+		option "MODE" "HALF" {
+			abits 13;
+			widths 1 2 4 9 18 per_port;
+			cost 65;
+		}
+	}
+	option "MODE" "FULL" {
+		abits 14;
+		widths 1 2 4 9 18 36 per_port;
+		cost 129;
+	}
+	init any;
+	port srsw "A" "B" {
+		# Spartan 6 and Virtex 6 have a bug where READ_FIRST is not usable with asynchronous clocks.
+		ifdef IS_SPARTAN6 {
+			option "HAS_RDFIRST" 1 {
+				clock posedge "C";
+			}
+			option "HAS_RDFIRST" 0 {
+				clock posedge;
+			}
+		} else {
+			clock posedge;
+		}
+		clken;
+		option "RSTTYPE" "SYNC" {
+			portoption "RST_PRIORITY" "CE" {
+				rdsrst any gated_clken;
+			}
+			ifdef IS_SPARTAN6 {
+				portoption "RST_PRIORITY" "SR" {
+					rdsrst any ungated;
+				}
+			}
+		}
+		ifdef IS_SPARTAN6 {
+			option "RSTTYPE" "ASYNC" {
+				portoption "RST_PRIORITY" "SR" {
+					rdarst any;
+				}
+			}
+		}
+		rdinit any;
+		portoption "WRITE_MODE" "NO_CHANGE" {
+			rdwr no_change;
+		}
+		portoption "WRITE_MODE" "WRITE_FIRST" {
+			rdwr new;
+		}
+		ifdef IS_SPARTAN6 {
+			option "HAS_RDFIRST" 1 {
+				portoption "WRITE_MODE" "READ_FIRST" {
+					rdwr old;
+					wrtrans all old;
+				}
+			}
+		} else {
+			portoption "WRITE_MODE" "READ_FIRST" {
+				rdwr old;
+				wrtrans all old;
+			}
+		}
+		optional;
+	}
+}
+
+ifdef IS_SPARTAN6 {
+	ram block $__XILINX_BLOCKRAM_SDP_ {
+		byte 9;
+		abits 13;
+		widths 1 2 4 9 18 36 per_port;
+		cost 65;
+		init any;
+		port sw "W" {
+			width 36;
+			# Spartan 6 and Virtex 6 have a bug where READ_FIRST is not usable with asynchronous clocks.
+			option "WRITE_MODE" "READ_FIRST" {
+				clock posedge "C";
+				wrtrans all old;
+			}
+			option "WRITE_MODE" "WRITE_FIRST" {
+				clock posedge;
+			}
+			clken;
+			optional;
+		}
+		port sr "R" {
+			width 36;
+			# Spartan 6 and Virtex 6 have a bug where READ_FIRST is not usable with asynchronous clocks.
+			option "WRITE_MODE" "READ_FIRST" {
+				clock posedge "C";
+			}
+			option "WRITE_MODE" "WRITE_FIRST" {
+				clock posedge;
+			}
+			clken;
+			option "RSTTYPE" "SYNC" {
+				portoption "RST_PRIORITY" "CE" {
+					rdsrst any gated_clken;
+				}
+				portoption "RST_PRIORITY" "SR" {
+					rdsrst any ungated;
+				}
+			}
+			option "RSTTYPE" "ASYNC" {
+				portoption "RST_PRIORITY" "SR" {
+					rdarst any;
+				}
+			}
+			rdinit any;
+			optional;
+		}
+	}
+}

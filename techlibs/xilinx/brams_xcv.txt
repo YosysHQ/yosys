@@ -1,0 +1,17 @@
+# Block RAMs for the original Virtex.
+# The corresponding mapping file is brams_xcv_map.v
+
+ram block $__XILINX_BLOCKRAM_ {
+	abits 12;
+	widths 1 2 4 8 16 per_port;
+	cost 32;
+	init any;
+	port srsw "A" "B" {
+		clock posedge;
+		clken;
+		rdwr new;
+		rdinit zero;
+		rdsrst zero gated_clken;
+		optional;
+	}
+}

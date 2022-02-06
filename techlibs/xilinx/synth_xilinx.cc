@@ -450,56 +450,97 @@ struct SynthXilinxPass : public ScriptPass
 			run("opt_clean");
 		}
 
-		if (check_label("map_uram", "(only if '-uram')")) {
+		if (check_label("map_memory")) {
+			std::string params = "";
+			std::string lutrams_map = "+/xilinx/lutrams_<family>_map.v";
+			std::string brams_map = "+/xilinx/brams_<family>_map.v";
 			if (help_mode) {
-				run("memory_bram -rules +/xilinx/{family}_urams.txt");
-				run("techmap -map +/xilinx/{family}_urams_map.v");
-			} else if (uram) {
-				if (family == "xcup") {
-					run("memory_bram -rules +/xilinx/xcup_urams.txt");
-					run("techmap -map +/xilinx/xcup_urams_map.v");
-				} else {
-					log_warning("UltraRAM inference not supported for family %s.\n", family.c_str());
-				}
-			}
-		}
-
-		if (check_label("map_bram", "(skip if '-nobram')")) {
-			if (help_mode) {
-				run("memory_bram -rules +/xilinx/{family}_brams.txt");
-				run("techmap -map +/xilinx/{family}_brams_map.v");
-			} else if (!nobram) {
-				if (family == "xc2v" || family == "xc2vp" || family == "xc3s" || family == "xc3se") {
-					run("memory_bram -rules +/xilinx/xc2v_brams.txt");
-					run("techmap -map +/xilinx/xc2v_brams_map.v");
+				params = " [...]";
+			} else {
+				if (family == "xcv" || family == "xcve") {
+					params += " -lib +/xilinx/lutrams_xcv.txt";
+					params += " -D IS_VIRTEX";
+					lutrams_map = "+/xilinx/lutrams_xcv_map.v";
+					params += " -lib +/xilinx/brams_xcv.txt";
+					brams_map = "+/xilinx/brams_xcv_map.v";
+				} else if (family == "xc2v" || family == "xc2vp") {
+					params += " -lib +/xilinx/lutrams_xcv.txt";
+					params += " -D IS_VIRTEX2";
+					lutrams_map = "+/xilinx/lutrams_xcv_map.v";
+					params += " -lib +/xilinx/brams_xc2v.txt";
+					brams_map = "+/xilinx/brams_xc2v_map.v";
+				} else if (family == "xc3s" || family == "xc3se") {
+					params += " -lib +/xilinx/lutrams_xcv.txt";
+					lutrams_map = "+/xilinx/lutrams_xcv_map.v";
+					params += " -lib +/xilinx/brams_xc2v.txt";
+					brams_map = "+/xilinx/brams_xc2v_map.v";
 				} else if (family == "xc3sa") {
-					// Superset of Virtex 2 primitives — uses common map file.
-					run("memory_bram -rules +/xilinx/xc3sa_brams.txt");
-					run("techmap -map +/xilinx/xc2v_brams_map.v");
+					params += " -lib +/xilinx/lutrams_xcv.txt";
+					lutrams_map = "+/xilinx/lutrams_xcv_map.v";
+					params += " -lib +/xilinx/brams_xc2v.txt";
+					params += " -D HAS_BE";
+					brams_map = "+/xilinx/brams_xc2v_map.v";
 				} else if (family == "xc3sda") {
-					// Supported block RAMs for Spartan 3A DSP are
-					// a subset of Spartan 6's ones.
-					run("memory_bram -rules +/xilinx/xc3sda_brams.txt");
-					run("techmap -map +/xilinx/xc6s_brams_map.v");
+					params += " -lib +/xilinx/lutrams_xcv.txt";
+					lutrams_map = "+/xilinx/lutrams_xcv_map.v";
+					params += " -lib +/xilinx/brams_xc3sda.txt";
+					brams_map = "+/xilinx/brams_xc3sda_map.v";
 				} else if (family == "xc6s") {
-					run("memory_bram -rules +/xilinx/xc6s_brams.txt");
-					run("techmap -map +/xilinx/xc6s_brams_map.v");
+					params += " -logic-cost-rom 0.015625";
+					params += " -lib +/xilinx/lutrams_xc5v.txt";
+					lutrams_map = "+/xilinx/lutrams_xc5v_map.v";
+					params += " -lib +/xilinx/brams_xc3sda.txt";
+					params += " -D IS_SPARTAN6";
+					brams_map = "+/xilinx/brams_xc3sda_map.v";
+				} else if (family == "xc4v") {
+					params += " -lib +/xilinx/lutrams_xcv.txt";
+					lutrams_map = "+/xilinx/lutrams_xcv_map.v";
+					params += " -lib +/xilinx/brams_xc4v.txt";
+					params += " -D HAS_CASCADE";
+					brams_map = "+/xilinx/brams_xc4v_map.v";
+				} else if (family == "xc5v") {
+					params += " -logic-cost-rom 0.015625";
+					params += " -lib +/xilinx/lutrams_xc5v.txt";
+					lutrams_map = "+/xilinx/lutrams_xc5v_map.v";
+					params += " -lib +/xilinx/brams_xc4v.txt";
+					params += " -D HAS_SIZE_36";
+					params += " -D HAS_CASCADE";
+					brams_map = "+/xilinx/brams_xc5v_map.v";
 				} else if (family == "xc6v" || family == "xc7") {
-					run("memory_bram -rules +/xilinx/xc7_xcu_brams.txt");
-					run("techmap -map +/xilinx/xc7_brams_map.v");
+					params += " -logic-cost-rom 0.015625";
+					params += " -lib +/xilinx/lutrams_xc5v.txt";
+					lutrams_map = "+/xilinx/lutrams_xc5v_map.v";
+					params += " -lib +/xilinx/brams_xc4v.txt";
+					params += " -D HAS_SIZE_36";
+					params += " -D HAS_CASCADE";
+					params += " -D HAS_CONFLICT_BUG";
+					params += " -D HAS_MIXWIDTH_SDP";
+					brams_map = "+/xilinx/brams_xc6v_map.v";
 				} else if (family == "xcu" || family == "xcup") {
-					run("memory_bram -rules +/xilinx/xc7_xcu_brams.txt");
-					run("techmap -map +/xilinx/xcu_brams_map.v");					
-				} else {
-					log_warning("Block RAM inference not yet supported for family %s.\n", family.c_str());
+					params += " -logic-cost-rom 0.015625";
+					params += " -lib +/xilinx/lutrams_xcu.txt";
+					lutrams_map = "+/xilinx/lutrams_xc5v_map.v";
+					params += " -lib +/xilinx/brams_xc4v.txt";
+					params += " -D HAS_SIZE_36";
+					params += " -D HAS_MIXWIDTH_SDP";
+					params += " -D HAS_ADDRCE";
+					brams_map = "+/xilinx/brams_xcu_map.v";
+					if (family == "xcup") {
+						params += " -lib +/xilinx/urams.txt";
+					}
 				}
+				if (nolutram)
+					params += " -no-auto-distributed";
+				if (nobram)
+					params += " -no-auto-block";
+				if (!uram)
+					params += " -no-auto-huge";
 			}
-		}
-
-		if (check_label("map_lutram", "(skip if '-nolutram')")) {
-			if (!nolutram || help_mode) {
-				run("memory_bram -rules +/xilinx/lut" + lut_size_s + "_lutrams.txt");
-				run("techmap -map +/xilinx/lutrams_map.v");
+			run("memory_libmap" + params);
+			run("techmap -map " + lutrams_map);
+			run("techmap -map " + brams_map);
+			if (family == "xcup") {
+				run("techmap -map +/xilinx/urams_map.v");
 			}
 		}
 
