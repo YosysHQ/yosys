@@ -1,0 +1,169 @@
+# Block RAMs for Virtex 4+.
+# The corresponding mapping files are:
+# - brams_xc3sda_map.v: Spartan 3A DSP, Spartan 6
+# - brams_xc4v_map.v: Virtex 4
+# - brams_xc5v_map.v: Virtex 5
+# - brams_xc6v_map.v: Virtex 6, Series 7
+# - brams_xcu_map.v: Ultrascale
+
+ram block $__XILINX_BLOCKRAM_TDP_ {
+	byte 9;
+	ifdef HAS_SIZE_36 {
+		option "MODE" "HALF" {
+			abits 14;
+			widths 1 2 4 9 18 per_port;
+			cost 129;
+		}
+		option "MODE" "FULL" {
+			abits 15;
+			widths 1 2 4 9 18 36 per_port;
+			cost 257;
+		}
+		ifdef HAS_CASCADE {
+			option "MODE" "CASCADE" {
+				abits 16;
+				# hack to enforce same INIT layout as in the other modes
+				widths 1 2 4 9 per_port;
+				cost 513;
+			}
+		}
+	} else {
+		option "MODE" "FULL" {
+			abits 14;
+			widths 1 2 4 9 18 36 per_port;
+			cost 129;
+		}
+		ifdef HAS_CASCADE {
+			option "MODE" "CASCADE" {
+				abits 15;
+				widths 1 2 4 9 per_port;
+				cost 257;
+			}
+		}
+	}
+	init any;
+	port srsw "A" "B" {
+		option "MODE" "HALF" {
+			width mix;
+		}
+		option "MODE" "FULL" {
+			width mix;
+		}
+		option "MODE" "CASCADE" {
+			width mix 1;
+		}
+		ifdef HAS_ADDRCE {
+			# TODO
+			# addrce;
+		}
+		# Spartan 6 and Virtex 6 have a bug where READ_FIRST is not usable with asynchronous clocks.
+		ifdef HAS_CONFLICT_BUG {
+			option "HAS_RDFIRST" 1 {
+				clock posedge "C";
+			}
+			option "HAS_RDFIRST" 0 {
+				clock posedge;
+			}
+		} else {
+			clock posedge;
+		}
+		clken;
+		rdsrst any gated_clken;
+		rdinit any;
+		portoption "WRITE_MODE" "NO_CHANGE" {
+			rdwr no_change;
+			option "MODE" "CASCADE" {
+				forbid;
+			}
+		}
+		portoption "WRITE_MODE" "WRITE_FIRST" {
+			ifdef HAS_SIZE_36 {
+				rdwr new;
+			} else {
+				rdwr new_only;
+			}
+		}
+		ifdef HAS_CONFLICT_BUG {
+			option "HAS_RDFIRST" 1 {
+				portoption "WRITE_MODE" "READ_FIRST" {
+					rdwr old;
+					wrtrans all old;
+				}
+			}
+		} else {
+			portoption "WRITE_MODE" "READ_FIRST" {
+				rdwr old;
+				wrtrans all old;
+			}
+		}
+		optional_rw;
+	}
+}
+
+ifdef HAS_SIZE_36 {
+	ram block $__XILINX_BLOCKRAM_SDP_ {
+		byte 9;
+		option "MODE" "HALF" {
+			abits 14;
+			widths 1 2 4 9 18 36 per_port;
+			cost 129;
+		}
+		option "MODE" "FULL" {
+			abits 15;
+			widths 1 2 4 9 18 36 72 per_port;
+			cost 257;
+		}
+		init any;
+		port sw "W" {
+			ifndef HAS_MIXWIDTH_SDP {
+				option "MODE" "HALF" width 36;
+				option "MODE" "FULL" width 72;
+			}
+			ifdef HAS_ADDRCE {
+				# TODO
+				# addrce;
+			}
+			# Spartan 6 and Virtex 6 have a bug where READ_FIRST is not usable with asynchronous clocks.
+			ifdef HAS_CONFLICT_BUG {
+				option "WRITE_MODE" "READ_FIRST" {
+					clock posedge "C";
+				}
+				option "WRITE_MODE" "WRITE_FIRST" {
+					clock posedge;
+				}
+			} else {
+				clock posedge;
+			}
+			clken;
+			option "WRITE_MODE" "READ_FIRST" {
+				wrtrans all old;
+			}
+			optional;
+		}
+		port sr "R" {
+			ifndef HAS_MIXWIDTH_SDP {
+				option "MODE" "HALF" width 36;
+				option "MODE" "FULL" width 72;
+			}
+			ifdef HAS_ADDRCE {
+				# TODO
+				# addrce;
+			}
+			# Spartan 6 and Virtex 6 have a bug where READ_FIRST is not usable with asynchronous clocks.
+			ifdef HAS_CONFLICT_BUG {
+				option "WRITE_MODE" "READ_FIRST" {
+					clock posedge "C";
+				}
+				option "WRITE_MODE" "WRITE_FIRST" {
+					clock posedge;
+				}
+			} else {
+				clock posedge;
+			}
+			clken;
+			rdsrst any gated_clken;
+			rdinit any;
+			optional;
+		}
+	}
+}

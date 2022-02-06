@@ -1,0 +1,33 @@
+# Block RAMs for Virtex 2, Spartan 3, Spartan 3E, Spartan 3A(N)
+# The corresponding mapping file is brams_xc2v_map.v
+
+ram block $__XILINX_BLOCKRAM_ {
+	abits 14;
+	widths 1 2 4 9 18 36 per_port;
+	ifdef HAS_BE {
+		option "USE_BE" 1 byte 9;
+	}
+	cost 129;
+	init any;
+	port srsw "A" "B" {
+		option "USE_BE" 0 width tied;
+		ifdef HAS_BE {
+			option "USE_BE" 1 width tied 9 18 36;
+		}
+		clock posedge;
+		clken;
+		rdsrst any gated_clken;
+		rdinit any;
+		portoption "WRITE_MODE" "NO_CHANGE" {
+			rdwr no_change;
+		}
+		portoption "WRITE_MODE" "WRITE_FIRST" {
+			rdwr new_only;
+		}
+		portoption "WRITE_MODE" "READ_FIRST" {
+			rdwr old;
+			wrtrans all old;
+		}
+		optional;
+	}
+}

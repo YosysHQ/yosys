@@ -1,0 +1,59 @@
+# LUT RAMs for Virtex, Virtex 2, Spartan 3, Virtex 4.
+# The corresponding mapping file is lutrams_xcv_map.v
+
+ram distributed $__XILINX_LUTRAM_SP_ {
+	width 1;
+	option "ABITS" 4 {
+		abits 4;
+		cost 3;
+	}
+	option "ABITS" 5 {
+		abits 5;
+		cost 5;
+	}
+	ifndef IS_VIRTEX {
+		option "ABITS" 6 {
+			abits 6;
+			cost 9;
+		}
+	}
+	ifdef IS_VIRTEX2 {
+		# RAM128X1S
+		option "ABITS" 7 {
+			abits 7;
+			cost 17;
+		}
+	}
+	init no_undef;
+	prune_rom;
+	port arsw "RW" {
+		clock posedge;
+	}
+}
+
+ram distributed $__XILINX_LUTRAM_DP_ {
+	width 1;
+	option "ABITS" 4 {
+		abits 4;
+		cost 5;
+	}
+	ifdef IS_VIRTEX2 {
+		# RAM32X1D
+		option "ABITS" 5 {
+			abits 5;
+			cost 9;
+		}
+		# RAM64X1D
+		option "ABITS" 6 {
+			abits 6;
+			cost 17;
+		}
+	}
+	init no_undef;
+	prune_rom;
+	port arsw "RW" {
+		clock posedge;
+	}
+	port ar "R" {
+	}
+}

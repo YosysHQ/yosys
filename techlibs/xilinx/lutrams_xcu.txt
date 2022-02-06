@@ -1,0 +1,162 @@
+# LUT RAMs for Ultrascale.
+# The corresponding mapping file is lutrams_xc5v_map.v
+
+# Single-port RAMs.
+
+ram distributed $__XILINX_LUTRAM_SP_ {
+	cost 16;
+	widthscale;
+	option "ABITS" 5 {
+		abits 5;
+		widths 16 global;
+	}
+	option "ABITS" 6 {
+		abits 6;
+		widths 8 global;
+	}
+	option "ABITS" 7 {
+		abits 7;
+		widths 4 global;
+	}
+	option "ABITS" 8 {
+		abits 8;
+		widths 2 global;
+	}
+	option "ABITS" 16 {
+		abits 16;
+		widths 1 global;
+	}
+	init any;
+	prune_rom;
+	port arsw "RW" {
+		clock posedge;
+	}
+}
+
+# Dual-port RAMs.
+
+ram distributed $__XILINX_LUTRAM_DP_ {
+	cost 16;
+	widthscale;
+	option "ABITS" 5 {
+		abits 5;
+		widths 8 global;
+	}
+	option "ABITS" 6 {
+		abits 6;
+		widths 4 global;
+	}
+	option "ABITS" 7 {
+		abits 7;
+		widths 2 global;
+	}
+	option "ABITS" 8 {
+		abits 8;
+		widths 1 global;
+	}
+	init any;
+	prune_rom;
+	port arsw "RW" {
+		clock posedge;
+	}
+	port ar "R" {
+	}
+}
+
+# Quad-port RAMs.
+
+ram distributed $__XILINX_LUTRAM_QP_ {
+	cost 16;
+	widthscale;
+	option "ABITS" 5 {
+		abits 5;
+		widths 4 global;
+	}
+	option "ABITS" 6 {
+		abits 6;
+		widths 2 global;
+	}
+	init any;
+	prune_rom;
+	port arsw "RW" {
+		clock posedge;
+	}
+	port ar "R0" "R1" "R2" {
+	}
+}
+
+# Octal-port RAMs.
+
+ram distributed $__XILINX_LUTRAM_OP_ {
+	cost 16;
+	widthscale;
+	option "ABITS" 5 {
+		abits 5;
+		widths 2 global;
+	}
+	option "ABITS" 6 {
+		abits 6;
+		widths 1 global;
+	}
+	init any;
+	prune_rom;
+	port arsw "RW" {
+		clock posedge;
+	}
+	port ar "R0" "R1" "R2" "R3" "R4" "R5" "R6" {
+	}
+}
+
+# Simple dual port RAMs.
+
+ram distributed $__XILINX_LUTRAM_SDP_ {
+	cost 16;
+	widthscale;
+	option "ABITS" 5 {
+		abits 5;
+		widths 14 global;
+	}
+	option "ABITS" 6 {
+		abits 6;
+		widths 7 global;
+	}
+	init any;
+	prune_rom;
+	port sw "W" {
+		clock posedge;
+	}
+	port ar "R" {
+	}
+}
+
+# Wide-read RAM.
+
+ram distributed $__XILINX_LUTRAM_64X8SW_ {
+	cost 16;
+	abits 9;
+	widths 1 2 4 8 per_port;
+	init any;
+	prune_rom;
+	port arsw "RW" {
+		width rd 8 wr 1;
+		clock posedge;
+	}
+}
+
+# Wide-write RAM.
+
+ram distributed $__XILINX_LUTRAM_32X16DR8_ {
+	cost 16;
+	widthscale;
+	abits 6;
+	widths 7 14 per_port;
+	# Yes, no initialization capability.
+	prune_rom;
+	port sw "W" {
+		width 14;
+		clock posedge;
+	}
+	port ar "R" {
+		width 7;
+	}
+}
