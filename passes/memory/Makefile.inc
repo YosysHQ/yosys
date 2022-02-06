@@ -9,4 +9,6 @@ OBJS += passes/memory/memory_map.o
 OBJS += passes/memory/memory_memx.o
 OBJS += passes/memory/memory_nordff.o
 OBJS += passes/memory/memory_narrow.o
+OBJS += passes/memory/memory_libmap.o
 
+OBJS += passes/memory/memlib.o
