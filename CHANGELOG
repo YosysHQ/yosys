@@ -5,6 +5,18 @@ List of major changes and improvements between releases
 Yosys 0.13 .. Yosys 0.13-dev
 --------------------------
 
+ * Various
+    - Added $bmux and $demux cells and related optimization patterns.
+
+ * New commands and options
+    - Added "bmuxmap" and "dmuxmap" passes 
+    - Added "-fst" option to "sim" pass for writing FST files
+    - Added "-r", "-scope", "-start", "-stop", "-at", "-sim", "-sim-gate",
+      "-sim-gold" options to "sim" pass for co-simulation
+
+ * Anlogic support
+    - Added support for BRAMs
+
 Yosys 0.12 .. Yosys 0.13
 --------------------------
 

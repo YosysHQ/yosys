@@ -671,6 +671,14 @@ Convert modules into blackbox modules (remove contents and set the blackbox
 module attribute).
 \end{lstlisting}
 
+\section{bmuxmap -- transform \$bmux cells to trees of \$mux cells}
+\label{cmd:bmuxmap}
+\begin{lstlisting}[numbers=left,frame=single]
+    bmuxmap [selection]
+
+This pass transforms $bmux cells to trees of $mux cells.
+\end{lstlisting}
+
 \section{bugpoint -- minimize testcases}
 \label{cmd:bugpoint}
 \begin{lstlisting}[numbers=left,frame=single]
@@ -1131,6 +1139,14 @@ selected wires, thus 'deleting' module ports.
     deminout [options] [selection]
 
 "Demote" inout ports to input or output ports, if possible.
+\end{lstlisting}
+
+\section{demuxmap -- transform \$demux cells to \$eq + \$mux cells}
+\label{cmd:demuxmap}
+\begin{lstlisting}[numbers=left,frame=single]
+    demuxmap [selection]
+
+This pass transforms $demux cells to a bunch of equality comparisons.
 \end{lstlisting}
 
 \section{design -- save, restore and reset current design}
@@ -2420,7 +2436,7 @@ the resulting cells to more sophisticated PAD cells.
     -inpad <celltype> <in_port>[:<ext_port>]
         Map module input ports to the given cell type with the
         given output port name. if a 2nd portname is given, the
-        signal is passed through the pad call, using the 2nd
+        signal is passed through the pad cell, using the 2nd
         portname as the port facing the module port.
 
     -outpad <celltype> <out_port>[:<ext_port>]
@@ -4815,6 +4831,9 @@ This command simulates the circuit using the given top-level module.
     -vcd <filename>
         write the simulation results to the given VCD file
 
+    -fst <filename>
+        write the simulation results to the given FST file
+
     -clock <portname>
         name of top-level clock input
 
@@ -4837,13 +4856,40 @@ This command simulates the circuit using the given top-level module.
         include the specified timescale declaration in the vcd
 
     -n <integer>
-        number of cycles to simulate (default: 20)
+        number of clock cycles to simulate (default: 20)
 
     -a
-        include all nets in VCD output, not just those with public names
+        use all nets in VCD/FST operations, not just those with public names
 
     -w
         writeback mode: use final simulation state as new init state
+
+    -r
+        read simulation results file (file formats supported: FST)
+
+    -scope
+        scope of simulation top model
+
+    -at <time>
+        sets start and stop time
+
+    -start <time>
+        start co-simulation in arbitary time (default 0)
+
+    -stop <time>
+        stop co-simulation in arbitary time (default END)
+
+    -sim
+        simulation with stimulus from FST (default)
+
+    -sim-cmp
+        co-simulation expect exact match
+
+    -sim-gold
+        co-simulation, x in simulation can match any value in FST
+
+    -sim-gate
+        co-simulation, x in FST can match any value in simulation
 
     -d
         enable debug output
@@ -5197,6 +5243,9 @@ This command runs synthesis for Anlogic FPGAs.
     -nolutram
         do not use EG_LOGIC_DRAM16X4 cells in output netlist
 
+    -nobram
+        do not use EG_PHY_BRAM or EG_PHY_BRAM32K cells in output netlist
+
 
 The following commands are executed by this synthesis command:
 
@@ -5212,6 +5261,12 @@ The following commands are executed by this synthesis command:
 
     coarse:
         synth -run coarse
+
+    map_bram:    (skip if -nobram)
+        memory_bram -rules +/anlogic/brams.txt
+        techmap -map +/anlogic/brams_map.v
+        setundef -zero -params t:EG_PHY_BRAM
+        setundef -zero -params t:EG_PHY_BRAM32K
 
     map_lutram:    (skip if -nolutram)
         memory_bram -rules +/anlogic/lutrams.txt
@@ -6781,6 +6836,7 @@ The following commands are executed by this synthesis command:
         write_blif -attr -param -auto-top 
 
     verilog:
+        write_verilog -noattr -nohex <file-name>
 \end{lstlisting}
 
 \section{synth\_sf2 -- synthesis for SmartFusion2 and IGLOO2 FPGAs}
@@ -8193,6 +8249,8 @@ Inside a script the input file can also can a here-document:
 Write a FIRRTL netlist of the current design.
 The following commands are executed by this command:
         pmuxtree
+        bmuxmap
+        demuxmap
 \end{lstlisting}
 
 \section{write\_ilang -- (deprecated) alias of write\_rtlil}
