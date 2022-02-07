@@ -1,0 +1,130 @@
+See fstapi.h for the values for the FST_BL_XXX enums.
+
+===========================================================================
+
+compressed wrapper (typically over whole file)
+
+uint8_t		FST_BL_ZWRAPPER
+uint64_t        section length
+uint64_t        length of uncompressed data
+[zlib compressed data]
+
+===========================================================================
+
+header block
+
+uint8_t		FST_BL_HDR
+uint64_t	section length
+uint64_t	start time
+uint64_t	end time
+double		endian test for "e"
+uint64_t	memory used by writer
+uint64_t	scope creation count
+uint64_t	var creation count
+uint64_t	max var idcode
+uint64_t	vc section count
+int8_t		timescale exponent
+[128 bytes]	version
+[128 bytes]	date
+
+===========================================================================
+
+geometry block
+
+uint8_t         FST_BL_GEOM
+uint64_t        section length
+uint64_t        length of uncompressed geometry data
+uint64_t        maxhandle
+[compressed data]
+
+(length of compressed data is section length - 24)
+
+===========================================================================
+
+hierarchy block
+
+uint8_t         FST_BL_HIER
+uint64_t        section length
+uint64_t        length of uncompressed hier data
+[zlib compressed data]
+
+or
+
+uint8_t         FST_BL_HIER_LZ4
+uint64_t        section length
+uint64_t        length of uncompressed hier data
+[lz4 compressed data]
+
+uint8_t         FST_BL_HIER_LZ4DUO
+uint64_t        section length
+uint64_t        length of uncompressed hier data
+varint		length of hier data compressed once with lz4
+[lz4 double compressed data]
+
+
+===========================================================================
+
+dumpon/off block
+
+uint8_t         FST_BL_BLACKOUT
+uint64_t        section length
+varint		num blackouts (section below is repeated this # times)
+[
+uint8_t		on/off (nonzero = on)
+varint		delta time
+]
+
+===========================================================================
+
+1..n value change blocks:
+
+// header
+
+uint8_t		FST_BL_VCDATA (or FST_BL_VCDATA_DYN_ALIAS)
+uint64_t	section length
+uint64_t	begin time of section
+uint64_t	end time of section
+uint64_t	amount of buffer memory required in reader for full vc traversal
+varint		maxvalpos (length of uncompressed data)
+varint		length of compressed data
+varint		maxhandle associated with this checkpoint data
+[compressed data]
+
+---
+
+// value changes
+
+varint		maxhandle associated with the value change data
+uint8_t		pack type ('F' is fastlz, '4' is lz4,
+			others ['Z'/'!'] are zlib)
+
+varint		chain 0 compressed data length (0 = uncompressed)
+[compressed data]
+...
+varint		chain n compressed data length (0 = uncompressed)
+[compressed data]
+
+---
+
+// index: chain pointer table (from 0..maxhandle-1)
+
+varint		if &1 == 1, this is <<1 literal delta
+		if &1 == 0, this is <<1 RLE count of zeros
+		if == 0, next varint is handle of prev chain to use,
+			bit only if FST_BL_VCDATA_DYN_ALIAS or
+			later VCDATA format
+
+---
+
+uint64_t	index length (subtract from here to get index position)
+
+---
+
+[compressed data for time section]
+uint64_t	uncompressed data length in bytes
+uint64_t	compressed data length in bytes
+uint64_t	number of time items
+
+// end of section
+
+===========================================================================

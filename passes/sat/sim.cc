@@ -21,11 +21,48 @@
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
 #include "kernel/mem.h"
+#include "kernel/fstdata.h"
 
 #include <ctime>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
+
+enum class SimulationMode {
+	sim,
+	cmp,
+	gold,
+	gate,
+};
+
+static const std::map<std::string, int> g_units =
+{
+	{ "",    -9 }, // default is ns
+	{ "s",    0 },
+	{ "ms",  -3 },
+	{ "us",  -6 },
+	{ "ns",  -9 },
+	{ "ps", -12 },
+	{ "fs", -15 },
+	{ "as", -18 },
+	{ "zs", -21 },
+};
+
+static double stringToTime(std::string str)
+{
+	if (str=="END") return -1;
+
+	char *endptr;
+	long value = strtol(str.c_str(), &endptr, 10);
+
+	if (g_units.find(endptr)==g_units.end())
+		log_error("Cannot parse '%s', bad unit '%s'\n", str.c_str(), endptr);
+
+	if (value < 0)
+		log_error("Time value '%s' must be positive\n", str.c_str());
+
+	return value * pow(10.0, g_units.at(endptr));
+}
 
 struct SimShared
 {
@@ -34,6 +71,11 @@ struct SimShared
 	bool writeback = false;
 	bool zinit = false;
 	int rstlen = 1;
+	FstData *fst = nullptr;
+	double start_time = 0;
+	double stop_time = -1;
+	SimulationMode sim_mode = SimulationMode::sim;
+	bool cycles_set = false;
 };
 
 void zinit(State &v)
@@ -51,7 +93,8 @@ void zinit(Const &v)
 struct SimInstance
 {
 	SimShared *shared;
-
+	
+	std::string scope;
 	Module *module;
 	Cell *instance;
 
@@ -92,9 +135,11 @@ struct SimInstance
 	std::vector<Mem> memories;
 
 	dict<Wire*, pair<int, Const>> vcd_database;
+	dict<Wire*, pair<fstHandle, Const>> fst_database;
+	dict<Wire*, fstHandle> fst_handles;
 
-	SimInstance(SimShared *shared, Module *module, Cell *instance = nullptr, SimInstance *parent = nullptr) :
-			shared(shared), module(module), instance(instance), parent(parent), sigmap(module)
+	SimInstance(SimShared *shared, std::string scope, Module *module, Cell *instance = nullptr, SimInstance *parent = nullptr) :
+			shared(shared), scope(scope), module(module), instance(instance), parent(parent), sigmap(module)
 	{
 		log_assert(module);
 
@@ -114,6 +159,13 @@ struct SimInstance
 					upd_outports[sig[i]].insert(wire);
 					dirty_bits.insert(sig[i]);
 				}
+			}
+
+			if ((shared->fst) && !(shared->hide_internal && wire->name[0] == '$')) {
+				fstHandle id = shared->fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
+				if (id==0 && wire->name.isPublic())
+					log_warning("Unable to found wire %s in input file.\n", (scope + "." + RTLIL::unescape_id(wire->name)).c_str());
+				fst_handles[wire] = id;
 			}
 
 			if (wire->attributes.count(ID::init)) {
@@ -144,7 +196,7 @@ struct SimInstance
 			Module *mod = module->design->module(cell->type);
 
 			if (mod != nullptr) {
-				dirty_children.insert(new SimInstance(shared, mod, cell, this));
+				dirty_children.insert(new SimInstance(shared, scope + "." + RTLIL::unescape_id(cell->name), mod, cell, this));
 			}
 
 			for (auto &port : cell->connections()) {
@@ -622,14 +674,125 @@ struct SimInstance
 		for (auto child : children)
 			child.second->write_vcd_step(f);
 	}
+
+	void write_fst_header(struct fstContext *f)
+	{
+		fstWriterSetScope(f, FST_ST_VCD_MODULE, stringf("%s",log_id(name())).c_str(), nullptr);
+		for (auto wire : module->wires())
+		{
+			if (shared->hide_internal && wire->name[0] == '$')
+				continue;
+
+			fstHandle id = fstWriterCreateVar(f, FST_VT_VCD_WIRE, FST_VD_IMPLICIT, GetSize(wire),
+												stringf("%s%s", wire->name[0] == '$' ? "\\" : "", log_id(wire)).c_str(), 0);
+			fst_database[wire] = make_pair(id, Const());
+		}
+
+		for (auto child : children)
+			child.second->write_fst_header(f);
+
+		fstWriterSetUpscope(f);
+	}
+
+	void write_fst_step(struct fstContext *f)
+	{
+		for (auto &it : fst_database)
+		{
+			Wire *wire = it.first;
+			Const value = get_state(wire);
+			fstHandle id = it.second.first;
+
+			if (it.second.second == value)
+				continue;
+
+			it.second.second = value;
+			std::stringstream ss;
+			for (int i = GetSize(value)-1; i >= 0; i--) {
+				switch (value[i]) {
+					case State::S0: ss << "0"; break;
+					case State::S1: ss << "1"; break;
+					case State::Sx: ss << "x"; break;
+					default: ss << "z";
+				}
+			}
+			fstWriterEmitValueChange(f, id, ss.str().c_str());
+		}
+
+		for (auto child : children)
+			child.second->write_fst_step(f);
+	}
+
+	void setInitState(uint64_t time)
+	{
+		for (auto &it : ff_database)
+		{
+			Cell *cell = it.first;
+			
+			SigSpec qsig = cell->getPort(ID::Q);
+			if (qsig.is_wire()) {
+				IdString name = qsig.as_wire()->name;
+				fstHandle id = shared->fst->getHandle(scope + "." + RTLIL::unescape_id(name));
+				if (id==0 && name.isPublic())
+					log_warning("Unable to found wire %s in input file.\n", (scope + "." + RTLIL::unescape_id(name)).c_str());
+				if (id!=0) {
+					Const fst_val = Const::from_string(shared->fst->valueAt(id, time));
+					set_state(qsig, fst_val);
+				}
+			}
+		}
+		for (auto child : children)
+			child.second->setInitState(time);
+	}
+
+	bool checkSignals(uint64_t time)
+	{
+		bool retVal = false;
+		for(auto &item : fst_handles) {
+			if (item.second==0) continue; // Ignore signals not found
+			Const fst_val = Const::from_string(shared->fst->valueAt(item.second, time));
+			Const sim_val = get_state(item.first);
+			if (sim_val.size()!=fst_val.size())
+				log_error("Signal '%s' size is different in gold and gate.\n", log_id(item.first));
+			if (shared->sim_mode == SimulationMode::sim) {
+				// No checks performed when using stimulus
+			} else if (shared->sim_mode == SimulationMode::gate && !fst_val.is_fully_def()) { // FST data contains X
+				for(int i=0;i<fst_val.size();i++) {
+					if (fst_val[i]!=State::Sx && fst_val[i]!=sim_val[i]) {
+						log_warning("Signal '%s' in file %s in simulation %s\n", log_id(item.first), log_signal(fst_val), log_signal(sim_val));
+						retVal = true;
+						break;
+					}
+				}
+			} else if (shared->sim_mode == SimulationMode::gold && !sim_val.is_fully_def()) { // sim data contains X
+				for(int i=0;i<sim_val.size();i++) {
+					if (sim_val[i]!=State::Sx && fst_val[i]!=sim_val[i]) {
+						log_warning("Signal '%s' in file %s in simulation %s\n", log_id(item.first), log_signal(fst_val), log_signal(sim_val));
+						retVal = true;
+						break;
+					}
+				}
+			} else {
+				if (fst_val!=sim_val) {
+					log_warning("Signal '%s' in file %s in simulation '%s'\n", log_id(item.first), log_signal(fst_val), log_signal(sim_val));
+					retVal = true;
+				}
+			}
+		}
+		for (auto child : children)
+			retVal |= child.second->checkSignals(time);
+		return retVal;
+	}
 };
 
 struct SimWorker : SimShared
 {
 	SimInstance *top = nullptr;
 	std::ofstream vcdfile;
+	struct fstContext *fstfile = nullptr;
 	pool<IdString> clock, clockn, reset, resetn;
 	std::string timescale;
+	std::string sim_filename;
+	std::string scope;
 
 	~SimWorker()
 	{
@@ -638,9 +801,6 @@ struct SimWorker : SimShared
 
 	void write_vcd_header()
 	{
-		if (!vcdfile.is_open())
-			return;
-
 		vcdfile << stringf("$version %s $end\n", yosys_version_str);
 
 		std::time_t t = std::time(nullptr);
@@ -660,11 +820,51 @@ struct SimWorker : SimShared
 
 	void write_vcd_step(int t)
 	{
-		if (!vcdfile.is_open())
-			return;
-
 		vcdfile << stringf("#%d\n", t);
 		top->write_vcd_step(vcdfile);
+	}
+
+	void write_fst_header()
+	{
+		std::time_t t = std::time(nullptr);
+		fstWriterSetDate(fstfile, asctime(std::localtime(&t)));
+		fstWriterSetVersion(fstfile, yosys_version_str);
+		if (!timescale.empty())
+			fstWriterSetTimescaleFromString(fstfile, timescale.c_str());
+
+		fstWriterSetPackType(fstfile, FST_WR_PT_FASTLZ);
+		fstWriterSetRepackOnClose(fstfile, 1);
+	   
+		top->write_fst_header(fstfile);
+	}
+
+	void write_fst_step(int t)
+	{
+		fstWriterEmitTimeChange(fstfile, t);
+
+		top->write_fst_step(fstfile);
+	}
+
+	void write_output_header()
+	{
+		if (vcdfile.is_open())
+			write_vcd_header();
+		if (fstfile)
+			write_fst_header();
+	}
+
+	void write_output_step(int t)
+	{
+		if (vcdfile.is_open())
+			write_vcd_step(t);
+		if (fstfile)
+			write_fst_step(t);
+	}
+
+	void write_output_end()
+	{
+		if (fstfile)
+			fstWriterClose(fstfile);
 	}
 
 	void update()
@@ -705,7 +905,7 @@ struct SimWorker : SimShared
 	void run(Module *topmod, int numcycles)
 	{
 		log_assert(top == nullptr);
-		top = new SimInstance(this, topmod);
+		top = new SimInstance(this, scope, topmod);
 
 		if (debug)
 			log("\n===== 0 =====\n");
@@ -720,24 +920,25 @@ struct SimWorker : SimShared
 
 		update();
 
-		write_vcd_header();
-		write_vcd_step(0);
+		write_output_header();
+		write_output_step(0);
 
 		for (int cycle = 0; cycle < numcycles; cycle++)
 		{
 			if (debug)
 				log("\n===== %d =====\n", 10*cycle + 5);
-
+			else
+				log("Simulating cycle %d.\n", (cycle*2)+1);
 			set_inports(clock, State::S0);
 			set_inports(clockn, State::S1);
 
 			update();
-			write_vcd_step(10*cycle + 5);
+			write_output_step(10*cycle + 5);
 
 			if (debug)
 				log("\n===== %d =====\n", 10*cycle + 10);
 			else
-				log("Simulating cycle %d.\n", cycle+1);
+				log("Simulating cycle %d.\n", (cycle*2)+2);
 
 			set_inports(clock, State::S1);
 			set_inports(clockn, State::S0);
@@ -748,11 +949,132 @@ struct SimWorker : SimShared
 			}
 
 			update();
-			write_vcd_step(10*cycle + 10);
+			write_output_step(10*cycle + 10);
 		}
 
-		write_vcd_step(10*numcycles + 2);
+		write_output_step(10*numcycles + 2);
 
+		write_output_end();
+
+		if (writeback) {
+			pool<Module*> wbmods;
+			top->writeback(wbmods);
+		}
+	}
+
+	void run_cosim(Module *topmod, int numcycles)
+	{
+		log_assert(top == nullptr);
+		fst = new FstData(sim_filename);
+
+		if (scope.empty())
+			log_error("Scope must be defined for co-simulation.\n");
+
+		top = new SimInstance(this, scope, topmod);
+
+		std::vector<fstHandle> fst_clock;
+
+		for (auto portname : clock)
+		{
+			Wire *w = topmod->wire(portname);
+			if (!w)
+				log_error("Can't find port %s on module %s.\n", log_id(portname), log_id(top->module));
+			if (!w->port_input)
+				log_error("Clock port %s on module %s is not input.\n", log_id(portname), log_id(top->module));
+			fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(portname));
+			if (id==0)
+				log_error("Can't find port %s.%s in FST.\n", scope.c_str(), log_id(portname));
+			fst_clock.push_back(id);
+		}
+		for (auto portname : clockn)
+		{
+			Wire *w = topmod->wire(portname);
+			if (!w)
+				log_error("Can't find port %s on module %s.\n", log_id(portname), log_id(top->module));
+			if (!w->port_input)
+				log_error("Clock port %s on module %s is not input.\n", log_id(portname), log_id(top->module));
+			fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(portname));
+			if (id==0)
+				log_error("Can't find port %s.%s in FST.\n", scope.c_str(), log_id(portname));
+			fst_clock.push_back(id);
+		}
+		if (fst_clock.size()==0)
+			log_error("No clock signals defined for input file\n");
+
+		SigMap sigmap(topmod);
+		std::map<Wire*,fstHandle> inputs;
+
+		for (auto wire : topmod->wires()) {
+			if (wire->port_input) {
+				fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
+				if (id==0)
+					log_error("Unable to find required '%s' signal in file\n",(scope + "." + RTLIL::unescape_id(wire->name)).c_str());
+				inputs[wire] = id;
+			}
+		}
+
+		uint64_t startCount = 0;
+		uint64_t stopCount = 0;
+		if (start_time==0) {
+			if (start_time < fst->getStartTime())
+				log_warning("Start time is before simulation file start time\n");
+			startCount = fst->getStartTime();
+		} else if (start_time==-1) 
+			startCount = fst->getEndTime();
+		else {
+			startCount = start_time / fst->getTimescale();
+			if (startCount > fst->getEndTime()) {
+				startCount = fst->getEndTime();
+				log_warning("Start time is after simulation file end time\n");
+			}
+		}
+		if (stop_time==0) {
+			if (stop_time < fst->getStartTime())
+				log_warning("Stop time is before simulation file start time\n");
+			stopCount = fst->getStartTime();
+		} else if (stop_time==-1) 
+			stopCount = fst->getEndTime();
+		else {
+			stopCount = stop_time / fst->getTimescale();
+			if (stopCount > fst->getEndTime()) {
+				stopCount = fst->getEndTime();
+				log_warning("Stop time is after simulation file end time\n");
+			}
+		}
+		if (stopCount<startCount) {
+			log_error("Stop time is before start time\n");
+		}
+		auto samples = fst->getAllEdges(fst_clock, startCount, stopCount);
+
+		// Limit to number of cycles if provided
+		if (cycles_set && ((size_t)(numcycles *2) < samples.size()))
+			samples.erase(samples.begin() + (numcycles*2), samples.end());
+
+		// Add setup time (start time)
+		if (samples.empty() || samples.front()!=startCount)
+			samples.insert(samples.begin(), startCount);
+
+		fst->reconstructAllAtTimes(samples);
+		bool initial = true;
+		int cycle = 0;
+		log("Co-simulation from %lu%s to %lu%s\n", (unsigned long)startCount, fst->getTimescaleString(), (unsigned long)stopCount, fst->getTimescaleString());
+		for(auto &time : samples) {
+			log("Co-simulating cycle %d [%lu%s].\n", cycle, (unsigned long)time, fst->getTimescaleString());
+			for(auto &item : inputs) {
+				std::string v = fst->valueAt(item.second, time);
+				top->set_state(item.first, Const::from_string(v));
+			}
+			if (initial) {
+				top->setInitState(time);
+				initial = false;
+			}
+			update();
+
+			bool status = top->checkSignals(time);
+			if (status)
+				log_error("Signal difference\n");
+			cycle++;
+		}
 		if (writeback) {
 			pool<Module*> wbmods;
 			top->writeback(wbmods);
@@ -772,6 +1094,9 @@ struct SimPass : public Pass {
 		log("\n");
 		log("    -vcd <filename>\n");
 		log("        write the simulation results to the given VCD file\n");
+		log("\n");
+		log("    -fst <filename>\n");
+		log("        write the simulation results to the given FST file\n");
 		log("\n");
 		log("    -clock <portname>\n");
 		log("        name of top-level clock input\n");
@@ -795,13 +1120,40 @@ struct SimPass : public Pass {
 		log("        include the specified timescale declaration in the vcd\n");
 		log("\n");
 		log("    -n <integer>\n");
-		log("        number of cycles to simulate (default: 20)\n");
+		log("        number of clock cycles to simulate (default: 20)\n");
 		log("\n");
 		log("    -a\n");
-		log("        include all nets in VCD output, not just those with public names\n");
+		log("        use all nets in VCD/FST operations, not just those with public names\n");
 		log("\n");
 		log("    -w\n");
 		log("        writeback mode: use final simulation state as new init state\n");
+		log("\n");
+		log("    -r\n");
+		log("        read simulation results file (file formats supported: FST)\n");
+		log("\n");
+		log("    -scope\n");
+		log("        scope of simulation top model\n");
+		log("\n");
+		log("    -at <time>\n");
+		log("        sets start and stop time\n");
+		log("\n");
+		log("    -start <time>\n");
+		log("        start co-simulation in arbitary time (default 0)\n");
+		log("\n");
+		log("    -stop <time>\n");
+		log("        stop co-simulation in arbitary time (default END)\n");
+		log("\n");
+		log("    -sim\n");
+		log("        simulation with stimulus from FST (default)\n");
+		log("\n");
+		log("    -sim-cmp\n");
+		log("        co-simulation expect exact match\n");
+		log("\n");
+		log("    -sim-gold\n");
+		log("        co-simulation, x in simulation can match any value in FST\n");
+		log("\n");
+		log("    -sim-gate\n");
+		log("        co-simulation, x in FST can match any value in simulation\n");
 		log("\n");
 		log("    -d\n");
 		log("        enable debug output\n");
@@ -811,6 +1163,7 @@ struct SimPass : public Pass {
 	{
 		SimWorker worker;
 		int numcycles = 20;
+		bool start_set = false, stop_set = false, at_set = false;
 
 		log_header(design, "Executing SIM pass (simulate the circuit).\n");
 
@@ -822,8 +1175,15 @@ struct SimPass : public Pass {
 				worker.vcdfile.open(vcd_filename.c_str());
 				continue;
 			}
+			if (args[argidx] == "-fst" && argidx+1 < args.size()) {
+				std::string fst_filename = args[++argidx];
+				rewrite_filename(fst_filename);
+				worker.fstfile = (struct fstContext *)fstWriterCreate(fst_filename.c_str(),1);
+				continue;
+			}
 			if (args[argidx] == "-n" && argidx+1 < args.size()) {
 				numcycles = atoi(args[++argidx].c_str());
+				worker.cycles_set = true;
 				continue;
 			}
 			if (args[argidx] == "-rstlen" && argidx+1 < args.size()) {
@@ -866,9 +1226,55 @@ struct SimPass : public Pass {
 				worker.zinit = true;
 				continue;
 			}
+			if (args[argidx] == "-r" && argidx+1 < args.size()) {
+				std::string sim_filename = args[++argidx];
+				rewrite_filename(sim_filename);
+				worker.sim_filename = sim_filename;
+				continue;
+			}
+			if (args[argidx] == "-scope" && argidx+1 < args.size()) {
+				worker.scope = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-start" && argidx+1 < args.size()) {
+				worker.start_time = stringToTime(args[++argidx]);
+				start_set = true;
+				continue;
+			}
+			if (args[argidx] == "-stop" && argidx+1 < args.size()) {
+				worker.stop_time = stringToTime(args[++argidx]);
+				stop_set = true;
+				continue;
+			}
+			if (args[argidx] == "-at" && argidx+1 < args.size()) {
+				worker.start_time = stringToTime(args[++argidx]);
+				worker.stop_time = worker.start_time;
+				at_set = true;
+				continue;
+			}
+			if (args[argidx] == "-sim") {
+				worker.sim_mode = SimulationMode::sim;
+				continue;
+			}
+			if (args[argidx] == "-sim-cmp") {
+				worker.sim_mode = SimulationMode::cmp;
+				continue;
+			}
+			if (args[argidx] == "-sim-gold") {
+				worker.sim_mode = SimulationMode::gold;
+				continue;
+			}
+			if (args[argidx] == "-sim-gate") {
+				worker.sim_mode = SimulationMode::gate;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
+		if (at_set && (start_set || stop_set || worker.cycles_set))
+			log_error("'at' option can only be defined separate of 'start','stop' and 'n'\n");
+		if (stop_set && worker.cycles_set)
+			log_error("'stop' and 'n' can only be used exclusively'\n");
 
 		Module *top_mod = nullptr;
 
@@ -884,7 +1290,10 @@ struct SimPass : public Pass {
 			top_mod = mods.front();
 		}
 
-		worker.run(top_mod, numcycles);
+		if (worker.sim_filename.empty())
+			worker.run(top_mod, numcycles);
+		else
+			worker.run_cosim(top_mod, numcycles);
 	}
 } SimPass;
 
