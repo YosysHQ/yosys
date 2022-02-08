@@ -277,24 +277,23 @@ struct SynthEcp5Pass : public ScriptPass
 			run("opt_clean");
 		}
 
-		if (!nobram && check_label("map_bram", "(skip if -nobram)"))
+		if (check_label("map_ram"))
 		{
-			run("memory_bram -rules +/ecp5/brams.txt");
-			run("techmap -map +/ecp5/brams_map.v");
-		}
-
-		if (!nolutram && check_label("map_lutram", "(skip if -nolutram)"))
-		{
-			run("memory_bram -rules +/ecp5/lutrams.txt");
-			run("techmap -map +/ecp5/lutrams_map.v");
+			std::string args = "";
+			if (nobram)
+				args += " -no-auto-block";
+			if (nolutram)
+				args += " -no-auto-distributed";
+			if (help_mode)
+				args += " [-no-auto-block] [-no-auto-distributed]";
+			run("memory_libmap -lib +/ecp5/lutrams.txt -lib +/ecp5/brams.txt" + args, "(-no-auto-block if -nobram, -no-auto-distributed if -nolutram)");
+			run("techmap -map +/ecp5/lutrams_map.v -map +/ecp5/brams_map.v");
 		}
 
 		if (check_label("map_ffram"))
 		{
 			run("opt -fast -mux_undef -undriven -fine");
-			run("memory_map -iattr -attr !ram_block -attr !rom_block -attr logic_block "
-			    "-attr syn_ramstyle=auto -attr syn_ramstyle=registers "
-			    "-attr syn_romstyle=auto -attr syn_romstyle=logic");
+			run("memory_map");
 			run("opt -undriven -fine");
 		}
 
