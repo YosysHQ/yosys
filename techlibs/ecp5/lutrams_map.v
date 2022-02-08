@@ -1,28 +1,30 @@
-module \$__TRELLIS_DPR16X4 (CLK1, A1ADDR, A1DATA, B1ADDR, B1DATA, B1EN);
-	parameter [63:0] INIT = 64'bx;
-	parameter CLKPOL2 = 1;
-	input CLK1;
+module $__TRELLIS_DPR16X4_(...);
 
-	input [3:0] A1ADDR;
-	output [3:0] A1DATA;
+parameter INIT = 64'bx;
+parameter PORT_W_CLK_POL = 1;
 
-	input [3:0] B1ADDR;
-	input [3:0] B1DATA;
-	input B1EN;
+input PORT_W_CLK;
+input [3:0] PORT_W_ADDR;
+input [3:0] PORT_W_WR_DATA;
+input PORT_W_WR_EN;
 
-	localparam WCKMUX = CLKPOL2 ? "WCK" : "INV";
+input [3:0] PORT_R_ADDR;
+output [3:0] PORT_R_RD_DATA;
 
-	TRELLIS_DPR16X4 #(
-		.INITVAL(INIT),
-		.WCKMUX(WCKMUX),
-		.WREMUX("WRE")
-	) _TECHMAP_REPLACE_ (
-		.RAD(A1ADDR),
-		.DO(A1DATA),
+localparam WCKMUX = PORT_W_CLK_POL ? "WCK" : "INV";
 
-		.WAD(B1ADDR),
-		.DI(B1DATA),
-		.WCK(CLK1),
-		.WRE(B1EN)
-	);
+TRELLIS_DPR16X4 #(
+	.INITVAL(INIT),
+	.WCKMUX(WCKMUX),
+	.WREMUX("WRE")
+) _TECHMAP_REPLACE_ (
+	.RAD(PORT_R_ADDR),
+	.DO(PORT_R_RD_DATA),
+
+	.WAD(PORT_W_ADDR),
+	.DI(PORT_W_WR_DATA),
+	.WCK(PORT_W_CLK),
+	.WRE(PORT_W_WR_EN)
+);
+
 endmodule
