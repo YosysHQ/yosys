@@ -296,33 +296,24 @@ struct SynthNexusPass : public ScriptPass
 			run("opt_clean");
 		}
 
-		if (!nolram && check_label("map_lram", "(skip if -nolram)"))
+		if (check_label("map_ram"))
 		{
-			run("memory_bram -rules +/nexus/lrams.txt");
-			run("setundef -zero -params t:$__NX_PDPSC512K");
-			run("techmap -map +/nexus/lrams_map.v");
-		}
-
-		if (!nobram && check_label("map_bram", "(skip if -nobram)"))
-		{
-			run("memory_bram -rules +/nexus/brams.txt");
-			run("setundef -zero -params t:$__NX_PDP16K");
-			run("techmap -map +/nexus/brams_map.v");
-		}
-
-		if (!nolutram && check_label("map_lutram", "(skip if -nolutram)"))
-		{
-			run("memory_bram -rules +/nexus/lutrams.txt");
-			run("setundef -zero -params t:$__NEXUS_DPR16X4");
-			run("techmap -map +/nexus/lutrams_map.v");
+			std::string args = "";
+			args += " -no-auto-huge";
+			if (nobram)
+				args += " -no-auto-block";
+			if (nolutram)
+				args += " -no-auto-distributed";
+			if (help_mode)
+				args += " [-no-auto-block] [-no-auto-distributed]";
+			run("memory_libmap -lib +/nexus/lutrams.txt -lib +/nexus/brams.txt -lib +/nexus/lrams.txt" + args, "(-no-auto-block if -nobram, -no-auto-distributed if -nolutram)");
+			run("techmap -map +/nexus/lutrams_map.v -map +/nexus/brams_map.v -map +/nexus/lrams_map.v");
 		}
 
 		if (check_label("map_ffram"))
 		{
 			run("opt -fast -mux_undef -undriven -fine");
-			run("memory_map -iattr -attr !ram_block -attr !rom_block -attr logic_block "
-			    "-attr syn_ramstyle=auto -attr syn_ramstyle=registers "
-			    "-attr syn_romstyle=auto -attr syn_romstyle=logic");
+			run("memory_map");
 			run("opt -undriven -fine");
 		}
 
