@@ -3,7 +3,7 @@ design -save read
 
 # Check that we use the right dual and single clock variants
 
-chparam -set ADDRESS_WIDTH 10 -set DATA_WIDTH 18 sync_ram_sdp
+chparam -set ADDRESS_WIDTH 9 -set DATA_WIDTH 36 sync_ram_sdp
 synth_nexus -top sync_ram_sdp
 cd sync_ram_sdp
 select -assert-count 1 t:PDPSC16K
@@ -11,7 +11,7 @@ select -assert-none t:PDPSC16K t:INV t:IB t:OB t:VLO t:VHI %% t:* %D
 
 design -reset
 read_verilog blockram_dc.v
-chparam -set ADDRESS_WIDTH 10 -set DATA_WIDTH 18 sync_ram_sdp_dc
+chparam -set ADDRESS_WIDTH 9 -set DATA_WIDTH 36 sync_ram_sdp_dc
 synth_nexus -top sync_ram_sdp_dc
 cd sync_ram_sdp_dc
 select -assert-count 1 t:PDP16K
