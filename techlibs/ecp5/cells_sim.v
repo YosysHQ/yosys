@@ -204,7 +204,7 @@ module TRELLIS_DPR16X4 (
 	integer i;
 	initial begin
 		for (i = 0; i < 16; i = i + 1)
-			mem[i] <= {INITVAL[i+3], INITVAL[i+2], INITVAL[i+1], INITVAL[i]};
+			mem[i] <= INITVAL[4*i +: 4];
 	end
 
 	wire muxwck = (WCKMUX == "INV") ? ~WCK : WCK;
