@@ -2296,9 +2296,11 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("\n");
 #endif
-		log("    verific {-f|-F} <command-file>\n");
+		log("    verific {-f|-F} [-vlog95|-vlog2k|-sv2005|-sv2009|-sv2012|-sv|-formal] <command-file>\n");
 		log("\n");
 		log("Load and execute the specified command file.\n");
+		log("Override verilog parsing mode can be set.\n");
+		log("The macros YOSYS, SYNTHESIS/FORMAL, and VERIFIC are defined implicitly.\n");
 		log("\n");
 		log("Command file parser supports following commands:\n");
 		log("    +define    - defines macro\n");
@@ -2664,11 +2666,51 @@ struct VerificPass : public Pass {
 		if (GetSize(args) > argidx && (args[argidx] == "-f" || args[argidx] == "-F"))
 		{
 			unsigned verilog_mode = veri_file::VERILOG_95; // default recommended by Verific
+			bool is_formal = false;
+			const char* filename = nullptr;
 
 			Verific::veri_file::f_file_flags flags = (args[argidx] == "-f") ? veri_file::F_FILE_NONE : veri_file::F_FILE_CAPITAL;
-			Array *file_names = veri_file::ProcessFFile(args[++argidx].c_str(), flags, verilog_mode);
 
+			for (argidx++; argidx < GetSize(args); argidx++) {
+				if (args[argidx] == "-vlog95") {
+					verilog_mode = veri_file::VERILOG_95;
+					continue;
+				} else if (args[argidx] == "-vlog2k") {
+					verilog_mode = veri_file::VERILOG_2K;
+					continue;
+				} else if (args[argidx] == "-sv2005") {
+					verilog_mode = veri_file::SYSTEM_VERILOG_2005;
+					continue;
+				} else if (args[argidx] == "-sv2009") {
+					verilog_mode = veri_file::SYSTEM_VERILOG_2009;
+					continue;
+				} else if (args[argidx] == "-sv2012" || args[argidx] == "-sv" || args[argidx] == "-formal") {
+					verilog_mode = veri_file::SYSTEM_VERILOG;
+					if (args[argidx] == "-formal") is_formal = true;
+					continue;
+				} else if (args[argidx].compare(0, 1, "-") == 0) {
+					cmd_error(args, argidx, "unknown option");
+					goto check_error;
+				}
+
+				if (!filename) {
+					filename = args[argidx].c_str();
+					continue;
+				} else {
+					log_cmd_error("Only one filename can be specified.\n");
+				}
+			}
+			if (!filename)
+				log_cmd_error("Filname must be specified.\n");
+
+			unsigned analysis_mode = verilog_mode; // keep default as provided by user if not defined in file
+			Array *file_names = veri_file::ProcessFFile(filename, flags, analysis_mode);
+			if (analysis_mode != verilog_mode)
+				log_warning("Provided verilog mode differs from one specified in file.\n");
+
+			veri_file::DefineMacro("YOSYS");
 			veri_file::DefineMacro("VERIFIC");
+			veri_file::DefineMacro(is_formal ? "FORMAL" : "SYNTHESIS");
 
 			if (!veri_file::AnalyzeMultipleFiles(file_names, verilog_mode, work.c_str(), veri_file::MFCU)) {
 				verific_error_msg.clear();
