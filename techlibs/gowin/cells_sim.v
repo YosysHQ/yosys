@@ -674,51 +674,250 @@ end
 
 endmodule
 
-module RAM16S4 (DO, DI, AD, WRE, CLK);
-   parameter WIDTH  = 4;
-   parameter INIT_0 = 16'h0000;
-   parameter INIT_1 = 16'h0000;
-   parameter INIT_2 = 16'h0000;
-   parameter INIT_3 = 16'h0000;
-   
-   input  [WIDTH-1:0] AD;
-   input  [WIDTH-1:0] DI;
-   output [WIDTH-1:0] DO;
-   input 	      CLK;
-   input 	      WRE;
 
-  specify
-    (AD => DO) = (270, 405);
+module RAM16S1 (DO, DI, AD, WRE, CLK);
+
+parameter INIT_0 = 16'h0000;
+
+input [3:0] AD;
+input DI;
+output DO;
+input CLK;
+input WRE;
+
+specify
+	(AD *> DO) = (270, 405);
 	$setup(DI, posedge CLK, 62);
 	$setup(WRE, posedge CLK, 62);
 	$setup(AD, posedge CLK, 62);
-	(posedge CLK => (DO : {WIDTH{1'bx}})) = (474, 565);
-  endspecify
+	(posedge CLK => (DO : 1'bx)) = (474, 565);
+endspecify
 
-   reg [15:0] 	    mem0, mem1, mem2, mem3;
-   
-   initial begin
-      mem0 = INIT_0;
-      mem1 = INIT_1;
-      mem2 = INIT_2;
-      mem3 = INIT_3;	
-   end
-   
-   assign	DO[0] = mem0[AD];
-   assign	DO[1] = mem1[AD];
-   assign	DO[2] = mem2[AD];
-   assign	DO[3] = mem3[AD];
-   
-   always @(posedge CLK) begin
-      if (WRE) begin
-	 mem0[AD] <= DI[0];
-	 mem1[AD] <= DI[1];
-	 mem2[AD] <= DI[2];
-	 mem3[AD] <= DI[3];
-      end
-   end
-   
-endmodule // RAM16S4
+reg [15:0] mem;
+
+initial begin
+	mem = INIT_0;
+end
+
+assign DO = mem[AD];
+
+always @(posedge CLK) begin
+	if (WRE) begin
+		mem[AD] <= DI;
+	end
+end
+
+endmodule
+
+
+module RAM16S2 (DO, DI, AD, WRE, CLK);
+
+parameter INIT_0 = 16'h0000;
+parameter INIT_1 = 16'h0000;
+
+input [3:0] AD;
+input [1:0] DI;
+output [1:0] DO;
+input CLK;
+input WRE;
+
+specify
+	(AD *> DO) = (270, 405);
+	$setup(DI, posedge CLK, 62);
+	$setup(WRE, posedge CLK, 62);
+	$setup(AD, posedge CLK, 62);
+	(posedge CLK => (DO : 2'bx)) = (474, 565);
+endspecify
+
+reg [15:0] mem0, mem1;
+
+initial begin
+	mem0 = INIT_0;
+	mem1 = INIT_1;
+end
+
+assign DO[0] = mem0[AD];
+assign DO[1] = mem1[AD];
+
+always @(posedge CLK) begin
+	if (WRE) begin
+		mem0[AD] <= DI[0];
+		mem1[AD] <= DI[1];
+	end
+end
+
+endmodule
+
+
+module RAM16S4 (DO, DI, AD, WRE, CLK);
+
+parameter INIT_0 = 16'h0000;
+parameter INIT_1 = 16'h0000;
+parameter INIT_2 = 16'h0000;
+parameter INIT_3 = 16'h0000;
+
+input [3:0] AD;
+input [3:0] DI;
+output [3:0] DO;
+input CLK;
+input WRE;
+
+specify
+	(AD *> DO) = (270, 405);
+	$setup(DI, posedge CLK, 62);
+	$setup(WRE, posedge CLK, 62);
+	$setup(AD, posedge CLK, 62);
+	(posedge CLK => (DO : 4'bx)) = (474, 565);
+endspecify
+
+reg [15:0] mem0, mem1, mem2, mem3;
+
+initial begin
+	mem0 = INIT_0;
+	mem1 = INIT_1;
+	mem2 = INIT_2;
+	mem3 = INIT_3;
+end
+
+assign DO[0] = mem0[AD];
+assign DO[1] = mem1[AD];
+assign DO[2] = mem2[AD];
+assign DO[3] = mem3[AD];
+
+always @(posedge CLK) begin
+	if (WRE) begin
+		mem0[AD] <= DI[0];
+		mem1[AD] <= DI[1];
+		mem2[AD] <= DI[2];
+		mem3[AD] <= DI[3];
+	end
+end
+
+endmodule
+
+
+module RAM16SDP1 (DO, DI, WAD, RAD, WRE, CLK);
+
+parameter INIT_0 = 16'h0000;
+
+input [3:0] WAD;
+input [3:0] RAD;
+input DI;
+output DO;
+input CLK;
+input WRE;
+
+specify
+	(RAD *> DO) = (270, 405);
+	$setup(DI, posedge CLK, 62);
+	$setup(WRE, posedge CLK, 62);
+	$setup(WAD, posedge CLK, 62);
+	(posedge CLK => (DO : 1'bx)) = (474, 565);
+endspecify
+
+reg [15:0] mem;
+
+initial begin
+	mem = INIT_0;
+end
+
+assign DO = mem[RAD];
+
+always @(posedge CLK) begin
+	if (WRE) begin
+		mem[WAD] <= DI;
+	end
+end
+
+endmodule
+
+
+module RAM16SDP2 (DO, DI, WAD, RAD, WRE, CLK);
+
+parameter INIT_0 = 16'h0000;
+parameter INIT_1 = 16'h0000;
+
+input [3:0] WAD;
+input [3:0] RAD;
+input [1:0] DI;
+output [1:0] DO;
+input CLK;
+input WRE;
+
+specify
+	(RAD *> DO) = (270, 405);
+	$setup(DI, posedge CLK, 62);
+	$setup(WRE, posedge CLK, 62);
+	$setup(WAD, posedge CLK, 62);
+	(posedge CLK => (DO : 2'bx)) = (474, 565);
+endspecify
+
+reg [15:0] mem0, mem1;
+
+initial begin
+	mem0 = INIT_0;
+	mem1 = INIT_1;
+end
+
+assign DO[0] = mem0[RAD];
+assign DO[1] = mem1[RAD];
+
+always @(posedge CLK) begin
+	if (WRE) begin
+		mem0[WAD] <= DI[0];
+		mem1[WAD] <= DI[1];
+	end
+end
+
+endmodule
+
+
+module RAM16SDP4 (DO, DI, WAD, RAD, WRE, CLK);
+
+parameter INIT_0 = 16'h0000;
+parameter INIT_1 = 16'h0000;
+parameter INIT_2 = 16'h0000;
+parameter INIT_3 = 16'h0000;
+
+input [3:0] WAD;
+input [3:0] RAD;
+input [3:0] DI;
+output [3:0] DO;
+input CLK;
+input WRE;
+
+specify
+	(RAD *> DO) = (270, 405);
+	$setup(DI, posedge CLK, 62);
+	$setup(WRE, posedge CLK, 62);
+	$setup(WAD, posedge CLK, 62);
+	(posedge CLK => (DO : 4'bx)) = (474, 565);
+endspecify
+
+reg [15:0] mem0, mem1, mem2, mem3;
+
+initial begin
+	mem0 = INIT_0;
+	mem1 = INIT_1;
+	mem2 = INIT_2;
+	mem3 = INIT_3;
+end
+
+assign DO[0] = mem0[RAD];
+assign DO[1] = mem1[RAD];
+assign DO[2] = mem2[RAD];
+assign DO[3] = mem3[RAD];
+
+always @(posedge CLK) begin
+	if (WRE) begin
+		mem0[WAD] <= DI[0];
+		mem1[WAD] <= DI[1];
+		mem2[WAD] <= DI[2];
+		mem3[WAD] <= DI[3];
+	end
+end
+
+endmodule
 
 
 (* blackbox *)

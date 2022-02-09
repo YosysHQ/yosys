@@ -7,12 +7,11 @@ memory
 opt -full
 
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
-#ERROR: Called with -verify and proof did fail!
-#sat -verify -prove-asserts -seq 5 -set-init-zero -show-inputs -show-outputs miter
+sat -verify -prove-asserts -seq 5 -set-init-zero -show-inputs -show-outputs miter
 sat -prove-asserts -seq 5 -set-init-zero -show-inputs -show-outputs miter
 
 design -load postopt
 cd lutram_1w1r
-select -assert-count 8 t:RAM16S4
+select -assert-count 8 t:RAM16SDP4
 # other logic present that is not simple
 #select -assert-none t:RAM16S4 %% t:* %D
