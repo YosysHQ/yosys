@@ -15,13 +15,14 @@ module \$__GW1NR_RAM16S4 (CLK1, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
 
         `include "brams_init3.vh"
 
-  RAM16S4
+  RAM16SDP4
    #(.INIT_0(INIT_0),
      .INIT_1(INIT_1),
      .INIT_2(INIT_2),
      .INIT_3(INIT_3))
    _TECHMAP_REPLACE_
-     (.AD(B1ADDR),
+     (.WAD(B1ADDR),
+      .RAD(A1ADDR),
       .DI(B1DATA),
       .DO(A1DATA),
       .CLK(CLK1),
