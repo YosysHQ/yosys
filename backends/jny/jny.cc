@@ -38,6 +38,10 @@ struct JnyWriter
         bool _use_selection;
         std::unordered_map<std::string, std::vector<Cell*>> _cells{};
 
+        bool _include_connections;
+        bool _include_attributes;
+        bool _include_properties;
+
         // XXX(aki): this was pulled from the json backend, needs to be pulled
         // out possibly into some sort of utilities file, or integrated into rtlil.h
         // directly
@@ -78,7 +82,10 @@ struct JnyWriter
         }
 
     public:
-    JnyWriter(std::ostream &f, bool use_selection) noexcept: f(f), _use_selection(use_selection) { }
+    JnyWriter(std::ostream &f, bool use_selection, bool connections, bool attributes, bool properties) noexcept:
+        f{f}, _use_selection{use_selection},
+        _include_connections{connections}, _include_attributes{attributes}, _include_properties{properties}
+         { }
 
     void write_metadata(Design *design, uint16_t indent_level = 0)
     {
@@ -90,6 +97,31 @@ struct JnyWriter
         f << stringf("  \"generator\": %s,\n", get_string(yosys_version_str).c_str());
         // XXX(aki): Replace this with a proper version info eventually:tm:
         f << "  \"version\": \"0.0.0\",\n";
+
+        f << "  \"features\": [";
+
+        size_t fnum{0};
+        if (_include_connections) {
+            ++fnum;
+            f << "\"connections\"";
+        }
+
+        if (_include_attributes) {
+            if (fnum > 0)
+                f << ", ";
+            ++fnum;
+            f << "\"attributes\"";
+        }
+
+        if (_include_properties) {
+            if (fnum > 0)
+                f << ", ";
+            ++fnum;
+            f << "\"properties\"";
+        }
+
+        f << "],\n";
+
         f << "  \"modules\": [\n";
 
         bool first{true};
@@ -125,18 +157,21 @@ struct JnyWriter
         }
         f << "\n";
 
-        f << _indent << "  ],\n";
-        f << _indent << "  \"connections\": [\n";
+        f << _indent << "  ]";
+        if (_include_connections) {
+            f << _indent << ",\n  \"connections\": [\n";
 
-        f << _indent << "  ],\n";
-        f << _indent << "  \"attributes\": {\n";
+            f << _indent << "  ]";
+        }
+        if (_include_attributes) {
+            f << _indent << ",\n  \"attributes\": {\n";
 
-        write_prams(mod->attributes, indent_level + 2);
+            write_prams(mod->attributes, indent_level + 2);
 
-        f << "\n";
-
-        f << _indent << "  }\n";
-        f << _indent << "}";
+            f << "\n";
+            f << _indent << "  }";
+        }
+        f << "\n" << _indent << "}";
     }
 
     void write_cell_ports(RTLIL::Cell* port_cell, uint64_t indent_level = 0) {
@@ -234,22 +269,27 @@ struct JnyWriter
         log_assert(cell != nullptr);
 
         f << _indent << "  {\n";
-        f << stringf("    %s\"name\": %s,\n", _indent.c_str(), get_string(RTLIL::unescape_id(cell->name)).c_str());
-        f << _indent << "    \"attributes\": {\n";
+        f << stringf("    %s\"name\": %s", _indent.c_str(), get_string(RTLIL::unescape_id(cell->name)).c_str());
 
-        write_prams(cell->attributes, indent_level + 2);
+        if (_include_attributes) {
+            f << _indent << ",\n    \"attributes\": {\n";
 
-        f << "\n";
+            write_prams(cell->attributes, indent_level + 2);
 
-        f << _indent << "    },\n";
-        f << _indent << "    \"parameters\": {\n";
+            f << "\n";
+            f << _indent << "    }";
+        }
 
-        write_prams(cell->parameters, indent_level + 2);
+        if (_include_properties) {
+            f << _indent << ",\n    \"parameters\": {\n";
 
-        f << "\n";
+            write_prams(cell->parameters, indent_level + 2);
 
-        f << _indent << "    }\n";
-        f << _indent << "  }";
+            f << "\n";
+            f << _indent << "    }";
+        }
+
+        f << "\n" << _indent << "  }";
     }
 };
 
@@ -260,18 +300,50 @@ struct JnyBackend : public Backend {
         log("\n");
         log("    jny [options] [selection]\n");
         log("\n");
+        log("    -connections\n");
+        log("        Include connection information in the netlist output.\n");
+        log("\n");
+        log("    -attributes\n");
+        log("        Include attributed information in the netlist output.\n");
+        log("\n");
+        log("    -properties\n");
+        log("        Include property information in the netlist output.\n");
+        log("\n");
         log("Write a JSON metadata for the current design\n");
         log("\n");
         log("\n");
     }
 
     void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override {
+
+        bool connections{false};
+        bool attributes{false};
+        bool properties{false};
+
         size_t argidx{1};
+        for (; argidx < args.size(); argidx++) {
+            if (args[argidx] == "-connections") {
+                connections = true;
+                continue;
+            }
+
+            if (args[argidx] == "-attributes") {
+                attributes = true;
+                continue;
+            }
+
+            if (args[argidx] == "-properties") {
+                properties = true;
+                continue;
+            }
+
+            break;
+        }
         extra_args(f, filename, args, argidx);
 
         log_header(design, "Executing jny backend.\n");
 
-        JnyWriter jny_writer(*f, false);
+        JnyWriter jny_writer(*f, false, connections, attributes, properties);
         jny_writer.write_metadata(design);
     }
 
@@ -291,19 +363,47 @@ struct JnyPass : public Pass {
         log("    -o <filename>\n");
         log("        write to the specified file.\n");
         log("\n");
+        log("    -connections\n");
+        log("        Include connection information in the netlist output.\n");
+        log("\n");
+        log("    -attributes\n");
+        log("        Include attributed information in the netlist output.\n");
+        log("\n");
+        log("    -properties\n");
+        log("        Include property information in the netlist output.\n");
+        log("\n");
         log("See 'help write_jny' for a description of the JSON format used.\n");
         log("\n");
     }
     void execute(std::vector<std::string> args, RTLIL::Design *design) override {
         std::string filename{};
 
-        size_t argidx;
-        for (argidx = 1; argidx < args.size(); argidx++)
-        {
+        bool connections{false};
+        bool attributes{false};
+        bool properties{false};
+
+        size_t argidx{1};
+        for (; argidx < args.size(); argidx++) {
             if (args[argidx] == "-o" && argidx+1 < args.size()) {
                 filename = args[++argidx];
                 continue;
             }
+
+            if (args[argidx] == "-connections") {
+                connections = true;
+                continue;
+            }
+
+            if (args[argidx] == "-attributes") {
+                attributes = true;
+                continue;
+            }
+
+            if (args[argidx] == "-properties") {
+                properties = true;
+                continue;
+            }
+
             break;
         }
         extra_args(args, argidx, design);
@@ -325,7 +425,7 @@ struct JnyPass : public Pass {
         }
 
 
-        JnyWriter jny_writer(*f, false);
+        JnyWriter jny_writer(*f, false, connections, attributes, properties);
         jny_writer.write_metadata(design);
 
         if (!filename.empty()) {
