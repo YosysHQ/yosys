@@ -344,7 +344,7 @@ void AstNode::dumpAst(FILE *f, std::string indent) const
 	}
 	if (!multirange_swapped.empty()) {
 		fprintf(f, " multirange_swapped=[");
-		for (auto v : multirange_swapped)
+		for (bool v : multirange_swapped)
 			fprintf(f, " %d", v);
 		fprintf(f, " ]");
 	}
