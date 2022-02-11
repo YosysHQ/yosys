@@ -10,6 +10,7 @@ Yosys 0.14 .. Yosys 0.14-dev
       reversed dimensions
     - Fixed elaboration of dynamic range assignments where the vector is
       reversed or is not zero-indexed
+    - Added frontend support for time scale delay values (e.g., `#1ns`)
 
  * SystemVerilog
     - Added support for accessing whole sub-structures in expressions
