@@ -369,7 +369,7 @@ static void rewriteGenForDeclInit(AstNode *loop)
 %token TOK_BIT_OR_ASSIGN TOK_BIT_AND_ASSIGN TOK_BIT_XOR_ASSIGN TOK_ADD_ASSIGN
 %token TOK_SUB_ASSIGN TOK_DIV_ASSIGN TOK_MOD_ASSIGN TOK_MUL_ASSIGN
 %token TOK_SHL_ASSIGN TOK_SHR_ASSIGN TOK_SSHL_ASSIGN TOK_SSHR_ASSIGN
-%token TOK_BIND
+%token TOK_BIND TOK_TIME_SCALE
 
 %type <ast> range range_or_multirange non_opt_range non_opt_multirange
 %type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list non_io_wire_type io_wire_type
@@ -779,6 +779,9 @@ non_opt_delay:
 	'#' TOK_ID { delete $2; } |
 	'#' TOK_CONSTVAL { delete $2; } |
 	'#' TOK_REALVAL { delete $2; } |
+	// our `expr` doesn't have time_scale, so we need the parenthesized variant
+	'#' TOK_TIME_SCALE |
+	'#' '(' TOK_TIME_SCALE ')' |
 	'#' '(' mintypmax_expr ')' |
 	'#' '(' mintypmax_expr ',' mintypmax_expr ')' |
 	'#' '(' mintypmax_expr ',' mintypmax_expr ',' mintypmax_expr ')';

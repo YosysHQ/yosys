@@ -128,6 +128,11 @@ static bool isUserType(std::string &s)
 %x IMPORT_DPI
 %x BASED_CONST
 
+UNSIGNED_NUMBER [0-9][0-9_]*
+FIXED_POINT_NUMBER_DEC [0-9][0-9_]*\.[0-9][0-9_]*([eE][-+]?[0-9_]+)?
+FIXED_POINT_NUMBER_NO_DEC [0-9][0-9_]*[eE][-+]?[0-9_]+
+TIME_SCALE_SUFFIX [munpf]?s
+
 %%
 	// Initialise comment_caller to something to avoid a "maybe undefined"
 	// warning from GCC.
@@ -297,7 +302,7 @@ static bool isUserType(std::string &s)
 "union"   { SV_KEYWORD(TOK_UNION); }
 "packed"  { SV_KEYWORD(TOK_PACKED); }
 
-[0-9][0-9_]* {
+{UNSIGNED_NUMBER} {
 	yylval->string = new std::string(yytext);
 	return TOK_CONSTVAL;
 }
@@ -319,12 +324,12 @@ static bool isUserType(std::string &s)
 	return TOK_BASED_CONSTVAL;
 }
 
-[0-9][0-9_]*\.[0-9][0-9_]*([eE][-+]?[0-9_]+)? {
+{FIXED_POINT_NUMBER_DEC} {
 	yylval->string = new std::string(yytext);
 	return TOK_REALVAL;
 }
 
-[0-9][0-9_]*[eE][-+]?[0-9_]+ {
+{FIXED_POINT_NUMBER_NO_DEC} {
 	yylval->string = new std::string(yytext);
 	return TOK_REALVAL;
 }
@@ -573,6 +578,10 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 	if (!specify_mode) return TOK_IGNORED_SPECIFY_AND;
 	return TOK_SPECIFY_AND;
 }
+
+{UNSIGNED_NUMBER}{TIME_SCALE_SUFFIX} { return TOK_TIME_SCALE; }
+{FIXED_POINT_NUMBER_DEC}{TIME_SCALE_SUFFIX} { return TOK_TIME_SCALE; }
+{FIXED_POINT_NUMBER_NO_DEC}{TIME_SCALE_SUFFIX} { return TOK_TIME_SCALE; }
 
 <INITIAL,BASED_CONST>"/*" { comment_caller=YY_START; BEGIN(COMMENT); }
 <COMMENT>.    /* ignore comment body */
