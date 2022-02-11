@@ -583,7 +583,10 @@ if aimfile is not None:
 
             if not got_topt:
                 skip_steps = max(skip_steps, step)
-                num_steps = max(num_steps, step+1)
+                # some solvers optimize the properties so that they fail one cycle early,
+                # thus we check the properties in the cycle the aiger witness ends, and
+                # if that doesn't work, we check the cycle after that as well.
+                num_steps = max(num_steps, step+2)
             step += 1
 
 if btorwitfile is not None:
