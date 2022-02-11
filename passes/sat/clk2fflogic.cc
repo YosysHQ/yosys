@@ -40,7 +40,10 @@ struct Clk2fflogicPass : public Pass {
 		log("\n");
 	}
 	SigSpec wrap_async_control(Module *module, SigSpec sig, bool polarity) {
-		Wire *past_sig = module->addWire(NEW_ID, GetSize(sig));
+		return wrap_async_control(module, sig, polarity, NEW_ID);
+	}
+	SigSpec wrap_async_control(Module *module, SigSpec sig, bool polarity, IdString past_sig_id) {
+		Wire *past_sig = module->addWire(past_sig_id, GetSize(sig));
 		module->addFf(NEW_ID, sig, past_sig);
 		if (polarity)
 			sig = module->Or(NEW_ID, sig, past_sig);
@@ -105,7 +108,7 @@ struct Clk2fflogicPass : public Pass {
 							i, log_id(module), log_id(mem.memid), log_signal(port.clk),
 							log_signal(port.addr), log_signal(port.data));
 
-					Wire *past_clk = module->addWire(NEW_ID);
+					Wire *past_clk = module->addWire(NEW_ID_SUFFIX(stringf("%s#%d#past_clk#%s", log_id(mem.memid), i, log_signal(port.clk))));
 					past_clk->attributes[ID::init] = port.clk_polarity ? State::S1 : State::S0;
 					module->addFf(NEW_ID, port.clk, past_clk);
 
@@ -121,13 +124,13 @@ struct Clk2fflogicPass : public Pass {
 
 					SigSpec clock_edge = module->Eqx(NEW_ID, {port.clk, SigSpec(past_clk)}, clock_edge_pattern);
 
-					SigSpec en_q = module->addWire(NEW_ID, GetSize(port.en));
+					SigSpec en_q = module->addWire(NEW_ID_SUFFIX(stringf("%s#%d#en_q", log_id(mem.memid), i)), GetSize(port.en));
 					module->addFf(NEW_ID, port.en, en_q);
 
-					SigSpec addr_q = module->addWire(NEW_ID, GetSize(port.addr));
+					SigSpec addr_q = module->addWire(NEW_ID_SUFFIX(stringf("%s#%d#addr_q", log_id(mem.memid), i)), GetSize(port.addr));
 					module->addFf(NEW_ID, port.addr, addr_q);
 
-					SigSpec data_q = module->addWire(NEW_ID, GetSize(port.data));
+					SigSpec data_q = module->addWire(NEW_ID_SUFFIX(stringf("%s#%d#data_q", log_id(mem.memid), i)), GetSize(port.data));
 					module->addFf(NEW_ID, port.data, data_q);
 
 					port.clk = State::S0;
@@ -170,7 +173,14 @@ struct Clk2fflogicPass : public Pass {
 
 					ff.remove();
 
-					Wire *past_q = module->addWire(NEW_ID, ff.width);
+					// Strip spaces from signal name, since Yosys IDs can't contain spaces
+					// Spaces only occur when we have a signal that's a slice of a larger bus,
+					// e.g. "\myreg [5:0]", so removing spaces shouldn't result in loss of uniqueness
+					std::string sig_q_str = log_signal(ff.sig_q);
+					sig_q_str.erase(std::remove(sig_q_str.begin(), sig_q_str.end(), ' '), sig_q_str.end());
+
+					Wire *past_q = module->addWire(NEW_ID_SUFFIX(stringf("%s#past_q_wire", sig_q_str.c_str())), ff.width);
+          
 					if (!ff.is_fine) {
 						module->addFf(NEW_ID, ff.sig_q, past_q);
 					} else {
@@ -182,7 +192,7 @@ struct Clk2fflogicPass : public Pass {
 					if (ff.has_clk) {
 						ff.unmap_ce_srst();
 
-						Wire *past_clk = module->addWire(NEW_ID);
+						Wire *past_clk = module->addWire(NEW_ID_SUFFIX(stringf("%s#past_clk#%s", sig_q_str.c_str(), log_signal(ff.sig_clk))));
 						initvals.set_init(past_clk, ff.pol_clk ? State::S1 : State::S0);
 
 						if (!ff.is_fine)
@@ -202,7 +212,7 @@ struct Clk2fflogicPass : public Pass {
 
 						SigSpec clock_edge = module->Eqx(NEW_ID, {ff.sig_clk, SigSpec(past_clk)}, clock_edge_pattern);
 
-						Wire *past_d = module->addWire(NEW_ID, ff.width);
+						Wire *past_d = module->addWire(NEW_ID_SUFFIX(stringf("%s#past_d_wire", sig_q_str.c_str())), ff.width);
 						if (!ff.is_fine)
 							module->addFf(NEW_ID, ff.sig_d, past_d);
 						else
@@ -241,7 +251,8 @@ struct Clk2fflogicPass : public Pass {
 							module->addAndGate(NEW_ID, qval, clrval, ff.sig_q);
 						}
 					} else if (ff.has_arst) {
-						SigSpec arst = wrap_async_control(module, ff.sig_arst, ff.pol_arst);
+						IdString id = NEW_ID_SUFFIX(stringf("%s#past_arst#%s", sig_q_str.c_str(), log_signal(ff.sig_arst)));
+						SigSpec arst = wrap_async_control(module, ff.sig_arst, ff.pol_arst, id);
 						if (!ff.is_fine)
 							module->addMux(NEW_ID, qval, ff.val_arst, arst, ff.sig_q);
 						else

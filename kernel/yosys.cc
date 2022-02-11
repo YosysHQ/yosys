@@ -618,6 +618,23 @@ RTLIL::IdString new_id(std::string file, int line, std::string func)
 	return stringf("$auto$%s:%d:%s$%d", file.c_str(), line, func.c_str(), autoidx++);
 }
 
+RTLIL::IdString new_id_suffix(std::string file, int line, std::string func, std::string suffix)
+{
+#ifdef _WIN32
+	size_t pos = file.find_last_of("/\\");
+#else
+	size_t pos = file.find_last_of('/');
+#endif
+	if (pos != std::string::npos)
+		file = file.substr(pos+1);
+
+	pos = func.find_last_of(':');
+	if (pos != std::string::npos)
+		func = func.substr(pos+1);
+
+	return stringf("$auto$%s:%d:%s$%s$%d", file.c_str(), line, func.c_str(), suffix.c_str(), autoidx++);
+}
+
 RTLIL::Design *yosys_get_design()
 {
 	return yosys_design;
