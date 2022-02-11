@@ -6,12 +6,21 @@ yosysver="$2"
 gitsha="$3"
 
 rm -rf YosysVS-Tpl-v2.zip YosysVS
-wget http://www.clifford.at/yosys/nogit/YosysVS-Tpl-v2.zip
+wget https://yosyshq.net/yosys/nogit/YosysVS-Tpl-v2.zip
+wget https://zlib.net/zlib-1.2.11.tar.gz
 
 unzip YosysVS-Tpl-v2.zip
 rm -f YosysVS-Tpl-v2.zip
-mv YosysVS "$vcxsrc"
+tar xvfz zlib-1.2.11.tar.gz
 
+mv YosysVS "$vcxsrc"
+mkdir -p "$vcxsrc"/yosys
+mkdir -p "$vcxsrc"/yosys/libs/zlib
+mv zlib-1.2.11/* "$vcxsrc"/yosys/libs/zlib/.
+rm -rf zlib-1.2.11
+pushd "$vcxsrc"/yosys
+ls libs/zlib/*.c | sed 's,.*:,,; s,//*,/,g; s,/[^/]*/\.\./,/,g; y, \\,\n\n,;' | grep '^[^/]'  >> ../../srcfiles.txt
+popd
 {
 	n=$(grep -B999 '<ItemGroup>' "$vcxsrc"/YosysVS/YosysVS.vcxproj | wc -l)
 	head -n$n "$vcxsrc"/YosysVS/YosysVS.vcxproj
@@ -35,7 +44,7 @@ Want to use a git working copy for the yosys source code?
 Open "Git Bash" in this directory and run:
 
 	mv yosys yosys.bak
-	git clone https://github.com/cliffordwolf/yosys.git yosys
+	git clone https://github.com/YosysHQ/yosys.git yosys
 	cd yosys
 	git checkout -B master $(git rev-parse HEAD | cut -c1-10)
 	unzip ../genfiles.zip

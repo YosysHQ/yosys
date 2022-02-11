@@ -6,7 +6,7 @@
 // means.
 
 // -------------------------------------------------------
-// Written by Clifford Wolf <clifford@clifford.at> in 2014
+// Written by Claire Xenia Wolf <claire@yosyshq.com> in 2014
 // -------------------------------------------------------
 
 #ifndef HASHLIB_H
@@ -66,6 +66,12 @@ struct hash_int_ops {
 	}
 };
 
+template<> struct hash_ops<bool> : hash_int_ops
+{
+	static inline unsigned int hash(bool a) {
+		return a ? 1 : 0;
+	}
+};
 template<> struct hash_ops<int32_t> : hash_int_ops
 {
 	static inline unsigned int hash(int32_t a) {

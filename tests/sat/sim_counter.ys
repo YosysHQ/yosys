@@ -1,0 +1,48 @@
+# Create stimulus file
+read_verilog <<EOT
+module top (clk, reset, cnt);
+
+input		clk;
+input		reset;
+output	[7:0]	cnt;
+
+reg	[7:0]	cnt;
+
+endmodule
+EOT
+prep -top top;
+sim -clock clk -reset reset -fst stimulus.fst -n 10
+design -reset
+
+# Counter implementation
+read_verilog <<EOT
+module top (clk, reset, cnt);
+
+input		clk;
+input		reset;
+output	[7:0]	cnt;
+
+reg	[7:0]	cnt;
+
+always @(posedge clk)
+	if (!reset)
+		cnt = cnt + 1;
+	else
+		cnt = 0;
+
+endmodule
+EOT
+prep -top top;
+
+# Simulate with stimulus
+sim -clock clk -scope top -r stimulus.fst
+
+# Stimulus does not have counter values
+# x in FST can match any value in simulation
+sim -clock clk -scope top -r stimulus.fst -sim-gate
+
+# Stimulus does not have counter values
+# x in simulation can match any value in FST
+# so we expect error
+logger -expect error "Signal difference" 1
+sim -clock clk -scope top -r stimulus.fst -sim-gold

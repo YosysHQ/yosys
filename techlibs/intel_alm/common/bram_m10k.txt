@@ -4,18 +4,12 @@ bram MISTRAL_M10K
     dbits  1   @D8192x1
     abits 12   @D4096x2
     dbits  2   @D4096x2
-    abits 11   @D2048x4 @D2048x5
-    dbits  4   @D2048x4
+    abits 11   @D2048x5
     dbits  5   @D2048x5
-    abits 10   @D1024x8 @D1024x10
-    dbits  8   @D1024x8
+    abits 10   @D1024x10
     dbits 10   @D1024x10
-    abits  9   @D512x16 @D512x20
-    dbits 16   @D512x16
+    abits  9   @D512x20
     dbits 20   @D512x20
-    abits  8   @D256x32 @D256x40
-    dbits 32   @D256x32
-    dbits 40   @D256x40
     groups 2
     ports  1 1
     wrmode 1 0

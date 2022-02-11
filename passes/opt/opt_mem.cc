@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -51,8 +51,32 @@ struct OptMemPass : public Pass {
 
 		int total_count = 0;
 		for (auto module : design->selected_modules()) {
+			SigMap sigmap(module);
+			FfInitVals initvals(&sigmap, module);
 			for (auto &mem : Mem::get_selected_memories(module)) {
+				bool changed = false;
+				for (auto &port : mem.wr_ports) {
+					if (port.en.is_fully_zero()) {
+						port.removed = true;
+						changed = true;
+						total_count++;
+					}
+				}
+				if (changed) {
+					mem.emit();
+				}
+
 				if (mem.wr_ports.empty() && mem.inits.empty()) {
+					// The whole memory array will contain
+					// only State::Sx, but the embedded read
+					// registers could have reset or init values.
+					// They will probably be optimized away by
+					// opt_dff later.
+					for (int i = 0; i < GetSize(mem.rd_ports); i++) {
+						mem.extract_rdff(i, &initvals);
+						auto &port = mem.rd_ports[i];
+						module->connect(port.data, Const(State::Sx, GetSize(port.data)));
+					}
 					mem.remove();
 					total_count++;
 				}

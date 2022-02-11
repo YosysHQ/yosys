@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -1292,6 +1292,33 @@ endmodule
 
 // --------------------------------------------------------
 
+module \$bmux (A, S, Y);
+
+parameter WIDTH = 0;
+parameter S_WIDTH = 0;
+
+input [(WIDTH << S_WIDTH)-1:0] A;
+input [S_WIDTH-1:0] S;
+output [WIDTH-1:0] Y;
+
+wire [WIDTH-1:0] bm0_out, bm1_out;
+
+generate
+	if (S_WIDTH > 1) begin:muxlogic
+		\$bmux #(.WIDTH(WIDTH), .S_WIDTH(S_WIDTH-1)) bm0 (.A(A), .S(S[S_WIDTH-2:0]), .Y(bm0_out));
+		\$bmux #(.WIDTH(WIDTH), .S_WIDTH(S_WIDTH-1)) bm1 (.A(A[(WIDTH << S_WIDTH)-1:WIDTH << (S_WIDTH - 1)]), .S(S[S_WIDTH-2:0]), .Y(bm1_out));
+		assign Y = S[S_WIDTH-1] ? bm1_out : bm0_out;
+	end else if (S_WIDTH == 1) begin:simple
+		assign Y = S ? A[1] : A[0];
+	end else begin:passthru
+		assign Y = A;
+	end
+endgenerate
+
+endmodule
+
+// --------------------------------------------------------
+
 module \$pmux (A, B, S, Y);
 
 parameter WIDTH = 0;
@@ -1318,6 +1345,26 @@ end
 endmodule
 
 // --------------------------------------------------------
+
+module \$demux (A, S, Y);
+
+parameter WIDTH = 1;
+parameter S_WIDTH = 1;
+
+input [WIDTH-1:0] A;
+input [S_WIDTH-1:0] S;
+output [(WIDTH << S_WIDTH)-1:0] Y;
+
+genvar i;
+generate
+	for (i = 0; i < (1 << S_WIDTH); i = i + 1) begin:slices
+		assign Y[i*WIDTH+:WIDTH] = (S == i) ? A : 0;
+	end
+endgenerate
+
+endmodule
+
+// --------------------------------------------------------
 `ifndef SIMLIB_NOLUT
 
 module \$lut (A, Y);
@@ -1326,30 +1373,9 @@ parameter WIDTH = 0;
 parameter LUT = 0;
 
 input [WIDTH-1:0] A;
-output reg Y;
+output Y;
 
-wire lut0_out, lut1_out;
-
-generate
-	if (WIDTH <= 1) begin:simple
-		assign {lut1_out, lut0_out} = LUT;
-	end else begin:complex
-		\$lut #( .WIDTH(WIDTH-1), .LUT(LUT                  ) ) lut0 ( .A(A[WIDTH-2:0]), .Y(lut0_out) );
-		\$lut #( .WIDTH(WIDTH-1), .LUT(LUT >> (2**(WIDTH-1))) ) lut1 ( .A(A[WIDTH-2:0]), .Y(lut1_out) );
-	end
-
-	if (WIDTH > 0) begin:lutlogic
-		always @* begin
-			casez ({A[WIDTH-1], lut0_out, lut1_out})
-				3'b?11: Y = 1'b1;
-				3'b?00: Y = 1'b0;
-				3'b0??: Y = lut0_out;
-				3'b1??: Y = lut1_out;
-				default: Y = 1'bx;
-			endcase
-		end
-	end
-endgenerate
+\$bmux #(.WIDTH(1), .S_WIDTH(WIDTH)) mux(.A(LUT), .S(A), .Y(Y));
 
 endmodule
 
@@ -1890,6 +1916,30 @@ endmodule
 
 // --------------------------------------------------------
 
+module \$aldff (CLK, ALOAD, AD, D, Q);
+
+parameter WIDTH = 0;
+parameter CLK_POLARITY = 1'b1;
+parameter ALOAD_POLARITY = 1'b1;
+
+input CLK, ALOAD;
+input [WIDTH-1:0] AD;
+input [WIDTH-1:0] D;
+output reg [WIDTH-1:0] Q;
+wire pos_clk = CLK == CLK_POLARITY;
+wire pos_aload = ALOAD == ALOAD_POLARITY;
+
+always @(posedge pos_clk, posedge pos_aload) begin
+	if (pos_aload)
+		Q <= AD;
+	else
+		Q <= D;
+end
+
+endmodule
+
+// --------------------------------------------------------
+
 module \$sdff (CLK, SRST, D, Q);
 
 parameter WIDTH = 0;
@@ -1931,6 +1981,31 @@ wire pos_arst = ARST == ARST_POLARITY;
 always @(posedge pos_clk, posedge pos_arst) begin
 	if (pos_arst)
 		Q <= ARST_VALUE;
+	else if (EN == EN_POLARITY)
+		Q <= D;
+end
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$aldffe (CLK, ALOAD, AD, EN, D, Q);
+
+parameter WIDTH = 0;
+parameter CLK_POLARITY = 1'b1;
+parameter EN_POLARITY = 1'b1;
+parameter ALOAD_POLARITY = 1'b1;
+
+input CLK, ALOAD, EN;
+input [WIDTH-1:0] D;
+input [WIDTH-1:0] AD;
+output reg [WIDTH-1:0] Q;
+wire pos_clk = CLK == CLK_POLARITY;
+wire pos_aload = ALOAD == ALOAD_POLARITY;
+
+always @(posedge pos_clk, posedge pos_aload) begin
+	if (pos_aload)
+		Q <= AD;
 	else if (EN == EN_POLARITY)
 		Q <= D;
 end
@@ -2182,6 +2257,34 @@ end
 
 endmodule
 
+module \$memrd_v2 (CLK, EN, ARST, SRST, ADDR, DATA);
+
+parameter MEMID = "";
+parameter ABITS = 8;
+parameter WIDTH = 8;
+
+parameter CLK_ENABLE = 0;
+parameter CLK_POLARITY = 0;
+parameter TRANSPARENCY_MASK = 0;
+parameter COLLISION_X_MASK = 0;
+parameter ARST_VALUE = 0;
+parameter SRST_VALUE = 0;
+parameter INIT_VALUE = 0;
+parameter CE_OVER_SRST = 0;
+
+input CLK, EN, ARST, SRST;
+input [ABITS-1:0] ADDR;
+output [WIDTH-1:0] DATA;
+
+initial begin
+	if (MEMID != "") begin
+		$display("ERROR: Found non-simulatable instance of $memrd_v2!");
+		$finish;
+	end
+end
+
+endmodule
+
 // --------------------------------------------------------
 
 module \$memwr (CLK, EN, ADDR, DATA);
@@ -2208,6 +2311,31 @@ end
 
 endmodule
 
+module \$memwr_v2 (CLK, EN, ADDR, DATA);
+
+parameter MEMID = "";
+parameter ABITS = 8;
+parameter WIDTH = 8;
+
+parameter CLK_ENABLE = 0;
+parameter CLK_POLARITY = 0;
+parameter PORTID = 0;
+parameter PRIORITY_MASK = 0;
+
+input CLK;
+input [WIDTH-1:0] EN;
+input [ABITS-1:0] ADDR;
+input [WIDTH-1:0] DATA;
+
+initial begin
+	if (MEMID != "") begin
+		$display("ERROR: Found non-simulatable instance of $memwr_v2!");
+		$finish;
+	end
+end
+
+endmodule
+
 // --------------------------------------------------------
 
 module \$meminit (ADDR, DATA);
@@ -2225,6 +2353,30 @@ input [WORDS*WIDTH-1:0] DATA;
 initial begin
 	if (MEMID != "") begin
 		$display("ERROR: Found non-simulatable instance of $meminit!");
+		$finish;
+	end
+end
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$meminit_v2 (ADDR, DATA, EN);
+
+parameter MEMID = "";
+parameter ABITS = 8;
+parameter WIDTH = 8;
+parameter WORDS = 1;
+
+parameter PRIORITY = 0;
+
+input [ABITS-1:0] ADDR;
+input [WORDS*WIDTH-1:0] DATA;
+input [WIDTH-1:0] EN;
+
+initial begin
+	if (MEMID != "") begin
+		$display("ERROR: Found non-simulatable instance of $meminit_v2!");
 		$finish;
 	end
 end
@@ -2312,6 +2464,122 @@ always @(RD_CLK, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA) begin
 			// $display("Transparent read from %s: addr=%b data=%b", MEMID, RD_ADDR[i*ABITS +: ABITS],  memory[RD_ADDR[i*ABITS +: ABITS] - OFFSET]);
 			RD_DATA[i*WIDTH +: WIDTH] <= memory[RD_ADDR[i*ABITS +: ABITS] - OFFSET];
 		end
+	end
+
+	LAST_RD_CLK <= RD_CLK;
+	LAST_WR_CLK <= WR_CLK;
+end
+
+endmodule
+
+module \$mem_v2 (RD_CLK, RD_EN, RD_ARST, RD_SRST, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA);
+
+parameter MEMID = "";
+parameter signed SIZE = 4;
+parameter signed OFFSET = 0;
+parameter signed ABITS = 2;
+parameter signed WIDTH = 8;
+parameter signed INIT = 1'bx;
+
+parameter signed RD_PORTS = 1;
+parameter RD_CLK_ENABLE = 1'b1;
+parameter RD_CLK_POLARITY = 1'b1;
+parameter RD_TRANSPARENCY_MASK = 1'b0;
+parameter RD_COLLISION_X_MASK = 1'b0;
+parameter RD_WIDE_CONTINUATION = 1'b0;
+parameter RD_CE_OVER_SRST = 1'b0;
+parameter RD_ARST_VALUE = 1'b0;
+parameter RD_SRST_VALUE = 1'b0;
+parameter RD_INIT_VALUE = 1'b0;
+
+parameter signed WR_PORTS = 1;
+parameter WR_CLK_ENABLE = 1'b1;
+parameter WR_CLK_POLARITY = 1'b1;
+parameter WR_PRIORITY_MASK = 1'b0;
+parameter WR_WIDE_CONTINUATION = 1'b0;
+
+input [RD_PORTS-1:0] RD_CLK;
+input [RD_PORTS-1:0] RD_EN;
+input [RD_PORTS-1:0] RD_ARST;
+input [RD_PORTS-1:0] RD_SRST;
+input [RD_PORTS*ABITS-1:0] RD_ADDR;
+output reg [RD_PORTS*WIDTH-1:0] RD_DATA;
+
+input [WR_PORTS-1:0] WR_CLK;
+input [WR_PORTS*WIDTH-1:0] WR_EN;
+input [WR_PORTS*ABITS-1:0] WR_ADDR;
+input [WR_PORTS*WIDTH-1:0] WR_DATA;
+
+reg [WIDTH-1:0] memory [SIZE-1:0];
+
+integer i, j, k;
+reg [WR_PORTS-1:0] LAST_WR_CLK;
+reg [RD_PORTS-1:0] LAST_RD_CLK;
+
+function port_active;
+	input clk_enable;
+	input clk_polarity;
+	input last_clk;
+	input this_clk;
+	begin
+		casez ({clk_enable, clk_polarity, last_clk, this_clk})
+			4'b0???: port_active = 1;
+			4'b1101: port_active = 1;
+			4'b1010: port_active = 1;
+			default: port_active = 0;
+		endcase
+	end
+endfunction
+
+initial begin
+	for (i = 0; i < SIZE; i = i+1)
+		memory[i] = INIT >>> (i*WIDTH);
+	RD_DATA = RD_INIT_VALUE;
+end
+
+always @(RD_CLK, RD_ARST, RD_ADDR, RD_DATA, WR_CLK, WR_EN, WR_ADDR, WR_DATA) begin
+`ifdef SIMLIB_MEMDELAY
+	#`SIMLIB_MEMDELAY;
+`endif
+	for (i = 0; i < RD_PORTS; i = i+1) begin
+		if (RD_CLK_ENABLE[i] && RD_EN[i] && port_active(RD_CLK_ENABLE[i], RD_CLK_POLARITY[i], LAST_RD_CLK[i], RD_CLK[i])) begin
+			// $display("Read from %s: addr=%b data=%b", MEMID, RD_ADDR[i*ABITS +: ABITS],  memory[RD_ADDR[i*ABITS +: ABITS] - OFFSET]);
+			RD_DATA[i*WIDTH +: WIDTH] <= memory[RD_ADDR[i*ABITS +: ABITS] - OFFSET];
+
+			for (j = 0; j < WR_PORTS; j = j+1) begin
+				if (RD_TRANSPARENCY_MASK[i*WR_PORTS + j] && port_active(WR_CLK_ENABLE[j], WR_CLK_POLARITY[j], LAST_WR_CLK[j], WR_CLK[j]) && RD_ADDR[i*ABITS +: ABITS] == WR_ADDR[j*ABITS +: ABITS])
+					for (k = 0; k < WIDTH; k = k+1)
+						if (WR_EN[j*WIDTH+k])
+							RD_DATA[i*WIDTH+k] <= WR_DATA[j*WIDTH+k];
+				if (RD_COLLISION_X_MASK[i*WR_PORTS + j] && port_active(WR_CLK_ENABLE[j], WR_CLK_POLARITY[j], LAST_WR_CLK[j], WR_CLK[j]) && RD_ADDR[i*ABITS +: ABITS] == WR_ADDR[j*ABITS +: ABITS])
+					for (k = 0; k < WIDTH; k = k+1)
+						if (WR_EN[j*WIDTH+k])
+							RD_DATA[i*WIDTH+k] <= 1'bx;
+			end
+		end
+	end
+
+	for (i = 0; i < WR_PORTS; i = i+1) begin
+		if (port_active(WR_CLK_ENABLE[i], WR_CLK_POLARITY[i], LAST_WR_CLK[i], WR_CLK[i]))
+			for (j = 0; j < WIDTH; j = j+1)
+				if (WR_EN[i*WIDTH+j]) begin
+					// $display("Write to %s: addr=%b data=%b", MEMID, WR_ADDR[i*ABITS +: ABITS], WR_DATA[i*WIDTH+j]);
+					memory[WR_ADDR[i*ABITS +: ABITS] - OFFSET][j] = WR_DATA[i*WIDTH+j];
+				end
+	end
+
+	for (i = 0; i < RD_PORTS; i = i+1) begin
+		if (!RD_CLK_ENABLE[i]) begin
+			// $display("Combinatorial read from %s: addr=%b data=%b", MEMID, RD_ADDR[i*ABITS +: ABITS],  memory[RD_ADDR[i*ABITS +: ABITS] - OFFSET]);
+			RD_DATA[i*WIDTH +: WIDTH] <= memory[RD_ADDR[i*ABITS +: ABITS] - OFFSET];
+		end
+	end
+
+	for (i = 0; i < RD_PORTS; i = i+1) begin
+		if (RD_SRST[i] && port_active(RD_CLK_ENABLE[i], RD_CLK_POLARITY[i], LAST_RD_CLK[i], RD_CLK[i]) && (RD_EN[i] || !RD_CE_OVER_SRST[i]))
+			RD_DATA[i*WIDTH +: WIDTH] <= RD_SRST_VALUE[i*WIDTH +: WIDTH];
+		if (RD_ARST[i])
+			RD_DATA[i*WIDTH +: WIDTH] <= RD_ARST_VALUE[i*WIDTH +: WIDTH];
 	end
 
 	LAST_RD_CLK <= RD_CLK;

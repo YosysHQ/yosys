@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -124,6 +124,7 @@ struct Smt2Worker
 		memories = Mem::get_all_memories(module);
 		for (auto &mem : memories)
 		{
+			mem.narrow();
 			mem_dict[mem.memid] = &mem;
 			for (auto &port : mem.wr_ports)
 			{
@@ -182,7 +183,7 @@ struct Smt2Worker
 				continue;
 
 			// Handled above.
-			if (cell->type.in(ID($mem), ID($memrd), ID($memwr), ID($meminit))) {
+			if (cell->is_mem_cell()) {
 				mem_cells[cell] = mem_dict[cell->parameters.at(ID::MEMID).decode_string()];
 				continue;
 			}
@@ -694,7 +695,7 @@ struct Smt2Worker
 			// FIXME: $slice $concat
 		}
 
-		if (memmode && cell->type.in(ID($mem), ID($memrd), ID($memwr), ID($meminit)))
+		if (memmode && cell->is_mem_cell())
 		{
 			Mem *mem = mem_cells[cell];
 
@@ -859,7 +860,7 @@ struct Smt2Worker
 			log_error("Unsupported cell type %s for cell %s.%s -- please run `dffunmap` before `write_smt2`.\n",
 					log_id(cell->type), log_id(module), log_id(cell));
 		}
-		if (cell->type.in(ID($adff), ID($adffe), ID($dffsr), ID($dffsre)) || cell->type.str().substr(0, 5) == "$_DFF") {
+		if (cell->type.in(ID($adff), ID($adffe), ID($aldff), ID($aldffe), ID($dffsr), ID($dffsre)) || cell->type.str().substr(0, 5) == "$_DFF" || cell->type.str().substr(0, 7) == "$_ALDFF") {
 			log_error("Unsupported cell type %s for cell %s.%s -- please run `async2sync; dffunmap` or `clk2fflogic` before `write_smt2`.\n",
 					log_id(cell->type), log_id(module), log_id(cell));
 		}
@@ -1529,6 +1530,11 @@ struct Smt2Backend : public Backend {
 		dict<std::string, std::string> solver_options;
 
 		log_header(design, "Executing SMT2 backend.\n");
+
+		log_push();
+		Pass::call(design, "bmuxmap");
+		Pass::call(design, "demuxmap");
+		log_pop();
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)

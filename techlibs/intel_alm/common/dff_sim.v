@@ -56,7 +56,9 @@
 
 (* abc9_box, lib_whitebox *)
 module MISTRAL_FF(
-    input DATAIN, CLK, ACLR, ENA, SCLR, SLOAD, SDATA,
+    input DATAIN,
+    (* clkbuf_sink *) input CLK,
+    input ACLR, ENA, SCLR, SLOAD, SDATA,
     output reg Q
 );
 
@@ -73,6 +75,21 @@ specify
     $setup(SDATA, posedge CLK, /* -196 */ 0);
 
     if (ACLR === 1'b0) (ACLR => Q) = 282;
+endspecify
+`endif
+`ifdef arriav
+specify
+    if (ENA && ACLR !== 1'b0 && !SCLR && !SLOAD) (posedge CLK => (Q : DATAIN)) = 470;
+    if (ENA && SCLR) (posedge CLK => (Q : 1'b0)) = 633;
+    if (ENA && !SCLR && SLOAD) (posedge CLK => (Q : SDATA)) = 439;
+
+    $setup(DATAIN, posedge CLK, /* -170 */ 0);
+    $setup(ENA, posedge CLK, /* -170 */ 0);
+    $setup(SCLR, posedge CLK, /* -170 */ 0);
+    $setup(SLOAD, posedge CLK, /* -170 */ 0);
+    $setup(SDATA, posedge CLK, /* -170 */ 0);
+
+    if (ACLR === 1'b0) (ACLR => Q) = 215;
 endspecify
 `endif
 `ifdef cyclone10gx

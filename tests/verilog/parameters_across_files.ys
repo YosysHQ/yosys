@@ -1,0 +1,20 @@
+read_verilog -sv <<EOF
+parameter Q = 1;
+EOF
+read_verilog -sv <<EOF
+parameter P = Q;
+module top(
+    output integer out
+);
+    assign out = P;
+    always @*
+        assert (out == 1);
+endmodule
+EOF
+
+hierarchy
+proc
+flatten
+opt -full
+select -module top
+sat -verify -seq 1 -tempinduct -prove-asserts -show-all

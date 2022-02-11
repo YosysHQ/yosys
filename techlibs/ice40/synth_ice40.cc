@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -399,7 +399,7 @@ struct SynthIce40Pass : public ScriptPass
 			run("ice40_wrapcarry -unwrap");
 			run("techmap -map +/ice40/ff_map.v");
 			run("clean");
-			run("opt_lut -dlogic SB_CARRY:I0=2:I1=1:CI=0");
+			run("opt_lut -dlogic SB_CARRY:I0=1:I1=2:CI=3 -dlogic SB_CARRY:CO=3");
 		}
 
 		if (check_label("map_cells"))
@@ -417,6 +417,7 @@ struct SynthIce40Pass : public ScriptPass
 			run("hierarchy -check");
 			run("stat");
 			run("check -noinit");
+			run("blackbox =A:whitebox");
 		}
 
 		if (check_label("blif"))

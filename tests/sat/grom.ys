@@ -1,0 +1,9 @@
+read_verilog grom_computer.v grom_cpu.v alu.v ram_memory.v;
+prep -top grom_computer; 
+sim -clock clk -reset reset -fst grom.fst -vcd grom.vcd -n 80
+
+sim -clock clk -r grom.fst -scope grom_computer -start 25ns -stop 100ns -sim-cmp
+
+sim -clock clk -r grom.fst -scope grom_computer -stop 100ns -sim-gold
+
+sim -clock clk -r grom.fst -scope grom_computer -n 10 -sim-gate

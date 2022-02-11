@@ -1,0 +1,148 @@
+read_verilog -icells <<EOT
+
+module aldff(input C, L, AD, D, (* init = 3'b000 *) output [2:0] Q);
+$_ALDFF_PP_ ff0 (.C(C), .L(L), .AD(AD), .D(D), .Q(Q[0]));
+$_ALDFF_PN_ ff1 (.C(C), .L(L), .AD(AD), .D(D), .Q(Q[1]));
+$_ALDFF_NP_ ff2 (.C(C), .L(L), .AD(AD), .D(D), .Q(Q[2]));
+endmodule
+
+module aldffe(input C, E, L, AD, D, (* init = 4'b0000 *) output [3:0] Q);
+$_ALDFFE_PPP_ ff0 (.C(C), .L(L), .AD(AD), .E(E), .D(D), .Q(Q[0]));
+$_ALDFFE_PPN_ ff1 (.C(C), .L(L), .AD(AD), .E(E), .D(D), .Q(Q[1]));
+$_ALDFFE_PNP_ ff2 (.C(C), .L(L), .AD(AD), .E(E), .D(D), .Q(Q[2]));
+$_ALDFFE_NPP_ ff3 (.C(C), .L(L), .AD(AD), .E(E), .D(D), .Q(Q[3]));
+endmodule
+
+module top(input C, E, L, AD, D, output [6:0] Q);
+aldff aldff_(.C(C), .L(L), .AD(AD), .D(D), .Q(Q[2:0]));
+aldffe aldffe_(.C(C), .L(L), .AD(AD), .E(E), .D(D), .Q(Q[6:3]));
+endmodule
+
+EOT
+
+design -save orig
+flatten
+equiv_opt -assert -multiclock dfflegalize -cell $_ALDFF_PP_ 0
+equiv_opt -assert -multiclock dfflegalize -cell $_ALDFF_PP_ 1
+equiv_opt -assert -multiclock dfflegalize -cell $_ALDFFE_PPP_ 0
+equiv_opt -assert -multiclock dfflegalize -cell $_ALDFFE_PPP_ 1
+#equiv_opt -assert -multiclock dfflegalize -cell $_DFFSR_PPP_ 0
+#equiv_opt -assert -multiclock dfflegalize -cell $_DFFSR_PPP_ 1
+#equiv_opt -assert -multiclock dfflegalize -cell $_DFFSRE_PPPP_ 0
+#equiv_opt -assert -multiclock dfflegalize -cell $_DFFSRE_PPPP_ 1
+
+
+# Convert everything to ALDFFs.
+
+design -load orig
+dfflegalize -cell $_ALDFF_PP_ 0
+
+select -assert-count 2 aldff/t:$_NOT_
+select -assert-count 2 aldffe/t:$_NOT_
+select -assert-count 0 aldff/t:$_MUX_
+select -assert-count 4 aldffe/t:$_MUX_
+select -assert-count 7 t:$_ALDFF_PP_
+select -assert-none t:$_ALDFF_PP_ t:$_MUX_ t:$_NOT_ top/* %% %n t:* %i
+
+design -load orig
+dfflegalize -cell $_ALDFF_PP_ 1
+
+select -assert-count 11 aldff/t:$_NOT_
+select -assert-count 14 aldffe/t:$_NOT_
+select -assert-count 0 aldff/t:$_MUX_
+select -assert-count 4 aldffe/t:$_MUX_
+select -assert-count 7 t:$_ALDFF_PP_
+select -assert-none t:$_ALDFF_PP_ t:$_MUX_ t:$_NOT_ top/* %% %n t:* %i
+
+
+# Convert everything to ALDFFEs.
+
+design -load orig
+dfflegalize -cell $_ALDFFE_PPP_ 0
+
+select -assert-count 2 aldff/t:$_NOT_
+select -assert-count 3 aldffe/t:$_NOT_
+select -assert-count 7 t:$_ALDFFE_PPP_
+select -assert-none t:$_ALDFFE_PPP_ t:$_NOT_ top/* %% %n t:* %i
+
+design -load orig
+dfflegalize -cell $_ALDFFE_PPP_ 1
+
+select -assert-count 11 aldff/t:$_NOT_
+select -assert-count 15 aldffe/t:$_NOT_
+select -assert-count 7 t:$_ALDFFE_PPP_
+select -assert-none t:$_ALDFFE_PPP_ t:$_NOT_ top/* %% %n t:* %i
+
+
+# Convert everything to DFFSRs.
+
+design -load orig
+dfflegalize -cell $_DFFSR_PPP_ 0
+
+select -assert-count 2 aldff/t:$_AND_
+select -assert-count 3 aldffe/t:$_AND_
+select -assert-count 2 aldff/t:$_ANDNOT_
+select -assert-count 3 aldffe/t:$_ANDNOT_
+select -assert-count 1 aldff/t:$_OR_
+select -assert-count 1 aldffe/t:$_OR_
+select -assert-count 1 aldff/t:$_ORNOT_
+select -assert-count 1 aldffe/t:$_ORNOT_
+select -assert-count 3 aldff/t:$_NOT_
+select -assert-count 3 aldffe/t:$_NOT_
+select -assert-count 0 aldff/t:$_MUX_
+select -assert-count 4 aldffe/t:$_MUX_
+select -assert-count 7 t:$_DFFSR_PPP_
+select -assert-none t:$_DFFSR_PPP_ t:$_MUX_ t:$_NOT_ t:$_AND_ t:$_ANDNOT_ t:$_OR_ t:$_ORNOT_ top/* %% %n t:* %i
+
+design -load orig
+dfflegalize -cell $_DFFSR_PPP_ 1
+
+select -assert-count 2 aldff/t:$_AND_
+select -assert-count 3 aldffe/t:$_AND_
+select -assert-count 2 aldff/t:$_ANDNOT_
+select -assert-count 3 aldffe/t:$_ANDNOT_
+select -assert-count 1 aldff/t:$_OR_
+select -assert-count 1 aldffe/t:$_OR_
+select -assert-count 1 aldff/t:$_ORNOT_
+select -assert-count 1 aldffe/t:$_ORNOT_
+select -assert-count 12 aldff/t:$_NOT_
+select -assert-count 15 aldffe/t:$_NOT_
+select -assert-count 0 aldff/t:$_MUX_
+select -assert-count 4 aldffe/t:$_MUX_
+select -assert-count 7 t:$_DFFSR_PPP_
+select -assert-none t:$_DFFSR_PPP_ t:$_MUX_ t:$_NOT_ t:$_AND_ t:$_ANDNOT_ t:$_OR_ t:$_ORNOT_ top/* %% %n t:* %i
+
+
+# Convert everything to DFFSREs.
+
+design -load orig
+dfflegalize -cell $_DFFSRE_PPPP_ 0
+
+select -assert-count 2 aldff/t:$_AND_
+select -assert-count 3 aldffe/t:$_AND_
+select -assert-count 2 aldff/t:$_ANDNOT_
+select -assert-count 3 aldffe/t:$_ANDNOT_
+select -assert-count 1 aldff/t:$_OR_
+select -assert-count 1 aldffe/t:$_OR_
+select -assert-count 1 aldff/t:$_ORNOT_
+select -assert-count 1 aldffe/t:$_ORNOT_
+select -assert-count 3 aldff/t:$_NOT_
+select -assert-count 4 aldffe/t:$_NOT_
+select -assert-count 7 t:$_DFFSRE_PPPP_
+select -assert-none t:$_DFFSRE_PPPP_ t:$_NOT_ t:$_AND_ t:$_ANDNOT_ t:$_OR_ t:$_ORNOT_ top/* %% %n t:* %i
+
+design -load orig
+dfflegalize -cell $_DFFSRE_PPPP_ 1
+
+select -assert-count 2 aldff/t:$_AND_
+select -assert-count 3 aldffe/t:$_AND_
+select -assert-count 2 aldff/t:$_ANDNOT_
+select -assert-count 3 aldffe/t:$_ANDNOT_
+select -assert-count 1 aldff/t:$_OR_
+select -assert-count 1 aldffe/t:$_OR_
+select -assert-count 1 aldff/t:$_ORNOT_
+select -assert-count 1 aldffe/t:$_ORNOT_
+select -assert-count 12 aldff/t:$_NOT_
+select -assert-count 16 aldffe/t:$_NOT_
+select -assert-count 7 t:$_DFFSRE_PPPP_
+select -assert-none t:$_DFFSRE_PPPP_ t:$_NOT_ t:$_AND_ t:$_ANDNOT_ t:$_OR_ t:$_ORNOT_ top/* %% %n t:* %i

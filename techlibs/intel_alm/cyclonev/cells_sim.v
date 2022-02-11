@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -26,16 +26,34 @@ endmodule // GND
 
 /* Altera Cyclone V devices Input Buffer Primitive */
 module cyclonev_io_ibuf
-  (output o, input i, input ibar);
-   assign ibar = ibar;
+  (output o,
+   (* iopad_external_pin *) input i,
+   (* iopad_external_pin *) input ibar,
+   input dynamicterminationcontrol);
+
+   parameter differential_mode = "false";
+   parameter bus_hold = "false";
+   parameter simulate_z_as = "Z";
+   parameter lpm_type = "cyclonev_io_ibuf";
+
    assign o    = i;
 endmodule // cyclonev_io_ibuf
 
 /* Altera Cyclone V devices Output Buffer Primitive */
 module cyclonev_io_obuf
-  (output o, input i, input oe);
-   assign o  = i;
-   assign oe = oe;
+  ((* iopad_external_pin *) output o,
+   input i, oe, dynamicterminationcontrol,
+   input [15:0] seriesterminationcontrol, parallelterminationcontrol,
+   input devoe,
+   (* iopad_external_pin *) output obar);
+
+   parameter open_drain_output = "false";
+   parameter bus_hold = "false";
+   parameter shift_series_termination_control = "false";
+   parameter sim_dynamic_termination_control_is_connected = "false";
+   parameter lpm_type = "cyclonev_io_obuf";
+
+   assign o  = oe ? i : 1'bz;
 endmodule // cyclonev_io_obuf
 
 /* Altera Cyclone V LUT Primitive */

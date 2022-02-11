@@ -1,0 +1,117 @@
+read_ilang << EOT
+
+module \top
+  wire width 12 input 0 \A
+  wire width 2 input 1 \S
+  wire width 6 output 2 \Y
+
+  cell $bmux $0
+    parameter \WIDTH 6
+    parameter \S_WIDTH 2
+    connect \A { \A [11:10] \A [3:2] \A [10:9] \A [7] \A [7] \A [8] \A [2] \A [7:6] \A [5] \A [5] \A [3:2] \A [5:4] \A [1] \A [1] \A [3:0] }
+    connect \S \S
+    connect \Y \Y
+  end
+end
+
+EOT
+
+equiv_opt -assert opt_reduce -fine
+opt_reduce -fine
+select -assert-count 1 t:$bmux r:WIDTH=4 %i
+
+design -reset
+
+read_ilang << EOT
+
+module \top
+  wire width 6 input 0 \A
+  wire width 2 input 1 \S
+  wire width 6 output 2 \Y
+
+  cell $bmux $0
+    parameter \WIDTH 6
+    parameter \S_WIDTH 2
+    connect \A { \A [5:0] \A [5:0] \A [5:0] \A [5:0] }
+    connect \S \S
+    connect \Y \Y
+  end
+end
+
+EOT
+
+equiv_opt -assert opt_reduce -fine
+opt_reduce -fine
+select -assert-count 0 t:$bmux
+
+design -reset
+
+read_ilang << EOT
+
+module \top
+  wire width 160 input 0 \A
+  wire width 2 input 1 \S
+  wire width 5 output 2 \Y
+
+  cell $bmux $0
+    parameter \WIDTH 5
+    parameter \S_WIDTH 5
+    connect \A \A
+    connect \S { \S [1] 1'1 \S [0] \S [1] 1'0 }
+    connect \Y \Y
+  end
+end
+
+EOT
+
+equiv_opt -assert opt_reduce -fine
+opt_reduce -fine
+select -assert-count 1 t:$bmux r:S_WIDTH=2 %i
+
+design -reset
+
+read_ilang << EOT
+
+module \top
+  wire width 10 input 0 \A
+  wire input 1 \S
+  wire width 5 output 2 \Y
+
+  cell $bmux $0
+    parameter \WIDTH 5
+    parameter \S_WIDTH 1
+    connect \A \A
+    connect \S \S
+    connect \Y \Y
+  end
+end
+
+EOT
+
+equiv_opt -assert opt_reduce -fine
+opt_reduce -fine
+select -assert-count 0 t:$bmux
+select -assert-count 1 t:$mux
+
+design -reset
+
+read_ilang << EOT
+
+module \top
+  wire width 5 input 0 \A
+  wire width 5 output 1 \Y
+
+  cell $bmux $0
+    parameter \WIDTH 5
+    parameter \S_WIDTH 0
+    connect \A \A
+    connect \S { }
+    connect \Y \Y
+  end
+end
+
+EOT
+
+equiv_opt -assert opt_reduce -fine
+opt_reduce -fine
+select -assert-count 0 t:$bmux

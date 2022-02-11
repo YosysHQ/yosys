@@ -4,6 +4,7 @@ typedef enum logic {s0, s1} outer_enum_t;
 
 module top;
 
+	// globals are inherited
 	outer_uint4_t u4_i = 8'hA5;
 	outer_enum_t enum4_i = s0;
 	always @(*) assert(u4_i == 4'h5);
@@ -17,13 +18,22 @@ module top;
 	always @(*) assert(inner_enum1 == 3'h3);
 
 	if (1) begin: genblock
+		// type declarations in child scopes shadow their parents
 		typedef logic [7:0] inner_type;
 		parameter inner_type inner_const = 8'hA5;
  		typedef enum logic [2:0] {s5=5, s6, s7} inner_enum_t;
+
 		inner_type inner_gb_i = inner_const; //8'hA5;
  		inner_enum_t inner_gb_enum1 = s7;
 		always @(*) assert(inner_gb_i == 8'hA5);
  		always @(*) assert(inner_gb_enum1 == 3'h7);
+
+		// check that copying of struct member types works over multiple type scopes
+		typedef struct packed {
+			outer_uint4_t x;
+		} mystruct_t;
+		mystruct_t mystruct;
+		always @(*) assert($bits(mystruct) == 4);
 	end
 
 	inner_type inner_i2 = 8'h42;

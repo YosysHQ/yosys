@@ -1,0 +1,33 @@
+read_verilog mul.v
+design -save read
+
+hierarchy -top mul_plain
+proc
+equiv_opt -assert -map +/gatemate/cells_sim.v synth_gatemate -noiopad # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mul_plain # Constrain all select calls below inside the top module
+select -assert-count 1 t:CC_MULT
+select -assert-none t:CC_MULT %% t:* %D
+
+design -load read
+hierarchy -top mul_signed_async
+proc
+equiv_opt -assert -async2sync -map +/gatemate/cells_sim.v synth_gatemate -noiopad # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mul_signed_async # Constrain all select calls below inside the top module
+select -assert-count 1 t:CC_MULT
+select -assert-count 1 t:CC_BUFG
+select -assert-count 28 t:CC_DFF
+select -assert-none t:CC_MULT t:CC_BUFG t:CC_DFF %% t:* %D
+
+design -load read
+hierarchy -top mul_unsigned_sync
+proc
+equiv_opt -assert -async2sync -map +/gatemate/cells_sim.v synth_gatemate -noiopad # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd mul_unsigned_sync # Constrain all select calls below inside the top module
+select -assert-count 1 t:CC_MULT
+select -assert-count 1 t:CC_BUFG
+select -assert-max 18 t:CC_LUT4
+select -assert-count 18 t:CC_DFF
+select -assert-none t:CC_MULT t:CC_BUFG t:CC_LUT4 t:CC_DFF %% t:* %D

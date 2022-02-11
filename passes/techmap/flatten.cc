@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -77,7 +77,7 @@ struct FlattenWorker
 {
 	bool ignore_wb = false;
 
-	void flatten_cell(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Cell *cell, RTLIL::Module *tpl, std::vector<RTLIL::Cell*> &new_cells)
+	void flatten_cell(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Cell *cell, RTLIL::Module *tpl, SigMap &sigmap, std::vector<RTLIL::Cell*> &new_cells)
 	{
 		// Copy the contents of the flattened cell
 
@@ -122,6 +122,9 @@ struct FlattenWorker
 		for (auto &tpl_proc_it : tpl->processes) {
 			RTLIL::Process *new_proc = module->addProcess(map_name(cell, tpl_proc_it.second), tpl_proc_it.second);
 			map_attributes(cell, new_proc, tpl_proc_it.second->name);
+			for (auto new_proc_sync : new_proc->syncs)
+				for (auto &memwr_action : new_proc_sync->mem_write_actions)
+					memwr_action.memid = memory_map.at(memwr_action.memid).str();
 			auto rewriter = [&](RTLIL::SigSpec &sig) { map_sigspec(wire_map, sig); };
 			new_proc->rewrite_sigspecs(rewriter);
 			design->select(module, new_proc);
@@ -130,10 +133,10 @@ struct FlattenWorker
 		for (auto tpl_cell : tpl->cells()) {
 			RTLIL::Cell *new_cell = module->addCell(map_name(cell, tpl_cell), tpl_cell);
 			map_attributes(cell, new_cell, tpl_cell->name);
-			if (new_cell->type.in(ID($memrd), ID($memwr), ID($meminit))) {
+			if (new_cell->has_memid()) {
 				IdString memid = new_cell->getParam(ID::MEMID).decode_string();
 				new_cell->setParam(ID::MEMID, Const(memory_map.at(memid).str()));
-			} else if (new_cell->type == ID($mem)) {
+			} else if (new_cell->is_mem_cell()) {
 				IdString memid = new_cell->getParam(ID::MEMID).decode_string();
 				new_cell->setParam(ID::MEMID, Const(concat_name(cell, memid).str()));
 			}
@@ -162,7 +165,6 @@ struct FlattenWorker
 			for (auto bit : tpl_conn.first)
 				tpl_driven.insert(bit);
 
-		SigMap sigmap(module);
 		for (auto &port_it : cell->connections())
 		{
 			IdString port_name = port_it.first;
@@ -215,6 +217,7 @@ struct FlattenWorker
 					log_id(module), log_id(cell), log_id(port_it.first), log_signal(new_conn.first), log_signal(new_conn.second));
 
 			module->connect(new_conn);
+			sigmap.add(new_conn.first, new_conn.second);
 		}
 
 		module->remove(cell);
@@ -225,6 +228,7 @@ struct FlattenWorker
 		if (!design->selected(module) || module->get_blackbox_attribute(ignore_wb))
 			return;
 
+		SigMap sigmap(module);
 		std::vector<RTLIL::Cell*> worklist = module->selected_cells();
 		while (!worklist.empty())
 		{
@@ -248,7 +252,7 @@ struct FlattenWorker
 			// If a design is fully selected and has a top module defined, topological sorting ensures that all cells
 			// added during flattening are black boxes, and flattening is finished in one pass. However, when flattening
 			// individual modules, this isn't the case, and the newly added cells might have to be flattened further.
-			flatten_cell(design, module, cell, tpl, worklist);
+			flatten_cell(design, module, cell, tpl, sigmap, worklist);
 		}
 	}
 };

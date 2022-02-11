@@ -1,0 +1,21 @@
+read_verilog -sv <<EOT
+module doubleslash
+  (input  logic   a,
+   input  logic   b,
+   output logic   z);
+
+  logic \a//b ;
+
+  assign \a//b = a & b;
+  assign z = ~\a//b ;
+
+endmodule : doubleslash
+EOT
+
+hierarchy
+proc
+opt -full
+
+write_verilog doubleslash.v
+design -reset
+read_verilog doubleslash.v

@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -539,6 +539,56 @@ void json_import(Design *design, string &modname, JsonNode *node)
 				json_parse_attr_param(cell->parameters, cell_node->data_dict.at("parameters"));
 		}
 	}
+
+	if (node->data_dict.count("memories"))
+	{
+		JsonNode *memories_node = node->data_dict.at("memories");
+
+		if (memories_node->type != 'D')
+			log_error("JSON memories node is not a dictionary.\n");
+
+		for (auto &memory_node_it : memories_node->data_dict)
+		{
+			IdString memory_name = RTLIL::escape_id(memory_node_it.first.c_str());
+			JsonNode *memory_node = memory_node_it.second;
+
+			RTLIL::Memory *mem = new RTLIL::Memory;
+			mem->name = memory_name;
+
+			if (memory_node->type != 'D')
+				log_error("JSON memory node '%s' is not a dictionary.\n", log_id(memory_name));
+
+			if (memory_node->data_dict.count("width") == 0)
+				log_error("JSON memory node '%s' has no width attribute.\n", log_id(memory_name));
+			JsonNode *width_node = memory_node->data_dict.at("width");
+			if (width_node->type != 'N')
+				log_error("JSON memory node '%s' has a non-number width.\n", log_id(memory_name));
+			mem->width = width_node->data_number;
+
+			if (memory_node->data_dict.count("size") == 0)
+				log_error("JSON memory node '%s' has no size attribute.\n", log_id(memory_name));
+			JsonNode *size_node = memory_node->data_dict.at("size");
+			if (size_node->type != 'N')
+				log_error("JSON memory node '%s' has a non-number size.\n", log_id(memory_name));
+			mem->size = size_node->data_number;
+
+			mem->start_offset = 0;
+			if (memory_node->data_dict.count("start_offset") != 0) {
+				JsonNode *val = memory_node->data_dict.at("start_offset");
+				if (val->type == 'N')
+					mem->start_offset = val->data_number;
+			}
+
+			if (memory_node->data_dict.count("attributes"))
+				json_parse_attr_param(mem->attributes, memory_node->data_dict.at("attributes"));
+
+			module->memories[mem->name] = mem;
+		}
+	}
+
+	// remove duplicates from connections array
+	pool<RTLIL::SigSig> unique_connections(module->connections_.begin(), module->connections_.end());
+	module->connections_ = std::vector<RTLIL::SigSig>(unique_connections.begin(), unique_connections.end());
 }
 
 struct JsonFrontend : public Frontend {

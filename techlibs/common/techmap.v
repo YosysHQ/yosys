@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -59,12 +59,12 @@ module _90_simplemap_compare_ops;
 endmodule
 
 (* techmap_simplemap *)
-(* techmap_celltype = "$pos $slice $concat $mux $tribuf" *)
+(* techmap_celltype = "$pos $slice $concat $mux $tribuf $bmux" *)
 module _90_simplemap_various;
 endmodule
 
 (* techmap_simplemap *)
-(* techmap_celltype = "$sr $ff $dff $dffe $adff $adffe $sdff $sdffe $sdffce $dffsr $dffsre $dlatch $adlatch $dlatchsr" *)
+(* techmap_celltype = "$sr $ff $dff $dffe $adff $adffe $aldff $aldffe $sdff $sdffe $sdffce $dffsr $dffsre $dlatch $adlatch $dlatchsr" *)
 module _90_simplemap_registers;
 endmodule
 
@@ -595,6 +595,43 @@ module _90_pmux (A, B, S, Y);
 	endgenerate
 
 	assign Y = |S ? Y_B : A;
+endmodule
+
+// --------------------------------------------------------
+// Demultiplexers
+// --------------------------------------------------------
+
+(* techmap_celltype = "$demux" *)
+module _90_demux (A, S, Y);
+	parameter WIDTH = 1;
+	parameter S_WIDTH = 1;
+
+	(* force_downto *)
+	input [WIDTH-1:0] A;
+	(* force_downto *)
+	input [S_WIDTH-1:0] S;
+	(* force_downto *)
+	output [(WIDTH << S_WIDTH)-1:0] Y;
+
+	generate
+		if (S_WIDTH == 0) begin
+			assign Y = A;
+		end else if (S_WIDTH == 1) begin
+			assign Y[0+:WIDTH] = S ? 0 : A;
+			assign Y[WIDTH+:WIDTH] = S ? A : 0;
+		end else begin
+			localparam SPLIT = S_WIDTH / 2;
+			wire [(1 << (S_WIDTH-SPLIT))-1:0] YH;
+			wire [(1 << SPLIT)-1:0] YL;
+			$demux #(.WIDTH(1), .S_WIDTH(SPLIT)) lo (.A(1'b1), .S(S[SPLIT-1:0]), .Y(YL));
+			$demux #(.WIDTH(1), .S_WIDTH(S_WIDTH-SPLIT)) hi (.A(1'b1), .S(S[S_WIDTH-1:SPLIT]), .Y(YH));
+			genvar i;
+			for (i = 0; i < (1 << S_WIDTH); i = i + 1) begin
+				localparam [S_WIDTH-1:0] IDX = i;
+				assign Y[i*WIDTH+:WIDTH] = (YL[IDX[SPLIT-1:0]] & YH[IDX[S_WIDTH-1:SPLIT]]) ? A : 0;
+			end
+		end
+	endgenerate
 endmodule
 
 

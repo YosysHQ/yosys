@@ -1,4 +1,4 @@
-module top(out);
+module local_loop_top(out);
 	output integer out;
 	initial begin
 		integer i;

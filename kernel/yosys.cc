@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -67,6 +67,7 @@
 #   define INIT_MODULE initlibyosys
 	extern "C" void INIT_MODULE();
 #endif
+#include <signal.h>
 #endif
 
 #include <limits.h>
@@ -137,7 +138,7 @@ void yosys_banner()
 	log(" |                                                                            |\n");
 	log(" |  yosys -- Yosys Open SYnthesis Suite                                       |\n");
 	log(" |                                                                            |\n");
-	log(" |  Copyright (C) 2012 - 2020  Claire Wolf <claire@symbioticeda.com>          |\n");
+	log(" |  Copyright (C) 2012 - 2020  Claire Xenia Wolf <claire@yosyshq.com>         |\n");
 	log(" |                                                                            |\n");
 	log(" |  Permission to use, copy, modify, and/or distribute this software for any  |\n");
 	log(" |  purpose with or without fee is hereby granted, provided that the above    |\n");
@@ -540,6 +541,7 @@ void yosys_setup()
 		PyImport_AppendInittab((char*)"libyosys", INIT_MODULE);
 		Py_Initialize();
 		PyRun_SimpleString("import sys");
+		signal(SIGINT, SIG_DFL);
 	#endif
 
 	Pass::init_register();
@@ -814,7 +816,9 @@ std::string proc_self_dirname()
 		path = (char *) realloc((void *) path, buflen);
 	while (buflen > 0 && path[buflen-1] != '/')
 		buflen--;
-	return std::string(path, buflen);
+	std::string str(path, buflen);
+	free(path);
+	return str;
 }
 #elif defined(_WIN32)
 std::string proc_self_dirname()
@@ -969,7 +973,7 @@ static void handle_label(std::string &command, bool &from_to_active, const std::
 	}
 }
 
-void run_frontend(std::string filename, std::string command, std::string *backend_command, std::string *from_to_label, RTLIL::Design *design)
+bool run_frontend(std::string filename, std::string command, RTLIL::Design *design, std::string *from_to_label)
 {
 	if (design == nullptr)
 		design = yosys_design;
@@ -979,11 +983,11 @@ void run_frontend(std::string filename, std::string command, std::string *backen
 		if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".gz") == 0)
 			filename_trim.erase(filename_trim.size()-3);
 		if (filename_trim.size() > 2 && filename_trim.compare(filename_trim.size()-2, std::string::npos, ".v") == 0)
-			command = "verilog";
+			command = " -vlog2k";
 		else if (filename_trim.size() > 2 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".sv") == 0)
-			command = "verilog -sv";
+			command = " -sv";
 		else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".vhd") == 0)
-			command = "vhdl";
+			command = " -vhdl";
 		else if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-5, std::string::npos, ".blif") == 0)
 			command = "blif";
 		else if (filename_trim.size() > 5 && filename_trim.compare(filename_trim.size()-6, std::string::npos, ".eblif") == 0)
@@ -1069,10 +1073,12 @@ void run_frontend(std::string filename, std::string command, std::string *backen
 		if (filename != "-")
 			fclose(f);
 
-		if (backend_command != NULL && *backend_command == "auto")
-			*backend_command = "";
+		return true;
+	}
 
-		return;
+	if (command == "tcl") {
+		Pass::call(design, vector<string>({command, filename}));
+		return true;
 	}
 
 	if (filename == "-") {
@@ -1081,16 +1087,15 @@ void run_frontend(std::string filename, std::string command, std::string *backen
 		log("\n-- Parsing `%s' using frontend `%s' --\n", filename.c_str(), command.c_str());
 	}
 
-	if (command == "tcl")
-		Pass::call(design, vector<string>({command, filename}));
-	else
+	if (command[0] == ' ') {
+		auto argv = split_tokens("read" + command);
+		argv.push_back(filename);
+		Pass::call(design, argv);
+	} else
 		Frontend::frontend_call(design, NULL, filename, command);
-	design->check();
-}
 
-void run_frontend(std::string filename, std::string command, RTLIL::Design *design)
-{
-	run_frontend(filename, command, nullptr, nullptr, design);
+	design->check();
+	return false;
 }
 
 void run_pass(std::string command, RTLIL::Design *design)
@@ -1404,7 +1409,7 @@ struct ScriptCmdPass : public Pass {
 		else if (args.size() == 2)
 			run_frontend(args[1], "script", design);
 		else if (args.size() == 3)
-			run_frontend(args[1], "script", NULL, &args[2], design);
+			run_frontend(args[1], "script", design, &args[2]);
 		else
 			extra_args(args, 2, design, false);
 	}

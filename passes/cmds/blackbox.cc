@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -46,10 +46,11 @@ struct BlackboxPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto module : design->selected_whole_modules_warn())
+		for (auto module : design->selected_whole_modules_warn(true))
 		{
 			module->makeblackbox();
 			module->set_bool_attribute(ID::blackbox);
+			module->set_bool_attribute(ID::whitebox, false);
 		}
 	}
 } BlackboxPass;

@@ -22,5 +22,5 @@ module top();
 endmodule
 EOT
 
-synth_intel_alm -family cyclone10gx -quartus
+synth_intel_alm -family cyclone10gx -quartus -noiopad -noclkbuf
 select -assert-none w:*[* w:*]*

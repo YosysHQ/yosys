@@ -18,6 +18,7 @@ OBJS += passes/cmds/setattr.o
 OBJS += passes/cmds/copy.o
 OBJS += passes/cmds/splice.o
 OBJS += passes/cmds/scc.o
+OBJS += passes/cmds/glift.o
 OBJS += passes/cmds/torder.o
 OBJS += passes/cmds/logcmd.o
 OBJS += passes/cmds/tee.o
@@ -40,3 +41,5 @@ endif
 OBJS += passes/cmds/scratchpad.o
 OBJS += passes/cmds/logger.o
 OBJS += passes/cmds/printattrs.o
+OBJS += passes/cmds/sta.o
+OBJS += passes/cmds/clean_zerowidth.o

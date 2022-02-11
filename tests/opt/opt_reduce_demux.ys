@@ -1,0 +1,91 @@
+read_ilang << EOT
+
+module \top
+  wire width 4 input 0 \A
+  wire width 2 input 1 \S
+  wire width 24 output 2 \Y
+
+  cell $demux $0
+    parameter \WIDTH 6
+    parameter \S_WIDTH 2
+    connect \A { \A [3] \A [1] 1'0 \A [2:0] }
+    connect \S \S
+    connect \Y \Y
+  end
+end
+
+EOT
+
+equiv_opt -assert opt_reduce -fine
+opt_reduce -fine
+select -assert-count 1 t:$demux r:WIDTH=4 %i
+
+design -reset
+
+read_ilang << EOT
+
+module \top
+  wire width 2 input 1 \S
+  wire width 24 output 2 \Y
+
+  cell $demux $0
+    parameter \WIDTH 6
+    parameter \S_WIDTH 2
+    connect \A 6'000000
+    connect \S \S
+    connect \Y \Y
+  end
+end
+
+EOT
+
+equiv_opt -assert opt_reduce -fine
+opt_reduce -fine
+select -assert-count 0 t:$demux
+
+design -reset
+
+read_ilang << EOT
+
+module \top
+  wire width 5 input 0 \A
+  wire width 2 input 1 \S
+  wire width 160 output 2 \Y
+
+  cell $demux $0
+    parameter \WIDTH 5
+    parameter \S_WIDTH 5
+    connect \A \A
+    connect \S { \S [0] \S [1] 1'1 \S [0] 1'0 }
+    connect \Y \Y
+  end
+end
+
+EOT
+
+equiv_opt -assert opt_reduce -fine
+opt_reduce -fine
+select -assert-count 1 t:$demux r:S_WIDTH=2 %i
+
+design -reset
+
+read_ilang << EOT
+
+module \top
+  wire width 5 input 0 \A
+  wire width 20 output 2 \Y
+
+  cell $demux $0
+    parameter \WIDTH 5
+    parameter \S_WIDTH 2
+    connect \A \A
+    connect \S { 2'10 }
+    connect \Y \Y
+  end
+end
+
+EOT
+
+equiv_opt -assert opt_reduce -fine
+opt_reduce -fine
+select -assert-count 0 t:$demux

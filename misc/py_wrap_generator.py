@@ -1,7 +1,7 @@
 #
 #  yosys -- Yosys Open SYnthesis Suite
 #
-#  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+#  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
 #
 #  Permission to use, copy, modify, and/or distribute this software for any
 #  purpose with or without fee is hereby granted, provided that the above
@@ -997,7 +997,7 @@ sources = [
 	Source("kernel/cost",[])
 	]
 
-blacklist_methods = ["YOSYS_NAMESPACE::Pass::run_register", "YOSYS_NAMESPACE::Module::Pow", "YOSYS_NAMESPACE::Module::Bu0", "YOSYS_NAMESPACE::CaseRule::optimize"]
+blacklist_methods = ["YOSYS_NAMESPACE::Pass::run_register", "YOSYS_NAMESPACE::Module::Pow"]
 
 enum_names = ["State","SyncType","ConstFlags"]
 
@@ -2243,7 +2243,7 @@ def gen_wrappers(filename, debug_level_ = 0):
 """/*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above

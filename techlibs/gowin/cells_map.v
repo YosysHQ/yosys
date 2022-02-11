@@ -122,7 +122,6 @@ module	\$_DFFE_NP0P_ (input D, C, R, E, output Q);
 	wire _TECHMAP_REMOVEINIT_Q_ = 1;
 endmodule
 
-
 module \$lut (A, Y);
 	parameter WIDTH = 0;
 	parameter LUT = 0;

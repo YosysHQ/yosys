@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -83,7 +83,7 @@ struct TorderPass : public Pass {
 				if (!noautostop && yosys_celltypes.cell_known(cell->type)) {
 					if (conn.first.in(ID::Q, ID::CTRL_OUT, ID::RD_DATA))
 						continue;
-					if (cell->type == ID($memrd) && conn.first == ID::DATA)
+					if (cell->type.in(ID($memrd), ID($memrd_v2)) && conn.first == ID::DATA)
 						continue;
 				}
 

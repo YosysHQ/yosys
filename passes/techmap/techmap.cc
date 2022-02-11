@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -364,13 +364,11 @@ struct TechmapWorker
 			for (auto &it2 : autopurge_ports)
 				c->unsetPort(it2);
 
-			if (c->type.in(ID($memrd), ID($memwr), ID($meminit))) {
+			if (c->has_memid()) {
 				IdString memid = c->getParam(ID::MEMID).decode_string();
 				log_assert(memory_renames.count(memid) != 0);
 				c->setParam(ID::MEMID, Const(memory_renames[memid].str()));
-			}
-
-			if (c->type == ID($mem)) {
+			} else if (c->is_mem_cell()) {
 				IdString memid = c->getParam(ID::MEMID).decode_string();
 				apply_prefix(cell->name, memid);
 				c->setParam(ID::MEMID, Const(memid.c_str()));
@@ -379,10 +377,12 @@ struct TechmapWorker
 			if (c->attributes.count(ID::src))
 				c->add_strpool_attribute(ID::src, extra_src_attrs);
 
-			if (techmap_replace_cell)
+			if (techmap_replace_cell) {
 				for (auto attr : cell->attributes)
 					if (!c->attributes.count(attr.first))
 						c->attributes[attr.first] = attr.second;
+				c->attributes.erase(ID::reprocess_after);
+			}
 		}
 
 		for (auto &it : tpl->connections()) {

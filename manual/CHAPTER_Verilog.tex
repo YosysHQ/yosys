@@ -503,6 +503,8 @@ signal to the temporary signal in its \lstinline[language=C++]{RTLIL::CaseRule}/
 \item Finally a \lstinline[language=C++]{RTLIL::SyncRule} is created for the \lstinline[language=C++]{RTLIL::Process} that
 assigns the temporary signals for the final values to the actual signals.
 %
+\item A process may also contain memory writes. A \lstinline[language=C++]{RTLIL::MemWriteAction} is created for each of them.
+%
 \item Calls to \lstinline[language=C++]{AST::AstNode::genRTLIL()} are generated for right hand sides as needed. When blocking
 assignments are used, \lstinline[language=C++]{AST::AstNode::genRTLIL()} is configured using global variables to use
 the temporary signals that hold the correct intermediate values whenever one of the previously assigned signals is used
@@ -820,6 +822,9 @@ the \C{RTLIL::SyncRule}s that describe the output registers.
 \item {\tt proc\_dff} \\
 This pass replaces the \C{RTLIL::SyncRule}s to d-type flip-flops (with
 asynchronous resets if necessary).
+%
+\item {\tt proc\_dff} \\
+This pass replaces the \C{RTLIL::MemWriteActions}s with {\tt \$memwr} cells.
 %
 \item {\tt proc\_clean} \\
 A final call to {\tt proc\_clean} removes the now empty \C{RTLIL::Process} objects.

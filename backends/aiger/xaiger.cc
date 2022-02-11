@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *                2019  Eddie Hung <eddie@fpgeh.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
@@ -156,7 +156,7 @@ struct XAigerWriter
 
 		// promote keep wires
 		for (auto wire : module->wires())
-			if (wire->get_bool_attribute(ID::keep) || wire->get_bool_attribute(ID::abc9_keep))
+			if (wire->get_bool_attribute(ID::keep))
 				sigmap.add(wire);
 
 		for (auto wire : module->wires()) {
@@ -177,11 +177,10 @@ struct XAigerWriter
 				undriven_bits.insert(bit);
 				unused_bits.insert(bit);
 
-				bool keep = wire->get_bool_attribute(ID::abc9_keep);
-				if (wire->port_input || keep)
+				if (wire->port_input)
 					input_bits.insert(bit);
 
-				keep = keep || wire->get_bool_attribute(ID::keep);
+				bool keep = wire->get_bool_attribute(ID::keep);
 				if (wire->port_output || keep) {
 					if (bit != wirebit)
 						alias_map[wirebit] = bit;
@@ -262,26 +261,27 @@ struct XAigerWriter
 
 				if (!timing.count(inst_module->name))
 					timing.setup_module(inst_module);
-				auto &t = timing.at(inst_module->name).arrival;
-				for (const auto &conn : cell->connections()) {
-					auto port_wire = inst_module->wire(conn.first);
-					if (!port_wire->port_output)
+
+				for (auto &i : timing.at(inst_module->name).arrival) {
+					if (!cell->hasPort(i.first.name))
 						continue;
 
-					for (int i = 0; i < GetSize(conn.second); i++) {
-						auto d = t.at(TimingInfo::NameBit(conn.first,i), 0);
-						if (d == 0)
-							continue;
+					auto port_wire = inst_module->wire(i.first.name);
+					log_assert(port_wire->port_output);
+
+					auto d = i.second.first;
+					if (d == 0)
+						continue;
+					auto offset = i.first.offset;
 
 #ifndef NDEBUG
-						if (ys_debug(1)) {
-							static std::set<std::tuple<IdString,IdString,int>> seen;
-							if (seen.emplace(inst_module->name, conn.first, i).second) log("%s.%s[%d] abc9_arrival = %d\n",
-									log_id(cell->type), log_id(conn.first), i, d);
-						}
-#endif
-						arrival_times[conn.second[i]] = d;
+					if (ys_debug(1)) {
+						static pool<std::pair<IdString,TimingInfo::NameBit>> seen;
+						if (seen.emplace(inst_module->name, i.first).second) log("%s.%s[%d] abc9_arrival = %d\n",
+								log_id(cell->type), log_id(i.first.name), offset, d);
 					}
+#endif
+					arrival_times[cell->getPort(i.first.name)[offset]] = d;
 				}
 
 				if (abc9_flop)
@@ -432,7 +432,8 @@ struct XAigerWriter
 			//   that has been padded to its full width
 			if (bit == State::Sx)
 				continue;
-			log_assert(!aig_map.count(bit));
+			if (aig_map.count(bit))
+				log_error("Visited AIG node more than once; this could be a combinatorial loop that has not been broken\n");
 			aig_map[bit] = 2*aig_m;
 		}
 

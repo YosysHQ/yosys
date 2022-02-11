@@ -1,0 +1,15 @@
+read_verilog -sv <<EOF
+module top;
+logic x;
+always_comb begin
+    logic y;
+    if (x)
+        x = 1;
+    else
+        y = 1;
+    x = y;
+end
+endmodule
+EOF
+logger -expect error "^Latch inferred for signal `\\top\.\$unnamed_block\$1\.y' from always_comb process" 1
+proc

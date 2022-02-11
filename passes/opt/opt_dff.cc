@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *  Copyright (C) 2020  Marcelina Kościelnicka <mwk@0x04.net>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
@@ -21,7 +21,8 @@
 #include "kernel/log.h"
 #include "kernel/register.h"
 #include "kernel/rtlil.h"
-#include "kernel/satgen.h"
+#include "kernel/qcsat.h"
+#include "kernel/modtools.h"
 #include "kernel/sigtools.h"
 #include "kernel/ffinit.h"
 #include "kernel/ff.h"
@@ -51,26 +52,20 @@ struct OptDffWorker
 	FfInitVals initvals;
 	dict<SigBit, int> bitusers;
 	dict<SigBit, cell_int_t> bit2mux;
-	dict<SigBit, RTLIL::Cell*> bit2driver;
 
 	typedef std::map<RTLIL::SigBit, bool> pattern_t;
 	typedef std::set<pattern_t> patterns_t;
 	typedef std::pair<RTLIL::SigBit, bool> ctrl_t;
 	typedef std::set<ctrl_t> ctrls_t;
 
-	ezSatPtr ez;
-	SatGen satgen;
-	pool<Cell*> sat_cells;
-
 	// Used as a queue.
 	std::vector<Cell *> dff_cells;
 
-	OptDffWorker(const OptDffOptions &opt, Module *mod) : opt(opt), module(mod), sigmap(mod), initvals(&sigmap, mod), ez(), satgen(ez.get(), &sigmap) {
-		// Gathering three kinds of information here for every sigmapped SigBit:
+	OptDffWorker(const OptDffOptions &opt, Module *mod) : opt(opt), module(mod), sigmap(mod), initvals(&sigmap, mod) {
+		// Gathering two kinds of information here for every sigmapped SigBit:
 		//
 		// - bitusers: how many users it has (muxes will only be merged into FFs if this is 1, making the FF the only user)
 		// - bit2mux: the mux cell and bit index that drives it, if any
-		// - bit2driver: the cell driving it, if any
 
 		for (auto wire : module->wires())
 		{
@@ -88,10 +83,6 @@ struct OptDffWorker
 
 			for (auto conn : cell->connections()) {
 				bool is_output = cell->output(conn.first);
-				if (is_output) {
-					for (auto bit : sigmap(conn.second))
-						bit2driver[bit] = cell;
-				}
 				if (!is_output || !cell->known()) {
 					for (auto bit : sigmap(conn.second))
 						bitusers[bit]++;
@@ -103,20 +94,6 @@ struct OptDffWorker
 		}
 
 	}
-
-	std::function<void(Cell*)> sat_import_cell = [&](Cell *c) {
-		if (!sat_cells.insert(c).second)
-			return;
-		if (!satgen.importCell(c))
-			return;
-		for (auto &conn : c->connections()) {
-			if (!c->input(conn.first))
-				continue;
-			for (auto bit : sigmap(conn.second))
-				if (bit2driver.count(bit))
-					sat_import_cell(bit2driver.at(bit));
-		}
-	};
 
 	State combine_const(State a, State b) {
 		if (a == State::Sx && !opt.keepdc)
@@ -295,7 +272,7 @@ struct OptDffWorker
 			bool changed = false;
 
 			if (!ff.width) {
-				module->remove(cell);
+				ff.remove();
 				did_something = true;
 				continue;
 			}
@@ -318,9 +295,9 @@ struct OptDffWorker
 						if (!ff.pol_clr) {
 							module->connect(ff.sig_q[i], ff.sig_clr[i]);
 						} else if (ff.is_fine) {
-							module->addNotGate(NEW_ID, ff.sig_q[i], ff.sig_clr[i]);
+							module->addNotGate(NEW_ID, ff.sig_clr[i], ff.sig_q[i]);
 						} else {
-							module->addNot(NEW_ID, ff.sig_q[i], ff.sig_clr[i]);
+							module->addNot(NEW_ID, ff.sig_clr[i], ff.sig_q[i]);
 						}
 						log("Handling always-active SET at position %d on %s (%s) from module %s (changing to combinatorial circuit).\n",
 								i, log_id(cell), log_id(cell->type), log_id(module));
@@ -336,6 +313,7 @@ struct OptDffWorker
 						continue;
 					}
 					ff = ff.slice(keep_bits);
+					ff.cell = cell;
 					changed = true;
 				}
 
@@ -402,6 +380,68 @@ struct OptDffWorker
 				}
 			}
 
+			if (ff.has_aload) {
+				if (ff.sig_aload == (ff.pol_aload ? State::S0 : State::S1) || (!opt.keepdc && ff.sig_aload == State::Sx)) {
+					// Always-inactive enable — remove.
+					log("Removing never-active async load on %s (%s) from module %s.\n",
+							log_id(cell), log_id(cell->type), log_id(module));
+					ff.has_aload = false;
+					changed = true;
+				} else if (ff.sig_aload == (ff.pol_aload ? State::S1 : State::S0)) {
+					// Always-active enable.  Make a comb circuit, nuke the FF/latch.
+					log("Handling always-active async load on %s (%s) from module %s (changing to combinatorial circuit).\n",
+							log_id(cell), log_id(cell->type), log_id(module));
+					ff.remove();
+					if (ff.has_sr) {
+						SigSpec tmp;
+						if (ff.is_fine) {
+							if (ff.pol_set)
+								tmp = module->MuxGate(NEW_ID, ff.sig_ad, State::S1, ff.sig_set);
+							else
+								tmp = module->MuxGate(NEW_ID, State::S1, ff.sig_ad, ff.sig_set);
+							if (ff.pol_clr)
+								module->addMuxGate(NEW_ID, tmp, State::S0, ff.sig_clr, ff.sig_q);
+							else
+								module->addMuxGate(NEW_ID, State::S0, tmp, ff.sig_clr, ff.sig_q);
+						} else {
+							if (ff.pol_set)
+								tmp = module->Or(NEW_ID, ff.sig_ad, ff.sig_set);
+							else
+								tmp = module->Or(NEW_ID, ff.sig_ad, module->Not(NEW_ID, ff.sig_set));
+							if (ff.pol_clr)
+								module->addAnd(NEW_ID, tmp, module->Not(NEW_ID, ff.sig_clr), ff.sig_q);
+							else
+								module->addAnd(NEW_ID, tmp, ff.sig_clr, ff.sig_q);
+						}
+					} else if (ff.has_arst) {
+						if (ff.is_fine) {
+							if (ff.pol_arst)
+								module->addMuxGate(NEW_ID, ff.sig_ad, ff.val_arst[0], ff.sig_arst, ff.sig_q);
+							else
+								module->addMuxGate(NEW_ID, ff.val_arst[0], ff.sig_ad, ff.sig_arst, ff.sig_q);
+						} else {
+							if (ff.pol_arst)
+								module->addMux(NEW_ID, ff.sig_ad, ff.val_arst, ff.sig_arst, ff.sig_q);
+							else
+								module->addMux(NEW_ID, ff.val_arst, ff.sig_ad, ff.sig_arst, ff.sig_q);
+						}
+					} else {
+						module->connect(ff.sig_q, ff.sig_ad);
+					}
+					did_something = true;
+					continue;
+				} else if (ff.sig_ad.is_fully_const() && !ff.has_arst && !ff.has_sr) {
+					log("Changing const-value async load to async reset on %s (%s) from module %s.\n",
+							log_id(cell), log_id(cell->type), log_id(module));
+					ff.has_arst = true;
+					ff.has_aload = false;
+					ff.sig_arst = ff.sig_aload;
+					ff.pol_arst = ff.pol_aload;
+					ff.val_arst = ff.sig_ad.as_const();
+					changed = true;
+				}
+			}
+
 			if (ff.has_arst) {
 				if (ff.sig_arst == (ff.pol_arst ? State::S0 : State::S1)) {
 					// Always-inactive reset — remove.
@@ -413,8 +453,7 @@ struct OptDffWorker
 					// Always-active async reset — change to const driver.
 					log("Handling always-active ARST on %s (%s) from module %s (changing to const driver).\n",
 							log_id(cell), log_id(cell->type), log_id(module));
-					initvals.remove_init(ff.sig_q);
-					module->remove(cell);
+					ff.remove();
 					module->connect(ff.sig_q, ff.val_arst);
 					did_something = true;
 					continue;
@@ -434,111 +473,63 @@ struct OptDffWorker
 							log_id(cell), log_id(cell->type), log_id(module));
 					ff.has_srst = false;
 					if (!ff.ce_over_srst)
-						ff.has_en = false;
-					ff.sig_d = ff.val_d = ff.val_srst;
-					ff.d_is_const = true;
+						ff.has_ce = false;
+					ff.sig_d = ff.val_srst;
 					changed = true;
 				}
 			}
 
-			if (ff.has_en) {
-				if (ff.sig_en == (ff.pol_en ? State::S0 : State::S1) || (!opt.keepdc && ff.sig_en == State::Sx)) {
+			if (ff.has_ce) {
+				if (ff.sig_ce == (ff.pol_ce ? State::S0 : State::S1) || (!opt.keepdc && ff.sig_ce == State::Sx)) {
 					// Always-inactive enable — remove.
-					if (ff.has_clk && ff.has_srst && !ff.ce_over_srst) {
+					if (ff.has_srst && !ff.ce_over_srst) {
 						log("Handling never-active EN on %s (%s) from module %s (connecting SRST instead).\n",
 								log_id(cell), log_id(cell->type), log_id(module));
 						// FF with sync reset — connect the sync reset to D instead.
-						ff.pol_en = ff.pol_srst;
-						ff.sig_en = ff.sig_srst;
+						ff.pol_ce = ff.pol_srst;
+						ff.sig_ce = ff.sig_srst;
 						ff.has_srst = false;
-						ff.sig_d = ff.val_d = ff.val_srst;
-						ff.d_is_const = true;
+						ff.sig_d = ff.val_srst;
 						changed = true;
 					} else {
 						log("Handling never-active EN on %s (%s) from module %s (removing D path).\n",
 								log_id(cell), log_id(cell->type), log_id(module));
-						// The D input path is effectively useless, so remove it (this will be a const-input D latch, SR latch, or a const driver).
-						ff.has_d = ff.has_en = ff.has_clk = false;
+						// The D input path is effectively useless, so remove it (this will be a D latch, SR latch, or a const driver).
+						ff.has_ce = ff.has_clk = ff.has_srst = false;
 						changed = true;
 					}
-				} else if (ff.sig_en == (ff.pol_en ? State::S1 : State::S0)) {
-					// Always-active enable.
-					if (ff.has_clk) {
-						// For FF, just remove the useless enable.
-						log("Removing always-active EN on %s (%s) from module %s.\n",
-								log_id(cell), log_id(cell->type), log_id(module));
-						ff.has_en = false;
-						changed = true;
-					} else {
-						// For latches, make a comb circuit, nuke the latch.
-						log("Handling always-active EN on %s (%s) from module %s (changing to combinatorial circuit).\n",
-								log_id(cell), log_id(cell->type), log_id(module));
-						initvals.remove_init(ff.sig_q);
-						module->remove(cell);
-						if (ff.has_sr) {
-							SigSpec tmp;
-							if (ff.is_fine) {
-								if (ff.pol_set)
-									tmp = module->MuxGate(NEW_ID, ff.sig_d, State::S1, ff.sig_set);
-								else
-									tmp = module->MuxGate(NEW_ID, State::S1, ff.sig_d, ff.sig_set);
-								if (ff.pol_clr)
-									module->addMuxGate(NEW_ID, tmp, State::S0, ff.sig_clr, ff.sig_q);
-								else
-									module->addMuxGate(NEW_ID, State::S0, tmp, ff.sig_clr, ff.sig_q);
-							} else {
-								if (ff.pol_set)
-									tmp = module->Or(NEW_ID, ff.sig_d, ff.sig_set);
-								else
-									tmp = module->Or(NEW_ID, ff.sig_d, module->Not(NEW_ID, ff.sig_set));
-								if (ff.pol_clr)
-									module->addAnd(NEW_ID, tmp, module->Not(NEW_ID, ff.sig_clr), ff.sig_q);
-								else
-									module->addAnd(NEW_ID, tmp, ff.sig_clr, ff.sig_q);
-							}
-						} else if (ff.has_arst) {
-							if (ff.is_fine) {
-								if (ff.pol_arst)
-									module->addMuxGate(NEW_ID, ff.sig_d, ff.val_arst[0], ff.sig_arst, ff.sig_q);
-								else
-									module->addMuxGate(NEW_ID, ff.val_arst[0], ff.sig_d, ff.sig_arst, ff.sig_q);
-							} else {
-								if (ff.pol_arst)
-									module->addMux(NEW_ID, ff.sig_d, ff.val_arst, ff.sig_arst, ff.sig_q);
-								else
-									module->addMux(NEW_ID, ff.val_arst, ff.sig_d, ff.sig_arst, ff.sig_q);
-							}
-						} else {
-							module->connect(ff.sig_q, ff.sig_d);
-						}
-						did_something = true;
-						continue;
-					}
+				} else if (ff.sig_ce == (ff.pol_ce ? State::S1 : State::S0)) {
+					// Always-active enable.  Just remove it.
+					// For FF, just remove the useless enable.
+					log("Removing always-active EN on %s (%s) from module %s.\n",
+							log_id(cell), log_id(cell->type), log_id(module));
+					ff.has_ce = false;
+					changed = true;
 				}
 			}
 
 			if (ff.has_clk) {
 				if (ff.sig_clk.is_fully_const()) {
-					// Const clock — the D input path is effectively useless, so remove it (this will be a const-input D latch, SR latch, or a const driver).
+					// Const clock — the D input path is effectively useless, so remove it (this will be a D latch, SR latch, or a const driver).
 					log("Handling const CLK on %s (%s) from module %s (removing D path).\n",
 							log_id(cell), log_id(cell->type), log_id(module));
-					ff.has_d = ff.has_en = ff.has_clk = ff.has_srst = false;
+					ff.has_ce = ff.has_clk = ff.has_srst = false;
 					changed = true;
 				}
 			}
 
-			if (ff.has_d && ff.sig_d == ff.sig_q) {
+			if ((ff.has_clk || ff.has_gclk) && ff.sig_d == ff.sig_q) {
 				// Q wrapped back to D, can be removed.
 				if (ff.has_clk && ff.has_srst) {
 					// FF with sync reset — connect the sync reset to D instead.
 					log("Handling D = Q on %s (%s) from module %s (conecting SRST instead).\n",
 							log_id(cell), log_id(cell->type), log_id(module));
-					if (ff.has_en && ff.ce_over_srst) {
-						if (!ff.pol_en) {
+					if (ff.has_ce && ff.ce_over_srst) {
+						if (!ff.pol_ce) {
 							if (ff.is_fine)
-								ff.sig_en = module->NotGate(NEW_ID, ff.sig_en);
+								ff.sig_ce = module->NotGate(NEW_ID, ff.sig_ce);
 							else
-								ff.sig_en = module->Not(NEW_ID, ff.sig_en);
+								ff.sig_ce = module->Not(NEW_ID, ff.sig_ce);
 						}
 						if (!ff.pol_srst) {
 							if (ff.is_fine)
@@ -547,96 +538,37 @@ struct OptDffWorker
 								ff.sig_srst = module->Not(NEW_ID, ff.sig_srst);
 						}
 						if (ff.is_fine)
-							ff.sig_en = module->AndGate(NEW_ID, ff.sig_en, ff.sig_srst);
+							ff.sig_ce = module->AndGate(NEW_ID, ff.sig_ce, ff.sig_srst);
 						else
-							ff.sig_en = module->And(NEW_ID, ff.sig_en, ff.sig_srst);
-						ff.pol_en = true;
+							ff.sig_ce = module->And(NEW_ID, ff.sig_ce, ff.sig_srst);
+						ff.pol_ce = true;
 					} else {
-						ff.pol_en = ff.pol_srst;
-						ff.sig_en = ff.sig_srst;
+						ff.pol_ce = ff.pol_srst;
+						ff.sig_ce = ff.sig_srst;
 					}
-					ff.has_en = true;
+					ff.has_ce = true;
 					ff.has_srst = false;
-					ff.sig_d = ff.val_d = ff.val_srst;
-					ff.d_is_const = true;
+					ff.sig_d = ff.val_srst;
 					changed = true;
 				} else {
 					// The D input path is effectively useless, so remove it (this will be a const-input D latch, SR latch, or a const driver).
 					log("Handling D = Q on %s (%s) from module %s (removing D path).\n",
 							log_id(cell), log_id(cell->type), log_id(module));
-					ff.has_d = ff.has_en = ff.has_clk = false;
+					ff.has_clk = ff.has_ce = false;
 					changed = true;
 				}
 			}
 
-			// Now check if any bit can be replaced by a constant.
-			pool<int> removed_sigbits;
-			for (int i = 0; i < ff.width; i++) {
-				State val = ff.val_init[i];
-				if (ff.has_arst)
-					val = combine_const(val, ff.val_arst[i]);
-				if (ff.has_srst)
-					val = combine_const(val, ff.val_srst[i]);
-				if (ff.has_sr) {
-					if (ff.sig_clr[i] != (ff.pol_clr ? State::S0 : State::S1))
-						val = combine_const(val, State::S0);
-					if (ff.sig_set[i] != (ff.pol_set ? State::S0 : State::S1))
-						val = combine_const(val, State::S1);
-				}
-				if (val == State::Sm)
-					continue;
-				if (ff.has_d) {
-					if (!ff.sig_d[i].wire) {
-						val = combine_const(val, ff.sig_d[i].data);
-						if (val == State::Sm)
-							continue;
-					} else {
-						if (!opt.sat)
-							continue;
-						// For each register bit, try to prove that it cannot change from the initial value. If so, remove it
-						if (!bit2driver.count(ff.sig_d[i]))
-							continue;
-						if (val != State::S0 && val != State::S1)
-							continue;
-
-						sat_import_cell(bit2driver.at(ff.sig_d[i]));
-
-						int init_sat_pi = satgen.importSigSpec(val).front();
-						int q_sat_pi = satgen.importSigBit(ff.sig_q[i]);
-						int d_sat_pi = satgen.importSigBit(ff.sig_d[i]);
-
-						// Try to find out whether the register bit can change under some circumstances
-						bool counter_example_found = ez->solve(ez->IFF(q_sat_pi, init_sat_pi), ez->NOT(ez->IFF(d_sat_pi, init_sat_pi)));
-
-						// If the register bit cannot change, we can replace it with a constant
-						if (counter_example_found)
-							continue;
-					}
-				}
-				log("Setting constant %d-bit at position %d on %s (%s) from module %s.\n", val ? 1 : 0,
-						i, log_id(cell), log_id(cell->type), log_id(module));
-
-				initvals.remove_init(ff.sig_q[i]);
-				module->connect(ff.sig_q[i], val);
-				removed_sigbits.insert(i);
-			}
-			if (!removed_sigbits.empty()) {
-				std::vector<int> keep_bits;
-				for (int i = 0; i < ff.width; i++)
-					if (!removed_sigbits.count(i))
-						keep_bits.push_back(i);
-				if (keep_bits.empty()) {
-					module->remove(cell);
-					did_something = true;
-					continue;
-				}
-				ff = ff.slice(keep_bits);
+			if (ff.has_aload && !ff.has_clk && ff.sig_ad == ff.sig_q) {
+				log("Handling AD = Q on %s (%s) from module %s (removing async load path).\n",
+						log_id(cell), log_id(cell->type), log_id(module));
+				ff.has_aload = false;
 				changed = true;
 			}
 
 			// The cell has been simplified as much as possible already.  Now try to spice it up with enables / sync resets.
 			if (ff.has_clk) {
-				if (!ff.has_arst && !ff.has_sr && (!ff.has_srst || !ff.has_en || ff.ce_over_srst) && !opt.nosdff) {
+				if (!ff.has_arst && !ff.has_sr && (!ff.has_srst || !ff.has_ce || ff.ce_over_srst) && !opt.nosdff) {
 					// Try to merge sync resets.
 					std::map<ctrls_t, std::vector<int>> groups;
 					std::vector<int> remaining_indices;
@@ -697,9 +629,9 @@ struct OptDffWorker
 						new_ff.has_srst = true;
 						new_ff.sig_srst = srst.first;
 						new_ff.pol_srst = srst.second;
-						if (new_ff.has_en)
+						if (new_ff.has_ce)
 							new_ff.ce_over_srst = true;
-						Cell *new_cell = new_ff.emit(module, NEW_ID);
+						Cell *new_cell = new_ff.emit();
 						if (new_cell)
 							dff_cells.push_back(new_cell);
 						log("Adding SRST signal on %s (%s) from module %s (D = %s, Q = %s, rval = %s).\n",
@@ -712,10 +644,11 @@ struct OptDffWorker
 						continue;
 					} else if (GetSize(remaining_indices) != ff.width) {
 						ff = ff.slice(remaining_indices);
+						ff.cell = cell;
 						changed = true;
 					}
 				}
-				if ((!ff.has_srst || !ff.has_en || !ff.ce_over_srst) && !opt.nodffe) {
+				if ((!ff.has_srst || !ff.has_ce || !ff.ce_over_srst) && !opt.nodffe) {
 					// Try to merge enables.
 					std::map<std::pair<patterns_t, ctrls_t>, std::vector<int>> groups;
 					std::vector<int> remaining_indices;
@@ -745,8 +678,8 @@ struct OptDffWorker
 						if (!opt.simple_dffe)
 							patterns = find_muxtree_feedback_patterns(ff.sig_d[i], ff.sig_q[i], pattern_t());
 						if (!patterns.empty() || !enables.empty()) {
-							if (ff.has_en)
-								enables.insert(ctrl_t(ff.sig_en, ff.pol_en));
+							if (ff.has_ce)
+								enables.insert(ctrl_t(ff.sig_ce, ff.pol_ce));
 							simplify_patterns(patterns);
 							groups[std::make_pair(patterns, enables)].push_back(i);
 						} else
@@ -757,11 +690,11 @@ struct OptDffWorker
 						FfData new_ff = ff.slice(it.second);
 						ctrl_t en = make_patterns_logic(it.first.first, it.first.second, ff.is_fine);
 
-						new_ff.has_en = true;
-						new_ff.sig_en = en.first;
-						new_ff.pol_en = en.second;
+						new_ff.has_ce = true;
+						new_ff.sig_ce = en.first;
+						new_ff.pol_ce = en.second;
 						new_ff.ce_over_srst = false;
-						Cell *new_cell = new_ff.emit(module, NEW_ID);
+						Cell *new_cell = new_ff.emit();
 						if (new_cell)
 							dff_cells.push_back(new_cell);
 						log("Adding EN signal on %s (%s) from module %s (D = %s, Q = %s).\n",
@@ -774,6 +707,7 @@ struct OptDffWorker
 						continue;
 					} else if (GetSize(remaining_indices) != ff.width) {
 						ff = ff.slice(remaining_indices);
+						ff.cell = cell;
 						changed = true;
 					}
 				}
@@ -781,9 +715,116 @@ struct OptDffWorker
 
 			if (changed) {
 				// Rebuild the FF.
-				IdString name = cell->name;
-				module->remove(cell);
-				ff.emit(module, name);
+				ff.emit();
+				did_something = true;
+			}
+		}
+		return did_something;
+	}
+
+	bool run_constbits() {
+		ModWalker modwalker(module->design, module);
+		QuickConeSat qcsat(modwalker);
+
+		// Run as a separate sub-pass, so that we don't mutate (non-FF) cells under ModWalker.
+		bool did_something = false;
+		for (auto cell : module->selected_cells()) {
+			if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+				continue;
+			FfData ff(&initvals, cell);
+
+			// Now check if any bit can be replaced by a constant.
+			pool<int> removed_sigbits;
+			for (int i = 0; i < ff.width; i++) {
+				State val = ff.val_init[i];
+				if (ff.has_arst)
+					val = combine_const(val, ff.val_arst[i]);
+				if (ff.has_srst)
+					val = combine_const(val, ff.val_srst[i]);
+				if (ff.has_sr) {
+					if (ff.sig_clr[i] != (ff.pol_clr ? State::S0 : State::S1))
+						val = combine_const(val, State::S0);
+					if (ff.sig_set[i] != (ff.pol_set ? State::S0 : State::S1))
+						val = combine_const(val, State::S1);
+				}
+				if (val == State::Sm)
+					continue;
+				if (ff.has_clk || ff.has_gclk) {
+					if (!ff.sig_d[i].wire) {
+						val = combine_const(val, ff.sig_d[i].data);
+						if (val == State::Sm)
+							continue;
+					} else {
+						if (!opt.sat)
+							continue;
+						// For each register bit, try to prove that it cannot change from the initial value. If so, remove it
+						if (!modwalker.has_drivers(ff.sig_d.extract(i)))
+							continue;
+						if (val != State::S0 && val != State::S1)
+							continue;
+
+						int init_sat_pi = qcsat.importSigBit(val);
+						int q_sat_pi = qcsat.importSigBit(ff.sig_q[i]);
+						int d_sat_pi = qcsat.importSigBit(ff.sig_d[i]);
+
+						qcsat.prepare();
+
+						// Try to find out whether the register bit can change under some circumstances
+						bool counter_example_found = qcsat.ez->solve(qcsat.ez->IFF(q_sat_pi, init_sat_pi), qcsat.ez->NOT(qcsat.ez->IFF(d_sat_pi, init_sat_pi)));
+
+						// If the register bit cannot change, we can replace it with a constant
+						if (counter_example_found)
+							continue;
+					}
+				}
+				if (ff.has_aload) {
+					if (!ff.sig_ad[i].wire) {
+						val = combine_const(val, ff.sig_ad[i].data);
+						if (val == State::Sm)
+							continue;
+					} else {
+						if (!opt.sat)
+							continue;
+						// For each register bit, try to prove that it cannot change from the initial value. If so, remove it
+						if (!modwalker.has_drivers(ff.sig_ad.extract(i)))
+							continue;
+						if (val != State::S0 && val != State::S1)
+							continue;
+
+						int init_sat_pi = qcsat.importSigBit(val);
+						int q_sat_pi = qcsat.importSigBit(ff.sig_q[i]);
+						int d_sat_pi = qcsat.importSigBit(ff.sig_ad[i]);
+
+						qcsat.prepare();
+
+						// Try to find out whether the register bit can change under some circumstances
+						bool counter_example_found = qcsat.ez->solve(qcsat.ez->IFF(q_sat_pi, init_sat_pi), qcsat.ez->NOT(qcsat.ez->IFF(d_sat_pi, init_sat_pi)));
+
+						// If the register bit cannot change, we can replace it with a constant
+						if (counter_example_found)
+							continue;
+					}
+				}
+				log("Setting constant %d-bit at position %d on %s (%s) from module %s.\n", val ? 1 : 0,
+						i, log_id(cell), log_id(cell->type), log_id(module));
+
+				initvals.remove_init(ff.sig_q[i]);
+				module->connect(ff.sig_q[i], val);
+				removed_sigbits.insert(i);
+			}
+			if (!removed_sigbits.empty()) {
+				std::vector<int> keep_bits;
+				for (int i = 0; i < ff.width; i++)
+					if (!removed_sigbits.count(i))
+						keep_bits.push_back(i);
+				if (keep_bits.empty()) {
+					module->remove(cell);
+					did_something = true;
+					continue;
+				}
+				ff = ff.slice(keep_bits);
+				ff.cell = cell;
+				ff.emit();
 				did_something = true;
 			}
 		}
@@ -864,6 +905,8 @@ struct OptDffPass : public Pass {
 		for (auto mod : design->selected_modules()) {
 			OptDffWorker worker(opt, mod);
 			if (worker.run())
+				did_something = true;
+			if (worker.run_constbits())
 				did_something = true;
 		}
 

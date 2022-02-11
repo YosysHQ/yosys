@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *            (C) 2019  Eddie Hung    <eddie@fpgeh.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
@@ -558,9 +558,10 @@ struct SynthXilinxPass : public ScriptPass
 		}
 
 		if (check_label("map_cells")) {
-			// Needs to be done before logic optimization, so that inverters (OE vs T) are handled.
+			// Needs to be done before logic optimization, so that inverters (inserted
+			// here because of negative-polarity output enable) are handled.
 			if (help_mode || !noiopad)
-				run("iopadmap -bits -outpad OBUF I:O -inpad IBUF O:I -toutpad $__XILINX_TOUTPAD OE:I:O -tinoutpad $__XILINX_TINOUTPAD OE:O:I:IO A:top", "(skip if '-noiopad')");
+				run("iopadmap -bits -outpad OBUF I:O -inpad IBUF O:I -toutpad OBUFT ~T:I:O -tinoutpad IOBUF ~T:O:I:IO A:top", "(skip if '-noiopad')");
 			std::string techmap_args = "-map +/techmap.v -map +/xilinx/cells_map.v";
 			if (widemux > 0)
 				techmap_args += stringf(" -D MIN_MUX_INPUTS=%d", widemux);
@@ -662,6 +663,7 @@ struct SynthXilinxPass : public ScriptPass
 			run("hierarchy -check");
 			run("stat -tech xilinx");
 			run("check -noinit");
+			run("blackbox =A:whitebox");
 		}
 
 		if (check_label("edif")) {
@@ -671,7 +673,7 @@ struct SynthXilinxPass : public ScriptPass
 
 		if (check_label("blif")) {
 			if (!blif_file.empty() || help_mode)
-				run(stringf("write_blif %s", edif_file.c_str()));
+				run(stringf("write_blif %s", blif_file.c_str()));
 		}
 	}
 } SynthXilinxPass;

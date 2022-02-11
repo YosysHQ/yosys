@@ -90,7 +90,7 @@ $_DFF_N_ ff4(.C(clk), .D(1'b1), .Q(z));
 endmodule
 EOT
 simplemap
-equiv_opt abc9 -lut 4 -dff
+equiv_opt -assert abc9 -lut 4 -dff
 design -load postopt
 cd abc9_test038
 select -assert-count 3 t:$_DFF_N_
@@ -99,3 +99,58 @@ clean
 select -assert-count 2 a:init
 select -assert-count 1 w:w a:init %i
 select -assert-count 1 c:ff4 %co c:ff4 %d %a a:init %i
+
+
+# Check that non-dangling ABC9 black-boxes are preserved
+design -reset
+read_verilog -specify <<EOT
+(* abc9_box, blackbox *)
+module mux_with_param(input I0, I1, S, output O);
+parameter P = 0;
+specify
+    (I0 => O) = P;
+    (I1 => O) = P;
+    (S => O) = P;
+endspecify
+endmodule
+
+module abc9_test039(output O);
+  mux_with_param #(.P(1)) m (
+    .I0(1'b1),
+    .I1(1'b1),
+    .O(O),
+    .S(1'b0)
+  );
+endmodule
+EOT
+abc9 -lut 4
+cd abc9_test039
+select -assert-count 1 t:mux_with_param
+
+
+# Check that dangling ABC9 black-boxes are swept away
+design -reset
+read_verilog -specify <<EOT
+(* abc9_box, blackbox *)
+module mux_with_param(input I0, I1, S, output O);
+parameter P = 0;
+specify
+    (I0 => O) = P;
+    (I1 => O) = P;
+    (S => O) = P;
+endspecify
+endmodule
+
+module abc9_test040(output O);
+  wire w;
+  mux_with_param #(.P(1)) m (
+    .I0(1'b1),
+    .I1(1'b1),
+    .O(w),
+    .S(1'b0)
+  );
+endmodule
+EOT
+abc9 -lut 4
+cd abc9_test040
+select -assert-count 0 t:mux_with_param

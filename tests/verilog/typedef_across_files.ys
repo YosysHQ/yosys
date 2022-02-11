@@ -1,0 +1,23 @@
+read_verilog -sv <<EOF
+typedef logic T;
+EOF
+
+read_verilog -sv <<EOF
+typedef T [3:0] S;
+EOF
+
+read_verilog -sv <<EOF
+module top;
+    T t;
+    S s;
+    always @* begin
+        assert ($bits(t) == 1);
+        assert ($bits(s) == 4);
+    end
+endmodule
+EOF
+
+proc
+opt -full
+select -module top
+sat -verify -seq 1 -tempinduct -prove-asserts -show-all

@@ -1,0 +1,280 @@
+bram $__CC_BRAM_CASCADE
+  init 1
+  abits 16 @a16d1
+  dbits 1  @a16d1
+  groups 2
+  ports 1 1
+  wrmode 1 0
+  enable 1 1 @a16d1
+  transp 0 0
+  clocks 2 3
+  clkpol 2 3
+endbram
+
+bram $__CC_BRAM_40K_SDP
+  init 1
+  abits 9  @a9d80
+  dbits 80 @a9d80
+  groups 2
+  ports 1 1
+  wrmode 1 0
+  enable 80 1 @a9d80
+  transp 0 0
+  clocks 2 3
+  clkpol 2 3
+endbram
+
+bram $__CC_BRAM_20K_SDP
+  init 1
+  abits 9  @a9d40
+  dbits 40 @a9d40
+  groups 2
+  ports 1 1
+  wrmode 1 0
+  enable 40 1 @a9d40
+  transp 0 0
+  clocks 2 3
+  clkpol 2 3
+endbram
+
+bram $__CC_BRAM_40K_TDP
+  init 1
+  abits 10 @a10d40
+  dbits 40 @a10d40
+  abits 11 @a11d20
+  dbits 20 @a11d20
+  abits 12 @a12d10
+  dbits 10 @a12d10
+  abits 13 @a13d5
+  dbits 5  @a13d5
+  abits 14 @a14d2
+  dbits 2  @a14d2
+  abits 15 @a15d1
+  dbits 1  @a15d1
+  groups 2
+  ports 1 1
+  wrmode 1 0
+  enable 40 1 @a10d40
+  enable 20 1 @a11d20
+  enable 10 1 @a12d10
+  enable 5 1  @a13d5
+  enable 2 1  @a14d2
+  enable 1 1  @a15d1
+  transp 0 0
+  clocks 2 3
+  clkpol 2 3
+endbram
+
+bram $__CC_BRAM_20K_TDP
+  init 1
+  abits 10 @a10d20
+  dbits 20 @a10d20
+  abits 11 @a11d10
+  dbits 10 @a11d10
+  abits 12 @a12d5
+  dbits 5  @a12d5
+  abits 13 @a13d2
+  dbits 2  @a13d2
+  abits 14 @a14d1
+  dbits 1  @a14d1
+  groups 2
+  ports 1 1
+  wrmode 1 0
+  enable 20 1 @a10d20
+  enable 10 1 @a11d10
+  enable 5 1  @a12d5
+  enable 2 1  @a13d2
+  enable 1 1  @a14d1
+  transp 0 0
+  clocks 2 3
+  clkpol 2 3
+endbram
+
+match $__CC_BRAM_CASCADE
+  # implicitly requested RAM or ROM
+  attribute !syn_ramstyle syn_ramstyle=auto
+  attribute !syn_romstyle syn_romstyle=auto
+  attribute !ram_block
+  attribute !rom_block
+  attribute !logic_block
+  min bits 512
+  min efficiency 5
+  shuffle_enable A
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__CC_BRAM_CASCADE
+  # explicitly requested RAM
+  attribute syn_ramstyle=block_ram ram_block
+  attribute !syn_romstyle
+  attribute !rom_block
+  attribute !logic_block
+  min wports 1
+  shuffle_enable A
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__CC_BRAM_CASCADE
+  # explicitly requested ROM
+  attribute syn_romstyle=ebr rom_block
+  attribute !syn_ramstyle
+  attribute !ram_block
+  attribute !logic_block
+  max wports 0
+  shuffle_enable A
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__CC_BRAM_40K_SDP
+  # implicitly requested RAM or ROM
+  attribute !syn_ramstyle syn_ramstyle=auto
+  attribute !syn_romstyle syn_romstyle=auto
+  attribute !ram_block
+  attribute !rom_block
+  attribute !logic_block
+  min bits 512
+  min efficiency 5
+  shuffle_enable A
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__CC_BRAM_40K_SDP
+  # explicitly requested RAM
+  attribute syn_ramstyle=block_ram ram_block
+  attribute !syn_romstyle
+  attribute !rom_block
+  attribute !logic_block
+  min wports 1
+  shuffle_enable A
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__CC_BRAM_40K_SDP
+  # explicitly requested ROM
+  attribute syn_romstyle=ebr rom_block
+  attribute !syn_ramstyle
+  attribute !ram_block
+  attribute !logic_block
+  max wports 0
+  shuffle_enable A
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__CC_BRAM_20K_SDP
+  # implicitly requested RAM or ROM
+  attribute !syn_ramstyle syn_ramstyle=auto
+  attribute !syn_romstyle syn_romstyle=auto
+  attribute !ram_block
+  attribute !rom_block
+  attribute !logic_block
+  min bits 512
+  min efficiency 5
+  shuffle_enable A
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__CC_BRAM_20K_SDP
+  # explicitly requested RAM
+  attribute syn_ramstyle=block_ram ram_block
+  attribute !syn_romstyle
+  attribute !rom_block
+  attribute !logic_block
+  min wports 1
+  shuffle_enable A
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__CC_BRAM_20K_SDP
+  # explicitly requested ROM
+  attribute syn_romstyle=ebr rom_block
+  attribute !syn_ramstyle
+  attribute !ram_block
+  attribute !logic_block
+  max wports 0
+  shuffle_enable A
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__CC_BRAM_40K_TDP
+  # implicitly requested RAM or ROM
+  attribute !syn_ramstyle syn_ramstyle=auto
+  attribute !syn_romstyle syn_romstyle=auto
+  attribute !ram_block
+  attribute !rom_block
+  attribute !logic_block
+  min bits 512
+  min efficiency 5
+  shuffle_enable A
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__CC_BRAM_40K_TDP
+  # explicitly requested RAM
+  attribute syn_ramstyle=block_ram ram_block
+  attribute !syn_romstyle
+  attribute !rom_block
+  attribute !logic_block
+  min wports 1
+  shuffle_enable A
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__CC_BRAM_40K_TDP
+  # explicitly requested ROM
+  attribute syn_romstyle=ebr rom_block
+  attribute !syn_ramstyle
+  attribute !ram_block
+  attribute !logic_block
+  max wports 0
+  shuffle_enable A
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__CC_BRAM_20K_TDP
+  # implicitly requested RAM or ROM
+  attribute !syn_ramstyle syn_ramstyle=auto
+  attribute !syn_romstyle syn_romstyle=auto
+  attribute !ram_block
+  attribute !rom_block
+  attribute !logic_block
+  min bits 512
+  min efficiency 5
+  shuffle_enable A
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__CC_BRAM_20K_TDP
+  # explicitly requested RAM
+  attribute syn_ramstyle=block_ram ram_block
+  attribute !syn_romstyle
+  attribute !rom_block
+  attribute !logic_block
+  min wports 1
+  shuffle_enable A
+  make_transp
+  or_next_if_better
+endmatch
+
+match $__CC_BRAM_20K_TDP
+  # explicitly requested ROM
+  attribute syn_romstyle=ebr rom_block
+  attribute !syn_ramstyle
+  attribute !ram_block
+  attribute !logic_block
+  max wports 0
+  shuffle_enable A
+  make_transp
+endmatch

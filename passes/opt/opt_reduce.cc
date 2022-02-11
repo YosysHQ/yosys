@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -100,7 +100,7 @@ struct OptReduceWorker
 		return;
 	}
 
-	void opt_mux(RTLIL::Cell *cell)
+	void opt_pmux(RTLIL::Cell *cell)
 	{
 		RTLIL::SigSpec sig_a = assign_map(cell->getPort(ID::A));
 		RTLIL::SigSpec sig_b = assign_map(cell->getPort(ID::B));
@@ -141,20 +141,20 @@ struct OptReduceWorker
 			handled_sig.insert(this_b);
 		}
 
-		if (new_sig_s.size() != sig_s.size()) {
+		if (new_sig_s.size() == 0)
+		{
+			module->connect(cell->getPort(ID::Y), cell->getPort(ID::A));
+			assign_map.add(cell->getPort(ID::Y), cell->getPort(ID::A));
+			module->remove(cell);
+			did_something = true;
+			total_count++;
+			return;
+		}
+
+		if (new_sig_s.size() != sig_s.size() || (new_sig_s.size() == 1 && cell->type == ID($pmux))) {
 			log("    New ctrl vector for %s cell %s: %s\n", cell->type.c_str(), cell->name.c_str(), log_signal(new_sig_s));
 			did_something = true;
 			total_count++;
-		}
-
-		if (new_sig_s.size() == 0)
-		{
-			module->connect(RTLIL::SigSig(cell->getPort(ID::Y), cell->getPort(ID::A)));
-			assign_map.add(cell->getPort(ID::Y), cell->getPort(ID::A));
-			module->remove(cell);
-		}
-		else
-		{
 			cell->setPort(ID::B, new_sig_b);
 			cell->setPort(ID::S, new_sig_s);
 			if (new_sig_s.size() > 1) {
@@ -166,81 +166,347 @@ struct OptReduceWorker
 		}
 	}
 
-	void opt_mux_bits(RTLIL::Cell *cell)
+	void opt_bmux(RTLIL::Cell *cell)
 	{
-		std::vector<RTLIL::SigBit> sig_a = assign_map(cell->getPort(ID::A)).to_sigbit_vector();
-		std::vector<RTLIL::SigBit> sig_b = assign_map(cell->getPort(ID::B)).to_sigbit_vector();
-		std::vector<RTLIL::SigBit> sig_y = assign_map(cell->getPort(ID::Y)).to_sigbit_vector();
+		RTLIL::SigSpec sig_a = assign_map(cell->getPort(ID::A));
+		RTLIL::SigSpec sig_s = assign_map(cell->getPort(ID::S));
+		int width = cell->getParam(ID::WIDTH).as_int();
 
-		std::vector<RTLIL::SigBit> new_sig_y;
+		RTLIL::SigSpec new_sig_a, new_sig_s;
+		dict<RTLIL::SigBit, int> handled_bits;
+
+		// 0 and up: index of new_sig_s bit
+		// -1: const 0
+		// -2: const 1
+		std::vector<int> swizzle;
+
+		for (int i = 0; i < sig_s.size(); i++)
+		{
+			SigBit bit = sig_s[i];
+			if (bit == State::S0) {
+				swizzle.push_back(-1);
+			} else if (bit == State::S1) {
+				swizzle.push_back(-2);
+			} else {
+				auto it = handled_bits.find(bit);
+				if (it == handled_bits.end()) {
+					int new_idx = GetSize(new_sig_s);
+					new_sig_s.append(bit);
+					handled_bits[bit] = new_idx;
+					swizzle.push_back(new_idx);
+				} else {
+					swizzle.push_back(it->second);
+				}
+			}
+		}
+
+		for (int i = 0; i < (1 << GetSize(new_sig_s)); i++) {
+			int idx = 0;
+			for (int j = 0; j < GetSize(sig_s); j++) {
+				if (swizzle[j] == -1) {
+					// const 0.
+				} else if (swizzle[j] == -2) {
+					// const 1.
+					idx |= 1 << j;
+				} else {
+					if (i & 1 << swizzle[j])
+						idx |= 1 << j;
+				}
+			}
+			new_sig_a.append(sig_a.extract(idx * width, width));
+		}
+
+		if (new_sig_s.size() == 0)
+		{
+			module->connect(cell->getPort(ID::Y), new_sig_a);
+			assign_map.add(cell->getPort(ID::Y), new_sig_a);
+			module->remove(cell);
+			did_something = true;
+			total_count++;
+			return;
+		}
+
+		if (new_sig_s.size() == 1)
+		{
+			cell->type = ID($mux);
+			cell->setPort(ID::A, new_sig_a.extract(0, width));
+			cell->setPort(ID::B, new_sig_a.extract(width, width));
+			cell->setPort(ID::S, new_sig_s);
+			cell->parameters.erase(ID::S_WIDTH);
+			did_something = true;
+			total_count++;
+			return;
+		}
+
+		if (new_sig_s.size() != sig_s.size()) {
+			log("    New ctrl vector for %s cell %s: %s\n", cell->type.c_str(), cell->name.c_str(), log_signal(new_sig_s));
+			did_something = true;
+			total_count++;
+			cell->setPort(ID::A, new_sig_a);
+			cell->setPort(ID::S, new_sig_s);
+			cell->parameters[ID::S_WIDTH] = RTLIL::Const(new_sig_s.size());
+		}
+	}
+
+	void opt_demux(RTLIL::Cell *cell)
+	{
+		RTLIL::SigSpec sig_y = assign_map(cell->getPort(ID::Y));
+		RTLIL::SigSpec sig_s = assign_map(cell->getPort(ID::S));
+		int width = cell->getParam(ID::WIDTH).as_int();
+
+		RTLIL::SigSpec new_sig_y, new_sig_s;
+		dict<RTLIL::SigBit, int> handled_bits;
+
+		// 0 and up: index of new_sig_s bit
+		// -1: const 0
+		// -2: const 1
+		std::vector<int> swizzle;
+
+		for (int i = 0; i < sig_s.size(); i++)
+		{
+			SigBit bit = sig_s[i];
+			if (bit == State::S0) {
+				swizzle.push_back(-1);
+			} else if (bit == State::S1) {
+				swizzle.push_back(-2);
+			} else {
+				auto it = handled_bits.find(bit);
+				if (it == handled_bits.end()) {
+					int new_idx = GetSize(new_sig_s);
+					new_sig_s.append(bit);
+					handled_bits[bit] = new_idx;
+					swizzle.push_back(new_idx);
+				} else {
+					swizzle.push_back(it->second);
+				}
+			}
+		}
+
+		pool<int> nonzero_idx;
+
+		for (int i = 0; i < (1 << GetSize(new_sig_s)); i++) {
+			int idx = 0;
+			for (int j = 0; j < GetSize(sig_s); j++) {
+				if (swizzle[j] == -1) {
+					// const 0.
+				} else if (swizzle[j] == -2) {
+					// const 1.
+					idx |= 1 << j;
+				} else {
+					if (i & 1 << swizzle[j])
+						idx |= 1 << j;
+				}
+			}
+			log_assert(!nonzero_idx.count(idx));
+			nonzero_idx.insert(idx);
+			new_sig_y.append(sig_y.extract(idx * width, width));
+		}
+
+		if (new_sig_s.size() == sig_s.size() && sig_s.size() > 0)
+			return;
+
+		log("    New ctrl vector for %s cell %s: %s\n", cell->type.c_str(), cell->name.c_str(), log_signal(new_sig_s));
+		did_something = true;
+		total_count++;
+
+		for (int i = 0; i < (1 << GetSize(sig_s)); i++) {
+			if (!nonzero_idx.count(i)) {
+				SigSpec slice = sig_y.extract(i * width, width);
+				module->connect(slice, Const(State::S0, width));
+				assign_map.add(slice, Const(State::S0, width));
+			}
+		}
+
+		if (new_sig_s.size() == 0)
+		{
+			module->connect(new_sig_y, cell->getPort(ID::A));
+			assign_map.add(new_sig_y, cell->getPort(ID::A));
+			module->remove(cell);
+		}
+		else
+		{
+			cell->setPort(ID::S, new_sig_s);
+			cell->setPort(ID::Y, new_sig_y);
+			cell->parameters[ID::S_WIDTH] = RTLIL::Const(new_sig_s.size());
+		}
+	}
+
+	bool opt_mux_bits(RTLIL::Cell *cell)
+	{
+		SigSpec sig_a = assign_map(cell->getPort(ID::A));
+		SigSpec sig_b;
+		SigSpec sig_y = assign_map(cell->getPort(ID::Y));
+		int width = GetSize(sig_y);
+
+		if (cell->type != ID($bmux))
+			sig_b = assign_map(cell->getPort(ID::B));
+
 		RTLIL::SigSig old_sig_conn;
 
-		std::vector<std::vector<RTLIL::SigBit>> consolidated_in_tuples;
-		std::map<std::vector<RTLIL::SigBit>, RTLIL::SigBit> consolidated_in_tuples_map;
+		dict<SigSpec, SigBit> consolidated_in_tuples;
+		std::vector<int> swizzle;
 
-		for (int i = 0; i < int(sig_y.size()); i++)
+		for (int i = 0; i < width; i++)
 		{
-			std::vector<RTLIL::SigBit> in_tuple;
+			SigSpec in_tuple;
 			bool all_tuple_bits_same = true;
 
-			in_tuple.push_back(sig_a.at(i));
-			for (int j = i; j < int(sig_b.size()); j += int(sig_a.size())) {
-				if (sig_b.at(j) != sig_a.at(i))
+			in_tuple.append(sig_a[i]);
+			for (int j = i; j < GetSize(sig_a); j += width) {
+				in_tuple.append(sig_a[j]);
+				if (sig_a[j] != in_tuple[0])
 					all_tuple_bits_same = false;
-				in_tuple.push_back(sig_b.at(j));
+			}
+			for (int j = i; j < GetSize(sig_b); j += width) {
+				in_tuple.append(sig_b[j]);
+				if (sig_b[j] != in_tuple[0])
+					all_tuple_bits_same = false;
 			}
 
 			if (all_tuple_bits_same)
 			{
-				old_sig_conn.first.append(sig_y.at(i));
-				old_sig_conn.second.append(sig_a.at(i));
+				old_sig_conn.first.append(sig_y[i]);
+				old_sig_conn.second.append(sig_a[i]);
+				continue;
 			}
-			else if (consolidated_in_tuples_map.count(in_tuple))
+
+			auto it = consolidated_in_tuples.find(in_tuple);
+			if (it == consolidated_in_tuples.end())
 			{
-				old_sig_conn.first.append(sig_y.at(i));
-				old_sig_conn.second.append(consolidated_in_tuples_map.at(in_tuple));
+				consolidated_in_tuples[in_tuple] = sig_y[i];
+				swizzle.push_back(i);
 			}
 			else
 			{
-				consolidated_in_tuples_map[in_tuple] = sig_y.at(i);
-				consolidated_in_tuples.push_back(in_tuple);
-				new_sig_y.push_back(sig_y.at(i));
+				old_sig_conn.first.append(sig_y[i]);
+				old_sig_conn.second.append(it->second);
 			}
 		}
 
-		if (new_sig_y.size() != sig_y.size())
+		if (GetSize(swizzle) != width)
 		{
 			log("    Consolidated identical input bits for %s cell %s:\n", cell->type.c_str(), cell->name.c_str());
-			log("      Old ports: A=%s, B=%s, Y=%s\n", log_signal(cell->getPort(ID::A)),
-					log_signal(cell->getPort(ID::B)), log_signal(cell->getPort(ID::Y)));
-
-			cell->setPort(ID::A, RTLIL::SigSpec());
-			for (auto &in_tuple : consolidated_in_tuples) {
-				RTLIL::SigSpec new_a = cell->getPort(ID::A);
-				new_a.append(in_tuple.at(0));
-				cell->setPort(ID::A, new_a);
+			if (cell->type != ID($bmux)) {
+				log("      Old ports: A=%s, B=%s, Y=%s\n", log_signal(cell->getPort(ID::A)),
+						log_signal(cell->getPort(ID::B)), log_signal(cell->getPort(ID::Y)));
+			} else {
+				log("      Old ports: A=%s, Y=%s\n", log_signal(cell->getPort(ID::A)),
+						log_signal(cell->getPort(ID::Y)));
 			}
 
-			cell->setPort(ID::B, RTLIL::SigSpec());
-			for (int i = 1; i <= cell->getPort(ID::S).size(); i++)
-				for (auto &in_tuple : consolidated_in_tuples) {
-					RTLIL::SigSpec new_b = cell->getPort(ID::B);
-					new_b.append(in_tuple.at(i));
-					cell->setPort(ID::B, new_b);
+			if (swizzle.empty()) {
+				module->remove(cell);
+			} else {
+				SigSpec new_sig_a;
+				for (int i = 0; i < GetSize(sig_a); i += width)
+					for (int j: swizzle)
+						new_sig_a.append(sig_a[i+j]);
+				cell->setPort(ID::A, new_sig_a);
+
+				if (cell->type != ID($bmux)) {
+					SigSpec new_sig_b;
+					for (int i = 0; i < GetSize(sig_b); i += width)
+						for (int j: swizzle)
+							new_sig_b.append(sig_b[i+j]);
+					cell->setPort(ID::B, new_sig_b);
 				}
 
-			cell->parameters[ID::WIDTH] = RTLIL::Const(new_sig_y.size());
-			cell->setPort(ID::Y, new_sig_y);
+				SigSpec new_sig_y;
+				for (int j: swizzle)
+					new_sig_y.append(sig_y[j]);
+				cell->setPort(ID::Y, new_sig_y);
 
-			log("      New ports: A=%s, B=%s, Y=%s\n", log_signal(cell->getPort(ID::A)),
-					log_signal(cell->getPort(ID::B)), log_signal(cell->getPort(ID::Y)));
+				cell->parameters[ID::WIDTH] = RTLIL::Const(GetSize(swizzle));
+
+				if (cell->type != ID($bmux)) {
+					log("      New ports: A=%s, B=%s, Y=%s\n", log_signal(cell->getPort(ID::A)),
+							log_signal(cell->getPort(ID::B)), log_signal(cell->getPort(ID::Y)));
+				} else {
+					log("      New ports: A=%s, Y=%s\n", log_signal(cell->getPort(ID::A)),
+							log_signal(cell->getPort(ID::Y)));
+				}
+			}
+
 			log("      New connections: %s = %s\n", log_signal(old_sig_conn.first), log_signal(old_sig_conn.second));
-
 			module->connect(old_sig_conn);
 
 			did_something = true;
 			total_count++;
 		}
+		return swizzle.empty();
+	}
+
+	bool opt_demux_bits(RTLIL::Cell *cell) {
+		SigSpec sig_a = assign_map(cell->getPort(ID::A));
+		SigSpec sig_y = assign_map(cell->getPort(ID::Y));
+		int width = GetSize(sig_a);
+
+		RTLIL::SigSig old_sig_conn;
+
+		dict<SigBit, int> handled_bits;
+		std::vector<int> swizzle;
+
+		for (int i = 0; i < width; i++)
+		{
+			if (sig_a[i] == State::S0)
+			{
+				for (int j = i; j < GetSize(sig_y); j += width)
+				{
+					old_sig_conn.first.append(sig_y[j]);
+					old_sig_conn.second.append(State::S0);
+				}
+				continue;
+			}
+
+			auto it = handled_bits.find(sig_a[i]);
+			if (it == handled_bits.end())
+			{
+				handled_bits[sig_a[i]] = i;
+				swizzle.push_back(i);
+			}
+			else
+			{
+				for (int j = 0; j < GetSize(sig_y); j += width)
+				{
+					old_sig_conn.first.append(sig_y[i+j]);
+					old_sig_conn.second.append(sig_y[it->second+j]);
+				}
+			}
+		}
+
+		if (GetSize(swizzle) != width)
+		{
+			log("    Consolidated identical input bits for %s cell %s:\n", cell->type.c_str(), cell->name.c_str());
+			log("      Old ports: A=%s, Y=%s\n", log_signal(cell->getPort(ID::A)),
+					log_signal(cell->getPort(ID::Y)));
+
+			if (swizzle.empty()) {
+				module->remove(cell);
+			} else {
+				SigSpec new_sig_a;
+				for (int j: swizzle)
+					new_sig_a.append(sig_a[j]);
+				cell->setPort(ID::A, new_sig_a);
+
+				SigSpec new_sig_y;
+				for (int i = 0; i < GetSize(sig_y); i += width)
+					for (int j: swizzle)
+						new_sig_y.append(sig_y[i+j]);
+				cell->setPort(ID::Y, new_sig_y);
+
+				cell->parameters[ID::WIDTH] = RTLIL::Const(GetSize(swizzle));
+
+				log("      New ports: A=%s, Y=%s\n", log_signal(cell->getPort(ID::A)),
+						log_signal(cell->getPort(ID::Y)));
+			}
+
+			log("      New connections: %s = %s\n", log_signal(old_sig_conn.first), log_signal(old_sig_conn.second));
+			module->connect(old_sig_conn);
+
+			did_something = true;
+			total_count++;
+		}
+		return swizzle.empty();
 	}
 
 	OptReduceWorker(RTLIL::Design *design, RTLIL::Module *module, bool do_fine) :
@@ -254,9 +520,9 @@ struct OptReduceWorker
 		SigPool mem_wren_sigs;
 		for (auto &cell_it : module->cells_) {
 			RTLIL::Cell *cell = cell_it.second;
-			if (cell->type == ID($mem))
+			if (cell->type.in(ID($mem), ID($mem_v2)))
 				mem_wren_sigs.add(assign_map(cell->getPort(ID::WR_EN)));
-			if (cell->type == ID($memwr))
+			if (cell->type.in(ID($memwr), ID($memwr_v2)))
 				mem_wren_sigs.add(assign_map(cell->getPort(ID::EN)));
 		}
 		for (auto &cell_it : module->cells_) {
@@ -309,20 +575,31 @@ struct OptReduceWorker
 
 			// merge identical inputs on $mux and $pmux cells
 
-			std::vector<RTLIL::Cell*> cells;
-
-			for (auto &it : module->cells_)
-				if ((it.second->type == ID($mux) || it.second->type == ID($pmux)) && design->selected(module, it.second))
-					cells.push_back(it.second);
-
-			for (auto cell : cells)
+			for (auto cell : module->selected_cells())
 			{
+				if (!cell->type.in(ID($mux), ID($pmux), ID($bmux), ID($demux)))
+					continue;
+
 				// this optimization is to aggressive for most coarse-grain applications.
 				// but we always want it for multiplexers driving write enable ports.
-				if (do_fine || mem_wren_sigs.check_any(assign_map(cell->getPort(ID::Y))))
-					opt_mux_bits(cell);
+				if (do_fine || mem_wren_sigs.check_any(assign_map(cell->getPort(ID::Y)))) {
+					if (cell->type == ID($demux)) {
+						if (opt_demux_bits(cell))
+							continue;
+					} else {
+						if (opt_mux_bits(cell))
+							continue;
+					}
+				}
 
-				opt_mux(cell);
+				if (cell->type.in(ID($mux), ID($pmux)))
+					opt_pmux(cell);
+
+				if (cell->type == ID($bmux))
+					opt_bmux(cell);
+
+				if (cell->type == ID($demux))
+					opt_demux(cell);
 			}
 		}
 

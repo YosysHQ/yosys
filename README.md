@@ -1,7 +1,7 @@
 ```
 yosys -- Yosys Open SYnthesis Suite
 
-Copyright (C) 2012 - 2020  Claire Wolf <claire@symbioticeda.com>
+Copyright (C) 2012 - 2020  Claire Xenia Wolf <claire@yosyshq.com>
 
 Permission to use, copy, modify, and/or distribute this software for any
 purpose with or without fee is hereby granted, provided that the above
@@ -38,13 +38,13 @@ Web Site and Other Resources
 ============================
 
 More information and documentation can be found on the Yosys web site:
-- http://www.clifford.at/yosys/
+- https://yosyshq.net/yosys/
 
 The "Documentation" page on the web site contains links to more resources,
 including a manual that even describes some of the Yosys internals:
-- http://www.clifford.at/yosys/documentation.html
+- https://yosyshq.net/yosys/documentation.html
 
-The file `CodingReadme` in this directory contains additional information
+The directory `guidelines` contains additional information
 for people interested in using the Yosys C++ APIs.
 
 Users interested in formal verification might want to use the formal verification
@@ -53,8 +53,23 @@ front-end for Yosys, SymbiYosys:
 - https://github.com/YosysHQ/SymbiYosys
 
 
-Setup
-======
+Installation
+============
+
+Yosys is part of the [Tabby CAD Suite](https://www.yosyshq.com/tabby-cad-datasheet) and the [OSS CAD Suite](https://github.com/YosysHQ/oss-cad-suite-build)! The easiest way to use yosys is to install the binary software suite, which contains all required dependencies and related tools.
+
+* [Contact YosysHQ](https://www.yosyshq.com/contact) for a [Tabby CAD Suite](https://www.yosyshq.com/tabby-cad-datasheet) Evaluation License and download link
+* OR go to https://github.com/YosysHQ/oss-cad-suite-build/releases to download the free OSS CAD Suite
+* Follow the [Install Instructions on GitHub](https://github.com/YosysHQ/oss-cad-suite-build#installation)
+
+Make sure to get a Tabby CAD Suite Evaluation License if you need features such as industry-grade SystemVerilog and VHDL parsers!
+
+For more information about the difference between Tabby CAD Suite and the OSS CAD Suite, please visit https://www.yosyshq.com/tabby-cad-datasheet
+
+Many Linux distributions also provide Yosys binaries, some more up to date than others. Check with your package manager!
+
+Building from Source
+====================
 
 You need a C++ compiler with C++11 support (up-to-date CLANG or GCC is
 recommended) and some standard tools such as GNU Flex, GNU Bison, and GNU Make.
@@ -89,10 +104,6 @@ On FreeBSD system use gmake instead of make. To run tests use:
 For Cygwin use the following command to install all prerequisites, or select these additional packages:
 
 	setup-x86_64.exe -q --packages=bison,flex,gcc-core,gcc-g++,git,libffi-devel,libreadline-devel,make,pkg-config,python3,tcl-devel,boost-build,zlib-devel
-
-There are also pre-compiled Yosys binary packages for Ubuntu and Win32 as well
-as a source distribution for Visual Studio. Visit the Yosys download page for
-more information: http://www.clifford.at/yosys/download.html
 
 To configure the build system to use a specific compiler, use one of
 
@@ -489,6 +500,11 @@ Verilog Attributes and non-standard features
   for use in blackboxes and whiteboxes. Use ``read_verilog -specify`` to
   enable this functionality. (By default these blocks are ignored.)
 
+- The ``reprocess_after`` internal attribute is used by the Verilog frontend to
+  mark cells with bindings which might depend on the specified instantiated
+  module. Modules with such cells will be reprocessed during the ``hierarchy``
+  pass once the referenced module definition(s) become available.
+
 
 Non-standard or SystemVerilog features for formal verification
 ==============================================================
@@ -568,7 +584,7 @@ Building the documentation
 ==========================
 
 Note that there is no need to build the manual if you just want to read it.
-Simply download the PDF from http://www.clifford.at/yosys/documentation.html
+Simply download the PDF from https://yosyshq.net/yosys/documentation.html
 instead.
 
 On Ubuntu, texlive needs these packages to be able to build the manual:

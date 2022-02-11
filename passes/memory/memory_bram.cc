@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/mem.h"
+#include "kernel/ffinit.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -29,9 +30,6 @@ struct rules_t
 		int group, index, dupidx;
 		int wrmode, enable, transp, clocks, clkpol;
 
-		SigBit sig_clock;
-		SigSpec sig_addr, sig_data, sig_en;
-		bool effective_clkpol;
 		bool make_transp;
 		bool make_outreg;
 		int mapped_port;
@@ -92,7 +90,6 @@ struct rules_t
 				pi.mapped_port = -1;
 				pi.make_transp = false;
 				pi.make_outreg = false;
-				pi.effective_clkpol = false;
 				portinfos.push_back(pi);
 			}
 			return portinfos;
@@ -401,18 +398,12 @@ struct rules_t
 	}
 };
 
-bool replace_memory(Mem &orig_mem, const rules_t &rules, const rules_t::bram_t &bram, const rules_t::match_t &match, dict<string, int> &match_properties, int mode)
+bool replace_memory(Mem &mem, const rules_t &rules, FfInitVals *initvals, const rules_t::bram_t &bram, const rules_t::match_t &match, dict<string, int> &match_properties, int mode)
 {
-	// We will modify ports — make a copy of the structure.
-	Mem mem(orig_mem);
 	Module *module = mem.module;
 
 	auto portinfos = bram.make_portinfos();
 	int dup_count = 1;
-
-	pair<SigBit, bool> make_transp_clk;
-	bool enable_make_transp = false;
-	int make_transp_enbits = 0;
 
 	dict<int, pair<SigBit, bool>> clock_domains;
 	dict<int, bool> clock_polarities;
@@ -440,34 +431,11 @@ bool replace_memory(Mem &orig_mem, const rules_t &rules, const rules_t::bram_t &
 	log("    Mapping to bram type %s (variant %d):\n", log_id(bram.name), bram.variant);
 	// bram.dump_config();
 
-	bool cell_init = !mem.inits.empty();
-	vector<Const> initdata;
-
-	if (cell_init) {
-		Const initparam = mem.get_init_data();
-		initdata.reserve(mem.size);
-		for (int i=0; i < mem.size; i++)
-			initdata.push_back(initparam.extract(mem.width*i, mem.width, State::Sx));
-	}
-
+	std::vector<int> shuffle_map;
 	if (match.shuffle_enable && bram.dbits >= portinfos.at(match.shuffle_enable - 'A').enable*2 && portinfos.at(match.shuffle_enable - 'A').enable > 0 && !mem.wr_ports.empty())
 	{
 		int bucket_size = bram.dbits / portinfos.at(match.shuffle_enable - 'A').enable;
 		log("      Shuffle bit order to accommodate enable buckets of size %d..\n", bucket_size);
-
-		// extract unshuffled data/enable bits
-
-		std::vector<SigSpec> old_wr_en;
-		std::vector<SigSpec> old_wr_data;
-		std::vector<SigSpec> old_rd_data;
-
-		for (auto &port : mem.wr_ports) {
-			old_wr_en.push_back(port.en);
-			old_wr_data.push_back(port.data);
-		}
-
-		for (auto &port : mem.rd_ports)
-			old_rd_data.push_back(port.data);
 
 		// analyze enable structure
 
@@ -483,52 +451,13 @@ bool replace_memory(Mem &orig_mem, const rules_t &rules, const rules_t::bram_t &
 			bits_wr_en[sig].push_back(i);
 		}
 
-		// re-create memory ports
-
-		std::vector<SigSpec> new_wr_en(GetSize(old_wr_en));
-		std::vector<SigSpec> new_wr_data(GetSize(old_wr_data));
-		std::vector<SigSpec> new_rd_data(GetSize(old_rd_data));
-		std::vector<std::vector<State>> new_initdata;
-		std::vector<int> shuffle_map;
-
-		if (cell_init)
-			new_initdata.resize(mem.size);
-
 		for (auto &it : en_order)
 		{
-			auto &bits = bits_wr_en.at(it);
-			int buckets = (GetSize(bits) + bucket_size - 1) / bucket_size;
-			int fillbits = buckets*bucket_size - GetSize(bits);
-			SigBit fillbit;
+			for (auto bit : bits_wr_en.at(it))
+				shuffle_map.push_back(bit);
 
-			for (int i = 0; i < GetSize(bits); i++) {
-				for (int j = 0; j < GetSize(mem.wr_ports); j++) {
-					new_wr_en[j].append(old_wr_en[j][bits[i]]);
-					new_wr_data[j].append(old_wr_data[j][bits[i]]);
-					fillbit = old_wr_en[j][bits[i]];
-				}
-				for (int j = 0; j < GetSize(mem.rd_ports); j++)
-					new_rd_data[j].append(old_rd_data[j][bits[i]]);
-				if (cell_init) {
-					for (int j = 0; j < mem.size; j++)
-						new_initdata[j].push_back(initdata[j][bits[i]]);
-				}
-				shuffle_map.push_back(bits[i]);
-			}
-
-			for (int i = 0; i < fillbits; i++) {
-				for (int j = 0; j < GetSize(mem.wr_ports); j++) {
-					new_wr_en[j].append(fillbit);
-					new_wr_data[j].append(State::S0);
-				}
-				for (int j = 0; j < GetSize(mem.rd_ports); j++)
-					new_rd_data[j].append(State::Sx);
-				if (cell_init) {
-					for (int j = 0; j < mem.size; j++)
-						new_initdata[j].push_back(State::Sx);
-				}
+			while (GetSize(shuffle_map) % bucket_size)
 				shuffle_map.push_back(-1);
-			}
 		}
 
 		log("      Results of bit order shuffling:");
@@ -537,25 +466,14 @@ bool replace_memory(Mem &orig_mem, const rules_t &rules, const rules_t::bram_t &
 		log("\n");
 
 		// update mem_*, wr_*, and rd_* variables
-
-		mem.width = GetSize(new_wr_en.front());
-
-		for (int i = 0; i < GetSize(mem.wr_ports); i++) {
-			auto &port = mem.wr_ports[i];
-			port.en = new_wr_en[i];
-			port.data = new_wr_data[i];
-		}
-
-		for (int i = 0; i < GetSize(mem.rd_ports); i++) {
-			auto &port = mem.rd_ports[i];
-			port.data = new_rd_data[i];
-		}
-
-		if (cell_init) {
-			for (int i = 0; i < mem.size; i++)
-				initdata[i] = Const(new_initdata[i]);
-		}
+	} else {
+		for (int i = 0; i < mem.width; i++)
+			shuffle_map.push_back(i);
 	}
+
+	// Align width up to dbits.
+	while (GetSize(shuffle_map) % bram.dbits)
+		shuffle_map.push_back(-1);
 
 	// assign write ports
 	pair<SigBit, bool> wr_clkdom;
@@ -574,8 +492,6 @@ bool replace_memory(Mem &orig_mem, const rules_t &rules, const rules_t::bram_t &
 		for (; bram_port_i < GetSize(portinfos); bram_port_i++)
 		{
 			auto &pi = portinfos[bram_port_i];
-			make_transp_enbits = pi.enable;
-			make_transp_clk = clkdom;
 
 			if (pi.wrmode != 1)
 		skip_bram_wport:
@@ -601,16 +517,25 @@ bool replace_memory(Mem &orig_mem, const rules_t &rules, const rules_t::bram_t &
 				}
 			}
 
-			SigSpec sig_en;
-			SigBit last_en_bit = State::S1;
-			for (int i = 0; i < mem.width; i++) {
-				if (pi.enable && i % (bram.dbits / pi.enable) == 0) {
-					last_en_bit = port.en[i];
-					sig_en.append(last_en_bit);
-				}
-				if (last_en_bit != port.en[i]) {
-					log("        Bram port %c%d has incompatible enable structure.\n", pi.group + 'A', pi.index + 1);
-					goto skip_bram_wport;
+			// We need to check enable compatibility of this port, as well as all
+			// ports that have priority over this one (because they will be involved
+			// in emulate_priority logic).
+
+			for (int i = 0; i < GetSize(mem.wr_ports); i++) {
+				auto &oport = mem.wr_ports[i];
+				if (i != cell_port_i && !oport.priority_mask[cell_port_i])
+					continue;
+				SigBit last_en_bit = State::S1;
+				for (int j = 0; j < GetSize(shuffle_map); j++) {
+					if (shuffle_map[j] == -1)
+						continue;
+					SigBit en_bit = oport.en[shuffle_map[j]];
+					if (pi.enable && j % (bram.dbits / pi.enable) == 0)
+						last_en_bit = en_bit;
+					if (last_en_bit != en_bit) {
+						log("        Bram port %c%d has incompatible enable structure.\n", pi.group + 'A', pi.index + 1);
+						goto skip_bram_wport;
+					}
 				}
 			}
 
@@ -620,13 +545,7 @@ bool replace_memory(Mem &orig_mem, const rules_t &rules, const rules_t::bram_t &
 			if (port.clk_enable) {
 				clock_domains[pi.clocks] = clkdom;
 				clock_polarities[pi.clkpol] = clkdom.second;
-				pi.sig_clock = clkdom.first;
-				pi.effective_clkpol = clkdom.second;
 			}
-
-			pi.sig_en = sig_en;
-			pi.sig_addr = port.addr;
-			pi.sig_data = port.data;
 
 			bram_port_i++;
 			goto mapped_wr_port;
@@ -650,10 +569,6 @@ grow_read_ports:;
 		for (auto &pi : portinfos) {
 			if (pi.wrmode == 0) {
 				pi.mapped_port = -1;
-				pi.sig_clock = SigBit();
-				pi.sig_addr = SigSpec();
-				pi.sig_data = SigSpec();
-				pi.sig_en = SigSpec();
 				pi.make_outreg = false;
 				pi.make_transp = false;
 			}
@@ -685,10 +600,16 @@ grow_read_ports:;
 	for (int cell_port_i = 0; cell_port_i < GetSize(mem.rd_ports); cell_port_i++)
 	{
 		auto &port = mem.rd_ports[cell_port_i];
-		bool transp = port.transparent;
+		bool transp = false;
+		bool non_transp = false;
 
-		if (mem.wr_ports.empty())
-			transp = false;
+		if (port.clk_enable) {
+			for (int i = 0; i < GetSize(mem.wr_ports); i++)
+				if (port.transparency_mask[i])
+					transp = true;
+				else if (!port.collision_x_mask[i])
+					non_transp = true;
+		}
 
 		pair<SigBit, bool> clkdom(port.clk, port.clk_polarity);
 		if (!port.clk_enable)
@@ -723,21 +644,13 @@ grow_read_ports:;
 					log("        Bram port %c%d.%d has incompatible clock polarity.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 					goto skip_bram_rport;
 				}
-				if (port.en != State::S1 && pi.enable == 0) {
-					log("        Bram port %c%d.%d has no read enable input.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
+				if (non_transp && read_transp.count(pi.transp) && read_transp.at(pi.transp)) {
+					log("        Bram port %c%d.%d has incompatible read transparency.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 					goto skip_bram_rport;
 				}
-			skip_bram_rport_clkcheck:
-				if (read_transp.count(pi.transp) && read_transp.at(pi.transp) != transp) {
-					if (match.make_transp && GetSize(mem.wr_ports) <= 1) {
+				if (transp && (non_transp || (read_transp.count(pi.transp) && !read_transp.at(pi.transp)))) {
+					if (match.make_transp) {
 						pi.make_transp = true;
-						if (pi.clocks != 0) {
-							if (GetSize(mem.wr_ports) == 1 && wr_clkdom != clkdom) {
-								log("        Bram port %c%d.%d cannot have soft transparency logic added as read and write clock domains differ.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
-								goto skip_bram_rport;
-							}
-							enable_make_transp = true;
-						}
 					} else {
 						log("        Bram port %c%d.%d has incompatible read transparency.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 						goto skip_bram_rport;
@@ -750,21 +663,18 @@ grow_read_ports:;
 				}
 			}
 
+		skip_bram_rport_clkcheck:
 			log("        Mapped to bram port %c%d.%d.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
 			pi.mapped_port = cell_port_i;
 
-			if (port.clk_enable) {
+			if (pi.clocks) {
 				clock_domains[pi.clocks] = clkdom;
 				clock_polarities[pi.clkpol] = clkdom.second;
-				if (!pi.make_transp)
-					read_transp[pi.transp] = transp;
-				pi.sig_clock = clkdom.first;
-				pi.sig_en = port.en;
-				pi.effective_clkpol = clkdom.second;
+				if (non_transp)
+					read_transp[pi.transp] = false;
+				if (transp && !pi.make_transp)
+					read_transp[pi.transp] = true;
 			}
-
-			pi.sig_addr = port.addr;
-			pi.sig_data = port.data;
 
 			if (grow_read_ports_cursor < cell_port_i) {
 				grow_read_ports_cursor = cell_port_i;
@@ -785,17 +695,19 @@ grow_read_ports:;
 
 	// update properties and re-check conditions
 
+	int dcells = GetSize(shuffle_map) / bram.dbits;
+	int acells = (mem.size + (1 << bram.abits) - 1) / (1 << bram.abits);
 	if (mode <= 1)
 	{
 		match_properties["dups"] = dup_count;
 		match_properties["waste"] = match_properties["dups"] * match_properties["bwaste"];
 
-		int cells = ((mem.width + bram.dbits - 1) / bram.dbits) * ((mem.size + (1 << bram.abits) - 1) / (1 << bram.abits));
+		int cells = dcells * acells;
 		match_properties["efficiency"] = (100 * match_properties["bits"]) / (dup_count * cells * bram.dbits * (1 << bram.abits));
 
-		match_properties["dcells"] = ((mem.width + bram.dbits - 1) / bram.dbits);
-		match_properties["acells"] = ((mem.size + (1 << bram.abits) - 1) / (1 << bram.abits));
-		match_properties["cells"] = match_properties["dcells"] *  match_properties["acells"] * match_properties["dups"];
+		match_properties["dcells"] = dcells;
+		match_properties["acells"] = acells;
+		match_properties["cells"] = cells * dup_count;
 
 		log("      Updated properties: dups=%d waste=%d efficiency=%d\n",
 				match_properties["dups"], match_properties["waste"], match_properties["efficiency"]);
@@ -862,6 +774,90 @@ grow_read_ports:;
 			return true;
 	}
 
+	// At this point we are commited to replacing the RAM, and can mutate mem.
+
+	// Apply make_outreg and make_transp where necessary.
+	for (auto &pi : portinfos) {
+		if (pi.mapped_port == -1 || pi.wrmode)
+			continue;
+		auto &port = mem.rd_ports[pi.mapped_port];
+		if (pi.make_outreg) {
+			mem.extract_rdff(pi.mapped_port, initvals);
+		} else if (port.clk_enable) {
+			if (!pi.enable && port.en != State::S1)
+				mem.emulate_rden(pi.mapped_port, initvals);
+			else
+				mem.emulate_reset(pi.mapped_port, true, true, true, initvals);
+		}
+		if (pi.make_transp) {
+			for (int i = 0; i < GetSize(mem.wr_ports); i++)
+				if (port.transparency_mask[i])
+					mem.emulate_transparency(i, pi.mapped_port, initvals);
+		}
+	}
+
+	// We don't really support priorities, emulate them.
+	for (int i = 0; i < GetSize(mem.wr_ports); i++)
+		for (int j = 0; j < i; j++)
+			mem.emulate_priority(j, i, initvals);
+
+	// Swizzle the init data.  Do this before changing mem.width, so that get_init_data works.
+	bool cell_init = !mem.inits.empty();
+	vector<Const> initdata;
+	if (cell_init) {
+		Const initparam = mem.get_init_data();
+		initdata.reserve(mem.size);
+		for (int i = 0; i < mem.size; i++) {
+			std::vector<State> val;
+			for (auto idx : shuffle_map) {
+				if (idx == -1)
+					val.push_back(State::Sx);
+				else
+					val.push_back(initparam[mem.width * i + idx]);
+			}
+			initdata.push_back(Const(val));
+		}
+	}
+
+	// Now the big swizzle.
+	mem.width = GetSize(shuffle_map);
+
+	// Swizzle write ports.
+	for (auto &port : mem.wr_ports) {
+		SigSpec new_en, new_data;
+		SigBit en_bit = State::S1;
+		for (auto idx : shuffle_map) {
+			if (idx == -1) {
+				new_data.append(State::Sx);
+			} else {
+				new_data.append(port.data[idx]);
+				en_bit = port.en[idx];
+			}
+			new_en.append(en_bit);
+		}
+		port.en = new_en;
+		port.data = new_data;
+	}
+
+	// Swizzle read ports.
+	for (auto &port : mem.rd_ports) {
+		SigSpec new_data = module->addWire(NEW_ID, mem.width);
+		Const new_init_value = Const(State::Sx, mem.width);
+		Const new_arst_value = Const(State::Sx, mem.width);
+		Const new_srst_value = Const(State::Sx, mem.width);
+		for (int i = 0; i < mem.width; i++)
+			if (shuffle_map[i] != -1) {
+				module->connect(port.data[shuffle_map[i]], new_data[i]);
+				new_init_value[i] = port.init_value[shuffle_map[i]];
+				new_arst_value[i] = port.arst_value[shuffle_map[i]];
+				new_srst_value[i] = port.srst_value[shuffle_map[i]];
+			}
+		port.data = new_data;
+		port.init_value = new_init_value;
+		port.arst_value = new_arst_value;
+		port.srst_value = new_srst_value;
+	}
+
 	// prepare variant parameters
 
 	dict<IdString, Const> variant_params;
@@ -872,21 +868,9 @@ grow_read_ports:;
 
 	dict<SigSpec, pair<SigSpec, SigSpec>> dout_cache;
 
-	for (int grid_d = 0; grid_d*bram.dbits < mem.width; grid_d++)
+	for (int grid_d = 0; grid_d < dcells; grid_d++)
 	{
-		SigSpec mktr_wraddr, mktr_wrdata, mktr_wrdata_q;
-		vector<SigSpec> mktr_wren;
-
-		if (enable_make_transp) {
-			mktr_wraddr = module->addWire(NEW_ID, bram.abits);
-			mktr_wrdata = module->addWire(NEW_ID, bram.dbits);
-			mktr_wrdata_q = module->addWire(NEW_ID, bram.dbits);
-			module->addDff(NEW_ID, make_transp_clk.first, mktr_wrdata, mktr_wrdata_q, make_transp_clk.second);
-			for (int grid_a = 0; grid_a*(1 << bram.abits) < mem.size; grid_a++)
-				mktr_wren.push_back(module->addWire(NEW_ID, make_transp_enbits));
-		}
-
-		for (int grid_a = 0; grid_a*(1 << bram.abits) < mem.size; grid_a++)
+		for (int grid_a = 0; grid_a < acells; grid_a++)
 		for (int dupidx = 0; dupidx < dup_count; dupidx++)
 		{
 			Cell *c = module->addCell(module->uniquify(stringf("%s.%d.%d.%d", mem.memid.c_str(), grid_d, grid_a, dupidx)), bram.name);
@@ -896,18 +880,16 @@ grow_read_ports:;
 				c->setParam(vp.first, vp.second);
 
 			if (cell_init) {
-				int init_offset = grid_a*(1 << bram.abits);
+				int init_offset = grid_a*(1 << bram.abits) - mem.start_offset;
 				int init_shift = grid_d*bram.dbits;
 				int init_size = (1 << bram.abits);
 				Const initparam(State::Sx, init_size*bram.dbits);
-				for (int i = 0; i < init_size; i++) {
-					State padding = State::Sx;
+				for (int i = 0; i < init_size; i++)
 					for (int j = 0; j < bram.dbits; j++)
-						if (init_offset+i < GetSize(initdata) && init_shift+j < GetSize(initdata[init_offset+i]))
+						if (init_offset+i < GetSize(initdata) && init_offset+i >= 0)
 							initparam[i*bram.dbits+j] = initdata[init_offset+i][init_shift+j];
 						else
-							initparam[i*bram.dbits+j] = padding;
-				}
+							initparam[i*bram.dbits+j] = State::Sx;
 				c->setParam(ID::INIT, initparam);
 			}
 
@@ -919,101 +901,84 @@ grow_read_ports:;
 				string prefix = stringf("%c%d", pi.group + 'A', pi.index + 1);
 				const char *pf = prefix.c_str();
 
-				if (pi.clocks && (!c->hasPort(stringf("\\CLK%d", (pi.clocks-1) % clocks_max + 1)) || pi.sig_clock.wire)) {
-					c->setPort(stringf("\\CLK%d", (pi.clocks-1) % clocks_max + 1), pi.sig_clock);
-					if (pi.clkpol > 1 && pi.sig_clock.wire)
-						c->setParam(stringf("\\CLKPOL%d", (pi.clkpol-1) % clkpol_max + 1), clock_polarities.at(pi.clkpol));
-					if (pi.transp > 1 && pi.sig_clock.wire)
-						c->setParam(stringf("\\TRANSP%d", (pi.transp-1) % transp_max + 1), read_transp.at(pi.transp));
-				}
+				if (pi.clocks && clock_domains.count(pi.clocks))
+					c->setPort(stringf("\\CLK%d", (pi.clocks-1) % clocks_max + 1), clock_domains.at(pi.clocks).first);
+				if (pi.clkpol > 1 && clock_polarities.count(pi.clkpol))
+					c->setParam(stringf("\\CLKPOL%d", (pi.clkpol-1) % clkpol_max + 1), clock_polarities.at(pi.clkpol));
+				if (pi.transp > 1 && read_transp.count(pi.transp))
+					c->setParam(stringf("\\TRANSP%d", (pi.transp-1) % transp_max + 1), read_transp.at(pi.transp));
 
 				SigSpec addr_ok;
-				if (GetSize(pi.sig_addr) > bram.abits) {
-					SigSpec extra_addr = pi.sig_addr.extract(bram.abits, GetSize(pi.sig_addr) - bram.abits);
+				SigSpec sig_addr;
+				if (pi.mapped_port >= 0) {
+					if (pi.wrmode == 1)
+						sig_addr = mem.wr_ports[pi.mapped_port].addr;
+					else
+						sig_addr = mem.rd_ports[pi.mapped_port].addr;
+				}
+
+				if (GetSize(sig_addr) > bram.abits) {
+					SigSpec extra_addr = sig_addr.extract(bram.abits, GetSize(sig_addr) - bram.abits);
 					SigSpec extra_addr_sel = SigSpec(grid_a, GetSize(extra_addr));
 					addr_ok = module->Eq(NEW_ID, extra_addr, extra_addr_sel);
 				}
 
-				if (pi.enable)
-				{
-					SigSpec sig_en = pi.sig_en;
-
-					if (pi.wrmode == 1) {
-						sig_en.extend_u0((grid_d+1) * pi.enable);
-						sig_en = sig_en.extract(grid_d * pi.enable, pi.enable);
-					}
-
-					if (!addr_ok.empty())
-						sig_en = module->Mux(NEW_ID, SigSpec(0, GetSize(sig_en)), sig_en, addr_ok);
-
-					c->setPort(stringf("\\%sEN", pf), sig_en);
-
-					if (pi.wrmode == 1 && enable_make_transp)
-						module->connect(mktr_wren[grid_a], sig_en);
-				}
-
-				SigSpec sig_addr = pi.sig_addr;
 				sig_addr.extend_u0(bram.abits);
 				c->setPort(stringf("\\%sADDR", pf), sig_addr);
 
-				if (pi.wrmode == 1 && enable_make_transp && grid_a == 0)
-					module->connect(mktr_wraddr, sig_addr);
-
-				SigSpec sig_data = pi.sig_data;
-				sig_data.extend_u0((grid_d+1) * bram.dbits);
-				sig_data = sig_data.extract(grid_d * bram.dbits, bram.dbits);
-
 				if (pi.wrmode == 1) {
-					c->setPort(stringf("\\%sDATA", pf), sig_data);
-					if (enable_make_transp && grid_a == 0)
-						module->connect(mktr_wrdata, sig_data);
-				} else {
-					SigSpec bram_dout = module->addWire(NEW_ID, bram.dbits);
-					c->setPort(stringf("\\%sDATA", pf), bram_dout);
-					if (pi.make_outreg && pi.make_transp) {
-						log("        Moving output register to address for transparent port %c%d.%d.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
-						SigSpec sig_addr_q = module->addWire(NEW_ID, bram.abits);
-						module->addDff(NEW_ID, pi.sig_clock, sig_addr, sig_addr_q, pi.effective_clkpol);
-						c->setPort(stringf("\\%sADDR", pf), sig_addr_q);
-					} else if (pi.make_outreg) {
-						SigSpec bram_dout_q = module->addWire(NEW_ID, bram.dbits);
-						if (!pi.sig_en.empty())
-							bram_dout = module->Mux(NEW_ID, bram_dout_q, bram_dout, pi.sig_en);
-						module->addDff(NEW_ID, pi.sig_clock, bram_dout, bram_dout_q, pi.effective_clkpol);
-						bram_dout = bram_dout_q;
-					} else if (pi.make_transp) {
-						log("        Adding extra logic for transparent port %c%d.%d.\n", pi.group + 'A', pi.index + 1, pi.dupidx + 1);
-
-						SigSpec transp_en_d = module->Mux(NEW_ID, SigSpec(0, make_transp_enbits),
-								mktr_wren[grid_a], module->Eq(NEW_ID, mktr_wraddr, sig_addr));
-
-						SigSpec transp_en_q = module->addWire(NEW_ID, make_transp_enbits);
-						module->addDff(NEW_ID, make_transp_clk.first, transp_en_d, transp_en_q, make_transp_clk.second);
-
-						for (int i = 0; i < make_transp_enbits; i++) {
-							int en_width = bram.dbits / make_transp_enbits;
-							SigSpec orig_bram_dout = bram_dout.extract(i * en_width, en_width);
-							SigSpec bypass_dout = mktr_wrdata_q.extract(i * en_width, en_width);
-							bram_dout.replace(i * en_width, module->Mux(NEW_ID, orig_bram_dout, bypass_dout, transp_en_q[i]));
-						}
+					if (pi.mapped_port == -1)
+					{
+						if (pi.enable)
+							c->setPort(stringf("\\%sEN", pf), Const(State::S0, pi.enable));
+						continue;
 					}
 
-					for (int i = bram.dbits-1; i >= 0; i--)
-						if (sig_data[i].wire == nullptr) {
-							sig_data.remove(i);
-							bram_dout.remove(i);
-						}
+					auto &port = mem.wr_ports[pi.mapped_port];
+					SigSpec sig_data = port.data.extract(grid_d * bram.dbits, bram.dbits);
+					c->setPort(stringf("\\%sDATA", pf), sig_data);
+
+					if (pi.enable)
+					{
+						SigSpec sig_en;
+						int stride = bram.dbits / pi.enable;
+						for (int i = 0; i < pi.enable; i++)
+							sig_en.append(port.en[stride * i + grid_d * bram.dbits]);
+
+						if (!addr_ok.empty())
+							sig_en = module->Mux(NEW_ID, SigSpec(0, GetSize(sig_en)), sig_en, addr_ok);
+
+						c->setPort(stringf("\\%sEN", pf), sig_en);
+
+					}
+				} else {
+					if (pi.mapped_port == -1)
+					{
+						if (pi.enable)
+							c->setPort(stringf("\\%sEN", pf), State::S0);
+						continue;
+					}
+					auto &port = mem.rd_ports[pi.mapped_port];
+					SigSpec sig_data = port.data.extract(grid_d * bram.dbits, bram.dbits);
+
+					SigSpec bram_dout = module->addWire(NEW_ID, bram.dbits);
+					c->setPort(stringf("\\%sDATA", pf), bram_dout);
 
 					SigSpec addr_ok_q = addr_ok;
-					if ((pi.clocks || pi.make_outreg) && !addr_ok.empty()) {
+					if (port.clk_enable && !addr_ok.empty()) {
 						addr_ok_q = module->addWire(NEW_ID);
-						if (!pi.sig_en.empty())
-							addr_ok = module->Mux(NEW_ID, addr_ok_q, addr_ok, pi.sig_en);
-						module->addDff(NEW_ID, pi.sig_clock, addr_ok, addr_ok_q, pi.effective_clkpol);
+						module->addDffe(NEW_ID, port.clk, port.en, addr_ok, addr_ok_q, port.clk_polarity);
 					}
 
 					dout_cache[sig_data].first.append(addr_ok_q);
 					dout_cache[sig_data].second.append(bram_dout);
+
+					if (pi.enable) {
+						SigSpec sig_en = port.en;
+						if (!addr_ok.empty())
+							sig_en = module->And(NEW_ID, sig_en, addr_ok);
+						c->setPort(stringf("\\%sEN", pf), sig_en);
+					}
 				}
 			}
 		}
@@ -1037,9 +1002,10 @@ grow_read_ports:;
 	return true;
 }
 
-void handle_memory(Mem &mem, const rules_t &rules)
+void handle_memory(Mem &mem, const rules_t &rules, FfInitVals *initvals)
 {
 	log("Processing %s.%s:\n", log_id(mem.module), log_id(mem.memid));
+	mem.narrow();
 
 	bool cell_init = !mem.inits.empty();
 
@@ -1189,7 +1155,7 @@ void handle_memory(Mem &mem, const rules_t &rules)
 				if (or_next_if_better && i+1 == GetSize(rules.matches) && vi+1 == GetSize(rules.brams.at(match.name)))
 					log_error("Found 'or_next_if_better' in last match rule.\n");
 
-				if (!replace_memory(mem, rules, bram, match, match_properties, 1)) {
+				if (!replace_memory(mem, rules, initvals, bram, match, match_properties, 1)) {
 					log("    Mapping to bram type %s failed.\n", log_id(match.name));
 					failed_brams.insert(pair<IdString, int>(bram.name, bram.variant));
 					goto next_match_rule;
@@ -1216,12 +1182,12 @@ void handle_memory(Mem &mem, const rules_t &rules)
 				best_rule_cache.clear();
 
 				auto &best_bram = rules.brams.at(rules.matches.at(best_rule.first).name).at(best_rule.second);
-				if (!replace_memory(mem, rules, best_bram, rules.matches.at(best_rule.first), match_properties, 2))
+				if (!replace_memory(mem, rules, initvals, best_bram, rules.matches.at(best_rule.first), match_properties, 2))
 					log_error("Mapping to bram type %s (variant %d) after pre-selection failed.\n", log_id(best_bram.name), best_bram.variant);
 				return;
 			}
 
-			if (!replace_memory(mem, rules, bram, match, match_properties, 0)) {
+			if (!replace_memory(mem, rules, initvals, bram, match, match_properties, 0)) {
 				log("    Mapping to bram type %s failed.\n", log_id(match.name));
 				failed_brams.insert(pair<IdString, int>(bram.name, bram.variant));
 				goto next_match_rule;
@@ -1353,9 +1319,12 @@ struct MemoryBramPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto mod : design->selected_modules())
-		for (auto &mem : Mem::get_selected_memories(mod))
-			handle_memory(mem, rules);
+		for (auto mod : design->selected_modules()) {
+			SigMap sigmap(mod);
+			FfInitVals initvals(&sigmap, mod);
+			for (auto &mem : Mem::get_selected_memories(mod))
+				handle_memory(mem, rules, &initvals);
+		}
 	}
 } MemoryBramPass;
 

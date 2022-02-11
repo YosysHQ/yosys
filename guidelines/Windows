@@ -1,0 +1,83 @@
+Creating the Visual Studio Template Project
+===========================================
+
+1. Create an empty Visual C++ Win32 Console App project
+
+	Microsoft Visual Studio Express 2013 for Windows Desktop
+	Open New Project Wizard (File -> New Project..)
+
+	Project Name: YosysVS
+	Solution Name: YosysVS
+	[X] Create directory for solution
+	[ ] Add to source control
+
+	[X] Console applications
+	[X] Empty Project
+	[ ] SDL checks
+
+2. Open YosysVS Project Properties
+
+	Select Configuration: All Configurations
+
+	C/C++ -> General -> Additional Include Directories
+		Add: ..\yosys
+
+	C/C++ -> Preprocessor -> Preprocessor Definitions
+		Add: _YOSYS_;_CRT_SECURE_NO_WARNINGS
+
+3. Resulting file system tree:
+
+	YosysVS/
+	YosysVS/YosysVS
+	YosysVS/YosysVS/YosysVS.vcxproj
+	YosysVS/YosysVS/YosysVS.vcxproj.filters
+	YosysVS/YosysVS.sdf
+	YosysVS/YosysVS.sln
+	YosysVS/YosysVS.v12.suo
+
+4. Zip YosysVS as YosysVS-Tpl-v1.zip
+
+Compiling with Visual Studio
+============================
+
+Visual Studio builds are not directly supported by build scripts, but they are still possible.
+
+1. Easy way
+
+  - Go to https://github.com/YosysHQ/yosys/actions/workflows/vs.yml?query=branch%3Amaster
+  - Click on the most recent completed run
+  - In Artifacts region find vcxsrc and click on it to download
+  - Unpack downloaded ZIP file
+  - Open YosysVS.sln with Visual Studio
+  
+2. Using WSL or MSYS2
+
+  - Make sure to have make, python3 and git available
+  - Git clone yosys repository
+  - Execute ```make vcxsrc YOSYS_VER=latest```
+  - File yosys-win32-vcxsrc-latest.zip will be created
+  - Transfer that file to location visible by Windows application
+  - Unpack ZIP
+  - Open YosysVS.sln with Visual Studio
+
+Cross-Building for Windows with MXE
+===================================
+
+Check http://mxe.cc/#requirements and install all missing requirements.
+
+As root (or other user with write access to /usr/local/src):
+
+	cd /usr/local/src
+	git clone https://github.com/mxe/mxe.git
+	cd mxe
+
+	make -j$(nproc) MXE_PLUGIN_DIRS="plugins/tcl.tk" \
+			MXE_TARGETS="i686-w64-mingw32.static" \
+			gcc tcl readline
+
+Then as regular user in some directory where you build stuff:
+
+	git clone https://github.com/YosysHQ/yosys.git yosys-win32
+	cd yosys-win32
+	make config-mxe
+	make -j$(nproc) mxebin

@@ -1,5 +1,5 @@
 `default_nettype none
-module top;
+module named_genblk_top;
 	generate
 		if (1) begin
 			wire t;

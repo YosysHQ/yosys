@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -34,12 +34,7 @@ extern void simplemap_mux(RTLIL::Module *module, RTLIL::Cell *cell);
 extern void simplemap_lut(RTLIL::Module *module, RTLIL::Cell *cell);
 extern void simplemap_slice(RTLIL::Module *module, RTLIL::Cell *cell);
 extern void simplemap_concat(RTLIL::Module *module, RTLIL::Cell *cell);
-extern void simplemap_sr(RTLIL::Module *module, RTLIL::Cell *cell);
-extern void simplemap_dff(RTLIL::Module *module, RTLIL::Cell *cell);
-extern void simplemap_dffe(RTLIL::Module *module, RTLIL::Cell *cell);
-extern void simplemap_dffsr(RTLIL::Module *module, RTLIL::Cell *cell);
-extern void simplemap_adff(RTLIL::Module *module, RTLIL::Cell *cell);
-extern void simplemap_dlatch(RTLIL::Module *module, RTLIL::Cell *cell);
+extern void simplemap_ff(RTLIL::Module *module, RTLIL::Cell *cell);
 extern void simplemap(RTLIL::Module *module, RTLIL::Cell *cell);
 
 extern void simplemap_get_mappers(dict<RTLIL::IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> &mappers);

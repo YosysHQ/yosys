@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -1247,6 +1247,290 @@ output reg Q;
 always @(posedge C or posedge R) begin
 	if (R == 1)
 		Q <= 1;
+	else if (E == 1)
+		Q <= D;
+end
+endmodule
+
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_ALDFF_NN_ (D, C, L, AD, Q)
+//-
+//- A negative edge D-type flip-flop with negative polarity async load.
+//-
+//- Truth table:    D C L AD | Q
+//-                ----------+---
+//-                 - - 0 a  | a
+//-                 d \ - -  | d
+//-                 - - - -  | q
+//-
+module \$_ALDFF_NN_ (D, C, L, AD, Q);
+input D, C, L, AD;
+output reg Q;
+always @(negedge C or negedge L) begin
+	if (L == 0)
+		Q <= AD;
+	else
+		Q <= D;
+end
+endmodule
+
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_ALDFF_NP_ (D, C, L, AD, Q)
+//-
+//- A negative edge D-type flip-flop with positive polarity async load.
+//-
+//- Truth table:    D C L AD | Q
+//-                ----------+---
+//-                 - - 1 a  | a
+//-                 d \ - -  | d
+//-                 - - - -  | q
+//-
+module \$_ALDFF_NP_ (D, C, L, AD, Q);
+input D, C, L, AD;
+output reg Q;
+always @(negedge C or posedge L) begin
+	if (L == 1)
+		Q <= AD;
+	else
+		Q <= D;
+end
+endmodule
+
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_ALDFF_PN_ (D, C, L, AD, Q)
+//-
+//- A positive edge D-type flip-flop with negative polarity async load.
+//-
+//- Truth table:    D C L AD | Q
+//-                ----------+---
+//-                 - - 0 a  | a
+//-                 d / - -  | d
+//-                 - - - -  | q
+//-
+module \$_ALDFF_PN_ (D, C, L, AD, Q);
+input D, C, L, AD;
+output reg Q;
+always @(posedge C or negedge L) begin
+	if (L == 0)
+		Q <= AD;
+	else
+		Q <= D;
+end
+endmodule
+
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_ALDFF_PP_ (D, C, L, AD, Q)
+//-
+//- A positive edge D-type flip-flop with positive polarity async load.
+//-
+//- Truth table:    D C L AD | Q
+//-                ----------+---
+//-                 - - 1 a  | a
+//-                 d / - -  | d
+//-                 - - - -  | q
+//-
+module \$_ALDFF_PP_ (D, C, L, AD, Q);
+input D, C, L, AD;
+output reg Q;
+always @(posedge C or posedge L) begin
+	if (L == 1)
+		Q <= AD;
+	else
+		Q <= D;
+end
+endmodule
+
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_ALDFFE_NNN_ (D, C, L, AD, E, Q)
+//-
+//- A negative edge D-type flip-flop with negative polarity async load and negative
+//- polarity clock enable.
+//-
+//- Truth table:    D C L AD E | Q
+//-                ------------+---
+//-                 - - 0 a  - | a
+//-                 d \ - -  0 | d
+//-                 - - - -  - | q
+//-
+module \$_ALDFFE_NNN_ (D, C, L, AD, E, Q);
+input D, C, L, AD, E;
+output reg Q;
+always @(negedge C or negedge L) begin
+	if (L == 0)
+		Q <= AD;
+	else if (E == 0)
+		Q <= D;
+end
+endmodule
+
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_ALDFFE_NNP_ (D, C, L, AD, E, Q)
+//-
+//- A negative edge D-type flip-flop with negative polarity async load and positive
+//- polarity clock enable.
+//-
+//- Truth table:    D C L AD E | Q
+//-                ------------+---
+//-                 - - 0 a  - | a
+//-                 d \ - -  1 | d
+//-                 - - - -  - | q
+//-
+module \$_ALDFFE_NNP_ (D, C, L, AD, E, Q);
+input D, C, L, AD, E;
+output reg Q;
+always @(negedge C or negedge L) begin
+	if (L == 0)
+		Q <= AD;
+	else if (E == 1)
+		Q <= D;
+end
+endmodule
+
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_ALDFFE_NPN_ (D, C, L, AD, E, Q)
+//-
+//- A negative edge D-type flip-flop with positive polarity async load and negative
+//- polarity clock enable.
+//-
+//- Truth table:    D C L AD E | Q
+//-                ------------+---
+//-                 - - 1 a  - | a
+//-                 d \ - -  0 | d
+//-                 - - - -  - | q
+//-
+module \$_ALDFFE_NPN_ (D, C, L, AD, E, Q);
+input D, C, L, AD, E;
+output reg Q;
+always @(negedge C or posedge L) begin
+	if (L == 1)
+		Q <= AD;
+	else if (E == 0)
+		Q <= D;
+end
+endmodule
+
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_ALDFFE_NPP_ (D, C, L, AD, E, Q)
+//-
+//- A negative edge D-type flip-flop with positive polarity async load and positive
+//- polarity clock enable.
+//-
+//- Truth table:    D C L AD E | Q
+//-                ------------+---
+//-                 - - 1 a  - | a
+//-                 d \ - -  1 | d
+//-                 - - - -  - | q
+//-
+module \$_ALDFFE_NPP_ (D, C, L, AD, E, Q);
+input D, C, L, AD, E;
+output reg Q;
+always @(negedge C or posedge L) begin
+	if (L == 1)
+		Q <= AD;
+	else if (E == 1)
+		Q <= D;
+end
+endmodule
+
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_ALDFFE_PNN_ (D, C, L, AD, E, Q)
+//-
+//- A positive edge D-type flip-flop with negative polarity async load and negative
+//- polarity clock enable.
+//-
+//- Truth table:    D C L AD E | Q
+//-                ------------+---
+//-                 - - 0 a  - | a
+//-                 d / - -  0 | d
+//-                 - - - -  - | q
+//-
+module \$_ALDFFE_PNN_ (D, C, L, AD, E, Q);
+input D, C, L, AD, E;
+output reg Q;
+always @(posedge C or negedge L) begin
+	if (L == 0)
+		Q <= AD;
+	else if (E == 0)
+		Q <= D;
+end
+endmodule
+
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_ALDFFE_PNP_ (D, C, L, AD, E, Q)
+//-
+//- A positive edge D-type flip-flop with negative polarity async load and positive
+//- polarity clock enable.
+//-
+//- Truth table:    D C L AD E | Q
+//-                ------------+---
+//-                 - - 0 a  - | a
+//-                 d / - -  1 | d
+//-                 - - - -  - | q
+//-
+module \$_ALDFFE_PNP_ (D, C, L, AD, E, Q);
+input D, C, L, AD, E;
+output reg Q;
+always @(posedge C or negedge L) begin
+	if (L == 0)
+		Q <= AD;
+	else if (E == 1)
+		Q <= D;
+end
+endmodule
+
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_ALDFFE_PPN_ (D, C, L, AD, E, Q)
+//-
+//- A positive edge D-type flip-flop with positive polarity async load and negative
+//- polarity clock enable.
+//-
+//- Truth table:    D C L AD E | Q
+//-                ------------+---
+//-                 - - 1 a  - | a
+//-                 d / - -  0 | d
+//-                 - - - -  - | q
+//-
+module \$_ALDFFE_PPN_ (D, C, L, AD, E, Q);
+input D, C, L, AD, E;
+output reg Q;
+always @(posedge C or posedge L) begin
+	if (L == 1)
+		Q <= AD;
+	else if (E == 0)
+		Q <= D;
+end
+endmodule
+
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $_ALDFFE_PPP_ (D, C, L, AD, E, Q)
+//-
+//- A positive edge D-type flip-flop with positive polarity async load and positive
+//- polarity clock enable.
+//-
+//- Truth table:    D C L AD E | Q
+//-                ------------+---
+//-                 - - 1 a  - | a
+//-                 d / - -  1 | d
+//-                 - - - -  - | q
+//-
+module \$_ALDFFE_PPP_ (D, C, L, AD, E, Q);
+input D, C, L, AD, E;
+output reg Q;
+always @(posedge C or posedge L) begin
+	if (L == 1)
+		Q <= AD;
 	else if (E == 1)
 		Q <= D;
 end

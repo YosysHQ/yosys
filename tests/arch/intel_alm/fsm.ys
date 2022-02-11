@@ -3,7 +3,7 @@ hierarchy -top fsm
 proc
 flatten
 
-equiv_opt -run :prove -map +/intel_alm/common/alm_sim.v -map +/intel_alm/common/dff_sim.v synth_intel_alm -family cyclonev
+equiv_opt -run :prove -map +/intel_alm/common/alm_sim.v -map +/intel_alm/common/dff_sim.v synth_intel_alm -family cyclonev -noiopad -noclkbuf
 async2sync
 miter -equiv -make_assert -flatten gold gate miter
 sat -verify -prove-asserts -show-public -set-at 1 in_reset 1 -seq 20 -prove-skip 1 miter
@@ -26,7 +26,7 @@ hierarchy -top fsm
 proc
 flatten
 
-equiv_opt -run :prove -map +/intel_alm/common/alm_sim.v -map +/intel_alm/common/dff_sim.v synth_intel_alm -family cyclone10gx
+equiv_opt -run :prove -map +/intel_alm/common/alm_sim.v -map +/intel_alm/common/dff_sim.v synth_intel_alm -family cyclone10gx -noiopad -noclkbuf
 async2sync
 miter -equiv -make_assert -flatten gold gate miter
 sat -verify -prove-asserts -show-public -set-at 1 in_reset 1 -seq 20 -prove-skip 1 miter

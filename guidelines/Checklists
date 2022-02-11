@@ -1,0 +1,120 @@
+Checklist for adding internal cell types
+========================================
+
+Things to do right away:
+
+	- Add to kernel/celltypes.h (incl. eval() handling for non-mem cells)
+	- Add to InternalCellChecker::check() in kernel/rtlil.cc
+	- Add to techlibs/common/simlib.v
+	- Add to techlibs/common/techmap.v
+
+Things to do after finalizing the cell interface:
+
+	- Add support to kernel/satgen.h for the new cell type
+	- Add to manual/CHAPTER_CellLib.tex (or just add a fixme to the bottom)
+	- Maybe add support to the Verilog backend for dumping such cells as expression
+
+
+
+Checklist for creating Yosys releases
+=====================================
+
+Update the CHANGELOG file:
+
+	cd ~yosys
+	gitk &
+	vi CHANGELOG
+
+
+Update and check documentation:
+
+	cd ~yosys
+	make update-manual
+	make manual
+	- sanity check the figures in the appnotes and presentation
+	    - if there are any odd things -> investigate
+	    - make cosmetic changes to the .tex files if necessary
+
+	cd ~yosys
+	vi README guidelines/*
+	- is the information provided in those file still up to date
+
+
+Then with default config setting:
+
+	cd ~yosys
+	make vgtest
+
+	cd ~yosys
+	./yosys -p 'proc; show' tests/simple/fiedler-cooley.v
+	./yosys -p 'proc; opt; show' tests/simple/fiedler-cooley.v
+	./yosys -p 'synth; show' tests/simple/fiedler-cooley.v
+	./yosys -p 'synth_xilinx -top up3down5; show' tests/simple/fiedler-cooley.v
+
+	cd ~yosys/examples/cmos
+	bash testbench.sh
+
+	cd ~yosys/examples/basys3
+	bash run.sh
+
+
+Test building plugins with various of the standard passes:
+
+	yosys-config --build test.so equiv_simple.cc
+	- also check the code examples in guidelines/GettingStarted
+
+
+And if a version of the verific library is currently available:
+
+	cd ~yosys
+	cat frontends/verific/build_amd64.txt
+	- follow instructions
+
+	cd frontends/verific
+	../../yosys test_navre.ys
+
+
+Finally run all tests with "make config-{clang,gcc,gcc-4.8}":
+
+	cd ~yosys
+	make clean
+	make test
+	make ystests
+	make vloghtb
+	make install
+
+	cd ~yosys-bigsim
+	make clean
+	make full
+
+	cd ~vloghammer
+	make purge gen_issues gen_samples
+	make SYN_LIST="yosys" SIM_LIST="icarus yosim verilator" REPORT_FULL=1 world
+	chromium-browser report.html
+
+
+Release:
+
+	- set YOSYS_VER to x.y.z in Makefile
+	- remove "bumpversion" target from Makefile
+	- update version string in CHANGELOG
+	git commit -am "Yosys x.y.z"
+
+	- push tag to github
+	- post changelog on github
+	- post short release note on reddit
+
+
+Updating the website:
+
+	cd ~yosys
+	make manual
+	make install
+
+	- update pdf files on the website
+
+	cd ~yosys-web
+	make update_cmd
+	make update_show
+	git commit -am update
+	make push

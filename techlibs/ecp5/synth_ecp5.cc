@@ -1,8 +1,8 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012 Clifford Wolf <clifford@clifford.at>
- *  Copyright (C) 2018 David Shah <dave@ds0.me>
+ *  Copyright (C) 2012 Claire Xenia Wolf <claire@yosyshq.com>
+ *  Copyright (C) 2018 gatecat <gatecat@ds0.me>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -88,7 +88,7 @@ struct SynthEcp5Pass : public ScriptPass
 		log("        do not use PFU muxes to implement LUTs larger than LUT4s\n");
 		log("\n");
 		log("    -asyncprld\n");
-		log("        use async PRLD mode to implement DLATCH and DFFSR (EXPERIMENTAL)\n");
+		log("        use async PRLD mode to implement ALDFF (EXPERIMENTAL)\n");
 		log("\n");
 		log("    -abc2\n");
 		log("        run two passes of 'abc' for slightly improved logic density\n");
@@ -318,16 +318,17 @@ struct SynthEcp5Pass : public ScriptPass
 			} else if (!nodffe) {
 				dfflegalize_args += " -cell $_DFFE_??_ 01 -cell $_DFFE_?P??_ r -cell $_SDFFE_?P??_ r";
 			}
-			dfflegalize_args += " -cell $_DLATCH_?_ x";
 			if (help_mode) {
-				dfflegalize_args += " [-cell $_DFFSR_?PP_ x]";
+				dfflegalize_args += " [-cell $_ALDFF_?P_ x -cell $_ALDFFE_?P?_ x] [-cell $_DLATCH_?_ x]";
 			} else if (asyncprld) {
-				dfflegalize_args += " -cell $_DFFSR_?PP_ x";
+				dfflegalize_args += " -cell $_ALDFF_?P_ x -cell $_ALDFFE_?P?_ x";
+			} else {
+				dfflegalize_args += " -cell $_DLATCH_?_ x";
 			}
-			run("dfflegalize" + dfflegalize_args, "($_DFFSR_*_ only if -asyncprld, $_*DFFE_* only if not -nodffe)");
+			run("dfflegalize" + dfflegalize_args, "($_ALDFF_*_ only if -asyncprld, $_DLATCH_* only if not -asyncprld, $_*DFFE_* only if not -nodffe)");
 			if ((abc9 && dff) || help_mode)
-				run("zinit -all w:* t:$_DFF_?_ t:$_DFFE_??_ t:$_SDFF*", "(only if -abc9 and -dff");
-			run(stringf("techmap -D NO_LUT %s -map +/ecp5/cells_map.v", help_mode ? "[-D ASYNC_PRLD]" : (asyncprld ? "-D ASYNC_PRLD" : "")));
+				run("zinit -all w:* t:$_DFF_?_ t:$_DFFE_??_ t:$_SDFF*", "(only if -abc9 and -dff)");
+			run("techmap -D NO_LUT -map +/ecp5/cells_map.v");
 			run("opt_expr -undriven -mux_undef");
 			run("simplemap");
 			run("ecp5_gsr");
@@ -385,6 +386,7 @@ struct SynthEcp5Pass : public ScriptPass
 			run("hierarchy -check");
 			run("stat");
 			run("check -noinit");
+			run("blackbox =A:whitebox");
 		}
 
 		if (check_label("blif"))

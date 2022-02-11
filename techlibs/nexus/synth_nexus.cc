@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2020 David Shah <dave@ds0.me>
+ *  Copyright (C) 2020 gatecat <gatecat@ds0.me>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -333,7 +333,7 @@ struct SynthNexusPass : public ScriptPass
 			else
 				run("techmap -map +/techmap.v -map +/nexus/arith_map.v");
 			if (help_mode || !noiopad)
-				run("iopadmap -bits -outpad OB I:O -inpad IB O:I -toutpad $__NX_TOUTPAD OE:I:O -tinoutpad $__NX_TINOUTPAD OE:O:I:B A:top", "(skip if '-noiopad')");
+				run("iopadmap -bits -outpad OB I:O -inpad IB O:I -toutpad OBZ ~T:I:O -tinoutpad BB ~T:O:I:B A:top", "(skip if '-noiopad')");
 			run("opt -fast");
 			if (retime || help_mode)
 				run("abc -dff -D 1", "(only if -retime)");
@@ -406,6 +406,7 @@ struct SynthNexusPass : public ScriptPass
 			run("hierarchy -check");
 			run("stat");
 			run("check -noinit");
+			run("blackbox =A:whitebox");
 		}
 
 		if (check_label("json"))

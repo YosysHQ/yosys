@@ -457,6 +457,42 @@ struct value : public expr_base<value<Bits>> {
 		return shr<AmountBits, /*Signed=*/true>(amount);
 	}
 
+	template<size_t ResultBits, size_t SelBits>
+	value<ResultBits> bmux(const value<SelBits> &sel) const {
+		static_assert(ResultBits << SelBits == Bits, "invalid sizes used in bmux()");
+		size_t amount = sel.data[0] * ResultBits;
+		size_t shift_chunks = amount / chunk::bits;
+		size_t shift_bits   = amount % chunk::bits;
+		value<ResultBits> result;
+		chunk::type carry = 0;
+		if (ResultBits % chunk::bits + shift_bits > chunk::bits)
+			carry = data[result.chunks + shift_chunks] << (chunk::bits - shift_bits);
+		for (size_t n = 0; n < result.chunks; n++) {
+			result.data[result.chunks - 1 - n] = carry | (data[result.chunks + shift_chunks - 1 - n] >> shift_bits);
+			carry = (shift_bits == 0) ? 0
+				: data[result.chunks + shift_chunks - 1 - n] << (chunk::bits - shift_bits);
+		}
+		return result;
+	}
+
+	template<size_t ResultBits, size_t SelBits>
+	value<ResultBits> demux(const value<SelBits> &sel) const {
+		static_assert(Bits << SelBits == ResultBits, "invalid sizes used in demux()");
+		size_t amount = sel.data[0] * Bits;
+		size_t shift_chunks = amount / chunk::bits;
+		size_t shift_bits   = amount % chunk::bits;
+		value<ResultBits> result;
+		chunk::type carry = 0;
+		for (size_t n = 0; n < chunks; n++) {
+			result.data[shift_chunks + n] = (data[n] << shift_bits) | carry;
+			carry = (shift_bits == 0) ? 0
+				: data[n] >> (chunk::bits - shift_bits);
+		}
+		if (Bits % chunk::bits + shift_bits > chunk::bits)
+			result.data[shift_chunks + chunks] = carry;
+		return result;
+	}
+
 	size_t ctpop() const {
 		size_t count = 0;
 		for (size_t n = 0; n < chunks; n++) {
@@ -722,50 +758,32 @@ std::ostream &operator<<(std::ostream &os, const wire<Bits> &val) {
 
 template<size_t Width>
 struct memory {
-	std::vector<value<Width>> data;
+	const size_t depth;
+	std::unique_ptr<value<Width>[]> data;
 
-	size_t depth() const {
-		return data.size();
-	}
-
-	memory() = delete;
-	explicit memory(size_t depth) : data(depth) {}
+	explicit memory(size_t depth) : depth(depth), data(new value<Width>[depth]) {}
 
 	memory(const memory<Width> &) = delete;
 	memory<Width> &operator=(const memory<Width> &) = delete;
 
 	memory(memory<Width> &&) = default;
-	memory<Width> &operator=(memory<Width> &&) = default;
-
-	// The only way to get the compiler to put the initializer in .rodata and do not copy it on stack is to stuff it
-	// into a plain array. You'd think an std::initializer_list would work here, but it doesn't, because you can't
-	// construct an initializer_list in a constexpr (or something) and so if you try to do that the whole thing is
-	// first copied on the stack (probably overflowing it) and then again into `data`.
-	template<size_t Size>
-	struct init {
-		size_t offset;
-		value<Width> data[Size];
-	};
-
-	template<size_t... InitSize>
-	explicit memory(size_t depth, const init<InitSize> &...init) : data(depth) {
-		data.resize(depth);
-		// This utterly reprehensible construct is the most reasonable way to apply a function to every element
-		// of a parameter pack, if the elements all have different types and so cannot be cast to an initializer list.
-		auto _ = {std::move(std::begin(init.data), std::end(init.data), data.begin() + init.offset)...};
-		(void)_;
+	memory<Width> &operator=(memory<Width> &&other) {
+		assert(depth == other.depth);
+		data = std::move(other.data);
+		write_queue = std::move(other.write_queue);
+		return *this;
 	}
 
 	// An operator for direct memory reads. May be used at any time during the simulation.
 	const value<Width> &operator [](size_t index) const {
-		assert(index < data.size());
+		assert(index < depth);
 		return data[index];
 	}
 
 	// An operator for direct memory writes. May only be used before the simulation is started. If used
 	// after the simulation is started, the design may malfunction.
 	value<Width> &operator [](size_t index) {
-		assert(index < data.size());
+		assert(index < depth);
 		return data[index];
 	}
 
@@ -790,7 +808,7 @@ struct memory {
 	std::vector<write> write_queue;
 
 	void update(size_t index, const value<Width> &val, const value<Width> &mask, int priority = 0) {
-		assert(index < data.size());
+		assert(index < depth);
 		// Queue up the write while keeping the queue sorted by priority.
 		write_queue.insert(
 			std::upper_bound(write_queue.begin(), write_queue.end(), priority,
@@ -947,9 +965,9 @@ struct debug_item : ::cxxrtl_object {
 		flags   = 0;
 		width   = Width;
 		lsb_at  = 0;
-		depth   = item.data.size();
+		depth   = item.depth;
 		zero_at = zero_offset;
-		curr    = item.data.empty() ? nullptr : item.data[0].data;
+		curr    = item.data ? item.data[0].data : nullptr;
 		next    = nullptr;
 		outline = nullptr;
 	}
@@ -999,6 +1017,22 @@ struct debug_item : ::cxxrtl_object {
 		next    = nullptr;
 		outline = &group;
 	}
+
+	template<size_t Bits, class IntegerT>
+	IntegerT get() const {
+		assert(width == Bits && depth == 1);
+		value<Bits> item;
+		std::copy(curr, curr + value<Bits>::chunks, item.data);
+		return item.template get<IntegerT>();
+	}
+
+	template<size_t Bits, class IntegerT>
+	void set(IntegerT other) const {
+		assert(width == Bits && depth == 1);
+		value<Bits> item;
+		item.template set<IntegerT>(other);
+		std::copy(item.data, item.data + value<Bits>::chunks, next);
+	}
 };
 static_assert(std::is_standard_layout<debug_item>::value, "debug_item is not compatible with C layout");
 
@@ -1035,9 +1069,9 @@ struct debug_items {
 	}
 };
 
-// Tag class to disambiguate module move constructor and module constructor that takes black boxes
-// out of another instance of the module.
-struct adopt {};
+// Tag class to disambiguate the default constructor used by the toplevel module that calls reset(),
+// and the constructor of interior modules that should not call it.
+struct interior {};
 
 struct module {
 	module() {}

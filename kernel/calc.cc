@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -607,6 +607,57 @@ RTLIL::Const RTLIL::const_neg(const RTLIL::Const &arg1, const RTLIL::Const&, boo
 	RTLIL::Const zero(RTLIL::State::S0, 1);
 
 	return RTLIL::const_sub(zero, arg1_ext, true, signed1, result_len);
+}
+
+RTLIL::Const RTLIL::const_bmux(const RTLIL::Const &arg1, const RTLIL::Const &arg2)
+{
+	std::vector<RTLIL::State> t = arg1.bits;
+
+	for (int i = GetSize(arg2)-1; i >= 0; i--)
+	{
+		RTLIL::State sel = arg2.bits.at(i);
+		std::vector<RTLIL::State> new_t;
+		if (sel == State::S0)
+			new_t = std::vector<RTLIL::State>(t.begin(), t.begin() + GetSize(t)/2);
+		else if (sel == State::S1)
+			new_t = std::vector<RTLIL::State>(t.begin() + GetSize(t)/2, t.end());
+		else
+			for (int j = 0; j < GetSize(t)/2; j++)
+				new_t.push_back(t[j] == t[j + GetSize(t)/2] ? t[j] : RTLIL::Sx);
+		t.swap(new_t);
+	}
+
+	return t;
+}
+
+RTLIL::Const RTLIL::const_demux(const RTLIL::Const &arg1, const RTLIL::Const &arg2)
+{
+	int width = GetSize(arg1);
+	int s_width = GetSize(arg2);
+	std::vector<RTLIL::State> res;
+	for (int i = 0; i < (1 << s_width); i++)
+	{
+		bool ne = false;
+		bool x = false;
+		for (int j = 0; j < s_width; j++) {
+			bool bit = i & 1 << j;
+			if (arg2[j] == (bit ? RTLIL::S0 : RTLIL::S1))
+				ne = true;
+			else if (arg2[j] != RTLIL::S0 && arg2[j] != RTLIL::S1)
+				x = true;
+		}
+		if (ne) {
+			for (int j = 0; j < width; j++)
+				res.push_back(State::S0);
+		} else if (x) {
+			for (int j = 0; j < width; j++)
+				res.push_back(arg1.bits[j] == State::S0 ? State::S0 : State::Sx);
+		} else {
+			for (int j = 0; j < width; j++)
+				res.push_back(arg1.bits[j]);
+		}
+	}
+	return res;
 }
 
 YOSYS_NAMESPACE_END

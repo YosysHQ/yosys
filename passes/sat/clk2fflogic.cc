@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -151,18 +151,36 @@ struct Clk2fflogicPass : public Pass {
 				if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
 					FfData ff(&initvals, cell);
 
-					if (ff.has_d && !ff.has_clk && !ff.has_en) {
+					if (ff.has_gclk) {
 						// Already a $ff or $_FF_ cell.
 						continue;
 					}
 
+					if (ff.has_clk) {
+						log("Replacing %s.%s (%s): CLK=%s, D=%s, Q=%s\n",
+								log_id(module), log_id(cell), log_id(cell->type),
+								log_signal(ff.sig_clk), log_signal(ff.sig_d), log_signal(ff.sig_q));
+					} else if (ff.has_aload) {
+						log("Replacing %s.%s (%s): EN=%s, D=%s, Q=%s\n",
+								log_id(module), log_id(cell), log_id(cell->type),
+								log_signal(ff.sig_aload), log_signal(ff.sig_ad), log_signal(ff.sig_q));
+					} else {
+						// $sr.
+						log("Replacing %s.%s (%s): SET=%s, CLR=%s, Q=%s\n",
+								log_id(module), log_id(cell), log_id(cell->type),
+								log_signal(ff.sig_set), log_signal(ff.sig_clr), log_signal(ff.sig_q));
+					}
+
+					ff.remove();
+
 					// Strip spaces from signal name, since Yosys IDs can't contain spaces
-					// Spaces only occur when have a signal that's a slice of a larger bus,
+					// Spaces only occur when we have a signal that's a slice of a larger bus,
 					// e.g. "\myreg [5:0]", so removing spaces shouldn't result in loss of uniqueness
 					std::string sig_q_str = log_signal(ff.sig_q);
 					sig_q_str.erase(std::remove(sig_q_str.begin(), sig_q_str.end(), ' '), sig_q_str.end());
 
 					Wire *past_q = module->addWire(NEW_ID_SUFFIX(stringf("%s#past_q_wire", sig_q_str.c_str())), ff.width);
+          
 					if (!ff.is_fine) {
 						module->addFf(NEW_ID, ff.sig_q, past_q);
 					} else {
@@ -172,7 +190,7 @@ struct Clk2fflogicPass : public Pass {
 						initvals.set_init(past_q, ff.val_init);
 
 					if (ff.has_clk) {
-						ff.unmap_ce_srst(module);
+						ff.unmap_ce_srst();
 
 						Wire *past_clk = module->addWire(NEW_ID_SUFFIX(stringf("%s#past_clk#%s", sig_q_str.c_str(), log_signal(ff.sig_clk))));
 						initvals.set_init(past_clk, ff.pol_clk ? State::S1 : State::S0);
@@ -181,10 +199,6 @@ struct Clk2fflogicPass : public Pass {
 							module->addFf(NEW_ID, ff.sig_clk, past_clk);
 						else
 							module->addFfGate(NEW_ID, ff.sig_clk, past_clk);
-
-						log("Replacing %s.%s (%s): CLK=%s, D=%s, Q=%s\n",
-								log_id(module), log_id(cell), log_id(cell->type),
-								log_signal(ff.sig_clk), log_signal(ff.sig_d), log_signal(ff.sig_q));
 
 						SigSpec clock_edge_pattern;
 
@@ -211,25 +225,17 @@ struct Clk2fflogicPass : public Pass {
 							qval = module->Mux(NEW_ID, past_q, past_d, clock_edge);
 						else
 							qval = module->MuxGate(NEW_ID, past_q, past_d, clock_edge);
-					} else if (ff.has_d) {
+					} else {
+						qval = past_q;
+					}
 
-						log("Replacing %s.%s (%s): EN=%s, D=%s, Q=%s\n",
-								log_id(module), log_id(cell), log_id(cell->type),
-								log_signal(ff.sig_en), log_signal(ff.sig_d), log_signal(ff.sig_q));
-
-						SigSpec sig_en = wrap_async_control(module, ff.sig_en, ff.pol_en);
+					if (ff.has_aload) {
+						SigSpec sig_aload = wrap_async_control(module, ff.sig_aload, ff.pol_aload);
 
 						if (!ff.is_fine)
-							qval = module->Mux(NEW_ID, past_q, ff.sig_d, sig_en);
+							qval = module->Mux(NEW_ID, qval, ff.sig_ad, sig_aload);
 						else
-							qval = module->MuxGate(NEW_ID, past_q, ff.sig_d, sig_en);
-					} else {
-
-						log("Replacing %s.%s (%s): SET=%s, CLR=%s, Q=%s\n",
-								log_id(module), log_id(cell), log_id(cell->type),
-								log_signal(ff.sig_set), log_signal(ff.sig_clr), log_signal(ff.sig_q));
-
-						qval = past_q;
+							qval = module->MuxGate(NEW_ID, qval, ff.sig_ad, sig_aload);
 					}
 
 					if (ff.has_sr) {
@@ -254,10 +260,6 @@ struct Clk2fflogicPass : public Pass {
 					} else {
 						module->connect(ff.sig_q, qval);
 					}
-
-					initvals.remove_init(ff.sig_q);
-					module->remove(cell);
-					continue;
 				}
 			}
 		}

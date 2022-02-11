@@ -154,7 +154,7 @@ always @*
      o <= i[4*W+:W];
 endmodule
 
-module cliffordwolf_nonexclusive_select (
+module clairexen_nonexclusive_select (
         input wire x, y, z,
         input wire a, b, c, d,
         output reg o
@@ -167,7 +167,7 @@ module cliffordwolf_nonexclusive_select (
         end
 endmodule
 
-module cliffordwolf_freduce (
+module clairexen_freduce (
         input wire [1:0] s,
         input wire a, b, c, d,
         output reg [3:0] o

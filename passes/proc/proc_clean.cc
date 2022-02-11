@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -76,22 +76,33 @@ void proc_clean_switch(RTLIL::SwitchRule *sw, RTLIL::CaseRule *parent, bool &did
 	}
 	else
 	{
-		bool all_fully_def = true;
 		for (auto cs : sw->cases)
-		{
 			if (max_depth != 0)
 				proc_clean_case(cs, did_something, count, max_depth-1);
-			int size = 0;
-			for (auto cmp : cs->compare)
+
+		bool is_parallel_case = sw->get_bool_attribute(ID::parallel_case);
+		bool is_full_case = sw->get_bool_attribute(ID::full_case);
+
+		// Empty case removal.  The rules are:
+		//
+		// - for full_case: only remove cases if *all* cases are empty
+		// - for parallel_case but not full_case: remove any empty case
+		// - for non-parallel and non-full case: remove the final case if it's empty
+
+		if (is_full_case)
+		{
+			bool all_empty = true;
+			for (auto cs : sw->cases)
+				if (!cs->empty())
+					all_empty = false;
+			if (all_empty)
 			{
-				size += cmp.size();
-				if (!cmp.is_fully_def())
-					all_fully_def = false;
+				for (auto cs : sw->cases)
+					delete cs;
+				sw->cases.clear();
 			}
-			if (sw->signal.size() != size)
-				all_fully_def = false;
 		}
-		if (all_fully_def)
+		else if (is_parallel_case)
 		{
 			for (auto cs = sw->cases.begin(); cs != sw->cases.end();)
 			{
@@ -150,7 +161,7 @@ void proc_clean(RTLIL::Module *mod, RTLIL::Process *proc, int &total_count, bool
 		for (size_t j = 0; j < proc->syncs[i]->actions.size(); j++)
 			if (proc->syncs[i]->actions[j].first.size() == 0)
 				proc->syncs[i]->actions.erase(proc->syncs[i]->actions.begin() + (j--));
-		if (proc->syncs[i]->actions.size() == 0) {
+		if (proc->syncs[i]->actions.size() == 0 && proc->syncs[i]->mem_write_actions.size() == 0) {
 			delete proc->syncs[i];
 			proc->syncs.erase(proc->syncs.begin() + (i--));
 		}
@@ -198,7 +209,7 @@ struct ProcCleanPass : public Pass {
 		extra_args(args, argidx, design);
 
 		for (auto mod : design->modules()) {
-			std::vector<RTLIL::IdString> delme;
+			std::vector<RTLIL::Process *> delme;
 			if (!design->selected(mod))
 				continue;
 			for (auto &proc_it : mod->processes) {
@@ -209,12 +220,11 @@ struct ProcCleanPass : public Pass {
 						proc_it.second->root_case.actions.size() == 0) {
 					if (!quiet)
 						log("Removing empty process `%s.%s'.\n", log_id(mod), proc_it.second->name.c_str());
-					delme.push_back(proc_it.first);
+					delme.push_back(proc_it.second);
 				}
 			}
-			for (auto &id : delme) {
-				delete mod->processes[id];
-				mod->processes.erase(id);
+			for (auto proc : delme) {
+				mod->remove(proc);
 			}
 		}
 

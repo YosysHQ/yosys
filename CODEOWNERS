@@ -16,6 +16,8 @@ backends/cxxrtl/               @whitequark
 passes/cmds/bugpoint.cc        @whitequark
 passes/techmap/flowmap.cc      @whitequark
 passes/opt/opt_lut.cc          @whitequark
+passes/techmap/abc9*.cc        @eddiehung
+backends/aiger/xaiger.cc       @eddiehung
 
 
 ## External Contributors
@@ -29,6 +31,8 @@ frontends/verilog/             @zachjs
 frontends/ast/                 @zachjs
 
 techlibs/intel_alm/            @ZirconiumX
+techlibs/gowin/                @pepijndevos
+techlibs/gatemate/             @pu-cc
 
 # pyosys
 misc/*.py                      @btut
@@ -38,4 +42,5 @@ backends/firrtl                @ucbjrl @azidar
 passes/sat/qbfsat.cc           @boqwxp
 passes/sat/qbfsat.h            @boqwxp
 passes/cmds/exec.cc            @boqwxp
+passes/cmds/glift.cc           @boqwxp
 passes/cmds/printattrs.cc      @boqwxp

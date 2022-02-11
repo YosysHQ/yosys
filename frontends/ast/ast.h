@@ -1,7 +1,7 @@
 /* -*- c++ -*-
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -160,7 +160,8 @@ namespace AST
 		AST_TYPEDEF,
 		AST_STRUCT,
 		AST_UNION,
-		AST_STRUCT_ITEM
+		AST_STRUCT_ITEM,
+		AST_BIND
 	};
 
 	struct AstSrcLocType {
@@ -220,7 +221,7 @@ namespace AST
 		AstSrcLocType location;
 
 		// creating and deleting nodes
-		AstNode(AstNodeType type = AST_NONE, AstNode *child1 = NULL, AstNode *child2 = NULL, AstNode *child3 = NULL);
+		AstNode(AstNodeType type = AST_NONE, AstNode *child1 = nullptr, AstNode *child2 = nullptr, AstNode *child3 = nullptr, AstNode *child4 = nullptr);
 		AstNode *clone() const;
 		void cloneInto(AstNode *other) const;
 		void delete_children();
@@ -261,6 +262,7 @@ namespace AST
 		void mem2reg_remove(pool<AstNode*> &mem2reg_set, vector<AstNode*> &delnodes);
 		void meminfo(int &mem_width, int &mem_size, int &addr_bits);
 		bool detect_latch(const std::string &var);
+		const RTLIL::Module* lookup_cell_module();
 
 		// additional functionality for evaluating constant functions
 		struct varinfo_t {
@@ -283,6 +285,9 @@ namespace AST
 		void dumpAst(FILE *f, std::string indent) const;
 		void dumpVlog(FILE *f, std::string indent) const;
 
+		// Generate RTLIL for a bind construct
+		std::vector<RTLIL::Binding *> genBindings() const;
+
 		// used by genRTLIL() for detecting expression width and sign
 		void detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *found_real = NULL);
 		void detectSignWidth(int &width_hint, bool &sign_hint, bool *found_real = NULL);
@@ -291,7 +296,7 @@ namespace AST
 		// for expressions the resulting signal vector is returned
 		// all generated cell instances, etc. are written to the RTLIL::Module pointed to by AST_INTERNAL::current_module
 		RTLIL::SigSpec genRTLIL(int width_hint = -1, bool sign_hint = false);
-		RTLIL::SigSpec genWidthRTLIL(int width, const dict<RTLIL::SigBit, RTLIL::SigBit> *new_subst_ptr = NULL);
+		RTLIL::SigSpec genWidthRTLIL(int width, bool sgn, const dict<RTLIL::SigBit, RTLIL::SigBit> *new_subst_ptr = NULL);
 
 		// compare AST nodes
 		bool operator==(const AstNode &other) const;
@@ -309,8 +314,8 @@ namespace AST
 		RTLIL::Const bitsAsConst(int width, bool is_signed);
 		RTLIL::Const bitsAsConst(int width = -1);
 		RTLIL::Const bitsAsUnsizedConst(int width);
-		RTLIL::Const asAttrConst();
-		RTLIL::Const asParaConst();
+		RTLIL::Const asAttrConst() const;
+		RTLIL::Const asParaConst() const;
 		uint64_t asInt(bool is_signed);
 		bool bits_only_01() const;
 		bool asBool() const;
@@ -326,6 +331,9 @@ namespace AST
 
 		// helpers for locations
 		std::string loc_string() const;
+
+		// Helper for looking up identifiers which are prefixed with the current module name
+		std::string try_pop_module_prefix() const;
 	};
 
 	// process an AST tree (ast must point to an AST_DESIGN node) and generate RTLIL code
@@ -341,7 +349,8 @@ namespace AST
 		RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, bool mayfail) override;
 		RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, const dict<RTLIL::IdString, RTLIL::Module*> &interfaces, const dict<RTLIL::IdString, RTLIL::IdString> &modports, bool mayfail) override;
 		std::string derive_common(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, AstNode **new_ast_out, bool quiet = false);
-		void reprocess_module(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Module *> &local_interfaces) override;
+		void expand_interfaces(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Module *> &local_interfaces) override;
+		bool reprocess_if_necessary(RTLIL::Design *design) override;
 		RTLIL::Module *clone() const override;
 		void loadconfig() const;
 	};
@@ -367,6 +376,17 @@ namespace AST
 
 	// Helper for setting the src attribute.
 	void set_src_attr(RTLIL::AttrObject *obj, const AstNode *ast);
+
+	// struct helper exposed from simplify for genrtlil
+	AstNode *make_struct_member_range(AstNode *node, AstNode *member_node);
+
+	// generate standard $paramod... derived module name; parameters should be
+	// in the order they are declared in the instantiated module
+	std::string derived_module_name(std::string stripped_name, const std::vector<std::pair<RTLIL::IdString, RTLIL::Const>> &parameters);
+
+	// used to provide simplify() access to the current design for looking up
+	// modules, ports, wires, etc.
+	void set_simplify_design_context(const RTLIL::Design *design);
 }
 
 namespace AST_INTERNAL
@@ -379,10 +399,24 @@ namespace AST_INTERNAL
 	extern const dict<RTLIL::SigBit, RTLIL::SigBit> *genRTLIL_subst_ptr;
 	extern RTLIL::SigSpec ignoreThisSignalsInInitial;
 	extern AST::AstNode *current_always, *current_top_block, *current_block, *current_block_child;
-	extern AST::AstModule *current_module;
+	extern RTLIL::Module *current_module;
 	extern bool current_always_clocked;
+	extern dict<std::string, int> current_memwr_count;
+	extern dict<std::string, pool<int>> current_memwr_visible;
 	struct LookaheadRewriter;
 	struct ProcessGenerator;
+
+	// Create and add a new AstModule from new_ast, then use it to replace
+	// old_module in design, renaming old_module to move it out of the way.
+	// Return the new module.
+	//
+	// If original_ast is not null, it will be used as the AST node for the
+	// new module. Otherwise, new_ast will be used.
+	RTLIL::Module *
+	process_and_replace_module(RTLIL::Design *design,
+	                           RTLIL::Module *old_module,
+	                           AST::AstNode *new_ast,
+	                           AST::AstNode *original_ast = nullptr);
 }
 
 YOSYS_NAMESPACE_END

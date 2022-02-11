@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -42,6 +42,7 @@ struct define_map_t
 
 	// Add a definition, overwriting any existing definition for name.
 	void add(const std::string &name, const std::string &txt, const arg_map_t *args = nullptr);
+	void add(const std::string &name, const define_body_t &body);
 
 	// Merge in another map of definitions (which take precedence
 	// over anything currently defined).

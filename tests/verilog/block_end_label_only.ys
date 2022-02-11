@@ -1,0 +1,9 @@
+logger -expect error "Begin label missing where end label \(incorrect_name\) was given\." 1
+read_verilog -sv <<EOF
+module top;
+initial
+    begin
+        $display("HI");
+    end : incorrect_name
+endmodule
+EOF

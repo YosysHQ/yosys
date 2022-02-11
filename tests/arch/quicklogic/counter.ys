@@ -1,0 +1,18 @@
+read_verilog ../common/counter.v
+hierarchy -top top
+proc
+flatten
+equiv_opt -assert -multiclock -map +/quicklogic/pp3_cells_sim.v -map +/quicklogic/cells_sim.v -map +/quicklogic/lut_sim.v synth_quicklogic # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd top # Constrain all select calls below inside the top module
+select -assert-count 1 t:LUT1
+select -assert-count 3 t:LUT2
+select -assert-count 5 t:LUT3
+select -assert-count 1 t:LUT4
+select -assert-count 8 t:dffepc
+select -assert-count 1 t:logic_0
+select -assert-count 1 t:logic_1
+select -assert-count 8 t:outpad
+select -assert-count 2 t:ckpad
+
+select -assert-none t:LUT1 t:LUT2 t:LUT3 t:LUT4 t:dffepc t:logic_0 t:logic_1 t:outpad t:ckpad %% t:* %D

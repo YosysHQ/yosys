@@ -1,8 +1,8 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Claire Xen <claire@symbioticeda.com>
- *  Copyright (C) 2018  David Shah <dave@ds0.me>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
+ *  Copyright (C) 2018  gatecat <gatecat@ds0.me>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -90,7 +90,7 @@ module _80_nexus_alu (A, B, CI, BI, X, Y, CO);
 
 		assign CO[i] = (AA[i] && BB[i]) || ((Y[i] ^ AA[i] ^ BB[i]) && (AA[i] || BB[i]));
 		if (i+1 < Y_WIDTH) begin
-			assign CO[i + 1] = (AA[i] && BB[i]) || ((Y[i] ^ AA[i] ^ BB[i]) && (AA[i] || BB[i]));
+			assign CO[i + 1] = (AA[i + 1] && BB[i + 1]) || ((Y[i + 1] ^ AA[i + 1] ^ BB[i + 1]) && (AA[i + 1] || BB[i + 1]));
 			assign Y[i+1] = Y1[i];
 		end
 	end endgenerate

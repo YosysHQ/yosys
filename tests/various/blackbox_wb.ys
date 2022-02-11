@@ -1,0 +1,14 @@
+read_verilog <<EOT
+(* whitebox *)
+module box(input a, output q);
+assign q = ~a;
+endmodule
+
+module top(input a, output q);
+box box_i(.a(a), .q(q));
+endmodule
+EOT
+select -assert-count 1 =box/t:$not
+blackbox =box
+select -assert-count 0 =A:whitebox
+select -assert-count 0 =box/t:$not

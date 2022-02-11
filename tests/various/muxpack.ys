@@ -167,7 +167,7 @@ miter -equiv -flatten -make_assert -make_outputs gold gate miter
 sat -verify -prove-asserts -show-ports miter
 
 design -load read
-hierarchy -top cliffordwolf_nonexclusive_select
+hierarchy -top clairexen_nonexclusive_select
 prep
 design -save gold
 muxpack
@@ -182,7 +182,7 @@ miter -equiv -flatten -make_assert -make_outputs gold gate miter
 sat -verify -prove-asserts -show-ports miter
 
 #design -load read
-#hierarchy -top cliffordwolf_freduce
+#hierarchy -top clairexen_freduce
 #prep
 #design -save gold
 #proc; opt; freduce; opt

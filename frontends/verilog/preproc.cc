@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -36,6 +36,7 @@
 #include "verilog_frontend.h"
 #include "kernel/log.h"
 #include <assert.h>
+#include <stack>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -139,6 +140,16 @@ static std::string next_token(bool pass_newline = false)
 				token += ch;
 			else
 				return_char(ch);
+		}
+	}
+	else if (ch == '\\')
+	{
+		while ((ch = next_char()) != 0) {
+			if (ch < 33 || ch > 126) {
+				return_char(ch);
+				break;
+			}
+			token += ch;
 		}
 	}
 	else if (ch == '/')
@@ -334,6 +345,11 @@ define_map_t::add(const std::string &name, const std::string &txt, const arg_map
 	defines[name] = std::unique_ptr<define_body_t>(new define_body_t(txt, args));
 }
 
+void define_map_t::add(const std::string &name, const define_body_t &body)
+{
+	defines[name] = std::unique_ptr<define_body_t>(new define_body_t(body));
+}
+
 void define_map_t::merge(const define_map_t &map)
 {
 	for (const auto &pr : map.defines) {
@@ -440,7 +456,17 @@ static bool read_argument(std::string &dest)
 	}
 }
 
-static bool try_expand_macro(define_map_t &defines, std::string &tok)
+using macro_arg_stack_t = std::stack<std::pair<std::string, define_body_t>>;
+
+static void restore_macro_arg(define_map_t &defines, macro_arg_stack_t &macro_arg_stack)
+{
+	log_assert(!macro_arg_stack.empty());
+	auto &overwritten_arg = macro_arg_stack.top();
+	defines.add(overwritten_arg.first, overwritten_arg.second);
+	macro_arg_stack.pop();
+}
+
+static bool try_expand_macro(define_map_t &defines, macro_arg_stack_t &macro_arg_stack, std::string &tok)
 {
 	if (tok == "`\"") {
 		std::string literal("\"");
@@ -450,7 +476,7 @@ static bool try_expand_macro(define_map_t &defines, std::string &tok)
 			if (ntok == "`\"") {
 				insert_input(literal+"\"");
 				return true;
-			} else if (!try_expand_macro(defines, ntok)) {
+			} else if (!try_expand_macro(defines, macro_arg_stack, ntok)) {
 					literal += ntok;
 			}
 		}
@@ -495,6 +521,10 @@ static bool try_expand_macro(define_map_t &defines, std::string &tok)
 			args.push_back(arg);
 		}
 		for (const auto &pr : body->args.get_vals(name, args)) {
+			if (const define_body_t *existing = defines.find(pr.first)) {
+				macro_arg_stack.push({pr.first, *existing});
+				insert_input("`__restore_macro_arg ");
+			}
 			defines.add(pr.first, pr.second);
 		}
 	} else {
@@ -725,9 +755,18 @@ frontend_verilog_preproc(std::istream                 &f,
 	defines.merge(pre_defines);
 	defines.merge(global_defines_cache);
 
+	macro_arg_stack_t macro_arg_stack;
 	std::vector<std::string> filename_stack;
+	// We are inside pass_level levels of satisfied ifdefs, and then within
+	// fail_level levels of unsatisfied ifdefs.  The unsatisfied ones are
+	// always within satisfied ones — even if some condition within is true,
+	// the parent condition failing renders it moot.
 	int ifdef_fail_level = 0;
 	int ifdef_pass_level = 0;
+	// For the outermost unsatisfied ifdef, true iff that ifdef already
+	// had a satisfied branch, and further elsif/else branches should be
+	// considered unsatisfied even if the condition is true.
+	// Meaningless if ifdef_fail_level == 0.
 	bool ifdef_already_satisfied = false;
 
 	output_code.clear();
@@ -745,7 +784,7 @@ frontend_verilog_preproc(std::istream                 &f,
 			if (ifdef_fail_level > 0)
 				ifdef_fail_level--;
 			else if (ifdef_pass_level > 0)
-				ifdef_already_satisfied = --ifdef_pass_level;
+				ifdef_pass_level--;
 			else
 				log_error("Found %s outside of macro conditional branch!\n", tok.c_str());
 			continue;
@@ -755,8 +794,9 @@ frontend_verilog_preproc(std::istream                 &f,
 			if (ifdef_fail_level == 0) {
 				if (ifdef_pass_level == 0)
 					log_error("Found %s outside of macro conditional branch!\n", tok.c_str());
-				log_assert(ifdef_already_satisfied);
+				ifdef_pass_level--;
 				ifdef_fail_level = 1;
+				ifdef_already_satisfied = true;
 			} else if (ifdef_fail_level == 1 && !ifdef_already_satisfied) {
 				ifdef_fail_level = 0;
 				ifdef_pass_level++;
@@ -771,8 +811,9 @@ frontend_verilog_preproc(std::istream                 &f,
 			if (ifdef_fail_level == 0) {
 				if (ifdef_pass_level == 0)
 					log_error("Found %s outside of macro conditional branch!\n", tok.c_str());
-				log_assert(ifdef_already_satisfied);
+				ifdef_pass_level--;
 				ifdef_fail_level = 1;
+				ifdef_already_satisfied = true;
 			} else if (ifdef_fail_level == 1 && !ifdef_already_satisfied && defines.find(name)) {
 				ifdef_fail_level = 0;
 				ifdef_pass_level++;
@@ -818,7 +859,7 @@ frontend_verilog_preproc(std::istream                 &f,
 		if (tok == "`include") {
 			skip_spaces();
 			std::string fn = next_token(true);
-			while (try_expand_macro(defines, fn)) {
+			while (try_expand_macro(defines, macro_arg_stack, fn)) {
 				fn = next_token();
 			}
 			while (1) {
@@ -925,10 +966,19 @@ frontend_verilog_preproc(std::istream                 &f,
 			continue;
 		}
 
-		if (try_expand_macro(defines, tok))
+		if (tok == "`__restore_macro_arg") {
+			restore_macro_arg(defines, macro_arg_stack);
+			continue;
+		}
+
+		if (try_expand_macro(defines, macro_arg_stack, tok))
 			continue;
 
 		output_code.push_back(tok);
+	}
+
+	if (ifdef_fail_level > 0 || ifdef_pass_level > 0) {
+		log_error("Unterminated preprocessor conditional!\n");
 	}
 
 	std::string output;

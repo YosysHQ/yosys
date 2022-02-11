@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -18,6 +18,7 @@
  */
 
 #include "kernel/register.h"
+#include "kernel/ffinit.h"
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
 #include "kernel/celltypes.h"
@@ -35,7 +36,7 @@ struct OptMergeWorker
 	RTLIL::Design *design;
 	RTLIL::Module *module;
 	SigMap assign_map;
-	SigMap dff_init_map;
+	FfInitVals initvals;
 	bool mode_share_all;
 
 	CellTypes ct;
@@ -121,8 +122,7 @@ struct OptMergeWorker
 				if (it.first == ID::Q && RTLIL::builtin_ff_cell_types().count(cell->type)) {
 					// For the 'Q' output of state elements,
 					//   use its (* init *) attribute value
-					for (const auto &b : dff_init_map(it.second))
-						sig.append(b.wire ? State::Sx : b);
+					sig = initvals(it.second);
 				}
 				else
 					continue;
@@ -176,12 +176,8 @@ struct OptMergeWorker
 				if (it.first == ID::Q && RTLIL::builtin_ff_cell_types().count(cell1->type)) {
 					// For the 'Q' output of state elements,
 					//   use the (* init *) attribute value
-					auto &sig1 = conn1[it.first];
-					for (const auto &b : dff_init_map(it.second))
-						sig1.append(b.wire ? State::Sx : b);
-					auto &sig2 = conn2[it.first];
-					for (const auto &b : dff_init_map(cell2->getPort(it.first)))
-						sig2.append(b.wire ? State::Sx : b);
+					conn1[it.first] = initvals(it.second);
+					conn2[it.first] = initvals(cell2->getPort(it.first));
 				}
 				else {
 					conn1[it.first] = RTLIL::SigSpec();
@@ -247,14 +243,7 @@ struct OptMergeWorker
 		log("Finding identical cells in module `%s'.\n", module->name.c_str());
 		assign_map.set(module);
 
-		dff_init_map.set(module);
-		for (auto &it : module->wires_)
-			if (it.second->attributes.count(ID::init) != 0) {
-				Const initval = it.second->attributes.at(ID::init);
-				for (int i = 0; i < GetSize(initval) && i < GetSize(it.second); i++)
-					if (initval[i] == State::S0 || initval[i] == State::S1)
-						dff_init_map.add(SigBit(it.second, i), initval[i]);
-			}
+		initvals.set(&assign_map, module);
 
 		bool did_something = true;
 		while (did_something)
@@ -293,19 +282,12 @@ struct OptMergeWorker
 								RTLIL::SigSpec other_sig = r.first->second->getPort(it.first);
 								log_debug("    Redirecting output %s: %s = %s\n", it.first.c_str(),
 										log_signal(it.second), log_signal(other_sig));
+								Const init = initvals(other_sig);
+								initvals.remove_init(it.second);
+								initvals.remove_init(other_sig);
 								module->connect(RTLIL::SigSig(it.second, other_sig));
 								assign_map.add(it.second, other_sig);
-
-								if (it.first == ID::Q && RTLIL::builtin_ff_cell_types().count(cell->type)) {
-									for (auto c : it.second.chunks()) {
-										auto jt = c.wire->attributes.find(ID::init);
-										if (jt == c.wire->attributes.end())
-											continue;
-										for (int i = c.offset; i < c.offset + c.width; i++)
-											jt->second[i] = State::Sx;
-									}
-									dff_init_map.add(it.second, Const(State::Sx, GetSize(it.second)));
-								}
+								initvals.set_init(other_sig, init);
 							}
 						}
 						log_debug("    Removing %s cell `%s' from module `%s'.\n", cell->type.c_str(), cell->name.c_str(), module->name.c_str());

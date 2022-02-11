@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -117,10 +117,14 @@ struct statdata_t
 				}
 				else if (cell_type.in(ID($mux), ID($pmux)))
 					cell_type = stringf("%s_%d", cell_type.c_str(), GetSize(cell->getPort(ID::Y)));
+				else if (cell_type == ID($bmux))
+					cell_type = stringf("%s_%d_%d", cell_type.c_str(), GetSize(cell->getPort(ID::Y)), GetSize(cell->getPort(ID::S)));
+				else if (cell_type == ID($demux))
+					cell_type = stringf("%s_%d_%d", cell_type.c_str(), GetSize(cell->getPort(ID::A)), GetSize(cell->getPort(ID::S)));
 				else if (cell_type.in(
 						ID($sr), ID($ff), ID($dff), ID($dffe), ID($dffsr), ID($dffsre),
 						ID($adff), ID($adffe), ID($sdff), ID($sdffe), ID($sdffce),
-						ID($dlatch), ID($adlatch), ID($dlatchsr)))
+						ID($aldff), ID($aldffe), ID($dlatch), ID($adlatch), ID($dlatchsr)))
 					cell_type = stringf("%s_%d", cell_type.c_str(), GetSize(cell->getPort(ID::Q)));
 			}
 

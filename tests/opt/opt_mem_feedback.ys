@@ -1,0 +1,189 @@
+# Good case: proper feedback port.
+
+read_verilog << EOT
+
+module top(...);
+
+input clk;
+input en;
+input s;
+
+input [3:0] ra;
+output [15:0] rd;
+input [3:0] wa;
+input [15:0] wd;
+
+reg [15:0] mem[0:15];
+
+assign rd = mem[ra];
+
+always @(posedge clk) begin
+	if (en) begin
+		mem[wa] <= {mem[wa][15:8], s ? wd[7:0] : mem[wa][7:0]};
+	end
+end
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt_clean
+
+design -save start
+memory_map
+design -save preopt
+
+design -load start
+opt_mem_feedback
+select -assert-count 1 t:$memrd_v2
+memory_map
+design -save postopt
+
+equiv_opt -assert -run prepare: :
+
+
+
+design -reset
+
+# Bad case: read port also used for other things.
+
+read_verilog << EOT
+
+module top(...);
+
+input clk;
+input en;
+input s;
+
+output [15:0] rd;
+input [3:0] wa;
+input [15:0] wd;
+
+reg [15:0] mem[0:15];
+
+assign rd = mem[wa];
+
+always @(posedge clk) begin
+	if (en) begin
+		mem[wa] <= {s ? rd : wd[15:8], s ? wd[7:0] : rd};
+	end
+end
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt_clean
+
+design -save start
+memory_map
+design -save preopt
+
+design -load start
+select -assert-count 1 t:$memrd
+opt_mem_feedback
+select -assert-count 1 t:$memrd
+memory_map
+design -save postopt
+
+equiv_opt -assert -run prepare: :
+
+
+
+design -reset
+
+# Bad case: another user of the mux out.
+
+read_verilog << EOT
+
+module top(...);
+
+input clk;
+input en;
+input s;
+
+output [15:0] rd;
+input [3:0] wa;
+input [15:0] wd;
+
+reg [15:0] mem[0:15];
+
+assign rd = s ? wd : mem[wa];
+
+always @(posedge clk) begin
+	if (en) begin
+		mem[wa] <= rd;
+	end
+end
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt_clean
+
+design -save start
+memory_map
+design -save preopt
+
+design -load start
+select -assert-count 1 t:$memrd
+opt_mem_feedback
+select -assert-count 1 t:$memrd
+memory_map
+design -save postopt
+
+equiv_opt -assert -run prepare: :
+
+
+
+design -reset
+
+# Tricky case: legit feedback path, but priority needs to be preserved.
+
+read_verilog << EOT
+
+module top(...);
+
+input clk;
+input sel;
+input [3:0] wa1;
+input [3:0] wa2;
+input [15:0] wd1;
+input [3:0] ra;
+output [15:0] rd;
+
+reg [15:0] mem [0:15];
+
+always @(posedge clk) begin
+	mem[wa1] <= sel ? wd1 : mem[wa1];
+	mem[wa2] <= mem[wa2];
+end
+
+assign rd = mem[ra];
+
+endmodule
+
+EOT
+
+hierarchy -auto-top
+proc
+opt_clean
+
+design -save start
+memory_map
+design -save preopt
+
+design -load start
+opt_mem_feedback
+select -assert-count 1 t:$memrd_v2
+memory_map
+design -save postopt
+
+equiv_opt -assert -run prepare: :

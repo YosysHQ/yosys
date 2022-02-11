@@ -11,7 +11,7 @@ for arch in ../../techlibs/*; do
 		if [ "${defines[$arch_name]}" ]; then
 			for def in ${defines[$arch_name]}; do
 				echo -n "Test $path -D$def ->"
-				iverilog -t null -I$arch -D$def $path
+				iverilog -t null -I$arch -D$def -DNO_ICE40_DEFAULT_ASSIGNMENTS $path
 				echo " ok"
 			done
 		else

@@ -1,0 +1,9 @@
+logger -expect error "Begin label \(correct_name\) and end label \(incorrect_name\) don't match\." 1
+read_verilog -sv <<EOF
+module top;
+initial
+    begin : correct_name
+        $display("HI");
+    end : incorrect_name
+endmodule
+EOF

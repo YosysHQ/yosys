@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -37,6 +37,8 @@
 #ifdef __clang__
 // bison generates code using the 'register' storage class specifier
 #pragma clang diagnostic ignored "-Wdeprecated-register"
+// flex generates weirdly-indented code
+#pragma clang diagnostic ignored "-Wmisleading-indentation"
 #endif
 
 #include "kernel/log.h"
@@ -103,7 +105,7 @@ static bool isUserType(std::string &s)
 {
 	// check current scope then outer scopes for a name
 	for (auto it = user_type_stack.rbegin(); it != user_type_stack.rend(); ++it) {
-		if ((*it)->count(s) > 0) {
+		if (it->count(s) > 0) {
 			return true;
 		}
 	}
@@ -260,6 +262,7 @@ static bool isUserType(std::string &s)
 "const"      { if (formal_mode) return TOK_CONST; SV_KEYWORD(TOK_CONST); }
 "checker"    { if (formal_mode) return TOK_CHECKER; SV_KEYWORD(TOK_CHECKER); }
 "endchecker" { if (formal_mode) return TOK_ENDCHECKER; SV_KEYWORD(TOK_ENDCHECKER); }
+"bind"       { if (formal_mode) return TOK_BIND; SV_KEYWORD(TOK_BIND); }
 "final"      { SV_KEYWORD(TOK_FINAL); }
 "logic"      { SV_KEYWORD(TOK_LOGIC); }
 "var"        { SV_KEYWORD(TOK_VAR); }
@@ -276,8 +279,11 @@ static bool isUserType(std::string &s)
 "output"  { return TOK_OUTPUT; }
 "inout"   { return TOK_INOUT; }
 "wire"    { return TOK_WIRE; }
+"tri"     { return TOK_WIRE; }
 "wor"     { return TOK_WOR; }
+"trior"   { return TOK_WOR; }
 "wand"    { return TOK_WAND; }
+"triand"  { return TOK_WAND; }
 "reg"     { return TOK_REG; }
 "integer" { return TOK_INTEGER; }
 "signed"  { return TOK_SIGNED; }
@@ -431,8 +437,13 @@ supply1 { return TOK_SUPPLY1; }
 "/*"[ \t]*(synopsys|synthesis)[ \t]*translate_off[ \t]*"*/" {
 	static bool printed_warning = false;
 	if (!printed_warning) {
-		log_warning("Found one of those horrible `(synopsys|synthesis) translate_off' comments.\n"
-				"Yosys does support them but it is recommended to use `ifdef constructs instead!\n");
+		log_warning(
+			"Encountered `translate_off' comment! Such legacy hot "
+			"comments are supported by Yosys, but are not part of "
+			"any formal language specification. Using a portable "
+			"and standards-compliant construct such as `ifdef is "
+			"recommended!\n"
+		);
 		printed_warning = true;
 	}
 	BEGIN(SYNOPSYS_TRANSLATE_OFF);
@@ -447,8 +458,13 @@ supply1 { return TOK_SUPPLY1; }
 <SYNOPSYS_FLAGS>full_case {
 	static bool printed_warning = false;
 	if (!printed_warning) {
-		log_warning("Found one of those horrible `(synopsys|synthesis) full_case' comments.\n"
-				"Yosys does support them but it is recommended to use Verilog `full_case' attributes instead!\n");
+		log_warning(
+			"Encountered `full_case' comment! Such legacy hot "
+			"comments are supported by Yosys, but are not part of "
+			"any formal language specification. Using the Verilog "
+			"`full_case' attribute or the SystemVerilog `unique' "
+			"or `unique0' keywords is recommended!\n"
+		);
 		printed_warning = true;
 	}
 	return TOK_SYNOPSYS_FULL_CASE;
@@ -456,8 +472,13 @@ supply1 { return TOK_SUPPLY1; }
 <SYNOPSYS_FLAGS>parallel_case {
 	static bool printed_warning = false;
 	if (!printed_warning) {
-		log_warning("Found one of those horrible `(synopsys|synthesis) parallel_case' comments.\n"
-				"Yosys does support them but it is recommended to use Verilog `parallel_case' attributes instead!\n");
+		log_warning(
+			"Encountered `parallel_case' comment! Such legacy hot "
+			"comments are supported by Yosys, but are not part of "
+			"any formal language specification. Using the Verilog "
+			"`parallel_case' attribute or the SystemVerilog "
+			"`unique' or `priority' keywords is recommended!\n"
+		);
 		printed_warning = true;
 	}
 	return TOK_SYNOPSYS_PARALLEL_CASE;
@@ -529,11 +550,18 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 
 ".*" { return TOK_WILDCARD_CONNECT; }
 
-"|=" { SV_KEYWORD(TOK_OR_ASSIGN); }
-"&=" { SV_KEYWORD(TOK_AND_ASSIGN); }
-"+=" { SV_KEYWORD(TOK_PLUS_ASSIGN); }
+"|=" { SV_KEYWORD(TOK_BIT_OR_ASSIGN); }
+"&=" { SV_KEYWORD(TOK_BIT_AND_ASSIGN); }
+"+=" { SV_KEYWORD(TOK_ADD_ASSIGN); }
 "-=" { SV_KEYWORD(TOK_SUB_ASSIGN); }
-"^=" { SV_KEYWORD(TOK_XOR_ASSIGN); }
+"^=" { SV_KEYWORD(TOK_BIT_XOR_ASSIGN); }
+"/=" { SV_KEYWORD(TOK_DIV_ASSIGN); }
+"%=" { SV_KEYWORD(TOK_MOD_ASSIGN); }
+"*=" { SV_KEYWORD(TOK_MUL_ASSIGN); }
+"<<=" { SV_KEYWORD(TOK_SHL_ASSIGN); }
+">>=" { SV_KEYWORD(TOK_SHR_ASSIGN); }
+"<<<=" { SV_KEYWORD(TOK_SSHL_ASSIGN); }
+">>>=" { SV_KEYWORD(TOK_SSHR_ASSIGN); }
 
 [-+]?[=*]> {
 	if (!specify_mode) REJECT;

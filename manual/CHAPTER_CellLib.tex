@@ -287,13 +287,24 @@ The state of \B{Q} will be set to this value when the reset is active.
 
 Note that the {\tt \$adff} and {\tt \$sdff} cells can only be used when the reset value is constant.
 
+D-type flip-flops with asynchronous load are represented by {\tt \$aldff} cells. As the {\tt \$dff}
+cells they have \B{CLK}, \B{D} and \B{Q} ports. In addition they also have a single-bit \B{ALOAD}
+input port for the async load enable pin, a \B{AD} input port with the same width as data for
+the async load data, and the following additional parameter:
+
+\begin{itemize}
+\item \B{ALOAD\_POLARITY} \\
+The asynchronous load is active-high if this parameter has the value {\tt 1'b1} and active-low
+if this parameter is {\tt 1'b0}.
+\end{itemize}
+
 D-type flip-flops with asynchronous set and reset are represented by {\tt \$dffsr} cells.
 As the {\tt \$dff} cells they have \B{CLK}, \B{D} and \B{Q} ports. In addition they also have
 multi-bit \B{SET} and \B{CLR} input ports and the corresponding polarity parameters, like 
 {\tt \$sr} cells.
 
-D-type flip-flops with enable are represented by {\tt \$dffe}, {\tt \$adffe}, {\tt \$dffsre},
-{\tt \$sdffe}, and {\tt \$sdffce} cells, which are enhanced variants of {\tt \$dff}, {\tt \$adff}, {\tt \$dffsr},
+D-type flip-flops with enable are represented by {\tt \$dffe}, {\tt \$adffe}, {\tt \$aldffe}, {\tt \$dffsre},
+{\tt \$sdffe}, and {\tt \$sdffce} cells, which are enhanced variants of {\tt \$dff}, {\tt \$adff}, {\tt \$aldff}, {\tt \$dffsr},
 {\tt \$sdff} (with reset over enable) and {\tt \$sdff} (with enable over reset)
 cells, respectively.  They have the same ports and parameters as their base cell.
 In addition they also have a single-bit \B{EN} input port for the enable pin and the following parameter:
@@ -338,19 +349,19 @@ In addition to {\tt \$dlatch} ports and parameters, they also have multi-bit
 \subsection{Memories}
 \label{sec:memcells}
 
-Memories are either represented using RTLIL::Memory objects, {\tt \$memrd}, {\tt \$memwr}, and {\tt \$meminit}
-cells, or by {\tt \$mem} cells alone.
+Memories are either represented using RTLIL::Memory objects, {\tt \$memrd\_v2}, {\tt \$memwr\_v2}, and {\tt \$meminit\_v2}
+cells, or by {\tt \$mem\_v2} cells alone.
 
 In the first alternative the RTLIL::Memory objects hold the general metadata for the memory (bit width,
-size in number of words, etc.) and for each port a {\tt \$memrd} (read port) or {\tt \$memwr} (write port)
+size in number of words, etc.) and for each port a {\tt \$memrd\_v2} (read port) or {\tt \$memwr\_v2} (write port)
 cell is created. Having individual cells for read and write ports has the advantage that they can be
 consolidated using resource sharing passes. In some cases this drastically reduces the number of required
-ports on the memory cell. In this alternative, memory initialization data is represented by {\tt \$meminit} cells,
+ports on the memory cell. In this alternative, memory initialization data is represented by {\tt \$meminit\_v2} cells,
 which allow delaying constant folding for initialization addresses and data until after the frontend finishes.
 
-The {\tt \$memrd} cells have a clock input \B{CLK}, an enable input \B{EN}, an
-address input \B{ADDR}, and a data output \B{DATA}. They also have the
-following parameters:
+The {\tt \$memrd\_v2} cells have a clock input \B{CLK}, an enable input \B{EN}, an
+address input \B{ADDR}, a data output \B{DATA}, an asynchronous reset input \B{ARST},
+and a synchronous reset input \B{SRST}. They also have the following parameters:
 
 \begin{itemize}
 \item \B{MEMID} \\
@@ -360,7 +371,9 @@ The name of the RTLIL::Memory object that is associated with this read port.
 The number of address bits (width of the \B{ADDR} input port).
 
 \item \B{WIDTH} \\
-The number of data bits (width of the \B{DATA} output port).
+The number of data bits (width of the \B{DATA} output port).  Note that this may be a power-of-two
+multiple of the underlying memory's width -- such ports are called wide ports and access an aligned
+group of cells at once.  In this case, the corresponding low bits of \B{ADDR} must be tied to 0.
 
 \item \B{CLK\_ENABLE} \\
 When this parameter is non-zero, the clock is used. Otherwise this read port is asynchronous and
@@ -370,12 +383,37 @@ the \B{CLK} input is not used.
 Clock is active on the positive edge if this parameter has the value {\tt 1'b1} and on the negative
 edge if this parameter is {\tt 1'b0}.
 
-\item \B{TRANSPARENT} \\
-If this parameter is set to {\tt 1'b1}, a read and write to the same address in the same cycle will
-return the new value. Otherwise the old value is returned.
+\item \B{TRANSPARENCY\_MASK} \\
+This parameter is a bitmask of write ports that this read port is transparent with.  The bits
+of this parameter are indexed by the write port's \B{PORTID} parameter.  Transparency can only be
+enabled between synchronous ports sharing a clock domain.  When transparency is enabled for a given
+port pair, a read and write to the same address in the same cycle will return the new value.
+Otherwise the old value is returned.
+
+\item \B{COLLISION\_X\_MASK} \\
+This parameter is a bitmask of write ports that have undefined collision behavior with this port.
+The bits of this parameter are indexed by the write port's \B{PORTID} parameter.  This behavior can only be
+enabled between synchronous ports sharing a clock domain.  When undefined collision is enabled for a given
+port pair, a read and write to the same address in the same cycle will return the undefined (all-X) value.
+This option is exclusive (for a given port pair) with the transparency option.
+
+\item \B{ARST\_VALUE} \\
+Whenever the \B{ARST} input is asserted, the data output will be reset to this value.
+Only used for synchronous ports.
+
+\item \B{SRST\_VALUE} \\
+Whenever the \B{SRST} input is synchronously asserted, the data output will be reset to this value.
+Only used for synchronous ports.
+
+\item \B{INIT\_VALUE} \\
+The initial value of the data output, for synchronous ports.
+
+\item \B{CE\_OVER\_SRST} \\
+If this parameter is non-zero, the \B{SRST} input is only recognized when \B{EN} is true.
+Otherwise, \B{SRST} is recognized regardless of \B{EN}.
 \end{itemize}
 
-The {\tt \$memwr} cells have a clock input \B{CLK}, an enable input \B{EN} (one
+The {\tt \$memwr\_v2} cells have a clock input \B{CLK}, an enable input \B{EN} (one
 enable bit for each data bit), an address input \B{ADDR} and a data input
 \B{DATA}. They also have the following parameters:
 
@@ -387,7 +425,9 @@ The name of the RTLIL::Memory object that is associated with this write port.
 The number of address bits (width of the \B{ADDR} input port).
 
 \item \B{WIDTH} \\
-The number of data bits (width of the \B{DATA} output port).
+The number of data bits (width of the \B{DATA} output port). Like with {\tt \$memrd\_v2} cells,
+the width is allowed to be any power-of-two multiple of memory width, with the corresponding
+restriction on address.
 
 \item \B{CLK\_ENABLE} \\
 When this parameter is non-zero, the clock is used. Otherwise this write port is asynchronous and
@@ -397,12 +437,20 @@ the \B{CLK} input is not used.
 Clock is active on positive edge if this parameter has the value {\tt 1'b1} and on the negative
 edge if this parameter is {\tt 1'b0}.
 
-\item \B{PRIORITY} \\
-The cell with the higher integer value in this parameter wins a write conflict.
+\item \B{PORTID} \\
+An identifier for this write port, used to index write port bit mask parameters.
+
+\item \B{PRIORITY\_MASK} \\
+This parameter is a bitmask of write ports that this write port has priority over in case of writing
+to the same address.  The bits of this parameter are indexed by the other write port's \B{PORTID} parameter.
+Write ports can only have priority over write ports with lower port ID.  When two ports write to the same
+address and neither has priority over the other, the result is undefined.  Priority can only be set between
+two synchronous ports sharing the same clock domain.
 \end{itemize}
 
-The {\tt \$meminit} cells have an address input \B{ADDR} and a data input \B{DATA}, with the width
-of the \B{DATA} port equal to \B{WIDTH} parameter times \B{WORDS} parameter. Both of the inputs
+The {\tt \$meminit\_v2} cells have an address input \B{ADDR}, a data input \B{DATA}, with the width
+of the \B{DATA} port equal to \B{WIDTH} parameter times \B{WORDS} parameter, and a bit enable mask input
+\B{EN} with width equal to \B{WIDTH} parameter. All three of the inputs
 must resolve to a constant for synthesis to succeed.
 
 \begin{itemize}
@@ -423,17 +471,17 @@ The cell with the higher integer value in this parameter wins an initialization 
 \end{itemize}
 
 The HDL frontend models a memory using RTLIL::Memory objects and asynchronous
-{\tt \$memrd} and {\tt \$memwr} cells. The {\tt memory} pass (i.e.~its various sub-passes) migrates
-{\tt \$dff} cells into the {\tt \$memrd} and {\tt \$memwr} cells making them synchronous, then
-converts them to a single {\tt \$mem} cell and (optionally) maps this cell type
+{\tt \$memrd\_v2} and {\tt \$memwr\_v2} cells. The {\tt memory} pass (i.e.~its various sub-passes) migrates
+{\tt \$dff} cells into the {\tt \$memrd\_v2} and {\tt \$memwr\_v2} cells making them synchronous, then
+converts them to a single {\tt \$mem\_v2} cell and (optionally) maps this cell type
 to {\tt \$dff} cells for the individual words and multiplexer-based address decoders for the read and
-write interfaces. When the last step is disabled or not possible, a {\tt \$mem} cell is left in the design.
+write interfaces. When the last step is disabled or not possible, a {\tt \$mem\_v2} cell is left in the design.
 
-The {\tt \$mem} cell provides the following parameters:
+The {\tt \$mem\_v2} cell provides the following parameters:
 
 \begin{itemize}
 \item \B{MEMID} \\
-The name of the original RTLIL::Memory object that became this {\tt \$mem} cell.
+The name of the original RTLIL::Memory object that became this {\tt \$mem\_v2} cell.
 
 \item \B{SIZE} \\
 The number of words in the memory.
@@ -450,26 +498,56 @@ The initial memory contents.
 \item \B{RD\_PORTS} \\
 The number of read ports on this memory cell.
 
+\item \B{RD\_WIDE\_CONTINUATION} \\
+This parameter is \B{RD\_PORTS} bits wide, containing a bitmask of ``wide continuation'' read ports.
+Such ports are used to represent the extra data bits of wide ports in the combined cell, and must
+have all control signals identical with the preceding port, except for address, which must have
+the proper sub-cell address encoded in the low bits.
+
 \item \B{RD\_CLK\_ENABLE} \\
 This parameter is \B{RD\_PORTS} bits wide, containing a clock enable bit for each read port.
 
 \item \B{RD\_CLK\_POLARITY} \\
 This parameter is \B{RD\_PORTS} bits wide, containing a clock polarity bit for each read port.
 
-\item \B{RD\_TRANSPARENT} \\
-This parameter is \B{RD\_PORTS} bits wide, containing a transparent bit for each read port.
+\item \B{RD\_TRANSPARENCY\_MASK} \\
+This parameter is \B{RD\_PORTS*WR\_PORTS} bits wide, containing a concatenation of all
+\B{TRANSPARENCY\_MASK} values of the original {\tt \$memrd\_v2} cells.
+
+\item \B{RD\_COLLISION\_X\_MASK} \\
+This parameter is \B{RD\_PORTS*WR\_PORTS} bits wide, containing a concatenation of all
+\B{COLLISION\_X\_MASK} values of the original {\tt \$memrd\_v2} cells.
+
+\item \B{RD\_CE\_OVER\_SRST} \\
+This parameter is \B{RD\_PORTS} bits wide, determining relative synchronous reset and enable priority for each read port.
+
+\item \B{RD\_INIT\_VALUE} \\
+This parameter is \B{RD\_PORTS*WIDTH} bits wide, containing the initial value for each synchronous read port.
+
+\item \B{RD\_ARST\_VALUE} \\
+This parameter is \B{RD\_PORTS*WIDTH} bits wide, containing the asynchronous reset value for each synchronous read port.
+
+\item \B{RD\_SRST\_VALUE} \\
+This parameter is \B{RD\_PORTS*WIDTH} bits wide, containing the synchronous reset value for each synchronous read port.
 
 \item \B{WR\_PORTS} \\
 The number of write ports on this memory cell.
+
+\item \B{WR\_WIDE\_CONTINUATION} \\
+This parameter is \B{WR\_PORTS} bits wide, containing a bitmask of ``wide continuation'' write ports.
 
 \item \B{WR\_CLK\_ENABLE} \\
 This parameter is \B{WR\_PORTS} bits wide, containing a clock enable bit for each write port.
 
 \item \B{WR\_CLK\_POLARITY} \\
 This parameter is \B{WR\_PORTS} bits wide, containing a clock polarity bit for each write port.
+
+\item \B{WR\_PRIORITY\_MASK} \\
+This parameter is \B{WR\_PORTS*WR\_PORTS} bits wide, containing a concatenation of all
+\B{PRIORITY\_MASK} values of the original {\tt \$memwr\_v2} cells.
 \end{itemize}
 
-The {\tt \$mem} cell has the following ports:
+The {\tt \$mem\_v2} cell has the following ports:
 
 \begin{itemize}
 \item \B{RD\_CLK} \\
@@ -484,6 +562,12 @@ This input is \B{RD\_PORTS}*\B{ABITS} bits wide, containing all address signals 
 \item \B{RD\_DATA} \\
 This input is \B{RD\_PORTS}*\B{WIDTH} bits wide, containing all data signals for the read ports.
 
+\item \B{RD\_ARST} \\
+This input is \B{RD\_PORTS} bits wide, containing all asynchronous reset signals for the read ports.
+
+\item \B{RD\_SRST} \\
+This input is \B{RD\_PORTS} bits wide, containing all synchronous reset signals for the read ports.
+
 \item \B{WR\_CLK} \\
 This input is \B{WR\_PORTS} bits wide, containing all clock signals for the write ports.
 
@@ -497,11 +581,11 @@ This input is \B{WR\_PORTS}*\B{ABITS} bits wide, containing all address signals 
 This input is \B{WR\_PORTS}*\B{WIDTH} bits wide, containing all data signals for the write ports.
 \end{itemize}
 
-The {\tt memory\_collect} pass can be used to convert discrete {\tt \$memrd}, {\tt \$memwr}, and {\tt \$meminit} cells
-belonging to the same memory to a single {\tt \$mem} cell, whereas the {\tt memory\_unpack} pass performs the inverse operation.
+The {\tt memory\_collect} pass can be used to convert discrete {\tt \$memrd\_v2}, {\tt \$memwr\_v2}, and {\tt \$meminit\_v2} cells
+belonging to the same memory to a single {\tt \$mem\_v2} cell, whereas the {\tt memory\_unpack} pass performs the inverse operation.
 The {\tt memory\_dff} pass can combine asynchronous memory ports that are fed by or feeding registers into synchronous memory ports.
-The {\tt memory\_bram} pass can be used to recognize {\tt \$mem} cells that can be implemented with a block RAM resource on an FPGA.
-The {\tt memory\_map} pass can be used to implement {\tt \$mem} cells as basic logic: word-wide DFFs and address decoders.
+The {\tt memory\_bram} pass can be used to recognize {\tt \$mem\_v2} cells that can be implemented with a block RAM resource on an FPGA.
+The {\tt memory\_map} pass can be used to implement {\tt \$mem\_v2} cells as basic logic: word-wide DFFs and address decoders.
 
 \subsection{Finite State Machines}
 

@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *                2019  Eddie Hung    <eddie@fpgeh.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
@@ -358,12 +358,4 @@ module \$__XILINX_MUXF78 (O, I0, I1, I2, I3, S0, S1);
     assign O = T0;
   else
     MUXF8 mux8 (.I0(T0), .I1(T1), .S(S1), .O(O));
-endmodule
-
-module \$__XILINX_TINOUTPAD (input I, OE, output O, inout IO);
-  IOBUF _TECHMAP_REPLACE_ (.I(I), .O(O), .T(~OE), .IO(IO));
-endmodule
-
-module \$__XILINX_TOUTPAD (input I, OE, output O);
-  OBUFT _TECHMAP_REPLACE_ (.I(I), .O(O), .T(~OE));
 endmodule

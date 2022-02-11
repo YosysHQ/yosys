@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -51,15 +51,19 @@ void RTLIL_BACKEND::dump_const(std::ostream &f, const RTLIL::Const &data, int wi
 			}
 		}
 		f << stringf("%d'", width);
-		for (int i = offset+width-1; i >= offset; i--) {
-			log_assert(i < (int)data.bits.size());
-			switch (data.bits[i]) {
-			case State::S0: f << stringf("0"); break;
-			case State::S1: f << stringf("1"); break;
-			case RTLIL::Sx: f << stringf("x"); break;
-			case RTLIL::Sz: f << stringf("z"); break;
-			case RTLIL::Sa: f << stringf("-"); break;
-			case RTLIL::Sm: f << stringf("m"); break;
+		if (data.is_fully_undef()) {
+			f << "x";
+		} else {
+			for (int i = offset+width-1; i >= offset; i--) {
+				log_assert(i < (int)data.bits.size());
+				switch (data.bits[i]) {
+				case State::S0: f << stringf("0"); break;
+				case State::S1: f << stringf("1"); break;
+				case RTLIL::Sx: f << stringf("x"); break;
+				case RTLIL::Sz: f << stringf("z"); break;
+				case RTLIL::Sa: f << stringf("-"); break;
+				case RTLIL::Sm: f << stringf("m"); break;
+				}
 			}
 		}
 	} else {
@@ -242,11 +246,28 @@ void RTLIL_BACKEND::dump_proc_sync(std::ostream &f, std::string indent, const RT
 	case RTLIL::STi: f << stringf("init\n"); break;
 	}
 
-	for (auto it = sy->actions.begin(); it != sy->actions.end(); ++it) {
+	for (auto &it: sy->actions) {
 		f << stringf("%s  update ", indent.c_str());
-		dump_sigspec(f, it->first);
+		dump_sigspec(f, it.first);
 		f << stringf(" ");
-		dump_sigspec(f, it->second);
+		dump_sigspec(f, it.second);
+		f << stringf("\n");
+	}
+
+	for (auto &it: sy->mem_write_actions) {
+		for (auto it2 = it.attributes.begin(); it2 != it.attributes.end(); ++it2) {
+			f << stringf("%s  attribute %s ", indent.c_str(), it2->first.c_str());
+			dump_const(f, it2->second);
+			f << stringf("\n");
+		}
+		f << stringf("%s  memwr %s ", indent.c_str(), it.memid.c_str());
+		dump_sigspec(f, it.address);
+		f << stringf(" ");
+		dump_sigspec(f, it.data);
+		f << stringf(" ");
+		dump_sigspec(f, it.enable);
+		f << stringf(" ");
+		dump_const(f, it.priority_mask);
 		f << stringf("\n");
 	}
 }
@@ -337,8 +358,8 @@ void RTLIL_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Modu
 
 		bool first_conn_line = true;
 		for (auto it = module->connections().begin(); it != module->connections().end(); ++it) {
-			bool show_conn = !only_selected;
-			if (only_selected) {
+			bool show_conn = !only_selected || design->selected_whole_module(module->name);
+			if (!show_conn) {
 				RTLIL::SigSpec sigs = it->first;
 				sigs.append(it->second);
 				for (auto &c : sigs.chunks()) {

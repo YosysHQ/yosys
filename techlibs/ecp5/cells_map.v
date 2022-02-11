@@ -88,14 +88,13 @@ module  \$_SDFFE_NP1N_ (input D, C, E, R, output Q); TRELLIS_FF #(.GSR("AUTO"), 
 module  \$_SDFFE_PP0N_ (input D, C, E, R, output Q); TRELLIS_FF #(.GSR("AUTO"), .CEMUX("INV"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("LSR_OVER_CE"))  _TECHMAP_REPLACE_ (.CLK(C), .CE(E), .LSR(R), .DI(D), .Q(Q)); wire _TECHMAP_REMOVEINIT_Q_ = 1'b1; endmodule
 module  \$_SDFFE_PP1N_ (input D, C, E, R, output Q); TRELLIS_FF #(.GSR("AUTO"), .CEMUX("INV"), .CLKMUX("CLK"), .LSRMUX("LSR"), .REGSET("SET"), .SRMODE("LSR_OVER_CE"))  _TECHMAP_REPLACE_ (.CLK(C), .CE(E), .LSR(R), .DI(D), .Q(Q)); wire _TECHMAP_REMOVEINIT_Q_ = 1'b1; endmodule
 
-`ifdef ASYNC_PRLD
-module  \$_DLATCH_N_ (input E, input D, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .LSRMODE("PRLD"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.LSR(!E), .DI(1'b0), .M(D), .Q(Q)); endmodule
-module  \$_DLATCH_P_ (input E, input D, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .LSRMODE("PRLD"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.LSR(E), .DI(1'b0), .M(D), .Q(Q)); endmodule
+module \$_ALDFF_NP_ (input C, L, AD, D, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("INV"), .LSRMODE("PRLD"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.CLK(C), .LSR(L), .DI(D), .M(AD), .Q(Q)); endmodule
+module \$_ALDFF_PP_ (input C, L, AD, D, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMODE("PRLD"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.CLK(C), .LSR(L), .DI(D), .M(AD), .Q(Q)); endmodule
 
-module \$_DFFSR_NPP_ (input C, S, R, D, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("INV"), .LSRMODE("PRLD"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.CLK(C), .LSR(S || R), .DI(D), .M(!R), .Q(Q)); endmodule
-
-module \$_DFFSR_PPP_ (input C, S, R, D, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("1"), .CLKMUX("CLK"), .LSRMODE("PRLD"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.CLK(C), .LSR(S || R), .DI(D), .M(!R), .Q(Q)); endmodule
-`endif
+module \$_ALDFFE_NPN_ (input C, E, L, AD, D, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("INV"), .CLKMUX("INV"), .LSRMODE("PRLD"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.CLK(C), .CE(E), .LSR(L), .DI(D), .M(AD), .Q(Q)); endmodule
+module \$_ALDFFE_NPP_ (input C, E, L, AD, D, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("CE"), .CLKMUX("INV"), .LSRMODE("PRLD"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.CLK(C), .CE(E), .LSR(L), .DI(D), .M(AD), .Q(Q)); endmodule
+module \$_ALDFFE_PPN_ (input C, E, L, AD, D, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("INV"), .CLKMUX("CLK"), .LSRMODE("PRLD"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.CLK(C), .CE(E), .LSR(L), .DI(D), .M(AD), .Q(Q)); endmodule
+module \$_ALDFFE_PPP_ (input C, E, L, AD, D, output Q); TRELLIS_FF #(.GSR("DISABLED"), .CEMUX("CE"), .CLKMUX("CLK"), .LSRMODE("PRLD"), .LSRMUX("LSR"), .REGSET("RESET"), .SRMODE("ASYNC"))  _TECHMAP_REPLACE_ (.CLK(C), .CE(E), .LSR(L), .DI(D), .M(AD), .Q(Q)); endmodule
 
 `include "cells_ff.vh"
 `include "cells_io.vh"

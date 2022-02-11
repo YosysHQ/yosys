@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2020  Miodrag Milanovic <clifford@clifford.at>
+ *  Copyright (C) 2020  Miodrag Milanovic <micko@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -63,6 +63,11 @@ struct LoggerPass : public Pass {
 		log("\n");
 		log("    -expect-no-warnings\n");
 		log("        gives error in case there is at least one warning that is not expected.\n");
+		log("\n");
+		log("    -check-expected\n");
+		log("        verifies that the patterns previously set up by -expect have actually\n");
+		log("        been met, then clears the expected log list.  If this is not called\n");
+		log("        manually, the check will happen at yosys exist time instead.\n");
 		log("\n");
 	}
 
@@ -174,6 +179,10 @@ struct LoggerPass : public Pass {
 			}
 			if (args[argidx] == "-expect-no-warnings") {
 				log_expect_no_warnings = true;
+				continue;
+			}
+			if (args[argidx] == "-check-expected") {
+				log_check_expected();
 				continue;
 			}
 			break;

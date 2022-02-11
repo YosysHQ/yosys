@@ -2,7 +2,7 @@ read_verilog ../common/mul.v
 chparam -set X_WIDTH 8 -set Y_WIDTH 8 -set A_WIDTH 16
 hierarchy -top top
 proc
-equiv_opt -assert -map +/intel_alm/common/dsp_sim.v synth_intel_alm -family cyclonev # equivalency check
+equiv_opt -assert -map +/intel_alm/common/dsp_sim.v synth_intel_alm -family cyclonev -noiopad -noclkbuf # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd top # Constrain all select calls below inside the top module
 
@@ -16,7 +16,7 @@ read_verilog ../common/mul.v
 chparam -set X_WIDTH 17 -set Y_WIDTH 17 -set A_WIDTH 34
 hierarchy -top top
 proc
-equiv_opt -assert -map +/intel_alm/common/dsp_sim.v synth_intel_alm -family cyclonev # equivalency check
+equiv_opt -assert -map +/intel_alm/common/dsp_sim.v synth_intel_alm -family cyclonev -noiopad -noclkbuf # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd top # Constrain all select calls below inside the top module
 
@@ -28,7 +28,7 @@ read_verilog ../common/mul.v
 chparam -set X_WIDTH 17 -set Y_WIDTH 17 -set A_WIDTH 34
 hierarchy -top top
 proc
-equiv_opt -assert -map +/intel_alm/common/dsp_sim.v synth_intel_alm -family cyclone10gx # equivalency check
+equiv_opt -assert -map +/intel_alm/common/dsp_sim.v synth_intel_alm -family cyclone10gx -noiopad -noclkbuf # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd top # Constrain all select calls below inside the top module
 
@@ -40,7 +40,7 @@ read_verilog ../common/mul.v
 chparam -set X_WIDTH 26 -set Y_WIDTH 26 -set A_WIDTH 52
 hierarchy -top top
 proc
-equiv_opt -assert -map +/intel_alm/common/dsp_sim.v synth_intel_alm -family cyclonev # equivalency check
+equiv_opt -assert -map +/intel_alm/common/dsp_sim.v synth_intel_alm -family cyclonev -noiopad -noclkbuf # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd top # Constrain all select calls below inside the top module
 
@@ -52,7 +52,7 @@ read_verilog ../common/mul.v
 chparam -set X_WIDTH 26 -set Y_WIDTH 26 -set A_WIDTH 52
 hierarchy -top top
 proc
-equiv_opt -assert -map +/intel_alm/common/dsp_sim.v synth_intel_alm -family cyclone10gx # equivalency check
+equiv_opt -assert -map +/intel_alm/common/dsp_sim.v synth_intel_alm -family cyclone10gx -noiopad -noclkbuf # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd top # Constrain all select calls below inside the top module
 

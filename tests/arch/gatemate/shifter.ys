@@ -1,0 +1,10 @@
+read_verilog -D NO_INIT ../common/shifter.v
+hierarchy -top top
+proc
+flatten
+equiv_opt -assert -async2sync -map +/gatemate/cells_sim.v synth_gatemate -noiopad # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd top # Constrain all select calls below inside the top module
+select -assert-count 1 t:CC_BUFG
+select -assert-count 8 t:CC_DFF
+select -assert-none t:CC_BUFG t:CC_DFF %% t:* %D

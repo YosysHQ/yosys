@@ -1,7 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Clifford Wolf <clifford@clifford.at>
+ *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -55,7 +55,10 @@ struct EquivInductWorker
 
 		for (auto cell : cells) {
 			if (!satgen.importCell(cell, step) && !cell_warn_cache.count(cell)) {
-				log_warning("No SAT model available for cell %s (%s).\n", log_id(cell), log_id(cell->type));
+				if (RTLIL::builtin_ff_cell_types().count(cell->type))
+					log_warning("No SAT model available for async FF cell %s (%s).  Consider running `async2sync` or `clk2fflogic` first.\n", log_id(cell), log_id(cell->type));
+				else
+					log_warning("No SAT model available for cell %s (%s).\n", log_id(cell), log_id(cell->type));
 				cell_warn_cache.insert(cell);
 			}
 			if (cell->type == ID($equiv)) {

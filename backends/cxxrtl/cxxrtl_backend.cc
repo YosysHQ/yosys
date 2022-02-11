@@ -198,7 +198,7 @@ bool is_extending_cell(RTLIL::IdString type)
 bool is_inlinable_cell(RTLIL::IdString type)
 {
 	return is_unary_cell(type) || is_binary_cell(type) || type.in(
-		ID($mux), ID($concat), ID($slice), ID($pmux));
+		ID($mux), ID($concat), ID($slice), ID($pmux), ID($bmux), ID($demux));
 }
 
 bool is_ff_cell(RTLIL::IdString type)
@@ -206,6 +206,7 @@ bool is_ff_cell(RTLIL::IdString type)
 	return type.in(
 		ID($dff), ID($dffe), ID($sdff), ID($sdffe), ID($sdffce),
 		ID($adff), ID($adffe), ID($dffsr), ID($dffsre),
+		ID($aldff), ID($aldffe),
 		ID($dlatch), ID($adlatch), ID($dlatchsr), ID($sr));
 }
 
@@ -216,7 +217,7 @@ bool is_internal_cell(RTLIL::IdString type)
 
 bool is_effectful_cell(RTLIL::IdString type)
 {
-	return type == ID($memwr) || type.isPublic();
+	return type.isPublic();
 }
 
 bool is_cxxrtl_blackbox_cell(const RTLIL::Cell *cell)
@@ -224,6 +225,14 @@ bool is_cxxrtl_blackbox_cell(const RTLIL::Cell *cell)
 	RTLIL::Module *cell_module = cell->module->design->module(cell->type);
 	log_assert(cell_module != nullptr);
 	return cell_module->get_bool_attribute(ID(cxxrtl_blackbox));
+}
+
+bool is_memwr_process(const RTLIL::Process *process)
+{
+	for (auto sync : process->syncs)
+		if (!sync->mem_write_actions.empty())
+			return true;
+	return false;
 }
 
 enum class CxxrtlPortType {
@@ -274,12 +283,16 @@ struct FlowGraph {
 			CELL_EVAL,
 			PROCESS_SYNC,
 			PROCESS_CASE,
+			MEM_RDPORT,
+			MEM_WRPORTS,
 		};
 
 		Type type;
 		RTLIL::SigSig connect = {};
-		const RTLIL::Cell *cell = NULL;
-		const RTLIL::Process *process = NULL;
+		const RTLIL::Cell *cell = nullptr;
+		const RTLIL::Process *process = nullptr;
+		const Mem *mem = nullptr;
+		int portidx;
 	};
 
 	std::vector<Node*> nodes;
@@ -314,8 +327,14 @@ struct FlowGraph {
 		for (auto bit : sig.bits())
 			bit_has_state[bit] |= is_ff;
 		// Only comb defs of an entire wire in the right order can be inlined.
-		if (!is_ff && sig.is_wire())
-			wire_def_inlinable[sig.as_wire()] = inlinable;
+		if (!is_ff && sig.is_wire()) {
+			// Only a single def of a wire can be inlined. (Multiple defs of a wire are unsound, but we
+			// handle them anyway to avoid assertion failures later.)
+			if (!wire_def_inlinable.count(sig.as_wire()))
+				wire_def_inlinable[sig.as_wire()] = inlinable;
+			else
+				wire_def_inlinable[sig.as_wire()] = false;
+		}
 	}
 
 	void add_uses(Node *node, const RTLIL::SigSpec &sig)
@@ -414,7 +433,7 @@ struct FlowGraph {
 			if (cell->output(conn.first)) {
 				if (is_inlinable_cell(cell->type))
 					add_defs(node, conn.second, /*is_ff=*/false, /*inlinable=*/true);
-				else if (is_ff_cell(cell->type) || (cell->type == ID($memrd) && cell->getParam(ID::CLK_ENABLE).as_bool()))
+				else if (is_ff_cell(cell->type))
 					add_defs(node, conn.second, /*is_ff=*/true,  /*inlinable=*/false);
 				else if (is_internal_cell(cell->type))
 					add_defs(node, conn.second, /*is_ff=*/false, /*inlinable=*/false);
@@ -477,14 +496,20 @@ struct FlowGraph {
 
 	void add_sync_rules_defs_uses(Node *node, const RTLIL::Process *process)
 	{
-		for (auto sync : process->syncs)
-			for (auto action : sync->actions) {
+		for (auto sync : process->syncs) {
+			for (auto &action : sync->actions) {
 				if (sync->type == RTLIL::STp || sync->type == RTLIL::STn || sync->type == RTLIL::STe)
-				  add_defs(node, action.first, /*is_ff=*/true,  /*inlinable=*/false);
+					add_defs(node, action.first, /*is_ff=*/true,  /*inlinable=*/false);
 				else
 					add_defs(node, action.first, /*is_ff=*/false, /*inlinable=*/false);
 				add_uses(node, action.second);
 			}
+			for (auto &memwr : sync->mem_write_actions) {
+				add_uses(node, memwr.address);
+				add_uses(node, memwr.data);
+				add_uses(node, memwr.enable);
+			}
+		}
 	}
 
 	Node *add_node(const RTLIL::Process *process)
@@ -501,6 +526,51 @@ struct FlowGraph {
 		nodes.push_back(node);
 		add_case_rule_defs_uses(node, &process->root_case);
 		return node;
+	}
+
+	// Memories
+	void add_node(const Mem *mem) {
+		for (int i = 0; i < GetSize(mem->rd_ports); i++) {
+			auto &port = mem->rd_ports[i];
+			Node *node = new Node;
+			node->type = Node::Type::MEM_RDPORT;
+			node->mem = mem;
+			node->portidx = i;
+			nodes.push_back(node);
+			add_defs(node, port.data, /*is_ff=*/port.clk_enable, /*inlinable=*/false);
+			add_uses(node, port.clk);
+			add_uses(node, port.en);
+			add_uses(node, port.arst);
+			add_uses(node, port.srst);
+			add_uses(node, port.addr);
+			bool transparent = false;
+			for (int j = 0; j < GetSize(mem->wr_ports); j++) {
+				auto &wrport = mem->wr_ports[j];
+				if (port.transparency_mask[j]) {
+					// Our implementation of transparent read ports reads en, addr and data from every write port
+					// the read port is transparent with.
+					add_uses(node, wrport.en);
+					add_uses(node, wrport.addr);
+					add_uses(node, wrport.data);
+					transparent = true;
+				}
+			}
+			// Also we read the read address twice in this case (prevent inlining).
+			if (transparent)
+				add_uses(node, port.addr);
+		}
+		if (!mem->wr_ports.empty()) {
+			Node *node = new Node;
+			node->type = Node::Type::MEM_WRPORTS;
+			node->mem = mem;
+			nodes.push_back(node);
+			for (auto &port : mem->wr_ports) {
+				add_uses(node, port.clk);
+				add_uses(node, port.en);
+				add_uses(node, port.addr);
+				add_uses(node, port.data);
+			}
+		}
 	}
 };
 
@@ -614,6 +684,8 @@ struct CxxrtlWorker {
 	std::ostream *impl_f = nullptr;
 	std::ostream *intf_f = nullptr;
 
+	bool print_wire_types = false;
+	bool print_debug_wire_types = false;
 	bool run_hierarchy = false;
 	bool run_flatten = false;
 	bool run_proc = false;
@@ -635,10 +707,11 @@ struct CxxrtlWorker {
 	int temporary = 0;
 
 	dict<const RTLIL::Module*, SigMap> sigmaps;
+	dict<const RTLIL::Module*, std::vector<Mem>> mod_memories;
+	pool<std::pair<const RTLIL::Module*, RTLIL::IdString>> writable_memories;
 	pool<const RTLIL::Wire*> edge_wires;
+	dict<const RTLIL::Wire*, RTLIL::Const> wire_init;
 	dict<RTLIL::SigBit, RTLIL::SyncType> edge_types;
-	pool<const RTLIL::Memory*> writable_memories;
-	dict<const RTLIL::Cell*, pool<const RTLIL::Cell*>> transparent_for;
 	dict<const RTLIL::Module*, std::vector<FlowGraph::Node>> schedule, debug_schedule;
 	dict<const RTLIL::Wire*, WireType> wire_types, debug_wire_types;
 	dict<RTLIL::SigBit, bool> bit_has_state;
@@ -720,6 +793,11 @@ struct CxxrtlWorker {
 	std::string mangle(const RTLIL::Module *module)
 	{
 		return mangle_module_name(module->name, /*is_blackbox=*/module->get_bool_attribute(ID(cxxrtl_blackbox)));
+	}
+
+	std::string mangle(const Mem *mem)
+	{
+		return mangle_memory_name(mem->memid);
 	}
 
 	std::string mangle(const RTLIL::Memory *memory)
@@ -854,11 +932,6 @@ struct CxxrtlWorker {
 			width  -= CHUNK_SIZE;
 		}
 		f << "}";
-	}
-
-	void dump_const_init(const RTLIL::Const &data)
-	{
-		dump_const_init(data, data.size());
 	}
 
 	void dump_const(const RTLIL::Const &data, int width, int offset = 0, bool fixed_width = false)
@@ -1081,6 +1154,22 @@ struct CxxrtlWorker {
 			for (int part = 0; part < s_width; part++) {
 				f << ")";
 			}
+		// Big muxes
+		} else if (cell->type == ID($bmux)) {
+			dump_sigspec_rhs(cell->getPort(ID::A), for_debug);
+			f << ".bmux<";
+			f << cell->getParam(ID::WIDTH).as_int();
+			f << ">(";
+			dump_sigspec_rhs(cell->getPort(ID::S), for_debug);
+			f << ").val()";
+		// Demuxes
+		} else if (cell->type == ID($demux)) {
+			dump_sigspec_rhs(cell->getPort(ID::A), for_debug);
+			f << ".demux<";
+			f << GetSize(cell->getPort(ID::Y));
+			f << ">(";
+			dump_sigspec_rhs(cell->getPort(ID::S), for_debug);
+			f << ").val()";
 		// Concats
 		} else if (cell->type == ID($concat)) {
 			dump_sigspec_rhs(cell->getPort(ID::B), for_debug);
@@ -1190,6 +1279,20 @@ struct CxxrtlWorker {
 				dec_indent();
 				f << indent << "}\n";
 			}
+			if (cell->hasPort(ID::ALOAD)) {
+				// Asynchronous load
+				f << indent << "if (";
+				dump_sigspec_rhs(cell->getPort(ID::ALOAD));
+				f << " == value<1> {" << cell->getParam(ID::ALOAD_POLARITY).as_bool() << "u}) {\n";
+				inc_indent();
+					f << indent;
+					dump_sigspec_lhs(cell->getPort(ID::Q));
+					f << " = ";
+					dump_sigspec_rhs(cell->getPort(ID::AD));
+					f << ";\n";
+				dec_indent();
+				f << indent << "}\n";
+			}
 			if (cell->hasPort(ID::SET)) {
 				// Asynchronous set (for individual bits)
 				f << indent;
@@ -1214,112 +1317,6 @@ struct CxxrtlWorker {
 				dump_sigspec_rhs(cell->getPort(ID::CLR));
 				f << (cell->getParam(ID::CLR_POLARITY).as_bool() ? "" : ".bit_not()") << ");\n";
 			}
-		// Memory ports
-		} else if (cell->type.in(ID($memrd), ID($memwr))) {
-			if (cell->getParam(ID::CLK_ENABLE).as_bool()) {
-				log_assert(!for_debug);
-				RTLIL::SigBit clk_bit = cell->getPort(ID::CLK)[0];
-				clk_bit = sigmaps[clk_bit.wire->module](clk_bit);
-				if (clk_bit.wire) {
-					f << indent << "if (" << (cell->getParam(ID::CLK_POLARITY).as_bool() ? "posedge_" : "negedge_")
-					            << mangle(clk_bit) << ") {\n";
-				} else {
-					f << indent << "if (false) {\n";
-				}
-				inc_indent();
-			}
-			RTLIL::Memory *memory = cell->module->memories[cell->getParam(ID::MEMID).decode_string()];
-			std::string valid_index_temp = fresh_temporary();
-			f << indent << "auto " << valid_index_temp << " = memory_index(";
-			dump_sigspec_rhs(cell->getPort(ID::ADDR));
-			f << ", " << memory->start_offset << ", " << memory->size << ");\n";
-			if (cell->type == ID($memrd)) {
-				bool has_enable = cell->getParam(ID::CLK_ENABLE).as_bool() && !cell->getPort(ID::EN).is_fully_ones();
-				if (has_enable) {
-					f << indent << "if (";
-					dump_sigspec_rhs(cell->getPort(ID::EN));
-					f << ") {\n";
-					inc_indent();
-				}
-				// The generated code has two bounds checks; one in an assertion, and another that guards the read.
-				// This is done so that the code does not invoke undefined behavior under any conditions, but nevertheless
-				// loudly crashes if an illegal condition is encountered. The assert may be turned off with -DCXXRTL_NDEBUG
-				// not only for release builds, but also to make sure the simulator (which is presumably embedded in some
-				// larger program) will never crash the code that calls into it.
-				//
-				// If assertions are disabled, out of bounds reads are defined to return zero.
-				f << indent << "CXXRTL_ASSERT(" << valid_index_temp << ".valid && \"out of bounds read\");\n";
-				f << indent << "if(" << valid_index_temp << ".valid) {\n";
-				inc_indent();
-					if (writable_memories[memory]) {
-						std::string lhs_temp = fresh_temporary();
-						f << indent << "value<" << memory->width << "> " << lhs_temp << " = "
-						            << mangle(memory) << "[" << valid_index_temp << ".index];\n";
-						std::vector<const RTLIL::Cell*> memwr_cells(transparent_for[cell].begin(), transparent_for[cell].end());
-						if (!memwr_cells.empty()) {
-							std::string addr_temp = fresh_temporary();
-							f << indent << "const value<" << cell->getPort(ID::ADDR).size() << "> &" << addr_temp << " = ";
-							dump_sigspec_rhs(cell->getPort(ID::ADDR));
-							f << ";\n";
-							std::sort(memwr_cells.begin(), memwr_cells.end(),
-								[](const RTLIL::Cell *a, const RTLIL::Cell *b) {
-									return a->getParam(ID::PRIORITY).as_int() < b->getParam(ID::PRIORITY).as_int();
-								});
-							for (auto memwr_cell : memwr_cells) {
-								f << indent << "if (" << addr_temp << " == ";
-								dump_sigspec_rhs(memwr_cell->getPort(ID::ADDR));
-								f << ") {\n";
-								inc_indent();
-									f << indent << lhs_temp << " = " << lhs_temp;
-									f << ".update(";
-									dump_sigspec_rhs(memwr_cell->getPort(ID::DATA));
-									f << ", ";
-									dump_sigspec_rhs(memwr_cell->getPort(ID::EN));
-									f << ");\n";
-								dec_indent();
-								f << indent << "}\n";
-							}
-						}
-						f << indent;
-						dump_sigspec_lhs(cell->getPort(ID::DATA));
-						f << " = " << lhs_temp << ";\n";
-					} else {
-						f << indent;
-						dump_sigspec_lhs(cell->getPort(ID::DATA));
-						f << " = " << mangle(memory) << "[" << valid_index_temp << ".index];\n";
-					}
-				dec_indent();
-				f << indent << "} else {\n";
-				inc_indent();
-					f << indent;
-					dump_sigspec_lhs(cell->getPort(ID::DATA));
-					f << " = value<" << memory->width << "> {};\n";
-				dec_indent();
-				f << indent << "}\n";
-				if (has_enable) {
-					dec_indent();
-					f << indent << "}\n";
-				}
-			} else /*if (cell->type == ID($memwr))*/ {
-				log_assert(writable_memories[memory]);
-				// See above for rationale of having both the assert and the condition.
-				//
-				// If assertions are disabled, out of bounds writes are defined to do nothing.
-				f << indent << "CXXRTL_ASSERT(" << valid_index_temp << ".valid && \"out of bounds write\");\n";
-				f << indent << "if (" << valid_index_temp << ".valid) {\n";
-				inc_indent();
-					f << indent << mangle(memory) << ".update(" << valid_index_temp << ".index, ";
-					dump_sigspec_rhs(cell->getPort(ID::DATA));
-					f << ", ";
-					dump_sigspec_rhs(cell->getPort(ID::EN));
-					f << ", " << cell->getParam(ID::PRIORITY).as_int() << ");\n";
-				dec_indent();
-				f << indent << "}\n";
-			}
-			if (cell->getParam(ID::CLK_ENABLE).as_bool()) {
-				dec_indent();
-				f << indent << "}\n";
-			}
 		// Internal cells
 		} else if (is_internal_cell(cell->type)) {
 			log_cmd_error("Unsupported internal cell `%s'.\n", cell->type.c_str());
@@ -1332,7 +1329,7 @@ struct CxxrtlWorker {
 			for (auto conn : cell->connections())
 				if (cell->input(conn.first)) {
 					RTLIL::Module *cell_module = cell->module->design->module(cell->type);
-					log_assert(cell_module != nullptr && cell_module->wire(conn.first) && conn.second.is_wire());
+					log_assert(cell_module != nullptr && cell_module->wire(conn.first));
 					RTLIL::Wire *cell_module_wire = cell_module->wire(conn.first);
 					f << indent << mangle(cell) << access << mangle_wire_name(conn.first);
 					if (!is_cxxrtl_blackbox_cell(cell) && wire_types[cell_module_wire].is_buffered()) {
@@ -1342,7 +1339,7 @@ struct CxxrtlWorker {
 					f << " = ";
 					dump_sigspec_rhs(conn.second);
 					f << ";\n";
-					if (getenv("CXXRTL_VOID_MY_WARRANTY")) {
+					if (getenv("CXXRTL_VOID_MY_WARRANTY") && conn.second.is_wire()) {
 						// Until we have proper clock tree detection, this really awful hack that opportunistically
 						// propagates prev_* values for clocks can be used to estimate how much faster a design could
 						// be if only one clock edge was simulated by replacing:
@@ -1411,30 +1408,30 @@ struct CxxrtlWorker {
 				collect_sigspec_rhs(port.second, for_debug, cells);
 	}
 
-	void dump_assign(const RTLIL::SigSig &sigsig)
+	void dump_assign(const RTLIL::SigSig &sigsig, bool for_debug = false)
 	{
 		f << indent;
-		dump_sigspec_lhs(sigsig.first);
+		dump_sigspec_lhs(sigsig.first, for_debug);
 		f << " = ";
-		dump_sigspec_rhs(sigsig.second);
+		dump_sigspec_rhs(sigsig.second, for_debug);
 		f << ";\n";
 	}
 
-	void dump_case_rule(const RTLIL::CaseRule *rule)
+	void dump_case_rule(const RTLIL::CaseRule *rule, bool for_debug = false)
 	{
 		for (auto action : rule->actions)
-			dump_assign(action);
+			dump_assign(action, for_debug);
 		for (auto switch_ : rule->switches)
-			dump_switch_rule(switch_);
+			dump_switch_rule(switch_, for_debug);
 	}
 
-	void dump_switch_rule(const RTLIL::SwitchRule *rule)
+	void dump_switch_rule(const RTLIL::SwitchRule *rule, bool for_debug = false)
 	{
 		// The switch attributes are printed before the switch condition is captured.
 		dump_attrs(rule);
 		std::string signal_temp = fresh_temporary();
 		f << indent << "const value<" << rule->signal.size() << "> &" << signal_temp << " = ";
-		dump_sigspec(rule->signal, /*is_lhs=*/false);
+		dump_sigspec(rule->signal, /*is_lhs=*/false, for_debug);
 		f << ";\n";
 
 		bool first = true;
@@ -1454,7 +1451,7 @@ struct CxxrtlWorker {
 					first = false;
 					if (compare.is_fully_def()) {
 						f << signal_temp << " == ";
-						dump_sigspec(compare, /*is_lhs=*/false);
+						dump_sigspec(compare, /*is_lhs=*/false, for_debug);
 					} else if (compare.is_fully_const()) {
 						RTLIL::Const compare_mask, compare_value;
 						for (auto bit : compare.as_const()) {
@@ -1488,30 +1485,34 @@ struct CxxrtlWorker {
 			}
 			f << "{\n";
 			inc_indent();
-				dump_case_rule(case_);
+				dump_case_rule(case_, for_debug);
 			dec_indent();
 		}
 		f << indent << "}\n";
 	}
 
-	void dump_process_case(const RTLIL::Process *proc)
+	void dump_process_case(const RTLIL::Process *proc, bool for_debug = false)
 	{
 		dump_attrs(proc);
 		f << indent << "// process " << proc->name.str() << " case\n";
 		// The case attributes (for root case) are always empty.
 		log_assert(proc->root_case.attributes.empty());
-		dump_case_rule(&proc->root_case);
+		dump_case_rule(&proc->root_case, for_debug);
 	}
 
-	void dump_process_syncs(const RTLIL::Process *proc)
+	void dump_process_syncs(const RTLIL::Process *proc, bool for_debug = false)
 	{
 		dump_attrs(proc);
 		f << indent << "// process " << proc->name.str() << " syncs\n";
 		for (auto sync : proc->syncs) {
+			log_assert(!for_debug || sync->type == RTLIL::STa);
+
 			RTLIL::SigBit sync_bit;
 			if (!sync->signal.empty()) {
 				sync_bit = sync->signal[0];
 				sync_bit = sigmaps[sync_bit.wire->module](sync_bit);
+				if (!sync_bit.is_wire())
+					continue; // a clock, or more commonly a reset, can be tied to a constant driver
 			}
 
 			pool<std::string> events;
@@ -1551,8 +1552,224 @@ struct CxxrtlWorker {
 				}
 				f << ") {\n";
 				inc_indent();
-					for (auto action : sync->actions)
-						dump_assign(action);
+					for (auto &action : sync->actions)
+						dump_assign(action, for_debug);
+					for (auto &memwr : sync->mem_write_actions) {
+						RTLIL::Memory *memory = proc->module->memories.at(memwr.memid);
+						std::string valid_index_temp = fresh_temporary();
+						f << indent << "auto " << valid_index_temp << " = memory_index(";
+						dump_sigspec_rhs(memwr.address);
+						f << ", " << memory->start_offset << ", " << memory->size << ");\n";
+						// See below for rationale of having both the assert and the condition.
+						//
+						// If assertions are disabled, out of bounds writes are defined to do nothing.
+						f << indent << "CXXRTL_ASSERT(" << valid_index_temp << ".valid && \"out of bounds write\");\n";
+						f << indent << "if (" << valid_index_temp << ".valid) {\n";
+						inc_indent();
+							f << indent << mangle(memory) << ".update(" << valid_index_temp << ".index, ";
+							dump_sigspec_rhs(memwr.data);
+							f << ", ";
+							dump_sigspec_rhs(memwr.enable);
+							f << ");\n";
+						dec_indent();
+						f << indent << "}\n";
+					}
+				dec_indent();
+				f << indent << "}\n";
+			}
+		}
+	}
+
+	void dump_mem_rdport(const Mem *mem, int portidx, bool for_debug = false)
+	{
+		auto &port = mem->rd_ports[portidx];
+		dump_attrs(&port);
+		f << indent << "// memory " << mem->memid.str() << " read port " << portidx << "\n";
+		if (port.clk_enable) {
+			log_assert(!for_debug);
+			RTLIL::SigBit clk_bit = port.clk[0];
+			clk_bit = sigmaps[clk_bit.wire->module](clk_bit);
+			if (clk_bit.wire) {
+				f << indent << "if (" << (port.clk_polarity ? "posedge_" : "negedge_")
+					    << mangle(clk_bit) << ") {\n";
+			} else {
+				f << indent << "if (false) {\n";
+			}
+			inc_indent();
+		}
+		std::vector<const RTLIL::Cell*> inlined_cells_addr;
+		collect_sigspec_rhs(port.addr, for_debug, inlined_cells_addr);
+		if (!inlined_cells_addr.empty())
+			dump_inlined_cells(inlined_cells_addr);
+		std::string valid_index_temp = fresh_temporary();
+		f << indent << "auto " << valid_index_temp << " = memory_index(";
+		// Almost all non-elidable cells cannot appear in debug_eval(), but $memrd is an exception; asynchronous
+		// memory read ports can.
+		dump_sigspec_rhs(port.addr, for_debug);
+		f << ", " << mem->start_offset << ", " << mem->size << ");\n";
+		bool has_enable = port.clk_enable && !port.en.is_fully_ones();
+		if (has_enable) {
+			std::vector<const RTLIL::Cell*> inlined_cells_en;
+			collect_sigspec_rhs(port.en, for_debug, inlined_cells_en);
+			if (!inlined_cells_en.empty())
+				dump_inlined_cells(inlined_cells_en);
+			f << indent << "if (";
+			dump_sigspec_rhs(port.en);
+			f << ") {\n";
+			inc_indent();
+		}
+		// The generated code has two bounds checks; one in an assertion, and another that guards the read.
+		// This is done so that the code does not invoke undefined behavior under any conditions, but nevertheless
+		// loudly crashes if an illegal condition is encountered. The assert may be turned off with -DCXXRTL_NDEBUG
+		// not only for release builds, but also to make sure the simulator (which is presumably embedded in some
+		// larger program) will never crash the code that calls into it.
+		//
+		// If assertions are disabled, out of bounds reads are defined to return zero.
+		f << indent << "CXXRTL_ASSERT(" << valid_index_temp << ".valid && \"out of bounds read\");\n";
+		f << indent << "if(" << valid_index_temp << ".valid) {\n";
+		inc_indent();
+			if (!mem->wr_ports.empty()) {
+				std::string lhs_temp = fresh_temporary();
+				f << indent << "value<" << mem->width << "> " << lhs_temp << " = "
+					    << mangle(mem) << "[" << valid_index_temp << ".index];\n";
+				bool transparent = false;
+				for (auto bit : port.transparency_mask)
+					if (bit)
+						transparent = true;
+				if (transparent) {
+					std::string addr_temp = fresh_temporary();
+					f << indent << "const value<" << port.addr.size() << "> &" << addr_temp << " = ";
+					dump_sigspec_rhs(port.addr);
+					f << ";\n";
+					for (int i = 0; i < GetSize(mem->wr_ports); i++) {
+						auto &wrport = mem->wr_ports[i];
+						if (!port.transparency_mask[i])
+							continue;
+						f << indent << "if (" << addr_temp << " == ";
+						dump_sigspec_rhs(wrport.addr);
+						f << ") {\n";
+						inc_indent();
+							f << indent << lhs_temp << " = " << lhs_temp;
+							f << ".update(";
+							dump_sigspec_rhs(wrport.data);
+							f << ", ";
+							dump_sigspec_rhs(wrport.en);
+							f << ");\n";
+						dec_indent();
+						f << indent << "}\n";
+					}
+				}
+				f << indent;
+				dump_sigspec_lhs(port.data);
+				f << " = " << lhs_temp << ";\n";
+			} else {
+				f << indent;
+				dump_sigspec_lhs(port.data);
+				f << " = " << mangle(mem) << "[" << valid_index_temp << ".index];\n";
+			}
+		dec_indent();
+		f << indent << "} else {\n";
+		inc_indent();
+			f << indent;
+			dump_sigspec_lhs(port.data);
+			f << " = value<" << mem->width << "> {};\n";
+		dec_indent();
+		f << indent << "}\n";
+		if (has_enable && !port.ce_over_srst) {
+			dec_indent();
+			f << indent << "}\n";
+		}
+		if (port.srst != State::S0) {
+			// Synchronous reset
+			std::vector<const RTLIL::Cell*> inlined_cells_srst;
+			collect_sigspec_rhs(port.srst, for_debug, inlined_cells_srst);
+			if (!inlined_cells_srst.empty())
+				dump_inlined_cells(inlined_cells_srst);
+			f << indent << "if (";
+			dump_sigspec_rhs(port.srst);
+			f << " == value<1> {1u}) {\n";
+			inc_indent();
+				f << indent;
+				dump_sigspec_lhs(port.data);
+				f << " = ";
+				dump_const(port.srst_value);
+				f << ";\n";
+			dec_indent();
+			f << indent << "}\n";
+		}
+		if (has_enable && port.ce_over_srst) {
+			dec_indent();
+			f << indent << "}\n";
+		}
+		if (port.clk_enable) {
+			dec_indent();
+			f << indent << "}\n";
+		}
+		if (port.arst != State::S0) {
+			// Asynchronous reset
+			std::vector<const RTLIL::Cell*> inlined_cells_arst;
+			collect_sigspec_rhs(port.arst, for_debug, inlined_cells_arst);
+			if (!inlined_cells_arst.empty())
+				dump_inlined_cells(inlined_cells_arst);
+			f << indent << "if (";
+			dump_sigspec_rhs(port.arst);
+			f << " == value<1> {1u}) {\n";
+			inc_indent();
+				f << indent;
+				dump_sigspec_lhs(port.data);
+				f << " = ";
+				dump_const(port.arst_value);
+				f << ";\n";
+			dec_indent();
+			f << indent << "}\n";
+		}
+	}
+
+	void dump_mem_wrports(const Mem *mem, bool for_debug = false)
+	{
+		log_assert(!for_debug);
+		for (int portidx = 0; portidx < GetSize(mem->wr_ports); portidx++) {
+			auto &port = mem->wr_ports[portidx];
+			dump_attrs(&port);
+			f << indent << "// memory " << mem->memid.str() << " write port " << portidx << "\n";
+			if (port.clk_enable) {
+				RTLIL::SigBit clk_bit = port.clk[0];
+				clk_bit = sigmaps[clk_bit.wire->module](clk_bit);
+				if (clk_bit.wire) {
+					f << indent << "if (" << (port.clk_polarity ? "posedge_" : "negedge_")
+					            << mangle(clk_bit) << ") {\n";
+				} else {
+					f << indent << "if (false) {\n";
+				}
+				inc_indent();
+			}
+			std::vector<const RTLIL::Cell*> inlined_cells_addr;
+			collect_sigspec_rhs(port.addr, for_debug, inlined_cells_addr);
+			if (!inlined_cells_addr.empty())
+				dump_inlined_cells(inlined_cells_addr);
+			std::string valid_index_temp = fresh_temporary();
+			f << indent << "auto " << valid_index_temp << " = memory_index(";
+			dump_sigspec_rhs(port.addr);
+			f << ", " << mem->start_offset << ", " << mem->size << ");\n";
+			// See above for rationale of having both the assert and the condition.
+			//
+			// If assertions are disabled, out of bounds writes are defined to do nothing.
+			f << indent << "CXXRTL_ASSERT(" << valid_index_temp << ".valid && \"out of bounds write\");\n";
+			f << indent << "if (" << valid_index_temp << ".valid) {\n";
+			inc_indent();
+				std::vector<const RTLIL::Cell*> inlined_cells;
+				collect_sigspec_rhs(port.data, for_debug, inlined_cells);
+				collect_sigspec_rhs(port.en, for_debug, inlined_cells);
+				if (!inlined_cells.empty())
+					dump_inlined_cells(inlined_cells);
+				f << indent << mangle(mem) << ".update(" << valid_index_temp << ".index, ";
+				dump_sigspec_rhs(port.data);
+				f << ", ";
+				dump_sigspec_rhs(port.en);
+				f << ", " << portidx << ");\n";
+			dec_indent();
+			f << indent << "}\n";
+			if (port.clk_enable) {
 				dec_indent();
 				f << indent << "}\n";
 			}
@@ -1579,20 +1796,10 @@ struct CxxrtlWorker {
 		} else {
 			f << "<" << wire->width << ">";
 		}
-		f << " " << mangle(wire);
-		if (wire->has_attribute(ID::init)) {
-			f << " ";
-			dump_const_init(wire->attributes.at(ID::init));
-		}
-		f << ";\n";
+		f << " " << mangle(wire) << ";\n";
 		if (edge_wires[wire]) {
 			if (!wire_type.is_buffered()) {
-				f << indent << "value<" << wire->width << "> prev_" << mangle(wire);
-				if (wire->has_attribute(ID::init)) {
-					f << " ";
-					dump_const_init(wire->attributes.at(ID::init));
-				}
-				f << ";\n";
+				f << indent << "value<" << wire->width << "> prev_" << mangle(wire) << ";\n";
 			}
 			for (auto edge_type : edge_types) {
 				if (edge_type.first.wire == wire) {
@@ -1642,49 +1849,67 @@ struct CxxrtlWorker {
 		f << "value<" << wire->width << "> " << mangle(wire) << ";\n";
 	}
 
-	void dump_memory(RTLIL::Module *module, const RTLIL::Memory *memory)
+	void dump_reset_method(RTLIL::Module *module)
 	{
-		vector<const RTLIL::Cell*> init_cells;
-		for (auto cell : module->cells())
-			if (cell->type == ID($meminit) && cell->getParam(ID::MEMID).decode_string() == memory->name.str())
-				init_cells.push_back(cell);
+		int mem_init_idx = 0;
+		inc_indent();
+			for (auto wire : module->wires()) {
+				const auto &wire_type = wire_types[wire];
+				if (!wire_type.is_named() || wire_type.is_local()) continue;
+				if (!wire_init.count(wire)) continue;
 
-		std::sort(init_cells.begin(), init_cells.end(), [](const RTLIL::Cell *a, const RTLIL::Cell *b) {
-			int a_addr = a->getPort(ID::ADDR).as_int(), b_addr = b->getPort(ID::ADDR).as_int();
-			int a_prio = a->getParam(ID::PRIORITY).as_int(), b_prio = b->getParam(ID::PRIORITY).as_int();
-			return a_prio > b_prio || (a_prio == b_prio && a_addr < b_addr);
-		});
+				f << indent << mangle(wire) << " = ";
+				if (wire_types[wire].is_buffered()) {
+					f << "wire<" << wire->width << ">";
+				} else {
+					f << "value<" << wire->width << ">";
+				}
+				dump_const_init(wire_init.at(wire), wire->width);
+				f << ";\n";
 
-		dump_attrs(memory);
-		f << indent << "memory<" << memory->width << "> " << mangle(memory)
-		            << " { " << memory->size << "u";
-		if (init_cells.empty()) {
-			f << " };\n";
-		} else {
-			f << ",\n";
-			inc_indent();
-				for (auto cell : init_cells) {
-					dump_attrs(cell);
-					RTLIL::Const data = cell->getPort(ID::DATA).as_const();
-					size_t width = cell->getParam(ID::WIDTH).as_int();
-					size_t words = cell->getParam(ID::WORDS).as_int();
-					f << indent << "memory<" << memory->width << ">::init<" << words << "> { "
-					            << stringf("%#x", cell->getPort(ID::ADDR).as_int()) << ", {";
+				if (edge_wires[wire] && !wire_types[wire].is_buffered()) {
+					f << indent << "prev_" << mangle(wire) << " = ";
+					dump_const(wire_init.at(wire), wire->width);
+					f << ";\n";
+				}
+			}
+			for (auto &mem : mod_memories[module]) {
+				for (auto &init : mem.inits) {
+					if (init.removed)
+						continue;
+					dump_attrs(&init);
+					int words = GetSize(init.data) / mem.width;
+					f << indent << "static const value<" << mem.width << "> ";
+					f << "mem_init_" << ++mem_init_idx << "[" << words << "] {";
 					inc_indent();
-						for (size_t n = 0; n < words; n++) {
+						for (int n = 0; n < words; n++) {
 							if (n % 4 == 0)
 								f << "\n" << indent;
 							else
 								f << " ";
-							dump_const(data, width, n * width, /*fixed_width=*/true);
+							dump_const(init.data, mem.width, n * mem.width, /*fixed_width=*/true);
 							f << ",";
 						}
 					dec_indent();
-					f << "\n" << indent << "}},\n";
+					f << "\n";
+					f << indent << "};\n";
+					f << indent << "std::copy(std::begin(mem_init_" << mem_init_idx << "), ";
+					f << "std::end(mem_init_" << mem_init_idx << "), ";
+					f << "&" << mangle(&mem) << ".data[" << stringf("%#x", init.addr.as_int()) << "]);\n";
 				}
-			dec_indent();
-			f << indent << "};\n";
-		}
+			}
+			for (auto cell : module->cells()) {
+				if (is_internal_cell(cell->type))
+					continue;
+				f << indent << mangle(cell);
+				RTLIL::Module *cell_module = module->design->module(cell->type);
+				if (cell_module->get_bool_attribute(ID(cxxrtl_blackbox))) {
+					f << "->reset();\n";
+				} else {
+					f << ".reset();\n";
+				}
+			}
+		dec_indent();
 	}
 
 	void dump_eval_method(RTLIL::Module *module)
@@ -1721,11 +1946,17 @@ struct CxxrtlWorker {
 						case FlowGraph::Node::Type::CELL_EVAL:
 							dump_cell_eval(node.cell);
 							break;
+						case FlowGraph::Node::Type::PROCESS_CASE:
+							dump_process_case(node.process);
+							break;
 						case FlowGraph::Node::Type::PROCESS_SYNC:
 							dump_process_syncs(node.process);
 							break;
-						case FlowGraph::Node::Type::PROCESS_CASE:
-							dump_process_case(node.process);
+						case FlowGraph::Node::Type::MEM_RDPORT:
+							dump_mem_rdport(node.mem, node.portidx);
+							break;
+						case FlowGraph::Node::Type::MEM_WRPORTS:
+							dump_mem_wrports(node.mem);
 							break;
 					}
 				}
@@ -1750,6 +1981,18 @@ struct CxxrtlWorker {
 					case FlowGraph::Node::Type::CELL_EVAL:
 						dump_cell_eval(node.cell, /*for_debug=*/true);
 						break;
+					case FlowGraph::Node::Type::PROCESS_CASE:
+						dump_process_case(node.process, /*for_debug=*/true);
+						break;
+					case FlowGraph::Node::Type::PROCESS_SYNC:
+						dump_process_syncs(node.process, /*for_debug=*/true);
+						break;
+					case FlowGraph::Node::Type::MEM_RDPORT:
+						dump_mem_rdport(node.mem, node.portidx, /*for_debug=*/true);
+						break;
+					case FlowGraph::Node::Type::MEM_WRPORTS:
+						dump_mem_wrports(node.mem, /*for_debug=*/true);
+						break;
 					default:
 						log_abort();
 				}
@@ -1769,10 +2012,10 @@ struct CxxrtlWorker {
 					f << indent << "if (" << mangle(wire) << ".commit()) changed = true;\n";
 			}
 			if (!module->get_bool_attribute(ID(cxxrtl_blackbox))) {
-				for (auto memory : module->memories) {
-					if (!writable_memories[memory.second])
+				for (auto &mem : mod_memories[module]) {
+					if (!writable_memories.count({module, mem.memid}))
 						continue;
-					f << indent << "if (" << mangle(memory.second) << ".commit()) changed = true;\n";
+					f << indent << "if (" << mangle(&mem) << ".commit()) changed = true;\n";
 				}
 				for (auto cell : module->cells()) {
 					if (is_internal_cell(cell->type))
@@ -1914,12 +2157,12 @@ struct CxxrtlWorker {
 				}
 			}
 			if (!module->get_bool_attribute(ID(cxxrtl_blackbox))) {
-				for (auto &memory_it : module->memories) {
-					if (!memory_it.first.isPublic())
+				for (auto &mem : mod_memories[module]) {
+					if (!mem.memid.isPublic())
 						continue;
-					f << indent << "items.add(path + " << escape_cxx_string(get_hdl_name(memory_it.second));
-					f << ", debug_item(" << mangle(memory_it.second) << ", ";
-					f << memory_it.second->start_offset << "));\n";
+					f << indent << "items.add(path + " << escape_cxx_string(mem.packed ? get_hdl_name(mem.cell) : get_hdl_name(mem.mem));
+					f << ", debug_item(" << mangle(&mem) << ", ";
+					f << mem.start_offset << "));\n";
 				}
 				for (auto cell : module->cells()) {
 					if (is_internal_cell(cell->type))
@@ -1987,6 +2230,10 @@ struct CxxrtlWorker {
 						dump_wire(wire, /*is_local=*/false);
 				}
 				f << "\n";
+				f << indent << "void reset() override {\n";
+				dump_reset_method(module);
+				f << indent << "}\n";
+				f << "\n";
 				f << indent << "bool eval() override {\n";
 				dump_eval_method(module);
 				f << indent << "}\n";
@@ -2034,8 +2281,10 @@ struct CxxrtlWorker {
 				for (auto wire : module->wires())
 					dump_debug_wire(wire, /*is_local=*/false);
 				bool has_memories = false;
-				for (auto memory : module->memories) {
-					dump_memory(module, memory.second);
+				for (auto &mem : mod_memories[module]) {
+					dump_attrs(&mem);
+					f << indent << "memory<" << mem.width << "> " << mangle(&mem)
+					            << " { " << mem.size << "u };\n";
 					has_memories = true;
 				}
 				if (has_memories)
@@ -2056,52 +2305,20 @@ struct CxxrtlWorker {
 						dump_metadata_map(cell->attributes);
 						f << ");\n";
 					} else {
-						f << indent << mangle(cell_module) << " " << mangle(cell) << ";\n";
+						f << indent << mangle(cell_module) << " " << mangle(cell) << " {interior()};\n";
 					}
 					has_cells = true;
 				}
 				if (has_cells)
 					f << "\n";
-				f << indent << mangle(module) << "() {}\n";
-				if (has_cells) {
-					f << indent << mangle(module) << "(adopt, " << mangle(module) << " other) :\n";
-					bool first = true;
-					for (auto cell : module->cells()) {
-						if (is_internal_cell(cell->type))
-							continue;
-						if (first) {
-							first = false;
-						} else {
-							f << ",\n";
-						}
-						RTLIL::Module *cell_module = module->design->module(cell->type);
-						if (cell_module->get_bool_attribute(ID(cxxrtl_blackbox))) {
-							f << indent << "  " << mangle(cell) << "(std::move(other." << mangle(cell) << "))";
-						} else {
-							f << indent << "  " << mangle(cell) << "(adopt {}, std::move(other." << mangle(cell) << "))";
-						}
-					}
-					f << " {\n";
-					inc_indent();
-						for (auto cell : module->cells()) {
-							if (is_internal_cell(cell->type))
-								continue;
-							RTLIL::Module *cell_module = module->design->module(cell->type);
-							if (cell_module->get_bool_attribute(ID(cxxrtl_blackbox)))
-								f << indent << mangle(cell) << "->reset();\n";
-						}
-					dec_indent();
-					f << indent << "}\n";
-				} else {
-					f << indent << mangle(module) << "(adopt, " << mangle(module) << " other) {}\n";
-				}
-				f << "\n";
-				f << indent << "void reset() override {\n";
+				f << indent << mangle(module) << "(interior) {}\n";
+				f << indent << mangle(module) << "() {\n";
 				inc_indent();
-					f << indent << "*this = " << mangle(module) << "(adopt {}, std::move(*this));\n";
+					f << indent << "reset();\n";
 				dec_indent();
-				f << indent << "}\n";
+				f << indent << "};\n";
 				f << "\n";
+				f << indent << "void reset() override;\n";
 				f << indent << "bool eval() override;\n";
 				f << indent << "bool commit() override;\n";
 				if (debug_info) {
@@ -2128,6 +2345,10 @@ struct CxxrtlWorker {
 	{
 		if (module->get_bool_attribute(ID(cxxrtl_blackbox)))
 			return;
+		f << indent << "void " << mangle(module) << "::reset() {\n";
+		dump_reset_method(module);
+		f << indent << "}\n";
+		f << "\n";
 		f << indent << "bool " << mangle(module) << "::eval() {\n";
 		dump_eval_method(module);
 		f << indent << "}\n";
@@ -2273,6 +2494,8 @@ struct CxxrtlWorker {
 	void register_edge_signal(SigMap &sigmap, RTLIL::SigSpec signal, RTLIL::SyncType type)
 	{
 		signal = sigmap(signal);
+		if (signal.is_fully_const())
+			return; // a clock, or more commonly a reset, can be tied to a constant driver
 		log_assert(is_valid_clock(signal));
 		log_assert(type == RTLIL::STp || type == RTLIL::STn || type == RTLIL::STe);
 
@@ -2296,6 +2519,13 @@ struct CxxrtlWorker {
 
 			SigMap &sigmap = sigmaps[module];
 			sigmap.set(module);
+
+			std::vector<Mem> &memories = mod_memories[module];
+			memories = Mem::get_all_memories(module);
+			for (auto &mem : memories) {
+				mem.narrow();
+				mem.coalesce_inits();
+			}
 
 			if (module->get_bool_attribute(ID(cxxrtl_blackbox))) {
 				for (auto port : module->ports) {
@@ -2334,6 +2564,10 @@ struct CxxrtlWorker {
 				continue;
 			}
 
+			for (auto wire : module->wires())
+				if (wire->has_attribute(ID::init))
+					wire_init[wire] = wire->attributes.at(ID::init);
+
 			// Construct a flow graph where each node is a basic computational operation generally corresponding
 			// to a fragment of the RTLIL netlist.
 			FlowGraph flow;
@@ -2341,12 +2575,12 @@ struct CxxrtlWorker {
 			for (auto conn : module->connections())
 				flow.add_node(conn);
 
-			dict<const RTLIL::Cell*, FlowGraph::Node*> memrw_cell_nodes;
-			dict<std::pair<RTLIL::SigBit, const RTLIL::Memory*>,
-			     pool<const RTLIL::Cell*>> memwr_per_domain;
 			for (auto cell : module->cells()) {
 				if (!cell->known())
 					log_cmd_error("Unknown cell `%s'.\n", log_id(cell->type));
+
+				if (cell->is_mem_cell())
+					continue;
 
 				RTLIL::Module *cell_module = design->module(cell->type);
 				if (cell_module &&
@@ -2359,58 +2593,54 @@ struct CxxrtlWorker {
 				    cell_module->get_bool_attribute(ID(cxxrtl_template)))
 					blackbox_specializations[cell_module].insert(template_args(cell));
 
-				FlowGraph::Node *node = flow.add_node(cell);
+				flow.add_node(cell);
 
 				// Various DFF cells are treated like posedge/negedge processes, see above for details.
-				if (cell->type.in(ID($dff), ID($dffe), ID($adff), ID($adffe), ID($dffsr), ID($dffsre), ID($sdff), ID($sdffe), ID($sdffce))) {
+				if (cell->type.in(ID($dff), ID($dffe), ID($adff), ID($adffe), ID($aldff), ID($aldffe), ID($dffsr), ID($dffsre), ID($sdff), ID($sdffe), ID($sdffce))) {
 					if (is_valid_clock(cell->getPort(ID::CLK)))
 						register_edge_signal(sigmap, cell->getPort(ID::CLK),
 							cell->parameters[ID::CLK_POLARITY].as_bool() ? RTLIL::STp : RTLIL::STn);
 				}
-				// Similar for memory port cells.
-				if (cell->type.in(ID($memrd), ID($memwr))) {
-					if (cell->getParam(ID::CLK_ENABLE).as_bool()) {
-						if (is_valid_clock(cell->getPort(ID::CLK)))
-							register_edge_signal(sigmap, cell->getPort(ID::CLK),
-								cell->parameters[ID::CLK_POLARITY].as_bool() ? RTLIL::STp : RTLIL::STn);
-					}
-					memrw_cell_nodes[cell] = node;
-				}
-				// Optimize access to read-only memories.
-				if (cell->type == ID($memwr))
-					writable_memories.insert(module->memories[cell->getParam(ID::MEMID).decode_string()]);
-				// Collect groups of memory write ports in the same domain.
-				if (cell->type == ID($memwr) && cell->getParam(ID::CLK_ENABLE).as_bool() && is_valid_clock(cell->getPort(ID::CLK))) {
-					RTLIL::SigBit clk_bit = sigmap(cell->getPort(ID::CLK))[0];
-					const RTLIL::Memory *memory = module->memories[cell->getParam(ID::MEMID).decode_string()];
-					memwr_per_domain[{clk_bit, memory}].insert(cell);
-				}
-				// Handling of packed memories is delegated to the `memory_unpack` pass, so we can rely on the presence
-				// of RTLIL memory objects and $memrd/$memwr/$meminit cells.
-				if (cell->type.in(ID($mem)))
-					log_assert(false);
 			}
-			for (auto cell : module->cells()) {
-				// Collect groups of memory write ports read by every transparent read port.
-				if (cell->type == ID($memrd) && cell->getParam(ID::CLK_ENABLE).as_bool() && is_valid_clock(cell->getPort(ID::CLK)) &&
-				    cell->getParam(ID::TRANSPARENT).as_bool()) {
-					RTLIL::SigBit clk_bit = sigmap(cell->getPort(ID::CLK))[0];
-					const RTLIL::Memory *memory = module->memories[cell->getParam(ID::MEMID).decode_string()];
-					for (auto memwr_cell : memwr_per_domain[{clk_bit, memory}]) {
-						transparent_for[cell].insert(memwr_cell);
-						// Our implementation of transparent $memrd cells reads \EN, \ADDR and \DATA from every $memwr cell
-						// in the same domain, which isn't directly visible in the netlist. Add these uses explicitly.
-						flow.add_uses(memrw_cell_nodes[cell], memwr_cell->getPort(ID::EN));
-						flow.add_uses(memrw_cell_nodes[cell], memwr_cell->getPort(ID::ADDR));
-						flow.add_uses(memrw_cell_nodes[cell], memwr_cell->getPort(ID::DATA));
+
+			for (auto &mem : memories) {
+				flow.add_node(&mem);
+
+				// Clocked memory cells are treated like posedge/negedge processes as well.
+				for (auto &port : mem.rd_ports) {
+					if (port.clk_enable)
+						if (is_valid_clock(port.clk))
+							register_edge_signal(sigmap, port.clk,
+								port.clk_polarity ? RTLIL::STp : RTLIL::STn);
+					// For read ports, also move initial value to wire_init (if any).
+					for (int i = 0; i < GetSize(port.data); i++) {
+						if (port.init_value[i] != State::Sx) {
+							SigBit bit = port.data[i];
+							if (bit.wire) {
+								auto &init = wire_init[bit.wire];
+								if (init == RTLIL::Const()) {
+									init = RTLIL::Const(State::Sx, GetSize(bit.wire));
+								}
+								init[bit.offset] = port.init_value[i];
+							}
+						}
 					}
 				}
+				for (auto &port : mem.wr_ports) {
+					if (port.clk_enable)
+						if (is_valid_clock(port.clk))
+							register_edge_signal(sigmap, port.clk,
+								port.clk_polarity ? RTLIL::STp : RTLIL::STn);
+				}
+
+				if (!mem.wr_ports.empty())
+					writable_memories.insert({module, mem.memid});
 			}
 
 			for (auto proc : module->processes) {
 				flow.add_node(proc.second);
 
-				for (auto sync : proc.second->syncs)
+				for (auto sync : proc.second->syncs) {
 					switch (sync->type) {
 						// Edge-type sync rules require pre-registration.
 						case RTLIL::STp:
@@ -2433,6 +2663,10 @@ struct CxxrtlWorker {
 						case RTLIL::STi:
 							log_assert(false);
 					}
+					for (auto &memwr : sync->mem_write_actions) {
+						writable_memories.insert({module, memwr.memid});
+					}
+				}
 			}
 
 			// Construct a linear order of the flow graph that minimizes the amount of feedback arcs. A flow graph
@@ -2502,6 +2736,10 @@ struct CxxrtlWorker {
 			for (auto node : flow.nodes) {
 				if (node->type == FlowGraph::Node::Type::CELL_EVAL && is_effectful_cell(node->cell->type))
 					worklist.insert(node); // node has effects
+				else if (node->type == FlowGraph::Node::Type::MEM_WRPORTS)
+					worklist.insert(node); // node is memory write
+				else if (node->type == FlowGraph::Node::Type::PROCESS_SYNC && is_memwr_process(node->process))
+					worklist.insert(node); // node is memory write
 				else if (flow.node_sync_defs.count(node))
 					worklist.insert(node); // node is a flip-flop
 				else if (flow.node_comb_defs.count(node)) {
@@ -2527,12 +2765,14 @@ struct CxxrtlWorker {
 			for (auto wire : module->wires()) {
 				auto &wire_type = wire_types[wire];
 				if (!wire_type.is_local()) continue;
-				if (!wire->name.isPublic() && !inline_internal) continue;
-				if (wire->name.isPublic() && !inline_public) continue;
-
 				if (live_wires[wire].empty()) {
 					wire_type = {WireType::UNUSED}; // wire never used
-				} else if (flow.is_inlinable(wire, live_wires[wire])) {
+					continue;
+				}
+
+				if (!wire->name.isPublic() && !inline_internal) continue;
+				if (wire->name.isPublic() && !inline_public) continue;
+				if (flow.is_inlinable(wire, live_wires[wire])) {
 					if (flow.wire_comb_defs[wire].size() > 1)
 						log_cmd_error("Wire %s.%s has multiple drivers!\n", log_id(module), log_id(wire));
 					log_assert(flow.wire_comb_defs[wire].size() == 1);
@@ -2586,12 +2826,12 @@ struct CxxrtlWorker {
 				for (auto wire : module->wires()) {
 					const auto &wire_type = wire_types[wire];
 					auto &debug_wire_type = debug_wire_types[wire];
-					if (wire_type.type == WireType::UNUSED) continue;
-					if (!wire->name.isPublic()) continue;
 
 					if (!debug_info) continue;
 					if (wire->port_input || wire_type.is_buffered())
 						debug_wire_type = wire_type; // wire contains state
+					else if (!wire->name.isPublic())
+						continue; // internal and stateless
 
 					if (!debug_member) continue;
 					if (wire_type.is_member())
@@ -2655,7 +2895,7 @@ struct CxxrtlWorker {
 					auto &debug_wire_type = debug_wire_types[wire];
 					if (wire->name.isPublic()) continue;
 
-					if (live_wires[wire].empty() || debug_live_wires[wire].empty()) {
+					if (debug_live_wires[wire].empty()) {
 						continue; // wire never used
 					} else if (flow.is_inlinable(wire, debug_live_wires[wire])) {
 						log_assert(flow.wire_comb_defs[wire].size() == 1);
@@ -2666,16 +2906,25 @@ struct CxxrtlWorker {
 								debug_wire_type = {WireType::INLINE, node->cell}; // wire replaced with cell
 								break;
 							case FlowGraph::Node::Type::CONNECT:
-							  debug_wire_type = {WireType::INLINE, node->connect.second}; // wire replaced with sig
+								debug_wire_type = {WireType::INLINE, node->connect.second}; // wire replaced with sig
 								break;
 							default: continue;
 						}
 						debug_live_nodes.erase(node);
-					} else if (wire_type.is_local()) {
-						debug_wire_type = {WireType::LOCAL}; // wire not inlinable
+					} else if (wire_type.is_member() || wire_type.type == WireType::LOCAL) {
+						debug_wire_type = wire_type; // wire not inlinable
 					} else {
-						log_assert(wire_type.is_member());
-						debug_wire_type = wire_type; // wire is a member
+						log_assert(wire_type.type == WireType::INLINE ||
+						           wire_type.type == WireType::UNUSED);
+						if (flow.wire_comb_defs[wire].size() == 0) {
+							if (wire_init.count(wire)) { // wire never modified
+								debug_wire_type = {WireType::CONST, wire_init.at(wire)};
+							} else {
+								debug_wire_type = {WireType::CONST, RTLIL::SigSpec(RTLIL::S0, wire->width)};
+							}
+						} else {
+							debug_wire_type = {WireType::LOCAL}; // wire used only for debug
+						}
 					}
 				}
 
@@ -2683,6 +2932,35 @@ struct CxxrtlWorker {
 				for (auto node : node_order)
 					if (debug_live_nodes[node])
 						debug_schedule[module].push_back(*node);
+			}
+
+			auto show_wire_type = [&](const RTLIL::Wire* wire, const WireType &wire_type) {
+				const char *type_str;
+				switch (wire_type.type) {
+					case WireType::UNUSED:   type_str = "UNUSED";   break;
+					case WireType::BUFFERED: type_str = "BUFFERED"; break;
+					case WireType::MEMBER:   type_str = "MEMBER";   break;
+					case WireType::OUTLINE:  type_str = "OUTLINE";  break;
+					case WireType::LOCAL:    type_str = "LOCAL";    break;
+					case WireType::INLINE:   type_str = "INLINE";   break;
+					case WireType::ALIAS:    type_str = "ALIAS";    break;
+					case WireType::CONST:    type_str = "CONST";    break;
+					default:                 type_str = "(invalid)";
+				}
+				if (wire_type.sig_subst.empty())
+					log_debug("  %s: %s\n", log_signal((RTLIL::Wire*)wire), type_str);
+				else
+					log_debug("  %s: %s = %s\n", log_signal((RTLIL::Wire*)wire), type_str, log_signal(wire_type.sig_subst));
+			};
+			if (print_wire_types && !wire_types.empty()) {
+				log_debug("Wire types:\n");
+				for (auto wire_type : wire_types)
+					show_wire_type(wire_type.first, wire_type.second);
+			}
+			if (print_debug_wire_types && !debug_wire_types.empty()) {
+				log_debug("Debug wire types:\n");
+				for (auto debug_wire_type : debug_wire_types)
+					show_wire_type(debug_wire_type.first, debug_wire_type.second);
 			}
 		}
 		if (has_feedback_arcs || has_buffered_comb_wires) {
@@ -2702,9 +2980,9 @@ struct CxxrtlWorker {
 		}
 	}
 
-	void check_design(RTLIL::Design *design, bool &has_top, bool &has_sync_init, bool &has_packed_mem)
+	void check_design(RTLIL::Design *design, bool &has_sync_init)
 	{
-		has_sync_init = has_packed_mem = has_top = false;
+		has_sync_init = false;
 
 		for (auto module : design->modules()) {
 			if (module->get_blackbox_attribute() && !module->has_attribute(ID(cxxrtl_blackbox)))
@@ -2716,28 +2994,20 @@ struct CxxrtlWorker {
 			if (!design->selected_module(module))
 				continue;
 
-			if (module->get_bool_attribute(ID::top))
-				has_top = true;
-
 			for (auto proc : module->processes)
 				for (auto sync : proc.second->syncs)
 					if (sync->type == RTLIL::STi)
 						has_sync_init = true;
-
-			// The Mem constructor also checks for well-formedness of $meminit cells, if any.
-			for (auto &mem : Mem::get_all_memories(module))
-				if (mem.packed)
-					has_packed_mem = true;
 		}
 	}
 
 	void prepare_design(RTLIL::Design *design)
 	{
 		bool did_anything = false;
-		bool has_top, has_sync_init, has_packed_mem;
+		bool has_sync_init;
 		log_push();
-		check_design(design, has_top, has_sync_init, has_packed_mem);
-		if (run_hierarchy && !has_top) {
+		check_design(design, has_sync_init);
+		if (run_hierarchy) {
 			Pass::call(design, "hierarchy -auto-top");
 			did_anything = true;
 		}
@@ -2756,14 +3026,10 @@ struct CxxrtlWorker {
 			Pass::call(design, "proc_init");
 			did_anything = true;
 		}
-		if (has_packed_mem) {
-			Pass::call(design, "memory_unpack");
-			did_anything = true;
-		}
 		// Recheck the design if it was modified.
 		if (did_anything)
-			check_design(design, has_top, has_sync_init, has_packed_mem);
-		log_assert(has_top && !has_sync_init && !has_packed_mem);
+			check_design(design, has_sync_init);
+		log_assert(!has_sync_init);
 		log_pop();
 		if (did_anything)
 			log_spacer();
@@ -2934,6 +3200,9 @@ struct CxxrtlBackend : public Backend {
 		log("\n");
 		log("The following options are supported by this backend:\n");
 		log("\n");
+		log("    -print-wire-types, -print-debug-wire-types\n");
+		log("        enable additional debug logging, for pass developers.\n");
+		log("\n");
 		log("    -header\n");
 		log("        generate separate interface (.h) and implementation (.cc) files.\n");
 		log("        if specified, the backend must be called with a filename, and filename\n");
@@ -3013,6 +3282,8 @@ struct CxxrtlBackend : public Backend {
 
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		bool print_wire_types = false;
+		bool print_debug_wire_types = false;
 		bool nohierarchy = false;
 		bool noflatten = false;
 		bool noproc = false;
@@ -3025,6 +3296,14 @@ struct CxxrtlBackend : public Backend {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
+			if (args[argidx] == "-print-wire-types") {
+				print_wire_types = true;
+				continue;
+			}
+			if (args[argidx] == "-print-debug-wire-types") {
+				print_debug_wire_types = true;
+				continue;
+			}
 			if (args[argidx] == "-nohierarchy") {
 				nohierarchy = true;
 				continue;
@@ -3076,6 +3355,8 @@ struct CxxrtlBackend : public Backend {
 		}
 		extra_args(f, filename, args, argidx);
 
+		worker.print_wire_types = print_wire_types;
+		worker.print_debug_wire_types = print_debug_wire_types;
 		worker.run_hierarchy = !nohierarchy;
 		worker.run_flatten = !noflatten;
 		worker.run_proc = !noproc;

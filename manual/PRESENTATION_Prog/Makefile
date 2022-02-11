@@ -16,6 +16,6 @@ test1.log: my_cmd.so
 	mv test1.log_new test1.log
 
 test2.log: my_cmd.so
-	../../yosys -Ql test2.log_new -m ./my_cmd.so -p 'test2' sigmap_test.v
+	../../yosys -Ql test2.log_new -m ./my_cmd.so -p 'hierarchy -top test; test2' sigmap_test.v
 	mv test2.log_new test2.log
 

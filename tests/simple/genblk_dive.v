@@ -1,5 +1,5 @@
 `default_nettype none
-module top(output wire x);
+module genblk_dive_top(output wire x);
 	generate
 		if (1) begin : Z
 			if (1) begin : A

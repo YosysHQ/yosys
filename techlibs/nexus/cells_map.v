@@ -53,14 +53,6 @@ module  \$_DFFE_PP1P_ (input D, C, E, R, output Q); \$__FF_ASYNCLSR #(1)  _TECHM
 module  \$_SDFFE_PP0P_ (input D, C, E, R, output Q); \$__FF_SYNCLSR #(0)  _TECHMAP_REPLACE_ (.D(D), .C(C), .R(R), .E(E), .Q(Q)); endmodule
 module  \$_SDFFE_PP1P_ (input D, C, E, R, output Q); \$__FF_SYNCLSR #(1)  _TECHMAP_REPLACE_ (.D(D), .C(C), .R(R), .E(E), .Q(Q)); endmodule
 
-module \$__NX_TINOUTPAD (input I, OE, output O, inout B);
-	BB _TECHMAP_REPLACE_ (.I(I), .O(O), .T(~OE), .B(B));
-endmodule
-
-module \$__NX_TOUTPAD (input I, OE, output O);
-	OBZ _TECHMAP_REPLACE_ (.I(I), .O(), .T(~OE), .O(O));
-endmodule
-
 `ifndef NO_LUT
 module \$lut (A, Y);
 	parameter WIDTH = 0;
