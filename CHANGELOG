@@ -11,6 +11,9 @@ Yosys 0.14 .. Yosys 0.14-dev
     - Fixed elaboration of dynamic range assignments where the vector is
       reversed or is not zero-indexed
 
+ * SystemVerilog
+    - Added support for accessing whole sub-structures in expressions
+
 Yosys 0.13 .. Yosys 0.14
 --------------------------
 

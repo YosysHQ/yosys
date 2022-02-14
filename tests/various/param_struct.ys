@@ -41,8 +41,7 @@ always_comb begin
   assert(j == 1'b1);
   assert(k == 1'b0);
   assert(l == 3'b111);
-// TODO: support access to whole sub-structs and unions
-//  assert(m == 2'b10);
+  assert(m == 2'b10);
   assert(u == 5'b11001);
 end
 endmodule

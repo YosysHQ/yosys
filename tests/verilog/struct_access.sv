@@ -77,9 +77,8 @@ module top;
         `CHECK(s.y.a, 1, 0)
         `CHECK(s.y.b, 1, 1)
 
-        // TODO(zachjs): support access to whole sub-structs and unions
-        // `CHECK(s.x, 2, 0)
-        // `CHECK(s.y, 2, 1)
+        `CHECK(s.x, 2, 0)
+        `CHECK(s.y, 2, 1)
 
         assert (fail === 0);
     end
