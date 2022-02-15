@@ -1,0 +1,6 @@
+read_verilog aldff.v
+proc
+opt_dff
+stat
+select -assert-count 1 t:$aldff
+sim -clock clk -r tb_aldff.fst -scope tb_aldff.uut -sim-cmp aldff
