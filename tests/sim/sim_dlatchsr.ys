@@ -1,0 +1,10 @@
+read_verilog -icells <<EOT
+module dlatchsr(input d, set, clr, en, output reg q);
+$dlatchsr #(.EN_POLARITY(1'b1), .CLR_POLARITY(1'b1), .SET_POLARITY(1'b1), .WIDTH(1)) uut (.EN(en), .SET(set), .CLR(clr), .D(d), .Q(q));
+endmodule
+EOT
+proc
+opt_dff
+stat
+select -assert-count 1 t:$dlatchsr
+sim -r tb_dlatchsr.fst -scope tb_dlatchsr.uut -sim-cmp dlatchsr
