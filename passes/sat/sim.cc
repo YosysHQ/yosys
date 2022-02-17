@@ -77,7 +77,6 @@ struct SimShared
 	double stop_time = -1;
 	SimulationMode sim_mode = SimulationMode::sim;
 	bool cycles_set = false;
-	const pool<IdString> ff_types = RTLIL::builtin_ff_cell_types();
 };
 
 void zinit(State &v)
@@ -117,9 +116,9 @@ struct SimInstance
 	{
 		Const past_d;
 		Const past_ad;
-		SigSpec past_clk;
-		SigSpec past_ce;
-		SigSpec past_srst;
+		State past_clk;
+		State past_ce;
+		State past_srst;
 		
 		FfData data;
 	};
@@ -216,7 +215,7 @@ struct SimInstance
 					}
 			}
 
-			if (shared->ff_types.count(cell->type)) {
+			if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
 				FfData ff_data(nullptr, cell);
 				ff_state_t ff;
 				ff.past_d = Const(State::Sx, ff_data.width);
@@ -478,7 +477,7 @@ struct SimInstance
 		for (auto &it : ff_database)
 		{
 			ff_state_t &ff = it.second;
-			FfData ff_data = ff.data;
+			FfData &ff_data = ff.data;
 
 			if (ff_data.has_clk) {
 				// flip-flops
