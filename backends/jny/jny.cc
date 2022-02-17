@@ -137,6 +137,63 @@ struct JnyWriter
         f << "}\n";
     }
 
+    void write_sigspec(const RTLIL::SigSpec& sig, uint16_t indent_level = 0) {
+        const auto _indent = gen_indent(indent_level);
+
+        f << _indent << "  {\n";
+        f << _indent << "    \"width\": \"" << sig.size() << "\",\n";
+        f << _indent << "    \"type\": \"";
+
+        if (sig.is_wire()) {
+            f << "wire";
+        } else if (sig.is_chunk()) {
+            f << "chunk";
+        } else if (sig.is_bit()) {
+            f << "bit";
+        } else {
+            f << "unknown";
+        }
+        f << "\",\n";
+
+        f << _indent << "    \"const\": ";
+        if (sig.has_const()) {
+            f << "true";
+        } else {
+            f << "false";
+        }
+
+        f << "\n";
+
+        f << _indent << "  }";
+    }
+
+    void write_mod_conn(const std::pair<RTLIL::SigSpec, RTLIL::SigSpec>& conn, uint16_t indent_level = 0) {
+        const auto _indent = gen_indent(indent_level);
+        f << _indent << "  {\n";
+        f << _indent << "    \"signals\": [\n";
+
+        write_sigspec(conn.first, indent_level + 2);
+        f << ",\n";
+        write_sigspec(conn.second, indent_level + 2);
+        f << "\n";
+
+        f << _indent << "     ]\n";
+        f << _indent << "  }";
+    }
+
+    void write_cell_conn(const std::pair<RTLIL::IdString, RTLIL::SigSpec>& sig, uint16_t indent_level = 0) {
+        const auto _indent = gen_indent(indent_level);
+        f << _indent << "  {\n";
+        f << _indent << "    \"name\": " << get_string(RTLIL::unescape_id(sig.first)) << ",\n";
+        f << _indent << "    \"signals\": [\n";
+
+        write_sigspec(sig.second, indent_level + 2);
+        f << "\n";
+
+        f << _indent << "     ]\n";
+        f << _indent << "  }";
+    }
+
     void write_module(Module* mod, uint16_t indent_level = 0) {
         log_assert(mod != nullptr);
 
@@ -159,12 +216,22 @@ struct JnyWriter
 
         f << _indent << "  ]";
         if (_include_connections) {
-            f << _indent << ",\n  \"connections\": [\n";
+            f << ",\n" << _indent << "  \"connections\": [\n";
+
+            bool first_conn{true};
+            for (const auto& conn : mod->connections()) {
+                if (!first_conn)
+                    f << ",\n";
+
+                write_mod_conn(conn, indent_level + 2);
+
+                first_conn = false;
+            }
 
             f << _indent << "  ]";
         }
         if (_include_attributes) {
-            f << _indent << ",\n  \"attributes\": {\n";
+            f << ",\n" << _indent << "  \"attributes\": {\n";
 
             write_prams(mod->attributes, indent_level + 2);
 
@@ -271,8 +338,25 @@ struct JnyWriter
         f << _indent << "  {\n";
         f << stringf("    %s\"name\": %s", _indent.c_str(), get_string(RTLIL::unescape_id(cell->name)).c_str());
 
+        if (_include_connections) {
+            f << ",\n" << _indent << "    \"connections\": [\n";
+
+            bool first_conn{true};
+            for (const auto& conn : cell->connections()) {
+                if (!first_conn)
+                    f << ",\n";
+
+                write_cell_conn(conn, indent_level + 2);
+
+                first_conn = false;
+            }
+
+            f << "\n";
+            f << _indent << "    ]";
+        }
+
         if (_include_attributes) {
-            f << _indent << ",\n    \"attributes\": {\n";
+            f << ",\n" << _indent << "    \"attributes\": {\n";
 
             write_prams(cell->attributes, indent_level + 2);
 
@@ -281,7 +365,7 @@ struct JnyWriter
         }
 
         if (_include_properties) {
-            f << _indent << ",\n    \"parameters\": {\n";
+            f << ",\n" << _indent << "    \"parameters\": {\n";
 
             write_prams(cell->parameters, indent_level + 2);
 
