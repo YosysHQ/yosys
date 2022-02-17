@@ -24,6 +24,7 @@
 #include "kernel/cellaigs.h"
 #include "kernel/log.h"
 #include <string>
+#include <algorithm>
 #include <unordered_map>
 #include <vector>
 
@@ -42,18 +43,54 @@ struct JnyWriter
         bool _include_attributes;
         bool _include_properties;
 
-        // XXX(aki): this was pulled from the json backend, needs to be pulled
-        // out possibly into some sort of utilities file, or integrated into rtlil.h
-        // directly
-        string get_string(string str)
-        {
-            string newstr = "\"";
-            for (char c : str) {
-                if (c == '\\')
-                    newstr += c;
-                newstr += c;
+        string escape_string(string str) {
+            std::string newstr;
+
+            auto itr = str.begin();
+
+            for(; itr != str.end(); ++itr) {
+                switch (*itr) {
+                    case '\\': {
+                        newstr += *itr++;
+                        newstr += *itr;
+                        break;
+                    } case '\n': {
+                        newstr += "\\n";
+                        break;
+                    } case '\f': {
+                        newstr += "\\f";
+                        break;
+                    } case '\v': {
+                        newstr += "\\v";
+                        break;
+                    } case '\t': {
+                        newstr += "\\t";
+                        break;
+                    } case '\a': {
+                        newstr += "\\a";
+                        break;
+                    } case '\r': {
+                        newstr += "\\r";
+                        break;
+                    } case '\"': {
+                        newstr += "\\\"";
+                        break;
+                    } case '\'': {
+                        newstr += "\\\'";
+                        break;
+                    } case '\b': {
+                        newstr += "\\b";
+                        break;
+                    } case '\?': {
+                        newstr += "\\?";
+                        break;
+                    } default: {
+                        newstr += *itr;
+                    }
+                }
             }
-            return newstr + "\"";
+
+            return newstr;
         }
 
         // XXX(aki): I know this is far from ideal but i'm out of spoons and cant focus so
@@ -61,7 +98,7 @@ struct JnyWriter
         void coalesce_cells(Module* mod)
         {
             for (auto cell : mod->cells()) {
-                const auto cell_type = get_string(RTLIL::unescape_id(cell->type));
+                const auto cell_type = escape_string(RTLIL::unescape_id(cell->type));
 
                 if (_cells.find(cell_type) == _cells.end())
                     _cells.emplace(cell_type, std::vector<Cell*>());
@@ -94,7 +131,7 @@ struct JnyWriter
         design->sort();
 
         f << "{\n";
-        f << stringf("  \"generator\": %s,\n", get_string(yosys_version_str).c_str());
+        f << stringf("  \"generator\": \"%s\",\n", escape_string(yosys_version_str).c_str());
         // XXX(aki): Replace this with a proper version info eventually:tm:
         f << "  \"version\": \"0.0.0\",\n";
 
@@ -184,7 +221,7 @@ struct JnyWriter
     void write_cell_conn(const std::pair<RTLIL::IdString, RTLIL::SigSpec>& sig, uint16_t indent_level = 0) {
         const auto _indent = gen_indent(indent_level);
         f << _indent << "  {\n";
-        f << _indent << "    \"name\": " << get_string(RTLIL::unescape_id(sig.first)) << ",\n";
+        f << _indent << "    \"name\": \"" << escape_string(RTLIL::unescape_id(sig.first)) << "\",\n";
         f << _indent << "    \"signals\": [\n";
 
         write_sigspec(sig.second, indent_level + 2);
@@ -202,7 +239,7 @@ struct JnyWriter
         const auto _indent = gen_indent(indent_level);
 
         f << _indent << "{\n";
-        f << stringf("  %s\"name\": %s,\n", _indent.c_str(), get_string(RTLIL::unescape_id(mod->name)).c_str());
+        f << stringf("  %s\"name\": \"%s\",\n", _indent.c_str(), escape_string(RTLIL::unescape_id(mod->name)).c_str());
         f << _indent << "  \"cell_sorts\": [\n";
 
         bool first_sort{true};
@@ -250,7 +287,7 @@ struct JnyWriter
                 f << ",\n";
 
             f << _indent << "  {\n";
-            f << stringf("    %s\"name\": %s,\n", _indent.c_str(), get_string(RTLIL::unescape_id(con.first)).c_str());
+            f << stringf("    %s\"name\": \"%s\",\n", _indent.c_str(), escape_string(RTLIL::unescape_id(con.first)).c_str());
             f << _indent << "    \"direction\": \"";
             if (port_cell->input(con.first))
                 f << "i";
@@ -302,13 +339,13 @@ struct JnyWriter
 
             // XXX(aki): TODO, uh, yeah
 
-            f << get_string(str);
+            f << "\"" << escape_string(str) << "\"";
         } else if ((v.flags & RTLIL::ConstFlags::CONST_FLAG_SIGNED) == RTLIL::ConstFlags::CONST_FLAG_SIGNED) {
             f << stringf("\"%dsd %d\"", v.size(), v.as_int(true));
         } else if ((v.flags & RTLIL::ConstFlags::CONST_FLAG_REAL) == RTLIL::ConstFlags::CONST_FLAG_REAL) {
 
         } else {
-            f << get_string(v.as_string());
+            f << "\"" << escape_string(v.as_string()) << "\"";
         }
     }
 
@@ -321,10 +358,10 @@ struct JnyWriter
                 f << stringf(",\n");
             const auto param_val = param.second;
             if (!param_val.empty()) {
-                f << stringf("  %s%s: ", _indent.c_str(), get_string(RTLIL::unescape_id(param.first)).c_str());
+                f << stringf("  %s\"%s\": ", _indent.c_str(), escape_string(RTLIL::unescape_id(param.first)).c_str());
                 write_param_val(param_val);
             } else {
-                f << stringf("  %s%s: true", _indent.c_str(), get_string(RTLIL::unescape_id(param.first)).c_str());
+                f << stringf("  %s\"%s\": true", _indent.c_str(), escape_string(RTLIL::unescape_id(param.first)).c_str());
             }
 
             first_param = false;
@@ -336,7 +373,7 @@ struct JnyWriter
         log_assert(cell != nullptr);
 
         f << _indent << "  {\n";
-        f << stringf("    %s\"name\": %s", _indent.c_str(), get_string(RTLIL::unescape_id(cell->name)).c_str());
+        f << stringf("    %s\"name\": \"%s\"", _indent.c_str(), escape_string(RTLIL::unescape_id(cell->name)).c_str());
 
         if (_include_connections) {
             f << ",\n" << _indent << "    \"connections\": [\n";
