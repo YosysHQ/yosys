@@ -5,3 +5,4 @@
 /run-test.mk
 /plugin.so
 /plugin.so.dSYM
+/temp

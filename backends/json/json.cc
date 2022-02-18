@@ -52,8 +52,23 @@ struct JsonWriter
 		string newstr = "\"";
 		for (char c : str) {
 			if (c == '\\')
+				newstr += "\\\\";
+			else if (c == '"')
+				newstr += "\\\"";
+			else if (c == '\b')
+				newstr += "\\b";
+			else if (c == '\f')
+				newstr += "\\f";
+			else if (c == '\n')
+				newstr += "\\n";
+			else if (c == '\r')
+				newstr += "\\r";
+			else if (c == '\t')
+				newstr += "\\t";
+			else if (c < 0x20)
+				newstr += stringf("\\u%04X", c);
+			else
 				newstr += c;
-			newstr += c;
 		}
 		return newstr + "\"";
 	}

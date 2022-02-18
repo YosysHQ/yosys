@@ -60,10 +60,38 @@ struct JsonNode
 						break;
 
 					if (ch == '\\') {
-						int ch = f.get();
+						ch = f.get();
 
-						if (ch == EOF)
-							log_error("Unexpected EOF in JSON string.\n");
+						switch (ch) {
+							case EOF: log_error("Unexpected EOF in JSON string.\n"); break;
+							case '"':
+							case '/':
+							case '\\':           break;
+							case 'b': ch = '\b'; break;
+							case 'f': ch = '\f'; break;
+							case 'n': ch = '\n'; break;
+							case 'r': ch = '\r'; break;
+							case 't': ch = '\t'; break;
+							case 'u':
+								int val = 0;
+								for (int i = 0; i < 4; i++) {
+									ch = f.get();
+									val <<= 4;
+									if (ch >= '0' && '9' >= ch) {
+										val += ch - '0';
+									} else if (ch >= 'A' && 'F' >= ch) {
+										val += 10 + ch - 'A';
+									} else if (ch >= 'a' && 'f' >= ch) {
+										val += 10 + ch - 'a';
+									} else
+										log_error("Unexpected non-digit character in \\uXXXX sequence: %c.\n", ch);
+								}
+								if (val < 128)
+									ch = val;
+								else
+									log_error("Unsupported \\uXXXX sequence in JSON string: %04X.\n", val);
+								break;
+						}
 					}
 
 					data_string += ch;
