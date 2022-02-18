@@ -479,136 +479,60 @@ struct SimInstance
 			ff_state_t &ff = it.second;
 			FfData &ff_data = ff.data;
 
+			Const current_q = get_state(ff.data.sig_q);
+
 			if (ff_data.has_clk) {
 				// flip-flops
 				State current_clk = get_state(ff_data.sig_clk)[0];
-
-				// handle set/reset
-				if (ff.data.has_sr) {
-					Const current_q = get_state(ff.data.sig_q);
-					Const current_clr = get_state(ff.data.sig_clr);
-					Const current_set = get_state(ff.data.sig_set);
-
-					for(int i=0;i<ff.past_d.size();i++) {
-						
-						if (current_clr[i] == (ff_data.pol_clr ? State::S1 : State::S0)) {
-							current_q[i] = State::S0;
-						}
-						else if (current_set[i] == (ff_data.pol_set ? State::S1 : State::S0)) {
-							current_q[i] = State::S1;
-						} else {
-							// all below is in sync with clk
-							if (ff_data.pol_clk ? (ff.past_clk == State::S1 || current_clk != State::S1) :
-									(ff.past_clk == State::S0 || current_clk != State::S0))
-								continue;
-
-							if (ff_data.has_ce) {
-								if (ff.past_ce == (ff_data.pol_ce ? State::S1 : State::S0))
-									current_q[i] = ff.past_d[i];
-							} else {
-								current_q[i] = ff.past_d[i];
-							}
-						}
-					}
-					if (set_state(ff_data.sig_q, current_q))
-						did_something = true;
-				} else {
-					// async reset
-					if (ff_data.has_arst) {
-						State current_arst = get_state(ff_data.sig_arst)[0];
-						if (current_arst == (ff_data.pol_arst ? State::S1 : State::S0)) {
-							if (set_state(ff_data.sig_q, ff_data.val_arst))
-								did_something = true;
-							continue;
-						}
-					}
-					// async load
-					if (ff_data.has_aload) {
-						State current_aload = get_state(ff_data.sig_aload)[0];
-						if (current_aload == (ff_data.pol_aload ? State::S1 : State::S0)) {
-							if (set_state(ff_data.sig_q, ff.past_ad))
-								did_something = true;
-							continue;
-						}
-					}
-
-					// all below is in sync with clk
-					if (ff_data.pol_clk ? (ff.past_clk == State::S1 || current_clk != State::S1) :
-							(ff.past_clk == State::S0 || current_clk != State::S0))
-						continue;
-
+				if (ff_data.pol_clk ? (ff.past_clk == State::S0 && current_clk != State::S0) :
+							(ff.past_clk == State::S1 && current_clk != State::S1)) {
+					bool ce = ff.past_ce == (ff_data.pol_ce ? State::S1 : State::S0);
 					// chip enable priority over reset
-					if (ff_data.ce_over_srst && ff_data.has_ce) {
-						if (ff.past_ce != (ff_data.pol_ce ? State::S1 : State::S0))
-							continue;
+					if (ff_data.ce_over_srst && ff_data.has_ce && !ce) continue;
+					// set if no ce, or ce is enabled
+					if (!ff_data.has_ce || (ff_data.has_ce && ce)) {
+						current_q = ff.past_d;
 					}
-
-					// handle sync reset
-					if (ff_data.has_srst) {
-						if (ff.past_srst == (ff_data.pol_srst ? State::S1 : State::S0)) {
-							if (set_state(ff_data.sig_q, ff_data.val_srst))
-								did_something = true;
-							continue;
-						}
+					// override if sync reset
+					if ((ff_data.has_srst) && (ff.past_srst == (ff_data.pol_srst ? State::S1 : State::S0))) {
+						current_q = ff_data.val_srst;
 					}
-
-					// reset had priority over chip enable
-					if (!ff_data.ce_over_srst && ff_data.has_ce) {
-						if (ff.past_ce != (ff_data.pol_ce ? State::S1 : State::S0))
-							continue;
-					}
-					if (set_state(ff_data.sig_q, ff.past_d))
-						did_something = true;
-				}
-			} else {
-				// handle set/reset
-				if (ff.data.has_sr) {
-					Const current_q = get_state(ff.data.sig_q);
-					Const current_clr = get_state(ff.data.sig_clr);
-					Const current_set = get_state(ff.data.sig_set);
-
-					for(int i=0;i<current_q.size();i++) {
-						if (current_clr[i] == (ff_data.pol_clr ? State::S1 : State::S0)) {
-							current_q[i] = State::S0;
-						}
-						else if (current_set[i] == (ff_data.pol_set ? State::S1 : State::S0)) {
-							current_q[i] = State::S1;
-						} else {
-							if (ff_data.has_aload) {
-								Const current_ad = get_state(ff.data.sig_ad);
-								State current_aload = get_state(ff_data.sig_aload)[0];
-								if (current_aload == (ff_data.pol_aload ? State::S1 : State::S0)) {
-									current_q[i] = current_ad[i];
-								}
-							}
-						}
-					}
-					if (set_state(ff_data.sig_q, current_q))
-						did_something = true;
-				}
-				// async load is true for all latches
-				else if (ff_data.has_aload) {
-					// async reset
-					if (ff_data.has_arst) {
-						State current_arst = get_state(ff_data.sig_arst)[0];
-						if (current_arst == (ff_data.pol_arst ? State::S1 : State::S0)) {
-							if (set_state(ff_data.sig_q, ff_data.val_arst))
-								did_something = true;
-							continue;
-						}
-					}
-
-					State current_aload = get_state(ff_data.sig_aload)[0];
-					if (current_aload == (ff_data.pol_aload ? State::S1 : State::S0)) {
-						if (set_state(ff_data.sig_q, get_state(ff.data.sig_ad)))
-							did_something = true;
-					}
-				} else if (ff_data.has_gclk) {
-					// $ff
-					if (set_state(ff_data.sig_q, ff.past_d))
-						did_something = true;
 				}
 			}
+			// async load
+			if (ff_data.has_aload) {
+				State current_aload = get_state(ff_data.sig_aload)[0];
+				if (current_aload == (ff_data.pol_aload ? State::S1 : State::S0)) {
+					current_q = ff_data.has_clk ? ff.past_ad : get_state(ff.data.sig_ad);
+				}
+			}
+			// async reset
+			if (ff_data.has_arst) {
+				State current_arst = get_state(ff_data.sig_arst)[0];
+				if (current_arst == (ff_data.pol_arst ? State::S1 : State::S0)) {
+					current_q = ff_data.val_arst;
+				}
+			}
+			// handle set/reset
+			if (ff.data.has_sr) {
+				Const current_clr = get_state(ff.data.sig_clr);
+				Const current_set = get_state(ff.data.sig_set);
+
+				for(int i=0;i<ff.past_d.size();i++) {
+					if (current_clr[i] == (ff_data.pol_clr ? State::S1 : State::S0)) {
+						current_q[i] = State::S0;
+					}
+					else if (current_set[i] == (ff_data.pol_set ? State::S1 : State::S0)) {
+						current_q[i] = State::S1;
+					}
+				}
+			}
+			if (ff_data.has_gclk) {
+				// $ff
+				current_q = ff.past_d;
+			}
+			if (set_state(ff_data.sig_q, current_q))
+				did_something = true;
 		}
 
 		for (auto &it : mem_database)
