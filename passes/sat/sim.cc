@@ -802,6 +802,18 @@ struct SimInstance
 			child.second->setInitState();
 	}
 
+	void setState(std::vector<std::pair<SigBit,bool>> bits, std::string values)
+	{
+		for(size_t i=0;i<bits.size();i++) {
+			switch(values.at(i)) {
+				case '0' : set_state(bits.at(i).first,bits.at(i).second ? State::S1 : State::S0); break;
+				case '1' : set_state(bits.at(i).first,bits.at(i).second ? State::S0 : State::S1); break;
+				default: 
+					set_state(bits.at(i).first,State::Sx); break;
+			}
+		}
+	}
+
 	bool checkSignals()
 	{
 		bool retVal = false;
@@ -850,6 +862,7 @@ struct SimWorker : SimShared
 	pool<IdString> clock, clockn, reset, resetn;
 	std::string timescale;
 	std::string sim_filename;
+	std::string map_filename;
 	std::string scope;
 
 	~SimWorker()
@@ -1147,6 +1160,73 @@ struct SimWorker : SimShared
 			top->writeback(wbmods);
 		}
 	}
+
+	void run_cosim_witness(Module *topmod)
+	{
+		log_assert(top == nullptr);
+		std::ifstream mf(map_filename);
+		std::string type, symbol;
+		int variable, index;
+		std::vector<std::pair<SigBit,bool>> inputs;
+		std::vector<std::pair<SigBit,bool>> latches;
+		while (mf >> type >> variable >> index >> symbol) {
+			RTLIL::IdString escaped_s = RTLIL::escape_id(symbol);
+			Wire *w = topmod->wire(escaped_s);
+			if (!w)
+				log_error("Wire %s not present in module %s\n",log_signal(w),log_id(topmod));
+			if (index < w->start_offset || index > w->start_offset + w->width)
+				log_error("Index %d for wire %s is out of range\n", index, log_signal(w));
+			if (type == "input") {
+				inputs.emplace_back(SigBit(w,index),false);
+			} else if (type == "latch") {
+				latches.emplace_back(SigBit(w,index),false);
+			} else if (type == "invlatch") {
+				latches.emplace_back(SigBit(w,index),true);
+			}
+		}
+
+		std::ifstream f;
+		f.open(sim_filename.c_str());
+		if (f.fail() || GetSize(sim_filename) == 0)
+			log_error("Can not open file `%s`\n", sim_filename.c_str());
+
+		bool init = true;
+		int cycle = 0;
+		top = new SimInstance(this, scope, topmod);
+		while (!f.eof())
+		{
+			std::string line;
+			std::getline(f, line);
+			if (line.size()==0 || line[0]=='#') continue;
+			log("Simulating cycle %d.\n", cycle);
+			if (init) {
+				if (line.size()!=latches.size())
+					log_error("Wrong number of initialization bits in file.\n");
+				write_output_header();
+				top->setState(latches, line);
+				set_inports(clock, State::S0);
+				set_inports(clockn, State::S1);
+				update();
+				write_output_step(0);
+				init = false;
+			} else {
+				if (line.size()!=inputs.size())
+					log_error("Wrong number of input data bits in file.\n");
+				top->setState(inputs, line);
+				set_inports(clock, State::S1);
+				set_inports(clockn, State::S0);
+				update();
+				write_output_step(10*cycle);
+				set_inports(clock, State::S0);
+				set_inports(clockn, State::S1);
+				update();
+				write_output_step(10*cycle + 5);
+			}
+			cycle++;
+		}
+		write_output_step(10*cycle);
+		write_output_end();
+	}
 };
 
 struct SimPass : public Pass {
@@ -1197,6 +1277,9 @@ struct SimPass : public Pass {
 		log("\n");
 		log("    -r\n");
 		log("        read simulation results file (file formats supported: FST)\n");
+		log("\n");
+		log("    -map <filename>\n");
+		log("        read file with port and latch symbols, needed for AIGER witness input\n");
 		log("\n");
 		log("    -scope\n");
 		log("        scope of simulation top model\n");
@@ -1299,6 +1382,12 @@ struct SimPass : public Pass {
 				worker.sim_filename = sim_filename;
 				continue;
 			}
+			if (args[argidx] == "-map" && argidx+1 < args.size()) {
+				std::string map_filename = args[++argidx];
+				rewrite_filename(map_filename);
+				worker.map_filename = map_filename;
+				continue;
+			}
 			if (args[argidx] == "-scope" && argidx+1 < args.size()) {
 				worker.scope = args[++argidx];
 				continue;
@@ -1360,7 +1449,10 @@ struct SimPass : public Pass {
 		if (worker.sim_filename.empty())
 			worker.run(top_mod, numcycles);
 		else
-			worker.run_cosim(top_mod, numcycles);
+			if (worker.map_filename.empty())
+				worker.run_cosim(top_mod, numcycles);
+			else
+				worker.run_cosim_witness(top_mod);
 	}
 } SimPass;
 
