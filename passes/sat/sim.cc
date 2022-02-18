@@ -1198,31 +1198,34 @@ struct SimWorker : SimShared
 			std::string line;
 			std::getline(f, line);
 			if (line.size()==0 || line[0]=='#') continue;
-			log("Simulating cycle %d.\n", cycle);
 			if (init) {
 				if (line.size()!=latches.size())
 					log_error("Wrong number of initialization bits in file.\n");
 				write_output_header();
 				top->setState(latches, line);
-				set_inports(clock, State::S0);
-				set_inports(clockn, State::S1);
-				update();
-				write_output_step(0);
 				init = false;
 			} else {
+				log("Simulating cycle %d.\n", cycle);
 				if (line.size()!=inputs.size())
 					log_error("Wrong number of input data bits in file.\n");
 				top->setState(inputs, line);
-				set_inports(clock, State::S1);
-				set_inports(clockn, State::S0);
+				if (cycle) {
+					set_inports(clock, State::S1);
+					set_inports(clockn, State::S0);
+				} else {
+					set_inports(clock, State::S0);
+					set_inports(clockn, State::S1);
+				}
 				update();
 				write_output_step(10*cycle);
-				set_inports(clock, State::S0);
-				set_inports(clockn, State::S1);
-				update();
-				write_output_step(10*cycle + 5);
+				if (cycle) {
+					set_inports(clock, State::S0);
+					set_inports(clockn, State::S1);
+					update();
+					write_output_step(10*cycle + 5);
+				}
+				cycle++;
 			}
-			cycle++;
 		}
 		write_output_step(10*cycle);
 		write_output_end();
