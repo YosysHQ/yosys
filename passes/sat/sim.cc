@@ -487,14 +487,13 @@ struct SimInstance
 				if (ff_data.pol_clk ? (ff.past_clk == State::S0 && current_clk != State::S0) :
 							(ff.past_clk == State::S1 && current_clk != State::S1)) {
 					bool ce = ff.past_ce == (ff_data.pol_ce ? State::S1 : State::S0);
-					// chip enable priority over reset
-					if (ff_data.ce_over_srst && ff_data.has_ce && !ce) continue;
 					// set if no ce, or ce is enabled
 					if (!ff_data.has_ce || (ff_data.has_ce && ce)) {
 						current_q = ff.past_d;
 					}
 					// override if sync reset
-					if ((ff_data.has_srst) && (ff.past_srst == (ff_data.pol_srst ? State::S1 : State::S0))) {
+					if ((ff_data.has_srst) && (ff.past_srst == (ff_data.pol_srst ? State::S1 : State::S0)) &&
+						((!ff_data.ce_over_srst) || (ff_data.ce_over_srst && ce))) {
 						current_q = ff_data.val_srst;
 					}
 				}
