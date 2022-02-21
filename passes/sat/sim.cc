@@ -22,6 +22,7 @@
 #include "kernel/celltypes.h"
 #include "kernel/mem.h"
 #include "kernel/fstdata.h"
+#include "kernel/ff.h"
 
 #include <ctime>
 
@@ -113,8 +114,13 @@ struct SimInstance
 
 	struct ff_state_t
 	{
-		State past_clock;
 		Const past_d;
+		Const past_ad;
+		State past_clk;
+		State past_ce;
+		State past_srst;
+		
+		FfData data;
 	};
 
 	struct mem_state_t
@@ -209,10 +215,15 @@ struct SimInstance
 					}
 			}
 
-			if (cell->type.in(ID($dff))) {
+			if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
+				FfData ff_data(nullptr, cell);
 				ff_state_t ff;
-				ff.past_clock = State::Sx;
-				ff.past_d = Const(State::Sx, cell->getParam(ID::WIDTH).as_int());
+				ff.past_d = Const(State::Sx, ff_data.width);
+				ff.past_ad = Const(State::Sx, ff_data.width);
+				ff.past_clk = State::Sx;
+				ff.past_ce = State::Sx;
+				ff.past_srst = State::Sx;
+				ff.data = ff_data;
 				ff_database[cell] = ff;
 			}
 
@@ -229,11 +240,10 @@ struct SimInstance
 		{
 			for (auto &it : ff_database)
 			{
-				Cell *cell = it.first;
 				ff_state_t &ff = it.second;
 				zinit(ff.past_d);
 
-				SigSpec qsig = cell->getPort(ID::Q);
+				SigSpec qsig = it.second.data.sig_q;
 				Const qdata = get_state(qsig);
 				zinit(qdata);
 				set_state(qsig, qdata);
@@ -466,21 +476,62 @@ struct SimInstance
 
 		for (auto &it : ff_database)
 		{
-			Cell *cell = it.first;
 			ff_state_t &ff = it.second;
+			FfData &ff_data = ff.data;
 
-			if (cell->type.in(ID($dff)))
-			{
-				bool clkpol = cell->getParam(ID::CLK_POLARITY).as_bool();
-				State current_clock = get_state(cell->getPort(ID::CLK))[0];
+			Const current_q = get_state(ff.data.sig_q);
 
-				if (clkpol ? (ff.past_clock == State::S1 || current_clock != State::S1) :
-						(ff.past_clock == State::S0 || current_clock != State::S0))
-					continue;
-
-				if (set_state(cell->getPort(ID::Q), ff.past_d))
-					did_something = true;
+			if (ff_data.has_clk) {
+				// flip-flops
+				State current_clk = get_state(ff_data.sig_clk)[0];
+				if (ff_data.pol_clk ? (ff.past_clk == State::S0 && current_clk != State::S0) :
+							(ff.past_clk == State::S1 && current_clk != State::S1)) {
+					bool ce = ff.past_ce == (ff_data.pol_ce ? State::S1 : State::S0);
+					// set if no ce, or ce is enabled
+					if (!ff_data.has_ce || (ff_data.has_ce && ce)) {
+						current_q = ff.past_d;
+					}
+					// override if sync reset
+					if ((ff_data.has_srst) && (ff.past_srst == (ff_data.pol_srst ? State::S1 : State::S0)) &&
+						((!ff_data.ce_over_srst) || (ff_data.ce_over_srst && ce))) {
+						current_q = ff_data.val_srst;
+					}
+				}
 			}
+			// async load
+			if (ff_data.has_aload) {
+				State current_aload = get_state(ff_data.sig_aload)[0];
+				if (current_aload == (ff_data.pol_aload ? State::S1 : State::S0)) {
+					current_q = ff_data.has_clk ? ff.past_ad : get_state(ff.data.sig_ad);
+				}
+			}
+			// async reset
+			if (ff_data.has_arst) {
+				State current_arst = get_state(ff_data.sig_arst)[0];
+				if (current_arst == (ff_data.pol_arst ? State::S1 : State::S0)) {
+					current_q = ff_data.val_arst;
+				}
+			}
+			// handle set/reset
+			if (ff.data.has_sr) {
+				Const current_clr = get_state(ff.data.sig_clr);
+				Const current_set = get_state(ff.data.sig_set);
+
+				for(int i=0;i<ff.past_d.size();i++) {
+					if (current_clr[i] == (ff_data.pol_clr ? State::S1 : State::S0)) {
+						current_q[i] = State::S0;
+					}
+					else if (current_set[i] == (ff_data.pol_set ? State::S1 : State::S0)) {
+						current_q[i] = State::S1;
+					}
+				}
+			}
+			if (ff_data.has_gclk) {
+				// $ff
+				current_q = ff.past_d;
+			}
+			if (set_state(ff_data.sig_q, current_q))
+				did_something = true;
 		}
 
 		for (auto &it : mem_database)
@@ -538,13 +589,22 @@ struct SimInstance
 	{
 		for (auto &it : ff_database)
 		{
-			Cell *cell = it.first;
 			ff_state_t &ff = it.second;
 
-			if (cell->type.in(ID($dff))) {
-				ff.past_clock = get_state(cell->getPort(ID::CLK))[0];
-				ff.past_d = get_state(cell->getPort(ID::D));
-			}
+			if (ff.data.has_aload)
+				ff.past_ad = get_state(ff.data.sig_ad);
+
+			if (ff.data.has_clk || ff.data.has_gclk)
+				ff.past_d = get_state(ff.data.sig_d);
+
+			if (ff.data.has_clk)
+				ff.past_clk = get_state(ff.data.sig_clk)[0];
+
+			if (ff.data.has_ce)
+				ff.past_ce = get_state(ff.data.sig_ce)[0];
+
+			if (ff.data.has_srst)
+				ff.past_srst = get_state(ff.data.sig_srst)[0];
 		}
 
 		for (auto &it : mem_database)
@@ -595,8 +655,7 @@ struct SimInstance
 
 		for (auto &it : ff_database)
 		{
-			Cell *cell = it.first;
-			SigSpec sig_q = cell->getPort(ID::Q);
+			SigSpec sig_q = it.second.data.sig_q;
 			Const initval = get_state(sig_q);
 
 			for (int i = 0; i < GetSize(sig_q); i++)
@@ -722,34 +781,32 @@ struct SimInstance
 			child.second->write_fst_step(f);
 	}
 
-	void setInitState(uint64_t time)
+	void setInitState()
 	{
 		for (auto &it : ff_database)
 		{
-			Cell *cell = it.first;
-			
-			SigSpec qsig = cell->getPort(ID::Q);
+			SigSpec qsig = it.second.data.sig_q;
 			if (qsig.is_wire()) {
 				IdString name = qsig.as_wire()->name;
 				fstHandle id = shared->fst->getHandle(scope + "." + RTLIL::unescape_id(name));
 				if (id==0 && name.isPublic())
 					log_warning("Unable to found wire %s in input file.\n", (scope + "." + RTLIL::unescape_id(name)).c_str());
 				if (id!=0) {
-					Const fst_val = Const::from_string(shared->fst->valueAt(id, time));
+					Const fst_val = Const::from_string(shared->fst->valueOf(id));
 					set_state(qsig, fst_val);
 				}
 			}
 		}
 		for (auto child : children)
-			child.second->setInitState(time);
+			child.second->setInitState();
 	}
 
-	bool checkSignals(uint64_t time)
+	bool checkSignals()
 	{
 		bool retVal = false;
 		for(auto &item : fst_handles) {
 			if (item.second==0) continue; // Ignore signals not found
-			Const fst_val = Const::from_string(shared->fst->valueAt(item.second, time));
+			Const fst_val = Const::from_string(shared->fst->valueOf(item.second));
 			Const sim_val = get_state(item.first);
 			if (sim_val.size()!=fst_val.size())
 				log_error("Signal '%s' size is different in gold and gate.\n", log_id(item.first));
@@ -779,7 +836,7 @@ struct SimInstance
 			}
 		}
 		for (auto child : children)
-			retVal |= child.second->checkSignals(time);
+			retVal |= child.second->checkSignals();
 		return retVal;
 	}
 };
@@ -998,8 +1055,6 @@ struct SimWorker : SimShared
 				log_error("Can't find port %s.%s in FST.\n", scope.c_str(), log_id(portname));
 			fst_clock.push_back(id);
 		}
-		if (fst_clock.size()==0)
-			log_error("No clock signals defined for input file\n");
 
 		SigMap sigmap(topmod);
 		std::map<Wire*,fstHandle> inputs;
@@ -1044,37 +1099,48 @@ struct SimWorker : SimShared
 		if (stopCount<startCount) {
 			log_error("Stop time is before start time\n");
 		}
-		auto samples = fst->getAllEdges(fst_clock, startCount, stopCount);
 
-		// Limit to number of cycles if provided
-		if (cycles_set && ((size_t)(numcycles *2) < samples.size()))
-			samples.erase(samples.begin() + (numcycles*2), samples.end());
-
-		// Add setup time (start time)
-		if (samples.empty() || samples.front()!=startCount)
-			samples.insert(samples.begin(), startCount);
-
-		fst->reconstructAllAtTimes(samples);
 		bool initial = true;
 		int cycle = 0;
-		log("Co-simulation from %lu%s to %lu%s\n", (unsigned long)startCount, fst->getTimescaleString(), (unsigned long)stopCount, fst->getTimescaleString());
-		for(auto &time : samples) {
-			log("Co-simulating cycle %d [%lu%s].\n", cycle, (unsigned long)time, fst->getTimescaleString());
-			for(auto &item : inputs) {
-				std::string v = fst->valueAt(item.second, time);
-				top->set_state(item.first, Const::from_string(v));
-			}
-			if (initial) {
-				top->setInitState(time);
-				initial = false;
-			}
-			update();
+		log("Co-simulation from %lu%s to %lu%s", (unsigned long)startCount, fst->getTimescaleString(), (unsigned long)stopCount, fst->getTimescaleString());
+		if (cycles_set) 
+			log(" for %d clock cycle(s)",numcycles);
+		log("\n");
+		bool all_samples = fst_clock.empty();
 
-			bool status = top->checkSignals(time);
-			if (status)
-				log_error("Signal difference\n");
-			cycle++;
+		try {
+			fst->reconstructAllAtTimes(fst_clock, startCount, stopCount, [&](uint64_t time) {
+				log("Co-simulating %s %d [%lu%s].\n", (all_samples ? "sample" : "cycle"), cycle, (unsigned long)time, fst->getTimescaleString());
+				for(auto &item : inputs) {
+					std::string v = fst->valueOf(item.second);
+					top->set_state(item.first, Const::from_string(v));
+				}
+
+				if (initial) {
+					top->setInitState();
+					write_output_header();
+					initial = false;
+				}
+				update();
+				write_output_step(5*cycle);
+
+				bool status = top->checkSignals();
+				if (status)
+					log_error("Signal difference\n");
+				cycle++;
+
+				// Limit to number of cycles if provided
+				if (cycles_set && cycle > numcycles *2)
+					throw fst_end_of_data_exception();
+				if (time==stopCount)
+					throw fst_end_of_data_exception();
+			});
+		} catch(fst_end_of_data_exception) {
+			// end of data detected
 		}
+		write_output_step(5*(cycle-1)+2);
+		write_output_end();
+
 		if (writeback) {
 			pool<Module*> wbmods;
 			top->writeback(wbmods);

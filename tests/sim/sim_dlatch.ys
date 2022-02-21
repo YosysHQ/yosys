@@ -1,0 +1,6 @@
+read_verilog dlatch.v
+proc
+opt_dff
+stat
+select -assert-count 1 t:$dlatch
+sim -r tb_dlatch.fst -scope tb_dlatch.uut -sim-cmp dlatch

@@ -25,6 +25,9 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+typedef std::function<void(uint64_t)> CallbackFunction;
+struct fst_end_of_data_exception { };
+
 struct FstVar
 {
 	fstHandle id;
@@ -45,14 +48,10 @@ class FstData
 
 	std::vector<FstVar>& getVars() { return vars; };
 
-	void reconstruct_edges_callback(uint64_t pnt_time, fstHandle pnt_facidx, const unsigned char *pnt_value, uint32_t plen);
-	std::vector<uint64_t> getAllEdges(std::vector<fstHandle> &signal, uint64_t start_time, uint64_t end_time);
-
 	void reconstruct_callback_attimes(uint64_t pnt_time, fstHandle pnt_facidx, const unsigned char *pnt_value, uint32_t plen);
-	void reconstructAtTimes(std::vector<fstHandle> &signal,std::vector<uint64_t> time);
-	void reconstructAllAtTimes(std::vector<uint64_t> time);
+	void reconstructAllAtTimes(std::vector<fstHandle> &signal, uint64_t start_time, uint64_t end_time, CallbackFunction cb);
 
-	std::string valueAt(fstHandle signal, uint64_t time);
+	std::string valueOf(fstHandle signal);
 	fstHandle getHandle(std::string name);
 	double getTimescale() { return timescale; }
 	const char *getTimescaleString() { return timescale_str.c_str(); }
@@ -64,16 +63,17 @@ private:
 	std::vector<FstVar> vars;
 	std::map<fstHandle, FstVar> handle_to_var;
 	std::map<std::string, fstHandle> name_to_handle;
-	std::map<fstHandle, std::vector<std::pair<uint64_t, std::string>>> handle_to_data;
 	std::map<fstHandle, std::string> last_data;
-	std::map<fstHandle, std::map<uint64_t, size_t>> time_to_index;
-	std::vector<uint64_t> sample_times;
-	size_t sample_times_ndx;
+	uint64_t last_time;
+	std::map<fstHandle, std::string> past_data;
+	uint64_t past_time;
 	double timescale;
 	std::string timescale_str;
 	uint64_t start_time;
 	uint64_t end_time;
-	std::vector<uint64_t> edges;
+	CallbackFunction callback;
+	std::vector<fstHandle> clk_signals;
+	bool all_samples;
 };
 
 YOSYS_NAMESPACE_END

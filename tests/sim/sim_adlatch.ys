@@ -1,0 +1,10 @@
+read_verilog -icells <<EOT
+module adlatch(input d, rst, en, output reg q);
+$adlatch #(.EN_POLARITY(1'b1), .ARST_POLARITY(1'b1), .ARST_VALUE(1'b0), .WIDTH(1)) uut (.EN(en), .ARST(rst), .D(d), .Q(q));
+endmodule
+EOT
+proc
+opt_dff
+stat
+select -assert-count 1 t:$adlatch
+sim -r tb_adlatch.fst -scope tb_adlatch.uut -sim-cmp adlatch
