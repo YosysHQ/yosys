@@ -5,6 +5,10 @@ List of major changes and improvements between releases
 Yosys 0.16 .. Yosys 0.16-dev
 --------------------------
 
+ * SystemVerilog
+    - Fixed automatic `nosync` inference for local variables in `always_comb`
+      procedures not applying to nested blocks and blocks in functions
+
 Yosys 0.15 .. Yosys 0.16
 --------------------------
  * Various
