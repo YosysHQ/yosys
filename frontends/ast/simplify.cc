@@ -744,6 +744,16 @@ static void mark_auto_nosync(AstNode *block, const AstNode *wire)
 			false);
 }
 
+// block names can be prefixed with an explicit scope during elaboration
+static bool is_autonamed_block(const std::string &str) {
+	size_t last_dot = str.rfind('.');
+	// unprefixed names: autonamed if the first char is a dollar sign
+	if (last_dot == std::string::npos)
+		return str.at(0) == '$'; // e.g., `$fordecl_block$1`
+	// prefixed names: autonamed if the final chunk begins with a dollar sign
+	return str.rfind(".$") == last_dot; // e.g., `\foo.bar.$fordecl_block$1`
+}
+
 // check a procedural block for auto-nosync markings, remove them, and add
 // nosync to local variables as necessary
 static void check_auto_nosync(AstNode *node)
@@ -2355,7 +2365,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 		// if this is an autonamed block is in an always_comb
 		if (current_always && current_always->attributes.count(ID::always_comb)
-				&& str.at(0) == '$')
+				&& is_autonamed_block(str))
 			// track local variables in this block so we can consider adding
 			// nosync once the block has been fully elaborated
 			for (AstNode *child : children)
