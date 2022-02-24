@@ -64,14 +64,8 @@ struct JnyWriter
                     } case '\f': {
                         newstr += "\\f";
                         break;
-                    } case '\v': {
-                        newstr += "\\v";
-                        break;
                     } case '\t': {
                         newstr += "\\t";
-                        break;
-                    } case '\a': {
-                        newstr += "\\a";
                         break;
                     } case '\r': {
                         newstr += "\\r";
@@ -79,14 +73,8 @@ struct JnyWriter
                     } case '\"': {
                         newstr += "\\\"";
                         break;
-                    } case '\'': {
-                        newstr += "\\\'";
-                        break;
                     } case '\b': {
                         newstr += "\\b";
-                        break;
-                    } case '\?': {
-                        newstr += "\\?";
                         break;
                     } default: {
                         newstr += *itr;
