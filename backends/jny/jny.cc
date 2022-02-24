@@ -120,8 +120,8 @@ struct JnyWriter
 
     public:
     JnyWriter(std::ostream &f, bool use_selection, bool connections, bool attributes, bool properties) noexcept:
-        f{f}, _use_selection{use_selection},
-        _include_connections{connections}, _include_attributes{attributes}, _include_properties{properties}
+        f(f), _use_selection(use_selection),
+        _include_connections(connections), _include_attributes(attributes), _include_properties(properties)
          { }
 
     void write_metadata(Design *design, uint16_t indent_level = 0)
