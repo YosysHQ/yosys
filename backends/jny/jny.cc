@@ -37,6 +37,10 @@ struct JnyWriter
     private:
         std::ostream &f;
         bool _use_selection;
+
+        // XXX(aki): TODO: this needs to be updated to us
+        // dict<T, V> and then coalesce_cells needs to be updated
+        // but for now for the PoC this looks to be sufficient
         std::unordered_map<std::string, std::vector<Cell*>> _cells{};
 
         bool _include_connections;
@@ -417,6 +421,7 @@ struct JnyWriter
 struct JnyBackend : public Backend {
     JnyBackend() : Backend("jny", "generate design metadata") { }
     void help() override {
+        // XXX(aki): TODO: explicitly document the JSON schema
         //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
         log("\n");
         log("    jny [options] [selection]\n");
