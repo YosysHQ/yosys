@@ -1125,7 +1125,7 @@ struct SimWorker : SimShared
 		try {
 			fst->reconstructAllAtTimes(fst_clock, startCount, stopCount, [&](uint64_t time) {
 				log("Co-simulating %s %d [%lu%s].\n", (all_samples ? "sample" : "cycle"), cycle, (unsigned long)time, fst->getTimescaleString());
-				bool did_something = time < stopCount;  // FIXME
+				bool did_something = false;
 				for(auto &item : inputs) {
 					std::string v = fst->valueOf(item.second);
 					did_something |= top->set_state(item.first, Const::from_string(v));
@@ -1138,8 +1138,6 @@ struct SimWorker : SimShared
 				}
 				if (did_something)
 					update();
-				else
-					log("nothing to update.\n");
 				write_output_step(time);
 
 				bool status = top->checkSignals();
