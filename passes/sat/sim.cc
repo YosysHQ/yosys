@@ -1192,7 +1192,8 @@ struct SimWorker : SimShared
 		if (f.fail() || GetSize(sim_filename) == 0)
 			log_error("Can not open file `%s`\n", sim_filename.c_str());
 
-		bool init = true;
+		int state = 0;
+		std::string status;
 		int cycle = 0;
 		top = new SimInstance(this, scope, topmod);
 		while (!f.eof())
@@ -1200,30 +1201,50 @@ struct SimWorker : SimShared
 			std::string line;
 			std::getline(f, line);
 			if (line.size()==0 || line[0]=='#') continue;
-			if (init) {
+			if (line[0]=='.') break;
+			if (state==0 && line.size()!=1) {
+				// old format detected, latch data
+				state = 2;
+			}
+			if (state==1 && line[0]!='b' && line[0]!='c') {
 				write_output_header();
-				top->setState(latches, line);
-				init = false;
-			} else {
-				log("Simulating cycle %d.\n", cycle);
-				top->setState(inputs, line);
-				if (cycle) {
-					set_inports(clock, State::S1);
-					set_inports(clockn, State::S0);
-				} else {
-					top->setState(inits, line);
-					set_inports(clock, State::S0);
-					set_inports(clockn, State::S1);
-				}
-				update();
-				write_output_step(10*cycle);
-				if (cycle) {
-					set_inports(clock, State::S0);
-					set_inports(clockn, State::S1);
+				// was old format but with 1 bit latch
+				top->setState(latches, status);
+				state = 3;
+			}
+
+			switch(state)
+			{
+				case 0:
+					status = line;
+					state = 1;
+					break;
+				case 1:
+					state = 2;
+					break;
+				case 2:
+					write_output_header();
+					top->setState(latches, line);
+					break;
+				default:
+					if (cycle) {
+						set_inports(clock, State::S1);
+						set_inports(clockn, State::S0);
+					} else {
+						top->setState(inits, line);
+						set_inports(clock, State::S0);
+						set_inports(clockn, State::S1);
+					}
 					update();
-					write_output_step(10*cycle + 5);
-				}
-				cycle++;
+					write_output_step(10*cycle);
+					if (cycle) {
+						set_inports(clock, State::S0);
+						set_inports(clockn, State::S1);
+						update();
+						write_output_step(10*cycle + 5);
+					}
+					cycle++;
+					break;
 			}
 		}
 		write_output_step(10*cycle);
