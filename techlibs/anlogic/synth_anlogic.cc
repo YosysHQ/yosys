@@ -166,19 +166,17 @@ struct SynthAnlogicPass : public ScriptPass
 			run("synth -run coarse");
 		}
 
-		if (!nobram && check_label("map_bram", "(skip if -nobram)"))
+		if (check_label("map_ram"))
 		{
-			run("memory_bram -rules +/anlogic/brams.txt");
-			run("techmap -map +/anlogic/brams_map.v");
-			run("setundef -zero -params t:EG_PHY_BRAM");
-			run("setundef -zero -params t:EG_PHY_BRAM32K");
-		}
-
-		if (!nolutram && check_label("map_lutram", "(skip if -nolutram)"))
-		{
-			run("memory_bram -rules +/anlogic/lutrams.txt");
-			run("techmap -map +/anlogic/lutrams_map.v");
-			run("setundef -zero -params t:EG_LOGIC_DRAM16X4");
+			std::string args = "";
+			if (nobram)
+				args += " -no-auto-block";
+			if (nolutram)
+				args += " -no-auto-distributed";
+			if (help_mode)
+				args += " [-no-auto-block] [-no-auto-distributed]";
+			run("memory_libmap -lib +/anlogic/lutrams.txt -lib +/anlogic/brams.txt" + args, "(-no-auto-block if -nobram, -no-auto-distributed if -nolutram)");
+			run("techmap -map +/anlogic/lutrams_map.v -map +/anlogic/brams_map.v");
 		}
 
 		if (check_label("map_ffram"))
