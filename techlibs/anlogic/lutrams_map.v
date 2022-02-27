@@ -1,22 +1,32 @@
-module \$__ANLOGIC_DRAM16X4 (CLK1, A1ADDR, A1DATA, B1ADDR, B1DATA, B1EN);
-	parameter [63:0]INIT = 64'bx;
-	input CLK1;
+module $__ANLOGIC_DRAM16X4_ (...);
+	parameter INIT = 64'b0;
 
-	input [3:0] A1ADDR;
-	output [3:0] A1DATA;
+	input PORT_W_CLK;
+	input [3:0] PORT_W_ADDR;
+	input [3:0] PORT_W_WR_DATA;
+	input PORT_W_WR_EN;
 
-	input [3:0] B1ADDR;
-	input [3:0] B1DATA;
-	input B1EN;
+	input [3:0] PORT_R_ADDR;
+	output [3:0] PORT_R_RD_DATA;
+
+	function [15:0] init_slice;
+		input integer idx;
+		integer i;
+		for (i = 0; i < 16; i = i + 1)
+			init_slice[i] = INIT[i * 4 + idx];
+	endfunction
 
 	EG_LOGIC_DRAM16X4 #(
-		`include "lutram_init_16x4.vh"
+		.INIT_D0(init_slice(0)),
+		.INIT_D1(init_slice(1)),
+		.INIT_D2(init_slice(2)),
+		.INIT_D3(init_slice(3))
 	) _TECHMAP_REPLACE_ (
-		.di(B1DATA),
-		.waddr(B1ADDR),
-		.wclk(CLK1),
-		.we(B1EN),
-		.raddr(A1ADDR),
-		.do(A1DATA)
+		.di(PORT_W_WR_DATA),
+		.waddr(PORT_W_ADDR),
+		.wclk(PORT_W_CLK),
+		.we(PORT_W_WR_EN),
+		.raddr(PORT_R_ADDR),
+		.do(PORT_R_RD_DATA)
 	);
 endmodule

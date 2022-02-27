@@ -1,43 +1,69 @@
-bram $__ANLOGIC_BRAM9K_TDP
-  init 1
-  abits  13 @a13d1
-  dbits  1  @a13d1
-  abits  12 @a12d2
-  dbits  2  @a12d2
-  abits  11 @a11d4
-  dbits  4  @a11d4
-  abits  10 @a10d9
-  dbits  9  @a10d9
-  groups 2
-  ports  1 1
-  wrmode 0 1
-  enable 1 1
-  transp 2 0
-  clocks 2 3
-  clkpol 2 3
-endbram
+ram block $__ANLOGIC_BRAM_TDP_ {
+	abits 13;
+	widths 1 2 4 9 per_port;
+	cost 64;
+	init no_undef;
+	port srsw "A" "B" {
+		clock anyedge;
+		clken;
+		portoption "WRITEMODE" "NORMAL" {
+			rdwr no_change;
+		}
+		portoption "WRITEMODE" "WRITETHROUGH" {
+			rdwr new;
+		}
+		portoption "WRITEMODE" "READBEFOREWRITE" {
+			rdwr old;
+		}
+		option "RESETMODE" "SYNC" {
+			rdsrst zero ungated block_wr;
+		}
+		option "RESETMODE" "ASYNC" {
+			rdarst zero;
+		}
+		rdinit zero;
+	}
+}
 
-bram $__ANLOGIC_BRAM32K
-  init 1
-  abits  11
-  dbits  16
-  groups 2
-  ports  1 1
-  wrmode 0 1
-  enable 1 2
-  transp 0 0
-  clocks 2 3
-  clkpol 2 3
-endbram
+ram block $__ANLOGIC_BRAM_SDP_ {
+	abits 13;
+	widths 1 2 4 9 18 per_port;
+	byte 9;
+	cost 64;
+	init no_undef;
+	port sr "R" {
+		clock anyedge;
+		clken;
+		option "RESETMODE" "SYNC" {
+			rdsrst zero ungated;
+		}
+		option "RESETMODE" "ASYNC" {
+			rdarst zero;
+		}
+		rdinit zero;
+	}
+	port sw "W" {
+		clock anyedge;
+		clken;
+	}
+}
 
-match $__ANLOGIC_BRAM32K
-  min efficiency 30
-  shuffle_enable B
-  make_transp
-  or_next_if_better
-endmatch
-
-match $__ANLOGIC_BRAM9K_TDP
-  min efficiency 5
-  make_transp
-endmatch
+ram block $__ANLOGIC_BRAM32K_ {
+	abits 12;
+	widths 8 16 per_port;
+	byte 8;
+	cost 192;
+	init no_undef;
+	port srsw "A" "B" {
+		clock anyedge;
+		clken;
+		portoption "WRITEMODE" "NORMAL" {
+			rdwr no_change;
+		}
+		portoption "WRITEMODE" "WRITETHROUGH" {
+			rdwr new;
+		}
+		# no reset - it doesn't really work without the pipeline
+		# output registers
+	}
+}
