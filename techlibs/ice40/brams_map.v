@@ -1,318 +1,218 @@
+module $__ICE40_RAM4K_ (...);
 
-module \$__ICE40_RAM4K (
-	output [15:0] RDATA,
-	input         RCLK, RCLKE, RE,
-	input  [10:0] RADDR,
-	input         WCLK, WCLKE, WE,
-	input  [10:0] WADDR,
-	input  [15:0] MASK, WDATA
-);
-	parameter [1:0] READ_MODE = 0;
-	parameter [1:0] WRITE_MODE = 0;
-	parameter [0:0] NEGCLK_R = 0;
-	parameter [0:0] NEGCLK_W = 0;
+parameter INIT = 0;
+parameter OPTION_HAS_BE = 1;
+parameter PORT_R_WIDTH = 16;
+parameter PORT_W_WIDTH = 16;
+parameter PORT_W_WR_BE_WIDTH = 16;
+parameter PORT_R_CLK_POL = 1;
+parameter PORT_W_CLK_POL = 1;
 
-	parameter [255:0] INIT_0 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
-	parameter [255:0] INIT_1 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
-	parameter [255:0] INIT_2 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
-	parameter [255:0] INIT_3 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
-	parameter [255:0] INIT_4 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
-	parameter [255:0] INIT_5 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
-	parameter [255:0] INIT_6 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
-	parameter [255:0] INIT_7 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
-	parameter [255:0] INIT_8 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
-	parameter [255:0] INIT_9 = 256'h0000000000000000000000000000000000000000000000000000000000000000;
-	parameter [255:0] INIT_A = 256'h0000000000000000000000000000000000000000000000000000000000000000;
-	parameter [255:0] INIT_B = 256'h0000000000000000000000000000000000000000000000000000000000000000;
-	parameter [255:0] INIT_C = 256'h0000000000000000000000000000000000000000000000000000000000000000;
-	parameter [255:0] INIT_D = 256'h0000000000000000000000000000000000000000000000000000000000000000;
-	parameter [255:0] INIT_E = 256'h0000000000000000000000000000000000000000000000000000000000000000;
-	parameter [255:0] INIT_F = 256'h0000000000000000000000000000000000000000000000000000000000000000;
+input PORT_R_CLK;
+input PORT_R_RD_EN;
+input [10:0] PORT_R_ADDR;
+output [PORT_R_WIDTH-1:0] PORT_R_RD_DATA;
 
-	generate
-		case ({NEGCLK_R, NEGCLK_W})
-			2'b00:
-				SB_RAM40_4K #(
-					.READ_MODE(READ_MODE),
-					.WRITE_MODE(WRITE_MODE),
-					.INIT_0(INIT_0),
-					.INIT_1(INIT_1),
-					.INIT_2(INIT_2),
-					.INIT_3(INIT_3),
-					.INIT_4(INIT_4),
-					.INIT_5(INIT_5),
-					.INIT_6(INIT_6),
-					.INIT_7(INIT_7),
-					.INIT_8(INIT_8),
-					.INIT_9(INIT_9),
-					.INIT_A(INIT_A),
-					.INIT_B(INIT_B),
-					.INIT_C(INIT_C),
-					.INIT_D(INIT_D),
-					.INIT_E(INIT_E),
-					.INIT_F(INIT_F)
-				) _TECHMAP_REPLACE_ (
-					.RDATA(RDATA),
-					.RCLK (RCLK ),
-					.RCLKE(RCLKE),
-					.RE   (RE   ),
-					.RADDR(RADDR),
-					.WCLK (WCLK ),
-					.WCLKE(WCLKE),
-					.WE   (WE   ),
-					.WADDR(WADDR),
-					.MASK (MASK ),
-					.WDATA(WDATA)
-				);
-			2'b01:
-				SB_RAM40_4KNW #(
-					.READ_MODE(READ_MODE),
-					.WRITE_MODE(WRITE_MODE),
-					.INIT_0(INIT_0),
-					.INIT_1(INIT_1),
-					.INIT_2(INIT_2),
-					.INIT_3(INIT_3),
-					.INIT_4(INIT_4),
-					.INIT_5(INIT_5),
-					.INIT_6(INIT_6),
-					.INIT_7(INIT_7),
-					.INIT_8(INIT_8),
-					.INIT_9(INIT_9),
-					.INIT_A(INIT_A),
-					.INIT_B(INIT_B),
-					.INIT_C(INIT_C),
-					.INIT_D(INIT_D),
-					.INIT_E(INIT_E),
-					.INIT_F(INIT_F)
-				) _TECHMAP_REPLACE_ (
-					.RDATA(RDATA),
-					.RCLK (RCLK ),
-					.RCLKE(RCLKE),
-					.RE   (RE   ),
-					.RADDR(RADDR),
-					.WCLKN(WCLK ),
-					.WCLKE(WCLKE),
-					.WE   (WE   ),
-					.WADDR(WADDR),
-					.MASK (MASK ),
-					.WDATA(WDATA)
-				);
-			2'b10:
-				SB_RAM40_4KNR #(
-					.READ_MODE(READ_MODE),
-					.WRITE_MODE(WRITE_MODE),
-					.INIT_0(INIT_0),
-					.INIT_1(INIT_1),
-					.INIT_2(INIT_2),
-					.INIT_3(INIT_3),
-					.INIT_4(INIT_4),
-					.INIT_5(INIT_5),
-					.INIT_6(INIT_6),
-					.INIT_7(INIT_7),
-					.INIT_8(INIT_8),
-					.INIT_9(INIT_9),
-					.INIT_A(INIT_A),
-					.INIT_B(INIT_B),
-					.INIT_C(INIT_C),
-					.INIT_D(INIT_D),
-					.INIT_E(INIT_E),
-					.INIT_F(INIT_F)
-				) _TECHMAP_REPLACE_ (
-					.RDATA(RDATA),
-					.RCLKN(RCLK ),
-					.RCLKE(RCLKE),
-					.RE   (RE   ),
-					.RADDR(RADDR),
-					.WCLK (WCLK ),
-					.WCLKE(WCLKE),
-					.WE   (WE   ),
-					.WADDR(WADDR),
-					.MASK (MASK ),
-					.WDATA(WDATA)
-				);
-			2'b11:
-				SB_RAM40_4KNRNW #(
-					.READ_MODE(READ_MODE),
-					.WRITE_MODE(WRITE_MODE),
-					.INIT_0(INIT_0),
-					.INIT_1(INIT_1),
-					.INIT_2(INIT_2),
-					.INIT_3(INIT_3),
-					.INIT_4(INIT_4),
-					.INIT_5(INIT_5),
-					.INIT_6(INIT_6),
-					.INIT_7(INIT_7),
-					.INIT_8(INIT_8),
-					.INIT_9(INIT_9),
-					.INIT_A(INIT_A),
-					.INIT_B(INIT_B),
-					.INIT_C(INIT_C),
-					.INIT_D(INIT_D),
-					.INIT_E(INIT_E),
-					.INIT_F(INIT_F)
-				) _TECHMAP_REPLACE_ (
-					.RDATA(RDATA),
-					.RCLKN(RCLK ),
-					.RCLKE(RCLKE),
-					.RE   (RE   ),
-					.RADDR(RADDR),
-					.WCLKN(WCLK ),
-					.WCLKE(WCLKE),
-					.WE   (WE   ),
-					.WADDR(WADDR),
-					.MASK (MASK ),
-					.WDATA(WDATA)
-				);
-		endcase
-	endgenerate
-endmodule
+input PORT_W_CLK;
+input PORT_W_WR_EN;
+input [15:0] PORT_W_WR_BE;
+input [10:0] PORT_W_ADDR;
+input [PORT_W_WIDTH-1:0] PORT_W_WR_DATA;
 
+wire [15:0] RDATA;
+wire [15:0] WDATA;
+wire [15:0] MASK;
+wire [10:0] RADDR = {PORT_R_ADDR[0], PORT_R_ADDR[1], PORT_R_ADDR[2], PORT_R_ADDR[10:3]};
+wire [10:0] WADDR = {PORT_W_ADDR[0], PORT_W_ADDR[1], PORT_W_ADDR[2], PORT_W_ADDR[10:3]};
 
-module \$__ICE40_RAM4K_M0 (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
-	parameter [0:0] CLKPOL2 = 1;
-	parameter [0:0] CLKPOL3 = 1;
+function [1:0] mode;
+	input integer width;
+	case (width)
+	16: mode = 0;
+	8: mode = 1;
+	4: mode = 2;
+	2: mode = 3;
+	endcase
+endfunction
 
-	parameter [4095:0] INIT = 4096'bx;
+function [255:0] slice_init;
+	input [3:0] idx;
+	integer i;
+	reg [7:0] ri;
+	reg [11:0] a;
+	for (i = 0; i < 256; i = i + 1) begin
+		ri = i;
+		a = {idx, ri[7:4], ri[0], ri[1], ri[2], ri[3]};
+		slice_init[i] = INIT[a];
+	end
+endfunction
 
-	input CLK2;
-	input CLK3;
-
-	input [7:0] A1ADDR;
-	output [15:0] A1DATA;
-	input A1EN;
-
-	input [7:0] B1ADDR;
-	input [15:0] B1DATA;
-	input [15:0] B1EN;
-
-	wire [10:0] A1ADDR_11 = A1ADDR;
-	wire [10:0] B1ADDR_11 = B1ADDR;
-
-	\$__ICE40_RAM4K #(
-		.READ_MODE(0),
-		.WRITE_MODE(0),
-		.NEGCLK_R(!CLKPOL2),
-		.NEGCLK_W(!CLKPOL3),
-		.INIT_0(INIT[ 0*256 +: 256]),
-		.INIT_1(INIT[ 1*256 +: 256]),
-		.INIT_2(INIT[ 2*256 +: 256]),
-		.INIT_3(INIT[ 3*256 +: 256]),
-		.INIT_4(INIT[ 4*256 +: 256]),
-		.INIT_5(INIT[ 5*256 +: 256]),
-		.INIT_6(INIT[ 6*256 +: 256]),
-		.INIT_7(INIT[ 7*256 +: 256]),
-		.INIT_8(INIT[ 8*256 +: 256]),
-		.INIT_9(INIT[ 9*256 +: 256]),
-		.INIT_A(INIT[10*256 +: 256]),
-		.INIT_B(INIT[11*256 +: 256]),
-		.INIT_C(INIT[12*256 +: 256]),
-		.INIT_D(INIT[13*256 +: 256]),
-		.INIT_E(INIT[14*256 +: 256]),
-		.INIT_F(INIT[15*256 +: 256])
-	) _TECHMAP_REPLACE_ (
-		.RDATA(A1DATA),
-		.RADDR(A1ADDR_11),
-		.RCLK(CLK2),
-		.RCLKE(A1EN),
-		.RE(1'b1),
-		.WDATA(B1DATA),
-		.WADDR(B1ADDR_11),
-		.MASK(~B1EN),
-		.WCLK(CLK3),
-		.WCLKE(|B1EN),
-		.WE(1'b1)
-	);
-endmodule
-
-module \$__ICE40_RAM4K_M123 (CLK2, CLK3, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
-	parameter CFG_ABITS = 9;
-	parameter CFG_DBITS = 8;
-
-	parameter [0:0] CLKPOL2 = 1;
-	parameter [0:0] CLKPOL3 = 1;
-
-	parameter [4095:0] INIT = 4096'bx;
-
-	localparam MODE =
-		CFG_ABITS ==  9 ? 1 :
-		CFG_ABITS == 10 ? 2 :
-		CFG_ABITS == 11 ? 3 : 'bx;
-
-	input CLK2;
-	input CLK3;
-
-	input [CFG_ABITS-1:0] A1ADDR;
-	output [CFG_DBITS-1:0] A1DATA;
-	input A1EN;
-
-	input [CFG_ABITS-1:0] B1ADDR;
-	input [CFG_DBITS-1:0] B1DATA;
-	input B1EN;
-
-	wire [10:0] A1ADDR_11 = A1ADDR;
-	wire [10:0] B1ADDR_11 = B1ADDR;
-
-	wire [15:0] A1DATA_16, B1DATA_16;
-
-`define INSTANCE \
-	\$__ICE40_RAM4K #( \
-		.READ_MODE(MODE), \
-		.WRITE_MODE(MODE), \
-		.NEGCLK_R(!CLKPOL2), \
-		.NEGCLK_W(!CLKPOL3), \
-		.INIT_0(INIT_0), \
-		.INIT_1(INIT_1), \
-		.INIT_2(INIT_2), \
-		.INIT_3(INIT_3), \
-		.INIT_4(INIT_4), \
-		.INIT_5(INIT_5), \
-		.INIT_6(INIT_6), \
-		.INIT_7(INIT_7), \
-		.INIT_8(INIT_8), \
-		.INIT_9(INIT_9), \
-		.INIT_A(INIT_A), \
-		.INIT_B(INIT_B), \
-		.INIT_C(INIT_C), \
-		.INIT_D(INIT_D), \
-		.INIT_E(INIT_E), \
-		.INIT_F(INIT_F) \
+`define INSTANCE(type, rclk, wclk) \
+	type #( \
+		.INIT_0(slice_init(0)), \
+		.INIT_1(slice_init(1)), \
+		.INIT_2(slice_init(2)), \
+		.INIT_3(slice_init(3)), \
+		.INIT_4(slice_init(4)), \
+		.INIT_5(slice_init(5)), \
+		.INIT_6(slice_init(6)), \
+		.INIT_7(slice_init(7)), \
+		.INIT_8(slice_init(8)), \
+		.INIT_9(slice_init(9)), \
+		.INIT_A(slice_init(10)), \
+		.INIT_B(slice_init(11)), \
+		.INIT_C(slice_init(12)), \
+		.INIT_D(slice_init(13)), \
+		.INIT_E(slice_init(14)), \
+		.INIT_F(slice_init(15)), \
+		.READ_MODE(mode(PORT_R_WIDTH)), \
+		.WRITE_MODE(mode(PORT_W_WIDTH)) \
 	) _TECHMAP_REPLACE_ ( \
-		.RDATA(A1DATA_16), \
-		.RADDR(A1ADDR_11), \
-		.RCLK(CLK2), \
-		.RCLKE(A1EN), \
+		.RDATA(RDATA), \
+		.rclk(PORT_R_CLK), \
+		.RCLKE(PORT_R_RD_EN), \
 		.RE(1'b1), \
-		.WDATA(B1DATA_16), \
-		.WADDR(B1ADDR_11), \
-		.WCLK(CLK3), \
-		.WCLKE(|B1EN), \
-		.WE(1'b1) \
+		.RADDR(RADDR), \
+		.WDATA(WDATA), \
+		.wclk(PORT_W_CLK), \
+		.WCLKE(PORT_W_WR_EN), \
+		.WE(1'b1), \
+		.WADDR(WADDR), \
+		.MASK(MASK), \
 	);
 
-	generate
-		if (MODE == 1) begin
-			assign A1DATA = {A1DATA_16[14], A1DATA_16[12], A1DATA_16[10], A1DATA_16[ 8],
-			                 A1DATA_16[ 6], A1DATA_16[ 4], A1DATA_16[ 2], A1DATA_16[ 0]};
-			assign {B1DATA_16[14], B1DATA_16[12], B1DATA_16[10], B1DATA_16[ 8],
-			        B1DATA_16[ 6], B1DATA_16[ 4], B1DATA_16[ 2], B1DATA_16[ 0]} = B1DATA;
-			`include "brams_init1.vh"
-			`INSTANCE
-		end
-		if (MODE == 2) begin
-			assign A1DATA = {A1DATA_16[13], A1DATA_16[9], A1DATA_16[5], A1DATA_16[1]};
-			assign {B1DATA_16[13], B1DATA_16[9], B1DATA_16[5], B1DATA_16[1]} = B1DATA;
-			`include "brams_init2.vh"
-			`INSTANCE
-		end
-		if (MODE == 3) begin
-			assign A1DATA = {A1DATA_16[11], A1DATA_16[3]};
-			assign {B1DATA_16[11], B1DATA_16[3]} = B1DATA;
-			`include "brams_init3.vh"
-			`INSTANCE
-		end
-	endgenerate
+generate
 
-`undef INSTANCE
+case(PORT_R_WIDTH)
+	2: begin
+		assign PORT_R_RD_DATA = {
+			RDATA[11],
+			RDATA[3]
+		};
+	end
+	4: begin
+		assign PORT_R_RD_DATA = {
+			RDATA[13],
+			RDATA[5],
+			RDATA[9],
+			RDATA[1]
+		};
+	end
+	8: begin
+		assign PORT_R_RD_DATA = {
+			RDATA[14],
+			RDATA[6],
+			RDATA[10],
+			RDATA[2],
+			RDATA[12],
+			RDATA[4],
+			RDATA[8],
+			RDATA[0]
+		};
+	end
+	16: begin
+		assign PORT_R_RD_DATA = {
+			RDATA[15],
+			RDATA[7],
+			RDATA[11],
+			RDATA[3],
+			RDATA[13],
+			RDATA[5],
+			RDATA[9],
+			RDATA[1],
+			RDATA[14],
+			RDATA[6],
+			RDATA[10],
+			RDATA[2],
+			RDATA[12],
+			RDATA[4],
+			RDATA[8],
+			RDATA[0]
+		};
+	end
+endcase
+
+case(PORT_W_WIDTH)
+	2: begin
+		assign {
+			WDATA[11],
+			WDATA[3]
+		} = PORT_W_WR_DATA;
+	end
+	4: begin
+		assign {
+			WDATA[13],
+			WDATA[5],
+			WDATA[9],
+			WDATA[1]
+		} = PORT_W_WR_DATA;
+	end
+	8: begin
+		assign {
+			WDATA[14],
+			WDATA[6],
+			WDATA[10],
+			WDATA[2],
+			WDATA[12],
+			WDATA[4],
+			WDATA[8],
+			WDATA[0]
+		} = PORT_W_WR_DATA;
+	end
+	16: begin
+		assign WDATA = {
+			PORT_W_WR_DATA[15],
+			PORT_W_WR_DATA[7],
+			PORT_W_WR_DATA[11],
+			PORT_W_WR_DATA[3],
+			PORT_W_WR_DATA[13],
+			PORT_W_WR_DATA[5],
+			PORT_W_WR_DATA[9],
+			PORT_W_WR_DATA[1],
+			PORT_W_WR_DATA[14],
+			PORT_W_WR_DATA[6],
+			PORT_W_WR_DATA[10],
+			PORT_W_WR_DATA[2],
+			PORT_W_WR_DATA[12],
+			PORT_W_WR_DATA[4],
+			PORT_W_WR_DATA[8],
+			PORT_W_WR_DATA[0]
+		};
+		assign MASK = ~{
+			PORT_W_WR_BE[15],
+			PORT_W_WR_BE[7],
+			PORT_W_WR_BE[11],
+			PORT_W_WR_BE[3],
+			PORT_W_WR_BE[13],
+			PORT_W_WR_BE[5],
+			PORT_W_WR_BE[9],
+			PORT_W_WR_BE[1],
+			PORT_W_WR_BE[14],
+			PORT_W_WR_BE[6],
+			PORT_W_WR_BE[10],
+			PORT_W_WR_BE[2],
+			PORT_W_WR_BE[12],
+			PORT_W_WR_BE[4],
+			PORT_W_WR_BE[8],
+			PORT_W_WR_BE[0]
+		};
+	end
+endcase
+
+if (PORT_R_CLK_POL) begin
+	if (PORT_W_CLK_POL) begin
+		`INSTANCE(SB_RAM40_4K, RCLK, WCLK)
+	end else begin
+		`INSTANCE(SB_RAM40_4KNW, RCLK, WCLKN)
+	end
+end else begin
+	if (PORT_W_CLK_POL) begin
+		`INSTANCE(SB_RAM40_4KNR, RCLKN, WCLK)
+	end else begin
+		`INSTANCE(SB_RAM40_4KNRNW, RCLKN, WCLKN)
+	end
+end
+
+endgenerate
 
 endmodule
-

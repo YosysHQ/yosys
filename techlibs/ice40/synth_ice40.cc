@@ -90,6 +90,9 @@ struct SynthIce40Pass : public ScriptPass
 		log("    -nobram\n");
 		log("        do not use SB_RAM40_4K* cells in output netlist\n");
 		log("\n");
+		log("    -spram\n");
+		log("        enable automatic inference of SB_SPRAM256KA\n");
+		log("\n");
 		log("    -dsp\n");
 		log("        use iCE40 UltraPlus DSP cells for large arithmetic\n");
 		log("\n");
@@ -116,7 +119,7 @@ struct SynthIce40Pass : public ScriptPass
 	}
 
 	string top_opt, blif_file, edif_file, json_file, device_opt;
-	bool nocarry, nodffe, nobram, dsp, flatten, retime, noabc, abc2, vpr, abc9, dff, flowmap;
+	bool nocarry, nodffe, nobram, spram, dsp, flatten, retime, noabc, abc2, vpr, abc9, dff, flowmap;
 	int min_ce_use;
 
 	void clear_flags() override
@@ -129,6 +132,7 @@ struct SynthIce40Pass : public ScriptPass
 		nodffe = false;
 		min_ce_use = -1;
 		nobram = false;
+		spram = false;
 		dsp = false;
 		flatten = true;
 		retime = false;
@@ -202,6 +206,10 @@ struct SynthIce40Pass : public ScriptPass
 			}
 			if (args[argidx] == "-nobram") {
 				nobram = true;
+				continue;
+			}
+			if (args[argidx] == "-spram") {
+				spram = true;
 				continue;
 			}
 			if (args[argidx] == "-dsp") {
@@ -322,19 +330,24 @@ struct SynthIce40Pass : public ScriptPass
 			run("opt_clean");
 		}
 
-		if (!nobram && check_label("map_bram", "(skip if -nobram)"))
+		if (check_label("map_ram"))
 		{
-			run("memory_bram -rules +/ice40/brams.txt");
-			run("techmap -map +/ice40/brams_map.v");
+			std::string args = "";
+			if (!spram)
+				args += " -no-auto-huge";
+			if (nobram)
+				args += " -no-auto-block";
+			if (help_mode)
+				args += " [-no-auto-huge] [-no-auto-block]";
+			run("memory_libmap -lib +/ice40/brams.txt -lib +/ice40/spram.txt" + args, "(-no-auto-huge unless -spram, -no-auto-block if -nobram)");
+			run("techmap -map +/ice40/brams_map.v -map +/ice40/spram_map.v");
 			run("ice40_braminit");
 		}
 
 		if (check_label("map_ffram"))
 		{
 			run("opt -fast -mux_undef -undriven -fine");
-			run("memory_map -iattr -attr !ram_block -attr !rom_block -attr logic_block "
-			    "-attr syn_ramstyle=auto -attr syn_ramstyle=registers "
-			    "-attr syn_romstyle=auto -attr syn_romstyle=logic");
+			run("memory_map");
 			run("opt -undriven -fine");
 		}
 
