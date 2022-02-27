@@ -1,0 +1,12 @@
+ram huge $__ICE40_SPRAM_ {
+	abits 14;
+	width 16;
+	cost 2048;
+	byte 4;
+	port srsw "A" {
+		clock posedge;
+		clken;
+		wrbe_separate;
+		rdwr no_change;
+	}
+}

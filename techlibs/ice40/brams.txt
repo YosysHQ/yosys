@@ -1,100 +1,23 @@
-bram $__ICE40_RAM4K_M0
-  init 1
-  abits 8
-  dbits 16
-  groups 2
-  ports  1  1
-  wrmode 0  1
-  enable 1 16
-  transp 0  0
-  clocks 2  3
-  clkpol 2  3
-endbram
-
-bram $__ICE40_RAM4K_M123
-  init 1
-  abits  9 @M1
-  dbits  8 @M1
-  abits 10 @M2
-  dbits  4 @M2
-  abits 11 @M3
-  dbits  2 @M3
-  groups 2
-  ports  1 1
-  wrmode 0 1
-  enable 1 1
-  transp 0 0
-  clocks 2 3
-  clkpol 2 3
-endbram
-
-# The syn_* attributes are described in:
-# https://www.latticesemi.com/-/media/LatticeSemi/Documents/Tutorials/AK/LatticeDiamondTutorial311.ashx
-attr_icase 1
-
-match $__ICE40_RAM4K_M0
-  # implicitly requested RAM or ROM
-  attribute !syn_ramstyle syn_ramstyle=auto
-  attribute !syn_romstyle syn_romstyle=auto
-  attribute !ram_block
-  attribute !rom_block
-  attribute !logic_block
-  min efficiency 2
-  make_transp
-  or_next_if_better
-endmatch
-
-match $__ICE40_RAM4K_M0
-  # explicitly requested RAM
-  attribute syn_ramstyle=block_ram ram_block
-  attribute !syn_romstyle
-  attribute !rom_block
-  attribute !logic_block
-  min wports 1
-  make_transp
-  or_next_if_better
-endmatch
-
-match $__ICE40_RAM4K_M0
-  # explicitly requested ROM
-  attribute syn_romstyle=ebr rom_block
-  attribute !syn_ramstyle
-  attribute !ram_block
-  attribute !logic_block
-  max wports 0
-  make_transp
-  or_next_if_better
-endmatch
-
-match $__ICE40_RAM4K_M123
-  # implicitly requested RAM or ROM
-  attribute !syn_ramstyle syn_ramstyle=auto
-  attribute !syn_romstyle syn_romstyle=auto
-  attribute !ram_block
-  attribute !rom_block
-  attribute !logic_block
-  min efficiency 2
-  make_transp
-  or_next_if_better
-endmatch
-
-match $__ICE40_RAM4K_M123
-  # explicitly requested RAM
-  attribute syn_ramstyle=block_ram ram_block
-  attribute !syn_romstyle
-  attribute !rom_block
-  attribute !logic_block
-  min wports 1
-  make_transp
-  or_next_if_better
-endmatch
-
-match $__ICE40_RAM4K_M123
-  # explicitly requested ROM
-  attribute syn_romstyle=ebr rom_block
-  attribute !syn_ramstyle
-  attribute !ram_block
-  attribute !logic_block
-  max wports 0
-  make_transp
-endmatch
+ram block $__ICE40_RAM4K_ {
+	abits 11;
+	widths 2 4 8 16 per_port;
+	cost 64;
+	option "HAS_BE" 1 {
+		byte 1;
+	}
+	init any;
+	port sw "W" {
+		option "HAS_BE" 0 {
+			width 2 4 8;
+		}
+		option "HAS_BE" 1 {
+			width 16;
+			wrbe_separate;
+		}
+		clock anyedge;
+	}
+	port sr "R" {
+		clock anyedge;
+		rden;
+	}
+}
