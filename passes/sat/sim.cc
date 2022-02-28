@@ -1304,6 +1304,8 @@ struct SimWorker : SimShared
 					state = 3;
 					break;
 				default:
+					log("Simulating cycle %d.\n", cycle);
+					top->setState(inputs, line);
 					if (cycle) {
 						set_inports(clock, State::S1);
 						set_inports(clockn, State::S0);
