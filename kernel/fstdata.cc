@@ -22,8 +22,25 @@
 USING_YOSYS_NAMESPACE
 
 
+static std::string file_base_name(std::string const & path)
+{
+	return path.substr(path.find_last_of("/\\") + 1);
+}
+
 FstData::FstData(std::string filename) : ctx(nullptr)
 {
+	#if !defined(YOSYS_DISABLE_SPAWN)
+	std::string filename_trim = file_base_name(filename);
+	if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".vcd") == 0) {
+		filename_trim.erase(filename_trim.size()-4);
+		tmp_file = stringf("/tmp/converted_%s.fst", filename_trim.c_str());
+		std::string cmd = stringf("vcd2fst %s %s", filename.c_str(), tmp_file.c_str());
+		log("Exec: %s\n", cmd.c_str());
+		if (run_command(cmd) != 0)
+			log_cmd_error("Shell command failed!\n");
+		filename = tmp_file;
+	}
+	#endif
 	const std::vector<std::string> g_units = { "s", "ms", "us", "ns", "ps", "fs", "as", "zs" };
 	ctx = (fstReaderContext *)fstReaderOpen(filename.c_str());
 	if (!ctx)
@@ -53,6 +70,8 @@ FstData::~FstData()
 {
 	if (ctx)
 		fstReaderClose(ctx);
+	if (!tmp_file.empty())
+		remove(tmp_file.c_str());
 }
 
 uint64_t FstData::getStartTime() { return fstReaderGetStartTime(ctx); }
