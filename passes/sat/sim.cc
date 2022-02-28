@@ -801,14 +801,15 @@ struct SimInstance
 			child.second->setInitState();
 	}
 
-	void setState(std::vector<std::pair<SigBit,bool>> bits, std::string values)
+	void setState(dict<int, std::pair<SigBit,bool>> bits, std::string values)
 	{
-		for(size_t i=0;i<bits.size();i++) {
-			switch(values.at(i)) {
-				case '0' : set_state(bits.at(i).first,bits.at(i).second ? State::S1 : State::S0); break;
-				case '1' : set_state(bits.at(i).first,bits.at(i).second ? State::S0 : State::S1); break;
-				default: 
-					set_state(bits.at(i).first,State::Sx); break;
+		for(auto bit : bits) {
+			if (bit.first >= GetSize(values))
+				log_error("Too few input data bits in file.\n");
+			switch(values.at(bit.first)) {
+				case '0': set_state(bit.second.first, bit.second.second ? State::S1 : State::S0); break;
+				case '1': set_state(bit.second.first, bit.second.second ? State::S0 : State::S1); break;
+				default: set_state(bit.second.first, State::Sx); break;
 			}
 		}
 	}
@@ -1124,9 +1125,10 @@ struct SimWorker : SimShared
 		try {
 			fst->reconstructAllAtTimes(fst_clock, startCount, stopCount, [&](uint64_t time) {
 				log("Co-simulating %s %d [%lu%s].\n", (all_samples ? "sample" : "cycle"), cycle, (unsigned long)time, fst->getTimescaleString());
+				bool did_something = false;
 				for(auto &item : inputs) {
 					std::string v = fst->valueOf(item.second);
-					top->set_state(item.first, Const::from_string(v));
+					did_something |= top->set_state(item.first, Const::from_string(v));
 				}
 
 				if (initial) {
@@ -1134,8 +1136,9 @@ struct SimWorker : SimShared
 					write_output_header();
 					initial = false;
 				}
-				update();
-				write_output_step(5*cycle);
+				if (did_something)
+					update();
+				write_output_step(time);
 
 				bool status = top->checkSignals();
 				if (status)
@@ -1151,7 +1154,6 @@ struct SimWorker : SimShared
 		} catch(fst_end_of_data_exception) {
 			// end of data detected
 		}
-		write_output_step(5*(cycle-1)+2);
 		write_output_end();
 
 		if (writeback) {
@@ -1166,8 +1168,7 @@ struct SimWorker : SimShared
 		std::ifstream mf(map_filename);
 		std::string type, symbol;
 		int variable, index;
-		std::vector<std::pair<SigBit,bool>> inputs;
-		std::vector<std::pair<SigBit,bool>> latches;
+		dict<int, std::pair<SigBit,bool>> inputs, inits, latches;
 		while (mf >> type >> variable >> index >> symbol) {
 			RTLIL::IdString escaped_s = RTLIL::escape_id(symbol);
 			Wire *w = topmod->wire(escaped_s);
@@ -1176,11 +1177,13 @@ struct SimWorker : SimShared
 			if (index < w->start_offset || index > w->start_offset + w->width)
 				log_error("Index %d for wire %s is out of range\n", index, log_signal(w));
 			if (type == "input") {
-				inputs.emplace_back(SigBit(w,index),false);
+				inputs[variable] = {SigBit(w,index), false};
+			} else if (type == "init") {
+				inits[variable] = {SigBit(w,index), false};
 			} else if (type == "latch") {
-				latches.emplace_back(SigBit(w,index),false);
+				latches[variable] = {SigBit(w,index), false};
 			} else if (type == "invlatch") {
-				latches.emplace_back(SigBit(w,index),true);
+				latches[variable] = {SigBit(w,index), true};
 			}
 		}
 
@@ -1189,7 +1192,8 @@ struct SimWorker : SimShared
 		if (f.fail() || GetSize(sim_filename) == 0)
 			log_error("Can not open file `%s`\n", sim_filename.c_str());
 
-		bool init = true;
+		int state = 0;
+		std::string status;
 		int cycle = 0;
 		top = new SimInstance(this, scope, topmod);
 		while (!f.eof())
@@ -1197,33 +1201,50 @@ struct SimWorker : SimShared
 			std::string line;
 			std::getline(f, line);
 			if (line.size()==0 || line[0]=='#') continue;
-			if (init) {
-				if (line.size()!=latches.size())
-					log_error("Wrong number of initialization bits in file.\n");
+			if (line[0]=='.') break;
+			if (state==0 && line.size()!=1) {
+				// old format detected, latch data
+				state = 2;
+			}
+			if (state==1 && line[0]!='b' && line[0]!='c') {
 				write_output_header();
-				top->setState(latches, line);
-				init = false;
-			} else {
-				log("Simulating cycle %d.\n", cycle);
-				if (line.size()!=inputs.size())
-					log_error("Wrong number of input data bits in file.\n");
-				top->setState(inputs, line);
-				if (cycle) {
-					set_inports(clock, State::S1);
-					set_inports(clockn, State::S0);
-				} else {
-					set_inports(clock, State::S0);
-					set_inports(clockn, State::S1);
-				}
-				update();
-				write_output_step(10*cycle);
-				if (cycle) {
-					set_inports(clock, State::S0);
-					set_inports(clockn, State::S1);
+				// was old format but with 1 bit latch
+				top->setState(latches, status);
+				state = 3;
+			}
+
+			switch(state)
+			{
+				case 0:
+					status = line;
+					state = 1;
+					break;
+				case 1:
+					state = 2;
+					break;
+				case 2:
+					write_output_header();
+					top->setState(latches, line);
+					break;
+				default:
+					if (cycle) {
+						set_inports(clock, State::S1);
+						set_inports(clockn, State::S0);
+					} else {
+						top->setState(inits, line);
+						set_inports(clock, State::S0);
+						set_inports(clockn, State::S1);
+					}
 					update();
-					write_output_step(10*cycle + 5);
-				}
-				cycle++;
+					write_output_step(10*cycle);
+					if (cycle) {
+						set_inports(clock, State::S0);
+						set_inports(clockn, State::S1);
+						update();
+						write_output_step(10*cycle + 5);
+					}
+					cycle++;
+					break;
 			}
 		}
 		write_output_step(10*cycle);
