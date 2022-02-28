@@ -857,9 +857,11 @@ struct SimInstance
 struct SimWorker : SimShared
 {
 	SimInstance *top = nullptr;
-	std::ofstream vcdfile;
+	std::ofstream vcdfile, aiwfile;
 	struct fstContext *fstfile = nullptr;
 	pool<IdString> clock, clockn, reset, resetn;
+	dict<int, std::pair<SigBit, bool>> aiw_latches;
+	dict<int, SigBit> aiw_inputs, aiw_inits;
 	std::string timescale;
 	std::string sim_filename;
 	std::string map_filename;
@@ -916,12 +918,82 @@ struct SimWorker : SimShared
 		top->write_fst_step(fstfile);
 	}
 
+	void write_aiw_header()
+	{
+		std::ifstream mf(map_filename);
+		std::string type, symbol;
+		int variable, index;
+		while (mf >> type >> variable >> index >> symbol) {
+			RTLIL::IdString escaped_s = RTLIL::escape_id(symbol);
+			Wire *w = top->module->wire(escaped_s);
+			if (!w)
+				log_error("Wire %s not present in module %s\n",log_signal(w),log_id(top->module));
+			if (index < w->start_offset || index > w->start_offset + w->width)
+				log_error("Index %d for wire %s is out of range\n", index, log_signal(w));
+			if (type == "input") {
+				aiw_inputs[variable] = SigBit(w,index);
+			} else if (type == "init") {
+				aiw_inits[variable] = SigBit(w,index);
+			} else if (type == "latch") {
+				aiw_latches[variable] = {SigBit(w,index), false};
+			} else if (type == "invlatch") {
+				aiw_latches[variable] = {SigBit(w,index), true};
+			}
+		}
+
+		for (int i = 0;; i++)
+		{
+			if (aiw_latches.count(i)) {
+				auto v = top->get_state(aiw_latches.at(i).first);
+				if (v == State::S1)
+					aiwfile << (aiw_latches.at(i).second ? '0' : '1');
+				else
+					aiwfile << (aiw_latches.at(i).second ? '1' : '0');
+				continue;
+			}
+			aiwfile << '\n';
+			break;
+		}
+	}
+
+	void write_aiw_step()
+	{
+		for (int i = 0;; i++)
+		{
+			if (aiw_inputs.count(i)) {
+				auto v = top->get_state(aiw_inputs.at(i));
+				if (v == State::S1)
+					aiwfile << '1';
+				else
+					aiwfile << '0';
+				continue;
+			}
+			if (aiw_inits.count(i)) {
+				auto v = top->get_state(aiw_inits.at(i));
+				if (v == State::S1)
+					aiwfile << '1';
+				else
+					aiwfile << '0';
+				continue;
+			}
+			aiwfile << '\n';
+			break;
+		}
+	}
+
+	void write_aiw_end()
+	{
+		aiwfile << '.' << '\n';
+	}
+
 	void write_output_header()
 	{
 		if (vcdfile.is_open())
 			write_vcd_header();
 		if (fstfile)
 			write_fst_header();
+		if (aiwfile.is_open())
+			write_aiw_header();
 	}
 
 	void write_output_step(int t)
@@ -930,12 +1002,16 @@ struct SimWorker : SimShared
 			write_vcd_step(t);
 		if (fstfile)
 			write_fst_step(t);
+		if (aiwfile.is_open())
+			write_aiw_step();
 	}
 
 	void write_output_end()
 	{
 		if (fstfile)
 			fstWriterClose(fstfile);
+		if (aiwfile.is_open())
+			write_aiw_end();
 	}
 
 	void update()
@@ -1269,6 +1345,10 @@ struct SimPass : public Pass {
 		log("    -fst <filename>\n");
 		log("        write the simulation results to the given FST file\n");
 		log("\n");
+		log("    -aiw <filename>\n");
+		log("        write the simulation results to an AIGER witness file\n");
+		log("        (requires a *.aim file via -map)\n");
+		log("\n");
 		log("    -clock <portname>\n");
 		log("        name of top-level clock input\n");
 		log("\n");
@@ -1353,6 +1433,12 @@ struct SimPass : public Pass {
 				std::string fst_filename = args[++argidx];
 				rewrite_filename(fst_filename);
 				worker.fstfile = (struct fstContext *)fstWriterCreate(fst_filename.c_str(),1);
+				continue;
+			}
+			if (args[argidx] == "-aiw" && argidx+1 < args.size()) {
+				std::string aiw_filename = args[++argidx];
+				rewrite_filename(aiw_filename);
+				worker.aiwfile.open(aiw_filename.c_str());
 				continue;
 			}
 			if (args[argidx] == "-n" && argidx+1 < args.size()) {
