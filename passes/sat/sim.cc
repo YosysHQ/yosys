@@ -1225,6 +1225,7 @@ struct SimWorker : SimShared
 				case 2:
 					write_output_header();
 					top->setState(latches, line);
+					state = 3;
 					break;
 				default:
 					if (cycle) {
