@@ -70,7 +70,7 @@ struct OutputWriter
 {
 	OutputWriter(SimWorker *w) { worker = w;};
 	virtual ~OutputWriter() {};
-	virtual void write() = 0;
+	virtual void write(std::map<int, bool> &use_signal) = 0;
 	SimWorker *worker;
 };
 
@@ -88,6 +88,7 @@ struct SimShared
 	bool cycles_set = false;
 	std::vector<std::unique_ptr<OutputWriter>> outputfiles;
 	std::vector<std::pair<int,std::map<int,Const>>> output_data;
+	bool ignore_x = false;
 };
 
 void zinit(State &v)
@@ -847,8 +848,22 @@ struct SimWorker : SimShared
 
 	void write_output_files()
 	{
+		std::map<int, bool> use_signal;
+		bool first = ignore_x;
+		for(auto& d : output_data)
+		{
+			if (first) {
+				for (auto &data : d.second)
+					use_signal[data.first] = !data.second.is_fully_undef();
+				first = false;
+			} else {
+				for (auto &data : d.second)
+					use_signal[data.first] = true;
+			}
+			if (!ignore_x) break;
+		}
 		for(auto& writer : outputfiles)
-			writer->write();
+			writer->write(use_signal);
 	}
 
 	void update()
@@ -1175,7 +1190,7 @@ struct VCDWriter : public OutputWriter
 		vcdfile.open(filename.c_str());
 	}
 
-	void write() override
+	void write(std::map<int, bool> &use_signal) override
 	{
 		if (!vcdfile.is_open()) return;
 		vcdfile << stringf("$version %s $end\n", yosys_version_str);
@@ -1192,7 +1207,7 @@ struct VCDWriter : public OutputWriter
 		worker->top->write_output_header(
 			[this](IdString name) { vcdfile << stringf("$scope module %s $end\n", log_id(name)); },
 			[this]() { vcdfile << stringf("$upscope $end\n");},
-			[this](Wire *wire, int id) { vcdfile << stringf("$var wire %d n%d %s%s $end\n", GetSize(wire), id, wire->name[0] == '$' ? "\\" : "", log_id(wire)); }
+			[this,use_signal](Wire *wire, int id) { if (use_signal.at(id)) vcdfile << stringf("$var wire %d n%d %s%s $end\n", GetSize(wire), id, wire->name[0] == '$' ? "\\" : "", log_id(wire)); }
 		);
 
 		vcdfile << stringf("$enddefinitions $end\n");
@@ -1202,7 +1217,7 @@ struct VCDWriter : public OutputWriter
 			vcdfile << stringf("#%d\n", d.first);
 			for (auto &data : d.second)
 			{
-
+				if (!use_signal.at(data.first)) continue;
 				Const value = data.second;
 				vcdfile << "b";
 				for (int i = GetSize(value)-1; i >= 0; i--) {
@@ -1232,7 +1247,7 @@ struct FSTWriter : public OutputWriter
 		fstWriterClose(fstfile);
 	}
 
-	void write() override
+	void write(std::map<int, bool> &use_signal) override
 	{
 		if (!fstfile) return;
 		std::time_t t = std::time(nullptr);
@@ -1247,7 +1262,8 @@ struct FSTWriter : public OutputWriter
 	   	worker->top->write_output_header(
 			[this](IdString name) { fstWriterSetScope(fstfile, FST_ST_VCD_MODULE, stringf("%s",log_id(name)).c_str(), nullptr); },
 			[this]() { fstWriterSetUpscope(fstfile); },
-			[this](Wire *wire, int id) { 
+			[this,use_signal](Wire *wire, int id) {
+				if (!use_signal.at(id)) return;
 				fstHandle fst_id = fstWriterCreateVar(fstfile, FST_VT_VCD_WIRE, FST_VD_IMPLICIT, GetSize(wire),
 												stringf("%s%s", wire->name[0] == '$' ? "\\" : "", log_id(wire)).c_str(), 0);
 
@@ -1260,6 +1276,7 @@ struct FSTWriter : public OutputWriter
 			fstWriterEmitTimeChange(fstfile, d.first);
 			for (auto &data : d.second)
 			{
+				if (!use_signal.at(data.first)) continue;
 				Const value = data.second;
 				std::stringstream ss;
 				for (int i = GetSize(value)-1; i >= 0; i--) {
@@ -1290,7 +1307,7 @@ struct AIWWriter : public OutputWriter
 		aiwfile << '.' << '\n';
 	}
 
-	void write() override
+	void write(std::map<int, bool> &) override
 	{
 		if (!aiwfile.is_open()) return;
 		std::ifstream mf(worker->map_filename);
@@ -1397,6 +1414,9 @@ struct SimPass : public Pass {
 		log("    -aiw <filename>\n");
 		log("        write the simulation results to an AIGER witness file\n");
 		log("        (requires a *.aim file via -map)\n");
+		log("\n");
+		log("    -x\n");
+		log("        ignore constant x outputs in simulation file.\n");
 		log("\n");
 		log("    -clock <portname>\n");
 		log("        name of top-level clock input\n");
@@ -1581,6 +1601,10 @@ struct SimPass : public Pass {
 			}
 			if (args[argidx] == "-sim-gate") {
 				worker.sim_mode = SimulationMode::gate;
+				continue;
+			}
+			if (args[argidx] == "-x") {
+				worker.ignore_x = true;
 				continue;
 			}
 			break;
