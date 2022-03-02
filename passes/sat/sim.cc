@@ -72,10 +72,10 @@ struct OutputWriter
 	virtual ~OutputWriter() {};
 	virtual void write_header() = 0;
 	virtual void write_step_header(int t) = 0;
-	virtual void enter_scope(IdString name) = 0;
-	virtual void exit_scope() = 0;
-	virtual void register_signal(Wire *wire, int id) = 0;
-	virtual void write_value(int id, Const& value) = 0;
+	virtual void enter_scope(IdString) {};
+	virtual void exit_scope() {};
+	virtual void register_signal(Wire *, int) {};
+	virtual void write_value(int, Const&) {};
 	SimWorker *worker;
 };
 
@@ -1192,6 +1192,7 @@ struct VCDWriter : public OutputWriter
 	{
 		vcdfile << stringf("$scope module %s $end\n", log_id(name));
 	}
+
 	void exit_scope() override
 	{
 		vcdfile << stringf("$upscope $end\n");
@@ -1214,7 +1215,6 @@ struct VCDWriter : public OutputWriter
 				default: vcdfile << "z";
 			}
 		}
-
 		vcdfile << stringf(" n%d\n", id);
 	}
 
@@ -1271,6 +1271,7 @@ struct FSTWriter : public OutputWriter
 
 		mapping.emplace(id, fst_id);
 	}
+
 	void write_value(int id, Const& value) override
 	{
 		if (!fstfile) return;
@@ -1285,6 +1286,7 @@ struct FSTWriter : public OutputWriter
 		}
 		fstWriterEmitValueChange(fstfile, mapping[id], ss.str().c_str());
 	}
+
 	struct fstContext *fstfile = nullptr;
 	std::map<int,fstHandle> mapping;
 };
@@ -1364,11 +1366,6 @@ struct AIWWriter : public OutputWriter
 			break;
 		}
 	}
-				
-	void enter_scope(IdString) override {}
-	void exit_scope() override {}
-	void register_signal(Wire*, int) override {}
-	void write_value(int , Const&  ) override {}
 
 	std::ofstream aiwfile;
 	dict<int, std::pair<SigBit, bool>> aiw_latches;
