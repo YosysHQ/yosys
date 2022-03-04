@@ -65,6 +65,15 @@ static double stringToTime(std::string str)
 	return value * pow(10.0, g_units.at(endptr));
 }
 
+struct SimWorker;
+struct OutputWriter
+{
+	OutputWriter(SimWorker *w) { worker = w;};
+	virtual ~OutputWriter() {};
+	virtual void write(std::map<int, bool> &use_signal) = 0;
+	SimWorker *worker;
+};
+
 struct SimShared
 {
 	bool debug = false;
@@ -77,6 +86,9 @@ struct SimShared
 	double stop_time = -1;
 	SimulationMode sim_mode = SimulationMode::sim;
 	bool cycles_set = false;
+	std::vector<std::unique_ptr<OutputWriter>> outputfiles;
+	std::vector<std::pair<int,std::map<int,Const>>> output_data;
+	bool ignore_x = false;
 };
 
 void zinit(State &v)
@@ -140,8 +152,7 @@ struct SimInstance
 
 	std::vector<Mem> memories;
 
-	dict<Wire*, pair<int, Const>> vcd_database;
-	dict<Wire*, pair<fstHandle, Const>> fst_database;
+	dict<Wire*, pair<int, Const>> signal_database;
 	dict<Wire*, fstHandle> fst_handles;
 
 	SimInstance(SimShared *shared, std::string scope, Module *module, Cell *instance = nullptr, SimInstance *parent = nullptr) :
@@ -685,28 +696,39 @@ struct SimInstance
 			it.second->writeback(wbmods);
 	}
 
-	void write_vcd_header(std::ofstream &f, int &id)
+	void register_signals(int &id)
 	{
-		f << stringf("$scope module %s $end\n", log_id(name()));
-
 		for (auto wire : module->wires())
 		{
 			if (shared->hide_internal && wire->name[0] == '$')
 				continue;
 
-			f << stringf("$var wire %d n%d %s%s $end\n", GetSize(wire), id, wire->name[0] == '$' ? "\\" : "", log_id(wire));
-			vcd_database[wire] = make_pair(id++, Const());
+			signal_database[wire] = make_pair(id, Const());
+			id++;
 		}
 
 		for (auto child : children)
-			child.second->write_vcd_header(f, id);
-
-		f << stringf("$upscope $end\n");
+			child.second->register_signals(id);
 	}
 
-	void write_vcd_step(std::ofstream &f)
+	void write_output_header(std::function<void(IdString)> enter_scope, std::function<void()> exit_scope, std::function<void(Wire*, int)> register_signal)
 	{
-		for (auto &it : vcd_database)
+		enter_scope(name());
+
+		for (auto signal : signal_database)
+		{
+			register_signal(signal.first, signal.second.first);
+		}
+
+		for (auto child : children)
+			child.second->write_output_header(enter_scope, exit_scope, register_signal);
+
+		exit_scope();
+	}
+
+	void register_output_step_values(std::map<int,Const> *data)
+	{
+		for (auto &it : signal_database)
 		{
 			Wire *wire = it.first;
 			Const value = get_state(wire);
@@ -716,69 +738,11 @@ struct SimInstance
 				continue;
 
 			it.second.second = value;
-
-			f << "b";
-			for (int i = GetSize(value)-1; i >= 0; i--) {
-				switch (value[i]) {
-					case State::S0: f << "0"; break;
-					case State::S1: f << "1"; break;
-					case State::Sx: f << "x"; break;
-					default: f << "z";
-				}
-			}
-
-			f << stringf(" n%d\n", id);
+			data->emplace(id, value);
 		}
 
 		for (auto child : children)
-			child.second->write_vcd_step(f);
-	}
-
-	void write_fst_header(struct fstContext *f)
-	{
-		fstWriterSetScope(f, FST_ST_VCD_MODULE, stringf("%s",log_id(name())).c_str(), nullptr);
-		for (auto wire : module->wires())
-		{
-			if (shared->hide_internal && wire->name[0] == '$')
-				continue;
-
-			fstHandle id = fstWriterCreateVar(f, FST_VT_VCD_WIRE, FST_VD_IMPLICIT, GetSize(wire),
-												stringf("%s%s", wire->name[0] == '$' ? "\\" : "", log_id(wire)).c_str(), 0);
-			fst_database[wire] = make_pair(id, Const());
-		}
-
-		for (auto child : children)
-			child.second->write_fst_header(f);
-
-		fstWriterSetUpscope(f);
-	}
-
-	void write_fst_step(struct fstContext *f)
-	{
-		for (auto &it : fst_database)
-		{
-			Wire *wire = it.first;
-			Const value = get_state(wire);
-			fstHandle id = it.second.first;
-
-			if (it.second.second == value)
-				continue;
-
-			it.second.second = value;
-			std::stringstream ss;
-			for (int i = GetSize(value)-1; i >= 0; i--) {
-				switch (value[i]) {
-					case State::S0: ss << "0"; break;
-					case State::S1: ss << "1"; break;
-					case State::Sx: ss << "x"; break;
-					default: ss << "z";
-				}
-			}
-			fstWriterEmitValueChange(f, id, ss.str().c_str());
-		}
-
-		for (auto child : children)
-			child.second->write_fst_step(f);
+			child.second->register_output_step_values(data);
 	}
 
 	void setInitState()
@@ -857,8 +821,6 @@ struct SimInstance
 struct SimWorker : SimShared
 {
 	SimInstance *top = nullptr;
-	std::ofstream vcdfile;
-	struct fstContext *fstfile = nullptr;
 	pool<IdString> clock, clockn, reset, resetn;
 	std::string timescale;
 	std::string sim_filename;
@@ -867,75 +829,41 @@ struct SimWorker : SimShared
 
 	~SimWorker()
 	{
+		outputfiles.clear();
 		delete top;
 	}
 
-	void write_vcd_header()
+	void register_signals()
 	{
-		vcdfile << stringf("$version %s $end\n", yosys_version_str);
-
-		std::time_t t = std::time(nullptr);
-		char mbstr[255];
-		if (std::strftime(mbstr, sizeof(mbstr), "%c", std::localtime(&t))) {
-			vcdfile << stringf("$date ") << mbstr << stringf(" $end\n");
-		}
-
-		if (!timescale.empty())
-			vcdfile << stringf("$timescale %s $end\n", timescale.c_str());
-
 		int id = 1;
-		top->write_vcd_header(vcdfile, id);
-
-		vcdfile << stringf("$enddefinitions $end\n");
+		top->register_signals(id);
 	}
 
-	void write_vcd_step(int t)
+	void register_output_step(int t)
 	{
-		vcdfile << stringf("#%d\n", t);
-		top->write_vcd_step(vcdfile);
+		std::map<int,Const> data;
+		top->register_output_step_values(&data);
+		output_data.emplace_back(t, data);
 	}
 
-	void write_fst_header()
+	void write_output_files()
 	{
-		std::time_t t = std::time(nullptr);
-		fstWriterSetDate(fstfile, asctime(std::localtime(&t)));
-		fstWriterSetVersion(fstfile, yosys_version_str);
-		if (!timescale.empty())
-			fstWriterSetTimescaleFromString(fstfile, timescale.c_str());
-
-		fstWriterSetPackType(fstfile, FST_WR_PT_FASTLZ);
-		fstWriterSetRepackOnClose(fstfile, 1);
-	   
-		top->write_fst_header(fstfile);
-	}
-
-	void write_fst_step(int t)
-	{
-		fstWriterEmitTimeChange(fstfile, t);
-
-		top->write_fst_step(fstfile);
-	}
-
-	void write_output_header()
-	{
-		if (vcdfile.is_open())
-			write_vcd_header();
-		if (fstfile)
-			write_fst_header();
-	}
-
-	void write_output_step(int t)
-	{
-		if (vcdfile.is_open())
-			write_vcd_step(t);
-		if (fstfile)
-			write_fst_step(t);
-	}
-
-	void write_output_end()
-	{
-		if (fstfile)
-			fstWriterClose(fstfile);
+		std::map<int, bool> use_signal;
+		bool first = ignore_x;
+		for(auto& d : output_data)
+		{
+			if (first) {
+				for (auto &data : d.second)
+					use_signal[data.first] = !data.second.is_fully_undef();
+				first = false;
+			} else {
+				for (auto &data : d.second)
+					use_signal[data.first] = true;
+			}
+			if (!ignore_x) break;
+		}
+		for(auto& writer : outputfiles)
+			writer->write(use_signal);
 	}
 
 	void update()
@@ -977,6 +905,7 @@ struct SimWorker : SimShared
 	{
 		log_assert(top == nullptr);
 		top = new SimInstance(this, scope, topmod);
+		register_signals();
 
 		if (debug)
 			log("\n===== 0 =====\n");
@@ -991,8 +920,7 @@ struct SimWorker : SimShared
 
 		update();
 
-		write_output_header();
-		write_output_step(0);
+		register_output_step(0);
 
 		for (int cycle = 0; cycle < numcycles; cycle++)
 		{
@@ -1004,7 +932,7 @@ struct SimWorker : SimShared
 			set_inports(clockn, State::S1);
 
 			update();
-			write_output_step(10*cycle + 5);
+			register_output_step(10*cycle + 5);
 
 			if (debug)
 				log("\n===== %d =====\n", 10*cycle + 10);
@@ -1020,12 +948,12 @@ struct SimWorker : SimShared
 			}
 
 			update();
-			write_output_step(10*cycle + 10);
+			register_output_step(10*cycle + 10);
 		}
 
-		write_output_step(10*numcycles + 2);
+		register_output_step(10*numcycles + 2);
 
-		write_output_end();
+		write_output_files();
 
 		if (writeback) {
 			pool<Module*> wbmods;
@@ -1042,6 +970,7 @@ struct SimWorker : SimShared
 			log_error("Scope must be defined for co-simulation.\n");
 
 		top = new SimInstance(this, scope, topmod);
+		register_signals();
 
 		std::vector<fstHandle> fst_clock;
 
@@ -1133,12 +1062,11 @@ struct SimWorker : SimShared
 
 				if (initial) {
 					top->setInitState();
-					write_output_header();
 					initial = false;
 				}
 				if (did_something)
 					update();
-				write_output_step(time);
+				register_output_step(time);
 
 				bool status = top->checkSignals();
 				if (status)
@@ -1154,7 +1082,8 @@ struct SimWorker : SimShared
 		} catch(fst_end_of_data_exception) {
 			// end of data detected
 		}
-		write_output_end();
+
+		write_output_files();
 
 		if (writeback) {
 			pool<Module*> wbmods;
@@ -1196,6 +1125,8 @@ struct SimWorker : SimShared
 		std::string status;
 		int cycle = 0;
 		top = new SimInstance(this, scope, topmod);
+		register_signals();
+
 		while (!f.eof())
 		{
 			std::string line;
@@ -1207,7 +1138,6 @@ struct SimWorker : SimShared
 				state = 2;
 			}
 			if (state==1 && line[0]!='b' && line[0]!='c') {
-				write_output_header();
 				// was old format but with 1 bit latch
 				top->setState(latches, status);
 				state = 3;
@@ -1223,10 +1153,12 @@ struct SimWorker : SimShared
 					state = 2;
 					break;
 				case 2:
-					write_output_header();
 					top->setState(latches, line);
+					state = 3;
 					break;
 				default:
+					log("Simulating cycle %d.\n", cycle);
+					top->setState(inputs, line);
 					if (cycle) {
 						set_inports(clock, State::S1);
 						set_inports(clockn, State::S0);
@@ -1236,20 +1168,231 @@ struct SimWorker : SimShared
 						set_inports(clockn, State::S1);
 					}
 					update();
-					write_output_step(10*cycle);
+					register_output_step(10*cycle);
 					if (cycle) {
 						set_inports(clock, State::S0);
 						set_inports(clockn, State::S1);
 						update();
-						write_output_step(10*cycle + 5);
+						register_output_step(10*cycle + 5);
 					}
 					cycle++;
 					break;
 			}
 		}
-		write_output_step(10*cycle);
-		write_output_end();
+		register_output_step(10*cycle);
+		write_output_files();
 	}
+};
+
+struct VCDWriter : public OutputWriter
+{
+	VCDWriter(SimWorker *worker, std::string filename) : OutputWriter(worker) {
+		vcdfile.open(filename.c_str());
+	}
+
+	void write(std::map<int, bool> &use_signal) override
+	{
+		if (!vcdfile.is_open()) return;
+		vcdfile << stringf("$version %s $end\n", yosys_version_str);
+
+		std::time_t t = std::time(nullptr);
+		char mbstr[255];
+		if (std::strftime(mbstr, sizeof(mbstr), "%c", std::localtime(&t))) {
+			vcdfile << stringf("$date ") << mbstr << stringf(" $end\n");
+		}
+
+		if (!worker->timescale.empty())
+			vcdfile << stringf("$timescale %s $end\n", worker->timescale.c_str());
+
+		worker->top->write_output_header(
+			[this](IdString name) { vcdfile << stringf("$scope module %s $end\n", log_id(name)); },
+			[this]() { vcdfile << stringf("$upscope $end\n");},
+			[this,use_signal](Wire *wire, int id) { if (use_signal.at(id)) vcdfile << stringf("$var wire %d n%d %s%s $end\n", GetSize(wire), id, wire->name[0] == '$' ? "\\" : "", log_id(wire)); }
+		);
+
+		vcdfile << stringf("$enddefinitions $end\n");
+
+		for(auto& d : worker->output_data)
+		{
+			vcdfile << stringf("#%d\n", d.first);
+			for (auto &data : d.second)
+			{
+				if (!use_signal.at(data.first)) continue;
+				Const value = data.second;
+				vcdfile << "b";
+				for (int i = GetSize(value)-1; i >= 0; i--) {
+					switch (value[i]) {
+						case State::S0: vcdfile << "0"; break;
+						case State::S1: vcdfile << "1"; break;
+						case State::Sx: vcdfile << "x"; break;
+						default: vcdfile << "z";
+					}
+				}
+				vcdfile << stringf(" n%d\n", data.first);
+			}
+		}
+	}
+
+	std::ofstream vcdfile;
+};
+
+struct FSTWriter : public OutputWriter
+{
+	FSTWriter(SimWorker *worker, std::string filename) : OutputWriter(worker) {
+		fstfile = (struct fstContext *)fstWriterCreate(filename.c_str(),1);
+	}
+
+	virtual ~FSTWriter()
+	{
+		fstWriterClose(fstfile);
+	}
+
+	void write(std::map<int, bool> &use_signal) override
+	{
+		if (!fstfile) return;
+		std::time_t t = std::time(nullptr);
+		fstWriterSetDate(fstfile, asctime(std::localtime(&t)));
+		fstWriterSetVersion(fstfile, yosys_version_str);
+		if (!worker->timescale.empty())
+			fstWriterSetTimescaleFromString(fstfile, worker->timescale.c_str());
+
+		fstWriterSetPackType(fstfile, FST_WR_PT_FASTLZ);
+		fstWriterSetRepackOnClose(fstfile, 1);
+	   
+	   	worker->top->write_output_header(
+			[this](IdString name) { fstWriterSetScope(fstfile, FST_ST_VCD_MODULE, stringf("%s",log_id(name)).c_str(), nullptr); },
+			[this]() { fstWriterSetUpscope(fstfile); },
+			[this,use_signal](Wire *wire, int id) {
+				if (!use_signal.at(id)) return;
+				fstHandle fst_id = fstWriterCreateVar(fstfile, FST_VT_VCD_WIRE, FST_VD_IMPLICIT, GetSize(wire),
+												stringf("%s%s", wire->name[0] == '$' ? "\\" : "", log_id(wire)).c_str(), 0);
+
+				mapping.emplace(id, fst_id);
+			}
+		);
+
+		for(auto& d : worker->output_data)
+		{
+			fstWriterEmitTimeChange(fstfile, d.first);
+			for (auto &data : d.second)
+			{
+				if (!use_signal.at(data.first)) continue;
+				Const value = data.second;
+				std::stringstream ss;
+				for (int i = GetSize(value)-1; i >= 0; i--) {
+					switch (value[i]) {
+						case State::S0: ss << "0"; break;
+						case State::S1: ss << "1"; break;
+						case State::Sx: ss << "x"; break;
+						default: ss << "z";
+					}
+				}
+				fstWriterEmitValueChange(fstfile, mapping[data.first], ss.str().c_str());
+			}
+		}
+	}
+
+	struct fstContext *fstfile = nullptr;
+	std::map<int,fstHandle> mapping;
+};
+
+struct AIWWriter : public OutputWriter
+{
+	AIWWriter(SimWorker *worker, std::string filename) : OutputWriter(worker) {
+		aiwfile.open(filename.c_str());
+	}
+
+	virtual ~AIWWriter()
+	{
+		aiwfile << '.' << '\n';
+	}
+
+	void write(std::map<int, bool> &) override
+	{
+		if (!aiwfile.is_open()) return;
+		std::ifstream mf(worker->map_filename);
+		std::string type, symbol;
+		int variable, index;
+		while (mf >> type >> variable >> index >> symbol) {
+			RTLIL::IdString escaped_s = RTLIL::escape_id(symbol);
+			Wire *w = worker->top->module->wire(escaped_s);
+			if (!w)
+				log_error("Wire %s not present in module %s\n",log_signal(w),log_id(worker->top->module));
+			if (index < w->start_offset || index > w->start_offset + w->width)
+				log_error("Index %d for wire %s is out of range\n", index, log_signal(w));
+			if (type == "input") {
+				aiw_inputs[variable] = SigBit(w,index);
+			} else if (type == "init") {
+				aiw_inits[variable] = SigBit(w,index);
+			} else if (type == "latch") {
+				aiw_latches[variable] = {SigBit(w,index), false};
+			} else if (type == "invlatch") {
+				aiw_latches[variable] = {SigBit(w,index), true};
+			}
+		}
+
+		worker->top->write_output_header(
+			[](IdString) {},
+			[]() {},
+			[this](Wire *wire, int id) { mapping[wire] = id; }
+		);
+
+		std::map<int, Yosys::RTLIL::Const> current;
+		bool first = true;
+		for(auto& d : worker->output_data)
+		{
+			for (auto &data : d.second)
+			{
+				current[data.first] = data.second;
+			}
+			if (first) {
+				for (int i = 0;; i++)
+				{
+					if (aiw_latches.count(i)) {
+						SigBit bit = aiw_latches.at(i).first;
+						auto v = current[mapping[bit.wire]].bits.at(bit.offset);
+						if (v == State::S1)
+							aiwfile << (aiw_latches.at(i).second ? '0' : '1');
+						else
+							aiwfile << (aiw_latches.at(i).second ? '1' : '0');
+						continue;
+					}
+					aiwfile << '\n';
+					break;
+				}
+				first = false;
+			}
+
+			for (int i = 0;; i++)
+			{
+				if (aiw_inputs.count(i)) {
+					SigBit bit = aiw_inputs.at(i);
+					auto v = current[mapping[bit.wire]].bits.at(bit.offset);
+					if (v == State::S1)
+						aiwfile << '1';
+					else
+						aiwfile << '0';
+					continue;
+				}
+				if (aiw_inits.count(i)) {
+					SigBit bit = aiw_inits.at(i);
+					auto v = current[mapping[bit.wire]].bits.at(bit.offset);
+					if (v == State::S1)
+						aiwfile << '1';
+					else
+						aiwfile << '0';
+					continue;
+				}
+				aiwfile << '\n';
+				break;
+			}
+		} 
+	}
+
+	std::ofstream aiwfile;
+	dict<int, std::pair<SigBit, bool>> aiw_latches;
+	dict<int, SigBit> aiw_inputs, aiw_inits;
+	std::map<Wire*,int> mapping;
 };
 
 struct SimPass : public Pass {
@@ -1267,6 +1410,13 @@ struct SimPass : public Pass {
 		log("\n");
 		log("    -fst <filename>\n");
 		log("        write the simulation results to the given FST file\n");
+		log("\n");
+		log("    -aiw <filename>\n");
+		log("        write the simulation results to an AIGER witness file\n");
+		log("        (requires a *.aim file via -map)\n");
+		log("\n");
+		log("    -x\n");
+		log("        ignore constant x outputs in simulation file.\n");
 		log("\n");
 		log("    -clock <portname>\n");
 		log("        name of top-level clock input\n");
@@ -1345,13 +1495,19 @@ struct SimPass : public Pass {
 			if (args[argidx] == "-vcd" && argidx+1 < args.size()) {
 				std::string vcd_filename = args[++argidx];
 				rewrite_filename(vcd_filename);
-				worker.vcdfile.open(vcd_filename.c_str());
+				worker.outputfiles.emplace_back(std::unique_ptr<VCDWriter>(new VCDWriter(&worker, vcd_filename.c_str())));
 				continue;
 			}
 			if (args[argidx] == "-fst" && argidx+1 < args.size()) {
 				std::string fst_filename = args[++argidx];
 				rewrite_filename(fst_filename);
-				worker.fstfile = (struct fstContext *)fstWriterCreate(fst_filename.c_str(),1);
+				worker.outputfiles.emplace_back(std::unique_ptr<FSTWriter>(new FSTWriter(&worker, fst_filename.c_str())));
+				continue;
+			}
+			if (args[argidx] == "-aiw" && argidx+1 < args.size()) {
+				std::string aiw_filename = args[++argidx];
+				rewrite_filename(aiw_filename);
+				worker.outputfiles.emplace_back(std::unique_ptr<AIWWriter>(new AIWWriter(&worker, aiw_filename.c_str())));
 				continue;
 			}
 			if (args[argidx] == "-n" && argidx+1 < args.size()) {
@@ -1445,6 +1601,10 @@ struct SimPass : public Pass {
 			}
 			if (args[argidx] == "-sim-gate") {
 				worker.sim_mode = SimulationMode::gate;
+				continue;
+			}
+			if (args[argidx] == "-x") {
+				worker.ignore_x = true;
 				continue;
 			}
 			break;
