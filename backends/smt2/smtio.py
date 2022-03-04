@@ -536,10 +536,16 @@ class SmtIo:
                     self.modinfo[self.curmod].clocks[fields[2]] = "event"
 
         if fields[1] == "yosys-smt2-assert":
-            self.modinfo[self.curmod].asserts["%s_a %s" % (self.curmod, fields[2])] = fields[3]
+            if len(fields) > 4:
+                self.modinfo[self.curmod].asserts["%s_a %s" % (self.curmod, fields[2])] = f'{fields[4]} ({fields[3]})'
+            else:
+                self.modinfo[self.curmod].asserts["%s_a %s" % (self.curmod, fields[2])] = fields[3]
 
         if fields[1] == "yosys-smt2-cover":
-            self.modinfo[self.curmod].covers["%s_c %s" % (self.curmod, fields[2])] = fields[3]
+            if len(fields) > 4:
+                self.modinfo[self.curmod].covers["%s_c %s" % (self.curmod, fields[2])] = f'{fields[4]} ({fields[3]})'
+            else:
+                self.modinfo[self.curmod].covers["%s_c %s" % (self.curmod, fields[2])] = fields[3]
 
         if fields[1] == "yosys-smt2-maximize":
             self.modinfo[self.curmod].maximize.add(fields[2])
