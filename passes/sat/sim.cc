@@ -1089,6 +1089,7 @@ struct SimWorker : SimShared
 			pool<Module*> wbmods;
 			top->writeback(wbmods);
 		}
+		delete fst;
 	}
 
 	void run_cosim_witness(Module *topmod)

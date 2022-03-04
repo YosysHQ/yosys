@@ -74,6 +74,7 @@ private:
 	CallbackFunction callback;
 	std::vector<fstHandle> clk_signals;
 	bool all_samples;
+	std::string tmp_file;
 };
 
 YOSYS_NAMESPACE_END
