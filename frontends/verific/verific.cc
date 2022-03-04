@@ -169,7 +169,10 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 	FOREACH_ATTRIBUTE(obj, mi, attr) {
 		if (attr->Key()[0] == ' ' || attr->Value() == nullptr)
 			continue;
-		attributes[RTLIL::escape_id(attr->Key())] = RTLIL::Const(std::string(attr->Value()));
+		std::string val = std::string(attr->Value());
+		if (val.size()>1 && val[0]=='\"' && val.back()=='\"')
+			val = val.substr(1,val.size()-2);
+		attributes[RTLIL::escape_id(attr->Key())] = RTLIL::Const(val);
 	}
 
 	if (nl) {
