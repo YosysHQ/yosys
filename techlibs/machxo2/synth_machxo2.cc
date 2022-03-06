@@ -57,6 +57,12 @@ struct SynthMachXO2Pass : public ScriptPass
 		log("        from label is synonymous to 'begin', and empty to label is\n");
 		log("        synonymous to the end of the command list.\n");
 		log("\n");
+		log("    -nobram\n");
+		log("        do not use block RAM cells in output netlist\n");
+		log("\n");
+		log("    -nolutram\n");
+		log("        do not use LUT RAM cells in output netlist\n");
+		log("\n");
 		log("    -noflatten\n");
 		log("        do not flatten design before synthesis\n");
 		log("\n");
@@ -74,7 +80,7 @@ struct SynthMachXO2Pass : public ScriptPass
 	}
 
 	string top_opt, blif_file, edif_file, json_file;
-	bool flatten, vpr, noiopad;
+	bool nobram, nolutram, flatten, vpr, noiopad;
 
 	void clear_flags() override
 	{
@@ -82,6 +88,8 @@ struct SynthMachXO2Pass : public ScriptPass
 		blif_file = "";
 		edif_file = "";
 		json_file = "";
+		nobram = false;
+		nolutram = false;
 		flatten = true;
 		vpr = false;
 		noiopad = false;
@@ -125,6 +133,14 @@ struct SynthMachXO2Pass : public ScriptPass
 			}
 			if (args[argidx] == "-noflatten") {
 				flatten = false;
+				continue;
+			}
+			if (args[argidx] == "-nobram") {
+				nobram = true;
+				continue;
+			}
+			if (args[argidx] == "-nolutram") {
+				nolutram = true;
 				continue;
 			}
 			if (args[argidx] == "-noiopad") {
@@ -171,6 +187,19 @@ struct SynthMachXO2Pass : public ScriptPass
 		if (check_label("coarse"))
 		{
 			run("synth -run coarse");
+		}
+
+		if (check_label("map_ram"))
+		{
+			std::string args = "";
+			if (nobram)
+				args += " -no-auto-block";
+			if (nolutram)
+				args += " -no-auto-distributed";
+			if (help_mode)
+				args += " [-no-auto-block] [-no-auto-distributed]";
+			run("memory_libmap -lib +/machxo2/lutrams.txt -lib +/machxo2/brams.txt" + args, "(-no-auto-block if -nobram, -no-auto-distributed if -nolutram)");
+			run("techmap -map +/machxo2/lutrams_map.v -map +/machxo2/brams_map.v");
 		}
 
 		if (check_label("fine"))
