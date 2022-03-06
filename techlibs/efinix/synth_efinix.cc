@@ -158,11 +158,13 @@ struct SynthEfinixPass : public ScriptPass
 			run("synth -run coarse");
 		}
 
-		if (!nobram || check_label("map_bram", "(skip if -nobram)"))
+		if (check_label("map_ram"))
 		{
-			run("memory_bram -rules +/efinix/brams.txt");
+			std::string args = "";
+			if (nobram)
+				args += " -no-auto-block";
+			run("memory_libmap -lib +/efinix/brams.txt" + args);
 			run("techmap -map +/efinix/brams_map.v");
-			run("setundef -zero -params t:EFX_RAM_5K");
 		}
 
 		if (check_label("map_ffram"))
