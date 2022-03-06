@@ -237,12 +237,7 @@ struct SynthGateMatePass : public ScriptPass
 
 		if (check_label("map_bram", "(skip if '-nobram')") && !nobram)
 		{
-			run("memory_bram -rules +/gatemate/brams.txt");
-			run("setundef -zero -params "
-				"t:$__CC_BRAM_CASCADE "
-				"t:$__CC_BRAM_40K_SDP t:$__CC_BRAM_20K_SDP "
-				"t:$__CC_BRAM_20K_TDP t:$__CC_BRAM_40K_TDP "
-			);
+			run("memory_libmap -lib +/gatemate/brams.txt");
 			run("techmap -map +/gatemate/brams_map.v");
 		}
 
