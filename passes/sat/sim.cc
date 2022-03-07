@@ -961,7 +961,7 @@ struct SimWorker : SimShared
 		}
 	}
 
-	void run_cosim(Module *topmod, int numcycles)
+	void run_cosim_fst(Module *topmod, int numcycles)
 	{
 		log_assert(top == nullptr);
 		fst = new FstData(sim_filename);
@@ -1092,7 +1092,7 @@ struct SimWorker : SimShared
 		delete fst;
 	}
 
-	void run_cosim_witness(Module *topmod)
+	void run_cosim_aiger_witness(Module *topmod)
 	{
 		log_assert(top == nullptr);
 		std::ifstream mf(map_filename);
@@ -1181,6 +1181,105 @@ struct SimWorker : SimShared
 			}
 		}
 		register_output_step(10*cycle);
+		write_output_files();
+	}
+
+	std::vector<std::string> split(std::string text, const char *delim)
+	{
+		std::vector<std::string> list;
+		char *p = strdup(text.c_str());
+		char *t = strtok(p, delim);
+		while (t != NULL) {
+			list.push_back(t);
+			t = strtok(NULL, delim);
+		}
+		free(p);
+		return list;
+	}
+
+	std::string signal_name(std::string const & name)
+	{
+		size_t pos = name.find_first_of("@");
+		if (pos==std::string::npos) {
+			pos = name.find_first_of("#");
+			if (pos==std::string::npos)
+				log_error("Line does not contain proper signal name `%s`\n", name.c_str());
+		}
+		return name.substr(0, pos);
+	}
+
+	void run_cosim_btor2_witness(Module *topmod)
+	{
+		log_assert(top == nullptr);
+		std::ifstream f;
+		f.open(sim_filename.c_str());
+		if (f.fail() || GetSize(sim_filename) == 0)
+			log_error("Can not open file `%s`\n", sim_filename.c_str());
+
+		int state = 0;
+		int cycle = 0;
+		top = new SimInstance(this, scope, topmod);
+		register_signals();
+		int prev_cycle = 0;
+		int curr_cycle = 0;
+		std::vector<std::string> parts;
+		while (!f.eof())
+		{
+			std::string line;
+			std::getline(f, line);
+			if (line.size()==0) continue;
+
+			if (line[0]=='#' || line[0]=='@' || line[0]=='.') { 
+				if (line[0]!='.')
+					curr_cycle = atoi(line.c_str()+1); 
+				else
+					curr_cycle = -1; // force detect change
+
+				if (curr_cycle != prev_cycle) {
+					log("Simulating cycle %d %d.\n", cycle, cycle % 1);
+					set_inports(clock, State::S1);
+					set_inports(clockn, State::S0);
+					update();
+					register_output_step(10*cycle+0);
+					set_inports(clock, State::S0);
+					set_inports(clockn, State::S1);
+					update();
+					register_output_step(10*cycle+5);
+					cycle++;
+					prev_cycle = curr_cycle;
+				}
+				if (line[0]=='.') break;
+				continue;
+			}
+
+			switch(state)
+			{
+				case 0:
+					if (line=="sat")
+						state = 1;
+					break;
+				case 1:
+					if (line[0]=='b' || line[0]=='j')
+						state = 2;
+					else
+						log_error("Line does not contain property.\n");
+					break;
+				default: // set state or inputs
+					parts = split(line, " ");
+					if (parts.size()!=3)
+						log_error("Invalid set state line content.\n");
+
+					RTLIL::IdString escaped_s = RTLIL::escape_id(signal_name(parts[2]));
+					Wire *w = topmod->wire(escaped_s);
+					if (!w)
+						log_error("Wire %s not present in module %s\n",log_id(escaped_s),log_id(topmod));
+					if ((int)parts[1].size() != w->width)
+						log_error("Size of wire %s is different than provided data.\n", log_signal(w));
+					
+					top->set_state(w, Const(parts[1]));					
+					break;
+			}
+		}
 		write_output_files();
 	}
 };
@@ -1318,7 +1417,7 @@ struct AIWWriter : public OutputWriter
 			RTLIL::IdString escaped_s = RTLIL::escape_id(symbol);
 			Wire *w = worker->top->module->wire(escaped_s);
 			if (!w)
-				log_error("Wire %s not present in module %s\n",log_signal(w),log_id(worker->top->module));
+				log_error("Wire %s not present in module %s\n",log_id(escaped_s),log_id(worker->top->module));
 			if (index < w->start_offset || index > w->start_offset + w->width)
 				log_error("Index %d for wire %s is out of range\n", index, log_signal(w));
 			if (type == "input") {
@@ -1483,6 +1582,13 @@ struct SimPass : public Pass {
 		log("        enable debug output\n");
 		log("\n");
 	}
+
+
+	static std::string file_base_name(std::string const & path)
+	{
+		return path.substr(path.find_last_of("/\\") + 1);
+	}
+
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		SimWorker worker;
@@ -1632,11 +1738,20 @@ struct SimPass : public Pass {
 
 		if (worker.sim_filename.empty())
 			worker.run(top_mod, numcycles);
-		else
-			if (worker.map_filename.empty())
-				worker.run_cosim(top_mod, numcycles);
-			else
-				worker.run_cosim_witness(top_mod);
+		else {
+			std::string filename_trim = file_base_name(worker.sim_filename);
+			if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".fst") == 0) {
+				worker.run_cosim_fst(top_mod, numcycles);
+			} else if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".aiw") == 0) {
+				if (worker.map_filename.empty())
+					log_cmd_error("For AIGER witness file map parameter is mandatory.\n");
+				worker.run_cosim_aiger_witness(top_mod);
+			} else if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".wit") == 0) {
+				worker.run_cosim_btor2_witness(top_mod);
+			} else {
+				log_cmd_error("Unhandled extension for simulation input file `%s`.\n", worker.sim_filename.c_str());
+			}
+		}
 	}
 } SimPass;
 
