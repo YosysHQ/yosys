@@ -1099,6 +1099,8 @@ struct SimWorker : SimShared
 		std::string type, symbol;
 		int variable, index;
 		dict<int, std::pair<SigBit,bool>> inputs, inits, latches;
+		if (mf.fail())
+			log_cmd_error("Not able to read AIGER witness map file.\n");
 		while (mf >> type >> variable >> index >> symbol) {
 			RTLIL::IdString escaped_s = RTLIL::escape_id(symbol);
 			Wire *w = topmod->wire(escaped_s);
@@ -1410,9 +1412,14 @@ struct AIWWriter : public OutputWriter
 	void write(std::map<int, bool> &) override
 	{
 		if (!aiwfile.is_open()) return;
+		if (worker->map_filename.empty())
+			log_cmd_error("For AIGER witness file map parameter is mandatory.\n");
+
 		std::ifstream mf(worker->map_filename);
 		std::string type, symbol;
 		int variable, index;
+		if (mf.fail())
+			log_cmd_error("Not able to read AIGER witness map file.\n");
 		while (mf >> type >> variable >> index >> symbol) {
 			RTLIL::IdString escaped_s = RTLIL::escape_id(symbol);
 			Wire *w = worker->top->module->wire(escaped_s);
