@@ -1238,7 +1238,7 @@ struct SimWorker : SimShared
 					curr_cycle = -1; // force detect change
 
 				if (curr_cycle != prev_cycle) {
-					log("Simulating cycle %d %d.\n", cycle, cycle % 1);
+					log("Simulating cycle %d.\n", cycle);
 					set_inports(clock, State::S1);
 					set_inports(clockn, State::S0);
 					update();
@@ -1282,6 +1282,7 @@ struct SimWorker : SimShared
 					break;
 			}
 		}
+		register_output_step(10*cycle);
 		write_output_files();
 	}
 };
