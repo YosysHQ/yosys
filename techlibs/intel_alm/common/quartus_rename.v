@@ -157,6 +157,11 @@ output [CFG_DBITS-1:0] B1DATA;
 // Much like the MLAB, the M10K has mem_init[01234] parameters which would let
 // you initialise the RAM cell via hex literals. If they were implemented.
 
+// Since the MISTRAL_M10K block has an inverted write-enable (like the real hardware)
+// but the Quartus primitive expects a normal write-enable, we add an inverter.
+wire A1EN_N;
+NOT wren_inv (.IN(A1EN), .OUT(A1EN_N));
+
 `RAM_BLOCK #(
     .operation_mode("dual_port"),
     .logical_ram_name(_TECHMAP_CELLNAME_),
@@ -176,10 +181,10 @@ output [CFG_DBITS-1:0] B1DATA;
     .port_b_first_bit_number(0),
     .port_b_address_clock("clock0"),
     .port_b_read_enable_clock("clock0")
-) _TECHMAP_REPLACE_ (
+) ram_block (
     .portaaddr(A1ADDR),
     .portadatain(A1DATA),
-    .portawe(A1EN),
+    .portawe(A1EN_N),
     .portbaddr(B1ADDR),
     .portbdataout(B1DATA),
     .portbre(B1EN),
