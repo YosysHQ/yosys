@@ -145,7 +145,7 @@ endspecify
 `endif
 
 always @(posedge CLK1) begin
-    if (A1EN)
+    if (!A1EN)
         mem[(A1ADDR + 1) * CFG_DBITS - 1 : A1ADDR * CFG_DBITS] <= A1DATA;
 
     if (B1EN)
