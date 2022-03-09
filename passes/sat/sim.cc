@@ -1095,6 +1095,8 @@ struct SimWorker : SimShared
 	void run_cosim_aiger_witness(Module *topmod)
 	{
 		log_assert(top == nullptr);
+		if ((clock.size()+clockn.size())==0)
+			log_error("Clock signal must be specified.\n");
 		std::ifstream mf(map_filename);
 		std::string type, symbol;
 		int variable, index;
@@ -1213,6 +1215,8 @@ struct SimWorker : SimShared
 	void run_cosim_btor2_witness(Module *topmod)
 	{
 		log_assert(top == nullptr);
+		if ((clock.size()+clockn.size())==0)
+			log_error("Clock signal must be specified.\n");
 		std::ifstream f;
 		f.open(sim_filename.c_str());
 		if (f.fail() || GetSize(sim_filename) == 0)
@@ -1278,7 +1282,7 @@ struct SimWorker : SimShared
 					if ((int)parts[1].size() != w->width)
 						log_error("Size of wire %s is different than provided data.\n", log_signal(w));
 					
-					top->set_state(w, Const(parts[1]));					
+					top->set_state(w, Const::from_string(parts[1]));
 					break;
 			}
 		}
