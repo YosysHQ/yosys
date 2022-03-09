@@ -1229,6 +1229,12 @@ struct SimWorker : SimShared
 		int prev_cycle = 0;
 		int curr_cycle = 0;
 		std::vector<std::string> parts;
+		size_t len = 0;
+		dict<IdString, Mem*> mem_dict;
+		for (auto &mem : top->memories) {
+			mem.narrow();
+			mem_dict[mem.memid] = &mem;
+		}
 		while (!f.eof())
 		{
 			std::string line;
@@ -1272,17 +1278,36 @@ struct SimWorker : SimShared
 					break;
 				default: // set state or inputs
 					parts = split(line, " ");
-					if (parts.size()!=3)
+					len = parts.size();
+					if (len<3 || len>4)
 						log_error("Invalid set state line content.\n");
 
-					RTLIL::IdString escaped_s = RTLIL::escape_id(signal_name(parts[2]));
-					Wire *w = topmod->wire(escaped_s);
-					if (!w)
-						log_error("Wire %s not present in module %s\n",log_id(escaped_s),log_id(topmod));
-					if ((int)parts[1].size() != w->width)
-						log_error("Size of wire %s is different than provided data.\n", log_signal(w));
-					
-					top->set_state(w, Const::from_string(parts[1]));
+					RTLIL::IdString escaped_s = RTLIL::escape_id(signal_name(parts[len-1]));
+					if (len==3) {
+						Wire *w = topmod->wire(escaped_s);
+						if (!w)
+							log_warning("Wire %s not present in module %s\n",log_id(escaped_s),log_id(topmod));
+						if (w && (int)parts[1].size() != w->width)
+							log_error("Size of wire %s is different than provided data.\n", log_signal(w));
+						if (w)
+							top->set_state(w, Const::from_string(parts[1]));
+					} else {
+						Cell *c = topmod->cell(escaped_s);
+						if (!c)
+							log_error("Cell %s not present in module %s\n",log_id(escaped_s),log_id(topmod));
+						if (!c->is_mem_cell())
+							log_error("Cell %s is not memory cell in module %s\n",log_id(escaped_s),log_id(topmod));
+						
+						Mem *mem = mem_dict[c->parameters.at(ID::MEMID).decode_string()];
+						mem->clear_inits();
+						MemInit minit;
+						minit.addr = Const::from_string(parts[1].substr(1,parts[1].size()-2));
+						minit.data = Const::from_string(parts[2]);
+						log("[%s] = %s\n",log_signal(minit.addr), log_signal(minit.data));
+						minit.en = Const(State::S1, mem->width);
+						mem->inits.push_back(minit);
+						mem->emit();
+					}
 					break;
 			}
 		}
