@@ -55,8 +55,7 @@ struct JnyWriter
             for(; itr != str.end(); ++itr) {
                 switch (*itr) {
                     case '\\': {
-                        newstr += *itr++;
-                        newstr += *itr;
+                        newstr += "\\\\";
                         break;
                     } case '\n': {
                         newstr += "\\n";
