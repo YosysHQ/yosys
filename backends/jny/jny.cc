@@ -302,7 +302,7 @@ struct JnyWriter
         const auto _indent = gen_indent(indent_level);
 
         f << _indent << "{\n";
-        f << stringf("  %s\"type\": %s,\n", _indent.c_str(), sort.first.c_str());
+        f << stringf("  %s\"type\": \"%s\",\n", _indent.c_str(), sort.first.c_str());
         f << _indent << "  \"ports\": [\n";
 
         write_cell_ports(port_cell, indent_level + 2);
