@@ -88,6 +88,7 @@ struct JnyWriter
         // it'll have to do for now,
         void coalesce_cells(Module* mod)
         {
+            _cells.clear();
             for (auto cell : mod->cells()) {
                 const auto cell_type = escape_string(RTLIL::unescape_id(cell->type));
 
