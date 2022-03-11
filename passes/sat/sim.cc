@@ -77,6 +77,7 @@ struct OutputWriter
 struct SimShared
 {
 	bool debug = false;
+	bool verbose = true;
 	bool hide_internal = true;
 	bool writeback = false;
 	bool zinit = false;
@@ -181,7 +182,7 @@ struct SimInstance
 			if ((shared->fst) && !(shared->hide_internal && wire->name[0] == '$')) {
 				fstHandle id = shared->fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
 				if (id==0 && wire->name.isPublic())
-					log_warning("Unable to found wire %s in input file.\n", (scope + "." + RTLIL::unescape_id(wire->name)).c_str());
+					log_warning("Unable to find wire %s in input file.\n", (scope + "." + RTLIL::unescape_id(wire->name)).c_str());
 				fst_handles[wire] = id;
 			}
 
@@ -764,7 +765,7 @@ struct SimInstance
 				IdString name = qsig.as_wire()->name;
 				fstHandle id = shared->fst->getHandle(scope + "." + RTLIL::unescape_id(name));
 				if (id==0 && name.isPublic())
-					log_warning("Unable to found wire %s in input file.\n", (scope + "." + RTLIL::unescape_id(name)).c_str());
+					log_warning("Unable to find wire %s in input file.\n", (scope + "." + RTLIL::unescape_id(name)).c_str());
 				if (id!=0) {
 					Const fst_val = Const::from_string(shared->fst->valueOf(id));
 					set_state(qsig, fst_val);
@@ -919,7 +920,7 @@ struct SimWorker : SimShared
 
 		if (debug)
 			log("\n===== 0 =====\n");
-		else
+		else if (verbose)
 			log("Simulating cycle 0.\n");
 
 		set_inports(reset, State::S1);
@@ -936,7 +937,7 @@ struct SimWorker : SimShared
 		{
 			if (debug)
 				log("\n===== %d =====\n", 10*cycle + 5);
-			else
+			else if (verbose)
 				log("Simulating cycle %d.\n", (cycle*2)+1);
 			set_inports(clock, State::S0);
 			set_inports(clockn, State::S1);
@@ -946,7 +947,7 @@ struct SimWorker : SimShared
 
 			if (debug)
 				log("\n===== %d =====\n", 10*cycle + 10);
-			else
+			else if (verbose)
 				log("Simulating cycle %d.\n", (cycle*2)+2);
 
 			set_inports(clock, State::S1);
@@ -1063,7 +1064,8 @@ struct SimWorker : SimShared
 
 		try {
 			fst->reconstructAllAtTimes(fst_clock, startCount, stopCount, [&](uint64_t time) {
-				log("Co-simulating %s %d [%lu%s].\n", (all_samples ? "sample" : "cycle"), cycle, (unsigned long)time, fst->getTimescaleString());
+				if (verbose)
+					log("Co-simulating %s %d [%lu%s].\n", (all_samples ? "sample" : "cycle"), cycle, (unsigned long)time, fst->getTimescaleString());
 				bool did_something = false;
 				for(auto &item : inputs) {
 					std::string v = fst->valueOf(item.second);
@@ -1172,7 +1174,8 @@ struct SimWorker : SimShared
 					state = 3;
 					break;
 				default:
-					log("Simulating cycle %d.\n", cycle);
+					if (verbose)
+						log("Simulating cycle %d.\n", cycle);
 					top->setState(inputs, line);
 					if (cycle) {
 						set_inports(clock, State::S1);
@@ -1253,7 +1256,8 @@ struct SimWorker : SimShared
 					curr_cycle = -1; // force detect change
 
 				if (curr_cycle != prev_cycle) {
-					log("Simulating cycle %d.\n", cycle);
+					if (verbose)
+						log("Simulating cycle %d.\n", cycle);
 					set_inports(clock, State::S1);
 					set_inports(clockn, State::S0);
 					update();
@@ -1623,6 +1627,9 @@ struct SimPass : public Pass {
 		log("    -sim-gate\n");
 		log("        co-simulation, x in FST can match any value in simulation\n");
 		log("\n");
+		log("    -q\n");
+		log("        disable per-cycle/sample log message\n");
+		log("\n");
 		log("    -d\n");
 		log("        enable debug output\n");
 		log("\n");
@@ -1693,6 +1700,10 @@ struct SimPass : public Pass {
 			}
 			if (args[argidx] == "-a") {
 				worker.hide_internal = false;
+				continue;
+			}
+			if (args[argidx] == "-q") {
+				worker.verbose = false;
 				continue;
 			}
 			if (args[argidx] == "-d") {
