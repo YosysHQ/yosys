@@ -89,6 +89,7 @@ struct SimShared
 	std::vector<std::unique_ptr<OutputWriter>> outputfiles;
 	std::vector<std::pair<int,std::map<int,Const>>> output_data;
 	bool ignore_x = false;
+	bool date = false;
 };
 
 void zinit(State &v)
@@ -1333,12 +1334,14 @@ struct VCDWriter : public OutputWriter
 	void write(std::map<int, bool> &use_signal) override
 	{
 		if (!vcdfile.is_open()) return;
-		vcdfile << stringf("$version %s $end\n", yosys_version_str);
+		vcdfile << stringf("$version %s $end\n", worker->date ? yosys_version_str : "Yosys");
 
-		std::time_t t = std::time(nullptr);
-		char mbstr[255];
-		if (std::strftime(mbstr, sizeof(mbstr), "%c", std::localtime(&t))) {
-			vcdfile << stringf("$date ") << mbstr << stringf(" $end\n");
+		if (worker->date) {
+			std::time_t t = std::time(nullptr);
+			char mbstr[255];
+			if (std::strftime(mbstr, sizeof(mbstr), "%c", std::localtime(&t))) {
+				vcdfile << stringf("$date ") << mbstr << stringf(" $end\n");
+			}
 		}
 
 		if (!worker->timescale.empty())
@@ -1391,8 +1394,11 @@ struct FSTWriter : public OutputWriter
 	{
 		if (!fstfile) return;
 		std::time_t t = std::time(nullptr);
-		fstWriterSetDate(fstfile, asctime(std::localtime(&t)));
-		fstWriterSetVersion(fstfile, yosys_version_str);
+		fstWriterSetVersion(fstfile, worker->date ? yosys_version_str : "Yosys");
+		if (worker->date)
+			fstWriterSetDate(fstfile, asctime(std::localtime(&t)));
+		else
+			fstWriterSetDate(fstfile, "");
 		if (!worker->timescale.empty())
 			fstWriterSetTimescaleFromString(fstfile, worker->timescale.c_str());
 
@@ -1562,6 +1568,9 @@ struct SimPass : public Pass {
 		log("\n");
 		log("    -x\n");
 		log("        ignore constant x outputs in simulation file.\n");
+		log("\n");
+		log("    -date\n");
+		log("        include date and full version info in output.\n");
 		log("\n");
 		log("    -clock <portname>\n");
 		log("        name of top-level clock input\n");
@@ -1757,6 +1766,10 @@ struct SimPass : public Pass {
 			}
 			if (args[argidx] == "-x") {
 				worker.ignore_x = true;
+				continue;
+			}
+			if (args[argidx] == "-date") {
+				worker.date = true;
 				continue;
 			}
 			break;
