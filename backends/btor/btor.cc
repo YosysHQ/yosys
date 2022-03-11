@@ -678,7 +678,11 @@ struct BtorWorker
 			int sid = get_bv_sid(GetSize(sig_y));
 			int nid = next_nid++;
 
-			btorf("%d state %d\n", nid, sid);
+			btorf("%d state %d", nid, sid);
+			if (sig_y.is_wire() && sig_y.as_wire()->name.c_str()[0]!='$')
+				btorf(" %s\n", log_id(sig_y.as_wire()));
+			else
+				btorf("\n");
 
 			if (cell->type == ID($anyconst)) {
 				int nid2 = next_nid++;
