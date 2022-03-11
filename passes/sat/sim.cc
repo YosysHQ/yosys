@@ -1290,12 +1290,21 @@ struct SimWorker : SimShared
 					RTLIL::IdString escaped_s = RTLIL::escape_id(signal_name(parts[len-1]));
 					if (len==3) {
 						Wire *w = topmod->wire(escaped_s);
-						if (!w)
-							log_warning("Wire %s not present in module %s\n",log_id(escaped_s),log_id(topmod));
-						if (w && (int)parts[1].size() != w->width)
-							log_error("Size of wire %s is different than provided data.\n", log_signal(w));
-						if (w)
+						if (!w) {
+							Cell *c = topmod->cell(escaped_s);
+							if (!c)
+								log_warning("Wire/cell %s not present in module %s\n",log_id(escaped_s),log_id(topmod));
+							else if (c->type.in(ID($anyconst), ID($anyseq))) {
+								SigSpec sig_y= c->getPort(ID::Y);
+								if ((int)parts[1].size() != GetSize(sig_y))
+									log_error("Size of wire %s is different than provided data.\n", log_signal(sig_y));
+								top->set_state(sig_y, Const::from_string(parts[1]));
+							}
+						} else {
+							if ((int)parts[1].size() != w->width)
+								log_error("Size of wire %s is different than provided data.\n", log_signal(w));
 							top->set_state(w, Const::from_string(parts[1]));
+						}
 					} else {
 						Cell *c = topmod->cell(escaped_s);
 						if (!c)
