@@ -1599,7 +1599,7 @@ struct SimPass : public Pass {
 		log("    -map <filename>\n");
 		log("        read file with port and latch symbols, needed for AIGER witness input\n");
 		log("\n");
-		log("    -scope\n");
+		log("    -scope <name>\n");
 		log("        scope of simulation top model\n");
 		log("\n");
 		log("    -at <time>\n");
