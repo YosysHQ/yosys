@@ -326,6 +326,16 @@ struct SimInstance
 		return did_something;
 	}
 
+	void set_memory_state(IdString memid, Const addr, Const data)
+	{
+		auto &state = mem_database[memid];
+
+		int offset = (addr.as_int() - state.mem->start_offset) * state.mem->width;
+		for (int i = 0; i < GetSize(data); i++)
+			if (0 <= i+offset && i+offset < GetSize(data))
+				state.data.bits[i+offset] = data.bits[i];
+	}
+
 	void update_cell(Cell *cell)
 	{
 		if (ff_database.count(cell))
@@ -1230,11 +1240,6 @@ struct SimWorker : SimShared
 		int curr_cycle = 0;
 		std::vector<std::string> parts;
 		size_t len = 0;
-		dict<IdString, Mem*> mem_dict;
-		for (auto &mem : top->memories) {
-			mem.narrow();
-			mem_dict[mem.memid] = &mem;
-		}
 		while (!f.eof())
 		{
 			std::string line;
@@ -1298,15 +1303,9 @@ struct SimWorker : SimShared
 						if (!c->is_mem_cell())
 							log_error("Cell %s is not memory cell in module %s\n",log_id(escaped_s),log_id(topmod));
 						
-						Mem *mem = mem_dict[c->parameters.at(ID::MEMID).decode_string()];
-						mem->clear_inits();
-						MemInit minit;
-						minit.addr = Const::from_string(parts[1].substr(1,parts[1].size()-2));
-						minit.data = Const::from_string(parts[2]);
-						log("[%s] = %s\n",log_signal(minit.addr), log_signal(minit.data));
-						minit.en = Const(State::S1, mem->width);
-						mem->inits.push_back(minit);
-						mem->emit();
+						Const addr = Const::from_string(parts[1].substr(1,parts[1].size()-2));
+						Const data = Const::from_string(parts[2]);
+						top->set_memory_state(c->parameters.at(ID::MEMID).decode_string(), addr, data);
 					}
 					break;
 			}
