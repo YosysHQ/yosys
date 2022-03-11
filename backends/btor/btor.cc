@@ -678,7 +678,7 @@ struct BtorWorker
 			int sid = get_bv_sid(GetSize(sig_y));
 			int nid = next_nid++;
 
-			btorf("%d state %d\n", nid, sid);
+			btorf("%d state %d%s\n", nid, sid, getinfo(cell).c_str());
 
 			if (cell->type == ID($anyconst)) {
 				int nid2 = next_nid++;
@@ -699,7 +699,7 @@ struct BtorWorker
 				int one_nid = get_sig_nid(State::S1);
 				int zero_nid = get_sig_nid(State::S0);
 				initstate_nid = next_nid++;
-				btorf("%d state %d\n", initstate_nid, sid);
+				btorf("%d state %d%s\n", initstate_nid, sid, getinfo(cell).c_str());
 				btorf("%d init %d %d %d\n", next_nid++, sid, initstate_nid, one_nid);
 				btorf("%d next %d %d %d\n", next_nid++, sid, initstate_nid, zero_nid);
 			}
