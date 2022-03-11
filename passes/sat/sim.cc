@@ -1785,7 +1785,8 @@ struct SimPass : public Pass {
 			worker.run(top_mod, numcycles);
 		else {
 			std::string filename_trim = file_base_name(worker.sim_filename);
-			if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".fst") == 0) {
+			if (filename_trim.size() > 4 && ((filename_trim.compare(filename_trim.size()-4, std::string::npos, ".fst") == 0) ||
+				filename_trim.compare(filename_trim.size()-4, std::string::npos, ".vcd") == 0)) {
 				worker.run_cosim_fst(top_mod, numcycles);
 			} else if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".aiw") == 0) {
 				if (worker.map_filename.empty())
