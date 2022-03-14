@@ -185,7 +185,7 @@ module grom_cpu(
 													`ifdef DISASSEMBLY
 													$display("INC R%d",IR[1:0]);
 													`endif
-													alu_op  <= 4'b0001;     // ALU_OP_ADD
+													alu_op  <= 4'b0000;     // ALU_OP_ADD
 													end
 											2'b01 : begin
 													`ifdef DISASSEMBLY

@@ -27,6 +27,8 @@ module ram_memory(
 	store[256] <= 8'b11010001; // OUT [0],R1
 	store[257] <= 8'b00000000; //
 	store[258] <= 8'b01111110; // RET
+
+	store[512] <= 8'b00000000;
   end
 
   always @(posedge clk)
