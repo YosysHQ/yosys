@@ -590,6 +590,31 @@ module TLVDS_OBUF (I, O, OB);
   assign OB = ~I;
 endmodule
 
+(* blackbox *)
+module ODDR(D0, D1, TX, CLK, Q0, Q1);
+	input D0;
+	input D1;
+	input TX;
+	input CLK;
+	output Q0;
+	output Q1;
+	parameter TXCLK_POL = 0;
+	parameter INIT = 0;
+endmodule
+
+(* blackbox *)
+module ODDRC(D0, D1, CLEAR, TX, CLK, Q0, Q1);
+	input D0;
+	input D1;
+	input CLEAR;
+	input TX;
+	input CLK;
+	output Q0;
+	output Q1;
+	parameter TXCLK_POL = 0;
+	parameter INIT = 0;
+endmodule
+
 module GSR (input GSRI);
 	wire GSRO = GSRI;
 endmodule
