@@ -1327,6 +1327,210 @@ struct SimWorker : SimShared
 		register_output_step(10*cycle);
 		write_output_files();
 	}
+
+	std::string define_signal(Wire *wire)
+	{
+		std::stringstream f;
+
+		if (wire->width==1)
+			f << stringf("%s", RTLIL::unescape_id(wire->name).c_str());
+		else
+			if (wire->upto)
+				f << stringf("[%d:%d] %s", wire->start_offset, wire->width - 1 + wire->start_offset, RTLIL::unescape_id(wire->name).c_str());
+			else
+				f << stringf("[%d:%d] %s", wire->width - 1 + wire->start_offset, wire->start_offset, RTLIL::unescape_id(wire->name).c_str());
+		return f.str();
+	}
+
+	std::string signal_list(std::map<Wire*,fstHandle> &signals)
+	{
+		std::stringstream f;
+		for(auto item=signals.begin();item!=signals.end();item++)
+			f << stringf("%c%s", (item==signals.begin() ? ' ' : ','), RTLIL::unescape_id(item->first->name).c_str());
+		return f.str();
+	}
+
+	void generate_tb(Module *topmod, std::string tb_filename, int numcycles)
+	{
+		fst = new FstData(sim_filename);
+
+		if (scope.empty())
+			log_error("Scope must be defined for co-simulation.\n");
+
+		if ((clock.size()+clockn.size())==0)
+			log_error("Clock signal must be specified.\n");
+
+		std::vector<fstHandle> fst_clock;
+		std::map<Wire*,fstHandle> clocks;
+
+		for (auto portname : clock)
+		{
+			Wire *w = topmod->wire(portname);
+			if (!w)
+				log_error("Can't find port %s on module %s.\n", log_id(portname), log_id(top->module));
+			if (!w->port_input)
+				log_error("Clock port %s on module %s is not input.\n", log_id(portname), log_id(top->module));
+			fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(portname));
+			if (id==0)
+				log_error("Can't find port %s.%s in FST.\n", scope.c_str(), log_id(portname));
+			fst_clock.push_back(id);
+			clocks[w] = id;
+		}
+		for (auto portname : clockn)
+		{
+			Wire *w = topmod->wire(portname);
+			if (!w)
+				log_error("Can't find port %s on module %s.\n", log_id(portname), log_id(top->module));
+			if (!w->port_input)
+				log_error("Clock port %s on module %s is not input.\n", log_id(portname), log_id(top->module));
+			fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(portname));
+			if (id==0)
+				log_error("Can't find port %s.%s in FST.\n", scope.c_str(), log_id(portname));
+			fst_clock.push_back(id);
+			clocks[w] = id;
+		}
+
+		SigMap sigmap(topmod);
+		std::map<Wire*,fstHandle> inputs;
+		std::map<Wire*,fstHandle> outputs;
+
+		for (auto wire : topmod->wires()) {
+			fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
+			if (id==0 && (wire->port_input || wire->port_output))
+				log_error("Unable to find required '%s' signal in file\n",(scope + "." + RTLIL::unescape_id(wire->name)).c_str());
+			if (wire->port_input)
+				if (clocks.find(wire)==clocks.end())
+					inputs[wire] = id;
+			if (wire->port_output)
+				outputs[wire] = id;
+		}
+
+		uint64_t startCount = 0;
+		uint64_t stopCount = 0;
+		if (start_time==0) {
+			if (start_time < fst->getStartTime())
+				log_warning("Start time is before simulation file start time\n");
+			startCount = fst->getStartTime();
+		} else if (start_time==-1) 
+			startCount = fst->getEndTime();
+		else {
+			startCount = start_time / fst->getTimescale();
+			if (startCount > fst->getEndTime()) {
+				startCount = fst->getEndTime();
+				log_warning("Start time is after simulation file end time\n");
+			}
+		}
+		if (stop_time==0) {
+			if (stop_time < fst->getStartTime())
+				log_warning("Stop time is before simulation file start time\n");
+			stopCount = fst->getStartTime();
+		} else if (stop_time==-1) 
+			stopCount = fst->getEndTime();
+		else {
+			stopCount = stop_time / fst->getTimescale();
+			if (stopCount > fst->getEndTime()) {
+				stopCount = fst->getEndTime();
+				log_warning("Stop time is after simulation file end time\n");
+			}
+		}
+		if (stopCount<startCount) {
+			log_error("Stop time is before start time\n");
+		}
+
+		int cycle = 0;
+		log("Generate testbench data from %lu%s to %lu%s", (unsigned long)startCount, fst->getTimescaleString(), (unsigned long)stopCount, fst->getTimescaleString());
+		if (cycles_set) 
+			log(" for %d clock cycle(s)",numcycles);
+		log("\n");
+
+		std::stringstream f;
+		f << stringf("`timescale 1%s/1%s\n", fst->getTimescaleString(),fst->getTimescaleString());
+		f << stringf("module %s();\n",tb_filename.c_str());
+		int clk_len = 0;
+		int inputs_len = 0;
+		int outputs_len = 0;
+		for(auto &item : clocks) {
+			clk_len += item.first->width;
+			f << "\treg " << define_signal(item.first) << ";\n";
+		}
+		for(auto &item : inputs) {
+			inputs_len += item.first->width;
+			f << "\treg " << define_signal(item.first) << ";\n";
+		}
+		for(auto &item : outputs) {
+			outputs_len += item.first->width;
+			f << "\twire " << define_signal(item.first) << ";\n";
+		}
+		int data_len = clk_len + inputs_len + outputs_len + 32;
+		f << "\n";
+		f << stringf("\t%s uut(",RTLIL::unescape_id(topmod->name).c_str());
+		for(auto item=clocks.begin();item!=clocks.end();item++)
+			f << stringf("%c.%s(%s)", (item==clocks.begin() ? ' ' : ','), RTLIL::unescape_id(item->first->name).c_str(), RTLIL::unescape_id(item->first->name).c_str());
+		for(auto &item : inputs)
+			f << stringf(",.%s(%s)", RTLIL::unescape_id(item.first->name).c_str(), RTLIL::unescape_id(item.first->name).c_str());
+		for(auto &item : outputs)
+			f << stringf(",.%s(%s)", RTLIL::unescape_id(item.first->name).c_str(), RTLIL::unescape_id(item.first->name).c_str());
+		f << ");\n";
+		f << "\n";
+		f << "\tinteger i;\n";
+		uint64_t prev_time = startCount;
+		log("Writing data to `%s`\n", (tb_filename+".txt").c_str());
+		std::ofstream data_file(tb_filename+".txt");
+		try {
+			fst->reconstructAllAtTimes(fst_clock, startCount, stopCount, [&](uint64_t time) {
+				for(auto &item : clocks)
+					data_file << stringf("%s",fst->valueOf(item.second).c_str());
+				for(auto &item : inputs)
+					data_file << stringf("%s",fst->valueOf(item.second).c_str());
+				for(auto &item : outputs)
+					data_file << stringf("%s",fst->valueOf(item.second).c_str());
+				data_file << stringf("%s\n",Const(time-prev_time).as_string().c_str());
+
+				cycle++;
+				prev_time = time;
+
+				// Limit to number of cycles if provided
+				if (cycles_set && cycle > numcycles *2)
+					throw fst_end_of_data_exception();
+				if (time==stopCount)
+					throw fst_end_of_data_exception();
+			});
+		} catch(fst_end_of_data_exception) {
+			// end of data detected
+		}
+
+		f << stringf("\treg [0:%d] data [0:%d];\n", data_len-1, cycle-1);
+		f << "\tinitial begin;\n";
+		f << stringf("\t\t$dumpfile(\"%s\");\n",tb_filename.c_str());
+		f << stringf("\t\t$dumpvars(0,%s);\n",tb_filename.c_str());
+		f << stringf("\t\t$readmemb(\"%s.txt\", data);\n",tb_filename.c_str());
+
+		f << stringf("\t\t#(data[0][%d:%d]);\n", data_len-32, data_len-1);	
+		f << stringf("\t\t{%s } = data[0][%d:%d];\n", signal_list(clocks).c_str(), 0, clk_len-1);		
+		f << stringf("\t\t{%s } <= data[0][%d:%d];\n", signal_list(inputs).c_str(), clk_len, clk_len+inputs_len-1);
+
+		f << stringf("\t\tfor (i = 1; i < %d; i++) begin\n",cycle);
+
+		f << stringf("\t\t\t#(data[i][%d:%d]);\n", data_len-32, data_len-1);	
+		f << stringf("\t\t\t{%s } = data[i][%d:%d];\n", signal_list(clocks).c_str(), 0, clk_len-1);		
+		f << stringf("\t\t\t{%s } <= data[i][%d:%d];\n", signal_list(inputs).c_str(), clk_len, clk_len+inputs_len-1);
+		
+		f << stringf("\t\t\tif ({%s } != data[i-1][%d:%d]) begin\n", signal_list(outputs).c_str(), clk_len+inputs_len, clk_len+inputs_len+outputs_len-1);
+		f << "\t\t\t\t$error(\"Signal difference detected\\n\");\n";
+		f << "\t\t\tend\n";
+		
+		f << "\t\tend\n";
+		
+		f << "\t\t$finish;\n";
+		f << "\tend\n";
+		f << "endmodule\n";
+
+		log("Writing testbench to `%s`\n", (tb_filename+".v").c_str());
+		std::ofstream tb_file(tb_filename+".v");
+		tb_file << f.str();
+
+		delete fst;
+	}
 };
 
 struct VCDWriter : public OutputWriter
@@ -1824,5 +2028,120 @@ struct SimPass : public Pass {
 		}
 	}
 } SimPass;
+
+struct Fst2TbPass : public Pass {
+	Fst2TbPass() : Pass("fst2tb", "generate testbench out of fst file") { }
+	void help() override
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    fst2tb [options] [top-level]\n");
+		log("\n");
+		log("This command generates testbench for the circuit using the given top-level module\n");
+		log("and simulus signal from FST file\n");
+		log("\n");
+		log("    -tb <name>\n");
+		log("        generated testbench name.\n");
+		log("        files <name>.v and <name>.txt are created as result.\n");
+		log("\n");
+		log("    -r <filename>\n");
+		log("        read simulation FST file\n");
+		log("\n");
+		log("    -clock <portname>\n");
+		log("        name of top-level clock input\n");
+		log("\n");
+		log("    -clockn <portname>\n");
+		log("        name of top-level clock input (inverse polarity)\n");
+		log("\n");
+		log("    -scope <name>\n");
+		log("        scope of simulation top model\n");
+		log("\n");
+		log("    -start <time>\n");
+		log("        start co-simulation in arbitary time (default 0)\n");
+		log("\n");
+		log("    -stop <time>\n");
+		log("        stop co-simulation in arbitary time (default END)\n");
+		log("\n");
+		log("    -n <integer>\n");
+		log("        number of clock cycles to simulate (default: 20)\n");
+		log("\n");		
+	}
+
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
+	{
+		SimWorker worker;
+		int numcycles = 20;
+		bool stop_set = false;
+		std::string tb_filename;
+
+		log_header(design, "Executing FST2FB pass.\n");
+
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-clock" && argidx+1 < args.size()) {
+				worker.clock.insert(RTLIL::escape_id(args[++argidx]));
+				continue;
+			}
+			if (args[argidx] == "-clockn" && argidx+1 < args.size()) {
+				worker.clockn.insert(RTLIL::escape_id(args[++argidx]));
+				continue;
+			}
+			if (args[argidx] == "-r" && argidx+1 < args.size()) {
+				std::string sim_filename = args[++argidx];
+				rewrite_filename(sim_filename);
+				worker.sim_filename = sim_filename;
+				continue;
+			}
+			if (args[argidx] == "-n" && argidx+1 < args.size()) {
+				numcycles = atoi(args[++argidx].c_str());
+				worker.cycles_set = true;
+				continue;
+			}
+			if (args[argidx] == "-scope" && argidx+1 < args.size()) {
+				worker.scope = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-start" && argidx+1 < args.size()) {
+				worker.start_time = stringToTime(args[++argidx]);
+				continue;
+			}
+			if (args[argidx] == "-stop" && argidx+1 < args.size()) {
+				worker.stop_time = stringToTime(args[++argidx]);
+				stop_set = true;
+				continue;
+			}
+			if (args[argidx] == "-tb" && argidx+1 < args.size()) {
+				tb_filename = args[++argidx];
+				continue;
+			}
+			break;
+		}
+		extra_args(args, argidx, design);
+		if (stop_set && worker.cycles_set)
+			log_error("'stop' and 'n' can only be used exclusively'\n");
+
+		Module *top_mod = nullptr;
+
+		if (design->full_selection()) {
+			top_mod = design->top_module();
+
+			if (!top_mod)
+				log_cmd_error("Design has no top module, use the 'hierarchy' command to specify one.\n");
+		} else {
+			auto mods = design->selected_whole_modules();
+			if (GetSize(mods) != 1)
+				log_cmd_error("Only one top module must be selected.\n");
+			top_mod = mods.front();
+		}
+
+		if (tb_filename.empty())
+			log_cmd_error("Testbench name must be defined.\n");
+
+		if (worker.sim_filename.empty())
+			log_cmd_error("Stimulus FST file must be defined.\n");
+
+		worker.generate_tb(top_mod, tb_filename, numcycles);
+	}
+} Fst2TbPass;
 
 PRIVATE_NAMESPACE_END
