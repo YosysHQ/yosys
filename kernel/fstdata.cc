@@ -113,6 +113,7 @@ void FstData::extractVarNames()
 				FstVar var;
 				var.id = h->u.var.handle;
 				var.is_alias = h->u.var.is_alias;
+				var.is_reg = (fstVarType)h->u.var.typ == FST_VT_VCD_REG;
 				var.name = remove_spaces(h->u.var.name);
 				var.scope = scopes.back();
 				var.width = h->u.var.length;

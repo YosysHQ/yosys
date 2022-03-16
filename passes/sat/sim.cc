@@ -723,13 +723,25 @@ struct SimInstance
 			child.second->register_signals(id);
 	}
 
-	void write_output_header(std::function<void(IdString)> enter_scope, std::function<void()> exit_scope, std::function<void(Wire*, int)> register_signal)
+	void write_output_header(std::function<void(IdString)> enter_scope, std::function<void()> exit_scope, std::function<void(Wire*, int, bool)> register_signal)
 	{
 		enter_scope(name());
 
+		dict<Wire*,bool> registers;
+		for (auto cell : module->cells())
+		{
+			if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
+				FfData ff_data(nullptr, cell);
+				SigSpec q = sigmap(ff_data.sig_q);
+				if (q.is_wire() && signal_database.count(q.as_wire()) != 0) {
+					registers[q.as_wire()] = true;
+				}
+			}
+		}
+		
 		for (auto signal : signal_database)
 		{
-			register_signal(signal.first, signal.second.first);
+			register_signal(signal.first, signal.second.first, registers.count(signal.first)!=0);
 		}
 
 		for (auto child : children)
@@ -1476,6 +1488,7 @@ struct SimWorker : SimShared
 		uint64_t prev_time = startCount;
 		log("Writing data to `%s`\n", (tb_filename+".txt").c_str());
 		std::ofstream data_file(tb_filename+".txt");
+		std::stringstream initstate;
 		try {
 			fst->reconstructAllAtTimes(fst_clock, startCount, stopCount, [&](uint64_t time) {
 				for(auto &item : clocks)
@@ -1486,6 +1499,18 @@ struct SimWorker : SimShared
 					data_file << stringf("%s",fst->valueOf(item.second).c_str());
 				data_file << stringf("%s\n",Const(time-prev_time).as_string().c_str());
 
+				if (time==startCount) {
+					// initial state
+					for(auto var : fst->getVars()) {
+						if (var.is_reg && !Const::from_string(fst->valueOf(var.id).c_str()).is_fully_undef()) {
+							if (var.scope == scope) {
+								initstate << stringf("\t\tuut.%s = %d'b%s;\n", var.name.c_str(), var.width, fst->valueOf(var.id).c_str());
+							} else if (var.scope.find(scope+".")==0) {
+								initstate << stringf("\t\tuut.%s.%s = %d'b%s;\n",var.scope.substr(scope.size()+1).c_str(), var.name.c_str(), var.width, fst->valueOf(var.id).c_str());
+							}
+						}
+					}
+				}
 				cycle++;
 				prev_time = time;
 
@@ -1503,6 +1528,7 @@ struct SimWorker : SimShared
 		f << "\tinitial begin;\n";
 		f << stringf("\t\t$dumpfile(\"%s\");\n",tb_filename.c_str());
 		f << stringf("\t\t$dumpvars(0,%s);\n",tb_filename.c_str());
+		f << initstate.str();
 		f << stringf("\t\t$readmemb(\"%s.txt\", data);\n",tb_filename.c_str());
 
 		f << stringf("\t\t#(data[0][%d:%d]);\n", data_len-32, data_len-1);	
@@ -1558,7 +1584,7 @@ struct VCDWriter : public OutputWriter
 		worker->top->write_output_header(
 			[this](IdString name) { vcdfile << stringf("$scope module %s $end\n", log_id(name)); },
 			[this]() { vcdfile << stringf("$upscope $end\n");},
-			[this,use_signal](Wire *wire, int id) { if (use_signal.at(id)) vcdfile << stringf("$var wire %d n%d %s%s $end\n", GetSize(wire), id, wire->name[0] == '$' ? "\\" : "", log_id(wire)); }
+			[this,use_signal](Wire *wire, int id, bool is_reg) { if (use_signal.at(id)) vcdfile << stringf("$var %s %d n%d %s%s $end\n", is_reg ? "reg" : "wire", GetSize(wire), id, wire->name[0] == '$' ? "\\" : "", log_id(wire)); }
 		);
 
 		vcdfile << stringf("$enddefinitions $end\n");
@@ -1616,9 +1642,9 @@ struct FSTWriter : public OutputWriter
 	   	worker->top->write_output_header(
 			[this](IdString name) { fstWriterSetScope(fstfile, FST_ST_VCD_MODULE, stringf("%s",log_id(name)).c_str(), nullptr); },
 			[this]() { fstWriterSetUpscope(fstfile); },
-			[this,use_signal](Wire *wire, int id) {
+			[this,use_signal](Wire *wire, int id, bool is_reg) {
 				if (!use_signal.at(id)) return;
-				fstHandle fst_id = fstWriterCreateVar(fstfile, FST_VT_VCD_WIRE, FST_VD_IMPLICIT, GetSize(wire),
+				fstHandle fst_id = fstWriterCreateVar(fstfile, is_reg ? FST_VT_VCD_REG : FST_VT_VCD_WIRE, FST_VD_IMPLICIT, GetSize(wire),
 												stringf("%s%s", wire->name[0] == '$' ? "\\" : "", log_id(wire)).c_str(), 0);
 
 				mapping.emplace(id, fst_id);
@@ -1693,7 +1719,7 @@ struct AIWWriter : public OutputWriter
 		worker->top->write_output_header(
 			[](IdString) {},
 			[]() {},
-			[this](Wire *wire, int id) { mapping[wire] = id; }
+			[this](Wire *wire, int id, bool) { mapping[wire] = id; }
 		);
 
 		std::map<int, Yosys::RTLIL::Const> current;

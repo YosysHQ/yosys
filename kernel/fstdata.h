@@ -33,6 +33,7 @@ struct FstVar
 	fstHandle id;
 	std::string name;
 	bool is_alias;
+	bool is_reg;
 	std::string scope;
 	int width;
 };
