@@ -414,14 +414,14 @@ struct JnyBackend : public Backend {
         log("\n");
         log("    jny [options] [selection]\n");
         log("\n");
-        log("    -connections\n");
-        log("        Include connection information in the netlist output.\n");
+        log("    -no-connections\n");
+        log("        Don't include connection information in the netlist output.\n");
         log("\n");
-        log("    -attributes\n");
-        log("        Include attributed information in the netlist output.\n");
+        log("    -no-attributes\n");
+        log("        Don't include attributed information in the netlist output.\n");
         log("\n");
-        log("    -properties\n");
-        log("        Include property information in the netlist output.\n");
+        log("    -no-properties\n");
+        log("        Don't include property information in the netlist output.\n");
         log("\n");
         log("Write a JSON metadata for the current design\n");
         log("\n");
@@ -430,24 +430,24 @@ struct JnyBackend : public Backend {
 
     void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override {
 
-        bool connections{false};
-        bool attributes{false};
-        bool properties{false};
+        bool connections{true};
+        bool attributes{true};
+        bool properties{true};
 
         size_t argidx{1};
         for (; argidx < args.size(); argidx++) {
-            if (args[argidx] == "-connections") {
-                connections = true;
+            if (args[argidx] == "-no-connections") {
+                connections = false;
                 continue;
             }
 
-            if (args[argidx] == "-attributes") {
-                attributes = true;
+            if (args[argidx] == "-no-attributes") {
+                attributes = false;
                 continue;
             }
 
-            if (args[argidx] == "-properties") {
-                properties = true;
+            if (args[argidx] == "-no-properties") {
+                properties = false;
                 continue;
             }
 
@@ -477,14 +477,14 @@ struct JnyPass : public Pass {
         log("    -o <filename>\n");
         log("        write to the specified file.\n");
         log("\n");
-        log("    -connections\n");
-        log("        Include connection information in the netlist output.\n");
+        log("    -no-connections\n");
+        log("        Don't include connection information in the netlist output.\n");
         log("\n");
-        log("    -attributes\n");
-        log("        Include attributed information in the netlist output.\n");
+        log("    -no-attributes\n");
+        log("        Don't include attributed information in the netlist output.\n");
         log("\n");
-        log("    -properties\n");
-        log("        Include property information in the netlist output.\n");
+        log("    -no-properties\n");
+        log("        Don't include property information in the netlist output.\n");
         log("\n");
         log("See 'help write_jny' for a description of the JSON format used.\n");
         log("\n");
@@ -492,9 +492,9 @@ struct JnyPass : public Pass {
     void execute(std::vector<std::string> args, RTLIL::Design *design) override {
         std::string filename{};
 
-        bool connections{false};
-        bool attributes{false};
-        bool properties{false};
+        bool connections{true};
+        bool attributes{true};
+        bool properties{true};
 
         size_t argidx{1};
         for (; argidx < args.size(); argidx++) {
@@ -503,18 +503,18 @@ struct JnyPass : public Pass {
                 continue;
             }
 
-            if (args[argidx] == "-connections") {
-                connections = true;
+            if (args[argidx] == "-no-connections") {
+                connections = false;
                 continue;
             }
 
-            if (args[argidx] == "-attributes") {
-                attributes = true;
+            if (args[argidx] == "-no-attributes") {
+                attributes = false;
                 continue;
             }
 
-            if (args[argidx] == "-properties") {
-                properties = true;
+            if (args[argidx] == "-no-properties") {
+                properties = false;
                 continue;
             }
 
