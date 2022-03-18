@@ -1,3 +1,12 @@
+## why?
+
+- no way to build a proper STATIC lib (= .a) with the current Makefile
+    - "config-gcc-static" FAIL, and in any case it is not a static build
+- the generated libyosys.so has a wrong SONAME(= $(LIBDIR)/libyosys.so) when it SHOULD be libyosys.so
+ which makes it hard to properly package libyosys (without resorting to patchelf)
+- a Makefile is NOT made to handle dependencies; that is what autoconf is for
+- configure the Makefile requires generating a file on disk (Makefile.conf) which is less than ideal when
+integrating with CMake downstream projects
 
 ## all Makefiles
 
