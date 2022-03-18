@@ -101,7 +101,8 @@ void FstData::extractVarNames()
 			case FST_HT_SCOPE: {
 				snum++;
 				std::string fst_scope_name = fstReaderPushScope(ctx, h->u.scope.name, (void *)(snum));
-				scopes.push_back(fst_scope_name);
+				if (h->u.scope.typ == FST_ST_VCD_MODULE)
+					scopes.push_back(fst_scope_name);
 				break;
 			}
 			case FST_HT_UPSCOPE: {
