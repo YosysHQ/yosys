@@ -986,16 +986,16 @@ struct Smt2Worker
 				string name_a = get_bool(cell->getPort(ID::A));
 				string name_en = get_bool(cell->getPort(ID::EN));
 				if (cell->name[0] == '$' && cell->attributes.count(ID::src))
-					decls.push_back(stringf("; yosys-smt2-%s %d %s %s\n", cell->type.c_str() + 1, id, get_id(cell), cell->attributes.at(ID::src).decode_string().c_str()));
+					decls.push_back(stringf("; yosys-smt2-%s %d %s %s\n", cell->type.c_str() + 1, id, log_id(cell), cell->attributes.at(ID::src).decode_string().c_str()));
 				else
-					decls.push_back(stringf("; yosys-smt2-%s %d %s\n", cell->type.c_str() + 1, id, get_id(cell)));
+					decls.push_back(stringf("; yosys-smt2-%s %d %s\n", cell->type.c_str() + 1, id, log_id(cell)));
 
 				if (cell->type == ID($cover))
 					decls.push_back(stringf("(define-fun |%s_%c %d| ((state |%s_s|)) Bool (and %s %s)) ; %s\n",
-							get_id(module), postfix, id, get_id(module), name_a.c_str(), name_en.c_str(), get_id(cell)));
+							get_id(module), postfix, id, get_id(module), name_a.c_str(), name_en.c_str(), log_id(cell)));
 				else
 					decls.push_back(stringf("(define-fun |%s_%c %d| ((state |%s_s|)) Bool (or %s (not %s))) ; %s\n",
-							get_id(module), postfix, id, get_id(module), name_a.c_str(), name_en.c_str(), get_id(cell)));
+							get_id(module), postfix, id, get_id(module), name_a.c_str(), name_en.c_str(), log_id(cell)));
 
 				if (cell->type == ID($assert))
 					assert_list.push_back(stringf("(|%s_a %d| state)", get_id(module), id));
