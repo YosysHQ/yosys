@@ -108,7 +108,26 @@ CELLS = [
 
     # Block RAM.
     # Virtex.
-    # TODO: RAMB4_*
+    Cell('RAMB4_S1', port_attrs={'CLK': ['clkbuf_sink']}),
+    Cell('RAMB4_S2', port_attrs={'CLK': ['clkbuf_sink']}),
+    Cell('RAMB4_S4', port_attrs={'CLK': ['clkbuf_sink']}),
+    Cell('RAMB4_S8', port_attrs={'CLK': ['clkbuf_sink']}),
+    Cell('RAMB4_S16', port_attrs={'CLK': ['clkbuf_sink']}),
+    Cell('RAMB4_S1_S1', port_attrs={'CLKA': ['clkbuf_sink'], 'CLKB': ['clkbuf_sink']}),
+    Cell('RAMB4_S1_S2', port_attrs={'CLKA': ['clkbuf_sink'], 'CLKB': ['clkbuf_sink']}),
+    Cell('RAMB4_S1_S4', port_attrs={'CLKA': ['clkbuf_sink'], 'CLKB': ['clkbuf_sink']}),
+    Cell('RAMB4_S1_S8', port_attrs={'CLKA': ['clkbuf_sink'], 'CLKB': ['clkbuf_sink']}),
+    Cell('RAMB4_S1_S16', port_attrs={'CLKA': ['clkbuf_sink'], 'CLKB': ['clkbuf_sink']}),
+    Cell('RAMB4_S2_S2', port_attrs={'CLKA': ['clkbuf_sink'], 'CLKB': ['clkbuf_sink']}),
+    Cell('RAMB4_S2_S4', port_attrs={'CLKA': ['clkbuf_sink'], 'CLKB': ['clkbuf_sink']}),
+    Cell('RAMB4_S2_S8', port_attrs={'CLKA': ['clkbuf_sink'], 'CLKB': ['clkbuf_sink']}),
+    Cell('RAMB4_S2_S16', port_attrs={'CLKA': ['clkbuf_sink'], 'CLKB': ['clkbuf_sink']}),
+    Cell('RAMB4_S4_S4', port_attrs={'CLKA': ['clkbuf_sink'], 'CLKB': ['clkbuf_sink']}),
+    Cell('RAMB4_S4_S8', port_attrs={'CLKA': ['clkbuf_sink'], 'CLKB': ['clkbuf_sink']}),
+    Cell('RAMB4_S4_S16', port_attrs={'CLKA': ['clkbuf_sink'], 'CLKB': ['clkbuf_sink']}),
+    Cell('RAMB4_S8_S8', port_attrs={'CLKA': ['clkbuf_sink'], 'CLKB': ['clkbuf_sink']}),
+    Cell('RAMB4_S8_S16', port_attrs={'CLKA': ['clkbuf_sink'], 'CLKB': ['clkbuf_sink']}),
+    Cell('RAMB4_S16_S16', port_attrs={'CLKA': ['clkbuf_sink'], 'CLKB': ['clkbuf_sink']}),
     # Virtex 2, Spartan 3.
     Cell('RAMB16_S1', port_attrs={'CLK': ['clkbuf_sink']}),
     Cell('RAMB16_S2', port_attrs={'CLK': ['clkbuf_sink']}),
