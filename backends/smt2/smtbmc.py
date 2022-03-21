@@ -143,7 +143,7 @@ def usage():
 
     --dump-all
         when using -g or -i, create a dump file for each
-        step. The character '%' is replaces in all dump
+        step. The character '%' is replaced in all dump
         filenames with the step number.
 
     --append <num_steps>
@@ -829,7 +829,7 @@ def char_ok_in_verilog(c,i):
     return False
 
 def escape_identifier(identifier):
-    if type(identifier) is list: 
+    if type(identifier) is list:
         return map(escape_identifier, identifier)
     if "." in identifier:
         return ".".join(escape_identifier(identifier.split(".")))
