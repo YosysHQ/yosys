@@ -1138,13 +1138,13 @@ struct SimWorker : SimShared
 			if (index < w->start_offset || index > w->start_offset + w->width)
 				log_error("Index %d for wire %s is out of range\n", index, log_signal(w));
 			if (type == "input") {
-				inputs[variable] = {SigBit(w,index), false};
+				inputs[variable] = {SigBit(w,index-w->start_offset), false};
 			} else if (type == "init") {
-				inits[variable] = {SigBit(w,index), false};
+				inits[variable] = {SigBit(w,index-w->start_offset), false};
 			} else if (type == "latch") {
-				latches[variable] = {SigBit(w,index), false};
+				latches[variable] = {SigBit(w,index-w->start_offset), false};
 			} else if (type == "invlatch") {
-				latches[variable] = {SigBit(w,index), true};
+				latches[variable] = {SigBit(w,index-w->start_offset), true};
 			}
 		}
 
