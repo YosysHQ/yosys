@@ -1708,13 +1708,13 @@ struct AIWWriter : public OutputWriter
 			if (index < w->start_offset || index > w->start_offset + w->width)
 				log_error("Index %d for wire %s is out of range\n", index, log_signal(w));
 			if (type == "input") {
-				aiw_inputs[variable] = SigBit(w,index);
+				aiw_inputs[variable] = SigBit(w,index-w->start_offset);
 			} else if (type == "init") {
-				aiw_inits[variable] = SigBit(w,index);
+				aiw_inits[variable] = SigBit(w,index-w->start_offset);
 			} else if (type == "latch") {
-				aiw_latches[variable] = {SigBit(w,index), false};
+				aiw_latches[variable] = {SigBit(w,index-w->start_offset), false};
 			} else if (type == "invlatch") {
-				aiw_latches[variable] = {SigBit(w,index), true};
+				aiw_latches[variable] = {SigBit(w,index-w->start_offset), true};
 			}
 		}
 
