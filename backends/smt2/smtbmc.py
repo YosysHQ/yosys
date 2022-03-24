@@ -492,7 +492,7 @@ if aimfile is not None:
             got_state = True
 
         for entry in f.read().splitlines():
-            if len(entry) == 0 or entry[0] in "bcjfu.":
+            if len(entry) == 0 or entry[0] in "bcjfu.#":
                 continue
 
             if not got_state:
