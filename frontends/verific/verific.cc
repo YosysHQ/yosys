@@ -1011,7 +1011,7 @@ static std::string sha1_if_contain_spaces(std::string str)
 	return str;
 }
 
-void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::set<Netlist*> &nl_todo, bool norename)
+void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::map<std::string,Netlist*> &nl_todo, bool norename)
 {
 	std::string netlist_name = nl->GetAtt(" \\top") ? nl->CellBaseName() : nl->Owner()->Name();
 	std::string module_name = netlist_name;
@@ -1659,9 +1659,9 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::se
 		}
 
 	import_verific_cells:
-		nl_todo.insert(inst->View());
-
 		std::string inst_type = inst->View()->Owner()->Name();
+
+		nl_todo[inst_type] = inst->View();
 
 		if (inst->View()->IsOperator() || inst->View()->IsPrimitive()) {
 			inst_type = "$verific$" + inst_type;
@@ -2157,7 +2157,7 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 {
 	verific_sva_fsm_limit = 16;
 
-	std::set<Netlist*> nl_todo, nl_done;
+	std::map<std::string,Netlist*> nl_todo, nl_done;
 
 	VeriLibrary *veri_lib = veri_file::GetLibrary("work", 1);
 	Array *netlists = NULL;
@@ -2210,10 +2210,10 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 	int i;
 
 	FOREACH_ARRAY_ITEM(netlists, i, nl) {
-		if (top.empty() && nl->CellBaseName() != top)
+		if (!top.empty() && nl->CellBaseName() != top)
 			continue;
 		nl->AddAtt(new Att(" \\top", NULL));
-		nl_todo.insert(nl);
+		nl_todo.emplace(nl->CellBaseName(), nl);
 	}
 
 	delete netlists;
@@ -2222,20 +2222,21 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 		log_error("%s\n", verific_error_msg.c_str());
 
 	for (auto nl : nl_todo)
-	    nl->ChangePortBusStructures(1 /* hierarchical */);
+	    nl.second->ChangePortBusStructures(1 /* hierarchical */);
 
 	VerificExtNets worker;
 	for (auto nl : nl_todo)
-		worker.run(nl);
+		worker.run(nl.second);
 
 	while (!nl_todo.empty()) {
-		Netlist *nl = *nl_todo.begin();
-		if (nl_done.count(nl) == 0) {
+		auto it = nl_todo.begin();
+		Netlist *nl = it->second;
+		if (nl_done.count(it->first) == 0) {
 			VerificImporter importer(false, false, false, false, false, false, false);
 			importer.import_netlist(design, nl, nl_todo, nl->Owner()->Name() == top);
 		}
-		nl_todo.erase(nl);
-		nl_done.insert(nl);
+		nl_todo.erase(it);
+		nl_done[it->first] = it->second;
 	}
 
 	veri_file::Reset();
@@ -3050,7 +3051,7 @@ struct VerificPass : public Pass {
 #endif
 		if (GetSize(args) > argidx && args[argidx] == "-import")
 		{
-			std::set<Netlist*> nl_todo, nl_done;
+			std::map<std::string,Netlist*> nl_todo, nl_done;
 			bool mode_all = false, mode_gates = false, mode_keep = false;
 			bool mode_nosva = false, mode_names = false, mode_verific = false;
 			bool mode_autocover = false, mode_fullinit = false;
@@ -3153,7 +3154,7 @@ struct VerificPass : public Pass {
 				int i;
 
 				FOREACH_ARRAY_ITEM(netlists, i, nl)
-					nl_todo.insert(nl);
+					nl_todo.emplace(nl->CellBaseName(), nl);
 				delete netlists;
 			}
 			else
@@ -3205,8 +3206,10 @@ struct VerificPass : public Pass {
 				int i;
 
 				FOREACH_ARRAY_ITEM(netlists, i, nl) {
+					if (!top_mod_names.count(nl->CellBaseName()))
+						continue;
 					nl->AddAtt(new Att(" \\top", NULL));
-					nl_todo.insert(nl);
+					nl_todo.emplace(nl->CellBaseName(), nl);
 				}
 				delete netlists;
 			}
@@ -3216,17 +3219,17 @@ struct VerificPass : public Pass {
 
 			if (flatten) {
 				for (auto nl : nl_todo)
-					nl->Flatten();
+					nl.second->Flatten();
 			}
 
 			if (extnets) {
 				VerificExtNets worker;
 				for (auto nl : nl_todo)
-					worker.run(nl);
+					worker.run(nl.second);
 			}
 
 			for (auto nl : nl_todo)
-				nl->ChangePortBusStructures(1 /* hierarchical */);
+				nl.second->ChangePortBusStructures(1 /* hierarchical */);
 
 			if (!dumpfile.empty()) {
 				VeriWrite veri_writer;
@@ -3234,14 +3237,15 @@ struct VerificPass : public Pass {
 			}
 
 			while (!nl_todo.empty()) {
-				Netlist *nl = *nl_todo.begin();
-				if (nl_done.count(nl) == 0) {
+				auto it = nl_todo.begin();
+				Netlist *nl = it->second;
+				if (nl_done.count(it->first) == 0) {
 					VerificImporter importer(mode_gates, mode_keep, mode_nosva,
 							mode_names, mode_verific, mode_autocover, mode_fullinit);
 					importer.import_netlist(design, nl, nl_todo, top_mod_names.count(nl->Owner()->Name()));
 				}
-				nl_todo.erase(nl);
-				nl_done.insert(nl);
+				nl_todo.erase(it);
+				nl_done[it->first] = it->second;
 			}
 
 			veri_file::Reset();
