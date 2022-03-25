@@ -207,6 +207,7 @@ RTLIL::Const::Const()
 RTLIL::Const::Const(std::string str)
 {
 	flags = RTLIL::CONST_FLAG_STRING;
+	bits.reserve(str.size() * 8);
 	for (int i = str.size()-1; i >= 0; i--) {
 		unsigned char ch = str[i];
 		for (int j = 0; j < 8; j++) {
@@ -219,6 +220,7 @@ RTLIL::Const::Const(std::string str)
 RTLIL::Const::Const(int val, int width)
 {
 	flags = RTLIL::CONST_FLAG_NONE;
+	bits.reserve(width);
 	for (int i = 0; i < width; i++) {
 		bits.push_back((val & 1) != 0 ? State::S1 : State::S0);
 		val = val >> 1;
@@ -228,6 +230,7 @@ RTLIL::Const::Const(int val, int width)
 RTLIL::Const::Const(RTLIL::State bit, int width)
 {
 	flags = RTLIL::CONST_FLAG_NONE;
+	bits.reserve(width);
 	for (int i = 0; i < width; i++)
 		bits.push_back(bit);
 }
@@ -235,6 +238,7 @@ RTLIL::Const::Const(RTLIL::State bit, int width)
 RTLIL::Const::Const(const std::vector<bool> &bits)
 {
 	flags = RTLIL::CONST_FLAG_NONE;
+	this->bits.reserve(bits.size());
 	for (const auto &b : bits)
 		this->bits.emplace_back(b ? State::S1 : State::S0);
 }
@@ -242,6 +246,7 @@ RTLIL::Const::Const(const std::vector<bool> &bits)
 RTLIL::Const::Const(const RTLIL::Const &c)
 {
 	flags = c.flags;
+	this->bits.reserve(c.size());
 	for (const auto &b : c.bits)
 		this->bits.push_back(b);
 }
