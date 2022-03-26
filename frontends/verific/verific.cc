@@ -2233,10 +2233,10 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 		Netlist *nl = it->second;
 		if (nl_done.count(it->first) == 0) {
 			VerificImporter importer(false, false, false, false, false, false, false);
+			nl_done[it->first] = it->second;
 			importer.import_netlist(design, nl, nl_todo, nl->Owner()->Name() == top);
 		}
 		nl_todo.erase(it);
-		nl_done[it->first] = it->second;
 	}
 
 	veri_file::Reset();
@@ -3242,10 +3242,10 @@ struct VerificPass : public Pass {
 				if (nl_done.count(it->first) == 0) {
 					VerificImporter importer(mode_gates, mode_keep, mode_nosva,
 							mode_names, mode_verific, mode_autocover, mode_fullinit);
+					nl_done[it->first] = it->second;
 					importer.import_netlist(design, nl, nl_todo, top_mod_names.count(nl->Owner()->Name()));
 				}
 				nl_todo.erase(it);
-				nl_done[it->first] = it->second;
 			}
 
 			veri_file::Reset();
