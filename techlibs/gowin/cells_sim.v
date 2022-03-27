@@ -1551,3 +1551,37 @@ parameter CLKOUTD3_SRC = "CLKOUT";  // CLKOUT, CLKOUTP
 parameter DEVICE = "GW1N-1";        // "GW1N-1", "GW1N-4", "GW1N-9", "GW1NR-4", "GW1NR-9", "GW1N-4B", "GW1NR-4B", "GW1NS-2", "GW1NS-2C", "GW1NZ-1", "GW1NSR-2", "GW1NSR-2C", "GW1N-1S", "GW1NSE-2C", "GW1NRF-4B", "GW1N-9C", "GW1NR-9C", "GW1N-4C", "GW1NR-4C"
 
 endmodule
+
+(* blackbox *)
+module OSC(OSCOUT);
+output OSCOUT;
+
+parameter FREQ_DIV = 100;
+parameter DEVICE = "GW1N-4";
+endmodule
+
+(* blackbox *)
+module OSCZ(OSCOUT, OSCEN);
+input OSCEN;
+
+output OSCOUT;
+
+parameter FREQ_DIV = 100;
+endmodule
+
+(* blackbox *)
+module OSCF(OSCOUT, OSCOUT30M, OSCEN);
+input OSCEN;
+
+output OSCOUT;
+output OSCOUT30M;
+
+parameter FREQ_DIV = 100;
+endmodule
+
+(* blackbox *)
+module OSCH(OSCOUT);
+output OSCOUT;
+
+parameter FREQ_DIV = 96;
+endmodule
