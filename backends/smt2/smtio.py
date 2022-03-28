@@ -20,7 +20,7 @@ import sys, re, os, signal
 import subprocess
 if os.name == "posix":
     import resource
-from copy import deepcopy
+from copy import copy
 from select import select
 from time import time
 from queue import Queue, Empty
@@ -301,7 +301,7 @@ class SmtIo:
 
             key = tuple(stmt)
             if key not in self.unroll_cache:
-                decl = deepcopy(self.unroll_decls[key[0]])
+                decl = copy(self.unroll_decls[key[0]])
 
                 self.unroll_cache[key] = "|UNROLL#%d|" % self.unroll_idcnt
                 decl[1] = self.unroll_cache[key]
@@ -442,10 +442,10 @@ class SmtIo:
 
             if stmt == "(push 1)":
                 self.unroll_stack.append((
-                    deepcopy(self.unroll_sorts),
-                    deepcopy(self.unroll_objs),
-                    deepcopy(self.unroll_decls),
-                    deepcopy(self.unroll_cache),
+                    copy(self.unroll_sorts),
+                    copy(self.unroll_objs),
+                    copy(self.unroll_decls),
+                    copy(self.unroll_cache),
                 ))
 
             if stmt == "(pop 1)":
