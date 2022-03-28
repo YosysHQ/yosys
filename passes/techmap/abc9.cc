@@ -74,11 +74,17 @@ struct Abc9Pass : public ScriptPass
 			/* Comm3 */ "&synch2 -K 6 -C 500; &if -m "/*"-E 5"*/" {C} {W} {D} {R} -v; &mfs "/*"-W 4 -M 500 -C 7000"*/"; &save;"\
 			/* Comm2 */ "&dch -C 500; &if -m {C} {W} {D} {R} -v; &mfs "/*"-W 4 -M 500 -C 7000"*/"; &save; "\
 			"&load";
-		// Based on ABC's &flow3
+		// Based on ABC's &flow3 -m
 		RTLIL::constpad["abc9.script.flow3"] = "+&scorr; &sweep;" \
 			"&if {C} {W} {D}; &save; &st; &syn2; &if {C} {W} {D} {R} -v; &save; &load;"\
 			"&st; &if {C} -g -K 6; &dch -f; &if {C} {W} {D} {R} -v; &save; &load;"\
 			"&st; &if {C} -g -K 6; &synch2; &if {C} {W} {D} {R} -v; &save; &load;"\
+			"&mfs";
+		// As above, but with &mfs calls as in the original &flow3
+		RTLIL::constpad["abc9.script.flow3mfs"] = "+&scorr; &sweep;" \
+			"&if {C} {W} {D}; &save; &st; &syn2; &if {C} {W} {D} {R} -v; &save; &load;"\
+			"&st; &if {C} -g -K 6; &dch -f; &if {C} {W} {D} {R} -v; &mfs; &save; &load;"\
+			"&st; &if {C} -g -K 6; &synch2; &if {C} {W} {D} {R} -v; &mfs; &save; &load;"\
 			"&mfs";
 	}
 	void help() override
