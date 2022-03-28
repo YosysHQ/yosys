@@ -1633,7 +1633,10 @@ void Mem::emulate_read_first(FfInitVals *initvals) {
 		ff_en.pol_clk = port.clk_polarity;
 		ff_en.sig_d = compressed.first;
 		ff_en.sig_q = new_en;;
-		ff_en.val_init = Const(State::S0, ff_en.width);
+		if (inits.empty())
+			ff_en.val_init = Const(State::Sx, ff_en.width);
+		else
+			ff_en.val_init = Const(State::S0, ff_en.width);
 		ff_en.emit();
 		port.data = new_data;
 		port.addr = new_addr;
