@@ -17,7 +17,7 @@
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #
 
-import os, sys, getopt, re
+import os, sys, getopt, re, time
 ##yosys-sys-path##
 from smtio import SmtIo, SmtOpts, MkVcd
 from collections import defaultdict
@@ -51,6 +51,7 @@ smtctop = None
 noinit = False
 binarymode = False
 keep_going = False
+individual = False
 so = SmtOpts()
 
 
@@ -161,6 +162,11 @@ def usage():
         covering all found failed assertions, the character '%' is
         replaced in all dump filenames with an increasing number.
 
+    --individual
+        check a single assertion at a time in BMC. This can improve
+        the overall checking time when all assertions hold, but can
+        delay detection of failed assertions.
+
 """ + so.helpmsg())
     sys.exit(1)
 
@@ -169,7 +175,7 @@ try:
     opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:igcm:", so.longopts +
             ["final-only", "assume-skipped=", "smtc=", "cex=", "aig=", "aig-noheader", "btorwit=", "presat",
              "dump-vcd=", "dump-vlogtb=", "vlogtb-top=", "dump-smtc=", "dump-all", "noinfo", "append=",
-             "smtc-init", "smtc-top=", "noinit", "binary", "keep-going"])
+             "smtc-init", "smtc-top=", "noinit", "binary", "keep-going", "individual"])
 except:
     usage()
 
@@ -244,6 +250,8 @@ for o, a in opts:
         binarymode = True
     elif o == "--keep-going":
         keep_going = True
+    elif o == "--individual":
+        individual = True
     elif so.handle(o, a):
         pass
     else:
@@ -1566,13 +1574,22 @@ else:  # not tempind, covermode
                     break
 
             if not final_only:
+                checked_assert_exprs = set()
+                individual_progress_time = None
+
                 recheck_current_step = True
-                while recheck_current_step:
+                check_next_individual_assert = False
+                while recheck_current_step or check_next_individual_assert:
                     recheck_current_step = False
-                    if last_check_step == step:
-                        print_msg("Checking assertions in step %d.." % (step))
+
+                    if check_next_individual_assert:
+                        check_next_individual_assert = False
                     else:
-                        print_msg("Checking assertions in steps %d to %d.." % (step, last_check_step))
+                        if last_check_step == step:
+                            print_msg("Checking assertions in step %d.." % (step))
+                        else:
+                            print_msg("Checking assertions in steps %d to %d.." % (step, last_check_step))
+
                     smt_push()
 
                     active_assert_maps = dict()
@@ -1581,6 +1598,31 @@ else:  # not tempind, covermode
                         assert_expr_map = get_active_assert_map(i, active_assert_keys)
                         active_assert_maps[i] = assert_expr_map
                         active_assert_exprs.extend(assert_data[0] for assert_data in assert_expr_map.values())
+
+                    if individual:
+                        found_expr = None
+                        progress = None
+                        for i, expr in enumerate(active_assert_exprs, 1):
+                            if expr not in checked_assert_exprs:
+                                if found_expr:
+                                    check_next_individual_assert = True
+                                    break
+                                else:
+                                    found_expr = expr
+                                    progress = i
+
+                        if found_expr:
+                            now = time.monotonic()
+                            if individual_progress_time is None or individual_progress_time <= now:
+                                if individual_progress_time:
+                                    print_msg("Checking assertion %d/%d.." % (progress, len(active_assert_exprs)))
+
+                                # If we wait longer between progress outputs, the "waiting for solver" outputs can be confusing
+                                individual_progress_time = now + 60
+
+                            active_assert_exprs = [found_expr]
+                        else:
+                            active_assert_exprs = []
 
                     if active_assert_exprs:
                         if len(active_assert_exprs) == 1:
@@ -1592,8 +1634,8 @@ else:  # not tempind, covermode
                     else:
                         smt_assert("false")
 
-
                     if smt_check_sat() == "sat":
+                        check_next_individual_assert = False
                         if retstatus != "FAILED":
                             print("%s BMC failed!" % smt.timestamp())
 
@@ -1630,6 +1672,8 @@ else:  # not tempind, covermode
                         write_trace(0, last_check_step+1+append_steps, "%d" % traceidx if keep_going else '%')
                         traceidx += 1
                         retstatus = "FAILED"
+                    elif individual:  # unsat
+                        checked_assert_exprs.update(active_assert_exprs)
 
                     smt_pop()
                     if recheck_current_step:
