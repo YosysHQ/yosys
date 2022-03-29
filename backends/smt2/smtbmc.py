@@ -1589,6 +1589,8 @@ else:  # not tempind, covermode
                             active_assert_expr = "(and %s)" % " ".join(active_assert_exprs)
 
                         smt_assert("(not %s)" % active_assert_expr)
+                    else:
+                        smt_assert("false")
 
 
                     if smt_check_sat() == "sat":
