@@ -26,10 +26,12 @@ PRIVATE_NAMESPACE_BEGIN
 struct TribufConfig {
 	bool merge_mode;
 	bool logic_mode;
+	bool formal_mode;
 
 	TribufConfig() {
 		merge_mode = false;
 		logic_mode = false;
+		formal_mode = false;
 	}
 };
 
@@ -55,7 +57,7 @@ struct TribufWorker {
 		dict<SigSpec, vector<Cell*>> tribuf_cells;
 		pool<SigBit> output_bits;
 
-		if (config.logic_mode)
+		if (config.logic_mode || config.formal_mode)
 			for (auto wire : module->wires())
 				if (wire->port_output)
 					for (auto bit : sigmap(wire))
@@ -102,21 +104,53 @@ struct TribufWorker {
 			}
 		}
 
-		if (config.merge_mode || config.logic_mode)
+		if (config.merge_mode || config.logic_mode || config.formal_mode)
 		{
 			for (auto &it : tribuf_cells)
 			{
 				bool no_tribuf = false;
 
-				if (config.logic_mode) {
+				if (config.logic_mode && !config.formal_mode) {
 					no_tribuf = true;
 					for (auto bit : it.first)
 						if (output_bits.count(bit))
 							no_tribuf = false;
 				}
 
+				if (config.formal_mode)
+					no_tribuf = true;
+
 				if (GetSize(it.second) <= 1 && !no_tribuf)
 					continue;
+
+				if (config.formal_mode && GetSize(it.second) >= 2) {
+					for (auto cell : it.second) {
+						SigSpec others_s;
+
+						for (auto other_cell : it.second) {
+							if (other_cell == cell)
+								continue;
+							else if (other_cell->type == ID($tribuf))
+								others_s.append(other_cell->getPort(ID::EN));
+							else
+								others_s.append(other_cell->getPort(ID::E));
+						}
+
+						auto cell_s = cell->type == ID($tribuf) ? cell->getPort(ID::EN) : cell->getPort(ID::E);
+
+						auto other_s = module->ReduceOr(NEW_ID, others_s);
+
+						auto conflict = module->And(NEW_ID, cell_s, other_s);
+
+						std::string name = stringf("$tribuf_conflict$%s", log_id(cell->name));
+						auto assert_cell = module->addAssert(name, module->Not(NEW_ID, conflict), SigSpec(true));
+
+						assert_cell->set_src_attribute(cell->get_src_attribute());
+						assert_cell->set_bool_attribute(ID::keep);
+
+						module->design->scratchpad_set_bool("tribuf.added_something", true);
+					}
+				}
 
 				SigSpec pmux_b, pmux_s;
 				for (auto cell : it.second) {
@@ -159,6 +193,11 @@ struct TribufPass : public Pass {
 		log("        convert tri-state buffers that do not drive output ports\n");
 		log("        to non-tristate logic. this option implies -merge.\n");
 		log("\n");
+		log("    -formal\n");
+		log("        convert all tri-state buffers to non-tristate logic and\n");
+		log("        add a formal assertion that no two buffers are driving the\n");
+		log("        same net simultaneously. this option implies -merge.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -174,6 +213,10 @@ struct TribufPass : public Pass {
 			}
 			if (args[argidx] == "-logic") {
 				config.logic_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-formal") {
+				config.formal_mode = true;
 				continue;
 			}
 			break;
