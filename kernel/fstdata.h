@@ -60,7 +60,6 @@ private:
 	void extractVarNames();
 
 	struct fstReaderContext *ctx;
-	std::vector<std::string> scopes;
 	std::vector<FstVar> vars;
 	std::map<fstHandle, FstVar> handle_to_var;
 	std::map<std::string, fstHandle> name_to_handle;
