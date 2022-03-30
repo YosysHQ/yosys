@@ -2239,11 +2239,15 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 		nl_todo.erase(it);
 	}
 
+	hier_tree::DeleteHierarchicalTree();
 	veri_file::Reset();
 #ifdef VERIFIC_VHDL_SUPPORT
 	vhdl_file::Reset();
 #endif
 	Libset::Reset();
+	Message::Reset();
+	RuntimeFlags::DeleteAllFlags();
+	LineFile::DeleteAllLineFiles();
 	verific_incdirs.clear();
 	verific_libdirs.clear();
 	verific_import_pending = false;
@@ -3248,11 +3252,15 @@ struct VerificPass : public Pass {
 				nl_todo.erase(it);
 			}
 
+			hier_tree::DeleteHierarchicalTree();
 			veri_file::Reset();
 #ifdef VERIFIC_VHDL_SUPPORT
 			vhdl_file::Reset();
 #endif
 			Libset::Reset();
+			Message::Reset();
+			RuntimeFlags::DeleteAllFlags();
+			LineFile::DeleteAllLineFiles();
 			verific_incdirs.clear();
 			verific_libdirs.clear();
 			verific_import_pending = false;
