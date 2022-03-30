@@ -94,7 +94,7 @@ struct VerificImporter
 	void merge_past_ffs_clock(pool<RTLIL::Cell*> &candidates, SigBit clock, bool clock_pol);
 	void merge_past_ffs(pool<RTLIL::Cell*> &candidates);
 
-	void import_netlist(RTLIL::Design *design, Verific::Netlist *nl, std::set<Verific::Netlist*> &nl_todo, bool norename = false);
+	void import_netlist(RTLIL::Design *design, Verific::Netlist *nl, std::map<std::string,Verific::Netlist*> &nl_todo, bool norename = false);
 };
 
 void verific_import_sva_assert(VerificImporter *importer, Verific::Instance *inst);
