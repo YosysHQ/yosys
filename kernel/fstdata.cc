@@ -94,20 +94,16 @@ static std::string remove_spaces(std::string str)
 void FstData::extractVarNames()
 {
 	struct fstHier *h;
-	intptr_t snum = 0;
+	std::string fst_scope_name;
 
 	while ((h = fstReaderIterateHier(ctx))) {
 		switch (h->htyp) {
 			case FST_HT_SCOPE: {
-				snum++;
-				std::string fst_scope_name = fstReaderPushScope(ctx, h->u.scope.name, (void *)(snum));
-				if (h->u.scope.typ == FST_ST_VCD_MODULE)
-					scopes.push_back(fst_scope_name);
+				fst_scope_name = fstReaderPushScope(ctx, h->u.scope.name, NULL);
 				break;
 			}
 			case FST_HT_UPSCOPE: {
-				fstReaderPopScope(ctx);
-				snum = fstReaderGetCurrentScopeLen(ctx) ? (intptr_t)fstReaderGetCurrentScopeUserInfo(ctx) : 0;
+				fst_scope_name = fstReaderPopScope(ctx);
 				break;
 			}
 			case FST_HT_VAR: {
@@ -116,7 +112,7 @@ void FstData::extractVarNames()
 				var.is_alias = h->u.var.is_alias;
 				var.is_reg = (fstVarType)h->u.var.typ == FST_VT_VCD_REG;
 				var.name = remove_spaces(h->u.var.name);
-				var.scope = scopes.back();
+				var.scope = fst_scope_name;
 				var.width = h->u.var.length;
 				vars.push_back(var);
 				if (!var.is_alias)
