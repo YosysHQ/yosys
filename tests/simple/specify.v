@@ -1,4 +1,4 @@
-module test_specify;
+module test_specify(input A, output B);
 
 specparam a=1;
 
