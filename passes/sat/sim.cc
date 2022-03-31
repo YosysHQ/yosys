@@ -91,6 +91,7 @@ struct SimShared
 	std::vector<std::pair<int,std::map<int,Const>>> output_data;
 	bool ignore_x = false;
 	bool date = false;
+	bool multiclock = false;
 };
 
 void zinit(State &v)
@@ -336,6 +337,14 @@ struct SimInstance
 		for (int i = 0; i < GetSize(data); i++)
 			if (0 <= i+offset && i+offset < GetSize(data))
 				state.data.bits[i+offset] = data.bits[i];
+	}
+
+	void set_memory_state_bit(IdString memid, int offset, State data)
+	{
+		auto &state = mem_database[memid];
+		if (offset >= state.mem->size * state.mem->width)
+			log_error("Addressing out of bounds bit %d/%d of memory %s\n", offset, state.mem->size * state.mem->width, log_id(memid));
+		state.data.bits[offset] = data;
 	}
 
 	void update_cell(Cell *cell)
@@ -802,6 +811,19 @@ struct SimInstance
 		}
 	}
 
+	void setMemState(dict<int, std::pair<std::string,int>> bits, std::string values)
+	{
+		for(auto bit : bits) {
+			if (bit.first >= GetSize(values))
+				log_error("Too few input data bits in file.\n");
+			switch(values.at(bit.first)) {
+				case '0': set_memory_state_bit(bit.second.first, bit.second.second, State::S0); break;
+				case '1': set_memory_state_bit(bit.second.first, bit.second.second, State::S1); break;
+				default: set_memory_state_bit(bit.second.first, bit.second.second, State::Sx); break;
+			}
+		}
+	}
+
 	bool checkSignals()
 	{
 		bool retVal = false;
@@ -1119,32 +1141,73 @@ struct SimWorker : SimShared
 		delete fst;
 	}
 
+	std::string cell_name(std::string const & name)
+	{
+		size_t pos = name.find_last_of("[");
+		if (pos!=std::string::npos)
+			return name.substr(0, pos);
+		return name;
+	}
+
+	int mem_cell_addr(std::string const & name)
+	{
+		size_t pos = name.find_last_of("[");
+		return atoi(name.substr(pos+1).c_str());
+	}
+
 	void run_cosim_aiger_witness(Module *topmod)
 	{
 		log_assert(top == nullptr);
-		if ((clock.size()+clockn.size())==0)
+		if (!multiclock && (clock.size()+clockn.size())==0)
 			log_error("Clock signal must be specified.\n");
+		if (multiclock && (clock.size()+clockn.size())>0)
+			log_error("For multiclock witness there should be no clock signal.\n");
+
+		top = new SimInstance(this, scope, topmod);
+		register_signals();
+
 		std::ifstream mf(map_filename);
 		std::string type, symbol;
 		int variable, index;
 		dict<int, std::pair<SigBit,bool>> inputs, inits, latches;
+		dict<int, std::pair<std::string,int>> mem_inits, mem_latches;
 		if (mf.fail())
 			log_cmd_error("Not able to read AIGER witness map file.\n");
 		while (mf >> type >> variable >> index >> symbol) {
 			RTLIL::IdString escaped_s = RTLIL::escape_id(symbol);
 			Wire *w = topmod->wire(escaped_s);
-			if (!w)
-				log_error("Wire %s not present in module %s\n",log_signal(w),log_id(topmod));
-			if (index < w->start_offset || index > w->start_offset + w->width)
-				log_error("Index %d for wire %s is out of range\n", index, log_signal(w));
-			if (type == "input") {
-				inputs[variable] = {SigBit(w,index-w->start_offset), false};
-			} else if (type == "init") {
-				inits[variable] = {SigBit(w,index-w->start_offset), false};
-			} else if (type == "latch") {
-				latches[variable] = {SigBit(w,index-w->start_offset), false};
-			} else if (type == "invlatch") {
-				latches[variable] = {SigBit(w,index-w->start_offset), true};
+			if (!w) {
+				escaped_s = RTLIL::escape_id(cell_name(symbol));
+				Cell *c = topmod->cell(escaped_s);
+				if (!c)
+					log_warning("Wire/cell %s not present in module %s\n",symbol.c_str(),log_id(topmod));
+
+				if (c->is_mem_cell()) {
+					std::string memid = c->parameters.at(ID::MEMID).decode_string();
+					auto &state = top->mem_database[memid];
+
+					int offset = (mem_cell_addr(symbol) - state.mem->start_offset) * state.mem->width + index;
+					if (type == "init")
+						mem_inits[variable] = { memid, offset };
+					else if (type == "latch")
+						mem_latches[variable] = { memid, offset };
+					else
+						log_error("Map file addressing cell %s as type %s\n", symbol.c_str(), type.c_str());
+				} else {
+					log_error("Cell %s in map file is not memory cell\n", symbol.c_str());
+				}
+			} else {
+				if (index < w->start_offset || index > w->start_offset + w->width)
+					log_error("Index %d for wire %s is out of range\n", index, log_signal(w));
+				if (type == "input") {
+					inputs[variable] = {SigBit(w,index-w->start_offset), false};
+				} else if (type == "init") {
+					inits[variable] = {SigBit(w,index-w->start_offset), false};
+				} else if (type == "latch") {
+					latches[variable] = {SigBit(w,index-w->start_offset), false};
+				} else if (type == "invlatch") {
+					latches[variable] = {SigBit(w,index-w->start_offset), true};
+				}
 			}
 		}
 
@@ -1156,8 +1219,6 @@ struct SimWorker : SimShared
 		int state = 0;
 		std::string status;
 		int cycle = 0;
-		top = new SimInstance(this, scope, topmod);
-		register_signals();
 
 		while (!f.eof())
 		{
@@ -1186,6 +1247,7 @@ struct SimWorker : SimShared
 					break;
 				case 2:
 					top->setState(latches, line);
+					top->setMemState(mem_latches, line);
 					state = 3;
 					break;
 				default:
@@ -1197,12 +1259,13 @@ struct SimWorker : SimShared
 						set_inports(clockn, State::S0);
 					} else {
 						top->setState(inits, line);
+						top->setMemState(mem_inits, line);
 						set_inports(clock, State::S0);
 						set_inports(clockn, State::S1);
 					}
 					update();
 					register_output_step(10*cycle);
-					if (cycle) {
+					if (!multiclock && cycle) {
 						set_inports(clock, State::S0);
 						set_inports(clockn, State::S1);
 						update();
@@ -1814,6 +1877,9 @@ struct SimPass : public Pass {
 		log("    -clockn <portname>\n");
 		log("        name of top-level clock input (inverse polarity)\n");
 		log("\n");
+		log("    -multiclock\n");
+		log("        mark that witness file is multiclock.\n");
+		log("\n");
 		log("    -reset <portname>\n");
 		log("        name of top-level reset input (active high)\n");
 		log("\n");
@@ -2014,6 +2080,10 @@ struct SimPass : public Pass {
 			}
 			if (args[argidx] == "-date") {
 				worker.date = true;
+				continue;
+			}
+			if (args[argidx] == "-multiclock") {
+				worker.multiclock = true;
 				continue;
 			}
 			break;
