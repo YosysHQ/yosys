@@ -44,6 +44,7 @@ struct Clk2fflogicPass : public Pass {
 	}
 	SigSpec wrap_async_control(Module *module, SigSpec sig, bool polarity, IdString past_sig_id) {
 		Wire *past_sig = module->addWire(past_sig_id, GetSize(sig));
+		past_sig->attributes[ID::init] = RTLIL::Const(polarity ? State::S0 : State::S1, GetSize(sig));
 		module->addFf(NEW_ID, sig, past_sig);
 		if (polarity)
 			sig = module->Or(NEW_ID, sig, past_sig);
@@ -56,6 +57,7 @@ struct Clk2fflogicPass : public Pass {
 	}
 	SigSpec wrap_async_control_gate(Module *module, SigSpec sig, bool polarity) {
 		Wire *past_sig = module->addWire(NEW_ID);
+		past_sig->attributes[ID::init] = RTLIL::Const(polarity ? State::S0 : State::S1, GetSize(sig));
 		module->addFfGate(NEW_ID, sig, past_sig);
 		if (polarity)
 			sig = module->OrGate(NEW_ID, sig, past_sig);
