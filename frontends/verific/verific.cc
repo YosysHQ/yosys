@@ -2041,7 +2041,7 @@ struct VerificExtNets
 			string name = stringf("___extnets_%d", portname_cnt++);
 			Port *new_port = new Port(name.c_str(), drive_up ? DIR_OUT : DIR_IN);
 			nl->Add(new_port);
-			net->Connect(new_port);
+			nl->Buf(net)->Connect(new_port);
 
 			// create new Net in up Netlist
 			Net *new_net = final_net;
