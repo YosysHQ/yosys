@@ -782,6 +782,7 @@ struct SimInstance
 	{
 		for (auto &it : ff_database)
 		{
+			ff_state_t &ff = it.second;
 			SigSpec qsig = it.second.data.sig_q;
 			if (qsig.is_wire()) {
 				IdString name = qsig.as_wire()->name;
@@ -790,6 +791,7 @@ struct SimInstance
 					log_warning("Unable to find wire %s in input file.\n", (scope + "." + RTLIL::unescape_id(name)).c_str());
 				if (id!=0) {
 					Const fst_val = Const::from_string(shared->fst->valueOf(id));
+					ff.past_d = fst_val;
 					set_state(qsig, fst_val);
 				}
 			}
