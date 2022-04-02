@@ -778,8 +778,9 @@ struct SimInstance
 			child.second->register_output_step_values(data);
 	}
 
-	void setInitState()
+	bool setInitState()
 	{
+		bool did_something = false;
 		for (auto &it : ff_database)
 		{
 			ff_state_t &ff = it.second;
@@ -792,12 +793,13 @@ struct SimInstance
 				if (id!=0) {
 					Const fst_val = Const::from_string(shared->fst->valueOf(id));
 					ff.past_d = fst_val;
-					set_state(qsig, fst_val);
+					did_something = set_state(qsig, fst_val);
 				}
 			}
 		}
 		for (auto child : children)
-			child.second->setInitState();
+			did_something |= child.second->setInitState();
+		return did_something;
 	}
 
 	void setState(dict<int, std::pair<SigBit,bool>> bits, std::string values)
@@ -1112,7 +1114,7 @@ struct SimWorker : SimShared
 				}
 
 				if (initial) {
-					top->setInitState();
+					did_something |= top->setInitState();
 					initial = false;
 				}
 				if (did_something)
