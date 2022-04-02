@@ -256,6 +256,7 @@ struct SimInstance
 			{
 				ff_state_t &ff = it.second;
 				zinit(ff.past_d);
+				zinit(ff.past_ad);
 
 				SigSpec qsig = it.second.data.sig_q;
 				Const qdata = get_state(qsig);
@@ -793,6 +794,8 @@ struct SimInstance
 				if (id!=0) {
 					Const fst_val = Const::from_string(shared->fst->valueOf(id));
 					ff.past_d = fst_val;
+					if (ff.data.has_aload)
+						ff.past_ad = fst_val;
 					did_something = set_state(qsig, fst_val);
 				}
 			}
