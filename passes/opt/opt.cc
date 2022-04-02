@@ -114,6 +114,7 @@ struct OptPass : public Pass {
 			if (args[argidx] == "-keepdc") {
 				opt_expr_args += " -keepdc";
 				opt_dff_args += " -keepdc";
+				opt_merge_args += " -keepdc";
 				continue;
 			}
 			if (args[argidx] == "-nodffe") {

@@ -219,7 +219,15 @@ struct OptMergeWorker
 		return conn1 == conn2;
 	}
 
-	OptMergeWorker(RTLIL::Design *design, RTLIL::Module *module, bool mode_nomux, bool mode_share_all) :
+	bool has_dont_care_initval(const RTLIL::Cell *cell)
+	{
+		if (!RTLIL::builtin_ff_cell_types().count(cell->type))
+			return false;
+
+		return !initvals(cell->getPort(ID::Q)).is_fully_def();
+	}
+
+	OptMergeWorker(RTLIL::Design *design, RTLIL::Module *module, bool mode_nomux, bool mode_share_all, bool mode_keepdc) :
 		design(design), module(module), assign_map(module), mode_share_all(mode_share_all)
 	{
 		total_count = 0;
@@ -252,6 +260,8 @@ struct OptMergeWorker
 			cells.reserve(module->cells_.size());
 			for (auto &it : module->cells_) {
 				if (!design->selected(module, it.second))
+					continue;
+				if (mode_keepdc && has_dont_care_initval(it.second))
 					continue;
 				if (ct.cell_known(it.second->type) || (mode_share_all && it.second->known()))
 					cells.push_back(it.second);
@@ -319,6 +329,9 @@ struct OptMergePass : public Pass {
 		log("    -share_all\n");
 		log("        Operate on all cell types, not just built-in types.\n");
 		log("\n");
+		log("    -keepdc\n");
+		log("        Do not merge flipflops with don't-care bits in their initial value.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -326,6 +339,7 @@ struct OptMergePass : public Pass {
 
 		bool mode_nomux = false;
 		bool mode_share_all = false;
+		bool mode_keepdc = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -338,13 +352,17 @@ struct OptMergePass : public Pass {
 				mode_share_all = true;
 				continue;
 			}
+			if (arg == "-keepdc") {
+				mode_keepdc = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		int total_count = 0;
 		for (auto module : design->selected_modules()) {
-			OptMergeWorker worker(design, module, mode_nomux, mode_share_all);
+			OptMergeWorker worker(design, module, mode_nomux, mode_share_all, mode_keepdc);
 			total_count += worker.total_count;
 		}
 
