@@ -256,6 +256,7 @@ struct SimInstance
 			{
 				ff_state_t &ff = it.second;
 				zinit(ff.past_d);
+				zinit(ff.past_ad);
 
 				SigSpec qsig = it.second.data.sig_q;
 				Const qdata = get_state(qsig);
@@ -778,10 +779,12 @@ struct SimInstance
 			child.second->register_output_step_values(data);
 	}
 
-	void setInitState()
+	bool setInitState()
 	{
+		bool did_something = false;
 		for (auto &it : ff_database)
 		{
+			ff_state_t &ff = it.second;
 			SigSpec qsig = it.second.data.sig_q;
 			if (qsig.is_wire()) {
 				IdString name = qsig.as_wire()->name;
@@ -790,12 +793,16 @@ struct SimInstance
 					log_warning("Unable to find wire %s in input file.\n", (scope + "." + RTLIL::unescape_id(name)).c_str());
 				if (id!=0) {
 					Const fst_val = Const::from_string(shared->fst->valueOf(id));
-					set_state(qsig, fst_val);
+					ff.past_d = fst_val;
+					if (ff.data.has_aload)
+						ff.past_ad = fst_val;
+					did_something = set_state(qsig, fst_val);
 				}
 			}
 		}
 		for (auto child : children)
-			child.second->setInitState();
+			did_something |= child.second->setInitState();
+		return did_something;
 	}
 
 	void setState(dict<int, std::pair<SigBit,bool>> bits, std::string values)
@@ -1110,7 +1117,7 @@ struct SimWorker : SimShared
 				}
 
 				if (initial) {
-					top->setInitState();
+					did_something |= top->setInitState();
 					initial = false;
 				}
 				if (did_something)
