@@ -2222,6 +2222,40 @@ one-hot encoding and binary encoding is supported.
             .map <old_bitpattern> <new_bitpattern>
 \end{lstlisting}
 
+\section{fst2tb -- generate testbench out of fst file}
+\label{cmd:fst2tb}
+\begin{lstlisting}[numbers=left,frame=single]
+    fst2tb [options] [top-level]
+
+This command generates testbench for the circuit using the given top-level module
+and simulus signal from FST file
+
+    -tb <name>
+        generated testbench name.
+        files <name>.v and <name>.txt are created as result.
+
+    -r <filename>
+        read simulation FST file
+
+    -clock <portname>
+        name of top-level clock input
+
+    -clockn <portname>
+        name of top-level clock input (inverse polarity)
+
+    -scope <name>
+        scope of simulation top model
+
+    -start <time>
+        start co-simulation in arbitary time (default 0)
+
+    -stop <time>
+        stop co-simulation in arbitary time (default END)
+
+    -n <integer>
+        number of clock cycles to simulate (default: 20)
+\end{lstlisting}
+
 \section{glift -- create GLIFT models and optimization problems}
 \label{cmd:glift}
 \begin{lstlisting}[numbers=left,frame=single]
@@ -3300,6 +3334,9 @@ are then merged to one cell.
 
     -share_all
         Operate on all cell types, not just built-in types.
+
+    -keepdc
+        Do not merge flipflops with don't-care bits in their initial value.
 \end{lstlisting}
 
 \section{opt\_muxtree -- eliminate dead trees in multiplexer trees}
@@ -4924,11 +4961,17 @@ This command simulates the circuit using the given top-level module.
     -x
         ignore constant x outputs in simulation file.
 
+    -date
+        include date and full version info in output.
+
     -clock <portname>
         name of top-level clock input
 
     -clockn <portname>
         name of top-level clock input (inverse polarity)
+
+    -multiclock
+        mark that witness file is multiclock.
 
     -reset <portname>
         name of top-level reset input (active high)
@@ -4955,12 +4998,13 @@ This command simulates the circuit using the given top-level module.
         writeback mode: use final simulation state as new init state
 
     -r
-        read simulation results file (file formats supported: FST)
+        read simulation results file (file formats supported: FST, VCD, AIW and WIT)
+		 VCD support requires vcd2fst external tool to be present
 
     -map <filename>
         read file with port and latch symbols, needed for AIGER witness input
 
-    -scope
+    -scope <name>
         scope of simulation top model
 
     -at <time>
@@ -4983,6 +5027,9 @@ This command simulates the circuit using the given top-level module.
 
     -sim-gate
         co-simulation, x in FST can match any value in simulation
+
+    -q
+        disable per-cycle/sample log message
 
     -d
         enable debug output
@@ -7949,6 +7996,9 @@ invariant constraints.
     -vmap <filename>
         like -map, but more verbose
 
+    -no-startoffset
+        make indexes zero based, enable using map files with smt solvers.
+
     -I, -O, -B, -L
         If the design contains no input/output/assert/flip-flop then create one
         dummy input/output/bad_state-pin or latch to make the tools reading the
@@ -8437,6 +8487,7 @@ Where <port_details> is:
       "bits": <bit_vector>
       "offset": <the lowest bit index in use, if non-0>
       "upto": <1 if the port bit indexing is MSB-first>
+      "signed": <1 if the port is signed>
     }
 
 The "offset" and "upto" fields are skipped if their value would be 0.They don't affect connection semantics, and are only used to preserve originalHDL bit indexing.And <cell_details> is:
@@ -8483,6 +8534,7 @@ And <net_details> is:
       "bits": <bit_vector>
       "offset": <the lowest bit index in use, if non-0>
       "upto": <1 if the port bit indexing is MSB-first>
+      "signed": <1 if the port is signed>
     }
 
 The "hide_name" fields are set to 1 when the name of this cell or net is
