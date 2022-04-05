@@ -976,6 +976,19 @@ struct HierarchyPass : public Pass {
 				if (mod->get_bool_attribute(ID::top))
 					top_mod = mod;
 
+		if (top_mod == nullptr && auto_top_mode) {
+			log_header(design, "Finding top of design hierarchy..\n");
+			dict<Module*, int> db;
+			for (Module *mod : design->selected_modules()) {
+				int score = find_top_mod_score(design, mod, db);
+				log("root of %3d design levels: %-20s\n", score, log_id(mod));
+				if (!top_mod || score > db[top_mod])
+					top_mod = mod;
+			}
+			if (top_mod != nullptr)
+				log("Automatically selected %s as design top module.\n", log_id(top_mod));
+		}
+
 		if (top_mod != nullptr && top_mod->name.begins_with("$abstract")) {
 			IdString top_name = top_mod->name.substr(strlen("$abstract"));
 
@@ -998,19 +1011,6 @@ struct HierarchyPass : public Pass {
 				design->add(m);
 				top_mod = m;
 			}
-		}
-
-		if (top_mod == nullptr && auto_top_mode) {
-			log_header(design, "Finding top of design hierarchy..\n");
-			dict<Module*, int> db;
-			for (Module *mod : design->selected_modules()) {
-				int score = find_top_mod_score(design, mod, db);
-				log("root of %3d design levels: %-20s\n", score, log_id(mod));
-				if (!top_mod || score > db[top_mod])
-					top_mod = mod;
-			}
-			if (top_mod != nullptr)
-				log("Automatically selected %s as design top module.\n", log_id(top_mod));
 		}
 
 		if (flag_simcheck && top_mod == nullptr)
