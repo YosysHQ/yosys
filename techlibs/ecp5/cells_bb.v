@@ -223,7 +223,7 @@ endmodule
 
 (* blackbox *)
 module IDDRX2F(
-	input D, SCLK, ECLK, RST,
+	input D, SCLK, ECLK, RST, ALIGNWD,
 	output Q0, Q1, Q2, Q3
 );
 	parameter GSR = "ENABLED";
