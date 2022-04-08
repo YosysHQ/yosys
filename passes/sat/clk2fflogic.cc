@@ -39,8 +39,10 @@ struct Clk2fflogicPass : public Pass {
 		log("multiple clocks.\n");
 		log("\n");
 	}
-	SigSpec wrap_async_control(Module *module, SigSpec sig, bool polarity) {
-		return wrap_async_control(module, sig, polarity, NEW_ID);
+	SigSpec wrap_async_control(Module *module, SigSpec sig, bool polarity, bool is_fine, IdString past_sig_id) {
+		if (!is_fine)
+			return wrap_async_control(module, sig, polarity, past_sig_id);
+		return wrap_async_control_gate(module, sig, polarity, past_sig_id);
 	}
 	SigSpec wrap_async_control(Module *module, SigSpec sig, bool polarity, IdString past_sig_id) {
 		Wire *past_sig = module->addWire(past_sig_id, GetSize(sig));
@@ -55,9 +57,9 @@ struct Clk2fflogicPass : public Pass {
 		else
 			return module->Not(NEW_ID, sig);
 	}
-	SigSpec wrap_async_control_gate(Module *module, SigSpec sig, bool polarity) {
-		Wire *past_sig = module->addWire(NEW_ID);
-		past_sig->attributes[ID::init] = RTLIL::Const(polarity ? State::S0 : State::S1, GetSize(sig));
+	SigSpec wrap_async_control_gate(Module *module, SigSpec sig, bool polarity, IdString past_sig_id) {
+		Wire *past_sig = module->addWire(past_sig_id);
+		past_sig->attributes[ID::init] = polarity ? State::S0 : State::S1;
 		module->addFfGate(NEW_ID, sig, past_sig);
 		if (polarity)
 			sig = module->OrGate(NEW_ID, sig, past_sig);
@@ -232,7 +234,7 @@ struct Clk2fflogicPass : public Pass {
 					}
 
 					if (ff.has_aload) {
-						SigSpec sig_aload = wrap_async_control(module, ff.sig_aload, ff.pol_aload);
+						SigSpec sig_aload = wrap_async_control(module, ff.sig_aload, ff.pol_aload, ff.is_fine, NEW_ID);
 
 						if (!ff.is_fine)
 							qval = module->Mux(NEW_ID, qval, ff.sig_ad, sig_aload);
@@ -241,8 +243,8 @@ struct Clk2fflogicPass : public Pass {
 					}
 
 					if (ff.has_sr) {
-						SigSpec setval = wrap_async_control(module, ff.sig_set, ff.pol_set);
-						SigSpec clrval = wrap_async_control(module, ff.sig_clr, ff.pol_clr);
+						SigSpec setval = wrap_async_control(module, ff.sig_set, ff.pol_set, ff.is_fine, NEW_ID);
+						SigSpec clrval = wrap_async_control(module, ff.sig_clr, ff.pol_clr, ff.is_fine, NEW_ID);
 						if (!ff.is_fine) {
 							clrval = module->Not(NEW_ID, clrval);
 							qval = module->Or(NEW_ID, qval, setval);
@@ -254,7 +256,7 @@ struct Clk2fflogicPass : public Pass {
 						}
 					} else if (ff.has_arst) {
 						IdString id = NEW_ID_SUFFIX(stringf("%s#past_arst#%s", sig_q_str.c_str(), log_signal(ff.sig_arst)));
-						SigSpec arst = wrap_async_control(module, ff.sig_arst, ff.pol_arst, id);
+						SigSpec arst = wrap_async_control(module, ff.sig_arst, ff.pol_arst, ff.is_fine, id);
 						if (!ff.is_fine)
 							module->addMux(NEW_ID, qval, ff.val_arst, arst, ff.sig_q);
 						else
