@@ -554,7 +554,7 @@ struct OptDffWorker
 					// The D input path is effectively useless, so remove it (this will be a const-input D latch, SR latch, or a const driver).
 					log("Handling D = Q on %s (%s) from module %s (removing D path).\n",
 							log_id(cell), log_id(cell->type), log_id(module));
-					ff.has_clk = ff.has_ce = false;
+					ff.has_gclk = ff.has_clk = ff.has_ce = false;
 					changed = true;
 				}
 			}
