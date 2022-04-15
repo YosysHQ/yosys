@@ -82,6 +82,11 @@ struct MemoryShareWorker
 		log("Consolidating read ports of memory %s.%s by address:\n", log_id(module), log_id(mem.memid));
 
 		bool changed = false;
+		int abits = 0;
+		for (auto &port: mem.rd_ports) {
+			if (GetSize(port.addr) > abits)
+				abits = GetSize(port.addr);
+		}
 		for (int i = 0; i < GetSize(mem.rd_ports); i++)
 		{
 			auto &port1 = mem.rd_ports[i];
@@ -114,6 +119,8 @@ struct MemoryShareWorker
 				int wide_log2 = std::max(port1.wide_log2, port2.wide_log2);
 				SigSpec addr1 = sigmap_xmux(port1.addr);
 				SigSpec addr2 = sigmap_xmux(port2.addr);
+				addr1.extend_u0(abits);
+				addr2.extend_u0(abits);
 				if (GetSize(addr1) <= wide_log2)
 					continue;
 				if (GetSize(addr2) <= wide_log2)
@@ -192,6 +199,11 @@ struct MemoryShareWorker
 		log("Consolidating write ports of memory %s.%s by address:\n", log_id(module), log_id(mem.memid));
 
 		bool changed = false;
+		int abits = 0;
+		for (auto &port: mem.wr_ports) {
+			if (GetSize(port.addr) > abits)
+				abits = GetSize(port.addr);
+		}
 		for (int i = 0; i < GetSize(mem.wr_ports); i++)
 		{
 			auto &port1 = mem.wr_ports[i];
@@ -216,6 +228,8 @@ struct MemoryShareWorker
 				int wide_log2 = std::max(port1.wide_log2, port2.wide_log2);
 				SigSpec addr1 = sigmap_xmux(port1.addr);
 				SigSpec addr2 = sigmap_xmux(port2.addr);
+				addr1.extend_u0(abits);
+				addr2.extend_u0(abits);
 				if (GetSize(addr1) <= wide_log2)
 					continue;
 				if (GetSize(addr2) <= wide_log2)
