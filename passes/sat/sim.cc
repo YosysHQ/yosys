@@ -1231,13 +1231,13 @@ struct SimWorker : SimShared
 		{
 			std::string line;
 			std::getline(f, line);
-			if (line.size()==0 || line[0]=='#') continue;
+			if (line.size()==0 || line[0]=='#' || line[0]=='c' || line[0]=='f' || line[0]=='u') continue;
 			if (line[0]=='.') break;
 			if (state==0 && line.size()!=1) {
 				// old format detected, latch data
 				state = 2;
 			}
-			if (state==1 && line[0]!='b' && line[0]!='c') {
+			if (state==1 && line[0]!='b' && line[0]!='j') {
 				// was old format but with 1 bit latch
 				top->setState(latches, status);
 				state = 3;
