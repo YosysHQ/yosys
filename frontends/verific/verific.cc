@@ -2548,6 +2548,7 @@ struct VerificPass : public Pass {
 
 			RuntimeFlags::SetVar("veri_extract_dualport_rams", 0);
 			RuntimeFlags::SetVar("veri_extract_multiport_rams", 1);
+			RuntimeFlags::SetVar("veri_allow_any_ram_in_loop", 1);
 
 #ifdef VERIFIC_VHDL_SUPPORT
 			RuntimeFlags::SetVar("vhdl_extract_dualport_rams", 0);
