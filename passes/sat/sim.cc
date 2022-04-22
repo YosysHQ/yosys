@@ -1815,12 +1815,7 @@ struct AIWWriter : public OutputWriter
 				for (int i = 0;; i++)
 				{
 					if (aiw_latches.count(i)) {
-						SigBit bit = aiw_latches.at(i).first;
-						auto v = current[mapping[bit.wire]].bits.at(bit.offset);
-						if (v == State::S1)
-							aiwfile << (aiw_latches.at(i).second ? '0' : '1');
-						else
-							aiwfile << (aiw_latches.at(i).second ? '1' : '0');
+						aiwfile << '0';
 						continue;
 					}
 					aiwfile << '\n';
