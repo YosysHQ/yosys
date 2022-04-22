@@ -809,13 +809,19 @@ struct SimInstance
 		for (auto cell : module->cells())
 		{
 			if (cell->type.in(ID($anyseq))) {
-				SigSpec sig_y= cell->getPort(ID::Y);
+				SigSpec sig_y = sigmap(cell->getPort(ID::Y));
 				if (sig_y.is_wire()) {
-					Wire *wire = sig_y.as_wire();
-					fstHandle id = shared->fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
-					if (id==0)
-						log_error("Unable to find required '%s' signal in file\n",(scope + "." + RTLIL::unescape_id(wire->name)).c_str());
-					inputs[wire] = id;
+					bool found = false;
+					for(auto &item : fst_handles) {
+						if (item.second==0) continue; // Ignore signals not found
+						if (sig_y == sigmap(item.first)) {
+							inputs[sig_y.as_wire()] = item.second;
+							found = true;
+							break;
+						}
+					}
+					if (!found)
+						log_error("Unable to find required '%s' signal in file\n",(scope + "." + RTLIL::unescape_id(sig_y.as_wire()->name)).c_str());
 				}
 			}
 		}
