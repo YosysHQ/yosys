@@ -201,10 +201,11 @@ void FstData::reconstructAllAtTimes(std::vector<fstHandle> &signal, uint64_t sta
 	fstReaderSetUnlimitedTimeRange(ctx);
 	fstReaderSetFacProcessMaskAll(ctx);
 	fstReaderIterBlocks2(ctx, reconstruct_clb_attimes, reconstruct_clb_varlen_attimes, this, nullptr);
-	past_data = last_data;
-	callback(last_time);
-	if (last_time!=end_time)
-		callback(end_time);
+	if (last_time!=end_time) {
+		past_data = last_data;
+		callback(last_time);
+	}
+	callback(end_time);
 }
 
 std::string FstData::valueOf(fstHandle signal)
