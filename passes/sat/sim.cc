@@ -1313,8 +1313,10 @@ struct SimWorker : SimShared
 	void run_cosim_btor2_witness(Module *topmod)
 	{
 		log_assert(top == nullptr);
-		if ((clock.size()+clockn.size())==0)
+		if (!multiclock && (clock.size()+clockn.size())==0)
 			log_error("Clock signal must be specified.\n");
+		if (multiclock && (clock.size()+clockn.size())>0)
+			log_error("For multiclock witness there should be no clock signal.\n");
 		std::ifstream f;
 		f.open(sim_filename.c_str());
 		if (f.fail() || GetSize(sim_filename) == 0)
@@ -1347,10 +1349,12 @@ struct SimWorker : SimShared
 					set_inports(clockn, State::S0);
 					update();
 					register_output_step(10*cycle+0);
-					set_inports(clock, State::S0);
-					set_inports(clockn, State::S1);
-					update();
-					register_output_step(10*cycle+5);
+					if (!multiclock) {
+						set_inports(clock, State::S0);
+						set_inports(clockn, State::S1);
+						update();
+						register_output_step(10*cycle+5);
+					}
 					cycle++;
 					prev_cycle = curr_cycle;
 				}
