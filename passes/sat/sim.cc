@@ -1782,6 +1782,12 @@ struct AIWWriter : public OutputWriter
 				log_error("Index %d for wire %s is out of range\n", index, log_signal(w));
 			if (type == "input") {
 				aiw_inputs[variable] = SigBit(w,index-w->start_offset);
+				if (worker->clock.count(escaped_s)) {
+					clocks[variable] = true;
+				}
+				if (worker->clockn.count(escaped_s)) {
+					clocks[variable] = false;
+				}
 			} else if (type == "init") {
 				aiw_inits[variable] = SigBit(w,index-w->start_offset);
 			} else if (type == "latch") {
@@ -1823,6 +1829,17 @@ struct AIWWriter : public OutputWriter
 				first = false;
 			}
 
+			bool skip = false;
+			for (auto it : clocks)
+			{
+				auto val = it.second ? State::S1 : State::S0;
+				SigBit bit = aiw_inputs.at(it.first);
+				auto v = current[mapping[bit.wire]].bits.at(bit.offset);
+				if (v == val)
+					skip = true;
+			}
+			if (skip)
+				continue;
 			for (int i = 0;; i++)
 			{
 				if (aiw_inputs.count(i)) {
@@ -1852,6 +1869,7 @@ struct AIWWriter : public OutputWriter
 	std::ofstream aiwfile;
 	dict<int, std::pair<SigBit, bool>> aiw_latches;
 	dict<int, SigBit> aiw_inputs, aiw_inits;
+	dict<int, bool> clocks;
 	std::map<Wire*,int> mapping;
 };
 
