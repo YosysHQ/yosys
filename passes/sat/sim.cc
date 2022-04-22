@@ -782,22 +782,21 @@ struct SimInstance
 	bool setInitState()
 	{
 		bool did_something = false;
+		for(auto &item : fst_handles) {
+			if (item.second==0) continue; // Ignore signals not found
+			std::string v = shared->fst->valueOf(item.second);
+			did_something |= set_state(item.first, Const::from_string(v));
+		}
 		for (auto &it : ff_database)
 		{
 			ff_state_t &ff = it.second;
-			SigSpec qsig = it.second.data.sig_q;
-			if (qsig.is_wire()) {
-				IdString name = qsig.as_wire()->name;
-				fstHandle id = shared->fst->getHandle(scope + "." + RTLIL::unescape_id(name));
-				if (id==0 && name.isPublic())
-					log_warning("Unable to find wire %s in input file.\n", (scope + "." + RTLIL::unescape_id(name)).c_str());
-				if (id!=0) {
-					Const fst_val = Const::from_string(shared->fst->valueOf(id));
-					ff.past_d = fst_val;
-					if (ff.data.has_aload)
-						ff.past_ad = fst_val;
-					did_something = set_state(qsig, fst_val);
-				}
+			SigSpec dsig = it.second.data.sig_d;
+			Const value = get_state(dsig);
+			if (dsig.is_wire()) {
+				ff.past_d = value;
+				if (ff.data.has_aload)
+					ff.past_ad = value;
+				did_something |= true;
 			}
 		}
 		for (auto child : children)
