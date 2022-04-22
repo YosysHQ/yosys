@@ -1805,8 +1805,9 @@ struct AIWWriter : public OutputWriter
 
 		std::map<int, Yosys::RTLIL::Const> current;
 		bool first = true;
-		for(auto& d : worker->output_data)
+		for (auto iter = worker->output_data.begin(); iter != std::prev(worker->output_data.end()); ++iter)
 		{
+			auto& d = *iter;
 			for (auto &data : d.second)
 			{
 				current[data.first] = data.second;
