@@ -804,6 +804,25 @@ struct SimInstance
 		return did_something;
 	}
 
+	void addAdditionalInputs(std::map<Wire*,fstHandle> &inputs)
+	{
+		for (auto cell : module->cells())
+		{
+			if (cell->type.in(ID($anyseq))) {
+				SigSpec sig_y= cell->getPort(ID::Y);
+				if (sig_y.is_wire()) {
+					Wire *wire = sig_y.as_wire();
+					fstHandle id = shared->fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
+					if (id==0)
+						log_error("Unable to find required '%s' signal in file\n",(scope + "." + RTLIL::unescape_id(wire->name)).c_str());
+					inputs[wire] = id;
+				}
+			}
+		}
+		for (auto child : children)
+			child.second->addAdditionalInputs(inputs);
+	}
+
 	void setState(dict<int, std::pair<SigBit,bool>> bits, std::string values)
 	{
 		for(auto bit : bits) {
@@ -1064,6 +1083,8 @@ struct SimWorker : SimShared
 				inputs[wire] = id;
 			}
 		}
+
+		top->addAdditionalInputs(inputs);
 
 		uint64_t startCount = 0;
 		uint64_t stopCount = 0;
