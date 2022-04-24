@@ -21,6 +21,9 @@
 #undef HAVE_LIBPTHREAD
 #undef HAVE_FSEEKO
 #endif
+#ifdef __FreeBSD__
+#undef HAVE_ALLOCA_H
+#endif
 
 # ifndef __STDC_FORMAT_MACROS
 #  define __STDC_FORMAT_MACROS 1
