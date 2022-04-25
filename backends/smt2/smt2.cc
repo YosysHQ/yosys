@@ -1185,10 +1185,12 @@ struct Smt2Worker
 						data = stringf("(bvor (bvand %s %s) (bvand (select (|%s#%d#%d| state) %s) (bvnot %s)))",
 								data.c_str(), mask.c_str(), get_id(module), arrayid, i, addr.c_str(), mask.c_str());
 
+						string empty_mask(mem->width, '0');
+
 						decls.push_back(stringf("(define-fun |%s#%d#%d| ((state |%s_s|)) (Array (_ BitVec %d) (_ BitVec %d)) "
-								"(store (|%s#%d#%d| state) %s %s)) ; %s\n",
+								"(ite (= %s #b%s) (|%s#%d#%d| state) (store (|%s#%d#%d| state) %s %s))) ; %s\n",
 								get_id(module), arrayid, i+1, get_id(module), abits, mem->width,
-								get_id(module), arrayid, i, addr.c_str(), data.c_str(), get_id(mem->memid)));
+								mask.c_str(), empty_mask.c_str(), get_id(module), arrayid, i, get_id(module), arrayid, i, addr.c_str(), data.c_str(), get_id(mem->memid)));
 					}
 				}
 
