@@ -782,27 +782,51 @@ struct SimInstance
 	bool setInitState()
 	{
 		bool did_something = false;
+		for(auto &item : fst_handles) {
+			if (item.second==0) continue; // Ignore signals not found
+			std::string v = shared->fst->valueOf(item.second);
+			did_something |= set_state(item.first, Const::from_string(v));
+		}
 		for (auto &it : ff_database)
 		{
 			ff_state_t &ff = it.second;
-			SigSpec qsig = it.second.data.sig_q;
-			if (qsig.is_wire()) {
-				IdString name = qsig.as_wire()->name;
-				fstHandle id = shared->fst->getHandle(scope + "." + RTLIL::unescape_id(name));
-				if (id==0 && name.isPublic())
-					log_warning("Unable to find wire %s in input file.\n", (scope + "." + RTLIL::unescape_id(name)).c_str());
-				if (id!=0) {
-					Const fst_val = Const::from_string(shared->fst->valueOf(id));
-					ff.past_d = fst_val;
-					if (ff.data.has_aload)
-						ff.past_ad = fst_val;
-					did_something = set_state(qsig, fst_val);
-				}
+			SigSpec dsig = it.second.data.sig_d;
+			Const value = get_state(dsig);
+			if (dsig.is_wire()) {
+				ff.past_d = value;
+				if (ff.data.has_aload)
+					ff.past_ad = value;
+				did_something |= true;
 			}
 		}
 		for (auto child : children)
 			did_something |= child.second->setInitState();
 		return did_something;
+	}
+
+	void addAdditionalInputs(std::map<Wire*,fstHandle> &inputs)
+	{
+		for (auto cell : module->cells())
+		{
+			if (cell->type.in(ID($anyseq))) {
+				SigSpec sig_y = sigmap(cell->getPort(ID::Y));
+				if (sig_y.is_wire()) {
+					bool found = false;
+					for(auto &item : fst_handles) {
+						if (item.second==0) continue; // Ignore signals not found
+						if (sig_y == sigmap(item.first)) {
+							inputs[sig_y.as_wire()] = item.second;
+							found = true;
+							break;
+						}
+					}
+					if (!found)
+						log_error("Unable to find required '%s' signal in file\n",(scope + "." + RTLIL::unescape_id(sig_y.as_wire()->name)).c_str());
+				}
+			}
+		}
+		for (auto child : children)
+			child.second->addAdditionalInputs(inputs);
 	}
 
 	void setState(dict<int, std::pair<SigBit,bool>> bits, std::string values)
@@ -1066,6 +1090,8 @@ struct SimWorker : SimShared
 			}
 		}
 
+		top->addAdditionalInputs(inputs);
+
 		uint64_t startCount = 0;
 		uint64_t stopCount = 0;
 		if (start_time==0) {
@@ -1313,8 +1339,10 @@ struct SimWorker : SimShared
 	void run_cosim_btor2_witness(Module *topmod)
 	{
 		log_assert(top == nullptr);
-		if ((clock.size()+clockn.size())==0)
+		if (!multiclock && (clock.size()+clockn.size())==0)
 			log_error("Clock signal must be specified.\n");
+		if (multiclock && (clock.size()+clockn.size())>0)
+			log_error("For multiclock witness there should be no clock signal.\n");
 		std::ifstream f;
 		f.open(sim_filename.c_str());
 		if (f.fail() || GetSize(sim_filename) == 0)
@@ -1347,10 +1375,12 @@ struct SimWorker : SimShared
 					set_inports(clockn, State::S0);
 					update();
 					register_output_step(10*cycle+0);
-					set_inports(clock, State::S0);
-					set_inports(clockn, State::S1);
-					update();
-					register_output_step(10*cycle+5);
+					if (!multiclock) {
+						set_inports(clock, State::S0);
+						set_inports(clockn, State::S1);
+						update();
+						register_output_step(10*cycle+5);
+					}
 					cycle++;
 					prev_cycle = curr_cycle;
 				}
@@ -1779,6 +1809,12 @@ struct AIWWriter : public OutputWriter
 				log_error("Index %d for wire %s is out of range\n", index, log_signal(w));
 			if (type == "input") {
 				aiw_inputs[variable] = SigBit(w,index-w->start_offset);
+				if (worker->clock.count(escaped_s)) {
+					clocks[variable] = true;
+				}
+				if (worker->clockn.count(escaped_s)) {
+					clocks[variable] = false;
+				}
 			} else if (type == "init") {
 				aiw_inits[variable] = SigBit(w,index-w->start_offset);
 			} else if (type == "latch") {
@@ -1796,8 +1832,9 @@ struct AIWWriter : public OutputWriter
 
 		std::map<int, Yosys::RTLIL::Const> current;
 		bool first = true;
-		for(auto& d : worker->output_data)
+		for (auto iter = worker->output_data.begin(); iter != std::prev(worker->output_data.end()); ++iter)
 		{
+			auto& d = *iter;
 			for (auto &data : d.second)
 			{
 				current[data.first] = data.second;
@@ -1806,12 +1843,7 @@ struct AIWWriter : public OutputWriter
 				for (int i = 0;; i++)
 				{
 					if (aiw_latches.count(i)) {
-						SigBit bit = aiw_latches.at(i).first;
-						auto v = current[mapping[bit.wire]].bits.at(bit.offset);
-						if (v == State::S1)
-							aiwfile << (aiw_latches.at(i).second ? '0' : '1');
-						else
-							aiwfile << (aiw_latches.at(i).second ? '1' : '0');
+						aiwfile << '0';
 						continue;
 					}
 					aiwfile << '\n';
@@ -1820,6 +1852,17 @@ struct AIWWriter : public OutputWriter
 				first = false;
 			}
 
+			bool skip = false;
+			for (auto it : clocks)
+			{
+				auto val = it.second ? State::S1 : State::S0;
+				SigBit bit = aiw_inputs.at(it.first);
+				auto v = current[mapping[bit.wire]].bits.at(bit.offset);
+				if (v == val)
+					skip = true;
+			}
+			if (skip)
+				continue;
 			for (int i = 0;; i++)
 			{
 				if (aiw_inputs.count(i)) {
@@ -1849,6 +1892,7 @@ struct AIWWriter : public OutputWriter
 	std::ofstream aiwfile;
 	dict<int, std::pair<SigBit, bool>> aiw_latches;
 	dict<int, SigBit> aiw_inputs, aiw_inits;
+	dict<int, bool> clocks;
 	std::map<Wire*,int> mapping;
 };
 
