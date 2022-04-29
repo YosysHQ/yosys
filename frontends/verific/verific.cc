@@ -987,6 +987,7 @@ void VerificImporter::merge_past_ffs(pool<RTLIL::Cell*> &candidates)
 
 	for (auto cell : candidates)
 	{
+		if (cell->type != ID($dff)) continue;
 		SigBit clock = cell->getPort(ID::CLK);
 		bool clock_pol = cell->getParam(ID::CLK_POLARITY).as_bool();
 		database[make_pair(clock, int(clock_pol))].insert(cell);
