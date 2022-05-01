@@ -155,6 +155,9 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 		r.first->second = new Design;
 	Design *unmap_design = r.first->second;
 
+	// Keep track of derived versions of modules that we haven't used, to prevent these being used for unwanted techmaps later on.
+	pool<IdString> unused_derived;
+
 	for (auto module : design->selected_modules())
 		for (auto cell : module->cells()) {
 			auto inst_module = design->module(cell->type);
@@ -169,6 +172,7 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 			else {
 				derived_type = inst_module->derive(design, cell->parameters);
 				derived_module = design->module(derived_type);
+				unused_derived.insert(derived_type);
 			}
 
 			if (derived_module->get_bool_attribute(ID::abc9_flop)) {
@@ -192,6 +196,7 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 						// as a compatible type, yet will be safely unmapped later
 						cell->type = derived_type;
 						cell->parameters.clear();
+						unused_derived.erase(derived_type);
 					}
 					continue;
 				}
@@ -250,7 +255,11 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 
 			cell->type = derived_type;
 			cell->parameters.clear();
+			unused_derived.erase(derived_type);
 		}
+	for (auto unused : unused_derived) {
+		design->remove(design->module(unused));
+	}
 }
 
 void prep_bypass(RTLIL::Design *design)
