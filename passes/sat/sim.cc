@@ -1798,6 +1798,7 @@ struct AIWWriter : public OutputWriter
 		std::ifstream mf(worker->map_filename);
 		std::string type, symbol;
 		int variable, index;
+		int max_input = 0;
 		if (mf.fail())
 			log_cmd_error("Not able to read AIGER witness map file.\n");
 		while (mf >> type >> variable >> index >> symbol) {
@@ -1815,8 +1816,10 @@ struct AIWWriter : public OutputWriter
 				if (worker->clockn.count(escaped_s)) {
 					clocks[variable] = false;
 				}
+				max_input = max(max_input,variable);
 			} else if (type == "init") {
 				aiw_inits[variable] = SigBit(w,index-w->start_offset);
+				max_input = max(max_input,variable);
 			} else if (type == "latch") {
 				aiw_latches[variable] = {SigBit(w,index-w->start_offset), false};
 			} else if (type == "invlatch") {
@@ -1863,7 +1866,7 @@ struct AIWWriter : public OutputWriter
 			}
 			if (skip)
 				continue;
-			for (int i = 0;; i++)
+			for (int i = 0; i <= max_input; i++)
 			{
 				if (aiw_inputs.count(i)) {
 					SigBit bit = aiw_inputs.at(i);
@@ -1883,9 +1886,9 @@ struct AIWWriter : public OutputWriter
 						aiwfile << '0';
 					continue;
 				}
-				aiwfile << '\n';
-				break;
+				aiwfile << '0';
 			}
+			aiwfile << '\n';
 		} 
 	}
 
