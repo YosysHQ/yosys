@@ -115,7 +115,7 @@ int map_autoidx;
 SigMap assign_map;
 RTLIL::Module *module;
 std::vector<gate_t> signal_list;
-std::map<RTLIL::SigBit, int> signal_map;
+dict<RTLIL::SigBit, int> signal_map;
 FfInitVals initvals;
 pool<std::string> enabled_gates;
 bool cmos_cost;
@@ -409,7 +409,7 @@ std::string remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire = nullp
 	return stringf("$abc$%d$%s", map_autoidx, abc_name.c_str()+1);
 }
 
-void dump_loop_graph(FILE *f, int &nr, std::map<int, std::set<int>> &edges, std::set<int> &workpool, std::vector<int> &in_counts)
+void dump_loop_graph(FILE *f, int &nr, dict<int, pool<int>> &edges, pool<int> &workpool, std::vector<int> &in_counts)
 {
 	if (f == nullptr)
 		return;
@@ -420,7 +420,7 @@ void dump_loop_graph(FILE *f, int &nr, std::map<int, std::set<int>> &edges, std:
 	fprintf(f, "  label=\"slide%d\";\n", nr);
 	fprintf(f, "  rankdir=\"TD\";\n");
 
-	std::set<int> nodes;
+	pool<int> nodes;
 	for (auto &e : edges) {
 		nodes.insert(e.first);
 		for (auto n : e.second)
@@ -443,9 +443,9 @@ void handle_loops()
 	// http://en.wikipedia.org/wiki/Topological_sorting
 	// (Kahn, Arthur B. (1962), "Topological sorting of large networks")
 
-	std::map<int, std::set<int>> edges;
+	dict<int, pool<int>> edges;
 	std::vector<int> in_edges_count(signal_list.size());
-	std::set<int> workpool;
+	pool<int> workpool;
 
 	FILE *dot_f = nullptr;
 	int dot_nr = 0;
@@ -1135,7 +1135,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		SigMap mapped_sigmap(mapped_mod);
 		FfInitVals mapped_initvals(&mapped_sigmap, mapped_mod);
 
-		std::map<std::string, int> cell_stats;
+		dict<std::string, int> cell_stats;
 		for (auto c : mapped_mod->cells())
 		{
 			if (builtin_lib)
@@ -2000,18 +2000,18 @@ struct AbcPass : public Pass {
 			CellTypes ct(design);
 
 			std::vector<RTLIL::Cell*> all_cells = mod->selected_cells();
-			std::set<RTLIL::Cell*> unassigned_cells(all_cells.begin(), all_cells.end());
+			pool<RTLIL::Cell*> unassigned_cells(all_cells.begin(), all_cells.end());
 
-			std::set<RTLIL::Cell*> expand_queue, next_expand_queue;
-			std::set<RTLIL::Cell*> expand_queue_up, next_expand_queue_up;
-			std::set<RTLIL::Cell*> expand_queue_down, next_expand_queue_down;
+			pool<RTLIL::Cell*> expand_queue, next_expand_queue;
+			pool<RTLIL::Cell*> expand_queue_up, next_expand_queue_up;
+			pool<RTLIL::Cell*> expand_queue_down, next_expand_queue_down;
 
 			typedef tuple<bool, RTLIL::SigSpec, bool, RTLIL::SigSpec, bool, RTLIL::SigSpec, bool, RTLIL::SigSpec> clkdomain_t;
-			std::map<clkdomain_t, std::vector<RTLIL::Cell*>> assigned_cells;
-			std::map<RTLIL::Cell*, clkdomain_t> assigned_cells_reverse;
+			dict<clkdomain_t, std::vector<RTLIL::Cell*>> assigned_cells;
+			dict<RTLIL::Cell*, clkdomain_t> assigned_cells_reverse;
 
-			std::map<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_bit, cell_to_bit_up, cell_to_bit_down;
-			std::map<RTLIL::SigBit, std::set<RTLIL::Cell*>> bit_to_cell, bit_to_cell_up, bit_to_cell_down;
+			dict<RTLIL::Cell*, pool<RTLIL::SigBit>> cell_to_bit, cell_to_bit_up, cell_to_bit_down;
+			dict<RTLIL::SigBit, pool<RTLIL::Cell*>> bit_to_cell, bit_to_cell_up, bit_to_cell_down;
 
 			for (auto cell : all_cells)
 			{
