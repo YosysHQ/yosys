@@ -85,6 +85,13 @@ fstHandle FstData::getHandle(std::string name) {
 		return 0;
 };
 
+dict<int,fstHandle> FstData::getMemoryHandles(std::string name) { 
+	if (memory_to_handle.find(name) != memory_to_handle.end())
+		return memory_to_handle[name];
+	else 
+		return dict<int,fstHandle>();
+};
+
 static std::string remove_spaces(std::string str)
 {
 	str.erase(std::remove(str.begin(), str.end(), ' '), str.end());
@@ -126,7 +133,30 @@ void FstData::extractVarNames()
 				}
 				if (clean_name[0]=='\\')
 					clean_name = clean_name.substr(1);
-
+				size_t pos = clean_name.find_last_of("<");
+				if (pos != std::string::npos) {
+					std::string mem_cell = clean_name.substr(0, pos);
+					std::string addr = clean_name.substr(pos+1);
+					addr.pop_back(); // remove closing bracket
+					char *endptr;
+					int mem_addr = strtol(addr.c_str(), &endptr, 16);
+					if (*endptr) {
+						log_error("Error parsing memory address in : %s\n", clean_name.c_str());
+					}
+					memory_to_handle[var.scope+"."+mem_cell][mem_addr] = var.id;
+				}
+				pos = clean_name.find_last_of("[");
+				if (pos != std::string::npos) {
+					std::string mem_cell = clean_name.substr(0, pos);
+					std::string addr = clean_name.substr(pos+1);
+					addr.pop_back(); // remove closing bracket
+					char *endptr;
+					int mem_addr = strtol(addr.c_str(), &endptr, 10);
+					if (*endptr) {
+						log_error("Error parsing memory address in : %s\n", clean_name.c_str());
+					}
+					memory_to_handle[var.scope+"."+mem_cell][mem_addr] = var.id;
+				}
 				name_to_handle[var.scope+"."+clean_name] = h->u.var.handle;
 				break;
 			}
