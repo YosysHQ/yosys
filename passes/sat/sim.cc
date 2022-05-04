@@ -246,7 +246,8 @@ struct SimInstance
 			{
 				std::string name = cell->parameters.at(ID::MEMID).decode_string();
 				mem_cells[cell] = name;
-				fst_memories[name] = shared->fst->getMemoryHandles(scope + "." + RTLIL::unescape_id(name));
+				if (shared->fst)
+					fst_memories[name] = shared->fst->getMemoryHandles(scope + "." + RTLIL::unescape_id(name));
 			}
 			if (cell->type.in(ID($assert), ID($cover), ID($assume))) {
 				formal_database.insert(cell);
