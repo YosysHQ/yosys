@@ -555,7 +555,7 @@ struct MemorySharePass : public Pass {
 			}
 			break;
 		}
-		extra_args(args, 1, design);
+		extra_args(args, argidx, design);
 		MemoryShareWorker msw(design, flag_widen, flag_sat);
 
 		for (auto module : design->selected_modules())
