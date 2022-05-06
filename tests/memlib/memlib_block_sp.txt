@@ -1,0 +1,95 @@
+ram block \RAM_BLOCK_SP {
+	cost 2;
+	abits 4;
+	width 16;
+	byte 8;
+	port srsw "A" {
+		clock posedge;
+		ifdef CLKEN {
+			clken;
+		}
+		ifdef RDEN {
+			rden;
+		}
+		ifdef RDWR_NO_CHANGE {
+			option "RDWR" "NO_CHANGE" {
+				rdwr no_change;
+			}
+		}
+		ifdef RDWR_OLD {
+			option "RDWR" "OLD" {
+				rdwr old;
+			}
+		}
+		ifdef RDWR_NEW {
+			option "RDWR" "NEW" {
+				rdwr new;
+			}
+		}
+		ifdef RDWR_NEW_ONLY {
+			option "RDWR" "NEW_ONLY" {
+				rdwr new_only;
+			}
+		}
+		ifdef RDINIT_0 {
+			option "RDINIT" "ZERO" {
+				rdinit zero;
+			}
+		}
+		ifdef RDINIT_ANY {
+			option "RDINIT" "ANY" {
+				rdinit any;
+			}
+		}
+		ifdef RDARST_0 {
+			option "RDARST" "ZERO" {
+				rdarst zero;
+			}
+		}
+		ifdef RDARST_ANY {
+			option "RDARST" "ANY" {
+				rdarst any;
+			}
+		}
+		ifdef RDARST_INIT {
+			option "RDARST" "INIT" {
+				rdarst init;
+			}
+		}
+		ifdef RDSRST_0 {
+			option "SRST_GATE" 0 {
+				option "RDSRST" "ZERO" {
+					rdsrst zero ungated;
+				}
+			}
+		}
+		ifdef RDSRST_ANY {
+			option "SRST_GATE" 0 {
+				option "RDSRST" "ANY" {
+					rdsrst any ungated;
+				}
+			}
+		}
+		ifdef RDSRST_INIT {
+			option "SRST_GATE" 0 {
+				option "RDSRST" "INIT" {
+					rdsrst init ungated;
+				}
+			}
+		}
+		ifdef RDSRST_ANY_CE {
+			option "SRST_GATE" 1 {
+				option "RDSRST" "ANY" {
+					rdsrst any gated_clken;
+				}
+			}
+		}
+		ifdef RDSRST_ANY_RE {
+			option "SRST_GATE" 2 {
+				option "RDSRST" "ANY" {
+					rdsrst any gated_rden;
+				}
+			}
+		}
+	}
+}

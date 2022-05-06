@@ -1,0 +1,13 @@
+ram block \RAM_WIDE_WRITE {
+	cost 2;
+	abits 6;
+	widths 1 2 4 8 per_port;
+	byte 4;
+	init any;
+	port srsw "A" {
+		width rd 2 wr 8;
+		clock posedge;
+		rden;
+		rdwr old;
+	}
+}

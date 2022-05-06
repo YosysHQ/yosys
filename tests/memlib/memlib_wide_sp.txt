@@ -1,0 +1,22 @@
+ram block \RAM_WIDE_SP {
+	cost 2;
+	abits 6;
+	widths 1 2 5 10 20 per_port;
+	byte 5;
+	init any;
+	port srsw "A" {
+		ifdef WIDTH_MIX {
+			option "WIDTH_MIX" 1 {
+				width mix;
+			}
+		} else {
+			option "WIDTH_MIX" 0 {
+				width tied;
+			}
+		}
+		clock posedge;
+		rden;
+		rdwr old;
+		rdsrst any ungated;
+	}
+}

@@ -1,0 +1,22 @@
+ram block \RAM_BLOCK_SDP_1CLK {
+	cost 64;
+	abits 10;
+	widths 1 2 4 8 16 per_port;
+	init any;
+	port sw "W" {
+		clock anyedge "C";
+		ifdef TRANS_OLD {
+			option "TRANS" 0 {
+				wrtrans "R" old;
+			}
+		}
+		ifdef TRANS_NEW {
+			option "TRANS" 1 {
+				wrtrans "R" new;
+			}
+		}
+	}
+	port sr "R" {
+		clock anyedge "C";
+	}
+}

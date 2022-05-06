@@ -1,0 +1,12 @@
+ram distributed \RAM_LUT {
+	abits 4;
+	width 4;
+	init any;
+	cost 4;
+	port ar "R" {
+	}
+	port arsw "RW" {
+		clock anyedge;
+	}
+}
+

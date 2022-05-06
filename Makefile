@@ -808,6 +808,7 @@ test: $(TARGETS) $(EXTRA_TARGETS)
 	+cd tests/fsm && bash run-test.sh $(SEEDOPT)
 	+cd tests/techmap && bash run-test.sh
 	+cd tests/memories && bash run-test.sh $(ABCOPT) $(SEEDOPT)
+	+cd tests/memlib && bash run-test.sh $(SEEDOPT)
 	+cd tests/bram && bash run-test.sh $(SEEDOPT)
 	+cd tests/various && bash run-test.sh
 	+cd tests/select && bash run-test.sh

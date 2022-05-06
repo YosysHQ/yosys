@@ -1,0 +1,17 @@
+ram block \RAM_WIDE_SDP {
+	cost 2;
+	abits 6;
+	widths 1 2 5 10 20 per_port;
+	byte 5;
+	init any;
+	port sr "R" {
+		clock posedge;
+		rden;
+		rdsrst any ungated;
+	}
+	port sw "W" {
+		clock posedge;
+		wrtrans "R" old;
+		wrbe_separate;
+	}
+}
