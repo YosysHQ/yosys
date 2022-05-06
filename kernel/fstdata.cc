@@ -141,11 +141,12 @@ void FstData::extractVarNames()
 					char *endptr;
 					int mem_addr = strtol(addr.c_str(), &endptr, 16);
 					if (*endptr) {
-						log_error("Error parsing memory address in : %s\n", clean_name.c_str());
+						log_warning("Error parsing memory address in : %s\n", clean_name.c_str());
+					} else {
+						memory_to_handle[var.scope+"."+mem_cell][mem_addr] = var.id;
+						name_to_handle[stringf("%s.%s[%d]",var.scope.c_str(),mem_cell.c_str(),mem_addr)] = h->u.var.handle;
+						continue;
 					}
-					memory_to_handle[var.scope+"."+mem_cell][mem_addr] = var.id;
-					name_to_handle[stringf("%s.%s[%d]",var.scope.c_str(),mem_cell.c_str(),mem_addr)] = h->u.var.handle;
-					continue;
 				}
 				pos = clean_name.find_last_of("[");
 				if (pos != std::string::npos) {
@@ -155,11 +156,12 @@ void FstData::extractVarNames()
 					char *endptr;
 					int mem_addr = strtol(addr.c_str(), &endptr, 10);
 					if (*endptr) {
-						log_error("Error parsing memory address in : %s\n", clean_name.c_str());
+						log_warning("Error parsing memory address in : %s\n", clean_name.c_str());
+					} else {
+						memory_to_handle[var.scope+"."+mem_cell][mem_addr] = var.id;
+						name_to_handle[stringf("%s.%s[%d]",var.scope.c_str(),mem_cell.c_str(),mem_addr)] = h->u.var.handle;
+						continue;
 					}
-					memory_to_handle[var.scope+"."+mem_cell][mem_addr] = var.id;
-					name_to_handle[stringf("%s.%s[%d]",var.scope.c_str(),mem_cell.c_str(),mem_addr)] = h->u.var.handle;
-					continue;
 				}
 				name_to_handle[var.scope+"."+clean_name] = h->u.var.handle;
 				break;
