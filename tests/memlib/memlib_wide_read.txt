@@ -1,0 +1,12 @@
+ram block \RAM_WIDE_READ {
+	cost 2;
+	abits 6;
+	widths 1 2 4 8 per_port;
+	init any;
+	port srsw "A" {
+		width rd 8 wr 2;
+		clock posedge;
+		rden;
+		rdwr old;
+	}
+}

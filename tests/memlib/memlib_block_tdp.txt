@@ -1,0 +1,10 @@
+ram block \RAM_BLOCK_TDP {
+	cost 64;
+	abits 10;
+	widths 1 2 4 8 16 per_port;
+	init any;
+	port srsw "A" "B" {
+		clock anyedge;
+		rdwr no_change;
+	}
+}
