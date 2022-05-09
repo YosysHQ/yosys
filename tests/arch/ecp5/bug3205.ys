@@ -1,0 +1,57 @@
+read_verilog <<EOT
+`timescale 100fs/100fs
+module TopEntity_topEntity_trueDualPortBlockRamWrapper
+	( // Inputs
+	  input  clkA // clock
+	, input  enA
+	, input  weA
+	, input [15:0] addrA
+	, input [23:0] datA
+	, input  clkB // clock
+	, input  enB
+	, input  weB
+	, input [15:0] addrB
+	, input [23:0] datB
+
+	  // Outputs
+	, output wire [47:0] result
+	);
+
+
+	// trueDualPortBlockRam begin
+	// Shared memory
+	// 24*64k = 1.5M = 96*DP16KD
+	reg [24-1:0] mem [65536-1:0];
+
+	reg [23:0] data_slow;
+	reg [23:0] data_fast;
+
+	// Port A
+	always @(posedge clkA) begin
+		if(enA) begin
+			data_slow <= mem[addrA];
+			if(weA) begin
+				data_slow <= datA;
+				mem[addrA] <= datA;
+			end
+		end
+	end
+
+	// Port B
+	always @(posedge clkB) begin
+		if(enB) begin
+			data_fast <= mem[addrB];
+			if(weB) begin
+				data_fast <= datB;
+				mem[addrB] <= datB;
+			end
+		end
+	end
+
+	assign result = {data_slow, data_fast};
+
+	// end trueDualPortBlockRam
+endmodule
+EOT
+synth_ecp5 -top TopEntity_topEntity_trueDualPortBlockRamWrapper
+select -assert-count 96 t:DP16KD
