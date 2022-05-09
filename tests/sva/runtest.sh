@@ -22,18 +22,17 @@ generate_sby() {
 
 	if [ -f $prefix.sv ]; then
 		if [ "$1" = "fail" ]; then
-			echo "verific -sv ${prefix}_fail.sv"
+			echo "read -sv ${prefix}_fail.sv"
 		else
-			echo "verific -sv $prefix.sv"
+			echo "read -sv $prefix.sv"
 		fi
 	fi
 
 	if [ -f $prefix.vhd ]; then
-		echo "verific -vhdl $prefix.vhd"
+		echo "read -vhdl $prefix.vhd"
 	fi
 
 	cat <<- EOT
-		verific -import -extnets -all top
 		prep -top top
 		chformal -early -assume
 
