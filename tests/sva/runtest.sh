@@ -57,7 +57,9 @@ generate_sby() {
 	fi
 }
 
-if [ -f $prefix.sv ]; then
+if [ -f $prefix.ys ]; then
+	$PWD/../../yosys -q -e "Assert .* failed." -s $prefix.ys
+elif [ -f $prefix.sv ]; then
 	generate_sby pass > ${prefix}_pass.sby
 	generate_sby fail > ${prefix}_fail.sby
 	sby --yosys $PWD/../../yosys -f ${prefix}_pass.sby

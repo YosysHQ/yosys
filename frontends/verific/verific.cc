@@ -1557,17 +1557,25 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 			SigSpec sig_d = net_map_at(inst->GetInput1());
 			SigSpec sig_o = net_map_at(inst->GetOutput());
-			SigSpec sig_q = module->addWire(new_verific_id(inst));
+			SigSpec sig_dx = module->addWire(new_verific_id(inst), 2);
+			SigSpec sig_qx = module->addWire(new_verific_id(inst), 2);
 
 			if (verific_verbose) {
+				log("    NEX with A=%s, B=0, Y=%s.\n",
+						log_signal(sig_d), log_signal(sig_dx[0]));
+				log("    EQX with A=%s, B=1, Y=%s.\n",
+						log_signal(sig_d), log_signal(sig_dx[1]));
 				log("    %sedge FF with D=%s, Q=%s, C=%s.\n", clocking.posedge ? "pos" : "neg",
-						log_signal(sig_d), log_signal(sig_q), log_signal(clocking.clock_sig));
-				log("    XNOR with A=%s, B=%s, Y=%s.\n",
-						log_signal(sig_d), log_signal(sig_q), log_signal(sig_o));
+						log_signal(sig_dx), log_signal(sig_qx), log_signal(clocking.clock_sig));
+				log("    EQ with A=%s, B=%s, Y=%s.\n",
+						log_signal(sig_dx), log_signal(sig_qx), log_signal(sig_o));
 			}
 
-			clocking.addDff(new_verific_id(inst), sig_d, sig_q);
-			module->addXnor(new_verific_id(inst), sig_d, sig_q, sig_o);
+			module->addNex(new_verific_id(inst), sig_d, State::S0, sig_dx[0]);
+			module->addEqx(new_verific_id(inst), sig_d, State::S1, sig_dx[1]);
+
+			clocking.addDff(new_verific_id(inst), sig_dx, sig_qx, Const(1, 2));
+			module->addEq(new_verific_id(inst), sig_dx, sig_qx, sig_o);
 
 			if (!mode_keep)
 				continue;
@@ -1601,13 +1609,20 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			SigBit sig_d = net_map_at(inst->GetInput1());
 			SigBit sig_o = net_map_at(inst->GetOutput());
 			SigBit sig_q = module->addWire(new_verific_id(inst));
+			SigBit sig_d_no_x = module->addWire(new_verific_id(inst));
 
-			if (verific_verbose)
+			if (verific_verbose) {
+				log("    EQX with A=%s, B=%d, Y=%s.\n",
+						log_signal(sig_d), inst->Type() == PRIM_SVA_ROSE, log_signal(sig_d_no_x));
 				log("    %sedge FF with D=%s, Q=%s, C=%s.\n", clocking.posedge ? "pos" : "neg",
-						log_signal(sig_d), log_signal(sig_q), log_signal(clocking.clock_sig));
+						log_signal(sig_d_no_x), log_signal(sig_q), log_signal(clocking.clock_sig));
+				log("    EQ with A={%s, %s}, B={0, 1}, Y=%s.\n",
+						log_signal(sig_q), log_signal(sig_d_no_x), log_signal(sig_o));
+			}
 
-			clocking.addDff(new_verific_id(inst), sig_d, sig_q);
-			module->addEq(new_verific_id(inst), {sig_q, sig_d}, Const(inst->Type() == PRIM_SVA_ROSE ? 1 : 2, 2), sig_o);
+			module->addEqx(new_verific_id(inst), sig_d, inst->Type() == PRIM_SVA_ROSE ? State::S1 : State::S0, sig_d_no_x);
+			clocking.addDff(new_verific_id(inst), sig_d_no_x, sig_q, State::S0);
+			module->addEq(new_verific_id(inst), {sig_q, sig_d_no_x}, Const(1, 2), sig_o);
 
 			if (!mode_keep)
 				continue;
