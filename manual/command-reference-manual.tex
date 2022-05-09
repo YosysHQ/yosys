@@ -2592,6 +2592,28 @@ the resulting cells to more sophisticated PAD cells.
 Tristate PADS (-toutpad, -tinoutpad) always operate in -bits mode.
 \end{lstlisting}
 
+\section{jny -- write design and metadata}
+\label{cmd:jny}
+\begin{lstlisting}[numbers=left,frame=single]
+    jny [options] [selection]
+
+Write a JSON netlist metadata for the current design
+
+    -o <filename>
+        write to the specified file.
+
+    -no-connections
+        Don't include connection information in the netlist output.
+
+    -no-attributes
+        Don't include attributed information in the netlist output.
+
+    -no-properties
+        Don't include property information in the netlist output.
+
+See 'help write_jny' for a description of the JSON format used.
+\end{lstlisting}
+
 \section{json -- write design in JSON format}
 \label{cmd:json}
 \begin{lstlisting}[numbers=left,frame=single]
@@ -7647,6 +7669,11 @@ This pass transforms $mux cells with 'z' inputs to tristate buffers.
     -logic
         convert tri-state buffers that do not drive output ports
         to non-tristate logic. this option implies -merge.
+
+    -formal
+        convert all tri-state buffers to non-tristate logic and
+        add a formal assertion that no two buffers are driving the
+        same net simultaneously. this option implies -merge.
 \end{lstlisting}
 
 \section{uniquify -- create unique copies of modules}
@@ -8426,6 +8453,23 @@ a tool for Coarse-Grain Example-Driven Interconnect Synthesis.
         not at all.
 
 http://bygone.clairexen.net/intersynth/
+\end{lstlisting}
+
+\section{write\_jny -- generate design metadata}
+\label{cmd:write_jny}
+\begin{lstlisting}[numbers=left,frame=single]
+    jny [options] [selection]
+
+    -no-connections
+        Don't include connection information in the netlist output.
+
+    -no-attributes
+        Don't include attributed information in the netlist output.
+
+    -no-properties
+        Don't include property information in the netlist output.
+
+Write a JSON metadata for the current design
 \end{lstlisting}
 
 \section{write\_json -- write design to a JSON file}
