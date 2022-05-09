@@ -2,7 +2,7 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.16 .. Yosys 0.16-dev
+Yosys 0.16 .. Yosys 0.17
 --------------------------
  * New commands and options
     - Added "write_jny" ( JSON netlist metadata format )
