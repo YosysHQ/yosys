@@ -2,6 +2,8 @@
 yosys -- Yosys Open SYnthesis Suite
 
 
+
+
 Copyright (C) 2012 - 2020  Claire Xenia Wolf <claire@yosyshq.com>
 
 Permission to use, copy, modify, and/or distribute this software for any
