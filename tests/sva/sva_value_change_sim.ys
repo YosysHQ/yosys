@@ -1,0 +1,3 @@
+read -sv sva_value_change_sim.sv
+hierarchy -top top
+sim -clock clk -fst sva_value_change_sim.fst
