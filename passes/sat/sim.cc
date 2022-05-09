@@ -157,6 +157,7 @@ struct SimInstance
 
 	dict<Wire*, pair<int, Const>> signal_database;
 	dict<Wire*, fstHandle> fst_handles;
+	dict<IdString, dict<int,fstHandle>> fst_memories;
 
 	SimInstance(SimShared *shared, std::string scope, Module *module, Cell *instance = nullptr, SimInstance *parent = nullptr) :
 			shared(shared), scope(scope), module(module), instance(instance), parent(parent), sigmap(module)
@@ -243,7 +244,10 @@ struct SimInstance
 
 			if (cell->is_mem_cell())
 			{
-				mem_cells[cell] = cell->parameters.at(ID::MEMID).decode_string();
+				std::string name = cell->parameters.at(ID::MEMID).decode_string();
+				mem_cells[cell] = name;
+				if (shared->fst)
+					fst_memories[name] = shared->fst->getMemoryHandles(scope + "." + RTLIL::unescape_id(name));
 			}
 			if (cell->type.in(ID($assert), ID($cover), ID($assume))) {
 				formal_database.insert(cell);
@@ -336,7 +340,7 @@ struct SimInstance
 
 		int offset = (addr.as_int() - state.mem->start_offset) * state.mem->width;
 		for (int i = 0; i < GetSize(data); i++)
-			if (0 <= i+offset && i+offset < GetSize(data))
+			if (0 <= i+offset && i+offset < state.mem->size * state.mem->width)
 				state.data.bits[i+offset] = data.bits[i];
 	}
 
@@ -799,6 +803,18 @@ struct SimInstance
 				did_something |= true;
 			}
 		}
+		for (auto cell : module->cells())
+		{
+			if (cell->is_mem_cell()) {
+				std::string memid = cell->parameters.at(ID::MEMID).decode_string();
+				for (auto &data : fst_memories[memid]) 
+				{
+					std::string v = shared->fst->valueOf(data.second);
+					set_memory_state(memid, Const(data.first), Const::from_string(v));
+				}
+			}
+		}
+
 		for (auto child : children)
 			did_something |= child.second->setInitState();
 		return did_something;

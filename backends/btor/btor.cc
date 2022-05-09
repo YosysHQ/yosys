@@ -1220,6 +1220,8 @@ struct BtorWorker
 
 			int this_nid = next_nid++;
 			btorf("%d uext %d %d %d%s\n", this_nid, sid, nid, 0, getinfo(wire).c_str());
+			if (info_clocks.count(nid))
+				info_clocks[this_nid] |= info_clocks[nid];
 
 			btorf_pop(stringf("wire %s", log_id(wire)));
 			continue;
