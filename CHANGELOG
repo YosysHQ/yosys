@@ -4,6 +4,9 @@ List of major changes and improvements between releases
 
 Yosys 0.16 .. Yosys 0.16-dev
 --------------------------
+ * New commands and options
+    - Added "write_jny" ( JSON netlist metadata format )
+    - Added "tribuf -formal"
 
  * SystemVerilog
     - Fixed automatic `nosync` inference for local variables in `always_comb`
