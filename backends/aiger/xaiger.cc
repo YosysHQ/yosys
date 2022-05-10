@@ -432,8 +432,12 @@ struct XAigerWriter
 			//   that has been padded to its full width
 			if (bit == State::Sx)
 				continue;
+			// A bit might be simultaneously a box output
+			//   and a primary output. The latter wins.
+			if (input_bits.count(bit))
+				continue;
 			if (aig_map.count(bit))
-				log_error("Visited AIG node more than once; this could be a combinatorial loop that has not been broken\n");
+				log_error("While visiting box outputs, found a signal bit more than once; this could be a combinatorial loop that has not been broken\n");
 			aig_map[bit] = 2*aig_m;
 		}
 
