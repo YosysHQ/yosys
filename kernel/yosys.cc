@@ -733,6 +733,8 @@ extern Tcl_Interp *yosys_get_tcl_interp()
 {
 	if (yosys_tcl_interp == NULL) {
 		yosys_tcl_interp = Tcl_CreateInterp();
+		if (Tcl_Init(yosys_tcl_interp)!=TCL_OK)
+			log("Tcl_Init() call failed\n");
 		Tcl_CreateCommand(yosys_tcl_interp, "yosys", tcl_yosys_cmd, NULL, NULL);
 	}
 	return yosys_tcl_interp;
