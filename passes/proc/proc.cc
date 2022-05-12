@@ -40,6 +40,7 @@ struct ProcPass : public Pass {
 		log("    proc_prune\n");
 		log("    proc_init\n");
 		log("    proc_arst\n");
+		log("    proc_rom\n");
 		log("    proc_mux\n");
 		log("    proc_dlatch\n");
 		log("    proc_dff\n");
@@ -54,6 +55,9 @@ struct ProcPass : public Pass {
 		log("\n");
 		log("    -nomux\n");
 		log("        Will omit the proc_mux pass.\n");
+		log("\n");
+		log("    -norom\n");
+		log("        Will omit the proc_rom pass.\n");
 		log("\n");
 		log("    -global_arst [!]<netname>\n");
 		log("        This option is passed through to proc_arst.\n");
@@ -72,6 +76,7 @@ struct ProcPass : public Pass {
 		bool ifxmode = false;
 		bool nomux = false;
 		bool noopt = false;
+		bool norom = false;
 
 		log_header(design, "Executing PROC pass (convert processes to netlists).\n");
 		log_push();
@@ -95,6 +100,10 @@ struct ProcPass : public Pass {
 				noopt = true;
 				continue;
 			}
+			if (args[argidx] == "-norom") {
+				norom = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -108,6 +117,8 @@ struct ProcPass : public Pass {
 			Pass::call(design, "proc_arst");
 		else
 			Pass::call(design, "proc_arst -global_arst " + global_arst);
+		if (!norom)
+			Pass::call(design, "proc_rom");
 		if (!nomux)
 			Pass::call(design, ifxmode ? "proc_mux -ifx" : "proc_mux");
 		Pass::call(design, "proc_dlatch");
