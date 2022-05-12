@@ -46,7 +46,7 @@ struct MemRd : RTLIL::AttrObject {
 	std::vector<bool> collision_x_mask;
 	SigSpec clk, en, arst, srst, addr, data;
 
-	MemRd() : removed(false), cell(nullptr) {}
+	MemRd() : removed(false), cell(nullptr), wide_log2(0), clk_enable(false), clk_polarity(true), ce_over_srst(false), clk(State::Sx), en(State::S1), arst(State::S0), srst(State::S0) {}
 
 	// Returns the address of given subword index accessed by this port.
 	SigSpec sub_addr(int sub) {
