@@ -303,7 +303,7 @@ struct SynthEcp5Pass : public ScriptPass
 			if (noccu2)
 				run("techmap");
 			else
-				run("techmap -map +/techmap.v -map +/ecp5/arith_map.v");
+				run("techmap -map +/techmap.v -map +/ecp5/arith_map.v -map +/ecp5/wide_map.v");
 			run("opt -fast");
 			if (retime || help_mode)
 				run("abc -dff -D 1", "(only if -retime)");
