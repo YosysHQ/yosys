@@ -209,6 +209,8 @@ struct FfData {
 	// inputs and output, flip the corresponding init/reset bits, swap clr/set
 	// inputs with proper priority fix.
 	void flip_bits(const pool<int> &bits);
+
+	void flip_rst_bits(const pool<int> &bits);
 };
 
 YOSYS_NAMESPACE_END

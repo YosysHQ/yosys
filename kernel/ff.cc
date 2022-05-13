@@ -669,13 +669,11 @@ namespace {
 	}
 }
 
-void FfData::flip_bits(const pool<int> &bits) {
+void FfData::flip_rst_bits(const pool<int> &bits) {
 	if (!bits.size())
 		return;
 
 	remove_init();
-
-	Wire *new_q = module->addWire(NEW_ID, width);
 
 	for (auto bit: bits) {
 		if (has_arst)
@@ -684,6 +682,15 @@ void FfData::flip_bits(const pool<int> &bits) {
 			val_srst[bit] = invert(val_srst[bit]);
 		val_init[bit] = invert(val_init[bit]);
 	}
+}
+
+void FfData::flip_bits(const pool<int> &bits) {
+	if (!bits.size())
+		return;
+
+	flip_rst_bits(bits);
+
+	Wire *new_q = module->addWire(NEW_ID, width);
 
 	if (has_sr && cell) {
 		log_warning("Flipping D/Q/init and inserting priority fixup to legalize %s.%s [%s].\n", log_id(module->name), log_id(cell->name), log_id(cell->type));
