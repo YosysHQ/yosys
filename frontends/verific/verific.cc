@@ -1527,23 +1527,45 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 			log_assert(inst->Input1Size() == inst->OutputSize());
 
-			SigSpec sig_d, sig_q, sig_o;
-			sig_q = module->addWire(new_verific_id(inst), inst->Input1Size());
+			unsigned width = inst->Input1Size();
 
-			for (int i = int(inst->Input1Size())-1; i >= 0; i--){
+			SigSpec sig_d, sig_dx, sig_qx, sig_o, sig_ox;
+			sig_dx = module->addWire(new_verific_id(inst), width * 2);
+			sig_qx = module->addWire(new_verific_id(inst), width * 2);
+			sig_ox = module->addWire(new_verific_id(inst), width * 2);
+
+			for (int i = int(width)-1; i >= 0; i--){
 				sig_d.append(net_map_at(inst->GetInput1Bit(i)));
 				sig_o.append(net_map_at(inst->GetOutputBit(i)));
 			}
 
 			if (verific_verbose) {
+				for (unsigned i = 0; i < width; i++) {
+					log("    NEX with A=%s, B=0, Y=%s.\n",
+							log_signal(sig_d[i]), log_signal(sig_dx[i]));
+					log("    EQX with A=%s, B=1, Y=%s.\n",
+							log_signal(sig_d[i]), log_signal(sig_dx[i + width]));
+				}
 				log("    %sedge FF with D=%s, Q=%s, C=%s.\n", clocking.posedge ? "pos" : "neg",
-						log_signal(sig_d), log_signal(sig_q), log_signal(clocking.clock_sig));
+						log_signal(sig_dx), log_signal(sig_qx), log_signal(clocking.clock_sig));
 				log("    XNOR with A=%s, B=%s, Y=%s.\n",
-						log_signal(sig_d), log_signal(sig_q), log_signal(sig_o));
+						log_signal(sig_dx), log_signal(sig_qx), log_signal(sig_ox));
+				log("    AND with A=%s, B=%s, Y=%s.\n",
+						log_signal(sig_ox.extract(0, width)), log_signal(sig_ox.extract(width, width)), log_signal(sig_o));
 			}
 
-			clocking.addDff(new_verific_id(inst), sig_d, sig_q);
-			module->addXnor(new_verific_id(inst), sig_d, sig_q, sig_o);
+			for (unsigned i = 0; i < width; i++) {
+				module->addNex(new_verific_id(inst), sig_d[i], State::S0, sig_dx[i]);
+				module->addEqx(new_verific_id(inst), sig_d[i], State::S1, sig_dx[i + width]);
+			}
+
+			Const qx_init = Const(State::S1, width);
+			qx_init.bits.resize(2 * width, State::S0);
+
+			clocking.addDff(new_verific_id(inst), sig_dx, sig_qx, qx_init);
+			module->addXnor(new_verific_id(inst), sig_dx, sig_qx, sig_ox);
+
+			module->addAnd(new_verific_id(inst), sig_ox.extract(0, width), sig_ox.extract(width, width), sig_o);
 
 			if (!mode_keep)
 				continue;
