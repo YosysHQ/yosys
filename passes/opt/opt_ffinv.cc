@@ -30,7 +30,7 @@ struct OptFfInvWorker
 {
 	int count = 0;
 	RTLIL::Module *module;
-	ModWalker walker;
+	ModIndex index;
 	FfInitVals initvals;
 
 	// Case 1:
@@ -38,44 +38,45 @@ struct OptFfInvWorker
 	// - ... which has no other users
 	// - all users of FF are LUTs
 	bool push_d_inv(FfData &ff) {
-		pool<SigBit> dummy;
-
-		if (walker.get_inputs(dummy, ff.sig_d))
+		if (index.query_is_input(ff.sig_d))
 			return false;
-		if (walker.get_outputs(dummy, ff.sig_d))
+		if (index.query_is_output(ff.sig_d))
 			return false;
-		pool<ModWalker::PortBit> d_drivers;
-		walker.get_drivers(d_drivers, ff.sig_d);
-		if (d_drivers.size() != 1)
+		auto d_ports = index.query_ports(ff.sig_d);
+		if (d_ports.size() != 2)
 			return false;
 		Cell *d_inv = nullptr;
-		for (auto &driver: d_drivers) {
-			if (driver.cell->type.in(ID($not), ID($_NOT_))) {
+		for (auto &port: d_ports) {
+			if (port.cell == ff.cell && port.port == ID::D)
+				continue;
+			if (port.port != ID::Y)
+				return false;
+			if (port.cell->type.in(ID($not), ID($_NOT_))) {
 				// OK
-			} else if (driver.cell->type.in(ID($lut))) {
-				if (driver.cell->getParam(ID::WIDTH) != 1)
+			} else if (port.cell->type.in(ID($lut))) {
+				if (port.cell->getParam(ID::WIDTH) != 1)
 					return false;
-				if (driver.cell->getParam(ID::LUT).as_int() != 1)
+				if (port.cell->getParam(ID::LUT).as_int() != 1)
 					return false;
 			} else {
 				return false;
 			}
-			d_inv = driver.cell;
+			log_assert(d_inv == nullptr);
+			d_inv = port.cell;
 		}
-		pool<ModWalker::PortBit> d_consumers;
-		walker.get_consumers(d_consumers, ff.sig_d);
-		if (d_consumers.size() != 1)
-			return false;
 
-		if (walker.get_outputs(dummy, ff.sig_q))
+		if (index.query_is_output(ff.sig_q))
 			return false;
+		auto q_ports = index.query_ports(ff.sig_q);
 		pool<Cell *> q_luts;
-		pool<ModWalker::PortBit> q_consumers;
-		walker.get_consumers(q_consumers, ff.sig_q);
-		for (auto &consumer: q_consumers) {
-			if (!consumer.cell->type.in(ID($not), ID($_NOT_), ID($lut)))
+		for (auto &port: q_ports) {
+			if (port.cell == ff.cell && port.port == ID::Q)
+				continue;
+			if (port.port != ID::A)
 				return false;
-			q_luts.insert(consumer.cell);
+			if (!port.cell->type.in(ID($not), ID($_NOT_), ID($lut)))
+				return false;
+			q_luts.insert(port.cell);
 		}
 
 		ff.flip_rst_bits({0});
@@ -86,7 +87,7 @@ struct OptFfInvWorker
 				int flip_mask = 0;
 				SigSpec sig_a = lut->getPort(ID::A);
 				for (int i = 0; i < GetSize(sig_a); i++) {
-					if (walker.sigmap(sig_a[i]) == walker.sigmap(ff.sig_q)) {
+					if (index.sigmap(sig_a[i]) == index.sigmap(ff.sig_q)) {
 						flip_mask |= 1 << i;
 					}
 				}
@@ -118,47 +119,49 @@ struct OptFfInvWorker
 	// - FF has one user
 	// - ... which is an inverter
 	bool push_q_inv(FfData &ff) {
-		pool<SigBit> dummy;
-
-		if (walker.get_inputs(dummy, ff.sig_d))
+		if (index.query_is_input(ff.sig_d))
 			return false;
-		if (walker.get_outputs(dummy, ff.sig_d))
+		if (index.query_is_output(ff.sig_d))
 			return false;
 
 		Cell *d_lut = nullptr;
-		pool<ModWalker::PortBit> d_drivers;
-		walker.get_drivers(d_drivers, ff.sig_d);
-		if (d_drivers.size() != 1)
+		auto d_ports = index.query_ports(ff.sig_d);
+		if (d_ports.size() != 2)
 			return false;
-		for (auto &driver: d_drivers) {
-			if (!driver.cell->type.in(ID($not), ID($_NOT_), ID($lut)))
+		for (auto &port: d_ports) {
+			if (port.cell == ff.cell && port.port == ID::D)
+				continue;
+			if (port.port != ID::Y)
 				return false;
-			d_lut = driver.cell;
+			if (!port.cell->type.in(ID($not), ID($_NOT_), ID($lut)))
+				return false;
+			log_assert(d_lut == nullptr);
+			d_lut = port.cell;
 		}
-		pool<ModWalker::PortBit> d_consumers;
-		walker.get_consumers(d_consumers, ff.sig_d);
-		if (d_consumers.size() != 1)
-			return false;
 
-		if (walker.get_outputs(dummy, ff.sig_q))
+		if (index.query_is_output(ff.sig_q))
 			return false;
-		pool<ModWalker::PortBit> q_consumers;
-		walker.get_consumers(q_consumers, ff.sig_q);
-		if (q_consumers.size() != 1)
+		auto q_ports = index.query_ports(ff.sig_q);
+		if (q_ports.size() != 2)
 			return false;
 		Cell *q_inv = nullptr;
-		for (auto &consumer: q_consumers) {
-			if (consumer.cell->type.in(ID($not), ID($_NOT_))) {
+		for (auto &port: q_ports) {
+			if (port.cell == ff.cell && port.port == ID::Q)
+				continue;
+			if (port.port != ID::A)
+				return false;
+			if (port.cell->type.in(ID($not), ID($_NOT_))) {
 				// OK
-			} else if (consumer.cell->type.in(ID($lut))) {
-				if (consumer.cell->getParam(ID::WIDTH) != 1)
+			} else if (port.cell->type.in(ID($lut))) {
+				if (port.cell->getParam(ID::WIDTH) != 1)
 					return false;
-				if (consumer.cell->getParam(ID::LUT).as_int() != 1)
+				if (port.cell->getParam(ID::LUT).as_int() != 1)
 					return false;
 			} else {
 				return false;
 			}
-			q_inv = consumer.cell;
+			log_assert(q_inv == nullptr);
+			q_inv = port.cell;
 		}
 
 		ff.flip_rst_bits({0});
@@ -190,7 +193,7 @@ struct OptFfInvWorker
 	}
 
 	OptFfInvWorker(RTLIL::Module *module) :
-		module(module), walker(module->design, module), initvals(&walker.sigmap, module)
+		module(module), index(module), initvals(&index.sigmap, module)
 	{
 		log("Discovering LUTs.\n");
 
