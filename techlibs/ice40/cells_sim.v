@@ -302,7 +302,9 @@ endmodule
 (* abc9_flop, lib_whitebox *)
 module SB_DFFE (
 	output reg Q,
-	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, D
+	input C,
+	input E `ICE40_DEFAULT_ASSIGNMENT_1,
+	input D
 );
 	`SB_DFF_INIT
 
@@ -589,7 +591,10 @@ endmodule
 (* abc9_flop, lib_whitebox *)
 module SB_DFFESR (
 	output reg Q,
-	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, R, D
+	input C,
+	input E `ICE40_DEFAULT_ASSIGNMENT_1,
+	input R,
+	input D
 );
 	`SB_DFF_INIT
 
@@ -647,7 +652,10 @@ endmodule
 (* abc9_box, lib_whitebox *)
 module SB_DFFER (
 	output reg Q,
-	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, R, D
+	input C,
+	input E `ICE40_DEFAULT_ASSIGNMENT_1,
+	input R,
+	input D
 );
 	`SB_DFF_INIT
 
@@ -724,7 +732,10 @@ endmodule
 (* abc9_flop, lib_whitebox *)
 module SB_DFFESS (
 	output reg Q,
-	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, S, D
+	input C,
+	input E `ICE40_DEFAULT_ASSIGNMENT_1,
+	input S,
+	input D
 );
 	`SB_DFF_INIT
 
@@ -782,7 +793,10 @@ endmodule
 (* abc9_box, lib_whitebox *)
 module SB_DFFES (
 	output reg Q,
-	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, S, D
+	input C,
+	input E `ICE40_DEFAULT_ASSIGNMENT_1,
+	input S,
+	input D
 );
 	`SB_DFF_INIT
 
@@ -899,7 +913,9 @@ endmodule
 (* abc9_flop, lib_whitebox *)
 module SB_DFFNE (
 	output reg Q,
-	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, D
+	input C,
+	input E `ICE40_DEFAULT_ASSIGNMENT_1,
+	input D
 );
 	`SB_DFF_INIT
 
@@ -1186,7 +1202,10 @@ endmodule
 (* abc9_flop, lib_whitebox *)
 module SB_DFFNESR (
 	output reg Q,
-	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, R, D
+	input C,
+	input E `ICE40_DEFAULT_ASSIGNMENT_1,
+	input R,
+	input D
 );
 	`SB_DFF_INIT
 
@@ -1244,7 +1263,10 @@ endmodule
 (* abc9_box, lib_whitebox *)
 module SB_DFFNER (
 	output reg Q,
-	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, R, D
+	input C,
+	input E `ICE40_DEFAULT_ASSIGNMENT_1,
+	input R,
+	input D
 );
 	`SB_DFF_INIT
 
@@ -1321,7 +1343,10 @@ endmodule
 (* abc9_flop, lib_whitebox *)
 module SB_DFFNESS (
 	output reg Q,
-	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, S, D
+	input C,
+	input E `ICE40_DEFAULT_ASSIGNMENT_1,
+	input S,
+	input D
 );
 	`SB_DFF_INIT
 
@@ -1379,7 +1404,10 @@ endmodule
 (* abc9_box, lib_whitebox *)
 module SB_DFFNES (
 	output reg Q,
-	input C, E `ICE40_DEFAULT_ASSIGNMENT_1, S, D
+	input C,
+	input E `ICE40_DEFAULT_ASSIGNMENT_1,
+	input S,
+	input D
 );
 	`SB_DFF_INIT
 
