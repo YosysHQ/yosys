@@ -46,10 +46,6 @@ struct RomWorker
 			log_debug("rejecting switch: no cases\n");
 			return;
 		}
-		if (GetSize(sw->signal) > 30) {
-			log_debug("rejecting switch: address too wide\n");
-			return;
-		}
 
 		// A switch can be converted into ROM when:
 		//
@@ -70,9 +66,15 @@ struct RomWorker
 			}
 		}
 
+		int swsigbits = 0;
+		for (int i = 0; i < GetSize(sw->signal); i++)
+			if (sw->signal[i] != State::S0)
+				swsigbits = i + 1;
+
 		dict<int, Const> vals;
 		Const default_val;
 		bool got_default = false;
+		int maxaddr = 0;
 		for (auto cs : sw->cases) {
 			if (!cs->switches.empty()) {
 				log_debug("rejecting switch: has nested switches\n");
@@ -105,10 +107,21 @@ struct RomWorker
 					log_debug("rejecting switch: case value has undef bits\n");
 					return;
 				}
-				int a = addr.as_int();
+				Const c = addr.as_const();
+				while (GetSize(c) && c.bits.back() == State::S0)
+					c.bits.pop_back();
+				if (GetSize(c) > swsigbits)
+					continue;
+				if (GetSize(c) > 30) {
+					log_debug("rejecting switch: address too large\n");
+					return;
+				}
+				int a = c.as_int();
 				if (vals.count(a))
 					continue;
 				vals[a] = val;
+				if (a > maxaddr)
+					maxaddr = a;
 			}
 			if (cs->compare.empty()) {
 				default_val = val;
@@ -116,8 +129,8 @@ struct RomWorker
 				break;
 			}
 		}
-		int total = 1 << GetSize(sw->signal);
-		if (!got_default && GetSize(vals) != total) {
+		int abits = ceil_log2(maxaddr + 1);
+		if (!got_default && (swsigbits > 30 || GetSize(vals) != (1 << swsigbits))) {
 			log_debug("rejecting switch: not all values are covered\n");
 			return;
 		}
@@ -127,18 +140,18 @@ struct RomWorker
 			log_debug("rejecting switch: not enough values\n");
 			return;
 		}
-		if (total / GetSize(vals) > 4) {
+		if ((1 << abits) / GetSize(vals) > 4) {
 			log_debug("rejecting switch: not enough density\n");
 			return;
 		}
 
 		// Ok, let's do it.
 		SigSpec rdata = module->addWire(NEW_ID, GetSize(lhs));
-		Mem mem(module, NEW_ID, GetSize(lhs), 0, total);
+		Mem mem(module, NEW_ID, GetSize(lhs), 0, 1 << abits);
 		mem.attributes = sw->attributes;
 
 		Const init_data;
-		for (int i = 0; i < total; i++) {
+		for (int i = 0; i < mem.size; i++) {
 			auto it = vals.find(i);
 			if (it == vals.end()) {
 				log_assert(got_default);
@@ -157,7 +170,7 @@ struct RomWorker
 		mem.inits.push_back(std::move(init));
 
 		MemRd rd;
-		rd.addr = sw->signal;
+		rd.addr = sw->signal.extract(0, abits);
 		rd.data = rdata;
 		rd.init_value = Const(State::Sx, GetSize(lhs));
 		rd.arst_value = Const(State::Sx, GetSize(lhs));
@@ -168,10 +181,22 @@ struct RomWorker
 		for (auto cs: sw->cases)
 			delete cs;
 		sw->cases.clear();
-		sw->signal = SigSpec();
-		RTLIL::CaseRule *cs = new RTLIL::CaseRule;
-		cs->actions.push_back(SigSig(lhs, rdata));
-		sw->cases.push_back(cs);
+		sw->signal = sw->signal.extract(0, swsigbits);
+		if (abits == GetSize(sw->signal)) {
+			sw->signal = SigSpec();
+			RTLIL::CaseRule *cs = new RTLIL::CaseRule;
+			cs->actions.push_back(SigSig(lhs, rdata));
+			sw->cases.push_back(cs);
+		} else {
+			sw->signal = sw->signal.extract_end(abits);
+			RTLIL::CaseRule *cs = new RTLIL::CaseRule;
+			cs->compare.push_back(Const(State::S0, GetSize(sw->signal)));
+			cs->actions.push_back(SigSig(lhs, rdata));
+			sw->cases.push_back(cs);
+			RTLIL::CaseRule *cs2 = new RTLIL::CaseRule;
+			cs2->actions.push_back(SigSig(lhs, default_val));
+			sw->cases.push_back(cs2);
+		}
 
 		count += 1;
 	}
