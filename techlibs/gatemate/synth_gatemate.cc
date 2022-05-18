@@ -74,6 +74,9 @@ struct SynthGateMatePass : public ScriptPass
 		log("    -dff\n");
 		log("        run 'abc' with -dff option\n");
 		log("\n");
+		log("    -ignore-initial-value\n");
+		log("        do not stop for dff or dlatch with an init value\n");
+		log("\n");
 		log("    -retime\n");
 		log("        run 'abc' with '-dff -D 1' options\n");
 		log("\n");
@@ -90,7 +93,7 @@ struct SynthGateMatePass : public ScriptPass
 	}
 
 	string top_opt, vlog_file, json_file;
-	bool noflatten, nobram, noaddf, nomult, nomx4, nomx8, luttree, dff, retime, noiopad, noclkbuf;
+	bool noflatten, nobram, noaddf, nomult, nomx4, nomx8, luttree, dff, retime, noiopad, noclkbuf, ignoreinitialvalue;
 
 	void clear_flags() override
 	{
@@ -108,6 +111,7 @@ struct SynthGateMatePass : public ScriptPass
 		retime = false;
 		noiopad = false;
 		noclkbuf = false;
+		ignoreinitialvalue = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -136,6 +140,10 @@ struct SynthGateMatePass : public ScriptPass
 					break;
 				run_from = args[++argidx].substr(0, pos);
 				run_to = args[argidx].substr(pos+1);
+				continue;
+			}
+			if (args[argidx] == "-ignore-initial-value") {
+				ignoreinitialvalue = true;
 				continue;
 			}
 			if (args[argidx] == "-noflatten") {
@@ -212,6 +220,12 @@ struct SynthGateMatePass : public ScriptPass
 			if (!noflatten) {
 				run("flatten");
 			}
+
+			if (ignoreinitialvalue)
+			{
+				run("attrmap -remove init");
+			}
+
 			run("tribuf -logic");
 			run("deminout");
 			run("opt_expr");
