@@ -31,13 +31,14 @@ struct MemoryPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    memory [-nomap] [-nordff] [-nowiden] [-nosat] [-memx] [-bram <bram_rules>] [selection]\n");
+		log("    memory [-norom] [-nomap] [-nordff] [-nowiden] [-nosat] [-memx] [-bram <bram_rules>] [selection]\n");
 		log("\n");
 		log("This pass calls all the other memory_* passes in a useful order:\n");
 		log("\n");
 		log("    opt_mem\n");
 		log("    opt_mem_priority\n");
 		log("    opt_mem_feedback\n");
+		log("    memory_bmux2rom                     (skipped if called with -norom)\n");
 		log("    memory_dff                          (skipped if called with -nordff or -memx)\n");
 		log("    opt_clean\n");
 		log("    memory_share [-nowiden] [-nosat]\n");
@@ -54,6 +55,7 @@ struct MemoryPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		bool flag_norom = false;
 		bool flag_nomap = false;
 		bool flag_nordff = false;
 		bool flag_memx = false;
@@ -65,6 +67,10 @@ struct MemoryPass : public Pass {
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-norom") {
+				flag_norom = true;
+				continue;
+			}
 			if (args[argidx] == "-nomap") {
 				flag_nomap = true;
 				continue;
@@ -97,6 +103,8 @@ struct MemoryPass : public Pass {
 		Pass::call(design, "opt_mem");
 		Pass::call(design, "opt_mem_priority");
 		Pass::call(design, "opt_mem_feedback");
+		if (!flag_norom)
+			Pass::call(design, "memory_bmux2rom");
 		if (!flag_nordff)
 			Pass::call(design, "memory_dff");
 		Pass::call(design, "opt_clean");
