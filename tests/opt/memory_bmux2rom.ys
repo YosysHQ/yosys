@@ -1,0 +1,27 @@
+read_ilang << EOT
+
+module \top
+  wire width 4 input 0 \S
+  wire width 5 output 1 \Y
+
+  cell $bmux $0
+    parameter \WIDTH 5
+    parameter \S_WIDTH 4
+    connect \A 80'10110100011101110001110010001110101010111000110011111111111110100000110100111000
+    connect \S \S
+    connect \Y \Y
+  end
+end
+
+EOT
+
+hierarchy -auto-top
+
+design -save preopt
+memory_bmux2rom
+select -assert-count 1 t:$memrd_v2
+memory_map
+opt_dff
+design -stash postopt
+
+equiv_opt -assert -run prepare: dummy
