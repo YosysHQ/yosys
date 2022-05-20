@@ -12,6 +12,8 @@ Yosys 0.17 .. Yosys 0.17-dev
     - Fixed an issue where simplifying case statements by removing unreachable
       cases could result in the wrong signedness being used for comparison with
       the remaining cases
+    - Fixed size and signedness computation for expressions containing array
+      querying functions
 
 Yosys 0.16 .. Yosys 0.17
 --------------------------
