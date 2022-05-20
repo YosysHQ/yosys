@@ -3449,7 +3449,7 @@ skip_dynamic_range_lvalue_expansion:;
 				else {
 					result = width * mem_depth;
 				}
-				newNode = mkconst_int(result, false);
+				newNode = mkconst_int(result, true);
 				goto apply_newNode;
 			}
 
