@@ -2346,7 +2346,8 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("\n");
 #endif
-		log("    verific {-f|-F} [-vlog95|-vlog2k|-sv2005|-sv2009|-sv2012|-sv|-formal] <command-file>\n");
+		log("    verific {-f|-F} [-vlog95|-vlog2k|-sv2005|-sv2009|\n");
+		log("                     -sv2012|-sv|-formal] <command-file>\n");
 		log("\n");
 		log("Load and execute the specified command file.\n");
 		log("Override verilog parsing mode can be set.\n");
@@ -2354,14 +2355,16 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("Command file parser supports following commands in file:\n");
 		log("    +define+<MACRO>=<VALUE> - defines macro\n");
-		log("    -u                      - upper case all identifier (makes Verilog parser case insensitive)\n");
+		log("    -u                      - upper case all identifier (makes Verilog parser\n");
+		log("                              case insensitive)\n");
 		log("    -v <filepath>           - register library name (file)\n");
 		log("    -y <filepath>           - register library name (directory)\n");
 		log("    +incdir+<filepath>      - specify include dir\n");
 		log("    +libext+<filepath>      - specify library extension\n");
 		log("    +liborder+<id>          - add library in ordered list\n");
-		log("    +librescan              - unresolved modules will be always searched starting with the first\n");
-		log("                              library specified by -y/-v options.\n");
+		log("    +librescan              - unresolved modules will be always searched\n");
+		log("                              starting with the first library specified\n");
+		log("                              by -y/-v options.\n");
 		log("    -f/-file <filepath>     - nested -f option\n");
 		log("    -F <filepath>           - nested -F option (relative path)\n");
 		log("    parse files:\n");
@@ -2509,8 +2512,8 @@ struct VerificPass : public Pass {
 		log("        Parameter can also contain comma separated list of file locations.\n");
 		log("\n");
 		log("    -blfile <file>\n");
-		log("        Do not run application on locations specified in file, they can represent filename\n");
-		log("        or filename and location in file.\n");
+		log("        Do not run application on locations specified in file, they can\n");
+		log("        represent filename or filename and location in file.\n");
 		log("\n");
 		log("Applications:\n");
 		log("\n");
