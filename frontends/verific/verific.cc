@@ -2717,7 +2717,7 @@ struct VerificPass : public Pass {
 
 		if (GetSize(args) > argidx && (args[argidx] == "-f" || args[argidx] == "-F"))
 		{
-			unsigned verilog_mode = veri_file::VERILOG_95; // default recommended by Verific
+			unsigned verilog_mode = veri_file::UNDEFINED;
 			bool is_formal = false;
 			const char* filename = nullptr;
 
@@ -2764,7 +2764,7 @@ struct VerificPass : public Pass {
 			veri_file::DefineMacro("VERIFIC");
 			veri_file::DefineMacro(is_formal ? "FORMAL" : "SYNTHESIS");
 
-			if (!veri_file::AnalyzeMultipleFiles(file_names, verilog_mode, work.c_str(), veri_file::MFCU)) {
+			if (!veri_file::AnalyzeMultipleFiles(file_names, analysis_mode, work.c_str(), veri_file::MFCU)) {
 				verific_error_msg.clear();
 				log_cmd_error("Reading Verilog/SystemVerilog sources failed.\n");
 			}
