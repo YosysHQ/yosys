@@ -376,6 +376,35 @@ int run_command(const std::string &command, std::function<void(const std::string
 }
 #endif
 
+// POSIX defines `TMPDIR` as the pathname of the directory
+// where programs can create temporary files. On most systems,
+// it points to '/tmp'. However, on some systems it can be a different
+// location
+// Source: https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap08.html#tag_08_03
+std::string get_base_tmpdir()
+{
+	// We cache the directory name in a static variable here
+	// for faster calls later
+	static std::string tmpdir;
+
+	if (!tmpdir.empty()) {
+		return tmpdir;
+	}
+
+	char * var = std::getenv("TMPDIR");
+	if (NULL == var) {
+		// if the variable is not set, then use '/tmp'
+		tmpdir.assign("/tmp");
+	} else {
+		tmpdir.assign(var);
+		// We return the directory name without the trailing '/'
+		if (tmpdir.back() == '/') {
+			tmpdir.pop_back();
+		}
+	}
+	return tmpdir;
+}
+
 std::string make_temp_file(std::string template_str)
 {
 #if defined(__wasm)
@@ -384,7 +413,7 @@ std::string make_temp_file(std::string template_str)
 	static size_t index = 0;
 	template_str.replace(pos, 6, stringf("%06zu", index++));
 #elif defined(_WIN32)
-	if (template_str.rfind("/tmp/", 0) == 0) {
+	if (template_str.rfind(get_base_tmpdir() + "/", 0) == 0) {
 #  ifdef __MINGW32__
 		char longpath[MAX_PATH + 1];
 		char shortpath[MAX_PATH + 1];
