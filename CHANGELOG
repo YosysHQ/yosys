@@ -5,6 +5,11 @@ List of major changes and improvements between releases
 Yosys 0.17 .. Yosys 0.17-dev
 --------------------------
 
+ * Verilog
+    - Fixed an issue where simplifying case statements by removing unreachable
+      cases could result in the wrong signedness being used for comparison with
+      the remaining cases
+
 Yosys 0.16 .. Yosys 0.17
 --------------------------
  * New commands and options
