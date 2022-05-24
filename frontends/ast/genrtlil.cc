@@ -1084,7 +1084,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 				sub_sign_hint = true;
 				children.at(0)->detectSignWidthWorker(sub_width_hint, sub_sign_hint);
 				width_hint = max(width_hint, sub_width_hint);
-				sign_hint = false;
+				sign_hint &= sub_sign_hint;
 			}
 			break;
 		}
