@@ -53,6 +53,8 @@ YOSYS_NAMESPACE_BEGIN
 namespace VERILOG_FRONTEND {
 	int port_counter;
 	dict<std::string, int> port_stubs;
+	dict<std::string, std::string> port_alias_assigns;
+	std::vector<std::string> port_alias_wires;
 	dict<IdString, AstNode*> *attr_list, default_attr_list;
 	std::stack<dict<IdString, AstNode*> *> attr_list_stack;
 	dict<IdString, AstNode*> *albuf;
@@ -537,6 +539,8 @@ module:
 		ast_stack.push_back(mod);
 		current_ast_mod = mod;
 		port_stubs.clear();
+		port_alias_wires.clear();
+		port_alias_assigns.clear();
 		port_counter = 0;
 		mod->str = *$4;
 		append_attr(mod, $1);
@@ -544,6 +548,22 @@ module:
 		if (port_stubs.size() != 0)
 			frontend_verilog_yyerror("Missing details for module port `%s'.",
 					port_stubs.begin()->first.c_str());
+		AstNode *mod = ast_stack.back();
+		for (auto alias_wire: port_alias_wires) {
+			AstNode *wire = new AstNode(AST_WIRE);
+			wire->str = alias_wire;
+			mod->children.push_back(wire);
+		}
+		for (auto alias: port_alias_assigns) {
+			AstNode *assign = new AstNode(AST_ASSIGN);
+			AstNode *lhs = new AstNode(AST_IDENTIFIER);
+			lhs->str = alias.first;
+			assign->children.push_back(lhs);
+			AstNode *rhs = new AstNode(AST_IDENTIFIER);
+			rhs->str = alias.second;
+			assign->children.push_back(rhs);
+			mod->children.push_back(assign);
+		}
 		SET_AST_NODE_LOC(ast_stack.back(), @2, @$);
 		ast_stack.pop_back();
 		log_assert(ast_stack.size() == 1);
@@ -621,6 +641,14 @@ module_arg:
 		}
 		delete $1;
 	} module_arg_opt_assignment |
+	'.' TOK_ID '(' TOK_ID {
+		port_alias_assigns[*$4] = *$2;
+		port_alias_wires.push_back(*$4);
+		port_stubs[*$2] = ++port_counter;
+		port_stubs[*$4] = port_counter;
+		delete $2;
+		delete $4;
+	} ')' |
 	TOK_ID {
 		astbuf1 = new AstNode(AST_INTERFACEPORT);
 		astbuf1->children.push_back(new AstNode(AST_INTERFACEPORTTYPE));
@@ -2033,6 +2061,21 @@ wire_name:
 					frontend_verilog_yyerror("Input port `%s' is declared as register.", $1->c_str());
 				node->port_id = port_stubs[*$1];
 				port_stubs.erase(*$1);
+				// handle port aliases
+				for (auto port : port_stubs) {
+					if (port.second == node->port_id) {
+						// this port stub is the alias name, so set it
+						node->str = port.first.c_str();
+						port_stubs.erase(port.first);
+						// if the node is an output, we have to swap the
+						// left and right hand side of the alias wire assignment
+						if (node->is_output) {
+							auto rhs = port_alias_assigns[*$1];
+							port_alias_assigns.erase(*$1);
+							port_alias_assigns[rhs] = *$1;
+						}
+					}
+				}
 			} else {
 				if (node->is_input || node->is_output)
 					frontend_verilog_yyerror("Module port `%s' is not declared in module header.", $1->c_str());
