@@ -3230,6 +3230,7 @@ skip_dynamic_range_lvalue_expansion:;
 
 					reg->str = stringf("$past$%s:%d$%d$%d", filename.c_str(), location.first_line, myidx, i);
 					reg->is_reg = true;
+					reg->is_signed = sign_hint;
 
 					current_ast_mod->children.push_back(reg);
 
