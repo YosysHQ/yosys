@@ -649,6 +649,27 @@ struct Smt2Worker
 					return export_bvop(cell, "(bvurem A B)", 'd');
 				}
 			}
+			// "div" = flooring division
+			if (cell->type == ID($divfloor)) {
+				if (cell->getParam(ID::A_SIGNED).as_bool()) {
+					// bvsdiv is truncating division, so we can't use it here.
+					int width = max(GetSize(cell->getPort(ID::A)), GetSize(cell->getPort(ID::B)));
+					width = max(width, GetSize(cell->getPort(ID::Y)));
+					auto expr = stringf("(let ("
+							    "(a_neg (bvslt A #b%0*d)) "
+							    "(b_neg (bvslt B #b%0*d))) "
+							    "(let ((abs_a (ite a_neg (bvneg A) A)) "
+							    "(abs_b (ite b_neg (bvneg B) B))) "
+							    "(let ((u (bvudiv abs_a abs_b)) "
+							    "(adj (ite (= #b%0*d (bvurem abs_a abs_b)) #b%0*d #b%0*d))) "
+							    "(ite (= a_neg b_neg) u "
+							    "(bvneg (bvadd u adj))))))",
+							    width, 0, width, 0, width, 0, width, 0, width, 1);
+					return export_bvop(cell, expr, 'd');
+				} else {
+					return export_bvop(cell, "(bvudiv A B)", 'd');
+				}
+			}
 
 			if (cell->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_bool)) &&
 					2*GetSize(cell->getPort(ID::A).chunks()) < GetSize(cell->getPort(ID::A))) {
