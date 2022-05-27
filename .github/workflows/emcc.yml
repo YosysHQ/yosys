@@ -17,4 +17,8 @@ jobs:
       - name: Build
         run: |
           make config-emcc
-          make
+          make YOSYS_VER=latest
+      - uses: actions/upload-artifact@v2
+        with:
+          name: yosysjs
+          path: yosysjs-latest.zip
