@@ -251,7 +251,7 @@ QbfSolutionType call_qbf_solver(RTLIL::Module *mod, const QbfSolveOptions &opt, 
 
 QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 	QbfSolutionType ret, best_soln;
-	const std::string tempdir_name = make_temp_dir("/tmp/yosys-qbfsat-XXXXXX");
+	const std::string tempdir_name = make_temp_dir(get_base_tmpdir() + "/yosys-qbfsat-XXXXXX");
 	RTLIL::Module *module = mod;
 	RTLIL::Design *design = module->design;
 	std::string module_name = module->name.str();
