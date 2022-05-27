@@ -1270,6 +1270,25 @@ struct Smt2Worker
 					get_id(c->type), get_id(module), get_id(c->name), get_id(module), get_id(c->name)));
 		}
 
+		if (module->has_attribute(ID::smt2_model))
+		{
+			log("Using user provided SMT-LIBv2 representation for module %s.\n", log_id(module));
+
+			std::string user_model = "  (let (\n";
+
+			for (auto wire : module->wires()) {
+				if (!wire->port_id)
+					continue;
+				user_model += stringf("    (|%s| (|%s_n %s| state))\n", get_id(wire), get_id(module), get_id(wire));
+			}
+
+			user_model += "  ) ";
+			user_model += module->get_string_attribute(ID::smt2_model);
+			user_model += ")\n";
+
+			hier.push_back(user_model);
+		}
+
 		if (forallmode)
 		{
 			string expr = ex_state_eq.empty() ? "true" : "(and";
@@ -1687,7 +1706,10 @@ struct Smt2Backend : public Backend {
 
 		for (auto module : sorted_modules)
 		{
-			if (module->get_blackbox_attribute() || module->has_processes_warn())
+			if (module->get_blackbox_attribute() && !module->has_attribute(ID::smt2_model))
+				continue;
+
+			if (module->has_processes_warn())
 				continue;
 
 			log("Creating SMT-LIBv2 representation of module %s.\n", log_id(module));
