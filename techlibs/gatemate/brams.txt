@@ -12,7 +12,7 @@ ram block $__CC_BRAM_TDP_ {
 	option "MODE" "CASCADE" {
 		abits 16;
 		# hack to enforce same INIT layout as in the other modes
-		widths 1 per_port;
+		widths 1 2 5 per_port;
 		cost 513;
 	}
 	byte 1;
@@ -30,9 +30,7 @@ ram block $__CC_BRAM_TDP_ {
 			width mix 1;
 		}
 		portoption "WR_MODE" "NO_CHANGE" {
-			# workaround since there is no READ_FIRST mode
-			rdwr old;
-			wrtrans all old;
+			rdwr no_change;
 		}
 		portoption "WR_MODE" "WRITE_THROUGH" {
 			rdwr new;
@@ -73,9 +71,6 @@ ram block $__CC_BRAM_SDP_ {
 		}
 		option "MODE" "40K" {
 			width 80;
-		}
-		option "WR_MODE" "NO_CHANGE" {
-			wrtrans all old;
 		}
 		clock anyedge;
 		clken;
