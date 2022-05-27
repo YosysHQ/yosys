@@ -376,64 +376,54 @@ int run_command(const std::string &command, std::function<void(const std::string
 }
 #endif
 
-// POSIX defines `TMPDIR` as the pathname of the directory
-// where programs can create temporary files. On most systems,
-// it points to '/tmp'. However, on some systems it can be a different
-// location
-// Source: https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap08.html#tag_08_03
 std::string get_base_tmpdir()
 {
-	// We cache the directory name in a static variable here
-	// for faster calls later
 	static std::string tmpdir;
 
 	if (!tmpdir.empty()) {
 		return tmpdir;
 	}
 
+#if defined(_WIN32)
+#  ifdef __MINGW32__
+	char longpath[MAX_PATH + 1];
+	char shortpath[MAX_PATH + 1];
+#  else
+	WCHAR longpath[MAX_PATH + 1];
+	TCHAR shortpath[MAX_PATH + 1];
+#  endif
+	if (!GetTempPath(MAX_PATH+1, longpath))
+		log_error("GetTempPath() failed.\n");
+	if (!GetShortPathName(longpath, shortpath, MAX_PATH + 1))
+		log_error("GetShortPathName() failed.\n");
+	for (int i = 0; shortpath[i]; i++)
+		tmpdir += char(shortpath[i]);
+#else
 	char * var = std::getenv("TMPDIR");
-	if (NULL == var) {
-		// if the variable is not set, then use '/tmp'
-		tmpdir.assign("/tmp");
-	} else {
+	if (var && strlen(var)!=0) {
 		tmpdir.assign(var);
 		// We return the directory name without the trailing '/'
-		if (tmpdir.back() == '/') {
+		while (!tmpdir.empty() && (tmpdir.back() == '/')) {
 			tmpdir.pop_back();
 		}
+	} else {
+		tmpdir.assign("/tmp");
 	}
+#endif
 	return tmpdir;
 }
 
 std::string make_temp_file(std::string template_str)
 {
-#if defined(__wasm)
 	size_t pos = template_str.rfind("XXXXXX");
 	log_assert(pos != std::string::npos);
+#if defined(__wasm)
 	static size_t index = 0;
 	template_str.replace(pos, 6, stringf("%06zu", index++));
 #elif defined(_WIN32)
-	if (template_str.rfind(get_base_tmpdir() + "/", 0) == 0) {
-#  ifdef __MINGW32__
-		char longpath[MAX_PATH + 1];
-		char shortpath[MAX_PATH + 1];
-#  else
-		WCHAR longpath[MAX_PATH + 1];
-		TCHAR shortpath[MAX_PATH + 1];
-#  endif
-		if (!GetTempPath(MAX_PATH+1, longpath))
-			log_error("GetTempPath() failed.\n");
-		if (!GetShortPathName(longpath, shortpath, MAX_PATH + 1))
-			log_error("GetShortPathName() failed.\n");
-		std::string path;
-		for (int i = 0; shortpath[i]; i++)
-			path += char(shortpath[i]);
-		template_str = stringf("%s\\%s", path.c_str(), template_str.c_str() + 5);
-	}
-
-	size_t pos = template_str.rfind("XXXXXX");
-	log_assert(pos != std::string::npos);
-
+#ifndef YOSYS_WIN32_UNIX_DIR
+	std::replace(template_str.begin(), template_str.end(), '/', '\\');
+#endif
 	while (1) {
 		for (int i = 0; i < 6; i++) {
 			static std::string y = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -445,9 +435,6 @@ std::string make_temp_file(std::string template_str)
 			break;
 	}
 #else
-	size_t pos = template_str.rfind("XXXXXX");
-	log_assert(pos != std::string::npos);
-
 	int suffixlen = GetSize(template_str) - pos - 6;
 
 	char *p = strdup(template_str.c_str());
