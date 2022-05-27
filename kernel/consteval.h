@@ -146,7 +146,6 @@ struct ConstEval
 		if (cell->type.in(ID($mux), ID($pmux), ID($_MUX_), ID($_NMUX_)))
 		{
 			std::vector<RTLIL::SigSpec> y_candidates;
-			int count_maybe_set_s_bits = 0;
 			int count_set_s_bits = 0;
 
 			if (!eval(sig_s, undef, cell))
@@ -159,9 +158,6 @@ struct ConstEval
 
 				if (s_bit == RTLIL::State::Sx || s_bit == RTLIL::State::S1)
 					y_candidates.push_back(b_slice);
-
-				if (s_bit == RTLIL::State::S1 || s_bit == RTLIL::State::Sx)
-					count_maybe_set_s_bits++;
 
 				if (s_bit == RTLIL::State::S1)
 					count_set_s_bits++;
