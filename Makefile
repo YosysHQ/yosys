@@ -263,7 +263,7 @@ CXXFLAGS := -std=$(CXXSTD) $(filter-out -fPIC -ggdb,$(CXXFLAGS))
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DABC_MEMALIGN=8"
 EMCC_CXXFLAGS := -Os -Wno-warn-absolute-paths
 EMCC_LDFLAGS := --memory-init-file 0 --embed-file share
-EMCC_LDFLAGS := -s NO_EXIT_RUNTIME=1
+EMCC_LDFLAGS += -s NO_EXIT_RUNTIME=1
 EMCC_LDFLAGS += -s EXPORTED_FUNCTIONS="['_main','_run','_prompt','_errmsg','_memset']"
 EMCC_LDFLAGS += -s TOTAL_MEMORY=134217728
 EMCC_LDFLAGS += -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap"]'
