@@ -1095,8 +1095,9 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		if (current_scope.count(str))
 		{
 			// This width detection is needed for function calls which are
-			// unelaborated, which currently only applies to calls to recursive
-			// functions reached by unevaluated ternary branches.
+			// unelaborated, which currently applies to calls to functions
+			// reached via unevaluated ternary branches or used in case or case
+			// item expressions.
 			const AstNode *func = current_scope.at(str);
 			if (func->type != AST_FUNCTION)
 				log_file_error(filename, location.first_line, "Function call to %s resolved to something that isn't a function!\n", RTLIL::unescape_id(str).c_str());
@@ -1107,8 +1108,8 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 					break;
 				}
 			log_assert(wire && wire->type == AST_WIRE);
-			sign_hint = wire->is_signed;
-			width_hint = 1;
+			sign_hint &= wire->is_signed;
+			int result_width = 1;
 			if (!wire->children.empty())
 			{
 				log_assert(wire->children.size() == 1);
@@ -1121,10 +1122,11 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 				if (left->type != AST_CONSTANT || right->type != AST_CONSTANT)
 					log_file_error(filename, location.first_line, "Function %s has non-constant width!",
 							RTLIL::unescape_id(str).c_str());
-				width_hint = abs(int(left->asInt(true) - right->asInt(true)));
+				result_width = abs(int(left->asInt(true) - right->asInt(true)));
 				delete left;
 				delete right;
 			}
+			width_hint = max(width_hint, result_width);
 			break;
 		}
 		YS_FALLTHROUGH
