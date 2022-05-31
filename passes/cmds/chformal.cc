@@ -273,8 +273,8 @@ struct ChformalPass : public Pass {
 			if (mode =='p')
 			{
 				for (auto cell : constr_cells)
-					module->addCover(NEW_ID, cell->getPort(ID::EN), State::S1,
-						"$auto$coverprecond$" + cell->get_src_attribute());
+					module->addCover(NEW_ID_SUFFIX("coverprecond"),
+						cell->getPort(ID::EN), State::S1, cell->get_src_attribute());
 			}
 			else
 			if (mode == 'c')
