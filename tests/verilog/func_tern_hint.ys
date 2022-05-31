@@ -1,0 +1,4 @@
+read_verilog -sv func_tern_hint.sv
+proc
+opt
+sat -verify -seq 1 -prove-asserts -show-all
