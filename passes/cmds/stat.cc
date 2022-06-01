@@ -381,6 +381,15 @@ struct StatPass : public Pass {
 
 			log("\n");
 			data.log_data(top_mod->name, true);
+			design->scratchpad_set_int("stat.num_wires", data.num_wires);
+			design->scratchpad_set_int("stat.num_wire_bits", data.num_wire_bits);
+			design->scratchpad_set_int("stat.num_pub_wires", data.num_pub_wires);
+			design->scratchpad_set_int("stat.num_pub_wire_bits", data.num_pub_wire_bits);
+			design->scratchpad_set_int("stat.num_memories", data.num_memories);
+			design->scratchpad_set_int("stat.num_memory_bits", data.num_memory_bits);
+			design->scratchpad_set_int("stat.num_processes", data.num_processes);
+			design->scratchpad_set_int("stat.num_cells", data.num_cells);
+			design->scratchpad_set_int("stat.area", data.area);
 		}
 
 		log("\n");
