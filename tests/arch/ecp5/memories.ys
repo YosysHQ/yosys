@@ -6,6 +6,7 @@ chparam -set ADDRESS_WIDTH 9 -set DATA_WIDTH 36 sync_ram_sdp
 hierarchy -top sync_ram_sdp
 synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
 select -assert-count 1 t:DP16KD
+select -assert-none t:LUT4
 
 ## With parameters
 

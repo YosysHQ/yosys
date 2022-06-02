@@ -5,6 +5,9 @@ synth_gatemate -top sync_ram_sdp -noiopad
 cd sync_ram_sdp
 select -assert-count 1 t:CC_BUFG
 select -assert-count 1 t:CC_BRAM_20K
+select -assert-none t:CC_LUT3
+select -assert-none t:CC_LUT4
+select -assert-none t:CC_DFF
 
 # 512 x 80 bit -> CC_BRAM_40K SDP RAM
 design -reset
