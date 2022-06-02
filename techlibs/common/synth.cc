@@ -81,6 +81,11 @@ struct SynthPass : public ScriptPass
 		log("    -flowmap\n");
 		log("        use FlowMap LUT techmapping instead of ABC\n");
 		log("\n");
+		log("    -no-rw-check\n");
+		log("        marks all recognized read ports as \"return don't-care value on\n");
+		log("        read/write collision\" (same result as setting the no_rw_check\n");
+		log("        attribute on all memories).\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
@@ -173,6 +178,10 @@ struct SynthPass : public ScriptPass
 			}
 			if (args[argidx] == "-flowmap") {
 				flowmap = true;
+				continue;
+			}
+			if (args[argidx] == "-no-rw-check") {
+				memory_opts += " -no-rw-check";
 				continue;
 			}
 			break;
