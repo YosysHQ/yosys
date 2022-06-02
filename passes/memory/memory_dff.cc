@@ -357,6 +357,14 @@ struct MemoryDffWorker
 			return;
 		}
 
+		// Check for no_rw_check
+		bool no_rw_check = mem.get_bool_attribute(ID::no_rw_check);
+		for (auto attr: {ID::ram_block, ID::rom_block, ID::ram_style, ID::rom_style, ID::ramstyle, ID::romstyle, ID::syn_ramstyle, ID::syn_romstyle}) {
+			if (mem.get_string_attribute(attr) == "no_rw_check") {
+				no_rw_check = true;
+			}
+		}
+
 		// Construct cache.
 		MemQueryCache cache(qcsat, mem, port, ff);
 
@@ -392,6 +400,8 @@ struct MemoryDffWorker
 						pd.uncollidable_mask[j] = true;
 						pd.collision_x_mask[j] = true;
 					}
+					if (no_rw_check)
+						pd.collision_x_mask[j] = true;
 				}
 			}
 			portdata.push_back(pd);
