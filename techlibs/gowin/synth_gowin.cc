@@ -81,6 +81,11 @@ struct SynthGowinPass : public ScriptPass
 		log("    -abc9\n");
 		log("        use new ABC9 flow (EXPERIMENTAL)\n");
 		log("\n");
+		log("    -no-rw-check\n");
+		log("        marks all recognized read ports as \"return don't-care value on\n");
+		log("        read/write collision\" (same result as setting the no_rw_check\n");
+		log("        attribute on all memories).\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
@@ -88,7 +93,7 @@ struct SynthGowinPass : public ScriptPass
 	}
 
 	string top_opt, vout_file, json_file;
-	bool retime, nobram, nolutram, flatten, nodffe, nowidelut, abc9, noiopads, noalu;
+	bool retime, nobram, nolutram, flatten, nodffe, nowidelut, abc9, noiopads, noalu, no_rw_check;
 
 	void clear_flags() override
 	{
@@ -104,6 +109,7 @@ struct SynthGowinPass : public ScriptPass
 		abc9 = false;
 		noiopads = false;
 		noalu = false;
+		no_rw_check = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -172,6 +178,10 @@ struct SynthGowinPass : public ScriptPass
 				noiopads = true;
 				continue;
 			}
+			if (args[argidx] == "-no-rw-check") {
+				no_rw_check = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -189,6 +199,12 @@ struct SynthGowinPass : public ScriptPass
 
 	void script() override
 	{
+		std::string no_rw_check_opt = "";
+		if (no_rw_check)
+			no_rw_check_opt = " -no-rw-check";
+		if (help_mode)
+			no_rw_check_opt = " [-no-rw-check]";
+
 		if (check_label("begin"))
 		{
 			run("read_verilog -specify -lib +/gowin/cells_sim.v");
@@ -205,7 +221,7 @@ struct SynthGowinPass : public ScriptPass
 
 		if (check_label("coarse"))
 		{
-			run("synth -run coarse");
+			run("synth -run coarse" + no_rw_check_opt);
 		}
 
 		if (check_label("map_ram"))

@@ -112,6 +112,11 @@ struct SynthIce40Pass : public ScriptPass
 		log("    -flowmap\n");
 		log("        use FlowMap LUT techmapping instead of abc (EXPERIMENTAL)\n");
 		log("\n");
+		log("    -no-rw-check\n");
+		log("        marks all recognized read ports as \"return don't-care value on\n");
+		log("        read/write collision\" (same result as setting the no_rw_check\n");
+		log("        attribute on all memories).\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
@@ -119,7 +124,7 @@ struct SynthIce40Pass : public ScriptPass
 	}
 
 	string top_opt, blif_file, edif_file, json_file, device_opt;
-	bool nocarry, nodffe, nobram, spram, dsp, flatten, retime, noabc, abc2, vpr, abc9, dff, flowmap;
+	bool nocarry, nodffe, nobram, spram, dsp, flatten, retime, noabc, abc2, vpr, abc9, dff, flowmap, no_rw_check;
 	int min_ce_use;
 
 	void clear_flags() override
@@ -142,6 +147,7 @@ struct SynthIce40Pass : public ScriptPass
 		abc9 = false;
 		flowmap = false;
 		device_opt = "hx";
+		no_rw_check = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -244,6 +250,10 @@ struct SynthIce40Pass : public ScriptPass
 				flowmap = true;
 				continue;
 			}
+			if (args[argidx] == "-no-rw-check") {
+				no_rw_check = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -279,6 +289,12 @@ struct SynthIce40Pass : public ScriptPass
 			define = "-D ICE40_U";
 		else
 			define = "-D ICE40_HX";
+		std::string no_rw_check_opt = "";
+		if (no_rw_check)
+			no_rw_check_opt = " -no-rw-check";
+		if (help_mode)
+			no_rw_check_opt = " [-no-rw-check]";
+
 		if (check_label("begin"))
 		{
 			run("read_verilog " + define + " -lib -specify +/ice40/cells_sim.v");
@@ -311,7 +327,7 @@ struct SynthIce40Pass : public ScriptPass
 			run("opt_expr");
 			run("opt_clean");
 			if (help_mode || dsp) {
-				run("memory_dff"); // ice40_dsp will merge registers, reserve memory port registers first
+				run("memory_dff" + no_rw_check_opt); // ice40_dsp will merge registers, reserve memory port registers first
 				run("wreduce t:$mul");
 				run("techmap -map +/mul2dsp.v -map +/ice40/dsp_map.v -D DSP_A_MAXWIDTH=16 -D DSP_B_MAXWIDTH=16 "
 						"-D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2 -D DSP_Y_MINWIDTH=11 "
@@ -326,7 +342,7 @@ struct SynthIce40Pass : public ScriptPass
 			}
 			run("alumacc");
 			run("opt");
-			run("memory -nomap");
+			run("memory -nomap" + no_rw_check_opt);
 			run("opt_clean");
 		}
 
