@@ -131,11 +131,31 @@ YOSYS_NAMESPACE_BEGIN
 
 struct log_cmd_error_exception { };
 
-extern std::vector<FILE*> log_files;
-extern std::vector<std::ostream*> log_streams;
-extern std::map<std::string, std::set<std::string>> log_hdump;
-extern std::vector<YS_REGEX_TYPE> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
-extern std::set<std::string> log_warnings, log_experimentals, log_experimentals_ignored;
+// These objects represent a global state that is accessed throughout
+// yosys as global variable.
+// To make it safe to initialize these global complex objects and make
+// sure their constructor is called before they are accessed.
+std::vector<FILE*>& gs_log_files();
+std::vector<std::ostream*>& gs_log_streams();
+std::map<std::string, std::set<std::string>>& gs_log_hdump();
+std::vector<YS_REGEX_TYPE>& gs_log_warn_regexes();
+std::vector<YS_REGEX_TYPE>& gs_log_nowarn_regexes();
+std::vector<YS_REGEX_TYPE>& gs_log_werror_regexes();
+std::set<std::string>& gs_log_warnings();
+std::set<std::string>& gs_log_experimentals();
+std::set<std::string>& gs_log_experimentals_ignored();
+
+// Make it look like global variables.
+#define log_files gs_log_files()
+#define log_streams gs_log_streams()
+#define log_hdump gs_log_hdump()
+#define log_warn_regexes gs_log_warn_regexes()
+#define log_nowarn_regexes gs_log_nowarn_regexes()
+#define log_werror_regexes gs_log_werror_regexes()
+#define log_warnings gs_log_warnings()
+#define log_experimentals gs_log_experimentals()
+#define log_experimentals_ignored gs_log_experimentals_ignored()
+
 extern int log_warnings_count;
 extern int log_warnings_count_noexpect;
 extern bool log_expect_no_warnings;
@@ -148,7 +168,8 @@ extern bool log_error_stderr;
 extern bool log_cmd_error_throw;
 extern bool log_quiet_warnings;
 extern int log_verbose_level;
-extern string log_last_error;
+std::string& gs_log_last_error();
+#define log_last_error gs_log_last_error()
 extern void (*log_error_atexit)();
 
 extern int log_make_debug;
@@ -232,7 +253,14 @@ struct LogExpectedItem
 	int current_count;
 };
 
-extern dict<std::string, LogExpectedItem> log_expect_log, log_expect_warning, log_expect_error;
+dict<std::string, LogExpectedItem>& gs_log_expect_log();
+dict<std::string, LogExpectedItem>& gs_log_expect_warning();
+dict<std::string, LogExpectedItem>& gs_log_expect_error();
+
+#define log_expect_log gs_log_expect_log()
+#define log_expect_warning gs_log_expect_warning()
+#define log_expect_error gs_log_expect_error()
+
 void log_check_expected();
 
 const char *log_signal(const RTLIL::SigSpec &sig, bool autoint = true);

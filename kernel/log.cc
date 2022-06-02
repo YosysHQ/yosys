@@ -38,12 +38,38 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-std::vector<FILE*> log_files;
-std::vector<std::ostream*> log_streams;
-std::map<std::string, std::set<std::string>> log_hdump;
-std::vector<YS_REGEX_TYPE> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
-dict<std::string, LogExpectedItem> log_expect_log, log_expect_warning, log_expect_error;
-std::set<std::string> log_warnings, log_experimentals, log_experimentals_ignored;
+// Initialize the global state with a safe function initialization to avoid
+// the static initialization order fiasco for them.
+struct GlobalState {
+	std::vector<FILE*> log_files_;
+	std::vector<std::ostream*> log_streams_;
+	std::map<std::string, std::set<std::string>> log_hdump_;
+	std::vector<YS_REGEX_TYPE> log_warn_regexes_, log_nowarn_regexes_, log_werror_regexes_;
+	dict<std::string, LogExpectedItem> log_expect_log_, log_expect_warning_, log_expect_error_;
+	std::set<std::string> log_warnings_, log_experimentals_, log_experimentals_ignored_;
+	std::string log_last_error_;
+};
+
+static GlobalState &gs()
+{
+	static GlobalState gs;
+	return gs;
+}
+
+std::vector<FILE*>& gs_log_files() { return gs().log_files_; }
+std::vector<std::ostream*>& gs_log_streams() { return gs().log_streams_; }
+std::map<std::string, std::set<std::string>>& gs_log_hdump() { return gs().log_hdump_; }
+std::vector<YS_REGEX_TYPE>& gs_log_warn_regexes() { return gs().log_warn_regexes_; }
+std::vector<YS_REGEX_TYPE>& gs_log_nowarn_regexes() { return gs().log_nowarn_regexes_; }
+std::vector<YS_REGEX_TYPE>& gs_log_werror_regexes() { return gs().log_werror_regexes_; }
+std::set<std::string>& gs_log_warnings() { return gs().log_warnings_; }
+std::set<std::string>& gs_log_experimentals() { return gs().log_experimentals_; }
+std::set<std::string>& gs_log_experimentals_ignored() { return gs().log_experimentals_ignored_; }
+dict<std::string, LogExpectedItem>& gs_log_expect_log() { return gs().log_expect_log_; }
+dict<std::string, LogExpectedItem>& gs_log_expect_warning() { return gs().log_expect_warning_; }
+dict<std::string, LogExpectedItem>& gs_log_expect_error()  { return gs().log_expect_error_; }
+std::string& gs_log_last_error() { return gs().log_last_error_; }
+
 int log_warnings_count = 0;
 int log_warnings_count_noexpect = 0;
 bool log_expect_no_warnings = false;
@@ -56,7 +82,7 @@ bool log_error_stderr = false;
 bool log_cmd_error_throw = false;
 bool log_quiet_warnings = false;
 int log_verbose_level;
-string log_last_error;
+
 void (*log_error_atexit)() = NULL;
 
 int log_make_debug = 0;
