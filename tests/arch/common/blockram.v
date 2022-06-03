@@ -33,6 +33,8 @@ module sync_ram_sdp #(parameter DATA_WIDTH=8, ADDRESS_WIDTH=10)
   localparam DEPTH = (2**ADDRESS_WIDTH-1);
 
   reg [WORD:0] data_out_r;
+
+  (* no_rw_check *)
   reg [WORD:0] memory [0:DEPTH];
 
   always @(posedge clk) begin
