@@ -176,7 +176,10 @@ class SmtIo:
             self.unroll = False
 
         if self.solver == "yices":
-            if self.noincr or self.forall:
+            if self.forall:
+                self.noincr = True
+
+            if self.noincr:
                 self.popen_vargs = ['yices-smt2'] + self.solver_opts
             else:
                 self.popen_vargs = ['yices-smt2', '--incremental'] + self.solver_opts
