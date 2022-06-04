@@ -53,6 +53,9 @@ USING_YOSYS_NAMESPACE
 #include "VhdlUnits.h"
 #endif
 
+#include "VerificStream.h"
+#include "FileSystem.h"
+
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 #include "InitialAssertions.h"
 #endif
@@ -117,6 +120,34 @@ string get_full_netlist_name(Netlist *nl)
 
 	return nl->CellBaseName();
 }
+
+class YosysStreamCallBackHandler : public VerificStreamCallBackHandler
+{
+public:
+    YosysStreamCallBackHandler() : VerificStreamCallBackHandler() { }
+    virtual ~YosysStreamCallBackHandler() { }
+
+    virtual verific_stream *GetSysCallStream(const char *file_path)
+    {
+        if (!file_path) return nullptr;
+
+        linefile_type src_loc = GetFromLocation();
+
+        char *this_file_name = nullptr;
+        if (src_loc && !FileSystem::IsAbsolutePath(file_path)) {
+            const char *src_file_name = LineFile::GetFileName(src_loc);
+            char *dir_name = FileSystem::DirectoryPath(src_file_name);
+            if (dir_name) {
+                this_file_name = Strings::save(dir_name, "/", file_path);
+                Strings::free(dir_name);
+                file_path = this_file_name;
+            }
+        }
+        verific_stream *strm = new verific_ifstream(file_path);
+        Strings::free(this_file_name);
+        return strm;
+    }
+};
 
 // ==================================================================
 
@@ -2648,6 +2679,8 @@ struct VerificPass : public Pass {
 
 		int argidx = 1;
 		std::string work = "work";
+		YosysStreamCallBackHandler cb;
+		veri_file::RegisterCallBackVerificStream(&cb);
 
 		if (GetSize(args) > argidx && (args[argidx] == "-set-error" || args[argidx] == "-set-warning" ||
 				args[argidx] == "-set-info" || args[argidx] == "-set-ignore"))
