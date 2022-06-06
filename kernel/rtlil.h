@@ -636,12 +636,12 @@ struct RTLIL::Const
 	std::vector<RTLIL::State> bits;
 
 	Const();
-	Const(std::string str);
+	Const(const std::string &str);
 	Const(int val, int width = 32);
 	Const(RTLIL::State bit, int width = 1);
 	Const(const std::vector<RTLIL::State> &bits) : bits(bits) { flags = CONST_FLAG_NONE; }
 	Const(const std::vector<bool> &bits);
-	Const(const RTLIL::Const &c);
+	Const(const RTLIL::Const &c) = default;
 	RTLIL::Const &operator =(const RTLIL::Const &other) = default;
 
 	bool operator <(const RTLIL::Const &other) const;

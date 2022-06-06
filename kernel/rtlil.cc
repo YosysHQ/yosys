@@ -204,7 +204,7 @@ RTLIL::Const::Const()
 	flags = RTLIL::CONST_FLAG_NONE;
 }
 
-RTLIL::Const::Const(std::string str)
+RTLIL::Const::Const(const std::string &str)
 {
 	flags = RTLIL::CONST_FLAG_STRING;
 	bits.reserve(str.size() * 8);
@@ -241,14 +241,6 @@ RTLIL::Const::Const(const std::vector<bool> &bits)
 	this->bits.reserve(bits.size());
 	for (const auto &b : bits)
 		this->bits.emplace_back(b ? State::S1 : State::S0);
-}
-
-RTLIL::Const::Const(const RTLIL::Const &c)
-{
-	flags = c.flags;
-	this->bits.reserve(c.size());
-	for (const auto &b : c.bits)
-		this->bits.push_back(b);
 }
 
 bool RTLIL::Const::operator <(const RTLIL::Const &other) const
