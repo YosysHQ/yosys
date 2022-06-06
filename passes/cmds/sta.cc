@@ -58,11 +58,14 @@ struct StaWorker
 	{
 		TimingInfo timing;
 
+		pool<IdString> unrecognised_cells;
+
 		for (auto cell : module->cells())
 		{
 			Module *inst_module = design->module(cell->type);
 			if (!inst_module) {
-				log_warning("Cell type '%s' not recognised! Ignoring.\n", log_id(cell->type));
+				if (unrecognised_cells.insert(cell->type).second)
+					log_warning("Cell type '%s' not recognised! Ignoring.\n", log_id(cell->type));
 				continue;
 			}
 
