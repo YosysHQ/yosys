@@ -240,13 +240,13 @@ struct IopadmapPass : public Pass {
 		for (auto module : design->selected_modules())
 		{
 			dict<Wire *, dict<int, pair<Cell *, IdString>>> rewrite_bits;
-			pool<SigSig> remove_conns;
+			dict<SigSig, pool<int>> remove_conns;
 
 			if (!toutpad_celltype.empty() || !tinoutpad_celltype.empty())
 			{
 				dict<SigBit, Cell *> tbuf_bits;
 				pool<SigBit> driven_bits;
-				dict<SigBit, SigSig> z_conns;
+				dict<SigBit, std::pair<SigSig, int>> z_conns;
 
 				// Gather tristate buffers and always-on drivers.
 				for (auto cell : module->cells())
@@ -266,7 +266,7 @@ struct IopadmapPass : public Pass {
 						SigBit dstbit = conn.first[i];
 						SigBit srcbit = conn.second[i];
 						if (!srcbit.wire && srcbit.data == State::Sz) {
-							z_conns[dstbit] = conn;
+							z_conns[dstbit] = {conn, i};
 							continue;
 						}
 						driven_bits.insert(dstbit);
@@ -317,8 +317,9 @@ struct IopadmapPass : public Pass {
 							// enable.
 							en_sig = SigBit(State::S0);
 							data_sig = SigBit(State::Sx);
-							if (z_conns.count(wire_bit))
-								remove_conns.insert(z_conns[wire_bit]);
+							auto it = z_conns.find(wire_bit);
+							if (it != z_conns.end())
+								remove_conns[it->second.first].insert(it->second.second);
 						}
 
 						if (wire->port_input)
@@ -477,9 +478,22 @@ struct IopadmapPass : public Pass {
 
 			if (!remove_conns.empty()) {
 				std::vector<SigSig> new_conns;
-				for (auto &conn : module->connections())
-					if (!remove_conns.count(conn))
+				for (auto &conn : module->connections()) {
+					auto it = remove_conns.find(conn);
+					if (it == remove_conns.end()) {
 						new_conns.push_back(conn);
+					} else {
+						SigSpec lhs, rhs;
+						for (int i = 0; i < GetSize(conn.first); i++) {
+							if (!it->second.count(i)) {
+								lhs.append(conn.first[i]);
+								rhs.append(conn.second[i]);
+							}
+						}
+						new_conns.push_back(SigSig(lhs, rhs));
+
+					}
+				}
 				module->new_connections(new_conns);
 			}
 
