@@ -5,6 +5,9 @@
 (declare-fun |smtlib2#0| (|smtlib2_s|) (_ BitVec 8)) ; \a
 ; yosys-smt2-input a 8
 (define-fun |smtlib2_n a| ((state |smtlib2_s|)) (_ BitVec 8) (|smtlib2#0| state))
+(declare-fun |smtlib2#1| (|smtlib2_s|) (_ BitVec 8)) ; \b
+; yosys-smt2-input b 8
+(define-fun |smtlib2_n b| ((state |smtlib2_s|)) (_ BitVec 8) (|smtlib2#1| state))
 ; yosys-smt2-output add 8
 (define-fun |smtlib2_n add| ((state |smtlib2_s|)) (_ BitVec 8) (let (
 (|a| (|smtlib2_n a| state))
@@ -12,9 +15,6 @@
 )
 (bvadd a b)
 ))
-(declare-fun |smtlib2#1| (|smtlib2_s|) (_ BitVec 8)) ; \b
-; yosys-smt2-input b 8
-(define-fun |smtlib2_n b| ((state |smtlib2_s|)) (_ BitVec 8) (|smtlib2#1| state))
 ; yosys-smt2-output eq 1
 (define-fun |smtlib2_n eq| ((state |smtlib2_s|)) Bool (let (
 (|a| (|smtlib2_n a| state))
@@ -64,10 +64,10 @@
   (|uut_a 2| state)
   (|smtlib2_a| (|uut_h s| state))
 ))
-(define-fun |uut_u| ((state |uut_s|)) Bool 
+(define-fun |uut_u| ((state |uut_s|)) Bool
   (|smtlib2_u| (|uut_h s| state))
 )
-(define-fun |uut_i| ((state |uut_s|)) Bool 
+(define-fun |uut_i| ((state |uut_s|)) Bool
   (|smtlib2_i| (|uut_h s| state))
 )
 (define-fun |uut_h| ((state |uut_s|)) Bool (and

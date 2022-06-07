@@ -927,6 +927,7 @@ struct Smt2Worker
 			}
 
 		std::string smtlib2_inputs;
+		std::vector<std::string> smtlib2_decls;
 		if (is_smtlib2_module) {
 			for (auto wire : module->wires()) {
 				if (!wire->port_input)
@@ -968,11 +969,12 @@ struct Smt2Worker
 						log_error("smtlib2_comb_expr is unsupported on multi-bit wires when -nobv is specified: wire %s.%s",
 							  log_id(module), log_id(wire));
 				}
+				auto &out_decls = is_smtlib2_comb_expr ? smtlib2_decls : decls;
 				if (bvmode && GetSize(sig) > 1) {
 					std::string sig_bv = is_smtlib2_comb_expr ? smtlib2_comb_expr : get_bv(sig);
 					if (!comments.empty())
-						decls.insert(decls.end(), comments.begin(), comments.end());
-					decls.push_back(stringf("(define-fun |%s_n %s| ((state |%s_s|)) (_ BitVec %d) %s)\n",
+						out_decls.insert(out_decls.end(), comments.begin(), comments.end());
+					out_decls.push_back(stringf("(define-fun |%s_n %s| ((state |%s_s|)) (_ BitVec %d) %s)\n",
 							get_id(module), get_id(wire), get_id(module), GetSize(sig), sig_bv.c_str()));
 					if (wire->port_input)
 						ex_input_eq.push_back(stringf("  (= (|%s_n %s| state) (|%s_n %s| other_state))",
@@ -983,16 +985,16 @@ struct Smt2Worker
 						sig_bool.push_back(is_smtlib2_comb_expr ? smtlib2_comb_expr : get_bool(sig[i]));
 					}
 					if (!comments.empty())
-						decls.insert(decls.end(), comments.begin(), comments.end());
+						out_decls.insert(out_decls.end(), comments.begin(), comments.end());
 					for (int i = 0; i < GetSize(sig); i++) {
 						if (GetSize(sig) > 1) {
-							decls.push_back(stringf("(define-fun |%s_n %s %d| ((state |%s_s|)) Bool %s)\n",
+							out_decls.push_back(stringf("(define-fun |%s_n %s %d| ((state |%s_s|)) Bool %s)\n",
 									get_id(module), get_id(wire), i, get_id(module), sig_bool[i].c_str()));
 							if (wire->port_input)
 								ex_input_eq.push_back(stringf("  (= (|%s_n %s %d| state) (|%s_n %s %d| other_state))",
 										get_id(module), get_id(wire), i, get_id(module), get_id(wire), i));
 						} else {
-							decls.push_back(stringf("(define-fun |%s_n %s| ((state |%s_s|)) Bool %s)\n",
+							out_decls.push_back(stringf("(define-fun |%s_n %s| ((state |%s_s|)) Bool %s)\n",
 									get_id(module), get_id(wire), get_id(module), sig_bool[i].c_str()));
 							if (wire->port_input)
 								ex_input_eq.push_back(stringf("  (= (|%s_n %s| state) (|%s_n %s| other_state))",
@@ -1002,6 +1004,8 @@ struct Smt2Worker
 				}
 			}
 		}
+
+		decls.insert(decls.end(), smtlib2_decls.begin(), smtlib2_decls.end());
 
 		if (verbose) log("=> export logic associated with the initial state\n");
 
