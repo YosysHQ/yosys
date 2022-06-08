@@ -411,6 +411,13 @@ class SmtIo:
 
         recheck = None
 
+        if self.solver != "dummy":
+            if self.noincr:
+                # Don't close the solver yet, if we're just unrolling definitions
+                # required for a (get-...) statement
+                if self.p is not None and not stmt.startswith("(get-") and unroll:
+                    self.p_close()
+
         if unroll and self.unroll:
             stmt = self.unroll_buffer + stmt
             self.unroll_buffer = ""
@@ -473,8 +480,6 @@ class SmtIo:
 
         if self.solver != "dummy":
             if self.noincr:
-                if self.p is not None and not stmt.startswith("(get-"):
-                    self.p_close()
                 if stmt == "(push 1)":
                     self.smt2cache.append(list())
                 elif stmt == "(pop 1)":
