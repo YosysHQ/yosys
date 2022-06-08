@@ -2744,14 +2744,15 @@ is used then the $macc cell is mapped to $add, $sub, etc. cells instead.
 \section{memory -- translate memories to basic cells}
 \label{cmd:memory}
 \begin{lstlisting}[numbers=left,frame=single]
-    memory [-nomap] [-nordff] [-nowiden] [-nosat] [-memx] [-bram <bram_rules>] [selection]
+    memory [-norom] [-nomap] [-nordff] [-nowiden] [-nosat] [-memx] [-no-rw-check] [-bram <bram_rules>] [selection]
 
 This pass calls all the other memory_* passes in a useful order:
 
     opt_mem
     opt_mem_priority
     opt_mem_feedback
-    memory_dff                          (skipped if called with -nordff or -memx)
+    memory_bmux2rom                     (skipped if called with -norom)
+    memory_dff [-no-rw-check]           (skipped if called with -nordff or -memx)
     opt_clean
     memory_share [-nowiden] [-nosat]
     opt_mem_widen
@@ -2763,6 +2764,14 @@ This pass calls all the other memory_* passes in a useful order:
 
 This converts memories to word-wide DFFs and address decoders
 or multiport memory blocks if called with the -nomap option.
+\end{lstlisting}
+
+\section{memory\_bmux2rom -- convert muxes to ROMs}
+\label{cmd:memory_bmux2rom}
+\begin{lstlisting}[numbers=left,frame=single]
+    memory_bmux2rom [options] [selection]
+
+This pass converts $bmux cells with constant A input to ROMs.
 \end{lstlisting}
 
 \section{memory\_bram -- map memories to block rams}
@@ -2878,11 +2887,45 @@ memory cells.
 \section{memory\_dff -- merge input/output DFFs into memory read ports}
 \label{cmd:memory_dff}
 \begin{lstlisting}[numbers=left,frame=single]
-    memory_dff [options] [selection]
+    memory_dff [-no-rw-check] [selection]
 
 This pass detects DFFs at memory read ports and merges them into the memory port.
 I.e. it consumes an asynchronous memory port and the flip-flops at its
 interface and yields a synchronous memory port.
+
+    -no-rw-check
+        marks all recognized read ports as "return don't-care value on
+        read/write collision" (same result as setting the no_rw_check
+        attribute on all memories).
+\end{lstlisting}
+
+\section{memory\_libmap -- map memories to cells}
+\label{cmd:memory_libmap}
+\begin{lstlisting}[numbers=left,frame=single]
+    memory_libmap -lib <library_file> [-D <condition>] [selection]
+
+This pass takes a description of available RAM cell types and maps
+all selected memories to one of them, or leaves them  to be mapped to FFs.
+
+  -lib <library_file>
+    Selects a library file containing RAM cell definitions. This option
+    can be passed more than once to select multiple libraries.
+    See passes/memory/memlib.md for description of the library format.
+
+  -D <condition>
+    Enables a condition that can be checked within the library file
+    to eg. select between slightly different hardware variants.
+    This option can be passed any number of times.
+
+  -logic-cost-rom <num>
+  -logic-cost-ram <num>
+    Sets the cost of a single bit for memory lowered to soft logic.
+
+  -no-auto-distributed
+  -no-auto-block
+  -no-auto-huge
+    Disables automatic mapping of given kind of RAMs.  Manual mapping
+    (using ram_style or other attributes) is still supported.
 \end{lstlisting}
 
 \section{memory\_map -- translate multiport memories to basic cells}
@@ -3270,6 +3313,15 @@ It also performs some simple expression rewriting.
         replaced by 'a'. the -keepdc option disables all such optimizations.
 \end{lstlisting}
 
+\section{opt\_ffinv -- push inverters through FFs}
+\label{cmd:opt_ffinv}
+\begin{lstlisting}[numbers=left,frame=single]
+    opt_ffinv [selection]
+
+This pass pushes inverters to the other side of a FF when they can be merged
+into LUTs on the other side.
+\end{lstlisting}
+
 \section{opt\_lut -- optimize LUT cells}
 \label{cmd:opt_lut}
 \begin{lstlisting}[numbers=left,frame=single]
@@ -3595,6 +3647,7 @@ This pass calls all the other proc_* passes in the most common order.
     proc_prune
     proc_init
     proc_arst
+    proc_rom
     proc_mux
     proc_dlatch
     proc_dff
@@ -3609,6 +3662,9 @@ The following options are supported:
 
     -nomux
         Will omit the proc_mux pass.
+
+    -norom
+        Will omit the proc_rom pass.
 
     -global_arst [!]<netname>
         This option is passed through to proc_arst.
@@ -3714,6 +3770,14 @@ a later assignment to the same signal and removes them.
     proc_rmdead [selection]
 
 This pass identifies unreachable branches in decision trees and removes them.
+\end{lstlisting}
+
+\section{proc\_rom -- convert switches to ROMs}
+\label{cmd:proc_rom}
+\begin{lstlisting}[numbers=left,frame=single]
+    proc_rom [selection]
+
+This pass converts switches into read-only memories when appropriate.
 \end{lstlisting}
 
 \section{qbfsat -- solve a 2QBF-SAT problem in the circuit}
@@ -4498,15 +4562,16 @@ described here.
     -unset <name>
         do not modify the current selection. instead remove a previously saved
         selection under the given name (see @<name> below).
+
     -assert-none
         do not modify the current selection. instead assert that the given
-        selection is empty. i.e. produce an error if any object matching the
-        selection is found.
+        selection is empty. i.e. produce an error if any object or module
+        matching the selection is found.
 
     -assert-any
         do not modify the current selection. instead assert that the given
-        selection is non-empty. i.e. produce an error if no object matching
-        the selection is found.
+        selection is non-empty. i.e. produce an error if no object or module
+        matching the selection is found.
 
     -assert-count N
         do not modify the current selection. instead assert that the given
@@ -5257,6 +5322,11 @@ on partly selected designs.
     -flowmap
         use FlowMap LUT techmapping instead of ABC
 
+    -no-rw-check
+        marks all recognized read ports as "return don't-care value on
+        read/write collision" (same result as setting the no_rw_check
+        attribute on all memories).
+
 
 The following commands are executed by this synthesis command:
 
@@ -5424,16 +5494,9 @@ The following commands are executed by this synthesis command:
     coarse:
         synth -run coarse
 
-    map_bram:    (skip if -nobram)
-        memory_bram -rules +/anlogic/brams.txt
-        techmap -map +/anlogic/brams_map.v
-        setundef -zero -params t:EG_PHY_BRAM
-        setundef -zero -params t:EG_PHY_BRAM32K
-
-    map_lutram:    (skip if -nolutram)
-        memory_bram -rules +/anlogic/lutrams.txt
-        techmap -map +/anlogic/lutrams_map.v
-        setundef -zero -params t:EG_LOGIC_DRAM16X4
+    map_ram:
+        memory_libmap -lib +/anlogic/lutrams.txt -lib +/anlogic/brams.txt [-no-auto-block] [-no-auto-distributed]    (-no-auto-block if -nobram, -no-auto-distributed if -nolutram)
+        techmap -map +/anlogic/lutrams_map.v -map +/anlogic/brams_map.v
 
     map_ffram:
         opt -fast -mux_undef -undriven -fine
@@ -5697,6 +5760,11 @@ This command runs synthesis for ECP5 FPGAs.
     -nodsp
         do not map multipliers to MULT18X18D
 
+    -no-rw-check
+        marks all recognized read ports as "return don't-care value on
+        read/write collision" (same result as setting the no_rw_check
+        attribute on all memories).
+
 
 The following commands are executed by this synthesis command:
 
@@ -5726,20 +5794,16 @@ The following commands are executed by this synthesis command:
         chtype -set $mul t:$__soft_mul    (unless -nodsp)
         alumacc
         opt
-        memory -nomap
+        memory -nomap [-no-rw-check]
         opt_clean
 
-    map_bram:    (skip if -nobram)
-        memory_bram -rules +/ecp5/brams.txt
-        techmap -map +/ecp5/brams_map.v
-
-    map_lutram:    (skip if -nolutram)
-        memory_bram -rules +/ecp5/lutrams.txt
-        techmap -map +/ecp5/lutrams_map.v
+    map_ram:
+        memory_libmap -lib +/ecp5/lutrams.txt -lib +/ecp5/brams.txt [-no-auto-block] [-no-auto-distributed]    (-no-auto-block if -nobram, -no-auto-distributed if -nolutram)
+        techmap -map +/ecp5/lutrams_map.v -map +/ecp5/brams_map.v
 
     map_ffram:
         opt -fast -mux_undef -undriven -fine
-        memory_map -iattr -attr !ram_block -attr !rom_block -attr logic_block -attr syn_ramstyle=auto -attr syn_ramstyle=registers -attr syn_romstyle=auto -attr syn_romstyle=logic
+        memory_map
         opt -undriven -fine
 
     map_gates:
@@ -5835,9 +5899,10 @@ The following commands are executed by this synthesis command:
 
     coarse:
         synth -run coarse
-        memory_bram -rules +/efinix/brams.txt
+
+    map_ram:
+        memory_libmap -lib +/efinix/brams.txt
         techmap -map +/efinix/brams_map.v
-        setundef -zero -params t:EFX_RAM_5K
 
     map_ffram:
         opt -fast -mux_undef -undriven -fine
@@ -5969,8 +6034,7 @@ The following commands are executed by this synthesis command:
         opt_clean
 
     map_bram:    (skip if '-nobram')
-        memory_bram -rules +/gatemate/brams.txt
-        setundef -zero -params t:$__CC_BRAM_CASCADE t:$__CC_BRAM_40K_SDP t:$__CC_BRAM_20K_SDP t:$__CC_BRAM_20K_TDP t:$__CC_BRAM_40K_TDP 
+        memory_libmap -lib +/gatemate/brams.txt
         techmap -map +/gatemate/brams_map.v
 
     map_ffram:
@@ -6076,6 +6140,11 @@ This command runs synthesis for Gowin FPGAs. This work is experimental.
     -abc9
         use new ABC9 flow (EXPERIMENTAL)
 
+    -no-rw-check
+        marks all recognized read ports as "return don't-care value on
+        read/write collision" (same result as setting the no_rw_check
+        attribute on all memories).
+
 
 The following commands are executed by this synthesis command:
 
@@ -6090,16 +6159,11 @@ The following commands are executed by this synthesis command:
         deminout
 
     coarse:
-        synth -run coarse
+        synth -run coarse [-no-rw-check]
 
-    map_bram:    (skip if -nobram)
-        memory_bram -rules +/gowin/brams.txt
-        techmap -map +/gowin/brams_map.v
-
-    map_lutram:    (skip if -nolutram)
-        memory_bram -rules +/gowin/lutrams.txt
-        techmap -map +/gowin/lutrams_map.v
-        setundef -params -zero t:RAM16S4
+    map_ram:
+        memory_libmap -lib +/gowin/lutrams.txt -lib +/gowin/brams.txt [-no-auto-block] [-no-auto-distributed]    (-no-auto-block if -nobram, -no-auto-distributed if -nolutram)
+        techmap -map +/gowin/lutrams_map.v -map +/gowin/brams_map.v
 
     map_ffram:
         opt -fast -mux_undef -undriven -fine
@@ -6283,6 +6347,9 @@ This command runs synthesis for iCE40 FPGAs.
     -nobram
         do not use SB_RAM40_4K* cells in output netlist
 
+    -spram
+        enable automatic inference of SB_SPRAM256KA
+
     -dsp
         use iCE40 UltraPlus DSP cells for large arithmetic
 
@@ -6301,6 +6368,11 @@ This command runs synthesis for iCE40 FPGAs.
 
     -flowmap
         use FlowMap LUT techmapping instead of abc (EXPERIMENTAL)
+
+    -no-rw-check
+        marks all recognized read ports as "return don't-care value on
+        read/write collision" (same result as setting the no_rw_check
+        attribute on all memories).
 
 
 The following commands are executed by this synthesis command:
@@ -6329,7 +6401,7 @@ The following commands are executed by this synthesis command:
         techmap -map +/cmp2lut.v -D LUT_WIDTH=4
         opt_expr
         opt_clean
-        memory_dff
+        memory_dff [-no-rw-check]
         wreduce t:$mul
         techmap -map +/mul2dsp.v -map +/ice40/dsp_map.v -D DSP_A_MAXWIDTH=16 -D DSP_B_MAXWIDTH=16 -D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2 -D DSP_Y_MINWIDTH=11 -D DSP_NAME=$__MUL16X16    (if -dsp)
         select a:mul2dsp                  (if -dsp)
@@ -6341,17 +6413,17 @@ The following commands are executed by this synthesis command:
         chtype -set $mul t:$__soft_mul    (if -dsp)
         alumacc
         opt
-        memory -nomap
+        memory -nomap [-no-rw-check]
         opt_clean
 
-    map_bram:    (skip if -nobram)
-        memory_bram -rules +/ice40/brams.txt
-        techmap -map +/ice40/brams_map.v
+    map_ram:
+        memory_libmap -lib +/ice40/brams.txt -lib +/ice40/spram.txt -no-auto-huge [-no-auto-huge] [-no-auto-block]    (-no-auto-huge unless -spram, -no-auto-block if -nobram)
+        techmap -map +/ice40/brams_map.v -map +/ice40/spram_map.v
         ice40_braminit
 
     map_ffram:
         opt -fast -mux_undef -undriven -fine
-        memory_map -iattr -attr !ram_block -attr !rom_block -attr logic_block -attr syn_ramstyle=auto -attr syn_ramstyle=registers -attr syn_romstyle=auto -attr syn_romstyle=logic
+        memory_map
         opt -undriven -fine
 
     map_gates:
@@ -6669,6 +6741,12 @@ This command runs synthesis for MachXO2 FPGAs.
         from label is synonymous to 'begin', and empty to label is
         synonymous to the end of the command list.
 
+    -nobram
+        do not use block RAM cells in output netlist
+
+    -nolutram
+        do not use LUT RAM cells in output netlist
+
     -noflatten
         do not flatten design before synthesis
 
@@ -6694,6 +6772,10 @@ The following commands are executed by this synthesis command:
 
     coarse:
         synth -run coarse
+
+    map_ram:
+        memory_libmap -lib +/machxo2/lutrams.txt -lib +/machxo2/brams.txt [-no-auto-block] [-no-auto-distributed]    (-no-auto-block if -nobram, -no-auto-distributed if -nolutram)
+        techmap -map +/machxo2/lutrams_map.v -map +/machxo2/brams_map.v
 
     fine:
         memory_map
@@ -6830,24 +6912,13 @@ The following commands are executed by this synthesis command:
         memory -nomap
         opt_clean
 
-    map_lram:    (skip if -nolram)
-        memory_bram -rules +/nexus/lrams.txt
-        setundef -zero -params t:$__NX_PDPSC512K
-        techmap -map +/nexus/lrams_map.v
-
-    map_bram:    (skip if -nobram)
-        memory_bram -rules +/nexus/brams.txt
-        setundef -zero -params t:$__NX_PDP16K
-        techmap -map +/nexus/brams_map.v
-
-    map_lutram:    (skip if -nolutram)
-        memory_bram -rules +/nexus/lutrams.txt
-        setundef -zero -params t:$__NEXUS_DPR16X4
-        techmap -map +/nexus/lutrams_map.v
+    map_ram:
+        memory_libmap -lib +/nexus/lutrams.txt -lib +/nexus/brams.txt -lib +/nexus/lrams.txt -no-auto-huge [-no-auto-block] [-no-auto-distributed]    (-no-auto-block if -nobram, -no-auto-distributed if -nolutram)
+        techmap -map +/nexus/lutrams_map.v -map +/nexus/brams_map.v -map +/nexus/lrams_map.v
 
     map_ffram:
         opt -fast -mux_undef -undriven -fine
-        memory_map -iattr -attr !ram_block -attr !rom_block -attr logic_block -attr syn_ramstyle=auto -attr syn_ramstyle=registers -attr syn_romstyle=auto -attr syn_romstyle=logic
+        memory_map
         opt -undriven -fine
 
     map_gates:
@@ -7238,17 +7309,10 @@ The following commands are executed by this synthesis command:
         memory -nomap
         opt_clean
 
-    map_uram:    (only if '-uram')
-        memory_bram -rules +/xilinx/{family}_urams.txt
-        techmap -map +/xilinx/{family}_urams_map.v
-
-    map_bram:    (skip if '-nobram')
-        memory_bram -rules +/xilinx/{family}_brams.txt
-        techmap -map +/xilinx/{family}_brams_map.v
-
-    map_lutram:    (skip if '-nolutram')
-        memory_bram -rules +/xilinx/lut[46]_lutrams.txt
-        techmap -map +/xilinx/lutrams_map.v
+    map_memory:
+        memory_libmap [...]
+        techmap -map +/xilinx/lutrams_<family>_map.v
+        techmap -map +/xilinx/brams_<family>_map.v
 
     map_ffram:
         opt -fast -full
@@ -7718,31 +7782,36 @@ Like -sv, but define FORMAL instead of SYNTHESIS.
 Load the specified VHDL files into Verific.
 
 
-    verific {-f|-F} [-vlog95|-vlog2k|-sv2005|-sv2009|-sv2012|-sv|-formal] <command-file>
+    verific {-f|-F} [-vlog95|-vlog2k|-sv2005|-sv2009|
+                     -sv2012|-sv|-formal] <command-file>
 
 Load and execute the specified command file.
 Override verilog parsing mode can be set.
 The macros YOSYS, SYNTHESIS/FORMAL, and VERIFIC are defined implicitly.
 
-Command file parser supports following commands:
-    +define    - defines macro
-    -u         - upper case all identifier (makes Verilog parser case insensitive)
-    -v         - register library name (file)
-    -y         - register library name (directory)
-    +incdir    - specify include dir
-    +libext    - specify library extension
-    +liborder  - add library in ordered list
-    +librescan - unresolved modules will be always searched starting with the first
-                 library specified by -y/-v options.
-    -f/-file   - nested -f option
-    -F         - nested -F option
+Command file parser supports following commands in file:
+    +define+<MACRO>=<VALUE> - defines macro
+    -u                      - upper case all identifier (makes Verilog parser
+                              case insensitive)
+    -v <filepath>           - register library name (file)
+    -y <filepath>           - register library name (directory)
+    +incdir+<filepath>      - specify include dir
+    +libext+<filepath>      - specify library extension
+    +liborder+<id>          - add library in ordered list
+    +librescan              - unresolved modules will be always searched
+                              starting with the first library specified
+                              by -y/-v options.
+    -f/-file <filepath>     - nested -f option
+    -F <filepath>           - nested -F option (relative path)
+    parse files:
+        <filepath>
+        +systemverilogext+<filepath>
+        +verilog1995ext+<filepath>
+        +verilog2001ext+<filepath>
 
-    parse mode:
+    analysis mode:
         -ams
-        +systemverilogext
         +v2k
-        +verilog1995ext
-        +verilog2001ext
         -sverilog
 
 
@@ -7879,8 +7948,8 @@ Application options:
         Parameter can also contain comma separated list of file locations.
 
     -blfile <file>
-        Do not run application on locations specified in file, they can represent filename
-        or filename and location in file.
+        Do not run application on locations specified in file, they can
+        represent filename or filename and location in file.
 
 Applications:
 

@@ -4,6 +4,16 @@ List of major changes and improvements between releases
 
 Yosys 0.17 .. Yosys 0.17-dev
 --------------------------
+ * New commands and options
+    - Added "memory_bmux2rom" - converts muxes to ROMs
+    - Added "memory_dff -no-rw-check"
+    - Added "opt_ffinv" - push inverters through FFs
+    - Added "proc_rom" - convert switches to ROMs
+    - Added "proc -norom" - will omit the proc_rom pass
+    - Added option "-no-rw-check" to synth passes
+    - Added "synth_ice40 -spram" automatic inference of SB_SPRAM256KA
+    - Added options "-nobram" and "-nolutram" to synth_machxo2 pass
+
  * Formal Verification
     - Fixed the signedness of $past's return value to be the same as the
       argument's instead of always unsigned.
