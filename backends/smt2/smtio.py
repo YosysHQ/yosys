@@ -123,6 +123,7 @@ class SmtIo:
         self.forall = False
         self.timeout = 0
         self.produce_models = True
+        self.recheck = False
         self.smt2cache = [list()]
         self.smt2_options = dict()
         self.p = None
@@ -192,11 +193,12 @@ class SmtIo:
             if self.timeout != 0:
                 self.popen_vargs.append('-T:%d' % self.timeout);
 
-        if self.solver == "cvc4":
+        if self.solver in ["cvc4", "cvc5"]:
+            self.recheck = True
             if self.noincr:
-                self.popen_vargs = ['cvc4', '--lang', 'smt2.6' if self.logic_dt else 'smt2'] + self.solver_opts
+                self.popen_vargs = [self.solver, '--lang', 'smt2.6' if self.logic_dt else 'smt2'] + self.solver_opts
             else:
-                self.popen_vargs = ['cvc4', '--incremental', '--lang', 'smt2.6' if self.logic_dt else 'smt2'] + self.solver_opts
+                self.popen_vargs = [self.solver, '--incremental', '--lang', 'smt2.6' if self.logic_dt else 'smt2'] + self.solver_opts
             if self.timeout != 0:
                 self.popen_vargs.append('--tlimit=%d000' % self.timeout);
 
@@ -407,6 +409,8 @@ class SmtIo:
             stmt = re.sub(r" *;.*", "", stmt)
             if stmt == "": return
 
+        recheck = None
+
         if unroll and self.unroll:
             stmt = self.unroll_buffer + stmt
             self.unroll_buffer = ""
@@ -417,6 +421,9 @@ class SmtIo:
                 return
 
             s = self.parse(stmt)
+
+            if self.recheck and s and s[0].startswith("get-"):
+                recheck = self.unroll_idcnt
 
             if self.debug_print:
                 print("-> %s" % s)
@@ -442,6 +449,9 @@ class SmtIo:
                         return
 
             stmt = self.unparse(self.unroll_stmt(s))
+
+            if recheck is not None and recheck != self.unroll_idcnt:
+                self.check_sat(["sat"])
 
             if stmt == "(push 1)":
                 self.unroll_stack.append((
