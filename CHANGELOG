@@ -30,6 +30,7 @@ Yosys 0.17 .. Yosys 0.17-dev
 
  * Verific support
     - Proper file location for readmem commands
+    - Added "-vlog-libext" option to specify search extension for libraries
 
 Yosys 0.16 .. Yosys 0.17
 --------------------------

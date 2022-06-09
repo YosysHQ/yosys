@@ -86,7 +86,7 @@ bool verific_import_pending;
 string verific_error_msg;
 int verific_sva_fsm_limit;
 
-vector<string> verific_incdirs, verific_libdirs;
+vector<string> verific_incdirs, verific_libdirs, verific_libexts;
 
 void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefile, const char *msg, va_list args)
 {
@@ -2323,6 +2323,7 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 	LineFile::DeleteAllLineFiles();
 	verific_incdirs.clear();
 	verific_libdirs.clear();
+	verific_libexts.clear();
 	verific_import_pending = false;
 
 	if (!verific_error_msg.empty())
@@ -2431,6 +2432,11 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("Add Verilog library directories. Verific will search in this directories to\n");
 		log("find undefined modules.\n");
+		log("\n");
+		log("\n");
+		log("    verific -vlog-libext <extension>..\n");
+		log("\n");
+		log("Add Verilog library extensions, used when searching in library directories.\n");
 		log("\n");
 		log("\n");
 		log("    verific -vlog-define <macro>[=<value>]..\n");
@@ -2716,6 +2722,12 @@ struct VerificPass : public Pass {
 			goto check_error;
 		}
 
+		if (GetSize(args) > argidx && args[argidx] == "-vlog-libext") {
+			for (argidx++; argidx < GetSize(args); argidx++)
+				verific_libexts.push_back(args[argidx]);
+			goto check_error;
+		}
+
 		if (GetSize(args) > argidx && args[argidx] == "-vlog-define") {
 			for (argidx++; argidx < GetSize(args); argidx++) {
 				string name = args[argidx];
@@ -2856,6 +2868,8 @@ struct VerificPass : public Pass {
 				veri_file::AddIncludeDir(dir.c_str());
 			for (auto &dir : verific_libdirs)
 				veri_file::AddYDir(dir.c_str());
+			for (auto &ext : verific_libexts)
+				veri_file::AddLibExt(ext.c_str());
 
 			while (argidx < GetSize(args))
 				file_names.Insert(args[argidx++].c_str());
@@ -3345,6 +3359,7 @@ struct VerificPass : public Pass {
 			LineFile::DeleteAllLineFiles();
 			verific_incdirs.clear();
 			verific_libdirs.clear();
+			verific_libexts.clear();
 			verific_import_pending = false;
 			goto check_error;
 		}
