@@ -64,6 +64,9 @@ struct FmcombineWorker
 		c->parameters = cell->parameters;
 		c->attributes = cell->attributes;
 
+		if (cell->is_mem_cell())
+			c->parameters[ID::MEMID] = cell->parameters[ID::MEMID].decode_string() + suffix;
+
 		for (auto &conn : cell->connections())
 			c->setPort(conn.first, import_sig(conn.second, suffix));
 
