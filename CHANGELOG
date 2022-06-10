@@ -4,6 +4,9 @@ List of major changes and improvements between releases
 
 Yosys 0.17 .. Yosys 0.17-dev
 --------------------------
+ * Various
+    - Migrated most flows to use memory_libmap based memory inference
+
  * New commands and options
     - Added "memory_libmap" pass
     - Added "memory_bmux2rom" pass - converts muxes to ROMs
