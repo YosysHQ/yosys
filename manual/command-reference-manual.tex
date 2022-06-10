@@ -7838,6 +7838,11 @@ Add Verilog library directories. Verific will search in this directories to
 find undefined modules.
 
 
+    verific -vlog-libext <extension>..
+
+Add Verilog library extensions, used when searching in library directories.
+
+
     verific -vlog-define <macro>[=<value>]..
 
 Add Verilog defines.
@@ -8056,6 +8061,9 @@ Options:
     -memx
         Do not change the width of memory address ports. Use this options in
         flows that use the 'memory_memx' pass.
+
+    -mux_undef
+        remove 'undef' inputs from $mux, $pmux and $_MUX_ cells
 
     -keepdc
         Do not optimize explicit don't-care values.
