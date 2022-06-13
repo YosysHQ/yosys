@@ -134,8 +134,8 @@ struct RenamePass : public Pass {
 		log("\n");
 		log("Assign auto-generated names based on the wires they drive to all selected\n");
 		log("cells with private names. Ignores cells driving privatly named wires.\n");
-		log("The -suffix option can be used to set a suffix to the renamed cells.\n");
-		log("The default suffix is the cell type.\n");
+		log("By default, the cell is named after the wire with the cell type as suffix.\n");
+		log("The -suffix option can be used to set the suffix to the given string instead.\n");
 		log("\n");
 		log("\n");
 		log("    rename -enumerate [-pattern <pattern>] [selection]\n");
