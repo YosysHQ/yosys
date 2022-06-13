@@ -1842,6 +1842,8 @@ void RTLIL::Module::check()
 			log_assert(!it2.first.empty());
 	}
 
+	pool<IdString> packed_memids;
+
 	for (auto &it : cells_) {
 		log_assert(this == it.second->module);
 		log_assert(it.first == it.second->name);
@@ -1857,6 +1859,14 @@ void RTLIL::Module::check()
 			log_assert(!it2.first.empty());
 		InternalCellChecker checker(this, it.second);
 		checker.check();
+		if (it.second->has_memid()) {
+			log_assert(memories.count(it.second->parameters.at(ID::MEMID).decode_string()));
+		} else if (it.second->is_mem_cell()) {
+			IdString memid = it.second->parameters.at(ID::MEMID).decode_string();
+			log_assert(!memories.count(memid));
+			log_assert(!packed_memids.count(memid));
+			packed_memids.insert(memid);
+		}
 	}
 
 	for (auto &it : processes) {
