@@ -53,6 +53,8 @@ struct Smt2Worker
 	std::map<int, int> bvsizes;
 	dict<IdString, char*> ids;
 
+	bool is_smtlib2_module;
+
 	const char *get_id(IdString n)
 	{
 		if (ids.count(n) == 0) {
@@ -112,9 +114,10 @@ struct Smt2Worker
 	}
 
 	Smt2Worker(RTLIL::Module *module, bool bvmode, bool memmode, bool wiresmode, bool verbose, bool statebv, bool statedt, bool forallmode,
-			dict<IdString, int> &mod_stbv_width, dict<IdString, dict<IdString, pair<bool, bool>>> &mod_clk_cache) :
-			ct(module->design), sigmap(module), module(module), bvmode(bvmode), memmode(memmode), wiresmode(wiresmode),
-			verbose(verbose), statebv(statebv), statedt(statedt), forallmode(forallmode), mod_stbv_width(mod_stbv_width)
+		   dict<IdString, int> &mod_stbv_width, dict<IdString, dict<IdString, pair<bool, bool>>> &mod_clk_cache)
+	    : ct(module->design), sigmap(module), module(module), bvmode(bvmode), memmode(memmode), wiresmode(wiresmode), verbose(verbose),
+	      statebv(statebv), statedt(statedt), forallmode(forallmode), mod_stbv_width(mod_stbv_width),
+	      is_smtlib2_module(module->has_attribute(ID::smtlib2_module))
 	{
 		pool<SigBit> noclock;
 
@@ -124,6 +127,9 @@ struct Smt2Worker
 		memories = Mem::get_all_memories(module);
 		for (auto &mem : memories)
 		{
+			if (is_smtlib2_module)
+				log_error("Memory %s.%s not allowed in module with smtlib2_module attribute", get_id(module), mem.memid.c_str());
+
 			mem.narrow();
 			mem_dict[mem.memid] = &mem;
 			for (auto &port : mem.wr_ports)
@@ -893,9 +899,24 @@ struct Smt2Worker
 				log_id(cell->type), log_id(module), log_id(cell));
 	}
 
+	void verify_smtlib2_module()
+	{
+		if (!module->get_blackbox_attribute())
+			log_error("Module %s with smtlib2_module attribute must also have blackbox attribute.\n", log_id(module));
+		if (module->cells().size() > 0)
+			log_error("Module %s with smtlib2_module attribute must not have any cells inside it.\n", log_id(module));
+		for (auto wire : module->wires())
+			if (!wire->port_id)
+				log_error("Wire %s.%s must be input or output since module has smtlib2_module attribute.\n", log_id(module),
+					  log_id(wire));
+	}
+
 	void run()
 	{
 		if (verbose) log("=> export logic driving outputs\n");
+
+		if (is_smtlib2_module)
+			verify_smtlib2_module();
 
 		pool<SigBit> reg_bits;
 		for (auto cell : module->cells())
@@ -905,11 +926,25 @@ struct Smt2Worker
 					reg_bits.insert(bit);
 			}
 
+		std::string smtlib2_inputs;
+		std::vector<std::string> smtlib2_decls;
+		if (is_smtlib2_module) {
+			for (auto wire : module->wires()) {
+				if (!wire->port_input)
+					continue;
+				smtlib2_inputs += stringf("(|%s| (|%s_n %s| state))\n", get_id(wire), get_id(module), get_id(wire));
+			}
+		}
+
 		for (auto wire : module->wires()) {
 			bool is_register = false;
 			for (auto bit : SigSpec(wire))
 				if (reg_bits.count(bit))
 					is_register = true;
+			bool is_smtlib2_comb_expr = wire->has_attribute(ID::smtlib2_comb_expr);
+			if (is_smtlib2_comb_expr && !is_smtlib2_module)
+				log_error("smtlib2_comb_expr is only valid in a module with the smtlib2_module attribute: wire %s.%s", log_id(module),
+					  log_id(wire));
 			if (wire->port_id || is_register || wire->get_bool_attribute(ID::keep) || (wiresmode && wire->name.isPublic())) {
 				RTLIL::SigSpec sig = sigmap(wire);
 				std::vector<std::string> comments;
@@ -924,11 +959,22 @@ struct Smt2Worker
 				if (GetSize(wire) == 1 && (clock_posedge.count(sig) || clock_negedge.count(sig)))
 					comments.push_back(stringf("; yosys-smt2-clock %s%s%s\n", get_id(wire),
 							clock_posedge.count(sig) ? " posedge" : "", clock_negedge.count(sig) ? " negedge" : ""));
+				std::string smtlib2_comb_expr;
+				if (is_smtlib2_comb_expr) {
+					smtlib2_comb_expr =
+					  "(let (\n" + smtlib2_inputs + ")\n" + wire->get_string_attribute(ID::smtlib2_comb_expr) + "\n)";
+					if (wire->port_input || !wire->port_output)
+						log_error("smtlib2_comb_expr is only valid on output: wire %s.%s", log_id(module), log_id(wire));
+					if (!bvmode && GetSize(sig) > 1)
+						log_error("smtlib2_comb_expr is unsupported on multi-bit wires when -nobv is specified: wire %s.%s",
+							  log_id(module), log_id(wire));
+				}
+				auto &out_decls = is_smtlib2_comb_expr ? smtlib2_decls : decls;
 				if (bvmode && GetSize(sig) > 1) {
-					std::string sig_bv = get_bv(sig);
+					std::string sig_bv = is_smtlib2_comb_expr ? smtlib2_comb_expr : get_bv(sig);
 					if (!comments.empty())
-						decls.insert(decls.end(), comments.begin(), comments.end());
-					decls.push_back(stringf("(define-fun |%s_n %s| ((state |%s_s|)) (_ BitVec %d) %s)\n",
+						out_decls.insert(out_decls.end(), comments.begin(), comments.end());
+					out_decls.push_back(stringf("(define-fun |%s_n %s| ((state |%s_s|)) (_ BitVec %d) %s)\n",
 							get_id(module), get_id(wire), get_id(module), GetSize(sig), sig_bv.c_str()));
 					if (wire->port_input)
 						ex_input_eq.push_back(stringf("  (= (|%s_n %s| state) (|%s_n %s| other_state))",
@@ -936,19 +982,19 @@ struct Smt2Worker
 				} else {
 					std::vector<std::string> sig_bool;
 					for (int i = 0; i < GetSize(sig); i++) {
-						sig_bool.push_back(get_bool(sig[i]));
+						sig_bool.push_back(is_smtlib2_comb_expr ? smtlib2_comb_expr : get_bool(sig[i]));
 					}
 					if (!comments.empty())
-						decls.insert(decls.end(), comments.begin(), comments.end());
+						out_decls.insert(out_decls.end(), comments.begin(), comments.end());
 					for (int i = 0; i < GetSize(sig); i++) {
 						if (GetSize(sig) > 1) {
-							decls.push_back(stringf("(define-fun |%s_n %s %d| ((state |%s_s|)) Bool %s)\n",
+							out_decls.push_back(stringf("(define-fun |%s_n %s %d| ((state |%s_s|)) Bool %s)\n",
 									get_id(module), get_id(wire), i, get_id(module), sig_bool[i].c_str()));
 							if (wire->port_input)
 								ex_input_eq.push_back(stringf("  (= (|%s_n %s %d| state) (|%s_n %s %d| other_state))",
 										get_id(module), get_id(wire), i, get_id(module), get_id(wire), i));
 						} else {
-							decls.push_back(stringf("(define-fun |%s_n %s| ((state |%s_s|)) Bool %s)\n",
+							out_decls.push_back(stringf("(define-fun |%s_n %s| ((state |%s_s|)) Bool %s)\n",
 									get_id(module), get_id(wire), get_id(module), sig_bool[i].c_str()));
 							if (wire->port_input)
 								ex_input_eq.push_back(stringf("  (= (|%s_n %s| state) (|%s_n %s| other_state))",
@@ -959,11 +1005,17 @@ struct Smt2Worker
 			}
 		}
 
+		decls.insert(decls.end(), smtlib2_decls.begin(), smtlib2_decls.end());
+
 		if (verbose) log("=> export logic associated with the initial state\n");
 
 		vector<string> init_list;
 		for (auto wire : module->wires())
 			if (wire->attributes.count(ID::init)) {
+				if (is_smtlib2_module)
+					log_error("init attribute not allowed on wires in module with smtlib2_module attribute: wire %s.%s",
+						  log_id(module), log_id(wire));
+
 				RTLIL::SigSpec sig = sigmap(wire);
 				Const val = wire->attributes.at(ID::init);
 				val.bits.resize(GetSize(sig), State::Sx);
@@ -1687,7 +1739,10 @@ struct Smt2Backend : public Backend {
 
 		for (auto module : sorted_modules)
 		{
-			if (module->get_blackbox_attribute() || module->has_processes_warn())
+			if (module->get_blackbox_attribute() && !module->has_attribute(ID::smtlib2_module))
+				continue;
+
+			if (module->has_processes_warn())
 				continue;
 
 			log("Creating SMT-LIBv2 representation of module %s.\n", log_id(module));

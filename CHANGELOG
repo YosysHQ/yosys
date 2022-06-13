@@ -2,8 +2,25 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.17 .. Yosys 0.17-dev
+Yosys 0.18 .. Yosys 0.18-dev
 --------------------------
+
+Yosys 0.17 .. Yosys 0.18
+--------------------------
+ * Various
+    - Migrated most flows to use memory_libmap based memory inference
+
+ * New commands and options
+    - Added "memory_libmap" pass
+    - Added "memory_bmux2rom" pass - converts muxes to ROMs
+    - Added "memory_dff -no-rw-check"
+    - Added "opt_ffinv" pass - push inverters through FFs
+    - Added "proc_rom" pass - convert switches to ROMs
+    - Added "proc -norom" option - will omit the proc_rom pass
+    - Added option "-no-rw-check" to synth passes
+    - Added "synth_ice40 -spram" option for automatic inference of SB_SPRAM256KA
+    - Added options "-nobram" and "-nolutram" to synth_machxo2 pass
+
  * Formal Verification
     - Fixed the signedness of $past's return value to be the same as the
       argument's instead of always unsigned.
@@ -16,6 +33,10 @@ Yosys 0.17 .. Yosys 0.17-dev
       querying functions
     - Fixed size and signedness computation of functions used in ternary
       expressions or case item expressions
+
+ * Verific support
+    - Proper file location for readmem commands
+    - Added "-vlog-libext" option to specify search extension for libraries
 
 Yosys 0.16 .. Yosys 0.17
 --------------------------

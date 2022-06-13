@@ -91,8 +91,8 @@ struct FsmData
 		if (reset_state < 0 || reset_state >= state_num)
 			reset_state = -1;
 
-		RTLIL::Const state_table = cell->parameters[ID::STATE_TABLE];
-		RTLIL::Const trans_table = cell->parameters[ID::TRANS_TABLE];
+		const RTLIL::Const &state_table = cell->parameters[ID::STATE_TABLE];
+		const RTLIL::Const &trans_table = cell->parameters[ID::TRANS_TABLE];
 
 		for (int i = 0; i < state_num; i++) {
 			RTLIL::Const state_code;

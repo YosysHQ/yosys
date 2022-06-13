@@ -204,7 +204,7 @@ RTLIL::Const::Const()
 	flags = RTLIL::CONST_FLAG_NONE;
 }
 
-RTLIL::Const::Const(std::string str)
+RTLIL::Const::Const(const std::string &str)
 {
 	flags = RTLIL::CONST_FLAG_STRING;
 	bits.reserve(str.size() * 8);
@@ -241,14 +241,6 @@ RTLIL::Const::Const(const std::vector<bool> &bits)
 	this->bits.reserve(bits.size());
 	for (const auto &b : bits)
 		this->bits.emplace_back(b ? State::S1 : State::S0);
-}
-
-RTLIL::Const::Const(const RTLIL::Const &c)
-{
-	flags = c.flags;
-	this->bits.reserve(c.size());
-	for (const auto &b : c.bits)
-		this->bits.push_back(b);
 }
 
 bool RTLIL::Const::operator <(const RTLIL::Const &other) const
@@ -1850,6 +1842,8 @@ void RTLIL::Module::check()
 			log_assert(!it2.first.empty());
 	}
 
+	pool<IdString> packed_memids;
+
 	for (auto &it : cells_) {
 		log_assert(this == it.second->module);
 		log_assert(it.first == it.second->name);
@@ -1865,6 +1859,14 @@ void RTLIL::Module::check()
 			log_assert(!it2.first.empty());
 		InternalCellChecker checker(this, it.second);
 		checker.check();
+		if (it.second->has_memid()) {
+			log_assert(memories.count(it.second->parameters.at(ID::MEMID).decode_string()));
+		} else if (it.second->is_mem_cell()) {
+			IdString memid = it.second->parameters.at(ID::MEMID).decode_string();
+			log_assert(!memories.count(memid));
+			log_assert(!packed_memids.count(memid));
+			packed_memids.insert(memid);
+		}
 	}
 
 	for (auto &it : processes) {

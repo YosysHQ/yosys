@@ -103,6 +103,11 @@ struct SynthEcp5Pass : public ScriptPass
 		log("    -nodsp\n");
 		log("        do not map multipliers to MULT18X18D\n");
 		log("\n");
+		log("    -no-rw-check\n");
+		log("        marks all recognized read ports as \"return don't-care value on\n");
+		log("        read/write collision\" (same result as setting the no_rw_check\n");
+		log("        attribute on all memories).\n");
+		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
@@ -110,7 +115,7 @@ struct SynthEcp5Pass : public ScriptPass
 	}
 
 	string top_opt, blif_file, edif_file, json_file;
-	bool noccu2, nodffe, nobram, nolutram, nowidelut, asyncprld, flatten, dff, retime, abc2, abc9, nodsp, vpr;
+	bool noccu2, nodffe, nobram, nolutram, nowidelut, asyncprld, flatten, dff, retime, abc2, abc9, nodsp, vpr, no_rw_check;
 
 	void clear_flags() override
 	{
@@ -131,6 +136,7 @@ struct SynthEcp5Pass : public ScriptPass
 		vpr = false;
 		abc9 = false;
 		nodsp = false;
+		no_rw_check = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -221,6 +227,10 @@ struct SynthEcp5Pass : public ScriptPass
 				nodsp = true;
 				continue;
 			}
+			if (args[argidx] == "-no-rw-check") {
+				no_rw_check = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -241,6 +251,12 @@ struct SynthEcp5Pass : public ScriptPass
 
 	void script() override
 	{
+		std::string no_rw_check_opt = "";
+		if (no_rw_check)
+			no_rw_check_opt = " -no-rw-check";
+		if (help_mode)
+			no_rw_check_opt = " [-no-rw-check]";
+
 		if (check_label("begin"))
 		{
 			run("read_verilog -lib -specify +/ecp5/cells_sim.v +/ecp5/cells_bb.v");
@@ -273,7 +289,7 @@ struct SynthEcp5Pass : public ScriptPass
 			}
 			run("alumacc");
 			run("opt");
-			run("memory -nomap");
+			run("memory -nomap" + no_rw_check_opt);
 			run("opt_clean");
 		}
 

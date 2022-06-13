@@ -220,8 +220,9 @@ struct MemoryDffWorker
 	ModWalker modwalker;
 	FfInitVals initvals;
 	FfMergeHelper merger;
+	bool flag_no_rw_check;
 
-	MemoryDffWorker(Module *module) : module(module), modwalker(module->design)
+	MemoryDffWorker(Module *module, bool flag_no_rw_check) : module(module), modwalker(module->design), flag_no_rw_check(flag_no_rw_check)
 	{
 		modwalker.setup(module);
 		initvals.set(&modwalker.sigmap, module);
@@ -357,6 +358,14 @@ struct MemoryDffWorker
 			return;
 		}
 
+		// Check for no_rw_check
+		bool no_rw_check = flag_no_rw_check || mem.get_bool_attribute(ID::no_rw_check);
+		for (auto attr: {ID::ram_block, ID::rom_block, ID::ram_style, ID::rom_style, ID::ramstyle, ID::romstyle, ID::syn_ramstyle, ID::syn_romstyle}) {
+			if (mem.get_string_attribute(attr) == "no_rw_check") {
+				no_rw_check = true;
+			}
+		}
+
 		// Construct cache.
 		MemQueryCache cache(qcsat, mem, port, ff);
 
@@ -392,6 +401,8 @@ struct MemoryDffWorker
 						pd.uncollidable_mask[j] = true;
 						pd.collision_x_mask[j] = true;
 					}
+					if (no_rw_check)
+						pd.collision_x_mask[j] = true;
 				}
 			}
 			portdata.push_back(pd);
@@ -618,25 +629,35 @@ struct MemoryDffPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    memory_dff [options] [selection]\n");
+		log("    memory_dff [-no-rw-check] [selection]\n");
 		log("\n");
 		log("This pass detects DFFs at memory read ports and merges them into the memory port.\n");
 		log("I.e. it consumes an asynchronous memory port and the flip-flops at its\n");
 		log("interface and yields a synchronous memory port.\n");
 		log("\n");
+		log("    -no-rw-check\n");
+		log("        marks all recognized read ports as \"return don't-care value on\n");
+		log("        read/write collision\" (same result as setting the no_rw_check\n");
+		log("        attribute on all memories).\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		bool flag_no_rw_check = false;
 		log_header(design, "Executing MEMORY_DFF pass (merging $dff cells to $memrd).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-no-rw-check") {
+				flag_no_rw_check = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		for (auto mod : design->selected_modules()) {
-			MemoryDffWorker worker(mod);
+			MemoryDffWorker worker(mod, flag_no_rw_check);
 			worker.run();
 		}
 	}

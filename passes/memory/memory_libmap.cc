@@ -443,6 +443,9 @@ void MemMapping::determine_style() {
 			std::string val_s = val.decode_string();
 			for (auto &c: val_s)
 				c = std::tolower(c);
+			// Handled in memory_dff.
+			if (val_s == "no_rw_check")
+				continue;
 			if (val_s == "auto") {
 				// Nothing.
 			} else if (val_s == "logic" || val_s == "registers") {

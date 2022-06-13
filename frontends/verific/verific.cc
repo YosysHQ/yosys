@@ -53,6 +53,9 @@ USING_YOSYS_NAMESPACE
 #include "VhdlUnits.h"
 #endif
 
+#include "VerificStream.h"
+#include "FileSystem.h"
+
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 #include "InitialAssertions.h"
 #endif
@@ -83,7 +86,7 @@ bool verific_import_pending;
 string verific_error_msg;
 int verific_sva_fsm_limit;
 
-vector<string> verific_incdirs, verific_libdirs;
+vector<string> verific_incdirs, verific_libdirs, verific_libexts;
 
 void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefile, const char *msg, va_list args)
 {
@@ -117,6 +120,34 @@ string get_full_netlist_name(Netlist *nl)
 
 	return nl->CellBaseName();
 }
+
+class YosysStreamCallBackHandler : public VerificStreamCallBackHandler
+{
+public:
+    YosysStreamCallBackHandler() : VerificStreamCallBackHandler() { }
+    virtual ~YosysStreamCallBackHandler() { }
+
+    virtual verific_stream *GetSysCallStream(const char *file_path)
+    {
+        if (!file_path) return nullptr;
+
+        linefile_type src_loc = GetFromLocation();
+
+        char *this_file_name = nullptr;
+        if (src_loc && !FileSystem::IsAbsolutePath(file_path)) {
+            const char *src_file_name = LineFile::GetFileName(src_loc);
+            char *dir_name = FileSystem::DirectoryPath(src_file_name);
+            if (dir_name) {
+                this_file_name = Strings::save(dir_name, "/", file_path);
+                Strings::free(dir_name);
+                file_path = this_file_name;
+            }
+        }
+        verific_stream *strm = new verific_ifstream(file_path);
+        Strings::free(this_file_name);
+        return strm;
+    }
+};
 
 // ==================================================================
 
@@ -2292,6 +2323,7 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 	LineFile::DeleteAllLineFiles();
 	verific_incdirs.clear();
 	verific_libdirs.clear();
+	verific_libexts.clear();
 	verific_import_pending = false;
 
 	if (!verific_error_msg.empty())
@@ -2402,6 +2434,11 @@ struct VerificPass : public Pass {
 		log("find undefined modules.\n");
 		log("\n");
 		log("\n");
+		log("    verific -vlog-libext <extension>..\n");
+		log("\n");
+		log("Add Verilog library extensions, used when searching in library directories.\n");
+		log("\n");
+		log("\n");
 		log("    verific -vlog-define <macro>[=<value>]..\n");
 		log("\n");
 		log("Add Verilog defines.\n");
@@ -2495,61 +2532,6 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("  -vhdl\n");
 		log("    Save output for VHDL design units.\n");
-		log("\n");
-		log("\n");
-		log("    verific -app <application>..\n");
-		log("\n");
-		log("Execute YosysHQ formal application on loaded Verilog files.\n");
-		log("\n");
-		log("Application options:\n");
-		log("\n");
-		log("    -module <module>\n");
-		log("        Run formal application only on specified module.\n");
-		log("\n");
-		log("    -blacklist <filename[:lineno]>\n");
-		log("        Do not run application on modules from files that match the filename\n");
-		log("        or filename and line number if provided in such format.\n");
-		log("        Parameter can also contain comma separated list of file locations.\n");
-		log("\n");
-		log("    -blfile <file>\n");
-		log("        Do not run application on locations specified in file, they can\n");
-		log("        represent filename or filename and location in file.\n");
-		log("\n");
-		log("Applications:\n");
-		log("\n");
-#if defined(YOSYS_ENABLE_VERIFIC) && defined(YOSYSHQ_VERIFIC_FORMALAPPS)
-		VerificFormalApplications vfa;
-		log("%s\n",vfa.GetHelp().c_str());
-#else
-		log("  WARNING: Applications only available in commercial build.\n");
-
-#endif
-		log("\n");
-		log("\n");
-		log("    verific -template <name> <top_module>..\n");
-		log("\n");
-		log("Generate template for specified top module of loaded design.\n");
-		log("\n");
-		log("Template options:\n");
-		log("\n");
-		log("  -out\n");
-		log("    Specifies output file for generated template, by default output is stdout\n");
-		log("\n");
-		log("  -chparam name value \n");
-		log("    Generate template using this parameter value. Otherwise default parameter\n");
-		log("    values will be used for templat generate functionality. This option\n");
-		log("    can be specified multiple times to override multiple parameters.\n");
-		log("    String values must be passed in double quotes (\").\n");
-		log("\n");
-		log("Templates:\n");
-		log("\n");
-#if defined(YOSYS_ENABLE_VERIFIC) && defined(YOSYSHQ_VERIFIC_TEMPLATES)
-		VerificTemplateGenerator vfg;
-		log("%s\n",vfg.GetHelp().c_str());
-#else
-		log("  WARNING: Templates only available in commercial build.\n");
-		log("\n");
-#endif
 		log("\n");
 		log("\n");
 		log("    verific -cfg [<name> [<value>]]\n");
@@ -2648,6 +2630,8 @@ struct VerificPass : public Pass {
 
 		int argidx = 1;
 		std::string work = "work";
+		YosysStreamCallBackHandler cb;
+		veri_file::RegisterCallBackVerificStream(&cb);
 
 		if (GetSize(args) > argidx && (args[argidx] == "-set-error" || args[argidx] == "-set-warning" ||
 				args[argidx] == "-set-info" || args[argidx] == "-set-ignore"))
@@ -2680,6 +2664,12 @@ struct VerificPass : public Pass {
 		if (GetSize(args) > argidx && args[argidx] == "-vlog-libdir") {
 			for (argidx++; argidx < GetSize(args); argidx++)
 				verific_libdirs.push_back(args[argidx]);
+			goto check_error;
+		}
+
+		if (GetSize(args) > argidx && args[argidx] == "-vlog-libext") {
+			for (argidx++; argidx < GetSize(args); argidx++)
+				verific_libexts.push_back(args[argidx]);
 			goto check_error;
 		}
 
@@ -2823,6 +2813,8 @@ struct VerificPass : public Pass {
 				veri_file::AddIncludeDir(dir.c_str());
 			for (auto &dir : verific_libdirs)
 				veri_file::AddYDir(dir.c_str());
+			for (auto &ext : verific_libexts)
+				veri_file::AddLibExt(ext.c_str());
 
 			while (argidx < GetSize(args))
 				file_names.Insert(args[argidx++].c_str());
@@ -2874,101 +2866,6 @@ struct VerificPass : public Pass {
 		}
 #endif
 
-#ifdef YOSYSHQ_VERIFIC_FORMALAPPS
-		if (argidx < GetSize(args) && args[argidx] == "-app")
-		{
-			if (!(argidx+1 < GetSize(args)))
-				cmd_error(args, argidx, "No formal application specified.\n");
-
-			VerificFormalApplications vfa;
-			auto apps = vfa.GetApps();
-			std::string app = args[++argidx];
-			std::vector<std::string> blacklists;
-			if (apps.find(app) == apps.end())
-				log_cmd_error("Application '%s' does not exist.\n", app.c_str());
-
-			FormalApplication *application = apps[app];
-			application->setLogger([](std::string msg) { log("%s",msg.c_str()); } );
-			VeriModule *selected_module = nullptr;
-
-			for (argidx++; argidx < GetSize(args); argidx++) {
-				std::string error;
-				if (application->checkParams(args, argidx, error)) {
-					if (!error.empty())
-						cmd_error(args, argidx, error);
-					continue;
-				}
-
-				if (args[argidx] == "-module" && argidx < GetSize(args)) {
-					if (!(argidx+1 < GetSize(args)))
-						cmd_error(args, argidx+1, "No module name specified.\n");
-					std::string module = args[++argidx];
-					VeriLibrary* veri_lib = veri_file::GetLibrary(work.c_str(), 1);
-					selected_module = veri_lib ? veri_lib->GetModule(module.c_str(), 1) : nullptr;
-					if (!selected_module) {
-						log_error("Can't find module '%s'.\n", module.c_str());
-					}
-					continue;
-				}
-				if (args[argidx] == "-blacklist" && argidx < GetSize(args)) {
-					if (!(argidx+1 < GetSize(args)))
-						cmd_error(args, argidx+1, "No blacklist specified.\n");
-
-					std::string line = args[++argidx];
-					std::string p;
-					while (!(p = next_token(line, ",\t\r\n ")).empty())
-						blacklists.push_back(p);
-					continue;
-				}
-				if (args[argidx] == "-blfile" && argidx < GetSize(args)) {
-					if (!(argidx+1 < GetSize(args)))
-						cmd_error(args, argidx+1, "No blacklist file specified.\n");
-					std::string fn = args[++argidx];
-					std::ifstream f(fn);
-					if (f.fail())
-						log_cmd_error("Can't open blacklist file '%s'!\n", fn.c_str());
-
-					std::string line,p;
-					while (std::getline(f, line)) {
-						while (!(p = next_token(line, ",\t\r\n ")).empty())
-							blacklists.push_back(p);
-					}
-					continue;
-				}
-				break;
-			}
-			if (argidx < GetSize(args))
-				cmd_error(args, argidx, "unknown option/parameter");
-
-			application->setBlacklists(&blacklists);
-			application->setSingleModuleMode(selected_module!=nullptr);
-
-			const char *err = application->validate();
-			if (err)
-				cmd_error(args, argidx, err);
-
-			MapIter mi;
-			VeriLibrary *veri_lib = veri_file::GetLibrary(work.c_str(), 1);
-			log("Running formal application '%s'.\n", app.c_str());
-
-			if (selected_module) {
-				std::string out;
-				if (!application->execute(selected_module, out))
-					log_error("%s", out.c_str());
-			}
-			else {
-				VeriModule *module ;
-				FOREACH_VERILOG_MODULE_IN_LIBRARY(veri_lib, mi, module) {
-					std::string out;
-					if (!application->execute(module, out)) {
-						log_error("%s", out.c_str());
-						break;
-					}
-				}
-			}
-			goto check_error;
-		}
-#endif
 		if (argidx < GetSize(args) && args[argidx] == "-pp")
 		{
 			const char* filename = nullptr;
@@ -3017,91 +2914,6 @@ struct VerificPass : public Pass {
 			goto check_error;
 		}
 
-#ifdef YOSYSHQ_VERIFIC_TEMPLATES
-		if (argidx < GetSize(args) && args[argidx] == "-template")
-		{
-			if (!(argidx+1 < GetSize(args)))
-				cmd_error(args, argidx+1, "No template type specified.\n");
-
-			VerificTemplateGenerator vfg;
-			auto gens = vfg.GetGenerators();
-			std::string app = args[++argidx];
-			if (gens.find(app) == gens.end())
-				log_cmd_error("Template generator '%s' does not exist.\n", app.c_str());
-			TemplateGenerator *generator = gens[app];
-			if (!(argidx+1 < GetSize(args)))
-				cmd_error(args, argidx+1, "No top module specified.\n");
-			generator->setLogger([](std::string msg) { log("%s",msg.c_str()); } );
-
-			std::string module = args[++argidx];
-			VeriLibrary* veri_lib = veri_file::GetLibrary(work.c_str(), 1);
-			VeriModule *veri_module = veri_lib ? veri_lib->GetModule(module.c_str(), 1) : nullptr;
-			if (!veri_module) {
-				log_error("Can't find module/unit '%s'.\n", module.c_str());
-			}
-
-			log("Template '%s' is running for module '%s'.\n", app.c_str(),module.c_str());
-
-			Map parameters(STRING_HASH);
-			const char *out_filename = nullptr;
-
-			for (argidx++; argidx < GetSize(args); argidx++) {
-				std::string error;
-				if (generator->checkParams(args, argidx, error)) {
-					if (!error.empty())
-						cmd_error(args, argidx, error);
-					continue;
-				}
-
-				if (args[argidx] == "-chparam"  && argidx < GetSize(args)) {
-					if (!(argidx+1 < GetSize(args)))
-						cmd_error(args, argidx+1, "No param name specified.\n");
-					if (!(argidx+2 < GetSize(args)))
-						cmd_error(args, argidx+2, "No param value specified.\n");
-
-					const std::string &key = args[++argidx];
-					const std::string &value = args[++argidx];
-					unsigned new_insertion = parameters.Insert(key.c_str(), value.c_str(),
-									           1 /* force_overwrite */);
-					if (!new_insertion)
-						log_warning_noprefix("-chparam %s already specified: overwriting.\n", key.c_str());
-					continue;
-				}
-
-				if (args[argidx] == "-out" && argidx < GetSize(args)) {
-					if (!(argidx+1 < GetSize(args)))
-						cmd_error(args, argidx+1, "No output file specified.\n");
-					out_filename = args[++argidx].c_str();
-					continue;
-				}
-
-				break;
-			}
-			if (argidx < GetSize(args))
-				cmd_error(args, argidx, "unknown option/parameter");
-
-			const char *err = generator->validate();
-			if (err)
-				cmd_error(args, argidx, err);
-
-			std::string val;
-			if (!generator->generate(veri_module, val, &parameters))
-				log_error("%s", val.c_str());
-
-			FILE *of = stdout;
-			if (out_filename) {
-				of = fopen(out_filename, "w");
-				if (of == nullptr)
-					log_error("Can't open '%s' for writing: %s\n", out_filename, strerror(errno));
-				log("Writing output to '%s'\n",out_filename);
-			}
-			fprintf(of, "%s\n",val.c_str());
-			fflush(of);
-			if (of!=stdout)
-				fclose(of);
-			goto check_error;
-		}
-#endif
 		if (GetSize(args) > argidx && args[argidx] == "-import")
 		{
 			std::map<std::string,Netlist*> nl_todo, nl_done;
@@ -3312,6 +3124,7 @@ struct VerificPass : public Pass {
 			LineFile::DeleteAllLineFiles();
 			verific_incdirs.clear();
 			verific_libdirs.clear();
+			verific_libexts.clear();
 			verific_import_pending = false;
 			goto check_error;
 		}

@@ -191,7 +191,12 @@ struct ShowWorker
 
 		std::string str;
 		for (char ch : id) {
-			if (ch == '\\' || ch == '"')
+			if (ch == '\\') {
+				 // new graphviz have bug with escaping '\'
+				str += "&#9586;";
+				continue;
+			}
+			if (ch == '"')
 				str += "\\";
 			str += ch;
 		}

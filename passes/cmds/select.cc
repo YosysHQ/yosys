@@ -1456,7 +1456,10 @@ struct SelectPass : public Pass {
 				}
 			}
 			if (count_mode)
+			{
+				design->scratchpad_set_int("select.count", total_count);
 				log("%d objects.\n", total_count);
+			}
 			if (f != nullptr)
 				fclose(f);
 		#undef LOG_OBJECT

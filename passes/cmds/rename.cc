@@ -66,7 +66,7 @@ static std::string derive_name_from_src(const std::string &src, int counter)
 		return stringf("\\%s$%d", src_base.c_str(), counter);
 }
 
-static IdString derive_name_from_cell_output_wire(const RTLIL::Cell *cell)
+static IdString derive_name_from_cell_output_wire(const RTLIL::Cell *cell, string suffix)
 {
 	// Find output
 	const SigSpec *output = nullptr;
@@ -99,7 +99,10 @@ static IdString derive_name_from_cell_output_wire(const RTLIL::Cell *cell)
 		}
 	}
 
-	return name + cell->type.str();
+	if (suffix.empty()) {
+		suffix = cell->type.str();
+	}
+	return name + suffix;
 }
 
 struct RenamePass : public Pass {
@@ -127,10 +130,12 @@ struct RenamePass : public Pass {
 		log("cells with private names.\n");
 		log("\n");
 		log("\n");
-		log("    rename -wire [selection]\n");
+		log("    rename -wire [selection] [-suffix <suffix>]\n");
 		log("\n");
 		log("Assign auto-generated names based on the wires they drive to all selected\n");
 		log("cells with private names. Ignores cells driving privatly named wires.\n");
+		log("By default, the cell is named after the wire with the cell type as suffix.\n");
+		log("The -suffix option can be used to set the suffix to the given string instead.\n");
 		log("\n");
 		log("\n");
 		log("    rename -enumerate [-pattern <pattern>] [selection]\n");
@@ -155,6 +160,7 @@ struct RenamePass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::string pattern_prefix = "_", pattern_suffix = "_";
+		std::string cell_suffix = "";
 		bool flag_src = false;
 		bool flag_wire = false;
 		bool flag_enumerate = false;
@@ -203,6 +209,9 @@ struct RenamePass : public Pass {
 				pattern_suffix = args[argidx].substr(pos+1);
 				continue;
 			}
+			if (arg == "-suffix" && argidx + 1 < args.size()) {
+				cell_suffix = args[++argidx];
+			}
 			break;
 		}
 
@@ -240,7 +249,7 @@ struct RenamePass : public Pass {
 				dict<RTLIL::Cell *, IdString> new_cell_names;
 				for (auto cell : module->selected_cells())
 					if (cell->name[0] == '$')
-						new_cell_names[cell] = derive_name_from_cell_output_wire(cell);
+						new_cell_names[cell] = derive_name_from_cell_output_wire(cell, cell_suffix);
 				for (auto &it : new_cell_names)
 					module->rename(it.first, it.second);
 			}

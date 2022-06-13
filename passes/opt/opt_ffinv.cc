@@ -72,6 +72,8 @@ struct OptFfInvWorker
 		for (auto &port: q_ports) {
 			if (port.cell == ff.cell && port.port == ID::Q)
 				continue;
+			if (port.cell == d_inv)
+				return false;
 			if (port.port != ID::A)
 				return false;
 			if (!port.cell->type.in(ID($not), ID($_NOT_), ID($lut)))
@@ -148,6 +150,8 @@ struct OptFfInvWorker
 		for (auto &port: q_ports) {
 			if (port.cell == ff.cell && port.port == ID::Q)
 				continue;
+			if (port.cell == d_lut)
+				return false;
 			if (port.port != ID::A)
 				return false;
 			if (port.cell->type.in(ID($not), ID($_NOT_))) {
@@ -197,10 +201,13 @@ struct OptFfInvWorker
 	{
 		log("Discovering LUTs.\n");
 
-		for (Cell *cell : module->selected_cells()) {
-			if (!RTLIL::builtin_ff_cell_types().count(cell->type))
-				continue;
+		std::vector<Cell *> ffs;
 
+		for (Cell *cell : module->selected_cells())
+			if (RTLIL::builtin_ff_cell_types().count(cell->type))
+				ffs.push_back(cell);
+
+		for (Cell *cell : ffs) {
 			FfData ff(&initvals, cell);
 			if (ff.has_sr)
 				continue;
