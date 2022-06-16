@@ -837,7 +837,7 @@ void MemMapping::handle_priority() {
 			if (!port2.priority_mask[p1idx])
 				continue;
 			for (auto &cfg: cfgs) {
-				auto &p1cfg = cfg.rd_ports[p1idx];
+				auto &p1cfg = cfg.wr_ports[p1idx];
 				auto &p2cfg = cfg.wr_ports[p2idx];
 				bool found = false;
 				for (auto &pgi: p2cfg.def->wrprio) {
