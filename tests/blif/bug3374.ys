@@ -1,0 +1,3 @@
+read_blif <<EOF
+.model
+EOF
