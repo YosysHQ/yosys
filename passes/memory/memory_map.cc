@@ -30,6 +30,7 @@ PRIVATE_NAMESPACE_BEGIN
 struct MemoryMapWorker
 {
 	bool attr_icase = false;
+	bool rom_only = false;
 	dict<RTLIL::IdString, std::vector<RTLIL::Const>> attributes;
 
 	RTLIL::Design *design;
@@ -107,11 +108,8 @@ struct MemoryMapWorker
 
 		SigSpec init_data = mem.get_init_data();
 
-		// delete unused memory cell
-		if (mem.rd_ports.empty()) {
-			mem.remove();
+		if (!mem.wr_ports.empty() && rom_only)
 			return;
-		}
 
 		// check if attributes allow us to infer FFRAM for this memory
 		for (const auto &attr : attributes) {
@@ -141,6 +139,12 @@ struct MemoryMapWorker
 					return;
 				}
 			}
+		}
+
+		// delete unused memory cell
+		if (mem.rd_ports.empty()) {
+			mem.remove();
+			return;
 		}
 
 		// all write ports must share the same clock
@@ -373,10 +377,14 @@ struct MemoryMapPass : public Pass {
 		log("    -iattr\n");
 		log("        for -attr, ignore case of <value>.\n");
 		log("\n");
+		log("    -rom-only\n");
+		log("        only perform conversion for ROMs (memories with no write ports).\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool attr_icase = false;
+		bool rom_only = false;
 		dict<RTLIL::IdString, std::vector<RTLIL::Const>> attributes;
 
 		log_header(design, "Executing MEMORY_MAP pass (converting memories to logic and flip-flops).\n");
@@ -413,6 +421,11 @@ struct MemoryMapPass : public Pass {
 				attr_icase = true;
 				continue;
 			}
+			if (args[argidx] == "-rom-only")
+			{
+				rom_only = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -421,6 +434,7 @@ struct MemoryMapPass : public Pass {
 			MemoryMapWorker worker(design, mod);
 			worker.attr_icase = attr_icase;
 			worker.attributes = attributes;
+			worker.rom_only = rom_only;
 			worker.run();
 		}
 	}
