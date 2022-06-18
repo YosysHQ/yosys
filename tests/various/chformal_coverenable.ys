@@ -15,11 +15,11 @@ prep -top top
 
 select -assert-count 1 t:$cover
 
-chformal -cover -coverprecond
+chformal -cover -coverenable
 select -assert-count 2 t:$cover
 
-chformal -assert -coverprecond
+chformal -assert -coverenable
 select -assert-count 4 t:$cover
 
-chformal -assume -coverprecond
+chformal -assume -coverenable
 select -assert-count 5 t:$cover
