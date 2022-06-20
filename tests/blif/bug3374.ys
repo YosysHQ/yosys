@@ -1,3 +1,4 @@
+logger -expect error "Syntax error in line 1!" 1
 read_blif <<EOF
 .model
 EOF
