@@ -58,6 +58,9 @@ USING_YOSYS_NAMESPACE
 
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 #include "InitialAssertions.h"
+#include "VerificBasePass.h"
+#include "TemplateGenerator.h"
+#include "FormalApplication.h"
 #endif
 
 #ifndef YOSYSHQ_VERIFIC_API_VERSION
@@ -148,6 +151,8 @@ public:
         return strm;
     }
 };
+
+static YosysStreamCallBackHandler stream_cb;
 
 // ==================================================================
 
@@ -2345,6 +2350,64 @@ bool check_noverific_env()
 		return false;
 	return true;
 }
+
+void set_verific_global_flags()
+{
+	static bool g_set_verific_global_flags = true;
+
+	if (g_set_verific_global_flags)
+	{
+		Message::SetConsoleOutput(0);
+		Message::RegisterCallBackMsg(msg_func);
+
+		RuntimeFlags::SetVar("db_preserve_user_instances", 1);
+		RuntimeFlags::SetVar("db_preserve_user_nets", 1);
+		RuntimeFlags::SetVar("db_preserve_x", 1);
+
+		RuntimeFlags::SetVar("db_allow_external_nets", 1);
+		RuntimeFlags::SetVar("db_infer_wide_operators", 1);
+		RuntimeFlags::SetVar("db_infer_set_reset_registers", 0);
+
+		RuntimeFlags::SetVar("veri_extract_dualport_rams", 0);
+		RuntimeFlags::SetVar("veri_extract_multiport_rams", 1);
+		RuntimeFlags::SetVar("veri_allow_any_ram_in_loop", 1);
+
+#ifdef VERIFIC_VHDL_SUPPORT
+		RuntimeFlags::SetVar("vhdl_extract_dualport_rams", 0);
+		RuntimeFlags::SetVar("vhdl_extract_multiport_rams", 1);
+		RuntimeFlags::SetVar("vhdl_allow_any_ram_in_loop", 1);
+
+		RuntimeFlags::SetVar("vhdl_support_variable_slice", 1);
+		RuntimeFlags::SetVar("vhdl_ignore_assertion_statements", 0);
+
+		RuntimeFlags::SetVar("vhdl_preserve_assignments", 1);
+		//RuntimeFlags::SetVar("vhdl_preserve_comments", 1);
+		RuntimeFlags::SetVar("vhdl_preserve_drivers", 1);
+#endif
+		RuntimeFlags::SetVar("veri_preserve_assignments", 1);
+		RuntimeFlags::SetVar("veri_preserve_comments", 1);
+		RuntimeFlags::SetVar("veri_preserve_drivers", 1);
+
+		// Workaround for VIPER #13851
+		RuntimeFlags::SetVar("veri_create_name_for_unnamed_gen_block", 1);
+
+		// WARNING: instantiating unknown module 'XYZ' (VERI-1063)
+		Message::SetMessageType("VERI-1063", VERIFIC_ERROR);
+
+		// https://github.com/YosysHQ/yosys/issues/1055
+		RuntimeFlags::SetVar("veri_elaborate_top_level_modules_having_interface_ports", 1) ;
+
+		RuntimeFlags::SetVar("verific_produce_verbose_syntax_error_message", 1);
+
+#ifndef DB_PRESERVE_INITIAL_VALUE
+#  warning Verific was built without DB_PRESERVE_INITIAL_VALUE.
+#endif
+
+		veri_file::RegisterCallBackVerificStream(&stream_cb);
+
+		g_set_verific_global_flags = false;
+	}
+}
 #endif
 
 struct VerificPass : public Pass {
@@ -2549,8 +2612,6 @@ struct VerificPass : public Pass {
 #ifdef YOSYS_ENABLE_VERIFIC
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		static bool set_verific_global_flags = true;
-
 		if (check_noverific_env())
 			log_cmd_error("This version of Yosys is built without Verific support.\n"
 					"\n"
@@ -2562,56 +2623,7 @@ struct VerificPass : public Pass {
 
 		log_header(design, "Executing VERIFIC (loading SystemVerilog and VHDL designs using Verific).\n");
 
-		if (set_verific_global_flags)
-		{
-			Message::SetConsoleOutput(0);
-			Message::RegisterCallBackMsg(msg_func);
-
-			RuntimeFlags::SetVar("db_preserve_user_instances", 1);
-			RuntimeFlags::SetVar("db_preserve_user_nets", 1);
-			RuntimeFlags::SetVar("db_preserve_x", 1);
-
-			RuntimeFlags::SetVar("db_allow_external_nets", 1);
-			RuntimeFlags::SetVar("db_infer_wide_operators", 1);
-			RuntimeFlags::SetVar("db_infer_set_reset_registers", 0);
-
-			RuntimeFlags::SetVar("veri_extract_dualport_rams", 0);
-			RuntimeFlags::SetVar("veri_extract_multiport_rams", 1);
-			RuntimeFlags::SetVar("veri_allow_any_ram_in_loop", 1);
-
-#ifdef VERIFIC_VHDL_SUPPORT
-			RuntimeFlags::SetVar("vhdl_extract_dualport_rams", 0);
-			RuntimeFlags::SetVar("vhdl_extract_multiport_rams", 1);
-			RuntimeFlags::SetVar("vhdl_allow_any_ram_in_loop", 1);
-
-			RuntimeFlags::SetVar("vhdl_support_variable_slice", 1);
-			RuntimeFlags::SetVar("vhdl_ignore_assertion_statements", 0);
-
-			RuntimeFlags::SetVar("vhdl_preserve_assignments", 1);
-			//RuntimeFlags::SetVar("vhdl_preserve_comments", 1);
-			RuntimeFlags::SetVar("vhdl_preserve_drivers", 1);
-#endif
-			RuntimeFlags::SetVar("veri_preserve_assignments", 1);
-			RuntimeFlags::SetVar("veri_preserve_comments", 1);
-			RuntimeFlags::SetVar("veri_preserve_drivers", 1);
-
-			// Workaround for VIPER #13851
-			RuntimeFlags::SetVar("veri_create_name_for_unnamed_gen_block", 1);
-
-			// WARNING: instantiating unknown module 'XYZ' (VERI-1063)
-			Message::SetMessageType("VERI-1063", VERIFIC_ERROR);
-
-			// https://github.com/YosysHQ/yosys/issues/1055
-			RuntimeFlags::SetVar("veri_elaborate_top_level_modules_having_interface_ports", 1) ;
-
-			RuntimeFlags::SetVar("verific_produce_verbose_syntax_error_message", 1);
-
-#ifndef DB_PRESERVE_INITIAL_VALUE
-#  warning Verific was built without DB_PRESERVE_INITIAL_VALUE.
-#endif
-
-			set_verific_global_flags = false;
-		}
+		set_verific_global_flags();
 
 		verific_verbose = 0;
 		verific_sva_fsm_limit = 16;
@@ -2630,8 +2642,6 @@ struct VerificPass : public Pass {
 
 		int argidx = 1;
 		std::string work = "work";
-		YosysStreamCallBackHandler cb;
-		veri_file::RegisterCallBackVerificStream(&cb);
 
 		if (GetSize(args) > argidx && (args[argidx] == "-set-error" || args[argidx] == "-set-warning" ||
 				args[argidx] == "-set-info" || args[argidx] == "-set-ignore"))
@@ -3207,6 +3217,12 @@ struct VerificPass : public Pass {
 	}
 #endif
 } VerificPass;
+
+
+#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
+VERIFIC_PASS(VerificTemplateGenerator, "template", "generate template")
+VERIFIC_PASS(VerificFormalApplication, "formal_app", "running formal application")
+#endif
 
 struct ReadPass : public Pass {
 	ReadPass() : Pass("read", "load HDL designs") { }
