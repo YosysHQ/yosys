@@ -446,24 +446,27 @@ struct BtorWorker
 			goto okay;
 		}
 
-		if (cell->type.in(ID($not), ID($neg), ID($_NOT_)))
+		if (cell->type.in(ID($not), ID($neg), ID($_NOT_), ID($pos)))
 		{
 			string btor_op;
 			if (cell->type.in(ID($not), ID($_NOT_))) btor_op = "not";
 			if (cell->type == ID($neg)) btor_op = "neg";
-			log_assert(!btor_op.empty());
 
 			int width = std::max(GetSize(cell->getPort(ID::A)), GetSize(cell->getPort(ID::Y)));
 
 			bool a_signed = cell->hasParam(ID::A_SIGNED) ? cell->getParam(ID::A_SIGNED).as_bool() : false;
-
-			int sid = get_bv_sid(width);
 			int nid_a = get_sig_nid(cell->getPort(ID::A), width, a_signed);
-
-			int nid = next_nid++;
-			btorf("%d %s %d %d%s\n", nid, btor_op.c_str(), sid, nid_a, getinfo(cell).c_str());
-
 			SigSpec sig = sigmap(cell->getPort(ID::Y));
+
+			// the $pos cell just passes through, all other cells need an actual operation applied
+			int nid = nid_a;
+			if (cell->type != ID($pos))
+			{
+				log_assert(!btor_op.empty());
+				int sid = get_bv_sid(width);
+				nid = next_nid++;
+				btorf("%d %s %d %d%s\n", nid, btor_op.c_str(), sid, nid_a, getinfo(cell).c_str());
+			}
 
 			if (GetSize(sig) < width) {
 				int sid = get_bv_sid(GetSize(sig));
