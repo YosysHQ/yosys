@@ -188,6 +188,11 @@ bool is_reg_wire(RTLIL::SigSpec sig, std::string &reg_name)
 
 void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int offset = 0, bool no_decimal = false, bool escape_comment = false)
 {
+	if (data.flags & RTLIL::CONST_FLAG_ID) {
+		f << stringf("%s", data.decode_string().c_str());
+		return;
+	}
+
 	bool set_signed = (data.flags & RTLIL::CONST_FLAG_SIGNED) != 0;
 	if (width < 0)
 		width = data.bits.size() - offset;
