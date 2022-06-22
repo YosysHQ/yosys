@@ -395,6 +395,14 @@ void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, 
 	}
 }
 
+void dump_parameter(std::ostream &f, std::string indent, RTLIL::IdString id_string, RTLIL::Const parameter)
+{
+	f << stringf("%sparameter %s", indent.c_str(), id(id_string).c_str());
+	f << stringf(" = ");
+	dump_const(f, parameter);
+	f << stringf(";\n");
+}
+
 void dump_wire(std::ostream &f, std::string indent, RTLIL::Wire *wire)
 {
 	dump_attributes(f, indent, wire->attributes, '\n', /*modattr=*/false, /*regattr=*/reg_wires.count(wire->name));
@@ -2083,6 +2091,9 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 		initial_id = NEW_ID;
 		f << indent + "  " << "reg " << id(initial_id) << " = 0;\n";
 	}
+
+	for (auto p : module->parameter_default_values)
+		dump_parameter(f, indent + "  ", p.first, p.second);
 
 	for (auto w : module->wires())
 		dump_wire(f, indent + "  ", w);
