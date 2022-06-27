@@ -31,6 +31,7 @@ struct MemoryMapWorker
 {
 	bool attr_icase = false;
 	bool rom_only = false;
+	bool keepdc = false;
 	dict<RTLIL::IdString, std::vector<RTLIL::Const>> attributes;
 
 	RTLIL::Design *design;
@@ -190,14 +191,15 @@ struct MemoryMapWorker
 		{
 			int addr = i + mem.start_offset;
 			int idx = addr & ((1 << abits) - 1);
+			SigSpec w_init = init_data.extract(i*mem.width, mem.width);
 			if (static_cells_map.count(addr) > 0)
 			{
 				data_reg_out[idx] = static_cells_map[addr];
 				count_static++;
 			}
-			else if (mem.wr_ports.empty())
+			else if (mem.wr_ports.empty() && (!keepdc || w_init.is_fully_def()))
 			{
-				data_reg_out[idx] = init_data.extract(i*mem.width, mem.width);
+				data_reg_out[idx] = w_init;
 			}
 			else
 			{
@@ -220,7 +222,6 @@ struct MemoryMapWorker
 					w_out_name = genid(mem.memid, "", addr, "$q");
 
 				RTLIL::Wire *w_out = module->addWire(w_out_name, mem.width);
-				SigSpec w_init = init_data.extract(i*mem.width, mem.width);
 
 				if (!w_init.is_fully_undef())
 					w_out->attributes[ID::init] = w_init.as_const();
@@ -380,11 +381,15 @@ struct MemoryMapPass : public Pass {
 		log("    -rom-only\n");
 		log("        only perform conversion for ROMs (memories with no write ports).\n");
 		log("\n");
+		log("    -keepdc\n");
+		log("        when mapping ROMs, keep x-bits shared across read ports.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool attr_icase = false;
 		bool rom_only = false;
+		bool keepdc = false;
 		dict<RTLIL::IdString, std::vector<RTLIL::Const>> attributes;
 
 		log_header(design, "Executing MEMORY_MAP pass (converting memories to logic and flip-flops).\n");
@@ -426,6 +431,11 @@ struct MemoryMapPass : public Pass {
 				rom_only = true;
 				continue;
 			}
+			if (args[argidx] == "-keepdc")
+			{
+				keepdc = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -435,6 +445,7 @@ struct MemoryMapPass : public Pass {
 			worker.attr_icase = attr_icase;
 			worker.attributes = attributes;
 			worker.rom_only = rom_only;
+			worker.keepdc = keepdc;
 			worker.run();
 		}
 	}

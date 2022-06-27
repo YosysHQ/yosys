@@ -1405,7 +1405,7 @@ struct BtorBackend : public Backend {
 		log_header(design, "Executing BTOR backend.\n");
 
 		log_push();
-		Pass::call(design, "memory_map -rom-only");
+		Pass::call(design, "memory_map -rom-only -keepdc");
 		Pass::call(design, "bmuxmap");
 		Pass::call(design, "demuxmap");
 		log_pop();
