@@ -228,6 +228,9 @@ struct MemoryMapWorker
 
 				data_reg_out[idx] = w_out;
 				c->setPort(ID::Q, w_out);
+
+				if (mem.wr_ports.empty())
+					module->connect(RTLIL::SigSig(w_in, w_out));
 			}
 		}
 
