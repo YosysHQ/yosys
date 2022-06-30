@@ -57,7 +57,7 @@ USING_YOSYS_NAMESPACE
 #include "FileSystem.h"
 
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
-#include "InitialAssertions.h"
+#include "VerificExtensions.h"
 #endif
 
 #ifndef YOSYSHQ_VERIFIC_API_VERSION
@@ -2246,7 +2246,7 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 		verific_params.Insert(i.first.c_str(), i.second.c_str());
 
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
-	InitialAssertions::Rewrite("work", &verific_params);
+	VerificExtensions::ElaborateAndRewrite("work", &verific_params);
 #endif
 
 	if (top.empty()) {
@@ -2312,6 +2312,9 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 		nl_todo.erase(it);
 	}
 
+#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
+	VerificExtensions::Reset();
+#endif
 	hier_tree::DeleteHierarchicalTree();
 	veri_file::Reset();
 #ifdef VERIFIC_VHDL_SUPPORT
@@ -2493,6 +2496,8 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("  -v, -vv\n");
 		log("    Verbose log messages. (-vv is even more verbose than -v.)\n");
+		log("  -pp <filename>\n");
+		log("    Pretty print design after elaboration to specified file.\n");
 		log("\n");
 		log("The following additional import options are useful for debugging the Verific\n");
 		log("bindings (for Yosys and/or Verific developers):\n");
@@ -2539,6 +2544,9 @@ struct VerificPass : public Pass {
 		log("Get/set Verific runtime flags.\n");
 		log("\n");
 		log("\n");
+#if defined(YOSYS_ENABLE_VERIFIC) and defined(YOSYSHQ_VERIFIC_EXTENSIONS)
+		VerificExtensions::Help();
+#endif	
 		log("Use YosysHQ Tabby CAD Suite if you need Yosys+Verific.\n");
 		log("https://www.yosyshq.com/\n");
 		log("\n");
@@ -2922,6 +2930,7 @@ struct VerificPass : public Pass {
 			bool mode_autocover = false, mode_fullinit = false;
 			bool flatten = false, extnets = false;
 			string dumpfile;
+			string ppfile;
 			Map parameters(STRING_HASH);
 
 			for (argidx++; argidx < GetSize(args); argidx++) {
@@ -2990,6 +2999,10 @@ struct VerificPass : public Pass {
 					dumpfile = args[++argidx];
 					continue;
 				}
+				if (args[argidx] == "-pp" && argidx+1 < GetSize(args)) {
+					ppfile = args[++argidx];
+					continue;
+				}
 				break;
 			}
 
@@ -2999,8 +3012,11 @@ struct VerificPass : public Pass {
 			std::set<std::string> top_mod_names;
 
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
-			InitialAssertions::Rewrite(work, &parameters);
+			VerificExtensions::ElaborateAndRewrite(work, &parameters);
 #endif
+			if (!ppfile.empty())
+				veri_file::PrettyPrint(ppfile.c_str(), nullptr, work.c_str());
+
 			if (mode_all)
 			{
 				log("Running hier_tree::ElaborateAll().\n");
@@ -3113,6 +3129,9 @@ struct VerificPass : public Pass {
 				nl_todo.erase(it);
 			}
 
+#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
+			VerificExtensions::Reset();
+#endif
 			hier_tree::DeleteHierarchicalTree();
 			veri_file::Reset();
 #ifdef VERIFIC_VHDL_SUPPORT
@@ -3187,6 +3206,13 @@ struct VerificPass : public Pass {
 				}
 			}
 		}
+#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
+		if (VerificExtensions::Execute(args, argidx, work, 
+		    [this](const std::vector<std::string> &args, size_t argidx, std::string msg)
+				{ cmd_error(args, argidx, msg); } )) {
+			goto check_error;
+		}
+#endif	
 
 		cmd_error(args, argidx, "Missing or unsupported mode parameter.\n");
 
