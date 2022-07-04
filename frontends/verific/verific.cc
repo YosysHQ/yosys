@@ -2496,6 +2496,7 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("  -v, -vv\n");
 		log("    Verbose log messages. (-vv is even more verbose than -v.)\n");
+		log("\n");
 		log("  -pp <filename>\n");
 		log("    Pretty print design after elaboration to specified file.\n");
 		log("\n");

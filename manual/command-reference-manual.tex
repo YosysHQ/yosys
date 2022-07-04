@@ -2256,6 +2256,16 @@ and simulus signal from FST file
         number of clock cycles to simulate (default: 20)
 \end{lstlisting}
 
+\section{gatemate\_foldinv -- fold inverters into Gatemate LUT trees}
+\label{cmd:gatemate_foldinv}
+\begin{lstlisting}[numbers=left,frame=single]
+    gatemate_foldinv [selection]
+
+
+This pass searches for $__CC_NOT cells and folds them into CC_LUT2, CC_L2T4
+and CC_L2T5 cells as created by LUT tree mapping.
+\end{lstlisting}
+
 \section{glift -- create GLIFT models and optimization problems}
 \label{cmd:glift}
 \begin{lstlisting}[numbers=left,frame=single]
@@ -2950,6 +2960,12 @@ pass to word-wide DFFs and address decoders.
 
     -iattr
         for -attr, ignore case of <value>.
+
+    -rom-only
+        only perform conversion for ROMs (memories with no write ports).
+
+    -keepdc
+        when mapping ROMs, keep x-bits shared across read ports.
 \end{lstlisting}
 
 \section{memory\_memx -- emulate vlog sim behavior for mem ports}
@@ -4226,10 +4242,12 @@ Assign names auto-generated from the src attribute to all selected wires and
 cells with private names.
 
 
-    rename -wire [selection]
+    rename -wire [selection] [-suffix <suffix>]
 
 Assign auto-generated names based on the wires they drive to all selected
 cells with private names. Ignores cells driving privatly named wires.
+By default, the cell is named after the wire with the cell type as suffix.
+The -suffix option can be used to set the suffix to the given string instead.
 
 
     rename -enumerate [-pattern <pattern>] [selection]
@@ -5988,6 +6006,9 @@ This command runs synthesis for Cologne Chip AG GateMate FPGAs.
     -nomx8, -nomx4
         do not use CC_MX{8,4} multiplexer cells in output netlist.
 
+    -luttree
+        use new LUT tree mapping approach (EXPERIMENTAL).
+
     -dff
         run 'abc' with -dff option
 
@@ -6067,7 +6088,11 @@ The following commands are executed by this synthesis command:
         techmap -map +/gatemate/mux_map.v
 
     map_luts:
-        abc  -dress -lut 4
+        abc  -genlib +/gatemate/lut_tree_cells.genlib    (with -luttree)
+        techmap -map +/gatemate/lut_tree_map.v    (with -luttree)
+        gatemate_foldinv    (with -luttree)
+        techmap -map +/gatemate/inv_map.v    (with -luttree)
+        abc  -dress -lut 4    (without -luttree)
         clean
 
     map_cells:
@@ -7901,6 +7926,9 @@ Import options:
   -v, -vv
     Verbose log messages. (-vv is even more verbose than -v.)
 
+  -pp <filename>
+    Pretty print design after elaboration to specified file.
+
 The following additional import options are useful for debugging the Verific
 bindings (for Yosys and/or Verific developers):
 
@@ -7939,50 +7967,6 @@ Pretty print options:
 
   -vhdl
     Save output for VHDL design units.
-
-
-    verific -app <application>..
-
-Execute YosysHQ formal application on loaded Verilog files.
-
-Application options:
-
-    -module <module>
-        Run formal application only on specified module.
-
-    -blacklist <filename[:lineno]>
-        Do not run application on modules from files that match the filename
-        or filename and line number if provided in such format.
-        Parameter can also contain comma separated list of file locations.
-
-    -blfile <file>
-        Do not run application on locations specified in file, they can
-        represent filename or filename and location in file.
-
-Applications:
-
-  WARNING: Applications only available in commercial build.
-
-
-    verific -template <name> <top_module>..
-
-Generate template for specified top module of loaded design.
-
-Template options:
-
-  -out
-    Specifies output file for generated template, by default output is stdout
-
-  -chparam name value 
-    Generate template using this parameter value. Otherwise default parameter
-    values will be used for templat generate functionality. This option
-    can be specified multiple times to override multiple parameters.
-    String values must be passed in double quotes (").
-
-Templates:
-
-  WARNING: Templates only available in commercial build.
-
 
 
     verific -cfg [<name> [<value>]]

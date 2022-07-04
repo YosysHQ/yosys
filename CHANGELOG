@@ -4,6 +4,21 @@ List of major changes and improvements between releases
 
 Yosys 0.18 .. Yosys 0.18-dev
 --------------------------
+ * Various
+    - Added support for $pos cell in btor backend
+
+ * New commands and options
+    - Added option "-rom-only" to "memory_libmap" pass
+    - Added option "-smtcheck" to "hierarchy" pass
+    - Added option "-keepdc" to "memory_libmap" pass
+    - Added option "-suffix" to "rename" pass
+    - Added "gatemate_foldinv" pass
+
+ * GateMate support
+    - Added LUT tree mapping
+
+ * Verific support
+    - Added option "-pp" to "verific -import"
 
 Yosys 0.17 .. Yosys 0.18
 --------------------------
