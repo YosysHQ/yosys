@@ -6,6 +6,14 @@ cd sync_ram_sdp
 select -assert-count 1 t:CC_BUFG
 select -assert-count 1 t:CC_BRAM_20K
 
+# 512 x 20 bit x 2 -> CC_BRAM_20K TDP RAM
+design -reset
+read_verilog ../common/blockram.v
+chparam -set ADDRESS_WIDTH 9 -set DATA_WIDTH 20 sync_ram_tdp
+synth_gatemate -top sync_ram_tdp -noiopad
+select -assert-count 2 t:CC_BUFG
+select -assert-count 1 t:CC_BRAM_20K
+
 # 512 x 80 bit -> CC_BRAM_40K SDP RAM
 design -reset
 read_verilog ../common/blockram.v
