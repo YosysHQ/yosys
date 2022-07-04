@@ -505,6 +505,18 @@ Verilog Attributes and non-standard features
   module. Modules with such cells will be reprocessed during the ``hierarchy``
   pass once the referenced module definition(s) become available.
 
+- The ``smtlib2_module`` attribute can be set on a blackbox module to specify a
+  formal model directly using SMT-LIB 2. For such a module, the
+  ``smtlib2_comb_expr`` attribute can be used on output ports to define their
+  value using an SMT-LIB 2 expression. For example:
+
+      (* blackbox *)
+      (* smtlib2_module *)
+      module submod(a, b);
+        input [7:0] a;
+        (* smtlib2_comb_expr = "(bvnot a)" *)
+        output [7:0] b;
+      endmodule
 
 Non-standard or SystemVerilog features for formal verification
 ==============================================================
