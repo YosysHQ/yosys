@@ -1,0 +1,76 @@
+ram block \RAM_CLOCK_SDP {
+	cost 64;
+	abits 10;
+	widths 1 2 4 8 16 per_port;
+	init any;
+	port sw "W" {
+		ifdef SHARED_CLK {
+			ifdef WCLK_ANY {
+				option "WCLK" "ANY" {
+					clock anyedge "CLK";
+				}
+			}
+			ifdef WCLK_POS {
+				option "WCLK" "POS" {
+					clock posedge "CLK";
+				}
+			}
+			ifdef WCLK_NEG {
+				option "WCLK" "NEG" {
+					clock negedge "CLK";
+				}
+			}
+		} else {
+			ifdef WCLK_ANY {
+				option "WCLK" "ANY" {
+					clock anyedge;
+				}
+			}
+			ifdef WCLK_POS {
+				option "WCLK" "POS" {
+					clock posedge;
+				}
+			}
+			ifdef WCLK_NEG {
+				option "WCLK" "NEG" {
+					clock negedge;
+				}
+			}
+		}
+	}
+	port sr "R" {
+		ifdef SHARED_CLK {
+			ifdef RCLK_ANY {
+				option "RCLK" "ANY" {
+					clock anyedge "CLK";
+				}
+			}
+			ifdef RCLK_POS {
+				option "RCLK" "POS" {
+					clock posedge "CLK";
+				}
+			}
+			ifdef RCLK_NEG {
+				option "RCLK" "NEG" {
+					clock negedge "CLK";
+				}
+			}
+		} else {
+			ifdef RCLK_ANY {
+				option "RCLK" "ANY" {
+					clock anyedge;
+				}
+			}
+			ifdef RCLK_POS {
+				option "RCLK" "POS" {
+					clock posedge;
+				}
+			}
+			ifdef RCLK_NEG {
+				option "RCLK" "NEG" {
+					clock negedge;
+				}
+			}
+		}
+	}
+}

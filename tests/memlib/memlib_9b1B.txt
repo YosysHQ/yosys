@@ -1,6 +1,9 @@
-ram distributed \RAM_LUT {
-	abits 4;
-	width 4;
+ram block \RAM_9b1B {
+	cost 64;
+	abits 7;
+	widths 1 2 4 9 18 per_port;
+	byte 9;
+	
 	ifdef INIT_NONE {
 		option "INIT" "NONE" {
 			init none;
@@ -13,16 +16,16 @@ ram distributed \RAM_LUT {
 		option "INIT" "NO_UNDEF" {
 			init no_undef;
 		}
-	} else {
+	} else ifdef INIT_ANY {
 		option "INIT" "ANY" {
 			init any;
 		}
 	}
-	cost 4;
-	port ar "R" {
+
+	port sw "W" {
+		clock anyedge;
 	}
-	port arsw "RW" {
+	port sr "R" {
 		clock anyedge;
 	}
 }
-

@@ -1,13 +1,6 @@
 # TODO:
 
-# - memory initialization
-# - clock polarity combinations
-# - CE/srst/rdwr/be interactions
 # - priority logic
-# - byte enables, wrbe_separate
-# - duplication for read ports
-# - abits/dbits determination
-# - mixed width
 # - swizzles for weird width progressions
 
 
@@ -22,6 +15,7 @@ class Test:
 TESTS = []
 
 ### basic sanity tests
+# Asynchronous-read RAM
 
 ASYNC = """
 module top(clk, ra, wa, rd, wd, we);
@@ -56,6 +50,7 @@ TESTS += [
     Test("async_small_block", ASYNC_SMALL, ["block_tdp"], [], {"RAM_BLOCK_TDP": 0}),
 ]
 
+# Synchronous SDP read first
 SYNC = """
 module top(clk, ra, wa, rd, wd, we);
 
@@ -95,6 +90,261 @@ TESTS += [
     Test("sync_small_block_attr", SYNC_SMALL_BLOCK, ["lut", "block_tdp"], [], {"RAM_BLOCK_TDP": 1}),
 ]
 
+### initialization values testing
+LUT_INIT = """
+module top(clk, ra, wa, rd, wd, we);
+
+localparam ABITS = {abits};
+localparam DBITS = {dbits};
+
+input wire clk;
+input wire we;
+input wire [ABITS-1:0] ra, wa;
+input wire [DBITS-1:0] wd;
+output wire [DBITS-1:0] rd;
+
+reg [DBITS-1:0] mem [0:2**ABITS-1];
+
+integer i;
+initial
+	for (i = 0; i < 2**ABITS-1; i = i + 1)
+		mem[i] = {ival};
+
+always @(posedge clk)
+    if (we)
+        mem[wa] <= wd;
+
+assign rd = mem[ra];
+
+endmodule
+"""
+
+INIT_LUT_ZEROS = LUT_INIT.format(abits=4, dbits=4, ival=0);
+INIT_LUT_VAL = LUT_INIT.format(abits=4, dbits=4, ival=5);
+INIT_LUT_VAL2 = LUT_INIT.format(abits=6, dbits=6, ival="6'h12");
+INIT_LUT_X = LUT_INIT.format(abits=4, dbits=4, ival="4'hx")
+
+TESTS += [
+	Test("init_lut_zeros_zero", INIT_LUT_ZEROS, ["lut"], ["INIT_ZERO"], {"RAM_LUT":1}),
+	Test("init_lut_zeros_any", INIT_LUT_ZEROS, ["lut"], ["INIT_ANY"], {"RAM_LUT":1}),
+	Test("init_lut_val_zero", INIT_LUT_VAL, ["lut"], ["INIT_ZERO"], {"RAM_LUT":0}), #CHECK: no emulation?
+	Test("init_lut_val_any", INIT_LUT_VAL, ["lut"], ["INIT_ANY"], {"RAM_LUT":1}),
+	Test("init_lut_val_no_undef", INIT_LUT_VAL, ["lut"], ["INIT_NO_UNDEF"], {"RAM_LUT":1}),
+	Test("init_lut_val2_any", INIT_LUT_VAL2, ["lut"], ["INIT_ANY"], {"RAM_LUT":8}),
+	Test("init_lut_val2_no_undef", INIT_LUT_VAL2, ["lut"], ["INIT_NO_UNDEF"], {"RAM_LUT":8}),
+	Test("init_lut_x_none", INIT_LUT_X, ["lut"], ["INIT_NONE"], {"RAM_LUT":1}),
+	Test("init_lut_x_zero", INIT_LUT_X, ["lut"], ["INIT_ZERO"], {"RAM_LUT":1}),
+	Test("init_lut_x_any", INIT_LUT_X, ["lut"], ["INIT_ANY"], {"RAM_LUT":1}),
+	Test("init_lut_x_no_undef", INIT_LUT_X, ["lut"], ["INIT_NO_UNDEF"], {"RAM_LUT":1}),
+]
+
+### width testing 9-bit-per-byte
+RAM_9b1B = """
+module top(clk, ra, wa, rd, wd, we);
+
+localparam ABITS = {abits};
+localparam DBITS = {dbits};
+
+input wire clk;
+input wire we;
+input wire [ABITS-1:0] ra, wa;
+input wire [DBITS-1:0] wd;
+output reg [DBITS-1:0] rd;
+
+reg [DBITS-1:0] mem [0:2**ABITS-1];
+
+always @(posedge clk)
+    if (we)
+        mem[wa] <= wd;
+
+always @(posedge clk)
+    rd <= mem[ra];
+
+endmodule
+"""
+
+RAM_18b2B = RAM_9b1B.format(abits=3, dbits=18);
+RAM_9b1B = RAM_9b1B.format(abits=4, dbits=9);
+RAM_4b1B = RAM_9b1B.format(abits=5, dbits=4);
+RAM_2b1B = RAM_9b1B.format(abits=6, dbits=2);
+RAM_1b1B = RAM_9b1B.format(abits=7, dbits=1);
+
+TESTS += [
+	Test("ram_18b2B", RAM_18b2B, ["9b1B"], [], {"RAM_9b1B":1}),
+	Test("ram_9b1B", RAM_9b1B, ["9b1B"], [], {"RAM_9b1B":1}),
+	Test("ram_4b1B", RAM_4b1B, ["9b1B"], [], {"RAM_9b1B":1}),
+	Test("ram_2b1B", RAM_2b1B, ["9b1B"], [], {"RAM_9b1B":1}),
+	Test("ram_1b1B", RAM_1b1B, ["9b1B"], [], {"RAM_9b1B":1}),
+]
+
+### initializing 9-bits-per-byte
+RAM_9b1B_init = """
+module top(clk, ra, wa, rd, wd, we);
+
+localparam ABITS = {abits};
+localparam DBITS = {dbits};
+
+input wire clk;
+input wire we;
+input wire [ABITS-1:0] ra, wa;
+input wire [DBITS-1:0] wd;
+output reg [DBITS-1:0] rd;
+
+reg [DBITS-1:0] mem [0:2**ABITS-1];
+
+integer i;
+initial
+	for (i = 0; i < 2**ABITS-1; i = i + 1)
+		mem[i] = {ival};
+
+always @(posedge clk)
+    if (we)
+        mem[wa] <= wd;
+
+always @(posedge clk)
+    rd <= mem[ra];
+
+endmodule
+"""
+
+INIT_9b1B_ZEROS = RAM_9b1B_init.format(abits=4, dbits=9, ival=0);
+INIT_9b1B_VAL = RAM_9b1B_init.format(abits=4, dbits=9, ival=275);
+INIT_13b2B_VAL = RAM_9b1B_init.format(abits=3, dbits=13, ival="13'h01f3")
+INIT_18b2B_VAL = RAM_9b1B_init.format(abits=4, dbits=18, ival="18'h1f39a");
+INIT_4b1B_X = RAM_9b1B_init.format(abits=5, dbits=4, ival="4'hx")
+
+TESTS += [
+	Test("init_9b1B_zeros_zero", INIT_9b1B_ZEROS, ["9b1B"], ["INIT_ZERO"], {"RAM_9b1B":1}),
+	Test("init_9b1B_zeros_any", INIT_9b1B_ZEROS, ["9b1B"], ["INIT_ANY"], {"RAM_9b1B":1}),
+	Test("init_9b1B_val_zero", INIT_9b1B_VAL, ["9b1B"], ["INIT_ZERO"], {"RAM_9b1B":0}), #CHECK: no emulation?
+	Test("init_9b1B_val_any", INIT_9b1B_VAL, ["9b1B"], ["INIT_ANY"], {"RAM_9b1B":1}),
+	Test("init_9b1B_val_no_undef", INIT_9b1B_VAL, ["9b1B"], ["INIT_NO_UNDEF"], {"RAM_9b1B":1}),
+	Test("init_13b2B_val_any", INIT_13b2B_VAL, ["9b1B"], ["INIT_ANY"], {"RAM_9b1B":1}),
+	Test("init_18b2B_val_any", INIT_18b2B_VAL, ["9b1B"], ["INIT_ANY"], {"RAM_9b1B":2}),
+	Test("init_18b2B_val_no_undef", INIT_18b2B_VAL, ["9b1B"], ["INIT_NO_UNDEF"], {"RAM_9b1B":2}),
+	Test("init_4b1B_x_none", INIT_4b1B_X, ["9b1B"], ["INIT_NONE"], {"RAM_9b1B":1}),
+	Test("init_4b1B_x_zero", INIT_4b1B_X, ["9b1B"], ["INIT_ZERO"], {"RAM_9b1B":1}),
+	Test("init_4b1B_x_any", INIT_4b1B_X, ["9b1B"], ["INIT_ANY"], {"RAM_9b1B":1}),
+	Test("init_4b1B_x_no_undef", INIT_4b1B_X, ["9b1B"], ["INIT_NO_UNDEF"], {"RAM_9b1B":1}),
+]
+
+### Clock polarity combinations
+# I'm not entirely convinced auto-test is correctly testing clock edging
+#  but they do at least all gen/synth
+SYNCCLOCK = """
+module top(clk, ra, wa, rd, wd, we);
+
+localparam ABITS = {abits};
+localparam DBITS = 8;
+
+input wire clk;
+input wire we;
+input wire [ABITS-1:0] ra, wa;
+input wire [DBITS-1:0] wd;
+output reg [DBITS-1:0] rd;
+
+reg [DBITS-1:0] mem [0:2**ABITS-1];
+
+always @(posedge clk)
+    if (we)
+        mem[wa] <= wd;
+
+always @(posedge clk)
+    rd <= mem[ra];
+
+endmodule
+"""
+for (abits, cnt, wclk, rclk, shared) in [
+	(4,   1, "ANY","ANY", False),
+	(4,   1, "ANY","NEG", False),
+	(4,   1, "ANY","POS", False),
+	(4,   1, "NEG","ANY", False),
+	(4,   1, "NEG","POS", False),
+	(4,   1, "NEG","NEG", False),
+	(4,   1, "POS","ANY", False),
+	(4,   1, "POS","NEG", False),
+	(4,   1, "POS","POS", False),
+	(4,   1, "ANY","ANY", True),
+	(4,   0, "NEG","POS", True), # FF mapping
+	(4,   1, "NEG","NEG", True),
+	(4,   0, "POS","NEG", True), # FF mapping
+	(4,   1, "POS","POS", True),
+	# cannot combine "ANY" with "POS|NEG" when using shared clock
+]:
+	name = f"clock_a{abits}_w{wclk}r{rclk}s{shared}"
+	defs = ["WCLK_" + wclk, "RCLK_" + rclk]
+	if (shared):
+		defs.append("SHARED_CLK")
+	TESTS.append(Test(
+		name, SYNCCLOCK.format(abits=abits),
+		["clock_sdp"], defs, {"RAM_CLOCK_SDP": cnt}
+	))
+
+### mixed width testing
+# Wide write port
+MIXED_WRITE = """
+module top(clk, ra, wa, rd, wd, we);
+
+localparam WABITS = {wabits};
+localparam WDBITS = {wdbits};
+
+localparam RABITS = {rabits};
+localparam RDBITS = {rdbits};
+
+input wire clk;
+input wire we;
+input wire [WABITS-1:0] wa;
+input wire [WDBITS-1:0] wd;
+input wire [RABITS-1:0] ra;
+output reg [RDBITS-1:0] rd;
+
+localparam DEPTH = (2**WABITS);
+
+localparam OFFSET = RABITS-WABITS;
+
+(* syn_ramstyle = "block_ram" *)
+reg [WDBITS-1:0] mem [0:DEPTH-1];
+
+always @(posedge clk)
+	if (we)
+		mem[wa] <= wd;
+
+if (OFFSET > 0) begin
+	reg [WDBITS-1:0] mem_read;
+	reg [OFFSET-1:0] subaddr_r;
+	always @(posedge clk) begin
+		mem_read <= mem[ra[RABITS-1:OFFSET]];
+		subaddr_r <= ra[OFFSET-1:0];
+	end
+
+	always @(mem_read, subaddr_r)
+		rd <= mem_read[subaddr_r*RDBITS+:RDBITS];
+end 
+else 
+begin
+	always @(posedge clk)
+		case (OFFSET)
+		0:  rd <= mem[ra];
+		-1: rd <= {{ mem[ra], mem[ra+1] }};
+		endcase
+end
+endmodule
+"""
+
+UNMIXED = MIXED_WRITE.format(wabits=4, wdbits=9, rabits=4, rdbits=9)
+MIXED_9_18 = MIXED_WRITE.format(wabits=5, wdbits=9, rabits=4, rdbits=18)
+MIXED_18_9 = MIXED_WRITE.format(wabits=3, wdbits=18, rabits=4, rdbits=9)
+MIXED_36_9 = MIXED_WRITE.format(wabits=3, wdbits=36, rabits=5, rdbits=9)
+MIXED_4_2 = MIXED_WRITE.format(wabits=5, wdbits=4, rabits=6, rdbits=2);
+
+TESTS += [
+	Test("unmixed", UNMIXED, ["9b1B"], [], {"RAM_9b1B":1}),
+	Test("mixed_9_18", MIXED_9_18, ["9b1B"], [], {"RAM_9b1B":4}), #CHECK: only using half the memory
+	Test("mixed_18_9", MIXED_18_9, ["9b1B"], [], {"RAM_9b1B":1}),
+	Test("mixed_36_9", MIXED_36_9, ["9b1B"], [], {"RAM_9b1B":2}),
+	Test("mixed_4_2", MIXED_4_2, ["9b1B"], [], {"RAM_9b1B":1}),
+]
+
 ### basic TDP test
 
 TDP = """
@@ -131,7 +381,7 @@ TESTS += [
 ]
 
 # shared clock
-
+# Synchronous SDP with clock domain crossing
 SYNC_2CLK = """
 module top(rclk, wclk, ra, wa, rd, wd, we);
 
@@ -163,7 +413,7 @@ TESTS += [
 ]
 
 # inter-port transparency
-
+# Synchronous SDP with write-first behaviour
 SYNC_TRANS = """
 module top(clk, ra, wa, rd, wd, we);
 
@@ -201,7 +451,7 @@ TESTS += [
 ]
 
 # rdwr checks
-
+# Synchronous single-port RAM with mutually exclusive read/write
 SP_NO_CHANGE = """
 module top(clk, addr, rd, wd, we);
 
@@ -247,6 +497,7 @@ end
 endmodule
 """
 
+# Synchronous single-port RAM with write-first behaviour
 SP_NEW = """
 module top(clk, addr, rd, wd, we);
 
@@ -295,6 +546,7 @@ end
 endmodule
 """
 
+# Synchronous single-port RAM with read-first behaviour
 SP_OLD = """
 module top(clk, addr, rd, wd, we);
 
@@ -373,6 +625,7 @@ TESTS += [
         Test("sp_old_auto_be", SP_OLD_BE, ["block_sp"], ["RDWR_NO_CHANGE", "RDWR_OLD", "RDWR_NEW"], {"RAM_BLOCK_SP": (1, {"OPTION_RDWR": "OLD"})}),
 ]
 
+# Synchronous read port with initial value
 SP_INIT = """
 module top(clk, addr, rd, wd, we, re);
 
@@ -418,6 +671,7 @@ TESTS += [
     Test("sp_init_v_any_re", SP_INIT_V, ["block_sp"], ["RDINIT_ANY", "RDEN", "RDWR_OLD"], {"RAM_BLOCK_SP": 1}),
 ]
 
+# Synchronous read port with asynchronous reset
 SP_ARST = """
 module top(clk, addr, rd, wd, we, re, ar);
 
@@ -488,6 +742,7 @@ TESTS += [
     Test("sp_arst_n_init_re", SP_ARST_N, ["block_sp"], ["RDINIT_ANY", "RDARST_INIT", "RDEN", "RDWR_OLD"], {"RAM_BLOCK_SP": 1}),
 ]
 
+# Synchronous read port with synchronous reset (reset priority over enable)
 SP_SRST = """
 module top(clk, addr, rd, wd, we, re, sr);
 
@@ -515,6 +770,7 @@ end
 endmodule
 """
 
+# Synchronous read port with synchronous reet (enable priority over reset)
 SP_SRST_G = """
 module top(clk, addr, rd, wd, we, re, sr);
 
@@ -602,6 +858,180 @@ TESTS += [
     Test("sp_srst_gv_init_re", SP_SRST_GV, ["block_sp"], ["RDINIT_ANY", "RDSRST_INIT", "RDEN", "RDWR_OLD"], {"RAM_BLOCK_SP": 1}),
 ]
 
+# Byte enables, wrbe_separate
+SYNC_ENABLE = """
+module top(clk, rwa, rd, wd, we);
+
+localparam ABITS = {abits};
+localparam DBITS = {dbits};
+
+input wire clk;
+input wire we;
+input wire [ABITS-1:0] rwa;
+input wire [DBITS-1:0] wd;
+output reg [DBITS-1:0] rd;
+
+reg [DBITS-1:0] mem [0:2**ABITS-1];
+
+always @(posedge clk) begin
+	if (we)
+		mem[rwa] <= wd;
+	else
+		rd <= mem[rwa];
+end
+
+endmodule
+"""
+
+for (abits, dbits, sep, defs, cells) in [
+	(4, 4, False,	["NO_BYTE"],	{"RAM_WREN": 1}),
+	(5, 4, False,	["NO_BYTE"],	{"RAM_WREN": 2}),
+	(6, 4, False,	["NO_BYTE"],	{"RAM_WREN": 4}),
+	# (4, 4, True,	["NO_BYTE"],	{"RAM_WREN": 1}), # should throw an error
+	(3, 8, False,	["NO_BYTE"],	{"RAM_WREN": 2}), # needs two write ports
+	(4, 8, False,	["NO_BYTE"],	{"RAM_WREN": 2}),
+	(4, 4, False,	["W4_B4"],	{"RAM_WREN": 1}),
+	(4, 8, True,	["W4_B4"],	{"RAM_WREN": 2}),
+	(4, 8, False,	["W8_B4"],	{"RAM_WREN": 1}),
+	(4, 8, True,	["W8_B4"],	{"RAM_WREN": 1}),
+	(4, 8, False,	["W8_B8"],	{"RAM_WREN": 1}),
+	(4, 8, True,	["W8_B8"],	{"RAM_WREN": 1}),
+
+]:
+	name = f"wren_a{abits}d{dbits}_{defs[0]}"
+	if (sep):
+		defs.append("WRBE_SEPARATE")
+		name += "_separate"
+
+	TESTS.append(Test(
+		name, SYNC_ENABLE.format(abits=abits, dbits=dbits),
+		["wren"], defs, cells
+	))
+
+# Write port with byte enables
+ENABLES = """
+module top(clk, we, be, rwa, wd, rd);
+
+localparam ABITS = {abits};
+localparam WBITS = {wbits};
+localparam WORDS = {words};
+
+input wire clk;
+input wire we;
+input wire [WORDS-1:0] be;
+input wire [ABITS-1:0] rwa;
+input wire [(WBITS*WORDS)-1:0] wd;
+output reg [(WBITS*WORDS)-1:0] rd;
+
+reg [(WBITS*WORDS)-1:0] mem [0:2**ABITS-1];
+
+integer i;
+always @(posedge clk)
+	for (i=0; i<WORDS; i=i+1)
+		if (we && be[i])
+			mem[rwa][i*WBITS+:WBITS] <= wd[i*WBITS+:WBITS];
+
+always @(posedge clk)
+	if (!we)
+		rd <= mem[rwa];
+
+endmodule
+"""
+
+for (abits, wbits, words, defs, cells) in [
+	(4, 2, 8,	["W16_B4"],	{"RAM_WREN": 2}),
+	(4, 4, 4,	["W16_B4"],	{"RAM_WREN": 1}),
+	(5, 4, 2,	["W16_B4"],	{"RAM_WREN": 1}),
+	(5, 4, 4,	["W16_B4"],	{"RAM_WREN": 2}),
+	(4, 8, 2,	["W16_B4"],	{"RAM_WREN": 1}),
+	(5, 8, 1,	["W16_B4"],	{"RAM_WREN": 1}),
+	(5, 8, 2,	["W16_B4"],	{"RAM_WREN": 2}),
+	(4,16, 1,	["W16_B4"],	{"RAM_WREN": 1}),
+	(4, 4, 2,	["W8_B8"],	{"RAM_WREN": 2}),
+	(4, 4, 1,	["W8_B8"],	{"RAM_WREN": 1}),
+	(4, 8, 2,	["W8_B8"],	{"RAM_WREN": 2}),
+	(3, 8, 2,	["W8_B8"],	{"RAM_WREN": 2}),
+	(4, 4, 2,	["W8_B4"],	{"RAM_WREN": 1}),
+	(4, 2, 4,	["W8_B4"],	{"RAM_WREN": 2}),
+	(4, 4, 4,	["W8_B4"],	{"RAM_WREN": 2}),
+	(4, 4, 4,	["W4_B4"],	{"RAM_WREN": 4}),
+	(4, 4, 5,	["W4_B4"],	{"RAM_WREN": 5}),
+
+]:
+	name = f"wren_a{abits}d{wbits}w{words}_{defs[0]}"
+	TESTS.append(Test(
+		name, ENABLES.format(abits=abits, wbits=wbits, words=words),
+		["wren"], defs, cells
+	))
+
+	defs.append("WRBE_SEPARATE")
+	name += "_separate"
+	TESTS.append(Test(
+		name, ENABLES.format(abits=abits, wbits=wbits, words=words),
+		["wren"], defs, cells
+	))
+	
+# abits/dbits determination (aka general geometry picking)
+GEOMETRIC = """
+module top(clk, rwa, rd, wd, we);
+
+localparam ABITS = {abits};
+localparam DBITS = {dbits};
+
+input wire clk;
+input wire we;
+input wire [ABITS-1:0] rwa;
+input wire [DBITS-1:0] wd;
+output reg [DBITS-1:0] rd;
+
+(* ram_style="block" *)
+reg [DBITS-1:0] mem [0:2**ABITS-1];
+
+always @(posedge clk)
+	if (we)
+		mem[rwa] <= wd;
+	else
+		rd <= mem[rwa];	
+
+endmodule
+"""
+
+for (abits,dbits,	libs,		defs,		cells) in [
+	# W64_B8 gives 16 * 64 = 1024 bits of memory with up to 8x8b rw ports
+	(  4, 64,	["wren"],	["W64_B8"],	{"RAM_WREN": 1}),
+	(  5, 32,	["wren"],	["W64_B8"],	{"RAM_WREN": 1}),
+	(  5, 64,	["wren"],	["W64_B8"],	{"RAM_WREN": 2}),
+	(  6, 16,	["wren"],	["W64_B8"],	{"RAM_WREN": 1}),
+	(  6, 30, 	["wren"], 	["W64_B8"], 	{"RAM_WREN": 2}),
+	(  6, 64,	["wren"],	["W64_B8"],	{"RAM_WREN": 4}),
+	(  7,  4,	["wren"],	["W64_B8"],	{"RAM_WREN": 1}),
+	(  7,  6, 	["wren"], 	["W64_B8"], 	{"RAM_WREN": 1}),
+	(  7,  8,	["wren"],	["W64_B8"],	{"RAM_WREN": 1}),
+	(  7, 17, 	["wren"], 	["W64_B8"], 	{"RAM_WREN": 3}),
+	(  8,  4,	["wren"],	["W64_B8"],	{"RAM_WREN": 2}),
+	(  8,  6, 	["wren"], 	["W64_B8"], 	{"RAM_WREN": 2}),
+	(  9,  4,	["wren"],	["W64_B8"],	{"RAM_WREN": 4}),
+	(  9,  8,	["wren"],	["W64_B8"],	{"RAM_WREN": 4}),
+	(  9,  5, 	["wren"], 	["W64_B8"], 	{"RAM_WREN": 4}),
+	(  9,  6, 	["wren"], 	["W64_B8"], 	{"RAM_WREN": 4}),
+	# 9b1B gives 128 bits of memory with 1 2 or 4 bit read and write ports
+	#	or   144 bits with 9 or 18 bit read and write ports
+	(  3, 18, 	["9b1B"], 	["INIT_NONE"], 	{"RAM_9b1B": 1}),
+	(  4,  4, 	["9b1B"], 	["INIT_NONE"], 	{"RAM_9b1B": 1}),
+	(  4, 18, 	["9b1B"], 	["INIT_NONE"], 	{"RAM_9b1B": 2}),
+	(  5, 32, 	["9b1B"], 	["INIT_NONE"], 	{"RAM_9b1B": 8}),
+	(  6,  4, 	["9b1B"], 	["INIT_NONE"], 	{"RAM_9b1B": 2}),
+	(  7, 11, 	["9b1B"], 	["INIT_NONE"], 	{"RAM_9b1B": 11}),
+	(  7, 18, 	["9b1B"], 	["INIT_NONE"], 	{"RAM_9b1B": 16}),
+	( 11,  1, 	["9b1B"], 	["INIT_NONE"], 	{"RAM_9b1B": 16}),
+]:
+	name = f"geom_a{abits}d{dbits}_{libs[0]}"
+	TESTS.append(Test(
+		name, GEOMETRIC.format(abits=abits, dbits=dbits),
+		libs, defs, cells
+	))
+
+# Mixed width testing
 WIDE_SDP = """
 module top(rclk, ra, rd, re, rr, wclk, wa, wd, we);
 
@@ -856,6 +1286,233 @@ for (aw, rw, ww, bw, cntww, cntwr) in [
         ["wide_write"], [],
         {"RAM_WIDE_WRITE": cntww}
     ))
+
+# Multiple read ports
+# 1rw port plus 3 (or 7) r ports
+QUAD_PORT = """
+module top(clk, rwa, r0a, r1a, r2a, rd, r0d, r1d, r2d, wd, we);
+
+localparam ABITS = {abits};
+localparam DBITS = {dbits};
+
+input wire clk;
+input wire we;
+input wire [ABITS-1:0] rwa;
+input wire [ABITS-1:0] r0a;
+input wire [ABITS-1:0] r1a;
+input wire [ABITS-1:0] r2a;
+input wire [DBITS-1:0] wd;
+output wire [DBITS-1:0] rd;
+output wire [DBITS-1:0] r0d;
+output wire [DBITS-1:0] r1d;
+output wire [DBITS-1:0] r2d;
+
+reg [DBITS-1:0] mem [0:2**ABITS-1];
+
+always @(posedge clk)
+    if (we)
+        mem[rwa] <= wd;
+
+assign rd = mem[rwa];
+assign r0d = mem[r0a];
+assign r1d = mem[r1a];
+assign r2d = mem[r2a];
+
+endmodule
+"""
+
+for (abits, dbits, cnt) in [
+    (2, 2, 1),
+    (4, 2, 1),
+    (5, 2, 2),
+    (4, 4, 2),
+    (6, 2, 4),
+    (4, 8, 4),
+]:
+    TESTS.append(Test(
+        f"quad_port_a{abits}d{dbits}",
+        QUAD_PORT.format(abits=abits, dbits=dbits),
+        ["multilut"], ["PORTS_QUAD"],
+        {"LUT_MULTI": cnt}
+    ))
+
+# Wide asynchronous read port
+WIDE_READ = """
+module top(clk, we, rwa, wd, rd);
+
+localparam ABITS = {abits};
+localparam WBITS = {wbits};
+localparam RWORDS = {rwords};
+
+input wire clk;
+input wire we;
+input wire [ABITS-1:0] rwa;
+input wire [WBITS-1:0] wd;
+output wire [(WBITS*RWORDS)-1:0] rd;
+
+reg [WBITS-1:0] mem [0:2**ABITS-1];
+
+always @(posedge clk)
+	if (we)
+		mem[rwa] <= wd;
+
+genvar i;
+generate
+	for (i = 0; i < RWORDS; i = i + 1)
+		assign rd[i*WBITS+:WBITS] = mem[rwa + i];
+endgenerate
+
+endmodule
+"""
+
+for (abits, wbits, rwords, cntquad, cntoct) in [
+	(4, 2, 1, 1, 1),
+	(4, 2, 2, 1, 1),
+	(4, 2, 3, 1, 1),
+	(4, 2, 4, 1, 1),
+	(4, 2, 5, 2, 1),
+	(4, 2, 6, 2, 1),
+	(4, 2, 7, 2, 1), # Write port needs to be duplicated, so only 3 extra read 
+	(4, 2, 8, 3, 1), # ports per quad port LUT (i.e. 7 ports in 2, 8 ports in 3)
+	(4, 2, 9, 3, 2),
+	(4, 4, 1, 2, 2),
+	(4, 4, 4, 2, 2),
+	(4, 4, 6, 4, 2),
+	(4, 4, 9, 6, 4),
+	(5, 2, 1, 2, 2),
+	(5, 2, 4, 2, 2),
+	(5, 2, 9, 6, 4),
+]:
+	TESTS.append(Test(
+		f"wide_quad_a{abits}w{wbits}r{rwords}",
+		WIDE_READ.format(abits=abits, wbits=wbits, rwords=rwords),
+		["multilut"], ["PORTS_QUAD"],
+		{"LUT_MULTI": cntquad}
+	))
+	TESTS.append(Test(
+		f"wide_oct_a{abits}w{wbits}r{rwords}",
+		WIDE_READ.format(abits=abits, wbits=wbits, rwords=rwords),
+		["multilut"], ["PORTS_OCT"],
+		{"LUT_MULTI": cntoct}
+	))
+
+# signal priorities & pattern testing
+PRIORITY = """
+module top(clk, clken, wren, wben, rden, rst, addr, wdata, rdata);
+
+localparam ABITS = {abits};
+localparam WBITS = {wbits};
+localparam WORDS = {words};
+
+localparam BITS = WBITS * WORDS;
+
+input wire clk, clken;
+input wire wren, rden, rst;
+input wire [WORDS-1:0] wben;
+input wire [ABITS-1:0] addr;
+input wire [BITS-1:0] wdata;
+output reg [BITS-1:0] rdata;
+
+reg [BITS-1:0] mem [0:2**ABITS-1];
+
+integer i;
+always @(posedge clk) begin
+{code}
+end
+endmodule
+"""
+#reset_gate in ["ungated", "rst", "rden && rst"]
+#clk_en in [True, False]
+#rdwr in ["nc", "old", "new", "undef", "newdef"]
+
+for (testname, 		reset_gate, 	rdwr,  clk_en, add_logic) in [
+	("no_reset", 	"", 		"old", False, 	0),
+	("gclken", 	"rst", 		"old", False, 	0),
+	("ungated", 	"ungated", 	"old", False, 	1), # muxes wren with rst
+	("gclken_ce", 	"rst", 		"old", True, 	3), # AND to simulate CLK_EN
+	("grden", 	"rden && rst", 	"old", False, 	1), # selects _clken, simulates _rden
+	("grden_ce", 	"rden && rst", 	"old", True, 	4), # both of the above
+	("exclwr",	"", 		"nc",  False, 	2), # selects new_only and simulates
+	("excl_rst", 	"rst", 		"nc",  False, 	3), # as above, extra gate for rst
+	("transwr",	"", 		"new", False, 	0),
+	("trans_rst",	"rst", 		"new", False, 	0),
+]:
+	write = "if (wren) \n\t\tmem[addr] <= wdata;"
+
+	if rdwr == "new":
+		read = """if (rden) 
+		if (wren)
+			rdata <= wdata;
+		else
+			rdata <= mem[addr];"""
+	else:
+		read = "if (rden) \n\t\trdata <= mem[addr];"
+
+	if "rst" in reset_gate:
+		read = f"if ({reset_gate})\n\t\trdata <= 0; \n\telse {read}"
+
+	if reset_gate == "ungated":
+		outer = "if (rst)\n\trdata <= 0;\nelse "
+	else:
+		outer = ""
+
+	if clk_en:
+		outer = f"{outer}if (clken) "
+
+	code = f"""{outer}begin
+	{write}
+	{"else " if rdwr == "nc" else ""}{read}
+end"""
+
+	TESTS.append(Test(
+		testname, PRIORITY.format(code=code, abits=4, wbits=8, words=2),
+		["block_sp_full"], ["USE_SRST"], 
+		{"RAM_BLOCK_SP": 1, "$*": add_logic}
+	))
+
+for (testname, 			reset_gate, 	defs, 		rdwr,  add_logic) in [
+	("wr_byte",		"", 	["USE_SRST_BLOCKING"],	"old", 0),
+	("trans_byte",		"", 	["USE_SRST_BLOCKING"],	"new", 0),
+	("wr_rst_byte",		"rst", 	["USE_SRST"],		"old", 2), # expected mux to emulate blocking
+	("rst_wr_byte",		"rst", 	["USE_SRST_BLOCKING"],	"old", 2), # should use hardware blocking, doesn't
+	("rdenrst_wr_byte", 	"rden && rst", ["USE_SRST"],	"old", 3),
+]:
+	wordsloop = "for (i=0; i<WORDS; i=i+1)"
+	if rdwr == "old":
+		read_write = f"""if (rden)
+		rdata = mem[addr];
+	{wordsloop}
+		if (wben[i])
+			mem[addr][i] <= wdata[i];"""
+	else:
+		read_write = f"""{wordsloop}
+		if (wben[i]) begin
+			mem[addr][i] <= wdata[i];
+			rdata[i] <= wdata[i];
+		end else
+			rdata[i] <= mem[addr][i];"""
+
+	if "rst" in reset_gate:
+		reset_rw = f"""if ({reset_gate})
+		rdata <= 0;
+else begin
+	{read_write}
+end"""
+	else:
+		reset_rw = read_write
+
+	if reset_gate == "ungated":
+		outer = "if (rst)\n\trdata <= 0;\nelse "
+	else:
+		outer = ""
+
+	code = f"{outer}\n{reset_rw}"
+
+	TESTS.append(Test(
+		testname, PRIORITY.format(code=code, abits=4, wbits=1, words=2),
+		["block_sp_full"], defs, 
+		{"RAM_BLOCK_SP": 1, "$*": add_logic}
+	))
 
 with open("run-test.mk", "w") as mf:
     mf.write("ifneq ($(strip $(SEED)),)\n")
