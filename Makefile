@@ -153,10 +153,10 @@ bumpversion:
 # is just a symlink to your actual ABC working directory, as 'make mrproper'
 # will remove the 'abc' directory and you do not want to accidentally
 # delete your work on ABC..
-ABCREV = 1863430
+ABCREV = f159bef
 ABCPULL = 1
 ABCURL ?= https://github.com/YosysHQ/abc
-ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1 VERBOSE=$(Q)
+ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1 ABC_USE_NAMESPACE=abc VERBOSE=$(Q)
 
 # set ABCEXTERNAL = <abc-command> to use an external ABC instance
 # Note: The in-tree ABC (yosys-abc) will not be installed when ABCEXTERNAL is set.
@@ -201,7 +201,7 @@ ifeq ($(CONFIG),clang)
 CXX = clang
 LD = clang++
 CXXFLAGS += -std=$(CXXSTD) -Os
-ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
+ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -Wno-c++11-narrowing"
 
 ifneq ($(SANITIZER),)
 $(info [Clang Sanitizer] $(SANITIZER))
@@ -260,7 +260,7 @@ else ifeq ($(CONFIG),emcc)
 CXX = emcc
 LD = emcc
 CXXFLAGS := -std=$(CXXSTD) $(filter-out -fPIC -ggdb,$(CXXFLAGS))
-ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DABC_MEMALIGN=8"
+ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DABC_MEMALIGN=8 -Wno-c++11-narrowing"
 EMCC_CXXFLAGS := -Os -Wno-warn-absolute-paths
 EMCC_LDFLAGS := --memory-init-file 0 --embed-file share
 EMCC_LDFLAGS += -s NO_EXIT_RUNTIME=1
