@@ -185,7 +185,7 @@ bool is_binary_cell(RTLIL::IdString type)
 		ID($and), ID($or), ID($xor), ID($xnor), ID($logic_and), ID($logic_or),
 		ID($shl), ID($sshl), ID($shr), ID($sshr), ID($shift), ID($shiftx),
 		ID($eq), ID($ne), ID($eqx), ID($nex), ID($gt), ID($ge), ID($lt), ID($le),
-		ID($add), ID($sub), ID($mul), ID($div), ID($mod));
+		ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($modfloor));
 }
 
 bool is_extending_cell(RTLIL::IdString type)
