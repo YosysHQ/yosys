@@ -168,7 +168,7 @@ namespace RTLIL
 			log_assert(p[1] != 0);
 			for (const char *c = p; *c; c++)
 				if ((unsigned)*c <= (unsigned)' ')
-					log_error("Found control character or space (0x%02hhx) in string '%s' which is not allowed in RTLIL identifiers\n", *c, p);
+					log_error("Found control character or space (0x%02x) in string '%s' which is not allowed in RTLIL identifiers\n", *c, p);
 
 		#ifndef YOSYS_NO_IDS_REFCNT
 			if (global_free_idx_list_.empty()) {
