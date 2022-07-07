@@ -31,7 +31,9 @@
 #endif
 
 #ifdef YOSYS_LINK_ABC
-extern "C" int Abc_RealMain(int argc, char *argv[]);
+namespace abc {
+	int Abc_RealMain(int argc, char *argv[]);
+}
 #endif
 
 std::string fold_abc9_cmd(std::string str)
@@ -277,7 +279,7 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 	abc9_argv[2] = strdup("-f");
 	abc9_argv[3] = strdup(tmp_script_name.c_str());
 	abc9_argv[4] = 0;
-	int ret = Abc_RealMain(4, abc9_argv);
+	int ret = abc::Abc_RealMain(4, abc9_argv);
 	free(abc9_argv[0]);
 	free(abc9_argv[1]);
 	free(abc9_argv[2]);

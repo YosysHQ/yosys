@@ -65,7 +65,9 @@
 #include "frontends/blif/blifparse.h"
 
 #ifdef YOSYS_LINK_ABC
-extern "C" int Abc_RealMain(int argc, char *argv[]);
+namespace abc {
+	int Abc_RealMain(int argc, char *argv[]);
+}
 #endif
 
 USING_YOSYS_NAMESPACE
@@ -1098,7 +1100,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		abc_argv[2] = strdup("-f");
 		abc_argv[3] = strdup(tmp_script_name.c_str());
 		abc_argv[4] = 0;
-		int ret = Abc_RealMain(4, abc_argv);
+		int ret = abc::Abc_RealMain(4, abc_argv);
 		free(abc_argv[0]);
 		free(abc_argv[1]);
 		free(abc_argv[2]);
