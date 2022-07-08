@@ -498,6 +498,12 @@ int main(int argc, char **argv)
 	if (print_stats)
 		log_hasher = new SHA1;
 
+#if defined(__OpenBSD__)
+	// save the executable origin for proc_self_dirname()
+	yosys_argv0 = argv[0];
+	realpath(yosys_argv0, yosys_path);
+#endif
+
 #if defined(__linux__)
 	// set stack size to >= 128 MB
 	{
