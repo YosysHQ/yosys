@@ -361,6 +361,10 @@ extern std::set<std::string> yosys_input_files, yosys_output_files;
 // from kernel/version_*.o (cc source generated from Makefile)
 extern const char *yosys_version_str;
 
+// from kernel/driver.cc
+extern char *yosys_argv0;
+extern char yosys_path[PATH_MAX];
+
 // from passes/cmds/design.cc
 extern std::map<std::string, RTLIL::Design*> saved_designs;
 extern std::vector<RTLIL::Design*> pushed_designs;
