@@ -1,6 +1,6 @@
 read_verilog ../common/blockram.v
 chparam -set ADDRESS_WIDTH 10 -set DATA_WIDTH 10 sync_ram_sdp
-synth_intel_alm -family cyclonev -noiopad -noclkbuf
+synth_intel_alm -top sync_ram_sdp -family cyclonev -noiopad -noclkbuf
 cd sync_ram_sdp
 select -assert-count 1 t:MISTRAL_NOT
 select -assert-count 1 t:MISTRAL_M10K
