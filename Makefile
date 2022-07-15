@@ -450,9 +450,12 @@ endif
 ifeq ($(ENABLE_TCL),1)
 TCL_VERSION ?= tcl$(shell bash -c "tclsh <(echo 'puts [info tclversion]')")
 ifeq ($(OS), $(filter $(OS),FreeBSD OpenBSD NetBSD))
+# BSDs usually use tcl8.6, but the lib is named "libtcl86"
 TCL_INCLUDE ?= /usr/local/include/$(TCL_VERSION)
+TCL_LIBS ?= -l$(subst .,,$(TCL_VERSION))
 else
 TCL_INCLUDE ?= /usr/include/$(TCL_VERSION)
+TCL_LIBS ?= -l$(TCL_VERSION)
 endif
 
 ifeq ($(CONFIG),mxe)
@@ -460,12 +463,7 @@ CXXFLAGS += -DYOSYS_ENABLE_TCL
 LDLIBS += -ltcl86 -lwsock32 -lws2_32 -lnetapi32 -lz -luserenv
 else
 CXXFLAGS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --cflags tcl || echo -I$(TCL_INCLUDE)) -DYOSYS_ENABLE_TCL
-ifeq ($(OS), $(filter $(OS),FreeBSD OpenBSD NetBSD))
-# BSDs usually use tcl8.6, but the lib is named "libtcl86"
-LDLIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --libs tcl || echo -l$(TCL_VERSION) | tr -d '.')
-else
-LDLIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --libs tcl || echo -l$(TCL_VERSION))
-endif
+LDLIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --libs tcl || echo $(TCL_LIBS))
 endif
 endif
 
