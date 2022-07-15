@@ -153,7 +153,7 @@ bumpversion:
 # is just a symlink to your actual ABC working directory, as 'make mrproper'
 # will remove the 'abc' directory and you do not want to accidentally
 # delete your work on ABC..
-ABCREV = 5f40c47
+ABCREV = c95d949
 ABCPULL = 1
 ABCURL ?= https://github.com/YosysHQ/abc
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1 ABC_USE_NAMESPACE=abc VERBOSE=$(Q)
@@ -314,7 +314,7 @@ CXXFLAGS := $(WASIFLAGS) -std=$(CXXSTD) -Os $(filter-out -fPIC,$(CXXFLAGS))
 LDFLAGS := $(WASIFLAGS) -Wl,-z,stack-size=1048576 $(filter-out -rdynamic,$(LDFLAGS))
 LDLIBS := $(filter-out -lrt,$(LDLIBS))
 ABCMKARGS += AR="$(AR)" RANLIB="$(RANLIB)"
-ABCMKARGS += ARCHFLAGS="$(WASIFLAGS) -DABC_USE_STDINT_H -DABC_NO_DYNAMIC_LINKING -Wno-c++11-narrowing"
+ABCMKARGS += ARCHFLAGS="$(WASIFLAGS) -DABC_USE_STDINT_H -DABC_NO_DYNAMIC_LINKING -DABC_NO_RLIMIT -Wno-c++11-narrowing"
 ABCMKARGS += OPTFLAGS="-Os"
 EXE = .wasm
 
