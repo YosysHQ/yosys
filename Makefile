@@ -129,7 +129,7 @@ LDFLAGS += -rdynamic
 LDLIBS += -lrt
 endif
 
-YOSYS_VER := 0.19+18
+YOSYS_VER := 0.19+20
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
