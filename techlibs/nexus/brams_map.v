@@ -32,10 +32,16 @@ output [PORT_B_WIDTH-1:0] PORT_B_RD_DATA;
 
 function [319:0] init_slice;
 	input integer idx;
-	integer i, j;
+	integer i;
 	init_slice = 0;
-	for (i = 0; i < 16; i = i + 1) begin
-		init_slice[i*20+:18] = INIT[(idx * 16 + i) * 18+:18];
+	begin
+		if (PORT_A_WIDTH <= 4) begin
+			for (i = 0; i < 32; i = i + 1'b1)
+				init_slice[i * 10 +: 10] = {2'b00, INIT[(idx * 32 + i) * 8 +: 8]};
+		end else begin
+			for (i = 0; i < 32; i = i + 1'b1)
+				init_slice[i * 10 +: 10] = {1'b0, INIT[(idx * 32 + i) * 9 +: 9]};
+		end
 	end
 endfunction
 
@@ -122,8 +128,8 @@ DP16K #(
 	.RESETMODE_B(PORT_B_OPTION_RESETMODE),
 	.ASYNC_RST_RELEASE_A(PORT_A_OPTION_RESETMODE),
 	.ASYNC_RST_RELEASE_B(PORT_B_OPTION_RESETMODE),
-	.CSDECODE_A("000"),
-	.CSDECODE_B("000"),
+	.CSDECODE_A("111"),
+	.CSDECODE_B("111"),
 	.GSR("DISABLED"),
 ) _TECHMAP_REPLACE_ (
 	.CLKA(PORT_A_CLK),
@@ -176,10 +182,16 @@ input [PORT_W_WIDTH-1:0] PORT_W_WR_DATA;
 
 function [319:0] init_slice;
 	input integer idx;
-	integer i, j;
+	integer i;
 	init_slice = 0;
-	for (i = 0; i < 16; i = i + 1) begin
-		init_slice[i*20+:18] = INIT[(idx * 16 + i) * 18+:18];
+	begin
+		if (PORT_R_WIDTH <= 4) begin
+			for (i = 0; i < 32; i = i + 1'b1)
+				init_slice[i * 10 +: 10] = {2'b00, INIT[(idx * 32 + i) * 8 +: 8]};
+		end else begin
+			for (i = 0; i < 32; i = i + 1'b1)
+				init_slice[i * 10 +: 10] = {1'b0, INIT[(idx * 32 + i) * 9 +: 9]};
+		end
 	end
 endfunction
 
@@ -265,8 +277,8 @@ PDPSC16K #(
 	.OUTREG("BYPASSED"),
 	.RESETMODE(PORT_R_OPTION_RESETMODE),
 	.ASYNC_RST_RELEASE(PORT_R_OPTION_RESETMODE),
-	.CSDECODE_W("000"),
-	.CSDECODE_R("000"),
+	.CSDECODE_W("111"),
+	.CSDECODE_R("111"),
 	.ECC("DISABLED"),
 	.GSR("DISABLED"),
 ) _TECHMAP_REPLACE_ (
@@ -356,8 +368,8 @@ PDP16K #(
 	.OUTREG("BYPASSED"),
 	.RESETMODE(PORT_R_OPTION_RESETMODE),
 	.ASYNC_RST_RELEASE(PORT_R_OPTION_RESETMODE),
-	.CSDECODE_W("000"),
-	.CSDECODE_R("000"),
+	.CSDECODE_W("111"),
+	.CSDECODE_R("111"),
 	.ECC("DISABLED"),
 	.GSR("DISABLED"),
 ) _TECHMAP_REPLACE_ (
