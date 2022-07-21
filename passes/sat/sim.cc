@@ -231,7 +231,7 @@ struct SimInstance
 					}
 			}
 
-			if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
+			if (RTLIL::builtin_ff_cell_types().count(cell->type) || cell->type == ID($anyinit)) {
 				FfData ff_data(nullptr, cell);
 				ff_state_t ff;
 				ff.past_d = Const(State::Sx, ff_data.width);

@@ -260,6 +260,7 @@ struct SubmodWorker
 		}
 
 		ct.setup_internals();
+		ct.setup_internals_anyinit();
 		ct.setup_internals_mem();
 		ct.setup_stdcells();
 		ct.setup_stdcells_mem();

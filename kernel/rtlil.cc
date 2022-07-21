@@ -1632,6 +1632,13 @@ namespace {
 				return;
 			}
 
+			if (cell->type.in(ID($anyinit))) {
+				port(ID::D, param(ID::WIDTH));
+				port(ID::Q, param(ID::WIDTH));
+				check_expected();
+				return;
+			}
+
 			if (cell->type == ID($equiv)) {
 				port(ID::A, 1);
 				port(ID::B, 1);
@@ -3114,6 +3121,16 @@ RTLIL::Cell* RTLIL::Module::addDlatchsrGate(RTLIL::IdString name, const RTLIL::S
 	cell->setPort(ID::E, sig_en);
 	cell->setPort(ID::S, sig_set);
 	cell->setPort(ID::R, sig_clr);
+	cell->setPort(ID::D, sig_d);
+	cell->setPort(ID::Q, sig_q);
+	cell->set_src_attribute(src);
+	return cell;
+}
+
+RTLIL::Cell* RTLIL::Module::addAnyinit(RTLIL::IdString name, const RTLIL::SigSpec &sig_d, const RTLIL::SigSpec &sig_q, const std::string &src)
+{
+	RTLIL::Cell *cell = addCell(name, ID($anyinit));
+	cell->parameters[ID::WIDTH] = sig_q.size();
 	cell->setPort(ID::D, sig_d);
 	cell->setPort(ID::Q, sig_q);
 	cell->set_src_attribute(src);
