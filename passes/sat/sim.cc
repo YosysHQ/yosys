@@ -157,6 +157,7 @@ struct SimInstance
 
 	dict<Wire*, pair<int, Const>> signal_database;
 	dict<Wire*, fstHandle> fst_handles;
+	dict<Wire*, fstHandle> fst_inputs;
 	dict<IdString, dict<int,fstHandle>> fst_memories;
 
 	SimInstance(SimShared *shared, std::string scope, Module *module, Cell *instance = nullptr, SimInstance *parent = nullptr) :
@@ -820,7 +821,7 @@ struct SimInstance
 		return did_something;
 	}
 
-	void addAdditionalInputs(std::map<Wire*,fstHandle> &inputs)
+	void addAdditionalInputs()
 	{
 		for (auto cell : module->cells())
 		{
@@ -831,7 +832,7 @@ struct SimInstance
 					for(auto &item : fst_handles) {
 						if (item.second==0) continue; // Ignore signals not found
 						if (sig_y == sigmap(item.first)) {
-							inputs[sig_y.as_wire()] = item.second;
+							fst_inputs[sig_y.as_wire()] = item.second;
 							found = true;
 							break;
 						}
@@ -842,7 +843,21 @@ struct SimInstance
 			}
 		}
 		for (auto child : children)
-			child.second->addAdditionalInputs(inputs);
+			child.second->addAdditionalInputs();
+	}
+
+	bool setInputs()
+	{
+		bool did_something = false;
+		for(auto &item : fst_inputs) {
+			std::string v = shared->fst->valueOf(item.second);
+			did_something |= set_state(item.first, Const::from_string(v));
+		}
+
+		for (auto child : children)
+			did_something |= child.second->setInputs();
+
+		return did_something;
 	}
 
 	void setState(dict<int, std::pair<SigBit,bool>> bits, std::string values)
@@ -1095,18 +1110,17 @@ struct SimWorker : SimShared
 		}
 
 		SigMap sigmap(topmod);
-		std::map<Wire*,fstHandle> inputs;
 
 		for (auto wire : topmod->wires()) {
 			if (wire->port_input) {
 				fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
 				if (id==0)
 					log_error("Unable to find required '%s' signal in file\n",(scope + "." + RTLIL::unescape_id(wire->name)).c_str());
-				inputs[wire] = id;
+				top->fst_inputs[wire] = id;
 			}
 		}
 
-		top->addAdditionalInputs(inputs);
+		top->addAdditionalInputs();
 
 		uint64_t startCount = 0;
 		uint64_t stopCount = 0;
@@ -1152,11 +1166,7 @@ struct SimWorker : SimShared
 			fst->reconstructAllAtTimes(fst_clock, startCount, stopCount, [&](uint64_t time) {
 				if (verbose)
 					log("Co-simulating %s %d [%lu%s].\n", (all_samples ? "sample" : "cycle"), cycle, (unsigned long)time, fst->getTimescaleString());
-				bool did_something = false;
-				for(auto &item : inputs) {
-					std::string v = fst->valueOf(item.second);
-					did_something |= top->set_state(item.first, Const::from_string(v));
-				}
+				bool did_something = top->setInputs();
 
 				if (initial) {
 					did_something |= top->setInitState();
