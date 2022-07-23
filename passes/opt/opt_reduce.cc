@@ -594,11 +594,9 @@ struct OptReduceWorker
 
 				if (cell->type.in(ID($mux), ID($pmux)))
 					opt_pmux(cell);
-
-				if (cell->type == ID($bmux))
+				else if (cell->type == ID($bmux))
 					opt_bmux(cell);
-
-				if (cell->type == ID($demux))
+				else if (cell->type == ID($demux))
 					opt_demux(cell);
 			}
 		}
