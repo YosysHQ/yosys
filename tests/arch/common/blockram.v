@@ -22,7 +22,6 @@ module sync_ram_sp #(parameter DATA_WIDTH=8, ADDRESS_WIDTH=10)
 endmodule // sync_ram_sp
 
 
-`default_nettype none
 module sync_ram_sdp #(parameter DATA_WIDTH=8, ADDRESS_WIDTH=10)
    (input  wire                      clk, write_enable,
     input  wire  [DATA_WIDTH-1:0]    data_in,
@@ -46,7 +45,6 @@ module sync_ram_sdp #(parameter DATA_WIDTH=8, ADDRESS_WIDTH=10)
 endmodule // sync_ram_sdp
 
 
-`default_nettype none
 module sync_ram_tdp #(parameter DATA_WIDTH=8, ADDRESS_WIDTH=10)
    (input  wire                      clk_a, clk_b, 
     input  wire                      write_enable_a, write_enable_b,
