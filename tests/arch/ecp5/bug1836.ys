@@ -1,31 +1,23 @@
 read_verilog <<EOT
-module dds(input clk, output reg [15:0] signal1, output reg [15:0] signal2);
-	reg [9:0] phase_accumulator_1;
-	reg [9:0] phase_accumulator_2;
-	reg [15:0] sine_table [0:255];
+module top(
+	input clk,
+	output reg [15:0] sig1, sig2
+);
+	reg [7:0] ptr1, ptr2;
+	reg [15:0] mem [0:255];
 
 	initial begin
-		$readmemh("bug1836.mem",sine_table);
+		$readmemh("bug1836.mem", mem);
 	end
 
 	always @(posedge clk) begin
-		phase_accumulator_1 <= phase_accumulator_1 + 1;
-		phase_accumulator_2 <= phase_accumulator_2 + 2;
+		sig1 <= mem[ptr1];
+		ptr1 <= ptr1 + 3;
+		sig2 <= mem[ptr2];
+		ptr2 <= ptr2 + 7;
 	end
-
-	always @(posedge clk) begin
-		signal1 <= sine_table[phase_accumulator_1[9:2]];
-		//signal2 <= sine_table[phase_accumulator_2[9:2]];
-	end
-
-	//comment out this always block below to test for single port read
-	always @(posedge clk) begin
-		//signal1 <= sine_table[phase_accumulator_1[9:2]];
-		signal2 <= sine_table[phase_accumulator_2[9:2]];
-	end
-
 endmodule
 EOT
 
-synth_ecp5 -top dds
+synth_ecp5 -top top
 select -assert-count 1 t:DP16KD
