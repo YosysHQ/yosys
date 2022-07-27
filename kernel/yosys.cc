@@ -871,6 +871,35 @@ std::string proc_self_dirname()
 {
 	return "/";
 }
+#elif defined(__OpenBSD__)
+char yosys_path[PATH_MAX];
+char *yosys_argv0;
+
+std::string proc_self_dirname(void)
+{
+	char buf[PATH_MAX + 1] = "", *path, *p;
+	// if case argv[0] contains a valid path, return it
+	if (strlen(yosys_path) > 0) {
+		p = strrchr(yosys_path, '/');
+		snprintf(buf, sizeof buf, "%*s/", (int)(yosys_path - p), yosys_path);
+		return buf;
+	}
+	// if argv[0] does not, reconstruct the path out of $PATH
+	path = strdup(getenv("PATH"));
+	if (!path)
+		log_error("getenv(\"PATH\") failed: %s\n",  strerror(errno));
+	for (p = strtok(path, ":"); p; p = strtok(NULL, ":")) {
+		snprintf(buf, sizeof buf, "%s/%s", p, yosys_argv0);
+		if (access(buf, X_OK) == 0) {
+			*(strrchr(buf, '/') + 1) = '\0';
+			free(path);
+			return buf;
+		}
+	}
+	free(path);
+	log_error("Can't determine yosys executable path\n.");
+	return NULL;
+}
 #else
 	#error "Don't know how to determine process executable base path!"
 #endif

@@ -155,7 +155,7 @@ bumpversion:
 # is just a symlink to your actual ABC working directory, as 'make mrproper'
 # will remove the 'abc' directory and you do not want to accidentally
 # delete your work on ABC..
-ABCREV = 4e89fc7
+ABCREV = 7cc11f7
 ABCPULL = 1
 ABCURL ?= https://github.com/YosysHQ/abc
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1 ABC_USE_NAMESPACE=abc VERBOSE=$(Q)
@@ -199,11 +199,16 @@ endif
 
 endif
 
+ABC_ARCHFLAGS = ""
+ifeq ($(OS), OpenBSD)
+ABC_ARCHFLAGS += "-DABC_NO_RLIMIT"
+endif
+
 ifeq ($(CONFIG),clang)
 CXX = clang
 LD = clang++
 CXXFLAGS += -std=$(CXXSTD) -Os
-ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -Wno-c++11-narrowing"
+ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -Wno-c++11-narrowing $(ABC_ARCHFLAGS)"
 
 ifneq ($(SANITIZER),)
 $(info [Clang Sanitizer] $(SANITIZER))
@@ -226,7 +231,7 @@ else ifeq ($(CONFIG),gcc)
 CXX = gcc
 LD = gcc
 CXXFLAGS += -std=$(CXXSTD) -Os
-ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
+ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H $(ABC_ARCHFLAGS)"
 
 else ifeq ($(CONFIG),gcc-static)
 LD = $(CXX)
