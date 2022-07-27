@@ -534,11 +534,6 @@ std::string escape_filename_spaces(const std::string& filename)
 	return out;
 }
 
-int GetSize(RTLIL::Wire *wire)
-{
-	return wire->width;
-}
-
 bool already_setup = false;
 
 void yosys_setup()
