@@ -287,7 +287,7 @@ void remove_directory(std::string dirname);
 std::string escape_filename_spaces(const std::string& filename);
 
 template<typename T> int GetSize(const T &obj) { return obj.size(); }
-int GetSize(RTLIL::Wire *wire);
+inline int GetSize(RTLIL::Wire *wire);
 
 extern int autoidx;
 extern int yosys_xtrace;
