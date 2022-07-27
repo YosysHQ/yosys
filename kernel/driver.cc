@@ -192,6 +192,13 @@ void yosys_atexit()
 #endif
 }
 
+#if defined(__OpenBSD__)
+namespace Yosys {
+extern char *yosys_argv0;
+extern char yosys_path[PATH_MAX];
+};
+#endif
+
 int main(int argc, char **argv)
 {
 	std::string frontend_command = "auto";
