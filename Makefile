@@ -199,11 +199,16 @@ endif
 
 endif
 
+ABC_ARCHFLAGS = ""
+ifeq ($(OS), OpenBSD)
+ABC_ARCHFLAGS += "-DABC_NO_RLIMIT"
+endif
+
 ifeq ($(CONFIG),clang)
 CXX = clang
 LD = clang++
 CXXFLAGS += -std=$(CXXSTD) -Os
-ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -Wno-c++11-narrowing"
+ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -Wno-c++11-narrowing $(ABC_ARCHFLAGS)"
 
 ifneq ($(SANITIZER),)
 $(info [Clang Sanitizer] $(SANITIZER))
@@ -226,7 +231,7 @@ else ifeq ($(CONFIG),gcc)
 CXX = gcc
 LD = gcc
 CXXFLAGS += -std=$(CXXSTD) -Os
-ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
+ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H $(ABC_ARCHFLAGS)"
 
 else ifeq ($(CONFIG),gcc-static)
 LD = $(CXX)
