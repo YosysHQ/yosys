@@ -17,10 +17,13 @@
  *
  */
 
+#include <iterator>
+
 #include "kernel/yosys.h"
 #include "kernel/celltypes.h"
 #include "passes/techmap/libparse.h"
 #include "kernel/cost.h"
+#include "libs/json11/json11.hpp"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -32,14 +35,14 @@ struct statdata_t
 
 	#define STAT_NUMERIC_MEMBERS STAT_INT_MEMBERS X(area)
 
-	#define X(_name) int _name;
+	#define X(_name) unsigned int _name;
 	STAT_INT_MEMBERS
 	#undef X
 	double area;
 	string tech;
 
 	std::map<RTLIL::IdString, int> techinfo;
-	std::map<RTLIL::IdString, int, RTLIL::sort_by_id_str> num_cells_by_type;
+	std::map<RTLIL::IdString, unsigned int, RTLIL::sort_by_id_str> num_cells_by_type;
 	std::set<RTLIL::IdString> unknown_cell_area;
 
 	statdata_t operator+(const statdata_t &other) const
@@ -53,7 +56,7 @@ struct statdata_t
 		return sum;
 	}
 
-	statdata_t operator*(int other) const
+	statdata_t operator*(unsigned int other) const
 	{
 		statdata_t sum = *this;
 	#define X(_name) sum._name *= other;
@@ -148,17 +151,17 @@ struct statdata_t
 
 	void log_data(RTLIL::IdString mod_name, bool top_mod)
 	{
-		log("   Number of wires:             %6d\n", num_wires);
-		log("   Number of wire bits:         %6d\n", num_wire_bits);
-		log("   Number of public wires:      %6d\n", num_pub_wires);
-		log("   Number of public wire bits:  %6d\n", num_pub_wire_bits);
-		log("   Number of memories:          %6d\n", num_memories);
-		log("   Number of memory bits:       %6d\n", num_memory_bits);
-		log("   Number of processes:         %6d\n", num_processes);
-		log("   Number of cells:             %6d\n", num_cells);
+		log("   Number of wires:             %6u\n", num_wires);
+		log("   Number of wire bits:         %6u\n", num_wire_bits);
+		log("   Number of public wires:      %6u\n", num_pub_wires);
+		log("   Number of public wire bits:  %6u\n", num_pub_wire_bits);
+		log("   Number of memories:          %6u\n", num_memories);
+		log("   Number of memory bits:       %6u\n", num_memory_bits);
+		log("   Number of processes:         %6u\n", num_processes);
+		log("   Number of cells:             %6u\n", num_cells);
 		for (auto &it : num_cells_by_type)
 			if (it.second)
-				log("     %-26s %6d\n", log_id(it.first), it.second);
+				log("     %-26s %6u\n", log_id(it.first), it.second);
 
 		if (!unknown_cell_area.empty()) {
 			log("\n");
@@ -173,13 +176,13 @@ struct statdata_t
 
 		if (tech == "xilinx")
 		{
-			int lut6_cnt = num_cells_by_type[ID(LUT6)];
-			int lut5_cnt = num_cells_by_type[ID(LUT5)];
-			int lut4_cnt = num_cells_by_type[ID(LUT4)];
-			int lut3_cnt = num_cells_by_type[ID(LUT3)];
-			int lut2_cnt = num_cells_by_type[ID(LUT2)];
-			int lut1_cnt = num_cells_by_type[ID(LUT1)];
-			int lc_cnt = 0;
+			unsigned int lut6_cnt = num_cells_by_type[ID(LUT6)];
+			unsigned int lut5_cnt = num_cells_by_type[ID(LUT5)];
+			unsigned int lut4_cnt = num_cells_by_type[ID(LUT4)];
+			unsigned int lut3_cnt = num_cells_by_type[ID(LUT3)];
+			unsigned int lut2_cnt = num_cells_by_type[ID(LUT2)];
+			unsigned int lut1_cnt = num_cells_by_type[ID(LUT1)];
+			unsigned int lc_cnt = 0;
 
 			lc_cnt += lut6_cnt;
 
@@ -221,12 +224,12 @@ struct statdata_t
 			lc_cnt += (lut2_cnt + lut1_cnt + 1) / 2;
 
 			log("\n");
-			log("   Estimated number of LCs: %10d\n", lc_cnt);
+			log("   Estimated number of LCs: %10u\n", lc_cnt);
 		}
 
 		if (tech == "cmos")
 		{
-			int tran_cnt = 0;
+			unsigned int tran_cnt = 0;
 			bool tran_cnt_exact = true;
 			auto &gate_costs = CellCosts::cmos_gate_cost();
 
@@ -243,20 +246,48 @@ struct statdata_t
 			}
 
 			log("\n");
-			log("   Estimated number of transistors: %10d%s\n", tran_cnt, tran_cnt_exact ? "" : "+");
+			log("   Estimated number of transistors: %10u%s\n", tran_cnt, tran_cnt_exact ? "" : "+");
 		}
+	}
+
+	void log_data_json(const char *mod_name, bool first_module)
+	{
+		if (!first_module)
+			log(",\n");
+		log("      %s: {\n", json11::Json(mod_name).dump().c_str());
+		log("         \"num_wires\":         %u,\n", num_wires);
+		log("         \"num_wire_bits\":     %u,\n", num_wire_bits);
+		log("         \"num_pub_wires\":     %u,\n", num_pub_wires);
+		log("         \"num_pub_wire_bits\": %u,\n", num_pub_wire_bits);
+		log("         \"num_memories\":      %u,\n", num_memories);
+		log("         \"num_memory_bits\":   %u,\n", num_memory_bits);
+		log("         \"num_processes\":     %u,\n", num_processes);
+		log("         \"num_cells\":         %u,\n", num_cells);
+		log("         \"num_cells_by_type\": {\n");
+		bool first_line = true;
+		for (auto &it : num_cells_by_type)
+			if (it.second) {
+				if (!first_line)
+					log(",\n");
+				log("            %s: %u", json11::Json(log_id(it.first)).dump().c_str(), it.second);
+				first_line = false;
+			}
+		log("\n");
+		log("         }\n");
+		log("      }");
 	}
 };
 
-statdata_t hierarchy_worker(std::map<RTLIL::IdString, statdata_t> &mod_stat, RTLIL::IdString mod, int level)
+statdata_t hierarchy_worker(std::map<RTLIL::IdString, statdata_t> &mod_stat, RTLIL::IdString mod, int level, bool quiet = false)
 {
 	statdata_t mod_data = mod_stat.at(mod);
-	std::map<RTLIL::IdString, int, RTLIL::sort_by_id_str> num_cells_by_type;
+	std::map<RTLIL::IdString, unsigned int, RTLIL::sort_by_id_str> num_cells_by_type;
 	num_cells_by_type.swap(mod_data.num_cells_by_type);
 
 	for (auto &it : num_cells_by_type)
 		if (mod_stat.count(it.first) > 0) {
-			log("     %*s%-*s %6d\n", 2*level, "", 26-2*level, log_id(it.first), it.second);
+			if (!quiet)
+				log("     %*s%-*s %6u\n", 2*level, "", 26-2*level, log_id(it.first), it.second);
 			mod_data = mod_data + hierarchy_worker(mod_stat, it.first, level+1) * it.second;
 			mod_data.num_cells -= it.second;
 		} else {
@@ -314,12 +345,16 @@ struct StatPass : public Pass {
 		log("        annotate internal cell types with their word width.\n");
 		log("        e.g. $add_8 for an 8 bit wide $add cell.\n");
 		log("\n");
+		log("    -json\n");
+		log("        output the statistics in a machine-readable JSON format.\n");
+		log("        this is output to the console; use \"tee\" to output to a file.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Printing statistics.\n");
 
-		bool width_mode = false;
+		bool width_mode = false, json_mode = false;
 		RTLIL::Module *top_mod = nullptr;
 		std::map<RTLIL::IdString, statdata_t> mod_stat;
 		dict<IdString, double> cell_area;
@@ -348,13 +383,27 @@ struct StatPass : public Pass {
 				top_mod = design->module(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
+			if (args[argidx] == "-json") {
+				json_mode = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
-		if (techname != "" && techname != "xilinx" && techname != "cmos")
+		if (techname != "" && techname != "xilinx" && techname != "cmos" && !json_mode)
 			log_cmd_error("Unsupported technology: '%s'\n", techname.c_str());
 
+		if (json_mode) {
+			log("{\n");
+			log("   \"creator\": %s,\n", json11::Json(yosys_version_str).dump().c_str());
+			std::stringstream invocation;
+			std::copy(args.begin(), args.end(), std::ostream_iterator<std::string>(invocation, " "));
+			log("   \"invocation\": %s,\n", json11::Json(invocation.str()).dump().c_str());
+			log("   \"modules\": {\n");
+		}
+
+		bool first_module = true;
 		for (auto mod : design->selected_modules())
 		{
 			if (!top_mod && design->full_selection())
@@ -364,23 +413,40 @@ struct StatPass : public Pass {
 			statdata_t data(design, mod, width_mode, cell_area, techname);
 			mod_stat[mod->name] = data;
 
-			log("\n");
-			log("=== %s%s ===\n", log_id(mod->name), design->selected_whole_module(mod->name) ? "" : " (partially selected)");
-			log("\n");
-			data.log_data(mod->name, false);
+			if (json_mode) {
+				data.log_data_json(mod->name.c_str(), first_module);
+				first_module = false;
+			} else {
+				log("\n");
+				log("=== %s%s ===\n", log_id(mod->name), design->selected_whole_module(mod->name) ? "" : " (partially selected)");
+				log("\n");
+				data.log_data(mod->name, false);
+			}
 		}
 
-		if (top_mod != nullptr && GetSize(mod_stat) > 1)
+		if (json_mode) {
+			log("\n");
+			log("   },\n");
+		}
+
+		if (top_mod != nullptr)
 		{
-			log("\n");
-			log("=== design hierarchy ===\n");
-			log("\n");
+			if (!json_mode && GetSize(mod_stat) > 1) {
+				log("\n");
+				log("=== design hierarchy ===\n");
+				log("\n");
+				log("   %-28s %6d\n", log_id(top_mod->name), 1);
+			}
 
-			log("   %-28s %6d\n", log_id(top_mod->name), 1);
-			statdata_t data = hierarchy_worker(mod_stat, top_mod->name, 0);
+			statdata_t data = hierarchy_worker(mod_stat, top_mod->name, 0, /*quiet=*/json_mode);
 
-			log("\n");
-			data.log_data(top_mod->name, true);
+			if (json_mode) 
+				data.log_data_json("design", true);
+			else if (GetSize(mod_stat) > 1) {
+				log("\n");
+				data.log_data(top_mod->name, true);
+			}
+
 			design->scratchpad_set_int("stat.num_wires", data.num_wires);
 			design->scratchpad_set_int("stat.num_wire_bits", data.num_wire_bits);
 			design->scratchpad_set_int("stat.num_pub_wires", data.num_pub_wires);
@@ -390,6 +456,11 @@ struct StatPass : public Pass {
 			design->scratchpad_set_int("stat.num_processes", data.num_processes);
 			design->scratchpad_set_int("stat.num_cells", data.num_cells);
 			design->scratchpad_set_int("stat.area", data.area);
+		}
+
+		if (json_mode) {
+			log("\n");
+			log("}\n");
 		}
 
 		log("\n");
