@@ -1124,6 +1124,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 		RTLIL::Wire *wire = module->addWire(RTLIL::escape_id(portbus->Name()), portbus->Size());
 		wire->start_offset = min(portbus->LeftIndex(), portbus->RightIndex());
+		wire->upto = portbus->IsUp();
 		import_attributes(wire->attributes, portbus, nl);
 
 		bool portbus_input = portbus->GetDir() == DIR_INOUT || portbus->GetDir() == DIR_IN;
@@ -1144,7 +1145,8 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 						wire->port_output = true;
 				}
 				net = portbus->ElementAtIndex(i)->GetNet();
-				RTLIL::SigBit bit(wire, i - wire->start_offset);
+				int bitidx = wire->upto ? (wire->width - 1 - (i - wire->start_offset)) : (i - wire->start_offset);
+				RTLIL::SigBit bit(wire, bitidx);
 				if (net_map.count(net) == 0)
 					net_map[net] = bit;
 				else if (bit_input)
@@ -1308,6 +1310,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 			RTLIL::Wire *wire = module->addWire(wire_name, netbus->Size());
 			wire->start_offset = min(netbus->LeftIndex(), netbus->RightIndex());
+			wire->upto = netbus->IsUp();
 			MapIter mibus;
 			FOREACH_NET_OF_NETBUS(netbus, mibus, net) {
 				if (net)
@@ -1322,7 +1325,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			{
 				if (netbus->ElementAtIndex(i))
 				{
-					int bitidx = i - wire->start_offset;
+					int bitidx = wire->upto ? (wire->width - 1 - (i - wire->start_offset)) : (i - wire->start_offset);
 					net = netbus->ElementAtIndex(i);
 					RTLIL::SigBit bit(wire, bitidx);
 
