@@ -6,6 +6,7 @@ Yosys 0.20 .. Yosys 0.20-dev
 --------------------------
  * New commands and options
     - Added "formalff" pass - transforms FFs for formal verification
+    - Added option "-formal" to "memory_map" pass
 
  * Formal Verification
     - Added $anyinit cell to directly represent FFs with an unconstrained
