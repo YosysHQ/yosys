@@ -17,9 +17,10 @@
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #
 
-import os, sys, getopt, re
+import os, sys, getopt, re, bisect
 ##yosys-sys-path##
 from smtio import SmtIo, SmtOpts, MkVcd
+from ywio import ReadWitness, WriteWitness, WitnessValues
 from collections import defaultdict
 
 got_topt = False
@@ -28,6 +29,8 @@ step_size = 1
 num_steps = 20
 append_steps = 0
 vcdfile = None
+inywfile = None
+outywfile = None
 cexfile = None
 aimfile = None
 aiwfile = None
@@ -94,6 +97,9 @@ def usage():
         the AIGER witness file does not include the status and
         properties lines.
 
+    --yw <yosys_witness_filename>
+        read a Yosys witness.
+
     --btorwit <btor_witness_filename>
         read a BTOR witness.
 
@@ -120,6 +126,9 @@ def usage():
         write trace to this VCD file
         (hint: use 'write_smt2 -wires' for maximum
         coverage of signals in generated VCD file)
+
+    --dump-yw <yw_filename>
+        write trace as a Yosys witness trace
 
     --dump-vlogtb <verilog_filename>
         write trace as Verilog test bench
@@ -167,8 +176,8 @@ def usage():
 
 try:
     opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:igcm:", so.longopts +
-            ["final-only", "assume-skipped=", "smtc=", "cex=", "aig=", "aig-noheader", "btorwit=", "presat",
-             "dump-vcd=", "dump-vlogtb=", "vlogtb-top=", "dump-smtc=", "dump-all", "noinfo", "append=",
+            ["final-only", "assume-skipped=", "smtc=", "cex=", "aig=", "aig-noheader", "yw=", "btorwit=", "presat",
+             "dump-vcd=", "dump-yw=", "dump-vlogtb=", "vlogtb-top=", "dump-smtc=", "dump-all", "noinfo", "append=",
              "smtc-init", "smtc-top=", "noinit", "binary", "keep-going"])
 except:
     usage()
@@ -204,10 +213,14 @@ for o, a in opts:
             aiwfile = a + ".aiw"
     elif o == "--aig-noheader":
         aigheader = False
+    elif o == "--yw":
+        inywfile = a
     elif o == "--btorwit":
         btorwitfile = a
     elif o == "--dump-vcd":
         vcdfile = a
+    elif o == "--dump-yw":
+        outywfile = a
     elif o == "--dump-vlogtb":
         vlogtbfile = a
     elif o == "--vlogtb-top":
@@ -602,6 +615,101 @@ if aimfile is not None:
                 num_steps = max(num_steps, step+2)
             step += 1
 
+if inywfile is not None:
+    with open(inywfile, "r") as f:
+        inyw = ReadWitness(f)
+
+        inits, seqs, clocks, mems = smt.hierwitness(topmod, allregs=True, blackbox=True)
+
+        smt_wires = defaultdict(list)
+        smt_mems = defaultdict(list)
+
+        for wire in inits + seqs:
+            smt_wires[wire["path"]].append(wire)
+
+        for mem in mems:
+            smt_mems[mem["path"]].append(mem)
+
+        addr_re = re.compile(r'\\\[[0-9]+\]$')
+        bits_re = re.compile(r'[01?]*$')
+
+        for t, step in inyw.steps():
+            present_signals, missing = step.present_signals(inyw.sigmap)
+            for sig in present_signals:
+                bits = step[sig]
+                if not bits_re.match(bits):
+                    raise ValueError("unsupported bit value in Yosys witness file")
+
+                sig_end = sig.offset + len(bits)
+                if sig.path in smt_wires:
+                    for wire in smt_wires[sig.path]:
+                        width, offset = wire["width"], wire["offset"]
+
+                        smt_bool = smt.net_width(topmod, wire["smtpath"]) == 1
+
+                        offset = max(offset, 0)
+
+                        end = width + offset
+                        common_offset = max(sig.offset, offset)
+                        common_end = min(sig_end, end)
+                        if common_end <= common_offset:
+                            continue
+
+                        smt_expr = smt.net_expr(topmod, f"s{t}", wire["smtpath"])
+
+                        if not smt_bool:
+                            slice_high = common_end - offset - 1
+                            slice_low = common_offset - offset
+                            smt_expr = "((_ extract %d %d) %s)" % (slice_high, slice_low, smt_expr)
+
+                        bit_slice = bits[len(bits) - (common_end - sig.offset):len(bits) - (common_offset - sig.offset)]
+
+                        if bit_slice.count("?") == len(bit_slice):
+                            continue
+
+                        if smt_bool:
+                            assert width == 1
+                            smt_constr = "(= %s %s)" % (smt_expr, "true" if bit_slice == "1" else "false")
+                        else:
+                            if "?" in bit_slice:
+                                mask = bit_slice.replace("0", "1").replace("?", "0")
+                                bit_slice = bit_slice.replace("?", "0")
+                                smt_expr = "(bvand %s #b%s)" % (smt_expr, mask)
+
+                            smt_constr = "(= %s #b%s)" % (smt_expr, bit_slice)
+
+                        constr_assumes[t].append((inywfile, smt_constr))
+
+                if sig.memory_path:
+                    if sig.memory_path in smt_mems:
+                        for mem in smt_mems[sig.memory_path]:
+                            width, size, bv = mem["width"], mem["size"], mem["statebv"]
+
+                            smt_expr = smt.net_expr(topmod, f"s{t}", mem["smtpath"])
+
+                            if bv:
+                                word_low = sig.memory_addr * width
+                                word_high = word_low + width - 1
+                                smt_expr = "((_ extract %d %d) %s)" % (word_high, word_low, smt_expr)
+                            else:
+                                addr_width = (size - 1).bit_length()
+                                addr_bits = f"{sig.memory_addr:0{addr_width}b}"
+                                smt_expr = "(select %s #b%s )" % (smt_expr, addr_bits)
+
+                            if len(bits) < width:
+                                slice_high = sig.offset + len(bits) - 1
+                                smt_expr = "((_ extract %d %d) %s)" % (slice_high, sig.offset, smt_expr)
+
+                            bit_slice = bits
+
+                            if "?" in bit_slice:
+                                mask = bit_slice.replace("0", "1").replace("?", "0")
+                                bit_slice = bit_slice.replace("?", "0")
+                                smt_expr = "(bvand %s #b%s)" % (smt_expr, mask)
+
+                            smt_constr = "(= %s #b%s)" % (smt_expr, bit_slice)
+                            constr_assumes[t].append((inywfile, smt_constr))
+
 if btorwitfile is not None:
     with open(btorwitfile, "r") as f:
         step = None
@@ -699,6 +807,115 @@ if btorwitfile is not None:
         skip_steps = step
         num_steps = step+1
 
+def collect_mem_trace_data(steps_start, steps_stop, vcd=None):
+    mem_trace_data = dict()
+
+    for mempath in sorted(smt.hiermems(topmod)):
+        abits, width, rports, wports, asyncwr = smt.mem_info(topmod, mempath)
+
+        expr_id = list()
+        expr_list = list()
+        for i in range(steps_start, steps_stop):
+            for j in range(rports):
+                expr_id.append(('R', i-steps_start, j, 'A'))
+                expr_id.append(('R', i-steps_start, j, 'D'))
+                expr_list.append(smt.mem_expr(topmod, "s%d" % i, mempath, "R%dA" % j))
+                expr_list.append(smt.mem_expr(topmod, "s%d" % i, mempath, "R%dD" % j))
+            for j in range(wports):
+                expr_id.append(('W', i-steps_start, j, 'A'))
+                expr_id.append(('W', i-steps_start, j, 'D'))
+                expr_id.append(('W', i-steps_start, j, 'M'))
+                expr_list.append(smt.mem_expr(topmod, "s%d" % i, mempath, "W%dA" % j))
+                expr_list.append(smt.mem_expr(topmod, "s%d" % i, mempath, "W%dD" % j))
+                expr_list.append(smt.mem_expr(topmod, "s%d" % i, mempath, "W%dM" % j))
+
+        rdata = list()
+        wdata = list()
+        addrs = set()
+
+        for eid, edat in zip(expr_id, smt.get_list(expr_list)):
+            t, i, j, f = eid
+
+            if t == 'R':
+                c = rdata
+            elif t == 'W':
+                c = wdata
+            else:
+                assert False
+
+            while len(c) <= i:
+                c.append(list())
+            c = c[i]
+
+            while len(c) <= j:
+                c.append(dict())
+            c = c[j]
+
+            c[f] = smt.bv2bin(edat)
+
+            if f == 'A':
+                addrs.add(c[f])
+
+        for addr in addrs:
+            tdata = list()
+            data = ["x"] * width
+            gotread = False
+
+            if len(wdata) == 0 and len(rdata) != 0:
+                wdata = [[]] * len(rdata)
+
+            assert len(rdata) == len(wdata)
+
+            for i in range(len(wdata)):
+                if not gotread:
+                    for j_data in rdata[i]:
+                        if j_data["A"] == addr:
+                            data = list(j_data["D"])
+                            gotread = True
+                            break
+
+                    if gotread:
+                        buf = data[:]
+                        for ii in reversed(range(len(tdata))):
+                            for k in range(width):
+                                if tdata[ii][k] == "x":
+                                    tdata[ii][k] = buf[k]
+                                else:
+                                    buf[k] = tdata[ii][k]
+
+                if not asyncwr:
+                    tdata.append(data[:])
+
+                for j_data in wdata[i]:
+                    if j_data["A"] != addr:
+                        continue
+
+                    D = j_data["D"]
+                    M = j_data["M"]
+
+                    for k in range(width):
+                        if M[k] == "1":
+                            data[k] = D[k]
+
+                if asyncwr:
+                    tdata.append(data[:])
+
+            assert len(tdata) == len(rdata)
+
+            int_addr = int(addr, 2)
+
+            netpath = mempath[:]
+            if vcd:
+                netpath[-1] += "<%0*x>" % ((len(addr)+3) // 4, int_addr)
+                vcd.add_net([topmod] + netpath, width)
+
+            for i in range(steps_start, steps_stop):
+                if i not in mem_trace_data:
+                    mem_trace_data[i] = list()
+                mem_trace_data[i].append((netpath, int_addr, "".join(tdata[i-steps_start])))
+
+    return mem_trace_data
+
 def write_vcd_trace(steps_start, steps_stop, index):
     filename = vcdfile.replace("%", index)
     print_msg("Writing trace to VCD file: %s" % (filename))
@@ -720,107 +937,7 @@ def write_vcd_trace(steps_start, steps_stop, index):
                     vcd.add_clock([topmod] + netpath, edge)
                 path_list.append(netpath)
 
-        mem_trace_data = dict()
-        for mempath in sorted(smt.hiermems(topmod)):
-            abits, width, rports, wports, asyncwr = smt.mem_info(topmod, mempath)
-
-            expr_id = list()
-            expr_list = list()
-            for i in range(steps_start, steps_stop):
-                for j in range(rports):
-                    expr_id.append(('R', i-steps_start, j, 'A'))
-                    expr_id.append(('R', i-steps_start, j, 'D'))
-                    expr_list.append(smt.mem_expr(topmod, "s%d" % i, mempath, "R%dA" % j))
-                    expr_list.append(smt.mem_expr(topmod, "s%d" % i, mempath, "R%dD" % j))
-                for j in range(wports):
-                    expr_id.append(('W', i-steps_start, j, 'A'))
-                    expr_id.append(('W', i-steps_start, j, 'D'))
-                    expr_id.append(('W', i-steps_start, j, 'M'))
-                    expr_list.append(smt.mem_expr(topmod, "s%d" % i, mempath, "W%dA" % j))
-                    expr_list.append(smt.mem_expr(topmod, "s%d" % i, mempath, "W%dD" % j))
-                    expr_list.append(smt.mem_expr(topmod, "s%d" % i, mempath, "W%dM" % j))
-
-            rdata = list()
-            wdata = list()
-            addrs = set()
-
-            for eid, edat in zip(expr_id, smt.get_list(expr_list)):
-                t, i, j, f = eid
-
-                if t == 'R':
-                    c = rdata
-                elif t == 'W':
-                    c = wdata
-                else:
-                    assert False
-
-                while len(c) <= i:
-                    c.append(list())
-                c = c[i]
-
-                while len(c) <= j:
-                    c.append(dict())
-                c = c[j]
-
-                c[f] = smt.bv2bin(edat)
-
-                if f == 'A':
-                    addrs.add(c[f])
-
-            for addr in addrs:
-                tdata = list()
-                data = ["x"] * width
-                gotread = False
-
-                if len(wdata) == 0 and len(rdata) != 0:
-                    wdata = [[]] * len(rdata)
-
-                assert len(rdata) == len(wdata)
-
-                for i in range(len(wdata)):
-                    if not gotread:
-                        for j_data in rdata[i]:
-                            if j_data["A"] == addr:
-                                data = list(j_data["D"])
-                                gotread = True
-                                break
-
-                        if gotread:
-                            buf = data[:]
-                            for ii in reversed(range(len(tdata))):
-                                for k in range(width):
-                                    if tdata[ii][k] == "x":
-                                        tdata[ii][k] = buf[k]
-                                    else:
-                                        buf[k] = tdata[ii][k]
-
-                    if not asyncwr:
-                        tdata.append(data[:])
-
-                    for j_data in wdata[i]:
-                        if j_data["A"] != addr:
-                            continue
-
-                        D = j_data["D"]
-                        M = j_data["M"]
-
-                        for k in range(width):
-                            if M[k] == "1":
-                                data[k] = D[k]
-
-                    if asyncwr:
-                        tdata.append(data[:])
-
-                assert len(tdata) == len(rdata)
-
-                netpath = mempath[:]
-                netpath[-1] += "<%0*x>" % ((len(addr)+3) // 4, int(addr, 2))
-                vcd.add_net([topmod] + netpath, width)
-
-                for i in range(steps_start, steps_stop):
-                    if i not in mem_trace_data:
-                        mem_trace_data[i] = list()
-                    mem_trace_data[i].append((netpath, "".join(tdata[i-steps_start])))
+        mem_trace_data = collect_mem_trace_data(steps_start, steps_stop, vcd)
 
         for i in range(steps_start, steps_stop):
             vcd.set_time(i)
@@ -828,7 +945,7 @@ def write_vcd_trace(steps_start, steps_stop, index):
             for path, value in zip(path_list, value_list):
                 vcd.set_net([topmod] + path, value)
             if i in mem_trace_data:
-                for path, value in mem_trace_data[i]:
+                for path, addr, value in mem_trace_data[i]:
                     vcd.set_net([topmod] + path, value)
 
         vcd.set_time(steps_stop)
@@ -1072,8 +1189,72 @@ def write_constr_trace(steps_start, steps_stop, index):
             for name, val in zip(pi_names, pi_values):
                 print("assume (= [%s%s] %s)" % (constr_prefix, ".".join(name), val), file=f)
 
+def write_yw_trace(steps_start, steps_stop, index, allregs=False):
+    filename = outywfile.replace("%", index)
+    print_msg("Writing trace to Yosys witness file: %s" % (filename))
 
-def write_trace(steps_start, steps_stop, index):
+    mem_trace_data = collect_mem_trace_data(steps_start, steps_stop)
+
+    with open(filename, "w") as f:
+        inits, seqs, clocks, mems = smt.hierwitness(topmod, allregs)
+
+        yw = WriteWitness(f, "smtbmc")
+
+        for clock in clocks:
+            yw.add_clock(clock["path"], clock["offset"], clock["type"])
+
+        for seq in seqs:
+            seq["sig"] = yw.add_sig(seq["path"], seq["offset"], seq["width"])
+
+        for init in inits:
+            init["sig"] = yw.add_sig(init["path"], init["offset"], init["width"], True)
+
+        inits = seqs + inits
+
+        mem_dict = {tuple(mem["smtpath"]): mem for mem in mems}
+        mem_init_values = []
+
+        for path, addr, value in mem_trace_data.get(0, ()):
+            json_mem = mem_dict.get(tuple(path))
+            if not json_mem:
+                continue
+
+            bit_addr = addr * json_mem["width"]
+            uninit_chunks = [(chunk["width"] + chunk["offset"], chunk["offset"]) for chunk in json_mem["uninitialized"]]
+            first_chunk_nr = bisect.bisect_left(uninit_chunks, (bit_addr + 1,))
+
+            for uninit_end, uninit_offset in uninit_chunks[first_chunk_nr:]:
+                assert uninit_end > bit_addr
+                if uninit_offset > bit_addr + json_mem["width"]:
+                    break
+
+                word_path = (*json_mem["path"], f"\\[{addr}]")
+
+                overlap_start = max(uninit_offset - bit_addr, 0)
+                overlap_end = min(uninit_end - bit_addr, json_mem["width"])
+                overlap_bits = value[len(value)-overlap_end:len(value)-overlap_start]
+
+                sig = yw.add_sig(word_path, overlap_start, overlap_end - overlap_start, True)
+                mem_init_values.append((sig, overlap_bits.replace("x", "?")))
+
+        for k in range(steps_start, steps_stop):
+            step_values = WitnessValues()
+
+            if k == steps_start:
+                for sig, value in mem_init_values:
+                    step_values[sig] = value
+                sigs = inits + seqs
+            else:
+                sigs = seqs
+
+            for sig in sigs:
+                step_values[sig["sig"]] = smt.bv2bin(smt.get(smt.net_expr(topmod, f"s{k}", sig["smtpath"])))
+            yw.step(step_values)
+
+        yw.end_trace()
+
+
+def write_trace(steps_start, steps_stop, index, allregs=False):
     if vcdfile is not None:
         write_vcd_trace(steps_start, steps_stop, index)
 
@@ -1082,6 +1263,9 @@ def write_trace(steps_start, steps_stop, index):
 
     if outconstr is not None:
         write_constr_trace(steps_start, steps_stop, index)
+
+    if outywfile is not None:
+        write_yw_trace(steps_start, steps_stop, index, allregs)
 
 
 def print_failed_asserts_worker(mod, state, path, extrainfo, infomap, infokey=()):
@@ -1392,12 +1576,12 @@ if tempind:
                 print_msg("Temporal induction failed!")
                 print_anyconsts(num_steps)
                 print_failed_asserts(num_steps)
-                write_trace(step, num_steps+1, '%')
+                write_trace(step, num_steps+1, '%', allregs=True)
 
             elif dumpall:
                 print_anyconsts(num_steps)
                 print_failed_asserts(num_steps)
-                write_trace(step, num_steps+1, "%d" % step)
+                write_trace(step, num_steps+1, "%d" % step, allregs=True)
 
         else:
             print_msg("Temporal induction successful.")

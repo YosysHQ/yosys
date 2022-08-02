@@ -23,6 +23,7 @@
 #include "kernel/celltypes.h"
 #include "kernel/log.h"
 #include "kernel/mem.h"
+#include "libs/json11/json11.hpp"
 #include <string>
 
 USING_YOSYS_NAMESPACE
@@ -588,6 +589,9 @@ struct Smt2Worker
 			if (cell->type.in(ID($ff), ID($dff)))
 			{
 				registers.insert(cell);
+				for (auto chunk : cell->getPort(ID::Q).chunks())
+					if (chunk.is_wire())
+						decls.push_back(witness_signal("reg", chunk.width, chunk.offset, "", idcounter, chunk.wire));
 				makebits(stringf("%s#%d", get_id(module), idcounter), GetSize(cell->getPort(ID::Q)), log_signal(cell->getPort(ID::Q)));
 				register_bv(cell->getPort(ID::Q), idcounter++);
 				recursive_cells.erase(cell);
@@ -610,6 +614,12 @@ struct Smt2Worker
 					decls.push_back(stringf("; yosys-smt2-minimize %s#%d\n", get_id(module), idcounter));
 					log("Wire %s is minimized\n", cell->getPort(QY).as_wire()->name.str().c_str());
 				}
+
+				bool init_only = cell->type.in(ID($anyconst), ID($anyinit), ID($allconst));
+				for (auto chunk : cell->getPort(QY).chunks())
+					if (chunk.is_wire())
+						decls.push_back(witness_signal(init_only ? "init" : "seq", chunk.width, chunk.offset, "", idcounter, chunk.wire));
+
 				makebits(stringf("%s#%d", get_id(module), idcounter), GetSize(cell->getPort(QY)), log_signal(cell->getPort(QY)));
 				if (cell->type == ID($anyseq))
 					ex_input_eq.push_back(stringf("  (= (|%s#%d| state) (|%s#%d| other_state))", get_id(module), idcounter, get_id(module), idcounter));
@@ -760,6 +770,7 @@ struct Smt2Worker
 				log_error("Memory %s.%s has mixed clocked/nonclocked write ports. This is not supported by \"write_smt2\".\n", log_id(cell), log_id(module));
 
 			decls.push_back(stringf("; yosys-smt2-memory %s %d %d %d %d %s\n", get_id(mem->memid), abits, mem->width, GetSize(mem->rd_ports), GetSize(mem->wr_ports), has_async_wr ? "async" : "sync"));
+			decls.push_back(witness_memory(get_id(mem->memid), cell, mem));
 
 			string memstate;
 			if (has_async_wr) {
@@ -852,6 +863,7 @@ struct Smt2Worker
 		if (m != nullptr)
 		{
 			decls.push_back(stringf("; yosys-smt2-cell %s %s\n", get_id(cell->type), get_id(cell->name)));
+			decls.push_back(witness_cell(get_id(cell->name), cell));
 			string cell_state = stringf("(|%s_h %s| state)", get_id(module), get_id(cell->name));
 
 			for (auto &conn : cell->connections())
@@ -950,14 +962,19 @@ struct Smt2Worker
 
 		for (auto wire : module->wires()) {
 			bool is_register = false;
-			for (auto bit : SigSpec(wire))
+			bool contains_clock = false;
+			for (auto bit : SigSpec(wire)) {
 				if (reg_bits.count(bit))
 					is_register = true;
+				auto sig_bit = sigmap(bit);
+				if (clock_posedge.count(sig_bit) || clock_negedge.count(sig_bit))
+					contains_clock = true;
+			}
 			bool is_smtlib2_comb_expr = wire->has_attribute(ID::smtlib2_comb_expr);
 			if (is_smtlib2_comb_expr && !is_smtlib2_module)
 				log_error("smtlib2_comb_expr is only valid in a module with the smtlib2_module attribute: wire %s.%s", log_id(module),
 					  log_id(wire));
-			if (wire->port_id || is_register || wire->get_bool_attribute(ID::keep) || (wiresmode && wire->name.isPublic())) {
+			if (wire->port_id || is_register || contains_clock || wire->get_bool_attribute(ID::keep) || (wiresmode && wire->name.isPublic())) {
 				RTLIL::SigSpec sig = sigmap(wire);
 				std::vector<std::string> comments;
 				if (wire->port_input)
@@ -968,9 +985,20 @@ struct Smt2Worker
 					comments.push_back(stringf("; yosys-smt2-register %s %d\n", get_id(wire), wire->width));
 				if (wire->get_bool_attribute(ID::keep) || (wiresmode && wire->name.isPublic()))
 					comments.push_back(stringf("; yosys-smt2-wire %s %d\n", get_id(wire), wire->width));
-				if (GetSize(wire) == 1 && (clock_posedge.count(sig) || clock_negedge.count(sig)))
+				if (contains_clock && GetSize(wire) == 1 && (clock_posedge.count(sig) || clock_negedge.count(sig)))
 					comments.push_back(stringf("; yosys-smt2-clock %s%s%s\n", get_id(wire),
 							clock_posedge.count(sig) ? " posedge" : "", clock_negedge.count(sig) ? " negedge" : ""));
+				if (contains_clock) {
+					for (int i = 0; i < GetSize(sig); i++) {
+						bool is_posedge = clock_posedge.count(sig[i]);
+						bool is_negedge = clock_negedge.count(sig[i]);
+						if (is_posedge != is_negedge)
+							comments.push_back(witness_signal(
+									is_posedge ? "posedge" : "negedge", 1, i, get_id(wire), -1, wire));
+					}
+				}
+				if (wire->port_input)
+					comments.push_back(witness_signal("input", wire->width, 0, get_id(wire), -1, wire));
 				std::string smtlib2_comb_expr;
 				if (is_smtlib2_comb_expr) {
 					smtlib2_comb_expr =
@@ -980,6 +1008,8 @@ struct Smt2Worker
 					if (!bvmode && GetSize(sig) > 1)
 						log_error("smtlib2_comb_expr is unsupported on multi-bit wires when -nobv is specified: wire %s.%s",
 							  log_id(module), log_id(wire));
+
+					comments.push_back(witness_signal("blackbox", wire->width, 0, get_id(wire), -1, wire));
 				}
 				auto &out_decls = is_smtlib2_comb_expr ? smtlib2_decls : decls;
 				if (bvmode && GetSize(sig) > 1) {
@@ -1446,6 +1476,90 @@ struct Smt2Worker
 		else
 			f << "true)";
 		f << stringf(" ; end of module %s\n", get_id(module));
+	}
+
+	template<class T> static std::vector<std::string> witness_path(T *obj) {
+		std::vector<std::string> path;
+		if (obj->name.isPublic()) {
+			auto hdlname = obj->get_string_attribute(ID::hdlname);
+			for (auto token : split_tokens(hdlname))
+				path.push_back("\\" + token);
+		}
+		if (path.empty())
+			path.push_back(obj->name.str());
+		return path;
+	}
+
+	std::string witness_signal(const char *type, int width, int offset, const std::string &smtname, int smtid, RTLIL::Wire *wire)
+	{
+		std::vector<std::string> hiername;
+		const char *wire_name = wire->name.c_str();
+		if (wire_name[0] == '\\') {
+			auto hdlname = wire->get_string_attribute(ID::hdlname);
+			for (auto token : split_tokens(hdlname))
+				hiername.push_back("\\" + token);
+		}
+		if (hiername.empty())
+			hiername.push_back(wire->name.str());
+
+		std::string line = "; yosys-smt2-witness ";
+		(json11::Json { json11::Json::object {
+			{ "type", type },
+			{ "offset", offset },
+			{ "width", width },
+			{ "smtname", smtname.empty() ? json11::Json(smtid) : json11::Json(smtname) },
+			{ "path", witness_path(wire) },
+		}}).dump(line);
+		line += "\n";
+		return line;
+	}
+
+	std::string witness_cell(const char *smtname, RTLIL::Cell *cell)
+	{
+		std::string line = "; yosys-smt2-witness ";
+		(json11::Json {json11::Json::object {
+			{ "type", "cell" },
+			{ "smtname", smtname },
+			{ "path", witness_path(cell) },
+		}}).dump(line);
+		line += "\n";
+		return line;
+	}
+
+	std::string witness_memory(const char *smtname, RTLIL::Cell *cell, Mem *mem)
+	{
+		json11::Json::array uninitialized;
+		auto init_data = mem->get_init_data();
+
+		int cursor = 0;
+
+		while (cursor < init_data.size()) {
+			while (cursor < init_data.size() && init_data[cursor] != State::Sx)
+				cursor++;
+			int offset = cursor;
+			while (cursor < init_data.size() && init_data[cursor] == State::Sx)
+				cursor++;
+			int width = cursor - offset;
+			if (width)
+				uninitialized.push_back(json11::Json::object {
+					{"width", width},
+					{"offset", offset},
+				});
+		}
+
+		std::string line = "; yosys-smt2-witness ";
+		(json11::Json { json11::Json::object {
+			{ "type", "mem" },
+			{ "width", mem->width },
+			{ "size", mem->size },
+			{ "rom", mem->wr_ports.empty() },
+			{ "statebv", statebv },
+			{ "smtname", smtname },
+			{ "uninitialized", uninitialized },
+			{ "path", witness_path(cell) },
+		}}).dump(line);
+		line += "\n";
+		return line;
 	}
 };
 
