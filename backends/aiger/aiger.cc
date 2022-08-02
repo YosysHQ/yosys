@@ -189,6 +189,17 @@ struct AigerWriter
 				continue;
 			}
 
+			if (cell->type == ID($anyinit))
+			{
+				auto sig_d = sigmap(cell->getPort(ID::D));
+				auto sig_q = sigmap(cell->getPort(ID::Q));
+				for (int i = 0; i < sig_d.size(); i++) {
+					undriven_bits.erase(sig_q[i]);
+					ff_map[sig_q[i]] = sig_d[i];
+				}
+				continue;
+			}
+
 			if (cell->type == ID($_AND_))
 			{
 				SigBit A = sigmap(cell->getPort(ID::A).as_bit());
