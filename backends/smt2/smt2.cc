@@ -241,6 +241,17 @@ struct Smt2Worker
 
 		for (auto wire : module->wires())
 		{
+			auto gclk_attr = wire->attributes.find(ID::replaced_by_gclk);
+			if (gclk_attr != wire->attributes.end()) {
+				if (gclk_attr->second == State::S1)
+					clock_posedge.insert(sigmap(wire));
+				else if (gclk_attr->second == State::S0)
+					clock_negedge.insert(sigmap(wire));
+			}
+		}
+
+		for (auto wire : module->wires())
+		{
 			if (!wire->port_input || GetSize(wire) != 1)
 				continue;
 			SigBit bit = sigmap(wire);

@@ -145,6 +145,28 @@ struct FormalFfPass : public Pass {
 						log_error("Const CLK on %s (%s) from module %s, run async2sync first.\n",
 								log_id(cell), log_id(cell->type), log_id(module));
 
+					auto clk_wire = ff.sig_clk.is_wire() ? ff.sig_clk.as_wire() : nullptr;
+
+					if (clk_wire == nullptr) {
+						clk_wire = module->addWire(NEW_ID);
+						module->connect(RTLIL::SigBit(clk_wire), ff.sig_clk);
+					}
+
+					auto clk_polarity = ff.pol_clk ? State::S1 : State::S0;
+
+					std::string attribute = clk_wire->get_string_attribute(ID::replaced_by_gclk);
+
+					auto &attr = clk_wire->attributes[ID::replaced_by_gclk];
+
+					if (!attr.empty() && attr != clk_polarity)
+						log_error("CLK %s on %s (%s) from module %s also used with opposite polarity, run clk2fflogic instead.\n",
+								log_id(clk_wire), log_id(cell), log_id(cell->type), log_id(module));
+
+					attr = clk_polarity;
+					clk_wire->set_bool_attribute(ID::keep);
+
+					// TODO propagate the replaced_by_gclk attribute upwards throughout the hierarchy
+
 					ff.unmap_ce_srst();
 					ff.has_clk = false;
 					ff.has_gclk = true;
