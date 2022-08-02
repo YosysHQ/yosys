@@ -612,7 +612,7 @@ struct BtorWorker
 			goto okay;
 		}
 
-		if (cell->type.in(ID($dff), ID($ff), ID($_DFF_P_), ID($_DFF_N), ID($_FF_)))
+		if (cell->type.in(ID($dff), ID($ff), ID($anyinit), ID($_DFF_P_), ID($_DFF_N), ID($_FF_)))
 		{
 			SigSpec sig_d = sigmap(cell->getPort(ID::D));
 			SigSpec sig_q = sigmap(cell->getPort(ID::Q));
