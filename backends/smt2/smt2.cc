@@ -449,7 +449,7 @@ struct Smt2Worker
 		bool is_signed = cell->getParam(ID::A_SIGNED).as_bool();
 		int width = GetSize(sig_y);
 
-		if (type == 's' || type == 'd' || type == 'b') {
+		if (type == 's' || type == 'S' || type == 'd' || type == 'b') {
 			width = max(width, GetSize(cell->getPort(ID::A)));
 			if (cell->hasPort(ID::B))
 				width = max(width, GetSize(cell->getPort(ID::B)));
@@ -462,7 +462,7 @@ struct Smt2Worker
 
 		if (cell->hasPort(ID::B)) {
 			sig_b = cell->getPort(ID::B);
-			sig_b.extend_u0(width, is_signed && !(type == 's'));
+			sig_b.extend_u0(width, (type == 'S') || (is_signed && !(type == 's')));
 		}
 
 		std::string processed_expr;
@@ -619,8 +619,8 @@ struct Smt2Worker
 			if (cell->type.in(ID($shift), ID($shiftx))) {
 				if (cell->getParam(ID::B_SIGNED).as_bool()) {
 					return export_bvop(cell, stringf("(ite (bvsge P #b%0*d) "
-							"(bvlshr A B) (bvlshr A (bvneg B)))",
-							GetSize(cell->getPort(ID::B)), 0), 's');
+							"(bvlshr A B) (bvshl A (bvneg B)))",
+							GetSize(cell->getPort(ID::B)), 0), 'S'); // type 'S' sign extends B
 				} else {
 					return export_bvop(cell, "(bvlshr A B)", 's');
 				}
