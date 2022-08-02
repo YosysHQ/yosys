@@ -15,6 +15,9 @@ Yosys 0.20 .. Yosys 0.20-dev
     - yosys-smtbmc: Reading and writing of yosys witness traces.
     - write_smt2: Emit inline metadata to support yosys witness trace.
     - yosys-witness is a new tool to inspect and convert yosys witness traces.
+    - write_aiger: Option to write a map file for yosys witness trace
+      conversion.
+    - yosys-witness: Conversion from and to AIGER witness traces.
 
 Yosys 0.19 .. Yosys 0.20
 --------------------------

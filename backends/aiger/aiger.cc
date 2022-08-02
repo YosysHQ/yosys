@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "libs/json11/json11.hpp"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -60,6 +61,8 @@ struct AigerWriter
 
 	dict<SigBit, int> init_inputs;
 	int initstate_ff = 0;
+
+	dict<SigBit, int> ywmap_clocks;
 
 	int mkgate(int a0, int a1)
 	{
@@ -159,6 +162,17 @@ struct AigerWriter
 					output_bits.insert(wirebit);
 				}
 			}
+
+			if (wire->width == 1) {
+				auto gclk_attr = wire->attributes.find(ID::replaced_by_gclk);
+				if (gclk_attr != wire->attributes.end()) {
+					SigBit bit = sigmap(wire);
+					if (gclk_attr->second == State::S1)
+						ywmap_clocks[bit] |= 1;
+					else if (gclk_attr->second == State::S0)
+						ywmap_clocks[bit] |= 2;
+				}
+			}
 		}
 
 		for (auto bit : input_bits)
@@ -186,6 +200,11 @@ struct AigerWriter
 				unused_bits.erase(D);
 				undriven_bits.erase(Q);
 				ff_map[Q] = D;
+
+				if (cell->type != ID($_FF_)) {
+					auto sig_clk = sigmap(cell->getPort(ID::CLK).as_bit());
+					ywmap_clocks[sig_clk] |= cell->type == ID($_DFF_N_) ? 2 : 1;
+				}
 				continue;
 			}
 
@@ -689,6 +708,137 @@ struct AigerWriter
 		for (auto &it : wire_lines)
 			f << it.second;
 	}
+
+	template<class T> static std::vector<std::string> witness_path(T *obj) {
+		std::vector<std::string> path;
+		if (obj->name.isPublic()) {
+			auto hdlname = obj->get_string_attribute(ID::hdlname);
+			for (auto token : split_tokens(hdlname))
+				path.push_back("\\" + token);
+		}
+		if (path.empty())
+			path.push_back(obj->name.str());
+		return path;
+	}
+
+	void write_ywmap(std::ostream &f)
+	{
+		f << "{\n";
+		f << "  \"version\": \"Yosys Witness Aiger Map\",\n";
+		f << stringf("  \"generator\": %s,\n", json11::Json(yosys_version_str).dump().c_str());
+		f << stringf("  \"latch_count\": %d,\n", aig_l);
+		f << stringf("  \"input_count\": %d,\n", aig_i);
+
+		dict<int, string> clock_lines;
+		dict<int, string> input_lines;
+		dict<int, string> init_lines;
+		dict<int, string> seq_lines;
+
+		for (auto cell : module->cells())
+		{
+			if (cell->type.in(ID($_FF_), ID($_DFF_N_), ID($_DFF_P_), ID($anyinit), ID($anyconst), ID($anyseq)))
+			{
+				// Use sig_q to get the FF output name, but sig to lookup aiger bits
+				auto sig_qy = cell->getPort(cell->type.in(ID($anyconst), ID($anyseq)) ? ID::Y : ID::Q);
+				SigSpec sig = sigmap(sig_qy);
+
+				for (int i = 0; i < GetSize(sig_qy); i++) {
+					if (sig_qy[i].wire == nullptr || sig[i].wire == nullptr)
+						continue;
+
+					auto wire = sig_qy[i].wire;
+
+					if (init_inputs.count(sig[i])) {
+						int a = init_inputs.at(sig[i]);
+						log_assert((a & 1) == 0);
+						init_lines[a] += json11::Json(json11::Json::object {
+							{ "path", witness_path(wire) },
+							{ "input", (a >> 1) - 1 },
+							{ "offset", sig_qy[i].offset },
+						}).dump();
+					}
+
+					if (input_bits.count(sig[i])) {
+						int a = aig_map.at(sig[i]);
+						log_assert((a & 1) == 0);
+						seq_lines[a] += json11::Json(json11::Json::object {
+							{ "path", witness_path(wire) },
+							{ "input", (a >> 1) - 1 },
+							{ "offset", sig_qy[i].offset },
+						}).dump();
+					}
+				}
+			}
+		}
+
+		for (auto wire : module->wires())
+		{
+			SigSpec sig = sigmap(wire);
+			if (wire->port_input)
+			{
+				auto path = witness_path(wire);
+				for (int i = 0; i < GetSize(wire); i++) {
+					if (aig_map.count(sig[i]) == 0 || sig[i].wire == nullptr)
+						continue;
+
+					int a = aig_map.at(sig[i]);
+					log_assert((a & 1) == 0);
+					input_lines[a] += json11::Json(json11::Json::object {
+						{ "path", path },
+						{ "input", (a >> 1) - 1 },
+						{ "offset", i },
+					}).dump();
+
+					if (ywmap_clocks.count(sig[i])) {
+						int clock_mode = ywmap_clocks[sig[i]];
+						if (clock_mode != 3) {
+							clock_lines[a] += json11::Json(json11::Json::object {
+								{ "path", path },
+								{ "input", (a >> 1) - 1 },
+								{ "offset", i },
+								{ "edge", clock_mode == 1 ? "posedge" : "negedge" },
+							}).dump();
+						}
+					}
+				}
+			}
+		}
+
+		f << "  \"clocks\": [";
+		clock_lines.sort();
+		const char *sep = "\n    ";
+		for (auto &it : clock_lines) {
+			f << sep << it.second;
+			sep = ",\n    ";
+		}
+		f << "\n  ],\n";
+
+		f << "  \"inputs\": [";
+		input_lines.sort();
+		sep = "\n    ";
+		for (auto &it : input_lines) {
+			f << sep << it.second;
+			sep = ",\n    ";
+		}
+		f << "\n  ],\n";
+
+		f << "  \"seqs\": [";
+		sep = "\n    ";
+		for (auto &it : seq_lines) {
+			f << sep << it.second;
+			sep = ",\n    ";
+		}
+		f << "\n  ],\n";
+
+		f << "  \"inits\": [";
+		sep = "\n    ";
+		for (auto &it : init_lines) {
+			f << sep << it.second;
+			sep = ",\n    ";
+		}
+		f << "\n  ]\n}\n";
+	}
+
 };
 
 struct AigerBackend : public Backend {
@@ -728,6 +878,9 @@ struct AigerBackend : public Backend {
 		log("    -no-startoffset\n");
 		log("        make indexes zero based, enable using map files with smt solvers.\n");
 		log("\n");
+		log("    -ywmap <filename>\n");
+		log("        write a map file for conversion to and from yosys witness traces.\n");
+		log("\n");
 		log("    -I, -O, -B, -L\n");
 		log("        If the design contains no input/output/assert/flip-flop then create one\n");
 		log("        dummy input/output/bad_state-pin or latch to make the tools reading the\n");
@@ -747,6 +900,7 @@ struct AigerBackend : public Backend {
 		bool lmode = false;
 		bool no_startoffset = false;
 		std::string map_filename;
+		std::string yw_map_filename;
 
 		log_header(design, "Executing AIGER backend.\n");
 
@@ -778,6 +932,10 @@ struct AigerBackend : public Backend {
 				verbose_map = true;
 				continue;
 			}
+			if (yw_map_filename.empty() && args[argidx] == "-ywmap" && argidx+1 < args.size()) {
+				yw_map_filename = args[++argidx];
+				continue;
+			}
 			if (args[argidx] == "-no-startoffset") {
 				no_startoffset = true;
 				continue;
@@ -802,6 +960,9 @@ struct AigerBackend : public Backend {
 		}
 		extra_args(f, filename, args, argidx, !ascii_mode);
 
+		if (!yw_map_filename.empty() && !zinit_mode)
+			log_error("Currently -ywmap requires -zinit.\n");
+
 		Module *top_module = design->top_module();
 
 		if (top_module == nullptr)
@@ -825,6 +986,14 @@ struct AigerBackend : public Backend {
 			if (mapf.fail())
 				log_error("Can't open file `%s' for writing: %s\n", map_filename.c_str(), strerror(errno));
 			writer.write_map(mapf, verbose_map, no_startoffset);
+		}
+
+		if (!yw_map_filename.empty()) {
+			std::ofstream mapf;
+			mapf.open(yw_map_filename.c_str(), std::ofstream::trunc);
+			if (mapf.fail())
+				log_error("Can't open file `%s' for writing: %s\n", map_filename.c_str(), strerror(errno));
+			writer.write_ywmap(mapf);
 		}
 	}
 } AigerBackend;
