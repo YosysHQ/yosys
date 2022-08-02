@@ -54,6 +54,7 @@ smtctop = None
 noinit = False
 binarymode = False
 keep_going = False
+check_witness = False
 so = SmtOpts()
 
 
@@ -170,6 +171,10 @@ def usage():
         covering all found failed assertions, the character '%' is
         replaced in all dump filenames with an increasing number.
 
+    --check-witness
+        check that the used witness file contains sufficient
+        constraints to force an assertion failure.
+
 """ + so.helpmsg())
     sys.exit(1)
 
@@ -178,7 +183,7 @@ try:
     opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:igcm:", so.longopts +
             ["final-only", "assume-skipped=", "smtc=", "cex=", "aig=", "aig-noheader", "yw=", "btorwit=", "presat",
              "dump-vcd=", "dump-yw=", "dump-vlogtb=", "vlogtb-top=", "dump-smtc=", "dump-all", "noinfo", "append=",
-             "smtc-init", "smtc-top=", "noinit", "binary", "keep-going"])
+             "smtc-init", "smtc-top=", "noinit", "binary", "keep-going", "check-witness"])
 except:
     usage()
 
@@ -257,6 +262,8 @@ for o, a in opts:
         binarymode = True
     elif o == "--keep-going":
         keep_going = True
+    elif o == "--check-witness":
+        check_witness = True
     elif so.handle(o, a):
         pass
     else:
@@ -1774,12 +1781,24 @@ else:  # not tempind, covermode
 
                         smt_assert("(not %s)" % active_assert_expr)
                     else:
+                        active_assert_expr = "true"
                         smt_assert("false")
 
 
                     if smt_check_sat() == "sat":
                         if retstatus != "FAILED":
                             print("%s BMC failed!" % smt.timestamp())
+
+                        if check_witness:
+                            print_msg("Checking witness constraints...")
+                            smt_pop()
+                            smt_push()
+                            smt_assert(active_assert_expr)
+                            if smt_check_sat() != "sat":
+                                retstatus = "PASSED"
+                                check_witness = False
+                                num_steps = -1
+                                break
 
                         if append_steps > 0:
                             for i in range(last_check_step+1, last_check_step+1+append_steps):
@@ -1873,6 +1892,8 @@ else:  # not tempind, covermode
         print_anyconsts(0)
         write_trace(0, num_steps, '%')
 
+    if check_witness:
+        retstatus = "FAILED"
 
 smt.write("(exit)")
 smt.wait()
