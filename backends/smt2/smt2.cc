@@ -594,25 +594,26 @@ struct Smt2Worker
 				return;
 			}
 
-			if (cell->type.in(ID($anyconst), ID($anyseq), ID($allconst), ID($allseq)))
+			if (cell->type.in(ID($anyconst), ID($anyseq), ID($anyinit), ID($allconst), ID($allseq)))
 			{
+				auto QY = cell->type == ID($anyinit) ? ID::Q : ID::Y;
 				registers.insert(cell);
 				string infostr = cell->attributes.count(ID::src) ? cell->attributes.at(ID::src).decode_string().c_str() : get_id(cell);
 				if (cell->attributes.count(ID::reg))
 					infostr += " " + cell->attributes.at(ID::reg).decode_string();
-				decls.push_back(stringf("; yosys-smt2-%s %s#%d %d %s\n", cell->type.c_str() + 1, get_id(module), idcounter, GetSize(cell->getPort(ID::Y)), infostr.c_str()));
-				if (cell->getPort(ID::Y).is_wire() && cell->getPort(ID::Y).as_wire()->get_bool_attribute(ID::maximize)){
+				decls.push_back(stringf("; yosys-smt2-%s %s#%d %d %s\n", cell->type.c_str() + 1, get_id(module), idcounter, GetSize(cell->getPort(QY)), infostr.c_str()));
+				if (cell->getPort(QY).is_wire() && cell->getPort(QY).as_wire()->get_bool_attribute(ID::maximize)){
 					decls.push_back(stringf("; yosys-smt2-maximize %s#%d\n", get_id(module), idcounter));
-					log("Wire %s is maximized\n", cell->getPort(ID::Y).as_wire()->name.str().c_str());
+					log("Wire %s is maximized\n", cell->getPort(QY).as_wire()->name.str().c_str());
 				}
-				else if (cell->getPort(ID::Y).is_wire() && cell->getPort(ID::Y).as_wire()->get_bool_attribute(ID::minimize)){
+				else if (cell->getPort(QY).is_wire() && cell->getPort(QY).as_wire()->get_bool_attribute(ID::minimize)){
 					decls.push_back(stringf("; yosys-smt2-minimize %s#%d\n", get_id(module), idcounter));
-					log("Wire %s is minimized\n", cell->getPort(ID::Y).as_wire()->name.str().c_str());
+					log("Wire %s is minimized\n", cell->getPort(QY).as_wire()->name.str().c_str());
 				}
-				makebits(stringf("%s#%d", get_id(module), idcounter), GetSize(cell->getPort(ID::Y)), log_signal(cell->getPort(ID::Y)));
+				makebits(stringf("%s#%d", get_id(module), idcounter), GetSize(cell->getPort(QY)), log_signal(cell->getPort(QY)));
 				if (cell->type == ID($anyseq))
 					ex_input_eq.push_back(stringf("  (= (|%s#%d| state) (|%s#%d| other_state))", get_id(module), idcounter, get_id(module), idcounter));
-				register_bv(cell->getPort(ID::Y), idcounter++);
+				register_bv(cell->getPort(QY), idcounter++);
 				recursive_cells.erase(cell);
 				return;
 			}
@@ -931,7 +932,7 @@ struct Smt2Worker
 
 		pool<SigBit> reg_bits;
 		for (auto cell : module->cells())
-			if (cell->type.in(ID($ff), ID($dff), ID($_FF_), ID($_DFF_P_), ID($_DFF_N_))) {
+			if (cell->type.in(ID($ff), ID($dff), ID($_FF_), ID($_DFF_P_), ID($_DFF_N_), ID($anyinit))) {
 				// not using sigmap -- we want the net directly at the dff output
 				for (auto bit : cell->getPort(ID::Q))
 					reg_bits.insert(bit);
@@ -1147,7 +1148,7 @@ struct Smt2Worker
 					ex_state_eq.push_back(stringf("(= %s %s)", get_bool(cell->getPort(ID::Q)).c_str(), get_bool(cell->getPort(ID::Q), "other_state").c_str()));
 				}
 
-				if (cell->type.in(ID($ff), ID($dff)))
+				if (cell->type.in(ID($ff), ID($dff), ID($anyinit)))
 				{
 					std::string expr_d = get_bv(cell->getPort(ID::D));
 					std::string expr_q = get_bv(cell->getPort(ID::Q), "next_state");
