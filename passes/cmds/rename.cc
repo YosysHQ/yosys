@@ -106,6 +106,60 @@ static IdString derive_name_from_cell_output_wire(const RTLIL::Cell *cell, strin
 	return name + suffix;
 }
 
+static bool rename_witness(RTLIL::Design *design, dict<RTLIL::Module *, int> &cache, RTLIL::Module *module)
+{
+	auto cached = cache.find(module);
+	if (cached != cache.end()) {
+		if (cached->second == -1)
+			log_error("Cannot rename witness signals in a design containing recursive instantiations.\n");
+		return cached->second;
+	}
+	cache.emplace(module, -1);
+
+	bool has_witness_signals = false;
+	for (auto cell : module->cells())
+	{
+		RTLIL::Module *impl = design->module(cell->type);
+		if (impl != nullptr) {
+			bool witness_in_cell = rename_witness(design, cache, impl);
+			has_witness_signals |= witness_in_cell;
+			if (witness_in_cell && !cell->name.isPublic()) {
+				std::string name = cell->name.c_str() + 1;
+				for (auto &c : name)
+					if ((c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '_')
+						c = '_';
+				auto new_id = module->uniquify("\\_witness_." + name);
+				cell->set_hdlname_attribute({ "_witness_", strstr(new_id.c_str(), ".") + 1 });
+				module->rename(cell, new_id);
+			}
+		}
+
+		if (cell->type.in(ID($anyconst), ID($anyseq), ID($anyinit), ID($allconst), ID($allseq))) {
+			has_witness_signals = true;
+			auto QY = cell->type == ID($anyinit) ? ID::Q : ID::Y;
+			auto sig_out = cell->getPort(QY);
+
+			for (auto chunk : sig_out.chunks()) {
+				if (chunk.is_wire() && !chunk.wire->name.isPublic()) {
+					std::string name = stringf("%s_%s", cell->type.c_str() + 1, cell->name.c_str() + 1);
+					for (auto &c : name)
+						if ((c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '_')
+							c = '_';
+					auto new_id = module->uniquify("\\_witness_." + name);
+					auto new_wire = module->addWire(new_id, GetSize(sig_out));
+					new_wire->set_hdlname_attribute({ "_witness_", strstr(new_id.c_str(), ".") + 1 });
+					module->connect({sig_out, new_wire});
+					cell->setPort(QY, new_wire);
+					break;
+				}
+			}
+		}
+	}
+
+	cache[module] = has_witness_signals;
+	return has_witness_signals;
+}
+
 struct RenamePass : public Pass {
 	RenamePass() : Pass("rename", "rename object in the design") { }
 	void help() override
@@ -147,6 +201,14 @@ struct RenamePass : public Pass {
 		log("pattern is '_%%_'.\n");
 		log("\n");
 		log("\n");
+		log("    rename -witness\n");
+		log("\n");
+		log("Assigns auto-generated names to all $any*/$all* output wires and containing\n");
+		log("cells that do not have a public name. This ensures that, during formal\n");
+		log("verification, a solver-found trace can be fully specified using a public\n");
+		log("hierarchical names.\n");
+		log("\n");
+		log("\n");
 		log("    rename -hide [selection]\n");
 		log("\n");
 		log("Assign private names (the ones with $-prefix) to all selected wires and cells\n");
@@ -172,6 +234,7 @@ struct RenamePass : public Pass {
 		bool flag_src = false;
 		bool flag_wire = false;
 		bool flag_enumerate = false;
+		bool flag_witness = false;
 		bool flag_hide = false;
 		bool flag_top = false;
 		bool flag_output = false;
@@ -200,6 +263,11 @@ struct RenamePass : public Pass {
 			}
 			if (arg == "-enumerate" && !got_mode) {
 				flag_enumerate = true;
+				got_mode = true;
+				continue;
+			}
+			if (arg == "-witness" && !got_mode) {
+				flag_witness = true;
 				got_mode = true;
 				continue;
 			}
@@ -307,6 +375,19 @@ struct RenamePass : public Pass {
 				for (auto &it : new_cell_names)
 					module->rename(it.first, it.second);
 			}
+		}
+		else
+		if (flag_witness)
+		{
+			extra_args(args, argidx, design, false);
+
+			RTLIL::Module *module = design->top_module();
+
+			if (module == nullptr)
+				log_cmd_error("No top module found!\n");
+
+			dict<RTLIL::Module *, int> cache;
+			rename_witness(design, cache, module);
 		}
 		else
 		if (flag_hide)
