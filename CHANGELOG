@@ -10,6 +10,13 @@ Yosys 0.19 .. Yosys 0.19-dev
  * Various
     - Added support for $modfloor operator to cxxrtl backend
     - Support build on OpenBSD
+    - Fixed smt2 backend use of $shift/$shiftx with negative shift amounts,
+      which affects bit/part-select assignments with a dynamic index. Shift
+      operators were not affected.
+
+ * Verific support
+    - Proper import of port ranges into Yosys, may result in reversed 
+      bit-order of top-level ports for some synthesis flows.
 
 Yosys 0.18 .. Yosys 0.19
 --------------------------
