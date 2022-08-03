@@ -1,0 +1,193 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://raw.githubusercontent.com/YosysHQ/yosys/master/misc/jny.schema.json",
+	"title": "Yosys JSON Netlist metadata",
+	"description": "Yosys JSON Netlist",
+	"type": "object",
+	"properties": {
+		"generator": {
+			"type": "string",
+			"description": "JNY File Generator"
+		},
+		"version": {
+			"type": "string",
+			"description": "JNY Version"
+		},
+		"invocation": {
+			"type": "string",
+			"description": "Invocation line that generated the JNY metadata"
+		},
+		"features": {
+			"type": "array",
+			"description": "What information is contained in the JNY file",
+			"items": {
+				"type": "string"
+			}
+		},
+		"modules": {
+			"type": "array",
+			"items": { "$ref": "#/$defs/module" }
+		}
+	},
+	"required": [
+		"generator",
+		"version",
+		"invocation",
+		"features"
+	],
+	"$defs": {
+		"module": {
+			"type": "object",
+			"description": "Module definition",
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "Module Name"
+				},
+				"cell_sorts": {
+					"type": "array",
+					"description": "",
+					"items": { "$ref": "#/$defs/cell_sort" }
+				},
+				"connections": {
+					"type": "array",
+					"description": "Cell connections",
+					"items": { "$ref": "#/$defs/connection" }
+				},
+				"attributes": {
+					"type": "object",
+					"description": "Attributes attached to the module"
+				},
+				"parameters": {
+					"type": "object",
+					"description": "Parameters attached to the module"
+				}
+			},
+			"required": [
+				"name",
+				"cell_sorts"
+			]
+		},
+		"cell_sort": {
+			"type": "object",
+			"description": "Describes a type of cell",
+			"properties": {
+				"type": {
+					"type": "string",
+					"description": "Type of cell"
+				},
+				"ports": {
+					"type": "array",
+					"description": "Cell ports",
+					"items": { "$ref": "#/$defs/port" }
+				}
+				,
+				"cells": {
+					"type": "array",
+					"description": "Cells of cell_sort",
+					"items": { "$ref": "#/$defs/cell" }
+				}
+			},
+			"required": [
+				"type",
+				"ports",
+				"cells"
+			]
+		},
+		"connection": {
+			"type": "object",
+			"description": "A connection within a module or cell",
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "Connection name"
+				},
+				"signals": {
+					"type": "array",
+					"description": "Signals that compose the connection",
+					"items": { "$ref": "#/$defs/signal" }
+				}
+			},
+			"required": [
+				"name",
+				"signals"
+			]
+		},
+		"port": {
+			"type": "object",
+			"description": "Cell port description",
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "Port name"
+				},
+				"direction": {
+					"type": "string",
+					"description": "Port direction",
+					"enum": ["i", "o", "io", ""]
+				},
+				"range": {
+					"type": "array",
+					"description": "Port width [MSB, LSB]",
+					"items": {
+					  "type": "number"
+					},
+					"minContains": 1,
+					"maxContains": 2
+				}
+			},
+			"required": [
+				"name",
+				"direction",
+				"range"
+			]
+		},
+		"cell": {
+			"type": "object",
+			"description": "Module cell definition",
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "Cell name"
+				},
+				"connections": {
+					"type": "array",
+					"description": "Cell connections",
+					"items": { "$ref": "#/$defs/connection" }
+				},
+				"attributes": {
+					"type": "object",
+					"description": "Attributes attached to the cell"
+				},
+				"parameters": {
+					"type": "object",
+					"description": "Parameters attached to the cell"
+				}
+			},
+			"required": [
+				"name"
+			]
+		},
+		"signal": {
+			"type": "object",
+			"description": "A signal definition",
+			"parameters": {
+				"width": {
+					"type": "string"
+				},
+				"type": {
+					"type": "string",
+					"enum": ["wire", "chunk"]
+				},
+				"const": {
+					"type": "boolean"
+				}
+			},
+			"required": [
+				"width",
+				"type",
+				"const"
+			]
+		}
+	}
+}
