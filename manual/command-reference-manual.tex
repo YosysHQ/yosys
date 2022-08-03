@@ -2610,7 +2610,7 @@ Tristate PADS (-toutpad, -tinoutpad) always operate in -bits mode.
 \begin{lstlisting}[numbers=left,frame=single]
     jny [options] [selection]
 
-Write a JSON netlist metadata for the current design
+Write JSON netlist metadata for the current design
 
     -o <filename>
         write to the specified file.
@@ -8531,6 +8531,8 @@ http://bygone.clairexen.net/intersynth/
 \begin{lstlisting}[numbers=left,frame=single]
     jny [options] [selection]
 
+Write JSON netlist metadata for the current design
+
     -no-connections
         Don't include connection information in the netlist output.
 
@@ -8540,7 +8542,8 @@ http://bygone.clairexen.net/intersynth/
     -no-properties
         Don't include property information in the netlist output.
 
-Write a JSON metadata for the current design
+The JSON schema for JNY output files is located in the "jny.schema.json" file
+which is located at "https://raw.githubusercontent.com/YosysHQ/yosys/master/misc/jny.schema.json"
 \end{lstlisting}
 
 \section{write\_json -- write design to a JSON file}
