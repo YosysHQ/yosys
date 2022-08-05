@@ -233,7 +233,10 @@ struct Clk2fflogicPass : public Pass {
 						qval = past_q;
 					}
 
-					if (ff.has_aload) {
+					// The check for a constant sig_aload is also done by opt_dff, but when using verific and running
+					// clk2fflogic before opt_dff (which does more and possibly unwanted optimizations) this check avoids
+					// generating a lot of extra logic.
+					if (ff.has_aload && ff.sig_aload != (ff.pol_aload ? State::S0 : State::S1)) {
 						SigSpec sig_aload = wrap_async_control(module, ff.sig_aload, ff.pol_aload, ff.is_fine, NEW_ID);
 
 						if (!ff.is_fine)
