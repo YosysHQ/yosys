@@ -62,6 +62,24 @@ def display(input):
                 yield f"  {step_prefix} {sig.pretty()} = {display_bits}"
     click.echo_via_pager([line + "\n" for line in output()])
 
+
+@cli.command(help="""
+Display statistics of a Yosys witness trace.
+""")
+@click.argument("input", type=click.File("r"))
+def stats(input):
+    click.echo(f"Reading Yosys witness trace {input.name!r}...")
+    inyw = ReadWitness(input)
+
+    total = 0
+
+    for t, values in inyw.steps():
+        click.echo(f"{t:5}: {len(values.values):8} bits")
+        total += len(values.values)
+
+    click.echo(f"total: {total:8} bits")
+
+
 @cli.command(help="""
 Transform a Yosys witness trace.
 
