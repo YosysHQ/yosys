@@ -21,9 +21,301 @@
 #include "kernel/sigtools.h"
 #include "kernel/ffinit.h"
 #include "kernel/ff.h"
+#include "kernel/modtools.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
+
+
+// Finds signal values with known constant or known unused values in the initial state
+struct InitValWorker
+{
+	Module *module;
+
+	ModWalker modwalker;
+	SigMap &sigmap;
+	FfInitVals initvals;
+
+	dict<RTLIL::SigBit, RTLIL::State> initconst_bits;
+	dict<RTLIL::SigBit, bool> used_bits;
+
+	InitValWorker(Module *module) : module(module), modwalker(module->design), sigmap(modwalker.sigmap)
+	{
+		modwalker.setup(module);
+		initvals.set(&modwalker.sigmap, module);
+
+		for (auto wire : module->wires())
+			if (wire->name.isPublic() || wire->get_bool_attribute(ID::keep))
+				for (auto bit : SigSpec(wire))
+					used_bits[sigmap(bit)] = true;
+	}
+
+	// Sign/Zero-extended indexing of individual port bits
+	static SigBit bit_in_port(RTLIL::Cell *cell, RTLIL::IdString port, RTLIL::IdString sign, int index)
+	{
+		auto sig_port = cell->getPort(port);
+		if (index < GetSize(sig_port))
+			return sig_port[index];
+		else if (cell->getParam(sign).as_bool())
+			return GetSize(sig_port) > 0 ? sig_port[GetSize(sig_port) - 1] : State::Sx;
+		else
+			return State::S0;
+	}
+
+	// Has the signal a known constant value in the initial state?
+	//
+	// For sync-only FFs outputs, this is their initval. For logic loops,
+	// multiple drivers or unknown cells this is Sx. For a small number of
+	// handled cells we recurse through their inputs. All results are cached.
+	RTLIL::State initconst(SigBit bit)
+	{
+		sigmap.apply(bit);
+
+		if (!bit.is_wire())
+			return bit.data;
+
+		auto it = initconst_bits.find(bit);
+		if (it != initconst_bits.end())
+			return it->second;
+
+		// Setting this temporarily to x takes care of any logic loops
+		initconst_bits[bit] = State::Sx;
+
+		pool<ModWalker::PortBit> portbits;
+		modwalker.get_drivers(portbits, {bit});
+
+		if (portbits.size() != 1)
+			return State::Sx;
+
+		ModWalker::PortBit portbit = *portbits.begin();
+		RTLIL::Cell *cell = portbit.cell;
+
+		if (RTLIL::builtin_ff_cell_types().count(cell->type))
+		{
+			FfData ff(&initvals, cell);
+
+			if (ff.has_aload || ff.has_sr || ff.has_arst || (!ff.has_clk && !ff.has_gclk)) {
+				for (auto bit_q : ff.sig_q) {
+					initconst_bits[sigmap(bit_q)] = State::Sx;
+				}
+				return State::Sx;
+			}
+
+			for (int i = 0; i < ff.width; i++) {
+				initconst_bits[sigmap(ff.sig_q[i])] = ff.val_init[i];
+			}
+
+			return ff.val_init[portbit.offset];
+		}
+
+		if (cell->type.in(ID($mux), ID($and), ID($or), ID($eq), ID($eqx), ID($initstate)))
+		{
+			if (cell->type == ID($mux))
+			{
+				SigBit sig_s = sigmap(cell->getPort(ID::S));
+				State init_s = initconst(sig_s);
+				State init_y;
+
+				if (init_s == State::S0) {
+					init_y = initconst(cell->getPort(ID::A)[portbit.offset]);
+				} else if (init_s == State::S1) {
+					init_y = initconst(cell->getPort(ID::B)[portbit.offset]);
+				} else {
+					State init_a = initconst(cell->getPort(ID::A)[portbit.offset]);
+					State init_b = initconst(cell->getPort(ID::B)[portbit.offset]);
+					init_y = init_a == init_b ? init_a : State::Sx;
+				}
+				initconst_bits[bit] = init_y;
+				return init_y;
+			}
+
+			if (cell->type.in(ID($and), ID($or)))
+			{
+				State init_a = initconst(bit_in_port(cell, ID::A, ID::A_SIGNED, portbit.offset));
+				State init_b = initconst(bit_in_port(cell, ID::B, ID::B_SIGNED, portbit.offset));
+				State init_y;
+				if (init_a == init_b)
+					init_y = init_a;
+				else if (cell->type == ID($and) && (init_a == State::S0 || init_b == State::S0))
+					init_y = State::S0;
+				else if (cell->type == ID($or) && (init_a == State::S1 || init_b == State::S1))
+					init_y = State::S1;
+				else
+					init_y = State::Sx;
+
+				initconst_bits[bit] = init_y;
+				return init_y;
+			}
+
+			if (cell->type.in(ID($eq), ID($eqx))) // Treats $eqx as $eq
+			{
+				if (portbit.offset > 0) {
+					initconst_bits[bit] = State::S0;
+					return State::S0;
+				}
+
+				SigSpec sig_a = cell->getPort(ID::A);
+				SigSpec sig_b = cell->getPort(ID::B);
+
+				State init_y = State::S1;
+
+				for (int i = 0; init_y != State::S0 && i < GetSize(sig_a); i++) {
+					State init_ai = initconst(bit_in_port(cell, ID::A, ID::A_SIGNED, i));
+					if (init_ai == State::Sx) {
+						init_y = State::Sx;
+						continue;
+					}
+					State init_bi = initconst(bit_in_port(cell, ID::B, ID::B_SIGNED, i));
+					if (init_bi == State::Sx)
+						init_y = State::Sx;
+					else if (init_ai != init_bi)
+						init_y = State::S0;
+				}
+
+				initconst_bits[bit] = init_y;
+				return init_y;
+			}
+
+			if (cell->type == ID($initstate))
+			{
+				initconst_bits[bit] = State::S1;
+				return State::S1;
+			}
+
+			log_assert(false);
+		}
+
+		return State::Sx;
+	}
+
+	RTLIL::Const initconst(SigSpec sig)
+	{
+		std::vector<RTLIL::State> bits;
+		for (auto bit : sig)
+			bits.push_back(initconst(bit));
+		return bits;
+	}
+
+	// Is the initial value of this signal used?
+	//
+	// An initial value of a signal is considered as used if it a) aliases a
+	// wire with a public name, an output wire or with a keep attribute b)
+	// combinationally drives such a wire or c) drive an input to an unknown
+	// cell.
+	//
+	// This recurses into driven cells for a small number of known handled
+	// celltypes. Results are cached and initconst is used to detect unused
+	// inputs for the handled celltypes.
+	bool is_initval_used(SigBit bit)
+	{
+		if (!bit.is_wire())
+			return false;
+
+		auto it = used_bits.find(bit);
+		if (it != used_bits.end())
+			return it->second;
+
+		used_bits[bit] = true; // Temporarily set to guard against logic loops
+
+		pool<ModWalker::PortBit> portbits;
+		modwalker.get_consumers(portbits, {bit});
+
+		for (auto portbit : portbits) {
+			RTLIL::Cell *cell = portbit.cell;
+			if (!cell->type.in(ID($mux), ID($and), ID($or), ID($mem_v2)) && !RTLIL::builtin_ff_cell_types().count(cell->type)) {
+				return true;
+			}
+		}
+
+		for (auto portbit : portbits)
+		{
+			RTLIL::Cell *cell = portbit.cell;
+			if (RTLIL::builtin_ff_cell_types().count(cell->type))
+			{
+				FfData ff(&initvals, cell);
+				if (ff.has_aload || ff.has_sr || ff.has_arst || ff.has_gclk || !ff.has_clk)
+					return true;
+				if (ff.has_ce && initconst(ff.sig_ce.as_bit()) == (ff.pol_ce ? State::S0 : State::S1))
+					continue;
+				if (ff.has_srst && initconst(ff.sig_ce.as_bit()) == (ff.pol_srst ? State::S1 : State::S0))
+					continue;
+
+				return true;
+			}
+			else if (cell->type == ID($mux))
+			{
+				State init_s = initconst(cell->getPort(ID::S).as_bit());
+				if (init_s == State::S0 && portbit.port == ID::B)
+					continue;
+				if (init_s == State::S1 && portbit.port == ID::A)
+					continue;
+				auto sig_y = cell->getPort(ID::Y);
+
+				if (is_initval_used(sig_y[portbit.offset]))
+					return true;
+			}
+			else if (cell->type.in(ID($and), ID($or)))
+			{
+				auto sig_a = cell->getPort(ID::A);
+				auto sig_b = cell->getPort(ID::B);
+				auto sig_y = cell->getPort(ID::Y);
+				if (GetSize(sig_y) != GetSize(sig_a) || GetSize(sig_y) != GetSize(sig_b))
+					return true; // TODO handle more of this
+				State absorbing = cell->type == ID($and) ? State::S0 : State::S1;
+				if (portbit.port == ID::A && initconst(sig_b[portbit.offset]) == absorbing)
+					continue;
+				if (portbit.port == ID::B && initconst(sig_a[portbit.offset]) == absorbing)
+					continue;
+
+				if (is_initval_used(sig_y[portbit.offset]))
+					return true;
+			}
+			else if (cell->type == ID($mem_v2))
+			{
+				// TODO Use mem.h instead to uniformily cover all cases, most
+				// likely requires processing all memories when initializing
+				// the worker
+				if (!portbit.port.in(ID::WR_DATA, ID::WR_ADDR, ID::RD_ADDR))
+					return true;
+
+				if (portbit.port == ID::WR_DATA)
+				{
+					if (initconst(cell->getPort(ID::WR_EN)[portbit.offset]) == State::S0)
+						continue;
+				}
+				else if (portbit.port == ID::WR_ADDR)
+				{
+					int port = portbit.offset / cell->getParam(ID::ABITS).as_int();
+					auto sig_en = cell->getPort(ID::WR_EN);
+					int width = cell->getParam(ID::WIDTH).as_int();
+
+					for (int i = port * width; i < (port + 1) * width; i++)
+						if (initconst(sig_en[i]) != State::S0)
+							return true;
+
+					continue;
+				}
+				else if (portbit.port == ID::RD_ADDR)
+				{
+					int port = portbit.offset / cell->getParam(ID::ABITS).as_int();
+					auto sig_en = cell->getPort(ID::RD_EN);
+
+					if (initconst(sig_en[port]) != State::S0)
+						return true;
+
+					continue;
+				}
+				else
+					return true;
+			}
+			else
+				log_assert(false);
+		}
+
+		used_bits[bit] = false;
+		return false;
+	}
+};
 
 struct FormalFfPass : public Pass {
 	FormalFfPass() : Pass("formalff", "prepare FFs for formal") { }
@@ -64,6 +356,12 @@ struct FormalFfPass : public Pass {
 		log("        Emit fine-grained $_FF_ cells instead of coarse-grained $ff cells for\n");
 		log("        -anyinit2ff. Cannot be combined with -clk2ff or -ff2anyinit.\n");
 		log("\n");
+		log("    -setundef\n");
+		log("        Find FFs with undefined initialization values for which changing the\n");
+		log("        initialization does not change the observable behavior and initialize\n");
+		log("        them. For -ff2anyinit, this reduces the number of generated $anyinit\n");
+		log("        cells that drive wires with private names.\n");
+		log("\n");
 
 		// TODO: An option to check whether all FFs use the same clock before changing it to the global clock
 	}
@@ -73,6 +371,7 @@ struct FormalFfPass : public Pass {
 		bool flag_ff2anyinit = false;
 		bool flag_anyinit2ff = false;
 		bool flag_fine = false;
+		bool flag_setundef = false;
 
 		log_header(design, "Executing FORMALFF pass.\n");
 
@@ -95,6 +394,10 @@ struct FormalFfPass : public Pass {
 				flag_fine = true;
 				continue;
 			}
+			if (args[argidx] == "-setundef") {
+				flag_setundef = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -113,6 +416,38 @@ struct FormalFfPass : public Pass {
 
 		for (auto module : design->selected_modules())
 		{
+			if (flag_setundef)
+			{
+				InitValWorker worker(module);
+
+				for (auto cell : module->selected_cells())
+				{
+					if (RTLIL::builtin_ff_cell_types().count(cell->type))
+					{
+						FfData ff(&worker.initvals, cell);
+						if (ff.has_aload || ff.has_sr || ff.has_arst || ff.val_init.is_fully_def())
+							continue;
+
+						if (ff.has_ce && // CE can make the initval stick around
+								worker.initconst(ff.sig_ce.as_bit()) != (ff.pol_ce ? State::S1 : State::S0) && // unless it's known active
+								(!ff.has_srst || ff.ce_over_srst ||
+									worker.initconst(ff.sig_srst.as_bit()) != (ff.pol_srst ? State::S1 : State::S0))) // or a srst with priority is known active
+							continue;
+
+						auto before = ff.val_init;
+						for (int i = 0; i < ff.width; i++)
+							if (ff.val_init[i] == State::Sx && !worker.is_initval_used(ff.sig_q[i]))
+								ff.val_init[i] = State::S0;
+
+						if (ff.val_init != before) {
+							log("Setting unused undefined initial value of %s.%s (%s) from %s to %s\n",
+									log_id(module), log_id(cell), log_id(cell->type),
+									log_const(before), log_const(ff.val_init));
+							worker.initvals.set_init(ff.sig_q, ff.val_init);
+						}
+					}
+				}
+			}
 			SigMap sigmap(module);
 			FfInitVals initvals(&sigmap, module);
 
