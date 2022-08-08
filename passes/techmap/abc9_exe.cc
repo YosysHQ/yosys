@@ -175,12 +175,12 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 	if (!lut_costs.empty())
 		abc9_script += stringf("read_lut %s/lutdefs.txt; ", tempdir_name.c_str());
 	else if (!lut_file.empty())
-		abc9_script += stringf("read_lut %s; ", lut_file.c_str());
+		abc9_script += stringf("read_lut \"%s\"; ", lut_file.c_str());
 	else
 		log_abort();
 
 	log_assert(!box_file.empty());
-	abc9_script += stringf("read_box %s; ", box_file.c_str());
+	abc9_script += stringf("read_box \"%s\"; ", box_file.c_str());
 	abc9_script += stringf("&read %s/input.xaig; &ps; ", tempdir_name.c_str());
 
 	if (!script_file.empty()) {
@@ -264,7 +264,7 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 		fclose(f);
 	}
 
-	buffer = stringf("%s -s -f %s/abc.script 2>&1", exe_file.c_str(), tempdir_name.c_str());
+	buffer = stringf("\"%s\" -s -f %s/abc.script 2>&1", exe_file.c_str(), tempdir_name.c_str());
 	log("Running ABC command: %s\n", replace_tempdir(buffer, tempdir_name, show_tempdir).c_str());
 
 #ifndef YOSYS_LINK_ABC
