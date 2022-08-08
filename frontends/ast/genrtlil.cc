@@ -45,7 +45,7 @@ using namespace AST_INTERNAL;
 // helper function for creating RTLIL code for unary operations
 static RTLIL::SigSpec uniop2rtlil(AstNode *that, IdString type, int result_width, const RTLIL::SigSpec &arg, bool gen_attributes = true)
 {
-	IdString name = stringf("%s$%s:%d$%d", type.c_str(), that->filename.c_str(), that->location.first_line, autoidx++);
+	IdString name = stringf("%s$%s:%d$%d", type.c_str(), RTLIL::encode_filename(that->filename).c_str(), that->location.first_line, autoidx++);
 	RTLIL::Cell *cell = current_module->addCell(name, type);
 	set_src_attr(cell, that);
 
@@ -77,7 +77,7 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 		return;
 	}
 
-	IdString name = stringf("$extend$%s:%d$%d", that->filename.c_str(), that->location.first_line, autoidx++);
+	IdString name = stringf("$extend$%s:%d$%d", RTLIL::encode_filename(that->filename).c_str(), that->location.first_line, autoidx++);
 	RTLIL::Cell *cell = current_module->addCell(name, ID($pos));
 	set_src_attr(cell, that);
 
@@ -104,7 +104,7 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 // helper function for creating RTLIL code for binary operations
 static RTLIL::SigSpec binop2rtlil(AstNode *that, IdString type, int result_width, const RTLIL::SigSpec &left, const RTLIL::SigSpec &right)
 {
-	IdString name = stringf("%s$%s:%d$%d", type.c_str(), that->filename.c_str(), that->location.first_line, autoidx++);
+	IdString name = stringf("%s$%s:%d$%d", type.c_str(), RTLIL::encode_filename(that->filename).c_str(), that->location.first_line, autoidx++);
 	RTLIL::Cell *cell = current_module->addCell(name, type);
 	set_src_attr(cell, that);
 
@@ -138,7 +138,7 @@ static RTLIL::SigSpec mux2rtlil(AstNode *that, const RTLIL::SigSpec &cond, const
 	log_assert(cond.size() == 1);
 
 	std::stringstream sstr;
-	sstr << "$ternary$" << that->filename << ":" << that->location.first_line << "$" << (autoidx++);
+	sstr << "$ternary$" << RTLIL::encode_filename(that->filename) << ":" << that->location.first_line << "$" << (autoidx++);
 
 	RTLIL::Cell *cell = current_module->addCell(sstr.str(), ID($mux));
 	set_src_attr(cell, that);
@@ -321,7 +321,7 @@ struct AST_INTERNAL::ProcessGenerator
 		LookaheadRewriter la_rewriter(always);
 
 		// generate process and simple root case
-		proc = current_module->addProcess(stringf("$proc$%s:%d$%d", always->filename.c_str(), always->location.first_line, autoidx++));
+		proc = current_module->addProcess(stringf("$proc$%s:%d$%d", RTLIL::encode_filename(always->filename).c_str(), always->location.first_line, autoidx++));
 		set_src_attr(proc, always);
 		for (auto &attr : always->attributes) {
 			if (attr.second->type != AST_CONSTANT)
@@ -1776,7 +1776,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_MEMRD:
 		{
 			std::stringstream sstr;
-			sstr << "$memrd$" << str << "$" << filename << ":" << location.first_line << "$" << (autoidx++);
+			sstr << "$memrd$" << str << "$" << RTLIL::encode_filename(filename) << ":" << location.first_line << "$" << (autoidx++);
 
 			RTLIL::Cell *cell = current_module->addCell(sstr.str(), ID($memrd));
 			set_src_attr(cell, this);
@@ -1814,7 +1814,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_MEMINIT:
 		{
 			std::stringstream sstr;
-			sstr << "$meminit$" << str << "$" << filename << ":" << location.first_line << "$" << (autoidx++);
+			sstr << "$meminit$" << str << "$" << RTLIL::encode_filename(filename) << ":" << location.first_line << "$" << (autoidx++);
 
 			SigSpec en_sig = children[2]->genRTLIL();
 
@@ -1869,7 +1869,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			IdString cellname;
 			if (str.empty())
-				cellname = stringf("%s$%s:%d$%d", celltype.c_str(), filename.c_str(), location.first_line, autoidx++);
+				cellname = stringf("%s$%s:%d$%d", celltype.c_str(), RTLIL::encode_filename(filename).c_str(), location.first_line, autoidx++);
 			else
 				cellname = str;
 

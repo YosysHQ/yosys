@@ -183,7 +183,7 @@ RTLIL::IdString VerificImporter::new_verific_id(Verific::DesignObj *obj)
 {
 	std::string s = stringf("$verific$%s", obj->Name());
 	if (obj->Linefile())
-		s += stringf("$%s:%d", Verific::LineFile::GetFileName(obj->Linefile()), Verific::LineFile::GetLineNo(obj->Linefile()));
+		s += stringf("$%s:%d", RTLIL::encode_filename(Verific::LineFile::GetFileName(obj->Linefile())).c_str(), Verific::LineFile::GetLineNo(obj->Linefile()));
 	s += stringf("$%d", autoidx++);
 	return s;
 }
