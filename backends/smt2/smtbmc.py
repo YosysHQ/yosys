@@ -482,7 +482,8 @@ if cexfile is not None:
             constr_assumes[step].append((cexfile, smtexpr))
 
             if not got_topt:
-                skip_steps = max(skip_steps, step)
+                if not check_witness:
+                    skip_steps = max(skip_steps, step)
                 num_steps = max(num_steps, step+1)
 
 if aimfile is not None:
@@ -615,7 +616,8 @@ if aimfile is not None:
                     constr_assumes[step].append((cexfile, smtexpr))
 
             if not got_topt:
-                skip_steps = max(skip_steps, step)
+                if not check_witness:
+                    skip_steps = max(skip_steps, step)
                 # some solvers optimize the properties so that they fail one cycle early,
                 # thus we check the properties in the cycle the aiger witness ends, and
                 # if that doesn't work, we check the cycle after that as well.
@@ -623,6 +625,11 @@ if aimfile is not None:
             step += 1
 
 if inywfile is not None:
+    if not got_topt:
+        assume_skipped = 0
+        skip_steps = 0
+        num_steps = 0
+
     with open(inywfile, "r") as f:
         inyw = ReadWitness(f)
 
@@ -716,6 +723,11 @@ if inywfile is not None:
 
                             smt_constr = "(= %s #b%s)" % (smt_expr, bit_slice)
                             constr_assumes[t].append((inywfile, smt_constr))
+
+            if not got_topt:
+                if not check_witness:
+                    skip_steps = max(skip_steps, t)
+                num_steps = max(num_steps, t+1)
 
 if btorwitfile is not None:
     with open(btorwitfile, "r") as f:
