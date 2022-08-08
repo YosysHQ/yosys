@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-libs=""
+libs=()
 genvcd=false
 use_xsim=false
 use_modelsim=false
@@ -15,7 +15,7 @@ xinclude_opts=""
 minclude_opts=""
 scriptfiles=""
 scriptopt=""
-toolsdir="$(cd $(dirname $0); pwd)"
+toolsdir="$(cd "$(dirname "$0")"; pwd)"
 warn_iverilog_git=false
 # The following are used in verilog to firrtl regression tests.
 # Typically these will be passed as environment variables:
@@ -25,8 +25,8 @@ firrtl2verilog=""
 xfirrtl="../xfirrtl"
 abcprog="$toolsdir/../../yosys-abc"
 
-if [ ! -f $toolsdir/cmp_tbdata -o $toolsdir/cmp_tbdata.c -nt $toolsdir/cmp_tbdata ]; then
-	( set -ex; ${CC:-gcc} -Wall -o $toolsdir/cmp_tbdata $toolsdir/cmp_tbdata.c; ) || exit 1
+if [ ! -f "$toolsdir/cmp_tbdata" -o "$toolsdir/cmp_tbdata.c" -nt "$toolsdir/cmp_tbdata" ]; then
+	( set -ex; ${CC:-gcc} -Wall -o "$toolsdir/cmp_tbdata" "$toolsdir/cmp_tbdata.c"; ) || exit 1
 fi
 
 while getopts xmGl:wkjvref:s:p:n:S:I:A:-: opt; do
@@ -38,7 +38,7 @@ while getopts xmGl:wkjvref:s:p:n:S:I:A:-: opt; do
 		G)
 			warn_iverilog_git=true ;;
 		l)
-			libs="$libs $(cd $(dirname $OPTARG); pwd)/$(basename $OPTARG)";;
+			libs+=("$(cd "$(dirname "$OPTARG")"; pwd)/$(basename "$OPTARG")");;
 		w)
 			genvcd=true ;;
 		k)
@@ -162,7 +162,7 @@ do
 			cp ../${bn}_tb.v ${bn}_tb.v
 		fi
 		if $genvcd; then sed -i 's,// \$dump,$dump,g' ${bn}_tb.v; fi
-		compile_and_run ${bn}_tb_ref ${bn}_out_ref ${bn}_tb.v ${bn}_ref.${refext} $libs \
+		compile_and_run ${bn}_tb_ref ${bn}_out_ref ${bn}_tb.v ${bn}_ref.${refext} "${libs[@]}" \
 					"$toolsdir"/../../techlibs/common/simlib.v \
 					"$toolsdir"/../../techlibs/common/simcells.v
 		if $genvcd; then mv testbench.vcd ${bn}_ref.vcd; fi
@@ -171,11 +171,11 @@ do
 		test_passes() {
 			"$toolsdir"/../../yosys -b "verilog $backend_opts" -o ${bn}_syn${test_count}.v "$@"
 			compile_and_run ${bn}_tb_syn${test_count} ${bn}_out_syn${test_count} \
-					${bn}_tb.v ${bn}_syn${test_count}.v $libs \
+					${bn}_tb.v ${bn}_syn${test_count}.v "${libs[@]}" \
 					"$toolsdir"/../../techlibs/common/simlib.v \
 					"$toolsdir"/../../techlibs/common/simcells.v
 			if $genvcd; then mv testbench.vcd ${bn}_syn${test_count}.vcd; fi
-			$toolsdir/cmp_tbdata ${bn}_out_ref ${bn}_out_syn${test_count}
+			"$toolsdir/cmp_tbdata" ${bn}_out_ref ${bn}_out_syn${test_count}
 			test_count=$(( test_count + 1 ))
 		}
 
