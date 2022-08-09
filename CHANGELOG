@@ -9,6 +9,8 @@ Yosys 0.20 .. Yosys 0.20-dev
     - Added option "-formal" to "memory_map" pass
     - Added option "-witness" to "rename" - give public names to all signals
       present in yosys witness traces
+    - Added option "-hdlname" to "sim" pass - preserves hiearachy when writing
+      simulation output for a flattened design
 
  * Formal Verification
     - Added $anyinit cell to directly represent FFs with an unconstrained
