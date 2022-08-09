@@ -337,7 +337,7 @@ class SmtIo:
 
     def p_thread_main(self):
         while True:
-            data = self.p.stdout.readline().decode("ascii")
+            data = self.p.stdout.readline().decode("utf-8")
             if data == "": break
             self.p_queue.put(data)
         self.p_queue.put("")
@@ -359,7 +359,7 @@ class SmtIo:
 
     def p_write(self, data, flush):
         assert self.p is not None
-        self.p.stdin.write(bytes(data, "ascii"))
+        self.p.stdin.write(bytes(data, "utf-8"))
         if flush: self.p.stdin.flush()
 
     def p_read(self):
