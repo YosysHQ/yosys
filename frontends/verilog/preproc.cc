@@ -961,6 +961,10 @@ frontend_verilog_preproc(std::istream                 &f,
 		}
 
 		if (tok == "`resetall") {
+			continue;
+		}
+
+		if (tok == "`undefineall" && sv_mode) {
 			defines.clear();
 			global_defines_cache.clear();
 			continue;
