@@ -961,6 +961,7 @@ frontend_verilog_preproc(std::istream                 &f,
 		}
 
 		if (tok == "`resetall") {
+			default_nettype_wire = true;
 			continue;
 		}
 
