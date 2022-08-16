@@ -16,7 +16,7 @@
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #
 
-import sys, re, os, signal
+import sys, re, os, signal, json
 import subprocess
 if os.name == "posix":
     import resource
@@ -108,6 +108,7 @@ class SmtModInfo:
         self.allconsts = dict()
         self.allseqs = dict()
         self.asize = dict()
+        self.witness = []
 
 
 class SmtIo:
@@ -587,6 +588,11 @@ class SmtIo:
             self.modinfo[self.curmod].allseqs[fields[2]] = (fields[4], None if len(fields) <= 5 else fields[5])
             self.modinfo[self.curmod].asize[fields[2]] = int(fields[3])
 
+        if fields[1] == "yosys-smt2-witness":
+            data = json.loads(stmt.split(None, 2)[2])
+            if data.get("type") in ["cell", "mem", "posedge", "negedge", "input", "reg", "init", "seq", "blackbox"]:
+                self.modinfo[self.curmod].witness.append(data)
+
     def hiernets(self, top, regs_only=False):
         def hiernets_worker(nets, mod, cursor):
             for netname in sorted(self.modinfo[mod].wsize.keys()):
@@ -657,6 +663,57 @@ class SmtIo:
         mems = list()
         hiermems_worker(mems, top, [])
         return mems
+
+    def hierwitness(self, top, allregs=False, blackbox=True):
+        init_witnesses = []
+        seq_witnesses = []
+        clk_witnesses = []
+        mem_witnesses = []
+
+        def absolute(path, cursor, witness):
+            return {
+                **witness,
+                "path": path + tuple(witness["path"]),
+                "smtpath": cursor + [witness["smtname"]],
+            }
+
+        for witness in self.modinfo[top].witness:
+            if witness["type"] == "input":
+                seq_witnesses.append(absolute((), [], witness))
+            if witness["type"] in ("posedge", "negedge"):
+                clk_witnesses.append(absolute((), [], witness))
+
+        init_types = ["init"]
+        if allregs:
+            init_types.append("reg")
+
+        seq_types = ["seq"]
+        if blackbox:
+            seq_types.append("blackbox")
+
+        def worker(mod, path, cursor):
+            cell_paths = {}
+            for witness in self.modinfo[mod].witness:
+                if witness["type"] in init_types:
+                    init_witnesses.append(absolute(path, cursor, witness))
+                if witness["type"] in seq_types:
+                    seq_witnesses.append(absolute(path, cursor, witness))
+                if witness["type"] == "mem":
+                    if allregs and not witness["rom"]:
+                        width, size = witness["width"], witness["size"]
+                        witness = {**witness, "uninitialized": {"width": width * size, "offset": 0}}
+                    if not witness["uninitialized"]:
+                        continue
+
+                    mem_witnesses.append(absolute(path, cursor, witness))
+                if witness["type"] == "cell":
+                    cell_paths[witness["smtname"]] = tuple(witness["path"])
+
+            for cellname, celltype in sorted(self.modinfo[mod].cells.items()):
+                worker(celltype, path + cell_paths.get(cellname, ("?" + cellname,)), cursor + [cellname])
+
+        worker(top, (), [])
+        return init_witnesses, seq_witnesses, clk_witnesses, mem_witnesses
 
     def read(self):
         stmt = []
@@ -887,6 +944,8 @@ class SmtIo:
             assert mod in self.modinfo
             if path[0] == "":
                 return base
+            if isinstance(path[0], int):
+                return "(|%s#%d| %s)" % (mod, path[0], base)
             if path[0] in self.modinfo[mod].cells:
                 return "(|%s_h %s| %s)" % (mod, path[0], base)
             if path[0] in self.modinfo[mod].wsize:
@@ -909,6 +968,8 @@ class SmtIo:
             mod = self.modinfo[mod].cells[net_path[i]]
 
         assert mod in self.modinfo
+        if isinstance(net_path[-1], int):
+            return None
         assert net_path[-1] in self.modinfo[mod].wsize
         return self.modinfo[mod].wsize[net_path[-1]]
 

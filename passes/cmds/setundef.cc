@@ -20,6 +20,7 @@
 #include "kernel/register.h"
 #include "kernel/celltypes.h"
 #include "kernel/sigtools.h"
+#include "kernel/mem.h"
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
 
@@ -476,6 +477,29 @@ struct SetundefPass : public Pass {
 				}
 
 				log_assert(ffbits.empty());
+			}
+
+			if (worker.next_bit_mode == MODE_ANYSEQ || worker.next_bit_mode == MODE_ANYCONST)
+			{
+				// Do not add anyseq / anyconst to unused memory port clocks
+				std::vector<Mem> memories = Mem::get_selected_memories(module);
+				for (auto &mem : memories) {
+					bool changed = false;
+					for (auto &rd_port : mem.rd_ports) {
+						if (!rd_port.clk_enable && rd_port.clk.is_fully_undef()) {
+							changed = true;
+							rd_port.clk = State::S0;
+						}
+					}
+					for (auto &wr_port : mem.rd_ports) {
+						if (!wr_port.clk_enable && wr_port.clk.is_fully_undef()) {
+							changed = true;
+							wr_port.clk = State::S0;
+						}
+					}
+					if (changed)
+						mem.emit();
+				}
 			}
 
 			module->rewrite_sigspecs(worker);

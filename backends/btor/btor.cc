@@ -612,7 +612,7 @@ struct BtorWorker
 			goto okay;
 		}
 
-		if (cell->type.in(ID($dff), ID($ff), ID($_DFF_P_), ID($_DFF_N), ID($_FF_)))
+		if (cell->type.in(ID($dff), ID($ff), ID($anyinit), ID($_DFF_P_), ID($_DFF_N), ID($_FF_)))
 		{
 			SigSpec sig_d = sigmap(cell->getPort(ID::D));
 			SigSpec sig_q = sigmap(cell->getPort(ID::Q));
@@ -1112,6 +1112,16 @@ struct BtorWorker
 
 			btorf("%d input %d%s\n", nid, sid, getinfo(wire).c_str());
 			add_nid_sig(nid, sig);
+
+			if (!info_filename.empty()) {
+				auto gclk_attr = wire->attributes.find(ID::replaced_by_gclk);
+				if (gclk_attr != wire->attributes.end()) {
+					if (gclk_attr->second == State::S1)
+						info_clocks[nid] |= 1;
+					else if (gclk_attr->second == State::S0)
+						info_clocks[nid] |= 2;
+				}
+			}
 		}
 
 		btorf_pop("inputs");

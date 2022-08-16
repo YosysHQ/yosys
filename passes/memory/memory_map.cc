@@ -32,6 +32,7 @@ struct MemoryMapWorker
 	bool attr_icase = false;
 	bool rom_only = false;
 	bool keepdc = false;
+	bool formal = false;
 	dict<RTLIL::IdString, std::vector<RTLIL::Const>> attributes;
 
 	RTLIL::Design *design;
@@ -151,6 +152,8 @@ struct MemoryMapWorker
 		// all write ports must share the same clock
 		RTLIL::SigSpec refclock;
 		bool refclock_pol = false;
+		bool async_wr = false;
+		bool static_only = true;
 		for (int i = 0; i < GetSize(mem.wr_ports); i++) {
 			auto &port = mem.wr_ports[i];
 			if (port.en.is_fully_const() && !port.en.as_bool()) {
@@ -164,10 +167,20 @@ struct MemoryMapWorker
 					static_ports.insert(i);
 					continue;
 				}
-				log("Not mapping memory %s in module %s (write port %d has no clock).\n",
-						mem.memid.c_str(), module->name.c_str(), i);
-				return;
+				static_only = false;
+				if (GetSize(refclock) != 0)
+					log("Not mapping memory %s in module %s (mixed clocked and async write ports).\n",
+							mem.memid.c_str(), module->name.c_str());
+				if (!formal)
+					log("Not mapping memory %s in module %s (write port %d has no clock).\n",
+								mem.memid.c_str(), module->name.c_str(), i);
+				async_wr = true;
+				continue;
 			}
+			static_only = false;
+			if (async_wr)
+				log("Not mapping memory %s in module %s (mixed clocked and async write ports).\n",
+						mem.memid.c_str(), module->name.c_str());
 			if (refclock.size() == 0) {
 				refclock = port.clk;
 				refclock_pol = port.clk_polarity;
@@ -185,6 +198,8 @@ struct MemoryMapWorker
 		std::vector<RTLIL::SigSpec> data_reg_in(1 << abits);
 		std::vector<RTLIL::SigSpec> data_reg_out(1 << abits);
 
+		std::vector<RTLIL::SigSpec> &data_read = async_wr ? data_reg_in : data_reg_out;
+
 		int count_static = 0;
 
 		for (int i = 0; i < mem.size; i++)
@@ -194,24 +209,36 @@ struct MemoryMapWorker
 			SigSpec w_init = init_data.extract(i*mem.width, mem.width);
 			if (static_cells_map.count(addr) > 0)
 			{
-				data_reg_out[idx] = static_cells_map[addr];
+				data_read[idx] = static_cells_map[addr];
 				count_static++;
 			}
-			else if (mem.wr_ports.empty() && (!keepdc || w_init.is_fully_def()))
+			else if (static_only && (!keepdc || w_init.is_fully_def()))
 			{
-				data_reg_out[idx] = w_init;
+				data_read[idx] = w_init;
 			}
 			else
 			{
-				RTLIL::Cell *c = module->addCell(genid(mem.memid, "", addr), ID($dff));
-				c->parameters[ID::WIDTH] = mem.width;
-				if (GetSize(refclock) != 0) {
+				RTLIL::Cell *c;
+				auto ff_id = genid(mem.memid, "", addr);
+
+				if (static_only) {
+					// non-static part is a ROM, we only reach this with keepdc
+					if (formal) {
+						c = module->addCell(ff_id, ID($ff));
+					} else {
+						c = module->addCell(ff_id, ID($dff));
+						c->parameters[ID::CLK_POLARITY] = RTLIL::Const(RTLIL::State::S1);
+						c->setPort(ID::CLK, RTLIL::SigSpec(RTLIL::State::S0));
+					}
+				} else if (async_wr) {
+					log_assert(formal); // General async write not implemented yet, checked against above
+					c = module->addCell(ff_id, ID($ff));
+				} else {
+					c = module->addCell(ff_id, ID($dff));
 					c->parameters[ID::CLK_POLARITY] = RTLIL::Const(refclock_pol);
 					c->setPort(ID::CLK, refclock);
-				} else {
-					c->parameters[ID::CLK_POLARITY] = RTLIL::Const(RTLIL::State::S1);
-					c->setPort(ID::CLK, RTLIL::SigSpec(RTLIL::State::S0));
 				}
+				c->parameters[ID::WIDTH] = mem.width;
 
 				RTLIL::Wire *w_in = module->addWire(genid(mem.memid, "", addr, "$d"), mem.width);
 				data_reg_in[idx] = w_in;
@@ -223,18 +250,27 @@ struct MemoryMapWorker
 
 				RTLIL::Wire *w_out = module->addWire(w_out_name, mem.width);
 
+				if (formal && mem.packed && mem.cell->name.c_str()[0] == '\\') {
+					auto hdlname = mem.cell->get_hdlname_attribute();
+					if (hdlname.empty())
+						hdlname.push_back(mem.cell->name.c_str() + 1);
+					hdlname.push_back(stringf("[%d]", addr));
+					w_out->set_hdlname_attribute(hdlname);
+				}
+
 				if (!w_init.is_fully_undef())
 					w_out->attributes[ID::init] = w_init.as_const();
 
 				data_reg_out[idx] = w_out;
 				c->setPort(ID::Q, w_out);
 
-				if (mem.wr_ports.empty())
+				if (static_only)
 					module->connect(RTLIL::SigSig(w_in, w_out));
 			}
 		}
 
-		log("  created %d $dff cells and %d static cells of width %d.\n", mem.size-count_static, count_static, mem.width);
+		log("  created %d %s cells and %d static cells of width %d.\n",
+				mem.size-count_static, formal && (static_only || async_wr) ? "$ff" : "$dff", count_static, mem.width);
 
 		int count_dff = 0, count_mux = 0, count_wrmux = 0;
 
@@ -272,13 +308,13 @@ struct MemoryMapWorker
 			}
 
 			for (int j = 0; j < (1 << abits); j++)
-				if (data_reg_out[j] != SigSpec())
-					module->connect(RTLIL::SigSig(rd_signals[j >> port.wide_log2].extract((j & ((1 << port.wide_log2) - 1)) * mem.width, mem.width), data_reg_out[j]));
+				if (data_read[j] != SigSpec())
+					module->connect(RTLIL::SigSig(rd_signals[j >> port.wide_log2].extract((j & ((1 << port.wide_log2) - 1)) * mem.width, mem.width), data_read[j]));
 		}
 
 		log("  read interface: %d $dff and %d $mux cells.\n", count_dff, count_mux);
 
-		if (!mem.wr_ports.empty())
+		if (!static_only)
 		{
 			for (int i = 0; i < mem.size; i++)
 			{
@@ -387,12 +423,19 @@ struct MemoryMapPass : public Pass {
 		log("    -keepdc\n");
 		log("        when mapping ROMs, keep x-bits shared across read ports.\n");
 		log("\n");
+		log("    -formal\n");
+		log("        map memories for a global clock based formal verification flow.\n");
+		log("        This implies -keepdc, uses $ff cells for ROMs and sets hdlname\n");
+		log("        attributes. It also has limited support for async write ports\n");
+		log("        as generated by clk2fflogic.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool attr_icase = false;
 		bool rom_only = false;
 		bool keepdc = false;
+		bool formal = false;
 		dict<RTLIL::IdString, std::vector<RTLIL::Const>> attributes;
 
 		log_header(design, "Executing MEMORY_MAP pass (converting memories to logic and flip-flops).\n");
@@ -439,6 +482,12 @@ struct MemoryMapPass : public Pass {
 				keepdc = true;
 				continue;
 			}
+			if (args[argidx] == "-formal")
+			{
+				formal = true;
+				keepdc = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -449,6 +498,7 @@ struct MemoryMapPass : public Pass {
 			worker.attributes = attributes;
 			worker.rom_only = rom_only;
 			worker.keepdc = keepdc;
+			worker.formal = formal;
 			worker.run();
 		}
 	}

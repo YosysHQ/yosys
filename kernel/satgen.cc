@@ -1176,7 +1176,7 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 		return true;
 	}
 
-	if (timestep > 0 && RTLIL::builtin_ff_cell_types().count(cell->type))
+	if (timestep > 0 && (RTLIL::builtin_ff_cell_types().count(cell->type) || cell->type == ID($anyinit)))
 	{
 		FfData ff(nullptr, cell);
 
