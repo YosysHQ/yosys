@@ -143,6 +143,90 @@ void gen_dffsr_complex(RTLIL::Module *mod, RTLIL::SigSpec sig_d, RTLIL::SigSpec 
 			cell->type.c_str(), cell->name.c_str(), clk_polarity ? "positive" : "negative");
 }
 
+void gen_aldff_complex(RTLIL::Module *mod, RTLIL::SigSpec sig_d, RTLIL::SigSpec sig_q, RTLIL::SigSpec clk, bool clk_polarity,
+		std::map<RTLIL::SigSpec, std::set<RTLIL::SyncRule*>> &async_rules, RTLIL::Process *proc)
+{
+	RTLIL::SigSpec sig_aload;
+	RTLIL::SigSpec sig_ad;
+
+	for (auto &it : async_rules)
+	{
+		RTLIL::SigSpec sync_value = it.first;
+		RTLIL::SigSpec sync_high_signals;
+		RTLIL::SigSpec sync_low_signals;
+
+		for (auto &it2 : it.second)
+			if (it2->type == RTLIL::SyncType::ST0)
+				sync_low_signals.append(it2->signal);
+			else if (it2->type == RTLIL::SyncType::ST1)
+				sync_high_signals.append(it2->signal);
+			else
+				log_abort();
+
+		if (sync_low_signals.size() > 1) {
+			RTLIL::Cell *cell = mod->addCell(NEW_ID, ID($reduce_or));
+			cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
+			cell->parameters[ID::A_WIDTH] = RTLIL::Const(sync_low_signals.size());
+			cell->parameters[ID::Y_WIDTH] = RTLIL::Const(1);
+			cell->setPort(ID::A, sync_low_signals);
+			cell->setPort(ID::Y, sync_low_signals = mod->addWire(NEW_ID));
+		}
+
+		if (sync_low_signals.size() > 0) {
+			RTLIL::Cell *cell = mod->addCell(NEW_ID, ID($not));
+			cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
+			cell->parameters[ID::A_WIDTH] = RTLIL::Const(sync_low_signals.size());
+			cell->parameters[ID::Y_WIDTH] = RTLIL::Const(1);
+			cell->setPort(ID::A, sync_low_signals);
+			cell->setPort(ID::Y, mod->addWire(NEW_ID));
+			sync_high_signals.append(cell->getPort(ID::Y));
+		}
+
+		if (sync_high_signals.size() > 1) {
+			RTLIL::Cell *cell = mod->addCell(NEW_ID, ID($reduce_or));
+			cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
+			cell->parameters[ID::A_WIDTH] = RTLIL::Const(sync_high_signals.size());
+			cell->parameters[ID::Y_WIDTH] = RTLIL::Const(1);
+			cell->setPort(ID::A, sync_high_signals);
+			cell->setPort(ID::Y, sync_high_signals = mod->addWire(NEW_ID));
+		}
+
+		if (sig_ad.size() == 0) {
+			sig_ad = sync_value;
+		} else {
+			RTLIL::Cell *mux_set_cell = mod->addCell(NEW_ID, ID($mux));
+			mux_set_cell->parameters[ID::WIDTH] = RTLIL::Const(sig_d.size());
+			mux_set_cell->setPort(ID::A, sig_ad);
+			mux_set_cell->setPort(ID::B, sync_value);
+			mux_set_cell->setPort(ID::S, sync_high_signals);
+			mux_set_cell->setPort(ID::Y, sig_ad = mod->addWire(NEW_ID, sig_d.size()));
+		}
+
+		sig_aload.append(sync_high_signals);
+	}
+
+	if (sig_aload.size() > 1) {
+		sig_aload = mod->ReduceOr(NEW_ID, sig_aload);
+	}
+
+	std::stringstream sstr;
+	sstr << "$procdff$" << (autoidx++);
+
+	RTLIL::Cell *cell = mod->addCell(sstr.str(), ID($aldff));
+	cell->attributes = proc->attributes;
+	cell->parameters[ID::WIDTH] = RTLIL::Const(sig_d.size());
+	cell->parameters[ID::CLK_POLARITY] = RTLIL::Const(clk_polarity, 1);
+	cell->parameters[ID::ALOAD_POLARITY] = RTLIL::Const(true, 1);
+	cell->setPort(ID::D, sig_d);
+	cell->setPort(ID::Q, sig_q);
+	cell->setPort(ID::CLK, clk);
+	cell->setPort(ID::ALOAD, sig_aload);
+	cell->setPort(ID::AD, sig_ad);
+
+	log("  created %s cell `%s' with %s edge clock and multiple level-sensitive resets.\n",
+			cell->type.c_str(), cell->name.c_str(), clk_polarity ? "positive" : "negative");
+}
+
 void gen_aldff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_out,
 		bool clk_polarity, bool set_polarity, RTLIL::SigSpec clk, RTLIL::SigSpec set, RTLIL::Process *proc)
 {
@@ -325,7 +409,7 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 		if (many_async_rules.size() > 0)
 		{
 			log_warning("Complex async reset for dff `%s'.\n", log_signal(sig));
-			gen_dffsr_complex(mod, insig, sig, sync_edge->signal, sync_edge->type == RTLIL::SyncType::STp, many_async_rules, proc);
+			gen_aldff_complex(mod, insig, sig, sync_edge->signal, sync_edge->type == RTLIL::SyncType::STp, many_async_rules, proc);
 		}
 		else if (!rstval.is_fully_const() && !ce.eval(rstval))
 		{
