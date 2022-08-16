@@ -210,6 +210,7 @@ int main(int argc, char **argv)
 	std::string scriptfile = "";
 	std::string depsfile = "";
 	std::string topmodule = "";
+	std::string perffile = "";
 	bool scriptfile_tcl = false;
 	bool print_banner = true;
 	bool print_stats = true;
@@ -353,7 +354,7 @@ int main(int argc, char **argv)
 	}
 
 	int opt;
-	while ((opt = getopt(argc, argv, "MXAQTVSgm:f:Hh:b:o:p:l:L:qv:tds:c:W:w:e:r:D:P:E:x:")) != -1)
+	while ((opt = getopt(argc, argv, "MXAQTVSgm:f:Hh:b:o:p:l:L:qv:tds:c:W:w:e:r:D:P:E:x:B:")) != -1)
 	{
 		switch (opt)
 		{
@@ -487,6 +488,9 @@ int main(int argc, char **argv)
 			break;
 		case 'x':
 			log_experimentals_ignored.insert(optarg);
+			break;
+		case 'B':
+			perffile = optarg;
 			break;
 		default:
 			fprintf(stderr, "Run '%s -h' for help.\n", argv[0]);
@@ -673,6 +677,29 @@ int main(int argc, char **argv)
 						std::get<1>(*it), std::get<2>(*it).c_str(), int(std::get<0>(*it) / 1000000000));
 			}
 			log("%s\n", out_count ? "" : " no commands executed");
+		}
+		if(!perffile.empty())
+		{
+			FILE *f = fopen(perffile.c_str(), "wt");
+			if (f == nullptr)
+				log_error("Can't open performance log file for writing: %s\n", strerror(errno));
+
+			fprintf(f, "{\n");
+			fprintf(f, "  \"generator\": \"%s\",\n", yosys_version_str);
+			fprintf(f, "  \"total_ns\": %lu,\n", total_ns);
+			fprintf(f, "  \"passes\": {");
+
+			bool first = true;
+			for (auto it = timedat.rbegin(); it != timedat.rend(); it++) {
+				if (!first)
+					fprintf(f, ",");
+				fprintf(f, "\n    \"%s\": {\n", std::get<2>(*it).c_str());
+				fprintf(f, "      \"runtime_ns\": %lu,\n", std::get<0>(*it));
+				fprintf(f, "      \"num_calls\": %u\n", std::get<1>(*it));
+				fprintf(f, "    }");
+				first = false;
+			}
+			fprintf(f, "\n  }\n}\n");
 		}
 	}
 
