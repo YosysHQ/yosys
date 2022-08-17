@@ -103,12 +103,14 @@ On FreeBSD system use gmake instead of make. To run tests use:
 
 For Cygwin use the following command to install all prerequisites, or select these additional packages:
 
-	setup-x86_64.exe -q --packages=bison,flex,gcc-core,gcc-g++,git,libffi-devel,libreadline-devel,make,pkg-config,python3,tcl-devel,boost-build,zlib-devel
+	setup-x86_64.exe -q --packages=bison,flex,gcc-core,gcc-g++,git,libffi-devel,libreadline-devel,make,pkg-config,python3,tcl-devel,boost-build,zlib-devel,libiconv-devel
 
 To configure the build system to use a specific compiler, use one of
 
 	$ make config-clang
 	$ make config-gcc
+
+When using `clang` you may need to remove the `-fPIC` term from the `CXXFLAGS` variable in the Makefile.
 
 For other compilers and build configurations it might be
 necessary to make some changes to the config section of the
