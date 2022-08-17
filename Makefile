@@ -24,6 +24,7 @@ ENABLE_COVER := 1
 ENABLE_LIBYOSYS := 0
 ENABLE_PROTOBUF := 0
 ENABLE_ZLIB := 1
+ENABLE_FPIC := 1
 
 # python wrappers
 ENABLE_PYOSYS := 0
@@ -88,7 +89,7 @@ YOSYS_SRC := $(dir $(firstword $(MAKEFILE_LIST)))
 VPATH := $(YOSYS_SRC)
 
 CXXSTD ?= c++11
-CXXFLAGS := $(CXXFLAGS) -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -MP -D_YOSYS_ -fPIC -I$(PREFIX)/include
+CXXFLAGS := $(CXXFLAGS) -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -MP -D_YOSYS_ -I$(PREFIX)/include
 LDLIBS := $(LDLIBS) -lstdc++ -lm
 PLUGIN_LDFLAGS :=
 
@@ -97,6 +98,10 @@ SED ?= sed
 BISON ?= bison
 STRIP ?= strip
 AWK ?= awk
+
+ifeq ($(ENABLE_FPIC),1)
+CXXFLAGS += -fPIC
+endif
 
 ifeq ($(OS), Darwin)
 PLUGIN_LDFLAGS += -undefined dynamic_lookup

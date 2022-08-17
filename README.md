@@ -93,7 +93,9 @@ or MacPorts:
 	$ sudo port install bison flex readline gawk libffi \
 		git graphviz pkgconfig python36 boost zlib tcl
 
-On FreeBSD use the following command to install all prerequisites:
+On FreeBSD:
+
+Use the following command to install all prerequisites:
 
 	# pkg install bison flex readline gawk libffi\
 		git graphviz pkgconf python3 python36 tcl-wrapper boost-libs
@@ -101,16 +103,20 @@ On FreeBSD use the following command to install all prerequisites:
 On FreeBSD system use gmake instead of make. To run tests use:
     % MAKE=gmake CC=cc gmake test
 
-For Cygwin use the following command to install all prerequisites, or select these additional packages:
+On Cygwin:
 
-	setup-x86_64.exe -q --packages=bison,flex,gcc-core,gcc-g++,git,libffi-devel,libreadline-devel,make,pkg-config,python3,tcl-devel,boost-build,zlib-devel,libiconv-devel
+Use the following command to install all prerequisites, or select these additional packages:
+
+	setup-x86_64.exe -q --packages=bison,flex,gcc-core,gcc-g++,git,libffi-devel,libreadline-devel,make,pkg-config,python3,tcl-devel,boost-build,zlib-devel,libiconv-devel,clang,libclang-devel
 
 To configure the build system to use a specific compiler, use one of
 
 	$ make config-clang
 	$ make config-gcc
 
-When using `clang` you may need to remove the `-fPIC` term from the `CXXFLAGS` variable in the Makefile.
+When using `clang`, you may encounter an error involving `unsupported option -fPIC` and need to use the following command to build:
+
+	$ make ENABLE_FPIC=0
 
 For other compilers and build configurations it might be
 necessary to make some changes to the config section of the
