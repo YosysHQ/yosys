@@ -202,7 +202,7 @@ struct AigerWriter
 				ff_map[Q] = D;
 
 				if (cell->type != ID($_FF_)) {
-					auto sig_clk = sigmap(cell->getPort(ID::CLK).as_bit());
+					auto sig_clk = sigmap(cell->getPort(ID::C).as_bit());
 					ywmap_clocks[sig_clk] |= cell->type == ID($_DFF_N_) ? 2 : 1;
 				}
 				continue;
