@@ -21,7 +21,7 @@
 #undef HAVE_LIBPTHREAD
 #undef HAVE_FSEEKO
 #endif
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__)
 #undef HAVE_ALLOCA_H
 #endif
 

@@ -20,6 +20,7 @@
 #include "kernel/register.h"
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
+#include "kernel/hashlib.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -105,6 +106,60 @@ static IdString derive_name_from_cell_output_wire(const RTLIL::Cell *cell, strin
 	return name + suffix;
 }
 
+static bool rename_witness(RTLIL::Design *design, dict<RTLIL::Module *, int> &cache, RTLIL::Module *module)
+{
+	auto cached = cache.find(module);
+	if (cached != cache.end()) {
+		if (cached->second == -1)
+			log_error("Cannot rename witness signals in a design containing recursive instantiations.\n");
+		return cached->second;
+	}
+	cache.emplace(module, -1);
+
+	bool has_witness_signals = false;
+	for (auto cell : module->cells())
+	{
+		RTLIL::Module *impl = design->module(cell->type);
+		if (impl != nullptr) {
+			bool witness_in_cell = rename_witness(design, cache, impl);
+			has_witness_signals |= witness_in_cell;
+			if (witness_in_cell && !cell->name.isPublic()) {
+				std::string name = cell->name.c_str() + 1;
+				for (auto &c : name)
+					if ((c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '_')
+						c = '_';
+				auto new_id = module->uniquify("\\_witness_." + name);
+				cell->set_hdlname_attribute({ "_witness_", strstr(new_id.c_str(), ".") + 1 });
+				module->rename(cell, new_id);
+			}
+		}
+
+		if (cell->type.in(ID($anyconst), ID($anyseq), ID($anyinit), ID($allconst), ID($allseq))) {
+			has_witness_signals = true;
+			auto QY = cell->type == ID($anyinit) ? ID::Q : ID::Y;
+			auto sig_out = cell->getPort(QY);
+
+			for (auto chunk : sig_out.chunks()) {
+				if (chunk.is_wire() && !chunk.wire->name.isPublic()) {
+					std::string name = stringf("%s_%s", cell->type.c_str() + 1, cell->name.c_str() + 1);
+					for (auto &c : name)
+						if ((c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '_')
+							c = '_';
+					auto new_id = module->uniquify("\\_witness_." + name);
+					auto new_wire = module->addWire(new_id, GetSize(sig_out));
+					new_wire->set_hdlname_attribute({ "_witness_", strstr(new_id.c_str(), ".") + 1 });
+					module->connect({sig_out, new_wire});
+					cell->setPort(QY, new_wire);
+					break;
+				}
+			}
+		}
+	}
+
+	cache[module] = has_witness_signals;
+	return has_witness_signals;
+}
+
 struct RenamePass : public Pass {
 	RenamePass() : Pass("rename", "rename object in the design") { }
 	void help() override
@@ -146,6 +201,14 @@ struct RenamePass : public Pass {
 		log("pattern is '_%%_'.\n");
 		log("\n");
 		log("\n");
+		log("    rename -witness\n");
+		log("\n");
+		log("Assigns auto-generated names to all $any*/$all* output wires and containing\n");
+		log("cells that do not have a public name. This ensures that, during formal\n");
+		log("verification, a solver-found trace can be fully specified using a public\n");
+		log("hierarchical names.\n");
+		log("\n");
+		log("\n");
 		log("    rename -hide [selection]\n");
 		log("\n");
 		log("Assign private names (the ones with $-prefix) to all selected wires and cells\n");
@@ -156,6 +219,13 @@ struct RenamePass : public Pass {
 		log("\n");
 		log("Rename top module.\n");
 		log("\n");
+		log("\n");
+		log("    rename -scramble-name [-seed <seed>] [selection]\n");
+		log("\n");
+		log("Assign randomly-generated names to all selected wires and cells. The seed option\n");
+		log("can be used to change the random number generator seed from the default, but it\n");
+		log("must be non-zero.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -164,10 +234,13 @@ struct RenamePass : public Pass {
 		bool flag_src = false;
 		bool flag_wire = false;
 		bool flag_enumerate = false;
+		bool flag_witness = false;
 		bool flag_hide = false;
 		bool flag_top = false;
 		bool flag_output = false;
+		bool flag_scramble_name = false;
 		bool got_mode = false;
+		unsigned int seed = 1;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -193,6 +266,11 @@ struct RenamePass : public Pass {
 				got_mode = true;
 				continue;
 			}
+			if (arg == "-witness" && !got_mode) {
+				flag_witness = true;
+				got_mode = true;
+				continue;
+			}
 			if (arg == "-hide" && !got_mode) {
 				flag_hide = true;
 				got_mode = true;
@@ -200,6 +278,11 @@ struct RenamePass : public Pass {
 			}
 			if (arg == "-top" && !got_mode) {
 				flag_top = true;
+				got_mode = true;
+				continue;
+			}
+			if (arg == "-scramble-name" && !got_mode) {
+				flag_scramble_name = true;
 				got_mode = true;
 				continue;
 			}
@@ -211,6 +294,11 @@ struct RenamePass : public Pass {
 			}
 			if (arg == "-suffix" && argidx + 1 < args.size()) {
 				cell_suffix = args[++argidx];
+				continue;
+			}
+			if (arg == "-seed" && argidx+1 < args.size()) {
+				seed = std::stoi(args[++argidx]);
+				continue;
 			}
 			break;
 		}
@@ -289,6 +377,19 @@ struct RenamePass : public Pass {
 			}
 		}
 		else
+		if (flag_witness)
+		{
+			extra_args(args, argidx, design, false);
+
+			RTLIL::Module *module = design->top_module();
+
+			if (module == nullptr)
+				log_cmd_error("No top module found!\n");
+
+			dict<RTLIL::Module *, int> cache;
+			rename_witness(design, cache, module);
+		}
+		else
 		if (flag_hide)
 		{
 			extra_args(args, argidx, design);
@@ -327,6 +428,42 @@ struct RenamePass : public Pass {
 
 			log("Renaming module %s to %s.\n", log_id(module), log_id(new_name));
 			design->rename(module, new_name);
+		}
+		else
+		if (flag_scramble_name)
+		{
+			extra_args(args, argidx, design);
+
+			if (seed == 0)
+				log_error("Seed for -scramble-name cannot be zero.\n");
+
+			for (auto module : design->selected_modules())
+			{
+				if (module->memories.size() != 0 || module->processes.size() != 0) {
+					log_warning("Skipping module %s with unprocessed memories or processes\n", log_id(module));
+					continue;
+				}
+
+				dict<RTLIL::Wire *, IdString> new_wire_names;
+				dict<RTLIL::Cell *, IdString> new_cell_names;
+
+				for (auto wire : module->selected_wires())
+					if (wire->port_id == 0) {
+						seed = mkhash_xorshift(seed);
+						new_wire_names[wire] = stringf("$_%u_", seed);
+					}
+
+				for (auto cell : module->selected_cells()) {
+					seed = mkhash_xorshift(seed);
+					new_cell_names[cell] = stringf("$_%u_", seed);
+				}
+
+				for (auto &it : new_wire_names)
+					module->rename(it.first, it.second);
+
+				for (auto &it : new_cell_names)
+					module->rename(it.first, it.second);
+			}
 		}
 		else
 		{

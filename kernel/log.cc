@@ -627,7 +627,7 @@ const char *log_const(const RTLIL::Const &value, bool autoint)
 	}
 }
 
-const char *log_id(RTLIL::IdString str)
+const char *log_id(const RTLIL::IdString &str)
 {
 	log_id_cache.push_back(strdup(str.c_str()));
 	const char *p = log_id_cache.back();

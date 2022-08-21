@@ -51,6 +51,7 @@ struct CellTypes
 
 		setup_internals();
 		setup_internals_mem();
+		setup_internals_anyinit();
 		setup_stdcells();
 		setup_stdcells_mem();
 	}
@@ -153,6 +154,11 @@ struct CellTypes
 		setup_type(ID($dlatch), {ID::EN, ID::D}, {ID::Q});
 		setup_type(ID($adlatch), {ID::EN, ID::D, ID::ARST}, {ID::Q});
 		setup_type(ID($dlatchsr), {ID::EN, ID::SET, ID::CLR, ID::D}, {ID::Q});
+	}
+
+	void setup_internals_anyinit()
+	{
+		setup_type(ID($anyinit), {ID::D}, {ID::Q});
 	}
 
 	void setup_internals_mem()

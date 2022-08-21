@@ -2256,6 +2256,16 @@ and simulus signal from FST file
         number of clock cycles to simulate (default: 20)
 \end{lstlisting}
 
+\section{gatemate\_foldinv -- fold inverters into Gatemate LUT trees}
+\label{cmd:gatemate_foldinv}
+\begin{lstlisting}[numbers=left,frame=single]
+    gatemate_foldinv [selection]
+
+
+This pass searches for $__CC_NOT cells and folds them into CC_LUT2, CC_L2T4
+and CC_L2T5 cells as created by LUT tree mapping.
+\end{lstlisting}
+
 \section{glift -- create GLIFT models and optimization problems}
 \label{cmd:glift}
 \begin{lstlisting}[numbers=left,frame=single]
@@ -2378,6 +2388,9 @@ resolves positional module parameters, unrolls array instances, and more.
     -simcheck
         like -check, but also throw an error if blackbox modules are
         instantiated, and throw an error if the design has no top module.
+
+    -smtcheck
+        like -simcheck, but allow smtlib2_module modules.
 
     -purge_lib
         by default the hierarchy command will not remove library (blackbox)
@@ -2597,7 +2610,7 @@ Tristate PADS (-toutpad, -tinoutpad) always operate in -bits mode.
 \begin{lstlisting}[numbers=left,frame=single]
     jny [options] [selection]
 
-Write a JSON netlist metadata for the current design
+Write JSON netlist metadata for the current design
 
     -o <filename>
         write to the specified file.
@@ -2947,6 +2960,12 @@ pass to word-wide DFFs and address decoders.
 
     -iattr
         for -attr, ignore case of <value>.
+
+    -rom-only
+        only perform conversion for ROMs (memories with no write ports).
+
+    -keepdc
+        when mapping ROMs, keep x-bits shared across read ports.
 \end{lstlisting}
 
 \section{memory\_memx -- emulate vlog sim behavior for mem ports}
@@ -3992,6 +4011,9 @@ Read cells from liberty file as modules into current design.
     -lib
         only create empty blackbox modules
 
+    -wb
+        mark imported cells as whiteboxes
+
     -nooverwrite
         ignore re-definitions of modules. (the default behavior is to
         create an error message if the existing module is not a blackbox
@@ -4223,10 +4245,12 @@ Assign names auto-generated from the src attribute to all selected wires and
 cells with private names.
 
 
-    rename -wire [selection]
+    rename -wire [selection] [-suffix <suffix>]
 
 Assign auto-generated names based on the wires they drive to all selected
 cells with private names. Ignores cells driving privatly named wires.
+By default, the cell is named after the wire with the cell type as suffix.
+The -suffix option can be used to set the suffix to the given string instead.
 
 
     rename -enumerate [-pattern <pattern>] [selection]
@@ -5985,6 +6009,9 @@ This command runs synthesis for Cologne Chip AG GateMate FPGAs.
     -nomx8, -nomx4
         do not use CC_MX{8,4} multiplexer cells in output netlist.
 
+    -luttree
+        use new LUT tree mapping approach (EXPERIMENTAL).
+
     -dff
         run 'abc' with -dff option
 
@@ -6064,7 +6091,11 @@ The following commands are executed by this synthesis command:
         techmap -map +/gatemate/mux_map.v
 
     map_luts:
-        abc  -dress -lut 4
+        abc  -genlib +/gatemate/lut_tree_cells.genlib    (with -luttree)
+        techmap -map +/gatemate/lut_tree_map.v    (with -luttree)
+        gatemate_foldinv    (with -luttree)
+        techmap -map +/gatemate/inv_map.v    (with -luttree)
+        abc  -dress -lut 4    (without -luttree)
         clean
 
     map_cells:
@@ -7379,6 +7410,10 @@ in order to avoid a name collision with the built in commands.
 
 If any arguments are specified, these arguments are provided to the script via
 the standard $argc and $argv variables.
+
+Note, tcl will not recieve the output of any yosys command. If the output
+of the tcl commands are needed, use the yosys command 'tee' to redirect yosys's
+output to a temporary file.
 \end{lstlisting}
 
 \section{techmap -- generic technology mapper}
@@ -7898,6 +7933,9 @@ Import options:
   -v, -vv
     Verbose log messages. (-vv is even more verbose than -v.)
 
+  -pp <filename>
+    Pretty print design after elaboration to specified file.
+
 The following additional import options are useful for debugging the Verific
 bindings (for Yosys and/or Verific developers):
 
@@ -7936,50 +7974,6 @@ Pretty print options:
 
   -vhdl
     Save output for VHDL design units.
-
-
-    verific -app <application>..
-
-Execute YosysHQ formal application on loaded Verilog files.
-
-Application options:
-
-    -module <module>
-        Run formal application only on specified module.
-
-    -blacklist <filename[:lineno]>
-        Do not run application on modules from files that match the filename
-        or filename and line number if provided in such format.
-        Parameter can also contain comma separated list of file locations.
-
-    -blfile <file>
-        Do not run application on locations specified in file, they can
-        represent filename or filename and location in file.
-
-Applications:
-
-  WARNING: Applications only available in commercial build.
-
-
-    verific -template <name> <top_module>..
-
-Generate template for specified top module of loaded design.
-
-Template options:
-
-  -out
-    Specifies output file for generated template, by default output is stdout
-
-  -chparam name value 
-    Generate template using this parameter value. Otherwise default parameter
-    values will be used for templat generate functionality. This option
-    can be specified multiple times to override multiple parameters.
-    String values must be passed in double quotes (").
-
-Templates:
-
-  WARNING: Templates only available in commercial build.
-
 
 
     verific -cfg [<name> [<value>]]
@@ -8537,6 +8531,8 @@ http://bygone.clairexen.net/intersynth/
 \begin{lstlisting}[numbers=left,frame=single]
     jny [options] [selection]
 
+Write JSON netlist metadata for the current design
+
     -no-connections
         Don't include connection information in the netlist output.
 
@@ -8546,7 +8542,8 @@ http://bygone.clairexen.net/intersynth/
     -no-properties
         Don't include property information in the netlist output.
 
-Write a JSON metadata for the current design
+The JSON schema for JNY output files is located in the "jny.schema.json" file
+which is located at "https://raw.githubusercontent.com/YosysHQ/yosys/master/misc/jny.schema.json"
 \end{lstlisting}
 
 \section{write\_json -- write design to a JSON file}

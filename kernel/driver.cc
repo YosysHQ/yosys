@@ -192,6 +192,13 @@ void yosys_atexit()
 #endif
 }
 
+#if defined(__OpenBSD__)
+namespace Yosys {
+extern char *yosys_argv0;
+extern char yosys_path[PATH_MAX];
+};
+#endif
+
 int main(int argc, char **argv)
 {
 	std::string frontend_command = "auto";
@@ -497,6 +504,12 @@ int main(int argc, char **argv)
 
 	if (print_stats)
 		log_hasher = new SHA1;
+
+#if defined(__OpenBSD__)
+	// save the executable origin for proc_self_dirname()
+	yosys_argv0 = argv[0];
+	realpath(yosys_argv0, yosys_path);
+#endif
 
 #if defined(__linux__)
 	// set stack size to >= 128 MB

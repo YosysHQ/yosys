@@ -1575,6 +1575,27 @@ value<BitsY> mod_ss(const value<BitsA> &a, const value<BitsB> &b) {
 	return divmod_ss<BitsY>(a, b).second;
 }
 
+template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
+value<BitsY> modfloor_uu(const value<BitsA> &a, const value<BitsB> &b) {
+	return divmod_uu<BitsY>(a, b).second;
+}
+
+// GHDL Modfloor operator. Returns r=a mod b, such that r has the same sign as b and
+// a=b*N+r where N is some integer
+// In practical terms, when a and b have different signs and the remainder returned by divmod_ss is not 0
+// then return the remainder + b
+template<size_t BitsY, size_t BitsA, size_t BitsB>
+CXXRTL_ALWAYS_INLINE
+value<BitsY> modfloor_ss(const value<BitsA> &a, const value<BitsB> &b) {
+	value<BitsY> r;
+	r = divmod_ss<BitsY>(a, b).second;
+	if((b.is_neg() != a.is_neg()) && !r.is_zero())
+		return add_ss<BitsY>(b, r);
+	return r;
+}
+
+
 // Memory helper
 struct memory_index {
 	bool valid;

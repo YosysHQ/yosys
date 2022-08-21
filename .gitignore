@@ -28,6 +28,9 @@ __pycache__
 /yosys-smtbmc
 /yosys-smtbmc.exe
 /yosys-smtbmc-script.py
+/yosys-witness
+/yosys-witness.exe
+/yosys-witness-script.py
 /yosys-filterlib
 /yosys-filterlib.exe
 /kernel/*.pyh

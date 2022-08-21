@@ -32,10 +32,10 @@ output [PORT_B_WIDTH-1:0] PORT_B_RD_DATA;
 
 function [319:0] init_slice;
 	input integer idx;
-	integer i, j;
+	integer i;
 	init_slice = 0;
-	for (i = 0; i < 16; i = i + 1) begin
-		init_slice[i*20+:18] = INIT[(idx * 16 + i) * 18+:18];
+	for (i = 0; i < 32; i = i + 1) begin
+		init_slice[i*10+:9] = INIT[(idx * 32 + i) * 9+:9];
 	end
 endfunction
 
@@ -43,8 +43,28 @@ wire [17:0] DOA;
 wire [17:0] DOB;
 wire [17:0] DIA = PORT_A_WR_DATA;
 wire [17:0] DIB = PORT_B_WR_DATA;
-wire [13:0] ADA = PORT_A_WIDTH == 18 ? {PORT_A_ADDR[13:2], PORT_A_WR_BE} : PORT_A_ADDR;
-wire [13:0] ADB = PORT_B_WIDTH == 18 ? {PORT_B_ADDR[13:2], PORT_B_WR_BE} : PORT_B_ADDR;
+wire [13:0] ADA;
+wire [13:0] ADB;
+
+generate
+
+case(PORT_A_WIDTH)
+1: assign ADA = PORT_A_ADDR;
+2: assign ADA = {PORT_A_ADDR[13:1], 1'b1};
+4: assign ADA = {PORT_A_ADDR[13:2], 2'b11};
+9: assign ADA = {PORT_A_ADDR[13:3], 3'b111};
+18: assign ADA = {PORT_A_ADDR[13:4], 2'b11, PORT_A_WR_BE};
+endcase
+
+case(PORT_B_WIDTH)
+1: assign ADB = PORT_B_ADDR;
+2: assign ADB = {PORT_B_ADDR[13:1], 1'b1};
+4: assign ADB = {PORT_B_ADDR[13:2], 2'b11};
+9: assign ADB = {PORT_B_ADDR[13:3], 3'b111};
+18: assign ADB = {PORT_B_ADDR[13:4], 2'b11, PORT_B_WR_BE};
+endcase
+
+endgenerate
 
 assign PORT_A_RD_DATA = DOA;
 assign PORT_B_RD_DATA = DOB;
@@ -122,8 +142,8 @@ DP16K #(
 	.RESETMODE_B(PORT_B_OPTION_RESETMODE),
 	.ASYNC_RST_RELEASE_A(PORT_A_OPTION_RESETMODE),
 	.ASYNC_RST_RELEASE_B(PORT_B_OPTION_RESETMODE),
-	.CSDECODE_A("000"),
-	.CSDECODE_B("000"),
+	.CSDECODE_A("111"),
+	.CSDECODE_B("111"),
 	.GSR("DISABLED"),
 ) _TECHMAP_REPLACE_ (
 	.CLKA(PORT_A_CLK),
@@ -176,10 +196,10 @@ input [PORT_W_WIDTH-1:0] PORT_W_WR_DATA;
 
 function [319:0] init_slice;
 	input integer idx;
-	integer i, j;
+	integer i;
 	init_slice = 0;
-	for (i = 0; i < 16; i = i + 1) begin
-		init_slice[i*20+:18] = INIT[(idx * 16 + i) * 18+:18];
+	for (i = 0; i < 32; i = i + 1) begin
+		init_slice[i*10+:9] = INIT[(idx * 32 + i) * 9+:9];
 	end
 endfunction
 
@@ -188,10 +208,28 @@ wire [35:0] DO;
 
 assign PORT_R_RD_DATA = DO;
 
-wire [13:0] ADW = PORT_W_WIDTH == 36 ? {PORT_W_ADDR[13:4], PORT_W_WR_EN} :
-	(PORT_W_WIDTH == 18 ? {PORT_W_ADDR[13:2], PORT_W_WR_EN} : PORT_W_ADDR);
+wire [13:0] ADW;
+wire [13:0] ADR;
 
 generate
+
+case (PORT_W_WIDTH)
+1: assign ADW = PORT_W_ADDR;
+2: assign ADW = {PORT_W_ADDR[13:1], 1'b1};
+4: assign ADW = {PORT_W_ADDR[13:2], 2'b11};
+9: assign ADW = {PORT_W_ADDR[13:3], 3'b111};
+18: assign ADW = {PORT_W_ADDR[13:4], 2'b11, PORT_W_WR_EN};
+36: assign ADW = {PORT_W_ADDR[13:5], 1'b1, PORT_W_WR_EN};
+endcase
+
+case (PORT_R_WIDTH)
+1: assign ADR = PORT_R_ADDR;
+2: assign ADR = {PORT_R_ADDR[13:1], 1'b1};
+4: assign ADR = {PORT_R_ADDR[13:2], 2'b11};
+9: assign ADR = {PORT_R_ADDR[13:3], 3'b111};
+18: assign ADR = {PORT_R_ADDR[13:4], 4'b1111};
+36: assign ADR = {PORT_R_ADDR[13:5], 5'b11111};
+endcase
 
 if (OPTION_SAME_CLOCK) begin
 
@@ -265,8 +303,8 @@ PDPSC16K #(
 	.OUTREG("BYPASSED"),
 	.RESETMODE(PORT_R_OPTION_RESETMODE),
 	.ASYNC_RST_RELEASE(PORT_R_OPTION_RESETMODE),
-	.CSDECODE_W("000"),
-	.CSDECODE_R("000"),
+	.CSDECODE_W("111"),
+	.CSDECODE_R("111"),
 	.ECC("DISABLED"),
 	.GSR("DISABLED"),
 ) _TECHMAP_REPLACE_ (
@@ -280,7 +318,7 @@ PDPSC16K #(
 	.CER(PORT_R_CLK_EN),
 	.RST(PORT_R_OPTION_RESETMODE == "SYNC" ? PORT_R_RD_SRST : PORT_R_RD_ARST),
 	.CSR(3'b111),
-	.ADR(PORT_R_ADDR),
+	.ADR(ADR),
 	.DO(DO),
 );
 
@@ -356,8 +394,8 @@ PDP16K #(
 	.OUTREG("BYPASSED"),
 	.RESETMODE(PORT_R_OPTION_RESETMODE),
 	.ASYNC_RST_RELEASE(PORT_R_OPTION_RESETMODE),
-	.CSDECODE_W("000"),
-	.CSDECODE_R("000"),
+	.CSDECODE_W("111"),
+	.CSDECODE_R("111"),
 	.ECC("DISABLED"),
 	.GSR("DISABLED"),
 ) _TECHMAP_REPLACE_ (
@@ -371,7 +409,7 @@ PDP16K #(
 	.CER(PORT_R_CLK_EN),
 	.RST(PORT_R_OPTION_RESETMODE == "SYNC" ? PORT_R_RD_SRST : PORT_R_RD_ARST),
 	.CSR(3'b111),
-	.ADR(PORT_R_ADDR),
+	.ADR(ADR),
 	.DO(DO),
 );
 

@@ -633,6 +633,7 @@ struct OptCleanPass : public Pass {
 		keep_cache.reset(design);
 
 		ct_reg.setup_internals_mem();
+		ct_reg.setup_internals_anyinit();
 		ct_reg.setup_stdcells_mem();
 
 		ct_all.setup(design);
@@ -694,6 +695,7 @@ struct CleanPass : public Pass {
 		keep_cache.reset(design);
 
 		ct_reg.setup_internals_mem();
+		ct_reg.setup_internals_anyinit();
 		ct_reg.setup_stdcells_mem();
 
 		ct_all.setup(design);

@@ -81,6 +81,7 @@ struct SimShared
 	bool hide_internal = true;
 	bool writeback = false;
 	bool zinit = false;
+	bool hdlname = false;
 	int rstlen = 1;
 	FstData *fst = nullptr;
 	double start_time = 0;
@@ -157,6 +158,7 @@ struct SimInstance
 
 	dict<Wire*, pair<int, Const>> signal_database;
 	dict<Wire*, fstHandle> fst_handles;
+	dict<Wire*, fstHandle> fst_inputs;
 	dict<IdString, dict<int,fstHandle>> fst_memories;
 
 	SimInstance(SimShared *shared, std::string scope, Module *module, Cell *instance = nullptr, SimInstance *parent = nullptr) :
@@ -230,7 +232,7 @@ struct SimInstance
 					}
 			}
 
-			if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
+			if (RTLIL::builtin_ff_cell_types().count(cell->type) || cell->type == ID($anyinit)) {
 				FfData ff_data(nullptr, cell);
 				ff_state_t ff;
 				ff.past_d = Const(State::Sx, ff_data.width);
@@ -737,9 +739,17 @@ struct SimInstance
 			child.second->register_signals(id);
 	}
 
-	void write_output_header(std::function<void(IdString)> enter_scope, std::function<void()> exit_scope, std::function<void(Wire*, int, bool)> register_signal)
+	void write_output_header(std::function<void(IdString)> enter_scope, std::function<void()> exit_scope, std::function<void(const char*, Wire*, int, bool)> register_signal)
 	{
-		enter_scope(name());
+		int exit_scopes = 1;
+		if (shared->hdlname && instance != nullptr && instance->name.isPublic() && instance->has_attribute(ID::hdlname)) {
+			auto hdlname = instance->get_hdlname_attribute();
+			log_assert(!hdlname.empty());
+			for (auto name : hdlname)
+				enter_scope("\\" + name);
+			exit_scopes = hdlname.size();
+		} else
+			enter_scope(name());
 
 		dict<Wire*,bool> registers;
 		for (auto cell : module->cells())
@@ -755,13 +765,25 @@ struct SimInstance
 		
 		for (auto signal : signal_database)
 		{
-			register_signal(signal.first, signal.second.first, registers.count(signal.first)!=0);
+			if (shared->hdlname && signal.first->name.isPublic() && signal.first->has_attribute(ID::hdlname)) {
+				auto hdlname = signal.first->get_hdlname_attribute();
+				log_assert(!hdlname.empty());
+				auto signal_name = std::move(hdlname.back());
+				hdlname.pop_back();
+				for (auto name : hdlname)
+					enter_scope("\\" + name);
+				register_signal(signal_name.c_str(), signal.first, signal.second.first, registers.count(signal.first)!=0);
+				for (auto name : hdlname)
+					exit_scope();
+			} else
+				register_signal(log_id(signal.first->name), signal.first, signal.second.first, registers.count(signal.first)!=0);
 		}
 
 		for (auto child : children)
 			child.second->write_output_header(enter_scope, exit_scope, register_signal);
 
-		exit_scope();
+		for (int i = 0; i < exit_scopes; i++)
+			exit_scope();
 	}
 
 	void register_output_step_values(std::map<int,Const> *data)
@@ -820,7 +842,7 @@ struct SimInstance
 		return did_something;
 	}
 
-	void addAdditionalInputs(std::map<Wire*,fstHandle> &inputs)
+	void addAdditionalInputs()
 	{
 		for (auto cell : module->cells())
 		{
@@ -831,7 +853,7 @@ struct SimInstance
 					for(auto &item : fst_handles) {
 						if (item.second==0) continue; // Ignore signals not found
 						if (sig_y == sigmap(item.first)) {
-							inputs[sig_y.as_wire()] = item.second;
+							fst_inputs[sig_y.as_wire()] = item.second;
 							found = true;
 							break;
 						}
@@ -842,7 +864,21 @@ struct SimInstance
 			}
 		}
 		for (auto child : children)
-			child.second->addAdditionalInputs(inputs);
+			child.second->addAdditionalInputs();
+	}
+
+	bool setInputs()
+	{
+		bool did_something = false;
+		for(auto &item : fst_inputs) {
+			std::string v = shared->fst->valueOf(item.second);
+			did_something |= set_state(item.first, Const::from_string(v));
+		}
+
+		for (auto child : children)
+			did_something |= child.second->setInputs();
+
+		return did_something;
 	}
 
 	void setState(dict<int, std::pair<SigBit,bool>> bits, std::string values)
@@ -1095,18 +1131,17 @@ struct SimWorker : SimShared
 		}
 
 		SigMap sigmap(topmod);
-		std::map<Wire*,fstHandle> inputs;
 
 		for (auto wire : topmod->wires()) {
 			if (wire->port_input) {
 				fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
 				if (id==0)
 					log_error("Unable to find required '%s' signal in file\n",(scope + "." + RTLIL::unescape_id(wire->name)).c_str());
-				inputs[wire] = id;
+				top->fst_inputs[wire] = id;
 			}
 		}
 
-		top->addAdditionalInputs(inputs);
+		top->addAdditionalInputs();
 
 		uint64_t startCount = 0;
 		uint64_t stopCount = 0;
@@ -1152,11 +1187,7 @@ struct SimWorker : SimShared
 			fst->reconstructAllAtTimes(fst_clock, startCount, stopCount, [&](uint64_t time) {
 				if (verbose)
 					log("Co-simulating %s %d [%lu%s].\n", (all_samples ? "sample" : "cycle"), cycle, (unsigned long)time, fst->getTimescaleString());
-				bool did_something = false;
-				for(auto &item : inputs) {
-					std::string v = fst->valueOf(item.second);
-					did_something |= top->set_state(item.first, Const::from_string(v));
-				}
+				bool did_something = top->setInputs();
 
 				if (initial) {
 					did_something |= top->setInitState();
@@ -1702,7 +1733,11 @@ struct VCDWriter : public OutputWriter
 		worker->top->write_output_header(
 			[this](IdString name) { vcdfile << stringf("$scope module %s $end\n", log_id(name)); },
 			[this]() { vcdfile << stringf("$upscope $end\n");},
-			[this,use_signal](Wire *wire, int id, bool is_reg) { if (use_signal.at(id)) vcdfile << stringf("$var %s %d n%d %s%s $end\n", is_reg ? "reg" : "wire", GetSize(wire), id, wire->name[0] == '$' ? "\\" : "", log_id(wire)); }
+			[this,use_signal](const char *name, Wire *wire, int id, bool is_reg) {
+				if (use_signal.at(id)) {
+					vcdfile << stringf("$var %s %d n%d %s%s $end\n", is_reg ? "reg" : "wire", GetSize(wire), id, name[0] == '$' ? "\\" : "", name);
+				}
+			}
 		);
 
 		vcdfile << stringf("$enddefinitions $end\n");
@@ -1760,11 +1795,10 @@ struct FSTWriter : public OutputWriter
 	   	worker->top->write_output_header(
 			[this](IdString name) { fstWriterSetScope(fstfile, FST_ST_VCD_MODULE, stringf("%s",log_id(name)).c_str(), nullptr); },
 			[this]() { fstWriterSetUpscope(fstfile); },
-			[this,use_signal](Wire *wire, int id, bool is_reg) {
+			[this,use_signal](const char *name, Wire *wire, int id, bool is_reg) {
 				if (!use_signal.at(id)) return;
 				fstHandle fst_id = fstWriterCreateVar(fstfile, is_reg ? FST_VT_VCD_REG : FST_VT_VCD_WIRE, FST_VD_IMPLICIT, GetSize(wire),
-												stringf("%s%s", wire->name[0] == '$' ? "\\" : "", log_id(wire)).c_str(), 0);
-
+												name, 0);
 				mapping.emplace(id, fst_id);
 			}
 		);
@@ -1846,7 +1880,7 @@ struct AIWWriter : public OutputWriter
 		worker->top->write_output_header(
 			[](IdString) {},
 			[]() {},
-			[this](Wire *wire, int id, bool) { mapping[wire] = id; }
+			[this](const char */*name*/, Wire *wire, int id, bool) { mapping[wire] = id; }
 		);
 
 		std::map<int, Yosys::RTLIL::Const> current;
@@ -1934,6 +1968,10 @@ struct SimPass : public Pass {
 		log("    -aiw <filename>\n");
 		log("        write the simulation results to an AIGER witness file\n");
 		log("        (requires a *.aim file via -map)\n");
+		log("\n");
+		log("    -hdlname\n");
+		log("        use the hdlname attribute when writing simulation results\n");
+		log("        (preserves hierarchy in a flattened design)\n");
 		log("\n");
 		log("    -x\n");
 		log("        ignore constant x outputs in simulation file.\n");
@@ -2045,6 +2083,10 @@ struct SimPass : public Pass {
 				std::string aiw_filename = args[++argidx];
 				rewrite_filename(aiw_filename);
 				worker.outputfiles.emplace_back(std::unique_ptr<AIWWriter>(new AIWWriter(&worker, aiw_filename.c_str())));
+				continue;
+			}
+			if (args[argidx] == "-hdlname") {
+				worker.hdlname = true;
 				continue;
 			}
 			if (args[argidx] == "-n" && argidx+1 < args.size()) {

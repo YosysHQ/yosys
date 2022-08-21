@@ -837,7 +837,7 @@ void MemMapping::handle_priority() {
 			if (!port2.priority_mask[p1idx])
 				continue;
 			for (auto &cfg: cfgs) {
-				auto &p1cfg = cfg.rd_ports[p1idx];
+				auto &p1cfg = cfg.wr_ports[p1idx];
 				auto &p2cfg = cfg.wr_ports[p2idx];
 				bool found = false;
 				for (auto &pgi: p2cfg.def->wrprio) {
@@ -1706,10 +1706,11 @@ void MemMapping::emit_port(const MemConfig &cfg, std::vector<Cell*> &cells, cons
 				if (pdef.wrbe_separate) {
 					cell->setPort(stringf("\\PORT_%s_WR_EN", name), State::S0);
 					cell->setPort(stringf("\\PORT_%s_WR_BE", name), hw_wren);
-					cell->setParam(stringf("\\PORT_%s_WR_BE_WIDTH", name), GetSize(hw_wren));
+					if (cfg.def->width_mode != WidthMode::Single)
+						cell->setParam(stringf("\\PORT_%s_WR_BE_WIDTH", name), GetSize(hw_wren));
 				} else {
 					cell->setPort(stringf("\\PORT_%s_WR_EN", name), hw_wren);
-					if (cfg.def->byte != 0)
+					if (cfg.def->byte != 0 && cfg.def->width_mode != WidthMode::Single)
 						cell->setParam(stringf("\\PORT_%s_WR_EN_WIDTH", name), GetSize(hw_wren));
 				}
 			}

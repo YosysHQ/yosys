@@ -166,8 +166,8 @@ struct WreduceWorker
 
 		for (int i = GetSize(sig_q)-1; i >= 0; i--)
 		{
-			if (zero_ext && sig_d[i] == State::S0 && (initval[i] == State::S0 || initval[i] == State::Sx) &&
-					(!has_reset || i >= GetSize(rst_value) || rst_value[i] == State::S0 || rst_value[i] == State::Sx)) {
+			if (zero_ext && sig_d[i] == State::S0 && (initval[i] == State::S0 || (!config->keepdc && initval[i] == State::Sx)) &&
+					(!has_reset || i >= GetSize(rst_value) || rst_value[i] == State::S0 || (!config->keepdc && rst_value[i] == State::Sx))) {
 				module->connect(sig_q[i], State::S0);
 				initvals.remove_init(sig_q[i]);
 				sig_d.remove(i);
@@ -175,8 +175,8 @@ struct WreduceWorker
 				continue;
 			}
 
-			if (sign_ext && i > 0 && sig_d[i] == sig_d[i-1] && initval[i] == initval[i-1] &&
-					(!has_reset || i >= GetSize(rst_value) || rst_value[i] == rst_value[i-1])) {
+			if (sign_ext && i > 0 && sig_d[i] == sig_d[i-1] && initval[i] == initval[i-1] && (!config->keepdc || initval[i] != State::Sx) &&
+					(!has_reset || i >= GetSize(rst_value) || (rst_value[i] == rst_value[i-1] && (!config->keepdc || rst_value[i] != State::Sx)))) {
 				module->connect(sig_q[i], sig_q[i-1]);
 				initvals.remove_init(sig_q[i]);
 				sig_d.remove(i);

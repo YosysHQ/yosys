@@ -33,10 +33,14 @@ FfData::FfData(FfInitVals *initvals, Cell *cell_) : FfData(cell_->module, initva
 
 	std::string type_str = cell->type.str();
 
-	if (cell->type.in(ID($ff), ID($dff), ID($dffe), ID($dffsr), ID($dffsre), ID($adff), ID($adffe), ID($aldff), ID($aldffe), ID($sdff), ID($sdffe), ID($sdffce), ID($dlatch), ID($adlatch), ID($dlatchsr), ID($sr))) {
-		if (cell->type == ID($ff)) {
+	if (cell->type.in(ID($anyinit), ID($ff), ID($dff), ID($dffe), ID($dffsr), ID($dffsre), ID($adff), ID($adffe), ID($aldff), ID($aldffe), ID($sdff), ID($sdffe), ID($sdffce), ID($dlatch), ID($adlatch), ID($dlatchsr), ID($sr))) {
+		if (cell->type.in(ID($anyinit), ID($ff))) {
 			has_gclk = true;
 			sig_d = cell->getPort(ID::D);
+			if (cell->type == ID($anyinit)) {
+				is_anyinit = true;
+				log_assert(val_init.is_fully_undef());
+			}
 		} else if (cell->type == ID($sr)) {
 			// No data input at all.
 		} else if (cell->type.in(ID($dlatch), ID($adlatch), ID($dlatchsr))) {
@@ -274,6 +278,7 @@ FfData FfData::slice(const std::vector<int> &bits) {
 	res.has_sr = has_sr;
 	res.ce_over_srst = ce_over_srst;
 	res.is_fine = is_fine;
+	res.is_anyinit = is_anyinit;
 	res.pol_clk = pol_clk;
 	res.pol_ce = pol_ce;
 	res.pol_aload = pol_aload;
@@ -542,7 +547,7 @@ Cell *FfData::emit() {
 			return nullptr;
 		}
 	}
-	if (initvals)
+	if (initvals && !is_anyinit)
 		initvals->set_init(sig_q, val_init);
 	if (!is_fine) {
 		if (has_gclk) {
@@ -552,7 +557,12 @@ Cell *FfData::emit() {
 			log_assert(!has_arst);
 			log_assert(!has_srst);
 			log_assert(!has_sr);
-			cell = module->addFf(name, sig_d, sig_q);
+			if (is_anyinit) {
+				cell = module->addAnyinit(name, sig_d, sig_q);
+				log_assert(val_init.is_fully_undef());
+			} else {
+				cell = module->addFf(name, sig_d, sig_q);
+			}
 		} else if (!has_aload && !has_clk) {
 			log_assert(has_sr);
 			cell = module->addSr(name, sig_set, sig_clr, sig_q, pol_set, pol_clr);
@@ -603,6 +613,7 @@ Cell *FfData::emit() {
 			log_assert(!has_arst);
 			log_assert(!has_srst);
 			log_assert(!has_sr);
+			log_assert(!is_anyinit);
 			cell = module->addFfGate(name, sig_d, sig_q);
 		} else if (!has_aload && !has_clk) {
 			log_assert(has_sr);

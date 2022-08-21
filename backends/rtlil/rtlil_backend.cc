@@ -75,7 +75,7 @@ void RTLIL_BACKEND::dump_const(std::ostream &f, const RTLIL::Const &data, int wi
 			else if (str[i] == '\t')
 				f << stringf("\\t");
 			else if (str[i] < 32)
-				f << stringf("\\%03o", str[i]);
+				f << stringf("\\%03o", (unsigned char)str[i]);
 			else if (str[i] == '"')
 				f << stringf("\\\"");
 			else if (str[i] == '\\')

@@ -57,7 +57,7 @@ USING_YOSYS_NAMESPACE
 #include "FileSystem.h"
 
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
-#include "InitialAssertions.h"
+#include "VerificExtensions.h"
 #endif
 
 #ifndef YOSYSHQ_VERIFIC_API_VERSION
@@ -183,7 +183,7 @@ RTLIL::IdString VerificImporter::new_verific_id(Verific::DesignObj *obj)
 {
 	std::string s = stringf("$verific$%s", obj->Name());
 	if (obj->Linefile())
-		s += stringf("$%s:%d", Verific::LineFile::GetFileName(obj->Linefile()), Verific::LineFile::GetLineNo(obj->Linefile()));
+		s += stringf("$%s:%d", RTLIL::encode_filename(Verific::LineFile::GetFileName(obj->Linefile())).c_str(), Verific::LineFile::GetLineNo(obj->Linefile()));
 	s += stringf("$%d", autoidx++);
 	return s;
 }
@@ -1124,6 +1124,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 		RTLIL::Wire *wire = module->addWire(RTLIL::escape_id(portbus->Name()), portbus->Size());
 		wire->start_offset = min(portbus->LeftIndex(), portbus->RightIndex());
+		wire->upto = portbus->IsUp();
 		import_attributes(wire->attributes, portbus, nl);
 
 		bool portbus_input = portbus->GetDir() == DIR_INOUT || portbus->GetDir() == DIR_IN;
@@ -1144,7 +1145,8 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 						wire->port_output = true;
 				}
 				net = portbus->ElementAtIndex(i)->GetNet();
-				RTLIL::SigBit bit(wire, i - wire->start_offset);
+				int bitidx = wire->upto ? (wire->width - 1 - (i - wire->start_offset)) : (i - wire->start_offset);
+				RTLIL::SigBit bit(wire, bitidx);
 				if (net_map.count(net) == 0)
 					net_map[net] = bit;
 				else if (bit_input)
@@ -1308,6 +1310,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 			RTLIL::Wire *wire = module->addWire(wire_name, netbus->Size());
 			wire->start_offset = min(netbus->LeftIndex(), netbus->RightIndex());
+			wire->upto = netbus->IsUp();
 			MapIter mibus;
 			FOREACH_NET_OF_NETBUS(netbus, mibus, net) {
 				if (net)
@@ -1322,7 +1325,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			{
 				if (netbus->ElementAtIndex(i))
 				{
-					int bitidx = i - wire->start_offset;
+					int bitidx = wire->upto ? (wire->width - 1 - (i - wire->start_offset)) : (i - wire->start_offset);
 					net = netbus->ElementAtIndex(i);
 					RTLIL::SigBit bit(wire, bitidx);
 
@@ -2246,7 +2249,7 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 		verific_params.Insert(i.first.c_str(), i.second.c_str());
 
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
-	InitialAssertions::Rewrite("work", &verific_params);
+	VerificExtensions::ElaborateAndRewrite("work", &verific_params);
 #endif
 
 	if (top.empty()) {
@@ -2312,6 +2315,9 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 		nl_todo.erase(it);
 	}
 
+#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
+	VerificExtensions::Reset();
+#endif
 	hier_tree::DeleteHierarchicalTree();
 	veri_file::Reset();
 #ifdef VERIFIC_VHDL_SUPPORT
@@ -2494,6 +2500,9 @@ struct VerificPass : public Pass {
 		log("  -v, -vv\n");
 		log("    Verbose log messages. (-vv is even more verbose than -v.)\n");
 		log("\n");
+		log("  -pp <filename>\n");
+		log("    Pretty print design after elaboration to specified file.\n");
+		log("\n");
 		log("The following additional import options are useful for debugging the Verific\n");
 		log("bindings (for Yosys and/or Verific developers):\n");
 		log("\n");
@@ -2539,6 +2548,9 @@ struct VerificPass : public Pass {
 		log("Get/set Verific runtime flags.\n");
 		log("\n");
 		log("\n");
+#if defined(YOSYS_ENABLE_VERIFIC) and defined(YOSYSHQ_VERIFIC_EXTENSIONS)
+		VerificExtensions::Help();
+#endif	
 		log("Use YosysHQ Tabby CAD Suite if you need Yosys+Verific.\n");
 		log("https://www.yosyshq.com/\n");
 		log("\n");
@@ -2816,9 +2828,11 @@ struct VerificPass : public Pass {
 			for (auto &ext : verific_libexts)
 				veri_file::AddLibExt(ext.c_str());
 
-			while (argidx < GetSize(args))
-				file_names.Insert(args[argidx++].c_str());
-
+			while (argidx < GetSize(args)) {
+				std::string filename(args[argidx++]);
+				rewrite_filename(filename);
+				file_names.Insert(strdup(filename.c_str()));
+			}
 			if (!veri_file::AnalyzeMultipleFiles(&file_names, verilog_mode, work.c_str(), veri_file::MFCU)) {
 					verific_error_msg.clear();
 					log_cmd_error("Reading Verilog/SystemVerilog sources failed.\n");
@@ -2831,36 +2845,48 @@ struct VerificPass : public Pass {
 #ifdef VERIFIC_VHDL_SUPPORT
 		if (GetSize(args) > argidx && args[argidx] == "-vhdl87") {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_1987").c_str());
-			for (argidx++; argidx < GetSize(args); argidx++)
-				if (!vhdl_file::Analyze(args[argidx].c_str(), work.c_str(), vhdl_file::VHDL_87))
-					log_cmd_error("Reading `%s' in VHDL_87 mode failed.\n", args[argidx].c_str());
+			for (argidx++; argidx < GetSize(args); argidx++) {
+				std::string filename(args[argidx]);
+				rewrite_filename(filename);
+				if (!vhdl_file::Analyze(filename.c_str(), work.c_str(), vhdl_file::VHDL_87))
+					log_cmd_error("Reading `%s' in VHDL_87 mode failed.\n", filename.c_str());
+			}
 			verific_import_pending = true;
 			goto check_error;
 		}
 
 		if (GetSize(args) > argidx && args[argidx] == "-vhdl93") {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_1993").c_str());
-			for (argidx++; argidx < GetSize(args); argidx++)
-				if (!vhdl_file::Analyze(args[argidx].c_str(), work.c_str(), vhdl_file::VHDL_93))
-					log_cmd_error("Reading `%s' in VHDL_93 mode failed.\n", args[argidx].c_str());
+			for (argidx++; argidx < GetSize(args); argidx++) {
+				std::string filename(args[argidx]);
+				rewrite_filename(filename);
+				if (!vhdl_file::Analyze(filename.c_str(), work.c_str(), vhdl_file::VHDL_93))
+					log_cmd_error("Reading `%s' in VHDL_93 mode failed.\n", filename.c_str());
+			}
 			verific_import_pending = true;
 			goto check_error;
 		}
 
 		if (GetSize(args) > argidx && args[argidx] == "-vhdl2k") {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_1993").c_str());
-			for (argidx++; argidx < GetSize(args); argidx++)
-				if (!vhdl_file::Analyze(args[argidx].c_str(), work.c_str(), vhdl_file::VHDL_2K))
-					log_cmd_error("Reading `%s' in VHDL_2K mode failed.\n", args[argidx].c_str());
+			for (argidx++; argidx < GetSize(args); argidx++) {
+				std::string filename(args[argidx]);
+				rewrite_filename(filename);
+				if (!vhdl_file::Analyze(filename.c_str(), work.c_str(), vhdl_file::VHDL_2K))
+					log_cmd_error("Reading `%s' in VHDL_2K mode failed.\n", filename.c_str());
+			}
 			verific_import_pending = true;
 			goto check_error;
 		}
 
 		if (GetSize(args) > argidx && (args[argidx] == "-vhdl2008" || args[argidx] == "-vhdl")) {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_2008").c_str());
-			for (argidx++; argidx < GetSize(args); argidx++)
-				if (!vhdl_file::Analyze(args[argidx].c_str(), work.c_str(), vhdl_file::VHDL_2008))
-					log_cmd_error("Reading `%s' in VHDL_2008 mode failed.\n", args[argidx].c_str());
+			for (argidx++; argidx < GetSize(args); argidx++) {
+				std::string filename(args[argidx]);
+				rewrite_filename(filename);
+				if (!vhdl_file::Analyze(filename.c_str(), work.c_str(), vhdl_file::VHDL_2008))
+					log_cmd_error("Reading `%s' in VHDL_2008 mode failed.\n", filename.c_str());
+			}
 			verific_import_pending = true;
 			goto check_error;
 		}
@@ -2922,6 +2948,7 @@ struct VerificPass : public Pass {
 			bool mode_autocover = false, mode_fullinit = false;
 			bool flatten = false, extnets = false;
 			string dumpfile;
+			string ppfile;
 			Map parameters(STRING_HASH);
 
 			for (argidx++; argidx < GetSize(args); argidx++) {
@@ -2990,6 +3017,10 @@ struct VerificPass : public Pass {
 					dumpfile = args[++argidx];
 					continue;
 				}
+				if (args[argidx] == "-pp" && argidx+1 < GetSize(args)) {
+					ppfile = args[++argidx];
+					continue;
+				}
 				break;
 			}
 
@@ -2999,8 +3030,11 @@ struct VerificPass : public Pass {
 			std::set<std::string> top_mod_names;
 
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
-			InitialAssertions::Rewrite(work, &parameters);
+			VerificExtensions::ElaborateAndRewrite(work, &parameters);
 #endif
+			if (!ppfile.empty())
+				veri_file::PrettyPrint(ppfile.c_str(), nullptr, work.c_str());
+
 			if (mode_all)
 			{
 				log("Running hier_tree::ElaborateAll().\n");
@@ -3113,6 +3147,9 @@ struct VerificPass : public Pass {
 				nl_todo.erase(it);
 			}
 
+#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
+			VerificExtensions::Reset();
+#endif
 			hier_tree::DeleteHierarchicalTree();
 			veri_file::Reset();
 #ifdef VERIFIC_VHDL_SUPPORT
@@ -3187,6 +3224,13 @@ struct VerificPass : public Pass {
 				}
 			}
 		}
+#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
+		if (VerificExtensions::Execute(args, argidx, work, 
+		    [this](const std::vector<std::string> &args, size_t argidx, std::string msg)
+				{ cmd_error(args, argidx, msg); } )) {
+			goto check_error;
+		}
+#endif	
 
 		cmd_error(args, argidx, "Missing or unsupported mode parameter.\n");
 

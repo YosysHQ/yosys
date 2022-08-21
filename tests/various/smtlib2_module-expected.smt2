@@ -4,11 +4,14 @@
 (declare-fun |smtlib2_is| (|smtlib2_s|) Bool)
 (declare-fun |smtlib2#0| (|smtlib2_s|) (_ BitVec 8)) ; \a
 ; yosys-smt2-input a 8
+; yosys-smt2-witness {"offset": 0, "path": ["\\a"], "smtname": "a", "type": "input", "width": 8}
 (define-fun |smtlib2_n a| ((state |smtlib2_s|)) (_ BitVec 8) (|smtlib2#0| state))
 (declare-fun |smtlib2#1| (|smtlib2_s|) (_ BitVec 8)) ; \b
 ; yosys-smt2-input b 8
+; yosys-smt2-witness {"offset": 0, "path": ["\\b"], "smtname": "b", "type": "input", "width": 8}
 (define-fun |smtlib2_n b| ((state |smtlib2_s|)) (_ BitVec 8) (|smtlib2#1| state))
 ; yosys-smt2-output add 8
+; yosys-smt2-witness {"offset": 0, "path": ["\\add"], "smtname": "add", "type": "blackbox", "width": 8}
 (define-fun |smtlib2_n add| ((state |smtlib2_s|)) (_ BitVec 8) (let (
 (|a| (|smtlib2_n a| state))
 (|b| (|smtlib2_n b| state))
@@ -16,6 +19,7 @@
 (bvadd a b)
 ))
 ; yosys-smt2-output eq 1
+; yosys-smt2-witness {"offset": 0, "path": ["\\eq"], "smtname": "eq", "type": "blackbox", "width": 1}
 (define-fun |smtlib2_n eq| ((state |smtlib2_s|)) Bool (let (
 (|a| (|smtlib2_n a| state))
 (|b| (|smtlib2_n b| state))
@@ -23,6 +27,7 @@
 (= a b)
 ))
 ; yosys-smt2-output sub 8
+; yosys-smt2-witness {"offset": 0, "path": ["\\sub"], "smtname": "sub", "type": "blackbox", "width": 8}
 (define-fun |smtlib2_n sub| ((state |smtlib2_s|)) (_ BitVec 8) (let (
 (|a| (|smtlib2_n a| state))
 (|b| (|smtlib2_n b| state))
@@ -38,13 +43,16 @@
 (declare-sort |uut_s| 0)
 (declare-fun |uut_is| (|uut_s|) Bool)
 ; yosys-smt2-cell smtlib2 s
+; yosys-smt2-witness {"path": ["\\s"], "smtname": "s", "type": "cell"}
 (declare-fun |uut#0| (|uut_s|) (_ BitVec 8)) ; \add
 (declare-fun |uut#1| (|uut_s|) Bool) ; \eq
 (declare-fun |uut#2| (|uut_s|) (_ BitVec 8)) ; \sub
 (declare-fun |uut_h s| (|uut_s|) |smtlib2_s|)
 ; yosys-smt2-anyconst uut#3 8 smtlib2_module.v:14.17-14.26
+; yosys-smt2-witness {"offset": 0, "path": ["\\a"], "smtname": 3, "type": "init", "width": 8}
 (declare-fun |uut#3| (|uut_s|) (_ BitVec 8)) ; \a
 ; yosys-smt2-anyconst uut#4 8 smtlib2_module.v:14.32-14.41
+; yosys-smt2-witness {"offset": 0, "path": ["\\b"], "smtname": 4, "type": "init", "width": 8}
 (declare-fun |uut#4| (|uut_s|) (_ BitVec 8)) ; \b
 (define-fun |uut#5| ((state |uut_s|)) (_ BitVec 8) (bvadd (|uut#3| state) (|uut#4| state))) ; \add2
 (define-fun |uut#6| ((state |uut_s|)) Bool (= (|uut#0| state) (|uut#5| state))) ; $0$formal$smtlib2_module.v:28$1_CHECK[0:0]$9

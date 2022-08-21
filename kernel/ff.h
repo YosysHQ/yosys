@@ -28,7 +28,10 @@ YOSYS_NAMESPACE_BEGIN
 // Describes a flip-flop or a latch.
 //
 // If has_gclk, this is a formal verification FF with implicit global clock:
-// Q is simply previous cycle's D.
+// Q is simply previous cycle's D. Additionally if is_anyinit is true, this is
+// an $anyinit cell which always has an undefined initialization value. Note
+// that $anyinit is not considered to be among the FF celltypes, so a pass has
+// to explicitly opt-in to process $anyinit cells with FfData.
 //
 // Otherwise, the FF/latch can have any number of features selected by has_*
 // attributes that determine Q's value (in order of decreasing priority):
@@ -126,6 +129,8 @@ struct FfData {
 	// True if this FF is a fine cell, false if it is a coarse cell.
 	// If true, width must be 1.
 	bool is_fine;
+	// True if this FF is an $anyinit cell.  Depends on has_gclk.
+	bool is_anyinit;
 	// Polarities, corresponding to sig_*.  True means active-high, false
 	// means active-low.
 	bool pol_clk;
@@ -156,6 +161,7 @@ struct FfData {
 		has_sr = false;
 		ce_over_srst = false;
 		is_fine = false;
+		is_anyinit = false;
 		pol_clk = false;
 		pol_aload = false;
 		pol_ce = false;

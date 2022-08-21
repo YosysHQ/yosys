@@ -30,6 +30,9 @@ PRIVATE_NAMESPACE_BEGIN
 struct MemoryMapWorker
 {
 	bool attr_icase = false;
+	bool rom_only = false;
+	bool keepdc = false;
+	bool formal = false;
 	dict<RTLIL::IdString, std::vector<RTLIL::Const>> attributes;
 
 	RTLIL::Design *design;
@@ -107,11 +110,8 @@ struct MemoryMapWorker
 
 		SigSpec init_data = mem.get_init_data();
 
-		// delete unused memory cell
-		if (mem.rd_ports.empty()) {
-			mem.remove();
+		if (!mem.wr_ports.empty() && rom_only)
 			return;
-		}
 
 		// check if attributes allow us to infer FFRAM for this memory
 		for (const auto &attr : attributes) {
@@ -143,9 +143,17 @@ struct MemoryMapWorker
 			}
 		}
 
+		// delete unused memory cell
+		if (mem.rd_ports.empty()) {
+			mem.remove();
+			return;
+		}
+
 		// all write ports must share the same clock
 		RTLIL::SigSpec refclock;
 		bool refclock_pol = false;
+		bool async_wr = false;
+		bool static_only = true;
 		for (int i = 0; i < GetSize(mem.wr_ports); i++) {
 			auto &port = mem.wr_ports[i];
 			if (port.en.is_fully_const() && !port.en.as_bool()) {
@@ -159,10 +167,20 @@ struct MemoryMapWorker
 					static_ports.insert(i);
 					continue;
 				}
-				log("Not mapping memory %s in module %s (write port %d has no clock).\n",
-						mem.memid.c_str(), module->name.c_str(), i);
-				return;
+				static_only = false;
+				if (GetSize(refclock) != 0)
+					log("Not mapping memory %s in module %s (mixed clocked and async write ports).\n",
+							mem.memid.c_str(), module->name.c_str());
+				if (!formal)
+					log("Not mapping memory %s in module %s (write port %d has no clock).\n",
+								mem.memid.c_str(), module->name.c_str(), i);
+				async_wr = true;
+				continue;
 			}
+			static_only = false;
+			if (async_wr)
+				log("Not mapping memory %s in module %s (mixed clocked and async write ports).\n",
+						mem.memid.c_str(), module->name.c_str());
 			if (refclock.size() == 0) {
 				refclock = port.clk;
 				refclock_pol = port.clk_polarity;
@@ -180,28 +198,47 @@ struct MemoryMapWorker
 		std::vector<RTLIL::SigSpec> data_reg_in(1 << abits);
 		std::vector<RTLIL::SigSpec> data_reg_out(1 << abits);
 
+		std::vector<RTLIL::SigSpec> &data_read = async_wr ? data_reg_in : data_reg_out;
+
 		int count_static = 0;
 
 		for (int i = 0; i < mem.size; i++)
 		{
 			int addr = i + mem.start_offset;
 			int idx = addr & ((1 << abits) - 1);
+			SigSpec w_init = init_data.extract(i*mem.width, mem.width);
 			if (static_cells_map.count(addr) > 0)
 			{
-				data_reg_out[idx] = static_cells_map[addr];
+				data_read[idx] = static_cells_map[addr];
 				count_static++;
+			}
+			else if (static_only && (!keepdc || w_init.is_fully_def()))
+			{
+				data_read[idx] = w_init;
 			}
 			else
 			{
-				RTLIL::Cell *c = module->addCell(genid(mem.memid, "", addr), ID($dff));
-				c->parameters[ID::WIDTH] = mem.width;
-				if (GetSize(refclock) != 0) {
+				RTLIL::Cell *c;
+				auto ff_id = genid(mem.memid, "", addr);
+
+				if (static_only) {
+					// non-static part is a ROM, we only reach this with keepdc
+					if (formal) {
+						c = module->addCell(ff_id, ID($ff));
+					} else {
+						c = module->addCell(ff_id, ID($dff));
+						c->parameters[ID::CLK_POLARITY] = RTLIL::Const(RTLIL::State::S1);
+						c->setPort(ID::CLK, RTLIL::SigSpec(RTLIL::State::S0));
+					}
+				} else if (async_wr) {
+					log_assert(formal); // General async write not implemented yet, checked against above
+					c = module->addCell(ff_id, ID($ff));
+				} else {
+					c = module->addCell(ff_id, ID($dff));
 					c->parameters[ID::CLK_POLARITY] = RTLIL::Const(refclock_pol);
 					c->setPort(ID::CLK, refclock);
-				} else {
-					c->parameters[ID::CLK_POLARITY] = RTLIL::Const(RTLIL::State::S1);
-					c->setPort(ID::CLK, RTLIL::SigSpec(RTLIL::State::S0));
 				}
+				c->parameters[ID::WIDTH] = mem.width;
 
 				RTLIL::Wire *w_in = module->addWire(genid(mem.memid, "", addr, "$d"), mem.width);
 				data_reg_in[idx] = w_in;
@@ -212,17 +249,28 @@ struct MemoryMapWorker
 					w_out_name = genid(mem.memid, "", addr, "$q");
 
 				RTLIL::Wire *w_out = module->addWire(w_out_name, mem.width);
-				SigSpec w_init = init_data.extract(i*mem.width, mem.width);
+
+				if (formal && mem.packed && mem.cell->name.c_str()[0] == '\\') {
+					auto hdlname = mem.cell->get_hdlname_attribute();
+					if (hdlname.empty())
+						hdlname.push_back(mem.cell->name.c_str() + 1);
+					hdlname.push_back(stringf("[%d]", addr));
+					w_out->set_hdlname_attribute(hdlname);
+				}
 
 				if (!w_init.is_fully_undef())
 					w_out->attributes[ID::init] = w_init.as_const();
 
 				data_reg_out[idx] = w_out;
 				c->setPort(ID::Q, w_out);
+
+				if (static_only)
+					module->connect(RTLIL::SigSig(w_in, w_out));
 			}
 		}
 
-		log("  created %d $dff cells and %d static cells of width %d.\n", mem.size-count_static, count_static, mem.width);
+		log("  created %d %s cells and %d static cells of width %d.\n",
+				mem.size-count_static, formal && (static_only || async_wr) ? "$ff" : "$dff", count_static, mem.width);
 
 		int count_dff = 0, count_mux = 0, count_wrmux = 0;
 
@@ -260,75 +308,78 @@ struct MemoryMapWorker
 			}
 
 			for (int j = 0; j < (1 << abits); j++)
-				if (data_reg_out[j] != SigSpec())
-					module->connect(RTLIL::SigSig(rd_signals[j >> port.wide_log2].extract((j & ((1 << port.wide_log2) - 1)) * mem.width, mem.width), data_reg_out[j]));
+				if (data_read[j] != SigSpec())
+					module->connect(RTLIL::SigSig(rd_signals[j >> port.wide_log2].extract((j & ((1 << port.wide_log2) - 1)) * mem.width, mem.width), data_read[j]));
 		}
 
 		log("  read interface: %d $dff and %d $mux cells.\n", count_dff, count_mux);
 
-		for (int i = 0; i < mem.size; i++)
+		if (!static_only)
 		{
-			int addr = i + mem.start_offset;
-			int idx = addr & ((1 << abits) - 1);
-			if (static_cells_map.count(addr) > 0)
-				continue;
-
-			RTLIL::SigSpec sig = data_reg_out[idx];
-
-			for (int j = 0; j < GetSize(mem.wr_ports); j++)
+			for (int i = 0; i < mem.size; i++)
 			{
-				auto &port = mem.wr_ports[j];
-				RTLIL::SigSpec wr_addr = port.addr.extract_end(port.wide_log2);
-				RTLIL::Wire *w_seladdr = addr_decode(wr_addr, RTLIL::SigSpec(addr >> port.wide_log2, GetSize(wr_addr)));
+				int addr = i + mem.start_offset;
+				int idx = addr & ((1 << abits) - 1);
+				if (static_cells_map.count(addr) > 0)
+					continue;
 
-				int sub = addr & ((1 << port.wide_log2) - 1);
+				RTLIL::SigSpec sig = data_reg_out[idx];
 
-				int wr_offset = 0;
-				while (wr_offset < mem.width)
+				for (int j = 0; j < GetSize(mem.wr_ports); j++)
 				{
-					int wr_width = 1;
-					RTLIL::SigSpec wr_bit = port.en.extract(wr_offset + sub * mem.width, 1);
+					auto &port = mem.wr_ports[j];
+					RTLIL::SigSpec wr_addr = port.addr.extract_end(port.wide_log2);
+					RTLIL::Wire *w_seladdr = addr_decode(wr_addr, RTLIL::SigSpec(addr >> port.wide_log2, GetSize(wr_addr)));
 
-					while (wr_offset + wr_width < mem.width) {
-						RTLIL::SigSpec next_wr_bit = port.en.extract(wr_offset + wr_width + sub * mem.width, 1);
-						if (next_wr_bit != wr_bit)
-							break;
-						wr_width++;
-					}
+					int sub = addr & ((1 << port.wide_log2) - 1);
 
-					RTLIL::Wire *w = w_seladdr;
-
-					if (wr_bit != State::S1)
+					int wr_offset = 0;
+					while (wr_offset < mem.width)
 					{
-						RTLIL::Cell *c = module->addCell(genid(mem.memid, "$wren", addr, "", j, "", wr_offset), ID($and));
-						c->parameters[ID::A_SIGNED] = RTLIL::Const(0);
-						c->parameters[ID::B_SIGNED] = RTLIL::Const(0);
-						c->parameters[ID::A_WIDTH] = RTLIL::Const(1);
-						c->parameters[ID::B_WIDTH] = RTLIL::Const(1);
-						c->parameters[ID::Y_WIDTH] = RTLIL::Const(1);
-						c->setPort(ID::A, w);
-						c->setPort(ID::B, wr_bit);
+						int wr_width = 1;
+						RTLIL::SigSpec wr_bit = port.en.extract(wr_offset + sub * mem.width, 1);
 
-						w = module->addWire(genid(mem.memid, "$wren", addr, "", j, "", wr_offset, "$y"));
-						c->setPort(ID::Y, RTLIL::SigSpec(w));
+						while (wr_offset + wr_width < mem.width) {
+							RTLIL::SigSpec next_wr_bit = port.en.extract(wr_offset + wr_width + sub * mem.width, 1);
+							if (next_wr_bit != wr_bit)
+								break;
+							wr_width++;
+						}
+
+						RTLIL::Wire *w = w_seladdr;
+
+						if (wr_bit != State::S1)
+						{
+							RTLIL::Cell *c = module->addCell(genid(mem.memid, "$wren", addr, "", j, "", wr_offset), ID($and));
+							c->parameters[ID::A_SIGNED] = RTLIL::Const(0);
+							c->parameters[ID::B_SIGNED] = RTLIL::Const(0);
+							c->parameters[ID::A_WIDTH] = RTLIL::Const(1);
+							c->parameters[ID::B_WIDTH] = RTLIL::Const(1);
+							c->parameters[ID::Y_WIDTH] = RTLIL::Const(1);
+							c->setPort(ID::A, w);
+							c->setPort(ID::B, wr_bit);
+
+							w = module->addWire(genid(mem.memid, "$wren", addr, "", j, "", wr_offset, "$y"));
+							c->setPort(ID::Y, RTLIL::SigSpec(w));
+						}
+
+						RTLIL::Cell *c = module->addCell(genid(mem.memid, "$wrmux", addr, "", j, "", wr_offset), ID($mux));
+						c->parameters[ID::WIDTH] = wr_width;
+						c->setPort(ID::A, sig.extract(wr_offset, wr_width));
+						c->setPort(ID::B, port.data.extract(wr_offset + sub * mem.width, wr_width));
+						c->setPort(ID::S, RTLIL::SigSpec(w));
+
+						w = module->addWire(genid(mem.memid, "$wrmux", addr, "", j, "", wr_offset, "$y"), wr_width);
+						c->setPort(ID::Y, w);
+
+						sig.replace(wr_offset, w);
+						wr_offset += wr_width;
+						count_wrmux++;
 					}
-
-					RTLIL::Cell *c = module->addCell(genid(mem.memid, "$wrmux", addr, "", j, "", wr_offset), ID($mux));
-					c->parameters[ID::WIDTH] = wr_width;
-					c->setPort(ID::A, sig.extract(wr_offset, wr_width));
-					c->setPort(ID::B, port.data.extract(wr_offset + sub * mem.width, wr_width));
-					c->setPort(ID::S, RTLIL::SigSpec(w));
-
-					w = module->addWire(genid(mem.memid, "$wrmux", addr, "", j, "", wr_offset, "$y"), wr_width);
-					c->setPort(ID::Y, w);
-
-					sig.replace(wr_offset, w);
-					wr_offset += wr_width;
-					count_wrmux++;
 				}
-			}
 
-			module->connect(RTLIL::SigSig(data_reg_in[idx], sig));
+				module->connect(RTLIL::SigSig(data_reg_in[idx], sig));
+			}
 		}
 
 		log("  write interface: %d write mux blocks.\n", count_wrmux);
@@ -366,10 +417,25 @@ struct MemoryMapPass : public Pass {
 		log("    -iattr\n");
 		log("        for -attr, ignore case of <value>.\n");
 		log("\n");
+		log("    -rom-only\n");
+		log("        only perform conversion for ROMs (memories with no write ports).\n");
+		log("\n");
+		log("    -keepdc\n");
+		log("        when mapping ROMs, keep x-bits shared across read ports.\n");
+		log("\n");
+		log("    -formal\n");
+		log("        map memories for a global clock based formal verification flow.\n");
+		log("        This implies -keepdc, uses $ff cells for ROMs and sets hdlname\n");
+		log("        attributes. It also has limited support for async write ports\n");
+		log("        as generated by clk2fflogic.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool attr_icase = false;
+		bool rom_only = false;
+		bool keepdc = false;
+		bool formal = false;
 		dict<RTLIL::IdString, std::vector<RTLIL::Const>> attributes;
 
 		log_header(design, "Executing MEMORY_MAP pass (converting memories to logic and flip-flops).\n");
@@ -406,6 +472,22 @@ struct MemoryMapPass : public Pass {
 				attr_icase = true;
 				continue;
 			}
+			if (args[argidx] == "-rom-only")
+			{
+				rom_only = true;
+				continue;
+			}
+			if (args[argidx] == "-keepdc")
+			{
+				keepdc = true;
+				continue;
+			}
+			if (args[argidx] == "-formal")
+			{
+				formal = true;
+				keepdc = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -414,6 +496,9 @@ struct MemoryMapPass : public Pass {
 			MemoryMapWorker worker(design, mod);
 			worker.attr_icase = attr_icase;
 			worker.attributes = attributes;
+			worker.rom_only = rom_only;
+			worker.keepdc = keepdc;
+			worker.formal = formal;
 			worker.run();
 		}
 	}

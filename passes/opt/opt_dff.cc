@@ -491,11 +491,16 @@ struct OptDffWorker
 						ff.has_srst = false;
 						ff.sig_d = ff.val_srst;
 						changed = true;
-					} else {
+					} else if (!opt.keepdc || ff.val_init.is_fully_def()) {
 						log("Handling never-active EN on %s (%s) from module %s (removing D path).\n",
 								log_id(cell), log_id(cell->type), log_id(module));
 						// The D input path is effectively useless, so remove it (this will be a D latch, SR latch, or a const driver).
 						ff.has_ce = ff.has_clk = ff.has_srst = false;
+						changed = true;
+					} else {
+						// We need to keep the undefined initival around as such
+						ff.sig_d = ff.sig_q;
+						ff.has_ce = ff.has_srst = false;
 						changed = true;
 					}
 				} else if (ff.sig_ce == (ff.pol_ce ? State::S1 : State::S0)) {
@@ -508,13 +513,20 @@ struct OptDffWorker
 				}
 			}
 
-			if (ff.has_clk) {
-				if (ff.sig_clk.is_fully_const()) {
+			if (ff.has_clk && ff.sig_clk.is_fully_const()) {
+				if (!opt.keepdc || ff.val_init.is_fully_def()) {
 					// Const clock — the D input path is effectively useless, so remove it (this will be a D latch, SR latch, or a const driver).
 					log("Handling const CLK on %s (%s) from module %s (removing D path).\n",
 							log_id(cell), log_id(cell->type), log_id(module));
 					ff.has_ce = ff.has_clk = ff.has_srst = false;
 					changed = true;
+				} else {
+					// Const clock, but we need to keep the undefined initval around as such
+					if (ff.has_ce || ff.has_srst || ff.sig_d != ff.sig_q) {
+						ff.sig_d = ff.sig_q;
+						ff.has_ce = ff.has_srst = false;
+						changed = true;
+					}
 				}
 			}
 
@@ -550,7 +562,7 @@ struct OptDffWorker
 					ff.has_srst = false;
 					ff.sig_d = ff.val_srst;
 					changed = true;
-				} else {
+				} else if (!opt.keepdc || ff.val_init.is_fully_def()) {
 					// The D input path is effectively useless, so remove it (this will be a const-input D latch, SR latch, or a const driver).
 					log("Handling D = Q on %s (%s) from module %s (removing D path).\n",
 							log_id(cell), log_id(cell->type), log_id(module));
@@ -567,7 +579,7 @@ struct OptDffWorker
 			}
 
 			// The cell has been simplified as much as possible already.  Now try to spice it up with enables / sync resets.
-			if (ff.has_clk) {
+			if (ff.has_clk && ff.sig_d != ff.sig_q) {
 				if (!ff.has_arst && !ff.has_sr && (!ff.has_srst || !ff.has_ce || ff.ce_over_srst) && !opt.nosdff) {
 					// Try to merge sync resets.
 					std::map<ctrls_t, std::vector<int>> groups;

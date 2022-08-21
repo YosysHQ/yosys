@@ -65,7 +65,9 @@
 #include "frontends/blif/blifparse.h"
 
 #ifdef YOSYS_LINK_ABC
-extern "C" int Abc_RealMain(int argc, char *argv[]);
+namespace abc {
+	int Abc_RealMain(int argc, char *argv[]);
+}
 #endif
 
 USING_YOSYS_NAMESPACE
@@ -787,15 +789,15 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	log_header(design, "Extracting gate netlist of module `%s' to `%s/input.blif'..\n",
 			module->name.c_str(), replace_tempdir(tempdir_name, tempdir_name, show_tempdir).c_str());
 
-	std::string abc_script = stringf("read_blif %s/input.blif; ", tempdir_name.c_str());
+	std::string abc_script = stringf("read_blif \"%s/input.blif\"; ", tempdir_name.c_str());
 
 	if (!liberty_files.empty() || !genlib_files.empty()) {
 		for (std::string liberty_file : liberty_files)
-			abc_script += stringf("read_lib -w %s; ", liberty_file.c_str());
+			abc_script += stringf("read_lib -w \"%s\"; ", liberty_file.c_str());
 		for (std::string liberty_file : genlib_files)
-			abc_script += stringf("read_library %s; ", liberty_file.c_str());
+			abc_script += stringf("read_library \"%s\"; ", liberty_file.c_str());
 		if (!constr_file.empty())
-			abc_script += stringf("read_constr -v %s; ", constr_file.c_str());
+			abc_script += stringf("read_constr -v \"%s\"; ", constr_file.c_str());
 	} else
 	if (!lut_costs.empty())
 		abc_script += stringf("read_lut %s/lutdefs.txt; ", tempdir_name.c_str());
@@ -1083,7 +1085,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 			fclose(f);
 		}
 
-		buffer = stringf("%s -s -f %s/abc.script 2>&1", exe_file.c_str(), tempdir_name.c_str());
+		buffer = stringf("\"%s\" -s -f %s/abc.script 2>&1", exe_file.c_str(), tempdir_name.c_str());
 		log("Running ABC command: %s\n", replace_tempdir(buffer, tempdir_name, show_tempdir).c_str());
 
 #ifndef YOSYS_LINK_ABC
@@ -1098,7 +1100,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		abc_argv[2] = strdup("-f");
 		abc_argv[3] = strdup(tmp_script_name.c_str());
 		abc_argv[4] = 0;
-		int ret = Abc_RealMain(4, abc_argv);
+		int ret = abc::Abc_RealMain(4, abc_argv);
 		free(abc_argv[0]);
 		free(abc_argv[1]);
 		free(abc_argv[2]);

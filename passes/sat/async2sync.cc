@@ -75,6 +75,9 @@ struct Async2syncPass : public Pass {
 				if (ff.has_gclk)
 					continue;
 
+				if (ff.has_clk && ff.sig_clk.is_fully_const())
+					ff.has_ce = ff.has_clk = ff.has_srst = false;
+
 				if (ff.has_clk)
 				{
 					if (ff.has_sr) {
