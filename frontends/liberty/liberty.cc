@@ -488,6 +488,9 @@ struct LibertyFrontend : public Frontend {
 		log("    -setattr <attribute_name>\n");
 		log("        set the specified attribute (to the value 1) on all loaded modules\n");
 		log("\n");
+		log("    -ignore_dont_use\n");
+		log("        ignore dont_use attribute in cell description of lib file\n");
+		log("\n");
 	}
 	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -498,6 +501,7 @@ struct LibertyFrontend : public Frontend {
 		bool flag_ignore_miss_func = false;
 		bool flag_ignore_miss_dir  = false;
 		bool flag_ignore_miss_data_latch = false;
+                bool flag_ignore_dont_use = false;
 		std::vector<std::string> attributes;
 
 		log_header(design, "Executing Liberty frontend.\n");
@@ -537,6 +541,10 @@ struct LibertyFrontend : public Frontend {
 			}
 			if (arg == "-setattr" && argidx+1 < args.size()) {
 				attributes.push_back(RTLIL::escape_id(args[++argidx]));
+				continue;
+			}
+			if (arg == "-ignore_dont_use") {
+				flag_ignore_dont_use = true;
 				continue;
 			}
 			break;
@@ -591,6 +599,11 @@ struct LibertyFrontend : public Frontend {
 
 			for (auto node : cell->children)
 			{
+                                if (!flag_ignore_dont_use && node->id == "dont_use") {
+                                        log("Ignoring cell %s due to dont_use attribute \n", log_id(module->name));
+                                        delete module;
+					goto skip_cell;
+                                }
 				if (node->id == "pin" && node->args.size() == 1) {
 					LibertyAst *dir = node->find("direction");
 					if (!dir || (dir->value != "input" && dir->value != "output" && dir->value != "inout" && dir->value != "internal"))
