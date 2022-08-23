@@ -196,9 +196,9 @@ struct XilinxSrlPass : public Pass {
 		log("\n");
 		log("This pass converts chains of built-in flops (bit-level: $_DFF_[NP]_, $_DFFE_*\n");
 		log("and word-level: $dff, $dffe) as well as Xilinx flops (FDRE, FDRE_1) into a\n");
-		log("$__XILINX_SHREG cell. Chains must be of the same cell type, clock, clock polarity,\n");
-		log("enable, and enable polarity (where relevant).\n");
-		log("Flops with resets cannot be mapped to Xilinx devices and will not be inferred.");
+		log("$__XILINX_SHREG cell. Chains must be of the same cell type, clock, clock\n");
+		log("polarity, enable, and enable polarity (where relevant).\n");
+		log("Flops with resets cannot be mapped to Xilinx devices and will not be inferred.\n");
 		log("\n");
 		log("    -minlen N\n");
 		log("        min length of shift register (default = 3)\n");

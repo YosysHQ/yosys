@@ -32,8 +32,8 @@ struct ChformalPass : public Pass {
 		log("    chformal [types] [mode] [options] [selection]\n");
 		log("\n");
 		log("Make changes to the formal constraints of the design. The [types] options\n");
-		log("the type of constraint to operate on. If none of the following options are given,\n");
-		log("the command will operate on all constraint types:\n");
+		log("the type of constraint to operate on. If none of the following options are\n");
+		log("given, the command will operate on all constraint types:\n");
 		log("\n");
 		log("    -assert       $assert cells, representing assert(...) constraints\n");
 		log("    -assume       $assume cells, representing assume(...) constraints\n");

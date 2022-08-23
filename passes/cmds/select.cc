@@ -1125,7 +1125,7 @@ struct SelectPass : public Pass {
 		log("    <obj_pattern>\n");
 		log("        select the specified object(s) from the current module\n");
 		log("\n");
-		log("By default, patterns will not match black/white-box modules or their");
+		log("By default, patterns will not match black/white-box modules or their\n");
 		log("contents. To include such objects, prefix the pattern with '='.\n");
 		log("\n");
 		log("A <mod_pattern> can be a module name, wildcard expression (*, ?, [..])\n");

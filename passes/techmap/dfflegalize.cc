@@ -118,34 +118,24 @@ struct DffLegalizePass : public Pass {
 		log("- $_DLATCH_[NP][NP][01]_\n");
 		log("- $_DLATCHSR_[NP][NP][NP]_\n");
 		log("\n");
-		log("The following transformations are performed by this pass:");
+		log("The following transformations are performed by this pass:\n");
 		log("\n");
-		log("- upconversion from a less capable cell to a more capable cell, if the less");
-		log("  capable cell is not supported (eg. dff -> dffe, or adff -> dffsr)");
-		log("\n");
-		log("- unmapping FFs with clock enable (due to unsupported cell type or -mince)");
-		log("\n");
-		log("- unmapping FFs with sync reset (due to unsupported cell type or -minsrst)");
-		log("\n");
-		log("- adding inverters on the control pins (due to unsupported polarity)");
-		log("\n");
+		log("- upconversion from a less capable cell to a more capable cell, if the less\n");
+		log("  capable cell is not supported (eg. dff -> dffe, or adff -> dffsr)\n");
+		log("- unmapping FFs with clock enable (due to unsupported cell type or -mince)\n");
+		log("- unmapping FFs with sync reset (due to unsupported cell type or -minsrst)\n");
+		log("- adding inverters on the control pins (due to unsupported polarity)\n");
 		log("- adding inverters on the D and Q pins and inverting the init/reset values\n");
-		log("  (due to unsupported init or reset value)");
-		log("\n");
-		log("- converting sr into adlatch (by tying D to 1 and using E as set input)");
-		log("\n");
-		log("- emulating unsupported dffsr cell by adff + adff + sr + mux");
-		log("\n");
-		log("- emulating unsupported dlatchsr cell by adlatch + adlatch + sr + mux");
-		log("\n");
+		log("  (due to unsupported init or reset value)\n");
+		log("- converting sr into adlatch (by tying D to 1 and using E as set input)\n");
+		log("- emulating unsupported dffsr cell by adff + adff + sr + mux\n");
+		log("- emulating unsupported dlatchsr cell by adlatch + adlatch + sr + mux\n");
 		log("- emulating adff when the (reset, init) value combination is unsupported by\n");
-		log("  dff + adff + dlatch + mux");
-		log("\n");
+		log("  dff + adff + dlatch + mux\n");
 		log("- emulating adlatch when the (reset, init) value combination is unsupported by\n");
-		log("- dlatch + adlatch + dlatch + mux");
-		log("\n");
-		log("If the pass is unable to realize a given cell type (eg. adff when only plain dff");
-		log("is available), an error is raised.");
+		log("- dlatch + adlatch + dlatch + mux\n");
+		log("If the pass is unable to realize a given cell type (eg. adff when only plain dff\n");
+		log("is available), an error is raised.\n");
 	}
 
 	// Table of all supported cell types.

@@ -2013,7 +2013,8 @@ struct SimPass : public Pass {
 		log("        writeback mode: use final simulation state as new init state\n");
 		log("\n");
 		log("    -r\n");
-		log("        read simulation results file (file formats supported: FST, VCD, AIW and WIT)\n");
+		log("        read simulation results file\n");
+		log("            File formats supported: FST, VCD, AIW and WIT\n");
 		log("		 VCD support requires vcd2fst external tool to be present\n");
 		log("\n");
 		log("    -map <filename>\n");
@@ -2248,8 +2249,8 @@ struct Fst2TbPass : public Pass {
 		log("\n");
 		log("    fst2tb [options] [top-level]\n");
 		log("\n");
-		log("This command generates testbench for the circuit using the given top-level module\n");
-		log("and simulus signal from FST file\n");
+		log("This command generates testbench for the circuit using the given top-level\n");
+		log("module and simulus signal from FST file\n");
 		log("\n");
 		log("    -tb <name>\n");
 		log("        generated testbench name.\n");

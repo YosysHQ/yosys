@@ -1026,8 +1026,8 @@ struct TechmapPass : public Pass {
 		log("When a module in the map file has the 'techmap_celltype' attribute set, it will\n");
 		log("match cells with a type that match the text value of this attribute. Otherwise\n");
 		log("the module name will be used to match the cell.  Multiple space-separated cell\n");
-		log("types can be listed, and wildcards using [] will be expanded (ie. \"$_DFF_[PN]_\"\n");
-		log("is the same as \"$_DFF_P_ $_DFF_N_\").\n");
+		log("types can be listed, and wildcards using [] will be expanded (ie.\n");
+		log("\"$_DFF_[PN]_\" is the same as \"$_DFF_P_ $_DFF_N_\").\n");
 		log("\n");
 		log("When a module in the map file has the 'techmap_simplemap' attribute set, techmap\n");
 		log("will use 'simplemap' (see 'help simplemap') to map cells matching the module.\n");
@@ -1083,11 +1083,11 @@ struct TechmapPass : public Pass {
 		log("        It is possible to combine both prefixes to 'RECURSION; CONSTMAP; '.\n");
 		log("\n");
 		log("    _TECHMAP_REMOVEINIT_<port-name>_\n");
-		log("        When this wire is set to a constant value, the init attribute of the wire(s)\n");
-		log("        connected to this port will be consumed.  This wire must have the same\n");
-		log("        width as the given port, and for every bit that is set to 1 in the value,\n");
-		log("        the corresponding init attribute bit will be changed to 1'bx.  If all\n");
-		log("        bits of an init attribute are left as x, it will be removed.\n");
+		log("        When this wire is set to a constant value, the init attribute of the\n");
+		log("        wire(s) connected to this port will be consumed.  This wire must have\n");
+		log("        the same width as the given port, and for every bit that is set to 1 in\n");
+		log("        the value, the corresponding init attribute bit will be changed to 1'bx.\n");
+		log("        If all bits of an init attribute are left as x, it will be removed.\n");
 		log("\n");
 		log("In addition to this special wires, techmap also supports special parameters in\n");
 		log("modules in the map file:\n");
@@ -1108,8 +1108,8 @@ struct TechmapPass : public Pass {
 		log("\n");
 		log("    _TECHMAP_WIREINIT_<port-name>_\n");
 		log("        When a parameter with this name exists, it will be set to the initial\n");
-		log("        value of the wire(s) connected to the given port, as specified by the init\n");
-		log("        attribute. If the attribute doesn't exist, x will be filled for the\n");
+		log("        value of the wire(s) connected to the given port, as specified by the\n");
+		log("        init attribute. If the attribute doesn't exist, x will be filled for the\n");
 		log("        missing bits.  To remove the init attribute bits used, use the\n");
 		log("        _TECHMAP_REMOVEINIT_*_ wires.\n");
 		log("\n");

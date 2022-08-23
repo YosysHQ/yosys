@@ -383,12 +383,12 @@ struct RpcFrontend : public Pass {
 		log("        request for the module <module-name> to be derived for a specific set of\n");
 		log("        parameters. <param-name> starts with \\ for named parameters, and with $\n");
 		log("        for unnamed parameters, which are numbered starting at 1.<param-value>\n");
-		log("        for integer parameters is always specified as a binary string of unlimited\n");
-		log("        precision. the <source> returned by the frontend is hygienically parsed\n");
-		log("        by a built-in Yosys <frontend>, allowing the RPC frontend to return any\n");
-		log("        convenient representation of the module. the derived module is cached,\n");
-		log("        so the response should be the same whenever the same set of parameters\n");
-		log("        is provided.\n");
+		log("        for integer parameters is always specified as a binary string of\n");
+		log("        unlimited precision. the <source> returned by the frontend is\n");
+		log("        hygienically parsedby a built-in Yosys <frontend>, allowing the RPC\n");
+		log("        frontend to return anyconvenient representation of the module. the\n");
+		log("        derived module is cached,so the response should be the same whenever the\n");
+		log("        same set of parameters is provided.\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{

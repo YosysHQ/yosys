@@ -2160,7 +2160,8 @@ struct VerilogBackend : public Backend {
 		log("        as binary numbers.\n");
 		log("\n");
 		log("    -simple-lhs\n");
-		log("        Connection assignments with simple left hand side without concatenations.\n");
+		log("        Connection assignments with simple left hand side without\n");
+		log("        concatenations.\n");
 		log("\n");
 		log("    -extmem\n");
 		log("        instead of initializing memories using assignments to individual\n");

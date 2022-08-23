@@ -38,8 +38,9 @@ struct LogPass : public Pass {
 		log("logfiles.\n");
 		log("\n");
 		log("    -stdout\n");
-		log("        Print the output to stdout too. This is useful when all Yosys is executed\n");
-		log("        with a script and the -q (quiet operation) argument to notify the user.\n");
+		log("        Print the output to stdout too. This is useful when all Yosys is\n");
+		log("        executed with a script and the -q (quiet operation) argument to notify\n");
+		log("        the user.\n");
 		log("\n");
 		log("    -stderr\n");
 		log("        Print the output to stderr too.\n");

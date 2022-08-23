@@ -34,10 +34,10 @@ struct BugpointPass : public Pass {
 		log("\n");
 		log("This command minimizes the current design that is known to crash Yosys with the\n");
 		log("given script into a smaller testcase. It does this by removing an arbitrary part\n");
-		log("of the design and recursively invokes a new Yosys process with this modified design\n");
-		log("and the same script, repeating these steps while it can find a smaller design that\n");
-		log("still causes a crash. Once this command finishes, it replaces the current design\n");
-		log("with the smallest testcase it was able to produce.\n");
+		log("of the design and recursively invokes a new Yosys process with this modified\n");
+		log("design and the same script, repeating these steps while it can find a smaller\n");
+		log("design that still causes a crash. Once this command finishes, it replaces the\n");
+		log("current design with the smallest testcase it was able to produce.\n");
 		log("In order to save the reduced testcase you must write this out to a file with\n");
 		log("another command after `bugpoint` like `write_rtlil` or `write_verilog`.\n");
 		log("\n");

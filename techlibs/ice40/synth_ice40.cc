@@ -45,8 +45,8 @@ struct SynthIce40Pass : public ScriptPass
 		log("This command runs synthesis for iCE40 FPGAs.\n");
 		log("\n");
 		log("    -device < hx | lp | u >\n");
-		log("        relevant only for '-abc9' flow, optimise timing for the specified device.\n");
-		log("        default: hx\n");
+		log("        relevant only for '-abc9' flow, optimise timing for the specified\n");
+		log("        device. default: hx\n");
 		log("\n");
 		log("    -top <module>\n");
 		log("        use the specified module as top module\n");

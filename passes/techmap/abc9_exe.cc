@@ -303,8 +303,8 @@ struct Abc9ExePass : public Pass {
 		log("\n");
 		log(" \n");
 		log("This pass uses the ABC tool [1] for technology mapping of the top module\n");
-		log("(according to the (* top *) attribute or if only one module is currently selected)\n");
-		log("to a target FPGA architecture.\n");
+		log("(according to the (* top *) attribute or if only one module is currently\n");
+		log("selected) to a target FPGA architecture.\n");
 		log("\n");
 		log("    -exe <command>\n");
 #ifdef ABCEXTERNAL
