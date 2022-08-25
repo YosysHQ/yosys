@@ -825,6 +825,7 @@ struct ShowPass : public Pass {
 
 		for (auto filename : libfiles) {
 			std::ifstream f;
+			rewrite_filename(filename);
 			f.open(filename.c_str());
 			yosys_input_files.insert(filename);
 			if (f.fail())
