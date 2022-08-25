@@ -189,7 +189,7 @@ inline int hashtable_size(int min_size)
 		if (p >= min_size) return p;
 
 	if (sizeof(int) == 4)
-		throw std::length_error("hash table exceeded maximum size. use a ILP64 abi for larger tables.");
+		throw std::length_error("hash table exceeded maximum size.\nDesign is likely too large for yosys to handle, if possible try not to flatten the design.");
 
 	for (auto p : zero_and_some_primes)
 		if (100129 * p > min_size) return 100129 * p;
