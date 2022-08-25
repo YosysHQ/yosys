@@ -4,7 +4,7 @@ module top(...);
 
 input C, R, E, S;
 input [1:0] D;
-output [20:0] Q;
+output [17:0] Q;
 
 $dff #(.CLK_POLARITY(1'b0), .WIDTH(2)) ff0 (.CLK(C), .D(D), .Q(Q[1:0]));
 $dffe #(.CLK_POLARITY(1'b0), .EN_POLARITY(1'b0), .WIDTH(2)) ff1 (.CLK(C), .EN(E), .D(D), .Q(Q[3:2]));

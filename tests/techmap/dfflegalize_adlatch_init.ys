@@ -12,7 +12,7 @@ $_DLATCH_PN1_ ff1 (.E(E), .R(R), .D(D), .Q(Q[1]));
 $_DLATCH_NP1_ ff2 (.E(E), .R(R), .D(D), .Q(Q[2]));
 endmodule
 
-module top(input C, E, R, D, output [13:0] Q);
+module top(input C, E, R, D, output [5:0] Q);
 adlatch0 adlatch0_(.E(E), .R(R), .D(D), .Q(Q[2:0]));
 adlatch1 adlatch1_(.E(E), .R(R), .D(D), .Q(Q[5:3]));
 endmodule

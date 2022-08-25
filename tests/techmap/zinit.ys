@@ -13,6 +13,8 @@ $_DFF_PN1_ dff5 (.C(C), .D(D[0]), .R(R), .Q(Q[5]));
 $_DFF_PP0_ dff6 (.C(C), .D(D[0]), .R(R), .Q(Q[6]));
 $_DFF_PP1_ dff7 (.C(C), .D(D[0]), .R(R), .Q(Q[7]));
 
+assign Q[8] = 0;
+
 $adff #(.WIDTH(2), .CLK_POLARITY(1), .ARST_POLARITY(1'b0), .ARST_VALUE(2'b10)) dff8 (.CLK(C), .ARST(R), .D(D), .Q(Q[10:9]));
 $adff #(.WIDTH(2), .CLK_POLARITY(0), .ARST_POLARITY(1'b1), .ARST_VALUE(2'b01)) dff9 (.CLK(C), .ARST(R), .D(D), .Q(Q[12:11]));
 endmodule
@@ -43,6 +45,8 @@ $_DFF_PN0_ dff4 (.C(C), .D(D[0]), .R(R), .Q(Q[4]));
 $_DFF_PN1_ dff5 (.C(C), .D(D[0]), .R(R), .Q(Q[5]));
 $_DFF_PP0_ dff6 (.C(C), .D(D[0]), .R(R), .Q(Q[6]));
 $_DFF_PP1_ dff7 (.C(C), .D(D[0]), .R(R), .Q(Q[7]));
+
+assign Q[8] = 0;
 
 $adff #(.WIDTH(2), .CLK_POLARITY(1), .ARST_POLARITY(1'b0), .ARST_VALUE(2'b10)) dff8 (.CLK(C), .ARST(R), .D(D), .Q(Q[10:9]));
 $adff #(.WIDTH(2), .CLK_POLARITY(0), .ARST_POLARITY(1'b1), .ARST_VALUE(2'b01)) dff9 (.CLK(C), .ARST(R), .D(D), .Q(Q[12:11]));
