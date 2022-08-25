@@ -33,6 +33,7 @@
 #include <string.h>
 #include <limits.h>
 #include <errno.h>
+#include <inttypes.h>
 
 #if defined (__linux__) || defined(__FreeBSD__)
 #  include <sys/resource.h>
@@ -686,7 +687,7 @@ int main(int argc, char **argv)
 
 			fprintf(f, "{\n");
 			fprintf(f, "  \"generator\": \"%s\",\n", yosys_version_str);
-			fprintf(f, "  \"total_ns\": %lu,\n", total_ns);
+			fprintf(f, "  \"total_ns\": %" PRIu64 ",\n", total_ns);
 			fprintf(f, "  \"passes\": {");
 
 			bool first = true;
@@ -694,7 +695,7 @@ int main(int argc, char **argv)
 				if (!first)
 					fprintf(f, ",");
 				fprintf(f, "\n    \"%s\": {\n", std::get<2>(*it).c_str());
-				fprintf(f, "      \"runtime_ns\": %lu,\n", std::get<0>(*it));
+				fprintf(f, "      \"runtime_ns\": %" PRIu64 ",\n", std::get<0>(*it));
 				fprintf(f, "      \"num_calls\": %u\n", std::get<1>(*it));
 				fprintf(f, "    }");
 				first = false;
@@ -751,4 +752,3 @@ int main(int argc, char **argv)
 }
 
 #endif /* EMSCRIPTEN */
-
