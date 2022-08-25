@@ -45,8 +45,8 @@ struct SynthSf2Pass : public ScriptPass
 		log("        is omitted if this parameter is not specified.\n");
 		log("\n");
 		log("    -vlog <file>\n");
-		log("        write the design to the specified Verilog file. writing of an output file\n");
-		log("        is omitted if this parameter is not specified.\n");
+		log("        write the design to the specified Verilog file. writing of an output\n");
+		log("        file is omitted if this parameter is not specified.\n");
 		log("\n");
 		log("    -json <file>\n");
 		log("        write the design to the specified JSON file. writing of an output file\n");

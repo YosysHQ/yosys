@@ -397,8 +397,8 @@ struct JsonBackend : public Backend {
 		log("      \"signed\": <1 if the port is signed>\n");
 		log("    }\n");
 		log("\n");
-		log("The \"offset\" and \"upto\" fields are skipped if their value would be 0.");
-		log("They don't affect connection semantics, and are only used to preserve original");
+		log("The \"offset\" and \"upto\" fields are skipped if their value would be 0.\n");
+		log("They don't affect connection semantics, and are only used to preserve original\n");
 		log("HDL bit indexing.");
 		log("And <cell_details> is:\n");
 		log("\n");
@@ -459,8 +459,8 @@ struct JsonBackend : public Backend {
 		log("connected to a constant driver are denoted as string \"0\", \"1\", \"x\", or\n");
 		log("\"z\" instead of a number.\n");
 		log("\n");
-		log("Bit vectors (including integers) are written as string holding the binary");
-		log("representation of the value. Strings are written as strings, with an appended");
+		log("Bit vectors (including integers) are written as string holding the binary\n");
+		log("representation of the value. Strings are written as strings, with an appended\n");
 		log("blank in cases of strings of the form /[01xz]* */.\n");
 		log("\n");
 		log("For example the following Verilog code:\n");

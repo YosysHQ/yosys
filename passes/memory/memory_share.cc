@@ -523,8 +523,8 @@ struct MemorySharePass : public Pass {
 		log("  - When multiple write ports access the same address then this is converted\n");
 		log("    to a single write port with a more complex data and/or enable logic path.\n");
 		log("\n");
-		log("  - When multiple read or write ports access adjacent aligned addresses, they are\n");
-		log("    merged to a single wide read or write port.  This transformation can be\n");
+		log("  - When multiple read or write ports access adjacent aligned addresses, they\n");
+		log("    are merged to a single wide read or write port.  This transformation can be\n");
 		log("    disabled with the \"-nowiden\" option.\n");
 		log("\n");
 		log("  - When multiple write ports are never accessed at the same time (a SAT\n");

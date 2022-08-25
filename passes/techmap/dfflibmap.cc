@@ -431,7 +431,7 @@ struct DfflibmapPass : public Pass {
 		log("cells, leaving remaining internal cells untouched.\n");
 		log("\n");
 		log("When called with -info, this command will only print the target cell\n");
-		log("list, along with their associated internal cell types, and the arguments");
+		log("list, along with their associated internal cell types, and the arguments\n");
 		log("that would be passed to the dfflegalize pass.  The design will not be\n");
 		log("changed.\n");
 		log("\n");

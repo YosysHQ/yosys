@@ -107,8 +107,8 @@ struct EdifBackend : public Backend {
 		log("        constant drivers first)\n");
 		log("\n");
 		log("    -gndvccy\n");
-		log("        create \"GND\" and \"VCC\" cells with \"Y\" outputs. (the default is \"G\"\n");
-		log("        for \"GND\" and \"P\" for \"VCC\".)\n");
+		log("        create \"GND\" and \"VCC\" cells with \"Y\" outputs. (the default is\n");
+		log("        \"G\" for \"GND\" and \"P\" for \"VCC\".)\n");
 		log("\n");
 		log("    -attrprop\n");
 		log("        create EDIF properties for cell attributes\n");

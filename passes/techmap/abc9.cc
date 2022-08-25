@@ -93,8 +93,8 @@ struct Abc9Pass : public ScriptPass
 		log("\n");
 		log("    abc9 [options] [selection]\n");
 		log("\n");
-		log("This script pass performs a sequence of commands to facilitate the use of the ABC\n");
-		log("tool [1] for technology mapping of the current design to a target FPGA\n");
+		log("This script pass performs a sequence of commands to facilitate the use of the\n");
+		log("ABC tool [1] for technology mapping of the current design to a target FPGA\n");
 		log("architecture. Only fully-selected modules are supported.\n");
 		log("\n");
 		log("    -run <from_label>:<to_label>\n");

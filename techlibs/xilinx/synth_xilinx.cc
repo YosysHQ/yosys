@@ -93,7 +93,8 @@ struct SynthXilinxPass : public ScriptPass
 		log("        do not use XORCY/MUXCY/CARRY4 cells in output netlist\n");
 		log("\n");
 		log("    -nowidelut\n");
-		log("        do not use MUXF[5-9] resources to implement LUTs larger than native for the target\n");
+		log("        do not use MUXF[5-9] resources to implement LUTs larger than native for\n");
+		log("        the target\n");
 		log("\n");
 		log("    -nodsp\n");
 		log("        do not use DSP48*s to implement multipliers and associated logic\n");
@@ -109,8 +110,8 @@ struct SynthXilinxPass : public ScriptPass
 		log("        infer URAM288s for large memories (xcup only)\n");
 		log("\n");
 		log("    -widemux <int>\n");
-		log("        enable inference of hard multiplexer resources (MUXF[78]) for muxes at or\n");
-		log("        above this number of inputs (minimum value 2, recommended value >= 5).\n");
+		log("        enable inference of hard multiplexer resources (MUXF[78]) for muxes at\n");
+		log("        or above this number of inputs (minimum value 2, recommended value >= 5)\n");
 		log("        default: 0 (no inference)\n");
 		log("\n");
 		log("    -run <from_label>:<to_label>\n");

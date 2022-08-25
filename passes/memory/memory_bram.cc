@@ -1245,7 +1245,8 @@ struct MemoryBramPass : public Pass {
 		log("greater than 1 share the same configuration bit.\n");
 		log("\n");
 		log("Using the same bram name in different bram blocks will create different variants\n");
-		log("of the bram. Verilog configuration parameters for the bram are created as needed.\n");
+		log("of the bram. Verilog configuration parameters for the bram are created as\n");
+		log("needed.\n");
 		log("\n");
 		log("It is also possible to create variants by repeating statements in the bram block\n");
 		log("and appending '@<label>' to the individual statements.\n");

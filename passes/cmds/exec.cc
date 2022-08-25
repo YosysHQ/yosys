@@ -46,8 +46,8 @@ struct ExecPass : public Pass {
 		log("\n");
 		log("Execute a command in the operating system shell.  All supplied arguments are\n");
 		log("concatenated and passed as a command to popen(3).  Whitespace is not guaranteed\n");
-		log("to be preserved, even if quoted.  stdin and stderr are not connected, while stdout is\n");
-		log("logged unless the \"-q\" option is specified.\n");
+		log("to be preserved, even if quoted.  stdin and stderr are not connected, while\n");
+		log("stdout is logged unless the \"-q\" option is specified.\n");
 		log("\n");
 		log("\n");
 		log("    -q\n");

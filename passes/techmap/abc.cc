@@ -1532,7 +1532,8 @@ struct AbcPass : public Pass {
 		log("           NMUX, AOI3, OAI3, AOI4, OAI4.\n");
 		log("        (The NOT gate is always added to this list automatically.)\n");
 		log("\n");
-		log("        The following aliases can be used to reference common sets of gate types:\n");
+		log("        The following aliases can be used to reference common sets of gate\n");
+		log("        types:\n");
 		log("          simple: AND OR XOR MUX\n");
 		log("          cmos2:  NAND NOR\n");
 		log("          cmos3:  NAND NOR AOI3 OAI3\n");
@@ -1576,8 +1577,8 @@ struct AbcPass : public Pass {
 		log("\n");
 		log("    -dress\n");
 		log("        run the 'dress' command after all other ABC commands. This aims to\n");
-		log("        preserve naming by an equivalence check between the original and post-ABC\n");
-		log("        netlists (experimental).\n");
+		log("        preserve naming by an equivalence check between the original and\n");
+		log("        post-ABC netlists (experimental).\n");
 		log("\n");
 		log("When no target cell library is specified the Yosys standard cell library is\n");
 		log("loaded into ABC before the ABC script is executed.\n");
