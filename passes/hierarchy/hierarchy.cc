@@ -1058,6 +1058,7 @@ struct HierarchyPass : public Pass {
 			if (tmp_top_mod != NULL) {
 				if (tmp_top_mod != top_mod){
 					top_mod = tmp_top_mod;
+					top_mod->attributes[ID::initial_top] = RTLIL::Const(1);
 					did_something = true;
 				}
 			}
