@@ -33,6 +33,9 @@
 #include <string.h>
 #include <limits.h>
 #include <errno.h>
+#ifndef __STDC_FORMAT_MACROS
+#  define __STDC_FORMAT_MACROS
+#endif
 #include <inttypes.h>
 
 #if defined (__linux__) || defined(__FreeBSD__)
