@@ -95,9 +95,8 @@ $_SDFFE_PP1P_ dff23(.C(C), .D(D[0]),.E(E),  .R(R), .Q(Q[23]));
 
 endmodule
 EOT
-#equiv_opt -assert -multiclock zinit
-#design -load postopt
-zinit
+equiv_opt -assert -multiclock zinit
+design -load postopt
 
 select -assert-count 48 t:$_NOT_
 select -assert-count 0 w:Q a:init %i
@@ -142,9 +141,8 @@ $_SDFFE_PP1P_ dff23(.C(C), .D(D[0]),.E(E),  .R(R), .Q(Q[23]));
 
 endmodule
 EOT
-#equiv_opt -assert -multiclock zinit
-#design -load postopt
-zinit
+equiv_opt -assert -multiclock zinit
+design -load postopt
 
 select -assert-count 0 t:$_NOT_
 select -assert-count 1 w:Q a:init=24'b0 %i

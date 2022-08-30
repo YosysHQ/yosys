@@ -13,4 +13,4 @@ EOT
 
 proc
 
-equiv_opt techmap -map +/dff2ff.v
+equiv_opt -assert techmap -map +/dff2ff.v

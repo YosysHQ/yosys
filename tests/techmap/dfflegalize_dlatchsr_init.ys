@@ -14,7 +14,7 @@ $_DLATCHSR_PNP_ ff2 (.E(E), .R(R), .S(S), .D(D), .Q(Q[2]));
 $_DLATCHSR_NPP_ ff3 (.E(E), .R(R), .S(S), .D(D), .Q(Q[3]));
 endmodule
 
-module top(input C, E, R, S, D, output [17:0] Q);
+module top(input C, E, R, S, D, output [7:0] Q);
 dlatchsr0 dlatchsr0_(.E(E), .R(R), .S(S), .D(D), .Q(Q[3:0]));
 dlatchsr1 dlatchsr1_(.E(E), .R(R), .S(S), .D(D), .Q(Q[7:4]));
 endmodule
@@ -23,12 +23,12 @@ EOT
 
 design -save orig
 flatten
-#equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_PP0_ 0
-#equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_PP0_ 1
-#equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_PP1_ 0
-#equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_PP1_ 1
-#equiv_opt -assert -multiclock dfflegalize -cell $_DLATCHSR_PPP_ 0
-#equiv_opt -assert -multiclock dfflegalize -cell $_DLATCHSR_PPP_ 1
+equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_PP0_ 0
+equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_PP0_ 1
+equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_PP1_ 0
+equiv_opt -assert -multiclock dfflegalize -cell $_DLATCH_PP1_ 1
+equiv_opt -assert -multiclock dfflegalize -cell $_DLATCHSR_PPP_ 0
+equiv_opt -assert -multiclock dfflegalize -cell $_DLATCHSR_PPP_ 1
 
 
 # Convert everything to ADLATCHs.

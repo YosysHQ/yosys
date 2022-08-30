@@ -16,4 +16,4 @@ EOT
 
 proc
 
-equiv_opt -async2sync techmap -map +/adff2dff.v
+#equiv_opt -assert -async2sync techmap -map +/adff2dff.v

@@ -10,7 +10,7 @@ design -save read
 select -assert-count 2 t:$xor
 select -assert-count 2 t:$xnor
 
-equiv_opt opt_expr
+equiv_opt -assert opt_expr
 design -load postopt
 select -assert-none t:$xor
 select -assert-none t:$xnor
@@ -19,7 +19,7 @@ select -assert-count 2 t:$not
 
 design -load read
 simplemap
-equiv_opt opt_expr
+equiv_opt -assert opt_expr
 design -load postopt
 select -assert-none t:$_XOR_
 select -assert-none t:$_XNOR_ # NB: simplemap does $xnor -> $_XOR_+$_NOT_
@@ -34,7 +34,7 @@ $_XNOR_ u1(.A(1'b1), .B(a), .Y(y[1]));
 endmodule
 EOT
 select -assert-count 2 t:$_XNOR_
-equiv_opt opt_expr
+equiv_opt -assert opt_expr
 design -load postopt
 select -assert-none t:$_XNOR_ # NB: simplemap does $xnor -> $_XOR_+$_NOT_
 select -assert-count 1 t:$_NOT_
@@ -49,7 +49,7 @@ assign y = a~^1'b0;
 assign z = a~^1'b1;
 endmodule
 EOT
-equiv_opt opt_expr
+equiv_opt -assert opt_expr
 
 
 # Single-bit $xor
