@@ -1627,6 +1627,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			break;
 		if (type == AST_GENBLOCK)
 			break;
+		if (type == AST_CELLARRAY && children[i]->type == AST_CELL)
+			continue;
 		if (type == AST_BLOCK && !str.empty())
 			break;
 		if (type == AST_PREFIX && i >= 1)
