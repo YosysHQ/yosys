@@ -833,15 +833,14 @@ struct HelpPass : public Pass {
 		fprintf(f, "%s\n", cmd.c_str());
 		fprintf(f, "================================================================================\n\n");
 		fprintf(f, ".. only:: html\n\n");
-		fprintf(f, "	%s\n\n", title.c_str());
-		fprintf(f, ".. Index:: cmd_%s\n\n", cmd.c_str());
-		fprintf(f, "Description\n");
-		fprintf(f, "-----------\n\n");
+		fprintf(f, "    %s\n\n", title.c_str());
+		fprintf(f, ":code:`yosys> help %s`\n", cmd.c_str());
+		fprintf(f, "--------------------------------------------------------------------------------\n\n");
 		fprintf(f, ".. code-block:: none\n\n");
 		std::stringstream ss;
 		ss << text;
-	    for (std::string line; std::getline(ss, line, '\n');)
-			fprintf(f, "	%s\n", line.c_str());
+		for (std::string line; std::getline(ss, line, '\n');)
+			fprintf(f, "    %s\n", line.c_str());
 		fclose(f);
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design*) override
@@ -912,10 +911,9 @@ struct HelpPass : public Pass {
 				fprintf(f, ".. _command_line_reference:\n\n");
 				fprintf(f, ".. toctree::\n");
 				fprintf(f, "	:maxdepth: 1\n");
-				fprintf(f, "	:hidden:\n\n");
-				for (auto &it : pass_register) {
-					fprintf(f, "	cmd_%s\n", it.first.c_str());
-				}
+				fprintf(f, "	:hidden:\n");
+				fprintf(f, "	:glob:\n\n");
+				fprintf(f, "	cmd_*\n");
 				fprintf(f, "\n\n");
 				for (auto &it : pass_register) {
 					std::ostringstream buf;
