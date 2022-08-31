@@ -17,5 +17,53 @@
  *
  */
 
+(* techmap_celltype = "$alu" *)
+module \$__SF2_ALU (A, B, CI, BI, X, Y, CO);
+	parameter A_SIGNED = 0;
+	parameter B_SIGNED = 0;
+	parameter A_WIDTH = 1;
+	parameter B_WIDTH = 1;
+	parameter Y_WIDTH = 1;
 
-// nothing here yet
+	(* force_downto *)
+	input [A_WIDTH-1:0] A;
+	(* force_downto *)
+	input [B_WIDTH-1:0] B;
+	(* force_downto *)
+	output [Y_WIDTH-1:0] X, Y;
+
+	input CI, BI;
+	(* force_downto *)
+	output [Y_WIDTH-1:0] CO;
+
+	wire _TECHMAP_FAIL_ = Y_WIDTH <= 2;
+
+	(* force_downto *)
+	wire [Y_WIDTH-1:0] AA, BB;
+	\$pos #(.A_SIGNED(A_SIGNED), .A_WIDTH(A_WIDTH), .Y_WIDTH(Y_WIDTH)) A_conv (.A(A), .Y(AA));
+	\$pos #(.A_SIGNED(B_SIGNED), .A_WIDTH(B_WIDTH), .Y_WIDTH(Y_WIDTH)) B_conv (.A(B), .Y(BB));
+
+	(* force_downto *)
+	wire [Y_WIDTH-1:0] C = {CO, CI};
+
+	genvar i;
+	generate for (i = 0; i < Y_WIDTH; i = i + 1) begin:slice
+		ARI1 #(
+			// G = F1 = A[i] & (B[i]^BI)
+			// Y = F0 = A[i]^B[i]^BI
+			// P = Y
+			//		 ADCB
+			.INIT(20'b 01_11_0010_1000_1001_0110)
+		) carry (
+			.A(1'b0),
+			.B(AA[i]),
+			.C(BB[i]),
+			.D(BI),
+			.FCI(C[i]),
+			.Y(X[i]),
+			.S(Y[i]),
+			.FCO(CO[i])
+		);
+	end endgenerate
+endmodule
+
