@@ -44,12 +44,17 @@ help:
 	@echo "  coverage   to run coverage check of the documentation (if enabled)"
 	@echo "  dummy      to check syntax errors of document sources"
 
+gen_source: format.py ../yosys Makefile
+	@cd .. && yosys -p 'help -write-rst-command-reference-manual'
+	@find ./source -iname 'cmd_*.rst' -exec python3 format.py {} \;
+	@touch gen_source
+
 .PHONY: clean
 clean:
 	rm -rf $(BUILDDIR)/*
 
 .PHONY: html
-html:
+html: gen_source
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
@@ -60,6 +65,7 @@ dirhtml:
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/dirhtml."
 
+# singlehtml section links are broken
 .PHONY: singlehtml
 singlehtml:
 	$(SPHINXBUILD) -b singlehtml $(ALLSPHINXOPTS) $(BUILDDIR)/singlehtml
