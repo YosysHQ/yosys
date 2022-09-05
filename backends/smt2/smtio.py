@@ -847,31 +847,28 @@ class SmtIo:
         return result
 
     def parse(self, stmt):
-        def worker(stmt):
-            if stmt[0] == '(':
+        def worker(stmt, cursor=0):
+            while stmt[cursor] in [" ", "\t", "\r", "\n"]:
+                cursor += 1
+
+            if stmt[cursor] == '(':
                 expr = []
-                cursor = 1
+                cursor += 1
                 while stmt[cursor] != ')':
-                    el, le = worker(stmt[cursor:])
+                    el, cursor = worker(stmt, cursor)
                     expr.append(el)
-                    cursor += le
                 return expr, cursor+1
 
-            if stmt[0] == '|':
+            if stmt[cursor] == '|':
                 expr = "|"
-                cursor = 1
+                cursor += 1
                 while stmt[cursor] != '|':
                     expr += stmt[cursor]
                     cursor += 1
                 expr += "|"
                 return expr, cursor+1
 
-            if stmt[0] in [" ", "\t", "\r", "\n"]:
-                el, le = worker(stmt[1:])
-                return el, le+1
-
             expr = ""
-            cursor = 0
             while stmt[cursor] not in ["(", ")", "|", " ", "\t", "\r", "\n"]:
                 expr += stmt[cursor]
                 cursor += 1
