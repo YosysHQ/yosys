@@ -5,7 +5,7 @@ labels: ["feature-request"]
 body:
   - type: markdown
     attributes:
-      value: |
+      value: >
 
         If you have a general question, please ask it in the [Discussions](https://github.com/YosysHQ/yosys/discussions) area
         or join our [IRC Channel](https://web.libera.chat/#yosys) or [Community Slack](https://join.slack.com/t/yosyshq/shared_invite/zt-1aopkns2q-EiQ97BeQDt_pwvE41sGSuA).
