@@ -1,5 +1,5 @@
 name: Feature Request
-description:
+description: 
 title: "<TITLE>"
 labels: ["feature-request"]
 body:
@@ -12,7 +12,7 @@ body:
 
         If you have a bug report, please fill out the appropriate issue form, this form is for feature requests.
 
-        Please contact [YosysHQ](https://www.yosyshq.com/) if you need
+        Please contact [YosysHQ GmbH](https://www.yosyshq.com/) if you need
         commercial support or work done for Yosys.
 
   - type: textarea
