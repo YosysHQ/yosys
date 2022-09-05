@@ -1,5 +1,5 @@
 name: Feature Request
-description: 
+description: "Submit a feature request for Yosys" 
 title: "<TITLE>"
 labels: ["feature-request"]
 body:
