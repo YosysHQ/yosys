@@ -1,6 +1,5 @@
 name: Bug Report
 description: Report an issue or regression with Yosys
-title: "<TITLE>"
 labels: ["pending-verification"]
 body:
   - type: markdown
