@@ -1,0 +1,11 @@
+contact_links:
+  - name: Discussions
+    url: https://github.com/YosysHQ/yosys/discussions
+    about: "Have a question? Ask it on our discussions page!"
+  - name: Community Slack
+    url: https://join.slack.com/t/yosyshq/shared_invite/zt-1aopkns2q-EiQ97BeQDt_pwvE41sGSuA
+    about: "Yosys Community Slack"
+  - name: IRC Channel
+    url: https://web.libera.chat/#yosys
+    about: "#yosys on irc.libera.chat"
+ 

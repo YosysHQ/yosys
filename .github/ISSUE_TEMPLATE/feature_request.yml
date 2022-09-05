@@ -1,0 +1,26 @@
+name: Feature Request
+description: "Submit a feature request for Yosys" 
+labels: ["feature-request"]
+body:
+  - type: markdown
+    attributes:
+      value: >
+
+        If you have a general question, please ask it in the [Discussions](https://github.com/YosysHQ/yosys/discussions) area
+        or join our [IRC Channel](https://web.libera.chat/#yosys) or [Community Slack](https://join.slack.com/t/yosyshq/shared_invite/zt-1aopkns2q-EiQ97BeQDt_pwvE41sGSuA).
+        
+
+        If you have a bug report, please fill out the appropriate issue form, this form is for feature requests.
+
+        
+        Please contact [YosysHQ GmbH](https://www.yosyshq.com/) if you need
+        commercial support or work done for Yosys.
+
+  - type: textarea
+    id: feature_description
+    attributes:
+      label: Feature Description
+      description: "A clear and detailed description of the feature."
+    validations:
+      required: true
+

@@ -1,0 +1,63 @@
+name: Bug Report
+description: Report an issue or regression with Yosys
+labels: ["pending-verification"]
+body:
+  - type: markdown
+    attributes:
+      value: >
+
+        If you have a general question, please ask it in the [Discussions](https://github.com/YosysHQ/yosys/discussions) area
+        or join our [IRC Channel](https://web.libera.chat/#yosys) or [Community Slack](https://join.slack.com/t/yosyshq/shared_invite/zt-1aopkns2q-EiQ97BeQDt_pwvE41sGSuA).
+
+
+        If you have a feature request, please fill out the appropriate issue form, this form is for bugs and/or regressions.
+
+
+        Please contact [YosysHQ GmbH](https://www.yosyshq.com/) if you need
+        commercial support for Yosys.
+
+  - type: input
+    id: yosys_version
+    attributes:
+      label: Version
+      description: "The version of yosys this bug was encountered on."
+      placeholder: "The output of `yosys --version`"
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: >
+        When providing steps to reproduce the issue, please ensure that the issue
+        is reproducible in the current git master of Yosys. Also ensure to
+        provide all necessary source files needed.
+
+
+        Please see [https://stackoverflow.com/help/mcve](https://stackoverflow.com/help/mcve)
+        for information on how to create a Minimal, Complete, and Verifiable Example
+        (MCVE).
+
+  - type: textarea
+    id: reproduction_steps
+    attributes:
+      label: Reproduction Steps
+      description: "Please provide clear and concise steps to reproduce the issue."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected Behavior
+      description: "Please describe the behavior you would have expected from the tool."
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual_behavior
+    attributes:
+      label: Actual Behavior
+      description: "Please describe how the behavior you see differs from the expected behavior."
+    validations:
+      required: true
+
