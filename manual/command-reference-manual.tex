@@ -23,27 +23,29 @@ library to a target architecture.
         if no -script parameter is given, the following scripts are used:
 
         for -liberty/-genlib without -constr:
-          strash; ifraig; scorr; dc2; dretime; strash; &get -n; &dch -f;
-               &nf {D}; &put
+          strash; &get -n; &fraig -x; &put; scorr; dc2; dretime; strash;
+               &get -n; &dch -f; &nf {D}; &put
 
         for -liberty/-genlib with -constr:
-          strash; ifraig; scorr; dc2; dretime; strash; &get -n; &dch -f;
-               &nf {D}; &put; buffer; upsize {D}; dnsize {D}; stime -p
+          strash; &get -n; &fraig -x; &put; scorr; dc2; dretime; strash;
+               &get -n; &dch -f; &nf {D}; &put; buffer; upsize {D};
+               dnsize {D}; stime -p
 
         for -lut/-luts (only one LUT size):
-          strash; ifraig; scorr; dc2; dretime; strash; dch -f; if; mfs2;
-               lutpack {S}
+          strash; &get -n; &fraig -x; &put; scorr; dc2; dretime; strash;
+               dch -f; if; mfs2; lutpack {S}
 
         for -lut/-luts (different LUT sizes):
-          strash; ifraig; scorr; dc2; dretime; strash; dch -f; if; mfs2
+          strash; &get -n; &fraig -x; &put; scorr; dc2; dretime; strash;
+               dch -f; if; mfs2
 
         for -sop:
-          strash; ifraig; scorr; dc2; dretime; strash; dch -f;
-               cover {I} {P}
+          strash; &get -n; &fraig -x; &put; scorr; dc2; dretime; strash;
+               dch -f; cover {I} {P}
 
         otherwise:
-          strash; ifraig; scorr; dc2; dretime; strash; &get -n; &dch -f;
-               &nf {D}; &put
+          strash; &get -n; &fraig -x; &put; scorr; dc2; dretime; strash;
+               &get -n; &dch -f; &nf {D}; &put
 
     -fast
         use different default scripts that are slightly faster (at the cost
@@ -125,7 +127,8 @@ library to a target architecture.
            NMUX, AOI3, OAI3, AOI4, OAI4.
         (The NOT gate is always added to this list automatically.)
 
-        The following aliases can be used to reference common sets of gate types:
+        The following aliases can be used to reference common sets of gate
+        types:
           simple: AND OR XOR MUX
           cmos2:  NAND NOR
           cmos3:  NAND NOR AOI3 OAI3
@@ -169,8 +172,8 @@ library to a target architecture.
 
     -dress
         run the 'dress' command after all other ABC commands. This aims to
-        preserve naming by an equivalence check between the original and post-ABC
-        netlists (experimental).
+        preserve naming by an equivalence check between the original and
+        post-ABC netlists (experimental).
 
 When no target cell library is specified the Yosys standard cell library is
 loaded into ABC before the ABC script is executed.
@@ -190,8 +193,8 @@ you want to use ABC to convert your design into another format.
 \begin{lstlisting}[numbers=left,frame=single]
     abc9 [options] [selection]
 
-This script pass performs a sequence of commands to facilitate the use of the ABC
-tool [1] for technology mapping of the current design to a target FPGA
+This script pass performs a sequence of commands to facilitate the use of the
+ABC tool [1] for technology mapping of the current design to a target FPGA
 architecture. Only fully-selected modules are supported.
 
     -run <from_label>:<to_label>
@@ -337,8 +340,8 @@ externally if you want to use ABC to convert your design into another format.
 
  
 This pass uses the ABC tool [1] for technology mapping of the top module
-(according to the (* top *) attribute or if only one module is currently selected)
-to a target FPGA architecture.
+(according to the (* top *) attribute or if only one module is currently
+selected) to a target FPGA architecture.
 
     -exe <command>
         use the specified command instead of "<yosys-bindir>/yosys-abc" to execute ABC.
@@ -413,14 +416,14 @@ mapping, and is expected to be called in conjunction with other operations from
 the `abc9' script pass. Only fully-selected modules are supported.
 
     -check
-        check that the design is valid, e.g. (* abc9_box_id *) values are unique,
-        (* abc9_carry *) is only given for one input/output port, etc.
+        check that the design is valid, e.g. (* abc9_box_id *) values are
+        unique, (* abc9_carry *) is only given for one input/output port, etc.
 
     -prep_hier
         derive all used (* abc9_box *) or (* abc9_flop *) (if -dff option)
         whitebox modules. with (* abc9_flop *) modules, only those containing
-        $dff/$_DFF_[NP]_ cells with zero initial state -- due to an ABC limitation
-        -- will be derived.
+        $dff/$_DFF_[NP]_ cells with zero initial state -- due to an ABC
+        limitation -- will be derived.
 
     -prep_bypass
         create techmap rules in the '$abc9_map' and '$abc9_unmap' designs for
@@ -438,33 +441,35 @@ the `abc9' script pass. Only fully-selected modules are supported.
     -prep_dff_submod
         within (* abc9_flop *) modules, rewrite all edge-sensitive path
         declarations and $setup() timing checks ($specify3 and $specrule cells)
-        that share a 'DST' port with the $_DFF_[NP]_.Q port from this 'Q' port to
-        the DFF's 'D' port. this is to prepare such specify cells to be moved
+        that share a 'DST' port with the $_DFF_[NP]_.Q port from this 'Q' port
+        to the DFF's 'D' port. this is to prepare such specify cells to be moved
         into the flop box.
 
     -prep_dff_unmap
-        populate the '$abc9_unmap' design with techmap rules for mapping *_$abc9_flop
-        cells back into their derived cell types (where the rules created by
-        -prep_hier will then map back to the original cell with parameters).
+        populate the '$abc9_unmap' design with techmap rules for mapping
+        *_$abc9_flop cells back into their derived cell types (where the rules
+        created by -prep_hier will then map back to the original cell with
+        parameters).
 
     -prep_delays
         insert `$__ABC9_DELAY' blackbox cells into the design to account for
         certain required times.
 
     -break_scc
-        for an arbitrarily chosen cell in each unique SCC of each selected module
-        (tagged with an (* abc9_scc_id = <int> *) attribute) interrupt all wires
-        driven by this cell's outputs with a temporary $__ABC9_SCC_BREAKER cell
-        to break the SCC.
+        for an arbitrarily chosen cell in each unique SCC of each selected
+        module (tagged with an (* abc9_scc_id = <int> *) attribute) interrupt
+        all wires driven by this cell's outputs with a temporary
+        $__ABC9_SCC_BREAKER cell to break the SCC.
 
     -prep_xaiger
         prepare the design for XAIGER output. this includes computing the
-        topological ordering of ABC9 boxes, as well as preparing the '$abc9_holes'
-        design that contains the logic behaviour of ABC9 whiteboxes.
+        topological ordering of ABC9 boxes, as well as preparing the 
+        '$abc9_holes' design that contains the logic behaviour of ABC9
+        whiteboxes.
 
     -dff
-        consider flop cells (those instantiating modules marked with (* abc9_flop *))
-        during -prep_{delays,xaiger,box}.
+        consider flop cells (those instantiating modules marked with
+        (* abc9_flop *)) during -prep_{delays,xaiger,box}.
 
     -prep_lut <maxlut>
         pre-compute the lut library by analysing all modules marked with
@@ -482,8 +487,8 @@ the `abc9' script pass. Only fully-selected modules are supported.
 
     -reintegrate
         for each selected module, re-intergrate the module '<module-name>$abc9'
-        by first recovering ABC9 boxes, and then stitching in the remaining primary
-        inputs and outputs.
+        by first recovering ABC9 boxes, and then stitching in the remaining
+        primary inputs and outputs.
 \end{lstlisting}
 
 \section{add -- add objects to the design}
@@ -686,10 +691,10 @@ This pass transforms $bmux cells to trees of $mux cells.
 
 This command minimizes the current design that is known to crash Yosys with the
 given script into a smaller testcase. It does this by removing an arbitrary part
-of the design and recursively invokes a new Yosys process with this modified design
-and the same script, repeating these steps while it can find a smaller design that
-still causes a crash. Once this command finishes, it replaces the current design
-with the smallest testcase it was able to produce.
+of the design and recursively invokes a new Yosys process with this modified
+design and the same script, repeating these steps while it can find a smaller
+design that still causes a crash. Once this command finishes, it replaces the
+current design with the smallest testcase it was able to produce.
 In order to save the reduced testcase you must write this out to a file with
 another command after `bugpoint` like `write_rtlil` or `write_verilog`.
 
@@ -807,8 +812,8 @@ Options:
     chformal [types] [mode] [options] [selection]
 
 Make changes to the formal constraints of the design. The [types] options
-the type of constraint to operate on. If none of the following options are given,
-the command will operate on all constraint types:
+the type of constraint to operate on. If none of the following options are
+given, the command will operate on all constraint types:
 
     -assert       $assert cells, representing assert(...) constraints
     -assume       $assume cells, representing assume(...) constraints
@@ -997,12 +1002,12 @@ of JSON. Frontend responds with data or error message by replying with exactly
         request for the module <module-name> to be derived for a specific set of
         parameters. <param-name> starts with \ for named parameters, and with $
         for unnamed parameters, which are numbered starting at 1.<param-value>
-        for integer parameters is always specified as a binary string of unlimited
-        precision. the <source> returned by the frontend is hygienically parsed
-        by a built-in Yosys <frontend>, allowing the RPC frontend to return any
-        convenient representation of the module. the derived module is cached,
-        so the response should be the same whenever the same set of parameters
-        is provided.
+        for integer parameters is always specified as a binary string of
+        unlimited precision. the <source> returned by the frontend is
+        hygienically parsedby a built-in Yosys <frontend>, allowing the RPC
+        frontend to return anyconvenient representation of the module. the
+        derived module is cached,so the response should be the same whenever the
+        same set of parameters is provided.
 \end{lstlisting}
 
 \section{connwrappers -- match width of input-output port pairs}
@@ -1294,7 +1299,9 @@ and can be specified as allowed targets):
 - $_DLATCHSR_[NP][NP][NP]_
 
 The following transformations are performed by this pass:
-- upconversion from a less capable cell to a more capable cell, if the less  capable cell is not supported (eg. dff -> dffe, or adff -> dffsr)
+
+- upconversion from a less capable cell to a more capable cell, if the less
+  capable cell is not supported (eg. dff -> dffe, or adff -> dffsr)
 - unmapping FFs with clock enable (due to unsupported cell type or -mince)
 - unmapping FFs with sync reset (due to unsupported cell type or -minsrst)
 - adding inverters on the control pins (due to unsupported polarity)
@@ -1307,7 +1314,8 @@ The following transformations are performed by this pass:
   dff + adff + dlatch + mux
 - emulating adlatch when the (reset, init) value combination is unsupported by
 - dlatch + adlatch + dlatch + mux
-If the pass is unable to realize a given cell type (eg. adff when only plain dffis available), an error is raised.
+If the pass is unable to realize a given cell type (eg. adff when only plain dff
+is available), an error is raised.
 \end{lstlisting}
 
 \section{dfflibmap -- technology mapping of flip-flops}
@@ -1330,7 +1338,8 @@ types that are already of exactly the right type to match the target
 cells, leaving remaining internal cells untouched.
 
 When called with -info, this command will only print the target cell
-list, along with their associated internal cell types, and the argumentsthat would be passed to the dfflegalize pass.  The design will not be
+list, along with their associated internal cell types, and the arguments
+that would be passed to the dfflegalize pass.  The design will not be
 changed.
 \end{lstlisting}
 
@@ -1340,8 +1349,8 @@ changed.
     dffunmap [options] [selection]
 
 This pass transforms FF types with clock enable and/or synchronous reset into
-their base type (with neither clock enable nor sync reset) by emulating the clock
-enable and synchronous reset with multiplexers on the cell input.
+their base type (with neither clock enable nor sync reset) by emulating the
+clock enable and synchronous reset with multiplexers on the cell input.
 
     -ce-only
         unmap only clock enables, leave synchronous resets alone.
@@ -1690,8 +1699,8 @@ inputs.
 
 Execute a command in the operating system shell.  All supplied arguments are
 concatenated and passed as a command to popen(3).  Whitespace is not guaranteed
-to be preserved, even if quoted.  stdin and stderr are not connected, while stdout is
-logged unless the "-q" option is specified.
+to be preserved, even if quoted.  stdin and stderr are not connected, while
+stdout is logged unless the "-q" option is specified.
 
 
     -q
@@ -2036,6 +2045,49 @@ model.
         Set clock for init sequences
 \end{lstlisting}
 
+\section{formalff -- prepare FFs for formal}
+\label{cmd:formalff}
+\begin{lstlisting}[numbers=left,frame=single]
+    formalff [options] [selection]
+
+This pass transforms clocked flip-flops to prepare a design for formal
+verification. If a design contains latches and/or multiple different clocks run
+the async2sync or clk2fflogic passes before using this pass.
+
+    -clk2ff
+        Replace all clocked flip-flops with $ff cells that use the implicit
+        global clock. This assumes, without checking, that the design uses a
+        single global clock. If that is not the case, the clk2fflogic pass
+        should be used instead.
+
+    -ff2anyinit
+        Replace uninitialized bits of $ff cells with $anyinit cells. An
+        $anyinit cell behaves exactly like an $ff cell with an undefined
+        initialization value. The difference is that $anyinit inhibits
+        don't-care optimizations and is used to track solver-provided values
+        in witness traces.
+
+        If combined with -clk2ff this also affects newly created $ff cells.
+
+    -anyinit2ff
+        Replaces $anyinit cells with uninitialized $ff cells. This performs the
+        reverse of -ff2anyinit and can be used, before running a backend pass
+        (or similar) that is not yet aware of $anyinit cells.
+
+        Note that after running -anyinit2ff, in general, performing don't-care
+        optimizations is not sound in a formal verification setting.
+
+    -fine
+        Emit fine-grained $_FF_ cells instead of coarse-grained $ff cells for
+        -anyinit2ff. Cannot be combined with -clk2ff or -ff2anyinit.
+
+    -setundef
+        Find FFs with undefined initialization values for which changing the
+        initialization does not change the observable behavior and initialize
+        them. For -ff2anyinit, this reduces the number of generated $anyinit
+        cells that drive wires with private names.
+\end{lstlisting}
+
 \section{freduce -- perform functional reduction}
 \label{cmd:freduce}
 \begin{lstlisting}[numbers=left,frame=single]
@@ -2227,8 +2279,8 @@ one-hot encoding and binary encoding is supported.
 \begin{lstlisting}[numbers=left,frame=single]
     fst2tb [options] [top-level]
 
-This command generates testbench for the circuit using the given top-level module
-and simulus signal from FST file
+This command generates testbench for the circuit using the given top-level
+module and simulus signal from FST file
 
     -tb <name>
         generated testbench name.
@@ -2271,44 +2323,46 @@ and CC_L2T5 cells as created by LUT tree mapping.
 \begin{lstlisting}[numbers=left,frame=single]
     glift <command> [options] [selection]
 
-Augments the current or specified module with gate-level information flow tracking
-(GLIFT) logic using the "constructive mapping" approach. Also can set up QBF-SAT
-optimization problems in order to optimize GLIFT models or trade off precision and
-complexity.
+Augments the current or specified module with gate-level information flow 
+tracking (GLIFT) logic using the "constructive mapping" approach. Also can set
+up QBF-SAT optimization problems in order to optimize GLIFT models or trade off
+precision and complexity.
 
 
 Commands:
 
   -create-precise-model
-    Replaces the current or specified module with one that has corresponding "taint"
-    inputs, outputs, and internal nets along with precise taint tracking logic.
-    For example, precise taint tracking logic for an AND gate is:
+    Replaces the current or specified module with one that has corresponding
+    "taint" inputs, outputs, and internal nets along with precise taint
+    tracking logic. For example, precise taint tracking logic for an AND gate
+    is:
 
       y_t = a & b_t | b & a_t | a_t & b_t
 
 
   -create-imprecise-model
-    Replaces the current or specified module with one that has corresponding "taint"
-    inputs, outputs, and internal nets along with imprecise "All OR" taint tracking
-    logic:
+    Replaces the current or specified module with one that has corresponding
+    "taint" inputs, outputs, and internal nets along with imprecise "All OR"
+    taint tracking logic:
 
       y_t = a_t | b_t
 
 
   -create-instrumented-model
-    Replaces the current or specified module with one that has corresponding "taint"
-    inputs, outputs, and internal nets along with 4 varying-precision versions of taint
-    tracking logic. Which version of taint tracking logic is used for a given gate is
-    determined by a MUX selected by an $anyconst cell.  By default, unless the
-    `-no-cost-model` option is provided, an additional wire named `__glift_weight` with
-    the `keep` and `minimize` attributes is added to the module along with pmuxes and
-    adders to calculate a rough estimate of the number of logic gates in the GLIFT model
-    given an assignment for the $anyconst cells. The four versions of taint tracking logic
-    for an AND gate are:
-      y_t = a & b_t | b & a_t | a_t & b_t           (like `-create-precise-model`)
+    Replaces the current or specified module with one that has corresponding
+    "taint" inputs, outputs, and internal nets along with 4 varying-precision
+    versions of taint tracking logic. Which version of taint tracking logic is
+    used for a given gate is determined by a MUX selected by an $anyconst cell.
+     By default, unless the `-no-cost-model` option is provided, an additional
+    wire named `__glift_weight` with the `keep` and `minimize` attributes is
+    added to the module along with pmuxes and adders to calculate a rough
+    estimate of the number of logic gates in the GLIFT model given an assignment
+    for the $anyconst cells. The four versions of taint tracking logic for an
+    AND gate are:
+      y_t = a & b_t | b & a_t | a_t & b_t       (like `-create-precise-model`)
       y_t = a_t | a & b_t
       y_t = b_t | b & a_t
-      y_t = a_t | b_t                               (like `-create-imprecise-model`)
+      y_t = a_t | b_t                           (like `-create-imprecise-model`)
 
 
 Options:
@@ -2318,27 +2372,30 @@ Options:
     (default: label constants as un-tainted)
 
   -keep-outputs
-    Do not remove module outputs. Taint tracking outputs will appear in the module ports
-    alongside the orignal outputs.
+    Do not remove module outputs. Taint tracking outputs will appear in the
+    module ports alongside the orignal outputs.
     (default: original module outputs are removed)
 
   -simple-cost-model
-    Do not model logic area. Instead model the number of non-zero assignments to $anyconsts.
-    Taint tracking logic versions vary in their size, but all reduced-precision versions are
-    significantly smaller than the fully-precise version. A non-zero $anyconst assignment means
-    that reduced-precision taint tracking logic was chosen for some gate.
-    Only applicable in combination with `-create-instrumented-model`.
-    (default: use a complex model and give that wire the "keep" and "minimize" attributes)
+    Do not model logic area. Instead model the number of non-zero assignments to
+    $anyconsts. Taint tracking logic versions vary in their size, but all
+    reduced-precision versions are significantly smaller than the fully-precise
+    version. A non-zero $anyconst assignment means that reduced-precision taint
+    tracking logic was chosen for some gate. Only applicable in combination with
+    `-create-instrumented-model`. (default: use a complex model and give that
+     wire the "keep" and "minimize" attributes)
 
   -no-cost-model
-    Do not model taint tracking logic area and do not create a `__glift_weight` wire.
-    Only applicable in combination with `-create-instrumented-model`.
-    (default: model area and give that wire the "keep" and "minimize" attributes)
+    Do not model taint tracking logic area and do not create a `__glift_weight`
+    wire. Only applicable in combination with `-create-instrumented-model`.
+    (default: model area and give that wire the "keep" and "minimize"
+    attributes)
 
   -instrument-more
-    Allow choice from more versions of (even simpler) taint tracking logic. A total
-    of 8 versions of taint tracking logic will be added per gate, including the 4
-    versions from `-create-instrumented-model` and these additional versions:
+    Allow choice from more versions of (even simpler) taint tracking logic. A
+    total of 8 versions of taint tracking logic will be added per gate,
+    including the 4 versions from `-create-instrumented-model` and these
+    additional versions:
 
       y_t = a_t
       y_t = b_t
@@ -2657,8 +2714,9 @@ scripts, because the TCL command "puts" only goes to stdout but not to
 logfiles.
 
     -stdout
-        Print the output to stdout too. This is useful when all Yosys is executed
-        with a script and the -q (quiet operation) argument to notify the user.
+        Print the output to stdout too. This is useful when all Yosys is
+        executed with a script and the -q (quiet operation) argument to notify
+        the user.
 
     -stderr
         Print the output to stderr too.
@@ -2830,7 +2888,8 @@ and a value greater than 1 means configurable. All groups with the same value
 greater than 1 share the same configuration bit.
 
 Using the same bram name in different bram blocks will create different variants
-of the bram. Verilog configuration parameters for the bram are created as needed.
+of the bram. Verilog configuration parameters for the bram are created as
+needed.
 
 It is also possible to create variants by repeating statements in the bram block
 and appending '@<label>' to the individual statements.
@@ -2902,8 +2961,8 @@ memory cells.
 \begin{lstlisting}[numbers=left,frame=single]
     memory_dff [-no-rw-check] [selection]
 
-This pass detects DFFs at memory read ports and merges them into the memory port.
-I.e. it consumes an asynchronous memory port and the flip-flops at its
+This pass detects DFFs at memory read ports and merges them into the memory
+port. I.e. it consumes an asynchronous memory port and the flip-flops at its
 interface and yields a synchronous memory port.
 
     -no-rw-check
@@ -2966,6 +3025,12 @@ pass to word-wide DFFs and address decoders.
 
     -keepdc
         when mapping ROMs, keep x-bits shared across read ports.
+
+    -formal
+        map memories for a global clock based formal verification flow.
+        This implies -keepdc, uses $ff cells for ROMs and sets hdlname
+        attributes. It also has limited support for async write ports
+        as generated by clk2fflogic.
 \end{lstlisting}
 
 \section{memory\_memx -- emulate vlog sim behavior for mem ports}
@@ -3006,8 +3071,8 @@ The following methods are used to consolidate the number of memory ports:
   - When multiple write ports access the same address then this is converted
     to a single write port with a more complex data and/or enable logic path.
 
-  - When multiple read or write ports access adjacent aligned addresses, they are
-    merged to a single wide read or write port.  This transformation can be
+  - When multiple read or write ports access adjacent aligned addresses, they
+    are merged to a single wide read or write port.  This transformation can be
     disabled with the "-nowiden" option.
 
   - When multiple write ports are never accessed at the same time (a SAT
@@ -3276,14 +3341,17 @@ overall gate count of the circuit
     opt_dff [-nodffe] [-nosdff] [-keepdc] [-sat] [selection]
 
 This pass converts flip-flops to a more suitable type by merging clock enables
-and synchronous reset multiplexers, removing unused control inputs, or potentially
-removes the flip-flop altogether, converting it to a constant driver.
+and synchronous reset multiplexers, removing unused control inputs, or
+potentially removes the flip-flop altogether, converting it to a constant
+driver.
 
     -nodffe
-        disables dff -> dffe conversion, and other transforms recognizing clock enable
+        disables dff -> dffe conversion, and other transforms recognizing clock
+        enable
 
     -nosdff
-        disables dff -> sdff conversion, and other transforms recognizing sync resets
+        disables dff -> sdff conversion, and other transforms recognizing sync
+        resets
 
     -simple-dffe
         only enables clock enable recognition transform for obvious cases
@@ -3804,11 +3872,11 @@ This pass converts switches into read-only memories when appropriate.
 \begin{lstlisting}[numbers=left,frame=single]
     qbfsat [options] [selection]
 
-This command solves an "exists-forall" 2QBF-SAT problem defined over the currently
-selected module. Existentially-quantified variables are declared by assigning a wire
-"$anyconst". Universally-quantified variables may be explicitly declared by assigning
-a wire "$allconst", but module inputs will be treated as universally-quantified
-variables by default.
+This command solves an "exists-forall" 2QBF-SAT problem defined over the
+currently selected module. Existentially-quantified variables are declared by
+assigning a wire "$anyconst". Universally-quantified variables may be
+explicitly declared by assigning a wire "$allconst", but module inputs will be
+treated as universally-quantified variables by default.
 
     -nocleanup
         Do not delete temporary files and directories. Useful for debugging.
@@ -3817,23 +3885,25 @@ variables by default.
         Pass the --dump-smt2 option to yosys-smtbmc.
 
     -assume-outputs
-        Add an "$assume" cell for the conjunction of all one-bit module output wires.
+        Add an "$assume" cell for the conjunction of all one-bit module output
+        wires.
 
     -assume-negative-polarity
-        When adding $assume cells for one-bit module output wires, assume they are
-        negative polarity signals and should always be low, for example like the
-        miters created with the `miter` command.
+        When adding $assume cells for one-bit module output wires, assume they
+        are negative polarity signals and should always be low, for example like
+        the miters created with the `miter` command.
 
     -nooptimize
-        Ignore "\minimize" and "\maximize" attributes, do not emit "(maximize)" or
-        "(minimize)" in the SMT-LIBv2, and generally make no attempt to optimize anything.
+        Ignore "\minimize" and "\maximize" attributes, do not emit
+        "(maximize)" or "(minimize)" in the SMT-LIBv2, and generally make no
+        attempt to optimize anything.
 
     -nobisection
-        If a wire is marked with the "\minimize" or "\maximize" attribute, do not
-        attempt to optimize that value with the default iterated solving and threshold
-        bisection approach. Instead, have yosys-smtbmc emit a "(minimize)" or "(maximize)"
-        command in the SMT-LIBv2 output and hope that the solver supports optimizing
-        quantified bitvector problems.
+        If a wire is marked with the "\minimize" or "\maximize" attribute,
+        do not attempt to optimize that value with the default iterated solving
+        and threshold bisection approach. Instead, have yosys-smtbmc emit a
+        "(minimize)" or "(maximize)" command in the SMT-LIBv2 output and
+        hope that the solver supports optimizing quantified bitvector problems.
 
     -solver <solver>
         Use a particular solver. Choose one of: "z3", "yices", and "cvc4".
@@ -3863,12 +3933,14 @@ variables by default.
         corresponding constant value from the model produced by the solver.
 
     -specialize-from-file <solution file>
-        Do not run the solver, but instead only attempt to replace each "$anyconst"
-        cell in the current module with a constant value provided by the specified file.
+        Do not run the solver, but instead only attempt to replace each
+        "$anyconst" cell in the current module with a constant value provided
+        by the specified file.
 
     -write-solution <solution file>
-        If the problem is satisfiable, write the corresponding constant value for each
-        "$anyconst" cell from the model produced by the solver to the specified file.
+        If the problem is satisfiable, write the corresponding constant value
+        for each "$anyconst" cell from the model produced by the solver to the
+        specified file.
 \end{lstlisting}
 
 \section{qwp -- quadratic wirelength placer}
@@ -4261,6 +4333,14 @@ The character % in the pattern is replaced with a integer number. The default
 pattern is '_%_'.
 
 
+    rename -witness
+
+Assigns auto-generated names to all $any*/$all* output wires and containing
+cells that do not have a public name. This ensures that, during formal
+verification, a solver-found trace can be fully specified using a public
+hierarchical names.
+
+
     rename -hide [selection]
 
 Assign private names (the ones with $-prefix) to all selected wires and cells
@@ -4270,6 +4350,13 @@ with public names. This ignores all selected ports.
     rename -top new_name
 
 Rename top module.
+
+
+    rename -scramble-name [-seed <seed>] [selection]
+
+Assign randomly-generated names to all selected wires and cells. The seed option
+can be used to change the random number generator seed from the default, but it
+must be non-zero.
 \end{lstlisting}
 
 \section{rmports -- remove module ports with no connections}
@@ -4520,7 +4607,8 @@ design. Options:
         copy the value of the first identifier to the second identifier.
 
     -assert <identifier> <value>
-        assert that the entry for the given identifier is set to the given value.
+        assert that the entry for the given identifier is set to the given
+        value.
 
     -assert-set <identifier>
         assert that the entry for the given identifier exists.
@@ -4657,7 +4745,8 @@ Pushing (selecting) object when in -module mode:
     <obj_pattern>
         select the specified object(s) from the current module
 
-By default, patterns will not match black/white-box modules or theircontents. To include such objects, prefix the pattern with '='.
+By default, patterns will not match black/white-box modules or their
+contents. To include such objects, prefix the pattern with '='.
 
 A <mod_pattern> can be a module name, wildcard expression (*, ?, [..])
 matching module names, or one of the following:
@@ -5069,6 +5158,10 @@ This command simulates the circuit using the given top-level module.
         write the simulation results to an AIGER witness file
         (requires a *.aim file via -map)
 
+    -hdlname
+        use the hdlname attribute when writing simulation results
+        (preserves hierarchy in a flattened design)
+
     -x
         ignore constant x outputs in simulation file.
 
@@ -5109,7 +5202,8 @@ This command simulates the circuit using the given top-level module.
         writeback mode: use final simulation state as new init state
 
     -r
-        read simulation results file (file formats supported: FST, VCD, AIW and WIT)
+        read simulation results file
+            File formats supported: FST, VCD, AIW and WIT
 		 VCD support requires vcd2fst external tool to be present
 
     -map <filename>
@@ -5157,7 +5251,8 @@ primitives. The following internal cell types are mapped by this pass:
   $not, $pos, $and, $or, $xor, $xnor
   $reduce_and, $reduce_or, $reduce_xor, $reduce_xnor, $reduce_bool
   $logic_not, $logic_and, $logic_or, $mux, $tribuf
-  $sr, $ff, $dff, $dffe, $dffsr, $dffsre, $adff, $adffe, $aldff, $aldffe, $sdff, $sdffe, $sdffce, $dlatch, $adlatch, $dlatchsr
+  $sr, $ff, $dff, $dffe, $dffsr, $dffsre, $adff, $adffe, $aldff, $aldffe, $sdff,
+  $sdffe, $sdffce, $dlatch, $adlatch, $dlatchsr
 \end{lstlisting}
 
 \section{splice -- create explicit splicing cells}
@@ -5253,6 +5348,10 @@ design.
     -width
         annotate internal cell types with their word width.
         e.g. $add_8 for an 8 bit wide $add cell.
+
+    -json
+        output the statistics in a machine-readable JSON format.
+        this is output to the console; use "tee" to output to a file.
 \end{lstlisting}
 
 \section{submod -- moving part of a module to a new submodule}
@@ -5282,8 +5381,8 @@ or memories.
 
     -hidden
         instead of creating submodule ports with public names, create ports with
-        private names so that a subsequent 'flatten; clean' call will restore the
-        original module with original public names.
+        private names so that a subsequent 'flatten; clean' call will restore
+        the original module with original public names.
 \end{lstlisting}
 
 \section{supercover -- add hi/lo cover cells for each wire bit}
@@ -6333,8 +6432,8 @@ The following commands are executed by this synthesis command:
 This command runs synthesis for iCE40 FPGAs.
 
     -device < hx | lp | u >
-        relevant only for '-abc9' flow, optimise timing for the specified device.
-        default: hx
+        relevant only for '-abc9' flow, optimise timing for the specified
+        device. default: hx
 
     -top <module>
         use the specified module as top module
@@ -6517,21 +6616,22 @@ This command runs synthesis for Intel FPGAs.
     -family <max10 | cyclone10lp | cycloneiv | cycloneive>
         generate the synthesis netlist for the specified family.
         MAX10 is the default target if no family argument specified.
-        For Cyclone IV GX devices, use cycloneiv argument; for Cyclone IV E, use cycloneive.
-        For Cyclone V and Cyclone 10 GX, use the synth_intel_alm backend instead.
+        For Cyclone IV GX devices, use cycloneiv argument; for Cyclone IV E, use
+        cycloneive. For Cyclone V and Cyclone 10 GX, use the synth_intel_alm
+        backend instead.
 
     -top <module>
         use the specified module as top module (default='top')
 
     -vqm <file>
-        write the design to the specified Verilog Quartus Mapping File. Writing of an
-        output file is omitted if this parameter is not specified.
+        write the design to the specified Verilog Quartus Mapping File. Writing
+        of an output file is omitted if this parameter is not specified.
         Note that this backend has not been tested and is likely incompatible
         with recent versions of Quartus.
 
     -vpr <file>
-        write BLIF files for VPR flow experiments. The synthesized BLIF output file is not
-        compatible with the Quartus flow. Writing of an
+        write BLIF files for VPR flow experiments. The synthesized BLIF output
+        file is not compatible with the Quartus flow. Writing of an
         output file is omitted if this parameter is not specified.
 
     -run <from_label>:<to_label>
@@ -6627,20 +6727,24 @@ This command runs synthesis for ALM-based Intel FPGAs.
     -family <family>
         target one of:
         "cyclonev"    - Cyclone V (default)
-        "arriav"      - Arria V (non-GZ)        "cyclone10gx" - Cyclone 10GX
+        "arriav"      - Arria V (non-GZ)
+        "cyclone10gx" - Cyclone 10GX
 
     -vqm <file>
-        write the design to the specified Verilog Quartus Mapping File. Writing of an
-        output file is omitted if this parameter is not specified. Implies -quartus.
+        write the design to the specified Verilog Quartus Mapping File. Writing
+        of an output file is omitted if this parameter is not specified. Implies
+        -quartus.
 
     -noflatten
-        do not flatten design before synthesis; useful for per-module area statistics
+        do not flatten design before synthesis; useful for per-module area
+        statistics
 
     -quartus
         output a netlist using Quartus cells instead of MISTRAL_* cells
 
     -dff
-        pass DFFs to ABC to perform sequential logic optimisations (EXPERIMENTAL)
+        pass DFFs to ABC to perform sequential logic optimisations
+        (EXPERIMENTAL)
 
     -run <from_label>:<to_label>
         only run the commands between the labels (see below). an empty
@@ -7013,8 +7117,8 @@ This command runs synthesis for QuickLogic FPGAs
         is omitted if this parameter is not specified.
 
     -verilog <file>
-        write the design to the specified verilog file. writing of an output file
-        is omitted if this parameter is not specified.
+        write the design to the specified verilog file. writing of an output
+        file is omitted if this parameter is not specified.
 
     -abc
         use old ABC flow, which has generally worse mapping results but is less
@@ -7118,8 +7222,8 @@ This command runs synthesis for SmartFusion2 and IGLOO2 FPGAs.
         is omitted if this parameter is not specified.
 
     -vlog <file>
-        write the design to the specified Verilog file. writing of an output file
-        is omitted if this parameter is not specified.
+        write the design to the specified Verilog file. writing of an output
+        file is omitted if this parameter is not specified.
 
     -json <file>
         write the design to the specified JSON file. writing of an output file
@@ -7139,6 +7243,9 @@ This command runs synthesis for SmartFusion2 and IGLOO2 FPGAs.
     -clkbuf
         insert direct PAD->global_net buffers
 
+    -discard-ffinit
+        discard FF init value instead of emitting an error
+
     -retime
         run 'abc' with '-dff -D 1' options
 
@@ -7156,6 +7263,7 @@ The following commands are executed by this synthesis command:
         deminout
 
     coarse:
+        attrmap -remove init    (only if -discard-ffinit)
         synth -run coarse
 
     fine:
@@ -7182,8 +7290,8 @@ The following commands are executed by this synthesis command:
 
     map_iobs:
         clkbufmap -buf CLKINT Y:A [-inpad CLKBUF Y:PAD]    (unless -noiobs, -inpad only passed if -clkbuf)
-        iopadmap -bits -inpad INBUF Y:PAD -outpad OUTBUF D:PAD -toutpad TRIBUFF E:D:PAD -tinoutpad BIBUF E:Y:D:PAD    (unless -noiobs
-        clean
+        iopadmap -bits -inpad INBUF Y:PAD -outpad OUTBUF D:PAD -toutpad TRIBUFF E:D:PAD -tinoutpad BIBUF E:Y:D:PAD    (unless -noiobs)
+        clean -purge
 
     check:
         hierarchy -check
@@ -7257,7 +7365,8 @@ compatible with 7-Series Xilinx devices.
         do not use XORCY/MUXCY/CARRY4 cells in output netlist
 
     -nowidelut
-        do not use MUXF[5-9] resources to implement LUTs larger than native for the target
+        do not use MUXF[5-9] resources to implement LUTs larger than native for
+        the target
 
     -nodsp
         do not use DSP48*s to implement multipliers and associated logic
@@ -7273,8 +7382,8 @@ compatible with 7-Series Xilinx devices.
         infer URAM288s for large memories (xcup only)
 
     -widemux <int>
-        enable inference of hard multiplexer resources (MUXF[78]) for muxes at or
-        above this number of inputs (minimum value 2, recommended value >= 5).
+        enable inference of hard multiplexer resources (MUXF[78]) for muxes at
+        or above this number of inputs (minimum value 2, recommended value >= 5)
         default: 0 (no inference)
 
     -run <from_label>:<to_label>
@@ -7466,8 +7575,8 @@ file.
 When a module in the map file has the 'techmap_celltype' attribute set, it will
 match cells with a type that match the text value of this attribute. Otherwise
 the module name will be used to match the cell.  Multiple space-separated cell
-types can be listed, and wildcards using [] will be expanded (ie. "$_DFF_[PN]_"
-is the same as "$_DFF_P_ $_DFF_N_").
+types can be listed, and wildcards using [] will be expanded (ie.
+"$_DFF_[PN]_" is the same as "$_DFF_P_ $_DFF_N_").
 
 When a module in the map file has the 'techmap_simplemap' attribute set, techmap
 will use 'simplemap' (see 'help simplemap') to map cells matching the module.
@@ -7523,11 +7632,11 @@ wires are supported:
         It is possible to combine both prefixes to 'RECURSION; CONSTMAP; '.
 
     _TECHMAP_REMOVEINIT_<port-name>_
-        When this wire is set to a constant value, the init attribute of the wire(s)
-        connected to this port will be consumed.  This wire must have the same
-        width as the given port, and for every bit that is set to 1 in the value,
-        the corresponding init attribute bit will be changed to 1'bx.  If all
-        bits of an init attribute are left as x, it will be removed.
+        When this wire is set to a constant value, the init attribute of the
+        wire(s) connected to this port will be consumed.  This wire must have
+        the same width as the given port, and for every bit that is set to 1 in
+        the value, the corresponding init attribute bit will be changed to 1'bx.
+        If all bits of an init attribute are left as x, it will be removed.
 
 In addition to this special wires, techmap also supports special parameters in
 modules in the map file:
@@ -7548,8 +7657,8 @@ modules in the map file:
 
     _TECHMAP_WIREINIT_<port-name>_
         When a parameter with this name exists, it will be set to the initial
-        value of the wire(s) connected to the given port, as specified by the init
-        attribute. If the attribute doesn't exist, x will be filled for the
+        value of the wire(s) connected to the given port, as specified by the
+        init attribute. If the attribute doesn't exist, x will be filled for the
         missing bits.  To remove the init attribute bits used, use the
         _TECHMAP_REMOVEINIT_*_ wires.
 
@@ -8097,6 +8206,9 @@ invariant constraints.
     -no-startoffset
         make indexes zero based, enable using map files with smt solvers.
 
+    -ywmap <filename>
+        write a map file for conversion to and from yosys witness traces.
+
     -I, -O, -B, -L
         If the design contains no input/output/assert/flip-flop then create one
         dummy input/output/bad_state-pin or latch to make the tools reading the
@@ -8136,8 +8248,8 @@ Write the current design to an BLIF file.
         suppresses the generation of this nets without fanout.
 
 The following options can be useful when the generated file is not going to be
-read by a BLIF parser but a custom tool. It is recommended to not name the output
-file *.blif when any of this options is used.
+read by a BLIF parser but a custom tool. It is recommended to not name the
+output file *.blif when any of this options is used.
 
     -icells
         do not translate Yosys's internal gates to generic BLIF logic
@@ -8447,8 +8559,8 @@ Write the current design to an EDIF netlist file.
         constant drivers first)
 
     -gndvccy
-        create "GND" and "VCC" cells with "Y" outputs. (the default is "G"
-        for "GND" and "P" for "VCC".)
+        create "GND" and "VCC" cells with "Y" outputs. (the default is
+        "G" for "GND" and "P" for "VCC".)
 
     -attrprop
         create EDIF properties for cell attributes
@@ -8608,7 +8720,9 @@ Where <port_details> is:
       "signed": <1 if the port is signed>
     }
 
-The "offset" and "upto" fields are skipped if their value would be 0.They don't affect connection semantics, and are only used to preserve originalHDL bit indexing.And <cell_details> is:
+The "offset" and "upto" fields are skipped if their value would be 0.
+They don't affect connection semantics, and are only used to preserve original
+HDL bit indexing.And <cell_details> is:
 
     {
       "hide_name": <1 | 0>,
@@ -8667,7 +8781,9 @@ values referenced above are vectors of this integers. Signal bits that are
 connected to a constant driver are denoted as string "0", "1", "x", or
 "z" instead of a number.
 
-Bit vectors (including integers) are written as string holding the binaryrepresentation of the value. Strings are written as strings, with an appendedblank in cases of strings of the form /[01xz]* */.
+Bit vectors (including integers) are written as string holding the binary
+representation of the value. Strings are written as strings, with an appended
+blank in cases of strings of the form /[01xz]* */.
 
 For example the following Verilog code:
 
@@ -9103,7 +9219,8 @@ Write the current design to a Verilog file.
         as binary numbers.
 
     -simple-lhs
-        Connection assignments with simple left hand side without concatenations.
+        Connection assignments with simple left hand side without
+        concatenations.
 
     -extmem
         instead of initializing memories using assignments to individual
@@ -9217,9 +9334,10 @@ into using the DSP48E1's pattern detector feature for overflow detection.
 
 This pass converts chains of built-in flops (bit-level: $_DFF_[NP]_, $_DFFE_*
 and word-level: $dff, $dffe) as well as Xilinx flops (FDRE, FDRE_1) into a
-$__XILINX_SHREG cell. Chains must be of the same cell type, clock, clock polarity,
-enable, and enable polarity (where relevant).
+$__XILINX_SHREG cell. Chains must be of the same cell type, clock, clock
+polarity, enable, and enable polarity (where relevant).
 Flops with resets cannot be mapped to Xilinx devices and will not be inferred.
+
     -minlen N
         min length of shift register (default = 3)
 
