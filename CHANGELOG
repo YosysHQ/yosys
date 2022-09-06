@@ -11,6 +11,7 @@ Yosys 0.20 .. Yosys 0.20-dev
       present in yosys witness traces
     - Added option "-hdlname" to "sim" pass - preserves hiearachy when writing
       simulation output for a flattened design
+    - Addded option "-scramble-name" to "rename" pass
 
  * Formal Verification
     - Added $anyinit cell to directly represent FFs with an unconstrained
@@ -22,6 +23,18 @@ Yosys 0.20 .. Yosys 0.20-dev
     - write_aiger: Option to write a map file for yosys witness trace
       conversion.
     - yosys-witness: Conversion from and to AIGER witness traces.
+
+ * Verific support
+    - Filename re-writing support for "verific" pass.
+
+ * Various
+    - ABC performance improvements
+    - Filename re-writing added for "show -lib".
+
+ * SmartFusion2 support
+    - Added $alu support
+    - Added SYSRESET and XTLOSC cells
+    - Compatible now with LiberoSoc flow
 
 Yosys 0.19 .. Yosys 0.20
 --------------------------
