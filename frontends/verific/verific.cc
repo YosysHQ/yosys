@@ -2248,6 +2248,9 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 	for (const auto &i : parameters)
 		verific_params.Insert(i.first.c_str(), i.second.c_str());
 
+	YosysStreamCallBackHandler cb;
+	veri_file::RegisterCallBackVerificStream(&cb);
+
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 	VerificExtensions::ElaborateAndRewrite("work", &verific_params);
 #endif
