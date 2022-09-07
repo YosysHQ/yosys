@@ -149,6 +149,8 @@ public:
     }
 };
 
+YosysStreamCallBackHandler verific_read_cb;
+
 // ==================================================================
 
 VerificImporter::VerificImporter(bool mode_gates, bool mode_keep, bool mode_nosva, bool mode_names, bool mode_verific, bool mode_autocover, bool mode_fullinit) :
@@ -2248,9 +2250,6 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 	for (const auto &i : parameters)
 		verific_params.Insert(i.first.c_str(), i.second.c_str());
 
-	YosysStreamCallBackHandler cb;
-	veri_file::RegisterCallBackVerificStream(&cb);
-
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 	VerificExtensions::ElaborateAndRewrite("work", &verific_params);
 #endif
@@ -2645,8 +2644,7 @@ struct VerificPass : public Pass {
 
 		int argidx = 1;
 		std::string work = "work";
-		YosysStreamCallBackHandler cb;
-		veri_file::RegisterCallBackVerificStream(&cb);
+		veri_file::RegisterCallBackVerificStream(&verific_read_cb);
 
 		if (GetSize(args) > argidx && (args[argidx] == "-set-error" || args[argidx] == "-set-warning" ||
 				args[argidx] == "-set-info" || args[argidx] == "-set-ignore"))
