@@ -404,9 +404,12 @@ struct Abc9Pass : public ScriptPass
 					if (!active_design->selected_whole_module(mod))
 						log_error("Can't handle partially selected module %s!\n", log_id(mod));
 
-					std::string tempdir_name = get_base_tmpdir() + "/" + proc_program_prefix() + "yosys-abc-XXXXXX";
-					if (!cleanup)
-						tempdir_name[0] = tempdir_name[4] = '_';
+					std::string tempdir_name;
+					if (cleanup) 
+						tempdir_name = get_base_tmpdir() + "/";
+					else
+						tempdir_name = "_tmp_";
+					tempdir_name += proc_program_prefix() + "yosys-abc-XXXXXX";
 					tempdir_name = make_temp_dir(tempdir_name);
 
 					if (!lut_mode)
