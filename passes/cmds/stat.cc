@@ -149,6 +149,78 @@ struct statdata_t
 		}
 	}
 
+	unsigned int estimate_xilinx_lc()
+	{
+		unsigned int lut6_cnt = num_cells_by_type[ID(LUT6)];
+		unsigned int lut5_cnt = num_cells_by_type[ID(LUT5)];
+		unsigned int lut4_cnt = num_cells_by_type[ID(LUT4)];
+		unsigned int lut3_cnt = num_cells_by_type[ID(LUT3)];
+		unsigned int lut2_cnt = num_cells_by_type[ID(LUT2)];
+		unsigned int lut1_cnt = num_cells_by_type[ID(LUT1)];
+		unsigned int lc_cnt = 0;
+
+		lc_cnt += lut6_cnt;
+
+		lc_cnt += lut5_cnt;
+		if (lut1_cnt) {
+			int cnt = std::min(lut5_cnt, lut1_cnt);
+			lut5_cnt -= cnt;
+			lut1_cnt -= cnt;
+		}
+
+		lc_cnt += lut4_cnt;
+		if (lut1_cnt) {
+			int cnt = std::min(lut4_cnt, lut1_cnt);
+			lut4_cnt -= cnt;
+			lut1_cnt -= cnt;
+		}
+		if (lut2_cnt) {
+			int cnt = std::min(lut4_cnt, lut2_cnt);
+			lut4_cnt -= cnt;
+			lut2_cnt -= cnt;
+		}
+
+		lc_cnt += lut3_cnt;
+		if (lut1_cnt) {
+			int cnt = std::min(lut3_cnt, lut1_cnt);
+			lut3_cnt -= cnt;
+			lut1_cnt -= cnt;
+		}
+		if (lut2_cnt) {
+			int cnt = std::min(lut3_cnt, lut2_cnt);
+			lut3_cnt -= cnt;
+			lut2_cnt -= cnt;
+		}
+		if (lut3_cnt) {
+			int cnt = (lut3_cnt + 1) / 2;
+			lut3_cnt -= cnt;
+		}
+
+		lc_cnt += (lut2_cnt + lut1_cnt + 1) / 2;
+
+		return lc_cnt;
+	}
+
+	unsigned int cmos_transistor_count(bool *tran_cnt_exact)
+	{
+		unsigned int tran_cnt = 0;
+		auto &gate_costs = CellCosts::cmos_gate_cost();
+
+		for (auto it : num_cells_by_type) {
+			auto ctype = it.first;
+			auto cnum = it.second;
+
+			if (gate_costs.count(ctype))
+				tran_cnt += cnum * gate_costs.at(ctype);
+			else if (ctype.in(ID($_DFF_P_), ID($_DFF_N_)))
+				tran_cnt += cnum * 16;
+			else
+				*tran_cnt_exact = false;
+		}
+
+		return tran_cnt;
+	}
+
 	void log_data(RTLIL::IdString mod_name, bool top_mod)
 	{
 		log("   Number of wires:             %6u\n", num_wires);
@@ -176,74 +248,14 @@ struct statdata_t
 
 		if (tech == "xilinx")
 		{
-			unsigned int lut6_cnt = num_cells_by_type[ID(LUT6)];
-			unsigned int lut5_cnt = num_cells_by_type[ID(LUT5)];
-			unsigned int lut4_cnt = num_cells_by_type[ID(LUT4)];
-			unsigned int lut3_cnt = num_cells_by_type[ID(LUT3)];
-			unsigned int lut2_cnt = num_cells_by_type[ID(LUT2)];
-			unsigned int lut1_cnt = num_cells_by_type[ID(LUT1)];
-			unsigned int lc_cnt = 0;
-
-			lc_cnt += lut6_cnt;
-
-			lc_cnt += lut5_cnt;
-			if (lut1_cnt) {
-				int cnt = std::min(lut5_cnt, lut1_cnt);
-				lut5_cnt -= cnt;
-				lut1_cnt -= cnt;
-			}
-
-			lc_cnt += lut4_cnt;
-			if (lut1_cnt) {
-				int cnt = std::min(lut4_cnt, lut1_cnt);
-				lut4_cnt -= cnt;
-				lut1_cnt -= cnt;
-			}
-			if (lut2_cnt) {
-				int cnt = std::min(lut4_cnt, lut2_cnt);
-				lut4_cnt -= cnt;
-				lut2_cnt -= cnt;
-			}
-
-			lc_cnt += lut3_cnt;
-			if (lut1_cnt) {
-				int cnt = std::min(lut3_cnt, lut1_cnt);
-				lut3_cnt -= cnt;
-				lut1_cnt -= cnt;
-			}
-			if (lut2_cnt) {
-				int cnt = std::min(lut3_cnt, lut2_cnt);
-				lut3_cnt -= cnt;
-				lut2_cnt -= cnt;
-			}
-			if (lut3_cnt) {
-				int cnt = (lut3_cnt + 1) / 2;
-				lut3_cnt -= cnt;
-			}
-
-			lc_cnt += (lut2_cnt + lut1_cnt + 1) / 2;
-
 			log("\n");
-			log("   Estimated number of LCs: %10u\n", lc_cnt);
+			log("   Estimated number of LCs: %10u\n", estimate_xilinx_lc());
 		}
 
 		if (tech == "cmos")
 		{
-			unsigned int tran_cnt = 0;
 			bool tran_cnt_exact = true;
-			auto &gate_costs = CellCosts::cmos_gate_cost();
-
-			for (auto it : num_cells_by_type) {
-				auto ctype = it.first;
-				auto cnum = it.second;
-
-				if (gate_costs.count(ctype))
-					tran_cnt += cnum * gate_costs.at(ctype);
-				else if (ctype.in(ID($_DFF_P_), ID($_DFF_N_)))
-					tran_cnt += cnum * 16;
-				else
-					tran_cnt_exact = false;
-			}
+			unsigned int tran_cnt = cmos_transistor_count(&tran_cnt_exact);
 
 			log("\n");
 			log("   Estimated number of transistors: %10u%s\n", tran_cnt, tran_cnt_exact ? "" : "+");
@@ -273,7 +285,20 @@ struct statdata_t
 				first_line = false;
 			}
 		log("\n");
-		log("         }\n");
+		log("         }");
+		if (tech == "xilinx")
+		{
+			log(",\n");
+			log("         \"estimated_num_lc\": %10u", estimate_xilinx_lc());
+		}
+		if (tech == "cmos")
+		{
+			bool tran_cnt_exact = true;
+			unsigned int tran_cnt = cmos_transistor_count(&tran_cnt_exact);
+			log(",\n");
+			log("         \"estimated_num_transistors\": \"%10u%s\"", tran_cnt, tran_cnt_exact ? "" : "+");
+		}
+		log("\n");
 		log("      }");
 	}
 };
@@ -352,8 +377,6 @@ struct StatPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		log_header(design, "Printing statistics.\n");
-
 		bool width_mode = false, json_mode = false;
 		RTLIL::Module *top_mod = nullptr;
 		std::map<RTLIL::IdString, statdata_t> mod_stat;
@@ -390,6 +413,9 @@ struct StatPass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design);
+
+		if(!json_mode)
+			log_header(design, "Printing statistics.\n");
 
 		if (techname != "" && techname != "xilinx" && techname != "cmos" && !json_mode)
 			log_cmd_error("Unsupported technology: '%s'\n", techname.c_str());
