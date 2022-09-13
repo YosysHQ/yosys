@@ -289,14 +289,14 @@ struct statdata_t
 		if (tech == "xilinx")
 		{
 			log(",\n");
-			log("         \"estimated_num_lc\": %10u", estimate_xilinx_lc());
+			log("         \"estimated_num_lc\": %u", estimate_xilinx_lc());
 		}
 		if (tech == "cmos")
 		{
 			bool tran_cnt_exact = true;
 			unsigned int tran_cnt = cmos_transistor_count(&tran_cnt_exact);
 			log(",\n");
-			log("         \"estimated_num_transistors\": \"%10u%s\"", tran_cnt, tran_cnt_exact ? "" : "+");
+			log("         \"estimated_num_transistors\": \"%u%s\"", tran_cnt, tran_cnt_exact ? "" : "+");
 		}
 		log("\n");
 		log("      }");
