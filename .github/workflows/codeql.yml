@@ -1,0 +1,29 @@
+name: "CodeQL"
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * *'
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    steps:
+    - name: Install deps
+      run: sudo apt-get install bison flex libreadline-dev tcl-dev libffi-dev
+
+    - name: Checkout repository
+      uses: actions/checkout@v3.0.0
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v2
+      with:
+        languages: cpp
+        queries: security-extended,security-and-quality
+
+    - name: Build
+      run: make yosys -j6
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
