@@ -826,7 +826,7 @@ struct HelpPass : public Pass {
 	{
 		fprintf(idxf, "- :ref:`cmd_%s`: %s\n", cmd.c_str(), title.c_str());
 
-		FILE *f = fopen(stringf("docs/source/cmd_%s.rst", cmd.c_str()).c_str(), "wt");
+		FILE *f = fopen(stringf("docs/source/cmd/%s.rst", cmd.c_str()).c_str(), "wt");
 
 		fprintf(f, ".. _cmd_%s:\n\n", cmd.c_str());
 		fprintf(f, "================================================================================\n");
@@ -904,16 +904,16 @@ struct HelpPass : public Pass {
 			}
 			// this option is undocumented as it is for internal use only
 			else if (args[1] == "-write-rst-command-reference-manual") {
-				FILE *f = fopen("docs/source/index.rst", "wt");
+				FILE *f = fopen("docs/source/cmd_ref.rst", "wt");
 				fprintf(f, "================================================================================\n");
-				fprintf(f, "Command line reference\n");
+				fprintf(f, "Command reference\n");
 				fprintf(f, "================================================================================\n");
-				fprintf(f, ".. _command_line_reference:\n\n");
 				fprintf(f, ".. toctree::\n");
+				fprintf(f, "	:caption: Command reference\n");
 				fprintf(f, "	:maxdepth: 1\n");
 				fprintf(f, "	:hidden:\n");
 				fprintf(f, "	:glob:\n\n");
-				fprintf(f, "	cmd_*\n");
+				fprintf(f, "	cmd/*\n");
 				fprintf(f, "\n\n");
 				for (auto &it : pass_register) {
 					std::ostringstream buf;

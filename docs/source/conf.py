@@ -30,3 +30,9 @@ extensions = ['sphinx.ext.autosectionlabel']
 # Ensure that autosectionlabel will produce unique names
 autosectionlabel_prefix_document = True
 autosectionlabel_maxdepth = 1
+
+# unused docs
+exclude_patterns = [
+	"CHAPTER_Eval.rst",
+	"appendix/CHAPTER_StateOfTheArt.rst"
+]
