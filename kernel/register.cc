@@ -836,11 +836,57 @@ struct HelpPass : public Pass {
 		fprintf(f, "    %s\n\n", title.c_str());
 		fprintf(f, ":code:`yosys> help %s`\n", cmd.c_str());
 		fprintf(f, "--------------------------------------------------------------------------------\n\n");
-		fprintf(f, ".. code-block:: none\n\n");
+		fprintf(f, ".. highlight:: none\n");
 		std::stringstream ss;
 		ss << text;
-		for (std::string line; std::getline(ss, line, '\n');)
-			fprintf(f, "    %s\n", line.c_str());
+		bool IsUsage = true;
+		bool WasBlank = false;
+		size_t def_strip_count = 0;
+		bool WasDefinition = false;
+		for (std::string line; std::getline(ss, line, '\n');) {
+			// find position of first non space character
+			std::size_t first_pos = line.find_first_not_of(" \t");
+			std::size_t last_pos = line.find_last_not_of(" \t");
+			if (first_pos == std::string::npos) {
+				// skip formatting empty lines
+				fputc('\n', f);
+				WasBlank = true;
+				continue;
+			}
+
+			// strip leading and trailing whitespace
+			std::string stripped_line = line.substr(first_pos, last_pos - first_pos +1);
+			bool IsDefinition = stripped_line[0] == '-' && stripped_line[1] != ' ';
+			bool IsDedent = first_pos <= def_strip_count;
+			bool IsIndent = first_pos == 2 || first_pos == 4;
+			if (cmd.compare(0, 7, "verific") == 0)
+				// verific.cc has strange and different formatting from the rest
+				IsIndent = false;
+
+			if (IsUsage) {
+				if (stripped_line.compare(0, 3, "See")) 
+					// usage should be the first line of help output
+					fprintf(f, "Usage: :code:`%s` ::\n\n", stripped_line.c_str());
+				else
+					// description refers to another function
+					fprintf(f, "%s\n", stripped_line.c_str());
+				IsUsage = false;
+			} else if (IsIndent && IsDefinition && (WasBlank || WasDefinition)) {
+				// format definition term
+				fprintf(f, ":code:`%s` ::\n\n", stripped_line.c_str());
+				WasDefinition = true;
+				def_strip_count = first_pos;
+			} else if (WasDefinition and IsDedent) {
+				// no longer in definition, start new code block
+				fprintf(f, "::\n\n    %s\n", line.c_str());
+				WasDefinition = false;
+			} else if (WasDefinition) {
+				// format definition
+				fprintf(f, "    %s\n", line.substr(def_strip_count, std::string::npos).c_str());
+			} else {
+				fprintf(f, "    %s\n", line.c_str());
+			}
+		}
 		fclose(f);
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design*) override

@@ -44,9 +44,8 @@ help:
 	@echo "  coverage   to run coverage check of the documentation (if enabled)"
 	@echo "  dummy      to check syntax errors of document sources"
 
-gen_source: format.py ../yosys Makefile
+gen_source: ../yosys
 	@cd .. && yosys -p 'help -write-rst-command-reference-manual'
-	@find ./source -iname 'cmd_*.rst' -exec python3 format.py {} \;
 	@touch gen_source
 
 .PHONY: clean
