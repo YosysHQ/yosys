@@ -151,6 +151,27 @@ public:
 
 YosysStreamCallBackHandler verific_read_cb;
 
+Verific::Cell * yosys_verific_cell_callback(const char *cell_name)
+{
+	char *copy = strdup(cell_name);
+	char *part = strtok(copy, "(");
+    Verific::Libset *gls = Verific::Libset::Global() ;
+    Verific::Library *new_library = gls->GetLibrary("Yosys") ;
+	if (new_library) {
+		Verific::Cell *new_cell = new_library->GetCell(cell_name);
+		if (!new_cell) {
+			new_cell = new_library->GetCell(part)->Copy();
+			if (new_cell) {
+				new_cell->SetName(cell_name);
+				new_library->Add(new_cell);
+			}
+		}
+		delete copy;
+		return new_cell;
+	}
+	return nullptr;
+}
+
 // ==================================================================
 
 VerificImporter::VerificImporter(bool mode_gates, bool mode_keep, bool mode_nosva, bool mode_names, bool mode_verific, bool mode_autocover, bool mode_fullinit) :
@@ -190,6 +211,18 @@ RTLIL::IdString VerificImporter::new_verific_id(Verific::DesignObj *obj)
 	return s;
 }
 
+RTLIL::Const verific_const(const char *value)
+{
+	std::string val = std::string(value);
+	if (val.size()>1 && val[0]=='\"' && val.back()=='\"')
+		return RTLIL::Const(val.substr(1,val.size()-2));
+	else
+		if (val.find("'b") != std::string::npos)
+			return RTLIL::Const::from_string(val.substr(val.find("'b") + 2));
+		else
+			return RTLIL::Const(std::stoi(val),32);
+}
+
 void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &attributes, DesignObj *obj, Netlist *nl)
 {
 	MapIter mi;
@@ -198,14 +231,11 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 	if (obj->Linefile())
 		attributes[ID::src] = stringf("%s:%d", LineFile::GetFileName(obj->Linefile()), LineFile::GetLineNo(obj->Linefile()));
 
-	// FIXME: Parse numeric attributes
 	FOREACH_ATTRIBUTE(obj, mi, attr) {
 		if (attr->Key()[0] == ' ' || attr->Value() == nullptr)
 			continue;
 		std::string val = std::string(attr->Value());
-		if (val.size()>1 && val[0]=='\"' && val.back()=='\"')
-			val = val.substr(1,val.size()-2);
-		attributes[RTLIL::escape_id(attr->Key())] = RTLIL::Const(val);
+		attributes[RTLIL::escape_id(attr->Key())] = verific_const(attr->Value());
 	}
 
 	if (nl) {
@@ -1069,6 +1099,9 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		return;
 	}
 
+	if (is_blackbox(nl) && yosys_verific_cell_callback(netlist_name.c_str()))
+		return;
+
 	module = new RTLIL::Module;
 	module->name = module_name;
 	design->add(module);
@@ -1741,7 +1774,10 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		if (inst->View()->IsOperator() || inst->View()->IsPrimitive()) {
 			inst_type = "$verific$" + inst_type;
 		} else {
-			if (*inst->View()->Name()) {
+			if (inst->IsBlackBox() && yosys_verific_cell_callback(inst_type.c_str())!= nullptr) {
+				inst_type = inst->View()->CellBaseName();
+			}
+			else if (*inst->View()->Name()) {
 				inst_type += "(";
 				inst_type += inst->View()->Name();
 				inst_type += ")";
@@ -1756,6 +1792,11 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 		dict<IdString, vector<SigBit>> cell_port_conns;
 
+		const char *param_name ;
+		const char *param_value ;
+		FOREACH_MAP_ITEM(inst->View()->GetParameters(), mi2, &param_name, &param_value) {
+			cell->setParam(IdString(std::string("\\") + param_name), verific_const(param_value));
+		}
 		if (verific_verbose)
 			log("    ports in verific db:\n");
 
@@ -2232,6 +2273,58 @@ struct VerificExtNets
 	}
 };
 
+void import_from_yosys(Design *design)
+{
+	Verific::Libset *gls = Verific::Libset::Global() ;
+	Verific::Library *new_library = gls->Add(new Verific::Library("Yosys")) ;
+
+	for (auto module : design->modules()) {
+		Verific::Cell *new_cell = new_library->Add(new Verific::Cell(RTLIL::unescape_id(module->name).c_str())) ;
+		Netlist *cell_nl = new Netlist("") ;
+		cell_nl->MakeBlackBox();
+		bool keep_running = true;
+		for (int port_id = 1; keep_running; port_id++) {
+			keep_running = false;
+			for (auto wire : module->wires()) {
+				if (wire->port_id == port_id) {
+					enum port_dir dir;
+					if (wire->port_input && wire->port_output)
+						dir = DIR_INOUT;
+					else if (wire->port_output)
+						dir = DIR_OUT;
+					else
+						dir = DIR_IN;
+					if (wire->width > 1) {
+						std::string prefix = RTLIL::unescape_id(wire->name);
+						char buffer[128] ;					
+						PortBus *portbus = cell_nl->Add(new PortBus(prefix.c_str(), wire->width-1, wire->upto ? 1 : 0, dir)) ;
+						if (wire->upto) {
+							for (int i = wire->start_offset; i <  wire->width + wire->start_offset;  i++)
+							{
+								std::sprintf(buffer,"%s[%u]",prefix.c_str(),i) ;
+								Port *p = cell_nl->Add(new Port(buffer,dir)) ;
+								portbus->Add(p) ;
+							}
+						} else {
+							for (int i = wire->width - 1 + wire->start_offset; i >= wire->start_offset;  i--)
+							{
+								std::sprintf(buffer,"%s[%u]",prefix.c_str(),i) ;
+								Port *p = cell_nl->Add(new Port(buffer,dir)) ;
+								portbus->Add(p) ;				
+							}
+						}
+					} else {
+						cell_nl->Add(new Port(RTLIL::unescape_id(wire->name).c_str(), dir)) ;
+					}
+					keep_running = true;
+					continue;
+				}
+			}
+		}
+		new_cell->Add(cell_nl);
+	}
+}
+
 void verific_import(Design *design, const std::map<std::string,std::string> &parameters, std::string top)
 {
 	verific_sva_fsm_limit = 16;
@@ -2251,6 +2344,7 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 	for (const auto &i : parameters)
 		verific_params.Insert(i.first.c_str(), i.second.c_str());
 
+    import_from_yosys(design);
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 	VerificExtensions::ElaborateAndRewrite("work", &verific_params);
 #endif
@@ -2646,6 +2740,7 @@ struct VerificPass : public Pass {
 		int argidx = 1;
 		std::string work = "work";
 		veri_file::RegisterCallBackVerificStream(&verific_read_cb);
+		veri_file::RegisterResolveCellCallBack(&yosys_verific_cell_callback);
 
 		if (GetSize(args) > argidx && (args[argidx] == "-set-error" || args[argidx] == "-set-warning" ||
 				args[argidx] == "-set-info" || args[argidx] == "-set-ignore"))
@@ -3031,6 +3126,7 @@ struct VerificPass : public Pass {
 
 			std::set<std::string> top_mod_names;
 
+			import_from_yosys(design);
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 			VerificExtensions::ElaborateAndRewrite(work, &parameters);
 #endif
@@ -3304,6 +3400,9 @@ struct ReadPass : public Pass {
 		log("with -verific will result in an error on Yosys binaries that are built without\n");
 		log("Verific support. The default is to use Verific if it is available.\n");
 		log("\n");
+		log("    read -lib <verilog-file>..\n");
+		log("Only create empty blackbox modules. This implies -DBLACKBOX.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -3376,6 +3475,12 @@ struct ReadPass : public Pass {
 			} else {
 				cmd_error(args, 1, "This version of Yosys is built without Verific support.\n");
 			}
+			return;
+		}
+
+		if (args[1] == "-lib") {
+			args[0] = "read_verilog";
+			Pass::call(design, args);
 			return;
 		}
 
