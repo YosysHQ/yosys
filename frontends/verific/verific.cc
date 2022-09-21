@@ -1176,6 +1176,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			memory->name = RTLIL::escape_id(net->Name());
 			log_assert(module->count_id(memory->name) == 0);
 			module->memories[memory->name] = memory;
+			import_attributes(memory->attributes, net, nl);
 
 			int number_of_bits = net->Size();
 			int bits_in_word = number_of_bits;
