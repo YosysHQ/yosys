@@ -162,7 +162,7 @@ module ARI1 (
 	wire F1 = INIT[8 + Fsel];
 	wire Yout = A ? F1 : F0;
 	assign Y = Yout;
-	wire S = FCI ^ Yout;
+	assign S = FCI ^ Yout;
 	wire G = INIT[16] ? (INIT[17] ? F1 : F0) : INIT[17];
 	wire P = INIT[19] ? 1'b1 : (INIT[18] ? Yout : 1'b0);
 	assign FCO = P ? FCI : G;

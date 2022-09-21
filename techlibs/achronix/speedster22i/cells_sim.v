@@ -68,9 +68,8 @@ end
 assign dout = combout_rt & 1'b1;
 endmodule
 
-module DFF (output q,
+module DFF (output reg q,
             input  d, ck);
-   reg             q;
    always @(posedge ck)
      q <= d;
 

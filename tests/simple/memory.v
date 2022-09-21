@@ -137,8 +137,13 @@ endmodule
 
 // ----------------------------------------------------------
 
-module memtest06_sync(input clk, input rst, input [2:0] idx, input [7:0] din, output [7:0] dout);
+module memtest06_sync(clk, rst, idx, din, dout);
+    input clk;
+    input rst;
     (* gentb_constant=0 *) wire rst;
+    input [2:0] idx;
+    input [7:0] din;
+    output [7:0] dout;
     reg [7:0] test [0:7];
     integer i;
     always @(posedge clk) begin
@@ -156,8 +161,13 @@ module memtest06_sync(input clk, input rst, input [2:0] idx, input [7:0] din, ou
     assign dout = test[idx];
 endmodule
 
-module memtest06_async(input clk, input rst, input [2:0] idx, input [7:0] din, output [7:0] dout);
+module memtest06_async(clk, rst, idx, din, dout);
+    input clk;
+    input rst;
     (* gentb_constant=0 *) wire rst;
+    input [2:0] idx;
+    input [7:0] din;
+    output [7:0] dout;
     reg [7:0] test [0:7];
     integer i;
     always @(posedge clk or posedge rst) begin
