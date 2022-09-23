@@ -155,8 +155,8 @@ Verific::Cell * yosys_verific_cell_callback(const char *cell_name)
 {
 	char *copy = strdup(cell_name);
 	char *part = strtok(copy, "(");
-    Verific::Libset *gls = Verific::Libset::Global() ;
-    Verific::Library *new_library = gls->GetLibrary("Yosys") ;
+	Verific::Libset *gls = Verific::Libset::Global() ;
+	Verific::Library *new_library = gls->GetLibrary("Yosys") ;
 	if (new_library) {
 		Verific::Cell *new_cell = new_library->GetCell(cell_name);
 		if (!new_cell) {
