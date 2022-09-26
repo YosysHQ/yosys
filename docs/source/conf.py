@@ -25,14 +25,25 @@ html_theme_options = {
     ],
 }
 
-extensions = ['sphinx.ext.autosectionlabel']
+extensions = ['sphinx.ext.autosectionlabel', 'sphinxcontrib.bibtex']
 
 # Ensure that autosectionlabel will produce unique names
 autosectionlabel_prefix_document = True
 autosectionlabel_maxdepth = 1
+
+bibtex_bibfiles = ['literature.bib', 'weblinks.bib']
+bibtext_reference_style = 'author_year'
 
 # unused docs
 exclude_patterns = [
 	"CHAPTER_Eval.rst",
 	"appendix/CHAPTER_StateOfTheArt.rst"
 ]
+
+latex_elements = {
+        'preamble': r'''
+\usepackage[T1]{fontenc}   % required for luximono!
+\usepackage{lmodern}
+\usepackage[scaled=0.8]{luximono}  % typewriter font with bold face
+'''
+}
