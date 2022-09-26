@@ -30,6 +30,7 @@ Yosys manual
 .. toctree::
 	:maxdepth: 2
 	:caption: Manual
+	:numbered:
 
 	CHAPTER_Intro
 	CHAPTER_Basics.rst
@@ -66,15 +67,16 @@ Yosys manual
 	cmd_ref
 
 
-.. rubric:: Bibliography
+.. only:: html
+
+	.. rubric:: Bibliography
 
 .. bibliography:: literature.bib
-	:all:
 
-.. rubric:: Internet References
+.. only:: html
+	
+	.. rubric:: Internet References
 
 .. bibliography:: weblinks.bib
-	:list: enumerated
-	:start: continue
-	:all:
+	:style: unsrt
 

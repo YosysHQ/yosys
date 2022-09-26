@@ -30,9 +30,9 @@ extensions = ['sphinx.ext.autosectionlabel', 'sphinxcontrib.bibtex']
 # Ensure that autosectionlabel will produce unique names
 autosectionlabel_prefix_document = True
 autosectionlabel_maxdepth = 1
+numfig = True
 
 bibtex_bibfiles = ['literature.bib', 'weblinks.bib']
-bibtext_reference_style = 'author_year'
 
 # unused docs
 exclude_patterns = [
