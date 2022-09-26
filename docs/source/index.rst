@@ -30,32 +30,42 @@ This document was originally published as bachelor thesis at the Vienna
 University of Technology [1]_.
 
 .. toctree::
-    :maxdepth: 2
-    :caption: Manual
+	:maxdepth: 2
+	:caption: Manual
 
-    CHAPTER_Intro
-    CHAPTER_Basics.rst
-    CHAPTER_Approach.rst
-    CHAPTER_Overview.rst
-    CHAPTER_CellLib.rst
-    CHAPTER_Prog.rst
+	CHAPTER_Intro
+	CHAPTER_Basics.rst
+	CHAPTER_Approach.rst
+	CHAPTER_Overview.rst
+	CHAPTER_CellLib.rst
+	CHAPTER_Prog.rst
 
-    CHAPTER_Verilog.rst
-    CHAPTER_Optimize.rst
-    CHAPTER_Techmap.rst
-    CHAPTER_Eval.rst
+	CHAPTER_Verilog.rst
+	CHAPTER_Optimize.rst
+	CHAPTER_Techmap.rst
+	CHAPTER_Eval.rst
 
-.. toctree::
-    :maxdepth: 2
-    :includehidden:
+.. raw:: latex
 
-    appendix/index
+	\appendix
 
 .. toctree::
-    :maxdepth: 1
-    :includehidden:
+	:maxdepth: 3
+	:includehidden:
+	:caption: Appendix
 
-    cmd_ref
+	appendix/CHAPTER_Auxlibs.rst
+	appendix/CHAPTER_Auxprogs.rst
+
+	appendix/CHAPTER_TextRtlil.rst
+	appendix/CHAPTER_Appnotes.rst
+	appendix/CHAPTER_StateOfTheArt.rst
+
+.. toctree::
+	:maxdepth: 1
+	:includehidden:
+
+	cmd_ref
 
 
 .. [1] Design and Implementation of the Yosys Open SYnthesis Suite, C. Wolf, 2013

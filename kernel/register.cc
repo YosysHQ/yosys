@@ -822,22 +822,26 @@ struct HelpPass : public Pass {
 
 		fclose(f);
 	}
-	void write_rst(FILE *idxf, std::string cmd, std::string title, std::string text)
+	void write_rst(std::string cmd, std::string title, std::string text)
 	{
-		fprintf(idxf, "- :ref:`cmd_%s`: %s\n", cmd.c_str(), title.c_str());
-
 		FILE *f = fopen(stringf("docs/source/cmd/%s.rst", cmd.c_str()).c_str(), "wt");
+		// make header
+		size_t char_len = cmd.length() + 3 + title.length();
+		std::string title_line = "\n";
+		title_line.insert(0, char_len, '=');
+		fprintf(f, "%s", title_line.c_str());
+		fprintf(f, "%s - %s\n", cmd.c_str(), title.c_str());
+		fprintf(f, "%s\n", title_line.c_str());
 
-		fprintf(f, ".. _cmd_%s:\n\n", cmd.c_str());
-		fprintf(f, "================================================================================\n");
-		fprintf(f, "%s\n", cmd.c_str());
-		fprintf(f, "================================================================================\n\n");
+		// turn off syntax highlighting because it's all text
+		fprintf(f, ".. highlight:: none\n\n");
+
+		// render html
 		fprintf(f, ".. only:: html\n\n");
-		fprintf(f, "    %s\n\n", title.c_str());
-		fprintf(f, ":code:`yosys> help %s`\n", cmd.c_str());
-		fprintf(f, "--------------------------------------------------------------------------------\n\n");
-		fprintf(f, ".. highlight:: none\n");
+		fprintf(f, "    :code:`yosys> help %s`\n", cmd.c_str());
+		fprintf(f, "    ----------------------------------------------------------------------------\n\n");
 		std::stringstream ss;
+		std::string textcp = text;
 		ss << text;
 		bool IsUsage = true;
 		bool WasBlank = false;
@@ -856,7 +860,8 @@ struct HelpPass : public Pass {
 
 			// strip leading and trailing whitespace
 			std::string stripped_line = line.substr(first_pos, last_pos - first_pos +1);
-			bool IsDefinition = stripped_line[0] == '-' && stripped_line[1] != ' ';
+			bool IsDefinition = stripped_line[0] == '-';
+			IsDefinition &= stripped_line[1] != ' ' && stripped_line[1] != '>';
 			bool IsDedent = first_pos <= def_strip_count;
 			bool IsIndent = first_pos == 2 || first_pos == 4;
 			if (cmd.compare(0, 7, "verific") == 0)
@@ -866,26 +871,35 @@ struct HelpPass : public Pass {
 			if (IsUsage) {
 				if (stripped_line.compare(0, 3, "See")) 
 					// usage should be the first line of help output
-					fprintf(f, "Usage: :code:`%s` ::\n\n", stripped_line.c_str());
+					fprintf(f, "    Usage: :code:`%s` ::\n\n", stripped_line.c_str());
 				else
 					// description refers to another function
-					fprintf(f, "%s\n", stripped_line.c_str());
+					fprintf(f, "    %s\n", stripped_line.c_str());
 				IsUsage = false;
 			} else if (IsIndent && IsDefinition && (WasBlank || WasDefinition)) {
 				// format definition term
-				fprintf(f, ":code:`%s` ::\n\n", stripped_line.c_str());
+				fprintf(f, "    :code:`%s` ::\n\n", stripped_line.c_str());
 				WasDefinition = true;
 				def_strip_count = first_pos;
 			} else if (WasDefinition and IsDedent) {
 				// no longer in definition, start new code block
-				fprintf(f, "::\n\n    %s\n", line.c_str());
+				fprintf(f, "    ::\n\n        %s\n", line.c_str());
 				WasDefinition = false;
 			} else if (WasDefinition) {
 				// format definition
-				fprintf(f, "    %s\n", line.substr(def_strip_count, std::string::npos).c_str());
+				fprintf(f, "        %s\n", line.substr(def_strip_count, std::string::npos).c_str());
 			} else {
-				fprintf(f, "    %s\n", line.c_str());
+				fprintf(f, "        %s\n", line.c_str());
 			}
+		}
+
+		// render latex
+		fprintf(f, ".. only:: latex\n\n");
+		fprintf(f, "    ::\n\n");
+		std::stringstream ss2;
+		ss2 << textcp;
+		for (std::string line; std::getline(ss2, line, '\n');) {
+			fprintf(f, "        %s\n", line.c_str());
 		}
 		fclose(f);
 	}
@@ -950,17 +964,6 @@ struct HelpPass : public Pass {
 			}
 			// this option is undocumented as it is for internal use only
 			else if (args[1] == "-write-rst-command-reference-manual") {
-				FILE *f = fopen("docs/source/cmd_ref.rst", "wt");
-				fprintf(f, "================================================================================\n");
-				fprintf(f, "Command reference\n");
-				fprintf(f, "================================================================================\n");
-				fprintf(f, ".. toctree::\n");
-				fprintf(f, "	:caption: Command reference\n");
-				fprintf(f, "	:maxdepth: 1\n");
-				fprintf(f, "	:hidden:\n");
-				fprintf(f, "	:glob:\n\n");
-				fprintf(f, "	cmd/*\n");
-				fprintf(f, "\n\n");
 				for (auto &it : pass_register) {
 					std::ostringstream buf;
 					log_streams.push_back(&buf);
@@ -971,9 +974,8 @@ struct HelpPass : public Pass {
 						log("\n");
 					}
 					log_streams.pop_back();
-					write_rst(f, it.first, it.second->short_help, buf.str());
+					write_rst(it.first, it.second->short_help, buf.str());
 				}
-				fclose(f);
 			}
 			// this option is undocumented as it is for internal use only
 			else if (args[1] == "-write-web-command-reference-manual") {
