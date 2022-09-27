@@ -47,6 +47,9 @@ struct SynthPass : public ScriptPass
 		log("    -lut <k>\n");
 		log("        perform synthesis for a k-LUT architecture (default 4).\n");
 		log("\n");
+		log("    -plib <primitive_library.v>\n");
+		log("        use the specified Verilog file as a primitive library.\n");
+		log("\n");
 		log("    -run <from_label>[:<to_label>]\n");
 		log("        only run the commands between the labels (see below). an empty\n");
 		log("        from label is synonymous to 'begin', and empty to label is\n");
@@ -58,13 +61,14 @@ struct SynthPass : public ScriptPass
 		log("\n");
 	}
 
-	string top_module;
+	string top_module, plib;
 	bool autotop, forvpr;
 	int lut;
 
 	void clear_flags() override
 	{
 		top_module.clear();
+		plib.clear();
 		autotop = false;
 		lut = 4;
 		forvpr = false;
@@ -106,6 +110,10 @@ struct SynthPass : public ScriptPass
 				lut = atoi(args[++argidx].c_str());
 				continue;
 			}
+			if (args[argidx] == "-plib" && argidx+1 < args.size()) {
+				plib = args[++argidx];
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -131,6 +139,10 @@ struct SynthPass : public ScriptPass
 		} else
 			run(stringf("hierarchy -check -top %s", top_module.c_str()));
 
+		if (plib.empty())
+			run("read_verilog -lib +/fabulous/prims.v");
+		else
+			run("read_verilog -lib " + plib);
 		run("proc");
  		run("tribuf -logic");
 		run("deminout");
@@ -144,7 +156,7 @@ struct SynthPass : public ScriptPass
 		run("abc -lut $LUT_K -dress");
 		run("clean");
 		if (forvpr) 
-			run("yosys techmap -D LUT_K=$LUT_K -map +/fabulous/cells_map.v");
+			run("techmap -D LUT_K=$LUT_K -map +/fabulous/cells_map.v");
 		run("clean");
 		run("hierarchy -check");
 		run("stat");
