@@ -121,7 +121,7 @@ struct SynthPass : public ScriptPass
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
 
-		log_header(design, "Executing SYNTH pass.\n");
+		log_header(design, "Executing SYNTH_FABULOUS pass.\n");
 		log_push();
 
 		run_script(design, run_from, run_to);
@@ -131,6 +131,11 @@ struct SynthPass : public ScriptPass
 
 	void script() override
 	{
+		if (plib.empty())
+			run("read_verilog -lib +/fabulous/prims.v");
+		else
+			run("read_verilog -lib " + plib);
+
 		if (top_module.empty()) {
 			if (autotop)
 				run("hierarchy -check -auto-top");
@@ -139,10 +144,6 @@ struct SynthPass : public ScriptPass
 		} else
 			run(stringf("hierarchy -check -top %s", top_module.c_str()));
 
-		if (plib.empty())
-			run("read_verilog -lib +/fabulous/prims.v");
-		else
-			run("read_verilog -lib " + plib);
 		run("proc");
  		run("tribuf -logic");
 		run("deminout");
