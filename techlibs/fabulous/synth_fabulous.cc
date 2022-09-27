@@ -44,10 +44,6 @@ struct SynthPass : public ScriptPass
 		log("    -auto-top\n");
 		log("        automatically determine the top of the design hierarchy\n");
 		log("\n");
-		log("    -flatten\n");
-		log("        flatten the design before synthesis. this will pass '-auto-top' to\n");
-		log("        'hierarchy' if no top module is specified.\n");
-		log("\n");
 		log("    -lut <k>\n");
 		log("        perform synthesis for a k-LUT architecture (default 4).\n");
 		log("\n");
@@ -63,14 +59,13 @@ struct SynthPass : public ScriptPass
 	}
 
 	string top_module;
-	bool autotop, flatten, forvpr;
+	bool autotop, forvpr;
 	int lut;
 
 	void clear_flags() override
 	{
 		top_module.clear();
 		autotop = false;
-		flatten = false;
 		lut = 4;
 		forvpr = false;
 	}
@@ -107,10 +102,6 @@ struct SynthPass : public ScriptPass
 				autotop = true;
 				continue;
 			}
-			if (args[argidx] == "-flatten") {
-				flatten = true;
-				continue;
-			}
 			if (args[argidx] == "-lut") {
 				lut = atoi(args[++argidx].c_str());
 				continue;
@@ -133,7 +124,7 @@ struct SynthPass : public ScriptPass
 	void script() override
 	{
 		if (top_module.empty()) {
-			if (flatten || autotop)
+			if (autotop)
 				run("hierarchy -check -auto-top");
 			else
 				run("hierarchy -check");
