@@ -48,43 +48,13 @@ struct SynthPass : public ScriptPass
 		log("        flatten the design before synthesis. this will pass '-auto-top' to\n");
 		log("        'hierarchy' if no top module is specified.\n");
 		log("\n");
-		log("    -encfile <file>\n");
-		log("        passed to 'fsm_recode' via 'fsm'\n");
-		log("\n");
 		log("    -lut <k>\n");
 		log("        perform synthesis for a k-LUT architecture (default 4).\n");
-		log("\n");
-		log("    -nofsm\n");
-		log("        do not run FSM optimization\n");
-		log("\n");
-		log("    -noabc\n");
-		log("        do not run abc (as if yosys was compiled without ABC support)\n");
-		log("\n");
-		log("    -noalumacc\n");
-		log("        do not run 'alumacc' pass. i.e. keep arithmetic operators in\n");
-		log("        their direct form ($add, $sub, etc.).\n");
-		log("\n");
-		log("    -nordff\n");
-		log("        passed to 'memory'. prohibits merging of FFs into memory read ports\n");
-		log("\n");
-		log("    -noshare\n");
-		log("        do not run SAT-based resource sharing\n");
 		log("\n");
 		log("    -run <from_label>[:<to_label>]\n");
 		log("        only run the commands between the labels (see below). an empty\n");
 		log("        from label is synonymous to 'begin', and empty to label is\n");
 		log("        synonymous to the end of the command list.\n");
-		log("\n");
-		log("    -abc9\n");
-		log("        use new ABC9 flow (EXPERIMENTAL)\n");
-		log("\n");
-		log("    -flowmap\n");
-		log("        use FlowMap LUT techmapping instead of ABC\n");
-		log("\n");
-		log("    -no-rw-check\n");
-		log("        marks all recognized read ports as \"return don't-care value on\n");
-		log("        read/write collision\" (same result as setting the no_rw_check\n");
-		log("        attribute on all memories).\n");
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
@@ -92,28 +62,20 @@ struct SynthPass : public ScriptPass
 		log("\n");
 	}
 
-	string top_module, fsm_opts, memory_opts, abc;
-	bool autotop, flatten, noalumacc, nofsm, noabc, noshare, flowmap, forvpr;
+	string top_module;
+	bool autotop, flatten, forvpr;
 	int lut;
 
 	void clear_flags() override
 	{
 		top_module.clear();
-		fsm_opts.clear();
-		memory_opts.clear();
-
 		autotop = false;
 		flatten = false;
 		lut = 4;
-		noalumacc = false;
-		nofsm = false;
-		noabc = false;
-		noshare = false;
-		flowmap = false;
 		forvpr = false;
-		abc = "abc";
 	}
 
+	// TODO: bring back relevant flags to carry through to synth call
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		string run_from, run_to;
@@ -124,10 +86,6 @@ struct SynthPass : public ScriptPass
 		{
 			if (args[argidx] == "-top" && argidx+1 < args.size()) {
 				top_module = args[++argidx];
-				continue;
-			}
-			if (args[argidx] == "-encfile" && argidx+1 < args.size()) {
-				fsm_opts = " -encfile " + args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-run" && argidx+1 < args.size()) {
@@ -157,49 +115,12 @@ struct SynthPass : public ScriptPass
 				lut = atoi(args[++argidx].c_str());
 				continue;
 			}
-			if (args[argidx] == "-nofsm") {
-				nofsm = true;
-				continue;
-			}
-			if (args[argidx] == "-noabc") {
-				noabc = true;
-				continue;
-			}
-			if (args[argidx] == "-noalumacc") {
-				noalumacc = true;
-				continue;
-			}
-			if (args[argidx] == "-nordff") {
-				memory_opts += " -nordff";
-				continue;
-			}
-			if (args[argidx] == "-noshare") {
-				noshare = true;
-				continue;
-			}
-			if (args[argidx] == "-abc9") {
-				abc = "abc9";
-				continue;
-			}
-			if (args[argidx] == "-flowmap") {
-				flowmap = true;
-				continue;
-			}
-			if (args[argidx] == "-no-rw-check") {
-				memory_opts += " -no-rw-check";
-				continue;
-			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
-
-		if (abc == "abc9" && !lut)
-			log_cmd_error("ABC9 flow only supported for FPGA synthesis (using '-lut' option)\n");
-		if (flowmap && !lut)
-			log_cmd_error("FlowMap is only supported for FPGA synthesis (using '-lut' option)\n");
 
 		log_header(design, "Executing SYNTH pass.\n");
 		log_push();
