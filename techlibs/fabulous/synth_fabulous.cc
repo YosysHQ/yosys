@@ -47,13 +47,37 @@ struct SynthPass : public ScriptPass
 		log("    -lut <k>\n");
 		log("        perform synthesis for a k-LUT architecture (default 4).\n");
 		log("\n");
+		log("    -vpr\n");
+		log("        perform synthesis for the FABulous VPR flow (using slightly different techmapping).\n");
+		log("\n");
 		log("    -plib <primitive_library.v>\n");
 		log("        use the specified Verilog file as a primitive library.\n");
+		log("\n");
+		log("    -encfile <file>\n");
+		log("        passed to 'fsm_recode' via 'fsm'\n");
+		log("\n");
+		log("    -nofsm\n");
+		log("        do not run FSM optimization\n");
+		log("\n");
+		log("    -noalumacc\n");
+		log("        do not run 'alumacc' pass. i.e. keep arithmetic operators in\n");
+		log("        their direct form ($add, $sub, etc.).\n");
+		log("\n");
+		log("    -nordff\n");
+		log("        passed to 'memory'. prohibits merging of FFs into memory read ports\n");
+		log("\n");
+		log("    -noshare\n");
+		log("        do not run SAT-based resource sharing\n");
 		log("\n");
 		log("    -run <from_label>[:<to_label>]\n");
 		log("        only run the commands between the labels (see below). an empty\n");
 		log("        from label is synonymous to 'begin', and empty to label is\n");
 		log("        synonymous to the end of the command list.\n");
+		log("\n");
+		log("    -no-rw-check\n");
+		log("        marks all recognized read ports as \"return don't-care value on\n");
+		log("        read/write collision\" (same result as setting the no_rw_check\n");
+		log("        attribute on all memories).\n");
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
@@ -61,8 +85,8 @@ struct SynthPass : public ScriptPass
 		log("\n");
 	}
 
-	string top_module, plib;
-	bool autotop, forvpr;
+	string top_module, plib, fsm_opts, memory_opts;
+	bool autotop, forvpr, noalumacc, nofsm, noshare;
 	int lut;
 
 	void clear_flags() override
@@ -72,6 +96,9 @@ struct SynthPass : public ScriptPass
 		autotop = false;
 		lut = 4;
 		forvpr = false;
+		noalumacc = false;
+		nofsm = false;
+		noshare = false;
 	}
 
 	// TODO: bring back relevant flags to carry through to synth call
@@ -114,6 +141,26 @@ struct SynthPass : public ScriptPass
 				plib = args[++argidx];
 				continue;
 			}
+			if (args[argidx] == "-nofsm") {
+				nofsm = true;
+				continue;
+			}
+			if (args[argidx] == "-noalumacc") {
+				noalumacc = true;
+				continue;
+			}
+			if (args[argidx] == "-nordff") {
+				memory_opts += " -nordff";
+				continue;
+			}
+			if (args[argidx] == "-noshare") {
+				noshare = true;
+				continue;
+			}
+			if (args[argidx] == "-no-rw-check") {
+				memory_opts += " -no-rw-check";
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -147,7 +194,32 @@ struct SynthPass : public ScriptPass
 		run("proc");
  		run("tribuf -logic");
 		run("deminout");
-		run("synth -run coarse");
+
+		// synth pass
+		run("proc");
+		run("opt_expr");
+		run("opt_clean");
+		run("check");
+		run("opt -nodffe -nosdff");
+		if (!nofsm)
+			run("fsm" + fsm_opts, "      (unless -nofsm)");
+		run("opt");
+		run("wreduce");
+		run("peepopt");
+		run("opt_clean");
+		if (help_mode)
+			run("techmap -map +/cmp2lut.v -map +/cmp2lcu.v", " (if -lut)");
+		else if (lut)
+			run(stringf("techmap -map +/cmp2lut.v -map +/cmp2lcu.v -D LUT_WIDTH=%d", lut));
+		if (!noalumacc)
+			run("alumacc", "  (unless -noalumacc)");
+		if (!noshare)
+			run("share", "    (unless -noshare)");
+		run("opt");
+		run("memory -nomap" + memory_opts);
+		run("opt_clean");
+
+
 		run("memory_map");
 		run("opt -full");
 		run("techmap -map +/techmap.v");
@@ -156,7 +228,7 @@ struct SynthPass : public ScriptPass
 		run("techmap -map +/fabulous/latches_map.v");
 		run("abc -lut $LUT_K -dress");
 		run("clean");
-		if (forvpr) 
+		if (!forvpr) 
 			run("techmap -D LUT_K=$LUT_K -map +/fabulous/cells_map.v");
 		run("clean");
 		run("hierarchy -check");
