@@ -2588,6 +2588,45 @@ struct VerificPass : public Pass {
 		log("\n");
 	}
 #ifdef YOSYS_ENABLE_VERIFIC
+	std::string frontent_rewrite(std::vector<std::string> &args, int &argidx, std::vector<std::string> &tmp_files)
+	{
+		std::string filename = args[argidx++];
+		//Accommodate heredocs with EOT marker spaced out from "<<", e.g. "<< EOT" vs. "<<EOT"
+		if (filename == "<<" && (argidx < GetSize(args))) {
+			filename += args[argidx++];
+		}
+		if (filename.compare(0, 2, "<<") == 0) {
+			if (filename.size() <= 2)
+				log_error("Missing EOT marker in here document!\n");
+			std::string eot_marker = filename.substr(2);
+			if (Frontend::current_script_file == nullptr)
+				filename = "<stdin>";
+			std::string last_here_document;
+			while (1) {
+				std::string buffer;
+				char block[4096];
+				while (1) {
+					if (fgets(block, 4096, Frontend::current_script_file == nullptr? stdin : Frontend::current_script_file) == nullptr)
+						log_error("Unexpected end of file in here document '%s'!\n", filename.c_str());
+					buffer += block;
+					if (buffer.size() > 0 && (buffer[buffer.size() - 1] == '\n' || buffer[buffer.size() - 1] == '\r'))
+						break;
+				}
+				size_t indent = buffer.find_first_not_of(" \t\r\n");
+				if (indent != std::string::npos && buffer.compare(indent, eot_marker.size(), eot_marker) == 0)
+					break;
+				last_here_document += buffer;
+			}
+			filename = make_temp_file();
+			tmp_files.push_back(filename);
+			std::ofstream file(filename);
+			file << last_here_document;
+		} else {
+			rewrite_filename(filename);
+		}
+		return filename;
+	}
+
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		static bool set_verific_global_flags = true;
@@ -2660,6 +2699,7 @@ struct VerificPass : public Pass {
 		const char *release_str = Message::ReleaseString();
 		time_t release_time = Message::ReleaseDate();
 		char *release_tmstr = ctime(&release_time);
+		std::vector<std::string> tmp_files;
 
 		if (release_str == nullptr)
 			release_str = "(no release string)";
@@ -2857,8 +2897,7 @@ struct VerificPass : public Pass {
 				veri_file::AddLibExt(ext.c_str());
 
 			while (argidx < GetSize(args)) {
-				std::string filename(args[argidx++]);
-				rewrite_filename(filename);
+				std::string filename = frontent_rewrite(args, argidx, tmp_files);
 				file_names.Insert(strdup(filename.c_str()));
 			}
 			if (!veri_file::AnalyzeMultipleFiles(&file_names, verilog_mode, work.c_str(), veri_file::MFCU)) {
@@ -2873,9 +2912,9 @@ struct VerificPass : public Pass {
 #ifdef VERIFIC_VHDL_SUPPORT
 		if (GetSize(args) > argidx && args[argidx] == "-vhdl87") {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_1987").c_str());
-			for (argidx++; argidx < GetSize(args); argidx++) {
-				std::string filename(args[argidx]);
-				rewrite_filename(filename);
+			argidx++;
+			while (argidx < GetSize(args)) {
+				std::string filename = frontent_rewrite(args, argidx, tmp_files);
 				if (!vhdl_file::Analyze(filename.c_str(), work.c_str(), vhdl_file::VHDL_87))
 					log_cmd_error("Reading `%s' in VHDL_87 mode failed.\n", filename.c_str());
 			}
@@ -2885,9 +2924,9 @@ struct VerificPass : public Pass {
 
 		if (GetSize(args) > argidx && args[argidx] == "-vhdl93") {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_1993").c_str());
-			for (argidx++; argidx < GetSize(args); argidx++) {
-				std::string filename(args[argidx]);
-				rewrite_filename(filename);
+			argidx++;
+			while (argidx < GetSize(args)) {
+				std::string filename = frontent_rewrite(args, argidx, tmp_files);
 				if (!vhdl_file::Analyze(filename.c_str(), work.c_str(), vhdl_file::VHDL_93))
 					log_cmd_error("Reading `%s' in VHDL_93 mode failed.\n", filename.c_str());
 			}
@@ -2897,9 +2936,9 @@ struct VerificPass : public Pass {
 
 		if (GetSize(args) > argidx && args[argidx] == "-vhdl2k") {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_1993").c_str());
-			for (argidx++; argidx < GetSize(args); argidx++) {
-				std::string filename(args[argidx]);
-				rewrite_filename(filename);
+			argidx++;
+			while (argidx < GetSize(args)) {
+				std::string filename = frontent_rewrite(args, argidx, tmp_files);
 				if (!vhdl_file::Analyze(filename.c_str(), work.c_str(), vhdl_file::VHDL_2K))
 					log_cmd_error("Reading `%s' in VHDL_2K mode failed.\n", filename.c_str());
 			}
@@ -2909,9 +2948,9 @@ struct VerificPass : public Pass {
 
 		if (GetSize(args) > argidx && (args[argidx] == "-vhdl2008" || args[argidx] == "-vhdl")) {
 			vhdl_file::SetDefaultLibraryPath((proc_share_dirname() + "verific/vhdl_vdbs_2008").c_str());
-			for (argidx++; argidx < GetSize(args); argidx++) {
-				std::string filename(args[argidx]);
-				rewrite_filename(filename);
+			argidx++;
+			while (argidx < GetSize(args)) {
+				std::string filename = frontent_rewrite(args, argidx, tmp_files);
 				if (!vhdl_file::Analyze(filename.c_str(), work.c_str(), vhdl_file::VHDL_2008))
 					log_cmd_error("Reading `%s' in VHDL_2008 mode failed.\n", filename.c_str());
 			}
@@ -3263,6 +3302,13 @@ struct VerificPass : public Pass {
 		cmd_error(args, argidx, "Missing or unsupported mode parameter.\n");
 
 	check_error:
+		if (tmp_files.size()) {
+			log("Removing temp files.\n");
+			for(auto &fn : tmp_files) {
+				remove(fn.c_str());
+			}
+		}
+
 		if (!verific_error_msg.empty())
 			log_error("%s\n", verific_error_msg.c_str());
 
