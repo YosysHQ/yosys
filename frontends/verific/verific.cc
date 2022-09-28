@@ -198,6 +198,13 @@ static bool isNumber(const string& str)
 	return true;
 }
 
+// When used as attributes or parameter values Verific constants come already processed.
+// - Real string values are already under quotes
+// - Numeric values with specified width are always converted to binary
+// - Rest of user defined values are handled as 32bit integers
+// - There could be some internal values that are strings without quotes
+//   so we check if value is all digits or not
+//
 static const RTLIL::Const verific_const(const char *value)
 {
 	std::string val = std::string(value);
