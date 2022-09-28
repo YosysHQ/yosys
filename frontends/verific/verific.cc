@@ -190,6 +190,29 @@ RTLIL::IdString VerificImporter::new_verific_id(Verific::DesignObj *obj)
 	return s;
 }
 
+static bool isNumber(const string& str)
+{
+	for (auto &c : str) {
+		if (std::isdigit(c) == 0) return false;
+	}
+	return true;
+}
+
+static const RTLIL::Const verific_const(const char *value)
+{
+	std::string val = std::string(value);
+	if (val.size()>1 && val[0]=='\"' && val.back()=='\"')
+		return RTLIL::Const(val.substr(1,val.size()-2));
+	else
+		if (val.find("'b") != std::string::npos)
+			return RTLIL::Const::from_string(val.substr(val.find("'b") + 2));
+		else
+			if (isNumber(val))
+				return RTLIL::Const(std::stoi(val),32);
+			else
+				return RTLIL::Const(val);
+}
+
 void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &attributes, DesignObj *obj, Netlist *nl)
 {
 	MapIter mi;
@@ -198,14 +221,10 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 	if (obj->Linefile())
 		attributes[ID::src] = stringf("%s:%d", LineFile::GetFileName(obj->Linefile()), LineFile::GetLineNo(obj->Linefile()));
 
-	// FIXME: Parse numeric attributes
 	FOREACH_ATTRIBUTE(obj, mi, attr) {
 		if (attr->Key()[0] == ' ' || attr->Value() == nullptr)
 			continue;
-		std::string val = std::string(attr->Value());
-		if (val.size()>1 && val[0]=='\"' && val.back()=='\"')
-			val = val.substr(1,val.size()-2);
-		attributes[RTLIL::escape_id(attr->Key())] = RTLIL::Const(val);
+		attributes[RTLIL::escape_id(attr->Key())] = verific_const(attr->Value());
 	}
 
 	if (nl) {
