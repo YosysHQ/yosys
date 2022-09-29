@@ -833,9 +833,6 @@ struct HelpPass : public Pass {
 		fprintf(f, "%s - %s\n", cmd.c_str(), title.c_str());
 		fprintf(f, "%s\n", title_line.c_str());
 
-		// turn off syntax highlighting because it's all text
-		fprintf(f, ".. highlight:: none\n\n");
-
 		// render html
 		fprintf(f, ".. only:: html\n\n");
 		fprintf(f, "    :code:`yosys> help %s`\n", cmd.c_str());

@@ -15,7 +15,7 @@ html_static_path = ['../static', "../images"]
 
 # code blocks style 
 pygments_style = 'colorful'
-highlight_language = 'systemverilog'
+highlight_language = 'none'
 
 html_theme_options = {
     'external_links' : [
@@ -30,6 +30,8 @@ extensions = ['sphinx.ext.autosectionlabel', 'sphinxcontrib.bibtex']
 # Ensure that autosectionlabel will produce unique names
 autosectionlabel_prefix_document = True
 autosectionlabel_maxdepth = 1
+
+# assign figure numbers
 numfig = True
 
 bibtex_bibfiles = ['literature.bib', 'weblinks.bib']
