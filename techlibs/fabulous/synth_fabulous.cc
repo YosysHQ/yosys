@@ -101,7 +101,6 @@ struct SynthPass : public ScriptPass
 		noshare = false;
 	}
 
-	// TODO: bring back relevant flags to carry through to synth call
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		string run_from, run_to;
@@ -196,7 +195,6 @@ struct SynthPass : public ScriptPass
 		run("deminout");
 
 		// synth pass
-		run("proc");
 		run("opt_expr");
 		run("opt_clean");
 		run("check");
@@ -219,8 +217,14 @@ struct SynthPass : public ScriptPass
 		run("memory -nomap" + memory_opts);
 		run("opt_clean");
 
+		// RegFile extraction
+
+		run("memory_libmap -lib +/fabulous/ram_regfile.txt");
+		run("techmap -map +/fabulous/regfile_map.v");
+		run("opt -fast -mux_undef -undriven -fine");
 
 		run("memory_map");
+		run("opt -undriven -fine");
 		run("opt -full");
 		run("techmap -map +/techmap.v");
 		run("opt -fast");
