@@ -517,7 +517,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 				}
 				else if (input_sig.size() > lut_input_plane_limit)
 				{
-					err_reason = stringf("names' input plane must have fewer than 13 signals.");
+			       		err_reason = stringf("names' input plane must have fewer than %d signals.", lut_input_plane_limit + 1);
 					goto error_with_reason;
 				}
 				else
