@@ -878,7 +878,7 @@ struct HelpPass : public Pass {
 				fprintf(f, "    :code:`%s` ::\n\n", stripped_line.c_str());
 				WasDefinition = true;
 				def_strip_count = first_pos;
-			} else if (WasDefinition and IsDedent) {
+			} else if (WasDefinition && IsDedent) {
 				// no longer in definition, start new code block
 				fprintf(f, "    ::\n\n        %s\n", line.c_str());
 				WasDefinition = false;
