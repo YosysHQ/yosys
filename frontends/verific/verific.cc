@@ -53,6 +53,10 @@ USING_YOSYS_NAMESPACE
 #include "VhdlUnits.h"
 #endif
 
+#ifdef VERIFIC_EDIF_SUPPORT
+#include "edif_file.h"
+#endif
+
 #include "VerificStream.h"
 #include "FileSystem.h"
 
@@ -2352,6 +2356,9 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 #ifdef VERIFIC_VHDL_SUPPORT
 	vhdl_file::Reset();
 #endif
+#ifdef VERIFIC_EDIF_SUPPORT
+	edif_file::Reset();
+#endif
 	Libset::Reset();
 	Message::Reset();
 	RuntimeFlags::DeleteAllFlags();
@@ -2410,6 +2417,13 @@ struct VerificPass : public Pass {
 		log("    verific {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl} <vhdl-file>..\n");
 		log("\n");
 		log("Load the specified VHDL files into Verific.\n");
+		log("\n");
+		log("\n");
+#endif
+#ifdef VERIFIC_EDIF_SUPPORT
+		log("    verific {-edif} <edif-file>..\n");
+		log("\n");
+		log("Load the specified EDIF files into Verific.\n");
 		log("\n");
 		log("\n");
 #endif
@@ -2958,7 +2972,18 @@ struct VerificPass : public Pass {
 			goto check_error;
 		}
 #endif
-
+#ifdef VERIFIC_EDIF_SUPPORT
+		if (GetSize(args) > argidx && args[argidx] == "-edif") {
+			edif_file edif;
+			argidx++;
+			while (argidx < GetSize(args)) {
+				std::string filename = frontent_rewrite(args, argidx, tmp_files);
+				if (!edif.Read(filename.c_str()))
+					log_cmd_error("Reading `%s' in EDIF mode failed.\n", filename.c_str());
+			}
+			goto check_error;
+		}
+#endif
 		if (argidx < GetSize(args) && args[argidx] == "-pp")
 		{
 			const char* filename = nullptr;
@@ -3222,6 +3247,9 @@ struct VerificPass : public Pass {
 #ifdef VERIFIC_VHDL_SUPPORT
 			vhdl_file::Reset();
 #endif
+#ifdef VERIFIC_EDIF_SUPPORT
+			edif_file::Reset();
+#endif
 			Libset::Reset();
 			Message::Reset();
 			RuntimeFlags::DeleteAllFlags();
@@ -3348,6 +3376,13 @@ struct ReadPass : public Pass {
 		log("\n");
 		log("\n");
 #endif
+#ifdef VERIFIC_EDIF_SUPPORT
+		log("    read {-edif} <edif-file>..\n");
+		log("\n");
+		log("Load the specified EDIF files. (Requires Verific.)\n");
+		log("\n");
+		log("\n");
+#endif
 		log("    read {-f|-F} <command-file>\n");
 		log("\n");
 		log("Load and execute the specified command file. (Requires Verific.)\n");
@@ -3432,6 +3467,17 @@ struct ReadPass : public Pass {
 
 #ifdef VERIFIC_VHDL_SUPPORT
 		if (args[1] == "-vhdl87" || args[1] == "-vhdl93" || args[1] == "-vhdl2k" || args[1] == "-vhdl2008" || args[1] == "-vhdl") {
+			if (use_verific) {
+				args[0] = "verific";
+				Pass::call(design, args);
+			} else {
+				cmd_error(args, 1, "This version of Yosys is built without Verific support.\n");
+			}
+			return;
+		}
+#endif
+#ifdef VERIFIC_EDIF_SUPPORT
+		if (args[1] == "-edif") {
 			if (use_verific) {
 				args[0] = "verific";
 				Pass::call(design, args);
