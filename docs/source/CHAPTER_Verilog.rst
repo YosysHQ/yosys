@@ -180,12 +180,13 @@ new object. This simplifies the creation of AST nodes for simple
 expressions a bit. For example the bison code for parsing
 multiplications:
 
-::
+.. code:: none
+   	:number-lines:
 
-           basic_expr '*' attr basic_expr {
-                   $$ = new AstNode(AST_MUL, $1, $4);
-                   append_attr($$, $3);
-           } |
+	basic_expr '*' attr basic_expr {
+		$$ = new AstNode(AST_MUL, $1, $4);
+		append_attr($$, $3);
+	} |
 
 The generated AST data structure is then passed directly to the AST
 frontend that performs the actual conversion to RTLIL.
@@ -326,7 +327,8 @@ This is translated by the Verilog and AST frontends into the following
 RTLIL code (attributes, cell parameters and wire declarations not
 included):
 
-::
+.. code:: RTLIL
+   :number-lines:
 
    cell $logic_not $logic_not$<input>:4$2
      connect \A \in1

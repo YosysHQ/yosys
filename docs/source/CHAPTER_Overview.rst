@@ -303,7 +303,8 @@ In this example there is no data path and therefore the RTLIL::Module generated
 by the frontend only contains a few RTLIL::Wire objects and an RTLIL::Process.
 The RTLIL::Process in RTLIL syntax:
 
-::
+.. code:: RTLIL
+   :number-lines:
 
    process $proc$ff_with_en_and_async_reset.v:4$1
        assign $0\q[0:0] \q
@@ -384,7 +385,8 @@ synthesis scripts is identifying asynchronous resets. This is usually done using
 the proc_arst pass. This pass transforms the above example to the following
 RTLIL::Process:
 
-::
+.. code:: RTLIL
+   :number-lines:
 
    process $proc$ff_with_en_and_async_reset.v:4$1
        assign $0\q[0:0] \q
@@ -404,7 +406,8 @@ RTLIL::SyncRule object for the \\reset signal. Further processing converts the
 RTLIL::Process into e.g. a d-type flip-flop with asynchronous reset and a
 multiplexer for the enable signal:
 
-::
+.. code:: RTLIL
+   :number-lines:
 
    cell $adff $procdff$6
        parameter \ARST_POLARITY 1'1

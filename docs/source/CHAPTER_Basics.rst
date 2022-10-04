@@ -589,7 +589,8 @@ grammar description in Backus-Naur Form (BNF).
 
 Let's consider the following BNF (in Bison syntax):
 
-::
+.. code:: none
+   :number-lines:
 
    assign_stmt: TOK_ASSIGN TOK_IDENTIFIER TOK_EQ expr TOK_SEMICOLON;
    expr: TOK_IDENTIFIER | TOK_NUMBER | expr TOK_PLUS expr;
