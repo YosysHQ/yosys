@@ -527,6 +527,8 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 	}
 
 	log("Raw database size: %d\n", GetSize(database));
+	if (N > GetSize(database))
+		log_warning("%d mutations requested but only %d could be created!\n", N, GetSize(database));
 	if (N != 0) {
 		database_reduce(database, opts, opts.none ? N-1 : N, rng);
 		log("Reduced database size: %d\n", GetSize(database));
