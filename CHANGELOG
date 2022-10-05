@@ -4,6 +4,14 @@ List of major changes and improvements between releases
 
 Yosys 0.21 .. Yosys 0.21-dev
 --------------------------
+ * Verific support
+    - Added support for here-document for "verific" command (for reading
+      source files).
+    - Added support for reading EDIF files using Verific library.
+      (Optinally enabled with ENABLE_VERIFIC_EDIF)
+
+ * Various
+    - Added tech specific utilization to "stat" json.
 
 Yosys 0.20 .. Yosys 0.21
 --------------------------
