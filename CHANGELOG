@@ -2,7 +2,7 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.21 .. Yosys 0.21-dev
+Yosys 0.21 .. Yosys 0.22
 --------------------------
  * Verific support
     - Added support for here-document for "verific" command (for reading
