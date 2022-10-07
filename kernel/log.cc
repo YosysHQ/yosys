@@ -352,6 +352,9 @@ static void logv_error_with_prefix(const char *prefix,
 		log_error_atexit();
 
 	YS_DEBUGTRAP_IF_DEBUGGING;
+	const char *e = getenv("YOSYS_ABORT_ON_LOG_ERROR");
+	if (e && atoi(e))
+		abort();
 
 #ifdef EMSCRIPTEN
 	log_files = backup_log_files;

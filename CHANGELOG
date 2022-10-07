@@ -4,6 +4,10 @@ List of major changes and improvements between releases
 
 Yosys 0.22 .. Yosys 0.22-dev
 --------------------------
+ * Various
+    - Added YOSYS_ABORT_ON_LOG_ERROR environment variable for debugging.
+      Setting it to 1 causes abort() to be called when Yosys terminates with an
+      error message.
 
 Yosys 0.21 .. Yosys 0.22
 --------------------------
