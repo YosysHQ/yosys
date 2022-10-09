@@ -55,6 +55,7 @@ noinit = False
 binarymode = False
 keep_going = False
 check_witness = False
+find_loops = False
 so = SmtOpts()
 
 
@@ -175,6 +176,9 @@ def usage():
         check that the used witness file contains sufficient
         constraints to force an assertion failure.
 
+    --find-loops
+        check if states are unique in temporal induction counterexamples
+
 """ + so.helpmsg())
     sys.exit(1)
 
@@ -183,7 +187,7 @@ try:
     opts, args = getopt.getopt(sys.argv[1:], so.shortopts + "t:igcm:", so.longopts +
             ["final-only", "assume-skipped=", "smtc=", "cex=", "aig=", "aig-noheader", "yw=", "btorwit=", "presat",
              "dump-vcd=", "dump-yw=", "dump-vlogtb=", "vlogtb-top=", "dump-smtc=", "dump-all", "noinfo", "append=",
-             "smtc-init", "smtc-top=", "noinit", "binary", "keep-going", "check-witness"])
+             "smtc-init", "smtc-top=", "noinit", "binary", "keep-going", "check-witness", "find-loops"])
 except:
     usage()
 
@@ -264,6 +268,8 @@ for o, a in opts:
         keep_going = True
     elif o == "--check-witness":
         check_witness = True
+    elif o == "--find-loops":
+        find_loops = True
     elif so.handle(o, a):
         pass
     else:
@@ -969,6 +975,38 @@ def write_vcd_trace(steps_start, steps_stop, index):
 
         vcd.set_time(steps_stop)
 
+def find_state_loop(steps_start, steps_stop):
+    print_msg(f"Looking for loops")
+
+    path_list = list()
+
+    for netpath in sorted(smt.hiernets(topmod)):
+        hidden_net = False
+        for n in netpath:
+            if n.startswith("$"):
+                hidden_net = True
+        if not hidden_net:
+            path_list.append(netpath)
+
+    mem_trace_data = collect_mem_trace_data(steps_start, steps_stop)
+
+    states = dict()
+    path_tupled_list = [tuple(p) for p in path_list]
+    for i in range(steps_start, steps_stop):
+        value_list = smt.get_net_bin_list(topmod, path_list, "s%d" % i)
+        state = tuple(zip(path_tupled_list, value_list))
+        if states.get(state):
+            return (i, states[state])
+        else:
+            states[state] = i
+
+        if i in mem_trace_data:
+            if mem_trace_data[i]:
+                print_msg(f"This design contains memory. Searching for counterexample loops will be skipped")
+                return None
+
+    return None
+
 def char_ok_in_verilog(c,i):
     if ('A' <= c <= 'Z'): return True
     if ('a' <= c <= 'z'): return True
@@ -1596,6 +1634,10 @@ if tempind:
                 print_anyconsts(num_steps)
                 print_failed_asserts(num_steps)
                 write_trace(step, num_steps+1, '%', allregs=True)
+                if find_loops:
+                    loop = find_state_loop(step, num_steps+1)
+                    if loop:
+                        print_msg(f"Loop detected, increasing induction depth will not help. Cycle {loop[0]} = cycle {loop[1]}")
 
             elif dumpall:
                 print_anyconsts(num_steps)
