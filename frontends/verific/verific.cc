@@ -2791,6 +2791,20 @@ struct VerificPass : public Pass {
 		}
 
 		veri_file::RemoveAllLOptions();
+		veri_file::AddLOption("work");
+		for (int i = argidx; i < GetSize(args); i++)
+		{
+			if (args[i] == "-work" && i+1 < GetSize(args)) {
+				++i;
+				continue;
+			}
+			if (args[i] == "-L" && i+1 < GetSize(args)) {
+				if (args[++i] == "work")
+					veri_file::RemoveAllLOptions();
+				continue;
+			}
+			break;
+		}
 		for (; argidx < GetSize(args); argidx++)
 		{
 			if (args[argidx] == "-work" && argidx+1 < GetSize(args)) {
