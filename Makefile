@@ -23,7 +23,6 @@ DISABLE_VERIFIC_EXTENSIONS := 0
 DISABLE_VERIFIC_VHDL := 0
 ENABLE_COVER := 1
 ENABLE_LIBYOSYS := 0
-ENABLE_PROTOBUF := 0
 ENABLE_ZLIB := 1
 
 # python wrappers
@@ -544,9 +543,6 @@ LDLIBS += $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VERIFIC_COMPONENTS)) -lz
 endif
 endif
 
-ifeq ($(ENABLE_PROTOBUF),1)
-LDLIBS += $(shell pkg-config --cflags --libs protobuf)
-endif
 
 ifeq ($(ENABLE_COVER),1)
 CXXFLAGS += -DYOSYS_ENABLE_COVER
