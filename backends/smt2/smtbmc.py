@@ -991,8 +991,7 @@ def detect_state_loop(steps_start, steps_stop):
         value_list = smt.get_net_bin_list(topmod, path_list, "s%d" % i)
         mem_state = sorted(
             [(tuple(path), addr, data)
-             for path, addr, data in mem_trace_data.get(i, [])]
-        )
+             for path, addr, data in mem_trace_data.get(i, [])])
         state = tuple(value_list), tuple(mem_state)
         if states.get(state):
             return (i, states[state])
