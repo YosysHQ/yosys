@@ -25,6 +25,19 @@ body:
     validations:
       required: true
 
+  - type: dropdown
+    id: os
+    attributes:
+      label: On which OS did this happen?
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - BSD
+      multiple: true
+    validations:
+      required: true
+
   - type: markdown
     attributes:
       value: >
@@ -60,4 +73,3 @@ body:
       description: "Please describe how the behavior you see differs from the expected behavior."
     validations:
       required: true
-
