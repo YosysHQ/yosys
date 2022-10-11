@@ -7,7 +7,7 @@ module top(...);
 input CLK;
 input EN;
 (* init = 24'h555555 *)
-output [23:0] Q;
+output [19:0] Q;
 input SRST;
 input ARST;
 input [1:0] CLR;

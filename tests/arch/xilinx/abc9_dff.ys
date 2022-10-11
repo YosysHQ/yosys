@@ -12,6 +12,7 @@ FDCE_1 #(.INIT(0)) fd7(.C(C), .CE(1'b1), .D(D), .CLR(1'b1), .Q(Q[6]));
 FDPE_1 #(.INIT(0)) fd8(.C(C), .CE(1'b1), .D(D), .PRE(1'b1), .Q(Q[7]));
 endmodule
 EOT
+read_verilog -lib +/xilinx/cells_sim.v
 equiv_opt -assert -multiclock -map +/xilinx/cells_sim.v synth_xilinx -abc9 -dff -noiopad -noclkbuf
 design -load postopt
 select -assert-count 6 t:FD*
@@ -31,6 +32,7 @@ FDCE_1 #(.INIT(0)) fd7(.C(C), .CE(1'b0), .D(D), .CLR(1'b0), .Q(Q[6]));
 FDPE_1 #(.INIT(0)) fd8(.C(C), .CE(1'b0), .D(D), .PRE(1'b0), .Q(Q[7]));
 endmodule
 EOT
+read_verilog -lib +/xilinx/cells_sim.v
 equiv_opt -assert -multiclock -map +/xilinx/cells_sim.v synth_xilinx -abc9 -dff -noiopad -noclkbuf
 design -load postopt
 select -assert-count 4 t:FD*
@@ -54,6 +56,7 @@ logger -expect warning "Whitebox '\$paramod\\FDRE\\INIT=.*1' with \(\* abc9_flop
 logger -expect warning "Whitebox '\$paramod\\FDRE_1\\INIT=.*1' with \(\* abc9_flop \*\) contains a \$dff cell with non-zero initial state -- this is not supported for ABC9 sequential synthesis. Treating as a blackbox\." 1
 logger -expect warning "Whitebox 'FDSE' with \(\* abc9_flop \*\) contains a \$dff cell with non-zero initial state -- this is not supported for ABC9 sequential synthesis. Treating as a blackbox\." 1
 logger -expect warning "Whitebox '\$paramod\\FDSE_1\\INIT=.*1' with \(\* abc9_flop \*\) contains a \$dff cell with non-zero initial state -- this is not supported for ABC9 sequential synthesis. Treating as a blackbox\." 1
+read_verilog -lib +/xilinx/cells_sim.v
 equiv_opt -assert -multiclock -map +/xilinx/cells_sim.v synth_xilinx -abc9 -dff -noiopad -noclkbuf
 design -load postopt
 select -assert-count 8 t:FD*
@@ -75,6 +78,7 @@ always @(posedge clk or posedge pre)
 endmodule
 EOT
 proc
+read_verilog -lib +/xilinx/cells_sim.v
 equiv_opt -assert -multiclock -map +/xilinx/cells_sim.v synth_xilinx -abc9 -dff -noiopad -noclkbuf
 design -load postopt
 select -assert-count 1 t:FDCE
@@ -94,6 +98,7 @@ assign q = ~r;
 endmodule
 EOT
 proc
+read_verilog -lib +/xilinx/cells_sim.v
 equiv_opt -assert -multiclock -map +/xilinx/cells_sim.v synth_xilinx -abc9 -dff -noiopad -noclkbuf
 design -load postopt
 select -assert-count 1 t:FDRE %co w:r %i
@@ -111,6 +116,7 @@ assign q2 = r;
 endmodule
 EOT
 proc
+read_verilog -lib +/xilinx/cells_sim.v
 equiv_opt -assert -multiclock -map +/xilinx/cells_sim.v synth_xilinx -abc9 -dff -noiopad -noclkbuf
 design -load postopt
 select -assert-count 1 t:FDRE %co %a w:r %i
@@ -128,6 +134,7 @@ assign o = r1 | r2;
 endmodule
 EOT
 proc
+read_verilog -lib +/xilinx/cells_sim.v
 equiv_opt -assert -multiclock -map +/xilinx/cells_sim.v synth_xilinx -abc9 -dff -noiopad -noclkbuf
 
 
