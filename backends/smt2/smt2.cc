@@ -559,6 +559,9 @@ struct Smt2Worker
 		if (cell->type.in(ID($_FF_), ID($_DFF_P_), ID($_DFF_N_)))
 		{
 			registers.insert(cell);
+			SigBit q_bit = cell->getPort(ID::Q);
+			if (q_bit.is_wire())
+				decls.push_back(witness_signal("reg", 1, 0, "", idcounter, q_bit.wire));
 			makebits(stringf("%s#%d", get_id(module), idcounter), 0, log_signal(cell->getPort(ID::Q)));
 			register_bool(cell->getPort(ID::Q), idcounter++);
 			recursive_cells.erase(cell);
@@ -589,9 +592,12 @@ struct Smt2Worker
 			if (cell->type.in(ID($ff), ID($dff)))
 			{
 				registers.insert(cell);
-				for (auto chunk : cell->getPort(ID::Q).chunks())
+				int smtoffset = 0;
+				for (auto chunk : cell->getPort(ID::Q).chunks()) {
 					if (chunk.is_wire())
-						decls.push_back(witness_signal("reg", chunk.width, chunk.offset, "", idcounter, chunk.wire));
+						decls.push_back(witness_signal("reg", chunk.width, chunk.offset, "", idcounter, chunk.wire, smtoffset));
+					smtoffset += chunk.width;
+				}
 				makebits(stringf("%s#%d", get_id(module), idcounter), GetSize(cell->getPort(ID::Q)), log_signal(cell->getPort(ID::Q)));
 				register_bv(cell->getPort(ID::Q), idcounter++);
 				recursive_cells.erase(cell);
@@ -1490,7 +1496,7 @@ struct Smt2Worker
 		return path;
 	}
 
-	std::string witness_signal(const char *type, int width, int offset, const std::string &smtname, int smtid, RTLIL::Wire *wire)
+	std::string witness_signal(const char *type, int width, int offset, const std::string &smtname, int smtid, RTLIL::Wire *wire, int smtoffset = 0)
 	{
 		std::vector<std::string> hiername;
 		const char *wire_name = wire->name.c_str();
@@ -1508,6 +1514,7 @@ struct Smt2Worker
 			{ "offset", offset },
 			{ "width", width },
 			{ "smtname", smtname.empty() ? json11::Json(smtid) : json11::Json(smtname) },
+			{ "smtoffset", smtoffset },
 			{ "path", witness_path(wire) },
 		}}).dump(line);
 		line += "\n";
