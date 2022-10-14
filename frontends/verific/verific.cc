@@ -3235,6 +3235,7 @@ struct VerificPass : public Pass {
 					MapIter mi ;
 					Verific::Cell *c ;
 					FOREACH_CELL_OF_LIBRARY(l,mi,c) {
+						if (!mode_verific && (l == Library::Primitives() || l == Library::Operators())) continue;
 						MapIter ni ;
 						if (c->NumOfNetlists() == 1) {
 							c->GetFirstNetlist()->SetName("");
