@@ -2533,6 +2533,10 @@ struct VerificPass : public Pass {
 		log("  -fullinit\n");
 		log("    Keep all register initializations, even those for non-FF registers.\n");
 		log("\n");
+		log("  -cells\n");
+		log("    Import all cell definitions from Verific loaded libraries even if they are\n");
+		log("    unused in design. Useful with \"-edif\" option.\n");
+		log("\n");
 		log("  -chparam name value \n");
 		log("    Elaborate the specified top modules (all modules when -all given) using\n");
 		log("    this parameter value. Modules on which this parameter does not exist will\n");
@@ -3052,7 +3056,7 @@ struct VerificPass : public Pass {
 			bool mode_all = false, mode_gates = false, mode_keep = false;
 			bool mode_nosva = false, mode_names = false, mode_verific = false;
 			bool mode_autocover = false, mode_fullinit = false;
-			bool flatten = false, extnets = false;
+			bool flatten = false, extnets = false, mode_cells = false;
 			string dumpfile;
 			string ppfile;
 			Map parameters(STRING_HASH);
@@ -3096,6 +3100,10 @@ struct VerificPass : public Pass {
 				}
 				if (args[argidx] == "-fullinit") {
 					mode_fullinit = true;
+					continue;
+				}
+				if (args[argidx] == "-cells") {
+					mode_cells = true;
 					continue;
 				}
 				if (args[argidx] == "-chparam"  && argidx+2 < GetSize(args)) {
@@ -3217,6 +3225,27 @@ struct VerificPass : public Pass {
 					nl_todo.emplace(nl->CellBaseName(), nl);
 				}
 				delete netlists;
+			}
+			if (mode_cells) {
+				log("Importing all cells.\n");
+				Libset *gls = Libset::Global() ;
+				MapIter it ;
+				Library *l ;
+				FOREACH_LIBRARY_OF_LIBSET(gls,it,l) {
+					MapIter mi ;
+					Verific::Cell *c ;
+					FOREACH_CELL_OF_LIBRARY(l,mi,c) {
+						MapIter ni ;
+						if (c->NumOfNetlists() == 1) {
+							c->GetFirstNetlist()->SetName("");
+						}
+						Netlist *nl;
+						FOREACH_NETLIST_OF_CELL(c, ni, nl) {
+							if (nl)
+								nl_todo.emplace(nl->CellBaseName(), nl);
+						}
+					}
+				}
 			}
 
 			if (!verific_error_msg.empty())
