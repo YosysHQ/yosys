@@ -3607,6 +3607,7 @@ static int fstReaderRecreateHierFile(struct fstReaderContext *xc)
             fflush(xc->f);
 #endif
             zfd = dup(fileno(xc->f));
+	    lseek(zfd, ftell(xc->f), SEEK_SET);
             zhandle = gzdopen(zfd, "rb");
             if (!zhandle) {
                 close(zfd);
