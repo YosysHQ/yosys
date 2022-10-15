@@ -4272,6 +4272,7 @@ int fstReaderInit(struct fstReaderContext *xc)
 #endif
 
         zfd = dup(fileno(xc->f));
+	lseek(zfd, ftell(xc->f), SEEK_SET);
         zhandle = gzdopen(zfd, "rb");
         if (zhandle) {
             for (offpnt = 0; offpnt < uclen; offpnt += FST_GZIO_LEN) {
