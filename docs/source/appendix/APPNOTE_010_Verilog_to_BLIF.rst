@@ -39,7 +39,7 @@ Converting softusb_navre.v to softusb_navre.blif could not be easier:
    yosys -o softusb_navre.blif -S softusb_navre.v
 
 Behind the scenes Yosys is controlled by synthesis scripts that execute
-commands that operate on Yosys’ internal state. For example, the -o
+commands that operate on Yosys' internal state. For example, the -o
 softusb_navre.blif option just adds the command write_blif
 softusb_navre.blif to the end of the script. Likewise a file on the
 command line – softusb_navre.v in this case – adds the command
@@ -77,18 +77,18 @@ the input files.
 
 The 3rd line does most of the actual work:
 
--  The command opt is the Yosys’ built-in optimizer. It can perform some
+-  The command opt is the Yosys' built-in optimizer. It can perform some
    simple optimizations such as const-folding and removing unconnected
    parts of the design. It is common practice to call opt after each
    major step in the synthesis procedure. In cases where too much
    optimization is not appreciated (for example when analyzing a
    design), it is recommended to call clean instead of opt.
 
--  The command proc converts processes (Yosys’ internal representation
+-  The command proc converts processes (Yosys' internal representation
    of Verilog always- and initial-blocks) to circuits of multiplexers
    and storage elements (various types of flip-flops).
 
--  The command memory converts Yosys’ internal representations of arrays
+-  The command memory converts Yosys' internal representations of arrays
    and array accesses to multi-port block memories, and then maps this
    block memories to address decoders and flip-flops, unless the option
    -nomap is used, in which case the multi-port block memories stay in
@@ -131,7 +131,7 @@ extracts them, performs some basic optimizations and then generate a
 circuit from the extracted and optimized description. It would also be
 possible to tell the fsm command to leave the FSMs in their extracted
 form, so they can be further processed using custom commands. But in
-this case we don’t want that.
+this case we don't want that.
 
 So now we have the final synthesis script for generating a BLIF file for
 the Navré CPU:
@@ -294,7 +294,7 @@ Listing \ :numref:`sieve` in the test-bench.
 
 For simulation the BLIF file was converted back to Verilog using ABC
 :cite:p:`ABC`. So this test includes the successful
-transformation of the BLIF file into ABC’s internal format as well.
+transformation of the BLIF file into ABC's internal format as well.
 
 The only thing left to write about the simulation itself is that it
 probably was one of the most energy inefficient and time consuming ways
