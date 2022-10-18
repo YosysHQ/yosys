@@ -993,7 +993,7 @@ def detect_state_loop(steps_start, steps_stop):
             [(tuple(path), addr, data)
              for path, addr, data in mem_trace_data.get(i, [])])
         state = tuple(value_list), tuple(mem_state)
-        if states.get(state):
+        if state in states:
             return (i, states[state])
         else:
             states[state] = i
