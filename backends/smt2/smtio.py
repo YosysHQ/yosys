@@ -701,7 +701,7 @@ class SmtIo:
                 if witness["type"] == "mem":
                     if allregs and not witness["rom"]:
                         width, size = witness["width"], witness["size"]
-                        witness = {**witness, "uninitialized": {"width": width * size, "offset": 0}}
+                        witness = {**witness, "uninitialized": [{"width": width * size, "offset": 0}]}
                     if not witness["uninitialized"]:
                         continue
 
