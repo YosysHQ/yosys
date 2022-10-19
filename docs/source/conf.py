@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+import sys
+import os
+
 project = 'YosysHQ Yosys'
 author = 'YosysHQ GmbH'
 copyright ='2022 YosysHQ GmbH'
@@ -49,3 +52,8 @@ latex_elements = {
 \usepackage[scaled=0.8]{luximono}  % typewriter font with bold face
 '''
 }
+
+def setup(sphinx):
+	sys.path.insert(0, os.path.abspath('./util'))
+	from RtlilLexer import RtlilLexer
+	sphinx.add_lexer("RTLIL", RtlilLexer)
