@@ -701,7 +701,7 @@ class SmtIo:
                 if witness["type"] == "mem":
                     if allregs and not witness["rom"]:
                         width, size = witness["width"], witness["size"]
-                        witness = {**witness, "uninitialized": {"width": width * size, "offset": 0}}
+                        witness = {**witness, "uninitialized": [{"width": width * size, "offset": 0}]}
                     if not witness["uninitialized"]:
                         continue
 
@@ -957,6 +957,15 @@ class SmtIo:
         nextmod = self.modinfo[mod].cells[path[0]]
         nextbase = "(|%s_h %s| %s)" % (mod, path[0], base)
         return self.net_expr(nextmod, nextbase, path[1:])
+
+    def witness_net_expr(self, mod, base, witness):
+        net = self.net_expr(mod, base, witness["smtpath"])
+        is_bool = self.net_width(mod, witness["smtpath"]) == 1
+        if is_bool:
+            assert witness["width"] == 1
+            assert witness["smtoffset"] == 0
+            return net
+        return "((_ extract %d %d) %s)" % (witness["smtoffset"] + witness["width"] - 1, witness["smtoffset"], net)
 
     def net_width(self, mod, net_path):
         for i in range(len(net_path)-1):

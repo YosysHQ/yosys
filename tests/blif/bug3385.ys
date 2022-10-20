@@ -1,0 +1,9 @@
+logger -expect error "Syntax error in line 4: names' input plane must have fewer than 13 signals." 1
+read_blif <<EOF
+.model test
+.inputs w0 w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11 w12 w13 w14 w15 w16 w17 w18 w19 w20 w21 w22 w23 w24 w25 w26 w27 w28 w29 w30
+.outputs out
+.names w0 w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11 w12 w13 w14 w15 w16 w17 w18 w19 w20 w21 w22 w23 w24 w25 w26 w27 w28 w29 w30 out
+1101010001100110010001100111001 0
+.end
+EOF

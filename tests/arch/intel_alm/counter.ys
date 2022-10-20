@@ -2,7 +2,7 @@ read_verilog ../common/counter.v
 hierarchy -top top
 proc
 flatten
-equiv_opt -async2sync -map +/intel_alm/common/alm_sim.v -map +/intel_alm/common/dff_sim.v synth_intel_alm -family cyclonev -noiopad -noclkbuf # equivalency check
+equiv_opt -assert -async2sync -map +/intel_alm/common/alm_sim.v -map +/intel_alm/common/dff_sim.v synth_intel_alm -family cyclonev -noiopad -noclkbuf # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd top # Constrain all select calls below inside the top module
 
@@ -17,7 +17,7 @@ read_verilog ../common/counter.v
 hierarchy -top top
 proc
 flatten
-equiv_opt -async2sync -map +/intel_alm/common/alm_sim.v -map +/intel_alm/common/dff_sim.v synth_intel_alm -family cyclone10gx -noiopad -noclkbuf # equivalency check
+equiv_opt -assert -async2sync -map +/intel_alm/common/alm_sim.v -map +/intel_alm/common/dff_sim.v synth_intel_alm -family cyclone10gx -noiopad -noclkbuf # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd top # Constrain all select calls below inside the top module
 

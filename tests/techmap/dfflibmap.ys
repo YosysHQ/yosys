@@ -17,9 +17,11 @@ EOT
 simplemap
 
 design -save orig
+read_liberty -lib dfflibmap.lib
 
-#equiv_opt -map dfflibmap-sim.v -assert -multiclock dfflibmap -liberty dfflibmap.lib
-#equiv_opt -map dfflibmap-sim.v -assert -multiclock dfflibmap -prepare -liberty dfflibmap.lib
+equiv_opt -map dfflibmap-sim.v -assert -multiclock dfflibmap -liberty dfflibmap.lib
+equiv_opt -map dfflibmap-sim.v -assert -multiclock dfflibmap -prepare -liberty dfflibmap.lib
+
 dfflibmap -prepare -liberty dfflibmap.lib
 equiv_opt -map dfflibmap-sim.v -assert -multiclock dfflibmap -map-only -liberty dfflibmap.lib
 

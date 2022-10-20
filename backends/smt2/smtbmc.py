@@ -676,7 +676,7 @@ if inywfile is not None:
                         if common_end <= common_offset:
                             continue
 
-                        smt_expr = smt.net_expr(topmod, f"s{t}", wire["smtpath"])
+                        smt_expr = smt.witness_net_expr(topmod, f"s{t}", wire)
 
                         if not smt_bool:
                             slice_high = common_end - offset - 1
@@ -1298,7 +1298,8 @@ def write_yw_trace(steps_start, steps_stop, index, allregs=False):
                 sigs = seqs
 
             for sig in sigs:
-                step_values[sig["sig"]] = smt.bv2bin(smt.get(smt.net_expr(topmod, f"s{k}", sig["smtpath"])))
+                value = smt.bv2bin(smt.get(smt.witness_net_expr(topmod, f"s{k}", sig)))
+                step_values[sig["sig"]] = value
             yw.step(step_values)
 
         yw.end_trace()

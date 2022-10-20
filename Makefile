@@ -23,7 +23,6 @@ DISABLE_VERIFIC_EXTENSIONS := 0
 DISABLE_VERIFIC_VHDL := 0
 ENABLE_COVER := 1
 ENABLE_LIBYOSYS := 0
-ENABLE_PROTOBUF := 0
 ENABLE_ZLIB := 1
 
 # python wrappers
@@ -132,7 +131,7 @@ LDLIBS += -lrt
 endif
 endif
 
-YOSYS_VER := 0.22+4
+YOSYS_VER := 0.22+37
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
@@ -544,9 +543,6 @@ LDLIBS += $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VERIFIC_COMPONENTS)) -lz
 endif
 endif
 
-ifeq ($(ENABLE_PROTOBUF),1)
-LDLIBS += $(shell pkg-config --cflags --libs protobuf)
-endif
 
 ifeq ($(ENABLE_COVER),1)
 CXXFLAGS += -DYOSYS_ENABLE_COVER

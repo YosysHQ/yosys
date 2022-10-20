@@ -21,6 +21,8 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+const int lut_input_plane_limit = 12;
+
 static bool read_next_line(char *&buffer, size_t &buffer_size, int &line_count, std::istream &f)
 {
 	string strbuf;
@@ -513,6 +515,11 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 					sopmode = -1;
 					lastcell = sopcell;
 				}
+				else if (input_sig.size() > lut_input_plane_limit)
+				{
+					err_reason = stringf("names' input plane must have fewer than %d signals.", lut_input_plane_limit + 1);
+					goto error_with_reason;
+				}
 				else
 				{
 					RTLIL::Cell *cell = module->addCell(NEW_ID, ID($lut));
@@ -576,7 +583,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 
 		if (lutptr)
 		{
-			if (input_len > 12)
+			if (input_len > lut_input_plane_limit)
 				goto error;
 
 			for (int i = 0; i < (1 << input_len); i++) {
