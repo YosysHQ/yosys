@@ -116,7 +116,7 @@ this purpose, we describe a customized Yosys synthesis flow, that is also
 provided by the ``verilog2btor.sh`` script. :numref:`btor_script_memory` shows
 the Yosys commands that are executed by ``verilog2btor.sh``.
 
-.. code-block:: sh
+.. code-block:: yoscrypt
    :caption: Synthesis Flow for BTOR with memories
    :name: btor_script_memory
 

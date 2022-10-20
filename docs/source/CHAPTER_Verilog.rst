@@ -191,8 +191,8 @@ multiplications:
 The generated AST data structure is then passed directly to the AST
 frontend that performs the actual conversion to RTLIL.
 
-Note that the Yosys command read_verilog provides the options -yydebug
-and -dump_ast that can be used to print the parse tree or abstract
+Note that the Yosys command ``read_verilog`` provides the options ``-yydebug``
+and ``-dump_ast`` that can be used to print the parse tree or abstract
 syntax tree respectively.
 
 Transforming AST to RTLIL
@@ -202,7 +202,7 @@ The AST Frontend converts a set of modules in AST representation to
 modules in RTLIL representation and adds them to the current design.
 This is done in two steps: simplification and RTLIL generation.
 
-The source code to the AST frontend can be found in frontends/ast/ in
+The source code to the AST frontend can be found in ``frontends/ast/`` in
 the Yosys source tree.
 
 AST Simplification

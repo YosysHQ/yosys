@@ -57,3 +57,6 @@ def setup(sphinx):
 	sys.path.insert(0, os.path.abspath('./util'))
 	from RtlilLexer import RtlilLexer
 	sphinx.add_lexer("RTLIL", RtlilLexer)
+
+	from YoscryptLexer import YoscryptLexer
+	sphinx.add_lexer("yoscrypt", YoscryptLexer)

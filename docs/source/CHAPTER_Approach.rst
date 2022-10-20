@@ -105,7 +105,7 @@ the behavioural Verilog code from the input file design.v to a
 gate-level netlist synth.v using the cell library described by the
 Liberty file :
 
-.. code:: sh
+.. code:: yoscrypt
    :number-lines:
 
    # read input file to internal representation

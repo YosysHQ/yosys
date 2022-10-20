@@ -59,7 +59,7 @@ Using a Synthesis Script
 With a script file we have better control over Yosys. The following
 script file replicates what the command from the last section did:
 
-.. code:: sh
+.. code:: yoscrypt
 
    read_verilog softusb_navre.v
    hierarchy
@@ -136,7 +136,7 @@ this case we don't want that.
 So now we have the final synthesis script for generating a BLIF file for
 the Navré CPU:
 
-.. code:: sh
+.. code:: yoscrypt
 
    read_verilog softusb_navre.v
    hierarchy -check -top softusb_navre
@@ -150,7 +150,7 @@ Our 2nd example is the Amber23 :cite:p:`amber` ARMv2a CPU.
 Once again we base our example on the Verilog code that is included in
 yosys-bigsim :cite:p:`YosysBigsim`.
 
-.. code-block:: sh
+.. code-block:: yoscrypt
    :caption: `amber23.ys`
    :name: amber23.ys
 
@@ -176,24 +176,21 @@ yosys-bigsim :cite:p:`YosysBigsim`.
    opt; memory; opt; fsm; opt; techmap
    write_blif amber23.blif
 
-The problem with this core is that it contains no dedicated reset logic.
-Instead the coding techniques shown in
-Listing \ :numref:`glob_arst` are used to define reset values
-for the global asynchronous reset in an FPGA implementation. This design
-can not be expressed in BLIF as it is. Instead we need to use a
-synthesis script that transforms this form to synchronous resets that
-can be expressed in BLIF.
+The problem with this core is that it contains no dedicated reset logic. Instead
+the coding techniques shown in :numref:`glob_arst` are used to define reset
+values for the global asynchronous reset in an FPGA implementation. This design
+can not be expressed in BLIF as it is. Instead we need to use a synthesis script
+that transforms this form to synchronous resets that can be expressed in BLIF.
 
 (Note that there is no problem if this coding techniques are used to
 model ROM, where the register is initialized using this syntax but is
 never updated otherwise.)
 
-Listing \ :numref:`amber23.ys` shows the synthesis script for
-the Amber23 core. In line 17 the add command is used to add a 1-bit wide
-global input signal with the name globrst. That means that an input with
-that name is added to each module in the design hierarchy and then all
-module instantiations are altered so that this new signal is connected
-throughout the whole design hierarchy.
+:numref:`amber23.ys` shows the synthesis script for the Amber23 core. In line 17
+the add command is used to add a 1-bit wide global input signal with the name
+globrst. That means that an input with that name is added to each module in the
+design hierarchy and then all module instantiations are altered so that this new
+signal is connected throughout the whole design hierarchy.
 
 .. code-block:: verilog
    :caption: Implicit coding of global asynchronous resets
@@ -235,16 +232,14 @@ In line 18 the proc command is called. But in this script the signal
 name globrst is passed to the command as a global reset signal for
 resetting the registers to their assigned initial values.
 
-Finally in line 19 the techmap command is used to replace all instances
-of flip-flops with asynchronous resets with flip-flops with synchronous
-resets. The map file used for this is shown in
-Listing \ :numref:`adff2dff.v`. Note how the techmap_celltype
-attribute is used in line 1 to tell the techmap command which cells to
-replace in the design, how the \_TECHMAP_FAIL\_ wire in lines 15 and 16
+Finally in line 19 the techmap command is used to replace all instances of
+flip-flops with asynchronous resets with flip-flops with synchronous resets. The
+map file used for this is shown in :numref:`adff2dff.v`. Note how the
+techmap_celltype attribute is used in line 1 to tell the techmap command which
+cells to replace in the design, how the \_TECHMAP_FAIL\_ wire in lines 15 and 16
 (which evaluates to a constant value) determines if the parameter set is
-compatible with this replacement circuit, and how the \_TECHMAP_DO\_
-wire in line 13 provides a mini synthesis-script to be used to process
-this cell.
+compatible with this replacement circuit, and how the \_TECHMAP_DO\_ wire in
+line 13 provides a mini synthesis-script to be used to process this cell.
 
 .. code-block:: c
    :caption: Test program for the Amber23 CPU (Sieve of Eratosthenes). Compiled 
@@ -285,12 +280,10 @@ this cell.
 Verification of the Amber23 CPU
 ===============================
 
-The BLIF file for the Amber23 core, generated using
-Listings \ :numref:`amber23.ys` and
-:numref:`adff2dff.v` and the version of the Amber23 RTL source
-that is bundled with yosys-bigsim, was verified using the test-bench
-from yosys-bigsim. It successfully executed the program shown in
-Listing \ :numref:`sieve` in the test-bench.
+The BLIF file for the Amber23 core, generated using :numref:`amber23.ys` and
+:numref:`adff2dff.v` and the version of the Amber23 RTL source that is bundled
+with yosys-bigsim, was verified using the test-bench from yosys-bigsim. It
+successfully executed the program shown in :numref:`sieve` in the test-bench.
 
 For simulation the BLIF file was converted back to Verilog using ABC
 :cite:p:`ABC`. So this test includes the successful
