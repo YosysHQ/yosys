@@ -453,7 +453,6 @@ assert topmod in smt.modinfo
 
 if cexfile is not None:
     if not got_topt:
-        assume_skipped = 0
         skip_steps = 0
         num_steps = 0
 
@@ -499,7 +498,6 @@ if aimfile is not None:
     latch_map = dict()
 
     if not got_topt:
-        assume_skipped = 0
         skip_steps = 0
         num_steps = 0
 
@@ -633,7 +631,6 @@ if aimfile is not None:
 
 if inywfile is not None:
     if not got_topt:
-        assume_skipped = 0
         skip_steps = 0
         num_steps = 0
 
