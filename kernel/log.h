@@ -419,6 +419,18 @@ static inline void log_dump_val_worker(pool<K, OPS> &v) {
 	log(" }");
 }
 
+template<typename K>
+static inline void log_dump_val_worker(std::vector<K> &v) {
+	log("{");
+	bool first = true;
+	for (auto &it : v) {
+		log(first ? " " : ", ");
+		log_dump_val_worker(it);
+		first = false;
+	}
+	log(" }");
+}
+
 template<typename T>
 static inline void log_dump_val_worker(T *ptr) { log("%p", ptr); }
 
