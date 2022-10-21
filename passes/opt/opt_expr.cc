@@ -1494,7 +1494,7 @@ skip_identity:
 			RTLIL::SigSpec input = assign_map(cell->getPort(ID::S));
 			RTLIL::SigSpec inA = assign_map(cell->getPort(ID::A));
 			RTLIL::SigSpec inB = assign_map(cell->getPort(ID::B));
-			if (input.is_fully_const())
+			if (input.is_fully_const() && (!keepdc || input.is_fully_def()))
 				ACTION_DO(ID::Y, input.as_bool() ? cell->getPort(ID::B) : cell->getPort(ID::A));
 			else if (inA == inB)
 				ACTION_DO(ID::Y, cell->getPort(ID::A));
