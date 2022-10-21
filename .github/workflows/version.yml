@@ -10,15 +10,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - name: Take last commit
         id: log
-        run: echo "::set-output name=message::$(git log --no-merges -1 --oneline)"
+        run: echo "message=$(git log --no-merges -1 --oneline)" >> $GITHUB_OUTPUT
       - name: Take repository
         id: repo
-        run: echo "::set-output name=message::$GITHUB_REPOSITORY"
+        run: echo "message=$GITHUB_REPOSITORY" >> $GITHUB_OUTPUT
       - name: Bump version
         if: "!contains(steps.log.outputs.message, 'Bump version') && contains(steps.repo.outputs.message, 'YosysHQ/yosys')"
         run: |
