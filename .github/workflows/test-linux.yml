@@ -84,7 +84,7 @@ jobs:
           $CXX --version
 
       - name: Checkout Yosys
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Get iverilog
         shell: bash
@@ -93,7 +93,7 @@ jobs:
 
       - name: Cache iverilog
         id: cache-iverilog
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: .local/
           key: ${{ matrix.os.id }}-${{ hashFiles('iverilog/.git/refs/heads/master') }}

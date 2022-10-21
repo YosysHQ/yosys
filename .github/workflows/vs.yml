@@ -6,16 +6,16 @@ jobs:
   yosys-vcxsrc:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Cache sources
         id: cache-sources
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: .
           key: cache-yosys
       - name: Build
         run: make vcxsrc YOSYS_VER=latest
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           name: vcxsrc
           path: yosys-win32-vcxsrc-latest.zip
@@ -24,7 +24,7 @@ jobs:
     runs-on: windows-2019
     needs: yosys-vcxsrc
     steps:  
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v3
         with:
           name: vcxsrc
           path: .
