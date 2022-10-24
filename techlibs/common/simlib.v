@@ -1282,10 +1282,7 @@ input S;
 output reg [WIDTH-1:0] Y;
 
 always @* begin
-	if (S)
-		Y = B;
-	else
-		Y = A;
+	assign Y = S ? B : A;
 end
 
 endmodule
