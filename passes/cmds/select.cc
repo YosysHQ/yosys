@@ -1607,11 +1607,13 @@ struct CdPass : public Pass {
 		log("with the specified name in the current module, then this is equivalent\n");
 		log("to 'cd <celltype>'.\n");
 		log("\n");
+		log("\n");
 		log("    cd ..\n");
 		log("\n");
 		log("Remove trailing substrings that start with '.' in current module name until\n");
 		log("the name of a module in the current design is generated, then switch to that\n");
 		log("module. Otherwise clear the current selection.\n");
+		log("\n");
 		log("\n");
 		log("    cd\n");
 		log("\n");

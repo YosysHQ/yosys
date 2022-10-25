@@ -836,12 +836,12 @@ struct HelpPass : public Pass {
 		// render html
 		fprintf(f, ".. only:: html\n\n");
 		fprintf(f, "    :code:`yosys> help %s`\n", cmd.c_str());
-		fprintf(f, "    ----------------------------------------------------------------------------\n\n");
+		fprintf(f, "    ----------------------------------------------------------------------------\n");
 		std::stringstream ss;
 		std::string textcp = text;
 		ss << text;
 		bool IsUsage = true;
-		bool WasBlank = false;
+		int blank_count = 0;
 		size_t def_strip_count = 0;
 		bool WasDefinition = false;
 		for (std::string line; std::getline(ss, line, '\n');) {
@@ -850,8 +850,9 @@ struct HelpPass : public Pass {
 			std::size_t last_pos = line.find_last_not_of(" \t");
 			if (first_pos == std::string::npos) {
 				// skip formatting empty lines
-				fputc('\n', f);
-				WasBlank = true;
+				if (!WasDefinition)
+					fputc('\n', f);
+				blank_count += 1;
 				continue;
 			}
 
@@ -859,36 +860,48 @@ struct HelpPass : public Pass {
 			std::string stripped_line = line.substr(first_pos, last_pos - first_pos +1);
 			bool IsDefinition = stripped_line[0] == '-';
 			IsDefinition &= stripped_line[1] != ' ' && stripped_line[1] != '>';
-			bool IsDedent = first_pos <= def_strip_count;
+			bool IsDedent = def_strip_count && first_pos <= def_strip_count;
 			bool IsIndent = first_pos == 2 || first_pos == 4;
 			if (cmd.compare(0, 7, "verific") == 0)
 				// verific.cc has strange and different formatting from the rest
 				IsIndent = false;
 
+			// another usage block
+			bool NewUsage = stripped_line.find(cmd) == 0;
+
 			if (IsUsage) {
-				if (stripped_line.compare(0, 3, "See")) 
-					// usage should be the first line of help output
-					fprintf(f, "    Usage: :code:`%s` ::\n\n", stripped_line.c_str());
-				else
+				if (stripped_line.compare(0, 3, "See") == 0) {
 					// description refers to another function
-					fprintf(f, "    %s\n", stripped_line.c_str());
+					fprintf(f, "\n    %s\n", stripped_line.c_str());
+				} else {
+					// usage should be the first line of help output
+					fprintf(f, "\n    :code:`%s`", stripped_line.c_str());
+					WasDefinition = true;
+				}
 				IsUsage = false;
-			} else if (IsIndent && IsDefinition && (WasBlank || WasDefinition)) {
+			} else if (IsIndent && NewUsage && (blank_count >= 2 || WasDefinition)) {
+				fprintf(f, "\n\n    :code:`%s`", stripped_line.c_str());
+				WasDefinition = true;
+				def_strip_count = 0;
+			} else if (IsIndent && IsDefinition && (blank_count || WasDefinition)) {
 				// format definition term
-				fprintf(f, "    :code:`%s` ::\n\n", stripped_line.c_str());
+				fprintf(f, "\n\n    :code:`%s`", stripped_line.c_str());
 				WasDefinition = true;
 				def_strip_count = first_pos;
-			} else if (WasDefinition && IsDedent) {
-				// no longer in definition, start new code block
-				fprintf(f, "    ::\n\n        %s\n", line.c_str());
-				WasDefinition = false;
-			} else if (WasDefinition) {
-				// format definition
-				fprintf(f, "        %s\n", line.substr(def_strip_count, std::string::npos).c_str());
 			} else {
-				fprintf(f, "        %s\n", line.c_str());
+				if (IsDedent) {
+					fprintf(f, "\n\n    ::\n");
+					def_strip_count = first_pos;
+				} else if (WasDefinition) {
+					fprintf(f, " ::\n");
+					WasDefinition = false;
+				}
+				fprintf(f, "\n        %s", line.substr(def_strip_count, std::string::npos).c_str());
 			}
+
+			blank_count = 0;
 		}
+		fputc('\n', f);
 
 		// render latex
 		fprintf(f, ".. only:: latex\n\n");
