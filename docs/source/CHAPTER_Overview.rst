@@ -11,8 +11,8 @@ framework that can be used to test algorithms on complex real-world designs.
 
 Yosys can synthesize a large subset of Verilog 2005 and has been tested with a
 wide range of real-world designs, including the OpenRISC 1200 CPU
-:cite:p:`OR1200`, the openMSP430 CPU :cite:p:`openMSP430`, the OpenCores I$^2$C
-master :cite:p:`i2cmaster` and the k68 CPU :cite:p:`k68`.
+:cite:p:`OR1200`, the openMSP430 CPU :cite:p:`openMSP430`, the OpenCores I\
+:sup:`2`\ C master :cite:p:`i2cmaster` and the k68 CPU :cite:p:`k68`.
 
 As of this writing a Yosys VHDL frontend is in development.
 
