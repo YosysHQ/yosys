@@ -9,6 +9,9 @@ Yosys 0.22 .. Yosys 0.22-dev
       Setting it to 1 causes abort() to be called when Yosys terminates with an
       error message.
 
+ * Verilog
+    - Support for module-scoped identifiers referring to tasks and functions.
+
 Yosys 0.21 .. Yosys 0.22
 --------------------------
  * Verific support
