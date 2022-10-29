@@ -1279,11 +1279,9 @@ parameter WIDTH = 0;
 
 input [WIDTH-1:0] A, B;
 input S;
-output reg [WIDTH-1:0] Y;
+output [WIDTH-1:0] Y;
 
-always @* begin
-	assign Y = S ? B : A;
-end
+assign Y = S ? B : A;
 
 endmodule
 
