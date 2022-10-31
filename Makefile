@@ -928,13 +928,11 @@ ifeq ($(ENABLE_PYOSYS),1)
 endif
 endif
 
-update-manual: $(TARGETS) $(EXTRA_TARGETS)
-	cd manual && ../$(PROGRAM_PREFIX)yosys -p 'help -write-tex-command-reference-manual'
-
+DOC_TARGET ?= html
 manual: $(TARGETS) $(EXTRA_TARGETS)
-	cd manual && bash appnotes.sh
-	cd manual && bash presentation.sh
-	cd manual && bash manual.sh
+	mkdir -p docs/source/cmd
+	yosys -p 'help -write-rst-command-reference-manual'
+	cd docs && $(MAKE) $(DOC_TARGET)
 
 clean:
 	rm -rf share
@@ -952,6 +950,7 @@ clean:
 	rm -rf vloghtb/Makefile vloghtb/refdat vloghtb/rtl vloghtb/scripts vloghtb/spec vloghtb/check_yosys vloghtb/vloghammer_tb.tar.bz2 vloghtb/temp vloghtb/log_test_*
 	rm -f tests/svinterfaces/*.log_stdout tests/svinterfaces/*.log_stderr tests/svinterfaces/dut_result.txt tests/svinterfaces/reference_result.txt tests/svinterfaces/a.out tests/svinterfaces/*_syn.v tests/svinterfaces/*.diff
 	rm -f  tests/tools/cmp_tbdata
+	rm -rf docs/build docs/source/cmd docs/util/__pycache__
 
 clean-abc:
 	$(MAKE) -C abc DEP= clean
