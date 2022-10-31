@@ -70,6 +70,7 @@ properties:
 
 .. list-table:: AST node types with their corresponding Verilog constructs.
     :name: tab:Verilog_AstNodeType
+    :widths: 50 50
 
     * - AST Node Type
       - Corresponding Verilog Construct

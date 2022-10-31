@@ -129,8 +129,8 @@ The opt_clean pass
 ~~~~~~~~~~~~~~~~~~
 
 This pass identifies unused signals and cells and removes them from the design.
-It also creates an attribute on wires with unused bits. This attribute can be
-used for debugging or by other optimization passes.
+It also creates an ``\unused_bits`` attribute on wires with unused bits. This
+attribute can be used for debugging or by other optimization passes.
 
 The opt_merge pass
 ~~~~~~~~~~~~~~~~~~
@@ -183,10 +183,11 @@ fsm pass simply executes the following other passes:
    -  fsm_map
 
 The fsm_detect pass identifies FSM state registers and marks them using the
-attribute. The fsm_extract extracts all FSMs marked using the attribute (unless
-is set to "none") and replaces the corresponding RTL cells with a $fsm cell. All
-other fsm\_ passes operate on these $fsm cells. The fsm_map call finally
-replaces the $fsm cells with RTL cells.
+``\fsm_encoding = "auto"`` attribute. The fsm_extract extracts all FSMs marked
+using the ``\fsm_encoding`` attribute (unless ``\fsm_encoding`` is set to
+"none") and replaces the corresponding RTL cells with a $fsm cell. All other
+fsm\_ passes operate on these $fsm cells. The fsm_map call finally replaces the
+$fsm cells with RTL cells.
 
 Note that these optimizations operate on an RTL netlist. I.e. the fsm pass
 should be executed after the proc pass has transformed all RTLIL::Process
@@ -198,31 +199,34 @@ general reported technique :cite:p:`fsmextract`.
 FSM Detection
 ~~~~~~~~~~~~~
 
-The fsm_detect pass identifies FSM state registers. It sets the attribute on any
-(multi-bit) wire that matches the following description:
+The fsm_detect pass identifies FSM state registers. It sets the ``\fsm_encoding
+= "auto"`` attribute on any (multi-bit) wire that matches the following
+description:
 
--  Does not already have the attribute.
+-  Does not already have the ``\fsm_encoding`` attribute.
 -  Is not an output of the containing module.
 -  Is driven by single $dff or $adff cell.
--  The -Input of this $dff or $adff cell is driven by a multiplexer tree that
-   only has constants or the old state value on its leaves.
+-  The ``\D``-Input of this $dff or $adff cell is driven by a multiplexer tree
+   that only has constants or the old state value on its leaves.
 -  The state value is only used in the said multiplexer tree or by simple
    relational cells that compare the state value to a constant (usually $eq
    cells).
 
 This heuristic has proven to work very well. It is possible to overwrite it by
-setting on registers that should be considered FSM state registers and setting
-on registers that match the above criteria but should not be considered FSM
-state registers.
+setting ``\fsm_encoding = "auto"`` on registers that should be considered FSM
+state registers and setting ``\fsm_encoding = "none"`` on registers that match
+the above criteria but should not be considered FSM state registers.
 
-Note however that marking state registers with that are not suitable for FSM
-recoding can cause synthesis to fail or produce invalid results.
+Note however that marking state registers with ``\fsm_encoding`` that are not
+suitable for FSM recoding can cause synthesis to fail or produce invalid
+results.
 
 FSM Extraction
 ~~~~~~~~~~~~~~
 
-The fsm_extract pass operates on all state signals marked with the (!= "none")
-attribute. For each state signal the following information is determined:
+The fsm_extract pass operates on all state signals marked with the
+(``\fsm_encoding != "none"``) attribute. For each state signal the following
+information is determined:
 
 -  The state registers
 
@@ -285,9 +289,9 @@ FSM Optimization
 The fsm_opt pass performs basic optimizations on $fsm cells (not including state
 recoding). The following optimizations are performed (in this order):
 
--  Unused control outputs are removed from the $fsm cell. The attribute (that is
-   usually set by the opt_clean pass) is used to determine which control outputs
-   are unused.
+-  Unused control outputs are removed from the $fsm cell. The attribute
+   ``\unused_bits`` (that is usually set by the opt_clean pass) is used to
+   determine which control outputs are unused.
 
 -  Control inputs that are connected to the same driver are merged.
 

@@ -454,9 +454,9 @@ memory object has the following properties:
 All read accesses to the memory are transformed to $memrd cells and all write
 accesses to $memwr cells by the language frontend. These cells consist of
 independent read- and write-ports to the memory. Memory initialization is
-transformed to $meminit cells by the language frontend. The parameter on these
-cells is used to link them together and to the RTLIL::Memory object they belong
-to.
+transformed to $meminit cells by the language frontend. The ``\MEMID`` parameter
+on these cells is used to link them together and to the RTLIL::Memory object
+they belong to.
 
 The rationale behind using separate cells for the individual ports versus
 creating a large multiport memory cell right in the language frontend is that
@@ -490,10 +490,14 @@ selected objects in the current design while dump foobar will only print the
 module foobar and dump \* will print the entire design regardless of the current
 selection.
 
-The selection mechanism is very powerful. For example the command dump \*/t:$add
-%x:+[A] \*/w:\* %i will print all wires that are connected to the port of a $add
-cell. Detailed documentation of the select framework can be found in the command
-reference for the select command.
+.. code:: yoscrypt
+
+	dump */t:$add %x:+[A] \*/w:\* %i
+
+The selection mechanism is very powerful. For example the command above will
+print all wires that are connected to the ``\A`` port of a ``$add`` cell.
+Detailed documentation of the select framework can be found in the command
+reference for the ``select`` command.
 
 Source Tree and Build System
 ----------------------------
