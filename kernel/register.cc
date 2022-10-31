@@ -832,11 +832,12 @@ struct HelpPass : public Pass {
 		fprintf(f, "%s", title_line.c_str());
 		fprintf(f, "%s - %s\n", cmd.c_str(), title.c_str());
 		fprintf(f, "%s\n", title_line.c_str());
+		fprintf(f, ".. raw:: latex\n\n    \\begin{comment}\n\n");
 
 		// render html
-		fprintf(f, ".. only:: html\n\n");
-		fprintf(f, "    :code:`yosys> help %s`\n", cmd.c_str());
-		fprintf(f, "    ----------------------------------------------------------------------------\n");
+		fprintf(f, ":code:`yosys> help %s`\n", cmd.c_str());
+		fprintf(f, "--------------------------------------------------------------------------------\n\n");
+		fprintf(f, ".. container:: cmdref\n");
 		std::stringstream ss;
 		std::string textcp = text;
 		ss << text;
@@ -870,22 +871,23 @@ struct HelpPass : public Pass {
 			bool NewUsage = stripped_line.find(cmd) == 0;
 
 			if (IsUsage) {
-				if (stripped_line.compare(0, 3, "See") == 0) {
+				if (stripped_line.compare(0, 4, "See ") == 0) {
 					// description refers to another function
 					fprintf(f, "\n    %s\n", stripped_line.c_str());
 				} else {
 					// usage should be the first line of help output
-					fprintf(f, "\n    :code:`%s`", stripped_line.c_str());
+					fprintf(f, "\n    .. code:: yoscrypt\n\n        %s\n\n   ", stripped_line.c_str());
 					WasDefinition = true;
 				}
 				IsUsage = false;
 			} else if (IsIndent && NewUsage && (blank_count >= 2 || WasDefinition)) {
-				fprintf(f, "\n\n    :code:`%s`", stripped_line.c_str());
+				// another usage block
+				fprintf(f, "\n    .. code:: yoscrypt\n\n        %s\n\n   ", stripped_line.c_str());
 				WasDefinition = true;
 				def_strip_count = 0;
 			} else if (IsIndent && IsDefinition && (blank_count || WasDefinition)) {
 				// format definition term
-				fprintf(f, "\n\n    :code:`%s`", stripped_line.c_str());
+				fprintf(f, "\n\n    .. code:: yoscrypt\n\n        %s\n\n   ", stripped_line.c_str());
 				WasDefinition = true;
 				def_strip_count = first_pos;
 			} else {
@@ -904,6 +906,7 @@ struct HelpPass : public Pass {
 		fputc('\n', f);
 
 		// render latex
+		fprintf(f, ".. raw:: latex\n\n    \\end{comment}\n\n");
 		fprintf(f, ".. only:: latex\n\n");
 		fprintf(f, "    ::\n\n");
 		std::stringstream ss2;

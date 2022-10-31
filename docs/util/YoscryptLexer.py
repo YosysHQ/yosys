@@ -9,32 +9,49 @@ class YoscryptLexer(RegexLexer):
     aliases = ['yoscrypt']
     filenames = ['*.ys']
     
+    
+    
     tokens = {
         'common': [
             (r'\s+', Whitespace),
             (r'#.*', Comment.Single),
             (r'"', String, 'string'),
+            (r'(\d+)(\')([bdho]? ?\w+)', bygroups(Number, Operator, Number)),
+            (r'(\d+\.\d+)', Number.Float),
+            (r'(\d+)', Number),
             (r'(\$[A-Za-z_0-9]*)', Name.Builtin),
-            (r'([A-Za-z_][A-Za-z_0-9]*)', Name),
+            (r'([A-Za-z_][A-Za-z_0-9\.\\/:-]*)', Name),
+            (r'(\[)(-\S*)(\])', # optional command
+             	bygroups(Operator, Name.Attribute, Operator)),
+            (r'([\[<]\w*[\]>])', Name), # arguments
+            (r'[\{\}\|=\[\],]', Operator),
             (r'.', Comment),
         ],
         'root': [
             (r'([A-Za-z_][A-Za-z_0-9]*)', Keyword, 'command'),
+            (r'(-[A-Za-z_][A-Za-z_0-9]*)', Name.Attribute, 'command'), # shortcut for options
             include('common'),
         ],
         'command': [
             (r'(-[A-Za-z_][A-Za-z_0-9]*)', Name.Attribute),
-            (r'\b-?[0-9]+\b', Number),
             (r'\+/[^\s]+', Name.Class),
             (r'$', Whitespace, '#pop'),
             (r';(?=\s)', Operator, '#pop'),
             (r';{2,3}(?=\s)', Name.Class, '#pop'),
             (r';{1,3}', Error, '#pop'),
-            (r'[ANwismctparn]:', Keyword.Type),
+            (r'([ANwismctparn]:)', Keyword.Type, 'pattern'),
             (r'@', Keyword.Type),
-            (r'%(x|ci|co)e?', Name.Label, 'expansion'),
+            (r'%(x|ci|co)e?', Keyword.Type, 'expansion'),
             (r'%[%nuidDcasmMCR]?', Keyword.Type),
-            (r'[>=<]{1,2}', Operator),
+            (r'/', Operator),
+            include('common'),
+        ],
+        'pattern': [
+            (r'<<', Name), # Not an operator
+            (r'(=|<|<=|>|>=)', Operator),
+            (r':', Keyword.Type),
+            (r'$', Whitespace, '#pop:2'),
+            (r'\s+', Whitespace, '#pop'),
             include('common'),
         ],
         'expansion': [

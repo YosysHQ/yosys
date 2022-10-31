@@ -62,3 +62,12 @@ p {
 .injected .rst-current-version, .injected dt {
     color: #6ecbd7 !important;
 }
+
+.cmdref .highlight-yoscrypt .highlight pre {
+	padding-bottom: 0%;
+	padding-left: 0%;
+}
+
+.cmdref .highlight-none .highlight pre {
+	padding-top: 0%;
+}
