@@ -220,11 +220,11 @@ Here is an example Verilog design that we want to convert to BTOR:
    endmodule
 
 The generated BTOR file that contain memories, using the script shown in
-:numref:`btor_script_memory`:
+:numref:`btor_memory`:
 
-::
+.. code-block::
    :caption: Example - Converted BTOR with memory
-   :name: btor_script_memory
+   :name: btor_memory
 
    1 var 1 clk
    2 array 8 3
@@ -257,12 +257,12 @@ The generated BTOR file that contain memories, using the script shown in
    29 next 8 3 28
 
 And the BTOR file obtained by the script shown in
-:numref:`btor_script_without_memory`, which expands the memory into individual
+:numref:`btor_without_memory`, which expands the memory into individual
 elements:
 
-::
+.. code-block::
    :caption: Example - Converted BTOR with memory
-   :name: btor_script_without_memory
+   :name: btor_without_memory
 
    1 var 1 clk
    2 var 8 mem[0]
@@ -292,11 +292,13 @@ elements:
    26 next 8 21 25
    27 sub 8 3 16
 
-   @\vbox to 0pt{\vss\vdots\vskip3pt}@
+   ...
+
    54 cond 1 53 50 52
    55 root 1 -54
 
-   @\vbox to 0pt{\vss\vdots\vskip3pt}@
+   ...
+
    77 cond 8 76 3 44
    78 cond 8 1 77 44
    79 next 8 44 78
