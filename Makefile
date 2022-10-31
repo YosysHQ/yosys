@@ -56,6 +56,9 @@ PROGRAM_PREFIX :=
 OS := $(shell uname -s)
 PREFIX ?= /usr/local
 INSTALL_SUDO :=
+ifneq ($(filter MINGW%,$(OS)),)
+OS := MINGW
+endif
 
 ifneq ($(wildcard Makefile.conf),)
 include Makefile.conf
@@ -91,6 +94,13 @@ CXXSTD ?= c++11
 CXXFLAGS := $(CXXFLAGS) -Wall -Wextra -ggdb -I. -I"$(YOSYS_SRC)" -MD -MP -D_YOSYS_ -fPIC -I$(PREFIX)/include
 LDLIBS := $(LDLIBS) -lstdc++ -lm
 PLUGIN_LDFLAGS :=
+PLUGIN_LDLIBS :=
+EXE_LDFLAGS :=
+ifeq ($(OS), MINGW)
+EXE_LDFLAGS := -Wl,--export-all-symbols -Wl,--out-implib,libyosys_exe.a
+PLUGIN_LDFLAGS += -L"$(LIBDIR)"
+PLUGIN_LDLIBS := -lyosys_exe
+endif
 
 PKG_CONFIG ?= pkg-config
 SED ?= sed
@@ -436,8 +446,11 @@ endif
 
 ifeq ($(ENABLE_PLUGINS),1)
 CXXFLAGS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --cflags libffi) -DYOSYS_ENABLE_PLUGINS
+ifeq ($(OS), MINGW)
+CXXFLAGS += -Ilibs/dlfcn-win32
+endif
 LDLIBS += $(shell PKG_CONFIG_PATH=$(PKG_CONFIG_PATH) $(PKG_CONFIG) --silence-errors --libs libffi || echo -lffi)
-ifneq ($(OS), $(filter $(OS),FreeBSD OpenBSD NetBSD))
+ifneq ($(OS), $(filter $(OS),FreeBSD OpenBSD NetBSD MINGW))
 LDLIBS += -ldl
 endif
 endif
@@ -646,6 +659,11 @@ OBJS += kernel/cellaigs.o kernel/celledges.o kernel/satgen.o kernel/qcsat.o kern
 ifeq ($(ENABLE_ZLIB),1)
 OBJS += kernel/fstdata.o
 endif
+ifeq ($(ENABLE_PLUGINS),1)
+ifeq ($(OS), MINGW)
+OBJS += libs/dlfcn-win32/dlfcn.o
+endif
+endif
 
 kernel/log.o: CXXFLAGS += -DYOSYS_SRC='"$(YOSYS_SRC)"'
 kernel/yosys.o: CXXFLAGS += -DYOSYS_DATDIR='"$(DATDIR)"' -DYOSYS_PROGRAM_PREFIX='"$(PROGRAM_PREFIX)"'
@@ -724,7 +742,7 @@ yosys.js: $(filter-out yosysjs-$(YOSYS_VER).zip,$(EXTRA_TARGETS))
 endif
 
 $(PROGRAM_PREFIX)yosys$(EXE): $(OBJS)
-	$(P) $(LD) -o $(PROGRAM_PREFIX)yosys$(EXE) $(LDFLAGS) $(OBJS) $(LDLIBS)
+	$(P) $(LD) -o $(PROGRAM_PREFIX)yosys$(EXE) $(EXE_LDFLAGS) $(LDFLAGS) $(OBJS) $(LDLIBS)
 
 libyosys.so: $(filter-out kernel/driver.o,$(OBJS))
 ifeq ($(OS), Darwin)
@@ -767,8 +785,8 @@ LDLIBS_NOVERIFIC = $(LDLIBS)
 endif
 
 $(PROGRAM_PREFIX)yosys-config: misc/yosys-config.in
-	$(P) $(SED) -e 's#@CXXFLAGS@#$(subst -I. -I"$(YOSYS_SRC)",-I"$(DATDIR)/include",$(strip $(CXXFLAGS_NOVERIFIC)))#;' \
-			-e 's#@CXX@#$(strip $(CXX))#;' -e 's#@LDFLAGS@#$(strip $(LDFLAGS) $(PLUGIN_LDFLAGS))#;' -e 's#@LDLIBS@#$(strip $(LDLIBS_NOVERIFIC))#;' \
+	$(P) $(SED) -e 's#@CXXFLAGS@#$(subst -Ilibs/dlfcn-win32,,$(subst -I. -I"$(YOSYS_SRC)",-I"$(DATDIR)/include",$(strip $(CXXFLAGS_NOVERIFIC))))#;' \
+			-e 's#@CXX@#$(strip $(CXX))#;' -e 's#@LDFLAGS@#$(strip $(LDFLAGS) $(PLUGIN_LDFLAGS))#;' -e 's#@LDLIBS@#$(strip $(LDLIBS_NOVERIFIC) $(PLUGIN_LDLIBS))#;' \
 			-e 's#@BINDIR@#$(strip $(BINDIR))#;' -e 's#@DATDIR@#$(strip $(DATDIR))#;' < $< > $(PROGRAM_PREFIX)yosys-config
 	$(Q) chmod +x $(PROGRAM_PREFIX)yosys-config
 
@@ -916,6 +934,12 @@ ifeq ($(ENABLE_PYOSYS),1)
 	$(INSTALL_SUDO) cp misc/__init__.py $(DESTDIR)$(PYTHON_DESTDIR)/$(subst -,_,$(PROGRAM_PREFIX))pyosys/
 endif
 endif
+ifeq ($(ENABLE_PLUGINS),1)
+ifeq ($(OS), MINGW)
+	$(INSTALL_SUDO) mkdir -p $(DESTDIR)$(LIBDIR)
+	$(INSTALL_SUDO) cp libyosys_exe.a $(DESTDIR)$(LIBDIR)/
+endif
+endif
 
 uninstall:
 	$(INSTALL_SUDO) rm -vf $(addprefix $(DESTDIR)$(BINDIR)/,$(notdir $(TARGETS)))
@@ -1040,12 +1064,10 @@ config-mxe: clean
 
 config-msys2-32: clean
 	echo 'CONFIG := msys2-32' > Makefile.conf
-	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
 	echo "PREFIX := $(MINGW_PREFIX)" >> Makefile.conf
 
 config-msys2-64: clean
 	echo 'CONFIG := msys2-64' > Makefile.conf
-	echo 'ENABLE_PLUGINS := 0' >> Makefile.conf
 	echo "PREFIX := $(MINGW_PREFIX)" >> Makefile.conf
 
 config-cygwin: clean
