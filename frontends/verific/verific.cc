@@ -2439,6 +2439,8 @@ struct VerificPass : public Pass {
 		log("    verific {-liberty} <liberty-file>..\n");
 		log("\n");
 		log("Load the specified Liberty files into Verific.\n");
+		log("Default library when -work is not present is one specified in liberty file.\n");
+		log("To use from SystemVerilog or VHDL use -L to specify liberty library.");
 		log("\n");
 		log("    -lib\n");
 		log("        only create empty blackbox modules\n");
