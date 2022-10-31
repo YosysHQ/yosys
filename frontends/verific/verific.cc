@@ -57,6 +57,10 @@ USING_YOSYS_NAMESPACE
 #include "edif_file.h"
 #endif
 
+#ifdef VERIFIC_LIBERTY_SUPPORT
+#include "synlib_file.h"
+#endif
+
 #include "VerificStream.h"
 #include "FileSystem.h"
 
@@ -2359,6 +2363,9 @@ void verific_import(Design *design, const std::map<std::string,std::string> &par
 #ifdef VERIFIC_EDIF_SUPPORT
 	edif_file::Reset();
 #endif
+#ifdef VERIFIC_LIBERTY_SUPPORT
+	synlib_file::Reset();
+#endif
 	Libset::Reset();
 	Message::Reset();
 	RuntimeFlags::DeleteAllFlags();
@@ -2424,6 +2431,13 @@ struct VerificPass : public Pass {
 		log("    verific {-edif} <edif-file>..\n");
 		log("\n");
 		log("Load the specified EDIF files into Verific.\n");
+		log("\n");
+		log("\n");
+#endif
+#ifdef VERIFIC_LIBERTY_SUPPORT
+		log("    verific {-liberty} <liberty-file>..\n");
+		log("\n");
+		log("Load the specified Liberty files into Verific.\n");
 		log("\n");
 		log("\n");
 #endif
@@ -2535,7 +2549,7 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("  -cells\n");
 		log("    Import all cell definitions from Verific loaded libraries even if they are\n");
-		log("    unused in design. Useful with \"-edif\" option.\n");
+		log("    unused in design. Useful with \"-edif\" and \"-liberty\" option.\n");
 		log("\n");
 		log("  -chparam name value \n");
 		log("    Elaborate the specified top modules (all modules when -all given) using\n");
@@ -2729,6 +2743,7 @@ struct VerificPass : public Pass {
 
 		int argidx = 1;
 		std::string work = "work";
+		bool is_work_set = false;
 		veri_file::RegisterCallBackVerificStream(&verific_read_cb);
 
 		if (GetSize(args) > argidx && (args[argidx] == "-set-error" || args[argidx] == "-set-warning" ||
@@ -2813,6 +2828,7 @@ struct VerificPass : public Pass {
 		{
 			if (args[argidx] == "-work" && argidx+1 < GetSize(args)) {
 				work = args[++argidx];
+				is_work_set = true;
 				continue;
 			}
 			if (args[argidx] == "-L" && argidx+1 < GetSize(args)) {
@@ -2998,6 +3014,17 @@ struct VerificPass : public Pass {
 				std::string filename = frontent_rewrite(args, argidx, tmp_files);
 				if (!edif.Read(filename.c_str()))
 					log_cmd_error("Reading `%s' in EDIF mode failed.\n", filename.c_str());
+			}
+			goto check_error;
+		}
+#endif
+#ifdef VERIFIC_LIBERTY_SUPPORT
+		if (GetSize(args) > argidx && args[argidx] == "-liberty") {
+			argidx++;
+			while (argidx < GetSize(args)) {
+				std::string filename = frontent_rewrite(args, argidx, tmp_files);
+				if (!synlib_file::Read(filename.c_str(), is_work_set ? work.c_str() : nullptr))
+					log_cmd_error("Reading `%s' in LIBERTY mode failed.\n", filename.c_str());
 			}
 			goto check_error;
 		}
@@ -3294,6 +3321,9 @@ struct VerificPass : public Pass {
 #ifdef VERIFIC_EDIF_SUPPORT
 			edif_file::Reset();
 #endif
+#ifdef VERIFIC_LIBERTY_SUPPORT
+			synlib_file::Reset();
+#endif
 			Libset::Reset();
 			Message::Reset();
 			RuntimeFlags::DeleteAllFlags();
@@ -3427,6 +3457,11 @@ struct ReadPass : public Pass {
 		log("\n");
 		log("\n");
 #endif
+		log("    read {-liberty} <liberty-file>..\n");
+		log("\n");
+		log("Load the specified Liberty files.\n");
+		log("\n");
+		log("\n");
 		log("    read {-f|-F} <command-file>\n");
 		log("\n");
 		log("Load and execute the specified command file. (Requires Verific.)\n");
@@ -3531,6 +3566,15 @@ struct ReadPass : public Pass {
 			return;
 		}
 #endif
+		if (args[1] == "-liberty") {
+			if (use_verific) {
+				args[0] = "verific";
+			} else {
+				args[0] = "read_liberty";
+			}
+			Pass::call(design, args);
+			return;
+		}
 		if (args[1] == "-f" || args[1] == "-F") {
 			if (use_verific) {
 				args[0] = "verific";
