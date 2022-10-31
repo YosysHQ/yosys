@@ -931,7 +931,7 @@ endif
 DOC_TARGET ?= html
 manual: $(TARGETS) $(EXTRA_TARGETS)
 	mkdir -p docs/source/cmd
-	yosys -p 'help -write-rst-command-reference-manual'
+	./yosys -p 'help -write-rst-command-reference-manual'
 	cd docs && $(MAKE) $(DOC_TARGET)
 
 clean:
