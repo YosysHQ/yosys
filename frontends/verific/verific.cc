@@ -59,6 +59,7 @@ USING_YOSYS_NAMESPACE
 
 #ifdef VERIFIC_LIBERTY_SUPPORT
 #include "synlib_file.h"
+#include "SynlibGroup.h"
 #endif
 
 #include "VerificStream.h"
@@ -2439,6 +2440,9 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("Load the specified Liberty files into Verific.\n");
 		log("\n");
+		log("    -lib\n");
+		log("        only create empty blackbox modules\n");
+		log("\n");
 		log("\n");
 #endif
 		log("    verific {-f|-F} [-vlog95|-vlog2k|-sv2005|-sv2009|\n");
@@ -3020,11 +3024,36 @@ struct VerificPass : public Pass {
 #endif
 #ifdef VERIFIC_LIBERTY_SUPPORT
 		if (GetSize(args) > argidx && args[argidx] == "-liberty") {
-			argidx++;
+			bool flag_lib = false;
+			for (argidx++; argidx < GetSize(args); argidx++) {
+				if (args[argidx] == "-lib") {
+					flag_lib = true;
+					continue;
+				}
+				if (args[argidx].compare(0, 1, "-") == 0) {
+					cmd_error(args, argidx, "unknown option");
+					goto check_error;
+				}
+				break;
+			}
+
 			while (argidx < GetSize(args)) {
 				std::string filename = frontent_rewrite(args, argidx, tmp_files);
 				if (!synlib_file::Read(filename.c_str(), is_work_set ? work.c_str() : nullptr))
 					log_cmd_error("Reading `%s' in LIBERTY mode failed.\n", filename.c_str());
+				SynlibLibrary *lib = synlib_file::GetLastLibraryAnalyzed();
+				if (lib && flag_lib) {
+					MapIter mi ;
+					Verific::Cell *c ;
+					FOREACH_CELL_OF_LIBRARY(lib->GetLibrary(),mi,c) {
+						MapIter ni ;
+						Netlist *nl;
+						FOREACH_NETLIST_OF_CELL(c, ni, nl) {
+							if (nl)
+								nl->MakeBlackBox();
+						}
+					}
+				}
 			}
 			goto check_error;
 		}
@@ -3460,6 +3489,9 @@ struct ReadPass : public Pass {
 		log("    read {-liberty} <liberty-file>..\n");
 		log("\n");
 		log("Load the specified Liberty files.\n");
+		log("\n");
+		log("    -lib\n");
+		log("        only create empty blackbox modules\n");
 		log("\n");
 		log("\n");
 		log("    read {-f|-F} <command-file>\n");
