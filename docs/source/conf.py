@@ -52,7 +52,7 @@ latex_elements = {
 }
 
 def setup(sphinx):
-	sys.path.insert(0, os.path.abspath('./util'))
+	sys.path += [os.path.dirname(__file__) + "/../util"]
 	from RtlilLexer import RtlilLexer
 	sphinx.add_lexer("RTLIL", RtlilLexer)
 
