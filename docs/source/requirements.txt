@@ -1,0 +1,2 @@
+sphinx-press-theme
+sphinxcontrib-bibtex
