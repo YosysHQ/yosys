@@ -64,10 +64,11 @@ p {
 }
 
 .cmdref .highlight-yoscrypt .highlight pre {
-	padding-bottom: 0%;
-	padding-left: 0%;
+	padding: 0%;
+	margin: 0%;
 }
 
 .cmdref .highlight-none .highlight pre {
 	padding-top: 0%;
+	margin-top: 0%;
 }
