@@ -103,7 +103,7 @@ correctness of the Yosys synthesis results:
    vlogHammer so far).
 
 Although complex software can never be expected to be fully bug-free
-cite:p:`MURPHY`, it has been shown that Yosys is mature and
+:cite:p:`MURPHY`, it has been shown that Yosys is mature and
 feature-complete enough to handle most real-world cases correctly.
 
 Quality of synthesis results
@@ -229,3 +229,5 @@ Yosys in the first place.
    problem. The built-in SAT solver in Yosys can be used for formal
    equivalence checking, amongst other things. See
    Sec. \ \ `[cmd:sat] <#cmd:sat>`__ for details.
+
+.. footbibliography::
