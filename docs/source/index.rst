@@ -67,18 +67,5 @@ Yosys manual
 	:includehidden:
 
 	cmd_ref
-
-
-.. only:: html
-
-	.. rubric:: Bibliography
-
-.. bibliography:: literature.bib
-
-.. only:: html
-	
-	.. rubric:: Internet References
-
-.. bibliography:: weblinks.bib
-	:style: unsrt
+	bib
 
