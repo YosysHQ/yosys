@@ -928,11 +928,14 @@ ifeq ($(ENABLE_PYOSYS),1)
 endif
 endif
 
-DOC_TARGET ?= html
-docs: $(TARGETS) $(EXTRA_TARGETS)
+# also others, but so long as it doesn't fail this is enough to know we tried
+docs/source/cmd/abc.rst: $(TARGETS) $(EXTRA_TARGETS)
 	mkdir -p docs/source/cmd
-	./yosys -p 'help -write-rst-command-reference-manual'
-	cd docs && $(MAKE) $(DOC_TARGET)
+	./$(PROGRAM_PREFIX)yosys -p 'help -write-rst-command-reference-manual'
+
+DOC_TARGET ?= html
+docs: docs/source/cmd/abc.rst
+	$(Q) $(MAKE) -C docs $(DOC_TARGET)
 
 update-manual: $(TARGETS) $(EXTRA_TARGETS)
 	cd manual && ../$(PROGRAM_PREFIX)yosys -p 'help -write-tex-command-reference-manual'
@@ -1085,5 +1088,5 @@ echo-abc-rev:
 -include kernel/*.d
 -include techlibs/*/*.d
 
-.PHONY: all top-all abc test install install-abc manual clean mrproper qtcreator coverage vcxsrc mxebin
+.PHONY: all top-all abc test install install-abc docs manual clean mrproper qtcreator coverage vcxsrc mxebin
 .PHONY: config-clean config-clang config-gcc config-gcc-static config-gcc-4.8 config-afl-gcc config-gprof config-sudo
