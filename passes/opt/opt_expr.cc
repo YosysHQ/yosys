@@ -1527,6 +1527,31 @@ skip_identity:
 				goto next_cell; \
 			} \
 		}
+#define FOLD_2ARG_SIMPLE_CELL(_t, B_ID) \
+		if (cell->type == ID($##_t)) { \
+			RTLIL::SigSpec a = cell->getPort(ID::A); \
+			RTLIL::SigSpec b = cell->getPort(B_ID); \
+			assign_map.apply(a), assign_map.apply(b); \
+			if (a.is_fully_const() && b.is_fully_const()) { \
+				RTLIL::SigSpec y(RTLIL::const_ ## _t(a.as_const(), b.as_const())); \
+				cover("opt.opt_expr.const.$" #_t); \
+				replace_cell(assign_map, module, cell, stringf("%s, %s", log_signal(a), log_signal(b)), ID::Y, y); \
+				goto next_cell; \
+			} \
+		}
+#define FOLD_MUX_CELL(_t) \
+		if (cell->type == ID($##_t)) { \
+			RTLIL::SigSpec a = cell->getPort(ID::A); \
+			RTLIL::SigSpec b = cell->getPort(ID::B); \
+			RTLIL::SigSpec s = cell->getPort(ID::S); \
+			assign_map.apply(a), assign_map.apply(b), assign_map.apply(s); \
+			if (a.is_fully_const() && b.is_fully_const() && s.is_fully_const()) { \
+				RTLIL::SigSpec y(RTLIL::const_ ## _t(a.as_const(), b.as_const(), s.as_const())); \
+				cover("opt.opt_expr.const.$" #_t); \
+				replace_cell(assign_map, module, cell, stringf("%s, %s, %s", log_signal(a), log_signal(b), log_signal(s)), ID::Y, y); \
+				goto next_cell; \
+			} \
+		}
 
 		FOLD_1ARG_CELL(not)
 		FOLD_2ARG_CELL(and)
@@ -1558,6 +1583,9 @@ skip_identity:
 		FOLD_2ARG_CELL(gt)
 		FOLD_2ARG_CELL(ge)
 
+		FOLD_2ARG_CELL(eqx)
+		FOLD_2ARG_CELL(nex)
+
 		FOLD_2ARG_CELL(add)
 		FOLD_2ARG_CELL(sub)
 		FOLD_2ARG_CELL(mul)
@@ -1569,6 +1597,11 @@ skip_identity:
 
 		FOLD_1ARG_CELL(pos)
 		FOLD_1ARG_CELL(neg)
+
+		FOLD_MUX_CELL(mux);
+		FOLD_MUX_CELL(pmux);
+		FOLD_2ARG_SIMPLE_CELL(bmux, ID::S);
+		FOLD_2ARG_SIMPLE_CELL(demux, ID::S);
 
 		// be very conservative with optimizing $mux cells as we do not want to break mux trees
 		if (cell->type == ID($mux)) {
