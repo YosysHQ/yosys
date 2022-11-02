@@ -1601,6 +1601,43 @@ endmodule
 
 // --------------------------------------------------------
 
+module \$bweqx (A, B, Y);
+
+parameter WIDTH = 0;
+
+input [WIDTH-1:0] A, B;
+output [WIDTH-1:0] Y;
+
+genvar i;
+generate
+	for (i = 0; i < WIDTH; i = i + 1) begin:slices
+		assign Y[i] = A[i] === B[i];
+	end
+endgenerate
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$bwmux (A, B, S, Y);
+
+parameter WIDTH = 0;
+
+input [WIDTH-1:0] A, B;
+input [WIDTH-1:0] S;
+output [WIDTH-1:0] Y;
+
+genvar i;
+generate
+	for (i = 0; i < WIDTH; i = i + 1) begin:slices
+		assign Y[i] = S[i] ? B[i] : A[i];
+	end
+endgenerate
+
+endmodule
+
+// --------------------------------------------------------
+
 module \$assert (A, EN);
 
 input A, EN;

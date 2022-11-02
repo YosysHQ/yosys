@@ -690,5 +690,28 @@ RTLIL::Const RTLIL::const_demux(const RTLIL::Const &arg1, const RTLIL::Const &ar
 	return res;
 }
 
+RTLIL::Const RTLIL::const_bweqx(const RTLIL::Const &arg1, const RTLIL::Const &arg2)
+{
+	log_assert(arg2.size() == arg1.size());
+	RTLIL::Const result(RTLIL::State::S0, arg1.size());
+	for (int i = 0; i < arg1.size(); i++)
+		result[i] = arg1[i] == arg2[i] ? State::S1 : State::S0;
+
+	return result;
+}
+
+RTLIL::Const RTLIL::const_bwmux(const RTLIL::Const &arg1, const RTLIL::Const &arg2, const RTLIL::Const &arg3)
+{
+	log_assert(arg2.size() == arg1.size());
+	log_assert(arg3.size() == arg1.size());
+	RTLIL::Const result(RTLIL::State::Sx, arg1.size());
+	for (int i = 0; i < arg1.size(); i++) {
+		if (arg3[i] != State::Sx || arg1[i] == arg2[i])
+			result[i] = arg3[i] == State::S1 ? arg2[i] : arg1[i];
+	}
+
+	return result;
+}
+
 YOSYS_NAMESPACE_END
 
