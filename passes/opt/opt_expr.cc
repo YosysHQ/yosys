@@ -643,6 +643,87 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			goto next_cell;
 		}
 
+		if (cell->type.in(ID($and), ID($or), ID($xor), ID($xnor)))
+		{
+			RTLIL::SigSpec sig_a = assign_map(cell->getPort(ID::A));
+			RTLIL::SigSpec sig_b = assign_map(cell->getPort(ID::B));
+
+			bool a_fully_const = (sig_a.is_fully_const() && (!keepdc || !sig_a.is_fully_undef()));
+			bool b_fully_const = (sig_b.is_fully_const() && (!keepdc || !sig_b.is_fully_undef()));
+
+			if (a_fully_const != b_fully_const)
+			{
+				cover("opt.opt_expr.bitwise_logic_one_const");
+				log_debug("Replacing %s cell `%s' in module `%s' having one fully constant input\n",
+						log_id(cell->type), log_id(cell->name), log_id(module));
+				RTLIL::SigSpec sig_y = assign_map(cell->getPort(ID::Y));
+
+				int width = GetSize(cell->getPort(ID::Y));
+
+				sig_a.extend_u0(width, cell->getParam(ID::A_SIGNED).as_bool());
+				sig_b.extend_u0(width, cell->getParam(ID::B_SIGNED).as_bool());
+
+				if (!a_fully_const)
+					std::swap(sig_a, sig_b);
+
+				RTLIL::SigSpec b_group_0, b_group_1, b_group_x;
+				RTLIL::SigSpec y_group_0, y_group_1, y_group_x;
+
+				for (int i = 0; i < width; i++) {
+					auto bit_a = sig_a[i].data;
+					if (bit_a == State::S0) b_group_0.append(sig_b[i]), y_group_0.append(sig_y[i]);
+					if (bit_a == State::S1) b_group_1.append(sig_b[i]), y_group_1.append(sig_y[i]);
+					if (bit_a == State::Sx) b_group_x.append(sig_b[i]), y_group_x.append(sig_y[i]);
+				}
+
+				if (cell->type == ID($xnor)) {
+					std::swap(b_group_0, b_group_1);
+					std::swap(y_group_0, y_group_1);
+				}
+
+				RTLIL::SigSpec y_new_0, y_new_1, y_new_x;
+
+				if (cell->type == ID($and)) {
+					if (!y_group_0.empty()) y_new_0 = Const(State::S0, GetSize(y_group_0));
+					if (!y_group_1.empty()) y_new_1 = b_group_1;
+					if (!y_group_x.empty()) {
+						if (keepdc)
+							y_new_x = module->And(NEW_ID, Const(State::Sx, GetSize(y_group_x)), b_group_x);
+						else
+							y_new_x = Const(State::S0, GetSize(y_group_x));
+					}
+				} else if (cell->type == ID($or)) {
+					if (!y_group_0.empty()) y_new_0 = b_group_0;
+					if (!y_group_1.empty()) y_new_1 = Const(State::S1, GetSize(y_group_1));
+					if (!y_group_x.empty()) {
+						if (keepdc)
+							y_new_x = module->Or(NEW_ID, Const(State::Sx, GetSize(y_group_x)), b_group_x);
+						else
+							y_new_x = Const(State::S1, GetSize(y_group_x));
+					}
+				} else if (cell->type.in(ID($xor), ID($xnor))) {
+					if (!y_group_0.empty()) y_new_0 = b_group_0;
+					if (!y_group_1.empty()) y_new_1 = module->Not(NEW_ID, b_group_1);
+					if (!y_group_x.empty()) {
+						if (keepdc)
+							y_new_x = module->Xor(NEW_ID, Const(State::Sx, GetSize(y_group_x)), b_group_x);
+						else // This should be fine even with keepdc, but opt_expr_xor.ys wants to keep the xor
+							y_new_x = Const(State::Sx, GetSize(y_group_x));
+					}
+				} else {
+					log_abort();
+				}
+
+				assign_map.add(y_group_0, y_new_0); module->connect(y_group_0, y_new_0);
+				assign_map.add(y_group_1, y_new_1); module->connect(y_group_1, y_new_1);
+				assign_map.add(y_group_x, y_new_x); module->connect(y_group_x, y_new_x);
+
+				module->remove(cell);
+				did_something = true;
+				goto next_cell;
+			}
+		}
+
 		if (do_fine)
 		{
 			if (cell->type.in(ID($not), ID($pos), ID($and), ID($or), ID($xor), ID($xnor)))
