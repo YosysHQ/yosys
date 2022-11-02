@@ -724,6 +724,67 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			}
 		}
 
+		if (cell->type == ID($bwmux))
+		{
+			RTLIL::SigSpec sig_a = assign_map(cell->getPort(ID::A));
+			RTLIL::SigSpec sig_b = assign_map(cell->getPort(ID::B));
+			RTLIL::SigSpec sig_s = assign_map(cell->getPort(ID::S));
+			RTLIL::SigSpec sig_y = assign_map(cell->getPort(ID::Y));
+			int width = GetSize(cell->getPort(ID::Y));
+
+			if (sig_s.is_fully_def())
+			{
+				RTLIL::SigSpec a_group_0, b_group_1;
+				RTLIL::SigSpec y_group_0, y_group_1;
+				for (int i = 0; i < width; i++) {
+					if (sig_s[i].data == State::S1)
+						y_group_1.append(sig_y[i]), b_group_1.append(sig_b[i]);
+					else
+						y_group_0.append(sig_y[i]), a_group_0.append(sig_a[i]);
+				}
+
+				assign_map.add(y_group_0, a_group_0); module->connect(y_group_0, a_group_0);
+				assign_map.add(y_group_1, b_group_1); module->connect(y_group_1, b_group_1);
+
+				module->remove(cell);
+				did_something = true;
+				goto next_cell;
+			}
+			else if (sig_a.is_fully_def() || sig_b.is_fully_def())
+			{
+				bool flip = !sig_a.is_fully_def();
+				if (flip)
+					std::swap(sig_a, sig_b);
+
+				RTLIL::SigSpec b_group_0, b_group_1;
+				RTLIL::SigSpec s_group_0, s_group_1;
+				RTLIL::SigSpec y_group_0, y_group_1;
+				for (int i = 0; i < width; i++) {
+					if (sig_a[i].data == State::S1)
+						y_group_1.append(sig_y[i]), b_group_1.append(sig_b[i]), s_group_1.append(sig_s[i]);
+					else
+						y_group_0.append(sig_y[i]), b_group_0.append(sig_b[i]), s_group_0.append(sig_s[i]);
+				}
+
+				RTLIL::SigSpec y_new_0, y_new_1;
+
+				if (flip) {
+					if (!y_group_0.empty()) y_new_0 = module->And(NEW_ID, b_group_0, module->Not(NEW_ID, s_group_0));
+					if (!y_group_1.empty()) y_new_1 = module->Or(NEW_ID, b_group_1, s_group_1);
+				} else {
+					if (!y_group_0.empty()) y_new_0 = module->And(NEW_ID, b_group_0, s_group_0);
+					if (!y_group_1.empty()) y_new_1 = module->Or(NEW_ID, b_group_1, module->Not(NEW_ID, s_group_1));
+				}
+
+				module->connect(y_group_0, y_new_0);
+				module->connect(y_group_1, y_new_1);
+
+				module->remove(cell);
+				did_something = true;
+				goto next_cell;
+			}
+		}
+
 		if (do_fine)
 		{
 			if (cell->type.in(ID($not), ID($pos), ID($and), ID($or), ID($xor), ID($xnor)))
@@ -1602,6 +1663,8 @@ skip_identity:
 		FOLD_MUX_CELL(pmux);
 		FOLD_2ARG_SIMPLE_CELL(bmux, ID::S);
 		FOLD_2ARG_SIMPLE_CELL(demux, ID::S);
+		FOLD_2ARG_SIMPLE_CELL(bweqx, ID::B);
+		FOLD_MUX_CELL(bwmux);
 
 		// be very conservative with optimizing $mux cells as we do not want to break mux trees
 		if (cell->type == ID($mux)) {
