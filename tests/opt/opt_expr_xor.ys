@@ -22,9 +22,8 @@ simplemap
 equiv_opt -assert opt_expr
 design -load postopt
 select -assert-none t:$_XOR_
-select -assert-none t:$_XNOR_ # NB: simplemap does $xnor -> $_XOR_+$_NOT_
-select -assert-count 3 t:$_NOT_
-
+select -assert-none t:$_XNOR_
+select -assert-count 2 t:$_NOT_
 
 design -reset
 read_verilog -icells <<EOT
@@ -36,7 +35,7 @@ EOT
 select -assert-count 2 t:$_XNOR_
 equiv_opt -assert opt_expr
 design -load postopt
-select -assert-none t:$_XNOR_ # NB: simplemap does $xnor -> $_XOR_+$_NOT_
+select -assert-none t:$_XNOR_
 select -assert-count 1 t:$_NOT_
 
 

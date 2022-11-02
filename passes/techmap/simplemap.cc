@@ -61,25 +61,11 @@ void simplemap_bitop(RTLIL::Module *module, RTLIL::Cell *cell)
 	sig_a.extend_u0(GetSize(sig_y), cell->parameters.at(ID::A_SIGNED).as_bool());
 	sig_b.extend_u0(GetSize(sig_y), cell->parameters.at(ID::B_SIGNED).as_bool());
 
-	if (cell->type == ID($xnor))
-	{
-		RTLIL::SigSpec sig_t = module->addWire(NEW_ID, GetSize(sig_y));
-
-		for (int i = 0; i < GetSize(sig_y); i++) {
-			RTLIL::Cell *gate = module->addCell(NEW_ID, ID($_NOT_));
-			gate->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
-			gate->setPort(ID::A, sig_t[i]);
-			gate->setPort(ID::Y, sig_y[i]);
-		}
-
-		sig_y = sig_t;
-	}
-
 	IdString gate_type;
 	if (cell->type == ID($and))  gate_type = ID($_AND_);
 	if (cell->type == ID($or))   gate_type = ID($_OR_);
 	if (cell->type == ID($xor))  gate_type = ID($_XOR_);
-	if (cell->type == ID($xnor)) gate_type = ID($_XOR_);
+	if (cell->type == ID($xnor)) gate_type = ID($_XNOR_);
 	log_assert(!gate_type.empty());
 
 	for (int i = 0; i < GetSize(sig_y); i++) {
