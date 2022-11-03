@@ -36,7 +36,7 @@ struct OptMuxtreeWorker
 	RTLIL::Module *module;
 	SigMap assign_map;
 	int removed_count;
-	int glob_abort_cnt = 100000;
+	int glob_abort_cnt;
 
 	struct bitinfo_t {
 		bool seen_non_mux;
@@ -146,6 +146,10 @@ struct OptMuxtreeWorker
 			log("  No muxes found in this module.\n");
 			return;
 		}
+		
+		// Limit the number of iterations based on the number of muxes.
+		// The multiplier (100) is arbitrary.
+		glob_abort_cnt = GetSize(mux2info) * 100;
 
 		// Populate mux2info[].ports[]:
 		//	.input_muxes
