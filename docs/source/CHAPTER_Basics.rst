@@ -23,7 +23,7 @@ circuit to a functionally equivalent low-level representation of a circuit.
 :numref:`Figure %s <fig:Basics_abstractions>` lists the different levels of
 abstraction and how they relate to different kinds of synthesis.
 
-.. figure:: ../images/basics_abstractions.png
+.. figure:: ../images/basics_abstractions.*
 	:name: fig:Basics_abstractions
 
 	Different levels of abstraction and synthesis.
@@ -497,7 +497,7 @@ Then the synthesizable description is transformed to lower-level representations
 using a series of tools and the results are again verified using simulation.
 This process is illustrated in :numref:`Fig. %s <fig:Basics_flow>`.
 
-.. figure:: ../images/basics_flow.png
+.. figure:: ../images/basics_flow.*
 	:name: fig:Basics_flow
 
 	Typical design flow.  Green boxes represent manually created models.
@@ -595,7 +595,7 @@ Let's consider the following BNF (in Bison syntax):
    assign_stmt: TOK_ASSIGN TOK_IDENTIFIER TOK_EQ expr TOK_SEMICOLON;
    expr: TOK_IDENTIFIER | TOK_NUMBER | expr TOK_PLUS expr;
 
-.. figure:: ../images/basics_parsetree.png
+.. figure:: ../images/basics_parsetree.*
 	:name: fig:Basics_parsetree
 
 	Example parse tree for the Verilog expression 
@@ -623,7 +623,7 @@ Usually the AST is then converted into yet another representation that is more
 suitable for further processing. In compilers this is often an assembler-like
 three-address-code intermediate representation. :cite:p:`Dragonbook`
 
-.. figure:: ../images/basics_ast.png
+.. figure:: ../images/basics_ast.*
 	:name: fig:Basics_ast
 
 	Example abstract syntax tree for the Verilog expression 

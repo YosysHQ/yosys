@@ -62,7 +62,7 @@ possible it is key that (1) all passes operate on the same data structure
 (RTLIL) and (2) that this data structure is powerful enough to represent the
 design in different stages of the synthesis.
 
-.. figure:: ../images/overview_flow.png
+.. figure:: ../images/overview_flow.*
 	:name: fig:Overview_flow
 
 	Yosys simplified data flow (ellipses: data structures, rectangles:
@@ -93,7 +93,7 @@ reading an auxiliary Verilog file such as a cell library, it might create an
 additional RTLIL::Design object and call the Verilog frontend with this other
 object to parse the cell library.
 
-.. figure:: ../images/overview_rtlil.png
+.. figure:: ../images/overview_rtlil.*
 	:name: fig:Overview_RTLIL
 
 	Simplified RTLIL Entity-Relationship Diagram

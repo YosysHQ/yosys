@@ -1,2 +1,6 @@
 /build/
 /source/cmd
+/images/*.log
+/images/*.aux
+/images/*.pdf
+/images/*.svg

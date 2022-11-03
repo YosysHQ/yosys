@@ -9,7 +9,7 @@ abstract syntax tree (AST) representation of the input. This AST representation
 is then passed to the AST frontend that converts it to RTLIL data, as
 illustrated in :numref:`Fig. %s <fig:Verilog_flow>`.
 
-.. figure:: ../images/verilog_flow.png
+.. figure:: ../images/verilog_flow.*
 	:name: fig:Verilog_flow
 
 	Simplified Verilog to RTLIL data flow
