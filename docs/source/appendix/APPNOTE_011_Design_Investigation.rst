@@ -133,8 +133,7 @@ not only has removed the artifacts left behind by ``proc``, but also determined
 correctly that it can remove the first ``$mux`` cell without changing the
 behavior of the circuit.
 
-.. figure:: ../../images/missing_image.jpg
-   :width: 20pc
+.. figure:: ../../images/011/splice.*
    :name: splice_dia
 
    Output of ``yosys -p 'proc; opt; show' splice.v``
@@ -331,8 +330,7 @@ run from module-context and not design-context.
 Working with selections
 -----------------------
 
-.. figure:: ../../images/missing_image.jpg
-   :width: 20pc
+.. figure:: ../../images/011/example_03.*
    :name: seladd
 
    Output of ``show`` after ``select $2`` or ``select t:$add`` (see also
@@ -385,13 +383,10 @@ Operations on selections
    :caption: Another test module for operations on selections
    :name: sumprod
 
-.. figure:: ../../images/missing_image.jpg
-   :width: 20pc
+.. figure:: ../../images/011/sumprod_00.*
    :name: sumprod_00
 
    Output of ``show a:sumstuff`` on :numref:`sumprod`
-
-.. \includegraphics[width=\linewidth]{APPNOTE_011_Design_Investigation/sumprod_00.pdf}
 
 The ``select`` command is actually much more powerful than it might seem on the
 first glimpse. When it is called with multiple arguments, each argument is
@@ -435,13 +430,10 @@ be achieved using the ``%x`` action, that broadens the selection, i.e. for each
 selected wire it selects all cells connected to the wire and vice versa. So
 ``show a:sumstuff %x`` yields the diagram shown in :numref:`sumprod_01`.
 
-.. figure:: ../../images/missing_image.jpg
-   :width: 20pc
+.. figure:: ../../images/011/sumprod_01.*
    :name: sumprod_01
 
    Output of ``show a:sumstuff %x`` on :numref:`sumprod`
-
-.. \includegraphics[width=\linewidth]{APPNOTE_011_Design_Investigation/sumprod_01.pdf}
 
 Selecting logic cones
 ---------------------
@@ -500,13 +492,11 @@ the diagram shown in :numref:`memdemo_00`.
    :caption: Demo circuit for demonstrating some advanced Yosys features
    :name: memdemo_src
 
-.. figure:: ../../images/missing_image.jpg
-   :width: 20pc
+.. figure:: ../../images/011/memdemo_00.*
+   :scale: 2%
    :name: memdemo_00
    
    Complete circuit diagram for the design shown in :numref:`memdemo_src`
-
-.. \includegraphics[width=\linewidth,trim=0 0cm 0 0cm]{APPNOTE_011_Design_Investigation/memdemo_00.pdf}
 
 But maybe we are only interested in the tree of multiplexers that select the
 output value. In order to get there, we would start by just showing the output
@@ -547,13 +537,10 @@ Or we could decide to tell the ``%ci`` action to not follow the ``CLK`` input:
 
    show y %ci2:-[CLK]
 
-.. figure:: ../../images/missing_image.jpg
-   :width: 20pc
+.. figure:: ../../images/011/memdemo_01.*
    :name: memdemo_01
    
    Output of ``show y \%ci2:+\$dff[Q,D] \%ci*:-\$mux[S]:-\$dff``
-
-.. \includegraphics[width=\linewidth,trim=0 0cm 0 0cm]{APPNOTE_011_Design_Investigation/memdemo_01.pdf} \\
 
 Next we would investigate the next logic level by adding another ``%ci2`` to
 the command:
