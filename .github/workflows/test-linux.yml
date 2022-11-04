@@ -25,12 +25,6 @@ jobs:
           - os: { id: ubuntu-20.04, name: focal }
             compiler: 'gcc-10'
             cpp_std: 'c++11'
-          - os: { id: ubuntu-18.04, name: bionic }
-            compiler: 'clang-3.9'
-            cpp_std: 'c++11'
-          - os: { id: ubuntu-18.04, name: bionic }
-            compiler: 'gcc-4.8'
-            cpp_std: 'c++11'
       fail-fast: false
     steps:
       - name: Install Dependencies
@@ -109,15 +103,7 @@ jobs:
           make -j${{ env.procs }}
           make install
 
-      - name: Build yosys (gcc-4.8)
-        if: matrix.compiler == 'gcc-4.8'
-        shell: bash
-        run: |
-          make config-${{ matrix.compiler }}
-          make -j${{ env.procs }} CCXXSTD=${{ matrix.cpp_std }} CC=$CC CXX=$CC LD=$CC
-
       - name: Build yosys
-        if: matrix.compiler != 'gcc-4.8'
         shell: bash
         run: |
           make config-${CC%%-*}
