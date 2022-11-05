@@ -1674,7 +1674,7 @@ module SB_RAM40_4K (
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L400
 		$setup(WE, posedge WCLK, 133);
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
-		(posedge RCLK => (RDATA : 16'bx)) = 2146;
+		(posedge RCLK *> (RDATA : 16'bx)) = 2146;
 	endspecify
 `endif
 `ifdef ICE40_LP
@@ -1696,7 +1696,7 @@ module SB_RAM40_4K (
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L400
 		$setup(WE, posedge WCLK, 196);
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
-		(posedge RCLK => (RDATA : 16'bx)) = 3163;
+		(posedge RCLK *> (RDATA : 16'bx)) = 3163;
 	endspecify
 `endif
 `ifdef ICE40_U
@@ -1718,7 +1718,7 @@ module SB_RAM40_4K (
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13025
 		$setup(WE, posedge WCLK, 252);
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
-		(posedge RCLK => (RDATA : 16'bx)) = 1179;
+		(posedge RCLK *> (RDATA : 16'bx)) = 1179;
 	endspecify
 `endif
 endmodule
@@ -1810,7 +1810,7 @@ module SB_RAM40_4KNR (
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L400
 		$setup(WE, posedge WCLK, 133);
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
-		(posedge RCLKN => (RDATA : 16'bx)) = 2146;
+		(posedge RCLKN *> (RDATA : 16'bx)) = 2146;
 	endspecify
 `endif
 `ifdef ICE40_LP
@@ -1832,7 +1832,7 @@ module SB_RAM40_4KNR (
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L400
 		$setup(WE, posedge WCLK, 196);
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
-		(posedge RCLKN => (RDATA : 16'bx)) = 3163;
+		(posedge RCLKN *> (RDATA : 16'bx)) = 3163;
 	endspecify
 `endif
 `ifdef ICE40_U
@@ -1854,7 +1854,7 @@ module SB_RAM40_4KNR (
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13025
 		$setup(WE, posedge WCLK, 252);
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
-		(posedge RCLKN => (RDATA : 16'bx)) = 1179;
+		(posedge RCLKN *> (RDATA : 16'bx)) = 1179;
 	endspecify
 `endif
 endmodule
@@ -1946,7 +1946,7 @@ module SB_RAM40_4KNW (
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L400
 		$setup(WE, posedge WCLKN, 133);
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
-		(posedge RCLK => (RDATA : 16'bx)) = 2146;
+		(posedge RCLK *> (RDATA : 16'bx)) = 2146;
 	endspecify
 `endif
 `ifdef ICE40_LP
@@ -1968,7 +1968,7 @@ module SB_RAM40_4KNW (
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L400
 		$setup(WE, posedge WCLKN, 196);
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
-		(posedge RCLK => (RDATA : 16'bx)) = 3163;
+		(posedge RCLK *> (RDATA : 16'bx)) = 3163;
 	endspecify
 `endif
 `ifdef ICE40_U
@@ -1990,7 +1990,7 @@ module SB_RAM40_4KNW (
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13025
 		$setup(WE, posedge WCLKN, 252);
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
-		(posedge RCLK => (RDATA : 16'bx)) = 1179;
+		(posedge RCLK *> (RDATA : 16'bx)) = 1179;
 	endspecify
 `endif
 endmodule
@@ -2082,7 +2082,7 @@ module SB_RAM40_4KNRNW (
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L400
 		$setup(WE, posedge WCLKN, 133);
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L401
-		(posedge RCLKN => (RDATA : 16'bx)) = 2146;
+		(posedge RCLKN *> (RDATA : 16'bx)) = 2146;
 	endspecify
 `endif
 `ifdef ICE40_LP
@@ -2104,7 +2104,7 @@ module SB_RAM40_4KNRNW (
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L400
 		$setup(WE, posedge WCLKN, 196);
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_lp1k.txt#L401
-		(posedge RCLKN => (RDATA : 16'bx)) = 3163;
+		(posedge RCLKN *> (RDATA : 16'bx)) = 3163;
 	endspecify
 `endif
 `ifdef ICE40_U
@@ -2126,7 +2126,7 @@ module SB_RAM40_4KNRNW (
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13025
 		$setup(WE, posedge WCLKN, 252);
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13026
-		(posedge RCLKN => (RDATA : 16'bx)) = 1179;
+		(posedge RCLKN *> (RDATA : 16'bx)) = 1179;
 	endspecify
 `endif
 endmodule
@@ -2653,9 +2653,9 @@ module SB_SPRAM256KA (
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13206
 		$setup(WREN, posedge CLOCK, 289);
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13207-L13222
-		(posedge CLOCK => (DATAOUT : 16'bx)) = 1821;
+		(posedge CLOCK *> (DATAOUT : 16'bx)) = 1821;
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13223-L13238
-		(posedge SLEEP => (DATAOUT : 16'b0)) = 1099;
+		(posedge SLEEP *> (DATAOUT : 16'b0)) = 1099;
 	endspecify
 `endif
 endmodule
