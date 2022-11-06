@@ -28,3 +28,6 @@ clean: tidy
 	rm -f *.pdf
 	rm -f *.svg
 	rm -f 011/*.pdf 011/*.svg
+
+# need to mkdir because everything inside 011 is in .gitignore
+$(shell mkdir -p 011)
