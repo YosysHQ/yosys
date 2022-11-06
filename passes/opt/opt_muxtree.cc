@@ -148,8 +148,8 @@ struct OptMuxtreeWorker
 		}
 		
 		// Limit the number of iterations based on the number of muxes.
-		// The multiplier (100) is arbitrary.
-		glob_abort_cnt = GetSize(mux2info) * 100;
+		// The multiplier (1000) is arbitrary.
+		glob_abort_cnt = GetSize(mux2info) * 1000;
 
 		// Populate mux2info[].ports[]:
 		//	.input_muxes
