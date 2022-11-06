@@ -49,7 +49,6 @@ latex_elements = {
         'preamble': r'''
 \usepackage{lmodern}
 \usepackage{comment}
-\usepackage{svg}
 
 '''
 }
