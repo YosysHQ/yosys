@@ -2,8 +2,12 @@
 011: Interactive Design Investigation Page
 ==========================================
 
-.. Warning:: Many of the images for this document are not currently being 
-    compiled.  We apologise for any inconvenience.
+.. only:: html
+
+	.. Note:: Some of the images for this document are very large and have 
+		been reduced in size for display. Clicking any image will open
+		the source image in a new tab, allowing for zooming in to see 
+		detail.
 
 Installation and Prerequisites
 ==============================
@@ -55,15 +59,11 @@ Introduction to the show command
                y <= c ? a + b : 2'd0;
    endmodule
 
-.. figure:: ../../images/missing_image.jpg
-   :width: 20pc
+.. figure:: ../../images/011/example_out.*
+   :scale: 12%
    :name: example_out
    
    Output of the three ``show`` commands from :numref:`example_src`
-
-.. \includegraphics[width=\linewidth]{APPNOTE_011_Design_Investigation/example_00.pdf}
-   \includegraphics[width=\linewidth]{APPNOTE_011_Design_Investigation/example_01.pdf}
-   \includegraphics[width=\linewidth]{APPNOTE_011_Design_Investigation/example_02.pdf}
 
 The ``show`` command generates a circuit diagram for the design in its current
 state. Various options can be used to change the appearance of the circuit
@@ -142,15 +142,12 @@ behavior of the circuit.
    :caption: ``splice.v``
    :name: splice_src
 
-.. figure:: ../../images/missing_image.jpg
-   :width: 20pc
+.. figure:: ../../images/011/splitnets_libfile.*
+   :scale: 12%
    :name: splitnets_libfile
 
    Effects of ``splitnets`` command and of providing a cell library. (The
    circuit is a half-adder built from simple CMOS gates.)
-
-.. \includegraphics[height=\linewidth]{APPNOTE_011_Design_Investigation/cmos_00.pdf}
-   \includegraphics[width=\linewidth]{APPNOTE_011_Design_Investigation/cmos_01.pdf}
 
 Break-out boxes for signal vectors
 ----------------------------------
@@ -466,16 +463,11 @@ performing the ``%ci`` action three times.
 The action ``%ci\*`` performs the ``%ci`` action over and over again until it
 has no effect anymore.
 
-.. figure:: ../../images/missing_image.jpg
-   :width: 20pc
+.. figure:: ../../images/011/select_prod.*
+   :scale: 12%
    :name: select_prod
    
    Objects selected by ``select prod \%ci...``
-
-.. \hfill \includegraphics[width=4cm,trim=0 1cm 0 1cm]{APPNOTE_011_Design_Investigation/sumprod_02.pdf} \\
-   \includegraphics[width=\linewidth,trim=0 0cm 0 1cm]{APPNOTE_011_Design_Investigation/sumprod_03.pdf} \\
-   \includegraphics[width=\linewidth,trim=0 0cm 0 1cm]{APPNOTE_011_Design_Investigation/sumprod_04.pdf} \\
-   \includegraphics[width=\linewidth,trim=0 2cm 0 1cm]{APPNOTE_011_Design_Investigation/sumprod_05.pdf} \\
 
 In most cases there are certain cell types and/or ports that should not be
 considered for the ``%ci`` action, or we only want to follow certain cell types
@@ -611,16 +603,12 @@ if the circuit under investigation is encapsulated in a separate module.
 
 :numref:`submod` shows how the ``submod`` command can be used to split the
 circuit from :numref:`memdemo_src` and :numref:`memdemo_00` into its components.
-The -n``ame`` option is used to specify the name of the new module and also the
+The ``-name`` option is used to specify the name of the new module and also the
 name of the new cell in the current module.
 
-.. figure:: ../../images/missing_image.jpg
-   :width: 20pc
-
-.. \includegraphics[width=\linewidth,trim=0 1.3cm 0 0cm]{APPNOTE_011_Design_Investigation/submod_00.pdf} \\ \centerline{\tt memdemo} \vskip1em\par
-   \includegraphics[width=\linewidth,trim=0 1.3cm 0 0cm]{APPNOTE_011_Design_Investigation/submod_01.pdf} \\ \centerline{\tt scramble} \vskip1em\par
-   \includegraphics[width=\linewidth,trim=0 1.3cm 0 0cm]{APPNOTE_011_Design_Investigation/submod_02.pdf} \\ \centerline{\tt outstage} \vskip1em\par
-   \includegraphics[width=\linewidth,trim=0 1.3cm 0 0cm]{APPNOTE_011_Design_Investigation/submod_03.pdf} \\ \centerline{\tt selstage} \vskip1em\par
+.. figure:: ../../images/011/submod_dots.*
+   :scale: 12%
+   :name: submod_dots
 
 .. code-block::
    :caption: The circuit from :numref:`memdemo_src` and :numref:`memdemo_00` 
