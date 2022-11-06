@@ -624,3 +624,27 @@ Notes:
 - To run `make manual` you need to have installed Yosys with `make install`,
   otherwise it will fail on finding `kernel/yosys.h` while building
   `PRESENTATION_Prog`.
+
+Building the website
+====================
+
+If you're seeing this, it means you are on an as yet unmerged branch (I hope), 
+and the website version of the documentation is not yet publicly available.
+
+In addition to those listed above for building Yosys from source, the following
+packages are used for building the website: 
+
+	$ sudo apt-get install pdf2svg
+
+PDFLaTeX, included with most LaTeX distributions, is also needed during the
+build process for the website.
+
+The Python package, Sphinx, is needed along with those listed in
+`docs/source/requirements.txt`:
+
+	$ pip install -U sphinx -r docs/source/requirements.txt
+
+From the root of the repository, run `make docs`.  This will build/rebuild yosys
+as necessary before generating the website documentation from the yosys help
+commands.  To build for pdf instead of html, call 
+`make docs DOC_TARGET=latexpdf`.
