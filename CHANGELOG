@@ -4,7 +4,18 @@ List of major changes and improvements between releases
 
 Yosys 0.22 .. Yosys 0.22-dev
 --------------------------
+ * New commands and options
+    - Added option "-cross" to "miter" pass.
+    - Added option "-nocheck" to "equiv_opt" pass.
+
+ * Verific support
+    - Added support for reading Liberty files using Verific library.
+      (Optinally enabled with ENABLE_VERIFIC_LIBERTY)
+    - Added option "-cells" to "verific -import" enabling import of
+      all cells from verific design.
+
  * Various
+    - MinGW build (Windows) plugin support
     - Added YOSYS_ABORT_ON_LOG_ERROR environment variable for debugging.
       Setting it to 1 causes abort() to be called when Yosys terminates with an
       error message.
