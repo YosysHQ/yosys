@@ -8,6 +8,10 @@ Yosys 0.22 .. Yosys 0.22-dev
     - Added option "-cross" to "miter" pass.
     - Added option "-nocheck" to "equiv_opt" pass.
 
+ * Formal Verification
+    - yosys-smtbmc: Added "--detect-loops" option for checking if states are
+      unique in temporal induction counter examples.
+
  * Verific support
     - Added support for reading Liberty files using Verific library.
       (Optinally enabled with ENABLE_VERIFIC_LIBERTY)
@@ -15,7 +19,7 @@ Yosys 0.22 .. Yosys 0.22-dev
       all cells from verific design.
 
  * Various
-    - MinGW build (Windows) plugin support
+    - MinGW build (Windows) plugin support.
     - Added YOSYS_ABORT_ON_LOG_ERROR environment variable for debugging.
       Setting it to 1 causes abort() to be called when Yosys terminates with an
       error message.
