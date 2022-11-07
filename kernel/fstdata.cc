@@ -252,6 +252,7 @@ void FstData::reconstructAllAtTimes(std::vector<fstHandle> &signal, uint64_t sta
 		past_data = last_data;
 		callback(last_time);
 	}
+	past_data = last_data;
 	callback(end_time);
 }
 
