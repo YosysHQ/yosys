@@ -902,6 +902,11 @@ widening it to 1-bit, or removing the cell altogether.
 This command replaces clocked flip-flops with generic $ff cells that use the
 implicit global clock. This is useful for formal verification of designs with
 multiple clocks.
+
+This pass assumes negative hold time for the async FF inputs. For example when
+a reset deasserts with the clock edge, then the FF output will still drive the
+reset value in the next cycle regardless of the data-in value at the time of
+the clock edge.
 \end{lstlisting}
 
 \section{clkbufmap -- insert clock buffers on clock networks}
@@ -1554,12 +1559,17 @@ after an optimization pass.
     -undef
         enable modelling of undef states during equiv_induct.
 
+    -nocheck
+        disable running check before and after the command under test.
+
 The following commands are executed by this verification command:
 
     run_pass:
         hierarchy -auto-top
         design -save preopt
+        check -assert    (unless -nocheck)
         [command]
+        check -assert    (unless -nocheck)
         design -stash postopt
 
     prepare:
@@ -3122,6 +3132,12 @@ detected.
         call 'flatten -wb; opt_expr -keepdc -undriven;;' on the miter circuit.
 
 
+    -cross
+        allow output ports on the gold module to match input ports on the
+        gate module. This is useful when the gold module contains additional
+        logic to drive some of the gate module inputs.
+
+
     miter -assert [options] module [miter_name]
 
 Creates a miter circuit for property checking. All input ports are kept,
@@ -3987,6 +4003,19 @@ the language version (and before file names) to set additional verilog defines.
     read {-vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl} <vhdl-file>..
 
 Load the specified VHDL files. (Requires Verific.)
+
+
+    read {-edif} <edif-file>..
+
+Load the specified EDIF files. (Requires Verific.)
+
+
+    read {-liberty} <liberty-file>..
+
+Load the specified Liberty files.
+
+    -lib
+        only create empty blackbox modules
 
 
     read {-f|-F} <command-file>
@@ -7926,6 +7955,20 @@ Like -sv, but define FORMAL instead of SYNTHESIS.
 Load the specified VHDL files into Verific.
 
 
+    verific {-edif} <edif-file>..
+
+Load the specified EDIF files into Verific.
+
+
+    verific {-liberty} <liberty-file>..
+
+Load the specified Liberty files into Verific.
+Default library when -work is not present is one specified in liberty file.
+To use from SystemVerilog or VHDL use -L to specify liberty library.
+    -lib
+        only create empty blackbox modules
+
+
     verific {-f|-F} [-vlog95|-vlog2k|-sv2005|-sv2009|
                      -sv2012|-sv|-formal] <command-file>
 
@@ -8031,6 +8074,10 @@ Import options:
 
   -fullinit
     Keep all register initializations, even those for non-FF registers.
+
+  -cells
+    Import all cell definitions from Verific loaded libraries even if they are
+    unused in design. Useful with "-edif" and "-liberty" option.
 
   -chparam name value 
     Elaborate the specified top modules (all modules when -all given) using
