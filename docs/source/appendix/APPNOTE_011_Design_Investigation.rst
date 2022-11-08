@@ -12,10 +12,18 @@
 Installation and Prerequisites
 ==============================
 
-This Application Note is based on the Yosys :cite:p:`YosysGit` GIT Rev. 2b90ba1
-from 2013-12-08. The README file covers how to install Yosys. The ``show``
-command requires a working installation of GraphViz :cite:p:`graphviz` and
-:cite:p:`xdot` for generating the actual circuit diagrams.
+This Application Note is based on the `Yosys GIT`_ `Rev. 2b90ba1`_ from
+2013-12-08. The README file covers how to install Yosys. The ``show`` command
+requires a working installation of `GraphViz`_ and `xdot` for generating the
+actual circuit diagrams.
+
+.. _Yosys GIT: https://github.com/YosysHQ/yosys
+
+.. _Rev. 2b90ba1: https://github.com/YosysHQ/yosys/tree/2b90ba1
+
+.. _GraphViz: http://www.graphviz.org/
+
+.. _xdot: https://github.com/jrfonseca/xdot.py
 
 Overview
 ========
@@ -749,8 +757,12 @@ Often the opposite of the ``eval`` command is needed, i.e. the circuits output
 is given and we want to find the matching input signals. For small circuits with
 only a few input bits this can be accomplished by trying all possible input
 combinations, as it is done by the ``eval -table`` command. For larger circuits
-however, Yosys provides the ``sat`` command that uses a SAT :cite:p:`CircuitSAT`
-solver :cite:p:`MiniSAT` to solve this kind of problems.
+however, Yosys provides the ``sat`` command that uses a `SAT`_ solver,
+`MiniSAT`_, to solve this kind of problems.
+
+.. _SAT: http://en.wikipedia.org/wiki/Circuit_satisfiability
+
+.. _MiniSAT: http://minisat.se/
 
 The ``sat`` command works very similar to the ``eval`` command. The main
 difference is that it is now also possible to set output values and find the

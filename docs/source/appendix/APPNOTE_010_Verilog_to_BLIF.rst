@@ -18,19 +18,25 @@ interested in the features of Yosys that are discussed in this
 Application Note may deactivate TCL, Qt and MiniSAT support in the
 Makefile and may opt against building yosys-abc.
 
-This Application Note is based on GIT Rev. e216e0e from 2013-11-23 of
-Yosys :cite:p:`YosysGit`. The Verilog sources used for the
-examples are taken from yosys-bigsim :cite:p:`YosysBigsim`, a
+This Application Note is based on `Yosys GIT`_ `Rev. e216e0e`_  from 2013-11-23.
+The Verilog sources used for the examples are taken from `yosys-bigsim`_, a
 collection of real-world designs used for regression testing Yosys.
+
+.. _Yosys GIT: https://github.com/YosysHQ/yosys
+
+.. _Rev. e216e0e: https://github.com/YosysHQ/yosys/tree/e216e0e
+
+.. _yosys-bigsim: https://github.com/YosysHQ/yosys-bigsim
 
 Getting Started
 ===============
 
-We start our tour with the Navré processor from yosys-bigsim. The Navré
-processor :cite:p:`navre` is an Open Source AVR clone. It is a
-single module (softusb_navre) in a single design file (softusb_navre.v).
-It also is using only features that map nicely to the BLIF format, for
-example it only uses synchronous resets.
+We start our tour with the Navré processor from yosys-bigsim. The `Navré
+processor`_ is an Open Source AVR clone. It is a single module (softusb_navre)
+in a single design file (softusb_navre.v). It also is using only features that
+map nicely to the BLIF format, for example it only uses synchronous resets.
+
+.. _Navré processor: http://opencores.org/projects/navre
 
 Converting softusb_navre.v to softusb_navre.blif could not be easier:
 
@@ -146,9 +152,10 @@ the Navré CPU:
 Advanced Example: The Amber23 ARMv2a CPU
 ========================================
 
-Our 2nd example is the Amber23 :cite:p:`amber` ARMv2a CPU.
-Once again we base our example on the Verilog code that is included in
-yosys-bigsim :cite:p:`YosysBigsim`.
+Our 2nd example is the `Amber23 ARMv2a CPU`_. Once again we base our example on
+the Verilog code that is included in `yosys-bigsim`_.
+
+.. _Amber23 ARMv2a CPU: http://opencores.org/projects/amber
 
 .. code-block:: yoscrypt
    :caption: `amber23.ys`
@@ -285,9 +292,11 @@ The BLIF file for the Amber23 core, generated using :numref:`amber23.ys` and
 with yosys-bigsim, was verified using the test-bench from yosys-bigsim. It
 successfully executed the program shown in :numref:`sieve` in the test-bench.
 
-For simulation the BLIF file was converted back to Verilog using ABC
-:cite:p:`ABC`. So this test includes the successful
-transformation of the BLIF file into ABC's internal format as well.
+For simulation the BLIF file was converted back to Verilog using `ABC`_. So this
+test includes the successful transformation of the BLIF file into ABC's internal
+format as well.
+
+.. _ABC: https://github.com/berkeley-abc/abc
 
 The only thing left to write about the simulation itself is that it
 probably was one of the most energy inefficient and time consuming ways

@@ -10,9 +10,16 @@ electronic design automation (EDA) and are looking for an open synthesis
 framework that can be used to test algorithms on complex real-world designs.
 
 Yosys can synthesize a large subset of Verilog 2005 and has been tested with a
-wide range of real-world designs, including the OpenRISC 1200 CPU
-:cite:p:`OR1200`, the openMSP430 CPU :cite:p:`openMSP430`, the OpenCores I\
-:sup:`2`\ C master :cite:p:`i2cmaster` and the k68 CPU :cite:p:`k68`.
+wide range of real-world designs, including the `OpenRISC 1200 CPU`_, the
+`openMSP430 CPU`_, the `OpenCores I2C master`_, and the `k68 CPU`_.
+
+.. _OpenRISC 1200 CPU: https://github.com/openrisc/or1200
+
+.. _openMSP430 CPU: http://opencores.org/projects/openmsp430
+
+.. _OpenCores I2C master: http://opencores.org/projects/i2c
+
+.. _k68 CPU: http://opencores.org/projects/k68
 
 As of this writing a Yosys VHDL frontend is in development.
 

@@ -1,15 +1,9 @@
 .. only:: html
 
-	References
-	==========
+	Literature references
+	=====================
 
 	.. rubric:: Bibliography
 
 .. bibliography:: literature.bib
 
-.. only:: html
-	
-	.. rubric:: Internet References
-
-.. bibliography:: weblinks.bib
-	:style: unsrt

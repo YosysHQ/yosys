@@ -37,7 +37,7 @@ autosectionlabel_maxdepth = 1
 # assign figure numbers
 numfig = True
 
-bibtex_bibfiles = ['literature.bib', 'weblinks.bib']
+bibtex_bibfiles = ['literature.bib']
 
 # unused docs
 exclude_patterns = [

@@ -13,8 +13,11 @@ Yosys is a large and feature-rich program with some dependencies. For this work,
 we may deactivate other extra features such as TCL and ABC support in the
 Makefile.
 
-This Application Note is based on GIT Rev. 082550f from 2015-04-04 of Yosys
-:cite:p:`YosysGit`.
+This Application Note is based on `Yosys GIT`_ `Rev. 082550f` from 2015-04-04.
+
+.. _Yosys GIT: https://github.com/YosysHQ/yosys
+
+.. _Rev. 082550f: https://github.com/YosysHQ/yosys/tree/082550f
 
 Quick Start
 ===========
@@ -95,17 +98,20 @@ options:
 
    endmodule
 
-We can run Boolector :cite:p:`boolector` ``1.4.1`` [1]_ on the generated BTOR
-file:
+We can run `Boolector`_ ``1.4.1`` [1]_ on the generated BTOR file:
+
+.. _Boolector: http://fmv.jku.at/boolector/
 
 .. code:: sh
 
    $ boolector fsm.btor
    unsat
 
-We can also use nuXmv :cite:p:`nuxmv`, but on BTOR designs it does not support
-memories yet. With the next release of nuXmv, we will be also able to verify
-designs with memories.
+We can also use `nuXmv`_, but on BTOR designs it does not support memories yet.
+With the next release of nuXmv, we will be also able to verify designs with
+memories.
+
+.. _nuXmv: https://es-static.fbk.eu/tools/nuxmv/index.php
 
 Detailed Flow
 =============
