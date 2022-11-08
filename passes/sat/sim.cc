@@ -813,18 +813,6 @@ struct SimInstance
 			std::string v = shared->fst->valueOf(item.second);
 			did_something |= set_state(item.first, Const::from_string(v));
 		}
-		for (auto &it : ff_database)
-		{
-			ff_state_t &ff = it.second;
-			SigSpec dsig = it.second.data.sig_d;
-			Const value = get_state(dsig);
-			if (dsig.is_wire()) {
-				ff.past_d = value;
-				if (ff.data.has_aload)
-					ff.past_ad = value;
-				did_something |= true;
-			}
-		}
 		for (auto cell : module->cells())
 		{
 			if (cell->is_mem_cell()) {
@@ -1019,6 +1007,16 @@ struct SimWorker : SimShared
 		top->update_ph3();
 	}
 
+	void initialize_stable_past()
+	{
+		if (debug)
+			log("\n-- ph1 (initialize) --\n");
+		top->update_ph1();
+		if (debug)
+			log("\n-- ph3 (initialize) --\n");
+		top->update_ph3();
+	}
+
 	void set_inports(pool<IdString> ports, State value)
 	{
 		for (auto portname : ports)
@@ -1191,6 +1189,7 @@ struct SimWorker : SimShared
 
 				if (initial) {
 					did_something |= top->setInitState();
+					initialize_stable_past();
 					initial = false;
 				}
 				if (did_something)

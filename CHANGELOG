@@ -2,9 +2,27 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.22 .. Yosys 0.22-dev
+Yosys 0.23 .. Yosys 0.23-dev
 --------------------------
+
+Yosys 0.22 .. Yosys 0.23
+--------------------------
+ * New commands and options
+    - Added option "-cross" to "miter" pass.
+    - Added option "-nocheck" to "equiv_opt" pass.
+
+ * Formal Verification
+    - yosys-smtbmc: Added "--detect-loops" option for checking if states are
+      unique in temporal induction counter examples.
+
+ * Verific support
+    - Added support for reading Liberty files using Verific library.
+      (Optinally enabled with ENABLE_VERIFIC_LIBERTY)
+    - Added option "-cells" to "verific -import" enabling import of
+      all cells from verific design.
+
  * Various
+    - MinGW build (Windows) plugin support.
     - Added YOSYS_ABORT_ON_LOG_ERROR environment variable for debugging.
       Setting it to 1 causes abort() to be called when Yosys terminates with an
       error message.

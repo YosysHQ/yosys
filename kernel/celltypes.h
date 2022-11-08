@@ -488,16 +488,10 @@ struct CellTypes
 
 	static RTLIL::Const eval(RTLIL::Cell *cell, const RTLIL::Const &arg1, const RTLIL::Const &arg2, const RTLIL::Const &arg3, bool *errp = nullptr)
 	{
-		if (cell->type.in(ID($mux), ID($pmux), ID($_MUX_))) {
-			RTLIL::Const ret = arg1;
-			for (size_t i = 0; i < arg3.bits.size(); i++)
-				if (arg3.bits[i] == RTLIL::State::S1) {
-					std::vector<RTLIL::State> bits(arg2.bits.begin() + i*arg1.bits.size(), arg2.bits.begin() + (i+1)*arg1.bits.size());
-					ret = RTLIL::Const(bits);
-				}
-			return ret;
-		}
-
+		if (cell->type.in(ID($mux), ID($_MUX_)))
+			return const_mux(arg1, arg2, arg3);
+		if (cell->type == ID($pmux))
+			return const_pmux(arg1, arg2, arg3);
 		if (cell->type == ID($_AOI3_))
 			return eval_not(const_or(const_and(arg1, arg2, false, false, 1), arg3, false, false, 1));
 		if (cell->type == ID($_OAI3_))

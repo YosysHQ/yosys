@@ -78,7 +78,18 @@ uint64_t FstData::getStartTime() { return fstReaderGetStartTime(ctx); }
 
 uint64_t FstData::getEndTime() { return fstReaderGetEndTime(ctx); }
 
+static void normalize_brackets(std::string &str)
+{
+	for (auto &c : str) {
+		if (c == '<')
+			c = '[';
+		else if (c == '>')
+			c = ']';
+	}
+}
+
 fstHandle FstData::getHandle(std::string name) { 
+	normalize_brackets(name);
 	if (name_to_handle.find(name) != name_to_handle.end())
 		return name_to_handle[name];
 	else 
@@ -120,6 +131,7 @@ void FstData::extractVarNames()
 				var.is_reg = (fstVarType)h->u.var.typ == FST_VT_VCD_REG;
 				var.name = remove_spaces(h->u.var.name);
 				var.scope = fst_scope_name;
+				normalize_brackets(var.scope);
 				var.width = h->u.var.length;
 				vars.push_back(var);
 				if (!var.is_alias)
@@ -134,35 +146,34 @@ void FstData::extractVarNames()
 				if (clean_name[0]=='\\')
 					clean_name = clean_name.substr(1);
 				size_t pos = clean_name.find_last_of("<");
-				if (pos != std::string::npos) {
+				if (pos != std::string::npos && clean_name.back() == '>') {
 					std::string mem_cell = clean_name.substr(0, pos);
+					normalize_brackets(mem_cell);
 					std::string addr = clean_name.substr(pos+1);
 					addr.pop_back(); // remove closing bracket
 					char *endptr;
 					int mem_addr = strtol(addr.c_str(), &endptr, 16);
 					if (*endptr) {
-						log_warning("Error parsing memory address in : %s\n", clean_name.c_str());
+						log_debug("Error parsing memory address in : %s\n", clean_name.c_str());
 					} else {
 						memory_to_handle[var.scope+"."+mem_cell][mem_addr] = var.id;
-						name_to_handle[stringf("%s.%s[%d]",var.scope.c_str(),mem_cell.c_str(),mem_addr)] = h->u.var.handle;
-						continue;
 					}
 				}
 				pos = clean_name.find_last_of("[");
-				if (pos != std::string::npos) {
+				if (pos != std::string::npos && clean_name.back() == ']') {
 					std::string mem_cell = clean_name.substr(0, pos);
+					normalize_brackets(mem_cell);
 					std::string addr = clean_name.substr(pos+1);
 					addr.pop_back(); // remove closing bracket
 					char *endptr;
 					int mem_addr = strtol(addr.c_str(), &endptr, 10);
 					if (*endptr) {
-						log_warning("Error parsing memory address in : %s\n", clean_name.c_str());
+						log_debug("Error parsing memory address in : %s\n", clean_name.c_str());
 					} else {
 						memory_to_handle[var.scope+"."+mem_cell][mem_addr] = var.id;
-						name_to_handle[stringf("%s.%s[%d]",var.scope.c_str(),mem_cell.c_str(),mem_addr)] = h->u.var.handle;
-						continue;
 					}
 				}
+				normalize_brackets(clean_name);
 				name_to_handle[var.scope+"."+clean_name] = h->u.var.handle;
 				break;
 			}
@@ -241,6 +252,7 @@ void FstData::reconstructAllAtTimes(std::vector<fstHandle> &signal, uint64_t sta
 		past_data = last_data;
 		callback(last_time);
 	}
+	past_data = last_data;
 	callback(end_time);
 }
 

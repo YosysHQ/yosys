@@ -758,6 +758,7 @@ struct SatHelper
 		if (last_timestep == -2)
 			log("  no model variables selected for display.\n");
 
+		fprintf(f, "#%d\n", last_timestep+1);
 		fclose(f);
 	}
 
