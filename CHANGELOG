@@ -2,7 +2,7 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.22 .. Yosys 0.22-dev
+Yosys 0.22 .. Yosys 0.23
 --------------------------
  * New commands and options
     - Added option "-cross" to "miter" pass.
