@@ -1,4 +1,4 @@
-all: dots tex svg
+all: dots tex svg tidy
 
 TEX_SOURCE:= $(wildcard *.tex)
 DOT_LOC:= ../../manual/APPNOTE_011_Design_Investigation
@@ -37,7 +37,8 @@ svg: $(SVG_OUTPUT)
 tidy:
 	rm -f *.log
 	rm -f *.aux
+	rm -f  011/*.log 011/*.aux
 clean: tidy
 	rm -f *.pdf
 	rm -f *.svg
-	rm -f 011/*.pdf 011/*.svg 011/*.log 011/*.aux
+	rm -f 011/*.pdf 011/*.svg
