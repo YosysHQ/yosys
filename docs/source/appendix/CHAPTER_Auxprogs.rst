@@ -1,4 +1,4 @@
-Auxiliary Programs
+Auxiliary programs
 ==================
 
 Besides the main yosys executable, the Yosys distribution contains a set of

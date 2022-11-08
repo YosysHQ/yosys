@@ -55,7 +55,7 @@ Therefore a completely new Verilog synthesis tool was implemented and is
 recommended as basis for custom synthesis tools. This is the tool that is
 discussed in this document.
 
-Structure of this Document
+Structure of this document
 --------------------------
 
 The structure of this document is as follows:

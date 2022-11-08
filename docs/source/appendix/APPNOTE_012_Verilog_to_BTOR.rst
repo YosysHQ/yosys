@@ -1,5 +1,5 @@
 ====================================
-012: Converting Verilog to BTOR Page
+012: Converting Verilog to BTOR page
 ====================================
 
 Installation
@@ -19,7 +19,7 @@ This Application Note is based on `Yosys GIT`_ `Rev. 082550f` from 2015-04-04.
 
 .. _Rev. 082550f: https://github.com/YosysHQ/yosys/tree/082550f
 
-Quick Start
+Quick start
 ===========
 
 We assume that the Verilog design is synthesizable and we also assume that the
@@ -113,7 +113,7 @@ memories.
 
 .. _nuXmv: https://es-static.fbk.eu/tools/nuxmv/index.php
 
-Detailed Flow
+Detailed flow
 =============
 
 Yosys is able to synthesize Verilog designs up to the gate level. We are

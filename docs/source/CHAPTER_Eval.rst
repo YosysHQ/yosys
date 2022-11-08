@@ -1,6 +1,6 @@
 .. _chapter:eval:
 
-Evaluation, Conclusion, Future Work
+Evaluation, conclusion, future Work
 ===================================
 
 The Yosys source tree contains over 200 test cases [1]_ which are used
@@ -29,7 +29,7 @@ Tab. \ `[tab:yosys-test-designs] <#tab:yosys-test-designs>`__.
    =========== ========= ================
    ======================================================
 
-Correctness of Synthesis Results
+Correctness of synthesis results
 --------------------------------
 
 The following measures were taken to increase the confidence in the
@@ -195,7 +195,7 @@ OpenRISC 1200
    ============================ ==== ==== ========== ==== =====
    ==========
 
-Conclusion and Future Work
+Conclusion and future Work
 --------------------------
 
 Yosys is capable of correctly synthesizing real-world Verilog designs.

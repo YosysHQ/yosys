@@ -1,6 +1,6 @@
 .. _chapter:prog:
 
-Programming Yosys Extensions
+Programming Yosys extensions
 ============================
 
 This chapter contains some bits and pieces of information about
@@ -23,7 +23,7 @@ particular interest, and are reproduced here.
 	:language: none
 	:caption: guidelines/CodingStyle
 
-The "stubsnets" Example Module
+The "stubsnets" example module
 ------------------------------
 
 The following is the complete code of the "stubsnets" example module. It

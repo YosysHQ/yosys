@@ -1,6 +1,6 @@
 .. _chapter:verilog:
 
-The Verilog and AST Frontends
+The Verilog and AST frontends
 =============================
 
 This chapter provides an overview of the implementation of the Yosys Verilog and
@@ -25,7 +25,7 @@ Preprocessor, the Lexer and the Parser.
 The source code to the Verilog frontend can be found in
 frontends/verilog/ in the Yosys source tree.
 
-The Verilog Preprocessor
+The Verilog preprocessor
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 The Verilog preprocessor scans over the Verilog source code and
@@ -38,7 +38,7 @@ input and returns the pre-processed Verilog code as a ``std::string``.
 The source code to the Verilog Preprocessor can be found in
 frontends/verilog/preproc.cc in the Yosys source tree.
 
-The Verilog Lexer
+The Verilog lexer
 ~~~~~~~~~~~~~~~~~
 
 The Verilog Lexer is written using the lexer generator flex . Its source
@@ -57,7 +57,7 @@ recommended to use :literal:`\`ifdef` constructs instead of the
 Synsopsys translate_on/off comments and attributes such as
 ``(* full_case *)`` over "``// synopsys full_case``" whenever possible.)
 
-The Verilog Parser
+The Verilog parser
 ~~~~~~~~~~~~~~~~~~
 
 The Verilog Parser is written using the parser generator bison . Its
@@ -206,7 +206,7 @@ This is done in two steps: simplification and RTLIL generation.
 The source code to the AST frontend can be found in ``frontends/ast/`` in
 the Yosys source tree.
 
-AST Simplification
+AST simplification
 ~~~~~~~~~~~~~~~~~~
 
 A full-featured AST is too complex to be transformed into RTLIL
@@ -264,8 +264,8 @@ depth-first recursion. For nodes that do not represent an expression
 (such as AST_CELL), the corresponding circuit is generated and an empty
 ``RTLIL::SigSpec`` is returned.
 
-Synthesizing Verilog always Blocks
-----------------------------------
+Synthesizing Verilog always blocks
+--------------------------------------
 
 For behavioural Verilog code (code utilizing ``always``- and
 ``initial``-blocks) it is necessary to also generate ``RTLIL::Process``
@@ -418,7 +418,7 @@ In more complex examples (e.g. asynchronous resets) the part of the
 asynchronous reset must first be transformed to the correct
 ``RTLIL::SyncRule`` objects. This is done by the proc_adff pass.
 
-The ProcessGenerator Algorithm
+The ProcessGenerator algorithm
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The ``AST_INTERNAL::ProcessGenerator`` uses the following internal state
@@ -455,7 +455,7 @@ nodes can be discovered: AST_ASSIGN_LE (nonblocking assignments),
 AST_ASSIGN_EQ (blocking assignments) and AST_CASE (``if`` or ``case``
 statement).
 
-Handling of Nonblocking Assignments
+Handling of nonblocking assignments
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 When an AST_ASSIGN_LE node is discovered, the following actions are
@@ -475,7 +475,7 @@ performed by the ProcessGenerator:
 
 -  Add the new assignment to the ``current_case``.
 
-Handling of Blocking Assignments
+Handling of blocking assignments
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 When an AST_ASSIGN_EQ node is discovered, the following actions are
@@ -492,7 +492,7 @@ performed by the ProcessGenerator:
    ``subst_rvalue_from`` and append the found right-hand-side to
    ``subst_rvalue_to``.
 
-Handling of Cases and if-Statements
+Handling of cases and if-statements
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 When an AST_CASE node is discovered, the following actions are performed
@@ -571,7 +571,7 @@ Finally the following steps are performed:
 -  Add an assignment from ``this_case_eq_ltemp`` to
    ``this_case_eq_lvalue`` to ``current_case``.
 
-Further Analysis of the Algorithm for Cases and if-Statements
+Further analysis of the algorithm for cases and if-statements
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 With respect to nonblocking assignments the algorithm is easy: later
@@ -652,13 +652,13 @@ Second it improves flexibility. This scheme can easily be extended to
 support other types of storage-elements, such as sr-latches or
 d-latches, without having to extend the actual Verilog frontend.
 
-Synthesizing Verilog Arrays
+Synthesizing Verilog arrays
 ---------------------------
 
 Add some information on the generation of $memrd and $memwr cells and
 how they are processed in the memory pass.
 
-Synthesizing Parametric Designs
+Synthesizing parametric designs
 -------------------------------
 
 Add some information on the ``RTLIL::Module::derive()`` method and how

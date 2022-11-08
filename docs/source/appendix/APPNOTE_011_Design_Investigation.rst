@@ -1,5 +1,5 @@
 ==========================================
-011: Interactive Design Investigation Page
+011: Interactive design investigation page
 ==========================================
 
 .. only:: html
@@ -9,7 +9,7 @@
 		the source image in a new tab, allowing for zooming in to see 
 		detail.
 
-Installation and Prerequisites
+Installation and prerequisites
 ==============================
 
 This Application Note is based on the `Yosys GIT`_ `Rev. 2b90ba1`_ from
@@ -251,7 +251,7 @@ the gate-level circuit after ``techmap``.
    and using the simulation models from ``simlib.v`` and ``simcells.v`` 
    from the Yosys data directory (as printed by ``yosys-config --datdir``).
 
-Interactive Navigation
+Interactive navigation
 ----------------------
 
 .. code-block::

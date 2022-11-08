@@ -1,6 +1,6 @@
 .. _chapter:techmap:
 
-Technology Mapping 
+Technology mapping 
 ==================
 
 Previous chapters outlined how HDL code is transformed into an RTL netlist. The
@@ -19,7 +19,7 @@ ALUs), these must be mapped to directly form the RTL netlist, as information on
 the coarse-grain structure of the design is lost when it is mapped to bit-width
 gate types.
 
-Cell Substitution
+Cell substitution
 -----------------
 
 The simplest form of technology mapping is cell substitution, as performed by
@@ -42,7 +42,7 @@ cells to coarse-grain cells provided by the target architecture (if any) and
 then use techmap with the built-in default file to map the remaining RTL cells
 to gate logic.
 
-Subcircuit Substitution
+Subcircuit substitution
 -----------------------
 
 Sometimes the target architecture provides cells that are more powerful than the
@@ -70,7 +70,7 @@ SubCircuit library that can also be used stand-alone without Yosys (see
 
 .. _sec:techmap_extern:
 
-Gate-Level Technology Mapping
+Gate-level technology mapping
 -----------------------------
 
 On the gate-level the target architecture is usually described by a "Liberty

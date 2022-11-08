@@ -1,5 +1,5 @@
 ====================================
-010: Converting Verilog to BLIF Page
+010: Converting Verilog to BLIF page
 ====================================
 
 Installation
@@ -28,7 +28,7 @@ collection of real-world designs used for regression testing Yosys.
 
 .. _yosys-bigsim: https://github.com/YosysHQ/yosys-bigsim
 
-Getting Started
+Getting started
 ===============
 
 We start our tour with the Navré processor from yosys-bigsim. The `Navré
@@ -59,7 +59,7 @@ individual options for each command or by passing one big command string
 with a semicolon-separated list of commands. But in most cases it is
 more convenient to use an actual script file.
 
-Using a Synthesis Script
+Using a synthesis script
 ========================
 
 With a script file we have better control over Yosys. The following
@@ -149,7 +149,7 @@ the Navré CPU:
    proc; opt; memory; opt; fsm; opt; techmap; opt
    write_blif softusb_navre.blif
 
-Advanced Example: The Amber23 ARMv2a CPU
+Advanced example: The Amber23 ARMv2a CPU
 ========================================
 
 Our 2nd example is the `Amber23 ARMv2a CPU`_. Once again we base our example on

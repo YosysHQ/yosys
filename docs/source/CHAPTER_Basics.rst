@@ -3,13 +3,13 @@
 
 .. _chapter:basics:
 
-Basic Principles
+Basic principles
 ================
 
 This chapter contains a short introduction to the basic principles of digital
 circuit synthesis.
 
-Levels of Abstraction
+Levels of abstraction
 ---------------------
 
 Digital circuits can be represented at different levels of abstraction. During
@@ -40,7 +40,7 @@ fixed over time. For example the HDL "ABEL" was first introduced in 1985 as "A
 High-Level Design Language for Programmable Logic Devices" :cite:p:`ABEL`, but
 would not be considered a "High-Level Language" today.
 
-System Level
+System level
 ~~~~~~~~~~~~
 
 The System Level abstraction of a system only looks at its biggest building
@@ -57,7 +57,7 @@ The IEEE 1685-2009 standard defines the IP-XACT file format that can be used to
 represent designs on the system level and building blocks that can be used in
 such system level designs. :cite:p:`IP-XACT`
 
-High Level
+High level
 ~~~~~~~~~~
 
 The high-level abstraction of a system (sometimes referred to as algorithmic
@@ -73,7 +73,7 @@ code with additional metadata) to behavioural HDL code (usually in the form of
 Verilog or VHDL code). Aside from the many commercial tools for high level
 synthesis there are also a number of FOSS tools for high level synthesis .
 
-Behavioural Level
+Behavioural level
 ~~~~~~~~~~~~~~~~~
 
 At the behavioural abstraction level a language aimed at hardware description
@@ -153,7 +153,7 @@ A number of FOSS tools exist that can perform isolated tasks within the domain
 of RTL synthesis steps. But there seems to be no FOSS tool that covers a wide
 range of RTL synthesis operations.
 
-Logical Gate Level
+Logical gate level
 ~~~~~~~~~~~~~~~~~~
 
 At the logical gate level the design is represented by a netlist that uses only
@@ -189,7 +189,7 @@ Good FOSS tools exists for multi-level logic synthesis .
 Yosys contains basic logic synthesis functionality but can also use ABC for the
 logic synthesis step. Using ABC is recommended.
 
-Physical Gate Level
+Physical gate level
 ~~~~~~~~~~~~~~~~~~~
 
 On the physical gate level only gates are used that are physically available on
@@ -204,7 +204,7 @@ For the synthesis tool chain this abstraction is usually the lowest level. In
 case of an ASIC-based design the cell library might contain further information
 on how the physical cells map to individual switches (transistors).
 
-Switch Level
+Switch level
 ~~~~~~~~~~~~
 
 A switch level representation of a circuit is a netlist utilizing single
@@ -224,7 +224,7 @@ domain of behavioural, rtl and logic synthesis. Yosys is designed to be
 extensible and therefore is a good basis for implementing custom synthesis tools
 for specialised tasks.
 
-Features of Synthesizable Verilog
+Features of synthesizable Verilog
 ---------------------------------
 
 The subset of Verilog :cite:p:`Verilog2005` that is synthesizable is specified
@@ -269,7 +269,7 @@ basic structural Verilog and simple expressions. Yosys can be used to convert
 full featured synthesizable Verilog to this simpler subset, thus enabling such
 applications to be used with a richer set of Verilog features.
 
-Behavioural Modelling
+Behavioural modelling
 ~~~~~~~~~~~~~~~~~~~~~
 
 Code that utilizes the Verilog always statement is using Behavioural Modelling.
@@ -354,7 +354,7 @@ hand side register is delayed until the end of the time-step. For example the
 Verilog code ``a <= b; b <= a;`` exchanges the values of the two registers.
 
 
-Functions and Tasks
+Functions and tasks
 ~~~~~~~~~~~~~~~~~~~
 
 Verilog supports Functions and Tasks to bundle statements that are used in
@@ -362,7 +362,7 @@ multiple places (similar to Procedures in imperative programming). Both
 constructs can be implemented easily by substituting the function/task-call with
 the body of the function or task.
 
-Conditionals, Loops and Generate-Statements
+Conditionals, loops and generate-statements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Verilog supports ``if-else``-statements and ``for``-loops inside
@@ -379,7 +379,7 @@ built-in macro processor. Therefore it must be possible for the synthesis tool
 to completely unroll all loops and evaluate the condition in all
 ``if-else``-statement in ``generate``-statements using const-folding..
 
-Arrays and Memories
+Arrays and memories
 ~~~~~~~~~~~~~~~~~~~
 
 Verilog supports arrays. This is in general a synthesizable language feature. In
@@ -424,13 +424,13 @@ it based on the static address signals for all ports or directly identifying
 such situations in the language front end and converting all memory accesses to
 direct accesses to the correct signals.
 
-Challenges in Digital Circuit Synthesis
+Challenges in digital circuit synthesis
 ---------------------------------------
 
 This section summarizes the most important challenges in digital circuit
 synthesis. Tools can be characterized by how well they address these topics.
 
-Standards Compliance
+Standards compliance
 ~~~~~~~~~~~~~~~~~~~~
 
 The most important challenge is compliance with the HDL standards in question
@@ -470,7 +470,7 @@ A good tool is capable of applying a wide range of optimizations at different
 levels of abstraction and gives the designer control over which optimizations
 are performed (or skipped) and what the optimization goals are.
 
-Technology Mapping
+Technology mapping
 ~~~~~~~~~~~~~~~~~~
 
 Technology mapping is the process of converting the design into a netlist of
@@ -483,7 +483,7 @@ function units.
 An open and vendor independent tool is especially of interest if it supports a
 wide range of different types of target architectures.
 
-Script-Based Synthesis Flows
+Script-based synthesis flows
 ----------------------------
 
 A digital design is usually started by implementing a high-level or system-level
@@ -537,13 +537,13 @@ so that no manual interaction would be necessary. These script files are
 considered design sources and should be kept under version control just like the
 source code of the system level and the behavioural model.
 
-Methods from Compiler Design
+Methods from compiler design
 ----------------------------
 
 Some parts of synthesis tools involve problem domains that are traditionally
 known from compiler design. This section addresses some of these domains.
 
-Lexing and Parsing
+Lexing and parsing
 ~~~~~~~~~~~~~~~~~~
 
 The best known concepts from compiler design are probably lexing and parsing.
@@ -630,7 +630,7 @@ three-address-code intermediate representation. :cite:p:`Dragonbook`
 	:verilog:`assign foo = bar + 42;`
 
 
-Multi-Pass Compilation
+Multi-pass compilation
 ~~~~~~~~~~~~~~~~~~~~~~
 
 Complex problems are often best solved when split up into smaller problems. This
@@ -662,8 +662,8 @@ at a time. It also improves flexibility as components can be exchanged easier.
 
 Most modern compilers are multi-pass compilers.
 
-Static Single Assignment Form
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Static Single Assignment (SSA) form
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In imperative programming (and behavioural HDL design) it is possible to assign
 the same variable multiple times. This can either mean that the variable is

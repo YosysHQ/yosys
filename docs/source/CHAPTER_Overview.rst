@@ -1,6 +1,6 @@
 .. _chapter:overview:
 
-Implementation Overview
+Implementation overview
 =======================
 
 Yosys is an extensible open source hardware synthesis tool. It is aimed at
@@ -29,7 +29,7 @@ simplicity the C++ type names used in the Yosys implementation are used in this
 chapter, even though the chapter only explains the conceptual idea behind it and
 can be used as reference to implement a similar system in any language.
 
-Simplified Data Flow
+Simplified data flow
 --------------------
 
 :numref:`Figure %s <fig:Overview_flow>` shows the simplified data flow within
@@ -75,8 +75,8 @@ design in different stages of the synthesis.
 	Yosys simplified data flow (ellipses: data structures, rectangles:
 	program modules)
 
-The RTL Intermediate Language
------------------------------
+The RTL Intermediate Language (RTLIL)
+-------------------------------------
 
 All frontends, passes and backends in Yosys operate on a design in RTLIL
 representation. The only exception are the high-level frontends that use the AST
@@ -130,7 +130,7 @@ This includes Verilog-features such as generate-blocks, loops and parameters.
 The following sections contain a more detailed description of the different
 parts of RTLIL and rationale behind some of the design decisions.
 
-RTLIL Identifiers
+RTLIL identifiers
 ~~~~~~~~~~~~~~~~~
 
 All identifiers in RTLIL (such as module names, port names, signal names, cell
@@ -479,7 +479,7 @@ logic or yield multiport memory blocks (represented using $mem cells).
 
 See :numref:`Sec. %s <sec:memcells>` for details about the memory cell types.
 
-Command Interface and Synthesis Scripts
+Command interface and synthesis scripts
 ---------------------------------------
 
 Yosys reads and processes commands from synthesis scripts, command line
@@ -506,7 +506,7 @@ print all wires that are connected to the ``\A`` port of a ``$add`` cell.
 Detailed documentation of the select framework can be found in the command
 reference for the ``select`` command.
 
-Source Tree and Build System
+Source tree and build system
 ----------------------------
 
 The Yosys source tree is organized into the following top-level

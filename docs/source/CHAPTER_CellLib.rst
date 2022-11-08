@@ -3,7 +3,7 @@
 
 .. _chapter:celllib:
 
-Internal Cell Library
+Internal cell library
 =====================
 
 Most of the passes in Yosys operate on netlists, i.e. they only care about the
@@ -18,7 +18,7 @@ gate cells are covered. These cells are used to represent the design on a
 fine-grain gate-level. All cells from this category operate on single bit
 signals.
 
-RTL Cells
+RTL cells
 ---------
 
 Most of the RTL cells closely resemble the operators available in HDLs such as
@@ -33,7 +33,7 @@ outputs.
 Simulation models for the RTL cells can be found in the file
 ``techlibs/common/simlib.v`` in the Yosys source tree.
 
-Unary Operators
+Unary operators
 ~~~~~~~~~~~~~~~
 
 All unary RTL cells have one input port ``\A`` and one output port ``\Y``. They
@@ -79,7 +79,7 @@ function. But the HDL frontends generate them in different situations. A
 ``$reduce_bool`` cell is generated when a bit vector is used as a condition in
 an ``if``-statement or ``?:``-expression.
 
-Binary Operators
+Binary operators
 ~~~~~~~~~~~~~~~~
 
 All binary RTL cells have two input ports ``\A`` and ``\B`` and one output port
@@ -608,7 +608,7 @@ implemented with a block RAM resource on an FPGA. The ``memory_map`` pass can be
 used to implement ``$mem_v2`` cells as basic logic: word-wide DFFs and address
 decoders.
 
-Finite State Machines
+Finite state machines
 ~~~~~~~~~~~~~~~~~~~~~
 
 Add a brief description of the ``$fsm`` cell type.

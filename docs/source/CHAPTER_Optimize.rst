@@ -6,7 +6,7 @@ Optimizations
 Yosys employs a number of optimizations to generate better and cleaner results.
 This chapter outlines these optimizations.
 
-Simple Optimizations
+Simple optimizations
 --------------------
 
 The Yosys pass opt runs a number of simple optimizations. This includes removing
@@ -143,7 +143,7 @@ The option -nomux can be used to disable resource sharing for multiplexer cells
 ($mux and $pmux. This can be useful as it prevents multiplexer trees to be
 merged, which might prevent opt_muxtree to identify possible optimizations.
 
-FSM Extraction and Encoding
+FSM extraction and encoding
 ---------------------------
 
 The fsm pass performs finite-state-machine (FSM) extraction and recoding. The
@@ -196,7 +196,7 @@ objects to RTL cells.
 The algorithms used for FSM detection and extraction are influenced by a more
 general reported technique :cite:p:`fsmextract`.
 
-FSM Detection
+FSM detection
 ~~~~~~~~~~~~~
 
 The fsm_detect pass identifies FSM state registers. It sets the ``\fsm_encoding
@@ -221,7 +221,7 @@ Note however that marking state registers with ``\fsm_encoding`` that are not
 suitable for FSM recoding can cause synthesis to fail or produce invalid
 results.
 
-FSM Extraction
+FSM extraction
 ~~~~~~~~~~~~~~
 
 The fsm_extract pass operates on all state signals marked with the
@@ -283,7 +283,7 @@ Finally a $fsm cell is created with the generated transition table and added to
 the module. This new cell is connected to the control signals and the old
 drivers for the control outputs are disconnected.
 
-FSM Optimization
+FSM optimization
 ~~~~~~~~~~~~~~~~
 
 The fsm_opt pass performs basic optimizations on $fsm cells (not including state
@@ -308,7 +308,7 @@ recoding). The following optimizations are performed (in this order):
 
 -  Unused inputs are removed.
 
-FSM Recoding
+FSM recoding
 ~~~~~~~~~~~~
 
 The fsm_recode pass assigns new bit pattern to the states. Usually this also
@@ -319,7 +319,7 @@ The fsm_recode pass can also write a text file with the changes performed by it
 that can be used when verifying designs synthesized by Yosys using Synopsys
 Formality .
 
-Logic Optimization
+Logic optimization
 ------------------
 
 Yosys can perform multi-level combinational logic optimization on gate-level

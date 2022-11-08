@@ -1,6 +1,6 @@
 .. _chapter:textrtlil:
 
-RTLIL Text Representation
+RTLIL text representation
 =========================
 
 This appendix documents the text representation of RTLIL in extended Backus-Naur

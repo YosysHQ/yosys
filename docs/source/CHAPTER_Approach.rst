@@ -8,7 +8,7 @@ architecture netlists. Yosys aims at a wide range of application domains and
 thus must be flexible and easy to adapt to new tasks. This chapter covers the
 general approach followed in the effort to implement this tool.
 
-Data- and Control-Flow
+Data- and control-flow
 ----------------------
 
 The data- and control-flow of a typical synthesis tool is very similar to the
@@ -37,7 +37,7 @@ In Yosys all frontends, passes and backends are directly available as commands
 in the synthesis script. Thus the user can easily create a custom synthesis flow
 just by calling passes in the right order in a synthesis script.
 
-Internal Formats in Yosys
+Internal formats in Yosys
 -------------------------
 
 Yosys uses two different internal formats. The first is used to store an
@@ -89,7 +89,7 @@ constructs must be called from the synthesis script first.
 
 .. _sec:typusecase:
 
-Typical Use Case
+Typical use case
 ----------------
 
 The following example script may be used in a synthesis flow to convert the
