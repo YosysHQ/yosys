@@ -49,7 +49,7 @@ Yosys manual
 	\appendix
 
 .. toctree::
-	:maxdepth: 3
+	:maxdepth: 2
 	:includehidden:
 	:caption: Appendix
 
@@ -62,10 +62,11 @@ Yosys manual
 	appendix/APPNOTE_012_Verilog_to_BTOR.rst
 	appendix/CHAPTER_StateOfTheArt.rst
 
+	bib
+
 .. toctree::
 	:maxdepth: 1
 	:includehidden:
 
 	cmd_ref
-	bib
 
