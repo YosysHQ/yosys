@@ -917,7 +917,7 @@ class SmtIo:
         if len(expr_list) == 0:
             return []
         self.write("(get-value (%s))" % " ".join(expr_list))
-        return [n[1] for n in self.parse(self.read()) if n]
+        return [n[1] for n in self.parse(self.read())]
 
     def get_path(self, mod, path):
         assert mod in self.modinfo

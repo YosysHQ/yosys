@@ -504,6 +504,7 @@ void Mem::check() {
 	int mask = (1 << max_wide_log2) - 1;
 	log_assert(!(start_offset & mask));
 	log_assert(!(size & mask));
+	log_assert(width != 0);
 }
 
 namespace {
