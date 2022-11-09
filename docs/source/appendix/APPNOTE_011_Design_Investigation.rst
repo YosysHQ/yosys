@@ -68,7 +68,7 @@ Introduction to the show command
    endmodule
 
 .. figure:: ../../images/011/example_out.*
-   :scale: 12%
+   :class: width-helper
    :name: example_out
    
    Output of the three ``show`` commands from :numref:`example_src`
@@ -136,12 +136,13 @@ some operations, it is therefore recommended to always call ``clean`` before
 calling ``show``.
 
 In this script we directly call ``opt`` as next step, which finally leads us to
-the 3rd diagram in \ :numref:`example_out`. Here we see that the ``opt`` command
+the 3rd diagram in :numref:`example_out`. Here we see that the ``opt`` command
 not only has removed the artifacts left behind by ``proc``, but also determined
 correctly that it can remove the first ``$mux`` cell without changing the
 behavior of the circuit.
 
 .. figure:: ../../images/011/splice.*
+   :class: width-helper
    :name: splice_dia
 
    Output of ``yosys -p 'proc; opt; show' splice.v``
@@ -151,7 +152,7 @@ behavior of the circuit.
    :name: splice_src
 
 .. figure:: ../../images/011/splitnets_libfile.*
-   :scale: 12%
+   :class: width-helper
    :name: splitnets_libfile
 
    Effects of ``splitnets`` command and of providing a cell library. (The
@@ -336,6 +337,7 @@ Working with selections
 -----------------------
 
 .. figure:: ../../images/011/example_03.*
+   :class: width-helper
    :name: seladd
 
    Output of ``show`` after ``select $2`` or ``select t:$add`` (see also
@@ -389,6 +391,7 @@ Operations on selections
    :name: sumprod
 
 .. figure:: ../../images/011/sumprod_00.*
+   :class: width-helper
    :name: sumprod_00
 
    Output of ``show a:sumstuff`` on :numref:`sumprod`
@@ -436,6 +439,7 @@ selected wire it selects all cells connected to the wire and vice versa. So
 ``show a:sumstuff %x`` yields the diagram shown in :numref:`sumprod_01`.
 
 .. figure:: ../../images/011/sumprod_01.*
+   :class: width-helper
    :name: sumprod_01
 
    Output of ``show a:sumstuff %x`` on :numref:`sumprod`
@@ -472,7 +476,7 @@ The action ``%ci\*`` performs the ``%ci`` action over and over again until it
 has no effect anymore.
 
 .. figure:: ../../images/011/select_prod.*
-   :scale: 12%
+   :class: width-helper
    :name: select_prod
    
    Objects selected by ``select prod \%ci...``
@@ -493,7 +497,7 @@ the diagram shown in :numref:`memdemo_00`.
    :name: memdemo_src
 
 .. figure:: ../../images/011/memdemo_00.*
-   :scale: 2%
+   :class: width-helper
    :name: memdemo_00
    
    Complete circuit diagram for the design shown in :numref:`memdemo_src`
@@ -538,6 +542,7 @@ Or we could decide to tell the ``%ci`` action to not follow the ``CLK`` input:
    show y %ci2:-[CLK]
 
 .. figure:: ../../images/011/memdemo_01.*
+   :class: width-helper
    :name: memdemo_01
    
    Output of ``show y \%ci2:+\$dff[Q,D] \%ci*:-\$mux[S]:-\$dff``
@@ -615,7 +620,7 @@ The ``-name`` option is used to specify the name of the new module and also the
 name of the new cell in the current module.
 
 .. figure:: ../../images/011/submod_dots.*
-   :scale: 12%
+   :class: width-helper
    :name: submod_dots
 
 .. code-block::
@@ -640,7 +645,7 @@ The ``eval`` command can be used to evaluate combinatorial circuits. For example
 
       yosys [selstage]> eval -set s2,s1 4'b1001 -set d 4'hc -show n2 -show n1
 
-      9. Executing EVAL pass (evaluate the circuit given an input).
+      1. Executing EVAL pass (evaluate the circuit given an input).
       Full command line: eval -set s2,s1 4'b1001 -set d 4'hc -show n2 -show n1
       Eval result: \n2 = 2'10.
       Eval result: \n1 = 2'10.

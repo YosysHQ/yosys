@@ -70,6 +70,7 @@ possible it is key that (1) all passes operate on the same data structure
 design in different stages of the synthesis.
 
 .. figure:: ../images/overview_flow.*
+	:class: width-helper
 	:name: fig:Overview_flow
 
 	Yosys simplified data flow (ellipses: data structures, rectangles:
@@ -101,6 +102,7 @@ additional RTLIL::Design object and call the Verilog frontend with this other
 object to parse the cell library.
 
 .. figure:: ../images/overview_rtlil.*
+	:class: width-helper
 	:name: fig:Overview_RTLIL
 
 	Simplified RTLIL Entity-Relationship Diagram

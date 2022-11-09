@@ -24,6 +24,7 @@ circuit to a functionally equivalent low-level representation of a circuit.
 abstraction and how they relate to different kinds of synthesis.
 
 .. figure:: ../images/basics_abstractions.*
+	:class: width-helper
 	:name: fig:Basics_abstractions
 
 	Different levels of abstraction and synthesis.
@@ -498,6 +499,7 @@ using a series of tools and the results are again verified using simulation.
 This process is illustrated in :numref:`Fig. %s <fig:Basics_flow>`.
 
 .. figure:: ../images/basics_flow.*
+	:class: width-helper
 	:name: fig:Basics_flow
 
 	Typical design flow.  Green boxes represent manually created models.
@@ -596,6 +598,7 @@ Let's consider the following BNF (in Bison syntax):
    expr: TOK_IDENTIFIER | TOK_NUMBER | expr TOK_PLUS expr;
 
 .. figure:: ../images/basics_parsetree.*
+	:class: width-helper
 	:name: fig:Basics_parsetree
 
 	Example parse tree for the Verilog expression 
@@ -624,6 +627,7 @@ suitable for further processing. In compilers this is often an assembler-like
 three-address-code intermediate representation. :cite:p:`Dragonbook`
 
 .. figure:: ../images/basics_ast.*
+	:class: width-helper
 	:name: fig:Basics_ast
 
 	Example abstract syntax tree for the Verilog expression 

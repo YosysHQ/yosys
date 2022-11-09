@@ -72,3 +72,7 @@ p {
 	padding-top: 0%;
 	margin-top: 0%;
 }
+
+.width-helper {
+	width: 100%;
+}
