@@ -375,29 +375,24 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 			std::vector<int> undef_s = importUndefSigSpec(cell->getPort(ID::S), timestep);
 			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
 
-			int maybe_a = ez->CONST_TRUE;
+			int all_undef = ez->CONST_FALSE;
+			int found_active = ez->CONST_FALSE;
 
-			std::vector<int> bits_set = std::vector<int>(undef_y.size(), ez->CONST_FALSE);
-			std::vector<int> bits_clr = std::vector<int>(undef_y.size(), ez->CONST_FALSE);
+			std::vector<int> undef_tmp = undef_a;
 
 			for (size_t i = 0; i < s.size(); i++)
 			{
-				std::vector<int> part_of_b(b.begin()+i*a.size(), b.begin()+(i+1)*a.size());
 				std::vector<int> part_of_undef_b(undef_b.begin()+i*a.size(), undef_b.begin()+(i+1)*a.size());
 
-				int maybe_s = ez->OR(s.at(i), undef_s.at(i));
-				int sure_s = ez->AND(s.at(i), ez->NOT(undef_s.at(i)));
-
-				maybe_a = ez->AND(maybe_a, ez->NOT(sure_s));
-
-				bits_set = ez->vec_ite(maybe_s, ez->vec_or(bits_set, ez->vec_or(part_of_b, part_of_undef_b)), bits_set);
-				bits_clr = ez->vec_ite(maybe_s, ez->vec_or(bits_clr, ez->vec_or(ez->vec_not(part_of_b), part_of_undef_b)), bits_clr);
+				undef_tmp = ez->vec_ite(s.at(i), part_of_undef_b, undef_tmp);
+				all_undef = ez->OR(all_undef, undef_s.at(i));
+				all_undef = ez->OR(all_undef, ez->AND(s.at(i), found_active));
+				found_active = ez->OR(found_active, s.at(i));
 			}
 
-			bits_set = ez->vec_ite(maybe_a, ez->vec_or(bits_set, ez->vec_or(bits_set, ez->vec_or(a, undef_a))), bits_set);
-			bits_clr = ez->vec_ite(maybe_a, ez->vec_or(bits_clr, ez->vec_or(bits_clr, ez->vec_or(ez->vec_not(a), undef_a))), bits_clr);
+			undef_tmp = ez->vec_or(undef_tmp, std::vector<int>(a.size(), all_undef));
 
-			ez->assume(ez->vec_eq(ez->vec_not(ez->vec_xor(bits_set, bits_clr)), undef_y));
+			ez->assume(ez->vec_eq(undef_tmp, undef_y));
 			undefGating(y, yy, undef_y);
 		}
 		return true;

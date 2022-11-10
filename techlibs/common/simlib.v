@@ -1331,10 +1331,17 @@ always @* begin
 	Y = A;
 	found_active_sel_bit = 0;
 	for (i = 0; i < S_WIDTH; i = i+1)
-		if (S[i]) begin
-			Y = found_active_sel_bit ? 'bx : B >> (WIDTH*i);
-			found_active_sel_bit = 1;
-		end
+		case (S[i])
+			1'b1: begin
+				Y = found_active_sel_bit ? 'bx : B >> (WIDTH*i);
+				found_active_sel_bit = 1;
+			end
+			1'b0: ;
+			1'bx: begin
+				Y = 'bx;
+				found_active_sel_bit = 'bx;
+			end
+		endcase
 end
 
 endmodule
