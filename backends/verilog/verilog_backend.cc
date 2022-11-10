@@ -2326,8 +2326,10 @@ struct VerilogBackend : public Backend {
 		}
 
 		log_push();
-		Pass::call(design, "bmuxmap");
-		Pass::call(design, "demuxmap");
+		if (!noexpr) {
+			Pass::call(design, "bmuxmap");
+			Pass::call(design, "demuxmap");
+		}
 		Pass::call(design, "clean_zerowidth");
 		log_pop();
 
