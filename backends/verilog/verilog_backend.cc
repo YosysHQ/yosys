@@ -1209,7 +1209,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 	if (cell->type == ID($modfloor))
 	{
 		// wire truncated = $signed(A) % $signed(B);
-		// assign Y = (A[-1] == B[-1]) || truncated == 0 ? truncated : $signed(B) + $signed(truncated);
+		// assign Y = (A[-1] == B[-1]) || truncated == 0 ? $signed(truncated) : $signed(B) + $signed(truncated);
 
 		if (cell->getParam(ID::A_SIGNED).as_bool() && cell->getParam(ID::B_SIGNED).as_bool()) {
 			SigSpec sig_a = cell->getPort(ID::A);
@@ -1229,7 +1229,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			dump_sigspec(f, sig_a.extract(sig_a.size()-1));
 			f << stringf(" == ");
 			dump_sigspec(f, sig_b.extract(sig_b.size()-1));
-			f << stringf(") || %s == 0 ? %s : ", temp_id.c_str(), temp_id.c_str());
+			f << stringf(") || %s == 0 ? $signed(%s) : ", temp_id.c_str(), temp_id.c_str());
 			dump_cell_expr_port(f, cell, "B", true);
 			f << stringf(" + $signed(%s);\n", temp_id.c_str());
 			return true;
