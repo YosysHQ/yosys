@@ -1377,7 +1377,7 @@ parameter LUT = 0;
 input [WIDTH-1:0] A;
 output Y;
 
-\$bmux #(.WIDTH(1), .S_WIDTH(WIDTH)) mux(.A(LUT), .S(A), .Y(Y));
+\$bmux #(.WIDTH(1), .S_WIDTH(WIDTH)) mux(.A(LUT[(1<<WIDTH)-1:0]), .S(A), .Y(Y));
 
 endmodule
 
