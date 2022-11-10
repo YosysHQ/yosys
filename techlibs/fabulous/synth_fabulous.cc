@@ -44,6 +44,18 @@ struct SynthPass : public ScriptPass
 		log("    -auto-top\n");
 		log("        automatically determine the top of the design hierarchy\n");
 		log("\n");
+		log("    -blif <file>\n");
+		log("        write the design to the specified BLIF file. writing of an output file\n");
+		log("        is omitted if this parameter is not specified.\n");
+		log("\n");
+		log("    -edif <file>\n");
+		log("        write the design to the specified EDIF file. writing of an output file\n");
+		log("        is omitted if this parameter is not specified.\n");
+		log("\n");
+		log("    -json <file>\n");
+		log("        write the design to the specified JSON file. writing of an output file\n");
+		log("        is omitted if this parameter is not specified.\n");
+		log("\n");
 		log("    -lut <k>\n");
 		log("        perform synthesis for a k-LUT architecture (default 4).\n");
 		log("\n");
@@ -62,6 +74,20 @@ struct SynthPass : public ScriptPass
 		log("    -noalumacc\n");
 		log("        do not run 'alumacc' pass. i.e. keep arithmetic operators in\n");
 		log("        their direct form ($add, $sub, etc.).\n");
+		log("\n");
+		log("    -noregfile\n");
+		log("        do not map register files\n");
+		log("\n");
+		log("    -iopad\n");
+		log("        enable automatic insertion of IO buffers (otherwise a wrapper\n");
+		log("        with manually inserted and constrained IO should be used.)\n");
+		log("\n");
+		log("    -complex-dff\n");
+		log("        enable support for FFs with enable and synchronous SR (must also be\n");
+		log("        supported by the target fabric.)\n");
+		log("\n");
+		log("    -noflatten\n");
+		log("        do not flatten design after elaboration\n");
 		log("\n");
 		log("    -nordff\n");
 		log("        passed to 'memory'. prohibits merging of FFs into memory read ports\n");
@@ -85,8 +111,8 @@ struct SynthPass : public ScriptPass
 		log("\n");
 	}
 
-	string top_module, plib, fsm_opts, memory_opts;
-	bool autotop, forvpr, noalumacc, nofsm, noshare;
+	string top_module, json_file, blif_file, plib, fsm_opts, memory_opts;
+	bool autotop, forvpr, noalumacc, nofsm, noshare, noregfile, iopad, complexdff, flatten;
 	int lut;
 
 	void clear_flags() override
@@ -99,6 +125,11 @@ struct SynthPass : public ScriptPass
 		noalumacc = false;
 		nofsm = false;
 		noshare = false;
+		iopad = false;
+		complexdff = false;
+		flatten = true;
+		json_file = "";
+		blif_file = "";
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -111,6 +142,14 @@ struct SynthPass : public ScriptPass
 		{
 			if (args[argidx] == "-top" && argidx+1 < args.size()) {
 				top_module = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-json" && argidx+1 < args.size()) {
+				json_file = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-blif" && argidx+1 < args.size()) {
+				blif_file = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-run" && argidx+1 < args.size()) {
@@ -160,6 +199,22 @@ struct SynthPass : public ScriptPass
 				memory_opts += " -no-rw-check";
 				continue;
 			}
+			if (args[argidx] == "-noregfile") {
+				noregfile = true;
+				continue;
+			}
+			if (args[argidx] == "-iopad") {
+				iopad = true;
+				continue;
+			}
+			if (args[argidx] == "-complex-dff") {
+				complexdff = true;
+				continue;
+			}
+			if (args[argidx] == "-noflatten") {
+				flatten = false;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -178,65 +233,131 @@ struct SynthPass : public ScriptPass
 	void script() override
 	{
 		if (plib.empty())
-			run("read_verilog -lib +/fabulous/prims.v");
+			run(stringf("read_verilog %s -lib +/fabulous/prims.v", complexdff ? "-DCOMPLEX_DFF" : ""));
 		else
 			run("read_verilog -lib " + plib);
 
-		if (top_module.empty()) {
-			if (autotop)
-				run("hierarchy -check -auto-top");
-			else
-				run("hierarchy -check");
-		} else
-			run(stringf("hierarchy -check -top %s", top_module.c_str()));
+		if (check_label("begin")) {
+			if (top_module.empty()) {
+				if (autotop)
+					run("hierarchy -check -auto-top");
+				else
+					run("hierarchy -check");
+			} else
+				run(stringf("hierarchy -check -top %s", top_module.c_str()));
+			run("proc");
+		}
 
-		run("proc");
- 		run("tribuf -logic");
-		run("deminout");
 
-		// synth pass
-		run("opt_expr");
-		run("opt_clean");
-		run("check");
-		run("opt -nodffe -nosdff");
-		if (!nofsm)
-			run("fsm" + fsm_opts, "      (unless -nofsm)");
-		run("opt");
-		run("wreduce");
-		run("peepopt");
-		run("opt_clean");
-		if (help_mode)
-			run("techmap -map +/cmp2lut.v -map +/cmp2lcu.v", " (if -lut)");
-		else if (lut)
-			run(stringf("techmap -map +/cmp2lut.v -map +/cmp2lcu.v -D LUT_WIDTH=%d", lut));
-		if (!noalumacc)
-			run("alumacc", "  (unless -noalumacc)");
-		if (!noshare)
-			run("share", "    (unless -noshare)");
-		run("opt");
-		run("memory -nomap" + memory_opts);
-		run("opt_clean");
+		if (check_label("flatten", "(unless -noflatten)"))
+		{
+			if (flatten) {
+				run("flatten");
+				run("tribuf -logic");
+				run("deminout");
+			}
+		}
 
-		// RegFile extraction
+		if (check_label("coarse")) {
+	 		run("tribuf -logic");
+			run("deminout");
 
-		run("memory_libmap -lib +/fabulous/ram_regfile.txt");
-		run("techmap -map +/fabulous/regfile_map.v");
-		run("opt -fast -mux_undef -undriven -fine");
+			// synth pass
+			run("opt_expr");
+			run("opt_clean");
+			run("check");
+			run("opt -nodffe -nosdff");
+			if (!nofsm)
+				run("fsm" + fsm_opts, "      (unless -nofsm)");
+			run("opt");
+			run("wreduce");
+			run("peepopt");
+			run("opt_clean");
+			if (help_mode)
+				run("techmap -map +/cmp2lut.v -map +/cmp2lcu.v", " (if -lut)");
+			else if (lut)
+				run(stringf("techmap -map +/cmp2lut.v -map +/cmp2lcu.v -D LUT_WIDTH=%d", lut));
+			if (!noalumacc)
+				run("alumacc", "  (unless -noalumacc)");
+			if (!noshare)
+				run("share", "    (unless -noshare)");
+			run("opt");
+			run("memory -nomap" + memory_opts);
+			run("opt_clean");
+		}
 
-		run("memory_map");
-		run("opt -undriven -fine");
-		run("opt -full");
-		run("techmap -map +/techmap.v");
-		run("opt -fast");
-		run("dfflegalize -cell $_DFF_P_ 0 -cell $_DLATCH_?_ x");
-		run("techmap -map +/fabulous/latches_map.v");
-		run("abc -lut $LUT_K -dress");
-		run("clean");
-		if (!forvpr) 
-			run("techmap -D LUT_K=$LUT_K -map +/fabulous/cells_map.v");
-		run("clean");
-		run("hierarchy -check");
-		run("stat");
+		if (check_label("map_ram")) {
+			// RegFile extraction
+			if (!noregfile) {
+				run("memory_libmap -lib +/fabulous/ram_regfile.txt");
+				run("techmap -map +/fabulous/regfile_map.v");
+			}
+		}
+
+		if (check_label("map_ffram")) {
+			run("opt -fast -mux_undef -undriven -fine");
+			run("memory_map");
+			run("opt -undriven -fine");
+		}
+
+		if (check_label("map_gates")) {
+			run("opt -full");
+			run("techmap -map +/techmap.v");
+			run("opt -fast");
+		}
+
+		if (check_label("map_iopad", "(if -iopad)")) {
+			if (iopad) {
+				run("opt -full");
+				run("iopadmap -bits -outpad $__FABULOUS_OBUF I:PAD -inpad $__FABULOUS_IBUF O:PAD "
+					"-toutpad IO_1_bidirectional_frame_config_pass ~T:I:PAD "
+					"-tinoutpad IO_1_bidirectional_frame_config_pass ~T:O:I:PAD A:top", "(skip if '-noiopad')");
+				run("techmap -map +/fabulous/io_map.v");
+			}
+		}
+
+
+		if (check_label("map_ffs")) {
+			if (complexdff) {
+				run("dfflegalize -cell $_DFF_P_ 0 -cell $_SDFF_PP?_ 0 -cell $_SDFFCE_PP?P_ 0 -cell $_DLATCH_?_ x", "with -complex-dff");
+			} else {
+				run("dfflegalize -cell $_DFF_P_ 0 -cell $_DLATCH_?_ x", "without -complex-dff");
+			}
+			run("techmap -map +/fabulous/latches_map.v");
+			run("techmap -map +/fabulous/ff_map.v");
+			run("clean");
+		}
+
+		if (check_label("map_luts")) {
+			run(stringf("abc -lut %d -dress", lut));
+			run("clean");
+		}
+
+		if (check_label("map_cells")) {
+			if (!forvpr)
+				run(stringf("techmap -D LUT_K=%d -map +/fabulous/cells_map.v", lut));
+			run("clean");
+		}
+		if (check_label("check")) {
+			run("hierarchy -check");
+			run("stat");
+		}
+
+		if (check_label("blif"))
+		{
+			if (!blif_file.empty() || help_mode)
+			{
+				run("opt_clean -purge");
+				run(stringf("write_blif -attr -cname -conn -param %s",
+						help_mode ? "<file-name>" : blif_file.c_str()));
+			}
+		}
+
+		if (check_label("json"))
+		{
+			if (!json_file.empty() || help_mode)
+				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file.c_str()));
+		}
 	}
 } SynthPass;
 
