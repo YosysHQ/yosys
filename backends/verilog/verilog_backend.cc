@@ -35,7 +35,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool verbose, norename, noattr, attr2comment, noexpr, nodec, nohex, nostr, extmem, defparam, decimal, siminit, systemverilog, simple_lhs;
+bool verbose, norename, noattr, attr2comment, noexpr, nodec, nohex, nostr, extmem, defparam, decimal, siminit, systemverilog, simple_lhs, noparallelcase;
 int auto_name_counter, auto_name_offset, auto_name_digits, extmem_counter;
 std::map<RTLIL::IdString, int> auto_name_map;
 std::set<RTLIL::IdString> reg_wires;
@@ -1314,24 +1314,38 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		f << stringf("%s" "  input [%d:0] s;\n", indent.c_str(), s_width-1);
 
 		dump_attributes(f, indent + "  ", cell->attributes);
-		if (!noattr)
-			f << stringf("%s" "  (* parallel_case *)\n", indent.c_str());
-		f << stringf("%s" "  casez (s)", indent.c_str());
-		f << stringf(noattr ? " // synopsys parallel_case\n" : "\n");
+		if (noparallelcase)
+			f << stringf("%s" "  case (s)\n", indent.c_str());
+		else {
+			if (!noattr)
+				f << stringf("%s" "  (* parallel_case *)\n", indent.c_str());
+			f << stringf("%s" "  casez (s)", indent.c_str());
+			f << stringf(noattr ? " // synopsys parallel_case\n" : "\n");
+		}
 
 		for (int i = 0; i < s_width; i++)
 		{
 			f << stringf("%s" "    %d'b", indent.c_str(), s_width);
 
 			for (int j = s_width-1; j >= 0; j--)
-				f << stringf("%c", j == i ? '1' : '?');
+				f << stringf("%c", j == i ? '1' : noparallelcase ? '0' : '?');
 
 			f << stringf(":\n");
 			f << stringf("%s" "      %s = b[%d:%d];\n", indent.c_str(), func_name.c_str(), (i+1)*width-1, i*width);
 		}
 
-		f << stringf("%s" "    default:\n", indent.c_str());
+		if (noparallelcase) {
+			f << stringf("%s" "    %d'b", indent.c_str(), s_width);
+			for (int j = s_width-1; j >= 0; j--)
+				f << '0';
+			f << stringf(":\n");
+		} else
+			f << stringf("%s" "    default:\n", indent.c_str());
 		f << stringf("%s" "      %s = a;\n", indent.c_str(), func_name.c_str());
+		if (noparallelcase) {
+			f << stringf("%s" "    default:\n", indent.c_str());
+			f << stringf("%s" "      %s = %d'bx;\n", indent.c_str(), func_name.c_str(), width);
+		}
 
 		f << stringf("%s" "  endcase\n", indent.c_str());
 		f << stringf("%s" "endfunction\n", indent.c_str());
@@ -2136,6 +2150,11 @@ struct VerilogBackend : public Backend {
 		log("        without this option all internal cells are converted to Verilog\n");
 		log("        expressions.\n");
 		log("\n");
+		log("    -noparallelcase\n");
+		log("        With this option no parallel_case attributes are used. Instead, a case\n");
+		log("        statement that assigns don't-care values for priority dependent inputs\n");
+		log("        is generated.\n");
+		log("\n");
 		log("    -siminit\n");
 		log("        add initial statements with hierarchical refs to initialize FFs when\n");
 		log("        in -noexpr mode.\n");
@@ -2211,6 +2230,7 @@ struct VerilogBackend : public Backend {
 		decimal = false;
 		siminit = false;
 		simple_lhs = false;
+		noparallelcase = false;
 		auto_prefix = "";
 
 		bool blackboxes = false;
@@ -2244,6 +2264,10 @@ struct VerilogBackend : public Backend {
 			}
 			if (arg == "-noexpr") {
 				noexpr = true;
+				continue;
+			}
+			if (arg == "-noparallelcase") {
+				noparallelcase = true;
 				continue;
 			}
 			if (arg == "-nodec") {
