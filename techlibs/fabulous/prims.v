@@ -66,16 +66,16 @@ module FABULOUS_LC #(
   //LUT #(.K(K), .INIT(INIT)) lut_i(.I(I), .Q(f_wire));
   generate
     if (K == 1) begin
-      LUT1 #(.INIT(INIT)) lut1 (.O(f_wire), .I0(A[0]));
+      LUT1 #(.INIT(INIT)) lut1 (.O(f_wire), .I0(I[0]));
     end else
     if (K == 2) begin
-      LUT2 #(.INIT(INIT)) lut2 (.O(f_wire), .I0(A[0]), .I1(A[1]));
+      LUT2 #(.INIT(INIT)) lut2 (.O(f_wire), .I0(I[0]), .I1(I[1]));
     end else
     if (K == 3) begin
-      LUT3 #(.INIT(INIT)) lut3 (.O(f_wire), .I0(A[0]), .I1(A[1]), .I2(A[2]));
+      LUT3 #(.INIT(INIT)) lut3 (.O(f_wire), .I0(I[0]), .I1(I[1]), .I2(I[2]));
     end else
     if (K == 4) begin
-      LUT4 #(.INIT(INIT)) lut4 (.O(f_wire), .I0(A[0]), .I1(A[1]), .I2(A[2]), .I3(A[3]));
+      LUT4 #(.INIT(INIT)) lut4 (.O(f_wire), .I0(I[0]), .I1(I[1]), .I2(I[2]), .I3(I[3]));
     end
   endgenerate
         
@@ -348,7 +348,11 @@ module RegFile_32x4 (D0, D1, D2, D3, W_ADR0, W_ADR1, W_ADR2, W_ADR3, W_ADR4, W_e
 
 endmodule
 
-`ifdef COMPLEX_FLOP
+`ifdef EQUIV
+`define COMPLEX_DFF
+`endif
+
+`ifdef COMPLEX_DFF
 module LUTFF_E (
   output reg O,
   input CLK, E, D
@@ -410,4 +414,4 @@ module LUTFF_ESS (
         O <= D;
     end
 endmodule
-`endif // COMPLEX_FLOP
+`endif // COMPLEX_DFF

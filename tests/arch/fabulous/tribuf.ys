@@ -1,0 +1,12 @@
+read_verilog ../common/tribuf.v
+hierarchy -top tristate
+proc
+tribuf
+flatten
+synth
+equiv_opt -assert -map +/fabulous/prims.v -map +/simcells.v synth_fabulous -iopad # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd tristate # Constrain all select calls below inside the top module
+select -assert-count 3 t:IO_1_bidirectional_frame_config_pass
+select -assert-max 1 t:LUT1
+select -assert-none t:IO_1_bidirectional_frame_config_pass t:LUT1 %% t:* %D
