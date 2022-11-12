@@ -285,10 +285,16 @@ static void save_struct_array_width(AstNode *node, int width)
 
 }
 
+static void save_struct_range_swapped(AstNode *node, bool range_swapped)
+{
+	node->multirange_swapped.push_back(range_swapped);
+
+}
+
 static int get_struct_array_width(AstNode *node)
 {
 	// the stride for the array, 1 if not an array
-	return (node->multirange_dimensions.empty() ? 1 : node->multirange_dimensions.back());
+	return (node->multirange_dimensions.size() != 2 ? 1 : node->multirange_dimensions[1]);
 
 }
 
@@ -321,18 +327,22 @@ static int size_packed_struct(AstNode *snode, int base_offset)
 					if (node->children[1]->type == AST_RANGE) {
 						// unpacked array e.g. bit [63:0] a [0:3]
 						auto rnode = node->children[1];
-						int array_count = range_width(node, rnode);
-						if (array_count == 1) {
-							// C-type array size e.g. bit [63:0] a [4]
-							array_count = rnode->range_left;
-						}
+						// C-type array size e.g. bit [63:0] a [4]
+						bool c_type = rnode->children.size() == 1;
+						int array_count = c_type ? rnode->range_left : range_width(node, rnode);
+						save_struct_array_width(node, array_count);
+						save_struct_range_swapped(node, rnode->range_swapped || c_type);
 						save_struct_array_width(node, width);
+						save_struct_range_swapped(node, node->children[0]->range_swapped);
 						width *= array_count;
 					}
 					else {
 						// array element must be single bit for a packed array
 						struct_array_packing_error(node);
 					}
+				} else {
+					save_struct_array_width(node, width);
+					save_struct_range_swapped(node, node->children[0]->range_swapped);
 				}
 				// range nodes are now redundant
 				for (AstNode *child : node->children)
@@ -347,8 +357,11 @@ static int size_packed_struct(AstNode *snode, int base_offset)
 					struct_array_packing_error(node);
 				}
 				int array_count = range_width(node, rnode->children[0]);
+				save_struct_array_width(node, array_count);
+				save_struct_range_swapped(node, rnode->children[0]->range_swapped);
 				width = range_width(node, rnode->children[1]);
 				save_struct_array_width(node, width);
+				save_struct_range_swapped(node, rnode->children[1]->range_swapped);
 				width *= array_count;
 				// range nodes are now redundant
 				for (AstNode *child : node->children)
@@ -428,8 +441,16 @@ static AstNode *offset_indexed_range(int offset, int stride, AstNode *left_expr,
 	return new AstNode(AST_RANGE, left, right);
 }
 
-static AstNode *make_struct_index_range(AstNode *node, AstNode *rnode, int stride, int offset)
+static AstNode *make_struct_index_range(AstNode *node, AstNode *rnode, int stride, int offset, AstNode *member_node)
 {
+	if (member_node->multirange_swapped[0]) {
+		// The struct item has swapped range; swap index into the struct accordingly.
+		int msb = member_node->multirange_dimensions[0] - 1;
+		for (auto &expr : rnode->children) {
+			expr = new AstNode(AST_SUB, node_int(msb), expr);
+		}
+	}
+
 	// generate a range node to perform either bit or array indexing
 	if (rnode->children.size() == 1) {
 		// index e.g. s.a[i]
@@ -447,6 +468,7 @@ static AstNode *make_struct_index_range(AstNode *node, AstNode *rnode, int strid
 static AstNode *slice_range(AstNode *rnode, AstNode *snode)
 {
 	// apply the bit slice indicated by snode to the range rnode
+	// TODO: Check for swapped indexes - see make_struct_index_range
 	log_assert(rnode->type==AST_RANGE);
 	auto left  = rnode->children[0];
 	auto right = rnode->children[1];
@@ -474,13 +496,13 @@ AstNode *AST::make_struct_member_range(AstNode *node, AstNode *member_node)
 	int stride = get_struct_array_width(member_node);
 	if (node->children.size() == 1 && node->children[0]->type == AST_RANGE) {
 		// bit or array indexing e.g. s.a[2] or s.a[1:0]
-		return make_struct_index_range(node, node->children[0], stride, range_right);
+		return make_struct_index_range(node, node->children[0], stride, range_right, member_node);
 	}
 	else if (node->children.size() == 1 && node->children[0]->type == AST_MULTIRANGE) {
 		// multirange, i.e. bit slice after array index, e.g. s.a[i][p:q]
 		log_assert(stride > 1);
 		auto mrnode = node->children[0];
-		auto element_range = make_struct_index_range(node, mrnode->children[0], stride, range_right);
+		auto element_range = make_struct_index_range(node, mrnode->children[0], stride, range_right, member_node);
 		// then apply bit slice range
 		auto range = slice_range(element_range, mrnode->children[1]);
 		delete element_range;
