@@ -22,10 +22,10 @@ tex: $(TEX_PDF)
 svg: $(SVG_OUTPUT)
 
 011/%.pdf: $(DOT_LOC)/%.dot
-	dot -Tpdf -o $@ $<
+	FAKETIME_DONT_RESET=0 faketime '2022-01-01 00:00:00' dot -Tpdf -o $@ $<
 
 011/%.pdf: 011/%.tex
-	cd 011 && pdflatex $(<F) --interaction=nonstopmode
+	cd 011 && FAKETIME_DONT_RESET=0 faketime '2022-01-01 00:00:00' pdflatex $(<F) --interaction=nonstopmode
 
 %.pdf: %.tex
 	pdflatex $< --interaction=nonstopmode
