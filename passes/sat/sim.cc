@@ -2014,7 +2014,7 @@ struct SimPass : public Pass {
 		log("    -r\n");
 		log("        read simulation results file\n");
 		log("            File formats supported: FST, VCD, AIW and WIT\n");
-		log("		 VCD support requires vcd2fst external tool to be present\n");
+		log("            VCD support requires vcd2fst external tool to be present\n");
 		log("\n");
 		log("    -map <filename>\n");
 		log("        read file with port and latch symbols, needed for AIGER witness input\n");

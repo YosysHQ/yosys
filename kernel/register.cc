@@ -822,6 +822,100 @@ struct HelpPass : public Pass {
 
 		fclose(f);
 	}
+	void write_rst(std::string cmd, std::string title, std::string text)
+	{
+		FILE *f = fopen(stringf("docs/source/cmd/%s.rst", cmd.c_str()).c_str(), "wt");
+		// make header
+		size_t char_len = cmd.length() + 3 + title.length();
+		std::string title_line = "\n";
+		title_line.insert(0, char_len, '=');
+		fprintf(f, "%s", title_line.c_str());
+		fprintf(f, "%s - %s\n", cmd.c_str(), title.c_str());
+		fprintf(f, "%s\n", title_line.c_str());
+		fprintf(f, ".. raw:: latex\n\n    \\begin{comment}\n\n");
+
+		// render html
+		fprintf(f, ":code:`yosys> help %s`\n", cmd.c_str());
+		fprintf(f, "--------------------------------------------------------------------------------\n\n");
+		fprintf(f, ".. container:: cmdref\n");
+		std::stringstream ss;
+		std::string textcp = text;
+		ss << text;
+		bool IsUsage = true;
+		int blank_count = 0;
+		size_t def_strip_count = 0;
+		bool WasDefinition = false;
+		for (std::string line; std::getline(ss, line, '\n');) {
+			// find position of first non space character
+			std::size_t first_pos = line.find_first_not_of(" \t");
+			std::size_t last_pos = line.find_last_not_of(" \t");
+			if (first_pos == std::string::npos) {
+				// skip formatting empty lines
+				if (!WasDefinition)
+					fputc('\n', f);
+				blank_count += 1;
+				continue;
+			}
+
+			// strip leading and trailing whitespace
+			std::string stripped_line = line.substr(first_pos, last_pos - first_pos +1);
+			bool IsDefinition = stripped_line[0] == '-';
+			IsDefinition &= stripped_line[1] != ' ' && stripped_line[1] != '>';
+			bool IsDedent = def_strip_count && first_pos <= def_strip_count;
+			bool IsIndent = first_pos == 2 || first_pos == 4;
+			if (cmd.compare(0, 7, "verific") == 0)
+				// verific.cc has strange and different formatting from the rest
+				IsIndent = false;
+
+			// another usage block
+			bool NewUsage = stripped_line.find(cmd) == 0;
+
+			if (IsUsage) {
+				if (stripped_line.compare(0, 4, "See ") == 0) {
+					// description refers to another function
+					fprintf(f, "\n    %s\n", stripped_line.c_str());
+				} else {
+					// usage should be the first line of help output
+					fprintf(f, "\n    .. code:: yoscrypt\n\n        %s\n\n   ", stripped_line.c_str());
+					WasDefinition = true;
+				}
+				IsUsage = false;
+			} else if (IsIndent && NewUsage && (blank_count >= 2 || WasDefinition)) {
+				// another usage block
+				fprintf(f, "\n    .. code:: yoscrypt\n\n        %s\n\n   ", stripped_line.c_str());
+				WasDefinition = true;
+				def_strip_count = 0;
+			} else if (IsIndent && IsDefinition && (blank_count || WasDefinition)) {
+				// format definition term
+				fprintf(f, "\n\n    .. code:: yoscrypt\n\n        %s\n\n   ", stripped_line.c_str());
+				WasDefinition = true;
+				def_strip_count = first_pos;
+			} else {
+				if (IsDedent) {
+					fprintf(f, "\n\n    ::\n");
+					def_strip_count = first_pos;
+				} else if (WasDefinition) {
+					fprintf(f, " ::\n");
+					WasDefinition = false;
+				}
+				fprintf(f, "\n        %s", line.substr(def_strip_count, std::string::npos).c_str());
+			}
+
+			blank_count = 0;
+		}
+		fputc('\n', f);
+
+		// render latex
+		fprintf(f, ".. raw:: latex\n\n    \\end{comment}\n\n");
+		fprintf(f, ".. only:: latex\n\n");
+		fprintf(f, "    ::\n\n");
+		std::stringstream ss2;
+		ss2 << textcp;
+		for (std::string line; std::getline(ss2, line, '\n');) {
+			fprintf(f, "        %s\n", line.c_str());
+		}
+		fclose(f);
+	}
 	void execute(std::vector<std::string> args, RTLIL::Design*) override
 	{
 		if (args.size() == 1) {
@@ -880,6 +974,21 @@ struct HelpPass : public Pass {
 					write_tex(f, it.first, it.second->short_help, buf.str());
 				}
 				fclose(f);
+			}
+			// this option is undocumented as it is for internal use only
+			else if (args[1] == "-write-rst-command-reference-manual") {
+				for (auto &it : pass_register) {
+					std::ostringstream buf;
+					log_streams.push_back(&buf);
+					it.second->help();
+					if (it.second->experimental_flag) {
+						log("\n");
+						log("WARNING: THE '%s' COMMAND IS EXPERIMENTAL.\n", it.first.c_str());
+						log("\n");
+					}
+					log_streams.pop_back();
+					write_rst(it.first, it.second->short_help, buf.str());
+				}
 			}
 			// this option is undocumented as it is for internal use only
 			else if (args[1] == "-write-web-command-reference-manual") {

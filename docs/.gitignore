@@ -1,0 +1,10 @@
+/build/
+/source/cmd
+/images/*.log
+/images/*.aux
+/images/*.pdf
+/images/*.svg
+/images/011/*.log
+/images/011/*.aux
+/images/011/*.pdf
+/images/011/*.svg
