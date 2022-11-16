@@ -65,6 +65,14 @@ struct SynthPass : public ScriptPass
 		log("    -plib <primitive_library.v>\n");
 		log("        use the specified Verilog file as a primitive library.\n");
 		log("\n");
+		log("    -extra-plib <primitive_library.v>\n");
+		log("        use the specified Verilog file for extra primitives (can be specified multiple\n");
+		log("        times).\n");
+		log("\n");
+		log("    -extra-map <techamp.v>\n");
+		log("        use the specified Verilog file for extra techmap rules (can be specified multiple\n");
+		log("        times).\n");
+		log("\n");
 		log("    -encfile <file>\n");
 		log("        passed to 'fsm_recode' via 'fsm'\n");
 		log("\n");
@@ -112,6 +120,8 @@ struct SynthPass : public ScriptPass
 	}
 
 	string top_module, json_file, blif_file, plib, fsm_opts, memory_opts;
+	std::vector<string> extra_plib, extra_map;
+
 	bool autotop, forvpr, noalumacc, nofsm, noshare, noregfile, iopad, complexdff, flatten;
 	int lut;
 
@@ -179,6 +189,14 @@ struct SynthPass : public ScriptPass
 				plib = args[++argidx];
 				continue;
 			}
+			if (args[argidx] == "-extra-plib" && argidx+1 < args.size()) {
+				extra_plib.push_back(args[++argidx]);
+				continue;
+			}
+			if (args[argidx] == "-extra-map" && argidx+1 < args.size()) {
+				extra_map.push_back(args[++argidx]);
+				continue;
+			}
 			if (args[argidx] == "-nofsm") {
 				nofsm = true;
 				continue;
@@ -236,6 +254,12 @@ struct SynthPass : public ScriptPass
 			run(stringf("read_verilog %s -lib +/fabulous/prims.v", complexdff ? "-DCOMPLEX_DFF" : ""));
 		else
 			run("read_verilog -lib " + plib);
+
+		if (help_mode) {
+			run("read_verilog -lib <extra_plib.v>", "(for each -extra-plib)");
+		} else for (auto lib : extra_plib) {
+			run("read_verilog -lib " + lib);
+		}
 
 		if (check_label("begin")) {
 			if (top_module.empty()) {
@@ -325,6 +349,14 @@ struct SynthPass : public ScriptPass
 			}
 			run("techmap -map +/fabulous/latches_map.v");
 			run("techmap -map +/fabulous/ff_map.v");
+			if (help_mode) {
+				run("techmap -map <extra_map.v>...", "(for each -extra-map)");
+			} else if (!extra_map.empty()) {
+				std::string map_str = "techmap";
+				for (auto map : extra_map)
+					map_str += stringf(" -map %s", map.c_str());
+				run(map_str);
+			}
 			run("clean");
 		}
 
