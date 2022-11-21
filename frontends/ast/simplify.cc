@@ -3656,6 +3656,8 @@ skip_dynamic_range_lvalue_expansion:;
 				goto apply_newNode;
 			}
 
+			if (current_scope.count(str) == 0)
+				str = try_pop_module_prefix();
 			if (current_scope.count(str) == 0 || current_scope[str]->type != AST_FUNCTION)
 				log_file_error(filename, location.first_line, "Can't resolve function name `%s'.\n", str.c_str());
 		}
@@ -3727,6 +3729,8 @@ skip_dynamic_range_lvalue_expansion:;
 				goto apply_newNode;
 			}
 
+			if (current_scope.count(str) == 0)
+				str = try_pop_module_prefix();
 			if (current_scope.count(str) == 0 || current_scope[str]->type != AST_TASK)
 				log_file_error(filename, location.first_line, "Can't resolve task name `%s'.\n", str.c_str());
 		}
