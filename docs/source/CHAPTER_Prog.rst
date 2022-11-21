@@ -15,11 +15,11 @@ The guidelines directory contains notes on various aspects of Yosys
 development. The files GettingStarted and CodingStyle may be of
 particular interest, and are reproduced here.
 
-.. literalinclude:: ../../guidelines/GettingStarted
+.. literalinclude:: temp/GettingStarted
 	:language: none
 	:caption: guidelines/GettingStarted
 
-.. literalinclude:: ../../guidelines/CodingStyle
+.. literalinclude:: temp/CodingStyle
 	:language: none
 	:caption: guidelines/CodingStyle
 
