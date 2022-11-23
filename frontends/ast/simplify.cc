@@ -465,10 +465,17 @@ static AstNode *make_struct_index_range(AstNode *node, AstNode *rnode, int strid
 	}
 }
 
-static AstNode *slice_range(AstNode *rnode, AstNode *snode)
+static AstNode *slice_range(AstNode *rnode, AstNode *snode, AstNode *member_node)
 {
+	if (member_node->multirange_swapped[1]) {
+		// The second dimension has swapped range; swap index into the struct accordingly.
+		int msb = member_node->multirange_dimensions[1] - 1;
+		for (auto &expr : snode->children) {
+			expr = new AstNode(AST_SUB, node_int(msb), expr);
+		}
+	}
+
 	// apply the bit slice indicated by snode to the range rnode
-	// TODO: Check for swapped indexes - see make_struct_index_range
 	log_assert(rnode->type==AST_RANGE);
 	auto left  = rnode->children[0];
 	auto right = rnode->children[1];
@@ -504,7 +511,7 @@ AstNode *AST::make_struct_member_range(AstNode *node, AstNode *member_node)
 		auto mrnode = node->children[0];
 		auto element_range = make_struct_index_range(node, mrnode->children[0], stride, range_right, member_node);
 		// then apply bit slice range
-		auto range = slice_range(element_range, mrnode->children[1]);
+		auto range = slice_range(element_range, mrnode->children[1], member_node);
 		delete element_range;
 		return range;
 	}

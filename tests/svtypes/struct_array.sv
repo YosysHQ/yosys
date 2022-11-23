@@ -59,6 +59,27 @@ module top;
 
 	always_comb assert(s3==80'hFC00_4200_0012_3400_FFFC);
 
+	// Same as s3, but with little endian bit addressing
+	struct packed {
+		bit [0:7] [0:7] a;	// 8 element packed array of bytes
+		bit [0:15] b;		// filler for non-zero offset
+	} s3_b;
+
+	initial begin
+		s3_b = '0;
+
+		s3_b.a[5:6] = 16'h1234;
+		s3_b.a[2] = 8'h42;
+
+		s3_b.a[0] = '1;
+		s3_b.a[0][6:7] = '0;
+
+		s3_b.b = '1;
+		s3_b.b[14:15] = '0;
+	end
+
+	always_comb assert(s3_b==80'hFC00_4200_0012_3400_FFFC);
+
 	// Note that the tests below for unpacked arrays in structs rely on the
 	// fact that they are actually packed in Yosys.
 
@@ -103,6 +124,27 @@ module top;
 	end
 
 	always_comb assert(s5==80'hFC00_4200_0012_3400_FFFC);
+
+	// Same as s5, but with little endian bit addressing
+	struct packed {
+		bit [0:7] a [0:7];	// 8 element unpacked array of bytes
+		bit [0:15] b;		// filler for non-zero offset
+	} s5_b;
+
+	initial begin
+		s5_b = '0;
+
+		s5_b.a[5:6] = 16'h1234;
+		s5_b.a[2] = 8'h42;
+
+		s5_b.a[0] = '1;
+		s5_b.a[0][6:7] = '0;
+
+		s5_b.b = '1;
+		s5_b.b[14:15] = '0;
+	end
+
+	always_comb assert(s5_b==80'hFC00_4200_0012_3400_FFFC);
 
 	// Same as s5, but using C-type unpacked array syntax
 	struct packed {
