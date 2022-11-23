@@ -1,6 +1,7 @@
 // test for array indexing in structures
 
 module top;
+
 	struct packed {
 		bit [5:0] [7:0] a;	// 6 element packed array of bytes
 		bit [15:0] b;		// filler for non-zero offset
@@ -80,6 +81,7 @@ module top;
 
 	always_comb assert(s3_b==80'hFC00_4200_0012_3400_FFFC);
 
+`ifndef VERIFIC
 	// Note that the tests below for unpacked arrays in structs rely on the
 	// fact that they are actually packed in Yosys.
 
@@ -166,4 +168,6 @@ module top;
 	end
 
 	always_comb assert(s6==80'hFC00_4200_0012_3400_FFFC);
+`endif
+
 endmodule
