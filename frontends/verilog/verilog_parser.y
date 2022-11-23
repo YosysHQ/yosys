@@ -229,9 +229,9 @@ static AstNode *checkRange(AstNode *type_node, AstNode *range_node)
 static void rewriteRange(AstNode *rangeNode)
 {
 	if (rangeNode->type == AST_RANGE && rangeNode->children.size() == 1) {
-		// SV array size [n], rewrite as [n-1:0]
-		rangeNode->children[0] = new AstNode(AST_SUB, rangeNode->children[0], AstNode::mkconst_int(1, true));
-		rangeNode->children.push_back(AstNode::mkconst_int(0, false));
+		// SV array size [n], rewrite as [0:n-1]
+		rangeNode->children.push_back(new AstNode(AST_SUB, rangeNode->children[0], AstNode::mkconst_int(1, true)));
+		rangeNode->children[0] = AstNode::mkconst_int(0, false);
 	}
 }
 
