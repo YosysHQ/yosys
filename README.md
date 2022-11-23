@@ -634,7 +634,7 @@ and the website version of the documentation is not yet publicly available.
 In addition to those listed above for building Yosys from source, the following
 packages are used for building the website: 
 
-	$ sudo apt-get install pdf2svg
+	$ sudo apt-get install pdf2svg faketime
 
 PDFLaTeX, included with most LaTeX distributions, is also needed during the
 build process for the website.

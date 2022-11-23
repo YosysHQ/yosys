@@ -1,0 +1,11 @@
+digraph "sumprod" {
+rankdir="LR";
+remincross=true;
+n1 [ shape=octagon, label="prod", color="black", fontcolor="black" ];
+v0 [ label="$3_Y" ];
+v1 [ label="c" ];
+c5 [ shape=record, label="{{<p2> A|<p3> B}|$4\n$mul|{<p4> Y}}" ];
+c5:p4:e -> n1:w [color="black", style="setlinewidth(3)", label=""];
+v0:e -> c5:p2:w [color="black", style="setlinewidth(3)", label=""];
+v1:e -> c5:p3:w [color="black", style="setlinewidth(3)", label=""];
+}

@@ -1,7 +1,7 @@
 all: dots tex svg tidy
 
 TEX_SOURCE:= $(wildcard *.tex)
-DOT_LOC:= ../../manual/APPNOTE_011_Design_Investigation
+DOT_LOC:= ../source/APPNOTE_011_Design_Investigation
 DOT_SOURCE:= $(wildcard $(DOT_LOC)/*.dot)
 
 TEX_SOURCE+= 011/example_out.tex
