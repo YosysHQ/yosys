@@ -1,0 +1,33 @@
+digraph "outstage" {
+rankdir="LR";
+remincross=true;
+n4 [ shape=octagon, label="clk", color="black", fontcolor="black" ];
+n5 [ shape=octagon, label="mem[0]", color="black", fontcolor="black" ];
+n6 [ shape=octagon, label="mem[1]", color="black", fontcolor="black" ];
+n7 [ shape=octagon, label="mem[2]", color="black", fontcolor="black" ];
+n8 [ shape=octagon, label="mem[3]", color="black", fontcolor="black" ];
+n9 [ shape=octagon, label="n1", color="black", fontcolor="black" ];
+n10 [ shape=octagon, label="y", color="black", fontcolor="black" ];
+c15 [ shape=record, label="{{<p11> A|<p12> B|<p13> S}|$110\n$mux|{<p14> Y}}" ];
+x0 [ shape=record, style=rounded, label="<s0> 1:1 - 0:0 " ];
+x0:e -> c15:p13:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, color="black", label=""];
+c16 [ shape=record, label="{{<p11> A|<p12> B|<p13> S}|$113\n$mux|{<p14> Y}}" ];
+x1 [ shape=record, style=rounded, label="<s0> 0:0 - 0:0 " ];
+x1:e -> c16:p13:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, color="black", label=""];
+c17 [ shape=record, label="{{<p11> A|<p12> B|<p13> S}|$116\n$mux|{<p14> Y}}" ];
+x2 [ shape=record, style=rounded, label="<s0> 0:0 - 0:0 " ];
+x2:e -> c17:p13:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, color="black", label=""];
+c21 [ shape=record, label="{{<p18> CLK|<p19> D}|$64\n$dff|{<p20> Q}}" ];
+c15:p14:e -> c21:p19:w [color="black", style="setlinewidth(3)", label=""];
+c21:p20:e -> n10:w [color="black", style="setlinewidth(3)", label=""];
+c16:p14:e -> c15:p11:w [color="black", style="setlinewidth(3)", label=""];
+c17:p14:e -> c15:p12:w [color="black", style="setlinewidth(3)", label=""];
+n4:e -> c21:p18:w [color="black", label=""];
+n5:e -> c16:p11:w [color="black", style="setlinewidth(3)", label=""];
+n6:e -> c16:p12:w [color="black", style="setlinewidth(3)", label=""];
+n7:e -> c17:p11:w [color="black", style="setlinewidth(3)", label=""];
+n8:e -> c17:p12:w [color="black", style="setlinewidth(3)", label=""];
+n9:e -> x0:s0:w [color="black", label=""];
+n9:e -> x1:s0:w [color="black", label=""];
+n9:e -> x2:s0:w [color="black", label=""];
+}

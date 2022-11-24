@@ -140,7 +140,7 @@ behavior of the circuit.
 
    Output of ``yosys -p 'proc; opt; show' splice.v``
 
-.. literalinclude:: ../../../manual/APPNOTE_011_Design_Investigation/splice.v
+.. literalinclude:: ../APPNOTE_011_Design_Investigation/splice.v
    :caption: ``splice.v``
    :name: splice_src
 
@@ -355,7 +355,7 @@ Objects can not only be selected by their name but also by other properties. For
 example ``select t:$add`` will select all cells of type ``$add``. In this case
 this is also yields the diagram shown in :numref:`seladd`.
 
-.. literalinclude:: ../../../manual/APPNOTE_011_Design_Investigation/foobaraddsub.v
+.. literalinclude:: ../APPNOTE_011_Design_Investigation/foobaraddsub.v
    :caption: Test module for operations on selections
    :name: foobaraddsub
    :language: verilog
@@ -380,7 +380,7 @@ which is a complete selection of everything in the current module.
 Operations on selections
 ------------------------
 
-.. literalinclude:: ../../../manual/APPNOTE_011_Design_Investigation/sumprod.v
+.. literalinclude:: ../APPNOTE_011_Design_Investigation/sumprod.v
    :caption: Another test module for operations on selections
    :name: sumprod
    :language: verilog
@@ -487,7 +487,7 @@ features. We synthesize the circuit using ``proc; opt; memory; opt`` and change
 to the ``memdemo`` module with ``cd memdemo``. If we type ``show`` now we see
 the diagram shown in :numref:`memdemo_00`.
 
-.. literalinclude:: ../../../manual/APPNOTE_011_Design_Investigation/memdemo.v
+.. literalinclude:: ../APPNOTE_011_Design_Investigation/memdemo.v
    :caption: Demo circuit for demonstrating some advanced Yosys features
    :name: memdemo_src
    :language: verilog
@@ -685,7 +685,7 @@ commands can be applied.
 Solving combinatorial SAT problems
 ----------------------------------
 
-.. literalinclude:: ../../../manual/APPNOTE_011_Design_Investigation/primetest.v
+.. literalinclude:: ../APPNOTE_011_Design_Investigation/primetest.v
    :language: verilog
    :caption: A simple miter circuit for testing if a number is prime. But it has
              a problem (see main text and :numref:`primesat`).

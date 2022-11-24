@@ -1,5 +1,6 @@
 /build/
 /source/cmd
+/source/temp
 /images/*.log
 /images/*.aux
 /images/*.pdf

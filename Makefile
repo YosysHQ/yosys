@@ -963,12 +963,17 @@ docs/source/cmd/abc.rst: $(TARGETS) $(EXTRA_TARGETS)
 	mkdir -p docs/source/cmd
 	./$(PROGRAM_PREFIX)yosys -p 'help -write-rst-command-reference-manual'
 
-PHONY: docs/gen_images
+PHONY: docs/gen_images docs/guidelines
 docs/gen_images:
 	$(Q) $(MAKE) -C docs/images all
 
+DOCS_GUIDELINE_FILES := GettingStarted CodingStyle
+docs/guidelines:
+	$(Q) mkdir -p docs/source/temp
+	$(Q) cp -f $(addprefix guidelines/,$(DOCS_GUIDELINE_FILES)) docs/source/temp
+
 DOC_TARGET ?= html
-docs: docs/source/cmd/abc.rst docs/gen_images
+docs: docs/source/cmd/abc.rst docs/gen_images docs/guidelines
 	$(Q) $(MAKE) -C docs $(DOC_TARGET)
 
 update-manual: $(TARGETS) $(EXTRA_TARGETS)
