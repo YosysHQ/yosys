@@ -509,7 +509,7 @@ struct SimInstance
 		}
 	}
 
-	bool update_ph2()
+	bool update_ph2(bool gclk)
 	{
 		bool did_something = false;
 
@@ -567,7 +567,8 @@ struct SimInstance
 			}
 			if (ff_data.has_gclk) {
 				// $ff
-				current_q = ff.past_d;
+				if (gclk)
+					current_q = ff.past_d;
 			}
 			if (set_state(ff_data.sig_q, current_q))
 				did_something = true;
@@ -616,7 +617,7 @@ struct SimInstance
 		}
 
 		for (auto it : children)
-			if (it.second->update_ph2()) {
+			if (it.second->update_ph2(gclk)) {
 				dirty_children.insert(it.second);
 				did_something = true;
 			}
@@ -985,7 +986,7 @@ struct SimWorker : SimShared
 			writer->write(use_signal);
 	}
 
-	void update()
+	void update(bool gclk)
 	{
 		while (1)
 		{
@@ -997,7 +998,7 @@ struct SimWorker : SimShared
 			if (debug)
 				log("\n-- ph2 --\n");
 
-			if (!top->update_ph2())
+			if (!top->update_ph2(gclk))
 				break;
 		}
 
@@ -1047,7 +1048,7 @@ struct SimWorker : SimShared
 		set_inports(clock, State::Sx);
 		set_inports(clockn, State::Sx);
 
-		update();
+		update(false);
 
 		register_output_step(0);
 
@@ -1060,7 +1061,7 @@ struct SimWorker : SimShared
 			set_inports(clock, State::S0);
 			set_inports(clockn, State::S1);
 
-			update();
+			update(true);
 			register_output_step(10*cycle + 5);
 
 			if (debug)
@@ -1076,7 +1077,7 @@ struct SimWorker : SimShared
 				set_inports(resetn, State::S1);
 			}
 
-			update();
+			update(true);
 			register_output_step(10*cycle + 10);
 		}
 
@@ -1193,7 +1194,7 @@ struct SimWorker : SimShared
 					initial = false;
 				}
 				if (did_something)
-					update();
+					update(true);
 				register_output_step(time);
 
 				bool status = top->checkSignals();
@@ -1342,12 +1343,12 @@ struct SimWorker : SimShared
 						set_inports(clock, State::S0);
 						set_inports(clockn, State::S1);
 					}
-					update();
+					update(true);
 					register_output_step(10*cycle);
 					if (!multiclock && cycle) {
 						set_inports(clock, State::S0);
 						set_inports(clockn, State::S1);
-						update();
+						update(true);
 						register_output_step(10*cycle + 5);
 					}
 					cycle++;
@@ -1419,12 +1420,12 @@ struct SimWorker : SimShared
 						log("Simulating cycle %d.\n", cycle);
 					set_inports(clock, State::S1);
 					set_inports(clockn, State::S0);
-					update();
+					update(true);
 					register_output_step(10*cycle+0);
 					if (!multiclock) {
 						set_inports(clock, State::S0);
 						set_inports(clockn, State::S1);
-						update();
+						update(true);
 						register_output_step(10*cycle+5);
 					}
 					cycle++;
