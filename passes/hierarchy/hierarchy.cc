@@ -960,7 +960,7 @@ struct HierarchyPass : public Pass {
 		if (top_mod == nullptr && !load_top_mod.empty()) {
 #ifdef YOSYS_ENABLE_VERIFIC
 			if (verific_import_pending) {
-				verific_import(design, parameters, load_top_mod);
+				load_top_mod = verific_import(design, parameters, load_top_mod);
 				top_mod = design->module(RTLIL::escape_id(load_top_mod));
 			}
 #endif
