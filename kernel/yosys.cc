@@ -740,13 +740,19 @@ static int tcl_yosys_cmd(ClientData, Tcl_Interp *interp, int argc, const char *a
 	return TCL_OK;
 }
 
+int yosys_tcl_iterp_init(Tcl_Interp *interp)
+{
+    if (Tcl_Init(interp)!=TCL_OK)
+		log_warning("Tcl_Init() call failed - %s\n",Tcl_ErrnoMsg(Tcl_GetErrno()));
+	Tcl_CreateCommand(interp, "yosys", tcl_yosys_cmd, NULL, NULL);
+    return TCL_OK ;
+}
+
 extern Tcl_Interp *yosys_get_tcl_interp()
 {
 	if (yosys_tcl_interp == NULL) {
 		yosys_tcl_interp = Tcl_CreateInterp();
-		if (Tcl_Init(yosys_tcl_interp)!=TCL_OK)
-			log_warning("Tcl_Init() call failed - %s\n",Tcl_ErrnoMsg(Tcl_GetErrno()));
-		Tcl_CreateCommand(yosys_tcl_interp, "yosys", tcl_yosys_cmd, NULL, NULL);
+		yosys_tcl_iterp_init(yosys_tcl_interp);
 	}
 	return yosys_tcl_interp;
 }
