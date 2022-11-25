@@ -1700,6 +1700,9 @@ endmodule
 
 // --------------------------------------------------------
 `ifdef SIMLIB_FF
+`ifndef SIMLIB_GLOBAL_CLOCK
+`define SIMLIB_GLOBAL_CLOCK $global_clk
+`endif
 module \$anyinit (D, Q);
 
 parameter WIDTH = 0;
@@ -1709,7 +1712,7 @@ output reg [WIDTH-1:0] Q;
 
 initial Q <= 'bx;
 
-always @($global_clk) begin
+always @(`SIMLIB_GLOBAL_CLOCK) begin
 	Q <= D;
 end
 
@@ -1790,6 +1793,9 @@ endmodule
 `endif
 // --------------------------------------------------------
 `ifdef SIMLIB_FF
+`ifndef SIMLIB_GLOBAL_CLOCK
+`define SIMLIB_GLOBAL_CLOCK $global_clk
+`endif
 
 module \$ff (D, Q);
 
@@ -1798,7 +1804,7 @@ parameter WIDTH = 0;
 input [WIDTH-1:0] D;
 output reg [WIDTH-1:0] Q;
 
-always @($global_clk) begin
+always @(`SIMLIB_GLOBAL_CLOCK) begin
 	Q <= D;
 end
 
