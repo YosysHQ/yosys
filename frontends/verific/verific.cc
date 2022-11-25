@@ -2541,10 +2541,10 @@ struct VerificPass : public Pass {
 		log("is printed, such as VERI-1209.\n");
 		log("\n");
 		log("\n");
-		log("    verific -import [options] <top-module>..\n");
+		log("    verific -import [options] <top>..\n");
 		log("\n");
-		log("Elaborate the design for the specified top modules, import to Yosys and\n");
-		log("reset the internal state of Verific.\n");
+		log("Elaborate the design for the specified top modules or configurations, import to\n");
+		log("Yosys and reset the internal state of Verific.\n");
 		log("\n");
 		log("Import options:\n");
 		log("\n");
