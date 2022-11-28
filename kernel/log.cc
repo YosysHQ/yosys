@@ -40,6 +40,7 @@ YOSYS_NAMESPACE_BEGIN
 
 std::vector<FILE*> log_files;
 std::vector<std::ostream*> log_streams;
+std::vector<std::string> log_scratchpads;
 std::map<std::string, std::set<std::string>> log_hdump;
 std::vector<YS_REGEX_TYPE> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
 dict<std::string, LogExpectedItem> log_expect_log, log_expect_warning, log_expect_error;
@@ -157,6 +158,11 @@ void logv(const char *format, va_list ap)
 
 	for (auto f : log_streams)
 		*f << str;
+
+	RTLIL::Design *design = yosys_get_design();
+	if (design != nullptr)
+		for (auto &scratchpad : log_scratchpads)
+			design->scratchpad[scratchpad].append(str);
 
 	static std::string linebuffer;
 	static bool log_warn_regex_recusion_guard = false;
