@@ -73,6 +73,8 @@
 #include <limits.h>
 #include <errno.h>
 
+#include "libs/json11/json11.hpp"
+
 YOSYS_NAMESPACE_BEGIN
 
 int autoidx = 1;
@@ -709,6 +711,42 @@ void rewrite_filename(std::string &filename)
 }
 
 #ifdef YOSYS_ENABLE_TCL
+
+static Tcl_Obj *json_to_tcl(Tcl_Interp *interp, const json11::Json &json)
+{
+	if (json.is_null())
+		return Tcl_NewStringObj("null", 4);
+	else if (json.is_string()) {
+		auto string = json.string_value();
+		return Tcl_NewStringObj(string.data(), string.size());
+	} else if (json.is_number()) {
+		double value = json.number_value();
+		double round_val = std::nearbyint(value);
+		if (std::isfinite(round_val) && value == round_val && value >= LONG_MIN && value < -double(LONG_MIN))
+			return Tcl_NewLongObj((long)round_val);
+		else
+			return Tcl_NewDoubleObj(value);
+	} else if (json.is_bool()) {
+		return Tcl_NewBooleanObj(json.bool_value());
+	} else if (json.is_array()) {
+		auto list = json.array_items();
+		Tcl_Obj *result = Tcl_NewListObj(list.size(), nullptr);
+		for (auto &item : list)
+			Tcl_ListObjAppendElement(interp, result, json_to_tcl(interp, item));
+		return result;
+	} else if (json.is_object()) {
+		auto map = json.object_items();
+		Tcl_Obj *result = Tcl_NewListObj(map.size() * 2, nullptr);
+		for (auto &item : map) {
+			Tcl_ListObjAppendElement(interp, result, Tcl_NewStringObj(item.first.data(), item.first.size()));
+			Tcl_ListObjAppendElement(interp, result, json_to_tcl(interp, item.second));
+		}
+		return result;
+	} else {
+		log_abort();
+	}
+}
+
 static int tcl_yosys_cmd(ClientData, Tcl_Interp *interp, int argc, const char *argv[])
 {
 	std::vector<std::string> args;
@@ -733,12 +771,29 @@ static int tcl_yosys_cmd(ClientData, Tcl_Interp *interp, int argc, const char *a
 		return TCL_OK;
 	}
 
+	yosys_get_design()->scratchpad_unset("result.json");
+
 	if (args.size() == 1) {
 		Pass::call(yosys_get_design(), args[0]);
-		return TCL_OK;
+	} else {
+		Pass::call(yosys_get_design(), args);
 	}
 
-	Pass::call(yosys_get_design(), args);
+	auto &scratchpad = yosys_get_design()->scratchpad;
+	auto result = scratchpad.find("result.json");
+	if (result != scratchpad.end()) {
+		std::string err;
+		auto json = json11::Json::parse(result->second, err);
+		if (err.empty()) {
+			Tcl_SetObjResult(interp, json_to_tcl(interp, json));
+			scratchpad.erase(result);
+		} else
+			log_warning("Ignoring result.json scratchpad value due to parse error: %s\n", err.c_str());
+	} else if ((result = scratchpad.find("result.string")) != scratchpad.end()) {
+		Tcl_SetObjResult(interp, Tcl_NewStringObj(result->second.data(), result->second.size()));
+		scratchpad.erase(result);
+	}
+
 	return TCL_OK;
 }
 
