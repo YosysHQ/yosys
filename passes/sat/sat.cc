@@ -65,11 +65,12 @@ struct SatHelper
 	int max_timestep, timeout;
 	bool gotTimeout;
 
-	SatHelper(RTLIL::Design *design, RTLIL::Module *module, bool enable_undef) :
+	SatHelper(RTLIL::Design *design, RTLIL::Module *module, bool enable_undef, bool set_def_formal) :
 		design(design), module(module), sigmap(module), ct(design), satgen(ez.get(), &sigmap)
 	{
 		this->enable_undef = enable_undef;
 		satgen.model_undef = enable_undef;
+		satgen.def_formal = set_def_formal;
 		set_init_def = false;
 		set_init_undef = false;
 		set_init_zero = false;
@@ -254,7 +255,13 @@ struct SatHelper
 
 		if (initstate)
 		{
-			RTLIL::SigSpec big_lhs, big_rhs;
+			RTLIL::SigSpec big_lhs, big_rhs, forced_def;
+
+			// Check for $anyinit cells that are forced to be defined
+			if (set_init_undef && satgen.def_formal)
+				for (auto cell : module->cells())
+					if (cell->type == ID($anyinit))
+						forced_def.append(sigmap(cell->getPort(ID::Q)));
 
 			for (auto wire : module->wires())
 			{
@@ -323,6 +330,7 @@ struct SatHelper
 			if (set_init_undef) {
 				RTLIL::SigSpec rem = satgen.initial_state.export_all();
 				rem.remove(big_lhs);
+				rem.remove(forced_def);
 				big_lhs.append(rem);
 				big_rhs.append(RTLIL::SigSpec(RTLIL::State::Sx, rem.size()));
 			}
@@ -933,6 +941,9 @@ struct SatPass : public Pass {
 		log("    -set-def-inputs\n");
 		log("        add -set-def constraints for all module inputs\n");
 		log("\n");
+		log("    -set-def-formal\n");
+		log("        add -set-def constraints for formal $anyinit, $anyconst, $anyseq cells\n");
+		log("\n");
 		log("    -show <signal>\n");
 		log("        show the model for the specified signal. if no -show option is\n");
 		log("        passed then a set of signals to be shown is automatically selected.\n");
@@ -1068,7 +1079,7 @@ struct SatPass : public Pass {
 		std::map<int, std::vector<std::string>> unsets_at, sets_def_at, sets_any_undef_at, sets_all_undef_at;
 		std::vector<std::string> shows, sets_def, sets_any_undef, sets_all_undef;
 		int loopcount = 0, seq_len = 0, maxsteps = 0, initsteps = 0, timeout = 0, prove_skip = 0;
-		bool verify = false, fail_on_timeout = false, enable_undef = false, set_def_inputs = false;
+		bool verify = false, fail_on_timeout = false, enable_undef = false, set_def_inputs = false, set_def_formal = false;
 		bool ignore_div_by_zero = false, set_init_undef = false, set_init_zero = false, max_undef = false;
 		bool tempinduct = false, prove_asserts = false, show_inputs = false, show_outputs = false;
 		bool show_regs = false, show_public = false, show_all = false;
@@ -1139,6 +1150,11 @@ struct SatPass : public Pass {
 			if (args[argidx] == "-set-def-inputs") {
 				enable_undef = true;
 				set_def_inputs = true;
+				continue;
+			}
+			if (args[argidx] == "-set-def-formal") {
+				enable_undef = true;
+				set_def_formal = true;
 				continue;
 			}
 			if (args[argidx] == "-set" && argidx+2 < args.size()) {
@@ -1380,8 +1396,8 @@ struct SatPass : public Pass {
 			if (loopcount > 0 || max_undef)
 				log_cmd_error("The options -max, -all, and -max_undef are not supported for temporal induction proofs!\n");
 
-			SatHelper basecase(design, module, enable_undef);
-			SatHelper inductstep(design, module, enable_undef);
+			SatHelper basecase(design, module, enable_undef, set_def_formal);
+			SatHelper inductstep(design, module, enable_undef, set_def_formal);
 
 			basecase.sets = sets;
 			basecase.set_assumes = set_assumes;
@@ -1570,7 +1586,7 @@ struct SatPass : public Pass {
 			if (maxsteps > 0)
 				log_cmd_error("The options -maxsteps is only supported for temporal induction proofs!\n");
 
-			SatHelper sathelper(design, module, enable_undef);
+			SatHelper sathelper(design, module, enable_undef, set_def_formal);
 
 			sathelper.sets = sets;
 			sathelper.set_assumes = set_assumes;
