@@ -133,6 +133,7 @@ struct log_cmd_error_exception { };
 
 extern std::vector<FILE*> log_files;
 extern std::vector<std::ostream*> log_streams;
+extern std::vector<std::string> log_scratchpads;
 extern std::map<std::string, std::set<std::string>> log_hdump;
 extern std::vector<YS_REGEX_TYPE> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
 extern std::set<std::string> log_warnings, log_experimentals, log_experimentals_ignored;
