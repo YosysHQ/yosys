@@ -30,6 +30,7 @@ void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL:
 	bool flag_make_outputs = false;
 	bool flag_make_outcmp = false;
 	bool flag_make_assert = false;
+	bool flag_make_cover = false;
 	bool flag_flatten = false;
 	bool flag_cross = false;
 
@@ -52,6 +53,10 @@ void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL:
 		}
 		if (args[argidx] == "-make_assert") {
 			flag_make_assert = true;
+			continue;
+		}
+		if (args[argidx] == "-make_cover") {
+			flag_make_cover = true;
 			continue;
 		}
 		if (args[argidx] == "-flatten") {
@@ -237,6 +242,12 @@ void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL:
 				miter_module->connect(RTLIL::SigSig(w_cmp, this_condition));
 			}
 
+			if (flag_make_cover)
+			{
+				auto cover_condition = miter_module->Not(NEW_ID, this_condition);
+				miter_module->addCover("\\cover_" + RTLIL::unescape_id(gold_wire->name), cover_condition, State::S1);
+			}
+
 			all_conditions.append(this_condition);
 		}
 	}
@@ -401,6 +412,9 @@ struct MiterPass : public Pass {
 		log("\n");
 		log("    -make_assert\n");
 		log("        also create an 'assert' cell that checks if trigger is always low.\n");
+		log("\n");
+		log("    -make_cover\n");
+		log("        also create a 'cover' cell for each gold/gate output pair.\n");
 		log("\n");
 		log("    -flatten\n");
 		log("        call 'flatten -wb; opt_expr -keepdc -undriven;;' on the miter circuit.\n");
