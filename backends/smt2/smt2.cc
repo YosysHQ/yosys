@@ -1744,6 +1744,7 @@ struct Smt2Backend : public Backend {
 		log_push();
 		Pass::call(design, "bmuxmap");
 		Pass::call(design, "demuxmap");
+		Pass::call(design, "bwmuxmap");
 		log_pop();
 
 		size_t argidx;

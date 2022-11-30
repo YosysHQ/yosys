@@ -31,6 +31,7 @@ OBJS += passes/techmap/dffinit.o
 OBJS += passes/techmap/pmuxtree.o
 OBJS += passes/techmap/bmuxmap.o
 OBJS += passes/techmap/demuxmap.o
+OBJS += passes/techmap/bwmuxmap.o
 OBJS += passes/techmap/muxcover.o
 OBJS += passes/techmap/aigmap.o
 OBJS += passes/techmap/tribuf.o
