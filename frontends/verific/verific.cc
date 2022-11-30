@@ -2289,6 +2289,7 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 	VerificExtensions::ElaborateAndRewrite("work", &verific_params);
+	verific_error_msg.clear();
 #endif
 
 	if (top.empty()) {
@@ -3217,6 +3218,7 @@ struct VerificPass : public Pass {
 
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 			VerificExtensions::ElaborateAndRewrite(work, &parameters);
+			verific_error_msg.clear();
 #endif
 			if (!ppfile.empty())
 				veri_file::PrettyPrint(ppfile.c_str(), nullptr, work.c_str());
