@@ -273,9 +273,9 @@ static int range_width(AstNode *node, AstNode *rnode)
 	return rnode->range_left - rnode->range_right + 1;
 }
 
-[[noreturn]] static void struct_array_packing_error(AstNode *node)
+[[noreturn]] static void struct_array_dimension_error(AstNode *node)
 {
-	log_file_error(node->filename, node->location.first_line, "Unpacked array in packed struct/union member %s\n", node->str.c_str());
+	log_file_error(node->filename, node->location.first_line, "Currently limited to two dimensions in packed struct/union member %s\n", node->str.c_str());
 }
 
 static void save_struct_array_width(AstNode *node, int width)
@@ -324,10 +324,12 @@ static int size_packed_struct(AstNode *snode, int base_offset)
 				// member width e.g. bit [7:0] a
 				width = range_width(node, node->children[0]);
 				if (node->children.size() == 2) {
+					// Unpacked array. Note that this is a Yosys extension; only packed data types
+					// and integer data types are allowed in packed structs / unions in SystemVerilog.
 					if (node->children[1]->type == AST_RANGE) {
-						// unpacked array e.g. bit [63:0] a [0:3]
+						// Unpacked array, e.g. bit [63:0] a [0:3]
 						auto rnode = node->children[1];
-						// C-type array size e.g. bit [63:0] a [4]
+						// C-style array size, e.g. bit [63:0] a [4]
 						bool c_type = rnode->children.size() == 1;
 						int array_count = c_type ? rnode->range_left : range_width(node, rnode);
 						save_struct_array_width(node, array_count);
@@ -337,10 +339,11 @@ static int size_packed_struct(AstNode *snode, int base_offset)
 						width *= array_count;
 					}
 					else {
-						// array element must be single bit for a packed array
-						struct_array_packing_error(node);
+						// Currently limited to at most two dimensions.
+						struct_array_dimension_error(node);
 					}
 				} else {
+					// Vector.
 					save_struct_array_width(node, width);
 					save_struct_range_swapped(node, node->children[0]->range_swapped);
 				}
@@ -349,12 +352,12 @@ static int size_packed_struct(AstNode *snode, int base_offset)
 					delete child;
 				node->children.clear();
 			}
-			else if (node->children.size() == 1 && node->children[0]->type == AST_MULTIRANGE) {
+			else if (node->children.size() > 0 && node->children[0]->type == AST_MULTIRANGE) {
 				// packed 2D array, e.g. bit [3:0][63:0] a
 				auto rnode = node->children[0];
-				if (rnode->children.size() != 2) {
-					// packed arrays can only be 2D
-					struct_array_packing_error(node);
+				if (node->children.size() != 1 || rnode->children.size() != 2) {
+					// Currently limited to at most two dimensions.
+					struct_array_dimension_error(node);
 				}
 				int array_count = range_width(node, rnode->children[0]);
 				save_struct_array_width(node, array_count);
