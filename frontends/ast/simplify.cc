@@ -293,6 +293,8 @@ static void save_struct_range_swapped(AstNode *node, bool range_swapped)
 
 static int get_struct_array_width(AstNode *node)
 {
+	// This function is only useful for up to two array dimensions.
+	log_assert(node->multirange_dimensions.size() <= 2);
 	// the stride for the array, 1 if not an array
 	return (node->multirange_dimensions.size() != 2 ? 1 : node->multirange_dimensions[1]);
 
@@ -446,6 +448,8 @@ static AstNode *offset_indexed_range(int offset, int stride, AstNode *left_expr,
 
 static AstNode *make_struct_index_range(AstNode *node, AstNode *rnode, int stride, int offset, AstNode *member_node)
 {
+	// This function should be rewritten to support more than two array dimensions.
+	log_assert(member_node->multirange_dimensions.size() <= 2 && member_node->multirange_swapped.size() <= 2);
 	if (member_node->multirange_swapped[0]) {
 		// The struct item has swapped range; swap index into the struct accordingly.
 		int msb = member_node->multirange_dimensions[0] - 1;
@@ -470,6 +474,8 @@ static AstNode *make_struct_index_range(AstNode *node, AstNode *rnode, int strid
 
 static AstNode *slice_range(AstNode *rnode, AstNode *snode, AstNode *member_node)
 {
+	// This function should be rewritten to support more than two array dimensions.
+	log_assert(member_node->multirange_dimensions.size() <= 2 && member_node->multirange_swapped.size() <= 2);
 	if (member_node->multirange_swapped[1]) {
 		// The second dimension has swapped range; swap index into the struct accordingly.
 		int msb = member_node->multirange_dimensions[1] - 1;
@@ -503,6 +509,8 @@ AstNode *AST::make_struct_member_range(AstNode *node, AstNode *member_node)
 		// no range operations apply, return the whole width
 		return make_range(range_left, range_right);
 	}
+	// This function should be rewritten to support more than two array dimensions.
+	log_assert(member_node->multirange_dimensions.size() <= 2 && member_node->multirange_swapped.size() <= 2);
 	int stride = get_struct_array_width(member_node);
 	if (node->children.size() == 1 && node->children[0]->type == AST_RANGE) {
 		// bit or array indexing e.g. s.a[2] or s.a[1:0]
