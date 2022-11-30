@@ -986,7 +986,7 @@ skip_fine_alu:
 			}
 		}
 
-		if (cell->type.in(ID($shiftx), ID($shift))) {
+		if (cell->type.in(ID($shiftx), ID($shift)) && (cell->type == ID($shiftx) || !cell->getParam(ID::A_SIGNED).as_bool())) {
 			SigSpec sig_a = assign_map(cell->getPort(ID::A));
 			int width;
 			bool trim_x = cell->type == ID($shiftx) || !keepdc;
@@ -1233,7 +1233,7 @@ skip_fine_alu:
 			goto next_cell;
 		}
 
-		if (cell->type.in(ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx)) && assign_map(cell->getPort(ID::B)).is_fully_const())
+		if (cell->type.in(ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx)) && (keepdc ? assign_map(cell->getPort(ID::B)).is_fully_def() : assign_map(cell->getPort(ID::B)).is_fully_const()))
 		{
 			bool sign_ext = cell->type == ID($sshr) && cell->getParam(ID::A_SIGNED).as_bool();
 			int shift_bits = assign_map(cell->getPort(ID::B)).as_int(cell->type.in(ID($shift), ID($shiftx)) && cell->getParam(ID::B_SIGNED).as_bool());
@@ -1244,7 +1244,7 @@ skip_fine_alu:
 			RTLIL::SigSpec sig_a = assign_map(cell->getPort(ID::A));
 			RTLIL::SigSpec sig_y(cell->type == ID($shiftx) ? RTLIL::State::Sx : RTLIL::State::S0, cell->getParam(ID::Y_WIDTH).as_int());
 
-			if (GetSize(sig_a) < GetSize(sig_y))
+			if (cell->type != ID($shiftx) && GetSize(sig_a) < GetSize(sig_y))
 				sig_a.extend_u0(GetSize(sig_y), cell->getParam(ID::A_SIGNED).as_bool());
 
 			for (int i = 0; i < GetSize(sig_y); i++) {
