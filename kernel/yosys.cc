@@ -590,7 +590,9 @@ void yosys_shutdown()
 
 #ifdef YOSYS_ENABLE_TCL
 	if (yosys_tcl_interp != NULL) {
-		Tcl_DeleteInterp(yosys_tcl_interp);
+		if (!Tcl_InterpDeleted(yosys_tcl_interp)) {
+			Tcl_DeleteInterp(yosys_tcl_interp);
+		}
 		Tcl_Finalize();
 		yosys_tcl_interp = NULL;
 	}
@@ -789,11 +791,13 @@ struct TclPass : public Pass {
 			script_args.push_back(Tcl_NewStringObj((*it).c_str(), (*it).size()));
 
 		Tcl_Interp *interp = yosys_get_tcl_interp();
+		Tcl_Preserve(interp);
 		Tcl_ObjSetVar2(interp, Tcl_NewStringObj("argc", 4), NULL, Tcl_NewIntObj(script_args.size()), 0);
 		Tcl_ObjSetVar2(interp, Tcl_NewStringObj("argv", 4), NULL, Tcl_NewListObj(script_args.size(), script_args.data()), 0);
 		Tcl_ObjSetVar2(interp, Tcl_NewStringObj("argv0", 5), NULL, Tcl_NewStringObj(args[1].c_str(), args[1].size()), 0);
 		if (Tcl_EvalFile(interp, args[1].c_str()) != TCL_OK)
 			log_cmd_error("TCL interpreter returned an error: %s\n", Tcl_GetStringResult(interp));
+		Tcl_Release(interp);
 	}
 } TclPass;
 #endif
