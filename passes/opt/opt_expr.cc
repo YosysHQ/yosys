@@ -643,6 +643,148 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 			goto next_cell;
 		}
 
+		if (cell->type.in(ID($and), ID($or), ID($xor), ID($xnor)))
+		{
+			RTLIL::SigSpec sig_a = assign_map(cell->getPort(ID::A));
+			RTLIL::SigSpec sig_b = assign_map(cell->getPort(ID::B));
+
+			bool a_fully_const = (sig_a.is_fully_const() && (!keepdc || !sig_a.is_fully_undef()));
+			bool b_fully_const = (sig_b.is_fully_const() && (!keepdc || !sig_b.is_fully_undef()));
+
+			if (a_fully_const != b_fully_const)
+			{
+				cover("opt.opt_expr.bitwise_logic_one_const");
+				log_debug("Replacing %s cell `%s' in module `%s' having one fully constant input\n",
+						log_id(cell->type), log_id(cell->name), log_id(module));
+				RTLIL::SigSpec sig_y = assign_map(cell->getPort(ID::Y));
+
+				int width = GetSize(cell->getPort(ID::Y));
+
+				sig_a.extend_u0(width, cell->getParam(ID::A_SIGNED).as_bool());
+				sig_b.extend_u0(width, cell->getParam(ID::B_SIGNED).as_bool());
+
+				if (!a_fully_const)
+					std::swap(sig_a, sig_b);
+
+				RTLIL::SigSpec b_group_0, b_group_1, b_group_x;
+				RTLIL::SigSpec y_group_0, y_group_1, y_group_x;
+
+				for (int i = 0; i < width; i++) {
+					auto bit_a = sig_a[i].data;
+					if (bit_a == State::S0) b_group_0.append(sig_b[i]), y_group_0.append(sig_y[i]);
+					if (bit_a == State::S1) b_group_1.append(sig_b[i]), y_group_1.append(sig_y[i]);
+					if (bit_a == State::Sx) b_group_x.append(sig_b[i]), y_group_x.append(sig_y[i]);
+				}
+
+				if (cell->type == ID($xnor)) {
+					std::swap(b_group_0, b_group_1);
+					std::swap(y_group_0, y_group_1);
+				}
+
+				RTLIL::SigSpec y_new_0, y_new_1, y_new_x;
+
+				if (cell->type == ID($and)) {
+					if (!y_group_0.empty()) y_new_0 = Const(State::S0, GetSize(y_group_0));
+					if (!y_group_1.empty()) y_new_1 = b_group_1;
+					if (!y_group_x.empty()) {
+						if (keepdc)
+							y_new_x = module->And(NEW_ID, Const(State::Sx, GetSize(y_group_x)), b_group_x);
+						else
+							y_new_x = Const(State::S0, GetSize(y_group_x));
+					}
+				} else if (cell->type == ID($or)) {
+					if (!y_group_0.empty()) y_new_0 = b_group_0;
+					if (!y_group_1.empty()) y_new_1 = Const(State::S1, GetSize(y_group_1));
+					if (!y_group_x.empty()) {
+						if (keepdc)
+							y_new_x = module->Or(NEW_ID, Const(State::Sx, GetSize(y_group_x)), b_group_x);
+						else
+							y_new_x = Const(State::S1, GetSize(y_group_x));
+					}
+				} else if (cell->type.in(ID($xor), ID($xnor))) {
+					if (!y_group_0.empty()) y_new_0 = b_group_0;
+					if (!y_group_1.empty()) y_new_1 = module->Not(NEW_ID, b_group_1);
+					if (!y_group_x.empty()) {
+						if (keepdc)
+							y_new_x = module->Xor(NEW_ID, Const(State::Sx, GetSize(y_group_x)), b_group_x);
+						else // This should be fine even with keepdc, but opt_expr_xor.ys wants to keep the xor
+							y_new_x = Const(State::Sx, GetSize(y_group_x));
+					}
+				} else {
+					log_abort();
+				}
+
+				assign_map.add(y_group_0, y_new_0); module->connect(y_group_0, y_new_0);
+				assign_map.add(y_group_1, y_new_1); module->connect(y_group_1, y_new_1);
+				assign_map.add(y_group_x, y_new_x); module->connect(y_group_x, y_new_x);
+
+				module->remove(cell);
+				did_something = true;
+				goto next_cell;
+			}
+		}
+
+		if (cell->type == ID($bwmux))
+		{
+			RTLIL::SigSpec sig_a = assign_map(cell->getPort(ID::A));
+			RTLIL::SigSpec sig_b = assign_map(cell->getPort(ID::B));
+			RTLIL::SigSpec sig_s = assign_map(cell->getPort(ID::S));
+			RTLIL::SigSpec sig_y = assign_map(cell->getPort(ID::Y));
+			int width = GetSize(cell->getPort(ID::Y));
+
+			if (sig_s.is_fully_def())
+			{
+				RTLIL::SigSpec a_group_0, b_group_1;
+				RTLIL::SigSpec y_group_0, y_group_1;
+				for (int i = 0; i < width; i++) {
+					if (sig_s[i].data == State::S1)
+						y_group_1.append(sig_y[i]), b_group_1.append(sig_b[i]);
+					else
+						y_group_0.append(sig_y[i]), a_group_0.append(sig_a[i]);
+				}
+
+				assign_map.add(y_group_0, a_group_0); module->connect(y_group_0, a_group_0);
+				assign_map.add(y_group_1, b_group_1); module->connect(y_group_1, b_group_1);
+
+				module->remove(cell);
+				did_something = true;
+				goto next_cell;
+			}
+			else if (sig_a.is_fully_def() || sig_b.is_fully_def())
+			{
+				bool flip = !sig_a.is_fully_def();
+				if (flip)
+					std::swap(sig_a, sig_b);
+
+				RTLIL::SigSpec b_group_0, b_group_1;
+				RTLIL::SigSpec s_group_0, s_group_1;
+				RTLIL::SigSpec y_group_0, y_group_1;
+				for (int i = 0; i < width; i++) {
+					if (sig_a[i].data == State::S1)
+						y_group_1.append(sig_y[i]), b_group_1.append(sig_b[i]), s_group_1.append(sig_s[i]);
+					else
+						y_group_0.append(sig_y[i]), b_group_0.append(sig_b[i]), s_group_0.append(sig_s[i]);
+				}
+
+				RTLIL::SigSpec y_new_0, y_new_1;
+
+				if (flip) {
+					if (!y_group_0.empty()) y_new_0 = module->And(NEW_ID, b_group_0, module->Not(NEW_ID, s_group_0));
+					if (!y_group_1.empty()) y_new_1 = module->Or(NEW_ID, b_group_1, s_group_1);
+				} else {
+					if (!y_group_0.empty()) y_new_0 = module->And(NEW_ID, b_group_0, s_group_0);
+					if (!y_group_1.empty()) y_new_1 = module->Or(NEW_ID, b_group_1, module->Not(NEW_ID, s_group_1));
+				}
+
+				module->connect(y_group_0, y_new_0);
+				module->connect(y_group_1, y_new_1);
+
+				module->remove(cell);
+				did_something = true;
+				goto next_cell;
+			}
+		}
+
 		if (do_fine)
 		{
 			if (cell->type.in(ID($not), ID($pos), ID($and), ID($or), ID($xor), ID($xnor)))
@@ -905,7 +1047,7 @@ skip_fine_alu:
 			}
 		}
 
-		if (cell->type.in(ID($shiftx), ID($shift))) {
+		if (cell->type.in(ID($shiftx), ID($shift)) && (cell->type == ID($shiftx) || !cell->getParam(ID::A_SIGNED).as_bool())) {
 			SigSpec sig_a = assign_map(cell->getPort(ID::A));
 			int width;
 			bool trim_x = cell->type == ID($shiftx) || !keepdc;
@@ -1152,7 +1294,7 @@ skip_fine_alu:
 			goto next_cell;
 		}
 
-		if (cell->type.in(ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx)) && assign_map(cell->getPort(ID::B)).is_fully_const())
+		if (cell->type.in(ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx)) && (keepdc ? assign_map(cell->getPort(ID::B)).is_fully_def() : assign_map(cell->getPort(ID::B)).is_fully_const()))
 		{
 			bool sign_ext = cell->type == ID($sshr) && cell->getParam(ID::A_SIGNED).as_bool();
 			int shift_bits = assign_map(cell->getPort(ID::B)).as_int(cell->type.in(ID($shift), ID($shiftx)) && cell->getParam(ID::B_SIGNED).as_bool());
@@ -1163,7 +1305,7 @@ skip_fine_alu:
 			RTLIL::SigSpec sig_a = assign_map(cell->getPort(ID::A));
 			RTLIL::SigSpec sig_y(cell->type == ID($shiftx) ? RTLIL::State::Sx : RTLIL::State::S0, cell->getParam(ID::Y_WIDTH).as_int());
 
-			if (GetSize(sig_a) < GetSize(sig_y))
+			if (cell->type != ID($shiftx) && GetSize(sig_a) < GetSize(sig_y))
 				sig_a.extend_u0(GetSize(sig_y), cell->getParam(ID::A_SIGNED).as_bool());
 
 			for (int i = 0; i < GetSize(sig_y); i++) {
@@ -1446,6 +1588,31 @@ skip_identity:
 				goto next_cell; \
 			} \
 		}
+#define FOLD_2ARG_SIMPLE_CELL(_t, B_ID) \
+		if (cell->type == ID($##_t)) { \
+			RTLIL::SigSpec a = cell->getPort(ID::A); \
+			RTLIL::SigSpec b = cell->getPort(B_ID); \
+			assign_map.apply(a), assign_map.apply(b); \
+			if (a.is_fully_const() && b.is_fully_const()) { \
+				RTLIL::SigSpec y(RTLIL::const_ ## _t(a.as_const(), b.as_const())); \
+				cover("opt.opt_expr.const.$" #_t); \
+				replace_cell(assign_map, module, cell, stringf("%s, %s", log_signal(a), log_signal(b)), ID::Y, y); \
+				goto next_cell; \
+			} \
+		}
+#define FOLD_MUX_CELL(_t) \
+		if (cell->type == ID($##_t)) { \
+			RTLIL::SigSpec a = cell->getPort(ID::A); \
+			RTLIL::SigSpec b = cell->getPort(ID::B); \
+			RTLIL::SigSpec s = cell->getPort(ID::S); \
+			assign_map.apply(a), assign_map.apply(b), assign_map.apply(s); \
+			if (a.is_fully_const() && b.is_fully_const() && s.is_fully_const()) { \
+				RTLIL::SigSpec y(RTLIL::const_ ## _t(a.as_const(), b.as_const(), s.as_const())); \
+				cover("opt.opt_expr.const.$" #_t); \
+				replace_cell(assign_map, module, cell, stringf("%s, %s, %s", log_signal(a), log_signal(b), log_signal(s)), ID::Y, y); \
+				goto next_cell; \
+			} \
+		}
 
 		FOLD_1ARG_CELL(not)
 		FOLD_2ARG_CELL(and)
@@ -1477,6 +1644,9 @@ skip_identity:
 		FOLD_2ARG_CELL(gt)
 		FOLD_2ARG_CELL(ge)
 
+		FOLD_2ARG_CELL(eqx)
+		FOLD_2ARG_CELL(nex)
+
 		FOLD_2ARG_CELL(add)
 		FOLD_2ARG_CELL(sub)
 		FOLD_2ARG_CELL(mul)
@@ -1488,6 +1658,13 @@ skip_identity:
 
 		FOLD_1ARG_CELL(pos)
 		FOLD_1ARG_CELL(neg)
+
+		FOLD_MUX_CELL(mux);
+		FOLD_MUX_CELL(pmux);
+		FOLD_2ARG_SIMPLE_CELL(bmux, ID::S);
+		FOLD_2ARG_SIMPLE_CELL(demux, ID::S);
+		FOLD_2ARG_SIMPLE_CELL(bweqx, ID::B);
+		FOLD_MUX_CELL(bwmux);
 
 		// be very conservative with optimizing $mux cells as we do not want to break mux trees
 		if (cell->type == ID($mux)) {

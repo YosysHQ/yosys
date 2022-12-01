@@ -223,7 +223,33 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 		return true;
 	}
 
-	if (cell->type.in(ID($_MUX_), ID($mux), ID($_NMUX_)))
+	if (cell->type == ID($bweqx))
+	{
+		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
+		std::vector<int> b = importDefSigSpec(cell->getPort(ID::B), timestep);
+		std::vector<int> y = importDefSigSpec(cell->getPort(ID::Y), timestep);
+
+		std::vector<int> bweqx = ez->vec_not(ez->vec_xor(a, b));
+
+		if (model_undef)
+		{
+			std::vector<int> undef_a = importUndefSigSpec(cell->getPort(ID::A), timestep);
+			std::vector<int> undef_b = importUndefSigSpec(cell->getPort(ID::B), timestep);
+			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
+
+			std::vector<int> both_undef = ez->vec_and(undef_a, undef_b);
+			std::vector<int> both_def = ez->vec_and(ez->vec_not(undef_a), ez->vec_not(undef_b));
+
+			bweqx = ez->vec_or(both_undef, ez->vec_and(both_def, bweqx));
+
+			for (int yx : undef_y)
+				ez->assume(ez->NOT(yx));
+		}
+		ez->assume(ez->vec_eq(bweqx, y));
+		return true;
+	}
+
+	if (cell->type.in(ID($_MUX_), ID($mux), ID($_NMUX_), ID($bwmux)))
 	{
 		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
 		std::vector<int> b = importDefSigSpec(cell->getPort(ID::B), timestep);
@@ -233,6 +259,8 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 		std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
 		if (cell->type == ID($_NMUX_))
 			ez->assume(ez->vec_eq(ez->vec_not(ez->vec_ite(s.at(0), b, a)), yy));
+		else if (cell->type == ID($bwmux))
+			ez->assume(ez->vec_eq(ez->vec_ite(s, b, a), yy));
 		else
 			ez->assume(ez->vec_eq(ez->vec_ite(s.at(0), b, a), yy));
 
@@ -245,7 +273,11 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 			std::vector<int> unequal_ab = ez->vec_not(ez->vec_iff(a, b));
 			std::vector<int> undef_ab = ez->vec_or(unequal_ab, ez->vec_or(undef_a, undef_b));
-			std::vector<int> yX = ez->vec_ite(undef_s.at(0), undef_ab, ez->vec_ite(s.at(0), undef_b, undef_a));
+			std::vector<int> yX;
+			if (cell->type == ID($bwmux))
+				yX = ez->vec_ite(undef_s, undef_ab, ez->vec_ite(s, undef_b, undef_a));
+			else
+				yX = ez->vec_ite(undef_s.at(0), undef_ab, ez->vec_ite(s.at(0), undef_b, undef_a));
 			ez->assume(ez->vec_eq(yX, undef_y));
 			undefGating(y, yy, undef_y);
 		}
@@ -375,29 +407,24 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 			std::vector<int> undef_s = importUndefSigSpec(cell->getPort(ID::S), timestep);
 			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
 
-			int maybe_a = ez->CONST_TRUE;
+			int all_undef = ez->CONST_FALSE;
+			int found_active = ez->CONST_FALSE;
 
-			std::vector<int> bits_set = std::vector<int>(undef_y.size(), ez->CONST_FALSE);
-			std::vector<int> bits_clr = std::vector<int>(undef_y.size(), ez->CONST_FALSE);
+			std::vector<int> undef_tmp = undef_a;
 
 			for (size_t i = 0; i < s.size(); i++)
 			{
-				std::vector<int> part_of_b(b.begin()+i*a.size(), b.begin()+(i+1)*a.size());
 				std::vector<int> part_of_undef_b(undef_b.begin()+i*a.size(), undef_b.begin()+(i+1)*a.size());
 
-				int maybe_s = ez->OR(s.at(i), undef_s.at(i));
-				int sure_s = ez->AND(s.at(i), ez->NOT(undef_s.at(i)));
-
-				maybe_a = ez->AND(maybe_a, ez->NOT(sure_s));
-
-				bits_set = ez->vec_ite(maybe_s, ez->vec_or(bits_set, ez->vec_or(part_of_b, part_of_undef_b)), bits_set);
-				bits_clr = ez->vec_ite(maybe_s, ez->vec_or(bits_clr, ez->vec_or(ez->vec_not(part_of_b), part_of_undef_b)), bits_clr);
+				undef_tmp = ez->vec_ite(s.at(i), part_of_undef_b, undef_tmp);
+				all_undef = ez->OR(all_undef, undef_s.at(i));
+				all_undef = ez->OR(all_undef, ez->AND(s.at(i), found_active));
+				found_active = ez->OR(found_active, s.at(i));
 			}
 
-			bits_set = ez->vec_ite(maybe_a, ez->vec_or(bits_set, ez->vec_or(bits_set, ez->vec_or(a, undef_a))), bits_set);
-			bits_clr = ez->vec_ite(maybe_a, ez->vec_or(bits_clr, ez->vec_or(bits_clr, ez->vec_or(ez->vec_not(a), undef_a))), bits_clr);
+			undef_tmp = ez->vec_or(undef_tmp, std::vector<int>(a.size(), all_undef));
 
-			ez->assume(ez->vec_eq(ez->vec_not(ez->vec_xor(bits_set, bits_clr)), undef_y));
+			ez->assume(ez->vec_eq(undef_tmp, undef_y));
 			undefGating(y, yy, undef_y);
 		}
 		return true;
