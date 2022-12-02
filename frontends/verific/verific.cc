@@ -2785,16 +2785,18 @@ struct VerificPass : public Pass {
 				log_abort();
 
 			for (argidx++; argidx < GetSize(args); argidx++) {
-				if (Strings::compare(args[argidx].c_str(), "errors"))
+				if (Strings::compare(args[argidx].c_str(), "errors")) {
+					Message::SetMessageType("VERI-1063", new_type);
 					Message::SetAllMessageType(VERIFIC_ERROR, new_type);
-				else if (Strings::compare(args[argidx].c_str(), "warnings"))
+				} else if (Strings::compare(args[argidx].c_str(), "warnings")) {
 					Message::SetAllMessageType(VERIFIC_WARNING, new_type);
-				else if (Strings::compare(args[argidx].c_str(), "infos"))
+				} else if (Strings::compare(args[argidx].c_str(), "infos")) {
 					Message::SetAllMessageType(VERIFIC_INFO, new_type);
-				else if (Strings::compare(args[argidx].c_str(), "comments"))
+				} else if (Strings::compare(args[argidx].c_str(), "comments")) {
 					Message::SetAllMessageType(VERIFIC_COMMENT, new_type);
-				else
+				} else {
 					Message::SetMessageType(args[argidx].c_str(), new_type);
+				}
 			}
 			goto check_error;
 		}
