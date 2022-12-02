@@ -205,6 +205,7 @@ extern char yosys_path[PATH_MAX];
 #ifdef YOSYS_ENABLE_TCL
 namespace Yosys {
 	extern int yosys_tcl_iterp_init(Tcl_Interp *interp);
+	extern void yosys_tcl_activate_repl();
 };
 #endif
 
@@ -584,6 +585,7 @@ int main(int argc, char **argv)
 
 	if (run_tcl_shell) {
 #ifdef YOSYS_ENABLE_TCL
+		yosys_tcl_activate_repl();
 		Tcl_Main(argc, argv, yosys_tcl_iterp_init);
 #else
 		log_error("Can't exectue TCL shell: this version of yosys is not built with TCL support enabled.\n");
