@@ -82,6 +82,9 @@
 #  ifdef YOSYS_MXE_HACKS
 extern Tcl_Command Tcl_CreateCommand(Tcl_Interp *interp, const char *cmdName, Tcl_CmdProc *proc, ClientData clientData, Tcl_CmdDeleteProc *deleteProc);
 extern Tcl_Interp *Tcl_CreateInterp(void);
+extern void Tcl_Preserve(ClientData data);
+extern void Tcl_Release(ClientData clientData);
+extern int Tcl_InterpDeleted(Tcl_Interp *interp);
 extern void Tcl_DeleteInterp(Tcl_Interp *interp);
 extern int Tcl_Eval(Tcl_Interp *interp, const char *script);
 extern int Tcl_EvalFile(Tcl_Interp *interp, const char *fileName);
