@@ -273,9 +273,9 @@ static int range_width(AstNode *node, AstNode *rnode)
 	return rnode->range_left - rnode->range_right + 1;
 }
 
-[[noreturn]] static void struct_array_dimension_error(AstNode *node)
+[[noreturn]] static void struct_array_packing_error(AstNode *node)
 {
-	log_file_error(node->filename, node->location.first_line, "Currently limited to two dimensions in packed struct/union member %s\n", node->str.c_str());
+       log_file_error(node->filename, node->location.first_line, "Unpacked array in packed struct/union member %s\n", node->str.c_str());
 }
 
 static void save_struct_array_width(AstNode *node, int width)
@@ -288,15 +288,6 @@ static void save_struct_array_width(AstNode *node, int width)
 static void save_struct_range_swapped(AstNode *node, bool range_swapped)
 {
 	node->multirange_swapped.push_back(range_swapped);
-
-}
-
-static int get_struct_array_width(AstNode *node)
-{
-	// This function is only useful for up to two array dimensions.
-	log_assert(node->multirange_dimensions.size() <= 2);
-	// the stride for the array, 1 if not an array
-	return (node->multirange_dimensions.size() != 2 ? 1 : node->multirange_dimensions[1]);
 
 }
 
@@ -341,11 +332,12 @@ static int size_packed_struct(AstNode *snode, int base_offset)
 						width *= array_count;
 					}
 					else {
-						// Currently limited to at most two dimensions.
-						struct_array_dimension_error(node);
+						// The Yosys extension for unpacked arrays in packed structs / unions
+						// only supports memories, i.e. e.g. logic [7:0] a [256] - see above.
+						struct_array_packing_error(node);
 					}
 				} else {
-					// Vector.
+					// Vector
 					save_struct_array_width(node, width);
 					save_struct_range_swapped(node, node->children[0]->range_swapped);
 				}
@@ -355,19 +347,19 @@ static int size_packed_struct(AstNode *snode, int base_offset)
 				node->children.clear();
 			}
 			else if (node->children.size() > 0 && node->children[0]->type == AST_MULTIRANGE) {
-				// packed 2D array, e.g. bit [3:0][63:0] a
-				auto rnode = node->children[0];
-				if (node->children.size() != 1 || rnode->children.size() != 2) {
-					// Currently limited to at most two dimensions.
-					struct_array_dimension_error(node);
+				// Packed array, e.g. bit [3:0][63:0] a
+				if (node->children.size() != 1) {
+					// The Yosys extension for unpacked arrays in packed structs / unions
+					// only supports memories, i.e. e.g. logic [7:0] a [256] - see above.
+					struct_array_packing_error(node);
 				}
-				int array_count = range_width(node, rnode->children[0]);
-				save_struct_array_width(node, array_count);
-				save_struct_range_swapped(node, rnode->children[0]->range_swapped);
-				width = range_width(node, rnode->children[1]);
-				save_struct_array_width(node, width);
-				save_struct_range_swapped(node, rnode->children[1]->range_swapped);
-				width *= array_count;
+				width = 1;
+				for (auto rnode : node->children[0]->children) {
+					int rwidth = range_width(node, rnode);
+					save_struct_array_width(node, rwidth);
+					save_struct_range_swapped(node, rnode->range_swapped);
+					width *= rwidth;
+				}
 				// range nodes are now redundant
 				for (AstNode *child : node->children)
 					delete child;
@@ -426,75 +418,53 @@ static AstNode *multiply_by_const(AstNode *expr_node, int stride)
 	return new AstNode(AST_MUL, expr_node, node_int(stride));
 }
 
-static AstNode *offset_indexed_range(int offset, int stride, AstNode *left_expr, AstNode *right_expr)
+static void normalize_struct_index(AstNode *rnode, AstNode *member_node, int dimension)
 {
-	// adjust the range expressions to add an offset into the struct
-	// and maybe index using an array stride
-	auto left  = left_expr->clone();
-	auto right = right_expr->clone();
-	if (stride > 1) {
-		// newleft = (left + 1) * stride - 1
-		left  = new AstNode(AST_SUB, multiply_by_const(new AstNode(AST_ADD, left, node_int(1)), stride), node_int(1));
-		// newright = right * stride
-		right = multiply_by_const(right, stride);
-	}
-	// add the offset
-	if (offset) {
-		left  = new AstNode(AST_ADD, node_int(offset), left);
-		right = new AstNode(AST_ADD, node_int(offset), right);
-	}
-	return new AstNode(AST_RANGE, left, right);
-}
-
-static AstNode *make_struct_index_range(AstNode *node, AstNode *rnode, int stride, int offset, AstNode *member_node)
-{
-	// This function should be rewritten to support more than two array dimensions.
-	log_assert(member_node->multirange_dimensions.size() <= 2 && member_node->multirange_swapped.size() <= 2);
-	if (member_node->multirange_swapped[0]) {
-		// The struct item has swapped range; swap index into the struct accordingly.
-		int msb = member_node->multirange_dimensions[0] - 1;
+	if (member_node->multirange_swapped[dimension]) {
+		// The dimension has swapped range; swap index into the struct accordingly.
+		int msb = member_node->multirange_dimensions[dimension] - 1;
 		for (auto &expr : rnode->children) {
 			expr = new AstNode(AST_SUB, node_int(msb), expr);
 		}
 	}
-
-	// generate a range node to perform either bit or array indexing
-	if (rnode->children.size() == 1) {
-		// index e.g. s.a[i]
-		return offset_indexed_range(offset, stride, rnode->children[0], rnode->children[0]);
-	}
-	else if (rnode->children.size() == 2) {
-		// slice e.g. s.a[i:j]
-		return offset_indexed_range(offset, stride, rnode->children[0], rnode->children[1]);
-	}
-	else {
-		struct_op_error(node);
-	}
 }
 
-static AstNode *slice_range(AstNode *rnode, AstNode *snode, AstNode *member_node)
+static AstNode *struct_index_lsb_offset(AstNode *lsb_offset, AstNode *rnode, AstNode *member_node, int dimension, int &stride)
 {
-	// This function should be rewritten to support more than two array dimensions.
-	log_assert(member_node->multirange_dimensions.size() <= 2 && member_node->multirange_swapped.size() <= 2);
-	if (member_node->multirange_swapped[1]) {
-		// The second dimension has swapped range; swap index into the struct accordingly.
-		int msb = member_node->multirange_dimensions[1] - 1;
-		for (auto &expr : snode->children) {
-			expr = new AstNode(AST_SUB, node_int(msb), expr);
+	normalize_struct_index(rnode, member_node, dimension);
+	stride /= member_node->multirange_dimensions[dimension];
+	auto right = rnode->children.back()->clone();
+	auto offset = stride > 1 ? multiply_by_const(right, stride) : right;
+	return new AstNode(AST_ADD, lsb_offset, offset);
+}
+
+static AstNode *struct_index_msb_offset(AstNode *lsb_offset, AstNode *rnode, int stride)
+{
+	log_assert(rnode->children.size() <= 2);
+
+	// Offset to add to LSB
+	AstNode *offset;
+	if (rnode->children.size() == 1) {
+		// Index, e.g. s.a[i]
+		offset = node_int(stride - 1);
+	}
+	else {
+		// rnode->children.size() == 2
+		// Slice, e.g. s.a[i:j]
+		auto left = rnode->children[0]->clone();
+		auto right = rnode->children[1]->clone();
+		auto slice_offset = new AstNode(AST_SUB, left, right);
+		if (stride == 1) {
+			offset = slice_offset;
+		}
+		else {
+			// offset = (msb - lsb + 1)*stride - 1
+			auto slice_width = new AstNode(AST_ADD, slice_offset, node_int(1));
+			offset = new AstNode(AST_SUB, multiply_by_const(slice_width, stride), node_int(1));
 		}
 	}
 
-	// apply the bit slice indicated by snode to the range rnode
-	log_assert(rnode->type==AST_RANGE);
-	auto left  = rnode->children[0];
-	auto right = rnode->children[1];
-	log_assert(snode->type==AST_RANGE);
-	auto slice_left  = snode->children[0];
-	auto slice_right = snode->children[1];
-	auto width = new AstNode(AST_SUB, slice_left->clone(), slice_right->clone());
-	right = new AstNode(AST_ADD, right->clone(), slice_right->clone());
-	left  = new AstNode(AST_ADD, right->clone(), width);
-	return new AstNode(AST_RANGE, left, right);
+	return new AstNode(AST_ADD, lsb_offset, offset);
 }
 
 
@@ -509,26 +479,36 @@ AstNode *AST::make_struct_member_range(AstNode *node, AstNode *member_node)
 		// no range operations apply, return the whole width
 		return make_range(range_left, range_right);
 	}
-	// This function should be rewritten to support more than two array dimensions.
-	log_assert(member_node->multirange_dimensions.size() <= 2 && member_node->multirange_swapped.size() <= 2);
-	int stride = get_struct_array_width(member_node);
-	if (node->children.size() == 1 && node->children[0]->type == AST_RANGE) {
-		// bit or array indexing e.g. s.a[2] or s.a[1:0]
-		return make_struct_index_range(node, node->children[0], stride, range_right, member_node);
+
+        if (node->children.size() != 1) {
+		struct_op_error(node);
 	}
-	else if (node->children.size() == 1 && node->children[0]->type == AST_MULTIRANGE) {
-		// multirange, i.e. bit slice after array index, e.g. s.a[i][p:q]
-		log_assert(stride > 1);
-		auto mrnode = node->children[0];
-		auto element_range = make_struct_index_range(node, mrnode->children[0], stride, range_right, member_node);
-		// then apply bit slice range
-		auto range = slice_range(element_range, mrnode->children[1], member_node);
-		delete element_range;
-		return range;
+
+	// Range operations
+	auto rnode = node->children[0];
+	auto lsb_offset = node_int(member_node->range_right);
+	int stride = range_left - range_right + 1;
+
+	// Calculate LSB offset for the final index / slice
+	if (rnode->type == AST_RANGE) {
+		lsb_offset = struct_index_lsb_offset(lsb_offset, rnode, member_node, 0, stride);
+	}
+	else if (rnode->type == AST_MULTIRANGE) {
+		// Add offset for each dimension
+		auto mrnode = rnode;
+		for (size_t i = 0; i < mrnode->children.size(); i++) {
+			rnode = mrnode->children[i];
+			lsb_offset = struct_index_lsb_offset(lsb_offset, rnode, member_node, i, stride);
+		}
 	}
 	else {
 		struct_op_error(node);
 	}
+
+	// Calculate MSB offset for the final index / slice
+	auto msb_offset = struct_index_msb_offset(lsb_offset->clone(), rnode, stride);
+
+	return new AstNode(AST_RANGE, msb_offset, lsb_offset);
 }
 
 static void add_members_to_scope(AstNode *snode, std::string name)
