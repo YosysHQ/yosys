@@ -275,7 +275,7 @@ static int range_width(AstNode *node, AstNode *rnode)
 
 [[noreturn]] static void struct_array_packing_error(AstNode *node)
 {
-       log_file_error(node->filename, node->location.first_line, "Unpacked array in packed struct/union member %s\n", node->str.c_str());
+	log_file_error(node->filename, node->location.first_line, "Unpacked array in packed struct/union member %s\n", node->str.c_str());
 }
 
 static void save_struct_array_width(AstNode *node, int width)
@@ -418,27 +418,28 @@ static AstNode *multiply_by_const(AstNode *expr_node, int stride)
 	return new AstNode(AST_MUL, expr_node, node_int(stride));
 }
 
-static void normalize_struct_index(AstNode *rnode, AstNode *member_node, int dimension)
+static AstNode *normalize_struct_index(AstNode *expr, AstNode *member_node, int dimension)
 {
+	expr = expr->clone();
+
 	if (member_node->multirange_swapped[dimension]) {
 		// The dimension has swapped range; swap index into the struct accordingly.
 		int msb = member_node->multirange_dimensions[dimension] - 1;
-		for (auto &expr : rnode->children) {
-			expr = new AstNode(AST_SUB, node_int(msb), expr);
-		}
+		expr = new AstNode(AST_SUB, node_int(msb), expr);
 	}
+
+	return expr;
 }
 
 static AstNode *struct_index_lsb_offset(AstNode *lsb_offset, AstNode *rnode, AstNode *member_node, int dimension, int &stride)
 {
-	normalize_struct_index(rnode, member_node, dimension);
 	stride /= member_node->multirange_dimensions[dimension];
-	auto right = rnode->children.back()->clone();
+	auto right = normalize_struct_index(rnode->children.back(), member_node, dimension);
 	auto offset = stride > 1 ? multiply_by_const(right, stride) : right;
 	return new AstNode(AST_ADD, lsb_offset, offset);
 }
 
-static AstNode *struct_index_msb_offset(AstNode *lsb_offset, AstNode *rnode, int stride)
+static AstNode *struct_index_msb_offset(AstNode *lsb_offset, AstNode *rnode, AstNode *member_node, int dimension, int stride)
 {
 	log_assert(rnode->children.size() <= 2);
 
@@ -451,15 +452,12 @@ static AstNode *struct_index_msb_offset(AstNode *lsb_offset, AstNode *rnode, int
 	else {
 		// rnode->children.size() == 2
 		// Slice, e.g. s.a[i:j]
-		auto left = rnode->children[0]->clone();
-		auto right = rnode->children[1]->clone();
-		auto slice_offset = new AstNode(AST_SUB, left, right);
-		if (stride == 1) {
-			offset = slice_offset;
-		}
-		else {
+		auto left = normalize_struct_index(rnode->children[0], member_node, dimension);
+		auto right = normalize_struct_index(rnode->children[1], member_node, dimension);
+		offset = new AstNode(AST_SUB, left, right);
+		if (stride > 1) {
 			// offset = (msb - lsb + 1)*stride - 1
-			auto slice_width = new AstNode(AST_ADD, slice_offset, node_int(1));
+			auto slice_width = new AstNode(AST_ADD, offset, node_int(1));
 			offset = new AstNode(AST_SUB, multiply_by_const(slice_width, stride), node_int(1));
 		}
 	}
@@ -480,7 +478,7 @@ AstNode *AST::make_struct_member_range(AstNode *node, AstNode *member_node)
 		return make_range(range_left, range_right);
 	}
 
-        if (node->children.size() != 1) {
+	if (node->children.size() != 1) {
 		struct_op_error(node);
 	}
 
@@ -488,25 +486,27 @@ AstNode *AST::make_struct_member_range(AstNode *node, AstNode *member_node)
 	auto rnode = node->children[0];
 	auto lsb_offset = node_int(member_node->range_right);
 	int stride = range_left - range_right + 1;
+	size_t i = 0;
 
 	// Calculate LSB offset for the final index / slice
 	if (rnode->type == AST_RANGE) {
-		lsb_offset = struct_index_lsb_offset(lsb_offset, rnode, member_node, 0, stride);
+		lsb_offset = struct_index_lsb_offset(lsb_offset, rnode, member_node, i, stride);
 	}
 	else if (rnode->type == AST_MULTIRANGE) {
 		// Add offset for each dimension
 		auto mrnode = rnode;
-		for (size_t i = 0; i < mrnode->children.size(); i++) {
+		for (i = 0; i < mrnode->children.size(); i++) {
 			rnode = mrnode->children[i];
 			lsb_offset = struct_index_lsb_offset(lsb_offset, rnode, member_node, i, stride);
 		}
+		i--;  // Step back to the final index / slice
 	}
 	else {
 		struct_op_error(node);
 	}
 
 	// Calculate MSB offset for the final index / slice
-	auto msb_offset = struct_index_msb_offset(lsb_offset->clone(), rnode, stride);
+	auto msb_offset = struct_index_msb_offset(lsb_offset->clone(), rnode, member_node, i, stride);
 
 	return new AstNode(AST_RANGE, msb_offset, lsb_offset);
 }
