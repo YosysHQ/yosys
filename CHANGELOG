@@ -2,11 +2,24 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.23 .. Yosys 0.23-dev
+Yosys 0.23 .. Yosys 0.24
 --------------------------
+ * New commands and options
+    - Added option "-set-def-formal" to "sat" pass.
+    - Added option "-s" to "tee" command.
 
  * Verilog
     - Support for module-scoped identifiers referring to tasks and functions.
+    - Support for arrays with swapped ranges within structs.
+
+ * Verific support
+    - Support for importing verilog configurations per name.
+    - "verific -set-XXXXX" commands are now able to set severity to all messages
+      of certain type (errors, warnings, infos and comments)
+
+ * Various
+    - TCL shell support (use "yosys -C")
+    - Added FABulous eFPGA frontend
 
 Yosys 0.22 .. Yosys 0.23
 --------------------------
