@@ -773,6 +773,7 @@ static int tcl_yosys_cmd(ClientData, Tcl_Interp *interp, int argc, const char *a
 	}
 
 	yosys_get_design()->scratchpad_unset("result.json");
+	yosys_get_design()->scratchpad_unset("result.string");
 
 	bool in_repl = yosys_tcl_repl_active;
 	bool restore_log_cmd_error_throw = log_cmd_error_throw;
@@ -811,12 +812,10 @@ static int tcl_yosys_cmd(ClientData, Tcl_Interp *interp, int argc, const char *a
 		auto json = json11::Json::parse(result->second, err);
 		if (err.empty()) {
 			Tcl_SetObjResult(interp, json_to_tcl(interp, json));
-			scratchpad.erase(result);
 		} else
 			log_warning("Ignoring result.json scratchpad value due to parse error: %s\n", err.c_str());
 	} else if ((result = scratchpad.find("result.string")) != scratchpad.end()) {
 		Tcl_SetObjResult(interp, Tcl_NewStringObj(result->second.data(), result->second.size()));
-		scratchpad.erase(result);
 	}
 
 	return TCL_OK;
