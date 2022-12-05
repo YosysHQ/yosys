@@ -73,6 +73,8 @@
 #include <limits.h>
 #include <errno.h>
 
+#include "libs/json11/json11.hpp"
+
 YOSYS_NAMESPACE_BEGIN
 
 int autoidx = 1;
@@ -82,6 +84,7 @@ CellTypes yosys_celltypes;
 
 #ifdef YOSYS_ENABLE_TCL
 Tcl_Interp *yosys_tcl_interp = NULL;
+bool yosys_tcl_repl_active = false;
 #endif
 
 std::set<std::string> yosys_input_files, yosys_output_files;
@@ -709,6 +712,42 @@ void rewrite_filename(std::string &filename)
 }
 
 #ifdef YOSYS_ENABLE_TCL
+
+static Tcl_Obj *json_to_tcl(Tcl_Interp *interp, const json11::Json &json)
+{
+	if (json.is_null())
+		return Tcl_NewStringObj("null", 4);
+	else if (json.is_string()) {
+		auto string = json.string_value();
+		return Tcl_NewStringObj(string.data(), string.size());
+	} else if (json.is_number()) {
+		double value = json.number_value();
+		double round_val = std::nearbyint(value);
+		if (std::isfinite(round_val) && value == round_val && value >= LONG_MIN && value < -double(LONG_MIN))
+			return Tcl_NewLongObj((long)round_val);
+		else
+			return Tcl_NewDoubleObj(value);
+	} else if (json.is_bool()) {
+		return Tcl_NewBooleanObj(json.bool_value());
+	} else if (json.is_array()) {
+		auto list = json.array_items();
+		Tcl_Obj *result = Tcl_NewListObj(list.size(), nullptr);
+		for (auto &item : list)
+			Tcl_ListObjAppendElement(interp, result, json_to_tcl(interp, item));
+		return result;
+	} else if (json.is_object()) {
+		auto map = json.object_items();
+		Tcl_Obj *result = Tcl_NewListObj(map.size() * 2, nullptr);
+		for (auto &item : map) {
+			Tcl_ListObjAppendElement(interp, result, Tcl_NewStringObj(item.first.data(), item.first.size()));
+			Tcl_ListObjAppendElement(interp, result, json_to_tcl(interp, item.second));
+		}
+		return result;
+	} else {
+		log_abort();
+	}
+}
+
 static int tcl_yosys_cmd(ClientData, Tcl_Interp *interp, int argc, const char *argv[])
 {
 	std::vector<std::string> args;
@@ -733,12 +772,52 @@ static int tcl_yosys_cmd(ClientData, Tcl_Interp *interp, int argc, const char *a
 		return TCL_OK;
 	}
 
-	if (args.size() == 1) {
-		Pass::call(yosys_get_design(), args[0]);
-		return TCL_OK;
+	yosys_get_design()->scratchpad_unset("result.json");
+	yosys_get_design()->scratchpad_unset("result.string");
+
+	bool in_repl = yosys_tcl_repl_active;
+	bool restore_log_cmd_error_throw = log_cmd_error_throw;
+
+	log_cmd_error_throw = true;
+
+	try {
+		if (args.size() == 1) {
+			Pass::call(yosys_get_design(), args[0]);
+		} else {
+			Pass::call(yosys_get_design(), args);
+		}
+	} catch (log_cmd_error_exception) {
+		if (in_repl) {
+			auto design = yosys_get_design();
+			while (design->selection_stack.size() > 1)
+				design->selection_stack.pop_back();
+			log_reset_stack();
+		}
+		Tcl_SetResult(interp, (char *)"Yosys command produced an error", TCL_STATIC);
+
+		yosys_tcl_repl_active = in_repl;
+		log_cmd_error_throw = restore_log_cmd_error_throw;
+		return TCL_ERROR;
+	} catch (...) {
+		log_error("uncaught exception during Yosys command invoked from TCL\n");
 	}
 
-	Pass::call(yosys_get_design(), args);
+	yosys_tcl_repl_active = in_repl;
+	log_cmd_error_throw = restore_log_cmd_error_throw;
+
+	auto &scratchpad = yosys_get_design()->scratchpad;
+	auto result = scratchpad.find("result.json");
+	if (result != scratchpad.end()) {
+		std::string err;
+		auto json = json11::Json::parse(result->second, err);
+		if (err.empty()) {
+			Tcl_SetObjResult(interp, json_to_tcl(interp, json));
+		} else
+			log_warning("Ignoring result.json scratchpad value due to parse error: %s\n", err.c_str());
+	} else if ((result = scratchpad.find("result.string")) != scratchpad.end()) {
+		Tcl_SetObjResult(interp, Tcl_NewStringObj(result->second.data(), result->second.size()));
+	}
+
 	return TCL_OK;
 }
 
@@ -748,6 +827,11 @@ int yosys_tcl_iterp_init(Tcl_Interp *interp)
 		log_warning("Tcl_Init() call failed - %s\n",Tcl_ErrnoMsg(Tcl_GetErrno()));
 	Tcl_CreateCommand(interp, "yosys", tcl_yosys_cmd, NULL, NULL);
     return TCL_OK ;
+}
+
+void yosys_tcl_activate_repl()
+{
+	yosys_tcl_repl_active = true;
 }
 
 extern Tcl_Interp *yosys_get_tcl_interp()
@@ -778,8 +862,8 @@ struct TclPass : public Pass {
 		log("the standard $argc and $argv variables.\n");
 		log("\n");
 		log("Note, tcl will not recieve the output of any yosys command. If the output\n");
-		log("of the tcl commands are needed, use the yosys command 'tee' to redirect yosys's\n");
-		log("output to a temporary file.\n");
+		log("of the tcl commands are needed, use the yosys command 'tee -s result.string'\n");
+		log("to redirect yosys's output to the 'result.string' scratchpad value.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *) override {

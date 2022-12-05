@@ -45,6 +45,9 @@ struct TeePass : public Pass {
 		log("    -a logfile\n");
 		log("        Write output to this file, append if exists.\n");
 		log("\n");
+		log("    -s scratchpad\n");
+		log("        Write output to this scratchpad value, truncate if it exists.\n");
+		log("\n");
 		log("    +INT, -INT\n");
 		log("        Add/subtract INT from the -v setting for this command.\n");
 		log("\n");
@@ -53,9 +56,11 @@ struct TeePass : public Pass {
 	{
 		std::vector<FILE*> backup_log_files, files_to_close;
 		std::vector<std::ostream*> backup_log_streams;
+		std::vector<std::string> backup_log_scratchpads;
 		int backup_log_verbose_level = log_verbose_level;
 		backup_log_streams = log_streams;
 		backup_log_files = log_files;
+		backup_log_scratchpads = log_scratchpads;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -78,6 +83,12 @@ struct TeePass : public Pass {
 				files_to_close.push_back(f);
 				continue;
 			}
+			if (args[argidx] == "-s" && argidx+1 < args.size()) {
+				auto name = args[++argidx];
+				design->scratchpad[name] = "";
+				log_scratchpads.push_back(name);
+				continue;
+			}
 			if (GetSize(args[argidx]) >= 2 && (args[argidx][0] == '-' || args[argidx][0] == '+') && args[argidx][1] >= '0' && args[argidx][1] <= '9') {
 				log_verbose_level += atoi(args[argidx].c_str());
 				continue;
@@ -93,6 +104,7 @@ struct TeePass : public Pass {
 				fclose(cf);
 			log_files = backup_log_files;
 			log_streams = backup_log_streams;
+			log_scratchpads = backup_log_scratchpads;
 			throw;
 		}
 
@@ -102,6 +114,7 @@ struct TeePass : public Pass {
 		log_verbose_level = backup_log_verbose_level;
 		log_files = backup_log_files;
 		log_streams = backup_log_streams;
+		log_scratchpads = backup_log_scratchpads;
 	}
 } TeePass;
 
