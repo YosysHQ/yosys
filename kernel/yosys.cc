@@ -862,8 +862,8 @@ struct TclPass : public Pass {
 		log("the standard $argc and $argv variables.\n");
 		log("\n");
 		log("Note, tcl will not recieve the output of any yosys command. If the output\n");
-		log("of the tcl commands are needed, use the yosys command 'tee' to redirect yosys's\n");
-		log("output to a temporary file.\n");
+		log("of the tcl commands are needed, use the yosys command 'tee -s result.string'\n");
+		log("to redirect yosys's output to the 'result.string' scratchpad value.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *) override {
