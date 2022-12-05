@@ -2540,6 +2540,8 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("Set message severity. <msg_id> is the string in square brackets when a message\n");
 		log("is printed, such as VERI-1209.\n");
+		log("Also errors, warnings, infos and comments could be used to set new severity for\n");
+		log("all messages of certain type.\n");
 		log("\n");
 		log("\n");
 		log("    verific -import [options] <top>..\n");
@@ -2783,9 +2785,20 @@ struct VerificPass : public Pass {
 			else
 				log_abort();
 
-			for (argidx++; argidx < GetSize(args); argidx++)
-				Message::SetMessageType(args[argidx].c_str(), new_type);
-
+			for (argidx++; argidx < GetSize(args); argidx++) {
+				if (Strings::compare(args[argidx].c_str(), "errors")) {
+					Message::SetMessageType("VERI-1063", new_type);
+					Message::SetAllMessageType(VERIFIC_ERROR, new_type);
+				} else if (Strings::compare(args[argidx].c_str(), "warnings")) {
+					Message::SetAllMessageType(VERIFIC_WARNING, new_type);
+				} else if (Strings::compare(args[argidx].c_str(), "infos")) {
+					Message::SetAllMessageType(VERIFIC_INFO, new_type);
+				} else if (Strings::compare(args[argidx].c_str(), "comments")) {
+					Message::SetAllMessageType(VERIFIC_COMMENT, new_type);
+				} else {
+					Message::SetMessageType(args[argidx].c_str(), new_type);
+				}
+			}
 			goto check_error;
 		}
 
