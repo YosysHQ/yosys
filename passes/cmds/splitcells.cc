@@ -76,9 +76,14 @@ struct SplitcellsWorker
 		std::vector<int> slices;
 		slices.push_back(0);
 
-		for (int i = 1; i < GetSize(outsig); i++) {
-			auto &last_users = bit_users_db.at(outsig[slices.back()]);
-			auto &this_users = bit_users_db.at(outsig[i]);
+		int width = GetSize(outsig);
+		width = std::min(width, GetSize(cell->getPort(ID::A)));
+		if (cell->hasPort(ID::B))
+			width = std::min(width, GetSize(cell->getPort(ID::B)));
+
+		for (int i = 1; i < width; i++) {
+			auto &last_users = bit_users_db[outsig[slices.back()]];
+			auto &this_users = bit_users_db[outsig[i]];
 			if (last_users != this_users) slices.push_back(i);
 		}
 		if (GetSize(slices) <= 1) return 0;
@@ -98,8 +103,11 @@ struct SplitcellsWorker
 
 			auto slice_signal = [&](SigSpec old_sig) -> SigSpec {
 				SigSpec new_sig;
-				for (int i = 0; i < GetSize(old_sig); i += GetSize(outsig))
-					new_sig.append(old_sig.extract(i+slice_lsb, slice_msb-slice_lsb+1));
+				for (int i = 0; i < GetSize(old_sig); i += GetSize(outsig)) {
+					int offset = i+slice_lsb;
+					int length = std::min(GetSize(old_sig)-offset, slice_msb-slice_lsb+1);
+					new_sig.append(old_sig.extract(offset, length));
+				}
 				return new_sig;
 			};
 
