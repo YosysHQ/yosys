@@ -39,6 +39,22 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+struct VizConfig {
+	enum group_type_t {
+		TYPE_G,
+		TYPE_U
+	};
+
+	int script = 9;
+	std::vector<std::pair<group_type_t, RTLIL::Selection>> groups;
+
+	int max_size = -1;
+
+	int max_fanout = 10;
+	int max_fanin = 10;
+	int max_conns = 15;
+};
+
 struct GraphNode {
 	int index = -1;
 	bool nomerge = false;
@@ -60,10 +76,14 @@ struct GraphNode {
 	pool<GraphNode*, hash_ptr_ops> &downstream() { return get()->downstream_; }
 
 	void replace(GraphNode *g) {
-		if (replaced) return get()->replace(g);
+		if (replaced)
+			return get()->replace(g);
+
+		log_assert(!nomerge);
+		log_assert(!g->get()->nomerge);
+		log_assert(terminal == g->terminal);
 
 		if (this == g->get()) return;
-		log_assert(terminal == g->terminal);
 
 		for (auto v : g->names())
 			names().insert(v);
@@ -110,11 +130,16 @@ struct GraphNode {
 };
 
 struct Graph {
-	int term_nodes_cnt;
-	int nonterm_nodes_cnt;
-
 	vector<GraphNode*> nodes;
 	vector<GraphNode*> replaced_nodes;
+
+	Module *module;
+	const VizConfig &config;
+
+	// statistics, updated by cleanup()
+	int term_nodes_cnt;
+	int nonterm_nodes_cnt;
+	int max_group_sizes[5];
 
 	~Graph()
 	{
@@ -128,6 +153,8 @@ struct Graph {
 
 		term_nodes_cnt = 0;
 		nonterm_nodes_cnt = 0;
+		for (int i = 0; i < 5; i++)
+			max_group_sizes[i] = 0;
 
 		for (auto n : nodes) {
 			if (n->replaced) {
@@ -137,10 +164,15 @@ struct Graph {
 				n->index = GetSize(new_nodes);
 				n->cleanup();
 
-				if (n->terminal)
+				if (n->terminal) {
 					term_nodes_cnt++;
-				else
+				} else {
 					nonterm_nodes_cnt++;
+					int pivot = GetSize(n->names());
+					for (int i = 0; i < 5; i++)
+						if (pivot >= max_group_sizes[i])
+							std::swap(pivot, max_group_sizes[i]);
+				}
 			}
 		}
 
@@ -155,12 +187,40 @@ struct Graph {
 		merge_id_conn = 0x00000010,
 		merge_term    = 0x00000020,
 		merge_small   = 0x00000040,
-
-		merge_stage_1 = merge_tag_buf | merge_dbl_buf | merge_bi_conn | merge_id_conn | merge_term,
-		merge_stage_2 = merge_tag_any | merge_dbl_buf | merge_bi_conn | merge_id_conn,
-		merge_stage_3 = merge_id_conn | merge_term | merge_small
+		merge_maxfan  = 0x00000080,
 	};
 
+	static const std::vector<std::vector<Graph::merge_flags_t>>& scripts()
+	{
+		static std::vector<std::vector<merge_flags_t>> buffer;
+
+		if (buffer.empty()) {
+			auto next_script = [&]() { buffer.push_back({}); };
+			auto cmd = [&](uint32_t flags) { buffer.back().push_back(merge_flags_t(flags)); };
+
+			// viz -0
+			next_script();
+			cmd(merge_dbl_buf | merge_id_conn | merge_maxfan);
+
+			// viz -1
+			next_script();
+			cmd(merge_dbl_buf | merge_id_conn | merge_tag_any | merge_maxfan);
+
+			// viz -2
+			next_script();
+			cmd(merge_tag_buf | merge_dbl_buf | merge_bi_conn | merge_id_conn | merge_term);
+			cmd(merge_tag_any | merge_dbl_buf | merge_bi_conn | merge_id_conn | merge_maxfan);
+			cmd(merge_id_conn | merge_term | merge_small | merge_maxfan);
+
+			// viz -3
+			next_script();
+			cmd(merge_tag_buf | merge_dbl_buf | merge_bi_conn | merge_id_conn | merge_term);
+			cmd(merge_tag_any | merge_dbl_buf | merge_bi_conn | merge_id_conn);
+			cmd(merge_id_conn | merge_term | merge_small | merge_maxfan);
+		}
+
+		return buffer;
+	};
 
 	bool merge(merge_flags_t flags)
 	{
@@ -263,21 +323,75 @@ struct Graph {
 			}
 
 			int count_merges = 0;
-			for (auto m : queued_merges) {
+			int smallest_merge_idx = -1;
+			int smallest_merge_size = 0;
+			for (int merge_idx = 0; merge_idx < GetSize(queued_merges); merge_idx++) {
+				auto &m = queued_merges[merge_idx];
 				auto g = m.first->get(), n = m.second->get();
 				if (g == n) continue;
+
+				if (!g->terminal)
+				{
+					int g_size = GetSize(g->names());
+					int n_size = GetSize(n->names());
+					int total_size = g_size + n_size;
+
+					if (total_size > config.max_size) continue;
+
+					if (smallest_merge_idx < 0 || total_size < smallest_merge_size) {
+						smallest_merge_idx = merge_idx;
+						smallest_merge_size = total_size;
+					}
+
+					if (total_size > max_group_sizes[1] + max_group_sizes[4]) continue;
+					if (g_size >= max_group_sizes[0] && max_group_sizes[0] != max_group_sizes[4]) continue;
+					if (n_size >= max_group_sizes[0] && max_group_sizes[0] != max_group_sizes[4]) continue;
+
+					if ((flags & merge_maxfan) != 0) {
+						auto &g_upstream = g->upstream(), &g_downstream = g->downstream();
+						auto &n_upstream = n->upstream(), &n_downstream = n->downstream();
+
+						if (GetSize(g_upstream) > config.max_fanin) continue;
+						if (GetSize(n_upstream) > config.max_fanin) continue;
+
+						if (GetSize(g_downstream) > config.max_fanout) continue;
+						if (GetSize(n_downstream) > config.max_fanout) continue;
+
+						pool<GraphNode*, hash_ptr_ops> combined_upstream = g_upstream;
+						combined_upstream.insert(n_upstream.begin(), n_upstream.end());
+
+						pool<GraphNode*, hash_ptr_ops> combined_downstream = g_downstream;
+						combined_downstream.insert(n_downstream.begin(), n_downstream.end());
+
+						pool<GraphNode*, hash_ptr_ops> combined_conns = combined_upstream;
+						combined_conns.insert(combined_downstream.begin(), combined_downstream.end());
+
+						if (GetSize(combined_upstream) > config.max_fanin) continue;
+						if (GetSize(combined_downstream) > config.max_fanout) continue;
+						if (GetSize(combined_conns) > config.max_conns) continue;
+					}
+				}
+
 				g->replace(n);
 				count_merges++;
 			}
-			if (count_merges == 0) return did_something;
-
-			log("    Merged %d node pairs.\n", count_merges);
+			if (count_merges == 0 && smallest_merge_idx >= 0) {
+				auto &m = queued_merges[smallest_merge_idx];
+				auto g = m.first->get(), n = m.second->get();
+				log("    Merging only the smallest node pair: %d + %d -> %d\n",
+						GetSize(g->names()), GetSize(n->names()), smallest_merge_size);
+				g->replace(n);
+				count_merges++;
+			} else {
+				if (count_merges == 0) return did_something;
+				log("    Merged %d node pairs.\n", count_merges);
+			}
 			did_something = true;
 			cleanup();
 		}
 	}
 
-	Graph(Module *module, const std::vector<RTLIL::Selection> &groups)
+	Graph(Module *module, const VizConfig &config) : module(module), config(config)
 	{
 		SigMap sigmap(module);
 		dict<SigBit, GraphNode*> wire_nodes;
@@ -300,24 +414,30 @@ struct Graph {
 			}
 		}
 
-		for (auto grp : groups)
+		for (auto grp : config.groups)
 		{
 			GraphNode *g = nullptr;
 
-			if (!grp.selected_module(module->name))
+			if (!grp.second.selected_module(module->name))
 				continue;
 
 			for (auto wire : module->wires()) {
 				if (!wire->name.isPublic()) continue;
-				if (!grp.selected_member(module->name, wire->name)) continue;
+				if (!grp.second.selected_member(module->name, wire->name)) continue;
 				for (auto bit : sigmap(wire)) {
-					if (!wire_nodes.count(bit))
+					auto it = wire_nodes.find(bit);
+					if (it == wire_nodes.end())
 						continue;
-					auto n = wire_nodes.at(bit)->get();
-					if (g)
-						g->replace(n);
-					else
-						g = n;
+					auto n = it->second->get();
+					if (grp.first == VizConfig::TYPE_G) {
+						if (g) {
+							if (!n->nomerge)
+								g->replace(n);
+						} else
+							g = n;
+					} else { // VizConfig::TYPE_U
+						n->nomerge = true;
+					}
 				}
 			}
 
@@ -378,41 +498,51 @@ struct Graph {
 
 struct VizWorker
 {
-	FILE *f;
+	VizConfig config;
+	Module *module;
 	Graph graph;
 
-	VizWorker(FILE *f, Module *module, const std::vector<RTLIL::Selection> &groups) : graph(module, groups)
+	VizWorker(Module *module, const VizConfig &cfg) : config(cfg), module(module), graph(module, config)
 	{
-		log("Running Viz for module %s:\n", log_id(module));
-		log("  Initial number of terminal nodes is %d.\n", graph.term_nodes_cnt);
-		log("  Initial number of non-terminal nodes is %d.\n", graph.nonterm_nodes_cnt);
+		auto &scripts = Graph::scripts();
+		config.script = std::min(GetSize(scripts)-1, config.script);
+		auto &script = scripts.at(config.script);
 
-		log("  Stage-1 merge loop:\n");
-		graph.merge(Graph::merge_stage_1);
-		log("    New number of terminal nodes is %d.\n", graph.term_nodes_cnt);
-		log("    New number of non-terminal nodes is %d.\n", graph.nonterm_nodes_cnt);
+		if (config.max_size < 0)
+			config.max_size = graph.nonterm_nodes_cnt / 3;
 
-		log("  Stage-2 merge loop:\n");
-		graph.merge(Graph::merge_stage_2);
-		log("    New number of terminal nodes is %d.\n", graph.term_nodes_cnt);
-		log("    New number of non-terminal nodes is %d.\n", graph.nonterm_nodes_cnt);
+		auto log_stats = [&](const char *sp, const char *p) {
+			log("%s%s maximum group sizes are ", sp, p);
+			for (int i = 0; i < 5; i++)
+				log("%d%s", graph.max_group_sizes[i], i==3 ? ", and " : i == 4 ? ".\n" : ", ");
+			log("%s%s number of terminal nodes is %d.\n", sp, p, graph.term_nodes_cnt);
+			log("%s%s number of non-terminal nodes is %d.\n", sp, p, graph.nonterm_nodes_cnt);
+		};
 
-		log("  Stage-3 merge loop:\n");
-		graph.merge(Graph::merge_stage_3);
-		log("    Final number of terminal nodes is %d.\n", graph.term_nodes_cnt);
-		log("    Final number of non-terminal nodes is %d.\n", graph.nonterm_nodes_cnt);
+		log("Running 'viz -%d' for module %s:\n", config.script, log_id(module));
+		log_stats("  ", "Initial");
 
-		fprintf(f, "digraph \"%s\" {", log_id(module));
-		fprintf(f, "  rankdir = LR;");
+		for (int i = 0; i < GetSize(script); i++) {
+			log("  Stage-%d merge loop:\n", i+1);
+			graph.merge(script[i]);
+			log_stats("    ", i+1 == GetSize(script) ? "Final" : "New");
+		}
+	}
+
+	void write_dot(FILE *f)
+	{
+		fprintf(f, "digraph \"%s\" {\n", log_id(module));
+		fprintf(f, "  rankdir = LR;\n");
 
 		dict<GraphNode*, std::vector<std::string>, hash_ptr_ops> extra_lines;
 		dict<GraphNode*, GraphNode*, hash_ptr_ops> bypass_nodes;
 
 		for (auto g : graph.nodes) {
-			if (!g->terminal) continue;
+			if (!g->terminal || g->nomerge) continue;
 			if (GetSize(g->upstream()) != 1) continue;
 			if (!g->downstream().empty() && g->downstream() != g->upstream()) continue;
 			auto n = *(g->upstream().begin());
+			if (n->terminal) continue;
 			for (auto name : g->names())
 				extra_lines[n].push_back(log_id(name));
 			bypass_nodes[g] = n;
@@ -430,7 +560,7 @@ struct VizWorker
 					label = label + (label.empty() ? "" : "\\n") + log_id(n);
 				fprintf(f, "\tn%d [shape=rectangle,label=\"%s\"];\n", g->index, label.c_str());
 			} else {
-				std::string label = stringf("grp%d | %d cells", g->index, GetSize(g->names()));
+				std::string label = stringf("grp=%d | %d cells", g->index, GetSize(g->names()));
 				std::string shape = "oval";
 				if (extra_lines.count(g)) {
 					label += label.empty() ? "" : "\\n";
@@ -449,14 +579,13 @@ struct VizWorker
 			for (auto n : g->downstream()) {
 				n = bypass_nodes.at(n, n);
 				if (g == n) continue;
-				if (g->terminal && !n->terminal && n->downstream().count(g)) continue;
 				edges.insert(stringf("n%d -> n%d", g->index, n->index));
 			}
 		}
 		for (auto e : edges)
 			fprintf(f, "\t%s;\n", e.c_str());
 
-		fprintf(f, "}");
+		fprintf(f, "}\n");
 	}
 };
 
@@ -495,6 +624,19 @@ struct VizPass : public Pass {
 		log("        manually define a group of terminal signals. this group is not being\n");
 		log("        merged with other terminal groups.\n");
 		log("\n");
+		log("    -u <selection>\n");
+		log("        manually define a unique group for each wire in the selection.\n");
+		log("\n");
+		log("    -G <selection_expr> .\n");
+		log("    -U <selection_expr> .\n");
+		log("        like -u and -g, but parse all arguments up to a terminating . argument\n");
+		log("        as a single select expression. (see 'help select' for details)\n");
+		log("\n");
+		log("    -0, -1, -2, -3, -4, -5, -6, -7, -8, -9\n");
+		log("        select effort level. each level corresponds to an incresingly more\n");
+		log("        aggressive sequence of strategies for merging nodes of the data flow\n");
+		log("        graph. (default: %d)\n", VizConfig().script);
+		log("\n");
 		log("When no <format> is specified, 'dot' is used. When no <format> and <viewer> is\n");
 		log("specified, 'xdot' is used to display the schematic (POSIX systems only).\n");
 		log("\n");
@@ -522,8 +664,8 @@ struct VizPass : public Pass {
 		bool flag_pause = false;
 		bool custom_prefix = false;
 		std::string background = "&";
-		RTLIL::IdString colorattr;
-		std::vector<RTLIL::Selection> groups;
+
+		VizConfig config;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -550,47 +692,75 @@ struct VizPass : public Pass {
 				background= "";
 				continue;
 			}
-			if (arg == "-g" && argidx+1 < args.size()) {
-				handle_extra_select_args(this, args, argidx+1, argidx+2, design);
-				groups.push_back(design->selection_stack.back());
+			if ((arg == "-g" || arg == "-u" || arg == "-G" || arg == "-U") && argidx+1 < args.size()) {
+				int numargs = 1;
+				int first_arg = ++argidx;
+				if (arg == "-G" || arg == "-U") {
+					while (argidx+1 < args.size()) {
+						if (args[++argidx] == ".") break;
+						numargs++;
+					}
+				}
+				handle_extra_select_args(this, args, first_arg, first_arg+numargs, design);
+				auto type = arg == "-g" || arg == "-G" ? VizConfig::TYPE_G : VizConfig::TYPE_U;
+				config.groups.push_back({type, design->selection_stack.back()});
 				design->selection_stack.pop_back();
-				++argidx;
+				continue;
+			}
+			if (arg == "-0" || arg == "-1" || arg == "-2" || arg == "-3" || arg == "-4" ||
+					arg == "-5" || arg == "-6" || arg == "-7" || arg == "-8" || arg == "-9") {
+				config.script = arg[1] - '0';
 				continue;
 			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
-		int modcount = 0;
+		std::vector<Module*> modlist;
 		for (auto module : design->selected_modules()) {
 			if (module->get_blackbox_attribute())
 				continue;
 			if (module->cells().size() == 0 && module->connections().empty())
 				continue;
-			modcount++;
+			modlist.push_back(module);
 		}
-		if (format != "ps" && format != "dot" && modcount > 1)
+		if (format != "ps" && format != "dot" && GetSize(modlist) > 1)
 			log_cmd_error("For formats different than 'ps' or 'dot' only one module must be selected.\n");
-		if (modcount == 0)
+		if (modlist.empty())
 			log_cmd_error("Nothing there to show.\n");
 
 		std::string dot_file = stringf("%s.dot", prefix.c_str());
 		std::string out_file = stringf("%s.%s", prefix.c_str(), format.empty() ? "svg" : format.c_str());
 
-		log("Writing dot description to `%s'.\n", dot_file.c_str());
-		FILE *f = fopen(dot_file.c_str(), "w");
 		if (custom_prefix)
 			yosys_output_files.insert(dot_file);
-		if (f == nullptr) {
-			log_cmd_error("Can't open dot file `%s' for writing.\n", dot_file.c_str());
+
+		log("Writing dot description to `%s'.\n", dot_file.c_str());
+		FILE *f = nullptr;
+		auto open_dot_file = [&]() {
+			if (f != nullptr) return;
+			f = fopen(dot_file.c_str(), "w");
+			if (f == nullptr)
+				log_cmd_error("Can't open dot file `%s' for writing.\n", dot_file.c_str());
+		};
+		for (auto module : modlist) {
+			VizWorker worker(module, config);
+
+			if (format != "dot" && worker.graph.term_nodes_cnt + worker.graph.nonterm_nodes_cnt > 150) {
+				if (format.empty()) {
+					log_warning("Suppressing module in output as graph size exceeds 150 nodes.\n");
+					continue;
+				} else {
+					log_warning("Changing format to 'dot' as graph size exceeds 150 nodes.\n");
+					format = "dot";
+				}
+			}
+
+			// delay opening of output file until we have something to write, to avoid race with xdot
+			open_dot_file();
+			worker.write_dot(f);
 		}
-		for (auto module : design->selected_modules()) {
-			if (module->get_blackbox_attribute())
-				continue;
-			if (module->cells().size() == 0 && module->connections().empty())
-				continue;
-			VizWorker worker(f, module, groups);
-		}
+		open_dot_file();
 		fclose(f);
 
 		if (format != "dot" && !format.empty()) {
