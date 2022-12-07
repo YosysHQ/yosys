@@ -42,17 +42,15 @@ PRIVATE_NAMESPACE_BEGIN
 struct VizConfig {
 	enum group_type_t {
 		TYPE_G,
-		TYPE_U
+		TYPE_U,
+		TYPE_X
 	};
 
-	int script = 9;
+	int effort = 9;
+	int similar_thresh = 30;
+	int small_group_thresh = 10;
+	int large_group_count = 10;
 	std::vector<std::pair<group_type_t, RTLIL::Selection>> groups;
-
-	int max_size = -1;
-
-	int max_fanout = 10;
-	int max_fanin = 10;
-	int max_conns = 15;
 };
 
 struct GraphNode {
@@ -68,78 +66,45 @@ struct GraphNode {
 	}
 
 	pool<IdString> names_;
+	dict<int, uint8_t> tags_;
 	pool<GraphNode*, hash_ptr_ops> upstream_;
 	pool<GraphNode*, hash_ptr_ops> downstream_;
 
 	pool<IdString> &names() { return get()->names_; }
+	dict<int, uint8_t> &tags() { return get()->tags_; }
 	pool<GraphNode*, hash_ptr_ops> &upstream() { return get()->upstream_; }
 	pool<GraphNode*, hash_ptr_ops> &downstream() { return get()->downstream_; }
 
-	void replace(GraphNode *g) {
-		if (replaced)
-			return get()->replace(g);
-
-		log_assert(!nomerge);
-		log_assert(!g->get()->nomerge);
-		log_assert(terminal == g->terminal);
-
-		if (this == g->get()) return;
-
-		for (auto v : g->names())
-			names().insert(v);
-
-		for (auto v : g->upstream()) {
-			auto n = v->get();
-			if (n == this) continue;
-			upstream().insert(n);
-		}
-
-		for (auto v : g->downstream()) {
-			auto n = v->get();
-			if (n == this) continue;
-			downstream().insert(n);
-		}
-
-		g->names().clear();
-		g->upstream().clear();
-		g->downstream().clear();
-
-		g->get()->replaced = this;
+	uint8_t tag(int index) {
+		return tags().at(index, 0);
 	}
 
-	void cleanup() {
-		if (replaced) return;
-
-		pool<GraphNode*, hash_ptr_ops> new_upstream;
-		pool<GraphNode*, hash_ptr_ops> new_downstream;
-
-		for (auto g : upstream_) {
-			auto n = g->get();
-			if (n == this) continue;
-			new_upstream.insert(n);
-		}
-		for (auto g : downstream_) {
-			auto n = g->get();
-			if (n == this) continue;
-			new_downstream.insert(n);
-		}
-
-		std::swap(upstream_, new_upstream);
-		std::swap(downstream_, new_downstream);
+	bool tag(int index, uint8_t mask) {
+		if (!mask) return false;
+		uint8_t &v = tags()[index];
+		if (v == (v|mask)) return false;
+		v |= mask;
+		return true;
 	}
 };
 
 struct Graph {
+	bool dirty = true;
+	int phase_counter = 0;
+
 	vector<GraphNode*> nodes;
+	vector<GraphNode*> term_nodes;
+	vector<GraphNode*> nonterm_nodes;
 	vector<GraphNode*> replaced_nodes;
 
 	Module *module;
 	const VizConfig &config;
 
-	// statistics, updated by cleanup()
-	int term_nodes_cnt;
-	int nonterm_nodes_cnt;
-	int max_group_sizes[5];
+	// statistics and indices, updated by update()
+	std::vector<int> max_group_sizes;
+	double mean_group_size;
+	double rms_group_size;
+	int edge_count, tag_count;
 
 	~Graph()
 	{
@@ -147,252 +112,172 @@ struct Graph {
 		for (auto n : replaced_nodes) delete n;
 	}
 
-	void cleanup()
+	GraphNode *node(int index)
 	{
-		vector<GraphNode*> new_nodes;
-
-		term_nodes_cnt = 0;
-		nonterm_nodes_cnt = 0;
-		for (int i = 0; i < 5; i++)
-			max_group_sizes[i] = 0;
-
-		for (auto n : nodes) {
-			if (n->replaced) {
-				replaced_nodes.push_back(n);
-			} else {
-				new_nodes.push_back(n);
-				n->index = GetSize(new_nodes);
-				n->cleanup();
-
-				if (n->terminal) {
-					term_nodes_cnt++;
-				} else {
-					nonterm_nodes_cnt++;
-					int pivot = GetSize(n->names());
-					for (int i = 0; i < 5; i++)
-						if (pivot >= max_group_sizes[i])
-							std::swap(pivot, max_group_sizes[i]);
-				}
-			}
-		}
-
-		std::swap(nodes, new_nodes);
+		if (index)
+			return nodes[index-1]->get();
+		return nullptr;
 	}
 
-	enum merge_flags_t : uint32_t {
-		merge_tag_any = 0x00000001,
-		merge_tag_buf = 0x00000002,
-		merge_dbl_buf = 0x00000004,
-		merge_bi_conn = 0x00000008,
-		merge_id_conn = 0x00000010,
-		merge_term    = 0x00000020,
-		merge_small   = 0x00000040,
-		merge_maxfan  = 0x00000080,
-	};
-
-	static const std::vector<std::vector<Graph::merge_flags_t>>& scripts()
+	void update_nodes()
 	{
-		static std::vector<std::vector<merge_flags_t>> buffer;
+		// Filter-out replaced nodes
 
-		if (buffer.empty()) {
-			auto next_script = [&]() { buffer.push_back({}); };
-			auto cmd = [&](uint32_t flags) { buffer.back().push_back(merge_flags_t(flags)); };
+		term_nodes.clear();
+		nonterm_nodes.clear();
 
-			// viz -0
-			next_script();
-			cmd(merge_dbl_buf | merge_id_conn | merge_maxfan);
-
-			// viz -1
-			next_script();
-			cmd(merge_dbl_buf | merge_id_conn | merge_tag_any | merge_maxfan);
-
-			// viz -2
-			next_script();
-			cmd(merge_tag_buf | merge_dbl_buf | merge_bi_conn | merge_id_conn | merge_term);
-			cmd(merge_tag_any | merge_dbl_buf | merge_bi_conn | merge_id_conn | merge_maxfan);
-			cmd(merge_id_conn | merge_term | merge_small | merge_maxfan);
-
-			// viz -3
-			next_script();
-			cmd(merge_tag_buf | merge_dbl_buf | merge_bi_conn | merge_id_conn | merge_term);
-			cmd(merge_tag_any | merge_dbl_buf | merge_bi_conn | merge_id_conn);
-			cmd(merge_id_conn | merge_term | merge_small | merge_maxfan);
+		for (auto n : nodes) {
+			if (n->replaced)
+				replaced_nodes.push_back(n);
+			else if (n->terminal)
+				term_nodes.push_back(n);
+			else
+				nonterm_nodes.push_back(n);
 		}
 
-		return buffer;
-	};
+		// Re-index the remaining nodes
 
-	bool merge(merge_flags_t flags)
-	{
-		dict<GraphNode*, pool<int>, hash_ptr_ops> node_tags;
+		nodes.clear();
 
-		bool did_something = false;
-		while (true)
+		max_group_sizes.clear();
+		max_group_sizes.resize(config.large_group_count);
+
+		mean_group_size = 0;
+		rms_group_size = 0;
+		edge_count = 0;
+
+		auto update_node = [&](GraphNode *n)
 		{
-			if (node_tags.empty() || (flags & merge_tag_buf) != 0) {
-				std::function<void(GraphNode*,int,bool)> downprop_tag = [&](GraphNode *g, int tag, bool last) {
-					auto &tags = node_tags[g];
-					auto it = tags.find(tag);
-					if (it != tags.end()) return;
-					tags.insert(tag);
-					if (last) return;
-					for (auto n : g->downstream())
-						downprop_tag(n->get(), tag, n->terminal);
-				};
+			nodes.push_back(n);
+			n->index = GetSize(nodes);
 
-				std::function<void(GraphNode*,int,bool)> upprop_tag = [&](GraphNode *g, int tag, bool last) {
-					auto &tags = node_tags[g];
-					auto it = tags.find(tag);
-					if (it != tags.end()) return;
-					tags.insert(tag);
-					if (last) return;
-					for (auto n : g->upstream())
-						upprop_tag(n->get(), tag, n->terminal);
-				};
+			pool<GraphNode*, hash_ptr_ops> new_upstream;
+			pool<GraphNode*, hash_ptr_ops> new_downstream;
 
-				int tag = 0;
-				node_tags.clear();
-				for (auto g : nodes) {
-					if (g->replaced || !g->terminal) continue;
-					downprop_tag(g, ++tag, false);
-					upprop_tag(g, ++tag, false);
-				}
+			for (auto g : n->upstream()) {
+				if (n != (g = g->get()))
+					new_upstream.insert(g);
+			}
+			for (auto g : n->downstream()) {
+				if (n != (g = g->get()))
+					new_downstream.insert(g), edge_count++;
 			}
 
-			vector<pair<GraphNode*,GraphNode*>> queued_merges;
-			typedef pair<pool<GraphNode*, hash_ptr_ops>, pool<GraphNode*, hash_ptr_ops>> node_conn_t;
-			dict<node_conn_t, pool<GraphNode*, hash_ptr_ops>> nodes_by_conn[2];
+			new_upstream.sort();
+			new_downstream.sort();
 
-			for (auto g : nodes) {
-				if (g->replaced || g->nomerge) continue;
-				if ((flags & merge_term) == 0 && g->terminal) continue;
+			std::swap(n->upstream(), new_upstream);
+			std::swap(n->downstream(), new_downstream);
 
-				if ((flags & merge_id_conn) != 0)
-					nodes_by_conn[g->terminal][node_conn_t(g->upstream(), g->downstream())].insert(g);
+			if (!n->terminal) {
+				int t = GetSize(n->names());
+				mean_group_size += t;
+				rms_group_size += t*t;
+				for (int i = 0; i < config.large_group_count; i++)
+					if (t >= max_group_sizes[i])
+						std::swap(t, max_group_sizes[i]);
+			}
+		};
 
-				if ((flags & merge_tag_any) != 0 || ((flags & merge_tag_buf) != 0 && GetSize(g->downstream()) == 1)) {
-					for (auto n : g->downstream()) {
-						if (g->terminal != n->terminal || n->nomerge) continue;
-						if (node_tags[g] != node_tags[n->get()]) continue;
-						queued_merges.push_back(pair<GraphNode*,GraphNode*>(g, n->get()));
-					}
-				}
+		for (auto n : term_nodes)
+			update_node(n);
 
-				if ((flags & merge_dbl_buf) != 0) {
-					if (GetSize(g->downstream()) == 1) {
-						auto n = (*g->downstream().begin())->get();
-						if (g->terminal != n->terminal || n->nomerge) continue;
-						if (GetSize(n->downstream()) != 1) continue;
-						queued_merges.push_back(pair<GraphNode*,GraphNode*>(g, n));
-					}
-				}
+		for (auto n : nonterm_nodes)
+			update_node(n);
 
-				if ((flags & merge_bi_conn) != 0) {
-					for (auto n : g->downstream()) {
-						if (g->terminal != n->terminal || n->nomerge) continue;
-						if (!n->downstream().count(g)) continue;
-						queued_merges.push_back(pair<GraphNode*,GraphNode*>(g, n));
-					}
-				}
+		mean_group_size /= GetSize(nonterm_nodes);
+		rms_group_size = sqrt(rms_group_size / GetSize(nonterm_nodes));
+	}
 
-				if ((flags & merge_small) != 0 && !g->terminal && GetSize(g->names()) < 10) {
-					GraphNode *best = nullptr;
-					for (auto n : g->downstream()) {
-						if (n->terminal || n->nomerge || GetSize(n->names()) > 10-GetSize(g->names())) continue;
-						if (best && GetSize(best->names()) <= GetSize(n->names())) continue;
-						best = n;
-					}
-					for (auto n : g->upstream()) {
-						if (n->terminal || n->nomerge || GetSize(n->names()) > 10-GetSize(g->names())) continue;
-						if (best && GetSize(best->names()) <= GetSize(n->names())) continue;
-						best = n;
-					}
-					if (best) queued_merges.push_back(pair<GraphNode*,GraphNode*>(g, best));
+	void update_tags()
+	{
+		std::function<void(GraphNode*,int,bool)> up_down_prop_tag =
+				[&](GraphNode *g, int index, bool down)
+		{
+			for (auto n : (down ? g->downstream_ : g->upstream_)) {
+				if (n->tag(index, down ? 2 : 1)) {
+					if (!n->terminal)
+						up_down_prop_tag(n, index, down);
+					tag_count++;
 				}
 			}
+		};
 
-			if ((flags & merge_id_conn) != 0) {
-				for (int term = 0; term < 2; term++) {
-					for (auto &grp : nodes_by_conn[term]) {
-						auto it = grp.second.begin();
-						auto first = *it;
-						while (++it != grp.second.end())
-							queued_merges.push_back(pair<GraphNode*,GraphNode*>(first, *it));
-					}
-				}
-			}
+		tag_count = 0;
+		for (auto g : nodes)
+			g->tags().clear();
 
-			int count_merges = 0;
-			int smallest_merge_idx = -1;
-			int smallest_merge_size = 0;
-			for (int merge_idx = 0; merge_idx < GetSize(queued_merges); merge_idx++) {
-				auto &m = queued_merges[merge_idx];
-				auto g = m.first->get(), n = m.second->get();
-				if (g == n) continue;
-
-				if (!g->terminal)
-				{
-					int g_size = GetSize(g->names());
-					int n_size = GetSize(n->names());
-					int total_size = g_size + n_size;
-
-					if (total_size > config.max_size) continue;
-
-					if (smallest_merge_idx < 0 || total_size < smallest_merge_size) {
-						smallest_merge_idx = merge_idx;
-						smallest_merge_size = total_size;
-					}
-
-					if (total_size > max_group_sizes[1] + max_group_sizes[4]) continue;
-					if (g_size >= max_group_sizes[0] && max_group_sizes[0] != max_group_sizes[4]) continue;
-					if (n_size >= max_group_sizes[0] && max_group_sizes[0] != max_group_sizes[4]) continue;
-
-					if ((flags & merge_maxfan) != 0) {
-						auto &g_upstream = g->upstream(), &g_downstream = g->downstream();
-						auto &n_upstream = n->upstream(), &n_downstream = n->downstream();
-
-						if (GetSize(g_upstream) > config.max_fanin) continue;
-						if (GetSize(n_upstream) > config.max_fanin) continue;
-
-						if (GetSize(g_downstream) > config.max_fanout) continue;
-						if (GetSize(n_downstream) > config.max_fanout) continue;
-
-						pool<GraphNode*, hash_ptr_ops> combined_upstream = g_upstream;
-						combined_upstream.insert(n_upstream.begin(), n_upstream.end());
-
-						pool<GraphNode*, hash_ptr_ops> combined_downstream = g_downstream;
-						combined_downstream.insert(n_downstream.begin(), n_downstream.end());
-
-						pool<GraphNode*, hash_ptr_ops> combined_conns = combined_upstream;
-						combined_conns.insert(combined_downstream.begin(), combined_downstream.end());
-
-						if (GetSize(combined_upstream) > config.max_fanin) continue;
-						if (GetSize(combined_downstream) > config.max_fanout) continue;
-						if (GetSize(combined_conns) > config.max_conns) continue;
-					}
-				}
-
-				g->replace(n);
-				count_merges++;
-			}
-			if (count_merges == 0 && smallest_merge_idx >= 0) {
-				auto &m = queued_merges[smallest_merge_idx];
-				auto g = m.first->get(), n = m.second->get();
-				log("    Merging only the smallest node pair: %d + %d -> %d\n",
-						GetSize(g->names()), GetSize(n->names()), smallest_merge_size);
-				g->replace(n);
-				count_merges++;
-			} else {
-				if (count_merges == 0) return did_something;
-				log("    Merged %d node pairs.\n", count_merges);
-			}
-			did_something = true;
-			cleanup();
+		for (auto g : term_nodes) {
+			up_down_prop_tag(g, g->index, false);
+			up_down_prop_tag(g, g->index, true);
 		}
+
+		for (auto g : nodes)
+			g->tags().sort();
+	}
+
+	bool update()
+	{
+		if (!dirty) {
+			log("    Largest non-term group sizes: ");
+			for (int i = 0; i < config.large_group_count; i++)
+				log("%d%s", max_group_sizes[i], i+1 == config.large_group_count ? ".\n" : " ");
+
+			// log("    Mean and Root-Mean-Square group sizes: %.1f and %.1f\n", mean_group_size, rms_group_size);
+
+			return false;
+		}
+
+		dirty = false;
+		update_nodes();
+		update_tags();
+
+		log("    Status: %d nodes (%d term and %d non-term), %d edges, and %d tags\n",
+				GetSize(nodes), GetSize(term_nodes), GetSize(nonterm_nodes), edge_count, tag_count);
+		return true;
+	}
+
+	void merge(GraphNode *g, GraphNode *n)
+	{
+		g = g->get();
+		n = n->get();
+
+		log_assert(!g->nomerge);
+		log_assert(!n->nomerge);
+		log_assert(g->terminal == n->terminal);
+
+		if (g == n) return;
+
+		for (auto v : n->names_)
+			g->names_.insert(v);
+
+		for (auto v : n->tags_)
+			g->tags_[v.first] |= v.second;
+
+		for (auto v : n->upstream_) {
+			if (g != (v = v->get()))
+				g->upstream_.insert(v);
+		}
+
+		for (auto v : n->downstream_) {
+			if (g != (v = v->get()))
+				g->downstream_.insert(v);
+		}
+
+		n->names_.clear();
+		n->tags_.clear();
+		n->upstream_.clear();
+		n->downstream_.clear();
+
+		dirty = true;
+		n->replaced = g;
 	}
 
 	Graph(Module *module, const VizConfig &config) : module(module), config(config)
 	{
+		log("Running 'viz -%d' for module %s:\n", config.effort, log_id(module));
+		log("  Phase %d: Construct initial graph\n", phase_counter++);
+
 		SigMap sigmap(module);
 		dict<SigBit, GraphNode*> wire_nodes;
 
@@ -410,9 +295,11 @@ struct Graph {
 				if (it == wire_nodes.end())
 					wire_nodes[bit] = g;
 				else
-					g->replace(it->second);
+					merge(g, it->second);
 			}
 		}
+
+		pool<GraphNode*, hash_ptr_ops> excluded;
 
 		for (auto grp : config.groups)
 		{
@@ -432,12 +319,16 @@ struct Graph {
 					if (grp.first == VizConfig::TYPE_G) {
 						if (g) {
 							if (!n->nomerge)
-								g->replace(n);
+								merge(g, n);
 						} else
 							g = n;
-					} else { // VizConfig::TYPE_U
+					} else if (grp.first == VizConfig::TYPE_U) {
 						n->nomerge = true;
-					}
+					} else if (grp.first == VizConfig::TYPE_X) {
+						n->nomerge = true;
+						excluded.insert(n);
+					} else
+						log_abort();
 				}
 			}
 
@@ -460,18 +351,23 @@ struct Graph {
 						if (!bit.wire) continue;
 						auto it = wire_nodes.find(bit);
 						if (it != wire_nodes.end()) {
-							g->upstream().insert(it->second);
-							it->second->downstream().insert(g);
+							if (!excluded.count(it->second)) {
+								g->upstream().insert(it->second);
+								it->second->downstream().insert(g);
+							}
+						} else {
+							sig_users[bit].insert(g);
 						}
-						sig_users[bit].insert(g);
 					}
 				if (cell->output(conn.first))
 					for (auto bit : sigmap(conn.second)) {
 						if (!bit.wire) continue;
 						auto it = wire_nodes.find(bit);
 						if (it != wire_nodes.end()) {
-							g->downstream().insert(it->second);
-							it->second->upstream().insert(g);
+							if (!excluded.count(it->second)) {
+								g->downstream().insert(it->second);
+								it->second->upstream().insert(g);
+							}
 						}
 					}
 			}
@@ -492,7 +388,258 @@ struct Graph {
 			}
 		}
 
-		cleanup();
+		update();
+	}
+
+	int compare_tags(GraphNode *g, GraphNode *n, bool strict_mode)
+	{
+		if (GetSize(g->tags()) > GetSize(n->tags()))
+			return compare_tags(n, g, strict_mode);
+
+		if (g->tags().empty())
+			return 100;
+
+		int matched_tags = 0;
+		for (auto it : g->tags()) {
+			auto g_tag = it.second;
+			auto n_tag = n->tag(it.first);
+			if (!g_tag || !n_tag) continue;
+			if (g_tag == n_tag)
+				matched_tags += 2;
+			else if (!strict_mode && ((g_tag == 1 && n_tag == 3) ||
+					(g_tag == 3 && n_tag == 1)))
+				matched_tags += 1;
+			else
+				return 0;
+		}
+
+		return (100*matched_tags) / GetSize(g->tags());
+	}
+
+	int phase(bool term, int effort)
+	{
+		log("  Phase %d: Merge %sterminal nodes with effort level %d\n", phase_counter++, term ? "" : "non-", effort);
+		int start_replaced_nodes = GetSize(replaced_nodes);
+
+		do {
+			dict<int,pool<pair<int,int>>> candidates;
+			auto queue = [&](GraphNode *g, GraphNode *n) -> bool {
+				if (g->terminal != n->terminal)
+					return false;
+				if (g->nomerge || n->nomerge)
+					return false;
+				int sz = GetSize(g->names()) + GetSize(n->names());
+				if (g->index < n->index)
+					candidates[sz].insert(pair<int,int>(g->index, n->index));
+				else if (g->index != n->index)
+					candidates[sz].insert(pair<int,int>(n->index, g->index));
+				return true;
+			};
+
+			int last_candidates_size = 0;
+			const char *last_section_header = nullptr;
+			auto header = [&](const char *p = nullptr) {
+				if (GetSize(candidates) != last_candidates_size && last_section_header)
+					log("    Found %d cadidates of type '%s'.\n",
+							GetSize(candidates) - last_candidates_size, last_section_header);
+				last_candidates_size = GetSize(candidates);
+				last_section_header = p;
+			};
+
+			{
+				header("Any nodes with identical connections");
+				typedef pair<pool<GraphNode*, hash_ptr_ops>, pool<GraphNode*, hash_ptr_ops>> node_conn_t;
+				dict<node_conn_t, pool<GraphNode*, hash_ptr_ops>> nodes_by_conn;
+				for (auto g : term ? term_nodes : nonterm_nodes) {
+					auto &entry = nodes_by_conn[node_conn_t(g->upstream(), g->downstream())];
+					for (auto n : entry)
+						queue(g, n);
+					entry.insert(g);
+				}
+			}
+
+			if (!candidates.empty() || effort < 1) goto execute;
+
+			if (!term) {
+				header("Source-Sink with identical tags");
+				for (auto g : nonterm_nodes) {
+					for (auto n : g->downstream()) {
+						if (n->terminal) continue;
+						if (g->tags() == n->tags()) queue(g, n);
+					}
+				}
+
+				header("Sibblings with identical tags");
+				for (auto g : nonterm_nodes) {
+					auto process_conns = [&](const pool<GraphNode*, hash_ptr_ops> &stream) {
+						dict<std::vector<int>, pool<GraphNode*, hash_ptr_ops>> nodes_by_tags;
+						for (auto n : stream) {
+							if (n->terminal) continue;
+							std::vector<int> key;
+							for (auto kv : n->tags())
+								key.push_back(kv.first), key.push_back(kv.second);
+							auto &entry = nodes_by_tags[key];
+							for (auto m : entry) queue(n, m);
+							entry.insert(n);
+						}
+					};
+					process_conns(g->upstream());
+					process_conns(g->downstream());
+				}
+			}
+
+			if (!candidates.empty() || effort < 2) goto execute;
+
+			if (!term) {
+				header("Nodes with single fan-out and compatible tags");
+				for (auto g : nonterm_nodes) {
+					if (GetSize(g->downstream()) != 1) continue;
+					auto n = *g->downstream().begin();
+					if (!n->terminal && compare_tags(g, n, true)) queue(g, n);
+				}
+
+				header("Nodes with single fan-in and compatible tags");
+				for (auto g : nonterm_nodes) {
+					if (GetSize(g->upstream()) != 1) continue;
+					auto n = *g->upstream().begin();
+					if (!n->terminal && compare_tags(g, n, true)) queue(g, n);
+				}
+			}
+
+			if (!candidates.empty() || effort < 3) goto execute;
+
+			if (!term) {
+				header("Connected nodes with similar tags (strict)");
+				for (auto g : nonterm_nodes) {
+					for (auto n : g->downstream())
+						if (!n->terminal && compare_tags(g, n, true) > config.similar_thresh) queue(g, n);
+				}
+			}
+
+			if (!candidates.empty() || effort < 4) goto execute;
+
+			if (!term) {
+				header("Sibblings with similar tags (strict)");
+				for (auto g : nonterm_nodes) {
+					auto process_conns = [&](const pool<GraphNode*, hash_ptr_ops> &stream) {
+						std::vector<GraphNode*> nodes;
+						for (auto n : stream)
+							if (!n->terminal) nodes.push_back(n);
+						for (int i = 0; i < GetSize(nodes); i++)
+							for (int j = 0; j < i; j++)
+								if (compare_tags(nodes[i], nodes[j], true) > config.similar_thresh)
+									queue(nodes[i], nodes[j]);
+					};
+					process_conns(g->upstream());
+					process_conns(g->downstream());
+				}
+			}
+
+			if (!candidates.empty() || effort < 5) goto execute;
+
+			if (!term) {
+				header("Connected nodes with similar tags (non-strict)");
+				for (auto g : nonterm_nodes) {
+					for (auto n : g->downstream())
+						if (!n->terminal && compare_tags(g, n, false) > config.similar_thresh) queue(g, n);
+				}
+			}
+
+			if (!candidates.empty() || effort < 6) goto execute;
+
+			if (!term) {
+				header("Sibblings with similar tags (non-strict)");
+				for (auto g : nonterm_nodes) {
+					auto process_conns = [&](const pool<GraphNode*, hash_ptr_ops> &stream) {
+						std::vector<GraphNode*> nodes;
+						for (auto n : stream)
+							if (!n->terminal) nodes.push_back(n);
+						for (int i = 0; i < GetSize(nodes); i++)
+							for (int j = 0; j < i; j++)
+								if (compare_tags(nodes[i], nodes[j], false) > config.similar_thresh)
+									queue(nodes[i], nodes[j]);
+					};
+					process_conns(g->upstream());
+					process_conns(g->downstream());
+				}
+			}
+
+			if (!candidates.empty() || effort < 7) goto execute;
+
+			{
+				header("Any nodes with identical fan-in or fan-out");
+				dict<pool<GraphNode*, hash_ptr_ops>, pool<GraphNode*, hash_ptr_ops>> nodes_by_conn[2];
+				for (auto g : term ? term_nodes : nonterm_nodes) {
+					auto &up_entry = nodes_by_conn[0][g->upstream()];
+					auto &down_entry = nodes_by_conn[1][g->downstream()];
+					for (auto n : up_entry) queue(g, n);
+					for (auto n : down_entry) queue(g, n);
+					up_entry.insert(g);
+					down_entry.insert(g);
+				}
+			}
+
+			if (!candidates.empty() || effort < 8) goto execute;
+
+			if (!term) {
+				header("Connected nodes with similar tags (lax)");
+				for (auto g : nonterm_nodes) {
+					for (auto n : g->downstream())
+						if (!n->terminal && compare_tags(g, n, false)) queue(g, n);
+				}
+			}
+
+			if (!candidates.empty() || effort < 9) goto execute;
+
+			if (!term) {
+				header("Sibblings with similar tags (lax)");
+				for (auto g : nonterm_nodes) {
+					auto process_conns = [&](const pool<GraphNode*, hash_ptr_ops> &stream) {
+						std::vector<GraphNode*> nodes;
+						for (auto n : stream)
+							if (!n->terminal) nodes.push_back(n);
+						for (int i = 0; i < GetSize(nodes); i++)
+							for (int j = 0; j < i; j++)
+								if (compare_tags(nodes[i], nodes[j], false))
+									queue(nodes[i], nodes[j]);
+					};
+					process_conns(g->upstream());
+					process_conns(g->downstream());
+				}
+			}
+
+		execute:
+			header();
+			candidates.sort();
+			bool small_mode = false;
+			bool medium_mode = false;
+			for (auto &candidate_group : candidates) {
+				for (auto &candidate : candidate_group.second) {
+					auto g = node(candidate.first);
+					auto n = node(candidate.second);
+					if (!term) {
+						int sz = GetSize(g->names()) + GetSize(n->names());
+						if (sz <= config.small_group_thresh)
+							small_mode = true;
+						else if (small_mode && sz >= max_group_sizes.back())
+							continue;
+						if (sz <= max_group_sizes.front())
+							medium_mode = true;
+						else if (medium_mode && sz > max_group_sizes.front())
+							continue;
+					}
+					merge(g, n);
+				}
+			}
+			if (small_mode)
+				log("    Using 'small-mode' to prevent big groups.\n");
+			else if (medium_mode)
+				log("    Using 'medium-mode' to prevent big groups.\n");
+		} while (update());
+
+		int merged_nodes = GetSize(replaced_nodes) - start_replaced_nodes;
+		log("    Merged a total of %d nodes.\n", merged_nodes);
+		return merged_nodes;
 	}
 };
 
@@ -504,28 +651,17 @@ struct VizWorker
 
 	VizWorker(Module *module, const VizConfig &cfg) : config(cfg), module(module), graph(module, config)
 	{
-		auto &scripts = Graph::scripts();
-		config.script = std::min(GetSize(scripts)-1, config.script);
-		auto &script = scripts.at(config.script);
-
-		if (config.max_size < 0)
-			config.max_size = graph.nonterm_nodes_cnt / 3;
-
-		auto log_stats = [&](const char *sp, const char *p) {
-			log("%s%s maximum group sizes are ", sp, p);
-			for (int i = 0; i < 5; i++)
-				log("%d%s", graph.max_group_sizes[i], i==3 ? ", and " : i == 4 ? ".\n" : ", ");
-			log("%s%s number of terminal nodes is %d.\n", sp, p, graph.term_nodes_cnt);
-			log("%s%s number of non-terminal nodes is %d.\n", sp, p, graph.nonterm_nodes_cnt);
-		};
-
-		log("Running 'viz -%d' for module %s:\n", config.script, log_id(module));
-		log_stats("  ", "Initial");
-
-		for (int i = 0; i < GetSize(script); i++) {
-			log("  Stage-%d merge loop:\n", i+1);
-			graph.merge(script[i]);
-			log_stats("    ", i+1 == GetSize(script) ? "Final" : "New");
+		for (int effort = 0; effort <= config.effort; effort++) {
+			bool first = true;
+			while (1) {
+				if (!graph.phase(false, effort) && !first) break;
+				if (!graph.phase(true, effort)) break;
+				first = false;
+			}
+			log("  %s: %d nodes (%d term and %d non-term), %d edges, and %d tags\n",
+					effort == config.effort ? "Final" : "Status", GetSize(graph.nodes),
+					GetSize(graph.term_nodes), GetSize(graph.nonterm_nodes),
+					graph.edge_count, graph.tag_count);
 		}
 	}
 
@@ -537,9 +673,8 @@ struct VizWorker
 		dict<GraphNode*, std::vector<std::string>, hash_ptr_ops> extra_lines;
 		dict<GraphNode*, GraphNode*, hash_ptr_ops> bypass_nodes;
 
-		for (auto g : graph.nodes) {
-			if (!g->terminal || g->nomerge) continue;
-			if (GetSize(g->upstream()) != 1) continue;
+		for (auto g : graph.term_nodes) {
+			if (g->nomerge || GetSize(g->upstream()) != 1) continue;
 			if (!g->downstream().empty() && g->downstream() != g->upstream()) continue;
 			auto n = *(g->upstream().begin());
 			if (n->terminal) continue;
@@ -560,7 +695,7 @@ struct VizWorker
 					label = label + (label.empty() ? "" : "\\n") + log_id(n);
 				fprintf(f, "\tn%d [shape=rectangle,label=\"%s\"];\n", g->index, label.c_str());
 			} else {
-				std::string label = stringf("grp=%d | %d cells", g->index, GetSize(g->names()));
+				std::string label = stringf("vg=%d | %d cells", g->index, GetSize(g->names()));
 				std::string shape = "oval";
 				if (extra_lines.count(g)) {
 					label += label.empty() ? "" : "\\n";
@@ -573,8 +708,7 @@ struct VizWorker
 		}
 
 		pool<std::string> edges;
-		for (int i = 0; i < GetSize(graph.nodes); i++) {
-			auto g = graph.nodes[i];
+		for (auto g : graph.nodes) {
 			g = bypass_nodes.at(g, g);
 			for (auto n : g->downstream()) {
 				n = bypass_nodes.at(n, n);
@@ -627,15 +761,20 @@ struct VizPass : public Pass {
 		log("    -u <selection>\n");
 		log("        manually define a unique group for each wire in the selection.\n");
 		log("\n");
+		log("    -x <selection>\n");
+		log("        manually exclude wires from being considered. (usually this is\n");
+		log("        used for global signals, such as reset.)\n");
+		log("\n");
 		log("    -G <selection_expr> .\n");
 		log("    -U <selection_expr> .\n");
-		log("        like -u and -g, but parse all arguments up to a terminating . argument\n");
+		log("    -X <selection_expr> .\n");
+		log("        like -u, -g, and -x, but parse all arguments up to a terminating .\n");
 		log("        as a single select expression. (see 'help select' for details)\n");
 		log("\n");
 		log("    -0, -1, -2, -3, -4, -5, -6, -7, -8, -9\n");
 		log("        select effort level. each level corresponds to an incresingly more\n");
 		log("        aggressive sequence of strategies for merging nodes of the data flow\n");
-		log("        graph. (default: %d)\n", VizConfig().script);
+		log("        graph. (default: %d)\n", VizConfig().effort);
 		log("\n");
 		log("When no <format> is specified, 'dot' is used. When no <format> and <viewer> is\n");
 		log("specified, 'xdot' is used to display the schematic (POSIX systems only).\n");
@@ -692,24 +831,25 @@ struct VizPass : public Pass {
 				background= "";
 				continue;
 			}
-			if ((arg == "-g" || arg == "-u" || arg == "-G" || arg == "-U") && argidx+1 < args.size()) {
+			if ((arg == "-g" || arg == "-u" || arg == "-x" || arg == "-G" || arg == "-U" || arg == "-X") && argidx+1 < args.size()) {
 				int numargs = 1;
 				int first_arg = ++argidx;
-				if (arg == "-G" || arg == "-U") {
+				if (arg == "-G" || arg == "-U" || arg == "-X") {
 					while (argidx+1 < args.size()) {
 						if (args[++argidx] == ".") break;
 						numargs++;
 					}
 				}
 				handle_extra_select_args(this, args, first_arg, first_arg+numargs, design);
-				auto type = arg == "-g" || arg == "-G" ? VizConfig::TYPE_G : VizConfig::TYPE_U;
+				auto type = arg == "-g" || arg == "-G" ? VizConfig::TYPE_G :
+					arg == "-u" || arg == "-U" ? VizConfig::TYPE_U : VizConfig::TYPE_X;
 				config.groups.push_back({type, design->selection_stack.back()});
 				design->selection_stack.pop_back();
 				continue;
 			}
 			if (arg == "-0" || arg == "-1" || arg == "-2" || arg == "-3" || arg == "-4" ||
 					arg == "-5" || arg == "-6" || arg == "-7" || arg == "-8" || arg == "-9") {
-				config.script = arg[1] - '0';
+				config.effort = arg[1] - '0';
 				continue;
 			}
 			break;
@@ -746,12 +886,12 @@ struct VizPass : public Pass {
 		for (auto module : modlist) {
 			VizWorker worker(module, config);
 
-			if (format != "dot" && worker.graph.term_nodes_cnt + worker.graph.nonterm_nodes_cnt > 150) {
+			if (format != "dot" && GetSize(worker.graph.nodes) > 200) {
 				if (format.empty()) {
-					log_warning("Suppressing module in output as graph size exceeds 150 nodes.\n");
+					log_warning("Suppressing module in output as graph size exceeds 200 nodes.\n");
 					continue;
 				} else {
-					log_warning("Changing format to 'dot' as graph size exceeds 150 nodes.\n");
+					log_warning("Changing format to 'dot' as graph size exceeds 200 nodes.\n");
 					format = "dot";
 				}
 			}
