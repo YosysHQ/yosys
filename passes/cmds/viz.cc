@@ -670,27 +670,58 @@ struct VizWorker
 		fprintf(f, "digraph \"%s\" {\n", log_id(module));
 		fprintf(f, "  rankdir = LR;\n");
 
-		dict<GraphNode*, std::vector<std::string>, hash_ptr_ops> extra_lines;
+		dict<GraphNode*, std::vector<std::vector<std::string>>, hash_ptr_ops> extra_lines;
 		dict<GraphNode*, GraphNode*, hash_ptr_ops> bypass_nodes;
 
-		for (auto g : graph.term_nodes) {
-			if (g->nomerge || GetSize(g->upstream()) != 1) continue;
+		auto bypass = [&](GraphNode *g, GraphNode *n) {
+			log_assert(g->terminal);
+			log_assert(!n->terminal);
+			bypass_nodes[g] = n;
+
+			auto &buffer = extra_lines[n];
+			buffer.emplace_back();
+
+			for (auto name : g->names())
+				buffer.back().push_back(log_id(name));
+
+			std::sort(buffer.back().begin(), buffer.back().end());
+			std::sort(buffer.begin(), buffer.end());
+		};
+
+		for (auto g : graph.term_nodes)
+		{
+			if (bypass_nodes.count(g)) continue;
+			if (GetSize(g->upstream()) != 1) continue;
 			if (!g->downstream().empty() && g->downstream() != g->upstream()) continue;
+
 			auto n = *(g->upstream().begin());
 			if (n->terminal) continue;
-			for (auto name : g->names())
-				extra_lines[n].push_back(log_id(name));
-			bypass_nodes[g] = n;
+
+			bypass(g, n);
 		}
 
-		for (int i = 0; i < GetSize(graph.nodes); i++) {
-			auto g = graph.nodes[i];
+		for (auto g : graph.term_nodes)
+		{
+			if (bypass_nodes.count(g)) continue;
+			if (GetSize(g->upstream()) != 1) continue;
+
+			auto n = *(g->upstream().begin());
+			if (n->terminal) continue;
+
+			if (GetSize(n->downstream()) != 1) continue;
+			if (extra_lines.count(n)) continue;
+
+			bypass(g, n);
+		}
+
+		for (auto g : graph.nodes) {
 			if (g->downstream().empty() && g->upstream().empty())
 				continue;
 			if (bypass_nodes.count(g))
 				continue;
 			if (g->terminal) {
-				std::string label; // = stringf("[%d]\\n", g->index);
+				g->names().sort();
+				std::string label; // = stringf("vg=%d\\n", g->index);
 				for (auto n : g->names())
 					label = label + (label.empty() ? "" : "\\n") + log_id(n);
 				fprintf(f, "\tn%d [shape=rectangle,label=\"%s\"];\n", g->index, label.c_str());
@@ -698,10 +729,12 @@ struct VizWorker
 				std::string label = stringf("vg=%d | %d cells", g->index, GetSize(g->names()));
 				std::string shape = "oval";
 				if (extra_lines.count(g)) {
-					label += label.empty() ? "" : "\\n";
-					for (auto line : extra_lines.at(g))
-						label = label + (label.empty() ? "" : "\\n") + line;
-					shape = "octagon";
+					for (auto &block : extra_lines.at(g)) {
+						label += label.empty() ? "" : "\\n";
+						for (auto &line : block)
+							label = label + (label.empty() ? "" : "\\n") + line;
+						shape = "octagon";
+					}
 				}
 				fprintf(f, "\tn%d [shape=%s,label=\"%s\"];\n", g->index, shape.c_str(), label.c_str());
 			}
@@ -709,13 +742,14 @@ struct VizWorker
 
 		pool<std::string> edges;
 		for (auto g : graph.nodes) {
-			g = bypass_nodes.at(g, g);
+			auto p = bypass_nodes.at(g, g);
 			for (auto n : g->downstream()) {
-				n = bypass_nodes.at(n, n);
-				if (g == n) continue;
-				edges.insert(stringf("n%d -> n%d", g->index, n->index));
+				auto q = bypass_nodes.at(n, n);
+				if (p == q) continue;
+				edges.insert(stringf("n%d -> n%d", p->index, q->index));
 			}
 		}
+		edges.sort();
 		for (auto e : edges)
 			fprintf(f, "\t%s;\n", e.c_str());
 
