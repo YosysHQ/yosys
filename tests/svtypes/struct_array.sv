@@ -81,6 +81,66 @@ module top;
 
 	always_comb assert(s3_b==80'hFC00_4200_0012_3400_FFFC);
 
+	struct packed {
+		bit [0:7] [0:1] [0:3] a;
+		bit [0:15] b;		// filler for non-zero offset
+	} s3_lll;
+
+	initial begin
+		s3_lll = '0;
+
+		s3_lll.a[5:6] = 16'h1234;
+		s3_lll.a[2] = 8'h42;
+
+		s3_lll.a[0] = '1;
+		s3_lll.a[0][1][2:3] = '0;
+
+		s3_lll.b = '1;
+		s3_lll.b[14:15] = '0;
+	end
+
+	always_comb assert(s3_lll==80'hFC00_4200_0012_3400_FFFC);
+
+	struct packed {
+		bit [0:7] [1:0] [0:3] a;
+		bit [0:15] b;		// filler for non-zero offset
+	} s3_lbl;
+
+	initial begin
+		s3_lbl = '0;
+
+		s3_lbl.a[5:6] = 16'h1234;
+		s3_lbl.a[2] = 8'h42;
+
+		s3_lbl.a[0] = '1;
+		s3_lbl.a[0][0][2:3] = '0;
+
+		s3_lbl.b = '1;
+		s3_lbl.b[14:15] = '0;
+	end
+
+	always_comb assert(s3_lbl==80'hFC00_4200_0012_3400_FFFC);
+
+	struct packed {
+		bit [0:7] [0:1] [3:0] a;
+		bit [0:15] b;		// filler for non-zero offset
+	} s3_llb;
+
+	initial begin
+		s3_llb = '0;
+
+		s3_llb.a[5:6] = 16'h1234;
+		s3_llb.a[2] = 8'h42;
+
+		s3_llb.a[0] = '1;
+		s3_llb.a[0][1][1:0] = '0;
+
+		s3_llb.b = '1;
+		s3_llb.b[14:15] = '0;
+	end
+
+	always_comb assert(s3_llb==80'hFC00_4200_0012_3400_FFFC);
+
 `ifndef VERIFIC
 	// Note that the tests below for unpacked arrays in structs rely on the
 	// fact that they are actually packed in Yosys.
