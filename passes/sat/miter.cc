@@ -144,8 +144,16 @@ void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL:
 	{
 		if (gold_cross_ports.count(gold_wire))
 		{
-			RTLIL::Wire *w = miter_module->addWire("\\cross_" + RTLIL::unescape_id(gold_wire->name), gold_wire->width);
+			SigSpec w = miter_module->addWire("\\cross_" + RTLIL::unescape_id(gold_wire->name), gold_wire->width);
 			gold_cell->setPort(gold_wire->name, w);
+			if (flag_ignore_gold_x) {
+				RTLIL::SigSpec w_x = miter_module->addWire(NEW_ID, GetSize(w));
+				for (int i = 0; i < GetSize(w); i++)
+					miter_module->addEqx(NEW_ID, w[i], State::Sx, w_x[i]);
+				RTLIL::SigSpec w_any = miter_module->And(NEW_ID, miter_module->Anyseq(NEW_ID, GetSize(w)), w_x);
+				RTLIL::SigSpec w_masked = miter_module->And(NEW_ID, w, miter_module->Not(NEW_ID, w_x));
+				w = miter_module->And(NEW_ID, w_any, w_masked);
+			}
 			gate_cell->setPort(gold_wire->name, w);
 			continue;
 		}
