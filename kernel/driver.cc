@@ -297,7 +297,7 @@ int main(int argc, char **argv)
 #endif
 		printf("\n");
 		printf("    -p command\n");
-		printf("        execute the commands\n");
+		printf("        execute the commands (to chain commands, separate them with semicolon + whitespace: 'cmd1; cmd2')\n");
 		printf("\n");
 		printf("    -m module_file\n");
 		printf("        load the specified module (aka plugin)\n");
