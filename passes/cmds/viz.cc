@@ -43,7 +43,8 @@ struct VizConfig {
 	enum group_type_t {
 		TYPE_G,
 		TYPE_U,
-		TYPE_X
+		TYPE_X,
+		TYPE_S
 	};
 
 	int effort = 9;
@@ -57,6 +58,8 @@ struct GraphNode {
 	int index = -1;
 	bool nomerge = false;
 	bool terminal = false;
+	bool excluded = false;
+	bool special = false;
 	GraphNode *replaced = nullptr;
 
 	GraphNode *get() {
@@ -316,7 +319,9 @@ struct Graph {
 					if (it == wire_nodes.end())
 						continue;
 					auto n = it->second->get();
-					if (grp.first == VizConfig::TYPE_G) {
+					if (n->nomerge)
+						continue;
+					if (grp.first == VizConfig::TYPE_G || grp.first == VizConfig::TYPE_S) {
 						if (g) {
 							if (!n->nomerge)
 								merge(g, n);
@@ -332,9 +337,15 @@ struct Graph {
 				}
 			}
 
-			if (g)
+			if (g) {
+				if (grp.first == VizConfig::TYPE_S)
+					g->special = true;
 				g->nomerge = true;
+			}
 		}
+
+		for (auto g : excluded)
+			excluded.insert(g->get());
 
 		dict<Cell*, GraphNode*> cell_nodes;
 		dict<SigBit, pool<GraphNode*, hash_ptr_ops>> sig_users;
@@ -351,9 +362,10 @@ struct Graph {
 						if (!bit.wire) continue;
 						auto it = wire_nodes.find(bit);
 						if (it != wire_nodes.end()) {
-							if (!excluded.count(it->second)) {
-								g->upstream().insert(it->second);
-								it->second->downstream().insert(g);
+							auto n = it->second->get();
+							if (!excluded.count(n)) {
+								g->upstream().insert(n);
+								n->downstream().insert(g);
 							}
 						} else {
 							sig_users[bit].insert(g);
@@ -364,9 +376,10 @@ struct Graph {
 						if (!bit.wire) continue;
 						auto it = wire_nodes.find(bit);
 						if (it != wire_nodes.end()) {
-							if (!excluded.count(it->second)) {
-								g->downstream().insert(it->second);
-								it->second->upstream().insert(g);
+							auto n = it->second->get();
+							if (!excluded.count(n)) {
+								g->downstream().insert(n);
+								n->upstream().insert(g);
 							}
 						}
 					}
@@ -399,21 +412,43 @@ struct Graph {
 		if (g->tags().empty())
 			return 100;
 
-		int matched_tags = 0;
+		bool gn_specials = true;
+		bool g_nonspecials = false;
+		bool n_nonspecials = false;
+
+		int score = 0;
 		for (auto it : g->tags()) {
 			auto g_tag = it.second;
 			auto n_tag = n->tag(it.first);
-			if (!g_tag || !n_tag) continue;
+			log_assert(g_tag != 0);
+			if (node(it.first)->special) {
+				gn_specials = true;
+				if (g_tag != n_tag) return 0;
+			} else
+				g_nonspecials = true;
+			if (n_tag == 0) continue;
 			if (g_tag == n_tag)
-				matched_tags += 2;
-			else if (!strict_mode && ((g_tag == 1 && n_tag == 3) ||
-					(g_tag == 3 && n_tag == 1)))
-				matched_tags += 1;
+				score += 2;
+			else if (!strict_mode && (g_tag + n_tag == 4))
+				score += 1;
 			else
 				return 0;
 		}
+		for (auto it : n->tags()) {
+			auto n_tag = it.second;
+			log_assert(n_tag != 0);
+			if (node(it.first)->special) {
+				gn_specials = true;
+				auto g_tag = g->tag(it.first);
+				if (g_tag != n_tag) return 0;
+			} else
+				n_nonspecials = true;
+		}
 
-		return (100*matched_tags) / GetSize(g->tags());
+		if (gn_specials && (g_nonspecials != n_nonspecials))
+			return 0;
+
+		return (100*score) / GetSize(g->tags());
 	}
 
 	int phase(bool term, int effort)
@@ -665,6 +700,21 @@ struct VizWorker
 		}
 	}
 
+	void update_attrs()
+	{
+		IdString vg_id("\\vg");
+		for (auto c : module->cells())
+			c->attributes.erase(vg_id);
+		for (auto g : graph.nodes) {
+			for (auto name : g->names()) {
+				auto w = module->wire(name);
+				auto c = module->cell(name);
+				if (w) w->attributes[vg_id] = g->index;
+				if (c) c->attributes[vg_id] = g->index;
+			}
+		}
+	}
+
 	void write_dot(FILE *f)
 	{
 		fprintf(f, "digraph \"%s\" {\n", log_id(module));
@@ -672,6 +722,7 @@ struct VizWorker
 
 		dict<GraphNode*, std::vector<std::vector<std::string>>, hash_ptr_ops> extra_lines;
 		dict<GraphNode*, GraphNode*, hash_ptr_ops> bypass_nodes;
+		pool<GraphNode*, hash_ptr_ops> bypass_candidates;
 
 		auto bypass = [&](GraphNode *g, GraphNode *n) {
 			log_assert(g->terminal);
@@ -688,25 +739,32 @@ struct VizWorker
 			std::sort(buffer.begin(), buffer.end());
 		};
 
+		for (auto g : graph.nonterm_nodes) {
+			for (auto n : g->downstream())
+				if (!n->terminal) goto not_a_candidate;
+			bypass_candidates.insert(g);
+		not_a_candidate:;
+		}
+
 		for (auto g : graph.term_nodes)
 		{
-			if (bypass_nodes.count(g)) continue;
+			if (g->special || bypass_nodes.count(g)) continue;
 			if (GetSize(g->upstream()) != 1) continue;
 			if (!g->downstream().empty() && g->downstream() != g->upstream()) continue;
 
 			auto n = *(g->upstream().begin());
-			if (n->terminal) continue;
+			if (n->terminal || !bypass_candidates.count(n)) continue;
 
 			bypass(g, n);
 		}
 
 		for (auto g : graph.term_nodes)
 		{
-			if (bypass_nodes.count(g)) continue;
+			if (g->special || bypass_nodes.count(g)) continue;
 			if (GetSize(g->upstream()) != 1) continue;
 
 			auto n = *(g->upstream().begin());
-			if (n->terminal) continue;
+			if (n->terminal || !bypass_candidates.count(n)) continue;
 
 			if (GetSize(n->downstream()) != 1) continue;
 			if (extra_lines.count(n)) continue;
@@ -788,6 +846,9 @@ struct VizPass : public Pass {
 		log("        don't run viewer in the background, IE wait for the viewer tool to\n");
 		log("        exit before returning\n");
 		log("\n");
+		log("    -set-vg-attr\n");
+		log("        set their group index as 'vg' attribute on cells and wires\n");
+		log("\n");
 		log("    -g <selection>\n");
 		log("        manually define a group of terminal signals. this group is not being\n");
 		log("        merged with other terminal groups.\n");
@@ -799,10 +860,15 @@ struct VizPass : public Pass {
 		log("        manually exclude wires from being considered. (usually this is\n");
 		log("        used for global signals, such as reset.)\n");
 		log("\n");
+		log("    -s <selection>\n");
+		log("        like -g, but mark group as 'special', changing the algorithm to\n");
+		log("        preserve as much info about this groups connectivity as possible.\n");
+		log("\n");
 		log("    -G <selection_expr> .\n");
 		log("    -U <selection_expr> .\n");
 		log("    -X <selection_expr> .\n");
-		log("        like -u, -g, and -x, but parse all arguments up to a terminating .\n");
+		log("    -S <selection_expr> .\n");
+		log("        like -u, -g, -x, and -s, but parse all arguments up to a terminating .\n");
 		log("        as a single select expression. (see 'help select' for details)\n");
 		log("\n");
 		log("    -0, -1, -2, -3, -4, -5, -6, -7, -8, -9\n");
@@ -835,6 +901,7 @@ struct VizPass : public Pass {
 #endif
 		std::string viewer_exe;
 		bool flag_pause = false;
+		bool flag_attr = false;
 		bool custom_prefix = false;
 		std::string background = "&";
 
@@ -861,14 +928,19 @@ struct VizPass : public Pass {
 				flag_pause= true;
 				continue;
 			}
+			if (arg == "-set-vg-attr") {
+				flag_attr= true;
+				continue;
+			}
 			if (arg == "-nobg") {
 				background= "";
 				continue;
 			}
-			if ((arg == "-g" || arg == "-u" || arg == "-x" || arg == "-G" || arg == "-U" || arg == "-X") && argidx+1 < args.size()) {
+			if ((arg == "-g" || arg == "-u" || arg == "-x" || arg == "-s" ||
+					arg == "-G" || arg == "-U" || arg == "-X" || arg == "-S") && argidx+1 < args.size()) {
 				int numargs = 1;
 				int first_arg = ++argidx;
-				if (arg == "-G" || arg == "-U" || arg == "-X") {
+				if (arg == "-G" || arg == "-U" || arg == "-X" || arg == "-S") {
 					while (argidx+1 < args.size()) {
 						if (args[++argidx] == ".") break;
 						numargs++;
@@ -876,7 +948,8 @@ struct VizPass : public Pass {
 				}
 				handle_extra_select_args(this, args, first_arg, first_arg+numargs, design);
 				auto type = arg == "-g" || arg == "-G" ? VizConfig::TYPE_G :
-					arg == "-u" || arg == "-U" ? VizConfig::TYPE_U : VizConfig::TYPE_X;
+					arg == "-u" || arg == "-U" ? VizConfig::TYPE_U :
+					arg == "-x" || arg == "-X" ? VizConfig::TYPE_X : VizConfig::TYPE_S;
 				config.groups.push_back({type, design->selection_stack.back()});
 				design->selection_stack.pop_back();
 				continue;
@@ -919,6 +992,9 @@ struct VizPass : public Pass {
 		};
 		for (auto module : modlist) {
 			VizWorker worker(module, config);
+
+			if (flag_attr)
+				worker.update_attrs();
 
 			if (format != "dot" && GetSize(worker.graph.nodes) > 200) {
 				if (format.empty()) {
