@@ -479,6 +479,9 @@ struct FormalFfPass : public Pass {
 					if (ff.sig_clk.is_fully_const())
 						log_error("Const CLK on %s (%s) from module %s, run async2sync first.\n",
 								log_id(cell), log_id(cell->type), log_id(module));
+					if (ff.has_aload || ff.has_arst || ff.has_sr)
+						log_error("Async inputs on %s (%s) from module %s, run async2sync first.\n",
+								log_id(cell), log_id(cell->type), log_id(module));
 
 					auto clk_wire = ff.sig_clk.is_wire() ? ff.sig_clk.as_wire() : nullptr;
 
