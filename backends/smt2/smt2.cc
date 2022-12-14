@@ -458,7 +458,7 @@ struct Smt2Worker
 	{
 		RTLIL::SigSpec sig_a, sig_b;
 		RTLIL::SigSpec sig_y = sigmap(cell->getPort(ID::Y));
-		bool is_signed = cell->getParam(ID::A_SIGNED).as_bool();
+		bool is_signed = type == 'U' ? false : cell->getParam(ID::A_SIGNED).as_bool();
 		int width = GetSize(sig_y);
 
 		if (type == 's' || type == 'S' || type == 'd' || type == 'b') {
@@ -483,6 +483,7 @@ struct Smt2Worker
 			if (ch == 'A') processed_expr += get_bv(sig_a);
 			else if (ch == 'B') processed_expr += get_bv(sig_b);
 			else if (ch == 'P') processed_expr += get_bv(cell->getPort(ID::B));
+			else if (ch == 'S') processed_expr += get_bv(cell->getPort(ID::S));
 			else if (ch == 'L') processed_expr += is_signed ? "a" : "l";
 			else if (ch == 'U') processed_expr += is_signed ? "s" : "u";
 			else processed_expr += ch;
@@ -638,6 +639,8 @@ struct Smt2Worker
 			if (cell->type == ID($or)) return export_bvop(cell, "(bvor A B)");
 			if (cell->type == ID($xor)) return export_bvop(cell, "(bvxor A B)");
 			if (cell->type == ID($xnor)) return export_bvop(cell, "(bvxnor A B)");
+
+			if (cell->type == ID($bwmux)) return export_bvop(cell, "(bvor (bvand A (bvnot S)) (bvand B S))", 'U');
 
 			if (cell->type == ID($shl)) return export_bvop(cell, "(bvshl A B)", 's');
 			if (cell->type == ID($shr)) return export_bvop(cell, "(bvlshr A B)", 's');
@@ -1744,7 +1747,6 @@ struct Smt2Backend : public Backend {
 		log_push();
 		Pass::call(design, "bmuxmap");
 		Pass::call(design, "demuxmap");
-		Pass::call(design, "bwmuxmap");
 		log_pop();
 
 		size_t argidx;
