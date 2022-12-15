@@ -1125,6 +1125,12 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 	NetBus *netbus;
 	Instance *inst;
 	PortRef *pr;
+	Att *attr;
+
+	FOREACH_ATTRIBUTE(nl, mi, attr) {
+		if (!strcmp(attr->Key(), "noblackbox"))
+			module->set_bool_attribute(ID::blackbox, false);
+	}
 
 	FOREACH_PORT_OF_NETLIST(nl, mi, port)
 	{
