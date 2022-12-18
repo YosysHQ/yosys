@@ -191,7 +191,7 @@ Example Code
 The following yosys commands are a good starting point if you are looking for examples
 of how to use the Yosys API:
 
-	manual/CHAPTER_Prog/stubnets.cc
+	docs/source/CHAPTER_Prog/stubnets.cc
 	manual/PRESENTATION_Prog/my_cmd.cc
 
 
