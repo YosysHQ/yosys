@@ -83,9 +83,13 @@ struct SynthIce40Pass : public ScriptPass
 		log("    -nodffe\n");
 		log("        do not use SB_DFFE* cells in output netlist\n");
 		log("\n");
-		log("    -dffe_min_ce_use <min_ce_use>\n");
-		log("        do not use SB_DFFE* cells if the resulting CE line would go to less\n");
-		log("        than min_ce_use SB_DFFE* in output netlist\n");
+		log("    -dff-min-ce <min-ce>\n");
+		log("        use flipflops with CE only if clock enable drives the given minimum\n");
+		log("        number of flipflops\n");
+		log("\n");
+		log("    -dff-min-srst <min-srst>\n");
+		log("        use flipflops with SR only if the sync set/reset signal drives the\n");
+		log("        given minimum number of flipflops\n");
 		log("\n");
 		log("    -nobram\n");
 		log("        do not use SB_RAM40_4K* cells in output netlist\n");
@@ -125,7 +129,7 @@ struct SynthIce40Pass : public ScriptPass
 
 	string top_opt, blif_file, edif_file, json_file, device_opt;
 	bool nocarry, nodffe, nobram, spram, dsp, flatten, retime, noabc, abc2, vpr, abc9, dff, flowmap, no_rw_check;
-	int min_ce_use;
+	int dff_min_ce, dff_min_srst;
 
 	void clear_flags() override
 	{
@@ -135,7 +139,6 @@ struct SynthIce40Pass : public ScriptPass
 		json_file = "";
 		nocarry = false;
 		nodffe = false;
-		min_ce_use = -1;
 		nobram = false;
 		spram = false;
 		dsp = false;
@@ -148,6 +151,8 @@ struct SynthIce40Pass : public ScriptPass
 		flowmap = false;
 		device_opt = "hx";
 		no_rw_check = false;
+		dff_min_ce = 0;
+		dff_min_srst = 0;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -206,8 +211,12 @@ struct SynthIce40Pass : public ScriptPass
 				nodffe = true;
 				continue;
 			}
-			if (args[argidx] == "-dffe_min_ce_use" && argidx+1 < args.size()) {
-				min_ce_use = atoi(args[++argidx].c_str());
+			if ((args[argidx] == "-dff-min-ce" || /*deprecated alias*/ args[argidx] == "-dffe_min_ce_use") && argidx+1 < args.size()) {
+				dff_min_ce = std::stoi(args[++argidx]);
+				continue;
+			}
+			if (args[argidx] == "-dff-min-srst" && argidx+1 < args.size()) {
+				dff_min_srst = std::stoi(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-nobram") {
@@ -386,7 +395,7 @@ struct SynthIce40Pass : public ScriptPass
 			if (nodffe)
 				run(stringf("dfflegalize -cell $_DFF_?_ 0 -cell $_DFF_?P?_ 0 -cell $_SDFF_?P?_ 0 -cell $_DLATCH_?_ x"));
 			else
-				run(stringf("dfflegalize -cell $_DFF_?_ 0 -cell $_DFFE_?P_ 0 -cell $_DFF_?P?_ 0 -cell $_DFFE_?P?P_ 0 -cell $_SDFF_?P?_ 0 -cell $_SDFFCE_?P?P_ 0 -cell $_DLATCH_?_ x -mince %d", min_ce_use));
+				run(stringf("dfflegalize -cell $_DFF_?_ 0 -cell $_DFFE_?P_ 0 -cell $_DFF_?P?_ 0 -cell $_DFFE_?P?P_ 0 -cell $_SDFF_?P?_ 0 -cell $_SDFFCE_?P?P_ 0 -cell $_DLATCH_?_ x -mince %d -minsrst %d", dff_min_ce, dff_min_srst));
 			run("techmap -map +/ice40/ff_map.v");
 			run("opt_expr -mux_undef");
 			run("simplemap");
