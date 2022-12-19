@@ -43,6 +43,10 @@ struct SynthPropWorker
 
 	IdString port_name;
 
+	IdString reset_name;
+
+	bool reset_pol;
+
 	// basic contrcutor
 	SynthPropWorker(RTLIL::Design *design) : design(design), or_outputs(false), port_name(RTLIL::escape_id("assertions")) {}
 
@@ -94,9 +98,14 @@ void SynthPropWorker::run()
 		data.first->fixup_ports();
 	}
 
+	RTLIL::Wire *output = nullptr;
 	for (auto &data : tracing_data) {
 		int num = 0;
 		RTLIL::Wire *port_wire = data.first->wire(port_name);
+		if (!reset_name.empty() && data.first == module) {
+			port_wire = data.first->addWire(NEW_ID, data.second.names.size());
+			output = port_wire;
+		}
 		pool<Wire*> connected;
 		for (auto cell : data.second.assertion_cells) {
 			if (cell->type == ID($assert)) {
@@ -142,6 +151,17 @@ void SynthPropWorker::run()
 		}
 	}
 
+	// If no assertions found
+	if (tracing_data[module].names.size() == 0) return;
+
+	if (!reset_name.empty()) {
+		int width = tracing_data[module].names.size();		
+		SigSpec reset = module->wire(reset_name);
+		reset.extend_u0(width, true);
+
+		module->addDlatchsr(NEW_ID, State::S1, Const(State::S0,width), reset, output, module->wire(port_name), true, true, reset_pol);
+	}
+
 	if (!map_file.empty()) {
 		std::ofstream fout;
 		fout.open(map_file, std::ios::out | std::ios::trunc);
@@ -166,7 +186,7 @@ struct SyntProperties : public Pass {
 		log("This creates synthesizable properties for selected module.\n");
 		log("\n");
 		log("\n");
-		log("    -name <port_name>\n");
+		log("    -name <portname>\n");
 		log("\n");
 		log("Name output port for assertions (default: assertions).\n");
 		log("\n");
@@ -182,10 +202,16 @@ struct SyntProperties : public Pass {
 		log("property is violated, instead of generating individual output bits.\n");
 		log("\n");
 		log("\n");
-		log("    -latch <reset_signal_name> <polarity>\n");
+		log("    -reset <portname>\n");
 		log("\n");
-		log("Latch a high state on the generated outputs until an asynchronous top-level\n");
-		log("reset input is activated.\n");
+		log("Name of top-level reset input. Latch a high state on the generated outputs\n");
+		log("until an asynchronous top-level reset input is activated.\n");
+		log("\n");
+		log("\n");
+		log("    -resetn <portname>\n");
+		log("\n");
+		log("Name of top-level reset input (inverse polarity). Latch a high state on the\n");
+		log("generated outputs until an asynchronous top-level reset input is activated.\n");
 		log("\n");
 		log("\n");
 	}
@@ -205,7 +231,14 @@ struct SyntProperties : public Pass {
 				worker.map_file = args[++argidx];
 				continue;
 			}
-			if (args[argidx] == "-latch" && argidx+2 < args.size()) {				
+			if (args[argidx] == "-reset" && argidx+1 < args.size()) {
+				worker.reset_name = RTLIL::escape_id(args[++argidx]);
+				worker.reset_pol = true;
+				continue;
+			}
+			if (args[argidx] == "-resetn" && argidx+1 < args.size()) {
+				worker.reset_name = RTLIL::escape_id(args[++argidx]);
+				worker.reset_pol = false;
 				continue;
 			}
 			if (args[argidx] == "-or_outputs") {
@@ -221,6 +254,10 @@ struct SyntProperties : public Pass {
 		auto *top = design->top_module();
 		if (top == nullptr)
 			log_cmd_error("Can't find top module in current design!\n");
+
+		auto *reset = top->wire(worker.reset_name);
+		if (!worker.reset_name.empty() && reset == nullptr)
+			log_cmd_error("Can't find reset line in current design!\n");
 
 		worker.module = top;
 		worker.run();
