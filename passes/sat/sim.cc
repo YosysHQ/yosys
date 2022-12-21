@@ -653,7 +653,7 @@ struct SimInstance
 		return did_something;
 	}
 
-	void update_ph3()
+	void update_ph3(bool check_assertions)
 	{
 		for (auto &it : ff_database)
 		{
@@ -688,27 +688,30 @@ struct SimInstance
 			}
 		}
 
-		for (auto cell : formal_database)
+		if (check_assertions)
 		{
-			string label = log_id(cell);
-			if (cell->attributes.count(ID::src))
-				label = cell->attributes.at(ID::src).decode_string();
+			for (auto cell : formal_database)
+			{
+				string label = log_id(cell);
+				if (cell->attributes.count(ID::src))
+					label = cell->attributes.at(ID::src).decode_string();
 
-			State a = get_state(cell->getPort(ID::A))[0];
-			State en = get_state(cell->getPort(ID::EN))[0];
+				State a = get_state(cell->getPort(ID::A))[0];
+				State en = get_state(cell->getPort(ID::EN))[0];
 
-			if (cell->type == ID($cover) && en == State::S1 && a != State::S1)
-				log("Cover %s.%s (%s) reached.\n", hiername().c_str(), log_id(cell), label.c_str());
+				if (cell->type == ID($cover) && en == State::S1 && a != State::S1)
+					log("Cover %s.%s (%s) reached.\n", hiername().c_str(), log_id(cell), label.c_str());
 
-			if (cell->type == ID($assume) && en == State::S1 && a != State::S1)
-				log("Assumption %s.%s (%s) failed.\n", hiername().c_str(), log_id(cell), label.c_str());
+				if (cell->type == ID($assume) && en == State::S1 && a != State::S1)
+					log("Assumption %s.%s (%s) failed.\n", hiername().c_str(), log_id(cell), label.c_str());
 
-			if (cell->type == ID($assert) && en == State::S1 && a != State::S1)
-				log_warning("Assert %s.%s (%s) failed.\n", hiername().c_str(), log_id(cell), label.c_str());
+				if (cell->type == ID($assert) && en == State::S1 && a != State::S1)
+					log_warning("Assert %s.%s (%s) failed.\n", hiername().c_str(), log_id(cell), label.c_str());
+			}
 		}
 
 		for (auto it : children)
-			it.second->update_ph3();
+			it.second->update_ph3(check_assertions);
 	}
 
 	void set_initstate_outputs(State state)
@@ -1116,7 +1119,7 @@ struct SimWorker : SimShared
 		if (debug)
 			log("\n-- ph3 --\n");
 
-		top->update_ph3();
+		top->update_ph3(gclk);
 	}
 
 	void initialize_stable_past()
@@ -1126,7 +1129,7 @@ struct SimWorker : SimShared
 		top->update_ph1();
 		if (debug)
 			log("\n-- ph3 (initialize) --\n");
-		top->update_ph3();
+		top->update_ph3(false);
 	}
 
 	void set_inports(pool<IdString> ports, State value)
