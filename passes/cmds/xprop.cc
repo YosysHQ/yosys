@@ -967,7 +967,7 @@ struct XpropWorker
 		if (!options.split_inputs && !options.split_outputs)
 			return;
 
-		vector<IdString> new_ports;
+		int port_id = 1;
 
 		for (auto port : module->ports) {
 			auto wire = module->wire(port);
@@ -983,16 +983,21 @@ struct XpropWorker
 
 					wire_d->port_input = wire->port_input;
 					wire_d->port_output = wire->port_output;
-					wire_d->port_id = GetSize(new_ports) + 1;
+					wire_d->port_id = port_id++;
 
 					wire_x->port_input = wire->port_input;
 					wire_x->port_output = wire->port_output;
-					wire_x->port_id = GetSize(new_ports) + 2;
+					wire_x->port_id = port_id++;
 
 					if (wire->port_output) {
 						auto enc = encoded(wire);
 						module->connect(wire_d, enc.is_1);
 						module->connect(wire_x, enc.is_x);
+
+						if (options.split_public) {
+							// Need to hide the original wire so split_public doesn't try to split it again
+							module->rename(wire, NEW_ID_SUFFIX(wire->name.c_str()));
+						}
 					} else {
 						auto enc = encoded(wire, true);
 
@@ -1004,17 +1009,11 @@ struct XpropWorker
 					wire->port_input = wire->port_output = false;
 					wire->port_id = 0;
 
-					new_ports.push_back(port_d);
-					new_ports.push_back(port_x);
-
 					continue;
 				}
 			}
-			wire->port_id = GetSize(new_ports) + 1;
-			new_ports.push_back(port);
+			wire->port_id = port_id++;
 		}
-
-		module->ports = new_ports;
 
 		module->fixup_ports();
 	}
@@ -1037,10 +1036,7 @@ struct XpropWorker
 			module->connect(wire_d, enc.is_1);
 			module->connect(wire_x, enc.is_x);
 
-			module->wires_.erase(wire->name);
-			wire->attributes.erase(ID::fsm_encoding);
-			wire->name = NEW_ID_SUFFIX(wire->name.c_str());
-			module->wires_[wire->name] = wire;
+			module->rename(wire, NEW_ID_SUFFIX(wire->name.c_str()));
 		}
 	}
 
