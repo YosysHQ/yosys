@@ -23,6 +23,7 @@
 #include "kernel/mem.h"
 #include "kernel/fstdata.h"
 #include "kernel/ff.h"
+#include "kernel/yw.h"
 
 #include <ctime>
 
@@ -1603,6 +1604,194 @@ struct SimWorker : SimShared
 		write_output_files();
 	}
 
+	struct FoundYWPath
+	{
+		SimInstance *instance;
+		Wire *wire;
+		IdString memid;
+		int addr;
+	};
+
+	struct YwHierarchy {
+		dict<IdPath, FoundYWPath> signal_paths;
+		dict<IdPath, FoundYWPath> clock_paths;
+	};
+
+	YwHierarchy prepare_yw_hierarchy(const ReadWitness &yw)
+	{
+		pool<IdPath> paths;
+		dict<IdPath, pool<IdString>> mem_paths;
+
+		for (auto &signal : yw.signals)
+			paths.insert(signal.path);
+
+		for (auto &clock : yw.clocks) {
+			if (paths.count(clock.path))
+				log_warning("Witness path `%s` is present as witness signal and as clock, treating as clock and ignoring signal data.\n", clock.path.str().c_str());
+			paths.insert(clock.path);
+		}
+		for (auto &path : paths)
+			if (path.has_address())
+				mem_paths[path.prefix()].insert(path.back());
+
+		YwHierarchy hierarchy;
+		witness_hierarchy(top->module, top, [&](IdPath const &path, WitnessHierarchyItem item, SimInstance *instance) {
+			if (item.cell != nullptr)
+				return instance->children.at(item.cell);
+			if (item.wire != nullptr) {
+				if (paths.count(path)) {
+					if (debug)
+						log("witness hierarchy: found wire %s\n", path.str().c_str());
+					bool inserted = hierarchy.signal_paths.emplace(path, {instance, item.wire, {}, INT_MIN}).second;
+					if (!inserted)
+						log_warning("Yosys witness path `%s` is ambiguous in this design\n", path.str().c_str());
+				}
+			} else if (item.mem) {
+				auto it = mem_paths.find(path);
+				if (it != mem_paths.end()) {
+					if (debug)
+						log("witness hierarchy: found mem %s\n", path.str().c_str());
+					IdPath word_path = path;
+					word_path.emplace_back();
+					for (auto addr_part : it->second) {
+						word_path.back() = addr_part;
+						int addr;
+						word_path.get_address(addr);
+						if (addr < item.mem->start_offset || (addr - item.mem->start_offset) >= item.mem->size)
+							continue;
+						bool inserted = hierarchy.signal_paths.emplace(word_path, {instance, nullptr, item.mem->memid, addr}).second;
+						if (!inserted)
+							log_warning("Yosys witness path `%s` is ambiguous in this design\n", path.str().c_str());
+					}
+				}
+			}
+			return instance;
+		});
+
+		for (auto &path : paths)
+			if (!hierarchy.signal_paths.count(path))
+				log_warning("Yosys witness path `%s` was not found in this design, ignoring\n", path.str().c_str());
+
+		for (auto &clock : yw.clocks) {
+			auto found_path_it = hierarchy.signal_paths.find(clock.path);
+			if (found_path_it == hierarchy.signal_paths.end())
+				continue;
+			hierarchy.clock_paths.insert(*found_path_it);
+			hierarchy.signal_paths.erase(found_path_it);
+			paths.insert(clock.path);
+		}
+
+
+		// TODO add checks and warnings for witness signals (toplevel inputs, $any*) not present in the witness file
+
+		return hierarchy;
+	}
+
+	void set_yw_state(const ReadWitness &yw, const YwHierarchy &hierarchy, int t)
+	{
+		log_assert(t >= 0 && t < GetSize(yw.steps));
+
+		for (auto &signal : yw.signals) {
+			if (signal.init_only && t >= 1)
+				continue;
+			auto found_path_it = hierarchy.signal_paths.find(signal.path);
+			if (found_path_it == hierarchy.signal_paths.end())
+				continue;
+			auto &found_path = found_path_it->second;
+
+			Const value = yw.get_bits(t, signal.bits_offset, signal.width);
+
+			if (debug)
+				log("yw: set %s to %s\n", signal.path.str().c_str(), log_const(value));
+
+			if (found_path.wire != nullptr) {
+				found_path.instance->set_state(
+						SigChunk(found_path.wire, signal.offset, signal.width),
+						value);
+			} else if (!found_path.memid.empty()) {
+				found_path.instance->register_memory_addr(found_path.memid, found_path.addr);
+				found_path.instance->set_memory_state(
+						found_path.memid, found_path.addr,
+						value);
+			}
+		}
+	}
+
+	void set_yw_clocks(const ReadWitness &yw, const YwHierarchy &hierarchy, bool active_edge)
+	{
+		for (auto &clock : yw.clocks) {
+			if (clock.is_negedge == clock.is_posedge)
+				continue;
+			auto found_path_it = hierarchy.clock_paths.find(clock.path);
+			if (found_path_it == hierarchy.clock_paths.end())
+				continue;
+			auto &found_path = found_path_it->second;
+
+			if (found_path.wire != nullptr) {
+				found_path.instance->set_state(
+						SigChunk(found_path.wire, clock.offset, 1),
+						active_edge == clock.is_posedge ? State::S1 : State::S0);
+			}
+		}
+	}
+
+	void run_cosim_yw_witness(Module *topmod)
+	{
+		if (!clock.empty())
+			log_cmd_error("The -clock option is not required nor supported when reading a Yosys witness file.\n");
+		if (!reset.empty())
+			log_cmd_error("The -reset option is not required nor supported when reading a Yosys witness file.\n");
+		if (multiclock)
+			log_warning("The -multiclock option is not required and ignored when reading a Yosys witness file.\n");
+
+		ReadWitness yw(sim_filename);
+
+		top = new SimInstance(this, scope, topmod);
+		register_signals();
+
+		YwHierarchy hierarchy = prepare_yw_hierarchy(yw);
+
+		if (yw.steps.empty()) {
+			log_warning("Yosys witness file `%s` contains no time steps\n", yw.filename.c_str());
+		} else {
+			top->set_initstate_outputs(State::S1);
+			set_yw_state(yw, hierarchy, 0);
+			set_yw_clocks(yw, hierarchy, true);
+			initialize_stable_past();
+			register_output_step(0);
+
+			if (!yw.clocks.empty()) {
+				if (debug)
+					log("Simulating non-active clock edge.\n");
+				set_yw_clocks(yw, hierarchy, false);
+				update(false);
+				register_output_step(5);
+			}
+			top->set_initstate_outputs(State::S0);
+		}
+
+		for (int cycle = 1; cycle < GetSize(yw.steps); cycle++)
+		{
+			if (verbose)
+				log("Simulating cycle %d.\n", cycle);
+			set_yw_state(yw, hierarchy, cycle);
+			set_yw_clocks(yw, hierarchy, true);
+			update(true);
+			register_output_step(10 * cycle);
+
+			if (!yw.clocks.empty()) {
+				if (debug)
+					log("Simulating non-active clock edge.\n");
+				set_yw_clocks(yw, hierarchy, false);
+				update(false);
+				register_output_step(5 + 10 * cycle);
+			}
+		}
+
+		register_output_step(10*GetSize(yw.steps));
+		write_output_files();
+	}
+
 	std::string define_signal(Wire *wire)
 	{
 		std::stringstream f;
@@ -2132,9 +2321,9 @@ struct SimPass : public Pass {
 		log("    -w\n");
 		log("        writeback mode: use final simulation state as new init state\n");
 		log("\n");
-		log("    -r\n");
-		log("        read simulation results file\n");
-		log("            File formats supported: FST, VCD, AIW and WIT\n");
+		log("    -r <filename>\n");
+		log("        read simulation or formal results file\n");
+		log("            File formats supported: FST, VCD, AIW, WIT and .yw\n");
 		log("            VCD support requires vcd2fst external tool to be present\n");
 		log("\n");
 		log("    -map <filename>\n");
@@ -2354,6 +2543,8 @@ struct SimPass : public Pass {
 				worker.run_cosim_aiger_witness(top_mod);
 			} else if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".wit") == 0) {
 				worker.run_cosim_btor2_witness(top_mod);
+			} else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".yw") == 0) {
+				worker.run_cosim_yw_witness(top_mod);
 			} else {
 				log_cmd_error("Unhandled extension for simulation input file `%s`.\n", worker.sim_filename.c_str());
 			}
