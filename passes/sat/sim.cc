@@ -153,6 +153,7 @@ struct SimInstance
 	dict<Cell*, ff_state_t> ff_database;
 	dict<IdString, mem_state_t> mem_database;
 	pool<Cell*> formal_database;
+	pool<Cell*> initstate_database;
 	dict<Cell*, IdString> mem_cells;
 
 	std::vector<Mem> memories;
@@ -256,6 +257,8 @@ struct SimInstance
 			if (cell->type.in(ID($assert), ID($cover), ID($assume))) {
 				formal_database.insert(cell);
 			}
+			if (cell->type == ID($initstate))
+				initstate_database.insert(cell);
 		}
 
 		if (shared->zinit)
@@ -706,6 +709,14 @@ struct SimInstance
 
 		for (auto it : children)
 			it.second->update_ph3();
+	}
+
+	void set_initstate_outputs(State state)
+	{
+		for (auto cell : initstate_database)
+			set_state(cell->getPort(ID::Y), state);
+		for (auto child : children)
+			child.second->set_initstate_outputs(state);
 	}
 
 	void writeback(pool<Module*> &wbmods)
