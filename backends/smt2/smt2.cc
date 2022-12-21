@@ -640,6 +640,7 @@ struct Smt2Worker
 			if (cell->type == ID($xor)) return export_bvop(cell, "(bvxor A B)");
 			if (cell->type == ID($xnor)) return export_bvop(cell, "(bvxnor A B)");
 
+			if (cell->type == ID($bweqx)) return export_bvop(cell, "(bvxnor A B)", 'U');
 			if (cell->type == ID($bwmux)) return export_bvop(cell, "(bvor (bvand A (bvnot S)) (bvand B S))", 'U');
 
 			if (cell->type == ID($shl)) return export_bvop(cell, "(bvshl A B)", 's');
