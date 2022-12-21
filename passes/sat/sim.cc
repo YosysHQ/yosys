@@ -93,6 +93,7 @@ struct SimShared
 	bool ignore_x = false;
 	bool date = false;
 	bool multiclock = false;
+	int next_output_id = 0;
 };
 
 void zinit(State &v)
@@ -157,6 +158,7 @@ struct SimInstance
 	std::vector<Mem> memories;
 
 	dict<Wire*, pair<int, Const>> signal_database;
+	dict<IdString, std::map<int, pair<int, Const>>> trace_mem_database;
 	dict<Wire*, fstHandle> fst_handles;
 	dict<Wire*, fstHandle> fst_inputs;
 	dict<IdString, dict<int,fstHandle>> fst_memories;
@@ -325,7 +327,7 @@ struct SimInstance
 		log_assert(GetSize(sig) <= GetSize(value));
 
 		for (int i = 0; i < GetSize(sig); i++)
-			if (state_nets.at(sig[i]) != value[i]) {
+			if (value[i] != State::Sa && state_nets.at(sig[i]) != value[i]) {
 				state_nets.at(sig[i]) = value[i];
 				dirty_bits.insert(sig[i]);
 				did_something = true;
@@ -338,12 +340,23 @@ struct SimInstance
 
 	void set_memory_state(IdString memid, Const addr, Const data)
 	{
+		set_memory_state(memid, addr.as_int(), data);
+	}
+
+	void set_memory_state(IdString memid, int addr, Const data)
+	{
 		auto &state = mem_database[memid];
 
-		int offset = (addr.as_int() - state.mem->start_offset) * state.mem->width;
+		bool dirty = false;
+
+		int offset = (addr - state.mem->start_offset) * state.mem->width;
 		for (int i = 0; i < GetSize(data); i++)
-			if (0 <= i+offset && i+offset < state.mem->size * state.mem->width)
-				state.data.bits[i+offset] = data.bits[i];
+			if (0 <= i+offset && i+offset < state.mem->size * state.mem->width && data.bits[i] != State::Sa)
+				if (state.data.bits[i+offset] != data.bits[i])
+					dirty = true, state.data.bits[i+offset] = data.bits[i];
+
+		if (dirty)
+			dirty_memories.insert(memid);
 	}
 
 	void set_memory_state_bit(IdString memid, int offset, State data)
@@ -351,7 +364,10 @@ struct SimInstance
 		auto &state = mem_database[memid];
 		if (offset >= state.mem->size * state.mem->width)
 			log_error("Addressing out of bounds bit %d/%d of memory %s\n", offset, state.mem->size * state.mem->width, log_id(memid));
-		state.data.bits[offset] = data;
+		if (state.data.bits[offset] != data) {
+			state.data.bits[offset] = data;
+			dirty_memories.insert(memid);
+		}
 	}
 
 	void update_cell(Cell *cell)
@@ -447,9 +463,14 @@ struct SimInstance
 				log_error("Memory %s.%s has clocked read ports. Run 'memory' with -nordff.\n", log_id(module), log_id(mem.memid));
 
 			if (addr.is_fully_def()) {
-				int index = addr.as_int() - mem.start_offset;
+				int addr_int = addr.as_int();
+				int index = addr_int - mem.start_offset;
 				if (index >= 0 && index < mem.size)
 					data = mdb.data.extract(index*mem.width, mem.width << port.wide_log2);
+
+				for (int offset = 0; offset < 1 << port.wide_log2; offset++) {
+					register_memory_addr(id, addr_int + offset);
+				}
 			}
 
 			set_state(port.data, data);
@@ -604,7 +625,8 @@ struct SimInstance
 
 				if (addr.is_fully_def())
 				{
-					int index = addr.as_int() - mem.start_offset;
+					int addr_int = addr.as_int();
+					int index = addr_int - mem.start_offset;
 					if (index >= 0 && index < mem.size)
 						for (int i = 0; i < (mem.width << port.wide_log2); i++)
 							if (enable[i] == State::S1 && mdb.data.bits.at(index*mem.width+i) != data[i]) {
@@ -612,6 +634,9 @@ struct SimInstance
 								dirty_memories.insert(mem.memid);
 								did_something = true;
 							}
+
+					for (int i = 0; i < 1 << port.wide_log2; i++)
+						register_memory_addr(it.first, addr_int + i);
 				}
 			}
 		}
@@ -741,7 +766,7 @@ struct SimInstance
 			child.second->register_signals(id);
 	}
 
-	void write_output_header(std::function<void(IdString)> enter_scope, std::function<void()> exit_scope, std::function<void(const char*, Wire*, int, bool)> register_signal)
+	void write_output_header(std::function<void(IdString)> enter_scope, std::function<void()> exit_scope, std::function<void(const char*, int, Wire*, int, bool)> register_signal)
 	{
 		int exit_scopes = 1;
 		if (shared->hdlname && instance != nullptr && instance->name.isPublic() && instance->has_attribute(ID::hdlname)) {
@@ -774,11 +799,45 @@ struct SimInstance
 				hdlname.pop_back();
 				for (auto name : hdlname)
 					enter_scope("\\" + name);
-				register_signal(signal_name.c_str(), signal.first, signal.second.first, registers.count(signal.first)!=0);
+				register_signal(signal_name.c_str(), GetSize(signal.first), signal.first, signal.second.first, registers.count(signal.first)!=0);
 				for (auto name : hdlname)
 					exit_scope();
 			} else
-				register_signal(log_id(signal.first->name), signal.first, signal.second.first, registers.count(signal.first)!=0);
+				register_signal(log_id(signal.first->name), GetSize(signal.first), signal.first, signal.second.first, registers.count(signal.first)!=0);
+		}
+
+		for (auto &trace_mem : trace_mem_database)
+		{
+			auto memid = trace_mem.first;
+			auto &mdb = mem_database.at(memid);
+			Cell *cell = mdb.mem->cell;
+
+			std::vector<std::string> hdlname;
+			std::string signal_name;
+			bool has_hdlname = shared->hdlname && cell != nullptr && cell->name.isPublic() && cell->has_attribute(ID::hdlname);
+
+			if (has_hdlname) {
+				hdlname = cell->get_hdlname_attribute();
+				log_assert(!hdlname.empty());
+				signal_name = std::move(hdlname.back());
+				hdlname.pop_back();
+				for (auto name : hdlname)
+					enter_scope("\\" + name);
+			} else {
+				signal_name = log_id(memid);
+			}
+
+			for (auto &trace_index : trace_mem.second) {
+				int output_id = trace_index.second.first;
+				int index = trace_index.first;
+				register_signal(
+						stringf("%s[%d]", signal_name.c_str(), (index + mdb.mem->start_offset)).c_str(),
+						mdb.mem->width, nullptr, output_id, true);
+			}
+
+			if (has_hdlname)
+				for (auto name : hdlname)
+					exit_scope();
 		}
 
 		for (auto child : children)
@@ -786,6 +845,26 @@ struct SimInstance
 
 		for (int i = 0; i < exit_scopes; i++)
 			exit_scope();
+	}
+
+	void register_memory_addr(IdString memid, int addr)
+	{
+		auto &mdb = mem_database.at(memid);
+		auto &mem = *mdb.mem;
+		int index = addr - mem.start_offset;
+		if (index < 0 || index >= mem.size)
+			return;
+		auto it = trace_mem_database.find(memid);
+		if (it != trace_mem_database.end() && it->second.count(index))
+			return;
+		int output_id = shared->next_output_id++;
+		Const data;
+		if (!shared->output_data.empty()) {
+			data = mem.get_init_data().extract(index * mem.width, mem.width);
+			shared->output_data.front().second.emplace(output_id, data);
+		}
+		trace_mem_database[memid].emplace(index, make_pair(output_id, data));
+
 	}
 
 	void register_output_step_values(std::map<int,Const> *data)
@@ -801,6 +880,26 @@ struct SimInstance
 
 			it.second.second = value;
 			data->emplace(id, value);
+		}
+
+		for (auto &trace_mem : trace_mem_database)
+		{
+			auto memid = trace_mem.first;
+			auto &mdb = mem_database.at(memid);
+			auto &mem = *mdb.mem;
+			for (auto &trace_index : trace_mem.second)
+			{
+				int output_id = trace_index.second.first;
+				int index = trace_index.first;
+
+				auto value = mdb.data.extract(index * mem.width, mem.width);
+
+				if (trace_index.second.second == value)
+					continue;
+
+				trace_index.second.second = value;
+				data->emplace(output_id, value);
+			}
 		}
 
 		for (auto child : children)
@@ -956,8 +1055,8 @@ struct SimWorker : SimShared
 
 	void register_signals()
 	{
-		int id = 1;
-		top->register_signals(id);
+		next_output_id = 1;
+		top->register_signals(top->shared->next_output_id);
 	}
 
 	void register_output_step(int t)
@@ -1734,9 +1833,15 @@ struct VCDWriter : public OutputWriter
 		worker->top->write_output_header(
 			[this](IdString name) { vcdfile << stringf("$scope module %s $end\n", log_id(name)); },
 			[this]() { vcdfile << stringf("$upscope $end\n");},
-			[this,use_signal](const char *name, Wire *wire, int id, bool is_reg) {
+			[this,use_signal](const char *name, int size, Wire *, int id, bool is_reg) {
 				if (use_signal.at(id)) {
-					vcdfile << stringf("$var %s %d n%d %s%s $end\n", is_reg ? "reg" : "wire", GetSize(wire), id, name[0] == '$' ? "\\" : "", name);
+					// Works around gtkwave trying to parse everything past the last [ in a signal
+					// name. While the emitted range doesn't necessarily match the wire's range,
+					// this is consistent with the range gtkwave makes up if it doesn't find a
+					// range
+					std::string range = strchr(name, '[') ? stringf("[%d:0]", size - 1) : std::string();
+					vcdfile << stringf("$var %s %d n%d %s%s%s $end\n", is_reg ? "reg" : "wire", size, id, name[0] == '$' ? "\\" : "", name, range.c_str());
+
 				}
 			}
 		);
@@ -1796,9 +1901,9 @@ struct FSTWriter : public OutputWriter
 	   	worker->top->write_output_header(
 			[this](IdString name) { fstWriterSetScope(fstfile, FST_ST_VCD_MODULE, stringf("%s",log_id(name)).c_str(), nullptr); },
 			[this]() { fstWriterSetUpscope(fstfile); },
-			[this,use_signal](const char *name, Wire *wire, int id, bool is_reg) {
+			[this,use_signal](const char *name, int size, Wire *, int id, bool is_reg) {
 				if (!use_signal.at(id)) return;
-				fstHandle fst_id = fstWriterCreateVar(fstfile, is_reg ? FST_VT_VCD_REG : FST_VT_VCD_WIRE, FST_VD_IMPLICIT, GetSize(wire),
+				fstHandle fst_id = fstWriterCreateVar(fstfile, is_reg ? FST_VT_VCD_REG : FST_VT_VCD_WIRE, FST_VD_IMPLICIT, size,
 												name, 0);
 				mapping.emplace(id, fst_id);
 			}
@@ -1881,7 +1986,7 @@ struct AIWWriter : public OutputWriter
 		worker->top->write_output_header(
 			[](IdString) {},
 			[]() {},
-			[this](const char */*name*/, Wire *wire, int id, bool) { mapping[wire] = id; }
+			[this](const char */*name*/, int /*size*/, Wire *wire, int id, bool) { if (wire != nullptr) mapping[wire] = id; }
 		);
 
 		std::map<int, Yosys::RTLIL::Const> current;
