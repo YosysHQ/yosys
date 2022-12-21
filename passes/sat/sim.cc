@@ -1735,7 +1735,7 @@ struct SimWorker : SimShared
 		}
 	}
 
-	void run_cosim_yw_witness(Module *topmod)
+	void run_cosim_yw_witness(Module *topmod, int append)
 	{
 		if (!clock.empty())
 			log_cmd_error("The -clock option is not required nor supported when reading a Yosys witness file.\n");
@@ -1770,11 +1770,12 @@ struct SimWorker : SimShared
 			top->set_initstate_outputs(State::S0);
 		}
 
-		for (int cycle = 1; cycle < GetSize(yw.steps); cycle++)
+		for (int cycle = 1; cycle < GetSize(yw.steps) + append; cycle++)
 		{
 			if (verbose)
 				log("Simulating cycle %d.\n", cycle);
-			set_yw_state(yw, hierarchy, cycle);
+			if (cycle < GetSize(yw.steps))
+				set_yw_state(yw, hierarchy, cycle);
 			set_yw_clocks(yw, hierarchy, true);
 			update(true);
 			register_output_step(10 * cycle);
@@ -1788,7 +1789,7 @@ struct SimWorker : SimShared
 			}
 		}
 
-		register_output_step(10*GetSize(yw.steps));
+		register_output_step(10 * (GetSize(yw.steps) + append));
 		write_output_files();
 	}
 
@@ -2326,6 +2327,9 @@ struct SimPass : public Pass {
 		log("            File formats supported: FST, VCD, AIW, WIT and .yw\n");
 		log("            VCD support requires vcd2fst external tool to be present\n");
 		log("\n");
+		log("    -append <integer>\n");
+		log("        number of extra clock cycles to simulate for a Yosys witness input\n");
+		log("\n");
 		log("    -map <filename>\n");
 		log("        read file with port and latch symbols, needed for AIGER witness input\n");
 		log("\n");
@@ -2371,6 +2375,7 @@ struct SimPass : public Pass {
 	{
 		SimWorker worker;
 		int numcycles = 20;
+		int append = 0;
 		bool start_set = false, stop_set = false, at_set = false;
 
 		log_header(design, "Executing SIM pass (simulate the circuit).\n");
@@ -2452,6 +2457,10 @@ struct SimPass : public Pass {
 				std::string sim_filename = args[++argidx];
 				rewrite_filename(sim_filename);
 				worker.sim_filename = sim_filename;
+				continue;
+			}
+			if (args[argidx] == "-append" && argidx+1 < args.size()) {
+				append = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-map" && argidx+1 < args.size()) {
@@ -2544,7 +2553,7 @@ struct SimPass : public Pass {
 			} else if (filename_trim.size() > 4 && filename_trim.compare(filename_trim.size()-4, std::string::npos, ".wit") == 0) {
 				worker.run_cosim_btor2_witness(top_mod);
 			} else if (filename_trim.size() > 3 && filename_trim.compare(filename_trim.size()-3, std::string::npos, ".yw") == 0) {
-				worker.run_cosim_yw_witness(top_mod);
+				worker.run_cosim_yw_witness(top_mod, append);
 			} else {
 				log_cmd_error("Unhandled extension for simulation input file `%s`.\n", worker.sim_filename.c_str());
 			}
