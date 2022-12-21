@@ -52,6 +52,7 @@ struct UniquifyPass : public Pass {
 			// 	flag_check = true;
 			// 	continue;
 			// }
+			break;
 		}
 		extra_args(args, argidx, design);
 
