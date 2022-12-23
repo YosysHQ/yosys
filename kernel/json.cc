@@ -1,0 +1,129 @@
+/*
+ *  yosys -- Yosys Open SYnthesis Suite
+ *
+ *  Copyright (C) 2022  Jannis Harder <jix@yosyshq.com> <me@jix.one>
+ *
+ *  Permission to use, copy, modify, and/or distribute this software for any
+ *  purpose with or without fee is hereby granted, provided that the above
+ *  copyright notice and this permission notice appear in all copies.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ *  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ *  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ *  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ */
+
+#include "kernel/json.h"
+
+USING_YOSYS_NAMESPACE
+
+void PrettyJson::emit_to_log()
+{
+    targets.push_back([](const char *raw_json) { log("%s", raw_json); });
+}
+
+void PrettyJson::append_to_string(std::string &target)
+{
+    std::string *target_p = &target;
+    targets.push_back([=](const char *raw_json) { *target_p += raw_json; });
+}
+
+void PrettyJson::line()
+{
+    int indent = state.size() - (state.empty() ? 0 : state.back() == VALUE);
+    newline_indent.resize(1 + 2 * indent, ' ');
+    raw(newline_indent.c_str());
+}
+
+void PrettyJson::raw(const char *raw_json)
+{
+    for (auto &target : targets)
+        target(raw_json);
+}
+
+void PrettyJson::begin_object()
+{
+    begin_value();
+    raw("{");
+    state.push_back(OBJECT_FIRST);
+}
+
+void PrettyJson::begin_array()
+{
+    begin_value();
+    raw("[");
+    state.push_back(ARRAY_FIRST);
+}
+
+void PrettyJson::end_object()
+{
+    Scope top_scope = state.back();
+    state.pop_back();
+    if (top_scope == OBJECT)
+        line();
+    else
+        log_assert(top_scope == OBJECT_FIRST);
+    raw("}");
+    end_value();
+}
+
+void PrettyJson::end_array()
+{
+    if (state.back() == ARRAY)
+        line();
+    else
+        log_assert(state.back() == ARRAY_FIRST);
+    state.pop_back();
+    raw("}");
+    end_value();
+}
+
+void PrettyJson::name(const char *name)
+{
+    if (state.back() == OBJECT_FIRST)
+        state.back() = OBJECT;
+    else
+        raw(",");
+    line();
+    raw(Json(name).dump().c_str());
+    raw(": ");
+    state.push_back(VALUE);
+}
+
+void PrettyJson::begin_value()
+{
+    if (state.back() == ARRAY_FIRST) {
+        line();
+        state.back() = ARRAY;
+    } else if (state.back() == ARRAY) {
+        raw(",");
+        line();
+    } else {
+        log_assert(state.back() == VALUE);
+        state.pop_back();
+    }
+}
+
+void PrettyJson::end_value()
+{
+    if (state.empty())
+        raw("\n");
+}
+
+void PrettyJson::value_json(const Json &value)
+{
+    begin_value();
+    raw(value.dump().c_str());
+    end_value();
+}
+
+void PrettyJson::entry_json(const char *name, const Json &value)
+{
+    this->name(name);
+    this->value(value);
+}
+
