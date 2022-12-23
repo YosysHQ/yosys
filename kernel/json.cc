@@ -23,13 +23,38 @@ USING_YOSYS_NAMESPACE
 
 void PrettyJson::emit_to_log()
 {
-    targets.push_back([](const char *raw_json) { log("%s", raw_json); });
+    struct LogTarget : public Target {
+        void emit(const char *data) override { log("%s", data); }
+    };
+
+    targets.push_back(std::unique_ptr<Target>(new LogTarget));
 }
 
 void PrettyJson::append_to_string(std::string &target)
 {
-    std::string *target_p = &target;
-    targets.push_back([=](const char *raw_json) { *target_p += raw_json; });
+    struct AppendStringTarget : public Target {
+        std::string &target;
+        AppendStringTarget(std::string &target) : target(target) {}
+        void emit(const char *data) override { target += data; }
+    };
+
+    targets.push_back(std::unique_ptr<Target>(new AppendStringTarget(target)));
+}
+
+bool PrettyJson::write_to_file(const std::string &path)
+{
+    struct WriteFileTarget : public Target {
+        std::ofstream target;
+        void emit(const char *data) override { target << data; }
+        void flush() override { target.flush(); }
+    };
+
+    auto target = std::unique_ptr<WriteFileTarget>(new WriteFileTarget);
+    target->target.open(path);
+    if (target->target.fail())
+        return false;
+    targets.push_back(std::unique_ptr<Target>(target.release()));
+    return true;
 }
 
 void PrettyJson::line()
@@ -42,7 +67,13 @@ void PrettyJson::line()
 void PrettyJson::raw(const char *raw_json)
 {
     for (auto &target : targets)
-        target(raw_json);
+        target->emit(raw_json);
+}
+
+void PrettyJson::flush()
+{
+    for (auto &target : targets)
+        target->flush();
 }
 
 void PrettyJson::begin_object()
@@ -110,8 +141,10 @@ void PrettyJson::begin_value()
 
 void PrettyJson::end_value()
 {
-    if (state.empty())
+    if (state.empty()) {
         raw("\n");
+        flush();
+    }
 }
 
 void PrettyJson::value_json(const Json &value)

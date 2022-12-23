@@ -38,18 +38,26 @@ class PrettyJson
         ARRAY,
     };
 
+    struct Target {
+        virtual void emit(const char *data) = 0;
+        virtual void flush() {};
+        virtual ~Target() {};
+    };
+
     std::string newline_indent = "\n";
-    std::vector<std::function<void(const char *)>> targets;
+    std::vector<std::unique_ptr<Target>> targets;
     std::vector<Scope> state = {VALUE};
 public:
 
     void emit_to_log();
     void append_to_string(std::string &target);
+    bool write_to_file(const std::string &path);
 
     bool active() { return !targets.empty(); }
 
     void line();
     void raw(const char *raw_json);
+    void flush();
     void begin_object();
     void begin_array();
     void end_object();

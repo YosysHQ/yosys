@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/json.h"
 #include "libs/json11/json11.hpp"
 
 USING_YOSYS_NAMESPACE
@@ -721,18 +722,19 @@ struct AigerWriter
 		return path;
 	}
 
-	void write_ywmap(std::ostream &f)
+	void write_ywmap(PrettyJson &json)
 	{
-		f << "{\n";
-		f << "  \"version\": \"Yosys Witness Aiger Map\",\n";
-		f << stringf("  \"generator\": %s,\n", json11::Json(yosys_version_str).dump().c_str());
-		f << stringf("  \"latch_count\": %d,\n", aig_l);
-		f << stringf("  \"input_count\": %d,\n", aig_i);
+		json.begin_object();
+		json.entry("version", "Yosys Witness Aiger map");
+		json.entry("gennerator", yosys_version_str);
 
-		dict<int, string> clock_lines;
-		dict<int, string> input_lines;
-		dict<int, string> init_lines;
-		dict<int, string> seq_lines;
+		json.entry("latch_count", aig_l);
+		json.entry("input_count", aig_i);
+
+		dict<int, Json> clock_lines;
+		dict<int, Json> input_lines;
+		dict<int, Json> init_lines;
+		dict<int, Json> seq_lines;
 
 		for (auto cell : module->cells())
 		{
@@ -751,21 +753,21 @@ struct AigerWriter
 					if (init_inputs.count(sig[i])) {
 						int a = init_inputs.at(sig[i]);
 						log_assert((a & 1) == 0);
-						init_lines[a] += json11::Json(json11::Json::object {
+						init_lines[a] = json11::Json(json11::Json::object {
 							{ "path", witness_path(wire) },
 							{ "input", (a >> 1) - 1 },
 							{ "offset", sig_qy[i].offset },
-						}).dump();
+						});
 					}
 
 					if (input_bits.count(sig[i])) {
 						int a = aig_map.at(sig[i]);
 						log_assert((a & 1) == 0);
-						seq_lines[a] += json11::Json(json11::Json::object {
+						seq_lines[a] = json11::Json(json11::Json::object {
 							{ "path", witness_path(wire) },
 							{ "input", (a >> 1) - 1 },
 							{ "offset", sig_qy[i].offset },
-						}).dump();
+						});
 					}
 				}
 			}
@@ -783,60 +785,55 @@ struct AigerWriter
 
 					int a = aig_map.at(sig[i]);
 					log_assert((a & 1) == 0);
-					input_lines[a] += json11::Json(json11::Json::object {
+					input_lines[a] = json11::Json(json11::Json::object {
 						{ "path", path },
 						{ "input", (a >> 1) - 1 },
 						{ "offset", i },
-					}).dump();
+					});
 
 					if (ywmap_clocks.count(sig[i])) {
 						int clock_mode = ywmap_clocks[sig[i]];
 						if (clock_mode != 3) {
-							clock_lines[a] += json11::Json(json11::Json::object {
+							clock_lines[a] = json11::Json(json11::Json::object {
 								{ "path", path },
 								{ "input", (a >> 1) - 1 },
 								{ "offset", i },
 								{ "edge", clock_mode == 1 ? "posedge" : "negedge" },
-							}).dump();
+							});
 						}
 					}
 				}
 			}
 		}
 
-		f << "  \"clocks\": [";
+		json.name("clocks");
+		json.begin_array();
 		clock_lines.sort();
-		const char *sep = "\n    ";
-		for (auto &it : clock_lines) {
-			f << sep << it.second;
-			sep = ",\n    ";
-		}
-		f << "\n  ],\n";
+		for (auto &it : clock_lines)
+			json.value(it.second);
+		json.end_array();
 
-		f << "  \"inputs\": [";
+		json.name("inputs");
+		json.begin_array();
 		input_lines.sort();
-		sep = "\n    ";
-		for (auto &it : input_lines) {
-			f << sep << it.second;
-			sep = ",\n    ";
-		}
-		f << "\n  ],\n";
+		for (auto &it : input_lines)
+			json.value(it.second);
+		json.end_array();
 
-		f << "  \"seqs\": [";
-		sep = "\n    ";
-		for (auto &it : seq_lines) {
-			f << sep << it.second;
-			sep = ",\n    ";
-		}
-		f << "\n  ],\n";
+		json.name("seqs");
+		json.begin_array();
+		input_lines.sort();
+		for (auto &it : seq_lines)
+			json.value(it.second);
+		json.end_array();
 
-		f << "  \"inits\": [";
-		sep = "\n    ";
-		for (auto &it : init_lines) {
-			f << sep << it.second;
-			sep = ",\n    ";
-		}
-		f << "\n  ]\n}\n";
+		json.name("inits");
+		json.begin_array();
+		input_lines.sort();
+		for (auto &it : init_lines)
+			json.value(it.second);
+		json.end_array();
+		json.end_object();
 	}
 
 };
@@ -991,9 +988,12 @@ struct AigerBackend : public Backend {
 		if (!yw_map_filename.empty()) {
 			std::ofstream mapf;
 			mapf.open(yw_map_filename.c_str(), std::ofstream::trunc);
-			if (mapf.fail())
-				log_error("Can't open file `%s' for writing: %s\n", map_filename.c_str(), strerror(errno));
-			writer.write_ywmap(mapf);
+
+			PrettyJson json;
+
+			if (!json.write_to_file(yw_map_filename))
+				log_error("Can't open file `%s' for writing: %s\n", yw_map_filename.c_str(), strerror(errno));
+			writer.write_ywmap(json);
 		}
 	}
 } AigerBackend;
