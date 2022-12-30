@@ -275,6 +275,9 @@ struct statdata_t
 		log("         \"num_memory_bits\":   %u,\n", num_memory_bits);
 		log("         \"num_processes\":     %u,\n", num_processes);
 		log("         \"num_cells\":         %u,\n", num_cells);
+		if (area != 0) {
+			log("         \"area\":              %f,\n", area);
+		}
 		log("         \"num_cells_by_type\": {\n");
 		bool first_line = true;
 		for (auto &it : num_cells_by_type)
