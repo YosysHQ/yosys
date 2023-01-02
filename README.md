@@ -596,43 +596,10 @@ Building the documentation
 ==========================
 
 Note that there is no need to build the manual if you just want to read it.
-Simply download the PDF from https://yosyshq.net/yosys/documentation.html
-instead.
+Simply visit https://yosys.readthedocs.io/en/latest/ instead.
 
-On Ubuntu, texlive needs these packages to be able to build the manual:
-
-	sudo apt-get install texlive-binaries
-	sudo apt-get install texlive-science      # install algorithm2e.sty
-	sudo apt-get install texlive-bibtex-extra # gets multibib.sty
-	sudo apt-get install texlive-fonts-extra  # gets skull.sty and dsfont.sty
-	sudo apt-get install texlive-publishers   # IEEEtran.cls
-
-Also the non-free font luximono should be installed, there is unfortunately
-no Ubuntu package for this so it should be installed separately using
-`getnonfreefonts`:
-
-	wget https://tug.org/fonts/getnonfreefonts/install-getnonfreefonts
-	sudo texlua install-getnonfreefonts # will install to /usr/local by default, can be changed by editing BINDIR at MANDIR at the top of the script
-	getnonfreefonts luximono # installs to /home/user/texmf
-
-Then execute, from the root of the repository:
-
-	make manual
-
-Notes:
-
-- To run `make manual` you need to have installed Yosys with `make install`,
-  otherwise it will fail on finding `kernel/yosys.h` while building
-  `PRESENTATION_Prog`.
-
-Building the website
-====================
-
-If you're seeing this, it means you are on an as yet unmerged branch (I hope), 
-and the website version of the documentation is not yet publicly available.
-
-In addition to those listed above for building Yosys from source, the following
-packages are used for building the website: 
+In addition to those packages listed above for building Yosys from source, the
+following are used for building the website: 
 
 	$ sudo apt-get install pdf2svg faketime
 

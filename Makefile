@@ -976,18 +976,9 @@ DOC_TARGET ?= html
 docs: docs/source/cmd/abc.rst docs/gen_images docs/guidelines
 	$(Q) $(MAKE) -C docs $(DOC_TARGET)
 
-update-manual: $(TARGETS) $(EXTRA_TARGETS)
-	cd manual && ../$(PROGRAM_PREFIX)yosys -p 'help -write-tex-command-reference-manual'
-
-manual: $(TARGETS) $(EXTRA_TARGETS)
-	cd manual && bash appnotes.sh
-	cd manual && bash presentation.sh
-	cd manual && bash manual.sh
-
 clean:
 	rm -rf share
 	rm -rf kernel/*.pyh
-	if test -d manual; then cd manual && sh clean.sh; fi
 	rm -f $(OBJS) $(GENFILES) $(TARGETS) $(EXTRA_TARGETS) $(EXTRA_OBJS) $(PY_WRAP_INCLUDES) $(PY_WRAPPER_FILE).cc
 	rm -f kernel/version_*.o kernel/version_*.cc
 	rm -f libs/*/*.d frontends/*/*.d passes/*/*.d backends/*/*.d kernel/*.d techlibs/*/*.d
@@ -1127,5 +1118,5 @@ echo-abc-rev:
 -include kernel/*.d
 -include techlibs/*/*.d
 
-.PHONY: all top-all abc test install install-abc docs manual clean mrproper qtcreator coverage vcxsrc mxebin
+.PHONY: all top-all abc test install install-abc docs clean mrproper qtcreator coverage vcxsrc mxebin
 .PHONY: config-clean config-clang config-gcc config-gcc-static config-gcc-4.8 config-afl-gcc config-gprof config-sudo
