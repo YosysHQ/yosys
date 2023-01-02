@@ -7,12 +7,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Cache sources
-        id: cache-sources
-        uses: actions/cache@v3
-        with:
-          path: .
-          key: cache-yosys
       - name: Build
         run: make vcxsrc YOSYS_VER=latest
       - uses: actions/upload-artifact@v3
