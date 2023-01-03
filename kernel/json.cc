@@ -57,8 +57,13 @@ bool PrettyJson::write_to_file(const std::string &path)
     return true;
 }
 
-void PrettyJson::line()
+void PrettyJson::line(bool space_if_inline)
 {
+    if (compact_depth != INT_MAX) {
+        if (space_if_inline)
+            raw(" ");
+        return;
+    }
     int indent = state.size() - (state.empty() ? 0 : state.back() == VALUE);
     newline_indent.resize(1 + 2 * indent, ' ');
     raw(newline_indent.c_str());
@@ -95,7 +100,7 @@ void PrettyJson::end_object()
     Scope top_scope = state.back();
     state.pop_back();
     if (top_scope == OBJECT)
-        line();
+        line(false);
     else
         log_assert(top_scope == OBJECT_FIRST);
     raw("}");
@@ -104,22 +109,25 @@ void PrettyJson::end_object()
 
 void PrettyJson::end_array()
 {
-    if (state.back() == ARRAY)
-        line();
-    else
-        log_assert(state.back() == ARRAY_FIRST);
+    Scope top_scope = state.back();
     state.pop_back();
-    raw("}");
+    if (top_scope == ARRAY)
+        line(false);
+    else
+        log_assert(top_scope == ARRAY_FIRST);
+    raw("]");
     end_value();
 }
 
 void PrettyJson::name(const char *name)
 {
-    if (state.back() == OBJECT_FIRST)
+    if (state.back() == OBJECT_FIRST) {
         state.back() = OBJECT;
-    else
+        line(false);
+    } else {
         raw(",");
-    line();
+        line();
+    }
     raw(Json(name).dump().c_str());
     raw(": ");
     state.push_back(VALUE);
@@ -128,7 +136,7 @@ void PrettyJson::name(const char *name)
 void PrettyJson::begin_value()
 {
     if (state.back() == ARRAY_FIRST) {
-        line();
+        line(false);
         state.back() = ARRAY;
     } else if (state.back() == ARRAY) {
         raw(",");
@@ -145,6 +153,8 @@ void PrettyJson::end_value()
         raw("\n");
         flush();
     }
+    if (GetSize(state) < compact_depth)
+        compact_depth = INT_MAX;
 }
 
 void PrettyJson::value_json(const Json &value)

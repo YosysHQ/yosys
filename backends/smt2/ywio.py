@@ -175,8 +175,9 @@ class WitnessSig:
         return self.sort_key < other.sort_key
 
 
-def coalesce_signals(signals):
-    bits = {}
+def coalesce_signals(signals, bits=None):
+    if bits is None:
+        bits = {}
     for sig in signals:
         for bit in sig.bits():
             if sig.init_only:

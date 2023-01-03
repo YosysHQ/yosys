@@ -47,6 +47,7 @@ class PrettyJson
     std::string newline_indent = "\n";
     std::vector<std::unique_ptr<Target>> targets;
     std::vector<Scope> state = {VALUE};
+    int compact_depth = INT_MAX;
 public:
 
     void emit_to_log();
@@ -55,7 +56,9 @@ public:
 
     bool active() { return !targets.empty(); }
 
-    void line();
+    void compact() { compact_depth = GetSize(state); }
+
+    void line(bool space_if_inline = true);
     void raw(const char *raw_json);
     void flush();
     void begin_object();
