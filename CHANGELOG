@@ -2,8 +2,13 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.24 .. Yosys 0.24-dev
+Yosys 0.24 .. Yosys 0.25
 --------------------------
+ * Verific support
+    - Respect "noblackbox" attribute for modules.
+
+ * Various
+    - Documentation is hosted at https://yosyshq.readthedocs.io/projects/yosys/en/latest/
 
 Yosys 0.23 .. Yosys 0.24
 --------------------------
