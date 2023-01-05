@@ -1,7 +1,9 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2022  Miodrag Milanovic <micko@yosyshq.com>
+ *  Copyright (C) 2023  Miodrag Milanovic <micko@yosyshq.com>
+ *  Copyright (C) 2023
+ *        National Technology & Engineering Solutions of Sandia, LLC (NTESS)
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
