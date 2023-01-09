@@ -416,6 +416,8 @@ QbfSolveOptions parse_args(const std::vector<std::string> &args) {
 					opt.solver = opt.Solver::Yices;
 				else if (args[opt.argidx+1] == "cvc4")
 					opt.solver = opt.Solver::CVC4;
+				else if (args[opt.argidx+1] == "cvc5")
+					opt.solver = opt.Solver::CVC5;
 				else
 					log_cmd_error("Unknown solver \"%s\".\n", args[opt.argidx+1].c_str());
 				opt.argidx++;
@@ -542,8 +544,8 @@ struct QbfSatPass : public Pass {
 		log("        hope that the solver supports optimizing quantified bitvector problems.\n");
 		log("\n");
 		log("    -solver <solver>\n");
-		log("        Use a particular solver. Choose one of: \"z3\", \"yices\", and \"cvc4\".\n");
-		log("        (default: yices)\n");
+		log("        Use a particular solver. Choose one of: \"z3\", \"yices\", \"cvc4\"\n");
+		log("        and \"cvc5\". (default: yices)\n");
 		log("\n");
 		log("    -solver-option <name> <value>\n");
 		log("        Set the specified solver option in the SMT-LIBv2 problem file.\n");
