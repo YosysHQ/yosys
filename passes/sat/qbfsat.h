@@ -29,7 +29,7 @@ struct QbfSolveOptions {
 	bool specialize = false, specialize_from_file = false, write_solution = false, nocleanup = false;
 	bool dump_final_smt2 = false, assume_outputs = false, assume_neg = false, nooptimize = false;
 	bool nobisection = false, sat = false, unsat = false, show_smtbmc = false;
-	enum Solver{Z3, Yices, CVC4} solver = Yices;
+	enum Solver{Z3, Yices, CVC4, CVC5} solver = Yices;
 	enum OptimizationLevel{O0, O1, O2} oflag = O0;
 	dict<std::string, std::string> solver_options;
 	int timeout = 0;
@@ -45,6 +45,8 @@ struct QbfSolveOptions {
 			return "yices";
 		else if (solver == Solver::CVC4)
 			return "cvc4";
+		else if (solver == Solver::CVC5)
+			return "cvc5";
 
 		log_cmd_error("unknown solver specified.\n");
 		return "";
