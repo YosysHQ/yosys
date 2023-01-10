@@ -409,7 +409,6 @@ struct ModWalker
 
 	// get_* methods -- single RTLIL::SigBit
 
-	template<typename T>
 	inline bool get_drivers(pool<PortBit> &result, RTLIL::SigBit bit) const
 	{
 		bool found = false;
@@ -421,7 +420,6 @@ struct ModWalker
 		return found;
 	}
 
-	template<typename T>
 	inline bool get_consumers(pool<PortBit> &result, RTLIL::SigBit bit) const
 	{
 		bool found = false;
@@ -433,7 +431,6 @@ struct ModWalker
 		return found;
 	}
 
-	template<typename T>
 	inline bool get_inputs(pool<RTLIL::SigBit> &result, RTLIL::SigBit bit) const
 	{
 		bool found = false;
@@ -442,7 +439,6 @@ struct ModWalker
 		return found;
 	}
 
-	template<typename T>
 	inline bool get_outputs(pool<RTLIL::SigBit> &result, RTLIL::SigBit bit) const
 	{
 		bool found = false;
