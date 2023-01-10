@@ -24,6 +24,7 @@
 #include "kernel/fstdata.h"
 #include "kernel/ff.h"
 #include "kernel/yw.h"
+#include "kernel/json.h"
 
 #include <ctime>
 
@@ -75,6 +76,17 @@ struct OutputWriter
 	SimWorker *worker;
 };
 
+struct SimInstance;
+struct TriggeredAssertion {
+	int step;
+	SimInstance *instance;
+	Cell *cell;
+
+	TriggeredAssertion(int step, SimInstance *instance, Cell *cell) :
+		step(step), instance(instance), cell(cell)
+	{ }
+};
+
 struct SimShared
 {
 	bool debug = false;
@@ -95,6 +107,8 @@ struct SimShared
 	bool date = false;
 	bool multiclock = false;
 	int next_output_id = 0;
+	int step = 0;
+	std::vector<TriggeredAssertion> triggered_assertions;
 };
 
 void zinit(State &v)
@@ -161,6 +175,7 @@ struct SimInstance
 
 	dict<Wire*, pair<int, Const>> signal_database;
 	dict<IdString, std::map<int, pair<int, Const>>> trace_mem_database;
+	dict<std::pair<IdString, int>, Const> trace_mem_init_database;
 	dict<Wire*, fstHandle> fst_handles;
 	dict<Wire*, fstHandle> fst_inputs;
 	dict<IdString, dict<int,fstHandle>> fst_memories;
@@ -304,6 +319,21 @@ struct SimInstance
 			return parent->hiername() + "." + log_id(instance->name);
 
 		return log_id(module->name);
+	}
+
+	vector<std::string> witness_full_path() const
+	{
+		if (instance != nullptr)
+			return parent->witness_full_path(instance);
+		return vector<std::string>();
+	}
+
+	vector<std::string> witness_full_path(Cell *cell) const
+	{
+		auto result = witness_full_path();
+		auto cell_path = witness_path(cell);
+		result.insert(result.end(), cell_path.begin(), cell_path.end());
+		return result;
 	}
 
 	Const get_state(SigSpec sig)
@@ -700,7 +730,11 @@ struct SimInstance
 				State a = get_state(cell->getPort(ID::A))[0];
 				State en = get_state(cell->getPort(ID::EN))[0];
 
-				if (cell->type == ID($cover) && en == State::S1 && a != State::S1)
+				if (en == State::S1 && (cell->type == ID($cover) ? a == State::S1 : a != State::S1)) {
+					shared->triggered_assertions.emplace_back(shared->step, this, cell);
+				}
+
+				if (cell->type == ID($cover) && en == State::S1 && a == State::S1)
 					log("Cover %s.%s (%s) reached.\n", hiername().c_str(), log_id(cell), label.c_str());
 
 				if (cell->type == ID($assume) && en == State::S1 && a != State::S1)
@@ -875,7 +909,11 @@ struct SimInstance
 		int output_id = shared->next_output_id++;
 		Const data;
 		if (!shared->output_data.empty()) {
-			data = mem.get_init_data().extract(index * mem.width, mem.width);
+			auto init_it = trace_mem_init_database.find(std::make_pair(memid, addr));
+			if (init_it != trace_mem_init_database.end())
+				data = init_it->second;
+			else
+				data = mem.get_init_data().extract(index * mem.width, mem.width);
 			shared->output_data.front().second.emplace(output_id, data);
 		}
 		trace_mem_database[memid].emplace(index, make_pair(output_id, data));
@@ -1060,6 +1098,7 @@ struct SimWorker : SimShared
 	std::string timescale;
 	std::string sim_filename;
 	std::string map_filename;
+	std::string summary_filename;
 	std::string scope;
 
 	~SimWorker()
@@ -1103,6 +1142,9 @@ struct SimWorker : SimShared
 
 	void update(bool gclk)
 	{
+		if (gclk)
+			step += 1;
+
 		while (1)
 		{
 			if (debug)
@@ -1130,7 +1172,7 @@ struct SimWorker : SimShared
 		top->update_ph1();
 		if (debug)
 			log("\n-- ph3 (initialize) --\n");
-		top->update_ph3(false);
+		top->update_ph3(true);
 	}
 
 	void set_inports(pool<IdString> ports, State value)
@@ -1709,7 +1751,10 @@ struct SimWorker : SimShared
 						SigChunk(found_path.wire, signal.offset, signal.width),
 						value);
 			} else if (!found_path.memid.empty()) {
-				found_path.instance->register_memory_addr(found_path.memid, found_path.addr);
+				if (t >= 1)
+					found_path.instance->register_memory_addr(found_path.memid, found_path.addr);
+				else
+					found_path.instance->trace_mem_init_database.emplace(make_pair(found_path.memid, found_path.addr), value);
 				found_path.instance->set_memory_state(
 						found_path.memid, found_path.addr,
 						value);
@@ -1791,6 +1836,37 @@ struct SimWorker : SimShared
 
 		register_output_step(10 * (GetSize(yw.steps) + append));
 		write_output_files();
+	}
+
+	void write_summary()
+	{
+		if (summary_filename.empty())
+			return;
+
+		PrettyJson json;
+		if (!json.write_to_file(summary_filename))
+			log_error("Can't open file `%s' for writing: %s\n", summary_filename.c_str(), strerror(errno));
+
+		json.begin_object();
+		json.entry("version", "Yosys sim summary");
+		json.entry("generator", yosys_version_str);
+		json.entry("steps", step);
+		json.entry("top", log_id(top->module->name));
+		json.name("assertions");
+		json.begin_array();
+		for (auto &assertion : triggered_assertions) {
+			json.begin_object();
+			json.entry("step", assertion.step);
+			json.entry("type", log_id(assertion.cell->type));
+			json.entry("path", assertion.instance->witness_full_path(assertion.cell));
+			auto src = assertion.cell->get_string_attribute(ID::src);
+			if (!src.empty()) {
+				json.entry("src", src);
+			}
+			json.end_object();
+		}
+		json.end_array();
+		json.end_object();
 	}
 
 	std::string define_signal(Wire *wire)
@@ -2330,6 +2406,9 @@ struct SimPass : public Pass {
 		log("    -append <integer>\n");
 		log("        number of extra clock cycles to simulate for a Yosys witness input\n");
 		log("\n");
+		log("    -summary <filename>\n");
+		log("        write a JSON summary to the given file\n");
+		log("\n");
 		log("    -map <filename>\n");
 		log("        read file with port and latch symbols, needed for AIGER witness input\n");
 		log("\n");
@@ -2469,6 +2548,12 @@ struct SimPass : public Pass {
 				worker.map_filename = map_filename;
 				continue;
 			}
+			if (args[argidx] == "-summary" && argidx+1 < args.size()) {
+				std::string summary_filename = args[++argidx];
+				rewrite_filename(summary_filename);
+				worker.summary_filename = summary_filename;
+				continue;
+			}
 			if (args[argidx] == "-scope" && argidx+1 < args.size()) {
 				worker.scope = args[++argidx];
 				continue;
@@ -2558,6 +2643,8 @@ struct SimPass : public Pass {
 				log_cmd_error("Unhandled extension for simulation input file `%s`.\n", worker.sim_filename.c_str());
 			}
 		}
+
+		worker.write_summary();
 	}
 } SimPass;
 

@@ -161,7 +161,7 @@ ReadWitness::ReadWitness(const std::string &filename) :
 		signal.offset = signal_json["offset"].int_value();
 		if (signal.offset < 0)
 			log_error("Failed to parse `%s`: Invalid offset for signal `%s`\n", filename.c_str(), signal_json.dump().c_str());
-		signal.init_only = json["init_only"].bool_value();
+		signal.init_only = signal_json["init_only"].bool_value();
 		signals.push_back(signal);
 	}
 

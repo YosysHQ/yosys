@@ -29,6 +29,7 @@
 #include "kernel/log.h"
 #include "kernel/mem.h"
 #include "kernel/json.h"
+#include "kernel/yw.h"
 #include <string>
 
 USING_YOSYS_NAMESPACE
@@ -139,18 +140,6 @@ struct BtorWorker
 			}
 		}
 		return " " + infostr;
-	}
-
-	template<class T> static std::vector<std::string> witness_path(T *obj) {
-		std::vector<std::string> path;
-		if (obj->name.isPublic()) {
-			auto hdlname = obj->get_string_attribute(ID::hdlname);
-			for (auto token : split_tokens(hdlname))
-				path.push_back("\\" + token);
-		}
-		if (path.empty())
-			path.push_back(obj->name.str());
-		return path;
 	}
 
 	void ywmap_state(const SigSpec &sig) {

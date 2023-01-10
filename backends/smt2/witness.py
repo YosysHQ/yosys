@@ -316,6 +316,7 @@ def wit2yw(input, mapfile, output):
         if current_t > t:
             t = current_t
             values = WitnessValues()
+            array_inits = set()
             frames.append(values)
 
         line = next(input, None)
@@ -327,39 +328,63 @@ def wit2yw(input, mapfile, output):
             line = next(input, None)
 
             btor_sig = btor_map.data[mode][int(tokens[0])]
+            btor_sigs = [btor_sig]
 
             if btor_sig is None:
                 continue
 
             if isinstance(btor_sig, dict):
                 addr = tokens[1]
-                if not addr.startswith('[') or not addr.endswith(']'):
+                if not addr.startswith('['):
+                    addr = '[*]'
+                    value = tokens[1]
+                else:
+                    value = tokens[2]
+                if not addr.endswith(']'):
                     raise click.ClickException(f"{input_name}: expected address in BTOR witness file")
-                addr = int(addr[1:-1], 2)
+                path = btor_sig["path"]
+                width = btor_sig["width"]
+                size = btor_sig["size"]
+                if addr == '[*]':
+                    btor_sigs = [
+                        [{
+                            "path": (*path, f"\\[{addr}]"),
+                            "width": width,
+                            "offset": 0,
+                        }]
+                        for addr in range(size)
+                        if (path, addr) not in array_inits
+                    ]
+                    array_inits.update((path, addr) for addr in range(size))
+                else:
+                    addr = int(addr[1:-1], 2)
 
-                if addr < 0 or addr >= btor_sig["size"]:
-                    raise click.ClickException(f"{input_name}: out of bounds address in BTOR witness file")
+                    if addr < 0 or addr >= size:
+                        raise click.ClickException(f"{input_name}: out of bounds address in BTOR witness file")
 
-                btor_sig = [{
-                    "path": (*btor_sig["path"], f"\\[{addr}]"),
-                    "width": btor_sig["width"],
-                    "offset": 0,
-                }]
-
-                signal_value = iter(reversed(tokens[2]))
+                    array_inits.add((path, addr))
+                    btor_sig = [{
+                        "path": (*path, f"\\[{addr}]"),
+                        "width": width,
+                        "offset": 0,
+                    }]
+                    btor_sigs = [btor_sig]
             else:
-                signal_value = iter(reversed(tokens[1]))
+                value = tokens[1]
 
-            for chunk in btor_sig:
-                offset = chunk["offset"]
-                path = chunk["path"]
-                for i in range(offset, offset + chunk["width"]):
-                    key = (path, i)
-                    bits[key] = mode == "inputs"
-                    values[key] = next(signal_value)
+            for btor_sig in btor_sigs:
+                value_bits = iter(reversed(value))
 
-            if next(signal_value, None) is not None:
-                raise click.ClickException(f"{input_name}: excess bits in BTOR witness file")
+                for chunk in btor_sig:
+                    offset = chunk["offset"]
+                    path = chunk["path"]
+                    for i in range(offset, offset + chunk["width"]):
+                        key = (path, i)
+                        bits[key] = mode == "inputs"
+                        values[key] = next(value_bits)
+
+                if next(value_bits, None) is not None:
+                    raise click.ClickException(f"{input_name}: excess bits in BTOR witness file")
 
 
     if line is None:

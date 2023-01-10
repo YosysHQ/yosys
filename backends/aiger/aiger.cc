@@ -20,6 +20,7 @@
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/json.h"
+#include "kernel/yw.h"
 #include "libs/json11/json11.hpp"
 
 USING_YOSYS_NAMESPACE
@@ -708,18 +709,6 @@ struct AigerWriter
 		wire_lines.sort();
 		for (auto &it : wire_lines)
 			f << it.second;
-	}
-
-	template<class T> static std::vector<std::string> witness_path(T *obj) {
-		std::vector<std::string> path;
-		if (obj->name.isPublic()) {
-			auto hdlname = obj->get_string_attribute(ID::hdlname);
-			for (auto token : split_tokens(hdlname))
-				path.push_back("\\" + token);
-		}
-		if (path.empty())
-			path.push_back(obj->name.str());
-		return path;
 	}
 
 	void write_ywmap(PrettyJson &json)
