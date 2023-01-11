@@ -36,12 +36,16 @@ struct InsbufPass : public Pass {
 		log("        Use the given cell type instead of $_BUF_. (Notice that the next\n");
 		log("        call to \"clean\" will remove all $_BUF_ in the design.)\n");
 		log("\n");
+		log("    -chain\n");
+		log("        Chain buffer cells\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing INSBUF pass (insert buffer cells for connected wires).\n");
 
 		IdString celltype = ID($_BUF_), in_portname = ID::A, out_portname = ID::Y;
+		bool chain_mode = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -53,6 +57,10 @@ struct InsbufPass : public Pass {
 				out_portname = RTLIL::escape_id(args[++argidx]);
 				continue;
 			}
+			if (arg == "-chain") {
+				chain_mode = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -60,6 +68,8 @@ struct InsbufPass : public Pass {
 		for (auto module : design->selected_modules())
 		{
 			std::vector<RTLIL::SigSig> new_connections;
+			pool<Cell*> bufcells;
+			SigMap sigmap;
 
 			for (auto &conn : module->connections())
 			{
@@ -70,20 +80,46 @@ struct InsbufPass : public Pass {
 					SigBit lhs = conn.first[i];
 					SigBit rhs = conn.second[i];
 
-					if (lhs.wire && !design->selected(module, lhs.wire)) {
+					if (!lhs.wire || !design->selected(module, lhs.wire)) {
 						new_conn.first.append(lhs);
 						new_conn.second.append(rhs);
+						log("Skip %s: %s -> %s\n", log_id(module), log_signal(rhs), log_signal(lhs));
 						continue;
+					}
+
+					if (chain_mode && rhs.wire) {
+						rhs = sigmap(rhs);
+						SigBit outbit = sigmap(lhs);
+						sigmap.add(lhs, rhs);
+						sigmap.add(outbit);
 					}
 
 					Cell *cell = module->addCell(NEW_ID, celltype);
 					cell->setPort(in_portname, rhs);
 					cell->setPort(out_portname, lhs);
-					log("Added %s.%s: %s -> %s\n", log_id(module), log_id(cell), log_signal(rhs), log_signal(lhs));
+
+					log("Add %s/%s: %s -> %s\n", log_id(module), log_id(cell), log_signal(rhs), log_signal(lhs));
+					bufcells.insert(cell);
 				}
 
 				if (GetSize(new_conn.first))
 					new_connections.push_back(new_conn);
+			}
+
+			if (chain_mode) {
+				for (auto &cell : module->selected_cells()) {
+					if (bufcells.count(cell))
+						continue;
+					for (auto &port : cell->connections())
+						if (cell->input(port.first)) {
+							auto s = sigmap(port.second);
+							if (s == port.second)
+								continue;
+							log("Rewrite %s/%s/%s: %s -> %s\n", log_id(module), log_id(cell),
+									log_id(port.first), log_signal(port.second), log_signal(s));
+							cell->setPort(port.first, s);
+						}
+				}
 			}
 
 			module->new_connections(new_connections);
