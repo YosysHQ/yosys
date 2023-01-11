@@ -1655,28 +1655,25 @@ struct SimWorker : SimShared
 	};
 
 	struct YwHierarchy {
-		dict<IdPath, FoundYWPath> signal_paths;
-		dict<IdPath, FoundYWPath> clock_paths;
+		dict<IdPath, FoundYWPath> paths;
 	};
 
 	YwHierarchy prepare_yw_hierarchy(const ReadWitness &yw)
 	{
+		YwHierarchy hierarchy;
 		pool<IdPath> paths;
 		dict<IdPath, pool<IdString>> mem_paths;
 
 		for (auto &signal : yw.signals)
 			paths.insert(signal.path);
 
-		for (auto &clock : yw.clocks) {
-			if (paths.count(clock.path))
-				log_warning("Witness path `%s` is present as witness signal and as clock, treating as clock and ignoring signal data.\n", clock.path.str().c_str());
+		for (auto &clock : yw.clocks)
 			paths.insert(clock.path);
-		}
+
 		for (auto &path : paths)
 			if (path.has_address())
 				mem_paths[path.prefix()].insert(path.back());
 
-		YwHierarchy hierarchy;
 		witness_hierarchy(top->module, top, [&](IdPath const &path, WitnessHierarchyItem item, SimInstance *instance) {
 			if (item.cell != nullptr)
 				return instance->children.at(item.cell);
@@ -1684,7 +1681,7 @@ struct SimWorker : SimShared
 				if (paths.count(path)) {
 					if (debug)
 						log("witness hierarchy: found wire %s\n", path.str().c_str());
-					bool inserted = hierarchy.signal_paths.emplace(path, {instance, item.wire, {}, INT_MIN}).second;
+					bool inserted = hierarchy.paths.emplace(path, {instance, item.wire, {}, INT_MIN}).second;
 					if (!inserted)
 						log_warning("Yosys witness path `%s` is ambiguous in this design\n", path.str().c_str());
 				}
@@ -1701,7 +1698,7 @@ struct SimWorker : SimShared
 						word_path.get_address(addr);
 						if (addr < item.mem->start_offset || (addr - item.mem->start_offset) >= item.mem->size)
 							continue;
-						bool inserted = hierarchy.signal_paths.emplace(word_path, {instance, nullptr, item.mem->memid, addr}).second;
+						bool inserted = hierarchy.paths.emplace(word_path, {instance, nullptr, item.mem->memid, addr}).second;
 						if (!inserted)
 							log_warning("Yosys witness path `%s` is ambiguous in this design\n", path.str().c_str());
 					}
@@ -1711,19 +1708,35 @@ struct SimWorker : SimShared
 		});
 
 		for (auto &path : paths)
-			if (!hierarchy.signal_paths.count(path))
+			if (!hierarchy.paths.count(path))
 				log_warning("Yosys witness path `%s` was not found in this design, ignoring\n", path.str().c_str());
 
+		dict<IdPath, dict<int, bool>> clock_inputs;
+
 		for (auto &clock : yw.clocks) {
-			auto found_path_it = hierarchy.signal_paths.find(clock.path);
-			if (found_path_it == hierarchy.signal_paths.end())
+			if (clock.is_negedge == clock.is_posedge)
 				continue;
-			hierarchy.clock_paths.insert(*found_path_it);
-			hierarchy.signal_paths.erase(found_path_it);
-			paths.insert(clock.path);
+			clock_inputs[clock.path].emplace(clock.offset, clock.is_posedge);
 		}
+		for (auto &signal : yw.signals) {
+			auto it = clock_inputs.find(signal.path);
+			if (it == clock_inputs.end())
+				continue;
 
+			for (auto &clock_input : it->second) {
+				int offset = clock_input.first;
+				if (offset >= signal.offset && (offset - signal.offset) < signal.width) {
+					int clock_bits_offset = signal.bits_offset + (offset - signal.offset);
 
+					State expected = clock_input.second ? State::S0 : State::S1;
+
+					for (int t = 0; t < GetSize(yw.steps); t++) {
+						if (yw.get_bits(t, clock_bits_offset, 1) != expected)
+							log_warning("Yosys witness trace has an unexpected value for the clock input `%s` in step %d.\n", signal.path.str().c_str(), t);
+					}
+				}
+			}
+		}
 		// TODO add checks and warnings for witness signals (toplevel inputs, $any*) not present in the witness file
 
 		return hierarchy;
@@ -1736,8 +1749,8 @@ struct SimWorker : SimShared
 		for (auto &signal : yw.signals) {
 			if (signal.init_only && t >= 1)
 				continue;
-			auto found_path_it = hierarchy.signal_paths.find(signal.path);
-			if (found_path_it == hierarchy.signal_paths.end())
+			auto found_path_it = hierarchy.paths.find(signal.path);
+			if (found_path_it == hierarchy.paths.end())
 				continue;
 			auto &found_path = found_path_it->second;
 
@@ -1767,8 +1780,8 @@ struct SimWorker : SimShared
 		for (auto &clock : yw.clocks) {
 			if (clock.is_negedge == clock.is_posedge)
 				continue;
-			auto found_path_it = hierarchy.clock_paths.find(clock.path);
-			if (found_path_it == hierarchy.clock_paths.end())
+			auto found_path_it = hierarchy.paths.find(clock.path);
+			if (found_path_it == hierarchy.paths.end())
 				continue;
 			auto &found_path = found_path_it->second;
 

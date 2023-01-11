@@ -317,6 +317,172 @@ struct InitValWorker
 	}
 };
 
+struct ReplacedPort {
+	IdString name;
+	int offset;
+	bool clk_pol;
+};
+
+struct HierarchyWorker
+{
+	Design *design;
+	pool<Module *> pending;
+
+	dict<Module *, std::vector<ReplacedPort>> replaced_clk_inputs;
+
+	HierarchyWorker(Design *design) :
+		design(design)
+	{
+		for (auto module : design->modules())
+			pending.insert(module);
+	}
+
+	void propagate();
+
+	const std::vector<ReplacedPort> &find_replaced_clk_inputs(IdString cell_type);
+};
+
+// Propagates replaced clock signals
+struct PropagateWorker
+{
+	HierarchyWorker &hierarchy;
+
+	Module *module;
+	SigMap sigmap;
+
+	dict<SigBit, bool> replaced_clk_bits;
+	dict<SigBit, SigBit> not_drivers;
+
+	std::vector<ReplacedPort> replaced_clk_inputs;
+	std::vector<std::pair<SigBit, bool>> pending;
+
+	PropagateWorker(Module *module, HierarchyWorker &hierarchy) :
+		hierarchy(hierarchy), module(module), sigmap(module)
+	{
+		hierarchy.pending.erase(module);
+
+		for (auto wire : module->wires())
+			if (wire->has_attribute(ID::replaced_by_gclk))
+				replace_clk_bit(SigBit(wire), wire->attributes[ID::replaced_by_gclk].bits.at(0) == State::S1, false);
+
+		for (auto cell : module->cells()) {
+			if (cell->type.in(ID($not), ID($_NOT_))) {
+				auto sig_a = cell->getPort(ID::A);
+				auto &sig_y = cell->getPort(ID::Y);
+				sig_a.extend_u0(GetSize(sig_y), cell->parameters.at(ID::A_SIGNED).as_bool());
+
+				for (int i = 0; i < GetSize(sig_a); i++)
+					if (sig_a[i].is_wire())
+						not_drivers.emplace(sigmap(sig_y[i]), sigmap(sig_a[i]));
+			} else {
+				for (auto &port_bit : hierarchy.find_replaced_clk_inputs(cell->type))
+					replace_clk_bit(cell->getPort(port_bit.name)[port_bit.offset], port_bit.clk_pol, true);
+			}
+		}
+
+		while (!pending.empty()) {
+			auto current = pending.back();
+			pending.pop_back();
+			auto it = not_drivers.find(current.first);
+			if (it == not_drivers.end())
+				continue;
+
+			replace_clk_bit(it->second, !current.second, true);
+		}
+
+		for (auto cell : module->cells()) {
+			if (cell->type.in(ID($not), ID($_NOT_)))
+				continue;
+			for (auto &conn : cell->connections()) {
+				if (!cell->output(conn.first))
+					continue;
+				for (SigBit bit : conn.second) {
+					sigmap.apply(bit);
+					if (replaced_clk_bits.count(bit))
+						log_error("derived signal %s driven by %s (%s) from module %s is used as clock, derived clocks are only supported with clk2fflogic.\n",
+								log_signal(bit), log_id(cell->name), log_id(cell->type), log_id(module));
+				}
+			}
+		}
+
+		for (auto port : module->ports) {
+			auto wire = module->wire(port);
+			if (!wire->port_input)
+				continue;
+			for (int i = 0; i < GetSize(wire); i++) {
+				SigBit bit(wire, i);
+				sigmap.apply(bit);
+				auto it = replaced_clk_bits.find(bit);
+				if (it == replaced_clk_bits.end())
+					continue;
+				replaced_clk_inputs.emplace_back(ReplacedPort {port, i, it->second});
+
+				if (it->second) {
+					bit = module->Not(NEW_ID, bit);
+				}
+			}
+		}
+	}
+
+	void replace_clk_bit(SigBit bit, bool polarity, bool add_attribute)
+	{
+		sigmap.apply(bit);
+		if (!bit.is_wire())
+			log_error("XXX todo\n");
+
+		auto it = replaced_clk_bits.find(bit);
+		if (it != replaced_clk_bits.end()) {
+			if (it->second != polarity)
+				log_error("signal %s from module %s is used as clock with different polarities, run clk2fflogic instead.\n",
+						log_signal(bit), log_id(module));
+			return;
+		}
+
+		replaced_clk_bits.emplace(bit, polarity);
+
+		if (add_attribute) {
+			Wire *clk_wire = bit.wire;
+			if (bit.offset != 0 || GetSize(bit.wire) != 1) {
+				clk_wire = module->addWire(NEW_ID);
+				module->connect(RTLIL::SigBit(clk_wire), bit);
+			}
+			clk_wire->attributes[ID::replaced_by_gclk] = polarity ? State::S1 : State::S0;
+			clk_wire->set_bool_attribute(ID::keep);
+		}
+
+		pending.emplace_back(bit, polarity);
+	}
+};
+
+const std::vector<ReplacedPort> &HierarchyWorker::find_replaced_clk_inputs(IdString cell_type)
+{
+	static const std::vector<ReplacedPort> empty;
+	if (!cell_type.isPublic())
+		return empty;
+
+	Module *module = design->module(cell_type);
+	if (module == nullptr)
+		return empty;
+
+	auto it = replaced_clk_inputs.find(module);
+	if (it != replaced_clk_inputs.end())
+		return it->second;
+
+	if (pending.count(module)) {
+		PropagateWorker worker(module, *this);
+		return replaced_clk_inputs.emplace(module, std::move(worker.replaced_clk_inputs)).first->second;
+	}
+
+	return empty;
+}
+
+
+void HierarchyWorker::propagate()
+{
+	while (!pending.empty())
+		PropagateWorker worker(pending.pop(), *this);
+}
+
 struct FormalFfPass : public Pass {
 	FormalFfPass() : Pass("formalff", "prepare FFs for formal") { }
 	void help() override
@@ -362,6 +528,15 @@ struct FormalFfPass : public Pass {
 		log("        them. For -ff2anyinit, this reduces the number of generated $anyinit\n");
 		log("        cells that drive wires with private names.\n");
 		log("\n");
+		log("    -hierarchy\n");
+		log("        Propagates the 'replaced_by_gclk' attribute set by clk2ff upwards\n");
+		log("        through the design hierarchy towards the toplevel inputs. This option\n");
+		log("        works on the whole design and ignores the selection.\n");
+		log("\n");
+		log("    -assume\n");
+		log("        Add assumptions that constrain wires with the 'replaced_by_gclk'\n");
+		log("        attribute to the value they would have before an active clock edge.\n");
+		log("\n");
 
 		// TODO: An option to check whether all FFs use the same clock before changing it to the global clock
 	}
@@ -372,6 +547,8 @@ struct FormalFfPass : public Pass {
 		bool flag_anyinit2ff = false;
 		bool flag_fine = false;
 		bool flag_setundef = false;
+		bool flag_hierarchy = false;
+		bool flag_assume = false;
 
 		log_header(design, "Executing FORMALFF pass.\n");
 
@@ -398,12 +575,20 @@ struct FormalFfPass : public Pass {
 				flag_setundef = true;
 				continue;
 			}
+			if (args[argidx] == "-hierarchy") {
+				flag_hierarchy = true;
+				continue;
+			}
+			if (args[argidx] == "-assume") {
+				flag_assume = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
-		if (!(flag_clk2ff || flag_ff2anyinit || flag_anyinit2ff))
-			log_cmd_error("One of the options -clk2ff, -ff2anyinit, or -anyinit2ff must be specified.\n");
+		if (!(flag_clk2ff || flag_ff2anyinit || flag_anyinit2ff || flag_hierarchy || flag_assume))
+			log_cmd_error("One of the options -clk2ff, -ff2anyinit, -anyinit2ff, -hierarchy or -assume must be specified.\n");
 
 		if (flag_ff2anyinit && flag_anyinit2ff)
 			log_cmd_error("The options -ff2anyinit and -anyinit2ff are exclusive.\n");
@@ -546,6 +731,33 @@ struct FormalFfPass : public Pass {
 
 				if (emit)
 					ff.emit();
+			}
+		}
+
+		if (flag_hierarchy) {
+			HierarchyWorker worker(design);
+			worker.propagate();
+		}
+
+		if (flag_assume) {
+			for (auto module : design->selected_modules()) {
+				std::vector<pair<SigBit, bool>> found;
+				for (auto wire : module->wires()) {
+					if (!wire->has_attribute(ID::replaced_by_gclk))
+						continue;
+					bool clk_pol = wire->attributes[ID::replaced_by_gclk].bits.at(0) == State::S1;
+
+					found.emplace_back(SigSpec(wire), clk_pol);
+				}
+				for (auto pair : found) {
+					SigBit clk = pair.first;
+
+					if (pair.second)
+						clk = module->Not(NEW_ID, clk);
+
+					module->addAssume(NEW_ID, clk, State::S1);
+
+				}
 			}
 		}
 	}

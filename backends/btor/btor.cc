@@ -95,7 +95,9 @@ struct BtorWorker
 
 	vector<ywmap_btor_sig> ywmap_inputs;
 	vector<ywmap_btor_sig> ywmap_states;
-	dict<SigBit, int> ywmap_clocks;
+	dict<SigBit, int> ywmap_clock_bits;
+	dict<SigBit, int> ywmap_clock_inputs;
+
 
 	PrettyJson ywmap_json;
 
@@ -693,7 +695,7 @@ struct BtorWorker
 					info_clocks[nid] |= negedge ? 2 : 1;
 
 				if (ywmap_json.active())
-					ywmap_clocks[sig_c] |= negedge ? 2 : 1;
+					ywmap_clock_bits[sig_c] |= negedge ? 2 : 1;
 			}
 
 			IdString symbol;
@@ -1175,6 +1177,20 @@ struct BtorWorker
 
 		btorf_push("inputs");
 
+		if (ywmap_json.active()) {
+			for (auto wire : module->wires())
+			{
+				auto gclk_attr = wire->attributes.find(ID::replaced_by_gclk);
+				if (gclk_attr == wire->attributes.end())
+					continue;
+				SigSpec sig = sigmap(wire);
+				if (gclk_attr->second == State::S1)
+					ywmap_clock_bits[sig] |= 1;
+				else if (gclk_attr->second == State::S0)
+					ywmap_clock_bits[sig] |= 2;
+			}
+		}
+
 		for (auto wire : module->wires())
 		{
 			if (wire->attributes.count(ID::init)) {
@@ -1206,12 +1222,12 @@ struct BtorWorker
 			}
 
 			if (ywmap_json.active()) {
-				auto gclk_attr = wire->attributes.find(ID::replaced_by_gclk);
-				if (gclk_attr != wire->attributes.end()) {
-					if (gclk_attr->second == State::S1)
-						ywmap_clocks[sig] |= 1;
-					else if (gclk_attr->second == State::S0)
-						ywmap_clocks[sig] |= 2;
+				for (int i = 0; i < GetSize(sig); i++) {
+					auto input_bit = SigBit(wire, i);
+					auto bit = sigmap(input_bit);
+					if (!ywmap_clock_bits.count(bit))
+						continue;
+					ywmap_clock_inputs[input_bit] = ywmap_clock_bits[bit];
 				}
 			}
 		}
@@ -1479,7 +1495,7 @@ struct BtorWorker
 
 			ywmap_json.name("clocks");
 			ywmap_json.begin_array();
-			for (auto &entry : ywmap_clocks) {
+			for (auto &entry : ywmap_clock_inputs) {
 				if (entry.second != 1 && entry.second != 2)
 					continue;
 				log_assert(entry.first.is_wire());

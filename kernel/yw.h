@@ -69,8 +69,8 @@ struct ReadWitness
 	struct Clock {
 		IdPath path;
 		int offset;
-		bool is_posedge;
-		bool is_negedge;
+		bool is_posedge = false;
+		bool is_negedge = false;
 	};
 
 	struct Signal {

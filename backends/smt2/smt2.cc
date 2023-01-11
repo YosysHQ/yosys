@@ -998,7 +998,7 @@ struct Smt2Worker
 				if (contains_clock && GetSize(wire) == 1 && (clock_posedge.count(sig) || clock_negedge.count(sig)))
 					comments.push_back(stringf("; yosys-smt2-clock %s%s%s\n", get_id(wire),
 							clock_posedge.count(sig) ? " posedge" : "", clock_negedge.count(sig) ? " negedge" : ""));
-				if (contains_clock) {
+				if (wire->port_input && contains_clock) {
 					for (int i = 0; i < GetSize(sig); i++) {
 						bool is_posedge = clock_posedge.count(sig[i]);
 						bool is_negedge = clock_negedge.count(sig[i]);
