@@ -86,7 +86,7 @@ struct ExecPass : public Pass {
 			bool polarity;	//true: this regex must match at least one line
 					//false: this regex must not match any line
 			std::string str;
-			YS_REGEX_TYPE re;
+			std::regex re;
 
 			expect_stdout_elem() : matched(false), polarity(true), str(), re(){};
 		};
@@ -121,7 +121,7 @@ struct ExecPass : public Pass {
 						x.str = args[argidx];
 						x.re = YS_REGEX_COMPILE(args[argidx]);
 						expect_stdout.push_back(x);
-					} catch (const YS_REGEX_NS::regex_error& e) {
+					} catch (const std::regex_error& e) {
 						log_cmd_error("Error in regex expression '%s' !\n", args[argidx].c_str());
 					}
 				} else if (args[argidx] == "-not-expect-stdout") {
@@ -136,7 +136,7 @@ struct ExecPass : public Pass {
 						x.re = YS_REGEX_COMPILE(args[argidx]);
 						x.polarity = false;
 						expect_stdout.push_back(x);
-					} catch (const YS_REGEX_NS::regex_error& e) {
+					} catch (const std::regex_error& e) {
 						log_cmd_error("Error in regex expression '%s' !\n", args[argidx].c_str());
 					}
 
@@ -171,7 +171,7 @@ struct ExecPass : public Pass {
 
 				if (flag_expect_stdout)
 					for(auto &x : expect_stdout)
-						if (YS_REGEX_NS::regex_search(line, x.re))
+						if (std::regex_search(line, x.re))
 							x.matched = true;
 
 				pos = linebuf.find('\n');
