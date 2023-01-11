@@ -4,6 +4,8 @@ List of major changes and improvements between releases
 
 Yosys 0.25 .. Yosys 0.25-dev
 --------------------------
+ * Various
+    - GCC 4.8 is deprecated, compiler with full C++11 support is required.
 
 Yosys 0.24 .. Yosys 0.25
 --------------------------
