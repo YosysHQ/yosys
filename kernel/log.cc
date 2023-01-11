@@ -42,7 +42,7 @@ std::vector<FILE*> log_files;
 std::vector<std::ostream*> log_streams;
 std::vector<std::string> log_scratchpads;
 std::map<std::string, std::set<std::string>> log_hdump;
-std::vector<YS_REGEX_TYPE> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
+std::vector<std::regex> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
 dict<std::string, LogExpectedItem> log_expect_log, log_expect_warning, log_expect_error;
 std::set<std::string> log_warnings, log_experimentals, log_experimentals_ignored;
 int log_warnings_count = 0;
@@ -181,11 +181,11 @@ void logv(const char *format, va_list ap)
 
 			if (!linebuffer.empty() && linebuffer.back() == '\n') {
 				for (auto &re : log_warn_regexes)
-					if (YS_REGEX_NS::regex_search(linebuffer, re))
+					if (std::regex_search(linebuffer, re))
 						log_warning("Found log message matching -W regex:\n%s", str.c_str());
 
 				for (auto &item : log_expect_log)
-					if (YS_REGEX_NS::regex_search(linebuffer, item.second.pattern))
+					if (std::regex_search(linebuffer, item.second.pattern))
 						item.second.current_count++;
 
 				linebuffer.clear();
@@ -242,7 +242,7 @@ static void logv_warning_with_prefix(const char *prefix,
 	bool suppressed = false;
 
 	for (auto &re : log_nowarn_regexes)
-		if (YS_REGEX_NS::regex_search(message, re))
+		if (std::regex_search(message, re))
 			suppressed = true;
 
 	if (suppressed)
@@ -255,12 +255,12 @@ static void logv_warning_with_prefix(const char *prefix,
 		log_make_debug = 0;
 
 		for (auto &re : log_werror_regexes)
-			if (YS_REGEX_NS::regex_search(message, re))
+			if (std::regex_search(message, re))
 				log_error("%s",  message.c_str());
 
 		bool warning_match = false;
 		for (auto &item : log_expect_warning)
-			if (YS_REGEX_NS::regex_search(message, item.second.pattern)) {
+			if (std::regex_search(message, item.second.pattern)) {
 				item.second.current_count++;
 				warning_match = true;
 			}
@@ -349,7 +349,7 @@ static void logv_error_with_prefix(const char *prefix,
 	log_make_debug = bak_log_make_debug;
 
 	for (auto &item : log_expect_error)
-		if (YS_REGEX_NS::regex_search(log_last_error, item.second.pattern))
+		if (std::regex_search(log_last_error, item.second.pattern))
 			item.second.current_count++;
 
 	log_check_expected();

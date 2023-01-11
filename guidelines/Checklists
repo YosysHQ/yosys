@@ -72,7 +72,7 @@ And if a version of the verific library is currently available:
 	../../yosys test_navre.ys
 
 
-Finally run all tests with "make config-{clang,gcc,gcc-4.8}":
+Finally run all tests with "make config-{clang,gcc}":
 
 	cd ~yosys
 	make clean
