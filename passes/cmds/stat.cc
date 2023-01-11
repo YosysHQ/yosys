@@ -452,7 +452,7 @@ struct StatPass : public Pass {
 
 		if (json_mode) {
 			log("\n");
-			log("   },\n");
+			log(top_mod == nullptr ? "   }\n" : "   },\n");
 		}
 
 		if (top_mod != nullptr)
@@ -466,7 +466,7 @@ struct StatPass : public Pass {
 
 			statdata_t data = hierarchy_worker(mod_stat, top_mod->name, 0, /*quiet=*/json_mode);
 
-			if (json_mode) 
+			if (json_mode)
 				data.log_data_json("design", true);
 			else if (GetSize(mod_stat) > 1) {
 				log("\n");

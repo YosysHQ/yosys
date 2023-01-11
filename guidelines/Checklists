@@ -11,7 +11,7 @@ Things to do right away:
 Things to do after finalizing the cell interface:
 
 	- Add support to kernel/satgen.h for the new cell type
-	- Add to manual/CHAPTER_CellLib.tex (or just add a fixme to the bottom)
+	- Add to docs/source/CHAPTER_CellLib.rst (or just add a fixme to the bottom)
 	- Maybe add support to the Verilog backend for dumping such cells as expression
 
 
@@ -29,11 +29,9 @@ Update the CHANGELOG file:
 Update and check documentation:
 
 	cd ~yosys
-	make update-manual
-	make manual
-	- sanity check the figures in the appnotes and presentation
+	make docs
+	- sanity check the figures in docs/images
 	    - if there are any odd things -> investigate
-	    - make cosmetic changes to the .tex files if necessary
 
 	cd ~yosys
 	vi README guidelines/*
@@ -108,13 +106,11 @@ Release:
 Updating the website:
 
 	cd ~yosys
-	make manual
 	make install
 
-	- update pdf files on the website
-
 	cd ~yosys-web
-	make update_cmd
 	make update_show
 	git commit -am update
 	make push
+
+	- Read the Docs updates handled by Jenkins on source change
