@@ -1613,6 +1613,23 @@ namespace {
 				return;
 			}
 
+			if (cell->type == ID($bweqx)) {
+				port(ID::A, param(ID::WIDTH));
+				port(ID::B, param(ID::WIDTH));
+				port(ID::Y, param(ID::WIDTH));
+				check_expected();
+				return;
+			}
+
+			if (cell->type == ID($bwmux)) {
+				port(ID::A, param(ID::WIDTH));
+				port(ID::B, param(ID::WIDTH));
+				port(ID::S, param(ID::WIDTH));
+				port(ID::Y, param(ID::WIDTH));
+				check_expected();
+				return;
+			}
+
 			if (cell->type.in(ID($assert), ID($assume), ID($live), ID($fair), ID($cover))) {
 				port(ID::A, 1);
 				port(ID::EN, 1);
@@ -2466,6 +2483,7 @@ DEF_METHOD(Sshr,     sig_a.size(), ID($sshr))
 		return sig_y;                                             \
 	}
 DEF_METHOD(Mux,      ID($mux),        0)
+DEF_METHOD(Bwmux,    ID($bwmux),      0)
 DEF_METHOD(Pmux,     ID($pmux),       1)
 #undef DEF_METHOD
 
@@ -2487,6 +2505,24 @@ DEF_METHOD(Pmux,     ID($pmux),       1)
 	}
 DEF_METHOD(Bmux,     ID($bmux),       0)
 DEF_METHOD(Demux,    ID($demux),      1)
+#undef DEF_METHOD
+
+#define DEF_METHOD(_func, _type) \
+	RTLIL::Cell* RTLIL::Module::add ## _func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_y, const std::string &src) { \
+		RTLIL::Cell *cell = addCell(name, _type);                 \
+		cell->parameters[ID::WIDTH] = sig_a.size();               \
+		cell->setPort(ID::A, sig_a);                              \
+		cell->setPort(ID::B, sig_b);                              \
+		cell->setPort(ID::Y, sig_y);                              \
+		cell->set_src_attribute(src);                             \
+		return cell;                                              \
+	} \
+	RTLIL::SigSpec RTLIL::Module::_func(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const std::string &src) { \
+		RTLIL::SigSpec sig_y = addWire(NEW_ID, sig_a.size());     \
+		add ## _func(name, sig_a, sig_s, sig_y, src);             \
+		return sig_y;                                             \
+	}
+DEF_METHOD(Bweqx,    ID($bweqx))
 #undef DEF_METHOD
 
 #define DEF_METHOD_2(_func, _type, _P1, _P2) \

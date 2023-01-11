@@ -58,28 +58,17 @@ void simplemap_bitop(RTLIL::Module *module, RTLIL::Cell *cell)
 	RTLIL::SigSpec sig_b = cell->getPort(ID::B);
 	RTLIL::SigSpec sig_y = cell->getPort(ID::Y);
 
-	sig_a.extend_u0(GetSize(sig_y), cell->parameters.at(ID::A_SIGNED).as_bool());
-	sig_b.extend_u0(GetSize(sig_y), cell->parameters.at(ID::B_SIGNED).as_bool());
-
-	if (cell->type == ID($xnor))
-	{
-		RTLIL::SigSpec sig_t = module->addWire(NEW_ID, GetSize(sig_y));
-
-		for (int i = 0; i < GetSize(sig_y); i++) {
-			RTLIL::Cell *gate = module->addCell(NEW_ID, ID($_NOT_));
-			gate->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
-			gate->setPort(ID::A, sig_t[i]);
-			gate->setPort(ID::Y, sig_y[i]);
-		}
-
-		sig_y = sig_t;
+	if (cell->type != ID($bweqx)) {
+		sig_a.extend_u0(GetSize(sig_y), cell->parameters.at(ID::A_SIGNED).as_bool());
+		sig_b.extend_u0(GetSize(sig_y), cell->parameters.at(ID::B_SIGNED).as_bool());
 	}
 
 	IdString gate_type;
-	if (cell->type == ID($and))  gate_type = ID($_AND_);
-	if (cell->type == ID($or))   gate_type = ID($_OR_);
-	if (cell->type == ID($xor))  gate_type = ID($_XOR_);
-	if (cell->type == ID($xnor)) gate_type = ID($_XOR_);
+	if (cell->type == ID($and))   gate_type = ID($_AND_);
+	if (cell->type == ID($or))    gate_type = ID($_OR_);
+	if (cell->type == ID($xor))   gate_type = ID($_XOR_);
+	if (cell->type == ID($xnor))  gate_type = ID($_XNOR_);
+	if (cell->type == ID($bweqx)) gate_type = ID($_XNOR_);
 	log_assert(!gate_type.empty());
 
 	for (int i = 0; i < GetSize(sig_y); i++) {
@@ -284,6 +273,23 @@ void simplemap_mux(RTLIL::Module *module, RTLIL::Cell *cell)
 	}
 }
 
+void simplemap_bwmux(RTLIL::Module *module, RTLIL::Cell *cell)
+{
+	RTLIL::SigSpec sig_a = cell->getPort(ID::A);
+	RTLIL::SigSpec sig_b = cell->getPort(ID::B);
+	RTLIL::SigSpec sig_s = cell->getPort(ID::S);
+	RTLIL::SigSpec sig_y = cell->getPort(ID::Y);
+
+	for (int i = 0; i < GetSize(sig_y); i++) {
+		RTLIL::Cell *gate = module->addCell(NEW_ID, ID($_MUX_));
+		gate->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
+		gate->setPort(ID::A, sig_a[i]);
+		gate->setPort(ID::B, sig_b[i]);
+		gate->setPort(ID::S, sig_s[i]);
+		gate->setPort(ID::Y, sig_y[i]);
+	}
+}
+
 void simplemap_tribuf(RTLIL::Module *module, RTLIL::Cell *cell)
 {
 	RTLIL::SigSpec sig_a = cell->getPort(ID::A);
@@ -409,6 +415,7 @@ void simplemap_get_mappers(dict<IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)>
 	mappers[ID($or)]          = simplemap_bitop;
 	mappers[ID($xor)]         = simplemap_bitop;
 	mappers[ID($xnor)]        = simplemap_bitop;
+	mappers[ID($bweqx)]       = simplemap_bitop;
 	mappers[ID($reduce_and)]  = simplemap_reduce;
 	mappers[ID($reduce_or)]   = simplemap_reduce;
 	mappers[ID($reduce_xor)]  = simplemap_reduce;
@@ -422,6 +429,7 @@ void simplemap_get_mappers(dict<IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)>
 	mappers[ID($ne)]          = simplemap_eqne;
 	mappers[ID($nex)]         = simplemap_eqne;
 	mappers[ID($mux)]         = simplemap_mux;
+	mappers[ID($bwmux)]       = simplemap_bwmux;
 	mappers[ID($tribuf)]      = simplemap_tribuf;
 	mappers[ID($bmux)]        = simplemap_bmux;
 	mappers[ID($lut)]         = simplemap_lut;

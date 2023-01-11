@@ -532,12 +532,14 @@ struct FormalFfPass : public Pass {
 						if ((int)bits.size() == ff.val_init.size()) {
 							// This check is only to make the private names more helpful for debugging
 							ff.is_anyinit = true;
+							ff.is_fine = false;
 							emit = true;
 							break;
 						}
 
 						auto slice = ff.slice(bits);
 						slice.is_anyinit = is_anyinit;
+						slice.is_fine = false;
 						slice.emit();
 					}
 				}

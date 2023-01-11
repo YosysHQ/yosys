@@ -1300,11 +1300,11 @@ wire [WIDTH-1:0] bm0_out, bm1_out;
 
 generate
 	if (S_WIDTH > 1) begin:muxlogic
-		\$bmux #(.WIDTH(WIDTH), .S_WIDTH(S_WIDTH-1)) bm0 (.A(A), .S(S[S_WIDTH-2:0]), .Y(bm0_out));
+		\$bmux #(.WIDTH(WIDTH), .S_WIDTH(S_WIDTH-1)) bm0 (.A(A[(WIDTH << (S_WIDTH - 1))-1:0]), .S(S[S_WIDTH-2:0]), .Y(bm0_out));
 		\$bmux #(.WIDTH(WIDTH), .S_WIDTH(S_WIDTH-1)) bm1 (.A(A[(WIDTH << S_WIDTH)-1:WIDTH << (S_WIDTH - 1)]), .S(S[S_WIDTH-2:0]), .Y(bm1_out));
 		assign Y = S[S_WIDTH-1] ? bm1_out : bm0_out;
 	end else if (S_WIDTH == 1) begin:simple
-		assign Y = S ? A[1] : A[0];
+		assign Y = S ? A[2*WIDTH-1:WIDTH] : A[WIDTH-1:0];
 	end else begin:passthru
 		assign Y = A;
 	end
@@ -1331,10 +1331,17 @@ always @* begin
 	Y = A;
 	found_active_sel_bit = 0;
 	for (i = 0; i < S_WIDTH; i = i+1)
-		if (S[i]) begin
-			Y = found_active_sel_bit ? 'bx : B >> (WIDTH*i);
-			found_active_sel_bit = 1;
-		end
+		case (S[i])
+			1'b1: begin
+				Y = found_active_sel_bit ? 'bx : B >> (WIDTH*i);
+				found_active_sel_bit = 1;
+			end
+			1'b0: ;
+			1'bx: begin
+				Y = 'bx;
+				found_active_sel_bit = 'bx;
+			end
+		endcase
 end
 
 endmodule
@@ -1370,7 +1377,7 @@ parameter LUT = 0;
 input [WIDTH-1:0] A;
 output Y;
 
-\$bmux #(.WIDTH(1), .S_WIDTH(WIDTH)) mux(.A(LUT), .S(A), .Y(Y));
+\$bmux #(.WIDTH(1), .S_WIDTH(WIDTH)) mux(.A(LUT[(1<<WIDTH)-1:0]), .S(A), .Y(Y));
 
 endmodule
 
@@ -1594,6 +1601,43 @@ endmodule
 
 // --------------------------------------------------------
 
+module \$bweqx (A, B, Y);
+
+parameter WIDTH = 0;
+
+input [WIDTH-1:0] A, B;
+output [WIDTH-1:0] Y;
+
+genvar i;
+generate
+	for (i = 0; i < WIDTH; i = i + 1) begin:slices
+		assign Y[i] = A[i] === B[i];
+	end
+endgenerate
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$bwmux (A, B, S, Y);
+
+parameter WIDTH = 0;
+
+input [WIDTH-1:0] A, B;
+input [WIDTH-1:0] S;
+output [WIDTH-1:0] Y;
+
+genvar i;
+generate
+	for (i = 0; i < WIDTH; i = i + 1) begin:slices
+		assign Y[i] = S[i] ? B[i] : A[i];
+	end
+endgenerate
+
+endmodule
+
+// --------------------------------------------------------
+
 module \$assert (A, EN);
 
 input A, EN;
@@ -1693,6 +1737,9 @@ endmodule
 
 // --------------------------------------------------------
 `ifdef SIMLIB_FF
+`ifndef SIMLIB_GLOBAL_CLOCK
+`define SIMLIB_GLOBAL_CLOCK $global_clk
+`endif
 module \$anyinit (D, Q);
 
 parameter WIDTH = 0;
@@ -1702,7 +1749,7 @@ output reg [WIDTH-1:0] Q;
 
 initial Q <= 'bx;
 
-always @($global_clk) begin
+always @(`SIMLIB_GLOBAL_CLOCK) begin
 	Q <= D;
 end
 
@@ -1783,6 +1830,9 @@ endmodule
 `endif
 // --------------------------------------------------------
 `ifdef SIMLIB_FF
+`ifndef SIMLIB_GLOBAL_CLOCK
+`define SIMLIB_GLOBAL_CLOCK $global_clk
+`endif
 
 module \$ff (D, Q);
 
@@ -1791,7 +1841,7 @@ parameter WIDTH = 0;
 input [WIDTH-1:0] D;
 output reg [WIDTH-1:0] Q;
 
-always @($global_clk) begin
+always @(`SIMLIB_GLOBAL_CLOCK) begin
 	Q <= D;
 end
 

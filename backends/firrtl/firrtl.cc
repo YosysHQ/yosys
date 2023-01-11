@@ -1215,6 +1215,7 @@ struct FirrtlBackend : public Backend {
 		Pass::call(design, "pmuxtree");
 		Pass::call(design, "bmuxmap");
 		Pass::call(design, "demuxmap");
+		Pass::call(design, "bwmuxmap");
 
 		namecache.clear();
 		autoid_counter = 0;
