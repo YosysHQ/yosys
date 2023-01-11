@@ -66,9 +66,9 @@ pool<std::string> validate_design_and_get_inputs(RTLIL::Module *module, bool ass
 }
 
 void specialize_from_file(RTLIL::Module *module, const std::string &file) {
-	YS_REGEX_TYPE hole_bit_assn_regex = YS_REGEX_COMPILE_WITH_SUBS("^(.+) ([0-9]+) ([^ ]+) \\[([0-9]+)] = ([01])$");
-	YS_REGEX_TYPE hole_assn_regex = YS_REGEX_COMPILE_WITH_SUBS("^(.+) ([0-9]+) ([^ ]+) = ([01])$"); //if no index specified
-	YS_REGEX_MATCH_TYPE bit_m, m;
+	std::regex hole_bit_assn_regex = YS_REGEX_COMPILE_WITH_SUBS("^(.+) ([0-9]+) ([^ ]+) \\[([0-9]+)] = ([01])$");
+	std::regex hole_assn_regex = YS_REGEX_COMPILE_WITH_SUBS("^(.+) ([0-9]+) ([^ ]+) = ([01])$"); //if no index specified
+	std::smatch bit_m, m;
 	dict<pool<std::string>, RTLIL::Cell*> anyconst_loc_to_cell;
 	dict<RTLIL::SigBit, RTLIL::State> hole_assignments;
 
@@ -83,9 +83,9 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 	std::string buf;
 	while (std::getline(fin, buf)) {
 		bool bit_assn = true;
-		if (!YS_REGEX_NS::regex_search(buf, bit_m, hole_bit_assn_regex)) {
+		if (!std::regex_search(buf, bit_m, hole_bit_assn_regex)) {
 			bit_assn = false;
-			if (!YS_REGEX_NS::regex_search(buf, m, hole_assn_regex))
+			if (!std::regex_search(buf, m, hole_assn_regex))
 				log_cmd_error("solution file is not formatted correctly: \"%s\"\n", buf.c_str());
 		}
 

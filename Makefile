@@ -1,7 +1,6 @@
 
 CONFIG := clang
 # CONFIG := gcc
-# CONFIG := gcc-4.8
 # CONFIG := afl-gcc
 # CONFIG := emcc
 # CONFIG := wasi
@@ -256,12 +255,6 @@ ifeq ($(DISABLE_ABC_THREADS),1)
 ABCMKARGS += "ABC_USE_NO_PTHREADS=1"
 endif
 
-else ifeq ($(CONFIG),gcc-4.8)
-CXX = gcc-4.8
-LD = gcc-4.8
-CXXFLAGS += -std=$(CXXSTD) -Os
-ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
-
 else ifeq ($(CONFIG),afl-gcc)
 CXX = AFL_QUIET=1 AFL_HARDEN=1 afl-gcc
 LD = AFL_QUIET=1 AFL_HARDEN=1 afl-gcc
@@ -379,7 +372,7 @@ ABCMKARGS += LIBS="-lpthread -s" ABC_USE_NO_READLINE=0 CC="x86_64-w64-mingw32-gc
 EXE = .exe
 
 else ifneq ($(CONFIG),none)
-$(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, gcc-4.8, emcc, mxe, msys2-32, msys2-64)
+$(error Invalid CONFIG setting '$(CONFIG)'. Valid values: clang, gcc, emcc, mxe, msys2-32, msys2-64)
 endif
 
 ifeq ($(ENABLE_LIBYOSYS),1)
@@ -1054,9 +1047,6 @@ config-gcc-static: clean
 	echo 'ENABLE_READLINE := 0' >> Makefile.conf
 	echo 'ENABLE_TCL := 0' >> Makefile.conf
 
-config-gcc-4.8: clean
-	echo 'CONFIG := gcc-4.8' > Makefile.conf
-
 config-afl-gcc: clean
 	echo 'CONFIG := afl-gcc' > Makefile.conf
 
@@ -1120,4 +1110,4 @@ echo-abc-rev:
 -include techlibs/*/*.d
 
 .PHONY: all top-all abc test install install-abc docs clean mrproper qtcreator coverage vcxsrc mxebin
-.PHONY: config-clean config-clang config-gcc config-gcc-static config-gcc-4.8 config-afl-gcc config-gprof config-sudo
+.PHONY: config-clean config-clang config-gcc config-gcc-static config-afl-gcc config-gprof config-sudo

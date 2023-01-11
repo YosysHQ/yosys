@@ -24,51 +24,14 @@
 
 #include <time.h>
 
-// In the libstdc++ headers that are provided by GCC 4.8, std::regex is not
-// working correctly. In order to make features using regular expressions
-// work, a replacement regex library is used. Just checking for GCC version
-// is not enough though, because at least on RHEL7/CentOS7 even when compiling
-// with Clang instead of GCC, the GCC 4.8 headers are still used for std::regex.
-// We have to check the version of the libstdc++ headers specifically, not the
-// compiler version. GCC headers of libstdc++ before version 3.4 define
-// __GLIBCPP__, later versions define __GLIBCXX__. GCC 7 and newer additionaly
-// define _GLIBCXX_RELEASE with a version number.
-// Include limits std C++ header, so we get the version macros defined:
-#if defined(__cplusplus)
-#  include <limits>
-#endif
-// Check if libstdc++ is from GCC
-#if defined(__GLIBCPP__) || defined(__GLIBCXX__)
-// Check if version could be 4.8 or lower (this also matches for some 4.9 and
-// 5.0 releases). See:
-// https://gcc.gnu.org/onlinedocs/libstdc++/manual/abi.html#abi.versioning
-#  if !defined(_GLIBCXX_RELEASE) && (defined(__GLIBCPP__) || __GLIBCXX__ <= 20150623)
-#    define YS_HAS_BAD_STD_REGEX
-#  endif
-#endif
-#if defined(YS_HAS_BAD_STD_REGEX)
-	#include <boost/xpressive/xpressive.hpp>
-	#define YS_REGEX_TYPE boost::xpressive::sregex
-	#define YS_REGEX_MATCH_TYPE boost::xpressive::smatch
-	#define YS_REGEX_NS boost::xpressive
-	#define YS_REGEX_COMPILE(param) boost::xpressive::sregex::compile(param, \
-					boost::xpressive::regex_constants::nosubs | \
-					boost::xpressive::regex_constants::optimize)
-	#define YS_REGEX_COMPILE_WITH_SUBS(param) boost::xpressive::sregex::compile(param, \
-					boost::xpressive::regex_constants::optimize)
-# else
-	#include <regex>
-	#define YS_REGEX_TYPE std::regex
-	#define YS_REGEX_MATCH_TYPE std::smatch
-	#define YS_REGEX_NS std
-	#define YS_REGEX_COMPILE(param) std::regex(param, \
-					std::regex_constants::nosubs | \
-					std::regex_constants::optimize | \
-					std::regex_constants::egrep)
-	#define YS_REGEX_COMPILE_WITH_SUBS(param) std::regex(param, \
-					std::regex_constants::optimize | \
-					std::regex_constants::egrep)
-#endif
+#include <regex>
+#define YS_REGEX_COMPILE(param) std::regex(param, \
+				std::regex_constants::nosubs | \
+				std::regex_constants::optimize | \
+				std::regex_constants::egrep)
+#define YS_REGEX_COMPILE_WITH_SUBS(param) std::regex(param, \
+				std::regex_constants::optimize | \
+				std::regex_constants::egrep)
 
 #if defined(_WIN32)
 #  include <intrin.h>
@@ -135,7 +98,7 @@ extern std::vector<FILE*> log_files;
 extern std::vector<std::ostream*> log_streams;
 extern std::vector<std::string> log_scratchpads;
 extern std::map<std::string, std::set<std::string>> log_hdump;
-extern std::vector<YS_REGEX_TYPE> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
+extern std::vector<std::regex> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
 extern std::set<std::string> log_warnings, log_experimentals, log_experimentals_ignored;
 extern int log_warnings_count;
 extern int log_warnings_count_noexpect;
@@ -224,11 +187,11 @@ void log_flush();
 
 struct LogExpectedItem
 {
-	LogExpectedItem(const YS_REGEX_TYPE &pat, int expected) :
+	LogExpectedItem(const std::regex &pat, int expected) :
 			pattern(pat), expected_count(expected), current_count(0) {}
 	LogExpectedItem() : expected_count(0), current_count(0) {}
 
-	YS_REGEX_TYPE pattern;
+	std::regex pattern;
 	int expected_count;
 	int current_count;
 };
