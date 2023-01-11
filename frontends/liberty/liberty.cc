@@ -500,8 +500,6 @@ struct LibertyFrontend : public Frontend {
 		bool flag_ignore_miss_data_latch = false;
 		std::vector<std::string> attributes;
 
-		log_header(design, "Executing Liberty frontend.\n");
-
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];
@@ -545,6 +543,8 @@ struct LibertyFrontend : public Frontend {
 
 		if (flag_wb && flag_lib)
 			log_error("-wb and -lib cannot be specified together!\n");
+
+		log_header(design, "Executing Liberty frontend: %s\n", filename.c_str());
 
 		LibertyParser parser(*f);
 		int cell_count = 0;
