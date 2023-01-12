@@ -261,18 +261,20 @@ struct ShowWorker
 			for (int rep, i = int(sig.chunks().size())-1; i >= 0; i -= rep) {
 				const RTLIL::SigChunk &c = sig.chunks().at(i);
 				int cl, cr;
-				if (c.wire) {
+
+				cl = c.offset + c.width - 1;
+				cr = c.offset;
+
+				if (c.is_wire()) {
 					if (c.wire->upto) {
-						cr = c.wire->start_offset + (c.wire->width - c.offset - 1);
+						cr = (c.wire->width - 1) - c.offset;
 						cl = cr - (c.width - 1);
-					} else {
-						cr = c.wire->start_offset + c.offset;
-						cl = cr + c.width - 1;
 					}
-				} else {
-					cl = c.offset + c.width - 1;
-					cr = c.offset;
+
+					cl += c.wire->start_offset;
+					cr += c.wire->start_offset;
 				}
+
 				if (!driver && c.wire == nullptr) {
 					RTLIL::State s1 = c.data.front();
 					for (auto s2 : c.data)
