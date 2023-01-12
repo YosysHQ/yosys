@@ -239,9 +239,9 @@ struct ShowWorker
 		std::string net = gen_signode_simple(sig);
 		if (net.empty())
 		{
+			int dot_idx = single_idx_count++;
 			std::string label_string;
 			int pos = sig.size()-1;
-			int idx = single_idx_count++;
 			for (int rep, i = int(sig.chunks().size())-1; i >= 0; i -= rep) {
 				const RTLIL::SigChunk &c = sig.chunks().at(i);
 				int cl, cr;
@@ -273,7 +273,7 @@ struct ShowWorker
 				if (driver) {
 					log_assert(!net.empty());
 					label_string += stringf("<s%d> %d:%d - %s%d:%d |", i, pos, pos-rep*c.width+1, repinfo.c_str(), cl, cr);
-					net_conn_map[net].in.insert({stringf("x%d:s%d", idx, i), rep*c.width});
+					net_conn_map[net].in.insert({stringf("x%d:s%d", dot_idx, i), rep*c.width});
 					net_conn_map[net].color = nextColor(c, net_conn_map[net].color);
 				} else
 				if (net.empty()) {
@@ -286,24 +286,24 @@ struct ShowWorker
 							pos, pos-rep*c.width+1);
 				} else {
 					label_string += stringf("<s%d> %s%d:%d - %d:%d |", i, repinfo.c_str(), cl, cr, pos, pos-rep*c.width+1);
-					net_conn_map[net].out.insert({stringf("x%d:s%d", idx, i), rep*c.width});
+					net_conn_map[net].out.insert({stringf("x%d:s%d", dot_idx, i), rep*c.width});
 					net_conn_map[net].color = nextColor(c, net_conn_map[net].color);
 				}
 				pos -= rep * c.width;
 			}
 			if (label_string[label_string.size()-1] == '|')
 				label_string = label_string.substr(0, label_string.size()-1);
-			code += stringf("x%d [ shape=record, style=rounded, label=\"%s\" ];\n", idx, label_string.c_str());
+			code += stringf("x%d [ shape=record, style=rounded, label=\"%s\" ];\n", dot_idx, label_string.c_str());
 			if (!port.empty()) {
 				currentColor = xorshift32(currentColor);
 				log_warning("WIDTHLABEL %s %d\n", log_signal(sig), GetSize(sig));
 				if (driver)
-					code += stringf("%s:e -> x%d:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", port.c_str(), idx, nextColor(sig).c_str(), widthLabel(sig.size()).c_str());
+					code += stringf("%s:e -> x%d:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", port.c_str(), dot_idx, nextColor(sig).c_str(), widthLabel(sig.size()).c_str());
 				else
-					code += stringf("x%d:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", idx, port.c_str(), nextColor(sig).c_str(), widthLabel(sig.size()).c_str());
+					code += stringf("x%d:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", dot_idx, port.c_str(), nextColor(sig).c_str(), widthLabel(sig.size()).c_str());
 			}
 			if (node != nullptr)
-				*node = stringf("x%d", idx);
+				*node = stringf("x%d", dot_idx);
 		}
 		else
 		{
