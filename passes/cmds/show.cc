@@ -272,7 +272,7 @@ struct ShowWorker
 				std::string repinfo = rep > 1 ? stringf("%dx ", rep) : "";
 				if (driver) {
 					log_assert(!net.empty());
-					label_string += stringf("<s%d> %d:%d - %s%d:%d |", i, pos, pos-c.width+1, repinfo.c_str(), cl, cr);
+					label_string += stringf("<s%d> %d:%d - %s%d:%d |", i, pos, pos-rep*c.width+1, repinfo.c_str(), cl, cr);
 					net_conn_map[net].in.insert({stringf("x%d:s%d", idx, i), rep*c.width});
 					net_conn_map[net].color = nextColor(c, net_conn_map[net].color);
 				} else
