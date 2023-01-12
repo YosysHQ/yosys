@@ -431,10 +431,13 @@ struct ShowWorker
 
 			std::string label_string = "{{";
 
-			for (auto &p : in_ports)
+			for (auto &p : in_ports) {
+				bool signed_suffix = genSignedLabels && cell->hasParam(p.str() + "_SIGNED")
+									 && cell->getParam(p.str() + "_SIGNED").as_bool();
+
 				label_string += stringf("<p%d> %s%s|", id2num(p), escape(p.str()),
-						genSignedLabels && cell->hasParam(p.str() + "_SIGNED") &&
-						cell->getParam(p.str() + "_SIGNED").as_bool() ? "*" : "");
+										signed_suffix ? "*" : "");
+			}
 			if (label_string[label_string.size()-1] == '|')
 				label_string = label_string.substr(0, label_string.size()-1);
 
