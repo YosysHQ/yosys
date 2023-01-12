@@ -233,6 +233,22 @@ struct ShowWorker
 		return std::string();
 	}
 
+	// Return the pieces of a label joined by a '|' separator
+	std::string join_label_pieces(std::vector<std::string> pieces)
+	{
+		std::string ret = "";
+		bool first_piece = true;
+
+		for (auto &piece : pieces) {
+			if (!first_piece)
+				ret += "|";
+			ret += piece;
+			first_piece = false;
+		}
+
+		return ret;
+	}
+
 	std::string gen_portbox(std::string port, RTLIL::SigSpec sig, bool driver, std::string *node = nullptr)
 	{
 		std::string code;
@@ -240,7 +256,7 @@ struct ShowWorker
 		if (net.empty())
 		{
 			int dot_idx = single_idx_count++;
-			std::string label_string;
+			std::vector<std::string> label_pieces;
 			int pos = sig.size()-1;
 			for (int rep, i = int(sig.chunks().size())-1; i >= 0; i -= rep) {
 				const RTLIL::SigChunk &c = sig.chunks().at(i);
@@ -272,28 +288,29 @@ struct ShowWorker
 				std::string repinfo = rep > 1 ? stringf("%dx ", rep) : "";
 				if (driver) {
 					log_assert(!net.empty());
-					label_string += stringf("<s%d> %d:%d - %s%d:%d |", i, pos, pos-rep*c.width+1, repinfo.c_str(), cl, cr);
+					label_pieces.push_back(stringf("<s%d> %d:%d - %s%d:%d ", i, pos, pos-rep*c.width+1, repinfo.c_str(), cl, cr));
 					net_conn_map[net].in.insert({stringf("x%d:s%d", dot_idx, i), rep*c.width});
 					net_conn_map[net].color = nextColor(c, net_conn_map[net].color);
 				} else
 				if (net.empty()) {
 					log_assert(rep == 1);
-					label_string += stringf("%c -&gt; %d:%d |",
+					label_pieces.push_back(stringf("%c -&gt; %d:%d ",
 							c.data.front() == State::S0 ? '0' :
 							c.data.front() == State::S1 ? '1' :
 							c.data.front() == State::Sx ? 'X' :
 							c.data.front() == State::Sz ? 'Z' : '?',
-							pos, pos-rep*c.width+1);
+							pos, pos-rep*c.width+1));
 				} else {
-					label_string += stringf("<s%d> %s%d:%d - %d:%d |", i, repinfo.c_str(), cl, cr, pos, pos-rep*c.width+1);
+					label_pieces.push_back(stringf("<s%d> %s%d:%d - %d:%d ", i, repinfo.c_str(), cl, cr, pos, pos-rep*c.width+1));
 					net_conn_map[net].out.insert({stringf("x%d:s%d", dot_idx, i), rep*c.width});
 					net_conn_map[net].color = nextColor(c, net_conn_map[net].color);
 				}
 				pos -= rep * c.width;
 			}
-			if (label_string[label_string.size()-1] == '|')
-				label_string = label_string.substr(0, label_string.size()-1);
-			code += stringf("x%d [ shape=record, style=rounded, label=\"%s\" ];\n", dot_idx, label_string.c_str());
+
+			code += stringf("x%d [ shape=record, style=rounded, label=\"", dot_idx) \
+					+ join_label_pieces(label_pieces) + "\" ];\n";
+
 			if (!port.empty()) {
 				currentColor = xorshift32(currentColor);
 				if (driver)
@@ -417,6 +434,7 @@ struct ShowWorker
 		for (auto cell : module->selected_cells())
 		{
 			std::vector<RTLIL::IdString> in_ports, out_ports;
+			std::vector<std::string> in_label_pieces, out_label_pieces;
 
 			for (auto &conn : cell->connections()) {
 				if (!ct.cell_output(cell->type, conn.first))
@@ -428,26 +446,23 @@ struct ShowWorker
 			std::sort(in_ports.begin(), in_ports.end(), RTLIL::sort_by_id_str());
 			std::sort(out_ports.begin(), out_ports.end(), RTLIL::sort_by_id_str());
 
-			std::string label_string = "{{";
-
 			for (auto &p : in_ports) {
 				bool signed_suffix = genSignedLabels && cell->hasParam(p.str() + "_SIGNED")
 									 && cell->getParam(p.str() + "_SIGNED").as_bool();
 
-				label_string += stringf("<p%d> %s%s|", id2num(p), escape(p.str()),
-										signed_suffix ? "*" : "");
+				in_label_pieces.push_back(stringf("<p%d> %s%s", id2num(p), escape(p.str()),
+										  signed_suffix ? "*" : ""));
 			}
-			if (label_string[label_string.size()-1] == '|')
-				label_string = label_string.substr(0, label_string.size()-1);
-
-			label_string += stringf("}|%s\\n%s|{", findLabel(cell->name.str()), escape(cell->type.str()));
 
 			for (auto &p : out_ports)
-				label_string += stringf("<p%d> %s|", id2num(p), escape(p.str()));
-			if (label_string[label_string.size()-1] == '|')
-				label_string = label_string.substr(0, label_string.size()-1);
+				out_label_pieces.push_back(stringf("<p%d> %s", id2num(p), escape(p.str())));
 
-			label_string += "}}";
+			std::string in_label = join_label_pieces(in_label_pieces);
+			std::string out_label = join_label_pieces(out_label_pieces);
+
+			std::string label_string = stringf("{{%s}|%s\\n%s|{%s}}", in_label.c_str(),
+											   findLabel(cell->name.str()), escape(cell->type.str()),
+											   out_label.c_str());
 
 			std::string code;
 			for (auto &conn : cell->connections()) {
