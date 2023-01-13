@@ -275,17 +275,15 @@ struct ShowWorker
 					cr += c.wire->start_offset;
 				}
 
-				if (!driver && c.wire == nullptr) {
-					RTLIL::State s1 = c.data.front();
-					for (auto s2 : c.data)
-						if (s1 != s2)
-							goto not_const_stream;
-					net.clear();
-				} else {
-			not_const_stream:
+				// Is this chunk a constant filled with one kind of bit state?
+				bool no_signode = !driver && !c.is_wire() \
+								  && std::equal(c.data.begin() + 1, c.data.end(), c.data.begin());
+
+				if (!no_signode) {
 					net = gen_signode_simple(c, false);
 					log_assert(!net.empty());
 				}
+
 				for (rep = 1; i-rep >= 0 && c == sig.chunks().at(i-rep); rep++) {}
 				std::string repinfo = rep > 1 ? stringf("%dx ", rep) : "";
 				if (driver) {
@@ -293,19 +291,20 @@ struct ShowWorker
 					label_pieces.push_back(stringf("<s%d> %d:%d - %s%d:%d ", i, pos, pos-rep*c.width+1, repinfo.c_str(), cl, cr));
 					net_conn_map[net].in.insert({stringf("x%d:s%d", dot_idx, i), rep*c.width});
 					net_conn_map[net].color = nextColor(c, net_conn_map[net].color);
-				} else
-				if (net.empty()) {
-					log_assert(rep == 1);
-					label_pieces.push_back(stringf("%c -&gt; %d:%d ",
-							c.data.front() == State::S0 ? '0' :
-							c.data.front() == State::S1 ? '1' :
-							c.data.front() == State::Sx ? 'X' :
-							c.data.front() == State::Sz ? 'Z' : '?',
-							pos, pos-rep*c.width+1));
 				} else {
-					label_pieces.push_back(stringf("<s%d> %s%d:%d - %d:%d ", i, repinfo.c_str(), cl, cr, pos, pos-rep*c.width+1));
-					net_conn_map[net].out.insert({stringf("x%d:s%d", dot_idx, i), rep*c.width});
-					net_conn_map[net].color = nextColor(c, net_conn_map[net].color);
+					if (no_signode) {
+						log_assert(rep == 1);
+						label_pieces.push_back(stringf("%c -&gt; %d:%d ",
+								c.data.front() == State::S0 ? '0' :
+								c.data.front() == State::S1 ? '1' :
+								c.data.front() == State::Sx ? 'X' :
+								c.data.front() == State::Sz ? 'Z' : '?',
+								pos, pos-rep*c.width+1));
+					} else {
+						label_pieces.push_back(stringf("<s%d> %s%d:%d - %d:%d ", i, repinfo.c_str(), cl, cr, pos, pos-rep*c.width+1));
+						net_conn_map[net].out.insert({stringf("x%d:s%d", dot_idx, i), rep*c.width});
+						net_conn_map[net].color = nextColor(c, net_conn_map[net].color);
+					}
 				}
 				pos -= rep * c.width;
 			}
