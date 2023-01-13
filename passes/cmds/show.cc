@@ -257,7 +257,7 @@ struct ShowWorker
 		{
 			int dot_idx = single_idx_count++;
 			std::vector<std::string> label_pieces;
-			int pos = sig.size()-1;
+			int bitpos = sig.size()-1;
 
 			for (int rep, chunk_idx = ((int) sig.chunks().size()) - 1; chunk_idx >= 0; chunk_idx -= rep) {
 				const RTLIL::SigChunk &c = sig.chunks().at(chunk_idx);
@@ -289,7 +289,7 @@ struct ShowWorker
 				}
 
 				std::string repinfo = rep > 1 ? stringf("%dx ", rep) : "";
-				std::string portside = stringf("%d:%d", pos, pos - rep*c.width + 1);
+				std::string portside = stringf("%d:%d", bitpos, bitpos - rep*c.width + 1);
 				std::string remoteside = stringf("%s%d:%d", repinfo.c_str(), cl, cr);
 
 				if (driver) {
@@ -305,14 +305,15 @@ struct ShowWorker
 								c.data.front() == State::S1 ? '1' :
 								c.data.front() == State::Sx ? 'X' :
 								c.data.front() == State::Sz ? 'Z' : '?',
-								pos, pos-rep*c.width+1));
+								bitpos, bitpos-rep*c.width+1));
 					} else {
 						label_pieces.push_back(stringf("<s%d> %s - %s ", chunk_idx, remoteside.c_str(), portside.c_str()));
 						net_conn_map[net].out.insert({stringf("x%d:s%d", dot_idx, chunk_idx), rep*c.width});
 						net_conn_map[net].color = nextColor(c, net_conn_map[net].color);
 					}
 				}
-				pos -= rep * c.width;
+
+				bitpos -= rep * c.width;
 			}
 
 			code += stringf("x%d [ shape=record, style=rounded, label=\"", dot_idx) \
