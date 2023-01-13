@@ -289,9 +289,12 @@ struct ShowWorker
 				}
 
 				std::string repinfo = rep > 1 ? stringf("%dx ", rep) : "";
+				std::string portside = stringf("%d:%d", pos, pos - rep*c.width + 1);
+				std::string remoteside = stringf("%s%d:%d", repinfo.c_str(), cl, cr);
+
 				if (driver) {
 					log_assert(!net.empty());
-					label_pieces.push_back(stringf("<s%d> %d:%d - %s%d:%d ", chunk_idx, pos, pos-rep*c.width+1, repinfo.c_str(), cl, cr));
+					label_pieces.push_back(stringf("<s%d> %s - %s ", chunk_idx, portside.c_str(), remoteside.c_str()));
 					net_conn_map[net].in.insert({stringf("x%d:s%d", dot_idx, chunk_idx), rep*c.width});
 					net_conn_map[net].color = nextColor(c, net_conn_map[net].color);
 				} else {
@@ -304,7 +307,7 @@ struct ShowWorker
 								c.data.front() == State::Sz ? 'Z' : '?',
 								pos, pos-rep*c.width+1));
 					} else {
-						label_pieces.push_back(stringf("<s%d> %s%d:%d - %d:%d ", chunk_idx, repinfo.c_str(), cl, cr, pos, pos-rep*c.width+1));
+						label_pieces.push_back(stringf("<s%d> %s - %s ", chunk_idx, remoteside.c_str(), portside.c_str()));
 						net_conn_map[net].out.insert({stringf("x%d:s%d", dot_idx, chunk_idx), rep*c.width});
 						net_conn_map[net].color = nextColor(c, net_conn_map[net].color);
 					}
