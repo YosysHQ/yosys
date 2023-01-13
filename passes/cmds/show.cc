@@ -258,10 +258,14 @@ struct ShowWorker
 			int dot_idx = single_idx_count++;
 			std::vector<std::string> label_pieces;
 			int pos = sig.size()-1;
-			for (int rep, i = int(sig.chunks().size())-1; i >= 0; i -= rep) {
-				const RTLIL::SigChunk &c = sig.chunks().at(i);
-				int cl, cr;
 
+			for (int rep, chunk_idx = ((int) sig.chunks().size()) - 1; chunk_idx >= 0; chunk_idx -= rep) {
+				const RTLIL::SigChunk &c = sig.chunks().at(chunk_idx);
+
+				// Find the number of times this chunk is repeating
+				for (rep = 1; chunk_idx - rep >= 0 && c == sig.chunks().at(chunk_idx - rep); rep++);
+
+				int cl, cr;
 				cl = c.offset + c.width - 1;
 				cr = c.offset;
 
@@ -284,12 +288,11 @@ struct ShowWorker
 					log_assert(!net.empty());
 				}
 
-				for (rep = 1; i-rep >= 0 && c == sig.chunks().at(i-rep); rep++) {}
 				std::string repinfo = rep > 1 ? stringf("%dx ", rep) : "";
 				if (driver) {
 					log_assert(!net.empty());
-					label_pieces.push_back(stringf("<s%d> %d:%d - %s%d:%d ", i, pos, pos-rep*c.width+1, repinfo.c_str(), cl, cr));
-					net_conn_map[net].in.insert({stringf("x%d:s%d", dot_idx, i), rep*c.width});
+					label_pieces.push_back(stringf("<s%d> %d:%d - %s%d:%d ", chunk_idx, pos, pos-rep*c.width+1, repinfo.c_str(), cl, cr));
+					net_conn_map[net].in.insert({stringf("x%d:s%d", dot_idx, chunk_idx), rep*c.width});
 					net_conn_map[net].color = nextColor(c, net_conn_map[net].color);
 				} else {
 					if (no_signode) {
@@ -301,8 +304,8 @@ struct ShowWorker
 								c.data.front() == State::Sz ? 'Z' : '?',
 								pos, pos-rep*c.width+1));
 					} else {
-						label_pieces.push_back(stringf("<s%d> %s%d:%d - %d:%d ", i, repinfo.c_str(), cl, cr, pos, pos-rep*c.width+1));
-						net_conn_map[net].out.insert({stringf("x%d:s%d", dot_idx, i), rep*c.width});
+						label_pieces.push_back(stringf("<s%d> %s%d:%d - %d:%d ", chunk_idx, repinfo.c_str(), cl, cr, pos, pos-rep*c.width+1));
+						net_conn_map[net].out.insert({stringf("x%d:s%d", dot_idx, chunk_idx), rep*c.width});
 						net_conn_map[net].color = nextColor(c, net_conn_map[net].color);
 					}
 				}
