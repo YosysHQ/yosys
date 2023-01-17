@@ -1238,6 +1238,9 @@ struct FirrtlBackend : public Backend {
 		if (top == nullptr)
 			top = last;
 
+		if (!top)
+			log_cmd_error("There is no top module in this design!\n");
+
 		std::string circuitFileinfo = getFileinfo(top);
 		*f << stringf("circuit %s: %s\n", make_id(top->name), circuitFileinfo.c_str());
 

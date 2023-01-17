@@ -393,6 +393,7 @@ struct BugpointPass : public Pass {
 				}
 			}
 		}
+		delete design_copy;
 		return nullptr;
 	}
 

@@ -2317,8 +2317,8 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 						const char *lib_name = (prefix) ? prefix->GetName() : 0 ;
 						if (!Strings::compare("work", lib_name)) lib = veri_file::GetLibrary(lib_name, 1) ;
 					}
-					veri_module = (lib && module_name) ? lib->GetModule(module_name->GetName(), 1) : 0;
-					top = veri_module->GetName();
+					if (lib && module_name)
+						top = lib->GetModule(module_name->GetName(), 1)->GetName();
 				}
 			}
 
@@ -2344,6 +2344,7 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 	int i;
 
 	FOREACH_ARRAY_ITEM(netlists, i, nl) {
+		if (!nl) continue;
 		if (!top.empty() && nl->CellBaseName() != top)
 			continue;
 		nl->AddAtt(new Att(" \\top", NULL));
@@ -3297,8 +3298,8 @@ struct VerificPass : public Pass {
 									const char *lib_name = (prefix) ? prefix->GetName() : 0 ;
 									if (!Strings::compare("work", lib_name)) lib = veri_file::GetLibrary(lib_name, 1) ;
 								}
-								veri_module = (lib && module_name) ? lib->GetModule(module_name->GetName(), 1) : 0;
-								top_mod_names.insert(veri_module->GetName());
+								if (lib && module_name)
+									top_mod_names.insert(lib->GetModule(module_name->GetName(), 1)->GetName());
 							}
 						} else {
 							log("Adding Verilog module '%s' to elaboration queue.\n", name);
@@ -3333,6 +3334,7 @@ struct VerificPass : public Pass {
 				int i;
 
 				FOREACH_ARRAY_ITEM(netlists, i, nl) {
+					if (!nl) continue;
 					if (!top_mod_names.count(nl->CellBaseName()))
 						continue;
 					nl->AddAtt(new Att(" \\top", NULL));

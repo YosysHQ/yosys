@@ -4705,8 +4705,7 @@ void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg
 			children_flags |= AstNode::MEM2REG_FL_ASYNC;
 		proc_flags_p = new dict<AstNode*, uint32_t>;
 	}
-
-	if (type == AST_INITIAL) {
+	else if (type == AST_INITIAL) {
 		children_flags |= AstNode::MEM2REG_FL_INIT;
 		proc_flags_p = new dict<AstNode*, uint32_t>;
 	}

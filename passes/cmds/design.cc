@@ -118,6 +118,9 @@ struct DesignPass : public Pass {
 		std::string save_name, load_name, as_name, delete_name;
 		std::vector<RTLIL::Module*> copy_src_modules;
 
+		if (!design)
+			log_cmd_error("No default design.\n");
+
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
@@ -280,7 +283,7 @@ struct DesignPass : public Pass {
 				done[mod->name] = prefix;
 			}
 
-			while (!queue.empty())
+			while (!queue.empty() && copy_from_design)
 			{
 				pool<Module*> old_queue;
 				old_queue.swap(queue);

@@ -469,8 +469,8 @@ std::string make_temp_dir(std::string template_str)
 #  endif
 
 	char *p = strdup(template_str.c_str());
-	p = mkdtemp(p);
-	log_assert(p != NULL);
+	char *res = mkdtemp(p);
+	log_assert(res != NULL);
 	template_str = p;
 	free(p);
 
