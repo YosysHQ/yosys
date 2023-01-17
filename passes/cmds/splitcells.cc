@@ -68,70 +68,132 @@ struct SplitcellsWorker
 
 	int split(Cell *cell, const std::string &format)
 	{
-		if (!cell->type.in("$and", "$mux", "$not", "$or", "$pmux", "$xnor", "$xor")) return 0;
-
-		SigSpec outsig = sigmap(cell->getPort(ID::Y));
-		if (GetSize(outsig) <= 1) return 0;
-
-		std::vector<int> slices;
-		slices.push_back(0);
-
-		int width = GetSize(outsig);
-		width = std::min(width, GetSize(cell->getPort(ID::A)));
-		if (cell->hasPort(ID::B))
-			width = std::min(width, GetSize(cell->getPort(ID::B)));
-
-		for (int i = 1; i < width; i++) {
-			auto &last_users = bit_users_db[outsig[slices.back()]];
-			auto &this_users = bit_users_db[outsig[i]];
-			if (last_users != this_users) slices.push_back(i);
-		}
-		if (GetSize(slices) <= 1) return 0;
-		slices.push_back(GetSize(outsig));
-
-		log("Splitting %s cell %s/%s into %d slices:\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(slices)-1);
-		for (int i = 1; i < GetSize(slices); i++)
+		if (cell->type.in("$and", "$mux", "$not", "$or", "$pmux", "$xnor", "$xor"))
 		{
-			int slice_msb = slices[i]-1;
-			int slice_lsb = slices[i-1];
+			SigSpec outsig = sigmap(cell->getPort(ID::Y));
+			if (GetSize(outsig) <= 1) return 0;
 
-			IdString slice_name = module->uniquify(cell->name.str() + (slice_msb == slice_lsb ?
-					stringf("%c%d%c", format[0], slice_lsb, format[1]) :
-					stringf("%c%d%c%d%c", format[0], slice_msb, format[2], slice_lsb, format[1])));
+			std::vector<int> slices;
+			slices.push_back(0);
 
-			Cell *slice = module->addCell(slice_name, cell);
+			int width = GetSize(outsig);
+			width = std::min(width, GetSize(cell->getPort(ID::A)));
+			if (cell->hasPort(ID::B))
+				width = std::min(width, GetSize(cell->getPort(ID::B)));
 
-			auto slice_signal = [&](SigSpec old_sig) -> SigSpec {
-				SigSpec new_sig;
-				for (int i = 0; i < GetSize(old_sig); i += GetSize(outsig)) {
-					int offset = i+slice_lsb;
-					int length = std::min(GetSize(old_sig)-offset, slice_msb-slice_lsb+1);
-					new_sig.append(old_sig.extract(offset, length));
+			for (int i = 1; i < width; i++) {
+				auto &last_users = bit_users_db[outsig[slices.back()]];
+				auto &this_users = bit_users_db[outsig[i]];
+				if (last_users != this_users) slices.push_back(i);
+			}
+			if (GetSize(slices) <= 1) return 0;
+			slices.push_back(GetSize(outsig));
+
+			log("Splitting %s cell %s/%s into %d slices:\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(slices)-1);
+			for (int i = 1; i < GetSize(slices); i++)
+			{
+				int slice_msb = slices[i]-1;
+				int slice_lsb = slices[i-1];
+
+				IdString slice_name = module->uniquify(cell->name.str() + (slice_msb == slice_lsb ?
+						stringf("%c%d%c", format[0], slice_lsb, format[1]) :
+						stringf("%c%d%c%d%c", format[0], slice_msb, format[2], slice_lsb, format[1])));
+
+				Cell *slice = module->addCell(slice_name, cell);
+
+				auto slice_signal = [&](SigSpec old_sig) -> SigSpec {
+					SigSpec new_sig;
+					for (int i = 0; i < GetSize(old_sig); i += GetSize(outsig)) {
+						int offset = i+slice_lsb;
+						int length = std::min(GetSize(old_sig)-offset, slice_msb-slice_lsb+1);
+						new_sig.append(old_sig.extract(offset, length));
+					}
+					return new_sig;
+				};
+
+				slice->setPort(ID::A, slice_signal(slice->getPort(ID::A)));
+				if (slice->hasParam(ID::A_WIDTH))
+					slice->setParam(ID::A_WIDTH, GetSize(slice->getPort(ID::A)));
+
+				if (slice->hasPort(ID::B)) {
+					slice->setPort(ID::B, slice_signal(slice->getPort(ID::B)));
+					if (slice->hasParam(ID::B_WIDTH))
+						slice->setParam(ID::B_WIDTH, GetSize(slice->getPort(ID::B)));
 				}
-				return new_sig;
-			};
 
-			slice->setPort(ID::A, slice_signal(slice->getPort(ID::A)));
-			if (slice->hasParam(ID::A_WIDTH))
-				slice->setParam(ID::A_WIDTH, GetSize(slice->getPort(ID::A)));
+				slice->setPort(ID::Y, slice_signal(slice->getPort(ID::Y)));
+				if (slice->hasParam(ID::Y_WIDTH))
+					slice->setParam(ID::Y_WIDTH, GetSize(slice->getPort(ID::Y)));
+				if (slice->hasParam(ID::WIDTH))
+					slice->setParam(ID::WIDTH, GetSize(slice->getPort(ID::Y)));
 
-			if (slice->hasPort(ID::B)) {
-				slice->setPort(ID::B, slice_signal(slice->getPort(ID::B)));
-				if (slice->hasParam(ID::B_WIDTH))
-					slice->setParam(ID::B_WIDTH, GetSize(slice->getPort(ID::B)));
+				log("  slice %d: %s => %s\n", i, log_id(slice_name), log_signal(slice->getPort(ID::Y)));
 			}
 
-			slice->setPort(ID::Y, slice_signal(slice->getPort(ID::Y)));
-			if (slice->hasParam(ID::Y_WIDTH))
-				slice->setParam(ID::Y_WIDTH, GetSize(slice->getPort(ID::Y)));
-			if (slice->hasParam(ID::WIDTH))
-				slice->setParam(ID::WIDTH, GetSize(slice->getPort(ID::Y)));
-
-			log("  slice %d: %s => %s\n", i, log_id(slice_name), log_signal(slice->getPort(ID::Y)));
+			module->remove(cell);
+			return GetSize(slices)-1;
 		}
 
-		module->remove(cell);
-		return GetSize(slices)-1;
+		if (cell->type.in("$ff", "$dff", "$dffe", "$dffsr", "$dffsre", "$adff", "$adffe", "$aldffe",
+				"$sdff", "$sdffce", "$sdffe", "$dlatch", "$dlatchsr", "$adlatch"))
+		{
+			auto splitports = {ID::D, ID::Q, ID::AD, ID::SET, ID::CLR};
+			auto splitparams = {ID::ARST_VALUE, ID::SRST_VALUE};
+
+			SigSpec outsig = sigmap(cell->getPort(ID::Q));
+			if (GetSize(outsig) <= 1) return 0;
+			int width = GetSize(outsig);
+
+			std::vector<int> slices;
+			slices.push_back(0);
+
+			for (int i = 1; i < width; i++) {
+				auto &last_users = bit_users_db[outsig[slices.back()]];
+				auto &this_users = bit_users_db[outsig[i]];
+				if (last_users != this_users) slices.push_back(i);
+			}
+
+			if (GetSize(slices) <= 1) return 0;
+			slices.push_back(GetSize(outsig));
+
+			log("Splitting %s cell %s/%s into %d slices:\n", log_id(cell->type), log_id(module), log_id(cell), GetSize(slices)-1);
+			for (int i = 1; i < GetSize(slices); i++)
+			{
+				int slice_msb = slices[i]-1;
+				int slice_lsb = slices[i-1];
+
+				IdString slice_name = module->uniquify(cell->name.str() + (slice_msb == slice_lsb ?
+						stringf("%c%d%c", format[0], slice_lsb, format[1]) :
+						stringf("%c%d%c%d%c", format[0], slice_msb, format[2], slice_lsb, format[1])));
+
+				Cell *slice = module->addCell(slice_name, cell);
+
+				for (IdString portname : splitports) {
+					if (slice->hasPort(portname)) {
+						SigSpec sig = slice->getPort(portname);
+						sig = sig.extract(slice_lsb, slice_msb-slice_lsb+1);
+						slice->setPort(portname, sig);
+					}
+				}
+
+				for (IdString paramname : splitparams) {
+					if (slice->hasParam(paramname)) {
+						Const val = slice->getParam(paramname);
+						val = val.extract(slice_lsb, slice_msb-slice_lsb+1);
+						slice->setParam(paramname, val);
+					}
+				}
+
+				slice->setParam(ID::WIDTH, GetSize(slice->getPort(ID::Q)));
+
+				log("  slice %d: %s => %s\n", i, log_id(slice_name), log_signal(slice->getPort(ID::Q)));
+			}
+
+			module->remove(cell);
+			return GetSize(slices)-1;
+		}
+
+		return 0;
 	}
 };
 
@@ -179,14 +241,20 @@ struct SplitcellsPass : public Pass {
 
 		for (auto module : design->selected_modules())
 		{
-			SplitcellsWorker worker(module);
 			int count_split_pre = 0;
 			int count_split_post = 0;
 
-			for (auto cell : module->selected_cells()) {
-				int n = worker.split(cell, format);
-				count_split_pre += (n != 0);
-				count_split_post += n;
+			while (1) {
+				SplitcellsWorker worker(module);
+				bool did_something = false;
+				for (auto cell : module->selected_cells()) {
+					int n = worker.split(cell, format);
+					did_something |= (n != 0);
+					count_split_pre += (n != 0);
+					count_split_post += n;
+				}
+				if (!did_something)
+					break;
 			}
 
 			if (count_split_pre)
