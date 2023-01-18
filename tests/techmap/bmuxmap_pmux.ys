@@ -1,0 +1,45 @@
+read_ilang << EOT
+
+module \top
+  wire width 4 input 0 \S
+  wire width 5 output 1 \Y
+
+  cell $bmux $0
+    parameter \WIDTH 5
+    parameter \S_WIDTH 4
+    connect \A 80'10110100011101110001110010001110101010111000110011111111111110100000110100111000
+    connect \S \S
+    connect \Y \Y
+  end
+end
+
+EOT
+
+hierarchy -auto-top
+equiv_opt -assert bmuxmap -pmux
+
+###
+design -reset
+
+read_ilang << EOT
+
+module \top
+  wire width 10 input 0 \A
+  wire input 1 \S
+  wire width 5 output 2 \Y
+
+  cell $bmux $0
+    parameter \WIDTH 5
+    parameter \S_WIDTH 1
+    connect \A \A
+    connect \S \S
+    connect \Y \Y
+  end
+end
+
+EOT
+
+hierarchy -auto-top
+equiv_opt -assert bmuxmap -pmux
+
+
