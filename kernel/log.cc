@@ -707,6 +707,7 @@ void log_check_expected()
 		if (item.second.current_count == item.second.expected_count) {
 			log_warn_regexes.clear();
 			log("Expected error pattern '%s' found !!!\n", item.first.c_str());
+			yosys_shutdown();
 			#ifdef EMSCRIPTEN
 				throw 0;
 			#elif defined(_MSC_VER)
