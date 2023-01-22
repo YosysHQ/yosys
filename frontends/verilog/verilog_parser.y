@@ -173,6 +173,13 @@ static bool isInLocalScope(const std::string *name)
 
 static AstNode *getTypeDefinitionNode(std::string type_name)
 {
+	// check package types
+	if (type_name.find("::") != std::string::npos && pkg_user_types.count(type_name) > 0) {
+		auto typedef_node = pkg_user_types[type_name];
+		log_assert(typedef_node->type == AST_TYPEDEF);
+		return typedef_node->children[0];
+	}
+
 	// check current scope then outer scopes for a name
 	for (auto it = user_type_stack.rbegin(); it != user_type_stack.rend(); ++it) {
 		if (it->count(type_name) > 0) {

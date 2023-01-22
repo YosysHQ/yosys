@@ -16,6 +16,7 @@ module top;
 		bit		a;
 		logic[7:0]	b;
 		t_t		t;
+		p::p_t		ps;
 	} s_t;
 
 	s_t s;
@@ -29,6 +30,7 @@ module top;
 	assign s1 = s;
 	assign ps.a = 8'hAA;
 	assign ps.b = 8'h55;
+	assign s.ps = ps;
 
 	always_comb begin
 		assert(s.a == 1'b1);
@@ -37,6 +39,8 @@ module top;
 		assert(s1.t == 8'h55);
 		assert(ps.a == 8'hAA);
 		assert(ps.b == 8'h55);
+		assert(s.ps.a == 8'hAA);
+		assert(s.ps.b == 8'h55);
 	end
 
 endmodule
