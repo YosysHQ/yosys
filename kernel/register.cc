@@ -531,10 +531,11 @@ void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<s
 			std::ifstream *ff = new std::ifstream;
 			ff->open(filename.c_str(), bin_input ? std::ifstream::binary : std::ifstream::in);
 			yosys_input_files.insert(filename);
-			if (ff->fail())
+			if (ff->fail()) {
 				delete ff;
-			else
-				f = ff;
+				ff = nullptr;
+			}
+			f = ff;
 			if (f != NULL) {
 				// Check for gzip magic
 				unsigned char magic[3];

@@ -1649,7 +1649,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 	AstNode *new_ast = NULL;
 	std::string modname = derive_common(design, parameters, &new_ast, quiet);
 
-	if (!design->has(modname)) {
+	if (!design->has(modname) && new_ast) {
 		new_ast->str = modname;
 		process_module(design, new_ast, false, NULL, quiet);
 		design->module(modname)->check();
@@ -1699,6 +1699,7 @@ std::string AST::derived_module_name(std::string stripped_name, const std::vecto
 std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, AstNode **new_ast_out, bool quiet)
 {
 	std::string stripped_name = name.str();
+	(*new_ast_out) = nullptr;
 
 	if (stripped_name.compare(0, 9, "$abstract") == 0)
 		stripped_name = stripped_name.substr(9);

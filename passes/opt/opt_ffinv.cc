@@ -64,6 +64,7 @@ struct OptFfInvWorker
 			log_assert(d_inv == nullptr);
 			d_inv = port.cell;
 		}
+		if (!d_inv) return false;
 
 		if (index.query_is_output(ff.sig_q))
 			return false;
@@ -140,6 +141,7 @@ struct OptFfInvWorker
 			log_assert(d_lut == nullptr);
 			d_lut = port.cell;
 		}
+		if (!d_lut) return false;
 
 		if (index.query_is_output(ff.sig_q))
 			return false;
@@ -167,6 +169,7 @@ struct OptFfInvWorker
 			log_assert(q_inv == nullptr);
 			q_inv = port.cell;
 		}
+		if (!q_inv) return false;
 
 		ff.flip_rst_bits({0});
 		ff.sig_q = q_inv->getPort(ID::Y);

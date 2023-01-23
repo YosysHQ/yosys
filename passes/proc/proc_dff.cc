@@ -302,7 +302,7 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 		ce.assign_map.apply(rstval);
 		ce.assign_map.apply(sig);
 
-		if (rstval == sig) {
+		if (rstval == sig && sync_level) {
 			if (sync_level->type == RTLIL::SyncType::ST1)
 				insig = mod->Mux(NEW_ID, insig, sig, sync_level->signal);
 			else

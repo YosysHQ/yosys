@@ -666,8 +666,9 @@ struct JsonPass : public Pass {
 
 		std::ostream *f;
 		std::stringstream buf;
+		bool empty = filename.empty();
 
-		if (!filename.empty()) {
+		if (!empty) {
 			rewrite_filename(filename);
 			std::ofstream *ff = new std::ofstream;
 			ff->open(filename.c_str(), std::ofstream::trunc);
@@ -683,7 +684,7 @@ struct JsonPass : public Pass {
 		JsonWriter json_writer(*f, true, aig_mode, compat_int_mode);
 		json_writer.write_design(design);
 
-		if (!filename.empty()) {
+		if (!empty) {
 			delete f;
 		} else {
 			log("%s", buf.str().c_str());

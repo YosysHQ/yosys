@@ -1777,7 +1777,7 @@ struct VerificSvaImporter
 					if (mode_assert) c = module->addLive(root_name, sig_a_q, sig_en_q);
 					if (mode_assume) c = module->addFair(root_name, sig_a_q, sig_en_q);
 
-					importer->import_attributes(c->attributes, root);
+					if (c) importer->import_attributes(c->attributes, root);
 
 					return;
 				}
@@ -1822,7 +1822,7 @@ struct VerificSvaImporter
 				if (mode_assume) c = module->addAssume(root_name, sig_a_q, sig_en_q);
 				if (mode_cover) c = module->addCover(root_name, sig_a_q, sig_en_q);
 
-				importer->import_attributes(c->attributes, root);
+				if (c) importer->import_attributes(c->attributes, root);
 			}
 		}
 		catch (ParserErrorException)

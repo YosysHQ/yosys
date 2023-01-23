@@ -197,7 +197,7 @@ static void reconstruct_clb_attimes(void *user_data, uint64_t pnt_time, fstHandl
 
 void FstData::reconstruct_callback_attimes(uint64_t pnt_time, fstHandle pnt_facidx, const unsigned char *pnt_value, uint32_t /* plen */)
 {
-	if (pnt_time > end_time) return;
+	if (pnt_time > end_time || !pnt_value) return;
 	// if we are past the timestamp
 	bool is_clock = false;
 	if (!all_samples) {
