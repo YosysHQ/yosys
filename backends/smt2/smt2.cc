@@ -458,7 +458,7 @@ struct Smt2Worker
 	{
 		RTLIL::SigSpec sig_a, sig_b;
 		RTLIL::SigSpec sig_y = sigmap(cell->getPort(ID::Y));
-		bool is_signed = cell->getParam(ID::A_SIGNED).as_bool();
+		bool is_signed = type == 'U' ? false : cell->getParam(ID::A_SIGNED).as_bool();
 		int width = GetSize(sig_y);
 
 		if (type == 's' || type == 'S' || type == 'd' || type == 'b') {
@@ -483,6 +483,7 @@ struct Smt2Worker
 			if (ch == 'A') processed_expr += get_bv(sig_a);
 			else if (ch == 'B') processed_expr += get_bv(sig_b);
 			else if (ch == 'P') processed_expr += get_bv(cell->getPort(ID::B));
+			else if (ch == 'S') processed_expr += get_bv(cell->getPort(ID::S));
 			else if (ch == 'L') processed_expr += is_signed ? "a" : "l";
 			else if (ch == 'U') processed_expr += is_signed ? "s" : "u";
 			else processed_expr += ch;
@@ -638,6 +639,9 @@ struct Smt2Worker
 			if (cell->type == ID($or)) return export_bvop(cell, "(bvor A B)");
 			if (cell->type == ID($xor)) return export_bvop(cell, "(bvxor A B)");
 			if (cell->type == ID($xnor)) return export_bvop(cell, "(bvxnor A B)");
+
+			if (cell->type == ID($bweqx)) return export_bvop(cell, "(bvxnor A B)", 'U');
+			if (cell->type == ID($bwmux)) return export_bvop(cell, "(bvor (bvand A (bvnot S)) (bvand B S))", 'U');
 
 			if (cell->type == ID($shl)) return export_bvop(cell, "(bvshl A B)", 's');
 			if (cell->type == ID($shr)) return export_bvop(cell, "(bvlshr A B)", 's');
@@ -994,7 +998,7 @@ struct Smt2Worker
 				if (contains_clock && GetSize(wire) == 1 && (clock_posedge.count(sig) || clock_negedge.count(sig)))
 					comments.push_back(stringf("; yosys-smt2-clock %s%s%s\n", get_id(wire),
 							clock_posedge.count(sig) ? " posedge" : "", clock_negedge.count(sig) ? " negedge" : ""));
-				if (contains_clock) {
+				if (wire->port_input && contains_clock) {
 					for (int i = 0; i < GetSize(sig); i++) {
 						bool is_posedge = clock_posedge.count(sig[i]);
 						bool is_negedge = clock_negedge.count(sig[i]);
@@ -1744,7 +1748,6 @@ struct Smt2Backend : public Backend {
 		log_push();
 		Pass::call(design, "bmuxmap");
 		Pass::call(design, "demuxmap");
-		Pass::call(design, "bwmuxmap");
 		log_pop();
 
 		size_t argidx;

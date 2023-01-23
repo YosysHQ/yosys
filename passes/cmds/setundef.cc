@@ -502,7 +502,15 @@ struct SetundefPass : public Pass {
 				}
 			}
 
-			module->rewrite_sigspecs(worker);
+			for (auto &it : module->cells_)
+				if (!it.second->get_bool_attribute(ID::xprop_decoder))
+					it.second->rewrite_sigspecs(worker);
+			for (auto &it : module->processes)
+				it.second->rewrite_sigspecs(worker);
+			for (auto &it : module->connections_) {
+				worker(it.first);
+				worker(it.second);
+			}
 
 			if (worker.next_bit_mode == MODE_ANYSEQ || worker.next_bit_mode == MODE_ANYCONST)
 			{

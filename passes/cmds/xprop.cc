@@ -252,7 +252,8 @@ struct XpropWorker
 		}
 
 		if (!driven_orig.empty()) {
-			module->addBwmux(NEW_ID, driven_enc.is_1, Const(State::Sx, GetSize(driven_orig)), driven_enc.is_x, driven_orig);
+			auto decoder = module->addBwmux(NEW_ID, driven_enc.is_1, Const(State::Sx, GetSize(driven_orig)), driven_enc.is_x, driven_orig);
+			decoder->set_bool_attribute(ID::xprop_decoder);
 		}
 		if (!driven_never_x.first.empty()) {
 			module->connect(driven_never_x);
