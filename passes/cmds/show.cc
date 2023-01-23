@@ -296,7 +296,6 @@ struct ShowWorker
 			code += stringf("x%d [ shape=record, style=rounded, label=\"%s\" ];\n", idx, label_string.c_str());
 			if (!port.empty()) {
 				currentColor = xorshift32(currentColor);
-				log_warning("WIDTHLABEL %s %d\n", log_signal(sig), GetSize(sig));
 				if (driver)
 					code += stringf("%s:e -> x%d:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", port.c_str(), idx, nextColor(sig).c_str(), widthLabel(sig.size()).c_str());
 				else
