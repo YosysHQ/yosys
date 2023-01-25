@@ -369,7 +369,7 @@ struct PropagateWorker
 			if (cell->type.in(ID($not), ID($_NOT_))) {
 				auto sig_a = cell->getPort(ID::A);
 				auto &sig_y = cell->getPort(ID::Y);
-				sig_a.extend_u0(GetSize(sig_y), cell->parameters.at(ID::A_SIGNED).as_bool());
+				sig_a.extend_u0(GetSize(sig_y), cell->hasParam(ID::A_SIGNED) && cell->parameters.at(ID::A_SIGNED).as_bool());
 
 				for (int i = 0; i < GetSize(sig_a); i++)
 					if (sig_a[i].is_wire())
