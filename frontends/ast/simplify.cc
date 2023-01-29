@@ -1380,6 +1380,60 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		break;
 
 	case AST_STRUCT_ITEM:
+		if (is_custom_type) {
+			log_assert(children.size() == 1);
+			log_assert(children[0]->type == AST_WIRETYPE);
+			auto type_name = children[0]->str;
+			if (!current_scope.count(type_name)) {
+				log_file_error(filename, location.first_line, "Unknown identifier `%s' used as type name\n", type_name.c_str());
+			}
+			AstNode *resolved_type_node = current_scope.at(type_name);
+			if (resolved_type_node->type != AST_TYPEDEF)
+				log_file_error(filename, location.first_line, "`%s' does not name a type\n", type_name.c_str());
+			log_assert(resolved_type_node->children.size() == 1);
+			AstNode *template_node = resolved_type_node->children[0];
+
+			// Ensure typedef itself is fully simplified
+			while (template_node->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param)) {};
+
+			// Remove type reference
+			delete children[0];
+			children.pop_back();
+
+			switch (template_node->type) {
+			case AST_WIRE:
+				type = AST_STRUCT_ITEM;
+				break;
+			case AST_STRUCT:
+			case AST_UNION:
+				type = template_node->type;
+				break;
+			default:
+				log_file_error(filename, location.first_line, "Invalid type for struct member: %s", type2str(template_node->type).c_str());
+			}
+
+			is_reg = template_node->is_reg;
+			is_logic = template_node->is_logic;
+			is_signed = template_node->is_signed;
+			is_string = template_node->is_string;
+			is_custom_type = template_node->is_custom_type;
+
+			range_valid = template_node->range_valid;
+			range_swapped = template_node->range_swapped;
+			range_left = template_node->range_left;
+			range_right = template_node->range_right;
+
+			attributes[ID::wiretype] = mkconst_str(resolved_type_node->str);
+
+			// Copy clones of children from template
+			for (auto template_child : template_node->children) {
+				children.push_back(template_child->clone());
+			}
+
+			did_something = true;
+
+		}
+		log_assert(!is_custom_type);
 		break;
 
 	case AST_ENUM:
@@ -1793,8 +1847,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			// Ensure typedef itself is fully simplified
 			while (template_node->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param)) {};
 
-			if (template_node->type == AST_STRUCT || template_node->type == AST_UNION) {
-				// replace with wire representing the packed structure
+			if (!str.empty() && str[0] == '\\' && (template_node->type == AST_STRUCT || template_node->type == AST_UNION)) {
+				// replace instance with wire representing the packed structure
 				newNode = make_packed_struct(template_node, str, attributes);
 				newNode->attributes[ID::wiretype] = mkconst_str(resolved_type_node->str);
 				// add original input/output attribute to resolved wire
