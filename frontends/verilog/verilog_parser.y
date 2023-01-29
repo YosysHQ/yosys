@@ -171,36 +171,6 @@ static bool isInLocalScope(const std::string *name)
 	return (user_types.count(*name) > 0);
 }
 
-static AstNode *getTypeDefinitionNode(std::string type_name)
-{
-	// check package types
-	if (type_name.find("::") != std::string::npos && pkg_user_types.count(type_name) > 0) {
-		auto typedef_node = pkg_user_types[type_name];
-		log_assert(typedef_node->type == AST_TYPEDEF);
-		return typedef_node->children[0];
-	}
-
-	// check current scope then outer scopes for a name
-	for (auto it = user_type_stack.rbegin(); it != user_type_stack.rend(); ++it) {
-		if (it->count(type_name) > 0) {
-			// return the definition nodes from the typedef statement
-			auto typedef_node = (*it)[type_name];
-			log_assert(typedef_node->type == AST_TYPEDEF);
-			return typedef_node->children[0];
-		}
-	}
-
-	// The lexer recognized the name as a TOK_USER_TYPE, but now we can't find it anymore?
-	log_error("typedef for user type `%s' not found", type_name.c_str());
-}
-
-static AstNode *copyTypeDefinition(std::string type_name)
-{
-	// return a copy of the template from a typedef definition
-	auto typedef_node = getTypeDefinitionNode(type_name);
-	return typedef_node->clone();
-}
-
 static AstNode *makeRange(int msb = 31, int lsb = 0, bool isSigned = true)
 {
 	auto range = new AstNode(AST_RANGE);
@@ -1633,10 +1603,7 @@ param_implicit_type: param_signed param_range;
 param_type:
 	param_integer_type | param_real | param_range_type | param_implicit_type |
 	hierarchical_type_id {
-		astbuf1->is_custom_type = true;
-		astbuf1->children.push_back(new AstNode(AST_WIRETYPE));
-		astbuf1->children.back()->str = *$1;
-		delete $1;
+		addWiretypeNode($1, astbuf1);
 	};
 
 param_decl:
@@ -1865,21 +1832,7 @@ struct_member_type: { astbuf1 = new AstNode(AST_STRUCT_ITEM); } member_type_toke
 member_type_token:
 	  member_type 
 	| hierarchical_type_id {
-			// use a clone of the typedef definition nodes
-			auto template_node = copyTypeDefinition(*$1);
-			delete $1;
-			switch (template_node->type) {
-			case AST_WIRE:
-				template_node->type = AST_STRUCT_ITEM;
-				break;
-			case AST_STRUCT:
-			case AST_UNION:
-				break;
-			default:
-				frontend_verilog_yyerror("Invalid type for struct member: %s", type2str(template_node->type).c_str());
-			}
-			delete astbuf1;
-			astbuf1 = template_node;
+			addWiretypeNode($1, astbuf1);
 		}
 	| {
 		delete astbuf1;

@@ -17,6 +17,12 @@ module top;
 	always @(*) assert(inner_i1 == 4'hA);
 	always @(*) assert(inner_enum1 == 3'h3);
 
+	// adapted from tests/verilog/typedef_const_shadow.sv
+	localparam W = 5;
+	typedef logic [W-1:0] T;
+	T x; // width 5
+	always @(*) assert($bits(x) == 5);
+
 	if (1) begin: genblock
 		// type declarations in child scopes shadow their parents
 		typedef logic [7:0] inner_type;
@@ -34,6 +40,20 @@ module top;
 		} mystruct_t;
 		mystruct_t mystruct;
 		always @(*) assert($bits(mystruct) == 4);
+
+		// adapted from tests/verilog/typedef_const_shadow.sv
+		localparam W = 10;
+		typedef T U;
+		typedef logic [W-1:0] V;
+		struct packed {
+			logic [W-1:0] x; // width 10
+			U y; // width 5
+			V z; // width 10
+		} shadow;
+		// This currently only works as long as long as shadow is not typedef'ed
+		always @(*) assert($bits(shadow.x) == 10);
+		always @(*) assert($bits(shadow.y) == 5);
+		always @(*) assert($bits(shadow.z) == 10);
 	end
 
 	inner_type inner_i2 = 8'h42;

@@ -19,8 +19,10 @@ module top;
 		p::p_t		ps;
 	} s_t;
 
+	typedef s_t s1_t;
+
 	s_t s;
-	s_t s1;
+	s1_t s1;
 
 	p::p_t ps;
 
