@@ -2063,7 +2063,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		if (name_has_dot(str, sname)) {
 			if (current_scope.count(str) > 0) {
 				auto item_node = current_scope[str];
-				if (item_node->type == AST_STRUCT_ITEM || item_node->type == AST_STRUCT) {
+				if (item_node->type == AST_STRUCT_ITEM || item_node->type == AST_STRUCT || item_node->type == AST_UNION) {
 					// structure member, rewrite this node to reference the packed struct wire
 					auto range = make_struct_member_range(this, item_node);
 					newNode = new AstNode(AST_IDENTIFIER, range);

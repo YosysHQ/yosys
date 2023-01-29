@@ -48,14 +48,30 @@ module top;
 		U_t	u;
 	} instruction_t;
 
+	typedef struct packed {
+		instruction_t	ir;
+		logic [3:0]     state;
+	} s_t;
+
 	instruction_t ir1;
+	s_t s1;
+
 	assign ir1 = 32'h0AA01EB7;          //	lui t4,0xAA01
+	assign s1.ir = ir1;
+	assign s1.state = '1;
+
 	always_comb begin
 		assert(ir1.u.opcode == 'h37);
 		assert(ir1.r.opcode == 'h37);
 		assert(ir1.u.rd == 'd29);
 		assert(ir1.r.rd == 'd29);
 		assert(ir1.u.imm == 'hAA01);
+		assert(s1.ir.u.opcode == 'h37);
+		assert(s1.ir.r.opcode == 'h37);
+		assert(s1.ir.u.rd == 'd29);
+		assert(s1.ir.r.rd == 'd29);
+		assert(s1.ir.u.imm == 'hAA01);
+		assert(s1.state == 4'b1111);
 	end
 
 	union packed {
