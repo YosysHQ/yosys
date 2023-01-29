@@ -1,0 +1,9 @@
+! mkdir -p temp
+read_rtlil <<EOT
+module \test
+  wire output 1 \a
+  connect \a 1'z
+end
+EOT
+write_rtlil temp/rtlil_z_bits.il
+! grep -F -q "connect \\a 1'z" temp/rtlil_z_bits.il
