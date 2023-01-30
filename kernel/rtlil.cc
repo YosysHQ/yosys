@@ -370,6 +370,17 @@ bool RTLIL::Const::is_fully_undef() const
 	return true;
 }
 
+bool RTLIL::Const::is_fully_undef_x_only() const
+{
+	cover("kernel.rtlil.const.is_fully_undef_x_only");
+
+	for (const auto &bit : bits)
+		if (bit != RTLIL::State::Sx)
+			return false;
+
+	return true;
+}
+
 bool RTLIL::Const::is_onehot(int *pos) const
 {
 	cover("kernel.rtlil.const.is_onehot");
