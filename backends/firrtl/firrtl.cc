@@ -346,6 +346,12 @@ void emit_elaborated_extmodules(RTLIL::Design *design, std::ostream &f)
 			{
 				// Find the module corresponding to this instance.
 				auto modInstance = design->module(cell->type);
+				// Ensure that we actually have a module instance
+				if (modInstance == nullptr) {
+					log_error("Unknown cell type %s\n", cell->type.c_str());
+					return;
+				}
+
 				bool modIsBlackbox = modInstance->get_blackbox_attribute();
 
 				if (modIsBlackbox)
