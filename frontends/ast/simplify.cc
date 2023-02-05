@@ -278,17 +278,21 @@ static int range_width(AstNode *node, AstNode *rnode)
 	log_file_error(node->filename, node->location.first_line, "Unpacked array in packed struct/union member %s\n", node->str.c_str());
 }
 
-static void save_struct_array_width(AstNode *node, int width)
+static void save_struct_range_dimensions(AstNode *node, AstNode *rnode)
 {
-	// stash the stride for the array
-	node->multirange_dimensions.push_back(width);
-
+	node->multirange_dimensions.push_back(rnode->range_right);
+	node->multirange_dimensions.push_back(range_width(node, rnode));
+	node->multirange_swapped.push_back(rnode->range_swapped);
 }
 
-static void save_struct_range_swapped(AstNode *node, bool range_swapped)
+static int get_struct_range_offset(AstNode *node, int dimension)
 {
-	node->multirange_swapped.push_back(range_swapped);
+	return node->multirange_dimensions[2*dimension];
+}
 
+static int get_struct_range_width(AstNode *node, int dimension)
+{
+	return node->multirange_dimensions[2*dimension + 1];
 }
 
 static int size_packed_struct(AstNode *snode, int base_offset)
@@ -322,14 +326,17 @@ static int size_packed_struct(AstNode *snode, int base_offset)
 					if (node->children[1]->type == AST_RANGE) {
 						// Unpacked array, e.g. bit [63:0] a [0:3]
 						auto rnode = node->children[1];
-						// C-style array size, e.g. bit [63:0] a [4]
-						bool c_type = rnode->children.size() == 1;
-						int array_count = c_type ? rnode->range_left : range_width(node, rnode);
-						save_struct_array_width(node, array_count);
-						save_struct_range_swapped(node, rnode->range_swapped || c_type);
-						save_struct_array_width(node, width);
-						save_struct_range_swapped(node, node->children[0]->range_swapped);
-						width *= array_count;
+						if (rnode->children.size() == 1) {
+							// C-style array size, e.g. bit [63:0] a [4]
+							node->multirange_dimensions.push_back(0);
+							node->multirange_dimensions.push_back(rnode->range_left);
+							node->multirange_swapped.push_back(true);
+							width *= rnode->range_left;
+						} else {
+							save_struct_range_dimensions(node, rnode);
+							width *= range_width(node, rnode);
+						}
+						save_struct_range_dimensions(node, node->children[0]);
 					}
 					else {
 						// The Yosys extension for unpacked arrays in packed structs / unions
@@ -338,8 +345,7 @@ static int size_packed_struct(AstNode *snode, int base_offset)
 					}
 				} else {
 					// Vector
-					save_struct_array_width(node, width);
-					save_struct_range_swapped(node, node->children[0]->range_swapped);
+					save_struct_range_dimensions(node, node->children[0]);
 				}
 				// range nodes are now redundant
 				for (AstNode *child : node->children)
@@ -355,10 +361,8 @@ static int size_packed_struct(AstNode *snode, int base_offset)
 				}
 				width = 1;
 				for (auto rnode : node->children[0]->children) {
-					int rwidth = range_width(node, rnode);
-					save_struct_array_width(node, rwidth);
-					save_struct_range_swapped(node, rnode->range_swapped);
-					width *= rwidth;
+					save_struct_range_dimensions(node, rnode);
+					width *= range_width(node, rnode);
 				}
 				// range nodes are now redundant
 				for (AstNode *child : node->children)
@@ -422,9 +426,14 @@ static AstNode *normalize_struct_index(AstNode *expr, AstNode *member_node, int 
 {
 	expr = expr->clone();
 
+	int offset = get_struct_range_offset(member_node, dimension);
+	if (offset) {
+		expr = new AstNode(AST_SUB, expr, node_int(offset));
+	}
+
 	if (member_node->multirange_swapped[dimension]) {
 		// The dimension has swapped range; swap index into the struct accordingly.
-		int msb = member_node->multirange_dimensions[dimension] - 1;
+		int msb = get_struct_range_width(member_node, dimension) - 1;
 		expr = new AstNode(AST_SUB, node_int(msb), expr);
 	}
 
@@ -433,7 +442,7 @@ static AstNode *normalize_struct_index(AstNode *expr, AstNode *member_node, int 
 
 static AstNode *struct_index_lsb_offset(AstNode *lsb_offset, AstNode *rnode, AstNode *member_node, int dimension, int &stride)
 {
-	stride /= member_node->multirange_dimensions[dimension];
+	stride /= get_struct_range_width(member_node, dimension);
 	auto right = normalize_struct_index(rnode->children.back(), member_node, dimension);
 	auto offset = stride > 1 ? multiply_by_const(right, stride) : right;
 	return new AstNode(AST_ADD, lsb_offset, offset);
