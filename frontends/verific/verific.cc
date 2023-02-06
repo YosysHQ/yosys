@@ -989,6 +989,47 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		return true;
 	}
 
+	if (inst->Type() == OPER_WIDE_CASE_SELECT_BOX)
+	{
+		RTLIL::SigSpec sig_out_val = operatorInport(inst, "out_value");
+		RTLIL::SigSpec sig_select = operatorInport(inst, "select");
+		RTLIL::SigSpec sig_select_values = operatorInport(inst, "select_values");
+		RTLIL::SigSpec sig_data_values = operatorInport(inst, "data_values");
+		RTLIL::SigSpec sig_data_default = operatorInport(inst, "default_value");
+
+		RTLIL::Process *proc = module->addProcess(new_verific_id(inst));
+		import_attributes(proc->attributes, inst);
+
+		RTLIL::CaseRule *current_case = &proc->root_case;
+		current_case = &proc->root_case;
+
+		RTLIL::SwitchRule *sw = new RTLIL::SwitchRule;
+		sw->signal = sig_select;
+		current_case->switches.push_back(sw);
+
+		int select_width = inst->InputSize();
+		int data_width = inst->OutputSize();
+		int select_num = inst->Input1Size() / inst->InputSize();
+
+		int offset_select = 0;
+		int offset_data = 0;
+
+		for (int i = 0; i < select_num; i++) {
+			RTLIL::CaseRule *cs = new RTLIL::CaseRule;
+			cs->compare.push_back(sig_select_values.extract(offset_select, select_width));
+			cs->actions.push_back(SigSig(sig_out_val, sig_data_values.extract(offset_data, data_width)));
+			sw->cases.push_back(cs);
+			
+			offset_select += select_width;
+			offset_data += data_width;
+		}
+		RTLIL::CaseRule *cs_default = new RTLIL::CaseRule;
+		cs_default->actions.push_back(SigSig(sig_out_val, sig_data_default));
+		sw->cases.push_back(cs_default);
+
+		return true;
+	}
+
 	#undef IN
 	#undef IN1
 	#undef IN2
