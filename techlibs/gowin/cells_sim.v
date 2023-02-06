@@ -1632,3 +1632,20 @@ output OSCOUT;
 
 parameter FREQ_DIV = 96;
 endmodule
+
+(* blackbox *)
+module OSCW(OSCOUT);
+output OSCOUT;
+
+parameter FREQ_DIV = 80;
+endmodule
+
+(* blackbox *)
+module OSCO(OSCOUT, OSCEN);
+input OSCEN;
+
+output OSCOUT;
+
+parameter FREQ_DIV = 100;
+parameter REGULATOR_EN = 1'b0;
+endmodule
