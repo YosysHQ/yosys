@@ -233,76 +233,101 @@ struct ShowWorker
 		return std::string();
 	}
 
+	// Return the pieces of a label joined by a '|' separator
+	std::string join_label_pieces(std::vector<std::string> pieces)
+	{
+		std::string ret = "";
+		bool first_piece = true;
+
+		for (auto &piece : pieces) {
+			if (!first_piece)
+				ret += "|";
+			ret += piece;
+			first_piece = false;
+		}
+
+		return ret;
+	}
+
 	std::string gen_portbox(std::string port, RTLIL::SigSpec sig, bool driver, std::string *node = nullptr)
 	{
 		std::string code;
 		std::string net = gen_signode_simple(sig);
 		if (net.empty())
 		{
-			std::string label_string;
-			int pos = sig.size()-1;
-			int idx = single_idx_count++;
-			for (int rep, i = int(sig.chunks().size())-1; i >= 0; i -= rep) {
-				const RTLIL::SigChunk &c = sig.chunks().at(i);
+			int dot_idx = single_idx_count++;
+			std::vector<std::string> label_pieces;
+			int bitpos = sig.size()-1;
+
+			for (int rep, chunk_idx = ((int) sig.chunks().size()) - 1; chunk_idx >= 0; chunk_idx -= rep) {
+				const RTLIL::SigChunk &c = sig.chunks().at(chunk_idx);
+
+				// Find the number of times this chunk is repeating
+				for (rep = 1; chunk_idx - rep >= 0 && c == sig.chunks().at(chunk_idx - rep); rep++);
+
 				int cl, cr;
-				if (c.wire) {
+				cl = c.offset + c.width - 1;
+				cr = c.offset;
+
+				if (c.is_wire()) {
 					if (c.wire->upto) {
-						cr = c.wire->start_offset + (c.wire->width - c.offset - 1);
+						cr = (c.wire->width - 1) - c.offset;
 						cl = cr - (c.width - 1);
-					} else {
-						cr = c.wire->start_offset + c.offset;
-						cl = cr + c.width - 1;
 					}
-				} else {
-					cl = c.offset + c.width - 1;
-					cr = c.offset;
+
+					cl += c.wire->start_offset;
+					cr += c.wire->start_offset;
 				}
-				if (!driver && c.wire == nullptr) {
-					RTLIL::State s1 = c.data.front();
-					for (auto s2 : c.data)
-						if (s1 != s2)
-							goto not_const_stream;
-					net.clear();
-				} else {
-			not_const_stream:
+
+				// Is this chunk a constant filled with one kind of bit state?
+				bool no_signode = !driver && !c.is_wire() \
+								  && std::equal(c.data.begin() + 1, c.data.end(), c.data.begin());
+
+				if (!no_signode) {
 					net = gen_signode_simple(c, false);
 					log_assert(!net.empty());
 				}
-				for (rep = 1; i-rep >= 0 && c == sig.chunks().at(i-rep); rep++) {}
+
 				std::string repinfo = rep > 1 ? stringf("%dx ", rep) : "";
+				std::string portside = stringf("%d:%d", bitpos, bitpos - rep*c.width + 1);
+				std::string remoteside = stringf("%s%d:%d", repinfo.c_str(), cl, cr);
+
 				if (driver) {
 					log_assert(!net.empty());
-					label_string += stringf("<s%d> %d:%d - %s%d:%d |", i, pos, pos-c.width+1, repinfo.c_str(), cl, cr);
-					net_conn_map[net].in.insert({stringf("x%d:s%d", idx, i), rep*c.width});
+					label_pieces.push_back(stringf("<s%d> %s - %s ", chunk_idx, portside.c_str(), remoteside.c_str()));
+					net_conn_map[net].in.insert({stringf("x%d:s%d", dot_idx, chunk_idx), rep*c.width});
 					net_conn_map[net].color = nextColor(c, net_conn_map[net].color);
-				} else
-				if (net.empty()) {
-					log_assert(rep == 1);
-					label_string += stringf("%c -&gt; %d:%d |",
-							c.data.front() == State::S0 ? '0' :
-							c.data.front() == State::S1 ? '1' :
-							c.data.front() == State::Sx ? 'X' :
-							c.data.front() == State::Sz ? 'Z' : '?',
-							pos, pos-rep*c.width+1);
 				} else {
-					label_string += stringf("<s%d> %s%d:%d - %d:%d |", i, repinfo.c_str(), cl, cr, pos, pos-rep*c.width+1);
-					net_conn_map[net].out.insert({stringf("x%d:s%d", idx, i), rep*c.width});
-					net_conn_map[net].color = nextColor(c, net_conn_map[net].color);
+					if (no_signode) {
+						log_assert(rep == 1);
+						label_pieces.push_back(stringf("%c -&gt; %d:%d ",
+								c.data.front() == State::S0 ? '0' :
+								c.data.front() == State::S1 ? '1' :
+								c.data.front() == State::Sx ? 'X' :
+								c.data.front() == State::Sz ? 'Z' : '?',
+								bitpos, bitpos-rep*c.width+1));
+					} else {
+						label_pieces.push_back(stringf("<s%d> %s - %s ", chunk_idx, remoteside.c_str(), portside.c_str()));
+						net_conn_map[net].out.insert({stringf("x%d:s%d", dot_idx, chunk_idx), rep*c.width});
+						net_conn_map[net].color = nextColor(c, net_conn_map[net].color);
+					}
 				}
-				pos -= rep * c.width;
+
+				bitpos -= rep * c.width;
 			}
-			if (label_string[label_string.size()-1] == '|')
-				label_string = label_string.substr(0, label_string.size()-1);
-			code += stringf("x%d [ shape=record, style=rounded, label=\"%s\" ];\n", idx, label_string.c_str());
+
+			code += stringf("x%d [ shape=record, style=rounded, label=\"", dot_idx) \
+					+ join_label_pieces(label_pieces) + "\" ];\n";
+
 			if (!port.empty()) {
 				currentColor = xorshift32(currentColor);
 				if (driver)
-					code += stringf("%s:e -> x%d:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", port.c_str(), idx, nextColor(sig).c_str(), widthLabel(sig.size()).c_str());
+					code += stringf("%s:e -> x%d:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", port.c_str(), dot_idx, nextColor(sig).c_str(), widthLabel(sig.size()).c_str());
 				else
-					code += stringf("x%d:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", idx, port.c_str(), nextColor(sig).c_str(), widthLabel(sig.size()).c_str());
+					code += stringf("x%d:e -> %s:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, %s, %s];\n", dot_idx, port.c_str(), nextColor(sig).c_str(), widthLabel(sig.size()).c_str());
 			}
 			if (node != nullptr)
-				*node = stringf("x%d", idx);
+				*node = stringf("x%d", dot_idx);
 		}
 		else
 		{
@@ -417,6 +442,7 @@ struct ShowWorker
 		for (auto cell : module->selected_cells())
 		{
 			std::vector<RTLIL::IdString> in_ports, out_ports;
+			std::vector<std::string> in_label_pieces, out_label_pieces;
 
 			for (auto &conn : cell->connections()) {
 				if (!ct.cell_output(cell->type, conn.first))
@@ -428,23 +454,23 @@ struct ShowWorker
 			std::sort(in_ports.begin(), in_ports.end(), RTLIL::sort_by_id_str());
 			std::sort(out_ports.begin(), out_ports.end(), RTLIL::sort_by_id_str());
 
-			std::string label_string = "{{";
+			for (auto &p : in_ports) {
+				bool signed_suffix = genSignedLabels && cell->hasParam(p.str() + "_SIGNED")
+									 && cell->getParam(p.str() + "_SIGNED").as_bool();
 
-			for (auto &p : in_ports)
-				label_string += stringf("<p%d> %s%s|", id2num(p), escape(p.str()),
-						genSignedLabels && cell->hasParam(p.str() + "_SIGNED") &&
-						cell->getParam(p.str() + "_SIGNED").as_bool() ? "*" : "");
-			if (label_string[label_string.size()-1] == '|')
-				label_string = label_string.substr(0, label_string.size()-1);
-
-			label_string += stringf("}|%s\\n%s|{", findLabel(cell->name.str()), escape(cell->type.str()));
+				in_label_pieces.push_back(stringf("<p%d> %s%s", id2num(p), escape(p.str()),
+										  signed_suffix ? "*" : ""));
+			}
 
 			for (auto &p : out_ports)
-				label_string += stringf("<p%d> %s|", id2num(p), escape(p.str()));
-			if (label_string[label_string.size()-1] == '|')
-				label_string = label_string.substr(0, label_string.size()-1);
+				out_label_pieces.push_back(stringf("<p%d> %s", id2num(p), escape(p.str())));
 
-			label_string += "}}";
+			std::string in_label = join_label_pieces(in_label_pieces);
+			std::string out_label = join_label_pieces(out_label_pieces);
+
+			std::string label_string = stringf("{{%s}|%s\\n%s|{%s}}", in_label.c_str(),
+											   findLabel(cell->name.str()), escape(cell->type.str()),
+											   out_label.c_str());
 
 			std::string code;
 			for (auto &conn : cell->connections()) {
