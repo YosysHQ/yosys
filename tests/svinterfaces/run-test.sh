@@ -4,3 +4,4 @@
 ./runone.sh  svinterface_at_top
 
 ./run_simple.sh load_and_derive
+./run_simple.sh resolve_types
