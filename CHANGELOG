@@ -4,7 +4,25 @@ List of major changes and improvements between releases
 
 Yosys 0.25 .. Yosys 0.25-dev
 --------------------------
+ * New commands and options
+    - Added "bwmuxmap" pass to replace $bwmux cells with equivalent logic.
+    - Added "xprop" pass for formal x propagation.
+    - Added "splitcells" pass to split up multi-bit cells.
+    - Added "viz" pass to visualize data flow graph.
+    - Added option "-make_cover" to "miter" pass.
+    - Added option "-noparallelcase" to "write_verilog" pass.
+    - Added option "-chain" to "insbuf" pass.
+    - Added options "-hierarchy" and "-assume" to "formalff" pass.
+    - Added options "-append" and "-summary" to "sim" pass.
+    - Added option "-ywmap" to "write_btor" pass.
+    - Added option "-ignore-self-reset" to "fsm_detect" pass.
+
+ * Verilog
+    - Support for struct members of union type.
+    - Support for struct member package types.
+
  * Various
+    - Added Yosys witness (.yw) cosimulation.
     - GCC 4.8 is deprecated, compiler with full C++11 support is required.
 
 Yosys 0.24 .. Yosys 0.25
