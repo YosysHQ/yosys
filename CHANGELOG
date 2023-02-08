@@ -2,11 +2,11 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.25 .. Yosys 0.25-dev
+Yosys 0.25 .. Yosys 0.26
 --------------------------
  * New commands and options
     - Added "bwmuxmap" pass to replace $bwmux cells with equivalent logic.
-    - Added "xprop" pass for formal x propagation.
+    - Added "xprop" experimental pass for formal x propagation.
     - Added "splitcells" pass to split up multi-bit cells.
     - Added "viz" pass to visualize data flow graph.
     - Added option "-make_cover" to "miter" pass.
