@@ -361,14 +361,50 @@ RTLIL::SigSpec VerificImporter::operatorInport(Instance *inst, const char *portn
 		for (unsigned i = 0; i < portbus->Size(); i++) {
 			Net *net = inst->GetNet(portbus->ElementAtIndex(i));
 			if (net) {
-				if (net->IsGnd())
-					sig.append(RTLIL::State::S0);
-				else if (net->IsPwr())
-					sig.append(RTLIL::State::S1);
+				if (net->IsConstant()) {
+					if (net->IsGnd())
+						sig.append(RTLIL::State::S0);
+					else if (net->IsPwr())
+						sig.append(RTLIL::State::S1);
+					else if (net->IsX())
+						sig.append(RTLIL::State::Sx);
+					else
+						sig.append(RTLIL::State::Sz);
+				}
 				else
 					sig.append(net_map_at(net));
 			} else
 				sig.append(RTLIL::State::Sz);
+		}
+		return sig;
+	} else {
+		Port *port = inst->View()->GetPort(portname);
+		log_assert(port != NULL);
+		Net *net = inst->GetNet(port);
+		return net_map_at(net);
+	}
+}
+
+RTLIL::SigSpec VerificImporter::operatorInportCase(Instance *inst, const char *portname)
+{
+	PortBus *portbus = inst->View()->GetPortBus(portname);
+	if (portbus) {
+		RTLIL::SigSpec sig;
+		for (unsigned i = 0; i < portbus->Size(); i++) {
+			Net *net = inst->GetNet(portbus->ElementAtIndex(i));
+			if (net) {
+				if (net->IsConstant()) {
+					if (net->IsGnd())
+						sig.append(RTLIL::State::S0);
+					else if (net->IsPwr())
+						sig.append(RTLIL::State::S1);
+					else
+						sig.append(RTLIL::State::Sa);
+				}
+				else
+					sig.append(net_map_at(net));
+			} else
+				sig.append(RTLIL::State::Sa);
 		}
 		return sig;
 	} else {
@@ -993,7 +1029,7 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 	{
 		RTLIL::SigSpec sig_out_val = operatorInport(inst, "out_value");
 		RTLIL::SigSpec sig_select = operatorInport(inst, "select");
-		RTLIL::SigSpec sig_select_values = operatorInport(inst, "select_values");
+		RTLIL::SigSpec sig_select_values = operatorInportCase(inst, "select_values");
 		RTLIL::SigSpec sig_data_values = operatorInport(inst, "data_values");
 		RTLIL::SigSpec sig_data_default = operatorInport(inst, "default_value");
 
