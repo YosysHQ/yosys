@@ -87,6 +87,7 @@ struct VerificImporter
 	RTLIL::SigSpec operatorInput1(Verific::Instance *inst);
 	RTLIL::SigSpec operatorInput2(Verific::Instance *inst);
 	RTLIL::SigSpec operatorInport(Verific::Instance *inst, const char *portname);
+	RTLIL::SigSpec operatorInportCase(Verific::Instance *inst, const char *portname);
 	RTLIL::SigSpec operatorOutput(Verific::Instance *inst, const pool<Verific::Net*, hash_ptr_ops> *any_all_nets = nullptr);
 
 	bool import_netlist_instance_gates(Verific::Instance *inst, RTLIL::IdString inst_name);
