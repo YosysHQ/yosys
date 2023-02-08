@@ -33,6 +33,9 @@ struct BmuxmapPass : public Pass {
 		log("\n");
 		log("This pass transforms $bmux cells to trees of $mux cells.\n");
 		log("\n");
+		log("    -pmux\n");
+		log("        transform to $pmux instead of $mux cells.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
