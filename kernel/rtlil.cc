@@ -19,6 +19,8 @@
 
 #include "kernel/yosys.h"
 #include "kernel/macc.h"
+#include "kernel/utils.h"
+#include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
 #include "kernel/binding.h"
 #include "frontends/verilog/verilog_frontend.h"
@@ -1821,6 +1823,47 @@ namespace {
 }
 #endif
 
+static void sort_cells_topologically(RTLIL::Module * module)
+{
+	CellTypes ct_combinational;
+	ct_combinational.setup_internals();
+	ct_combinational.setup_stdcells();
+
+	SigMap assign_map(module);
+	TopoSort<RTLIL::Cell*, RTLIL::IdString::compare_ptr_by_name<RTLIL::Cell>> cells;
+
+	dict<RTLIL::Cell*, std::set<RTLIL::SigBit>> cell_to_inbit;
+	dict<RTLIL::SigBit, std::set<RTLIL::Cell*>> outbit_to_cell;
+
+	for (auto cell : module->cells()) {
+		if (ct_combinational.cell_known(cell->type))
+			for (auto &conn : cell->connections()) {
+				RTLIL::SigSpec sig = assign_map(conn.second);
+				sig.remove_const();
+				if (ct_combinational.cell_input(cell->type, conn.first))
+					cell_to_inbit[cell].insert(sig.begin(), sig.end());
+				if (ct_combinational.cell_output(cell->type, conn.first))
+					for (auto &bit : sig)
+						outbit_to_cell[bit].insert(cell);
+			}
+		cells.node(cell);
+	}
+
+	for (auto &it_right : cell_to_inbit)
+	for (auto &it_sigbit : it_right.second)
+	for (auto &it_left : outbit_to_cell[it_sigbit])
+		// reverse edge direction so we end up with reverse sorted cell list
+		cells.edge(it_right.first, it_left);
+
+	cells.sort();
+
+	dict<RTLIL::IdString, RTLIL::Cell*> new_cells;
+	for (auto cell : cells.sorted)
+		// dict<> iterator order is reverse insert order
+		new_cells[cell->name] = cell;
+	new_cells.swap(module->cells_);
+}
+
 void RTLIL::Module::sort()
 {
 	wires_.sort(sort_by_id_str());
@@ -1834,6 +1877,9 @@ void RTLIL::Module::sort()
 		it.second->attributes.sort(sort_by_id_str());
 	for (auto &it : memories)
 		it.second->attributes.sort(sort_by_id_str());
+
+	if (design->scratchpad_get_bool("toposort_cells", true))
+		sort_cells_topologically(this);
 }
 
 void RTLIL::Module::check()
