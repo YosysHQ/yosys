@@ -2077,6 +2077,14 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 					auto range = make_struct_member_range(this, item_node);
 					newNode = new AstNode(AST_IDENTIFIER, range);
 					newNode->str = sname;
+					// save type and original number of dimensions for $size() etc.
+					newNode->attributes[ID::wiretype] = item_node->clone();
+					if (!item_node->multirange_dimensions.empty() && children.size() > 0) {
+						if (children[0]->type == AST_RANGE)
+							newNode->integer = 1;
+						else if (children[0]->type == AST_MULTIRANGE)
+							newNode->integer = children[0]->children.size();
+					}
 					newNode->basic_prep = true;
 					if (item_node->is_signed)
 						newNode = new AstNode(AST_TO_SIGNED, newNode);
@@ -3393,24 +3401,42 @@ skip_dynamic_range_lvalue_expansion:;
 						id_ast = current_scope.at(buf->str);
 					if (!id_ast)
 						log_file_error(filename, location.first_line, "Failed to resolve identifier %s for width detection!\n", buf->str.c_str());
-					// a slice of our identifier means we advance to the next dimension, e.g. $size(a[3])
-					if (buf->children.size() > 0) {
-						// something is hanging below this identifier
-						if (buf->children[0]->type == AST_RANGE && buf->integer == 0)
-							// if integer == 0, this node was originally created as AST_RANGE so it's dimension is 1
-							dim++;
-						// more than one range, e.g. $size(a[3][2])
-						else // created an AST_MULTIRANGE, converted to AST_RANGE, but original dimension saved in 'integer' field
-							dim += buf->integer; // increment by multirange size
+
+					// Check for item in packed struct / union
+					AST::AstNode *item_node;
+					if (id_ast->type == AST_WIRE &&
+					    buf->attributes.count(ID::wiretype) && (item_node = buf->attributes[ID::wiretype]) &&
+					    (item_node->type == AST_STRUCT_ITEM || item_node->type == AST_STRUCT || item_node->type == AST_UNION))
+					{
+						// The dimension of the original array expression is saved in the 'integer' field
+						dim += buf->integer;
+						if (item_node->multirange_dimensions.empty()) {
+							if (dim != 1)
+								log_file_error(filename, location.first_line, "Dimension %d out of range in `%s', as it only has one dimension!\n", dim, item_node->str.c_str());
+							left  = high = item_node->range_left;
+							right = low  = item_node->range_right;
+						} else {
+							int dims = GetSize(item_node->multirange_dimensions)/2;
+							if (dim < 1 || dim > dims)
+								log_file_error(filename, location.first_line, "Dimension %d out of range in `%s', as it only has dimensions 1..%d!\n", dim, item_node->str.c_str(), dims);
+							right = low  = get_struct_range_offset(item_node, dim - 1);
+							left  = high = low + get_struct_range_width(item_node, dim - 1) - 1;
+							if (item_node->multirange_swapped[dim - 1]) {
+								std::swap(left, right);
+							}
+							for (int i = dim; i < dims; i++) {
+							    mem_depth *= get_struct_range_width(item_node, i);
+							}
+						}
 					}
-					// We have 4 cases:
+					// Otherwise, we have 4 cases:
 					// wire x;                ==> AST_WIRE, no AST_RANGE children
 					// wire [1:0]x;           ==> AST_WIRE, AST_RANGE children
 					// wire [1:0]x[1:0];      ==> AST_MEMORY, two AST_RANGE children (1st for packed, 2nd for unpacked)
 					// wire [1:0]x[1:0][1:0]; ==> AST_MEMORY, one AST_RANGE child (0) for packed, then AST_MULTIRANGE child (1) for unpacked
 					// (updated: actually by the time we are here, AST_MULTIRANGE is converted into one big AST_RANGE)
 					// case 0 handled by default
-					if ((id_ast->type == AST_WIRE || id_ast->type == AST_MEMORY) && id_ast->children.size() > 0) {
+					else if ((id_ast->type == AST_WIRE || id_ast->type == AST_MEMORY) && id_ast->children.size() > 0) {
 						// handle packed array left/right for case 1, and cases 2/3 when requesting the last dimension (packed side)
 						AstNode *wire_range = id_ast->children[0];
 						left = wire_range->children[0]->integer;
@@ -3419,6 +3445,17 @@ skip_dynamic_range_lvalue_expansion:;
 						low  = min(left, right);
 					}
 					if (id_ast->type == AST_MEMORY) {
+						// a slice of our identifier means we advance to the next dimension, e.g. $size(a[3])
+						if (buf->children.size() > 0) {
+							// something is hanging below this identifier
+							if (buf->children[0]->type == AST_RANGE && buf->integer == 0)
+								// if integer == 0, this node was originally created as AST_RANGE so it's dimension is 1
+								dim++;
+							// more than one range, e.g. $size(a[3][2])
+							else // created an AST_MULTIRANGE, converted to AST_RANGE, but original dimension saved in 'integer' field
+								dim += buf->integer; // increment by multirange size
+						}
+
 						// We got here only if the argument is a memory
 						// Otherwise $size() and $bits() return the expression width
 						AstNode *mem_range = id_ast->children[1];
@@ -3478,7 +3515,7 @@ skip_dynamic_range_lvalue_expansion:;
 					result = right;
 				else if (str == "\\$size")
 					result = width;
-				else {
+				else { // str == "\\$bits"
 					result = width * mem_depth;
 				}
 				newNode = mkconst_int(result, true);
