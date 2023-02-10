@@ -47,7 +47,7 @@ if "clean" in steps:
 
 
 def yosys(command):
-    subprocess.check_call(["yosys", "-Qp", command])
+    subprocess.check_call(["../../../yosys", "-Qp", command])
 
 def remove(file):
     try:
