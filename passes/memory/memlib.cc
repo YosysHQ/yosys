@@ -81,6 +81,7 @@ struct PortGroupDef {
 	Caps<RawWrTransDef> wrtrans;
 	Caps<Empty> optional;
 	Caps<Empty> optional_rw;
+	Caps<int> pipeline_outreg;
 };
 
 struct WidthsDef {
@@ -608,6 +609,17 @@ struct Parser {
 		} else if (token == "optional_rw") {
 			get_semi();
 			add_cap(port.optional_rw, {});
+		} else if (token == "pipeline_outreg") {
+			if (port.kind != PortKind::Sr && port.kind != PortKind::Srsw)
+				log_error("%s:%d: `%s` only allowed on sync read ports.\n", filename.c_str(), line_number, token.c_str());
+			if (!peek_int())
+				log_error("%s:%d: `%s` Expected an integer argument for the number of pipeline stages.\n", filename.c_str(), line_number, token.c_str());
+			
+			int stages = get_int();
+			if (stages < 0)
+				log_error("%s:%d: `%s` The number of stages cannot be negative.\n", filename.c_str(), line_number, token.c_str());
+			get_semi();
+			add_cap(port.pipeline_outreg, stages);
 		} else if (token == "") {
 			log_error("%s:%d: unexpected EOF while parsing port item.\n", filename.c_str(), line_number);
 		} else {
@@ -919,6 +931,11 @@ struct Parser {
 						log_error("%s:%d: reset value `init` has to be paired with `any` or `no_undef` initial value.\n", filename.c_str(), orig_line);
 					}
 				}
+				const int *pipeline_outreg = find_single_cap(pdef.pipeline_outreg, cram.options, portopts, "pipeline_outreg");
+				if (pipeline_outreg)
+					var.pipeline_outreg = *pipeline_outreg;
+				else
+					var.pipeline_outreg = 0;
 			}
 			var.wrbe_separate = find_single_cap(pdef.wrbe_separate, cram.options, portopts, "wrbe_separate");
 			if (var.wrbe_separate && cram.byte == 0) {
