@@ -1016,7 +1016,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 	// create name resolution entries for all objects with names
 	// also merge multiple declarations for the same wire (e.g. "output foobar; reg foobar;")
-	if (type == AST_MODULE) {
+	if (type == AST_MODULE || type == AST_INTERFACE) {
 		current_scope.clear();
 		std::set<std::string> existing;
 		int counter = 0;
@@ -1701,7 +1701,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 	current_filename = filename;
 
-	if (type == AST_MODULE)
+	if (type == AST_MODULE || type == AST_INTERFACE)
 		current_scope.clear();
 
 	// convert defparam nodes to cell parameters
@@ -4691,7 +4691,7 @@ void AstNode::mem2reg_as_needed_pass1(dict<AstNode*, pool<std::string>> &mem2reg
 	if (type == AST_MEMORY && (get_bool_attribute(ID::mem2reg) || (flags & AstNode::MEM2REG_FL_ALL) || !(is_reg || is_logic)))
 		mem2reg_candidates[this] |= AstNode::MEM2REG_FL_FORCED;
 
-	if (type == AST_MODULE && get_bool_attribute(ID::mem2reg))
+	if ((type == AST_MODULE || type == AST_INTERFACE) && get_bool_attribute(ID::mem2reg))
 		children_flags |= AstNode::MEM2REG_FL_ALL;
 
 	dict<AstNode*, uint32_t> *proc_flags_p = NULL;
