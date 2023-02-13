@@ -357,15 +357,15 @@ for mode in ["", "_xprop"]:
                     "-DSIMLIB_FF",
                     "-DSIMLIB_GLOBAL_CLOCK=top.gclk",
                     f"-DDUMPFILE=\"vsim_{expr}.vcd\"",
+                    "-o",
+                    f"vsim_{expr}",
                     "verilog_sim_tb.v",
                     f"vsim_{expr}.v",
                     *simlibs,
-                    "-o",
-                    f"vsim_{expr}",
                 ]
             )
             with open(f"vsim_{expr}.out", "w") as f:
-                subprocess.check_call([f"./vsim_{expr}"], stdout=f)
+                subprocess.check_call(["vvp", f"./vsim_{expr}"], stdout=f)
 
 for mode in ["", "_xprop"]:
     if f"sim{mode}" not in steps:
