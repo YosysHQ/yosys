@@ -47,7 +47,7 @@ if "clean" in steps:
 
 
 def yosys(command):
-    subprocess.check_call(["yosys", "-Qp", command])
+    subprocess.check_call(["../../../yosys", "-Qp", command])
 
 def remove(file):
     try:
@@ -275,7 +275,7 @@ if "prepare" in steps:
                 file=tb_file,
             )
 
-        print("    $finish;", file=tb_file)
+        print("    $finish(0);", file=tb_file)
         print("end", file=tb_file)
         print("endmodule", file=tb_file)
 
@@ -344,8 +344,8 @@ for mode in ["", "_xprop"]:
                 read_rtlil wrapped{mode}.il
                 chformal -remove
                 dffunmap
-                write_verilog -noparallelcase vsim_expr{mode}.v
                 write_verilog -noexpr vsim_noexpr{mode}.v
+                write_verilog -noparallelcase vsim_expr{mode}.v
             """
         )
 
@@ -357,15 +357,15 @@ for mode in ["", "_xprop"]:
                     "-DSIMLIB_FF",
                     "-DSIMLIB_GLOBAL_CLOCK=top.gclk",
                     f"-DDUMPFILE=\"vsim_{expr}.vcd\"",
+                    "-o",
+                    f"vsim_{expr}",
                     "verilog_sim_tb.v",
                     f"vsim_{expr}.v",
                     *simlibs,
-                    "-o",
-                    f"vsim_{expr}",
                 ]
             )
             with open(f"vsim_{expr}.out", "w") as f:
-                subprocess.check_call([f"./vsim_{expr}"], stdout=f)
+                subprocess.check_call(["vvp", f"./vsim_{expr}"], stdout=f)
 
 for mode in ["", "_xprop"]:
     if f"sim{mode}" not in steps:

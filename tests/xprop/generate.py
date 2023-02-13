@@ -6,6 +6,7 @@ import argparse
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('-S', '--seed', type=int, help='seed for PRNG')
+parser.add_argument('-m', '--more', action='store_true', help='run more tests')
 parser.add_argument('-c', '--count', type=int, default=32, help='number of random patterns to test')
 parser.add_argument('-f', '--filter', default='', help='regular expression to filter tests to generate')
 args = parser.parse_args()
@@ -32,7 +33,7 @@ def add_test(name, src, seq=False):
     print(
         f"\t@cd {workdir} && python3 -u ../test.py -S {args.seed} -c {args.count}{seq_arg} > test.log 2>&1 || echo {workdir}: failed > status\n"
         f"\t@cat {workdir}/status\n"
-        # f"\t@grep '^.*: ok' {workdir}/status\n"
+        f"\t@grep '^.*: ok' {workdir}/status\n"
         ,
         file=makefile,
     )
@@ -123,50 +124,55 @@ print(".PHONY: all", file=makefile)
 print("all:\n\t@echo done\n", file=makefile)
 
 for cell in ["not", "pos", "neg"]:
-    unary_test(cell, 1, False, 1)
-    unary_test(cell, 3, False, 3)
-    unary_test(cell, 3, True, 3)
-    unary_test(cell, 3, True, 1)
-    unary_test(cell, 3, False, 5)
+    if args.more:
+        unary_test(cell, 1, False, 1)
+        unary_test(cell, 3, False, 3)
+        unary_test(cell, 3, True, 3)
+        unary_test(cell, 3, True, 1)
+        unary_test(cell, 3, False, 5)
     unary_test(cell, 3, True, 5)
 
 for cell in ["and", "or", "xor", "xnor"]:
     binary_test(cell, 1, 1, False, 1)
     binary_test(cell, 1, 1, True, 2)
     binary_test(cell, 2, 2, False, 2)
-    binary_test(cell, 2, 2, False, 1)
-    binary_test(cell, 2, 1, False, 2)
-    binary_test(cell, 2, 1, False, 1)
+    if args.more:
+        binary_test(cell, 2, 2, False, 1)
+        binary_test(cell, 2, 1, False, 2)
+        binary_test(cell, 2, 1, False, 1)
 
 # [, "pow"] are not implemented yet
 for cell in ["add", "sub", "mul", "div", "mod", "divfloor", "modfloor"]:
-    binary_test(cell, 1, 1, False, 1)
-    binary_test(cell, 1, 1, False, 2)
-    binary_test(cell, 3, 3, False, 1)
-    binary_test(cell, 3, 3, False, 3)
-    binary_test(cell, 3, 3, False, 6)
-    binary_test(cell, 3, 3, True, 1)
-    binary_test(cell, 3, 3, True, 3)
-    binary_test(cell, 3, 3, True, 6)
+    if args.more:
+        binary_test(cell, 1, 1, False, 1)
+        binary_test(cell, 1, 1, False, 2)
+        binary_test(cell, 3, 3, False, 1)
+        binary_test(cell, 3, 3, False, 3)
+        binary_test(cell, 3, 3, False, 6)
+        binary_test(cell, 3, 3, True, 1)
+        binary_test(cell, 3, 3, True, 3)
+        binary_test(cell, 3, 3, True, 6)
     binary_test(cell, 5, 3, False, 3)
     binary_test(cell, 5, 3, True, 3)
 
 for cell in ["lt", "le", "eq", "ne", "eqx", "nex", "ge", "gt"]:
-    binary_test(cell, 1, 1, False, 1)
-    binary_test(cell, 1, 1, False, 2)
-    binary_test(cell, 3, 3, False, 1)
-    binary_test(cell, 3, 3, False, 2)
-    binary_test(cell, 3, 3, True, 1)
-    binary_test(cell, 3, 3, True, 2)
-    binary_test(cell, 5, 3, False, 1)
-    binary_test(cell, 5, 3, True, 1)
+    if args.more:
+        binary_test(cell, 1, 1, False, 1)
+        binary_test(cell, 1, 1, False, 2)
+        binary_test(cell, 3, 3, False, 1)
+        binary_test(cell, 3, 3, False, 2)
+        binary_test(cell, 3, 3, True, 1)
+        binary_test(cell, 3, 3, True, 2)
+        binary_test(cell, 5, 3, False, 1)
+        binary_test(cell, 5, 3, True, 1)
     binary_test(cell, 5, 3, False, 2)
     binary_test(cell, 5, 3, True, 2)
 
 for cell in ["reduce_and", "reduce_or", "reduce_xor", "reduce_xnor"]:
-    unary_test(cell, 1, False, 1)
-    unary_test(cell, 3, False, 1)
-    unary_test(cell, 3, True, 1)
+    if args.more:
+        unary_test(cell, 1, False, 1)
+        unary_test(cell, 3, False, 1)
+        unary_test(cell, 3, True, 1)
     unary_test(cell, 3, False, 3)
     unary_test(cell, 3, True, 3)
 
@@ -183,33 +189,36 @@ for cell in ["logic_and", "logic_or"]:
     binary_test(cell, 3, 3, True, 1)
 
 for cell in ["shl", "shr", "sshl", "sshr", "shift"]:
-    shift_test(cell, 2, 1, False, False, 2)
-    shift_test(cell, 2, 1, True, False, 2)
-    shift_test(cell, 2, 1, False, False, 4)
-    shift_test(cell, 2, 1, True, False, 4)
-    shift_test(cell, 4, 2, False, False, 4)
-    shift_test(cell, 4, 2, True, False, 4)
-    shift_test(cell, 4, 2, False, False, 8)
-    shift_test(cell, 4, 2, True, False, 8)
+    if args.more:
+        shift_test(cell, 2, 1, False, False, 2)
+        shift_test(cell, 2, 1, True, False, 2)
+        shift_test(cell, 2, 1, False, False, 4)
+        shift_test(cell, 2, 1, True, False, 4)
+        shift_test(cell, 4, 2, False, False, 4)
+        shift_test(cell, 4, 2, True, False, 4)
+        shift_test(cell, 4, 2, False, False, 8)
+        shift_test(cell, 4, 2, True, False, 8)
     shift_test(cell, 4, 3, False, False, 3)
     shift_test(cell, 4, 3, True, False, 3)
 
 for cell in ["shift"]:
-    shift_test(cell, 2, 1, False, True, 2)
-    shift_test(cell, 2, 1, True, True, 2)
-    shift_test(cell, 2, 1, False, True, 4)
-    shift_test(cell, 2, 1, True, True, 4)
-    shift_test(cell, 4, 2, False, True, 4)
-    shift_test(cell, 4, 2, True, True, 4)
+    if args.more:
+        shift_test(cell, 2, 1, False, True, 2)
+        shift_test(cell, 2, 1, True, True, 2)
+        shift_test(cell, 2, 1, False, True, 4)
+        shift_test(cell, 2, 1, True, True, 4)
+        shift_test(cell, 4, 2, False, True, 4)
+        shift_test(cell, 4, 2, True, True, 4)
     shift_test(cell, 4, 2, False, True, 8)
     shift_test(cell, 4, 2, True, True, 8)
     shift_test(cell, 4, 3, False, True, 3)
     shift_test(cell, 4, 3, True, True, 3)
 
 for cell in ["shiftx"]:
-    shift_test(cell, 2, 1, False, True, 2)
-    shift_test(cell, 2, 1, False, True, 4)
-    shift_test(cell, 4, 2, False, True, 4)
+    if args.more:
+        shift_test(cell, 2, 1, False, True, 2)
+        shift_test(cell, 2, 1, False, True, 4)
+        shift_test(cell, 4, 2, False, True, 4)
     shift_test(cell, 4, 2, False, True, 8)
     shift_test(cell, 4, 3, False, True, 3)
 
