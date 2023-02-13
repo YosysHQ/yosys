@@ -275,7 +275,7 @@ if "prepare" in steps:
                 file=tb_file,
             )
 
-        print("    $finish;", file=tb_file)
+        print("    $finish(0);", file=tb_file)
         print("end", file=tb_file)
         print("endmodule", file=tb_file)
 
@@ -344,8 +344,8 @@ for mode in ["", "_xprop"]:
                 read_rtlil wrapped{mode}.il
                 chformal -remove
                 dffunmap
-                write_verilog -noparallelcase vsim_expr{mode}.v
                 write_verilog -noexpr vsim_noexpr{mode}.v
+                write_verilog -noparallelcase vsim_expr{mode}.v
             """
         )
 

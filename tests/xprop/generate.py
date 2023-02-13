@@ -33,7 +33,7 @@ def add_test(name, src, seq=False):
     print(
         f"\t@cd {workdir} && python3 -u ../test.py -S {args.seed} -c {args.count}{seq_arg} > test.log 2>&1 || echo {workdir}: failed > status\n"
         f"\t@cat {workdir}/status\n"
-        # f"\t@grep '^.*: ok' {workdir}/status\n"
+        f"\t@grep '^.*: ok' {workdir}/status\n"
         ,
         file=makefile,
     )
