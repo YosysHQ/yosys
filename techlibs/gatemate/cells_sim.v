@@ -114,10 +114,10 @@ module CC_LVDS_IBUF #(
 	parameter [0:0] FF_IBF = 1'bx
 )(
 	(* iopad_external_pin *)
-	input  IP, IN,
+	input  I_P, I_N,
 	output Y
 );
-	assign Y = IP;
+	assign Y = I_P;
 
 endmodule
 
@@ -133,10 +133,10 @@ module CC_LVDS_OBUF #(
 )(
 	input  A,
 	(* iopad_external_pin *)
-	output OP, ON
+	output O_P, O_N
 );
-	assign OP = A;
-	assign ON = ~A;
+	assign O_P = A;
+	assign O_N = ~A;
 
 endmodule
 
@@ -152,10 +152,10 @@ module CC_LVDS_TOBUF #(
 )(
 	input  A, T,
 	(* iopad_external_pin *)
-	output OP, ON
+	output O_P, O_N
 );
-	assign OP = T ? 1'bz :  A;
-	assign ON = T ? 1'bz : ~A;
+	assign O_P = T ? 1'bz :  A;
+	assign O_N = T ? 1'bz : ~A;
 
 endmodule
 
@@ -174,12 +174,12 @@ module CC_LVDS_IOBUF #(
 )(
 	input  A, T,
 	(* iopad_external_pin *)
-	inout  IOP, ION,
+	inout  IO_P, IO_N,
 	output Y
 );
-	assign IOP = T ? 1'bz :  A;
-	assign ION = T ? 1'bz : ~A;
-	assign Y = IOP;
+	assign IO_P = T ? 1'bz :  A;
+	assign IO_N = T ? 1'bz : ~A;
+	assign Y = IO_P;
 
 endmodule
 
