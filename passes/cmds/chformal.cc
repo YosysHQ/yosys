@@ -58,6 +58,11 @@ struct ChformalPass : public Pass {
 		log("    -coverenable\n");
 		log("        add cover statements for the enable signals of the constraints\n");
 		log("\n");
+#ifdef YOSYS_ENABLE_VERIFIC
+		log("        Note: For the Verific frontend it is currently not guaranteed that a\n");
+		log("        reachable SVA statement corresponds to an active enable signal.\n");
+		log("\n");
+#endif
 		log("    -assert2assume\n");
 		log("    -assume2assert\n");
 		log("    -live2fair\n");
