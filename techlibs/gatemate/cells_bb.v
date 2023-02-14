@@ -123,6 +123,12 @@ module CC_CFG_CTRL(
 );
 endmodule
 
+(* blackbox *) (* keep *)
+module CC_USR_RSTN (
+	output USR_RSTN
+);
+endmodule
+
 (* blackbox *)
 module CC_FIFO_40K (
 	output A_ECC_1B_ERR,
