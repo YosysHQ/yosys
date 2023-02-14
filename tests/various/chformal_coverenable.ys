@@ -1,0 +1,25 @@
+read_verilog -formal <<EOT
+module top(input a, b, c, d);
+
+    always @* begin
+        if (a) assert (b == c);
+        if (!a) assert (b != c);
+        if (b) assume (c);
+        if (c) cover (d);
+    end
+
+endmodule
+EOT
+
+prep -top top
+
+select -assert-count 1 t:$cover
+
+chformal -cover -coverenable
+select -assert-count 2 t:$cover
+
+chformal -assert -coverenable
+select -assert-count 4 t:$cover
+
+chformal -assume -coverenable
+select -assert-count 5 t:$cover
