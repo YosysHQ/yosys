@@ -22,6 +22,9 @@ module CC_PLL #(
 	parameter REF_CLK = "", // e.g. "10.0"
 	parameter OUT_CLK = "", // e.g. "50.0"
 	parameter PERF_MD = "", // LOWPOWER, ECONOMY, SPEED
+	parameter LOCK_REQ = 1,
+	parameter CLK270_DOUB = 0,
+	parameter CLK180_DOUB = 0,
 	parameter LOW_JITTER = 1,
 	parameter CI_FILTER_CONST = 2,
 	parameter CP_FILTER_CONST = 4
