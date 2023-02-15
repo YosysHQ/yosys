@@ -242,7 +242,8 @@ module CC_DFF #(
 	parameter [0:0] CLK_INV = 1'b0,
 	parameter [0:0] EN_INV  = 1'b0,
 	parameter [0:0] SR_INV  = 1'b0,
-	parameter [0:0] SR_VAL  = 1'b0
+	parameter [0:0] SR_VAL  = 1'b0,
+	parameter [0:0] INIT    = 1'bx
 )(
 	input D,
 	(* clkbuf_sink *)
@@ -256,7 +257,7 @@ module CC_DFF #(
 	assign en  = (EN_INV)  ?  ~EN :  EN;
 	assign sr  = (SR_INV)  ?  ~SR :  SR;
 
-	initial Q = 1'bX;
+	initial Q = INIT;
 
 	always @(posedge clk or posedge sr)
 	begin
@@ -272,9 +273,10 @@ endmodule
 
 
 module CC_DLT #(
-	parameter [0:0] G_INV = 1'b0,
+	parameter [0:0] G_INV  = 1'b0,
 	parameter [0:0] SR_INV = 1'b0,
-	parameter [0:0] SR_VAL = 1'b0
+	parameter [0:0] SR_VAL = 1'b0,
+	parameter [0:0] INIT   = 1'bx
 )(
 	input D,
 	input G,
@@ -285,7 +287,7 @@ module CC_DLT #(
 	assign en  = (G_INV) ? ~G : G;
 	assign sr  = (SR_INV) ? ~SR : SR;
 
-	initial Q = 1'bX;
+	initial Q = INIT;
 
 	always @(*)
 	begin
