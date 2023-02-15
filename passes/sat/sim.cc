@@ -139,6 +139,8 @@ struct SimInstance
 	dict<SigBit, pool<Cell*>> upd_cells;
 	dict<SigBit, pool<Wire*>> upd_outports;
 
+	dict<SigBit, SigBit> in_parent_drivers;
+
 	pool<SigBit> dirty_bits;
 	pool<Cell*> dirty_cells;
 	pool<IdString> dirty_memories;
@@ -217,6 +219,12 @@ struct SimInstance
 						state_nets[sig[i]] = initval[i];
 						dirty_bits.insert(sig[i]);
 					}
+			}
+
+			if (wire->port_input && instance != nullptr && parent != nullptr) {
+				for (int i = 0; i < GetSize(sig); i++) {
+					in_parent_drivers.emplace(sig[i], parent->sigmap(instance->getPort(wire->name)[i]));
+				}
 			}
 		}
 
@@ -370,6 +378,22 @@ struct SimInstance
 		if (shared->debug)
 			log("[%s] set %s: %s\n", hiername().c_str(), log_signal(sig), log_signal(value));
 		return did_something;
+	}
+
+	void set_state_parent_drivers(SigSpec sig, Const value)
+	{
+		sigmap.apply(sig);
+
+		for (int i = 0; i < GetSize(sig); i++) {
+			auto sigbit = sig[i];
+			auto sigval = value[i];
+
+			auto in_parent_driver = in_parent_drivers.find(sigbit);
+			if (in_parent_driver == in_parent_drivers.end())
+				set_state(sigbit, sigval);
+			else
+				parent->set_state_parent_drivers(in_parent_driver->second, sigval);
+		}
 	}
 
 	void set_memory_state(IdString memid, Const addr, Const data)
@@ -1760,7 +1784,7 @@ struct SimWorker : SimShared
 				log("yw: set %s to %s\n", signal.path.str().c_str(), log_const(value));
 
 			if (found_path.wire != nullptr) {
-				found_path.instance->set_state(
+				found_path.instance->set_state_parent_drivers(
 						SigChunk(found_path.wire, signal.offset, signal.width),
 						value);
 			} else if (!found_path.memid.empty()) {
