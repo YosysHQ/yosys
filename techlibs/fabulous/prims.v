@@ -93,13 +93,13 @@ module Global_Clock (output CLK);
 endmodule
 
 (* blackbox, keep *)
-module InPass4_frame_config (output O0, O1, O2, O3);
+module InPass4_frame_config (input CLK, output O0, O1, O2, O3);
 
 endmodule
 
 
 (* blackbox, keep *)
-module OutPass4_frame_config (input I0, I1, I2, I3);
+module OutPass4_frame_config (input CLK, I0, I1, I2, I3);
 
 endmodule
 
