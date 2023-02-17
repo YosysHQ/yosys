@@ -1043,21 +1043,49 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		sw->signal = sig_select;
 		current_case->switches.push_back(sw);
 
-		int select_width = inst->InputSize();
-		int data_width = inst->OutputSize();
-		int select_num = inst->Input1Size() / inst->InputSize();
+		unsigned select_width = inst->InputSize();
+		unsigned data_width = inst->OutputSize();
+		unsigned offset_data = 0;
+		unsigned offset_select = 0;
 
-		int offset_select = 0;
-		int offset_data = 0;
+		OperWideCaseSelector* selector = (OperWideCaseSelector*) inst->View();
 
-		for (int i = 0; i < select_num; i++) {
-			RTLIL::CaseRule *cs = new RTLIL::CaseRule;
-			cs->compare.push_back(sig_select_values.extract(offset_select, select_width));
-			cs->actions.push_back(SigSig(sig_out_val, sig_data_values.extract(offset_data, data_width)));
-			sw->cases.push_back(cs);
-			
-			offset_select += select_width;
+		for (unsigned i = 0 ; i < selector->GetNumBranches() ; ++i) {
+
+			SigSig action(sig_out_val, sig_data_values.extract(offset_data, data_width));
 			offset_data += data_width;
+
+			for (unsigned j = 0 ; j < selector->GetNumConditions(i) ; ++j) {
+				Array left_bound, right_bound ;
+				selector->GetCondition(i, j, &left_bound, &right_bound);
+			
+				SigSpec sel_left = sig_select_values.extract(offset_select, select_width);
+				offset_select += select_width;
+
+				if (right_bound.Size()) {
+					SigSpec sel_right = sig_select_values.extract(offset_select, select_width);
+					offset_select += select_width;
+
+					log_assert(sel_right.is_fully_const() && sel_right.is_fully_def());
+					log_assert(sel_left.is_fully_const() && sel_right.is_fully_def());
+
+					int32_t left = sel_left.as_int();
+					int32_t right = sel_right.as_int();
+					int width = sel_left.size();
+
+					for (int32_t i = right; i<left; i++) {
+						RTLIL::CaseRule *cs = new RTLIL::CaseRule;
+						cs->compare.push_back(RTLIL::Const(i,width));
+						cs->actions.push_back(action);
+						sw->cases.push_back(cs);
+					}
+				}
+
+				RTLIL::CaseRule *cs = new RTLIL::CaseRule;
+				cs->compare.push_back(sel_left);
+				cs->actions.push_back(action);
+				sw->cases.push_back(cs);
+			}
 		}
 		RTLIL::CaseRule *cs_default = new RTLIL::CaseRule;
 		cs_default->actions.push_back(SigSig(sig_out_val, sig_data_default));
