@@ -3614,7 +3614,7 @@ module DSP48E1 (
         if (CREG == 1) begin always @(posedge CLK) if (RSTC) Cr <= 48'b0; else if (CEC) Cr <= C; end
         else           always @* Cr <= C;
 
-        if (CREG == 1) initial Dr = 25'b0;
+	if (DREG == 1) initial Dr = 25'b0;
         if (DREG == 1) begin always @(posedge CLK) if (RSTD) Dr <= 25'b0; else if (CED) Dr <= D; end
         else           always @* Dr <= D;
 
