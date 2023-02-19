@@ -1444,6 +1444,19 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					log_file_error(filename, location.first_line, "Single range expected.\n");
 				int source_width = id2ast->range_left - id2ast->range_right + 1;
 				int source_offset = id2ast->range_right;
+				int item_left = source_width - 1;
+				int item_right = 0;
+
+				// Check for item in struct/union.
+				AST::AstNode *item_node;
+				if (attributes.count(ID::wiretype) && (item_node = attributes[ID::wiretype]) &&
+				    (item_node->type == AST_STRUCT_ITEM || item_node->type == AST_STRUCT || item_node->type == AST_UNION))
+				{
+					// Clamp chunk to range of item within struct/union.
+					item_left = item_node->range_left;
+					item_right = item_node->range_right;
+				}
+
 				if (!children[0]->range_valid) {
 					AstNode *left_at_zero_ast = children[0]->children[0]->clone();
 					AstNode *right_at_zero_ast = children[0]->children.size() >= 2 ? children[0]->children[1]->clone() : left_at_zero_ast->clone();
@@ -1481,7 +1494,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					chunk.offset = children[0]->range_right - source_offset;
 					if (id2ast->range_swapped)
 						chunk.offset = (id2ast->range_left - id2ast->range_right + 1) - (chunk.offset + chunk.width);
-					if (chunk.offset >= source_width || chunk.offset + chunk.width < 0) {
+					if (chunk.offset > item_left || chunk.offset + chunk.width < item_right) {
 						if (chunk.width == 1)
 							log_file_warning(filename, location.first_line, "Range select out of bounds on signal `%s': Setting result bit to undef.\n",
 									str.c_str());
@@ -1490,12 +1503,12 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 									children[0]->range_left, children[0]->range_right, str.c_str(), chunk.width);
 						chunk = RTLIL::SigChunk(RTLIL::State::Sx, chunk.width);
 					} else {
-						if (chunk.width + chunk.offset > source_width) {
-							add_undef_bits_msb = (chunk.width + chunk.offset) - source_width;
+						if (chunk.offset + chunk.width - 1 > item_left) {
+							add_undef_bits_msb = (chunk.offset + chunk.width - 1) - item_left;
 							chunk.width -= add_undef_bits_msb;
 						}
-						if (chunk.offset < 0) {
-							add_undef_bits_lsb = -chunk.offset;
+						if (chunk.offset < item_right) {
+							add_undef_bits_lsb = item_right - chunk.offset;
 							chunk.width -= add_undef_bits_lsb;
 							chunk.offset += add_undef_bits_lsb;
 						}

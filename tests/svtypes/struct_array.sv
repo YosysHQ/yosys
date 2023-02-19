@@ -18,6 +18,9 @@ module top;
 	end
 
 	always_comb assert(s==64'h4200_0012_3400_FFFC);
+	always_comb assert(s.b[23:16]===8'hxx);
+	always_comb assert(s.b[19:12]===8'hxf);
+	always_comb assert(s.a[0][3:-4]===8'h0x);
 
 	struct packed {
 		bit [7:0] [7:0] a;	// 8 element packed array of bytes
