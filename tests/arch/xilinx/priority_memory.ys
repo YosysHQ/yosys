@@ -1,0 +1,60 @@
+
+# no uram by default
+design -reset
+read_verilog priority_memory.v
+synth_xilinx -family xcup -top priority_memory
+select -assert-none t:URAM288
+
+# uram parameter
+design -reset
+read -define USE_HUGE
+read_verilog priority_memory.v
+synth_xilinx -family xcup -top priority_memory -noiopad
+select -assert-count 1 t:URAM288
+
+# uram option
+design -reset
+read_verilog priority_memory.v
+synth_xilinx -family xcup -top priority_memory -noiopad -uram
+# check for URAM block
+select -assert-count 1 t:URAM288
+# check port A in code maps to port A in hardware:
+#   %co:+[DOUT_A] 	selects everything connected to a URAM288.DOUT_A port
+#   w:rdata_a 		selects the wire rdata_a
+#   %i 			finds the intersection of the two above selections
+# if the result is 1 then the wire rdata_a is connected to Port A correctly
+select -assert-count 1 t:URAM288 %co:+[DOUT_A] w:rdata_a %i
+# we expect no more than 2 LUT2s to control the hardware priority
+#  if there are extra LUTs, then it is likely emulating logic it shouldn't
+# ignore anything using blif, since that doesn't seem to support priority logic
+#  and is indicative of using verific/tabby
+select -assert-max 2 t:LUT* n:*blif* %d
+
+# reverse priority
+design -reset
+read -define FLIP_PORTS
+read_verilog priority_memory.v
+synth_xilinx -family xcup -top priority_memory -noiopad -uram
+# test priority is mapped correctly, rdata_a should now be connected to Port B
+# see above for details
+select -assert-count 1 t:URAM288 %co:+[DOUT_B] w:rdata_a %i
+
+# sp write first
+design -reset
+read_verilog priority_memory.v
+synth_xilinx -family xcup -top sp_write_first -noiopad
+select -assert-count 1 t:URAM288
+# write first connects rdata_a to port B
+#  similar to above, but also tests that rdata_a *isn't* connected to port A
+select -assert-none 1 t:URAM288 %co:+[DOUT_A] w:rdata_a %i
+select -assert-count 1 t:URAM288 %co:+[DOUT_B] w:rdata_a %i
+
+# sp read first
+design -reset
+read_verilog priority_memory.v
+synth_xilinx -family xcup -top sp_read_first -noiopad
+select -assert-count 1 t:URAM288
+# read first connects rdata_a to port A
+#  see above for details
+select -assert-count 1 t:URAM288 %co:+[DOUT_A] w:rdata_a %i
+select -assert-none 1 t:URAM288 %co:+[DOUT_B] w:rdata_a %i

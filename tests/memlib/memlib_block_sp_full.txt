@@ -1,0 +1,61 @@
+ram block \RAM_BLOCK_SP {
+	cost 2;
+	abits 4;
+	width 16;
+	byte 8;
+	port srsw "A" {
+		clock posedge;
+		clken;
+		rden;
+
+		option "RDWR" "NO_CHANGE" {
+			rdwr no_change;
+		}
+		option "RDWR" "OLD" {
+			rdwr old;
+		}
+		option "RDWR" "NEW" {
+			rdwr new;
+		}
+		option "RDWR" "NEW_ONLY" {
+			rdwr new_only;
+		}
+
+		ifdef USE_ARST {
+			option "RDARST" "ZERO" {
+				rdarst zero;
+			}
+			option "RDARST" "ANY" {
+				rdarst any;
+			}
+		}
+
+		ifdef USE_SRST {
+			option "SRST_BLOCK" 0 {
+				option "SRST_GATE" 0 {
+					rdsrst zero ungated;
+				}
+				option "SRST_GATE" 1 {
+					rdsrst zero gated_clken;
+				}
+				option "SRST_GATE" 2 {
+					rdsrst zero gated_rden;
+				}
+			}
+		}
+
+		ifdef USE_SRST_BLOCKING {
+			option "SRST_BLOCK" 1 {
+				option "SRST_GATE" 0 {
+					rdsrst zero ungated block_wr;
+				}
+				option "SRST_GATE" 1 {
+					rdsrst zero gated_clken block_wr;
+				}
+				option "SRST_GATE" 2 {
+					rdsrst zero gated_rden block_wr;
+				}
+			}
+		}
+	}
+}
