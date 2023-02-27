@@ -837,6 +837,9 @@ ABCOPT=""
 endif
 
 test: $(TARGETS) $(EXTRA_TARGETS)
+ifeq ($(ENABLE_VERIFIC),1)
+	+cd tests/verific && bash run-test.sh $(SEEDOPT)
+endif
 	+cd tests/simple && bash run-test.sh $(SEEDOPT)
 	+cd tests/simple_abc9 && bash run-test.sh $(SEEDOPT)
 	+cd tests/hana && bash run-test.sh $(SEEDOPT)
