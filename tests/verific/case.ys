@@ -1,0 +1,16 @@
+verific -cfg db_abstract_case_statement_synthesis 0
+read -sv case.sv
+verific -import top 
+prep
+rename top gold
+
+verific -cfg db_abstract_case_statement_synthesis 1
+read -sv case.sv
+verific -import top 
+prep
+rename top gate
+
+miter -equiv -flatten -make_assert gold gate miter
+prep -top miter
+clk2fflogic
+sat -set-init-zero -tempinduct -prove-asserts -verify
