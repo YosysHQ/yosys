@@ -316,7 +316,7 @@ statdata_t hierarchy_worker(std::map<RTLIL::IdString, statdata_t> &mod_stat, RTL
 		if (mod_stat.count(it.first) > 0) {
 			if (!quiet)
 				log("     %*s%-*s %6u\n", 2*level, "", 26-2*level, log_id(it.first), it.second);
-			mod_data = mod_data + hierarchy_worker(mod_stat, it.first, level+1) * it.second;
+			mod_data = mod_data + hierarchy_worker(mod_stat, it.first, level+1, quiet) * it.second;
 			mod_data.num_cells -= it.second;
 		} else {
 			mod_data.num_cells_by_type[it.first] += it.second;
