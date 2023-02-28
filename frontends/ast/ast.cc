@@ -524,7 +524,13 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 		break;
 
 	case AST_IDENTIFIER:
-		fprintf(f, "%s", id2vl(str).c_str());
+		{
+			AST::AstNode *member_node = AST::get_struct_member(this);
+			if (member_node)
+				fprintf(f, "%s[%d:%d]", id2vl(str).c_str(), member_node->range_left, member_node->range_right);
+			else
+				fprintf(f, "%s", id2vl(str).c_str());
+		}
 		for (auto child : children)
 			child->dumpVlog(f, "");
 		break;

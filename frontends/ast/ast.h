@@ -380,6 +380,7 @@ namespace AST
 
 	// struct helper exposed from simplify for genrtlil
 	AstNode *make_struct_member_range(AstNode *node, AstNode *member_node);
+	AstNode *get_struct_member(const AstNode *node);
 
 	// generate standard $paramod... derived module name; parameters should be
 	// in the order they are declared in the instantiated module

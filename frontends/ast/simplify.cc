@@ -445,7 +445,7 @@ static AstNode *struct_index_lsb_offset(AstNode *lsb_offset, AstNode *rnode, Ast
 	stride /= get_struct_range_width(member_node, dimension);
 	auto right = normalize_struct_index(rnode->children.back(), member_node, dimension);
 	auto offset = stride > 1 ? multiply_by_const(right, stride) : right;
-	return new AstNode(AST_ADD, lsb_offset, offset);
+	return lsb_offset ? new AstNode(AST_ADD, lsb_offset, offset) : offset;
 }
 
 static AstNode *struct_index_msb_offset(AstNode *lsb_offset, AstNode *rnode, AstNode *member_node, int dimension, int stride)
@@ -484,7 +484,7 @@ AstNode *AST::make_struct_member_range(AstNode *node, AstNode *member_node)
 	int range_right = member_node->range_right;
 	if (node->children.empty()) {
 		// no range operations apply, return the whole width
-		return make_range(range_left, range_right);
+		return make_range(range_left - range_right, 0);
 	}
 
 	if (node->children.size() != 1) {
@@ -493,7 +493,7 @@ AstNode *AST::make_struct_member_range(AstNode *node, AstNode *member_node)
 
 	// Range operations
 	auto rnode = node->children[0];
-	auto lsb_offset = node_int(member_node->range_right);
+	AstNode *lsb_offset = NULL;
 	int stride = range_left - range_right + 1;
 	size_t i = 0;
 
@@ -518,6 +518,17 @@ AstNode *AST::make_struct_member_range(AstNode *node, AstNode *member_node)
 	auto msb_offset = struct_index_msb_offset(lsb_offset->clone(), rnode, member_node, i, stride);
 
 	return new AstNode(AST_RANGE, msb_offset, lsb_offset);
+}
+
+AstNode *AST::get_struct_member(const AstNode *node)
+{
+	AST::AstNode *member_node;
+	if (node->attributes.count(ID::wiretype) && (member_node = node->attributes.at(ID::wiretype)) &&
+	    (member_node->type == AST_STRUCT_ITEM || member_node->type == AST_STRUCT || member_node->type == AST_UNION))
+	{
+		return member_node;
+	}
+	return NULL;
 }
 
 static void add_members_to_scope(AstNode *snode, std::string name)
@@ -2696,7 +2707,14 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			goto skip_dynamic_range_lvalue_expansion;
 
 		int source_width = children[0]->id2ast->range_left - children[0]->id2ast->range_right + 1;
+		int source_offset = children[0]->id2ast->range_right;
 		int result_width = 1;
+		AST::AstNode *member_node = get_struct_member(children[0]);
+		if (member_node) {
+			// Clamp chunk to range of member within struct/union.
+			log_assert(!source_offset && !children[0]->id2ast->range_swapped);
+			source_width = member_node->range_left - member_node->range_right + 1;
+		}
 
 		AstNode *shift_expr = NULL;
 		AstNode *range = children[0]->children[0];
@@ -2737,11 +2755,13 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			did_something = true;
 			newNode = new AstNode(AST_CASE, shift_expr);
 			for (int i = 0; i < source_width; i++) {
-				int start_bit = children[0]->id2ast->range_right + i;
+				int start_bit = source_offset + i;
 				int end_bit = std::min(start_bit+result_width,source_width) - 1;
 				AstNode *cond = new AstNode(AST_COND, mkconst_int(start_bit, true));
 				AstNode *lvalue = children[0]->clone();
 				lvalue->delete_children();
+				if (member_node)
+					lvalue->attributes[ID::wiretype] = member_node->clone();
 				lvalue->children.push_back(new AstNode(AST_RANGE,
 						mkconst_int(end_bit, true), mkconst_int(start_bit, true)));
 				cond->children.push_back(new AstNode(AST_BLOCK, new AstNode(type, lvalue, children[1]->clone())));
@@ -2783,6 +2803,8 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 			AstNode *lvalue = children[0]->clone();
 			lvalue->delete_children();
+			if (member_node)
+				lvalue->attributes[ID::wiretype] = member_node->clone();
 
 			AstNode *ref_mask = new AstNode(AST_IDENTIFIER);
 			ref_mask->str = wire_mask->str;
@@ -2813,7 +2835,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			shamt = new AstNode(AST_TO_SIGNED, shamt);
 
 			// offset the shift amount by the lower bound of the dimension
-			int start_bit = children[0]->id2ast->range_right;
+			int start_bit = source_offset;
 			shamt = new AstNode(AST_SUB, shamt, mkconst_int(start_bit, true));
 
 			// reflect the shift amount if the dimension is swapped
@@ -3403,11 +3425,8 @@ skip_dynamic_range_lvalue_expansion:;
 						log_file_error(filename, location.first_line, "Failed to resolve identifier %s for width detection!\n", buf->str.c_str());
 
 					// Check for item in packed struct / union
-					AST::AstNode *item_node;
-					if (id_ast->type == AST_WIRE &&
-					    buf->attributes.count(ID::wiretype) && (item_node = buf->attributes[ID::wiretype]) &&
-					    (item_node->type == AST_STRUCT_ITEM || item_node->type == AST_STRUCT || item_node->type == AST_UNION))
-					{
+					AST::AstNode *item_node = get_struct_member(buf);
+					if (id_ast->type == AST_WIRE && item_node) {
 						// The dimension of the original array expression is saved in the 'integer' field
 						dim += buf->integer;
 						if (item_node->multirange_dimensions.empty()) {
@@ -4082,10 +4101,13 @@ replace_fcall_later:;
 							tmp_range_left = (param_width + 2*param_offset) - children[0]->range_right - 1;
 							tmp_range_right = (param_width + 2*param_offset) - children[0]->range_left - 1;
 						}
+						AST::AstNode *member_node = get_struct_member(this);
+						int chunk_offset = member_node ? member_node->range_right : 0;
+						log_assert(!(chunk_offset && param_upto));
 						for (int i = tmp_range_right; i <= tmp_range_left; i++) {
 							int index = i - param_offset;
 							if (0 <= index && index < param_width)
-								data.push_back(current_scope[str]->children[0]->bits[index]);
+								data.push_back(current_scope[str]->children[0]->bits[chunk_offset + index]);
 							else
 								data.push_back(RTLIL::State::Sx);
 						}
