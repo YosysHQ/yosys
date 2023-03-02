@@ -4,7 +4,7 @@ module range_shift_mask(
     input logic [2:0] addr_o,
     output logic [7:0] data_o
 );
-    // (* nowrshmsk = 0 *)
+    (* nowrshmsk = 0 *)
     struct packed {
         logic [7:0] msb;
         logic [0:3][7:0] data;
@@ -24,7 +24,7 @@ module range_case(
     input logic [2:0] addr_o,
     output logic [7:0] data_o
 );
-    // (* nowrshmsk = 1 *)
+    (* nowrshmsk = 1 *)
     struct packed {
         logic [7:0] msb;
         logic [0:3][7:0] data;
