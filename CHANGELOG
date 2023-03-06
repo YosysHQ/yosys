@@ -2,8 +2,19 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.26 .. Yosys 0.26-dev
+Yosys 0.26 .. Yosys 0.27
 --------------------------
+ * New commands and options
+    - Added option "-make_assert" to "equiv_make" pass.
+    - Added option "-coverenable" to "chformal" pass.
+
+ * Verilog
+    - Resolve package types in interfaces.
+    - Handle range offsets in packed arrays within packed structs.
+    - Support for data and array queries on struct/union item expressions.
+
+ * GateMate support
+    - Enable register initialization.
 
 Yosys 0.25 .. Yosys 0.26
 --------------------------
