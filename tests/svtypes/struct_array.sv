@@ -12,12 +12,16 @@ module top;
 
 		s.a[2:1] = 16'h1234;
 		s.a[5] = 8'h42;
+		s.a[-1] = '0;
 
 		s.b = '1;
 		s.b[1:0] = '0;
 	end
 
 	always_comb assert(s==64'h4200_0012_3400_FFFC);
+	always_comb assert(s.a[0][3:-4]===8'h0x);
+	always_comb assert(s.b[23:16]===8'hxx);
+	always_comb assert(s.b[19:12]===8'hxf);
 
 	struct packed {
 		bit [7:0] [7:0] a;	// 8 element packed array of bytes

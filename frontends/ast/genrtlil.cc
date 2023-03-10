@@ -1375,6 +1375,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			RTLIL::SigChunk chunk;
 			bool is_interface = false;
 
+			AST::AstNode *member_node = NULL;
 			int add_undef_bits_msb = 0;
 			int add_undef_bits_lsb = 0;
 
@@ -1438,12 +1439,28 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			chunk.width = wire->width;
 			chunk.offset = 0;
 
+			if ((member_node = get_struct_member(this))) {
+				// Clamp wire chunk to range of member within struct/union.
+				chunk.width = member_node->range_left - member_node->range_right + 1;
+				chunk.offset = member_node->range_right;
+			}
+
 		use_const_chunk:
 			if (children.size() != 0) {
 				if (children[0]->type != AST_RANGE)
 					log_file_error(filename, location.first_line, "Single range expected.\n");
 				int source_width = id2ast->range_left - id2ast->range_right + 1;
 				int source_offset = id2ast->range_right;
+				int chunk_left = source_width - 1;
+				int chunk_right = 0;
+
+				if (member_node) {
+					// Clamp wire chunk to range of member within struct/union.
+					log_assert(!source_offset && !id2ast->range_swapped);
+					chunk_left = chunk.offset + chunk.width - 1;
+					chunk_right = chunk.offset;
+				}
+
 				if (!children[0]->range_valid) {
 					AstNode *left_at_zero_ast = children[0]->children[0]->clone();
 					AstNode *right_at_zero_ast = children[0]->children.size() >= 2 ? children[0]->children[1]->clone() : left_at_zero_ast->clone();
@@ -1455,14 +1472,16 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					AstNode *fake_ast = new AstNode(AST_NONE, clone(), children[0]->children.size() >= 2 ?
 							children[0]->children[1]->clone() : children[0]->children[0]->clone());
 					fake_ast->children[0]->delete_children();
+					if (member_node)
+						fake_ast->children[0]->attributes[ID::wiretype] = member_node->clone();
 
 					int fake_ast_width = 0;
 					bool fake_ast_sign = true;
 					fake_ast->children[1]->detectSignWidth(fake_ast_width, fake_ast_sign);
 					RTLIL::SigSpec shift_val = fake_ast->children[1]->genRTLIL(fake_ast_width, fake_ast_sign);
 
-					if (id2ast->range_right != 0) {
-						shift_val = current_module->Sub(NEW_ID, shift_val, id2ast->range_right, fake_ast_sign);
+					if (source_offset != 0) {
+						shift_val = current_module->Sub(NEW_ID, shift_val, source_offset, fake_ast_sign);
 						fake_ast->children[1]->is_signed = true;
 					}
 					if (id2ast->range_swapped) {
@@ -1478,10 +1497,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					return sig;
 				} else {
 					chunk.width = children[0]->range_left - children[0]->range_right + 1;
-					chunk.offset = children[0]->range_right - source_offset;
+					chunk.offset += children[0]->range_right - source_offset;
 					if (id2ast->range_swapped)
-						chunk.offset = (id2ast->range_left - id2ast->range_right + 1) - (chunk.offset + chunk.width);
-					if (chunk.offset >= source_width || chunk.offset + chunk.width < 0) {
+						chunk.offset = source_width - (chunk.offset + chunk.width);
+					if (chunk.offset > chunk_left || chunk.offset + chunk.width < chunk_right) {
 						if (chunk.width == 1)
 							log_file_warning(filename, location.first_line, "Range select out of bounds on signal `%s': Setting result bit to undef.\n",
 									str.c_str());
@@ -1490,12 +1509,12 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 									children[0]->range_left, children[0]->range_right, str.c_str(), chunk.width);
 						chunk = RTLIL::SigChunk(RTLIL::State::Sx, chunk.width);
 					} else {
-						if (chunk.width + chunk.offset > source_width) {
-							add_undef_bits_msb = (chunk.width + chunk.offset) - source_width;
+						if (chunk.offset + chunk.width - 1 > chunk_left) {
+							add_undef_bits_msb = (chunk.offset + chunk.width - 1) - chunk_left;
 							chunk.width -= add_undef_bits_msb;
 						}
-						if (chunk.offset < 0) {
-							add_undef_bits_lsb = -chunk.offset;
+						if (chunk.offset < chunk_right) {
+							add_undef_bits_lsb = chunk_right - chunk.offset;
 							chunk.width -= add_undef_bits_lsb;
 							chunk.offset += add_undef_bits_lsb;
 						}

@@ -1,0 +1,4 @@
+read_verilog -sv struct_dynamic_range.sv
+prep -top top
+flatten
+sat -enable_undef -verify -prove-asserts
