@@ -200,14 +200,6 @@ RTLIL::IdString VerificImporter::new_verific_id(Verific::DesignObj *obj)
 	return s;
 }
 
-static bool isNumber(const string& str)
-{
-	for (auto &c : str) {
-		if (std::isdigit(c) == 0) return false;
-	}
-	return true;
-}
-
 // When used as attributes or parameter values Verific constants come already processed.
 // - Real string values are already under quotes
 // - Numeric values with specified width are always converted to binary
@@ -215,19 +207,37 @@ static bool isNumber(const string& str)
 // - There could be some internal values that are strings without quotes
 //   so we check if value is all digits or not
 //
-static const RTLIL::Const verific_const(const char *value)
+// Note: For signed values, verific uses <len>'sb<bits> and decimal values can
+// also be negative.
+static const RTLIL::Const verific_const(const char *value, bool allow_string = true, bool output_signed = false)
 {
+	size_t found;
+	char *end;
+	int decimal;
+	bool is_signed = false;
+	RTLIL::Const c;
 	std::string val = std::string(value);
-	if (val.size()>1 && val[0]=='\"' && val.back()=='\"')
-		return RTLIL::Const(val.substr(1,val.size()-2));
-	else
-		if (val.find("'b") != std::string::npos)
-			return RTLIL::Const::from_string(val.substr(val.find("'b") + 2));
-		else
-			if (isNumber(val))
-				return RTLIL::Const(std::stoi(val),32);
-			else
-				return RTLIL::Const(val);
+	if (allow_string && val.size()>1 && val[0]=='\"' && val.back()=='\"') {
+		c = RTLIL::Const(val.substr(1,val.size()-2));
+	} else if ((found = val.find("'sb")) != std::string::npos) {
+		is_signed = output_signed;
+		c = RTLIL::Const::from_string(val.substr(found + 3));
+	} else if ((found = val.find("'b")) != std::string::npos) {
+		c = RTLIL::Const::from_string(val.substr(found + 2));
+	} else if ((value[0] == '-' || (value[0] >= '0' && value[0] <= '9')) &&
+			((decimal = std::strtol(value, &end, 10)), !end[0])) {
+		is_signed = output_signed;
+		c = RTLIL::Const((int)decimal, 32);
+	} else if (allow_string) {
+		c = RTLIL::Const(val);
+	} else {
+		log_error("expected numeric constant but found '%s'", value);
+	}
+
+	if (is_signed)
+		c.flags |= RTLIL::CONST_FLAG_SIGNED;
+
+	return c;
 }
 
 void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &attributes, DesignObj *obj, Netlist *nl)
@@ -263,21 +273,9 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 		const char *k, *v;
 		FOREACH_MAP_ITEM(type_range->GetEnumIdMap(), mi, &k, &v) {
 			if (nl->IsFromVerilog()) {
-				// Expect <decimal>'b<binary>
-				auto p = strchr(v, '\'');
-				if (p) {
-					if (*(p+1) != 'b')
-						p = nullptr;
-					else
-						for (auto q = p+2; *q != '\0'; q++)
-							if (*q != '0' && *q != '1' && *q != 'x' && *q != 'z') {
-								p = nullptr;
-								break;
-							}
-				}
-				if (p == nullptr)
-					log_error("Expected TypeRange value '%s' to be of form <decimal>'b<binary>.\n", v);
-				attributes.emplace(stringf("\\enum_value_%s", p+2), RTLIL::escape_id(k));
+				auto const value = verific_const(v, false);
+
+				attributes.emplace(stringf("\\enum_value_%s", value.as_string().c_str()), RTLIL::escape_id(k));
 			}
 #ifdef VERIFIC_VHDL_SUPPORT
 			else if (nl->IsFromVhdl()) {
@@ -1467,6 +1465,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 					import_attributes(wire->attributes, net, nl);
 				break;
 			}
+			import_attributes(wire->attributes, netbus, nl);
 
 			RTLIL::Const initval = Const(State::Sx, GetSize(wire));
 			bool initval_valid = false;
