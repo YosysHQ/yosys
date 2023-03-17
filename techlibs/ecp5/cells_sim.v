@@ -378,6 +378,7 @@ endmodule
 // ---------------------------------------
 (* keep *)
 module TRELLIS_IO(
+	(* iopad_external_pin *)
 	inout B,
 	input I,
 	input T,
