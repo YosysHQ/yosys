@@ -25,6 +25,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/mem.h"
 #include "kernel/qcsat.h"
+#include "kernel/ffmerge.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -170,6 +171,7 @@ struct Swizzle {
 
 struct MemMapping {
 	MapWorker &worker;
+	FfMergeHelper ff_merger;
 	QuickConeSat qcsat;
 	Mem &mem;
 	const Library &lib;
@@ -184,7 +186,7 @@ struct MemMapping {
 	dict<std::pair<int, int>, bool> wr_excludes_rd_cache;
 	dict<std::pair<int, int>, bool> wr_excludes_srst_cache;
 
-	MemMapping(MapWorker &worker, Mem &mem, const Library &lib, const PassOptions &opts) : worker(worker), qcsat(worker.modwalker), mem(mem), lib(lib), opts(opts) {
+	MemMapping(MapWorker &worker, Mem &mem, const Library &lib, const PassOptions &opts) : worker(worker), ff_merger(&worker.initvals, worker.module), qcsat(worker.modwalker), mem(mem), lib(lib), opts(opts) {
 		determine_style();
 		logic_ok = determine_logic_ok();
 		if (GetSize(mem.wr_ports) == 0)
@@ -213,6 +215,7 @@ struct MemMapping {
 			}
 			cfgs.push_back(cfg);
 		}
+		find_pipeline_regs();
 		assign_wr_ports();
 		assign_rd_ports();
 		handle_trans();
@@ -299,6 +302,7 @@ struct MemMapping {
 	bool check_ram_kind(const Ram &ram);
 	bool check_ram_style(const Ram &ram);
 	bool check_init(const Ram &ram);
+	void find_pipeline_regs();
 	void assign_wr_ports();
 	void assign_rd_ports();
 	void handle_trans();
@@ -422,6 +426,7 @@ void MemMapping::dump_config(MemConfig &cfg) {
 			log_debug("    - emulate sync reset / enable priority\n");
 		for (auto i: pcfg.emu_trans)
 			log_debug("    - emulate transparency with write port %d\n", i);
+		log_debug("    - Additional output pipeline registers %d\n", pcfg.def->pipeline_outreg);
 	}
 }
 
@@ -561,6 +566,80 @@ bool apply_clock(MemConfig &cfg, const PortVariant &def, SigBit clk, bool clk_po
 		} else {
 			return ccfg.clk == clk && ccfg.invert == invert;
 		}
+	}
+}
+
+// Find chain of registers at the read port which later could be merged into
+// the memory if indicated by the MemConfig
+void MemMapping::find_pipeline_regs() {
+	std::vector<std::vector<pool<std::pair<Cell *, int>>>> regs_by_port;
+
+	for (auto& p : mem.rd_ports) {
+		regs_by_port.emplace_back(std::vector<pool<std::pair<Cell *, int>>>());
+
+		auto& regs = regs_by_port.back();
+
+		bool ff_last_valid = false;
+		FfData ff_last;
+		FfData ff;
+		pool<std::pair<Cell *, int>> bits;
+		SigSpec out_port = p.data;
+
+		while (ff_merger.find_output_ff(out_port, ff, bits)) {
+			if (ff.has_aload || ff.has_sr)
+				break;
+
+			if (!ff_last_valid) {
+				ff_last = ff;
+				ff_last_valid = true;
+			}
+
+			if (!ff.has_clk || ff_last.has_clk != ff.has_clk ||
+			    ff_last.sig_clk != ff.sig_clk ||
+			    ff_last.pol_clk != ff.pol_clk)
+				break;
+
+			if (ff_last.has_ce != ff.has_ce || (ff.has_ce && (
+			    ff_last.sig_ce != ff.sig_ce ||
+			    ff_last.pol_ce != ff.pol_ce)))
+				break;
+		
+			if (ff_last.has_srst != ff.has_srst || (ff.has_srst && (
+			    ff_last.sig_srst != ff.sig_srst ||
+			    ff_last.pol_srst != ff.pol_srst ||
+			    ff_last.val_srst != ff.val_srst)))
+				break;
+			
+			if (ff_last.has_arst != ff.has_arst || (ff.has_arst && (
+			    ff_last.sig_arst != ff.sig_arst ||
+			    ff_last.pol_arst != ff.pol_arst ||
+			    ff_last.val_arst != ff.val_arst)))
+				break;
+
+			if (ff.has_ce && ff.has_srst && ff_last.ce_over_srst != ff.ce_over_srst)
+				break;
+			
+			if (ff_last.val_init != ff.val_init)
+				break;
+
+			regs.emplace_back(bits);
+
+			// Construct sigspec to continue the walk
+			pool<SigBit> outport_next;
+			outport_next.reserve(bits.size());
+
+			for (auto& b : bits) {
+				auto cell = b.first;
+				auto idx = b.second;
+				outport_next.insert(cell->getPort(ID::Q)[idx]);
+			}
+
+			out_port = SigSpec(outport_next);
+			ff_last = ff;
+		}
+
+		if (regs.size() > 0)
+			log("Found register chain at output of memory read port of length %lu\n", regs.size());
 	}
 }
 

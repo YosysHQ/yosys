@@ -255,6 +255,7 @@ The port properties available are:
 - `wrtrans <"NAME"|all> <old|new>;`
 - `optional;`
 - `optional_rw;`
+- `pipeline_outreg <maximum_depth>`
 
 The base signals connected to the mapped cell for ports are:
 
@@ -373,6 +374,12 @@ The possible values are:
 
 If this property is not found on an `srsw` port, `undefined` is assumed.
 
+### `pipeline_outreg` property
+
+This property is only valid on `sr` and`srsw` ports. It indicates that the blockram
+supports additional pipeline registers.
+
+The number indicates how many extra stages can be added.
 
 ### Read data initial value and resets
 

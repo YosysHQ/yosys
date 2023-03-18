@@ -125,6 +125,7 @@ struct PortVariant {
 	bool wrbe_separate;
 	std::vector<int> wrprio;
 	std::vector<WrTransDef> wrtrans;
+	int pipeline_outreg;
 };
 
 struct PortGroup {
