@@ -11,7 +11,7 @@ module LUT4 #(
 	assign Z =      A ?          s1[1] :         s1[0];
 endmodule
 
-module FACADE_FF #(
+module TRELLIS_FF #(
 	parameter GSR = "ENABLED",
 	parameter CEMUX = "1",
 	parameter CLKMUX = "0",
@@ -77,7 +77,7 @@ endmodule
 
 /* For consistency, input order matches TRELLIS_SLICE even though the BELs in
 prjtrellis were filled in clockwise order from bottom left. */
-module FACADE_SLICE #(
+module TRELLIS_SLICE #(
 	parameter MODE = "LOGIC",
 	parameter GSR = "ENABLED",
 	parameter SRMODE = "LSR_OVER_CE",
@@ -139,33 +139,34 @@ module FACADE_SLICE #(
 	endgenerate
 
 	/* Reg can be fed either by M, or DI inputs; DI inputs muxes OFX and F
-	outputs (in other words, feeds back into FACADE_SLICE). */
+	outputs (in other words, feeds back into TRELLIS_SLICE). */
 	wire di0 = (REG0_SD == "1") ? DI0 : M0;
 	wire di1 = (REG1_SD == "1") ? DI1 : M1;
 
-	FACADE_FF#(.GSR(GSR), .CEMUX(CEMUX), .CLKMUX(CLKMUX), .LSRMUX(LSRMUX),
+	TRELLIS_FF#(.GSR(GSR), .CEMUX(CEMUX), .CLKMUX(CLKMUX), .LSRMUX(LSRMUX),
 		.LSRONMUX(LSRONMUX), .SRMODE(SRMODE), .REGSET(REG0_REGSET),
 		.REGMODE(REGMODE)) REG_0 (.CLK(CLK), .DI(di0), .LSR(LSR), .CE(CE), .Q(Q0));
-	FACADE_FF#(.GSR(GSR), .CEMUX(CEMUX), .CLKMUX(CLKMUX), .LSRMUX(LSRMUX),
+	TRELLIS_FF#(.GSR(GSR), .CEMUX(CEMUX), .CLKMUX(CLKMUX), .LSRMUX(LSRMUX),
 		.LSRONMUX(LSRONMUX), .SRMODE(SRMODE), .REGSET(REG1_REGSET),
 		.REGMODE(REGMODE)) REG_1 (.CLK(CLK), .DI(di1), .LSR(LSR), .CE(CE), .Q(Q1));
 endmodule
 
-module FACADE_IO #(
+module TRELLIS_IO #(
 	parameter DIR = "INPUT"
 ) (
-	inout PAD,
+	(* iopad_external_pin *)
+	inout B,
 	input I, T,
 	output O
 );
 	generate
 		if (DIR == "INPUT") begin
-			assign O = PAD;
+			assign O = B;
 		end else if (DIR == "OUTPUT") begin
-			assign PAD = T ? 1'bz : I;
+			assign B = T ? 1'bz : I;
 		end else if (DIR == "BIDIR") begin
-			assign PAD = T ? 1'bz : I;
-			assign O = PAD;
+			assign B = T ? 1'bz : I;
+			assign O = B;
 		end else begin
 			ERROR_UNKNOWN_IO_MODE error();
 		end
@@ -320,14 +321,8 @@ module DP8KC(
 	parameter INITVAL_1F = "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000";
 endmodule
 
-// IO- "$__" cells for the iopadmap pass. These are temporary cells not meant
-// to be instantiated by the end user. They are required in this file for
-// attrmvcp to work.
-(* blackbox *)
-module  \$__FACADE_OUTPAD (input I, output O); endmodule
-(* blackbox *)
-module  \$__FACADE_INPAD (input I, output O); endmodule
-(* blackbox *)
-module  \$__FACADE_TOUTPAD (input I, T, output O); endmodule
-(* blackbox *)
-module  \$__FACADE_TINOUTPAD (input I, T, output O, inout B); endmodule
+`ifndef NO_INCLUDES
+
+`include "cells_io.vh"
+
+`endif
