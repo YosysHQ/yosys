@@ -78,6 +78,14 @@ struct SynthEcp5Pass : public ScriptPass
 		log("    -nodffe\n");
 		log("        do not use flipflops with CE in output netlist\n");
 		log("\n");
+		log("    -dff-min-ce <min-ce>\n");
+		log("        use flipflops with CE only if clock enable drives the given minimum\n");
+		log("        number of flipflops\n");
+		log("\n");
+		log("    -dff-min-srst <min-srst>\n");
+		log("        use flipflops with SR only if the sync set/reset signal drives the\n");
+		log("        given minimum number of flipflops\n");
+		log("\n");
 		log("    -nobram\n");
 		log("        do not use block RAM cells in output netlist\n");
 		log("\n");
@@ -116,6 +124,7 @@ struct SynthEcp5Pass : public ScriptPass
 
 	string top_opt, blif_file, edif_file, json_file;
 	bool noccu2, nodffe, nobram, nolutram, nowidelut, asyncprld, flatten, dff, retime, abc2, abc9, nodsp, vpr, no_rw_check;
+	int dff_min_ce, dff_min_srst;
 
 	void clear_flags() override
 	{
@@ -137,6 +146,8 @@ struct SynthEcp5Pass : public ScriptPass
 		abc9 = false;
 		nodsp = false;
 		no_rw_check = false;
+		dff_min_ce = 0;
+		dff_min_srst = 0;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -193,6 +204,14 @@ struct SynthEcp5Pass : public ScriptPass
 			}
 			if (args[argidx] == "-nodffe") {
 				nodffe = true;
+				continue;
+			}
+			if (args[argidx] == "-dff-min-ce" && argidx+1 < args.size()) {
+				dff_min_ce = std::stoi(args[++argidx]);
+				continue;
+			}
+			if (args[argidx] == "-dff-min-srst" && argidx+1 < args.size()) {
+				dff_min_srst = std::stoi(args[++argidx]);
 				continue;
 			}
 			if (args[argidx] == "-nobram") {
@@ -329,9 +348,9 @@ struct SynthEcp5Pass : public ScriptPass
 			run("opt_clean");
 			std::string dfflegalize_args = " -cell $_DFF_?_ 01 -cell $_DFF_?P?_ r -cell $_SDFF_?P?_ r";
 			if (help_mode) {
-				dfflegalize_args += " [-cell $_DFFE_??_ 01 -cell $_DFFE_?P??_ r -cell $_SDFFE_?P??_ r]";
+				dfflegalize_args += " [-cell $_DFFE_??_ 01 -cell $_DFFE_?P??_ r -cell $_SDFFE_?P??_ r -mince <dff-min-ce> -minsrst <dff-min-srst>]";
 			} else if (!nodffe) {
-				dfflegalize_args += " -cell $_DFFE_??_ 01 -cell $_DFFE_?P??_ r -cell $_SDFFE_?P??_ r";
+				dfflegalize_args += stringf(" -cell $_DFFE_??_ 01 -cell $_DFFE_?P??_ r -cell $_SDFFE_?P??_ r -mince %d -minsrst %d", dff_min_ce, dff_min_srst);
 			}
 			if (help_mode) {
 				dfflegalize_args += " [-cell $_ALDFF_?P_ x -cell $_ALDFFE_?P?_ x] [-cell $_DLATCH_?_ x]";
