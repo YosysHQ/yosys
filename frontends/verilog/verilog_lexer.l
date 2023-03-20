@@ -276,6 +276,7 @@ TIME_SCALE_SUFFIX [munpf]?s
 "byte"       { SV_KEYWORD(TOK_BYTE); }
 "shortint"   { SV_KEYWORD(TOK_SHORTINT); }
 "longint"    { SV_KEYWORD(TOK_LONGINT); }
+"void"       { SV_KEYWORD(TOK_VOID); }
 
 "eventually"   { if (formal_mode) return TOK_EVENTUALLY; SV_KEYWORD(TOK_EVENTUALLY); }
 "s_eventually" { if (formal_mode) return TOK_EVENTUALLY; SV_KEYWORD(TOK_EVENTUALLY); }

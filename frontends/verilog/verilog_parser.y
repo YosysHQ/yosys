@@ -372,7 +372,7 @@ static void rewriteGenForDeclInit(AstNode *loop)
 %token TOK_POS_INDEXED TOK_NEG_INDEXED TOK_PROPERTY TOK_ENUM TOK_TYPEDEF
 %token TOK_RAND TOK_CONST TOK_CHECKER TOK_ENDCHECKER TOK_EVENTUALLY
 %token TOK_INCREMENT TOK_DECREMENT TOK_UNIQUE TOK_UNIQUE0 TOK_PRIORITY
-%token TOK_STRUCT TOK_PACKED TOK_UNSIGNED TOK_INT TOK_BYTE TOK_SHORTINT TOK_LONGINT TOK_UNION
+%token TOK_STRUCT TOK_PACKED TOK_UNSIGNED TOK_INT TOK_BYTE TOK_SHORTINT TOK_LONGINT TOK_VOID TOK_UNION
 %token TOK_BIT_OR_ASSIGN TOK_BIT_AND_ASSIGN TOK_BIT_XOR_ASSIGN TOK_ADD_ASSIGN
 %token TOK_SUB_ASSIGN TOK_DIV_ASSIGN TOK_MOD_ASSIGN TOK_MUL_ASSIGN
 %token TOK_SHL_ASSIGN TOK_SHR_ASSIGN TOK_SSHL_ASSIGN TOK_SSHR_ASSIGN
@@ -1017,6 +1017,23 @@ task_func_decl:
 		current_function_or_task_port_id = 1;
 		delete $4;
 	} task_func_args_opt ';' task_func_body TOK_ENDTASK {
+		current_function_or_task = NULL;
+		ast_stack.pop_back();
+	} |
+	attr TOK_FUNCTION opt_automatic TOK_VOID TOK_ID {
+		// The difference between void functions and tasks is that
+		// always_comb's implicit sensitivity list behaves as if functions were
+		// inlined, but ignores signals read only in tasks. This only matters
+		// for event based simulation, and for synthesis we can treat a void
+		// function like a task.
+		current_function_or_task = new AstNode(AST_TASK);
+		current_function_or_task->str = *$5;
+		append_attr(current_function_or_task, $1);
+		ast_stack.back()->children.push_back(current_function_or_task);
+		ast_stack.push_back(current_function_or_task);
+		current_function_or_task_port_id = 1;
+		delete $5;
+	} task_func_args_opt ';' task_func_body TOK_ENDFUNCTION {
 		current_function_or_task = NULL;
 		ast_stack.pop_back();
 	} |
