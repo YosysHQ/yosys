@@ -844,13 +844,14 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		if (id_ast->type == AST_PARAMETER || id_ast->type == AST_LOCALPARAM || id_ast->type == AST_ENUM_ITEM) {
 			if (id_ast->children.size() > 1 && id_ast->children[1]->range_valid) {
 				this_width = id_ast->children[1]->range_left - id_ast->children[1]->range_right + 1;
-			} else
-			if (id_ast->children[0]->type != AST_CONSTANT)
-				while (id_ast->simplify(true, false, false, 1, -1, false, true)) { }
-			if (id_ast->children[0]->type == AST_CONSTANT)
-				this_width = id_ast->children[0]->bits.size();
-			else
-				log_file_error(filename, location.first_line, "Failed to detect width for parameter %s!\n", str.c_str());
+			} else {
+				if (id_ast->children[0]->type != AST_CONSTANT)
+					while (id_ast->simplify(true, false, false, 1, -1, false, true)) { }
+				if (id_ast->children[0]->type == AST_CONSTANT)
+					this_width = id_ast->children[0]->bits.size();
+				else
+					log_file_error(filename, location.first_line, "Failed to detect width for parameter %s!\n", str.c_str());
+			}
 			if (children.size() != 0)
 				range = children[0];
 		} else if (id_ast->type == AST_WIRE || id_ast->type == AST_AUTOWIRE) {
