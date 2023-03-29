@@ -65,14 +65,10 @@ std::string AstNode::process_format_str(const std::string &sformat, int next_arg
 			}
 
 			bool got_len = false;
-			bool got_zlen = false;
 			int len_value = 0;
 
 			while ('0' <= cformat && cformat <= '9')
 			{
-				if (!got_len && cformat == '0')
-					got_zlen = true;
-
 				got_len = true;
 				len_value = 10*len_value + (cformat - '0');
 
@@ -89,11 +85,14 @@ std::string AstNode::process_format_str(const std::string &sformat, int next_arg
 				case 'S':
 				case 'd':
 				case 'D':
-					if (got_len && len_value != 0)
-						goto unsupported_format;
-					YS_FALLTHROUGH
+				case 'h':
+				case 'H':
 				case 'x':
 				case 'X':
+				case 'o':
+				case 'O':
+				case 'b':
+				case 'B':
 					if (next_arg >= GetSize(children))
 						log_file_error(filename, location.first_line, "Missing argument for %%%c format specifier in system task `%s'.\n",
 								cformat, str.c_str());
@@ -126,33 +125,111 @@ std::string AstNode::process_format_str(const std::string &sformat, int next_arg
 			{
 				case 's':
 				case 'S':
-					sout += node_arg->bitsAsConst().decode_string();
+					{
+						std::string str = node_arg->bitsAsConst().decode_string();
+
+						for (int i = str.length(); i < len_value; i++)
+							str = " " + str;
+
+						sout += str;
+					}
 					break;
 
 				case 'd':
 				case 'D':
-					sout += stringf("%d", node_arg->bitsAsConst().as_int());
+					{
+						// Formatting according to IEEE Std 1800-2017 21.2.1.2 - 21.2.1.4.
+						std::string str;
+						Const val = node_arg->bitsAsConst();
+						long maxval = (1L << GetSize(val)) - 1;
+						int valdigits = floor(log10(maxval)) + 1;
+
+						if (val.is_fully_def())
+							str = stringf("%d", val.as_int());
+						else if (val.is_fully_undef_x_only())
+							str = "x";
+						else if (val.is_fully_undef_z_only())
+							str = "z";
+						else if (val.any(State::Sx))
+							str = "X";
+						else
+							str = "Z";
+
+						int width = got_len ? len_value : valdigits;
+						for (int i = str.length(); i < width; i++)
+							str = " " + str;
+
+						sout += str;
+					}
 					break;
 
+				case 'h':
+				case 'H':
 				case 'x':
 				case 'X':
+				case 'o':
+				case 'O':
 					{
+						// Formatting according to IEEE Std 1800-2017 21.2.1.2 - 21.2.1.4.
+						std::string str;
 						Const val = node_arg->bitsAsConst();
+						int digit_bits = cformat == 'o' || cformat == 'O' ? 3 : 4;
+						const char* fmt_spec = cformat == 'o' || cformat == 'O' ? "%o" : "%x";
 
-						while (GetSize(val) % 4 != 0)
+						while (GetSize(val) % digit_bits != 0)
 							val.bits.push_back(State::S0);
+						int valbits = GetSize(val);
+						int valdigits = valbits / digit_bits;
 
-						int len = GetSize(val) / 4;
-						for (int i = len; i < len_value; i++)
-							sout += got_zlen ? '0' : ' ';
-
-						for (int i = len-1; i >= 0; i--) {
-							Const digit = val.extract(4*i, 4);
+						int i;
+						for (i = 0; i < valdigits && !val.extract(digit_bits*i, valbits - digit_bits*i).is_fully_zero(); i++) {
+							Const digit = val.extract(digit_bits*i, digit_bits);
 							if (digit.is_fully_def())
-								sout += stringf(cformat == 'x' ? "%x" : "%X", digit.as_int());
+								str = stringf(fmt_spec, digit.as_int()) + str;
+							else if (digit.is_fully_undef_x_only())
+								str = "x" + str;
+							else if (digit.is_fully_undef_z_only())
+								str = "z" + str;
+							else if (digit.any(State::Sx))
+								str = "X" + str;
 							else
-								sout += cformat == 'x' ? "x" : "X";
+								str = "Z" + str;
 						}
+
+						int width = got_len ? len_value : valdigits;
+						for (; i < width; i++)
+							str = "0" + str;
+
+						sout += str;
+					}
+					break;
+
+				case 'b':
+				case 'B':
+					{
+						// Formatting according to IEEE Std 1800-2017 21.2.1.2 - 21.2.1.4.
+						std::string str;
+						Const val = node_arg->bitsAsConst();
+						int valbits = GetSize(val);
+
+						int i;
+						for (i = 0; i < valbits && !val.extract(i, valbits - i).is_fully_zero(); i++) {
+							State bit = val.bits[i];
+							if (bit == State::S0)
+								str = "0" + str;
+							else if (bit == State::S1)
+								str = "1" + str;
+							else if (bit == State::Sx)
+								str = "x" + str;
+							else
+								str = "z" + str;
+						}
+
+						int width = got_len ? len_value : valbits;
+						for (; i < width; i++)
+							str = "0" + str;
+
+						sout += str;
 					}
 					break;
 

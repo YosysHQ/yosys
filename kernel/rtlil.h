@@ -682,11 +682,14 @@ struct RTLIL::Const
 	inline decltype(bits)::iterator begin() { return bits.begin(); }
 	inline decltype(bits)::iterator end() { return bits.end(); }
 
+	bool any(const RTLIL::State &bit) const;
+	bool all(const RTLIL::State &bit) const;
 	bool is_fully_zero() const;
 	bool is_fully_ones() const;
 	bool is_fully_def() const;
 	bool is_fully_undef() const;
 	bool is_fully_undef_x_only() const;
+	bool is_fully_undef_z_only() const;
 	bool is_onehot(int *pos = nullptr) const;
 
 	inline RTLIL::Const extract(int offset, int len = 1, RTLIL::State padding = RTLIL::State::S0) const {

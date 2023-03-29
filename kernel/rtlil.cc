@@ -326,26 +326,40 @@ std::string RTLIL::Const::decode_string() const
 	return string;
 }
 
+bool RTLIL::Const::any(const RTLIL::State &state) const
+{
+	cover("kernel.rtlil.const.any");
+
+	for (const auto &bit : bits)
+		if (bit == state)
+			return true;
+
+	return false;
+}
+
+bool RTLIL::Const::all(const RTLIL::State &state) const
+{
+	cover("kernel.rtlil.const.all");
+
+	for (const auto &bit : bits)
+		if (bit != state)
+			return false;
+
+	return true;
+}
+
 bool RTLIL::Const::is_fully_zero() const
 {
 	cover("kernel.rtlil.const.is_fully_zero");
 
-	for (const auto &bit : bits)
-		if (bit != RTLIL::State::S0)
-			return false;
-
-	return true;
+	return all(RTLIL::State::S0);
 }
 
 bool RTLIL::Const::is_fully_ones() const
 {
 	cover("kernel.rtlil.const.is_fully_ones");
 
-	for (const auto &bit : bits)
-		if (bit != RTLIL::State::S1)
-			return false;
-
-	return true;
+	return all(RTLIL::State::S1);
 }
 
 bool RTLIL::Const::is_fully_def() const
@@ -374,11 +388,14 @@ bool RTLIL::Const::is_fully_undef_x_only() const
 {
 	cover("kernel.rtlil.const.is_fully_undef_x_only");
 
-	for (const auto &bit : bits)
-		if (bit != RTLIL::State::Sx)
-			return false;
+	return all(RTLIL::State::Sx);
+}
 
-	return true;
+bool RTLIL::Const::is_fully_undef_z_only() const
+{
+	cover("kernel.rtlil.const.is_fully_undef_z_only");
+
+	return all(RTLIL::State::Sz);
 }
 
 bool RTLIL::Const::is_onehot(int *pos) const
