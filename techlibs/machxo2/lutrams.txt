@@ -1,11 +1,11 @@
-ram distributed $__DPR16X4C_ {
+ram distributed $__TRELLIS_DPR16X4_ {
 	abits 4;
 	width 4;
 	cost 4;
-	init no_undef;
+	init any;
 	prune_rom;
 	port sw "W" {
-		clock posedge;
+		clock anyedge;
 	}
 	port ar "R" {
 	}
