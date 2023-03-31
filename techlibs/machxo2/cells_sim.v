@@ -255,6 +255,26 @@ module DPR16X4C (
 	assign DO = ram[RAD];
 endmodule
 
+// ---------------------------------------
+(* blackbox *)
+module CCU2D (
+   CIN,
+   A0, B0, C0, D0,
+   A1, B1, C1, D1,
+   S0, S1, COUT
+);
+
+input CIN;
+input A0, B0, C0, D0;
+input A1, B1, C1, D1;
+output S0, S1, COUT;
+
+parameter [15:0] INIT0 = 16'h0000;
+parameter [15:0] INIT1 = 16'h0000;
+parameter INJECT1_0 = "YES";
+parameter INJECT1_1 = "YES";
+endmodule
+
 (* blackbox *)
 module DP8KC(
   input DIA8, DIA7, DIA6, DIA5, DIA4, DIA3, DIA2, DIA1, DIA0,
