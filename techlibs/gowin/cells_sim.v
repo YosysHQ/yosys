@@ -598,6 +598,250 @@ module TLVDS_OBUF (I, O, OB);
   assign OB = ~I;
 endmodule
 
+module OSER4(D3, D2, D1, D0, TX1, TX0, FCLK, PCLK, RESET, Q1, Q0);
+	output Q1;
+	output Q0;
+
+	input D3;
+	input D2;
+	input D1;
+	input D0;
+	input TX1;
+	input TX0;
+	input FCLK;
+	input PCLK;
+	input RESET;
+
+	parameter GSREN = "false";
+	parameter LSREN = "true";
+	parameter TXCLK_POL = 0;
+	parameter HWL = "false";
+endmodule
+
+module OSER8(D7, D6, D5, D4, D3, D2, D1, D0, TX3, TX2, TX1, TX0, FCLK, PCLK, RESET, Q1, Q0);
+	output Q1;
+	output Q0;
+
+	input D7;
+	input D6;
+	input D5;
+	input D4;
+	input D3;
+	input D2;
+	input D1;
+	input D0;
+	input TX3;
+	input TX2;
+	input TX1;
+	input TX0;
+	input FCLK;
+	input PCLK;
+	input RESET;
+
+	parameter GSREN = "false";
+	parameter LSREN = "true";
+	parameter TXCLK_POL = 0;
+	parameter HWL = "false";
+endmodule
+
+module OSER10(D9, D8, D7, D6, D5, D4, D3, D2, D1, D0, FCLK, PCLK, RESET, Q);
+	output Q;
+
+	input D9;
+	input D8;
+	input D7;
+	input D6;
+	input D5;
+	input D4;
+	input D3;
+	input D2;
+	input D1;
+	input D0;
+	input FCLK;
+	input PCLK;
+	input RESET;
+
+	parameter GSREN = "false";
+	parameter LSREN = "true";
+endmodule
+
+module OVIDEO(D6, D5, D4, D3, D2, D1, D0, FCLK, PCLK, RESET, Q);
+	output Q;
+
+	input D6;
+	input D5;
+	input D4;
+	input D3;
+	input D2;
+	input D1;
+	input D0;
+	input FCLK;
+	input PCLK;
+	input RESET;
+
+	parameter GSREN = "false";
+	parameter LSREN = "true";
+endmodule
+
+module OSER16(D15, D14, D13, D12, D11, D10, 
+D9, D8, D7, D6, D5, D4, D3, D2, D1, D0, FCLK, PCLK,
+RESET, Q);
+	output Q;
+
+	input D15;
+	input D14;
+	input D13;
+	input D12;
+	input D11;
+	input D10;
+	input D9;
+	input D8;
+	input D7;
+	input D6;
+	input D5;
+	input D4;
+	input D3;
+	input D2;
+	input D1;
+	input D0;
+	input FCLK;
+	input PCLK;
+	input RESET;
+
+	parameter GSREN = "false";
+	parameter LSREN = "true";
+endmodule
+
+module IDES4(Q3, Q2, Q1, Q0, FCLK, PCLK,
+RESET, CALIB, D);
+	input D;
+	input FCLK;
+	input PCLK;
+	input RESET;
+	input CALIB;
+
+	output Q3;
+	output Q2;
+	output Q1;
+	output Q0;
+
+	parameter GSREN = "false";
+	parameter LSREN = "true";
+endmodule
+
+module IDES8(Q7, Q6, Q5, Q4, Q3, Q2, Q1, Q0, FCLK, PCLK,
+RESET, CALIB, D);
+	input D;
+	input FCLK;
+	input PCLK;
+	input RESET;
+	input CALIB;
+
+	output Q7;
+	output Q6;
+	output Q5;
+	output Q4;
+	output Q3;
+	output Q2;
+	output Q1;
+	output Q0;
+
+	parameter GSREN = "false";
+	parameter LSREN = "true";
+endmodule
+
+module IDES10(Q9, Q8, Q7, Q6, Q5, Q4, Q3, Q2, Q1, Q0, FCLK, PCLK,
+RESET, CALIB, D);
+	input D;
+	input FCLK;
+	input PCLK;
+	input RESET;
+	input CALIB;
+
+	output Q9;
+	output Q8;
+	output Q7;
+	output Q6;
+	output Q5;
+	output Q4;
+	output Q3;
+	output Q2;
+	output Q1;
+	output Q0;
+
+	parameter GSREN = "false";
+	parameter LSREN = "true";
+endmodule
+
+module IVIDEO(Q6, Q5, Q4, Q3, Q2, Q1, Q0, FCLK, PCLK,
+RESET, CALIB, D);
+	input D;
+	input FCLK;
+	input PCLK;
+	input RESET;
+	input CALIB;
+
+	output Q6;
+	output Q5;
+	output Q4;
+	output Q3;
+	output Q2;
+	output Q1;
+	output Q0;
+
+	parameter GSREN = "false";
+	parameter LSREN = "true";
+endmodule
+
+module IDES16(Q15, Q14, Q13, Q12, Q11, Q10, 
+Q9, Q8, Q7, Q6, Q5, Q4, Q3, Q2, Q1, Q0, FCLK, PCLK,
+RESET, CALIB, D);
+	input D;
+	input FCLK;
+	input PCLK;
+	input RESET;
+	input CALIB;
+
+	output Q15;
+	output Q14;
+	output Q13;
+	output Q12;
+	output Q11;
+	output Q10;
+	output Q9;
+	output Q8;
+	output Q7;
+	output Q6;
+	output Q5;
+	output Q4;
+	output Q3;
+	output Q2;
+	output Q1;
+	output Q0;
+
+	parameter GSREN = "false";
+	parameter LSREN = "true";
+endmodule
+
+module IDDR(D, CLK, Q0, Q1);
+	input D;
+	input CLK;
+	output Q0;
+	output Q1;
+	parameter Q0_INIT = 1'b0;
+	parameter Q1_INIT = 1'b0;
+endmodule
+
+module IDDRC(D, CLK, CLEAR, Q0, Q1);
+	input D;
+	input CLK;
+	input CLEAR;
+	output Q0;
+	output Q1;
+	parameter Q0_INIT = 1'b0;
+	parameter Q1_INIT = 1'b0;
+endmodule
+
 (* blackbox *)
 module ODDR(D0, D1, TX, CLK, Q0, Q1);
 	input D0;
