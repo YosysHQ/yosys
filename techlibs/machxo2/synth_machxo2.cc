@@ -233,7 +233,15 @@ struct SynthMachXO2Pass : public ScriptPass
 
 		if (check_label("map_ffs"))
 		{
-			run("dfflegalize -cell $_DFF_P_ 0");
+			run("opt_clean");
+			std::string dfflegalize_args = " -cell $_DFF_?_ 01 -cell $_DFF_?P?_ r -cell $_SDFF_?P?_ r";
+			run("dfflegalize" + dfflegalize_args);
+			run("techmap -D NO_LUT -map +/machxo2/cells_map.v");
+			run("opt_expr -undriven -mux_undef");
+			run("simplemap");
+			run("ecp5_gsr");
+			run("attrmvcp -copy -attr syn_useioff");
+			run("opt_clean");
 		}
 
 		if (check_label("map_luts"))
