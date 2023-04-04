@@ -124,6 +124,7 @@ void logv_header(RTLIL::Design *design, const char *format, va_list ap);
 void logv_warning(const char *format, va_list ap);
 void logv_warning_noprefix(const char *format, va_list ap);
 [[noreturn]] void logv_error(const char *format, va_list ap);
+[[noreturn]] void logv_file_error(const string &filename, int lineno, const char *format, va_list ap);
 
 void log(const char *format, ...)  YS_ATTRIBUTE(format(printf, 1, 2));
 void log_header(RTLIL::Design *design, const char *format, ...) YS_ATTRIBUTE(format(printf, 2, 3));

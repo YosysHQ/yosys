@@ -335,6 +335,9 @@ namespace AST
 
 		// Helper for looking up identifiers which are prefixed with the current module name
 		std::string try_pop_module_prefix() const;
+
+		// helper to print errors from simplify/genrtlil code
+		[[noreturn]] void input_error(const char *format, ...) const YS_ATTRIBUTE(format(printf, 2, 3));
 	};
 
 	// process an AST tree (ast must point to an AST_DESIGN node) and generate RTLIL code
