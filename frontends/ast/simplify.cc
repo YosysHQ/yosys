@@ -47,7 +47,7 @@ Fmt AstNode::processFormat(int stage, bool sformat_like, int default_base, size_
 	std::vector<VerilogFmtArg> args;
 	for (size_t index = first_arg_at; index < children.size(); index++) {
 		AstNode *node_arg = children[index];
-		while (node_arg->simplify(true, false, stage, -1, false, false)) { }
+		while (node_arg->simplify(true, false, stage, -1, false, in_param)) { }
 
 		VerilogFmtArg arg = {};
 		arg.filename = filename;
@@ -91,7 +91,7 @@ void AstNode::annotateTypedEnums(AstNode *template_node)
 		log_assert(current_scope.count(enum_type) == 1);
 		AstNode *enum_node = current_scope.at(enum_type);
 		log_assert(enum_node->type == AST_ENUM);
-		while (enum_node->simplify(true, false, 1, -1, false, true)) { }
+		while (enum_node->simplify(true, false, 1, -1, false, false)) { }
 		//get width from 1st enum item:
 		log_assert(enum_node->children.size() >= 1);
 		AstNode *enum_item0 = enum_node->children[0];
@@ -457,7 +457,8 @@ static int get_max_offset(AstNode *node)
 static AstNode *make_packed_struct(AstNode *template_node, std::string &name, decltype(AstNode::attributes) &attributes)
 {
 	// create a wire for the packed struct
-	auto wnode = new AstNode(AST_WIRE);
+	int offset = get_max_offset(template_node);
+	auto wnode = new AstNode(AST_WIRE, make_range(offset, 0));
 	wnode->str = name;
 	wnode->is_logic = true;
 	wnode->range_valid = true;
@@ -465,9 +466,6 @@ static AstNode *make_packed_struct(AstNode *template_node, std::string &name, de
 	for (auto &pair : attributes) {
 		wnode->attributes[pair.first] = pair.second->clone();
 	}
-	int offset = get_max_offset(template_node);
-	auto range = make_range(offset, 0);
-	wnode->children.push_back(range);
 	// make sure this node is the one in scope for this name
 	current_scope[name] = wnode;
 	// add all the struct members to scope under the wire's name
@@ -980,7 +978,7 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 			// when $display()/$write() functions are used in an always block, simplify the expressions and
 			// convert them to a special cell later in genrtlil
 			for (auto node : children)
-				while (node->simplify(true, false, stage, -1, false, false)) {}
+				while (node->simplify(true, false, stage, -1, false, in_param)) {}
 			return false;
 		}
 
@@ -1806,7 +1804,7 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 			AstNode *template_node = resolved_type_node->children[0];
 
 			// Ensure typedef itself is fully simplified
-			while (template_node->simplify(const_fold, in_lvalue, stage, width_hint, sign_hint, in_param)) {};
+			while (template_node->simplify(const_fold, in_lvalue, stage, width_hint, sign_hint, false)) {};
 
 			if (!str.empty() && str[0] == '\\' && (template_node->type == AST_STRUCT || template_node->type == AST_UNION)) {
 				// replace instance with wire representing the packed structure
@@ -1871,7 +1869,7 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 			AstNode *template_node = resolved_type_node->children[0];
 
 			// Ensure typedef itself is fully simplified
-			while (template_node->simplify(const_fold, in_lvalue, stage, width_hint, sign_hint, in_param)) {};
+			while (template_node->simplify(const_fold, false, stage, width_hint, sign_hint, false)) {};
 
 			if (template_node->type == AST_STRUCT || template_node->type == AST_UNION) {
 				// replace with wire representing the packed structure
@@ -2761,7 +2759,7 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 
 		if (children[0]->id2ast->attributes.count(ID::nowrshmsk)) {
 			AstNode *node = children[0]->id2ast->attributes.at(ID::nowrshmsk);
-			while (node->simplify(true, false, stage, -1, false, false)) { }
+			while (node->simplify(true, false, stage, -1, false, true)) { }
 			if (node->type != AST_CONSTANT)
 				input_error("Non-constant value for `nowrshmsk' attribute on `%s'!\n", children[0]->id2ast->str.c_str());
 			if (node->asAttrConst().as_bool())
@@ -3582,7 +3580,7 @@ skip_dynamic_range_lvalue_expansion:;
 				}
 
 				if (children.size() >= 1) {
-					while (children[0]->simplify(true, false, stage, width_hint, sign_hint, false)) { }
+					while (children[0]->simplify(true, false, stage, width_hint, sign_hint, in_param)) { }
 					if (!children[0]->isConst())
 						input_error("Failed to evaluate system function `%s' with non-constant argument.\n",
 								RTLIL::unescape_id(str).c_str());
@@ -3593,7 +3591,7 @@ skip_dynamic_range_lvalue_expansion:;
 				}
 
 				if (children.size() >= 2) {
-					while (children[1]->simplify(true, false, stage, width_hint, sign_hint, false)) { }
+					while (children[1]->simplify(true, false, stage, width_hint, sign_hint, in_param)) { }
 					if (!children[1]->isConst())
 						input_error("Failed to evaluate system function `%s' with non-constant argument.\n",
 								RTLIL::unescape_id(str).c_str());
@@ -3650,7 +3648,7 @@ skip_dynamic_range_lvalue_expansion:;
 				// Determine which bits to count
 				for (size_t i = 1; i < children.size(); i++) {
 					AstNode *node = children[i];
-					while (node->simplify(true, false, stage, -1, false, false)) { }
+					while (node->simplify(true, false, stage, -1, false, in_param)) { }
 					if (node->type != AST_CONSTANT)
 						input_error("Failed to evaluate system function `%s' with non-constant control bit argument.\n", str.c_str());
 					if (node->bits.size() != 1)
@@ -3855,7 +3853,7 @@ skip_dynamic_range_lvalue_expansion:;
 			bool require_const_eval = decl->has_const_only_constructs();
 			bool all_args_const = true;
 			for (auto child : children) {
-				while (child->simplify(true, false, 1, -1, false, true)) { }
+				while (child->simplify(true, in_lvalue, 1, -1, false, in_param)) { }
 				if (child->type != AST_CONSTANT && child->type != AST_REALVALUE)
 					all_args_const = false;
 			}
@@ -4048,7 +4046,7 @@ skip_dynamic_range_lvalue_expansion:;
 							}
 						}
 						// updates the sizing
-						while (wire->simplify(true, false, 1, -1, false, false)) { }
+						while (wire->simplify(true, false, 1, -1, false, true)) { }
 						delete arg;
 						continue;
 					}
