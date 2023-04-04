@@ -42,6 +42,7 @@ Yosys manual
 	CHAPTER_Verilog.rst
 	CHAPTER_Optimize.rst
 	CHAPTER_Techmap.rst
+	CHAPTER_Memorymap.rst
 	CHAPTER_Eval.rst
 
 .. raw:: latex
