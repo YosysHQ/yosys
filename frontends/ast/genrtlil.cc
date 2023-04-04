@@ -179,7 +179,7 @@ struct AST_INTERNAL::LookaheadRewriter
 				wire->str = stringf("$lookahead%s$%d", node->str.c_str(), autoidx++);
 				wire->attributes[ID::nosync] = AstNode::mkconst_int(1, false);
 				wire->is_logic = true;
-				while (wire->simplify(true, false, false, 1, -1, false, false)) { }
+				while (wire->simplify(true, false, 1, -1, false, false)) { }
 				current_ast_mod->children.push_back(wire);
 				lookaheadids[node->str] = make_pair(node->id2ast, wire);
 				wire->genRTLIL();
@@ -845,7 +845,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 				this_width = id_ast->children[1]->range_left - id_ast->children[1]->range_right + 1;
 			} else {
 				if (id_ast->children[0]->type != AST_CONSTANT)
-					while (id_ast->simplify(true, false, false, 1, -1, false, true)) { }
+					while (id_ast->simplify(true, false, 1, -1, false, true)) { }
 				if (id_ast->children[0]->type == AST_CONSTANT)
 					this_width = id_ast->children[0]->bits.size();
 				else
@@ -889,8 +889,8 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 			else if (!range->range_valid) {
 				AstNode *left_at_zero_ast = children[0]->children[0]->clone_at_zero();
 				AstNode *right_at_zero_ast = children[0]->children.size() >= 2 ? children[0]->children[1]->clone_at_zero() : left_at_zero_ast->clone();
-				while (left_at_zero_ast->simplify(true, false, false, 1, -1, false, false)) { }
-				while (right_at_zero_ast->simplify(true, false, false, 1, -1, false, false)) { }
+				while (left_at_zero_ast->simplify(true, false, 1, -1, false, false)) { }
+				while (right_at_zero_ast->simplify(true, false, 1, -1, false, false)) { }
 				if (left_at_zero_ast->type != AST_CONSTANT || right_at_zero_ast->type != AST_CONSTANT)
 					input_error("Unsupported expression on dynamic range select on signal `%s'!\n", str.c_str());
 				this_width = abs(int(left_at_zero_ast->integer - right_at_zero_ast->integer)) + 1;
@@ -906,7 +906,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		break;
 
 	case AST_TO_BITS:
-		while (children[0]->simplify(true, false, false, 1, -1, false, false) == true) { }
+		while (children[0]->simplify(true, false, 1, -1, false, false) == true) { }
 		if (children[0]->type != AST_CONSTANT)
 			input_error("Left operand of tobits expression is not constant!\n");
 		children[1]->detectSignWidthWorker(sub_width_hint, sign_hint);
@@ -928,7 +928,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		break;
 
 	case AST_CAST_SIZE:
-		while (children.at(0)->simplify(true, false, false, 1, -1, false, false)) { }
+		while (children.at(0)->simplify(true, false, 1, -1, false, false)) { }
 		if (children.at(0)->type != AST_CONSTANT)
 			input_error("Static cast with non constant expression!\n");
 		children.at(1)->detectSignWidthWorker(width_hint, sign_hint);
@@ -950,7 +950,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		break;
 
 	case AST_REPLICATE:
-		while (children[0]->simplify(true, false, false, 1, -1, false, true) == true) { }
+		while (children[0]->simplify(true, false, 1, -1, false, true) == true) { }
 		if (children[0]->type != AST_CONSTANT)
 			input_error("Left operand of replicate expression is not constant!\n");
 		children[1]->detectSignWidthWorker(sub_width_hint, sub_sign_hint);
@@ -1062,7 +1062,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 	case AST_PREFIX:
 		// Prefix nodes always resolve to identifiers in generate loops, so we
 		// can simply perform the resolution to determine the sign and width.
-		simplify(true, false, false, 1, -1, false, false);
+		simplify(true, false, 1, -1, false, false);
 		log_assert(type == AST_IDENTIFIER);
 		detectSignWidthWorker(width_hint, sign_hint, found_real);
 		break;
@@ -1070,7 +1070,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 	case AST_FCALL:
 		if (str == "\\$anyconst" || str == "\\$anyseq" || str == "\\$allconst" || str == "\\$allseq") {
 			if (GetSize(children) == 1) {
-				while (children[0]->simplify(true, false, false, 1, -1, false, true) == true) { }
+				while (children[0]->simplify(true, false, 1, -1, false, true) == true) { }
 				if (children[0]->type != AST_CONSTANT)
 					input_error("System function %s called with non-const argument!\n",
 							RTLIL::unescape_id(str).c_str());
@@ -1117,8 +1117,8 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 				log_assert(range->type == AST_RANGE && range->children.size() == 2);
 				AstNode *left = range->children.at(0)->clone();
 				AstNode *right = range->children.at(1)->clone();
-				while (left->simplify(true, false, false, 1, -1, false, true)) { }
-				while (right->simplify(true, false, false, 1, -1, false, true)) { }
+				while (left->simplify(true, false, 1, -1, false, true)) { }
+				while (right->simplify(true, false, 1, -1, false, true)) { }
 				if (left->type != AST_CONSTANT || right->type != AST_CONSTANT)
 					input_error("Function %s has non-constant width!",
 							RTLIL::unescape_id(str).c_str());
@@ -1462,8 +1462,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				if (!children[0]->range_valid) {
 					AstNode *left_at_zero_ast = children[0]->children[0]->clone_at_zero();
 					AstNode *right_at_zero_ast = children[0]->children.size() >= 2 ? children[0]->children[1]->clone_at_zero() : left_at_zero_ast->clone();
-					while (left_at_zero_ast->simplify(true, false, false, 1, -1, false, false)) { }
-					while (right_at_zero_ast->simplify(true, false, false, 1, -1, false, false)) { }
+					while (left_at_zero_ast->simplify(true, false, 1, -1, false, false)) { }
+					while (right_at_zero_ast->simplify(true, false, 1, -1, false, false)) { }
 					if (left_at_zero_ast->type != AST_CONSTANT || right_at_zero_ast->type != AST_CONSTANT)
 						input_error("Unsupported expression on dynamic range select on signal `%s'!\n", str.c_str());
 					int width = abs(int(left_at_zero_ast->integer - right_at_zero_ast->integer)) + 1;

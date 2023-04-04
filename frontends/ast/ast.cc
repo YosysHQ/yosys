@@ -1061,7 +1061,7 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 		// simplify this module or interface using the current design as context
 		// for lookup up ports and wires within cells
 		set_simplify_design_context(design);
-		while (ast->simplify(!flag_noopt, false, false, 0, -1, false, false)) { }
+		while (ast->simplify(!flag_noopt, false, 0, -1, false, false)) { }
 		set_simplify_design_context(nullptr);
 
 		if (flag_dump_ast2) {
@@ -1361,7 +1361,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 		}
 		else if (child->type == AST_PACKAGE) {
 			// process enum/other declarations
-			child->simplify(true, false, false, 1, -1, false, false);
+			child->simplify(true, false, 1, -1, false, false);
 			rename_in_package_stmts(child);
 			design->verilog_packages.push_back(child->clone());
 			current_scope.clear();
