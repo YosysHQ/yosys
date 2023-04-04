@@ -775,6 +775,33 @@ static IdentUsage always_asgn_before_use(const AstNode *node, const std::string 
 	return IdentUsage::NotReferenced;
 }
 
+static bool try_determine_range_width(AstNode *range, int &result_width)
+{
+	log_assert(range->type == AST_RANGE);
+
+	if (range->children.size() == 1) {
+		result_width = 1;
+		return true;
+	}
+
+	AstNode *left_at_zero_ast = range->children[0]->clone();
+	AstNode *right_at_zero_ast = range->children[1]->clone();
+
+	while (left_at_zero_ast->simplify(true, true, false, 1, -1, false, false)) {}
+	while (right_at_zero_ast->simplify(true, true, false, 1, -1, false, false)) {}
+
+	bool ok = false;
+	if (left_at_zero_ast->type == AST_CONSTANT
+			&& right_at_zero_ast->type == AST_CONSTANT) {
+		ok = true;
+		result_width = abs(int(left_at_zero_ast->integer - right_at_zero_ast->integer)) + 1;
+	}
+
+	delete left_at_zero_ast;
+	delete right_at_zero_ast;
+	return ok;
+}
+
 static const std::string auto_nosync_prefix = "\\AutoNosync";
 
 // mark a local variable in an always_comb block for automatic nosync
@@ -2788,20 +2815,13 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		AstNode *shift_expr = NULL;
 		AstNode *range = children[0]->children[0];
 
-		if (range->children.size() == 1) {
-			shift_expr = range->children[0]->clone();
-		} else {
+		if (!try_determine_range_width(range, result_width))
+			log_file_error(filename, location.first_line, "Unsupported expression on dynamic range select on signal `%s'!\n", str.c_str());
+
+		if (range->children.size() >= 2)
 			shift_expr = range->children[1]->clone();
-			AstNode *left_at_zero_ast = range->children[0]->clone();
-			AstNode *right_at_zero_ast = range->children[1]->clone();
-			while (left_at_zero_ast->simplify(true, true, false, stage, -1, false, false)) { }
-			while (right_at_zero_ast->simplify(true, true, false, stage, -1, false, false)) { }
-			if (left_at_zero_ast->type != AST_CONSTANT || right_at_zero_ast->type != AST_CONSTANT)
-				log_file_error(filename, location.first_line, "Unsupported expression on dynamic range select on signal `%s'!\n", str.c_str());
-			result_width = abs(int(left_at_zero_ast->integer - right_at_zero_ast->integer)) + 1;
-			delete left_at_zero_ast;
-			delete right_at_zero_ast;
-		}
+		else
+			shift_expr = range->children[0]->clone();
 
 		bool use_case_method = false;
 
@@ -3205,18 +3225,19 @@ skip_dynamic_range_lvalue_expansion:;
 			else
 			{
 				AstNode *the_range = children[0]->children[1];
-				AstNode *left_at_zero_ast = the_range->children[0]->clone();
-				AstNode *right_at_zero_ast = the_range->children.size() >= 2 ? the_range->children[1]->clone() : left_at_zero_ast->clone();
-				AstNode *offset_ast = right_at_zero_ast->clone();
+				AstNode *offset_ast;
+				int width;
+
+				if (!try_determine_range_width(the_range, width))
+					log_file_error(filename, location.first_line, "Unsupported expression on dynamic range select on signal `%s'!\n", str.c_str());
+
+				if (the_range->children.size() >= 2)
+					offset_ast = the_range->children[1]->clone();
+				else
+					offset_ast = the_range->children[0]->clone();
 
 				if (mem_data_range_offset)
 					offset_ast = new AstNode(AST_SUB, offset_ast, mkconst_int(mem_data_range_offset, true));
-
-				while (left_at_zero_ast->simplify(true, true, false, 1, -1, false, false)) { }
-				while (right_at_zero_ast->simplify(true, true, false, 1, -1, false, false)) { }
-				if (left_at_zero_ast->type != AST_CONSTANT || right_at_zero_ast->type != AST_CONSTANT)
-					log_file_error(filename, location.first_line, "Unsupported expression on dynamic range select on signal `%s'!\n", str.c_str());
-				int width = abs(int(left_at_zero_ast->integer - right_at_zero_ast->integer)) + 1;
 
 				assign_data = new AstNode(AST_ASSIGN_EQ, new AstNode(AST_IDENTIFIER),
 						new AstNode(AST_SHIFT_LEFT, children[1]->clone(), offset_ast->clone()));
@@ -3229,9 +3250,6 @@ skip_dynamic_range_lvalue_expansion:;
 						new AstNode(AST_SHIFT_LEFT, mkconst_bits(set_bits_en, false), offset_ast->clone()));
 				assign_en->children[0]->str = id_en;
 				assign_en->children[0]->was_checked = true;
-
-				delete left_at_zero_ast;
-				delete right_at_zero_ast;
 				delete offset_ast;
 			}
 		}
