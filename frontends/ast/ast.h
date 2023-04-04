@@ -258,7 +258,7 @@ namespace AST
 
 		// simplify() creates a simpler AST by unrolling for-loops, expanding generate blocks, etc.
 		// it also sets the id2ast pointers so that identifier lookups are fast in genRTLIL()
-		bool simplify(bool const_fold, bool in_lvalue, int stage, int width_hint, bool sign_hint, bool in_param);
+		bool simplify(bool const_fold, int stage, int width_hint, bool sign_hint);
 		void replace_result_wire_name_in_function(const std::string &from, const std::string &to);
 		AstNode *readmem(bool is_readmemh, std::string mem_filename, AstNode *memory, int start_addr, int finish_addr, bool unconditional_init);
 		void expand_genblock(const std::string &prefix);
