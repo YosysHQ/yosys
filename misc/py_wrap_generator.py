@@ -178,6 +178,8 @@ class WType:
 		t.cont = None
 		t.attr_type = attr_types.default
 		if str_def.find("<") != -1:# and str_def.find("<") < str_def.find(" "):
+			str_def = str_def.replace("const ", "")
+
 			candidate = WContainer.from_string(str_def, containing_file, line_number)
 			if candidate == None:
 				return None
@@ -203,8 +205,12 @@ class WType:
 
 		prefix = ""
 
+		if str.startswith(str_def, "const "):
+			if "char_p" in str_def:
+				prefix = "const "
+			str_def = str_def[6:]
 		if str.startswith(str_def, "unsigned "):
-			prefix = "unsigned "
+			prefix = "unsigned " + prefix
 			str_def = str_def[9:]
 		while str.startswith(str_def, "long "):
 			prefix= "long " + prefix
@@ -1285,7 +1291,7 @@ class WFunction:
 		prefix = ""
 		i = 0
 		for part in parts:
-			if part in ["unsigned", "long", "short"]:
+			if part in ["unsigned", "long", "short", "const"]:
 				prefix += part + " "
 				i += 1
 			else:
