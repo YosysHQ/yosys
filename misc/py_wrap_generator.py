@@ -1367,10 +1367,17 @@ class WFunction:
 			func.args.append(parsed)
 		return func
 
+	@property
+	def mangled_name(self):
+		mangled_typename = lambda code: code.replace("::", "_").replace("<","_").replace(">","_") \
+										   .replace(" ","").replace("*","").replace(",","")
+
+		return self.name + "".join(
+			f"__{mangled_typename(arg.wtype.gen_text_cpp())}" for arg in self.args
+		)
+
 	def gen_alias(self):
-		self.alias = self.name
-		for arg in self.args:
-			self.alias += "__" + arg.wtype.gen_text_cpp().replace("::", "_").replace("<","_").replace(">","_").replace(" ","").replace("*","").replace(",","")
+		self.alias = self.mangled_name
 
 	def gen_decl(self):
 		if self.duplicate:
@@ -2196,12 +2203,15 @@ def clean_duplicates():
 			for fun in class_.found_funs:
 				if fun.gen_decl_hash_py() in known_decls:
 					debug("Multiple declarations of " + fun.gen_decl_hash_py(),3)
+
 					other = known_decls[fun.gen_decl_hash_py()]
-					other.gen_alias()
-					fun.gen_alias()
-					if fun.gen_decl_hash_py() == other.gen_decl_hash_py():
+					if fun.mangled_name == other.mangled_name:
 						fun.duplicate = True
 						debug("Disabled \"" + fun.gen_decl_hash_py() + "\"", 3)
+						continue
+
+					other.gen_alias()
+					fun.gen_alias()
 				else:
 					known_decls[fun.gen_decl_hash_py()] = fun
 			known_decls = []
