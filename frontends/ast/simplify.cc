@@ -41,6 +41,95 @@ YOSYS_NAMESPACE_BEGIN
 using namespace AST;
 using namespace AST_INTERNAL;
 
+void AstNode::set_in_lvalue_flag(bool flag, bool no_descend)
+{
+	if (flag != in_lvalue_from_above) {
+		in_lvalue_from_above = flag;
+		if (!no_descend)
+			fixup_hierarchy_flags();
+	}
+}
+
+void AstNode::set_in_param_flag(bool flag, bool no_descend)
+{
+	if (flag != in_param_from_above) {
+		in_param_from_above = flag;
+		if (!no_descend)
+			fixup_hierarchy_flags();
+	}
+}
+
+void AstNode::fixup_hierarchy_flags(bool force_descend)
+{
+	// With forced descend, we disable the implicit
+	// descend from within the set_* functions, instead
+	// we do an explicit descend at the end of this function
+
+	in_param = in_param_from_above;
+
+	switch (type) {
+	case AST_PARAMETER:
+	case AST_LOCALPARAM:
+	case AST_DEFPARAM:
+	case AST_PARASET:
+	case AST_PREFIX:
+		in_param = true;
+		for (auto child : children)
+			child->set_in_param_flag(true, force_descend);
+		break;
+
+	case AST_REPLICATE:
+	case AST_WIRE:
+	case AST_GENIF:
+	case AST_GENCASE:
+		for (auto child : children)
+			child->set_in_param_flag(in_param, force_descend);
+		if (children.size() >= 1)
+			children[0]->set_in_param_flag(true, force_descend);
+		break;
+
+	case AST_GENFOR:
+	case AST_FOR:
+		for (auto child : children)
+			child->set_in_param_flag(in_param, force_descend);
+		if (children.size() >= 2)
+			children[1]->set_in_param_flag(true, force_descend);
+		break;
+
+	default:
+		in_param = in_param_from_above;
+		for (auto child : children)
+			child->set_in_param_flag(in_param, force_descend);
+	}
+
+	for (auto attr : attributes)
+		attr.second->set_in_param_flag(true, force_descend);
+
+	in_lvalue = in_lvalue_from_above;
+
+	switch (type) {
+	case AST_ASSIGN:
+	case AST_ASSIGN_EQ:
+	case AST_ASSIGN_LE:
+		if (children.size() >= 1)
+			children[0]->set_in_lvalue_flag(true, force_descend);
+		if (children.size() >= 2)
+			children[1]->set_in_lvalue_flag(in_lvalue, force_descend);
+		break;
+
+	default:
+		for (auto child : children)
+			child->set_in_lvalue_flag(in_lvalue, force_descend);
+	}
+
+	if (force_descend) {
+		for (auto child : children)
+			child->fixup_hierarchy_flags(true);
+		for (auto attr : attributes)
+			attr.second->fixup_hierarchy_flags(true);
+	}
+}
+
 // Process a format string and arguments for $display, $write, $sprintf, etc
 
 Fmt AstNode::processFormat(int stage, bool sformat_like, int default_base, size_t first_arg_at) {
@@ -132,7 +221,7 @@ void AstNode::annotateTypedEnums(AstNode *template_node)
 			RTLIL::Const val = enum_item->children[0]->bitsAsConst(width, is_signed);
 			enum_item_str.append(val.as_string());
 			//set attribute for available val to enum item name mappings
-			attributes[enum_item_str.c_str()] = mkconst_str(enum_item->str);
+			set_attribute(enum_item_str.c_str(), mkconst_str(enum_item->str));
 		}
 	}
 }
@@ -464,7 +553,7 @@ static AstNode *make_packed_struct(AstNode *template_node, std::string &name, de
 	wnode->range_valid = true;
 	wnode->is_signed = template_node->is_signed;
 	for (auto &pair : attributes) {
-		wnode->attributes[pair.first] = pair.second->clone();
+		wnode->set_attribute(pair.first, pair.second->clone());
 	}
 	// make sure this node is the one in scope for this name
 	current_scope[name] = wnode;
@@ -525,7 +614,7 @@ const RTLIL::Module* AstNode::lookup_cell_module()
 
 	auto reprocess_after = [this] (const std::string &modname) {
 		if (!attributes.count(ID::reprocess_after))
-			attributes[ID::reprocess_after] = AstNode::mkconst_str(modname);
+			set_attribute(ID::reprocess_after, AstNode::mkconst_str(modname));
 	};
 
 	const AstNode *celltype = nullptr;
@@ -705,6 +794,11 @@ AstNode *AstNode::clone_at_zero()
 		it = it->clone_at_zero();
 	for (auto &it : that->attributes)
 		it.second = it.second->clone();
+
+	that->set_in_lvalue_flag(false);
+	that->set_in_param_flag(false);
+	that->fixup_hierarchy_flags();
+
 	return that;
 }
 
@@ -743,8 +837,7 @@ static void mark_auto_nosync(AstNode *block, const AstNode *wire)
 {
 	log_assert(block->type == AST_BLOCK);
 	log_assert(wire->type == AST_WIRE);
-	block->attributes[auto_nosync_prefix + wire->str] = AstNode::mkconst_int(1,
-			false);
+	block->set_attribute(auto_nosync_prefix + wire->str, AstNode::mkconst_int(1, false));
 }
 
 // block names can be prefixed with an explicit scope during elaboration
@@ -785,7 +878,7 @@ static void check_auto_nosync(AstNode *node)
 		// mark the wire with `nosync`
 		AstNode *wire = it->second;
 		log_assert(wire->type == AST_WIRE);
-		wire->attributes[ID::nosync] = AstNode::mkconst_int(1, false);
+		wire->set_attribute(ID::nosync, AstNode::mkconst_int(1, false));
 	}
 
 	// remove the attributes we've "consumed"
@@ -806,7 +899,7 @@ static void check_auto_nosync(AstNode *node)
 //
 // this function also does all name resolving and sets the id2ast member of all
 // nodes that link to a different node using names and lexical scoping.
-bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hint, bool sign_hint, bool in_param)
+bool AstNode::simplify(bool const_fold, bool in_lvalue_, int stage, int width_hint, bool sign_hint, bool in_param_)
 {
 	static int recursion_counter = 0;
 	static bool deep_recursion_warning = false;
@@ -913,7 +1006,7 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 					reg->is_signed = node->is_signed;
 					for (auto &it : node->attributes)
 						if (it.first != ID::mem2reg)
-							reg->attributes.emplace(it.first, it.second->clone());
+							reg->set_attribute(it.first, it.second->clone());
 					reg->filename = node->filename;
 					reg->location = node->location;
 					children.push_back(reg);
@@ -994,7 +1087,9 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 
 	// in certain cases a function must be evaluated constant. this is what in_param controls.
 	if (type == AST_PARAMETER || type == AST_LOCALPARAM || type == AST_DEFPARAM || type == AST_PARASET || type == AST_PREFIX)
-		in_param = true;
+		in_param_ = true;
+	log_assert(in_param == in_param_);
+	log_assert(in_lvalue == in_lvalue_);
 
 	std::map<std::string, AstNode*> backup_scope;
 
@@ -1015,7 +1110,7 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 						if (!c->is_simple_const_expr()) {
 							if (attributes.count(ID::dynports))
 								delete attributes.at(ID::dynports);
-							attributes[ID::dynports] = AstNode::mkconst_int(1, true);
+							set_attribute(ID::dynports, AstNode::mkconst_int(1, true));
 						}
 					}
 				}
@@ -1064,7 +1159,7 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 					for (auto &it : node->attributes) {
 						if (first_node->attributes.count(it.first) > 0)
 							delete first_node->attributes[it.first];
-						first_node->attributes[it.first] = it.second->clone();
+						first_node->set_attribute(it.first, it.second->clone());
 					}
 					children.erase(children.begin()+(i--));
 					did_something = true;
@@ -1261,6 +1356,7 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 					asgn->children.push_back(arg);
 					asgn->children.push_back(ident);
 				}
+				asgn->fixup_hierarchy_flags();
 			}
 
 
@@ -1382,7 +1478,7 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 			range_left = template_node->range_left;
 			range_right = template_node->range_right;
 
-			attributes[ID::wiretype] = mkconst_str(resolved_type_node->str);
+			set_attribute(ID::wiretype, mkconst_str(resolved_type_node->str));
 
 			// Copy clones of children from template
 			for (auto template_child : template_node->children) {
@@ -1414,7 +1510,7 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 		if (children[0]->type == AST_IDENTIFIER && current_scope.count(children[0]->str) > 0) {
 			auto item_node = current_scope[children[0]->str];
 			if (item_node->type == AST_STRUCT || item_node->type == AST_UNION) {
-				attributes[ID::wiretype] = item_node->clone();
+				set_attribute(ID::wiretype, item_node->clone());
 				size_packed_struct(attributes[ID::wiretype], 0);
 				add_members_to_scope(attributes[ID::wiretype], str);
 			}
@@ -1809,7 +1905,7 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 			if (!str.empty() && str[0] == '\\' && (template_node->type == AST_STRUCT || template_node->type == AST_UNION)) {
 				// replace instance with wire representing the packed structure
 				newNode = make_packed_struct(template_node, str, attributes);
-				newNode->attributes[ID::wiretype] = mkconst_str(resolved_type_node->str);
+				newNode->set_attribute(ID::wiretype, mkconst_str(resolved_type_node->str));
 				// add original input/output attribute to resolved wire
 				newNode->is_input = this->is_input;
 				newNode->is_output = this->is_output;
@@ -1834,7 +1930,7 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 			range_left = template_node->range_left;
 			range_right = template_node->range_right;
 
-			attributes[ID::wiretype] = mkconst_str(resolved_type_node->str);
+			set_attribute(ID::wiretype, mkconst_str(resolved_type_node->str));
 
 			// if an enum then add attributes to support simulator tracing
 			annotateTypedEnums(template_node);
@@ -1848,6 +1944,7 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 				AstNode *rng = make_range(0, 0);
 				children.insert(children.begin(), rng);
 			}
+			fixup_hierarchy_flags();
 			did_something = true;
 		}
 		log_assert(!is_custom_type);
@@ -1874,7 +1971,7 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 			if (template_node->type == AST_STRUCT || template_node->type == AST_UNION) {
 				// replace with wire representing the packed structure
 				newNode = make_packed_struct(template_node, str, attributes);
-				newNode->attributes[ID::wiretype] = mkconst_str(resolved_type_node->str);
+				newNode->set_attribute(ID::wiretype, mkconst_str(resolved_type_node->str));
 				newNode->type = type;
 				current_scope[str] = this;
 				// copy param value, it needs to be 1st value
@@ -1896,9 +1993,10 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 			range_swapped = template_node->range_swapped;
 			range_left = template_node->range_left;
 			range_right = template_node->range_right;
-			attributes[ID::wiretype] = mkconst_str(resolved_type_node->str);
+			set_attribute(ID::wiretype, mkconst_str(resolved_type_node->str));
 			for (auto template_child : template_node->children)
 				children.push_back(template_child->clone());
+			fixup_hierarchy_flags();
 			did_something = true;
 		}
 		log_assert(!is_custom_type);
@@ -2018,6 +2116,7 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 		}
 		delete children[1];
 		children[1] = new AstNode(AST_RANGE, AstNode::mkconst_int(0, true), AstNode::mkconst_int(total_size-1, true));
+		fixup_hierarchy_flags();
 		did_something = true;
 	}
 
@@ -2052,6 +2151,7 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 		else
 			children[0] = new AstNode(AST_RANGE, index_expr);
 
+		fixup_hierarchy_flags();
 		did_something = true;
 	}
 
@@ -2067,6 +2167,7 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 						children[0]->realvalue, log_signal(constvalue));
 				delete children[0];
 				children[0] = mkconst_bits(constvalue.bits, sign_hint);
+				fixup_hierarchy_flags();
 				did_something = true;
 			}
 			if (children[0]->type == AST_CONSTANT) {
@@ -2076,6 +2177,7 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 					AstNode *old_child_0 = children[0];
 					children[0] = mkconst_bits(sig.as_const().bits, is_signed);
 					delete old_child_0;
+					fixup_hierarchy_flags();
 				}
 				children[0]->is_signed = is_signed;
 			}
@@ -2089,6 +2191,7 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 			delete children[0];
 			children[0] = new AstNode(AST_REALVALUE);
 			children[0]->realvalue = as_realvalue;
+			fixup_hierarchy_flags();
 			did_something = true;
 		}
 	}
@@ -2105,7 +2208,7 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 					newNode = new AstNode(AST_IDENTIFIER, range);
 					newNode->str = sname;
 					// save type and original number of dimensions for $size() etc.
-					newNode->attributes[ID::wiretype] = item_node->clone();
+					newNode->set_attribute(ID::wiretype, item_node->clone());
 					if (!item_node->multirange_dimensions.empty() && children.size() > 0) {
 						if (children[0]->type == AST_RANGE)
 							newNode->integer = 1;
@@ -2199,7 +2302,7 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 		AstNode *wire = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(data_range_left, true), mkconst_int(data_range_right, true)));
 		wire->str = wire_id;
 		if (current_block)
-			wire->attributes[ID::nosync] = AstNode::mkconst_int(1, false);
+			wire->set_attribute(ID::nosync, AstNode::mkconst_int(1, false));
 		current_ast_mod->children.push_back(wire);
 		while (wire->simplify(true, false, 1, -1, false, false)) { }
 
@@ -2387,6 +2490,7 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 
 			// eval 3rd expression
 			buf = next_ast->children[1]->clone();
+			buf->set_in_param_flag(true);
 			{
 				int expr_width_hint = -1;
 				bool expr_sign_hint = true;
@@ -2548,6 +2652,7 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 					continue;
 
 				buf = child->clone();
+				buf->set_in_param_flag(true);
 				while (buf->simplify(true, false, stage, width_hint, sign_hint, true)) { }
 				if (buf->type != AST_CONSTANT) {
 					// for (auto f : log_files)
@@ -2654,6 +2759,7 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 			children.push_back(children_list.at(0));
 			children.back()->was_checked = true;
 			children.push_back(node);
+			fixup_hierarchy_flags();
 			did_something = true;
 		}
 		else if (str == "buf" || str == "not")
@@ -2704,6 +2810,7 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 			children.push_back(children_list[0]);
 			children.back()->was_checked = true;
 			children.push_back(node);
+			fixup_hierarchy_flags();
 			did_something = true;
 		}
 	}
@@ -2782,7 +2889,7 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 				AstNode *lvalue = children[0]->clone();
 				lvalue->delete_children();
 				if (member_node)
-					lvalue->attributes[ID::wiretype] = member_node->clone();
+					lvalue->set_attribute(ID::wiretype, member_node->clone());
 				lvalue->children.push_back(new AstNode(AST_RANGE,
 						mkconst_int(end_bit, true), mkconst_int(start_bit, true)));
 				cond->children.push_back(new AstNode(AST_BLOCK, new AstNode(type, lvalue, children[1]->clone())));
@@ -2795,14 +2902,14 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 
 			AstNode *wire_mask = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(source_width-1, true), mkconst_int(0, true)));
 			wire_mask->str = stringf("$bitselwrite$mask$%s:%d$%d", RTLIL::encode_filename(filename).c_str(), location.first_line, autoidx++);
-			wire_mask->attributes[ID::nosync] = AstNode::mkconst_int(1, false);
+			wire_mask->set_attribute(ID::nosync, AstNode::mkconst_int(1, false));
 			wire_mask->is_logic = true;
 			while (wire_mask->simplify(true, false, 1, -1, false, false)) { }
 			current_ast_mod->children.push_back(wire_mask);
 
 			AstNode *wire_data = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(source_width-1, true), mkconst_int(0, true)));
 			wire_data->str = stringf("$bitselwrite$data$%s:%d$%d", RTLIL::encode_filename(filename).c_str(), location.first_line, autoidx++);
-			wire_data->attributes[ID::nosync] = AstNode::mkconst_int(1, false);
+			wire_data->set_attribute(ID::nosync, AstNode::mkconst_int(1, false));
 			wire_data->is_logic = true;
 			while (wire_data->simplify(true, false, 1, -1, false, false)) { }
 			current_ast_mod->children.push_back(wire_data);
@@ -2813,7 +2920,7 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 
 			AstNode *wire_sel = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(shamt_width_hint-1, true), mkconst_int(0, true)));
 			wire_sel->str = stringf("$bitselwrite$sel$%s:%d$%d", RTLIL::encode_filename(filename).c_str(), location.first_line, autoidx++);
-			wire_sel->attributes[ID::nosync] = AstNode::mkconst_int(1, false);
+			wire_sel->set_attribute(ID::nosync, AstNode::mkconst_int(1, false));
 			wire_sel->is_logic = true;
 			wire_sel->is_signed = shamt_sign_hint;
 			while (wire_sel->simplify(true, false, 1, -1, false, false)) { }
@@ -2825,7 +2932,7 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 			AstNode *lvalue = children[0]->clone();
 			lvalue->delete_children();
 			if (member_node)
-				lvalue->attributes[ID::wiretype] = member_node->clone();
+				lvalue->set_attribute(ID::wiretype, member_node->clone());
 
 			AstNode *ref_mask = new AstNode(AST_IDENTIFIER);
 			ref_mask->str = wire_mask->str;
@@ -2882,6 +2989,8 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 			t = new AstNode(AST_BIT_OR, t, ref_data);
 			t = new AstNode(type, lvalue, t);
 			newNode->children.push_back(t);
+
+			newNode->fixup_hierarchy_flags(true);
 		}
 
 		goto apply_newNode;
@@ -2942,6 +3051,7 @@ skip_dynamic_range_lvalue_expansion:;
 			assign_check->children[0]->str = id_check;
 			assign_check->children[0]->was_checked = true;
 		}
+		assign_check->fixup_hierarchy_flags();
 
 		if (current_always == nullptr || current_always->type != AST_INITIAL) {
 			assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_int(1, false, 1));
@@ -2951,6 +3061,7 @@ skip_dynamic_range_lvalue_expansion:;
 		}
 		assign_en->children[0]->str = id_en;
 		assign_en->children[0]->was_checked = true;
+		assign_en->fixup_hierarchy_flags();
 
 		newNode = new AstNode(AST_BLOCK);
 		if (assign_check != nullptr)
@@ -2973,6 +3084,7 @@ skip_dynamic_range_lvalue_expansion:;
 	if (stage > 1 && (type == AST_ASSERT || type == AST_ASSUME || type == AST_LIVE || type == AST_FAIR || type == AST_COVER) && children.size() == 1)
 	{
 		children.push_back(mkconst_int(1, false, 1));
+		fixup_hierarchy_flags();
 		did_something = true;
 	}
 
@@ -3003,7 +3115,7 @@ skip_dynamic_range_lvalue_expansion:;
 			wire_tmp->str = stringf("$splitcmplxassign$%s:%d$%d", RTLIL::encode_filename(filename).c_str(), location.first_line, autoidx++);
 			current_ast_mod->children.push_back(wire_tmp);
 			current_scope[wire_tmp->str] = wire_tmp;
-			wire_tmp->attributes[ID::nosync] = AstNode::mkconst_int(1, false);
+			wire_tmp->set_attribute(ID::nosync, AstNode::mkconst_int(1, false));
 			while (wire_tmp->simplify(true, false, 1, -1, false, false)) { }
 			wire_tmp->is_logic = true;
 
@@ -3743,6 +3855,7 @@ skip_dynamic_range_lvalue_expansion:;
 
 					argtypes.push_back(RTLIL::unescape_id(dpi_decl->children.at(i)->str));
 					args.push_back(children.at(i-2)->clone());
+					args.back()->set_in_param_flag(true);
 					while (args.back()->simplify(true, false, stage, -1, false, true)) { }
 
 					if (args.back()->type != AST_CONSTANT && args.back()->type != AST_REALVALUE)
@@ -3860,6 +3973,7 @@ skip_dynamic_range_lvalue_expansion:;
 
 			if (all_args_const) {
 				AstNode *func_workspace = decl->clone();
+				func_workspace->set_in_param_flag(true);
 				func_workspace->str = prefix_id(prefix, "$result");
 				newNode = func_workspace->eval_const_function(this, in_param || require_const_eval);
 				delete func_workspace;
@@ -4004,9 +4118,9 @@ skip_dynamic_range_lvalue_expansion:;
 					wire->is_input = false;
 					wire->is_output = false;
 					wire->is_reg = true;
-					wire->attributes[ID::nosync] = AstNode::mkconst_int(1, false);
+					wire->set_attribute(ID::nosync, AstNode::mkconst_int(1, false));
 					if (child->type == AST_ENUM_ITEM)
-						wire->attributes[ID::enum_base_type] = child->attributes[ID::enum_base_type];
+						wire->set_attribute(ID::enum_base_type, child->attributes[ID::enum_base_type]);
 
 					wire_cache[child->str] = wire;
 
@@ -4045,6 +4159,7 @@ skip_dynamic_range_lvalue_expansion:;
 								range->children.push_back(mkconst_int(0, true));
 							}
 						}
+						wire->fixup_hierarchy_flags();
 						// updates the sizing
 						while (wire->simplify(true, false, 1, -1, false, true)) { }
 						delete arg;
@@ -4364,6 +4479,7 @@ apply_newNode:
 		newNode->filename = filename;
 		newNode->location = location;
 		newNode->cloneInto(this);
+		fixup_hierarchy_flags();
 		delete newNode;
 		did_something = true;
 	}
@@ -4954,7 +5070,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 		wire_addr->str = id_addr;
 		wire_addr->is_reg = true;
 		wire_addr->was_checked = true;
-		wire_addr->attributes[ID::nosync] = AstNode::mkconst_int(1, false);
+		wire_addr->set_attribute(ID::nosync, AstNode::mkconst_int(1, false));
 		mod->children.push_back(wire_addr);
 		while (wire_addr->simplify(true, false, 1, -1, false, false)) { }
 
@@ -4963,7 +5079,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 		wire_data->is_reg = true;
 		wire_data->was_checked = true;
 		wire_data->is_signed = mem_signed;
-		wire_data->attributes[ID::nosync] = AstNode::mkconst_int(1, false);
+		wire_data->set_attribute(ID::nosync, AstNode::mkconst_int(1, false));
 		mod->children.push_back(wire_data);
 		while (wire_data->simplify(true, false, 1, -1, false, false)) { }
 
@@ -4992,6 +5108,10 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 			cond_node->children[1]->children.push_back(assign_reg);
 			case_node->children.push_back(cond_node);
 		}
+
+		// fixup on the full hierarchy below case_node
+		case_node->fixup_hierarchy_flags(true);
+
 		block->children.insert(block->children.begin()+assign_idx+2, case_node);
 
 		children[0]->delete_children();
@@ -5001,6 +5121,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 		type = AST_ASSIGN_EQ;
 		children[0]->was_checked = true;
 
+		fixup_hierarchy_flags();
 		did_something = true;
 	}
 
@@ -5071,7 +5192,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 			wire_addr->is_reg = true;
 			wire_addr->was_checked = true;
 			if (block)
-				wire_addr->attributes[ID::nosync] = AstNode::mkconst_int(1, false);
+				wire_addr->set_attribute(ID::nosync, AstNode::mkconst_int(1, false));
 			mod->children.push_back(wire_addr);
 			while (wire_addr->simplify(true, false, 1, -1, false, false)) { }
 
@@ -5081,7 +5202,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 			wire_data->was_checked = true;
 			wire_data->is_signed = mem_signed;
 			if (block)
-				wire_data->attributes[ID::nosync] = AstNode::mkconst_int(1, false);
+				wire_data->set_attribute(ID::nosync, AstNode::mkconst_int(1, false));
 			mod->children.push_back(wire_data);
 			while (wire_data->simplify(true, false, 1, -1, false, false)) { }
 
@@ -5115,6 +5236,9 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 			cond_node->children[1]->children.push_back(assign_reg);
 			case_node->children.push_back(cond_node);
 
+			// fixup on the full hierarchy below case_node
+			case_node->fixup_hierarchy_flags(true);
+
 			if (block)
 			{
 				size_t assign_idx = 0;
@@ -5126,10 +5250,10 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 			}
 			else
 			{
-				AstNode *proc = new AstNode(AST_ALWAYS, new AstNode(AST_BLOCK));
-				proc->children[0]->children.push_back(case_node);
+				AstNode *proc = new AstNode(AST_ALWAYS, new AstNode(AST_BLOCK, case_node));
 				mod->children.push_back(proc);
 				mod->children.push_back(assign_addr);
+				mod->fixup_hierarchy_flags();
 			}
 
 			delete_children();
@@ -5138,8 +5262,10 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 			str = id_data;
 		}
 
-		if (bit_part_sel)
+		if (bit_part_sel) {
 			children.push_back(bit_part_sel);
+			fixup_hierarchy_flags();
+		}
 
 		did_something = true;
 	}
@@ -5302,6 +5428,7 @@ AstNode *AstNode::eval_const_function(AstNode *fcall, bool must_succeed)
 	{
 		block->children.push_back(child->clone());
 	}
+	block->set_in_param_flag(true);
 
 	while (!block->children.empty())
 	{
@@ -5444,6 +5571,7 @@ AstNode *AstNode::eval_const_function(AstNode *fcall, bool must_succeed)
 			AstNode *cond = stmt->children.at(0)->clone();
 			if (!cond->replace_variables(variables, fcall, must_succeed))
 				goto finished;
+			cond->set_in_param_flag(true);
 			while (cond->simplify(true, false, 1, -1, false, true)) { }
 
 			if (cond->type != AST_CONSTANT) {
@@ -5469,6 +5597,7 @@ AstNode *AstNode::eval_const_function(AstNode *fcall, bool must_succeed)
 			AstNode *num = stmt->children.at(0)->clone();
 			if (!num->replace_variables(variables, fcall, must_succeed))
 				goto finished;
+			num->set_in_param_flag(true);
 			while (num->simplify(true, false, 1, -1, false, true)) { }
 
 			if (num->type != AST_CONSTANT) {
@@ -5492,6 +5621,7 @@ AstNode *AstNode::eval_const_function(AstNode *fcall, bool must_succeed)
 			AstNode *expr = stmt->children.at(0)->clone();
 			if (!expr->replace_variables(variables, fcall, must_succeed))
 				goto finished;
+			expr->set_in_param_flag(true);
 			while (expr->simplify(true, false, 1, -1, false, true)) { }
 
 			AstNode *sel_case = NULL;
@@ -5512,6 +5642,7 @@ AstNode *AstNode::eval_const_function(AstNode *fcall, bool must_succeed)
 						goto finished;
 
 					cond = new AstNode(AST_EQ, expr->clone(), cond);
+					cond->set_in_param_flag(true);
 					while (cond->simplify(true, false, 1, -1, false, true)) { }
 
 					if (cond->type != AST_CONSTANT) {
@@ -5547,6 +5678,7 @@ AstNode *AstNode::eval_const_function(AstNode *fcall, bool must_succeed)
 			block->children.erase(block->children.begin());
 			block->children.insert(block->children.begin(), stmt->children.begin(), stmt->children.end());
 			stmt->children.clear();
+			block->fixup_hierarchy_flags();
 			delete stmt;
 			continue;
 		}
@@ -5581,7 +5713,7 @@ void AstNode::allocateDefaultEnumValues()
 	int last_enum_int = -1;
 	for (auto node : children) {
 		log_assert(node->type==AST_ENUM_ITEM);
-		node->attributes[ID::enum_base_type] = mkconst_str(str);
+		node->set_attribute(ID::enum_base_type, mkconst_str(str));
 		for (size_t i = 0; i < node->children.size(); i++) {
 			switch (node->children[i]->type) {
 			case AST_NONE:

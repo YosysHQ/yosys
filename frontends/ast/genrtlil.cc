@@ -176,8 +176,9 @@ struct AST_INTERNAL::LookaheadRewriter
 				AstNode *wire = new AstNode(AST_WIRE);
 				for (auto c : node->id2ast->children)
 					wire->children.push_back(c->clone());
+				wire->fixup_hierarchy_flags();
 				wire->str = stringf("$lookahead%s$%d", node->str.c_str(), autoidx++);
-				wire->attributes[ID::nosync] = AstNode::mkconst_int(1, false);
+				wire->set_attribute(ID::nosync, AstNode::mkconst_int(1, false));
 				wire->is_logic = true;
 				while (wire->simplify(true, false, 1, -1, false, false)) { }
 				current_ast_mod->children.push_back(wire);
@@ -1198,8 +1199,10 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 				log_assert(range->type == AST_RANGE && range->children.size() == 2);
 				AstNode *left = range->children.at(0)->clone();
 				AstNode *right = range->children.at(1)->clone();
-				while (left->simplify(true, false, 1, -1, false, true)) { }
-				while (right->simplify(true, false, 1, -1, false, true)) { }
+				left->set_in_param_flag(true);
+				right->set_in_param_flag(true);
+				while (left->simplify(true, in_lvalue, 1, -1, false, true)) { }
+				while (right->simplify(true, in_lvalue, 1, -1, false, true)) { }
 				if (left->type != AST_CONSTANT || right->type != AST_CONSTANT)
 					input_error("Function %s has non-constant width!",
 							RTLIL::unescape_id(str).c_str());
@@ -1552,7 +1555,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 							children[0]->children[1]->clone() : children[0]->children[0]->clone());
 					fake_ast->children[0]->delete_children();
 					if (member_node)
-						fake_ast->children[0]->attributes[ID::wiretype] = member_node->clone();
+						fake_ast->children[0]->set_attribute(ID::wiretype, member_node->clone());
 
 					int fake_ast_width = 0;
 					bool fake_ast_sign = true;
