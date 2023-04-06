@@ -413,177 +413,47 @@ endmodule
 
 // ---------------------------------------
 
-module TRELLIS_SLICE(
-	input A0, B0, C0, D0,
-	input A1, B1, C1, D1,
-	input M0, M1,
-	input FCI, FXA, FXB,
-
-	input CLK, LSR, CE,
-	input DI0, DI1,
-
-	input WD0, WD1,
+module TRELLIS_COMB(
+	input A, B, C, D, M,
+	input FCI, F1, FXA, FXB,
+	input WD,
 	input WAD0, WAD1, WAD2, WAD3,
 	input WRE, WCK,
-
-	output F0, Q0,
-	output F1, Q1,
-	output FCO, OFX0, OFX1,
-
-	output WDO0, WDO1, WDO2, WDO3,
-	output WADO0, WADO1, WADO2, WADO3
+	output F, FCO, OFX
 );
-
 	parameter MODE = "LOGIC";
-	parameter GSR = "ENABLED";
-	parameter SRMODE = "LSR_OVER_CE";
-	parameter [127:0] CEMUX = "1";
-	parameter CLKMUX = "CLK";
-	parameter LSRMUX = "LSR";
-	parameter LUT0_INITVAL = 16'h0000;
-	parameter LUT1_INITVAL = 16'h0000;
-	parameter REG0_SD = "0";
-	parameter REG1_SD = "0";
-	parameter REG0_REGSET = "RESET";
-	parameter REG1_REGSET = "RESET";
-	parameter REG0_LSRMODE = "LSR";
-	parameter REG1_LSRMODE = "LSR";
-	parameter [127:0] CCU2_INJECT1_0 = "NO";
-	parameter [127:0] CCU2_INJECT1_1 = "NO";
+	parameter INITVAL = 16'h0;
+	parameter CCU2_INJECT1 = "NO";
 	parameter WREMUX = "WRE";
-	parameter WCKMUX = "WCK";
-
-	parameter A0MUX = "A0";
-	parameter A1MUX = "A1";
-	parameter B0MUX = "B0";
-	parameter B1MUX = "B1";
-	parameter C0MUX = "C0";
-	parameter C1MUX = "C1";
-	parameter D0MUX = "D0";
-	parameter D1MUX = "D1";
-
-	wire A0m, B0m, C0m, D0m;
-	wire A1m, B1m, C1m, D1m;
+	parameter IS_Z1 = 1'b0;
 
 	generate
-		if (A0MUX == "1") assign A0m = 1'b1; else assign A0m = A0;
-		if (B0MUX == "1") assign B0m = 1'b1; else assign B0m = B0;
-		if (C0MUX == "1") assign C0m = 1'b1; else assign C0m = C0;
-		if (D0MUX == "1") assign D0m = 1'b1; else assign D0m = D0;
-		if (A1MUX == "1") assign A1m = 1'b1; else assign A1m = A1;
-		if (B1MUX == "1") assign B1m = 1'b1; else assign B1m = B1;
-		if (C1MUX == "1") assign C1m = 1'b1; else assign C1m = C1;
-		if (D1MUX == "1") assign D1m = 1'b1; else assign D1m = D1;
-
-	endgenerate
-
-	function [15:0] permute_initval;
-		input [15:0] initval;
-		integer i;
-		begin
-			for (i = 0; i < 16; i = i + 1) begin
-				permute_initval[{i[0], i[2], i[1], i[3]}] = initval[i];
-			end
-		end
-	endfunction
-
-	generate
-		if (MODE == "LOGIC") begin
-			// LUTs
-			LUT4 #(
-				.INIT(LUT0_INITVAL)
-			) lut4_0 (
-				.A(A0m), .B(B0m), .C(C0m), .D(D0m),
-				.Z(F0)
-			);
-			LUT4 #(
-				.INIT(LUT1_INITVAL)
-			) lut4_1 (
-				.A(A1m), .B(B1m), .C(C1m), .D(D1m),
-				.Z(F1)
-			);
-			// LUT expansion muxes
-			PFUMX lut5_mux (.ALUT(F1), .BLUT(F0), .C0(M0), .Z(OFX0));
-			L6MUX21 lutx_mux (.D0(FXA), .D1(FXB), .SD(M1), .Z(OFX1));
-		end else if (MODE == "CCU2") begin
-			CCU2C #(
-				.INIT0(LUT0_INITVAL),
-				.INIT1(LUT1_INITVAL),
-				.INJECT1_0(CCU2_INJECT1_0),
-				.INJECT1_1(CCU2_INJECT1_1)
-		  ) ccu2c_i (
-				.CIN(FCI),
-				.A0(A0m), .B0(B0m), .C0(C0m), .D0(D0m),
-				.A1(A1m), .B1(B1m), .C1(C1m), .D1(D1m),
-				.S0(F0), .S1(F1),
-				.COUT(FCO)
-			);
-		end else if (MODE == "RAMW") begin
-			assign WDO0 = C1m;
-			assign WDO1 = A1m;
-			assign WDO2 = D1m;
-			assign WDO3 = B1m;
-			assign WADO0 = D0m;
-			assign WADO1 = B0m;
-			assign WADO2 = C0m;
-			assign WADO3 = A0m;
-		end else if (MODE == "DPRAM") begin
-			TRELLIS_RAM16X2 #(
-				.INITVAL_0(permute_initval(LUT0_INITVAL)),
-				.INITVAL_1(permute_initval(LUT1_INITVAL)),
-				.WREMUX(WREMUX)
-			) ram_i (
-				.DI0(WD0), .DI1(WD1),
-				.WAD0(WAD0), .WAD1(WAD1), .WAD2(WAD2), .WAD3(WAD3),
-				.WRE(WRE), .WCK(WCK),
-				.RAD0(D0m), .RAD1(B0m), .RAD2(C0m), .RAD3(A0m),
-				.DO0(F0), .DO1(F1)
-			);
-			// TODO: confirm RAD and INITVAL ordering
-			// DPRAM mode contract?
-`ifdef FORMAL
-			always @(*) begin
-				assert(A0m==A1m);
-				assert(B0m==B1m);
-				assert(C0m==C1m);
-				assert(D0m==D1m);
-			end
-`endif
+		if (MODE == "LOGIC") begin: mode_logic
+			LUT4 #(.INIT(INITVAL)) lut4 (.A(A), .B(B), .C(C), .D(D), .Z(F));
+		end else if (MODE == "CCU2") begin: mode_ccu2
+			wire l4o, l2o;
+			LUT4 #(.INIT(INITVAL)) lut4_0(.A(A), .B(B), .C(C), .D(D), .Z(l4o));
+			LUT2 #(.INIT(INITVAL[3:0])) lut2_0(.A(A), .B(B), .Z(l2o));
+			wire gated_cin_0 = (CCU2_INJECT1 == "YES") ? 1'b0 : FCI;
+			assign F = l4o ^ gated_cin_0;
+			wire gated_lut2_0 = (CCU2_INJECT1 == "YES") ? 1'b0 : l2o;
+			wire FCO = (~l4o & gated_lut2_0) | (l4o & FCI);
+		end else if (MODE == "DPRAM") begin: mode_dpram
+			reg [15:0] ram = INITVAL;
+			always @(posedge WCK)
+				if (WRE)
+					ram[{WAD3, WAD2, WAD1, WAD0}] <= WD;
+			assign F = ram[{A, C, B, D}];
 		end else begin
-			ERROR_UNKNOWN_SLICE_MODE error();
+			$error("unsupported COMB mode %s", MODE);
 		end
+
+ 		if (IS_Z1)
+			L6MUX21 lutx_mux (.D0(FXA), .D1(FXB), .SD(M), .Z(OFX));
+		else
+			PFUMX lut5_mux (.ALUT(F1), .BLUT(F), .C0(M), .Z(OFX));
 	endgenerate
 
-	// FF input selection muxes
-	wire muxdi0 = (REG0_SD == "1") ? DI0 : M0;
-	wire muxdi1 = (REG1_SD == "1") ? DI1 : M1;
-	// Flipflops
-	TRELLIS_FF #(
-		.GSR(GSR),
-		.CEMUX(CEMUX),
-		.CLKMUX(CLKMUX),
-		.LSRMUX(LSRMUX),
-		.SRMODE(SRMODE),
-		.REGSET(REG0_REGSET),
-		.LSRMODE(REG0_LSRMODE)
-	) ff_0 (
-		.CLK(CLK), .LSR(LSR), .CE(CE),
-		.DI(muxdi0), .M(M0),
-		.Q(Q0)
-	);
-	TRELLIS_FF #(
-		.GSR(GSR),
-		.CEMUX(CEMUX),
-		.CLKMUX(CLKMUX),
-		.LSRMUX(LSRMUX),
-		.SRMODE(SRMODE),
-		.REGSET(REG1_REGSET),
-		.LSRMODE(REG1_LSRMODE)
-	) ff_1 (
-		.CLK(CLK), .LSR(LSR), .CE(CE),
-		.DI(muxdi1), .M(M1),
-		.Q(Q1)
-	);
 endmodule
 
 (* blackbox *)
