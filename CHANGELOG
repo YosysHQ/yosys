@@ -2,8 +2,19 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.27 .. Yosys 0.27-dev
+Yosys 0.27 .. Yosys 0.28
 --------------------------
+ * Verilog
+    - Out of bounds checking for struct/union members.
+
+ * Verific support
+    - Fix enum_values support and signed attribute values.
+
+ * ECP5 support
+    - Added "synth_ecp5 -iopad"
+
+ * MachXO2 support
+    - Added "synth_machxo2 -ccu2"
 
 Yosys 0.26 .. Yosys 0.27
 --------------------------
