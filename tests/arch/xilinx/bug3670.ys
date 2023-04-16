@@ -1,0 +1,3 @@
+read_verilog bug3670.v
+read_verilog -lib -specify +/xilinx/cells_sim.v
+abc9
