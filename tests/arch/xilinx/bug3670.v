@@ -1,4 +1,4 @@
-module bug3670(output [31:0] o1, o2, output o3);
+module bug3670(input we, output [31:0] o1, o2, output o3);
     // Completely missing port connections, where first affected port
     // (ADDRARDADDR) has a $setup delay
     RAMB36E1 ram1(.DOADO(o1));
