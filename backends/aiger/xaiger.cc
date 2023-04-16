@@ -276,7 +276,7 @@ struct XAigerWriter
 
 					auto rhs = cell->getPort(i.first.name);
 					if (offset >= rhs.size())
-					    continue;
+						continue;
 
 #ifndef NDEBUG
 					if (ys_debug(1)) {
