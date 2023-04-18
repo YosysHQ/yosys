@@ -190,8 +190,6 @@ RTLIL::Const ReadWitness::get_bits(int t, int bits_offset, int width) const
 	int read_begin = GetSize(bits) - 1 - bits_offset;
 	int read_end = max(-1, read_begin - width);
 
-	min(width, GetSize(bits) - bits_offset);
-
 	for (int i = read_begin, j = 0; i > read_end; i--, j++) {
 		RTLIL::State bit = State::Sa;
 		switch (bits[i]) {
