@@ -2474,6 +2474,7 @@ struct CxxrtlWorker {
 		RTLIL::Module *top_module = nullptr;
 		std::vector<RTLIL::Module*> modules;
 		TopoSort<RTLIL::Module*> topo_design;
+		bool has_prints = false;
 		for (auto module : design->modules()) {
 			if (!design->selected_module(module))
 				continue;
@@ -2486,6 +2487,8 @@ struct CxxrtlWorker {
 
 			topo_design.node(module);
 			for (auto cell : module->cells()) {
+				if (cell->type == ID($print))
+					has_prints = true;
 				if (is_internal_cell(cell->type) || is_cxxrtl_blackbox_cell(cell))
 					continue;
 				RTLIL::Module *cell_module = design->module(cell->type);
@@ -2544,6 +2547,8 @@ struct CxxrtlWorker {
 			f << "#include \"" << intf_filename << "\"\n";
 		else
 			f << "#include <backends/cxxrtl/cxxrtl.h>\n";
+		if (has_prints)
+			f << "#include <iostream>\n";
 		f << "\n";
 		f << "#if defined(CXXRTL_INCLUDE_CAPI_IMPL) || \\\n";
 		f << "    defined(CXXRTL_INCLUDE_VCD_CAPI_IMPL)\n";

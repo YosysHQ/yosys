@@ -1,4 +1,3 @@
-#include <iostream>
 #include "yosys-always_comb.cc"
 
 int main()
