@@ -847,7 +847,7 @@ RTLIL::Const AstNode::bitsAsConst(int width, bool is_signed)
 		bits.resize(width);
 	if (width >= 0 && width > int(bits.size())) {
 		RTLIL::State extbit = RTLIL::State::S0;
-		if (is_signed && !bits.empty())
+		if ((is_signed || is_unsized) && !bits.empty())
 			extbit = bits.back();
 		while (width > int(bits.size()))
 			bits.push_back(extbit);
