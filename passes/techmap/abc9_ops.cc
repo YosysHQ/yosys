@@ -674,8 +674,12 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 				continue;
 
 			auto offset = i.first.offset;
-			auto O = module->addWire(NEW_ID);
+			if (!cell->hasPort(i.first.name))
+				continue;
 			auto rhs = cell->getPort(i.first.name);
+			if (offset >= rhs.size())
+				continue;
+			auto O = module->addWire(NEW_ID);
 
 #ifndef NDEBUG
 			if (ys_debug(1)) {
