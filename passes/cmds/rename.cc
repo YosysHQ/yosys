@@ -116,6 +116,8 @@ static bool rename_witness(RTLIL::Design *design, dict<RTLIL::Module *, int> &ca
 	}
 	cache.emplace(module, -1);
 
+	std::vector<std::pair<Cell *, IdString>> renames;
+
 	bool has_witness_signals = false;
 	for (auto cell : module->cells())
 	{
@@ -130,8 +132,9 @@ static bool rename_witness(RTLIL::Design *design, dict<RTLIL::Module *, int> &ca
 						c = '_';
 				auto new_id = module->uniquify("\\_witness_." + name);
 				cell->set_hdlname_attribute({ "_witness_", strstr(new_id.c_str(), ".") + 1 });
-				module->rename(cell, new_id);
+				renames.emplace_back(cell, new_id);
 			}
+			break;
 		}
 
 		if (cell->type.in(ID($anyconst), ID($anyseq), ID($anyinit), ID($allconst), ID($allseq))) {
@@ -154,6 +157,9 @@ static bool rename_witness(RTLIL::Design *design, dict<RTLIL::Module *, int> &ca
 				}
 			}
 		}
+	}
+	for (auto rename : renames) {
+		module->rename(rename.first, rename.second);
 	}
 
 	cache[module] = has_witness_signals;
