@@ -274,6 +274,10 @@ struct XAigerWriter
 						continue;
 					auto offset = i.first.offset;
 
+					auto rhs = cell->getPort(i.first.name);
+					if (offset >= rhs.size())
+						continue;
+
 #ifndef NDEBUG
 					if (ys_debug(1)) {
 						static pool<std::pair<IdString,TimingInfo::NameBit>> seen;
@@ -281,7 +285,7 @@ struct XAigerWriter
 								log_id(cell->type), log_id(i.first.name), offset, d);
 					}
 #endif
-					arrival_times[cell->getPort(i.first.name)[offset]] = d;
+					arrival_times[rhs[offset]] = d;
 				}
 
 				if (abc9_flop)
