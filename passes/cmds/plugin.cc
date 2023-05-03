@@ -21,12 +21,12 @@
 
 #ifdef YOSYS_ENABLE_PLUGINS
 #  include <dlfcn.h>
-#  include <boost/filesystem.hpp>
-#  include <boost/algorithm/string/predicate.hpp>
 #endif
 
 #ifdef WITH_PYTHON
+#  include <boost/algorithm/string/predicate.hpp>
 #  include <Python.h>
+#  include <boost/filesystem.hpp>
 #endif
 
 YOSYS_NAMESPACE_BEGIN
@@ -42,60 +42,69 @@ void load_plugin(std::string filename, std::vector<std::string> aliases)
 {
 	std::string orig_filename = filename;
 	rewrite_filename(filename);
-	boost::filesystem::path full_path(filename);
+
+	// Would something like this better be put in `rewrite_filename`?
+	if (filename.find("/") == std::string::npos)
+		filename = "./" + filename;
 
 
 	#ifdef WITH_PYTHON
-	if (!loaded_plugins.count(orig_filename) && !loaded_python_plugins.count(orig_filename)) {
+	const bool is_loaded = loaded_plugins.count(orig_filename) && loaded_python_plugins.count(orig_filename);
 	#else
-	if (!loaded_plugins.count(orig_filename)) {
+	const bool is_loaded = loaded_plugins.count(orig_filename);
 	#endif
 
-		#ifdef WITH_PYTHON
-
-		if(strcmp(full_path.extension().c_str(), ".py") == 0)
+	if (!is_loaded) {
+		// Check if we're loading a python script
+		if(filename.find(".py") != std::string::npos)
 		{
-			std::string path(full_path.parent_path().c_str());
-			filename = full_path.filename().c_str();
-			filename = filename.substr(0,filename.size()-3);
-			PyRun_SimpleString(("sys.path.insert(0,\""+path+"\")").c_str());
-			PyErr_Print();
-			PyObject *module_p = PyImport_ImportModule(filename.c_str());
-			if(module_p == NULL)
-			{
+			#ifdef WITH_PYTHON
+				boost::filesystem::path full_path(filename);
+				std::string path(full_path.parent_path().c_str());
+				filename = full_path.filename().c_str();
+				filename = filename.substr(0,filename.size()-3);
+				PyRun_SimpleString(("sys.path.insert(0,\""+path+"\")").c_str());
 				PyErr_Print();
-				log_cmd_error("Can't load python module `%s'\n", full_path.filename().c_str());
-				return;
-			}
-			loaded_python_plugins[orig_filename] = module_p;
-			Pass::init_register();
+				PyObject *module_p = PyImport_ImportModule(filename.c_str());
+				if(module_p == NULL)
+				{
+					PyErr_Print();
+					log_cmd_error("Can't load python module `%s'\n", full_path.filename().c_str());
+					return;
+				}
+				loaded_python_plugins[orig_filename] = module_p;
+				Pass::init_register();
+			#else
+				log_error(
+					"\n  This version of Yosys cannot load python plugins.\n"
+					"  Ensure Yosys is built with Python support to do so.\n"
+				);
+			#endif
 		} else {
-		#endif
+			// Otherwise we assume it's a native plugin
 
-		void *hdl = dlopen(filename.c_str(), RTLD_LAZY|RTLD_LOCAL);
+			void *hdl = dlopen(filename.c_str(), RTLD_LAZY|RTLD_LOCAL);
 
-		// We were unable to open the file, try to do so from the plugin directory
-		if (hdl == NULL && filename.find('/') == std::string::npos) {
-			hdl = dlopen([filename]() {
-				std::string new_path = proc_share_dirname() + "plugins/" + filename;
+			// We were unable to open the file, try to do so from the plugin directory
+			if (hdl == NULL && orig_filename.find('/') == std::string::npos) {
+				hdl = dlopen([orig_filename]() {
+					std::string new_path = proc_share_dirname() + "plugins/" + orig_filename;
 
-				// Check if we need to append .so
-				if (new_path.find(".so") == std::string::npos)
-					new_path.append(".so");
+					// Check if we need to append .so
+					if (new_path.find(".so") == std::string::npos)
+						new_path.append(".so");
 
-				return new_path;
-			}().c_str(), RTLD_LAZY|RTLD_LOCAL);
+					return new_path;
+				}().c_str(), RTLD_LAZY|RTLD_LOCAL);
+			}
+
+			if (hdl == NULL)
+				log_cmd_error("Can't load module `%s': %s\n", filename.c_str(), dlerror());
+
+			loaded_plugins[orig_filename] = hdl;
+			Pass::init_register();
+
 		}
-
-		if (hdl == NULL)
-			log_cmd_error("Can't load module `%s': %s\n", filename.c_str(), dlerror());
-
-		loaded_plugins[orig_filename] = hdl;
-		Pass::init_register();
-
-		#ifdef WITH_PYTHON
-		}
-		#endif
 	}
 
 	for (auto &alias : aliases)
