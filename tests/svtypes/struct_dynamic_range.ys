@@ -1,8 +1,7 @@
-! mkdir -p temp
 read_verilog -sv struct_dynamic_range.sv
-write_rtlil temp/struct_dynamic_range.il
-! grep -F -q ' cell $shift ' temp/struct_dynamic_range.il
-! grep -F -q ' switch $mul' temp/struct_dynamic_range.il
+select -assert-count 4 t:$mul
+select -assert-count 2 t:$shift
+select -assert-count 2 t:$shiftx
 prep -top top
 flatten
 sat -enable_undef -verify -prove-asserts
