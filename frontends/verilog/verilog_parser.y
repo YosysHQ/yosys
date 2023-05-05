@@ -1809,7 +1809,12 @@ enum_decl: enum_type enum_var_list ';'		{ delete $1; }
 // struct or union
 //////////////////
 
-struct_decl: struct_type struct_var_list ';' 	{ delete astbuf2; }
+struct_decl:
+	attr struct_type {
+		append_attr($2, $1);
+	} struct_var_list ';' {
+		delete astbuf2;
+	}
 	;
 
 struct_type: struct_union { astbuf2 = $1; } struct_body { $$ = astbuf2; }

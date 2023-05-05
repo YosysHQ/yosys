@@ -557,7 +557,7 @@ static int get_max_offset(AstNode *node)
 	return node->range_left;
 }
 
-static AstNode *make_packed_struct(AstNode *template_node, std::string &name)
+static AstNode *make_packed_struct(AstNode *template_node, std::string &name, decltype(AstNode::attributes) &attributes)
 {
 	// create a wire for the packed struct
 	auto wnode = new AstNode(AST_WIRE);
@@ -565,6 +565,9 @@ static AstNode *make_packed_struct(AstNode *template_node, std::string &name)
 	wnode->is_logic = true;
 	wnode->range_valid = true;
 	wnode->is_signed = template_node->is_signed;
+	for (auto &pair : attributes) {
+		wnode->attributes[pair.first] = pair.second->clone();
+	}
 	int offset = get_max_offset(template_node);
 	auto range = make_range(offset, 0);
 	wnode->children.push_back(range);
@@ -1368,7 +1371,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 			// instance rather than just a type in a typedef or outer struct?
 			if (!str.empty() && str[0] == '\\') {
 				// instance so add a wire for the packed structure
-				auto wnode = make_packed_struct(this, str);
+				auto wnode = make_packed_struct(this, str, attributes);
 				log_assert(current_ast_mod);
 				current_ast_mod->children.push_back(wnode);
 			}
@@ -1792,7 +1795,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 			if (template_node->type == AST_STRUCT || template_node->type == AST_UNION) {
 				// replace with wire representing the packed structure
-				newNode = make_packed_struct(template_node, str);
+				newNode = make_packed_struct(template_node, str, attributes);
 				newNode->attributes[ID::wiretype] = mkconst_str(resolved_type_node->str);
 				// add original input/output attribute to resolved wire
 				newNode->is_input = this->is_input;
@@ -1857,7 +1860,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 			if (template_node->type == AST_STRUCT || template_node->type == AST_UNION) {
 				// replace with wire representing the packed structure
-				newNode = make_packed_struct(template_node, str);
+				newNode = make_packed_struct(template_node, str, attributes);
 				newNode->attributes[ID::wiretype] = mkconst_str(resolved_type_node->str);
 				newNode->type = type;
 				current_scope[str] = this;
@@ -2709,11 +2712,23 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 		int source_width = children[0]->id2ast->range_left - children[0]->id2ast->range_right + 1;
 		int source_offset = children[0]->id2ast->range_right;
 		int result_width = 1;
+		int stride = 1;
 		AST::AstNode *member_node = get_struct_member(children[0]);
 		if (member_node) {
 			// Clamp chunk to range of member within struct/union.
 			log_assert(!source_offset && !children[0]->id2ast->range_swapped);
 			source_width = member_node->range_left - member_node->range_right + 1;
+
+			// When the (* nowrshmsk *) attribute is set, a CASE block is generated below
+			// to select the indexed bit slice. When a multirange array is indexed, the
+			// start of each possible slice is separated by the bit stride of the last
+			// index dimension, and we can optimize the CASE block accordingly.
+			// The dimension of the original array expression is saved in the 'integer' field.
+			int dims = children[0]->integer;
+			stride = source_width;
+			for (int dim = 0; dim < dims; dim++) {
+				stride /= get_struct_range_width(member_node, dim);
+			}
 		}
 
 		AstNode *shift_expr = NULL;
@@ -2754,7 +2769,7 @@ bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage,
 
 			did_something = true;
 			newNode = new AstNode(AST_CASE, shift_expr);
-			for (int i = 0; i < source_width; i++) {
+			for (int i = 0; i < source_width; i += stride) {
 				int start_bit = source_offset + i;
 				int end_bit = std::min(start_bit+result_width,source_width) - 1;
 				AstNode *cond = new AstNode(AST_COND, mkconst_int(start_bit, true));
