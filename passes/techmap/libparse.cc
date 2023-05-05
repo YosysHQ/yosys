@@ -314,8 +314,8 @@ LibertyAst *LibertyParser::parse()
 					switch(tok)
 					{
 					case 'n':
-						error("Unexpected newline.");
-						break;
+					  //fprintf(stderr,"Unexpected newline at %d\n",line);
+					  continue;
 					case '[':
 					case ']':
 					case '}':
