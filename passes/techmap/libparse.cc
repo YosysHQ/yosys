@@ -236,10 +236,13 @@ LibertyAst *LibertyParser::parse()
 
 		if (tok == ':' && ast->value.empty()) {
 			tok = lexer(ast->value);
-			if (tok != 'v')
-				error();
-			tok = lexer(str);
-			while (tok == '+' || tok == '-' || tok == '*' || tok == '/') {
+			if (tok != 'v') {
+			  //Synopsys-style unquoted identifiers issue#3498
+			} else {
+			   //Liberty canonical identifier including double quotes
+			  tok = lexer(str);
+			}			
+			while (tok == '+' || tok == '-' || tok == '*' || tok == '/' || tok == '!') {
 				ast->value += tok;
 				tok = lexer(str);
 				if (tok != 'v')
