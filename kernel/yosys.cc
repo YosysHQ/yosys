@@ -359,7 +359,7 @@ int run_command(const std::string &command, std::function<void(const std::string
 		return -1;
 
 	std::string line;
-	char logbuf[128];
+	char logbuf[128]={0,};
 	while (fgets(logbuf, 128, f) != NULL) {
 		line += logbuf;
 		if (!line.empty() && line.back() == '\n')
@@ -1113,8 +1113,10 @@ static void handle_label(std::string &command, bool &from_to_active, const std::
 	}
 }
 
+std::vector<std::string> log_line_number;
 bool run_frontend(std::string filename, std::string command, RTLIL::Design *design, std::string *from_to_label)
 {
+        log_line_number.clear();
 	if (design == nullptr)
 		design = yosys_design;
 
@@ -1150,7 +1152,6 @@ bool run_frontend(std::string filename, std::string command, RTLIL::Design *desi
 	{
 		std::string run_from, run_to;
 		bool from_to_active = true;
-
 		if (from_to_label != NULL) {
 			size_t pos = from_to_label->find(':');
 			if (pos == std::string::npos) {
@@ -1175,13 +1176,19 @@ bool run_frontend(std::string filename, std::string command, RTLIL::Design *desi
 		if (f == NULL)
 			log_error("Can't open script file `%s' for reading: %s\n", filename.c_str(), strerror(errno));
 
+		{
+		  std::stringstream ss;
+		  ss << "Running " << command << " on file '" << filename << "'";
+		  log_line_number.push_back(ss.str());
+		}		
 		FILE *backup_script_file = Frontend::current_script_file;
 		Frontend::current_script_file = f;
 
 		try {
 			std::string command;
 			while (fgetline(f, command)) {
-				while (!command.empty() && command[command.size()-1] == '\\') {
+			  log_line_number.push_back(command);
+			  while (!command.empty() && command[command.size()-1] == '\\') {
 					std::string next_line;
 					if (!fgetline(f, next_line))
 						break;
