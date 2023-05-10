@@ -62,6 +62,6 @@ module _80_gw1n_alu(A, B, CI, BI, X, Y, CO);
 	  .SUM(Y[i])
 	  );
    end endgenerate
-   assign X = AA ^ BB;
+   assign X = AA ^ BB ^ {Y_WIDTH{BI}};
 endmodule
 

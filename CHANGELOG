@@ -2,8 +2,21 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.28 .. Yosys 0.28-dev
+Yosys 0.29 .. Yosys 0.29-dev
 --------------------------
+
+Yosys 0.28 .. Yosys 0.29
+--------------------------
+ * New commands and options
+    - Added "synthprop" pass for synthesizable properties.
+
+ * Verific support
+    - Handle conditions on clocked concurrent assertions in unclocked
+      procedural contexts.
+
+ * Verilog
+    - Fix const eval of unbased unsized constants.
+    - Handling of attributes for struct / union variables.
 
 Yosys 0.27 .. Yosys 0.28
 --------------------------
