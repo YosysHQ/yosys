@@ -24,6 +24,7 @@ DISABLE_VERIFIC_VHDL := 0
 ENABLE_COVER := 1
 ENABLE_LIBYOSYS := 0
 ENABLE_ZLIB := 1
+ENABLE_BACKTRACE := 0
 
 # python wrappers
 ENABLE_PYOSYS := 0
@@ -67,6 +68,8 @@ endif
 ifeq ($(ENABLE_PYOSYS),1)
 ENABLE_LIBYOSYS := 1
 endif
+
+
 
 BINDIR := $(PREFIX)/bin
 LIBDIR := $(PREFIX)/lib/$(PROGRAM_PREFIX)yosys
@@ -125,6 +128,11 @@ PKG_CONFIG_PATH := $(BREW_PREFIX)/libffi/lib/pkgconfig:$(PKG_CONFIG_PATH)
 PKG_CONFIG_PATH := $(BREW_PREFIX)/tcl-tk/lib/pkgconfig:$(PKG_CONFIG_PATH)
 export PATH := $(BREW_PREFIX)/bison/bin:$(BREW_PREFIX)/gettext/bin:$(BREW_PREFIX)/flex/bin:$(PATH)
 
+ifeq ($(ENABLE_BACKTRACE),1)
+CXXFLAGS += -DYOSYS_BACKTRACE
+endif
+
+
 # macports search paths
 else ifneq ($(shell :; command -v port),)
 PORT_PREFIX := $(patsubst %/bin/port,%,$(shell :; command -v port))
@@ -141,7 +149,7 @@ LDLIBS += -lrt
 endif
 endif
 
-YOSYS_VER := 0.28+24
+YOSYS_VER := 0.29+11
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
@@ -157,7 +165,7 @@ endif
 OBJS = kernel/version_$(GIT_REV).o
 
 bumpversion:
-	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline 0d6f4b0.. | wc -l`/;" Makefile
+	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline 9c5a60e.. | wc -l`/;" Makefile
 
 # set 'ABCREV = default' to use abc/ as it is
 #

@@ -43,6 +43,7 @@
 #  endif
 #endif
 
+
 #if defined(_MSC_VER)
 // At least this is not in MSVC++ 2013.
 #  define __PRETTY_FUNCTION__ __FUNCTION__
