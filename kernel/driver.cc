@@ -83,7 +83,7 @@ int getopt(int argc, char **argv, const char *optstring)
 }
 #endif
 
-#if !defined(_WIN32) || defined(__MINGW32__) || defined(YOSYS_BACKTRACE)
+#if defined (__linux__) || defined(__FreeBSD__) || defined(YOSYS_BACKTRACE)
 #include <execinfo.h>
 void yosys_print_trace (void)
 {
