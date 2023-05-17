@@ -2011,6 +2011,28 @@ VerificClocking::VerificClocking(VerificImporter *importer, Net *net, bool sva_a
 
 	Instance *inst = net->Driver();
 
+	// Detect condition expression in sva_at_only mode
+	if (sva_at_only)
+	do {
+		Instance *inst_mux = net->Driver();
+		if (inst_mux->Type() != PRIM_MUX)
+			break;
+
+		bool pwr1 = inst_mux->GetInput1()->IsPwr();
+		bool pwr2 = inst_mux->GetInput2()->IsPwr();
+
+		if (!pwr1 && !pwr2)
+			break;
+
+		Net *sva_net = pwr1 ? inst_mux->GetInput2() : inst_mux->GetInput1();
+		if (!verific_is_sva_net(importer, sva_net))
+			break;
+
+		inst = sva_net->Driver();
+		cond_net = inst_mux->GetControl();
+		cond_pol = pwr1;
+	} while (0);
+
 	if (inst != nullptr && inst->Type() == PRIM_SVA_AT)
 	{
 		net = inst->GetInput1();

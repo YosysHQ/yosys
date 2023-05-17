@@ -1162,6 +1162,11 @@ struct SimWorker : SimShared
 		}
 		for(auto& writer : outputfiles)
 			writer->write(use_signal);
+		
+		if (writeback) {
+			pool<Module*> wbmods;
+			top->writeback(wbmods);
+		}
 	}
 
 	void update(bool gclk)
@@ -1265,11 +1270,6 @@ struct SimWorker : SimShared
 		register_output_step(10*numcycles + 2);
 
 		write_output_files();
-
-		if (writeback) {
-			pool<Module*> wbmods;
-			top->writeback(wbmods);
-		}
 	}
 
 	void run_cosim_fst(Module *topmod, int numcycles)
@@ -1394,11 +1394,6 @@ struct SimWorker : SimShared
 		}
 
 		write_output_files();
-
-		if (writeback) {
-			pool<Module*> wbmods;
-			top->writeback(wbmods);
-		}
 		delete fst;
 	}
 
