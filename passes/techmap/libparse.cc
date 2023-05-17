@@ -236,10 +236,10 @@ LibertyAst *LibertyParser::parse()
 
 		if (tok == ':' && ast->value.empty()) {
 			tok = lexer(ast->value);
-			if (tok != 'v')
-				error();
-			tok = lexer(str);
-			while (tok == '+' || tok == '-' || tok == '*' || tok == '/') {
+			if (tok == 'v') {
+    				tok = lexer(str);
+			}
+			while (tok == '+' || tok == '-' || tok == '*' || tok == '/' || tok == '!') {
 				ast->value += tok;
 				tok = lexer(str);
 				if (tok != 'v')
@@ -314,8 +314,7 @@ LibertyAst *LibertyParser::parse()
 					switch(tok)
 					{
 					case 'n':
-						error("Unexpected newline.");
-						break;
+					  continue;
 					case '[':
 					case ']':
 					case '}':
