@@ -83,32 +83,6 @@ int getopt(int argc, char **argv, const char *optstring)
 }
 #endif
 
-#if defined (__linux__) || defined(__FreeBSD__) || defined(YOSYS_BACKTRACE)
-#include <execinfo.h>
-void yosys_print_trace (void)
-{
-  void *array[32] = {0,};
-  char **strings;
-
-  int size = backtrace (array, 32);
-  strings = backtrace_symbols (array, size);
-  if (strings != NULL && size > 6)
-  {
-
-    fprintf (stderr,"Obtained %d stack frames.\n", size);
-    for (int i = 0; i < size; i++)
-      fprintf(stderr,"%d | %s\n", i+1, strings[i]);
-    free (strings);
-  }
-
-}
-#else
-void yosys_print_trace()
-{
-  fprintf(stderr,"Backtrace not available on this platform,\n");
-}
-#endif
-
 
 USING_YOSYS_NAMESPACE
 
@@ -200,8 +174,6 @@ extern "C" {
 
 void yosys_atexit()
 {
-  
-  yosys_print_trace();
 #if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
 	if (!yosys_history_file.empty()) {
 #if defined(YOSYS_ENABLE_READLINE)
