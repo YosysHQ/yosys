@@ -354,21 +354,6 @@ static void logv_error_with_prefix(const char *prefix,
 
 	log_check_expected();
 
-	int lineno = 1;
-	if ( !log_line_number.empty() ) {
-	  log("Error while executing script:\n\t");
-	  log( log_line_number.begin()->c_str() );
-	  log("\n");
-          log_line_number.erase(log_line_number.begin());
-	  log("---------------------------------\n");
-	  for(const std::string& script_line : log_line_number) {
-	    const char* pfx = (lineno == log_line_number.size()) ? "-->" : "   ";
-	    log("%s%d %s\n",pfx,lineno++,script_line.c_str());
-	  }
-	  log("---------------------------------\n");
-	}
-	
-	
 	if (log_error_atexit)
 		log_error_atexit();
 

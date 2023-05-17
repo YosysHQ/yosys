@@ -43,7 +43,6 @@
 #  endif
 #endif
 
-
 #if defined(_MSC_VER)
 // At least this is not in MSVC++ 2013.
 #  define __PRETTY_FUNCTION__ __FUNCTION__
@@ -96,7 +95,6 @@ YOSYS_NAMESPACE_BEGIN
 struct log_cmd_error_exception { };
 
 extern std::vector<FILE*> log_files;
-extern std::vector<std::string> log_line_number;
 extern std::vector<std::ostream*> log_streams;
 extern std::vector<std::string> log_scratchpads;
 extern std::map<std::string, std::set<std::string>> log_hdump;
