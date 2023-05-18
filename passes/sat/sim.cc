@@ -223,7 +223,8 @@ struct SimInstance
 
 			if (wire->port_input && instance != nullptr && parent != nullptr) {
 				for (int i = 0; i < GetSize(sig); i++) {
-					in_parent_drivers.emplace(sig[i], parent->sigmap(instance->getPort(wire->name)[i]));
+					if (instance->hasPort(wire->name))
+						in_parent_drivers.emplace(sig[i], parent->sigmap(instance->getPort(wire->name)[i]));
 				}
 			}
 		}
