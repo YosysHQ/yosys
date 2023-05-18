@@ -1011,6 +1011,7 @@ namespace {
 		void error(int linenr)
 		{
 			std::stringstream buf;
+			RTLIL_BACKEND::dump_module(buf, "  ", module, module->design, false, false);
 			RTLIL_BACKEND::dump_cell(buf, "  ", cell);
 
 			log_error("Found error in internal cell %s%s%s (%s) at %s:%d:\n%s",

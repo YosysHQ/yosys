@@ -322,6 +322,7 @@ static void rewriteGenForDeclInit(AstNode *loop)
 	substitute(incr);
 }
 
+
 %}
 
 %define api.prefix {frontend_verilog_yy}
@@ -334,6 +335,13 @@ static void rewriteGenForDeclInit(AstNode *loop)
 #include <map>
 #include <string>
 #include "frontends/verilog/verilog_frontend.h"
+typedef enum {
+    ASSERT = 0,
+	ASSUME = 1,
+	RESTRICT = 2,
+	COVER = 3,
+	FINAL = 4
+   } formal_e;
 }
 
 %union {
@@ -346,6 +354,7 @@ static void rewriteGenForDeclInit(AstNode *loop)
 	bool boolean;
 	char ch;
 	int integer;
+	formal_e formal_t;
 	YOSYS_NAMESPACE_PREFIX AST::AstNodeType ast_node_type;
 }
 
@@ -354,6 +363,8 @@ static void rewriteGenForDeclInit(AstNode *loop)
 %token <string> TOK_BASE TOK_BASED_CONSTVAL TOK_UNBASED_UNSIZED_CONSTVAL
 %token <string> TOK_USER_TYPE TOK_PKG_USER_TYPE
 %token TOK_ASSERT TOK_ASSUME TOK_RESTRICT TOK_COVER TOK_FINAL
+%token TOK_DELAY
+%token TOK_OVERLAPPED_IMPL TOK_NON_OVERLAPPED_IMPL
 %token ATTR_BEGIN ATTR_END DEFATTR_BEGIN DEFATTR_END
 %token TOK_MODULE TOK_ENDMODULE TOK_PARAMETER TOK_LOCALPARAM TOK_DEFPARAM
 %token TOK_PACKAGE TOK_ENDPACKAGE TOK_PACKAGESEP
@@ -379,7 +390,7 @@ static void rewriteGenForDeclInit(AstNode *loop)
 %token TOK_BIND TOK_TIME_SCALE
 
 %type <ast> range range_or_multirange non_opt_range non_opt_multirange
-%type <ast> wire_type expr basic_expr concat_list rvalue lvalue lvalue_concat_list non_io_wire_type io_wire_type
+%type <ast> wire_type expr basic_expr seq_expr prop_expr delay_expr concat_list rvalue lvalue lvalue_concat_list non_io_wire_type io_wire_type
 %type <string> opt_label opt_sva_label tok_prim_wrapper hierarchical_id hierarchical_type_id integral_number
 %type <string> type_name
 %type <ast> opt_enum_init enum_type struct_type enum_struct_type func_return_type typedef_base_type
@@ -396,6 +407,7 @@ static void rewriteGenForDeclInit(AstNode *loop)
 %type <specify_rise_fall_ptr> specify_rise_fall
 %type <ast> specify_if specify_condition
 %type <ch> specify_edge
+%type <formal_t> formal_top
 
 // operator precedence from low to high
 %left OP_LOR
@@ -414,6 +426,7 @@ static void rewriteGenForDeclInit(AstNode *loop)
 
 %define parse.error verbose
 %define parse.lac full
+%define parse.trace true
 
 %precedence FAKE_THEN
 %precedence TOK_ELSE
@@ -2466,189 +2479,188 @@ modport_member:
 modport_type_token:
     TOK_INPUT {current_modport_input = 1; current_modport_output = 0;} | TOK_OUTPUT {current_modport_input = 0; current_modport_output = 1;}
 
-assert:
-	opt_sva_label TOK_ASSERT opt_property '(' expr ')' ';' {
-		if (noassert_mode) {
-			delete $5;
-		} else {
-			AstNode *node = new AstNode(assume_asserts_mode ? AST_ASSUME : AST_ASSERT, $5);
-			SET_AST_NODE_LOC(node, @1, @6);
-			if ($1 != nullptr)
-				node->str = *$1;
-			ast_stack.back()->children.push_back(node);
-		}
-		if ($1 != nullptr)
-			delete $1;
-	} |
-	opt_sva_label TOK_ASSUME opt_property '(' expr ')' ';' {
-		if (noassume_mode) {
-			delete $5;
-		} else {
-			AstNode *node = new AstNode(assert_assumes_mode ? AST_ASSERT : AST_ASSUME, $5);
-			SET_AST_NODE_LOC(node, @1, @6);
-			if ($1 != nullptr)
-				node->str = *$1;
-			ast_stack.back()->children.push_back(node);
-		}
-		if ($1 != nullptr)
-			delete $1;
-	} |
-	opt_sva_label TOK_ASSERT opt_property '(' TOK_EVENTUALLY expr ')' ';' {
-		if (noassert_mode) {
-			delete $6;
-		} else {
-			AstNode *node = new AstNode(assume_asserts_mode ? AST_FAIR : AST_LIVE, $6);
-			SET_AST_NODE_LOC(node, @1, @7);
-			if ($1 != nullptr)
-				node->str = *$1;
-			ast_stack.back()->children.push_back(node);
-		}
-		if ($1 != nullptr)
-			delete $1;
-	} |
-	opt_sva_label TOK_ASSUME opt_property '(' TOK_EVENTUALLY expr ')' ';' {
-		if (noassume_mode) {
-			delete $6;
-		} else {
-			AstNode *node = new AstNode(assert_assumes_mode ? AST_LIVE : AST_FAIR, $6);
-			SET_AST_NODE_LOC(node, @1, @7);
-			if ($1 != nullptr)
-				node->str = *$1;
-			ast_stack.back()->children.push_back(node);
-		}
-		if ($1 != nullptr)
-			delete $1;
-	} |
-	opt_sva_label TOK_COVER opt_property '(' expr ')' ';' {
-		AstNode *node = new AstNode(AST_COVER, $5);
-		SET_AST_NODE_LOC(node, @1, @6);
-		if ($1 != nullptr) {
-			node->str = *$1;
-			delete $1;
-		}
-		ast_stack.back()->children.push_back(node);
-	} |
-	opt_sva_label TOK_COVER opt_property '(' ')' ';' {
-		AstNode *node = new AstNode(AST_COVER, AstNode::mkconst_int(1, false));
-		SET_AST_NODE_LOC(node, @1, @5);
-		if ($1 != nullptr) {
-			node->str = *$1;
-			delete $1;
-		}
-		ast_stack.back()->children.push_back(node);
-	} |
-	opt_sva_label TOK_COVER ';' {
-		AstNode *node = new AstNode(AST_COVER, AstNode::mkconst_int(1, false));
-		SET_AST_NODE_LOC(node, @1, @2);
-		if ($1 != nullptr) {
-			node->str = *$1;
-			delete $1;
-		}
-		ast_stack.back()->children.push_back(node);
-	} |
-	opt_sva_label TOK_RESTRICT opt_property '(' expr ')' ';' {
-		if (norestrict_mode) {
-			delete $5;
-		} else {
-			AstNode *node = new AstNode(AST_ASSUME, $5);
-			SET_AST_NODE_LOC(node, @1, @6);
-			if ($1 != nullptr)
-				node->str = *$1;
-			ast_stack.back()->children.push_back(node);
-		}
-		if (!$3)
-			log_file_warning(current_filename, get_line_num(), "SystemVerilog does not allow \"restrict\" without \"property\".\n");
-		if ($1 != nullptr)
-			delete $1;
-	} |
-	opt_sva_label TOK_RESTRICT opt_property '(' TOK_EVENTUALLY expr ')' ';' {
-		if (norestrict_mode) {
-			delete $6;
-		} else {
-			AstNode *node = new AstNode(AST_FAIR, $6);
-			SET_AST_NODE_LOC(node, @1, @7);
-			if ($1 != nullptr)
-				node->str = *$1;
-			ast_stack.back()->children.push_back(node);
-		}
-		if (!$3)
-			log_file_warning(current_filename, get_line_num(), "SystemVerilog does not allow \"restrict\" without \"property\".\n");
-		if ($1 != nullptr)
-			delete $1;
+//	TOK_DELAY range {
+//	} |
+delay_expr:
+	TOK_DELAY TOK_CONSTVAL  {
+		$$ = const2ast(*$2, case_type_stack.size() == 0 ? 0 : case_type_stack.back(), !lib_mode);
+		SET_AST_NODE_LOC($$, @1, @2);
+		if ($$ == NULL)
+			log_error("Value conversion failed: `%s'\n", $2->c_str());
+		delete $2;
 	};
 
+seq_expr:
+	seq_expr delay_expr expr {
+		AstNode *node = new AstNode(AST_DELAY, $2, $1, $3);
+		SET_AST_NODE_LOC($$, @1, @3);
+		//node->children.push_back($2);
+		//node->children.push_back($1);
+		//node->children.push_back($3);
+		//FIXME: what is this?
+		//ast_stack.back()->children.push_back(node);
+		$$ = node;
+	} |
+	expr {$$ = $1;}
+	;
+
+prop_expr:
+	seq_expr { $$ = $1; } |
+	//"(" seq_expr  ")" { $$ = $2; } |
+	seq_expr TOK_OVERLAPPED_IMPL prop_expr
+	{
+		AstNode *node = new AstNode(AST_OVERLAPPED_IMPL, $1, $3);
+		SET_AST_NODE_LOC($$, @1, @3);
+		$$ = node;
+	}
+    ;
+
 assert_property:
-	opt_sva_label TOK_ASSERT TOK_PROPERTY '(' expr ')' ';' {
-		AstNode *node = new AstNode(assume_asserts_mode ? AST_ASSUME : AST_ASSERT, $5);
-		SET_AST_NODE_LOC(node, @1, @6);
-		ast_stack.back()->children.push_back(node);
-		if ($1 != nullptr) {
-			ast_stack.back()->children.back()->str = *$1;
-			delete $1;
-		}
-	} |
-	opt_sva_label TOK_ASSUME TOK_PROPERTY '(' expr ')' ';' {
-		AstNode *node = new AstNode(AST_ASSUME, $5);
-		SET_AST_NODE_LOC(node, @1, @6);
-		ast_stack.back()->children.push_back(node);
-		if ($1 != nullptr) {
-			ast_stack.back()->children.back()->str = *$1;
-			delete $1;
-		}
-	} |
-	opt_sva_label TOK_ASSERT TOK_PROPERTY '(' TOK_EVENTUALLY expr ')' ';' {
-		AstNode *node = new AstNode(assume_asserts_mode ? AST_FAIR : AST_LIVE, $6);
-		SET_AST_NODE_LOC(node, @1, @7);
-		ast_stack.back()->children.push_back(node);
-		if ($1 != nullptr) {
-			ast_stack.back()->children.back()->str = *$1;
-			delete $1;
-		}
-	} |
-	opt_sva_label TOK_ASSUME TOK_PROPERTY '(' TOK_EVENTUALLY expr ')' ';' {
-		AstNode *node = new AstNode(AST_FAIR, $6);
-		SET_AST_NODE_LOC(node, @1, @7);
-		ast_stack.back()->children.push_back(node);
-		if ($1 != nullptr) {
-			ast_stack.back()->children.back()->str = *$1;
-			delete $1;
-		}
-	} |
-	opt_sva_label TOK_COVER TOK_PROPERTY '(' expr ')' ';' {
-		AstNode *node = new AstNode(AST_COVER, $5);
-		SET_AST_NODE_LOC(node, @1, @6);
-		ast_stack.back()->children.push_back(node);
-		if ($1 != nullptr) {
-			ast_stack.back()->children.back()->str = *$1;
-			delete $1;
-		}
-	} |
-	opt_sva_label TOK_RESTRICT TOK_PROPERTY '(' expr ')' ';' {
-		if (norestrict_mode) {
+	opt_sva_label formal_top opt_property '(' prop_expr ')' {
+		bool invalid = (($2 == ASSUME || $2 == ASSERT) && noassert_mode) || ($2 == RESTRICT && norestrict_mode);
+		if (invalid) {
 			delete $5;
 		} else {
-			AstNode *node = new AstNode(AST_ASSUME, $5);
+			AstNodeType atype;
+			switch ($2) {
+				case ASSERT: atype = assume_asserts_mode ? AST_ASSERT : AST_ASSUME; break;
+				case ASSUME: atype = assume_asserts_mode ? AST_ASSUME : AST_ASSERT; break;
+				case COVER:  atype = AST_COVER; break;
+				case RESTRICT: atype = AST_ASSUME; break;
+				default: abort();
+			}
+			AstNode *node = new AstNode(atype, $5);
 			SET_AST_NODE_LOC(node, @1, @6);
+			if ($1 != nullptr)
+				node->str = *$1;
 			ast_stack.back()->children.push_back(node);
-			if ($1 != nullptr) {
-				ast_stack.back()->children.back()->str = *$1;
-				delete $1;
-			}
 		}
-	} |
-	opt_sva_label TOK_RESTRICT TOK_PROPERTY '(' TOK_EVENTUALLY expr ')' ';' {
-		if (norestrict_mode) {
-			delete $6;
-		} else {
-			AstNode *node = new AstNode(AST_FAIR, $6);
-			SET_AST_NODE_LOC(node, @1, @7);
-			ast_stack.back()->children.push_back(node);
-			if ($1 != nullptr) {
-				ast_stack.back()->children.back()->str = *$1;
-				delete $1;
-			}
-		}
-	};
+//		if ($1 != nullptr)
+//			delete $1;
+//		if (!$3)
+//			log_file_warning(current_filename, get_line_num(), "SystemVerilog does not allow \"restrict\" without \"property\".\n");
+	} optional_else {};
+//TODO: eventually for assert, assume, restrict. assert & assume_asserts_mode : fair else live
+//			AstNode *node = new AstNode(assume_asserts_mode ? AST_FAIR : AST_LIVE, $6);
+//	opt_sva_label TOK_ASSUME opt_property '(' TOK_EVENTUALLY expr ')' ';' {
+//		if (noassume_mode) {
+//			delete $6;
+//		} else {
+//			AstNode *node = new AstNode(assert_assumes_mode ? AST_LIVE : AST_FAIR, $6);
+//			SET_AST_NODE_LOC(node, @1, @7);
+//			if ($1 != nullptr)
+//				node->str = *$1;
+//			ast_stack.back()->children.push_back(node);
+//		}
+//		if ($1 != nullptr)
+//			delete $1;
+//	} |
+//	opt_sva_label TOK_COVER opt_property '(' ')' ';' {
+//		AstNode *node = new AstNode(AST_COVER, AstNode::mkconst_int(1, false));
+//		SET_AST_NODE_LOC(node, @1, @5);
+//		if ($1 != nullptr) {
+//			node->str = *$1;
+//			delete $1;
+//		}
+//		ast_stack.back()->children.push_back(node);
+//	} |
+//	opt_sva_label TOK_COVER ';' {
+//		AstNode *node = new AstNode(AST_COVER, AstNode::mkconst_int(1, false));
+//		SET_AST_NODE_LOC(node, @1, @2);
+//		if ($1 != nullptr) {
+//			node->str = *$1;
+//			delete $1;
+//		}
+//		ast_stack.back()->children.push_back(node);
+//	} |
+//	opt_sva_label TOK_RESTRICT opt_property '(' TOK_EVENTUALLY expr ')' ';' {
+//		if (norestrict_mode) {
+//			delete $6;
+//		} else {
+//			AstNode *node = new AstNode(AST_FAIR, $6);
+//			SET_AST_NODE_LOC(node, @1, @7);
+//			if ($1 != nullptr)
+//				node->str = *$1;
+//			ast_stack.back()->children.push_back(node);
+//		}
+//		if (!$3)
+//			log_file_warning(current_filename, get_line_num(), "SystemVerilog does not allow \"restrict\" without \"property\".\n");
+//		if ($1 != nullptr)
+//			delete $1;
+//	};
+
+//assert_property:
+//	opt_sva_label TOK_ASSERT TOK_PROPERTY '(' expr ')' ';' {
+//		AstNode *node = new AstNode(assume_asserts_mode ? AST_ASSUME : AST_ASSERT, $5);
+//		SET_AST_NODE_LOC(node, @1, @6);
+//		ast_stack.back()->children.push_back(node);
+//		if ($1 != nullptr) {
+//			ast_stack.back()->children.back()->str = *$1;
+//			delete $1;
+//		}
+//	} |
+//	opt_sva_label TOK_ASSUME TOK_PROPERTY '(' expr ')' ';' {
+//		AstNode *node = new AstNode(AST_ASSUME, $5);
+//		SET_AST_NODE_LOC(node, @1, @6);
+//		ast_stack.back()->children.push_back(node);
+//		if ($1 != nullptr) {
+//			ast_stack.back()->children.back()->str = *$1;
+//			delete $1;
+//		}
+//	} |
+//	opt_sva_label TOK_ASSERT TOK_PROPERTY '(' TOK_EVENTUALLY expr ')' ';' {
+//		AstNode *node = new AstNode(assume_asserts_mode ? AST_FAIR : AST_LIVE, $6);
+//		SET_AST_NODE_LOC(node, @1, @7);
+//		ast_stack.back()->children.push_back(node);
+//		if ($1 != nullptr) {
+//			ast_stack.back()->children.back()->str = *$1;
+//			delete $1;
+//		}
+//	} |
+//	opt_sva_label TOK_ASSUME TOK_PROPERTY '(' TOK_EVENTUALLY expr ')' ';' {
+//		AstNode *node = new AstNode(AST_FAIR, $6);
+//		SET_AST_NODE_LOC(node, @1, @7);
+//		ast_stack.back()->children.push_back(node);
+//		if ($1 != nullptr) {
+//			ast_stack.back()->children.back()->str = *$1;
+//			delete $1;
+//		}
+//	} |
+//	opt_sva_label TOK_COVER TOK_PROPERTY '(' expr ')' ';' {
+//		AstNode *node = new AstNode(AST_COVER, $5);
+//		SET_AST_NODE_LOC(node, @1, @6);
+//		ast_stack.back()->children.push_back(node);
+//		if ($1 != nullptr) {
+//			ast_stack.back()->children.back()->str = *$1;
+//			delete $1;
+//		}
+//	} |
+//	opt_sva_label TOK_RESTRICT TOK_PROPERTY '(' expr ')' ';' {
+//		if (norestrict_mode) {
+//			delete $5;
+//		} else {
+//			AstNode *node = new AstNode(AST_ASSUME, $5);
+//			SET_AST_NODE_LOC(node, @1, @6);
+//			ast_stack.back()->children.push_back(node);
+//			if ($1 != nullptr) {
+//				ast_stack.back()->children.back()->str = *$1;
+//				delete $1;
+//			}
+//		}
+//	} |
+//	opt_sva_label TOK_RESTRICT TOK_PROPERTY '(' TOK_EVENTUALLY expr ')' ';' {
+//		if (norestrict_mode) {
+//			delete $6;
+//		} else {
+//			AstNode *node = new AstNode(AST_FAIR, $6);
+//			SET_AST_NODE_LOC(node, @1, @7);
+//			ast_stack.back()->children.push_back(node);
+//			if ($1 != nullptr) {
+//				ast_stack.back()->children.back()->str = *$1;
+//				delete $1;
+//			}
+//		}
+//	};
 
 simple_behavioral_stmt:
 	attr lvalue '=' delay expr {
@@ -2754,7 +2766,7 @@ for_initialization:
 
 // this production creates the obligatory if-else shift/reduce conflict
 behavioral_stmt:
-	defattr | assert | wire_decl | param_decl | localparam_decl | typedef_decl |
+	defattr | wire_decl | param_decl | localparam_decl | typedef_decl |
 	non_opt_delay behavioral_stmt |
 	simple_behavioral_stmt ';' |
 	attr ';' {
@@ -2940,6 +2952,12 @@ optional_else:
 		SET_AST_NODE_LOC(ast_stack.back(), @3, @3);
 	} |
 	%empty %prec FAKE_THEN;
+
+optional_assertion_clk:
+	TOK_ALWAYS {
+
+	} |
+	%empty %prec FAKE_ASSERT_CLK;
 
 case_body:
 	case_body case_item |
@@ -3194,7 +3212,7 @@ expr:
 		$$->children.push_back($6);
 		SET_AST_NODE_LOC($$, @1, @$);
 		append_attr($$, $3);
-	};
+	} 	;
 
 basic_expr:
 	rvalue {
@@ -3506,3 +3524,10 @@ integral_number:
 		delete $2;
 		delete $3;
 	};
+
+formal_top:
+    TOK_ASSERT {$$=ASSERT;} |
+	TOK_ASSUME {$$=ASSUME;} |
+	TOK_RESTRICT {$$=RESTRICT;} |
+	TOK_COVER {$$=COVER;} |
+	TOK_FINAL {$$=FINAL;};

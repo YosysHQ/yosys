@@ -1790,7 +1790,63 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				sig.extend_u0(width_hint, sign_hint);
 			return sig;
 		}
+	case AST_OVERLAPPED_IMPL:
+		{
+			RTLIL::SigSpec left = children[0]->genRTLIL(width_hint, sign_hint);
+			RTLIL::SigSpec right = children[1]->genRTLIL(width_hint, sign_hint);
+			RTLIL::SigSpec left_neg = uniop2rtlil(this, ID($logic_not), max(width_hint, 1), left);
+			return binop2rtlil(this, ID($logic_or), max(width_hint, 1), left_neg, right);
+		}
+	case AST_DELAY:
+		{
+			log_assert(children.size() == 3);
+			int d;
+			RTLIL::SigSpec delay = children[0]->genRTLIL(width_hint, sign_hint);
+			if (delay.is_fully_const()) {
+				d = delay.as_int();
+			} else {
+				log_error("Range delay not implemented\n");
+			}
 
+			RTLIL::SigSpec left = children[1]->genRTLIL(width_hint, sign_hint);
+
+			RTLIL::SigSpec right = children[2]->genRTLIL(width_hint, sign_hint);
+
+			RTLIL::SigSpec oldsig = left;
+
+			for (int i = 0; i < d; i++) {
+				//FIXME: should actually be FF once we add clock
+				IdString celltype = ID($ff);
+
+				IdString cellname;
+				if (str.empty())
+					cellname = stringf("%s$%s:%d$%d:cell", celltype.c_str(), RTLIL::encode_filename(filename).c_str(), location.first_line, autoidx++);
+				else
+					cellname = str;
+
+				IdString wirename = stringf("%s$%s:%d$%d:wire", celltype.c_str(), RTLIL::encode_filename(filename).c_str(), location.first_line, autoidx++);
+
+				RTLIL::Wire *new_wire = current_module->addWire(wirename, GetSize(left));
+				RTLIL::SigSpec newsig = RTLIL::SigSpec(new_wire);
+
+				check_unique_id(current_module, cellname, this, "Synthesized Delay Cells");
+				RTLIL::Cell *cell = current_module->addCell(cellname, celltype);
+				set_src_attr(cell, this);
+
+				for (auto &attr : attributes) {
+					if (attr.second->type != AST_CONSTANT)
+						log_file_error(filename, location.first_line, "Attribute `%s' with non-constant value!\n", attr.first.c_str());
+					cell->attributes[attr.first] = attr.second->asAttrConst();
+				}
+				cell->setPort(ID::D, oldsig);
+				cell->setPort(ID::Q, newsig);
+
+				cell->setParam(ID::WIDTH, GetSize(left));
+				oldsig = newsig;
+			}
+			//FIXME: this is not correct
+			return binop2rtlil(this, ID($logic_and), max(width_hint, 1), oldsig, right);
+		}
 	// generate $memrd cells for memory read ports
 	case AST_MEMRD:
 		{
@@ -1875,7 +1931,6 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			if (type == AST_LIVE) celltype = ID($live);
 			if (type == AST_FAIR) celltype = ID($fair);
 			if (type == AST_COVER) celltype = ID($cover);
-
 			log_assert(children.size() == 2);
 
 			RTLIL::SigSpec check = children[0]->genRTLIL();
