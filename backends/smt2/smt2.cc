@@ -626,9 +626,12 @@ struct Smt2Worker
 				}
 
 				bool init_only = cell->type.in(ID($anyconst), ID($anyinit), ID($allconst));
-				for (auto chunk : cell->getPort(QY).chunks())
+				int smtoffset = 0;
+				for (auto chunk : cell->getPort(QY).chunks()) {
 					if (chunk.is_wire())
-						decls.push_back(witness_signal(init_only ? "init" : "seq", chunk.width, chunk.offset, "", idcounter, chunk.wire, chunk.offset));
+						decls.push_back(witness_signal(init_only ? "init" : "seq", chunk.width, chunk.offset, "", idcounter, chunk.wire, smtoffset));
+					smtoffset += chunk.width;
+				}
 
 				makebits(stringf("%s#%d", get_id(module), idcounter), GetSize(cell->getPort(QY)), log_signal(cell->getPort(QY)));
 				if (cell->type == ID($anyseq))
