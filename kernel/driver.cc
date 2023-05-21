@@ -105,7 +105,9 @@ void yosys_print_trace (void)
 #else
 void yosys_print_trace()
 {
+#if defined(DEBUG) || defined(NDEBUG)
   fprintf(stderr,"Backtrace not available on this platform,\n");
+#endif
 }
 #endif
 
