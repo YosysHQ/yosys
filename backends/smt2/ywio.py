@@ -393,12 +393,16 @@ class ReadWitness:
     def init_step(self):
         return self.step(0)
     
+    def non_init_bits(self):
+        if len(self) > 1:
+            return len(self.bits[1])
+        else:
+            return sum([sig.width for sig in self.signals if not sig.init_only])
+    
     def first_step(self):
         values = WitnessValues()
-        if len(self.bits) <= 1:
-            raise NotImplementedError("ReadWitness.first_step() not supported for less than 2 steps")
-        non_init_bits = len(self.bits[1])
-        values.unpack(WitnessSigMap([sig for sig in self.signals if not sig.init_only]), self.bits[0][-non_init_bits:])
+        # may have issues when non_init_bits is 0
+        values.unpack(WitnessSigMap([sig for sig in self.signals if not sig.init_only]), self.bits[0][-self.non_init_bits():])
         return values
 
     def step(self, t):
@@ -409,6 +413,14 @@ class ReadWitness:
     def steps(self, start=0):
         for i in range(start, len(self.bits)):
             yield i, self.step(i)
+
+    def append_steps(self, t):
+        if not t:
+            pass
+        elif t < 0:
+            self.bits = self.bits[:t]
+        else:
+            self.bits.extend(["0"*self.non_init_bits()]*t)
 
     def __len__(self):
         return len(self.bits)

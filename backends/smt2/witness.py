@@ -88,14 +88,31 @@ If two or more inputs are provided they will be concatenated together into the o
 """)
 @click.argument("inputs", type=click.File("r"), nargs=-1)
 @click.argument("output", type=click.File("w"))
-def yw2yw(inputs, output):
+@click.option("--append", "-p", type=int, multiple=True,
+              help="Number of steps (+ve or -ve) to append to end of input trace. "
+                  +"Can be defined multiple times, following the same order as input traces. ")
+def yw2yw(inputs, output, append):
     outyw = WriteWitness(output, "yosys-witness yw2yw")
     join_inputs = len(inputs) > 1
     inyws = {}
-    for input in inputs:
+
+    if not append:
+        # default to 0
+        append = [0] * len(inputs)
+    if len(append) != len(inputs):
+        print(f"Mismatch in number of --append values ({len(append)}) and input traces ({len(inputs)}).")
+        sys.exit(1)
+
+    for (input, p) in zip(inputs, append):
         if (join_inputs):
             click.echo(f"Loading signals from yosys witness trace {input.name!r}...")
         inyw = ReadWitness(input)
+        if p:
+            click.echo(f"  appending {p} steps")
+            if (p + len(inyw) <= 0):
+                click.echo(f"  skipping {input.name!r} (only {len(inyw)} steps to skip)")
+                continue
+            inyw.append_steps(p)
         inyws[input] = inyw
         for clock in inyw.clocks:
             if clock not in outyw.clocks:
@@ -119,7 +136,7 @@ def yw2yw(inputs, output):
         for t, values in inyw.steps(1):
             outyw.step(values)
 
-        click.echo(f"Copied {t + 1} time steps.")
+        click.echo(f"  copied {t + 1} time steps.")
         first_witness = False
 
     outyw.end_trace()
