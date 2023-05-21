@@ -969,7 +969,7 @@ void AigerReader::post_process()
 
 	design->add(module);
 
-	for (auto cell : module->cells().to_vector()) {
+	for (auto cell : module->cells()) {
 		if (cell->type != ID($lut)) continue;
 		auto y_port = cell->getPort(ID::Y).as_bit();
 		if (y_port.wire->width == 1)

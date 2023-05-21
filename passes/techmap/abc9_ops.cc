@@ -1202,7 +1202,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode)
 	}
 
 	std::vector<Cell*> boxes;
-	for (auto cell : module->cells().to_vector()) {
+	for (auto cell : module->cells()) {
 		if (cell->has_keep_attr())
 			continue;
 

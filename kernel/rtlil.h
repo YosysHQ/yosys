@@ -1141,7 +1141,8 @@ struct RTLIL::Module : public RTLIL::AttrObject
 {
 	unsigned int hashidx_;
 	unsigned int hash() const { return hashidx_; }
-
+        bool use_toposort_cells_;
+  
 protected:
 	void add(RTLIL::Wire *wire);
 	void add(RTLIL::Cell *cell);
@@ -1156,7 +1157,8 @@ public:
 
 	dict<RTLIL::IdString, RTLIL::Wire*> wires_;
 	dict<RTLIL::IdString, RTLIL::Cell*> cells_;
-
+        std::vector<RTLIL::Cell*> toposort_cells_;
+  
 	std::vector<RTLIL::SigSig>   connections_;
 	std::vector<RTLIL::Binding*> bindings_;
 
@@ -1223,9 +1225,13 @@ public:
 		return it == cells_.end() ? nullptr : it->second;
 	}
 
-	RTLIL::ObjRange<RTLIL::Wire*> wires() { return RTLIL::ObjRange<RTLIL::Wire*>(&wires_, &refcount_wires_); }
-	RTLIL::ObjRange<RTLIL::Cell*> cells() { return RTLIL::ObjRange<RTLIL::Cell*>(&cells_, &refcount_cells_); }
-
+        RTLIL::ObjRange<RTLIL::Wire*> wires() { return RTLIL::ObjRange<RTLIL::Wire*>(&wires_, &refcount_wires_); } 
+        std::vector<RTLIL::Cell*> cells() {
+	     if ( !use_toposort_cells_)
+	        return RTLIL::ObjRange<RTLIL::Cell*>(&cells_, &refcount_cells_);
+	     return toposort_cells_;
+	}
+        void run_toposort_cells(bool noautostop= false,dict<IdString, pool<IdString>> stop_db = {});
 	void add(RTLIL::Binding *binding);
 
 	// Removing wires is expensive. If you have to remove wires, remove them all at once.

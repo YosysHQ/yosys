@@ -110,7 +110,7 @@ struct EquivMakeWorker
 			gold_clone->rename(it, it->name.str() + "_gold");
 		}
 
-		for (auto it : gold_clone->cells().to_vector()) {
+		for (auto it : gold_clone->cells()) {
 			if ((it->name.isPublic() || inames) && blacklist_names.count(it->name) == 0)
 				cell_names.insert(it->name);
 			gold_clone->rename(it, it->name.str() + "_gold");
@@ -122,7 +122,7 @@ struct EquivMakeWorker
 			gate_clone->rename(it, it->name.str() + "_gate");
 		}
 
-		for (auto it : gate_clone->cells().to_vector()) {
+		for (auto it : gate_clone->cells()) {
 			if ((it->name.isPublic() || inames) && blacklist_names.count(it->name) == 0)
 				cell_names.insert(it->name);
 			gate_clone->rename(it, it->name.str() + "_gate");
@@ -147,7 +147,7 @@ struct EquivMakeWorker
 		SigPool primary_inputs;
 
 		// list of cells without added $equiv cells
-		auto cells_list = equiv_mod->cells().to_vector();
+		auto cells_list = equiv_mod->cells();
 
 		for (auto id : wire_names)
 		{

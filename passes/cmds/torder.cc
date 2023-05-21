@@ -19,8 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/celltypes.h"
-#include "kernel/sigtools.h"
-#include "kernel/utils.h"
+
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -70,51 +69,8 @@ struct TorderPass : public Pass {
 		{
 			log("module %s\n", log_id(module));
 
-			SigMap sigmap(module);
-			dict<SigBit, pool<IdString>> bit_drivers, bit_users;
-			TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
-
-			for (auto cell : module->selected_cells())
-			for (auto conn : cell->connections())
-			{
-				if (stop_db.count(cell->type) && stop_db.at(cell->type).count(conn.first))
-					continue;
-
-				if (!noautostop && yosys_celltypes.cell_known(cell->type)) {
-					if (conn.first.in(ID::Q, ID::CTRL_OUT, ID::RD_DATA))
-						continue;
-					if (cell->type.in(ID($memrd), ID($memrd_v2)) && conn.first == ID::DATA)
-						continue;
-				}
-
-				if (cell->input(conn.first))
-					for (auto bit : sigmap(conn.second))
-						bit_users[bit].insert(cell->name);
-
-				if (cell->output(conn.first))
-					for (auto bit : sigmap(conn.second))
-						bit_drivers[bit].insert(cell->name);
-
-				toposort.node(cell->name);
-			}
-
-			for (auto &it : bit_users)
-				if (bit_drivers.count(it.first))
-					for (auto driver_cell : bit_drivers.at(it.first))
-					for (auto user_cell : it.second)
-						toposort.edge(driver_cell, user_cell);
-
-			toposort.analyze_loops = true;
-			toposort.sort();
-
-			for (auto &it : toposort.loops) {
-				log("  loop");
-				for (auto cell : it)
-					log(" %s", log_id(cell));
-				log("\n");
-			}
-
-			for (auto cell : toposort.sorted)
+			module->run_toposort_cells(noautostop,stop_db);
+			for (auto cell : module->cells())
 					log("  cell %s\n", log_id(cell));
 		}
 	}

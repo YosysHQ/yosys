@@ -40,7 +40,7 @@ int auto_name_counter, auto_name_offset, auto_name_digits, extmem_counter;
 std::map<RTLIL::IdString, int> auto_name_map;
 std::set<RTLIL::IdString> reg_wires;
 std::string auto_prefix, extmem_prefix;
-
+bool toposort;
 RTLIL::Module *active_module;
 dict<RTLIL::SigBit, RTLIL::State> active_initdata;
 SigMap active_sigmap;
@@ -2203,6 +2203,9 @@ struct VerilogBackend : public Backend {
 		log("        only write selected modules. modules must be selected entirely or\n");
 		log("        not at all.\n");
 		log("\n");
+		log("    -toposort\n");
+		log("        write cells within modules in a topologically sorted order like torder command\n");
+		log("\n");		
 		log("    -v\n");
 		log("        verbose output (print new names of all renamed wires and cells)\n");
 		log("\n");
@@ -2232,6 +2235,7 @@ struct VerilogBackend : public Backend {
 		simple_lhs = false;
 		noparallelcase = false;
 		auto_prefix = "";
+		toposort = false;
 
 		bool blackboxes = false;
 		bool selected = false;
@@ -2315,6 +2319,10 @@ struct VerilogBackend : public Backend {
 				verbose = true;
 				continue;
 			}
+			if (arg == "-toposort") {
+			  toposort = true;
+			  continue;
+			}
 			break;
 		}
 		extra_args(f, filename, args, argidx);
@@ -2345,6 +2353,7 @@ struct VerilogBackend : public Backend {
 				continue;
 			}
 			log("Dumping module `%s'.\n", module->name.c_str());
+			if (toposort) module->run_toposort_cells();
 			dump_module(*f, "", module);
 		}
 

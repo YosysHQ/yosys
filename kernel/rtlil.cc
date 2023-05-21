@@ -25,6 +25,9 @@
 #include "frontends/verilog/preproc.h"
 #include "backends/rtlil/rtlil_backend.h"
 
+#include "kernel/sigtools.h"
+#include "kernel/utils.h"
+
 #include <string.h>
 #include <algorithm>
 
@@ -912,6 +915,8 @@ RTLIL::Module::Module()
 	refcount_wires_ = 0;
 	refcount_cells_ = 0;
 
+	use_toposort_cells_ = false;
+	toposort_cells_ = {};
 #ifdef WITH_PYTHON
 	RTLIL::Module::get_all_modules()->insert(std::pair<unsigned int, RTLIL::Module*>(hashidx_, this));
 #endif
@@ -2042,6 +2047,56 @@ std::vector<RTLIL::Cell*> RTLIL::Module::selected_cells() const
 		if (design->selected(this, it.second))
 			result.push_back(it.second);
 	return result;
+}
+
+void RTLIL::Module::run_toposort_cells(bool noautostop /*= false */,dict<IdString, pool<IdString>> stop_db /*= {}*/) {
+  use_toposort_cells_ = true;
+
+			SigMap sigmap(this);
+			dict<SigBit, pool<IdString>> bit_drivers, bit_users;
+			TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
+
+			for (auto cell : this->selected_cells())
+			for (auto conn : cell->connections())
+			{
+				if (stop_db.count(cell->type) && stop_db.at(cell->type).count(conn.first))
+					continue;
+
+				if (!noautostop && yosys_celltypes.cell_known(cell->type)) {
+					if (conn.first.in(ID::Q, ID::CTRL_OUT, ID::RD_DATA))
+						continue;
+					if (cell->type.in(ID($memrd), ID($memrd_v2)) && conn.first == ID::DATA)
+						continue;
+				}
+
+				if (cell->input(conn.first))
+					for (auto bit : sigmap(conn.second))
+						bit_users[bit].insert(cell->name);
+
+				if (cell->output(conn.first))
+					for (auto bit : sigmap(conn.second))
+						bit_drivers[bit].insert(cell->name);
+
+				toposort.node(cell->name);
+			}
+
+			for (auto &it : bit_users)
+				if (bit_drivers.count(it.first))
+					for (auto driver_cell : bit_drivers.at(it.first))
+					for (auto user_cell : it.second)
+						toposort.edge(driver_cell, user_cell);
+
+			toposort.analyze_loops = true;
+			toposort.sort();
+
+			for (auto &it : toposort.loops) {
+			  log("  loop");
+				for (auto cell : it) {
+					log(" %s", log_id(cell));
+					toposort_cells_.push_back(cells_[cell]);
+				}
+				log("\n");
+			}  
 }
 
 void RTLIL::Module::add(RTLIL::Wire *wire)
