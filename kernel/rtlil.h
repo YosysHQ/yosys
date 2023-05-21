@@ -1231,7 +1231,9 @@ public:
 	        return RTLIL::ObjRange<RTLIL::Cell*>(&cells_, &refcount_cells_);
 	     return toposort_cells_;
 	}
-        void run_toposort_cells(bool noautostop= false,dict<IdString, pool<IdString>> stop_db = {});
+        void run_toposort_cells(bool onlyselected = false,
+			  bool noautostop= false,
+			  dict<IdString, pool<IdString>> stop_db = {});
 	void add(RTLIL::Binding *binding);
 
 	// Removing wires is expensive. If you have to remove wires, remove them all at once.

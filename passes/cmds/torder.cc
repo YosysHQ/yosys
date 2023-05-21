@@ -46,7 +46,8 @@ struct TorderPass : public Pass {
 	{
 		bool noautostop = false;
 		dict<IdString, pool<IdString>> stop_db;
-
+		constexpr bool onlyselected = true;
+		
 		log_header(design, "Executing TORDER pass (print cells in topological order).\n");
 
 		size_t argidx;
@@ -69,7 +70,7 @@ struct TorderPass : public Pass {
 		{
 			log("module %s\n", log_id(module));
 
-			module->run_toposort_cells(noautostop,stop_db);
+			module->run_toposort_cells(onlyselected,noautostop,stop_db);
 			for (auto cell : module->cells())
 					log("  cell %s\n", log_id(cell));
 		}

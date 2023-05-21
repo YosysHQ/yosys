@@ -2049,14 +2049,19 @@ std::vector<RTLIL::Cell*> RTLIL::Module::selected_cells() const
 	return result;
 }
 
-void RTLIL::Module::run_toposort_cells(bool noautostop /*= false */,dict<IdString, pool<IdString>> stop_db /*= {}*/) {
-  use_toposort_cells_ = true;
-
+void RTLIL::Module::run_toposort_cells(bool onlyselected /*= false */,
+				       bool noautostop /*= false */,
+				       dict<IdString, pool<IdString>> stop_db /*= {}*/) {
 			SigMap sigmap(this);
 			dict<SigBit, pool<IdString>> bit_drivers, bit_users;
 			TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
 
-			for (auto cell : this->selected_cells())
+			use_toposort_cells_ = false;
+			auto ref_cells = (onlyselected) ? this->selected_cells() : this->cells();
+			use_toposort_cells_ = true;
+
+			
+			for (auto cell : ref_cells)
 			for (auto conn : cell->connections())
 			{
 				if (stop_db.count(cell->type) && stop_db.at(cell->type).count(conn.first))
@@ -2091,12 +2096,18 @@ void RTLIL::Module::run_toposort_cells(bool noautostop /*= false */,dict<IdStrin
 
 			for (auto &it : toposort.loops) {
 			  log("  loop");
-				for (auto cell : it) {
+			  for (auto cell : it) { //refers to cell name
 					log(" %s", log_id(cell));
 					toposort_cells_.push_back(cells_[cell]);
 				}
 				log("\n");
-			}  
+			}
+
+			std::transform(toposort.sorted.begin(), toposort.sorted.end(),
+				       std::back_inserter(toposort_cells_),
+				       [&](const RTLIL::IdString& name) -> RTLIL::Cell* {
+					 return cells_[name];
+				       });			 
 }
 
 void RTLIL::Module::add(RTLIL::Wire *wire)
