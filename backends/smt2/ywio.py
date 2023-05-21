@@ -165,8 +165,8 @@ class WitnessSig:
         else:
             return f"{pretty_path(self.path)}[{self.offset}]"
 
-    def __eq__(self):
-        return self.sort_key
+    def __eq__(self, other):
+        return self.sort_key == other.sort_key
 
     def __hash__(self):
         return hash(self.sort_key)
@@ -294,6 +294,16 @@ class WitnessValues:
 
         return sorted(signals), missing_signals
 
+    def __add__(self, other: "WitnessValues"):
+        new = WitnessValues()
+        new += self
+        new += other
+        return new
+
+    def __iadd__(self, other: "WitnessValues"):
+        for key, value in other.values.items():
+            self.values.setdefault(key, value)
+        return self
 
 class WriteWitness:
     def __init__(self, f, generator):
@@ -380,13 +390,24 @@ class ReadWitness:
 
         self.bits = [step["bits"] for step in data["steps"]]
 
+    def init_step(self):
+        return self.step(0)
+    
+    def first_step(self):
+        values = WitnessValues()
+        if len(self.bits) <= 1:
+            raise NotImplementedError("ReadWitness.first_step() not supported for less than 2 steps")
+        non_init_bits = len(self.bits[1])
+        values.unpack(WitnessSigMap([sig for sig in self.signals if not sig.init_only]), self.bits[0][-non_init_bits:])
+        return values
+
     def step(self, t):
         values = WitnessValues()
         values.unpack(self.sigmap, self.bits[t])
         return values
 
-    def steps(self):
-        for i in range(len(self.bits)):
+    def steps(self, start=0):
+        for i in range(start, len(self.bits)):
             yield i, self.step(i)
 
     def __len__(self):
