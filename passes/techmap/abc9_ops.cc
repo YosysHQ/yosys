@@ -233,22 +233,23 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 
 				if (derived_type != cell->type) {
 					auto unmap_module = unmap_design->addModule(derived_type);
+					auto replace_cell = unmap_module->addCell(ID::_TECHMAP_REPLACE_, cell->type);
 					for (auto port : derived_module->ports) {
 						auto w = unmap_module->addWire(port, derived_module->wire(port));
 						// Do not propagate (* init *) values into the box,
 						//   in fact, remove it from outside too
 						if (w->port_output)
 							w->attributes.erase(ID::init);
+						// Attach (* techmap_autopurge *) to all ports to ensure that
+						//   undriven inputs/unused outputs are propagated through to
+						//   the techmapped cell
+						w->attributes[ID::techmap_autopurge] = 1;
+
+						replace_cell->setPort(port, w);
 					}
 					unmap_module->ports = derived_module->ports;
 					unmap_module->check();
 
-					auto replace_cell = unmap_module->addCell(ID::_TECHMAP_REPLACE_, cell->type);
-					for (const auto &conn : cell->connections()) {
-						auto w = unmap_module->wire(conn.first);
-						log_assert(w);
-						replace_cell->setPort(conn.first, w);
-					}
 					replace_cell->parameters = cell->parameters;
 				}
 			}
