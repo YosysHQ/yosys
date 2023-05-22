@@ -119,14 +119,14 @@ struct AigerWriter
 			if (wire->name.isPublic())
 				sigmap.add(wire);
 
-		// promote input wires
-		for (auto wire : module->wires())
-			if (wire->port_input)
-				sigmap.add(wire);
-
 		// promote output wires
 		for (auto wire : module->wires())
 			if (wire->port_output)
+				sigmap.add(wire);
+
+		// promote input wires
+		for (auto wire : module->wires())
+			if (wire->port_input)
 				sigmap.add(wire);
 
 		for (auto wire : module->wires())
