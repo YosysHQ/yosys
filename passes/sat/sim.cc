@@ -140,6 +140,7 @@ struct SimInstance
 	dict<SigBit, pool<Wire*>> upd_outports;
 
 	dict<SigBit, SigBit> in_parent_drivers;
+	dict<SigBit, SigBit> clk2fflogic_drivers;
 
 	pool<SigBit> dirty_bits;
 	pool<Cell*> dirty_cells;
@@ -270,6 +271,11 @@ struct SimInstance
 				ff.past_srst = State::Sx;
 				ff.data = ff_data;
 				ff_database[cell] = ff;
+
+				if (cell->get_bool_attribute(ID(clk2fflogic))) {
+					for (int i = 0; i < ff_data.width; i++)
+						clk2fflogic_drivers.emplace(sigmap(ff_data.sig_d[i]), sigmap(ff_data.sig_q[i]));
+				}
 			}
 
 			if (cell->is_mem_cell())
@@ -388,6 +394,10 @@ struct SimInstance
 		for (int i = 0; i < GetSize(sig); i++) {
 			auto sigbit = sig[i];
 			auto sigval = value[i];
+
+			auto clk2fflogic_driver = clk2fflogic_drivers.find(sigbit);
+			if (clk2fflogic_driver != clk2fflogic_drivers.end())
+				sigbit = clk2fflogic_driver->second;
 
 			auto in_parent_driver = in_parent_drivers.find(sigbit);
 			if (in_parent_driver == in_parent_drivers.end())

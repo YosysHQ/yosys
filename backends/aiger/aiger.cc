@@ -733,6 +733,9 @@ struct AigerWriter
 				auto sig_qy = cell->getPort(cell->type.in(ID($anyconst), ID($anyseq)) ? ID::Y : ID::Q);
 				SigSpec sig = sigmap(sig_qy);
 
+				if (cell->get_bool_attribute(ID(clk2fflogic)))
+					sig_qy = cell->getPort(ID::D); // For a clk2fflogic $_FF_ the named signal is the D input not the Q output
+
 				for (int i = 0; i < GetSize(sig_qy); i++) {
 					if (sig_qy[i].wire == nullptr || sig[i].wire == nullptr)
 						continue;
