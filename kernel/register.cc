@@ -649,16 +649,36 @@ void Backend::execute(std::vector<std::string> args, RTLIL::Design *design)
 {
 	std::ostream *f = NULL;
 	auto state = pre_execute();
-	execute(f, std::string(), args, design);
-	post_execute(state);
-	if (f != &std::cout)
-		delete f;
+	bool restore_log_cmd_error_throw = log_cmd_error_throw;
+	log_cmd_error_throw = true;
+	try {
+	  execute(f, std::string(), args, design);
+	  post_execute(state);
+	} catch(log_cmd_error_exception& _) {
+	  if (f && (f != &std::cout)) {
+	    delete f;
+	    f = NULL;
+
+	    for(auto& itr : filenames) {
+	      if ( itr == "<stdout>" ) continue;
+	      int code = std::remove(itr.c_str());
+	      if ( code )
+		log("\t Failed to deleted file %s - with exitcode %d\n",itr.c_str(),code);
+	    }
+	  }
+	  log_cmd_error_throw = restore_log_cmd_error_throw;
+	  if ( log_cmd_error_throw )
+	    throw log_cmd_error_exception();
+	}
+
+	log_cmd_error_throw = restore_log_cmd_error_throw;
+	if (f && (f != &std::cout)) {
+	  delete f;
+	}
 }
 
 void Backend::extra_args(std::ostream *&f, std::string &filename, std::vector<std::string> args, size_t argidx, bool bin_output)
 {
-	bool called_with_fp = f != NULL;
-
 	for (; argidx < args.size(); argidx++)
 	{
 		std::string arg = args[argidx];
@@ -668,8 +688,9 @@ void Backend::extra_args(std::ostream *&f, std::string &filename, std::vector<st
 		if (f != NULL)
 			cmd_error(args, argidx, "Extra filename argument in direct file mode.");
 
-		if (arg == "-") {
+		if (arg == "-") {		  
 			filename = "<stdout>";
+			filenames.push_back(filename);
 			f = &std::cout;
 			continue;
 		}
@@ -684,6 +705,7 @@ void Backend::extra_args(std::ostream *&f, std::string &filename, std::vector<st
 				log_cmd_error("Can't open output file `%s' for writing: %s\n", filename.c_str(), strerror(errno));
 			}
 			yosys_output_files.insert(filename);
+			filenames.push_back(filename);
 			f = gf;
 #else
 			log_cmd_error("Yosys is compiled without zlib support, unable to write gzip output.\n");
@@ -696,18 +718,18 @@ void Backend::extra_args(std::ostream *&f, std::string &filename, std::vector<st
 				delete ff;
 				log_cmd_error("Can't open output file `%s' for writing: %s\n", filename.c_str(), strerror(errno));
 			}
+			filenames.push_back(filename);
 			f = ff;
 		}
 	}
 
-	if (called_with_fp)
-		args.push_back(filename);
 	args[0] = pass_name;
 	// cmd_log_args(args);
 
 	if (f == NULL) {
 		filename = "<stdout>";
 		f = &std::cout;
+		filenames.push_back(filename);
 	}
 }
 

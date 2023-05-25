@@ -112,6 +112,7 @@ struct Frontend : Pass
 struct Backend : Pass
 {
 	std::string backend_name;
+        std::vector<std::string> filenames;
 	Backend(std::string name, std::string short_help = "** document me **");
 	void run_register() override;
 	~Backend() override;
