@@ -1,3 +1,5 @@
+logger -nowarn "Yosys has only limited support for tri-state logic at the moment\. .*"
+
 read_verilog <<EOT
 module top(input [24:0] A, input [17:0] B, output [47:0] P);
 DSP48E1 #(.PREG(0)) dsp(.A(A), .B(B), .P(P));
@@ -35,3 +37,18 @@ techmap -autoproc -wb -map +/xilinx/cells_sim.v
 opt -full -fine
 select -assert-count 0 t:* t:$assert %d
 sat -verify -prove-asserts
+
+
+design -reset
+read_verilog <<EOT
+module top(input signed [29:0] A, input signed [17:0] B, output signed [47:0] P);
+wire [47:0] casc;
+DSP48E1 #(.AREG(1)) u1(.A(A), .B(B), .PCOUT(casc));
+DSP48E1 #(.AREG(1)) u2(.A(A), .B(B), .PCIN(casc), .P(P));
+endmodule
+EOT
+synth_xilinx -run :prepare
+abc9
+clean
+check
+logger -expect-no-warnings
