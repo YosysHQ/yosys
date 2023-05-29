@@ -3,7 +3,7 @@
 // In addition to Logic Array Blocks (LABs) that contain ten Adaptive Logic
 // Modules (ALMs, see alm_sim.v), the Cyclone V/10GX also contain
 // Memory/Logic Array Blocks (MLABs) that can act as either ten ALMs, or utilise
-// the memory the ALM uses to store the look-up table data for general usage, 
+// the memory the ALM uses to store the look-up table data for general usage,
 // producing a 32 address by 20-bit block of memory. MLABs are spread out
 // around the chip, so they can be placed near where they are needed, rather than
 // being comparatively limited in placement for a deep but narrow memory such as
@@ -43,7 +43,7 @@
 // Quartus will pack external flops into the MLAB, but this is an assumption
 // that needs testing.
 
-// The vendor sim model outputs 'x for a very short period (a few 
+// The vendor sim model outputs 'x for a very short period (a few
 // combinational delta cycles) after each write. This has been omitted from
 // the following model because it's very difficult to trigger this in practice
 // as clock cycles will be much longer than any potential blip of 'x, so the
@@ -110,6 +110,8 @@ endmodule
 
 module MISTRAL_M10K(CLK1, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
 
+parameter INIT = 0;
+
 parameter CFG_ABITS = 10;
 parameter CFG_DBITS = 10;
 
@@ -119,7 +121,7 @@ input [CFG_DBITS-1:0] A1DATA;
 input A1EN, B1EN;
 output reg [CFG_DBITS-1:0] B1DATA;
 
-reg [2**CFG_ABITS * CFG_DBITS - 1 : 0] mem = 0;
+reg [2**CFG_ABITS * CFG_DBITS - 1 : 0] mem = INIT;
 
 `ifdef cyclonev
 specify
