@@ -733,13 +733,12 @@ module CC_BRAM_20K (
 			// SDP read port
 			always @(posedge clkb)
 			begin
-				// "NO_CHANGE" only
 				for (k=0; k < B_RD_WIDTH; k=k+1) begin
 					if (k < 20) begin
-						if (enb && !wea) A_DO_out[k] <= memory[addrb+k];
+						if (enb) A_DO_out[k] <= memory[addrb+k];
 					end
 					else begin // use both ports
-						if (enb && !wea) B_DO_out[k-20] <= memory[addrb+k];
+						if (enb) B_DO_out[k-20] <= memory[addrb+k];
 					end
 				end
 			end
@@ -1274,13 +1273,12 @@ module CC_BRAM_40K (
 			// SDP read port
 			always @(posedge clkb)
 			begin
-				// "NO_CHANGE" only
 				for (k=0; k < B_RD_WIDTH; k=k+1) begin
 					if (k < 40) begin
-						if (enb && !wea) A_DO_out[k] <= memory[addrb+k];
+						if (enb) A_DO_out[k] <= memory[addrb+k];
 					end
 					else begin // use both ports
-						if (enb && !wea) B_DO_out[k-40] <= memory[addrb+k];
+						if (enb) B_DO_out[k-40] <= memory[addrb+k];
 					end
 				end
 			end
