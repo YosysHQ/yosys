@@ -106,7 +106,7 @@ struct ShowWorker
 	{
 		std::string color = findColor(conn);
 		if (!color.empty()) return color;
-		return nextColor(conn.first, nextColor(conn.second, defaultColor));
+		return defaultColor;
 	}
 
 	std::string nextColor(const RTLIL::SigSpec &sig)
@@ -490,16 +490,14 @@ struct ShowWorker
 						conn.second, ct.cell_output(cell->type, conn.first));
 			}
 
-			std::string color = findColor(cell->name);
-			if (!color.empty()) color = ", " + color;
 #ifdef CLUSTER_CELLS_AND_PORTBOXES
 			if (!code.empty())
 				fprintf(f, "subgraph cluster_c%d {\nc%d [ shape=record, label=\"%s\"%s ];\n%s}\n",
 						id2num(cell->name), id2num(cell->name), label_string.c_str(), color.c_str(), code.c_str());
 			else
 #endif
-				fprintf(f, "c%d [ shape=record, label=\"%s\"%s ];\n%s",
-						id2num(cell->name), label_string.c_str(), color.c_str(), code.c_str());
+				fprintf(f, "c%d [ shape=record, label=\"%s\", %s ];\n%s",
+						id2num(cell->name), label_string.c_str(), findColor(cell->name).c_str(), code.c_str());
 		}
 
 		for (auto &it : module->processes)
@@ -569,9 +567,9 @@ struct ShowWorker
 				} else if (right_node[0] == 'x') {
 					net_conn_map[left_node].out.insert({right_node, GetSize(conn.first)});
 				} else {
-					net_conn_map[right_node].in.insert({stringf("x%d:e", single_idx_count), GetSize(conn.first)});
-					net_conn_map[left_node].out.insert({stringf("x%d:w", single_idx_count), GetSize(conn.first)});
-					fprintf(f, "x%d [shape=box, style=rounded, label=\"BUF\"];\n", single_idx_count++);
+					net_conn_map[right_node].in.insert({stringf("x%d", single_idx_count), GetSize(conn.first)});
+					net_conn_map[left_node].out.insert({stringf("x%d", single_idx_count), GetSize(conn.first)});
+					fprintf(f, "x%d [shape=box, style=rounded, label=\"BUF\", %s];\n", single_idx_count++, findColor(conn).c_str());
 				}
 			}
 		}
