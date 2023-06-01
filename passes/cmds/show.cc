@@ -329,7 +329,7 @@ struct ShowWorker
 			}
 
 			code += stringf("x%d [ shape=record, style=rounded, label=\"", dot_idx) \
-					+ join_label_pieces(label_pieces) + "\" ];\n";
+					+ join_label_pieces(label_pieces) + stringf("\", %s ];\n", nextColor(sig).c_str());
 
 			if (!port.empty()) {
 				currentColor = xorshift32(currentColor);
@@ -655,6 +655,7 @@ struct ShowPass : public Pass {
 		log("    -viewer <viewer>\n");
 		log("        Run the specified command with the graphics file as parameter.\n");
 		log("        On Windows, this pauses yosys until the viewer exits.\n");
+		log("        Use \"-viewer none\" to not run any command.\n");
 		log("\n");
 		log("    -format <format>\n");
 		log("        Generate a graphics file in the specified format. Use 'dot' to just\n");
@@ -915,28 +916,30 @@ struct ShowPass : public Pass {
 		#if defined(YOSYS_DISABLE_SPAWN)
 			log_assert(viewer_exe.empty() && !format.empty());
 		#else
-		if (!viewer_exe.empty()) {
-			#ifdef _WIN32
-				// system()/cmd.exe does not understand single quotes nor
-				// background tasks on Windows. So we have to pause yosys
-				// until the viewer exits.
-				std::string cmd = stringf("%s \"%s\"", viewer_exe.c_str(), out_file.c_str());
-			#else
-				std::string cmd = stringf("%s '%s' %s", viewer_exe.c_str(), out_file.c_str(), background.c_str());
-			#endif
-			log("Exec: %s\n", cmd.c_str());
-			if (run_command(cmd) != 0)
-				log_cmd_error("Shell command failed!\n");
-		} else
-		if (format.empty()) {
-			#ifdef __APPLE__
-			std::string cmd = stringf("ps -fu %d | grep -q '[ ]%s' || xdot '%s' %s", getuid(), dot_file.c_str(), dot_file.c_str(), background.c_str());
-			#else
-			std::string cmd = stringf("{ test -f '%s.pid' && fuser -s '%s.pid' 2> /dev/null; } || ( echo $$ >&3; exec xdot '%s'; ) 3> '%s.pid' %s", dot_file.c_str(), dot_file.c_str(), dot_file.c_str(), dot_file.c_str(), background.c_str());
-			#endif
-			log("Exec: %s\n", cmd.c_str());
-			if (run_command(cmd) != 0)
-				log_cmd_error("Shell command failed!\n");
+		if (viewer_exe != "none") {
+			if (!viewer_exe.empty()) {
+				#ifdef _WIN32
+					// system()/cmd.exe does not understand single quotes nor
+					// background tasks on Windows. So we have to pause yosys
+					// until the viewer exits.
+					std::string cmd = stringf("%s \"%s\"", viewer_exe.c_str(), out_file.c_str());
+				#else
+					std::string cmd = stringf("%s '%s' %s", viewer_exe.c_str(), out_file.c_str(), background.c_str());
+				#endif
+				log("Exec: %s\n", cmd.c_str());
+				if (run_command(cmd) != 0)
+					log_cmd_error("Shell command failed!\n");
+			} else
+			if (format.empty()) {
+				#ifdef __APPLE__
+				std::string cmd = stringf("ps -fu %d | grep -q '[ ]%s' || xdot '%s' %s", getuid(), dot_file.c_str(), dot_file.c_str(), background.c_str());
+				#else
+				std::string cmd = stringf("{ test -f '%s.pid' && fuser -s '%s.pid' 2> /dev/null; } || ( echo $$ >&3; exec xdot '%s'; ) 3> '%s.pid' %s", dot_file.c_str(), dot_file.c_str(), dot_file.c_str(), dot_file.c_str(), background.c_str());
+				#endif
+				log("Exec: %s\n", cmd.c_str());
+				if (run_command(cmd) != 0)
+					log_cmd_error("Shell command failed!\n");
+			}
 		}
 		#endif
 
