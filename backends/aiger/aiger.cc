@@ -706,6 +706,9 @@ struct AigerWriter
 		for (auto &it : latch_lines)
 			f << it.second;
 
+		if (initstate_ff)
+			f << stringf("ninitff %d\n", ((initstate_ff >> 1)-1-aig_i));
+
 		wire_lines.sort();
 		for (auto &it : wire_lines)
 			f << it.second;
