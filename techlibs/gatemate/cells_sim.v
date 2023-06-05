@@ -1583,8 +1583,8 @@ module CC_FIFO_40K (
 	assign F_ALMOST_EMPTY = fifo_almost_empty;
 	assign F_WR_ERROR     = (F_FULL && (B_EN ^ B_EN_INV) && (B_WE ^ B_WE_INV));
 	assign F_RD_ERROR     = (F_EMPTY && (A_EN ^ A_EN_INV));
-	assign ram_we = (~F_FULL  && (B_EN ^ B_EN_INV) && (B_WE ^ B_WE_INV));
-	assign ram_en = (~F_EMPTY && (A_EN ^ A_EN_INV));
+	wire ram_we = (~F_FULL  && (B_EN ^ B_EN_INV) && (B_WE ^ B_WE_INV));
+	wire ram_en = (~F_EMPTY && (A_EN ^ A_EN_INV));
 
 	// Reset synchronizers
 	reg  [1:0] aclk_reset_q, bclk_reset_q;
