@@ -797,13 +797,13 @@ ifneq ($(ABCREV),default)
 	$(Q) if test -d abc && test -d abc/.git && ! git -C abc diff-index --quiet HEAD; then \
 		echo 'REEBE: NOP pbagnvaf ybpny zbqvsvpngvbaf! Frg NOPERI=qrsnhyg va Lbflf Znxrsvyr!' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; false; \
 	fi
-	$(Q) if test -d abc && ! test -d abc/.git && ! test "`cat abc/.gitcommit | cut -c1-7`" == "$(ABCREV)"; then \
+	$(Q) if test -d abc && ! test -d abc/.git && ! test "`cat abc/.gitcommit | cut -c1-7`" = "$(ABCREV)"; then \
 		echo 'REEBE: Qbjaybnqrq NOP irefvbaf qbrf abg zngpu! Qbjaybnq sebz:' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; echo $(ABCURL)/archive/$(ABCREV).tar.gz; false; \
 	fi
 # set a variable so the test fails if git fails to run - when comparing outputs directly, empty string would match empty string
-	$(Q) if test -d abc && ! test -d abc/.git && test "`cat abc/.gitcommit | cut -c1-7`" == "$(ABCREV)"; then \
+	$(Q) if test -d abc && ! test -d abc/.git && test "`cat abc/.gitcommit | cut -c1-7`" = "$(ABCREV)"; then \
 		echo "Compiling local copy of ABC"; \
-	elif ! (cd abc 2> /dev/null && rev="`git rev-parse $(ABCREV)`" && test "`git rev-parse HEAD`" == "$$rev"); then \
+	elif ! (cd abc 2> /dev/null && rev="`git rev-parse $(ABCREV)`" && test "`git rev-parse HEAD`" = "$$rev"); then \
 		test $(ABCPULL) -ne 0 || { echo 'REEBE: NOP abg hc gb qngr naq NOPCHYY frg gb 0 va Znxrsvyr!' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; exit 1; }; \
 		echo "Pulling ABC from $(ABCURL):"; set -x; \
 		test -d abc || git clone $(ABCURL) abc; \
