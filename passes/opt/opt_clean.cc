@@ -292,10 +292,12 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 	if (!purge_mode)
 		for (auto &it : module->cells_) {
 			RTLIL::Cell *cell = it.second;
-			if (ct_reg.cell_known(cell->type))
+			if (ct_reg.cell_known(cell->type)) {
+				bool clk2fflogic = cell->get_bool_attribute(ID(clk2fflogic));
 				for (auto &it2 : cell->connections())
-					if (ct_reg.cell_output(cell->type, it2.first))
+					if (clk2fflogic ? it2.first == ID::D : ct_reg.cell_output(cell->type, it2.first))
 						register_signals.add(it2.second);
+			}
 			for (auto &it2 : cell->connections())
 				connected_signals.add(it2.second);
 		}

@@ -626,8 +626,9 @@ struct Smt2Worker
 				}
 
 				bool init_only = cell->type.in(ID($anyconst), ID($anyinit), ID($allconst));
+				bool clk2fflogic = cell->type == ID($anyinit) && cell->get_bool_attribute(ID(clk2fflogic));
 				int smtoffset = 0;
-				for (auto chunk : cell->getPort(QY).chunks()) {
+				for (auto chunk : cell->getPort(clk2fflogic ? ID::D : QY).chunks()) {
 					if (chunk.is_wire())
 						decls.push_back(witness_signal(init_only ? "init" : "seq", chunk.width, chunk.offset, "", idcounter, chunk.wire, smtoffset));
 					smtoffset += chunk.width;
