@@ -1103,6 +1103,38 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		return true;
 	}
 
+	if (inst->Type() == OPER_YOSYSHQ_SET_TAG)
+	{
+		RTLIL::SigSpec sig_expr = operatorInport(inst, "expr");
+		RTLIL::SigSpec sig_set_mask = operatorInport(inst, "set_mask");
+		RTLIL::SigSpec sig_clr_mask = operatorInport(inst, "clr_mask");
+		RTLIL::SigSpec sig_o = operatorOutput(inst);
+		std::string tag = inst->GetAtt("tag") ? inst->GetAttValue("tag") : "";
+		module->connect(sig_o, module->SetTag(new_verific_id(inst), tag, sig_expr, sig_set_mask, sig_clr_mask));
+		return true;
+	}
+	if (inst->Type() == OPER_YOSYSHQ_GET_TAG)
+	{
+		std::string tag = inst->GetAtt("tag") ? inst->GetAttValue("tag") : "";
+		module->connect(operatorOutput(inst),module->GetTag(new_verific_id(inst), tag, operatorInput(inst)));
+		return true;
+	}
+	if (inst->Type() == OPER_YOSYSHQ_OVERWRITE_TAG)
+	{
+		RTLIL::SigSpec sig_signal = operatorInport(inst, "signal");
+		RTLIL::SigSpec sig_set_mask = operatorInport(inst, "set_mask");
+		RTLIL::SigSpec sig_clr_mask = operatorInport(inst, "clr_mask");
+		std::string tag = inst->GetAtt("tag") ? inst->GetAttValue("tag") : "";
+		module->addOverwriteTag(new_verific_id(inst), tag, sig_signal, sig_set_mask, sig_clr_mask);
+		return true;
+	}
+	if (inst->Type() == OPER_YOSYSHQ_ORIGINAL_TAG)
+	{
+		std::string tag = inst->GetAtt("tag") ? inst->GetAttValue("tag") : "";
+		module->connect(operatorOutput(inst),module->OriginalTag(new_verific_id(inst), tag, operatorInput(inst)));
+		return true;
+	}
+
 	#undef IN
 	#undef IN1
 	#undef IN2
