@@ -2671,3 +2671,60 @@ endmodule
 `endif
 
 // --------------------------------------------------------
+
+module \$set_tag (A, SET, CLR, Y);
+
+parameter TAG = "";
+parameter WIDTH = 0;
+
+input [WIDTH-1:0] A;
+input [WIDTH-1:0] SET;
+input [WIDTH-1:0] CLR;
+output [WIDTH-1:0] Y;
+
+assign Y = A;
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$get_tag (A, Y);
+
+parameter TAG = "";
+parameter WIDTH = 0;
+
+input [WIDTH-1:0] A;
+output [WIDTH-1:0] Y;
+
+assign Y = A;
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$overwrite_tag (A, SET, CLR);
+
+parameter TAG = "";
+parameter WIDTH = 0;
+
+input [WIDTH-1:0] A;
+input [WIDTH-1:0] SET;
+input [WIDTH-1:0] CLR;
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$original_tag (A, Y);
+
+parameter TAG = "";
+parameter WIDTH = 0;
+
+input [WIDTH-1:0] A;
+output [WIDTH-1:0] Y;
+
+assign Y = A;
+
+endmodule
+
+// --------------------------------------------------------
