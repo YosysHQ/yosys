@@ -1828,6 +1828,33 @@ namespace {
 					ID($_DLATCHSR_PNN_), ID($_DLATCHSR_PNP_), ID($_DLATCHSR_PPN_), ID($_DLATCHSR_PPP_)))
 				{ port(ID::E,1); port(ID::S,1); port(ID::R,1); port(ID::D,1); port(ID::Q,1); check_expected(); return; }
 
+			if (cell->type.in(ID($set_tag))) {
+				param(ID::WIDTH);
+				param(ID::TAG);
+				port(ID::A, param(ID::WIDTH));
+				port(ID::SET, param(ID::WIDTH));
+				port(ID::CLR, param(ID::WIDTH));
+				port(ID::Y, param(ID::WIDTH));
+				check_expected();
+				return;
+			}
+			if (cell->type.in(ID($get_tag),ID($original_tag))) {
+				param(ID::WIDTH);
+				param(ID::TAG);
+				port(ID::A, param(ID::WIDTH));
+				port(ID::Y, param(ID::WIDTH));
+				check_expected();
+				return;
+			}
+			if (cell->type.in(ID($overwrite_tag))) {
+				param(ID::WIDTH);
+				param(ID::TAG);
+				port(ID::A, param(ID::WIDTH));
+				port(ID::SET, param(ID::WIDTH));
+				port(ID::CLR, param(ID::WIDTH));
+				check_expected();
+				return;
+			}
 			error(__LINE__);
 		}
 	};
@@ -3241,6 +3268,56 @@ RTLIL::SigSpec RTLIL::Module::Initstate(RTLIL::IdString name, const std::string 
 {
 	RTLIL::SigSpec sig = addWire(NEW_ID);
 	Cell *cell = addCell(name, ID($initstate));
+	cell->setPort(ID::Y, sig);
+	cell->set_src_attribute(src);
+	return sig;
+}
+
+RTLIL::SigSpec RTLIL::Module::SetTag(RTLIL::IdString name, const std::string &tag, const RTLIL::SigSpec &sig_e, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_c, const std::string &src)
+{
+	RTLIL::SigSpec sig = addWire(NEW_ID, sig_e.size());
+	Cell *cell = addCell(name, ID($set_tag));
+	cell->parameters[ID::WIDTH] = sig_e.size();
+	cell->parameters[ID::TAG] = tag;
+	cell->setPort(ID::A, sig_e);
+	cell->setPort(ID::SET, sig_s);
+	cell->setPort(ID::CLR, sig_c);
+	cell->setPort(ID::Y, sig);
+	cell->set_src_attribute(src);
+	return sig;
+}
+
+RTLIL::SigSpec RTLIL::Module::GetTag(RTLIL::IdString name, const std::string &tag, const RTLIL::SigSpec &sig_e, const std::string &src)
+{
+	RTLIL::SigSpec sig = addWire(NEW_ID, sig_e.size());
+	Cell *cell = addCell(name, ID($get_tag));
+	cell->parameters[ID::WIDTH] = sig_e.size();
+	cell->parameters[ID::TAG] = tag;
+	cell->setPort(ID::A, sig_e);
+	cell->setPort(ID::Y, sig);
+	cell->set_src_attribute(src);
+	return sig;
+}
+
+RTLIL::Cell* RTLIL::Module::addOverwriteTag(RTLIL::IdString name, const std::string &tag, const RTLIL::SigSpec &sig_e, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_c, const std::string &src)
+{
+	RTLIL::Cell *cell = addCell(name, ID($overwrite_tag));
+	cell->parameters[ID::WIDTH] = sig_e.size();
+	cell->parameters[ID::TAG] = tag;
+	cell->setPort(ID::A, sig_e);
+	cell->setPort(ID::SET, sig_s);
+	cell->setPort(ID::CLR, sig_c);
+	cell->set_src_attribute(src);
+	return cell;
+}
+
+RTLIL::SigSpec RTLIL::Module::OriginalTag(RTLIL::IdString name, const std::string &tag, const RTLIL::SigSpec &sig_e, const std::string &src)
+{
+	RTLIL::SigSpec sig = addWire(NEW_ID, sig_e.size());
+	Cell *cell = addCell(name, ID($original_tag));
+	cell->parameters[ID::WIDTH] = sig_e.size();
+	cell->parameters[ID::TAG] = tag;
+	cell->setPort(ID::A, sig_e);
 	cell->setPort(ID::Y, sig);
 	cell->set_src_attribute(src);
 	return sig;
