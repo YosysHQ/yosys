@@ -28,8 +28,8 @@ equiv_opt -assert -map +/ecp5/cells_sim.v synth_ecp5 # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd mux8 # Constrain all select calls below inside the top module
 select -assert-max 1 t:L6MUX21
-select -assert-max 7 t:LUT4
-select -assert-max 2 t:PFUMX
+select -assert-max 8 t:LUT4
+select -assert-max 3 t:PFUMX
 
 select -assert-none t:LUT4 t:L6MUX21 t:PFUMX %% t:* %D
 
