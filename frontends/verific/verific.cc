@@ -112,13 +112,24 @@ void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefil
 	string message = linefile ? stringf("%s:%d: ", LineFile::GetFileName(linefile), LineFile::GetLineNo(linefile)) : "";
 	message += vstringf(msg, args);
 
-	if (msg_type == VERIFIC_ERROR || msg_type == VERIFIC_WARNING || msg_type == VERIFIC_PROGRAM_ERROR)
-		log_warning_noprefix("%s%s\n", message_prefix.c_str(), message.c_str());
-	else
-		log("%s%s\n", message_prefix.c_str(), message.c_str());
-
+	if (log_verific_callback) {
+		string full_message = stringf("%s%s\n", message_prefix.c_str(), message.c_str());
+		log_verific_callback(int(msg_type), message_id, LineFile::GetFileName(linefile), LineFile::GetLineNo(linefile), full_message.c_str());
+	} else {
+		if (msg_type == VERIFIC_ERROR || msg_type == VERIFIC_WARNING || msg_type == VERIFIC_PROGRAM_ERROR)
+			log_warning_noprefix("%s%s\n", message_prefix.c_str(), message.c_str());
+		else
+			log("%s%s\n", message_prefix.c_str(), message.c_str());
+	}
 	if (verific_error_msg.empty() && (msg_type == VERIFIC_ERROR || msg_type == VERIFIC_PROGRAM_ERROR))
 		verific_error_msg = message;
+}
+
+void set_verific_logging(void (*cb)(int msg_type, const char *message_id, const char* file_path, unsigned int line_no, const char *msg))
+{
+	Message::SetConsoleOutput(0);
+	Message::RegisterCallBackMsg(msg_func);
+	log_verific_callback = cb;
 }
 
 string get_full_netlist_name(Netlist *nl)
