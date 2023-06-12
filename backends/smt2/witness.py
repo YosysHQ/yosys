@@ -194,7 +194,7 @@ def aiw2yw(input, mapfile, output):
 
         values = WitnessValues()
         for i, v in enumerate(inline):
-            if v == "x" or outyw.t > 0 and i in aiger_map.init_inputs:
+            if outyw.t > 0 and i in aiger_map.init_inputs:
                 continue
 
             try:
