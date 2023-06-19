@@ -773,7 +773,7 @@ struct Smt2Worker
 			int arrayid = idcounter++;
 			memarrays[mem] = arrayid;
 
-			int abits = ceil_log2(mem->size);
+			int abits = max(1, ceil_log2(mem->size));
 
 			bool has_sync_wr = false;
 			bool has_async_wr = false;
@@ -1220,7 +1220,7 @@ struct Smt2Worker
 			{
 				int arrayid = memarrays.at(mem);
 
-				int abits = ceil_log2(mem->size);;
+				int abits = max(1, ceil_log2(mem->size));
 
 				bool has_sync_wr = false;
 				bool has_async_wr = false;
