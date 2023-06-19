@@ -3,14 +3,131 @@
 Memory mapping
 ==============
 
-Documentation for the Yosys memory_libmap memory mapper.
+Documentation for the Yosys ``memory_libmap`` memory mapper.  Note that not all supported patterns
+are included in this document, of particular note is that combinations of multiple patterns should
+generally work.  For example, `Write port with byte enables`_ could be used in conjunction with any
+of the simple dual port (SDP) models.  In general if a hardware memory definition does not support a
+given configuration, additional logic will be instantiated to guarantee behaviour is consistent with
+simulation.
 
 See also: `passes/memory/memlib.md <https://github.com/YosysHQ/yosys/blob/master/passes/memory/memlib.md>`_
 
-Supported patterns
-------------------
+Additional notes
+----------------
 
-Asynchronous-read RAM
+Memory kind selection
+~~~~~~~~~~~~~~~~~~~~~
+
+The memory inference code will automatically pick target memory primitive based on memory geometry
+and features used.  Depending on the target, there can be up to four memory primitive classes
+available for selection:
+
+- FF RAM (aka logic): no hardware primitive used, memory lowered to a bunch of FFs and multiplexers
+
+  - Can handle arbitrary number of write ports, as long as all write ports are in the same clock domain
+  - Can handle arbitrary number and kind of read ports
+
+- LUT RAM (aka distributed RAM): uses LUT storage as RAM
+  
+  - Supported on most FPGAs (with notable exception of ice40)
+  - Usually has one synchronous write port, one or more asynchronous read ports
+  - Small
+  - Will never be used for ROMs (lowering to plain LUTs is always better)
+
+- Block RAM: dedicated memory tiles
+
+  - Supported on basically all FPGAs
+  - Supports only synchronous reads
+  - Two ports with separate clocks
+  - Usually supports true dual port (with notable exception of ice40 that only supports SDP)
+  - Usually supports asymmetric memories and per-byte write enables
+  - Several kilobits in size
+
+- Huge RAM:
+
+  - Only supported on several targets:
+    
+    - Some Xilinx UltraScale devices (UltraRAM)
+
+      - Two ports, both with mutually exclusive synchronous read and write
+      - Single clock
+      - Initial data must be all-0
+
+    - Some ice40 devices (SPRAM)
+
+      - Single port with mutually exclusive synchronous read and write
+      - Does not support initial data
+
+    - Nexus (large RAM)
+      
+      - Two ports, both with mutually exclusive synchronous read and write
+      - Single clock
+
+  - Will not be automatically selected by memory inference code, needs explicit opt-in via
+    ram_style attribute
+
+In general, you can expect the automatic selection process to work roughly like this:
+
+- If any read port is asynchronous, only LUT RAM (or FF RAM) can be used.
+- If there is more than one write port, only block RAM can be used, and this needs to be a
+  hardware-supported true dual port pattern
+
+  - … unless all write ports are in the same clock domain, in which case FF RAM can also be used,
+    but this is generally not what you want for anything but really small memories
+
+- Otherwise, either FF RAM, LUT RAM, or block RAM will be used, depending on memory size
+
+This process can be overridden by attaching a ram_style attribute to the memory:
+
+- `(* ram_style = "logic" *)` selects FF RAM
+- `(* ram_style = "distributed" *)` selects LUT RAM
+- `(* ram_style = "block" *)` selects block RAM
+- `(* ram_style = "huge" *)` selects huge RAM
+
+It is an error if this override cannot be realized for the given target.
+
+Many alternate spellings of the attribute are also accepted, for compatibility with other software.
+
+Initial data
+~~~~~~~~~~~~
+
+Most FPGA targets support initializing all kinds of memory to user-provided values.  If explicit
+initialization is not used the initial memory value is undefined.  Initial data can be provided by
+either initial statements writing memory cells one by one of ``$readmemh`` or ``$readmemb`` system
+tasks.  For an example pattern, see `Synchronous read port with initial value`_.
+
+Write port with byte enables
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Byte enables can be used with any supported pattern
+- To ensure that multiple writes will be merged into one port, they need to have disjoint bit
+  ranges, have the same address, and the same clock
+- Any write enable granularity will be accepted (down to per-bit write enables), but using smaller
+  granularity than natively supported by the target is very likely to be inefficient (eg. using
+  4-bit bytes on ECP5 will result in either padding the bytes with 5 dummy bits to native 9-bit
+  units or splitting the RAM into two block RAMs)
+
+.. code:: verilog
+
+	reg [31 : 0] mem [2**ADDR_WIDTH - 1 : 0];
+
+	always @(posedge clk) begin
+		if (write_enable[0])
+			mem[write_addr][7:0] <= write_data[7:0];
+		if (write_enable[1])
+			mem[write_addr][15:8] <= write_data[15:8];
+		if (write_enable[2])
+			mem[write_addr][23:16] <= write_data[23:16];
+		if (write_enable[3])
+			mem[write_addr][31:24] <= write_data[31:24];
+		if (read_enable)
+			read_data <= mem[read_addr];
+	end
+
+Simple dual port (SDP) memory patterns
+--------------------------------------
+
+Asynchronous-read SDP
 ~~~~~~~~~~~~~~~~~~~~~
 
 - This will result in LUT RAM on supported targets
@@ -68,7 +185,6 @@ Synchronous SDP with undefined collision behavior
 
 - Like above, but the read value is undefined when read and write ports target the same address in
   the same cycle
-
 
 .. code:: verilog
 
@@ -140,6 +256,9 @@ Synchronous SDP with write-first behavior (alternate pattern)
 	end
 
 	assign read_data = mem[read_addr_reg];
+
+Single-port RAM memory patterns
+-------------------------------
 
 Asynchronous-read single-port RAM
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -234,13 +353,16 @@ Synchronous read port with initial value
 			read_data <= mem[read_addr];
 	end
 
-Synchronous read port with synchronous reset (reset priority over enable)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Read register reset patterns
+----------------------------
 
-- Synchronous resets can be combined with any other supported pattern (except that synchronous reset
-  and asynchronous reset cannot be used on a single read port)
-- If block RAM is used and synchronous resets are not natively supported by the target, small
-  emulation circuit will be inserted
+Resets can be combined with any other supported pattern (except that synchronous reset and
+asynchronous reset cannot both be used on a single read port).  If block RAM is used and the
+selected reset (synchronous or asynchronous) is used but not natively supported by the target, small
+emulation circuitry will be inserted.
+
+Synchronous reset, reset priority over enable
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code:: verilog
 
@@ -256,13 +378,8 @@ Synchronous read port with synchronous reset (reset priority over enable)
 			read_data <= mem[read_addr];
 	end
 
-Synchronous read port with synchronous reset (enable priority over reset)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-- Synchronous resets can be combined with any other supported pattern (except that synchronous reset
-  and asynchronous reset cannot be used on a single read port)
-- If block RAM is used and synchronous resets are not natively supported by the target, small
-  emulation circuit will be inserted
+Synchronous reset, enable priority over reset
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code:: verilog
 
@@ -281,11 +398,6 @@ Synchronous read port with synchronous reset (enable priority over reset)
 Synchronous read port with asynchronous reset
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Asynchronous resets can be combined with any other supported pattern (except that synchronous
-  reset and asynchronous reset cannot be used on a single read port)
-- If block RAM is used and asynchronous resets are not natively supported by the target, small
-  emulation circuit will be inserted
-
 .. code:: verilog
 
 	reg [DATA_WIDTH - 1 : 0] mem [2**ADDR_WIDTH - 1 : 0];
@@ -302,44 +414,8 @@ Synchronous read port with asynchronous reset
 			read_data <= mem[read_addr];
 	end
 
-Initial data
-~~~~~~~~~~~~
-
-- Most FPGA targets support initializing all kinds of memory to user-provided values
-- If explicit initialization is not used, initial memory value is undefined
-- Initial data can be provided by either initial statements writing memory cells one by one or
-  $readmemh/$readmemb system tasks
-
-Write port with byte enables
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-- Byte enables can be used with any supported pattern
-- To ensure that multiple writes will be merged into one port, they need to have disjoint bit
-  ranges, have the same address, and the same clock
-- Any write enable granularity will be accepted (down to per-bit write enables), but using smaller
-  granularity than natively supported by the target is very likely to be inefficient (eg. using
-  4-bit bytes on ECP5 will result in either padding the bytes with 5 dummy bits to native 9-bit
-  units or splitting the RAM into two block RAMs)
-
-.. code:: verilog
-
-	reg [31 : 0] mem [2**ADDR_WIDTH - 1 : 0];
-
-	always @(posedge clk) begin
-		if (write_enable[0])
-			mem[write_addr][7:0] <= write_data[7:0];
-		if (write_enable[1])
-			mem[write_addr][15:8] <= write_data[15:8];
-		if (write_enable[2])
-			mem[write_addr][23:16] <= write_data[23:16];
-		if (write_enable[3])
-			mem[write_addr][31:24] <= write_data[31:24];
-		if (read_enable)
-			read_data <= mem[read_addr];
-	end
-
-Asymmetric memory — general notes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Asymmetric memory patterns
+--------------------------
 
 To construct an asymmetric memory (memory with read/write ports of differing widths):
 
@@ -354,13 +430,12 @@ To construct an asymmetric memory (memory with read/write ports of differing wid
   - For read ports, ensure that enable/reset signals are identical (for write ports, the enable
     signal may vary — this will result in using the byte enable functionality)
 
-- Asymmetric memory is supported on all targets, but may require emulation circuitry where not
-  natively supported
-- Note: when the memory is larger than the underlying block RAM primitive, hardware asymmetric
-  memory support is likely not to be used even if present, as this is cheaper
+Asymmetric memory is supported on all targets, but may require emulation circuitry where not
+natively supported.  Note that when the memory is larger than the underlying block RAM primitive,
+hardware asymmetric memory support is likely not to be used even if present as it is more expensive.
 
-Asymmetric memory with wide synchronous read port
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Wide synchronous read port
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code:: verilog
 
@@ -432,8 +507,8 @@ Wide write port
 			read_data <= mem[read_addr];
 	end
 
-True dual port memory — general notes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+True dual port (TDP) patterns
+-----------------------------
 
 - Many different variations of true dual port memory can be created by combining two single-port RAM
   patterns on the same memory
@@ -450,8 +525,8 @@ True dual port memory — general notes
 
   - Priority is not supported when using the verific front end and any priority semantics are ignored.
 
-True Dual Port — different clocks, exclusive read/write
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+TDP with different clocks, exclusive read/write
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code:: verilog
 
@@ -471,8 +546,8 @@ True Dual Port — different clocks, exclusive read/write
 			read_data_b <= mem[addr_b];
 	end
 
-True Dual Port — same clock, read-first behavior
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+TDP with same clock, read-first behavior
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - This requires hardware inter-port read-first behavior, and will only work on some targets (Xilinx, Nexus)
 
@@ -494,8 +569,8 @@ True Dual Port — same clock, read-first behavior
 			read_data_b <= mem[addr_b];
 	end
 
-Multiple read ports
-~~~~~~~~~~~~~~~~~~~
+TDP with multiple read ports
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - The combination of a single write port with an arbitrary amount of read ports is supported on all
   targets — if a multi-read port primitive is available (like Xilinx RAM64M), it'll be used as
@@ -513,79 +588,6 @@ Multiple read ports
 	assign read_data_a = mem[read_addr_a];
 	assign read_data_b = mem[read_addr_b];
 	assign read_data_c = mem[read_addr_c];
-
-Memory kind selection
-~~~~~~~~~~~~~~~~~~~~~
-
-- The memory inference code will automatically pick target memory primitive based on memory geometry
-  and features used.  Depending on the target, there can be up to four memory primitive classes
-  available for selection:
-
-- FF RAM (aka logic): no hardware primitive used, memory lowered to a bunch of FFs and multiplexers
-
-  - Can handle arbitrary number of write ports, as long as all write ports are in the same clock domain
-  - Can handle arbitrary number and kind of read ports
-
-- LUT RAM (aka distributed RAM): uses LUT storage as RAM
-  
-  - Supported on most FPGAs (with notable exception of ice40)
-  - Usually has one synchronous write port, one or more asynchronous read ports
-  - Small
-  - Will never be used for ROMs (lowering to plain LUTs is always better)
-
-- Block RAM: dedicated memory tiles
-
-  - Supported on basically all FPGAs
-  - Supports only synchronous reads
-  - Two ports with separate clocks
-  - Usually supports true dual port (with notable exception of ice40 that only supports SDP)
-  - Usually supports asymmetric memories and per-byte write enables
-  - Several kilobits in size
-
-- Huge RAM:
-
-  - Only supported on several targets:
-    
-    - Some Xilinx UltraScale devices (UltraRAM)
-
-      - Two ports, both with mutually exclusive synchronous read and write
-      - Single clock
-      - Initial data must be all-0
-
-    - Some ice40 devices (SPRAM)
-
-      - Single port with mutually exclusive synchronous read and write
-      - Does not support initial data
-
-    - Nexus (large RAM)
-      
-      - Two ports, both with mutually exclusive synchronous read and write
-      - Single clock
-
-  - Will not be automatically selected by memory inference code, needs explicit opt-in via
-    ram_style attribute
-
-In general, you can expect the automatic selection process to work roughly like this:
-
-- If any read port is asynchronous, only LUT RAM (or FF RAM) can be used.
-- If there is more than one write port, only block RAM can be used, and this needs to be a
-  hardware-supported true dual port pattern
-
-  - … unless all write ports are in the same clock domain, in which case FF RAM can also be used,
-    but this is generally not what you want for anything but really small memories
-
-- Otherwise, either FF RAM, LUT RAM, or block RAM will be used, depending on memory size
-
-This process can be overridden by attaching a ram_style attribute to the memory:
-
-- `(* ram_style = "logic" *)` selects FF RAM
-- `(* ram_style = "distributed" *)` selects LUT RAM
-- `(* ram_style = "block" *)` selects block RAM
-- `(* ram_style = "huge" *)` selects huge RAM
-
-It is an error if this override cannot be realized for the given target.
-
-Many alternate spellings of the attribute are also accepted, for compatibility with other software.
 
 Not yet supported patterns
 --------------------------
@@ -612,7 +614,7 @@ Asymmetric memories via part selection
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - Would require major changes to the Verilog frontend.
-- Build wide ports out of narrow ports instead (see `Asymmetric memory with wide synchronous read port`_)
+- Build wide ports out of narrow ports instead (see `Wide synchronous read port`_)
 
 .. code:: verilog
 
