@@ -120,6 +120,9 @@ struct EdifBackend : public Backend {
 		log("        sets the delimiting character for module port rename clauses to\n");
 		log("        parentheses, square brackets, or angle brackets.\n");
 		log("\n");
+		log("    -lsbidx\n");
+		log("        use index 0 for the LSB bit of a net or port instead of MSB.\n");
+		log("\n");
 		log("Unfortunately there are different \"flavors\" of the EDIF file format. This\n");
 		log("command generates EDIF files for the Xilinx place&route tools. It might be\n");
 		log("necessary to make small modifications to this command when a different tool\n");
@@ -132,6 +135,7 @@ struct EdifBackend : public Backend {
 		std::string top_module_name;
 		bool port_rename = false;
 		bool attr_properties = false;
+		bool lsbidx = false;
 		std::map<RTLIL::IdString, std::map<RTLIL::IdString, int>> lib_cell_ports;
 		bool nogndvcc = false, gndvccy = false, keepmode = false;
 		CellTypes ct(design);
@@ -173,6 +177,10 @@ struct EdifBackend : public Backend {
 				}
 				continue;
 			}
+			if (args[argidx] == "-lsbidx") {
+				lsbidx = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(f, filename, args, argidx);
@@ -184,6 +192,14 @@ struct EdifBackend : public Backend {
 
 		for (auto module : design->modules())
 		{
+			lib_cell_ports[module->name];
+
+			for (auto port : module->ports)
+			{
+				Wire *wire = module->wire(port);
+				lib_cell_ports[module->name][port] = std::max(lib_cell_ports[module->name][port], GetSize(wire));
+			}
+
 			if (module->get_blackbox_attribute())
 				continue;
 
@@ -200,7 +216,7 @@ struct EdifBackend : public Backend {
 				if (design->module(cell->type) == nullptr || design->module(cell->type)->get_blackbox_attribute()) {
 					lib_cell_ports[cell->type];
 					for (auto p : cell->connections())
-						lib_cell_ports[cell->type][p.first] = GetSize(p.second);
+						lib_cell_ports[cell->type][p.first] = std::max(lib_cell_ports[cell->type][p.first], GetSize(p.second));
 				}
 			}
 		}
@@ -437,7 +453,7 @@ struct EdifBackend : public Backend {
 					*f << ")\n";
 					for (int i = 0; i < wire->width; i++) {
 						RTLIL::SigSpec sig = sigmap(RTLIL::SigSpec(wire, i));
-						net_join_db[sig].insert(make_pair(stringf("(portRef (member %s %d))", EDIF_REF(wire->name), GetSize(wire)-i-1), wire->port_input));
+						net_join_db[sig].insert(make_pair(stringf("(portRef (member %s %d))", EDIF_REF(wire->name), lsbidx ? i : GetSize(wire)-i-1), wire->port_input));
 					}
 				}
 			}
@@ -468,13 +484,13 @@ struct EdifBackend : public Backend {
 							log_warning("Bit %d of cell port %s.%s.%s driven by %s will be left unconnected in EDIF output.\n",
 									i, log_id(module), log_id(cell), log_id(p.first), log_signal(sig[i]));
 						else {
-							int member_idx = GetSize(sig)-i-1;
+							int member_idx = lsbidx ? i : GetSize(sig)-i-1;
 							auto m = design->module(cell->type);
 							int width = sig.size();
 							if (m) {
 								auto w = m->wire(p.first);
 								if (w) {
-									member_idx = GetSize(w)-i-1;
+									member_idx = lsbidx ? i : GetSize(w)-i-1;
 									width = GetSize(w);
 								}
 							}
