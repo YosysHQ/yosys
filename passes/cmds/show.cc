@@ -208,7 +208,7 @@ struct ShowWorker
 				str += "&#9586;";
 				continue;
 			}
-			if (ch == '"')
+			if (ch == '"' || ch == '<' || ch == '>')
 				str += "\\";
 			str += ch;
 		}
