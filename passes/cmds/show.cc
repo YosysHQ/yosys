@@ -201,6 +201,12 @@ struct ShowWorker
 		if (id[0] == '\\')
 			id = id.substr(1);
 
+		// TODO: optionally include autoname + print correspondence in case of ambiguity
+		size_t max_label_len = abbreviateIds ? 256 : 16384;
+		if (id.size() > max_label_len) {
+			id = id.substr(0,max_label_len-3) + "...";
+		}
+
 		std::string str;
 		for (char ch : id) {
 			if (ch == '\\') {
