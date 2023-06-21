@@ -91,7 +91,7 @@ struct PruneWorker
 			if (GetSize(new_lhs) == 0) {
 				if (GetSize(conn_lhs) == 0)
 					removed_count++;
-				cs->actions.erase((it++).base() - 1);
+				it = decltype(cs->actions)::reverse_iterator(cs->actions.erase(it.base() - 1));
 			} else {
 				it->first = new_lhs;
 				it->second = new_rhs;
