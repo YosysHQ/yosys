@@ -887,10 +887,10 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 			if (range->children.size() == 1)
 				this_width = 1;
 			else if (!range->range_valid) {
-				AstNode *left_at_zero_ast = children[0]->children[0]->clone();
-				AstNode *right_at_zero_ast = children[0]->children.size() >= 2 ? children[0]->children[1]->clone() : left_at_zero_ast->clone();
-				while (left_at_zero_ast->simplify(true, true, false, 1, -1, false, false)) { }
-				while (right_at_zero_ast->simplify(true, true, false, 1, -1, false, false)) { }
+				AstNode *left_at_zero_ast = children[0]->children[0]->clone_at_zero();
+				AstNode *right_at_zero_ast = children[0]->children.size() >= 2 ? children[0]->children[1]->clone_at_zero() : left_at_zero_ast->clone();
+				while (left_at_zero_ast->simplify(true, false, false, 1, -1, false, false)) { }
+				while (right_at_zero_ast->simplify(true, false, false, 1, -1, false, false)) { }
 				if (left_at_zero_ast->type != AST_CONSTANT || right_at_zero_ast->type != AST_CONSTANT)
 					input_error("Unsupported expression on dynamic range select on signal `%s'!\n", str.c_str());
 				this_width = abs(int(left_at_zero_ast->integer - right_at_zero_ast->integer)) + 1;
@@ -1460,10 +1460,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				}
 
 				if (!children[0]->range_valid) {
-					AstNode *left_at_zero_ast = children[0]->children[0]->clone();
-					AstNode *right_at_zero_ast = children[0]->children.size() >= 2 ? children[0]->children[1]->clone() : left_at_zero_ast->clone();
-					while (left_at_zero_ast->simplify(true, true, false, 1, -1, false, false)) { }
-					while (right_at_zero_ast->simplify(true, true, false, 1, -1, false, false)) { }
+					AstNode *left_at_zero_ast = children[0]->children[0]->clone_at_zero();
+					AstNode *right_at_zero_ast = children[0]->children.size() >= 2 ? children[0]->children[1]->clone_at_zero() : left_at_zero_ast->clone();
+					while (left_at_zero_ast->simplify(true, false, false, 1, -1, false, false)) { }
+					while (right_at_zero_ast->simplify(true, false, false, 1, -1, false, false)) { }
 					if (left_at_zero_ast->type != AST_CONSTANT || right_at_zero_ast->type != AST_CONSTANT)
 						input_error("Unsupported expression on dynamic range select on signal `%s'!\n", str.c_str());
 					int width = abs(int(left_at_zero_ast->integer - right_at_zero_ast->integer)) + 1;

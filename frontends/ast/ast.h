@@ -336,6 +336,10 @@ namespace AST
 		// Helper for looking up identifiers which are prefixed with the current module name
 		std::string try_pop_module_prefix() const;
 
+		// helper to clone the node with some of its subexpressions replaced with zero (this is used
+		// to evaluate widths of dynamic ranges)
+		AstNode *clone_at_zero();
+
 		// helper to print errors from simplify/genrtlil code
 		[[noreturn]] void input_error(const char *format, ...) const YS_ATTRIBUTE(format(printf, 2, 3));
 	};
