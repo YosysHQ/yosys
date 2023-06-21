@@ -773,6 +773,44 @@ static IdentUsage always_asgn_before_use(const AstNode *node, const std::string 
 	return IdentUsage::NotReferenced;
 }
 
+AstNode *AstNode::clone_at_zero()
+{
+	int width_hint;
+	bool sign_hint;
+	AstNode *pointee;
+
+	switch (type) {
+	case AST_IDENTIFIER:
+		if (id2ast)
+			pointee = id2ast;
+		else if (current_scope.count(str))
+			pointee = current_scope[str];
+		else
+			break;
+
+		if (pointee->type != AST_WIRE &&
+				pointee->type != AST_AUTOWIRE &&
+				pointee->type != AST_MEMORY)
+			break;
+
+		YS_FALLTHROUGH;
+	case AST_MEMRD:
+		detectSignWidth(width_hint, sign_hint);
+		return mkconst_int(0, sign_hint, width_hint);
+
+	default:
+		break;
+	}
+
+	AstNode *that = new AstNode;
+	*that = *this;
+	for (auto &it : that->children)
+		it = it->clone_at_zero();
+	for (auto &it : that->attributes)
+		it.second = it.second->clone();
+	return that;
+}
+
 static bool try_determine_range_width(AstNode *range, int &result_width)
 {
 	log_assert(range->type == AST_RANGE);
@@ -782,11 +820,11 @@ static bool try_determine_range_width(AstNode *range, int &result_width)
 		return true;
 	}
 
-	AstNode *left_at_zero_ast = range->children[0]->clone();
-	AstNode *right_at_zero_ast = range->children[1]->clone();
+	AstNode *left_at_zero_ast = range->children[0]->clone_at_zero();
+	AstNode *right_at_zero_ast = range->children[1]->clone_at_zero();
 
-	while (left_at_zero_ast->simplify(true, true, false, 1, -1, false, false)) {}
-	while (right_at_zero_ast->simplify(true, true, false, 1, -1, false, false)) {}
+	while (left_at_zero_ast->simplify(true, false, false, 1, -1, false, false)) {}
+	while (right_at_zero_ast->simplify(true, false, false, 1, -1, false, false)) {}
 
 	bool ok = false;
 	if (left_at_zero_ast->type == AST_CONSTANT
@@ -873,6 +911,8 @@ static void check_auto_nosync(AstNode *node)
 // nodes that link to a different node using names and lexical scoping.
 bool AstNode::simplify(bool const_fold, bool at_zero, bool in_lvalue, int stage, int width_hint, bool sign_hint, bool in_param)
 {
+	log_assert(!at_zero);
+
 	static int recursion_counter = 0;
 	static bool deep_recursion_warning = false;
 
@@ -4201,16 +4241,6 @@ replace_fcall_later:;
 				} else
 				if (current_scope[str]->children[0]->isConst())
 					newNode = current_scope[str]->children[0]->clone();
-			}
-			else if (at_zero && current_scope.count(str) > 0) {
-				AstNode *node = current_scope[str];
-				if (node->type == AST_WIRE || node->type == AST_AUTOWIRE || node->type == AST_MEMORY)
-					newNode = mkconst_int(0, sign_hint, width_hint);
-			}
-			break;
-		case AST_MEMRD:
-			if (at_zero) {
-				newNode = mkconst_int(0, sign_hint, width_hint);
 			}
 			break;
 		case AST_BIT_NOT:
