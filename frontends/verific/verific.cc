@@ -2005,7 +2005,10 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 					initval[i] = State::Sx;
 			}
 
-			if (initval.is_fully_undef())
+			if (wire->port_input) {
+				wire->attributes[ID::defaultvalue] = Const(initval);
+				wire->attributes.erase(ID::init);
+			} else if (initval.is_fully_undef())
 				wire->attributes.erase(ID::init);
 		}
 	}
