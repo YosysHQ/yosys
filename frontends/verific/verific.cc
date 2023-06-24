@@ -1649,6 +1649,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 				cell->parameters[ID::TRANSPARENT] = false;
 				cell->parameters[ID::ABITS] = GetSize(addr);
 				cell->parameters[ID::WIDTH] = GetSize(data);
+				import_attributes(cell->attributes, inst);
 				cell->setPort(ID::CLK, RTLIL::State::Sx);
 				cell->setPort(ID::EN, RTLIL::State::Sx);
 				cell->setPort(ID::ADDR, addr);
@@ -1678,6 +1679,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 				cell->parameters[ID::PRIORITY] = 0;
 				cell->parameters[ID::ABITS] = GetSize(addr);
 				cell->parameters[ID::WIDTH] = GetSize(data);
+				import_attributes(cell->attributes, inst);
 				cell->setPort(ID::EN, RTLIL::SigSpec(net_map_at(inst->GetControl())).repeat(GetSize(data)));
 				cell->setPort(ID::CLK, RTLIL::State::S0);
 				cell->setPort(ID::ADDR, addr);
