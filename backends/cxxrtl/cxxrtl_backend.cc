@@ -292,6 +292,7 @@ struct FlowGraph {
 		Type type;
 		RTLIL::SigSig connect = {};
 		const RTLIL::Cell *cell = nullptr;
+		std::vector<const RTLIL::Cell*> print_sync_cells;
 		const RTLIL::Process *process = nullptr;
 		const Mem *mem = nullptr;
 		int portidx;
@@ -473,11 +474,18 @@ struct FlowGraph {
 
 		Node *node = new Node;
 		node->type = Node::Type::CELL_EVAL;
-		if (cell->type == ID($print) && cell->getParam(ID::TRG_ENABLE).as_bool())
-			node->type = Node::Type::PRINT_SYNC;
 		node->cell = cell;
 		nodes.push_back(node);
 		add_cell_eval_defs_uses(node, cell);
+		return node;
+	}
+
+	Node *add_print_sync_node(std::vector<const RTLIL::Cell*> cells)
+	{
+		Node *node = new Node;
+		node->type = Node::Type::PRINT_SYNC;
+		node->print_sync_cells = cells;
+		nodes.push_back(node);
 		return node;
 	}
 
@@ -1057,8 +1065,12 @@ struct CxxrtlWorker {
 		f << indent << "}\n";
 	}
 
-	void dump_sync_print(const RTLIL::SigSpec &trg, const RTLIL::Const &polarity, std::vector<const RTLIL::Cell*> &cells)
+	void dump_sync_print(std::vector<const RTLIL::Cell*> &cells)
 	{
+		log_assert(!cells.empty());
+		const auto &trg = cells[0]->getPort(ID::TRG);
+		const auto &trg_polarity = cells[0]->getParam(ID::TRG_POLARITY);
+
 		f << indent << "if (";
 		for (int i = 0; i < trg.size(); i++) {
 			RTLIL::SigBit trg_bit = trg[i];
@@ -1068,7 +1080,7 @@ struct CxxrtlWorker {
 			if (i != 0)
 				f << " || ";
 
-			if (polarity[i] == State::S1)
+			if (trg_polarity[i] == State::S1)
 				f << "posedge_";
 			else
 				f << "negedge_";
@@ -1081,6 +1093,9 @@ struct CxxrtlWorker {
 			});
 			for (auto cell : cells) {
 				log_assert(cell->getParam(ID::TRG_ENABLE).as_bool());
+				log_assert(cell->getPort(ID::TRG) == trg);
+				log_assert(cell->getParam(ID::TRG_POLARITY) == trg_polarity);
+
 				std::vector<const RTLIL::Cell*> inlined_cells;
 				collect_cell_eval(cell, /*for_debug=*/false, inlined_cells);
 				dump_inlined_cells(inlined_cells);
@@ -1261,7 +1276,7 @@ struct CxxrtlWorker {
 		} else if (cell->type == ID($print)) {
 			log_assert(!for_debug);
 
-			// Sync $print cells become PRINT_SYNC in the FlowGraph, not CELL_EVAL.
+			// Sync $print cells are grouped into PRINT_SYNC nodes in the FlowGraph.
 			log_assert(!cell->getParam(ID::TRG_ENABLE).as_bool());
 
 			f << indent << "auto " << mangle(cell) << "_curr = ";
@@ -1988,8 +2003,6 @@ struct CxxrtlWorker {
 
 	void dump_eval_method(RTLIL::Module *module)
 	{
-		std::map<std::pair<RTLIL::SigSpec, RTLIL::Const>, std::vector<const RTLIL::Cell*>> sync_print_cells;
-
 		inc_indent();
 			f << indent << "bool converged = " << (eval_converges.at(module) ? "true" : "false") << ";\n";
 			if (!module->get_bool_attribute(ID(cxxrtl_blackbox))) {
@@ -2023,7 +2036,7 @@ struct CxxrtlWorker {
 							dump_cell_eval(node.cell);
 							break;
 						case FlowGraph::Node::Type::PRINT_SYNC:
-							sync_print_cells[make_pair(node.cell->getPort(ID::TRG), node.cell->getParam(ID::TRG_POLARITY))].push_back(node.cell);
+							dump_sync_print(node.print_sync_cells);
 							break;
 						case FlowGraph::Node::Type::PROCESS_CASE:
 							dump_process_case(node.process);
@@ -2039,8 +2052,6 @@ struct CxxrtlWorker {
 							break;
 					}
 				}
-				for (auto &it : sync_print_cells)
-					dump_sync_print(it.first.first, it.first.second, it.second);
 			}
 			f << indent << "return converged;\n";
 		dec_indent();
@@ -2890,9 +2901,22 @@ struct CxxrtlWorker {
 			}
 
 			// Emit reachable nodes in eval().
+			// Accumulate sync $print cells per trigger condition.
+			dict<std::pair<RTLIL::SigSpec, RTLIL::Const>, std::vector<const RTLIL::Cell*>> sync_print_cells;
 			for (auto node : node_order)
-				if (live_nodes[node])
-					schedule[module].push_back(*node);
+				if (live_nodes[node]) {
+					if (node->type == FlowGraph::Node::Type::CELL_EVAL &&
+					    node->cell->type == ID($print) &&
+					    node->cell->getParam(ID::TRG_ENABLE).as_bool())
+						sync_print_cells[make_pair(node->cell->getPort(ID::TRG), node->cell->getParam(ID::TRG_POLARITY))].push_back(node->cell);
+					else
+						schedule[module].push_back(*node);
+				}
+
+			for (auto &it : sync_print_cells) {
+				auto node = flow.add_print_sync_node(it.second);
+				schedule[module].push_back(*node);
+			}
 
 			// For maximum performance, the state of the simulation (which is the same as the set of its double buffered
 			// wires, since using a singly buffered wire for any kind of state introduces a race condition) should contain
