@@ -214,7 +214,7 @@ void Fmt::emit_rtlil(RTLIL::Cell *cell) const {
 	cell->setPort(ID(ARGS), args);
 }
 
-static size_t compute_requried_decimal_places(size_t size, bool signed_)
+static size_t compute_required_decimal_places(size_t size, bool signed_)
 {
 	BigUnsigned max;
 	if (!signed_)
@@ -234,7 +234,7 @@ static size_t compute_requried_decimal_places(size_t size, bool signed_)
 static void apply_verilog_automatic_sizing(FmtPart &part)
 {
 	if (part.base == 10) {
-		size_t places = compute_requried_decimal_places(part.sig.size(), part.signed_);
+		size_t places = compute_required_decimal_places(part.sig.size(), part.signed_);
 		part.padding = ' ';
 		part.width = std::max(part.width, places);
 	} else {
