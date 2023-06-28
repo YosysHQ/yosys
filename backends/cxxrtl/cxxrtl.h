@@ -661,61 +661,6 @@ struct value : public expr_base<value<Bits>> {
 		chunk::type part2 = (x == num.chunks) ? 0 : (num.data[x] << y);
 		return part1 | part2;
 	}
-
-	// parallel to BigInteger::divideWithRemainder; quotient is stored in q,
-	// *this is left with the remainder.  See that function for commentary describing
-	// how/why this works.
-	void signedDivideWithRemainder(const value<Bits> &b, value<Bits> &q) {
-		assert(this != &q);
-
-		if (this == &b || &q == &b) {
-			value<Bits> tmpB(b);
-			signedDivideWithRemainder(tmpB, q);
-			return;
-		}
-
-		if (b.is_zero()) {
-			q = value<Bits>{0u};
-			return;
-		}
-
-		if (is_zero()) {
-			q = value<Bits>{0u};
-			return;
-		}
-
-		// BigInteger has a separate 'mag' to its sign.  We don't, so the lazy
-		// approach is to improvise said.
-		auto mag = *this;
-		bool neg = mag.is_neg();
-		if (neg)
-			mag = mag.neg();
-
-		auto bmag = b;
-		bool bneg = bmag.is_neg();
-		if (bneg)
-			bmag = bmag.neg();
-
-		bool qneg = false;
-		if (neg != b.is_neg()) {
-			qneg = true;
-			mag = mag.sub(value<Bits>{1u});
-		}
-
-		mag.divideWithRemainder(bmag, q);
-
-		if (neg != bneg) {
-			q = q.add(value<Bits>{1u});
-			mag = bmag.sub(mag);
-			mag = mag.sub(value<Bits>{1u});
-		}
-
-		neg = bneg;
-
-		*this = neg ? mag.neg() : mag;
-		if (qneg)
-			q = q.neg();
-	}
 };
 
 // Expression template for a slice, usable as lvalue or rvalue, and composable with other expression templates here.
