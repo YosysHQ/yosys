@@ -606,6 +606,7 @@ std::string Fmt::render() const
 				break;
 
 			case FmtPart::INTEGER:
+			case FmtPart::TIME:
 			case FmtPart::CHARACTER: {
 				std::string buf;
 				if (part.type == FmtPart::INTEGER) {
@@ -689,6 +690,9 @@ std::string Fmt::render() const
 					} else log_abort();
 				} else if (part.type == FmtPart::CHARACTER) {
 					buf = part.sig.as_const().decode_string();
+				} else if (part.type == FmtPart::TIME) {
+					// We only render() during initial, so time is always zero.
+					buf = "0";
 				}
 
 				log_assert(part.width == 0 || part.padding != '\0');
@@ -703,12 +707,6 @@ std::string Fmt::render() const
 				str += buf;
 				if (part.justify == FmtPart::LEFT && buf.size() < part.width)
 					str += std::string(part.width - buf.size(), part.padding);
-				break;
-			}
-
-			case FmtPart::TIME: {
-				// We only render() during initial, so time is always zero.
-				str += "0";
 				break;
 			}
 		}
