@@ -55,12 +55,13 @@ void Fmt::parse_rtlil(RTLIL::Cell *cell) {
 					arg_size *= 10;
 					arg_size += fmt[i] - '0';
 				} else if (fmt[i] == ':') {
+					++i;
 					break;
 				} else {
 					log_assert(false && "Unexpected character in format substitution");
 				}
 			}
-			if (++i == fmt.size())
+			if (i == fmt.size())
 				log_assert(false && "Unexpected end in format substitution");
 
 			if ((size_t)args.size() < arg_size)
