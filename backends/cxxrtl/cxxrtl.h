@@ -1330,7 +1330,10 @@ struct module {
 	virtual bool eval() = 0;
 	virtual bool commit() = 0;
 
+	unsigned int steps = 0;
+
 	size_t step() {
+		++steps;
 		size_t deltas = 0;
 		bool converged = false;
 		do {

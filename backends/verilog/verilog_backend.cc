@@ -1797,6 +1797,12 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 					dump_sigspec(f, arg.sig);
 					f << ")";
 					break;
+				case VerilogFmtArg::TIME:
+					if (arg.realtime)
+						f << "$realtime";
+					else
+						f << "$time";
+					break;
 				default: log_abort();
 			}
 		}

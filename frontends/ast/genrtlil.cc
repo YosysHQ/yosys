@@ -748,6 +748,11 @@ struct AST_INTERNAL::ProcessGenerator
 						// and in case this will be used as an argument...
 						arg.sig = node->bitsAsConst();
 						arg.signed_ = false;
+					} else if (node->type == AST_IDENTIFIER && node->str == "$time") {
+						arg.type = VerilogFmtArg::TIME;
+					} else if (node->type == AST_IDENTIFIER && node->str == "$realtime") {
+						arg.type = VerilogFmtArg::TIME;
+						arg.realtime = true;
 					} else {
 						arg.type = VerilogFmtArg::INTEGER;
 						arg.sig = node->genRTLIL();

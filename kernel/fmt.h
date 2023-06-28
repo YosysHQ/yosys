@@ -30,6 +30,7 @@ struct VerilogFmtArg {
 	enum {
 		STRING  = 0,
 		INTEGER = 1,
+		TIME    = 2,
 	} type;
 
 	// All types
@@ -42,6 +43,9 @@ struct VerilogFmtArg {
 	// INTEGER type
 	RTLIL::SigSpec sig;
 	bool signed_ = false;
+
+	// TIME type
+	bool realtime = false;
 };
 
 // RTLIL format part, such as the substitutions in:
@@ -51,24 +55,31 @@ struct FmtPart {
 		STRING  	= 0,
 		INTEGER 	= 1,
 		CHARACTER = 2,
+		TIME    	= 3,
 	} type;
 
 	// STRING type
 	std::string str;
 
-	// INTEGER/CHARACTER type
+	// INTEGER/CHARACTER types
 	RTLIL::SigSpec sig;
+
+	// INTEGER/CHARACTER/TIME types
 	enum {
 		RIGHT	= 0,
 		LEFT	= 1,
 	} justify = RIGHT;
 	char padding = '\0';
 	size_t width = 0;
+	
 	// INTEGER type
 	unsigned base = 10;
 	bool signed_ = false;
 	bool lzero = false;
 	bool plus = false;
+
+	// TIME type
+	bool realtime = false;
 };
 
 struct Fmt {
