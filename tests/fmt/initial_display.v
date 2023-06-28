@@ -193,6 +193,16 @@ module m;
 	initial $display(":%020b:",   16'shaaaa);
 	initial $display(":%-020b:",  16'shaaaa);
 
+	initial $display("==> time %%t");
+	initial $display(":%t:",      $time);
+	initial $display(":%-t:",     $time);
+	initial $display(":%0t:",     $time);
+	initial $display(":%-0t:",    $time);
+	initial $display(":%10t:",    $time);
+	initial $display(":%-10t:",   $time);
+	initial $display(":%015t:",   $time);
+	initial $display(":%-015t:",  $time);
+
 	initial $display("===> %%s");
 	initial $display(":%10s:", "foo");
 	initial $display(":%010s:", "foo");

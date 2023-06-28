@@ -48,22 +48,27 @@ Fmt AstNode::processFormat(int stage, bool sformat_like, int default_base, size_
 	for (size_t index = first_arg_at; index < children.size(); index++) {
 		AstNode *node_arg = children[index];
 		while (node_arg->simplify(true, false, stage, -1, false, false)) { }
-		if (node_arg->type != AST_CONSTANT)
-			input_error("Failed to evaluate system task `%s' with non-constant argument at position %zu.\n", str.c_str(), index + 1);
 
 		VerilogFmtArg arg = {};
 		arg.filename = filename;
 		arg.first_line = location.first_line;
-		if (node_arg->is_string) {
+		if (node_arg->type == AST_CONSTANT && node_arg->is_string) {
 			arg.type = VerilogFmtArg::STRING;
 			arg.str = node_arg->bitsAsConst().decode_string();
 			// and in case this will be used as an argument...
 			arg.sig = node_arg->bitsAsConst();
 			arg.signed_ = false;
-		} else {
+		} else if (node_arg->type == AST_IDENTIFIER && node_arg->str == "$time") {
+			arg.type = VerilogFmtArg::TIME;
+		} else if (node_arg->type == AST_IDENTIFIER && node_arg->str == "$realtime") {
+			arg.type = VerilogFmtArg::TIME;
+			arg.realtime = true;
+		} else if (node_arg->type == AST_CONSTANT) {
 			arg.type = VerilogFmtArg::INTEGER;
 			arg.sig = node_arg->bitsAsConst();
 			arg.signed_ = node_arg->is_signed;
+		} else {
+			log_file_error(filename, location.first_line, "Failed to evaluate system task `%s' with non-constant argument at position %zu.\n", str.c_str(), index + 1);
 		}
 		args.push_back(arg);
 	}
