@@ -29,7 +29,7 @@ void Fmt::append_string(const std::string &str) {
 	parts.push_back(part);
 }
 
-void Fmt::parse_rtlil(RTLIL::Cell *cell) {
+void Fmt::parse_rtlil(const RTLIL::Cell *cell) {
 	std::string fmt = cell->getParam(ID(FORMAT)).decode_string();
 	RTLIL::SigSpec args = cell->getPort(ID(ARGS));
 	parts.clear();
@@ -463,6 +463,67 @@ std::vector<VerilogFmtArg> Fmt::emit_verilog() const
 
 	args.insert(args.begin(), fmt);
 	return args;
+}
+
+void Fmt::emit_cxxrtl(std::ostream &f, std::function<void(const RTLIL::SigSpec &)> emit_sig) const
+{
+	for (auto &part : parts) {
+		switch (part.type) {
+			case FmtPart::STRING:
+				f << " << \"";
+				for (char c : part.str) {
+					switch (c) {
+						case '\\':
+							YS_FALLTHROUGH
+						case '"':
+							f << '\\' << c;
+							break;
+						case '\a':
+							f << "\\a";
+							break;
+						case '\b':
+							f << "\\b";
+							break;
+						case '\f':
+							f << "\\f";
+							break;
+						case '\n':
+							f << "\\n";
+							break;
+						case '\r':
+							f << "\\r";
+							break;
+						case '\t':
+							f << "\\t";
+							break;
+						case '\v':
+							f << "\\v";
+							break;
+						default:
+							f << c;
+							break;
+					}
+				}
+				f << '"';
+				break;
+
+			case FmtPart::INTEGER:
+			case FmtPart::CHARACTER: {
+				f << " << value_formatted<" << part.sig.size() << ">(";
+				emit_sig(part.sig);
+				f << ", " << (part.type == FmtPart::CHARACTER);
+				f << ", " << (part.justify == FmtPart::LEFT);
+				f << ", (char)" << (int)part.padding;
+				f << ", " << part.width;
+				f << ", " << part.base;
+				f << ", " << part.signed_;
+				f << ", " << part.lzero;
+				f << ", " << part.plus;
+				f << ')';
+				break;
+			}
+		}
+	}
 }
 
 std::string Fmt::render() const

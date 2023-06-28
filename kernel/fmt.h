@@ -76,11 +76,13 @@ struct Fmt {
 
 	void append_string(const std::string &str);
 
-	void parse_rtlil(RTLIL::Cell *cell);
+	void parse_rtlil(const RTLIL::Cell *cell);
 	void emit_rtlil(RTLIL::Cell *cell) const;
 
 	void parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_like, int default_base, RTLIL::IdString task_name, RTLIL::IdString module_name);
 	std::vector<VerilogFmtArg> emit_verilog() const;
+
+	void emit_cxxrtl(std::ostream &f, std::function<void(const RTLIL::SigSpec &)> emit_sig) const;
 
 	std::string render() const;
 };
