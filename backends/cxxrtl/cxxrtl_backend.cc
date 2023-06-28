@@ -3265,7 +3265,8 @@ struct CxxrtlBackend : public Backend {
 		log("\n");
 		log("    -print-output <stream>\n");
 		log("        $print cells in the generated code direct their output to <stream>.\n");
-		log("        if not specified, \"std::cout\" is used.\n");
+		log("        must be one of \"std::cout\", \"std::cerr\". if not specified,\n");
+		log("        \"std::cout\" is used.\n");
 		log("\n");
 		log("    -nohierarchy\n");
 		log("        use design hierarchy as-is. in most designs, a top module should be\n");
@@ -3407,6 +3408,10 @@ struct CxxrtlBackend : public Backend {
 			}
 			if (args[argidx] == "-print-output" && argidx+1 < args.size()) {
 				worker.print_output = args[++argidx];
+				if (!(worker.print_output == "std::cout" || worker.print_output == "std::cerr")) {
+					log_cmd_error("Invalid output stream \"%s\".\n", worker.print_output.c_str());
+					worker.print_output = "std::cout";
+				}
 				continue;
 			}
 			break;
