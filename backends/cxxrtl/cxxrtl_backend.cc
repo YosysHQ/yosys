@@ -282,6 +282,7 @@ struct FlowGraph {
 			CONNECT,
 			CELL_SYNC,
 			CELL_EVAL,
+			PRINT_SYNC,
 			PROCESS_SYNC,
 			PROCESS_CASE,
 			MEM_RDPORT,
@@ -472,6 +473,8 @@ struct FlowGraph {
 
 		Node *node = new Node;
 		node->type = Node::Type::CELL_EVAL;
+		if (cell->type == ID($print) && cell->getParam(ID::TRG_ENABLE).as_bool())
+			node->type = Node::Type::PRINT_SYNC;
 		node->cell = cell;
 		nodes.push_back(node);
 		add_cell_eval_defs_uses(node, cell);
@@ -1043,9 +1046,49 @@ struct CxxrtlWorker {
 		Fmt fmt = {};
 		fmt.parse_rtlil(cell);
 
-		f << indent << print_output;
-		fmt.emit_cxxrtl(f, [this](const RTLIL::SigSpec &sig) { dump_sigspec_rhs(sig); });
-		f << ";\n";
+		f << indent << "if (";
+		dump_sigspec_rhs(cell->getPort(ID::EN));
+		f << " == value<1>{1u}) {\n";
+		inc_indent();
+			f << indent << print_output;
+			fmt.emit_cxxrtl(f, [this](const RTLIL::SigSpec &sig) { dump_sigspec_rhs(sig); });
+			f << ";\n";
+		dec_indent();
+		f << indent << "}\n";
+	}
+
+	void dump_sync_print(const RTLIL::SigSpec &trg, const RTLIL::Const &polarity, std::vector<const RTLIL::Cell*> &cells)
+	{
+		f << indent << "if (";
+		for (int i = 0; i < trg.size(); i++) {
+			RTLIL::SigBit trg_bit = trg[i];
+			trg_bit = sigmaps[trg_bit.wire->module](trg_bit);
+			log_assert(trg_bit.wire);
+
+			if (i != 0)
+				f << " || ";
+
+			if (polarity[i] == State::S1)
+				f << "posedge_";
+			else
+				f << "negedge_";
+			f << mangle(trg_bit);
+		}
+		f << ") {\n";
+		inc_indent();
+			std::sort(cells.begin(), cells.end(), [](const RTLIL::Cell *a, const RTLIL::Cell *b) {
+				return a->getParam(ID::PRIORITY).as_int() > b->getParam(ID::PRIORITY).as_int();
+			});
+			for (auto cell : cells) {
+				log_assert(cell->getParam(ID::TRG_ENABLE).as_bool());
+				std::vector<const RTLIL::Cell*> inlined_cells;
+				collect_cell_eval(cell, /*for_debug=*/false, inlined_cells);
+				dump_inlined_cells(inlined_cells);
+				dump_print(cell);
+			}
+		dec_indent();
+
+		f << indent << "}\n";
 	}
 
 	void dump_inlined_cells(const std::vector<const RTLIL::Cell*> &cells)
@@ -1218,47 +1261,21 @@ struct CxxrtlWorker {
 		} else if (cell->type == ID($print)) {
 			log_assert(!for_debug);
 
-			auto trg_enable = cell->getParam(ID::TRG_ENABLE).as_bool();
+			// Sync $print cells become PRINT_SYNC in the FlowGraph, not CELL_EVAL.
+			log_assert(!cell->getParam(ID::TRG_ENABLE).as_bool());
 
-			if (!trg_enable) {
-				f << indent << "auto " << mangle(cell) << "_curr = ";
-				dump_sigspec_rhs(cell->getPort(ID::EN));
-				f << ".concat(";
-				dump_sigspec_rhs(cell->getPort(ID::ARGS));
-				f << ").val();\n";
-			}
-
-			f << indent << "if (";
-			if (trg_enable) {
-				f << '(';
-				for (size_t i = 0; i < (size_t)cell->getParam(ID::TRG_WIDTH).as_int(); i++) {
-					RTLIL::SigBit trg_bit = cell->getPort(ID::TRG)[i];
-					trg_bit = sigmaps[trg_bit.wire->module](trg_bit);
-					log_assert(trg_bit.wire);
-
-					if (i != 0)
-						f << " || ";
-
-					if (cell->getParam(ID::TRG_POLARITY)[i] == State::S1)
-						f << "posedge_";
-					else
-						f << "negedge_";
-					f << mangle(trg_bit);
-				}
-				f << ") && ";
-			} else {
-				f << mangle(cell) << " != " << mangle(cell) << "_curr && ";
-			}
+			f << indent << "auto " << mangle(cell) << "_curr = ";
 			dump_sigspec_rhs(cell->getPort(ID::EN));
-			f << " == value<1>{1u}) {\n";
+			f << ".concat(";
+			dump_sigspec_rhs(cell->getPort(ID::ARGS));
+			f << ").val();\n";
+
+			f << indent << "if (" << mangle(cell) << " != " << mangle(cell) << "_curr) {\n";
 			inc_indent();
 				dump_print(cell);
+				f << indent << mangle(cell) << " = " << mangle(cell) << "_curr;\n";
 			dec_indent();
 			f << indent << "}\n";
-
-			if (!trg_enable) {
-				f << indent << mangle(cell) << " = " << mangle(cell) << "_curr;\n";
-			}
 		// Flip-flops
 		} else if (is_ff_cell(cell->type)) {
 			log_assert(!for_debug);
@@ -1971,6 +1988,8 @@ struct CxxrtlWorker {
 
 	void dump_eval_method(RTLIL::Module *module)
 	{
+		std::map<std::pair<RTLIL::SigSpec, RTLIL::Const>, std::vector<const RTLIL::Cell*>> sync_print_cells;
+
 		inc_indent();
 			f << indent << "bool converged = " << (eval_converges.at(module) ? "true" : "false") << ";\n";
 			if (!module->get_bool_attribute(ID(cxxrtl_blackbox))) {
@@ -2003,6 +2022,9 @@ struct CxxrtlWorker {
 						case FlowGraph::Node::Type::CELL_EVAL:
 							dump_cell_eval(node.cell);
 							break;
+						case FlowGraph::Node::Type::PRINT_SYNC:
+							sync_print_cells[make_pair(node.cell->getPort(ID::TRG), node.cell->getParam(ID::TRG_POLARITY))].push_back(node.cell);
+							break;
 						case FlowGraph::Node::Type::PROCESS_CASE:
 							dump_process_case(node.process);
 							break;
@@ -2017,6 +2039,8 @@ struct CxxrtlWorker {
 							break;
 					}
 				}
+				for (auto &it : sync_print_cells)
+					dump_sync_print(it.first.first, it.first.second, it.second);
 			}
 			f << indent << "return converged;\n";
 		dec_indent();
@@ -2808,6 +2832,8 @@ struct CxxrtlWorker {
 			for (auto node : flow.nodes) {
 				if (node->type == FlowGraph::Node::Type::CELL_EVAL && is_effectful_cell(node->cell->type))
 					worklist.insert(node); // node has effects
+				else if (node->type == FlowGraph::Node::Type::PRINT_SYNC)
+					worklist.insert(node); // node is sync $print
 				else if (node->type == FlowGraph::Node::Type::MEM_WRPORTS)
 					worklist.insert(node); // node is memory write
 				else if (node->type == FlowGraph::Node::Type::PROCESS_SYNC && is_memwr_process(node->process))

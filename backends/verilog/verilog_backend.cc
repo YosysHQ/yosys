@@ -1006,7 +1006,7 @@ void dump_cell_expr_binop(std::ostream &f, std::string indent, RTLIL::Cell *cell
 	f << stringf(";\n");
 }
 
-void dump_cell_expr_print(std::ostream &f, std::string indent, RTLIL::Cell *cell)
+void dump_cell_expr_print(std::ostream &f, std::string indent, const RTLIL::Cell *cell)
 {
 	Fmt fmt = {};
 	fmt.parse_rtlil(cell);
@@ -1893,7 +1893,7 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 	}
 }
 
-void dump_sync_print(std::ostream &f, std::string indent, const RTLIL::SigSpec &trg, const RTLIL::Const &polarity, std::vector<RTLIL::Cell*> &cells)
+void dump_sync_print(std::ostream &f, std::string indent, const RTLIL::SigSpec &trg, const RTLIL::Const &polarity, std::vector<const RTLIL::Cell*> &cells)
 {
 	f << stringf("%s" "always @(", indent.c_str());
 	for (int i = 0; i < trg.size(); i++) {
@@ -2102,7 +2102,7 @@ void dump_process(std::ostream &f, std::string indent, RTLIL::Process *proc, boo
 
 void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 {
-	std::map<std::pair<RTLIL::SigSpec, RTLIL::Const>, std::vector<RTLIL::Cell*>> sync_print_cells;
+	std::map<std::pair<RTLIL::SigSpec, RTLIL::Const>, std::vector<const RTLIL::Cell*>> sync_print_cells;
 
 	reg_wires.clear();
 	reset_auto_counter(module);

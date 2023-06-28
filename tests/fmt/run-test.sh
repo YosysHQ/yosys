@@ -50,7 +50,7 @@ test_roundtrip bin_signed -DBASE_HEX -DSIGN="signed"
 test_cxxrtl () {
 	local subtest=$1; shift
 
-	../../yosys -p "read_verilog ${subtest}.v; write_cxxrtl -print-output std::cerr yosys-${subtest}.cc"
+	../../yosys -p "read_verilog ${subtest}.v; proc; clean; write_cxxrtl -print-output std::cerr yosys-${subtest}.cc"
 	${CC:-gcc} -std=c++11 -o yosys-${subtest} -I../.. ${subtest}_tb.cc -lstdc++
 	./yosys-${subtest} 2>yosys-${subtest}.log
 	iverilog -o iverilog-${subtest} ${subtest}.v ${subtest}_tb.v
