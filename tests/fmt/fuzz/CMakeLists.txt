@@ -17,7 +17,6 @@ add_executable(
     x_test
     x_test.cc
     ../../../libs/bigint/BigUnsigned.cc
-    ../../../libs/bigint/BigInteger.cc
 )
 
 link_fuzztest(x_test)
