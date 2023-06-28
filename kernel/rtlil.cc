@@ -1724,6 +1724,7 @@ namespace {
 				param(ID(FORMAT));
 				param_bool(ID::TRG_ENABLE);
 				param(ID::TRG_POLARITY);
+				param(ID::PRIORITY);
 				port(ID::EN, 1);
 				port(ID::TRG, param(ID::TRG_WIDTH));
 				port(ID::ARGS, param(ID::ARGS_WIDTH));

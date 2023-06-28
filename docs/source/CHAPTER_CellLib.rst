@@ -644,7 +644,7 @@ has the following parameters:
 	True if triggered on specific signals defined in ``\TRG``; false if
 	triggered whenever ``\ARGS`` or ``\EN`` change and ``\EN`` is 1.
 
-If ``\TRG_ENABLE`` is true, the following parameters are also set:
+If ``\TRG_ENABLE`` is true, the following parameters also apply:
 
 ``\TRG_WIDTH``
 	The number of bits in the ``\TRG`` port.
@@ -652,6 +652,10 @@ If ``\TRG_ENABLE`` is true, the following parameters are also set:
 ``\TRG_POLARITY``
 	For each bit in ``\TRG``, 1 if that signal is positive-edge triggered, 0 if
 	negative-edge triggered.
+
+``\PRIORITY``
+	When multiple ``$print`` cells fire on the same trigger, they execute in
+	descending priority order.
 
 Ports:
 
