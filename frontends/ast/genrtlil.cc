@@ -315,7 +315,10 @@ struct AST_INTERNAL::ProcessGenerator
 	// Buffer for generating the init action
 	RTLIL::SigSpec init_lvalue, init_rvalue;
 
-	ProcessGenerator(AstNode *always, RTLIL::SigSpec initSyncSignalsArg = RTLIL::SigSpec()) : always(always), initSyncSignals(initSyncSignalsArg)
+	// The most recently assigned $print cell \PRIORITY.
+	int last_print_priority;
+
+	ProcessGenerator(AstNode *always, RTLIL::SigSpec initSyncSignalsArg = RTLIL::SigSpec()) : always(always), initSyncSignals(initSyncSignalsArg), last_print_priority(0)
 	{
 		// rewrite lookahead references
 		LookaheadRewriter la_rewriter(always);
@@ -716,6 +719,7 @@ struct AST_INTERNAL::ProcessGenerator
 				cell->parameters[ID::TRG_WIDTH] = triggers.size();
 				cell->parameters[ID::TRG_ENABLE] = !triggers.empty();
 				cell->parameters[ID::TRG_POLARITY] = polarity;
+				cell->parameters[ID::PRIORITY] = --last_print_priority;
 				cell->setPort(ID::TRG, triggers);
 
 				Wire *wire = current_module->addWire(sstr.str() + "_EN", 1);

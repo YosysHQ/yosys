@@ -1805,6 +1805,7 @@ module \$print (EN, TRG, ARGS);
 
 parameter FORMAT = "";
 parameter ARGS_WIDTH = 0;
+parameter PRIORITY = 0;
 parameter TRG_ENABLE = 1;
 
 parameter TRG_WIDTH = 0;
