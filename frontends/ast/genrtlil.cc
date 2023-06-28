@@ -700,7 +700,7 @@ struct AST_INTERNAL::ProcessGenerator
 				sstr << ast->str << "$" << ast->filename << ":" << ast->location.first_line << "$" << (autoidx++);
 
 				RTLIL::Cell *cell = current_module->addCell(sstr.str(), ID($print));
-				cell->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", ast->filename.c_str(), ast->location.first_line, ast->location.first_column, ast->location.last_line, ast->location.last_column);
+				set_src_attr(cell, ast);
 
 				RTLIL::SigSpec triggers;
 				RTLIL::Const polarity;
@@ -719,7 +719,7 @@ struct AST_INTERNAL::ProcessGenerator
 				cell->setPort(ID::TRG, triggers);
 
 				Wire *wire = current_module->addWire(sstr.str() + "_EN", 1);
-				wire->attributes[ID::src] = stringf("%s:%d.%d-%d.%d", ast->filename.c_str(), ast->location.first_line, ast->location.first_column, ast->location.last_line, ast->location.last_column);
+				set_src_attr(wire, ast);
 				cell->setPort(ID::EN, wire);
 
 				proc->root_case.actions.push_back(SigSig(wire, false));
