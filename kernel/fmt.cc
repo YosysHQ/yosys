@@ -183,9 +183,10 @@ void Fmt::emit_rtlil(RTLIL::Cell *cell) const {
 				else if (part.justify == FmtPart::LEFT)
 					fmt += '<';
 				else log_abort();
-				log_assert(part.padding == '0' || part.padding == ' ');
-				fmt += part.padding;
-				fmt += std::to_string(part.width);
+				log_assert(part.width == 0 || part.padding != '\0');
+				fmt += part.padding != '\0' ? part.padding : ' ';
+				if (part.width > 0)
+					fmt += std::to_string(part.width);
 				if (part.type == FmtPart::INTEGER) {
 					switch (part.base) {
 						case  2: fmt += 'b'; break;
