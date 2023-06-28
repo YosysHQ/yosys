@@ -46,3 +46,10 @@ test_roundtrip oct_unsigned -DBASE_HEX -DSIGN=""
 test_roundtrip oct_signed -DBASE_HEX -DSIGN="signed"
 test_roundtrip bin_unsigned -DBASE_HEX -DSIGN=""
 test_roundtrip bin_signed -DBASE_HEX -DSIGN="signed"
+
+../../yosys -p "read_verilog always_full.v; write_cxxrtl yosys-always_full.cc"
+${CXX:-g++} -o yosys-always_full -I../.. always_full_tb.cc
+./yosys-always_full >yosys-always_full.log
+iverilog -o iverilog-always_full always_full.v always_full_tb.v
+./iverilog-always_full | awk '/<<<BEGIN>>>/,/<<<END>>>/ {print $0}' >iverilog-always_full.log
+diff iverilog-always_full.log yosys-always_full.log

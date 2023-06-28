@@ -45,7 +45,7 @@ struct VerilogFmtArg {
 };
 
 // RTLIL format part, such as the substitutions in:
-//   "foo {4: 4du} bar {2:01xs}"
+//   "foo {4:> 4du} bar {2:<01hs}"
 struct FmtPart {
 	enum {
 		STRING  	= 0,
