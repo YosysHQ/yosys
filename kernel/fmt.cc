@@ -107,9 +107,10 @@ void Fmt::parse_rtlil(RTLIL::Cell *cell) {
 				} else {
 					log_assert(false && "Unexpected character in format substitution");
 				}
+				++i;
 				break;
 			}
-			if (++i == fmt.size())
+			if (i == fmt.size())
 				log_assert(false && "Unexpected end in format substitution");
 
 			if (part.type == FmtPart::INTEGER) {
