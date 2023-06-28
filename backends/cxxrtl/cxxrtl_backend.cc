@@ -1219,12 +1219,13 @@ struct CxxrtlWorker {
 			log_assert(!for_debug);
 
 			auto trg_enable = cell->getParam(ID::TRG_ENABLE).as_bool();
-			static int cell_counter = 0;
+
 			if (!trg_enable) {
-				++cell_counter;
-				f << indent << "static bool last_print_" << cell_counter << "_known = false;\n";
-				f << indent << "static value<1> last_print_" << cell_counter << "_en;\n";
-				f << indent << "static value<" << cell->getPort(ID::ARGS).size() << "> last_print_" << cell_counter << "_args;\n";
+				f << indent << "auto " << mangle(cell) << "_curr = ";
+				dump_sigspec_rhs(cell->getPort(ID::EN));
+				f << ".concat(";
+				dump_sigspec_rhs(cell->getPort(ID::ARGS));
+				f << ").val();\n";
 			}
 
 			f << indent << "if (";
@@ -1246,16 +1247,7 @@ struct CxxrtlWorker {
 				}
 				f << ") && ";
 			} else {
-				f << '(';
-					f << "!last_print_" << cell_counter << "_known || ";
-					f << '(';
-						f << "last_print_" << cell_counter << "_en != ";
-						dump_sigspec_rhs(cell->getPort(ID::EN));
-
-						f << " || last_print_" << cell_counter << "_args != ";
-						dump_sigspec_rhs(cell->getPort(ID::ARGS));
-					f << ')';
-				f << ") && ";
+				f << mangle(cell) << " != " << mangle(cell) << "_curr && ";
 			}
 			dump_sigspec_rhs(cell->getPort(ID::EN));
 			f << " == value<1>{1u}) {\n";
@@ -1265,13 +1257,7 @@ struct CxxrtlWorker {
 			f << indent << "}\n";
 
 			if (!trg_enable) {
-				f << indent << "last_print_" << cell_counter << "_known = true;\n";
-				f << indent << "last_print_" << cell_counter << "_en = ";
-				dump_sigspec_rhs(cell->getPort(ID::EN));
-				f << ";\n";
-				f << indent << "last_print_" << cell_counter << "_args = ";
-				dump_sigspec_rhs(cell->getPort(ID::ARGS));
-				f << ";\n";
+				f << indent << mangle(cell) << " = " << mangle(cell) << "_curr;\n";
 			}
 		// Flip-flops
 		} else if (is_ff_cell(cell->type)) {
@@ -2362,6 +2348,11 @@ struct CxxrtlWorker {
 					f << "\n";
 				bool has_cells = false;
 				for (auto cell : module->cells()) {
+					if (cell->type == ID($print) && !cell->getParam(ID::TRG_ENABLE).as_bool()) {
+						// comb $print cell -- store the last EN/ARGS values to know when they change.
+						dump_attrs(cell);
+						f << indent << "value<" << (1 + cell->getParam(ID::ARGS_WIDTH).as_int()) << "> " << mangle(cell) << ";\n";
+					}
 					if (is_internal_cell(cell->type))
 						continue;
 					dump_attrs(cell);
