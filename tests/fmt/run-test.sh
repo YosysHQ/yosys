@@ -2,15 +2,15 @@
 
 set -ex
 
-../../yosys initial_display.v | awk '/<<<BEGIN>>>/,/<<<END>>>/ {print $0}' >yosys-initial_display.log
+../../yosys -p 'read_verilog initial_display.v' | awk '/<<<BEGIN>>>/,/<<<END>>>/ {print $0}' >yosys-initial_display.log
 iverilog -o iverilog-initial_display initial_display.v
 ./iverilog-initial_display >iverilog-initial_display.log
 diff yosys-initial_display.log iverilog-initial_display.log
 
 test_always_display () {
 	local subtest=$1; shift
-	../../yosys $* always_display.v -p 'proc; opt_expr -mux_bool; clean' -o yosys-always_display-${subtest}-1.v
-	../../yosys yosys-always_display-${subtest}-1.v -p 'proc; opt_expr -mux_bool; clean' -o yosys-always_display-${subtest}-2.v
+	../../yosys -p "read_verilog $* always_display.v; proc; opt_expr -mux_bool; clean" -o yosys-always_display-${subtest}-1.v
+	../../yosys -p "read_verilog yosys-always_display-${subtest}-1.v; proc; opt_expr -mux_bool; clean" -o yosys-always_display-${subtest}-2.v
 	diff yosys-always_display-${subtest}-1.v yosys-always_display-${subtest}-2.v
 }
 
@@ -24,8 +24,8 @@ test_always_display star_en -DEVENT_STAR -DCOND_EN
 
 test_roundtrip () {
 	local subtest=$1; shift
-	../../yosys $* roundtrip.v -p 'proc; clean' -o yosys-roundtrip-${subtest}-1.v
-	../../yosys yosys-roundtrip-${subtest}-1.v -p 'proc; clean' -o yosys-roundtrip-${subtest}-2.v
+	../../yosys -p "read_verilog $* roundtrip.v; proc; clean" -o yosys-roundtrip-${subtest}-1.v
+	../../yosys -p "read_verilog yosys-roundtrip-${subtest}-1.v; proc; clean" -o yosys-roundtrip-${subtest}-2.v
 	diff yosys-roundtrip-${subtest}-1.v yosys-roundtrip-${subtest}-2.v
 
 	iverilog $* -o iverilog-roundtrip-${subtest} roundtrip.v roundtrip_tb.v
