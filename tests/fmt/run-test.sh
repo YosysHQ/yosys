@@ -48,7 +48,7 @@ test_roundtrip bin_unsigned -DBASE_HEX -DSIGN=""
 test_roundtrip bin_signed -DBASE_HEX -DSIGN="signed"
 
 ../../yosys -p "read_verilog always_full.v; write_cxxrtl -print-output std::cerr yosys-always_full.cc"
-${CC:-gcc} -o yosys-always_full -I../.. always_full_tb.cc -lstdc++
+${CC:-gcc} -std=c++11 -o yosys-always_full -I../.. always_full_tb.cc -lstdc++
 ./yosys-always_full 2>yosys-always_full.log
 iverilog -o iverilog-always_full always_full.v always_full_tb.v
 ./iverilog-always_full | awk '/<<<BEGIN>>>/,/<<<END>>>/ {print $0}' >iverilog-always_full.log
@@ -56,7 +56,7 @@ diff iverilog-always_full.log yosys-always_full.log
 
 ../../yosys -p "read_verilog display_lm.v" >yosys-display_lm.log
 ../../yosys -p "read_verilog display_lm.v; write_cxxrtl yosys-display_lm.cc"
-${CC:-gcc} -o yosys-display_lm_cc -I../.. display_lm_tb.cc -lstdc++
+${CC:-gcc} -std=c++11 -o yosys-display_lm_cc -I../.. display_lm_tb.cc -lstdc++
 ./yosys-display_lm_cc >yosys-display_lm_cc.log
 for log in yosys-display_lm.log yosys-display_lm_cc.log; do
 	grep "^%l: \\\\bot\$" "$log"
