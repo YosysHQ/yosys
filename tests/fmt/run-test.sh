@@ -61,6 +61,12 @@ test_cxxrtl () {
 test_cxxrtl always_full
 test_cxxrtl always_comb
 
+# Ensure Verilog backend preserves behaviour of always block with multiple $displays.
+../../yosys -p "read_verilog always_full.v; prep; clean" -o yosys-always_full-1.v
+iverilog -o iverilog-always_full-1 yosys-always_full-1.v always_full_tb.v
+./iverilog-always_full-1 |grep -v '\$finish called' >iverilog-always_full-1.log
+diff iverilog-always_full.log iverilog-always_full-1.log
+
 ../../yosys -p "read_verilog display_lm.v" >yosys-display_lm.log
 ../../yosys -p "read_verilog display_lm.v; write_cxxrtl yosys-display_lm.cc"
 ${CC:-gcc} -std=c++11 -o yosys-display_lm_cc -I../.. display_lm_tb.cc -lstdc++
