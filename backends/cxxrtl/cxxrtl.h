@@ -905,10 +905,7 @@ std::ostream &operator<<(std::ostream &os, const value_formatted<Bits> &vf)
 				buf += '0';
 			while (!val.is_zero()) {
 				value<Bits> quotient;
-				if (negative)
-					val.signedDivideWithRemainder(value<Bits>{10u}, quotient);
-				else
-					val.divideWithRemainder(value<Bits>{10u}, quotient);
+				val.divideWithRemainder(value<Bits>{10u}, quotient);
 				buf += '0' + val.template slice<3, 0>().val().template get<uint8_t>();
 				val = quotient;
 			}
