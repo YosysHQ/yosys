@@ -36,11 +36,13 @@ void Fmt::parse_rtlil(RTLIL::Cell *cell) {
 
 	FmtPart part;
 	for (size_t i = 0; i < fmt.size(); i++) {
-		if (fmt.substr(i, 2) == "}}")
+		if (fmt.substr(i, 2) == "}}") {
 			part.str += '}';
-		else if (fmt.substr(i, 2) == "{{")
+			++i;
+		} else if (fmt.substr(i, 2) == "{{") {
 			part.str += '{';
-		else if (fmt[i] == '}')
+			++i;
+		} else if (fmt[i] == '}')
 			log_assert(false && "Unexpected '}' in format string");
 		else if (fmt[i] == '{') {
 			if (!part.str.empty()) {
