@@ -4,12 +4,7 @@
 int main()
 {
 	cxxrtl_design::p_always__full uut;
-
-	while (true) {
-		uut.p_clk.set(!uut.p_clk);
-		uut.step();
-
-		if (uut.p_fin.get<bool>())
-			return 0;
-	}
+	uut.p_clk.set(!uut.p_clk);
+	uut.step();
+	return 0;
 }

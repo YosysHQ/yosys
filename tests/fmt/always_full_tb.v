@@ -1,14 +1,12 @@
 module always_full_tb;
 
     reg clk = 0;
-    wire fin;
 
-    always_full uut (.clk(clk), .fin(fin));
+    always_full uut (.clk(clk));
 
     always begin
         #1 clk <= ~clk;
-
-        if (fin) $finish;
+        #1 $finish;
     end
 
 endmodule
