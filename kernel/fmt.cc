@@ -51,8 +51,11 @@ void Fmt::parse_rtlil(const RTLIL::Cell *cell) {
 				part = {};
 			}
 
+			if (++i == fmt.size())
+				log_assert(false && "Unexpected end in format substitution");
+
 			size_t arg_size = 0;
-			for (++i; i < fmt.size(); i++) {
+			for (; i < fmt.size(); i++) {
 				if (fmt[i] >= '0' && fmt[i] <= '9') {
 					arg_size *= 10;
 					arg_size += fmt[i] - '0';
@@ -106,6 +109,11 @@ void Fmt::parse_rtlil(const RTLIL::Cell *cell) {
 					part.base = 16;
 				} else if (fmt[i] == 'c') {
 					part.type = FmtPart::CHARACTER;
+				} else if (fmt[i] == 't') {
+					part.type = FmtPart::TIME;
+				} else if (fmt[i] == 'r') {
+					part.type = FmtPart::TIME;
+					part.realtime = true;
 				} else {
 					log_assert(false && "Unexpected character in format substitution");
 				}
@@ -170,6 +178,9 @@ void Fmt::emit_rtlil(RTLIL::Cell *cell) const {
 				}
 				break;
 
+			case FmtPart::TIME:
+				log_assert(part.sig.size() == 0);
+				YS_FALLTHROUGH
 			case FmtPart::CHARACTER:
 				log_assert(part.sig.size() % 8 == 0);
 				YS_FALLTHROUGH
@@ -202,6 +213,11 @@ void Fmt::emit_rtlil(RTLIL::Cell *cell) const {
 					fmt += part.signed_ ? 's' : 'u';
 				} else if (part.type == FmtPart::CHARACTER) {
 					fmt += 'c';
+				} else if (part.type == FmtPart::TIME) {
+					if (part.realtime)
+						fmt += 'r';
+					else
+						fmt += 't';
 				} else log_abort();
 				fmt += '}';
 				break;
@@ -339,6 +355,15 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 										part.sig.extend_u0((part.sig.size() + 7) / 8 * 8);
 									// %10s and %010s not fully defined in IEEE 1800-2017 and do the same thing in iverilog
 									part.padding = ' ';
+								} else if (fmt[i] == 't' || fmt[i] == 'T') {
+									if (arg->type == VerilogFmtArg::TIME) {
+										part.type = FmtPart::TIME;
+										part.realtime = arg->realtime;
+										if (!has_width && !has_leading_zero)
+											part.width = 20;
+									} else {
+										log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with format character `%c' in argument %zu, but the argument is not $time or $realtime.\n", task_name.c_str(), fmt[i], fmtarg - args.begin() + 1);
+									}
 								} else {
 									log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with unrecognized format character `%c' in argument %zu.\n", task_name.c_str(), fmt[i], fmtarg - args.begin() + 1);
 								}
@@ -458,6 +483,28 @@ std::vector<VerilogFmtArg> Fmt::emit_verilog() const
 				}
 				break;
 			}
+
+			case FmtPart::TIME: {
+				VerilogFmtArg arg;
+				arg.type = VerilogFmtArg::TIME;
+				if (part.realtime)
+					arg.realtime = true;
+				args.push_back(arg);
+
+				fmt.str += '%';
+				if (part.plus)
+					fmt.str += '+';
+				if (part.justify == FmtPart::LEFT)
+					fmt.str += '-';
+				log_assert(part.padding == ' ' || part.padding == '0');
+				if (part.padding == '0' && part.width > 0)
+					fmt.str += '0';
+				fmt.str += std::to_string(part.width);
+				fmt.str += 't';
+				break;
+			}
+
+			default: log_abort();
 		}
 	}
 
@@ -522,6 +569,25 @@ void Fmt::emit_cxxrtl(std::ostream &f, std::function<void(const RTLIL::SigSpec &
 				f << ')';
 				break;
 			}
+
+			case FmtPart::TIME: {
+				// CXXRTL only records steps taken, so there's no difference between
+				// the values taken by $time and $realtime.
+				f << " << value_formatted<64>(";
+				f << "value<64>{steps}";
+				f << ", " << (part.type == FmtPart::CHARACTER);
+				f << ", " << (part.justify == FmtPart::LEFT);
+				f << ", (char)" << (int)part.padding;
+				f << ", " << part.width;
+				f << ", " << part.base;
+				f << ", " << part.signed_;
+				f << ", " << part.lzero;
+				f << ", " << part.plus;
+				f << ')';
+				break;
+			}
+
+			default: log_abort();
 		}
 	}
 }
@@ -634,6 +700,12 @@ std::string Fmt::render() const
 				str += buf;
 				if (part.justify == FmtPart::LEFT && buf.size() < part.width)
 					str += std::string(part.width - buf.size(), part.padding);
+				break;
+			}
+
+			case FmtPart::TIME: {
+				// We only render() during initial, so time is always zero.
+				str += "0";
 				break;
 			}
 		}

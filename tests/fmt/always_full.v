@@ -202,34 +202,44 @@ module always_full(input clk, output reg fin);
 		if (counter == 176) $display(":%020b:",   16'shaaaa);
 		if (counter == 177) $display(":%-020b:",  16'shaaaa);
 
-		if (counter == 178) $display("===> %%s");
-		if (counter == 179) $display(":%10s:", "foo");
-		if (counter == 180) $display(":%010s:", "foo");
-		if (counter == 181) $display(":%-10s:", "foo");
-		if (counter == 182) $display(":%-010s:", "foo");
+		if (counter == 178) $display("==> time %%t");
+		if (counter == 179) $display(":%t:",      $time);
+		if (counter == 180) $display(":%-t:",     $time);
+		if (counter == 181) $display(":%0t:",     $time);
+		if (counter == 182) $display(":%-0t:",    $time);
+		if (counter == 183) $display(":%10t:",    $time);
+		if (counter == 184) $display(":%-10t:",   $time);
+		if (counter == 185) $display(":%015t:",   $time);
+		if (counter == 186) $display(":%-015t:",  $time);
 
-		if (counter == 183) $display("===> %%c");
-		if (counter == 184) $display(":%10c:", "foo");
-		if (counter == 185) $display(":%010c:", "foo");
-		if (counter == 186) $display(":%-10c:", "foo");
-		if (counter == 187) $display(":%-010c:", "foo");
+		if (counter == 187) $display("===> %%s");
+		if (counter == 188) $display(":%10s:", "foo");
+		if (counter == 189) $display(":%010s:", "foo");
+		if (counter == 190) $display(":%-10s:", "foo");
+		if (counter == 191) $display(":%-010s:", "foo");
 
-		if (counter == 188) $display("==> aliases");
-		if (counter == 189) $display(":%x:",      16'shaa);
-		if (counter == 190) $display(":%X:",      16'shaa);
-		if (counter == 191) $display(":%H:",      16'shaa);
-		if (counter == 192) $display(":%O:",      16'shaa);
-		if (counter == 193) $display(":%B:",      16'shaa);
+		if (counter == 192) $display("===> %%c");
+		if (counter == 193) $display(":%10c:", "foo");
+		if (counter == 194) $display(":%010c:", "foo");
+		if (counter == 195) $display(":%-10c:", "foo");
+		if (counter == 196) $display(":%-010c:", "foo");
 
-		if (counter == 194) $display("==> default base");
-		if (counter == 195) $displayh(16'haa);
-		if (counter == 196) $displayo(16'haa);
-		if (counter == 197) $displayb(16'haa);
+		if (counter == 197) $display("==> aliases");
+		if (counter == 198) $display(":%x:",      16'shaa);
+		if (counter == 199) $display(":%X:",      16'shaa);
+		if (counter == 200) $display(":%H:",      16'shaa);
+		if (counter == 201) $display(":%O:",      16'shaa);
+		if (counter == 202) $display(":%B:",      16'shaa);
 
-		if (counter == 198) $display("==> write/format");
-		if (counter == 199) $display("%d", 1, "%d", 1);
+		if (counter == 203) $display("==> default base");
+		if (counter == 204) $displayh(16'haa);
+		if (counter == 205) $displayo(16'haa);
+		if (counter == 206) $displayb(16'haa);
 
-		if (counter == 200) begin
+		if (counter == 207) $display("==> write/format");
+		if (counter == 208) $display("%d", 1, "%d", 1);
+
+		if (counter == 209) begin
 			$display("<<<END>>>");
 			fin <= 1;
 		end
