@@ -24,6 +24,7 @@
 #include "kernel/celltypes.h"
 #include "kernel/mem.h"
 #include "kernel/log.h"
+#include "kernel/fmt.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -217,7 +218,7 @@ bool is_internal_cell(RTLIL::IdString type)
 
 bool is_effectful_cell(RTLIL::IdString type)
 {
-	return type.isPublic();
+	return type.isPublic() || type == ID($print);
 }
 
 bool is_cxxrtl_blackbox_cell(const RTLIL::Cell *cell)
@@ -1036,6 +1037,17 @@ struct CxxrtlWorker {
 			f << ".val()";
 	}
 
+	void dump_print(const RTLIL::Cell *cell)
+	{
+		Fmt fmt = {};
+		fmt.parse_rtlil(cell);
+
+		// TODO: we may want to configure the output stream
+		f << indent << "std::cout";
+		fmt.emit_cxxrtl(f, [this](const RTLIL::SigSpec &sig) { dump_sigspec_rhs(sig); });
+		f << ";\n";
+	}
+
 	void dump_inlined_cells(const std::vector<const RTLIL::Cell*> &cells)
 	{
 		if (cells.empty()) {
@@ -1202,6 +1214,34 @@ struct CxxrtlWorker {
 			f << " = ";
 			dump_cell_expr(cell, for_debug);
 			f << ";\n";
+		// $print cell
+		} else if (cell->type == ID($print)) {
+			log_assert(!for_debug);
+			f << indent << "if (";
+			if (cell->getParam(ID::TRG_ENABLE).as_bool()) {
+				f << '(';
+				for (size_t i = 0; i < (size_t)cell->getParam(ID::TRG_WIDTH).as_int(); i++) {
+					RTLIL::SigBit trg_bit = cell->getPort(ID::TRG)[i];
+					trg_bit = sigmaps[trg_bit.wire->module](trg_bit);
+					log_assert(trg_bit.wire);
+
+					if (i != 0)
+						f << " || ";
+
+					if (cell->getParam(ID::TRG_POLARITY)[i] == State::S1)
+						f << "posedge_";
+					else
+						f << "negedge_";
+					f << mangle(trg_bit);
+				}
+				f << ") && ";
+			}
+			dump_sigspec_rhs(cell->getPort(ID::EN));
+			f << " == value<1>{1u}) {\n";
+			inc_indent();
+				dump_print(cell);
+			dec_indent();
+			f << indent << "}\n";
 		// Flip-flops
 		} else if (is_ff_cell(cell->type)) {
 			log_assert(!for_debug);
@@ -2600,6 +2640,16 @@ struct CxxrtlWorker {
 					if (is_valid_clock(cell->getPort(ID::CLK)))
 						register_edge_signal(sigmap, cell->getPort(ID::CLK),
 							cell->parameters[ID::CLK_POLARITY].as_bool() ? RTLIL::STp : RTLIL::STn);
+				}
+
+				// $print cells may be triggered on posedge/negedge events.
+				if (cell->type == ID($print) && cell->getParam(ID::TRG_ENABLE).as_bool()) {
+					for (size_t i = 0; i < (size_t)cell->getParam(ID::TRG_WIDTH).as_int(); i++) {
+						RTLIL::SigBit trg = cell->getPort(ID::TRG).extract(i, 1);
+						if (is_valid_clock(trg))
+							register_edge_signal(sigmap, trg,
+								cell->parameters[ID::TRG_POLARITY][i] == RTLIL::S1 ? RTLIL::STp : RTLIL::STn);
+					}
 				}
 			}
 
