@@ -682,6 +682,7 @@ struct CxxrtlWorker {
 	bool split_intf = false;
 	std::string intf_filename;
 	std::string design_ns = "cxxrtl_design";
+	std::string print_output = "std::cout";
 	std::ostream *impl_f = nullptr;
 	std::ostream *intf_f = nullptr;
 
@@ -1042,8 +1043,7 @@ struct CxxrtlWorker {
 		Fmt fmt = {};
 		fmt.parse_rtlil(cell);
 
-		// TODO: we may want to configure the output stream
-		f << indent << "std::cout";
+		f << indent << print_output;
 		fmt.emit_cxxrtl(f, [this](const RTLIL::SigSpec &sig) { dump_sigspec_rhs(sig); });
 		f << ";\n";
 	}
@@ -3263,6 +3263,10 @@ struct CxxrtlBackend : public Backend {
 		log("        place the generated code into namespace <ns-name>. if not specified,\n");
 		log("        \"cxxrtl_design\" is used.\n");
 		log("\n");
+		log("    -print-output <stream>\n");
+		log("        $print cells in the generated code direct their output to <stream>.\n");
+		log("        if not specified, \"std::cout\" is used.\n");
+		log("\n");
 		log("    -nohierarchy\n");
 		log("        use design hierarchy as-is. in most designs, a top module should be\n");
 		log("        present as it is exposed through the C API and has unbuffered outputs\n");
@@ -3399,6 +3403,10 @@ struct CxxrtlBackend : public Backend {
 			}
 			if (args[argidx] == "-namespace" && argidx+1 < args.size()) {
 				worker.design_ns = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-print-output" && argidx+1 < args.size()) {
+				worker.print_output = args[++argidx];
 				continue;
 			}
 			break;
