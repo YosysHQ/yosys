@@ -654,7 +654,6 @@ struct value : public expr_base<value<Bits>> {
 		}
 
 		std::copy(blk, blk + origLen, data);
-		std::fill(blk + origLen, blk + chunks, 0);
 	}
 
 	static chunk::type getShiftedBlock(const value<Bits> &num, size_t x, size_t y) {
