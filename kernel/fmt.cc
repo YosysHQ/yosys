@@ -130,12 +130,6 @@ void Fmt::parse_rtlil(const RTLIL::Cell *cell) {
 						log_assert(false && "Unexpected end in format substitution");
 				}
 
-				if (fmt[i] == '0') {
-					part.lzero = true;
-					if (++i == fmt.size())
-						log_assert(false && "Unexpected end in format substitution");
-				}
-
 				if (fmt[i] == 'u')
 					part.signed_ = false;
 				else if (fmt[i] == 's')
@@ -208,8 +202,6 @@ void Fmt::emit_rtlil(RTLIL::Cell *cell) const {
 					}
 					if (part.plus)
 						fmt += '+';
-					if (part.lzero)
-						fmt += '0';
 					fmt += part.signed_ ? 's' : 'u';
 				} else if (part.type == FmtPart::CHARACTER) {
 					fmt += 'c';
@@ -248,14 +240,72 @@ static size_t compute_required_decimal_places(size_t size, bool signed_)
 	return places;
 }
 
-static void apply_verilog_automatic_sizing(FmtPart &part)
+static size_t compute_required_nondecimal_places(size_t size, unsigned base)
+{
+	log_assert(base != 10);
+	BigUnsigned max;
+	max.setBit(size - 1, true);
+	size_t places = 0;
+	while (!max.isZero()) {
+		places++;
+		max /= base;
+	}
+	return places;
+}
+
+// Only called for integers, either when:
+//
+// (a) passed without a format string (e.g. "$display(a);"), or
+//
+// (b) the corresponding format specifier has no leading zero, e.g. "%b",
+// "%20h", "%-10d".
+//
+// In these cases, for binary/octal/hex, we always zero-pad to the size of the
+// signal; i.e. whether "%h" or "%10h" or "%-20h" is used, if the corresponding
+// signal is 32'h1234, "00001234" will always be a substring of the output.
+//
+// For case (a), we have no specified width, so there is nothing more to do.
+//
+// For case (b), because we are only called with no leading zero on the
+// specifier, any specified width beyond the signal size is therefore space
+// padding, whatever the justification.
+//
+// For decimal, we do no zero-padding, instead space-padding to the size
+// required for the signal's largest value.  This is per other Verilog
+// implementations, and intuitively makes sense as decimal representations lack
+// a discrete mapping of digits to bit groups.  Decimals may also show sign and
+// must accommodate this, whereas other representations do not.
+void Fmt::apply_verilog_automatic_sizing_and_add(FmtPart &part)
 {
 	if (part.base == 10) {
 		size_t places = compute_required_decimal_places(part.sig.size(), part.signed_);
 		part.padding = ' ';
 		part.width = std::max(part.width, places);
-	} else {
-		part.lzero = true;
+		parts.push_back(part);
+		return;
+	}
+
+	part.padding = '0';
+
+	size_t places = compute_required_nondecimal_places(part.sig.size(), part.base);
+	if (part.width < places) {
+		part.justify = FmtPart::RIGHT;
+		part.width = places;
+		parts.push_back(part);
+	} else if (part.width == places) {
+		parts.push_back(part);
+	} else if (part.width > places) {
+		auto gap = std::string(part.width - places, ' ');
+		part.width = places;
+
+		if (part.justify == FmtPart::RIGHT) {
+			append_string(gap);
+			parts.push_back(part);
+		} else {
+			part.justify = FmtPart::RIGHT;
+			parts.push_back(part);
+			append_string(gap);
+		}
 	}
 }
 
@@ -272,8 +322,7 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 				part.sig = arg->sig;
 				part.base = default_base;
 				part.signed_ = arg->signed_;
-				apply_verilog_automatic_sizing(part);
-				parts.push_back(part);
+				apply_verilog_automatic_sizing_and_add(part);
 				break;
 			}
 
@@ -379,15 +428,13 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 							if (part.padding == '\0')
 								part.padding = (has_leading_zero && part.justify == FmtPart::RIGHT) ? '0' : ' ';
 
-							if (part.type == FmtPart::INTEGER) {
-								if (part.base != 10 && part.plus) {
-									log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with invalid format specifier in argument %zu.\n", task_name.c_str(), fmtarg - args.begin() + 1);
-								}
-								if (!has_leading_zero)
-									apply_verilog_automatic_sizing(part);
-							}
+							if (part.type == FmtPart::INTEGER && part.base != 10 && part.plus)
+								log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with invalid format specifier in argument %zu.\n", task_name.c_str(), fmtarg - args.begin() + 1);
 
-							parts.push_back(part);
+							if (part.type == FmtPart::INTEGER && !has_leading_zero)
+								apply_verilog_automatic_sizing_and_add(part);
+							else
+								parts.push_back(part);
 							part = {};
 						}
 					}
@@ -439,13 +486,10 @@ std::vector<VerilogFmtArg> Fmt::emit_verilog() const
 				if (part.justify == FmtPart::LEFT)
 					fmt.str += '-';
 				if (part.width == 0) {
-					if (!part.lzero)
-						fmt.str += '0';
+					fmt.str += '0';
 				} else if (part.width > 0) {
 					log_assert(part.padding == ' ' || part.padding == '0');
-					if (!part.lzero && part.base != 10)
-						fmt.str += '0';
-					else if (part.padding == '0')
+					if (part.base != 10 || part.padding == '0')
 						fmt.str += '0';
 					fmt.str += std::to_string(part.width);
 				}
@@ -567,7 +611,6 @@ void Fmt::emit_cxxrtl(std::ostream &f, std::function<void(const RTLIL::SigSpec &
 				f << ", " << part.width;
 				f << ", " << part.base;
 				f << ", " << part.signed_;
-				f << ", " << part.lzero;
 				f << ", " << part.plus;
 				f << ')';
 				break;
@@ -584,7 +627,6 @@ void Fmt::emit_cxxrtl(std::ostream &f, std::function<void(const RTLIL::SigSpec &
 				f << ", " << part.width;
 				f << ", " << part.base;
 				f << ", " << part.signed_;
-				f << ", " << part.lzero;
 				f << ", " << part.plus;
 				f << ')';
 				break;
@@ -612,7 +654,7 @@ std::string Fmt::render() const
 				if (part.type == FmtPart::INTEGER) {
 					RTLIL::Const value = part.sig.as_const();
 
-					if (!part.lzero && part.base != 10) {
+					if (part.base != 10) {
 						size_t minimum_size = 0;
 						for (size_t index = 0; index < (size_t)value.size(); index++)
 							if (value[index] != State::S0)
