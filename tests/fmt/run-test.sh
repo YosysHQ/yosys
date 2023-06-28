@@ -1,4 +1,6 @@
-#!/bin/bash -ex
+#!/bin/bash
+
+set -ex
 
 ../../yosys initial_display.v | awk '/<<<BEGIN>>>/,/<<<END>>>/ {print $0}' >yosys-initial_display.log
 iverilog -o iverilog-initial_display initial_display.v
