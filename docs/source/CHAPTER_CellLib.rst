@@ -698,6 +698,7 @@ base
 	* ``d`` for base-10 integers (decimal)
 	* ``h`` for base-16	integers (hexadecimal)
 	* ``c`` for ASCII characters/strings
+	* ``t`` and ``r`` for simulation time (corresponding to :verilog:`$time` and :verilog:`$realtime`)
 
 For integers, these items follow:
 
@@ -716,6 +717,8 @@ signedness
 ASCII characters/strings have no special options, but the signal size must be
 divisible by 8.
 
+For simulation time, the signal size must be zero.
+
 Finally:
 
 ``}``
@@ -730,6 +733,8 @@ Some example format specifiers:
 + ``{16:< 10h0u}`` - 16-bit unsigned integer rendered as hexadecimal,
   zero-padded to fit the largest signal value (4 characters for hex),
   left-justified, space-padded to 10 characters wide.
++ ``{0:>010t}`` - simulation time, right-justified, zero-padded to 10 characters
+  wide.
 
 To include literal ``{`` and ``}`` characters in your format string, use ``{{``
 and ``}}`` respectively.
