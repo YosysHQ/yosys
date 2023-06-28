@@ -700,15 +700,11 @@ base
 	* ``c`` for ASCII characters/strings
 	* ``t`` and ``r`` for simulation time (corresponding to :verilog:`$time` and :verilog:`$realtime`)
 
-For integers, these items follow:
+For integers, this item may follow:
 
 ``+``\ *?*
 	(optional, decimals only) Include a leading plus for non-negative numbers.
 	This can assist with symmetry with negatives in tabulated output.
-
-``0``\ *?*
-	(optional, non-decimals only) Zero-pad the number to fit the signal's
-	largest value before any further padding/justification.
 
 signedness
 	``u`` for unsigned, ``s`` for signed.  This distinction is only respected
@@ -730,8 +726,7 @@ Some example format specifiers:
   right-justified, zero-padded to 2 characters wide.
 + ``{32:< 15d+s}`` - 32-bit signed integer rendered as decimal, left-justified,
   space-padded to 15 characters wide, positive values prefixed with ``+``.
-+ ``{16:< 10h0u}`` - 16-bit unsigned integer rendered as hexadecimal,
-  zero-padded to fit the largest signal value (4 characters for hex),
++ ``{16:< 10hu}`` - 16-bit unsigned integer rendered as hexadecimal,
   left-justified, space-padded to 10 characters wide.
 + ``{0:>010t}`` - simulation time, right-justified, zero-padded to 10 characters
   wide.
@@ -741,6 +736,8 @@ and ``}}`` respectively.
 
 It is an error for a format string to consume more or less bits from ``\ARGS``
 than the port width.
+
+Values are never truncated, regardless of the specified width.
 
 Note that further restrictions on allowable combinations of options may apply
 depending on the backend used.

@@ -802,11 +802,10 @@ struct value_formatted {
 	int width;
 	int base;
 	bool signed_;
-	bool lzero;
 	bool plus;
 
-	value_formatted(const value<Bits> &val, bool character, bool justify_left, char padding, int width, int base, bool signed_, bool lzero, bool plus) :
-		val(val), character(character), justify_left(justify_left), padding(padding), width(width), base(base), signed_(signed_), lzero(lzero), plus(plus) {}
+	value_formatted(const value<Bits> &val, bool character, bool justify_left, char padding, int width, int base, bool signed_, bool plus) :
+		val(val), character(character), justify_left(justify_left), padding(padding), width(width), base(base), signed_(signed_), plus(plus) {}
 	value_formatted(const value_formatted<Bits> &) = delete;
 	value_formatted<Bits> &operator=(const value_formatted<Bits> &rhs) = delete;
 };
@@ -823,7 +822,7 @@ std::ostream &operator<<(std::ostream &os, const value_formatted<Bits> &vf)
 
 	if (!vf.character) {
 		size_t width = Bits;
-		if (!vf.lzero && vf.base != 10) {
+		if (vf.base != 10) {
 			width = 0;
 			for (size_t index = 0; index < Bits; index++)
 				if (val.bit(index))

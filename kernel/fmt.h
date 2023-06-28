@@ -75,7 +75,6 @@ struct FmtPart {
 	// INTEGER type
 	unsigned base = 10;
 	bool signed_ = false;
-	bool lzero = false;
 	bool plus = false;
 
 	// TIME type
@@ -83,6 +82,7 @@ struct FmtPart {
 };
 
 struct Fmt {
+public:
 	std::vector<FmtPart> parts;
 
 	void append_string(const std::string &str);
@@ -96,6 +96,9 @@ struct Fmt {
 	void emit_cxxrtl(std::ostream &f, std::function<void(const RTLIL::SigSpec &)> emit_sig) const;
 
 	std::string render() const;
+
+private:
+	void apply_verilog_automatic_sizing_and_add(FmtPart &part);
 };
 
 YOSYS_NAMESPACE_END
