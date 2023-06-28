@@ -680,8 +680,8 @@ std::string Fmt::render() const
 							if (absvalue.is_fully_zero())
 								buf += '0';
 							while (!absvalue.is_fully_zero())	{
-								buf += '0' + RTLIL::const_mod(absvalue, 10, part.signed_, false, 4).as_int();
-								absvalue = RTLIL::const_div(absvalue, 10, part.signed_, false, absvalue.size());
+								buf += '0' + RTLIL::const_mod(absvalue, 10, false, false, 4).as_int();
+								absvalue = RTLIL::const_div(absvalue, 10, false, false, absvalue.size());
 							}
 							if (negative || part.plus)
 								buf += negative ? '-' : '+';
