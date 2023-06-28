@@ -631,32 +631,32 @@ Debugging cells
 ~~~~~~~~~~~~~~~
 
 The ``$print`` cell is used to log the values of signals, akin to (and
-translatable to) the ``$display`` and ``$write`` tasks in Verilog.  It
-has parameters:
+translatable to) the ``$display`` and ``$write`` family of tasks in Verilog.  It
+has the following parameters:
 
 ``\FORMAT``
-	The internal format string.
+	The internal format string.  The syntax is described below.
 
 ``\ARGS_WIDTH``
-	The number of args referenced by the format string/in ``\ARGS`` port.
-	XXX is this actually bitwidth?
+	The width (in bits) of the signal on the ``\ARGS`` port.
 
 ``\TRG_ENABLE``
-	True if only triggered on ``\TRG``; false if always.
+	True if only triggered on specific signals defined in ``\TRG``; false if
+	executed on every step.
 
-If ``\TRG_ENABLE`` is true:
+If ``\TRG_ENABLE`` is true, the following parameters are also set:
 
 ``\TRG_WIDTH``
 	The number of bits in the ``\TRG`` port.
 
 ``\TRG_POLARITY``
-	A bitfield for each signal in ``\TRG``, 1 if STp (posedge), 0 if
-	STn (negedge).
+	For each bit in ``\TRG``, 1 if that signal is positive-edge triggered, 0 if
+	negative-edge triggered.
 
 Ports:
 
 ``\TRG``
-	The signals defining when to print.
+	The signals that control when this ``$print`` cell is triggered.
 
 ``\EN``
 	Enable signal for the whole cell.
@@ -664,36 +664,89 @@ Ports:
 ``\ARGS``
 	The values to be displayed, in format string order.
 
-The format string has format specifiers as following:
+Format string syntax
+^^^^^^^^^^^^^^^^^^^^
 
-``{`` size ``:`` justify padding width? base options ``}``
+The format string syntax resembles Python f-strings.  Regular text is passed
+through unchanged until a format specifier is reached, starting with a ``{``.
+
+Format specifiers have the following syntax.  Unless noted, all items are
+required:
+
+``{``
+	Denotes the start of the format specifier.
 
 size
-	Signal size in bits.
+	Signal size in bits; this many bits are consumed from the ``\ARGS`` port by
+	this specifier.
+
+``:``
+	Separates the size from the remaining items.
 
 justify
 	``>`` for right-justified, ``<`` for left-justified.
 
-width
-	The number of characters wide to pad to.
+padding
+	``0`` for zero-padding, or a space for space-padding.
+
+width\ *?*
+	(optional) The number of characters wide to pad to.
 
 base
-	``b`` for base-2 integers (binary), ``o`` for base-8 integers
-	(octal), ``d`` for base-10 integers (decimal), ``h`` for base-16
-	integers (hexadecimal), or ``c`` for ASCII characters/strings.
+	* ``b`` for base-2 integers (binary)
+	* ``o`` for base-8 integers	(octal)
+	* ``d`` for base-10 integers (decimal)
+	* ``h`` for base-16	integers (hexadecimal)
+	* ``c`` for ASCII characters/strings
 
-options
-	Only valid for integers, and is an optional ``+`` if a
-	leading plus should be included for non-negatives (decimals only),
-	an optional ``0`` if the number should be zero-padded to its signal
-	size before any padding/justification (non-decimals only), and then
-	either ``u`` or ``s`` to specify if the value should be treated as
-	unsigned or signed respectively.  This distinction is only respected
+For integers, these items follow:
+
+``+``\ *?*
+	(optional, decimals only) Include a leading plus for non-negative numbers.
+	This can assist with symmetry with negatives in tabulated output.
+
+``0``\ *?*
+	(optional, non-decimals only) Zero-pad the number to fit the signal's
+	largest value before any further padding/justification.
+
+signedness
+	``u`` for unsigned, ``s`` for signed.  This distinction is only respected
 	when rendering decimals.
 
-Literal ``{`` and ``}`` are written as ``{{`` and ``}}``.
+ASCII characters/strings have no special options, but the signal size must be
+divisible by 8.
 
-Everything else is passed through unchanged.
+Finally:
+
+``}``
+	Denotes the end of the format specifier.
+
+Some example format specifiers:
+
++ ``{8:>02hu}`` - 8-bit unsigned integer rendered as hexadecimal,
+  right-justified, zero-padded to 2 characters wide.
++ ``{32:< 15d+s}`` - 32-bit signed integer rendered as decimal, left-justified,
+  space-padded to 15 characters wide, positive values prefixed with ``+``.
++ ``{16:< 10h0u}`` - 16-bit unsigned integer rendered as hexadecimal,
+  zero-padded to fit the largest signal value (4 characters for hex),
+  left-justified, space-padded to 10 characters wide.
+
+To include literal ``{`` and ``}`` characters in your format string, use ``{{``
+and ``}}`` respectively.
+
+It is an error for a format string to consume more or less bits from ``\ARGS``
+than the port width.
+
+Note that further restrictions on allowable combinations of options may apply
+depending on the backend used.
+
+For example, Verilog does not have a format specifier that allows zero-padding a
+string (i.e. more than 1 ASCII character), though zero-padding a single
+character is permitted.
+
+Thus, while the RTLIL format specifier ``{8:>02c}`` translates to ``%02c``,
+``{16:>02c}`` cannot be represented in Verilog and will fail to emit.  In this
+case, ``{16:> 02c}`` must be used, which translates to ``%2s``.
 
 .. _sec:celllib_gates:
 
