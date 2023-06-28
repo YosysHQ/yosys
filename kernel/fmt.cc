@@ -291,6 +291,9 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 						} else if (fmt.substr(i, 2) == "%l" || fmt.substr(i, 2) == "%L") {
 							i++;
 							part.str += module_name.str();
+						} else if (fmt.substr(i, 2) == "%m" || fmt.substr(i, 2) == "%M") {
+							i++;
+							part.str += module_name.str();
 						} else {
 							if (!part.str.empty()) {
 								part.type = FmtPart::STRING;
