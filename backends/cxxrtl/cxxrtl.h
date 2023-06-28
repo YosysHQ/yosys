@@ -904,10 +904,12 @@ std::ostream &operator<<(std::ostream &os, const value_formatted<Bits> &vf)
 				val = val.neg();
 			if (val.is_zero())
 				buf += '0';
-			// TODO: rigorously check our signed behaviour here
 			while (!val.is_zero()) {
 				value<Bits> quotient;
-				val.signedDivideWithRemainder(value<Bits>{10u}, quotient);
+				if (negative)
+					val.signedDivideWithRemainder(value<Bits>{10u}, quotient);
+				else
+					val.divideWithRemainder(value<Bits>{10u}, quotient);
 				buf += '0' + val.template slice<3, 0>().val().template get<uint8_t>();
 				val = quotient;
 			}
