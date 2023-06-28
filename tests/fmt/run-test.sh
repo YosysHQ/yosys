@@ -47,12 +47,19 @@ test_roundtrip oct_signed -DBASE_HEX -DSIGN="signed"
 test_roundtrip bin_unsigned -DBASE_HEX -DSIGN=""
 test_roundtrip bin_signed -DBASE_HEX -DSIGN="signed"
 
-../../yosys -p "read_verilog always_full.v; write_cxxrtl -print-output std::cerr yosys-always_full.cc"
-${CC:-gcc} -std=c++11 -o yosys-always_full -I../.. always_full_tb.cc -lstdc++
-./yosys-always_full 2>yosys-always_full.log
-iverilog -o iverilog-always_full always_full.v always_full_tb.v
-./iverilog-always_full | awk '/<<<BEGIN>>>/,/<<<END>>>/ {print $0}' >iverilog-always_full.log
-diff iverilog-always_full.log yosys-always_full.log
+test_cxxrtl () {
+	local subtest=$1; shift
+
+	../../yosys -p "read_verilog ${subtest}.v; write_cxxrtl -print-output std::cerr yosys-${subtest}.cc"
+	${CC:-gcc} -std=c++11 -o yosys-${subtest} -I../.. ${subtest}_tb.cc -lstdc++
+	./yosys-${subtest} 2>yosys-${subtest}.log
+	iverilog -o iverilog-${subtest} ${subtest}.v ${subtest}_tb.v
+	./iverilog-${subtest} |grep -v '\$finish called' >iverilog-${subtest}.log
+	diff iverilog-${subtest}.log yosys-${subtest}.log
+}
+
+test_cxxrtl always_full
+test_cxxrtl always_comb
 
 ../../yosys -p "read_verilog display_lm.v" >yosys-display_lm.log
 ../../yosys -p "read_verilog display_lm.v; write_cxxrtl yosys-display_lm.cc"

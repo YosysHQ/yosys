@@ -8,8 +8,6 @@ module always_full(input clk, output reg fin);
 
 		if (counter == 0) fin <= 0;
 
-		if (counter == 1) $display("<<<BEGIN>>>");
-
 		if (counter == 2) $display("==> small unsigned %%d");
 		if (counter == 3) $display(":%d:",      16'haa);
 		if (counter == 4) $display(":%-d:",     16'haa);
@@ -239,10 +237,7 @@ module always_full(input clk, output reg fin);
 		if (counter == 207) $display("==> write/format");
 		if (counter == 208) $display("%d", 1, "%d", 1);
 
-		if (counter == 209) begin
-			$display("<<<END>>>");
-			fin <= 1;
-		end
+		if (counter == 209) fin <= 1;
 
 	end
 

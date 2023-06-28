@@ -1217,8 +1217,18 @@ struct CxxrtlWorker {
 		// $print cell
 		} else if (cell->type == ID($print)) {
 			log_assert(!for_debug);
+
+			auto trg_enable = cell->getParam(ID::TRG_ENABLE).as_bool();
+			static int cell_counter = 0;
+			if (!trg_enable) {
+				++cell_counter;
+				f << indent << "static bool last_print_" << cell_counter << "_known = false;\n";
+				f << indent << "static value<1> last_print_" << cell_counter << "_en;\n";
+				f << indent << "static value<" << cell->getPort(ID::ARGS).size() << "> last_print_" << cell_counter << "_args;\n";
+			}
+
 			f << indent << "if (";
-			if (cell->getParam(ID::TRG_ENABLE).as_bool()) {
+			if (trg_enable) {
 				f << '(';
 				for (size_t i = 0; i < (size_t)cell->getParam(ID::TRG_WIDTH).as_int(); i++) {
 					RTLIL::SigBit trg_bit = cell->getPort(ID::TRG)[i];
@@ -1235,6 +1245,17 @@ struct CxxrtlWorker {
 					f << mangle(trg_bit);
 				}
 				f << ") && ";
+			} else {
+				f << '(';
+					f << "!last_print_" << cell_counter << "_known || ";
+					f << '(';
+						f << "last_print_" << cell_counter << "_en != ";
+						dump_sigspec_rhs(cell->getPort(ID::EN));
+
+						f << " || last_print_" << cell_counter << "_args != ";
+						dump_sigspec_rhs(cell->getPort(ID::ARGS));
+					f << ')';
+				f << ") && ";
 			}
 			dump_sigspec_rhs(cell->getPort(ID::EN));
 			f << " == value<1>{1u}) {\n";
@@ -1242,6 +1263,16 @@ struct CxxrtlWorker {
 				dump_print(cell);
 			dec_indent();
 			f << indent << "}\n";
+
+			if (!trg_enable) {
+				f << indent << "last_print_" << cell_counter << "_known = true;\n";
+				f << indent << "last_print_" << cell_counter << "_en = ";
+				dump_sigspec_rhs(cell->getPort(ID::EN));
+				f << ";\n";
+				f << indent << "last_print_" << cell_counter << "_args = ";
+				dump_sigspec_rhs(cell->getPort(ID::ARGS));
+				f << ";\n";
+			}
 		// Flip-flops
 		} else if (is_ff_cell(cell->type)) {
 			log_assert(!for_debug);

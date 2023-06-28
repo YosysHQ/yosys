@@ -850,7 +850,7 @@ std::ostream &operator<<(std::ostream &os, const value_formatted<Bits> &vf)
 			while (!val.is_zero()) {
 				value<Bits> quotient;
 				val.divideWithRemainder(value<Bits>{10u}, quotient);
-				buf += '0' + val.template slice<3, 0>().val().template get<uint8_t>();
+				buf += '0' + val.template trunc<(Bits > 4 ? 4 : Bits)>().val().template get<uint8_t>();
 				val = quotient;
 			}
 			if (negative || vf.plus)

@@ -641,8 +641,8 @@ has the following parameters:
 	The width (in bits) of the signal on the ``\ARGS`` port.
 
 ``\TRG_ENABLE``
-	True if only triggered on specific signals defined in ``\TRG``; false if
-	executed on every step.
+	True if triggered on specific signals defined in ``\TRG``; false if
+	triggered whenever ``\ARGS`` or ``\EN`` change and ``\EN`` is 1.
 
 If ``\TRG_ENABLE`` is true, the following parameters are also set:
 
