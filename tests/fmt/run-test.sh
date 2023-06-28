@@ -53,3 +53,12 @@ ${CXX:-g++} -o yosys-always_full -I../.. always_full_tb.cc
 iverilog -o iverilog-always_full always_full.v always_full_tb.v
 ./iverilog-always_full | awk '/<<<BEGIN>>>/,/<<<END>>>/ {print $0}' >iverilog-always_full.log
 diff iverilog-always_full.log yosys-always_full.log
+
+../../yosys -p "read_verilog display_lm.v" >yosys-display_lm.log
+../../yosys -p "read_verilog display_lm.v; write_cxxrtl yosys-display_lm.cc"
+${CXX:-g++} -o yosys-display_lm_cc -I../.. display_lm_tb.cc
+./yosys-display_lm_cc >yosys-display_lm_cc.log
+for log in yosys-display_lm.log yosys-display_lm_cc.log; do
+	grep "^%l: \\\\bot\$" "$log"
+	grep "^%m: \\\\bot\$" "$log"
+done
