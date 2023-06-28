@@ -627,6 +627,74 @@ Add information about ``$assert``, ``$assume``, ``$live``, ``$fair``,
 
 Add information about ``$ff`` and ``$_FF_`` cells.
 
+Debugging cells
+~~~~~~~~~~~~~~~
+
+The ``$print`` cell is used to log the values of signals, akin to (and
+translatable to) the ``$display`` and ``$write`` tasks in Verilog.  It
+has parameters:
+
+``\FORMAT``
+	The internal format string.
+
+``\ARGS_WIDTH``
+	The number of args referenced by the format string/in ``\ARGS`` port.
+	XXX is this actually bitwidth?
+
+``\TRG_ENABLE``
+	True if only triggered on ``\TRG``; false if always.
+
+If ``\TRG_ENABLE`` is true:
+
+``\TRG_WIDTH``
+	The number of bits in the ``\TRG`` port.
+
+``\TRG_POLARITY``
+	A bitfield for each signal in ``\TRG``, 1 if STp (posedge), 0 if
+	STn (negedge).
+
+Ports:
+
+``\TRG``
+	The signals defining when to print.
+
+``\EN``
+	Enable signal for the whole cell.
+
+``\ARGS``
+	The values to be displayed, in format string order.
+
+The format string has format specifiers as following:
+
+``{`` size ``:`` justify padding width? base options ``}``
+
+size
+	Signal size in bits.
+
+justify
+	``>`` for right-justified, ``<`` for left-justified.
+
+width
+	The number of characters wide to pad to.
+
+base
+	``b`` for base-2 integers (binary), ``o`` for base-8 integers
+	(octal), ``d`` for base-10 integers (decimal), ``h`` for base-16
+	integers (hexadecimal), or ``c`` for ASCII characters/strings.
+
+options
+	Only valid for integers, and is an optional ``+`` if a
+	leading plus should be included for non-negatives (decimals only),
+	an optional ``0`` if the number should be zero-padded to its signal
+	size before any padding/justification (non-decimals only), and then
+	either ``u`` or ``s`` to specify if the value should be treated as
+	unsigned or signed respectively.  This distinction is only respected
+	when rendering decimals.
+
+Literal ``{`` and ``}`` are written as ``{{`` and ``}}``.
+
+Everything else is passed through unchanged.
+
 .. _sec:celllib_gates:
 
 Gates
