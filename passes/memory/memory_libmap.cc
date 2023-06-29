@@ -201,8 +201,10 @@ struct MemMapping {
 				continue;
 			if (!check_init(rdef))
 				continue;
-			if (rdef.prune_rom && mem.wr_ports.empty())
+			if (rdef.prune_rom && mem.wr_ports.empty()) {
+				log_debug("memory %s.%s: rejecting mapping to %s: ROM not allowed\n", log_id(mem.module->name), log_id(mem.memid), log_id(rdef.id));
 				continue;
+			}
 			MemConfig cfg;
 			cfg.def = &rdef;
 			for (auto &cdef: rdef.shared_clocks) {
@@ -476,18 +478,26 @@ void MemMapping::determine_style() {
 
 // Determine whether the memory can be mapped entirely to soft logic.
 bool MemMapping::determine_logic_ok() {
-	if (kind != RamKind::Auto && kind != RamKind::Logic)
+	if (kind != RamKind::Auto && kind != RamKind::Logic) {
+		log_debug("memory %s.%s: rejecting mapping to logic: RAM kind conflicts with attribute\n", log_id(mem.module->name), log_id(mem.memid));
 		return false;
+	}
 	// Memory is mappable entirely to soft logic iff all its write ports are in the same clock domain.
 	if (mem.wr_ports.empty())
 		return true;
 	for (auto &port: mem.wr_ports) {
-		if (!port.clk_enable)
+		if (!port.clk_enable){
+			log_debug("memory %s.%s: rejecting mapping to logic: unclocked port\n", log_id(mem.module->name), log_id(mem.memid));
 			return false;
-		if (port.clk != mem.wr_ports[0].clk)
+		}
+		if (port.clk != mem.wr_ports[0].clk) {
+			log_debug("memory %s.%s: rejecting mapping to logic: ports have different write clock domains\n", log_id(mem.module->name), log_id(mem.memid));
 			return false;
-		if (port.clk_polarity != mem.wr_ports[0].clk_polarity)
+		}
+		if (port.clk_polarity != mem.wr_ports[0].clk_polarity) {
+			log_debug("memory %s.%s: rejecting mapping to logic: ports have different write clock polarity\n", log_id(mem.module->name), log_id(mem.memid));
 			return false;
+		}
 	}
 	return true;
 }
@@ -499,14 +509,21 @@ bool MemMapping::check_ram_kind(const Ram &ram) {
 	if (ram.kind == kind)
 		return true;
 	if (kind == RamKind::Auto || kind == RamKind::NotLogic) {
-		if (ram.kind == RamKind::Distributed && opts.no_auto_distributed)
+		if (ram.kind == RamKind::Distributed && opts.no_auto_distributed) {
+			log_debug("memory %s.%s: rejecting mapping to %s: option -no-auto-distributed given\n", log_id(mem.module->name), log_id(mem.memid), log_id(ram.id));
 			return false;
-		if (ram.kind == RamKind::Block && opts.no_auto_block)
+		}
+		if (ram.kind == RamKind::Block && opts.no_auto_block) {
+			log_debug("memory %s.%s: rejecting mapping to %s: option -no-auto-block given\n", log_id(mem.module->name), log_id(mem.memid), log_id(ram.id));
 			return false;
-		if (ram.kind == RamKind::Huge && opts.no_auto_huge)
+		}
+		if (ram.kind == RamKind::Huge && opts.no_auto_huge) {
+			log_debug("memory %s.%s: rejecting mapping to %s: option -no-auto-huge given\n", log_id(mem.module->name), log_id(mem.memid), log_id(ram.id));
 			return false;
+		}
 		return true;
 	}
+	log_debug("memory %s.%s: rejecting mapping to %s: RAM kind conflicts with attribute\n", log_id(mem.module->name), log_id(mem.memid), log_id(ram.id));
 	return false;
 }
 
@@ -517,6 +534,7 @@ bool MemMapping::check_ram_style(const Ram &ram) {
 	for (auto &s: ram.style)
 		if (s == style)
 			return true;
+	log_debug("memory %s.%s: rejecting mapping to %s: RAM style conflicts with attribute\n", log_id(mem.module->name), log_id(mem.memid), log_id(ram.id));
 	return false;
 }
 
@@ -536,8 +554,10 @@ bool MemMapping::check_init(const Ram &ram) {
 
 	switch (ram.init) {
 		case MemoryInitKind::None:
+			if(has_nonx) log_debug("memory %s.%s: rejecting mapping to %s: does not support initialization\n", log_id(mem.module->name), log_id(mem.memid), log_id(ram.id));
 			return !has_nonx;
 		case MemoryInitKind::Zero:
+			if(has_one) log_debug("memory %s.%s: rejecting mapping to %s: does not support non-zero initialization\n", log_id(mem.module->name), log_id(mem.memid), log_id(ram.id));
 			return !has_one;
 		default:
 			return true;
@@ -577,6 +597,7 @@ void MemMapping::assign_wr_ports() {
 		if (!port.clk_enable) {
 			// Async write ports not supported.
 			cfgs.clear();
+			log_debug("memory %s.%s: rejecting mapping: async write port\n", log_id(mem.module->name), log_id(mem.memid));
 			return;
 		}
 		MemConfigs new_cfgs;
