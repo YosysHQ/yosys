@@ -174,6 +174,8 @@ def help():
         further failed assertions. To output multiple traces
         covering all found failed assertions, the character '%' is
         replaced in all dump filenames with an increasing number.
+        In cover mode, don't stop when a cover trace contains a failed
+        assertion.
 
     --check-witness
         check that the used witness file contains sufficient
@@ -1739,7 +1741,7 @@ elif covermode:
             smt_pop()
             smt.write("(define-fun covers_%d ((state |%s_s|)) (_ BitVec %d) (bvand (covers_%d state) #b%s))" % (coveridx, topmod, len(cover_desc), coveridx-1, cover_mask))
 
-        if found_failed_assert:
+        if found_failed_assert and not keep_going:
             break
 
         if "1" not in cover_mask:

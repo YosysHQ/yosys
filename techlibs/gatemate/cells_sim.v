@@ -733,13 +733,12 @@ module CC_BRAM_20K (
 			// SDP read port
 			always @(posedge clkb)
 			begin
-				// "NO_CHANGE" only
 				for (k=0; k < B_RD_WIDTH; k=k+1) begin
 					if (k < 20) begin
-						if (enb && !wea) A_DO_out[k] <= memory[addrb+k];
+						if (enb) A_DO_out[k] <= memory[addrb+k];
 					end
 					else begin // use both ports
-						if (enb && !wea) B_DO_out[k-20] <= memory[addrb+k];
+						if (enb) B_DO_out[k-20] <= memory[addrb+k];
 					end
 				end
 			end
@@ -1274,13 +1273,12 @@ module CC_BRAM_40K (
 			// SDP read port
 			always @(posedge clkb)
 			begin
-				// "NO_CHANGE" only
 				for (k=0; k < B_RD_WIDTH; k=k+1) begin
 					if (k < 40) begin
-						if (enb && !wea) A_DO_out[k] <= memory[addrb+k];
+						if (enb) A_DO_out[k] <= memory[addrb+k];
 					end
 					else begin // use both ports
-						if (enb && !wea) B_DO_out[k-40] <= memory[addrb+k];
+						if (enb) B_DO_out[k-40] <= memory[addrb+k];
 					end
 				end
 			end
@@ -1402,6 +1400,393 @@ module CC_BRAM_40K (
 		end
 		if (B_DO_REG) begin
 			always @(posedge clkb) begin
+				B_DO_reg <= B_DO_out;
+			end
+			assign B_DO = B_DO_reg;
+		end
+		else begin
+			assign B_DO = B_DO_out;
+		end
+	endgenerate
+endmodule
+
+module CC_FIFO_40K (
+	output A_ECC_1B_ERR,
+	output B_ECC_1B_ERR,
+	output A_ECC_2B_ERR,
+	output B_ECC_2B_ERR,
+	// FIFO pop port
+	output [39:0] A_DO,
+	output [39:0] B_DO,
+	(* clkbuf_sink *)
+	input  A_CLK,
+	input  A_EN,
+	// FIFO push port
+	input  [39:0] A_DI,
+	input  [39:0] B_DI,
+	input  [39:0] A_BM,
+	input  [39:0] B_BM,
+	(* clkbuf_sink *)
+	input  B_CLK,
+	input  B_EN,
+	input  B_WE,
+	// FIFO control
+	input  F_RST_N,
+	input  [14:0] F_ALMOST_FULL_OFFSET,
+	input  [14:0] F_ALMOST_EMPTY_OFFSET,
+	// FIFO status signals
+	output F_FULL,
+	output F_EMPTY,
+	output F_ALMOST_FULL,
+	output F_ALMOST_EMPTY,
+	output F_RD_ERROR,
+	output F_WR_ERROR,
+	output [15:0] F_RD_PTR,
+	output [15:0] F_WR_PTR
+);
+	// Location format: D(0..N-1)X(0..3)Y(0..7) or UNPLACED
+	parameter LOC = "UNPLACED";
+
+	// Offset configuration
+	parameter DYN_STAT_SELECT = 1'b0;
+	parameter [14:0] ALMOST_FULL_OFFSET = 15'b0;
+	parameter [14:0] ALMOST_EMPTY_OFFSET = 15'b0;
+
+	// Port Widths
+	parameter A_WIDTH = 0;
+	parameter B_WIDTH = 0;
+
+	// RAM and Write Modes
+	parameter RAM_MODE = "TDP"; // "TDP" or "SDP"
+	parameter FIFO_MODE = "SYNC"; // "ASYNC" or "SYNC"
+
+	// Inverting Control Pins
+	parameter A_CLK_INV = 1'b0;
+	parameter B_CLK_INV = 1'b0;
+	parameter A_EN_INV = 1'b0;
+	parameter B_EN_INV = 1'b0;
+	parameter A_WE_INV = 1'b0;
+	parameter B_WE_INV = 1'b0;
+
+	// Output Register
+	parameter A_DO_REG = 1'b0;
+	parameter B_DO_REG = 1'b0;
+
+	// Error Checking and Correction
+	parameter A_ECC_EN  = 1'b0;
+	parameter B_ECC_EN  = 1'b0;
+
+	integer i, k;
+
+	// 512 x 80 bit
+	reg [40959:0] memory = 40960'b0;
+
+	reg [15:0] counter_max;
+	reg [15:0] sram_depth;
+	localparam tp = (A_WIDTH ==  1) ? 15 :
+					(A_WIDTH ==  2) ? 14 :
+					(A_WIDTH ==  5) ? 13 :
+					(A_WIDTH == 10) ? 12 :
+					(A_WIDTH == 20) ? 11 :
+					(A_WIDTH == 40) ? 10 : 9;
+
+	initial begin
+		// Check parameters
+		if ((RAM_MODE != "SDP") && (RAM_MODE != "TDP")) begin
+			$display("ERROR: Illegal RAM MODE %d.", RAM_MODE);
+			$finish();
+		end
+		if ((FIFO_MODE != "ASYNC") && (FIFO_MODE != "SYNC")) begin
+			$display("ERROR: Illegal FIFO MODE %d.", FIFO_MODE);
+			$finish();
+		end
+		if ((RAM_MODE == "SDP") && (DYN_STAT_SELECT == 1)) begin
+			$display("ERROR: Dynamic offset configuration is not supported in %s mode.", RAM_MODE);
+			$finish();
+		end
+		if ((RAM_MODE == "SDP") && ((A_WIDTH != 80) || (B_WIDTH != 80))) begin
+			$display("ERROR: SDP is ony supported in 80 bit mode.");
+			$finish();
+		end
+		if ((A_WIDTH == 80) && (RAM_MODE == "TDP")) begin
+			$display("ERROR: Port A width of 80 bits is only supported in SDP mode.");
+			$finish();
+		end
+		if ((B_WIDTH == 80) && (RAM_MODE == "TDP")) begin
+			$display("ERROR: Port B width of 80 bits is only supported in SDP mode.");
+			$finish();
+		end
+		if ((A_WIDTH != 80) && (A_WIDTH != 40) && (A_WIDTH != 20) && (A_WIDTH != 10) &&
+			(A_WIDTH != 5)  && (A_WIDTH != 2)  && (A_WIDTH != 1) && (A_WIDTH != 0)) begin
+			$display("ERROR: Illegal %s Port A width configuration %d.", RAM_MODE, A_WIDTH);
+			$finish();
+		end
+		if ((B_WIDTH != 80) && (B_WIDTH != 40) && (B_WIDTH != 20) && (B_WIDTH != 10) &&
+			(B_WIDTH != 5)  && (B_WIDTH != 2)  && (B_WIDTH != 1) && (B_WIDTH != 0)) begin
+			$display("ERROR: Illegal %s Port B width configuration %d.", RAM_MODE, B_WIDTH);
+			$finish();
+		end
+		if (A_WIDTH != B_WIDTH) begin
+			$display("ERROR: The values of A_WIDTH and B_WIDTH must be equal.");
+		end
+		if ((A_ECC_EN == 1'b1) && (RAM_MODE != "SDP") && (A_WIDTH != 40)) begin
+			$display("ERROR: Illegal ECC Port A configuration. ECC mode requires TDP >=40 bit or SDP 80 bit, but is %s %d.", RAM_MODE, A_WIDTH);
+			$finish();
+		end
+		// Set local parameters
+		if (A_WIDTH == 1) begin // A_WIDTH=B_WIDTH
+			counter_max = 2 * 32*1024 - 1;
+			sram_depth  =     32*1024;
+		end
+		else if (A_WIDTH == 2) begin
+			counter_max = 2 * 16*1024 - 1;
+			sram_depth  =     16*1024;
+		end
+		else if (A_WIDTH == 5) begin
+			counter_max = 2 * 8*1024 - 1;
+			sram_depth  =     8*1024;
+		end
+		else if (A_WIDTH == 10) begin
+			counter_max = 2 * 4*1024 - 1;
+			sram_depth  =     4*1024;
+		end
+		else if (A_WIDTH == 20) begin
+			counter_max = 2 * 2*1024 - 1;
+			sram_depth  =     2*1024;
+		end
+		else if (A_WIDTH == 40) begin
+			counter_max = 2 * 1*1024 - 1;
+			sram_depth  =     1*1024;
+		end
+		else begin // 80 bit SDP
+			counter_max = 2 * 512 - 1;
+			sram_depth  =     512;
+		end
+	end
+
+	// Internal signals
+	wire fifo_rdclk = A_CLK ^ A_CLK_INV;
+	wire fifo_wrclk = (FIFO_MODE == "ASYNC") ? (B_CLK ^ B_CLK_INV) : (A_CLK ^ A_CLK_INV);
+	wire [15:0] almost_full_offset  = DYN_STAT_SELECT ? F_ALMOST_FULL_OFFSET  : ALMOST_FULL_OFFSET;
+	wire [15:0] almost_empty_offset = DYN_STAT_SELECT ? F_ALMOST_EMPTY_OFFSET : ALMOST_EMPTY_OFFSET;
+	reg  [39:0] A_DO_out = 0, A_DO_reg = 0;
+	reg  [39:0] B_DO_out = 0, B_DO_reg = 0;
+
+	// Status signals
+	reg fifo_full;
+	reg fifo_empty;
+	reg fifo_almost_full;
+	reg fifo_almost_empty;
+	assign F_FULL         = fifo_full;
+	assign F_EMPTY        = fifo_empty;
+	assign F_ALMOST_FULL  = fifo_almost_full;
+	assign F_ALMOST_EMPTY = fifo_almost_empty;
+	assign F_WR_ERROR     = (F_FULL && (B_EN ^ B_EN_INV) && (B_WE ^ B_WE_INV));
+	assign F_RD_ERROR     = (F_EMPTY && (A_EN ^ A_EN_INV));
+	wire ram_we = (~F_FULL  && (B_EN ^ B_EN_INV) && (B_WE ^ B_WE_INV));
+	wire ram_en = (~F_EMPTY && (A_EN ^ A_EN_INV));
+
+	// Reset synchronizers
+	reg  [1:0] aclk_reset_q, bclk_reset_q;
+	wire fifo_sync_rstn    = aclk_reset_q;
+	wire fifo_async_wrrstn = bclk_reset_q;
+	wire fifo_async_rdrstn = aclk_reset_q;
+
+	always @(posedge fifo_rdclk or negedge F_RST_N)
+	begin
+		if (F_RST_N == 1'b0) begin
+			aclk_reset_q <= 2'b0;
+		end
+		else begin
+			aclk_reset_q[1] <= aclk_reset_q[0];
+			aclk_reset_q[0] <= 1'b1;
+		end
+	end
+
+	always @(posedge fifo_wrclk or negedge F_RST_N)
+	begin
+		if (F_RST_N == 1'b0) begin
+			bclk_reset_q <= 2'b0;
+		end
+		else begin
+			bclk_reset_q[1] <= bclk_reset_q[0];
+			bclk_reset_q[0] <= 1'b1;
+		end
+	end
+
+	// Push/pop pointers
+	reg  [15:0] rd_pointer, rd_pointer_int;
+	reg  [15:0] wr_pointer, wr_pointer_int;
+	reg  [15:0] rd_pointer_cmp, wr_pointer_cmp;
+	wire [15:0] rd_pointer_nxt;
+	wire [15:0] wr_pointer_nxt;
+	reg  [15:0] fifo_rdaddr, rdaddr;
+	reg  [15:0] fifo_wraddr, wraddr;
+	assign F_RD_PTR = fifo_rdaddr;
+	assign F_WR_PTR = fifo_wraddr;
+
+	always @(posedge fifo_rdclk or negedge F_RST_N)
+	begin
+		if (F_RST_N == 1'b0) begin
+			rd_pointer <= 0;
+			rd_pointer_int <= 0;
+		end
+		else if (ram_en) begin
+			rd_pointer <= rd_pointer_nxt;
+			rd_pointer_int <= rd_pointer_nxt[15:1] ^ rd_pointer_nxt[14:0];
+		end
+	end
+
+	assign rd_pointer_nxt = (rd_pointer == counter_max) ? (0) : (rd_pointer + 1'b1);
+
+	always @(posedge fifo_wrclk or negedge F_RST_N)
+	begin
+		if (F_RST_N == 1'b0) begin
+			wr_pointer <= 0;
+			wr_pointer_int <= 0;
+		end
+		else if (ram_we) begin
+			wr_pointer <= wr_pointer_nxt;
+			wr_pointer_int <= wr_pointer_nxt[15:1] ^ wr_pointer_nxt[14:0];
+		end
+	end
+
+	assign wr_pointer_nxt = (wr_pointer == counter_max) ? (0) : (wr_pointer + 1'b1);
+
+	// Address synchronizers
+	reg [15:0] rd_pointer_sync, wr_pointer_sync;
+	reg [15:0] rd_pointer_sync_0, rd_pointer_sync_1;
+	reg [15:0] wr_pointer_sync_0, wr_pointer_sync_1;
+
+	always @(posedge fifo_rdclk or negedge F_RST_N)
+	begin
+		if (F_RST_N == 1'b0) begin
+			wr_pointer_sync_0 <= 0;
+			wr_pointer_sync_1 <= 0;
+		end
+		else begin
+			wr_pointer_sync_0 <= wraddr;
+			wr_pointer_sync_1 <= wr_pointer_sync_0;
+		end
+	 end
+
+	always @(posedge fifo_wrclk or negedge F_RST_N)
+	 begin
+		if (F_RST_N == 1'b0) begin
+			rd_pointer_sync_0 <= 0;
+			rd_pointer_sync_1 <= 0;
+		end
+		else begin
+			rd_pointer_sync_0 <= rdaddr;
+			rd_pointer_sync_1 <= rd_pointer_sync_0;
+		end
+	 end
+
+	always @(*) begin
+		fifo_wraddr = {wr_pointer[tp-1:0], {(15-tp){1'b0}}};
+		fifo_rdaddr = {rd_pointer[tp-1:0], {(15-tp){1'b0}}};
+
+		rdaddr = {rd_pointer[tp], rd_pointer_int[tp-1:0]};
+		wraddr = {{(15-tp){1'b0}}, wr_pointer[tp], wr_pointer_int[tp:0]};
+
+		if (FIFO_MODE == "ASYNC")
+			fifo_full = (wraddr[tp-2:0] == rd_pointer_sync_1[tp-2:0] ) && (wraddr[tp] != rd_pointer_sync_1[tp] ) && ( wraddr[tp-1] != rd_pointer_sync_1[tp-1] );
+		else
+			fifo_full = (wr_pointer[tp-1:0] == rd_pointer[tp-1:0]) && (wr_pointer[tp] ^ rd_pointer[tp]);
+
+		if (FIFO_MODE == "ASYNC")
+			fifo_empty = (wr_pointer_sync_1[tp:0] == rdaddr[tp:0]);
+		else
+			fifo_empty = (wr_pointer[tp:0] == rd_pointer[tp:0]);
+
+		rd_pointer_cmp = (FIFO_MODE == "ASYNC") ? rd_pointer_sync : rd_pointer;
+		if (wr_pointer[tp] == rd_pointer_cmp[tp])
+			fifo_almost_full = ((wr_pointer[tp-1:0] - rd_pointer_cmp[tp-1:0]) >= (sram_depth - almost_full_offset));
+		else
+			fifo_almost_full = ((rd_pointer_cmp[tp-1:0] - wr_pointer[tp-1:0]) <= almost_full_offset);
+
+		wr_pointer_cmp = (FIFO_MODE == "ASYNC") ? wr_pointer_sync : wr_pointer;
+		if (wr_pointer_cmp[tp] == rd_pointer[tp])
+			fifo_almost_empty = ((wr_pointer_cmp[tp-1:0] - rd_pointer[tp-1:0]) <= almost_empty_offset);
+		else
+			fifo_almost_empty = ((rd_pointer[tp-1:0] - wr_pointer_cmp[tp-1:0]) >= (sram_depth - almost_empty_offset));
+	end
+
+	generate
+		always @(*) begin
+			wr_pointer_sync = 0;
+			rd_pointer_sync = 0;
+			for (i=tp; i >= 0; i=i-1) begin
+				if (i == tp) begin
+					wr_pointer_sync[i] = wr_pointer_sync_1[i];
+					rd_pointer_sync[i] = rd_pointer_sync_1[i];
+				end
+				else begin
+					wr_pointer_sync[i] = wr_pointer_sync_1[i] ^ wr_pointer_sync[i+1];
+					rd_pointer_sync[i] = rd_pointer_sync_1[i] ^ rd_pointer_sync[i+1];
+				end
+			end
+		end
+		if (RAM_MODE == "SDP") begin
+			// SDP push ports A+B
+			always @(posedge fifo_wrclk)
+			begin
+				for (k=0; k < A_WIDTH; k=k+1) begin
+					if (k < 40) begin
+						if (ram_we && A_BM[k]) memory[fifo_wraddr+k] <= A_DI[k];
+					end
+					else begin // use both ports
+						if (ram_we && B_BM[k-40]) memory[fifo_wraddr+k] <= B_DI[k-40];
+					end
+				end
+			end
+			// SDP pop ports A+B
+			always @(posedge fifo_rdclk)
+			begin
+				for (k=0; k < B_WIDTH; k=k+1) begin
+					if (k < 40) begin
+						if (ram_en) A_DO_out[k] <= memory[fifo_rdaddr+k];
+					end
+					else begin // use both ports
+						if (ram_en) B_DO_out[k-40] <= memory[fifo_rdaddr+k];
+					end
+				end
+			end
+		end
+		else if (RAM_MODE == "TDP") begin
+			// TDP pop port A
+			always @(posedge fifo_rdclk)
+			begin
+				for (i=0; i < A_WIDTH; i=i+1) begin
+					if (ram_en) begin
+						A_DO_out[i] <= memory[fifo_rdaddr+i];
+					end
+				end
+			end
+			// TDP push port B
+			always @(posedge fifo_wrclk)
+			begin
+				for (i=0; i < B_WIDTH; i=i+1) begin
+					if (ram_we && B_BM[i])
+						memory[fifo_wraddr+i] <= B_DI[i];
+				end
+			end
+		end
+	endgenerate
+
+	// Optional output register
+	generate
+		if (A_DO_REG) begin
+			always @(posedge fifo_rdclk) begin
+				A_DO_reg <= A_DO_out;
+			end
+			assign A_DO = A_DO_reg;
+		end
+		else begin
+			assign A_DO = A_DO_out;
+		end
+		if (B_DO_REG) begin
+			always @(posedge fifo_rdclk) begin
 				B_DO_reg <= B_DO_out;
 			end
 			assign B_DO = B_DO_reg;

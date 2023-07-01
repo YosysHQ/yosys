@@ -2,8 +2,21 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.29 .. Yosys 0.29-dev
+Yosys 0.30 .. Yosys 0.31-dev
 --------------------------
+
+Yosys 0.29 .. Yosys 0.30
+--------------------------
+ * New commands and options
+    - Added "recover_names" pass to recover names post-mapping.
+
+ * Gowin support
+    - Added remaining primitives blackboxes.
+
+ * Various
+    - "show -colorattr" will now color the cells, wires, and 
+      connection arrows.
+    - "show -viewer none" will not execute viewer.
 
 Yosys 0.28 .. Yosys 0.29
 --------------------------

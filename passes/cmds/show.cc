@@ -84,7 +84,7 @@ struct ShowWorker
 	std::string nextColor()
 	{
 		if (currentColor == 0)
-			return "color=\"black\"";
+			return "color=\"black\", fontcolor=\"black\"";
 		return stringf("colorscheme=\"dark28\", color=\"%d\", fontcolor=\"%d\"", currentColor%8+1, currentColor%8+1);
 	}
 
@@ -97,19 +97,16 @@ struct ShowWorker
 
 	std::string nextColor(RTLIL::SigSpec sig, std::string defaultColor)
 	{
-		sig.sort_and_unify();
-		for (auto &c : sig.chunks()) {
-			if (c.wire != nullptr)
-				for (auto &s : color_selections)
-					if (s.second.selected_members.count(module->name) > 0 && s.second.selected_members.at(module->name).count(c.wire->name) > 0)
-						return stringf("color=\"%s\"", s.first.c_str());
-		}
+		std::string color = findColor(sig);
+		if (!color.empty()) return color;
 		return defaultColor;
 	}
 
 	std::string nextColor(const RTLIL::SigSig &conn, std::string defaultColor)
 	{
-		return nextColor(conn.first, nextColor(conn.second, defaultColor));
+		std::string color = findColor(conn);
+		if (!color.empty()) return color;
+		return defaultColor;
 	}
 
 	std::string nextColor(const RTLIL::SigSpec &sig)
@@ -131,12 +128,28 @@ struct ShowWorker
 		return stringf("style=\"setlinewidth(3)\", label=\"<%d>\"", bits);
 	}
 
-	const char *findColor(std::string member_name)
+	std::string findColor(RTLIL::SigSpec sig)
+	{
+		sig.sort_and_unify();
+		for (auto &c : sig.chunks()) {
+			if (c.wire != nullptr)
+				return findColor(c.wire->name);
+		}
+		return "";
+	}
+
+	std::string findColor(const RTLIL::SigSig &conn)
+	{
+		std::string firstColor = findColor(conn.first);
+		if (findColor(conn.second) == firstColor) return firstColor;
+		return "";
+	}
+
+	std::string findColor(IdString member_name)
 	{
 		for (auto &s : color_selections)
 			if (s.second.selected_member(module->name, member_name)) {
-				dot_escape_store.push_back(stringf(", color=\"%s\"", s.first.c_str()));
-				return dot_escape_store.back().c_str();
+				return stringf("color=\"%s\", fontcolor=\"%s\"", s.first.c_str(), s.first.c_str());
 			}
 
 		RTLIL::Const colorattr_value;
@@ -155,8 +168,7 @@ struct ShowWorker
 			colorattr_cache[colorattr_value] = (next_id % 8) + 1;
 		}
 
-		dot_escape_store.push_back(stringf(", colorscheme=\"dark28\", color=\"%d\", fontcolor=\"%d\"", colorattr_cache.at(colorattr_value), colorattr_cache.at(colorattr_value)));
-		return dot_escape_store.back().c_str();
+		return stringf("colorscheme=\"dark28\", color=\"%d\", fontcolor=\"%d\"", colorattr_cache.at(colorattr_value), colorattr_cache.at(colorattr_value));
 	}
 
 	const char *findLabel(std::string member_name)
@@ -189,6 +201,12 @@ struct ShowWorker
 		if (id[0] == '\\')
 			id = id.substr(1);
 
+		// TODO: optionally include autoname + print correspondence in case of ambiguity
+		size_t max_label_len = abbreviateIds ? 256 : 16384;
+		if (id.size() > max_label_len) {
+			id = id.substr(0,max_label_len-3) + "...";
+		}
+
 		std::string str;
 		for (char ch : id) {
 			if (ch == '\\') {
@@ -196,7 +214,7 @@ struct ShowWorker
 				str += "&#9586;";
 				continue;
 			}
-			if (ch == '"')
+			if (ch == '"' || ch == '<' || ch == '>')
 				str += "\\";
 			str += ch;
 		}
@@ -317,7 +335,7 @@ struct ShowWorker
 			}
 
 			code += stringf("x%d [ shape=record, style=rounded, label=\"", dot_idx) \
-					+ join_label_pieces(label_pieces) + "\" ];\n";
+					+ join_label_pieces(label_pieces) + stringf("\", %s ];\n", nextColor(sig).c_str());
 
 			if (!port.empty()) {
 				currentColor = xorshift32(currentColor);
@@ -414,9 +432,9 @@ struct ShowWorker
 			if (wire->port_input || wire->port_output)
 				shape = "octagon";
 			if (wire->name.isPublic()) {
-				fprintf(f, "n%d [ shape=%s, label=\"%s\", %s, fontcolor=\"black\" ];\n",
+				fprintf(f, "n%d [ shape=%s, label=\"%s\", %s ];\n",
 						id2num(wire->name), shape, findLabel(wire->name.str()),
-						nextColor(RTLIL::SigSpec(wire), "color=\"black\"").c_str());
+						nextColor(RTLIL::SigSpec(wire), "color=\"black\", fontcolor=\"black\"").c_str());
 				if (wire->port_input)
 					all_sources.insert(stringf("n%d", id2num(wire->name)));
 				else if (wire->port_output)
@@ -481,11 +499,11 @@ struct ShowWorker
 #ifdef CLUSTER_CELLS_AND_PORTBOXES
 			if (!code.empty())
 				fprintf(f, "subgraph cluster_c%d {\nc%d [ shape=record, label=\"%s\"%s ];\n%s}\n",
-						id2num(cell->name), id2num(cell->name), label_string.c_str(), findColor(cell->name), code.c_str());
+						id2num(cell->name), id2num(cell->name), label_string.c_str(), color.c_str(), code.c_str());
 			else
 #endif
-				fprintf(f, "c%d [ shape=record, label=\"%s\"%s ];\n%s",
-						id2num(cell->name), label_string.c_str(), findColor(cell->name.str()), code.c_str());
+				fprintf(f, "c%d [ shape=record, label=\"%s\", %s ];\n%s",
+						id2num(cell->name), label_string.c_str(), findColor(cell->name).c_str(), code.c_str());
 		}
 
 		for (auto &it : module->processes)
@@ -555,9 +573,9 @@ struct ShowWorker
 				} else if (right_node[0] == 'x') {
 					net_conn_map[left_node].out.insert({right_node, GetSize(conn.first)});
 				} else {
-					net_conn_map[right_node].in.insert({stringf("x%d:e", single_idx_count), GetSize(conn.first)});
-					net_conn_map[left_node].out.insert({stringf("x%d:w", single_idx_count), GetSize(conn.first)});
-					fprintf(f, "x%d [shape=box, style=rounded, label=\"BUF\"];\n", single_idx_count++);
+					net_conn_map[right_node].in.insert({stringf("x%d", single_idx_count), GetSize(conn.first)});
+					net_conn_map[left_node].out.insert({stringf("x%d", single_idx_count), GetSize(conn.first)});
+					fprintf(f, "x%d [shape=box, style=rounded, label=\"BUF\", %s];\n", single_idx_count++, findColor(conn).c_str());
 				}
 			}
 		}
@@ -643,6 +661,7 @@ struct ShowPass : public Pass {
 		log("    -viewer <viewer>\n");
 		log("        Run the specified command with the graphics file as parameter.\n");
 		log("        On Windows, this pauses yosys until the viewer exits.\n");
+		log("        Use \"-viewer none\" to not run any command.\n");
 		log("\n");
 		log("    -format <format>\n");
 		log("        Generate a graphics file in the specified format. Use 'dot' to just\n");
@@ -903,28 +922,30 @@ struct ShowPass : public Pass {
 		#if defined(YOSYS_DISABLE_SPAWN)
 			log_assert(viewer_exe.empty() && !format.empty());
 		#else
-		if (!viewer_exe.empty()) {
-			#ifdef _WIN32
-				// system()/cmd.exe does not understand single quotes nor
-				// background tasks on Windows. So we have to pause yosys
-				// until the viewer exits.
-				std::string cmd = stringf("%s \"%s\"", viewer_exe.c_str(), out_file.c_str());
-			#else
-				std::string cmd = stringf("%s '%s' %s", viewer_exe.c_str(), out_file.c_str(), background.c_str());
-			#endif
-			log("Exec: %s\n", cmd.c_str());
-			if (run_command(cmd) != 0)
-				log_cmd_error("Shell command failed!\n");
-		} else
-		if (format.empty()) {
-			#ifdef __APPLE__
-			std::string cmd = stringf("ps -fu %d | grep -q '[ ]%s' || xdot '%s' %s", getuid(), dot_file.c_str(), dot_file.c_str(), background.c_str());
-			#else
-			std::string cmd = stringf("{ test -f '%s.pid' && fuser -s '%s.pid' 2> /dev/null; } || ( echo $$ >&3; exec xdot '%s'; ) 3> '%s.pid' %s", dot_file.c_str(), dot_file.c_str(), dot_file.c_str(), dot_file.c_str(), background.c_str());
-			#endif
-			log("Exec: %s\n", cmd.c_str());
-			if (run_command(cmd) != 0)
-				log_cmd_error("Shell command failed!\n");
+		if (viewer_exe != "none") {
+			if (!viewer_exe.empty()) {
+				#ifdef _WIN32
+					// system()/cmd.exe does not understand single quotes nor
+					// background tasks on Windows. So we have to pause yosys
+					// until the viewer exits.
+					std::string cmd = stringf("%s \"%s\"", viewer_exe.c_str(), out_file.c_str());
+				#else
+					std::string cmd = stringf("%s '%s' %s", viewer_exe.c_str(), out_file.c_str(), background.c_str());
+				#endif
+				log("Exec: %s\n", cmd.c_str());
+				if (run_command(cmd) != 0)
+					log_cmd_error("Shell command failed!\n");
+			} else
+			if (format.empty()) {
+				#ifdef __APPLE__
+				std::string cmd = stringf("ps -fu %d | grep -q '[ ]%s' || xdot '%s' %s", getuid(), dot_file.c_str(), dot_file.c_str(), background.c_str());
+				#else
+				std::string cmd = stringf("{ test -f '%s.pid' && fuser -s '%s.pid' 2> /dev/null; } || ( echo $$ >&3; exec xdot '%s'; ) 3> '%s.pid' %s", dot_file.c_str(), dot_file.c_str(), dot_file.c_str(), dot_file.c_str(), background.c_str());
+				#endif
+				log("Exec: %s\n", cmd.c_str());
+				if (run_command(cmd) != 0)
+					log_cmd_error("Shell command failed!\n");
+			}
 		}
 		#endif
 

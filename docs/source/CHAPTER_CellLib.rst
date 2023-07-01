@@ -571,7 +571,7 @@ The ``$mem_v2`` cell has the following ports:
 	signals for the read ports.
 
 ``\RD_DATA``
-	This input is ``\RD_PORTS*\WIDTH`` bits wide, containing all data
+	This output is ``\RD_PORTS*\WIDTH`` bits wide, containing all data
 	signals for the read ports.
 
 ``\RD_ARST``
