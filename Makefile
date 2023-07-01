@@ -141,7 +141,7 @@ LDLIBS += -lrt
 endif
 endif
 
-YOSYS_VER := 0.29+44
+YOSYS_VER := 0.30+48
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
@@ -157,7 +157,7 @@ endif
 OBJS = kernel/version_$(GIT_REV).o
 
 bumpversion:
-	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline 9c5a60e.. | wc -l`/;" Makefile
+	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline f7a8284.. | wc -l`/;" Makefile
 
 # set 'ABCREV = default' to use abc/ as it is
 #
@@ -165,7 +165,7 @@ bumpversion:
 # is just a symlink to your actual ABC working directory, as 'make mrproper'
 # will remove the 'abc' directory and you do not want to accidentally
 # delete your work on ABC..
-ABCREV = 2c1c83f
+ABCREV = bb64142
 ABCPULL = 1
 ABCURL ?= https://github.com/YosysHQ/abc
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1 ABC_USE_NAMESPACE=abc VERBOSE=$(Q)
@@ -523,6 +523,7 @@ CXXFLAGS += -I$(GHDL_INCLUDE_DIR) -DYOSYS_ENABLE_GHDL
 LDLIBS += $(GHDL_LIB_DIR)/libghdl.a $(file <$(GHDL_LIB_DIR)/libghdl.link)
 endif
 
+LDLIBS_VERIFIC =
 ifeq ($(ENABLE_VERIFIC),1)
 VERIFIC_DIR ?= /usr/local/src/verific_lib
 VERIFIC_COMPONENTS ?= verilog database util containers hier_tree
@@ -548,9 +549,9 @@ CXXFLAGS += -DYOSYSHQ_VERIFIC_EXTENSIONS
 endif
 CXXFLAGS += $(patsubst %,-I$(VERIFIC_DIR)/%,$(VERIFIC_COMPONENTS)) -DYOSYS_ENABLE_VERIFIC
 ifeq ($(OS), Darwin)
-LDLIBS += $(patsubst %,$(VERIFIC_DIR)/%/*-mac.a,$(VERIFIC_COMPONENTS)) -lz
+LDLIBS_VERIFIC += $(foreach comp,$(patsubst %,$(VERIFIC_DIR)/%/*-mac.a,$(VERIFIC_COMPONENTS)),-Wl,-force_load $(comp)) -lz
 else
-LDLIBS += $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VERIFIC_COMPONENTS)) -lz
+LDLIBS_VERIFIC += -Wl,--whole-archive $(patsubst %,$(VERIFIC_DIR)/%/*-linux.a,$(VERIFIC_COMPONENTS)) -Wl,--no-whole-archive -lz
 endif
 endif
 
@@ -740,13 +741,13 @@ yosys.js: $(filter-out yosysjs-$(YOSYS_VER).zip,$(EXTRA_TARGETS))
 endif
 
 $(PROGRAM_PREFIX)yosys$(EXE): $(OBJS)
-	$(P) $(LD) -o $(PROGRAM_PREFIX)yosys$(EXE) $(EXE_LDFLAGS) $(LDFLAGS) $(OBJS) $(LDLIBS)
+	$(P) $(LD) -o $(PROGRAM_PREFIX)yosys$(EXE) $(EXE_LDFLAGS) $(LDFLAGS) $(OBJS) $(LDLIBS) $(LDLIBS_VERIFIC)
 
 libyosys.so: $(filter-out kernel/driver.o,$(OBJS))
 ifeq ($(OS), Darwin)
-	$(P) $(LD) -o libyosys.so -shared -Wl,-install_name,$(LIBDIR)/libyosys.so $(LDFLAGS) $^ $(LDLIBS)
+	$(P) $(LD) -o libyosys.so -shared -Wl,-install_name,$(LIBDIR)/libyosys.so $(LDFLAGS) $^ $(LDLIBS) $(LDLIBS_VERIFIC)
 else
-	$(P) $(LD) -o libyosys.so -shared -Wl,-soname,$(LIBDIR)/libyosys.so $(LDFLAGS) $^ $(LDLIBS)
+	$(P) $(LD) -o libyosys.so -shared -Wl,-soname,$(LIBDIR)/libyosys.so $(LDFLAGS) $^ $(LDLIBS) $(LDLIBS_VERIFIC)
 endif
 
 %.o: %.cc
@@ -797,13 +798,13 @@ ifneq ($(ABCREV),default)
 	$(Q) if test -d abc && test -d abc/.git && ! git -C abc diff-index --quiet HEAD; then \
 		echo 'REEBE: NOP pbagnvaf ybpny zbqvsvpngvbaf! Frg NOPERI=qrsnhyg va Lbflf Znxrsvyr!' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; false; \
 	fi
-	$(Q) if test -d abc && ! test -d abc/.git && ! test "`cat abc/.gitcommit | cut -c1-7`" == "$(ABCREV)"; then \
+	$(Q) if test -d abc && ! test -d abc/.git && ! test "`cat abc/.gitcommit | cut -c1-7`" = "$(ABCREV)"; then \
 		echo 'REEBE: Qbjaybnqrq NOP irefvbaf qbrf abg zngpu! Qbjaybnq sebz:' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; echo $(ABCURL)/archive/$(ABCREV).tar.gz; false; \
 	fi
 # set a variable so the test fails if git fails to run - when comparing outputs directly, empty string would match empty string
-	$(Q) if test -d abc && ! test -d abc/.git && test "`cat abc/.gitcommit | cut -c1-7`" == "$(ABCREV)"; then \
+	$(Q) if test -d abc && ! test -d abc/.git && test "`cat abc/.gitcommit | cut -c1-7`" = "$(ABCREV)"; then \
 		echo "Compiling local copy of ABC"; \
-	elif ! (cd abc 2> /dev/null && rev="`git rev-parse $(ABCREV)`" && test "`git rev-parse HEAD`" == "$$rev"); then \
+	elif ! (cd abc 2> /dev/null && rev="`git rev-parse $(ABCREV)`" && test "`git rev-parse HEAD`" = "$$rev"); then \
 		test $(ABCPULL) -ne 0 || { echo 'REEBE: NOP abg hc gb qngr naq NOPCHYY frg gb 0 va Znxrsvyr!' | tr 'A-Za-z' 'N-ZA-Mn-za-m'; exit 1; }; \
 		echo "Pulling ABC from $(ABCURL):"; set -x; \
 		test -d abc || git clone $(ABCURL) abc; \

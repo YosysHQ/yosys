@@ -768,7 +768,7 @@ class SmtIo:
 
             if self.timeinfo:
                 i = 0
-                s = "/-\|"
+                s = r"/-\|"
 
                 count = 0
                 num_bs = 0
@@ -1171,7 +1171,7 @@ class MkVcd:
 
     def escape_name(self, name):
         name = re.sub(r"\[([0-9a-zA-Z_]*[a-zA-Z_][0-9a-zA-Z_]*)\]", r"<\1>", name)
-        if re.match("[\[\]]", name) and name[0] != "\\":
+        if re.match(r"[\[\]]", name) and name[0] != "\\":
             name = "\\" + name
         return name
 

@@ -728,7 +728,10 @@ struct BtorWorker
 			else
 				btorf("%d state %d %s\n", nid, sid, log_id(symbol));
 
-			ywmap_state(sig_q);
+			if (cell->get_bool_attribute(ID(clk2fflogic)))
+				ywmap_state(cell->getPort(ID::D)); // For a clk2fflogic FF the named signal is the D input not the Q output
+			else
+				ywmap_state(sig_q);
 
 			if (nid_init_val >= 0) {
 				int nid_init = next_nid++;

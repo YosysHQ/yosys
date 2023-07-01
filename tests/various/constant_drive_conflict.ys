@@ -1,0 +1,51 @@
+read_verilog <<EOT
+module top(input A, output Y);
+	assign A = 1;
+
+	assign Y = A;
+endmodule
+EOT
+
+hierarchy -top top; proc
+
+logger -expect warning "Drivers conflicting with a constant" 1
+logger -expect log "Found and reported 1 problems." 1
+check
+logger -check-expected
+
+design -reset
+read_verilog <<EOT
+module top(input A, output Y);
+	buffer some_buffer(A, Y);
+	assign Y = 1;
+endmodule
+module buffer(input A, output Y);
+	assign Y = A;
+endmodule
+EOT
+
+hierarchy -top top; proc
+
+logger -expect warning "Drivers conflicting with a constant" 1
+logger -expect log "Found and reported 1 problems." 1
+check
+logger -check-expected
+
+design -reset
+read_verilog <<EOT
+module top(input clk, input A, output Y);
+	reg Q;
+	always @(posedge clk) Q <= A;
+
+	assign Q = 1;
+
+	assign Y = A;
+endmodule
+EOT
+
+hierarchy -top top
+
+logger -expect warning "Drivers conflicting with a constant" 1
+logger -expect log "Found and reported 1 problems." 1
+check
+logger -check-expected

@@ -112,13 +112,24 @@ void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefil
 	string message = linefile ? stringf("%s:%d: ", LineFile::GetFileName(linefile), LineFile::GetLineNo(linefile)) : "";
 	message += vstringf(msg, args);
 
-	if (msg_type == VERIFIC_ERROR || msg_type == VERIFIC_WARNING || msg_type == VERIFIC_PROGRAM_ERROR)
-		log_warning_noprefix("%s%s\n", message_prefix.c_str(), message.c_str());
-	else
-		log("%s%s\n", message_prefix.c_str(), message.c_str());
-
+	if (log_verific_callback) {
+		string full_message = stringf("%s%s\n", message_prefix.c_str(), message.c_str());
+		log_verific_callback(int(msg_type), message_id, LineFile::GetFileName(linefile), LineFile::GetLineNo(linefile), full_message.c_str());
+	} else {
+		if (msg_type == VERIFIC_ERROR || msg_type == VERIFIC_WARNING || msg_type == VERIFIC_PROGRAM_ERROR)
+			log_warning_noprefix("%s%s\n", message_prefix.c_str(), message.c_str());
+		else
+			log("%s%s\n", message_prefix.c_str(), message.c_str());
+	}
 	if (verific_error_msg.empty() && (msg_type == VERIFIC_ERROR || msg_type == VERIFIC_PROGRAM_ERROR))
 		verific_error_msg = message;
+}
+
+void set_verific_logging(void (*cb)(int msg_type, const char *message_id, const char* file_path, unsigned int line_no, const char *msg))
+{
+	Message::SetConsoleOutput(0);
+	Message::RegisterCallBackMsg(msg_func);
+	log_verific_callback = cb;
 }
 
 string get_full_netlist_name(Netlist *nl)
@@ -1638,6 +1649,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 				cell->parameters[ID::TRANSPARENT] = false;
 				cell->parameters[ID::ABITS] = GetSize(addr);
 				cell->parameters[ID::WIDTH] = GetSize(data);
+				import_attributes(cell->attributes, inst);
 				cell->setPort(ID::CLK, RTLIL::State::Sx);
 				cell->setPort(ID::EN, RTLIL::State::Sx);
 				cell->setPort(ID::ADDR, addr);
@@ -1667,6 +1679,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 				cell->parameters[ID::PRIORITY] = 0;
 				cell->parameters[ID::ABITS] = GetSize(addr);
 				cell->parameters[ID::WIDTH] = GetSize(data);
+				import_attributes(cell->attributes, inst);
 				cell->setPort(ID::EN, RTLIL::SigSpec(net_map_at(inst->GetControl())).repeat(GetSize(data)));
 				cell->setPort(ID::CLK, RTLIL::State::S0);
 				cell->setPort(ID::ADDR, addr);
@@ -1994,7 +2007,10 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 					initval[i] = State::Sx;
 			}
 
-			if (initval.is_fully_undef())
+			if (wire->port_input) {
+				wire->attributes[ID::defaultvalue] = Const(initval);
+				wire->attributes.erase(ID::init);
+			} else if (initval.is_fully_undef())
 				wire->attributes.erase(ID::init);
 		}
 	}

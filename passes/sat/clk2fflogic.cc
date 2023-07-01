@@ -80,15 +80,27 @@ struct Clk2fflogicPass : public Pass {
 		return module->Eqx(NEW_ID, {sampled_sig, sig}, polarity ? SigSpec {State::S0, State::S1} : SigSpec {State::S1, State::S0});
 	}
 	// Sampled and current value of a data signal.
-	SampledSig sample_data(Module *module, SigSpec sig, RTLIL::Const init, bool is_fine) {
+	SampledSig sample_data(Module *module, SigSpec sig, RTLIL::Const init, bool is_fine, bool set_attribute = false) {
 		std::string sig_str = log_signal(sig);
 		sig_str.erase(std::remove(sig_str.begin(), sig_str.end(), ' '), sig_str.end());
+
+
 		Wire *sampled_sig = module->addWire(NEW_ID_SUFFIX(stringf("%s#sampled", sig_str.c_str())), GetSize(sig));
 		sampled_sig->attributes[ID::init] = init;
+
+		Cell *cell;
 		if (is_fine)
-			module->addFfGate(NEW_ID, sig, sampled_sig);
+			cell = module->addFfGate(NEW_ID, sig, sampled_sig);
 		else
-			module->addFf(NEW_ID, sig, sampled_sig);
+			cell = module->addFf(NEW_ID, sig, sampled_sig);
+
+		if (set_attribute) {
+			for (auto &chunk : sig.chunks())
+				if (chunk.wire != nullptr)
+					chunk.wire->set_bool_attribute(ID::keep);
+			cell->set_bool_attribute(ID(clk2fflogic));
+		}
+
 		return {sampled_sig, sig};
 	}
 	SigSpec mux(Module *module, SigSpec a, SigSpec b, SigSpec s, bool is_fine) {
@@ -213,7 +225,7 @@ struct Clk2fflogicPass : public Pass {
 					if (ff.has_clk)
 						ff.unmap_ce_srst();
 
-					auto next_q = sample_data(module, ff.sig_q, ff.val_init, ff.is_fine).sampled;
+					auto next_q = sample_data(module, ff.sig_q, ff.val_init, ff.is_fine, true).sampled;
 
 					if (ff.has_clk) {
 						// The init value for the sampled d is never used, so we can set it to fixed zero, reducing uninit'd FFs

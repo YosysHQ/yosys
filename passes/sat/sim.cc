@@ -140,6 +140,7 @@ struct SimInstance
 	dict<SigBit, pool<Wire*>> upd_outports;
 
 	dict<SigBit, SigBit> in_parent_drivers;
+	dict<SigBit, SigBit> clk2fflogic_drivers;
 
 	pool<SigBit> dirty_bits;
 	pool<Cell*> dirty_cells;
@@ -270,6 +271,11 @@ struct SimInstance
 				ff.past_srst = State::Sx;
 				ff.data = ff_data;
 				ff_database[cell] = ff;
+
+				if (cell->get_bool_attribute(ID(clk2fflogic))) {
+					for (int i = 0; i < ff_data.width; i++)
+						clk2fflogic_drivers.emplace(sigmap(ff_data.sig_d[i]), sigmap(ff_data.sig_q[i]));
+				}
 			}
 
 			if (cell->is_mem_cell())
@@ -388,6 +394,10 @@ struct SimInstance
 		for (int i = 0; i < GetSize(sig); i++) {
 			auto sigbit = sig[i];
 			auto sigval = value[i];
+
+			auto clk2fflogic_driver = clk2fflogic_drivers.find(sigbit);
+			if (clk2fflogic_driver != clk2fflogic_drivers.end())
+				sigbit = clk2fflogic_driver->second;
 
 			auto in_parent_driver = in_parent_drivers.find(sigbit);
 			if (in_parent_driver == in_parent_drivers.end())
@@ -589,7 +599,7 @@ struct SimInstance
 		}
 	}
 
-	bool update_ph2(bool gclk)
+	bool update_ph2(bool gclk, bool stable_past_update = false)
 	{
 		bool did_something = false;
 
@@ -600,7 +610,7 @@ struct SimInstance
 
 			Const current_q = get_state(ff.data.sig_q);
 
-			if (ff_data.has_clk) {
+			if (ff_data.has_clk && !stable_past_update) {
 				// flip-flops
 				State current_clk = get_state(ff_data.sig_clk)[0];
 				if (ff_data.pol_clk ? (ff.past_clk == State::S0 && current_clk != State::S0) :
@@ -621,7 +631,7 @@ struct SimInstance
 			if (ff_data.has_aload) {
 				State current_aload = get_state(ff_data.sig_aload)[0];
 				if (current_aload == (ff_data.pol_aload ? State::S1 : State::S0)) {
-					current_q = ff_data.has_clk ? ff.past_ad : get_state(ff.data.sig_ad);
+					current_q = ff_data.has_clk && !stable_past_update ? ff.past_ad : get_state(ff.data.sig_ad);
 				}
 			}
 			// async reset
@@ -672,6 +682,8 @@ struct SimInstance
 				}
 				else
 				{
+					if (stable_past_update)
+						continue;
 					if (port.clk_polarity ?
 							(mdb.past_wr_clk[port_idx] == State::S1 || get_state(port.clk) != State::S1) :
 							(mdb.past_wr_clk[port_idx] == State::S0 || get_state(port.clk) != State::S0))
@@ -701,7 +713,7 @@ struct SimInstance
 		}
 
 		for (auto it : children)
-			if (it.second->update_ph2(gclk)) {
+			if (it.second->update_ph2(gclk, stable_past_update)) {
 				dirty_children.insert(it.second);
 				did_something = true;
 			}
@@ -1197,9 +1209,21 @@ struct SimWorker : SimShared
 
 	void initialize_stable_past()
 	{
-		if (debug)
-			log("\n-- ph1 (initialize) --\n");
-		top->update_ph1();
+
+		while (1)
+		{
+			if (debug)
+				log("\n-- ph1 (initialize) --\n");
+
+			top->update_ph1();
+
+			if (debug)
+				log("\n-- ph2 (initialize) --\n");
+
+			if (!top->update_ph2(false, true))
+				break;
+		}
+
 		if (debug)
 			log("\n-- ph3 (initialize) --\n");
 		top->update_ph3(true);

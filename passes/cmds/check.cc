@@ -112,11 +112,10 @@ struct CheckPass : public Pass {
 				for (size_t i = 0; i < all_cases.size(); i++) {
 					for (auto action : all_cases[i]->actions) {
 						for (auto bit : sigmap(action.first))
-							if (bit.wire) {
-								wire_drivers[bit].push_back(
-									stringf("action %s <= %s (case rule) in process %s",
-									        log_signal(action.first), log_signal(action.second), log_id(proc_it.first)));
-							}
+							wire_drivers[bit].push_back(
+								stringf("action %s <= %s (case rule) in process %s",
+										log_signal(action.first), log_signal(action.second), log_id(proc_it.first)));
+
 						for (auto bit : sigmap(action.second))
 							if (bit.wire) used_wires.insert(bit);
 					}
@@ -134,10 +133,9 @@ struct CheckPass : public Pass {
 						if (bit.wire) used_wires.insert(bit);
 					for (auto action : sync->actions) {
 						for (auto bit : sigmap(action.first))
-							if (bit.wire)
-								wire_drivers[bit].push_back(
-									stringf("action %s <= %s (sync rule) in process %s",
-									        log_signal(action.first), log_signal(action.second), log_id(proc_it.first)));
+							wire_drivers[bit].push_back(
+								stringf("action %s <= %s (sync rule) in process %s",
+										log_signal(action.first), log_signal(action.second), log_id(proc_it.first)));
 						for (auto bit : sigmap(action.second))
 							if (bit.wire) used_wires.insert(bit);
 					}
@@ -176,7 +174,8 @@ struct CheckPass : public Pass {
 							if (logic_cell)
 								topo.edge(stringf("cell %s (%s)", log_id(cell), log_id(cell->type)),
 										stringf("wire %s", log_signal(sig[i])));
-							if (sig[i].wire)
+
+							if (sig[i].wire || !cell->input(conn.first))
 								wire_drivers[sig[i]].push_back(stringf("port %s[%d] of cell %s (%s)",
 										log_id(conn.first), i, log_id(cell), log_id(cell->type)));
 						}
@@ -192,7 +191,8 @@ struct CheckPass : public Pass {
 				if (wire->port_input) {
 					SigSpec sig = sigmap(wire);
 					for (int i = 0; i < GetSize(sig); i++)
-						wire_drivers[sig[i]].push_back(stringf("module input %s[%d]", log_id(wire), i));
+						if (sig[i].wire || !wire->port_output)
+							wire_drivers[sig[i]].push_back(stringf("module input %s[%d]", log_id(wire), i));
 				}
 				if (wire->port_output)
 					for (auto bit : sigmap(wire))
@@ -211,6 +211,15 @@ struct CheckPass : public Pass {
 					}
 				}
 			}
+
+			for (auto state : {State::S0, State::S1, State::Sx})
+				if (wire_drivers.count(state)) {
+					string message = stringf("Drivers conflicting with a constant %s driver:\n", log_signal(state));
+					for (auto str : wire_drivers[state])
+						message += stringf("    %s\n", str.c_str());
+					log_warning("%s", message.c_str());
+					counter++;
+				}
 
 			for (auto it : wire_drivers)
 				if (wire_drivers_count[it.first] > 1) {

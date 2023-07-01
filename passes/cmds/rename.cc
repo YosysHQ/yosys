@@ -139,7 +139,12 @@ static bool rename_witness(RTLIL::Design *design, dict<RTLIL::Module *, int> &ca
 
 		if (cell->type.in(ID($anyconst), ID($anyseq), ID($anyinit), ID($allconst), ID($allseq))) {
 			has_witness_signals = true;
-			auto QY = cell->type == ID($anyinit) ? ID::Q : ID::Y;
+			IdString QY;
+			bool clk2fflogic = false;
+			if (cell->type == ID($anyinit))
+				QY = (clk2fflogic = cell->get_bool_attribute(ID(clk2fflogic))) ? ID::D : ID::Q;
+			else
+				QY = ID::Y;
 			auto sig_out = cell->getPort(QY);
 
 			for (auto chunk : sig_out.chunks()) {
@@ -151,7 +156,10 @@ static bool rename_witness(RTLIL::Design *design, dict<RTLIL::Module *, int> &ca
 					auto new_id = module->uniquify("\\_witness_." + name);
 					auto new_wire = module->addWire(new_id, GetSize(sig_out));
 					new_wire->set_hdlname_attribute({ "_witness_", strstr(new_id.c_str(), ".") + 1 });
-					module->connect({sig_out, new_wire});
+					if (clk2fflogic)
+						module->connect({new_wire, sig_out});
+					else
+						module->connect({sig_out, new_wire});
 					cell->setPort(QY, new_wire);
 					break;
 				}
