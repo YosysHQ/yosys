@@ -1021,8 +1021,8 @@ struct DffLegalizePass : public Pass {
 				supported_cells_neg[i][j] = 0;
 			supported_cells[i] = 0;
 		}
-		mince = 0;
-		minsrst = 0;
+		mince = design->scratchpad_get_int("dfflegalize.mince", 0);
+		minsrst = design->scratchpad_get_int("dfflegalize.minsrst", 0);
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
