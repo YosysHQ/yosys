@@ -60,13 +60,14 @@ struct SynthQuickLogicPass : public ScriptPass {
 		log("\n");
 	}
 
-	string top_opt, blif_file, family, currmodule, verilog_file;
+	string top_opt, blif_file, edif_file, family, currmodule, verilog_file, lib_path;
 	bool abc9;
 
 	void clear_flags() override
 	{
 		top_opt = "-auto-top";
 		blif_file = "";
+		edif_file = "";
 		verilog_file = "";
 		currmodule = "";
 		family = "pp3";
@@ -81,6 +82,14 @@ struct SynthQuickLogicPass : public ScriptPass {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
+			if (args[argidx] == "-run" && argidx+1 < args.size()) {
+				size_t pos = args[argidx+1].find(':');
+				if (pos == std::string::npos)
+					break;
+				run_from = args[++argidx].substr(0, pos);
+				run_to = args[argidx].substr(pos+1);
+				continue;
+			}
 			if (args[argidx] == "-top" && argidx+1 < args.size()) {
 				top_opt = "-top " + args[++argidx];
 				continue;
@@ -91,6 +100,10 @@ struct SynthQuickLogicPass : public ScriptPass {
 			}
 			if (args[argidx] == "-blif" && argidx+1 < args.size()) {
 				blif_file = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-edif" && argidx + 1 < args.size()) {
+				edif_file = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-verilog" && argidx+1 < args.size()) {
@@ -126,13 +139,16 @@ struct SynthQuickLogicPass : public ScriptPass {
 
 	void script() override
 	{
+		if (help_mode) {
+			family = "<family>";
+		}
+
 		if (check_label("begin")) {
-			run(stringf("read_verilog -lib -specify +/quicklogic/cells_sim.v +/quicklogic/%s_cells_sim.v", family.c_str()));
-			run("read_verilog -lib -specify +/quicklogic/lut_sim.v");
+			run(stringf("read_verilog -lib -specify +/quicklogic/common/cells_sim.v +/quicklogic/%s/cells_sim.v", family.c_str()));
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 		}
 
-		if (check_label("coarse")) {
+		if (check_label("prepare")) {
 			run("proc");
 			run("flatten");
 			run("tribuf -logic");
@@ -147,6 +163,9 @@ struct SynthQuickLogicPass : public ScriptPass {
 			run("peepopt");
 			run("opt_clean");
 			run("share");
+		}
+
+		if (check_label("coarse")) {
 			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=4");
 			run("opt_expr");
 			run("opt_clean");
@@ -175,18 +194,18 @@ struct SynthQuickLogicPass : public ScriptPass {
 			run("opt_expr");
 			run("dfflegalize -cell $_DFFSRE_PPPP_ 0 -cell $_DLATCH_?_ x");
 
-			run(stringf("techmap -map +/quicklogic/%s_cells_map.v -map +/quicklogic/%s_ffs_map.v", family.c_str(), family.c_str()));
+			run(stringf("techmap -map +/quicklogic/%s/cells_map.v -map +/quicklogic/%s/ffs_map.v", family.c_str(), family.c_str()));
 
 			run("opt_expr -mux_undef");
 		}
 
 		if (check_label("map_luts")) {
-			run(stringf("techmap -map +/quicklogic/%s_latches_map.v", family.c_str()));
+			run(stringf("techmap -map +/quicklogic/%s/latches_map.v", family.c_str()));
 			if (abc9) {
-				run("read_verilog -lib -specify -icells +/quicklogic/abc9_model.v");
-				run("techmap -map +/quicklogic/abc9_map.v");
+				run(stringf("read_verilog -lib -specify -icells +/quicklogic/%s/abc9_model.v", family.c_str()));
+				run(stringf("techmap -map +/quicklogic/%s/abc9_map.v", family.c_str()));
 				run("abc9 -maxlut 4 -dff");
-				run("techmap -map +/quicklogic/abc9_unmap.v");
+				run(stringf("techmap -map +/quicklogic/%s/abc9_unmap.v", family.c_str()));
 			} else {
 				run("abc -luts 1,2,2,4 -dress");
 			}
@@ -194,7 +213,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 		}
 
 		if (check_label("map_cells")) {
-			run(stringf("techmap -map +/quicklogic/%s_lut_map.v", family.c_str()));
+			run(stringf("techmap -map +/quicklogic/%s/lut_map.v", family.c_str()));
 			run("clean");
 		}
 
@@ -218,15 +237,22 @@ struct SynthQuickLogicPass : public ScriptPass {
 			run("blackbox =A:whitebox");
 		}
 
-		if (check_label("blif")) {
+		if (check_label("blif", "(if -blif)")) {
 			if (!blif_file.empty() || help_mode) {
 				run(stringf("write_blif -attr -param %s %s", top_opt.c_str(), blif_file.c_str()));
 			}
 		}
 
-		if (check_label("verilog")) {
+		if (check_label("verilog", "(if -verilog)")) {
 			if (!verilog_file.empty() || help_mode) {
 				run(stringf("write_verilog -noattr -nohex %s", help_mode ? "<file-name>" : verilog_file.c_str()));
+			}
+		}
+
+		if (check_label("edif", "(if -edif)")) {
+			if (!edif_file.empty() || help_mode) {
+				run("splitnets -ports -format ()");
+				run(stringf("write_edif -nogndvcc -attrprop -pvector par %s %s", top_opt.c_str(), edif_file.c_str()));
 			}
 		}
 	}
