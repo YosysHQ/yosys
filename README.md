@@ -156,9 +156,10 @@ reading and elaborating the design using the Verilog frontend:
 	yosys> read -sv tests/simple/fiedler-cooley.v
 	yosys> hierarchy -top up3down5
 
-writing the design to the console in Yosys's internal format:
+writing the design to the console in the RTLIL format used by Yosys
+internally:
 
-	yosys> write_ilang
+	yosys> write_rtlil
 
 convert processes (``always`` blocks) to netlist elements and perform
 some simple optimizations:
