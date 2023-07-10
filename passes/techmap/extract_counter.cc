@@ -120,8 +120,6 @@ struct CounterExtractionSettings
 };
 
 //attempt to extract a counter centered on the given adder cell
-//For now we only support DOWN counters.
-//TODO: up/down support
 int counter_tryextract(
 	ModIndex& index,
 	Cell *cell,
@@ -766,9 +764,9 @@ struct ExtractCounterPass : public Pass {
 		log("\n");
 		log("    extract_counter [options] [selection]\n");
 		log("\n");
-		log("This pass converts non-resettable or async resettable down counters to\n");
-		log("counter cells. Use a target-specific 'techmap' map file to convert those cells\n");
-		log("to the actual target cells.\n");
+		log("This pass converts non-resettable or async resettable counters to counter cells.\n");
+		log("Use a target-specific 'techmap' map file to convert those cells to the actual\n");
+		log("target cells.\n");
 		log("\n");
 		log("    -maxwidth N\n");
 		log("        Only extract counters up to N bits wide (default 64)\n");
