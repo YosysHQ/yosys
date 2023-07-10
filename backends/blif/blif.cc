@@ -512,8 +512,8 @@ struct BlifBackend : public Backend {
 		log("        suppresses the generation of this nets without fanout.\n");
 		log("\n");
 		log("The following options can be useful when the generated file is not going to be\n");
-		log("read by a BLIF parser but a custom tool. It is recommended to not name the\n");
-		log("output file *.blif when any of this options is used.\n");
+		log("read by a BLIF parser but a custom tool. It is recommended not to name the\n");
+		log("output file *.blif when any of these options are used.\n");
 		log("\n");
 		log("    -icells\n");
 		log("        do not translate Yosys's internal gates to generic BLIF logic\n");
