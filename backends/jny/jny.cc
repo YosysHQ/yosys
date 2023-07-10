@@ -21,7 +21,6 @@
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
-#include "kernel/cellaigs.h"
 #include "kernel/log.h"
 #include <string>
 #include <algorithm>
