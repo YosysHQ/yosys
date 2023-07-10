@@ -1195,6 +1195,7 @@ struct FirrtlBackend : public Backend {
 		log("        pmuxtree\n");
 		log("        bmuxmap\n");
 		log("        demuxmap\n");
+		log("        bwmuxmap\n");
 		log("\n");
 	}
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
