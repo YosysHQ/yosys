@@ -147,6 +147,12 @@ void logv(const char *format, va_list ap)
 		if (format[0] && format[strlen(format)-1] == '\n')
 			next_print_log = true;
 
+		// Special case to detect newlines in Python log output, since
+		// the binding always calls `log("%s", payload)` and the newline
+		// is then in the first formatted argument
+		if (!strcmp(format, "%s") && str.back() == '\n')
+			next_print_log = true;
+
 		for (auto f : log_files)
 			fputs(time_str.c_str(), f);
 
