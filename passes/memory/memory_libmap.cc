@@ -183,6 +183,7 @@ struct MemMapping {
 	dict<std::pair<int, int>, bool> wr_implies_rd_cache;
 	dict<std::pair<int, int>, bool> wr_excludes_rd_cache;
 	dict<std::pair<int, int>, bool> wr_excludes_srst_cache;
+	std::string rejected_cfg_debug_msgs;
 
 	MemMapping(MapWorker &worker, Mem &mem, const Library &lib, const PassOptions &opts) : worker(worker), qcsat(worker.modwalker), mem(mem), lib(lib), opts(opts) {
 		determine_style();
@@ -201,8 +202,10 @@ struct MemMapping {
 				continue;
 			if (!check_init(rdef))
 				continue;
-			if (rdef.prune_rom && mem.wr_ports.empty())
+			if (rdef.prune_rom && mem.wr_ports.empty()) {
+				log_debug("memory %s.%s: rejecting mapping to %s: ROM mapping disabled (prune_rom set)\n", log_id(mem.module->name), log_id(mem.memid), log_id(rdef.id));
 				continue;
+			}
 			MemConfig cfg;
 			cfg.def = &rdef;
 			for (auto &cdef: rdef.shared_clocks) {
@@ -309,6 +312,59 @@ struct MemMapping {
 	void prune_post_geom();
 	void emit_port(const MemConfig &cfg, std::vector<Cell*> &cells, const PortVariant &pdef, const char *name, int wpidx, int rpidx, const std::vector<int> &hw_addr_swizzle);
 	void emit(const MemConfig &cfg);
+
+	void log_reject(std::string message){
+		if(ys_debug(1)) {
+			rejected_cfg_debug_msgs += message;
+			rejected_cfg_debug_msgs += "\n";
+		}
+	}
+
+	void log_reject(const Ram &ram, std::string message) {
+		if(ys_debug(1)) {
+			rejected_cfg_debug_msgs += stringf("can't map to to %s: ", log_id(ram.id));
+			rejected_cfg_debug_msgs += message;
+			rejected_cfg_debug_msgs += "\n";
+		}
+	}
+
+	void log_reject(const Ram &ram, const PortGroup &pg, std::string message) {
+		if(ys_debug(1)) {
+			rejected_cfg_debug_msgs += stringf("can't map to port group [");
+			bool first = true;
+			for (std::string portname : pg.names){
+				if (!first) rejected_cfg_debug_msgs += ", ";
+				rejected_cfg_debug_msgs += portname;
+				first = false;
+			}
+			rejected_cfg_debug_msgs += stringf("] of %s: ", log_id(ram.id));
+			rejected_cfg_debug_msgs += message;
+			rejected_cfg_debug_msgs += "\n";
+		}
+	}
+	
+	void log_reject(const Ram &ram, const PortGroup &pg, int pvi, std::string message) {
+		if(ys_debug(1)) {
+			rejected_cfg_debug_msgs += stringf("can't map to option selection [");
+			bool first = true;
+			for(auto opt : pg.variants[pvi].options){
+				if (!first) rejected_cfg_debug_msgs += ", ";
+				rejected_cfg_debug_msgs += opt.first;
+				rejected_cfg_debug_msgs += stringf(" = %s", log_const(opt.second));
+				first = false;
+			}
+			rejected_cfg_debug_msgs += "] of port group [";
+			first = true;
+			for (std::string portname : pg.names){
+				if (!first) rejected_cfg_debug_msgs += ", ";
+				rejected_cfg_debug_msgs += portname;
+				first = false;
+			}
+			rejected_cfg_debug_msgs += stringf("] of %s: ", log_id(ram.id));
+			rejected_cfg_debug_msgs += message;
+			rejected_cfg_debug_msgs += "\n";
+		}
+	}
 };
 
 void MemMapping::dump_configs(int stage) {
@@ -431,6 +487,7 @@ void MemMapping::determine_style() {
 	style = "";
 	if (mem.get_bool_attribute(ID::lram)) {
 		kind = RamKind::Huge;
+		log("found attribute 'lram' on memory %s.%s, forced mapping to huge RAM\n", log_id(mem.module->name), log_id(mem.memid));
 		return;
 	}
 	for (auto attr: {ID::ram_block, ID::rom_block, ID::ram_style, ID::rom_style, ID::ramstyle, ID::romstyle, ID::syn_ramstyle, ID::syn_romstyle}) {
@@ -438,6 +495,7 @@ void MemMapping::determine_style() {
 			Const val = mem.attributes.at(attr);
 			if (val == 1) {
 				kind = RamKind::NotLogic;
+				log("found attribute '%s = 1' on memory %s.%s, disabled mapping to FF\n", log_id(attr), log_id(mem.module->name), log_id(mem.memid));
 				return;
 			}
 			std::string val_s = val.decode_string();
@@ -450,15 +508,20 @@ void MemMapping::determine_style() {
 				// Nothing.
 			} else if (val_s == "logic" || val_s == "registers") {
 				kind = RamKind::Logic;
+				log("found attribute '%s = %s' on memory %s.%s, forced mapping to FF\n", log_id(attr), val_s.c_str(), log_id(mem.module->name), log_id(mem.memid));
 			} else if (val_s == "distributed") {
 				kind = RamKind::Distributed;
+				log("found attribute '%s = %s' on memory %s.%s, forced mapping to distributed RAM\n", log_id(attr), val_s.c_str(), log_id(mem.module->name), log_id(mem.memid));
 			} else if (val_s == "block" || val_s == "block_ram" || val_s == "ebr") {
 				kind = RamKind::Block;
+				log("found attribute '%s = %s' on memory %s.%s, forced mapping to block RAM\n", log_id(attr), val_s.c_str(), log_id(mem.module->name), log_id(mem.memid));
 			} else if (val_s == "huge" || val_s == "ultra") {
 				kind = RamKind::Huge;
+				log("found attribute '%s = %s' on memory %s.%s, forced mapping to huge RAM\n", log_id(attr), val_s.c_str(), log_id(mem.module->name), log_id(mem.memid));
 			} else {
 				kind = RamKind::NotLogic;
 				style = val_s;
+				log("found attribute '%s = %s' on memory %s.%s, forced mapping to %s RAM\n", log_id(attr), val_s.c_str(), log_id(mem.module->name), log_id(mem.memid), val_s.c_str());
 			}
 			return;
 		}
@@ -469,18 +532,26 @@ void MemMapping::determine_style() {
 
 // Determine whether the memory can be mapped entirely to soft logic.
 bool MemMapping::determine_logic_ok() {
-	if (kind != RamKind::Auto && kind != RamKind::Logic)
+	if (kind != RamKind::Auto && kind != RamKind::Logic) {
+		log_reject("can't map to logic: RAM kind conflicts with attribute");
 		return false;
+	}
 	// Memory is mappable entirely to soft logic iff all its write ports are in the same clock domain.
 	if (mem.wr_ports.empty())
 		return true;
 	for (auto &port: mem.wr_ports) {
-		if (!port.clk_enable)
+		if (!port.clk_enable){
+			log_reject("can't map to logic: unclocked port");
 			return false;
-		if (port.clk != mem.wr_ports[0].clk)
+		}
+		if (port.clk != mem.wr_ports[0].clk) {
+			log_reject("can't map to logic: ports have different write clock domains");
 			return false;
-		if (port.clk_polarity != mem.wr_ports[0].clk_polarity)
+		}
+		if (port.clk_polarity != mem.wr_ports[0].clk_polarity) {
+			log_reject("can't map to logic: ports have different write clock polarity");
 			return false;
+		}
 	}
 	return true;
 }
@@ -492,14 +563,21 @@ bool MemMapping::check_ram_kind(const Ram &ram) {
 	if (ram.kind == kind)
 		return true;
 	if (kind == RamKind::Auto || kind == RamKind::NotLogic) {
-		if (ram.kind == RamKind::Distributed && opts.no_auto_distributed)
+		if (ram.kind == RamKind::Distributed && opts.no_auto_distributed) {
+			log_reject(ram, "option -no-auto-distributed given");
 			return false;
-		if (ram.kind == RamKind::Block && opts.no_auto_block)
+		}
+		if (ram.kind == RamKind::Block && opts.no_auto_block) {
+			log_reject(ram, "option -no-auto-block given");
 			return false;
-		if (ram.kind == RamKind::Huge && opts.no_auto_huge)
+		}
+		if (ram.kind == RamKind::Huge && opts.no_auto_huge) {
+			log_reject(ram, "option -no-auto-huge given");
 			return false;
+		}
 		return true;
 	}
+	log_reject(ram, "RAM kind conflicts with attribute");
 	return false;
 }
 
@@ -510,6 +588,7 @@ bool MemMapping::check_ram_style(const Ram &ram) {
 	for (auto &s: ram.style)
 		if (s == style)
 			return true;
+	log_reject(ram, "RAM style conflicts with attribute");
 	return false;
 }
 
@@ -529,8 +608,10 @@ bool MemMapping::check_init(const Ram &ram) {
 
 	switch (ram.init) {
 		case MemoryInitKind::None:
+			if(has_nonx) log_reject(ram, "does not support initialization");
 			return !has_nonx;
 		case MemoryInitKind::Zero:
+			if(has_one) log_reject(ram, "does not support non-zero initialization");
 			return !has_one;
 		default:
 			return true;
@@ -566,10 +647,12 @@ bool apply_clock(MemConfig &cfg, const PortVariant &def, SigBit clk, bool clk_po
 
 // Perform write port assignment, validating clock options as we go.
 void MemMapping::assign_wr_ports() {
+	log_reject(stringf("Assigning write ports... (candidate configs: %lu)", cfgs.size()));
 	for (auto &port: mem.wr_ports) {
 		if (!port.clk_enable) {
 			// Async write ports not supported.
 			cfgs.clear();
+			log_reject("can't map at all: async write port");
 			return;
 		}
 		MemConfigs new_cfgs;
@@ -581,21 +664,27 @@ void MemMapping::assign_wr_ports() {
 				for (auto &oport: cfg.wr_ports)
 					if (oport.port_group == pgi)
 						used++;
-				if (used >= GetSize(pg.names))
+				if (used >= GetSize(pg.names)) {
+					log_reject(*cfg.def, pg, "not enough unassigned ports remaining");
 					continue;
+					}
 				for (int pvi = 0; pvi < GetSize(pg.variants); pvi++) {
 					auto &def = pg.variants[pvi];
 					// Make sure the target is a write port.
-					if (def.kind == PortKind::Ar || def.kind == PortKind::Sr)
+					if (def.kind == PortKind::Ar || def.kind == PortKind::Sr) {
+						log_reject(*cfg.def, pg, pvi, "not a write port");
 						continue;
+					}
 					MemConfig new_cfg = cfg;
 					WrPortConfig pcfg;
 					pcfg.rd_port = -1;
 					pcfg.port_group = pgi;
 					pcfg.port_variant = pvi;
 					pcfg.def = &def;
-					if (!apply_clock(new_cfg, def, port.clk, port.clk_polarity))
+					if (!apply_clock(new_cfg, def, port.clk, port.clk_polarity)) {
+						log_reject(*cfg.def, pg, pvi, "incompatible clock polarity");
 						continue;
+					}
 					new_cfg.wr_ports.push_back(pcfg);
 					new_cfgs.push_back(new_cfg);
 				}
@@ -607,6 +696,7 @@ void MemMapping::assign_wr_ports() {
 
 // Perform read port assignment, validating clock and rden options as we go.
 void MemMapping::assign_rd_ports() {
+	log_reject(stringf("Assigning read ports... (candidate configs: %lu)", cfgs.size()));
 	for (int pidx = 0; pidx < GetSize(mem.rd_ports); pidx++) {
 		auto &port = mem.rd_ports[pidx];
 		MemConfigs new_cfgs;
@@ -621,17 +711,23 @@ void MemMapping::assign_rd_ports() {
 				for (auto &oport: cfg.wr_ports)
 					if (oport.port_group == pgi)
 						used++;
-				if (used >= GetSize(pg.names))
+				if (used >= GetSize(pg.names)) {
+					log_reject(*cfg.def, pg, "not enough unassigned ports remaining");
 					continue;
+				}
 				for (int pvi = 0; pvi < GetSize(pg.variants); pvi++) {
 					auto &def = pg.variants[pvi];
 					// Make sure the target is a read port.
-					if (def.kind == PortKind::Sw)
+					if (def.kind == PortKind::Sw) {
+						log_reject(*cfg.def, pg, pvi, "not a read port");
 						continue;
+					}
 					// If mapping an async port, accept only async defs.
 					if (!port.clk_enable) {
-						if (def.kind == PortKind::Sr || def.kind == PortKind::Srsw)
+						if (def.kind == PortKind::Sr || def.kind == PortKind::Srsw) {
+							log_reject(*cfg.def, pg, pvi, "not an asynchronous read port");
 							continue;
+						}
 					}
 					MemConfig new_cfg = cfg;
 					RdPortConfig pcfg;
@@ -641,8 +737,10 @@ void MemMapping::assign_rd_ports() {
 					pcfg.def = &def;
 					if (def.kind == PortKind::Sr || def.kind == PortKind::Srsw) {
 						pcfg.emu_sync = false;
-						if (!apply_clock(new_cfg, def, port.clk, port.clk_polarity))
+						if (!apply_clock(new_cfg, def, port.clk, port.clk_polarity)) {
+							log_reject(*cfg.def, pg, pvi, "incompatible clock polarity");
 							continue;
+						}
 						// Decide if rden is usable.
 						if (port.en != State::S1) {
 							if (def.clk_en) {
@@ -664,22 +762,34 @@ void MemMapping::assign_rd_ports() {
 				auto &wpcfg = cfg.wr_ports[wpidx];
 				auto &def = *wpcfg.def;
 				// Make sure the write port is not yet shared.
-				if (wpcfg.rd_port != -1)
+				if (wpcfg.rd_port != -1) {
+					log_reject(stringf("can't share write port %d: already shared by a different read port", wpidx));
 					continue;
+				}
 				// Make sure the target is a read port.
-				if (def.kind == PortKind::Sw)
+				if (def.kind == PortKind::Sw) {
+					log_reject(stringf("can't share write port %d: not a read-write port", wpidx));
 					continue;
+				}
 				// Validate address compatibility.
-				if (!addr_compatible(wpidx, pidx))
+				if (!addr_compatible(wpidx, pidx)) {
+					log_reject(stringf("can't share write port %d: addresses are not compatible", wpidx));
 					continue;
+				}
 				// Validate clock compatibility, if needed.
 				if (def.kind == PortKind::Srsw) {
-					if (!port.clk_enable)
+					if (!port.clk_enable) {
+						log_reject(stringf("can't share write port %d: incompatible enable", wpidx));
 						continue;
-					if (port.clk != wport.clk)
+					}
+					if (port.clk != wport.clk) {
+						log_reject(stringf("can't share write port %d: different clock signal", wpidx));
 						continue;
-					if (port.clk_polarity != wport.clk_polarity)
+					}
+					if (port.clk_polarity != wport.clk_polarity) {
+						log_reject(stringf("can't share write port %d: incompatible clock polarity", wpidx));
 						continue;
+					}
 				}
 				// Okay, let's fill it in.
 				MemConfig new_cfg = cfg;
@@ -696,8 +806,10 @@ void MemMapping::assign_rd_ports() {
 					bool col_x = port.collision_x_mask[wpidx];
 					if (def.rdwr == RdWrKind::NoChange) {
 						if (!get_wr_excludes_rd(wpidx, pidx)) {
-							if (!trans && !col_x)
+							if (!trans && !col_x) {
+								log_reject(stringf("can't share write port %d: conflict in simultaneous read and write operations", wpidx));
 								continue;
+							}
 							if (trans)
 								pcfg.emu_trans.push_back(wpidx);
 							new_cfg.wr_ports[wpidx].force_uniform = true;
@@ -710,8 +822,10 @@ void MemMapping::assign_rd_ports() {
 							}
 						}
 					} else {
-						if (!col_x && !trans && def.rdwr != RdWrKind::Old)
+						if (!col_x && !trans && def.rdwr != RdWrKind::Old) {
+							log_reject(stringf("can't share write port %d: simultaneous read and write operations should result in new value but port reads old", wpidx));
 							continue;
+						}
 						if (trans) {
 							if (def.rdwr != RdWrKind::New && def.rdwr != RdWrKind::NewOnly)
 								pcfg.emu_trans.push_back(wpidx);
@@ -743,6 +857,7 @@ void MemMapping::assign_rd_ports() {
 
 // Validate transparency restrictions, determine where to add soft transparency logic.
 void MemMapping::handle_trans() {
+	log_reject(stringf("Handling transparency... (candidate configs: %lu)", cfgs.size()));
 	if (mem.emulate_read_first_ok()) {
 		MemConfigs new_cfgs;
 		for (auto &cfg: cfgs) {
@@ -801,15 +916,21 @@ void MemMapping::handle_trans() {
 					bool found = false;
 					for (auto &tdef: wpcfg.def->wrtrans) {
 						// Check if the target matches.
-						if (tdef.target_kind == WrTransTargetKind::Group && rpcfg.port_group != tdef.target_group)
+						if (tdef.target_kind == WrTransTargetKind::Group && rpcfg.port_group != tdef.target_group) {
+							log_reject(*cfg.def, stringf("transparency with target port group %d not supported", tdef.target_group));
 							continue;
+						}
 						// Check if the transparency kind is acceptable.
 						if (transparent) {
-							if (tdef.kind == WrTransKind::Old)
+							if (tdef.kind == WrTransKind::Old) {
+								log_reject(*cfg.def, stringf("target %d has wrong transparency kind: new value required", tdef.target_group));
 								continue;
+							}
 						} else {
-							if (tdef.kind != WrTransKind::Old)
+							if (tdef.kind != WrTransKind::Old) {
+								log_reject(*cfg.def, stringf("target %d has wrong transparency kind: old value required", tdef.target_group));
 								continue;
+							}
 						}
 						// Okay, we can use this cap.
 						new_cfgs.push_back(cfg);
@@ -2073,8 +2194,11 @@ struct MemoryLibMapPass : public Pass {
 				int idx = -1;
 				int best = map.logic_cost;
 				if (!map.logic_ok) {
-					if (map.cfgs.empty())
+					if (map.cfgs.empty()) {
+						log_debug("Rejected candidates for mapping memory %s.%s:\n", log_id(module->name), log_id(mem.memid));
+						log_debug("%s", map.rejected_cfg_debug_msgs.c_str());
 						log_error("no valid mapping found for memory %s.%s\n", log_id(module->name), log_id(mem.memid));
+					}
 					idx = 0;
 					best = map.cfgs[0].cost;
 				}
