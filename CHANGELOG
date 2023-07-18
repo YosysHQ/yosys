@@ -2,8 +2,14 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.30 .. Yosys 0.31-dev
+Yosys 0.30 .. Yosys 0.31
 --------------------------
+ * New commands and options
+    - Added option "-lsbidx" to "write_edif" pass.
+
+ * Various
+    - Added support for $divfloor operator to cxxrtl backend.
+    - dfflegalize: allow setting mince and minsrst args from scratchpad.
 
 Yosys 0.29 .. Yosys 0.30
 --------------------------
