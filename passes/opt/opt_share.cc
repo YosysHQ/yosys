@@ -131,6 +131,9 @@ RTLIL::IdString decode_port_semantics(RTLIL::Cell *cell, RTLIL::IdString port_na
 	if (cell->type.in(ID($lt), ID($le), ID($ge), ID($gt), ID($div), ID($mod), ID($divfloor), ID($modfloor), ID($concat), SHIFT_OPS) && port_name == ID::B)
 		return port_name;
 
+	if (cell->type.in(ID($_ANDNOT_), ID($_ORNOT_)))
+		return port_name;
+
 	return "";
 }
 
