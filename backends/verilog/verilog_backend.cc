@@ -37,7 +37,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 bool verbose, norename, noattr, attr2comment, noexpr, nodec, nohex, nostr, extmem, defparam, decimal, siminit, systemverilog, simple_lhs, noparallelcase;
 int auto_name_counter, auto_name_offset, auto_name_digits, extmem_counter;
-std::map<RTLIL::IdString, int> auto_name_map;
+dict<RTLIL::IdString, int> auto_name_map;
 std::set<RTLIL::IdString> reg_wires;
 std::string auto_prefix, extmem_prefix;
 
