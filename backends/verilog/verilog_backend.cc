@@ -129,7 +129,7 @@ std::string id(RTLIL::IdString internal_id, bool may_rename = true)
 		break;
 	}
 
-	const pool<string> keywords = {
+	static const pool<string> keywords = {
 		// IEEE 1800-2017 Annex B
 		"accept_on", "alias", "always", "always_comb", "always_ff", "always_latch", "and", "assert", "assign", "assume", "automatic", "before",
 		"begin", "bind", "bins", "binsof", "bit", "break", "buf", "bufif0", "bufif1", "byte", "case", "casex", "casez", "cell", "chandle",
