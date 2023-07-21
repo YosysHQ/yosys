@@ -1455,7 +1455,7 @@ bool AstNode::simplify(bool const_fold, bool in_lvalue, int stage, int width_hin
 			AstNode *template_node = resolved_type_node->children[0];
 
 			// Ensure typedef itself is fully simplified
-			while (template_node->simplify(const_fold, at_zero, in_lvalue, stage, width_hint, sign_hint, in_param)) {};
+			while (template_node->simplify(const_fold, in_lvalue, stage, width_hint, sign_hint, in_param)) {};
 
 			// Remove type reference
 			delete children[0];
