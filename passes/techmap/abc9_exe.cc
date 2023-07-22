@@ -267,10 +267,17 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 	buffer = stringf("\"%s\" -s -f %s/abc.script 2>&1", exe_file.c_str(), tempdir_name.c_str());
 	log("Running ABC command: %s\n", replace_tempdir(buffer, tempdir_name, show_tempdir).c_str());
 
-#ifndef YOSYS_LINK_ABC
 	abc9_output_filter filt(tempdir_name, show_tempdir);
+#ifndef YOSYS_LINK_ABC
 	int ret = run_command(buffer, std::bind(&abc9_output_filter::next_line, filt, std::placeholders::_1));
 #else
+	string temp_stdouterr_name = stringf("%s/stdouterr.txt", tempdir_name.c_str());
+	FILE *temp_stdouterr_w = fopen(temp_stdouterr_name.c_str(), "w");
+	if (temp_stdouterr_w == NULL)
+		log_error("ABC: cannot open a temporary file for output redirection");
+	FILE *old_stdout = stdout;
+	FILE *old_stderr = stderr;
+	stdout = stderr = temp_stdouterr_w;
 	// These needs to be mutable, supposedly due to getopt
 	char *abc9_argv[5];
 	string tmp_script_name = stringf("%s/abc.script", tempdir_name.c_str());
@@ -284,6 +291,13 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 	free(abc9_argv[1]);
 	free(abc9_argv[2]);
 	free(abc9_argv[3]);
+	stdout = old_stdout;
+	stderr = old_stderr;
+	fclose(temp_stdouterr_w);
+	std::ifstream temp_stdouterr_r(temp_stdouterr_name);
+	for (std::string line; std::getline(temp_stdouterr_r, line); )
+		filt.next_line(line + "\n");
+	temp_stdouterr_r.close();
 #endif
 	if (ret != 0) {
 		if (check_file_exists(stringf("%s/output.aig", tempdir_name.c_str())))
