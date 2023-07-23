@@ -1091,17 +1091,28 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		buffer = stringf("\"%s\" -s -f %s/abc.script 2>&1", exe_file.c_str(), tempdir_name.c_str());
 		log("Running ABC command: %s\n", replace_tempdir(buffer, tempdir_name, show_tempdir).c_str());
 
-		abc_output_filter filt(tempdir_name, show_tempdir);
 #ifndef YOSYS_LINK_ABC
+		abc_output_filter filt(tempdir_name, show_tempdir);
 		int ret = run_command(buffer, std::bind(&abc_output_filter::next_line, filt, std::placeholders::_1));
 #else
 		string temp_stdouterr_name = stringf("%s/stdouterr.txt", tempdir_name.c_str());
 		FILE *temp_stdouterr_w = fopen(temp_stdouterr_name.c_str(), "w");
 		if (temp_stdouterr_w == NULL)
 			log_error("ABC: cannot open a temporary file for output redirection");
-		FILE *old_stdout = stdout;
-		FILE *old_stderr = stderr;
-		stdout = stderr = temp_stdouterr_w;
+		fflush(stdout);
+		fflush(stderr);
+		FILE *old_stdout = fopen(temp_stdouterr_name.c_str(), "r"); // need any fd for renumbering
+		FILE *old_stderr = fopen(temp_stdouterr_name.c_str(), "r"); // need any fd for renumbering
+#if defined(__wasm)
+#define fd_renumber(from, to) (void)__wasi_fd_renumber(from, to)
+#else
+#define fd_renumber(from, to) dup2(from, to)
+#endif
+		fd_renumber(fileno(stdout), fileno(old_stdout));
+		fd_renumber(fileno(stderr), fileno(old_stderr));
+		fd_renumber(fileno(temp_stdouterr_w), fileno(stdout));
+		fd_renumber(fileno(temp_stdouterr_w), fileno(stderr));
+		fclose(temp_stdouterr_w);
 		// These needs to be mutable, supposedly due to getopt
 		char *abc_argv[5];
 		string tmp_script_name = stringf("%s/abc.script", tempdir_name.c_str());
@@ -1115,10 +1126,14 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		free(abc_argv[1]);
 		free(abc_argv[2]);
 		free(abc_argv[3]);
-		stdout = old_stdout;
-		stderr = old_stderr;
-		fclose(temp_stdouterr_w);
+		fflush(stdout);
+		fflush(stderr);
+		fd_renumber(fileno(old_stdout), fileno(stdout));
+		fd_renumber(fileno(old_stderr), fileno(stderr));
+		fclose(old_stdout);
+		fclose(old_stderr);
 		std::ifstream temp_stdouterr_r(temp_stdouterr_name);
+		abc_output_filter filt(tempdir_name, show_tempdir);
 		for (std::string line; std::getline(temp_stdouterr_r, line); )
 			filt.next_line(line + "\n");
 		temp_stdouterr_r.close();
