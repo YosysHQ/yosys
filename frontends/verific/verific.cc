@@ -145,29 +145,29 @@ string get_full_netlist_name(Netlist *nl)
 class YosysStreamCallBackHandler : public VerificStreamCallBackHandler
 {
 public:
-    YosysStreamCallBackHandler() : VerificStreamCallBackHandler() { }
-    virtual ~YosysStreamCallBackHandler() { }
+	YosysStreamCallBackHandler() : VerificStreamCallBackHandler() { }
+	virtual ~YosysStreamCallBackHandler() { }
 
-    virtual verific_stream *GetSysCallStream(const char *file_path)
-    {
-        if (!file_path) return nullptr;
+	virtual verific_stream *GetSysCallStream(const char *file_path)
+	{
+		if (!file_path) return nullptr;
 
-        linefile_type src_loc = GetFromLocation();
+		linefile_type src_loc = GetFromLocation();
 
-        char *this_file_name = nullptr;
-        if (src_loc && !FileSystem::IsAbsolutePath(file_path)) {
-            const char *src_file_name = LineFile::GetFileName(src_loc);
-            char *dir_name = FileSystem::DirectoryPath(src_file_name);
-            if (dir_name) {
-                this_file_name = Strings::save(dir_name, "/", file_path);
-                Strings::free(dir_name);
-                file_path = this_file_name;
-            }
-        }
-        verific_stream *strm = new verific_ifstream(file_path);
-        Strings::free(this_file_name);
-        return strm;
-    }
+		char *this_file_name = nullptr;
+		if (src_loc && !FileSystem::IsAbsolutePath(file_path)) {
+			const char *src_file_name = LineFile::GetFileName(src_loc);
+			char *dir_name = FileSystem::DirectoryPath(src_file_name);
+			if (dir_name) {
+				this_file_name = Strings::save(dir_name, "/", file_path);
+				Strings::free(dir_name);
+				file_path = this_file_name;
+			}
+		}
+		verific_stream *strm = new verific_ifstream(file_path);
+		Strings::free(this_file_name);
+		return strm;
+	}
 };
 
 YosysStreamCallBackHandler verific_read_cb;
@@ -1918,10 +1918,10 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		if (verific_verbose)
 			log("    ports in verific db:\n");
 
-        const char *param_name ;
-        const char *param_value ;
+		const char *param_name ;
+		const char *param_value ;
 		if (is_blackbox(inst->View())) {
-        	FOREACH_PARAMETER_OF_INST(inst, mi2, param_name, param_value) {
+			FOREACH_PARAMETER_OF_INST(inst, mi2, param_name, param_value) {
 				cell->setParam(RTLIL::escape_id(param_name), verific_const(param_value));
 			}
 		}
@@ -2510,7 +2510,7 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 		log_error("%s\n", verific_error_msg.c_str());
 
 	for (auto nl : nl_todo)
-	    nl.second->ChangePortBusStructures(1 /* hierarchical */);
+		nl.second->ChangePortBusStructures(1 /* hierarchical */);
 
 	VerificExtNets worker;
 	for (auto nl : nl_todo)
@@ -3473,7 +3473,7 @@ struct VerificPass : public Pass {
 					const std::string &key = args[++argidx];
 					const std::string &value = args[++argidx];
 					unsigned new_insertion = parameters.Insert(key.c_str(), value.c_str(),
-									           1 /* force_overwrite */);
+											   1 /* force_overwrite */);
 					if (!new_insertion)
 						log_warning_noprefix("-chparam %s already specified: overwriting.\n", key.c_str());
 					continue;
@@ -3754,7 +3754,7 @@ struct VerificPass : public Pass {
 		}
 #ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 		if (VerificExtensions::Execute(args, argidx, work, 
-		    [this](const std::vector<std::string> &args, size_t argidx, std::string msg)
+			[this](const std::vector<std::string> &args, size_t argidx, std::string msg)
 				{ cmd_error(args, argidx, msg); } )) {
 			goto check_error;
 		}
