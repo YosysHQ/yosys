@@ -451,6 +451,7 @@ void Mem::check() {
 		log_assert(GetSize(port.en) == 1);
 		log_assert(GetSize(port.arst) == 1);
 		log_assert(GetSize(port.srst) == 1);
+		log_assert(GetSize(port.addr) >= port.wide_log2);
 		log_assert(GetSize(port.data) == (width << port.wide_log2));
 		log_assert(GetSize(port.init_value) == (width << port.wide_log2));
 		log_assert(GetSize(port.arst_value) == (width << port.wide_log2));
@@ -484,6 +485,7 @@ void Mem::check() {
 		log_assert(GetSize(port.clk) == 1);
 		log_assert(GetSize(port.en) == (width << port.wide_log2));
 		log_assert(GetSize(port.data) == (width << port.wide_log2));
+		log_assert(GetSize(port.addr) >= port.wide_log2);
 		for (int j = 0; j < port.wide_log2; j++) {
 			log_assert(port.addr[j] == State::S0);
 		}
