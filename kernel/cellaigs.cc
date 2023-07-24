@@ -318,7 +318,7 @@ Aig::Aig(Cell *cell)
 		goto optimize;
 	}
 
-	if (cell->type.in(ID($mux), ID($_MUX_)))
+	if (cell->type.in(ID($mux), ID($_MUX_), ID($_NMUX_)))
 	{
 		int S = mk.inport(ID::S);
 		for (int i = 0; i < GetSize(cell->getPort(ID::Y)); i++) {

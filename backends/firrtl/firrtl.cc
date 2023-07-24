@@ -21,7 +21,6 @@
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
-#include "kernel/cellaigs.h"
 #include "kernel/log.h"
 #include "kernel/mem.h"
 #include <algorithm>
@@ -1196,6 +1195,7 @@ struct FirrtlBackend : public Backend {
 		log("        pmuxtree\n");
 		log("        bmuxmap\n");
 		log("        demuxmap\n");
+		log("        bwmuxmap\n");
 		log("\n");
 	}
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
