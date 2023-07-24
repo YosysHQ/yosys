@@ -629,6 +629,8 @@ ifeq ($(ENABLE_ZLIB),1)
 $(eval $(call add_include_file,kernel/fstdata.h))
 endif
 $(eval $(call add_include_file,kernel/mem.h))
+$(eval $(call add_include_file,kernel/yw.h))
+$(eval $(call add_include_file,kernel/json.h))
 $(eval $(call add_include_file,libs/ezsat/ezsat.h))
 $(eval $(call add_include_file,libs/ezsat/ezminisat.h))
 ifeq ($(ENABLE_ZLIB),1)
