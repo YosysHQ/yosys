@@ -30,6 +30,7 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+bool RTLIL::IdString::destruct_guard_ok = false;
 RTLIL::IdString::destruct_guard_t RTLIL::IdString::destruct_guard;
 std::vector<char*> RTLIL::IdString::global_id_storage_;
 dict<char*, int, hash_cstr_ops> RTLIL::IdString::global_id_index_;
