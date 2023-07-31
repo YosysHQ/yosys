@@ -2843,19 +2843,26 @@ struct VerificPass : public Pass {
 	}
 
 #ifdef VERIFIC_VHDL_SUPPORT
+	msg_type_t prev_1240 ;
+	msg_type_t prev_1241 ;
+
 	void add_units_to_map(Map &map, std::string work, bool flag_lib)
 	{
 		MapIter mi ;
 		VhdlPrimaryUnit *unit ;
-		if (flag_lib) {
-			VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary(work.c_str(), 1);
-			if (vhdl_lib) {					
-				FOREACH_VHDL_PRIMARY_UNIT(vhdl_lib, mi, unit) {
-					if (!unit) continue;
-					map.Insert(unit,unit);
-				}
+		if (!flag_lib) return;
+		VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary(work.c_str(), 1);
+		if (vhdl_lib) {					
+			FOREACH_VHDL_PRIMARY_UNIT(vhdl_lib, mi, unit) {
+				if (!unit) continue;
+				map.Insert(unit,unit);
 			}
 		}
+
+ 		prev_1240 = Message::GetMessageType("VHDL-1240") ;
+		prev_1241 = Message::GetMessageType("VHDL-1241") ;
+		Message::SetMessageType("VHDL-1240", VERIFIC_INFO);
+		Message::SetMessageType("VHDL-1241", VERIFIC_INFO);
 	}
 
 	void set_units_to_blackbox(Map &map, std::string work, bool flag_lib)
@@ -2870,23 +2877,33 @@ struct VerificPass : public Pass {
 				unit->SetCompileAsBlackbox();
 			}
 		}
+		Message::ClearMessageType("VHDL-1240") ; 
+		Message::ClearMessageType("VHDL-1241") ; 
+		if (Message::GetMessageType("VHDL-1240")!=prev_1240)
+			Message::SetMessageType("VHDL-1240", prev_1240);
+		if (Message::GetMessageType("VHDL-1241")!=prev_1241)
+			Message::SetMessageType("VHDL-1241", prev_1241);
+
 	}
 #endif
+
+	msg_type_t prev_1063;
 
 	void add_modules_to_map(Map &map, std::string work, bool flag_lib)
 	{
 		MapIter mi ;
 		VeriModule *veri_module ;
-		if (flag_lib) {
-
-			VeriLibrary *veri_lib = veri_file::GetLibrary(work.c_str(), 1);
-			if (veri_lib) {					
-				FOREACH_VERILOG_MODULE_IN_LIBRARY(veri_lib, mi, veri_module) {
-					if (!veri_module) continue;
-					map.Insert(veri_module,veri_module);
-				}
+		if (!flag_lib) return;
+		VeriLibrary *veri_lib = veri_file::GetLibrary(work.c_str(), 1);
+		if (veri_lib) {					
+			FOREACH_VERILOG_MODULE_IN_LIBRARY(veri_lib, mi, veri_module) {
+				if (!veri_module) continue;
+				map.Insert(veri_module,veri_module);
 			}
 		}
+
+ 		prev_1063 = Message::GetMessageType("VERI-1063") ;
+		Message::SetMessageType("VERI-1063", VERIFIC_INFO);
 	}
 
 	void set_modules_to_blackbox(Map &map, std::string work, bool flag_lib)
@@ -2901,6 +2918,9 @@ struct VerificPass : public Pass {
 				veri_module->SetCompileAsBlackbox();
 			}
 		}
+		Message::ClearMessageType("VERI-1063") ; 
+		if (Message::GetMessageType("VERI-1063")!=prev_1063)
+			Message::SetMessageType("VERI-1063", prev_1063);
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
