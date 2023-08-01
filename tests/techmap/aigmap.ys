@@ -1,3 +1,118 @@
+read_verilog -icells <<EOF
+module test();
+`define CELL_AY(typ)  \
+wire typ``_a, typ``_y; \
+$``typ typ(.A(typ``_a), .Y(typ``_y));
+`define CELL_ABY(typ)  \
+wire typ``_a, typ``_b, typ``_y; \
+$``typ typ(.A(typ``_a), .B(typ``_b), .Y(typ``_y));
+`define CELL_SABY(typ)  \
+wire typ``_a, typ``_b, typ``_y, typ``_s; \
+$``typ typ(.A(typ``_a), .B(typ``_b), .Y(typ``_y), .S(typ``_s));
+`define CELL_ABCY(typ)  \
+wire typ``_a, typ``_b, typ``_c, typ``_y; \
+$``typ typ(.A(typ``_a), .B(typ``_b), .C(typ``_c), .Y(typ``_y));
+`define CELL_ABCDY(typ)  \
+wire typ``_a, typ``_b, typ``_c, typ``_d, typ``_y; \
+$``typ typ(.A(typ``_a), .B(typ``_b), .C(typ``_c), .D(typ``_d), .Y(typ``_y));
+
+`CELL_AY(_BUF_)
+`CELL_AY(_NOT_)
+`CELL_ABY(_AND_)
+`CELL_ABY(_NAND_)
+`CELL_ABY(_OR_)
+`CELL_ABY(_NOR_)
+`CELL_ABY(_XOR_)
+`CELL_ABY(_XNOR_)
+`CELL_ABY(_ANDNOT_)
+`CELL_ABY(_ORNOT_)
+`CELL_SABY(_MUX_)
+`CELL_SABY(_NMUX_)
+`CELL_ABCY(_AOI3_)
+`CELL_ABCY(_OAI3_)
+`CELL_ABCDY(_AOI4_)
+`CELL_ABCDY(_OAI4_)
+endmodule
+EOF
+
+expose -input c:* %ci* w:* %i
+expose c:* %co* w:* %i
+copy test gold
+aigmap test
+select -assert-none test/t:$_AND_ test/t:$_NOT_ %% test/c:* %D
+miter -equiv -flatten gold test miter
+sat -verify -prove trigger 0 miter
+
+
+design -reset
+read_verilog <<EOF
+module test();
+
+`define BIOP(name,op,w1,w2,wy) \
+wire [w1-1:0] name``_a1; \
+wire [w2-1:0] name``_b1; \
+wire [wy-1:0] name``_y1; \
+assign name``_y1 = name``_a1 op name``_b1; \
+wire signed [w1-1:0] name``_a2; \
+wire signed [w2-1:0] name``_b2; \
+wire [wy-1:0] name``_y2; \
+assign name``_y2 = name``_a2 op name``_b2;
+
+`define UNOP(name,op,w1) \
+wire signed [w1-1:0] name``_a1; \
+wire signed [w1-1:0] name``_y1; \
+assign name``_y1 = op name``_a1; \
+wire [w1-1:0] name``_a2; \
+wire [w1-1:0] name``_y2; \
+assign name``_y2 = op name``_a2;
+
+`define UNOP_REDUCE(name,op,w1) \
+wire signed [w1-1:0] name``_a1; \
+wire name``_y1; \
+assign name``_y1 = op name``_a1; \
+wire [w1-1:0] name``_a2; \
+wire name``_y2; \
+assign name``_y2 = op name``_a2;
+
+`BIOP(add1, +, 2, 3, 4)
+`BIOP(add2, +, 6, 5, 4)
+`BIOP(sub1, -, 2, 3, 4)
+`BIOP(sub2, -, 6, 5, 4)
+`BIOP(and, &, 3, 3, 3)
+`BIOP(or, |, 3, 3, 3)
+`BIOP(xor, ^, 3, 3, 3)
+`BIOP(xnor, ~^, 3, 3, 3)
+`BIOP(logic_and, &&, 3, 3, 1)
+`BIOP(logic_or, ||, 3, 3, 1)
+`BIOP(logic_eq, ==, 3, 3, 1)
+`BIOP(logic_ne, !=, 3, 3, 1)
+`BIOP(logic_lt, <, 3, 3, 1)
+`BIOP(logic_le, <=, 3, 3, 1)
+`BIOP(logic_gt, >, 3, 3, 1)
+`BIOP(logic_ge, >=, 3, 3, 1)
+`UNOP(pos, +, 3)
+`UNOP(neg, ~, 3)
+`UNOP_REDUCE(logic_not, !, 3)
+`UNOP_REDUCE(reduce_and, &, 3)
+`UNOP_REDUCE(reduce_or, |, 3)
+`UNOP_REDUCE(reduce_xor, ^, 3)
+`UNOP_REDUCE(reduce_xnor, ~^, 3)
+
+wire [3:0] mux_a, mux_b, mux_s, mux_y;
+assign mux_y = mux_s ? mux_b : mux_a;
+endmodule
+EOF
+
+expose -input c:* %ci* w:* %i
+expose c:* %co* w:* %i
+copy test gold
+aigmap test
+select -assert-none test/t:$_AND_ test/t:$_NOT_ %% test/c:* %D
+miter -equiv -flatten gold test miter
+sat -verify -prove trigger 0 miter
+
+
+design -reset
 read_verilog <<EOT
 module top(input i, j, s, output o, p);
 assign o = s ? j : i;
