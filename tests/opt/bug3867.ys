@@ -1,0 +1,7 @@
+read_verilog <<EOF
+module test (input signed [4:0] i, output [5:0] o);
+assign o = (i >= 0);
+endmodule
+EOF
+
+equiv_opt -assert opt_expr -fine

@@ -2165,7 +2165,7 @@ skip_alu_split:
 					{
 						condition   = "signed X>=0";
 						replacement = stringf("X[%d]", var_width - 1);
-						module->addNot(NEW_ID, var_sig[var_width - 1], cell->getPort(ID::Y));
+						module->addLogicNot(NEW_ID, var_sig[var_width - 1], cell->getPort(ID::Y));
 						remove = true;
 					}
 				}
