@@ -24,8 +24,6 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 bool did_something;
-dict<SigBit, State> initbits;
-pool<SigBit> rminitbits;
 
 #include "passes/pmgen/peepopt_pm.h"
 #include "generate.h"
@@ -60,9 +58,6 @@ struct PeepoptPass : public Pass {
 
 		if (!genmode.empty())
 		{
-			initbits.clear();
-			rminitbits.clear();
-
 			if (genmode == "shiftmul")
 				GENERATE_PATTERN(peepopt_pm, shiftmul);
 			else if (genmode == "muldiv")
@@ -79,47 +74,13 @@ struct PeepoptPass : public Pass {
 			while (did_something)
 			{
 				did_something = false;
-				initbits.clear();
-				rminitbits.clear();
 
 				peepopt_pm pm(module);
-
-				for (auto w : module->wires()) {
-					auto it = w->attributes.find(ID::init);
-					if (it != w->attributes.end()) {
-						SigSpec sig = pm.sigmap(w);
-						Const val = it->second;
-						int len = std::min(GetSize(sig), GetSize(val));
-						for (int i = 0; i < len; i++) {
-							if (sig[i].wire == nullptr)
-								continue;
-							if (val[i] != State::S0 && val[i] != State::S1)
-								continue;
-							initbits[sig[i]] = val[i];
-						}
-					}
-				}
 
 				pm.setup(module->selected_cells());
 
 				pm.run_shiftmul();
 				pm.run_muldiv();
-
-				for (auto w : module->wires()) {
-					auto it = w->attributes.find(ID::init);
-					if (it != w->attributes.end()) {
-						SigSpec sig = pm.sigmap(w);
-						Const &val = it->second;
-						int len = std::min(GetSize(sig), GetSize(val));
-						for (int i = 0; i < len; i++) {
-							if (rminitbits.count(sig[i]))
-								val[i] = State::Sx;
-						}
-					}
-				}
-
-				initbits.clear();
-				rminitbits.clear();
 			}
 		}
 	}
