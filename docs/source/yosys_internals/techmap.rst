@@ -1,5 +1,7 @@
 .. _chapter:techmap:
 
+.. TODO: copypaste
+
 Technology mapping 
 ==================
 
@@ -10,8 +12,8 @@ transformed into a functionally equivalent netlist utilizing the cell types
 available in the target architecture.
 
 Technology mapping is often performed in two phases. In the first phase RTL
-cells are mapped to an internal library of single-bit cells (see :numref:`Sec.
-%s <sec:celllib_gates>`). In the second phase this netlist of internal gate
+cells are mapped to an internal library of single-bit cells (see
+:ref:`sec:celllib_gates`). In the second phase this netlist of internal gate
 types is transformed to a netlist of gates from the target technology library.
 
 When the target architecture provides coarse-grain cells (such as block ram or
@@ -33,7 +35,7 @@ reader may find this map file as techlibs/common/techmap.v in the Yosys source
 tree.
 
 Additional features have been added to techmap to allow for conditional mapping
-of cells (see :doc:`cmd/techmap`). This can for example be useful if the target
+of cells (see :doc:`/cmd/techmap`). This can for example be useful if the target
 architecture supports hardware multipliers for certain bit-widths but not for
 others.
 
@@ -52,14 +54,14 @@ cell type but only combinations of cells.
 
 For these cases Yosys provides the extract pass that can match a given set of
 modules against a design and identify the portions of the design that are
-identical (i.e. isomorphic subcircuits) to any of the given modules. These
+identical (i.e. isomorphic subcircuits) to any of the given modules. These
 matched subcircuits are then replaced by instances of the given modules.
 
 The extract pass also finds basic variations of the given modules, such as
 swapped inputs on commutative cell types.
 
 In addition to this the extract pass also has limited support for frequent
-subcircuit mining, i.e. the process of finding recurring subcircuits in the
+subcircuit mining, i.e. the process of finding recurring subcircuits in the
 design. This has a few applications, including the design of new coarse-grain
 architectures :cite:p:`intersynthFdlBookChapter`.
 
@@ -77,7 +79,7 @@ On the gate-level the target architecture is usually described by a "Liberty
 file". The Liberty file format is an industry standard format that can be used
 to describe the behaviour and other properties of standard library cells .
 
-Mapping a design utilizing the Yosys internal gate library (e.g. as a result of
+Mapping a design utilizing the Yosys internal gate library (e.g. as a result of
 mapping it to this representation using the techmap pass) is performed in two
 phases.
 

@@ -9,7 +9,7 @@ abstract syntax tree (AST) representation of the input. This AST representation
 is then passed to the AST frontend that converts it to RTLIL data, as
 illustrated in :numref:`Fig. %s <fig:Verilog_flow>`.
 
-.. figure:: ../images/verilog_flow.*
+.. figure:: ../../../images/verilog_flow.*
 	:class: width-helper
 	:name: fig:Verilog_flow
 
@@ -167,7 +167,7 @@ properties:
 -  | Node content
    | Each node might have additional content data. A series of member
      variables exist to hold such data. For example the member
-     ``std::string str`` can hold a string value and is used e.g. in the
+     ``std::string str`` can hold a string value and is used e.g. in the
      AST_IDENTIFIER node type to store the identifier name.
 
 -  | Source code location
@@ -220,7 +220,7 @@ performs the following transformations on the AST data structure:
 
 -  Evaluate all ``generate``-statements and unroll all ``for``-loops.
 
--  Perform const folding where it is necessary (e.g. in the value part
+-  Perform const folding where it is necessary (e.g. in the value part
    of AST_PARAMETER, AST_LOCALPARAM, AST_PARASET and AST_RANGE nodes).
 
 -  Replace AST_PRIMITIVE nodes with appropriate AST_ASSIGN nodes.
@@ -388,7 +388,7 @@ the following way:
    the Verilog code has been moved to the beginning of the RTLIL process
    to line 13 of the RTLIL listing.)
 
-   I.e. the special cases deeper in the switch hierarchy override the
+   I.e. the special cases deeper in the switch hierarchy override the
    defaults on the upper levels. The assignments in lines 12 and 22 of
    the RTLIL code serve as an example for this.
 
@@ -397,7 +397,7 @@ the following way:
    preserved with respect to the original AST and Verilog code.
 
 -  The whole ``RTLIL::CaseRule``/``RTLIL::SwitchRule`` tree describes an
-   asynchronous circuit. I.e. the decision tree formed by the switches
+   asynchronous circuit. I.e. the decision tree formed by the switches
    can be seen independently for each assigned signal. Whenever one
    assigned signal changes, all signals that depend on the changed
    signals are to be updated. For example the assignments in lines 16
@@ -414,7 +414,7 @@ into the synchronization type (posedge) and signal (\\clock) for the
 d-type flip-flops and the ``RTLIL::CaseRule``/``RTLIL::SwitchRule`` tree
 to a decision tree using multiplexers.
 
-In more complex examples (e.g. asynchronous resets) the part of the
+In more complex examples (e.g. asynchronous resets) the part of the
 ``RTLIL::CaseRule``/``RTLIL::SwitchRule`` tree that describes the
 asynchronous reset must first be transformed to the correct
 ``RTLIL::SyncRule`` objects. This is done by the proc_adff pass.

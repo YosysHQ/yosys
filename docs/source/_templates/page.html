@@ -1,0 +1,44 @@
+{#
+
+See https://github.com/pradyunsg/furo/blob/main/src/furo/theme/furo/page.html for the original
+block this is overwriting.
+
+The part that is customized is between the "begin of custom part" and "end of custom part"
+comments below. It uses the same styles as the existing right sidebar code.
+
+#}
+{% extends "furo/page.html" %}
+{% block right_sidebar %}
+<div class="toc-sticky toc-scroll">
+	{# begin of custom part #}
+	<div class="toc-title-container">
+	<span class="toc-title">
+	YosysHQ
+	</span>
+	</div>
+	<div class="toc-tree-container yosyshq-links" style="padding-bottom: 0">
+	<div class="toc-tree">
+	<ul>
+	<li></li>
+	<li><a class="reference external" href="https://yosyshq.readthedocs.io">Docs</a></li>
+	<li><a class="reference external" href="https://blog.yosyshq.com">Blog</a></li>
+	<li><a class="reference external" href="https://www.yosyshq.com">Website</a></li>
+	</ul>
+	</div>
+	</div>
+	{# end of custom part #}
+	{% if not furo_hide_toc %}
+	<div class="toc-title-container">
+	<span class="toc-title">
+	{{ _("On this page") }}
+	</span>
+	</div>
+	<div class="toc-tree-container">
+	<div class="toc-tree">
+	{{ toc }}
+	</div>
+	</div>
+	{% endif %}
+</div>
+{% endblock %}
+	

@@ -17,7 +17,7 @@ BigInt
 The files in ``libs/bigint/`` provide a library for performing arithmetic with
 arbitrary length integers. It is written by Matt McCutchen.
 
-The BigInt library is used for evaluating constant expressions, e.g. using the
+The BigInt library is used for evaluating constant expressions, e.g. using the
 ConstEval class provided in kernel/consteval.h.
 
 See also: http://mattmccutchen.net/bigint/

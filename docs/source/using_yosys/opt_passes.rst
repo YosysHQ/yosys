@@ -1,7 +1,9 @@
 .. _chapter:opt:
 
-Optimizations
-=============
+Optimization passes
+===================
+
+.. TODO: copypaste
 
 Yosys employs a number of optimizations to generate better and cleaner results.
 This chapter outlines these optimizations.
@@ -34,7 +36,7 @@ The opt_expr pass
 ~~~~~~~~~~~~~~~~~
 
 This pass performs const folding on the internal combinational cell types
-described in :numref:`Chap. %s <chapter:celllib>`. This means a cell with all
+described in :ref:`chapter:celllib`. This means a cell with all
 constant inputs is replaced with the constant value this cell drives. In some
 cases this pass can also optimize cells with some constant inputs.
 
@@ -67,7 +69,7 @@ optimizing an $_AND\_ gate. The first three rules implement the obvious const
 folding rules. Note that ‘any' might include dynamic values calculated by other
 parts of the circuit. The following three lines propagate undef (X) states.
 These are the only three cases in which it is allowed to propagate an undef
-according to Sec. 5.1.10 of IEEE Std. 1364-2005 :cite:p:`Verilog2005`.
+according to Sec. 5.1.10 of IEEE Std. 1364-2005 :cite:p:`Verilog2005`.
 
 The next two lines assume the value 0 for undef states. These two rules are only
 used if no other substitutions are possible in the current module. If other
@@ -189,7 +191,7 @@ using the ``\fsm_encoding`` attribute (unless ``\fsm_encoding`` is set to
 fsm\_ passes operate on these $fsm cells. The fsm_map call finally replaces the
 $fsm cells with RTL cells.
 
-Note that these optimizations operate on an RTL netlist. I.e. the fsm pass
+Note that these optimizations operate on an RTL netlist. I.e. the fsm pass
 should be executed after the proc pass has transformed all RTLIL::Process
 objects to RTL cells.
 
@@ -254,7 +256,7 @@ It is then extended by adding all values that are calculated by cells that
 compare the state signal with a constant value.
 
 In most cases this will cover all uses of the state register, thus rendering the
-state encoding arbitrary. If however a design uses e.g. a single bit of the
+state encoding arbitrary. If however a design uses e.g. a single bit of the
 state value to drive a control output directly, this bit of the state signal
 will be transformed to a control output of the same value.
 
@@ -326,5 +328,5 @@ Yosys can perform multi-level combinational logic optimization on gate-level
 netlists using the external program ABC . The abc pass extracts the
 combinational gate-level parts of the design, passes it through ABC, and
 re-integrates the results. The abc pass can also be used to perform other
-operations using ABC, such as technology mapping (see :numref:`Sec %s
-<sec:techmap_extern>` for details).
+operations using ABC, such as technology mapping (see :ref:`sec:techmap_extern`
+for details).

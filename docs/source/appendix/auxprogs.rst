@@ -9,7 +9,7 @@ yosys-config
 
 The yosys-config tool (an auto-generated shell-script) can be used to query
 compiler options and other information needed for building loadable modules for
-Yosys. See Sec. \ :numref:`chapter:prog` for details.
+Yosys. See :ref:`chapter:prog` for details.
 
 .. _sec:filterlib:
 
@@ -17,7 +17,7 @@ yosys-filterlib
 ---------------
 
 The yosys-filterlib tool is a small utility that can be used to strip or extract
-information from a Liberty file. See :numref:`Sec. %s <sec:techmap_extern>` for
+information from a Liberty file. See :ref:`sec:techmap_extern` for
 details.
 
 yosys-abc

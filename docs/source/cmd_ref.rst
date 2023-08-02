@@ -8,4 +8,4 @@ Command line reference
 	:maxdepth: 1
 	:glob:
 
-	cmd/*
+	../cmd/*

@@ -1,7 +1,7 @@
 .. _chapter:textrtlil:
 
 RTLIL text representation
-=========================
+-------------------------
 
 This appendix documents the text representation of RTLIL in extended Backus-Naur
 form (EBNF).
@@ -17,10 +17,10 @@ Finally, note that all statements (rules ending in ``-stmt``) terminate in an
 end-of-line. Because of this, a statement cannot be broken into multiple lines.
 
 Lexical elements
-----------------
+~~~~~~~~~~~~~~~~
 
 Characters
-~~~~~~~~~~
+^^^^^^^^^^
 
 An RTLIL file is a stream of bytes. Strictly speaking, a "character" in an RTLIL
 file is a single byte. The lexer treats multi-byte encoded characters as
@@ -37,7 +37,7 @@ An ``eol`` is one or more consecutive ASCII newlines (10) and carriage returns
 (13).
 
 Identifiers
-~~~~~~~~~~~
+^^^^^^^^^^^
 
 There are two types of identifiers in RTLIL:
 
@@ -51,7 +51,7 @@ There are two types of identifiers in RTLIL:
     <autogen-id>    ::= $ <nonws>+
 
 Values
-~~~~~~
+^^^^^^
 
 A *value* consists of a width in bits and a bit representation, most
 significant bit first. Bits may be any of:
@@ -76,7 +76,7 @@ error.
     <integer>       ::= -? <decimal-digit>+
 
 Strings
-~~~~~~~
+^^^^^^^
 
 A string is a series of characters delimited by double-quote characters. Within
 a string, any character except ASCII NUL (0) may be used. In addition, certain
@@ -94,13 +94,13 @@ character. Thus:
 -  ``\r``: An 'r' character
 
 Comments
-~~~~~~~~
+^^^^^^^^
 
 A comment starts with a ``#`` character and proceeds to the end of the line. All
 comments are ignored.
 
 File
-----
+~~~~
 
 A file consists of an optional autoindex statement followed by zero or more
 modules.
@@ -110,7 +110,7 @@ modules.
     <file> ::= <autoidx-stmt>? <module>*
 
 Autoindex statements
-~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^
 
 The autoindex statement sets the global autoindex value used by Yosys when it
 needs to generate a unique name, e.g. ``flattenN``. The N part is filled with
@@ -123,7 +123,7 @@ would have different properties than just running a pass on a warm design.
     <autoidx-stmt> ::= autoidx <integer> <eol>
 
 Modules
-~~~~~~~
+^^^^^^^
 
 Declares a module, with zero or more attributes, consisting of zero or more
 wires, memories, cells, processes, and connections.
@@ -142,7 +142,7 @@ wires, memories, cells, processes, and connections.
     <module-end-stmt>   ::= end <eol>
 
 Attribute statements
-~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^
 
 Declares an attribute with the given identifier and value.
 
@@ -151,7 +151,7 @@ Declares an attribute with the given identifier and value.
     <attr-stmt> ::= attribute <id> <constant> <eol>
 
 Signal specifications
-~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^
 
 A signal is anything that can be applied to a cell port, i.e. a constant value,
 all bits or a selection of bits from a wire, or concatenations of those.
@@ -161,8 +161,7 @@ all bits or a selection of bits from a wire, or concatenations of those.
 ``32'11111111111111111111111111111111``, while a constant of :math:`1` is the
 same as ``32'1``.
 
-See :numref:`Sec. %s <sec:rtlil_sigspec>` for an overview of signal
-specifications.
+See :ref:`sec:rtlil_sigspec` for an overview of signal specifications.
 
 .. code:: BNF
 
@@ -172,7 +171,7 @@ specifications.
                |  { <sigspec>* }
 
 Connections
-~~~~~~~~~~~
+^^^^^^^^^^^
 
 Declares a connection between the given signals.
 
@@ -181,12 +180,12 @@ Declares a connection between the given signals.
     <conn-stmt> ::= connect <sigspec> <sigspec> <eol>
 
 Wires
-~~~~~
+^^^^^
 
 Declares a wire, with zero or more attributes, with the given identifier and
 options in the enclosing module.
 
-See :numref:`Sec. %s <sec:rtlil_cell_wire>` for an overview of wires.
+See :ref:`sec:rtlil_cell_wire` for an overview of wires.
 
 .. code:: BNF
 
@@ -202,13 +201,13 @@ See :numref:`Sec. %s <sec:rtlil_cell_wire>` for an overview of wires.
                      |  signed
 
 Memories
-~~~~~~~~
+^^^^^^^^
 
 Declares a memory, with zero or more attributes, with the given identifier and
 options in the enclosing module.
 
-See :numref:`Sec. %s <sec:rtlil_memory>` for an overview of memory cells, and
-:numref:`Sec. %s <sec:memcells>` for details about memory cell types.
+See :ref:`sec:rtlil_memory` for an overview of memory cells, and
+:ref:`sec:memcells` for details about memory cell types.
 
 .. code:: BNF
 
@@ -219,13 +218,13 @@ See :numref:`Sec. %s <sec:rtlil_memory>` for an overview of memory cells, and
                      |  offset <integer>
 
 Cells
-~~~~~
+^^^^^
 
 Declares a cell, with zero or more attributes, with the given identifier and
 type in the enclosing module.
 
-Cells perform functions on input signals. See :numref:`Chap. %s
-<chapter:celllib>` for a detailed list of cell types.
+Cells perform functions on input signals. See :ref:`chapter:celllib` for a
+detailed list of cell types.
 
 .. code:: BNF
 
@@ -239,13 +238,13 @@ Cells perform functions on input signals. See :numref:`Chap. %s
 
 
 Processes
-~~~~~~~~~
+^^^^^^^^^
 
 Declares a process, with zero or more attributes, with the given identifier in
 the enclosing module. The body of a process consists of zero or more
 assignments, exactly one switch, and zero or more syncs.
 
-See :numref:`Sec. %s <sec:rtlil_process>` for an overview of processes.
+See :ref:`sec:rtlil_process` for an overview of processes.
 
 .. code:: BNF
 
@@ -258,7 +257,7 @@ See :numref:`Sec. %s <sec:rtlil_process>` for an overview of processes.
     <proc-end-stmt> ::= end <eol>
 
 Switches
-~~~~~~~~
+^^^^^^^^
 
 Switches test a signal for equality against a list of cases. Each case specifies
 a comma-separated list of signals to check against. If there are no signals in
@@ -277,7 +276,7 @@ attributes.
     <switch-end-stmt>   ::= end <eol>
 
 Syncs
-~~~~~
+^^^^^
 
 Syncs update signals with other signals when an event happens. Such an event may
 be:
