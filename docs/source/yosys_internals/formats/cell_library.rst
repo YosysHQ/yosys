@@ -816,17 +816,17 @@ techlibs/common/simcells.v in the Yosys source tree.
 	============== ============== =========
 
 
-Tables \ :numref:`%s <tab:CellLib_gates>`, :numref:`%s
-<tab:CellLib_gates_dffe>`, :numref:`%s <tab:CellLib_gates_adff>`, :numref:`%s
-<tab:CellLib_gates_adffe>`, :numref:`%s <tab:CellLib_gates_dffsr>`, :numref:`%s
-<tab:CellLib_gates_dffsre>`, :numref:`%s <tab:CellLib_gates_adlatch>`,
-:numref:`%s <tab:CellLib_gates_dlatchsr>` and :numref:`%s
-<tab:CellLib_gates_sr>` list all cell types used for gate level logic. The cell
-types ``$_BUF_``, ``$_NOT_``, ``$_AND_``, ``$_NAND_``, ``$_ANDNOT_``, ``$_OR_``,
-``$_NOR_``, ``$_ORNOT_``, ``$_XOR_``, ``$_XNOR_``, ``$_AOI3_``, ``$_OAI3_``,
-``$_AOI4_``, ``$_OAI4_``, ``$_MUX_``, ``$_MUX4_``, ``$_MUX8_``, ``$_MUX16_`` and
-``$_NMUX_`` are used to model combinatorial logic. The cell type ``$_TBUF_`` is
-used to model tristate logic.
+Tables :numref:`%s <tab:CellLib_gates>`, :numref:`%s <tab:CellLib_gates_dffe>`,
+:numref:`%s <tab:CellLib_gates_adff>`, :numref:`%s <tab:CellLib_gates_adffe>`,
+:numref:`%s <tab:CellLib_gates_dffsr>`, :numref:`%s <tab:CellLib_gates_dffsre>`,
+:numref:`%s <tab:CellLib_gates_adlatch>`, :numref:`%s
+<tab:CellLib_gates_dlatchsr>` and :numref:`%s <tab:CellLib_gates_sr>` list all
+cell types used for gate level logic. The cell types ``$_BUF_``, ``$_NOT_``,
+``$_AND_``, ``$_NAND_``, ``$_ANDNOT_``, ``$_OR_``, ``$_NOR_``, ``$_ORNOT_``,
+``$_XOR_``, ``$_XNOR_``, ``$_AOI3_``, ``$_OAI3_``, ``$_AOI4_``, ``$_OAI4_``,
+``$_MUX_``, ``$_MUX4_``, ``$_MUX8_``, ``$_MUX16_`` and ``$_NMUX_`` are used to
+model combinatorial logic. The cell type ``$_TBUF_`` is used to model tristate
+logic.
 
 The ``$_MUX4_``, ``$_MUX8_`` and ``$_MUX16_`` cells are used to model wide
 muxes, and correspond to the following Verilog code:

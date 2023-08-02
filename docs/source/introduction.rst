@@ -50,15 +50,6 @@ What you can do with Yosys
 - Perform all kinds of operations on netlist (RTL, Logic, Gate)
 - Perform logic optimizations and gate mapping with ABC
 
-Things you can't do
-~~~~~~~~~~~~~~~~~~~
-
-- Process high-level languages such as C/C++/SystemC
-- Create physical layouts (place&route)
-  + Check out `nextpnr`_ for that
-
-.. _nextpnr: https://github.com/YosysHQ/nextpnr
-
 Typical applications for Yosys
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -71,12 +62,21 @@ Typical applications for Yosys
 - Framework for building custom flows (Not limited to synthesis but also formal
   verification, reverse engineering, ...)
 
+Things you can't do
+~~~~~~~~~~~~~~~~~~~
+
+- Process high-level languages such as C/C++/SystemC
+- Create physical layouts (place&route)
+  + Check out `nextpnr`_ for that
+
+.. _nextpnr: https://github.com/YosysHQ/nextpnr
+
 Benefits of open source HDL synthesis
 -------------------------------------
 
 - Cost (also applies to ``free as in free beer`` solutions): 
   
-  Today the cost for a mask set in $\unit[180]{nm}$ technology is far less than
+  Today the cost for a mask set in 180nm technology is far less than
   the cost for the design tools needed to design the mask layouts. Open Source
   ASIC flows are an important enabler for ASIC-level Open Source Hardware.
 

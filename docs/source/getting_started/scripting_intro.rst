@@ -99,14 +99,14 @@ Selections intro
 ~~~~~~~~~~~~~~~~
 
 Most commands can operate not only on the entire design but also specifically on
-selected parts of the design. For example the command dump will print all
-selected objects in the current design while dump foobar will only print the
-module foobar and dump \* will print the entire design regardless of the current
-selection.
+selected parts of the design. For example the command ``dump`` will print all
+selected objects in the current design while ``dump foobar`` will only print the
+module ``foobar`` and ``dump *`` will print the entire design regardless of the
+current selection.
 
 .. code:: yoscrypt
 
-	dump */t:$add %x:+[A] \*/w:\* %i
+	dump */t:$add %x:+[A] */w:* %i
 
 The selection mechanism is very powerful. For example the command above will
 print all wires that are connected to the ``\A`` port of a ``$add`` cell.

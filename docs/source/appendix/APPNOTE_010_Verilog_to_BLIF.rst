@@ -189,13 +189,13 @@ values for the global asynchronous reset in an FPGA implementation. This design
 can not be expressed in BLIF as it is. Instead we need to use a synthesis script
 that transforms this form to synchronous resets that can be expressed in BLIF.
 
-(Note that there is no problem if this coding techniques are used to
-model ROM, where the register is initialized using this syntax but is
-never updated otherwise.)
+(Note that there is no problem if this coding techniques are used to model ROM,
+where the register is initialized using this syntax but is never updated
+otherwise.)
 
 :numref:`amber23.ys` shows the synthesis script for the Amber23 core. In line 17
 the add command is used to add a 1-bit wide global input signal with the name
-globrst. That means that an input with that name is added to each module in the
+``globrst``. That means that an input with that name is added to each module in the
 design hierarchy and then all module instantiations are altered so that this new
 signal is connected throughout the whole design hierarchy.
 
@@ -235,18 +235,18 @@ signal is connected throughout the whole design hierarchy.
 
    endmodule
 
-In line 18 the proc command is called. But in this script the signal
-name globrst is passed to the command as a global reset signal for
-resetting the registers to their assigned initial values.
+In line 18 the ``proc`` command is called. But in this script the signal name
+globrst is passed to the command as a global reset signal for resetting the
+registers to their assigned initial values.
 
 Finally in line 19 the techmap command is used to replace all instances of
 flip-flops with asynchronous resets with flip-flops with synchronous resets. The
 map file used for this is shown in :numref:`adff2dff.v`. Note how the
-techmap_celltype attribute is used in line 1 to tell the techmap command which
-cells to replace in the design, how the \_TECHMAP_FAIL\_ wire in lines 15 and 16
-(which evaluates to a constant value) determines if the parameter set is
-compatible with this replacement circuit, and how the \_TECHMAP_DO\_ wire in
-line 13 provides a mini synthesis-script to be used to process this cell.
+``techmap_celltype`` attribute is used in line 1 to tell the techmap command
+which cells to replace in the design, how the ``_TECHMAP_FAIL_`` wire in lines
+15 and 16 (which evaluates to a constant value) determines if the parameter set
+is compatible with this replacement circuit, and how the ``_TECHMAP_DO_`` wire
+in line 13 provides a mini synthesis-script to be used to process this cell.
 
 .. code-block:: c
    :caption: Test program for the Amber23 CPU (Sieve of Eratosthenes). Compiled 
@@ -298,39 +298,36 @@ format as well.
 
 .. _ABC: https://github.com/berkeley-abc/abc
 
-The only thing left to write about the simulation itself is that it
-probably was one of the most energy inefficient and time consuming ways
-of successfully calculating the first 31 primes the author has ever
-conducted.
+The only thing left to write about the simulation itself is that it probably was
+one of the most energy inefficient and time consuming ways of successfully
+calculating the first 31 primes the author has ever conducted.
 
 Limitations
 ===========
 
-At the time of this writing Yosys does not support multi-dimensional
-memories, does not support writing to individual bits of array elements,
-does not support initialization of arrays with $readmemb and $readmemh,
-and has only limited support for tristate logic, to name just a few
-limitations.
+At the time of this writing Yosys does not support multi-dimensional memories,
+does not support writing to individual bits of array elements, does not support
+initialization of arrays with ``$readmemb`` and ``$readmemh``, and has only
+limited support for tristate logic, to name just a few limitations.
 
-That being said, Yosys can synthesize an overwhelming majority of
-real-world Verilog RTL code. The remaining cases can usually be modified
-to be compatible with Yosys quite easily.
+That being said, Yosys can synthesize an overwhelming majority of real-world
+Verilog RTL code. The remaining cases can usually be modified to be compatible
+with Yosys quite easily.
 
-The various designs in yosys-bigsim are a good place to look for
-examples of what is within the capabilities of Yosys.
+The various designs in yosys-bigsim are a good place to look for examples of
+what is within the capabilities of Yosys.
 
 Conclusion
 ==========
 
-Yosys is a feature-rich Verilog-2005 synthesis tool. It has many uses,
-but one is to provide an easy gateway from high-level Verilog code to
-low-level logic circuits.
+Yosys is a feature-rich Verilog-2005 synthesis tool. It has many uses, but one
+is to provide an easy gateway from high-level Verilog code to low-level logic
+circuits.
 
-The command line option -S can be used to quickly synthesize Verilog
-code to BLIF files without a hassle.
+The command line option ``-S`` can be used to quickly synthesize Verilog code to
+BLIF files without a hassle.
 
-With custom synthesis scripts it becomes possible to easily perform
-high-level optimizations, such as re-encoding FSMs. In some extreme
-cases, such as the Amber23 ARMv2 CPU, the more advanced Yosys features
-can be used to change a design to fit a certain need without actually
-touching the RTL code.
+With custom synthesis scripts it becomes possible to easily perform high-level
+optimizations, such as re-encoding FSMs. In some extreme cases, such as the
+Amber23 ARMv2 CPU, the more advanced Yosys features can be used to change a
+design to fit a certain need without actually touching the RTL code.

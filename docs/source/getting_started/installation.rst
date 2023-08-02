@@ -43,15 +43,15 @@ directories:
      simulation results of the synthesized design to the original sources to
      logic equivalence checking of entire CPU cores.
 
-The top-level Makefile includes frontends/\*/Makefile.inc,
-passes/\*/Makefile.inc and backends/\*/Makefile.inc. So when extending Yosys it
-is enough to create a new directory in frontends/, passes/ or backends/ with
-your sources and a Makefile.inc. The Yosys kernel automatically detects all
-commands linked with Yosys. So it is not needed to add additional commands to a
-central list of commands.
+The top-level Makefile includes ``frontends/*/Makefile.inc``,
+``passes/*/Makefile.inc`` and ``backends/*/Makefile.inc``. So when extending
+Yosys it is enough to create a new directory in ``frontends/``, ``passes/`` or
+``backends/`` with your sources and a ``Makefile.inc``. The Yosys kernel
+automatically detects all commands linked with Yosys. So it is not needed to add
+additional commands to a central list of commands.
 
 Good starting points for reading example source code to learn how to write
-passes are passes/opt/opt_rmdff.cc and passes/opt/opt_merge.cc.
+passes are ``passes/opt/opt_rmdff.cc`` and ``passes/opt/opt_merge.cc``.
 
 See the top-level README file for a quick Getting Started guide and build
 instructions. The Yosys build is based solely on Makefiles.

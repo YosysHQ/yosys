@@ -143,7 +143,7 @@ identifies cells with identical inputs and replaces them with a single instance
 of the cell.
 
 The option ``-nomux`` can be used to disable resource sharing for multiplexer
-cells (``$mux`` and ``$pmux.`` This can be useful as it prevents multiplexer
+cells (``$mux`` and ``$pmux``.) This can be useful as it prevents multiplexer
 trees to be merged, which might prevent ``opt_muxtree`` to identify possible
 optimizations.
 
