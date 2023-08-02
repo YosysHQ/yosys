@@ -10,7 +10,93 @@ terminated using the newline character or a semicolon (;). Empty lines and lines
 starting with the hash sign (#) are ignored. See :ref:`sec:typusecase` for an
 example synthesis script.
 
-The command ``help`` can be used to access the command reference manual.
+The command ``help`` can be used to access the command reference manual, with
+``help <command>`` providing details for a specific command.  ``yosys -H`` or
+``yosys -h <command>`` will do the same outside of an interactive prompt.  The
+entire reference manual is also available here at :doc:`/cmd_ref`.
+
+Example commands
+~~~~~~~~~~~~~~~~
+
+Commands for design navigation and investigation:
+
+.. code-block:: yoscrypt
+
+    cd                   # a shortcut for 'select -module <name>'
+    ls                   # list modules or objects in modules
+    dump                 # print parts of the design in RTLIL format
+    show                 # generate schematics using graphviz
+    select               # modify and view the list of selected objects
+
+Commands for executing scripts or entering interactive mode:
+
+.. code-block:: yoscrypt
+
+    shell                # enter interactive command mode
+    history              # show last interactive commands
+    script               # execute commands from script file
+    tcl                  # execute a TCL script file
+
+Commands for reading and elaborating the design:
+
+.. code-block:: yoscrypt
+
+    read_rtlil           # read modules from RTLIL file
+    read_verilog         # read modules from Verilog file
+    hierarchy            # check, expand and clean up design hierarchy
+
+
+Commands for high-level synthesis:
+
+.. code-block:: yoscrypt
+
+    proc                 # translate processes to netlists
+    fsm                  # extract and optimize finite state machines
+    memory               # translate memories to basic cells
+    opt                  # perform simple optimizations
+
+
+Commands for technology mapping:
+
+.. code-block:: yoscrypt
+
+    techmap              # generic technology mapper
+    abc                  # use ABC for technology mapping
+    dfflibmap            # technology mapping of flip-flops
+    hilomap              # technology mapping of constant hi- and/or lo-drivers
+    iopadmap             # technology mapping of i/o pads (or buffers)
+    flatten              # flatten design
+
+Commands for writing the results:
+
+.. code-block:: yoscrypt
+
+    write_blif           # write design to BLIF file
+    write_btor           # write design to BTOR file
+    write_edif           # write design to EDIF netlist file
+    write_rtlil          # write design to RTLIL file
+    write_spice          # write design to SPICE netlist file
+    write_verilog        # write design to Verilog file
+
+
+Script-Commands for standard synthesis tasks:
+
+.. code-block:: yoscrypt
+
+    synth                # generic synthesis script
+    synth_xilinx         # synthesis for Xilinx FPGAs
+
+
+Commands for model checking:
+
+.. code-block:: yoscrypt
+
+    sat                  # solve a SAT problem in the circuit
+    miter                # automatically create a miter circuit
+    scc                  # detect strongly connected components (logic loops)
+
+Selections intro
+~~~~~~~~~~~~~~~~
 
 Most commands can operate not only on the entire design but also specifically on
 selected parts of the design. For example the command dump will print all
@@ -24,5 +110,6 @@ selection.
 
 The selection mechanism is very powerful. For example the command above will
 print all wires that are connected to the ``\A`` port of a ``$add`` cell.
-Detailed documentation of the select framework can be found in the command
-reference for the ``select`` command.
+Detailed documentation of the select framework can be found under
+:doc:`/using_yosys/more_scripting/selections` or in the command reference at
+:doc:`/cmd/select`.

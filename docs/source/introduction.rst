@@ -59,6 +59,60 @@ Things you can't do
 
 .. _nextpnr: https://github.com/YosysHQ/nextpnr
 
+Typical applications for Yosys
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Synthesis of final production designs
+- Pre-production synthesis (trial runs before investing in other tools)
+- Conversion of full-featured Verilog to simple Verilog
+- Conversion of Verilog to other formats (BLIF, BTOR, etc)
+- Demonstrating synthesis algorithms (e.g. for educational purposes)
+- Framework for experimenting with new algorithms
+- Framework for building custom flows (Not limited to synthesis but also formal
+  verification, reverse engineering, ...)
+
+Benefits of open source HDL synthesis
+-------------------------------------
+
+- Cost (also applies to ``free as in free beer`` solutions): 
+  
+  Today the cost for a mask set in $\unit[180]{nm}$ technology is far less than
+  the cost for the design tools needed to design the mask layouts. Open Source
+  ASIC flows are an important enabler for ASIC-level Open Source Hardware.
+
+- Availability and Reproducibility: 
+  
+  If you are a researcher who is publishing, you want to use tools that everyone
+  else can also use. Even if most universities have access to all major
+  commercial tools, you usually do not have easy access to the version that was
+  used in a research project a couple of years ago. With Open Source tools you
+  can even release the source code of the tool you have used alongside your data.
+
+- Framework: 
+  
+  Yosys is not only a tool. It is a framework that can be used as basis for other
+  developments, so researchers and hackers alike do not need to re-invent the
+  basic functionality. Extensibility was one of Yosys' design goals.
+
+- All-in-one: 
+  
+  Because of the framework characteristics of Yosys, an increasing number of features
+  become available in one tool. Yosys not only can be used for circuit synthesis but
+  also for formal equivalence checking, SAT solving, and for circuit analysis, to
+  name just a few other application domains. With proprietary software one needs to
+  learn a new tool for each of these applications.
+
+- Educational Tool: 
+  
+  Proprietary synthesis tools are at times very secretive about their inner
+  workings. They often are ``black boxes``. Yosys is very open about its
+  internals and it is easy to observe the different steps of synthesis.
+
+.. note:: Yosys is licensed under the ISC license:
+   Permission to use, copy, modify, and/or distribute this software for any
+   purpose with or without fee is hereby granted, provided that the above
+   copyright notice and this permission notice appear in all copies.
+
 The extended Yosys universe
 ---------------------------
 

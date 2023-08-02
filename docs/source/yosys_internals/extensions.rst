@@ -78,8 +78,8 @@ It is possible to only work on this simpler version:
 
 When trying to understand what a command does, creating a small test case to
 look at the output of ``dump`` and ``show`` before and after the command has
-been executed can be helpful.  The :doc:`/using_yosys/selections` document has
-more information on using these commands.
+been executed can be helpful.  The :doc:`/using_yosys/more_scripting/selections`
+document has more information on using these commands.
 
 .. TODO: copypaste
 

@@ -5,4 +5,5 @@ More scripting
 
 	opt_passes
 	selections
+	synth
 	troubleshooting

@@ -11,26 +11,26 @@ This chapter outlines these optimizations.
 Simple optimizations
 --------------------
 
-The Yosys pass opt runs a number of simple optimizations. This includes removing
+The Yosys pass ``opt`` runs a number of simple optimizations. This includes removing
 unused signals and cells and const folding. It is recommended to run this pass
 after each major step in the synthesis script. At the time of this writing the
-opt pass executes the following passes that each perform a simple optimization:
+``opt`` pass executes the following passes that each perform a simple optimization:
 
--  Once at the beginning of opt:
+-  Once at the beginning of ``opt``:
 
-   -  opt_expr
-   -  opt_merge -nomux
+   -  ``opt_expr``
+   -  ``opt_merge -nomux``
 
 -  Repeat until result is stable:
 
-   -  opt_muxtree
-   -  opt_reduce
-   -  opt_merge
-   -  opt_rmdff
-   -  opt_clean
-   -  opt_expr
+   -  ``opt_muxtree``
+   -  ``opt_reduce``
+   -  ``opt_merge``
+   -  ``opt_rmdff``
+   -  ``opt_clean``
+   -  ``opt_expr``
 
-The following section describes each of the opt\_ passes.
+The following section describes each of the ``opt_`` passes.
 
 The opt_expr pass
 ~~~~~~~~~~~~~~~~~
@@ -40,7 +40,7 @@ described in :ref:`chapter:celllib`. This means a cell with all
 constant inputs is replaced with the constant value this cell drives. In some
 cases this pass can also optimize cells with some constant inputs.
 
-.. table:: Const folding rules for $_AND\_ cells as used in opt_expr.
+.. table:: Const folding rules for ``$_AND_`` cells as used in opt_expr.
    :name: tab:opt_expr_and
    :align: center
 
@@ -65,26 +65,26 @@ cases this pass can also optimize cells with some constant inputs.
 .. How to format table?
 
 :numref:`Table %s <tab:opt_expr_and>` shows the replacement rules used for
-optimizing an $_AND\_ gate. The first three rules implement the obvious const
-folding rules. Note that ‘any' might include dynamic values calculated by other
+optimizing an ``$_AND_`` gate. The first three rules implement the obvious const
+folding rules. Note that 'any' might include dynamic values calculated by other
 parts of the circuit. The following three lines propagate undef (X) states.
 These are the only three cases in which it is allowed to propagate an undef
 according to Sec. 5.1.10 of IEEE Std. 1364-2005 :cite:p:`Verilog2005`.
 
 The next two lines assume the value 0 for undef states. These two rules are only
 used if no other substitutions are possible in the current module. If other
-substitutions are possible they are performed first, in the hope that the ‘any'
+substitutions are possible they are performed first, in the hope that the 'any'
 will change to an undef value or a 1 and therefore the output can be set to
 undef.
 
-The last two lines simply replace an $_AND\_ gate with one constant-1 input with
-a buffer.
+The last two lines simply replace an ``$_AND_`` gate with one constant-1 input
+with a buffer.
 
-Besides this basic const folding the opt_expr pass can replace 1-bit wide $eq
-and $ne cells with buffers or not-gates if one input is constant.
+Besides this basic const folding the opt_expr pass can replace 1-bit wide
+``$eq`` and ``$ne`` cells with buffers or not-gates if one input is constant.
 
-The opt_expr pass is very conservative regarding optimizing $mux cells, as these
-cells are often used to model decision-trees and breaking these trees can
+The opt_expr pass is very conservative regarding optimizing ``$mux`` cells, as
+these cells are often used to model decision-trees and breaking these trees can
 interfere with other optimizations.
 
 The opt_muxtree pass
@@ -107,16 +107,16 @@ The opt_reduce pass
 ~~~~~~~~~~~~~~~~~~~
 
 This is a simple optimization pass that identifies and consolidates identical
-input bits to $reduce_and and $reduce_or cells. It also sorts the input bits to
-ease identification of shareable $reduce_and and $reduce_or cells in other
-passes.
+input bits to ``$reduce_and`` and ``$reduce_or`` cells. It also sorts the input
+bits to ease identification of shareable ``$reduce_and`` and ``$reduce_or``
+cells in other passes.
 
 This pass also identifies and consolidates identical inputs to multiplexer
-cells. In this case the new shared select bit is driven using a $reduce_or cell
-that combines the original select bits.
+cells. In this case the new shared select bit is driven using a ``$reduce_or``
+cell that combines the original select bits.
 
-Lastly this pass consolidates trees of $reduce_and cells and trees of $reduce_or
-cells to single large $reduce_and or $reduce_or cells.
+Lastly this pass consolidates trees of ``$reduce_and`` cells and trees of
+``$reduce_or`` cells to single large ``$reduce_and`` or ``$reduce_or`` cells.
 
 These three simple optimizations are performed in a loop until a stable result
 is produced.
@@ -124,8 +124,9 @@ is produced.
 The opt_rmdff pass
 ~~~~~~~~~~~~~~~~~~
 
-This pass identifies single-bit d-type flip-flops ($_DFF\_, $dff, and $adff
-cells) with a constant data input and replaces them with a constant driver.
+This pass identifies single-bit d-type flip-flops (``$_DFF_``, ``$dff``, and
+``$adff`` cells) with a constant data input and replaces them with a constant
+driver.
 
 The opt_clean pass
 ~~~~~~~~~~~~~~~~~~
@@ -141,9 +142,10 @@ This pass performs trivial resource sharing. This means that this pass
 identifies cells with identical inputs and replaces them with a single instance
 of the cell.
 
-The option -nomux can be used to disable resource sharing for multiplexer cells
-($mux and $pmux. This can be useful as it prevents multiplexer trees to be
-merged, which might prevent opt_muxtree to identify possible optimizations.
+The option ``-nomux`` can be used to disable resource sharing for multiplexer
+cells (``$mux`` and ``$pmux.`` This can be useful as it prevents multiplexer
+trees to be merged, which might prevent ``opt_muxtree`` to identify possible
+optimizations.
 
 FSM extraction and encoding
 ---------------------------
@@ -187,12 +189,12 @@ fsm pass simply executes the following other passes:
 The fsm_detect pass identifies FSM state registers and marks them using the
 ``\fsm_encoding = "auto"`` attribute. The fsm_extract extracts all FSMs marked
 using the ``\fsm_encoding`` attribute (unless ``\fsm_encoding`` is set to
-"none") and replaces the corresponding RTL cells with a $fsm cell. All other
-fsm\_ passes operate on these $fsm cells. The fsm_map call finally replaces the
-$fsm cells with RTL cells.
+"none") and replaces the corresponding RTL cells with a ``$fsm`` cell. All other
+``fsm_`` passes operate on these ``$fsm`` cells. The fsm_map call finally
+replaces the ``$fsm`` cells with RTL cells.
 
-Note that these optimizations operate on an RTL netlist. I.e. the fsm pass
-should be executed after the proc pass has transformed all RTLIL::Process
+Note that these optimizations operate on an RTL netlist. I.e. the ``fsm`` pass
+should be executed after the proc pass has transformed all ``RTLIL::Process``
 objects to RTL cells.
 
 The algorithms used for FSM detection and extraction are influenced by a more
@@ -207,11 +209,12 @@ description:
 
 -  Does not already have the ``\fsm_encoding`` attribute.
 -  Is not an output of the containing module.
--  Is driven by single $dff or $adff cell.
--  The ``\D``-Input of this $dff or $adff cell is driven by a multiplexer tree
-   that only has constants or the old state value on its leaves.
+-  Is driven by single ``$dff`` or ``$adff`` cell.
+-  The ``\D``-Input of this ``$dff`` or ``$adff`` cell is driven by a
+   multiplexer tree that only has constants or the old state value on its
+   leaves.
 -  The state value is only used in the said multiplexer tree or by simple
-   relational cells that compare the state value to a constant (usually $eq
+   relational cells that compare the state value to a constant (usually ``$eq``
    cells).
 
 This heuristic has proven to work very well. It is possible to overwrite it by
@@ -246,10 +249,10 @@ information is determined:
 The state registers (and asynchronous reset state, if applicable) is simply
 determined by identifying the driver for the state signal.
 
-From there the $mux-tree driving the state register inputs is recursively
-traversed. All select inputs are control signals and the leaves of the $mux-tree
-are the states. The algorithm fails if a non-constant leaf that is not the state
-signal itself is found.
+From there the ``$mux-tree`` driving the state register inputs is recursively
+traversed. All select inputs are control signals and the leaves of the
+``$mux-tree`` are the states. The algorithm fails if a non-constant leaf that is
+not the state signal itself is found.
 
 The list of control outputs is initialized with the bits from the state signal.
 It is then extended by adding all values that are calculated by cells that
@@ -281,17 +284,17 @@ transition table. For each state:
 
 6. If step 4 was successful: Emit transition
 
-Finally a $fsm cell is created with the generated transition table and added to
-the module. This new cell is connected to the control signals and the old
+Finally a ``$fsm`` cell is created with the generated transition table and added
+to the module. This new cell is connected to the control signals and the old
 drivers for the control outputs are disconnected.
 
 FSM optimization
 ~~~~~~~~~~~~~~~~
 
-The fsm_opt pass performs basic optimizations on $fsm cells (not including state
-recoding). The following optimizations are performed (in this order):
+The fsm_opt pass performs basic optimizations on ``$fsm`` cells (not including
+state recoding). The following optimizations are performed (in this order):
 
--  Unused control outputs are removed from the $fsm cell. The attribute
+-  Unused control outputs are removed from the ``$fsm`` cell. The attribute
    ``\unused_bits`` (that is usually set by the opt_clean pass) is used to
    determine which control outputs are unused.
 
