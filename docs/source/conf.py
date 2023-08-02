@@ -43,6 +43,7 @@ bibtex_bibfiles = ['literature.bib']
 exclude_patterns = [
 	"CHAPTER_Eval.rst",
 	"appendix/CHAPTER_StateOfTheArt.rst"
+	"test_suites.rst"
 ]
 
 latex_elements = {

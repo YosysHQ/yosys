@@ -28,6 +28,15 @@ Yosys manual
 ================================================================================
 
 .. toctree::
+	:caption: New docs
+	
+	introduction
+	getting_started
+	using_yosys
+	yosys_internals
+..	test_suites
+
+.. toctree::
 	:maxdepth: 2
 	:caption: Manual
 	:numbered:

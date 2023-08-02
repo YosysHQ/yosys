@@ -602,10 +602,12 @@ Simply visit https://yosys.readthedocs.io/en/latest/ instead.
 In addition to those packages listed above for building Yosys from source, the
 following are used for building the website: 
 
-	$ sudo apt-get install pdf2svg faketime
+	$ sudo apt install pdf2svg faketime
 
 PDFLaTeX, included with most LaTeX distributions, is also needed during the
-build process for the website.
+build process for the website.  Or, run the following:
+
+	$ sudo apt install texlive-latex-base texlive-latex-extra
 
 The Python package, Sphinx, is needed along with those listed in
 `docs/source/requirements.txt`:
