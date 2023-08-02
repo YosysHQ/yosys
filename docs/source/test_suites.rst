@@ -1,6 +1,9 @@
 Test suites
 ===========
 
+.. note:: Potentially significantly out of date information
+    last updated circa 2015
+
 .. TODO: copypaste
 
 Continuously checking the correctness of Yosys and making sure that new features

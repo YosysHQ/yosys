@@ -51,11 +51,6 @@ numfig = True
 
 bibtex_bibfiles = ['literature.bib']
 
-# unused docs
-exclude_patterns = [
-	"test_suites.rst"
-]
-
 latex_elements = {
         'preamble': r'''
 \usepackage{lmodern}
