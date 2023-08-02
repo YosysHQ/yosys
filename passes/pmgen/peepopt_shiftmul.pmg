@@ -3,61 +3,67 @@ pattern shiftmul
 // Optimize mul+shift pairs that result from expressions such as foo[s*W+:W]
 //
 
-state <SigSpec> shamt
-
 match shift
 	select shift->type.in($shift, $shiftx, $shr)
+	filter !port(shift, \B).empty()
 endmatch
 
-code shamt
-	shamt = port(shift, \B);
-	if (shamt.empty())
+state <SigSpec> shift_amount
+
+code shift_amount
+	shift_amount = port(shift, \B);
+	if (shift->type.in($shr) || !param(shift, \B_SIGNED).as_bool())
+		shift_amount.append(State::S0);
+
+	// at this point shift_amount is signed, make
+	// sure we can never go negative
+	if (shift_amount.bits().back() != State::S0)
 		reject;
-	if (shamt[GetSize(shamt)-1] == State::S0) {
-		do {
-			shamt.remove(GetSize(shamt)-1);
-			if (shamt.empty())
-				reject;
-		} while (shamt[GetSize(shamt)-1] == State::S0);
-	} else
-	if (shift->type.in($shift, $shiftx) && param(shift, \B_SIGNED).as_bool()) {
-		reject;
+
+	while (shift_amount.bits().back() == State::S0) {
+		shift_amount.remove(GetSize(shift_amount) - 1);
+		if (shift_amount.empty()) reject;
 	}
-	if (GetSize(shamt) > 20)
+
+	if (GetSize(shift_amount) > 20)
 		reject;
 endcode
 
+state <SigSpec> mul_din
+state <Const> mul_const
+
 match mul
 	select mul->type.in($mul)
-	select port(mul, \A).is_fully_const() || port(mul, \B).is_fully_const()
-	index <SigSpec> port(mul, \Y) === shamt
+	index <SigSpec> port(mul, \Y) === shift_amount
 	filter !param(mul, \A_SIGNED).as_bool()
+
+	choice <IdString> constport {\A, \B}
+	filter port(mul, constport).is_fully_const()
+
+	define <IdString> varport (constport == \A ? \B : \A)
+	set mul_const port(mul, constport).as_const()
+	set mul_din port(mul, varport)
 endmatch
 
 code
 {
-	IdString const_factor_port = port(mul, \A).is_fully_const() ? \A : \B;
-	Const const_factor_cnst = port(mul, const_factor_port).as_const();
-	int const_factor = const_factor_cnst.as_int();
-
-	if (GetSize(const_factor_cnst) == 0)
+	if (mul_const.empty() || GetSize(mul_const) > 20)
 		reject;
 
-	if (GetSize(const_factor_cnst) > 20)
+	// make sure there's no overlap in the signal
+	// selections by the shiftmul pattern
+	if (GetSize(port(shift, \Y)) > mul_const.as_int())
 		reject;
 
-	if (GetSize(port(shift, \Y)) > const_factor)
-		reject;
-
-	int factor_bits = ceil_log2(const_factor);
-	SigSpec mul_din = port(mul, const_factor_port == \A ? \B : \A);
-
-	if (GetSize(shamt) < factor_bits+GetSize(mul_din))
+	int factor_bits = ceil_log2(mul_const.as_int());
+	// make sure the multiplication never wraps around
+	if (GetSize(shift_amount) < factor_bits + GetSize(mul_din))
 		reject;
 
 	did_something = true;
 	log("shiftmul pattern in %s: shift=%s, mul=%s\n", log_id(module), log_id(shift), log_id(mul));
 
+	int const_factor = mul_const.as_int();
 	int new_const_factor = 1 << factor_bits;
 	SigSpec padding(State::Sx, new_const_factor-const_factor);
 	SigSpec old_a = port(shift, \A), new_a;
