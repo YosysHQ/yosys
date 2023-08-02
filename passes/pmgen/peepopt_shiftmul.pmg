@@ -8,9 +8,13 @@ match shift
 	filter !port(shift, \B).empty()
 endmatch
 
+// the right shift amount
 state <SigSpec> shift_amount
+// log2 scale factor in interpreting of shift_amount
+// due to zero padding on the shift cell's B port
+state <int> log2scale
 
-code shift_amount
+code shift_amount log2scale
 	shift_amount = port(shift, \B);
 	if (shift->type.in($shr) || !param(shift, \B_SIGNED).as_bool())
 		shift_amount.append(State::S0);
@@ -23,6 +27,13 @@ code shift_amount
 	while (shift_amount.bits().back() == State::S0) {
 		shift_amount.remove(GetSize(shift_amount) - 1);
 		if (shift_amount.empty()) reject;
+	}
+
+	log2scale = 0;
+	while (shift_amount[0] == State::S0) {
+		shift_amount.remove(0);
+		if (shift_amount.empty()) reject;
+		log2scale++;
 	}
 
 	if (GetSize(shift_amount) > 20)
@@ -41,7 +52,7 @@ match mul
 	filter port(mul, constport).is_fully_const()
 
 	define <IdString> varport (constport == \A ? \B : \A)
-	set mul_const port(mul, constport).as_const()
+	set mul_const SigSpec({port(mul, constport), SigSpec(State::S0, log2scale)}).as_const()
 	// get mul_din unmapped (so no `port()` shorthand)
 	// because we will be using it to set the \A port
 	// on the shift cell, and we want to stay close
@@ -61,7 +72,7 @@ code
 
 	int factor_bits = ceil_log2(mul_const.as_int());
 	// make sure the multiplication never wraps around
-	if (GetSize(shift_amount) < factor_bits + GetSize(mul_din))
+	if (GetSize(shift_amount) + log2scale < factor_bits + GetSize(mul_din))
 		reject;
 
 	did_something = true;
