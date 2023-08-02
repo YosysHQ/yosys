@@ -364,10 +364,16 @@ struct WreduceWorker
 			if (cell->type == ID($mul))
 				max_y_size = a_size + b_size;
 
-			while (GetSize(sig) > 1 && GetSize(sig) > max_y_size) {
-				module->connect(sig[GetSize(sig)-1], is_signed ? sig[GetSize(sig)-2] : State::S0);
-				sig.remove(GetSize(sig)-1);
-				bits_removed++;
+			max_y_size = std::max(max_y_size, 1);
+
+			if (GetSize(sig) > max_y_size) {
+				SigSpec extra_bits = sig.extract(max_y_size, GetSize(sig) - max_y_size);
+
+				bits_removed += GetSize(extra_bits);
+				sig.remove(max_y_size, GetSize(extra_bits));
+
+				SigBit padbit = is_signed ? sig[GetSize(sig)-1] : State::S0;
+				module->connect(extra_bits, SigSpec(padbit, GetSize(extra_bits)));
 			}
 		}
 
