@@ -5,7 +5,7 @@ Internal formats
 	:maxdepth: 2
 
 	overview
-	rtlil
+	rtlil_rep
 	rtlil_text
 	cell_library
 

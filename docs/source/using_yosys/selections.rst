@@ -3,4 +3,4 @@ Selections
 
 See :doc:`/cmd/select`
 
-Also :doc:`/cmd/show`
+Also :doc:`/cmd/show` and :doc:`/cmd/dump`
