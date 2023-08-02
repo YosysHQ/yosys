@@ -1,8 +1,22 @@
-all: dots tex svg tidy
+all: resources dots tex svg tidy
+
+RES_LIST:= PRESENTATION_Intro/
+RES_DIRS:= $(addprefix ../resources/,$(RES_LIST))
+.PHONY: resources
+resources: $(RES_DIRS)
+FORCE:
+../resources/%: FORCE
+	@$(MAKE) -C $@
+	@mkdir -p res/$*
+	@cp --update -t res/$* $@*.dot
 
 TEX_SOURCE:= $(wildcard *.tex)
 DOT_LOC:= ../source/APPNOTE_011_Design_Investigation
 DOT_SOURCE:= $(wildcard $(DOT_LOC)/*.dot)
+
+RES_DOTS:= $(wildcard res/*/*.dot)
+RES_DIRS:= $(sort $(dir $(RES_DOTS)))
+RES_PDF:= $(RES_DOTS:%.dot=%.pdf)
 
 TEX_SOURCE+= 011/example_out.tex
 011/example_out.pdf: 011/example_00.pdf 011/example_01.pdf 011/example_02.pdf
@@ -15,13 +29,16 @@ TEX_SOURCE+= 011/submod_dots.tex
 
 TEX_PDF:= $(patsubst %.tex,%.pdf,$(TEX_SOURCE))
 DOT_PDF:= $(addprefix 011/,$(notdir $(patsubst %.dot,%.pdf,$(DOT_SOURCE))))
-SVG_OUTPUT:= $(patsubst %.pdf,%.svg,$(TEX_PDF) $(DOT_PDF))
+SVG_OUTPUT:= $(patsubst %.pdf,%.svg,$(TEX_PDF) $(DOT_PDF) $(RES_PDF))
 
-dots: $(DOT_PDF)
+dots: $(DOT_PDF) $(RES_PDF)
 tex: $(TEX_PDF)
 svg: $(SVG_OUTPUT)
 
 011/%.pdf: $(DOT_LOC)/%.dot
+	faketime -f '2022-01-01 00:00:00 x0,001' dot -Tpdf -o $@ $<
+
+res/%.pdf: res/%.dot
 	faketime -f '2022-01-01 00:00:00 x0,001' dot -Tpdf -o $@ $<
 
 011/%.pdf: 011/%.tex

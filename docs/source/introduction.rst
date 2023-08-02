@@ -28,12 +28,36 @@ What is Yosys
 	This document was originally published as bachelor thesis at the Vienna
 	University of Technology :cite:p:`BACC`.
 
-Yosys is a tool for synthesising (behavioural) Verilog HDL code to target
-architecture netlists. Yosys aims at a wide range of application domains and
-thus must be flexible and easy to adapt to new tasks.
+Yosys is a Verilog HDL synthesis tool. This means that it takes a behavioural
+design description as input and generates an RTL, logical gate or physical gate
+level description of the design as output. Yosys' main strengths are behavioural
+and RTL synthesis. A wide range of commands (synthesis passes) exist within
+Yosys that can be used to perform a wide range of synthesis tasks within the
+domain of behavioural, rtl and logic synthesis. Yosys is designed to be
+extensible and therefore is a good basis for implementing custom synthesis tools
+for specialised tasks.
+
+.. figure:: ../images/levels_of_abstraction.*
+    :class: width-helper
+    :name: fig:Levels_of_abstraction
+
+    Where Yosys exists in the layers of abstraction
 
 What you can do with Yosys
 --------------------------
+
+- Read and process (most of) modern Verilog-2005 code
+- Perform all kinds of operations on netlist (RTL, Logic, Gate)
+- Perform logic optimizations and gate mapping with ABC
+
+Things you can't do
+~~~~~~~~~~~~~~~~~~~
+
+- Process high-level languages such as C/C++/SystemC
+- Create physical layouts (place&route)
+  + Check out `nextpnr`_ for that
+
+.. _nextpnr: https://github.com/YosysHQ/nextpnr
 
 The extended Yosys universe
 ---------------------------
