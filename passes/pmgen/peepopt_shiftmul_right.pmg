@@ -1,4 +1,4 @@
-pattern shiftmul
+pattern shiftmul_right
 //
 // Optimize mul+shift pairs that result from expressions such as foo[s*W+:W]
 //
@@ -76,7 +76,7 @@ code
 		reject;
 
 	did_something = true;
-	log("shiftmul pattern in %s: shift=%s, mul=%s\n", log_id(module), log_id(shift), log_id(mul));
+	log("right shiftmul pattern in %s: shift=%s, mul=%s\n", log_id(module), log_id(shift), log_id(mul));
 
 	int const_factor = mul_const.as_int();
 	int new_const_factor = 1 << factor_bits;

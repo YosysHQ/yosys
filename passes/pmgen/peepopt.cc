@@ -59,7 +59,7 @@ struct PeepoptPass : public Pass {
 		if (!genmode.empty())
 		{
 			if (genmode == "shiftmul")
-				GENERATE_PATTERN(peepopt_pm, shiftmul);
+				GENERATE_PATTERN(peepopt_pm, shiftmul_right);
 			else if (genmode == "muldiv")
 				GENERATE_PATTERN(peepopt_pm, muldiv);
 			else
@@ -79,7 +79,8 @@ struct PeepoptPass : public Pass {
 
 				pm.setup(module->selected_cells());
 
-				pm.run_shiftmul();
+				pm.run_shiftmul_right();
+				pm.run_shiftmul_left();
 				pm.run_muldiv();
 			}
 		}
