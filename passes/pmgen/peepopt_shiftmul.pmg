@@ -42,7 +42,11 @@ match mul
 
 	define <IdString> varport (constport == \A ? \B : \A)
 	set mul_const port(mul, constport).as_const()
-	set mul_din port(mul, varport)
+	// get mul_din unmapped (so no `port()` shorthand)
+	// because we will be using it to set the \A port
+	// on the shift cell, and we want to stay close
+	// to the original design
+	set mul_din mul->getPort(varport)
 endmatch
 
 code
