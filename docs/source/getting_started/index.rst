@@ -5,4 +5,5 @@ Getting started with Yosys
 
 	installation
 	scripting_intro
+	typical_phases
 	examples

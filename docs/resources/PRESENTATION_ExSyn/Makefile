@@ -9,7 +9,7 @@ all: $(addsuffix .pdf,$(TARGETS))
 
 define make_pdf_template
 $(1).pdf: $(1)*.v $(1)*.ys
-	../../yosys -p 'script $(1).ys; show -notitle -prefix $(1) -format pdf'
+	../../../yosys -p 'script $(1).ys; show -notitle -prefix $(1) -format pdf'
 endef
 
 $(foreach trg,$(TARGETS),$(eval $(call make_pdf_template,$(trg))))
