@@ -245,6 +245,7 @@ class SmtIo:
             self.logic_uf = False
             self.unroll_idcnt = 0
             self.unroll_buffer = ""
+            self.unroll_level = 0
             self.unroll_sorts = set()
             self.unroll_objs = set()
             self.unroll_decls = dict()
@@ -420,13 +421,15 @@ class SmtIo:
                     self.p_close()
 
         if unroll and self.unroll:
-            stmt = self.unroll_buffer + stmt
-            self.unroll_buffer = ""
-
             s = re.sub(r"\|[^|]*\|", "", stmt)
-            if s.count("(") != s.count(")"):
-                self.unroll_buffer = stmt + " "
+            self.unroll_level += s.count("(") - s.count(")")
+            if self.unroll_level > 0:
+                self.unroll_buffer += stmt
+                self.unroll_buffer += " "
                 return
+            else:
+                stmt = self.unroll_buffer + stmt
+                self.unroll_buffer = ""
 
             s = self.parse(stmt)
 
