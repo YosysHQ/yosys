@@ -35,11 +35,24 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <math.h>
+// For std::gcd in C++17
+// #include <numeric>
 
 YOSYS_NAMESPACE_BEGIN
 
 using namespace AST;
 using namespace AST_INTERNAL;
+
+// gcd computed by Euclidian division.
+// To be replaced by C++17 std::gcd
+template<class I> I gcd(I a, I b) {
+	while (b != 0) {
+		I tmp = b;
+		b = a%b;
+		a = tmp;
+	}
+	return std::abs(a);
+}
 
 void AstNode::set_in_lvalue_flag(bool flag, bool no_descend)
 {
@@ -2818,27 +2831,12 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		if (!children[0]->id2ast->range_valid)
 			goto skip_dynamic_range_lvalue_expansion;
 
-		int source_width = children[0]->id2ast->range_left - children[0]->id2ast->range_right + 1;
-		int source_offset = children[0]->id2ast->range_right;
-		int result_width = 1;
-		int stride = 1;
 		AST::AstNode *member_node = get_struct_member(children[0]);
-		if (member_node) {
-			// Clamp chunk to range of member within struct/union.
-			log_assert(!source_offset && !children[0]->id2ast->range_swapped);
-			source_width = member_node->range_left - member_node->range_right + 1;
-
-			// When the (* nowrshmsk *) attribute is set, a CASE block is generated below
-			// to select the indexed bit slice. When a multirange array is indexed, the
-			// start of each possible slice is separated by the bit stride of the last
-			// index dimension, and we can optimize the CASE block accordingly.
-			// The dimension of the original array expression is saved in the 'integer' field.
-			int dims = children[0]->integer;
-			stride = source_width;
-			for (int dim = 0; dim < dims; dim++) {
-				stride /= get_struct_range_width(member_node, dim);
-			}
-		}
+		int wire_width = member_node ?
+			member_node->range_left - member_node->range_right + 1 :
+			children[0]->id2ast->range_left - children[0]->id2ast->range_right + 1;
+		int wire_offset = children[0]->id2ast->range_right;
+		int result_width = 1;
 
 		AstNode *shift_expr = NULL;
 		AstNode *range = children[0]->children[0];
@@ -2851,30 +2849,102 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		else
 			shift_expr = range->children[0]->clone();
 
-		bool use_case_method = false;
-
-		if (children[0]->id2ast->attributes.count(ID::nowrshmsk)) {
-			AstNode *node = children[0]->id2ast->attributes.at(ID::nowrshmsk);
-			while (node->simplify(true, stage, -1, false)) { }
-			if (node->type != AST_CONSTANT)
-				input_error("Non-constant value for `nowrshmsk' attribute on `%s'!\n", children[0]->id2ast->str.c_str());
-			if (node->asAttrConst().as_bool())
-				use_case_method = true;
-		}
+		bool use_case_method = children[0]->id2ast->get_bool_attribute(ID::nowrshmsk);
 
 		if (!use_case_method && current_always->detect_latch(children[0]->str))
 			use_case_method = true;
 
-		if (use_case_method)
-		{
+		if (use_case_method) {
 			// big case block
+
+			int stride = 1;
+			long long bitno_div = stride;
+
+			int case_width_hint;
+			bool case_sign_hint;
+			shift_expr->detectSignWidth(case_width_hint, case_sign_hint);
+			int max_width = case_width_hint;
+
+			if (member_node) {  // Member in packed struct/union
+				// Clamp chunk to range of member within struct/union.
+				log_assert(!wire_offset && !children[0]->id2ast->range_swapped);
+
+				// When the (* nowrshmsk *) attribute is set, a CASE block is generated below
+				// to select the indexed bit slice. When a multirange array is indexed, the
+				// start of each possible slice is separated by the bit stride of the last
+				// index dimension, and we can optimize the CASE block accordingly.
+				// The dimension of the original array expression is saved in the 'integer' field.
+				int dims = children[0]->integer;
+				stride = wire_width;
+				for (int dim = 0; dim < dims; dim++) {
+					stride /= get_struct_range_width(member_node, dim);
+				}
+				bitno_div = stride;
+			} else {
+				// Extract (index)*(width) from non_opt_range pattern ((@selfsz@((index)*(width)))+(0)).
+				AstNode *lsb_expr =
+					shift_expr->type == AST_ADD && shift_expr->children[0]->type == AST_SELFSZ &&
+					shift_expr->children[1]->type == AST_CONSTANT && shift_expr->children[1]->integer == 0 ?
+					shift_expr->children[0]->children[0] :
+					shift_expr;
+
+				// Extract stride from indexing of two-dimensional packed arrays and
+				// variable slices on the form dst[i*stride +: width] = src.
+				if (lsb_expr->type == AST_MUL &&
+				    (lsb_expr->children[0]->type == AST_CONSTANT ||
+				     lsb_expr->children[1]->type == AST_CONSTANT))
+				{
+					int stride_ix = lsb_expr->children[1]->type == AST_CONSTANT;
+					stride = (int)lsb_expr->children[stride_ix]->integer;
+					bitno_div = stride != 0 ? stride : 1;
+
+					// Check whether i*stride can overflow.
+					int i_width;
+					bool i_sign;
+					lsb_expr->children[1 - stride_ix]->detectSignWidth(i_width, i_sign);
+					int stride_width;
+					bool stride_sign;
+					lsb_expr->children[stride_ix]->detectSignWidth(stride_width, stride_sign);
+					max_width = std::max(i_width, stride_width);
+					// Stride width calculated from actual stride value.
+					stride_width = std::ceil(std::log2(std::abs(stride)));
+
+					if (i_width + stride_width > max_width) {
+						// For (truncated) i*stride to be within the range of dst, the following must hold:
+						//   i*stride ≡ bitno (mod shift_mod), i.e.
+						//   i*stride = k*shift_mod + bitno
+						//
+						// The Diophantine equation on the form ax + by = c:
+						//   stride*i - shift_mod*k = bitno
+						// has solutions iff c is a multiple of d = gcd(a, b), i.e.
+						//   bitno mod gcd(stride, shift_mod) = 0
+						//
+						// long long is at least 64 bits in C++11
+						long long shift_mod = 1ll << (max_width - case_sign_hint);
+						// std::gcd requires C++17
+						// bitno_div = std::gcd(stride, shift_mod);
+						bitno_div = gcd((long long)stride, shift_mod);
+					}
+				}
+			}
+
+			// long long is at least 64 bits in C++11
+			long long max_offset = (1ll << (max_width - case_sign_hint)) - 1;
+			long long min_offset = case_sign_hint ? -(1ll << (max_width - 1)) : 0;
 
 			did_something = true;
 			newNode = new AstNode(AST_CASE, shift_expr);
-			for (int i = 0; i < source_width; i += stride) {
-				int start_bit = source_offset + i;
-				int end_bit = std::min(start_bit+result_width,source_width) - 1;
-				AstNode *cond = new AstNode(AST_COND, mkconst_int(start_bit, true));
+			for (int i = 1 - result_width; i < wire_width; i++) {
+				// Out of range indexes are handled in genrtlil.cc
+				int start_bit = wire_offset + i;
+				int end_bit = start_bit + result_width - 1;
+				// Check whether the current index can be generated by shift_expr.
+				if (start_bit < min_offset || start_bit > max_offset)
+					continue;
+				if (start_bit%bitno_div != 0 || (stride == 0 && start_bit != 0))
+					continue;
+
+				AstNode *cond = new AstNode(AST_COND, mkconst_int(start_bit, case_sign_hint, max_width));
 				AstNode *lvalue = children[0]->clone();
 				lvalue->delete_children();
 				if (member_node)
@@ -2884,19 +2954,17 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				cond->children.push_back(new AstNode(AST_BLOCK, new AstNode(type, lvalue, children[1]->clone())));
 				newNode->children.push_back(cond);
 			}
-		}
-		else
-		{
-			// mask and shift operations, disabled for now
+		} else {
+			// mask and shift operations
 
-			AstNode *wire_mask = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(source_width-1, true), mkconst_int(0, true)));
+			AstNode *wire_mask = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(wire_width-1, true), mkconst_int(0, true)));
 			wire_mask->str = stringf("$bitselwrite$mask$%s:%d$%d", RTLIL::encode_filename(filename).c_str(), location.first_line, autoidx++);
 			wire_mask->set_attribute(ID::nosync, AstNode::mkconst_int(1, false));
 			wire_mask->is_logic = true;
 			while (wire_mask->simplify(true, 1, -1, false)) { }
 			current_ast_mod->children.push_back(wire_mask);
 
-			AstNode *wire_data = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(source_width-1, true), mkconst_int(0, true)));
+			AstNode *wire_data = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(wire_width-1, true), mkconst_int(0, true)));
 			wire_data->str = stringf("$bitselwrite$data$%s:%d$%d", RTLIL::encode_filename(filename).c_str(), location.first_line, autoidx++);
 			wire_data->set_attribute(ID::nosync, AstNode::mkconst_int(1, false));
 			wire_data->is_logic = true;
@@ -2952,12 +3020,12 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			shamt = new AstNode(AST_TO_SIGNED, shamt);
 
 			// offset the shift amount by the lower bound of the dimension
-			int start_bit = source_offset;
+			int start_bit = wire_offset;
 			shamt = new AstNode(AST_SUB, shamt, mkconst_int(start_bit, true));
 
 			// reflect the shift amount if the dimension is swapped
 			if (children[0]->id2ast->range_swapped)
-				shamt = new AstNode(AST_SUB, mkconst_int(source_width - result_width, true), shamt);
+				shamt = new AstNode(AST_SUB, mkconst_int(wire_width - result_width, true), shamt);
 
 			// AST_SHIFT uses negative amounts for shifting left
 			shamt = new AstNode(AST_NEG, shamt);

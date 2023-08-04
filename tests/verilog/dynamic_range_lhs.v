@@ -1,6 +1,6 @@
 module gate(
-    output reg [`LEFT:`RIGHT] out_u, out_s,
     (* nowrshmsk = `ALT *)
+    output reg [`LEFT:`RIGHT] out_u, out_s,
     input wire data,
     input wire [1:0] sel1, sel2
 );
