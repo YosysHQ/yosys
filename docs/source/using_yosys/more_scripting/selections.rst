@@ -199,14 +199,21 @@ tools).
   of the circuit.
 - :doc:`/cmd/show`.
 - :doc:`/cmd/dump`.
+- :doc:`/cmd/add` and :doc:`/cmd/delete` can be used to modify and reorganize a
+  design dynamically.
 
-Reorganizing a module
-^^^^^^^^^^^^^^^^^^^^^
+Changing design hierarchy
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Commands such as ``flatten`` and ``submod`` can be used to change the design
+hierarchy, i.e. flatten the hierarchy or moving parts of a module to a
+submodule. This has applications in synthesis scripts as well as in reverse
+engineering and analysis.  An example using ``submod`` is shown below for
+reorganizing a module in Yosys and checking the resulting circuit.
 
 .. literalinclude:: ../../../resources/PRESENTATION_ExOth/scrambler.v
    :language: verilog
    :caption: ``docs/resources/PRESENTATION_ExOth/scrambler.v``
-
 
 .. code:: yoscrypt
 
@@ -225,14 +232,9 @@ Reorganizing a module
 .. figure:: ../../../images/res/PRESENTATION_ExOth/scrambler_p02.*
     :class: width-helper
 
-Analysis of circuit behavior
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Analyzing the resulting circuit with :doc:`/cmd/eval`:
 
 .. code:: text
-
-    > read_verilog scrambler.v
-    > hierarchy; proc;; cd scrambler
-    > submod -name xorshift32 xs %c %ci %D %c %ci:+[D] %D %ci*:-$dff xs %co %ci %d
 
     > cd xorshift32
     > rename n2 in
@@ -249,3 +251,45 @@ Analysis of circuit behavior
     -------------------- ---------- ---------- -------------------------------------
     \in                   745495504   2c6f5bd0      00101100011011110101101111010000
     \out                  632435482   25b2331a      00100101101100100011001100011010
+
+Behavioral changes
+^^^^^^^^^^^^^^^^^^
+
+Commands such as ``techmap`` can be used to make behavioral changes to the
+design, for example changing asynchronous resets to synchronous resets. This has
+applications in design space exploration (evaluation of various architectures
+for one circuit).
+
+The following techmap map file replaces all positive-edge async reset flip-flops
+with positive-edge sync reset flip-flops. The code is taken from the example
+Yosys script for ASIC synthesis of the Amber ARMv2 CPU.
+
+.. code:: verilog
+
+    (* techmap_celltype = "$adff" *)
+    module adff2dff (CLK, ARST, D, Q);
+
+        parameter WIDTH = 1;
+        parameter CLK_POLARITY = 1;
+        parameter ARST_POLARITY = 1;
+        parameter ARST_VALUE = 0;
+
+        input CLK, ARST;
+        input [WIDTH-1:0] D;
+        output reg [WIDTH-1:0] Q;
+
+        wire [1023:0] _TECHMAP_DO_ = "proc";
+
+        wire _TECHMAP_FAIL_ = !CLK_POLARITY || !ARST_POLARITY;
+
+        always @(posedge CLK)
+            if (ARST)
+                Q <= ARST_VALUE;
+            else
+                <= D;
+
+    endmodule
+
+For more on the ``techmap`` command, see the page on
+:doc:`/yosys_internals/techmap` or the 
+:doc:`techmap command reference document</cmd/techmap>`.
