@@ -1,6 +1,6 @@
 all: resources dots tex svg tidy
 
-RES_LIST:= PRESENTATION_Intro/ PRESENTATION_ExSyn/
+RES_LIST:= PRESENTATION_Intro/ PRESENTATION_ExSyn/ PRESENTATION_ExAdv/ PRESENTATION_ExOth/
 RES_DIRS:= $(addprefix ../resources/,$(RES_LIST))
 .PHONY: resources
 resources: $(RES_DIRS)

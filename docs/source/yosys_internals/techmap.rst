@@ -31,7 +31,7 @@ provided implementation.
 
 When no map file is provided, techmap uses a built-in map file that maps the
 Yosys RTL cell types to the internal gate library used by Yosys. The curious
-reader may find this map file as techlibs/common/techmap.v in the Yosys source
+reader may find this map file as `techlibs/common/techmap.v` in the Yosys source
 tree.
 
 Additional features have been added to techmap to allow for conditional mapping
@@ -105,3 +105,186 @@ reporting bugs in the tools involved. When the information in the Liberty file
 used by Yosys and ABC are not part of the sensitive information, the additional
 tool yosys-filterlib (see :ref:`sec:filterlib`) can be used to strip the
 sensitive information from the Liberty file.
+
+Techmap by example
+------------------
+
+.. TODO: copypaste
+
+As a quick recap, the ``techmap`` command replaces cells in the design with
+implementations given as Verilog code (called "map files"). It can replace
+Yosys' internal cell types (such as ``$or``) as well as user-defined cell
+types.
+
+- Verilog parameters are used extensively to customize the internal cell types.
+- Additional special parameters are used by techmap to communicate meta-data to
+  the map files.
+- Special wires are used to instruct techmap how to handle a module in the map
+  file.
+- Generate blocks and recursion are powerful tools for writing map files.
+
+Mapping OR3X1
+~~~~~~~~~~~~~
+
+.. note::
+
+    This is a simple example for demonstration only.  Techmap shouldn't be used
+    to implement basic logic optimization.
+
+.. literalinclude:: ../../resources/PRESENTATION_ExAdv/red_or3x1_map.v
+   :language: verilog
+   :caption: ``docs/resources/PRESENTATION_ExAdv/red_or3x1_map.v``
+
+.. figure:: ../../images/res/PRESENTATION_ExAdv/red_or3x1.*
+    :class: width-helper
+
+.. literalinclude:: ../../resources/PRESENTATION_ExAdv/red_or3x1_test.ys
+   :language: yoscrypt
+   :caption: ``docs/resources/PRESENTATION_ExAdv/red_or3x1_test.ys``
+
+.. literalinclude:: ../../resources/PRESENTATION_ExAdv/red_or3x1_test.v
+   :language: verilog
+   :caption: ``docs/resources/PRESENTATION_ExAdv/red_or3x1_test.v``
+
+Conditional techmap
+~~~~~~~~~~~~~~~~~~~
+
+- In some cases only cells with certain properties should be substituted.
+- The special wire ``_TECHMAP_FAIL_`` can be used to disable a module
+  in the map file for a certain set of parameters.
+- The wire ``_TECHMAP_FAIL_`` must be set to a constant value. If it
+  is non-zero then the module is disabled for this set of parameters.
+- Example use-cases:
+
+    - coarse-grain cell types that only operate on certain bit widths
+    - memory resources for different memory geometries (width, depth, ports, etc.)
+
+Example:
+
+.. figure:: ../../images/res/PRESENTATION_ExAdv/sym_mul.*
+    :class: width-helper
+
+.. literalinclude:: ../../resources/PRESENTATION_ExAdv/sym_mul_map.v
+   :language: verilog
+   :caption: ``docs/resources/PRESENTATION_ExAdv/sym_mul_map.v``
+
+.. literalinclude:: ../../resources/PRESENTATION_ExAdv/sym_mul_test.v
+   :language: verilog
+   :caption: ``docs/resources/PRESENTATION_ExAdv/sym_mul_test.v``
+
+.. literalinclude:: ../../resources/PRESENTATION_ExAdv/sym_mul_test.ys
+   :language: yoscrypt
+   :caption: ``docs/resources/PRESENTATION_ExAdv/sym_mul_test.ys``
+
+
+Scripting in map modules
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+- The special wires ``_TECHMAP_DO_*`` can be used to run Yosys scripts
+  in the context of the replacement module.
+- The wire that comes first in alphabetical oder is interpreted as string (must
+  be connected to constants) that is executed as script. Then the wire is
+  removed. Repeat.
+- You can even call techmap recursively!
+- Example use-cases:
+
+    - Using always blocks in map module: call ``proc``
+    - Perform expensive optimizations (such as ``freduce``) on cells where
+      this is known to work well.
+    - Interacting with custom commands.
+
+.. note:: PROTIP: 
+    Commands such as ``shell``, ``show -pause``, and ``dump`` can be use
+    in the ``_TECHMAP_DO_*`` scripts for debugging map modules.
+
+Example:
+
+.. figure:: ../../images/res/PRESENTATION_ExAdv/mymul.*
+    :class: width-helper
+
+.. literalinclude:: ../../resources/PRESENTATION_ExAdv/mymul_map.v
+   :language: verilog
+   :caption: ``docs/resources/PRESENTATION_ExAdv/mymul_map.v``
+
+.. literalinclude:: ../../resources/PRESENTATION_ExAdv/mymul_test.v
+   :language: verilog
+   :caption: ``docs/resources/PRESENTATION_ExAdv/mymul_test.v``
+
+.. literalinclude:: ../../resources/PRESENTATION_ExAdv/mymul_test.ys
+   :language: yoscrypt
+   :caption: ``docs/resources/PRESENTATION_ExAdv/mymul_test.ys``
+
+Handling constant inputs
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+- The special parameters ``_TECHMAP_CONSTMSK_<port-name>_`` and
+  ``_TECHMAP_CONSTVAL_<port-name>_`` can be used to handle constant input values
+  to cells.
+- The former contains 1-bits for all constant input bits on the port.
+- The latter contains the constant bits or undef (x) for non-constant bits.
+- Example use-cases:
+
+    - Converting arithmetic (for example multiply to shift).
+    - Identify constant addresses or enable bits in memory interfaces.
+
+Example:
+
+.. figure:: ../../images/res/PRESENTATION_ExAdv/mulshift.*
+    :class: width-helper
+
+.. literalinclude:: ../../resources/PRESENTATION_ExAdv/mulshift_map.v
+   :language: verilog
+   :caption: ``docs/resources/PRESENTATION_ExAdv/mulshift_map.v``
+
+.. literalinclude:: ../../resources/PRESENTATION_ExAdv/mulshift_test.v
+   :language: verilog
+   :caption: ``docs/resources/PRESENTATION_ExAdv/mulshift_test.v``
+
+.. literalinclude:: ../../resources/PRESENTATION_ExAdv/mulshift_test.ys
+   :language: yoscrypt
+   :caption: ``docs/resources/PRESENTATION_ExAdv/mulshift_test.ys``
+
+Handling shorted inputs
+~~~~~~~~~~~~~~~~~~~~~~~
+
+- The special parameters ``_TECHMAP_BITS_CONNMAP_`` and
+  ``_TECHMAP_CONNMAP_<port-name>_`` can be used to handle shorted inputs.
+- Each bit of the port correlates to an ``_TECHMAP_BITS_CONNMAP_`` bits wide
+  number in ``_TECHMAP_CONNMAP_<port-name>_``.
+- Each unique signal bit is assigned its own number. Identical fields in the ``_TECHMAP_CONNMAP_<port-name>_`` parameters mean shorted signal bits.
+- The numbers 0-3 are reserved for ``0``, ``1``, ``x``, and ``z`` respectively.
+- Example use-cases:
+
+    - Detecting shared clock or control signals in memory interfaces.
+    - In some cases this can be used for for optimization.
+
+Example:
+
+.. figure:: ../../images/res/PRESENTATION_ExAdv/addshift.*
+    :class: width-helper
+
+.. literalinclude:: ../../resources/PRESENTATION_ExAdv/addshift_map.v
+   :language: verilog
+   :caption: ``docs/resources/PRESENTATION_ExAdv/addshift_map.v``
+
+.. literalinclude:: ../../resources/PRESENTATION_ExAdv/addshift_test.v
+   :language: verilog
+   :caption: ``docs/resources/PRESENTATION_ExAdv/addshift_test.v``
+
+.. literalinclude:: ../../resources/PRESENTATION_ExAdv/addshift_test.ys
+   :language: yoscrypt
+   :caption: ``docs/resources/PRESENTATION_ExAdv/addshift_test.ys``
+
+Notes on using techmap
+~~~~~~~~~~~~~~~~~~~~~~
+
+- Don't use positional cell parameters in map modules.
+- You can use the ``$__``-prefix for internal cell types to avoid
+  collisions with the user-namespace. But always use two underscores or the
+  internal consistency checker will trigger on this cells.
+- Techmap has two major use cases:
+
+    - Creating good logic-level representation of arithmetic functions. This
+      also means using dedicated hardware resources such as half- and full-adder
+      cells in ASICS or dedicated carry logic in FPGAs.
+    - Mapping of coarse-grain resources such as block memory or DSP cells.
