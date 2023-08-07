@@ -53,9 +53,18 @@ struct PeepoptPass : public Pass {
 	{
 		log_header(design, "Executing PEEPOPT pass (run peephole optimizers).\n");
 
+		bool bmux_mode = false, wshift_mode = false;
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
+			if (args[argidx] == "-bmux") {
+				bmux_mode = true;
+				continue;
+			}
+			if (args[argidx] == "-wshift") {
+				wshift_mode = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -71,6 +80,9 @@ struct PeepoptPass : public Pass {
 				peepopt_pm pm(module);
 
 				pm.setup(module->selected_cells());
+
+				pm.ud_shiftmul_right.bmux_mode = bmux_mode;
+				pm.ud_shiftmul_right.wshift_mode = wshift_mode;
 
 				pm.run_shiftmul_right();
 				pm.run_shiftmul_left();

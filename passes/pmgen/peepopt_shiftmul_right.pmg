@@ -3,6 +3,8 @@ pattern shiftmul_right
 // Optimize mul+shift pairs that result from expressions such as foo[s*W+:W]
 //
 
+udata <bool> bmux_mode wshift_mode
+
 match shift
 	select shift->type.in($shift, $shiftx, $shr)
 	filter !port(shift, \B).empty()
@@ -68,6 +70,7 @@ code
 	// make sure there's no overlap in the signal
 	// selections by the shiftmul pattern
 	if (GetSize(port(shift, \Y)) > mul_const.as_int())
+	if (!bmux_mode && !wshift_mode)
 		reject;
 
 	int factor_bits = ceil_log2(mul_const.as_int());
@@ -77,6 +80,73 @@ code
 
 	did_something = true;
 	log("right shiftmul pattern in %s: shift=%s, mul=%s\n", log_id(module), log_id(shift), log_id(mul));
+
+	if (bmux_mode) {
+		SigSpec out = port(shift, \Y);
+		int shift_stride = mul_const.as_int();
+		SigSpec shift_vector = port(shift, \A);
+		SigBit padbit = (shift->type != $shiftx) ? (param(shift, \A_SIGNED)).as_bool() ?
+						port(shift, \A).bits().back() : State::S0 : State::Sx;
+
+		// Construct the input vector for the new bmux cell
+		SigSpec bmux_vector;
+		for (int i = 0; i * shift_stride < GetSize(shift_vector); i++) {
+			int validbits = std::min(GetSize(out),
+									 GetSize(shift_vector) - i * shift_stride);
+			bmux_vector.append(shift_vector.extract(i * shift_stride, validbits));
+			bmux_vector.append(SigSpec(padbit, GetSize(out) - validbits));
+		}
+
+		// Prep the select signal
+		SigSpec bmux_sel = mul_din;
+		bmux_sel.extend_u0(ceil_log2((GetSize(bmux_vector) + GetSize(out) - 1) / GetSize(out)));
+
+		// Pad the vector
+		int vector_targetlen = GetSize(out) << GetSize(bmux_sel);
+		if (vector_targetlen > GetSize(bmux_vector))
+			bmux_vector.append(SigSpec(padbit, vector_targetlen - GetSize(bmux_vector)));
+		else
+			bmux_vector.remove(vector_targetlen, GetSize(bmux_vector) - vector_targetlen);
+
+		// Build the bmux, add an extra mux to handle top bits on the old select signal
+		SigSpec bmux_out, out_of_range;
+		std::string src = shift->get_src_attribute();
+		bmux_out = module->Bmux(NEW_ID, bmux_vector, bmux_sel, src);
+		if (GetSize(mul_din) > GetSize(bmux_sel)) {
+			out_of_range = module->ReduceBool(NEW_ID, mul_din.extract_end(GetSize(bmux_sel)), false, src);
+			module->addMux(NEW_ID, bmux_out, SigSpec(padbit, GetSize(out)), out_of_range, out, src);
+		} else {
+			module->connect(out, bmux_out);
+		}
+		autoremove(shift);
+		accept;
+	} else if (wshift_mode) {
+		SigSpec out = port(shift, \Y);
+		SigSpec shift_vector = port(shift, \A);
+		int shift_stride = mul_const.as_int();
+		for (int j = 0; j < shift_stride; j++) {
+			SigSpec slice_vector;
+			SigSpec slice_out;
+			for (int off = j; off < GetSize(shift_vector); off += shift_stride)
+				slice_vector.append(shift_vector.extract(off, 1));
+			if (param(shift, \A_SIGNED).as_bool())
+				slice_vector.append(shift_vector.bits().back());
+			for (int off = j; off < GetSize(out); off += shift_stride)
+				slice_out.append(out.extract(off, 1));
+
+			if (slice_out.empty()) continue;
+			Cell *slice = module->addCell(NEW_ID, shift);
+			slice->setParam(\A_WIDTH, GetSize(slice_vector));
+			slice->setPort(\A, slice_vector);
+			slice->setParam(\B_WIDTH, GetSize(mul_din));
+			slice->setParam(\B_SIGNED, Const(1, 0));
+			slice->setPort(\B, mul_din);
+			slice->setParam(\Y_WIDTH, GetSize(slice_out));
+			slice->setPort(\Y, slice_out);
+		}
+		autoremove(shift);
+		accept;
+	}
 
 	int const_factor = mul_const.as_int();
 	int new_const_factor = 1 << factor_bits;
