@@ -1,21 +1,24 @@
+PROGRAM_PREFIX :=
+
+YOSYS ?= ../../../$(PROGRAM_PREFIX)yosys
 
 all: test0.log test1.log test2.log
 
-CXXFLAGS=$(shell ../../yosys-config --cxxflags)
-DATDIR=$(shell ../../yosys-config --datdir)
+CXXFLAGS=$(shell $(YOSYS)-config --cxxflags)
+DATDIR=$(shell $(YOSYS)-config --datdir)
 
 my_cmd.so: my_cmd.cc
-	../../yosys-config --exec --cxx $(subst $(DATDIR),../../share,$(CXXFLAGS)) --ldflags -o my_cmd.so -shared my_cmd.cc --ldlibs
+	$(YOSYS)-config --exec --cxx $(subst $(DATDIR),../../share,$(CXXFLAGS)) --ldflags -o my_cmd.so -shared my_cmd.cc --ldlibs
 
 test0.log: my_cmd.so
-	../../yosys -Ql test0.log_new -m ./my_cmd.so -p 'my_cmd foo bar' absval_ref.v
+	$(YOSYS) -Ql test0.log_new -m ./my_cmd.so -p 'my_cmd foo bar' absval_ref.v
 	mv test0.log_new test0.log
 
 test1.log: my_cmd.so
-	../../yosys -Ql test1.log_new -m ./my_cmd.so -p 'clean; test1; dump' absval_ref.v
+	$(YOSYS) -Ql test1.log_new -m ./my_cmd.so -p 'clean; test1; dump' absval_ref.v
 	mv test1.log_new test1.log
 
 test2.log: my_cmd.so
-	../../yosys -Ql test2.log_new -m ./my_cmd.so -p 'hierarchy -top test; test2' sigmap_test.v
+	$(YOSYS) -Ql test2.log_new -m ./my_cmd.so -p 'hierarchy -top test; test2' sigmap_test.v
 	mv test2.log_new test2.log
 

@@ -1,4 +1,6 @@
-YOSYS = ../../../yosys
+PROGRAM_PREFIX :=
+
+YOSYS ?= ../../../$(PROGRAM_PREFIX)yosys
 
 all: scrambler_p01.pdf scrambler_p02.pdf equiv.log axis_test.log
 

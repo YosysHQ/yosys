@@ -1,4 +1,6 @@
-YOSYS = ../../../yosys
+PROGRAM_PREFIX :=
+
+YOSYS ?= ../../../$(PROGRAM_PREFIX)yosys
 
 all: select.pdf red_or3x1.pdf sym_mul.pdf mymul.pdf mulshift.pdf addshift.pdf \
 		macc_simple_xmap.pdf macc_xilinx_xmap.pdf
