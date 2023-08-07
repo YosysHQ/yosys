@@ -276,7 +276,7 @@ Interactive navigation
      $procmux$5
 
 .. code-block:: RTLIL
-   :caption: Output of ``dump \$2`` using the design from :numref:`example_src` 
+   :caption: Output of ``dump $2`` using the design from :numref:`example_src` 
              and :numref:`example_out`
    :name: dump2
 
@@ -474,7 +474,7 @@ has no effect anymore.
    :class: width-helper
    :name: select_prod
    
-   Objects selected by ``select prod \%ci...``
+   Objects selected by ``select prod %ci...``
 
 In most cases there are certain cell types and/or ports that should not be
 considered for the ``%ci`` action, or we only want to follow certain cell types
@@ -541,7 +541,7 @@ Or we could decide to tell the ``%ci`` action to not follow the ``CLK`` input:
    :class: width-helper
    :name: memdemo_01
    
-   Output of ``show y \%ci2:+\$dff[Q,D] \%ci*:-\$mux[S]:-\$dff``
+   Output of ``show y %ci2:+$dff[Q,D] %ci*:-$mux[S]:-$dff``
 
 Next we would investigate the next logic level by adding another ``%ci2`` to
 the command:

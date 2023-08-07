@@ -1,4 +1,4 @@
-Typical Phases of a Synthesis Flow
+Typical phases of a synthesis flow
 ----------------------------------
 
 .. TODO: copypaste
