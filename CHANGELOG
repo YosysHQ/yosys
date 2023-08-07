@@ -2,8 +2,15 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.31 .. Yosys 0.32-dev
+Yosys 0.31 .. Yosys 0.32
 --------------------------
+ * Verific support
+    - Added sub option "-lib" to reading commands for VHDL and
+      SystemVerilog, that will later import all units/modules from
+      marked files as blackboxes.
+
+ * Various
+    - Added support for $lt, $le, $gt, $ge to the code generating AIGs.
 
 Yosys 0.30 .. Yosys 0.31
 --------------------------
