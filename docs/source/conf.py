@@ -59,6 +59,10 @@ latex_elements = {
 '''
 }
 
+# include todos during rewrite
+extensions.append('sphinx.ext.todo')
+todo_include_todos = True
+
 def setup(sphinx):
 	sys.path += [os.path.dirname(__file__) + "/../util"]
 	from RtlilLexer import RtlilLexer

@@ -3,7 +3,7 @@
 Yosys internals
 ===============
 
-.. TODO: copypaste
+.. todo:: copypaste
 
 Yosys is an extensible open source hardware synthesis tool. It is aimed at
 designers who are looking for an easily accessible, universal, and
@@ -38,4 +38,4 @@ can be used as reference to implement a similar system in any language.
 	techmap
 	extensions
 
-.. TODO: copypaste
+.. todo:: copypaste

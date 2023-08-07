@@ -1,7 +1,7 @@
 Scripting in Yosys
 ------------------
 
-.. TODO: copypaste
+.. todo:: copypaste
 
 Yosys reads and processes commands from synthesis scripts, command line
 arguments and an interactive command prompt. Yosys commands consist of a command

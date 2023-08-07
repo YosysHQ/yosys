@@ -3,7 +3,7 @@
 Writing extensions
 ==================
 
-.. TODO: copypaste
+.. todo:: copypaste
 
 This chapter contains some bits and pieces of information about programming
 yosys extensions. Don't be afraid to ask questions on the YosysHQ Slack.
@@ -81,7 +81,7 @@ look at the output of ``dump`` and ``show`` before and after the command has
 been executed can be helpful.  The :doc:`/using_yosys/more_scripting/selections`
 document has more information on using these commands.
 
-.. TODO: copypaste
+.. todo:: copypaste
 
 Creating modules from scratch
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

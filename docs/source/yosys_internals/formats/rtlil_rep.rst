@@ -74,7 +74,7 @@ This has three advantages:
 -  First, it is impossible that an auto-generated identifier collides with an
    identifier that was provided by the user.
 
-.. TODO: does opt_rmunused (still?) exist?
+.. todo:: does opt_rmunused (still?) exist?
 
 -  Second, the information about which identifiers were originally provided by
    the user is always available which can help guide some optimizations. For

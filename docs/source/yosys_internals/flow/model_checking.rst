@@ -1,7 +1,7 @@
 Symbolic model checking
 -----------------------
 
-.. TODO: copypaste
+.. todo:: copypaste
 
 .. note:: 
     

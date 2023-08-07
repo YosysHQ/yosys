@@ -3,7 +3,7 @@
 Optimization passes
 ===================
 
-.. TODO: copypaste
+.. todo:: copypaste
 
 Yosys employs a number of optimizations to generate better and cleaner results.
 This chapter outlines these optimizations.

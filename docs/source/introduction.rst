@@ -1,7 +1,7 @@
 What is Yosys
 =============
 
-.. TODO: rewrite to not be a thesis abstract
+.. todo:: rewrite to not be a thesis abstract
 
 :Abstract:
 	Most of today's digital design is done in HDL code (mostly Verilog or 
@@ -125,7 +125,7 @@ In no particular order:
 History of Yosys
 ----------------
 
-.. TODO: copypaste
+.. todo:: copypaste
 
 A Hardware Description Language (HDL) is a computer language used to describe
 circuits. A HDL synthesis tool is a computer program that takes a formal

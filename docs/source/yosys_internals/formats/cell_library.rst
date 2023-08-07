@@ -1,7 +1,7 @@
 .. role:: verilog(code)
 	:language: Verilog
 
-.. TODO: copypaste
+.. todo:: copypaste
 
 .. _chapter:celllib:
 

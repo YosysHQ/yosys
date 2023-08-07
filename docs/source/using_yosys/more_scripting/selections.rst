@@ -1,8 +1,7 @@
 Selections
 ----------
 
-.. TODO: copypaste
-
+.. todo:: copypaste
 
 Most Yosys commands make use of the "selection framework" of Yosys. It can be
 used to apply commands only to part of the design. For example:

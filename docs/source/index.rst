@@ -12,3 +12,8 @@ Yosys Open SYnthesis Suite
 	test_suites
 
 	appendix
+
+TODOs
+-----
+
+.. todolist::

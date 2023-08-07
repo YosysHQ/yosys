@@ -639,13 +639,15 @@ to extend the actual Verilog frontend.
 Synthesizing Verilog arrays
 ---------------------------
 
-.. TODO: these
+.. todo:: 
 
-Add some information on the generation of ``$memrd`` and ``$memwr`` cells and
-how they are processed in the memory pass.
+  Add some information on the generation of ``$memrd`` and ``$memwr`` cells and
+  how they are processed in the memory pass.
 
 Synthesizing parametric designs
 -------------------------------
 
-Add some information on the ``RTLIL::Module::derive()`` method and how it is
-used to synthesize parametric modules via the hierarchy pass.
+.. todo::
+
+  Add some information on the ``RTLIL::Module::derive()`` method and how it is
+  used to synthesize parametric modules via the hierarchy pass.

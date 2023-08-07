@@ -1,6 +1,6 @@
 .. _chapter:techmap:
 
-.. TODO: copypaste
+.. todo:: copypaste
 
 Technology mapping 
 ==================
@@ -109,7 +109,7 @@ sensitive information from the Liberty file.
 Techmap by example
 ------------------
 
-.. TODO: copypaste
+.. todo:: copypaste
 
 As a quick recap, the ``techmap`` command replaces cells in the design with
 implementations given as Verilog code (called "map files"). It can replace

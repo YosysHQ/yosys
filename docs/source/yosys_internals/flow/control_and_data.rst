@@ -1,7 +1,7 @@
 Control and data flow
 =====================
 
-.. TODO: copypaste
+.. todo:: copypaste
 
 The data- and control-flow of a typical synthesis tool is very similar to the
 data- and control-flow of a typical compiler: different subsystems are called in

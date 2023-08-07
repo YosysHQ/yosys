@@ -1,7 +1,7 @@
 Command ordering
 ----------------
 
-.. TODO: copypaste
+.. todo:: copypaste
 
 Intro to coarse-grain synthesis
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -36,7 +36,7 @@ The extract pass
   with an instance of the module from the map file.
 - In a way the ``extract`` pass is the inverse of the techmap pass.
 
-.. TODO: copypaste
+.. todo:: copypaste
 
 .. figure:: ../../../images/res/PRESENTATION_ExAdv/macc_simple_test_00a.*
     :class: width-helper
@@ -118,7 +118,7 @@ Preconditioning: ``macc_xilinx_swap_map.v``
 
 Make sure ``A`` is the smaller port on all multipliers
 
-.. TODO: copypaste
+.. todo:: copypaste
 
 .. literalinclude:: ../../../resources/PRESENTATION_ExAdv/macc_xilinx_swap_map.v
    :language: verilog
