@@ -63,12 +63,12 @@ p {
     color: #6ecbd7 !important;
 }
 
-.cmdref .highlight-yoscrypt .highlight pre {
+.cmd.def .highlight-yoscrypt, .cmd.def .highlight pre {
 	padding: 0%;
 	margin: 0%;
 }
 
-.cmdref .highlight-none .highlight pre {
+.cmd.def .highlight-none, .cmd.def .highlight pre {
 	padding-top: 0%;
 	margin-top: 0%;
 }

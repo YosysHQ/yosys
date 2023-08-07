@@ -63,10 +63,13 @@ latex_elements = {
 extensions.append('sphinx.ext.todo')
 todo_include_todos = True
 
+# custom cmd-ref parsing/linking
+sys.path += [os.path.dirname(__file__) + "/../"]
+extensions.append('util.cmdref')
+
 def setup(sphinx):
-	sys.path += [os.path.dirname(__file__) + "/../util"]
-	from RtlilLexer import RtlilLexer
+	from util.RtlilLexer import RtlilLexer
 	sphinx.add_lexer("RTLIL", RtlilLexer)
 
-	from YoscryptLexer import YoscryptLexer
+	from util.YoscryptLexer import YoscryptLexer
 	sphinx.add_lexer("yoscrypt", YoscryptLexer)
