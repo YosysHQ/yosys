@@ -81,7 +81,8 @@ synthesis script (``counter.ys``), a digital design written in Verilog
 #. :yoscrypt:`dfflibmap -liberty mycells.lib` - Map registers to available
    hardware flip-flops.
 #. :yoscrypt:`abc -liberty mycells.lib` - Map logic to available hardware gates.
-#. :yoscrypt:`clean` - Clean up the design (just the last step of ``opt``).
+#. :yoscrypt:`clean` - Clean up the design (just the last step of
+   :cmd:ref:`opt`).
 #. :yoscrypt:`write_verilog synth.v` - Write final synthesis result to output
    file.
 

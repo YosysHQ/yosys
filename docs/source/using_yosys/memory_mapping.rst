@@ -3,12 +3,13 @@
 Memory mapping
 ==============
 
-Documentation for the Yosys ``memory_libmap`` memory mapper.  Note that not all supported patterns
-are included in this document, of particular note is that combinations of multiple patterns should
-generally work.  For example, `Write port with byte enables`_ could be used in conjunction with any
-of the simple dual port (SDP) models.  In general if a hardware memory definition does not support a
-given configuration, additional logic will be instantiated to guarantee behaviour is consistent with
-simulation.
+Documentation for the Yosys :cmd:ref:`memory_libmap` memory mapper.  Note that
+not all supported patterns are included in this document, of particular note is
+that combinations of multiple patterns should generally work.  For example,
+`Write port with byte enables`_ could be used in conjunction with any of the
+simple dual port (SDP) models.  In general if a hardware memory definition does
+not support a given configuration, additional logic will be instantiated to
+guarantee behaviour is consistent with simulation.
 
 See also: `passes/memory/memlib.md <https://github.com/YosysHQ/yosys/blob/master/passes/memory/memlib.md>`_
 

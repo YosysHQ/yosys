@@ -180,7 +180,7 @@ to the Yosys documentation, or run ``yosys -h <command_name>``.
 
 The script presented earlier can be easily modified to have a BTOR file that
 does not contain memories. This is done by removing the line number 8 and 10,
-and introduces a new command ``memory`` at line number 8.
+and introduces a new command :cmd:ref:`memory` at line number 8.
 :numref:`btor_script_without_memory` shows the modified Yosys script file:
 
 .. code-block:: sh

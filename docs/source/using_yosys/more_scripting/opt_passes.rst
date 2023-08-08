@@ -11,12 +11,13 @@ This chapter outlines these optimizations.
 Simple optimizations
 --------------------
 
-The Yosys pass ``opt`` runs a number of simple optimizations. This includes removing
-unused signals and cells and const folding. It is recommended to run this pass
-after each major step in the synthesis script. At the time of this writing the
-``opt`` pass executes the following passes that each perform a simple optimization:
+The Yosys pass :cmd:ref:`opt` runs a number of simple optimizations. This
+includes removing unused signals and cells and const folding. It is recommended
+to run this pass after each major step in the synthesis script. At the time of
+this writing the :cmd:ref:`opt` pass executes the following passes that each
+perform a simple optimization:
 
--  Once at the beginning of ``opt``:
+-  Once at the beginning of :cmd:ref:`opt`:
 
    -  ``opt_expr``
    -  ``opt_merge -nomux``
@@ -32,15 +33,15 @@ after each major step in the synthesis script. At the time of this writing the
 
 The following section describes each of the ``opt_`` passes.
 
-The opt_expr pass
-~~~~~~~~~~~~~~~~~
+The :cmd:ref:`opt_expr` pass
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This pass performs const folding on the internal combinational cell types
-described in :ref:`chapter:celllib`. This means a cell with all
-constant inputs is replaced with the constant value this cell drives. In some
-cases this pass can also optimize cells with some constant inputs.
+described in :ref:`chapter:celllib`. This means a cell with all constant inputs
+is replaced with the constant value this cell drives. In some cases this pass
+can also optimize cells with some constant inputs.
 
-.. table:: Const folding rules for ``$_AND_`` cells as used in opt_expr.
+.. table:: Const folding rules for ``$_AND_`` cells as used in :cmd:ref:`opt_expr`.
    :name: tab:opt_expr_and
    :align: center
 
@@ -80,15 +81,16 @@ undef.
 The last two lines simply replace an ``$_AND_`` gate with one constant-1 input
 with a buffer.
 
-Besides this basic const folding the opt_expr pass can replace 1-bit wide
-``$eq`` and ``$ne`` cells with buffers or not-gates if one input is constant.
+Besides this basic const folding the :cmd:ref:`opt_expr` pass can replace 1-bit
+wide ``$eq`` and ``$ne`` cells with buffers or not-gates if one input is
+constant.
 
-The opt_expr pass is very conservative regarding optimizing ``$mux`` cells, as
-these cells are often used to model decision-trees and breaking these trees can
-interfere with other optimizations.
+The :cmd:ref:`opt_expr` pass is very conservative regarding optimizing ``$mux``
+cells, as these cells are often used to model decision-trees and breaking these
+trees can interfere with other optimizations.
 
-The opt_muxtree pass
-~~~~~~~~~~~~~~~~~~~~
+The :cmd:ref:`opt_muxtree` pass
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This pass optimizes trees of multiplexer cells by analyzing the select inputs.
 Consider the following simple example:
@@ -99,12 +101,12 @@ Consider the following simple example:
    module uut(a, y); input a; output [1:0] y = a ? (a ? 1 : 2) : 3; endmodule
 
 The output can never be 2, as this would require ``a`` to be 1 for the outer
-multiplexer and 0 for the inner multiplexer. The opt_muxtree pass detects this
-contradiction and replaces the inner multiplexer with a constant 1, yielding the
-logic for ``y = a ? 1 : 3``.
+multiplexer and 0 for the inner multiplexer. The :cmd:ref:`opt_muxtree` pass
+detects this contradiction and replaces the inner multiplexer with a constant 1,
+yielding the logic for ``y = a ? 1 : 3``.
 
-The opt_reduce pass
-~~~~~~~~~~~~~~~~~~~
+The :cmd:ref:`opt_reduce` pass
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This is a simple optimization pass that identifies and consolidates identical
 input bits to ``$reduce_and`` and ``$reduce_or`` cells. It also sorts the input
@@ -121,22 +123,22 @@ Lastly this pass consolidates trees of ``$reduce_and`` cells and trees of
 These three simple optimizations are performed in a loop until a stable result
 is produced.
 
-The opt_rmdff pass
-~~~~~~~~~~~~~~~~~~
+The :cmd:ref:`opt_rmdff` pass
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This pass identifies single-bit d-type flip-flops (``$_DFF_``, ``$dff``, and
 ``$adff`` cells) with a constant data input and replaces them with a constant
 driver.
 
-The opt_clean pass
-~~~~~~~~~~~~~~~~~~
+The :cmd:ref:`opt_clean` pass
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This pass identifies unused signals and cells and removes them from the design.
 It also creates an ``\unused_bits`` attribute on wires with unused bits. This
 attribute can be used for debugging or by other optimization passes.
 
-The opt_merge pass
-~~~~~~~~~~~~~~~~~~
+The :cmd:ref:`opt_merge` pass
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This pass performs trivial resource sharing. This means that this pass
 identifies cells with identical inputs and replaces them with a single instance
@@ -144,8 +146,8 @@ of the cell.
 
 The option ``-nomux`` can be used to disable resource sharing for multiplexer
 cells (``$mux`` and ``$pmux``.) This can be useful as it prevents multiplexer
-trees to be merged, which might prevent ``opt_muxtree`` to identify possible
-optimizations.
+trees to be merged, which might prevent :cmd:ref:`opt_muxtree` to identify
+possible optimizations.
 
 FSM extraction and encoding
 ---------------------------
@@ -193,9 +195,9 @@ using the ``\fsm_encoding`` attribute (unless ``\fsm_encoding`` is set to
 ``fsm_`` passes operate on these ``$fsm`` cells. The fsm_map call finally
 replaces the ``$fsm`` cells with RTL cells.
 
-Note that these optimizations operate on an RTL netlist. I.e. the ``fsm`` pass
-should be executed after the proc pass has transformed all ``RTLIL::Process``
-objects to RTL cells.
+Note that these optimizations operate on an RTL netlist. I.e. the :cmd:ref:`fsm`
+pass should be executed after the proc pass has transformed all
+``RTLIL::Process`` objects to RTL cells.
 
 The algorithms used for FSM detection and extraction are influenced by a more
 general reported technique :cite:p:`fsmextract`.
@@ -295,8 +297,8 @@ The fsm_opt pass performs basic optimizations on ``$fsm`` cells (not including
 state recoding). The following optimizations are performed (in this order):
 
 -  Unused control outputs are removed from the ``$fsm`` cell. The attribute
-   ``\unused_bits`` (that is usually set by the opt_clean pass) is used to
-   determine which control outputs are unused.
+   ``\unused_bits`` (that is usually set by the :cmd:ref:`opt_clean` pass) is
+   used to determine which control outputs are unused.
 
 -  Control inputs that are connected to the same driver are merged.
 

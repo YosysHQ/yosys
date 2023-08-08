@@ -28,13 +28,13 @@ components, such as LUTs, gates, or half- and full-adders.
 The extract pass
 ~~~~~~~~~~~~~~~~
 
-- Like the ``techmap`` pass, the ``extract`` pass is called with a map file. It
-  compares the circuits inside the modules of the map file with the design and
-  looks for sub-circuits in the design that match any of the modules in the map
-  file.
-- If a match is found, the ``extract`` pass will replace the matching subcircuit
-  with an instance of the module from the map file.
-- In a way the ``extract`` pass is the inverse of the techmap pass.
+- Like the :cmd:ref:`techmap` pass, the :cmd:ref:`extract` pass is called with a
+  map file. It compares the circuits inside the modules of the map file with the
+  design and looks for sub-circuits in the design that match any of the modules
+  in the map file.
+- If a match is found, the :cmd:ref:`extract` pass will replace the matching
+  subcircuit with an instance of the module from the map file.
+- In a way the :cmd:ref:`extract` pass is the inverse of the techmap pass.
 
 .. todo:: copypaste
 
@@ -93,19 +93,19 @@ can also be used to implement 16x20-bit multiplication.
 A way of mapping such elements in coarse grain synthesis is the wrap-extract-unwrap method:
 
 wrap
-  Identify candidate-cells in the circuit and wrap them in a cell with a constant
-  wider bit-width using ``techmap``. The wrappers use the same parameters as the original cell, so
-  the information about the original width of the ports is preserved.
-  Then use the ``connwrappers`` command to connect up the bit-extended in- and
-  outputs of the wrapper cells.
+  Identify candidate-cells in the circuit and wrap them in a cell with a
+  constant wider bit-width using :cmd:ref:`techmap`. The wrappers use the same
+  parameters as the original cell, so the information about the original width
+  of the ports is preserved. Then use the ``connwrappers`` command to connect up
+  the bit-extended in- and outputs of the wrapper cells.
 
 extract
   Now all operations are encoded using the same bit-width as the coarse grain
-  element. The ``extract`` command can be used to replace circuits with cells
-  of the target architecture.
+  element. The :cmd:ref:`extract` command can be used to replace circuits with
+  cells of the target architecture.
 
 unwrap
-  The remaining wrapper cell can be unwrapped using ``techmap``.
+  The remaining wrapper cell can be unwrapped using :cmd:ref:`techmap`.
 
 Example: DSP48_MACC
 ~~~~~~~~~~~~~~~~~~~
@@ -144,7 +144,8 @@ Extract: ``macc_xilinx_xmap.v``
    :language: verilog
    :caption: ``docs/resources/PRESENTATION_ExAdv/macc_xilinx_xmap.v``
 
-... simply use the same wrapping commands on this module as on the design to create a template for the ``extract`` command.
+... simply use the same wrapping commands on this module as on the design to
+create a template for the :cmd:ref:`extract` command.
 
 Unwrapping multipliers: ``macc_xilinx_unwrap_map.v``
 

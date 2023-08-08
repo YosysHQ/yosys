@@ -12,7 +12,7 @@ used to apply commands only to part of the design. For example:
 
     delete foobar         # will only delete the module foobar.
 
-The ``select`` command can be used to create a selection for subsequent
+The :cmd:ref:`select` command can be used to create a selection for subsequent
 commands. For example:
 
 .. code:: yoscrypt
@@ -42,8 +42,8 @@ in synthesis scripts that are hand-tailored for a specific design.
 Module and design context
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Commands can be executed in *module/* or *design/* context. Until now
-all commands have been executed in design context. The ``cd`` command can be
+Commands can be executed in *module/* or *design/* context. Until now all
+commands have been executed in design context. The :cmd:ref:`cd` command can be
 used to switch to module context.
 
 In module context all commands only effect the active module. Objects in the
@@ -76,7 +76,7 @@ Special patterns can be used to select by object property or type. For example:
     select foo/t:$add     # select all $add cells from the module foo
 
 A complete list of this pattern expressions can be found in the command
-reference to the ``select`` command.
+reference to the :cmd:ref:`select` command.
 
 Combining selection
 ^^^^^^^^^^^^^^^^^^^
@@ -190,12 +190,13 @@ Interactive Design Investigation
 Yosys can also be used to investigate designs (or netlists created from other
 tools).
 
-- The selection mechanism, especially patterns such as ``%ci`` and ``%co``,
-  can be used to figure out how parts of the design are connected.
-- Commands such as ``submod``, ``expose``, and ``splice`` can be used to
-  transform the design into an equivalent design that is easier to analyse.
-- Commands such as ``eval`` and ``sat`` can be used to investigate the behavior
-  of the circuit.
+- The selection mechanism, especially patterns such as ``%ci`` and ``%co``, can
+  be used to figure out how parts of the design are connected.
+- Commands such as :cmd:ref:`submod`, :cmd:ref:`expose`, and :cmd:ref:`splice`
+  can be used to transform the design into an equivalent design that is easier
+  to analyse.
+- Commands such as :cmd:ref:`eval` and :cmd:ref:`sat` can be used to investigate
+  the behavior of the circuit.
 - :doc:`/cmd/show`.
 - :doc:`/cmd/dump`.
 - :doc:`/cmd/add` and :doc:`/cmd/delete` can be used to modify and reorganize a
@@ -204,10 +205,10 @@ tools).
 Changing design hierarchy
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Commands such as ``flatten`` and ``submod`` can be used to change the design
-hierarchy, i.e. flatten the hierarchy or moving parts of a module to a
-submodule. This has applications in synthesis scripts as well as in reverse
-engineering and analysis.  An example using ``submod`` is shown below for
+Commands such as :cmd:ref:`flatten` and :cmd:ref:`submod` can be used to change
+the design hierarchy, i.e. flatten the hierarchy or moving parts of a module to
+a submodule. This has applications in synthesis scripts as well as in reverse
+engineering and analysis.  An example using :cmd:ref:`submod` is shown below for
 reorganizing a module in Yosys and checking the resulting circuit.
 
 .. literalinclude:: ../../../resources/PRESENTATION_ExOth/scrambler.v
@@ -254,10 +255,10 @@ Analyzing the resulting circuit with :doc:`/cmd/eval`:
 Behavioral changes
 ^^^^^^^^^^^^^^^^^^
 
-Commands such as ``techmap`` can be used to make behavioral changes to the
-design, for example changing asynchronous resets to synchronous resets. This has
-applications in design space exploration (evaluation of various architectures
-for one circuit).
+Commands such as :cmd:ref:`techmap` can be used to make behavioral changes to
+the design, for example changing asynchronous resets to synchronous resets. This
+has applications in design space exploration (evaluation of various
+architectures for one circuit).
 
 The following techmap map file replaces all positive-edge async reset flip-flops
 with positive-edge sync reset flip-flops. The code is taken from the example
@@ -289,6 +290,5 @@ Yosys script for ASIC synthesis of the Amber ARMv2 CPU.
 
     endmodule
 
-For more on the ``techmap`` command, see the page on
-:doc:`/yosys_internals/techmap` or the 
-:doc:`techmap command reference document</cmd/techmap>`.
+For more on the :cmd:ref:`techmap` command, see the page on
+:doc:`/yosys_internals/techmap`.

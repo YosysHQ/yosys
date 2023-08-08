@@ -17,7 +17,8 @@ passes in Yosys.
 
 Other applications include checking if a module conforms to interface standards.
 
-The ``sat`` command in Yosys can be used to perform Symbolic Model Checking.
+The :cmd:ref:`sat` command in Yosys can be used to perform Symbolic Model
+Checking.
 
 Checking techmap
 ~~~~~~~~~~~~~~~~

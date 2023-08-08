@@ -235,8 +235,8 @@ signal is connected throughout the whole design hierarchy.
 
    endmodule
 
-In line 18 the ``proc`` command is called. But in this script the signal name
-globrst is passed to the command as a global reset signal for resetting the
+In line 18 the :cmd:ref:`proc` command is called. But in this script the signal
+name globrst is passed to the command as a global reset signal for resetting the
 registers to their assigned initial values.
 
 Finally in line 19 the techmap command is used to replace all instances of

@@ -57,17 +57,17 @@ needed variations of parametric modules.
     hierarchy -check -top top_module
 
 
-The ``proc`` command
-~~~~~~~~~~~~~~~~~~~~~~
+The :cmd:ref:`proc` command
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The Verilog frontend converts ``always``-blocks to RTL netlists for the
 expressions and "processess" for the control- and memory elements.
 
-The ``proc`` command transforms this "processess" to netlists of RTL multiplexer
-and register cells.
+The :cmd:ref:`proc` command transforms this "processess" to netlists of RTL
+multiplexer and register cells.
 
-The ``proc`` command is actually a macro-command that calls the following other
-commands:
+The :cmd:ref:`proc` command is actually a macro-command that calls the following
+other commands:
 
 .. code-block:: yoscrypt
 
@@ -80,8 +80,8 @@ commands:
     proc_clean      # if all went fine, this should remove all the processes
 
 Many commands can not operate on modules with "processess" in them. Usually a
-call to ``proc`` is the first command in the actual synthesis procedure after
-design elaboration.
+call to :cmd:ref:`proc` is the first command in the actual synthesis procedure
+after design elaboration.
 
 Example
 ^^^^^^^
@@ -120,11 +120,11 @@ Example
    :caption: ``docs/resources/PRESENTATION_ExSyn/proc_03.v``
 
 
-The ``opt`` command
-~~~~~~~~~~~~~~~~~~~~~
+The :cmd:ref:`opt` command
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The ``opt`` command implements a series of simple optimizations. It also is a
-macro command that calls other commands:
+The :cmd:ref:`opt` command implements a series of simple optimizations. It also
+is a macro command that calls other commands:
 
 .. code-block:: yoscrypt
 
@@ -140,8 +140,8 @@ macro command that calls other commands:
         opt_expr            # const folding and simple expression rewriting
     while [changed design]
 
-The command ``clean`` can be used as alias for ``opt_clean``. And ``;;`` can be
-used as shortcut for ``clean``. For example:
+The command :cmd:ref:`clean` can be used as alias for :cmd:ref:`opt_clean`. And
+``;;`` can be used as shortcut for :cmd:ref:`clean`. For example:
 
 .. code-block:: yoscrypt
 
@@ -195,31 +195,31 @@ Example
    :caption: ``docs/resources/PRESENTATION_ExSyn/opt_04.ys``
 
 
-When to use ``opt`` or ``clean``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+When to use :cmd:ref:`opt` or :cmd:ref:`clean`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Usually it does not hurt to call ``opt`` after each regular command in the
-synthesis script. But it increases the synthesis time, so it is favourable to
-only call ``opt`` when an improvement can be achieved.
+Usually it does not hurt to call :cmd:ref:`opt` after each regular command in
+the synthesis script. But it increases the synthesis time, so it is favourable
+to only call :cmd:ref:`opt` when an improvement can be achieved.
 
 The designs in ``yosys-bigsim`` are a good playground for experimenting with the
-effects of calling ``opt`` in various places of the flow.
+effects of calling :cmd:ref:`opt` in various places of the flow.
 
-It generally is a good idea to call ``opt`` before inherently expensive commands
-such as ``sat`` or ``freduce``, as the possible gain is much higher in this
-cases as the possible loss.
+It generally is a good idea to call :cmd:ref:`opt` before inherently expensive
+commands such as :cmd:ref:`sat` or :cmd:ref:`freduce`, as the possible gain is
+much higher in this cases as the possible loss.
 
-The ``clean`` command on the other hand is very fast and many commands leave a
-mess (dangling signal wires, etc). For example, most commands do not remove any
-wires or cells. They just change the connections and depend on a later call to
-clean to get rid of the now unused objects. So the occasional ``;;`` is a good
-idea in every synthesis script.
+The :cmd:ref:`clean` command on the other hand is very fast and many commands
+leave a mess (dangling signal wires, etc). For example, most commands do not
+remove any wires or cells. They just change the connections and depend on a
+later call to clean to get rid of the now unused objects. So the occasional
+``;;`` is a good idea in every synthesis script.
 
-The ``memory`` command
-~~~~~~~~~~~~~~~~~~~~~~~~
+The :cmd:ref:`memory` command
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In the RTL netlist, memory reads and writes are individual cells. This makes
-consolidating the number of ports for a memory easier. The ``memory``
+consolidating the number of ports for a memory easier. The :cmd:ref:`memory`
 transforms memories to an implementation. Per default that is logic for address
 decoders and registers. It also is a macro command that calls other commands:
 
@@ -269,12 +269,12 @@ Example
    :caption: ``docs/resources/PRESENTATION_ExSyn/memory_02.ys``
 
 
-The ``fsm`` command
-~~~~~~~~~~~~~~~~~~~~~
+The :cmd:ref:`fsm` command
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The ``fsm`` command identifies, extracts, optimizes (re-encodes), and
-re-synthesizes finite state machines. It again is a macro that calls
-a series of other commands:
+The :cmd:ref:`fsm` command identifies, extracts, optimizes (re-encodes), and
+re-synthesizes finite state machines. It again is a macro that calls a series of
+other commands:
 
 .. code-block:: yoscrypt
 
@@ -298,26 +298,27 @@ a series of other commands:
 
 Some details on the most important commands from the ``fsm_*`` group:
 
-The ``fsm_detect`` command identifies FSM state registers and marks them with
-the ``(* fsm_encoding = "auto" *)`` attribute, if they do not have the
+The :cmd:ref:`fsm_detect` command identifies FSM state registers and marks them
+with the ``(* fsm_encoding = "auto" *)`` attribute, if they do not have the
 ``fsm_encoding`` set already. Mark registers with ``(* fsm_encoding = "none"
 *)`` to disable FSM optimization for a register.
 
-The ``fsm_extract`` command replaces the entire FSM (logic and state registers)
-with a ``$fsm`` cell.
+The :cmd:ref:`fsm_extract` command replaces the entire FSM (logic and state
+registers) with a ``$fsm`` cell.
 
-The commands ``fsm_opt`` and ``fsm_recode`` can be used to optimize the FSM.
+The commands :cmd:ref:`fsm_opt` and :cmd:ref:`fsm_recode` can be used to
+optimize the FSM.
 
-Finally the ``fsm_map`` command can be used to convert the (optimized) ``$fsm``
-cell back to logic and registers.
+Finally the :cmd:ref:`fsm_map` command can be used to convert the (optimized)
+``$fsm`` cell back to logic and registers.
 
-The ``techmap`` command
-~~~~~~~~~~~~~~~~~~~~~~~~~
+The :cmd:ref:`techmap` command
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. figure:: ../../images/res/PRESENTATION_ExSyn/techmap_01.*
     :class: width-helper
 
-The ``techmap`` command replaces cells with implementations given as
+The :cmd:ref:`techmap` command replaces cells with implementations given as
 verilog source. For example implementing a 32 bit adder using 16 bit adders:
 
 .. literalinclude:: ../../resources/PRESENTATION_ExSyn/techmap_01_map.v
@@ -335,8 +336,9 @@ verilog source. For example implementing a 32 bit adder using 16 bit adders:
 stdcell mapping
 ^^^^^^^^^^^^^^^
 
-When ``techmap`` is used without a map file, it uses a built-in map file to map
-all RTL cell types to a generic library of built-in logic gates and registers.
+When :cmd:ref:`techmap` is used without a map file, it uses a built-in map file
+to map all RTL cell types to a generic library of built-in logic gates and
+registers.
 
 The built-in logic gate types are: ``$_NOT_``, ``$_AND_``, ``$_OR_``,
 ``$_XOR_``, and ``$_MUX_``.
@@ -351,26 +353,27 @@ The register types are: ``$_SR_NN_``, ``$_SR_NP_``, ``$_SR_PN_``, ``$_SR_PP_``,
 See :doc:`/yosys_internals/formats/cell_library` for more about the internal
 cells used.
 
-The ``abc`` command
-~~~~~~~~~~~~~~~~~~~~~
+The :cmd:ref:`abc` command
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The ``abc`` command provides an interface to ABC_, an open source tool for
-low-level logic synthesis.
+The :cmd:ref:`abc` command provides an interface to ABC_, an open source tool
+for low-level logic synthesis.
 
 .. _ABC: http://www.eecs.berkeley.edu/~alanmi/abc/
 
-The ``abc`` command processes a netlist of internal gate types and can perform:
+The :cmd:ref:`abc` command processes a netlist of internal gate types and can
+perform:
 
 - logic minimization (optimization)
 - mapping of logic to standard cell library (liberty format)
 - mapping of logic to k-LUTs (for FPGA synthesis)
 
-Optionally ``abc`` can process registers from one clock domain and perform
-sequential optimization (such as register balancing).
+Optionally :cmd:ref:`abc` can process registers from one clock domain and
+perform sequential optimization (such as register balancing).
 
 ABC is also controlled using scripts. An ABC script can be specified to use more
 advanced ABC features. It is also possible to write the design with
-``write_blif`` and load the output file into ABC outside of Yosys.
+:cmd:ref:`write_blif` and load the output file into ABC outside of Yosys.
 
 Example
 ^^^^^^^
@@ -389,16 +392,16 @@ Example
 Other special-purpose mapping commands
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``dfflibmap``
+:cmd:ref:`dfflibmap`
   This command maps the internal register cell types to the register types
   described in a liberty file.
 
-``hilomap``
+:cmd:ref:`hilomap`
   Some architectures require special driver cells for driving a constant hi or
   lo value. This command replaces simple constants with instances of such driver
   cells.
 
-``iopadmap``
+:cmd:ref:`iopadmap`
   Top-level input/outputs must usually be implemented using special I/O-pad
   cells. This command inserts this cells to the design.
 
@@ -436,5 +439,6 @@ Example Synthesis Script
     # write synthesis results
     write_edif synth.edif
 
-The weird ``select`` expressions at the end of this script are discussed later
-in :doc:`using_yosys/more_scripting/selections</using_yosys/more_scripting/selections>`.
+The weird :cmd:ref:`select` expressions at the end of this script are discussed
+later in
+:doc:`using_yosys/more_scripting/selections</using_yosys/more_scripting/selections>`.

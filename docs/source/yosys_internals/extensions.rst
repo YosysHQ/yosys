@@ -58,7 +58,7 @@ about the internal data storage format used in Yosys and the classes that it
 provides.
 
 This document will focus on the much simpler version of RTLIL left after the
-commands ``proc`` and ``memory`` (or ``memory -nomap``):
+commands :cmd:ref:`proc` and :cmd:ref:`memory` (or ``memory -nomap``):
 
 .. figure:: ../../images/simplified_rtlil.*
     :class: width-helper
@@ -77,9 +77,10 @@ It is possible to only work on this simpler version:
     }
 
 When trying to understand what a command does, creating a small test case to
-look at the output of ``dump`` and ``show`` before and after the command has
-been executed can be helpful.  The :doc:`/using_yosys/more_scripting/selections`
-document has more information on using these commands.
+look at the output of :cmd:ref:`dump` and :cmd:ref:`show` before and after the
+command has been executed can be helpful.  The
+:doc:`/using_yosys/more_scripting/selections` document has more information on
+using these commands.
 
 .. todo:: copypaste
 
@@ -120,15 +121,16 @@ Most commands modify existing modules, not create new ones.
 
 When modifying existing modules, stick to the following DOs and DON'Ts:
 
-- Do not remove wires. Simply disconnect them and let a successive ``clean``
-  command worry about removing it.
+- Do not remove wires. Simply disconnect them and let a successive
+  :cmd:ref:`clean` command worry about removing it.
 - Use ``module->fixup_ports()`` after changing the ``port_*`` properties of
   wires.
 - You can safely remove cells or change the ``connections`` property of a cell,
   but be careful when changing the size of the ``SigSpec`` connected to a cell
   port.
 
-- Use the ``SigMap`` helper class (see next slide) when you need a unique handle for each signal bit.
+- Use the ``SigMap`` helper class (see next section) when you need a unique
+  handle for each signal bit.
 
 Using the SigMap helper class
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

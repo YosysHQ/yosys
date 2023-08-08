@@ -6,22 +6,22 @@ representation. The only exception are the high-level frontends that use the AST
 representation as an intermediate step before generating RTLIL data.
 
 In order to avoid reinventing names for the RTLIL classes, they are simply
-referred to by their full C++ name, i.e. including the ``RTLIL::`` namespace prefix,
-in this document.
+referred to by their full C++ name, i.e. including the ``RTLIL::`` namespace
+prefix, in this document.
 
 :numref:`Figure %s <fig:Overview_RTLIL>` shows a simplified Entity-Relationship
 Diagram (ER Diagram) of RTLIL. In :math:`1:N` relationships the arrow points
-from the :math:`N` side to the :math:`1`. For example one ``RTLIL::Design`` contains
-:math:`N` (zero to many) instances of ``RTLIL::Module`` . A two-pointed arrow
-indicates a :math:`1:1` relationship.
+from the :math:`N` side to the :math:`1`. For example one ``RTLIL::Design``
+contains :math:`N` (zero to many) instances of ``RTLIL::Module`` . A two-pointed
+arrow indicates a :math:`1:1` relationship.
 
 The ``RTLIL::Design`` is the root object of the RTLIL data structure. There is
 always one "current design" in memory which passes operate on, frontends add
 data to and backends convert to exportable formats. But in some cases passes
-internally generate additional ``RTLIL::Design`` objects. For example when a pass is
-reading an auxiliary Verilog file such as a cell library, it might create an
-additional ``RTLIL::Design`` object and call the Verilog frontend with this other
-object to parse the cell library.
+internally generate additional ``RTLIL::Design`` objects. For example when a
+pass is reading an auxiliary Verilog file such as a cell library, it might
+create an additional ``RTLIL::Design`` object and call the Verilog frontend with
+this other object to parse the cell library.
 
 .. figure:: ../../../images/overview_rtlil.*
 	:class: width-helper
@@ -31,9 +31,9 @@ object to parse the cell library.
 
 There is only one active ``RTLIL::Design`` object that is used by all frontends,
 passes and backends called by the user, e.g. using a synthesis script. The
-``RTLIL::Design`` then contains zero to many ``RTLIL::Module`` objects. This corresponds
-to modules in Verilog or entities in VHDL. Each module in turn contains objects
-from three different categories:
+``RTLIL::Design`` then contains zero to many ``RTLIL::Module`` objects. This
+corresponds to modules in Verilog or entities in VHDL. Each module in turn
+contains objects from three different categories:
 
 -  ``RTLIL::Cell`` and ``RTLIL::Wire`` objects represent classical netlist data.
 
@@ -44,8 +44,8 @@ from three different categories:
 -  ``RTLIL::Memory`` objects represent addressable memories (arrays).
 
 Usually the output of the synthesis procedure is a netlist, i.e. all
-``RTLIL::Process`` and ``RTLIL::Memory`` objects must be replaced by ``RTLIL::Cell`` and
-``RTLIL::Wire`` objects by synthesis passes.
+``RTLIL::Process`` and ``RTLIL::Memory`` objects must be replaced by
+``RTLIL::Cell`` and ``RTLIL::Wire`` objects by synthesis passes.
 
 All features of the HDL that cannot be mapped directly to these RTLIL classes
 must be transformed to an RTLIL-compatible representation by the HDL frontend.
@@ -78,9 +78,9 @@ This has three advantages:
 
 -  Second, the information about which identifiers were originally provided by
    the user is always available which can help guide some optimizations. For
-   example the ``opt_rmunused`` tries to preserve signals with a user-provided
-   name but doesn't hesitate to delete signals that have auto-generated names
-   when they just duplicate other signals.
+   example the :cmd:ref:`opt_rmunused` tries to preserve signals with a
+   user-provided name but doesn't hesitate to delete signals that have
+   auto-generated names when they just duplicate other signals.
 
 -  Third, the delicate job of finding suitable auto-generated public visible
    names is deferred to one central location. Internally auto-generated names
@@ -184,8 +184,8 @@ An ``RTLIL::Cell`` object has the following properties:
 -  A list of parameters (for parametric cells)
 -  Cell ports and the connections of ports to wires and constants
 
-The connections of ports to wires are coded by assigning an ``RTLIL::SigSpec`` to
-each cell port. The ``RTLIL::SigSpec`` data type is described in the next
+The connections of ports to wires are coded by assigning an ``RTLIL::SigSpec``
+to each cell port. The ``RTLIL::SigSpec`` data type is described in the next
 section.
 
 .. _sec:rtlil_sigspec:
@@ -320,8 +320,8 @@ trees before further processing them.
 
 One of the first actions performed on a design in RTLIL representation in most
 synthesis scripts is identifying asynchronous resets. This is usually done using
-the ``proc_arst`` pass. This pass transforms the above example to the following
-``RTLIL::Process``:
+the :cmd:ref:`proc_arst` pass. This pass transforms the above example to the
+following ``RTLIL::Process``:
 
 .. code:: RTLIL
    :number-lines:
@@ -381,8 +381,8 @@ synthesis tasks.
 RTLIL::Memory
 -------------
 
-For every array (memory) in the HDL code an ``RTLIL::Memory`` object is created. A
-memory object has the following properties:
+For every array (memory) in the HDL code an ``RTLIL::Memory`` object is created.
+A memory object has the following properties:
 
 -  The memory name
 -  A list of attributes

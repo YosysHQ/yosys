@@ -10,10 +10,10 @@ terminated using the newline character or a semicolon (;). Empty lines and lines
 starting with the hash sign (#) are ignored. See :ref:`sec:typusecase` for an
 example synthesis script.
 
-The command ``help`` can be used to access the command reference manual, with
-``help <command>`` providing details for a specific command.  ``yosys -H`` or
-``yosys -h <command>`` will do the same outside of an interactive prompt.  The
-entire reference manual is also available here at :doc:`/cmd_ref`.
+The command :cmd:ref:`help` can be used to access the command reference manual,
+with ``help <command>`` providing details for a specific command.  ``yosys -H``
+or ``yosys -h <command>`` will do the same outside of an interactive prompt.
+The entire reference manual is also available here at :doc:`/cmd_ref`.
 
 Example commands
 ~~~~~~~~~~~~~~~~
@@ -99,10 +99,10 @@ Selections intro
 ~~~~~~~~~~~~~~~~
 
 Most commands can operate not only on the entire design but also specifically on
-selected parts of the design. For example the command ``dump`` will print all
-selected objects in the current design while ``dump foobar`` will only print the
-module ``foobar`` and ``dump *`` will print the entire design regardless of the
-current selection.
+selected parts of the design. For example the command :cmd:ref:`dump` will print
+all selected objects in the current design while ``dump foobar`` will only print
+the module ``foobar`` and ``dump *`` will print the entire design regardless of
+the current selection.
 
 .. code:: yoscrypt
 
