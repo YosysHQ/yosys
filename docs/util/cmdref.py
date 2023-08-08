@@ -52,12 +52,15 @@ class CommandNode(ObjectDescription):
         signode['ids'].append('cmd' + '-' + sig)
         if 'noindex' not in self.options:
             name = "{}.{}.{}".format('cmd', type(self).__name__, sig)
-            tmap = self.env.domaindata['cmd']['obj2tag']
-            tmap[name] = list(self.options.get('tags', '').split(' '))
+            tagmap = self.env.domaindata['cmd']['obj2tag']
+            tagmap[name] = list(self.options.get('tags', '').split(' '))
+            title = self.options.get('title')
+            titlemap = self.env.domaindata['cmd']['obj2title']
+            titlemap[name] = title
             objs = self.env.domaindata['cmd']['objects']
             objs.append((name,
                          sig,
-                         self.options.get('title'),
+                         title,
                          self.env.docname,
                          'cmd' + '-' + sig,
                          0))
@@ -193,8 +196,9 @@ class CommandDomain(Domain):
     }
 
     initial_data = {
-        'objects': [],  # object list
-        'obj2tag': {},  # name -> object
+        'objects': [],      # object list
+        'obj2tag': {},      # name -> tags
+        'obj2title': {},    # name -> title
     }
 
     def get_full_qualified_name(self, node):
@@ -210,16 +214,18 @@ class CommandDomain(Domain):
     def resolve_xref(self, env, fromdocname, builder, typ,
                      target, node, contnode):
         
-        match = [(docname, anchor)
+        match = [(docname, anchor, name)
                  for name, sig, typ, docname, anchor, prio
                  in self.get_objects() if sig == target]
 
-        if len(match) > 0:
+        if match:
             todocname = match[0][0]
             targ = match[0][1]
+            qual_name = match[0][2]
+            title = self.data['obj2title'].get(qual_name, targ)
             
             return make_refnode(builder,fromdocname,todocname,
-                                targ, contnode, targ)
+                                targ, contnode, title)
         else:
             print("Awww, found nothing")
             return None
