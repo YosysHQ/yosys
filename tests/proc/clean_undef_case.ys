@@ -1,0 +1,22 @@
+read_rtlil <<EOT
+
+module \m
+  wire width 1 \w
+  process $p
+    switch 3'001
+      case 3'--1
+        assign \w 3'001
+      case 3'-1-
+        assign \w 3'010
+      case 3'1--
+        assign \w 3'100
+    end
+  end
+end
+
+EOT
+
+proc_clean  # Bug: removes the cases.
+proc_clean  # Removes the now-empty switch and its containing process.
+
+select -assert-count 1 */p:*
