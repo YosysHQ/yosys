@@ -31,7 +31,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 void proc_clean_switch(RTLIL::SwitchRule *sw, RTLIL::CaseRule *parent, bool &did_something, int &count, int max_depth)
 {
-	if (sw->signal.size() > 0 && sw->signal.is_fully_const())
+	if (sw->signal.size() > 0 && sw->signal.is_fully_def())
 	{
 		int found_matching_case_idx = -1;
 		for (int i = 0; i < int(sw->cases.size()) && found_matching_case_idx < 0; i++)
