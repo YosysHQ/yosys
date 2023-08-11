@@ -41,7 +41,7 @@ void proc_clean_switch(RTLIL::SwitchRule *sw, RTLIL::CaseRule *parent, bool &did
 				break;
 			for (int j = 0; j < int(cs->compare.size()); j++) {
 				RTLIL::SigSpec &val = cs->compare[j];
-				if (!val.is_fully_const())
+				if (!val.is_fully_def())
 					continue;
 				if (val == sw->signal) {
 					cs->compare.clear();
