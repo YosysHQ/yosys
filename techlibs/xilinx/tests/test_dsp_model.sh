@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -ex
 if [ -z $VIVADO_DIR ]; then
 	VIVADO_DIR=/opt/Xilinx/Vivado/2019.1
