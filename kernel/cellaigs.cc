@@ -385,17 +385,17 @@ Aig::Aig(Cell *cell)
 		goto optimize;
 	}
 
-	if (cell->type.in({ID($lt), ID($gt), ID($le), ID($ge)}))
+	if (cell->type.in(ID($lt), ID($gt), ID($le), ID($ge)))
 	{
 		int width = std::max(GetSize(cell->getPort(ID::A)),
 							 GetSize(cell->getPort(ID::B))) + 1;
 		vector<int> A = mk.inport_vec(ID::A, width);
 		vector<int> B = mk.inport_vec(ID::B, width);
 
-		if (cell->type.in({ID($gt), ID($ge)}))
+		if (cell->type.in(ID($gt), ID($ge)))
 			std::swap(A, B);
 
-		int carry = mk.bool_node(!cell->type.in({ID($le), ID($ge)}));
+		int carry = mk.bool_node(!cell->type.in(ID($le), ID($ge)));
 		for (auto &n : B)
 			n = mk.not_gate(n);
 		vector<int> Y = mk.adder(A, B, carry);
