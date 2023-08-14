@@ -25,6 +25,9 @@ jobs:
           - os: { id: ubuntu-20.04, name: focal }
             compiler: 'gcc-10'
             cpp_std: 'c++11'
+          - os: { id: ubuntu-20.04, name: focal }
+            compiler: 'gcc-9'
+            cpp_std: 'c++11'
       fail-fast: false
     steps:
       - name: Install Dependencies
