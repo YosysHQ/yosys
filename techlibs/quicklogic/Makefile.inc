@@ -1,6 +1,6 @@
 OBJS += techlibs/quicklogic/synth_quicklogic.o
 OBJS += techlibs/quicklogic/ql-bram-merge.o
-OBJS += techlibs/quicklogic/quicklogic_eqn.o
+OBJS += techlibs/quicklogic/ql-bram-types.o
 
 $(eval $(call add_share_file,share/quicklogic/common,techlibs/quicklogic/common/cells_sim.v))
 
