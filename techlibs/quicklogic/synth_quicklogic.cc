@@ -129,10 +129,6 @@ struct SynthQuickLogicPass : public ScriptPass {
 				blif_file = args[++argidx];
 				continue;
 			}
-			if (args[argidx] == "-edif" && argidx + 1 < args.size()) {
-				edif_file = args[++argidx];
-				continue;
-			}
 			if (args[argidx] == "-verilog" && argidx+1 < args.size()) {
 				verilog_file = args[++argidx];
 				continue;
@@ -141,15 +137,15 @@ struct SynthQuickLogicPass : public ScriptPass {
 				abc9 = false;
 				continue;
 			}
-			if (args[argidx] == "-nocarry") {
+			if (args[argidx] == "-nocarry" || args[argidx] == "-no_adder") {
 				inferAdder = false;
 				continue;
 			}
-			if (args[argidx] == "-nobram") {
+			if (args[argidx] == "-nobram" || args[argidx] == "-no_bram") {
 				nobram = true;
 				continue;
 			}
-			if (args[argidx] == "-bramtypes") {
+			if (args[argidx] == "-bramtypes" || args[argidx] == "-bram_types") {
 				bramTypes = true;
 				continue;
 			}
@@ -230,61 +226,8 @@ struct SynthQuickLogicPass : public ScriptPass {
 			run("techmap -autoproc -map " + lib_path + family + "/brams_map.v");
 			run("techmap -map " + lib_path + family + "/brams_final_map.v");
 
-			if (help_mode) {
-				run("chtype -set TDP36K_<mode> t:TDP36K a:<mode>", "(if -bram_types)");
-			}
-			else if (bramTypes) {
-				for (int a_dwidth : {1, 2, 4, 9, 18, 36})
-					for (int b_dwidth: {1, 2, 4, 9, 18, 36}) {
-						run(stringf("chtype -set TDP36K_BRAM_A_X%d_B_X%d_nonsplit t:TDP36K a:is_inferred=0 %%i "
-									"a:is_fifo=0 %%i a:port_a_dwidth=%d %%i a:port_b_dwidth=%d %%i",
-									 a_dwidth, b_dwidth, a_dwidth, b_dwidth));
-						
-						run(stringf("chtype -set TDP36K_FIFO_ASYNC_A_X%d_B_X%d_nonsplit t:TDP36K a:is_inferred=0 %%i "
-									"a:is_fifo=1 %%i a:sync_fifo=0 %%i a:port_a_dwidth=%d %%i a:port_b_dwidth=%d %%i", 
-									 a_dwidth, b_dwidth, a_dwidth, b_dwidth));
-
-						run(stringf("chtype -set TDP36K_FIFO_SYNC_A_X%d_B_X%d_nonsplit t:TDP36K a:is_inferred=0 %%i "
-									"a:is_fifo=1 %%i a:sync_fifo=1 %%i a:port_a_dwidth=%d %%i a:port_b_dwidth=%d %%i", 
-									 a_dwidth, b_dwidth, a_dwidth, b_dwidth));
-					}
-
-				for (int a1_dwidth : {1, 2, 4, 9, 18})
-					for (int b1_dwidth: {1, 2, 4, 9, 18})
-						for (int a2_dwidth : {1, 2, 4, 9, 18})
-							for (int b2_dwidth: {1, 2, 4, 9, 18}) {
-								run(stringf("chtype -set TDP36K_BRAM_A1_X%d_B1_X%d_A2_X%d_B2_X%d_split t:TDP36K a:is_inferred=0 %%i "
-											"a:is_split=1 %%i a:is_fifo=0 %%i "
-											"a:port_a1_dwidth=%d %%i a:port_b1_dwidth=%d %%i a:port_a2_dwidth=%d %%i a:port_b2_dwidth=%d %%i",
-											 a1_dwidth, b1_dwidth, a2_dwidth, b2_dwidth, a1_dwidth, b1_dwidth, a2_dwidth, b2_dwidth));	
-										
-								run(stringf("chtype -set TDP36K_FIFO_ASYNC_A1_X%d_B1_X%d_A2_X%d_B2_X%d_split t:TDP36K a:is_inferred=0 %%i "
-											"a:is_split=1 %%i a:is_fifo=1 %%i a:sync_fifo=0 %%i "
-											"a:port_a1_dwidth=%d %%i a:port_b1_dwidth=%d %%i a:port_a2_dwidth=%d %%i a:port_b2_dwidth=%d %%i",
-											 a1_dwidth, b1_dwidth, a2_dwidth, b2_dwidth, a1_dwidth, b1_dwidth, a2_dwidth, b2_dwidth));
-
-								run(stringf("chtype -set TDP36K_FIFO_SYNC_A1_X%d_B1_X%d_A2_X%d_B2_X%d_split t:TDP36K a:is_inferred=0 %%i "
-											"a:is_split=1 %%i a:is_fifo=1 %%i a:sync_fifo=1 %%i "
-											"a:port_a1_dwidth=%d %%i a:port_b1_dwidth=%d %%i a:port_a2_dwidth=%d %%i a:port_b2_dwidth=%d %%i",
-											 a1_dwidth, b1_dwidth, a2_dwidth, b2_dwidth, a1_dwidth, b1_dwidth, a2_dwidth, b2_dwidth));
-							}
-				
-
-				for (int a_width : {1, 2, 4, 9, 18, 36})
-					for (int b_width: {1, 2, 4, 9, 18, 36}) {
-						run(stringf("chtype -set TDP36K_BRAM_A_X%d_B_X%d_nonsplit t:TDP36K a:is_inferred=1 %%i "
-									"a:port_a_width=%d %%i a:port_b_width=%d %%i",
-						 			 a_width, b_width, a_width, b_width));
-					}
-
-				for (int a1_width : {1, 2, 4, 9, 18})
-					for (int b1_width: {1, 2, 4, 9, 18})
-						for (int a2_width : {1, 2, 4, 9, 18})
-							for (int b2_width: {1, 2, 4, 9, 18}) {
-								run(stringf("chtype -set TDP36K_BRAM_A1_X%d_B1_X%d_A2_X%d_B2_X%d_split t:TDP36K a:is_inferred=1 %%i "
-											"a:port_a1_width=%d %%i a:port_b1_width=%d %%i a:port_a2_width=%d %%i a:port_b2_width=%d %%i",
-											 a1_width, b1_width, a2_width, b2_width, a1_width, b1_width, a2_width, b2_width));
-							}
+			if (help_mode || bramTypes) {
+				run("ql_bram_types");
 			}
 		}
 
@@ -391,13 +334,6 @@ struct SynthQuickLogicPass : public ScriptPass {
 		if (check_label("verilog", "(if -verilog)")) {
 			if (!verilog_file.empty() || help_mode) {
 				run(stringf("write_verilog -noattr -nohex %s", help_mode ? "<file-name>" : verilog_file.c_str()));
-			}
-		}
-
-		if (check_label("edif", "(if -edif)")) {
-			if (!edif_file.empty() || help_mode) {
-				run("splitnets -ports -format ()");
-				run(stringf("write_edif -nogndvcc -attrprop -pvector par %s %s", top_opt.c_str(), edif_file.c_str()));
 			}
 		}
 	}

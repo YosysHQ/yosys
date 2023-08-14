@@ -56,43 +56,43 @@ module _80_quicklogic_alu (A, B, CI, BI, X, Y, CO);
 	(* force_downto *)
 	wire [Y_WIDTH-1:0] S  = {AA ^ BB};
 	assign CO[Y_WIDTH-1:0] = C[Y_WIDTH:1];
-        //assign CO[Y_WIDTH-1] = co;
+		//assign CO[Y_WIDTH-1] = co;
 
 	generate
-	     adder_carry intermediate_adder (
-	       .cin     ( ),
-	       .cout    (C[0]),
-	       .p       (1'b0),
-	       .g       (CI),
-	       .sumout    ()
-	     );
+		adder_carry intermediate_adder (
+			.cin     ( ),
+			.cout    (C[0]),
+			.p       (1'b0),
+			.g       (CI),
+			.sumout  ()
+		);
 	endgenerate
 	genvar i;
 	generate if (Y_WIDTH > 2) begin
 	  for (i = 0; i < Y_WIDTH-2; i = i + 1) begin:slice
 		adder_carry  my_adder (
-			.cin(C[i]),
-			.g(AA[i]),
-			.p(S[i]),
-			.cout(C[i+1]),
-		        .sumout(Y[i])
+			.cin     (C[i]),
+			.g       (AA[i]),
+			.p       (S[i]),
+			.cout    (C[i+1]),
+			.sumout  (Y[i])
 		);
-	      end
+		  end
 	end endgenerate
 	generate
-	     adder_carry final_adder (
-	       .cin     (C[Y_WIDTH-2]),
-	       .cout    (),
-	       .p       (1'b0),
-	       .g       (1'b0),
-	       .sumout    (co)
-	     );
+		adder_carry final_adder (
+			.cin     (C[Y_WIDTH-2]),
+			.cout    (),
+			.p       (1'b0),
+			.g       (1'b0),
+			.sumout  (co)
+		);
 	endgenerate
 
 	assign Y[Y_WIDTH-2] = S[Y_WIDTH-2] ^ co;
-        assign C[Y_WIDTH-1] = S[Y_WIDTH-2] ? co : AA[Y_WIDTH-2];
+	assign C[Y_WIDTH-1] = S[Y_WIDTH-2] ? co : AA[Y_WIDTH-2];
 	assign Y[Y_WIDTH-1] = S[Y_WIDTH-1] ^ C[Y_WIDTH-1];
-        assign C[Y_WIDTH] = S[Y_WIDTH-1] ? C[Y_WIDTH-1] : AA[Y_WIDTH-1];
+	assign C[Y_WIDTH] = S[Y_WIDTH-1] ? C[Y_WIDTH-1] : AA[Y_WIDTH-1];
 
 	assign X = S;
 endmodule
