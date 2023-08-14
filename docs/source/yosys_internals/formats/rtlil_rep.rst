@@ -78,9 +78,9 @@ This has three advantages:
 
 -  Second, the information about which identifiers were originally provided by
    the user is always available which can help guide some optimizations. For
-   example the :cmd:ref:`opt_rmunused` tries to preserve signals with a
-   user-provided name but doesn't hesitate to delete signals that have
-   auto-generated names when they just duplicate other signals.
+   example the ``opt_rmunused`` tries to preserve signals with a user-provided
+   name but doesn't hesitate to delete signals that have auto-generated names
+   when they just duplicate other signals.
 
 -  Third, the delicate job of finding suitable auto-generated public visible
    names is deferred to one central location. Internally auto-generated names

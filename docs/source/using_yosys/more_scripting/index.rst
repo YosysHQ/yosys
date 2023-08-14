@@ -1,7 +1,8 @@
 More scripting
 --------------
 
-.. toctree:: 
+.. toctree::
+	:maxdepth: 3
 
 	opt_passes
 	selections

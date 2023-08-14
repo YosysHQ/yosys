@@ -63,7 +63,7 @@ can also optimize cells with some constant inputs.
    1         :math:`b` :math:`b`
    ========= ========= ===========
 
-.. How to format table?
+.. todo:: How to format table?
 
 :numref:`Table %s <tab:opt_expr_and>` shows the replacement rules used for
 optimizing an ``$_AND_`` gate. The first three rules implement the obvious const
@@ -96,9 +96,11 @@ This pass optimizes trees of multiplexer cells by analyzing the select inputs.
 Consider the following simple example:
 
 .. code:: verilog
-   :number-lines:
 
-   module uut(a, y); input a; output [1:0] y = a ? (a ? 1 : 2) : 3; endmodule
+   module uut(a, y); 
+      input a; 
+      output [1:0] y = a ? (a ? 1 : 2) : 3; 
+   endmodule
 
 The output can never be 2, as this would require ``a`` to be 1 for the outer
 multiplexer and 0 for the inner multiplexer. The :cmd:ref:`opt_muxtree` pass
@@ -123,8 +125,10 @@ Lastly this pass consolidates trees of ``$reduce_and`` cells and trees of
 These three simple optimizations are performed in a loop until a stable result
 is produced.
 
-The :cmd:ref:`opt_rmdff` pass
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The ``opt_rmdff`` pass
+~~~~~~~~~~~~~~~~~~~~~~
+
+.. todo:: The ``opt_rmdff`` pass doesn't exist anymore?
 
 This pass identifies single-bit d-type flip-flops (``$_DFF_``, ``$dff``, and
 ``$adff`` cells) with a constant data input and replaces them with a constant

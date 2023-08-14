@@ -2,7 +2,7 @@ Internal formats
 ================
 
 .. toctree:: 
-	:maxdepth: 2
+	:maxdepth: 3
 
 	overview
 	rtlil_rep

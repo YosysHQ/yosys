@@ -227,7 +227,7 @@ class CommandDomain(Domain):
             return make_refnode(builder,fromdocname,todocname,
                                 targ, contnode, title)
         else:
-            print("Awww, found nothing")
+            print(f"Missing ref for {target} in {fromdocname} ")
             return None
 
 def setup(app):

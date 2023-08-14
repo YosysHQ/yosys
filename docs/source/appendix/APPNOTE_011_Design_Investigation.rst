@@ -78,10 +78,10 @@ A simple circuit
 
 :numref:`example_src` shows a simple synthesis script and a Verilog file that
 demonstrate the usage of show in a simple setting. Note that :cmd:ref:`show` is
-called with the :cmd:ref:`-pause` option, that halts execution of the Yosys
-script until the user presses the Enter key. The ``show -pause`` command also
-allows the user to enter an interactive shell to further investigate the circuit
-before continuing synthesis.
+called with the ``-pause`` option, that halts execution of the Yosys script
+until the user presses the Enter key. The ``show -pause`` command also allows
+the user to enter an interactive shell to further investigate the circuit before
+continuing synthesis.
 
 So this script, when executed, will show the design after each of the three
 synthesis commands. The generated circuit diagrams are shown in

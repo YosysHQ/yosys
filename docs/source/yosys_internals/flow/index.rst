@@ -12,7 +12,7 @@ This scripts contain three types of commands:
   available: Verilog, BLIF, EDIF, SPICE, BTOR, . . .).
 
 .. toctree:: 
-	:maxdepth: 2
+	:maxdepth: 3
 
 	overview
 	control_and_data
