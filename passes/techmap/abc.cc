@@ -127,9 +127,14 @@ bool clk_polarity, en_polarity, arst_polarity, srst_polarity;
 RTLIL::SigSpec clk_sig, en_sig, arst_sig, srst_sig;
 dict<int, std::string> pi_map, po_map;
 
+int undef_bits_lost;
+
 int map_signal(RTLIL::SigBit bit, gate_type_t gate_type = G(NONE), int in1 = -1, int in2 = -1, int in3 = -1, int in4 = -1)
 {
 	assign_map.apply(bit);
+
+	if (bit == State::Sx)
+		undef_bits_lost++;
 
 	if (signal_map.count(bit) == 0) {
 		gate_t gate;
@@ -880,9 +885,14 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		}
 	}
 
+	undef_bits_lost = 0;
+
 	had_init = false;
 	for (auto c : cells)
 		extract_cell(c, keepff);
+
+	if (undef_bits_lost)
+		log("Replacing %d occurrences of constant undef bits with constant zero bits\n", undef_bits_lost);
 
 	for (auto wire : module->wires()) {
 		if (wire->port_id > 0 || wire->get_bool_attribute(ID::keep))
