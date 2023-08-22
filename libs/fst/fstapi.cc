@@ -4334,7 +4334,7 @@ int fstReaderInit(struct fstReaderContext *xc)
                     hdr_incomplete = (xc->start_time == 0) && (xc->end_time == 0);
 
                     fstFread(&dcheck, 8, 1, xc->f);
-                    xc->double_endian_match = (dcheck == FST_DOUBLE_ENDTEST);
+                    xc->double_endian_match = (dcheck == (double)FST_DOUBLE_ENDTEST);
                     if (!xc->double_endian_match) {
                         union
                         {
