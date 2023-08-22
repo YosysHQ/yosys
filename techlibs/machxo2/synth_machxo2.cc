@@ -239,7 +239,7 @@ struct SynthMachXO2Pass : public ScriptPass
 			run("techmap -D NO_LUT -map +/machxo2/cells_map.v");
 			run("opt_expr -undriven -mux_undef");
 			run("simplemap");
-			run("ecp5_gsr");
+			run("lattice_gsr");
 			run("attrmvcp -copy -attr syn_useioff");
 			run("opt_clean");
 		}
