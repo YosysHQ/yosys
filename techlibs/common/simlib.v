@@ -2728,3 +2728,16 @@ assign Y = A;
 endmodule
 
 // --------------------------------------------------------
+
+module \$future_ff (A, Y);
+
+parameter WIDTH = 0;
+
+input [WIDTH-1:0] A;
+output [WIDTH-1:0] Y;
+
+assign Y = A;
+
+endmodule
+
+// --------------------------------------------------------

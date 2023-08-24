@@ -106,6 +106,7 @@ struct CellTypes
 		setup_type(ID($get_tag), {ID::A}, {ID::Y});
 		setup_type(ID($overwrite_tag), {ID::A, ID::SET, ID::CLR}, pool<RTLIL::IdString>());
 		setup_type(ID($original_tag), {ID::A}, {ID::Y});
+		setup_type(ID($future_ff), {ID::A}, {ID::Y});
 	}
 
 	void setup_internals_eval()
