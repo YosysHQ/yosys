@@ -1855,6 +1855,13 @@ namespace {
 				check_expected();
 				return;
 			}
+			if (cell->type.in(ID($future_ff))) {
+				param(ID::WIDTH);
+				port(ID::A, param(ID::WIDTH));
+				port(ID::Y, param(ID::WIDTH));
+				check_expected();
+				return;
+			}
 			error(__LINE__);
 		}
 	};
@@ -3317,6 +3324,17 @@ RTLIL::SigSpec RTLIL::Module::OriginalTag(RTLIL::IdString name, const std::strin
 	Cell *cell = addCell(name, ID($original_tag));
 	cell->parameters[ID::WIDTH] = sig_e.size();
 	cell->parameters[ID::TAG] = tag;
+	cell->setPort(ID::A, sig_e);
+	cell->setPort(ID::Y, sig);
+	cell->set_src_attribute(src);
+	return sig;
+}
+
+RTLIL::SigSpec RTLIL::Module::FutureFF(RTLIL::IdString name, const RTLIL::SigSpec &sig_e, const std::string &src)
+{
+	RTLIL::SigSpec sig = addWire(NEW_ID, sig_e.size());
+	Cell *cell = addCell(name, ID($future_ff));
+	cell->parameters[ID::WIDTH] = sig_e.size();
 	cell->setPort(ID::A, sig_e);
 	cell->setPort(ID::Y, sig);
 	cell->set_src_attribute(src);

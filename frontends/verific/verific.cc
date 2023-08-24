@@ -1142,6 +1142,11 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		module->connect(operatorOutput(inst),module->OriginalTag(new_verific_id(inst), tag, operatorInput(inst)));
 		return true;
 	}
+	if (inst->Type() == OPER_YOSYSHQ_FUTURE_FF)
+	{
+		module->connect(operatorOutput(inst),module->FutureFF(new_verific_id(inst), operatorInput(inst)));
+		return true;
+	}
 
 	#undef IN
 	#undef IN1
