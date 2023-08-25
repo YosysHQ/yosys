@@ -41,7 +41,7 @@ struct SynthLatticePass : public ScriptPass
 		log("\n");
 		log("    synth_lattice [options]\n");
 		log("\n");
-		log("This command runs synthesis for Lattice FPGAs.\n");
+		log("This command runs synthesis for Lattice FPGAs (excluding iCE40 and Nexus).\n");
 		log("\n");
 		log("    -top <module>\n");
 		log("        use the specified module as top module\n");
@@ -65,10 +65,6 @@ struct SynthLatticePass : public ScriptPass
 		//log("        - ecp3: LatticeECP3 (EXPERIMENTAL)\n");
 		//log("        - lifmd: LIFMD (EXPERIMENTAL)\n");
 		//log("        - lifmdf: LIFMDF (EXPERIMENTAL)\n");
-		log("\n");
-		log("    -blif <file>\n");
-		log("        write the design to the specified BLIF file. writing of an output file\n");
-		log("        is omitted if this parameter is not specified.\n");
 		log("\n");
 		log("    -edif <file>\n");
 		log("        write the design to the specified EDIF file. writing of an output file\n");
@@ -116,10 +112,6 @@ struct SynthLatticePass : public ScriptPass
 		log("    -abc9\n");
 		log("        use new ABC9 flow (EXPERIMENTAL)\n");
 		log("\n");
-		log("    -vpr\n");
-		log("        generate an output netlist (and BLIF file) suitable for VPR\n");
-		log("        (this feature is experimental and incomplete)\n");
-		log("\n");
 		log("    -iopad\n");
 		log("        insert IO buffers\n");
 		log("\n");
@@ -137,14 +129,13 @@ struct SynthLatticePass : public ScriptPass
 		log("\n");
 	}
 
-	string top_opt, blif_file, edif_file, json_file, family;
-	bool noccu2, nodffe, nobram, nolutram, nowidelut, asyncprld, flatten, dff, retime, abc2, abc9, iopad, nodsp, vpr, no_rw_check, have_dsp;
+	string top_opt, edif_file, json_file, family;
+	bool noccu2, nodffe, nobram, nolutram, nowidelut, asyncprld, flatten, dff, retime, abc2, abc9, iopad, nodsp, no_rw_check, have_dsp;
 	string postfix, arith_map, brams_map, dsp_map;
 
 	void clear_flags() override
 	{
 		top_opt = "-auto-top";
-		blif_file = "";
 		edif_file = "";
 		json_file = "";
 		family = "";
@@ -158,7 +149,6 @@ struct SynthLatticePass : public ScriptPass
 		dff = false;
 		retime = false;
 		abc2 = false;
-		vpr = false;
 		abc9 = false;
 		iopad = false;
 		nodsp = false;
@@ -184,10 +174,6 @@ struct SynthLatticePass : public ScriptPass
 			}
 			if ((args[argidx] == "-family" || args[argidx] == "-arch") && argidx+1 < args.size()) {
 				family = args[++argidx];
-				continue;
-			}
-			if (args[argidx] == "-blif" && argidx+1 < args.size()) {
-				blif_file = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-edif" && argidx+1 < args.size()) {
@@ -248,10 +234,6 @@ struct SynthLatticePass : public ScriptPass
 			}
 			if (args[argidx] == "-abc2") {
 				abc2 = true;
-				continue;
-			}
-			if (args[argidx] == "-vpr") {
-				vpr = true;
 				continue;
 			}
 			if (args[argidx] == "-abc9") {
@@ -461,10 +443,7 @@ struct SynthLatticePass : public ScriptPass
 
 		if (check_label("map_cells"))
 		{
-			if (help_mode)
-				run("techmap -map +/lattice/cells_map.v", "(skip if -vpr)");
-			else if (!vpr)
-				run("techmap -map +/lattice/cells_map.v");
+			run("techmap -map +/lattice/cells_map.v");
 			run("opt_lut_ins -tech lattice");
 			run("clean");
 		}
@@ -476,23 +455,6 @@ struct SynthLatticePass : public ScriptPass
 			run("stat");
 			run("check -noinit");
 			run("blackbox =A:whitebox");
-		}
-
-		if (check_label("blif"))
-		{
-			if (!blif_file.empty() || help_mode) {
-				if (vpr || help_mode) {
-					run(stringf("opt_clean -purge"),
-							"                                 (vpr mode)");
-					run(stringf("write_blif -attr -cname -conn -param %s",
-							help_mode ? "<file-name>" : blif_file.c_str()),
-							" (vpr mode)");
-				}
-				if (!vpr)
-					run(stringf("write_blif -gates -attr -param %s",
-							help_mode ? "<file-name>" : blif_file.c_str()),
-							"       (non-vpr mode)");
-			}
 		}
 
 		if (check_label("edif"))
@@ -525,50 +487,5 @@ struct SynthEcp5Pass : public Pass
 	}
 } SynthEcp5Pass;
 */
-
-struct SynthMachXO2Pass : public Pass
-{
-	SynthMachXO2Pass() : Pass("synth_machxo2", "synthesis for MachXO2 FPGAs.") { }
-
-	void execute(std::vector<std::string> args, RTLIL::Design *design) override
-	{
-		args[0] = "synth_lattice";
-		args.insert(args.begin()+1, std::string());
-		args.insert(args.begin()+1, std::string());
-		args[1] = "-family";
-		args[2] = "xo2";
-		Pass::call(design, args);
-	}
-} SynthMachXO2Pass;
-
-struct SynthMachXO3Pass : public Pass
-{
-	SynthMachXO3Pass() : Pass("synth_machxo3", "synthesis for MachXO3 FPGAs.") { }
-
-	void execute(std::vector<std::string> args, RTLIL::Design *design) override
-	{
-		args[0] = "synth_lattice";
-		args.insert(args.begin()+1, std::string());
-		args.insert(args.begin()+1, std::string());
-		args[1] = "-family";
-		args[2] = "xo3";
-		Pass::call(design, args);
-	}
-} SynthMachXO3Pass;
-
-struct SynthMachXO3DPass : public Pass
-{
-	SynthMachXO3DPass() : Pass("synth_machxo3d", "synthesis for MachXO3D FPGAs.") { }
-
-	void execute(std::vector<std::string> args, RTLIL::Design *design) override
-	{
-		args[0] = "synth_lattice";
-		args.insert(args.begin()+1, std::string());
-		args.insert(args.begin()+1, std::string());
-		args[1] = "-family";
-		args[2] = "xo3d";
-		Pass::call(design, args);
-	}
-} SynthMachXO3DPass;
 
 PRIVATE_NAMESPACE_END
