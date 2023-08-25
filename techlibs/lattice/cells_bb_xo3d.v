@@ -409,6 +409,17 @@ module FIFO8KB (...);
 endmodule
 
 (* blackbox *)
+module CLKDIVC (...);
+    parameter GSR = "DISABLED";
+    parameter DIV = "2.0";
+    input RST;
+    input CLKI;
+    input ALIGNWD;
+    output CDIV1;
+    output CDIVX;
+endmodule
+
+(* blackbox *)
 module DCMA (...);
     input CLK0;
     input CLK1;
@@ -417,10 +428,30 @@ module DCMA (...);
 endmodule
 
 (* blackbox *)
+module ECLKSYNCA (...);
+    input ECLKI;
+    input STOP;
+    output ECLKO;
+endmodule
+
+(* blackbox *)
+module ECLKBRIDGECS (...);
+    input CLK0;
+    input CLK1;
+    input SEL;
+    output ECSOUT;
+endmodule
+
+(* blackbox *)
 module DCCA (...);
     input CLKI;
     input CE;
     output CLKO;
+endmodule
+
+(* blackbox *) (* keep *)
+module START (...);
+    input STARTCLK;
 endmodule
 
 (* blackbox *)
@@ -532,5 +563,10 @@ module OSCJ (...);
     output OSC;
     output SEDSTDBY;
     output OSCESB;
+endmodule
+
+(* blackbox *) (* keep *)
+module TSALL (...);
+    input TSALL;
 endmodule
 

@@ -394,6 +394,15 @@ module TRELLIS_COMB(
 
 endmodule
 
+// Constants
+module VLO(output Z);
+	assign Z = 1'b0;
+endmodule
+
+module VHI(output Z);
+	assign Z = 1'b1;
+endmodule
+
 `ifndef NO_INCLUDES
 
 `include "cells_ff.vh"
