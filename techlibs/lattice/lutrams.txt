@@ -1,0 +1,12 @@
+ram distributed $__TRELLIS_DPR16X4_ {
+	abits 4;
+	width 4;
+	cost 4;
+	init any;
+	prune_rom;
+	port sw "W" {
+		clock anyedge;
+	}
+	port ar "R" {
+	}
+}

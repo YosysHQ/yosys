@@ -26,29 +26,45 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct SynthEcp5Pass : public ScriptPass
+struct SynthLatticePass : public ScriptPass
 {
-	SynthEcp5Pass() : ScriptPass("synth_ecp5", "synthesis for ECP5 FPGAs") { }
+	SynthLatticePass() : ScriptPass("synth_lattice", "synthesis for Lattice FPGAs") { }
 
 	void on_register() override
 	{
-		RTLIL::constpad["synth_ecp5.abc9.W"] = "300";
+		RTLIL::constpad["synth_lattice.abc9.W"] = "300";
 	}
 
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    synth_ecp5 [options]\n");
+		log("    synth_lattice [options]\n");
 		log("\n");
-		log("This command runs synthesis for ECP5 FPGAs.\n");
+		log("This command runs synthesis for Lattice FPGAs (excluding iCE40 and Nexus).\n");
 		log("\n");
 		log("    -top <module>\n");
 		log("        use the specified module as top module\n");
 		log("\n");
-		log("    -blif <file>\n");
-		log("        write the design to the specified BLIF file. writing of an output file\n");
-		log("        is omitted if this parameter is not specified.\n");
+		log("    -family <family>\n");
+		log("        run synthesis for the specified Lattice architecture\n");
+		log("        generate the synthesis netlist for the specified family.\n");
+		log("        supported values:\n");
+		log("        - ecp5: ECP5\n");
+		log("        - xo2: MachXO2\n");
+		log("        - xo3: MachXO3L/LF\n");
+		log("        - xo3d: MachXO3D\n");
+		//log("        - xo: MachXO (EXPERIMENTAL)\n");
+		//log("        - pm: Platform Manager (EXPERIMENTAL)\n");
+		//log("        - pm2: Platform Manager 2 (EXPERIMENTAL)\n");
+		//log("        - xp: LatticeXP (EXPERIMENTAL)\n");
+		//log("        - xp2: LatticeXP2 (EXPERIMENTAL)\n");
+		//log("        - ecp: LatticeECP/EC (EXPERIMENTAL)\n");
+		//log("        - sm: LatticeSC/M (EXPERIMENTAL)\n");
+		//log("        - ecp2: LatticeECP2/M (EXPERIMENTAL)\n");
+		//log("        - ecp3: LatticeECP3 (EXPERIMENTAL)\n");
+		//log("        - lifmd: LIFMD (EXPERIMENTAL)\n");
+		//log("        - lifmdf: LIFMDF (EXPERIMENTAL)\n");
 		log("\n");
 		log("    -edif <file>\n");
 		log("        write the design to the specified EDIF file. writing of an output file\n");
@@ -96,10 +112,6 @@ struct SynthEcp5Pass : public ScriptPass
 		log("    -abc9\n");
 		log("        use new ABC9 flow (EXPERIMENTAL)\n");
 		log("\n");
-		log("    -vpr\n");
-		log("        generate an output netlist (and BLIF file) suitable for VPR\n");
-		log("        (this feature is experimental and incomplete)\n");
-		log("\n");
 		log("    -iopad\n");
 		log("        insert IO buffers\n");
 		log("\n");
@@ -117,15 +129,16 @@ struct SynthEcp5Pass : public ScriptPass
 		log("\n");
 	}
 
-	string top_opt, blif_file, edif_file, json_file;
-	bool noccu2, nodffe, nobram, nolutram, nowidelut, asyncprld, flatten, dff, retime, abc2, abc9, iopad, nodsp, vpr, no_rw_check;
+	string top_opt, edif_file, json_file, family;
+	bool noccu2, nodffe, nobram, nolutram, nowidelut, asyncprld, flatten, dff, retime, abc2, abc9, iopad, nodsp, no_rw_check, have_dsp;
+	string postfix, arith_map, brams_map, dsp_map;
 
 	void clear_flags() override
 	{
 		top_opt = "-auto-top";
-		blif_file = "";
 		edif_file = "";
 		json_file = "";
+		family = "";
 		noccu2 = false;
 		nodffe = false;
 		nobram = false;
@@ -136,11 +149,15 @@ struct SynthEcp5Pass : public ScriptPass
 		dff = false;
 		retime = false;
 		abc2 = false;
-		vpr = false;
 		abc9 = false;
 		iopad = false;
 		nodsp = false;
 		no_rw_check = false;
+		postfix = "";
+		arith_map = "";
+		brams_map = "";
+		dsp_map = "";
+		have_dsp = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -155,8 +172,8 @@ struct SynthEcp5Pass : public ScriptPass
 				top_opt = "-top " + args[++argidx];
 				continue;
 			}
-			if (args[argidx] == "-blif" && argidx+1 < args.size()) {
-				blif_file = args[++argidx];
+			if ((args[argidx] == "-family" || args[argidx] == "-arch") && argidx+1 < args.size()) {
+				family = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-edif" && argidx+1 < args.size()) {
@@ -219,10 +236,6 @@ struct SynthEcp5Pass : public ScriptPass
 				abc2 = true;
 				continue;
 			}
-			if (args[argidx] == "-vpr") {
-				vpr = true;
-				continue;
-			}
 			if (args[argidx] == "-abc9") {
 				abc9 = true;
 				continue;
@@ -243,13 +256,43 @@ struct SynthEcp5Pass : public ScriptPass
 		}
 		extra_args(args, argidx, design);
 
+		if (family.empty())
+			log_cmd_error("Lattice family parameter must be set.\n");
+
+		if (family == "ecp5") {
+			postfix = "_ecp5";
+			arith_map = "_ccu2c";
+			brams_map = "_16kd";
+			dsp_map = "_18x18";
+			have_dsp = true;
+		} else if (family == "xo2" ||
+				family == "xo3" ||
+				family == "xo3d" /* ||
+				family == "pm2"*/) {
+			postfix = "_" + family;
+			arith_map = "_ccu2d";
+			brams_map = "_8kc";
+			have_dsp = false;
+/*		} else if (family == "xo" ||
+				family == "pm") {
+		} else if (family == "xp" ||
+				family == "xp2" ||
+				family == "ecp" ||
+				family == "sm" ||
+				family == "ecp2" ||
+				family == "ecp3" ||
+				family == "lifmd" ||
+				family == "lifmdf") {*/
+		} else
+			log_cmd_error("Invalid Lattice -family setting: '%s'.\n", family.c_str());
+
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
 
 		if (abc9 && retime)
 				log_cmd_error("-retime option not currently compatible with -abc9!\n");
 
-		log_header(design, "Executing SYNTH_ECP5 pass.\n");
+		log_header(design, "Executing SYNTH_LATTICE pass.\n");
 		log_push();
 
 		run_script(design, run_from, run_to);
@@ -267,7 +310,7 @@ struct SynthEcp5Pass : public ScriptPass
 
 		if (check_label("begin"))
 		{
-			run("read_verilog -lib -specify +/ecp5/cells_sim.v +/ecp5/cells_bb.v");
+			run("read_verilog -lib -specify +/lattice/cells_sim" + postfix + ".v +/lattice/cells_bb" + postfix + ".v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
 		}
 
@@ -291,8 +334,8 @@ struct SynthEcp5Pass : public ScriptPass
 			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=4");
 			run("opt_expr");
 			run("opt_clean");
-			if (!nodsp) {
-				run("techmap -map +/mul2dsp.v -map +/ecp5/dsp_map.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18  -D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2  -D DSP_NAME=$__MUL18X18", "(unless -nodsp)");
+			if (have_dsp && !nodsp) {
+				run("techmap -map +/mul2dsp.v -map +/lattice/dsp_map" + dsp_map + ".v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18  -D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2  -D DSP_NAME=$__MUL18X18", "(unless -nodsp)");
 				run("chtype -set $mul t:$__soft_mul", "(unless -nodsp)");
 			}
 			run("alumacc");
@@ -310,8 +353,8 @@ struct SynthEcp5Pass : public ScriptPass
 				args += " -no-auto-distributed";
 			if (help_mode)
 				args += " [-no-auto-block] [-no-auto-distributed]";
-			run("memory_libmap -lib +/ecp5/lutrams.txt -lib +/ecp5/brams.txt" + args, "(-no-auto-block if -nobram, -no-auto-distributed if -nolutram)");
-			run("techmap -map +/ecp5/lutrams_map.v -map +/ecp5/brams_map.v");
+			run("memory_libmap -lib +/lattice/lutrams.txt -lib +/lattice/brams" + brams_map + ".txt" + args, "(-no-auto-block if -nobram, -no-auto-distributed if -nolutram)");
+			run("techmap -map +/lattice/lutrams_map.v -map +/lattice/brams_map" + brams_map + ".v");
 		}
 
 		if (check_label("map_ffram"))
@@ -326,7 +369,7 @@ struct SynthEcp5Pass : public ScriptPass
 			if (noccu2)
 				run("techmap");
 			else
-				run("techmap -map +/techmap.v -map +/ecp5/arith_map.v");
+				run("techmap -map +/techmap.v -map +/lattice/arith_map" + arith_map + ".v");
 			if (help_mode || iopad) {
 				run("iopadmap -bits -outpad OB I:O -inpad IB O:I -toutpad OBZ ~T:I:O -tinoutpad BB ~T:O:I:B A:top", "(only if '-iopad')");
 				run("attrmvcp -attr src -attr LOC t:OB %x:+[O] t:OBZ %x:+[O] t:BB %x:+[B]");
@@ -356,7 +399,7 @@ struct SynthEcp5Pass : public ScriptPass
 			run("dfflegalize" + dfflegalize_args, "($_ALDFF_*_ only if -asyncprld, $_DLATCH_* only if not -asyncprld, $_*DFFE_* only if not -nodffe)");
 			if ((abc9 && dff) || help_mode)
 				run("zinit -all w:* t:$_DFF_?_ t:$_DFFE_??_ t:$_SDFF*", "(only if -abc9 and -dff)");
-			run("techmap -D NO_LUT -map +/ecp5/cells_map.v");
+			run("techmap -D NO_LUT -map +/lattice/cells_map.v");
 			run("opt_expr -undriven -mux_undef");
 			run("simplemap");
 			run("lattice_gsr");
@@ -369,13 +412,13 @@ struct SynthEcp5Pass : public ScriptPass
 			if (abc2 || help_mode)
 				run("abc", "      (only if -abc2)");
 			if (!asyncprld || help_mode)
-				run("techmap -map +/ecp5/latches_map.v", "(skip if -asyncprld)");
+				run("techmap -map +/lattice/latches_map.v", "(skip if -asyncprld)");
 
 			if (abc9) {
 				std::string abc9_opts;
 				if (nowidelut)
 					abc9_opts += " -maxlut 4";
-				std::string k = "synth_ecp5.abc9.W";
+				std::string k = "synth_lattice.abc9.W";
 				if (active_design && active_design->scratchpad.count(k))
 					abc9_opts += stringf(" -W %s", active_design->scratchpad_get_string(k).c_str());
 				else
@@ -400,10 +443,7 @@ struct SynthEcp5Pass : public ScriptPass
 
 		if (check_label("map_cells"))
 		{
-			if (help_mode)
-				run("techmap -map +/ecp5/cells_map.v", "(skip if -vpr)");
-			else if (!vpr)
-				run("techmap -map +/ecp5/cells_map.v");
+			run("techmap -map +/lattice/cells_map.v");
 			run("opt_lut_ins -tech lattice");
 			run("clean");
 		}
@@ -415,23 +455,6 @@ struct SynthEcp5Pass : public ScriptPass
 			run("stat");
 			run("check -noinit");
 			run("blackbox =A:whitebox");
-		}
-
-		if (check_label("blif"))
-		{
-			if (!blif_file.empty() || help_mode) {
-				if (vpr || help_mode) {
-					run(stringf("opt_clean -purge"),
-							"                                 (vpr mode)");
-					run(stringf("write_blif -attr -cname -conn -param %s",
-							help_mode ? "<file-name>" : blif_file.c_str()),
-							" (vpr mode)");
-				}
-				if (!vpr)
-					run(stringf("write_blif -gates -attr -param %s",
-							help_mode ? "<file-name>" : blif_file.c_str()),
-							"       (non-vpr mode)");
-			}
 		}
 
 		if (check_label("edif"))
@@ -446,6 +469,23 @@ struct SynthEcp5Pass : public ScriptPass
 				run(stringf("write_json %s", help_mode ? "<file-name>" : json_file.c_str()));
 		}
 	}
+} SynthLatticePass;
+
+/*
+struct SynthEcp5Pass : public Pass
+{
+	SynthEcp5Pass() : Pass("synth_ecp5", "synthesis for ECP5 FPGAs") { }
+
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
+	{
+		args[0] = "synth_lattice";
+		args.insert(args.begin()+1, std::string());
+		args.insert(args.begin()+1, std::string());
+		args[1] = "-family";
+		args[2] = "ecp5";
+		Pass::call(design, args);
+	}
 } SynthEcp5Pass;
+*/
 
 PRIVATE_NAMESPACE_END

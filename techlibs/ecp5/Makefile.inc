@@ -1,5 +1,5 @@
 
-OBJS += techlibs/ecp5/synth_ecp5.o techlibs/ecp5/ecp5_gsr.o
+OBJS += techlibs/ecp5/synth_ecp5.o
 
 $(eval $(call add_share_file,share/ecp5,techlibs/ecp5/cells_ff.vh))
 $(eval $(call add_share_file,share/ecp5,techlibs/ecp5/cells_io.vh))
