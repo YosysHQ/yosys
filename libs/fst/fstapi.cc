@@ -348,17 +348,17 @@ static void *fstMmap2(size_t __len, int __fd, fst_off_t __off)
 #ifdef FST_DO_MISALIGNED_OPS
 #define fstGetUint32(x) (*(uint32_t *)(x))
 #else
-static uint32_t fstGetUint32(unsigned char *mem)
+static inline uint32_t fstGetUint32(unsigned char *mem)
 {
-    uint32_t u32;
-    unsigned char *buf = (unsigned char *)(&u32);
+    union {
+            uint8_t u8[sizeof(uint32_t)];
+            uint32_t u32;
+    } u;
 
-    buf[0] = mem[0];
-    buf[1] = mem[1];
-    buf[2] = mem[2];
-    buf[3] = mem[3];
+    for (size_t i=0; i < sizeof(u.u8); i++)
+            u.u8[i] = mem[i];
 
-    return (*(uint32_t *)buf);
+    return u.u32;
 }
 #endif
 
