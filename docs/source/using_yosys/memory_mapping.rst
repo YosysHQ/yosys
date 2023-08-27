@@ -198,8 +198,8 @@ Synchronous SDP with undefined collision behavior
 		if (read_enable) begin
 			read_data <= mem[read_addr];
 		
-		// 👇 this if block 👇
 		if (write_enable && read_addr == write_addr)
+			// this if block
 			read_data <= 'x;
 		end
 	end

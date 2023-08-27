@@ -128,7 +128,7 @@ is produced.
 The ``opt_rmdff`` pass
 ~~~~~~~~~~~~~~~~~~~~~~
 
-.. todo:: The ``opt_rmdff`` pass doesn't exist anymore?
+.. todo:: Update to ``opt_dff``
 
 This pass identifies single-bit d-type flip-flops (``$_DFF_``, ``$dff``, and
 ``$adff`` cells) with a constant data input and replaces them with a constant

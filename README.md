@@ -607,7 +607,7 @@ following are used for building the website:
 PDFLaTeX, included with most LaTeX distributions, is also needed during the
 build process for the website.  Or, run the following:
 
-	$ sudo apt install texlive-latex-base texlive-latex-extra
+	$ sudo apt install texlive-latex-base texlive-latex-extra latexmk
 
 The Python package, Sphinx, is needed along with those listed in
 `docs/source/requirements.txt`:

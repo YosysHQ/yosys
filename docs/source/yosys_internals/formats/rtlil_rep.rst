@@ -59,7 +59,7 @@ RTLIL identifiers
 
 All identifiers in RTLIL (such as module names, port names, signal names, cell
 types, etc.) follow the following naming convention: they must either start with
-a backslash (\) or a dollar sign ($).
+a backslash (``\``) or a dollar sign (``$``).
 
 Identifiers starting with a backslash are public visible identifiers. Usually
 they originate from one of the HDL input files. For example the signal name
@@ -74,7 +74,7 @@ This has three advantages:
 -  First, it is impossible that an auto-generated identifier collides with an
    identifier that was provided by the user.
 
-.. todo:: does opt_rmunused (still?) exist?
+.. todo:: ``opt_clean`` (or clean), also ``-purge``
 
 -  Second, the information about which identifiers were originally provided by
    the user is always available which can help guide some optimizations. For
@@ -86,7 +86,7 @@ This has three advantages:
    names is deferred to one central location. Internally auto-generated names
    that may hold important information for Yosys developers can be used without
    disturbing external tools. For example the Verilog backend assigns names in
-   the form \_integer\_.
+   the form ``_123_``.
 
 Whitespace and control characters (any character with an ASCII code 32 or less)
 are not allowed in RTLIL identifiers; most frontends and backends cannot support
@@ -158,7 +158,7 @@ An ``RTLIL::Wire`` object has the following properties:
 
 -  The wire name
 -  A list of attributes
--  A width (buses are just wires with a width > 1)
+-  A width (buses are just wires with a width more than 1)
 -  Bus direction (MSB to LSB or vice versa)
 -  Lowest valid bit index (LSB or MSB depending on bus direction)
 -  If the wire is a port: port number and direction (input/output/inout)
@@ -167,7 +167,7 @@ As with modules, the attributes can be Verilog attributes imported by the
 Verilog frontend or attributes assigned by passes.
 
 In Yosys, busses (signal vectors) are represented using a single wire object
-with a width > 1. So Yosys does not convert signal vectors to individual
+with a width more than 1. So Yosys does not convert signal vectors to individual
 signals. This makes some aspects of RTLIL more complex but enables Yosys to be
 used for coarse grain synthesis where the cells of the target architecture
 operate on entire signal vectors instead of single bit wires.
