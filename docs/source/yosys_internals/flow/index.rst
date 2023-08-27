@@ -17,6 +17,4 @@ This scripts contain three types of commands:
 	overview
 	control_and_data
 	verilog_frontend
-	command_ordering
-	model_checking
 
