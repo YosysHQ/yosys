@@ -85,193 +85,197 @@ namespace RTLIL
 
 		// the global id string cache
 
-		static bool destruct_guard_ok; // POD, will be initialized to zero
-		static struct destruct_guard_t {
-			destruct_guard_t() { destruct_guard_ok = true; }
-			~destruct_guard_t() { destruct_guard_ok = false; }
-		} destruct_guard;
+		static struct global_cache_t {
+			bool destruct_guard; // POD, will be initialized to zero
+			global_cache_t() { destruct_guard = true; }
+			~global_cache_t() { destruct_guard = false; }
 
-		static std::vector<char*> global_id_storage_;
-		static dict<char*, int, hash_cstr_ops> global_id_index_;
-	#ifndef YOSYS_NO_IDS_REFCNT
-		static std::vector<int> global_refcount_storage_;
-		static std::vector<int> global_free_idx_list_;
-	#endif
-
-	#ifdef YOSYS_USE_STICKY_IDS
-		static int last_created_idx_ptr_;
-		static int last_created_idx_[8];
-	#endif
-
-		static inline void xtrace_db_dump()
-		{
-		#ifdef YOSYS_XTRACE_GET_PUT
-			for (int idx = 0; idx < GetSize(global_id_storage_); idx++)
-			{
-				if (global_id_storage_.at(idx) == nullptr)
-					log("#X# DB-DUMP index %d: FREE\n", idx);
-				else
-					log("#X# DB-DUMP index %d: '%s' (ref %d)\n", idx, global_id_storage_.at(idx), global_refcount_storage_.at(idx));
-			}
+			std::vector<char*> global_id_storage_;
+			dict<char*, int, hash_cstr_ops> global_id_index_;
+		#ifndef YOSYS_NO_IDS_REFCNT
+			std::vector<int> global_refcount_storage_;
+			std::vector<int> global_free_idx_list_;
 		#endif
-		}
 
-		static inline void checkpoint()
-		{
 		#ifdef YOSYS_USE_STICKY_IDS
-			last_created_idx_ptr_ = 0;
-			for (int i = 0; i < 8; i++) {
-				if (last_created_idx_[i])
-					put_reference(last_created_idx_[i]);
-				last_created_idx_[i] = 0;
-			}
+			int last_created_idx_ptr_;
+			int last_created_idx_[8];
 		#endif
-		#ifdef YOSYS_SORT_ID_FREE_LIST
-			std::sort(global_free_idx_list_.begin(), global_free_idx_list_.end(), std::greater<int>());
-		#endif
-		}
 
-		static inline int get_reference(int idx)
-		{
-			if (idx) {
-		#ifndef YOSYS_NO_IDS_REFCNT
-				global_refcount_storage_[idx]++;
-		#endif
-		#ifdef YOSYS_XTRACE_GET_PUT
-				if (yosys_xtrace)
-					log("#X# GET-BY-INDEX '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
-		#endif
-			}
-			return idx;
-		}
-
-		static int get_reference(const char *p)
-		{
-			log_assert(destruct_guard_ok);
-
-			if (!p[0])
-				return 0;
-
-			auto it = global_id_index_.find((char*)p);
-			if (it != global_id_index_.end()) {
-		#ifndef YOSYS_NO_IDS_REFCNT
-				global_refcount_storage_.at(it->second)++;
-		#endif
-		#ifdef YOSYS_XTRACE_GET_PUT
-				if (yosys_xtrace)
-					log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage_.at(it->second), it->second, global_refcount_storage_.at(it->second));
-		#endif
-				return it->second;
+			inline void xtrace_db_dump()
+			{
+			#ifdef YOSYS_XTRACE_GET_PUT
+				for (int idx = 0; idx < GetSize(global_id_storage_); idx++)
+				{
+					if (global_id_storage_.at(idx) == nullptr)
+						log("#X# DB-DUMP index %d: FREE\n", idx);
+					else
+						log("#X# DB-DUMP index %d: '%s' (ref %d)\n", idx, global_id_storage_.at(idx), global_refcount_storage_.at(idx));
+				}
+			#endif
 			}
 
-			log_assert(p[0] == '$' || p[0] == '\\');
-			log_assert(p[1] != 0);
-			for (const char *c = p; *c; c++)
-				if ((unsigned)*c <= (unsigned)' ')
-					log_error("Found control character or space (0x%02x) in string '%s' which is not allowed in RTLIL identifiers\n", *c, p);
+			inline void checkpoint()
+			{
+			#ifdef YOSYS_USE_STICKY_IDS
+				last_created_idx_ptr_ = 0;
+				for (int i = 0; i < 8; i++) {
+					if (last_created_idx_[i])
+						put_reference(last_created_idx_[i]);
+					last_created_idx_[i] = 0;
+				}
+			#endif
+			#ifdef YOSYS_SORT_ID_FREE_LIST
+				std::sort(global_free_idx_list_.begin(), global_free_idx_list_.end(), std::greater<int>());
+			#endif
+			}
 
-		#ifndef YOSYS_NO_IDS_REFCNT
-			if (global_free_idx_list_.empty()) {
-				if (global_id_storage_.empty()) {
+			inline int get_reference(int idx)
+			{
+				if (idx) {
+			#ifndef YOSYS_NO_IDS_REFCNT
+					global_refcount_storage_[idx]++;
+			#endif
+			#ifdef YOSYS_XTRACE_GET_PUT
+					if (yosys_xtrace)
+						log("#X# GET-BY-INDEX '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
+			#endif
+				}
+				return idx;
+			}
+
+			int get_reference(const char *p)
+			{
+				log_assert(destruct_guard);
+
+				if (!p[0])
+					return 0;
+
+				auto it = global_id_index_.find((char*)p);
+				if (it != global_id_index_.end()) {
+			#ifndef YOSYS_NO_IDS_REFCNT
+					global_refcount_storage_.at(it->second)++;
+			#endif
+			#ifdef YOSYS_XTRACE_GET_PUT
+					if (yosys_xtrace)
+						log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage_.at(it->second), it->second, global_refcount_storage_.at(it->second));
+			#endif
+					return it->second;
+				}
+
+				log_assert(p[0] == '$' || p[0] == '\\');
+				log_assert(p[1] != 0);
+				for (const char *c = p; *c; c++)
+					if ((unsigned)*c <= (unsigned)' ')
+						log_error("Found control character or space (0x%02x) in string '%s' which is not allowed in RTLIL identifiers\n", *c, p);
+
+			#ifndef YOSYS_NO_IDS_REFCNT
+				if (global_free_idx_list_.empty()) {
+					if (global_id_storage_.empty()) {
+						global_refcount_storage_.push_back(0);
+						global_id_storage_.push_back((char*)"");
+						global_id_index_[global_id_storage_.back()] = 0;
+					}
+					log_assert(global_id_storage_.size() < 0x40000000);
+					global_free_idx_list_.push_back(global_id_storage_.size());
+					global_id_storage_.push_back(nullptr);
 					global_refcount_storage_.push_back(0);
+				}
+
+				int idx = global_free_idx_list_.back();
+				global_free_idx_list_.pop_back();
+				global_id_storage_.at(idx) = strdup(p);
+				global_id_index_[global_id_storage_.at(idx)] = idx;
+				global_refcount_storage_.at(idx)++;
+			#else
+				if (global_id_storage_.empty()) {
 					global_id_storage_.push_back((char*)"");
 					global_id_index_[global_id_storage_.back()] = 0;
 				}
-				log_assert(global_id_storage_.size() < 0x40000000);
-				global_free_idx_list_.push_back(global_id_storage_.size());
-				global_id_storage_.push_back(nullptr);
-				global_refcount_storage_.push_back(0);
+				int idx = global_id_storage_.size();
+				global_id_storage_.push_back(strdup(p));
+				global_id_index_[global_id_storage_.back()] = idx;
+			#endif
+
+				if (yosys_xtrace) {
+					log("#X# New IdString '%s' with index %d.\n", p, idx);
+					log_backtrace("-X- ", yosys_xtrace-1);
+				}
+
+			#ifdef YOSYS_XTRACE_GET_PUT
+				if (yosys_xtrace)
+					log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
+			#endif
+
+			#ifdef YOSYS_USE_STICKY_IDS
+				// Avoid Create->Delete->Create pattern
+				if (last_created_idx_[last_created_idx_ptr_])
+					put_reference(last_created_idx_[last_created_idx_ptr_]);
+				last_created_idx_[last_created_idx_ptr_] = idx;
+				get_reference(last_created_idx_[last_created_idx_ptr_]);
+				last_created_idx_ptr_ = (last_created_idx_ptr_ + 1) & 7;
+			#endif
+
+				return idx;
 			}
 
-			int idx = global_free_idx_list_.back();
-			global_free_idx_list_.pop_back();
-			global_id_storage_.at(idx) = strdup(p);
-			global_id_index_[global_id_storage_.at(idx)] = idx;
-			global_refcount_storage_.at(idx)++;
+		#ifndef YOSYS_NO_IDS_REFCNT
+			inline void put_reference(int idx)
+			{
+				// put_reference() may be called from destructors after the destructor of
+				// global_refcount_storage_ has been run. in this case we simply do nothing.
+				if (!destruct_guard || !idx)
+					return;
+
+			#ifdef YOSYS_XTRACE_GET_PUT
+				if (yosys_xtrace) {
+					log("#X# PUT '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
+				}
+			#endif
+
+				int &refcount = global_refcount_storage_[idx];
+
+				if (--refcount > 0)
+					return;
+
+				log_assert(refcount == 0);
+				free_reference(idx);
+			}
+			inline void free_reference(int idx)
+			{
+				if (yosys_xtrace) {
+					log("#X# Removed IdString '%s' with index %d.\n", global_id_storage_.at(idx), idx);
+					log_backtrace("-X- ", yosys_xtrace-1);
+				}
+
+				global_id_index_.erase(global_id_storage_.at(idx));
+				free(global_id_storage_.at(idx));
+				global_id_storage_.at(idx) = nullptr;
+				global_free_idx_list_.push_back(idx);
+			}
 		#else
-			if (global_id_storage_.empty()) {
-				global_id_storage_.push_back((char*)"");
-				global_id_index_[global_id_storage_.back()] = 0;
-			}
-			int idx = global_id_storage_.size();
-			global_id_storage_.push_back(strdup(p));
-			global_id_index_[global_id_storage_.back()] = idx;
+			inline void put_reference(int) { }
 		#endif
 
-			if (yosys_xtrace) {
-				log("#X# New IdString '%s' with index %d.\n", p, idx);
-				log_backtrace("-X- ", yosys_xtrace-1);
-			}
+		} global_cache;
 
-		#ifdef YOSYS_XTRACE_GET_PUT
-			if (yosys_xtrace)
-				log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
-		#endif
-
-		#ifdef YOSYS_USE_STICKY_IDS
-			// Avoid Create->Delete->Create pattern
-			if (last_created_idx_[last_created_idx_ptr_])
-				put_reference(last_created_idx_[last_created_idx_ptr_]);
-			last_created_idx_[last_created_idx_ptr_] = idx;
-			get_reference(last_created_idx_[last_created_idx_ptr_]);
-			last_created_idx_ptr_ = (last_created_idx_ptr_ + 1) & 7;
-		#endif
-
-			return idx;
-		}
-
-	#ifndef YOSYS_NO_IDS_REFCNT
-		static inline void put_reference(int idx)
-		{
-			// put_reference() may be called from destructors after the destructor of
-			// global_refcount_storage_ has been run. in this case we simply do nothing.
-			if (!destruct_guard_ok || !idx)
-				return;
-
-		#ifdef YOSYS_XTRACE_GET_PUT
-			if (yosys_xtrace) {
-				log("#X# PUT '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
-			}
-		#endif
-
-			int &refcount = global_refcount_storage_[idx];
-
-			if (--refcount > 0)
-				return;
-
-			log_assert(refcount == 0);
-			free_reference(idx);
-		}
-		static inline void free_reference(int idx)
-		{
-			if (yosys_xtrace) {
-				log("#X# Removed IdString '%s' with index %d.\n", global_id_storage_.at(idx), idx);
-				log_backtrace("-X- ", yosys_xtrace-1);
-			}
-
-			global_id_index_.erase(global_id_storage_.at(idx));
-			free(global_id_storage_.at(idx));
-			global_id_storage_.at(idx) = nullptr;
-			global_free_idx_list_.push_back(idx);
-		}
-	#else
-		static inline void put_reference(int) { }
-	#endif
+		static inline void xtrace_db_dump() { global_cache.xtrace_db_dump(); }
+		static inline void checkpoint() { global_cache.checkpoint(); }
 
 		// the actual IdString object is just is a single int
 
 		int index_;
 
 		inline IdString() : index_(0) { }
-		inline IdString(const char *str) : index_(get_reference(str)) { }
-		inline IdString(const IdString &str) : index_(get_reference(str.index_)) { }
+		inline IdString(const char *str) : index_(global_cache.get_reference(str)) { }
+		inline IdString(const IdString &str) : index_(global_cache.get_reference(str.index_)) { }
 		inline IdString(IdString &&str) : index_(str.index_) { str.index_ = 0; }
-		inline IdString(const std::string &str) : index_(get_reference(str.c_str())) { }
-		inline ~IdString() { put_reference(index_); }
+		inline IdString(const std::string &str) : index_(global_cache.get_reference(str.c_str())) { }
+		inline ~IdString() { global_cache.put_reference(index_); }
 
 		inline void operator=(const IdString &rhs) {
-			put_reference(index_);
-			index_ = get_reference(rhs.index_);
+			global_cache.put_reference(index_);
+			index_ = global_cache.get_reference(rhs.index_);
 		}
 
 		inline void operator=(const char *rhs) {
@@ -285,11 +289,11 @@ namespace RTLIL
 		}
 
 		inline const char *c_str() const {
-			return global_id_storage_.at(index_);
+			return global_cache.global_id_storage_.at(index_);
 		}
 
 		inline std::string str() const {
-			return std::string(global_id_storage_.at(index_));
+			return std::string(global_cache.global_id_storage_.at(index_));
 		}
 
 		inline bool operator<(const IdString &rhs) const {
