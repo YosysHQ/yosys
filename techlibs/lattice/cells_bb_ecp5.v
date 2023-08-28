@@ -1580,7 +1580,6 @@ module EXTREFB (...);
     (* iopad_external_pin *)
     input REFCLKN;
     output REFCLKO;
-    output ;
 endmodule
 
 (* blackbox *) (* keep *)
@@ -2172,6 +2171,5 @@ module DCUA (...);
     output D_COUT19;
     input D_REFCLKI;
     output D_FFS_PLOL;
-    output ;
 endmodule
 

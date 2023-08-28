@@ -815,6 +815,8 @@ def xtract_cells_decl(device, cells, dirs, outf):
                 if l.endswith((';', ',', ")")):
                     l = l[:-1]
                 l = l.replace(")","")
+                if l == "":
+                    continue
                 if ';' in l:
                     print('Weird port line in {} [{}].'.format(fname, l))
                     sys.exit(1)
