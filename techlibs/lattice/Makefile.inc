@@ -26,3 +26,11 @@ $(eval $(call add_share_file,share/lattice,techlibs/lattice/arith_map_ccu2c.v))
 $(eval $(call add_share_file,share/lattice,techlibs/lattice/arith_map_ccu2d.v))
 $(eval $(call add_share_file,share/lattice,techlibs/lattice/latches_map.v))
 $(eval $(call add_share_file,share/lattice,techlibs/lattice/dsp_map_18x18.v))
+
+
+$(eval $(call add_share_file,share/ecp5,techlibs/lattice/cells_ff.vh))
+$(eval $(call add_share_file,share/ecp5,techlibs/lattice/cells_io.vh))
+$(eval $(call add_share_file,share/ecp5,techlibs/lattice/common_sim.vh))
+$(eval $(call add_share_file,share/ecp5,techlibs/lattice/ccu2c_sim.vh))
+$(eval $(call add_share_file_and_rename,share/ecp5,techlibs/lattice/cells_sim_ecp5.v,cells_sim.v))
+$(eval $(call add_share_file_and_rename,share/ecp5,techlibs/lattice/cells_bb_ecp5.v,cells_bb.v))
