@@ -3280,13 +3280,13 @@ RTLIL::SigSpec RTLIL::Module::Initstate(RTLIL::IdString name, const std::string 
 	return sig;
 }
 
-RTLIL::SigSpec RTLIL::Module::SetTag(RTLIL::IdString name, const std::string &tag, const RTLIL::SigSpec &sig_e, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_c, const std::string &src)
+RTLIL::SigSpec RTLIL::Module::SetTag(RTLIL::IdString name, const std::string &tag, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_c, const std::string &src)
 {
-	RTLIL::SigSpec sig = addWire(NEW_ID, sig_e.size());
+	RTLIL::SigSpec sig = addWire(NEW_ID, sig_a.size());
 	Cell *cell = addCell(name, ID($set_tag));
-	cell->parameters[ID::WIDTH] = sig_e.size();
+	cell->parameters[ID::WIDTH] = sig_a.size();
 	cell->parameters[ID::TAG] = tag;
-	cell->setPort(ID::A, sig_e);
+	cell->setPort(ID::A, sig_a);
 	cell->setPort(ID::SET, sig_s);
 	cell->setPort(ID::CLR, sig_c);
 	cell->setPort(ID::Y, sig);
@@ -3294,37 +3294,50 @@ RTLIL::SigSpec RTLIL::Module::SetTag(RTLIL::IdString name, const std::string &ta
 	return sig;
 }
 
-RTLIL::SigSpec RTLIL::Module::GetTag(RTLIL::IdString name, const std::string &tag, const RTLIL::SigSpec &sig_e, const std::string &src)
+RTLIL::Cell* RTLIL::Module::addSetTag(RTLIL::IdString name, const std::string &tag, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_c, const RTLIL::SigSpec &sig_y, const std::string &src)
 {
-	RTLIL::SigSpec sig = addWire(NEW_ID, sig_e.size());
-	Cell *cell = addCell(name, ID($get_tag));
-	cell->parameters[ID::WIDTH] = sig_e.size();
+	Cell *cell = addCell(name, ID($set_tag));
+	cell->parameters[ID::WIDTH] = sig_a.size();
 	cell->parameters[ID::TAG] = tag;
-	cell->setPort(ID::A, sig_e);
+	cell->setPort(ID::A, sig_a);
+	cell->setPort(ID::SET, sig_s);
+	cell->setPort(ID::CLR, sig_c);
+	cell->setPort(ID::Y, sig_y);
+	cell->set_src_attribute(src);
+	return cell;
+}
+
+RTLIL::SigSpec RTLIL::Module::GetTag(RTLIL::IdString name, const std::string &tag, const RTLIL::SigSpec &sig_a, const std::string &src)
+{
+	RTLIL::SigSpec sig = addWire(NEW_ID, sig_a.size());
+	Cell *cell = addCell(name, ID($get_tag));
+	cell->parameters[ID::WIDTH] = sig_a.size();
+	cell->parameters[ID::TAG] = tag;
+	cell->setPort(ID::A, sig_a);
 	cell->setPort(ID::Y, sig);
 	cell->set_src_attribute(src);
 	return sig;
 }
 
-RTLIL::Cell* RTLIL::Module::addOverwriteTag(RTLIL::IdString name, const std::string &tag, const RTLIL::SigSpec &sig_e, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_c, const std::string &src)
+RTLIL::Cell* RTLIL::Module::addOverwriteTag(RTLIL::IdString name, const std::string &tag, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_c, const std::string &src)
 {
 	RTLIL::Cell *cell = addCell(name, ID($overwrite_tag));
-	cell->parameters[ID::WIDTH] = sig_e.size();
+	cell->parameters[ID::WIDTH] = sig_a.size();
 	cell->parameters[ID::TAG] = tag;
-	cell->setPort(ID::A, sig_e);
+	cell->setPort(ID::A, sig_a);
 	cell->setPort(ID::SET, sig_s);
 	cell->setPort(ID::CLR, sig_c);
 	cell->set_src_attribute(src);
 	return cell;
 }
 
-RTLIL::SigSpec RTLIL::Module::OriginalTag(RTLIL::IdString name, const std::string &tag, const RTLIL::SigSpec &sig_e, const std::string &src)
+RTLIL::SigSpec RTLIL::Module::OriginalTag(RTLIL::IdString name, const std::string &tag, const RTLIL::SigSpec &sig_a, const std::string &src)
 {
-	RTLIL::SigSpec sig = addWire(NEW_ID, sig_e.size());
+	RTLIL::SigSpec sig = addWire(NEW_ID, sig_a.size());
 	Cell *cell = addCell(name, ID($original_tag));
-	cell->parameters[ID::WIDTH] = sig_e.size();
+	cell->parameters[ID::WIDTH] = sig_a.size();
 	cell->parameters[ID::TAG] = tag;
-	cell->setPort(ID::A, sig_e);
+	cell->setPort(ID::A, sig_a);
 	cell->setPort(ID::Y, sig);
 	cell->set_src_attribute(src);
 	return sig;

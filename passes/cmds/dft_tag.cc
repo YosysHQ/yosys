@@ -28,7 +28,8 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct DftTagOptions {
-	bool tag_public;
+	bool tag_public = false;
+	bool overwrite_only = false;
 };
 
 struct DftTagWorker {
@@ -78,6 +79,78 @@ struct DftTagWorker {
 		modwalker.setup(module);
 		initvals.set(&modwalker.sigmap, module);
 		tag_sets(tmp_tag_set);
+	}
+
+	void resolve_overwrites()
+	{
+		std::vector<Cell *> overwrite_cells;
+		std::vector<Cell *> original_cells;
+
+		bool design_changed = false;
+
+		for (auto cell : module->cells()) {
+			if (cell->type == ID($overwrite_tag))
+				overwrite_cells.push_back(cell);
+
+			if (cell->type == ID($original_tag))
+				original_cells.push_back(cell);
+		}
+
+		for (auto cell : overwrite_cells) {
+			log_debug("Applying $overwrite_tag %s for signal %s\n", log_id(cell->name), log_signal(cell->getPort(ID::A)));
+			SigSpec orig_signal = cell->getPort(ID::A);
+			SigSpec interposed_signal = divert_users(orig_signal);
+			auto *set_tag_cell = module->addSetTag(NEW_ID, cell->getParam(ID::TAG).decode_string(), orig_signal, cell->getPort(ID::SET), cell->getPort(ID::CLR), interposed_signal);
+			modwalker.add_cell(set_tag_cell); // Make sure the next $overwrite_tag sees the new connections
+			design_changed = true;
+		}
+
+		for (auto cell : overwrite_cells) {
+			module->remove(cell);
+		}
+		for (auto cell : original_cells) {
+			cell->type = ID($get_tag);
+		}
+
+		if (design_changed)
+			modwalker.setup(module);
+	}
+
+	SigSpec divert_users(SigSpec signal)
+	{
+		SigSpec signal_mapped = sigmap(signal);
+		signal_mapped.sort_and_unify();
+		if (GetSize(signal_mapped) < GetSize(signal))
+			log_warning("Detected $overwrite_tag on signal %s which contains repeated bits, this can result in unexpected behavior.\n", log_signal(signal));
+		SigSpec new_wire = module->addWire(NEW_ID, GetSize(signal));
+		for (int i = 0; i < GetSize(new_wire); ++i)
+			divert_users(signal[i], new_wire[i]);
+		return new_wire;
+	}
+
+	void divert_users(SigBit driver_bit, SigBit interposed_bit)
+	{
+		dict<std::pair<Cell *, IdString>, SigSpec> updated_ports;
+		// TODO also check module outputs
+		auto found = modwalker.signal_consumers.find(driver_bit);
+		if (found == modwalker.signal_consumers.end())
+			return;
+		for (auto &consumer : found->second) {
+			if (consumer.cell->type.in(ID($original_tag)))
+				continue;
+			if (sigmap(consumer.cell->getPort(consumer.port)[consumer.offset]) != driver_bit)
+				continue;
+			std::pair<Cell *, IdString> key = {consumer.cell, consumer.port};
+			auto found_port = updated_ports.find(key);
+			if (found_port == updated_ports.end()) {
+				updated_ports.emplace(key, consumer.cell->getPort(consumer.port));
+			}
+			updated_ports[key][consumer.offset] = interposed_bit;
+		}
+		for (auto &update : updated_ports) {
+			update.first.first->setPort(update.first.second, update.second);
+			modwalker.add_cell(update.first.first); // Make sure the next $overwrite_tag sees the new connections
+		}
 	}
 
 	const pool<IdString> &tag_pool(tag_set set) { return tag_sets[set.index]; }
@@ -730,9 +803,7 @@ struct DftTagWorker {
 			if (cell->type == ID($set_tag))
 				set_tag_cells.push_back(cell);
 
-			if (cell->type.in(ID($overwrite_tag), ID($original_tag)))
-				log_error("$overwrite_tag and $original_tag are not supported yet\n");
-			// TODO these have to be rewritten as early as possible, so it should be a separate pass invocation
+			log_assert(!cell->type.in(ID($overwrite_tag), ID($original_tag)));
 		}
 
 		for (auto cell : set_tag_cells) {
@@ -889,6 +960,8 @@ struct DftTagPass : public Pass {
 		log("\n");
 		log("This pass... TODO\n");
 		log("\n");
+		log("    -overwrite-only\n");
+		log("        Only process $overwrite_tag and $original_tag cells.\n");
 		log("    -tag-public\n");
 		log("        For each public wire that may carry tagged data, create a new public\n");
 		log("        wire (named <wirename>:<tagname>) that carries the tag bits. Note\n");
@@ -909,6 +982,10 @@ struct DftTagPass : public Pass {
 				options.tag_public = true;
 				continue;
 			}
+			if (args[argidx] == "-overwrite-only") {
+				options.overwrite_only = true;
+				continue;
+			}
 			break;
 		}
 
@@ -916,6 +993,12 @@ struct DftTagPass : public Pass {
 
 		for (auto module : design->selected_modules()) {
 			DftTagWorker worker(module, options);
+
+			log_debug("Resolve overwrite_tag and original_tag.\n");
+			worker.resolve_overwrites();
+
+			if (options.overwrite_only)
+				continue;
 
 			log_debug("Propagate tagged signals.\n");
 			worker.propagate_tags();
