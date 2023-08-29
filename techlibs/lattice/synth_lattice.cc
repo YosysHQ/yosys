@@ -504,6 +504,18 @@ struct SynthEcp5Pass : public Pass
 {
 	SynthEcp5Pass() : Pass("synth_ecp5", "synthesis for ECP5 FPGAs") { }
 
+	void help() override
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    synth_ecp5 [options]\n");
+		log("\n");
+		log("This command runs synthesis for ECP5 FPGAs.\n");
+		log("\n");
+		log("This is wrapper pass, for details take a look at help message for synth_lattice.\n");
+		log("\n");
+	}
+
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		args[0] = "synth_lattice";
