@@ -102,6 +102,10 @@ struct SynthLatticePass : public ScriptPass
 		log("\n");
 		log("    -nowidelut\n");
 		log("        do not use PFU muxes to implement LUTs larger than LUT4s\n");
+		log("        (by default enabled on MachXO2/XO3/XO3D)\n");
+		log("\n");
+		log("    -widelut\n");
+		log("        force use of PFU muxes to implement LUTs larger than LUT4s\n");
 		log("\n");
 		log("    -asyncprld\n");
 		log("        use async PRLD mode to implement ALDFF (EXPERIMENTAL)\n");
@@ -163,6 +167,7 @@ struct SynthLatticePass : public ScriptPass
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		string run_from, run_to;
+		bool force_widelut = false;
 		clear_flags();
 
 		size_t argidx;
@@ -230,6 +235,12 @@ struct SynthLatticePass : public ScriptPass
 			}
 			if (args[argidx] == "-nowidelut" || /*deprecated alias*/ args[argidx] == "-nomux") {
 				nowidelut = true;
+				force_widelut = true;
+				continue;
+			}
+			if (args[argidx] == "-widelut") {
+				nowidelut = false;
+				force_widelut = true;
 				continue;
 			}
 			if (args[argidx] == "-abc2") {
@@ -273,6 +284,7 @@ struct SynthLatticePass : public ScriptPass
 			arith_map = "_ccu2d";
 			brams_map = "_8kc";
 			have_dsp = false;
+			if (!force_widelut) nowidelut = true;
 /*		} else if (family == "xo" ||
 				family == "pm") {
 		} else if (family == "xp" ||
