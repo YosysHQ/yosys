@@ -35,13 +35,32 @@ struct SynthLatticePass : public ScriptPass
 		RTLIL::constpad["synth_lattice.abc9.W"] = "300";
 	}
 
+	struct DSPRule {
+		int a_maxwidth;
+		int b_maxwidth;
+		int a_minwidth;
+		int b_minwidth;
+		std::string prim;
+	};
+
+	const std::vector<DSPRule> dsp_rules_nexus = {
+		{36, 36, 22, 22, "$__NX_MUL36X36"},
+		{36, 18, 22, 10, "$__NX_MUL36X18"},
+		{18, 18, 10,  4, "$__NX_MUL18X18"},
+		{18, 18,  4, 10, "$__NX_MUL18X18"},
+		{ 9,  9,  4,  4, "$__NX_MUL9X9"},
+	};
+	const std::vector<DSPRule> dsp_rules_ecp5 = {
+		{18, 18,  2,  2, "$__MUL18X18"},
+	};
+
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    synth_lattice [options]\n");
 		log("\n");
-		log("This command runs synthesis for Lattice FPGAs (excluding iCE40 and Nexus).\n");
+		log("This command runs synthesis for Lattice FPGAs (excluding iCE40).\n");
 		log("\n");
 		log("    -top <module>\n");
 		log("        use the specified module as top module\n");
@@ -54,6 +73,8 @@ struct SynthLatticePass : public ScriptPass
 		log("        - xo2: MachXO2\n");
 		log("        - xo3: MachXO3L/LF\n");
 		log("        - xo3d: MachXO3D\n");
+		log("        - lifcl: CrossLink-NX\n");
+		log("        - lfd2nx: Certus-NX\n");
 		//log("        - xo: MachXO (EXPERIMENTAL)\n");
 		//log("        - pm: Platform Manager (EXPERIMENTAL)\n");
 		//log("        - pm2: Platform Manager 2 (EXPERIMENTAL)\n");
@@ -118,9 +139,13 @@ struct SynthLatticePass : public ScriptPass
 		log("\n");
 		log("    -iopad\n");
 		log("        insert IO buffers\n");
+		log("        (by default enabled on Nexus FPGAs)\n");
+		log("\n");
+		log("    -noiopad\n");
+		log("        do not insert IO buffers\n");
 		log("\n");
 		log("    -nodsp\n");
-		log("        do not map multipliers to MULT18X18D\n");
+		log("        do not infer DSP multipliers\n");
 		log("\n");
 		log("    -no-rw-check\n");
 		log("        marks all recognized read ports as \"return don't-care value on\n");
@@ -135,7 +160,9 @@ struct SynthLatticePass : public ScriptPass
 
 	string top_opt, edif_file, json_file, family;
 	bool noccu2, nodffe, nobram, nolutram, nowidelut, asyncprld, flatten, dff, retime, abc2, abc9, iopad, nodsp, no_rw_check, have_dsp;
-	string postfix, arith_map, brams_map, dsp_map;
+	string postfix, arith_map, brams_map, dsp_map, cells_map, map_ram_default, widelut_abc;
+	bool is_nexus;
+	std::vector<DSPRule> dsp_rules;
 
 	void clear_flags() override
 	{
@@ -162,12 +189,17 @@ struct SynthLatticePass : public ScriptPass
 		brams_map = "";
 		dsp_map = "";
 		have_dsp = false;
+		is_nexus = false;
+		map_ram_default = "";
+		cells_map = "";
+		widelut_abc = "4:7";
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		string run_from, run_to;
 		bool force_widelut = false;
+		bool force_iopad = false;
 		clear_flags();
 
 		size_t argidx;
@@ -253,6 +285,12 @@ struct SynthLatticePass : public ScriptPass
 			}
 			if (args[argidx] == "-iopad") {
 				iopad = true;
+				force_iopad = true;
+				continue;
+			}
+			if (args[argidx] == "-noiopad") {
+				iopad = false;
+				force_iopad = true;
 				continue;
 			}
 			if (args[argidx] == "-nodsp") {
@@ -275,7 +313,9 @@ struct SynthLatticePass : public ScriptPass
 			arith_map = "_ccu2c";
 			brams_map = "_16kd";
 			dsp_map = "_18x18";
+			dsp_rules = dsp_rules_ecp5;
 			have_dsp = true;
+			cells_map = "_trellis";
 		} else if (family == "xo2" ||
 				family == "xo3" ||
 				family == "xo3d" /* ||
@@ -283,8 +323,22 @@ struct SynthLatticePass : public ScriptPass
 			postfix = "_" + family;
 			arith_map = "_ccu2d";
 			brams_map = "_8kc";
+			cells_map = "_trellis";
 			have_dsp = false;
 			if (!force_widelut) nowidelut = true;
+		} else if (family == "lifcl" ||
+			family == "lfd2nx") {
+			is_nexus = true;
+			postfix = "_nexus";
+			arith_map = "_nexus";
+			brams_map = "_nexus";
+			dsp_map = "_nexus";
+			dsp_rules = dsp_rules_nexus;
+			have_dsp = true;
+			map_ram_default = " -no-auto-huge";
+			cells_map = "_nexus";
+			widelut_abc = "4:5";
+			if (!force_iopad) iopad = true;
 /*		} else if (family == "xo" ||
 				family == "pm") {
 		} else if (family == "xp" ||
@@ -346,10 +400,19 @@ struct SynthLatticePass : public ScriptPass
 			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=4");
 			run("opt_expr");
 			run("opt_clean");
-			if (have_dsp && !nodsp) {
-				run("techmap -map +/mul2dsp.v -map +/lattice/dsp_map" + dsp_map + ".v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18  -D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2  -D DSP_NAME=$__MUL18X18", "(unless -nodsp)");
-				run("chtype -set $mul t:$__soft_mul", "(unless -nodsp)");
+
+			if (help_mode) {
+				run("techmap -map +/mul2dsp.v [...]", "(unless -nodsp)");
+				run("techmap -map +/lattice/dsp_map" + dsp_map + ".v", "(unless -nodsp)");
+			} else if (have_dsp && !nodsp) {
+				for (const auto &rule : dsp_rules) {
+					run(stringf("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=%d -D DSP_B_MAXWIDTH=%d -D DSP_A_MINWIDTH=%d -D DSP_B_MINWIDTH=%d -D DSP_NAME=%s",
+						rule.a_maxwidth, rule.b_maxwidth, rule.a_minwidth, rule.b_minwidth, rule.prim.c_str()));
+					run("chtype -set $mul t:$__soft_mul");
+				}
+				run("techmap -map +/lattice/dsp_map" + dsp_map + ".v");
 			}
+
 			run("alumacc");
 			run("opt");
 			run("memory -nomap" + no_rw_check_opt);
@@ -358,15 +421,20 @@ struct SynthLatticePass : public ScriptPass
 
 		if (check_label("map_ram"))
 		{
-			std::string args = "";
+			std::string args = map_ram_default;
 			if (nobram)
 				args += " -no-auto-block";
 			if (nolutram)
 				args += " -no-auto-distributed";
 			if (help_mode)
 				args += " [-no-auto-block] [-no-auto-distributed]";
-			run("memory_libmap -lib +/lattice/lutrams.txt -lib +/lattice/brams" + brams_map + ".txt" + args, "(-no-auto-block if -nobram, -no-auto-distributed if -nolutram)");
-			run("techmap -map +/lattice/lutrams_map.v -map +/lattice/brams_map" + brams_map + ".v");
+			if (!is_nexus) {
+				run("memory_libmap -lib +/lattice/lutrams" + cells_map + ".txt -lib +/lattice/brams" + brams_map + ".txt" + args, "(-no-auto-block if -nobram, -no-auto-distributed if -nolutram)");
+				run("techmap -map +/lattice/lutrams_map" + cells_map + ".v -map +/lattice/brams_map" + brams_map + ".v");
+			} else {
+				run("memory_libmap -lib +/lattice/lutrams" + cells_map + ".txt -lib +/lattice/brams" + brams_map + ".txt -lib +/lattice/lrams_nexus.txt" + args, "(-no-auto-block if -nobram, -no-auto-distributed if -nolutram)");
+				run("techmap -map +/lattice/lutrams_map" + cells_map + ".v -map +/lattice/brams_map" + brams_map + ".v -map +/lattice/lrams_map_nexus.v");
+			}
 		}
 
 		if (check_label("map_ffram"))
@@ -395,26 +463,36 @@ struct SynthLatticePass : public ScriptPass
 		if (check_label("map_ffs"))
 		{
 			run("opt_clean");
-			std::string dfflegalize_args = " -cell $_DFF_?_ 01 -cell $_DFF_?P?_ r -cell $_SDFF_?P?_ r";
-			if (help_mode) {
-				dfflegalize_args += " [-cell $_DFFE_??_ 01 -cell $_DFFE_?P??_ r -cell $_SDFFE_?P??_ r]";
-			} else if (!nodffe) {
-				dfflegalize_args += " -cell $_DFFE_??_ 01 -cell $_DFFE_?P??_ r -cell $_SDFFE_?P??_ r";
-			}
-			if (help_mode) {
-				dfflegalize_args += " [-cell $_ALDFF_?P_ x -cell $_ALDFFE_?P?_ x] [-cell $_DLATCH_?_ x]";
-			} else if (asyncprld) {
-				dfflegalize_args += " -cell $_ALDFF_?P_ x -cell $_ALDFFE_?P?_ x";
+			if (!is_nexus) {
+				std::string dfflegalize_args = " -cell $_DFF_?_ 01 -cell $_DFF_?P?_ r -cell $_SDFF_?P?_ r";
+				if (help_mode) {
+					dfflegalize_args += " [-cell $_DFFE_??_ 01 -cell $_DFFE_?P??_ r -cell $_SDFFE_?P??_ r]";
+				} else if (!nodffe) {
+					dfflegalize_args += " -cell $_DFFE_??_ 01 -cell $_DFFE_?P??_ r -cell $_SDFFE_?P??_ r";
+				}
+				if (help_mode) {
+					dfflegalize_args += " [-cell $_ALDFF_?P_ x -cell $_ALDFFE_?P?_ x] [-cell $_DLATCH_?_ x]";
+				} else if (asyncprld) {
+					dfflegalize_args += " -cell $_ALDFF_?P_ x -cell $_ALDFFE_?P?_ x";
+				} else {
+					dfflegalize_args += " -cell $_DLATCH_?_ x";
+				}
+				run("dfflegalize" + dfflegalize_args, "($_ALDFF_*_ only if -asyncprld, $_DLATCH_* only if not -asyncprld, $_*DFFE_* only if not -nodffe)");
 			} else {
-				dfflegalize_args += " -cell $_DLATCH_?_ x";
+				std::string dfflegalize_args = " -cell $_DFF_P_ 01 -cell $_DFF_PP?_ r -cell $_SDFF_PP?_ r -cell $_DLATCH_?_ x";
+				if (help_mode) {
+					dfflegalize_args += " [-cell $_DFFE_PP_ 01 -cell $_DFFE_PP?P_ r -cell $_SDFFE_PP?P_ r]";
+				} else if (!nodffe) {
+					dfflegalize_args += " -cell $_DFFE_PP_ 01 -cell $_DFFE_PP?P_ r -cell $_SDFFE_PP?P_ r";
+				}
+				run("dfflegalize" + dfflegalize_args, "($_*DFFE_* only if not -nodffe)");
 			}
-			run("dfflegalize" + dfflegalize_args, "($_ALDFF_*_ only if -asyncprld, $_DLATCH_* only if not -asyncprld, $_*DFFE_* only if not -nodffe)");
 			if ((abc9 && dff) || help_mode)
 				run("zinit -all w:* t:$_DFF_?_ t:$_DFFE_??_ t:$_SDFF*", "(only if -abc9 and -dff)");
-			run("techmap -D NO_LUT -map +/lattice/cells_map.v");
+			run("techmap -D NO_LUT -map +/lattice/cells_map" + cells_map + ".v");
 			run("opt_expr -undriven -mux_undef");
 			run("simplemap");
-			run("lattice_gsr");
+			if (!is_nexus) run("lattice_gsr");
 			run("attrmvcp -copy -attr syn_useioff");
 			run("opt_clean");
 		}
@@ -445,7 +523,7 @@ struct SynthLatticePass : public ScriptPass
 				if (nowidelut)
 					abc_args += " -lut 4";
 				else
-					abc_args += " -lut 4:7";
+					abc_args += " -lut " + widelut_abc;
 				if (dff)
 					abc_args += " -dff";
 				run("abc" + abc_args);
@@ -455,8 +533,14 @@ struct SynthLatticePass : public ScriptPass
 
 		if (check_label("map_cells"))
 		{
-			run("techmap -map +/lattice/cells_map.v");
-			run("opt_lut_ins -tech lattice");
+			run("techmap -map +/lattice/cells_map" + cells_map + ".v");
+			if (is_nexus) {
+				// This is needed for Radiant, but perhaps not optimal for nextpnr...
+				run("setundef -zero");
+				run("hilomap -singleton -hicell VHI Z -locell VLO Z");
+			} else {		
+				run("opt_lut_ins -tech lattice");
+			}
 			run("clean");
 		}
 
@@ -482,6 +566,33 @@ struct SynthLatticePass : public ScriptPass
 		}
 	}
 } SynthLatticePass;
+
+struct SynthNexusPass : public Pass
+{
+	SynthNexusPass() : Pass("synth_nexus", "synthesis for Nexus FPGAs") { }
+
+	void help() override
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    synth_nexus [options]\n");
+		log("\n");
+		log("This command runs synthesis for Nexus FPGAs.\n");
+		log("\n");
+		log("This is wrapper pass, for details take a look at help message for synth_lattice.\n");
+		log("\n");
+	}
+
+	void execute(std::vector<std::string> args, RTLIL::Design *design) override
+	{
+		args[0] = "synth_lattice";
+		args.insert(args.begin()+1, std::string());
+		args.insert(args.begin()+1, std::string());
+		args[1] = "-family";
+		args[2] = "lifcl";
+		Pass::call(design, args);
+	}
+} SynthNexusPass;
 
 /*
 struct SynthEcp5Pass : public Pass

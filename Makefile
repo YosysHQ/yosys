@@ -575,6 +575,13 @@ $(subst //,/,$(1)/$(notdir $(2))): $(2)
 	$$(Q) cp "$(YOSYS_SRC)"/$(2) $(subst //,/,$(1)/$(notdir $(2)))
 endef
 
+define add_share_file_and_rename
+EXTRA_TARGETS += $(subst //,/,$(1)/$(3))
+$(subst //,/,$(1)/$(3)): $(2)
+	$$(P) mkdir -p $(1)
+	$$(Q) cp "$(YOSYS_SRC)"/$(2) $(subst //,/,$(1)/$(3))
+endef
+
 define add_gen_share_file
 EXTRA_TARGETS += $(subst //,/,$(1)/$(notdir $(2)))
 $(subst //,/,$(1)/$(notdir $(2))): $(2)
