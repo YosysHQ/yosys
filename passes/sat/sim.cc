@@ -109,6 +109,7 @@ struct SimShared
 	int next_output_id = 0;
 	int step = 0;
 	std::vector<TriggeredAssertion> triggered_assertions;
+	bool serious_asserts = false;
 };
 
 void zinit(State &v)
@@ -781,8 +782,12 @@ struct SimInstance
 				if (cell->type == ID($assume) && en == State::S1 && a != State::S1)
 					log("Assumption %s.%s (%s) failed.\n", hiername().c_str(), log_id(cell), label.c_str());
 
-				if (cell->type == ID($assert) && en == State::S1 && a != State::S1)
-					log_warning("Assert %s.%s (%s) failed.\n", hiername().c_str(), log_id(cell), label.c_str());
+				if (cell->type == ID($assert) && en == State::S1 && a != State::S1) {
+					if (shared->serious_asserts)
+						log_error("Assert %s.%s (%s) failed.\n", hiername().c_str(), log_id(cell), label.c_str());
+					else
+						log_warning("Assert %s.%s (%s) failed.\n", hiername().c_str(), log_id(cell), label.c_str());
+				}
 			}
 		}
 
@@ -2497,6 +2502,10 @@ struct SimPass : public Pass {
 		log("    -sim-gate\n");
 		log("        co-simulation, x in FST can match any value in simulation\n");
 		log("\n");
+		log("    -assert\n");
+		log("        fail the simulation command if, in the course of simulating,\n");
+		log("        any of the asserts in the design fail\n");
+		log("\n");
 		log("    -q\n");
 		log("        disable per-cycle/sample log message\n");
 		log("\n");
@@ -2649,6 +2658,10 @@ struct SimPass : public Pass {
 			}
 			if (args[argidx] == "-sim-gate") {
 				worker.sim_mode = SimulationMode::gate;
+				continue;
+			}
+			if (args[argidx] == "-assert") {
+				worker.serious_asserts = true;
 				continue;
 			}
 			if (args[argidx] == "-x") {
