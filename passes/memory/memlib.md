@@ -267,7 +267,7 @@ The address is always `abits` wide.  If a non-narrowest width is used, the appro
 bits will be tied to 0.
 
 
-### Port `width` prooperty
+### Port `width` property
 
 If the RAM has `per_port` widths, the available width selection can be further described
 on per-port basis, by using one of the following properties:
