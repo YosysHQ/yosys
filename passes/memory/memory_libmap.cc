@@ -667,7 +667,7 @@ void MemMapping::assign_wr_ports() {
 				if (used >= GetSize(pg.names)) {
 					log_reject(*cfg.def, pg, "not enough unassigned ports remaining");
 					continue;
-					}
+				}
 				for (int pvi = 0; pvi < GetSize(pg.variants); pvi++) {
 					auto &def = pg.variants[pvi];
 					// Make sure the target is a write port.
@@ -2114,7 +2114,7 @@ struct MemoryLibMapPass : public Pass {
 		log("    memory_libmap -lib <library_file> [-D <condition>] [selection]\n");
 		log("\n");
 		log("This pass takes a description of available RAM cell types and maps\n");
-		log("all selected memories to one of them, or leaves them  to be mapped to FFs.\n");
+		log("all selected memories to one of them, or leaves them to be mapped to FFs.\n");
 		log("\n");
 		log("  -lib <library_file>\n");
 		log("    Selects a library file containing RAM cell definitions. This option\n");
