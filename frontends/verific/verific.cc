@@ -74,7 +74,7 @@ USING_YOSYS_NAMESPACE
 #  error "Only YosysHQ flavored Verific is supported. Please contact office@yosyshq.com for commercial support for Yosys+Verific."
 #endif
 
-#if YOSYSHQ_VERIFIC_API_VERSION < 20210801
+#if YOSYSHQ_VERIFIC_API_VERSION < 20230901
 #  error "Please update your version of YosysHQ flavored Verific."
 #endif
 
