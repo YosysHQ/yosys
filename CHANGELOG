@@ -2,8 +2,18 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.32 .. Yosys 0.33-dev
+Yosys 0.32 .. Yosys 0.33
 --------------------------
+ * Various
+    - Added "$print" cell, produced by "$display" and "$write"
+      Verilog tasks.
+    - Added "$print" cell handling in CXXRTL.
+
+ * Lattice FPGA support
+    - Added generic "synth_lattice" pass (for now MachXO2/XO3/XO3D)
+    - Removed "synth_machxo2" pass
+    - Pass "ecp5_gsr" renamed to "lattice_gsr"
+    - "synth_machxo2" equivalent is "synth_lattice -family xo2"
 
 Yosys 0.31 .. Yosys 0.32
 --------------------------
