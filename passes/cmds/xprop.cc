@@ -493,8 +493,9 @@ struct XpropWorker
 				auto sig_b = cell->getPort(ID::B);
 
 				auto name = cell->name;
+				auto type = cell->type;
 				module->remove(cell);
-				if (cell->type == ID($eqx))
+				if (type == ID($eqx))
 					module->addEq(name, sig_a, sig_b, sig_y);
 				else
 					module->addNe(name, sig_a, sig_b, sig_y);
@@ -534,7 +535,7 @@ struct XpropWorker
 			auto enc_b = encoded(sig_b);
 			auto enc_y = encoded(sig_y, true);
 
-			if (cell->type.in(ID($or), ID($_OR_)))
+			if (cell->type.in(ID($or), ID($_OR_), ID($_NOR_), ID($_ORNOT_)))
 				enc_a.invert(), enc_b.invert(), enc_y.invert();
 			if (cell->type.in(ID($_NAND_), ID($_NOR_)))
 				enc_y.invert();
@@ -1027,11 +1028,24 @@ struct XpropWorker
 		for (auto wire : module->selected_wires()) {
 			if (wire->port_input || wire->port_output || !wire->name.isPublic())
 				continue;
-			auto name_d = module->uniquify(stringf("%s_d", wire->name.c_str()));
-			auto name_x = module->uniquify(stringf("%s_x", wire->name.c_str()));
+			int index_d = 0;
+			int index_x = 0;
+			auto name_d = module->uniquify(stringf("%s_d", wire->name.c_str()), index_d);
+			auto name_x = module->uniquify(stringf("%s_x", wire->name.c_str()), index_x);
+
+			auto hdlname = wire->get_hdlname_attribute();
 
 			auto wire_d = module->addWire(name_d, GetSize(wire));
 			auto wire_x = module->addWire(name_x, GetSize(wire));
+
+			if (!hdlname.empty()) {
+				auto hdlname_d = hdlname;
+				auto hdlname_x = hdlname;
+				hdlname_d.back() += index_d ? stringf("_d_%d", index_d) : "_d";
+				hdlname_x.back() += index_x ? stringf("_x_%d", index_x) : "_x";
+				wire_d->set_hdlname_attribute(hdlname_d);
+				wire_x->set_hdlname_attribute(hdlname_x);
+			}
 
 			auto enc = encoded(wire);
 			module->connect(wire_d, enc.is_1);
