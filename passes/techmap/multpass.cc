@@ -64,16 +64,6 @@ struct MultPassWorker {
 
 	// Helper routines for building architecture subcomponents
 
-	void connect_sigSpecToWire(RTLIL::Wire *ip, const SigSpec &v)
-	{
-		auto g = module->addCell(NEW_ID, ID($pos));
-		g->setParam(ID::A_WIDTH, 1);
-		g->setParam(ID::Y_WIDTH, 1);
-		g->setParam(ID::A_SIGNED, false);
-		g->setPort(ID::A, ip);
-		g->setPort(ID::Y, v);
-	}
-
 	RTLIL::Wire *mk_wireFromSigSpec(const SigSpec &v)
 	{
 
@@ -274,7 +264,6 @@ struct MultPassWorker {
 
 	void run()
 	{
-		log("Extracting $mul cells in  module %s and generating Booth Realization:\n", log_id(module));
 		for (auto cell : module->selected_cells()) {
 			if (cell->type.in(ID($mul))) {
 				RTLIL::SigSpec A = sigmap(cell->getPort(ID::A));
@@ -290,183 +279,92 @@ struct MultPassWorker {
 					} else
 						log("    By passing macc inferencing for unsigned multiplier -- generating booth\n");
 
-					if (is_signed == false) /* unsigned multiplier */ {
-						int x_sz = GetSize(A);
-						int y_sz = GetSize(B);
-						int z_sz = GetSize(Y);
+					int x_sz = GetSize(A);
+					int y_sz = GetSize(B);
+					int z_sz = GetSize(Y);
 
-						// To simplify the generator size the arguments
-						// to be the same. Then allow logic synthesis to
-						// clean things up. Size to biggest
+					// To simplify the generator size the arguments
+					// to be the same. Then allow logic synthesis to
+					// clean things up. Size to biggest
 
-						int x_sz_revised = x_sz;
-						int y_sz_revised = y_sz;
+					int x_sz_revised = x_sz;
+					int y_sz_revised = y_sz;
 
-						if (x_sz != y_sz) {
-							if (x_sz < y_sz) {
-								if (y_sz % 2 != 0) {
-									x_sz_revised = y_sz + 1;
-									y_sz_revised = y_sz + 1;
-								} else
-									x_sz_revised = y_sz;
+					if (x_sz != y_sz) {
+						if (x_sz < y_sz) {
+							if (y_sz % 2 != 0) {
+								x_sz_revised = y_sz + 1;
+								y_sz_revised = y_sz + 1;
+							} else
+								x_sz_revised = y_sz;
 
-								log("Resized x to %d ", x_sz_revised);
-							} else {
-								if (x_sz % 2 != 0) {
-									y_sz_revised = x_sz + 1;
-									x_sz_revised = x_sz + 1;
-								} else
-									y_sz_revised = x_sz;
-								log("Resized y to %d ", y_sz_revised);
-							}
 						} else {
 							if (x_sz % 2 != 0) {
-								y_sz_revised = y_sz + 1;
+								y_sz_revised = x_sz + 1;
 								x_sz_revised = x_sz + 1;
-							}
+							} else
+								y_sz_revised = x_sz;
 						}
+					} else {
+						if (x_sz % 2 != 0) {
+							y_sz_revised = y_sz + 1;
+							x_sz_revised = x_sz + 1;
+						}
+					}
 
-						log_assert((x_sz_revised == y_sz_revised) && (x_sz_revised % 2 == 0) && (y_sz_revised % 2 == 0));
+					log_assert((x_sz_revised == y_sz_revised) && (x_sz_revised % 2 == 0) && (y_sz_revised % 2 == 0));
 
-						Wire *expanded_A = module->addWire(NEW_ID, x_sz_revised);
-						Wire *expanded_B = module->addWire(NEW_ID, y_sz_revised);
+					Wire *expanded_A = module->addWire(NEW_ID, x_sz_revised);
+					Wire *expanded_B = module->addWire(NEW_ID, y_sz_revised);
 
-						std::string buf_name = "expand_a_buf_";
-						auto buf = module->addCell(new_id(buf_name, __LINE__, ""), ID($pos));
-						buf->setParam(ID::A_WIDTH, x_sz);
-						buf->setParam(ID::Y_WIDTH, x_sz_revised);
-						buf->setPort(ID::A, SigSpec(A));
-						buf->setParam(ID::A_SIGNED, false);
-						buf->setPort(ID::Y, SigSpec(expanded_A));
+					std::string buf_name = "expand_a_buf_";
+					auto buf = module->addCell(new_id(buf_name, __LINE__, ""), ID($pos));
+					buf->setParam(ID::A_WIDTH, x_sz);
+					buf->setParam(ID::Y_WIDTH, x_sz_revised);
+					buf->setPort(ID::A, SigSpec(A));
+					buf->setParam(ID::A_SIGNED, is_signed ? true : false);
+					buf->setPort(ID::Y, SigSpec(expanded_A));
 
-						buf_name = "expand_b_buf_";
-						buf = module->addCell(new_id(buf_name, __LINE__, ""), ID($pos));
-						buf->setPort(ID::A, SigSpec(B));
-						buf->setParam(ID::A_WIDTH, y_sz);
-						buf->setParam(ID::Y_WIDTH, y_sz_revised);
-						buf->setParam(ID::A_SIGNED, false);
-						buf->setPort(ID::Y, SigSpec(expanded_B));
+					buf_name = "expand_b_buf_";
+					buf = module->addCell(new_id(buf_name, __LINE__, ""), ID($pos));
+					buf->setPort(ID::A, SigSpec(B));
+					buf->setParam(ID::A_WIDTH, y_sz);
+					buf->setParam(ID::Y_WIDTH, y_sz_revised);
+					buf->setParam(ID::A_SIGNED, is_signed ? true : false);
+					buf->setPort(ID::Y, SigSpec(expanded_B));
 
-						// Make sure output domain is big enough to take
-						// all combinations.
-						// Later logic synthesis will kill unused
-						// portions of the output domain.
+					// Make sure output domain is big enough to take
+					// all combinations.
+					// Later logic synthesis will kill unused
+					// portions of the output domain.
 
-						unsigned required_op_size = x_sz_revised + y_sz_revised;
+					unsigned required_op_size = x_sz_revised + y_sz_revised;
+					Wire *expanded_Y = module->addWire(NEW_ID, required_op_size);
+					// now connect the expanded_Y with a tap to fill out sig Spec Y
+					buf_name = "reducer_buf_";
+					buf = module->addCell(new_id(buf_name, __LINE__, ""), ID($pos));
+					buf->setPort(ID::A, expanded_Y);
+					buf->setParam(ID::A_WIDTH, required_op_size);
+					buf->setParam(ID::Y_WIDTH, z_sz); // The real user width
+					buf->setParam(ID::A_SIGNED, is_signed ? true : false);
+					// wire in output Y
+					buf->setPort(ID::Y, SigSpec(Y));
 
-						Wire *expanded_Y = module->addWire(NEW_ID, required_op_size);
-
+					if (is_signed == false) /* unsigned multiplier */
 						CreateBoothUMult(module, x_sz_revised, y_sz_revised, required_op_size,
 								 expanded_A, // multiplicand
 								 expanded_B, // multiplier(scanned)
 								 expanded_Y  // result
 						);
-
-						// now connect the expanded_Y with a tap to fill out sig Spec Y
-
-						log("Adding reducer on output from %u to %u ", required_op_size, z_sz);
-						buf_name = "reducer_buf_";
-						buf = module->addCell(new_id(buf_name, __LINE__, ""), ID($pos));
-						buf->setPort(ID::A, expanded_Y);
-						buf->setParam(ID::A_WIDTH, required_op_size);
-						buf->setParam(ID::Y_WIDTH, z_sz); // The real user width
-						buf->setParam(ID::A_SIGNED, false);
-						// wire in output Y
-						buf->setPort(ID::Y, SigSpec(Y));
-
-						module->remove(cell);
-						booth_counter++;
-						continue;
-					}
-
-					else /*signed multiplier */ {
-						int x_sz = GetSize(A);
-						int y_sz = GetSize(B);
-						int z_sz = GetSize(Y);
-
-						// To simplify the generator size the arguments
-						// to be the same. Then allow logic synthesis to
-						// clean things up. Size to biggest
-
-						int x_sz_revised = x_sz;
-						int y_sz_revised = y_sz;
-
-						if (x_sz != y_sz) {
-							if (x_sz < y_sz) {
-								if (y_sz % 2 != 0) {
-									x_sz_revised = y_sz + 1;
-									y_sz_revised = y_sz + 1;
-								} else
-									x_sz_revised = y_sz;
-
-								log("Resized x to %d ", x_sz_revised);
-							} else {
-								if (x_sz % 2 != 0) {
-									y_sz_revised = x_sz + 1;
-									x_sz_revised = x_sz + 1;
-								} else
-									y_sz_revised = x_sz;
-								log("Resized y to %d ", y_sz_revised);
-							}
-						} else {
-							if (x_sz % 2 != 0) {
-								y_sz_revised = y_sz + 1;
-								x_sz_revised = x_sz + 1;
-							}
-						}
-
-						log_assert((x_sz_revised == y_sz_revised) && (x_sz_revised % 2 == 0) && (y_sz_revised % 2 == 0));
-
-						Wire *expanded_A = module->addWire(NEW_ID, x_sz_revised);
-						Wire *expanded_B = module->addWire(NEW_ID, y_sz_revised);
-
-						std::string buf_name = "expand_a_buf_";
-						auto buf = module->addCell(new_id(buf_name, __LINE__, ""), ID($pos));
-						buf->setParam(ID::A_WIDTH, x_sz);
-						buf->setParam(ID::Y_WIDTH, x_sz_revised);
-						buf->setPort(ID::A, SigSpec(A));
-						buf->setParam(ID::A_SIGNED, true);
-						buf->setPort(ID::Y, SigSpec(expanded_A));
-
-						buf_name = "expand_b_buf_";
-						buf = module->addCell(new_id(buf_name, __LINE__, ""), ID($pos));
-						buf->setPort(ID::A, SigSpec(B));
-						buf->setParam(ID::A_WIDTH, y_sz);
-						buf->setParam(ID::Y_WIDTH, y_sz_revised);
-						buf->setParam(ID::A_SIGNED, true);
-						buf->setPort(ID::Y, SigSpec(expanded_B));
-
-						// Make sure output domain is big enough to take
-						// all combinations.
-						// Later logic synthesis will kill unused
-						// portions of the output domain.
-
-						unsigned required_op_size = x_sz_revised + y_sz_revised;
-
-						Wire *expanded_Y = module->addWire(NEW_ID, required_op_size);
-
+					else /*signed multiplier */
 						CreateBoothSMult(module, x_sz_revised, y_sz_revised, required_op_size,
 								 expanded_A, // multiplicand
 								 expanded_B, // multiplier(scanned)
 								 expanded_Y  // result (sized)
 						);
-						// now connect the expanded_Y with a tap to fill out sig Spec Y
-
-						log("Adding reducer on output from %u to %u ", required_op_size, z_sz);
-						buf_name = "reducer_buf_";
-						buf = module->addCell(new_id(buf_name, __LINE__, ""), ID($pos));
-						buf->setPort(ID::A, expanded_Y);
-						buf->setParam(ID::A_WIDTH, required_op_size);
-						buf->setParam(ID::Y_WIDTH, z_sz); // The real user width
-						buf->setParam(ID::A_SIGNED, true);
-						// wire in output Y
-						buf->setPort(ID::Y, SigSpec(Y));
-
-						// kill original multiplier
-						module->remove(cell);
-						booth_counter++;
-						continue;
-					}
+					module->remove(cell);
+					booth_counter++;
+					continue;
 				}
 			}
 		}
@@ -936,7 +834,7 @@ struct MultPassWorker {
 				RTLIL::Wire *ha_op;
 				BuildHa(ha_name, s_vec[n], c_vec[n - 1], ha_op, carry);
 
-				connect_sigSpecToWire(ha_op, SigSpec(result, n, 1));
+				module->connect(ha_op, SigSpec(result, n, 1));
 
 #ifdef DEBUG_CPA
 				printf("CPA bit [%d] Cell %s IPs [%s] [%s] \n", n, ha_cell->name.c_str(), s_vec[n]->name.c_str(),
@@ -971,11 +869,10 @@ struct MultPassWorker {
 					RTLIL::Wire *ha_sum;
 					RTLIL::Wire *ha_carry;
 					BuildHa(ha_name, c_vec[n], carry, ha_sum, ha_carry);
-
 					if (n + 1 < (unsigned)GetSize(result))
-						connect_sigSpecToWire(ha_sum, SigSpec(result, n + 1, 1));
+						module->connect(ha_sum, SigSpec(result, n + 1, 1));
 					if (n + 2 < (unsigned)GetSize(result))
-						connect_sigSpecToWire(ha_carry, SigSpec(result, n + 2, 1));
+						module->connect(ha_carry, SigSpec(result, n + 2, 1));
 				}
 			}
 			// Step case
@@ -1113,7 +1010,6 @@ struct MultPassWorker {
 	{
 		for (int y_ix = 0; y_ix < y_sz;) {
 			std::string enc_name = "bur_enc_" + std::to_string(encoder_ix) + "_";
-			log("Created booth encoder %s\n", enc_name.c_str());
 
 			std::string two_name = "two_int" + std::to_string(encoder_ix);
 			two_int.push_back(module->addWire(new_id(two_name, __LINE__, ""), 1));
@@ -1181,13 +1077,10 @@ struct MultPassWorker {
 
 				if (need_padded_cell == true) {
 
-					log(" Creating padded encoder for unsigned\n");
-
 					// make extra encoder cell
 					// y_ix at y0, rest 0
 
 					std::string enc_name = "br_enc_pad" + std::to_string(encoder_ix) + "_";
-					log("Created (padded) booth encoder %s\n", enc_name.c_str());
 
 					std::string two_name = "two_int" + std::to_string(encoder_ix);
 					two_int.push_back(module->addWire(new_id(two_name, __LINE__, ""), 1));
@@ -1518,14 +1411,11 @@ struct MultPassWorker {
 		// instantiate the cpa
 		RTLIL::Wire *cpa_carry[z_sz];
 
-		if (x_sz + y_sz != z_sz)
-			log("Result of multiplier is incomplete with respect to domain of inputs\n");
-
 		for (int cix = 0; cix < z_sz; cix++) {
 			std::string cpa_cix_name = "cpa_carry_" + std::to_string(cix) + "_";
 			cpa_carry[cix] = module->addWire(new_id(cpa_cix_name, __LINE__, ""), 1);
 		}
-		log("    Building cpa array for booth for output size %u\n", z_sz);
+
 		for (int cpa_ix = 0; cpa_ix < z_sz; cpa_ix++) {
 
 			// The end case where we pass the last two summands
@@ -1565,7 +1455,7 @@ struct MultPassWorker {
 
 				RTLIL::Wire *op_wire = module->addWire(NEW_ID, 1);
 				BuildHa(cpa_name, fa_sum_n[fa_row_count - 1][cpa_ix - offset + 2], ci_wire, op_wire, cpa_carry[cpa_ix - offset]);
-				connect_sigSpecToWire(op_wire, SigSpec(Z, cpa_ix, 1));
+				module->connect(op_wire, SigSpec(Z, cpa_ix, 1));
 			}
 		}
 
@@ -1599,7 +1489,7 @@ struct MultPassWorker {
 };
 
 struct MultPass : public Pass {
-	MultPass() : Pass("multpass", "Map $mul to booth multipliers") {}
+	MultPass() : Pass("booth", "Map $mul to booth multipliers") {}
 	void execute(vector<string> args, RTLIL::Design *design) override
 	{
 		(void)args;
