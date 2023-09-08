@@ -95,7 +95,7 @@ struct SynthPass : public ScriptPass {
 	}
 
 	string top_module, fsm_opts, memory_opts, abc;
-	bool autotop, flatten, noalumacc, nofsm, noabc, noshare, flowmap, mult;
+	bool autotop, flatten, noalumacc, nofsm, noabc, noshare, flowmap, booth;
 
 	int lut;
 
@@ -113,7 +113,7 @@ struct SynthPass : public ScriptPass {
 		noabc = false;
 		noshare = false;
 		flowmap = false;
-		mult = false;
+		booth = false;
 		abc = "abc";
 	}
 
@@ -167,8 +167,8 @@ struct SynthPass : public ScriptPass {
 				noalumacc = true;
 				continue;
 			}
-			if (args[argidx] == "-mult") {
-				mult = true;
+			if (args[argidx] == "-booth") {
+				booth = true;
 				continue;
 			}
 
@@ -246,7 +246,7 @@ struct SynthPass : public ScriptPass {
 				run("techmap -map +/cmp2lut.v -map +/cmp2lcu.v", " (if -lut)");
 			else if (lut)
 				run(stringf("techmap -map +/cmp2lut.v -map +/cmp2lcu.v -D LUT_WIDTH=%d", lut));
-			if (mult)
+			if (booth)
 				run("booth");
 			if (!noalumacc)
 				run("alumacc", "  (unless -noalumacc)");
