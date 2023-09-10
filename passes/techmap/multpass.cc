@@ -1112,7 +1112,6 @@ struct MultPassWorker {
 	/*
 	  Signed Multiplier
 	*/
-
 	void CreateBoothSMult(RTLIL::Module *module, int x_sz, int y_sz, int z_sz, RTLIL::Wire *X, RTLIL::Wire *Y, RTLIL::Wire *Z)
 	{ // product
 		unsigned enc_count = (y_sz / 2) + (((y_sz % 2) != 0) ? 1 : 0);
@@ -1171,20 +1170,22 @@ struct MultPassWorker {
 					  cori_n_int[encoder_ix - 1]);
 			}
 		}
+
 		// Decoders and PP generation
-		RTLIL::Wire *PPij[enc_count][dec_count];
-		RTLIL::Wire *nxj[enc_count][dec_count];
+		RTLIL::Wire *PPij[enc_count * dec_count];
+		RTLIL::Wire *nxj[enc_count * dec_count];
+
 		for (int encoder_ix = 1; encoder_ix <= (int)enc_count; encoder_ix++) {
 			for (int decoder_ix = 1; decoder_ix <= dec_count; decoder_ix++) {
 				std::string ppij_name = "ppij_" + std::to_string(encoder_ix) + "_" + std::to_string(decoder_ix) + "_";
-				PPij[encoder_ix - 1][decoder_ix - 1] = module->addWire(new_id(ppij_name, __LINE__, ""), 1);
+				PPij[((encoder_ix - 1) * dec_count) + decoder_ix - 1] = module->addWire(new_id(ppij_name, __LINE__, ""), 1);
 				std::string nxj_name;
 				if (decoder_ix == 1)
 					nxj_name = "nxj_pre_dec" + std::to_string(encoder_ix) + "_" + std::to_string(decoder_ix) + "_";
 				else
 					nxj_name = "nxj_" + std::to_string(encoder_ix) + "_" + std::to_string(decoder_ix) + "_";
 
-				nxj[encoder_ix - 1][decoder_ix - 1] = module->addWire(new_id(nxj_name, __LINE__, ""), 1);
+				nxj[((encoder_ix - 1) * dec_count) + decoder_ix - 1] = module->addWire(new_id(nxj_name, __LINE__, ""), 1);
 			}
 		}
 
@@ -1202,7 +1203,7 @@ struct MultPassWorker {
 				auto cell = module->addCell(new_id(pre_dec_name, __LINE__, ""), ID($_NOT_));
 				cell->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
 				cell->setPort(ID::A, negi_n_int[encoder_ix - 1]);
-				cell->setPort(ID::Y, nxj[encoder_ix - 1][0]);
+				cell->setPort(ID::Y, nxj[(encoder_ix - 1) * dec_count]);
 			}
 
 			for (int decoder_ix = 1; decoder_ix < dec_count; decoder_ix++) {
@@ -1214,18 +1215,18 @@ struct MultPassWorker {
 
 				std::string dec_name = "dec_" + std::to_string(encoder_ix) + "_" + std::to_string(decoder_ix) + "_";
 
-				BuildBr4d(dec_name, nxj[encoder_ix - 1][decoder_ix - 1], twoi_n_int[encoder_ix - 1],
+				BuildBr4d(dec_name, nxj[((encoder_ix - 1) * dec_count) + decoder_ix - 1], twoi_n_int[encoder_ix - 1],
 					  mk_wireFromSigSpec(SigSpec(X, decoder_ix - 1, 1)), negi_n_int[encoder_ix - 1], onei_n_int[encoder_ix - 1],
-					  PPij[encoder_ix - 1][decoder_ix - 1], nxj[encoder_ix - 1][decoder_ix]);
+					  PPij[((encoder_ix - 1) * dec_count) + decoder_ix - 1], nxj[((encoder_ix - 1) * dec_count) + decoder_ix]);
 			}
 
 			// duplicate end for sign fix
 			// applies to 9th decoder (xsz+1 decoder).
 			std::string dec_name = "dec_" + std::to_string(encoder_ix) + "_" + std::to_string(x_sz + 1) + "_";
 			RTLIL::Wire *unused_op = nullptr;
-			BuildBr4d(dec_name, nxj[encoder_ix - 1][dec_count - 1], twoi_n_int[encoder_ix - 1],
+			BuildBr4d(dec_name, nxj[((encoder_ix - 1) * dec_count) + dec_count - 1], twoi_n_int[encoder_ix - 1],
 				  mk_wireFromSigSpec(SigSpec(X, dec_count - 2, 1)), negi_n_int[encoder_ix - 1], onei_n_int[encoder_ix - 1],
-				  PPij[encoder_ix - 1][dec_count - 1], unused_op);
+				  PPij[((encoder_ix - 1) * dec_count) + dec_count - 1], unused_op);
 		}
 
 		//
@@ -1233,16 +1234,17 @@ struct MultPassWorker {
 		//
 		int fa_el_ix = 0;
 		int fa_row_ix = 0;
-		RTLIL::Wire *fa_sum_n[fa_row_count][fa_count];
-		RTLIL::Wire *fa_carry_n[fa_row_count][fa_count];
+		// use 1 d arrays (2d cannot have variable sized indices)
+		RTLIL::Wire *fa_sum_n[fa_row_count * fa_count];
+		RTLIL::Wire *fa_carry_n[fa_row_count * fa_count];
 
 		for (fa_row_ix = 0; fa_row_ix < fa_row_count; fa_row_ix++) {
 			for (fa_el_ix = 0; fa_el_ix < fa_count; fa_el_ix++) {
 
 				std::string fa_sum_name = "fa_sum_n_" + std::to_string(fa_row_ix) + "_" + std::to_string(fa_el_ix) + "_";
-				fa_sum_n[fa_row_ix][fa_el_ix] = module->addWire(new_id(fa_sum_name, __LINE__, ""), 1);
+				fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix] = module->addWire(new_id(fa_sum_name, __LINE__, ""), 1);
 				std::string fa_carry_name = "fa_carry_n" + std::to_string(fa_row_ix) + "_" + std::to_string(fa_el_ix) + "_";
-				fa_carry_n[fa_row_ix][fa_el_ix] = module->addWire(new_id(fa_carry_name, __LINE__, ""), 1);
+				fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix] = module->addWire(new_id(fa_carry_name, __LINE__, ""), 1);
 			}
 		}
 
@@ -1268,11 +1270,11 @@ struct MultPassWorker {
 						bfa_name = "bfa_0_step_" + std::to_string(fa_row_ix) + "_" + std::to_string(fa_el_ix) + "_L";
 						auto cell = module->addCell(new_id(bfa_name, __LINE__, ""), ID($fa));
 						cell->setParam(ID::WIDTH, 1);
-						cell->setPort(ID::A, PPij[0][fa_el_ix]);
-						cell->setPort(ID::B, PPij[1][fa_el_ix - 2]);
-						cell->setPort(ID::C, fa_carry_n[fa_row_ix][fa_el_ix - 1]);
-						cell->setPort(ID::X, fa_carry_n[fa_row_ix][fa_el_ix]);
-						cell->setPort(ID::Y, fa_sum_n[fa_row_ix][fa_el_ix]);
+						cell->setPort(ID::A, PPij[(0 * dec_count) + fa_el_ix]);
+						cell->setPort(ID::B, PPij[(1 * dec_count) + fa_el_ix - 2]);
+						cell->setPort(ID::C, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1]);
+						cell->setPort(ID::X, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix]);
+						cell->setPort(ID::Y, fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]);
 					}
 					// end 3 cells: x_sz+1.2.3
 					//
@@ -1281,11 +1283,11 @@ struct MultPassWorker {
 						bfa_name = "bfa_0_se_0" + std::to_string(fa_row_ix) + "_" + std::to_string(fa_el_ix) + "_L";
 						auto cell1 = module->addCell(new_id(bfa_name, __LINE__, ""), ID($fa));
 						cell1->setParam(ID::WIDTH, 1);
-						cell1->setPort(ID::A, PPij[0][x_sz]);
-						cell1->setPort(ID::B, PPij[1][fa_el_ix - 2]);
-						cell1->setPort(ID::C, fa_carry_n[fa_row_ix][fa_el_ix - 1]);
-						cell1->setPort(ID::X, fa_carry_n[fa_row_ix][fa_el_ix]);
-						cell1->setPort(ID::Y, fa_sum_n[fa_row_ix][fa_el_ix]);
+						cell1->setPort(ID::A, PPij[(0 * dec_count) + x_sz]);
+						cell1->setPort(ID::B, PPij[(1 * dec_count) + fa_el_ix - 2]);
+						cell1->setPort(ID::C, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1]);
+						cell1->setPort(ID::X, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix]);
+						cell1->setPort(ID::Y, fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]);
 
 						// exception:invert ppi
 						fa_el_ix++;
@@ -1295,7 +1297,7 @@ struct MultPassWorker {
 
 						RTLIL::Wire *d08_inv = module->addWire(NEW_ID, 1);
 
-						cellinv1->setPort(ID::A, PPij[0][dec_count - 1]);
+						cellinv1->setPort(ID::A, PPij[(0 * dec_count) + dec_count - 1]);
 						cellinv1->setPort(ID::Y, d08_inv);
 
 						exc_inv_name = "bfa_0_exc_inv2_" + std::to_string(fa_row_ix) + "_" + std::to_string(fa_el_ix) + "_L";
@@ -1303,7 +1305,7 @@ struct MultPassWorker {
 						auto cellinv2 = module->addCell(new_id(exc_inv_name, __LINE__, ""), ID($_NOT_));
 						cellinv2->add_strpool_attribute(ID::src, cellinv2->get_strpool_attribute(ID::src));
 						RTLIL::Wire *d18_inv = module->addWire(NEW_ID, 1);
-						cellinv2->setPort(ID::A, PPij[1][dec_count - 1]);
+						cellinv2->setPort(ID::A, PPij[(1 * dec_count) + dec_count - 1]);
 						cellinv2->setPort(ID::Y, d18_inv);
 
 						bfa_name = "bfa_0_se_1_" + std::to_string(fa_row_ix) + "_" + std::to_string(fa_el_ix) + "_L";
@@ -1312,9 +1314,9 @@ struct MultPassWorker {
 						cell2->setParam(ID::WIDTH, 1);
 						cell2->setPort(ID::A, d08_inv);
 						cell2->setPort(ID::B, d18_inv);
-						cell2->setPort(ID::C, fa_carry_n[fa_row_ix][fa_el_ix - 1]);
-						cell2->setPort(ID::X, fa_carry_n[fa_row_ix][fa_el_ix]);
-						cell2->setPort(ID::Y, fa_sum_n[fa_row_ix][fa_el_ix]);
+						cell2->setPort(ID::C, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1]);
+						cell2->setPort(ID::X, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix]);
+						cell2->setPort(ID::Y, fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]);
 
 						// sign extension
 						fa_el_ix++;
@@ -1323,9 +1325,9 @@ struct MultPassWorker {
 						cell3->setParam(ID::WIDTH, 1);
 						cell3->setPort(ID::A, State::S0);
 						cell3->setPort(ID::B, State::S1);
-						cell3->setPort(ID::C, fa_carry_n[fa_row_ix][fa_el_ix - 1]);
-						cell3->setPort(ID::X, fa_carry_n[fa_row_ix][fa_el_ix]);
-						cell3->setPort(ID::Y, fa_sum_n[fa_row_ix][fa_el_ix]);
+						cell3->setPort(ID::C, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1]);
+						cell3->setPort(ID::X, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix]);
+						cell3->setPort(ID::Y, fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]);
 					}
 				}
 
@@ -1340,22 +1342,23 @@ struct MultPassWorker {
 							   std::to_string(fa_el_ix) + "_L";
 						auto cell1 = module->addCell(new_id(bfa_name, __LINE__, ""), ID($fa));
 						cell1->setParam(ID::WIDTH, 1);
-						cell1->setPort(ID::A, fa_sum_n[fa_row_ix - 1][2]); // from prior full adder row
+						cell1->setPort(ID::A, fa_sum_n[(fa_row_ix - 1) * fa_count + 2]); // from prior full adder row
 						cell1->setPort(ID::B, State::S0);
 						cell1->setPort(ID::C, cori_n_int[fa_row_ix]);
-						cell1->setPort(ID::X, fa_carry_n[fa_row_ix][fa_el_ix]);
-						cell1->setPort(ID::Y, fa_sum_n[fa_row_ix][fa_el_ix]);
+						cell1->setPort(ID::X, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix]);
+						cell1->setPort(ID::Y, fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]);
 						fa_el_ix++;
 
 						bfa_name = "bfa_" + std::to_string(fa_row_ix) + "_base_" + std::to_string(fa_row_ix) + "_" +
 							   std::to_string(fa_el_ix) + "_L";
 						auto cell2 = module->addCell(new_id(bfa_name, __LINE__, ""), ID($fa));
 						cell2->setParam(ID::WIDTH, 1);
-						cell2->setPort(ID::A, fa_sum_n[fa_row_ix - 1][3]); // from prior full adder row
+						cell2->setPort(ID::A,
+							       fa_sum_n[(fa_row_ix - 1) * fa_count + 3]); // from prior full adder row
 						cell2->setPort(ID::B, State::S0);
-						cell2->setPort(ID::C, fa_carry_n[fa_row_ix][fa_el_ix - 1]);
-						cell2->setPort(ID::X, fa_carry_n[fa_row_ix][fa_el_ix]);
-						cell2->setPort(ID::Y, fa_sum_n[fa_row_ix][fa_el_ix]);
+						cell2->setPort(ID::C, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1]);
+						cell2->setPort(ID::X, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix]);
+						cell2->setPort(ID::Y, fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]);
 					}
 
 					else if (fa_el_ix >= 2 && fa_el_ix <= x_sz + 1) {
@@ -1364,11 +1367,11 @@ struct MultPassWorker {
 							   std::to_string(fa_el_ix) + "_L";
 						auto cell = module->addCell(new_id(bfa_name, __LINE__, ""), ID($fa));
 						cell->setParam(ID::WIDTH, 1);
-						cell->setPort(ID::A, fa_sum_n[fa_row_ix - 1][fa_el_ix + 2]);
-						cell->setPort(ID::B, PPij[fa_row_ix + 1][fa_el_ix - 2]);
-						cell->setPort(ID::C, fa_carry_n[fa_row_ix][fa_el_ix - 1]);
-						cell->setPort(ID::X, fa_carry_n[fa_row_ix][fa_el_ix]);
-						cell->setPort(ID::Y, fa_sum_n[fa_row_ix][fa_el_ix]);
+						cell->setPort(ID::A, fa_sum_n[(fa_row_ix - 1) * fa_count + fa_el_ix + 2]);
+						cell->setPort(ID::B, PPij[(fa_row_ix + 1) * dec_count + fa_el_ix - 2]);
+						cell->setPort(ID::C, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1]);
+						cell->setPort(ID::X, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix]);
+						cell->setPort(ID::Y, fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]);
 					}
 
 					else if (fa_el_ix > x_sz + 1) {
@@ -1379,18 +1382,18 @@ struct MultPassWorker {
 						auto cellinv = module->addCell(new_id(se_inv_name, __LINE__, ""), ID($_NOT_));
 						cellinv->add_strpool_attribute(ID::src, cellinv->get_strpool_attribute(ID::src));
 						RTLIL::Wire *d_inv = module->addWire(NEW_ID, 1);
-						cellinv->setPort(ID::A, PPij[fa_row_ix + 1][dec_count - 1]);
+						cellinv->setPort(ID::A, PPij[((fa_row_ix + 1) * dec_count) + dec_count - 1]);
 						cellinv->setPort(ID::Y, d_inv);
 
 						bfa_name = "bfa_" + std::to_string(fa_row_ix) + "_se_" + std::to_string(fa_row_ix) + "_" +
 							   std::to_string(fa_el_ix) + "_L";
 						auto cell1 = module->addCell(new_id(bfa_name, __LINE__, ""), ID($fa));
 						cell1->setParam(ID::WIDTH, 1);
-						cell1->setPort(ID::A, fa_carry_n[fa_row_ix - 1][fa_count - 1]);
+						cell1->setPort(ID::A, fa_carry_n[((fa_row_ix - 1) * fa_count) + fa_count - 1]);
 						cell1->setPort(ID::B, d_inv);
-						cell1->setPort(ID::C, fa_carry_n[fa_row_ix][fa_el_ix - 1]);
-						cell1->setPort(ID::X, fa_carry_n[fa_row_ix][fa_el_ix]);
-						cell1->setPort(ID::Y, fa_sum_n[fa_row_ix][fa_el_ix]);
+						cell1->setPort(ID::C, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1]);
+						cell1->setPort(ID::X, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix]);
+						cell1->setPort(ID::Y, fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]);
 						fa_el_ix++;
 
 						// sign extension
@@ -1400,9 +1403,9 @@ struct MultPassWorker {
 						cell2->setParam(ID::WIDTH, 1);
 						cell2->setPort(ID::A, State::S0);
 						cell2->setPort(ID::B, State::S1);
-						cell2->setPort(ID::C, fa_carry_n[fa_row_ix][fa_el_ix - 1]);
-						cell2->setPort(ID::X, fa_carry_n[fa_row_ix][fa_el_ix]);
-						cell2->setPort(ID::Y, fa_sum_n[fa_row_ix][fa_el_ix]);
+						cell2->setPort(ID::C, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1]);
+						cell2->setPort(ID::X, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix]);
+						cell2->setPort(ID::Y, fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]);
 					}
 				}
 			}
@@ -1428,7 +1431,7 @@ struct MultPassWorker {
 				std::string buf_name =
 				  "pp_buf_" + std::to_string(cpa_ix) + "_" + "driven_by_fa_row_" + std::to_string(fa_row_ix) + "_";
 				auto buf = module->addCell(new_id(buf_name, __LINE__, ""), ID($pos));
-				buf->setPort(ID::A, fa_sum_n[fa_row_ix][0]);
+				buf->setPort(ID::A, fa_sum_n[(fa_row_ix * fa_count) + 0]);
 				buf->setParam(ID::A_WIDTH, 1);
 				buf->setParam(ID::Y_WIDTH, 1);
 				buf->setParam(ID::A_SIGNED, true);
@@ -1437,7 +1440,7 @@ struct MultPassWorker {
 				cpa_ix++;
 				buf_name = "pp_buf_" + std::to_string(cpa_ix) + "_" + "driven_by_fa_row_" + std::to_string(fa_row_ix) + "_";
 				buf = module->addCell(new_id(buf_name, __LINE__, ""), ID($pos));
-				buf->setPort(ID::A, fa_sum_n[fa_row_ix][1]);
+				buf->setPort(ID::A, fa_sum_n[(fa_row_ix * fa_count) + 1]);
 				buf->setParam(ID::A_WIDTH, 1);
 				buf->setParam(ID::Y_WIDTH, 1);
 				buf->setParam(ID::A_SIGNED, true);
@@ -1454,7 +1457,8 @@ struct MultPassWorker {
 					ci_wire = cpa_carry[cpa_ix - offset - 1];
 
 				RTLIL::Wire *op_wire = module->addWire(NEW_ID, 1);
-				BuildHa(cpa_name, fa_sum_n[fa_row_count - 1][cpa_ix - offset + 2], ci_wire, op_wire, cpa_carry[cpa_ix - offset]);
+				BuildHa(cpa_name, fa_sum_n[(fa_row_count - 1) * fa_count + cpa_ix - offset + 2], ci_wire, op_wire,
+					cpa_carry[cpa_ix - offset]);
 				module->connect(op_wire, SigSpec(Z, cpa_ix, 1));
 			}
 		}
@@ -1481,10 +1485,10 @@ struct MultPassWorker {
 
 			     nxj_o_int, cor_o_int, pp0_o_int, pp1_o_int);
 
-		join_wires_with_buffer(pp0_o_int, fa_sum_n[0][0]);
-		join_wires_with_buffer(pp1_o_int, fa_sum_n[0][1]);
-		join_wires_with_buffer(cor_o_int, fa_carry_n[0][1]);
-		join_wires_with_buffer(nxj_o_int, nxj[0][2]);
+		join_wires_with_buffer(pp0_o_int, fa_sum_n[(0 * fa_count) + 0]);
+		join_wires_with_buffer(pp1_o_int, fa_sum_n[(0 * fa_count) + 1]);
+		join_wires_with_buffer(cor_o_int, fa_carry_n[(0 * fa_count) + 1]);
+		join_wires_with_buffer(nxj_o_int, nxj[(0 * dec_count) + 2]);
 	}
 };
 
