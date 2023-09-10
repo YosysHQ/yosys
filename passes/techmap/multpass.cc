@@ -1412,7 +1412,7 @@ struct MultPassWorker {
 		}
 
 		// instantiate the cpa
-		RTLIL::Wire *cpa_carry[z_sz];
+		RTLIL::Wire **cpa_carry = new RTLIL::Wire *[z_sz];
 
 		for (int cix = 0; cix < z_sz; cix++) {
 			std::string cpa_cix_name = "cpa_carry_" + std::to_string(cix) + "_";
@@ -1497,6 +1497,7 @@ struct MultPassWorker {
 
 		delete[] fa_sum_n;
 		delete[] fa_carry_n;
+		delete[] cpa_carry;
 	}
 };
 
