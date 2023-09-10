@@ -1124,10 +1124,10 @@ struct MultPassWorker {
 		    "Result of size %d. %d encoders %d decoders\n",
 		    x_sz, y_sz, z_sz, enc_count, dec_count);
 
-		RTLIL::Wire *negi_n_int[enc_count];
-		RTLIL::Wire *twoi_n_int[enc_count];
-		RTLIL::Wire *onei_n_int[enc_count];
-		RTLIL::Wire *cori_n_int[enc_count];
+		RTLIL::Wire **negi_n_int = new RTLIL::Wire *[enc_count];
+		RTLIL::Wire **twoi_n_int = new RTLIL::Wire *[enc_count];
+		RTLIL::Wire **onei_n_int = new RTLIL::Wire *[enc_count];
+		RTLIL::Wire **cori_n_int = new RTLIL::Wire *[enc_count];
 
 		for (unsigned encoder_ix = 1; encoder_ix <= enc_count; encoder_ix++) {
 			std::string enc_name = "enc_" + std::to_string(encoder_ix) + "_";
@@ -1172,8 +1172,8 @@ struct MultPassWorker {
 		}
 
 		// Decoders and PP generation
-		RTLIL::Wire *PPij[enc_count * dec_count];
-		RTLIL::Wire *nxj[enc_count * dec_count];
+		RTLIL::Wire **PPij = new RTLIL::Wire *[enc_count * dec_count];
+		RTLIL::Wire **nxj = new RTLIL::Wire *[enc_count * dec_count];
 
 		for (int encoder_ix = 1; encoder_ix <= (int)enc_count; encoder_ix++) {
 			for (int decoder_ix = 1; decoder_ix <= dec_count; decoder_ix++) {
@@ -1235,8 +1235,8 @@ struct MultPassWorker {
 		int fa_el_ix = 0;
 		int fa_row_ix = 0;
 		// use 1 d arrays (2d cannot have variable sized indices)
-		RTLIL::Wire *fa_sum_n[fa_row_count * fa_count];
-		RTLIL::Wire *fa_carry_n[fa_row_count * fa_count];
+		RTLIL::Wire **fa_sum_n = new RTLIL::Wire *[fa_row_count * fa_count];
+		RTLIL::Wire **fa_carry_n = new RTLIL::Wire *[fa_row_count * fa_count];
 
 		for (fa_row_ix = 0; fa_row_ix < fa_row_count; fa_row_ix++) {
 			for (fa_el_ix = 0; fa_el_ix < fa_count; fa_el_ix++) {
@@ -1489,6 +1489,14 @@ struct MultPassWorker {
 		join_wires_with_buffer(pp1_o_int, fa_sum_n[(0 * fa_count) + 1]);
 		join_wires_with_buffer(cor_o_int, fa_carry_n[(0 * fa_count) + 1]);
 		join_wires_with_buffer(nxj_o_int, nxj[(0 * dec_count) + 2]);
+
+		delete[] negi_n_int;
+		delete[] twoi_n_int;
+		delete[] onei_n_int;
+		delete[] cori_n_int;
+
+		delete[] fa_sum_n;
+		delete[] fa_carry_n;
 	}
 };
 
