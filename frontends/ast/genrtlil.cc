@@ -759,7 +759,7 @@ struct AST_INTERNAL::ProcessGenerator
 						arg.realtime = true;
 					} else {
 						arg.type = VerilogFmtArg::INTEGER;
-						arg.sig = node->genRTLIL();
+						arg.sig = node->genWidthRTLIL(-1, false, &subst_rvalue_map.stdmap());
 						arg.signed_ = is_signed;
 					}
 					args.push_back(arg);
