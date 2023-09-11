@@ -1,6 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
+ *  Copyright (C) 2023  Andy Fox <andy@rushc.com> https://www.linkedin.com/in/awfox/
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -17,8 +18,8 @@
  */
 
 /*
-  MultPass
-  --------
+  Booth Pass
+  ----------
 
   Replace $mul with booth encoded multipliers. Two different
   architectures used for signed/unsigned.
@@ -31,13 +32,13 @@
   http://i.stanford.edu/pub/cstr/reports/csl/tr/94/617/CSL-TR-94-617.pdf
 
   How to use:
-  Add multpass to your yosys script eg:
+  Add booth pass  to your yosys script eg:
 
   read_verilog smultiply5_rtl.v
   opt
   wreduce
   opt
-  multpass
+  booth
   alumacc
   maccmap
   opt
@@ -46,6 +47,9 @@
   abc -liberty NangateOpenCellLibrary_typical.lib
   stat -liberty NangateOpenCellLibrary_typical.lib
   write_verilog -norename booth_final.v
+
+or in generic synthesis call with -booth argument:
+synth -top my_design -booth
 */
 
 #include "kernel/sigtools.h"
