@@ -58,13 +58,13 @@ synth -top my_design -booth
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct MultPassWorker {
+struct BoothPassWorker {
 
 	RTLIL::Module *module;
 	SigMap sigmap;
 	int booth_counter;
 
-	MultPassWorker(RTLIL::Module *module) : module(module), sigmap(module) { booth_counter = 0; }
+	BoothPassWorker(RTLIL::Module *module) : module(module), sigmap(module) { booth_counter = 0; }
 
 	// Helper routines for building architecture subcomponents
 
@@ -1505,15 +1505,16 @@ struct MultPassWorker {
 	}
 };
 
-struct MultPass : public Pass {
-	MultPass() : Pass("booth", "Map $mul to booth multipliers") {}
+struct BoothPass : public Pass {
+	BoothPass() : Pass("booth", "Map $mul to booth multipliers") {}
 	void execute(vector<string> args, RTLIL::Design *design) override
 	{
 		(void)args;
-		log_header(design, "Executing multpass. Generating Booth Multiplier structures for signed/unsigned multipliers of 4 bits or more\n");
+		log_header(design,
+			   "Executing booth pass. Generating Booth Multiplier structures for signed/unsigned multipliers of 4 bits or more\n");
 		for (auto mod : design->selected_modules())
 			if (!mod->has_processes_warn()) {
-				MultPassWorker worker(mod);
+				BoothPassWorker worker(mod);
 				worker.run();
 				log_header(design, "Created %d booth multipliers.\n", worker.booth_counter);
 			}
