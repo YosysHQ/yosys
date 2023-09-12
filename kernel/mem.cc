@@ -1252,12 +1252,12 @@ void Mem::prepare_wr_merge(int idx1, int idx2, FfInitVals *initvals) {
 		// If transparent with only one, emulate it, and remove the collision-X
 		// flag that emulate_transparency will set (to align with the other port).
 		if (rport.transparency_mask[idx1]) {
-			emulate_transparency(i, idx1, initvals);
+			emulate_transparency(idx1, i, initvals);
 			rport.collision_x_mask[idx1] = false;
 			continue;
 		}
 		if (rport.transparency_mask[idx2]) {
-			emulate_transparency(i, idx2, initvals);
+			emulate_transparency(idx2, i, initvals);
 			rport.collision_x_mask[idx2] = false;
 			continue;
 		}
