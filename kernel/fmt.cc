@@ -740,7 +740,7 @@ std::string Fmt::render() const
 				log_assert(part.width == 0 || part.padding != '\0');
 				if (part.justify == FmtPart::RIGHT && buf.size() < part.width) {
 					size_t pad_width = part.width - buf.size();
-					if (part.padding == '0' && (buf.front() == '+' || buf.front() == '-')) {
+					if (part.padding == '0' && (!buf.empty() && (buf.front() == '+' || buf.front() == '-'))) {
 						str += buf.front();
 						buf.erase(0, 1);
 					}
