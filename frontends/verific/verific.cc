@@ -74,7 +74,7 @@ USING_YOSYS_NAMESPACE
 #  error "Only YosysHQ flavored Verific is supported. Please contact office@yosyshq.com for commercial support for Yosys+Verific."
 #endif
 
-#if YOSYSHQ_VERIFIC_API_VERSION < 20210801
+#if YOSYSHQ_VERIFIC_API_VERSION < 20230901
 #  error "Please update your version of YosysHQ flavored Verific."
 #endif
 
@@ -249,6 +249,14 @@ static const RTLIL::Const verific_const(const char *value, bool allow_string = t
 		c.flags |= RTLIL::CONST_FLAG_SIGNED;
 
 	return c;
+}
+
+static const std::string verific_unescape(const char *value)
+{
+	std::string val = std::string(value);
+	if (val.size()>1 && val[0]=='\"' && val.back()=='\"')
+		return val.substr(1,val.size()-2);
+	return value;
 }
 
 void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &attributes, DesignObj *obj, Netlist *nl)
@@ -1100,6 +1108,43 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		cs_default->actions.push_back(SigSig(sig_out_val, sig_data_default));
 		sw->cases.push_back(cs_default);
 
+		return true;
+	}
+
+	if (inst->Type() == OPER_YOSYSHQ_SET_TAG)
+	{
+		RTLIL::SigSpec sig_expr = operatorInport(inst, "expr");
+		RTLIL::SigSpec sig_set_mask = operatorInport(inst, "set_mask");
+		RTLIL::SigSpec sig_clr_mask = operatorInport(inst, "clr_mask");
+		RTLIL::SigSpec sig_o = operatorOutput(inst);
+		std::string tag = inst->GetAtt("tag") ? verific_unescape(inst->GetAttValue("tag")) : "";
+		module->connect(sig_o, module->SetTag(new_verific_id(inst), tag, sig_expr, sig_set_mask, sig_clr_mask));
+		return true;
+	}
+	if (inst->Type() == OPER_YOSYSHQ_GET_TAG)
+	{
+		std::string tag = inst->GetAtt("tag") ? verific_unescape(inst->GetAttValue("tag")) : "";
+		module->connect(operatorOutput(inst),module->GetTag(new_verific_id(inst), tag, operatorInput(inst)));
+		return true;
+	}
+	if (inst->Type() == OPER_YOSYSHQ_OVERWRITE_TAG)
+	{
+		RTLIL::SigSpec sig_signal = operatorInport(inst, "signal");
+		RTLIL::SigSpec sig_set_mask = operatorInport(inst, "set_mask");
+		RTLIL::SigSpec sig_clr_mask = operatorInport(inst, "clr_mask");
+		std::string tag = inst->GetAtt("tag") ? verific_unescape(inst->GetAttValue("tag")) : "";
+		module->addOverwriteTag(new_verific_id(inst), tag, sig_signal, sig_set_mask, sig_clr_mask);
+		return true;
+	}
+	if (inst->Type() == OPER_YOSYSHQ_ORIGINAL_TAG)
+	{
+		std::string tag = inst->GetAtt("tag") ? verific_unescape(inst->GetAttValue("tag")) : "";
+		module->connect(operatorOutput(inst),module->OriginalTag(new_verific_id(inst), tag, operatorInput(inst)));
+		return true;
+	}
+	if (inst->Type() == OPER_YOSYSHQ_FUTURE_FF)
+	{
+		module->connect(operatorOutput(inst),module->FutureFF(new_verific_id(inst), operatorInput(inst)));
 		return true;
 	}
 
