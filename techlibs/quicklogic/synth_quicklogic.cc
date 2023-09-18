@@ -263,7 +263,6 @@ struct SynthQuickLogicPass : public ScriptPass {
 			run("ql_bram_merge");
 			run("techmap -map " + lib_path + family + "/libmap_brams_map.v");
 			run("techmap -autoproc -map " + lib_path + family + "/brams_map.v");
-			run("techmap -map " + lib_path + family + "/brams_final_map.v");
 
 			if (bramTypes || help_mode) {
 				run("ql_bram_types", "(if -bramtypes)");
