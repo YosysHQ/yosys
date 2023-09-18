@@ -4031,16 +4031,20 @@ void RTLIL::SigSpec::replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec
 	unpack();
 	other->unpack();
 
+	dict<RTLIL::SigBit, int> pattern_to_with;
 	for (int i = 0; i < GetSize(pattern.bits_); i++) {
 		if (pattern.bits_[i].wire != NULL) {
-			for (int j = 0; j < GetSize(bits_); j++) {
-				if (bits_[j] == pattern.bits_[i]) {
-					other->bits_[j] = with.bits_[i];
-				}
-			}
+			pattern_to_with.emplace(pattern.bits_[i], i);
 		}
 	}
 
+	for (int j = 0; j < GetSize(bits_); j++) {
+		auto it = pattern_to_with.find(bits_[j]);
+		if (it != pattern_to_with.end()) {
+			other->bits_[j] = with.bits_[it->second];
+		}
+	}
+	
 	other->check();
 }
 
