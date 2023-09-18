@@ -248,6 +248,7 @@ Synchronous SDP with write-first behavior (alternate pattern)
 
 .. code:: verilog
 
+	reg [ADDR_WIDTH - 1 : 0] read_addr_reg;
 	reg [DATA_WIDTH - 1 : 0] mem [2**ADDR_WIDTH - 1 : 0];
 
 	always @(posedge clk) begin
@@ -374,7 +375,7 @@ Synchronous reset, reset priority over enable
 			mem[write_addr] <= write_data;
 
 		if (read_reset)
-			read_data <= {sval};
+			read_data <= 'h1234;
 		else if (read_enable)
 			read_data <= mem[read_addr];
 	end
@@ -408,8 +409,8 @@ Synchronous read port with asynchronous reset
 			mem[write_addr] <= write_data;
 	end
 
-	always @(posedge clk, posedge reset_read) begin
-		if (reset_read)
+	always @(posedge clk, posedge read_reset) begin
+		if (read_reset)
 			read_data <= 'h1234;
 		else if (read_enable)
 			read_data <= mem[read_addr];
@@ -590,14 +591,14 @@ TDP with multiple read ports
 	assign read_data_b = mem[read_addr_b];
 	assign read_data_c = mem[read_addr_c];
 
-Not yet supported patterns
---------------------------
+Patterns only supported with Verific
+------------------------------------
 
 Synchronous SDP with write-first behavior via blocking assignments
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Would require modifications to the Yosys Verilog frontend.
-- Use `Synchronous SDP with write-first behavior`_ instead
+- Use `Synchronous SDP with write-first behavior`_ for compatibility with Yosys
+  Verilog frontend.
 
 .. code:: verilog
 
@@ -614,8 +615,8 @@ Synchronous SDP with write-first behavior via blocking assignments
 Asymmetric memories via part selection
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Would require major changes to the Verilog frontend.
-- Build wide ports out of narrow ports instead (see `Wide synchronous read port`_)
+- Build wide ports out of narrow ports instead (see `Wide synchronous read
+  port`_) for compatibility with Yosys Verilog frontend.
 
 .. code:: verilog
 
