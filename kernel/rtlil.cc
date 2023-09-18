@@ -27,6 +27,7 @@
 
 #include <string.h>
 #include <algorithm>
+#include <array>
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -200,17 +201,30 @@ const pool<IdString> &RTLIL::builtin_ff_cell_types() {
 	return res;
 }
 
-RTLIL::Const::Const(const std::string &str)
-{
-	flags = RTLIL::CONST_FLAG_STRING;
-	bits.reserve(str.size() * 8);
-	for (int i = str.size()-1; i >= 0; i--) {
-		unsigned char ch = str[i];
-		for (int j = 0; j < 8; j++) {
-			bits.push_back((ch & 1) != 0 ? State::S1 : State::S0);
-			ch = ch >> 1;
-		}
-	}
+PRIVATE_NAMESPACE_BEGIN
+
+using CharToBitsLUT = std::array<std::array<RTLIL::State, 8>, 256>;
+
+const CharToBitsLUT build_CharToBitsLUT() {
+        CharToBitsLUT LUT;
+        for (int i = 0; i < 256; ++i) {
+          unsigned char ch = i;
+          for (int j = 0; j < 8; j++) {
+            LUT[i][j] = (ch & 1) != 0 ? State::S1 : State::S0;
+            ch = ch >> 1;
+          }
+        }
+        return LUT;
+}
+PRIVATE_NAMESPACE_END
+
+RTLIL::Const::Const(const std::string &str) : flags(RTLIL::CONST_FLAG_STRING) {
+        static const CharToBitsLUT LUT = build_CharToBitsLUT();
+        bits.reserve(str.size() * 8);
+        for (int i = str.size() - 1; i >= 0; --i) {
+          const unsigned char ch = str[i];
+          bits.insert(bits.end(), LUT[ch].begin(), LUT[ch].end());
+        }
 }
 
 RTLIL::Const::Const(int val, int width)
@@ -311,20 +325,30 @@ RTLIL::Const RTLIL::Const::from_string(const std::string &str)
 	return c;
 }
 
-std::string RTLIL::Const::decode_string() const
-{
-	std::string string;
-	string.reserve(GetSize(bits)/8);
-	for (int i = 0; i < GetSize(bits); i += 8) {
-		char ch = 0;
-		for (int j = 0; j < 8 && i + j < int (bits.size()); j++)
-			if (bits[i + j] == RTLIL::State::S1)
-				ch |= 1 << j;
-		if (ch != 0)
-			string.append({ch});
-	}
-	std::reverse(string.begin(), string.end());
-	return string;
+std::string RTLIL::Const::decode_string() const {
+        const int n = GetSize(bits);
+        const int n_over_8 = n / 8;
+        std::string s;
+        s.reserve(n_over_8);
+
+        auto fill_byte = [&](int start, int end) {
+          char ch = 0;
+          for (int j = start; j < end; j++) {
+            if (bits[j] == RTLIL::State::S1) {
+              ch |= 1 << (j - start);
+            }
+          }
+          if (ch != 0) s.append({ch});
+        };
+
+        int i = n_over_8 * 8;
+        if (i < n) {
+          fill_byte(i, n);
+        }
+        for (; i >= 8; i -= 8) {
+          fill_byte(i-8, i);
+        }
+        return s;
 }
 
 bool RTLIL::Const::is_fully_zero() const
