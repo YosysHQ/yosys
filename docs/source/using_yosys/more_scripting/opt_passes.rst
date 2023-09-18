@@ -3,7 +3,7 @@
 Optimization passes
 ===================
 
-.. todo:: copypaste
+.. todo:: check text context, also check the optimization passes still do what they say
 
 Yosys employs a number of optimizations to generate better and cleaner results.
 This chapter outlines these optimizations.

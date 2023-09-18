@@ -1,7 +1,7 @@
 Flow overview
 =============
 
-.. todo:: copypaste
+.. todo:: less academic
 
 :numref:`Figure %s <fig:Overview_flow>` shows the simplified data flow within
 Yosys. Rectangles in the figure represent program modules and ellipses internal

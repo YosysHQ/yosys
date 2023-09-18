@@ -1,6 +1,6 @@
 .. _chapter:techmap:
 
-.. todo:: copypaste
+.. todo:: less academic, check text is coherent
 
 Technology mapping 
 ==================
@@ -109,8 +109,6 @@ sensitive information from the Liberty file.
 Techmap by example
 ------------------
 
-.. todo:: copypaste
-
 As a quick recap, the :cmd:ref:`techmap` command replaces cells in the design
 with implementations given as Verilog code (called "map files"). It can replace
 Yosys' internal cell types (such as ``$or``) as well as user-defined cell types.
@@ -124,6 +122,8 @@ Yosys' internal cell types (such as ``$or``) as well as user-defined cell types.
 
 Mapping OR3X1
 ~~~~~~~~~~~~~
+
+.. todo:: add/expand supporting text
 
 .. note::
 

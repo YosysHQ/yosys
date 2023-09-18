@@ -1,7 +1,7 @@
 Typical phases of a synthesis flow
 ----------------------------------
 
-.. todo:: copypaste
+.. todo:: expand text
 
 - Reading and elaborating the design
 - Higher-level synthesis and optimization

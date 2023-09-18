@@ -4,7 +4,7 @@ Flows, command types, and order
 Command order
 -------------
 
-.. todo:: copypaste
+.. todo:: check text is coherent
 
 Intro to coarse-grain synthesis
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -39,7 +39,7 @@ The extract pass
   subcircuit with an instance of the module from the map file.
 - In a way the :cmd:ref:`extract` pass is the inverse of the techmap pass.
 
-.. todo:: copypaste
+.. todo:: add/expand supporting text
 
 .. figure:: ../../images/res/PRESENTATION_ExAdv/macc_simple_test_00a.*
     :class: width-helper
@@ -121,7 +121,7 @@ Preconditioning: ``macc_xilinx_swap_map.v``
 
 Make sure ``A`` is the smaller port on all multipliers
 
-.. todo:: copypaste
+.. todo:: add/expand supporting text
 
 .. literalinclude:: ../../resources/PRESENTATION_ExAdv/macc_xilinx_swap_map.v
    :language: verilog
@@ -277,7 +277,7 @@ Unwrap in ``test2``:
 Symbolic model checking
 -----------------------
 
-.. todo:: copypaste
+.. todo:: check text context
 
 .. note:: 
     
@@ -298,6 +298,8 @@ Checking.
 
 Checking techmap
 ~~~~~~~~~~~~~~~~
+
+.. todo:: add/expand supporting text
 
 Remember the following example from :doc:`/getting_started/typical_phases`?
 
@@ -350,6 +352,8 @@ slave keeps ``tready`` asserted all the time. (Something a test bench might do.)
 
 Symbolic Model Checking can be used to expose the bug and find a sequence of
 values for ``tready`` that yield the incorrect behavior.
+
+.. todo:: add/expand supporting text
 
 .. literalinclude:: ../../resources/PRESENTATION_ExOth/axis_master.v
    :language: verilog

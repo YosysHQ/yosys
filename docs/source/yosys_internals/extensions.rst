@@ -3,7 +3,7 @@
 Writing extensions
 ==================
 
-.. todo:: copypaste
+.. todo:: check text is coherent
 
 This chapter contains some bits and pieces of information about programming
 yosys extensions. Don't be afraid to ask questions on the YosysHQ Slack.
@@ -82,10 +82,10 @@ command has been executed can be helpful.  The
 :doc:`/using_yosys/more_scripting/selections` document has more information on
 using these commands.
 
-.. todo:: copypaste
-
 Creating modules from scratch
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. todo:: add/expand supporting text
 
 Let's create the following module using the RTLIL API:
 

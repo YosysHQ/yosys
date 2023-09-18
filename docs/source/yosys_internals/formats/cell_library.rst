@@ -1,12 +1,12 @@
 .. role:: verilog(code)
 	:language: Verilog
 
-.. todo:: copypaste
-
 .. _chapter:celllib:
 
 Internal cell library
 =====================
+
+.. todo:: less academic, also check formatting consistency
 
 Most of the passes in Yosys operate on netlists, i.e. they only care about the
 RTLIL::Wire and RTLIL::Cell objects in an RTLIL::Module. This chapter discusses

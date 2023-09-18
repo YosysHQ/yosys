@@ -116,6 +116,8 @@ Benefits of open source HDL synthesis
 The extended Yosys universe
 ---------------------------
 
+.. todo:: links and add SCY
+
 In no particular order:
 
 - SBY for formal verification
@@ -125,7 +127,7 @@ In no particular order:
 History of Yosys
 ----------------
 
-.. todo:: copypaste
+.. todo:: make less academic
 
 A Hardware Description Language (HDL) is a computer language used to describe
 circuits. A HDL synthesis tool is a computer program that takes a formal
