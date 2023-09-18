@@ -31,7 +31,6 @@ $(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf
 $(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/libmap_brams.txt))
 $(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/libmap_brams_map.v))
 $(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/brams_map.v))
-$(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/brams_final_map.v))
 $(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/brams_sim.v))
 $(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/bram_types_sim.v))
 $(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/cells_sim.v))
