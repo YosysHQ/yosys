@@ -24,13 +24,13 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct Ecp5GsrPass : public Pass {
-	Ecp5GsrPass() : Pass("ecp5_gsr", "ECP5: handle GSR") { }
+struct LatticeGsrPass : public Pass {
+	LatticeGsrPass() : Pass("lattice_gsr", "Lattice: handle GSR") { }
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    ecp5_gsr [options] [selection]\n");
+		log("    lattice_gsr [options] [selection]\n");
 		log("\n");
 		log("Trim active low async resets connected to GSR and resolve GSR parameter,\n");
 		log("if a GSR or SGSR primitive is used in the design.\n");
@@ -42,7 +42,7 @@ struct Ecp5GsrPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		log_header(design, "Executing ECP5_GSR pass (implement FF init values).\n");
+		log_header(design, "Executing LATTICE_GSR pass (implement FF init values).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -130,6 +130,6 @@ struct Ecp5GsrPass : public Pass {
 
 		}
 	}
-} Ecp5GsrPass;
+} LatticeGsrPass;
 
 PRIVATE_NAMESPACE_END

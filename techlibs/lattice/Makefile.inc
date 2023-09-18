@@ -1,0 +1,28 @@
+
+OBJS += techlibs/lattice/synth_lattice.o
+OBJS += techlibs/lattice/lattice_gsr.o
+
+$(eval $(call add_share_file,share/lattice,techlibs/lattice/cells_ff.vh))
+$(eval $(call add_share_file,share/lattice,techlibs/lattice/cells_io.vh))
+$(eval $(call add_share_file,share/lattice,techlibs/lattice/cells_map.v))
+$(eval $(call add_share_file,share/lattice,techlibs/lattice/common_sim.vh))
+$(eval $(call add_share_file,share/lattice,techlibs/lattice/ccu2d_sim.vh))
+$(eval $(call add_share_file,share/lattice,techlibs/lattice/ccu2c_sim.vh))
+$(eval $(call add_share_file,share/lattice,techlibs/lattice/cells_sim_ecp5.v))
+$(eval $(call add_share_file,share/lattice,techlibs/lattice/cells_sim_xo2.v))
+$(eval $(call add_share_file,share/lattice,techlibs/lattice/cells_sim_xo3.v))
+$(eval $(call add_share_file,share/lattice,techlibs/lattice/cells_sim_xo3d.v))
+$(eval $(call add_share_file,share/lattice,techlibs/lattice/cells_bb_ecp5.v))
+$(eval $(call add_share_file,share/lattice,techlibs/lattice/cells_bb_xo2.v))
+$(eval $(call add_share_file,share/lattice,techlibs/lattice/cells_bb_xo3.v))
+$(eval $(call add_share_file,share/lattice,techlibs/lattice/cells_bb_xo3d.v))
+$(eval $(call add_share_file,share/lattice,techlibs/lattice/lutrams_map.v))
+$(eval $(call add_share_file,share/lattice,techlibs/lattice/lutrams.txt))
+$(eval $(call add_share_file,share/lattice,techlibs/lattice/brams_map_16kd.v))
+$(eval $(call add_share_file,share/lattice,techlibs/lattice/brams_16kd.txt))
+$(eval $(call add_share_file,share/lattice,techlibs/lattice/brams_map_8kc.v))
+$(eval $(call add_share_file,share/lattice,techlibs/lattice/brams_8kc.txt))
+$(eval $(call add_share_file,share/lattice,techlibs/lattice/arith_map_ccu2c.v))
+$(eval $(call add_share_file,share/lattice,techlibs/lattice/arith_map_ccu2d.v))
+$(eval $(call add_share_file,share/lattice,techlibs/lattice/latches_map.v))
+$(eval $(call add_share_file,share/lattice,techlibs/lattice/dsp_map_18x18.v))

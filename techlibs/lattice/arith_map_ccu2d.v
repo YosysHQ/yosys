@@ -19,7 +19,7 @@
  */
 
 (* techmap_celltype = "$alu" *)
-module _80_ecp5_alu (A, B, CI, BI, X, Y, CO);
+module _80_ccu2d_alu (A, B, CI, BI, X, Y, CO);
 	parameter A_SIGNED = 0;
 	parameter B_SIGNED = 0;
 	parameter A_WIDTH = 1;

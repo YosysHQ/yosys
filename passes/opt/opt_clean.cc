@@ -76,7 +76,13 @@ struct keep_cache_t
 		if (cell->type.in(ID($assert), ID($assume), ID($live), ID($fair), ID($cover)))
 			return true;
 
+		if (cell->type.in(ID($overwrite_tag)))
+			return true;
+
 		if (!ignore_specify && cell->type.in(ID($specify2), ID($specify3), ID($specrule)))
+			return true;
+
+		if (cell->type == ID($print))
 			return true;
 
 		if (cell->has_keep_attr())

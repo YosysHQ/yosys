@@ -27,6 +27,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/ff.h"
 #include "kernel/mem.h"
+#include "kernel/fmt.h"
 #include <string>
 #include <sstream>
 #include <set>
@@ -1005,6 +1006,41 @@ void dump_cell_expr_binop(std::ostream &f, std::string indent, RTLIL::Cell *cell
 	f << stringf(";\n");
 }
 
+void dump_cell_expr_print(std::ostream &f, std::string indent, const RTLIL::Cell *cell)
+{
+	Fmt fmt = {};
+	fmt.parse_rtlil(cell);
+	std::vector<VerilogFmtArg> args = fmt.emit_verilog();
+
+	f << stringf("%s" "$write(", indent.c_str());
+	bool first = true;
+	for (auto &arg : args) {
+		if (first) {
+			first = false;
+		} else {
+			f << ", ";
+		}
+		switch (arg.type) {
+			case VerilogFmtArg::STRING:
+				dump_const(f, RTLIL::Const(arg.str));
+				break;
+			case VerilogFmtArg::INTEGER:
+				f << (arg.signed_ ? "$signed(" : "$unsigned(");
+				dump_sigspec(f, arg.sig);
+				f << ")";
+				break;
+			case VerilogFmtArg::TIME:
+				if (arg.realtime)
+					f << "$realtime";
+				else
+					f << "$time";
+				break;
+			default: log_abort();
+		}
+	}
+	f << stringf(");\n");
+}
+
 bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 {
 	if (cell->type == ID($_NOT_)) {
@@ -1753,6 +1789,22 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
+	if (cell->type == ID($print))
+	{
+		// Sync $print cells are accumulated and handled in dump_module.
+		if (cell->getParam(ID::TRG_ENABLE).as_bool())
+			return true;
+
+		f << stringf("%s" "always @*\n", indent.c_str());
+
+		f << stringf("%s" "  if (", indent.c_str());
+		dump_sigspec(f, cell->getPort(ID::EN));
+		f << stringf(")\n");
+
+		dump_cell_expr_print(f, indent + "    ", cell);
+		return true;
+	}
+
 	// FIXME: $fsm
 
 	return false;
@@ -1839,6 +1891,34 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			f << ";\n";
 		}
 	}
+}
+
+void dump_sync_print(std::ostream &f, std::string indent, const RTLIL::SigSpec &trg, const RTLIL::Const &polarity, std::vector<const RTLIL::Cell*> &cells)
+{
+	f << stringf("%s" "always @(", indent.c_str());
+	for (int i = 0; i < trg.size(); i++) {
+		if (i != 0)
+			f << " or ";
+		if (polarity[i])
+			f << "posedge ";
+		else
+			f << "negedge ";
+		dump_sigspec(f, trg[i]);
+	}
+	f << ") begin\n";
+
+	std::sort(cells.begin(), cells.end(), [](const RTLIL::Cell *a, const RTLIL::Cell *b) {
+		return a->getParam(ID::PRIORITY).as_int() > b->getParam(ID::PRIORITY).as_int();
+	});
+	for (auto cell : cells) {
+		f << stringf("%s" "  if (", indent.c_str());
+		dump_sigspec(f, cell->getPort(ID::EN));
+		f << stringf(")\n");
+
+		dump_cell_expr_print(f, indent + "    ", cell);
+	}
+
+	f << stringf("%s" "end\n", indent.c_str());
 }
 
 void dump_conn(std::ostream &f, std::string indent, const RTLIL::SigSpec &left, const RTLIL::SigSpec &right)
@@ -2022,6 +2102,8 @@ void dump_process(std::ostream &f, std::string indent, RTLIL::Process *proc, boo
 
 void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 {
+	std::map<std::pair<RTLIL::SigSpec, RTLIL::Const>, std::vector<const RTLIL::Cell*>> sync_print_cells;
+
 	reg_wires.clear();
 	reset_auto_counter(module);
 	active_module = module;
@@ -2052,6 +2134,11 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 		std::set<std::pair<RTLIL::Wire*,int>> reg_bits;
 		for (auto cell : module->cells())
 		{
+			if (cell->type == ID($print) && cell->getParam(ID::TRG_ENABLE).as_bool()) {
+				sync_print_cells[make_pair(cell->getPort(ID::TRG), cell->getParam(ID::TRG_POLARITY))].push_back(cell);
+				continue;
+			}
+
 			if (!RTLIL::builtin_ff_cell_types().count(cell->type) || !cell->hasPort(ID::Q) || cell->type.in(ID($ff), ID($_FF_)))
 				continue;
 
@@ -2106,6 +2193,9 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 
 	for (auto cell : module->cells())
 		dump_cell(f, indent + "  ", cell);
+
+	for (auto &it : sync_print_cells)
+		dump_sync_print(f, indent + "  ", it.first.first, it.first.second, it.second);
 
 	for (auto it = module->processes.begin(); it != module->processes.end(); ++it)
 		dump_process(f, indent + "  ", it->second);

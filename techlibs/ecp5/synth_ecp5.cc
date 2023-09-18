@@ -359,7 +359,7 @@ struct SynthEcp5Pass : public ScriptPass
 			run("techmap -D NO_LUT -map +/ecp5/cells_map.v");
 			run("opt_expr -undriven -mux_undef");
 			run("simplemap");
-			run("ecp5_gsr");
+			run("lattice_gsr");
 			run("attrmvcp -copy -attr syn_useioff");
 			run("opt_clean");
 		}
@@ -404,7 +404,7 @@ struct SynthEcp5Pass : public ScriptPass
 				run("techmap -map +/ecp5/cells_map.v", "(skip if -vpr)");
 			else if (!vpr)
 				run("techmap -map +/ecp5/cells_map.v");
-			run("opt_lut_ins -tech ecp5");
+			run("opt_lut_ins -tech lattice");
 			run("clean");
 		}
 

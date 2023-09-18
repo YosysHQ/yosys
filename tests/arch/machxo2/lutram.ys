@@ -2,7 +2,7 @@ read_verilog ../common/lutram.v
 hierarchy -top lutram_1w1r
 proc
 memory -nomap
-equiv_opt -run :prove -map +/machxo2/cells_sim.v synth_machxo2 -noiopad
+equiv_opt -run :prove -map +/lattice/cells_sim_xo2.v synth_lattice -family xo2
 memory
 opt -full
 

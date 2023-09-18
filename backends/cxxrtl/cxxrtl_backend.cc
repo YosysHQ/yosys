@@ -24,6 +24,7 @@
 #include "kernel/celltypes.h"
 #include "kernel/mem.h"
 #include "kernel/log.h"
+#include "kernel/fmt.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -217,7 +218,7 @@ bool is_internal_cell(RTLIL::IdString type)
 
 bool is_effectful_cell(RTLIL::IdString type)
 {
-	return type.isPublic();
+	return type.isPublic() || type == ID($print);
 }
 
 bool is_cxxrtl_blackbox_cell(const RTLIL::Cell *cell)
@@ -281,6 +282,7 @@ struct FlowGraph {
 			CONNECT,
 			CELL_SYNC,
 			CELL_EVAL,
+			PRINT_SYNC,
 			PROCESS_SYNC,
 			PROCESS_CASE,
 			MEM_RDPORT,
@@ -290,6 +292,7 @@ struct FlowGraph {
 		Type type;
 		RTLIL::SigSig connect = {};
 		const RTLIL::Cell *cell = nullptr;
+		std::vector<const RTLIL::Cell*> print_sync_cells;
 		const RTLIL::Process *process = nullptr;
 		const Mem *mem = nullptr;
 		int portidx;
@@ -474,6 +477,15 @@ struct FlowGraph {
 		node->cell = cell;
 		nodes.push_back(node);
 		add_cell_eval_defs_uses(node, cell);
+		return node;
+	}
+
+	Node *add_print_sync_node(std::vector<const RTLIL::Cell*> cells)
+	{
+		Node *node = new Node;
+		node->type = Node::Type::PRINT_SYNC;
+		node->print_sync_cells = cells;
+		nodes.push_back(node);
 		return node;
 	}
 
@@ -681,6 +693,7 @@ struct CxxrtlWorker {
 	bool split_intf = false;
 	std::string intf_filename;
 	std::string design_ns = "cxxrtl_design";
+	std::string print_output = "std::cout";
 	std::ostream *impl_f = nullptr;
 	std::ostream *intf_f = nullptr;
 
@@ -1036,6 +1049,63 @@ struct CxxrtlWorker {
 			f << ".val()";
 	}
 
+	void dump_print(const RTLIL::Cell *cell)
+	{
+		Fmt fmt = {};
+		fmt.parse_rtlil(cell);
+
+		f << indent << "if (";
+		dump_sigspec_rhs(cell->getPort(ID::EN));
+		f << " == value<1>{1u}) {\n";
+		inc_indent();
+			f << indent << print_output;
+			fmt.emit_cxxrtl(f, [this](const RTLIL::SigSpec &sig) { dump_sigspec_rhs(sig); });
+			f << ";\n";
+		dec_indent();
+		f << indent << "}\n";
+	}
+
+	void dump_sync_print(std::vector<const RTLIL::Cell*> &cells)
+	{
+		log_assert(!cells.empty());
+		const auto &trg = cells[0]->getPort(ID::TRG);
+		const auto &trg_polarity = cells[0]->getParam(ID::TRG_POLARITY);
+
+		f << indent << "if (";
+		for (int i = 0; i < trg.size(); i++) {
+			RTLIL::SigBit trg_bit = trg[i];
+			trg_bit = sigmaps[trg_bit.wire->module](trg_bit);
+			log_assert(trg_bit.wire);
+
+			if (i != 0)
+				f << " || ";
+
+			if (trg_polarity[i] == State::S1)
+				f << "posedge_";
+			else
+				f << "negedge_";
+			f << mangle(trg_bit);
+		}
+		f << ") {\n";
+		inc_indent();
+			std::sort(cells.begin(), cells.end(), [](const RTLIL::Cell *a, const RTLIL::Cell *b) {
+				return a->getParam(ID::PRIORITY).as_int() > b->getParam(ID::PRIORITY).as_int();
+			});
+			for (auto cell : cells) {
+				log_assert(cell->getParam(ID::TRG_ENABLE).as_bool());
+				log_assert(cell->getPort(ID::TRG) == trg);
+				log_assert(cell->getParam(ID::TRG_POLARITY) == trg_polarity);
+
+				std::vector<const RTLIL::Cell*> inlined_cells;
+				collect_cell_eval(cell, /*for_debug=*/false, inlined_cells);
+				dump_inlined_cells(inlined_cells);
+				dump_print(cell);
+			}
+		dec_indent();
+
+		f << indent << "}\n";
+	}
+
 	void dump_inlined_cells(const std::vector<const RTLIL::Cell*> &cells)
 	{
 		if (cells.empty()) {
@@ -1202,6 +1272,25 @@ struct CxxrtlWorker {
 			f << " = ";
 			dump_cell_expr(cell, for_debug);
 			f << ";\n";
+		// $print cell
+		} else if (cell->type == ID($print)) {
+			log_assert(!for_debug);
+
+			// Sync $print cells are grouped into PRINT_SYNC nodes in the FlowGraph.
+			log_assert(!cell->getParam(ID::TRG_ENABLE).as_bool());
+
+			f << indent << "auto " << mangle(cell) << "_curr = ";
+			dump_sigspec_rhs(cell->getPort(ID::EN));
+			f << ".concat(";
+			dump_sigspec_rhs(cell->getPort(ID::ARGS));
+			f << ").val();\n";
+
+			f << indent << "if (" << mangle(cell) << " != " << mangle(cell) << "_curr) {\n";
+			inc_indent();
+				dump_print(cell);
+				f << indent << mangle(cell) << " = " << mangle(cell) << "_curr;\n";
+			dec_indent();
+			f << indent << "}\n";
 		// Flip-flops
 		} else if (is_ff_cell(cell->type)) {
 			log_assert(!for_debug);
@@ -1946,6 +2035,9 @@ struct CxxrtlWorker {
 						case FlowGraph::Node::Type::CELL_EVAL:
 							dump_cell_eval(node.cell);
 							break;
+						case FlowGraph::Node::Type::PRINT_SYNC:
+							dump_sync_print(node.print_sync_cells);
+							break;
 						case FlowGraph::Node::Type::PROCESS_CASE:
 							dump_process_case(node.process);
 							break;
@@ -2291,6 +2383,11 @@ struct CxxrtlWorker {
 					f << "\n";
 				bool has_cells = false;
 				for (auto cell : module->cells()) {
+					if (cell->type == ID($print) && !cell->getParam(ID::TRG_ENABLE).as_bool()) {
+						// comb $print cell -- store the last EN/ARGS values to know when they change.
+						dump_attrs(cell);
+						f << indent << "value<" << (1 + cell->getParam(ID::ARGS_WIDTH).as_int()) << "> " << mangle(cell) << ";\n";
+					}
 					if (is_internal_cell(cell->type))
 						continue;
 					dump_attrs(cell);
@@ -2377,6 +2474,7 @@ struct CxxrtlWorker {
 		RTLIL::Module *top_module = nullptr;
 		std::vector<RTLIL::Module*> modules;
 		TopoSort<RTLIL::Module*> topo_design;
+		bool has_prints = false;
 		for (auto module : design->modules()) {
 			if (!design->selected_module(module))
 				continue;
@@ -2389,6 +2487,8 @@ struct CxxrtlWorker {
 
 			topo_design.node(module);
 			for (auto cell : module->cells()) {
+				if (cell->type == ID($print))
+					has_prints = true;
 				if (is_internal_cell(cell->type) || is_cxxrtl_blackbox_cell(cell))
 					continue;
 				RTLIL::Module *cell_module = design->module(cell->type);
@@ -2447,6 +2547,8 @@ struct CxxrtlWorker {
 			f << "#include \"" << intf_filename << "\"\n";
 		else
 			f << "#include <backends/cxxrtl/cxxrtl.h>\n";
+		if (has_prints)
+			f << "#include <iostream>\n";
 		f << "\n";
 		f << "#if defined(CXXRTL_INCLUDE_CAPI_IMPL) || \\\n";
 		f << "    defined(CXXRTL_INCLUDE_VCD_CAPI_IMPL)\n";
@@ -2601,6 +2703,16 @@ struct CxxrtlWorker {
 						register_edge_signal(sigmap, cell->getPort(ID::CLK),
 							cell->parameters[ID::CLK_POLARITY].as_bool() ? RTLIL::STp : RTLIL::STn);
 				}
+
+				// $print cells may be triggered on posedge/negedge events.
+				if (cell->type == ID($print) && cell->getParam(ID::TRG_ENABLE).as_bool()) {
+					for (size_t i = 0; i < (size_t)cell->getParam(ID::TRG_WIDTH).as_int(); i++) {
+						RTLIL::SigBit trg = cell->getPort(ID::TRG).extract(i, 1);
+						if (is_valid_clock(trg))
+							register_edge_signal(sigmap, trg,
+								cell->parameters[ID::TRG_POLARITY][i] == RTLIL::S1 ? RTLIL::STp : RTLIL::STn);
+					}
+				}
 			}
 
 			for (auto &mem : memories) {
@@ -2736,6 +2848,8 @@ struct CxxrtlWorker {
 			for (auto node : flow.nodes) {
 				if (node->type == FlowGraph::Node::Type::CELL_EVAL && is_effectful_cell(node->cell->type))
 					worklist.insert(node); // node has effects
+				else if (node->type == FlowGraph::Node::Type::PRINT_SYNC)
+					worklist.insert(node); // node is sync $print
 				else if (node->type == FlowGraph::Node::Type::MEM_WRPORTS)
 					worklist.insert(node); // node is memory write
 				else if (node->type == FlowGraph::Node::Type::PROCESS_SYNC && is_memwr_process(node->process))
@@ -2792,9 +2906,22 @@ struct CxxrtlWorker {
 			}
 
 			// Emit reachable nodes in eval().
+			// Accumulate sync $print cells per trigger condition.
+			dict<std::pair<RTLIL::SigSpec, RTLIL::Const>, std::vector<const RTLIL::Cell*>> sync_print_cells;
 			for (auto node : node_order)
-				if (live_nodes[node])
-					schedule[module].push_back(*node);
+				if (live_nodes[node]) {
+					if (node->type == FlowGraph::Node::Type::CELL_EVAL &&
+					    node->cell->type == ID($print) &&
+					    node->cell->getParam(ID::TRG_ENABLE).as_bool())
+						sync_print_cells[make_pair(node->cell->getPort(ID::TRG), node->cell->getParam(ID::TRG_POLARITY))].push_back(node->cell);
+					else
+						schedule[module].push_back(*node);
+				}
+
+			for (auto &it : sync_print_cells) {
+				auto node = flow.add_print_sync_node(it.second);
+				schedule[module].push_back(*node);
+			}
 
 			// For maximum performance, the state of the simulation (which is the same as the set of its double buffered
 			// wires, since using a singly buffered wire for any kind of state introduces a race condition) should contain
@@ -3213,6 +3340,11 @@ struct CxxrtlBackend : public Backend {
 		log("        place the generated code into namespace <ns-name>. if not specified,\n");
 		log("        \"cxxrtl_design\" is used.\n");
 		log("\n");
+		log("    -print-output <stream>\n");
+		log("        $print cells in the generated code direct their output to <stream>.\n");
+		log("        must be one of \"std::cout\", \"std::cerr\". if not specified,\n");
+		log("        \"std::cout\" is used.\n");
+		log("\n");
 		log("    -nohierarchy\n");
 		log("        use design hierarchy as-is. in most designs, a top module should be\n");
 		log("        present as it is exposed through the C API and has unbuffered outputs\n");
@@ -3349,6 +3481,14 @@ struct CxxrtlBackend : public Backend {
 			}
 			if (args[argidx] == "-namespace" && argidx+1 < args.size()) {
 				worker.design_ns = args[++argidx];
+				continue;
+			}
+			if (args[argidx] == "-print-output" && argidx+1 < args.size()) {
+				worker.print_output = args[++argidx];
+				if (!(worker.print_output == "std::cout" || worker.print_output == "std::cerr")) {
+					log_cmd_error("Invalid output stream \"%s\".\n", worker.print_output.c_str());
+					worker.print_output = "std::cout";
+				}
 				continue;
 			}
 			break;

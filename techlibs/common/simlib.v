@@ -1800,6 +1800,24 @@ end
 endmodule
 
 // --------------------------------------------------------
+
+module \$print (EN, TRG, ARGS);
+
+parameter FORMAT = "";
+parameter ARGS_WIDTH = 0;
+parameter PRIORITY = 0;
+parameter TRG_ENABLE = 1;
+
+parameter TRG_WIDTH = 0;
+parameter TRG_POLARITY = 0;
+
+input EN;
+input [TRG_WIDTH-1:0] TRG;
+input [ARGS_WIDTH-1:0] ARGS;
+
+endmodule
+
+// --------------------------------------------------------
 `ifndef SIMLIB_NOSR
 
 module \$sr (SET, CLR, Q);
@@ -2651,5 +2669,75 @@ end
 endmodule
 
 `endif
+
+// --------------------------------------------------------
+
+module \$set_tag (A, SET, CLR, Y);
+
+parameter TAG = "";
+parameter WIDTH = 0;
+
+input [WIDTH-1:0] A;
+input [WIDTH-1:0] SET;
+input [WIDTH-1:0] CLR;
+output [WIDTH-1:0] Y;
+
+assign Y = A;
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$get_tag (A, Y);
+
+parameter TAG = "";
+parameter WIDTH = 0;
+
+input [WIDTH-1:0] A;
+output [WIDTH-1:0] Y;
+
+assign Y = A;
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$overwrite_tag (A, SET, CLR);
+
+parameter TAG = "";
+parameter WIDTH = 0;
+
+input [WIDTH-1:0] A;
+input [WIDTH-1:0] SET;
+input [WIDTH-1:0] CLR;
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$original_tag (A, Y);
+
+parameter TAG = "";
+parameter WIDTH = 0;
+
+input [WIDTH-1:0] A;
+output [WIDTH-1:0] Y;
+
+assign Y = A;
+
+endmodule
+
+// --------------------------------------------------------
+
+module \$future_ff (A, Y);
+
+parameter WIDTH = 0;
+
+input [WIDTH-1:0] A;
+output [WIDTH-1:0] Y;
+
+assign Y = A;
+
+endmodule
 
 // --------------------------------------------------------

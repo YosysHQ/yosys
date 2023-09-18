@@ -141,7 +141,7 @@ LDLIBS += -lrt
 endif
 endif
 
-YOSYS_VER := 0.31+45
+YOSYS_VER := 0.33+34
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
@@ -157,7 +157,7 @@ endif
 OBJS = kernel/version_$(GIT_REV).o
 
 bumpversion:
-	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline f3c6b41.. | wc -l`/;" Makefile
+	sed -i "/^YOSYS_VER := / s/+[0-9][0-9]*$$/+`git log --oneline 2584903.. | wc -l`/;" Makefile
 
 # set 'ABCREV = default' to use abc/ as it is
 #
@@ -165,7 +165,7 @@ bumpversion:
 # is just a symlink to your actual ABC working directory, as 'make mrproper'
 # will remove the 'abc' directory and you do not want to accidentally
 # delete your work on ABC..
-ABCREV = bb64142
+ABCREV = daad9ed
 ABCPULL = 1
 ABCURL ?= https://github.com/YosysHQ/abc
 ABCMKARGS = CC="$(CXX)" CXX="$(CXX)" ABC_USE_LIBSTDCXX=1 ABC_USE_NAMESPACE=abc VERBOSE=$(Q)
@@ -606,31 +606,35 @@ Q =
 S =
 endif
 
-$(eval $(call add_include_file,kernel/yosys.h))
-$(eval $(call add_include_file,kernel/hashlib.h))
-$(eval $(call add_include_file,kernel/log.h))
-$(eval $(call add_include_file,kernel/rtlil.h))
 $(eval $(call add_include_file,kernel/binding.h))
-$(eval $(call add_include_file,kernel/register.h))
 $(eval $(call add_include_file,kernel/cellaigs.h))
-$(eval $(call add_include_file,kernel/celltypes.h))
 $(eval $(call add_include_file,kernel/celledges.h))
+$(eval $(call add_include_file,kernel/celltypes.h))
 $(eval $(call add_include_file,kernel/consteval.h))
 $(eval $(call add_include_file,kernel/constids.inc))
-$(eval $(call add_include_file,kernel/sigtools.h))
-$(eval $(call add_include_file,kernel/modtools.h))
-$(eval $(call add_include_file,kernel/macc.h))
-$(eval $(call add_include_file,kernel/utils.h))
-$(eval $(call add_include_file,kernel/satgen.h))
-$(eval $(call add_include_file,kernel/qcsat.h))
+$(eval $(call add_include_file,kernel/cost.h))
 $(eval $(call add_include_file,kernel/ff.h))
 $(eval $(call add_include_file,kernel/ffinit.h))
+$(eval $(call add_include_file,kernel/ffmerge.h))
+$(eval $(call add_include_file,kernel/fmt.h))
 ifeq ($(ENABLE_ZLIB),1)
 $(eval $(call add_include_file,kernel/fstdata.h))
 endif
-$(eval $(call add_include_file,kernel/mem.h))
-$(eval $(call add_include_file,kernel/yw.h))
+$(eval $(call add_include_file,kernel/hashlib.h))
 $(eval $(call add_include_file,kernel/json.h))
+$(eval $(call add_include_file,kernel/log.h))
+$(eval $(call add_include_file,kernel/macc.h))
+$(eval $(call add_include_file,kernel/modtools.h))
+$(eval $(call add_include_file,kernel/mem.h))
+$(eval $(call add_include_file,kernel/qcsat.h))
+$(eval $(call add_include_file,kernel/register.h))
+$(eval $(call add_include_file,kernel/rtlil.h))
+$(eval $(call add_include_file,kernel/satgen.h))
+$(eval $(call add_include_file,kernel/sigtools.h))
+$(eval $(call add_include_file,kernel/timinginfo.h))
+$(eval $(call add_include_file,kernel/utils.h))
+$(eval $(call add_include_file,kernel/yosys.h))
+$(eval $(call add_include_file,kernel/yw.h))
 $(eval $(call add_include_file,libs/ezsat/ezsat.h))
 $(eval $(call add_include_file,libs/ezsat/ezminisat.h))
 ifeq ($(ENABLE_ZLIB),1)
@@ -652,12 +656,7 @@ $(eval $(call add_include_file,backends/cxxrtl/cxxrtl_vcd_capi.h))
 
 OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/yosys.o
 OBJS += kernel/binding.o
-ifeq ($(ENABLE_ABC),1)
-ifneq ($(ABCEXTERNAL),)
-kernel/yosys.o: CXXFLAGS += -DABCEXTERNAL='"$(ABCEXTERNAL)"'
-endif
-endif
-OBJS += kernel/cellaigs.o kernel/celledges.o kernel/satgen.o kernel/qcsat.o kernel/mem.o kernel/ffmerge.o kernel/ff.o kernel/yw.o kernel/json.o
+OBJS += kernel/cellaigs.o kernel/celledges.o kernel/satgen.o kernel/qcsat.o kernel/mem.o kernel/ffmerge.o kernel/ff.o kernel/yw.o kernel/json.o kernel/fmt.o
 ifeq ($(ENABLE_ZLIB),1)
 OBJS += kernel/fstdata.o
 endif
@@ -669,6 +668,11 @@ endif
 
 kernel/log.o: CXXFLAGS += -DYOSYS_SRC='"$(YOSYS_SRC)"'
 kernel/yosys.o: CXXFLAGS += -DYOSYS_DATDIR='"$(DATDIR)"' -DYOSYS_PROGRAM_PREFIX='"$(PROGRAM_PREFIX)"'
+ifeq ($(ENABLE_ABC),1)
+ifneq ($(ABCEXTERNAL),)
+kernel/yosys.o: CXXFLAGS += -DABCEXTERNAL='"$(ABCEXTERNAL)"'
+endif
+endif
 
 OBJS += libs/bigint/BigIntegerAlgorithms.o libs/bigint/BigInteger.o libs/bigint/BigIntegerUtils.o
 OBJS += libs/bigint/BigUnsigned.o libs/bigint/BigUnsignedInABase.o
@@ -882,6 +886,7 @@ endif
 	+cd tests/memfile && bash run-test.sh
 	+cd tests/verilog && bash run-test.sh
 	+cd tests/xprop && bash run-test.sh $(SEEDOPT)
+	+cd tests/fmt && bash run-test.sh
 	@echo ""
 	@echo "  Passed \"make test\"."
 	@echo ""

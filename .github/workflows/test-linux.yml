@@ -43,6 +43,7 @@ jobs:
           sudo apt-get install $CC $CXX
           echo "CC=$CC" >> $GITHUB_ENV
           echo "CXX=$CXX" >> $GITHUB_ENV
+          echo "CXXFLAGS=-Wp,-D_GLIBCXX_ASSERTIONS" >> $GITHUB_ENV
         env:
           CC: ${{ matrix.compiler }}
 
