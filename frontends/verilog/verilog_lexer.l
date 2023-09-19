@@ -547,6 +547,11 @@ import[ \t\r\n]+\"(DPI|DPI-C)\"[ \t\r\n]+function[ \t\r\n]+ {
 
 "'" { return OP_CAST; }
 
+"|->" { return TOK_OVERLAPPED_IMPL; }
+"|=>" { return TOK_NON_OVERLAPPED_IMPL; }
+"##" { return TOK_DELAY; }
+
+
 "::"  { return TOK_PACKAGESEP; }
 "++"  { return TOK_INCREMENT; }
 "--"  { return TOK_DECREMENT; }
