@@ -66,33 +66,6 @@ struct BoothPassWorker {
 
 	BoothPassWorker(RTLIL::Module *module) : module(module), sigmap(module) { booth_counter = 0; }
 
-	// Helper routines for building architecture subcomponents
-
-	RTLIL::Wire *mk_wireFromSigSpec(const SigSpec &v)
-	{
-
-		auto g = module->addCell(NEW_ID, ID($pos));
-		Wire *ret = module->addWire(NEW_ID, 1);
-		g->setPort(ID::A, v);
-		g->setPort(ID::Y, ret);
-		g->setParam(ID::A_WIDTH, 1);
-		g->setParam(ID::Y_WIDTH, 1);
-		g->setParam(ID::A_SIGNED, false);
-		return ret;
-	}
-
-	// fuse wires.
-	void join_wires_with_buffer(RTLIL::Wire *ip, RTLIL::Wire *op)
-	{
-		std::string wire_name = "join_";
-		auto g = module->addCell(new_id(wire_name, __LINE__, ""), ID($pos));
-		g->setParam(ID::A_WIDTH, 1);
-		g->setParam(ID::Y_WIDTH, 1);
-		g->setParam(ID::A_SIGNED, false);
-		g->setPort(ID::A, ip);
-		g->setPort(ID::Y, op);
-	}
-
 	// Unary gate
 	RTLIL::Wire *mk_ugate1(const RTLIL::IdString &red_typ, std::string &name, SigBit ip1, std::string &op_name)
 	{
