@@ -36,14 +36,14 @@ int autoname_worker(Module *module, const dict<Wire*, int>& wire_score)
 					if (bit.wire != nullptr && bit.wire->name[0] != '$') {
 						if (suffix.empty())
 							suffix = stringf("_%s_%s", log_id(cell->type), log_id(conn.first));
-						IdString new_name(bit.wire->name.str() + suffix);
+						string new_name(bit.wire->name.str() + suffix);
 						int score = wire_score.at(bit.wire);
 						if (cell->output(conn.first)) score = 0;
 						score = 10000*score + new_name.size();
 						if (!proposed_cell_names.count(cell) || score < proposed_cell_names.at(cell).first) {
 							if (best_score < 0 || score < best_score)
 								best_score = score;
-							proposed_cell_names[cell] = make_pair(score, new_name);
+							proposed_cell_names[cell] = make_pair(score, IdString(new_name));
 						}
 					}
 			}
@@ -54,14 +54,14 @@ int autoname_worker(Module *module, const dict<Wire*, int>& wire_score)
 					if (bit.wire != nullptr && bit.wire->name[0] == '$' && !bit.wire->port_id) {
 						if (suffix.empty())
 							suffix = stringf("_%s", log_id(conn.first));
-						IdString new_name(cell->name.str() + suffix);
+						string new_name(cell->name.str() + suffix);
 						int score = wire_score.at(bit.wire);
 						if (cell->output(conn.first)) score = 0;
 						score = 10000*score + new_name.size();
 						if (!proposed_wire_names.count(bit.wire) || score < proposed_wire_names.at(bit.wire).first) {
 							if (best_score < 0 || score < best_score)
 								best_score = score;
-							proposed_wire_names[bit.wire] = make_pair(score, new_name);
+							proposed_wire_names[bit.wire] = make_pair(score, IdString(new_name));
 						}
 					}
 			}
