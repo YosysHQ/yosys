@@ -265,7 +265,7 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 	Att *attr;
 
 	if (obj->Linefile())
-		attributes[ID::src] = stringf("%s:%d", LineFile::GetFileName(obj->Linefile()), LineFile::GetLineNo(obj->Linefile()));
+		attributes[ID::src] = stringf("%s:%d.%d-%d.%d", LineFile::GetFileName(obj->Linefile()), obj->Linefile()->GetLeftLine(), obj->Linefile()->GetLeftCol(), obj->Linefile()->GetRightLine(), obj->Linefile()->GetRightCol());
 
 	FOREACH_ATTRIBUTE(obj, mi, attr) {
 		if (attr->Key()[0] == ' ' || attr->Value() == nullptr)
