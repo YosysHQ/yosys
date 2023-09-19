@@ -108,98 +108,88 @@ struct BoothPassWorker {
 	}
 
 	// Booth unsigned decoder lsb
-	void BuildBur4d_lsb(std::string &name, SigBit lsb_i, SigBit one_i, SigBit s_i, SigBit &ppij_o,
-			    std::string op_wire_name)
+	SigBit Bur4d_lsb(std::string name, SigBit lsb_i, SigBit one_i, SigBit s_i)
 	{
-		std::string empty;
-		auto and_op = mk_ugate2(ID($and), name, lsb_i, one_i, empty);
-		ppij_o = mk_ugate2(ID($xor), name, and_op, s_i, op_wire_name);
+		SigBit and_op = module->AndGate(NEW_ID_SUFFIX(name), lsb_i, one_i);
+		return module->XorGate(NEW_ID_SUFFIX(name), and_op, s_i);
 	}
 
 	// Booth unsigned radix4 decoder
-	void BuildBur4d_n(std::string &name, SigBit yn_i, SigBit ynm1_i, SigBit one_i, SigBit two_i, SigBit s_i,
-			  SigBit &ppij_o)
+	SigBit Bur4d_n(std::string name, SigBit yn_i, SigBit ynm1_i, SigBit one_i, SigBit two_i, SigBit s_i)
 	{
 		// ppij = ((yn & one)   | (ynm1 & two)) ^ s;
-		std::string empty;
-		auto an1 = mk_ugate2(ID($and), name, yn_i, one_i, empty);
-		auto an2 = mk_ugate2(ID($and), name, ynm1_i, two_i, empty);
-		auto or1 = mk_ugate2(ID($or), name, an1, an2, empty);
-		ppij_o = mk_ugate2(ID($xor), name, s_i, or1, empty);
+		SigBit an1 = module->AndGate(NEW_ID_SUFFIX(name), yn_i, one_i);
+		SigBit an2 = module->AndGate(NEW_ID_SUFFIX(name), ynm1_i, two_i);
+		SigBit or1 = module->OrGate(NEW_ID_SUFFIX(name), an1, an2);
+		return module->XorGate(NEW_ID_SUFFIX(name), s_i, or1);
 	}
 
 	// Booth unsigned radix4 decoder
-	void BuildBur4d_msb(std::string &name, SigBit msb_i, SigBit two_i, SigBit s_i, SigBit &ppij_o)
+	SigBit Bur4d_msb(std::string name, SigBit msb_i, SigBit two_i, SigBit s_i)
 	{
 		// ppij = (msb & two)  ^ s;
-		std::string empty;
-		auto an1 = mk_ugate2(ID($and), name, msb_i, two_i, empty);
-		ppij_o = mk_ugate2(ID($xor), name, s_i, an1, empty);
+		SigBit an1 = module->AndGate(NEW_ID_SUFFIX(name), msb_i, two_i);
+		return module->XorGate(NEW_ID_SUFFIX(name), s_i, an1);
 	}
 
 	// half adder, used in CPA
-	void BuildHa(std::string &name, SigBit a_i, SigBit b_i, SigBit &s_o, SigBit &c_o)
+	void BuildHa(std::string name, SigBit a_i, SigBit b_i, SigBit &s_o, SigBit &c_o)
 	{
-		std::string empty;
-		s_o = mk_ugate2(ID($xor), name, a_i, b_i, empty);
-		c_o = mk_ugate2(ID($and), name, a_i, b_i, empty);
+		s_o = module->XorGate(NEW_ID_SUFFIX(name), a_i, b_i);
+		c_o = module->AndGate(NEW_ID_SUFFIX(name), a_i, b_i);
 	}
 
 	// Booth unsigned radix 4 encoder
-	void BuildBur4e(std::string &name, SigBit y0_i, SigBit y1_i, SigBit y2_i,
+	void BuildBur4e(std::string name, SigBit y0_i, SigBit y1_i, SigBit y2_i,
 			SigBit &one_o, SigBit &two_o, SigBit &s_o, SigBit &sb_o)
 	{
-
-		std::string empty;
-		one_o = mk_ugate2(ID($xor), name, y0_i, y1_i, empty);
+		one_o = module->XorGate(NEW_ID_SUFFIX(name), y0_i, y1_i);
 		s_o = y2_i;
-		sb_o = mk_ugate1(ID($not), name, y2_i, empty);
-		auto inv_y1_xor_y2 = mk_ugate1(ID($not), name, mk_ugate2(ID($xor), name, y1_i, y2_i, empty), empty);
-		two_o = mk_ugate1(ID($not), name, mk_ugate2(ID($or), name, inv_y1_xor_y2, one_o, empty), empty);
+		sb_o = module->NotGate(NEW_ID_SUFFIX(name), y2_i);
+		SigBit y1_xnor_y2 = module->XnorGate(NEW_ID_SUFFIX(name), y1_i, y2_i);
+		two_o = module->NorGate(NEW_ID_SUFFIX(name), y1_xnor_y2, one_o);
 	}
 
-	void BuildBr4e(std::string &name, SigBit y2_m1_i,
+	void BuildBr4e(std::string name, SigBit y2_m1_i,
 		       SigBit y2_i, // y2i
 		       SigBit y2_p1_i,
 		       SigBit &negi_o, SigBit &twoi_n_o, SigBit &onei_n_o, SigBit &cori_o)
 	{
+		auto y2_p1_n = module->NotGate(NEW_ID_SUFFIX(name), y2_p1_i);
+		auto y2_n = module->NotGate(NEW_ID_SUFFIX(name), y2_i);
+		auto y2_m1_n = module->NotGate(NEW_ID_SUFFIX(name), y2_m1_i);
 
-		std::string empty;
-		auto y2_p1_n = mk_ugate1(ID($not), name, y2_p1_i, empty);
-		auto y2_n = mk_ugate1(ID($not), name, y2_i, empty);
-		auto y2_m1_n = mk_ugate1(ID($not), name, y2_m1_i, empty);
+		negi_o = y2_p1_i;
 
-		// negi_o = y2_p1_i
-		negi_o = mk_ugate1(ID($pos), name, y2_p1_i, empty);
 		// twoi_n = ~(
 		//    (y2_p1_n & y2_i & y2_m1_i) |
 		//    (y2_p1 & y2_n & y2_m1_n)
 		// )
-		auto and3_1 = mk_ugate2(ID($and), name, y2_p1_n, mk_ugate2(ID($and), name, y2_i, y2_m1_i, empty), empty);
-		auto and3_2 = mk_ugate2(ID($and), name, y2_p1_i, mk_ugate2(ID($and), name, y2_n, y2_m1_n, empty), empty);
+		twoi_n_o = module->NorGate(NEW_ID_SUFFIX(name),
+			module->AndGate(NEW_ID_SUFFIX(name), y2_p1_n, module->AndGate(NEW_ID_SUFFIX(name), y2_i, y2_m1_i)),
+			module->AndGate(NEW_ID_SUFFIX(name), y2_p1_i, module->AndGate(NEW_ID_SUFFIX(name), y2_n, y2_m1_n))
+		);
 
-		twoi_n_o = mk_ugate1(ID($not), name, mk_ugate2(ID($or), name, and3_1, and3_2, empty), empty);
 		// onei_n = ~(y2_m1_i ^ y2_i);
-		onei_n_o = mk_ugate1(ID($not), name, mk_ugate2(ID($xor), name, y2_m1_i, y2_i, empty), empty);
+		onei_n_o = module->XnorGate(NEW_ID_SUFFIX(name), y2_m1_i, y2_i);
 		// cori = (y2_m1_n | y2_n) & y2_p1_i;
-		cori_o = mk_ugate2(ID($and), name, y2_p1_i, mk_ugate2(ID($or), name, y2_m1_n, y2_n, empty), empty);
+		cori_o = module->AndGate(NEW_ID_SUFFIX(name), module->OrGate(NEW_ID_SUFFIX(name), y2_m1_n, y2_n), y2_p1_i);
 	}
 
 	//
 	// signed booth radix 4 decoder
 	//
-	void BuildBr4d(std::string &name, SigBit nxj_m1_i, SigBit twoi_n_i, SigBit xj_i, SigBit negi_i, SigBit onei_n_i,
+	void BuildBr4d(std::string name, SigBit nxj_m1_i, SigBit twoi_n_i, SigBit xj_i, SigBit negi_i, SigBit onei_n_i,
 		       SigBit &ppij_o, SigBit &nxj_o)
 	{
-
-		std::string empty;
 		// nxj_in = xnor(xj,negi)
 		// nxj_o = xnj_in,
 		// ppij = ~( (nxj_m1_i | twoi_n_i) & (nxj_int | onei_n_i));
-		nxj_o = mk_ugate2(ID($xnor), name, xj_i, negi_i, empty);
-		SigBit or1 = mk_ugate2(ID($or), name, nxj_m1_i, twoi_n_i, empty);
-		SigBit or2 = mk_ugate2(ID($or), name, nxj_o, onei_n_i, empty);
-		ppij_o = mk_ugate1(ID($not), name, mk_ugate2(ID($and), name, or1, or2, empty), empty);
+		nxj_o = module->XnorGate(NEW_ID_SUFFIX(name), xj_i, negi_i);
+		ppij_o = module->NandGate(NEW_ID_SUFFIX(name),
+			module->OrGate(NEW_ID_SUFFIX(name), nxj_m1_i, twoi_n_i),
+			module->OrGate(NEW_ID_SUFFIX(name), nxj_o, onei_n_i)
+		);
 	}
 
 	/*
@@ -207,7 +197,7 @@ struct BoothPassWorker {
 	  using non-booth encoded logic. We can save a booth
 	  encoder for the first couple of bits.
 	*/
-	void BuildBoothQ1(std::string &name, SigBit negi_i, SigBit cori_i, SigBit x0_i, SigBit x1_i, SigBit y0_i,
+	void BuildBoothQ1(std::string name, SigBit negi_i, SigBit cori_i, SigBit x0_i, SigBit x1_i, SigBit y0_i,
 			  SigBit y1_i,
 			  SigBit &nxj_o, SigBit &cor_o, SigBit &pp0_o, SigBit &pp1_o)
 	{
@@ -222,15 +212,14 @@ struct BoothPassWorker {
 		  //correction propagation
 		  assign CORO = (~PP1 & ~PP0)? CORI : 1'b0;
 		*/
-		std::string empty;
-		nxj_o = mk_ugate2(ID($xnor), name, x1_i, negi_i, empty);
-		pp0_o = mk_ugate2(ID($and), name, x0_i, y0_i, empty);
-		SigBit pp1_1_int = mk_ugate2(ID($and), name, x1_i, y0_i, empty);
-		SigBit pp1_2_int = mk_ugate2(ID($and), name, x0_i, y1_i, empty);
-		pp1_o = mk_ugate2(ID($xor), name, pp1_1_int, pp1_2_int, empty);
+		nxj_o = module->XnorGate(NEW_ID_SUFFIX(name), x1_i, negi_i);
+		pp0_o = module->AndGate(NEW_ID_SUFFIX(name), x0_i, y0_i);
+		SigBit pp1_1_int = module->AndGate(NEW_ID_SUFFIX(name), x1_i, y0_i);
+		SigBit pp1_2_int = module->AndGate(NEW_ID_SUFFIX(name), x0_i, y1_i);
+		pp1_o = module->XorGate(NEW_ID_SUFFIX(name), pp1_1_int, pp1_2_int);
 
-		SigBit pp1_nor_pp0 = mk_ugate1(ID($not), name, mk_ugate2(ID($or), name, pp1_o, pp0_o, empty), empty);
-		cor_o = mk_ugate2(ID($and), name, pp1_nor_pp0, cori_i, empty);
+		SigBit pp1_nor_pp0 = module->NorGate(NEW_ID_SUFFIX(name), pp1_o, pp0_o);
+		cor_o = module->AndGate(NEW_ID_SUFFIX(name), pp1_nor_pp0, cori_i);
 	}
 
 	void run()
@@ -454,28 +443,18 @@ struct BoothPassWorker {
 	{
 		(void)module;
 		int x_sz = GetSize(X);
+		SigBit ppij;
 
 		// lsb
-		std::string dec_name = "row0_lsb_dec";
-
-		SigBit ppij;
-		std::string ppij_name = "ppij_0_0";
-		BuildBur4d_lsb(dec_name, X[0], one_int[0], s_int[0], ppij, ppij_name);
-		ppij_vec.append(ppij);
+		ppij_vec.append(Bur4d_lsb("row0_lsb_dec", X[0], one_int[0], s_int[0]));
 
 		// 1..xsize -1
-		for (int i = 1; i < x_sz; i++) {
-			dec_name = "row0_dec_" + std::to_string(i);
-			SigBit ppij;
-			BuildBur4d_n(dec_name, X[i], X[i - 1], one_int[0], two_int[0],
-				     s_int[0], ppij);
-			ppij_vec.append(ppij);
-		}
+		for (int i = 1; i < x_sz; i++)
+			ppij_vec.append(Bur4d_n(stringf("row0_dec_%d", i), X[i], X[i - 1],
+						one_int[0], two_int[0], s_int[0]));
 
 		// The redundant bit. Duplicate decoding of last bit.
-		dec_name = "row0_dec_msb";
-		BuildBur4d_msb(dec_name, X[x_sz - 1], two_int[0], s_int[0], ppij);
-		ppij_vec.append(ppij);
+		ppij_vec.append(Bur4d_msb("row0_dec_msb", X[x_sz - 1], two_int[0], s_int[0]));
 
 		// append the sign bits
 		ppij_vec.append(s_int[0]);
@@ -494,37 +473,23 @@ struct BoothPassWorker {
 		int x_sz = GetSize(X);
 
 		// lsb
-		std::string ppij_name = "ppij_" + std::to_string(row_ix) + "_0";
-		SigBit ppij;
-		std::string empty;
-		std::string dec_name = "row" + std::to_string(row_ix) + "_lsb_dec";
-		BuildBur4d_lsb(dec_name, X[0], one_int, s_int, ppij, empty);
-
-		ppij_vec.append(ppij);
+		ppij_vec.append(Bur4d_lsb(stringf("row_%d_lsb_dec", row_ix), X[0], one_int, s_int));
 
 		// core bits
-		for (int i = 1; i < x_sz; i++) {
-
-			dec_name = "row_" + std::to_string(row_ix) + "_dec_" + std::to_string(i);
-			BuildBur4d_n(dec_name, X[i], X[i - 1],
-				     one_int, two_int, s_int, ppij);
-			ppij_vec.append(ppij);
-		}
+		for (int i = 1; i < x_sz; i++)
+			ppij_vec.append(Bur4d_n(stringf("row_%d_dec_%d", row_ix, i), X[i], X[i - 1],
+				     		one_int, two_int, s_int));
 
 		// redundant bit
-
-		dec_name = "row_dec_red";
-		BuildBur4d_msb(dec_name, X[x_sz - 1], two_int, s_int, ppij);
-		ppij_vec.append(ppij);
+		ppij_vec.append(Bur4d_msb("row_dec_red", X[x_sz - 1], two_int, s_int));
 
 		// sign bit
-		if (no_sign == false) // if no sign is false then make a sign bit
+		if (!no_sign) // if no sign is false then make a sign bit
 			ppij_vec.append(sb_int);
 
 		// constant bit
-		if (no_constant == false) { // if non constant is false make a constant bit
+		if (!no_constant) // if non constant is false make a constant bit
 			ppij_vec.append(State::S1);
-		}
 	}
 
 	void DebugDumpAlignPP(std::vector<std::vector<RTLIL::Wire *>> &aligned_pp)
