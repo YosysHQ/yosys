@@ -56,5 +56,18 @@ module top;
         check(96, 200, 24);
         y = (z >>= 1'sb1) * 2; // shift is implicitly cast to unsigned
         check(96, 24, 12);
+
+        // check width of post-increment expressions
+        z = (y = 0);
+        begin
+            byte w;
+            w = 0;
+            x = {1'b1, ++w};
+            check(257, 0, 0);
+            assert (w == 1);
+            x = {2'b10, w++};
+            check(513, 0, 0);
+            assert (w == 2);
+        end
     end
 endmodule
