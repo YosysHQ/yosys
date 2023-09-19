@@ -225,108 +225,92 @@ struct BoothPassWorker {
 	void run()
 	{
 		for (auto cell : module->selected_cells()) {
-			if (cell->type.in(ID($mul))) {
-				RTLIL::SigSpec A = sigmap(cell->getPort(ID::A));
-				RTLIL::SigSpec B = sigmap(cell->getPort(ID::B));
-				RTLIL::SigSpec Y = sigmap(cell->getPort(ID::Y));
-				if (GetSize(A) >= 4 && GetSize(B) >= 4 && GetSize(Y) >= 8 &&
-				    ((cell->getParam(ID::A_SIGNED).as_bool() && cell->getParam(ID::B_SIGNED).as_bool()) ||
-				     (!cell->getParam(ID::A_SIGNED).as_bool() && !cell->getParam(ID::B_SIGNED).as_bool()))) {
-					bool is_signed = false;
-					if (cell->getParam(ID::A_SIGNED).as_bool()) {
-						log("    By passing macc inferencing for signed multiplier -- generating booth\n");
-						is_signed = true;
-					} else
-						log("    By passing macc inferencing for unsigned multiplier -- generating booth\n");
+			if (cell->type != ID($mul))
+				continue;
 
-					int x_sz = GetSize(A);
-					int y_sz = GetSize(B);
-					int z_sz = GetSize(Y);
+			SigSpec A = cell->getPort(ID::A);
+			SigSpec B = cell->getPort(ID::B);
+			SigSpec Y = cell->getPort(ID::Y);
+			int x_sz = GetSize(A), y_sz = GetSize(B), z_sz = GetSize(Y);
 
-					// To simplify the generator size the arguments
-					// to be the same. Then allow logic synthesis to
-					// clean things up. Size to biggest
+			if (x_sz < 4 || y_sz < 4 || z_sz < 8) {
+				log_debug("Not mapping cell %s sized at %dx%x, %x: size below threshold\n",
+					  log_id(cell), x_sz, y_sz, z_sz);
+				continue;
+			}
 
-					int x_sz_revised = x_sz;
-					int y_sz_revised = y_sz;
+			log_assert(cell->getParam(ID::A_SIGNED).as_bool() == cell->getParam(ID::B_SIGNED).as_bool());
+			bool is_signed = cell->getParam(ID::A_SIGNED).as_bool();
 
-					if (x_sz != y_sz) {
-						if (x_sz < y_sz) {
-							if (y_sz % 2 != 0) {
-								x_sz_revised = y_sz + 1;
-								y_sz_revised = y_sz + 1;
-							} else
-								x_sz_revised = y_sz;
+			log("Mapping cell %s to %s Booth multiplier\n", log_id(cell), is_signed ? "signed" : "unsigned");
 
-						} else {
-							if (x_sz % 2 != 0) {
-								y_sz_revised = x_sz + 1;
-								x_sz_revised = x_sz + 1;
-							} else
-								y_sz_revised = x_sz;
-						}
+			// To simplify the generator size the arguments
+			// to be the same. Then allow logic synthesis to
+			// clean things up. Size to biggest
+
+			int x_sz_revised = x_sz;
+			int y_sz_revised = y_sz;
+
+			if (x_sz != y_sz) {
+				if (x_sz < y_sz) {
+					if (y_sz % 2 != 0) {
+						x_sz_revised = y_sz + 1;
+						y_sz_revised = y_sz + 1;
 					} else {
-						if (x_sz % 2 != 0) {
-							y_sz_revised = y_sz + 1;
-							x_sz_revised = x_sz + 1;
-						}
+						x_sz_revised = y_sz;
+					}		
+				} else {
+					if (x_sz % 2 != 0) {
+						y_sz_revised = x_sz + 1;
+						x_sz_revised = x_sz + 1;
+					} else {
+						y_sz_revised = x_sz;
 					}
-
-					log_assert((x_sz_revised == y_sz_revised) && (x_sz_revised % 2 == 0) && (y_sz_revised % 2 == 0));
-
-					Wire *expanded_A = module->addWire(NEW_ID, x_sz_revised);
-					Wire *expanded_B = module->addWire(NEW_ID, y_sz_revised);
-
-					std::string buf_name = "expand_a_buf_";
-					auto buf = module->addCell(new_id(buf_name, __LINE__, ""), ID($pos));
-					buf->setParam(ID::A_WIDTH, x_sz);
-					buf->setParam(ID::Y_WIDTH, x_sz_revised);
-					buf->setPort(ID::A, SigSpec(A));
-					buf->setParam(ID::A_SIGNED, is_signed ? true : false);
-					buf->setPort(ID::Y, SigSpec(expanded_A));
-
-					buf_name = "expand_b_buf_";
-					buf = module->addCell(new_id(buf_name, __LINE__, ""), ID($pos));
-					buf->setPort(ID::A, SigSpec(B));
-					buf->setParam(ID::A_WIDTH, y_sz);
-					buf->setParam(ID::Y_WIDTH, y_sz_revised);
-					buf->setParam(ID::A_SIGNED, is_signed ? true : false);
-					buf->setPort(ID::Y, SigSpec(expanded_B));
-
-					// Make sure output domain is big enough to take
-					// all combinations.
-					// Later logic synthesis will kill unused
-					// portions of the output domain.
-
-					unsigned required_op_size = x_sz_revised + y_sz_revised;
-					Wire *expanded_Y = module->addWire(NEW_ID, required_op_size);
-					// now connect the expanded_Y with a tap to fill out sig Spec Y
-					buf_name = "reducer_buf_";
-					buf = module->addCell(new_id(buf_name, __LINE__, ""), ID($pos));
-					buf->setPort(ID::A, expanded_Y);
-					buf->setParam(ID::A_WIDTH, required_op_size);
-					buf->setParam(ID::Y_WIDTH, z_sz); // The real user width
-					buf->setParam(ID::A_SIGNED, is_signed ? true : false);
-					// wire in output Y
-					buf->setPort(ID::Y, SigSpec(Y));
-
-					if (is_signed == false) /* unsigned multiplier */
-						CreateBoothUMult(module,
-								 expanded_A, // multiplicand
-								 expanded_B, // multiplier(scanned)
-								 expanded_Y  // result
-						);
-					else /*signed multiplier */
-						CreateBoothSMult(module,
-								 expanded_A, // multiplicand
-								 expanded_B, // multiplier(scanned)
-								 expanded_Y  // result (sized)
-						);
-					module->remove(cell);
-					booth_counter++;
-					continue;
+				}
+			} else {
+				if (x_sz % 2 != 0) {
+					y_sz_revised = y_sz + 1;
+					x_sz_revised = x_sz + 1;
 				}
 			}
+
+			log_assert((x_sz_revised == y_sz_revised) && (x_sz_revised % 2 == 0) && (y_sz_revised % 2 == 0));
+
+
+			A.extend_u0(x_sz_revised, is_signed);
+			B.extend_u0(y_sz_revised, is_signed);
+
+			// Make sure output domain is big enough to take
+			// all combinations.
+			// Later logic synthesis will kill unused
+			// portions of the output domain.
+
+			int required_op_size = x_sz_revised + y_sz_revised;
+
+			if (required_op_size != z_sz) {
+				SigSpec expanded_Y = module->addWire(NEW_ID, required_op_size);
+				SigSpec Y_driver = expanded_Y;
+				Y_driver.extend_u0(Y.size(), is_signed);
+				module->connect(Y, Y_driver);
+				Y = expanded_Y;
+			}
+			log_assert(GetSize(Y) == required_op_size);
+
+			if (!is_signed) /* unsigned multiplier */
+				CreateBoothUMult(module,
+						 A, // multiplicand
+						 B, // multiplier(scanned)
+						 Y  // result
+				);
+			else /* signed multiplier */
+				CreateBoothSMult(module,
+						 A, // multiplicand
+						 B, // multiplier(scanned)
+						 Y  // result (sized)
+				);
+
+			module->remove(cell);
+			booth_counter++;
 		}
 	}
 
