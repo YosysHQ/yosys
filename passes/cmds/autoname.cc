@@ -36,7 +36,6 @@ int autoname_worker(Module *module, const dict<Wire*, int>& wire_score)
 					if (bit.wire != nullptr && bit.wire->name[0] != '$') {
 						if (suffix.empty())
 							suffix = stringf("_%s_%s", log_id(cell->type), log_id(conn.first));
-
 						string new_name(bit.wire->name.str() + suffix);
 						int score = wire_score.at(bit.wire);
 						if (cell->output(conn.first)) score = 0;
@@ -55,7 +54,6 @@ int autoname_worker(Module *module, const dict<Wire*, int>& wire_score)
 					if (bit.wire != nullptr && bit.wire->name[0] == '$' && !bit.wire->port_id) {
 						if (suffix.empty())
 							suffix = stringf("_%s", log_id(conn.first));
-
 						string new_name(cell->name.str() + suffix);
 						int score = wire_score.at(bit.wire);
 						if (cell->output(conn.first)) score = 0;
