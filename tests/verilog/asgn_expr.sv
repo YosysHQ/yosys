@@ -13,21 +13,21 @@ module top;
         // post-increment/decrement statements
         x++;
         check(1, 0, 0);
-        y (* foo *) ++;
+        (* bar *) y (* foo *) ++;
         check(1, 1, 0);
         z--;
         check(1, 1, -1);
-        z (* foo *) --;
+        (* bar *) z (* foo *) --;
         check(1, 1, -2);
 
         // pre-increment/decrement statements are equivalent
         ++z;
         check(1, 1, -1);
-        ++ (* foo *) z;
+        (* bar *) ++ (* foo *) z;
         check(1, 1, 0);
         --x;
         check(0, 1, 0);
-        -- (* foo *) y;
+        (* bar *) -- (* foo *) y;
         check(0, 0, 0);
 
         // procedural pre-increment/decrement expressions

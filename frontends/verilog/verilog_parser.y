@@ -301,14 +301,18 @@ static void ensureAsgnExprAllowed()
 }
 
 // add a pre/post-increment/decrement statement
-static const AstNode *addIncOrDecStmt(AstNode *lhs, dict<IdString, AstNode*> *attr, AST::AstNodeType op, YYLTYPE begin, YYLTYPE end)
+static const AstNode *addIncOrDecStmt(dict<IdString, AstNode*> *stmt_attr, AstNode *lhs,
+				      dict<IdString, AstNode*> *op_attr, AST::AstNodeType op,
+				      YYLTYPE begin, YYLTYPE end)
 {
 	AstNode *one = AstNode::mkconst_int(1, true);
 	AstNode *rhs = new AstNode(op, lhs->clone(), one);
+	if (op_attr != nullptr)
+		append_attr(rhs, op_attr);
 	AstNode *stmt = new AstNode(AST_ASSIGN_EQ, lhs, rhs);
 	SET_AST_NODE_LOC(stmt, begin, end);
-	if (attr != nullptr)
-		append_attr(stmt, attr);
+	if (stmt_attr != nullptr)
+		append_attr(stmt, stmt_attr);
 	ast_stack.back()->children.push_back(stmt);
 	return stmt;
 }
@@ -317,7 +321,7 @@ static const AstNode *addIncOrDecStmt(AstNode *lhs, dict<IdString, AstNode*> *at
 static AstNode *addIncOrDecExpr(AstNode *lhs, dict<IdString, AstNode*> *attr, AST::AstNodeType op, YYLTYPE begin, YYLTYPE end, bool undo)
 {
 	ensureAsgnExprAllowed();
-	const AstNode *stmt = addIncOrDecStmt(lhs, attr, op, begin, end);
+	const AstNode *stmt = addIncOrDecStmt(nullptr, lhs, attr, op, begin, end);
 	log_assert(stmt->type == AST_ASSIGN_EQ);
 	AstNode *expr = stmt->children[0]->clone();
 	if (undo) {
@@ -2666,14 +2670,10 @@ simple_behavioral_stmt:
 		append_attr(node, $1);
 	} |
 	attr lvalue attr inc_or_dec_op {
-		// The position 1 attr to avoid shift/reduce conflicts with the
-		// other productions. We reject attributes in that position.
-		if (!$1->empty())
-			frontend_verilog_yyerror("Attributes are not allowed on this size of the lvalue in an inc_or_dec_expression!");
-		addIncOrDecStmt($2, $3, $4, @1, @4);
+		addIncOrDecStmt($1, $2, $3, $4, @1, @4);
 	} |
-	inc_or_dec_op attr lvalue {
-		addIncOrDecStmt($3, $2, $1, @1, @3);
+	attr inc_or_dec_op attr lvalue {
+		addIncOrDecStmt($1, $4, $3, $2, @1, @4);
 	} |
 	attr lvalue OP_LE delay expr {
 		AstNode *node = new AstNode(AST_ASSIGN_LE, $2, $5);
