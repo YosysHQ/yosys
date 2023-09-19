@@ -2677,6 +2677,19 @@ RTLIL::Cell* RTLIL::Module::addPow(RTLIL::IdString name, const RTLIL::SigSpec &s
 	return cell;
 }
 
+RTLIL::Cell* RTLIL::Module::addFa(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_c, const RTLIL::SigSpec &sig_x, const RTLIL::SigSpec &sig_y, const std::string &src)
+{
+	RTLIL::Cell *cell = addCell(name, ID($fa));
+	cell->parameters[ID::WIDTH] = sig_a.size();
+	cell->setPort(ID::A, sig_a);
+	cell->setPort(ID::B, sig_b);
+	cell->setPort(ID::C, sig_c);
+	cell->setPort(ID::X, sig_x);
+	cell->setPort(ID::Y, sig_y);
+	cell->set_src_attribute(src);
+	return cell;
+}
+
 RTLIL::Cell* RTLIL::Module::addSlice(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_y, RTLIL::Const offset, const std::string &src)
 {
 	RTLIL::Cell *cell = addCell(name, ID($slice));
