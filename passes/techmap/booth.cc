@@ -66,47 +66,6 @@ struct BoothPassWorker {
 
 	BoothPassWorker(RTLIL::Module *module) : module(module), sigmap(module) { booth_counter = 0; }
 
-	// Unary gate
-	RTLIL::Wire *mk_ugate1(const RTLIL::IdString &red_typ, std::string &name, SigBit ip1, std::string &op_name)
-	{
-		std::string op_wire_name;
-		if (op_name.empty())
-			op_wire_name = name + "_o";
-		else
-			op_wire_name = op_name;
-		RTLIL::Wire *ret = module->addWire(new_id(op_wire_name, __LINE__, ""), 1);
-		auto g = module->addCell(new_id(name, __LINE__, ""), red_typ);
-		g->setPort(ID::A, ip1);
-		g->setPort(ID::Y, ret);
-		g->setParam(ID::A_SIGNED, false);
-		g->setParam(ID::A_WIDTH, 1);
-		g->setParam(ID::Y_WIDTH, 1);
-		return ret;
-	}
-
-	// Binary gate
-	RTLIL::Wire *mk_ugate2(const RTLIL::IdString &red_typ, std::string &name, SigBit ip1, SigBit ip2, std::string &op_name)
-	{
-		auto g = module->addCell(new_id(name, __LINE__, ""), red_typ);
-		std::string op_wire_name;
-		if (op_name.empty())
-			op_wire_name = name + "_o";
-		else
-			op_wire_name = op_name;
-
-		auto ret = module->addWire(new_id(op_wire_name, __LINE__, ""), 1);
-
-		g->setPort(ID::A, ip1);
-		g->setPort(ID::B, ip2);
-		g->setPort(ID::Y, ret);
-		g->setParam(ID::A_SIGNED, false);
-		g->setParam(ID::B_SIGNED, false);
-		g->setParam(ID::A_WIDTH, 1);
-		g->setParam(ID::B_WIDTH, 1);
-		g->setParam(ID::Y_WIDTH, 1);
-		return ret;
-	}
-
 	// Booth unsigned decoder lsb
 	SigBit Bur4d_lsb(std::string name, SigBit lsb_i, SigBit one_i, SigBit s_i)
 	{
