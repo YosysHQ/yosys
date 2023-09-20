@@ -140,7 +140,6 @@ template <typename T, typename C = std::less<T>, typename OPS = hash_ops<T>> cla
 	std::vector<T> sorted;
 	std::set<std::set<T, C>> loops;
 
-      public:
 	TopoSort() : indirect_cmp(nodes)
 	{
 		analyze_loops = true;
@@ -213,6 +212,7 @@ template <typename T, typename C = std::less<T>, typename OPS = hash_ops<T>> cla
 	bool found_loops;
 	std::vector<T> nodes;
 	const IndirectCmp indirect_cmp;
+
 	void sort_worker(const int root_index, std::vector<bool> &marked_cells, std::vector<bool> &active_cells, std::vector<int> &active_stack)
 	{
 		if (active_cells[root_index]) {
