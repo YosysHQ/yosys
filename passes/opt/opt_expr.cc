@@ -424,13 +424,18 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 						for (auto &bit : sig)
 							outbit_to_cell[bit].insert(cell);
 				}
-			cells.node(cell);
 		}
 
-	for (auto &it_right : cell_to_inbit)
-	for (auto &it_sigbit : it_right.second)
-	for (auto &it_left : outbit_to_cell[it_sigbit])
-		cells.edge(it_left, it_right.first);
+        // Build the graph for the topological sort.
+	for (auto &it_right : cell_to_inbit) {
+          const int r_index = cells.node(it_right.first);
+          for (auto &it_sigbit : it_right.second) {
+            for (auto &it_left : outbit_to_cell[it_sigbit]) {
+              const int l_index = cells.node(it_left);
+              cells.edge(l_index, r_index);
+            }
+          }
+        }
 
 	cells.sort();
 

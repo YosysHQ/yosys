@@ -31,34 +31,30 @@ YOSYS_NAMESPACE_BEGIN
 // A map-like container, but you can save and restore the state
 // ------------------------------------------------
 
-template<typename Key, typename T, typename OPS = hash_ops<Key>>
-struct stackmap
-{
-private:
-	std::vector<dict<Key, T*, OPS>> backup_state;
+template <typename Key, typename T, typename OPS = hash_ops<Key>> struct stackmap {
+      private:
+	std::vector<dict<Key, T *, OPS>> backup_state;
 	dict<Key, T, OPS> current_state;
 	static T empty_tuple;
 
-public:
-	stackmap() { }
-	stackmap(const dict<Key, T, OPS> &other) : current_state(other) { }
+      public:
+	stackmap() {}
+	stackmap(const dict<Key, T, OPS> &other) : current_state(other) {}
 
-	template<typename Other>
-	void operator=(const Other &other)
+	template <typename Other> stackmap &operator=(const Other &other)
 	{
-		for (auto &it : current_state)
+		for (const auto &it : current_state)
 			if (!backup_state.empty() && backup_state.back().count(it.first) == 0)
 				backup_state.back()[it.first] = new T(it.second);
 		current_state.clear();
 
-		for (auto &it : other)
+		for (const auto &it : other)
 			set(it.first, it.second);
+
+		return *this;
 	}
 
-	bool has(const Key &k)
-	{
-		return current_state.count(k) != 0;
-	}
+	bool has(const Key &k) { return current_state.count(k) != 0; }
 
 	void set(const Key &k, const T &v)
 	{
@@ -83,7 +79,7 @@ public:
 
 	void reset(const Key &k)
 	{
-		for (int i = GetSize(backup_state)-1; i >= 0; i--)
+		for (int i = GetSize(backup_state) - 1; i >= 0; i--)
 			if (backup_state[i].count(k) != 0) {
 				if (backup_state[i].at(k) == nullptr)
 					current_state.erase(k);
@@ -94,20 +90,14 @@ public:
 		current_state.erase(k);
 	}
 
-	const dict<Key, T, OPS> &stdmap()
-	{
-		return current_state;
-	}
+	const dict<Key, T, OPS> &stdmap() { return current_state; }
 
-	void save()
-	{
-		backup_state.resize(backup_state.size()+1);
-	}
+	void save() { backup_state.resize(backup_state.size() + 1); }
 
 	void restore()
 	{
 		log_assert(!backup_state.empty());
-		for (auto &it : backup_state.back())
+		for (const auto &it : backup_state.back())
 			if (it.second != nullptr) {
 				current_state[it.first] = *it.second;
 				delete it.second;
@@ -123,46 +113,116 @@ public:
 	}
 };
 
-
 // ------------------------------------------------
 // A simple class for topological sorting
 // ------------------------------------------------
 
-template<typename T, typename C = std::less<T>>
-struct TopoSort
+template <typename T, typename C = std::less<T>, typename OPS = hash_ops<T>> class TopoSort
 {
-	bool analyze_loops, found_loops;
-	std::map<T, std::set<T, C>, C> database;
-	std::set<std::set<T, C>> loops;
-	std::vector<T> sorted;
+      public:
+	// We use this ordering of the edges in the adjacency matrix for
+	// exact compatibility with an older implementation.
+	struct IndirectCmp {
+		IndirectCmp(const std::vector<T> &nodes) : nodes_(nodes) {}
+		bool operator()(int a, int b) const
+		{
+                        log_assert(static_cast<size_t>(a) < nodes_.size());
+			log_assert(static_cast<size_t>(b) < nodes_.size());
+			return node_cmp_(nodes_[a], nodes_[b]);
+		}
+		const C node_cmp_;
+		const std::vector<T> &nodes_;
+	};
 
-	TopoSort()
+	bool analyze_loops;
+	std::map<T, int, C> node_to_index;
+	std::vector<std::set<int, IndirectCmp>> edges;
+	std::vector<T> sorted;
+	std::set<std::set<T, C>> loops;
+
+      public:
+	TopoSort() : indirect_cmp(nodes)
 	{
 		analyze_loops = true;
 		found_loops = false;
 	}
 
-	void node(T n)
+	int node(T n)
 	{
-		if (database.count(n) == 0)
-			database[n] = std::set<T, C>();
+		auto it = node_to_index.find(n);
+		if (it == node_to_index.end()) {
+                        int index = static_cast<size_t>(nodes.size());
+			node_to_index[n] = index;
+			nodes.push_back(n);
+			edges.push_back(std::set<int, IndirectCmp>(indirect_cmp));
+			return index;
+		}
+		return it->second;
 	}
 
-	void edge(T left, T right)
+	void edge(int l_index, int r_index) { edges[r_index].insert(l_index); }
+
+	void edge(T left, T right) { edge(node(left), node(right)); }
+
+	bool has_edges(const T &node)
 	{
-		node(left);
-		database[right].insert(left);
+		auto it = node_to_index.find(node);
+		return it == node_to_index.end() || !edges[it->second].empty();
 	}
 
-	void sort_worker(const T &n, std::set<T, C> &marked_cells, std::set<T, C> &active_cells, std::vector<T> &active_stack)
+	bool sort()
 	{
-		if (active_cells.count(n)) {
+		log_assert(GetSize(node_to_index) == GetSize(edges));
+		log_assert(GetSize(nodes) == GetSize(edges));
+
+		loops.clear();
+		sorted.clear();
+		found_loops = false;
+
+		std::vector<bool> marked_cells(edges.size(), false);
+		std::vector<bool> active_cells(edges.size(), false);
+		std::vector<int> active_stack;
+
+		marked_cells.reserve(edges.size());
+		sorted.reserve(edges.size());
+
+		for (const auto &it : node_to_index)
+			sort_worker(it.second, marked_cells, active_cells, active_stack);
+
+		log_assert(GetSize(sorted) == GetSize(nodes));
+
+		return !found_loops;
+	}
+
+	// Build the more expensive representation of edges for
+	// a few passes that use it directly.
+	std::map<T, std::set<T, C>, C> get_database()
+	{
+		std::map<T, std::set<T, C>, C> database;
+		for (size_t i = 0; i < nodes.size(); ++i) {
+			std::set<T, C> converted_edge_set;
+			for (int other_node : edges[i]) {
+				converted_edge_set.insert(nodes[other_node]);
+			}
+			database.emplace(nodes[i], converted_edge_set);
+		}
+		return database;
+	}
+
+      private:
+	bool found_loops;
+	std::vector<T> nodes;
+	const IndirectCmp indirect_cmp;
+	void sort_worker(const int root_index, std::vector<bool> &marked_cells, std::vector<bool> &active_cells, std::vector<int> &active_stack)
+	{
+		if (active_cells[root_index]) {
 			found_loops = true;
 			if (analyze_loops) {
 				std::set<T, C> loop;
-				for (int i = GetSize(active_stack)-1; i >= 0; i--) {
-					loop.insert(active_stack[i]);
-					if (active_stack[i] == n)
+				for (int i = GetSize(active_stack) - 1; i >= 0; i--) {
+					const int index = active_stack[i];
+					loop.insert(nodes[index]);
+					if (index == root_index)
 						break;
 				}
 				loops.insert(loop);
@@ -170,42 +230,24 @@ struct TopoSort
 			return;
 		}
 
-		if (marked_cells.count(n))
+		if (marked_cells[root_index])
 			return;
 
-		if (!database.at(n).empty())
-		{
+		if (!edges[root_index].empty()) {
 			if (analyze_loops)
-				active_stack.push_back(n);
-			active_cells.insert(n);
+				active_stack.push_back(root_index);
+			active_cells[root_index] = true;
 
-			for (auto &left_n : database.at(n))
+			for (int left_n : edges[root_index])
 				sort_worker(left_n, marked_cells, active_cells, active_stack);
 
 			if (analyze_loops)
 				active_stack.pop_back();
-			active_cells.erase(n);
+			active_cells[root_index] = false;
 		}
 
-		marked_cells.insert(n);
-		sorted.push_back(n);
-	}
-
-	bool sort()
-	{
-		loops.clear();
-		sorted.clear();
-		found_loops = false;
-
-		std::set<T, C> marked_cells;
-		std::set<T, C> active_cells;
-		std::vector<T> active_stack;
-
-		for (auto &it : database)
-			sort_worker(it.first, marked_cells, active_cells, active_stack);
-
-		log_assert(GetSize(sorted) == GetSize(database));
-		return !found_loops;
+		marked_cells[root_index] = true;
+		sorted.push_back(nodes[root_index]);
 	}
 };
 
