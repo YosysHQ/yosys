@@ -5,6 +5,10 @@ List of major changes and improvements between releases
 Yosys 0.33 .. Yosys 0.34-dev
 --------------------------
 
+ * SystemVerilog
+    - Added support for assignments within expressions, e.g., `x[y++] = z;` or
+      `x = (y *= 2) - 1;`.
+
 Yosys 0.32 .. Yosys 0.33
 --------------------------
  * Various
