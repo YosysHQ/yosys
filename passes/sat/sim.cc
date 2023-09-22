@@ -88,6 +88,17 @@ struct TriggeredAssertion {
 	{ }
 };
 
+struct DisplayOutput {
+	int step;
+	SimInstance *instance;
+	Cell *cell;
+	std::string output;
+
+	DisplayOutput(int step, SimInstance *instance, Cell *cell, std::string output) :
+		step(step), instance(instance), cell(cell), output(output)
+	{ }
+};
+
 struct SimShared
 {
 	bool debug = false;
@@ -110,6 +121,7 @@ struct SimShared
 	int next_output_id = 0;
 	int step = 0;
 	std::vector<TriggeredAssertion> triggered_assertions;
+	std::vector<DisplayOutput> display_output;
 	bool serious_asserts = false;
 };
 
@@ -841,6 +853,7 @@ struct SimInstance
 
 				std::string rendered = print.fmt.render();
 				log("%s", rendered.c_str());
+				shared->display_output.emplace_back(shared->step, this, cell, rendered);
 			}
 
 		update_print:
@@ -2017,6 +2030,20 @@ struct SimWorker : SimShared
 			if (!src.empty()) {
 				json.entry("src", src);
 			}
+			json.end_object();
+		}
+		json.end_array();
+		json.name("display_output");
+		json.begin_array();
+		for (auto &output : display_output) {
+			json.begin_object();
+			json.entry("step", output.step);
+			json.entry("path", output.instance->witness_full_path(output.cell));
+			auto src = output.cell->get_string_attribute(ID::src);
+			if (!src.empty()) {
+				json.entry("src", src);
+			}
+			json.entry("output", output.output);
 			json.end_object();
 		}
 		json.end_array();
