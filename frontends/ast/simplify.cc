@@ -132,7 +132,7 @@ void AstNode::fixup_hierarchy_flags(bool force_descend)
 
 // Process a format string and arguments for $display, $write, $sprintf, etc
 
-Fmt AstNode::processFormat(int stage, bool sformat_like, int default_base, size_t first_arg_at) {
+Fmt AstNode::processFormat(int stage, bool sformat_like, int default_base, size_t first_arg_at, bool required) {
 	std::vector<VerilogFmtArg> args;
 	for (size_t index = first_arg_at; index < children.size(); index++) {
 		AstNode *node_arg = children[index];
@@ -156,6 +156,9 @@ Fmt AstNode::processFormat(int stage, bool sformat_like, int default_base, size_
 			arg.type = VerilogFmtArg::INTEGER;
 			arg.sig = node_arg->bitsAsConst();
 			arg.signed_ = node_arg->is_signed;
+		} else if (!required) {
+			log_file_info(filename, location.first_line, "Skipping system task `%s' with non-constant argument at position %zu.\n", str.c_str(), index + 1);
+			return Fmt();
 		} else {
 			log_file_error(filename, location.first_line, "Failed to evaluate system task `%s' with non-constant argument at position %zu.\n", str.c_str(), index + 1);
 		}
@@ -1063,10 +1066,13 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				default_base = 16;
 
 			// when $display()/$write() functions are used in an initial block, print them during synthesis
-			Fmt fmt = processFormat(stage, /*sformat_like=*/false, default_base);
+			Fmt fmt = processFormat(stage, /*sformat_like=*/false, default_base, /*first_arg_at=*/0, /*required=*/false);
 			if (str.substr(0, 8) == "$display")
 				fmt.append_string("\n");
 			log("%s", fmt.render().c_str());
+			for (auto node : children)
+				while (node->simplify(true, stage, -1, false)) {}
+			return false;
 		} else {
 			// when $display()/$write() functions are used in an always block, simplify the expressions and
 			// convert them to a special cell later in genrtlil
