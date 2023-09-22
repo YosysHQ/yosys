@@ -1069,7 +1069,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			Fmt fmt = processFormat(stage, /*sformat_like=*/false, default_base, /*first_arg_at=*/0, /*required=*/false);
 			if (str.substr(0, 8) == "$display")
 				fmt.append_string("\n");
-			log("%s", fmt.render().c_str());
+			log("%s", fmt.render(unescape_id(current_module->name).c_str()).c_str());
 			for (auto node : children)
 				while (node->simplify(true, stage, -1, false)) {}
 			return false;
@@ -3744,7 +3744,7 @@ skip_dynamic_range_lvalue_expansion:;
 
 			if (str == "\\$sformatf") {
 				Fmt fmt = processFormat(stage, /*sformat_like=*/true);
-				newNode = AstNode::mkconst_str(fmt.render());
+				newNode = AstNode::mkconst_str(fmt.render(unescape_id(current_module->name)));
 				goto apply_newNode;
 			}
 
