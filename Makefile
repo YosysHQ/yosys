@@ -143,16 +143,7 @@ endif
 
 YOSYS_VER := 0.33+0
 
-# Note: We arrange for .gitcommit to contain the (short) commit hash in
-# tarballs generated with git-archive(1) using .gitattributes. The git repo
-# will have this file in its unexpanded form tough, in which case we fall
-# back to calling git directly.
-TARBALL_GIT_REV := $(shell cat $(YOSYS_SRC)/.gitcommit)
-ifeq ($(TARBALL_GIT_REV),$$Format:%h$$)
-GIT_REV := $(shell GIT_DIR=$(YOSYS_SRC)/.git git rev-parse --short=9 HEAD || echo UNKNOWN)
-else
-GIT_REV := $(TARBALL_GIT_REV)
-endif
+include git.mk #< sets $(GIT_REV)
 
 OBJS = kernel/version_$(GIT_REV).o
 

@@ -21,9 +21,9 @@ dots: $(DOT_PDF)
 tex: $(TEX_PDF)
 svg: $(SVG_OUTPUT)
 
+include ../../git.mk #< sets $(GIT_EPOCH)
 export FORCE_SOURCE_DATE ?= 1
-export SOURCE_DATE_EPOCH ?= 1640991600
-#^ 2022-01-01 00:00:00
+export SOURCE_DATE_EPOCH ?= $(GIT_EPOCH)
 
 011/%.pdf: $(DOT_LOC)/%.dot
 	dot -Tpdf -o $@ $<

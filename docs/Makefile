@@ -14,6 +14,11 @@ ALLSPHINXOPTS   = -d $(BUILDDIR)/doctrees $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) sou
 # the i18n builder cannot share the environment and doctrees with the others
 I18NSPHINXOPTS  = $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) source
 
+# Reproducibility
+include ../git.mk #< sets $(GIT_EPOCH)
+export FORCE_SOURCE_DATE ?= 1
+export SOURCE_DATE_EPOCH ?= $(GIT_EPOCH)
+
 .PHONY: help
 help:
 	@echo "Please use \`make <target>' where <target> is one of"

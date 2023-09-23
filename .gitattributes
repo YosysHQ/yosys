@@ -1,2 +1,3 @@
 *.v linguist-language=Verilog
 /.gitcommit export-subst
+/.gitepoch export-subst
