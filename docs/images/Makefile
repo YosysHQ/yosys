@@ -21,11 +21,15 @@ dots: $(DOT_PDF)
 tex: $(TEX_PDF)
 svg: $(SVG_OUTPUT)
 
+export FORCE_SOURCE_DATE ?= 1
+export SOURCE_DATE_EPOCH ?= 1640991600
+#^ 2022-01-01 00:00:00
+
 011/%.pdf: $(DOT_LOC)/%.dot
-	faketime -f '2022-01-01 00:00:00 x0,001' dot -Tpdf -o $@ $<
+	dot -Tpdf -o $@ $<
 
 011/%.pdf: 011/%.tex
-	cd 011 && faketime -f '2022-01-01 00:00:00 x0,001' pdflatex $(<F) --interaction=nonstopmode
+	cd 011 && pdflatex $(<F) --interaction=nonstopmode
 
 %.pdf: %.tex
 	pdflatex $< --interaction=nonstopmode
