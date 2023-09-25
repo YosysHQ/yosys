@@ -912,9 +912,7 @@ struct BoothPassWorker {
 		int fa_count = x_sz + 4;
 		int fa_row_count = enc_count - 1;
 
-		log("Signed multiplier generator using low Power Negative First Booth Algorithm. Multiplicand of size %d Multiplier of size %d. "
-		    "Result of size %d. %d encoders %d decoders\n",
-		    x_sz, y_sz, z_sz, enc_count, dec_count);
+		log_debug("Mapping %d x %d -> %d multiplier: %d encoders %d decoders\n", x_sz, y_sz, z_sz, enc_count, dec_count);
 
 		SigSpec negi_n_int, twoi_n_int, onei_n_int, cori_n_int;
 
@@ -1225,18 +1223,51 @@ struct BoothPassWorker {
 };
 
 struct BoothPass : public Pass {
-	BoothPass() : Pass("booth", "Map $mul to booth multipliers") {}
+	BoothPass() : Pass("booth", "map $mul cells to Booth multipliers") {}
+	void help() override
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    booth [selection]\n");
+		log("\n");
+		log("This pass replaces multiplier cells with an implementation based on the Booth\n");
+		log("algorithm. It operates on $mul cells whose width of operands is at least 4x4\n");
+		log("and whose width of result is at least 8. The detailed architecture is selected\n");
+		log("from two options based on the signedness of the operands to the $mul cell.\n");
+		log("\n");
+		log("See the references below for the description of the architectures.\n");
+		log("\n");
+		log("Signed-multiplier architecture:\n");
+		log("Y. J. Chang, Y. C. Cheng, S. C. Liao and C. H. Hsiao, \"A Low Power Radix-4 Booth\n");
+		log("Multiplier With Pre-Encoded Mechanism,\" in IEEE Access, vol. 8, pp. 114842-114853,\n");
+		log("2020, doi: 10.1109/ACCESS.2020.3003684\n");
+		log("\n");
+		log("Unsigned-multiplier architecture:\n");
+		log("G. W. Bewick, \"Fast Multiplication: Algorithms and Implementations,\" PhD Thesis,\n");
+		log("Department of Electrical Engineering, Stanford University, 1994\n");
+		log("\n");
+	}
 	void execute(vector<string> args, RTLIL::Design *design) override
 	{
-		(void)args;
-		log_header(design,
-			   "Executing booth pass. Generating Booth Multiplier structures for signed/unsigned multipliers of 4 bits or more\n");
-		for (auto mod : design->selected_modules())
+		log_header(design, "Executing BOOTH pass (map to Booth multipliers).\n");
+
+		size_t argidx;
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			break;
+		}
+		extra_args(args, argidx, design);
+
+		int total = 0;
+
+		for (auto mod : design->selected_modules()) {
 			if (!mod->has_processes_warn()) {
 				BoothPassWorker worker(mod);
 				worker.run();
-				log_header(design, "Created %d booth multipliers.\n", worker.booth_counter);
+				total += worker.booth_counter;
 			}
+		}
+
+		log("Mapped %d multipliers.\n", total);
 	}
 } MultPass;
 
