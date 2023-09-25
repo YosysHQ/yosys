@@ -687,20 +687,15 @@ struct BoothPassWorker {
 			// End Case
 			else if (n == s_vec.size() - 1) {
 				// Make the carry results.. Two extra bits after fa.
-				std::string fa_name = "cpa_" + std::to_string(cpa_id) + "_fa_" + std::to_string(n);
-
-				auto fa_cell = module->addCell(new_id(fa_name, __LINE__, ""), ID($fa));
-				fa_cell->setParam(ID::WIDTH, 1);
-				carry_name = "cpa_" + std::to_string(cpa_id) + "carry_" + std::to_string(n);
-				fa_cell->setPort(ID::A, s_vec[n]);
-				fa_cell->setPort(ID::B, c_vec[n - 1]);
-				fa_cell->setPort(ID::C, carry);
-				// wire in result and carry out
-				fa_cell->setPort(ID::Y, result[n]);
-
-				// make a new carry bit for carry out...
-				carry = module->addWire(new_id(carry_name, __LINE__, ""), 1);
-				fa_cell->setPort(ID::X, carry);
+				SigBit carry_out = module->addWire(NEW_ID, 1);
+				module->addFa(NEW_ID_SUFFIX(stringf("cpa_%d_fa_%d", cpa_id, n)),
+					/* A */ s_vec[n],
+					/* B */ c_vec[n - 1],
+					/* C */ carry,
+					/* X */ carry_out,
+					/* Y */ result[n]
+				);
+				carry = carry_out;
 
 #ifdef DEBUG_CPA
 				printf("CPA bit [%d] Cell %s IPs [%s] [%s] [%s]\n", n, fa_cell->name.c_str(), s_vec[n]->name.c_str(),
@@ -720,20 +715,15 @@ struct BoothPassWorker {
 			}
 			// Step case
 			else {
-				std::string fa_name = "cpa_" + std::to_string(cpa_id) + "_fa_" + std::to_string(n);
-				auto fa_cell = module->addCell(new_id(fa_name, __LINE__, ""), ID($fa));
-				fa_cell->setParam(ID::WIDTH, 1);
-
-				carry_name = "cpa_" + std::to_string(cpa_id) + "carry_" + std::to_string(n);
-				fa_cell->setPort(ID::A, s_vec[n]);
-				fa_cell->setPort(ID::B, c_vec[n - 1]);
-				fa_cell->setPort(ID::C, carry);
-				// wire in result and carry out
-				fa_cell->setPort(ID::Y, result[n]);
-				// make a new carry bit for carry out...
-				carry = module->addWire(new_id(carry_name, __LINE__, ""), 1);
-				fa_cell->setPort(ID::X, carry);
-
+				SigBit carry_out = module->addWire(NEW_ID_SUFFIX(stringf("cpa_%d_carry_%d", cpa_id, n)), 1);
+				module->addFa(NEW_ID_SUFFIX(stringf("cpa_%d_fa_%d", cpa_id, n)),
+					/* A */ s_vec[n],
+					/* B */ c_vec[n - 1],
+					/* C */ carry,
+					/* X */ carry_out,
+					/* Y */ result[n]
+				);
+				carry = carry_out;
 #ifdef DEBUG_CPA
 				printf("CPA bit [%d] Cell %s IPs [%s] [%s] [%s]\n", n, fa_cell->name.c_str(), s_vec[n]->name.c_str(),
 				       c_vec[n - 1]->name.c_str(), carry->name.c_str());
@@ -752,9 +742,6 @@ struct BoothPassWorker {
 
 		int csa_ix = 0;
 		int column_size = column_bits.size();
-		static int unique_id = 0;
-
-		unique_id++;
 
 		if (column_size > 0) {
 			int var_ix = 0;
@@ -767,37 +754,22 @@ struct BoothPassWorker {
 
 			if (first_csa_ips.size() > 0) {
 				// build the first csa
-				std::string csa_name =
-				  "csa_" + std::to_string(column_ix) + "_" + std::to_string(csa_ix) + "_" + std::to_string(unique_id) + "_";
-				auto csa = module->addCell(NEW_ID,
-							   // new_id(csa_name,
-							   //					    __LINE__,
-							   //	    ""),
-							   ID($fa));
-				csa->setParam(ID::WIDTH, 1);
-				debug_csa_trees[column_ix].push_back(csa);
-				csa_ix++;
+				auto s_wire = module->addWire(NEW_ID_SUFFIX(stringf("csa_%d_%d_s", column_ix, csa_ix + 1)), 1);
+				auto c_wire = module->addWire(NEW_ID_SUFFIX(stringf("csa_%d_%d_c", column_ix, csa_ix + 1)), 1);
 
-				csa->setPort(ID::A, first_csa_ips[0]);
+				auto csa = module->addFa(NEW_ID_SUFFIX(stringf("csa_%d_%d", column_ix, csa_ix)),
+					/* A */ first_csa_ips[0],
+					/* B */ first_csa_ips.size() > 1 ? first_csa_ips[1] : State::S0,
+					/* C */ first_csa_ips.size() > 2 ? first_csa_ips[2] : State::S0,
+					/* X */ c_wire,
+					/* Y */ s_wire
+				);
 
-				if (first_csa_ips.size() > 1)
-					csa->setPort(ID::B, first_csa_ips[1]);
-				else
-					csa->setPort(ID::B, State::S0);
-
-				if (first_csa_ips.size() > 2)
-					csa->setPort(ID::C, first_csa_ips[2]);
-				else
-					csa->setPort(ID::C, State::S0);
-
-				std::string sum_wire_name = "csa_" + std::to_string(column_ix) + "_" + std::to_string(csa_ix) + "_s";
-				auto s_wire = module->addWire(new_id(sum_wire_name, __LINE__, ""), 1);
-				csa->setPort(ID::Y, s_wire);
 				s_result = s_wire;
-				std::string carry_wire_name = "csa_" + std::to_string(column_ix) + "_" + std::to_string(csa_ix) + "_c";
-				auto c_wire = module->addWire(new_id(carry_wire_name, __LINE__, ""), 1);
-				csa->setPort(ID::X, c_wire);
 				c_result = c_wire;
+
+				debug_csa_trees[column_ix].push_back(csa);
+				csa_ix++;				
 
 				if (var_ix <= column_bits.size() - 1)
 					carry_bits_to_sum.append(c_wire);
@@ -814,31 +786,22 @@ struct BoothPassWorker {
 					}
 
 					if (csa_ips.size() > 0) {
-						csa_name = "csa_" + std::to_string(column_ix) + "_" + std::to_string(csa_ix);
-						auto csa = module->addCell(new_id(csa_name, __LINE__, ""), ID($fa));
-						csa->setParam(ID::WIDTH, 1);
+						auto c_wire = module->addWire(NEW_ID_SUFFIX(stringf("csa_%d_%d_c", column_ix, csa_ix + 1)), 1);
+						auto s_wire = module->addWire(NEW_ID_SUFFIX(stringf("csa_%d_%d_s", column_ix, csa_ix + 1)), 1);
+
+						auto csa = module->addFa(NEW_ID_SUFFIX(stringf("csa_%d_%d", column_ix, csa_ix)),
+							/* A */ s_result,
+							/* B */ csa_ips[0],
+							/* C */ csa_ips.size() > 1 ? csa_ips[1] : State::S0,
+							/* X */ c_wire,
+							/* Y */ s_wire
+						);
+
 						debug_csa_trees[column_ix].push_back(csa);
-
 						csa_ix++;
-						// prior level
-						csa->setPort(ID::A, s_wire);
-						csa->setPort(ID::B, csa_ips[0]);
-						if (csa_ips.size() > 1)
-							csa->setPort(ID::C, csa_ips[1]);
-						else
-							csa->setPort(ID::C, State::S0);
-
-						carry_wire_name = "csa_" + std::to_string(column_ix) + "_" + std::to_string(csa_ix) + "_c";
-						c_wire = module->addWire(new_id(carry_wire_name, __LINE__, ""), 1);
 
 						if (var_ix <= column_bits.size() - 1)
 							carry_bits_to_sum.append(c_wire);
-
-						sum_wire_name = "csa_" + std::to_string(column_ix) + "_" + std::to_string(csa_ix) + "_s";
-						s_wire = module->addWire(new_id(sum_wire_name, __LINE__, ""), 1);
-
-						csa->setPort(ID::X, c_wire);
-						csa->setPort(ID::Y, s_wire);
 
 						s_result = s_wire;
 						c_result = c_wire;
@@ -854,22 +817,14 @@ struct BoothPassWorker {
 		int y_sz = GetSize(Y);
 
 		for (int y_ix = 0; y_ix < y_sz;) {
-			std::string enc_name = "bur_enc_" + std::to_string(encoder_ix) + "_";
+			std::string enc_name = stringf("bur_enc_%d", encoder_ix);
 
-			std::string two_name = "two_int" + std::to_string(encoder_ix);
-			two_int.append(module->addWire(new_id(two_name, __LINE__, ""), 1));
-
-			std::string one_name = "one_int" + std::to_string(encoder_ix);
-			one_int.append(module->addWire(new_id(one_name, __LINE__, ""), 1));
-
-			std::string s_name = "s_int" + std::to_string(encoder_ix);
-			s_int.append(module->addWire(new_id(s_name, __LINE__, ""), 1));
-
-			std::string sb_name = "sb_int" + std::to_string(encoder_ix);
-			sb_int.append(module->addWire(new_id(sb_name, __LINE__, ""), 1));
+			two_int.append(module->addWire(NEW_ID_SUFFIX(stringf("two_int_%d", encoder_ix)), 1));
+			one_int.append(module->addWire(NEW_ID_SUFFIX(stringf("one_int_%d", encoder_ix)), 1));
+			s_int.append(module->addWire(NEW_ID_SUFFIX(stringf("s_int_%d", encoder_ix)), 1));
+			sb_int.append(module->addWire(NEW_ID_SUFFIX(stringf("sb_int_%d", encoder_ix)), 1));
 
 			if (y_ix == 0) {
-
 				BuildBur4e(enc_name, State::S0, Y[y_ix],
 					   Y[y_ix + 1], one_int[encoder_ix], two_int[encoder_ix], s_int[encoder_ix],
 					   sb_int[encoder_ix]);
@@ -919,23 +874,15 @@ struct BoothPassWorker {
 				encoder_ix++;
 
 				if (need_padded_cell == true) {
-
 					// make extra encoder cell
 					// y_ix at y0, rest 0
 
-					std::string enc_name = "br_enc_pad" + std::to_string(encoder_ix) + "_";
+					std::string enc_name = stringf("br_enc_pad_%d", encoder_ix);
 
-					std::string two_name = "two_int" + std::to_string(encoder_ix);
-					two_int.append(module->addWire(new_id(two_name, __LINE__, ""), 1));
-
-					std::string one_name = "one_int" + std::to_string(encoder_ix);
-					one_int.append(module->addWire(new_id(two_name, __LINE__, ""), 1));
-
-					std::string s_name = "s_int" + std::to_string(encoder_ix);
-					s_int.append(module->addWire(new_id(s_name, __LINE__, ""), 1));
-
-					std::string sb_name = "sb_int" + std::to_string(encoder_ix);
-					sb_int.append(module->addWire(new_id(sb_name, __LINE__, ""), 1));
+					two_int.append(module->addWire(NEW_ID_SUFFIX(stringf("two_int_%d", encoder_ix)), 1));
+					one_int.append(module->addWire(NEW_ID_SUFFIX(stringf("one_int_%d", encoder_ix)), 1));
+					s_int.append(module->addWire(NEW_ID_SUFFIX(stringf("s_int_%d", encoder_ix)), 1));
+					sb_int.append(module->addWire(NEW_ID_SUFFIX(stringf("sb_int_%d", encoder_ix)), 1));
 
 					SigBit one_o_int, two_o_int, s_o_int, sb_o_int;
 					BuildBur4e(enc_name, Y[y_ix], State::S0,
@@ -977,18 +924,13 @@ struct BoothPassWorker {
 		cori_n_int.extend_u0(enc_count);
 
 		for (unsigned encoder_ix = 1; encoder_ix <= enc_count; encoder_ix++) {
-			std::string enc_name = "enc_" + std::to_string(encoder_ix) + "_";
-			std::string negi_name = "negi_n_int" + std::to_string(encoder_ix) + "_";
-			negi_n_int[encoder_ix - 1] = module->addWire(new_id(negi_name, __LINE__, ""), 1);
-			std::string twoi_name = "twoi_n_int_" + std::to_string(encoder_ix) + "_";
-			twoi_n_int[encoder_ix - 1] = module->addWire(new_id(twoi_name, __LINE__, ""), 1);
-			std::string onei_name = "onei_n_int_" + std::to_string(encoder_ix) + "_";
-			onei_n_int[encoder_ix - 1] = module->addWire(new_id(onei_name, __LINE__, ""), 1);
-			std::string cori_name = "cori_n_int_" + std::to_string(encoder_ix) + "_";
-			cori_n_int[encoder_ix - 1] = module->addWire(new_id(cori_name, __LINE__, ""), 1);
+			std::string enc_name = stringf("enc_%d", encoder_ix);
+			negi_n_int[encoder_ix - 1] = module->addWire(NEW_ID_SUFFIX(stringf("negi_n_int_%d", encoder_ix)), 1);
+			twoi_n_int[encoder_ix - 1] = module->addWire(NEW_ID_SUFFIX(stringf("twoi_n_int_%d", encoder_ix)), 1);
+			onei_n_int[encoder_ix - 1] = module->addWire(NEW_ID_SUFFIX(stringf("onei_n_int_%d", encoder_ix)), 1);
+			cori_n_int[encoder_ix - 1] = module->addWire(NEW_ID_SUFFIX(stringf("cori_n_int_%d", encoder_ix)), 1);
 
 			if (encoder_ix == 1) {
-
 				BuildBr4e(enc_name, State::S0, Y[0], Y[1],
 					  negi_n_int[encoder_ix - 1], twoi_n_int[encoder_ix - 1], onei_n_int[encoder_ix - 1],
 					  cori_n_int[encoder_ix - 1]);
@@ -1020,22 +962,18 @@ struct BoothPassWorker {
 
 		for (int encoder_ix = 1; encoder_ix <= (int)enc_count; encoder_ix++) {
 			for (int decoder_ix = 1; decoder_ix <= dec_count; decoder_ix++) {
-				std::string ppij_name = "ppij_" + std::to_string(encoder_ix) + "_" + std::to_string(decoder_ix) + "_";
-				PPij[((encoder_ix - 1) * dec_count) + decoder_ix - 1] = module->addWire(new_id(ppij_name, __LINE__, ""), 1);
-				std::string nxj_name;
-				if (decoder_ix == 1)
-					nxj_name = "nxj_pre_dec" + std::to_string(encoder_ix) + "_" + std::to_string(decoder_ix) + "_";
-				else
-					nxj_name = "nxj_" + std::to_string(encoder_ix) + "_" + std::to_string(decoder_ix) + "_";
+				PPij[((encoder_ix - 1) * dec_count) + decoder_ix - 1] =
+					module->addWire(NEW_ID_SUFFIX(stringf("ppij_%d_%d", encoder_ix, decoder_ix)), 1);
 
-				nxj[((encoder_ix - 1) * dec_count) + decoder_ix - 1] = module->addWire(new_id(nxj_name, __LINE__, ""), 1);
+				nxj[((encoder_ix - 1) * dec_count) + decoder_ix - 1] =
+					module->addWire(NEW_ID_SUFFIX(stringf("nxj_%s%d_%d", decoder_ix == 1 ? "pre_dec_" : "",
+									      encoder_ix, decoder_ix)), 1);
 			}
 		}
 
 		//
 		// build decoder array
 		//
-
 		for (int encoder_ix = 1; encoder_ix <= (int)enc_count; encoder_ix++) {
 			// pre-decoder
 			std::string pre_dec_name = "pre_dec_" + std::to_string(encoder_ix) + "_";
@@ -1043,10 +981,10 @@ struct BoothPassWorker {
 			if (encoder_ix == 1) {
 				// quadrant 1 optimization
 			} else {
-				auto cell = module->addCell(new_id(pre_dec_name, __LINE__, ""), ID($_NOT_));
-				cell->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
-				cell->setPort(ID::A, negi_n_int[encoder_ix - 1]);
-				cell->setPort(ID::Y, nxj[(encoder_ix - 1) * dec_count]);
+				module->addNotGate(NEW_ID_SUFFIX(stringf("pre_dec_%d", encoder_ix)),
+					negi_n_int[encoder_ix - 1],
+					nxj[(encoder_ix - 1) * dec_count]
+				);
 			}
 
 			for (int decoder_ix = 1; decoder_ix < dec_count; decoder_ix++) {
@@ -1056,8 +994,7 @@ struct BoothPassWorker {
 				if ((decoder_ix == 1 || decoder_ix == 2) && encoder_ix == 1)
 					continue;
 
-				std::string dec_name = "dec_" + std::to_string(encoder_ix) + "_" + std::to_string(decoder_ix) + "_";
-
+				std::string dec_name = stringf("dec_%d_%d", encoder_ix, decoder_ix);
 				BuildBr4d(dec_name, nxj[((encoder_ix - 1) * dec_count) + decoder_ix - 1], twoi_n_int[encoder_ix - 1],
 					  X[decoder_ix - 1], negi_n_int[encoder_ix - 1], onei_n_int[encoder_ix - 1],
 					  PPij[((encoder_ix - 1) * dec_count) + decoder_ix - 1], nxj[((encoder_ix - 1) * dec_count) + decoder_ix]);
@@ -1065,7 +1002,7 @@ struct BoothPassWorker {
 
 			// duplicate end for sign fix
 			// applies to 9th decoder (xsz+1 decoder).
-			std::string dec_name = "dec_" + std::to_string(encoder_ix) + "_" + std::to_string(x_sz + 1) + "_";
+			std::string dec_name = stringf("dec_%d_%d", encoder_ix, x_sz + 1);
 			SigBit unused_op;
 			BuildBr4d(dec_name, nxj[((encoder_ix - 1) * dec_count) + dec_count - 1], twoi_n_int[encoder_ix - 1],
 				  X[dec_count - 2], negi_n_int[encoder_ix - 1], onei_n_int[encoder_ix - 1],
@@ -1083,11 +1020,10 @@ struct BoothPassWorker {
 
 		for (fa_row_ix = 0; fa_row_ix < fa_row_count; fa_row_ix++) {
 			for (fa_el_ix = 0; fa_el_ix < fa_count; fa_el_ix++) {
-
-				std::string fa_sum_name = "fa_sum_n_" + std::to_string(fa_row_ix) + "_" + std::to_string(fa_el_ix) + "_";
-				fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix] = module->addWire(new_id(fa_sum_name, __LINE__, ""), 1);
-				std::string fa_carry_name = "fa_carry_n" + std::to_string(fa_row_ix) + "_" + std::to_string(fa_el_ix) + "_";
-				fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix] = module->addWire(new_id(fa_carry_name, __LINE__, ""), 1);
+				fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix] =
+					module->addWire(NEW_ID_SUFFIX(stringf("fa_sum_n_%d_%d", fa_row_ix, fa_el_ix)), 1);
+				fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix] =
+					module->addWire(NEW_ID_SUFFIX(stringf("fa_carry_n_%d_%d", fa_row_ix, fa_el_ix)), 1);
 			}
 		}
 
@@ -1110,67 +1046,52 @@ struct BoothPassWorker {
 					// step case
 					else if (fa_el_ix >= 2 && fa_el_ix <= x_sz) {
 						// middle (2...x_sz cells)
-						bfa_name = "bfa_0_step_" + std::to_string(fa_row_ix) + "_" + std::to_string(fa_el_ix) + "_L";
-						auto cell = module->addCell(new_id(bfa_name, __LINE__, ""), ID($fa));
-						cell->setParam(ID::WIDTH, 1);
-						cell->setPort(ID::A, PPij[(0 * dec_count) + fa_el_ix]);
-						cell->setPort(ID::B, PPij[(1 * dec_count) + fa_el_ix - 2]);
-						cell->setPort(ID::C, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1]);
-						cell->setPort(ID::X, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix]);
-						cell->setPort(ID::Y, fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]);
+						module->addFa(NEW_ID_SUFFIX(stringf("bfa_0_step_%d_%d_L", fa_row_ix, fa_el_ix)),
+							/* A */ PPij[(0 * dec_count) + fa_el_ix],
+							/* B */ PPij[(1 * dec_count) + fa_el_ix - 2],
+							/* C */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1],
+							/* X */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix],
+							/* Y */ fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]
+						);
 					}
 					// end 3 cells: x_sz+1.2.3
 					//
 					else {
 						// fa_el_ix = x_sz+1
-						bfa_name = "bfa_0_se_0" + std::to_string(fa_row_ix) + "_" + std::to_string(fa_el_ix) + "_L";
-						auto cell1 = module->addCell(new_id(bfa_name, __LINE__, ""), ID($fa));
-						cell1->setParam(ID::WIDTH, 1);
-						cell1->setPort(ID::A, PPij[(0 * dec_count) + x_sz]);
-						cell1->setPort(ID::B, PPij[(1 * dec_count) + fa_el_ix - 2]);
-						cell1->setPort(ID::C, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1]);
-						cell1->setPort(ID::X, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix]);
-						cell1->setPort(ID::Y, fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]);
+						module->addFa(NEW_ID_SUFFIX(stringf("bfa_0_se_0_%d_%d_L", fa_row_ix, fa_el_ix)),
+							/* A */ PPij[(0 * dec_count) + x_sz],
+							/* B */ PPij[(1 * dec_count) + fa_el_ix - 2],
+							/* C */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1],
+							/* X */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix],
+							/* Y */ fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]
+						);
 
 						// exception:invert ppi
 						fa_el_ix++;
-						exc_inv_name = "bfa_0_exc_inv1_" + std::to_string(fa_row_ix) + "_" + std::to_string(fa_el_ix) + "_L";
-						auto cellinv1 = module->addCell(new_id(exc_inv_name, __LINE__, ""), ID($_NOT_));
-						cellinv1->add_strpool_attribute(ID::src, cellinv1->get_strpool_attribute(ID::src));
+						SigBit d08_inv = module->NotGate(NEW_ID_SUFFIX(stringf("bfa_0_exc_inv1_%d_%d_L", fa_row_ix, fa_el_ix)),
+										 PPij[(0 * dec_count) + dec_count - 1]);
 
-						RTLIL::Wire *d08_inv = module->addWire(NEW_ID, 1);
+						SigBit d18_inv = module->NotGate(NEW_ID_SUFFIX(stringf("bfa_0_exc_inv2_%d_%d_L", fa_row_ix, fa_el_ix)),
+										 PPij[(1 * dec_count) + dec_count - 1]);
 
-						cellinv1->setPort(ID::A, PPij[(0 * dec_count) + dec_count - 1]);
-						cellinv1->setPort(ID::Y, d08_inv);
-
-						exc_inv_name = "bfa_0_exc_inv2_" + std::to_string(fa_row_ix) + "_" + std::to_string(fa_el_ix) + "_L";
-
-						auto cellinv2 = module->addCell(new_id(exc_inv_name, __LINE__, ""), ID($_NOT_));
-						cellinv2->add_strpool_attribute(ID::src, cellinv2->get_strpool_attribute(ID::src));
-						RTLIL::Wire *d18_inv = module->addWire(NEW_ID, 1);
-						cellinv2->setPort(ID::A, PPij[(1 * dec_count) + dec_count - 1]);
-						cellinv2->setPort(ID::Y, d18_inv);
-
-						bfa_name = "bfa_0_se_1_" + std::to_string(fa_row_ix) + "_" + std::to_string(fa_el_ix) + "_L";
-
-						auto cell2 = module->addCell(new_id(bfa_name, __LINE__, ""), ID($fa));
-						cell2->setParam(ID::WIDTH, 1);
-						cell2->setPort(ID::A, d08_inv);
-						cell2->setPort(ID::B, d18_inv);
-						cell2->setPort(ID::C, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1]);
-						cell2->setPort(ID::X, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix]);
-						cell2->setPort(ID::Y, fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]);
+						module->addFa(NEW_ID_SUFFIX(stringf("bfa_0_se_1_%d_%d_L", fa_row_ix, fa_el_ix)),
+							/* A */ d08_inv,
+							/* B */ d18_inv,
+							/* C */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1],
+							/* X */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix],
+							/* Y */ fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]
+						);
 
 						// sign extension
 						fa_el_ix++;
-						bfa_name = "bfa_0_se_2_" + std::to_string(fa_row_ix) + "_" + std::to_string(fa_el_ix) + "_L";
-						auto cell3 = module->addCell(new_id(bfa_name, __LINE__, ""), ID($fa));
-						cell3->setParam(ID::WIDTH, 1);
-						cell3->setPort(ID::A, State::S0);
-						cell3->setPort(ID::B, State::S1);
-						cell3->setPort(ID::C, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1]);
-						cell3->setPort(ID::X, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix]);
-						cell3->setPort(ID::Y, fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]);
+
+						module->addFa(NEW_ID_SUFFIX(stringf("bfa_0_se_2_%d_%d_L", fa_row_ix, fa_el_ix)),
+							/* A */ State::S0,
+							/* B */ State::S1,
+							/* C */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1],
+							/* X */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix],
+							/* Y */ fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]
+						);
 					}
 				}
 
@@ -1181,74 +1102,59 @@ struct BoothPassWorker {
 					if (fa_el_ix == 0) {
 						// first two cells: have B input hooked to 0.
 						// column is offset by row_ix*2
-						bfa_name = "bfa_" + std::to_string(fa_row_ix) + "_base_" + std::to_string(fa_row_ix) + "_" +
-							   std::to_string(fa_el_ix) + "_L";
-						auto cell1 = module->addCell(new_id(bfa_name, __LINE__, ""), ID($fa));
-						cell1->setParam(ID::WIDTH, 1);
-						cell1->setPort(ID::A, fa_sum_n[(fa_row_ix - 1) * fa_count + 2]); // from prior full adder row
-						cell1->setPort(ID::B, State::S0);
-						cell1->setPort(ID::C, cori_n_int[fa_row_ix]);
-						cell1->setPort(ID::X, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix]);
-						cell1->setPort(ID::Y, fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]);
+
+						module->addFa(NEW_ID_SUFFIX(stringf("bfa_base_%d_%d_L", fa_row_ix, fa_el_ix)),
+							/* A */ fa_sum_n[(fa_row_ix - 1) * fa_count + 2],
+							/* B */ State::S0,
+							/* C */ cori_n_int[fa_row_ix],
+							/* X */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix],
+							/* Y */ fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]
+						);
 						fa_el_ix++;
 
-						bfa_name = "bfa_" + std::to_string(fa_row_ix) + "_base_" + std::to_string(fa_row_ix) + "_" +
-							   std::to_string(fa_el_ix) + "_L";
-						auto cell2 = module->addCell(new_id(bfa_name, __LINE__, ""), ID($fa));
-						cell2->setParam(ID::WIDTH, 1);
-						cell2->setPort(ID::A,
-							       fa_sum_n[(fa_row_ix - 1) * fa_count + 3]); // from prior full adder row
-						cell2->setPort(ID::B, State::S0);
-						cell2->setPort(ID::C, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1]);
-						cell2->setPort(ID::X, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix]);
-						cell2->setPort(ID::Y, fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]);
+						module->addFa(NEW_ID_SUFFIX(stringf("bfa_base_%d_%d_L", fa_row_ix, fa_el_ix)),
+							/* A */ fa_sum_n[(fa_row_ix - 1) * fa_count + 3], // from prior full adder row
+							/* B */ State::S0,
+							/* C */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1],
+							/* X */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix],
+							/* Y */ fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]
+						);
+
 					}
 
 					else if (fa_el_ix >= 2 && fa_el_ix <= x_sz + 1) {
 						// middle (2...x_sz+1 cells)
-						bfa_name = "bfa_" + std::to_string(fa_row_ix) + "_step_" + std::to_string(fa_row_ix) + "_" +
-							   std::to_string(fa_el_ix) + "_L";
-						auto cell = module->addCell(new_id(bfa_name, __LINE__, ""), ID($fa));
-						cell->setParam(ID::WIDTH, 1);
-						cell->setPort(ID::A, fa_sum_n[(fa_row_ix - 1) * fa_count + fa_el_ix + 2]);
-						cell->setPort(ID::B, PPij[(fa_row_ix + 1) * dec_count + fa_el_ix - 2]);
-						cell->setPort(ID::C, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1]);
-						cell->setPort(ID::X, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix]);
-						cell->setPort(ID::Y, fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]);
+						module->addFa(NEW_ID_SUFFIX(stringf("bfa_step_%d_%d_L", fa_row_ix, fa_el_ix)),
+							/* A */ fa_sum_n[(fa_row_ix - 1) * fa_count + fa_el_ix + 2],
+							/* B */ PPij[(fa_row_ix + 1) * dec_count + fa_el_ix - 2],
+							/* C */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1],
+							/* X */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix],
+							/* Y */ fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]
+						);
 					}
 
 					else if (fa_el_ix > x_sz + 1) {
 						// end two bits: sign extension
-						std::string se_inv_name;
-						se_inv_name = "bfa_" + std::to_string(fa_row_ix) + "_se_inv_" + std::to_string(fa_row_ix) + "_" +
-							      std::to_string(fa_el_ix) + "_L";
-						auto cellinv = module->addCell(new_id(se_inv_name, __LINE__, ""), ID($_NOT_));
-						cellinv->add_strpool_attribute(ID::src, cellinv->get_strpool_attribute(ID::src));
-						RTLIL::Wire *d_inv = module->addWire(NEW_ID, 1);
-						cellinv->setPort(ID::A, PPij[((fa_row_ix + 1) * dec_count) + dec_count - 1]);
-						cellinv->setPort(ID::Y, d_inv);
+						SigBit d_inv = module->NotGate(NEW_ID_SUFFIX(stringf("bfa_se_inv_%d_%d_L", fa_row_ix, fa_el_ix)),
+									       PPij[((fa_row_ix + 1) * dec_count) + dec_count - 1]);
 
-						bfa_name = "bfa_" + std::to_string(fa_row_ix) + "_se_" + std::to_string(fa_row_ix) + "_" +
-							   std::to_string(fa_el_ix) + "_L";
-						auto cell1 = module->addCell(new_id(bfa_name, __LINE__, ""), ID($fa));
-						cell1->setParam(ID::WIDTH, 1);
-						cell1->setPort(ID::A, fa_carry_n[((fa_row_ix - 1) * fa_count) + fa_count - 1]);
-						cell1->setPort(ID::B, d_inv);
-						cell1->setPort(ID::C, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1]);
-						cell1->setPort(ID::X, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix]);
-						cell1->setPort(ID::Y, fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]);
+						module->addFa(NEW_ID_SUFFIX(stringf("bfa_se_%d_%d_L", fa_row_ix, fa_el_ix)),
+							/* A */ fa_carry_n[((fa_row_ix - 1) * fa_count) + fa_count - 1],
+							/* B */ d_inv,
+							/* C */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1],
+							/* X */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix],
+							/* Y */ fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]
+						);
 						fa_el_ix++;
 
 						// sign extension
-						bfa_name = "bfa_" + std::to_string(fa_row_ix) + "_se_" + std::to_string(fa_row_ix) + "_" +
-							   std::to_string(fa_el_ix) + "_L";
-						auto cell2 = module->addCell(new_id(bfa_name, __LINE__, ""), ID($fa));
-						cell2->setParam(ID::WIDTH, 1);
-						cell2->setPort(ID::A, State::S0);
-						cell2->setPort(ID::B, State::S1);
-						cell2->setPort(ID::C, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1]);
-						cell2->setPort(ID::X, fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix]);
-						cell2->setPort(ID::Y, fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]);
+						module->addFa(NEW_ID_SUFFIX(stringf("bfa_se_%d_%d_L", fa_row_ix, fa_el_ix)),
+							/* A */ State::S0,
+							/* B */ State::S1,
+							/* C */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1],
+							/* X */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix],
+							/* Y */ fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]
+						);
 					}
 				}
 			}
@@ -1257,13 +1163,10 @@ struct BoothPassWorker {
 		// instantiate the cpa
 		SigSpec cpa_carry;
 
-		for (int cix = 0; cix < z_sz; cix++) {
-			std::string cpa_cix_name = "cpa_carry_" + std::to_string(cix) + "_";
-			cpa_carry.append(module->addWire(new_id(cpa_cix_name, __LINE__, ""), 1));
-		}
+		for (int cix = 0; cix < z_sz; cix++)
+			cpa_carry.append(module->addWire(NEW_ID_SUFFIX(stringf("cpa_carry_%d", cix)), 1));
 
 		for (int cpa_ix = 0; cpa_ix < z_sz; cpa_ix++) {
-
 			// The end case where we pass the last two summands
 			// from prior row directly to product output
 			// without using a cpa cell. This is always
@@ -1271,27 +1174,16 @@ struct BoothPassWorker {
 			if (cpa_ix <= fa_row_count * 2 - 1) {
 				int fa_row_ix = cpa_ix / 2;
 
-				std::string buf_name =
-				  "pp_buf_" + std::to_string(cpa_ix) + "_" + "driven_by_fa_row_" + std::to_string(fa_row_ix) + "_";
-				auto buf = module->addCell(new_id(buf_name, __LINE__, ""), ID($pos));
-				buf->setPort(ID::A, fa_sum_n[(fa_row_ix * fa_count) + 0]);
-				buf->setParam(ID::A_WIDTH, 1);
-				buf->setParam(ID::Y_WIDTH, 1);
-				buf->setParam(ID::A_SIGNED, true);
-				buf->setPort(ID::Y, Z[cpa_ix]);
+				module->addBufGate(NEW_ID_SUFFIX(stringf("pp_buf_%d_driven_by_fa_row_%d", cpa_ix, fa_row_ix)),
+						   fa_sum_n[(fa_row_ix * fa_count) + 0], Z[cpa_ix]);
 
 				cpa_ix++;
-				buf_name = "pp_buf_" + std::to_string(cpa_ix) + "_" + "driven_by_fa_row_" + std::to_string(fa_row_ix) + "_";
-				buf = module->addCell(new_id(buf_name, __LINE__, ""), ID($pos));
-				buf->setPort(ID::A, fa_sum_n[(fa_row_ix * fa_count) + 1]);
-				buf->setParam(ID::A_WIDTH, 1);
-				buf->setParam(ID::Y_WIDTH, 1);
-				buf->setParam(ID::A_SIGNED, true);
-				buf->setPort(ID::Y, Z[cpa_ix]);
+				module->addBufGate(NEW_ID_SUFFIX(stringf("pp_buf_%d_driven_by_fa_row_%d", cpa_ix, fa_row_ix)),
+						   fa_sum_n[(fa_row_ix * fa_count) + 1], Z[cpa_ix]);
 			} else {
 				int offset = fa_row_count * 2;
 				bool base_case = cpa_ix - offset == 0 ? true : false;
-				std::string cpa_name = "cpa_" + std::to_string(cpa_ix - offset) + "_";
+				std::string cpa_name = stringf("cpa_%d", cpa_ix - offset);
 
 				SigBit ci;
 				if (base_case)
