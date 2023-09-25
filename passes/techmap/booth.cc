@@ -52,6 +52,9 @@ or in generic synthesis call with -booth argument:
 synth -top my_design -booth
 */
 
+//FIXME: These debug prints are broken now, should be fixed or removed.
+//#define DEBUG_CPA
+
 #include "kernel/sigtools.h"
 #include "kernel/yosys.h"
 
