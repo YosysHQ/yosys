@@ -988,7 +988,7 @@ public:
 		return !operator==(other);
 	}
 
-	bool hash() const {
+	unsigned int hash() const {
 		unsigned int hashval = mkhash_init;
 		for (auto &it : entries)
 			hashval ^= ops.hash(it.udata);
