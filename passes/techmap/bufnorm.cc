@@ -69,6 +69,8 @@ struct BufnormPass : public Pass {
 
 		for (auto module : design->selected_modules())
 		{
+			log("Buffer-normalizing module %s.\n", log_id(module));
+
 			SigMap sigmap(module);
 			module->new_connections({});
 
@@ -112,6 +114,7 @@ struct BufnormPass : public Pass {
 					bit2wires[key].insert(wire);
 
 				if (wire->port_input) {
+					log("  primary input: %s\n", log_id(module));
 					for (auto bit : SigSpec(wire))
 						mapped_bits[sigmap(bit)] = bit;
 				} else {
@@ -126,9 +129,14 @@ struct BufnormPass : public Pass {
 					if (!cell->output(conn.first))
 						continue;
 
+					Wire *w = conn.second.as_wire();
+					if (w->name.isPublic())
+						log("  directly driven by cell %s port %s: %s\n",
+								log_id(cell), log_id(conn.first), log_id(w));
+
 					for (auto bit : conn.second)
 						mapped_bits[sigmap(bit)] = bit;
-					unmapped_wires.erase(conn.second.as_wire());
+					unmapped_wires.erase(w);
 				}
 			}
 
@@ -142,6 +150,8 @@ struct BufnormPass : public Pass {
 
 			unmapped_wires.sort(compareWires);
 
+			pool<Cell*> added_buffers;
+
 			for (auto wire : unmapped_wires)
 			{
 				SigSpec keysig = sigmap(wire), insig = wire, outsig = wire;
@@ -149,6 +159,8 @@ struct BufnormPass : public Pass {
 					insig[i] = mapped_bits.at(keysig[i], State::Sx);
 				for (int i = 0; i < GetSize(outsig); i++)
 					mapped_bits[keysig[i]] = outsig[i];
+
+				log("  adding buffer for %s -> %s\n", log_signal(insig), log_signal(outsig));
 
 				if (connections_mode) {
 					if (bits_mode) {
@@ -164,12 +176,36 @@ struct BufnormPass : public Pass {
 							c->setPort(buf_inport, insig[i]);
 							c->setPort(buf_outport, outsig[i]);
 							c->fixup_parameters();
+							added_buffers.insert(c);
 						}
 					} else {
 						Cell *c = module->addCell(NEW_ID, buf_celltype);
 						c->setPort(buf_inport, insig);
 						c->setPort(buf_outport, outsig);
 						c->fixup_parameters();
+						added_buffers.insert(c);
+					}
+				}
+			}
+
+			for (auto cell : module->cells())
+			{
+				if (added_buffers.count(cell))
+					continue;
+
+				for (auto &conn : cell->connections())
+				{
+					if (cell->output(conn.first))
+						continue;
+
+					SigSpec newsig = conn.second;
+					for (auto &bit : newsig)
+						bit = mapped_bits[sigmap(bit)];
+
+					if (conn.second != newsig) {
+						log("  fixing input signal on cell %s port %s: %s\n",
+								log_id(cell), log_id(conn.first), log_signal(newsig));
+						cell->setPort(conn.first, newsig);
 					}
 				}
 			}
