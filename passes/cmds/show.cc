@@ -575,7 +575,7 @@ struct ShowWorker
 				} else {
 					net_conn_map[right_node].in.insert({stringf("x%d", single_idx_count), GetSize(conn.first)});
 					net_conn_map[left_node].out.insert({stringf("x%d", single_idx_count), GetSize(conn.first)});
-					fprintf(f, "x%d [shape=box, style=rounded, label=\"BUF\", %s];\n", single_idx_count++, findColor(conn).c_str());
+					fprintf(f, "x%d [shape=point, %s];\n", single_idx_count++, findColor(conn).c_str());
 				}
 			}
 		}
