@@ -1275,9 +1275,16 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		log("Importing module %s.\n", RTLIL::id2cstr(module->name));
 	}
 	import_attributes(module->attributes, nl, nl);
+	const char *param_name ;
+	const char *param_value ;
+	MapIter mi;
+	FOREACH_PARAMETER_OF_NETLIST(nl, mi, param_name, param_value) {
+		module->avail_parameters(RTLIL::escape_id(param_name));
+		module->parameter_default_values[RTLIL::escape_id(param_name)] = verific_const(param_value);
+	}
 
 	SetIter si;
-	MapIter mi, mi2;
+	MapIter mi2;
 	Port *port;
 	PortBus *portbus;
 	Net *net;
