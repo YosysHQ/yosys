@@ -655,8 +655,7 @@ struct BoothPassWorker {
 		cpa_id++;
 
 		log_assert(c_vec.size() == s_vec.size());
-		// TODO: doesn't pass
-		//log_assert(result.size() == s_vec.size() + 2);
+		log_assert(result.size() == s_vec.size());
 
 		SigBit carry;
 		for (int n = 0; n < s_vec.size(); n++) {
