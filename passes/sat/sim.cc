@@ -111,6 +111,7 @@ struct SimShared
 	int step = 0;
 	std::vector<TriggeredAssertion> triggered_assertions;
 	bool serious_asserts = false;
+	bool initstate = true;
 };
 
 void zinit(State &v)
@@ -1356,6 +1357,8 @@ struct SimWorker : SimShared
 		set_inports(clock, State::Sx);
 		set_inports(clockn, State::Sx);
 
+		top->set_initstate_outputs(initstate ? State::S1 : State::S0);
+
 		update(false);
 
 		register_output_step(0);
@@ -1371,6 +1374,9 @@ struct SimWorker : SimShared
 
 			update(true);
 			register_output_step(10*cycle + 5);
+
+			if (cycle == 0)
+				top->set_initstate_outputs(State::S0);
 
 			if (debug)
 				log("\n===== %d =====\n", 10*cycle + 10);
@@ -1953,7 +1959,7 @@ struct SimWorker : SimShared
 		if (yw.steps.empty()) {
 			log_warning("Yosys witness file `%s` contains no time steps\n", yw.filename.c_str());
 		} else {
-			top->set_initstate_outputs(State::S1);
+			top->set_initstate_outputs(initstate ? State::S1 : State::S0);
 			set_yw_state(yw, hierarchy, 0);
 			set_yw_clocks(yw, hierarchy, true);
 			initialize_stable_past();
@@ -2546,6 +2552,9 @@ struct SimPass : public Pass {
 		log("    -n <integer>\n");
 		log("        number of clock cycles to simulate (default: 20)\n");
 		log("\n");
+		log("    -noinitstate\n");
+		log("        do not activate $initstate cells during the first cycle\n");
+		log("\n");
 		log("    -a\n");
 		log("        use all nets in VCD/FST operations, not just those with public names\n");
 		log("\n");
@@ -2644,6 +2653,10 @@ struct SimPass : public Pass {
 			if (args[argidx] == "-n" && argidx+1 < args.size()) {
 				numcycles = atoi(args[++argidx].c_str());
 				worker.cycles_set = true;
+				continue;
+			}
+			if (args[argidx] == "-noinitstate") {
+				worker.initstate = false;
 				continue;
 			}
 			if (args[argidx] == "-rstlen" && argidx+1 < args.size()) {
