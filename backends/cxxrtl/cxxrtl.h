@@ -1269,6 +1269,7 @@ struct module {
 
 	virtual bool eval() = 0;
 	virtual bool commit() = 0;
+	virtual void check() {};
 
 	unsigned int steps = 0;
 
@@ -1280,6 +1281,7 @@ struct module {
 			converged = eval();
 			deltas++;
 		} while (commit() && !converged);
+		check();
 		return deltas;
 	}
 

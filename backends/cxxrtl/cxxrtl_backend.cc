@@ -218,7 +218,7 @@ bool is_internal_cell(RTLIL::IdString type)
 
 bool is_effectful_cell(RTLIL::IdString type)
 {
-	return type.isPublic() || type == ID($print);
+	return type.isPublic() || type.in(ID($print), ID($assert));
 }
 
 bool is_cxxrtl_blackbox_cell(const RTLIL::Cell *cell)
@@ -1290,7 +1290,10 @@ struct CxxrtlWorker {
 				dump_print(cell);
 				f << indent << mangle(cell) << " = " << mangle(cell) << "_curr;\n";
 			dec_indent();
-			f << indent << "}\n";
+			f << indent << "}\n";	
+		// $assert cell
+		} else if (cell->type == ID($assert)) {
+			// Nothing to do, deferred to check()
 		// Flip-flops
 		} else if (is_ff_cell(cell->type)) {
 			log_assert(!for_debug);
@@ -2120,6 +2123,31 @@ struct CxxrtlWorker {
 		dec_indent();
 	}
 
+	void dump_check_method(RTLIL::Module *module)
+	{
+		inc_indent();
+			for (auto cell : module->cells()) {
+				if (cell->type == ID($assert)) {
+					dump_attrs(cell);
+					f << indent << "if (";
+					dump_sigspec_rhs(cell->getPort(ID::EN));
+					f << ")\n";
+					inc_indent();
+						f << indent << "CXXRTL_ASSERT((";
+						dump_sigspec_rhs(cell->getPort(ID::A));
+						f << " == value<1> {1u})";
+						// TODO: escaping of the cell name (does there need to be?)
+						f << " && \"assertion cell " << get_hdl_name(cell) << "\");\n";
+					dec_indent();
+				} else if (!is_internal_cell(cell->type)) {
+					log_assert(cell->known());
+					const char *access = is_cxxrtl_blackbox_cell(cell) ? "->" : ".";
+					f << indent << mangle(cell) << access << "check();\n";	
+				}
+			}
+		dec_indent();
+	}
+
 	void dump_debug_info_method(RTLIL::Module *module)
 	{
 		size_t count_public_wires = 0;
@@ -2334,6 +2362,10 @@ struct CxxrtlWorker {
 				dump_commit_method(module);
 				f << indent << "}\n";
 				f << "\n";
+				f << indent << "void check() override {\n";
+				dump_check_method(module);
+				f << indent << "}\n";
+				f << "\n";
 				if (debug_info) {
 					f << indent << "void debug_info(debug_items &items, std::string path = \"\") override {\n";
 					dump_debug_info_method(module);
@@ -2418,6 +2450,7 @@ struct CxxrtlWorker {
 				f << indent << "void reset() override;\n";
 				f << indent << "bool eval() override;\n";
 				f << indent << "bool commit() override;\n";
+				f << indent << "void check() override;\n";
 				if (debug_info) {
 					if (debug_eval) {
 						f << "\n";
@@ -2452,6 +2485,10 @@ struct CxxrtlWorker {
 		f << "\n";
 		f << indent << "bool " << mangle(module) << "::commit() {\n";
 		dump_commit_method(module);
+		f << indent << "}\n";
+		f << "\n";
+		f << indent << "void " << mangle(module) << "::check() {\n";
+		dump_check_method(module);
 		f << indent << "}\n";
 		f << "\n";
 		if (debug_info) {
