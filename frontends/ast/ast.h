@@ -221,6 +221,13 @@ namespace AST
 		std::string filename;
 		AstSrcLocType location;
 
+		// are we embedded in an lvalue, param?
+		// (see fixup_hierarchy_flags)
+		bool in_lvalue;
+		bool in_param;
+		bool in_lvalue_from_above;
+		bool in_param_from_above;
+
 		// creating and deleting nodes
 		AstNode(AstNodeType type = AST_NONE, AstNode *child1 = nullptr, AstNode *child2 = nullptr, AstNode *child3 = nullptr, AstNode *child4 = nullptr);
 		AstNode *clone() const;
@@ -251,7 +258,7 @@ namespace AST
 
 		// simplify() creates a simpler AST by unrolling for-loops, expanding generate blocks, etc.
 		// it also sets the id2ast pointers so that identifier lookups are fast in genRTLIL()
-		bool simplify(bool const_fold, bool in_lvalue, int stage, int width_hint, bool sign_hint, bool in_param);
+		bool simplify(bool const_fold, int stage, int width_hint, bool sign_hint);
 		void replace_result_wire_name_in_function(const std::string &from, const std::string &to);
 		AstNode *readmem(bool is_readmemh, std::string mem_filename, AstNode *memory, int start_addr, int finish_addr, bool unconditional_init);
 		void expand_genblock(const std::string &prefix);
@@ -342,6 +349,24 @@ namespace AST
 		// helper to clone the node with some of its subexpressions replaced with zero (this is used
 		// to evaluate widths of dynamic ranges)
 		AstNode *clone_at_zero();
+
+		void set_attribute(RTLIL::IdString key, AstNode *node)
+		{
+			attributes[key] = node;
+			node->set_in_param_flag(true);
+		}
+
+		// helper to set in_lvalue/in_param flags from the hierarchy context (the actual flag
+		// can be overridden based on the intrinsic properties of this node, i.e. based on its type)
+		void set_in_lvalue_flag(bool flag, bool no_descend = false);
+		void set_in_param_flag(bool flag, bool no_descend = false);
+
+		// fix up the hierarchy flags (in_lvalue/in_param) of this node and its children
+		//
+		// to keep the flags in sync, fixup_hierarchy_flags(true) needs to be called once after
+		// parsing the AST to walk the full tree, then plain fixup_hierarchy_flags() performs
+		// localized fixups after modifying children/attributes of a particular node
+		void fixup_hierarchy_flags(bool force_descend = false);
 
 		// helper to print errors from simplify/genrtlil code
 		[[noreturn]] void input_error(const char *format, ...) const YS_ATTRIBUTE(format(printf, 2, 3));

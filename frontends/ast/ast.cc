@@ -229,6 +229,10 @@ AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2, AstNode *ch
 	id2ast = NULL;
 	basic_prep = false;
 	lookahead = false;
+	in_lvalue_from_above = false;
+	in_param_from_above = false;
+	in_lvalue = false;
+	in_param = false;
 
 	if (child1)
 		children.push_back(child1);
@@ -238,6 +242,8 @@ AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2, AstNode *ch
 		children.push_back(child3);
 	if (child4)
 		children.push_back(child4);
+
+	fixup_hierarchy_flags();
 }
 
 // create a (deep recursive) copy of a node
@@ -249,6 +255,10 @@ AstNode *AstNode::clone() const
 		it = it->clone();
 	for (auto &it : that->attributes)
 		it.second = it.second->clone();
+
+	that->set_in_lvalue_flag(false);
+	that->set_in_param_flag(false);
+	that->fixup_hierarchy_flags(); // fixup to set flags on cloned children
 	return that;
 }
 
@@ -256,10 +266,13 @@ AstNode *AstNode::clone() const
 void AstNode::cloneInto(AstNode *other) const
 {
 	AstNode *tmp = clone();
+	tmp->in_lvalue_from_above = other->in_lvalue_from_above;
+	tmp->in_param_from_above = other->in_param_from_above;
 	other->delete_children();
 	*other = *tmp;
 	tmp->children.clear();
 	tmp->attributes.clear();
+	other->fixup_hierarchy_flags();
 	delete tmp;
 }
 
@@ -351,6 +364,10 @@ void AstNode::dumpAst(FILE *f, std::string indent) const
 	if (is_enum) {
 		fprintf(f, " type=enum");
 	}
+	if (in_lvalue)
+		fprintf(f, " in_lvalue");
+	if (in_param)
+		fprintf(f, " in_param");
 	fprintf(f, "\n");
 
 	for (auto &it : attributes) {
@@ -1061,7 +1078,7 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 		// simplify this module or interface using the current design as context
 		// for lookup up ports and wires within cells
 		set_simplify_design_context(design);
-		while (ast->simplify(!flag_noopt, false, 0, -1, false, false)) { }
+		while (ast->simplify(!flag_noopt, 0, -1, false)) { }
 		set_simplify_design_context(nullptr);
 
 		if (flag_dump_ast2) {
@@ -1091,7 +1108,7 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 					ast->attributes.erase(ID::whitebox);
 				}
 				AstNode *n = ast->attributes.at(ID::lib_whitebox);
-				ast->attributes[ID::whitebox] = n;
+				ast->set_attribute(ID::whitebox, n);
 				ast->attributes.erase(ID::lib_whitebox);
 			}
 		}
@@ -1150,7 +1167,7 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 			ast->children.swap(new_children);
 
 			if (ast->attributes.count(ID::blackbox) == 0) {
-				ast->attributes[ID::blackbox] = AstNode::mkconst_int(1, false);
+				ast->set_attribute(ID::blackbox, AstNode::mkconst_int(1, false));
 			}
 		}
 
@@ -1298,6 +1315,8 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 	flag_pwires = pwires;
 	flag_autowire = autowire;
 
+	ast->fixup_hierarchy_flags(true);
+
 	log_assert(current_ast->type == AST_DESIGN);
 	for (AstNode *child : current_ast->children)
 	{
@@ -1361,7 +1380,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump
 		}
 		else if (child->type == AST_PACKAGE) {
 			// process enum/other declarations
-			child->simplify(true, false, 1, -1, false, false);
+			child->simplify(true, 1, -1, false);
 			rename_in_package_stmts(child);
 			design->verilog_packages.push_back(child->clone());
 			current_scope.clear();
@@ -1748,7 +1767,7 @@ std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::Id
 
 	AstNode *new_ast = ast->clone();
 	if (!new_ast->attributes.count(ID::hdlname))
-		new_ast->attributes[ID::hdlname] = AstNode::mkconst_str(stripped_name);
+		new_ast->set_attribute(ID::hdlname, AstNode::mkconst_str(stripped_name));
 
 	para_counter = 0;
 	for (auto child : new_ast->children) {
@@ -1795,6 +1814,7 @@ std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::Id
 			new_ast->children.push_back(defparam);
 		}
 
+	new_ast->fixup_hierarchy_flags(true);
 	(*new_ast_out) = new_ast;
 	return modname;
 }
