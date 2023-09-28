@@ -313,18 +313,33 @@ RTLIL::Const RTLIL::Const::from_string(const std::string &str)
 
 std::string RTLIL::Const::decode_string() const
 {
-	std::string string;
-	string.reserve(GetSize(bits)/8);
-	for (int i = 0; i < GetSize(bits); i += 8) {
+	const int n = GetSize(bits);
+	const int n_over_8 = n / 8;
+	std::string s;
+	s.reserve(n_over_8);
+	int i = n_over_8 * 8;
+	if (i < n) {
 		char ch = 0;
-		for (int j = 0; j < 8 && i + j < int (bits.size()); j++)
-			if (bits[i + j] == RTLIL::State::S1)
+		for (int j = 0; j < (n - i); j++) {
+			if (bits[j + i] == RTLIL::State::S1) {
 				ch |= 1 << j;
+			}
+		}
 		if (ch != 0)
-			string.append({ch});
+			s.append({ch});
 	}
-	std::reverse(string.begin(), string.end());
-	return string;
+	i -= 8;
+	for (; i >= 0; i -= 8) {
+		char ch = 0;
+		for (int j = 0; j < 8; j++) {
+			if (bits[j + i] == RTLIL::State::S1) {
+				ch |= 1 << j;
+			}
+		}
+		if (ch != 0)
+			s.append({ch});
+	}
+	return s;
 }
 
 bool RTLIL::Const::is_fully_zero() const
@@ -4044,7 +4059,7 @@ void RTLIL::SigSpec::replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec
 			other->bits_[j] = with.bits_[it->second];
 		}
 	}
-	
+
 	other->check();
 }
 
