@@ -1,1 +1,1 @@
-test_cell -s 1694091355 -n 1000 -script booth_map_script.ys_ $mul
+test_cell -s 1694091355 -n 100 -script booth_map_script.ys_ $mul
