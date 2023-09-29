@@ -3042,8 +3042,8 @@ skip_dynamic_range_lvalue_expansion:;
 			assign_check = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), new AstNode(AST_REDUCE_BOOL, children[0]->clone()));
 			assign_check->children[0]->str = id_check;
 			assign_check->children[0]->was_checked = true;
+			assign_check->fixup_hierarchy_flags();
 		}
-		assign_check->fixup_hierarchy_flags();
 
 		if (current_always == nullptr || current_always->type != AST_INITIAL) {
 			assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_int(1, false, 1));
