@@ -4,6 +4,7 @@
 *.gch
 *.gcda
 *.gcno
+*~
 __pycache__
 /.cproject
 /.project
