@@ -58,7 +58,6 @@ endgenerate
 
 endmodule
 
-
 // --------------------------------------------------------
 
 //  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -83,6 +82,25 @@ generate
 		assign Y = A;
 	end
 endgenerate
+
+endmodule
+
+// --------------------------------------------------------
+
+//  |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+//-
+//-     $buf (A, Y)
+//-
+//- A simple coarse-grain buffer cell type.
+//-
+module \$buf (A, Y);
+
+parameter WIDTH = 0;
+
+input [WIDTH-1:0] A;
+output [WIDTH-1:0] Y;
+
+assign Y = A;
 
 endmodule
 
