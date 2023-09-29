@@ -83,11 +83,21 @@ struct BufnormPass : public Pass {
 		log("    -conn\n");
 		log("        Create 'direct connections' instead of buffer cells.\n");
 		log("\n");
+		log("    -nomode\n");
+		log("        Do not automatically enter or leave 'buffered-normalized mode'.\n");
+		log("\n");
+		log("The 'bufnorm' command can also be used to just switch in and out of\n");
+		log("'buffered-normalized mode' and run the low-level re-normalizer.\n");
+		log("\n");
+		log("    -update\n");
+		log("        Enter 'buffered-normalized mode' and (re-)normalize.\n");
+		log("\n");
+		log("    -reset\n");
+		log("        Leave 'buffered-normalized mode' without changing the netlist.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		log_header(design, "Executing BUFNORM pass (convert to buffer-normalized form).\n");
-
 		bool buf_mode = false;
 		bool chain_mode = false;
 		bool output_mode = false;
@@ -97,10 +107,15 @@ struct BufnormPass : public Pass {
 		bool nosticky_mode = false;
 		bool alphasort_mode = false;
 		bool noinit_mode = false; // FIXME: Actually move init attributes
+		bool nomode_mode = false;
 
 		bool pos_mode = false;
 		bool bits_mode = false;
 		bool conn_mode = false;
+
+		bool update_mode = false;
+		bool reset_mode = false;
+		bool got_non_update_reset_opt = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -108,55 +123,81 @@ struct BufnormPass : public Pass {
 			std::string arg = args[argidx];
 			if (arg == "-buf") {
 				buf_mode = true;
+				got_non_update_reset_opt = true;
 				continue;
 			}
 			if (arg == "-chain") {
 				chain_mode = true;
+				got_non_update_reset_opt = true;
 				continue;
 			}
 			if (arg == "-output") {
 				output_mode = true;
+				got_non_update_reset_opt = true;
 				continue;
 			}
 			if (arg == "-public") {
 				public_mode = true;
+				got_non_update_reset_opt = true;
 				continue;
 			}
 			if (arg == "-nochain") {
 				nochain_mode = true;
+				got_non_update_reset_opt = true;
 				continue;
 			}
 			if (arg == "-nokeep") {
 				nokeep_mode = true;
+				got_non_update_reset_opt = true;
 				continue;
 			}
 			if (arg == "-flat") {
 				nochain_mode = true;
 				nokeep_mode = true;
+				got_non_update_reset_opt = true;
 				continue;
 			}
 			if (arg == "-nosticky") {
 				nosticky_mode = true;
+				got_non_update_reset_opt = true;
 				continue;
 			}
 			if (arg == "-alphasort") {
 				alphasort_mode = true;
+				got_non_update_reset_opt = true;
 				continue;
 			}
 			if (arg == "-noinit") {
 				noinit_mode = true;
+				got_non_update_reset_opt = true;
 				continue;
 			}
 			if (arg == "-pos") {
 				pos_mode = true;
+				got_non_update_reset_opt = true;
 				continue;
 			}
 			if (arg == "-bits") {
 				bits_mode = true;
+				got_non_update_reset_opt = true;
 				continue;
 			}
 			if (arg == "-conn") {
 				conn_mode = true;
+				got_non_update_reset_opt = true;
+				continue;
+			}
+			if (arg == "-nomode") {
+				nomode_mode = true;
+				got_non_update_reset_opt = true;
+				continue;
+			}
+			if (arg == "-update") {
+				update_mode = true;
+				continue;
+			}
+			if (arg == "-reset") {
+				reset_mode = true;
 				continue;
 			}
 			break;
@@ -172,11 +213,37 @@ struct BufnormPass : public Pass {
 		if (pos_mode && conn_mode)
 			log_cmd_error("Options -pos and -conn are exclusive.\n");
 
+		if (update_mode && reset_mode)
+			log_cmd_error("Options -update and -reset are exclusive.\n");
+
+		if (update_mode && got_non_update_reset_opt)
+			log_cmd_error("Option -update can't be mixed with other options.\n");
+
+		if (reset_mode && got_non_update_reset_opt)
+			log_cmd_error("Option -reset can't be mixed with other options.\n");
+
+		if (update_mode) {
+			design->bufNormalize();
+			return;
+		}
+
+		if (reset_mode) {
+			design->bufNormalize(false);
+			return;
+		}
+
+		log_header(design, "Executing BUFNORM pass (convert to buffer-normalized form).\n");
+
 		int count_removed_buffers = 0;
 		int count_updated_buffers = 0;
 		int count_kept_buffers = 0;
 		int count_created_buffers = 0;
 		int count_updated_cellports = 0;
+
+		if (!nomode_mode && (pos_mode || bits_mode || conn_mode)) {
+			if (design->selection().full_selection)
+				design->bufNormalize(false);
+		}
 
 		for (auto module : design->selected_modules())
 		{
@@ -432,6 +499,11 @@ struct BufnormPass : public Pass {
 		log("Summary: removed %d, updated %d, kept %d, and created %d buffers, and updated %d cell ports.\n",
 				count_removed_buffers, count_updated_buffers, count_kept_buffers,
 				count_created_buffers, count_updated_cellports);
+
+		if (!nomode_mode && !(pos_mode || bits_mode || conn_mode)) {
+			if (design->selection().full_selection)
+				design->bufNormalize(true);
+		}
 	}
 } BufnormPass;
 
