@@ -1044,6 +1044,9 @@ struct RTLIL::Design
 	pool<RTLIL::Monitor*> monitors;
 	dict<std::string, std::string> scratchpad;
 
+	bool flagBufferedNormalized = false;
+	void bufNormalize(bool enable=true);
+
 	int refcount_modules_;
 	dict<RTLIL::IdString, RTLIL::Module*> modules_;
 	std::vector<RTLIL::Binding*> bindings_;
@@ -1187,6 +1190,9 @@ public:
 
 	std::vector<RTLIL::IdString> ports;
 	void fixup_ports();
+
+	pool<pair<RTLIL::Cell*, RTLIL::IdString>> bufNormQueue;
+	void bufNormalize();
 
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);
@@ -1500,6 +1506,9 @@ public:
 	RTLIL::IdString name;
 	int width, start_offset, port_id;
 	bool port_input, port_output, upto, is_signed;
+
+	RTLIL::Cell *driverCell = nullptr;
+	RTLIL::IdString driverPort;
 
 #ifdef WITH_PYTHON
 	static std::map<unsigned int, RTLIL::Wire*> *get_all_wires(void);
