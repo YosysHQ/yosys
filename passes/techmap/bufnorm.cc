@@ -172,6 +172,12 @@ struct BufnormPass : public Pass {
 		if (pos_mode && conn_mode)
 			log_cmd_error("Options -pos and -conn are exclusive.\n");
 
+		int count_removed_buffers = 0;
+		int count_updated_buffers = 0;
+		int count_kept_buffers = 0;
+		int count_created_buffers = 0;
+		int count_updated_cellports = 0;
+
 		for (auto module : design->selected_modules())
 		{
 			log("Buffer-normalizing module %s.\n", log_id(module));
@@ -179,21 +185,29 @@ struct BufnormPass : public Pass {
 			SigMap sigmap(module);
 			module->new_connections({});
 
+			dict<pair<IdString, SigSpec>, Cell*> old_buffers;
+
 			{
-				vector<Cell*> old_buffers;
+				vector<Cell*> old_dup_buffers;
 				for (auto cell : module->cells())
 				{
 					if (!cell->type.in(ID($buf), ID($_BUF_)))
 						continue;
 
-					SigSpec insig = sigmap(cell->getPort(ID::A));
-					SigSpec outsig = sigmap(cell->getPort(ID::Y));
+					SigSpec insig = cell->getPort(ID::A);
+					SigSpec outsig = cell->getPort(ID::Y);
 					for (int i = 0; i < GetSize(insig) && i < GetSize(outsig); i++)
 						sigmap.add(insig[i], outsig[i]);
-					old_buffers.push_back(cell);
+
+					pair<IdString,Wire*> key(cell->type, outsig.as_wire());
+					if (old_buffers.count(key))
+						old_dup_buffers.push_back(cell);
+					else
+						old_buffers[key] = cell;
 				}
-				for (auto cell : old_buffers)
+				for (auto cell : old_dup_buffers)
 					module->remove(cell);
+				count_removed_buffers += GetSize(old_dup_buffers);
 			}
 
 			dict<SigBit, pool<Wire*>> bit2wires;
@@ -280,6 +294,9 @@ struct BufnormPass : public Pass {
 
 			for (auto cell : module->cells())
 			{
+				if (cell->type.in(ID($buf), ID($_BUF_)))
+					continue;
+
 				for (auto &conn : cell->connections())
 				{
 					if (!cell->output(conn.first))
@@ -318,6 +335,34 @@ struct BufnormPass : public Pass {
 
 			pool<Cell*> added_buffers;
 
+			auto make_buffer_f = [&](const IdString &type, const SigSpec &src, const SigSpec &dst)
+			{
+				auto it = old_buffers.find(pair<IdString, SigSpec>(type, dst));
+
+				if (it != old_buffers.end())
+				{
+					Cell *cell = it->second;
+					old_buffers.erase(it);
+					added_buffers.insert(cell);
+
+					if (cell->getPort(ID::A) == src) {
+						count_kept_buffers++;
+					} else {
+						cell->setPort(ID::A, src);
+						count_updated_buffers++;
+					}
+					return;
+				}
+
+				Cell *cell = module->addCell(NEW_ID, type);
+				added_buffers.insert(cell);
+
+				cell->setPort(ID::A, src);
+				cell->setPort(ID::Y, dst);
+				cell->fixup_parameters();
+				count_created_buffers++;
+			};
+
 			unmapped_wires.sort(compare_wires_f);
 			for (auto wire : unmapped_wires)
 			{
@@ -346,24 +391,19 @@ struct BufnormPass : public Pass {
 				} else {
 					if (bits_mode) {
 						IdString celltype = pos_mode ? ID($pos) : buf_mode ? ID($buf) : ID($_BUF_);
-						for (int i = 0; i < GetSize(insig) && i < GetSize(outsig); i++) {
-							Cell *c = module->addCell(NEW_ID, celltype);
-							c->setPort(ID::A, insig[i]);
-							c->setPort(ID::Y, outsig[i]);
-							c->fixup_parameters();
-							added_buffers.insert(c);
-						}
+						for (int i = 0; i < GetSize(insig) && i < GetSize(outsig); i++)
+							make_buffer_f(celltype, insig[i], outsig[i]);
 					} else {
 						IdString celltype = pos_mode ? ID($pos) : buf_mode ? ID($buf) :
 								GetSize(outsig) == 1 ? ID($_BUF_) : ID($buf);
-						Cell *c = module->addCell(NEW_ID, celltype);
-						c->setPort(ID::A, insig);
-						c->setPort(ID::Y, outsig);
-						c->fixup_parameters();
-						added_buffers.insert(c);
+						make_buffer_f(celltype, insig, outsig);
 					}
 				}
 			}
+
+			for (auto &it : old_buffers)
+				module->remove(it.second);
+			count_removed_buffers += GetSize(old_buffers);
 
 			for (auto cell : module->cells())
 			{
@@ -383,10 +423,15 @@ struct BufnormPass : public Pass {
 						log("  fixing input signal on cell %s port %s: %s\n",
 								log_id(cell), log_id(conn.first), log_signal(newsig));
 						cell->setPort(conn.first, newsig);
+						count_updated_cellports++;
 					}
 				}
 			}
 		}
+
+		log("Summary: removed %d, updated %d, kept %d, and created %d buffers, and updated %d cell ports.\n",
+				count_removed_buffers, count_updated_buffers, count_kept_buffers,
+				count_created_buffers, count_updated_cellports);
 	}
 } BufnormPass;
 
