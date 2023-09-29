@@ -17,15 +17,15 @@
  *
  */
 
-#include "kernel/yosys.h"
-#include "kernel/sigtools.h"
 #include "kernel/ff.h"
+#include "kernel/sigtools.h"
+#include "kernel/yosys.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct DffunmapPass : public Pass {
-	DffunmapPass() : Pass("dffunmap", "unmap clock enable and synchronous reset from FFs") { }
+	DffunmapPass() : Pass("dffunmap", "unmap clock enable and synchronous reset from FFs") {}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -67,13 +67,11 @@ struct DffunmapPass : public Pass {
 		if (ce_only && srst_only)
 			log_cmd_error("Options -ce-only and -srst-only are mutually exclusive!\n");
 
-		for (auto mod : design->selected_modules())
-		{
+		for (auto mod : design->selected_modules()) {
 			SigMap sigmap(mod);
 			FfInitVals initvals(&sigmap, mod);
 
-			for (auto cell : mod->selected_cells())
-			{
+			for (auto cell : mod->selected_cells()) {
 				if (!RTLIL::builtin_ff_cell_types().count(cell->type))
 					continue;
 

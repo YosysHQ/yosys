@@ -17,9 +17,9 @@
  *
  */
 
+#include "kernel/log.h"
 #include "kernel/register.h"
 #include "kernel/rtlil.h"
-#include "kernel/log.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -54,7 +54,7 @@ void hilomap_worker(RTLIL::SigSpec &sig)
 }
 
 struct HilomapPass : public Pass {
-	HilomapPass() : Pass("hilomap", "technology mapping of constant hi- and/or lo-drivers") { }
+	HilomapPass() : Pass("hilomap", "technology mapping of constant hi- and/or lo-drivers") {}
 	void help() override
 	{
 		log("\n");
@@ -85,14 +85,13 @@ struct HilomapPass : public Pass {
 		singleton_mode = false;
 
 		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
-			if (args[argidx] == "-hicell" && argidx+2 < args.size()) {
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-hicell" && argidx + 2 < args.size()) {
 				hicell_celltype = args[++argidx];
 				hicell_portname = args[++argidx];
 				continue;
 			}
-			if (args[argidx] == "-locell" && argidx+2 < args.size()) {
+			if (args[argidx] == "-locell" && argidx + 2 < args.size()) {
 				locell_celltype = args[++argidx];
 				locell_portname = args[++argidx];
 				continue;
@@ -105,8 +104,7 @@ struct HilomapPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto mod : design->selected_modules())
-		{
+		for (auto mod : design->selected_modules()) {
 			module = mod;
 			last_hi = RTLIL::State::Sm;
 			last_lo = RTLIL::State::Sm;

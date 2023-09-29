@@ -30,7 +30,8 @@
 // http://en.wikipedia.org/wiki/Topological_sorting
 
 #define ABC_COMMAND_LIB "strash; &get -n; &fraig -x; &put; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put"
-#define ABC_COMMAND_CTR "strash; &get -n; &fraig -x; &put; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put; buffer; upsize {D}; dnsize {D}; stime -p"
+#define ABC_COMMAND_CTR                                                                                                                              \
+	"strash; &get -n; &fraig -x; &put; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put; buffer; upsize {D}; dnsize {D}; stime -p"
 #define ABC_COMMAND_LUT "strash; &get -n; &fraig -x; &put; scorr; dc2; dretime; strash; dch -f; if; mfs2"
 #define ABC_COMMAND_SOP "strash; &get -n; &fraig -x; &put; scorr; dc2; dretime; strash; dch -f; cover {I} {P}"
 #define ABC_COMMAND_DFL "strash; &get -n; &fraig -x; &put; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put"
@@ -41,32 +42,33 @@
 #define ABC_FAST_COMMAND_SOP "strash; dretime; cover {I} {P}"
 #define ABC_FAST_COMMAND_DFL "strash; dretime; map"
 
+#include "kernel/celltypes.h"
+#include "kernel/cost.h"
+#include "kernel/ff.h"
+#include "kernel/ffinit.h"
+#include "kernel/log.h"
 #include "kernel/register.h"
 #include "kernel/sigtools.h"
-#include "kernel/celltypes.h"
-#include "kernel/ffinit.h"
-#include "kernel/ff.h"
-#include "kernel/cost.h"
-#include "kernel/log.h"
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 #include <cctype>
 #include <cerrno>
-#include <sstream>
 #include <climits>
+#include <sstream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <vector>
 
 #ifndef _WIN32
-#  include <unistd.h>
-#  include <dirent.h>
+#include <dirent.h>
+#include <unistd.h>
 #endif
 
 #include "frontends/blif/blifparse.h"
 
 #ifdef YOSYS_LINK_ABC
-namespace abc {
-	int Abc_RealMain(int argc, char *argv[]);
+namespace abc
+{
+int Abc_RealMain(int argc, char *argv[]);
 }
 #endif
 
@@ -96,10 +98,9 @@ enum class gate_type_t {
 	G_OAI4
 };
 
-#define G(_name) gate_type_t::G_ ## _name
+#define G(_name) gate_type_t::G_##_name
 
-struct gate_t
-{
+struct gate_t {
 	int id;
 	gate_type_t type;
 	int in1, in2, in3, in4;
@@ -257,8 +258,7 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 		return;
 	}
 
-	if (cell->type.in(ID($_BUF_), ID($_NOT_)))
-	{
+	if (cell->type.in(ID($_BUF_), ID($_NOT_))) {
 		RTLIL::SigSpec sig_a = cell->getPort(ID::A);
 		RTLIL::SigSpec sig_y = cell->getPort(ID::Y);
 
@@ -271,8 +271,7 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 		return;
 	}
 
-	if (cell->type.in(ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_), ID($_XOR_), ID($_XNOR_), ID($_ANDNOT_), ID($_ORNOT_)))
-	{
+	if (cell->type.in(ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_), ID($_XOR_), ID($_XNOR_), ID($_ANDNOT_), ID($_ORNOT_))) {
 		RTLIL::SigSpec sig_a = cell->getPort(ID::A);
 		RTLIL::SigSpec sig_b = cell->getPort(ID::B);
 		RTLIL::SigSpec sig_y = cell->getPort(ID::Y);
@@ -307,8 +306,7 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 		return;
 	}
 
-	if (cell->type.in(ID($_MUX_), ID($_NMUX_)))
-	{
+	if (cell->type.in(ID($_MUX_), ID($_NMUX_))) {
 		RTLIL::SigSpec sig_a = cell->getPort(ID::A);
 		RTLIL::SigSpec sig_b = cell->getPort(ID::B);
 		RTLIL::SigSpec sig_s = cell->getPort(ID::S);
@@ -329,8 +327,7 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 		return;
 	}
 
-	if (cell->type.in(ID($_AOI3_), ID($_OAI3_)))
-	{
+	if (cell->type.in(ID($_AOI3_), ID($_OAI3_))) {
 		RTLIL::SigSpec sig_a = cell->getPort(ID::A);
 		RTLIL::SigSpec sig_b = cell->getPort(ID::B);
 		RTLIL::SigSpec sig_c = cell->getPort(ID::C);
@@ -351,8 +348,7 @@ void extract_cell(RTLIL::Cell *cell, bool keepff)
 		return;
 	}
 
-	if (cell->type.in(ID($_AOI4_), ID($_OAI4_)))
-	{
+	if (cell->type.in(ID($_AOI4_), ID($_OAI4_))) {
 		RTLIL::SigSpec sig_a = cell->getPort(ID::A);
 		RTLIL::SigSpec sig_b = cell->getPort(ID::B);
 		RTLIL::SigSpec sig_c = cell->getPort(ID::C);
@@ -381,26 +377,21 @@ std::string remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire = nullp
 {
 	std::string abc_sname = abc_name.substr(1);
 	bool isnew = false;
-	if (abc_sname.compare(0, 4, "new_") == 0)
-	{
+	if (abc_sname.compare(0, 4, "new_") == 0) {
 		abc_sname.erase(0, 4);
 		isnew = true;
 	}
-	if (abc_sname.compare(0, 5, "ys__n") == 0)
-	{
+	if (abc_sname.compare(0, 5, "ys__n") == 0) {
 		abc_sname.erase(0, 5);
-		if (std::isdigit(abc_sname.at(0)))
-		{
+		if (std::isdigit(abc_sname.at(0))) {
 			int sid = std::atoi(abc_sname.c_str());
 			size_t postfix_start = abc_sname.find_first_not_of("0123456789");
 			std::string postfix = postfix_start != std::string::npos ? abc_sname.substr(postfix_start) : "";
 
-			if (sid < GetSize(signal_list))
-			{
+			if (sid < GetSize(signal_list)) {
 				auto sig = signal_list.at(sid);
-				if (sig.bit.wire != nullptr)
-				{
-					std::string s = stringf("$abc$%d$%s", map_autoidx, sig.bit.wire->name.c_str()+1);
+				if (sig.bit.wire != nullptr) {
+					std::string s = stringf("$abc$%d$%s", map_autoidx, sig.bit.wire->name.c_str() + 1);
 					if (sig.bit.wire->width != 1)
 						s += stringf("[%d]", sig.bit.offset);
 					if (isnew)
@@ -413,7 +404,7 @@ std::string remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire = nullp
 			}
 		}
 	}
-	return stringf("$abc$%d$%s", map_autoidx, abc_name.c_str()+1);
+	return stringf("$abc$%d$%s", map_autoidx, abc_name.c_str() + 1);
 }
 
 void dump_loop_graph(FILE *f, int &nr, dict<int, pool<int>> &edges, pool<int> &workpool, std::vector<int> &in_counts)
@@ -435,12 +426,12 @@ void dump_loop_graph(FILE *f, int &nr, dict<int, pool<int>> &edges, pool<int> &w
 	}
 
 	for (auto n : nodes)
-		fprintf(f, "  ys__n%d [label=\"%s\\nid=%d, count=%d\"%s];\n", n, log_signal(signal_list[n].bit),
-				n, in_counts[n], workpool.count(n) ? ", shape=box" : "");
+		fprintf(f, "  ys__n%d [label=\"%s\\nid=%d, count=%d\"%s];\n", n, log_signal(signal_list[n].bit), n, in_counts[n],
+			workpool.count(n) ? ", shape=box" : "");
 
 	for (auto &e : edges)
-	for (auto n : e.second)
-		fprintf(f, "  ys__n%d -> ys__n%d;\n", e.first, n);
+		for (auto n : e.second)
+			fprintf(f, "  ys__n%d -> ys__n%d;\n", e.first, n);
 
 	fprintf(f, "}\n");
 }
@@ -485,8 +476,7 @@ void handle_loops()
 
 	dump_loop_graph(dot_f, dot_nr, edges, workpool, in_edges_count);
 
-	while (workpool.size() > 0)
-	{
+	while (workpool.size() > 0) {
 		int id = *workpool.begin();
 		workpool.erase(id);
 
@@ -501,8 +491,7 @@ void handle_loops()
 
 		dump_loop_graph(dot_f, dot_nr, edges, workpool, in_edges_count);
 
-		while (workpool.size() == 0)
-		{
+		while (workpool.size() == 0) {
 			if (edges.size() == 0)
 				break;
 
@@ -543,10 +532,10 @@ void handle_loops()
 			for (int id2 : edges[id1]) {
 				if (first_line)
 					log("Breaking loop using new signal %s: %s -> %s\n", log_signal(RTLIL::SigSpec(wire)),
-							log_signal(signal_list[id1].bit), log_signal(signal_list[id2].bit));
+					    log_signal(signal_list[id1].bit), log_signal(signal_list[id2].bit));
 				else
 					log("                               %*s  %s -> %s\n", int(strlen(log_signal(RTLIL::SigSpec(wire)))), "",
-							log_signal(signal_list[id1].bit), log_signal(signal_list[id2].bit));
+					    log_signal(signal_list[id1].bit), log_signal(signal_list[id2].bit));
 				first_line = false;
 			}
 
@@ -584,7 +573,7 @@ std::string add_echos_to_abc_cmd(std::string str)
 	for (size_t i = 0; i < str.size(); i++) {
 		token += str[i];
 		if (str[i] == ';') {
-			while (i+1 < str.size() && str[i+1] == ' ')
+			while (i + 1 < str.size() && str[i + 1] == ' ')
 				i++;
 			new_str += "echo + " + token + " " + token + " ";
 			token.clear();
@@ -631,7 +620,7 @@ std::string replace_tempdir(std::string text, std::string tempdir_name, bool sho
 		text = text.substr(0, pos) + "<abc-temp-dir>" + text.substr(pos + GetSize(tempdir_name));
 	}
 
-	std::string  selfdir_name = proc_self_dirname();
+	std::string selfdir_name = proc_self_dirname();
 	if (selfdir_name != "/") {
 		while (1) {
 			size_t pos = text.find(selfdir_name);
@@ -644,8 +633,7 @@ std::string replace_tempdir(std::string text, std::string tempdir_name, bool sho
 	return text;
 }
 
-struct abc_output_filter
-{
+struct abc_output_filter {
 	bool got_cr;
 	int escape_seq_state;
 	std::string linebuf;
@@ -692,9 +680,8 @@ struct abc_output_filter
 	{
 		int pi, po;
 		if (sscanf(line.c_str(), "Start-point = pi%d.  End-point = po%d.", &pi, &po) == 2) {
-			log("ABC: Start-point = pi%d (%s).  End-point = po%d (%s).\n",
-					pi, pi_map.count(pi) ? pi_map.at(pi).c_str() : "???",
-					po, po_map.count(po) ? po_map.at(po).c_str() : "???");
+			log("ABC: Start-point = pi%d (%s).  End-point = po%d (%s).\n", pi, pi_map.count(pi) ? pi_map.at(pi).c_str() : "???", po,
+			    po_map.count(po) ? po_map.at(po).c_str() : "???");
 			return;
 		}
 
@@ -704,10 +691,10 @@ struct abc_output_filter
 };
 
 void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::string script_file, std::string exe_file,
-		std::vector<std::string> &liberty_files, std::vector<std::string> &genlib_files, std::string constr_file,
-		bool cleanup, vector<int> lut_costs, bool dff_mode, std::string clk_str, bool keepff, std::string delay_target,
-		std::string sop_inputs, std::string sop_products, std::string lutin_shared, bool fast_mode,
-		const std::vector<RTLIL::Cell*> &cells, bool show_tempdir, bool sop_mode, bool abc_dress, std::vector<std::string> &dont_use_cells)
+		std::vector<std::string> &liberty_files, std::vector<std::string> &genlib_files, std::string constr_file, bool cleanup,
+		vector<int> lut_costs, bool dff_mode, std::string clk_str, bool keepff, std::string delay_target, std::string sop_inputs,
+		std::string sop_products, std::string lutin_shared, bool fast_mode, const std::vector<RTLIL::Cell *> &cells, bool show_tempdir,
+		bool sop_mode, bool abc_dress, std::vector<std::string> &dont_use_cells)
 {
 	module = current_module;
 	map_autoidx = autoidx++;
@@ -717,8 +704,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	pi_map.clear();
 	po_map.clear();
 
-	if (clk_str != "$")
-	{
+	if (clk_str != "$") {
 		clk_polarity = true;
 		clk_sig = RTLIL::SigSpec();
 
@@ -732,24 +718,23 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		srst_sig = RTLIL::SigSpec();
 	}
 
-	if (!clk_str.empty() && clk_str != "$")
-	{
+	if (!clk_str.empty() && clk_str != "$") {
 		std::string en_str;
 		std::string arst_str;
 		std::string srst_str;
 		if (clk_str.find(',') != std::string::npos) {
 			int pos = clk_str.find(',');
-			en_str = clk_str.substr(pos+1);
+			en_str = clk_str.substr(pos + 1);
 			clk_str = clk_str.substr(0, pos);
 		}
 		if (en_str.find(',') != std::string::npos) {
 			int pos = en_str.find(',');
-			arst_str = en_str.substr(pos+1);
+			arst_str = en_str.substr(pos + 1);
 			arst_str = en_str.substr(0, pos);
 		}
 		if (arst_str.find(',') != std::string::npos) {
 			int pos = arst_str.find(',');
-			srst_str = arst_str.substr(pos+1);
+			srst_str = arst_str.substr(pos + 1);
 			srst_str = arst_str.substr(0, pos);
 		}
 		if (clk_str[0] == '!') {
@@ -788,14 +773,14 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		log_cmd_error("Clock domain %s not found.\n", clk_str.c_str());
 
 	std::string tempdir_name;
-	if (cleanup) 
+	if (cleanup)
 		tempdir_name = get_base_tmpdir() + "/";
 	else
 		tempdir_name = "_tmp_";
 	tempdir_name += proc_program_prefix() + "yosys-abc-XXXXXX";
 	tempdir_name = make_temp_dir(tempdir_name);
-	log_header(design, "Extracting gate netlist of module `%s' to `%s/input.blif'..\n",
-			module->name.c_str(), replace_tempdir(tempdir_name, tempdir_name, show_tempdir).c_str());
+	log_header(design, "Extracting gate netlist of module `%s' to `%s/input.blif'..\n", module->name.c_str(),
+		   replace_tempdir(tempdir_name, tempdir_name, show_tempdir).c_str());
 
 	std::string abc_script = stringf("read_blif \"%s/input.blif\"; ", tempdir_name.c_str());
 
@@ -811,8 +796,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 			abc_script += stringf("read_library \"%s\"; ", liberty_file.c_str());
 		if (!constr_file.empty())
 			abc_script += stringf("read_constr -v \"%s\"; ", constr_file.c_str());
-	} else
-	if (!lut_costs.empty())
+	} else if (!lut_costs.empty())
 		abc_script += stringf("read_lut %s/lutdefs.txt; ", tempdir_name.c_str());
 	else
 		abc_script += stringf("read_library %s/stdcells.genlib; ", tempdir_name.c_str());
@@ -837,35 +821,36 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		if (all_luts_cost_same && !fast_mode)
 			abc_script += "; lutpack {S}";
 	} else if (!liberty_files.empty() || !genlib_files.empty())
-		abc_script += constr_file.empty() ? (fast_mode ? ABC_FAST_COMMAND_LIB : ABC_COMMAND_LIB) : (fast_mode ? ABC_FAST_COMMAND_CTR : ABC_COMMAND_CTR);
+		abc_script +=
+		  constr_file.empty() ? (fast_mode ? ABC_FAST_COMMAND_LIB : ABC_COMMAND_LIB) : (fast_mode ? ABC_FAST_COMMAND_CTR : ABC_COMMAND_CTR);
 	else if (sop_mode)
 		abc_script += fast_mode ? ABC_FAST_COMMAND_SOP : ABC_COMMAND_SOP;
 	else
 		abc_script += fast_mode ? ABC_FAST_COMMAND_DFL : ABC_COMMAND_DFL;
 
 	if (script_file.empty() && !delay_target.empty())
-		for (size_t pos = abc_script.find("dretime;"); pos != std::string::npos; pos = abc_script.find("dretime;", pos+1))
-			abc_script = abc_script.substr(0, pos) + "dretime; retime -o {D};" + abc_script.substr(pos+8);
+		for (size_t pos = abc_script.find("dretime;"); pos != std::string::npos; pos = abc_script.find("dretime;", pos + 1))
+			abc_script = abc_script.substr(0, pos) + "dretime; retime -o {D};" + abc_script.substr(pos + 8);
 
 	for (size_t pos = abc_script.find("{D}"); pos != std::string::npos; pos = abc_script.find("{D}", pos))
-		abc_script = abc_script.substr(0, pos) + delay_target + abc_script.substr(pos+3);
+		abc_script = abc_script.substr(0, pos) + delay_target + abc_script.substr(pos + 3);
 
 	for (size_t pos = abc_script.find("{I}"); pos != std::string::npos; pos = abc_script.find("{I}", pos))
-		abc_script = abc_script.substr(0, pos) + sop_inputs + abc_script.substr(pos+3);
+		abc_script = abc_script.substr(0, pos) + sop_inputs + abc_script.substr(pos + 3);
 
 	for (size_t pos = abc_script.find("{P}"); pos != std::string::npos; pos = abc_script.find("{P}", pos))
-		abc_script = abc_script.substr(0, pos) + sop_products + abc_script.substr(pos+3);
+		abc_script = abc_script.substr(0, pos) + sop_products + abc_script.substr(pos + 3);
 
 	for (size_t pos = abc_script.find("{S}"); pos != std::string::npos; pos = abc_script.find("{S}", pos))
-		abc_script = abc_script.substr(0, pos) + lutin_shared + abc_script.substr(pos+3);
+		abc_script = abc_script.substr(0, pos) + lutin_shared + abc_script.substr(pos + 3);
 	if (abc_dress)
 		abc_script += stringf("; dress \"%s/input.blif\"", tempdir_name.c_str());
 	abc_script += stringf("; write_blif %s/output.blif", tempdir_name.c_str());
 	abc_script = add_echos_to_abc_cmd(abc_script);
 
-	for (size_t i = 0; i+1 < abc_script.size(); i++)
-		if (abc_script[i] == ';' && abc_script[i+1] == ' ')
-			abc_script[i+1] = '\n';
+	for (size_t i = 0; i + 1 < abc_script.size(); i++)
+		if (abc_script[i] == ';' && abc_script[i + 1] == ' ')
+			abc_script[i + 1] = '\n';
 
 	std::string buffer = stringf("%s/abc.script", tempdir_name.c_str());
 	FILE *f = fopen(buffer.c_str(), "wt");
@@ -874,12 +859,12 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	fprintf(f, "%s\n", abc_script.c_str());
 	fclose(f);
 
-	if (dff_mode || !clk_str.empty())
-	{
+	if (dff_mode || !clk_str.empty()) {
 		if (clk_sig.size() == 0)
 			log("No%s clock domain found. Not extracting any FF cells.\n", clk_str.empty() ? "" : " matching");
 		else {
-			log("Found%s %s clock domain: %s", clk_str.empty() ? "" : " matching", clk_polarity ? "posedge" : "negedge", log_signal(clk_sig));
+			log("Found%s %s clock domain: %s", clk_str.empty() ? "" : " matching", clk_polarity ? "posedge" : "negedge",
+			    log_signal(clk_sig));
 			if (en_sig.size() != 0)
 				log(", enabled by %s%s", en_polarity ? "" : "!", log_signal(en_sig));
 			if (arst_sig.size() != 0)
@@ -905,8 +890,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	}
 
 	for (auto cell : module->cells())
-	for (auto &port_it : cell->connections())
-		mark_port(port_it.second);
+		for (auto &port_it : cell->connections())
+			mark_port(port_it.second);
 
 	if (clk_sig.size() != 0)
 		mark_port(clk_sig);
@@ -1040,11 +1025,10 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 	fprintf(f, ".end\n");
 	fclose(f);
 
-	log("Extracted %d gates and %d wires to a netlist network with %d inputs and %d outputs.\n",
-			count_gates, GetSize(signal_list), count_input, count_output);
+	log("Extracted %d gates and %d wires to a netlist network with %d inputs and %d outputs.\n", count_gates, GetSize(signal_list), count_input,
+	    count_output);
 	log_push();
-	if (count_output > 0)
-	{
+	if (count_output > 0) {
 		log_header(design, "Executing ABC.\n");
 
 		auto &cell_cost = cmos_cost ? CellCosts::cmos_gate_cost() : CellCosts::default_gate_cost();
@@ -1086,11 +1070,20 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		if (enabled_gates.count("NMUX"))
 			fprintf(f, "GATE NMUX   %d Y=!((A*B)+(S*B)+(!S*A)); PIN * UNKNOWN 1 999 1 0 1 0\n", cell_cost.at(ID($_NMUX_)));
 		if (map_mux4)
-			fprintf(f, "GATE MUX4   %d Y=(!S*!T*A)+(S*!T*B)+(!S*T*C)+(S*T*D); PIN * UNKNOWN 1 999 1 0 1 0\n", 2*cell_cost.at(ID($_MUX_)));
+			fprintf(f, "GATE MUX4   %d Y=(!S*!T*A)+(S*!T*B)+(!S*T*C)+(S*T*D); PIN * UNKNOWN 1 999 1 0 1 0\n",
+				2 * cell_cost.at(ID($_MUX_)));
 		if (map_mux8)
-			fprintf(f, "GATE MUX8   %d Y=(!S*!T*!U*A)+(S*!T*!U*B)+(!S*T*!U*C)+(S*T*!U*D)+(!S*!T*U*E)+(S*!T*U*F)+(!S*T*U*G)+(S*T*U*H); PIN * UNKNOWN 1 999 1 0 1 0\n", 4*cell_cost.at(ID($_MUX_)));
+			fprintf(f,
+				"GATE MUX8   %d Y=(!S*!T*!U*A)+(S*!T*!U*B)+(!S*T*!U*C)+(S*T*!U*D)+(!S*!T*U*E)+(S*!T*U*F)+(!S*T*U*G)+(S*T*U*H); PIN * "
+				"UNKNOWN 1 999 1 0 1 0\n",
+				4 * cell_cost.at(ID($_MUX_)));
 		if (map_mux16)
-			fprintf(f, "GATE MUX16  %d Y=(!S*!T*!U*!V*A)+(S*!T*!U*!V*B)+(!S*T*!U*!V*C)+(S*T*!U*!V*D)+(!S*!T*U*!V*E)+(S*!T*U*!V*F)+(!S*T*U*!V*G)+(S*T*U*!V*H)+(!S*!T*!U*V*I)+(S*!T*!U*V*J)+(!S*T*!U*V*K)+(S*T*!U*V*L)+(!S*!T*U*V*M)+(S*!T*U*V*N)+(!S*T*U*V*O)+(S*T*U*V*P); PIN * UNKNOWN 1 999 1 0 1 0\n", 8*cell_cost.at(ID($_MUX_)));
+			fprintf(f,
+				"GATE MUX16  %d "
+				"Y=(!S*!T*!U*!V*A)+(S*!T*!U*!V*B)+(!S*T*!U*!V*C)+(S*T*!U*!V*D)+(!S*!T*U*!V*E)+(S*!T*U*!V*F)+(!S*T*U*!V*G)+(S*T*U*!V*"
+				"H)+(!S*!T*!U*V*I)+(S*!T*!U*V*J)+(!S*T*!U*V*K)+(S*T*!U*V*L)+(!S*!T*U*V*M)+(S*!T*U*V*N)+(!S*T*U*V*O)+(S*T*U*V*P); PIN "
+				"* UNKNOWN 1 999 1 0 1 0\n",
+				8 * cell_cost.at(ID($_MUX_)));
 		fclose(f);
 
 		if (!lut_costs.empty()) {
@@ -1099,7 +1092,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 			if (f == nullptr)
 				log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
 			for (int i = 0; i < GetSize(lut_costs); i++)
-				fprintf(f, "%d %d.00 1.00\n", i+1, lut_costs.at(i));
+				fprintf(f, "%d %d.00 1.00\n", i + 1, lut_costs.at(i));
 			fclose(f);
 		}
 
@@ -1149,7 +1142,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		fclose(old_stderr);
 		std::ifstream temp_stdouterr_r(temp_stdouterr_name);
 		abc_output_filter filt(tempdir_name, show_tempdir);
-		for (std::string line; std::getline(temp_stdouterr_r, line); )
+		for (std::string line; std::getline(temp_stdouterr_r, line);)
 			filt.next_line(line + "\n");
 		temp_stdouterr_r.close();
 #endif
@@ -1177,7 +1170,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 			RTLIL::Wire *wire = module->addWire(remap_name(w->name, &orig_wire));
 			if (orig_wire != nullptr && orig_wire->attributes.count(ID::src))
 				wire->attributes[ID::src] = orig_wire->attributes[ID::src];
-			if (markgroups) wire->attributes[ID::abcgroup] = map_autoidx;
+			if (markgroups)
+				wire->attributes[ID::abcgroup] = map_autoidx;
 			design->select(module, wire);
 		}
 
@@ -1185,10 +1179,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		FfInitVals mapped_initvals(&mapped_sigmap, mapped_mod);
 
 		dict<std::string, int> cell_stats;
-		for (auto c : mapped_mod->cells())
-		{
-			if (builtin_lib)
-			{
+		for (auto c : mapped_mod->cells()) {
+			if (builtin_lib) {
 				cell_stats[RTLIL::unescape_id(c->type)]++;
 				if (c->type.in(ID(ZERO), ID(ONE))) {
 					RTLIL::SigSig conn;
@@ -1209,7 +1201,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				}
 				if (c->type == ID(NOT)) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_NOT_));
-					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
+					if (markgroups)
+						cell->attributes[ID::abcgroup] = map_autoidx;
 					for (auto name : {ID::A, ID::Y}) {
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 						cell->setPort(name, module->wire(remapped_name));
@@ -1218,8 +1211,9 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					continue;
 				}
 				if (c->type.in(ID(AND), ID(OR), ID(XOR), ID(NAND), ID(NOR), ID(XNOR), ID(ANDNOT), ID(ORNOT))) {
-					RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
-					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
+					RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str() + 1));
+					if (markgroups)
+						cell->attributes[ID::abcgroup] = map_autoidx;
 					for (auto name : {ID::A, ID::B, ID::Y}) {
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 						cell->setPort(name, module->wire(remapped_name));
@@ -1228,8 +1222,9 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					continue;
 				}
 				if (c->type.in(ID(MUX), ID(NMUX))) {
-					RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
-					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
+					RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str() + 1));
+					if (markgroups)
+						cell->attributes[ID::abcgroup] = map_autoidx;
 					for (auto name : {ID::A, ID::B, ID::S, ID::Y}) {
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 						cell->setPort(name, module->wire(remapped_name));
@@ -1239,7 +1234,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				}
 				if (c->type == ID(MUX4)) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_MUX4_));
-					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
+					if (markgroups)
+						cell->attributes[ID::abcgroup] = map_autoidx;
 					for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::S, ID::T, ID::Y}) {
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 						cell->setPort(name, module->wire(remapped_name));
@@ -1249,7 +1245,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				}
 				if (c->type == ID(MUX8)) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_MUX8_));
-					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
+					if (markgroups)
+						cell->attributes[ID::abcgroup] = map_autoidx;
 					for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::S, ID::T, ID::U, ID::Y}) {
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 						cell->setPort(name, module->wire(remapped_name));
@@ -1259,9 +1256,10 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				}
 				if (c->type == ID(MUX16)) {
 					RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_MUX16_));
-					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
+					if (markgroups)
+						cell->attributes[ID::abcgroup] = map_autoidx;
 					for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::I, ID::J, ID::K,
-							ID::L, ID::M, ID::N, ID::O, ID::P, ID::S, ID::T, ID::U, ID::V, ID::Y}) {
+							  ID::L, ID::M, ID::N, ID::O, ID::P, ID::S, ID::T, ID::U, ID::V, ID::Y}) {
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 						cell->setPort(name, module->wire(remapped_name));
 					}
@@ -1269,8 +1267,9 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					continue;
 				}
 				if (c->type.in(ID(AOI3), ID(OAI3))) {
-					RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
-					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
+					RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str() + 1));
+					if (markgroups)
+						cell->attributes[ID::abcgroup] = map_autoidx;
 					for (auto name : {ID::A, ID::B, ID::C, ID::Y}) {
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 						cell->setPort(name, module->wire(remapped_name));
@@ -1279,8 +1278,9 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					continue;
 				}
 				if (c->type.in(ID(AOI4), ID(OAI4))) {
-					RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
-					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
+					RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str() + 1));
+					if (markgroups)
+						cell->attributes[ID::abcgroup] = map_autoidx;
 					for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::Y}) {
 						RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 						cell->setPort(name, module->wire(remapped_name));
@@ -1324,12 +1324,12 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 					ff.sig_d = module->wire(remap_name(c->getPort(ID::D).as_wire()->name));
 					ff.sig_q = module->wire(remap_name(c->getPort(ID::Q).as_wire()->name));
 					RTLIL::Cell *cell = ff.emit();
-					if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
+					if (markgroups)
+						cell->attributes[ID::abcgroup] = map_autoidx;
 					design->select(module, cell);
 					continue;
 				}
-			}
-			else
+			} else
 				cell_stats[RTLIL::unescape_id(c->type)]++;
 
 			if (c->type.in(ID(_const0_), ID(_const1_))) {
@@ -1373,7 +1373,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 				ff.sig_d = module->wire(remap_name(c->getPort(ID::D).as_wire()->name));
 				ff.sig_q = module->wire(remap_name(c->getPort(ID::Q).as_wire()->name));
 				RTLIL::Cell *cell = ff.emit();
-				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
+				if (markgroups)
+					cell->attributes[ID::abcgroup] = map_autoidx;
 				design->select(module, cell);
 				continue;
 			}
@@ -1386,7 +1387,8 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 			}
 
 			RTLIL::Cell *cell = module->addCell(remap_name(c->name), c->type);
-			if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
+			if (markgroups)
+				cell->attributes[ID::abcgroup] = map_autoidx;
 			cell->parameters = c->parameters;
 			for (auto &conn : c->connections()) {
 				RTLIL::SigSpec newsig;
@@ -1433,14 +1435,11 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 		log("ABC RESULTS:          output signals: %8d\n", out_wires);
 
 		delete mapped_design;
-	}
-	else
-	{
+	} else {
 		log("Don't call ABC as there is nothing to map.\n");
 	}
 
-	if (cleanup)
-	{
+	if (cleanup) {
 		log("Removing temp directory.\n");
 		remove_directory(tempdir_name);
 	}
@@ -1449,7 +1448,7 @@ void abc_module(RTLIL::Design *design, RTLIL::Module *current_module, std::strin
 }
 
 struct AbcPass : public Pass {
-	AbcPass() : Pass("abc", "use ABC for technology mapping") { }
+	AbcPass() : Pass("abc", "use ABC for technology mapping") {}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -1721,7 +1720,7 @@ struct AbcPass : public Pass {
 #if defined(__wasm)
 		const char *pwd = ".";
 #else
-		char pwd [PATH_MAX];
+		char pwd[PATH_MAX];
 		if (!getcwd(pwd, sizeof(pwd))) {
 			log_cmd_error("getcwd failed: %s\n", strerror(errno));
 			log_abort();
@@ -1729,51 +1728,51 @@ struct AbcPass : public Pass {
 #endif
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];
-			if (arg == "-exe" && argidx+1 < args.size()) {
+			if (arg == "-exe" && argidx + 1 < args.size()) {
 				exe_file = args[++argidx];
 				continue;
 			}
-			if (arg == "-script" && argidx+1 < args.size()) {
+			if (arg == "-script" && argidx + 1 < args.size()) {
 				script_file = args[++argidx];
 				continue;
 			}
-			if (arg == "-liberty" && argidx+1 < args.size()) {
+			if (arg == "-liberty" && argidx + 1 < args.size()) {
 				liberty_files.push_back(args[++argidx]);
 				continue;
 			}
-			if (arg == "-dont_use" && argidx+1 < args.size()) {
+			if (arg == "-dont_use" && argidx + 1 < args.size()) {
 				dont_use_cells.push_back(args[++argidx]);
 				continue;
 			}
-			if (arg == "-genlib" && argidx+1 < args.size()) {
+			if (arg == "-genlib" && argidx + 1 < args.size()) {
 				genlib_files.push_back(args[++argidx]);
 				continue;
 			}
-			if (arg == "-constr" && argidx+1 < args.size()) {
+			if (arg == "-constr" && argidx + 1 < args.size()) {
 				constr_file = args[++argidx];
 				continue;
 			}
-			if (arg == "-D" && argidx+1 < args.size()) {
+			if (arg == "-D" && argidx + 1 < args.size()) {
 				delay_target = "-D " + args[++argidx];
 				continue;
 			}
-			if (arg == "-I" && argidx+1 < args.size()) {
+			if (arg == "-I" && argidx + 1 < args.size()) {
 				sop_inputs = "-I " + args[++argidx];
 				continue;
 			}
-			if (arg == "-P" && argidx+1 < args.size()) {
+			if (arg == "-P" && argidx + 1 < args.size()) {
 				sop_products = "-P " + args[++argidx];
 				continue;
 			}
-			if (arg == "-S" && argidx+1 < args.size()) {
+			if (arg == "-S" && argidx + 1 < args.size()) {
 				lutin_shared = "-S " + args[++argidx];
 				continue;
 			}
-			if (arg == "-lut" && argidx+1 < args.size()) {
+			if (arg == "-lut" && argidx + 1 < args.size()) {
 				lut_arg = args[++argidx];
 				continue;
 			}
-			if (arg == "-luts" && argidx+1 < args.size()) {
+			if (arg == "-luts" && argidx + 1 < args.size()) {
 				luts_arg = args[++argidx];
 				continue;
 			}
@@ -1797,7 +1796,7 @@ struct AbcPass : public Pass {
 				abc_dress = true;
 				continue;
 			}
-			if (arg == "-g" && argidx+1 < args.size()) {
+			if (arg == "-g" && argidx + 1 < args.size()) {
 				if (g_arg_from_cmd)
 					log_cmd_error("Can only use -g once. Please combine.");
 				g_arg = args[++argidx];
@@ -1813,7 +1812,7 @@ struct AbcPass : public Pass {
 				dff_mode = true;
 				continue;
 			}
-			if (arg == "-clk" && argidx+1 < args.size()) {
+			if (arg == "-clk" && argidx + 1 < args.size()) {
 				clk_str = args[++argidx];
 				dff_mode = true;
 				continue;
@@ -1864,7 +1863,7 @@ struct AbcPass : public Pass {
 			int lut_mode = 0, lut_mode2 = 0;
 			if (pos != string::npos) {
 				lut_mode = atoi(lut_arg.substr(0, pos).c_str());
-				lut_mode2 = atoi(lut_arg.substr(pos+1).c_str());
+				lut_mode2 = atoi(lut_arg.substr(pos + 1).c_str());
 			} else {
 				lut_mode = atoi(lut_arg.c_str());
 				lut_mode2 = lut_mode;
@@ -1875,8 +1874,8 @@ struct AbcPass : public Pass {
 			for (int i = lut_mode; i < lut_mode2; i++)
 				lut_costs.push_back(2 << (i - lut_mode));
 		}
-		//handle -luts argument
-		if (!luts_arg.empty()){
+		// handle -luts argument
+		if (!luts_arg.empty()) {
 			lut_costs.clear();
 			for (auto &tok : split_tokens(luts_arg, ",")) {
 				auto parts = split_tokens(tok, ":");
@@ -1893,7 +1892,7 @@ struct AbcPass : public Pass {
 		}
 
 		// handle -g argument
-		if (!g_arg.empty()){
+		if (!g_arg.empty()) {
 			for (auto g : split_tokens(g_arg, ",")) {
 				vector<string> gate_list;
 				bool remove_gates = false;
@@ -1901,20 +1900,34 @@ struct AbcPass : public Pass {
 					remove_gates = true;
 					g = g.substr(1);
 				}
-				if (g == "AND") goto ok_gate;
-				if (g == "NAND") goto ok_gate;
-				if (g == "OR") goto ok_gate;
-				if (g == "NOR") goto ok_gate;
-				if (g == "XOR") goto ok_gate;
-				if (g == "XNOR") goto ok_gate;
-				if (g == "ANDNOT") goto ok_gate;
-				if (g == "ORNOT") goto ok_gate;
-				if (g == "MUX") goto ok_gate;
-				if (g == "NMUX") goto ok_gate;
-				if (g == "AOI3") goto ok_gate;
-				if (g == "OAI3") goto ok_gate;
-				if (g == "AOI4") goto ok_gate;
-				if (g == "OAI4") goto ok_gate;
+				if (g == "AND")
+					goto ok_gate;
+				if (g == "NAND")
+					goto ok_gate;
+				if (g == "OR")
+					goto ok_gate;
+				if (g == "NOR")
+					goto ok_gate;
+				if (g == "XOR")
+					goto ok_gate;
+				if (g == "XNOR")
+					goto ok_gate;
+				if (g == "ANDNOT")
+					goto ok_gate;
+				if (g == "ORNOT")
+					goto ok_gate;
+				if (g == "MUX")
+					goto ok_gate;
+				if (g == "NMUX")
+					goto ok_gate;
+				if (g == "AOI3")
+					goto ok_gate;
+				if (g == "OAI3")
+					goto ok_gate;
+				if (g == "AOI4")
+					goto ok_gate;
+				if (g == "OAI4")
+					goto ok_gate;
 				if (g == "simple") {
 					gate_list.push_back("AND");
 					gate_list.push_back("OR");
@@ -2039,8 +2052,7 @@ struct AbcPass : public Pass {
 			// enabled_gates.insert("NMUX");
 		}
 
-		for (auto mod : design->selected_modules())
-		{
+		for (auto mod : design->selected_modules()) {
 			if (mod->processes.size() > 0) {
 				log("Skipping module %s as it contains processes.\n", log_id(mod));
 				continue;
@@ -2050,47 +2062,47 @@ struct AbcPass : public Pass {
 			initvals.set(&assign_map, mod);
 
 			if (!dff_mode || !clk_str.empty()) {
-				abc_module(design, mod, script_file, exe_file, liberty_files, genlib_files, constr_file, cleanup, lut_costs, dff_mode, clk_str, keepff,
-						delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, mod->selected_cells(), show_tempdir, sop_mode, abc_dress, dont_use_cells);
+				abc_module(design, mod, script_file, exe_file, liberty_files, genlib_files, constr_file, cleanup, lut_costs, dff_mode,
+					   clk_str, keepff, delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, mod->selected_cells(),
+					   show_tempdir, sop_mode, abc_dress, dont_use_cells);
 				continue;
 			}
 
 			CellTypes ct(design);
 
-			std::vector<RTLIL::Cell*> all_cells = mod->selected_cells();
-			pool<RTLIL::Cell*> unassigned_cells(all_cells.begin(), all_cells.end());
+			std::vector<RTLIL::Cell *> all_cells = mod->selected_cells();
+			pool<RTLIL::Cell *> unassigned_cells(all_cells.begin(), all_cells.end());
 
-			pool<RTLIL::Cell*> expand_queue, next_expand_queue;
-			pool<RTLIL::Cell*> expand_queue_up, next_expand_queue_up;
-			pool<RTLIL::Cell*> expand_queue_down, next_expand_queue_down;
+			pool<RTLIL::Cell *> expand_queue, next_expand_queue;
+			pool<RTLIL::Cell *> expand_queue_up, next_expand_queue_up;
+			pool<RTLIL::Cell *> expand_queue_down, next_expand_queue_down;
 
 			typedef tuple<bool, RTLIL::SigSpec, bool, RTLIL::SigSpec, bool, RTLIL::SigSpec, bool, RTLIL::SigSpec> clkdomain_t;
-			dict<clkdomain_t, std::vector<RTLIL::Cell*>> assigned_cells;
-			dict<RTLIL::Cell*, clkdomain_t> assigned_cells_reverse;
+			dict<clkdomain_t, std::vector<RTLIL::Cell *>> assigned_cells;
+			dict<RTLIL::Cell *, clkdomain_t> assigned_cells_reverse;
 
-			dict<RTLIL::Cell*, pool<RTLIL::SigBit>> cell_to_bit, cell_to_bit_up, cell_to_bit_down;
-			dict<RTLIL::SigBit, pool<RTLIL::Cell*>> bit_to_cell, bit_to_cell_up, bit_to_cell_down;
+			dict<RTLIL::Cell *, pool<RTLIL::SigBit>> cell_to_bit, cell_to_bit_up, cell_to_bit_down;
+			dict<RTLIL::SigBit, pool<RTLIL::Cell *>> bit_to_cell, bit_to_cell_up, bit_to_cell_down;
 
-			for (auto cell : all_cells)
-			{
+			for (auto cell : all_cells) {
 				clkdomain_t key;
 
 				for (auto &conn : cell->connections())
-				for (auto bit : conn.second) {
-					bit = assign_map(bit);
-					if (bit.wire != nullptr) {
-						cell_to_bit[cell].insert(bit);
-						bit_to_cell[bit].insert(cell);
-						if (ct.cell_input(cell->type, conn.first)) {
-							cell_to_bit_up[cell].insert(bit);
-							bit_to_cell_down[bit].insert(cell);
-						}
-						if (ct.cell_output(cell->type, conn.first)) {
-							cell_to_bit_down[cell].insert(bit);
-							bit_to_cell_up[bit].insert(cell);
+					for (auto bit : conn.second) {
+						bit = assign_map(bit);
+						if (bit.wire != nullptr) {
+							cell_to_bit[cell].insert(bit);
+							bit_to_cell[bit].insert(cell);
+							if (ct.cell_input(cell->type, conn.first)) {
+								cell_to_bit_up[cell].insert(bit);
+								bit_to_cell_down[bit].insert(cell);
+							}
+							if (ct.cell_output(cell->type, conn.first)) {
+								cell_to_bit_down[cell].insert(bit);
+								bit_to_cell_up[bit].insert(cell);
+							}
 						}
 					}
-				}
 
 				if (!RTLIL::builtin_ff_cell_types().count(cell->type))
 					continue;
@@ -2106,16 +2118,10 @@ struct AbcPass : public Pass {
 					continue;
 				if (!ff.is_fine)
 					continue;
-				key = clkdomain_t(
-					ff.pol_clk,
-					ff.sig_clk,
-					ff.has_ce ? ff.pol_ce : true,
-					ff.has_ce ? assign_map(ff.sig_ce) : RTLIL::SigSpec(),
-					ff.has_arst ? ff.pol_arst : true,
-					ff.has_arst ? assign_map(ff.sig_arst) : RTLIL::SigSpec(),
-					ff.has_srst ? ff.pol_srst : true,
-					ff.has_srst ? assign_map(ff.sig_srst) : RTLIL::SigSpec()
-				);
+				key = clkdomain_t(ff.pol_clk, ff.sig_clk, ff.has_ce ? ff.pol_ce : true,
+						  ff.has_ce ? assign_map(ff.sig_ce) : RTLIL::SigSpec(), ff.has_arst ? ff.pol_arst : true,
+						  ff.has_arst ? assign_map(ff.sig_arst) : RTLIL::SigSpec(), ff.has_srst ? ff.pol_srst : true,
+						  ff.has_srst ? assign_map(ff.sig_srst) : RTLIL::SigSpec());
 
 				unassigned_cells.erase(cell);
 				expand_queue.insert(cell);
@@ -2126,40 +2132,37 @@ struct AbcPass : public Pass {
 				assigned_cells_reverse[cell] = key;
 			}
 
-			while (!expand_queue_up.empty() || !expand_queue_down.empty())
-			{
-				if (!expand_queue_up.empty())
-				{
+			while (!expand_queue_up.empty() || !expand_queue_down.empty()) {
+				if (!expand_queue_up.empty()) {
 					RTLIL::Cell *cell = *expand_queue_up.begin();
 					clkdomain_t key = assigned_cells_reverse.at(cell);
 					expand_queue_up.erase(cell);
 
 					for (auto bit : cell_to_bit_up[cell])
-					for (auto c : bit_to_cell_up[bit])
-						if (unassigned_cells.count(c)) {
-							unassigned_cells.erase(c);
-							next_expand_queue_up.insert(c);
-							assigned_cells[key].push_back(c);
-							assigned_cells_reverse[c] = key;
-							expand_queue.insert(c);
-						}
+						for (auto c : bit_to_cell_up[bit])
+							if (unassigned_cells.count(c)) {
+								unassigned_cells.erase(c);
+								next_expand_queue_up.insert(c);
+								assigned_cells[key].push_back(c);
+								assigned_cells_reverse[c] = key;
+								expand_queue.insert(c);
+							}
 				}
 
-				if (!expand_queue_down.empty())
-				{
+				if (!expand_queue_down.empty()) {
 					RTLIL::Cell *cell = *expand_queue_down.begin();
 					clkdomain_t key = assigned_cells_reverse.at(cell);
 					expand_queue_down.erase(cell);
 
 					for (auto bit : cell_to_bit_down[cell])
-					for (auto c : bit_to_cell_down[bit])
-						if (unassigned_cells.count(c)) {
-							unassigned_cells.erase(c);
-							next_expand_queue_up.insert(c);
-							assigned_cells[key].push_back(c);
-							assigned_cells_reverse[c] = key;
-							expand_queue.insert(c);
-						}
+						for (auto c : bit_to_cell_down[bit])
+							if (unassigned_cells.count(c)) {
+								unassigned_cells.erase(c);
+								next_expand_queue_up.insert(c);
+								assigned_cells[key].push_back(c);
+								assigned_cells_reverse[c] = key;
+								expand_queue.insert(c);
+							}
 				}
 
 				if (expand_queue_up.empty() && expand_queue_down.empty()) {
@@ -2168,8 +2171,7 @@ struct AbcPass : public Pass {
 				}
 			}
 
-			while (!expand_queue.empty())
-			{
+			while (!expand_queue.empty()) {
 				RTLIL::Cell *cell = *expand_queue.begin();
 				clkdomain_t key = assigned_cells_reverse.at(cell);
 				expand_queue.erase(cell);
@@ -2197,11 +2199,10 @@ struct AbcPass : public Pass {
 
 			log_header(design, "Summary of detected clock domains:\n");
 			for (auto &it : assigned_cells)
-				log("  %d cells in clk=%s%s, en=%s%s, arst=%s%s, srst=%s%s\n", GetSize(it.second),
-						std::get<0>(it.first) ? "" : "!", log_signal(std::get<1>(it.first)),
-						std::get<2>(it.first) ? "" : "!", log_signal(std::get<3>(it.first)),
-						std::get<4>(it.first) ? "" : "!", log_signal(std::get<5>(it.first)),
-						std::get<6>(it.first) ? "" : "!", log_signal(std::get<7>(it.first)));
+				log("  %d cells in clk=%s%s, en=%s%s, arst=%s%s, srst=%s%s\n", GetSize(it.second), std::get<0>(it.first) ? "" : "!",
+				    log_signal(std::get<1>(it.first)), std::get<2>(it.first) ? "" : "!", log_signal(std::get<3>(it.first)),
+				    std::get<4>(it.first) ? "" : "!", log_signal(std::get<5>(it.first)), std::get<6>(it.first) ? "" : "!",
+				    log_signal(std::get<7>(it.first)));
 
 			for (auto &it : assigned_cells) {
 				clk_polarity = std::get<0>(it.first);
@@ -2212,8 +2213,9 @@ struct AbcPass : public Pass {
 				arst_sig = assign_map(std::get<5>(it.first));
 				srst_polarity = std::get<6>(it.first);
 				srst_sig = assign_map(std::get<7>(it.first));
-				abc_module(design, mod, script_file, exe_file, liberty_files, genlib_files, constr_file, cleanup, lut_costs, !clk_sig.empty(), "$",
-						keepff, delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, it.second, show_tempdir, sop_mode, abc_dress, dont_use_cells);
+				abc_module(design, mod, script_file, exe_file, liberty_files, genlib_files, constr_file, cleanup, lut_costs,
+					   !clk_sig.empty(), "$", keepff, delay_target, sop_inputs, sop_products, lutin_shared, fast_mode, it.second,
+					   show_tempdir, sop_mode, abc_dress, dont_use_cells);
 				assign_map.set(mod);
 			}
 		}

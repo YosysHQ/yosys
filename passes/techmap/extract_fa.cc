@@ -17,15 +17,14 @@
  *
  */
 
-#include "kernel/yosys.h"
-#include "kernel/sigtools.h"
 #include "kernel/consteval.h"
+#include "kernel/sigtools.h"
+#include "kernel/yosys.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct ExtractFaConfig
-{
+struct ExtractFaConfig {
 	bool enable_fa = false;
 	bool enable_ha = false;
 	bool verbose = false;
@@ -47,14 +46,13 @@ int bindec(unsigned char v)
 	return r;
 }
 
-struct ExtractFaWorker
-{
+struct ExtractFaWorker {
 	const ExtractFaConfig &config;
 	Module *module;
 	ConstEval ce;
 	SigMap &sigmap;
 
-	dict<SigBit, Cell*> driver;
+	dict<SigBit, Cell *> driver;
 	pool<SigBit> handled_bits;
 
 	const int xor2_func = 0x6, xnor2_func = 0x9;
@@ -80,15 +78,11 @@ struct ExtractFaWorker
 	dict<int, func2_and_info_t> func2_and_info;
 	dict<int, func3_maj_info_t> func3_maj_info;
 
-	ExtractFaWorker(const ExtractFaConfig &config, Module *module) :
-			config(config), module(module), ce(module), sigmap(ce.assign_map)
+	ExtractFaWorker(const ExtractFaConfig &config, Module *module) : config(config), module(module), ce(module), sigmap(ce.assign_map)
 	{
-		for (auto cell : module->selected_cells())
-		{
-			if (cell->type.in( ID($_BUF_), ID($_NOT_), ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_),
-					ID($_XOR_), ID($_XNOR_), ID($_ANDNOT_), ID($_ORNOT_), ID($_MUX_), ID($_NMUX_),
-					ID($_AOI3_), ID($_OAI3_), ID($_AOI4_), ID($_OAI4_)))
-			{
+		for (auto cell : module->selected_cells()) {
+			if (cell->type.in(ID($_BUF_), ID($_NOT_), ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_), ID($_XOR_), ID($_XNOR_),
+					  ID($_ANDNOT_), ID($_ORNOT_), ID($_MUX_), ID($_NMUX_), ID($_AOI3_), ID($_OAI3_), ID($_AOI4_), ID($_OAI4_))) {
 				SigBit y = sigmap(SigBit(cell->getPort(ID::Y)));
 				log_assert(driver.count(y) == 0);
 				driver[y] = cell;
@@ -96,75 +90,71 @@ struct ExtractFaWorker
 		}
 
 		for (int ia = 0; ia < 2; ia++)
-		for (int ib = 0; ib < 2; ib++)
-		{
-			func2_and_info_t f2i;
+			for (int ib = 0; ib < 2; ib++) {
+				func2_and_info_t f2i;
 
-			f2i.inv_a = ia;
-			f2i.inv_b = ib;
-			f2i.inv_y = false;
+				f2i.inv_a = ia;
+				f2i.inv_b = ib;
+				f2i.inv_y = false;
 
-			int func = 0;
-			for (int i = 0; i < 4; i++)
-			{
-				bool a = (i & 1) ? !f2i.inv_a : f2i.inv_a;
-				bool b = (i & 2) ? !f2i.inv_b : f2i.inv_b;
-				if (a && b) func |= 1 << i;
+				int func = 0;
+				for (int i = 0; i < 4; i++) {
+					bool a = (i & 1) ? !f2i.inv_a : f2i.inv_a;
+					bool b = (i & 2) ? !f2i.inv_b : f2i.inv_b;
+					if (a && b)
+						func |= 1 << i;
+				}
+
+				log_assert(func2_and_info.count(func) == 0);
+				func2_and_info[func] = f2i;
+
+				f2i.inv_y = true;
+				func ^= 15;
+
+				log_assert(func2_and_info.count(func) == 0);
+				func2_and_info[func] = f2i;
 			}
-
-			log_assert(func2_and_info.count(func) == 0);
-			func2_and_info[func] = f2i;
-
-			f2i.inv_y = true;
-			func ^= 15;
-
-			log_assert(func2_and_info.count(func) == 0);
-			func2_and_info[func] = f2i;
-		}
 
 		for (int ia = 0; ia < 2; ia++)
-		for (int ib = 0; ib < 2; ib++)
-		for (int ic = 0; ic < 2; ic++)
-		{
-			func3_maj_info_t f3i;
+			for (int ib = 0; ib < 2; ib++)
+				for (int ic = 0; ic < 2; ic++) {
+					func3_maj_info_t f3i;
 
-			f3i.inv_a = ia;
-			f3i.inv_b = ib;
-			f3i.inv_c = ic;
-			f3i.inv_y = false;
+					f3i.inv_a = ia;
+					f3i.inv_b = ib;
+					f3i.inv_c = ic;
+					f3i.inv_y = false;
 
-			int func = 0;
-			for (int i = 0; i < 8; i++)
-			{
-				bool a = (i & 1) ? !f3i.inv_a : f3i.inv_a;
-				bool b = (i & 2) ? !f3i.inv_b : f3i.inv_b;
-				bool c = (i & 4) ? !f3i.inv_c : f3i.inv_c;
-				if ((a && b) || (a && c) || (b &&c)) func |= 1 << i;
-			}
+					int func = 0;
+					for (int i = 0; i < 8; i++) {
+						bool a = (i & 1) ? !f3i.inv_a : f3i.inv_a;
+						bool b = (i & 2) ? !f3i.inv_b : f3i.inv_b;
+						bool c = (i & 4) ? !f3i.inv_c : f3i.inv_c;
+						if ((a && b) || (a && c) || (b && c))
+							func |= 1 << i;
+					}
 
-			log_assert(func3_maj_info.count(func) == 0);
-			func3_maj_info[func] = f3i;
+					log_assert(func3_maj_info.count(func) == 0);
+					func3_maj_info[func] = f3i;
 
-			// f3i.inv_y = true;
-			// func ^= 255;
+					// f3i.inv_y = true;
+					// func ^= 255;
 
-			// log_assert(func3_maj_info.count(func) == 0);
-			// func3_maj_info[func] = f3i;
-		}
+					// log_assert(func3_maj_info.count(func) == 0);
+					// func3_maj_info[func] = f3i;
+				}
 	}
 
 	void check_partition(SigBit root, pool<SigBit> &leaves)
 	{
-		if (config.enable_ha && GetSize(leaves) == 2)
-		{
+		if (config.enable_ha && GetSize(leaves) == 2) {
 			leaves.sort();
 
 			SigBit A = SigSpec(leaves)[0];
 			SigBit B = SigSpec(leaves)[1];
 
 			int func = 0;
-			for (int i = 0; i < 4; i++)
-			{
+			for (int i = 0; i < 4; i++) {
 				bool a_value = (i & 1) != 0;
 				bool b_value = (i & 2) != 0;
 
@@ -194,8 +184,7 @@ struct ExtractFaWorker
 			func2[tuple<SigBit, SigBit>(A, B)][func].insert(root);
 		}
 
-		if (config.enable_fa && GetSize(leaves) == 3)
-		{
+		if (config.enable_fa && GetSize(leaves) == 3) {
 			leaves.sort();
 
 			SigBit A = SigSpec(leaves)[0];
@@ -203,8 +192,7 @@ struct ExtractFaWorker
 			SigBit C = SigSpec(leaves)[2];
 
 			int func = 0;
-			for (int i = 0; i < 8; i++)
-			{
+			for (int i = 0; i < 8; i++) {
 				bool a_value = (i & 1) != 0;
 				bool b_value = (i & 2) != 0;
 				bool c_value = (i & 4) != 0;
@@ -253,8 +241,7 @@ struct ExtractFaWorker
 		if (maxdepth == 0)
 			return;
 
-		for (SigBit bit : leaves)
-		{
+		for (SigBit bit : leaves) {
 			if (driver.count(bit) == 0)
 				continue;
 
@@ -274,7 +261,7 @@ struct ExtractFaWorker
 			if (GetSize(new_leaves) > maxbreadth)
 				continue;
 
-			find_partitions(root, new_leaves, cache, maxdepth-1, maxbreadth);
+			find_partitions(root, new_leaves, cache, maxdepth - 1, maxbreadth);
 		}
 	}
 
@@ -291,13 +278,12 @@ struct ExtractFaWorker
 	{
 		log("Extracting full/half adders from %s:\n", log_id(module));
 
-		for (auto it : driver)
-		{
+		for (auto it : driver) {
 			if (it.second->type.in(ID($_BUF_), ID($_NOT_)))
 				continue;
 
 			SigBit root = it.first;
-			pool<SigBit> leaves = { root };
+			pool<SigBit> leaves = {root};
 			pool<pool<SigBit>> cache;
 
 			if (config.verbose)
@@ -315,16 +301,14 @@ struct ExtractFaWorker
 				log("    extracted %d three-input functions\n", count_func3);
 		}
 
-		for (auto &key : xorxnor3)
-		{
+		for (auto &key : xorxnor3) {
 			SigBit A = get<0>(key);
 			SigBit B = get<1>(key);
 			SigBit C = get<2>(key);
 
 			log("  3-Input XOR/XNOR %s %s %s:\n", log_signal(A), log_signal(B), log_signal(C));
 
-			for (auto &it : func3.at(key))
-			{
+			for (auto &it : func3.at(key)) {
 				if (it.first != xor3_func && it.first != xnor3_func)
 					continue;
 
@@ -334,10 +318,9 @@ struct ExtractFaWorker
 				log("\n");
 			}
 
-			dict<int, tuple<SigBit, SigBit, Cell*>> facache;
+			dict<int, tuple<SigBit, SigBit, Cell *>> facache;
 
-			for (auto &it : func3_maj_info)
-			{
+			for (auto &it : func3_maj_info) {
 				int func = it.first;
 				auto f3i = it.second;
 
@@ -355,10 +338,14 @@ struct ExtractFaWorker
 					log("    Majority without inversions:\n");
 				} else {
 					log("    Majority with inverted");
-					if (f3i.inv_a) log(" A");
-					if (f3i.inv_b) log(" B");
-					if (f3i.inv_c) log(" C");
-					if (f3i.inv_y) log(" Y");
+					if (f3i.inv_a)
+						log(" A");
+					if (f3i.inv_b)
+						log(" B");
+					if (f3i.inv_c)
+						log(" C");
+					if (f3i.inv_y)
+						log(" Y");
 					log(":\n");
 				}
 
@@ -368,32 +355,29 @@ struct ExtractFaWorker
 				log("\n");
 
 				int fakey = 0;
-				if (f3i.inv_a) fakey |= 1;
-				if (f3i.inv_b) fakey |= 2;
-				if (f3i.inv_c) fakey |= 4;
+				if (f3i.inv_a)
+					fakey |= 1;
+				if (f3i.inv_b)
+					fakey |= 2;
+				if (f3i.inv_c)
+					fakey |= 4;
 
 				int fakey_inv = fakey ^ 7;
 				bool invert_xy = false;
 				SigBit X, Y;
 
-				if (facache.count(fakey))
-				{
+				if (facache.count(fakey)) {
 					auto &fa = facache.at(fakey);
 					X = get<0>(fa);
 					Y = get<1>(fa);
 					log("      Reusing $fa cell %s.\n", log_id(get<2>(fa)));
-				}
-				else
-				if (facache.count(fakey_inv))
-				{
+				} else if (facache.count(fakey_inv)) {
 					auto &fa = facache.at(fakey_inv);
 					invert_xy = true;
 					X = get<0>(fa);
 					Y = get<1>(fa);
 					log("      Reusing $fa cell %s.\n", log_id(get<2>(fa)));
-				}
-				else
-				{
+				} else {
 					Cell *cell = module->addCell(NEW_ID, ID($fa));
 					cell->setParam(ID::WIDTH, 1);
 
@@ -431,15 +415,13 @@ struct ExtractFaWorker
 			}
 		}
 
-		for (auto &key : xorxnor2)
-		{
+		for (auto &key : xorxnor2) {
 			SigBit A = get<0>(key);
 			SigBit B = get<1>(key);
 
 			log("  2-Input XOR/XNOR %s %s:\n", log_signal(A), log_signal(B));
 
-			for (auto &it : func2.at(key))
-			{
+			for (auto &it : func2.at(key)) {
 				if (it.first != xor2_func && it.first != xnor2_func)
 					continue;
 
@@ -449,10 +431,9 @@ struct ExtractFaWorker
 				log("\n");
 			}
 
-			dict<int, tuple<SigBit, SigBit, Cell*>> facache;
+			dict<int, tuple<SigBit, SigBit, Cell *>> facache;
 
-			for (auto &it : func2_and_info)
-			{
+			for (auto &it : func2_and_info) {
 				int func = it.first;
 				auto &f2i = it.second;
 
@@ -463,9 +444,12 @@ struct ExtractFaWorker
 					log("    AND without inversions:\n");
 				} else {
 					log("    AND with inverted");
-					if (f2i.inv_a) log(" A");
-					if (f2i.inv_b) log(" B");
-					if (f2i.inv_y) log(" Y");
+					if (f2i.inv_a)
+						log(" A");
+					if (f2i.inv_b)
+						log(" B");
+					if (f2i.inv_y)
+						log(" Y");
 					log(":\n");
 				}
 
@@ -475,31 +459,27 @@ struct ExtractFaWorker
 				log("\n");
 
 				int fakey = 0;
-				if (f2i.inv_a) fakey |= 1;
-				if (f2i.inv_b) fakey |= 2;
+				if (f2i.inv_a)
+					fakey |= 1;
+				if (f2i.inv_b)
+					fakey |= 2;
 
 				int fakey_inv = fakey ^ 3;
 				bool invert_xy = false;
 				SigBit X, Y;
 
-				if (facache.count(fakey))
-				{
+				if (facache.count(fakey)) {
 					auto &fa = facache.at(fakey);
 					X = get<0>(fa);
 					Y = get<1>(fa);
 					log("      Reusing $fa cell %s.\n", log_id(get<2>(fa)));
-				}
-				else
-				if (facache.count(fakey_inv))
-				{
+				} else if (facache.count(fakey_inv)) {
 					auto &fa = facache.at(fakey_inv);
 					invert_xy = true;
 					X = get<0>(fa);
 					Y = get<1>(fa);
 					log("      Reusing $fa cell %s.\n", log_id(get<2>(fa)));
-				}
-				else
-				{
+				} else {
 					Cell *cell = module->addCell(NEW_ID, ID($fa));
 					cell->setParam(ID::WIDTH, 1);
 
@@ -517,13 +497,15 @@ struct ExtractFaWorker
 				}
 
 				if (func2.at(key).count(xor2_func)) {
-					SigBit YY = invert_xy || (f2i.inv_a && !f2i.inv_b) || (!f2i.inv_a && f2i.inv_b) ? module->NotGate(NEW_ID, Y) : Y;
+					SigBit YY =
+					  invert_xy || (f2i.inv_a && !f2i.inv_b) || (!f2i.inv_a && f2i.inv_b) ? module->NotGate(NEW_ID, Y) : Y;
 					for (auto bit : func2.at(key).at(xor2_func))
 						assign_new_driver(bit, YY);
 				}
 
 				if (func2.at(key).count(xnor2_func)) {
-					SigBit YY = invert_xy || (f2i.inv_a && !f2i.inv_b) || (!f2i.inv_a && f2i.inv_b) ? Y : module->NotGate(NEW_ID, Y);
+					SigBit YY =
+					  invert_xy || (f2i.inv_a && !f2i.inv_b) || (!f2i.inv_a && f2i.inv_b) ? Y : module->NotGate(NEW_ID, Y);
 					for (auto bit : func2.at(key).at(xnor2_func))
 						assign_new_driver(bit, YY);
 				}
@@ -538,7 +520,7 @@ struct ExtractFaWorker
 };
 
 struct ExtractFaPass : public Pass {
-	ExtractFaPass() : Pass("extract_fa", "find and extract full/half adders") { }
+	ExtractFaPass() : Pass("extract_fa", "find and extract full/half adders") {}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -569,8 +551,7 @@ struct ExtractFaPass : public Pass {
 		log_push();
 
 		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
+		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-fa") {
 				config.enable_fa = true;
 				continue;
@@ -583,11 +564,11 @@ struct ExtractFaPass : public Pass {
 				config.verbose = true;
 				continue;
 			}
-			if (args[argidx] == "-d" && argidx+2 < args.size()) {
+			if (args[argidx] == "-d" && argidx + 2 < args.size()) {
 				config.maxdepth = atoi(args[++argidx].c_str());
 				continue;
 			}
-			if (args[argidx] == "-b" && argidx+2 < args.size()) {
+			if (args[argidx] == "-b" && argidx + 2 < args.size()) {
 				config.maxbreadth = atoi(args[++argidx].c_str());
 				continue;
 			}
@@ -600,8 +581,7 @@ struct ExtractFaPass : public Pass {
 			config.enable_ha = true;
 		}
 
-		for (auto module : design->selected_modules())
-		{
+		for (auto module : design->selected_modules()) {
 			ExtractFaWorker worker(config, module);
 			worker.run();
 		}

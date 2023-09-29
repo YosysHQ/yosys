@@ -17,14 +17,14 @@
  *
  */
 
-#include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/yosys.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct InsbufPass : public Pass {
-	InsbufPass() : Pass("insbuf", "insert buffer cells for connected wires") { }
+	InsbufPass() : Pass("insbuf", "insert buffer cells for connected wires") {}
 	void help() override
 	{
 		log("\n");
@@ -48,10 +48,9 @@ struct InsbufPass : public Pass {
 		bool chain_mode = false;
 
 		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
+		for (argidx = 1; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];
-			if (arg == "-buf" && argidx+3 < args.size()) {
+			if (arg == "-buf" && argidx + 3 < args.size()) {
 				celltype = RTLIL::escape_id(args[++argidx]);
 				in_portname = RTLIL::escape_id(args[++argidx]);
 				out_portname = RTLIL::escape_id(args[++argidx]);
@@ -65,18 +64,15 @@ struct InsbufPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto module : design->selected_modules())
-		{
+		for (auto module : design->selected_modules()) {
 			std::vector<RTLIL::SigSig> new_connections;
-			pool<Cell*> bufcells;
+			pool<Cell *> bufcells;
 			SigMap sigmap;
 
-			for (auto &conn : module->connections())
-			{
+			for (auto &conn : module->connections()) {
 				RTLIL::SigSig new_conn;
 
-				for (int i = 0; i < GetSize(conn.first); i++)
-				{
+				for (int i = 0; i < GetSize(conn.first); i++) {
 					SigBit lhs = conn.first[i];
 					SigBit rhs = conn.second[i];
 
@@ -115,8 +111,8 @@ struct InsbufPass : public Pass {
 							auto s = sigmap(port.second);
 							if (s == port.second)
 								continue;
-							log("Rewrite %s/%s/%s: %s -> %s\n", log_id(module), log_id(cell),
-									log_id(port.first), log_signal(port.second), log_signal(s));
+							log("Rewrite %s/%s/%s: %s -> %s\n", log_id(module), log_id(cell), log_id(port.first),
+							    log_signal(port.second), log_signal(s));
 							cell->setPort(port.first, s);
 						}
 				}

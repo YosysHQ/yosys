@@ -17,22 +17,20 @@
  *
  */
 
-#include "kernel/yosys.h"
-#include "kernel/sigtools.h"
 #include "kernel/ffinit.h"
+#include "kernel/sigtools.h"
+#include "kernel/yosys.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct ShregmapTech
-{
-	virtual ~ShregmapTech() { }
+struct ShregmapTech {
+	virtual ~ShregmapTech() {}
 	virtual bool analyze(vector<int> &taps) = 0;
 	virtual bool fixup(Cell *cell, dict<int, SigBit> &taps) = 0;
 };
 
-struct ShregmapOptions
-{
+struct ShregmapOptions {
 	int minlen, maxlen;
 	int keep_before, keep_after;
 	bool zinit, init, params, ffe;
@@ -53,8 +51,7 @@ struct ShregmapOptions
 	}
 };
 
-struct ShregmapTechGreenpak4 : ShregmapTech
-{
+struct ShregmapTechGreenpak4 : ShregmapTech {
 	bool analyze(vector<int> &taps)
 	{
 		if (GetSize(taps) > 2 && taps[0] == 0 && taps[2] < 17) {
@@ -65,7 +62,8 @@ struct ShregmapTechGreenpak4 : ShregmapTech
 		if (GetSize(taps) > 2)
 			return false;
 
-		if (taps.back() > 16) return false;
+		if (taps.back() > 16)
+			return false;
 
 		return true;
 	}
@@ -92,36 +90,32 @@ struct ShregmapTechGreenpak4 : ShregmapTech
 	}
 };
 
-struct ShregmapWorker
-{
+struct ShregmapWorker {
 	Module *module;
 	SigMap sigmap;
 
 	const ShregmapOptions &opts;
 	int dff_count, shreg_count;
 
-	pool<Cell*> remove_cells;
+	pool<Cell *> remove_cells;
 
 	FfInitVals initvals;
-	dict<SigBit, Cell*> sigbit_chain_next;
-	dict<SigBit, Cell*> sigbit_chain_prev;
+	dict<SigBit, Cell *> sigbit_chain_next;
+	dict<SigBit, Cell *> sigbit_chain_prev;
 	pool<SigBit> sigbit_with_non_chain_users;
-	pool<Cell*> chain_start_cells;
+	pool<Cell *> chain_start_cells;
 
 	void make_sigbit_chain_next_prev()
 	{
-		for (auto wire : module->wires())
-		{
+		for (auto wire : module->wires()) {
 			if (wire->port_output || wire->get_bool_attribute(ID::keep)) {
 				for (auto bit : sigmap(wire))
 					sigbit_with_non_chain_users.insert(bit);
 			}
 		}
 
-		for (auto cell : module->cells())
-		{
-			if (opts.ffcells.count(cell->type) && !cell->get_bool_attribute(ID::keep))
-			{
+		for (auto cell : module->cells()) {
+			if (opts.ffcells.count(cell->type) && !cell->get_bool_attribute(ID::keep)) {
 				IdString d_port = opts.ffcells.at(cell->type).first;
 				IdString q_port = opts.ffcells.at(cell->type).second;
 
@@ -129,8 +123,7 @@ struct ShregmapWorker
 				SigBit q_bit = sigmap(cell->getPort(q_port).as_bit());
 				State initval = initvals(q_bit);
 
-				if (opts.init || initval == State::Sx || (opts.zinit && initval == State::S0))
-				{
+				if (opts.init || initval == State::Sx || (opts.zinit && initval == State::S0)) {
 					auto r = sigbit_chain_next.insert(std::make_pair(d_bit, cell));
 					if (!r.second) {
 						// Insertion not successful means that d_bit is already
@@ -162,13 +155,11 @@ struct ShregmapWorker
 
 	void find_chain_start_cells()
 	{
-		for (auto it : sigbit_chain_next)
-		{
+		for (auto it : sigbit_chain_next) {
 			if (opts.tech == nullptr && sigbit_with_non_chain_users.count(it.first))
 				goto start_cell;
 
-			if (sigbit_chain_prev.count(it.first) != 0)
-			{
+			if (sigbit_chain_prev.count(it.first) != 0) {
 				Cell *c1 = sigbit_chain_prev.at(it.first);
 				Cell *c2 = it.second;
 
@@ -201,13 +192,12 @@ struct ShregmapWorker
 		}
 	}
 
-	vector<Cell*> create_chain(Cell *start_cell)
+	vector<Cell *> create_chain(Cell *start_cell)
 	{
-		vector<Cell*> chain;
+		vector<Cell *> chain;
 
 		Cell *c = start_cell;
-		while (c != nullptr)
-		{
+		while (c != nullptr) {
 			chain.push_back(c);
 
 			IdString q_port = opts.ffcells.at(c->type).second;
@@ -224,14 +214,13 @@ struct ShregmapWorker
 		return chain;
 	}
 
-	void process_chain(vector<Cell*> &chain)
+	void process_chain(vector<Cell *> &chain)
 	{
 		if (GetSize(chain) < opts.keep_before + opts.minlen + opts.keep_after)
 			return;
 
 		int cursor = opts.keep_before;
-		while (cursor < GetSize(chain) - opts.keep_after)
-		{
+		while (cursor < GetSize(chain) - opts.keep_after) {
 			int depth = GetSize(chain) - opts.keep_after - cursor;
 
 			if (opts.maxlen > 0)
@@ -241,14 +230,12 @@ struct ShregmapWorker
 			IdString q_port = opts.ffcells.at(first_cell->type).second;
 			dict<int, SigBit> taps_dict;
 
-			if (opts.tech)
-			{
+			if (opts.tech) {
 				vector<SigBit> qbits;
 				vector<int> taps;
 
-				for (int i = 0; i < depth; i++)
-				{
-					Cell *cell = chain[cursor+i];
+				for (int i = 0; i < depth; i++) {
+					Cell *cell = chain[cursor + i];
 					auto qbit = sigmap(cell->getPort(q_port));
 					qbits.push_back(qbit);
 
@@ -256,10 +243,9 @@ struct ShregmapWorker
 						taps.push_back(i);
 				}
 
-				while (depth > 0)
-				{
-					if (taps.empty() || taps.back() < depth-1)
-						taps.push_back(depth-1);
+				while (depth > 0) {
+					if (taps.empty() || taps.back() < depth - 1)
+						taps.push_back(depth - 1);
 
 					if (opts.tech->analyze(taps))
 						break;
@@ -271,8 +257,8 @@ struct ShregmapWorker
 				depth = 0;
 				for (auto tap : taps) {
 					taps_dict[tap] = qbits.at(tap);
-					log_assert(depth < tap+1);
-					depth = tap+1;
+					log_assert(depth < tap + 1);
+					depth = tap + 1;
 				}
 			}
 
@@ -281,10 +267,10 @@ struct ShregmapWorker
 				continue;
 			}
 
-			Cell *last_cell = chain[cursor+depth-1];
+			Cell *last_cell = chain[cursor + depth - 1];
 
-			log("Converting %s.%s ... %s.%s to a shift register with depth %d.\n",
-				log_id(module), log_id(first_cell), log_id(module), log_id(last_cell), depth);
+			log("Converting %s.%s ... %s.%s to a shift register with depth %d.\n", log_id(module), log_id(first_cell), log_id(module),
+			    log_id(last_cell), depth);
 
 			dff_count += depth;
 			shreg_count += 1;
@@ -300,8 +286,8 @@ struct ShregmapWorker
 
 			if (opts.init) {
 				vector<State> initval;
-				for (int i = depth-1; i >= 0; i--) {
-					SigBit bit = chain[cursor+i]->getPort(q_port).as_bit();
+				for (int i = depth - 1; i >= 0; i--) {
+					SigBit bit = chain[cursor + i]->getPort(q_port).as_bit();
 					initval.push_back(initvals(bit));
 					initvals.remove_init(bit);
 				}
@@ -309,27 +295,33 @@ struct ShregmapWorker
 			}
 
 			if (opts.zinit)
-				for (int i = depth-1; i >= 0; i--) {
-					SigBit bit = chain[cursor+i]->getPort(q_port).as_bit();
+				for (int i = depth - 1; i >= 0; i--) {
+					SigBit bit = chain[cursor + i]->getPort(q_port).as_bit();
 					initvals.remove_init(bit);
 				}
 
-			if (opts.params)
-			{
+			if (opts.params) {
 				int param_clkpol = -1;
 				int param_enpol = 2;
 
-				if (first_cell->type == ID($_DFF_N_)) param_clkpol = 0;
-				if (first_cell->type == ID($_DFF_P_)) param_clkpol = 1;
+				if (first_cell->type == ID($_DFF_N_))
+					param_clkpol = 0;
+				if (first_cell->type == ID($_DFF_P_))
+					param_clkpol = 1;
 
-				if (first_cell->type == ID($_DFFE_NN_)) param_clkpol = 0, param_enpol = 0;
-				if (first_cell->type == ID($_DFFE_NP_)) param_clkpol = 0, param_enpol = 1;
-				if (first_cell->type == ID($_DFFE_PN_)) param_clkpol = 1, param_enpol = 0;
-				if (first_cell->type == ID($_DFFE_PP_)) param_clkpol = 1, param_enpol = 1;
+				if (first_cell->type == ID($_DFFE_NN_))
+					param_clkpol = 0, param_enpol = 0;
+				if (first_cell->type == ID($_DFFE_NP_))
+					param_clkpol = 0, param_enpol = 1;
+				if (first_cell->type == ID($_DFFE_PN_))
+					param_clkpol = 1, param_enpol = 0;
+				if (first_cell->type == ID($_DFFE_PP_))
+					param_clkpol = 1, param_enpol = 1;
 
 				log_assert(param_clkpol >= 0);
 				first_cell->setParam(ID(CLKPOL), param_clkpol);
-				if (opts.ffe) first_cell->setParam(ID(ENPOL), param_enpol);
+				if (opts.ffe)
+					first_cell->setParam(ID(ENPOL), param_enpol);
 			}
 
 			first_cell->type = shreg_cell_type_str;
@@ -340,7 +332,7 @@ struct ShregmapWorker
 				remove_cells.insert(first_cell);
 
 			for (int i = 1; i < depth; i++)
-				remove_cells.insert(chain[cursor+i]);
+				remove_cells.insert(chain[cursor + i]);
 			cursor += depth;
 		}
 	}
@@ -356,15 +348,14 @@ struct ShregmapWorker
 		chain_start_cells.clear();
 	}
 
-	ShregmapWorker(Module *module, const ShregmapOptions &opts) :
-			module(module), sigmap(module), opts(opts), dff_count(0), shreg_count(0)
+	ShregmapWorker(Module *module, const ShregmapOptions &opts) : module(module), sigmap(module), opts(opts), dff_count(0), shreg_count(0)
 	{
 		initvals.set(&sigmap, module);
 		make_sigbit_chain_next_prev();
 		find_chain_start_cells();
 
 		for (auto c : chain_start_cells) {
-			vector<Cell*> chain = create_chain(c);
+			vector<Cell *> chain = create_chain(c);
 			process_chain(chain);
 		}
 
@@ -373,7 +364,7 @@ struct ShregmapWorker
 };
 
 struct ShregmapPass : public Pass {
-	ShregmapPass() : Pass("shregmap", "map shift registers") { }
+	ShregmapPass() : Pass("shregmap", "map shift registers") {}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -440,17 +431,16 @@ struct ShregmapPass : public Pass {
 		log_header(design, "Executing SHREGMAP pass (map shift registers).\n");
 
 		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
-			if (args[argidx] == "-clkpol" && argidx+1 < args.size()) {
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-clkpol" && argidx + 1 < args.size()) {
 				clkpol = args[++argidx];
 				continue;
 			}
-			if (args[argidx] == "-enpol" && argidx+1 < args.size()) {
+			if (args[argidx] == "-enpol" && argidx + 1 < args.size()) {
 				enpol = args[++argidx];
 				continue;
 			}
-			if (args[argidx] == "-match" && argidx+1 < args.size()) {
+			if (args[argidx] == "-match" && argidx + 1 < args.size()) {
 				vector<string> match_args = split_tokens(args[++argidx], ":");
 				if (GetSize(match_args) < 2)
 					match_args.push_back("D");
@@ -462,23 +452,23 @@ struct ShregmapPass : public Pass {
 				opts.ffcells[id_cell_type] = make_pair(id_d_port_name, id_q_port_name);
 				continue;
 			}
-			if (args[argidx] == "-minlen" && argidx+1 < args.size()) {
+			if (args[argidx] == "-minlen" && argidx + 1 < args.size()) {
 				opts.minlen = atoi(args[++argidx].c_str());
 				continue;
 			}
-			if (args[argidx] == "-maxlen" && argidx+1 < args.size()) {
+			if (args[argidx] == "-maxlen" && argidx + 1 < args.size()) {
 				opts.maxlen = atoi(args[++argidx].c_str());
 				continue;
 			}
-			if (args[argidx] == "-keep_before" && argidx+1 < args.size()) {
+			if (args[argidx] == "-keep_before" && argidx + 1 < args.size()) {
 				opts.keep_before = atoi(args[++argidx].c_str());
 				continue;
 			}
-			if (args[argidx] == "-keep_after" && argidx+1 < args.size()) {
+			if (args[argidx] == "-keep_after" && argidx + 1 < args.size()) {
 				opts.keep_after = atoi(args[++argidx].c_str());
 				continue;
 			}
-			if (args[argidx] == "-tech" && argidx+1 < args.size() && opts.tech == nullptr) {
+			if (args[argidx] == "-tech" && argidx + 1 < args.size() && opts.tech == nullptr) {
 				string tech = args[++argidx];
 				if (tech == "greenpak4") {
 					clkpol = "pos";
@@ -509,8 +499,7 @@ struct ShregmapPass : public Pass {
 		if (opts.zinit && opts.init)
 			log_cmd_error("Options -zinit and -init are exclusive!\n");
 
-		if (opts.ffcells.empty())
-		{
+		if (opts.ffcells.empty()) {
 			bool clk_pos = clkpol == "" || clkpol == "pos" || clkpol == "any";
 			bool clk_neg = clkpol == "" || clkpol == "neg" || clkpol == "any";
 
@@ -535,9 +524,7 @@ struct ShregmapPass : public Pass {
 
 			if (en_pos || en_neg)
 				opts.ffe = true;
-		}
-		else
-		{
+		} else {
 			if (!clkpol.empty())
 				log_cmd_error("Options -clkpol and -match are exclusive!\n");
 			if (!enpol.empty())

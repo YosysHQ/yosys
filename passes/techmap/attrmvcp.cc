@@ -17,14 +17,14 @@
  *
  */
 
-#include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/yosys.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct AttrmvcpPass : public Pass {
-	AttrmvcpPass() : Pass("attrmvcp", "move or copy attributes from wires to driving cells") { }
+	AttrmvcpPass() : Pass("attrmvcp", "move or copy attributes from wires to driving cells") {}
 	void help() override
 	{
 		log("\n");
@@ -63,8 +63,7 @@ struct AttrmvcpPass : public Pass {
 		pool<IdString> attrnames;
 
 		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
+		for (argidx = 1; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];
 			if (arg == "-copy") {
 				copy_mode = true;
@@ -78,7 +77,7 @@ struct AttrmvcpPass : public Pass {
 				purge_mode = true;
 				continue;
 			}
-			if (arg == "-attr" && argidx+1 < args.size()) {
+			if (arg == "-attr" && argidx + 1 < args.size()) {
 				attrnames.insert(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
@@ -86,31 +85,27 @@ struct AttrmvcpPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto module : design->selected_modules())
-		{
-			dict<SigBit, pool<Cell*>> net2cells;
+		for (auto module : design->selected_modules()) {
+			dict<SigBit, pool<Cell *>> net2cells;
 			SigMap sigmap(module);
 
 			for (auto cell : module->selected_cells())
-			for (auto &conn : cell->connections())
-			{
-				if (driven_mode) {
-					if (cell->input(conn.first))
-						for (auto bit : sigmap(conn.second))
-							net2cells[bit].insert(cell);
-				} else {
-					if (cell->output(conn.first))
-						for (auto bit : sigmap(conn.second))
-							net2cells[bit].insert(cell);
+				for (auto &conn : cell->connections()) {
+					if (driven_mode) {
+						if (cell->input(conn.first))
+							for (auto bit : sigmap(conn.second))
+								net2cells[bit].insert(cell);
+					} else {
+						if (cell->output(conn.first))
+							for (auto bit : sigmap(conn.second))
+								net2cells[bit].insert(cell);
+					}
 				}
-			}
 
-			for (auto wire : module->selected_wires())
-			{
+			for (auto wire : module->selected_wires()) {
 				dict<IdString, Const> new_attributes;
 
-				for (auto attr : wire->attributes)
-				{
+				for (auto attr : wire->attributes) {
 					bool did_something = false;
 
 					if (!attrnames.count(attr.first)) {
@@ -121,8 +116,9 @@ struct AttrmvcpPass : public Pass {
 					for (auto bit : sigmap(wire))
 						if (net2cells.count(bit))
 							for (auto cell : net2cells.at(bit)) {
-								log("Moving attribute %s=%s from %s.%s to %s.%s.\n", log_id(attr.first), log_const(attr.second),
-										log_id(module), log_id(wire), log_id(module), log_id(cell));
+								log("Moving attribute %s=%s from %s.%s to %s.%s.\n", log_id(attr.first),
+								    log_const(attr.second), log_id(module), log_id(wire), log_id(module),
+								    log_id(cell));
 								cell->attributes[attr.first] = attr.second;
 								did_something = true;
 							}

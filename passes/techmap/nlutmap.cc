@@ -17,28 +17,23 @@
  *
  */
 
-#include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/yosys.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct NlutmapConfig
-{
+struct NlutmapConfig {
 	vector<int> luts;
 	bool assert_mode = false;
 };
 
-struct NlutmapWorker
-{
+struct NlutmapWorker {
 	const NlutmapConfig &config;
-	pool<Cell*> mapped_cells;
+	pool<Cell *> mapped_cells;
 	Module *module;
 
-	NlutmapWorker(const NlutmapConfig &config, Module *module) :
-			config(config), module(module)
-	{
-	}
+	NlutmapWorker(const NlutmapConfig &config, Module *module) : config(config), module(module) {}
 
 	RTLIL::Selection get_selection()
 	{
@@ -65,8 +60,7 @@ struct NlutmapWorker
 	{
 		vector<int> available_luts = config.luts;
 
-		while (GetSize(available_luts) > 1)
-		{
+		while (GetSize(available_luts) > 1) {
 			int n_luts = available_luts.back();
 			int lut_size = GetSize(available_luts);
 			available_luts.pop_back();
@@ -77,11 +71,10 @@ struct NlutmapWorker
 			run_abc(lut_size);
 
 			SigMap sigmap(module);
-			dict<Cell*, int> candidate_ratings;
+			dict<Cell *, int> candidate_ratings;
 			dict<SigBit, int> bit_lut_count;
 
-			for (auto cell : module->cells())
-			{
+			for (auto cell : module->cells()) {
 				if (cell->type != ID($lut) || mapped_cells.count(cell))
 					continue;
 
@@ -93,8 +86,7 @@ struct NlutmapWorker
 						bit_lut_count[bit]++;
 			}
 
-			for (auto &cand : candidate_ratings)
-			{
+			for (auto &cand : candidate_ratings) {
 				for (auto &conn : cand.first->connections())
 					for (auto bit : sigmap(conn.second))
 						cand.second -= bit_lut_count[bit];
@@ -128,7 +120,7 @@ struct NlutmapWorker
 };
 
 struct NlutmapPass : public Pass {
-	NlutmapPass() : Pass("nlutmap", "map to LUTs of different sizes") { }
+	NlutmapPass() : Pass("nlutmap", "map to LUTs of different sizes") {}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -157,9 +149,8 @@ struct NlutmapPass : public Pass {
 		log_push();
 
 		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
-			if (args[argidx] == "-luts" && argidx+1 < args.size()) {
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-luts" && argidx + 1 < args.size()) {
 				vector<string> tokens = split_tokens(args[++argidx], ",");
 				config.luts.clear();
 				for (auto &token : tokens)
@@ -174,8 +165,7 @@ struct NlutmapPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto module : design->selected_whole_modules_warn())
-		{
+		for (auto module : design->selected_whole_modules_warn()) {
 			NlutmapWorker worker(config, module);
 			worker.run();
 		}

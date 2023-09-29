@@ -17,11 +17,11 @@
  *
  */
 
-#include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/yosys.h"
 #include "libparse.h"
-#include <string.h>
 #include <errno.h>
+#include <string.h>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -40,7 +40,7 @@ static void logmap(IdString dff)
 		log("    %s %s (", cell_mappings[dff].cell_name.c_str(), dff.substr(1).c_str());
 		bool first = true;
 		for (auto &port : cell_mappings[dff].ports) {
-			char arg[3] = { port.second, 0, 0 };
+			char arg[3] = {port.second, 0, 0};
 			if ('a' <= arg[0] && arg[0] <= 'z')
 				arg[1] = arg[0] - ('a' - 'A'), arg[0] = '~';
 			else
@@ -86,11 +86,11 @@ static bool parse_pin(LibertyAst *cell, LibertyAst *attr, std::string &pin_name,
 	for (size_t pos = value.find_first_of("\" \t()"); pos != std::string::npos; pos = value.find_first_of("\" \t()"))
 		value.erase(pos, 1);
 
-	if (value[value.size()-1] == '\'') {
-		pin_name = value.substr(0, value.size()-1);
+	if (value[value.size() - 1] == '\'') {
+		pin_name = value.substr(0, value.size() - 1);
 		pin_pol = false;
 	} else if (value[0] == '!') {
-		pin_name = value.substr(1, value.size()-1);
+		pin_name = value.substr(1, value.size() - 1);
 		pin_pol = false;
 	} else {
 		pin_name = value;
@@ -107,8 +107,7 @@ static bool parse_pin(LibertyAst *cell, LibertyAst *attr, std::string &pin_name,
 	*/
 	if (pin_name.find_first_of("^*|&") == std::string::npos) {
 		log_warning("Malformed liberty file - cannot find pin '%s' in cell '%s' - skipping.\n", pin_name.c_str(), cell->args[0].c_str());
-	}
-	else {
+	} else {
 		log_warning("Found unsupported expression '%s' in pin attribute of cell '%s' - skipping.\n", pin_name.c_str(), cell->args[0].c_str());
 	}
 
@@ -126,8 +125,7 @@ static void find_cell(LibertyAst *ast, IdString cell_type, bool clkpol, bool has
 	if (ast->id != "library")
 		log_error("Format error in liberty file.\n");
 
-	for (auto cell : ast->children)
-	{
+	for (auto cell : ast->children) {
 		if (cell->id != "cell" || cell->args.size() != 1)
 			continue;
 
@@ -169,8 +167,7 @@ static void find_cell(LibertyAst *ast, IdString cell_type, bool clkpol, bool has
 		int num_pins = 0;
 		bool found_output = false;
 		bool found_noninv_output = false;
-		for (auto pin : cell->children)
-		{
+		for (auto pin : cell->children) {
 			if (pin->id != "pin" || pin->args.size() != 1)
 				continue;
 
@@ -192,8 +189,7 @@ static void find_cell(LibertyAst *ast, IdString cell_type, bool clkpol, bool has
 					if (cell_next_pol)
 						found_noninv_output = true;
 					found_output = true;
-				} else
-				if (value == ff->args[1]) {
+				} else if (value == ff->args[1]) {
 					this_cell_ports[pin->args[0]] = cell_next_pol ? 'q' : 'Q';
 					if (!cell_next_pol)
 						found_noninv_output = true;
@@ -220,8 +216,8 @@ static void find_cell(LibertyAst *ast, IdString cell_type, bool clkpol, bool has
 	}
 
 	if (best_cell != nullptr) {
-		log("  cell %s (%sinv, pins=%d, area=%.2f) is a direct match for cell type %s.\n",
-				best_cell->args[0].c_str(), best_cell_noninv ? "non" : "", best_cell_pins, best_cell_area, cell_type.c_str());
+		log("  cell %s (%sinv, pins=%d, area=%.2f) is a direct match for cell type %s.\n", best_cell->args[0].c_str(),
+		    best_cell_noninv ? "non" : "", best_cell_pins, best_cell_area, cell_type.c_str());
 		cell_mappings[cell_type].cell_name = RTLIL::escape_id(best_cell->args[0]);
 		cell_mappings[cell_type].ports = best_cell_ports;
 	}
@@ -238,8 +234,7 @@ static void find_cell_sr(LibertyAst *ast, IdString cell_type, bool clkpol, bool 
 	if (ast->id != "library")
 		log_error("Format error in liberty file.\n");
 
-	for (auto cell : ast->children)
-	{
+	for (auto cell : ast->children) {
 		if (cell->id != "cell" || cell->args.size() != 1)
 			continue;
 
@@ -277,8 +272,7 @@ static void find_cell_sr(LibertyAst *ast, IdString cell_type, bool clkpol, bool 
 		int num_pins = 0;
 		bool found_output = false;
 		bool found_noninv_output = false;
-		for (auto pin : cell->children)
-		{
+		for (auto pin : cell->children) {
 			if (pin->id != "pin" || pin->args.size() != 1)
 				continue;
 
@@ -300,8 +294,7 @@ static void find_cell_sr(LibertyAst *ast, IdString cell_type, bool clkpol, bool 
 					if (cell_next_pol)
 						found_noninv_output = true;
 					found_output = true;
-				} else
-				if (value == ff->args[1]) {
+				} else if (value == ff->args[1]) {
 					this_cell_ports[pin->args[0]] = cell_next_pol ? 'q' : 'Q';
 					if (!cell_next_pol)
 						found_noninv_output = true;
@@ -328,8 +321,8 @@ static void find_cell_sr(LibertyAst *ast, IdString cell_type, bool clkpol, bool 
 	}
 
 	if (best_cell != nullptr) {
-		log("  cell %s (%sinv, pins=%d, area=%.2f) is a direct match for cell type %s.\n",
-				best_cell->args[0].c_str(), best_cell_noninv ? "non" : "", best_cell_pins, best_cell_area, cell_type.c_str());
+		log("  cell %s (%sinv, pins=%d, area=%.2f) is a direct match for cell type %s.\n", best_cell->args[0].c_str(),
+		    best_cell_noninv ? "non" : "", best_cell_pins, best_cell_area, cell_type.c_str());
 		cell_mappings[cell_type].cell_name = RTLIL::escape_id(best_cell->args[0]);
 		cell_mappings[cell_type].ports = best_cell_ports;
 	}
@@ -339,10 +332,10 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 {
 	log("Mapping DFF cells in module `%s':\n", module->name.c_str());
 
-	dict<SigBit, pool<Cell*>> notmap;
+	dict<SigBit, pool<Cell *>> notmap;
 	SigMap sigmap(module);
 
-	std::vector<RTLIL::Cell*> cell_list;
+	std::vector<RTLIL::Cell *> cell_list;
 	for (auto cell : module->cells()) {
 		if (design->selected(module, cell) && cell_mappings.count(cell->type) > 0)
 			cell_list.push_back(cell);
@@ -351,8 +344,7 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 	}
 
 	std::map<std::string, int> stats;
-	for (auto cell : cell_list)
-	{
+	for (auto cell : cell_list) {
 		auto cell_type = cell->type;
 		auto cell_name = cell->name;
 		auto cell_connections = cell->connections();
@@ -367,16 +359,17 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 
 		bool has_q = false, has_qn = false;
 		for (auto &port : cm.ports) {
-			if (port.second == 'Q') has_q = true;
-			if (port.second == 'q') has_qn = true;
+			if (port.second == 'Q')
+				has_q = true;
+			if (port.second == 'q')
+				has_qn = true;
 		}
 
 		for (auto &port : cm.ports) {
 			RTLIL::SigSpec sig;
 			if ('A' <= port.second && port.second <= 'Z') {
 				sig = cell_connections[std::string("\\") + port.second];
-			} else
-			if (port.second == 'q') {
+			} else if (port.second == 'q') {
 				RTLIL::SigSpec old_sig = cell_connections[std::string("\\") + char(port.second - ('a' - 'A'))];
 				sig = module->addWire(NEW_ID, GetSize(old_sig));
 				if (has_q && has_qn) {
@@ -387,15 +380,12 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 				} else {
 					module->addNotGate(NEW_ID, sig, old_sig);
 				}
-			} else
-			if ('a' <= port.second && port.second <= 'z') {
+			} else if ('a' <= port.second && port.second <= 'z') {
 				sig = cell_connections[std::string("\\") + char(port.second - ('a' - 'A'))];
 				sig = module->NotGate(NEW_ID, sig);
-			} else
-			if (port.second == '0' || port.second == '1') {
+			} else if (port.second == '0' || port.second == '1') {
 				sig = RTLIL::SigSpec(port.second == '0' ? 0 : 1, 1);
-			} else
-			if (port.second == 0) {
+			} else if (port.second == 0) {
 				sig = module->addWire(NEW_ID);
 			} else
 				log_abort();
@@ -405,12 +395,12 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 		stats[stringf("  mapped %%d %s cells to %s cells.\n", cell_type.c_str(), new_cell->type.c_str())]++;
 	}
 
-	for (auto &stat: stats)
+	for (auto &stat : stats)
 		log(stat.first.c_str(), stat.second);
 }
 
 struct DfflibmapPass : public Pass {
-	DfflibmapPass() : Pass("dfflibmap", "technology mapping of flip-flops") { }
+	DfflibmapPass() : Pass("dfflibmap", "technology mapping of flip-flops") {}
 	void help() override
 	{
 		log("\n");
@@ -447,10 +437,9 @@ struct DfflibmapPass : public Pass {
 		bool info_mode = false;
 
 		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
+		for (argidx = 1; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];
-			if (arg == "-liberty" && argidx+1 < args.size()) {
+			if (arg == "-liberty" && argidx + 1 < args.size()) {
 				liberty_file = args[++argidx];
 				rewrite_filename(liberty_file);
 				continue;

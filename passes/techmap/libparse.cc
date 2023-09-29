@@ -21,9 +21,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <istream>
 #include <fstream>
 #include <iostream>
+#include <istream>
 #include <sstream>
 
 #ifndef FILTERLIB
@@ -97,7 +97,8 @@ int LibertyParser::lexer(std::string &str)
 		str = static_cast<char>(c);
 		while (1) {
 			c = f.get();
-			if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') || c == '_' || c == '-' || c == '+' || c == '.')
+			if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') || c == '_' || c == '-' || c == '+' ||
+			    c == '.')
 				str += c;
 			else
 				break;
@@ -107,8 +108,7 @@ int LibertyParser::lexer(std::string &str)
 			/* Single operator is not an identifier */
 			// fprintf(stderr, "LEX: char >>%s<<\n", str.c_str());
 			return str[0];
-		}
-		else {
+		} else {
 			// fprintf(stderr, "LEX: identifier >>%s<<\n", str.c_str());
 			return 'v';
 		}
@@ -133,7 +133,7 @@ int LibertyParser::lexer(std::string &str)
 	// if it wasn't a string, perhaps it's a comment or a forward slash?
 	if (c == '/') {
 		c = f.get();
-		if (c == '*') {         // start of '/*' block comment
+		if (c == '*') { // start of '/*' block comment
 			int last_c = 0;
 			while (c > 0 && (last_c != '*' || c != '/')) {
 				last_c = c;
@@ -142,7 +142,7 @@ int LibertyParser::lexer(std::string &str)
 					line++;
 			}
 			return lexer(str);
-		} else if (c == '/') {  // start of '//' line comment
+		} else if (c == '/') { // start of '//' line comment
 			while (c > 0 && c != '\n')
 				c = f.get();
 			line++;
@@ -150,12 +150,12 @@ int LibertyParser::lexer(std::string &str)
 		}
 		f.unget();
 		// fprintf(stderr, "LEX: char >>/<<\n");
-		return '/';             // a single '/' charater.
+		return '/'; // a single '/' charater.
 	}
 
 	// check for a backslash
 	if (c == '\\') {
-		c = f.get();		
+		c = f.get();
 		if (c == '\r')
 			c = f.get();
 		if (c == '\n') {
@@ -201,8 +201,7 @@ LibertyAst *LibertyParser::parse()
 
 	if (tok != 'v') {
 		std::string eReport;
-		switch(tok)
-		{
+		switch (tok) {
 		case 'n':
 			error("Unexpected newline.");
 			break;
@@ -225,11 +224,10 @@ LibertyAst *LibertyParser::parse()
 	LibertyAst *ast = new LibertyAst;
 	ast->id = str;
 
-	while (1)
-	{
+	while (1) {
 		tok = lexer(str);
 
-		// allow both ';' and new lines to 
+		// allow both ';' and new lines to
 		// terminate a statement.
 		if ((tok == ';') || (tok == 'n'))
 			break;
@@ -237,7 +235,7 @@ LibertyAst *LibertyParser::parse()
 		if (tok == ':' && ast->value.empty()) {
 			tok = lexer(ast->value);
 			if (tok == 'v') {
-    				tok = lexer(str);
+				tok = lexer(str);
 			}
 			while (tok == '+' || tok == '-' || tok == '*' || tok == '/' || tok == '!') {
 				ast->value += tok;
@@ -247,7 +245,7 @@ LibertyAst *LibertyParser::parse()
 				ast->value += str;
 				tok = lexer(str);
 			}
-			
+
 			// In a liberty file, all key : value pairs should end in ';'
 			// However, there are some liberty files in the wild that
 			// just have a newline. We'll be kind and accept a newline
@@ -267,54 +265,44 @@ LibertyAst *LibertyParser::parse()
 					continue;
 				if (tok == ')')
 					break;
-				
+
 				// FIXME: the AST needs to be extended to store
 				//        these vector ranges.
-				if (tok == '[')
-				{
+				if (tok == '[') {
 					// parse vector range [A] or [A:B]
 					std::string arg;
 					tok = lexer(arg);
-					if (tok != 'v')
-					{
+					if (tok != 'v') {
 						// expected a vector array index
 						error("Expected a number.");
-					}
-					else
-					{
+					} else {
 						// fixme: check for number A
 					}
 					tok = lexer(arg);
 					// optionally check for : in case of [A:B]
 					// if it isn't we just expect ']'
 					// as we have [A]
-					if (tok == ':')
-					{
+					if (tok == ':') {
 						tok = lexer(arg);
-						if (tok != 'v')
-						{
+						if (tok != 'v') {
 							// expected a vector array index
 							error("Expected a number.");
-						}
-						else
-						{
+						} else {
 							// fixme: check for number B
-							tok = lexer(arg);                            
+							tok = lexer(arg);
 						}
 					}
 					// expect a closing bracket of array range
-					if (tok != ']')
-					{
+					if (tok != ']') {
 						error("Expected ']' on array range.");
 					}
-					continue;           
+					continue;
 				}
 				if (tok != 'v') {
 					std::string eReport;
-					switch(tok)
-					{
+					switch (tok) {
 					case 'n':
-					  continue;
+						continue;
 					case '[':
 					case ']':
 					case '}':
@@ -353,10 +341,7 @@ LibertyAst *LibertyParser::parse()
 
 #ifndef FILTERLIB
 
-void LibertyParser::error()
-{
-	log_error("Syntax error in liberty file on line %d.\n", line);
-}
+void LibertyParser::error() { log_error("Syntax error in liberty file on line %d.\n", line); }
 
 void LibertyParser::error(const std::string &str)
 {
@@ -385,24 +370,22 @@ void LibertyParser::error(const std::string &str)
 
 /**** BEGIN: http://svn.clairexen.net/tools/trunk/examples/check.h ****/
 
-#define CHECK_NV(result, check)                                      \
-   do {                                                              \
-	 auto _R = (result);                                             \
-	 if (!(_R check)) {                                              \
-	   fprintf(stderr, "Error from '%s' (%ld %s) in %s:%d.\n",       \
-			   #result, (long int)_R, #check, __FILE__, __LINE__);   \
-	   abort();                                                      \
-	 }                                                               \
-   } while(0)
+#define CHECK_NV(result, check)                                                                                                                      \
+	do {                                                                                                                                         \
+		auto _R = (result);                                                                                                                  \
+		if (!(_R check)) {                                                                                                                   \
+			fprintf(stderr, "Error from '%s' (%ld %s) in %s:%d.\n", #result, (long int)_R, #check, __FILE__, __LINE__);                  \
+			abort();                                                                                                                     \
+		}                                                                                                                                    \
+	} while (0)
 
-#define CHECK_COND(result)                                           \
-   do {                                                              \
-	 if (!(result)) {                                                \
-	   fprintf(stderr, "Error from '%s' in %s:%d.\n",                \
-			   #result, __FILE__, __LINE__);                         \
-	   abort();                                                      \
-	 }                                                               \
-   } while(0)
+#define CHECK_COND(result)                                                                                                                           \
+	do {                                                                                                                                         \
+		if (!(result)) {                                                                                                                     \
+			fprintf(stderr, "Error from '%s' in %s:%d.\n", #result, __FILE__, __LINE__);                                                 \
+			abort();                                                                                                                     \
+		}                                                                                                                                    \
+	} while (0)
 
 /**** END: http://svn.clairexen.net/tools/trunk/examples/check.h ****/
 
@@ -417,8 +400,8 @@ LibertyAst *find_non_null(LibertyAst *node, const char *name)
 std::string func2vl(std::string str)
 {
 	for (size_t pos = str.find_first_of("\" \t"); pos != std::string::npos; pos = str.find_first_of("\" \t")) {
-		char c_left = pos > 0 ? str[pos-1] : ' ';
-		char c_right = pos+1 < str.size() ? str[pos+1] : ' ';
+		char c_left = pos > 0 ? str[pos - 1] : ' ';
+		char c_right = pos + 1 < str.size() ? str[pos + 1] : ' ';
 		if (std::string("\" \t*+").find(c_left) != std::string::npos)
 			str.erase(pos, 1);
 		else if (std::string("\" \t*+").find(c_right) != std::string::npos)
@@ -432,19 +415,19 @@ std::string func2vl(std::string str)
 		if (str[pos] == '(')
 			group_start.push_back(pos);
 		if (str[pos] == ')' && group_start.size() > 0) {
-			if (pos+1 < str.size() && str[pos+1] == '\'') {
-				std::string group = str.substr(group_start.back(), pos-group_start.back()+1);
+			if (pos + 1 < str.size() && str[pos + 1] == '\'') {
+				std::string group = str.substr(group_start.back(), pos - group_start.back() + 1);
 				str[group_start.back()] = '~';
-				str.replace(group_start.back()+1, group.size(), group);
+				str.replace(group_start.back() + 1, group.size(), group);
 				pos++;
 			}
 			group_start.pop_back();
 		}
 		if (str[pos] == '\'' && pos > 0) {
-			size_t start = str.find_last_of("()'*+^&| ", pos-1)+1;
-			std::string group = str.substr(start, pos-start);
+			size_t start = str.find_last_of("()'*+^&| ", pos - 1) + 1;
+			std::string group = str.substr(start, pos - start);
 			str[start] = '~';
-			str.replace(start+1, group.size(), group);
+			str.replace(start + 1, group.size(), group);
 		}
 		if (str[pos] == '*')
 			str[pos] = '&';
@@ -529,8 +512,7 @@ void gen_verilogsim_cell(LibertyAst *ast)
 			printf("  assign %s = %s; // %s\n", child->args[0].c_str(), func2vl(func->value).c_str(), func->value.c_str());
 	}
 
-	for (auto child : ast->children)
-	{
+	for (auto child : ast->children) {
 		if (child->id != "ff" || child->args.size() != 2)
 			continue;
 
@@ -593,8 +575,7 @@ void gen_verilogsim_cell(LibertyAst *ast)
 		printf("  end\n");
 	}
 
-	for (auto child : ast->children)
-	{
+	for (auto child : ast->children) {
 		if (child->id != "latch" || child->args.size() != 2)
 			continue;
 
@@ -672,12 +653,10 @@ int main(int argc, char **argv)
 	if (argc > 3)
 		usage();
 
-	if (argc > 1)
-	{
+	if (argc > 1) {
 		if (!strcmp(argv[1], "-verilogsim"))
 			flag_verilogsim = true;
-		if (!strcmp(argv[1], "-") || !strcmp(argv[1], "-verilogsim"))
-		{
+		if (!strcmp(argv[1], "-") || !strcmp(argv[1], "-verilogsim")) {
 			LibertyAst::whitelist.insert("/library");
 			LibertyAst::whitelist.insert("/library/cell");
 			LibertyAst::whitelist.insert("/library/cell/area");
@@ -698,9 +677,7 @@ int main(int argc, char **argv)
 			LibertyAst::whitelist.insert("/library/cell/pin/three_state");
 			LibertyAst::whitelist.insert("/library/cell/statetable");
 			LibertyAst::whitelist.insert("/library/cell/statetable/*");
-		}
-		else
-		{
+		} else {
 			FILE *f = fopen(argv[1], "r");
 			if (f == NULL) {
 				fprintf(stderr, "Can't open rules file `%s'.\n", argv[1]);
@@ -708,12 +685,10 @@ int main(int argc, char **argv)
 			}
 
 			char buffer[1024];
-			while (fgets(buffer, 1024, f) != NULL)
-			{
+			while (fgets(buffer, 1024, f) != NULL) {
 				char mode = 0;
 				std::string id;
-				for (char *p = buffer; *p; p++)
-				{
+				for (char *p = buffer; *p; p++) {
 					if (*p == '-' || *p == '+') {
 						if (mode != 0)
 							goto syntax_error;
@@ -724,8 +699,7 @@ int main(int argc, char **argv)
 						if (!id.empty()) {
 							if (mode == '-')
 								LibertyAst::blacklist.insert(id);
-							else
-							if (mode == '+')
+							else if (mode == '+')
 								LibertyAst::whitelist.insert(id);
 							else
 								goto syntax_error;
@@ -774,4 +748,3 @@ int main(int argc, char **argv)
 }
 
 #endif
-

@@ -17,16 +17,16 @@
  *
  */
 
-#include "kernel/yosys.h"
-#include "kernel/sigtools.h"
-#include "kernel/ffinit.h"
 #include "kernel/ff.h"
+#include "kernel/ffinit.h"
+#include "kernel/sigtools.h"
+#include "kernel/yosys.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct ZinitPass : public Pass {
-	ZinitPass() : Pass("zinit", "add inverters so all FF are zero-initialized") { }
+	ZinitPass() : Pass("zinit", "add inverters so all FF are zero-initialized") {}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -46,8 +46,7 @@ struct ZinitPass : public Pass {
 		log_header(design, "Executing ZINIT pass (make all FFs zero-initialized).\n");
 
 		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
+		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-all") {
 				all_mode = true;
 				continue;
@@ -56,20 +55,18 @@ struct ZinitPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto module : design->selected_modules())
-		{
+		for (auto module : design->selected_modules()) {
 			SigMap sigmap(module);
 			FfInitVals initvals(&sigmap, module);
 
-			for (auto cell : module->selected_cells())
-			{
+			for (auto cell : module->selected_cells()) {
 				if (!RTLIL::builtin_ff_cell_types().count(cell->type))
 					continue;
 
 				FfData ff(&initvals, cell);
 
-				log("FF init value for cell %s (%s): %s = %s\n", log_id(cell), log_id(cell->type),
-						log_signal(ff.sig_q), log_signal(ff.val_init));
+				log("FF init value for cell %s (%s): %s = %s\n", log_id(cell), log_id(cell->type), log_signal(ff.sig_q),
+				    log_signal(ff.val_init));
 
 				pool<int> bits;
 				for (int i = 0; i < ff.width; i++) {

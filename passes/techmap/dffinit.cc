@@ -17,15 +17,15 @@
  *
  */
 
-#include "kernel/yosys.h"
-#include "kernel/sigtools.h"
 #include "kernel/ffinit.h"
+#include "kernel/sigtools.h"
+#include "kernel/yosys.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct DffinitPass : public Pass {
-	DffinitPass() : Pass("dffinit", "set INIT param on FF cells") { }
+	DffinitPass() : Pass("dffinit", "set INIT param on FF cells") {}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -71,13 +71,13 @@ struct DffinitPass : public Pass {
 				low_string = "low";
 				continue;
 			}
-			if (args[argidx] == "-strinit" && argidx+2 < args.size()) {
+			if (args[argidx] == "-strinit" && argidx + 2 < args.size()) {
 				highlow_mode = true;
 				high_string = args[++argidx];
 				low_string = args[++argidx];
 				continue;
 			}
-			if (args[argidx] == "-ff" && argidx+3 < args.size()) {
+			if (args[argidx] == "-ff" && argidx + 3 < args.size()) {
 				IdString cell_name = RTLIL::escape_id(args[++argidx]);
 				IdString output_port = RTLIL::escape_id(args[++argidx]);
 				IdString init_param = RTLIL::escape_id(args[++argidx]);
@@ -92,18 +92,15 @@ struct DffinitPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto module : design->selected_modules())
-		{
+		for (auto module : design->selected_modules()) {
 			SigMap sigmap(module);
 			FfInitVals initvals(&sigmap, module);
 
-			for (auto cell : module->selected_cells())
-			{
+			for (auto cell : module->selected_cells()) {
 				if (ff_types.count(cell->type) == 0)
 					continue;
 
-				for (auto &it : ff_types[cell->type])
-				{
+				for (auto &it : ff_types[cell->type]) {
 					if (!cell->hasPort(it.first))
 						continue;
 
@@ -122,15 +119,15 @@ struct DffinitPass : public Pass {
 							value.bits.push_back(State::S0);
 						if (noreinit && value.bits[i] != State::Sx && value.bits[i] != initval[i])
 							log_error("Trying to assign a different init value for %s.%s.%s which technically "
-									"have a conflicted init value.\n",
-									log_id(module), log_id(cell), log_id(it.second));
+								  "have a conflicted init value.\n",
+								  log_id(module), log_id(cell), log_id(it.second));
 						value.bits[i] = initval[i];
 					}
 
 					if (highlow_mode && GetSize(value) != 0) {
 						if (GetSize(value) != 1)
 							log_error("Multi-bit init value for %s.%s.%s is incompatible with -highlow mode.\n",
-									log_id(module), log_id(cell), log_id(it.second));
+								  log_id(module), log_id(cell), log_id(it.second));
 						if (value[0] == State::S1)
 							value = Const(high_string);
 						else
@@ -139,7 +136,7 @@ struct DffinitPass : public Pass {
 
 					if (value.size() != 0) {
 						log("Setting %s.%s.%s (port=%s, net=%s) to %s.\n", log_id(module), log_id(cell), log_id(it.second),
-								log_id(it.first), log_signal(sig), log_signal(value));
+						    log_id(it.first), log_signal(sig), log_signal(value));
 						cell->setParam(it.second, value);
 					}
 				}

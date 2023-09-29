@@ -17,14 +17,14 @@
  *
  */
 
-#include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/yosys.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct BmuxmapPass : public Pass {
-	BmuxmapPass() : Pass("bmuxmap", "transform $bmux cells to trees of $mux cells") { }
+	BmuxmapPass() : Pass("bmuxmap", "transform $bmux cells to trees of $mux cells") {}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -54,49 +54,42 @@ struct BmuxmapPass : public Pass {
 		extra_args(args, argidx, design);
 
 		for (auto module : design->selected_modules())
-		for (auto cell : module->selected_cells())
-		{
-			if (cell->type != ID($bmux))
-				continue;
+			for (auto cell : module->selected_cells()) {
+				if (cell->type != ID($bmux))
+					continue;
 
-			SigSpec sel = cell->getPort(ID::S);
-			SigSpec data = cell->getPort(ID::A);
-			int width = GetSize(cell->getPort(ID::Y));
-			int s_width = GetSize(cell->getPort(ID::S));
+				SigSpec sel = cell->getPort(ID::S);
+				SigSpec data = cell->getPort(ID::A);
+				int width = GetSize(cell->getPort(ID::Y));
+				int s_width = GetSize(cell->getPort(ID::S));
 
-			if(pmux_mode)
-			{
-				int num_cases = 1 << s_width;
-				SigSpec new_a = SigSpec(State::Sx, width);
-				SigSpec new_s = module->addWire(NEW_ID, num_cases);
-				SigSpec new_data = module->addWire(NEW_ID, width);
-				for (int val = 0; val < num_cases; val++)
-				{
-					module->addEq(NEW_ID, sel, SigSpec(val, GetSize(sel)), new_s[val]);
-				}
-				RTLIL::Cell *pmux = module->addPmux(NEW_ID, new_a, data, new_s, new_data);
-				pmux->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
-				data = new_data;
-			}
-			else
-			{
-				for (int idx = 0; idx < GetSize(sel); idx++) {
-					SigSpec new_data = module->addWire(NEW_ID, GetSize(data)/2);
-					for (int i = 0; i < GetSize(new_data); i += width) {
-						RTLIL::Cell *mux = module->addMux(NEW_ID,
-							data.extract(i*2, width),
-							data.extract(i*2+width, width),
-							sel[idx],
-							new_data.extract(i, width));
-						mux->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
+				if (pmux_mode) {
+					int num_cases = 1 << s_width;
+					SigSpec new_a = SigSpec(State::Sx, width);
+					SigSpec new_s = module->addWire(NEW_ID, num_cases);
+					SigSpec new_data = module->addWire(NEW_ID, width);
+					for (int val = 0; val < num_cases; val++) {
+						module->addEq(NEW_ID, sel, SigSpec(val, GetSize(sel)), new_s[val]);
 					}
+					RTLIL::Cell *pmux = module->addPmux(NEW_ID, new_a, data, new_s, new_data);
+					pmux->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
 					data = new_data;
+				} else {
+					for (int idx = 0; idx < GetSize(sel); idx++) {
+						SigSpec new_data = module->addWire(NEW_ID, GetSize(data) / 2);
+						for (int i = 0; i < GetSize(new_data); i += width) {
+							RTLIL::Cell *mux =
+							  module->addMux(NEW_ID, data.extract(i * 2, width), data.extract(i * 2 + width, width),
+									 sel[idx], new_data.extract(i, width));
+							mux->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
+						}
+						data = new_data;
+					}
 				}
-			}
 
-			module->connect(cell->getPort(ID::Y), data);
-			module->remove(cell);
-		}
+				module->connect(cell->getPort(ID::Y), data);
+				module->remove(cell);
+			}
 	}
 } BmuxmapPass;
 

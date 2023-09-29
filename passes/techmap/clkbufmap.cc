@@ -18,8 +18,8 @@
  *
  */
 
-#include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/yosys.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -28,13 +28,13 @@ void split_portname_pair(std::string &port1, std::string &port2)
 {
 	size_t pos = port1.find_first_of(':');
 	if (pos != std::string::npos) {
-		port2 = port1.substr(pos+1);
+		port2 = port1.substr(pos + 1);
 		port1 = port1.substr(0, pos);
 	}
 }
 
 struct ClkbufmapPass : public Pass {
-	ClkbufmapPass() : Pass("clkbufmap", "insert clock buffers on clock networks") { }
+	ClkbufmapPass() : Pass("clkbufmap", "insert clock buffers on clock networks") {}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -64,7 +64,8 @@ struct ClkbufmapPass : public Pass {
 		log("At least one of -buf or -inpad should be specified.\n");
 	}
 
-	void module_queue(Design *design, Module *module, std::vector<Module *> &modules_sorted, pool<Module *> &modules_processed) {
+	void module_queue(Design *design, Module *module, std::vector<Module *> &modules_sorted, pool<Module *> &modules_processed)
+	{
 		if (modules_processed.count(module))
 			return;
 		for (auto cell : module->cells()) {
@@ -85,16 +86,15 @@ struct ClkbufmapPass : public Pass {
 		std::string inpad_celltype, inpad_portname, inpad_portname2;
 
 		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
+		for (argidx = 1; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];
-			if (arg == "-buf" && argidx+2 < args.size()) {
+			if (arg == "-buf" && argidx + 2 < args.size()) {
 				buf_celltype = args[++argidx];
 				buf_portname = args[++argidx];
 				split_portname_pair(buf_portname, buf_portname2);
 				continue;
 			}
-			if (arg == "-inpad" && argidx+2 < args.size()) {
+			if (arg == "-inpad" && argidx + 2 < args.size()) {
 				inpad_celltype = args[++argidx];
 				inpad_portname = args[++argidx];
 				split_portname_pair(inpad_portname, inpad_portname2);
@@ -135,8 +135,7 @@ struct ClkbufmapPass : public Pass {
 		for (auto module : design->selected_modules())
 			module_queue(design, module, modules_sorted, modules_processed);
 
-		for (auto module : modules_sorted)
-		{
+		for (auto module : modules_sorted) {
 			if (module->get_blackbox_attribute()) {
 				for (auto port : module->ports) {
 					auto wire = module->wire(port);
@@ -166,62 +165,60 @@ struct ClkbufmapPass : public Pass {
 
 			// First, collect nets that could use a clock buffer.
 			for (auto cell : module->cells())
-			for (auto port : cell->connections())
-			for (int i = 0; i < port.second.size(); i++)
-				if (sink_ports.count(make_pair(cell->type, make_pair(port.first, i))))
-					sink_wire_bits.insert(sigmap(port.second[i]));
+				for (auto port : cell->connections())
+					for (int i = 0; i < port.second.size(); i++)
+						if (sink_ports.count(make_pair(cell->type, make_pair(port.first, i))))
+							sink_wire_bits.insert(sigmap(port.second[i]));
 
 			// Second, collect ones that already have a clock buffer.
 			for (auto cell : module->cells())
-			for (auto port : cell->connections())
-			for (int i = 0; i < port.second.size(); i++)
-				if (buf_ports.count(make_pair(cell->type, make_pair(port.first, i))))
-					buf_wire_bits.insert(sigmap(port.second[i]));
+				for (auto port : cell->connections())
+					for (int i = 0; i < port.second.size(); i++)
+						if (buf_ports.count(make_pair(cell->type, make_pair(port.first, i))))
+							buf_wire_bits.insert(sigmap(port.second[i]));
 
 			// Third, propagate tags through inverters.
 			bool retry = true;
 			while (retry) {
 				retry = false;
 				for (auto cell : module->cells())
-				for (auto port : cell->connections())
-				for (int i = 0; i < port.second.size(); i++) {
-					auto it = inv_ports_out.find(make_pair(cell->type, make_pair(port.first, i)));
-					auto bit = sigmap(port.second[i]);
-					// If output of an inverter is connected to a sink, mark it as buffered,
-					// and request a buffer on the inverter's input instead.
-					if (it != inv_ports_out.end() && !buf_wire_bits.count(bit) && sink_wire_bits.count(bit)) {
-						buf_wire_bits.insert(bit);
-						auto other_bit = sigmap(cell->getPort(it->second.first)[it->second.second]);
-						sink_wire_bits.insert(other_bit);
-						retry = true;
-					}
-					// If input of an inverter is marked as already-buffered,
-					// mark its output already-buffered as well.
-					auto it2 = inv_ports_in.find(make_pair(cell->type, make_pair(port.first, i)));
-					if (it2 != inv_ports_in.end() && buf_wire_bits.count(bit)) {
-						auto other_bit = sigmap(cell->getPort(it2->second.first)[it2->second.second]);
-						if (!buf_wire_bits.count(other_bit)) {
-							buf_wire_bits.insert(other_bit);
-							retry = true;
+					for (auto port : cell->connections())
+						for (int i = 0; i < port.second.size(); i++) {
+							auto it = inv_ports_out.find(make_pair(cell->type, make_pair(port.first, i)));
+							auto bit = sigmap(port.second[i]);
+							// If output of an inverter is connected to a sink, mark it as buffered,
+							// and request a buffer on the inverter's input instead.
+							if (it != inv_ports_out.end() && !buf_wire_bits.count(bit) && sink_wire_bits.count(bit)) {
+								buf_wire_bits.insert(bit);
+								auto other_bit = sigmap(cell->getPort(it->second.first)[it->second.second]);
+								sink_wire_bits.insert(other_bit);
+								retry = true;
+							}
+							// If input of an inverter is marked as already-buffered,
+							// mark its output already-buffered as well.
+							auto it2 = inv_ports_in.find(make_pair(cell->type, make_pair(port.first, i)));
+							if (it2 != inv_ports_in.end() && buf_wire_bits.count(bit)) {
+								auto other_bit = sigmap(cell->getPort(it2->second.first)[it2->second.second]);
+								if (!buf_wire_bits.count(other_bit)) {
+									buf_wire_bits.insert(other_bit);
+									retry = true;
+								}
+							}
 						}
-					}
-
-				}
 			};
 
 			// Collect all driven bits.
 			for (auto cell : module->cells())
-			for (auto port : cell->connections())
-				if (cell->output(port.first))
-					for (int i = 0; i < port.second.size(); i++)
-						driven_wire_bits.insert(port.second[i]);
+				for (auto port : cell->connections())
+					if (cell->output(port.first))
+						for (int i = 0; i < port.second.size(); i++)
+							driven_wire_bits.insert(port.second[i]);
 
 			// Insert buffers.
 			std::vector<pair<Wire *, Wire *>> input_queue;
 			// Copy current wire list, as we will be adding new ones during iteration.
 			std::vector<Wire *> wires(module->wires());
-			for (auto wire : wires)
-			{
+			for (auto wire : wires) {
 				// Should not happen.
 				if (wire->port_input && wire->port_output)
 					continue;
@@ -239,8 +236,7 @@ struct ClkbufmapPass : public Pass {
 
 				pool<int> input_bits;
 
-				for (int i = 0; i < GetSize(wire); i++)
-				{
+				for (int i = 0; i < GetSize(wire); i++) {
 					SigBit wire_bit(wire, i);
 					SigBit mapped_wire_bit = sigmap(wire_bit);
 					if (buf_wire_bits.count(mapped_wire_bit)) {
@@ -312,8 +308,7 @@ struct ClkbufmapPass : public Pass {
 			for (auto wire : module->selected_wires()) {
 				if (wire->port_input || !wire->port_output)
 					continue;
-				for (int i = 0; i < GetSize(wire); i++)
-				{
+				for (int i = 0; i < GetSize(wire); i++) {
 					SigBit wire_bit(wire, i);
 					SigBit mapped_wire_bit = sigmap(wire_bit);
 					if (buffered_bits.count(mapped_wire_bit))
@@ -323,24 +318,24 @@ struct ClkbufmapPass : public Pass {
 
 			// Reconnect the drivers to buffer inputs.
 			for (auto cell : module->cells())
-			for (auto port : cell->connections()) {
-				if (!cell->output(port.first))
-					continue;
-				SigSpec sig = port.second;
-				bool newsig = false;
-				for (auto &bit : sig) {
-					const auto it = buffered_bits.find(sigmap(bit));
-					if (it == buffered_bits.end())
+				for (auto port : cell->connections()) {
+					if (!cell->output(port.first))
 						continue;
-					// Avoid substituting buffer's own output pin.
-					if (cell == it->second.first)
-						continue;
-					bit = it->second.second;
-					newsig = true;
+					SigSpec sig = port.second;
+					bool newsig = false;
+					for (auto &bit : sig) {
+						const auto it = buffered_bits.find(sigmap(bit));
+						if (it == buffered_bits.end())
+							continue;
+						// Avoid substituting buffer's own output pin.
+						if (cell == it->second.first)
+							continue;
+						bit = it->second.second;
+						newsig = true;
+					}
+					if (newsig)
+						cell->setPort(port.first, sig);
 				}
-				if (newsig)
-					cell->setPort(port.first, sig);
-			}
 
 			// This has to be done last, to avoid upsetting sigmap before the port reconnections.
 			for (auto &it : input_queue) {

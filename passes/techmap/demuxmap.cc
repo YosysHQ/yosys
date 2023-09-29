@@ -17,14 +17,14 @@
  *
  */
 
-#include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/yosys.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct DemuxmapPass : public Pass {
-	DemuxmapPass() : Pass("demuxmap", "transform $demux cells to $eq + $mux cells") { }
+	DemuxmapPass() : Pass("demuxmap", "transform $demux cells to $eq + $mux cells") {}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -45,35 +45,31 @@ struct DemuxmapPass : public Pass {
 		extra_args(args, argidx, design);
 
 		for (auto module : design->selected_modules())
-		for (auto cell : module->selected_cells())
-		{
-			if (cell->type != ID($demux))
-				continue;
+			for (auto cell : module->selected_cells()) {
+				if (cell->type != ID($demux))
+					continue;
 
-			SigSpec sel = cell->getPort(ID::S);
-			SigSpec data = cell->getPort(ID::A);
-			SigSpec out = cell->getPort(ID::Y);
-			int width = GetSize(cell->getPort(ID::A));
+				SigSpec sel = cell->getPort(ID::S);
+				SigSpec data = cell->getPort(ID::A);
+				SigSpec out = cell->getPort(ID::Y);
+				int width = GetSize(cell->getPort(ID::A));
 
-			for (int i = 0; i < 1 << GetSize(sel); i++) {
-				if (width == 1 && data == State::S1) {
-					RTLIL::Cell *eq_cell = module->addEq(NEW_ID, sel, Const(i, GetSize(sel)), out[i]);
-					eq_cell->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
-				} else {
-					Wire *eq = module->addWire(NEW_ID);
-					RTLIL::Cell *eq_cell = module->addEq(NEW_ID, sel, Const(i, GetSize(sel)), eq);
-					eq_cell->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
-					RTLIL::Cell *mux = module->addMux(NEW_ID,
-							Const(State::S0, width),
-							data,
-							eq,
-							out.extract(i*width, width));
-					mux->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
+				for (int i = 0; i < 1 << GetSize(sel); i++) {
+					if (width == 1 && data == State::S1) {
+						RTLIL::Cell *eq_cell = module->addEq(NEW_ID, sel, Const(i, GetSize(sel)), out[i]);
+						eq_cell->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
+					} else {
+						Wire *eq = module->addWire(NEW_ID);
+						RTLIL::Cell *eq_cell = module->addEq(NEW_ID, sel, Const(i, GetSize(sel)), eq);
+						eq_cell->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
+						RTLIL::Cell *mux =
+						  module->addMux(NEW_ID, Const(State::S0, width), data, eq, out.extract(i * width, width));
+						mux->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
+					}
 				}
-			}
 
-			module->remove(cell);
-		}
+				module->remove(cell);
+			}
 	}
 } DemuxmapPass;
 

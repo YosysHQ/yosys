@@ -17,12 +17,12 @@
  *
  */
 
-#include "kernel/yosys.h"
-#include "kernel/utils.h"
 #include "kernel/sigtools.h"
+#include "kernel/utils.h"
+#include "kernel/yosys.h"
 
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 USING_YOSYS_NAMESPACE
@@ -40,14 +40,9 @@ IdString concat_name(RTLIL::Cell *cell, IdString object_name)
 	}
 }
 
-template<class T>
-IdString map_name(RTLIL::Cell *cell, T *object)
-{
-	return cell->module->uniquify(concat_name(cell, object->name));
-}
+template <class T> IdString map_name(RTLIL::Cell *cell, T *object) { return cell->module->uniquify(concat_name(cell, object->name)); }
 
-template<class T>
-void map_attributes(RTLIL::Cell *cell, T *object, IdString orig_object_name)
+template <class T> void map_attributes(RTLIL::Cell *cell, T *object, IdString orig_object_name)
 {
 	if (object->has_attribute(ID::src))
 		object->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
@@ -64,7 +59,7 @@ void map_attributes(RTLIL::Cell *cell, T *object, IdString orig_object_name)
 	}
 }
 
-void map_sigspec(const dict<RTLIL::Wire*, RTLIL::Wire*> &map, RTLIL::SigSpec &sig, RTLIL::Module *into = nullptr)
+void map_sigspec(const dict<RTLIL::Wire *, RTLIL::Wire *> &map, RTLIL::SigSpec &sig, RTLIL::Module *into = nullptr)
 {
 	vector<SigChunk> chunks = sig;
 	for (auto &chunk : chunks)
@@ -73,11 +68,11 @@ void map_sigspec(const dict<RTLIL::Wire*, RTLIL::Wire*> &map, RTLIL::SigSpec &si
 	sig = chunks;
 }
 
-struct FlattenWorker
-{
+struct FlattenWorker {
 	bool ignore_wb = false;
 
-	void flatten_cell(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Cell *cell, RTLIL::Module *tpl, SigMap &sigmap, std::vector<RTLIL::Cell*> &new_cells)
+	void flatten_cell(RTLIL::Design *design, RTLIL::Module *module, RTLIL::Cell *cell, RTLIL::Module *tpl, SigMap &sigmap,
+			  std::vector<RTLIL::Cell *> &new_cells)
 	{
 		// Copy the contents of the flattened cell
 
@@ -89,7 +84,7 @@ struct FlattenWorker
 			design->select(module, new_memory);
 		}
 
-		dict<RTLIL::Wire*, RTLIL::Wire*> wire_map;
+		dict<RTLIL::Wire *, RTLIL::Wire *> wire_map;
 		dict<IdString, IdString> positional_ports;
 		for (auto tpl_wire : tpl->wires()) {
 			if (tpl_wire->port_id > 0)
@@ -101,8 +96,8 @@ struct FlattenWorker
 				if (hier_wire != nullptr && hier_wire->get_bool_attribute(ID::hierconn)) {
 					hier_wire->attributes.erase(ID::hierconn);
 					if (GetSize(hier_wire) < GetSize(tpl_wire)) {
-						log_warning("Widening signal %s.%s to match size of %s.%s (via %s.%s).\n",
-							log_id(module), log_id(hier_wire), log_id(tpl), log_id(tpl_wire), log_id(module), log_id(cell));
+						log_warning("Widening signal %s.%s to match size of %s.%s (via %s.%s).\n", log_id(module),
+							    log_id(hier_wire), log_id(tpl), log_id(tpl_wire), log_id(module), log_id(cell));
 						hier_wire->width = GetSize(tpl_wire);
 					}
 					new_wire = hier_wire;
@@ -165,15 +160,14 @@ struct FlattenWorker
 			for (auto bit : tpl_conn.first)
 				tpl_driven.insert(bit);
 
-		for (auto &port_it : cell->connections())
-		{
+		for (auto &port_it : cell->connections()) {
 			IdString port_name = port_it.first;
 			if (positional_ports.count(port_name) > 0)
 				port_name = positional_ports.at(port_name);
 			if (tpl->wire(port_name) == nullptr || tpl->wire(port_name)->port_id == 0) {
 				if (port_name.begins_with("$"))
-					log_error("Can't map port `%s' of cell `%s' to template `%s'!\n",
-						port_name.c_str(), cell->name.c_str(), tpl->name.c_str());
+					log_error("Can't map port `%s' of cell `%s' to template `%s'!\n", port_name.c_str(), cell->name.c_str(),
+						  tpl->name.c_str());
 				continue;
 			}
 
@@ -213,8 +207,8 @@ struct FlattenWorker
 			log_assert(new_conn.first.size() == new_conn.second.size());
 
 			if (sigmap(new_conn.first).has_const())
-				log_error("Cell port %s.%s.%s is driving constant bits: %s <= %s\n",
-					log_id(module), log_id(cell), log_id(port_it.first), log_signal(new_conn.first), log_signal(new_conn.second));
+				log_error("Cell port %s.%s.%s is driving constant bits: %s <= %s\n", log_id(module), log_id(cell),
+					  log_id(port_it.first), log_signal(new_conn.first), log_signal(new_conn.second));
 
 			module->connect(new_conn);
 			sigmap.add(new_conn.first, new_conn.second);
@@ -223,15 +217,14 @@ struct FlattenWorker
 		module->remove(cell);
 	}
 
-	void flatten_module(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module*> &used_modules)
+	void flatten_module(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &used_modules)
 	{
 		if (!design->selected(module) || module->get_blackbox_attribute(ignore_wb))
 			return;
 
 		SigMap sigmap(module);
-		std::vector<RTLIL::Cell*> worklist = module->selected_cells();
-		while (!worklist.empty())
-		{
+		std::vector<RTLIL::Cell *> worklist = module->selected_cells();
+		while (!worklist.empty()) {
 			RTLIL::Cell *cell = worklist.back();
 			worklist.pop_back();
 
@@ -258,7 +251,7 @@ struct FlattenWorker
 };
 
 struct FlattenPass : public Pass {
-	FlattenPass() : Pass("flatten", "flatten design") { }
+	FlattenPass() : Pass("flatten", "flatten design") {}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -299,14 +292,14 @@ struct FlattenPass : public Pass {
 				if (module->get_bool_attribute(ID::top))
 					top = module;
 
-		pool<RTLIL::Module*> used_modules;
+		pool<RTLIL::Module *> used_modules;
 		if (top == nullptr)
 			used_modules = design->modules();
 		else
 			used_modules.insert(top);
 
-		TopoSort<RTLIL::Module*, IdString::compare_ptr_by_name<RTLIL::Module>> topo_modules;
-		pool<RTLIL::Module*> worklist = used_modules;
+		TopoSort<RTLIL::Module *, IdString::compare_ptr_by_name<RTLIL::Module>> topo_modules;
+		pool<RTLIL::Module *> worklist = used_modules;
 		while (!worklist.empty()) {
 			RTLIL::Module *module = worklist.pop();
 			for (auto cell : module->selected_cells()) {

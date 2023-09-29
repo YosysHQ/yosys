@@ -20,45 +20,46 @@
 #ifndef LIBPARSE_H
 #define LIBPARSE_H
 
+#include <set>
 #include <stdio.h>
 #include <string>
 #include <vector>
-#include <set>
 
 namespace Yosys
 {
-	struct LibertyAst
-	{
-		std::string id, value;
-		std::vector<std::string> args;
-		std::vector<LibertyAst*> children;
-		~LibertyAst();
-		LibertyAst *find(std::string name);
-		void dump(FILE *f, std::string indent = "", std::string path = "", bool path_ok = false);
-		static std::set<std::string> blacklist;
-		static std::set<std::string> whitelist;
-	};
+struct LibertyAst {
+	std::string id, value;
+	std::vector<std::string> args;
+	std::vector<LibertyAst *> children;
+	~LibertyAst();
+	LibertyAst *find(std::string name);
+	void dump(FILE *f, std::string indent = "", std::string path = "", bool path_ok = false);
+	static std::set<std::string> blacklist;
+	static std::set<std::string> whitelist;
+};
 
-	struct LibertyParser
+struct LibertyParser {
+	std::istream &f;
+	int line;
+	LibertyAst *ast;
+	LibertyParser(std::istream &f) : f(f), line(1), ast(parse()) {}
+	~LibertyParser()
 	{
-		std::istream &f;
-		int line;
-		LibertyAst *ast;
-		LibertyParser(std::istream &f) : f(f), line(1), ast(parse()) {}
-		~LibertyParser() { if (ast) delete ast; }
-        
-        /* lexer return values:
-           'v': identifier, string, array range [...] -> str holds the token string
-           'n': newline
-           anything else is a single character.
-        */
-		int lexer(std::string &str);
-		
-        LibertyAst *parse();
-		void error();
-        void error(const std::string &str);
-	};
-}
+		if (ast)
+			delete ast;
+	}
+
+	/* lexer return values:
+	   'v': identifier, string, array range [...] -> str holds the token string
+	   'n': newline
+	   anything else is a single character.
+	*/
+	int lexer(std::string &str);
+
+	LibertyAst *parse();
+	void error();
+	void error(const std::string &str);
+};
+} // namespace Yosys
 
 #endif
-

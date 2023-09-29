@@ -17,34 +17,31 @@
  *
  */
 
-#include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/yosys.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#define COST_DMUX   90
-#define COST_MUX2  100
-#define COST_MUX4  220
-#define COST_MUX8  460
+#define COST_DMUX 90
+#define COST_MUX2 100
+#define COST_MUX4 220
+#define COST_MUX8 460
 #define COST_MUX16 940
 
-struct MuxcoverWorker
-{
+struct MuxcoverWorker {
 	Module *module;
 	SigMap sigmap;
 
-	struct newmux_t
-	{
+	struct newmux_t {
 		int cost;
 		vector<SigBit> inputs, selects;
 		newmux_t() : cost(0) {}
 	};
 
-	struct tree_t
-	{
+	struct tree_t {
 		SigBit root;
-		dict<SigBit, Cell*> muxes;
+		dict<SigBit, Cell *> muxes;
 		dict<SigBit, newmux_t> newmuxes;
 	};
 
@@ -102,7 +99,7 @@ struct MuxcoverWorker
 	{
 		pool<SigBit> roots;
 		pool<SigBit> used_once;
-		dict<SigBit, Cell*> sig_to_mux;
+		dict<SigBit, Cell *> sig_to_mux;
 
 		for (auto wire : module->wires()) {
 			if (!wire->port_output)
@@ -128,8 +125,7 @@ struct MuxcoverWorker
 		log("  Treeifying %d MUXes:\n", GetSize(sig_to_mux));
 
 		roots.sort();
-		for (auto rootsig : roots)
-		{
+		for (auto rootsig : roots) {
 			tree_t tree;
 			tree.root = rootsig;
 
@@ -170,7 +166,7 @@ struct MuxcoverWorker
 				return true;
 			}
 			char port_name[3] = {'\\', *path, 0};
-			return follow_muxtree(ret_bit, tree, sigmap(tree.muxes.at(bit)->getPort(port_name)), path+1, false);
+			return follow_muxtree(ret_bit, tree, sigmap(tree.muxes.at(bit)->getPort(port_name)), path + 1, false);
 		} else {
 			ret_bit = bit;
 			return true;
@@ -264,8 +260,7 @@ struct MuxcoverWorker
 
 		ok = ok && follow_muxtree(S1, tree, bit, "S");
 
-		if (ok)
-		{
+		if (ok) {
 			newmux_t mux;
 
 			mux.inputs.push_back(A);
@@ -285,8 +280,7 @@ struct MuxcoverWorker
 
 		// 4-Input MUX
 
-		if (use_mux4)
-		{
+		if (use_mux4) {
 			ok = ok && follow_muxtree(A, tree, bit, "AA");
 			ok = ok && follow_muxtree(B, tree, bit, "AB");
 			ok = ok && follow_muxtree(C, tree, bit, "BA");
@@ -300,8 +294,7 @@ struct MuxcoverWorker
 
 			ok = ok && follow_muxtree(T1, tree, bit, "S");
 
-			if (ok)
-			{
+			if (ok) {
 				newmux_t mux;
 
 				mux.inputs.push_back(A);
@@ -329,8 +322,7 @@ struct MuxcoverWorker
 
 		// 8-Input MUX
 
-		if (use_mux8)
-		{
+		if (use_mux8) {
 			ok = ok && follow_muxtree(A, tree, bit, "AAA");
 			ok = ok && follow_muxtree(B, tree, bit, "AAB");
 			ok = ok && follow_muxtree(C, tree, bit, "ABA");
@@ -356,8 +348,7 @@ struct MuxcoverWorker
 
 			ok = ok && follow_muxtree(U1, tree, bit, "S");
 
-			if (ok)
-			{
+			if (ok) {
 				newmux_t mux;
 
 				mux.inputs.push_back(A);
@@ -394,8 +385,7 @@ struct MuxcoverWorker
 
 		// 16-Input MUX
 
-		if (use_mux16)
-		{
+		if (use_mux16) {
 			ok = ok && follow_muxtree(A, tree, bit, "AAAA");
 			ok = ok && follow_muxtree(B, tree, bit, "AAAB");
 			ok = ok && follow_muxtree(C, tree, bit, "AABA");
@@ -441,8 +431,7 @@ struct MuxcoverWorker
 
 			ok = ok && follow_muxtree(V1, tree, bit, "S");
 
-			if (ok)
-			{
+			if (ok) {
 				newmux_t mux;
 
 				mux.inputs.push_back(A);
@@ -588,8 +577,8 @@ struct MuxcoverWorker
 		log_debug("    Searching for best cover for tree at %s.\n", log_signal(tree.root));
 		find_best_cover(tree, tree.root);
 		implement_best_cover(tree, tree.root, count_muxes_by_type);
-		log("    Replaced tree at %s: %d MUX2, %d MUX4, %d MUX8, %d MUX16\n", log_signal(tree.root),
-				count_muxes_by_type[0], count_muxes_by_type[1], count_muxes_by_type[2], count_muxes_by_type[3]);
+		log("    Replaced tree at %s: %d MUX2, %d MUX4, %d MUX8, %d MUX16\n", log_signal(tree.root), count_muxes_by_type[0],
+		    count_muxes_by_type[1], count_muxes_by_type[2], count_muxes_by_type[3]);
 		for (auto &it : tree.muxes)
 			module->remove(it.second);
 	}
@@ -619,7 +608,7 @@ struct MuxcoverWorker
 };
 
 struct MuxcoverPass : public Pass {
-	MuxcoverPass() : Pass("muxcover", "cover trees of MUX cells with wider MUXes") { }
+	MuxcoverPass() : Pass("muxcover", "cover trees of MUX cells with wider MUXes") {}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -669,38 +658,40 @@ struct MuxcoverPass : public Pass {
 		int cost_mux16 = COST_MUX16;
 
 		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
+		for (argidx = 1; argidx < args.size(); argidx++) {
 			const auto &arg = args[argidx];
-			if (arg.size() >= 6 && arg.compare(0,6,"-mux2=") == 0) {
+			if (arg.size() >= 6 && arg.compare(0, 6, "-mux2=") == 0) {
 				cost_mux2 = atoi(arg.substr(6).c_str());
 				continue;
 			}
-			if (arg.size() >= 5 && arg.compare(0,5,"-mux4") == 0) {
+			if (arg.size() >= 5 && arg.compare(0, 5, "-mux4") == 0) {
 				use_mux4 = true;
 				if (arg.size() > 5) {
-					if (arg[5] != '=') break;
+					if (arg[5] != '=')
+						break;
 					cost_mux4 = atoi(arg.substr(6).c_str());
 				}
 				continue;
 			}
-			if (arg.size() >= 5 && arg.compare(0,5,"-mux8") == 0) {
+			if (arg.size() >= 5 && arg.compare(0, 5, "-mux8") == 0) {
 				use_mux8 = true;
 				if (arg.size() > 5) {
-					if (arg[5] != '=') break;
+					if (arg[5] != '=')
+						break;
 					cost_mux8 = atoi(arg.substr(6).c_str());
 				}
 				continue;
 			}
-			if (arg.size() >= 6 && arg.compare(0,6,"-mux16") == 0) {
+			if (arg.size() >= 6 && arg.compare(0, 6, "-mux16") == 0) {
 				use_mux16 = true;
 				if (arg.size() > 6) {
-					if (arg[6] != '=') break;
+					if (arg[6] != '=')
+						break;
 					cost_mux16 = atoi(arg.substr(7).c_str());
 				}
 				continue;
 			}
-			if (arg.size() >= 6 && arg.compare(0,6,"-dmux=") == 0) {
+			if (arg.size() >= 6 && arg.compare(0, 6, "-dmux=") == 0) {
 				cost_dmux = atoi(arg.substr(6).c_str());
 				continue;
 			}
@@ -722,8 +713,7 @@ struct MuxcoverPass : public Pass {
 			use_mux16 = true;
 		}
 
-		for (auto module : design->selected_modules())
-		{
+		for (auto module : design->selected_modules()) {
 			MuxcoverWorker worker(module);
 			worker.use_mux4 = use_mux4;
 			worker.use_mux8 = use_mux8;

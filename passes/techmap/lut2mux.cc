@@ -17,8 +17,8 @@
  *
  */
 
-#include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/yosys.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -30,19 +30,16 @@ int lut2mux(Cell *cell)
 	Const lut = cell->getParam(ID::LUT);
 	int count = 1;
 
-	if (GetSize(sig_a) == 1)
-	{
+	if (GetSize(sig_a) == 1) {
 		cell->module->addMuxGate(NEW_ID, lut.extract(0)[0], lut.extract(1)[0], sig_a, sig_y);
-	}
-	else
-	{
-		SigSpec sig_a_hi = sig_a[GetSize(sig_a)-1];
-		SigSpec sig_a_lo = sig_a.extract(0, GetSize(sig_a)-1);
+	} else {
+		SigSpec sig_a_hi = sig_a[GetSize(sig_a) - 1];
+		SigSpec sig_a_lo = sig_a.extract(0, GetSize(sig_a) - 1);
 		SigSpec sig_y1 = cell->module->addWire(NEW_ID);
 		SigSpec sig_y2 = cell->module->addWire(NEW_ID);
 
-		Const lut1 = lut.extract(0, GetSize(lut)/2);
-		Const lut2 = lut.extract(GetSize(lut)/2, GetSize(lut)/2);
+		Const lut1 = lut.extract(0, GetSize(lut) / 2);
+		Const lut2 = lut.extract(GetSize(lut) / 2, GetSize(lut) / 2);
 
 		count += lut2mux(cell->module->addLut(NEW_ID, sig_a_lo, sig_y1, lut1));
 		count += lut2mux(cell->module->addLut(NEW_ID, sig_a_lo, sig_y2, lut2));
@@ -55,7 +52,7 @@ int lut2mux(Cell *cell)
 }
 
 struct Lut2muxPass : public Pass {
-	Lut2muxPass() : Pass("lut2mux", "convert $lut to $_MUX_") { }
+	Lut2muxPass() : Pass("lut2mux", "convert $lut to $_MUX_") {}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -70,8 +67,7 @@ struct Lut2muxPass : public Pass {
 		log_header(design, "Executing LUT2MUX pass (convert $lut to $_MUX_).\n");
 
 		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
+		for (argidx = 1; argidx < args.size(); argidx++) {
 			// if (args[argidx] == "-v") {
 			// 	continue;
 			// }
@@ -80,13 +76,13 @@ struct Lut2muxPass : public Pass {
 		extra_args(args, argidx, design);
 
 		for (auto module : design->selected_modules())
-		for (auto cell : module->selected_cells()) {
-			if (cell->type == ID($lut)) {
-				IdString cell_name = cell->name;
-				int count = lut2mux(cell);
-				log("Converted %s.%s to %d MUX cells.\n", log_id(module), log_id(cell_name), count);
+			for (auto cell : module->selected_cells()) {
+				if (cell->type == ID($lut)) {
+					IdString cell_name = cell->name;
+					int count = lut2mux(cell);
+					log("Converted %s.%s to %d MUX cells.\n", log_id(module), log_id(cell_name), count);
+				}
 			}
-		}
 	}
 } Lut2muxPass;
 

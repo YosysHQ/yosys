@@ -17,8 +17,8 @@
  *
  */
 
-#include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/yosys.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -26,7 +26,7 @@ PRIVATE_NAMESPACE_BEGIN
 Const make_value(string &value)
 {
 	if (GetSize(value) >= 2 && value.front() == '"' && value.back() == '"')
-		return Const(value.substr(1, GetSize(value)-2));
+		return Const(value.substr(1, GetSize(value) - 2));
 
 	SigSpec sig;
 	SigSpec::parse(sig, nullptr, value);
@@ -38,8 +38,7 @@ bool string_compare_nocase(const string &str1, const string &str2)
 	if (str1.size() != str2.size())
 		return false;
 
-	for (size_t i = 0; i < str1.size(); i++)
-	{
+	for (size_t i = 0; i < str1.size(); i++) {
 		char ch1 = str1[i], ch2 = str2[i];
 		if ('a' <= ch1 && ch1 <= 'z')
 			ch1 -= 'a' - 'A';
@@ -52,7 +51,7 @@ bool string_compare_nocase(const string &str1, const string &str2)
 	return true;
 }
 
-bool match_name(string &name, IdString &id, bool ignore_case=false)
+bool match_name(string &name, IdString &id, bool ignore_case = false)
 {
 	string str1 = RTLIL::escape_id(name);
 	string str2 = id.str();
@@ -63,10 +62,10 @@ bool match_name(string &name, IdString &id, bool ignore_case=false)
 	return str1 == str2;
 }
 
-bool match_value(string &value, Const &val, bool ignore_case=false)
+bool match_value(string &value, Const &val, bool ignore_case = false)
 {
 	if (ignore_case && ((val.flags & RTLIL::CONST_FLAG_STRING) != 0) && GetSize(value) && value.front() == '"' && value.back() == '"') {
-		string str1 = value.substr(1, GetSize(value)-2);
+		string str1 = value.substr(1, GetSize(value) - 2);
 		string str2 = val.decode_string();
 		return string_compare_nocase(str1, str2);
 	}
@@ -75,13 +74,14 @@ bool match_value(string &value, Const &val, bool ignore_case=false)
 }
 
 struct AttrmapAction {
-	virtual ~AttrmapAction() { }
+	virtual ~AttrmapAction() {}
 	virtual bool apply(IdString &id, Const &val) = 0;
 };
 
 struct AttrmapTocase : AttrmapAction {
 	string name;
-	bool apply(IdString &id, Const&) override {
+	bool apply(IdString &id, Const &) override
+	{
 		if (match_name(name, id, true))
 			id = RTLIL::escape_id(name);
 		return true;
@@ -90,7 +90,8 @@ struct AttrmapTocase : AttrmapAction {
 
 struct AttrmapRename : AttrmapAction {
 	string old_name, new_name;
-	bool apply(IdString &id, Const&) override {
+	bool apply(IdString &id, Const &) override
+	{
 		if (match_name(old_name, id))
 			id = RTLIL::escape_id(new_name);
 		return true;
@@ -101,7 +102,8 @@ struct AttrmapMap : AttrmapAction {
 	bool imap;
 	string old_name, new_name;
 	string old_value, new_value;
-	bool apply(IdString &id, Const &val) override {
+	bool apply(IdString &id, Const &val) override
+	{
 		if (match_name(old_name, id) && match_value(old_value, val, true)) {
 			id = RTLIL::escape_id(new_name);
 			val = make_value(new_value);
@@ -113,30 +115,27 @@ struct AttrmapMap : AttrmapAction {
 struct AttrmapRemove : AttrmapAction {
 	bool has_value;
 	string name, value;
-	bool apply(IdString &id, Const &val) override {
-		return !(match_name(name, id) && (!has_value || match_value(value, val)));
-	}
+	bool apply(IdString &id, Const &val) override { return !(match_name(name, id) && (!has_value || match_value(value, val))); }
 };
 
 void attrmap_apply(string objname, vector<std::unique_ptr<AttrmapAction>> &actions, dict<RTLIL::IdString, RTLIL::Const> &attributes)
 {
 	dict<RTLIL::IdString, RTLIL::Const> new_attributes;
 
-	for (auto attr : attributes)
-	{
+	for (auto attr : attributes) {
 		auto new_attr = attr;
 		for (auto &action : actions)
 			if (!action->apply(new_attr.first, new_attr.second))
 				goto delete_this_attr;
 
 		if (new_attr != attr)
-			log("Changed attribute on %s: %s=%s -> %s=%s\n", objname.c_str(),
-					log_id(attr.first), log_const(attr.second), log_id(new_attr.first), log_const(new_attr.second));
+			log("Changed attribute on %s: %s=%s -> %s=%s\n", objname.c_str(), log_id(attr.first), log_const(attr.second),
+			    log_id(new_attr.first), log_const(new_attr.second));
 
 		new_attributes[new_attr.first] = new_attr.second;
 
 		if (0)
-	delete_this_attr:
+		delete_this_attr:
 			log("Removed attribute on %s: %s=%s\n", objname.c_str(), log_id(attr.first), log_const(attr.second));
 	}
 
@@ -166,31 +165,31 @@ void log_attrmap_paramap_options()
 bool parse_attrmap_paramap_options(size_t &argidx, std::vector<std::string> &args, vector<std::unique_ptr<AttrmapAction>> &actions)
 {
 	std::string arg = args[argidx];
-	if (arg == "-tocase" && argidx+1 < args.size()) {
+	if (arg == "-tocase" && argidx + 1 < args.size()) {
 		auto action = new AttrmapTocase;
 		action->name = args[++argidx];
 		actions.push_back(std::unique_ptr<AttrmapAction>(action));
 		return true;
 	}
-	if (arg == "-rename" && argidx+2 < args.size()) {
+	if (arg == "-rename" && argidx + 2 < args.size()) {
 		auto action = new AttrmapRename;
 		action->old_name = args[++argidx];
 		action->new_name = args[++argidx];
 		actions.push_back(std::unique_ptr<AttrmapAction>(action));
 		return true;
 	}
-	if ((arg == "-map" || arg == "-imap") && argidx+2 < args.size()) {
+	if ((arg == "-map" || arg == "-imap") && argidx + 2 < args.size()) {
 		string arg1 = args[++argidx];
 		string arg2 = args[++argidx];
 		string val1, val2;
 		size_t p = arg1.find("=");
 		if (p != string::npos) {
-			val1 = arg1.substr(p+1);
+			val1 = arg1.substr(p + 1);
 			arg1 = arg1.substr(0, p);
 		}
 		p = arg2.find("=");
 		if (p != string::npos) {
-			val2 = arg2.substr(p+1);
+			val2 = arg2.substr(p + 1);
 			arg2 = arg2.substr(0, p);
 		}
 		auto action = new AttrmapMap;
@@ -202,11 +201,11 @@ bool parse_attrmap_paramap_options(size_t &argidx, std::vector<std::string> &arg
 		actions.push_back(std::unique_ptr<AttrmapAction>(action));
 		return true;
 	}
-	if (arg == "-remove" && argidx+1 < args.size()) {
+	if (arg == "-remove" && argidx + 1 < args.size()) {
 		string arg1 = args[++argidx], val1;
 		size_t p = arg1.find("=");
 		if (p != string::npos) {
-			val1 = arg1.substr(p+1);
+			val1 = arg1.substr(p + 1);
 			arg1 = arg1.substr(0, p);
 		}
 		auto action = new AttrmapRemove;
@@ -220,7 +219,7 @@ bool parse_attrmap_paramap_options(size_t &argidx, std::vector<std::string> &arg
 }
 
 struct AttrmapPass : public Pass {
-	AttrmapPass() : Pass("attrmap", "renaming attributes") { }
+	AttrmapPass() : Pass("attrmap", "renaming attributes") {}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -249,8 +248,7 @@ struct AttrmapPass : public Pass {
 		vector<std::unique_ptr<AttrmapAction>> actions;
 
 		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
+		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (parse_attrmap_paramap_options(argidx, args, actions))
 				continue;
 			if (args[argidx] == "-modattr") {
@@ -261,35 +259,31 @@ struct AttrmapPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		if (modattr_mode)
-		{
+		if (modattr_mode) {
 			for (auto module : design->selected_whole_modules())
 				attrmap_apply(stringf("%s", log_id(module)), actions, module->attributes);
-		}
-		else
-		{
-			for (auto module : design->selected_modules())
-			{
+		} else {
+			for (auto module : design->selected_modules()) {
 				for (auto wire : module->selected_wires())
 					attrmap_apply(stringf("%s.%s", log_id(module), log_id(wire)), actions, wire->attributes);
 
 				for (auto cell : module->selected_cells())
 					attrmap_apply(stringf("%s.%s", log_id(module), log_id(cell)), actions, cell->attributes);
 
-				for (auto proc : module->processes)
-				{
+				for (auto proc : module->processes) {
 					if (!design->selected(module, proc.second))
 						continue;
 					attrmap_apply(stringf("%s.%s", log_id(module), log_id(proc.first)), actions, proc.second->attributes);
 
-					std::vector<RTLIL::CaseRule*> all_cases = {&proc.second->root_case};
+					std::vector<RTLIL::CaseRule *> all_cases = {&proc.second->root_case};
 					while (!all_cases.empty()) {
 						RTLIL::CaseRule *cs = all_cases.back();
 						all_cases.pop_back();
 						attrmap_apply(stringf("%s.%s (case)", log_id(module), log_id(proc.first)), actions, cs->attributes);
 
 						for (auto &sw : cs->switches) {
-							attrmap_apply(stringf("%s.%s (switch)", log_id(module), log_id(proc.first)), actions, sw->attributes);
+							attrmap_apply(stringf("%s.%s (switch)", log_id(module), log_id(proc.first)), actions,
+								      sw->attributes);
 							all_cases.insert(all_cases.end(), sw->cases.begin(), sw->cases.end());
 						}
 					}
@@ -300,7 +294,7 @@ struct AttrmapPass : public Pass {
 } AttrmapPass;
 
 struct ParamapPass : public Pass {
-	ParamapPass() : Pass("paramap", "renaming cell parameters") { }
+	ParamapPass() : Pass("paramap", "renaming cell parameters") {}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -324,8 +318,7 @@ struct ParamapPass : public Pass {
 		vector<std::unique_ptr<AttrmapAction>> actions;
 
 		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
+		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (parse_attrmap_paramap_options(argidx, args, actions))
 				continue;
 			break;
@@ -333,8 +326,8 @@ struct ParamapPass : public Pass {
 		extra_args(args, argidx, design);
 
 		for (auto module : design->selected_modules())
-		for (auto cell : module->selected_cells())
-			attrmap_apply(stringf("%s.%s", log_id(module), log_id(cell)), actions, cell->parameters);
+			for (auto cell : module->selected_cells())
+				attrmap_apply(stringf("%s.%s", log_id(module), log_id(cell)), actions, cell->parameters);
 	}
 } ParamapPass;
 

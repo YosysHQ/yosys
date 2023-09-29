@@ -17,22 +17,17 @@
  *
  */
 
-#include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/yosys.h"
 #include <deque>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct ExtractReducePass : public Pass
-{
-	enum GateType {
-		And,
-		Or,
-		Xor
-	};
+struct ExtractReducePass : public Pass {
+	enum GateType { And, Or, Xor };
 
-	ExtractReducePass() : Pass("extract_reduce", "converts gate chains into $reduce_* cells") { }
+	ExtractReducePass() : Pass("extract_reduce", "converts gate chains into $reduce_* cells") {}
 
 	void help() override
 	{
@@ -56,11 +51,10 @@ struct ExtractReducePass : public Pass
 		log("\n");
 	}
 
-	inline bool IsRightType(Cell* cell, GateType gt)
+	inline bool IsRightType(Cell *cell, GateType gt)
 	{
-		return (cell->type == ID($_AND_) && gt == GateType::And) ||
-				(cell->type == ID($_OR_) && gt == GateType::Or) ||
-				(cell->type == ID($_XOR_) && gt == GateType::Xor);
+		return (cell->type == ID($_AND_) && gt == GateType::And) || (cell->type == ID($_OR_) && gt == GateType::Or) ||
+		       (cell->type == ID($_XOR_) && gt == GateType::Xor);
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -70,10 +64,8 @@ struct ExtractReducePass : public Pass
 
 		size_t argidx;
 		bool allow_off_chain = false;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
-			if (args[argidx] == "-allow-off-chain")
-			{
+		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-allow-off-chain") {
 				allow_off_chain = true;
 				continue;
 			}
@@ -81,27 +73,22 @@ struct ExtractReducePass : public Pass
 		}
 		extra_args(args, argidx, design);
 
-		for (auto module : design->selected_modules())
-		{
+		for (auto module : design->selected_modules()) {
 			SigMap sigmap(module);
 
 			// Index all of the nets in the module
-			dict<SigBit, Cell*> sig_to_driver;
-			dict<SigBit, pool<Cell*>> sig_to_sink;
-			for (auto cell : module->selected_cells())
-			{
-				for (auto &conn : cell->connections())
-				{
+			dict<SigBit, Cell *> sig_to_driver;
+			dict<SigBit, pool<Cell *>> sig_to_sink;
+			for (auto cell : module->selected_cells()) {
+				for (auto &conn : cell->connections()) {
 					if (cell->output(conn.first))
 						for (auto bit : sigmap(conn.second))
 							sig_to_driver[bit] = cell;
 
-					if (cell->input(conn.first))
-					{
-						for (auto bit : sigmap(conn.second))
-						{
+					if (cell->input(conn.first)) {
+						for (auto bit : sigmap(conn.second)) {
 							if (sig_to_sink.count(bit) == 0)
-								sig_to_sink[bit] = pool<Cell*>();
+								sig_to_sink[bit] = pool<Cell *>();
 							sig_to_sink[bit].insert(cell);
 						}
 					}
@@ -116,9 +103,8 @@ struct ExtractReducePass : public Pass
 						port_sigs.insert(bit);
 
 			// Actual logic starts here
-			pool<Cell*> consumed_cells;
-			for (auto cell : module->selected_cells())
-			{
+			pool<Cell *> consumed_cells;
+			for (auto cell : module->selected_cells()) {
 				if (consumed_cells.count(cell))
 					continue;
 
@@ -136,14 +122,12 @@ struct ExtractReducePass : public Pass
 				log("Working on cell %s...\n", cell->name.c_str());
 
 				// If looking for a single chain, follow linearly to the sink
-				pool<Cell*> sinks;
-				if(!allow_off_chain)
-				{
-					Cell* head_cell = cell;
-					Cell* x = cell;
-					while (true)
-					{
-						if(!IsRightType(x, gt))
+				pool<Cell *> sinks;
+				if (!allow_off_chain) {
+					Cell *head_cell = cell;
+					Cell *x = cell;
+					while (true) {
+						if (!IsRightType(x, gt))
 							break;
 
 						head_cell = x;
@@ -161,49 +145,43 @@ struct ExtractReducePass : public Pass
 					sinks.insert(head_cell);
 				}
 
-				//If off-chain loads are allowed, we have to do a wider traversal to see what the longest chain is
-				else
-				{
-					//BFS, following all chains until they hit a cell of a different type
-					//Pick the longest one
+				// If off-chain loads are allowed, we have to do a wider traversal to see what the longest chain is
+				else {
+					// BFS, following all chains until they hit a cell of a different type
+					// Pick the longest one
 					auto y = sigmap(cell->getPort(ID::Y));
-					pool<Cell*> current_loads = sig_to_sink[y];
-					pool<Cell*> next_loads;
+					pool<Cell *> current_loads = sig_to_sink[y];
+					pool<Cell *> next_loads;
 
-					while(!current_loads.empty())
-					{
-						//Find each sink and see what they are
-						for(auto x : current_loads)
-						{
-							//Not one of our gates? Don't follow any further
+					while (!current_loads.empty()) {
+						// Find each sink and see what they are
+						for (auto x : current_loads) {
+							// Not one of our gates? Don't follow any further
 							//(but add the originating cell to the list of sinks)
-							if(!IsRightType(x, gt))
-							{
+							if (!IsRightType(x, gt)) {
 								sinks.insert(cell);
 								continue;
 							}
 
 							auto xy = sigmap(x->getPort(ID::Y));
 
-							//If this signal drives a port, add it to the sinks
+							// If this signal drives a port, add it to the sinks
 							//(even though it may not be the end of a chain)
-							if(port_sigs.count(xy) && !consumed_cells.count(x))
+							if (port_sigs.count(xy) && !consumed_cells.count(x))
 								sinks.insert(x);
 
-							//It's a match, search everything out from it
-							auto& next = sig_to_sink[xy];
-							for(auto z : next)
+							// It's a match, search everything out from it
+							auto &next = sig_to_sink[xy];
+							for (auto z : next)
 								next_loads.insert(z);
 						}
 
-						//If we couldn't find any downstream loads, stop.
-						//Create a reduction for each of the max-length chains we found
-						if(next_loads.empty())
-						{
-							for(auto s : current_loads)
-							{
-								//Not one of our gates? Don't follow any further
-								if(!IsRightType(s, gt))
+						// If we couldn't find any downstream loads, stop.
+						// Create a reduction for each of the max-length chains we found
+						if (next_loads.empty()) {
+							for (auto s : current_loads) {
+								// Not one of our gates? Don't follow any further
+								if (!IsRightType(s, gt))
 									continue;
 
 								sinks.insert(s);
@@ -211,35 +189,33 @@ struct ExtractReducePass : public Pass
 							break;
 						}
 
-						//Otherwise, continue down the chain
+						// Otherwise, continue down the chain
 						current_loads = next_loads;
 						next_loads.clear();
 					}
 				}
 
-				//We have our list, go act on it
-				for(auto head_cell : sinks)
-				{
+				// We have our list, go act on it
+				for (auto head_cell : sinks) {
 					log("  Head cell is %s\n", head_cell->name.c_str());
 
-					//Avoid duplication if we already were covered
-					if(consumed_cells.count(head_cell))
+					// Avoid duplication if we already were covered
+					if (consumed_cells.count(head_cell))
 						continue;
 
 					dict<SigBit, int> sources;
 					int inner_cells = 0;
-					std::deque<Cell*> bfs_queue = {head_cell};
-					while (bfs_queue.size())
-					{
-						Cell* x = bfs_queue.front();
+					std::deque<Cell *> bfs_queue = {head_cell};
+					while (bfs_queue.size()) {
+						Cell *x = bfs_queue.front();
 						bfs_queue.pop_front();
 
-						for (auto port: {ID::A, ID::B}) {
+						for (auto port : {ID::A, ID::B}) {
 							auto bit = sigmap(x->getPort(port)[0]);
 
 							bool sink_single = sig_to_sink[bit].size() == 1 && !port_sigs.count(bit);
 
-							Cell* drv = sig_to_driver[bit];
+							Cell *drv = sig_to_driver[bit];
 							bool drv_ok = drv && drv->type == head_cell->type;
 
 							if (drv_ok && (allow_off_chain || sink_single)) {
@@ -251,8 +227,7 @@ struct ExtractReducePass : public Pass
 						}
 					}
 
-					if (inner_cells)
-					{
+					if (inner_cells) {
 						// Worth it to create reduce cell
 						log("  Creating $reduce_* cell!\n");
 

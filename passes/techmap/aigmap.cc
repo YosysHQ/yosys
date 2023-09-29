@@ -17,14 +17,14 @@
  *
  */
 
-#include "kernel/yosys.h"
 #include "kernel/cellaigs.h"
+#include "kernel/yosys.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct AigmapPass : public Pass {
-	AigmapPass() : Pass("aigmap", "map logic to and-inverter-graph circuit") { }
+	AigmapPass() : Pass("aigmap", "map logic to and-inverter-graph circuit") {}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -50,8 +50,7 @@ struct AigmapPass : public Pass {
 		log_header(design, "Executing AIGMAP pass (map logic to AIG).\n");
 
 		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
+		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-nand") {
 				nand_mode = true;
 				continue;
@@ -64,17 +63,15 @@ struct AigmapPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto module : design->selected_modules())
-		{
-			vector<Cell*> replaced_cells;
+		for (auto module : design->selected_modules()) {
+			vector<Cell *> replaced_cells;
 			int not_replaced_count = 0;
 			dict<IdString, int> stat_replaced;
 			dict<IdString, int> stat_not_replaced;
 			int orig_num_cells = GetSize(module->cells());
 
 			pool<IdString> new_sel;
-			for (auto cell : module->selected_cells())
-			{
+			for (auto cell : module->selected_cells()) {
 				Aig aig(cell);
 
 				if (cell->type.in(ID($_AND_), ID($_NOT_)))
@@ -94,8 +91,7 @@ struct AigmapPass : public Pass {
 				vector<SigBit> sigs;
 				dict<pair<int, int>, SigBit> and_cache;
 
-				for (int node_idx = 0; node_idx < GetSize(aig.nodes); node_idx++)
-				{
+				for (int node_idx = 0; node_idx < GetSize(aig.nodes); node_idx++) {
 					SigBit bit;
 					auto &node = aig.nodes[node_idx];
 
@@ -133,7 +129,6 @@ struct AigmapPass : public Pass {
 						bit = new_bit;
 						if (select_mode)
 							new_sel.insert(gate->name);
-
 					}
 
 				skip_inverter:
@@ -150,8 +145,8 @@ struct AigmapPass : public Pass {
 			if (not_replaced_count == 0 && replaced_cells.empty())
 				continue;
 
-			log("Module %s: replaced %d cells with %d new cells, skipped %d cells.\n", log_id(module),
-					GetSize(replaced_cells), GetSize(module->cells()) - orig_num_cells, not_replaced_count);
+			log("Module %s: replaced %d cells with %d new cells, skipped %d cells.\n", log_id(module), GetSize(replaced_cells),
+			    GetSize(module->cells()) - orig_num_cells, not_replaced_count);
 
 			if (!stat_replaced.empty()) {
 				stat_replaced.sort();
@@ -172,10 +167,9 @@ struct AigmapPass : public Pass {
 
 			if (select_mode) {
 				log_assert(!design->selection_stack.empty());
-				RTLIL::Selection& sel = design->selection_stack.back();
+				RTLIL::Selection &sel = design->selection_stack.back();
 				sel.selected_members[module->name] = std::move(new_sel);
 			}
-
 		}
 	}
 } AigmapPass;

@@ -17,14 +17,14 @@
  *
  */
 
-#include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/yosys.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct DeminoutPass : public Pass {
-	DeminoutPass() : Pass("deminout", "demote inout ports to input or output") { }
+	DeminoutPass() : Pass("deminout", "demote inout ports to input or output") {}
 	void help() override
 	{
 		log("\n");
@@ -38,8 +38,7 @@ struct DeminoutPass : public Pass {
 		log_header(design, "Executing DEMINOUT pass (demote inout ports to input or output).\n");
 
 		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
+		for (argidx = 1; argidx < args.size(); argidx++) {
 			// if (args[argidx] == "-bits") {
 			// 	flag_bits = true;
 			// 	continue;
@@ -50,12 +49,10 @@ struct DeminoutPass : public Pass {
 
 		bool keep_running = true;
 
-		while (keep_running)
-		{
+		while (keep_running) {
 			keep_running = false;
 
-			for (auto module : design->selected_modules())
-			{
+			for (auto module : design->selected_modules()) {
 				SigMap sigmap(module);
 				pool<SigBit> bits_written, bits_used, bits_inout, bits_tribuf;
 				dict<SigBit, int> bits_numports;
@@ -66,51 +63,47 @@ struct DeminoutPass : public Pass {
 							bits_numports[bit]++;
 
 				for (auto cell : module->cells())
-				for (auto &conn : cell->connections())
-				{
-					bool cellport_out = cell->output(conn.first) || !cell->known();
-					bool cellport_in = cell->input(conn.first) || !cell->known();
+					for (auto &conn : cell->connections()) {
+						bool cellport_out = cell->output(conn.first) || !cell->known();
+						bool cellport_in = cell->input(conn.first) || !cell->known();
 
-					if (cellport_out && cellport_in)
-						for (auto bit : sigmap(conn.second))
-							bits_inout.insert(bit);
-
-					if (cellport_out)
-						for (auto bit : sigmap(conn.second))
-							bits_written.insert(bit);
-
-					if (cellport_in)
-						for (auto bit : sigmap(conn.second))
-							bits_used.insert(bit);
-
-					if (conn.first == ID::Y && cell->type.in(ID($mux), ID($pmux), ID($_MUX_), ID($_TBUF_), ID($tribuf)))
-					{
-						bool tribuf = cell->type.in(ID($_TBUF_), ID($tribuf));
-
-						if (!tribuf) {
-							for (auto &c : cell->connections()) {
-								if (!c.first.in(ID::A, ID::B))
-									continue;
-								for (auto b : sigmap(c.second))
-									if (b == State::Sz)
-										tribuf = true;
-							}
-						}
-
-						if (tribuf)
+						if (cellport_out && cellport_in)
 							for (auto bit : sigmap(conn.second))
-								bits_tribuf.insert(bit);
+								bits_inout.insert(bit);
+
+						if (cellport_out)
+							for (auto bit : sigmap(conn.second))
+								bits_written.insert(bit);
+
+						if (cellport_in)
+							for (auto bit : sigmap(conn.second))
+								bits_used.insert(bit);
+
+						if (conn.first == ID::Y && cell->type.in(ID($mux), ID($pmux), ID($_MUX_), ID($_TBUF_), ID($tribuf))) {
+							bool tribuf = cell->type.in(ID($_TBUF_), ID($tribuf));
+
+							if (!tribuf) {
+								for (auto &c : cell->connections()) {
+									if (!c.first.in(ID::A, ID::B))
+										continue;
+									for (auto b : sigmap(c.second))
+										if (b == State::Sz)
+											tribuf = true;
+								}
+							}
+
+							if (tribuf)
+								for (auto bit : sigmap(conn.second))
+									bits_tribuf.insert(bit);
+						}
 					}
-				}
 
 				for (auto wire : module->selected_wires())
-					if (wire->port_input && wire->port_output)
-					{
+					if (wire->port_input && wire->port_output) {
 						bool new_input = false;
 						bool new_output = false;
 
-						for (auto bit : sigmap(wire))
-						{
+						for (auto bit : sigmap(wire)) {
 							if (bits_numports[bit] > 1 || bits_inout.count(bit))
 								new_input = true, new_output = true;
 							if (!bit.wire)
@@ -120,13 +113,14 @@ struct DeminoutPass : public Pass {
 								if (bits_tribuf.count(bit))
 									goto tribuf_bit;
 							} else {
-						tribuf_bit:
+							tribuf_bit:
 								new_input = true;
 							}
 						}
 
 						if (new_input != new_output) {
-							log("Demoting inout port %s.%s to %s.\n", log_id(module), log_id(wire), new_input ? "input" : "output");
+							log("Demoting inout port %s.%s to %s.\n", log_id(module), log_id(wire),
+							    new_input ? "input" : "output");
 							wire->port_input = new_input;
 							wire->port_output = new_output;
 							keep_running = true;

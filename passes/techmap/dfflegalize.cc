@@ -17,10 +17,10 @@
  *
  */
 
-#include "kernel/yosys.h"
-#include "kernel/sigtools.h"
-#include "kernel/ffinit.h"
 #include "kernel/ff.h"
+#include "kernel/ffinit.h"
+#include "kernel/sigtools.h"
+#include "kernel/yosys.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -67,7 +67,7 @@ enum FfInit {
 };
 
 struct DffLegalizePass : public Pass {
-	DffLegalizePass() : Pass("dfflegalize", "convert FFs to types supported by the target") { }
+	DffLegalizePass() : Pass("dfflegalize", "convert FFs to types supported by the target") {}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -139,7 +139,7 @@ struct DffLegalizePass : public Pass {
 	}
 
 	// Table of all supported cell types.
-	// First index in the array is one of the FF_* values, second 
+	// First index in the array is one of the FF_* values, second
 	// index is the set of negative-polarity inputs (OR of NEG_*
 	// values), and the value is the set of supported init values
 	// (OR of INIT_* values).
@@ -182,7 +182,8 @@ struct DffLegalizePass : public Pass {
 	SigMap sigmap;
 	FfInitVals initvals;
 
-	int flip_initmask(int mask) {
+	int flip_initmask(int mask)
+	{
 		int res = mask & INIT_X;
 		if (mask & INIT_0)
 			res |= INIT_1;
@@ -203,7 +204,8 @@ struct DffLegalizePass : public Pass {
 		return res;
 	}
 
-	int get_ff_type(const FfData &ff) {
+	int get_ff_type(const FfData &ff)
+	{
 		if (ff.has_clk) {
 			if (ff.has_sr) {
 				return ff.has_ce ? FF_DFFSRE : FF_DFFSR;
@@ -240,7 +242,8 @@ struct DffLegalizePass : public Pass {
 		}
 	}
 
-	int get_initmask(FfData &ff) {
+	int get_initmask(FfData &ff)
+	{
 		int res = 0;
 		if (ff.val_init[0] == State::S0)
 			res = INIT_0;
@@ -262,11 +265,14 @@ struct DffLegalizePass : public Pass {
 		return res;
 	}
 
-	void fail_ff(const FfData &ff, const char *reason) {
-		log_error("FF %s.%s (type %s) cannot be legalized: %s\n", log_id(ff.module->name), log_id(ff.cell->name), log_id(ff.cell->type), reason);
+	void fail_ff(const FfData &ff, const char *reason)
+	{
+		log_error("FF %s.%s (type %s) cannot be legalized: %s\n", log_id(ff.module->name), log_id(ff.cell->name), log_id(ff.cell->type),
+			  reason);
 	}
 
-	bool try_flip(FfData &ff, int supported_mask) {
+	bool try_flip(FfData &ff, int supported_mask)
+	{
 		int initmask = get_initmask(ff);
 		if (supported_mask & initmask)
 			return true;
@@ -277,7 +283,8 @@ struct DffLegalizePass : public Pass {
 		return false;
 	}
 
-	void emulate_split_init_arst(FfData &ff) {
+	void emulate_split_init_arst(FfData &ff)
+	{
 		ff.remove();
 
 		FfData ff_dff(ff.module, &initvals, NEW_ID);
@@ -338,7 +345,8 @@ struct DffLegalizePass : public Pass {
 		legalize_ff(ff_sel);
 	}
 
-	void emulate_split_set_clr(FfData &ff) {
+	void emulate_split_set_clr(FfData &ff)
+	{
 		// No native DFFSR.  However, if we can conjure
 		// a SR latch and ADFF, it can still be emulated.
 		int initmask = get_initmask(ff);
@@ -449,7 +457,8 @@ struct DffLegalizePass : public Pass {
 		legalize_ff(ff_sel);
 	}
 
-	void legalize_dff(FfData &ff) {
+	void legalize_dff(FfData &ff)
+	{
 		if (!try_flip(ff, supported_dff)) {
 			if (!supported_dff)
 				fail_ff(ff, "D flip-flops are not supported");
@@ -529,7 +538,8 @@ struct DffLegalizePass : public Pass {
 		log_assert(0);
 	}
 
-	void legalize_sdffce(FfData &ff) {
+	void legalize_sdffce(FfData &ff)
+	{
 		if (!try_flip(ff, supported_cells[FF_SDFFCE] | supported_cells[FF_SDFFE])) {
 			ff.unmap_srst();
 			legalize_dff(ff);
@@ -547,7 +557,8 @@ struct DffLegalizePass : public Pass {
 		legalize_finish(ff);
 	}
 
-	void legalize_sdff(FfData &ff) {
+	void legalize_sdff(FfData &ff)
+	{
 		if (!try_flip(ff, supported_sdff)) {
 			ff.unmap_srst();
 			legalize_dff(ff);
@@ -581,7 +592,8 @@ struct DffLegalizePass : public Pass {
 		legalize_finish(ff);
 	}
 
-	void legalize_adff(FfData &ff) {
+	void legalize_adff(FfData &ff)
+	{
 		if (!try_flip(ff, supported_adff)) {
 			if (!supported_adff)
 				fail_ff(ff, "dffs with async set or reset are not supported");
@@ -600,7 +612,8 @@ struct DffLegalizePass : public Pass {
 				ff.unmap_ce();
 
 			if (ff.cell)
-				log_warning("Emulating mismatched async reset and init with several FFs and a mux for %s.%s\n", log_id(ff.module->name), log_id(ff.cell->name));
+				log_warning("Emulating mismatched async reset and init with several FFs and a mux for %s.%s\n",
+					    log_id(ff.module->name), log_id(ff.cell->name));
 			emulate_split_init_arst(ff);
 			return;
 		}
@@ -648,7 +661,8 @@ struct DffLegalizePass : public Pass {
 		log_assert(0);
 	}
 
-	void legalize_aldff(FfData &ff) {
+	void legalize_aldff(FfData &ff)
+	{
 		if (!try_flip(ff, supported_aldff)) {
 			ff.aload_to_sr();
 			emulate_split_set_clr(ff);
@@ -684,7 +698,8 @@ struct DffLegalizePass : public Pass {
 		log_assert(0);
 	}
 
-	void legalize_dffsr(FfData &ff) {
+	void legalize_dffsr(FfData &ff)
+	{
 		if (!try_flip(ff, supported_dffsr)) {
 			emulate_split_set_clr(ff);
 			return;
@@ -707,7 +722,8 @@ struct DffLegalizePass : public Pass {
 		legalize_finish(ff);
 	}
 
-	void legalize_dlatch(FfData &ff) {
+	void legalize_dlatch(FfData &ff)
+	{
 		if (!try_flip(ff, supported_dlatch)) {
 			if (!supported_dlatch)
 				fail_ff(ff, "D latches are not supported");
@@ -740,7 +756,8 @@ struct DffLegalizePass : public Pass {
 		}
 	}
 
-	void legalize_adlatch(FfData &ff) {
+	void legalize_adlatch(FfData &ff)
+	{
 		if (!try_flip(ff, supported_adlatch)) {
 			if (!supported_adlatch)
 				fail_ff(ff, "D latches with async set or reset are not supported");
@@ -752,7 +769,8 @@ struct DffLegalizePass : public Pass {
 			// The only hope left is breaking down to adlatch + dlatch + dlatch + mux.
 
 			if (ff.cell)
-				log_warning("Emulating mismatched async reset and init with several latches and a mux for %s.%s\n", log_id(ff.module->name), log_id(ff.cell->name));
+				log_warning("Emulating mismatched async reset and init with several latches and a mux for %s.%s\n",
+					    log_id(ff.module->name), log_id(ff.cell->name));
 			ff.remove();
 
 			emulate_split_init_arst(ff);
@@ -769,7 +787,8 @@ struct DffLegalizePass : public Pass {
 		legalize_finish(ff);
 	}
 
-	void legalize_dlatchsr(FfData &ff) {
+	void legalize_dlatchsr(FfData &ff)
+	{
 		if (!try_flip(ff, supported_cells[FF_DLATCHSR])) {
 			emulate_split_set_clr(ff);
 			return;
@@ -777,7 +796,8 @@ struct DffLegalizePass : public Pass {
 		legalize_finish(ff);
 	}
 
-	void legalize_rlatch(FfData &ff) {
+	void legalize_rlatch(FfData &ff)
+	{
 		if (!try_flip(ff, supported_rlatch)) {
 			if (!supported_dlatch)
 				fail_ff(ff, "D latches are not supported");
@@ -800,7 +820,8 @@ struct DffLegalizePass : public Pass {
 		}
 	}
 
-	void legalize_sr(FfData &ff) {
+	void legalize_sr(FfData &ff)
+	{
 		if (!try_flip(ff, supported_sr)) {
 			if (!supported_sr)
 				fail_ff(ff, "sr latches are not supported");
@@ -857,7 +878,8 @@ struct DffLegalizePass : public Pass {
 		legalize_finish(ff);
 	}
 
-	void fixup_reset_x(FfData &ff, int supported) {
+	void fixup_reset_x(FfData &ff, int supported)
+	{
 		for (int i = 0; i < ff.width; i++) {
 			int mask;
 			if (ff.val_init[i] == State::S0)
@@ -885,7 +907,8 @@ struct DffLegalizePass : public Pass {
 		}
 	}
 
-	void legalize_ff(FfData &ff) {
+	void legalize_ff(FfData &ff)
+	{
 		if (ff.has_gclk)
 			return;
 
@@ -932,7 +955,8 @@ struct DffLegalizePass : public Pass {
 		}
 	}
 
-	void flip_pol(FfData &ff, SigSpec &sig, bool &pol) {
+	void flip_pol(FfData &ff, SigSpec &sig, bool &pol)
+	{
 		if (sig == State::S0) {
 			sig = State::S1;
 		} else if (sig == State::S1) {
@@ -945,7 +969,8 @@ struct DffLegalizePass : public Pass {
 		pol = !pol;
 	}
 
-	void legalize_finish(FfData &ff) {
+	void legalize_finish(FfData &ff)
+	{
 		int ff_type = get_ff_type(ff);
 		int initmask = get_initmask(ff);
 		log_assert(supported_cells[ff_type] & initmask);
@@ -1025,8 +1050,7 @@ struct DffLegalizePass : public Pass {
 		minsrst = design->scratchpad_get_int("dfflegalize.minsrst", 0);
 
 		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-		{
+		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-cell" && argidx + 2 < args.size()) {
 				std::string celltype = args[++argidx];
 				std::string inittype = args[++argidx];
@@ -1110,18 +1134,18 @@ struct DffLegalizePass : public Pass {
 					pol_s = celltype[12];
 					pol_r = celltype[13];
 				} else {
-unrecognized:
+				unrecognized:
 					log_error("unrecognized cell type %s.\n", celltype.c_str());
 				}
 				int mask = 0;
 				int match = 0;
 				for (auto pair : {
-					std::make_pair(pol_c, NEG_C),
-					std::make_pair(pol_l, NEG_L),
-					std::make_pair(pol_s, NEG_S),
-					std::make_pair(pol_r, NEG_R),
-					std::make_pair(pol_ce, NEG_CE),
-				}) {
+				       std::make_pair(pol_c, NEG_C),
+				       std::make_pair(pol_l, NEG_L),
+				       std::make_pair(pol_s, NEG_S),
+				       std::make_pair(pol_r, NEG_R),
+				       std::make_pair(pol_ce, NEG_CE),
+				     }) {
 					if (pair.first == 'N') {
 						mask |= pair.second;
 						match |= pair.second;
@@ -1176,18 +1200,19 @@ unrecognized:
 		supported_adffe = supported_cells[FF_ADFFE] | supported_cells[FF_ALDFFE] | supported_cells[FF_DFFSRE];
 		supported_sdff = supported_cells[FF_SDFF] | supported_cells[FF_SDFFE] | supported_cells[FF_SDFFCE];
 		supported_dff = supported_cells[FF_DFF] | supported_cells[FF_DFFE] | supported_adff | supported_sdff;
-		supported_dffe = supported_cells[FF_DFFE] | supported_cells[FF_DFFSRE] | supported_cells[FF_ALDFFE] | supported_cells[FF_ADFFE] | supported_cells[FF_SDFFE] | supported_cells[FF_SDFFCE];
+		supported_dffe = supported_cells[FF_DFFE] | supported_cells[FF_DFFSRE] | supported_cells[FF_ALDFFE] | supported_cells[FF_ADFFE] |
+				 supported_cells[FF_SDFFE] | supported_cells[FF_SDFFCE];
 		supported_sr_plain = supported_dffsr | supported_cells[FF_DLATCHSR] | supported_cells[FF_SR];
 		supported_sr = supported_sr_plain;
 		supported_sr |= (supported_cells[FF_ADLATCH] >> 4 & 7) * 0x111;
 		supported_sr |= (flip_initmask(supported_cells[FF_ADLATCH]) >> 4 & 7) * 0x111;
-		supported_dlatch_plain = supported_cells[FF_DLATCH] | supported_cells[FF_ADLATCH] | supported_cells[FF_DLATCHSR] | supported_cells[FF_ALDFF] | supported_cells[FF_ALDFFE];
+		supported_dlatch_plain = supported_cells[FF_DLATCH] | supported_cells[FF_ADLATCH] | supported_cells[FF_DLATCHSR] |
+					 supported_cells[FF_ALDFF] | supported_cells[FF_ALDFFE];
 		supported_dlatch = supported_dlatch_plain | supported_sr_plain;
 		supported_rlatch = supported_adff | (supported_dlatch & 7) * 0x111;
 		supported_adlatch = supported_cells[FF_ADLATCH] | supported_cells[FF_DLATCHSR];
 
-		for (auto module : design->selected_modules())
-		{
+		for (auto module : design->selected_modules()) {
 			sigmap.set(module);
 			initvals.set(&sigmap, module);
 
@@ -1206,8 +1231,7 @@ unrecognized:
 						srst_used[ff.sig_srst[0]] += ff.width;
 				}
 			}
-			for (auto cell : module->selected_cells())
-			{
+			for (auto cell : module->selected_cells()) {
 				if (!RTLIL::builtin_ff_cell_types().count(cell->type))
 					continue;
 				FfData ff(&initvals, cell);

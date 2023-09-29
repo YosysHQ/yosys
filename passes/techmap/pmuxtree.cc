@@ -17,16 +17,15 @@
  *
  */
 
-#include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/yosys.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 static SigSpec or_generator(Module *module, const SigSpec &sig)
 {
-	switch (GetSize(sig))
-	{
+	switch (GetSize(sig)) {
 	case 0:
 		return State::S0;
 	case 1:
@@ -49,8 +48,8 @@ static SigSpec recursive_mux_generator(Module *module, const SigSpec &sig_data, 
 	int right_size = GetSize(sig_sel) - left_size;
 	int stride = GetSize(sig_data) / GetSize(sig_sel);
 
-	SigSpec left_data = sig_data.extract(0, stride*left_size);
-	SigSpec right_data = sig_data.extract(stride*left_size, stride*right_size);
+	SigSpec left_data = sig_data.extract(0, stride * left_size);
+	SigSpec right_data = sig_data.extract(stride * left_size, stride * right_size);
 
 	SigSpec left_sel = sig_sel.extract(0, left_size);
 	SigSpec right_sel = sig_sel.extract(left_size, right_size);
@@ -66,7 +65,7 @@ static SigSpec recursive_mux_generator(Module *module, const SigSpec &sig_data, 
 }
 
 struct PmuxtreePass : public Pass {
-	PmuxtreePass() : Pass("pmuxtree", "transform $pmux cells to trees of $mux cells") { }
+	PmuxtreePass() : Pass("pmuxtree", "transform $pmux cells to trees of $mux cells") {}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -87,25 +86,24 @@ struct PmuxtreePass : public Pass {
 		extra_args(args, argidx, design);
 
 		for (auto module : design->selected_modules())
-		for (auto cell : module->selected_cells())
-		{
-			if (cell->type != ID($pmux))
-				continue;
+			for (auto cell : module->selected_cells()) {
+				if (cell->type != ID($pmux))
+					continue;
 
-			SigSpec sig_data = cell->getPort(ID::B);
-			SigSpec sig_sel = cell->getPort(ID::S);
+				SigSpec sig_data = cell->getPort(ID::B);
+				SigSpec sig_sel = cell->getPort(ID::S);
 
-			if (!cell->getPort(ID::A).is_fully_undef()) {
-				sig_data.append(cell->getPort(ID::A));
-				SigSpec sig_sel_or = module->ReduceOr(NEW_ID, sig_sel);
-				sig_sel.append(module->Not(NEW_ID, sig_sel_or));
+				if (!cell->getPort(ID::A).is_fully_undef()) {
+					sig_data.append(cell->getPort(ID::A));
+					SigSpec sig_sel_or = module->ReduceOr(NEW_ID, sig_sel);
+					sig_sel.append(module->Not(NEW_ID, sig_sel_or));
+				}
+
+				SigSpec result, result_or;
+				result = recursive_mux_generator(module, sig_data, sig_sel, result_or);
+				module->connect(cell->getPort(ID::Y), result);
+				module->remove(cell);
 			}
-
-			SigSpec result, result_or;
-			result = recursive_mux_generator(module, sig_data, sig_sel, result_or);
-			module->connect(cell->getPort(ID::Y), result);
-			module->remove(cell);
-		}
 	}
 } PmuxtreePass;
 
