@@ -321,7 +321,7 @@ std::string RTLIL::Const::decode_string() const
 	if (i < n) {
 		char ch = 0;
 		for (int j = 0; j < (n - i); j++) {
-			if (bits[j + i] == RTLIL::State::S1) {
+			if (bits[i + j] == RTLIL::State::S1) {
 				ch |= 1 << j;
 			}
 		}
@@ -332,7 +332,7 @@ std::string RTLIL::Const::decode_string() const
 	for (; i >= 0; i -= 8) {
 		char ch = 0;
 		for (int j = 0; j < 8; j++) {
-			if (bits[j + i] == RTLIL::State::S1) {
+			if (bits[i + j] == RTLIL::State::S1) {
 				ch |= 1 << j;
 			}
 		}
