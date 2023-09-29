@@ -27,8 +27,6 @@ PRIVATE_NAMESPACE_BEGIN
 
 // ============================================================================
 
-bool use_dsp_cfg_params;
-
 static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
 {
 	auto &st = pm.st_ql_dsp_macc;
@@ -122,11 +120,7 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
 		return;
 	}
 
-	if (use_dsp_cfg_params)
-		cell_cfg_name = "_cfg_params";
-	else
-		cell_cfg_name = "_cfg_ports";
-
+	cell_cfg_name = "_cfg_ports"; // TODO: remove
 	cell_full_name = cell_base_name + cell_size_name + cell_cfg_name;
 
 	type = RTLIL::escape_id(cell_full_name);
@@ -237,21 +231,12 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
 	cell->setPort(RTLIL::escape_id("unsigned_b_i"), RTLIL::SigSpec(b_signed ? RTLIL::S0 : RTLIL::S1));
 
 	// Connect config bits
-	if (use_dsp_cfg_params) {
-		cell->setParam(RTLIL::escape_id("SATURATE_ENABLE"), RTLIL::Const(RTLIL::S0));
-		cell->setParam(RTLIL::escape_id("SHIFT_RIGHT"), RTLIL::Const(RTLIL::S0, 6));
-		cell->setParam(RTLIL::escape_id("ROUND"), RTLIL::Const(RTLIL::S0));
-		cell->setParam(RTLIL::escape_id("REGISTER_INPUTS"), RTLIL::Const(RTLIL::S0));
-		// 3 - output post acc; 1 - output pre acc
-		cell->setParam(RTLIL::escape_id("OUTPUT_SELECT"), out_ff ? RTLIL::Const(1, 3) : RTLIL::Const(3, 3));
-	} else {
-		cell->setPort(RTLIL::escape_id("saturate_enable_i"), RTLIL::SigSpec(RTLIL::S0));
-		cell->setPort(RTLIL::escape_id("shift_right_i"), RTLIL::SigSpec(RTLIL::S0, 6));
-		cell->setPort(RTLIL::escape_id("round_i"), RTLIL::SigSpec(RTLIL::S0));
-		cell->setPort(RTLIL::escape_id("register_inputs_i"), RTLIL::SigSpec(RTLIL::S0));
-		// 3 - output post acc; 1 - output pre acc
-		cell->setPort(RTLIL::escape_id("output_select_i"), out_ff ? RTLIL::Const(1, 3) : RTLIL::Const(3, 3));
-	}
+	cell->setPort(RTLIL::escape_id("saturate_enable_i"), RTLIL::SigSpec(RTLIL::S0));
+	cell->setPort(RTLIL::escape_id("shift_right_i"), RTLIL::SigSpec(RTLIL::S0, 6));
+	cell->setPort(RTLIL::escape_id("round_i"), RTLIL::SigSpec(RTLIL::S0));
+	cell->setPort(RTLIL::escape_id("register_inputs_i"), RTLIL::SigSpec(RTLIL::S0));
+	// 3 - output post acc; 1 - output pre acc
+	cell->setPort(RTLIL::escape_id("output_select_i"), out_ff ? RTLIL::Const(1, 3) : RTLIL::Const(3, 3));
 
 	bool subtract = (st.add->type == RTLIL::escape_id("$sub"));
 	cell->setPort(RTLIL::escape_id("subtract_i"), RTLIL::SigSpec(subtract ? RTLIL::S1 : RTLIL::S0));
@@ -274,13 +259,7 @@ struct QlDspMacc : public Pass {
 		log("\n");
 		log("    ql_dsp_macc [options] [selection]\n");
 		log("\n");
-		log("    -use_dsp_cfg_params\n");
-		log("        By default use DSP blocks with configuration bits available at module ports.\n");
-		log("        Specifying this forces usage of DSP block with configuration bits available as module parameters\n");
-		log("\n");
 	}
-
-	void clear_flags() override { use_dsp_cfg_params = false; }
 
 	void execute(std::vector<std::string> a_Args, RTLIL::Design *a_Design) override
 	{
@@ -288,11 +267,6 @@ struct QlDspMacc : public Pass {
 
 		size_t argidx;
 		for (argidx = 1; argidx < a_Args.size(); argidx++) {
-			if (a_Args[argidx] == "-use_dsp_cfg_params") {
-				use_dsp_cfg_params = true;
-				continue;
-			}
-
 			break;
 		}
 		extra_args(a_Args, argidx, a_Design);
