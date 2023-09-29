@@ -156,6 +156,8 @@ struct TechmapWorker
 		}
 
 		std::string orig_cell_name;
+		pool<string> extra_src_attrs = cell->get_strpool_attribute(ID::src);
+
 		orig_cell_name = cell->name.str();
 		for (auto tpl_cell : tpl->cells())
 			if (tpl_cell->name.ends_with("_TECHMAP_REPLACE_")) {
@@ -170,7 +172,7 @@ struct TechmapWorker
 			apply_prefix(cell->name, m_name);
 			RTLIL::Memory *m = module->addMemory(m_name, it.second);
 			if (m->attributes.count(ID::src))
-                          m->attributes[ID::src] = cell->attributes[ID::src];
+				m->add_strpool_attribute(ID::src, extra_src_attrs);
 			memory_renames[it.first] = m->name;
 			design->select(module, m);
 		}
@@ -215,7 +217,7 @@ struct TechmapWorker
 				if (tpl_w->get_bool_attribute(ID::_techmap_special_))
 					w->attributes.clear();
 				if (w->attributes.count(ID::src))
-                                  w->attributes[ID::src] = cell->attributes[ID::src];
+					w->add_strpool_attribute(ID::src, extra_src_attrs);
 			}
 			design->select(module, w);
 
@@ -373,7 +375,7 @@ struct TechmapWorker
 			}
 
 			if (c->attributes.count(ID::src))
-                          c->attributes[ID::src] = cell->attributes[ID::src];
+				c->add_strpool_attribute(ID::src, extra_src_attrs);
 
 			if (techmap_replace_cell) {
 				for (auto attr : cell->attributes)
