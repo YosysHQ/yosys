@@ -430,7 +430,7 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 		return true;
 	}
 
-	if (cell->type.in(ID($pos), ID($neg)))
+	if (cell->type.in(ID($pos), ID($buf), ID($neg)))
 	{
 		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
 		std::vector<int> y = importDefSigSpec(cell->getPort(ID::Y), timestep);
@@ -438,7 +438,7 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 		std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
 
-		if (cell->type == ID($pos)) {
+		if (cell->type.in(ID($pos), ID($buf))) {
 			ez->assume(ez->vec_eq(a, yy));
 		} else {
 			std::vector<int> zero(a.size(), ez->CONST_FALSE);
@@ -451,7 +451,7 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 			std::vector<int> undef_y = importUndefSigSpec(cell->getPort(ID::Y), timestep);
 			extendSignalWidthUnary(undef_a, undef_y, cell);
 
-			if (cell->type == ID($pos)) {
+			if (cell->type.in(ID($pos), ID($buf))) {
 				ez->assume(ez->vec_eq(undef_a, undef_y));
 			} else {
 				int undef_any_a = ez->expression(ezSAT::OpOr, undef_a);
