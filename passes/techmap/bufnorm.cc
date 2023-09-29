@@ -35,20 +35,29 @@ struct BufnormPass : public Pass {
 		log("buffer cells, than can be chained in a canonical order.\n");
 		log("\n");
 		log("Running 'bufnorm' on the whole design enters 'buffered-normalized mode'.\n");
-		log("The commands 'bufnorm -conn' exits 'buffered-normalized mode' again.\n");
 		log("\n");
-		log("    -bits\n");
-		log("        Create single-bit $_BUF_ cells instead of multi-bit $pos cells.\n");
+		log("    -buf\n");
+		log("        Create $buf cells for all buffers. The default is to use $_BUF_ cells\n");
+		log("        for sigle-bit buffers and $buf cells only for multi-bit buffers.\n");
 		log("\n");
 		log("    -chain\n");
-		log("        Chain all alias wires. By default only wires with the 'keep'\n");
-		log("        attribute on them are chained.\n");
+		log("        Chain all alias wires. By default only wires with positive-valued\n");
+		log("        'chain' or 'keep' attribute on them are chained.\n");
 		log("\n");
-		log("    -chain-outputs\n");
-		log("        Chain ouput ports. (Uneffected by -flat.)\n");
+		log("    -output\n");
+		log("        Enable chaining of ouput ports wires.\n");
+		log("\n");
+		log("    -public\n");
+		log("        Enable chaining of wires wth public names.\n");
+		log("\n");
+		log("    -nochain\n");
+		log("        Disable chaining of wires with 'chain' attribute.\n");
+		log("\n");
+		log("    -nokeep\n");
+		log("        Disable chaining of wires with 'keep' attribute.\n");
 		log("\n");
 		log("    -flat\n");
-		log("        Do not chain any wires, not even the ones marked with 'keep'.\n");
+		log("        Alias for -nokeep and -nochain.\n");
 		log("\n");
 		log("    -nosticky\n");
 		log("        Disable 'sticky' behavior of output ports already driving whole\n");
@@ -59,41 +68,71 @@ struct BufnormPass : public Pass {
 		log("        to chain 'keep' wires first, then ports in declaration order,\n");
 		log("        and then the other wires in alphanumeric sort order.)\n");
 		log("\n");
+		log("    -noinit\n");
+		log("        Do not move 'init' attributes to the wires on FF output ports.\n");
+		log("\n");
+		log("Run 'bufnorm' with -pos, -bits, or -conn on the whole design to remove all\n");
+		log("$buf buffer cells and exit 'buffered-normalized mode' again.\n");
+		log("\n");
+		log("    -pos\n");
+		log("        Create (multi- and single-bit) $pos cells instead $buf and $_BUF_.\n");
+		log("\n");
+		log("    -bits\n");
+		log("        Create arrays of $_BUF_ cells instead of multi-bit $buf cells.\n");
+		log("\n");
 		log("    -conn\n");
-		log("        Remove buffers and exit 'buffered-normalized mode'.\n");
+		log("        Create 'direct connections' instead of buffer cells.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing BUFNORM pass (convert to buffer-normalized form).\n");
 
-		bool connections_mode = false, bits_mode = false;
-		bool chain_mode = false, flat_mode = false, nosticky_mode = false;
-		bool chain_outputs_mode = false, alphasort_mode = false;
-		IdString buf_celltype, buf_inport = ID::A, buf_outport = ID::Y;
+		bool buf_mode = false;
+		bool chain_mode = false;
+		bool output_mode = false;
+		bool public_mode = false;
+		bool nochain_mode = false;
+		bool nokeep_mode = false;
+		bool nosticky_mode = false;
+		bool alphasort_mode = false;
+		bool noinit_mode = false; // FIXME: Actually move init attributes
+
+		bool pos_mode = false;
+		bool bits_mode = false;
+		bool conn_mode = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			std::string arg = args[argidx];
-			if (arg == "-conn") {
-				connections_mode = true;
-				continue;
-			}
-			if (arg == "-bits") {
-				bits_mode = true;
+			if (arg == "-buf") {
+				buf_mode = true;
 				continue;
 			}
 			if (arg == "-chain") {
 				chain_mode = true;
 				continue;
 			}
-			if (arg == "-chain-outputs") {
-				chain_outputs_mode = true;
+			if (arg == "-output") {
+				output_mode = true;
+				continue;
+			}
+			if (arg == "-public") {
+				public_mode = true;
+				continue;
+			}
+			if (arg == "-nochain") {
+				nochain_mode = true;
+				continue;
+			}
+			if (arg == "-nokeep") {
+				nokeep_mode = true;
 				continue;
 			}
 			if (arg == "-flat") {
-				flat_mode = true;
+				nochain_mode = true;
+				nokeep_mode = true;
 				continue;
 			}
 			if (arg == "-nosticky") {
@@ -104,21 +143,34 @@ struct BufnormPass : public Pass {
 				alphasort_mode = true;
 				continue;
 			}
-			//if (arg == "-buf" && argidx+3 < args.size()) {
-			//	buf_celltype = RTLIL::escape_id(args[++argidx]);
-			//	buf_inport = RTLIL::escape_id(args[++argidx]);
-			//	buf_outport = RTLIL::escape_id(args[++argidx]);
-			//	continue;
-			//}
+			if (arg == "-noinit") {
+				noinit_mode = true;
+				continue;
+			}
+			if (arg == "-pos") {
+				pos_mode = true;
+				continue;
+			}
+			if (arg == "-bits") {
+				bits_mode = true;
+				continue;
+			}
+			if (arg == "-conn") {
+				conn_mode = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
-		if (chain_mode && flat_mode)
-			log_cmd_error("Options -chain and -flat are exclusive.\n");
+		if (buf_mode && pos_mode)
+			log_cmd_error("Options -buf and -pos are exclusive.\n");
 
-		if (buf_celltype == IdString())
-			buf_celltype = bits_mode ? ID($_BUF_) : ID($pos);
+		if (buf_mode && conn_mode)
+			log_cmd_error("Options -buf and -conn are exclusive.\n");
+
+		if (pos_mode && conn_mode)
+			log_cmd_error("Options -pos and -conn are exclusive.\n");
 
 		for (auto module : design->selected_modules())
 		{
@@ -131,11 +183,11 @@ struct BufnormPass : public Pass {
 				vector<Cell*> old_buffers;
 				for (auto cell : module->cells())
 				{
-					if (cell->type != buf_celltype)
+					if (!cell->type.in(ID($buf), ID($_BUF_)))
 						continue;
 
-					SigSpec insig = sigmap(cell->getPort(buf_inport));
-					SigSpec outsig = sigmap(cell->getPort(buf_outport));
+					SigSpec insig = sigmap(cell->getPort(ID::A));
+					SigSpec outsig = sigmap(cell->getPort(ID::Y));
 					for (int i = 0; i < GetSize(insig) && i < GetSize(outsig); i++)
 						sigmap.add(insig[i], outsig[i]);
 					old_buffers.push_back(cell);
@@ -166,35 +218,65 @@ struct BufnormPass : public Pass {
 				}
 			}
 
-			struct {
-				bool alphasort_mode;
-				bool operator()(Wire *a, Wire *b) const
+			auto chain_this_wire_f = [&](Wire *wire)
+			{
+				if (chain_mode)
+					return true;
+
+				if (output_mode && wire->port_output)
+					return true;
+
+				if (public_mode && wire->name.isPublic())
+					return true;
+
+				if (!nokeep_mode && wire->get_bool_attribute(ID::keep))
+					return true;
+
+				if (!nochain_mode && wire->get_bool_attribute(ID::chain))
+					return true;
+
+				return false;
+			};
+
+			auto compare_wires_f = [&](Wire *a, Wire *b)
+			{
+				// Chaining wires first, then flat wires
+				bool chain_a = chain_this_wire_f(a);
+				bool chain_b = chain_this_wire_f(b);
+				if (chain_a != chain_b) return chain_a;
+
+				if (!alphasort_mode)
 				{
-					if (!alphasort_mode)
-					{
-						// Wires with keep attribute first
-						bool keep_a = a->get_bool_attribute(ID::keep);
-						bool keep_b = a->get_bool_attribute(ID::keep);
-						if (keep_a != keep_b) return keep_a;
-
-						// Ports before non-ports
-						if ((a->port_id != 0) != (b->port_id != 0))
-							return a->port_id != 0;
-
-						// Ports in declaration order
-						if (a->port_id != b->port_id)
-							return a->port_id < b->port_id;
+					// Wires with 'chain' attribute first, high values before low values
+					if (!nochain_mode) {
+						int chain_a_val = a->attributes.at(ID::chain, Const(0)).as_int();
+						int chain_b_val = b->attributes.at(ID::chain, Const(0)).as_int();
+						if (chain_a_val != chain_b_val) return chain_a_val > chain_b_val;
 					}
 
-					// Nets with public names first
-					if (a->name.isPublic() != b->name.isPublic())
-						return a->name.isPublic();
+					// Then wires with 'keep' attribute
+					if (!nokeep_mode) {
+						bool keep_a = a->get_bool_attribute(ID::keep);
+						bool keep_b = b->get_bool_attribute(ID::keep);
+						if (keep_a != keep_b) return keep_a;
+					}
 
-					// Otherwise just sort by name alphanumerically
-					return a->name.str() < b->name.str();
+					// Ports before non-ports
+					if ((a->port_id != 0) != (b->port_id != 0))
+						return a->port_id != 0;
+
+					// Ports in declaration order
+					if (a->port_id != b->port_id)
+						return a->port_id < b->port_id;
 				}
-			} compareWires;
-			compareWires.alphasort_mode = alphasort_mode;
+
+				// Nets with public names first
+				if (a->name.isPublic() != b->name.isPublic())
+					return a->name.isPublic();
+
+				// Otherwise just sort by name alphanumerically
+				return a->name.str() < b->name.str();
+			};
 
 			for (auto cell : module->cells())
 			{
@@ -213,7 +295,7 @@ struct BufnormPass : public Pass {
 						SigSpec keysig = sigmap(conn.second);
 						auto it = whole_wires.find(keysig);
 						if (it != whole_wires.end()) {
-							it->second.sort(compareWires);
+							it->second.sort(compare_wires_f);
 							w = *(it->second.begin());
 						} else {
 							w = module->addWire(NEW_ID, GetSize(conn.second));
@@ -236,14 +318,10 @@ struct BufnormPass : public Pass {
 
 			pool<Cell*> added_buffers;
 
-			unmapped_wires.sort(compareWires);
+			unmapped_wires.sort(compare_wires_f);
 			for (auto wire : unmapped_wires)
 			{
-				bool chain_this_wire = chain_mode;
-				if (!flat_mode && wire->get_bool_attribute(ID::keep))
-					chain_this_wire = true;
-				if (chain_outputs_mode && wire->port_output)
-					chain_this_wire = true;
+				bool chain_this_wire = chain_this_wire_f(wire);
 
 				SigSpec keysig = sigmap(wire), insig = wire, outsig = wire;
 				for (int i = 0; i < GetSize(insig); i++)
@@ -255,10 +333,10 @@ struct BufnormPass : public Pass {
 
 				log("  %s %s for %s -> %s\n",
 						chain_this_wire ? "chaining" : "adding",
-						connections_mode ? "connection" : "buffer",
+						conn_mode ? "connection" : "buffer",
 						log_signal(insig), log_signal(outsig));
 
-				if (connections_mode) {
+				if (conn_mode) {
 					if (bits_mode) {
 						for (int i = 0; i < GetSize(insig) && i < GetSize(outsig); i++)
 							module->connect(outsig[i], insig[i]);
@@ -267,17 +345,20 @@ struct BufnormPass : public Pass {
 					}
 				} else {
 					if (bits_mode) {
+						IdString celltype = pos_mode ? ID($pos) : buf_mode ? ID($buf) : ID($_BUF_);
 						for (int i = 0; i < GetSize(insig) && i < GetSize(outsig); i++) {
-							Cell *c = module->addCell(NEW_ID, buf_celltype);
-							c->setPort(buf_inport, insig[i]);
-							c->setPort(buf_outport, outsig[i]);
+							Cell *c = module->addCell(NEW_ID, celltype);
+							c->setPort(ID::A, insig[i]);
+							c->setPort(ID::Y, outsig[i]);
 							c->fixup_parameters();
 							added_buffers.insert(c);
 						}
 					} else {
-						Cell *c = module->addCell(NEW_ID, buf_celltype);
-						c->setPort(buf_inport, insig);
-						c->setPort(buf_outport, outsig);
+						IdString celltype = pos_mode ? ID($pos) : buf_mode ? ID($buf) :
+								GetSize(outsig) == 1 ? ID($_BUF_) : ID($buf);
+						Cell *c = module->addCell(NEW_ID, celltype);
+						c->setPort(ID::A, insig);
+						c->setPort(ID::Y, outsig);
 						c->fixup_parameters();
 						added_buffers.insert(c);
 					}
