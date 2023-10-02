@@ -364,7 +364,7 @@ struct EquivSimplePass : public Pass {
 					unproven_cells_counter, GetSize(unproven_equiv_cells), log_id(module));
 
 			for (auto cell : module->cells()) {
-				if (!ct.cell_known(cell->type) && !cell->type.in(ID($dff), ID($_DFF_P_), ID($_DFF_N_), ID($ff), ID($_FF_)))
+				if (!ct.cell_known(cell->type))
 					continue;
 				for (auto &conn : cell->connections())
 					if (yosys_celltypes.cell_output(cell->type, conn.first))
