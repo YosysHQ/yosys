@@ -74,7 +74,6 @@
 #include <errno.h>
 
 #include "libs/json11/json11.hpp"
-#include "devtools/build/runtime/get_runfiles_dir.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -984,8 +983,7 @@ void init_share_dirname()
 		return;
 	}
 #    ifdef YOSYS_DATDIR
-	proc_share_path = devtools_build::GetRunfilesDir() + "/";
-	proc_share_path += YOSYS_DATDIR "/";
+	proc_share_path = YOSYS_DATDIR "/";
 	if (check_file_exists(proc_share_path, true)) {
 		yosys_share_dirname = proc_share_path;
 		return;
