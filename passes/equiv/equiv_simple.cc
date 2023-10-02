@@ -133,11 +133,9 @@ struct EquivSimpleWorker
 
 			for (auto bit_a : seed_a)
 				find_input_cone(next_seed_a, full_cells_cone_a, full_bits_cone_a, no_stop_cells, no_stop_bits, nullptr, bit_a);
-			next_seed_a.clear();
 
 			for (auto bit_b : seed_b)
 				find_input_cone(next_seed_b, full_cells_cone_b, full_bits_cone_b, no_stop_cells, no_stop_bits, nullptr, bit_b);
-			next_seed_b.clear();
 
 			pool<Cell*> short_cells_cone_a, short_cells_cone_b;
 			pool<SigBit> short_bits_cone_a, short_bits_cone_b;
@@ -145,10 +143,12 @@ struct EquivSimpleWorker
 
 			if (short_cones)
 			{
+				next_seed_a.clear();
 				for (auto bit_a : seed_a)
 					find_input_cone(next_seed_a, short_cells_cone_a, short_bits_cone_a, full_cells_cone_b, full_bits_cone_b, &input_bits, bit_a);
 				next_seed_a.swap(seed_a);
 
+				next_seed_b.clear();
 				for (auto bit_b : seed_b)
 					find_input_cone(next_seed_b, short_cells_cone_b, short_bits_cone_b, full_cells_cone_a, full_bits_cone_a, &input_bits, bit_b);
 				next_seed_b.swap(seed_b);
