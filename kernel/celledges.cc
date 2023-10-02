@@ -174,24 +174,25 @@ void demux_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 
 void shift_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 {
-	int width = GetSize(cell->getPort(ID::A));
+	int a_width = GetSize(cell->getPort(ID::A));
 	int b_width = GetSize(cell->getPort(ID::B));
+	int y_width = GetSize(cell->getPort(ID::Y));
 
-	for (int i = 0; i < width; i++){
+	for (int i = 0; i < y_width; i++){
 		for (int k = 0; k < b_width; k++)
 			db->add_edge(cell, ID::B, k, ID::Y, i, -1);
 
 		if (cell->type.in(ID($shl), ID($sshl))) {
-			for (int k = i; k >= 0; k--)
+			for (int k = min(i, a_width); k >= 0; k--)
 				db->add_edge(cell, ID::A, k, ID::Y, i, -1);
 		}
 
 		if (cell->type.in(ID($shr), ID($sshr)))
-			for (int k = i; k < width; k++)
+			for (int k = i; k < a_width; k++)
 				db->add_edge(cell, ID::A, k, ID::Y, i, -1);
 
 		if (cell->type.in(ID($shift), ID($shiftx)))
-			for (int k = 0; k < width; k++)
+			for (int k = 0; k < a_width; k++)
 				db->add_edge(cell, ID::A, k, ID::Y, i, -1);
 	}
 }
