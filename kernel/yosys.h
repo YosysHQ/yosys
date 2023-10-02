@@ -275,8 +275,8 @@ int ceil_log2(int x) YS_ATTRIBUTE(const);
 
 inline std::string vstringf(const char *fmt, va_list ap)
 {
-        // For the common case of strings shorter than 128 (including the trailing
-        // '\0'), save a heap allocation by using a stack allocated buffer.
+        // For the common case of strings shorter than 128, save a heap
+        // allocation by using a stack allocated buffer.
         const int kBufSize = 128;
         char buf[kBufSize];
         buf[0] = '\0';
