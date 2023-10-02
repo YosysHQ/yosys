@@ -74,6 +74,7 @@
 #include <errno.h>
 
 #include "libs/json11/json11.hpp"
+#include "devtools/build/runtime/get_runfiles_dir.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -173,48 +174,6 @@ int ceil_log2(int x)
 			return i;
 	log_abort();
 #endif
-}
-
-std::string stringf(const char *fmt, ...)
-{
-	std::string string;
-	va_list ap;
-
-	va_start(ap, fmt);
-	string = vstringf(fmt, ap);
-	va_end(ap);
-
-	return string;
-}
-
-std::string vstringf(const char *fmt, va_list ap)
-{
-	std::string string;
-	char *str = NULL;
-
-#if defined(_WIN32 )|| defined(__CYGWIN__)
-	int sz = 64, rc;
-	while (1) {
-		va_list apc;
-		va_copy(apc, ap);
-		str = (char*)realloc(str, sz);
-		rc = vsnprintf(str, sz, fmt, apc);
-		va_end(apc);
-		if (rc >= 0 && rc < sz)
-			break;
-		sz *= 2;
-	}
-#else
-	if (vasprintf(&str, fmt, ap) < 0)
-		str = NULL;
-#endif
-
-	if (str != NULL) {
-		string = str;
-		free(str);
-	}
-
-	return string;
 }
 
 int readsome(std::istream &f, char *s, int n)
@@ -1025,7 +984,8 @@ void init_share_dirname()
 		return;
 	}
 #    ifdef YOSYS_DATDIR
-	proc_share_path = YOSYS_DATDIR "/";
+	proc_share_path = devtools_build::GetRunfilesDir() + "/";
+	proc_share_path += YOSYS_DATDIR "/";
 	if (check_file_exists(proc_share_path, true)) {
 		yosys_share_dirname = proc_share_path;
 		return;
