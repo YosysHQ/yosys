@@ -60,7 +60,7 @@ struct EquivSimpleWorker
 		for (auto &conn : cell->connections())
 			if (yosys_celltypes.cell_input(cell->type, conn.first))
 				for (auto bit : sigmap(conn.second)) {
-					if (cell->type.in(ID($dff), ID($_DFF_P_), ID($_DFF_N_), ID($ff), ID($_FF_))) {
+					if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
 						if (!conn.first.in(ID::CLK, ID::C))
 							next_seed.insert(bit);
 					} else
