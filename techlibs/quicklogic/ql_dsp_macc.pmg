@@ -1,48 +1,75 @@
 pattern ql_dsp_macc
+// Rough sketch: (mux is optional)
+//
+//               /-----------------------\
+//               |                       |
+//              \ /                      |
+//   mul ----> add -----> mux -----> ff -+---->
+//         |              /\
+//         |              |
+//          --------------
 
 state <IdString> add_ba
 state <IdString> mux_ab
 
-state <int> mul_nusers
-state <int> add_nusers
-state <int> mux_nusers
-state <int> ff_d_nusers
-state <int> ff_q_nusers
+// Is the output taken from before or after the FF?
+state <bool> output_registered
 
+// Is there a mux in the pattern?
+state <bool> mux_in_pattern
+
+code mux_in_pattern
+    mux_in_pattern = false;
+    branch;
+    mux_in_pattern = true;
+endcode
+
+// The multiplier is at the center of our pattern
 match mul
     select mul->type.in($mul)
+    // It has either two or three consumers depending on whether there's a mux
+    // in the pattern or not
     select nusers(port(mul, \Y)) <= 3
-    set mul_nusers nusers(port(mul, \Y))
+    filter nusers(port(mul, \Y)) == (mux_in_pattern ? 3 : 2)
 endmatch
+
+code output_registered
+    output_registered = false;
+    branch;
+    output_registered = true;
+endcode
 
 match add
     select add->type.in($add, $sub)
     choice <IdString> AB {\A, \B}
     define <IdString> BA (AB == \A ? \B : \A)
+    // One input to the adder is fed by the multiplier
     index <SigSpec> port(add, AB) === port(mul, \Y)
-    select nusers(port(add, \Y)) <= 3
-    set add_nusers nusers(port(add, \Y))
+    // Save the other input port, it needs to be fed by the flip-flop
     set add_ba BA
+    // Adder has either two or three consumers; it will have three consumers
+    // IFF there's no mux in the pattern and the multiplier-accumulator result
+    // is taken unregistered
+    filter nusers(port(add, \Y)) == (!mux_in_pattern && !output_registered ? 3 : 2)
 endmatch
 
 match mux
+    if mux_in_pattern
     select mux->type.in($mux)
     choice <IdString> AB {\A, \B}
     define <IdString> BA (AB == \A ? \B : \A)
     index <SigSpec> port(mux, AB) === port(mul, \Y)
     index <SigSpec> port(mux, BA) === port(add, \Y)
-    select nusers(port(mux, \Y)) <= 3
-    set mux_nusers nusers(port(mux, \Y))
+    filter nusers(port(mux, \Y)) == (output_registered ? 2 : 3)
     set mux_ab AB
-    optional
 endmatch
 
 match ff
     select ff->type.in($dff, $adff, $dffe, $adffe)
-    index <SigSpec> port(ff, \D) === (mux == nullptr ? port(add, \Y) : port(mux, \Y))
+    select param(ff, \CLK_POLARITY).as_bool()
+    index <SigSpec> port(ff, \D) === mux_in_pattern ? port(mux, \Y) : port(add, \Y);
     index <SigSpec> port(ff, \Q) === port(add, add_ba)
-    set ff_d_nusers nusers(port(ff, \D))
-    set ff_q_nusers nusers(port(ff, \Q))
+    filter nusers(port(ff, \Q)) == (output_registered ? 3 : 2)
 endmatch
 
 code
