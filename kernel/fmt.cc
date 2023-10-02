@@ -114,6 +114,8 @@ void Fmt::parse_rtlil(const RTLIL::Cell *cell) {
 				} else if (fmt[i] == 'r') {
 					part.type = FmtPart::TIME;
 					part.realtime = true;
+				} else if (fmt[i] == 'm') {
+					part.type = FmtPart::HIERNAME;
 				} else {
 					log_assert(false && "Unexpected character in format substitution");
 				}
@@ -173,6 +175,7 @@ void Fmt::emit_rtlil(RTLIL::Cell *cell) const {
 				break;
 
 			case FmtPart::TIME:
+			case FmtPart::HIERNAME:
 				log_assert(part.sig.size() == 0);
 				YS_FALLTHROUGH
 			case FmtPart::CHARACTER:
@@ -210,6 +213,8 @@ void Fmt::emit_rtlil(RTLIL::Cell *cell) const {
 						fmt += 'r';
 					else
 						fmt += 't';
+				} else if (part.type == FmtPart::HIERNAME) {
+					fmt += 'm';
 				} else log_abort();
 				fmt += '}';
 				break;
@@ -340,9 +345,6 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 						} else if (fmt.substr(i, 2) == "%l" || fmt.substr(i, 2) == "%L") {
 							i++;
 							part.str += module_name.str();
-						} else if (fmt.substr(i, 2) == "%m" || fmt.substr(i, 2) == "%M") {
-							i++;
-							part.str += module_name.str();
 						} else {
 							if (!part.str.empty()) {
 								part.type = FmtPart::STRING;
@@ -352,12 +354,6 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 							if (++i == fmt.size()) {
 								log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with incomplete format specifier in argument %zu.\n", task_name.c_str(), fmtarg - args.begin() + 1);
 							}
-
-							if (++arg == args.end()) {
-								log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with fewer arguments than the format specifiers in argument %zu require.\n", task_name.c_str(), fmtarg - args.begin() + 1);
-							}
-							part.sig = arg->sig;
-							part.signed_ = arg->signed_;
 
 							for (; i < fmt.size(); i++) {
 								if (fmt[i] == '-') {
@@ -408,14 +404,11 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 									// %10s and %010s not fully defined in IEEE 1800-2017 and do the same thing in iverilog
 									part.padding = ' ';
 								} else if (fmt[i] == 't' || fmt[i] == 'T') {
-									if (arg->type == VerilogFmtArg::TIME) {
-										part.type = FmtPart::TIME;
-										part.realtime = arg->realtime;
-										if (!has_width && !has_leading_zero)
-											part.width = 20;
-									} else {
-										log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with format character `%c' in argument %zu, but the argument is not $time or $realtime.\n", task_name.c_str(), fmt[i], fmtarg - args.begin() + 1);
-									}
+									part.type = FmtPart::TIME;
+									if (!has_width && !has_leading_zero)
+										part.width = 20;
+								} else if (fmt[i] == 'm' || fmt[i] == 'M') {
+									part.type = FmtPart::HIERNAME;
 								} else {
 									log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with unrecognized format character `%c' in argument %zu.\n", task_name.c_str(), fmt[i], fmtarg - args.begin() + 1);
 								}
@@ -423,6 +416,22 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 							}
 							if (i == fmt.size()) {
 								log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with incomplete format specifier in argument %zu.\n", task_name.c_str(), fmtarg - args.begin() + 1);
+							}
+
+							if (part.type != FmtPart::HIERNAME) {
+								if (++arg == args.end()) {
+									log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with fewer arguments than the format specifiers in argument %zu require.\n", task_name.c_str(), fmtarg - args.begin() + 1);
+								}
+								part.sig = arg->sig;
+								part.signed_ = arg->signed_;
+
+								if (part.type == VerilogFmtArg::TIME) {
+									if (arg->type == VerilogFmtArg::TIME) {
+										part.realtime = arg->realtime;
+									} else {
+										log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with format character `%c' in argument %zu, but the argument is not $time or $realtime.\n", task_name.c_str(), fmt[i], fmtarg - args.begin() + 1);
+									}
+								}
 							}
 
 							if (part.padding == '\0')
@@ -551,6 +560,23 @@ std::vector<VerilogFmtArg> Fmt::emit_verilog() const
 				break;
 			}
 
+			case FmtPart::HIERNAME: {
+				VerilogFmtArg arg;
+				arg.type = VerilogFmtArg::HIERNAME;
+				args.push_back(arg);
+				fmt.str += '%';
+				if (part.plus)
+					fmt.str += '+';
+				if (part.justify == FmtPart::LEFT)
+					fmt.str += '-';
+				log_assert(part.padding == ' ' || part.padding == '0');
+				if (part.padding == '0' && part.width > 0)
+					fmt.str += '0';
+				fmt.str += std::to_string(part.width);
+				fmt.str += 'm';
+				break;
+			}
+
 			default: log_abort();
 		}
 	}
@@ -637,7 +663,7 @@ void Fmt::emit_cxxrtl(std::ostream &f, std::function<void(const RTLIL::SigSpec &
 	}
 }
 
-std::string Fmt::render() const
+std::string Fmt::render(const std::string &hiername, int time) const
 {
 	std::string str;
 
@@ -649,7 +675,8 @@ std::string Fmt::render() const
 
 			case FmtPart::INTEGER:
 			case FmtPart::TIME:
-			case FmtPart::CHARACTER: {
+			case FmtPart::CHARACTER:
+			case FmtPart::HIERNAME: {
 				std::string buf;
 				if (part.type == FmtPart::INTEGER) {
 					RTLIL::Const value = part.sig.as_const();
@@ -734,7 +761,9 @@ std::string Fmt::render() const
 					buf = part.sig.as_const().decode_string();
 				} else if (part.type == FmtPart::TIME) {
 					// We only render() during initial, so time is always zero.
-					buf = "0";
+					buf = stringf("%d", time);
+				} else if (part.type == FmtPart::HIERNAME) {
+					buf = hiername;
 				}
 
 				log_assert(part.width == 0 || part.padding != '\0');

@@ -28,9 +28,10 @@ YOSYS_NAMESPACE_BEGIN
 //   $display("foo %d bar %01x", 4'b0, $signed(2'b11))
 struct VerilogFmtArg {
 	enum {
-		STRING  = 0,
-		INTEGER = 1,
-		TIME    = 2,
+		STRING   = 0,
+		INTEGER  = 1,
+		TIME     = 2,
+		HIERNAME = 3,
 	} type;
 
 	// All types
@@ -56,6 +57,7 @@ struct FmtPart {
 		INTEGER 	= 1,
 		CHARACTER = 2,
 		TIME    	= 3,
+		HIERNAME    = 4,
 	} type;
 
 	// STRING type
@@ -95,7 +97,7 @@ public:
 
 	void emit_cxxrtl(std::ostream &f, std::function<void(const RTLIL::SigSpec &)> emit_sig) const;
 
-	std::string render() const;
+	std::string render(const std::string &hiername, int time = 0) const;
 
 private:
 	void apply_verilog_automatic_sizing_and_add(FmtPart &part);

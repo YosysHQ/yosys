@@ -287,7 +287,7 @@ namespace AST
 		bool is_simple_const_expr();
 
 		// helper for parsing format strings
-		Fmt processFormat(int stage, bool sformat_like, int default_base = 10, size_t first_arg_at = 0);
+		Fmt processFormat(int stage, bool sformat_like, int default_base = 10, size_t first_arg_at = 0, bool required = true);
 
 		bool is_recursive_function() const;
 		std::pair<AstNode*, AstNode*> get_tern_choice();

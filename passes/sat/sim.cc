@@ -88,6 +88,17 @@ struct TriggeredAssertion {
 	{ }
 };
 
+struct DisplayOutput {
+	int step;
+	SimInstance *instance;
+	Cell *cell;
+	std::string output;
+
+	DisplayOutput(int step, SimInstance *instance, Cell *cell, std::string output) :
+		step(step), instance(instance), cell(cell), output(output)
+	{ }
+};
+
 struct SimShared
 {
 	bool debug = false;
@@ -109,7 +120,9 @@ struct SimShared
 	bool multiclock = false;
 	int next_output_id = 0;
 	int step = 0;
+	int trace_time = 0;
 	std::vector<TriggeredAssertion> triggered_assertions;
+	std::vector<DisplayOutput> display_output;
 	bool serious_asserts = false;
 };
 
@@ -839,8 +852,9 @@ struct SimInstance
 					pos += part.sig.size();
 				}
 
-				std::string rendered = print.fmt.render();
+				std::string rendered = print.fmt.render(hiername(), shared->trace_time);
 				log("%s", rendered.c_str());
+				shared->display_output.emplace_back(shared->step, this, cell, rendered);
 			}
 
 		update_print:
@@ -1279,8 +1293,9 @@ struct SimWorker : SimShared
 		}
 	}
 
-	void update(bool gclk)
+	void update(bool gclk, int trace_time)
 	{
+		this->trace_time = trace_time;
 		if (gclk)
 			step += 1;
 
@@ -1356,7 +1371,7 @@ struct SimWorker : SimShared
 		set_inports(clock, State::Sx);
 		set_inports(clockn, State::Sx);
 
-		update(false);
+		update(false, 0);
 
 		register_output_step(0);
 
@@ -1369,7 +1384,7 @@ struct SimWorker : SimShared
 			set_inports(clock, State::S0);
 			set_inports(clockn, State::S1);
 
-			update(true);
+			update(true, 10*cycle + 5);
 			register_output_step(10*cycle + 5);
 
 			if (debug)
@@ -1385,7 +1400,7 @@ struct SimWorker : SimShared
 				set_inports(resetn, State::S1);
 			}
 
-			update(true);
+			update(true, 10*cycle + 10);
 			register_output_step(10*cycle + 10);
 		}
 
@@ -1497,7 +1512,7 @@ struct SimWorker : SimShared
 					initial = false;
 				}
 				if (did_something)
-					update(true);
+					update(true, time);
 				register_output_step(time);
 
 				bool status = top->checkSignals();
@@ -1641,12 +1656,12 @@ struct SimWorker : SimShared
 						set_inports(clock, State::S0);
 						set_inports(clockn, State::S1);
 					}
-					update(true);
+					update(true, 10*cycle);
 					register_output_step(10*cycle);
 					if (!multiclock && cycle) {
 						set_inports(clock, State::S0);
 						set_inports(clockn, State::S1);
-						update(true);
+						update(true, 10*cycle + 5);
 						register_output_step(10*cycle + 5);
 					}
 					cycle++;
@@ -1718,12 +1733,12 @@ struct SimWorker : SimShared
 						log("Simulating cycle %d.\n", cycle);
 					set_inports(clock, State::S1);
 					set_inports(clockn, State::S0);
-					update(true);
+					update(true, 10*cycle+0);
 					register_output_step(10*cycle+0);
 					if (!multiclock) {
 						set_inports(clock, State::S0);
 						set_inports(clockn, State::S1);
-						update(true);
+						update(true, 10*cycle+5);
 						register_output_step(10*cycle+5);
 					}
 					cycle++;
@@ -1963,7 +1978,7 @@ struct SimWorker : SimShared
 				if (debug)
 					log("Simulating non-active clock edge.\n");
 				set_yw_clocks(yw, hierarchy, false);
-				update(false);
+				update(false, 5);
 				register_output_step(5);
 			}
 			top->set_initstate_outputs(State::S0);
@@ -1976,14 +1991,14 @@ struct SimWorker : SimShared
 			if (cycle < GetSize(yw.steps))
 				set_yw_state(yw, hierarchy, cycle);
 			set_yw_clocks(yw, hierarchy, true);
-			update(true);
+			update(true, 10 * cycle);
 			register_output_step(10 * cycle);
 
 			if (!yw.clocks.empty()) {
 				if (debug)
 					log("Simulating non-active clock edge.\n");
 				set_yw_clocks(yw, hierarchy, false);
-				update(false);
+				update(false, 5 + 10 * cycle);
 				register_output_step(5 + 10 * cycle);
 			}
 		}
@@ -2017,6 +2032,20 @@ struct SimWorker : SimShared
 			if (!src.empty()) {
 				json.entry("src", src);
 			}
+			json.end_object();
+		}
+		json.end_array();
+		json.name("display_output");
+		json.begin_array();
+		for (auto &output : display_output) {
+			json.begin_object();
+			json.entry("step", output.step);
+			json.entry("path", output.instance->witness_full_path(output.cell));
+			auto src = output.cell->get_string_attribute(ID::src);
+			if (!src.empty()) {
+				json.entry("src", src);
+			}
+			json.entry("output", output.output);
 			json.end_object();
 		}
 		json.end_array();
