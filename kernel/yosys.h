@@ -343,11 +343,6 @@ bool is_absolute_path(std::string filename);
 void remove_directory(std::string dirname);
 std::string escape_filename_spaces(const std::string& filename);
 
-using ys_size_type = int64_t;  // Large enough to deal with large number of data, but also not experiencing unsigned overflow.
-
-// TODO(hzeller): these need to return ys_size_type, but in the course of
-// refactoring, each type will be handled separately (and gets their own GetSize() function). After all
-// size types are converted, this template can be changed to return ys_size_type.
 template<typename T> int GetSize(const T &obj) { return obj.size(); }
 inline int GetSize(RTLIL::Wire *wire);
 
