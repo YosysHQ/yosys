@@ -316,7 +316,9 @@ inline std::string vstringf(const char *fmt, va_list ap)
 #endif
 }
 
-inline std::string stringf(const char *fmt, ...) YS_ATTRIBUTE(format(printf, 1, 2))
+std::string stringf(const char *fmt, ...) YS_ATTRIBUTE(format(printf, 1, 2));
+
+inline std::string stringf(const char *fmt, ...)
 {
 	std::string string;
 	va_list ap;
