@@ -29,235 +29,169 @@ PRIVATE_NAMESPACE_BEGIN
 
 static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
 {
-	auto &st = pm.st_ql_dsp_macc;
+    auto &st = pm.st_ql_dsp_macc;
 
-	// Reject if multiplier drives anything else than either $add or $add and
-	// $mux
-	if (st.mux == nullptr && st.mul_nusers > 2) {
-		return;
-	}
+    // Get port widths
+    size_t a_width = GetSize(st.mul->getPort(ID(A)));
+    size_t b_width = GetSize(st.mul->getPort(ID(B)));
+    size_t z_width = GetSize(st.ff->getPort(ID(Q)));
 
-	// Determine whether the output is taken from before or after the ff
-	bool out_ff;
-	if (st.ff_d_nusers == 2 && st.ff_q_nusers == 3) {
-		out_ff = true;
-	} else if (st.ff_d_nusers == 3 && st.ff_q_nusers == 2) {
-		out_ff = false;
-	} else {
-		// Illegal, cannot take the two outputs simulataneously
-		return;
-	}
+    size_t min_width = std::min(a_width, b_width);
+    size_t max_width = std::max(a_width, b_width);
 
-	// No mux, the adder can driver either the ff or the ff + output
-	if (st.mux == nullptr) {
-		if (out_ff && st.add_nusers != 2) {
-			return;
-		}
-		if (!out_ff && st.add_nusers != 3) {
-			return;
-		}
-	}
-	// Mux present, the adder cannot drive anything else
-	else {
-		if (st.add_nusers != 2) {
-			return;
-		}
-	}
+    // Signed / unsigned
+    bool ab_signed = st.mul->getParam(ID(A_SIGNED)).as_bool();
+    log_assert(ab_signed == st.mul->getParam(ID(B_SIGNED)).as_bool());
 
-	// Mux can driver either the ff or the ff + output
-	if (st.mux != nullptr) {
-		if (out_ff && st.mux_nusers != 2) {
-			return;
-		}
-		if (!out_ff && st.mux_nusers != 3) {
-			return;
-		}
-	}
+    // Determine DSP type or discard if too narrow / wide
+    RTLIL::IdString type;
+    size_t tgt_a_width;
+    size_t tgt_b_width;
+    size_t tgt_z_width;
 
-	// Accept only posedge clocked FFs
-	if (st.ff->getParam(ID(CLK_POLARITY)).as_int() != 1) {
-		return;
-	}
+    string cell_base_name = "dsp_t1";
+    string cell_size_name = "";
+    string cell_cfg_name = "";
+    string cell_full_name = "";
 
-	// Get port widths
-	size_t a_width = GetSize(st.mul->getPort(ID(A)));
-	size_t b_width = GetSize(st.mul->getPort(ID(B)));
-	size_t z_width = GetSize(st.ff->getPort(ID(Q)));
+    if (min_width <= 2 && max_width <= 2 && z_width <= 4) {
+        log_debug("\trejected: too narrow (%zd %zd %zd)\n", min_width, max_width, z_width);
+        return;
+    } else if (min_width <= 9 && max_width <= 10 && z_width <= 19) {
+        cell_size_name = "_10x9x32";
+        tgt_a_width = 10;
+        tgt_b_width = 9;
+        tgt_z_width = 19;
+    } else if (min_width <= 18 && max_width <= 20 && z_width <= 38) {
+        cell_size_name = "_20x18x64";
+        tgt_a_width = 20;
+        tgt_b_width = 18;
+        tgt_z_width = 38;
+    } else {
+        log_debug("\trejected: too wide (%zd %zd %zd)\n", min_width, max_width, z_width);
+        return;
+    }
 
-	size_t min_width = std::min(a_width, b_width);
-	size_t max_width = std::max(a_width, b_width);
+    type = RTLIL::escape_id(cell_base_name + cell_size_name + "_cfg_ports");
+    log("Inferring MACC %zux%zu->%zu as %s from:\n", a_width, b_width, z_width, log_id(type));
 
-	// Signed / unsigned
-	bool a_signed = st.mul->getParam(ID(A_SIGNED)).as_bool();
-	bool b_signed = st.mul->getParam(ID(B_SIGNED)).as_bool();
+    for (auto cell : {st.mul, st.add, st.mux, st.ff})
+    if (cell)
+        log("  %s (%s)\n", log_id(cell), log_id(cell->type));
 
-	// Determine DSP type or discard if too narrow / wide
-	RTLIL::IdString type;
-	size_t tgt_a_width;
-	size_t tgt_b_width;
-	size_t tgt_z_width;
+    // Add the DSP cell
+    RTLIL::Cell *cell = pm.module->addCell(NEW_ID, type);
 
-	string cell_base_name = "dsp_t1";
-	string cell_size_name = "";
-	string cell_cfg_name = "";
-	string cell_full_name = "";
+    // Set attributes
+    cell->set_bool_attribute(ID(is_inferred), true);
 
-	if (min_width <= 2 && max_width <= 2 && z_width <= 4) {
-		// Too narrow
-		return;
-	} else if (min_width <= 9 && max_width <= 10 && z_width <= 19) {
-		cell_size_name = "_10x9x32";
-		tgt_a_width = 10;
-		tgt_b_width = 9;
-		tgt_z_width = 19;
-	} else if (min_width <= 18 && max_width <= 20 && z_width <= 38) {
-		cell_size_name = "_20x18x64";
-		tgt_a_width = 20;
-		tgt_b_width = 18;
-		tgt_z_width = 38;
-	} else {
-		// Too wide
-		return;
-	}
+    // Get input/output data signals
+    RTLIL::SigSpec sig_a, sig_b, sig_z;
+    sig_a = st.mul->getPort(ID(A));
+    sig_b = st.mul->getPort(ID(B));
+    sig_z = st.output_registered ? st.ff->getPort(ID(Q)) : st.ff->getPort(ID(D));
 
-	cell_cfg_name = "_cfg_ports"; // TODO: remove
-	cell_full_name = cell_base_name + cell_size_name + cell_cfg_name;
+    if (a_width < b_width)
+        std::swap(sig_a, sig_b);
 
-	type = RTLIL::escape_id(cell_full_name);
-	log("Inferring MACC %zux%zu->%zu as %s from:\n", a_width, b_width, z_width, RTLIL::unescape_id(type).c_str());
+    // Connect input data ports, sign extend / pad with zeros
+    sig_a.extend_u0(tgt_a_width, ab_signed);
+    sig_b.extend_u0(tgt_b_width, ab_signed);
+    cell->setPort(ID(a_i), sig_a);
+    cell->setPort(ID(b_i), sig_b);
 
-	for (auto cell : {st.mul, st.add, st.mux, st.ff}) {
-		if (cell != nullptr) {
-			log(" %s (%s)\n", RTLIL::unescape_id(cell->name).c_str(), RTLIL::unescape_id(cell->type).c_str());
-		}
-	}
+    // Connect output data port, pad if needed
+    if ((size_t) GetSize(sig_z) < tgt_z_width) {
+        auto *wire = pm.module->addWire(NEW_ID, tgt_z_width - GetSize(sig_z));
+        sig_z.append(wire);
+    }
+    cell->setPort(ID(z_o), sig_z);
 
-	// Build the DSP cell name
-	std::string name;
-	name += RTLIL::unescape_id(st.mul->name) + "_";
-	name += RTLIL::unescape_id(st.add->name) + "_";
-	if (st.mux != nullptr) {
-		name += RTLIL::unescape_id(st.mux->name) + "_";
-	}
-	name += RTLIL::unescape_id(st.ff->name);
+    // Connect clock, reset and enable
+    cell->setPort(ID(clock_i), st.ff->getPort(ID(CLK)));
 
-	// Add the DSP cell
-	RTLIL::Cell *cell = pm.module->addCell(RTLIL::escape_id(name), type);
+    RTLIL::SigSpec rst;
+    RTLIL::SigSpec ena;
 
-	// Set attributes
-	cell->set_bool_attribute(RTLIL::escape_id("is_inferred"), true);
+    if (st.ff->hasPort(ID(ARST))) {
+        if (st.ff->getParam(ID(ARST_POLARITY)).as_int() != 1) {
+            rst = pm.module->Not(NEW_ID, st.ff->getPort(ID(ARST)));
+        } else {
+            rst = st.ff->getPort(ID(ARST));
+        }
+    } else {
+        rst = RTLIL::SigSpec(RTLIL::S0);
+    }
 
-	// Get input/output data signals
-	RTLIL::SigSpec sig_a;
-	RTLIL::SigSpec sig_b;
-	RTLIL::SigSpec sig_z;
+    if (st.ff->hasPort(ID(EN))) {
+        if (st.ff->getParam(ID(EN_POLARITY)).as_int() != 1) {
+            ena = pm.module->Not(NEW_ID, st.ff->getPort(ID(EN)));
+        } else {
+            ena = st.ff->getPort(ID(EN));
+        }
+    } else {
+        ena = RTLIL::SigSpec(RTLIL::S1);
+    }
 
-	if (a_width >= b_width) {
-		sig_a = st.mul->getPort(ID(A));
-		sig_b = st.mul->getPort(ID(B));
-	} else {
-		sig_a = st.mul->getPort(ID(B));
-		sig_b = st.mul->getPort(ID(A));
-	}
+    cell->setPort(ID(reset_i), rst);
+    cell->setPort(ID(load_acc_i), ena);
 
-	sig_z = out_ff ? st.ff->getPort(ID(Q)) : st.ff->getPort(ID(D));
+    // Insert feedback_i control logic used for clearing / loading the accumulator
+    if (st.mux_in_pattern) {
+        RTLIL::SigSpec sig_s = st.mux->getPort(ID(S));
 
-	// Connect input data ports, sign extend / pad with zeros
-	sig_a.extend_u0(tgt_a_width, a_signed);
-	sig_b.extend_u0(tgt_b_width, b_signed);
-	cell->setPort(RTLIL::escape_id("a_i"), sig_a);
-	cell->setPort(RTLIL::escape_id("b_i"), sig_b);
+        // Depending on the mux port ordering insert inverter if needed
+        log_assert(st.mux_ab.in(ID(A), ID(B)));
+        if (st.mux_ab == ID(A))
+            sig_s = pm.module->Not(NEW_ID, sig_s);
 
-	// Connect output data port, pad if needed
-	if ((size_t)GetSize(sig_z) < tgt_z_width) {
-		auto *wire = pm.module->addWire(NEW_ID, tgt_z_width - GetSize(sig_z));
-		sig_z.append(wire);
-	}
-	cell->setPort(RTLIL::escape_id("z_o"), sig_z);
+        // Assemble the full control signal for the feedback_i port
+        RTLIL::SigSpec sig_f;
+        sig_f.append(sig_s);
+        sig_f.append(RTLIL::S0);
+        sig_f.append(RTLIL::S0);
+        cell->setPort(ID(feedback_i), sig_f);
+    }
+    // No acc clear/load
+    else {
+        cell->setPort(ID(feedback_i), RTLIL::SigSpec(RTLIL::S0, 3));
+    }
 
-	// Connect clock, reset and enable
-	cell->setPort(RTLIL::escape_id("clock_i"), st.ff->getPort(ID(CLK)));
+    // Connect control ports
+    cell->setPort(ID(unsigned_a_i), RTLIL::SigSpec(ab_signed ? RTLIL::S0 : RTLIL::S1));
+    cell->setPort(ID(unsigned_b_i), RTLIL::SigSpec(ab_signed ? RTLIL::S0 : RTLIL::S1));
 
-	RTLIL::SigSpec rst;
-	RTLIL::SigSpec ena;
+    // Connect config bits
+    cell->setPort(ID(saturate_enable_i), RTLIL::SigSpec(RTLIL::S0));
+    cell->setPort(ID(shift_right_i), RTLIL::SigSpec(RTLIL::S0, 6));
+    cell->setPort(ID(round_i), RTLIL::SigSpec(RTLIL::S0));
+    cell->setPort(ID(register_inputs_i), RTLIL::SigSpec(RTLIL::S0));
+    // 3 - output post acc; 1 - output pre acc
+    cell->setPort(ID(output_select_i), RTLIL::Const(st.output_registered ? 1 : 3, 3));
 
-	if (st.ff->hasPort(ID(ARST))) {
-		if (st.ff->getParam(ID(ARST_POLARITY)).as_int() != 1) {
-			rst = pm.module->Not(NEW_ID, st.ff->getPort(ID(ARST)));
-		} else {
-			rst = st.ff->getPort(ID(ARST));
-		}
-	} else {
-		rst = RTLIL::SigSpec(RTLIL::S0);
-	}
+    bool subtract = (st.add->type == ID($sub));
+    cell->setPort(ID(subtract_i), RTLIL::SigSpec(subtract ? RTLIL::S1 : RTLIL::S0));
 
-	if (st.ff->hasPort(ID(EN))) {
-		if (st.ff->getParam(ID(EN_POLARITY)).as_int() != 1) {
-			ena = pm.module->Not(NEW_ID, st.ff->getPort(ID(EN)));
-		} else {
-			ena = st.ff->getPort(ID(EN));
-		}
-	} else {
-		ena = RTLIL::SigSpec(RTLIL::S1);
-	}
-
-	cell->setPort(RTLIL::escape_id("reset_i"), rst);
-	cell->setPort(RTLIL::escape_id("load_acc_i"), ena);
-
-	// Insert feedback_i control logic used for clearing / loading the accumulator
-	if (st.mux != nullptr) {
-		RTLIL::SigSpec sig_s = st.mux->getPort(ID(S));
-
-		// Depending on the mux port ordering insert inverter if needed
-		log_assert(st.mux_ab == ID(A) || st.mux_ab == ID(B));
-		if (st.mux_ab == ID(A)) {
-			sig_s = pm.module->Not(NEW_ID, sig_s);
-		}
-
-		// Assemble the full control signal for the feedback_i port
-		RTLIL::SigSpec sig_f;
-		sig_f.append(sig_s);
-		sig_f.append(RTLIL::S0);
-		sig_f.append(RTLIL::S0);
-		cell->setPort(RTLIL::escape_id("feedback_i"), sig_f);
-	}
-	// No acc clear/load
-	else {
-		cell->setPort(RTLIL::escape_id("feedback_i"), RTLIL::SigSpec(RTLIL::S0, 3));
-	}
-
-	// Connect control ports
-	cell->setPort(RTLIL::escape_id("unsigned_a_i"), RTLIL::SigSpec(a_signed ? RTLIL::S0 : RTLIL::S1));
-	cell->setPort(RTLIL::escape_id("unsigned_b_i"), RTLIL::SigSpec(b_signed ? RTLIL::S0 : RTLIL::S1));
-
-	// Connect config bits
-	cell->setPort(RTLIL::escape_id("saturate_enable_i"), RTLIL::SigSpec(RTLIL::S0));
-	cell->setPort(RTLIL::escape_id("shift_right_i"), RTLIL::SigSpec(RTLIL::S0, 6));
-	cell->setPort(RTLIL::escape_id("round_i"), RTLIL::SigSpec(RTLIL::S0));
-	cell->setPort(RTLIL::escape_id("register_inputs_i"), RTLIL::SigSpec(RTLIL::S0));
-	// 3 - output post acc; 1 - output pre acc
-	cell->setPort(RTLIL::escape_id("output_select_i"), out_ff ? RTLIL::Const(1, 3) : RTLIL::Const(3, 3));
-
-	bool subtract = (st.add->type == RTLIL::escape_id("$sub"));
-	cell->setPort(RTLIL::escape_id("subtract_i"), RTLIL::SigSpec(subtract ? RTLIL::S1 : RTLIL::S0));
-
-	// Mark the cells for removal
-	pm.autoremove(st.mul);
-	pm.autoremove(st.add);
-	if (st.mux != nullptr) {
-		pm.autoremove(st.mux);
-	}
-	pm.autoremove(st.ff);
+    // Mark the cells for removal
+    pm.autoremove(st.mul);
+    pm.autoremove(st.add);
+    if (st.mux != nullptr) {
+        pm.autoremove(st.mux);
+    }
+    pm.autoremove(st.ff);
 }
 
 struct QlDspMacc : public Pass {
-
-	QlDspMacc() : Pass("ql_dsp_macc", "Does something") {}
+	QlDspMacc() : Pass("ql_dsp_macc", "infer QuickLogic multiplier-accumulator DSP cells") {}
 
 	void help() override
 	{
+        //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    ql_dsp_macc [options] [selection]\n");
+		log("    ql_dsp_macc [selection]\n");
+        log("\n");
+        log("This pass looks for a multiply-accumulate pattern based on which it infers a\n");
+        log("QuickLogic DSP cell.\n");
 		log("\n");
 	}
 
@@ -271,9 +205,8 @@ struct QlDspMacc : public Pass {
 		}
 		extra_args(a_Args, argidx, a_Design);
 
-		for (auto module : a_Design->selected_modules()) {
+		for (auto module : a_Design->selected_modules())
 			ql_dsp_macc_pm(module, module->selected_cells()).run_ql_dsp_macc(create_ql_macc_dsp);
-		}
 	}
 
 } QlDspMacc;
