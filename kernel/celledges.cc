@@ -172,6 +172,30 @@ void demux_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 	}
 }
 
+void shift_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
+{
+	int width = GetSize(cell->getPort(ID::A));
+	int b_width = GetSize(cell->getPort(ID::B));
+
+	for (int i = 0; i < width; i++){
+		for (int k = 0; k < b_width; k++)
+			db->add_edge(cell, ID::B, k, ID::Y, i, -1);
+
+		if (cell->type.in(ID($shl), ID($sshl))) {
+			for (int k = i; k >= 0; k--)
+				db->add_edge(cell, ID::A, k, ID::Y, i, -1);
+		}
+
+		if (cell->type.in(ID($shr), ID($sshr)))
+			for (int k = i; k < width; k++)
+				db->add_edge(cell, ID::A, k, ID::Y, i, -1);
+
+		if (cell->type.in(ID($shift), ID($shiftx)))
+			for (int k = 0; k < width; k++)
+				db->add_edge(cell, ID::A, k, ID::Y, i, -1);
+	}
+}
+
 PRIVATE_NAMESPACE_END
 
 bool YOSYS_NAMESPACE_PREFIX AbstractCellEdgesDatabase::add_edges_from_cell(RTLIL::Cell *cell)
@@ -201,11 +225,10 @@ bool YOSYS_NAMESPACE_PREFIX AbstractCellEdgesDatabase::add_edges_from_cell(RTLIL
 		return true;
 	}
 
-	// FIXME:
-	// if (cell->type.in(ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx))) {
-	// 	shift_op(this, cell);
-	// 	return true;
-	// }
+	if (cell->type.in(ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx))) {
+		shift_op(this, cell);
+		return true;
+	}
 
 	if (cell->type.in(ID($lt), ID($le), ID($eq), ID($ne), ID($eqx), ID($nex), ID($ge), ID($gt))) {
 		compare_op(this, cell);
@@ -227,8 +250,17 @@ bool YOSYS_NAMESPACE_PREFIX AbstractCellEdgesDatabase::add_edges_from_cell(RTLIL
 		return true;
 	}
 
-	// FIXME: $mul $div $mod $divfloor $modfloor $slice $concat
-	// FIXME: $lut $sop $alu $lcu $macc $fa
+	// FIXME: $mul $div $mod $divfloor $modfloor $pow $slice $concat $bweqx
+	// FIXME: $lut $sop $alu $lcu $macc $fa $logic_and $logic_or $bwmux
+
+	// FIXME: $_BUF_ $_NOT_ $_AND_ $_NAND_ $_OR_ $_NOR_ $_XOR_ $_XNOR_ $_ANDNOT_ $_ORNOT_
+	// FIXME: $_MUX_ $_NMUX_ $_MUX4_ $_MUX8_ $_MUX16_ $_AOI3_ $_OAI3_ $_AOI4_ $_OAI4_
+
+	// FIXME: $specify2 $specify3 $specrule ???
+	// FIXME: $equiv $set_tag $get_tag $overwrite_tag $original_tag
+
+	if (cell->type.in(ID($assert), ID($assume), ID($live), ID($fair), ID($cover), ID($initstate), ID($anyconst), ID($anyseq), ID($allconst), ID($allseq)))
+		return true; // no-op: these have either no inputs or no outputs
 
 	return false;
 }
