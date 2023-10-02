@@ -24,38 +24,29 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#define MODE_BITS_BASE_SIZE 80
-#define MODE_BITS_EXTENSION_SIZE 13
 
 // ============================================================================
 
 struct QlDspSimdPass : public Pass {
 
-	QlDspSimdPass() : Pass("ql_dsp_simd", "Infers QuickLogic k6n10f DSP pairs that can operate in SIMD mode") {}
+	QlDspSimdPass() : Pass("ql_dsp_simd", "merge QuickLogic K6N10f DSP pairs to operate in SIMD mode") {}
 
 	void help() override
 	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    ql_dsp_simd [selection]\n");
 		log("\n");
-		log("    This pass identifies k6n10f DSP cells with identical configuration\n");
-		log("    and packs pairs of them together into other DSP cells that can\n");
-		log("    perform SIMD operation.\n");
+		log("This pass identifies K6N10f DSP cells with identical configuration and pack pairs\n");
+		log("of them together into other DSP cells that can perform SIMD operation.\n");
 	}
 
 	// ..........................................
 
 	/// Describes DSP config unique to a whole DSP cell
 	struct DspConfig {
-
 		// Port connections
 		dict<RTLIL::IdString, RTLIL::SigSpec> connections;
-
-		// Whether DSPs pass configuration bits through ports of parameters
-		bool use_cfg_params;
-
-		// TODO: Possibly include parameters here. For now we have just
-		// connections.
 
 		DspConfig() = default;
 
@@ -64,50 +55,50 @@ struct QlDspSimdPass : public Pass {
 
 		unsigned int hash() const { return connections.hash(); }
 
-		bool operator==(const DspConfig &ref) const { return connections == ref.connections && use_cfg_params == ref.use_cfg_params; }
+		bool operator==(const DspConfig &ref) const { return connections == ref.connections; }
 	};
 
 	// ..........................................
 
 	// DSP control and config ports to consider and how to map them to ports
 	// of the target DSP cell
-	const std::vector<std::pair<std::string, std::string>> m_DspCfgPorts = {std::make_pair("clock_i", "clk"),
-																			std::make_pair("reset_i", "reset"),
+	const std::vector<std::pair<IdString, IdString>> m_DspCfgPorts = {
+		std::make_pair(ID(clock_i), ID(clk)),
+		std::make_pair(ID(reset_i), ID(reset)),
+		std::make_pair(ID(feedback_i), ID(feedback)),
+		std::make_pair(ID(load_acc_i), ID(load_acc)),
+		std::make_pair(ID(unsigned_a_i), ID(unsigned_a)),
+		std::make_pair(ID(unsigned_b_i), ID(unsigned_b)),
+		std::make_pair(ID(subtract_i), ID(subtract)),
+		std::make_pair(ID(output_select_i), ID(output_select)),
+		std::make_pair(ID(saturate_enable_i), ID(saturate_enable)),
+		std::make_pair(ID(shift_right_i), ID(shift_right)),
+		std::make_pair(ID(round_i), ID(round)),
+		std::make_pair(ID(register_inputs_i), ID(register_inputs))
+	};
 
-																			std::make_pair("feedback_i", "feedback"),
-																			std::make_pair("load_acc_i", "load_acc"),
-																			std::make_pair("unsigned_a_i", "unsigned_a"),
-																			std::make_pair("unsigned_b_i", "unsigned_b"),
-
-																			std::make_pair("subtract_i", "subtract")};
-	// For QL_DSP2 expand with configuration ports
-	const std::vector<std::pair<std::string, std::string>> m_DspCfgPorts_expand = {
-	  std::make_pair("output_select_i", "output_select"), std::make_pair("saturate_enable_i", "saturate_enable"),
-	  std::make_pair("shift_right_i", "shift_right"), std::make_pair("round_i", "round"), std::make_pair("register_inputs_i", "register_inputs")};
-
-	// For QL_DSP3 use parameters instead
-	const std::vector<std::string> m_DspParams2Mode = {"OUTPUT_SELECT", "SATURATE_ENABLE", "SHIFT_RIGHT", "ROUND", "REGISTER_INPUTS"};
+	const int m_ModeBitsSize = 80;
 
 	// DSP data ports and how to map them to ports of the target DSP cell
-	const std::vector<std::pair<std::string, std::string>> m_DspDataPorts = {
-	  std::make_pair("a_i", "a"), std::make_pair("b_i", "b"),         std::make_pair("acc_fir_i", "acc_fir"),
-	  std::make_pair("z_o", "z"), std::make_pair("dly_b_o", "dly_b"),
+	const std::vector<std::pair<IdString, IdString>> m_DspDataPorts = {
+		std::make_pair(ID(a_i), ID(a)),
+		std::make_pair(ID(b_i), ID(b)),
+		std::make_pair(ID(acc_fir_i), ID(acc_fir)),
+		std::make_pair(ID(z_o), ID(z)),
+		std::make_pair(ID(dly_b_o), ID(dly_b))
 	};
 
 	// DSP parameters
 	const std::vector<std::string> m_DspParams = {"COEFF_3", "COEFF_2", "COEFF_1", "COEFF_0"};
 
 	// Source DSP cell type (SISD)
-	const std::string m_SisdDspType = "dsp_t1_10x9x32";
-	// Suffix for DSP cell with configuration parameters
-	const std::string m_SisdDspType_cfg_params_suffix = "_cfg_params";
+	const IdString m_SisdDspType = ID(dsp_t1_10x9x32);
 
 	// Target DSP cell types for the SIMD mode
-	const std::string m_SimdDspType_cfg_ports = "QL_DSP2";
-	const std::string m_SimdDspType_cfg_params = "QL_DSP3";
+	const IdString m_SimdDspType = ID(QL_DSP2);
 
 	/// Temporary SigBit to SigBit helper map.
-	SigMap m_SigMap;
+	SigMap sigmap;
 
 	// ..........................................
 
@@ -120,38 +111,32 @@ struct QlDspSimdPass : public Pass {
 
 		// Process modules
 		for (auto module : a_Design->selected_modules()) {
-
 			// Setup the SigMap
-			m_SigMap.clear();
-			m_SigMap.set(module);
+			sigmap.set(module);
 
 			// Assemble DSP cell groups
 			dict<DspConfig, std::vector<RTLIL::Cell *>> groups;
 			for (auto cell : module->selected_cells()) {
-
 				// Check if this is a DSP cell we are looking for (type starts with m_SisdDspType)
-				if (strncmp(cell->type.c_str(), RTLIL::escape_id(m_SisdDspType).c_str(), RTLIL::escape_id(m_SisdDspType).size()) != 0) {
+				if (cell->type != m_SisdDspType)
 					continue;
-				}
 
 				// Skip if it has the (* keep *) attribute set
-				if (cell->has_keep_attr()) {
+				if (cell->has_keep_attr())
 					continue;
-				}
 
 				// Add to a group
 				const auto key = getDspConfig(cell);
 				groups[key].push_back(cell);
 			}
 
-			std::vector<const RTLIL::Cell *> cellsToRemove;
+			std::vector<Cell *> cellsToRemove;
 
 			// Map cell pairs to the target DSP SIMD cell
 			for (const auto &it : groups) {
 				const auto &group = it.second;
 				const auto &config = it.first;
 
-				bool use_cfg_params = config.use_cfg_params;
 				// Ensure an even number
 				size_t count = group.size();
 				if (count & 1)
@@ -159,66 +144,45 @@ struct QlDspSimdPass : public Pass {
 
 				// Map SIMD pairs
 				for (size_t i = 0; i < count; i += 2) {
-					const RTLIL::Cell *dsp_a = group[i];
-					const RTLIL::Cell *dsp_b = group[i + 1];
-
-					std::string name = stringf("simd%ld", i / 2);
-					std::string SimdDspType;
-
-					if (use_cfg_params)
-						SimdDspType = m_SimdDspType_cfg_params;
-					else
-						SimdDspType = m_SimdDspType_cfg_ports;
-
-					log(" SIMD: %s (%s) + %s (%s) => %s (%s)\n", RTLIL::unescape_id(dsp_a->name).c_str(), RTLIL::unescape_id(dsp_a->type).c_str(),
-						RTLIL::unescape_id(dsp_b->name).c_str(), RTLIL::unescape_id(dsp_b->type).c_str(), RTLIL::unescape_id(name).c_str(),
-						SimdDspType.c_str());
+					Cell *dsp_a = group[i];
+					Cell *dsp_b = group[i + 1];
 
 					// Create the new cell
-					RTLIL::Cell *simd = module->addCell(RTLIL::escape_id(name), RTLIL::escape_id(SimdDspType));
+					Cell *simd = module->addCell(NEW_ID, m_SimdDspType);
+
+					log(" SIMD: %s (%s) + %s (%s) => %s (%s)\n", log_id(dsp_a), log_id(dsp_a->type),
+						log_id(dsp_b), log_id(dsp_b->type), log_id(simd), log_id(simd->type));
 
 					// Check if the target cell is known (important to know
 					// its port widths)
-					if (!simd->known()) {
-						log_error(" The target cell type '%s' is not known!", SimdDspType.c_str());
-					}
-
-					std::vector<std::pair<std::string, std::string>> DspCfgPorts = m_DspCfgPorts;
-					if (!use_cfg_params)
-						DspCfgPorts.insert(DspCfgPorts.end(), m_DspCfgPorts_expand.begin(), m_DspCfgPorts_expand.end());
+					if (!simd->known())
+						log_error(" The target cell type '%s' is not known!", log_id(simd));
 
 					// Connect common ports
-					for (const auto &it : DspCfgPorts) {
-						auto sport = RTLIL::escape_id(it.first);
-						auto dport = RTLIL::escape_id(it.second);
-
-						simd->setPort(dport, config.connections.at(sport));
-					}
+					for (const auto &it : m_DspCfgPorts)
+						simd->setPort(it.first, config.connections.at(it.second));
 
 					// Connect data ports
 					for (const auto &it : m_DspDataPorts) {
-						auto sport = RTLIL::escape_id(it.first);
-						auto dport = RTLIL::escape_id(it.second);
-
 						size_t width;
 						bool isOutput;
 
-						std::tie(width, isOutput) = getPortInfo(simd, dport);
+						std::tie(width, isOutput) = getPortInfo(simd, it.second);
 
 						auto getConnection = [&](const RTLIL::Cell *cell) {
 							RTLIL::SigSpec sigspec;
-							if (cell->hasPort(sport)) {
-								const auto &sig = cell->getPort(sport);
+							if (cell->hasPort(it.first)) {
+								const auto &sig = cell->getPort(it.first);
 								sigspec.append(sig);
 							}
-							if (sigspec.bits().size() < width / 2) {
-								if (isOutput) {
-									for (size_t i = 0; i < width / 2 - sigspec.bits().size(); ++i) {
-										sigspec.append(RTLIL::SigSpec());
-									}
-								} else {
-									sigspec.append(RTLIL::SigSpec(RTLIL::Sx, width / 2 - sigspec.bits().size()));
-								}
+
+							int padding = width / 2 - sigspec.bits().size();
+
+							if (padding) {
+								if (!isOutput)
+									sigspec.append(RTLIL::SigSpec(RTLIL::Sx, padding));
+								else
+									sigspec.append(module->addWire(NEW_ID, padding));
 							}
 							return sigspec;
 						};
@@ -226,49 +190,31 @@ struct QlDspSimdPass : public Pass {
 						RTLIL::SigSpec sigspec;
 						sigspec.append(getConnection(dsp_a));
 						sigspec.append(getConnection(dsp_b));
-						simd->setPort(dport, sigspec);
+						simd->setPort(it.second, sigspec);
 					}
 
 					// Concatenate FIR coefficient parameters into the single
 					// MODE_BITS parameter
-					std::vector<RTLIL::State> mode_bits;
+					Const mode_bits;
 					for (const auto &it : m_DspParams) {
-						auto val_a = dsp_a->getParam(RTLIL::escape_id(it));
-						auto val_b = dsp_b->getParam(RTLIL::escape_id(it));
+						auto val_a = dsp_a->getParam(it);
+						auto val_b = dsp_b->getParam(it);
 
-						mode_bits.insert(mode_bits.end(), val_a.begin(), val_a.end());
-						mode_bits.insert(mode_bits.end(), val_b.begin(), val_b.end());
+						mode_bits.bits.insert(mode_bits.end(), val_a.begin(), val_a.end());
+						mode_bits.bits.insert(mode_bits.end(), val_b.begin(), val_b.end());
 					}
-					long unsigned int mode_bits_size = MODE_BITS_BASE_SIZE;
-					if (use_cfg_params) {
-						// Add additional config parameters if necessary
-						mode_bits.push_back(RTLIL::S1); // MODE_BITS[80] == F_MODE : Enable fractured mode
-						for (const auto &it : m_DspParams2Mode) {
-							log_assert(dsp_a->getParam(RTLIL::escape_id(it)) == dsp_b->getParam(RTLIL::escape_id(it)));
-							auto param = dsp_a->getParam(RTLIL::escape_id(it));
-							if (param.size() > 1) {
-								mode_bits.insert(mode_bits.end(), param.bits.begin(), param.bits.end());
-							} else {
-								mode_bits.push_back(param.bits[0]);
-							}
-						}
-						mode_bits_size += MODE_BITS_EXTENSION_SIZE;
-					} else {
-						// Enable the fractured mode by connecting the control
-						// port.
-						simd->setPort(RTLIL::escape_id("f_mode"), RTLIL::S1);
-					}
-					simd->setParam(RTLIL::escape_id("MODE_BITS"), RTLIL::Const(mode_bits));
-					log_assert(mode_bits.size() == mode_bits_size);
+
+					// Enable the fractured mode by connecting the control
+					// port.
+					simd->setPort(ID(f_mode), State::S1);
+					simd->setParam(ID(MODE_BITS), mode_bits);
+					log_assert(mode_bits.size() == m_ModeBitsSize);
 
 					// Handle the "is_inferred" attribute. If one of the fragments
 					// is not inferred mark the whole DSP as not inferred
-					bool is_inferred_a =
-					  dsp_a->has_attribute(RTLIL::escape_id("is_inferred")) ? dsp_a->get_bool_attribute(RTLIL::escape_id("is_inferred")) : false;
-					bool is_inferred_b =
-					  dsp_b->has_attribute(RTLIL::escape_id("is_inferred")) ? dsp_b->get_bool_attribute(RTLIL::escape_id("is_inferred")) : false;
-
-					simd->set_bool_attribute(RTLIL::escape_id("is_inferred"), is_inferred_a && is_inferred_b);
+					bool is_inferred_a = dsp_a->get_bool_attribute(ID(is_inferred));
+					bool is_inferred_b = dsp_b->get_bool_attribute(ID(is_inferred));
+					simd->set_bool_attribute(ID(is_inferred), is_inferred_a && is_inferred_b);
 
 					// Mark DSP parts for removal
 					cellsToRemove.push_back(dsp_a);
@@ -277,13 +223,9 @@ struct QlDspSimdPass : public Pass {
 			}
 
 			// Remove old cells
-			for (const auto &cell : cellsToRemove) {
-				module->remove(const_cast<RTLIL::Cell *>(cell));
-			}
+			for (auto cell : cellsToRemove)
+				module->remove(cell);
 		}
-
-		// Clear
-		m_SigMap.clear();
 	}
 
 	// ..........................................
@@ -317,43 +259,18 @@ struct QlDspSimdPass : public Pass {
 	{
 		DspConfig config;
 
-		string cell_type = a_Cell->type.str();
-		string suffix = m_SisdDspType_cfg_params_suffix;
-
-		bool use_cfg_params = cell_type.size() >= suffix.size() && 0 == cell_type.compare(cell_type.size() - suffix.size(), suffix.size(), suffix);
-
-		std::vector<std::pair<std::string, std::string>> DspCfgPorts = m_DspCfgPorts;
-		if (!use_cfg_params)
-			DspCfgPorts.insert(DspCfgPorts.end(), m_DspCfgPorts_expand.begin(), m_DspCfgPorts_expand.end());
-
-		config.use_cfg_params = use_cfg_params;
-
-		for (const auto &it : DspCfgPorts) {
-			auto port = RTLIL::escape_id(it.first);
+		for (const auto &it : m_DspCfgPorts) {
+			auto port = it.first;
 
 			// Port unconnected
-			if (!a_Cell->hasPort(port)) {
-				config.connections[port] = RTLIL::SigSpec(RTLIL::Sx);
+			if (!a_Cell->hasPort(port))
 				continue;
-			}
 
-			// Get the port connection and map it to unique SigBits
-			const auto &orgSigSpec = a_Cell->getPort(port);
-			const auto &orgSigBits = orgSigSpec.bits();
-
-			RTLIL::SigSpec newSigSpec;
-			for (size_t i = 0; i < orgSigBits.size(); ++i) {
-				auto newSigBit = m_SigMap(orgSigBits[i]);
-				newSigSpec.append(newSigBit);
-			}
-
-			// Store
-			config.connections[port] = newSigSpec;
+			config.connections[port] = sigmap(a_Cell->getPort(port));
 		}
 
 		return config;
 	}
-
 } QlDspSimdPass;
 
 PRIVATE_NAMESPACE_END
