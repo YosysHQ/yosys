@@ -174,26 +174,67 @@ void demux_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 
 void shift_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 {
+	bool is_signed = cell->getParam(ID::A_SIGNED).as_bool();
 	int a_width = GetSize(cell->getPort(ID::A));
 	int b_width = GetSize(cell->getPort(ID::B));
 	int y_width = GetSize(cell->getPort(ID::Y));
 
-	for (int i = 0; i < y_width; i++){
-		for (int k = 0; k < b_width; k++)
-			db->add_edge(cell, ID::B, k, ID::Y, i, -1);
+	// how far the maximum value of B is able to shift
+	int b_range = (1<<b_width) - 1;
+	// highest position of Y that can change with the value of B
+	int b_range_upper;
+	// 1 + highest position of A that can be moved to Y[i]
+	int a_range_upper;
+	// lowest position of A that can be moved to Y[i]
+	int a_range_lower;
 
+	for (int i = 0; i < y_width; i++){
 		if (cell->type.in(ID($shl), ID($sshl))) {
-			for (int k = min(i, a_width); k >= 0; k--)
-				db->add_edge(cell, ID::A, k, ID::Y, i, -1);
+			// << and <<<
+			b_range_upper = a_width + b_range;
+			if (is_signed) b_range_upper -= 1;
+			a_range_lower = max(0, i - b_range);
+			a_range_upper = min(i+1, a_width);
+		} else if (cell->type.in(ID($shr), ID($sshr))){
+			// >> and >>>
+			b_range_upper = a_width;
+			a_range_lower = min(i, a_width - 1); // technically the min is unneccessary as b_range_upper check already skips any i >= a_width, but let's leave the logic in since this is hard enough
+			a_range_upper = min(i+1 + b_range, a_width);
+		} else if (cell->type.in(ID($shift), ID($shiftx))) {
+			// can go both ways depending on sign of B
+			// 2's complement range is different depending on direction
+			int b_range_left = (1<<(b_width - 1));
+			int b_range_right = (1<<(b_width - 1)) - 1;
+			b_range_upper = a_width + b_range_left;
+			a_range_lower = max(0, i - b_range_left);
+			a_range_upper = min(i+1 + b_range_right, a_width);
 		}
 
-		if (cell->type.in(ID($shr), ID($sshr)))
-			for (int k = i; k < a_width; k++)
+		if (i < b_range_upper) {
+			for (int k = a_range_lower; k < a_range_upper; k++)
 				db->add_edge(cell, ID::A, k, ID::Y, i, -1);
+		} else {
+			// the only possible influence value is sign extension
+			if (is_signed)
+				db->add_edge(cell, ID::A, a_width - 1, ID::Y, i, -1);
+		}
 
-		if (cell->type.in(ID($shift), ID($shiftx)))
-			for (int k = 0; k < a_width; k++)
-				db->add_edge(cell, ID::A, k, ID::Y, i, -1);
+		for (int k = 0; k < b_width; k++) {
+			if (cell->type.in(ID($shl), ID($sshl)) && a_width == 1 && is_signed) {
+				int skip = (1<<(k+1));
+				int base = skip -1;
+				if (i % skip != base)
+					db->add_edge(cell, ID::B, k, ID::Y, i, -1);
+			} else if (cell->type.in(ID($shr), ID($sshr)) && is_signed) {
+				int skip = (1<<(k+1));
+				int base = 0;
+				if (i % skip != base || i < a_width - 1)
+					db->add_edge(cell, ID::B, k, ID::Y, i, -1);
+			} else {
+				db->add_edge(cell, ID::B, k, ID::Y, i, -1);
+			}
+		}
+
 	}
 }
 
