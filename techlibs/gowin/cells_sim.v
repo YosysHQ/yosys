@@ -197,7 +197,7 @@ module DFFE (output reg Q, input D, CLK, CE);
   end
 endmodule // DFFE (positive clock edge; clock enable)
 
-(* abc9_box, lib_whitebox *)
+(* lib_whitebox *)
 module DFFS (output reg Q, input D, CLK, SET);
   parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
@@ -216,7 +216,7 @@ module DFFS (output reg Q, input D, CLK, SET);
   end
 endmodule // DFFS (positive clock edge; synchronous set)
 
-(* abc9_box, lib_whitebox *)
+(* lib_whitebox *)
 module DFFSE (output reg Q, input D, CLK, CE, SET);
   parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
@@ -281,8 +281,14 @@ module DFFP (output reg Q, input D, CLK, PRESET);
   initial Q = INIT;
 
 	specify
-		(posedge CLK => (Q : D)) = (480, 660);
+		if (!PRESET) (posedge CLK => (Q : D)) = (480, 660);
+`ifndef YOSYS
 		(posedge PRESET => (Q : 1'b1)) = (1800, 2679);
+`else
+		if (PRESET) (PRESET => Q) = (1800, 2679);	// Technically, this should be an edge sensitive path
+								// but for facilitating a bypass box, let's pretend it's
+								// a simple path
+`endif
 		$setup(D, posedge CLK, 576);
 	endspecify
 
@@ -300,8 +306,14 @@ module DFFPE (output reg Q, input D, CLK, CE, PRESET);
   initial Q = INIT;
 
 	specify
-		if (CE) (posedge CLK => (Q : D)) = (480, 660);
+		if (CE && !PRESET) (posedge CLK => (Q : D)) = (480, 660);
+`ifndef YOSYS
 		(posedge PRESET => (Q : 1'b1)) = (1800, 2679);
+`else
+		if (PRESET) (PRESET => Q) = (1800, 2679);	// Technically, this should be an edge sensitive path
+								// but for facilitating a bypass box, let's pretend it's
+								// a simple path
+`endif
 		$setup(D, posedge CLK &&& CE, 576);
 		$setup(CE, posedge CLK, 63);
 	endspecify
@@ -320,8 +332,14 @@ module DFFC (output reg Q, input D, CLK, CLEAR);
   initial Q = INIT;
 
 	specify
-		(posedge CLK => (Q : D)) = (480, 660);
+		if (!CLEAR) (posedge CLK => (Q : D)) = (480, 660);
+`ifndef YOSYS
 		(posedge CLEAR => (Q : 1'b0)) = (1800, 2679);
+`else
+		if (CLEAR) (CLEAR => Q) = (1800, 2679);	// Technically, this should be an edge sensitive path
+							// but for facilitating a bypass box, let's pretend it's
+							// a simple path
+`endif
 		$setup(D, posedge CLK, 576);
 	endspecify
 
@@ -339,8 +357,14 @@ module DFFCE (output reg Q, input D, CLK, CE, CLEAR);
   initial Q = INIT;
 
 	specify
-		if (CE) (posedge CLK => (Q : D)) = (480, 660);
+		if (CE && !CLEAR) (posedge CLK => (Q : D)) = (480, 660);
+`ifndef YOSYS
 		(posedge CLEAR => (Q : 1'b0)) = (1800, 2679);
+`else
+		if (CLEAR) (CLEAR => Q) = (1800, 2679);	// Technically, this should be an edge sensitive path
+							// but for facilitating a bypass box, let's pretend it's
+							// a simple path
+`endif
 		$setup(D, posedge CLK &&& CE, 576);
 		$setup(CE, posedge CLK, 63);
 	endspecify
@@ -384,7 +408,7 @@ module DFFNE (output reg Q, input D, CLK, CE);
   end
 endmodule // DFFNE (negative clock edge; clock enable)
 
-(* abc9_box, lib_whitebox *)
+(* lib_whitebox *)
 module DFFNS (output reg Q, input D, CLK, SET);
   parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
@@ -403,7 +427,7 @@ module DFFNS (output reg Q, input D, CLK, SET);
   end
 endmodule // DFFNS (negative clock edge; synchronous set)
 
-(* abc9_box, lib_whitebox *)
+(* lib_whitebox *)
 module DFFNSE (output reg Q, input D, CLK, CE, SET);
   parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
@@ -468,8 +492,14 @@ module DFFNP (output reg Q, input D, CLK, PRESET);
   initial Q = INIT;
 
 	specify
-		(negedge CLK => (Q : D)) = (480, 660);
+		if (!PRESET) (negedge CLK => (Q : D)) = (480, 660);
+`ifndef YOSYS
 		(posedge PRESET => (Q : 1'b1)) = (1800, 2679);
+`else
+		if (PRESET) (PRESET => Q) = (1800, 2679);	// Technically, this should be an edge sensitive path
+								// but for facilitating a bypass box, let's pretend it's
+								// a simple path
+`endif
 		$setup(D, negedge CLK, 576);
 	endspecify
 
@@ -487,8 +517,14 @@ module DFFNPE (output reg Q, input D, CLK, CE, PRESET);
   initial Q = INIT;
   
 	specify
-		if (CE) (negedge CLK => (Q : D)) = (480, 660);
+		if (CE && !PRESET) (negedge CLK => (Q : D)) = (480, 660);
+`ifndef YOSYS
 		(posedge PRESET => (Q : 1'b1)) = (1800, 2679);
+`else
+		if (PRESET) (PRESET => Q) = (1800, 2679);	// Technically, this should be an edge sensitive path
+								// but for facilitating a bypass box, let's pretend it's
+								// a simple path
+`endif
 		$setup(D, negedge CLK &&& CE, 576);
 		$setup(CE, negedge CLK, 63);
 	endspecify
@@ -507,8 +543,14 @@ module DFFNC (output reg Q, input D, CLK, CLEAR);
   initial Q = INIT;
 
 	specify
-		(negedge CLK => (Q : D)) = (480, 660);
+		if (!CLEAR) (negedge CLK => (Q : D)) = (480, 660);
+`ifndef YOSYS
 		(posedge CLEAR => (Q : 1'b0)) = (1800, 2679);
+`else
+		if (CLEAR) (CLEAR => Q) = (1800, 2679);	// Technically, this should be an edge sensitive path
+							// but for facilitating a bypass box, let's pretend it's
+							// a simple path
+`endif
 		$setup(D, negedge CLK, 576);
 	endspecify
 
@@ -526,8 +568,14 @@ module DFFNCE (output reg Q, input D, CLK, CE, CLEAR);
   initial Q = INIT;
 
 	specify
-		if (CE) (negedge CLK => (Q : D)) = (480, 660);
+		if (CE && !CLEAR) (negedge CLK => (Q : D)) = (480, 660);
+`ifndef YOSYS
 		(posedge CLEAR => (Q : 1'b0)) = (1800, 2679);
+`else
+		if (CLEAR) (CLEAR => Q) = (1800, 2679);	// Technically, this should be an edge sensitive path
+							// but for facilitating a bypass box, let's pretend it's
+							// a simple path
+`endif
 		$setup(D, negedge CLK &&& CE, 576);
 		$setup(CE, negedge CLK, 63);
 	endspecify
