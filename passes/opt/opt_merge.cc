@@ -41,7 +41,6 @@ struct OptMergeWorker
 
 	CellTypes ct;
 	int total_count;
-        using FingerPrint = std::hash<std::string>::result_type;
 
 	static void sort_pmux_conn(dict<RTLIL::IdString, RTLIL::SigSpec> &conn)
 	{
@@ -78,7 +77,7 @@ struct OptMergeWorker
 		return str;
 	}
 
-        FingerPrint hash_cell_parameters_and_connections(const RTLIL::Cell *cell)
+        uint64_t hash_cell_parameters_and_connections(const RTLIL::Cell *cell)
 	{
 		vector<string> hash_conn_strings;
 		std::string hash_string = cell->type.str() + "\n";
@@ -267,13 +266,13 @@ struct OptMergeWorker
 			}
 
 			did_something = false;
-                        dict<FingerPrint, RTLIL::Cell*> sharemap;
+                        dict<uint64_t, RTLIL::Cell*> sharemap;
 			for (auto cell : cells)
 			{
 				if ((!mode_share_all && !ct.cell_known(cell->type)) || !cell->known())
 					continue;
 
-				FingerPrint hash = hash_cell_parameters_and_connections(cell);
+				uint64_t hash = hash_cell_parameters_and_connections(cell);
 				auto r = sharemap.insert(std::make_pair(hash, cell));
 				if (!r.second) {
 					if (compare_cell_parameters_and_connections(cell, r.first->second)) {
