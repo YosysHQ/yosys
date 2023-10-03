@@ -267,7 +267,7 @@ struct OptMergeWorker
 			}
 
 			did_something = false;
-                        std::unordered_map<FingerPrint, RTLIL::Cell*> sharemap;
+                        dict<FingerPrint, RTLIL::Cell*> sharemap;
 			for (auto cell : cells)
 			{
 				if ((!mode_share_all && !ct.cell_known(cell->type)) || !cell->known())
