@@ -3063,6 +3063,7 @@ struct VerificPass : public Pass {
 		int argidx = 1;
 		std::string work = "work";
 		bool is_work_set = false;
+		(void)is_work_set;
 		veri_file::RegisterCallBackVerificStream(&verific_read_cb);
 
 		if (GetSize(args) > argidx && (args[argidx] == "-set-error" || args[argidx] == "-set-warning" ||
@@ -3140,7 +3141,20 @@ struct VerificPass : public Pass {
 		}
 
 		veri_file::RemoveAllLOptions();
-		veri_file::AddLOption("work");
+		for (int i = argidx; i < GetSize(args); i++)
+		{
+			if (args[i] == "-work" && i+1 < GetSize(args)) {
+				work = args[++i];
+				is_work_set = true;
+				continue;
+			}
+			if (args[i] == "-L" && i+1 < GetSize(args)) {
+				++i;
+				continue;
+			}
+			break;
+		}
+		veri_file::AddLOption(work.c_str());
 		for (int i = argidx; i < GetSize(args); i++)
 		{
 			if (args[i] == "-work" && i+1 < GetSize(args)) {
@@ -3148,7 +3162,7 @@ struct VerificPass : public Pass {
 				continue;
 			}
 			if (args[i] == "-L" && i+1 < GetSize(args)) {
-				if (args[++i] == "work")
+				if (args[++i] == work)
 					veri_file::RemoveAllLOptions();
 				continue;
 			}
@@ -3641,7 +3655,7 @@ struct VerificPass : public Pass {
 								if (module_name && module_name->IsHierName()) {
 									VeriName *prefix = module_name->GetPrefix() ;
 									const char *lib_name = (prefix) ? prefix->GetName() : 0 ;
-									if (!Strings::compare("work", lib_name)) lib = veri_file::GetLibrary(lib_name, 1) ;
+									if (work != lib_name) lib = veri_file::GetLibrary(lib_name, 1) ;
 								}
 								if (lib && module_name)
 									top_mod_names.insert(lib->GetModule(module_name->GetName(), 1)->GetName());
@@ -3663,13 +3677,19 @@ struct VerificPass : public Pass {
 					log_error("Can't find module/unit '%s'.\n", name);
 				}
 
-				if (veri_lib) {
-					// Also elaborate all root modules since they may contain bind statements
-					MapIter mi;
-					VeriModule *veri_module;
-					FOREACH_VERILOG_MODULE_IN_LIBRARY(veri_lib, mi, veri_module) {
-						if (!veri_module->IsRootModule()) continue;
-						veri_modules.InsertLast(veri_module);
+
+				const char *lib_name = nullptr;
+				SetIter si;
+				FOREACH_SET_ITEM(veri_file::GetAllLOptions(), si, &lib_name) {
+					VeriLibrary* veri_lib = veri_file::GetLibrary(lib_name, 0);
+					if (veri_lib) {
+						// Also elaborate all root modules since they may contain bind statements
+						MapIter mi;
+						VeriModule *veri_module;
+						FOREACH_VERILOG_MODULE_IN_LIBRARY(veri_lib, mi, veri_module) {
+							if (!veri_module->IsRootModule()) continue;
+							veri_modules.InsertLast(veri_module);
+						}
 					}
 				}
 
