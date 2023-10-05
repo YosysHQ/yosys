@@ -2,12 +2,29 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.33 .. Yosys 0.34-dev
+Yosys 0.33 .. Yosys 0.34
 --------------------------
+ * New commands and options
+    - Added option "-assert" to "sim" pass.
+    - Added option "-noinitstate" to "sim" pass.
+    - Added option "-dont_use" to "abc" pass.
+    - Added "dft_tag" pass to create tagging logic for data flow tracking.
+    - Added "future" pass to resolve future sampled value functions.
+    - Added "booth" pass to map $mul cells to Booth multipliers.
+    - Added option "-booth" to "synth" pass.
 
  * SystemVerilog
     - Added support for assignments within expressions, e.g., `x[y++] = z;` or
       `x = (y *= 2) - 1;`.
+
+ * Verific support
+    - "src" attribute contain full location info.
+    - module parameters are kept after import.
+    - accurate access order semantics in memory inference.
+    - better "bind" support for mixed language projects.
+
+ * Various
+    - "show" command displays dot instead of box for wire aliases.
 
 Yosys 0.32 .. Yosys 0.33
 --------------------------
