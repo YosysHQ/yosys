@@ -31,30 +31,34 @@ YOSYS_NAMESPACE_BEGIN
 // A map-like container, but you can save and restore the state
 // ------------------------------------------------
 
-template <typename Key, typename T, typename OPS = hash_ops<Key>> struct stackmap {
-      private:
-	std::vector<dict<Key, T *, OPS>> backup_state;
+template<typename Key, typename T, typename OPS = hash_ops<Key>>
+struct stackmap
+{
+private:
+	std::vector<dict<Key, T*, OPS>> backup_state;
 	dict<Key, T, OPS> current_state;
 	static T empty_tuple;
 
-      public:
-	stackmap() {}
-	stackmap(const dict<Key, T, OPS> &other) : current_state(other) {}
+public:
+	stackmap() { }
+	stackmap(const dict<Key, T, OPS> &other) : current_state(other) { }
 
-	template <typename Other> stackmap &operator=(const Other &other)
+	template<typename Other>
+	void operator=(const Other &other)
 	{
-		for (const auto &it : current_state)
+		for (auto &it : current_state)
 			if (!backup_state.empty() && backup_state.back().count(it.first) == 0)
 				backup_state.back()[it.first] = new T(it.second);
 		current_state.clear();
 
-		for (const auto &it : other)
+		for (auto &it : other)
 			set(it.first, it.second);
-
-		return *this;
 	}
 
-	bool has(const Key &k) { return current_state.count(k) != 0; }
+	bool has(const Key &k)
+	{
+		return current_state.count(k) != 0;
+	}
 
 	void set(const Key &k, const T &v)
 	{
@@ -79,7 +83,7 @@ template <typename Key, typename T, typename OPS = hash_ops<Key>> struct stackma
 
 	void reset(const Key &k)
 	{
-		for (int i = GetSize(backup_state) - 1; i >= 0; i--)
+		for (int i = GetSize(backup_state)-1; i >= 0; i--)
 			if (backup_state[i].count(k) != 0) {
 				if (backup_state[i].at(k) == nullptr)
 					current_state.erase(k);
@@ -90,14 +94,20 @@ template <typename Key, typename T, typename OPS = hash_ops<Key>> struct stackma
 		current_state.erase(k);
 	}
 
-	const dict<Key, T, OPS> &stdmap() { return current_state; }
+	const dict<Key, T, OPS> &stdmap()
+	{
+		return current_state;
+	}
 
-	void save() { backup_state.resize(backup_state.size() + 1); }
+	void save()
+	{
+		backup_state.resize(backup_state.size()+1);
+	}
 
 	void restore()
 	{
 		log_assert(!backup_state.empty());
-		for (const auto &it : backup_state.back())
+		for (auto &it : backup_state.back())
 			if (it.second != nullptr) {
 				current_state[it.first] = *it.second;
 				delete it.second;
