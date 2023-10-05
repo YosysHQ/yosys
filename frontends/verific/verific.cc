@@ -2495,51 +2495,71 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 	for (const auto &i : parameters)
 		verific_params.Insert(i.first.c_str(), i.second.c_str());
 
-#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
-	VerificExtensions::ElaborateAndRewrite("work", &verific_params);
-	verific_error_msg.clear();
-#endif
-
 	if (top.empty()) {
+
+#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
+		VerificExtensions::ElaborateAndRewrite("work", &verific_params);
+		verific_error_msg.clear();
+#endif
 		netlists = hier_tree::ElaborateAll(&veri_libs, &vhdl_libs, &verific_params);
 	}
 	else {
-		Array veri_modules, vhdl_units;
 
-		if (veri_lib) {
-			VeriModule *veri_module = veri_lib->GetModule(top.c_str(), 1);
-			if (veri_module) {
-				veri_modules.InsertLast(veri_module);
-				if (veri_module->IsConfiguration()) {
-					VeriConfiguration *cfg = (VeriConfiguration*)veri_module;
-					VeriName *module_name = (VeriName*)cfg->GetTopModuleNames()->GetLast();
-					VeriLibrary *lib = veri_module->GetLibrary() ;
-					if (module_name && module_name->IsHierName()) {
-						VeriName *prefix = module_name->GetPrefix() ;
-						const char *lib_name = (prefix) ? prefix->GetName() : 0 ;
-						if (!Strings::compare("work", lib_name)) lib = veri_file::GetLibrary(lib_name, 1) ;
+#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
+		for (int static_elaborate = 1; static_elaborate >= 0; static_elaborate--)
+#endif
+		{
+			Array veri_modules, vhdl_units;
+
+			if (veri_lib) {
+				VeriModule *veri_module = veri_lib->GetModule(top.c_str(), 1);
+				if (veri_module) {
+					veri_modules.InsertLast(veri_module);
+					if (veri_module->IsConfiguration()) {
+						VeriConfiguration *cfg = (VeriConfiguration*)veri_module;
+						VeriName *module_name = (VeriName*)cfg->GetTopModuleNames()->GetLast();
+						VeriLibrary *lib = veri_module->GetLibrary() ;
+						if (module_name && module_name->IsHierName()) {
+							VeriName *prefix = module_name->GetPrefix() ;
+							const char *lib_name = (prefix) ? prefix->GetName() : 0 ;
+							if (!Strings::compare("work", lib_name)) lib = veri_file::GetLibrary(lib_name, 1) ;
+						}
+						if (lib && module_name)
+							top = lib->GetModule(module_name->GetName(), 1)->GetName();
 					}
-					if (lib && module_name)
-						top = lib->GetModule(module_name->GetName(), 1)->GetName();
+				}
+
+#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
+				if (!static_elaborate)
+#endif
+				{
+					// Also elaborate all root modules since they may contain bind statements
+					MapIter mi;
+					FOREACH_VERILOG_MODULE_IN_LIBRARY(veri_lib, mi, veri_module) {
+						if (!veri_module->IsRootModule()) continue;
+						veri_modules.InsertLast(veri_module);
+					}
 				}
 			}
 
-			// Also elaborate all root modules since they may contain bind statements
-			MapIter mi;
-			FOREACH_VERILOG_MODULE_IN_LIBRARY(veri_lib, mi, veri_module) {
-				if (!veri_module->IsRootModule()) continue;
-				veri_modules.InsertLast(veri_module);
-			}
-		}
-
 #ifdef VERIFIC_VHDL_SUPPORT
-		if (vhdl_lib) {
-			VhdlDesignUnit *vhdl_unit = vhdl_lib->GetPrimUnit(top.c_str());
-			if (vhdl_unit)
-				vhdl_units.InsertLast(vhdl_unit);
-		}
+			if (vhdl_lib) {
+				VhdlDesignUnit *vhdl_unit = vhdl_lib->GetPrimUnit(top.c_str());
+				if (vhdl_unit)
+					vhdl_units.InsertLast(vhdl_unit);
+			}
 #endif
-		netlists = hier_tree::Elaborate(&veri_modules, &vhdl_units, &verific_params);
+
+#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
+			if (static_elaborate) {
+				VerificExtensions::ElaborateAndRewrite("work", &veri_modules, &vhdl_units, &verific_params);
+				verific_error_msg.clear();
+				continue;
+			}
+#endif
+
+			netlists = hier_tree::Elaborate(&veri_modules, &vhdl_units, &verific_params);
+		}
 	}
 
 	Netlist *nl;
