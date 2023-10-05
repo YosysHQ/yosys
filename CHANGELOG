@@ -2,6 +2,9 @@
 List of major changes and improvements between releases
 =======================================================
 
+Yosys 0.34 .. Yosys 0.35-dev
+--------------------------
+
 Yosys 0.33 .. Yosys 0.34
 --------------------------
  * New commands and options
