@@ -222,6 +222,10 @@ struct SimInstance
 			log_error("Cannot simulate blackbox module %s (instantiated at %s).\n",
 					  log_id(module->name), hiername().c_str());
 
+		if (module->has_processes())
+			log_error("Found processes in simulation hierarchy (in module %s at %s). Run 'proc' first.\n",
+					  log_id(module), hiername().c_str());
+
 		if (parent) {
 			log_assert(parent->children.count(instance) == 0);
 			parent->children[instance] = this;
