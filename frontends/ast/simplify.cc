@@ -1749,13 +1749,8 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			bool const_fold_here = const_fold;
 			int width_hint_here = width_hint;
 			bool sign_hint_here = sign_hint;
-			bool in_param_here = in_param;
 			if (i == 0 && (type == AST_REPLICATE || type == AST_WIRE))
 				const_fold_here = true;
-			if (i == 0 && (type == AST_GENIF || type == AST_GENCASE))
-				in_param_here = true;
-			if (i == 1 && (type == AST_FOR || type == AST_GENFOR))
-				in_param_here = true;
 			if (type == AST_PARAMETER || type == AST_LOCALPARAM)
 				const_fold_here = true;
 			if (type == AST_BLOCK) {
