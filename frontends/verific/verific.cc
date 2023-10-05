@@ -3595,15 +3595,16 @@ struct VerificPass : public Pass {
 
 			std::set<std::string> top_mod_names;
 
-#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
-			VerificExtensions::ElaborateAndRewrite(work, &parameters);
-			verific_error_msg.clear();
-#endif
-			if (!ppfile.empty())
-				veri_file::PrettyPrint(ppfile.c_str(), nullptr, work.c_str());
-
 			if (mode_all)
 			{
+
+#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
+				VerificExtensions::ElaborateAndRewrite(work, &parameters);
+				verific_error_msg.clear();
+#endif
+				if (!ppfile.empty())
+					veri_file::PrettyPrint(ppfile.c_str(), nullptr, work.c_str());
+
 				log("Running hier_tree::ElaborateAll().\n");
 
 				VeriLibrary *veri_lib = veri_file::GetLibrary(work.c_str(), 1);
@@ -3628,73 +3629,93 @@ struct VerificPass : public Pass {
 				if (argidx == GetSize(args))
 					cmd_error(args, argidx, "No top module specified.\n");
 
-				VeriLibrary* veri_lib = veri_file::GetLibrary(work.c_str(), 1);
-#ifdef VERIFIC_VHDL_SUPPORT
-				VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary(work.c_str(), 1);
-#endif
+				Array *netlists = nullptr;
 
-				Array veri_modules, vhdl_units;
-				for (; argidx < GetSize(args); argidx++)
+#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
+				for (int static_elaborate = 1; static_elaborate >= 0; static_elaborate--)
+#endif
 				{
-					const char *name = args[argidx].c_str();
-					top_mod_names.insert(name);
 
-					VeriModule *veri_module = veri_lib ? veri_lib->GetModule(name, 1) : nullptr;
-					if (veri_module) {
-						if (veri_module->IsConfiguration()) {
-							log("Adding Verilog configuration '%s' to elaboration queue.\n", name);	
-							veri_modules.InsertLast(veri_module);
-
-							top_mod_names.erase(name);
-
-							VeriConfiguration *cfg = (VeriConfiguration*)veri_module;
-							VeriName *module_name;
-							int i;
-							FOREACH_ARRAY_ITEM(cfg->GetTopModuleNames(), i, module_name) {
-								VeriLibrary *lib = veri_module->GetLibrary() ;
-								if (module_name && module_name->IsHierName()) {
-									VeriName *prefix = module_name->GetPrefix() ;
-									const char *lib_name = (prefix) ? prefix->GetName() : 0 ;
-									if (work != lib_name) lib = veri_file::GetLibrary(lib_name, 1) ;
-								}
-								if (lib && module_name)
-									top_mod_names.insert(lib->GetModule(module_name->GetName(), 1)->GetName());
-							}
-						} else {
-							log("Adding Verilog module '%s' to elaboration queue.\n", name);
-							veri_modules.InsertLast(veri_module);
-						}
-						continue;
-					}
+					VeriLibrary* veri_lib = veri_file::GetLibrary(work.c_str(), 1);
 #ifdef VERIFIC_VHDL_SUPPORT
-					VhdlDesignUnit *vhdl_unit = vhdl_lib ? vhdl_lib->GetPrimUnit(name) : nullptr;
-					if (vhdl_unit) {
-						log("Adding VHDL unit '%s' to elaboration queue.\n", name);
-						vhdl_units.InsertLast(vhdl_unit);
+					VhdlLibrary *vhdl_lib = vhdl_file::GetLibrary(work.c_str(), 1);
+#endif
+
+					Array veri_modules, vhdl_units;
+					for (int i = argidx; i < GetSize(args); i++)
+					{
+						const char *name = args[i].c_str();
+						top_mod_names.insert(name);
+
+						VeriModule *veri_module = veri_lib ? veri_lib->GetModule(name, 1) : nullptr;
+						if (veri_module) {
+							if (veri_module->IsConfiguration()) {
+								log("Adding Verilog configuration '%s' to elaboration queue.\n", name);
+								veri_modules.InsertLast(veri_module);
+
+								top_mod_names.erase(name);
+
+								VeriConfiguration *cfg = (VeriConfiguration*)veri_module;
+								VeriName *module_name;
+								int i;
+								FOREACH_ARRAY_ITEM(cfg->GetTopModuleNames(), i, module_name) {
+									VeriLibrary *lib = veri_module->GetLibrary() ;
+									if (module_name && module_name->IsHierName()) {
+										VeriName *prefix = module_name->GetPrefix() ;
+										const char *lib_name = (prefix) ? prefix->GetName() : 0 ;
+										if (work != lib_name) lib = veri_file::GetLibrary(lib_name, 1) ;
+									}
+									if (lib && module_name)
+										top_mod_names.insert(lib->GetModule(module_name->GetName(), 1)->GetName());
+								}
+							} else {
+								log("Adding Verilog module '%s' to elaboration queue.\n", name);
+								veri_modules.InsertLast(veri_module);
+							}
+							continue;
+						}
+#ifdef VERIFIC_VHDL_SUPPORT
+						VhdlDesignUnit *vhdl_unit = vhdl_lib ? vhdl_lib->GetPrimUnit(name) : nullptr;
+						if (vhdl_unit) {
+							log("Adding VHDL unit '%s' to elaboration queue.\n", name);
+							vhdl_units.InsertLast(vhdl_unit);
+							continue;
+						}
+#endif
+						log_error("Can't find module/unit '%s'.\n", name);
+					}
+
+#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
+					if (static_elaborate) {
+						VerificExtensions::ElaborateAndRewrite(work, &veri_modules, &vhdl_units, &parameters);
+						verific_error_msg.clear();
+#endif
+						if (!ppfile.empty())
+							veri_file::PrettyPrint(ppfile.c_str(), nullptr, work.c_str());
+
+#ifdef YOSYSHQ_VERIFIC_EXTENSIONS
 						continue;
 					}
 #endif
-					log_error("Can't find module/unit '%s'.\n", name);
-				}
-
-
-				const char *lib_name = nullptr;
-				SetIter si;
-				FOREACH_SET_ITEM(veri_file::GetAllLOptions(), si, &lib_name) {
-					VeriLibrary* veri_lib = veri_file::GetLibrary(lib_name, 0);
-					if (veri_lib) {
-						// Also elaborate all root modules since they may contain bind statements
-						MapIter mi;
-						VeriModule *veri_module;
-						FOREACH_VERILOG_MODULE_IN_LIBRARY(veri_lib, mi, veri_module) {
-							if (!veri_module->IsRootModule()) continue;
-							veri_modules.InsertLast(veri_module);
+					const char *lib_name = nullptr;
+					SetIter si;
+					FOREACH_SET_ITEM(veri_file::GetAllLOptions(), si, &lib_name) {
+						VeriLibrary* veri_lib = veri_file::GetLibrary(lib_name, 0);
+						if (veri_lib) {
+							// Also elaborate all root modules since they may contain bind statements
+							MapIter mi;
+							VeriModule *veri_module;
+							FOREACH_VERILOG_MODULE_IN_LIBRARY(veri_lib, mi, veri_module) {
+								if (!veri_module->IsRootModule()) continue;
+								veri_modules.InsertLast(veri_module);
+							}
 						}
 					}
+
+					log("Running hier_tree::Elaborate().\n");
+					netlists = hier_tree::Elaborate(&veri_modules, &vhdl_units, &parameters);
 				}
 
-				log("Running hier_tree::Elaborate().\n");
-				Array *netlists = hier_tree::Elaborate(&veri_modules, &vhdl_units, &parameters);
 				Netlist *nl;
 				int i;
 
