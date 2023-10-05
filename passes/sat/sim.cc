@@ -219,7 +219,7 @@ struct SimInstance
 		log_assert(module);
 
 		if (module->get_blackbox_attribute(true))
-			log_error("Cannot simulate blackbox module %s (instanced at %s).\n",
+			log_error("Cannot simulate blackbox module %s (instantiated at %s).\n",
 					  log_id(module->name), hiername().c_str());
 
 		if (parent) {
