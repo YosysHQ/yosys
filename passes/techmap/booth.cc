@@ -533,7 +533,7 @@ struct BoothPassWorker {
 			// get the bits in this column.
 			SigSpec column_bits;
 			for (int row_ix = 0; row_ix < row_size; row_ix++) {
-				if (bits_to_reduce[row_ix][column_ix].wire)
+				if (bits_to_reduce[row_ix][column_ix] != State::S0)
 					column_bits.append(bits_to_reduce[row_ix][column_ix]);
 			}
 			for (auto c : carry_bits_to_add_to_next_column) {
@@ -750,7 +750,7 @@ struct BoothPassWorker {
 			SigSpec first_csa_ips;
 			// get the first 3 inputs, if possible
 			for (var_ix = 0; var_ix < column_bits.size() && first_csa_ips.size() != 3; var_ix++) {
-				if (column_bits[var_ix].is_wire())
+				if (column_bits[var_ix] != State::S0)
 					first_csa_ips.append(column_bits[var_ix]);
 			}
 
@@ -782,7 +782,7 @@ struct BoothPassWorker {
 					// get the next two variables to sum
 					for (; var_ix <= column_bits.size() - 1 && csa_ips.size() < 2;) {
 						// skip any empty bits
-						if (column_bits[var_ix].is_wire())
+						if (column_bits[var_ix] != State::S0)
 							csa_ips.append(column_bits[var_ix]);
 						var_ix++;
 					}
