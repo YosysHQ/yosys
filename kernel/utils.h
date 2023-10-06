@@ -134,7 +134,7 @@ template <typename T, typename C = std::less<T>, typename OPS = hash_ops<T>> cla
 	// We use this ordering of the edges in the adjacency matrix for
 	// exact compatibility with an older implementation.
 	struct IndirectCmp {
-		IndirectCmp(const std::vector<T> &nodes) : nodes_(nodes) {}
+                IndirectCmp(const std::vector<T> &nodes) : node_cmp_(), nodes_(nodes) {}
 		bool operator()(int a, int b) const
 		{
                         log_assert(static_cast<size_t>(a) < nodes_.size());
