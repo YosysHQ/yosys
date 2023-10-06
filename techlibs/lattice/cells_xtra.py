@@ -350,7 +350,7 @@ devices = [
         Cell("EHXPLLJ"),
         #Cell("PLLREFCS"),
         Cell("OSCH"),
-        #Cell("EFB"),
+        Cell("EFB"),
         Cell("TSALL", True),
     ]),
     ("cells_bb_xo3.v", "machxo3lf", [
@@ -526,7 +526,7 @@ devices = [
         Cell("EHXPLLJ"),
         #Cell("PLLREFCS"),
         Cell("OSCH"),
-        #Cell("EFB"),
+        Cell("EFB"),
         Cell("TSALL", True),
     ]),
     ("cells_bb_xo3d.v", "machxo3d", [
@@ -703,7 +703,7 @@ devices = [
         Cell("EHXPLLJ"),
         #Cell("PLLREFCS"),
         Cell("OSCJ"),
-        #Cell("EFBB"),
+        Cell("EFBB"),
         Cell("TSALL", True),
         #Cell("ESBA"),
         #Cell("BCSLEWRATEA"),
