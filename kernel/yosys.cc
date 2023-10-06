@@ -1353,8 +1353,12 @@ void shell(RTLIL::Design *design)
 		if ((command = fgets(command_buffer, 4096, stdin)) == NULL)
 			break;
 #endif
-		if (command[strspn(command, " \t\r\n")] == 0)
+		if (command[strspn(command, " \t\r\n")] == 0) {
+#if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
+			free(command);
+#endif
 			continue;
+		}
 #if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
 		add_history(command);
 #endif
@@ -1376,10 +1380,17 @@ void shell(RTLIL::Design *design)
 			log_reset_stack();
 		}
 		design->check();
+#if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
+		if (command)
+			free(command);
+#endif
 	}
 	if (command == NULL)
 		printf("exit\n");
-
+#if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
+	else
+		free(command);
+#endif
 	recursion_counter--;
 	log_cmd_error_throw = false;
 }
