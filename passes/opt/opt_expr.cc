@@ -424,6 +424,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 						for (auto &bit : sig)
 							outbit_to_cell[bit].insert(cell);
 				}
+                        cells.node(cell);
 		}
 
         // Build the graph for the topological sort.

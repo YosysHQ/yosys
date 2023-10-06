@@ -174,11 +174,7 @@ template <typename T, typename C = std::less<T>, typename OPS = hash_ops<T>> cla
 
 	void edge(T left, T right) { edge(node(left), node(right)); }
 
-	bool has_edges(const T &node)
-	{
-		auto it = node_to_index.find(node);
-		return it == node_to_index.end() || !edges[it->second].empty();
-	}
+	bool has_node(const T &node) { return node_to_index.find(node) != node_to_index.end(); }
 
 	bool sort()
 	{
@@ -192,8 +188,6 @@ template <typename T, typename C = std::less<T>, typename OPS = hash_ops<T>> cla
 		std::vector<bool> marked_cells(edges.size(), false);
 		std::vector<bool> active_cells(edges.size(), false);
 		std::vector<int> active_stack;
-
-		marked_cells.reserve(edges.size());
 		sorted.reserve(edges.size());
 
 		for (const auto &it : node_to_index)
