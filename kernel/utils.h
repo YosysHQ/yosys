@@ -159,15 +159,12 @@ template <typename T, typename C = std::less<T>, typename OPS = hash_ops<T>> cla
 
 	int node(T n)
 	{
-		auto it = node_to_index.find(n);
-		if (it == node_to_index.end()) {
-                        int index = static_cast<size_t>(nodes.size());
-			node_to_index[n] = index;
-			nodes.push_back(n);
-			edges.push_back(std::set<int, IndirectCmp>(indirect_cmp));
-			return index;
+                auto rv = node_to_index.emplace(n, static_cast<int>(nodes.size()));
+                if (rv.second) {
+      	              nodes.push_back(n);
+		      edges.push_back(std::set<int, IndirectCmp>(indirect_cmp));
 		}
-		return it->second;
+		return rv.first->second;
 	}
 
 	void edge(int l_index, int r_index) { edges[r_index].insert(l_index); }
