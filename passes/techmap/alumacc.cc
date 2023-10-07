@@ -451,7 +451,7 @@ struct AlumaccWorker
 			alunode_t *n = nullptr;
 
 			for (auto node : sig_alu[RTLIL::SigSig(A, B)])
-				if (node->is_signed == is_signed && node->invert_b && node->c == State::S1) {
+				if (node->invert_b && node->c == State::S1) {
 					n = node;
 					break;
 				}
