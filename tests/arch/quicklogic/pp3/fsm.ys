@@ -1,4 +1,4 @@
-read_verilog ../common/fsm.v
+read_verilog ../../common/fsm.v
 hierarchy -top fsm
 proc
 flatten

@@ -1,4 +1,4 @@
-read_verilog ../common/add_sub.v
+read_verilog ../../common/add_sub.v
 hierarchy -top top
 equiv_opt -assert -map +/quicklogic/pp3/cells_sim.v synth_quicklogic -family pp3 # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)

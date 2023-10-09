@@ -1,4 +1,4 @@
-read_verilog ../common/counter.v
+read_verilog ../../common/counter.v
 hierarchy -top top
 proc
 flatten

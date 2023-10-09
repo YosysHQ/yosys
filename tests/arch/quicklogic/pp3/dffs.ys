@@ -1,4 +1,4 @@
-read_verilog ../common/dffs.v
+read_verilog ../../common/dffs.v
 rename dff my_dff # Work around conflicting module names between test and vendor cells
 rename dffe my_dffe
 design -save read

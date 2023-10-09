@@ -1,4 +1,4 @@
-read_verilog ../common/mux.v
+read_verilog ../../common/mux.v
 design -save read
 
 hierarchy -top mux2
