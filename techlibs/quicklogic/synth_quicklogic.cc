@@ -245,16 +245,15 @@ struct SynthQuickLogicPass : public ScriptPass {
 			run("opt_clean");
 		}
 
-		if (check_label("map_bram", "(for qlf_k6n10f, skip if -no_bram)")) {
-			if(family == "qlf_k6n10f" || help_mode)
+		if (check_label("map_bram", "(for qlf_k6n10f, skip if -no_bram)")
+				&& (family == "qlf_k6n10f" || help_mode)) {
 			run("memory_libmap -lib " + lib_path + family + "/libmap_brams.txt");
 			run("ql_bram_merge");
 			run("techmap -map " + lib_path + family + "/libmap_brams_map.v");
 			run("techmap -autoproc -map " + lib_path + family + "/brams_map.v");
 
-			if (bramTypes || help_mode) {
+			if (bramTypes || help_mode)
 				run("ql_bram_types", "(if -bramtypes)");
-			}
 		}
 
 		if (check_label("map_ffram")) {
