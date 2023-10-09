@@ -249,6 +249,15 @@ struct cxxrtl_object {
 	// this field to NULL.
 	struct _cxxrtl_outline *outline;
 
+	// Opaque reference to an attribute set.
+	//
+	// See the documentation of `cxxrtl_attr_set` for details. When creating a `cxxrtl_object`, set
+	// this field to NULL.
+	//
+	// The lifetime of the pointers returned by `cxxrtl_attr_*` family of functions is the same as
+	// the lifetime of this structure.
+	struct _cxxrtl_attr_set *attrs;
+
 	// More description fields may be added in the future, but the existing ones will never change.
 };
 
@@ -303,6 +312,62 @@ typedef struct _cxxrtl_outline *cxxrtl_outline;
 // causes every outline object to become stale, after which the corresponding outline must be
 // re-evaluated, otherwise the bits read from that object are meaningless.
 void cxxrtl_outline_eval(cxxrtl_outline outline);
+
+// Opaque reference to an attribute set.
+//
+// An attribute set is a map between attribute names (always strings) and values (which may have
+// several different types). To find out the type of an attribute, use `cxxrtl_attr_type`, and
+// to retrieve the value of an attribute, use `cxxrtl_attr_as_string`.
+typedef struct _cxxrtl_attr_set *cxxrtl_attr_set;
+
+// Type of an attribute.
+enum cxxrtl_attr_type {
+	// Attribute is not present.
+	CXXRTL_ATTR_NONE = 0,
+
+	// Attribute has an unsigned integer value.
+	CXXRTL_ATTR_UNSIGNED_INT = 1,
+
+	// Attribute has an unsigned integer value.
+	CXXRTL_ATTR_SIGNED_INT = 2,
+
+	// Attribute has a string value.
+	CXXRTL_ATTR_STRING = 3,
+
+	// Attribute has a double precision floating point value.
+	CXXRTL_ATTR_DOUBLE = 4,
+
+	// More attribute types may be defined in the future, but the existing values will never change.
+};
+
+// Determine the presence and type of an attribute in an attribute set.
+//
+// This function returns one of the possible `cxxrtl_attr_type` values.
+int cxxrtl_attr_type(cxxrtl_attr_set attrs, const char *name);
+
+// Retrieve an unsigned integer valued attribute from an attribute set.
+//
+// This function asserts that `cxxrtl_attr_type(attrs, name) == CXXRTL_ATTR_UNSIGNED_INT`.
+// If assertions are disabled, returns 0 if the attribute is missing or has an incorrect type.
+uint64_t cxxrtl_attr_get_unsigned_int(cxxrtl_attr_set attrs, const char *name);
+
+// Retrieve a signed integer valued attribute from an attribute set.
+//
+// This function asserts that `cxxrtl_attr_type(attrs, name) == CXXRTL_ATTR_SIGNED_INT`.
+// If assertions are disabled, returns 0 if the attribute is missing or has an incorrect type.
+int64_t cxxrtl_attr_get_signed_int(cxxrtl_attr_set attrs, const char *name);
+
+// Retrieve a string valued attribute from an attribute set. The returned string is zero-terminated.
+//
+// This function asserts that `cxxrtl_attr_type(attrs, name) == CXXRTL_ATTR_STRING`. If assertions
+// are disabled, returns NULL if the attribute is missing or has an incorrect type.
+const char *cxxrtl_attr_get_string(cxxrtl_attr_set attrs, const char *name);
+
+// Retrieve a double precision floating point valued attribute from an attribute set.
+//
+// This function asserts that `cxxrtl_attr_type(attrs, name) == CXXRTL_ATTR_DOUBLE`. If assertions
+// are disabled, returns NULL if the attribute is missing or has an incorrect type.
+double cxxrtl_attr_get_double(cxxrtl_attr_set attrs, const char *name);
 
 #ifdef __cplusplus
 }
