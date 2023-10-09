@@ -1,4 +1,4 @@
-read_verilog ../common/adffs.v
+read_verilog ../../common/adffs.v
 design -save read
 
 hierarchy -top adff

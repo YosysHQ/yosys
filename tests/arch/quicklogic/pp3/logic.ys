@@ -1,4 +1,4 @@
-read_verilog ../common/logic.v
+read_verilog ../../common/logic.v
 hierarchy -top top
 proc
 equiv_opt -assert -map +/quicklogic/pp3/cells_sim.v -map +/quicklogic/common/cells_sim.v synth_quicklogic # equivalency check

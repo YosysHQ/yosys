@@ -1,4 +1,4 @@
-read_verilog ../common/tribuf.v
+read_verilog ../../common/tribuf.v
 hierarchy -top tristate
 proc
 tribuf
