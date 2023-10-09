@@ -308,10 +308,14 @@ namespace RTLIL
 		bool operator!=(const char *rhs) const { return strcmp(c_str(), rhs) != 0; }
 
 		char operator[](size_t i) const {
-			const char *p = c_str();
+                        const char *p = c_str();
+#ifndef NDEBUG
 			for (; i != 0; i--, p++)
 				log_assert(*p != 0);
 			return *p;
+#else
+			return *(p + i);
+#endif
 		}
 
 		std::string substr(size_t pos = 0, size_t len = std::string::npos) const {

@@ -90,6 +90,12 @@ template<> struct hash_ops<uint32_t> : hash_int_ops
 		return a;
 	}
 };
+template<> struct hash_ops<uint64_t> : hash_int_ops
+{
+	static inline unsigned int hash(uint64_t a) {
+		return mkhash((unsigned int)(a), (unsigned int)(a >> 32));
+	}
+};
 
 template<> struct hash_ops<std::string> {
 	static inline bool cmp(const std::string &a, const std::string &b) {

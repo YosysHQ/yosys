@@ -29,13 +29,6 @@
 
 USING_YOSYS_NAMESPACE
 
-template<> struct hashlib::hash_ops<uint64_t> : hashlib::hash_int_ops
-{
-	static inline unsigned int hash(uint64_t a) {
-		return mkhash((unsigned int)(a), (unsigned int)(a >> 32));
-	}
-};
-
 PRIVATE_NAMESPACE_BEGIN
 
 // xorshift128 params
@@ -453,7 +446,7 @@ struct RecoverNamesWorker {
     pool<IdString> comb_whiteboxes, buffer_types;
 
     // class -> (gold, (gate, inverted))
-    dict<equiv_cls_t, std::pair<pool<IdBit>, dict<IdBit, bool>>> cls2bits; 
+    dict<equiv_cls_t, std::pair<pool<IdBit>, dict<IdBit, bool>>> cls2bits;
 
     void analyse_boxes()
     {
