@@ -40,7 +40,7 @@ possible it is key that (1) all passes operate on the same data structure
 (RTLIL) and (2) that this data structure is powerful enough to represent the
 design in different stages of the synthesis.
 
-.. figure:: ../../../images/overview_flow.*
+.. figure:: /_images/overview_flow.*
 	:class: width-helper
 	:name: fig:Overview_flow
 

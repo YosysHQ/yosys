@@ -94,10 +94,10 @@ Example
    :language: yoscrypt
    :caption: ``docs/resources/PRESENTATION_ExSyn/proc_01.ys``
 
-.. figure:: ../../images/res/PRESENTATION_ExSyn/proc_01.*
+.. figure:: /_images/res/PRESENTATION_ExSyn/proc_01.*
     :class: width-helper
 
-.. figure:: ../../images/res/PRESENTATION_ExSyn/proc_02.*
+.. figure:: /_images/res/PRESENTATION_ExSyn/proc_02.*
     :class: width-helper
 
 .. literalinclude:: ../../resources/PRESENTATION_ExSyn/proc_02.v
@@ -108,7 +108,7 @@ Example
    :language: yoscrypt
    :caption: ``docs/resources/PRESENTATION_ExSyn/proc_02.ys``
 
-.. figure:: ../../images/res/PRESENTATION_ExSyn/proc_03.*
+.. figure:: /_images/res/PRESENTATION_ExSyn/proc_03.*
     :class: width-helper
 
 .. literalinclude:: ../../resources/PRESENTATION_ExSyn/proc_03.ys
@@ -150,7 +150,7 @@ The command :cmd:ref:`clean` can be used as alias for :cmd:ref:`opt_clean`. And
 Example
 ^^^^^^^
 
-.. figure:: ../../images/res/PRESENTATION_ExSyn/opt_01.*
+.. figure:: /_images/res/PRESENTATION_ExSyn/opt_01.*
     :class: width-helper
 
 .. literalinclude:: ../../resources/PRESENTATION_ExSyn/opt_01.ys
@@ -161,7 +161,7 @@ Example
    :language: verilog
    :caption: ``docs/resources/PRESENTATION_ExSyn/opt_01.v``
 
-.. figure:: ../../images/res/PRESENTATION_ExSyn/opt_02.*
+.. figure:: /_images/res/PRESENTATION_ExSyn/opt_02.*
     :class: width-helper
 
 .. literalinclude:: ../../resources/PRESENTATION_ExSyn/opt_02.ys
@@ -172,7 +172,7 @@ Example
    :language: verilog
    :caption: ``docs/resources/PRESENTATION_ExSyn/opt_02.v``
 
-.. figure:: ../../images/res/PRESENTATION_ExSyn/opt_03.*
+.. figure:: /_images/res/PRESENTATION_ExSyn/opt_03.*
     :class: width-helper
 
 .. literalinclude:: ../../resources/PRESENTATION_ExSyn/opt_03.ys
@@ -183,7 +183,7 @@ Example
    :language: verilog
    :caption: ``docs/resources/PRESENTATION_ExSyn/opt_03.v``
 
-.. figure:: ../../images/res/PRESENTATION_ExSyn/opt_04.*
+.. figure:: /_images/res/PRESENTATION_ExSyn/opt_04.*
     :class: width-helper
 
 .. literalinclude:: ../../resources/PRESENTATION_ExSyn/opt_04.v
@@ -246,7 +246,7 @@ For example:
 Example
 ^^^^^^^
 
-.. figure:: ../../images/res/PRESENTATION_ExSyn/memory_01.*
+.. figure:: /_images/res/PRESENTATION_ExSyn/memory_01.*
     :class: width-helper
 
 .. literalinclude:: ../../resources/PRESENTATION_ExSyn/memory_01.ys
@@ -257,7 +257,7 @@ Example
    :language: verilog
    :caption: ``docs/resources/PRESENTATION_ExSyn/memory_01.v``
 
-.. figure:: ../../images/res/PRESENTATION_ExSyn/memory_02.*
+.. figure:: /_images/res/PRESENTATION_ExSyn/memory_02.*
     :class: width-helper
 
 .. literalinclude:: ../../resources/PRESENTATION_ExSyn/memory_02.v
@@ -315,7 +315,7 @@ Finally the :cmd:ref:`fsm_map` command can be used to convert the (optimized)
 The :cmd:ref:`techmap` command
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. figure:: ../../images/res/PRESENTATION_ExSyn/techmap_01.*
+.. figure:: /_images/res/PRESENTATION_ExSyn/techmap_01.*
     :class: width-helper
 
 The :cmd:ref:`techmap` command replaces cells with implementations given as
@@ -386,7 +386,7 @@ Example
    :language: yoscrypt
    :caption: ``docs/resources/PRESENTATION_ExSyn/abc_01.ys``
 
-.. figure:: ../../images/res/PRESENTATION_ExSyn/abc_01.*
+.. figure:: /_images/res/PRESENTATION_ExSyn/abc_01.*
     :class: width-helper
 
 Other special-purpose mapping commands

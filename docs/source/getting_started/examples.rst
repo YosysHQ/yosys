@@ -106,7 +106,7 @@ Step 1
 
 Result:
 
-.. figure:: ../../images/res/PRESENTATION_Intro/counter_00.*
+.. figure:: /_images/res/PRESENTATION_Intro/counter_00.*
     :class: width-helper
 
 Step 2
@@ -118,7 +118,7 @@ Step 2
 
 Result:
 
-.. figure:: ../../images/res/PRESENTATION_Intro/counter_01.*
+.. figure:: /_images/res/PRESENTATION_Intro/counter_01.*
     :class: width-helper
 
 Step 3
@@ -130,7 +130,7 @@ Step 3
 
 Result:
 
-.. figure:: ../../images/res/PRESENTATION_Intro/counter_02.*
+.. figure:: /_images/res/PRESENTATION_Intro/counter_02.*
     :class: width-helper
 
 Step 4
@@ -142,5 +142,5 @@ Step 4
 
 Result:
 
-.. figure:: ../../images/res/PRESENTATION_Intro/counter_03.*
+.. figure:: /_images/res/PRESENTATION_Intro/counter_03.*
     :class: width-helper

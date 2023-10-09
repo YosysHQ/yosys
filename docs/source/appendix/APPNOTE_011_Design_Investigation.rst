@@ -60,7 +60,7 @@ Introduction to the show command
                y <= c ? a + b : 2'd0;
    endmodule
 
-.. figure:: ../../images/011/example_out.*
+.. figure:: /_images/011/example_out.*
    :class: width-helper
    :name: example_out
    
@@ -134,7 +134,7 @@ leads us to the 3rd diagram in :numref:`example_out`. Here we see that the
 :cmd:ref:`proc`, but also determined correctly that it can remove the first
 ``$mux`` cell without changing the behavior of the circuit.
 
-.. figure:: ../../images/011/splice.*
+.. figure:: /_images/011/splice.*
    :class: width-helper
    :name: splice_dia
 
@@ -144,7 +144,7 @@ leads us to the 3rd diagram in :numref:`example_out`. Here we see that the
    :caption: ``splice.v``
    :name: splice_src
 
-.. figure:: ../../images/011/splitnets_libfile.*
+.. figure:: /_images/011/splitnets_libfile.*
    :class: width-helper
    :name: splitnets_libfile
 
@@ -329,7 +329,7 @@ run from module-context and not design-context.
 Working with selections
 -----------------------
 
-.. figure:: ../../images/011/example_03.*
+.. figure:: /_images/011/example_03.*
    :class: width-helper
    :name: seladd
 
@@ -386,7 +386,7 @@ Operations on selections
    :name: sumprod
    :language: verilog
 
-.. figure:: ../../images/011/sumprod_00.*
+.. figure:: /_images/011/sumprod_00.*
    :class: width-helper
    :name: sumprod_00
 
@@ -434,7 +434,7 @@ be achieved using the ``%x`` action, that broadens the selection, i.e. for each
 selected wire it selects all cells connected to the wire and vice versa. So
 ``show a:sumstuff %x`` yields the diagram shown in :numref:`sumprod_01`.
 
-.. figure:: ../../images/011/sumprod_01.*
+.. figure:: /_images/011/sumprod_01.*
    :class: width-helper
    :name: sumprod_01
 
@@ -471,7 +471,7 @@ performing the ``%ci`` action three times.
 The action ``%ci*`` performs the ``%ci`` action over and over again until it
 has no effect anymore.
 
-.. figure:: ../../images/011/select_prod.*
+.. figure:: /_images/011/select_prod.*
    :class: width-helper
    :name: select_prod
    
@@ -493,7 +493,7 @@ see the diagram shown in :numref:`memdemo_00`.
    :name: memdemo_src
    :language: verilog
 
-.. figure:: ../../images/011/memdemo_00.*
+.. figure:: /_images/011/memdemo_00.*
    :class: width-helper
    :name: memdemo_00
    
@@ -538,7 +538,7 @@ Or we could decide to tell the ``%ci`` action to not follow the ``CLK`` input:
 
    show y %ci2:-[CLK]
 
-.. figure:: ../../images/011/memdemo_01.*
+.. figure:: /_images/011/memdemo_01.*
    :class: width-helper
    :name: memdemo_01
    
@@ -616,7 +616,7 @@ the circuit from :numref:`memdemo_src` and :numref:`memdemo_00` into its
 components. The ``-name`` option is used to specify the name of the new module
 and also the name of the new cell in the current module.
 
-.. figure:: ../../images/011/submod_dots.*
+.. figure:: /_images/011/submod_dots.*
    :class: width-helper
    :name: submod_dots
 

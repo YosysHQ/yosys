@@ -23,7 +23,7 @@ pass is reading an auxiliary Verilog file such as a cell library, it might
 create an additional ``RTLIL::Design`` object and call the Verilog frontend with
 this other object to parse the cell library.
 
-.. figure:: ../../../images/overview_rtlil.*
+.. figure:: /_images/overview_rtlil.*
 	:class: width-helper
 	:name: fig:Overview_RTLIL
 

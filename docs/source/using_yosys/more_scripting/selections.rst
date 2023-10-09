@@ -181,7 +181,7 @@ Example:
    :language: yoscrypt
    :caption: ``docs/resources/PRESENTATION_ExAdv/select.ys``
 
-.. figure:: ../../../images/res/PRESENTATION_ExAdv/select.*
+.. figure:: /_images/res/PRESENTATION_ExAdv/select.*
     :class: width-helper
 
 Interactive Design Investigation
@@ -226,10 +226,10 @@ reorganizing a module in Yosys and checking the resulting circuit.
             xs %c %ci %D %c %ci:+[D] %D \
             %ci*:-$dff xs %co %ci %d
 
-.. figure:: ../../../images/res/PRESENTATION_ExOth/scrambler_p01.*
+.. figure:: /_images/res/PRESENTATION_ExOth/scrambler_p01.*
     :class: width-helper
 
-.. figure:: ../../../images/res/PRESENTATION_ExOth/scrambler_p02.*
+.. figure:: /_images/res/PRESENTATION_ExOth/scrambler_p02.*
     :class: width-helper
 
 Analyzing the resulting circuit with :doc:`/cmd/eval`:

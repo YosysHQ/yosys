@@ -9,8 +9,8 @@ copyright ='2022 YosysHQ GmbH'
 # select HTML theme
 html_theme = 'furo'
 templates_path = ["_templates"]
-html_logo = '../static/logo.png'
-html_favicon = '../static/favico.png'
+html_logo = '_static/logo.png'
+html_favicon = '_static/favico.png'
 html_css_files = ['yosyshq.css', 'custom.css']
 
 html_theme_options = {
@@ -34,7 +34,7 @@ html_theme_options = {
 }
 
 # These folders are copied to the documentation's HTML output
-html_static_path = ['../static', "../images"]
+html_static_path = ['_static', "_images"]
 
 # code blocks style 
 pygments_style = 'colorful'

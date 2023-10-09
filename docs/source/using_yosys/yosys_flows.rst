@@ -41,12 +41,12 @@ The extract pass
 
 .. todo:: add/expand supporting text
 
-.. figure:: ../../images/res/PRESENTATION_ExAdv/macc_simple_test_00a.*
+.. figure:: /_images/res/PRESENTATION_ExAdv/macc_simple_test_00a.*
     :class: width-helper
     
     before `extract`
 
-.. figure:: ../../images/res/PRESENTATION_ExAdv/macc_simple_test_00b.*
+.. figure:: /_images/res/PRESENTATION_ExAdv/macc_simple_test_00b.*
     :class: width-helper
     
     after `extract`
@@ -70,20 +70,20 @@ The extract pass
    :language: verilog
    :caption: ``docs/resources/PRESENTATION_ExAdv/macc_simple_test_01.v``
 
-.. figure:: ../../images/res/PRESENTATION_ExAdv/macc_simple_test_01a.*
+.. figure:: /_images/res/PRESENTATION_ExAdv/macc_simple_test_01a.*
     :class: width-helper
 
-.. figure:: ../../images/res/PRESENTATION_ExAdv/macc_simple_test_01b.*
+.. figure:: /_images/res/PRESENTATION_ExAdv/macc_simple_test_01b.*
     :class: width-helper
 
 .. literalinclude:: ../../resources/PRESENTATION_ExAdv/macc_simple_test_02.v
    :language: verilog
    :caption: ``docs/resources/PRESENTATION_ExAdv/macc_simple_test_02.v``
 
-.. figure:: ../../images/res/PRESENTATION_ExAdv/macc_simple_test_02a.*
+.. figure:: /_images/res/PRESENTATION_ExAdv/macc_simple_test_02a.*
     :class: width-helper
 
-.. figure:: ../../images/res/PRESENTATION_ExAdv/macc_simple_test_02b.*
+.. figure:: /_images/res/PRESENTATION_ExAdv/macc_simple_test_02b.*
     :class: width-helper
 
 The wrap-extract-unwrap method
@@ -169,10 +169,10 @@ Unwrapping adders: ``macc_xilinx_unwrap_map.v``
    :lines: 1-6
    :caption: ``test1`` of ``docs/resources/PRESENTATION_ExAdv/macc_xilinx_test.v``
 
-.. figure:: ../../images/res/PRESENTATION_ExAdv/macc_xilinx_test1a.*
+.. figure:: /_images/res/PRESENTATION_ExAdv/macc_xilinx_test1a.*
     :class: width-helper
 
-.. figure:: ../../images/res/PRESENTATION_ExAdv/macc_xilinx_test1b.*
+.. figure:: /_images/res/PRESENTATION_ExAdv/macc_xilinx_test1b.*
     :class: width-helper
 
 .. literalinclude:: ../../resources/PRESENTATION_ExAdv/macc_xilinx_test.v
@@ -180,15 +180,15 @@ Unwrapping adders: ``macc_xilinx_unwrap_map.v``
    :lines: 8-13
    :caption: ``test2`` of ``docs/resources/PRESENTATION_ExAdv/macc_xilinx_test.v``
 
-.. figure:: ../../images/res/PRESENTATION_ExAdv/macc_xilinx_test2a.*
+.. figure:: /_images/res/PRESENTATION_ExAdv/macc_xilinx_test2a.*
     :class: width-helper
 
-.. figure:: ../../images/res/PRESENTATION_ExAdv/macc_xilinx_test2b.*
+.. figure:: /_images/res/PRESENTATION_ExAdv/macc_xilinx_test2b.*
     :class: width-helper
 
 Wrapping in ``test1``:
 
-.. figure:: ../../images/res/PRESENTATION_ExAdv/macc_xilinx_test1b.*
+.. figure:: /_images/res/PRESENTATION_ExAdv/macc_xilinx_test1b.*
     :class: width-helper
 
 .. code:: yoscrypt
@@ -200,12 +200,12 @@ Wrapping in ``test1``:
                 -unsigned $__add_wrapper \
                                 Y Y_WIDTH ;;
 
-.. figure:: ../../images/res/PRESENTATION_ExAdv/macc_xilinx_test1c.*
+.. figure:: /_images/res/PRESENTATION_ExAdv/macc_xilinx_test1c.*
     :class: width-helper
 
 Wrapping in ``test2``:
 
-.. figure:: ../../images/res/PRESENTATION_ExAdv/macc_xilinx_test2b.*
+.. figure:: /_images/res/PRESENTATION_ExAdv/macc_xilinx_test2b.*
     :class: width-helper
 
 .. code:: yoscrypt
@@ -217,7 +217,7 @@ Wrapping in ``test2``:
                  -unsigned $__add_wrapper \
                                 Y Y_WIDTH ;;
 
-.. figure:: ../../images/res/PRESENTATION_ExAdv/macc_xilinx_test2c.*
+.. figure:: /_images/res/PRESENTATION_ExAdv/macc_xilinx_test2c.*
     :class: width-helper
 
 Extract in ``test1``:
@@ -235,10 +235,10 @@ Extract in ``test1``:
             -map %__macc_xilinx_xmap       \
             -swap $__add_wrapper A,B ;;
 
-.. figure:: ../../images/res/PRESENTATION_ExAdv/macc_xilinx_test1c.*
+.. figure:: /_images/res/PRESENTATION_ExAdv/macc_xilinx_test1c.*
     :class: width-helper
 
-.. figure:: ../../images/res/PRESENTATION_ExAdv/macc_xilinx_test1d.*
+.. figure:: /_images/res/PRESENTATION_ExAdv/macc_xilinx_test1d.*
     :class: width-helper
 
 Extract in ``test2``:
@@ -256,18 +256,18 @@ Extract in ``test2``:
             -map %__macc_xilinx_xmap       \
             -swap $__add_wrapper A,B ;;
 
-.. figure:: ../../images/res/PRESENTATION_ExAdv/macc_xilinx_test2c.*
+.. figure:: /_images/res/PRESENTATION_ExAdv/macc_xilinx_test2c.*
     :class: width-helper
 
-.. figure:: ../../images/res/PRESENTATION_ExAdv/macc_xilinx_test2d.*
+.. figure:: /_images/res/PRESENTATION_ExAdv/macc_xilinx_test2d.*
     :class: width-helper
 
 Unwrap in ``test2``:
 
-.. figure:: ../../images/res/PRESENTATION_ExAdv/macc_xilinx_test2d.*
+.. figure:: /_images/res/PRESENTATION_ExAdv/macc_xilinx_test2d.*
     :class: width-helper
 
-.. figure:: ../../images/res/PRESENTATION_ExAdv/macc_xilinx_test2e.*
+.. figure:: /_images/res/PRESENTATION_ExAdv/macc_xilinx_test2e.*
     :class: width-helper
 
 .. code:: yoscrypt

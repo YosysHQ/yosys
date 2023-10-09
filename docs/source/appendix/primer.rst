@@ -23,7 +23,7 @@ circuit to a functionally equivalent low-level representation of a circuit.
 :numref:`Figure %s <fig:Basics_abstractions>` lists the different levels of
 abstraction and how they relate to different kinds of synthesis.
 
-.. figure:: ../../images/basics_abstractions.*
+.. figure:: /_images/basics_abstractions.*
 	:class: width-helper
 	:name: fig:Basics_abstractions
 
@@ -498,7 +498,7 @@ Then the synthesizable description is transformed to lower-level representations
 using a series of tools and the results are again verified using simulation.
 This process is illustrated in :numref:`Fig. %s <fig:Basics_flow>`.
 
-.. figure:: ../../images/basics_flow.*
+.. figure:: /_images/basics_flow.*
 	:class: width-helper
 	:name: fig:Basics_flow
 
@@ -597,7 +597,7 @@ Let's consider the following BNF (in Bison syntax):
    assign_stmt: TOK_ASSIGN TOK_IDENTIFIER TOK_EQ expr TOK_SEMICOLON;
    expr: TOK_IDENTIFIER | TOK_NUMBER | expr TOK_PLUS expr;
 
-.. figure:: ../../images/basics_parsetree.*
+.. figure:: /_images/basics_parsetree.*
 	:class: width-helper
 	:name: fig:Basics_parsetree
 
@@ -626,7 +626,7 @@ Usually the AST is then converted into yet another representation that is more
 suitable for further processing. In compilers this is often an assembler-like
 three-address-code intermediate representation. :cite:p:`Dragonbook`
 
-.. figure:: ../../images/basics_ast.*
+.. figure:: /_images/basics_ast.*
 	:class: width-helper
 	:name: fig:Basics_ast
 

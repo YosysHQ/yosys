@@ -134,7 +134,7 @@ Mapping OR3X1
    :language: verilog
    :caption: ``docs/resources/PRESENTATION_ExAdv/red_or3x1_map.v``
 
-.. figure:: ../../images/res/PRESENTATION_ExAdv/red_or3x1.*
+.. figure:: /_images/res/PRESENTATION_ExAdv/red_or3x1.*
     :class: width-helper
 
 .. literalinclude:: ../../resources/PRESENTATION_ExAdv/red_or3x1_test.ys
@@ -160,7 +160,7 @@ Conditional techmap
 
 Example:
 
-.. figure:: ../../images/res/PRESENTATION_ExAdv/sym_mul.*
+.. figure:: /_images/res/PRESENTATION_ExAdv/sym_mul.*
     :class: width-helper
 
 .. literalinclude:: ../../resources/PRESENTATION_ExAdv/sym_mul_map.v
@@ -199,7 +199,7 @@ Scripting in map modules
 
 Example:
 
-.. figure:: ../../images/res/PRESENTATION_ExAdv/mymul.*
+.. figure:: /_images/res/PRESENTATION_ExAdv/mymul.*
     :class: width-helper
 
 .. literalinclude:: ../../resources/PRESENTATION_ExAdv/mymul_map.v
@@ -229,7 +229,7 @@ Handling constant inputs
 
 Example:
 
-.. figure:: ../../images/res/PRESENTATION_ExAdv/mulshift.*
+.. figure:: /_images/res/PRESENTATION_ExAdv/mulshift.*
     :class: width-helper
 
 .. literalinclude:: ../../resources/PRESENTATION_ExAdv/mulshift_map.v
@@ -260,7 +260,7 @@ Handling shorted inputs
 
 Example:
 
-.. figure:: ../../images/res/PRESENTATION_ExAdv/addshift.*
+.. figure:: /_images/res/PRESENTATION_ExAdv/addshift.*
     :class: width-helper
 
 .. literalinclude:: ../../resources/PRESENTATION_ExAdv/addshift_map.v
