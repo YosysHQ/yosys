@@ -21,7 +21,9 @@ commands. For example:
     delete                # delete selected objects
     select -clear         # reset selection (select whole design)
 
-See :doc:`/cmd/select`
+Many of the examples on this page make use of the :cmd:ref:`show` command to
+visually demonstrate the effect of selections.  For a more detailed look at this
+command, refer to :ref:`interactive_show`.
 
 How to make a selection
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -78,8 +80,8 @@ Special patterns can be used to select by object property or type. For example:
 A complete list of this pattern expressions can be found in the command
 reference to the :cmd:ref:`select` command.
 
-Combining selection
-^^^^^^^^^^^^^^^^^^^
+Combining selections
+^^^^^^^^^^^^^^^^^^^^
 
 When more than one selection expression is used in one statement, then they are
 pushed on a stack. The final elements on the stack are combined into a union:
@@ -183,112 +185,3 @@ Example:
 
 .. figure:: /_images/res/PRESENTATION_ExAdv/select.*
     :class: width-helper
-
-Interactive Design Investigation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Yosys can also be used to investigate designs (or netlists created from other
-tools).
-
-- The selection mechanism, especially patterns such as ``%ci`` and ``%co``, can
-  be used to figure out how parts of the design are connected.
-- Commands such as :cmd:ref:`submod`, :cmd:ref:`expose`, and :cmd:ref:`splice`
-  can be used to transform the design into an equivalent design that is easier
-  to analyse.
-- Commands such as :cmd:ref:`eval` and :cmd:ref:`sat` can be used to investigate
-  the behavior of the circuit.
-- :doc:`/cmd/show`.
-- :doc:`/cmd/dump`.
-- :doc:`/cmd/add` and :doc:`/cmd/delete` can be used to modify and reorganize a
-  design dynamically.
-
-Changing design hierarchy
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Commands such as :cmd:ref:`flatten` and :cmd:ref:`submod` can be used to change
-the design hierarchy, i.e. flatten the hierarchy or moving parts of a module to
-a submodule. This has applications in synthesis scripts as well as in reverse
-engineering and analysis.  An example using :cmd:ref:`submod` is shown below for
-reorganizing a module in Yosys and checking the resulting circuit.
-
-.. literalinclude:: ../../../resources/PRESENTATION_ExOth/scrambler.v
-   :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExOth/scrambler.v``
-
-.. code:: yoscrypt
-
-    read_verilog scrambler.v
-
-    hierarchy; proc;;
-
-    cd scrambler
-    submod -name xorshift32 \
-            xs %c %ci %D %c %ci:+[D] %D \
-            %ci*:-$dff xs %co %ci %d
-
-.. figure:: /_images/res/PRESENTATION_ExOth/scrambler_p01.*
-    :class: width-helper
-
-.. figure:: /_images/res/PRESENTATION_ExOth/scrambler_p02.*
-    :class: width-helper
-
-Analyzing the resulting circuit with :doc:`/cmd/eval`:
-
-.. code:: text
-
-    > cd xorshift32
-    > rename n2 in
-    > rename n1 out
-
-    > eval -set in 1 -show out
-    Eval result: \out = 270369.
-
-    > eval -set in 270369 -show out
-    Eval result: \out = 67634689.
-
-    > sat -set out 632435482
-    Signal Name                 Dec        Hex                                   Bin
-    -------------------- ---------- ---------- -------------------------------------
-    \in                   745495504   2c6f5bd0      00101100011011110101101111010000
-    \out                  632435482   25b2331a      00100101101100100011001100011010
-
-Behavioral changes
-^^^^^^^^^^^^^^^^^^
-
-Commands such as :cmd:ref:`techmap` can be used to make behavioral changes to
-the design, for example changing asynchronous resets to synchronous resets. This
-has applications in design space exploration (evaluation of various
-architectures for one circuit).
-
-The following techmap map file replaces all positive-edge async reset flip-flops
-with positive-edge sync reset flip-flops. The code is taken from the example
-Yosys script for ASIC synthesis of the Amber ARMv2 CPU.
-
-.. code:: verilog
-
-    (* techmap_celltype = "$adff" *)
-    module adff2dff (CLK, ARST, D, Q);
-
-        parameter WIDTH = 1;
-        parameter CLK_POLARITY = 1;
-        parameter ARST_POLARITY = 1;
-        parameter ARST_VALUE = 0;
-
-        input CLK, ARST;
-        input [WIDTH-1:0] D;
-        output reg [WIDTH-1:0] Q;
-
-        wire [1023:0] _TECHMAP_DO_ = "proc";
-
-        wire _TECHMAP_FAIL_ = !CLK_POLARITY || !ARST_POLARITY;
-
-        always @(posedge CLK)
-            if (ARST)
-                Q <= ARST_VALUE;
-            else
-                <= D;
-
-    endmodule
-
-For more on the :cmd:ref:`techmap` command, see the page on
-:doc:`/yosys_internals/techmap`.

@@ -98,6 +98,8 @@ Commands for model checking:
 Selections intro
 ~~~~~~~~~~~~~~~~
 
+.. todo:: reorder text for logical consistency
+
 Most commands can operate not only on the entire design but also specifically on
 selected parts of the design. For example the command :cmd:ref:`dump` will print
 all selected objects in the current design while ``dump foobar`` will only print
@@ -113,3 +115,52 @@ print all wires that are connected to the ``\A`` port of a ``$add`` cell.
 Detailed documentation of the select framework can be found under
 :doc:`/using_yosys/more_scripting/selections` or in the command reference at
 :doc:`/cmd/select`.
+
+The show command
+~~~~~~~~~~~~~~~~
+
+The :cmd:ref:`show` command requires a working installation of `GraphViz`_ and
+`xdot`_ for generating the actual circuit diagrams.  Below is an example of how
+this command can be used, showing the changes in the generated circuit at
+different stages of the yosys tool flow.
+
+.. _GraphViz: http://www.graphviz.org/
+
+.. _xdot: https://github.com/jrfonseca/xdot.py
+
+.. code-block:: console
+   :caption: Yosys script with :cmd:ref:`show` commands and example design
+   :name: show_src
+
+   $ cat example.ys
+   read_verilog example.v
+   show -pause
+   proc
+   show -pause
+   opt
+   show -pause
+
+   $ cat example.v
+   module example(input clk, a, b, c,
+                  output reg [1:0] y);
+       always @(posedge clk)
+           if (c)
+               y <= c ? a + b : 2'd0;
+   endmodule
+
+.. figure:: /_images/011/example_out.*
+   :class: width-helper
+   :name: show_out
+   
+   Output of the three :cmd:ref:`show` commands from :numref:`show_src`
+
+A circuit diagram is generated for the design in its current state. Various
+options can be used to change the appearance of the circuit diagram, set the
+name and format for the output file, and so forth. When called without any
+special options, it saves the circuit diagram in a temporary file and launches
+``xdot`` to display the diagram. Subsequent calls to show re-use the ``xdot``
+instance (if still running).
+
+For more information on the :cmd:ref:`show` command, including a guide on what
+the different symbols represent, see :ref:`interactive_show` and the 
+:doc:`/using_yosys/more_scripting/interactive_investigation` page.

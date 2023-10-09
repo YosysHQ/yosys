@@ -6,5 +6,6 @@ More scripting
 
 	opt_passes
 	selections
+	interactive_investigation
 	synth
 	troubleshooting

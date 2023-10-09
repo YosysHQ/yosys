@@ -1,6 +1,8 @@
 Installation
 ------------
 
+.. todo:: update and finish installation instructions
+
 Supported platforms
 ~~~~~~~~~~~~~~~~~~~
 
