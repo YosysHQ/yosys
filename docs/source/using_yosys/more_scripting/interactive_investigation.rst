@@ -434,16 +434,7 @@ of the module and wants to carefully read all the debug output created by the
 commands in order to spot a problem. This kind of troubleshooting is much easier
 if the circuit under investigation is encapsulated in a separate module.
 
-.. literalinclude:: /APPNOTE_011_Design_Investigation/memdemo.v
-   :caption: ``memdemo.v``, a demo circuit for demonstrating some advanced Yosys features
-   :language: verilog
-   :name: memdemo_v
-
-Let's consider :numref:`memdemo_v`. It serves no purpose other than being a
-non-trivial circuit for demonstrating some of the advanced Yosys features. We
-synthesize the circuit using ``proc; opt; memory; opt`` and change to the
-``memdemo`` module with ``cd memdemo``. If we type :cmd:ref:`show` now we see
-the following diagram:
+Recall the ``memdemo`` design from :ref:`advanced_logic_cones`:
 
 .. figure:: /_images/011/memdemo_00.*
    :class: width-helper
@@ -693,10 +684,10 @@ Solving sequential SAT problems
 
 The SAT solver functionality in Yosys can not only be used to solve
 combinatorial problems, but can also solve sequential problems. Let's consider
-the entire memdemo module from ``memdemo.v`` (:numref:`memdemo_v` above) and
-suppose we want to know which sequence of input values for ``d`` will cause the
-output y to produce the sequence 1, 2, 3 from any initial state. Let's use the
-following command:
+the ``memdemo`` design from :ref:`advanced_logic_cones` again, and suppose we
+want to know which sequence of input values for ``d`` will cause the output y to
+produce the sequence 1, 2, 3 from any initial state. Let's use the following
+command:
 
 .. code-block:: yoscrypt
 

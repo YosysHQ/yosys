@@ -1,16 +1,11 @@
 Selections
 ----------
 
-.. todo:: expand on text
+.. role:: yoscrypt(code)
+   :language: yoscrypt
 
-Most Yosys commands make use of the "selection framework" of Yosys. It can be
-used to apply commands only to part of the design. For example:
-
-.. code:: yoscrypt
-
-    delete                # will delete the whole design, but
-
-    delete foobar         # will only delete the module foobar.
+The selection framework
+~~~~~~~~~~~~~~~~~~~~~~~
 
 The :cmd:ref:`select` command can be used to create a selection for subsequent
 commands. For example:
@@ -19,11 +14,28 @@ commands. For example:
 
     select foobar         # select the module foobar
     delete                # delete selected objects
-    select -clear         # reset selection (select whole design)
 
-Many of the examples on this page make use of the :cmd:ref:`show` command to
-visually demonstrate the effect of selections.  For a more detailed look at this
-command, refer to :ref:`interactive_show`.
+Normally the :cmd:ref:`select` command overwrites a previous selection. The
+commands :yoscrypt:`select -add` and :yoscrypt:`select -del` can be used to add
+or remove objects from the current selection.
+
+The command :yoscrypt:`select -clear` can be used to reset the selection to the
+default, which is a complete selection of everything in the current module.
+
+This selection framework can also be used directly in many other commands.
+Whenever a command has ``[selection]`` as last argument in its usage help, this
+means that it will use the engine behind the :cmd:ref:`select` command to
+evaluate additional arguments and use the resulting selection instead of the
+selection created by the last :cmd:ref:`select` command.
+
+For example, the command :cmd:ref:`delete` will delete everything in the current
+selection; while :yoscrypt:`delete foobar` will only delete the module foobar.
+If no :cmd:ref:`select` command has been made, then the "current selection" will
+be the whole design.
+
+.. note:: Many of the examples on this page make use of the :cmd:ref:`show` 
+   command to visually demonstrate the effect of selections.  For a more 
+   detailed look at this command, refer to :ref:`interactive_show`.
 
 How to make a selection
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -48,7 +60,7 @@ Commands can be executed in *module/* or *design/* context. Until now all
 commands have been executed in design context. The :cmd:ref:`cd` command can be
 used to switch to module context.
 
-In module context all commands only effect the active module. Objects in the
+In module context, all commands only effect the active module. Objects in the
 module are selected without the ``<module_name>/`` prefix. For example:
 
 .. code:: yoscrypt
@@ -62,185 +74,85 @@ module are selected without the ``<module_name>/`` prefix. For example:
     cd ..                 # switch back to design
 
 Note: Most synthesis scripts never switch to module context. But it is a very
-powerful tool for interactive design investigation.
+powerful tool which we explore more in
+:doc:`/using_yosys/more_scripting/interactive_investigation`.
 
 Selecting by object property or type
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Special patterns can be used to select by object property or type. For example:
 
-.. code:: yoscrypt
+- select all wires whose names start with ``reg_``: :yoscrypt:`select w:reg_*`
+- select all objects with the attribute ``foobar`` set: :yoscrypt:`select a:foobar`
+- select all objects with the attribute ``foobar`` set to 42: :yoscrypt:`select a:foobar=42`
+- select all modules with the attribute ``blabla`` set: :yoscrypt:`select A:blabla`
+- select all $add cells from the module foo: :yoscrypt:`select foo/t:$add`
 
-    select w:reg_*        # select all wires whose names start with reg_
-    select a:foobar       # select all objects with the attribute foobar set
-    select a:foobar=42    # select all objects with the attribute foobar set to 42
-    select A:blabla       # select all modules with the attribute blabla set
-    select foo/t:$add     # select all $add cells from the module foo
+A complete list of pattern expressions can be found in :doc:`/cmd/select`.
 
-A complete list of this pattern expressions can be found in the command
-reference to the :cmd:ref:`select` command.
+Operations on selections
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 Combining selections
 ^^^^^^^^^^^^^^^^^^^^
 
-When more than one selection expression is used in one statement, then they are
-pushed on a stack. The final elements on the stack are combined into a union:
+The :cmd:ref:`select` command is actually much more powerful than it might seem
+at first glance. When it is called with multiple arguments, each argument is
+evaluated and pushed separately on a stack. After all arguments have been
+processed it simply creates the union of all elements on the stack. So
+:yoscrypt:`select t:$add a:foo` will select all ``$add`` cells and all objects
+with the ``foo`` attribute set:   
 
-.. code:: yoscrypt
+.. literalinclude:: /APPNOTE_011_Design_Investigation/foobaraddsub.v
+   :caption: Test module for operations on selections
+   :name: foobaraddsub
+   :language: verilog
 
-    select t:$dff r:WIDTH>1     # all cells of type $dff and/or with a parameter WIDTH > 1
+.. code-block::
+   :caption: Output for command ``select t:$add a:foo -list`` on :numref:`foobaraddsub`
 
-Special ``%``-commands can be used to combine the elements on the stack:
+   yosys> select t:$add a:foo -list
+   foobaraddsub/$add$foobaraddsub.v:6$3
+   foobaraddsub/$sub$foobaraddsub.v:5$2
+   foobaraddsub/$add$foobaraddsub.v:4$1
 
-.. code:: yoscrypt
+In many cases simply adding more and more stuff to the selection is an
+ineffective way of selecting the interesting part of the design. Special
+arguments can be used to combine the elements on the stack. For example the
+``%i`` arguments pops the last two elements from the stack, intersects them, and
+pushes the result back on the stack. So :yoscrypt:`select t:$add a:foo %i` will
+select all ``$add`` cells that have the ``foo`` attribute set:
 
-    select t:$dff r:WIDTH>1 %i  # all cells of type $dff *AND* with a parameter WIDTH > 1
+.. code-block::
+   :caption: Output for command ``select t:$add a:foo %i -list`` on :numref:`foobaraddsub`
+   
+   yosys> select t:$add a:foo %i -list
+   foobaraddsub/$add$foobaraddsub.v:4$1
 
-Examples for ``%``-codes (see :doc:`/cmd/select` for full list):
+Some of the special ``%``-codes:
 
 - ``%u``: union of top two elements on stack -- pop 2, push 1
 - ``%d``: difference of top two elements on stack -- pop 2, push 1
 - ``%i``: intersection of top two elements on stack -- pop 2, push 1
 - ``%n``: inverse of top element on stack -- pop 1, push 1
 
+See :doc:`/cmd/select` for the full list.
+
 Expanding selections
 ^^^^^^^^^^^^^^^^^^^^
 
-Selections of cells and wires can be expanded along connections using
-``%``-codes for selecting input cones (``%ci``), output cones (``%co``), or
-both (``%x``).
+The listing in :numref:`sumprod` uses the Yosys non-standard ``{... *}`` syntax
+to set the attribute ``sumstuff`` on all cells generated by the first assign
+statement. (This works on arbitrary large blocks of Verilog code an can be used
+to mark portions of code for analysis.)
 
-.. code:: yoscrypt
-
-    # select all wires that are inputs to $add cells
-    select t:$add %ci w:* %i
-
-Additional constraints such as port names can be specified.
-
-.. code:: yoscrypt
-
-    # select all wires that connect a "Q" output with a "D" input
-    select c:* %co:+[Q] w:* %i c:* %ci:+[D] w:* %i %i
-
-    # select the multiplexer tree that drives the signal 'state'
-    select state %ci*:+$mux,$pmux[A,B,Y]
-
-See :doc:`/cmd/select` for full documentation of these expressions.
-
-Incremental selection
-^^^^^^^^^^^^^^^^^^^^^
-
-Sometimes a selection can most easily be described by a series of add/delete
-operations. The commands ``select -add`` and ``select -del`` respectively add or
-remove objects from the current selection instead of overwriting it.
-
-.. code:: yoscrypt
-
-    select -none            # start with an empty selection
-    select -add reg_*       # select a bunch of objects
-    select -del reg_42      # but not this one
-    select -add state %ci   # and add more stuff
-
-Within a select expression the token ``%`` can be used to push the previous selection
-on the stack.
-
-.. code:: yoscrypt
-
-    select t:$add t:$sub    # select all $add and $sub cells
-    select % %ci % %d       # select only the input wires to those cells
-
-Creating selection variables
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Selections can be stored under a name with the ``select -set <name>``
-command. The stored selections can be used in later select expressions
-using the syntax ``@<name>``.
-
-.. code:: yoscrypt
-
-    select -set cone_a state_a %ci*:-$dff  # set @cone_a to the input cone of state_a
-    select -set cone_b state_b %ci*:-$dff  # set @cone_b to the input cone of state_b
-    select @cone_a @cone_b %i              # select the objects that are in both cones
-
-Remember that select expressions can also be used directly as arguments to most
-commands. Some commands also except a single select argument to some options.
-In those cases selection variables must be used to capture more complex selections.
-
-.. code:: yoscrypt
-
-    dump @cone_a @cone_b
-
-    select -set cone_ab @cone_a @cone_b %i
-    show -color red @cone_ab -color magenta @cone_a -color blue @cone_b
-
-Example:
-
-.. literalinclude:: ../../../resources/PRESENTATION_ExAdv/select.v
-   :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExAdv/select.v``
-
-.. literalinclude:: ../../../resources/PRESENTATION_ExAdv/select.ys
-   :language: yoscrypt
-   :caption: ``docs/resources/PRESENTATION_ExAdv/select.ys``
-
-.. figure:: /_images/res/PRESENTATION_ExAdv/select.*
-    :class: width-helper
-
-.. todo:: combine below sections into above where possible
-
-Working with selections
-~~~~~~~~~~~~~~~~~~~~~~~
-
-.. figure:: /_images/011/example_03.*
-   :class: width-helper
-   :name: seladd
-
-   Output of :cmd:ref:`show` after ``select $2`` or ``select t:$add`` (see also
-   :numref:`example_out`)
-
-But for most interactive work we want to further narrow the set of selected
-objects. This can be done using the :cmd:ref:`select` command.
-
-For example, if the command ``select $2`` is executed, a subsequent
-:cmd:ref:`show` command will yield the diagram shown in :numref:`seladd`. Note
-that the nets are now displayed in ellipses. This indicates that they are not
-selected, but only shown because the diagram contains a cell that is connected
-to the net. This of course makes no difference for the circuit that is shown,
-but it can be a useful information when manipulating selections.
-
-Objects can not only be selected by their name but also by other properties. For
-example ``select t:$add`` will select all cells of type ``$add``. In this case
-this is also yields the diagram shown in :numref:`seladd`.
-
-.. literalinclude:: ../APPNOTE_011_Design_Investigation/foobaraddsub.v
-   :caption: Test module for operations on selections
-   :name: foobaraddsub
-   :language: verilog
-
-The output of ``help select`` contains a complete syntax reference for
-matching different properties.
-
-Many commands can operate on explicit selections. For example the command ``dump
-t:$add`` will print information on all ``$add`` cells in the active module.
-Whenever a command has ``[selection]`` as last argument in its usage help, this
-means that it will use the engine behind the :cmd:ref:`select` command to
-evaluate additional arguments and use the resulting selection instead of the
-selection created by the last :cmd:ref:`select` command.
-
-Normally the :cmd:ref:`select` command overwrites a previous selection. The
-commands ``select -add`` and ``select -del`` can be used to add or remove
-objects from the current selection.
-
-The command ``select -clear`` can be used to reset the selection to the default,
-which is a complete selection of everything in the current module.
-
-Operations on selections
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. literalinclude:: ../APPNOTE_011_Design_Investigation/sumprod.v
+.. literalinclude:: /APPNOTE_011_Design_Investigation/sumprod.v
    :caption: Another test module for operations on selections
    :name: sumprod
    :language: verilog
+
+Selecting ``a:sumstuff`` in this module will yield the following circuit
+diagram:
 
 .. figure:: /_images/011/sumprod_00.*
    :class: width-helper
@@ -248,47 +160,16 @@ Operations on selections
 
    Output of ``show a:sumstuff`` on :numref:`sumprod`
 
-The :cmd:ref:`select` command is actually much more powerful than it might seem
-on the first glimpse. When it is called with multiple arguments, each argument
-is evaluated and pushed separately on a stack. After all arguments have been
-processed it simply creates the union of all elements on the stack. So the
-following command will select all ``$add`` cells and all objects with the
-``foo`` attribute set:
-
-.. code-block:: yoscrypt
-
-   select t:$add a:foo
-
-(Try this with the design shown in :numref:`foobaraddsub`. Use the ``select
--list`` command to list the current selection.)
-
-In many cases simply adding more and more stuff to the selection is an
-ineffective way of selecting the interesting part of the design. Special
-arguments can be used to combine the elements on the stack. For example
-the ``%i`` arguments pops the last two elements from the stack, intersects
-them, and pushes the result back on the stack. So the following command
-will select all ``$add ``cells that have the ``foo`` attribute set:
-
-.. code-block:: yoscrypt
-
-   select t:$add a:foo %i
-
-The listing in :numref:`sumprod` uses the Yosys non-standard ``{... *}`` syntax
-to set the attribute ``sumstuff`` on all cells generated by the first assign
-statement. (This works on arbitrary large blocks of Verilog code an can be used
-to mark portions of code for analysis.)
-
-Selecting ``a:sumstuff`` in this module will yield the circuit diagram shown in
-:numref:`sumprod_00`. As only the cells themselves are selected, but not the
-temporary wire ``$1_Y``, the two adders are shown as two disjunct parts. This
-can be very useful for global signals like clock and reset signals: just
-unselect them using a command such as ``select -del clk rst`` and each cell
-using them will get its own net label.
+As only the cells themselves are selected, but not the temporary wire ``$1_Y``,
+the two adders are shown as two disjunct parts. This can be very useful for
+global signals like clock and reset signals: just unselect them using a command
+such as :yoscrypt:`select -del clk rst` and each cell using them will get its
+own net label.
 
 In this case however we would like to see the cells connected properly. This can
 be achieved using the ``%x`` action, that broadens the selection, i.e. for each
 selected wire it selects all cells connected to the wire and vice versa. So
-``show a:sumstuff %x`` yields the diagram shown in :numref:`sumprod_01`.
+:yoscrypt:`show a:sumstuff %x` yields the diagram shown in :numref:`sumprod_01`:
 
 .. figure:: /_images/011/sumprod_01.*
    :class: width-helper
@@ -297,27 +178,39 @@ selected wire it selects all cells connected to the wire and vice versa. So
    Output of ``show a:sumstuff %x`` on :numref:`sumprod`
 
 Selecting logic cones
-~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^
 
 :numref:`sumprod_01` shows what is called the ``input cone`` of ``sum``, i.e.
 all cells and signals that are used to generate the signal ``sum``. The ``%ci``
 action can be used to select the input cones of all object in the top selection
 in the stack maintained by the :cmd:ref:`select` command.
 
-As the ``%x`` action, this commands broadens the selection by one "step".
-But this time the operation only works against the direction of data
-flow. That means, wires only select cells via output ports and cells
-only select wires via input ports.
+As with the ``%x`` action, this commands broadens the selection by one "step".
+But this time the operation only works against the direction of data flow. That
+means, wires only select cells via output ports and cells only select wires via
+input ports.
 
-:numref:`select_prod` show the sequence of diagrams generated by the following
-commands:
+The following sequence of diagrams demonstrates this step-wise expansion:
 
-.. code-block:: yoscrypt
+.. figure:: /_images/011/sumprod_02.*
+   :class: width-helper
 
-   show prod
-   show prod %ci
-   show prod %ci %ci
-   show prod %ci %ci %ci
+   Output of ``show prod`` on :numref:`sumprod`
+
+.. figure:: /_images/011/sumprod_03.*
+   :class: width-helper
+
+   Output of ``show prod %ci`` on :numref:`sumprod`
+
+.. figure:: /_images/011/sumprod_04.*
+   :class: width-helper
+
+   Output of ``show prod %ci %ci`` on :numref:`sumprod`
+
+.. figure:: /_images/011/sumprod_05.*
+   :class: width-helper
+
+   Output of ``show prod %ci %ci %ci`` on :numref:`sumprod`
 
 When selecting many levels of logic, repeating ``%ci`` over and over again can
 be a bit dull. So there is a shortcut for that: the number of iterations can be
@@ -327,27 +220,27 @@ performing the ``%ci`` action three times.
 The action ``%ci*`` performs the ``%ci`` action over and over again until it
 has no effect anymore.
 
-.. figure:: /_images/011/select_prod.*
-   :class: width-helper
-   :name: select_prod
-   
-   Objects selected by ``select prod %ci...``
+.. _advanced_logic_cones:
+
+Advanced logic cone selection
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In most cases there are certain cell types and/or ports that should not be
 considered for the ``%ci`` action, or we only want to follow certain cell types
 and/or ports. This can be achieved using additional patterns that can be
 appended to the ``%ci`` action.
 
-Lets consider the design from :numref:`memdemo_src`. It serves no purpose other
-than being a non-trivial circuit for demonstrating some of the advanced Yosys
-features. We synthesize the circuit using ``proc; opt; memory; opt`` and change
-to the ``memdemo`` module with ``cd memdemo``. If we type :cmd:ref:`show` now we
-see the diagram shown in :numref:`memdemo_00`.
+Lets consider :numref:`memdemo_src`. It serves no purpose other than being a
+non-trivial circuit for demonstrating some of the advanced Yosys features. 
 
-.. literalinclude:: ../APPNOTE_011_Design_Investigation/memdemo.v
+.. literalinclude:: /APPNOTE_011_Design_Investigation/memdemo.v
    :caption: Demo circuit for demonstrating some advanced Yosys features
    :name: memdemo_src
    :language: verilog
+
+We synthesize the circuit using ``proc; opt; memory; opt`` and change to the
+``memdemo`` module with ``cd memdemo``. If we type :cmd:ref:`show` now we see
+the diagram shown in :numref:`memdemo_00`.
 
 .. figure:: /_images/011/memdemo_00.*
    :class: width-helper
@@ -377,12 +270,12 @@ cells:
    show y %ci2:+$dff[Q,D]
 
 To add a pattern we add a colon followed by the pattern to the ``%ci`` action.
-The pattern it self starts with ``-`` or ``+``, indicating if it is an include
-or exclude pattern, followed by an optional comma separated list of cell types,
+The pattern itself starts with ``-`` or ``+``, indicating if it is an include or
+exclude pattern, followed by an optional comma separated list of cell types,
 followed by an optional comma separated list of port names in square brackets.
 
-Since we know that the only cell considered in this case is a ``$dff`` cell,
-we could as well only specify the port names:
+Since we know that the only cell considered in this case is a ``$dff`` cell, we
+could as well only specify the port names:
 
 .. code-block:: yoscrypt
 
@@ -400,16 +293,16 @@ Or we could decide to tell the ``%ci`` action to not follow the ``CLK`` input:
    
    Output of ``show y %ci2:+$dff[Q,D] %ci*:-$mux[S]:-$dff``
 
-Next we would investigate the next logic level by adding another ``%ci2`` to
-the command:
+Next we would investigate the next logic level by adding another ``%ci2`` to the
+command:
 
 .. code-block:: yoscrypt
 
    show y %ci2:-[CLK] %ci2
 
-From this we would learn that the next cell is a ``$mux`` cell and we would
-add additional pattern to narrow the selection on the path we are
-interested. In the end we would end up with a command such as
+From this we would learn that the next cell is a ``$mux`` cell and we would add
+additional pattern to narrow the selection on the path we are interested. In the
+end we would end up with a command such as
 
 .. code-block:: yoscrypt
 
@@ -429,7 +322,30 @@ boolean operations such as intersection (``%i``) and difference (``%d``) are
 powerful tools for extracting the relevant portions of the circuit under
 investigation.
 
-See ``help select`` for a complete list of actions available in selections.
+Again, see :doc:`/cmd/select` for full documentation of these expressions.
+
+Incremental selection
+^^^^^^^^^^^^^^^^^^^^^
+
+Sometimes a selection can most easily be described by a series of add/delete
+operations. As mentioned previously, the commands :yoscrypt:`select -add` and
+:yoscrypt:`select -del` respectively add or remove objects from the current
+selection instead of overwriting it.
+
+.. code:: yoscrypt
+
+    select -none            # start with an empty selection
+    select -add reg_*       # select a bunch of objects
+    select -del reg_42      # but not this one
+    select -add state %ci   # and add more stuff
+
+Within a select expression the token ``%`` can be used to push the previous selection
+on the stack.
+
+.. code:: yoscrypt
+
+    select t:$add t:$sub    # select all $add and $sub cells
+    select % %ci % %d       # select only the input wires to those cells
 
 Storing and recalling selections
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -437,19 +353,33 @@ Storing and recalling selections
 The current selection can be stored in memory with the command ``select -set
 <name>``. It can later be recalled using ``select @<name>``. In fact, the
 ``@<name>`` expression pushes the stored selection on the stack maintained by
-the :cmd:ref:`select` command. So for example
-
-.. code-block:: yoscrypt
-
-   select @foo @bar %i
-
+the :cmd:ref:`select` command. So for example :yoscrypt:`select @foo @bar %i`
 will select the intersection between the stored selections ``foo`` and ``bar``.
 
-In larger investigation efforts it is highly recommended to maintain a
-script that sets up relevant selections, so they can easily be recalled,
-for example when Yosys needs to be re-run after a design or source code
-change.
+In larger investigation efforts it is highly recommended to maintain a script
+that sets up relevant selections, so they can easily be recalled, for example
+when Yosys needs to be re-run after a design or source code change.
 
 The :cmd:ref:`history` command can be used to list all recent interactive
 commands. This feature can be useful for creating such a script from the
 commands used in an interactive session.
+
+Remember that select expressions can also be used directly as arguments to most
+commands. Some commands also accept a single select argument to some options. In
+those cases selection variables must be used to capture more complex selections.
+
+Example:
+
+.. literalinclude:: ../../../resources/PRESENTATION_ExAdv/select.v
+   :language: verilog
+   :caption: ``docs/resources/PRESENTATION_ExAdv/select.v``
+
+.. literalinclude:: ../../../resources/PRESENTATION_ExAdv/select.ys
+   :language: yoscrypt
+   :caption: ``docs/resources/PRESENTATION_ExAdv/select.ys``
+   :name: select_ys
+
+.. figure:: /_images/res/PRESENTATION_ExAdv/select.*
+    :class: width-helper
+
+    Circuit diagram produced by :numref:`select_ys`
