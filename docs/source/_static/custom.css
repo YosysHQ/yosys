@@ -12,4 +12,9 @@
 /* Make images full width */
 .width-helper {
     max-width: 100%;
-}  
+}
+
+/* Prevent code block caption text from bunching into the caption number */
+.literal-block-wrapper .code-block-caption .caption-number {
+    padding-right: 0.5em
+}
