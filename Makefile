@@ -998,7 +998,7 @@ clean:
 	rm -f tests/svinterfaces/*.log_stdout tests/svinterfaces/*.log_stderr tests/svinterfaces/dut_result.txt tests/svinterfaces/reference_result.txt tests/svinterfaces/a.out tests/svinterfaces/*_syn.v tests/svinterfaces/*.diff
 	rm -f  tests/tools/cmp_tbdata
 	$(MAKE) -C docs clean
-	$(MAKE) -C docs/images clean
+	$(MAKE) -C docs/source/_images clean
 	rm -rf docs/source/cmd docs/util/__pycache__
 
 clean-abc:
