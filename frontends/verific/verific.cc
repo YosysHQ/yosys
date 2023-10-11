@@ -2573,7 +2573,7 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 			continue;
 		nl->AddAtt(new Att(" \\top", NULL));
 		nl_todo.emplace(nl->CellBaseName(), nl);
-		cell_name = nl->Owner()->Name();
+		cell_name = nl->CellBaseName();
 	}
 	if (top.empty()) cell_name = top;
 
@@ -2595,7 +2595,7 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 		if (nl_done.count(it->first) == 0) {
 			VerificImporter importer(false, false, false, false, false, false, false);
 			nl_done[it->first] = it->second;
-			importer.import_netlist(design, nl, nl_todo, nl->Owner()->Name() == cell_name);
+			importer.import_netlist(design, nl, nl_todo, nl->CellBaseName() == cell_name);
 		}
 		nl_todo.erase(it);
 	}
@@ -3801,7 +3801,7 @@ struct VerificPass : public Pass {
 					VerificImporter importer(mode_gates, mode_keep, mode_nosva,
 							mode_names, mode_verific, mode_autocover, mode_fullinit);
 					nl_done[it->first] = it->second;
-					importer.import_netlist(design, nl, nl_todo, top_mod_names.count(nl->Owner()->Name()));
+					importer.import_netlist(design, nl, nl_todo, top_mod_names.count(nl->CellBaseName()));
 				}
 				nl_todo.erase(it);
 			}
