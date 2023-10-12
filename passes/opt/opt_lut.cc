@@ -44,7 +44,7 @@ struct OptLutWorker
 
 	int eliminated_count = 0, combined_count = 0;
 
-	bool evaluate_lut(RTLIL::Cell *lut, dict<SigBit, bool> inputs)
+	State evaluate_lut_x(RTLIL::Cell *lut, dict<SigBit, bool> inputs)
 	{
 		SigSpec lut_input = sigmap(lut->getPort(ID::A));
 		int lut_width = lut->getParam(ID::WIDTH).as_int();
@@ -64,7 +64,12 @@ struct OptLutWorker
 			}
 		}
 
-		return lut_table.extract(lut_index).as_bool();
+		return lut_table.bits[lut_index];
+	}
+
+	bool evaluate_lut(RTLIL::Cell *lut, dict<SigBit, bool> inputs)
+	{
+		return evaluate_lut_x(lut, inputs) != State::S0;
 	}
 
 	void show_stats_by_arity()
@@ -512,6 +517,40 @@ struct OptLutWorker
 			}
 		}
 		show_stats_by_arity();
+
+		log("\n");
+		log("Narrowing LUTs.\n");
+		worklist = luts;
+		while (worklist.size())
+		{
+			auto lut = worklist.pop();
+			SigSpec lut_input = sigmap(lut->getPort(ID::A));
+
+			SigSpec lut_new_input = lut_input;
+			lut_new_input.remove_const();
+
+			if (lut_new_input.size() == lut_input.size())
+				continue;
+
+			log_debug("Found to-be-narrowed cell %s.%s.\n", log_id(module), log_id(lut));
+
+			int lut_width = lut_new_input.size();
+
+			RTLIL::Const lut_new_table(State::Sx, 1 << lut_width);
+			for (int eval = 0; eval < 1 << lut_width; eval++)
+			{
+				dict<SigBit, bool> eval_inputs;
+				eval_inputs[State::S0] = false;
+				eval_inputs[State::S1] = true;
+				for (size_t i = 0; i < (size_t) lut_new_input.size(); i++)
+					eval_inputs[lut_new_input[i]] = (eval >> i) & 1;
+				lut_new_table.bits[eval] = evaluate_lut_x(lut, eval_inputs);
+			}
+
+			lut->setPort(ID::A, lut_new_input);
+			lut->setParam(ID::WIDTH, lut_width);
+			lut->setParam(ID::LUT, lut_new_table);
+		}
 	}
 };
 
