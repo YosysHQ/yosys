@@ -52,6 +52,7 @@ USING_YOSYS_NAMESPACE
 #ifdef VERIFIC_VHDL_SUPPORT
 #include "vhdl_file.h"
 #include "VhdlUnits.h"
+#include "NameSpace.h"
 #endif
 
 #ifdef VERIFIC_EDIF_SUPPORT
@@ -1276,6 +1277,13 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 	}
 	import_attributes(module->attributes, nl, nl);
 	module->set_string_attribute(ID::hdlname, nl->CellBaseName());
+#ifdef VERIFIC_VHDL_SUPPORT
+	if (nl->IsFromVhdl()) {
+		NameSpace name_space(0);
+		char *architecture_name = name_space.ReName(nl->Name()) ;
+		module->set_string_attribute(ID(architecture), (architecture_name) ? architecture_name : nl->Name());
+	}
+#endif	
 	const char *param_name ;
 	const char *param_value ;
 	MapIter mi;
