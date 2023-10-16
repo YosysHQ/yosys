@@ -219,8 +219,12 @@ struct SimInstance
 		log_assert(module);
 
 		if (module->get_blackbox_attribute(true))
-			log_error("Cannot simulate blackbox module %s (instanced at %s).\n",
+			log_error("Cannot simulate blackbox module %s (instantiated at %s).\n",
 					  log_id(module->name), hiername().c_str());
+
+		if (module->has_processes())
+			log_error("Found processes in simulation hierarchy (in module %s at %s). Run 'proc' first.\n",
+					  log_id(module), hiername().c_str());
 
 		if (parent) {
 			log_assert(parent->children.count(instance) == 0);
@@ -579,7 +583,7 @@ struct SimInstance
 			Const data = Const(State::Sx, mem.width << port.wide_log2);
 
 			if (port.clk_enable)
-				log_error("Memory %s.%s has clocked read ports. Run 'memory' with -nordff.\n", log_id(module), log_id(mem.memid));
+				log_error("Memory %s.%s has clocked read ports. Run 'memory_nordff' to transform the circuit to remove those.\n", log_id(module), log_id(mem.memid));
 
 			if (addr.is_fully_def()) {
 				int addr_int = addr.as_int();
