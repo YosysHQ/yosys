@@ -37,6 +37,17 @@ struct PeepoptPass : public Pass {
 		log("\n");
 		log("This pass applies a collection of peephole optimizers to the current design.\n");
 		log("\n");
+		log("This pass employs the following rules:\n");
+		log("\n");
+		log("   * muldiv - Replace (A*B)/B with A\n");
+		log("\n");
+		log("   * shiftmul - Replace A>>(B*C) with A'>>(B<<K) where C and K are constants\n");
+		log("                and A' is derived from A by appropriately inserting padding\n");
+		log("                into the signal. (right variant)\n");
+		log("\n");
+		log("                Analogously, replace A<<(B*C) with appropriate selection of\n");
+		log("                output bits from A<<(B<<K). (left variant)\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
