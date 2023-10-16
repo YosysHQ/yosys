@@ -26,7 +26,6 @@ PRIVATE_NAMESPACE_BEGIN
 bool did_something;
 
 #include "passes/pmgen/peepopt_pm.h"
-#include "generate.h"
 
 struct PeepoptPass : public Pass {
 	PeepoptPass() : Pass("peepopt", "collection of peephole optimizers") { }
@@ -41,31 +40,14 @@ struct PeepoptPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		std::string genmode;
-
 		log_header(design, "Executing PEEPOPT pass (run peephole optimizers).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			if (args[argidx] == "-generate" && argidx+1 < args.size()) {
-				genmode = args[++argidx];
-				continue;
-			}
 			break;
 		}
 		extra_args(args, argidx, design);
-
-		if (!genmode.empty())
-		{
-			if (genmode == "shiftmul")
-				GENERATE_PATTERN(peepopt_pm, shiftmul_right);
-			else if (genmode == "muldiv")
-				GENERATE_PATTERN(peepopt_pm, muldiv);
-			else
-				log_abort();
-			return;
-		}
 
 		for (auto module : design->selected_modules())
 		{
