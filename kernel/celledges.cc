@@ -226,12 +226,16 @@ void shift_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 				if (i % skip != base)
 					db->add_edge(cell, ID::B, k, ID::Y, i, -1);
 			} else if (cell->type.in(ID($shr), ID($sshr)) && is_signed) {
-				int skip = (1<<(k+1));
-				int base = 0;
-				if (i % skip != base || i < a_width - 1)
+				bool shift_in_bulk = i < a_width - 1;
+				// can we jump into the ambient x-bits by toggling B[k]?
+				bool x_jump = (((y_width - i) & ((1 << (k + 1)) - 1)) != 0 \
+								&& (((y_width - i) & ~(1 << k)) < (1 << b_width)));
+
+				if (shift_in_bulk || (cell->type == ID($shr) && x_jump))
 					db->add_edge(cell, ID::B, k, ID::Y, i, -1);
 			} else {
-				db->add_edge(cell, ID::B, k, ID::Y, i, -1);
+				if (i < a_width)
+					db->add_edge(cell, ID::B, k, ID::Y, i, -1);
 			}
 		}
 
