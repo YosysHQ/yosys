@@ -148,6 +148,8 @@ void Mem::emit() {
 			for (int j = 0; j < (1 << wr_ports[i].wide_log2); j++)
 				wr_port_xlat.push_back(i);
 		for (auto &port : rd_ports) {
+			for (auto attr: port.attributes)
+				cell->attributes.insert(attr);
 			if (port.cell) {
 				module->remove(port.cell);
 				port.cell = nullptr;
@@ -210,6 +212,8 @@ void Mem::emit() {
 		cell->setPort(ID::RD_ADDR, rd_addr);
 		cell->setPort(ID::RD_DATA, rd_data);
 		for (auto &port : wr_ports) {
+			for (auto attr: port.attributes)
+				cell->attributes.insert(attr);
 			if (port.cell) {
 				module->remove(port.cell);
 				port.cell = nullptr;
@@ -246,6 +250,8 @@ void Mem::emit() {
 		cell->setPort(ID::WR_ADDR, wr_addr);
 		cell->setPort(ID::WR_DATA, wr_data);
 		for (auto &init : inits) {
+			for (auto attr: init.attributes)
+				cell->attributes.insert(attr);
 			if (init.cell) {
 				module->remove(init.cell);
 				init.cell = nullptr;

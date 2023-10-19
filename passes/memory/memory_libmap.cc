@@ -481,18 +481,49 @@ void MemMapping::dump_config(MemConfig &cfg) {
 	}
 }
 
+std::pair<bool, Const> search_for_attribute(Mem mem, IdString attr) {
+	if (mem.has_attribute(attr))
+		return std::make_pair(true, mem.attributes.at(attr));
+	for (auto &port: mem.rd_ports){
+		if (port.has_attribute(attr))
+			return std::make_pair(true, port.attributes.at(attr));
+		log_debug("looking for attribute %s on signal %s\n", log_id(attr), log_signal(port.data));
+		for (SigBit bit: port.data)
+			if (bit.is_wire() && bit.wire->has_attribute(attr))
+				return std::make_pair(true, bit.wire->attributes.at(attr));
+		log_debug("looking for attribute %s on signal %s\n", log_id(attr), log_signal(port.data));
+		for (SigBit bit: port.addr)
+			if (bit.is_wire() && bit.wire->has_attribute(attr))
+				return std::make_pair(true, bit.wire->attributes.at(attr));
+	}
+	for (auto &port: mem.wr_ports){
+		if (port.has_attribute(attr))
+			return std::make_pair(true, port.attributes.at(attr));
+		log_debug("looking for attribute %s on signal %s\n", log_id(attr), log_signal(port.data));
+		for (SigBit bit: port.data)
+			if (bit.is_wire() && bit.wire->has_attribute(attr))
+				return std::make_pair(true, bit.wire->attributes.at(attr));
+		for (SigBit bit: port.addr)
+			if (bit.is_wire() && bit.wire->has_attribute(attr))
+				return std::make_pair(true, bit.wire->attributes.at(attr));
+	}
+	return std::make_pair(false, Const());
+}
+
 // Go through memory attributes to determine user-requested mapping style.
 void MemMapping::determine_style() {
 	kind = RamKind::Auto;
 	style = "";
-	if (mem.get_bool_attribute(ID::lram)) {
+	auto find_attr = search_for_attribute(mem, ID::lram);
+	if (find_attr.first && find_attr.second.as_bool()) {
 		kind = RamKind::Huge;
 		log("found attribute 'lram' on memory %s.%s, forced mapping to huge RAM\n", log_id(mem.module->name), log_id(mem.memid));
 		return;
 	}
 	for (auto attr: {ID::ram_block, ID::rom_block, ID::ram_style, ID::rom_style, ID::ramstyle, ID::romstyle, ID::syn_ramstyle, ID::syn_romstyle}) {
-		if (mem.has_attribute(attr)) {
-			Const val = mem.attributes.at(attr);
+		find_attr = search_for_attribute(mem, attr);
+		if (find_attr.first) {
+			Const val = find_attr.second;
 			if (val == 1) {
 				kind = RamKind::NotLogic;
 				log("found attribute '%s = 1' on memory %s.%s, disabled mapping to FF\n", log_id(attr), log_id(mem.module->name), log_id(mem.memid));
@@ -526,8 +557,11 @@ void MemMapping::determine_style() {
 			return;
 		}
 	}
-	if (mem.get_bool_attribute(ID::logic_block))
-		kind = RamKind::Logic;
+	for (auto attr: {ID::logic_block, ID::no_ram}){
+		find_attr = search_for_attribute(mem, attr);
+		if (find_attr.first && find_attr.second.as_bool())
+			kind = RamKind::Logic;
+	}
 }
 
 // Determine whether the memory can be mapped entirely to soft logic.
