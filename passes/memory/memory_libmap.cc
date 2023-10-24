@@ -482,31 +482,40 @@ void MemMapping::dump_config(MemConfig &cfg) {
 }
 
 std::pair<bool, Const> search_for_attribute(Mem mem, IdString attr) {
+	// priority of attributes:
+	// 1. attributes on memory itself
+	// 2. attributes on a read or write port
+	// 3. attributes on data signal of a read or write port
+	// 4. attributes on address signal of a read or write port
+
 	if (mem.has_attribute(attr))
 		return std::make_pair(true, mem.attributes.at(attr));
-	for (auto &port: mem.rd_ports){
+
+	for (auto &port: mem.rd_ports)
 		if (port.has_attribute(attr))
 			return std::make_pair(true, port.attributes.at(attr));
-		log_debug("looking for attribute %s on signal %s\n", log_id(attr), log_signal(port.data));
+	for (auto &port: mem.wr_ports)
+		if (port.has_attribute(attr))
+			return std::make_pair(true, port.attributes.at(attr));
+
+	for (auto &port: mem.rd_ports)
 		for (SigBit bit: port.data)
 			if (bit.is_wire() && bit.wire->has_attribute(attr))
 				return std::make_pair(true, bit.wire->attributes.at(attr));
-		log_debug("looking for attribute %s on signal %s\n", log_id(attr), log_signal(port.data));
-		for (SigBit bit: port.addr)
-			if (bit.is_wire() && bit.wire->has_attribute(attr))
-				return std::make_pair(true, bit.wire->attributes.at(attr));
-	}
-	for (auto &port: mem.wr_ports){
-		if (port.has_attribute(attr))
-			return std::make_pair(true, port.attributes.at(attr));
-		log_debug("looking for attribute %s on signal %s\n", log_id(attr), log_signal(port.data));
+	for (auto &port: mem.wr_ports)
 		for (SigBit bit: port.data)
 			if (bit.is_wire() && bit.wire->has_attribute(attr))
 				return std::make_pair(true, bit.wire->attributes.at(attr));
+
+	for (auto &port: mem.rd_ports)
 		for (SigBit bit: port.addr)
 			if (bit.is_wire() && bit.wire->has_attribute(attr))
 				return std::make_pair(true, bit.wire->attributes.at(attr));
-	}
+	for (auto &port: mem.wr_ports)
+		for (SigBit bit: port.addr)
+			if (bit.is_wire() && bit.wire->has_attribute(attr))
+				return std::make_pair(true, bit.wire->attributes.at(attr));
+	
 	return std::make_pair(false, Const());
 }
 
