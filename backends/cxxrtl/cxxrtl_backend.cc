@@ -2115,19 +2115,19 @@ struct CxxrtlWorker {
 				if (wire_type.type == WireType::MEMBER && edge_wires[wire])
 					f << indent << "prev_" << mangle(wire) << " = " << mangle(wire) << ";\n";
 				if (wire_type.is_buffered())
-					f << indent << "if (" << mangle(wire) << ".commit()) changed = true;\n";
+					f << indent << "if (" << mangle(wire) << ".commit(observer)) changed = true;\n";
 			}
 			if (!module->get_bool_attribute(ID(cxxrtl_blackbox))) {
 				for (auto &mem : mod_memories[module]) {
 					if (!writable_memories.count({module, mem.memid}))
 						continue;
-					f << indent << "if (" << mangle(&mem) << ".commit()) changed = true;\n";
+					f << indent << "if (" << mangle(&mem) << ".commit(observer)) changed = true;\n";
 				}
 				for (auto cell : module->cells()) {
 					if (is_internal_cell(cell->type))
 						continue;
 					const char *access = is_cxxrtl_blackbox_cell(cell) ? "->" : ".";
-					f << indent << "if (" << mangle(cell) << access << "commit()) changed = true;\n";
+					f << indent << "if (" << mangle(cell) << access << "commit(observer)) changed = true;\n";
 				}
 			}
 			f << indent << "return changed;\n";
@@ -2146,7 +2146,7 @@ struct CxxrtlWorker {
 				if (!metadata_item.first.isPublic())
 					continue;
 				if (metadata_item.second.size() > 64 && (metadata_item.second.flags & RTLIL::CONST_FLAG_STRING) == 0) {
-					f << indent << "/* attribute " << metadata_item.first.str().substr(1) << " is over 64 bits wide */";
+					f << indent << "/* attribute " << metadata_item.first.str().substr(1) << " is over 64 bits wide */\n";
 					continue;
 				}
 				f << indent << "{ " << escape_cxx_string(metadata_item.first.str().substr(1)) << ", ";
@@ -2371,16 +2371,22 @@ struct CxxrtlWorker {
 				dump_eval_method(module);
 				f << indent << "}\n";
 				f << "\n";
-				f << indent << "bool commit() override {\n";
+				f << indent << "template<class ObserverT>\n";
+				f << indent << "bool commit(ObserverT &observer) {\n";
 				dump_commit_method(module);
 				f << indent << "}\n";
 				f << "\n";
+				f << indent << "bool commit() override {\n";
+				f << indent << indent << "null_observer observer;\n";
+				f << indent << indent << "return commit<>(observer);\n";
+				f << indent << "}\n";
 				if (debug_info) {
+					f << "\n";
 					f << indent << "void debug_info(debug_items &items, std::string path = \"\") override {\n";
 					dump_debug_info_method(module);
 					f << indent << "}\n";
-					f << "\n";
 				}
+				f << "\n";
 				f << indent << "static std::unique_ptr<" << mangle(module);
 				f << template_params(module, /*is_decl=*/false) << "> ";
 				f << "create(std::string name, metadata_map parameters, metadata_map attributes);\n";
@@ -2457,8 +2463,18 @@ struct CxxrtlWorker {
 				f << indent << "};\n";
 				f << "\n";
 				f << indent << "void reset() override;\n";
+				f << "\n";
 				f << indent << "bool eval() override;\n";
-				f << indent << "bool commit() override;\n";
+				f << "\n";
+				f << indent << "template<class ObserverT>\n";
+				f << indent << "bool commit(ObserverT &observer) {\n";
+				dump_commit_method(module);
+				f << indent << "}\n";
+				f << "\n";
+				f << indent << "bool commit() override {\n";
+				f << indent << indent << "null_observer observer;\n";
+				f << indent << indent << "return commit<>(observer);\n";
+				f << indent << "}\n";
 				if (debug_info) {
 					if (debug_eval) {
 						f << "\n";
@@ -2490,24 +2506,20 @@ struct CxxrtlWorker {
 		f << indent << "bool " << mangle(module) << "::eval() {\n";
 		dump_eval_method(module);
 		f << indent << "}\n";
-		f << "\n";
-		f << indent << "bool " << mangle(module) << "::commit() {\n";
-		dump_commit_method(module);
-		f << indent << "}\n";
-		f << "\n";
 		if (debug_info) {
 			if (debug_eval) {
+				f << "\n";
 				f << indent << "void " << mangle(module) << "::debug_eval() {\n";
 				dump_debug_eval_method(module);
 				f << indent << "}\n";
-				f << "\n";
 			}
+			f << "\n";
 			f << indent << "CXXRTL_EXTREMELY_COLD\n";
 			f << indent << "void " << mangle(module) << "::debug_info(debug_items &items, std::string path) {\n";
 			dump_debug_info_method(module);
 			f << indent << "}\n";
-			f << "\n";
 		}
+		f << "\n";
 	}
 
 	void dump_design(RTLIL::Design *design)
@@ -3267,6 +3279,8 @@ struct CxxrtlBackend : public Backend {
 		log("      wire<8> p_o_data;\n");
 		log("\n");
 		log("      bool eval() override;\n");
+		log("      template<class ObserverT>\n");
+		log("      bool commit(ObserverT &observer);\n");
 		log("      bool commit() override;\n");
 		log("\n");
 		log("      static std::unique_ptr<bb_p_debug>\n");
