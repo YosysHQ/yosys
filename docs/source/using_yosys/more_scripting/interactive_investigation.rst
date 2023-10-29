@@ -75,7 +75,7 @@ original ``always``-block in the second line. Note how the multiplexer from the
 ``if``-statement is yet still hidden within the process.
 
 The :cmd:ref:`proc` command transforms the process from the first diagram into a
-multiplexer and a d-type flip-flip, which brings us to the second diagram:
+multiplexer and a d-type flip-flop, which brings us to the second diagram:
 
 .. figure:: /_images/011/example_01.*
    :class: width-helper
