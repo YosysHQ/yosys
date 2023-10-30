@@ -37,9 +37,9 @@ The :cmd:ref:`opt_expr` pass
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This pass performs const folding on the internal combinational cell types
-described in :ref:`chapter:celllib`. This means a cell with all constant inputs
-is replaced with the constant value this cell drives. In some cases this pass
-can also optimize cells with some constant inputs.
+described in :doc:`/yosys_internals/formats/cell_library`. This means a cell
+with all constant inputs is replaced with the constant value this cell drives.
+In some cases this pass can also optimize cells with some constant inputs.
 
 .. table:: Const folding rules for ``$_AND_`` cells as used in :cmd:ref:`opt_expr`.
    :name: tab:opt_expr_and

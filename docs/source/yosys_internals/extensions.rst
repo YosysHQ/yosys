@@ -1,5 +1,3 @@
-.. _chapter:prog:
-
 Writing extensions
 ==================
 

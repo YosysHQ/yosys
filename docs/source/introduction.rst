@@ -67,7 +67,8 @@ Things you can't do
 
 - Process high-level languages such as C/C++/SystemC
 - Create physical layouts (place&route)
-  + Check out `nextpnr`_ for that
+
+  - Check out `nextpnr`_ for that
 
 .. _nextpnr: https://github.com/YosysHQ/nextpnr
 

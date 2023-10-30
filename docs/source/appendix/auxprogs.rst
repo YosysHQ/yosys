@@ -11,7 +11,7 @@ yosys-config
 
 The yosys-config tool (an auto-generated shell-script) can be used to query
 compiler options and other information needed for building loadable modules for
-Yosys. See :ref:`chapter:prog` for details.
+Yosys. See :doc:`/yosys_internals/extensions` for details.
 
 .. _sec:filterlib:
 

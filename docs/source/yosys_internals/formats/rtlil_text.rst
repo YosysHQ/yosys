@@ -223,8 +223,8 @@ Cells
 Declares a cell, with zero or more attributes, with the given identifier and
 type in the enclosing module.
 
-Cells perform functions on input signals. See :ref:`chapter:celllib` for a
-detailed list of cell types.
+Cells perform functions on input signals. See
+:doc:`/yosys_internals/formats/cell_library` for a detailed list of cell types.
 
 .. code:: BNF
 
