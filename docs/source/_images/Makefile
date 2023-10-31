@@ -5,13 +5,13 @@ RES_DIRS:= $(addprefix ../../resources/,$(RES_LIST))
 .PHONY: resources
 resources: $(RES_DIRS)
 FORCE:
-../resources/%: FORCE
+../../resources/%: FORCE
 	@$(MAKE) -C $@
 	@mkdir -p res/$*
 	@cp --update -t res/$* $@*.dot
 
 TEX_SOURCE:= $(wildcard *.tex)
-DOT_LOC:= ../source/APPNOTE_011_Design_Investigation
+DOT_LOC:= ../APPNOTE_011_Design_Investigation
 DOT_SOURCE:= $(wildcard $(DOT_LOC)/*.dot)
 
 RES_DOTS:= $(wildcard res/*/*.dot)
@@ -36,13 +36,13 @@ tex: $(TEX_PDF)
 svg: $(SVG_OUTPUT)
 
 011/%.pdf: $(DOT_LOC)/%.dot
-	faketime -f '2022-01-01 00:00:00 x0,001' dot -Tpdf -o $@ $<
+	TZ='Z' faketime -f '2022-01-01 00:00:00 x0,001' dot -Tpdf -o $@ $<
 
 res/%.pdf: res/%.dot
-	faketime -f '2022-01-01 00:00:00 x0,001' dot -Tpdf -o $@ $<
+	TZ='Z' faketime -f '2022-01-01 00:00:00 x0,001' dot -Tpdf -o $@ $<
 
 011/%.pdf: 011/%.tex
-	cd 011 && faketime -f '2022-01-01 00:00:00 x0,001' pdflatex $(<F) --interaction=nonstopmode
+	cd 011 && TZ='Z' faketime -f '2022-01-01 00:00:00 x0,001' pdflatex $(<F) --interaction=nonstopmode
 
 %.pdf: %.tex
 	pdflatex $< --interaction=nonstopmode
@@ -59,3 +59,4 @@ clean: tidy
 	rm -f *.pdf
 	rm -f *.svg
 	rm -f 011/*.pdf 011/*.svg
+	rm -rf $(RES_DIRS)
