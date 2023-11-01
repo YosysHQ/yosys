@@ -197,7 +197,7 @@ module DFFE (output reg Q, input D, CLK, CE);
   end
 endmodule // DFFE (positive clock edge; clock enable)
 
-(* abc9_box, lib_whitebox *)
+(* abc9_flop, lib_whitebox *)
 module DFFS (output reg Q, input D, CLK, SET);
   parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
@@ -216,7 +216,7 @@ module DFFS (output reg Q, input D, CLK, SET);
   end
 endmodule // DFFS (positive clock edge; synchronous set)
 
-(* abc9_box, lib_whitebox *)
+(* abc9_flop, lib_whitebox *)
 module DFFSE (output reg Q, input D, CLK, CE, SET);
   parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
@@ -282,7 +282,7 @@ module DFFP (output reg Q, input D, CLK, PRESET);
 
 	specify
 		(posedge CLK => (Q : D)) = (480, 660);
-		(posedge PRESET => (Q : 1'b1)) = (1800, 2679);
+		(PRESET => Q) = (1800, 2679);
 		$setup(D, posedge CLK, 576);
 	endspecify
 
@@ -301,7 +301,7 @@ module DFFPE (output reg Q, input D, CLK, CE, PRESET);
 
 	specify
 		if (CE) (posedge CLK => (Q : D)) = (480, 660);
-		(posedge PRESET => (Q : 1'b1)) = (1800, 2679);
+		(PRESET => Q) = (1800, 2679);
 		$setup(D, posedge CLK &&& CE, 576);
 		$setup(CE, posedge CLK, 63);
 	endspecify
@@ -321,7 +321,7 @@ module DFFC (output reg Q, input D, CLK, CLEAR);
 
 	specify
 		(posedge CLK => (Q : D)) = (480, 660);
-		(posedge CLEAR => (Q : 1'b0)) = (1800, 2679);
+		(CLEAR => Q) = (1800, 2679);
 		$setup(D, posedge CLK, 576);
 	endspecify
 
@@ -340,7 +340,7 @@ module DFFCE (output reg Q, input D, CLK, CE, CLEAR);
 
 	specify
 		if (CE) (posedge CLK => (Q : D)) = (480, 660);
-		(posedge CLEAR => (Q : 1'b0)) = (1800, 2679);
+		(CLEAR => Q) = (1800, 2679);
 		$setup(D, posedge CLK &&& CE, 576);
 		$setup(CE, posedge CLK, 63);
 	endspecify
@@ -384,7 +384,7 @@ module DFFNE (output reg Q, input D, CLK, CE);
   end
 endmodule // DFFNE (negative clock edge; clock enable)
 
-(* abc9_box, lib_whitebox *)
+(* abc9_flop, lib_whitebox *)
 module DFFNS (output reg Q, input D, CLK, SET);
   parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
@@ -403,7 +403,7 @@ module DFFNS (output reg Q, input D, CLK, SET);
   end
 endmodule // DFFNS (negative clock edge; synchronous set)
 
-(* abc9_box, lib_whitebox *)
+(* abc9_flop, lib_whitebox *)
 module DFFNSE (output reg Q, input D, CLK, CE, SET);
   parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
@@ -469,7 +469,7 @@ module DFFNP (output reg Q, input D, CLK, PRESET);
 
 	specify
 		(negedge CLK => (Q : D)) = (480, 660);
-		(posedge PRESET => (Q : 1'b1)) = (1800, 2679);
+		(PRESET => Q) = (1800, 2679);
 		$setup(D, negedge CLK, 576);
 	endspecify
 
@@ -488,7 +488,7 @@ module DFFNPE (output reg Q, input D, CLK, CE, PRESET);
   
 	specify
 		if (CE) (negedge CLK => (Q : D)) = (480, 660);
-		(posedge PRESET => (Q : 1'b1)) = (1800, 2679);
+		(PRESET => Q) = (1800, 2679);
 		$setup(D, negedge CLK &&& CE, 576);
 		$setup(CE, negedge CLK, 63);
 	endspecify
@@ -508,7 +508,7 @@ module DFFNC (output reg Q, input D, CLK, CLEAR);
 
 	specify
 		(negedge CLK => (Q : D)) = (480, 660);
-		(posedge CLEAR => (Q : 1'b0)) = (1800, 2679);
+		(CLEAR => Q) = (1800, 2679);
 		$setup(D, negedge CLK, 576);
 	endspecify
 
@@ -527,7 +527,7 @@ module DFFNCE (output reg Q, input D, CLK, CE, CLEAR);
 
 	specify
 		if (CE) (negedge CLK => (Q : D)) = (480, 660);
-		(posedge CLEAR => (Q : 1'b0)) = (1800, 2679);
+		(CLEAR => Q) = (1800, 2679);
 		$setup(D, negedge CLK &&& CE, 576);
 		$setup(CE, negedge CLK, 63);
 	endspecify
@@ -957,7 +957,7 @@ end
 
 endmodule
 
-
+(* abc9_flop, lib_whitebox *)
 module RAM16S1 (DO, DI, AD, WRE, CLK);
 
 parameter INIT_0 = 16'h0000;
@@ -992,7 +992,7 @@ end
 
 endmodule
 
-
+(* abc9_flop, lib_whitebox *)
 module RAM16S2 (DO, DI, AD, WRE, CLK);
 
 parameter INIT_0 = 16'h0000;
@@ -1031,7 +1031,7 @@ end
 
 endmodule
 
-
+(* abc9_flop, lib_whitebox *)
 module RAM16S4 (DO, DI, AD, WRE, CLK);
 
 parameter INIT_0 = 16'h0000;

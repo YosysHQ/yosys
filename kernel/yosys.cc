@@ -175,48 +175,6 @@ int ceil_log2(int x)
 #endif
 }
 
-std::string stringf(const char *fmt, ...)
-{
-	std::string string;
-	va_list ap;
-
-	va_start(ap, fmt);
-	string = vstringf(fmt, ap);
-	va_end(ap);
-
-	return string;
-}
-
-std::string vstringf(const char *fmt, va_list ap)
-{
-	std::string string;
-	char *str = NULL;
-
-#if defined(_WIN32 )|| defined(__CYGWIN__)
-	int sz = 64, rc;
-	while (1) {
-		va_list apc;
-		va_copy(apc, ap);
-		str = (char*)realloc(str, sz);
-		rc = vsnprintf(str, sz, fmt, apc);
-		va_end(apc);
-		if (rc >= 0 && rc < sz)
-			break;
-		sz *= 2;
-	}
-#else
-	if (vasprintf(&str, fmt, ap) < 0)
-		str = NULL;
-#endif
-
-	if (str != NULL) {
-		string = str;
-		free(str);
-	}
-
-	return string;
-}
-
 int readsome(std::istream &f, char *s, int n)
 {
 	int rc = int(f.readsome(s, n));
@@ -1395,8 +1353,12 @@ void shell(RTLIL::Design *design)
 		if ((command = fgets(command_buffer, 4096, stdin)) == NULL)
 			break;
 #endif
-		if (command[strspn(command, " \t\r\n")] == 0)
+		if (command[strspn(command, " \t\r\n")] == 0) {
+#if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
+			free(command);
+#endif
 			continue;
+		}
 #if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
 		add_history(command);
 #endif
@@ -1418,10 +1380,17 @@ void shell(RTLIL::Design *design)
 			log_reset_stack();
 		}
 		design->check();
+#if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
+		if (command)
+			free(command);
+#endif
 	}
 	if (command == NULL)
 		printf("exit\n");
-
+#if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
+	else
+		free(command);
+#endif
 	recursion_counter--;
 	log_cmd_error_throw = false;
 }

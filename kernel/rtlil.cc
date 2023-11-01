@@ -313,18 +313,33 @@ RTLIL::Const RTLIL::Const::from_string(const std::string &str)
 
 std::string RTLIL::Const::decode_string() const
 {
-	std::string string;
-	string.reserve(GetSize(bits)/8);
-	for (int i = 0; i < GetSize(bits); i += 8) {
+	const int n = GetSize(bits);
+	const int n_over_8 = n / 8;
+	std::string s;
+	s.reserve(n_over_8);
+	int i = n_over_8 * 8;
+	if (i < n) {
 		char ch = 0;
-		for (int j = 0; j < 8 && i + j < int (bits.size()); j++)
-			if (bits[i + j] == RTLIL::State::S1)
+		for (int j = 0; j < (n - i); j++) {
+			if (bits[i + j] == RTLIL::State::S1) {
 				ch |= 1 << j;
+			}
+		}
 		if (ch != 0)
-			string.append({ch});
+			s.append({ch});
 	}
-	std::reverse(string.begin(), string.end());
-	return string;
+	i -= 8;
+	for (; i >= 0; i -= 8) {
+		char ch = 0;
+		for (int j = 0; j < 8; j++) {
+			if (bits[i + j] == RTLIL::State::S1) {
+				ch |= 1 << j;
+			}
+		}
+		if (ch != 0)
+			s.append({ch});
+	}
+	return s;
 }
 
 bool RTLIL::Const::is_fully_zero() const
@@ -2677,6 +2692,19 @@ RTLIL::Cell* RTLIL::Module::addPow(RTLIL::IdString name, const RTLIL::SigSpec &s
 	return cell;
 }
 
+RTLIL::Cell* RTLIL::Module::addFa(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_b, const RTLIL::SigSpec &sig_c, const RTLIL::SigSpec &sig_x, const RTLIL::SigSpec &sig_y, const std::string &src)
+{
+	RTLIL::Cell *cell = addCell(name, ID($fa));
+	cell->parameters[ID::WIDTH] = sig_a.size();
+	cell->setPort(ID::A, sig_a);
+	cell->setPort(ID::B, sig_b);
+	cell->setPort(ID::C, sig_c);
+	cell->setPort(ID::X, sig_x);
+	cell->setPort(ID::Y, sig_y);
+	cell->set_src_attribute(src);
+	return cell;
+}
+
 RTLIL::Cell* RTLIL::Module::addSlice(RTLIL::IdString name, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_y, RTLIL::Const offset, const std::string &src)
 {
 	RTLIL::Cell *cell = addCell(name, ID($slice));
@@ -4031,13 +4059,17 @@ void RTLIL::SigSpec::replace(const RTLIL::SigSpec &pattern, const RTLIL::SigSpec
 	unpack();
 	other->unpack();
 
+	dict<RTLIL::SigBit, int> pattern_to_with;
 	for (int i = 0; i < GetSize(pattern.bits_); i++) {
 		if (pattern.bits_[i].wire != NULL) {
-			for (int j = 0; j < GetSize(bits_); j++) {
-				if (bits_[j] == pattern.bits_[i]) {
-					other->bits_[j] = with.bits_[i];
-				}
-			}
+			pattern_to_with.emplace(pattern.bits_[i], i);
+		}
+	}
+
+	for (int j = 0; j < GetSize(bits_); j++) {
+		auto it = pattern_to_with.find(bits_[j]);
+		if (it != pattern_to_with.end()) {
+			other->bits_[j] = with.bits_[it->second];
 		}
 	}
 

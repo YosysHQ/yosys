@@ -2120,6 +2120,46 @@ struct CxxrtlWorker {
 		dec_indent();
 	}
 
+	void dump_metadata_map(const dict<RTLIL::IdString, RTLIL::Const> &metadata_map)
+	{
+		if (metadata_map.empty()) {
+			f << "metadata_map()";
+			return;
+		}
+		f << "metadata_map({\n";
+		inc_indent();
+			for (auto metadata_item : metadata_map) {
+				if (!metadata_item.first.isPublic())
+					continue;
+				if (metadata_item.second.size() > 64 && (metadata_item.second.flags & RTLIL::CONST_FLAG_STRING) == 0) {
+					f << indent << "/* attribute " << metadata_item.first.str().substr(1) << " is over 64 bits wide */";
+					continue;
+				}
+				f << indent << "{ " << escape_cxx_string(metadata_item.first.str().substr(1)) << ", ";
+				// In Yosys, a real is a type of string.
+				if (metadata_item.second.flags & RTLIL::CONST_FLAG_REAL) {
+					f << std::showpoint << std::stod(metadata_item.second.decode_string()) << std::noshowpoint;
+				} else if (metadata_item.second.flags & RTLIL::CONST_FLAG_STRING) {
+					f << escape_cxx_string(metadata_item.second.decode_string());
+				} else if (metadata_item.second.flags & RTLIL::CONST_FLAG_SIGNED) {
+					f << "INT64_C(" << metadata_item.second.as_int(/*is_signed=*/true) << ")";
+				} else {
+					f << "UINT64_C(" << metadata_item.second.as_int(/*is_signed=*/false) << ")";
+				}
+				f << " },\n";
+			}
+		dec_indent();
+		f << indent << "})";
+	}
+
+	void dump_debug_attrs(const RTLIL::AttrObject *object)
+	{
+		dict<RTLIL::IdString, RTLIL::Const> attributes = object->attributes;
+		// Inherently necessary to get access to the object, so a waste of space to emit.
+		attributes.erase(ID::hdlname);
+		dump_metadata_map(attributes);
+	}
+
 	void dump_debug_info_method(RTLIL::Module *module)
 	{
 		size_t count_public_wires = 0;
@@ -2205,7 +2245,9 @@ struct CxxrtlWorker {
 							}
 							f << "debug_item::" << flag;
 						}
-						f << "));\n";
+						f << "), ";
+						dump_debug_attrs(wire);
+						f << ");\n";
 						count_member_wires++;
 						break;
 					}
@@ -2220,7 +2262,9 @@ struct CxxrtlWorker {
 							f << "debug_eval_outline";
 						else
 							f << "debug_alias()";
-						f << ", " << mangle(aliasee) << ", " << wire->start_offset << "));\n";
+						f << ", " << mangle(aliasee) << ", " << wire->start_offset << "), ";
+						dump_debug_attrs(aliasee);
+						f << ");\n";
 						count_alias_wires++;
 						break;
 					}
@@ -2230,14 +2274,18 @@ struct CxxrtlWorker {
 						dump_const(debug_wire_type.sig_subst.as_const());
 						f << ";\n";
 						f << indent << "items.add(path + " << escape_cxx_string(get_hdl_name(wire));
-						f << ", debug_item(const_" << mangle(wire) << ", " << wire->start_offset << "));\n";
+						f << ", debug_item(const_" << mangle(wire) << ", " << wire->start_offset << "), ";
+						dump_debug_attrs(wire);
+						f << ");\n";
 						count_const_wires++;
 						break;
 					}
 					case WireType::OUTLINE: {
 						// Localized or inlined, but rematerializable wire
 						f << indent << "items.add(path + " << escape_cxx_string(get_hdl_name(wire));
-						f << ", debug_item(debug_eval_outline, " << mangle(wire) << ", " << wire->start_offset << "));\n";
+						f << ", debug_item(debug_eval_outline, " << mangle(wire) << ", " << wire->start_offset << "), ";
+						dump_debug_attrs(wire);
+						f << ");\n";
 						count_inline_wires++;
 						break;
 					}
@@ -2254,7 +2302,13 @@ struct CxxrtlWorker {
 						continue;
 					f << indent << "items.add(path + " << escape_cxx_string(mem.packed ? get_hdl_name(mem.cell) : get_hdl_name(mem.mem));
 					f << ", debug_item(" << mangle(&mem) << ", ";
-					f << mem.start_offset << "));\n";
+					f << mem.start_offset << "), ";
+					if (mem.packed) {
+						dump_debug_attrs(mem.cell);
+					} else {
+						dump_debug_attrs(mem.mem);
+					}
+					f << ");\n";
 				}
 				for (auto cell : module->cells()) {
 					if (is_internal_cell(cell->type))
@@ -2280,33 +2334,6 @@ struct CxxrtlWorker {
 			log_debug("    Other wires:    %zu%s\n", count_skipped_wires,
 			          count_skipped_wires > 0 ? " (debug unavailable)" : "");
 		}
-	}
-
-	void dump_metadata_map(const dict<RTLIL::IdString, RTLIL::Const> &metadata_map)
-	{
-		if (metadata_map.empty()) {
-			f << "metadata_map()";
-			return;
-		}
-		f << "metadata_map({\n";
-		inc_indent();
-			for (auto metadata_item : metadata_map) {
-				if (!metadata_item.first.begins_with("\\"))
-					continue;
-				f << indent << "{ " << escape_cxx_string(metadata_item.first.str().substr(1)) << ", ";
-				if (metadata_item.second.flags & RTLIL::CONST_FLAG_REAL) {
-					f << std::showpoint << std::stod(metadata_item.second.decode_string()) << std::noshowpoint;
-				} else if (metadata_item.second.flags & RTLIL::CONST_FLAG_STRING) {
-					f << escape_cxx_string(metadata_item.second.decode_string());
-				} else {
-					f << metadata_item.second.as_int(/*is_signed=*/metadata_item.second.flags & RTLIL::CONST_FLAG_SIGNED);
-					if (!(metadata_item.second.flags & RTLIL::CONST_FLAG_SIGNED))
-						f << "u";
-				}
-				f << " },\n";
-			}
-		dec_indent();
-		f << indent << "})";
 	}
 
 	void dump_module_intf(RTLIL::Module *module)

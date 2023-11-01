@@ -1,0 +1,7 @@
+logger -expect error "Assignments within expressions are only supported in SystemVerilog mode." 1
+read_verilog <<EOF
+module top;
+integer x, y;
+initial y = (x = 1);
+endmodule
+EOF

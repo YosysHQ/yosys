@@ -405,7 +405,7 @@ struct DftTagWorker {
 			auto &sig_y = cell->getPort(ID::Y);
 			auto sig_a = cell->getPort(ID::A);
 			auto sig_b = cell->getPort(ID::B);
-			if (cell->type.in(ID($and), ID($or))) {
+			if (cell->type.in(ID($and), ID($or), ID($xor), ID($xnor))) {
 				sig_a.extend_u0(GetSize(sig_y), cell->getParam(ID::A_SIGNED).as_bool());
 				sig_b.extend_u0(GetSize(sig_y), cell->getParam(ID::B_SIGNED).as_bool());
 			}
@@ -669,11 +669,11 @@ struct DftTagWorker {
 			auto &sig_y = cell->getPort(ID::Y);
 			auto sig_a = cell->getPort(ID::A);
 
-			if (cell->type.in(ID($reduce_or), ID($reduce_bool), ID($logic_not)))
-				sig_a = autoNot(NEW_ID, sig_a);
-
 			auto group_sig_a = tag_group_signal(tag, sig_a);
 			auto tag_sig_a = tag_signal(tag, sig_a);
+
+			if (cell->type.in(ID($reduce_or), ID($reduce_bool), ID($logic_not)))
+				sig_a = autoNot(NEW_ID, sig_a);
 
 			auto filled = autoOr(NEW_ID, sig_a, group_sig_a);
 

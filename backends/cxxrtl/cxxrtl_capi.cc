@@ -90,3 +90,46 @@ void cxxrtl_enum(cxxrtl_handle handle, void *data,
 void cxxrtl_outline_eval(cxxrtl_outline outline) {
 	outline->eval();
 }
+
+int cxxrtl_attr_type(cxxrtl_attr_set attrs_, const char *name) {
+	auto attrs = (cxxrtl::metadata_map*)attrs_;
+	if (!attrs->count(name))
+		return CXXRTL_ATTR_NONE;
+	switch (attrs->at(name).value_type) {
+		case cxxrtl::metadata::UINT:
+			return CXXRTL_ATTR_UNSIGNED_INT;
+		case cxxrtl::metadata::SINT:
+			return CXXRTL_ATTR_SIGNED_INT;
+		case cxxrtl::metadata::STRING:
+			return CXXRTL_ATTR_STRING;
+		case cxxrtl::metadata::DOUBLE:
+			return CXXRTL_ATTR_DOUBLE;
+		default:
+			// Present unsupported attribute type the same way as no attribute at all.
+			return CXXRTL_ATTR_NONE;
+	}
+}
+
+uint64_t cxxrtl_attr_get_unsigned_int(cxxrtl_attr_set attrs_, const char *name) {
+	auto &attrs = *(cxxrtl::metadata_map*)attrs_;
+	assert(attrs.count(name) && attrs.at(name).value_type == cxxrtl::metadata::UINT);
+	return attrs[name].as_uint();
+}
+
+int64_t cxxrtl_attr_get_signed_int(cxxrtl_attr_set attrs_, const char *name) {
+	auto &attrs = *(cxxrtl::metadata_map*)attrs_;
+	assert(attrs.count(name) && attrs.at(name).value_type == cxxrtl::metadata::SINT);
+	return attrs[name].as_sint();
+}
+
+const char *cxxrtl_attr_get_string(cxxrtl_attr_set attrs_, const char *name) {
+	auto &attrs = *(cxxrtl::metadata_map*)attrs_;
+	assert(attrs.count(name) && attrs.at(name).value_type == cxxrtl::metadata::STRING);
+	return attrs[name].as_string().c_str();
+}
+
+double cxxrtl_attr_get_double(cxxrtl_attr_set attrs_, const char *name) {
+	auto &attrs = *(cxxrtl::metadata_map*)attrs_;
+	assert(attrs.count(name) && attrs.at(name).value_type == cxxrtl::metadata::DOUBLE);
+	return attrs[name].as_double();
+}

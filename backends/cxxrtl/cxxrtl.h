@@ -1019,14 +1019,14 @@ struct metadata {
 
 	// In debug mode, using the wrong .as_*() function will assert.
 	// In release mode, using the wrong .as_*() function will safely return a default value.
-	const unsigned    uint_value = 0;
-	const signed      sint_value = 0;
+	const uint64_t    uint_value = 0;
+	const int64_t     sint_value = 0;
 	const std::string string_value = "";
 	const double      double_value = 0.0;
 
 	metadata() : value_type(MISSING) {}
-	metadata(unsigned value) : value_type(UINT), uint_value(value) {}
-	metadata(signed value) : value_type(SINT), sint_value(value) {}
+	metadata(uint64_t value) : value_type(UINT), uint_value(value) {}
+	metadata(int64_t value) : value_type(SINT), sint_value(value) {}
 	metadata(const std::string &value) : value_type(STRING), string_value(value) {}
 	metadata(const char *value) : value_type(STRING), string_value(value) {}
 	metadata(double value) : value_type(DOUBLE), double_value(value) {}
@@ -1034,12 +1034,12 @@ struct metadata {
 	metadata(const metadata &) = default;
 	metadata &operator=(const metadata &) = delete;
 
-	unsigned as_uint() const {
+	uint64_t as_uint() const {
 		assert(value_type == UINT);
 		return uint_value;
 	}
 
-	signed as_sint() const {
+	int64_t as_sint() const {
 		assert(value_type == SINT);
 		return sint_value;
 	}
@@ -1068,6 +1068,9 @@ using debug_outline = ::_cxxrtl_outline;
 //
 // To avoid violating strict aliasing rules, this structure has to be a subclass of the one used
 // in the C API, or it would not be possible to cast between the pointers to these.
+//
+// The `attrs` member cannot be owned by this structure because a `cxxrtl_object` can be created
+// from external C code.
 struct debug_item : ::cxxrtl_object {
 	// Object types.
 	enum : uint32_t {
@@ -1103,6 +1106,7 @@ struct debug_item : ::cxxrtl_object {
 		curr    = item.data;
 		next    = item.data;
 		outline = nullptr;
+		attrs   = nullptr;
 	}
 
 	template<size_t Bits>
@@ -1118,6 +1122,7 @@ struct debug_item : ::cxxrtl_object {
 		curr    = const_cast<chunk_t*>(item.data);
 		next    = nullptr;
 		outline = nullptr;
+		attrs   = nullptr;
 	}
 
 	template<size_t Bits>
@@ -1134,6 +1139,7 @@ struct debug_item : ::cxxrtl_object {
 		curr    = item.curr.data;
 		next    = item.next.data;
 		outline = nullptr;
+		attrs   = nullptr;
 	}
 
 	template<size_t Width>
@@ -1149,6 +1155,7 @@ struct debug_item : ::cxxrtl_object {
 		curr    = item.data ? item.data[0].data : nullptr;
 		next    = nullptr;
 		outline = nullptr;
+		attrs   = nullptr;
 	}
 
 	template<size_t Bits>
@@ -1164,6 +1171,7 @@ struct debug_item : ::cxxrtl_object {
 		curr    = const_cast<chunk_t*>(item.data);
 		next    = nullptr;
 		outline = nullptr;
+		attrs   = nullptr;
 	}
 
 	template<size_t Bits>
@@ -1180,6 +1188,7 @@ struct debug_item : ::cxxrtl_object {
 		curr    = const_cast<chunk_t*>(item.curr.data);
 		next    = nullptr;
 		outline = nullptr;
+		attrs   = nullptr;
 	}
 
 	template<size_t Bits>
@@ -1195,6 +1204,7 @@ struct debug_item : ::cxxrtl_object {
 		curr    = const_cast<chunk_t*>(item.data);
 		next    = nullptr;
 		outline = &group;
+		attrs   = nullptr;
 	}
 
 	template<size_t Bits, class IntegerT>
@@ -1215,10 +1225,28 @@ struct debug_item : ::cxxrtl_object {
 };
 static_assert(std::is_standard_layout<debug_item>::value, "debug_item is not compatible with C layout");
 
+} // namespace cxxrtl
+
+typedef struct _cxxrtl_attr_set {
+	cxxrtl::metadata_map map;
+} *cxxrtl_attr_set;
+
+namespace cxxrtl {
+
+// Representation of an attribute set in the C++ interface.
+using debug_attrs = ::_cxxrtl_attr_set;
+
 struct debug_items {
 	std::map<std::string, std::vector<debug_item>> table;
+	std::map<std::string, std::unique_ptr<debug_attrs>> attrs_table;
 
-	void add(const std::string &name, debug_item &&item) {
+	void add(const std::string &name, debug_item &&item, metadata_map &&item_attrs = {}) {
+		std::unique_ptr<debug_attrs> &attrs = attrs_table[name];
+		if (attrs.get() == nullptr)
+			attrs = std::unique_ptr<debug_attrs>(new debug_attrs);
+		for (auto attr : item_attrs)
+			attrs->map.insert(attr);
+		item.attrs = attrs.get();
 		std::vector<debug_item> &parts = table[name];
 		parts.emplace_back(item);
 		std::sort(parts.begin(), parts.end(),
@@ -1245,6 +1273,10 @@ struct debug_items {
 
 	const debug_item &operator [](const std::string &name) const {
 		return at(name);
+	}
+
+	const metadata_map &attrs(const std::string &name) const {
+		return attrs_table.at(name)->map;
 	}
 };
 

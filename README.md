@@ -592,6 +592,8 @@ from SystemVerilog:
 - SystemVerilog interfaces (SVIs) are supported. Modports for specifying whether
   ports are inputs or outputs are supported.
 
+- Assignments within expressions are supported.
+
 
 Building the documentation
 ==========================

@@ -212,7 +212,7 @@ second argument, and the matcher will iterate over those options:
         index <SigSpec> port(eq, BA) === bar
         set eq_ab AB
         set eq_ba BA
-    generate
+    endmatch
 
 Notice how `define` can be used to define additional local variables similar
 to the loop variables defined by `slice` and `choice`.

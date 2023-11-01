@@ -24,8 +24,8 @@ PRIVATE_NAMESPACE_BEGIN
 
 int autoname_worker(Module *module, const dict<Wire*, int>& wire_score)
 {
-	dict<Cell*, pair<int, IdString>> proposed_cell_names;
-	dict<Wire*, pair<int, IdString>> proposed_wire_names;
+	dict<Cell*, pair<int, string>> proposed_cell_names;
+	dict<Wire*, pair<int, string>> proposed_wire_names;
 	int best_score = -1;
 
 	for (auto cell : module->selected_cells()) {
@@ -36,7 +36,7 @@ int autoname_worker(Module *module, const dict<Wire*, int>& wire_score)
 					if (bit.wire != nullptr && bit.wire->name[0] != '$') {
 						if (suffix.empty())
 							suffix = stringf("_%s_%s", log_id(cell->type), log_id(conn.first));
-						IdString new_name(bit.wire->name.str() + suffix);
+						string new_name(bit.wire->name.str() + suffix);
 						int score = wire_score.at(bit.wire);
 						if (cell->output(conn.first)) score = 0;
 						score = 10000*score + new_name.size();
@@ -54,7 +54,7 @@ int autoname_worker(Module *module, const dict<Wire*, int>& wire_score)
 					if (bit.wire != nullptr && bit.wire->name[0] == '$' && !bit.wire->port_id) {
 						if (suffix.empty())
 							suffix = stringf("_%s", log_id(conn.first));
-						IdString new_name(cell->name.str() + suffix);
+						string new_name(cell->name.str() + suffix);
 						int score = wire_score.at(bit.wire);
 						if (cell->output(conn.first)) score = 0;
 						score = 10000*score + new_name.size();
@@ -71,7 +71,7 @@ int autoname_worker(Module *module, const dict<Wire*, int>& wire_score)
 	for (auto &it : proposed_cell_names) {
 		if (best_score*2 < it.second.first)
 			continue;
-		IdString n = module->uniquify(it.second.second);
+		IdString n = module->uniquify(IdString(it.second.second));
 		log_debug("Rename cell %s in %s to %s.\n", log_id(it.first), log_id(module), log_id(n));
 		module->rename(it.first, n);
 	}
@@ -79,7 +79,7 @@ int autoname_worker(Module *module, const dict<Wire*, int>& wire_score)
 	for (auto &it : proposed_wire_names) {
 		if (best_score*2 < it.second.first)
 			continue;
-		IdString n = module->uniquify(it.second.second);
+		IdString n = module->uniquify(IdString(it.second.second));
 		log_debug("Rename wire %s in %s to %s.\n", log_id(it.first), log_id(module), log_id(n));
 		module->rename(it.first, n);
 	}
