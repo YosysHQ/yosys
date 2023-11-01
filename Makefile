@@ -971,6 +971,7 @@ docs/source/cmd/abc.rst: $(TARGETS) $(EXTRA_TARGETS)
 
 PHONY: docs/gen_images docs/guidelines docs/usage
 docs/gen_images:
+	$(Q) $(MAKE) -C docs/source/_images resources
 	$(Q) $(MAKE) -C docs/source/_images all
 
 DOCS_GUIDELINE_FILES := GettingStarted CodingStyle
