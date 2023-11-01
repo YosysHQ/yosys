@@ -59,7 +59,7 @@ bool log_quiet_warnings = false;
 int log_verbose_level;
 string log_last_error;
 void (*log_error_atexit)() = NULL;
-void (*log_verific_callback)(int msg_type, const char *message_id, const char* file_path, unsigned int line_no, const char *msg) = NULL;
+void (*log_verific_callback)(int msg_type, const char *message_id, const char* file_path, unsigned int left_line, unsigned int left_col, unsigned int right_line, unsigned int right_col, const char *msg) = NULL;
 
 int log_make_debug = 0;
 int log_force_debug = 0;
