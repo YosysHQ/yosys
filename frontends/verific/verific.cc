@@ -115,7 +115,9 @@ void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefil
 
 	if (log_verific_callback) {
 		string full_message = stringf("%s%s\n", message_prefix.c_str(), message.c_str());
-		log_verific_callback(int(msg_type), message_id, LineFile::GetFileName(linefile), linefile->GetLeftLine(), linefile->GetLeftCol(), linefile->GetRightLine(), linefile->GetRightCol(), full_message.c_str());
+		log_verific_callback(int(msg_type), message_id, LineFile::GetFileName(linefile), 
+			linefile ? linefile->GetLeftLine() : 0, linefile ? linefile->GetLeftCol() : 0, 
+			linefile ? linefile->GetRightLine() : 0, linefile ? linefile->GetRightCol() : 0, full_message.c_str());
 	} else {
 		if (msg_type == VERIFIC_ERROR || msg_type == VERIFIC_WARNING || msg_type == VERIFIC_PROGRAM_ERROR)
 			log_warning_noprefix("%s%s\n", message_prefix.c_str(), message.c_str());
