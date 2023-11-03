@@ -106,8 +106,8 @@ struct SynthIce40Pass : public ScriptPass
 		log("        generate an output netlist (and BLIF file) suitable for VPR\n");
 		log("        (this feature is experimental and incomplete)\n");
 		log("\n");
-		log("    -noabc9\n");
-		log("        disable use of new ABC9 flow\n");
+		log("    -abc9\n");
+		log("        use new ABC9 flow (EXPERIMENTAL)\n");
 		log("\n");
 		log("    -flowmap\n");
 		log("        use FlowMap LUT techmapping instead of abc (EXPERIMENTAL)\n");
@@ -144,7 +144,7 @@ struct SynthIce40Pass : public ScriptPass
 		noabc = false;
 		abc2 = false;
 		vpr = false;
-		abc9 = true;
+		abc9 = false;
 		flowmap = false;
 		device_opt = "hx";
 		no_rw_check = false;
@@ -235,11 +235,7 @@ struct SynthIce40Pass : public ScriptPass
 				continue;
 			}
 			if (args[argidx] == "-abc9") {
-				// removed, ABC9 is on by default.
-				continue;
-			}
-			if (args[argidx] == "-noabc9") {
-				abc9 = false;
+				abc9 = true;
 				continue;
 			}
 			if (args[argidx] == "-dff") {
