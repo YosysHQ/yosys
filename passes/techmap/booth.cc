@@ -184,6 +184,24 @@ struct BoothPassWorker {
 		cor_o = module->AndGate(NEW_ID_SUFFIX(name), pp1_nor_pp0, cori_i);
 	}
 
+	void BuildBitwiseFa(Module *mod, std::string name, const SigSpec &sig_a, const SigSpec &sig_b,
+			    const SigSpec &sig_c, const SigSpec &sig_x, const SigSpec &sig_y,
+			    const std::string &src = "")
+	{
+		// We can't emit a single wide full-adder cell here since
+		// there would typically be feedback loops involving the cells'
+		// input and output ports, and Yosys doesn't cope well with
+		// those
+		log_assert(sig_a.size() == sig_b.size());
+		log_assert(sig_a.size() == sig_c.size());
+		log_assert(sig_a.size() == sig_x.size());
+		log_assert(sig_a.size() == sig_y.size());
+
+		for (int i = 0; i < sig_a.size(); i++)
+			mod->addFa(stringf("%s[%d]", name.c_str(), i), sig_a[i], sig_b[i],
+				   sig_c[i], sig_x[i], sig_y[i], src);
+	}
+
 	void run()
 	{
 		for (auto cell : module->selected_cells()) {
@@ -1014,150 +1032,42 @@ struct BoothPassWorker {
 		//
 		int fa_el_ix = 0;
 		int fa_row_ix = 0;
-		// use 1 d arrays (2d cannot have variable sized indices)
-		SigSpec fa_sum_n(State::S0, fa_row_count * fa_count);
-		SigSpec fa_carry_n(State::S0, fa_row_count * fa_count);
+		std::vector<SigSpec> fa_sum;
+		std::vector<SigSpec> fa_carry;
 
 		for (fa_row_ix = 0; fa_row_ix < fa_row_count; fa_row_ix++) {
-			for (fa_el_ix = 0; fa_el_ix < fa_count; fa_el_ix++) {
-				fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix] =
-					module->addWire(NEW_ID_SUFFIX(stringf("fa_sum_n_%d_%d", fa_row_ix, fa_el_ix)), 1);
-				fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix] =
-					module->addWire(NEW_ID_SUFFIX(stringf("fa_carry_n_%d_%d", fa_row_ix, fa_el_ix)), 1);
-			}
+			fa_sum.push_back(module->addWire(NEW_ID_SUFFIX(stringf("fa_sum_%d", fa_row_ix)), fa_count));
+			fa_carry.push_back(module->addWire(NEW_ID_SUFFIX(stringf("fa_carry_%d", fa_row_ix)), fa_count));
 		}
 
 		// full adder creation
-		std::string bfa_name;
-		std::string exc_inv_name;
-		for (fa_row_ix = 0; fa_row_ix < fa_row_count; fa_row_ix++) {
-			for (fa_el_ix = 0; fa_el_ix < fa_count; fa_el_ix++) {
-				// base case: 1st row. Inputs from decoders
-				// Note in rest of tree inputs from prior addition and a decoder
-				if (fa_row_ix == 0) {
-					// beginning
-					// base case:
-					// first two cells: have B input hooked to 0.
-					if (fa_el_ix == 0) {
-						// quadrant 1: we hard code these using non-booth
-						fa_el_ix++;
+		// base case: 1st row: Inputs from decoders
+		// 1st row exception: two localized inverters due to sign extension structure
+		SigBit d08_inv = module->NotGate(NEW_ID_SUFFIX("bfa_0_exc_inv1"), PPij[(0 * dec_count) + dec_count - 1]);
+		SigBit d18_inv = module->NotGate(NEW_ID_SUFFIX("bfa_0_exc_inv2"), PPij[(1 * dec_count) + dec_count - 1]);
+		BuildBitwiseFa(module, NEW_ID_SUFFIX("fa_row_0").str(),
+			/* A */ {State::S0, d08_inv, PPij[(0 * dec_count) + x_sz], PPij.extract((0 * dec_count) + 2, x_sz - 1)},
+			/* B */ {State::S1, d18_inv, PPij.extract((1 * dec_count), x_sz)},
+			/* C */ fa_carry[0].extract(1, x_sz + 2),
+			/* X */ fa_carry[0].extract(2, x_sz + 2),
+			/* Y */ fa_sum[0].extract(2, x_sz + 2)
+		);
 
-					}
-					// step case
-					else if (fa_el_ix >= 2 && fa_el_ix <= x_sz) {
-						// middle (2...x_sz cells)
-						module->addFa(NEW_ID_SUFFIX(stringf("bfa_0_step_%d_%d_L", fa_row_ix, fa_el_ix)),
-							/* A */ PPij[(0 * dec_count) + fa_el_ix],
-							/* B */ PPij[(1 * dec_count) + fa_el_ix - 2],
-							/* C */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1],
-							/* X */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix],
-							/* Y */ fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]
-						);
-					}
-					// end 3 cells: x_sz+1.2.3
-					//
-					else {
-						// fa_el_ix = x_sz+1
-						module->addFa(NEW_ID_SUFFIX(stringf("bfa_0_se_0_%d_%d_L", fa_row_ix, fa_el_ix)),
-							/* A */ PPij[(0 * dec_count) + x_sz],
-							/* B */ PPij[(1 * dec_count) + fa_el_ix - 2],
-							/* C */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1],
-							/* X */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix],
-							/* Y */ fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]
-						);
+		// step case: 2nd and rest of rows. (fa_row_ix == 1...n)
+		// special because these are driven by a decoder and prior fa.
+		for (fa_row_ix = 1; fa_row_ix < fa_row_count; fa_row_ix++) {
+			// end two bits: sign extension
+			SigBit d_inv = module->NotGate(NEW_ID_SUFFIX(stringf("bfa_se_inv_%d_%d_L", fa_row_ix, fa_el_ix)),
+						       PPij[((fa_row_ix + 1) * dec_count) + dec_count - 1]);
 
-						// exception:invert ppi
-						fa_el_ix++;
-						SigBit d08_inv = module->NotGate(NEW_ID_SUFFIX(stringf("bfa_0_exc_inv1_%d_%d_L", fa_row_ix, fa_el_ix)),
-										 PPij[(0 * dec_count) + dec_count - 1]);
+			BuildBitwiseFa(module, NEW_ID_SUFFIX(stringf("fa_row_%d", fa_row_ix)).str(),
+				/* A */	{State::S0, fa_carry[fa_row_ix - 1][fa_count - 1], fa_sum[fa_row_ix - 1].extract(2, x_sz + 2)},
+				/* B */ {State::S1, d_inv, PPij.extract((fa_row_ix + 1) * dec_count, x_sz), State::S0, State::S0},
 
-						SigBit d18_inv = module->NotGate(NEW_ID_SUFFIX(stringf("bfa_0_exc_inv2_%d_%d_L", fa_row_ix, fa_el_ix)),
-										 PPij[(1 * dec_count) + dec_count - 1]);
-
-						module->addFa(NEW_ID_SUFFIX(stringf("bfa_0_se_1_%d_%d_L", fa_row_ix, fa_el_ix)),
-							/* A */ d08_inv,
-							/* B */ d18_inv,
-							/* C */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1],
-							/* X */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix],
-							/* Y */ fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]
-						);
-
-						// sign extension
-						fa_el_ix++;
-
-						module->addFa(NEW_ID_SUFFIX(stringf("bfa_0_se_2_%d_%d_L", fa_row_ix, fa_el_ix)),
-							/* A */ State::S0,
-							/* B */ State::S1,
-							/* C */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1],
-							/* X */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix],
-							/* Y */ fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]
-						);
-					}
-				}
-
-				// step case: 2nd and rest of rows. (fa_row_ix == 1...n)
-				// special because these are driven by a decoder and prior fa.
-				else {
-					// beginning
-					if (fa_el_ix == 0) {
-						// first two cells: have B input hooked to 0.
-						// column is offset by row_ix*2
-
-						module->addFa(NEW_ID_SUFFIX(stringf("bfa_base_%d_%d_L", fa_row_ix, fa_el_ix)),
-							/* A */ fa_sum_n[(fa_row_ix - 1) * fa_count + 2],
-							/* B */ State::S0,
-							/* C */ cori_n_int[fa_row_ix],
-							/* X */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix],
-							/* Y */ fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]
-						);
-						fa_el_ix++;
-
-						module->addFa(NEW_ID_SUFFIX(stringf("bfa_base_%d_%d_L", fa_row_ix, fa_el_ix)),
-							/* A */ fa_sum_n[(fa_row_ix - 1) * fa_count + 3], // from prior full adder row
-							/* B */ State::S0,
-							/* C */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1],
-							/* X */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix],
-							/* Y */ fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]
-						);
-
-					}
-
-					else if (fa_el_ix >= 2 && fa_el_ix <= x_sz + 1) {
-						// middle (2...x_sz+1 cells)
-						module->addFa(NEW_ID_SUFFIX(stringf("bfa_step_%d_%d_L", fa_row_ix, fa_el_ix)),
-							/* A */ fa_sum_n[(fa_row_ix - 1) * fa_count + fa_el_ix + 2],
-							/* B */ PPij[(fa_row_ix + 1) * dec_count + fa_el_ix - 2],
-							/* C */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1],
-							/* X */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix],
-							/* Y */ fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]
-						);
-					}
-
-					else if (fa_el_ix > x_sz + 1) {
-						// end two bits: sign extension
-						SigBit d_inv = module->NotGate(NEW_ID_SUFFIX(stringf("bfa_se_inv_%d_%d_L", fa_row_ix, fa_el_ix)),
-									       PPij[((fa_row_ix + 1) * dec_count) + dec_count - 1]);
-
-						module->addFa(NEW_ID_SUFFIX(stringf("bfa_se_%d_%d_L", fa_row_ix, fa_el_ix)),
-							/* A */ fa_carry_n[((fa_row_ix - 1) * fa_count) + fa_count - 1],
-							/* B */ d_inv,
-							/* C */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1],
-							/* X */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix],
-							/* Y */ fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]
-						);
-						fa_el_ix++;
-
-						// sign extension
-						module->addFa(NEW_ID_SUFFIX(stringf("bfa_se_%d_%d_L", fa_row_ix, fa_el_ix)),
-							/* A */ State::S0,
-							/* B */ State::S1,
-							/* C */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1],
-							/* X */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix],
-							/* Y */ fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]
-						);
-					}
-				}
-			}
+				/* C */ {fa_carry[fa_row_ix].extract(0, x_sz + 3), cori_n_int[fa_row_ix]},
+				/* X */ fa_carry[fa_row_ix],
+				/* Y */ fa_sum[fa_row_ix]
+			);
 		}
 
 		// instantiate the cpa
@@ -1175,11 +1085,11 @@ struct BoothPassWorker {
 				int fa_row_ix = cpa_ix / 2;
 
 				module->addBufGate(NEW_ID_SUFFIX(stringf("pp_buf_%d_driven_by_fa_row_%d", cpa_ix, fa_row_ix)),
-						   fa_sum_n[(fa_row_ix * fa_count) + 0], Z[cpa_ix]);
+						   fa_sum[fa_row_ix][0], Z[cpa_ix]);
 
 				cpa_ix++;
 				module->addBufGate(NEW_ID_SUFFIX(stringf("pp_buf_%d_driven_by_fa_row_%d", cpa_ix, fa_row_ix)),
-						   fa_sum_n[(fa_row_ix * fa_count) + 1], Z[cpa_ix]);
+						   fa_sum[fa_row_ix][1], Z[cpa_ix]);
 			} else {
 				int offset = fa_row_count * 2;
 				bool base_case = cpa_ix - offset == 0 ? true : false;
@@ -1192,7 +1102,7 @@ struct BoothPassWorker {
 					ci = cpa_carry[cpa_ix - offset - 1];
 
 				SigBit op;
-				BuildHa(cpa_name, fa_sum_n[(fa_row_count - 1) * fa_count + cpa_ix - offset + 2], ci, op,
+				BuildHa(cpa_name, fa_sum[fa_row_count - 1][cpa_ix - offset + 2], ci, op,
 					cpa_carry[cpa_ix - offset]);
 				module->connect(Z[cpa_ix], op);
 			}
@@ -1217,9 +1127,9 @@ struct BoothPassWorker {
 
 			     nxj_o_int, cor_o_int, pp0_o_int, pp1_o_int);
 
-		module->connect(fa_sum_n[(0 * fa_count) + 0], pp0_o_int);
-		module->connect(fa_sum_n[(0 * fa_count) + 1], pp1_o_int);
-		module->connect(fa_carry_n[(0 * fa_count) + 1], cor_o_int);
+		module->connect(fa_sum[0][0], pp0_o_int);
+		module->connect(fa_sum[0][1], pp1_o_int);
+		module->connect(fa_carry[0][1], cor_o_int);
 		module->connect(nxj[(0 * dec_count) + 2], nxj_o_int);
 	}
 };
