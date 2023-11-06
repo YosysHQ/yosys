@@ -1072,40 +1072,26 @@ struct BoothPassWorker {
 
 		// instantiate the cpa
 		SigSpec cpa_carry;
+		if (z_sz > fa_row_count * 2)
+			cpa_carry = module->addWire(NEW_ID_SUFFIX("cpa_carry"), z_sz - fa_row_count * 2);
 
-		for (int cix = 0; cix < z_sz; cix++)
-			cpa_carry.append(module->addWire(NEW_ID_SUFFIX(stringf("cpa_carry_%d", cix)), 1));
+		// The end case where we pass the last two summands
+		// from prior row directly to product output
+		// without using a cpa cell. This is always
+		// 0,1 index of prior fa row
+		for (int cpa_ix = 0; cpa_ix < fa_row_count * 2; cpa_ix += 2) {
+			int fa_row_ix = cpa_ix / 2;
+			module->connect(Z.extract(cpa_ix, 2), fa_sum[fa_row_ix].extract(0, 2));
+		}
 
-		for (int cpa_ix = 0; cpa_ix < z_sz; cpa_ix++) {
-			// The end case where we pass the last two summands
-			// from prior row directly to product output
-			// without using a cpa cell. This is always
-			// 0,1 index of prior fa row
-			if (cpa_ix <= fa_row_count * 2 - 1) {
-				int fa_row_ix = cpa_ix / 2;
+		for (int cpa_ix = fa_row_count * 2; cpa_ix < z_sz; cpa_ix++) {
+			int offset = fa_row_count * 2;
+			std::string cpa_name = stringf("cpa_%d", cpa_ix - offset);
 
-				module->addBufGate(NEW_ID_SUFFIX(stringf("pp_buf_%d_driven_by_fa_row_%d", cpa_ix, fa_row_ix)),
-						   fa_sum[fa_row_ix][0], Z[cpa_ix]);
-
-				cpa_ix++;
-				module->addBufGate(NEW_ID_SUFFIX(stringf("pp_buf_%d_driven_by_fa_row_%d", cpa_ix, fa_row_ix)),
-						   fa_sum[fa_row_ix][1], Z[cpa_ix]);
-			} else {
-				int offset = fa_row_count * 2;
-				bool base_case = cpa_ix - offset == 0 ? true : false;
-				std::string cpa_name = stringf("cpa_%d", cpa_ix - offset);
-
-				SigBit ci;
-				if (base_case)
-					ci = cori_n_int[enc_count - 1];
-				else
-					ci = cpa_carry[cpa_ix - offset - 1];
-
-				SigBit op;
-				BuildHa(cpa_name, fa_sum[fa_row_count - 1][cpa_ix - offset + 2], ci, op,
-					cpa_carry[cpa_ix - offset]);
-				module->connect(Z[cpa_ix], op);
-			}
+			SigBit ci = (cpa_ix == offset) ? cori_n_int[enc_count - 1] : cpa_carry[cpa_ix - offset - 1];
+			SigBit op;
+			BuildHa(cpa_name, fa_sum[fa_row_count - 1][cpa_ix - offset + 2], ci, op, cpa_carry[cpa_ix - offset]);
+			module->connect(Z[cpa_ix], op);
 		}
 
 		//
