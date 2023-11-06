@@ -85,10 +85,11 @@ endmatch
 
 code
 {
-	if (offset>0 && var_signed) {
-		log("I should not be here %x\n", var_signed);
-		reject;
-	}
+	// positive constant offset with a signed variable (index) cannot be handled
+	// the above filter should get rid of this case but 'offset' is calculated differently
+	// due to limitations of state-variables in pmgen
+	// it should only differ if previous passes create invalid data
+	log_assert(!(offset>0 && var_signed));
 
 	did_something = true;
 	log("shiftadd pattern in %s: shift=%s, add/sub=%s, offset: %d\n", \
