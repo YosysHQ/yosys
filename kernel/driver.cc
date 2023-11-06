@@ -49,6 +49,12 @@
 #  include <sys/user.h>
 #endif
 
+#if !defined(_WIN32) || defined(__MINGW32__)
+#  include <unistd.h>
+#endif
+
+USING_YOSYS_NAMESPACE
+
 char *optarg;
 int optind = 1, optcur = 1, optopt = 0;
 int getopt(int argc, char **argv, const char *optstring)
@@ -56,7 +62,7 @@ int getopt(int argc, char **argv, const char *optstring)
 	if (optind >= argc)
 		return -1;
 
-	if (argv[optind][0] != '-') {
+	if (argv[optind][0] != '-' || argv[optind][1] == 0) {
 		optopt = 1;
 		optarg = argv[optind++];
 		return optopt;
@@ -90,9 +96,6 @@ int getopt(int argc, char **argv, const char *optstring)
 	optind++, optcur = 1;
 	return optopt;
 }
-
-
-USING_YOSYS_NAMESPACE
 
 #ifdef EMSCRIPTEN
 #  include <sys/stat.h>
@@ -571,6 +574,12 @@ int main(int argc, char **argv)
 		for (auto vdef : vlog_defines)
 			vdef_cmd += " " + vdef;
 		run_pass(vdef_cmd);
+	}
+
+	if (scriptfile.empty() || !scriptfile_tcl) {
+		// Without a TCL script, arguments following '--' are also treated as frontend files
+		for (int i = optind; i < argc; ++i)
+			frontend_files.push_back(argv[i]);
 	}
 
 	for (auto it = frontend_files.begin(); it != frontend_files.end(); ++it) {
