@@ -1,0 +1,78 @@
+verific -sv <<EOF
+module rom(input clk, input [2:0] addr, (* ram_style = "block" *) output reg [7:0] data);
+
+always @(posedge clk) begin
+	case (addr)
+		3'b000: data <= 8'h12;
+		3'b001: data <= 8'hAB;
+		3'b010: data <= 8'h42;
+		3'b011: data <= 8'h23;
+		3'b100: data <= 8'h66;
+		3'b101: data <= 8'hC0;
+		3'b110: data <= 8'h3F;
+		3'b111: data <= 8'h95;
+	endcase
+end
+
+endmodule
+EOF
+hierarchy -top rom
+proc
+opt
+opt -full
+memory -nomap
+dump
+memory_libmap -lib ../memlib/memlib_block_sdp.txt
+memory_map
+stat
+select -assert-count 1 t:RAM_BLOCK_SDP
+
+
+design -reset
+
+verific -vhdl <<EOF
+library IEEE;
+use IEEE.std_logic_1164.all;
+use ieee.std_logic_unsigned.all;
+
+entity rom_example is
+	port (
+		clk : in std_logic;
+		addr : in std_logic_vector(2 downto 0);
+		data : out std_logic_vector (7 downto 0)
+	);
+end entity rom_example;
+
+architecture rtl of rom_example is
+	attribute rom_style : string;
+	attribute rom_style of data : signal is "block";
+begin
+	
+	p_rom : process(clk)
+	begin
+		if rising_edge(clk) then
+			case addr is
+				when "000" => data <= X"12";
+				when "001" => data <= X"AB";
+				when "010" => data <= X"42";
+				when "011" => data <= X"23";
+				when "100" => data <= X"66";
+				when "101" => data <= X"C0";
+				when "110" => data <= X"3F";
+				when others => data <= X"95";
+			end case;
+		end if;
+	end process p_rom;
+	
+end architecture rtl;
+EOF
+hierarchy -top rom_example
+proc
+opt
+opt -full
+memory -nomap
+dump
+memory_libmap -lib ../memlib/memlib_block_sdp.txt
+memory_map
+stat
+select -assert-count 1 t:RAM_BLOCK_SDP

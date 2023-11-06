@@ -1347,7 +1347,12 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		wire->start_offset = min(portbus->LeftIndex(), portbus->RightIndex());
 		wire->upto = portbus->IsUp();
 		import_attributes(wire->attributes, portbus, nl);
-
+		SetIter si ;
+		Port *port ;
+		FOREACH_PORT_OF_PORTBUS(portbus, si, port) {
+			import_attributes(wire->attributes, port->GetNet(), nl);
+			break;
+		}
 		bool portbus_input = portbus->GetDir() == DIR_INOUT || portbus->GetDir() == DIR_IN;
 		if (portbus_input)
 			wire->port_input = true;
