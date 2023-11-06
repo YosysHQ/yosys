@@ -1,0 +1,116 @@
+pattern shiftadd
+//
+// Transforms add/sub+shift pairs that result from expressions such as data[s*W +C +:W2]
+// specifically something like: out[W2-1:0] = data >> (s*W +C)
+// will be transformed into: out[W2-1:0] = (data >> C) >> (s*W)
+// this can then be optimized using peepopt_shiftmul_right.pmg
+//
+
+match shift
+	select shift->type.in($shift, $shiftx, $shr)
+	filter !port(shift, \B).empty()
+endmatch
+
+// the right shift amount
+state <SigSpec> shift_amount
+// log2 scale factor in interpreting of shift_amount
+// due to zero padding on the shift cell's B port
+state <int> log2scale
+// zeros at the MSB position make it unsigned
+state <bool> msb_zeros
+
+code shift_amount log2scale msb_zeros
+	shift_amount = port(shift, \B);
+
+	log2scale = 0;
+	while (shift_amount[0] == State::S0) {
+		shift_amount.remove(0);
+		if (shift_amount.empty()) reject;
+		log2scale++;
+	}
+
+	msb_zeros = 0;
+	while (shift_amount.bits().back() == State::S0) {
+		msb_zeros = true;
+		shift_amount.remove(GetSize(shift_amount) - 1);
+		if (shift_amount.empty()) reject;
+	}
+
+	if (GetSize(shift_amount) > 20)
+		reject;
+endcode
+
+state <SigSpec> add_var
+state <Const>   add_const
+state <bool>    is_sub
+state <bool>	varport_A
+
+match add
+	// either data[var+c +:W1] or data[var-c +:W1]
+	select add->type.in($add, $sub)
+	index <SigSpec> port(add, \Y) === shift_amount
+
+	// one must be constant, the other is variable
+	choice <IdString> constport {\A, \B}
+	filter port(add, constport).is_fully_const()
+	define <IdString> varport (constport == \A ? \B : \A)
+
+	set is_sub add->type.in($sub)
+	set varport_A (varport == \A)
+
+	// (var+c)<<N -> (var<<N)+(c<<N), also true for signed values
+	set add_const SigSpec({port(add, constport), SigSpec(State::S0, log2scale)}).as_const()
+
+	// get add_var unmapped (so no `port()` shorthand)
+	// to attach it to the transformed shift cells \B port
+	set add_var add->getPort(varport)
+endmatch
+
+code
+{
+	log_debug("shiftadd candidate in %s: shift=%s, add/sub=%s\n", log_id(module), log_id(shift), log_id(add));
+	if (add_const.empty() || GetSize(add_const) > 20)
+		reject;
+
+	int offset = add_const.as_int() * ( (is_sub && varport_A) ? -1 : 1 );
+	bool varport_signed = (varport_A && param(add, \A_SIGNED).as_bool()) \
+						 || (!varport_A && param(add, \B_SIGNED).as_bool());
+
+	// data[...-c +:W1] is fine for +/-var (pad at LSB, all data still accessible)
+	// data[...+c +:W1] is only fine for +var(add) and var unsigned
+	// (+c cuts lower C bits, making them inaccessible, a signed var could try to access them)
+	// -> data[c-var +:W1] is illegal
+	if (is_sub && !varport_A)
+		reject;
+	// -> data[var+c +:W1] (with var signed) is illegal
+	if ( (offset>0) && varport_signed )
+		reject;
+
+	did_something = true;
+	log("shiftadd pattern in %s: shift=%s, add/sub=%s, offset: %d\n", \
+			log_id(module), log_id(shift), log_id(add), offset);
+
+	SigSpec old_a = port(shift, \A), new_a;
+	if(offset<0) {
+		// data >> (...-c) transformed to {data, c'X} >> (...)
+		SigSpec padding( (shift->type.in($shiftx) ? State::Sx : State::S0), -offset );
+		new_a.append(padding);
+		new_a.append(old_a);
+	} else {
+		// data >> (...+c) transformed to data[MAX:c] >> (...)
+		new_a.append(old_a.extract(offset, GetSize(old_a)-1-offset));
+
+	}
+
+	SigSpec new_b = {add_var, SigSpec(State::S0, log2scale)};
+	if (msb_zeros || !varport_signed)
+		new_b.append(State::S0);
+
+	shift->setPort(\A, new_a);
+	shift->setParam(\A_WIDTH, GetSize(new_a));
+	shift->setPort(\B, new_b);
+	shift->setParam(\B_WIDTH, GetSize(new_b));
+	blacklist(add);
+	accept;
+}
+endcode
