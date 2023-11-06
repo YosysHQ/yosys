@@ -1028,6 +1028,22 @@ struct BoothPassWorker {
 		}
 
 		//
+		// instantiate the quadrant 1 cell. This is the upper right
+		// quadrant which can be realized using non-booth encoded logic.
+		//
+		SigBit pp0_o_int, pp1_o_int, nxj_o_int, q1_carry_out;
+
+		BuildBoothQ1("icb_booth_q1_",
+			     negi_n_int[0], // negi
+			     cori_n_int[0], // cori
+			     X[0], X[1], Y[0], Y[1],
+			     nxj_o_int, q1_carry_out, pp0_o_int, pp1_o_int);
+
+		module->connect(Z[0], pp0_o_int);
+		module->connect(Z[1], pp1_o_int);
+		module->connect(nxj[(0 * dec_count) + 2], nxj_o_int);
+
+		//
 		// sum up the partial products
 		//
 		int fa_el_ix = 0;
@@ -1052,6 +1068,7 @@ struct BoothPassWorker {
 			/* X */ fa_carry[0].extract(2, x_sz + 2),
 			/* Y */ fa_sum[0].extract(2, x_sz + 2)
 		);
+		module->connect(fa_carry[0][1], q1_carry_out);
 
 		// step case: 2nd and rest of rows. (fa_row_ix == 1...n)
 		// special because these are driven by a decoder and prior fa.
@@ -1093,30 +1110,6 @@ struct BoothPassWorker {
 			BuildHa(cpa_name, fa_sum[fa_row_count - 1][cpa_ix - offset + 2], ci, op, cpa_carry[cpa_ix - offset]);
 			module->connect(Z[cpa_ix], op);
 		}
-
-		//
-		// instantiate the quadrant 1 cell. This is the upper right
-		// quadrant which can be realized using non-booth encoded logic.
-		//
-		std::string q1_name = "icb_booth_q1_";
-
-		SigBit pp0_o_int;
-		SigBit pp1_o_int;
-		SigBit nxj_o_int;
-		SigBit cor_o_int;
-
-		BuildBoothQ1(q1_name,
-			     negi_n_int[0], // negi
-			     cori_n_int[0], // cori
-
-			     X[0], X[1], Y[0], Y[1],
-
-			     nxj_o_int, cor_o_int, pp0_o_int, pp1_o_int);
-
-		module->connect(fa_sum[0][0], pp0_o_int);
-		module->connect(fa_sum[0][1], pp1_o_int);
-		module->connect(fa_carry[0][1], cor_o_int);
-		module->connect(nxj[(0 * dec_count) + 2], nxj_o_int);
 	}
 };
 
