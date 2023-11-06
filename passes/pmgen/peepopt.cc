@@ -48,6 +48,9 @@ struct PeepoptPass : public Pass {
 		log("                Analogously, replace A<<(B*C) with appropriate selection of\n");
 		log("                output bits from A<<(B<<K). (left variant)\n");
 		log("\n");
+		log("   * shiftadd - Replace A>>(B+D) with (A'>>D)>>(B) where D is constant and\n");
+		log("                A' is derived from A by padding or cutting inaccessible bits.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
