@@ -373,7 +373,7 @@ struct SynthLatticePass : public ScriptPass
 		{
 			run("opt -fast -mux_undef -undriven -fine");
 			run("memory_map");
-			run("opt -undriven -fine");
+			run("opt -undriven -fine -mux_undef");
 		}
 
 		if (check_label("map_gates"))
