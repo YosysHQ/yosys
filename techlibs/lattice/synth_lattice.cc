@@ -362,6 +362,8 @@ struct SynthLatticePass : public ScriptPass
 				run("techmap -map +/mul2dsp.v -map +/lattice/dsp_map" + dsp_map + ".v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18  -D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2  -D DSP_NAME=$__MUL18X18", "(unless -nodsp)");
 				run("chtype -set $mul t:$__soft_mul", "(unless -nodsp)");
 			}
+			if (family == "xo3" || help_mode)
+				run("booth", "(only if '-family xo3')");
 			run("alumacc");
 			run("opt");
 			run("memory -nomap" + no_rw_check_opt);
