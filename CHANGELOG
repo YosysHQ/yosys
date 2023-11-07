@@ -2,8 +2,16 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.34 .. Yosys 0.35-dev
+Yosys 0.34 .. Yosys 0.35
 --------------------------
+ * Various
+    - Improvements on "peepopt" shiftmul matcher.
+    - Improvements on "ram_style" attributes handling.
+
+ * Verific support
+    - Improved static elaboration for VHDL and mixed HDL designs.
+    - Expose "hdlname" attribute with original module name.
+    - Expose "architecture" attribute with VHDL architecture name.
 
 Yosys 0.33 .. Yosys 0.34
 --------------------------
