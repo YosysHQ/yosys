@@ -1,0 +1,121 @@
+pattern shiftadd
+//
+// Transforms add/sub+shift pairs that result from expressions such as data[s*W +C +:W2]
+// specifically something like: out[W2-1:0] = data >> (s*W +C)
+// will be transformed into: out[W2-1:0] = (data >> C) >> (s*W)
+// this can then be optimized using peepopt_shiftmul_right.pmg
+//
+
+match shift
+	select shift->type.in($shift, $shiftx, $shr)
+	filter !port(shift, \B).empty()
+endmatch
+
+// the right shift amount
+state <SigSpec> shift_amount
+// log2 scale factor in interpreting of shift_amount
+// due to zero padding on the shift cell's B port
+state <int> log2scale
+// zeros at the MSB position make it unsigned
+state <bool> msb_zeros
+
+code shift_amount log2scale msb_zeros
+	shift_amount = port(shift, \B);
+
+	log2scale = 0;
+	while (shift_amount[0] == State::S0) {
+		shift_amount.remove(0);
+		if (shift_amount.empty()) reject;
+		log2scale++;
+	}
+
+	msb_zeros = 0;
+	while (shift_amount.bits().back() == State::S0) {
+		msb_zeros = true;
+		shift_amount.remove(GetSize(shift_amount) - 1);
+		if (shift_amount.empty()) reject;
+	}
+endcode
+
+state <bool>    var_signed
+state <SigSpec> var_signal
+// offset: signed constant value c in data[var+c +:W1] (constant shift-right amount)
+state <int>     offset
+
+match add
+	// either data[var+c +:W1] or data[var-c +:W1]
+	select add->type.in($add, $sub)
+	index <SigSpec> port(add, \Y) === shift_amount
+
+	// one must be constant, the other is variable
+	choice <IdString> constport {\A, \B}
+	select !port(add, constport).empty()
+	select port(add, constport).is_fully_const()
+	define <IdString> varport (constport == \A ? \B : \A)
+
+	// if a value of var is able to wrap the output, the transformation might give wrong results
+	// an addition/substraction can at most flip one more bit than the largest operand (the carry bit)
+	// as long as the output can show this bit, no wrap should occur (assuming all signed-ness make sense)
+	select ( GetSize(port(add, \Y)) > max(GetSize(port(add, \A)), GetSize(port(add, \B))) )
+
+	define <bool> varport_A (varport == \A)
+	define <bool> is_sub add->type.in($sub)
+
+	define <bool> constport_signed param(add, !varport_A ? \A_SIGNED : \B_SIGNED).as_bool()
+	define <bool> varport_signed param(add, varport_A ? \A_SIGNED : \B_SIGNED).as_bool();
+	define <bool> offset_negative ((port(add, constport).bits().back() == State::S1) ^ (is_sub && varport_A))
+
+	// checking some value boundaries as well:
+	// data[...-c +:W1] is fine for +/-var (pad at LSB, all data still accessible)
+	// data[...+c +:W1] is only fine for +var(add) and var unsigned
+	// (+c cuts lower C bits, making them inaccessible, a signed var could try to access them)
+	// either its an add or the variable port is A (it must be positive)
+	select (add->type.in($add) || varport == \A)
+
+	// -> data[var+c +:W1] (with var signed) is illegal
+	filter !(!offset_negative && varport_signed)
+
+	// state-variables are assigned at the end only:
+	// shift the log2scale offset in-front of add to get true value: (var+c)<<N -> (var<<N)+(c<<N)
+	set offset ( (port(add, constport).as_int(constport_signed) << log2scale) * ( (is_sub && varport_A) ? -1 : 1 ) )
+
+	set var_signed varport_signed
+	set var_signal add->getPort(varport)
+endmatch
+
+code
+{
+	// positive constant offset with a signed variable (index) cannot be handled
+	// the above filter should get rid of this case but 'offset' is calculated differently
+	// due to limitations of state-variables in pmgen
+	// it should only differ if previous passes create invalid data
+	log_assert(!(offset>0 && var_signed));
+
+	did_something = true;
+	log("shiftadd pattern in %s: shift=%s, add/sub=%s, offset: %d\n", \
+			log_id(module), log_id(shift), log_id(add), offset);
+
+	SigSpec old_a = port(shift, \A), new_a;
+	if(offset<0) {
+		// data >> (...-c) transformed to {data, c'X} >> (...)
+		SigSpec padding( (shift->type.in($shiftx) ? State::Sx : State::S0), -offset );
+		new_a.append(padding);
+		new_a.append(old_a);
+	} else {
+		// data >> (...+c) transformed to data[MAX:c] >> (...)
+		new_a.append(old_a.extract_end(offset));
+
+	}
+
+	SigSpec new_b = {var_signal, SigSpec(State::S0, log2scale)};
+	if (msb_zeros || !var_signed)
+		new_b.append(State::S0);
+
+	shift->setPort(\A, new_a);
+	shift->setParam(\A_WIDTH, GetSize(new_a));
+	shift->setPort(\B, new_b);
+	shift->setParam(\B_WIDTH, GetSize(new_b));
+	blacklist(add);
+	accept;
+}
+endcode
