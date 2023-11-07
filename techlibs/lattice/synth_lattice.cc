@@ -409,6 +409,7 @@ struct SynthLatticePass : public ScriptPass
 				dfflegalize_args += " -cell $_DLATCH_?_ x";
 			}
 			run("dfflegalize" + dfflegalize_args, "($_ALDFF_*_ only if -asyncprld, $_DLATCH_* only if not -asyncprld, $_*DFFE_* only if not -nodffe)");
+			run("opt_merge");
 			if ((abc9 && dff) || help_mode)
 				run("zinit -all w:* t:$_DFF_?_ t:$_DFFE_??_ t:$_SDFF*", "(only if -abc9 and -dff)");
 			run("techmap -D NO_LUT -map +/lattice/cells_map.v");
