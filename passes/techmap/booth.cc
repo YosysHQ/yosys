@@ -1104,21 +1104,13 @@ struct BoothPass : public Pass {
 		log("\n");
 		log("    booth [selection]\n");
 		log("\n");
-		log("This pass replaces multiplier cells with an implementation based on the Booth\n");
-		log("algorithm. It operates on $mul cells whose width of operands is at least 4x4\n");
-		log("and whose width of result is at least 8. The detailed architecture is selected\n");
-		log("from two options based on the signedness of the operands to the $mul cell.\n");
+		log("This pass replaces multiplier cells with a radix-4 Booth-encoded implementation.\n");
+		log("It operates on $mul cells whose width of operands is at least 4x4 and whose\n");
+		log("width of result is at least 8.\n");
 		log("\n");
-		log("See the references below for the description of the architectures.\n");
-		log("\n");
-		log("Signed-multiplier architecture:\n");
-		log("Y. J. Chang, Y. C. Cheng, S. C. Liao and C. H. Hsiao, \"A Low Power Radix-4 Booth\n");
-		log("Multiplier With Pre-Encoded Mechanism,\" in IEEE Access, vol. 8, pp. 114842-114853,\n");
-		log("2020, doi: 10.1109/ACCESS.2020.3003684\n");
-		log("\n");
-		log("Unsigned-multiplier architecture:\n");
-		log("G. W. Bewick, \"Fast Multiplication: Algorithms and Implementations,\" PhD Thesis,\n");
-		log("Department of Electrical Engineering, Stanford University, 1994\n");
+		log("    -lowpower\n");
+		log("        use an alternative low-power architecture for the generated multiplier\n");
+		log("        (signed multipliers only)\n");
 		log("\n");
 	}
 	void execute(vector<string> args, RTLIL::Design *design) override
