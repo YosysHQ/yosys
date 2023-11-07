@@ -1046,7 +1046,6 @@ struct BoothPassWorker {
 		//
 		// sum up the partial products
 		//
-		int fa_el_ix = 0;
 		int fa_row_ix = 0;
 		std::vector<SigSpec> fa_sum;
 		std::vector<SigSpec> fa_carry;
@@ -1074,7 +1073,7 @@ struct BoothPassWorker {
 		// special because these are driven by a decoder and prior fa.
 		for (fa_row_ix = 1; fa_row_ix < fa_row_count; fa_row_ix++) {
 			// end two bits: sign extension
-			SigBit d_inv = module->NotGate(NEW_ID_SUFFIX(stringf("bfa_se_inv_%d_%d_L", fa_row_ix, fa_el_ix)),
+			SigBit d_inv = module->NotGate(NEW_ID_SUFFIX(stringf("bfa_se_inv_%d_L", fa_row_ix)),
 						       PPij[((fa_row_ix + 1) * dec_count) + dec_count - 1]);
 
 			BuildBitwiseFa(module, NEW_ID_SUFFIX(stringf("fa_row_%d", fa_row_ix)).str(),
