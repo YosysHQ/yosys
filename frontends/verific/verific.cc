@@ -223,7 +223,7 @@ RTLIL::IdString VerificImporter::new_verific_id(Verific::DesignObj *obj)
 //
 // Note: For signed values, verific uses <len>'sb<bits> and decimal values can
 // also be negative.
-static const RTLIL::Const verific_const(const char *value, bool allow_string = true, bool output_signed = false)
+static const RTLIL::Const verific_const(const char *value, bool from_vhdl, bool allow_string = true, bool output_signed = false)
 {
 	size_t found;
 	char *end;
@@ -231,26 +231,44 @@ static const RTLIL::Const verific_const(const char *value, bool allow_string = t
 	bool is_signed = false;
 	RTLIL::Const c;
 	std::string val = std::string(value);
-	if (allow_string && val.size()>1 && val[0]=='\"' && val.back()=='\"') {
-		c = RTLIL::Const(val.substr(1,val.size()-2));
-	} else if ((found = val.find("'sb")) != std::string::npos) {
-		is_signed = output_signed;
-		c = RTLIL::Const::from_string(val.substr(found + 3));
-	} else if ((found = val.find("'b")) != std::string::npos) {
-		c = RTLIL::Const::from_string(val.substr(found + 2));
-	} else if ((value[0] == '-' || (value[0] >= '0' && value[0] <= '9')) &&
-			((decimal = std::strtol(value, &end, 10)), !end[0])) {
-		is_signed = output_signed;
-		c = RTLIL::Const((int)decimal, 32);
-	} else if (allow_string) {
-		c = RTLIL::Const(val);
+	if (from_vhdl) {
+		if (val.size()>1 && val[0]=='\"' && val.back()=='\"') {
+			std::string data = val.substr(1,val.size()-2);
+			bool isBinary = std::all_of(data.begin(), data.end(), [](char c) {return c=='1' || c=='0'; });
+			if (isBinary)
+				c = RTLIL::Const::from_string(data);
+			else 
+				c = RTLIL::Const(data);
+		} else if (val.size()==3 && val[0]=='\'' && val.back()=='\'') {
+			c = RTLIL::Const::from_string(val.substr(1,val.size()-2));
+		} else if ((value[0] == '-' || (value[0] >= '0' && value[0] <= '9')) &&
+				((decimal = std::strtol(value, &end, 10)), !end[0])) {
+			is_signed = output_signed;
+			c = RTLIL::Const((int)decimal, 32);
+		} else {
+			log_error("non-expected '%s' constant found", value);
+		}
 	} else {
-		log_error("expected numeric constant but found '%s'", value);
+		if (allow_string && val.size()>1 && val[0]=='\"' && val.back()=='\"') {
+			c = RTLIL::Const(val.substr(1,val.size()-2));
+		} else if ((found = val.find("'sb")) != std::string::npos) {
+			is_signed = output_signed;
+			c = RTLIL::Const::from_string(val.substr(found + 3));
+		} else if ((found = val.find("'b")) != std::string::npos) {
+			c = RTLIL::Const::from_string(val.substr(found + 2));
+		} else if ((value[0] == '-' || (value[0] >= '0' && value[0] <= '9')) &&
+				((decimal = std::strtol(value, &end, 10)), !end[0])) {
+			is_signed = output_signed;
+			c = RTLIL::Const((int)decimal, 32);
+		} else if (allow_string) {
+			c = RTLIL::Const(val);
+		} else {
+			log_error("expected numeric constant but found '%s'", value);
+		}
+
+		if (is_signed)
+			c.flags |= RTLIL::CONST_FLAG_SIGNED;
 	}
-
-	if (is_signed)
-		c.flags |= RTLIL::CONST_FLAG_SIGNED;
-
 	return c;
 }
 
@@ -276,7 +294,7 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 	FOREACH_ATTRIBUTE(obj, mi, attr) {
 		if (attr->Key()[0] == ' ' || attr->Value() == nullptr)
 			continue;
-		attributes[RTLIL::escape_id(attr->Key())] = verific_const(attr->Value());
+		attributes[RTLIL::escape_id(attr->Key())] = verific_const(attr->Value(), obj->IsFromVhdl());
 	}
 
 	if (nl) {
@@ -298,7 +316,7 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 		const char *k, *v;
 		FOREACH_MAP_ITEM(type_range->GetEnumIdMap(), mi, &k, &v) {
 			if (nl->IsFromVerilog()) {
-				auto const value = verific_const(v, false);
+				auto const value = verific_const(v, nl->IsFromVhdl(), false);
 
 				attributes.emplace(stringf("\\enum_value_%s", value.as_string().c_str()), RTLIL::escape_id(k));
 			}
@@ -1304,7 +1322,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 	MapIter mi;
 	FOREACH_PARAMETER_OF_NETLIST(nl, mi, param_name, param_value) {
 		module->avail_parameters(RTLIL::escape_id(param_name));
-		module->parameter_default_values[RTLIL::escape_id(param_name)] = verific_const(param_value);
+		module->parameter_default_values[RTLIL::escape_id(param_name)] = verific_const(param_value, nl->IsFromVhdl());
 	}
 
 	SetIter si;
@@ -2004,7 +2022,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		const char *param_value ;
 		if (is_blackbox(inst->View())) {
 			FOREACH_PARAMETER_OF_INST(inst, mi2, param_name, param_value) {
-				cell->setParam(RTLIL::escape_id(param_name), verific_const(param_value));
+				cell->setParam(RTLIL::escape_id(param_name), verific_const(param_value, nl->IsFromVhdl()));
 			}
 		}
 
