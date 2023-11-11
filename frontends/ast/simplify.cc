@@ -204,8 +204,8 @@ void AstNode::annotateTypedEnums(AstNode *template_node)
 				log_assert(enum_item->children[1]->type == AST_RANGE);
 				is_signed = enum_item->children[1]->is_signed;
 			} else {
-				log_error("enum_item children size==%lu, expected 1 or 2 for %s (%s)\n",
-						  enum_item->children.size(),
+				log_error("enum_item children size==%zu, expected 1 or 2 for %s (%s)\n",
+						  (size_t) enum_item->children.size(),
 						  enum_item->str.c_str(), enum_node->str.c_str()
 				);
 			}
