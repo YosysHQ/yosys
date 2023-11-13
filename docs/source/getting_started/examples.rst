@@ -53,13 +53,13 @@ Simple synthesis script
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 This section covers an example project available in
-``docs/resources/PRESENTATION_Intro/*``.  The project contains a simple ASIC
+``docs/source/code_examples/intro/*``.  The project contains a simple ASIC
 synthesis script (``counter.ys``), a digital design written in Verilog
 (``counter.v``), and a simple CMOS cell library (``mycells.lib``).
 
-.. literalinclude:: ../../resources/PRESENTATION_Intro/counter.ys
+.. literalinclude:: /code_examples/intro/counter.ys
    :language: yoscrypt
-   :caption: ``docs/resources/PRESENTATION_Intro/counter.ys``
+   :caption: ``docs/source/code_examples/intro/counter.ys``
 
 .. role:: yoscrypt(code)
    :language: yoscrypt
@@ -89,18 +89,18 @@ synthesis script (``counter.ys``), a digital design written in Verilog
 Running the script
 ^^^^^^^^^^^^^^^^^^
 
-.. literalinclude:: ../../resources/PRESENTATION_Intro/counter.v
+.. literalinclude:: /code_examples/intro/counter.v
    :language: Verilog
-   :caption: ``docs/resources/PRESENTATION_Intro/counter.v``
+   :caption: ``docs/source/code_examples/intro/counter.v``
 
-.. literalinclude:: ../../resources/PRESENTATION_Intro/mycells.lib
+.. literalinclude:: /code_examples/intro/mycells.lib
    :language: Liberty
-   :caption: ``docs/resources/PRESENTATION_Intro/mycells.lib``
+   :caption: ``docs/source/code_examples/intro/mycells.lib``
 
 Step 1
 """"""
 
-.. literalinclude:: ../../resources/PRESENTATION_Intro/counter.ys
+.. literalinclude:: /code_examples/intro/counter.ys
    :language: yoscrypt
    :lines: 1-3
 
@@ -112,7 +112,7 @@ Result:
 Step 2
 """"""
 
-.. literalinclude:: ../../resources/PRESENTATION_Intro/counter.ys
+.. literalinclude:: /code_examples/intro/counter.ys
    :language: yoscrypt
    :lines: 5-6
 
@@ -124,7 +124,7 @@ Result:
 Step 3
 """"""
 
-.. literalinclude:: ../../resources/PRESENTATION_Intro/counter.ys
+.. literalinclude:: /code_examples/intro/counter.ys
    :language: yoscrypt
    :lines: 8-9
 
@@ -136,7 +136,7 @@ Result:
 Step 4
 """"""
 
-.. literalinclude:: ../../resources/PRESENTATION_Intro/counter.ys
+.. literalinclude:: /code_examples/intro/counter.ys
    :language: yoscrypt
    :lines: 11-18
 

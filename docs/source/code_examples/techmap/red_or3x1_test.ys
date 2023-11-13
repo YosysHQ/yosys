@@ -4,4 +4,4 @@ hierarchy -check -top test
 techmap -map red_or3x1_map.v;;
 
 splitnets -ports
-show -prefix red_or3x1 -format pdf -notitle -lib red_or3x1_cells.v
+show -prefix red_or3x1 -format dot -notitle -lib red_or3x1_cells.v

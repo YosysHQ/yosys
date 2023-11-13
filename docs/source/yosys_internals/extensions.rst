@@ -26,22 +26,22 @@ The "stubsnets" example module
 
 The following is the complete code of the "stubsnets" example module. It is
 included in the Yosys source distribution as
-``docs/source/CHAPTER_Prog/stubnets.cc``.
+``docs/source/code_examples/stubnets/stubnets.cc``.
 
-.. literalinclude:: ../CHAPTER_Prog/stubnets.cc
+.. literalinclude:: /code_examples/stubnets/stubnets.cc
     :language: c++
     :linenos:
-    :caption: docs/source/CHAPTER_Prog/stubnets.cc
+    :caption: docs/source/code_examples/stubnets/stubnets.cc
 
-.. literalinclude:: ../CHAPTER_Prog/Makefile
+.. literalinclude:: /code_examples/stubnets/Makefile
     :language: makefile
     :linenos:
-    :caption: docs/source/CHAPTER_Prog/Makefile
+    :caption: docs/source/code_examples/stubnets/Makefile
 
-.. literalinclude:: ../CHAPTER_Prog/test.v
+.. literalinclude:: /code_examples/stubnets/test.v
     :language: verilog
     :linenos:
-    :caption: docs/source/CHAPTER_Prog/test.v
+    :caption: docs/source/code_examples/stubnets/test.v
 
 Quick guide
 -----------
@@ -83,15 +83,13 @@ using these commands.
 Creating modules from scratch
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. todo:: add/expand supporting text
+.. todo:: add/expand supporting text, also use files in docs/resources/PRESENTATION_Prog
 
 Let's create the following module using the RTLIL API:
 
-.. code:: Verilog
-
-    module absval(input signed [3:0] a, output [3:0] y);
-        assign y = a[3] ? -a : a;
-    endmodule
+.. literalinclude:: ../../resources/PRESENTATION_Prog/absval_ref.v
+    :language: Verilog
+    :caption: docs/resources/PRESENTATION_Prog/absval_ref.v
 
 .. code:: C++
 

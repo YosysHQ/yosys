@@ -86,13 +86,13 @@ after design elaboration.
 Example
 ^^^^^^^
 
-.. literalinclude:: ../../resources/PRESENTATION_ExSyn/proc_01.v
+.. literalinclude:: /code_examples/synth_flow/proc_01.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExSyn/proc_01.v``
+   :caption: ``docs/source/code_examples/synth_flow/proc_01.v``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExSyn/proc_01.ys
+.. literalinclude:: /code_examples/synth_flow/proc_01.ys
    :language: yoscrypt
-   :caption: ``docs/resources/PRESENTATION_ExSyn/proc_01.ys``
+   :caption: ``docs/source/code_examples/synth_flow/proc_01.ys``
 
 .. figure:: /_images/res/PRESENTATION_ExSyn/proc_01.*
     :class: width-helper
@@ -100,24 +100,24 @@ Example
 .. figure:: /_images/res/PRESENTATION_ExSyn/proc_02.*
     :class: width-helper
 
-.. literalinclude:: ../../resources/PRESENTATION_ExSyn/proc_02.v
+.. literalinclude:: /code_examples/synth_flow/proc_02.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExSyn/proc_02.v``
+   :caption: ``docs/source/code_examples/synth_flow/proc_02.v``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExSyn/proc_02.ys
+.. literalinclude:: /code_examples/synth_flow/proc_02.ys
    :language: yoscrypt
-   :caption: ``docs/resources/PRESENTATION_ExSyn/proc_02.ys``
+   :caption: ``docs/source/code_examples/synth_flow/proc_02.ys``
 
 .. figure:: /_images/res/PRESENTATION_ExSyn/proc_03.*
     :class: width-helper
 
-.. literalinclude:: ../../resources/PRESENTATION_ExSyn/proc_03.ys
+.. literalinclude:: /code_examples/synth_flow/proc_03.ys
    :language: yoscrypt
-   :caption: ``docs/resources/PRESENTATION_ExSyn/proc_03.ys``
+   :caption: ``docs/source/code_examples/synth_flow/proc_03.ys``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExSyn/proc_03.v
+.. literalinclude:: /code_examples/synth_flow/proc_03.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExSyn/proc_03.v``
+   :caption: ``docs/source/code_examples/synth_flow/proc_03.v``
 
 
 The :cmd:ref:`opt` command
@@ -153,46 +153,46 @@ Example
 .. figure:: /_images/res/PRESENTATION_ExSyn/opt_01.*
     :class: width-helper
 
-.. literalinclude:: ../../resources/PRESENTATION_ExSyn/opt_01.ys
+.. literalinclude:: /code_examples/synth_flow/opt_01.ys
    :language: yoscrypt
-   :caption: ``docs/resources/PRESENTATION_ExSyn/opt_01.ys``
+   :caption: ``docs/source/code_examples/synth_flow/opt_01.ys``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExSyn/opt_01.v
+.. literalinclude:: /code_examples/synth_flow/opt_01.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExSyn/opt_01.v``
+   :caption: ``docs/source/code_examples/synth_flow/opt_01.v``
 
 .. figure:: /_images/res/PRESENTATION_ExSyn/opt_02.*
     :class: width-helper
 
-.. literalinclude:: ../../resources/PRESENTATION_ExSyn/opt_02.ys
+.. literalinclude:: /code_examples/synth_flow/opt_02.ys
    :language: yoscrypt
-   :caption: ``docs/resources/PRESENTATION_ExSyn/opt_02.ys``
+   :caption: ``docs/source/code_examples/synth_flow/opt_02.ys``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExSyn/opt_02.v
+.. literalinclude:: /code_examples/synth_flow/opt_02.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExSyn/opt_02.v``
+   :caption: ``docs/source/code_examples/synth_flow/opt_02.v``
 
 .. figure:: /_images/res/PRESENTATION_ExSyn/opt_03.*
     :class: width-helper
 
-.. literalinclude:: ../../resources/PRESENTATION_ExSyn/opt_03.ys
+.. literalinclude:: /code_examples/synth_flow/opt_03.ys
    :language: yoscrypt
-   :caption: ``docs/resources/PRESENTATION_ExSyn/opt_03.ys``
+   :caption: ``docs/source/code_examples/synth_flow/opt_03.ys``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExSyn/opt_03.v
+.. literalinclude:: /code_examples/synth_flow/opt_03.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExSyn/opt_03.v``
+   :caption: ``docs/source/code_examples/synth_flow/opt_03.v``
 
 .. figure:: /_images/res/PRESENTATION_ExSyn/opt_04.*
     :class: width-helper
 
-.. literalinclude:: ../../resources/PRESENTATION_ExSyn/opt_04.v
+.. literalinclude:: /code_examples/synth_flow/opt_04.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExSyn/opt_04.v``
+   :caption: ``docs/source/code_examples/synth_flow/opt_04.v``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExSyn/opt_04.ys
+.. literalinclude:: /code_examples/synth_flow/opt_04.ys
    :language: yoscrypt
-   :caption: ``docs/resources/PRESENTATION_ExSyn/opt_04.ys``
+   :caption: ``docs/source/code_examples/synth_flow/opt_04.ys``
 
 
 When to use :cmd:ref:`opt` or :cmd:ref:`clean`
@@ -249,24 +249,24 @@ Example
 .. figure:: /_images/res/PRESENTATION_ExSyn/memory_01.*
     :class: width-helper
 
-.. literalinclude:: ../../resources/PRESENTATION_ExSyn/memory_01.ys
+.. literalinclude:: /code_examples/synth_flow/memory_01.ys
    :language: yoscrypt
-   :caption: ``docs/resources/PRESENTATION_ExSyn/memory_01.ys``
+   :caption: ``docs/source/code_examples/synth_flow/memory_01.ys``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExSyn/memory_01.v
+.. literalinclude:: /code_examples/synth_flow/memory_01.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExSyn/memory_01.v``
+   :caption: ``docs/source/code_examples/synth_flow/memory_01.v``
 
 .. figure:: /_images/res/PRESENTATION_ExSyn/memory_02.*
     :class: width-helper
 
-.. literalinclude:: ../../resources/PRESENTATION_ExSyn/memory_02.v
+.. literalinclude:: /code_examples/synth_flow/memory_02.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExSyn/memory_02.v``
+   :caption: ``docs/source/code_examples/synth_flow/memory_02.v``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExSyn/memory_02.ys
+.. literalinclude:: /code_examples/synth_flow/memory_02.ys
    :language: yoscrypt
-   :caption: ``docs/resources/PRESENTATION_ExSyn/memory_02.ys``
+   :caption: ``docs/source/code_examples/synth_flow/memory_02.ys``
 
 
 The :cmd:ref:`fsm` command
@@ -321,17 +321,17 @@ The :cmd:ref:`techmap` command
 The :cmd:ref:`techmap` command replaces cells with implementations given as
 verilog source. For example implementing a 32 bit adder using 16 bit adders:
 
-.. literalinclude:: ../../resources/PRESENTATION_ExSyn/techmap_01_map.v
+.. literalinclude:: /code_examples/synth_flow/techmap_01_map.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExSyn/techmap_01_map.v``
+   :caption: ``docs/source/code_examples/synth_flow/techmap_01_map.v``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExSyn/techmap_01.v
+.. literalinclude:: /code_examples/synth_flow/techmap_01.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExSyn/techmap_01.v``
+   :caption: ``docs/source/code_examples/synth_flow/techmap_01.v``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExSyn/techmap_01.ys
+.. literalinclude:: /code_examples/synth_flow/techmap_01.ys
    :language: yoscrypt
-   :caption: ``docs/resources/PRESENTATION_ExSyn/techmap_01.ys``
+   :caption: ``docs/source/code_examples/synth_flow/techmap_01.ys``
 
 stdcell mapping
 ^^^^^^^^^^^^^^^
@@ -378,13 +378,13 @@ advanced ABC features. It is also possible to write the design with
 Example
 ^^^^^^^
 
-.. literalinclude:: ../../resources/PRESENTATION_ExSyn/abc_01.v
+.. literalinclude:: /code_examples/synth_flow/abc_01.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExSyn/abc_01.v``
+   :caption: ``docs/source/code_examples/synth_flow/abc_01.v``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExSyn/abc_01.ys
+.. literalinclude:: /code_examples/synth_flow/abc_01.ys
    :language: yoscrypt
-   :caption: ``docs/resources/PRESENTATION_ExSyn/abc_01.ys``
+   :caption: ``docs/source/code_examples/synth_flow/abc_01.ys``
 
 .. figure:: /_images/res/PRESENTATION_ExSyn/abc_01.*
     :class: width-helper

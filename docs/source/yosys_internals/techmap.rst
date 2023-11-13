@@ -130,20 +130,20 @@ Mapping OR3X1
     This is a simple example for demonstration only.  Techmap shouldn't be used
     to implement basic logic optimization.
 
-.. literalinclude:: ../../resources/PRESENTATION_ExAdv/red_or3x1_map.v
+.. literalinclude:: /code_examples/techmap/red_or3x1_map.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExAdv/red_or3x1_map.v``
+   :caption: ``docs/source/code_examples/techmap/red_or3x1_map.v``
 
 .. figure:: /_images/res/PRESENTATION_ExAdv/red_or3x1.*
     :class: width-helper
 
-.. literalinclude:: ../../resources/PRESENTATION_ExAdv/red_or3x1_test.ys
+.. literalinclude:: /code_examples/techmap/red_or3x1_test.ys
    :language: yoscrypt
-   :caption: ``docs/resources/PRESENTATION_ExAdv/red_or3x1_test.ys``
+   :caption: ``docs/source/code_examples/techmap/red_or3x1_test.ys``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExAdv/red_or3x1_test.v
+.. literalinclude:: /code_examples/techmap/red_or3x1_test.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExAdv/red_or3x1_test.v``
+   :caption: ``docs/source/code_examples/techmap/red_or3x1_test.v``
 
 Conditional techmap
 ~~~~~~~~~~~~~~~~~~~
@@ -163,17 +163,17 @@ Example:
 .. figure:: /_images/res/PRESENTATION_ExAdv/sym_mul.*
     :class: width-helper
 
-.. literalinclude:: ../../resources/PRESENTATION_ExAdv/sym_mul_map.v
+.. literalinclude:: /code_examples/techmap/sym_mul_map.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExAdv/sym_mul_map.v``
+   :caption: ``docs/source/code_examples/techmap/sym_mul_map.v``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExAdv/sym_mul_test.v
+.. literalinclude:: /code_examples/techmap/sym_mul_test.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExAdv/sym_mul_test.v``
+   :caption: ``docs/source/code_examples/techmap/sym_mul_test.v``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExAdv/sym_mul_test.ys
+.. literalinclude:: /code_examples/techmap/sym_mul_test.ys
    :language: yoscrypt
-   :caption: ``docs/resources/PRESENTATION_ExAdv/sym_mul_test.ys``
+   :caption: ``docs/source/code_examples/techmap/sym_mul_test.ys``
 
 
 Scripting in map modules
@@ -202,17 +202,17 @@ Example:
 .. figure:: /_images/res/PRESENTATION_ExAdv/mymul.*
     :class: width-helper
 
-.. literalinclude:: ../../resources/PRESENTATION_ExAdv/mymul_map.v
+.. literalinclude:: /code_examples/techmap/mymul_map.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExAdv/mymul_map.v``
+   :caption: ``docs/source/code_examples/techmap/mymul_map.v``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExAdv/mymul_test.v
+.. literalinclude:: /code_examples/techmap/mymul_test.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExAdv/mymul_test.v``
+   :caption: ``docs/source/code_examples/techmap/mymul_test.v``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExAdv/mymul_test.ys
+.. literalinclude:: /code_examples/techmap/mymul_test.ys
    :language: yoscrypt
-   :caption: ``docs/resources/PRESENTATION_ExAdv/mymul_test.ys``
+   :caption: ``docs/source/code_examples/techmap/mymul_test.ys``
 
 Handling constant inputs
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -232,17 +232,17 @@ Example:
 .. figure:: /_images/res/PRESENTATION_ExAdv/mulshift.*
     :class: width-helper
 
-.. literalinclude:: ../../resources/PRESENTATION_ExAdv/mulshift_map.v
+.. literalinclude:: /code_examples/techmap/mulshift_map.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExAdv/mulshift_map.v``
+   :caption: ``docs/source/code_examples/techmap/mulshift_map.v``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExAdv/mulshift_test.v
+.. literalinclude:: /code_examples/techmap/mulshift_test.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExAdv/mulshift_test.v``
+   :caption: ``docs/source/code_examples/techmap/mulshift_test.v``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExAdv/mulshift_test.ys
+.. literalinclude:: /code_examples/techmap/mulshift_test.ys
    :language: yoscrypt
-   :caption: ``docs/resources/PRESENTATION_ExAdv/mulshift_test.ys``
+   :caption: ``docs/source/code_examples/techmap/mulshift_test.ys``
 
 Handling shorted inputs
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -263,17 +263,17 @@ Example:
 .. figure:: /_images/res/PRESENTATION_ExAdv/addshift.*
     :class: width-helper
 
-.. literalinclude:: ../../resources/PRESENTATION_ExAdv/addshift_map.v
+.. literalinclude:: /code_examples/techmap/addshift_map.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExAdv/addshift_map.v``
+   :caption: ``docs/source/code_examples/techmap/addshift_map.v``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExAdv/addshift_test.v
+.. literalinclude:: /code_examples/techmap/addshift_test.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExAdv/addshift_test.v``
+   :caption: ``docs/source/code_examples/techmap/addshift_test.v``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExAdv/addshift_test.ys
+.. literalinclude:: /code_examples/techmap/addshift_test.ys
    :language: yoscrypt
-   :caption: ``docs/resources/PRESENTATION_ExAdv/addshift_test.ys``
+   :caption: ``docs/source/code_examples/techmap/addshift_test.ys``
 
 Notes on using techmap
 ~~~~~~~~~~~~~~~~~~~~~~

@@ -51,13 +51,13 @@ The extract pass
     
     after `extract`
 
-.. literalinclude:: ../../resources/PRESENTATION_ExAdv/macc_simple_test.v
+.. literalinclude:: /code_examples/macc/macc_simple_test.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExAdv/macc_simple_test.v``
+   :caption: ``docs/source/code_examples/macc/macc_simple_test.v``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExAdv/macc_simple_xmap.v
+.. literalinclude:: /code_examples/macc/macc_simple_xmap.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExAdv/macc_simple_xmap.v``
+   :caption: ``docs/source/code_examples/macc/macc_simple_xmap.v``
 
 .. code:: yoscrypt
 
@@ -66,9 +66,9 @@ The extract pass
 
     extract -map macc_simple_xmap.v;;
 
-.. literalinclude:: ../../resources/PRESENTATION_ExAdv/macc_simple_test_01.v
+.. literalinclude:: /code_examples/macc/macc_simple_test_01.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExAdv/macc_simple_test_01.v``
+   :caption: ``docs/source/code_examples/macc/macc_simple_test_01.v``
 
 .. figure:: /_images/res/PRESENTATION_ExAdv/macc_simple_test_01a.*
     :class: width-helper
@@ -76,9 +76,9 @@ The extract pass
 .. figure:: /_images/res/PRESENTATION_ExAdv/macc_simple_test_01b.*
     :class: width-helper
 
-.. literalinclude:: ../../resources/PRESENTATION_ExAdv/macc_simple_test_02.v
+.. literalinclude:: /code_examples/macc/macc_simple_test_02.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExAdv/macc_simple_test_02.v``
+   :caption: ``docs/source/code_examples/macc/macc_simple_test_02.v``
 
 .. figure:: /_images/res/PRESENTATION_ExAdv/macc_simple_test_02a.*
     :class: width-helper
@@ -123,51 +123,51 @@ Make sure ``A`` is the smaller port on all multipliers
 
 .. todo:: add/expand supporting text
 
-.. literalinclude:: ../../resources/PRESENTATION_ExAdv/macc_xilinx_swap_map.v
+.. literalinclude:: /code_examples/macc/macc_xilinx_swap_map.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExAdv/macc_xilinx_swap_map.v``
+   :caption: ``docs/source/code_examples/macc/macc_xilinx_swap_map.v``
 
 Wrapping multipliers: ``macc_xilinx_wrap_map.v``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExAdv/macc_xilinx_wrap_map.v
+.. literalinclude:: /code_examples/macc/macc_xilinx_wrap_map.v
    :language: verilog
    :lines: 1-46
-   :caption: ``docs/resources/PRESENTATION_ExAdv/macc_xilinx_wrap_map.v``
+   :caption: ``docs/source/code_examples/macc/macc_xilinx_wrap_map.v``
 
 Wrapping adders: ``macc_xilinx_wrap_map.v``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExAdv/macc_xilinx_wrap_map.v
+.. literalinclude:: /code_examples/macc/macc_xilinx_wrap_map.v
    :language: verilog
    :lines: 48-89
-   :caption: ``docs/resources/PRESENTATION_ExAdv/macc_xilinx_wrap_map.v``
+   :caption: ``docs/source/code_examples/macc/macc_xilinx_wrap_map.v``
 
 Extract: ``macc_xilinx_xmap.v``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExAdv/macc_xilinx_xmap.v
+.. literalinclude:: /code_examples/macc/macc_xilinx_xmap.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExAdv/macc_xilinx_xmap.v``
+   :caption: ``docs/source/code_examples/macc/macc_xilinx_xmap.v``
 
 ... simply use the same wrapping commands on this module as on the design to
 create a template for the :cmd:ref:`extract` command.
 
 Unwrapping multipliers: ``macc_xilinx_unwrap_map.v``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExAdv/macc_xilinx_unwrap_map.v
+.. literalinclude:: /code_examples/macc/macc_xilinx_unwrap_map.v
    :language: verilog
    :lines: 1-30
-   :caption: ``docs/resources/PRESENTATION_ExAdv/macc_xilinx_unwrap_map.v``
+   :caption: ``docs/source/code_examples/macc/macc_xilinx_unwrap_map.v``
 
 Unwrapping adders: ``macc_xilinx_unwrap_map.v``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExAdv/macc_xilinx_unwrap_map.v
+.. literalinclude:: /code_examples/macc/macc_xilinx_unwrap_map.v
    :language: verilog
    :lines: 32-61
-   :caption: ``docs/resources/PRESENTATION_ExAdv/macc_xilinx_unwrap_map.v``
+   :caption: ``docs/source/code_examples/macc/macc_xilinx_unwrap_map.v``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExAdv/macc_xilinx_test.v
+.. literalinclude:: /code_examples/macc/macc_xilinx_test.v
    :language: verilog
    :lines: 1-6
-   :caption: ``test1`` of ``docs/resources/PRESENTATION_ExAdv/macc_xilinx_test.v``
+   :caption: ``test1`` of ``docs/source/code_examples/macc/macc_xilinx_test.v``
 
 .. figure:: /_images/res/PRESENTATION_ExAdv/macc_xilinx_test1a.*
     :class: width-helper
@@ -175,10 +175,10 @@ Unwrapping adders: ``macc_xilinx_unwrap_map.v``
 .. figure:: /_images/res/PRESENTATION_ExAdv/macc_xilinx_test1b.*
     :class: width-helper
 
-.. literalinclude:: ../../resources/PRESENTATION_ExAdv/macc_xilinx_test.v
+.. literalinclude:: /code_examples/macc/macc_xilinx_test.v
    :language: verilog
    :lines: 8-13
-   :caption: ``test2`` of ``docs/resources/PRESENTATION_ExAdv/macc_xilinx_test.v``
+   :caption: ``test2`` of ``docs/source/code_examples/macc/macc_xilinx_test.v``
 
 .. figure:: /_images/res/PRESENTATION_ExAdv/macc_xilinx_test2a.*
     :class: width-helper
@@ -303,17 +303,17 @@ Checking techmap
 
 Remember the following example from :doc:`/getting_started/typical_phases`?
 
-.. literalinclude:: ../../resources/PRESENTATION_ExSyn/techmap_01_map.v
+.. literalinclude:: /code_examples/synth_flow/techmap_01_map.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExSyn/techmap_01_map.v``
+   :caption: ``docs/source/code_examples/synth_flow/techmap_01_map.v``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExSyn/techmap_01.v
+.. literalinclude:: /code_examples/synth_flow/techmap_01.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExSyn/techmap_01.v``
+   :caption: ``docs/source/code_examples/synth_flow/techmap_01.v``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExSyn/techmap_01.ys
+.. literalinclude:: /code_examples/synth_flow/techmap_01.ys
    :language: yoscrypt
-   :caption: ``docs/resources/PRESENTATION_ExSyn/techmap_01.ys``
+   :caption: ``docs/source/code_examples/synth_flow/techmap_01.ys``
 
 Lets see if it is correct..
 
@@ -355,22 +355,17 @@ values for ``tready`` that yield the incorrect behavior.
 
 .. todo:: add/expand supporting text
 
-.. literalinclude:: ../../resources/PRESENTATION_ExOth/axis_master.v
+.. literalinclude:: /code_examples/axis/axis_master.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExOth/axis_master.v``
+   :caption: ``docs/source/code_examples/axis/axis_master.v``
 
-.. literalinclude:: ../../resources/PRESENTATION_ExOth/axis_test.v
+.. literalinclude:: /code_examples/axis/axis_test.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExOth/axis_test.v``
+   :caption: ``docs/source/code_examples/axis/axis_test.v``
 
-
-.. code:: yoscrypt
-
-    read_verilog -sv axis_master.v axis_test.v
-    hierarchy -top axis_test
-
-    proc; flatten;;
-    sat -seq 50 -prove-asserts
+.. literalinclude:: /code_examples/axis/axis_test.ys
+   :language: yoscrypt
+   :caption: ``docs/source/code_examples/axis/test.ys``
 
 Result with unmodified ``axis_master.v``:
 

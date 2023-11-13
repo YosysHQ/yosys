@@ -18,9 +18,9 @@ A simple circuit
 :numref:`example_v` below provides the Verilog code for a simple circuit which
 we will use to demonstrate the usage of :cmd:ref:`show` in a simple setting.
 
-.. literalinclude:: /APPNOTE_011_Design_Investigation/example.v
+.. literalinclude:: /code_examples/show/example.v
    :language: Verilog
-   :caption: ``docs/source/APPNOTE_011_Design_Investigation/example.v``
+   :caption: ``docs/source/code_examples/show/example.v``
    :name: example_v
 
 The Yosys synthesis script we will be running is included as
@@ -31,7 +31,7 @@ interactive shell to further investigate the circuit before continuing
 synthesis.
 
 .. code-block:: yoscrypt
-   :caption: ``docs/source/APPNOTE_011_Design_Investigation/example.ys``
+   :caption: ``docs/source/code_examples/show/example.ys``
    :name: example_ys
    
    read_verilog example.v
@@ -115,8 +115,8 @@ Break-out boxes for signal vectors
 The code listing below shows a simple circuit which uses a lot of spliced signal
 accesses.
 
-.. literalinclude:: /APPNOTE_011_Design_Investigation/splice.v
-   :caption: ``splice.v``
+.. literalinclude:: /code_examples/show/splice.v
+   :caption: ``docs/source/code_examples/show/splice.v``
    :name: splice_src
 
 Notice how the output for this circuit from the :cmd:ref:`show` command
@@ -341,20 +341,14 @@ a submodule. This has applications in synthesis scripts as well as in reverse
 engineering and analysis.  An example using :cmd:ref:`submod` is shown below for
 reorganizing a module in Yosys and checking the resulting circuit.
 
-.. literalinclude:: ../../../resources/PRESENTATION_ExOth/scrambler.v
+.. literalinclude:: /code_examples/scrambler/scrambler.v
    :language: verilog
-   :caption: ``docs/resources/PRESENTATION_ExOth/scrambler.v``
+   :caption: ``docs/source/code_examples/scrambler/scrambler.v``
 
-.. code:: yoscrypt
-
-    read_verilog scrambler.v
-
-    hierarchy; proc;;
-
-    cd scrambler
-    submod -name xorshift32 \
-            xs %c %ci %D %c %ci:+[D] %D \
-            %ci*:-$dff xs %co %ci %d
+.. literalinclude:: /code_examples/scrambler/scrambler.ys
+   :language: yoscrypt
+   :caption: ``docs/source/code_examples/scrambler/scrambler.ys``
+   :end-before: cd ..
 
 .. figure:: /_images/res/PRESENTATION_ExOth/scrambler_p01.*
     :class: width-helper
@@ -446,16 +440,12 @@ smaller parts for viewing and working with.  :numref:`submod` does exactly that,
 utilising the :cmd:ref:`submod` command to split the circuit into three
 sections: ``outstage``, ``selstage``, and ``scramble``.
 
-.. code-block:: yoscrypt
-   :caption: The circuit from ``memdemo.v`` broken up using :cmd:ref:`submod`
+.. literalinclude:: /code_examples/selections/submod.ys
+   :language: yoscrypt
+   :caption: Using :cmd:ref:`submod` to break up the circuit from ``memdemo.v``
+   :start-after: cd memdemo
+   :end-at: @selstage
    :name: submod
-
-   select -set outstage y %ci2:+$dff[Q,D] %ci*:-$mux[S]:-$dff
-   select -set selstage y %ci2:+$dff[Q,D] %ci*:-$dff @outstage %d
-   select -set scramble mem* %ci2 %ci*:-$dff mem* %d @selstage %d
-   submod -name scramble @scramble
-   submod -name outstage @outstage
-   submod -name selstage @selstage
 
 The ``-name`` option is used to specify the name of the new module and also the
 name of the new cell in the current module. The resulting circuits are shown
@@ -584,7 +574,7 @@ value using the ``-set`` option. (Such a circuit that contains the circuit under
 test plus additional constraint checking circuitry is called a ``miter``
 circuit.)
 
-.. literalinclude:: /APPNOTE_011_Design_Investigation/primetest.v
+.. literalinclude:: /code_examples/primetest.v
    :language: verilog
    :caption: ``primetest.v``, a simple miter circuit for testing if a number is
              prime. But it has a problem.

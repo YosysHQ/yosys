@@ -12,4 +12,4 @@ flatten miter
 sat -verify -prove trigger 0 miter
 
 splitnets -ports test_mapped/A
-show -prefix mymul -format pdf -notitle test_mapped
+show -prefix mymul -format dot -notitle test_mapped

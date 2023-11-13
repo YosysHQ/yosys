@@ -3,4 +3,4 @@ hierarchy -check -top test
 
 techmap -map sym_mul_map.v;;
 
-show -prefix sym_mul -format pdf -notitle -lib sym_mul_cells.v
+show -prefix sym_mul -format dot -notitle -lib sym_mul_cells.v

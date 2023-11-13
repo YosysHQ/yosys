@@ -1,4 +1,3 @@
-
 read_verilog scrambler.v
 
 hierarchy; proc;;
@@ -7,8 +6,8 @@ cd scrambler
 submod -name xorshift32 xs %c %ci %D %c %ci:+[D] %D %ci*:-$dff xs %co %ci %d
 cd ..
 
-show -prefix scrambler_p01 -format pdf -notitle scrambler
-show -prefix scrambler_p02 -format pdf -notitle xorshift32
+show -prefix scrambler_p01 -format dot -notitle scrambler
+show -prefix scrambler_p02 -format dot -notitle xorshift32
 
 echo on
 
