@@ -51,40 +51,51 @@
 
 #if !defined(_WIN32) || defined(__MINGW32__)
 #  include <unistd.h>
-#else
+#endif
+
+USING_YOSYS_NAMESPACE
+
 char *optarg;
-int optind = 1, optcur = 1;
+int optind = 1, optcur = 1, optopt = 0;
 int getopt(int argc, char **argv, const char *optstring)
 {
-	if (optind >= argc || argv[optind][0] != '-')
+	if (optind >= argc)
 		return -1;
 
+	if (argv[optind][0] != '-' || argv[optind][1] == 0) {
+		optopt = 1;
+		optarg = argv[optind++];
+		return optopt;
+	}
+
 	bool takes_arg = false;
-	int opt = argv[optind][optcur];
+	optopt = argv[optind][optcur];
+
+	if (optopt == '-') {
+		++optind;
+		return -1;
+	}
+
 	for (int i = 0; optstring[i]; i++)
-		if (opt == optstring[i] && optstring[i + 1] == ':')
+		if (optopt == optstring[i] && optstring[i + 1] == ':')
 			takes_arg = true;
 
 	if (!takes_arg) {
 		if (argv[optind][++optcur] == 0)
 			optind++, optcur = 1;
-		return opt;
+		return optopt;
 	}
 
 	if (argv[optind][++optcur]) {
 		optarg = argv[optind++] + optcur;
 		optcur = 1;
-		return opt;
+		return optopt;
 	}
 
 	optarg = argv[++optind];
 	optind++, optcur = 1;
-	return opt;
+	return optopt;
 }
-#endif
-
-
-USING_YOSYS_NAMESPACE
 
 #ifdef EMSCRIPTEN
 #  include <sys/stat.h>
@@ -215,6 +226,7 @@ int main(int argc, char **argv)
 	std::string backend_command = "auto";
 	std::vector<std::string> vlog_defines;
 	std::vector<std::string> passes_commands;
+	std::vector<std::string> frontend_files;
 	std::vector<std::string> plugin_filenames;
 	std::string output_filename = "";
 	std::string scriptfile = "";
@@ -509,6 +521,9 @@ int main(int argc, char **argv)
 		case 'C':
 			run_tcl_shell = true;
 			break;
+		case '\001':
+			frontend_files.push_back(optarg);
+			break;
 		default:
 			fprintf(stderr, "Run '%s -h' for help.\n", argv[0]);
 			exit(1);
@@ -561,17 +576,33 @@ int main(int argc, char **argv)
 		run_pass(vdef_cmd);
 	}
 
-	while (optind < argc)
-		if (run_frontend(argv[optind++], frontend_command))
+	if (scriptfile.empty() || !scriptfile_tcl) {
+		// Without a TCL script, arguments following '--' are also treated as frontend files
+		for (int i = optind; i < argc; ++i)
+			frontend_files.push_back(argv[i]);
+	}
+
+	for (auto it = frontend_files.begin(); it != frontend_files.end(); ++it) {
+		if (run_frontend((*it).c_str(), frontend_command))
 			run_shell = false;
+	}
 
 	if (!topmodule.empty())
 		run_pass("hierarchy -top " + topmodule);
-
 	if (!scriptfile.empty()) {
 		if (scriptfile_tcl) {
 #ifdef YOSYS_ENABLE_TCL
-			if (Tcl_EvalFile(yosys_get_tcl_interp(), scriptfile.c_str()) != TCL_OK)
+			int tcl_argc = argc - optind;
+			std::vector<Tcl_Obj*> script_args;
+			Tcl_Interp *interp = yosys_get_tcl_interp();
+			for (int i = optind; i < argc; ++i)
+				script_args.push_back(Tcl_NewStringObj(argv[i], strlen(argv[i])));
+
+			Tcl_ObjSetVar2(interp, Tcl_NewStringObj("argc", 4), NULL, Tcl_NewIntObj(tcl_argc), 0);
+			Tcl_ObjSetVar2(interp, Tcl_NewStringObj("argv", 4), NULL, Tcl_NewListObj(tcl_argc, script_args.data()), 0);
+			Tcl_ObjSetVar2(interp, Tcl_NewStringObj("argv0", 5), NULL, Tcl_NewStringObj(scriptfile.c_str(), scriptfile.length()), 0);
+
+			if (Tcl_EvalFile(interp, scriptfile.c_str()) != TCL_OK)
 				log_error("TCL interpreter returned an error: %s\n", Tcl_GetStringResult(yosys_get_tcl_interp()));
 #else
 			log_error("Can't exectue TCL script: this version of yosys is not built with TCL support enabled.\n");
