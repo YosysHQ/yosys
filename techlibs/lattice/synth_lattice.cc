@@ -512,7 +512,7 @@ struct SynthEcp5Pass : public Pass
 		log("\n");
 		log("This command runs synthesis for ECP5 FPGAs.\n");
 		log("\n");
-		log("This is wrapper pass, for details take a look at help message for synth_lattice.\n");
+		log("This is a wrapper pass, for details take a look at help message for synth_lattice.\n");
 		log("\n");
 	}
 
