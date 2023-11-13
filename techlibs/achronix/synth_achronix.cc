@@ -26,7 +26,7 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct SynthAchronixPass : public ScriptPass {
-  SynthAchronixPass() : ScriptPass("synth_achronix", "synthesis for Acrhonix Speedster22i FPGAs.") { }
+  SynthAchronixPass() : ScriptPass("synth_achronix", "synthesis for Achronix Speedster22i FPGAs.") { }
 
   void help() override
   {
