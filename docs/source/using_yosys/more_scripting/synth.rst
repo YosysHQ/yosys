@@ -33,7 +33,7 @@ being targeted.
 - :doc:`/cmd/synth_ice40`
 - :doc:`/cmd/synth_intel`
 - :doc:`/cmd/synth_intel_alm`
-- :doc:`/cmd/synth_machxo2`
+- :doc:`/cmd/synth_lattice`
 - :doc:`/cmd/synth_nexus`
 - :doc:`/cmd/synth_quicklogic`
 - :doc:`/cmd/synth_sf2`
