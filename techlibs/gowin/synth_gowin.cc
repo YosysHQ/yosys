@@ -173,7 +173,7 @@ struct SynthGowinPass : public ScriptPass
 				// removed, ABC9 is on by default.
 				continue;
 			}
-			if (args[argidx] == "-abc9") {
+			if (args[argidx] == "-noabc9") {
 				abc9 = false;
 				continue;
 			}
