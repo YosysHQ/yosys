@@ -113,8 +113,8 @@ struct SynthLatticePass : public ScriptPass
 		log("    -abc2\n");
 		log("        run two passes of 'abc' for slightly improved logic density\n");
 		log("\n");
-		log("    -abc9\n");
-		log("        use new ABC9 flow (EXPERIMENTAL)\n");
+		log("    -noabc9\n");
+		log("        disable use of new ABC9 flow\n");
 		log("\n");
 		log("    -iopad\n");
 		log("        insert IO buffers\n");
@@ -158,7 +158,7 @@ struct SynthLatticePass : public ScriptPass
 		dff = false;
 		retime = false;
 		abc2 = false;
-		abc9 = false;
+		abc9 = true;
 		iopad = false;
 		nodsp = false;
 		no_rw_check = false;
@@ -173,6 +173,7 @@ struct SynthLatticePass : public ScriptPass
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		string run_from, run_to;
+		bool force_abc9 = false;
 		bool force_widelut = false;
 		clear_flags();
 
@@ -254,7 +255,13 @@ struct SynthLatticePass : public ScriptPass
 				continue;
 			}
 			if (args[argidx] == "-abc9") {
-				abc9 = true;
+				// removed, ABC9 is on by default.
+				force_abc9 = true;
+				continue;
+			}
+			if (args[argidx] == "-noabc9") {
+				force_abc9 = true;
+				abc9 = false;
 				continue;
 			}
 			if (args[argidx] == "-iopad") {
@@ -295,6 +302,7 @@ struct SynthLatticePass : public ScriptPass
 			brams_map = "_8kc";
 			have_dsp = false;
 			if (!force_widelut) nowidelut = true;
+			if (!force_abc9) abc9 = false;
 /*		} else if (family == "xo" ||
 				family == "pm") {
 		} else if (family == "xp" ||
