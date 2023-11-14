@@ -1,3 +1,5 @@
+dots:
+
 test: stubnets.so
 	yosys -ql test1.log -m ./stubnets.so test.v -p "stubnets"
 	yosys -ql test2.log -m ./stubnets.so test.v -p "opt; stubnets"

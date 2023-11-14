@@ -2,16 +2,16 @@ PROGRAM_PREFIX :=
 
 YOSYS ?= ../../../../$(PROGRAM_PREFIX)yosys
 
-EXAMPLE = example_00 example_01 example_02 example_03
+EXAMPLE = example_00 example_01 example_02
 EXAMPLE_DOTS := $(addsuffix .dot,$(EXAMPLE))
 
 CMOS = cmos_00 cmos_01
 CMOS_DOTS := $(addsuffix .dot,$(CMOS))
 
-all: splice.dot $(EXAMPLE_DOTS) $(CMOS_DOTS)
+dots: splice.dot $(EXAMPLE_DOTS) $(CMOS_DOTS)
 
 splice.dot: splice.v
-	$(YOSYS) -p 'proc; opt; show -format dot -prefix splice' splice.v
+	$(YOSYS) -p 'read_verilog splice.v; proc; opt; show -format dot -prefix splice'
 
 $(EXAMPLE_DOTS): example.v example.ys
 	$(YOSYS) example.ys

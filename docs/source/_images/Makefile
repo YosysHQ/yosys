@@ -1,62 +1,46 @@
-all: resources dots tex svg tidy
+all: examples all_tex tidy
 
-RES_LIST:= PRESENTATION_Intro/ PRESENTATION_ExSyn/ PRESENTATION_ExAdv/ PRESENTATION_ExOth/
-RES_DIRS:= $(addprefix ../../resources/,$(RES_LIST))
-.PHONY: resources
-resources: $(RES_DIRS)
+# set a fake time in pdf generation to prevent unnecessary differences in output
+FAKETIME := TZ='Z' faketime -f '2022-01-01 00:00:00 x0,001'
+
+# find all code example makefiles
+.PHONY: examples
+CODE_EXAMPLES := ../code_examples/*/Makefile
+examples: $(CODE_EXAMPLES)
+
+# target to convert specified dot file(s)
+.PHONY: convert
+TARG_DOT ?=
+convert: $(TARG_DOT:.dot=.pdf) $(TARG_DOT:.dot=.svg)
+
+# use empty FORCE target because .PHONY ignores % expansion, using find allows
+# us to generate everything in one pass, since we don't know all of the possible
+# outputs until the sub-makes run
 FORCE:
-../../resources/%: FORCE
-	@$(MAKE) -C $@
-	@mkdir -p res/$*
-	@cp --update -t res/$* $@*.dot
+../%/Makefile: FORCE
+	@make -C $(@D) dots
+	@mkdir -p $*
+	@find $(@D) -name *.dot -exec cp -u {} -t $* \;
+	@find $* -name *.dot -printf "%p " | xargs -i make --no-print-directory convert TARG_DOT="{}"
 
-TEX_SOURCE:= $(wildcard *.tex)
-DOT_LOC:= ../APPNOTE_011_Design_Investigation
-DOT_SOURCE:= $(wildcard $(DOT_LOC)/*.dot)
+# find and build all tex files
+.PHONY: all_tex
+TEX_FILES := $(wildcard **/*.tex)
+all_tex: $(TEX_FILES:.tex=.pdf) $(TEX_FILES:.tex=.svg)
 
-RES_DOTS:= $(wildcard res/*/*.dot)
-RES_DIRS:= $(sort $(dir $(RES_DOTS)))
-RES_PDF:= $(RES_DOTS:%.dot=%.pdf)
-
-TEX_SOURCE+= 011/example_out.tex
-011/example_out.pdf: 011/example_00.pdf 011/example_01.pdf 011/example_02.pdf
-TEX_SOURCE+= 011/select_prod.tex
-011/select_prod.pdf: 011/sumprod_02.pdf 011/sumprod_03.pdf 011/sumprod_04.pdf 011/sumprod_05.pdf
-TEX_SOURCE+= 011/splitnets_libfile.tex
-011/splitnets_libfile.pdf: 011/cmos_00.pdf 011/cmos_01.pdf
-TEX_SOURCE+= 011/submod_dots.tex
-011/submod_dots.pdf: 011/submod_00.pdf 011/submod_01.pdf 011/submod_02.pdf 011/submod_03.pdf
-
-TEX_PDF:= $(patsubst %.tex,%.pdf,$(TEX_SOURCE))
-DOT_PDF:= $(addprefix 011/,$(notdir $(patsubst %.dot,%.pdf,$(DOT_SOURCE))))
-SVG_OUTPUT:= $(patsubst %.pdf,%.svg,$(TEX_PDF) $(DOT_PDF) $(RES_PDF))
-
-dots: $(DOT_PDF) $(RES_PDF)
-tex: $(TEX_PDF)
-svg: $(SVG_OUTPUT)
-
-011/%.pdf: $(DOT_LOC)/%.dot
-	TZ='Z' faketime -f '2022-01-01 00:00:00 x0,001' dot -Tpdf -o $@ $<
-
-res/%.pdf: res/%.dot
-	TZ='Z' faketime -f '2022-01-01 00:00:00 x0,001' dot -Tpdf -o $@ $<
-
-011/%.pdf: 011/%.tex
-	cd 011 && TZ='Z' faketime -f '2022-01-01 00:00:00 x0,001' pdflatex $(<F) --interaction=nonstopmode
+%.pdf: %.dot
+	$(FAKETIME) dot -Tpdf -o $@ $<
 
 %.pdf: %.tex
-	pdflatex $< --interaction=nonstopmode
+	cd $(@D) && $(FAKETIME) pdflatex $(<F) --interaction=nonstopmode
 
 %.svg: %.pdf
 	pdf2svg $< $@
 
 .PHONY: clean tidy
 tidy:
-	rm -f *.log
-	rm -f *.aux
-	rm -f  011/*.log 011/*.aux
+	rm -f  **/*.log **/*.aux
+
 clean: tidy
-	rm -f *.pdf
-	rm -f *.svg
-	rm -f 011/*.pdf 011/*.svg
-	rm -rf $(RES_DIRS)
+	rm -rf code_examples
+	rm -f **/*.pdf **/*.svg

@@ -1,8 +1,8 @@
 PROGRAM_PREFIX :=
 
-YOSYS ?= ../../../$(PROGRAM_PREFIX)yosys
+YOSYS ?= ../../../../$(PROGRAM_PREFIX)yosys
 
-all: red_or3x1.dot sym_mul.dot mymul.dot mulshift.dot addshift.dot
+dots: red_or3x1.dot sym_mul.dot mymul.dot mulshift.dot addshift.dot
 
 red_or3x1.dot: red_or3x1_*
 	$(YOSYS) red_or3x1_test.ys
@@ -18,4 +18,3 @@ mulshift.dot: mulshift_*
 
 addshift.dot: addshift_*
 	$(YOSYS) addshift_test.ys
-

@@ -7,18 +7,15 @@ TARGETS += abc_01
 
 PROGRAM_PREFIX :=
 
-YOSYS ?= ../../../$(PROGRAM_PREFIX)yosys
+YOSYS ?= ../../../../$(PROGRAM_PREFIX)yosys
 
-all: $(addsuffix .pdf,$(TARGETS))
+DOTS = $(addsuffix .dot,$(TARGETS))
 
-define make_pdf_template
-$(1).pdf: $(1)*.v $(1)*.ys
-	$(YOSYS) -p 'script $(1).ys; show -notitle -prefix $(1) -format pdf'
-endef
+dots: $(DOTS)
 
-$(foreach trg,$(TARGETS),$(eval $(call make_pdf_template,$(trg))))
+%.dot: %.v %.ys
+	$(YOSYS) -p 'script $*.ys; show -notitle -prefix $* -format dot'
 
 clean:
-	rm -f $(addsuffix .pdf,$(TARGETS))
-	rm -f $(addsuffix .dot,$(TARGETS))
+	rm -f $(DOTS)
 

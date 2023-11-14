@@ -11,22 +11,22 @@ MEMDEMO_DOTS := $(addsuffix .dot,$(MEMDEMO))
 SUBMOD = submod_00 submod_01 submod_02 submod_03
 SUBMOD_DOTS := $(addsuffix .dot,$(SUBMOD))
 
-all: select.dot $(SUMPROD_DOTS) $(MEMDEMO_DOTS)
+dots: select.dot $(SUMPROD_DOTS) $(MEMDEMO_DOTS) $(SUBMOD_DOTS)
 
 select.dot: select.v select.ys
 	$(YOSYS) select.ys
 
 $(SUMPROD_DOTS): sumprod.v
-	$(YOSYS) -p 'opt; cd sumprod; select a:sumstuff; show -format dot -prefix sumprod_00' sumprod.v
-	$(YOSYS) -p 'opt; cd sumprod; select a:sumstuff %x; show -format dot -prefix sumprod_01' sumprod.v
-	$(YOSYS) -p 'opt; cd sumprod; select prod; show -format dot -prefix sumprod_02' sumprod.v
-	$(YOSYS) -p 'opt; cd sumprod; select prod %ci; show -format dot -prefix sumprod_03' sumprod.v
-	$(YOSYS) -p 'opt; cd sumprod; select prod %ci2; show -format dot -prefix sumprod_04' sumprod.v
-	$(YOSYS) -p 'opt; cd sumprod; select prod %ci3; show -format dot -prefix sumprod_05' sumprod.v
+	$(YOSYS) -p 'read_verilog sumprod.v; opt; cd sumprod; select a:sumstuff; show -format dot -prefix sumprod_00'
+	$(YOSYS) -p 'read_verilog sumprod.v; opt; cd sumprod; select a:sumstuff %x; show -format dot -prefix sumprod_01'
+	$(YOSYS) -p 'read_verilog sumprod.v; opt; cd sumprod; select prod; show -format dot -prefix sumprod_02'
+	$(YOSYS) -p 'read_verilog sumprod.v; opt; cd sumprod; select prod %ci; show -format dot -prefix sumprod_03'
+	$(YOSYS) -p 'read_verilog sumprod.v; opt; cd sumprod; select prod %ci2; show -format dot -prefix sumprod_04'
+	$(YOSYS) -p 'read_verilog sumprod.v; opt; cd sumprod; select prod %ci3; show -format dot -prefix sumprod_05'
 
 $(MEMDEMO_DOTS): memdemo.v
-	$(YOSYS) -p 'proc; opt; memory; opt; cd memdemo; show -format dot -prefix memdemo_00' memdemo.v
-	$(YOSYS) -p 'proc; opt; memory; opt; cd memdemo; show -format dot -prefix memdemo_01 y %ci2:+$dff[Q,D] %ci*:-$mux[S]:-$dff' memdemo.v
+	$(YOSYS) -p 'read_verilog memdemo.v; proc; opt; memory; opt; cd memdemo; show -format dot -prefix memdemo_00'
+	$(YOSYS) -p 'read_verilog memdemo.v; proc; opt; memory; opt; cd memdemo; show -format dot -prefix memdemo_01 y %ci2:+$dff[Q,D] %ci*:-$mux[S]:-$dff'
 
 $(SUBMOD_DOTS): submod.ys memdemo.v
 	$(YOSYS) submod.ys

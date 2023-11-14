@@ -58,7 +58,7 @@ provides.
 This document will focus on the much simpler version of RTLIL left after the
 commands :cmd:ref:`proc` and :cmd:ref:`memory` (or ``memory -nomap``):
 
-.. figure:: /_images/simplified_rtlil.*
+.. figure:: /_images/internals/simplified_rtlil.*
     :class: width-helper
     :name: fig:Simplified_RTLIL
 

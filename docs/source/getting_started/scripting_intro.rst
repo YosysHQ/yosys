@@ -128,31 +128,31 @@ different stages of the yosys tool flow.
 
 .. _xdot: https://github.com/jrfonseca/xdot.py
 
-.. code-block:: console
-   :caption: Yosys script with :cmd:ref:`show` commands and example design
-   :name: show_src
+.. literalinclude:: /code_examples/show/example.ys
+    :language: yoscrypt
+    :caption: docs/source/code_examples/show/example.ys
 
-   $ cat example.ys
-   read_verilog example.v
-   show -pause
-   proc
-   show -pause
-   opt
-   show -pause
+.. literalinclude:: /code_examples/show/example.v
+    :language: Verilog
+    :caption: docs/source/code_examples/show/example.v
 
-   $ cat example.v
-   module example(input clk, a, b, c,
-                  output reg [1:0] y);
-       always @(posedge clk)
-           if (c)
-               y <= c ? a + b : 2'd0;
-   endmodule
+.. role:: yoscrypt(code)
+   :language: yoscrypt
 
-.. figure:: /_images/011/example_out.*
+.. figure:: /_images/code_examples/show/example_00.*
    :class: width-helper
-   :name: show_out
    
-   Output of the three :cmd:ref:`show` commands from :numref:`show_src`
+   ``example_00`` - shown after :yoscrypt:`read_verilog example.v`
+
+.. figure:: /_images/code_examples/show/example_01.*
+   :class: width-helper
+   
+   ``example_01`` - shown after :yoscrypt:`proc`
+
+.. figure:: /_images/code_examples/show/example_02.*
+   :class: width-helper
+   
+   ``example_02`` - shown after :yoscrypt:`opt`
 
 A circuit diagram is generated for the design in its current state. Various
 options can be used to change the appearance of the circuit diagram, set the

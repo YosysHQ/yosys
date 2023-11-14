@@ -154,7 +154,7 @@ to mark portions of code for analysis.)
 Selecting ``a:sumstuff`` in this module will yield the following circuit
 diagram:
 
-.. figure:: /_images/011/sumprod_00.*
+.. figure:: /_images/code_examples/selections/sumprod_00.*
    :class: width-helper
    :name: sumprod_00
 
@@ -171,7 +171,7 @@ be achieved using the ``%x`` action, that broadens the selection, i.e. for each
 selected wire it selects all cells connected to the wire and vice versa. So
 :yoscrypt:`show a:sumstuff %x` yields the diagram shown in :numref:`sumprod_01`:
 
-.. figure:: /_images/011/sumprod_01.*
+.. figure:: /_images/code_examples/selections/sumprod_01.*
    :class: width-helper
    :name: sumprod_01
 
@@ -192,22 +192,22 @@ input ports.
 
 The following sequence of diagrams demonstrates this step-wise expansion:
 
-.. figure:: /_images/011/sumprod_02.*
+.. figure:: /_images/code_examples/selections/sumprod_02.*
    :class: width-helper
 
    Output of ``show prod`` on :numref:`sumprod`
 
-.. figure:: /_images/011/sumprod_03.*
+.. figure:: /_images/code_examples/selections/sumprod_03.*
    :class: width-helper
 
    Output of ``show prod %ci`` on :numref:`sumprod`
 
-.. figure:: /_images/011/sumprod_04.*
+.. figure:: /_images/code_examples/selections/sumprod_04.*
    :class: width-helper
 
    Output of ``show prod %ci %ci`` on :numref:`sumprod`
 
-.. figure:: /_images/011/sumprod_05.*
+.. figure:: /_images/code_examples/selections/sumprod_05.*
    :class: width-helper
 
    Output of ``show prod %ci %ci %ci`` on :numref:`sumprod`
@@ -242,7 +242,7 @@ We synthesize the circuit using ``proc; opt; memory; opt`` and change to the
 ``memdemo`` module with ``cd memdemo``. If we type :cmd:ref:`show` now we see
 the diagram shown in :numref:`memdemo_00`.
 
-.. figure:: /_images/011/memdemo_00.*
+.. figure:: /_images/code_examples/selections/memdemo_00.*
    :class: width-helper
    :name: memdemo_00
    
@@ -287,7 +287,7 @@ Or we could decide to tell the ``%ci`` action to not follow the ``CLK`` input:
 
    show y %ci2:-[CLK]
 
-.. figure:: /_images/011/memdemo_01.*
+.. figure:: /_images/code_examples/selections/memdemo_01.*
    :class: width-helper
    :name: memdemo_01
    
@@ -379,7 +379,7 @@ Example:
    :caption: ``docs/source/code_examples/selections/select.ys``
    :name: select_ys
 
-.. figure:: /_images/res/PRESENTATION_ExAdv/select.*
+.. figure:: /_images/code_examples/selections/select.*
     :class: width-helper
 
     Circuit diagram produced by :numref:`select_ys`

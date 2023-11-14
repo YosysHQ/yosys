@@ -37,7 +37,7 @@ domain of behavioural, rtl and logic synthesis. Yosys is designed to be
 extensible and therefore is a good basis for implementing custom synthesis tools
 for specialised tasks.
 
-.. figure:: /_images/levels_of_abstraction.*
+.. figure:: /_images/primer/levels_of_abstraction.*
     :class: width-helper
     :name: fig:Levels_of_abstraction
 

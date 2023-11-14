@@ -45,7 +45,7 @@ This script, when executed, will show the design after each of the three
 synthesis commands. We will now look at each of these diagrams and explain what
 is shown.
 
-.. figure:: /_images/011/example_00.*
+.. figure:: /_images/code_examples/show/example_00.*
    :class: width-helper
    
    Output of the first :cmd:ref:`show` command in :numref:`example_ys`
@@ -77,7 +77,7 @@ original ``always``-block in the second line. Note how the multiplexer from the
 The :cmd:ref:`proc` command transforms the process from the first diagram into a
 multiplexer and a d-type flip-flop, which brings us to the second diagram:
 
-.. figure:: /_images/011/example_01.*
+.. figure:: /_images/code_examples/show/example_01.*
    :class: width-helper
    
    Output of the second :cmd:ref:`show` command in :numref:`example_ys`
@@ -99,7 +99,7 @@ call :cmd:ref:`clean` before calling :cmd:ref:`show`.
 In this script we directly call :cmd:ref:`opt` as the next step, which finally
 leads us to the third diagram: 
 
-.. figure:: /_images/011/example_02.*
+.. figure:: /_images/code_examples/show/example_02.*
    :class: width-helper
    :name: example_out
    
@@ -126,7 +126,7 @@ native objects. While this provides great advantages when analyzing circuits
 that operate on wide integers, it also introduces some additional complexity
 when the individual bits of of a signal vector are accessed.
 
-.. figure:: /_images/011/splice.*
+.. figure:: /_images/code_examples/show/splice.*
    :class: width-helper
    :name: splice_dia
 
@@ -154,7 +154,7 @@ Gate level netlists
 :numref:`first_pitfall` shows two common pitfalls when working with designs
 mapped to a cell library: 
 
-.. figure:: /_images/011/cmos_00.*
+.. figure:: /_images/code_examples/show/cmos_00.*
    :class: width-helper
    :name: first_pitfall
 
@@ -167,7 +167,7 @@ all ports are drawn on the left side the cells are awkwardly arranged in a large
 column. Secondly the two-bit vector ``y`` requires breakout-boxes for its
 individual bits, resulting in an unnecessary complex diagram.
 
-.. figure:: /_images/011/cmos_01.*
+.. figure:: /_images/code_examples/show/cmos_01.*
    :class: width-helper
    :name: second_pitfall
 
@@ -350,10 +350,10 @@ reorganizing a module in Yosys and checking the resulting circuit.
    :caption: ``docs/source/code_examples/scrambler/scrambler.ys``
    :end-before: cd ..
 
-.. figure:: /_images/res/PRESENTATION_ExOth/scrambler_p01.*
+.. figure:: /_images/code_examples/scrambler/scrambler_p01.*
     :class: width-helper
 
-.. figure:: /_images/res/PRESENTATION_ExOth/scrambler_p02.*
+.. figure:: /_images/code_examples/scrambler/scrambler_p02.*
     :class: width-helper
 
 Analyzing the resulting circuit with :doc:`/cmd/eval`:
@@ -430,7 +430,7 @@ if the circuit under investigation is encapsulated in a separate module.
 
 Recall the ``memdemo`` design from :ref:`advanced_logic_cones`:
 
-.. figure:: /_images/011/memdemo_00.*
+.. figure:: /_images/code_examples/selections/memdemo_00.*
    :class: width-helper
    
    ``memdemo``
@@ -451,18 +451,18 @@ The ``-name`` option is used to specify the name of the new module and also the
 name of the new cell in the current module. The resulting circuits are shown
 below.
 
-.. figure:: /_images/011/submod_02.*
+.. figure:: /_images/code_examples/selections/submod_02.*
    :class: width-helper
    
    ``outstage``
 
-.. figure:: /_images/011/submod_03.*
+.. figure:: /_images/code_examples/selections/submod_03.*
    :class: width-helper
    :name: selstage
    
    ``selstage``
 
-.. figure:: /_images/011/submod_01.*
+.. figure:: /_images/code_examples/selections/submod_01.*
    :class: width-helper
    
    ``scramble``

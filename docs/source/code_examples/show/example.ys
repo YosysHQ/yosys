@@ -4,8 +4,3 @@ proc
 show -format dot -prefix example_01
 opt
 show -format dot -prefix example_02
-
-cd example
-select t:$add
-show -format dot -prefix example_03
-
