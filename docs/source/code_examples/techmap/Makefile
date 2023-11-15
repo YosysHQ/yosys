@@ -18,3 +18,7 @@ mulshift.dot: mulshift_*
 
 addshift.dot: addshift_*
 	$(YOSYS) addshift_test.ys
+
+.PHONY: clean
+clean:
+	rm -f *.dot

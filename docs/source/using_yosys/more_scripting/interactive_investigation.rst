@@ -130,7 +130,7 @@ when the individual bits of of a signal vector are accessed.
    :class: width-helper
    :name: splice_dia
 
-   Output of ``yosys -p 'proc; opt; show' splice.v``
+   Output of ``yosys -p 'prep -top splice_demo; show' splice.v``
 
 The key elements in understanding this circuit diagram are of course the boxes
 with round corners and rows labeled ``<MSB_LEFT>:<LSB_LEFT> -
@@ -152,7 +152,7 @@ Gate level netlists
 ^^^^^^^^^^^^^^^^^^^
 
 :numref:`first_pitfall` shows two common pitfalls when working with designs
-mapped to a cell library: 
+mapped to a cell library:
 
 .. figure:: /_images/code_examples/show/cmos_00.*
    :class: width-helper
@@ -160,6 +160,13 @@ mapped to a cell library:
 
    A half-adder built from simple CMOS gates, demonstrating common pitfalls when 
    using :cmd:ref:`show`
+
+.. literalinclude:: /code_examples/show/cmos.ys
+   :language: yoscrypt
+   :start-after: pitfall
+   :end-at: cmos_00
+   :name: pitfall_code
+   :caption: Generating :numref:`first_pitfall`
    
 First, Yosys did not have access to the cell library when this diagram was
 generated, resulting in all cell ports defaulting to being inputs. This is why
@@ -173,6 +180,13 @@ individual bits, resulting in an unnecessary complex diagram.
 
    Effects of :cmd:ref:`splitnets` command and of providing a cell library on 
    design in :numref:`first_pitfall`
+
+.. literalinclude:: /code_examples/show/cmos.ys
+   :language: yoscrypt
+   :start-after: fixed
+   :end-at: cmos_01
+   :name: pitfall_avoided
+   :caption: Generating :numref:`second_pitfall`
 
 For :numref:`second_pitfall`, Yosys has been given a description of the cell
 library as Verilog file containing blackbox modules. There are two ways to load

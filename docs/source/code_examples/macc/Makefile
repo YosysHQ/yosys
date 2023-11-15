@@ -12,3 +12,7 @@ macc_simple_xmap.dot: macc_simple_*.v macc_simple_test.ys
 macc_xilinx_xmap.dot: macc_xilinx_*.v macc_xilinx_test.ys
 	$(YOSYS) macc_xilinx_test.ys
 
+.PHONY: clean
+clean:
+	rm -f *.dot
+

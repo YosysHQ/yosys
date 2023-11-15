@@ -11,13 +11,14 @@ CMOS_DOTS := $(addsuffix .dot,$(CMOS))
 dots: splice.dot $(EXAMPLE_DOTS) $(CMOS_DOTS)
 
 splice.dot: splice.v
-	$(YOSYS) -p 'read_verilog splice.v; proc; opt; show -format dot -prefix splice'
+	$(YOSYS) -p 'prep -top splice_demo; show -format dot -prefix splice' splice.v
 
 $(EXAMPLE_DOTS): example.v example.ys
 	$(YOSYS) example.ys
 
-cmos_00.dot: cmos.v
-	$(YOSYS) -p 'read_verilog cmos.v; techmap; abc -liberty ../intro/mycells.lib;; show -format dot -prefix cmos_00'
+$(CMOS_DOTS): cmos.v cmos.ys
+	$(YOSYS) cmos.ys
 
-cmos_01.dot: cmos.v
-	$(YOSYS) -p 'read_verilog cmos.v; techmap; splitnets -ports; abc -liberty ../intro/mycells.lib;; show -lib ../intro/mycells.v -format dot -prefix cmos_01'
+.PHONY: clean
+clean:
+	rm -rf *.dot

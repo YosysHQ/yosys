@@ -16,17 +16,15 @@ dots: select.dot $(SUMPROD_DOTS) $(MEMDEMO_DOTS) $(SUBMOD_DOTS)
 select.dot: select.v select.ys
 	$(YOSYS) select.ys
 
-$(SUMPROD_DOTS): sumprod.v
-	$(YOSYS) -p 'read_verilog sumprod.v; opt; cd sumprod; select a:sumstuff; show -format dot -prefix sumprod_00'
-	$(YOSYS) -p 'read_verilog sumprod.v; opt; cd sumprod; select a:sumstuff %x; show -format dot -prefix sumprod_01'
-	$(YOSYS) -p 'read_verilog sumprod.v; opt; cd sumprod; select prod; show -format dot -prefix sumprod_02'
-	$(YOSYS) -p 'read_verilog sumprod.v; opt; cd sumprod; select prod %ci; show -format dot -prefix sumprod_03'
-	$(YOSYS) -p 'read_verilog sumprod.v; opt; cd sumprod; select prod %ci2; show -format dot -prefix sumprod_04'
-	$(YOSYS) -p 'read_verilog sumprod.v; opt; cd sumprod; select prod %ci3; show -format dot -prefix sumprod_05'
+$(SUMPROD_DOTS): sumprod.v sumprod.ys
+	$(YOSYS) sumprod.ys
 
-$(MEMDEMO_DOTS): memdemo.v
-	$(YOSYS) -p 'read_verilog memdemo.v; proc; opt; memory; opt; cd memdemo; show -format dot -prefix memdemo_00'
-	$(YOSYS) -p 'read_verilog memdemo.v; proc; opt; memory; opt; cd memdemo; show -format dot -prefix memdemo_01 y %ci2:+$dff[Q,D] %ci*:-$mux[S]:-$dff'
+$(MEMDEMO_DOTS): memdemo.v memdemo.ys
+	$(YOSYS) memdemo.ys
 
-$(SUBMOD_DOTS): submod.ys memdemo.v
+$(SUBMOD_DOTS): memdemo.v submod.ys
 	$(YOSYS) submod.ys
+
+.PHONY: clean
+clean:
+	rm -rf *.dot

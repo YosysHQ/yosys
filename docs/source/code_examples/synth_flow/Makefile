@@ -16,6 +16,7 @@ dots: $(DOTS)
 %.dot: %.v %.ys
 	$(YOSYS) -p 'script $*.ys; show -notitle -prefix $* -format dot'
 
+.PHONY: clean
 clean:
-	rm -f $(DOTS)
+	rm -f *.dot
 

@@ -1,6 +1,6 @@
 read_verilog select.v
-hierarchy -check -top test
-proc; opt
+prep -top test
+
 cd test
 select -set cone_a state_a %ci*:-$dff
 select -set cone_b state_b %ci*:-$dff

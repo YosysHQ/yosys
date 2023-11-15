@@ -1,5 +1,5 @@
 read_verilog memdemo.v
-proc; opt; memory; opt
+prep -top memdemo; memory; opt
 
 cd memdemo
 select -set outstage y %ci2:+$dff[Q,D] %ci*:-$mux[S]:-$dff

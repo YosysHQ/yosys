@@ -177,6 +177,8 @@ selected wire it selects all cells connected to the wire and vice versa. So
 
    Output of ``show a:sumstuff %x`` on :numref:`sumprod`
 
+.. _selecting_logic_cones:
+
 Selecting logic cones
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -231,16 +233,29 @@ and/or ports. This can be achieved using additional patterns that can be
 appended to the ``%ci`` action.
 
 Lets consider :numref:`memdemo_src`. It serves no purpose other than being a
-non-trivial circuit for demonstrating some of the advanced Yosys features. 
+non-trivial circuit for demonstrating some of the advanced Yosys features. This
+code is available in ``docs/source/code_examples/selections`` of the Yosys
+source repository.
 
 .. literalinclude:: /code_examples/selections/memdemo.v
-   :caption: Demo circuit for demonstrating some advanced Yosys features
+   :caption: ``memdemo.v``
    :name: memdemo_src
    :language: verilog
 
-We synthesize the circuit using ``proc; opt; memory; opt`` and change to the
-``memdemo`` module with ``cd memdemo``. If we type :cmd:ref:`show` now we see
-the diagram shown in :numref:`memdemo_00`.
+The script ``memdemo.ys`` is used to generate the images included here. Let's
+look at the first section:
+
+.. literalinclude:: /code_examples/selections/memdemo.ys
+   :caption: Synthesizing :ref:`memdemo_src`
+   :name: memdemo_ys
+   :language: yoscrypt
+   :end-at: opt
+
+This loads :numref:`memdemo_src` and synthesizes the included module. Note that
+this code can be copied and run directly in a Yosys command line session,
+provided ``memdemo.v`` is in the same directory. We can now change to the
+``memdemo`` module with ``cd memdemo``, and call :cmd:ref:`show` to see the
+diagram in :numref:`memdemo_00`.
 
 .. figure:: /_images/code_examples/selections/memdemo_00.*
    :class: width-helper
@@ -248,13 +263,19 @@ the diagram shown in :numref:`memdemo_00`.
    
    Complete circuit diagram for the design shown in :numref:`memdemo_src`
 
-But maybe we are only interested in the tree of multiplexers that select the
-output value. In order to get there, we would start by just showing the output
-signal and its immediate predecessors:
+.. todo:: :ref:`memdemo_01` and :ref:`memdemo_02` are the same, probably change
+          the example so they aren't.
 
-.. code-block:: yoscrypt
+There's a lot going on there, but maybe we are only interested in the tree of
+multiplexers that select the output value. Let's start by just showing the
+output signal, ``y``, and its immediate predecessors. Remember `Selecting logic
+cones`_ from above, we can use :yoscrypt:`show y %ci2`:
 
-   show y %ci2
+.. figure:: /_images/code_examples/selections/memdemo_01.*
+   :class: width-helper
+   :name: memdemo_01
+   
+   Output of :yoscrypt:`show y %ci2`
 
 From this we would learn that ``y`` is driven by a ``$dff cell``, that ``y`` is
 connected to the output port ``Q``, that the ``clk`` signal goes into the
@@ -262,12 +283,14 @@ connected to the output port ``Q``, that the ``clk`` signal goes into the
 wire into the input ``D`` of the flip-flop cell.
 
 As we are not interested in the clock signal we add an additional pattern to the
-``%ci`` action, that tells it to only follow ports ``Q`` and ``D`` of ``$dff``
-cells:
+``%ci`` action :yoscrypt:`show y %ci2:+$dff[Q,D]`, that tells it to only follow
+ports ``Q`` and ``D`` of ``$dff`` cells:
 
-.. code-block:: yoscrypt
-
-   show y %ci2:+$dff[Q,D]
+.. figure:: /_images/code_examples/selections/memdemo_02.*
+   :class: width-helper
+   :name: memdemo_02
+   
+   Output of :yoscrypt:`show y %ci2:+$dff[Q,D]`
 
 To add a pattern we add a colon followed by the pattern to the ``%ci`` action.
 The pattern itself starts with ``-`` or ``+``, indicating if it is an include or
@@ -275,43 +298,32 @@ exclude pattern, followed by an optional comma separated list of cell types,
 followed by an optional comma separated list of port names in square brackets.
 
 Since we know that the only cell considered in this case is a ``$dff`` cell, we
-could as well only specify the port names:
-
-.. code-block:: yoscrypt
-
-   show y %ci2:+[Q,D]
-
-Or we could decide to tell the ``%ci`` action to not follow the ``CLK`` input:
-
-.. code-block:: yoscrypt
-
-   show y %ci2:-[CLK]
-
-.. figure:: /_images/code_examples/selections/memdemo_01.*
-   :class: width-helper
-   :name: memdemo_01
-   
-   Output of ``show y %ci2:+$dff[Q,D] %ci*:-$mux[S]:-$dff``
+could as well only specify the port names, :yoscrypt:`show y %ci2:+[Q,D]`. Or we
+could decide to tell the ``%ci`` action to not follow the ``CLK`` input,
+:yoscrypt:`show y %ci2:-[CLK]`.
 
 Next we would investigate the next logic level by adding another ``%ci2`` to the
-command:
+command, :yoscrypt:`show y %ci2:-[CLK] %ci2`:
 
-.. code-block:: yoscrypt
-
-   show y %ci2:-[CLK] %ci2
+.. figure:: /_images/code_examples/selections/memdemo_03.*
+   :class: width-helper
+   :name: memdemo_03
+   
+   Output of :yoscrypt:`show y %ci2:-[CLK] %ci2`
 
 From this we would learn that the next cell is a ``$mux`` cell and we would add
-additional pattern to narrow the selection on the path we are interested. In the
-end we would end up with a command such as
+an additional pattern to narrow the selection on the path we are interested. In
+the end we would end up with a command such as :yoscrypt:`show y %ci2:+$dff[Q,D]
+%ci*:-$mux[S]:-$dff` in which the first ``%ci`` jumps over the initial d-type
+flip-flop and the 2nd action selects the entire input cone without going over
+multiplexer select inputs and flip-flop cells. The diagram produced by this
+command is shown in :numref:`memdemo_04`.
 
-.. code-block:: yoscrypt
-
-   show y %ci2:+$dff[Q,D] %ci*:-$mux[S]:-$dff
-
-in which the first ``%ci`` jumps over the initial d-type flip-flop and the 2nd
-action selects the entire input cone without going over multiplexer select
-inputs and flip-flop cells. The diagram produces by this command is shown in
-:numref:`memdemo_01`.
+.. figure:: /_images/code_examples/selections/memdemo_04.*
+   :class: width-helper
+   :name: memdemo_04
+   
+   Output of ``show y %ci2:+$dff[Q,D] %ci*:-$mux[S]:-$dff``
 
 Similar to ``%ci`` exists an action ``%co`` to select output cones that accepts
 the same syntax for pattern and repetition. The ``%x`` action mentioned
@@ -349,6 +361,8 @@ on the stack.
 
 Storing and recalling selections
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. todo:: reflow for not presentation
 
 The current selection can be stored in memory with the command ``select -set
 <name>``. It can later be recalled using ``select @<name>``. In fact, the
