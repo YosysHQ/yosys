@@ -41,15 +41,23 @@ The extract pass
 
 .. todo:: add/expand supporting text
 
+.. literalinclude:: /code_examples/macc/macc_simple_test.ys
+    :language: yoscrypt
+    :lines: 1-2
+
 .. figure:: /_images/code_examples/macc/macc_simple_test_00a.*
     :class: width-helper
     
-    before `extract`
+    before :cmd:ref:`extract`
+
+.. literalinclude:: /code_examples/macc/macc_simple_test.ys
+    :language: yoscrypt
+    :lines: 6
 
 .. figure:: /_images/code_examples/macc/macc_simple_test_00b.*
     :class: width-helper
     
-    after `extract`
+    after :cmd:ref:`extract`
 
 .. literalinclude:: /code_examples/macc/macc_simple_test.v
    :language: verilog
@@ -58,13 +66,6 @@ The extract pass
 .. literalinclude:: /code_examples/macc/macc_simple_xmap.v
    :language: verilog
    :caption: ``docs/source/code_examples/macc/macc_simple_xmap.v``
-
-.. code:: yoscrypt
-
-    read_verilog macc_simple_test.v
-    hierarchy -check -top test
-
-    extract -map macc_simple_xmap.v;;
 
 .. literalinclude:: /code_examples/macc/macc_simple_test_01.v
    :language: verilog
@@ -191,14 +192,10 @@ Wrapping in ``test1``:
 .. figure:: /_images/code_examples/macc/macc_xilinx_test1b.*
     :class: width-helper
 
-.. code:: yoscrypt
-
-    techmap -map macc_xilinx_wrap_map.v
-
-    connwrappers -unsigned $__mul_wrapper \
-                                Y Y_WIDTH \
-                -unsigned $__add_wrapper \
-                                Y Y_WIDTH ;;
+.. literalinclude:: /code_examples/macc/macc_xilinx_test.ys
+    :language: yoscrypt
+    :start-after: part c
+    :end-before: end part c
 
 .. figure:: /_images/code_examples/macc/macc_xilinx_test1c.*
     :class: width-helper
@@ -208,56 +205,36 @@ Wrapping in ``test2``:
 .. figure:: /_images/code_examples/macc/macc_xilinx_test2b.*
     :class: width-helper
 
-.. code:: yoscrypt
-
-    techmap -map macc_xilinx_wrap_map.v
-
-    connwrappers -unsigned $__mul_wrapper \
-                                Y Y_WIDTH \
-                 -unsigned $__add_wrapper \
-                                Y Y_WIDTH ;;
+.. literalinclude:: /code_examples/macc/macc_xilinx_test.ys
+    :language: yoscrypt
+    :start-after: part c
+    :end-before: end part c
 
 .. figure:: /_images/code_examples/macc/macc_xilinx_test2c.*
     :class: width-helper
 
 Extract in ``test1``:
 
-.. code:: yoscrypt
-
-    design -push
-    read_verilog macc_xilinx_xmap.v
-    techmap -map macc_xilinx_swap_map.v
-    techmap -map macc_xilinx_wrap_map.v;;
-    design -save __macc_xilinx_xmap
-    design -pop
-
-    extract -constports -ignore_parameters \
-            -map %__macc_xilinx_xmap       \
-            -swap $__add_wrapper A,B ;;
-
 .. figure:: /_images/code_examples/macc/macc_xilinx_test1c.*
     :class: width-helper
+
+.. literalinclude:: /code_examples/macc/macc_xilinx_test.ys
+    :language: yoscrypt
+    :start-after: part d
+    :end-before: end part d
 
 .. figure:: /_images/code_examples/macc/macc_xilinx_test1d.*
     :class: width-helper
 
 Extract in ``test2``:
 
-.. code:: yoscrypt
-
-    design -push
-    read_verilog macc_xilinx_xmap.v
-    techmap -map macc_xilinx_swap_map.v
-    techmap -map macc_xilinx_wrap_map.v;;
-    design -save __macc_xilinx_xmap
-    design -pop
-
-    extract -constports -ignore_parameters \
-            -map %__macc_xilinx_xmap       \
-            -swap $__add_wrapper A,B ;;
-
 .. figure:: /_images/code_examples/macc/macc_xilinx_test2c.*
     :class: width-helper
+
+.. literalinclude:: /code_examples/macc/macc_xilinx_test.ys
+    :language: yoscrypt
+    :start-after: part d
+    :end-before: end part d
 
 .. figure:: /_images/code_examples/macc/macc_xilinx_test2d.*
     :class: width-helper
@@ -267,12 +244,13 @@ Unwrap in ``test2``:
 .. figure:: /_images/code_examples/macc/macc_xilinx_test2d.*
     :class: width-helper
 
+.. literalinclude:: /code_examples/macc/macc_xilinx_test.ys
+    :language: yoscrypt
+    :start-after: part e
+    :end-before: end part e
+
 .. figure:: /_images/code_examples/macc/macc_xilinx_test2e.*
     :class: width-helper
-
-.. code:: yoscrypt
-
-    techmap -map macc_xilinx_unwrap_map.v ;;
 
 Symbolic model checking
 -----------------------

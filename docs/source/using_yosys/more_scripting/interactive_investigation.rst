@@ -424,7 +424,7 @@ Yosys script for ASIC synthesis of the Amber ARMv2 CPU.
             if (ARST)
                 Q <= ARST_VALUE;
             else
-                <= D;
+                Q <= D;
 
     endmodule
 

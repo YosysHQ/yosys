@@ -29,7 +29,7 @@ Download
 ========
 
 This document was originally published in April 2015:
-:download:`Converting Verilog to BLIF PDF</_downloads/APPNOTE_012_Verilog_to_BTOR.pdf>`
+:download:`Converting Verilog to BLIF PDF</_downloads/APPNOTE_010_Verilog_to_BLIF.pdf>`
 
 ..
    Installation
