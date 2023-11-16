@@ -351,11 +351,14 @@ class WriteWitness:
         self.out.name("steps")
         self.out.begin_array()
 
-    def step(self, values):
+    def step(self, values, skip_x=False):
         if not self.header_written:
             self.write_header()
 
-        self.out.value({"bits": values.pack(self.sigmap)})
+        packed = values.pack(self.sigmap)
+        if skip_x:
+            packed = packed.replace('x', '?')
+        self.out.value({"bits": packed})
 
         self.t += 1
 
@@ -389,6 +392,9 @@ class ReadWitness:
         self.sigmap = WitnessSigMap(self.signals)
 
         self.bits = [step["bits"] for step in data["steps"]]
+
+    def skip_x(self):
+        self.bits = [step.replace('x', '?') for step in self.bits]
 
     def init_step(self):
         return self.step(0)
