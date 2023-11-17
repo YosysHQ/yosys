@@ -239,7 +239,7 @@ struct SynthIce40Pass : public ScriptPass
 				continue;
 			}
 			if (args[argidx] == "-noabc9") {
-				abc9 = true;
+				abc9 = false;
 				continue;
 			}
 			if (args[argidx] == "-dff") {
