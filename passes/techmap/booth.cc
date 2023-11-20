@@ -276,18 +276,12 @@ struct BoothPassWorker {
 			}
 			log_assert(GetSize(Y) == required_op_size);
 
-			if (!is_signed) /* unsigned multiplier */
-				CreateBoothUMult(module,
-						 A, // multiplicand
-						 B, // multiplier(scanned)
-						 Y  // result
-				);
-			else /* signed multiplier */
-				CreateBoothSMult(module,
-						 A, // multiplicand
-						 B, // multiplier(scanned)
-						 Y  // result (sized)
-				);
+			CreateBoothMult(module,
+				A, // multiplicand
+				B, // multiplier(scanned)
+				Y, // result
+				is_signed
+			);
 
 			module->remove(cell);
 			booth_counter++;
@@ -295,24 +289,23 @@ struct BoothPassWorker {
 	}
 
 	/*
-	  Build Unsigned Multiplier.
+	  Build Multiplier.
 	  -------------------------
-	  Create a booth unsigned multiplier.
-	  Uses a generic booth multiplier with
-	  extra row of decoders and extended multiplier
+	  Uses a generic booth multiplier
 	*/
 
-	void CreateBoothUMult(RTLIL::Module *module,
+	void CreateBoothMult(RTLIL::Module *module,
 			      SigSpec X, // multiplicand
 			      SigSpec Y, // multiplier
-			      SigSpec Z)
+			      SigSpec Z,
+			      bool is_signed)
 	{ // result
 		int z_sz = Z.size();
 
 		SigSpec one_int, two_int, s_int, sb_int;
 		int encoder_count = 0;
 
-		BuildBoothUMultEncoders(Y, one_int, two_int, s_int, sb_int, module, encoder_count);
+		BuildBoothMultEncoders(Y, one_int, two_int, s_int, sb_int, module, encoder_count, is_signed);
 
 		// Build the decoder rows
 		// format of each Partial product to be passed to CSA
@@ -326,7 +319,7 @@ struct BoothPassWorker {
 
 		// Row 0: special case 1. Format S/.S.S.C.Data
 		SigSpec ppij_row_0;
-		BuildBoothUMultDecoderRow0(module, X, s_int, sb_int, one_int, two_int, ppij_row_0);
+		BuildBoothMultDecoderRow0(module, X, s_int, sb_int, one_int, two_int, ppij_row_0, is_signed);
 
 		// data, shift, sign
 		ppij_int.push_back(std::make_tuple(ppij_row_0, 0, s_int[0]));
@@ -335,9 +328,10 @@ struct BoothPassWorker {
 			// format 1,S.Data.shift = encoder_ix*2,sign = sb_int[i]
 			SigSpec ppij_row_n;
 
-			BuildBoothUMultDecoderRowN(module,
+			BuildBoothMultDecoderRowN(module,
 						   X, // multiplicand
-						   one_int[i], two_int[i], s_int[i], sb_int[i], ppij_row_n, i
+						   one_int[i], two_int[i], s_int[i], sb_int[i], ppij_row_n, i,
+						   is_signed
 			);
 			// data, shift, sign
 			ppij_int.push_back(std::make_tuple(ppij_row_n, i * 2, s_int[i]));
@@ -373,6 +367,7 @@ struct BoothPassWorker {
 		// Debug code: Dump out the csa trees
 		// DumpCSATrees(debug_csa_trees);
 		// Build the CPA to do the final accumulation.
+
 		BuildCPA(module, s_vec, c_vec, Z);
 	}
 
@@ -380,11 +375,12 @@ struct BoothPassWorker {
 	  Build Row 0 of decoders
 	*/
 
-	void BuildBoothUMultDecoderRow0(RTLIL::Module *module,
+	void BuildBoothMultDecoderRow0(RTLIL::Module *module,
 					SigSpec X, // multiplicand
 					SigSpec s_int, SigSpec sb_int, SigSpec one_int,
-					SigSpec two_int, SigSpec &ppij_vec)
+					SigSpec two_int, SigSpec &ppij_vec, bool is_signed)
 	{
+		(void)sb_int;
 		(void)module;
 		int x_sz = GetSize(X);
 		SigBit ppij;
@@ -397,21 +393,32 @@ struct BoothPassWorker {
 			ppij_vec.append(Bur4d_n(stringf("row0_dec_%d", i), X[i], X[i - 1],
 						one_int[0], two_int[0], s_int[0]));
 
+
 		// The redundant bit. Duplicate decoding of last bit.
-		ppij_vec.append(Bur4d_msb("row0_dec_msb", X[x_sz - 1], two_int[0], s_int[0]));
+		if (!is_signed) {
+			ppij_vec.append(Bur4d_msb("row0_dec_msb", X.msb(), two_int[0], s_int[0]));
+		} else {
+			ppij_vec.append(Bur4d_n("row0_dec_msb", X.msb(), X.msb(),
+										  one_int[0], two_int[0], s_int[0]));
+		}
 
 		// append the sign bits
-		ppij_vec.append(s_int[0]);
-		ppij_vec.append(s_int[0]);
-		ppij_vec.append(sb_int[0]);
+		if (is_signed) {
+			SigBit e = module->XorGate(NEW_ID, s_int[0], module->AndGate(NEW_ID, X.msb(), module->OrGate(NEW_ID, two_int[0], one_int[0])));
+			ppij_vec.append({module->NotGate(NEW_ID, e), e, e});
+		} else {
+			// append the sign bits
+			ppij_vec.append({module->NotGate(NEW_ID, s_int[0]), s_int[0], s_int[0]});
+		}
 	}
 
 	// Build a generic row of decoders.
 
-	void BuildBoothUMultDecoderRowN(RTLIL::Module *module,
+	void BuildBoothMultDecoderRowN(RTLIL::Module *module,
 					SigSpec X, // multiplicand
 					SigSpec one_int, SigSpec two_int, SigSpec s_int, SigSpec sb_int,
-					SigSpec &ppij_vec, int row_ix)
+					SigSpec &ppij_vec, int row_ix,
+					bool is_signed)
 	{
 		(void)module;
 		int x_sz = GetSize(X);
@@ -424,13 +431,14 @@ struct BoothPassWorker {
 			ppij_vec.append(Bur4d_n(stringf("row_%d_dec_%d", row_ix, i), X[i], X[i - 1],
 				     		one_int, two_int, s_int));
 
-		// redundant bit
-		ppij_vec.append(Bur4d_msb("row_dec_red", X[x_sz - 1], two_int, s_int));
+		if (!is_signed) {			// redundant bit
+			ppij_vec.append(Bur4d_msb("row_dec_red", X[x_sz - 1], two_int, s_int));
+		} else {
+			ppij_vec.append(Bur4d_n(stringf("row_%d_dec_msb", row_ix), X[x_sz - 1], X[x_sz - 1],
+				     					one_int, two_int, s_int));
+		}
 
-		// sign bit
-		ppij_vec.append(sb_int);
-
-		// constant bit
+		ppij_vec.append(!is_signed ? sb_int[0] : module->XorGate(NEW_ID, sb_int, module->AndGate(NEW_ID, X.msb(), module->OrGate(NEW_ID, two_int, one_int))));
 		ppij_vec.append(State::S1);
 	}
 
@@ -807,12 +815,12 @@ struct BoothPassWorker {
 		}
 	}
 
-	void BuildBoothUMultEncoders(SigSpec Y, SigSpec &one_int, SigSpec &two_int,
-				     SigSpec &s_int, SigSpec &sb_int, RTLIL::Module *module, int &encoder_ix)
+	void BuildBoothMultEncoders(SigSpec Y, SigSpec &one_int, SigSpec &two_int,
+				     SigSpec &s_int, SigSpec &sb_int, RTLIL::Module *module, int &encoder_ix, bool is_signed)
 	{
 		int y_sz = GetSize(Y);
 
-		for (int y_ix = 0; y_ix < y_sz;) {
+		for (int y_ix = 0; y_ix < (!is_signed ? y_sz : y_sz - 1);) {
 			std::string enc_name = stringf("bur_enc_%d", encoder_ix);
 
 			two_int.append(module->addWire(NEW_ID_SUFFIX(stringf("two_int_%d", encoder_ix)), 1));
@@ -838,7 +846,7 @@ struct BoothPassWorker {
 				bool need_padded_cell = false;
 
 				if (y_ix > y_sz - 1) {
-					y0 = State::S0;
+					y0 = is_signed ? Y.msb() : State::S0;
 					need_padded_cell = false;
 				} else {
 					y0 = Y[y_ix];
@@ -847,7 +855,7 @@ struct BoothPassWorker {
 
 				if (y_ix > y_sz - 1) {
 					need_padded_cell = false;
-					y1 = State::S0;
+					y1 = is_signed ? Y.msb() : State::S0;
 				} else {
 					y1 = Y[y_ix];
 					y_ix++;
@@ -855,10 +863,10 @@ struct BoothPassWorker {
 
 				if (y_ix > y_sz - 1) {
 					need_padded_cell = false;
-					y2 = State::S0;
+					y2 = is_signed ? Y.msb() : State::S0;
 				} else {
 					if (y_ix == y_sz - 1)
-						need_padded_cell = true;
+						need_padded_cell = !is_signed;
 					else
 						need_padded_cell = false;
 					y2 = Y[y_ix];
