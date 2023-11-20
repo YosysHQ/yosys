@@ -264,6 +264,9 @@ static const std::string verific_unescape(const char *value)
 
 void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &attributes, DesignObj *obj, Netlist *nl)
 {
+	if (!obj)
+		return;
+
 	MapIter mi;
 	Att *attr;
 
