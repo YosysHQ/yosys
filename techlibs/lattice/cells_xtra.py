@@ -120,7 +120,7 @@ devices = [
         #Cell("XOR3"),
         #Cell("XOR4"),
         #Cell("XOR5"),
-        Cell("DP16KD"),
+        #Cell("DP16KD"),
         Cell("PDPW16KD"),
         #Cell("DPR16X4C"),
         #Cell("SPR16X4C"),
