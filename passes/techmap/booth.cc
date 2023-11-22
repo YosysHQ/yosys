@@ -67,6 +67,7 @@ struct BoothPassWorker {
 	SigMap sigmap;
 	int booth_counter;
 	bool lowpower = false;
+	bool mapped_cpa = false;
 
 	BoothPassWorker(RTLIL::Module *module) : module(module), sigmap(module) { booth_counter = 0; }
 
@@ -297,6 +298,36 @@ struct BoothPassWorker {
 		}
 	}
 
+	SigSig WallaceSum(int width, std::vector<SigSpec> summands)
+	{
+		for (auto &s : summands)
+			s.extend_u0(width);
+
+		while (summands.size() > 2) {
+			std::vector<SigSpec> new_summands;
+			int i;
+			for (i = 0; i < (int) summands.size() - 2; i += 3) {
+				SigSpec x = module->addWire(NEW_ID, width);
+				SigSpec y = module->addWire(NEW_ID, width);
+				BuildBitwiseFa(module, NEW_ID.str(), summands[i], summands[i + 1],
+					       summands[i + 2], x, y);
+				new_summands.push_back(y);
+				new_summands.push_back({x.extract(0, width - 1), State::S0});
+			}
+
+			new_summands.insert(new_summands.begin(), summands.begin() + i, summands.end());
+
+			std::swap(summands, new_summands);
+		}
+
+		if (!summands.size())
+			return SigSig(SigSpec(width, State::S0), SigSpec(width, State::S0));
+		else if (summands.size() == 1)
+			return SigSig(summands[0], SigSpec(width, State::S0));
+		else
+			return SigSig(summands[0], summands[1]);
+	}
+
 	/*
 	  Build Multiplier.
 	  -------------------------
@@ -365,19 +396,16 @@ struct BoothPassWorker {
 		// Later on yosys will clean up unused constants
 		//  DebugDumpAlignPP(aligned_pp);
 
-		SigSpec s_vec;
-		SigSpec c_vec;
-		std::vector<std::vector<RTLIL::Cell *>> debug_csa_trees;
-
-		debug_csa_trees.resize(z_sz);
-
-		BuildCSATree(module, aligned_pp, s_vec, c_vec, debug_csa_trees);
+		SigSig wtree_sum = WallaceSum(z_sz, aligned_pp);
 
 		// Debug code: Dump out the csa trees
 		// DumpCSATrees(debug_csa_trees);
 		// Build the CPA to do the final accumulation.
-
-		BuildCPA(module, s_vec, c_vec, Z);
+		log_assert(wtree_sum.second[0] == State::S0);
+		if (mapped_cpa)
+			BuildCPA(module, wtree_sum.first, {State::S0, wtree_sum.second.extract_end(1)}, Z);
+		else
+			module->addAdd(NEW_ID, wtree_sum.first, {wtree_sum.second.extract_end(1), State::S0}, Z);
 	}
 
 	/*
@@ -1130,10 +1158,14 @@ struct BoothPass : public Pass {
 		log_header(design, "Executing BOOTH pass (map to Booth multipliers).\n");
 
 		size_t argidx;
+		bool mapped_cpa = false;
 		bool lowpower = false;
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			break;
-			if (args[argidx] == "-lowpower")
+			if (args[argidx] == "-mapped_cpa")
+				// Have an undocumented option which helps with multiplier
+				// verification using specialized tools (AMulet2 in particular)
+				mapped_cpa = true;
+			else if (args[argidx] == "-lowpower")
 				lowpower = true;
 			else
 				break;
@@ -1145,6 +1177,7 @@ struct BoothPass : public Pass {
 		for (auto mod : design->selected_modules()) {
 			if (!mod->has_processes_warn()) {
 				BoothPassWorker worker(mod);
+				worker.mapped_cpa = mapped_cpa;
 				worker.lowpower = lowpower;
 				worker.run();
 				total += worker.booth_counter;
