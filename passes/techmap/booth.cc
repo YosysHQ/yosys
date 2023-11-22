@@ -66,6 +66,7 @@ struct BoothPassWorker {
 	RTLIL::Module *module;
 	SigMap sigmap;
 	int booth_counter;
+	bool lowpower = false;
 
 	BoothPassWorker(RTLIL::Module *module) : module(module), sigmap(module) { booth_counter = 0; }
 
@@ -276,12 +277,20 @@ struct BoothPassWorker {
 			}
 			log_assert(GetSize(Y) == required_op_size);
 
-			CreateBoothMult(module,
-				A, // multiplicand
-				B, // multiplier(scanned)
-				Y, // result
-				is_signed
-			);
+			if (!lowpower)
+				CreateBoothMult(module,
+					A, // multiplicand
+					B, // multiplier(scanned)
+					Y, // result
+					is_signed
+				);
+			else
+				CreateBoothLowpowerMult(module,
+					A, // multiplicand
+					B, // multiplier(scanned)
+					Y, // result
+					is_signed
+				);
 
 			module->remove(cell);
 			booth_counter++;
@@ -904,11 +913,14 @@ struct BoothPassWorker {
 	}
 
 	/*
-	  Signed Multiplier
+	  Low-power Multiplier
 	*/
-	void CreateBoothSMult(RTLIL::Module *module, SigSpec X, SigSpec Y, SigSpec Z)
+	void CreateBoothLowpowerMult(RTLIL::Module *module, SigSpec X, SigSpec Y, SigSpec Z, bool is_signed)
 	{ // product
 		int x_sz = X.size(), y_sz = Y.size(), z_sz = Z.size();
+
+		if (!is_signed)
+			log_error("Low-power Booth architecture is only supported on signed multipliers.\n");
 
 		unsigned enc_count = (y_sz / 2) + (((y_sz % 2) != 0) ? 1 : 0);
 		int dec_count = x_sz + 1;
@@ -1118,8 +1130,13 @@ struct BoothPass : public Pass {
 		log_header(design, "Executing BOOTH pass (map to Booth multipliers).\n");
 
 		size_t argidx;
+		bool lowpower = false;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			break;
+			if (args[argidx] == "-lowpower")
+				lowpower = true;
+			else
+				break;
 		}
 		extra_args(args, argidx, design);
 
@@ -1128,6 +1145,7 @@ struct BoothPass : public Pass {
 		for (auto mod : design->selected_modules()) {
 			if (!mod->has_processes_warn()) {
 				BoothPassWorker worker(mod);
+				worker.lowpower = lowpower;
 				worker.run();
 				total += worker.booth_counter;
 			}
