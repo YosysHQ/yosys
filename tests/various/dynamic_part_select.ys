@@ -69,6 +69,24 @@ design -copy-from gate -as gate gate
 miter -equiv -make_assert -make_outcmp -flatten gold gate equiv
 sat -prove-asserts -seq 10 -show-public -verify -set-init-zero equiv
 
+### For-loop select, one dynamic input, (* nowrshmsk *)
+design -reset
+read_verilog ./dynamic_part_select/forloop_select_nowrshmsk.v
+proc
+rename -top gold
+design -stash gold
+
+read_verilog ./dynamic_part_select/forloop_select_gate.v
+proc
+rename -top gate
+design -stash gate
+
+design -copy-from gold -as gold gold
+design -copy-from gate -as gate gate
+
+miter -equiv -make_assert -make_outcmp -flatten gold gate equiv
+sat -prove-asserts -seq 10 -show-public -verify -set-init-zero equiv
+
 #### Double loop (part-select, reset) ### 
 design -reset
 read_verilog ./dynamic_part_select/reset_test.v
