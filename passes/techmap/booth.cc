@@ -331,7 +331,7 @@ struct BoothPassWorker {
 		// data, shift, sign
 		ppij_int.push_back(std::make_tuple(ppij_row_0, 0, s_int[0]));
 
-		for (int i = 1; i < encoder_count - 2; i++) {
+		for (int i = 1; i < encoder_count; i++) {
 			// format 1,S.Data.shift = encoder_ix*2,sign = sb_int[i]
 			SigSpec ppij_row_n;
 
@@ -345,24 +345,6 @@ struct BoothPassWorker {
 			ppij_int.push_back(std::make_tuple(ppij_row_n, i * 2, s_int[i]));
 		}
 
-		// Build second to last row
-		// format S/,Data + sign bit
-		SigSpec ppij_row_em1;
-		BuildBoothUMultDecoderRowN(module, X, one_int[encoder_count - 2], two_int[encoder_count - 2], s_int[encoder_count - 2],
-					   sb_int[encoder_count - 2], ppij_row_em1, encoder_count - 2,
-					   false, // include sign
-					   true	  // no constant
-		);
-		ppij_int.push_back(std::make_tuple(ppij_row_em1, (encoder_count - 2) * 2, s_int[encoder_count - 2]));
-		// Build last row
-		// format Data + sign bit
-		SigSpec ppij_row_e;
-		BuildBoothUMultDecoderRowN(module, X, one_int[encoder_count - 1], two_int[encoder_count - 1], s_int[encoder_count - 1],
-					   sb_int[encoder_count - 1], ppij_row_e, encoder_count - 1,
-					   true, // no sign
-					   true	 // no constant
-		);
-		ppij_int.push_back(std::make_tuple(ppij_row_e, (encoder_count - 1) * 2, s_int[encoder_count - 1]));
 
 		//  Debug dump out partial products
 		//  DebugDumpPP(ppij_int);
