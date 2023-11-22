@@ -307,7 +307,7 @@ struct BoothPassWorker {
 			      SigSpec Y, // multiplier
 			      SigSpec Z)
 	{ // result
-		int x_sz = X.size(), z_sz = Z.size();
+		int z_sz = Z.size();
 
 		SigSpec one_int, two_int, s_int, sb_int;
 		int encoder_count = 0;
@@ -376,7 +376,7 @@ struct BoothPassWorker {
 		for (int i = 0; i < encoder_count + 1; i++)
 			aligned_pp[i].extend_u0(z_sz);
 
-		AlignPP(x_sz, z_sz, ppij_int, aligned_pp);
+		AlignPP(z_sz, ppij_int, aligned_pp);
 
 		// Debug: dump out aligned partial products.
 		// Later on yosys will clean up unused constants
@@ -609,7 +609,7 @@ struct BoothPassWorker {
 	  Pad out rows with zeros and left the opt pass clean them up.
 
 	*/
-	void AlignPP(int x_sz, int z_sz, std::vector<std::tuple<SigSpec, int, SigBit>> &ppij_int,
+	void AlignPP(int z_sz, std::vector<std::tuple<SigSpec, int, SigBit>> &ppij_int,
 		     std::vector<SigSpec> &aligned_pp)
 	{
 		unsigned aligned_pp_ix = aligned_pp.size() - 1;
@@ -629,12 +629,10 @@ struct BoothPassWorker {
 		// in first column of the last partial product
 		// which is at index corresponding to size of multiplicand
 		{
+			int prior_row_idx = get<1>(ppij_int[aligned_pp_ix - 1]);
 			SigBit prior_row_sign = get<2>(ppij_int[aligned_pp_ix - 1]);
-			//if (prior_row_sign) {
-				log_assert(aligned_pp_ix < aligned_pp.size());
-				log_assert(x_sz - 1 < (int)(aligned_pp[aligned_pp_ix].size()));
-				aligned_pp[aligned_pp_ix][x_sz - 1] = prior_row_sign;
-			//}
+			if (prior_row_idx < z_sz)
+				aligned_pp[aligned_pp_ix][prior_row_idx] = prior_row_sign;
 		}
 
 		for (int row_ix = aligned_pp_ix - 1; row_ix >= 0; row_ix--) {
