@@ -337,9 +337,7 @@ struct BoothPassWorker {
 
 			BuildBoothUMultDecoderRowN(module,
 						   X, // multiplicand
-						   one_int[i], two_int[i], s_int[i], sb_int[i], ppij_row_n, i,
-						   false, // include sign
-						   false  // include constant
+						   one_int[i], two_int[i], s_int[i], sb_int[i], ppij_row_n, i
 			);
 			// data, shift, sign
 			ppij_int.push_back(std::make_tuple(ppij_row_n, i * 2, s_int[i]));
@@ -413,7 +411,7 @@ struct BoothPassWorker {
 	void BuildBoothUMultDecoderRowN(RTLIL::Module *module,
 					SigSpec X, // multiplicand
 					SigSpec one_int, SigSpec two_int, SigSpec s_int, SigSpec sb_int,
-					SigSpec &ppij_vec, int row_ix, bool no_sign, bool no_constant)
+					SigSpec &ppij_vec, int row_ix)
 	{
 		(void)module;
 		int x_sz = GetSize(X);
@@ -430,12 +428,10 @@ struct BoothPassWorker {
 		ppij_vec.append(Bur4d_msb("row_dec_red", X[x_sz - 1], two_int, s_int));
 
 		// sign bit
-		if (!no_sign) // if no sign is false then make a sign bit
-			ppij_vec.append(sb_int);
+		ppij_vec.append(sb_int);
 
 		// constant bit
-		if (!no_constant) // if non constant is false make a constant bit
-			ppij_vec.append(State::S1);
+		ppij_vec.append(State::S1);
 	}
 
 	void DebugDumpAlignPP(std::vector<std::vector<RTLIL::Wire *>> &aligned_pp)
