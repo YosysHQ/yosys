@@ -287,16 +287,18 @@ struct SimInstance
 
 			if (mod != nullptr) {
 				dirty_children.insert(new SimInstance(shared, scope + "." + RTLIL::unescape_id(cell->name), mod, cell, this));
-			}
-
-			for (auto &port : cell->connections()) {
+			} else {
+				for (auto &port : cell->connections())
 				if (cell->input(port.first))
-					for (auto bit : sigmap(port.second)) {
-						upd_cells[bit].insert(cell);
-						// Make sure cell inputs connected to constants are updated in the first cycle
-						if (bit.wire == nullptr)
-							dirty_bits.insert(bit);
-					}
+				for (auto bit : sigmap(port.second))
+					upd_cells[bit].insert(cell);
+
+				// Update all cells in the first cycle (to propagate constants but also to
+				// handle edge cases in which cells have defined output values in presence of
+				// undefined inputs). This is with the exception of few cells which don't have
+				// any inputs and should never be queued up for updating.
+				if (!cell->type.in(ID($initstate), ID($anyconst), ID($anyseq), ID($allconst), ID($allseq)))
+					dirty_cells.insert(cell);
 			}
 
 			if (RTLIL::builtin_ff_cell_types().count(cell->type) || cell->type == ID($anyinit)) {
@@ -492,6 +494,8 @@ struct SimInstance
 
 	void update_cell(Cell *cell)
 	{
+		log_assert(!cell->type.in(ID($initstate), ID($anyconst), ID($anyseq), ID($allconst), ID($allseq)));
+
 		if (ff_database.count(cell))
 			return;
 
