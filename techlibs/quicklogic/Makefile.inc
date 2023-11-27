@@ -1,6 +1,20 @@
+%_pm.h: passes/pmgen/pmgen.py %.pmg
+	$(P) mkdir -p pmgen && $(PYTHON_EXECUTABLE) $< -o $@ -p $(subst _pm.h,,$(notdir $@)) $(filter-out $<,$^)
+
 OBJS += techlibs/quicklogic/synth_quicklogic.o
-OBJS += techlibs/quicklogic/ql-bram-merge.o
-OBJS += techlibs/quicklogic/ql-bram-types.o
+OBJS += techlibs/quicklogic/ql_bram_merge.o
+OBJS += techlibs/quicklogic/ql_bram_types.o
+OBJS += techlibs/quicklogic/ql_dsp_simd.o
+OBJS += techlibs/quicklogic/ql_dsp_io_regs.o
+
+# --------------------------------------
+
+OBJS += techlibs/quicklogic/ql_dsp_macc.o
+GENFILES += techlibs/quicklogic/ql_dsp_macc_pm.h
+techlibs/quicklogic/ql_dsp_macc.o: techlibs/quicklogic/ql_dsp_macc_pm.h
+$(eval $(call add_extra_objs,techlibs/quicklogic/ql_dsp_macc_pm.h))
+
+# --------------------------------------
 
 $(eval $(call add_share_file,share/quicklogic/common,techlibs/quicklogic/common/cells_sim.v))
 
@@ -22,3 +36,6 @@ $(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf
 $(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/bram_types_sim.v))
 $(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/cells_sim.v))
 $(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/ffs_map.v))
+$(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/dsp_sim.v))
+$(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/dsp_map.v))
+$(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/dsp_final_map.v))
