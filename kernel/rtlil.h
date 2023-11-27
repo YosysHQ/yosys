@@ -921,6 +921,9 @@ public:
 	RTLIL::SigSpec extract(int offset, int length = 1) const;
 	RTLIL::SigSpec extract_end(int offset) const { return extract(offset, width_ - offset); }
 
+	RTLIL::SigBit lsb() const { log_assert(width_); return (*this)[0]; };
+	RTLIL::SigBit msb() const { log_assert(width_); return (*this)[width_ - 1]; };
+
 	void append(const RTLIL::SigSpec &signal);
 	inline void append(Wire *wire) { append(RTLIL::SigSpec(wire)); }
 	inline void append(const RTLIL::SigChunk &chunk) { append(RTLIL::SigSpec(chunk)); }

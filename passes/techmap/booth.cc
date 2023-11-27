@@ -66,6 +66,8 @@ struct BoothPassWorker {
 	RTLIL::Module *module;
 	SigMap sigmap;
 	int booth_counter;
+	bool lowpower = false;
+	bool mapped_cpa = false;
 
 	BoothPassWorker(RTLIL::Module *module) : module(module), sigmap(module) { booth_counter = 0; }
 
@@ -184,6 +186,24 @@ struct BoothPassWorker {
 		cor_o = module->AndGate(NEW_ID_SUFFIX(name), pp1_nor_pp0, cori_i);
 	}
 
+	void BuildBitwiseFa(Module *mod, std::string name, const SigSpec &sig_a, const SigSpec &sig_b,
+			    const SigSpec &sig_c, const SigSpec &sig_x, const SigSpec &sig_y,
+			    const std::string &src = "")
+	{
+		// We can't emit a single wide full-adder cell here since
+		// there would typically be feedback loops involving the cells'
+		// input and output ports, and Yosys doesn't cope well with
+		// those
+		log_assert(sig_a.size() == sig_b.size());
+		log_assert(sig_a.size() == sig_c.size());
+		log_assert(sig_a.size() == sig_x.size());
+		log_assert(sig_a.size() == sig_y.size());
+
+		for (int i = 0; i < sig_a.size(); i++)
+			mod->addFa(stringf("%s[%d]", name.c_str(), i), sig_a[i], sig_b[i],
+				   sig_c[i], sig_x[i], sig_y[i], src);
+	}
+
 	void run()
 	{
 		for (auto cell : module->selected_cells()) {
@@ -258,17 +278,19 @@ struct BoothPassWorker {
 			}
 			log_assert(GetSize(Y) == required_op_size);
 
-			if (!is_signed) /* unsigned multiplier */
-				CreateBoothUMult(module,
-						 A, // multiplicand
-						 B, // multiplier(scanned)
-						 Y  // result
+			if (!lowpower)
+				CreateBoothMult(module,
+					A, // multiplicand
+					B, // multiplier(scanned)
+					Y, // result
+					is_signed
 				);
-			else /* signed multiplier */
-				CreateBoothSMult(module,
-						 A, // multiplicand
-						 B, // multiplier(scanned)
-						 Y  // result (sized)
+			else
+				CreateBoothLowpowerMult(module,
+					A, // multiplicand
+					B, // multiplier(scanned)
+					Y, // result
+					is_signed
 				);
 
 			module->remove(cell);
@@ -276,25 +298,54 @@ struct BoothPassWorker {
 		}
 	}
 
+	SigSig WallaceSum(int width, std::vector<SigSpec> summands)
+	{
+		for (auto &s : summands)
+			s.extend_u0(width);
+
+		while (summands.size() > 2) {
+			std::vector<SigSpec> new_summands;
+			int i;
+			for (i = 0; i < (int) summands.size() - 2; i += 3) {
+				SigSpec x = module->addWire(NEW_ID, width);
+				SigSpec y = module->addWire(NEW_ID, width);
+				BuildBitwiseFa(module, NEW_ID.str(), summands[i], summands[i + 1],
+					       summands[i + 2], x, y);
+				new_summands.push_back(y);
+				new_summands.push_back({x.extract(0, width - 1), State::S0});
+			}
+
+			new_summands.insert(new_summands.begin(), summands.begin() + i, summands.end());
+
+			std::swap(summands, new_summands);
+		}
+
+		if (!summands.size())
+			return SigSig(SigSpec(width, State::S0), SigSpec(width, State::S0));
+		else if (summands.size() == 1)
+			return SigSig(summands[0], SigSpec(width, State::S0));
+		else
+			return SigSig(summands[0], summands[1]);
+	}
+
 	/*
-	  Build Unsigned Multiplier.
+	  Build Multiplier.
 	  -------------------------
-	  Create a booth unsigned multiplier.
-	  Uses a generic booth multiplier with
-	  extra row of decoders and extended multiplier
+	  Uses a generic booth multiplier
 	*/
 
-	void CreateBoothUMult(RTLIL::Module *module,
+	void CreateBoothMult(RTLIL::Module *module,
 			      SigSpec X, // multiplicand
 			      SigSpec Y, // multiplier
-			      SigSpec Z)
+			      SigSpec Z,
+			      bool is_signed)
 	{ // result
-		int x_sz = X.size(), z_sz = Z.size();
+		int z_sz = Z.size();
 
 		SigSpec one_int, two_int, s_int, sb_int;
 		int encoder_count = 0;
 
-		BuildBoothUMultEncoders(Y, one_int, two_int, s_int, sb_int, module, encoder_count);
+		BuildBoothMultEncoders(Y, one_int, two_int, s_int, sb_int, module, encoder_count, is_signed);
 
 		// Build the decoder rows
 		// format of each Partial product to be passed to CSA
@@ -308,43 +359,24 @@ struct BoothPassWorker {
 
 		// Row 0: special case 1. Format S/.S.S.C.Data
 		SigSpec ppij_row_0;
-		BuildBoothUMultDecoderRow0(module, X, s_int, sb_int, one_int, two_int, ppij_row_0);
+		BuildBoothMultDecoderRow0(module, X, s_int, sb_int, one_int, two_int, ppij_row_0, is_signed);
 
 		// data, shift, sign
 		ppij_int.push_back(std::make_tuple(ppij_row_0, 0, s_int[0]));
 
-		for (int i = 1; i < encoder_count - 2; i++) {
+		for (int i = 1; i < encoder_count; i++) {
 			// format 1,S.Data.shift = encoder_ix*2,sign = sb_int[i]
 			SigSpec ppij_row_n;
 
-			BuildBoothUMultDecoderRowN(module,
+			BuildBoothMultDecoderRowN(module,
 						   X, // multiplicand
 						   one_int[i], two_int[i], s_int[i], sb_int[i], ppij_row_n, i,
-						   false, // include sign
-						   false  // include constant
+						   is_signed
 			);
 			// data, shift, sign
 			ppij_int.push_back(std::make_tuple(ppij_row_n, i * 2, s_int[i]));
 		}
 
-		// Build second to last row
-		// format S/,Data + sign bit
-		SigSpec ppij_row_em1;
-		BuildBoothUMultDecoderRowN(module, X, one_int[encoder_count - 2], two_int[encoder_count - 2], s_int[encoder_count - 2],
-					   sb_int[encoder_count - 2], ppij_row_em1, encoder_count - 2,
-					   false, // include sign
-					   true	  // no constant
-		);
-		ppij_int.push_back(std::make_tuple(ppij_row_em1, (encoder_count - 2) * 2, s_int[encoder_count - 2]));
-		// Build last row
-		// format Data + sign bit
-		SigSpec ppij_row_e;
-		BuildBoothUMultDecoderRowN(module, X, one_int[encoder_count - 1], two_int[encoder_count - 1], s_int[encoder_count - 1],
-					   sb_int[encoder_count - 1], ppij_row_e, encoder_count - 1,
-					   true, // no sign
-					   true	 // no constant
-		);
-		ppij_int.push_back(std::make_tuple(ppij_row_e, (encoder_count - 1) * 2, s_int[encoder_count - 1]));
 
 		//  Debug dump out partial products
 		//  DebugDumpPP(ppij_int);
@@ -358,35 +390,34 @@ struct BoothPassWorker {
 		for (int i = 0; i < encoder_count + 1; i++)
 			aligned_pp[i].extend_u0(z_sz);
 
-		AlignPP(x_sz, z_sz, ppij_int, aligned_pp);
+		AlignPP(z_sz, ppij_int, aligned_pp);
 
 		// Debug: dump out aligned partial products.
 		// Later on yosys will clean up unused constants
 		//  DebugDumpAlignPP(aligned_pp);
 
-		SigSpec s_vec;
-		SigSpec c_vec;
-		std::vector<std::vector<RTLIL::Cell *>> debug_csa_trees;
-
-		debug_csa_trees.resize(z_sz);
-
-		BuildCSATree(module, aligned_pp, s_vec, c_vec, debug_csa_trees);
+		SigSig wtree_sum = WallaceSum(z_sz, aligned_pp);
 
 		// Debug code: Dump out the csa trees
 		// DumpCSATrees(debug_csa_trees);
 		// Build the CPA to do the final accumulation.
-		BuildCPA(module, s_vec, c_vec, Z);
+		log_assert(wtree_sum.second[0] == State::S0);
+		if (mapped_cpa)
+			BuildCPA(module, wtree_sum.first, {State::S0, wtree_sum.second.extract_end(1)}, Z);
+		else
+			module->addAdd(NEW_ID, wtree_sum.first, {wtree_sum.second.extract_end(1), State::S0}, Z);
 	}
 
 	/*
 	  Build Row 0 of decoders
 	*/
 
-	void BuildBoothUMultDecoderRow0(RTLIL::Module *module,
+	void BuildBoothMultDecoderRow0(RTLIL::Module *module,
 					SigSpec X, // multiplicand
 					SigSpec s_int, SigSpec sb_int, SigSpec one_int,
-					SigSpec two_int, SigSpec &ppij_vec)
+					SigSpec two_int, SigSpec &ppij_vec, bool is_signed)
 	{
+		(void)sb_int;
 		(void)module;
 		int x_sz = GetSize(X);
 		SigBit ppij;
@@ -399,21 +430,32 @@ struct BoothPassWorker {
 			ppij_vec.append(Bur4d_n(stringf("row0_dec_%d", i), X[i], X[i - 1],
 						one_int[0], two_int[0], s_int[0]));
 
+
 		// The redundant bit. Duplicate decoding of last bit.
-		ppij_vec.append(Bur4d_msb("row0_dec_msb", X[x_sz - 1], two_int[0], s_int[0]));
+		if (!is_signed) {
+			ppij_vec.append(Bur4d_msb("row0_dec_msb", X.msb(), two_int[0], s_int[0]));
+		} else {
+			ppij_vec.append(Bur4d_n("row0_dec_msb", X.msb(), X.msb(),
+										  one_int[0], two_int[0], s_int[0]));
+		}
 
 		// append the sign bits
-		ppij_vec.append(s_int[0]);
-		ppij_vec.append(s_int[0]);
-		ppij_vec.append(sb_int[0]);
+		if (is_signed) {
+			SigBit e = module->XorGate(NEW_ID, s_int[0], module->AndGate(NEW_ID, X.msb(), module->OrGate(NEW_ID, two_int[0], one_int[0])));
+			ppij_vec.append({module->NotGate(NEW_ID, e), e, e});
+		} else {
+			// append the sign bits
+			ppij_vec.append({module->NotGate(NEW_ID, s_int[0]), s_int[0], s_int[0]});
+		}
 	}
 
 	// Build a generic row of decoders.
 
-	void BuildBoothUMultDecoderRowN(RTLIL::Module *module,
+	void BuildBoothMultDecoderRowN(RTLIL::Module *module,
 					SigSpec X, // multiplicand
 					SigSpec one_int, SigSpec two_int, SigSpec s_int, SigSpec sb_int,
-					SigSpec &ppij_vec, int row_ix, bool no_sign, bool no_constant)
+					SigSpec &ppij_vec, int row_ix,
+					bool is_signed)
 	{
 		(void)module;
 		int x_sz = GetSize(X);
@@ -426,16 +468,15 @@ struct BoothPassWorker {
 			ppij_vec.append(Bur4d_n(stringf("row_%d_dec_%d", row_ix, i), X[i], X[i - 1],
 				     		one_int, two_int, s_int));
 
-		// redundant bit
-		ppij_vec.append(Bur4d_msb("row_dec_red", X[x_sz - 1], two_int, s_int));
+		if (!is_signed) {			// redundant bit
+			ppij_vec.append(Bur4d_msb("row_dec_red", X[x_sz - 1], two_int, s_int));
+		} else {
+			ppij_vec.append(Bur4d_n(stringf("row_%d_dec_msb", row_ix), X[x_sz - 1], X[x_sz - 1],
+				     					one_int, two_int, s_int));
+		}
 
-		// sign bit
-		if (!no_sign) // if no sign is false then make a sign bit
-			ppij_vec.append(sb_int);
-
-		// constant bit
-		if (!no_constant) // if non constant is false make a constant bit
-			ppij_vec.append(State::S1);
+		ppij_vec.append(!is_signed ? sb_int[0] : module->XorGate(NEW_ID, sb_int, module->AndGate(NEW_ID, X.msb(), module->OrGate(NEW_ID, two_int, one_int))));
+		ppij_vec.append(State::S1);
 	}
 
 	void DebugDumpAlignPP(std::vector<std::vector<RTLIL::Wire *>> &aligned_pp)
@@ -591,7 +632,7 @@ struct BoothPassWorker {
 	  Pad out rows with zeros and left the opt pass clean them up.
 
 	*/
-	void AlignPP(int x_sz, int z_sz, std::vector<std::tuple<SigSpec, int, SigBit>> &ppij_int,
+	void AlignPP(int z_sz, std::vector<std::tuple<SigSpec, int, SigBit>> &ppij_int,
 		     std::vector<SigSpec> &aligned_pp)
 	{
 		unsigned aligned_pp_ix = aligned_pp.size() - 1;
@@ -611,12 +652,10 @@ struct BoothPassWorker {
 		// in first column of the last partial product
 		// which is at index corresponding to size of multiplicand
 		{
+			int prior_row_idx = get<1>(ppij_int[aligned_pp_ix - 1]);
 			SigBit prior_row_sign = get<2>(ppij_int[aligned_pp_ix - 1]);
-			//if (prior_row_sign) {
-				log_assert(aligned_pp_ix < aligned_pp.size());
-				log_assert(x_sz - 1 < (int)(aligned_pp[aligned_pp_ix].size()));
-				aligned_pp[aligned_pp_ix][x_sz - 1] = prior_row_sign;
-			//}
+			if (prior_row_idx < z_sz)
+				aligned_pp[aligned_pp_ix][prior_row_idx] = prior_row_sign;
 		}
 
 		for (int row_ix = aligned_pp_ix - 1; row_ix >= 0; row_ix--) {
@@ -813,12 +852,12 @@ struct BoothPassWorker {
 		}
 	}
 
-	void BuildBoothUMultEncoders(SigSpec Y, SigSpec &one_int, SigSpec &two_int,
-				     SigSpec &s_int, SigSpec &sb_int, RTLIL::Module *module, int &encoder_ix)
+	void BuildBoothMultEncoders(SigSpec Y, SigSpec &one_int, SigSpec &two_int,
+				     SigSpec &s_int, SigSpec &sb_int, RTLIL::Module *module, int &encoder_ix, bool is_signed)
 	{
 		int y_sz = GetSize(Y);
 
-		for (int y_ix = 0; y_ix < y_sz;) {
+		for (int y_ix = 0; y_ix < (!is_signed ? y_sz : y_sz - 1);) {
 			std::string enc_name = stringf("bur_enc_%d", encoder_ix);
 
 			two_int.append(module->addWire(NEW_ID_SUFFIX(stringf("two_int_%d", encoder_ix)), 1));
@@ -844,7 +883,7 @@ struct BoothPassWorker {
 				bool need_padded_cell = false;
 
 				if (y_ix > y_sz - 1) {
-					y0 = State::S0;
+					y0 = is_signed ? Y.msb() : State::S0;
 					need_padded_cell = false;
 				} else {
 					y0 = Y[y_ix];
@@ -853,7 +892,7 @@ struct BoothPassWorker {
 
 				if (y_ix > y_sz - 1) {
 					need_padded_cell = false;
-					y1 = State::S0;
+					y1 = is_signed ? Y.msb() : State::S0;
 				} else {
 					y1 = Y[y_ix];
 					y_ix++;
@@ -861,10 +900,10 @@ struct BoothPassWorker {
 
 				if (y_ix > y_sz - 1) {
 					need_padded_cell = false;
-					y2 = State::S0;
+					y2 = is_signed ? Y.msb() : State::S0;
 				} else {
 					if (y_ix == y_sz - 1)
-						need_padded_cell = true;
+						need_padded_cell = !is_signed;
 					else
 						need_padded_cell = false;
 					y2 = Y[y_ix];
@@ -902,11 +941,14 @@ struct BoothPassWorker {
 	}
 
 	/*
-	  Signed Multiplier
+	  Low-power Multiplier
 	*/
-	void CreateBoothSMult(RTLIL::Module *module, SigSpec X, SigSpec Y, SigSpec Z)
+	void CreateBoothLowpowerMult(RTLIL::Module *module, SigSpec X, SigSpec Y, SigSpec Z, bool is_signed)
 	{ // product
 		int x_sz = X.size(), y_sz = Y.size(), z_sz = Z.size();
+
+		if (!is_signed)
+			log_error("Low-power Booth architecture is only supported on signed multipliers.\n");
 
 		unsigned enc_count = (y_sz / 2) + (((y_sz % 2) != 0) ? 1 : 0);
 		int dec_count = x_sz + 1;
@@ -1010,217 +1052,87 @@ struct BoothPassWorker {
 		}
 
 		//
+		// instantiate the quadrant 1 cell. This is the upper right
+		// quadrant which can be realized using non-booth encoded logic.
+		//
+		SigBit pp0_o_int, pp1_o_int, nxj_o_int, q1_carry_out;
+
+		BuildBoothQ1("icb_booth_q1_",
+			     negi_n_int[0], // negi
+			     cori_n_int[0], // cori
+			     X[0], X[1], Y[0], Y[1],
+			     nxj_o_int, q1_carry_out, pp0_o_int, pp1_o_int);
+
+		module->connect(Z[0], pp0_o_int);
+		module->connect(Z[1], pp1_o_int);
+		module->connect(nxj[(0 * dec_count) + 2], nxj_o_int);
+
+		//
 		// sum up the partial products
 		//
-		int fa_el_ix = 0;
 		int fa_row_ix = 0;
-		// use 1 d arrays (2d cannot have variable sized indices)
-		SigSpec fa_sum_n(State::S0, fa_row_count * fa_count);
-		SigSpec fa_carry_n(State::S0, fa_row_count * fa_count);
+		std::vector<SigSpec> fa_sum;
+		std::vector<SigSpec> fa_carry;
 
 		for (fa_row_ix = 0; fa_row_ix < fa_row_count; fa_row_ix++) {
-			for (fa_el_ix = 0; fa_el_ix < fa_count; fa_el_ix++) {
-				fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix] =
-					module->addWire(NEW_ID_SUFFIX(stringf("fa_sum_n_%d_%d", fa_row_ix, fa_el_ix)), 1);
-				fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix] =
-					module->addWire(NEW_ID_SUFFIX(stringf("fa_carry_n_%d_%d", fa_row_ix, fa_el_ix)), 1);
-			}
+			fa_sum.push_back(module->addWire(NEW_ID_SUFFIX(stringf("fa_sum_%d", fa_row_ix)), fa_count));
+			fa_carry.push_back(module->addWire(NEW_ID_SUFFIX(stringf("fa_carry_%d", fa_row_ix)), fa_count));
 		}
 
 		// full adder creation
-		std::string bfa_name;
-		std::string exc_inv_name;
-		for (fa_row_ix = 0; fa_row_ix < fa_row_count; fa_row_ix++) {
-			for (fa_el_ix = 0; fa_el_ix < fa_count; fa_el_ix++) {
-				// base case: 1st row. Inputs from decoders
-				// Note in rest of tree inputs from prior addition and a decoder
-				if (fa_row_ix == 0) {
-					// beginning
-					// base case:
-					// first two cells: have B input hooked to 0.
-					if (fa_el_ix == 0) {
-						// quadrant 1: we hard code these using non-booth
-						fa_el_ix++;
+		// base case: 1st row: Inputs from decoders
+		// 1st row exception: two localized inverters due to sign extension structure
+		SigBit d08_inv = module->NotGate(NEW_ID_SUFFIX("bfa_0_exc_inv1"), PPij[(0 * dec_count) + dec_count - 1]);
+		SigBit d18_inv = module->NotGate(NEW_ID_SUFFIX("bfa_0_exc_inv2"), PPij[(1 * dec_count) + dec_count - 1]);
+		BuildBitwiseFa(module, NEW_ID_SUFFIX("fa_row_0").str(),
+			/* A */ {State::S0, d08_inv, PPij[(0 * dec_count) + x_sz], PPij.extract((0 * dec_count) + 2, x_sz - 1)},
+			/* B */ {State::S1, d18_inv, PPij.extract((1 * dec_count), x_sz)},
+			/* C */ fa_carry[0].extract(1, x_sz + 2),
+			/* X */ fa_carry[0].extract(2, x_sz + 2),
+			/* Y */ fa_sum[0].extract(2, x_sz + 2)
+		);
+		module->connect(fa_carry[0][1], q1_carry_out);
 
-					}
-					// step case
-					else if (fa_el_ix >= 2 && fa_el_ix <= x_sz) {
-						// middle (2...x_sz cells)
-						module->addFa(NEW_ID_SUFFIX(stringf("bfa_0_step_%d_%d_L", fa_row_ix, fa_el_ix)),
-							/* A */ PPij[(0 * dec_count) + fa_el_ix],
-							/* B */ PPij[(1 * dec_count) + fa_el_ix - 2],
-							/* C */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1],
-							/* X */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix],
-							/* Y */ fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]
-						);
-					}
-					// end 3 cells: x_sz+1.2.3
-					//
-					else {
-						// fa_el_ix = x_sz+1
-						module->addFa(NEW_ID_SUFFIX(stringf("bfa_0_se_0_%d_%d_L", fa_row_ix, fa_el_ix)),
-							/* A */ PPij[(0 * dec_count) + x_sz],
-							/* B */ PPij[(1 * dec_count) + fa_el_ix - 2],
-							/* C */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1],
-							/* X */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix],
-							/* Y */ fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]
-						);
+		// step case: 2nd and rest of rows. (fa_row_ix == 1...n)
+		// special because these are driven by a decoder and prior fa.
+		for (fa_row_ix = 1; fa_row_ix < fa_row_count; fa_row_ix++) {
+			// end two bits: sign extension
+			SigBit d_inv = module->NotGate(NEW_ID_SUFFIX(stringf("bfa_se_inv_%d_L", fa_row_ix)),
+						       PPij[((fa_row_ix + 1) * dec_count) + dec_count - 1]);
 
-						// exception:invert ppi
-						fa_el_ix++;
-						SigBit d08_inv = module->NotGate(NEW_ID_SUFFIX(stringf("bfa_0_exc_inv1_%d_%d_L", fa_row_ix, fa_el_ix)),
-										 PPij[(0 * dec_count) + dec_count - 1]);
+			BuildBitwiseFa(module, NEW_ID_SUFFIX(stringf("fa_row_%d", fa_row_ix)).str(),
+				/* A */	{State::S0, fa_carry[fa_row_ix - 1][fa_count - 1], fa_sum[fa_row_ix - 1].extract(2, x_sz + 2)},
+				/* B */ {State::S1, d_inv, PPij.extract((fa_row_ix + 1) * dec_count, x_sz), State::S0, State::S0},
 
-						SigBit d18_inv = module->NotGate(NEW_ID_SUFFIX(stringf("bfa_0_exc_inv2_%d_%d_L", fa_row_ix, fa_el_ix)),
-										 PPij[(1 * dec_count) + dec_count - 1]);
-
-						module->addFa(NEW_ID_SUFFIX(stringf("bfa_0_se_1_%d_%d_L", fa_row_ix, fa_el_ix)),
-							/* A */ d08_inv,
-							/* B */ d18_inv,
-							/* C */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1],
-							/* X */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix],
-							/* Y */ fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]
-						);
-
-						// sign extension
-						fa_el_ix++;
-
-						module->addFa(NEW_ID_SUFFIX(stringf("bfa_0_se_2_%d_%d_L", fa_row_ix, fa_el_ix)),
-							/* A */ State::S0,
-							/* B */ State::S1,
-							/* C */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1],
-							/* X */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix],
-							/* Y */ fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]
-						);
-					}
-				}
-
-				// step case: 2nd and rest of rows. (fa_row_ix == 1...n)
-				// special because these are driven by a decoder and prior fa.
-				else {
-					// beginning
-					if (fa_el_ix == 0) {
-						// first two cells: have B input hooked to 0.
-						// column is offset by row_ix*2
-
-						module->addFa(NEW_ID_SUFFIX(stringf("bfa_base_%d_%d_L", fa_row_ix, fa_el_ix)),
-							/* A */ fa_sum_n[(fa_row_ix - 1) * fa_count + 2],
-							/* B */ State::S0,
-							/* C */ cori_n_int[fa_row_ix],
-							/* X */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix],
-							/* Y */ fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]
-						);
-						fa_el_ix++;
-
-						module->addFa(NEW_ID_SUFFIX(stringf("bfa_base_%d_%d_L", fa_row_ix, fa_el_ix)),
-							/* A */ fa_sum_n[(fa_row_ix - 1) * fa_count + 3], // from prior full adder row
-							/* B */ State::S0,
-							/* C */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1],
-							/* X */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix],
-							/* Y */ fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]
-						);
-
-					}
-
-					else if (fa_el_ix >= 2 && fa_el_ix <= x_sz + 1) {
-						// middle (2...x_sz+1 cells)
-						module->addFa(NEW_ID_SUFFIX(stringf("bfa_step_%d_%d_L", fa_row_ix, fa_el_ix)),
-							/* A */ fa_sum_n[(fa_row_ix - 1) * fa_count + fa_el_ix + 2],
-							/* B */ PPij[(fa_row_ix + 1) * dec_count + fa_el_ix - 2],
-							/* C */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1],
-							/* X */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix],
-							/* Y */ fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]
-						);
-					}
-
-					else if (fa_el_ix > x_sz + 1) {
-						// end two bits: sign extension
-						SigBit d_inv = module->NotGate(NEW_ID_SUFFIX(stringf("bfa_se_inv_%d_%d_L", fa_row_ix, fa_el_ix)),
-									       PPij[((fa_row_ix + 1) * dec_count) + dec_count - 1]);
-
-						module->addFa(NEW_ID_SUFFIX(stringf("bfa_se_%d_%d_L", fa_row_ix, fa_el_ix)),
-							/* A */ fa_carry_n[((fa_row_ix - 1) * fa_count) + fa_count - 1],
-							/* B */ d_inv,
-							/* C */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1],
-							/* X */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix],
-							/* Y */ fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]
-						);
-						fa_el_ix++;
-
-						// sign extension
-						module->addFa(NEW_ID_SUFFIX(stringf("bfa_se_%d_%d_L", fa_row_ix, fa_el_ix)),
-							/* A */ State::S0,
-							/* B */ State::S1,
-							/* C */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix - 1],
-							/* X */ fa_carry_n[(fa_row_ix * fa_count) + fa_el_ix],
-							/* Y */ fa_sum_n[(fa_row_ix * fa_count) + fa_el_ix]
-						);
-					}
-				}
-			}
+				/* C */ {fa_carry[fa_row_ix].extract(0, x_sz + 3), cori_n_int[fa_row_ix]},
+				/* X */ fa_carry[fa_row_ix],
+				/* Y */ fa_sum[fa_row_ix]
+			);
 		}
 
 		// instantiate the cpa
 		SigSpec cpa_carry;
+		if (z_sz > fa_row_count * 2)
+			cpa_carry = module->addWire(NEW_ID_SUFFIX("cpa_carry"), z_sz - fa_row_count * 2);
 
-		for (int cix = 0; cix < z_sz; cix++)
-			cpa_carry.append(module->addWire(NEW_ID_SUFFIX(stringf("cpa_carry_%d", cix)), 1));
-
-		for (int cpa_ix = 0; cpa_ix < z_sz; cpa_ix++) {
-			// The end case where we pass the last two summands
-			// from prior row directly to product output
-			// without using a cpa cell. This is always
-			// 0,1 index of prior fa row
-			if (cpa_ix <= fa_row_count * 2 - 1) {
-				int fa_row_ix = cpa_ix / 2;
-
-				module->addBufGate(NEW_ID_SUFFIX(stringf("pp_buf_%d_driven_by_fa_row_%d", cpa_ix, fa_row_ix)),
-						   fa_sum_n[(fa_row_ix * fa_count) + 0], Z[cpa_ix]);
-
-				cpa_ix++;
-				module->addBufGate(NEW_ID_SUFFIX(stringf("pp_buf_%d_driven_by_fa_row_%d", cpa_ix, fa_row_ix)),
-						   fa_sum_n[(fa_row_ix * fa_count) + 1], Z[cpa_ix]);
-			} else {
-				int offset = fa_row_count * 2;
-				bool base_case = cpa_ix - offset == 0 ? true : false;
-				std::string cpa_name = stringf("cpa_%d", cpa_ix - offset);
-
-				SigBit ci;
-				if (base_case)
-					ci = cori_n_int[enc_count - 1];
-				else
-					ci = cpa_carry[cpa_ix - offset - 1];
-
-				SigBit op;
-				BuildHa(cpa_name, fa_sum_n[(fa_row_count - 1) * fa_count + cpa_ix - offset + 2], ci, op,
-					cpa_carry[cpa_ix - offset]);
-				module->connect(Z[cpa_ix], op);
-			}
+		// The end case where we pass the last two summands
+		// from prior row directly to product output
+		// without using a cpa cell. This is always
+		// 0,1 index of prior fa row
+		for (int cpa_ix = 0; cpa_ix < fa_row_count * 2; cpa_ix += 2) {
+			int fa_row_ix = cpa_ix / 2;
+			module->connect(Z.extract(cpa_ix, 2), fa_sum[fa_row_ix].extract(0, 2));
 		}
 
-		//
-		// instantiate the quadrant 1 cell. This is the upper right
-		// quadrant which can be realized using non-booth encoded logic.
-		//
-		std::string q1_name = "icb_booth_q1_";
+		for (int cpa_ix = fa_row_count * 2; cpa_ix < z_sz; cpa_ix++) {
+			int offset = fa_row_count * 2;
+			std::string cpa_name = stringf("cpa_%d", cpa_ix - offset);
 
-		SigBit pp0_o_int;
-		SigBit pp1_o_int;
-		SigBit nxj_o_int;
-		SigBit cor_o_int;
-
-		BuildBoothQ1(q1_name,
-			     negi_n_int[0], // negi
-			     cori_n_int[0], // cori
-
-			     X[0], X[1], Y[0], Y[1],
-
-			     nxj_o_int, cor_o_int, pp0_o_int, pp1_o_int);
-
-		module->connect(fa_sum_n[(0 * fa_count) + 0], pp0_o_int);
-		module->connect(fa_sum_n[(0 * fa_count) + 1], pp1_o_int);
-		module->connect(fa_carry_n[(0 * fa_count) + 1], cor_o_int);
-		module->connect(nxj[(0 * dec_count) + 2], nxj_o_int);
+			SigBit ci = (cpa_ix == offset) ? cori_n_int[enc_count - 1] : cpa_carry[cpa_ix - offset - 1];
+			SigBit op;
+			BuildHa(cpa_name, fa_sum[fa_row_count - 1][cpa_ix - offset + 2], ci, op, cpa_carry[cpa_ix - offset]);
+			module->connect(Z[cpa_ix], op);
+		}
 	}
 };
 
@@ -1232,21 +1144,13 @@ struct BoothPass : public Pass {
 		log("\n");
 		log("    booth [selection]\n");
 		log("\n");
-		log("This pass replaces multiplier cells with an implementation based on the Booth\n");
-		log("algorithm. It operates on $mul cells whose width of operands is at least 4x4\n");
-		log("and whose width of result is at least 8. The detailed architecture is selected\n");
-		log("from two options based on the signedness of the operands to the $mul cell.\n");
+		log("This pass replaces multiplier cells with a radix-4 Booth-encoded implementation.\n");
+		log("It operates on $mul cells whose width of operands is at least 4x4 and whose\n");
+		log("width of result is at least 8.\n");
 		log("\n");
-		log("See the references below for the description of the architectures.\n");
-		log("\n");
-		log("Signed-multiplier architecture:\n");
-		log("Y. J. Chang, Y. C. Cheng, S. C. Liao and C. H. Hsiao, \"A Low Power Radix-4 Booth\n");
-		log("Multiplier With Pre-Encoded Mechanism,\" in IEEE Access, vol. 8, pp. 114842-114853,\n");
-		log("2020, doi: 10.1109/ACCESS.2020.3003684\n");
-		log("\n");
-		log("Unsigned-multiplier architecture:\n");
-		log("G. W. Bewick, \"Fast Multiplication: Algorithms and Implementations,\" PhD Thesis,\n");
-		log("Department of Electrical Engineering, Stanford University, 1994\n");
+		log("    -lowpower\n");
+		log("        use an alternative low-power architecture for the generated multiplier\n");
+		log("        (signed multipliers only)\n");
 		log("\n");
 	}
 	void execute(vector<string> args, RTLIL::Design *design) override
@@ -1254,8 +1158,17 @@ struct BoothPass : public Pass {
 		log_header(design, "Executing BOOTH pass (map to Booth multipliers).\n");
 
 		size_t argidx;
+		bool mapped_cpa = false;
+		bool lowpower = false;
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			break;
+			if (args[argidx] == "-mapped_cpa")
+				// Have an undocumented option which helps with multiplier
+				// verification using specialized tools (AMulet2 in particular)
+				mapped_cpa = true;
+			else if (args[argidx] == "-lowpower")
+				lowpower = true;
+			else
+				break;
 		}
 		extra_args(args, argidx, design);
 
@@ -1264,6 +1177,8 @@ struct BoothPass : public Pass {
 		for (auto mod : design->selected_modules()) {
 			if (!mod->has_processes_warn()) {
 				BoothPassWorker worker(mod);
+				worker.mapped_cpa = mapped_cpa;
+				worker.lowpower = lowpower;
 				worker.run();
 				total += worker.booth_counter;
 			}
