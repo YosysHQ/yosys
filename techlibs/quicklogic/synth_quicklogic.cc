@@ -282,6 +282,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 				run("shregmap -minlen <min> -maxlen <max>", "(for qlf_k6n10f)");
 				run("dfflegalize -cell <supported FF types>");
 				run("techmap -map " + lib_path + family + "/cells_map.v", "(for pp3)");
+				run("techmap -map " + lib_path + family + "/ffs_map.v", "(for ql_k6n10f)");
 			}
 			if (family == "pp3") {
 				run("dfflegalize -cell $_DFFSRE_PPPP_ 0 -cell $_DLATCH_?_ x");
@@ -293,6 +294,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 				// not in the allowed set. As a workaround we put them in the allowed
 				// set explicitly and map them later to $_DLATCHSR_[NP]NN_.
 				run("dfflegalize -cell $_DFFSRE_?NNP_ 0 -cell $_DLATCHSR_?NN_ 0 -cell $_DLATCH_?_ 0" " -cell $_SDFFE_?N?P_ 0");
+				run("techmap -map " + lib_path + family + "/ffs_map.v");
 			}
 			run("opt");
 		}
