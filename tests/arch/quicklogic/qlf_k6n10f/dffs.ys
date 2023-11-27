@@ -7,7 +7,7 @@ hierarchy -top my_dff
 proc
 equiv_opt -async2sync -assert -map +/quicklogic/qlf_k6n10f/cells_sim.v -map +/quicklogic/common/cells_sim.v synth_quicklogic -family qlf_k6n10f # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
-cd dff # Constrain all select calls below inside the top module
+cd my_dff # Constrain all select calls below inside the top module
 select -assert-count 1 t:sdffsre
 select -assert-none t:sdffsre %% t:* %D 
 
@@ -16,6 +16,6 @@ hierarchy -top my_dffe
 proc
 equiv_opt -async2sync -assert -map +/quicklogic/qlf_k6n10f/cells_sim.v -map +/quicklogic/common/cells_sim.v synth_quicklogic -family qlf_k6n10f # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
-cd dffe # Constrain all select calls below inside the top module
+cd my_dffe # Constrain all select calls below inside the top module
 select -assert-count 1 t:sdffsre
 select -assert-none t:sdffsre %% t:* %D 
