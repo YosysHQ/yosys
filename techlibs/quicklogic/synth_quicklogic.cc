@@ -46,6 +46,15 @@ struct SynthQuickLogicPass : public ScriptPass {
 		log("        - pp3: PolarPro 3 \n");
 		log("        - qlf_k6n10f: K6N10f\n");
 		log("\n");
+		log("    -nodsp\n");
+		log("        do not use dsp_t1_* to implement multipliers and associated logic\n");
+		log("        (qlf_k6n10f only).\n");
+		log("\n");
+		log("    -use_dsp_cfg_params\n");
+		log("        By default use DSP blocks with configuration bits available at module\n");
+		log("        ports. Specifying this forces usage of DSP block with configuration\n");
+		log("        bits available as module parameters.\n");
+		log("\n");
 		log("    -nocarry\n");
 		log("        do not use adder_carry cells in output netlist.\n");
 		log("\n");
@@ -74,7 +83,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 	}
 
 	string top_opt, blif_file, edif_file, family, currmodule, verilog_file, lib_path;
-	bool abc9, inferAdder, nobram, bramTypes;
+	bool abc9, inferAdder, nobram, bramTypes, dsp;
 
 	void clear_flags() override
 	{
@@ -89,6 +98,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 		nobram = false;
 		bramTypes = false;
 		lib_path = "+/quicklogic/";
+		dsp = true;
 	}
 
 	void set_scratchpad_defaults(RTLIL::Design *design) {
@@ -149,6 +159,14 @@ struct SynthQuickLogicPass : public ScriptPass {
 				bramTypes = true;
 				continue;
 			}
+			if (args[argidx] == "-nodsp" || args[argidx] == "-no_dsp") {
+				dsp = false;
+				continue;
+			}
+			if (args[argidx] == "-use_dsp_cfg_params") {
+				use_dsp_cfg_params = " -use_dsp_cfg_params";
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -184,6 +202,8 @@ struct SynthQuickLogicPass : public ScriptPass {
 				read_simlibs += stringf(" %sqlf_k6n10f/brams_sim.v", lib_path.c_str());
 				if (bramTypes)
 					read_simlibs += stringf(" %sqlf_k6n10f/bram_types_sim.v", lib_path.c_str());
+				if (dsp)
+					read_simlibs += stringf(" %sqlf_k6n10f/dsp_sim.v", lib_path.c_str());
 			}
 			run(read_simlibs);
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt.c_str()));
@@ -208,6 +228,24 @@ struct SynthQuickLogicPass : public ScriptPass {
 			run("share");
 		}
 
+		if (check_label("map_dsp", "(for qlf_k6n10f, skip if -nodsp)")
+				&& ((dsp && family == "qlf_k6n10f") || help_mode)) {
+			run("wreduce t:$mul");
+			run("ql_dsp_macc" + use_dsp_cfg_params);
+
+			run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=20 -D DSP_B_MAXWIDTH=18 -D DSP_A_MINWIDTH=11 -D DSP_B_MINWIDTH=10 -D DSP_NAME=$__QL_MUL20X18");
+			run("techmap -map +/mul2dsp.v -D DSP_A_MAXWIDTH=10 -D DSP_B_MAXWIDTH=9 -D DSP_A_MINWIDTH=4 -D DSP_B_MINWIDTH=4 -D DSP_NAME=$__QL_MUL10X9");
+			run("chtype -set $mul t:$__soft_mul");
+				
+			if (use_dsp_cfg_params.empty())
+				run("techmap -map " + lib_path + family + "/dsp_map.v -D USE_DSP_CFG_PARAMS=0");
+			else
+				run("techmap -map " + lib_path + family + "/dsp_map.v -D USE_DSP_CFG_PARAMS=1");
+			run("ql_dsp_simd");
+			run("techmap -map " + lib_path + family + "/dsp_final_map.v");
+			run("ql_dsp_io_regs");
+		}
+
 		if (check_label("coarse")) {
 			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=4");
 			run("opt_expr");
@@ -219,15 +257,16 @@ struct SynthQuickLogicPass : public ScriptPass {
 			run("opt_clean");
 		}
 
-		if (check_label("map_bram", "(for qlf_k6n10f, skip if -no_bram)") && (help_mode || family == "qlf_k6n10f")) {
+		if (check_label("map_bram", "(for qlf_k6n10f, skip if -no_bram)")) {
+			if(family == "qlf_k6n10f" || help_mode)
 			run("memory_libmap -lib " + lib_path + family + "/libmap_brams.txt");
 			run("ql_bram_merge");
 			run("techmap -map " + lib_path + family + "/libmap_brams_map.v");
 			run("techmap -autoproc -map " + lib_path + family + "/brams_map.v");
 			run("techmap -map " + lib_path + family + "/brams_final_map.v");
 
-			if (help_mode || bramTypes) {
-				run("ql_bram_types");
+			if (bramTypes || help_mode) {
+				run("ql_bram_types", "(if -bramtypes)");
 			}
 		}
 

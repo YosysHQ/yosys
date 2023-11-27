@@ -1,0 +1,50 @@
+pattern ql_dsp_macc
+
+state <IdString> add_ba
+state <IdString> mux_ab
+
+state <int> mul_nusers
+state <int> add_nusers
+state <int> mux_nusers
+state <int> ff_d_nusers
+state <int> ff_q_nusers
+
+match mul
+    select mul->type.in($mul)
+    select nusers(port(mul, \Y)) <= 3
+    set mul_nusers nusers(port(mul, \Y))
+endmatch
+
+match add
+    select add->type.in($add, $sub)
+    choice <IdString> AB {\A, \B}
+    define <IdString> BA (AB == \A ? \B : \A)
+    index <SigSpec> port(add, AB) === port(mul, \Y)
+    select nusers(port(add, \Y)) <= 3
+    set add_nusers nusers(port(add, \Y))
+    set add_ba BA
+endmatch
+
+match mux
+    select mux->type.in($mux)
+    choice <IdString> AB {\A, \B}
+    define <IdString> BA (AB == \A ? \B : \A)
+    index <SigSpec> port(mux, AB) === port(mul, \Y)
+    index <SigSpec> port(mux, BA) === port(add, \Y)
+    select nusers(port(mux, \Y)) <= 3
+    set mux_nusers nusers(port(mux, \Y))
+    set mux_ab AB
+    optional
+endmatch
+
+match ff
+    select ff->type.in($dff, $adff, $dffe, $adffe)
+    index <SigSpec> port(ff, \D) === (mux == nullptr ? port(add, \Y) : port(mux, \Y))
+    index <SigSpec> port(ff, \Q) === port(add, add_ba)
+    set ff_d_nusers nusers(port(ff, \D))
+    set ff_q_nusers nusers(port(ff, \Q))
+endmatch
+
+code
+    accept;
+endcode
