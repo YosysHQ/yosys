@@ -1740,7 +1740,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			if (width_hint < 0)
 				detectSignWidth(width_hint, sign_hint);
 			RTLIL::SigSpec left = children[0]->genRTLIL(width_hint, sign_hint);
-			RTLIL::SigSpec right = children[1]->genRTLIL();
+			// for $shift and $shiftx, the second operand can be negative
+			RTLIL::SigSpec right = children[1]->genRTLIL(-1, type == AST_SHIFT || type == AST_SHIFTX);
 			int width = width_hint > 0 ? width_hint : left.size();
 			is_signed = children[0]->is_signed;
 			return binop2rtlil(this, type_name, width, left, right);
