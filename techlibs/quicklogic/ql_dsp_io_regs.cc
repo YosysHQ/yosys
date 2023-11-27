@@ -30,9 +30,9 @@ PRIVATE_NAMESPACE_BEGIN
 // ============================================================================
 
 struct QlDspIORegs : public Pass {
-	const std::vector<std::string> ports2del_mult = {"load_acc", "subtract", "acc_fir", "dly_b",
-													 "saturate_enable", "shift_right", "round"};
-	const std::vector<std::string> ports2del_mult_acc = {"acc_fir", "dly_b"};
+	const std::vector<IdString> ports2del_mult = {ID(load_acc), ID(subtract), ID(acc_fir), ID(dly_b),
+													 ID(saturate_enable), ID(shift_right), ID(round)};
+	const std::vector<IdString> ports2del_mult_acc = {ID(acc_fir), ID(dly_b)};
 
 	SigMap sigmap;
 
@@ -80,7 +80,7 @@ struct QlDspIORegs : public Pass {
 
 			// Get DSP configuration
 			for (auto cfg_port : {ID(register_inputs), ID(output_select)})
-			if (!cell->hasPort(cfg_port) || sigmap(cell->getPort(cfg_port)).is_fully_const())
+			if (!cell->hasPort(cfg_port) || !sigmap(cell->getPort(cfg_port)).is_fully_const())
 				log_error("Missing or non-constant '%s' port on DSP cell %s\n",
 						  log_id(cfg_port), log_id(cell));
 			int reg_in_i = sigmap(cell->getPort(ID(register_inputs))).as_int();
@@ -97,7 +97,7 @@ struct QlDspIORegs : public Pass {
 				log_error("Unexpected feedback configuration on %s\n", log_id(cell));
 
 			// Build new type name
-			std::string new_type = "QL_DSP2_MULT";
+			std::string new_type = "\\QL_DSP2_MULT";
 
 			// Decide if we should be deleting the clock port
 			bool del_clk = true;
