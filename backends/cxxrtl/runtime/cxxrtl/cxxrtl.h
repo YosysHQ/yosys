@@ -39,7 +39,8 @@
 #include <functional>
 #include <sstream>
 
-#include <backends/cxxrtl/cxxrtl_capi.h>
+// `cxxrtl::debug_item` has to inherit from `cxxrtl_object` to satisfy strict aliasing requirements.
+#include <cxxrtl/capi/cxxrtl_capi.h>
 
 #ifndef __has_attribute
 #	define __has_attribute(x) 0

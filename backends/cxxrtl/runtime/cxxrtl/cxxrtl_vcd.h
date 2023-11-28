@@ -19,7 +19,7 @@
 #ifndef CXXRTL_VCD_H
 #define CXXRTL_VCD_H
 
-#include <backends/cxxrtl/cxxrtl.h>
+#include <cxxrtl/cxxrtl.h>
 
 namespace cxxrtl {
 
