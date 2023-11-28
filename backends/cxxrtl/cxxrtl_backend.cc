@@ -2536,7 +2536,7 @@ struct CxxrtlWorker {
 			f << "#define " << include_guard << "\n";
 			f << "\n";
 			if (top_module != nullptr && debug_info) {
-				f << "#include <backends/cxxrtl/cxxrtl_capi.h>\n";
+				f << "#include <cxxrtl/capi/cxxrtl_capi.h>\n";
 				f << "\n";
 				f << "#ifdef __cplusplus\n";
 				f << "extern \"C\" {\n";
@@ -2554,7 +2554,7 @@ struct CxxrtlWorker {
 			}
 			f << "#ifdef __cplusplus\n";
 			f << "\n";
-			f << "#include <backends/cxxrtl/cxxrtl.h>\n";
+			f << "#include <cxxrtl/cxxrtl.h>\n";
 			f << "\n";
 			f << "using namespace cxxrtl;\n";
 			f << "\n";
@@ -2573,17 +2573,17 @@ struct CxxrtlWorker {
 		if (split_intf)
 			f << "#include \"" << intf_filename << "\"\n";
 		else
-			f << "#include <backends/cxxrtl/cxxrtl.h>\n";
+			f << "#include <cxxrtl/cxxrtl.h>\n";
 		if (has_prints)
 			f << "#include <iostream>\n";
 		f << "\n";
 		f << "#if defined(CXXRTL_INCLUDE_CAPI_IMPL) || \\\n";
 		f << "    defined(CXXRTL_INCLUDE_VCD_CAPI_IMPL)\n";
-		f << "#include <backends/cxxrtl/cxxrtl_capi.cc>\n";
+		f << "#include <cxxrtl/capi/cxxrtl_capi.cc>\n";
 		f << "#endif\n";
 		f << "\n";
 		f << "#if defined(CXXRTL_INCLUDE_VCD_CAPI_IMPL)\n";
-		f << "#include <backends/cxxrtl/cxxrtl_vcd_capi.cc>\n";
+		f << "#include <cxxrtl/capi/cxxrtl_capi_vcd.cc>\n";
 		f << "#endif\n";
 		f << "\n";
 		f << "using namespace cxxrtl_yosys;\n";

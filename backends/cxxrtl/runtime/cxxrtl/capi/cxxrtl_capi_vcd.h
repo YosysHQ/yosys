@@ -16,8 +16,8 @@
  *
  */
 
-#ifndef CXXRTL_VCD_CAPI_H
-#define CXXRTL_VCD_CAPI_H
+#ifndef CXXRTL_CAPI_VCD_H
+#define CXXRTL_CAPI_VCD_H
 
 // This file is a part of the CXXRTL C API. It should be used together with `cxxrtl_vcd_capi.cc`.
 //
@@ -27,7 +27,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <backends/cxxrtl/cxxrtl_capi.h>
+#include <cxxrtl/capi/cxxrtl_capi.h>
 
 #ifdef __cplusplus
 extern "C" {

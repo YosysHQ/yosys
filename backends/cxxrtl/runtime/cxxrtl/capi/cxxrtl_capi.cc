@@ -16,10 +16,10 @@
  *
  */
 
-// This file is a part of the CXXRTL C API. It should be used together with `cxxrtl_capi.h`.
+// This file is a part of the CXXRTL C API. It should be used together with `cxxrtl/capi/cxxrtl_capi.h`.
 
-#include <backends/cxxrtl/cxxrtl.h>
-#include <backends/cxxrtl/cxxrtl_capi.h>
+#include <cxxrtl/capi/cxxrtl_capi.h>
+#include <cxxrtl/cxxrtl.h>
 
 struct _cxxrtl_handle {
 	std::unique_ptr<cxxrtl::module> module;

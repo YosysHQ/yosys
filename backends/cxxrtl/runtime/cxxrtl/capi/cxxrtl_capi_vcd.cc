@@ -16,10 +16,10 @@
  *
  */
 
-// This file is a part of the CXXRTL C API. It should be used together with `cxxrtl_vcd_capi.h`.
+// This file is a part of the CXXRTL C API. It should be used together with `cxxrtl/capi/cxxrtl_capi_vcd.h`.
 
-#include <backends/cxxrtl/cxxrtl_vcd.h>
-#include <backends/cxxrtl/cxxrtl_vcd_capi.h>
+#include <cxxrtl/capi/cxxrtl_capi_vcd.h>
+#include <cxxrtl/cxxrtl_vcd.h>
 
 extern const cxxrtl::debug_items &cxxrtl_debug_items_from_handle(cxxrtl_handle handle);
 
