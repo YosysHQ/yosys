@@ -71,27 +71,34 @@ endmodule // sync_ram_sdp_wwr
 
 
 module sync_ram_sdp_wrr #(parameter DATA_WIDTH=8, ADDRESS_WIDTH=10) // rd=16, ra=9
-   (input  wire                         clk, write_enable,
-    input  wire  [DATA_WIDTH-1:0]       data_in,
-    input  wire  [ADDRESS_WIDTH-1:0]    address_in_w,
-    input  wire  [ADDRESS_WIDTH-2:0]    address_in_r,
-    output wire  [(DATA_WIDTH*1)-1:0]   data_out);
+(
+		input  wire                         clk_w, clk_r, write_enable,
+		input  wire  [DATA_WIDTH-1:0]       data_in,
+		input  wire  [ADDRESS_WIDTH-1:0]    address_in_w,
+		input  wire  [ADDRESS_WIDTH_R-1:0]  address_in_r,
+		output wire  [WORD-1:0]   data_out
+);
+	localparam ADDRESS_WIDTH_R = ADDRESS_WIDTH-1;
+	localparam HWORD = DATA_WIDTH;
+	localparam WORD  = 2*DATA_WIDTH;
+	localparam DEPTH = 2**ADDRESS_WIDTH_R;
 
-  localparam WORD  = (DATA_WIDTH-1);
-  localparam DEPTH = (2**ADDRESS_WIDTH-1);
+	reg [WORD-1:0] data_out_r;
+	reg [WORD-1:0] memory [0:DEPTH-1];
 
-  reg [WORD:0] data_out_r0;
-  reg [WORD:0] data_out_r1;
-  reg [WORD:0] memory [0:DEPTH];
+	always @(posedge clk_w) begin
+	if (write_enable)
+		if (address_in_w[0]) // upper HWORD
+			memory[address_in_w>>1][WORD-1:HWORD] <= data_in;
+		else // lower HWORD
+			memory[address_in_w>>1][HWORD-1:0] <= data_in;
+	end
 
-  always @(posedge clk) begin
-    if (write_enable)
-      memory[address_in_w] <= data_in;
-    data_out_r0 <= memory[address_in_r<<1+0];
-    data_out_r1 <= memory[address_in_r<<1+1];
-  end
+	always @(posedge clk_r) begin
+	data_out_r <= memory[address_in_r];
+	end
 
-  assign data_out = {data_out_r0, data_out_r1};
+	assign data_out = data_out_r;
 
 endmodule // sync_ram_sdp_wrr
 

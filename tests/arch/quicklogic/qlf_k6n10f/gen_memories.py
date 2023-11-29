@@ -36,7 +36,7 @@ blockram_tests: "list[tuple[list[tuple[str, int]], str, list[str]]]" = [
     ([("ADDRESS_WIDTH", 11), ("DATA_WIDTH",  9)], "sync_ram_sdp_wwr", ["-assert-count 1 t:TDP36K"]),
     # 2x read width (1024x36bit read / 2048x18bit write = 1TDP36K)
     ([("ADDRESS_WIDTH", 11), ("DATA_WIDTH", 18)], "sync_ram_sdp_wrr", ["-assert-count 1 t:TDP36K"]),
-    ([("ADDRESS_WIDTH", 10), ("DATA_WIDTH", 36)], "sync_ram_sdp_wrr", ["-assert-count 1 t:TDP36K"]),
+    ([("ADDRESS_WIDTH", 12), ("DATA_WIDTH",  9)], "sync_ram_sdp_wrr", ["-assert-count 1 t:TDP36K"]),
 
     # two disjoint 18K memories can share a single TDP36K
     ([("ADDRESS_WIDTH_A", 10), ("DATA_WIDTH_A", 18),
