@@ -96,6 +96,46 @@ module sync_ram_sdp_wrr #(parameter DATA_WIDTH=8, ADDRESS_WIDTH=10) // rd=16, ra
 endmodule // sync_ram_sdp_wrr
 
 
+module double_sync_ram_sdp #(parameter DATA_WIDTH_A=8, ADDRESS_WIDTH_A=10, DATA_WIDTH_B=8, ADDRESS_WIDTH_B=10)
+(
+    input  wire                        write_enable_a, clk_a,
+    input  wire  [DATA_WIDTH_A-1:0]    data_in_a,
+    input  wire  [ADDRESS_WIDTH_A-1:0] address_in_r_a, address_in_w_a,
+    output wire  [DATA_WIDTH_A-1:0]    data_out_a,
+
+    input  wire                        write_enable_b, clk_b,
+    input  wire  [DATA_WIDTH_B-1:0]    data_in_b,
+    input  wire  [ADDRESS_WIDTH_B-1:0] address_in_r_b, address_in_w_b,
+    output wire  [DATA_WIDTH_B-1:0]    data_out_b
+);
+
+    sync_ram_sdp #(
+        .DATA_WIDTH(DATA_WIDTH_A),
+        .ADDRESS_WIDTH(ADDRESS_WIDTH_A)
+    ) a_ram (
+    .write_enable(write_enable_a),
+    .clk(clk_a),
+    .data_in(data_in_a),
+    .address_in_r(address_in_r_a),
+    .address_in_w(address_in_w_a),
+    .data_out(data_out_a)
+    );
+
+    sync_ram_sdp #(
+        .DATA_WIDTH(DATA_WIDTH_B),
+        .ADDRESS_WIDTH(ADDRESS_WIDTH_B)
+    ) b_ram (
+    .write_enable(write_enable_b),
+    .clk(clk_b),
+    .data_in(data_in_b),
+    .address_in_r(address_in_r_b),
+    .address_in_w(address_in_w_b),
+    .data_out(data_out_b)
+    );
+
+endmodule // double_sync_ram_sdp
+
+
 module sync_ram_tdp #(parameter DATA_WIDTH=8, ADDRESS_WIDTH=10)
    (input  wire                      clk_a, clk_b, 
     input  wire                      write_enable_a, write_enable_b,
