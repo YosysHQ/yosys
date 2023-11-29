@@ -84,11 +84,29 @@ blockram_tests: "list[tuple[list[tuple[str, int]], str, list[str]]]" = [
     # but only if data width is <= 18
     ([("ADDRESS_WIDTH_A",  9), ("DATA_WIDTH_A", 36),
       ("ADDRESS_WIDTH_B", 11), ("DATA_WIDTH_B",  9)], "double_sync_ram_sdp", ["-assert-count 2 t:TDP36K"]),
+
     # sharing a TDP36K sets is_split=1
     ([("ADDRESS_WIDTH_A", 10), ("DATA_WIDTH_A", 18),
       ("ADDRESS_WIDTH_B", 10), ("DATA_WIDTH_B", 18)], "double_sync_ram_sdp", ["-assert-count 1 t:TDP36K a:is_split=1 %i"]),
     # an unshared TDP36K sets is_split=0
     ([("ADDRESS_WIDTH", 10), ("DATA_WIDTH", 36)],     "sync_ram_*dp",        ["-assert-count 1 t:TDP36K a:is_split=0 %i"]),
+
+    # sharing a TDP36K sets correct port widths
+    ([("ADDRESS_WIDTH_A", 10), ("DATA_WIDTH_A", 18), ("DATA_WIDTH_B", 18), ("ADDRESS_WIDTH_B", 10)], "double_sync_ram_sdp",
+     ["-assert-count 1 t:TDP36K a:port_a1_width=18 %i a:port_a2_width=18 %i",
+      "-assert-count 1 t:TDP36K"]),
+    ([("ADDRESS_WIDTH_A", 10), ("DATA_WIDTH_A", 16), ("DATA_WIDTH_B", 8),  ("ADDRESS_WIDTH_B", 11)], "double_sync_ram_sdp",
+     ["-assert-count 1 t:TDP36K a:port_a1_width=18 %i a:port_a2_width=9  %i "
+                    + "t:TDP36K a:port_a2_width=18 %i a:port_a1_width=9  %i %u",
+      "-assert-count 1 t:TDP36K"]),
+    ([("ADDRESS_WIDTH_A", 12), ("DATA_WIDTH_A", 4),  ("DATA_WIDTH_B", 12), ("ADDRESS_WIDTH_B", 10)], "double_sync_ram_sdp",
+     ["-assert-count 1 t:TDP36K a:port_a1_width=4  %i a:port_a2_width=18 %i "
+                    + "t:TDP36K a:port_a2_width=4  %i a:port_a1_width=18 %i %u",
+      "-assert-count 1 t:TDP36K"]),
+    ([("ADDRESS_WIDTH_A", 13), ("DATA_WIDTH_A", 2),  ("DATA_WIDTH_B", 1),  ("ADDRESS_WIDTH_B", 14)], "double_sync_ram_sdp",
+     ["-assert-count 1 t:TDP36K a:port_a1_width=2  %i a:port_a2_width=1  %i "
+                    + "t:TDP36K a:port_a2_width=2  %i a:port_a1_width=1  %i %u",
+      "-assert-count 1 t:TDP36K"]),
 ]
 
 with open("t_mem.ys", mode="w") as f:
