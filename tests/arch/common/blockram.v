@@ -45,57 +45,77 @@ module sync_ram_sdp #(parameter DATA_WIDTH=8, ADDRESS_WIDTH=10)
 endmodule // sync_ram_sdp
 
 
-module sync_ram_sdp_wwr #(parameter DATA_WIDTH=8, ADDRESS_WIDTH=10) // wd=16, wa=9
-   (input  wire                          clk, write_enable,
-    input  wire  [(DATA_WIDTH*2)-1:0]    data_in,
-    input  wire  [ADDRESS_WIDTH-2:0]     address_in_w,
-    input  wire  [ADDRESS_WIDTH-1:0]     address_in_r,
-    output wire  [DATA_WIDTH-1:0]        data_out);
-
-  localparam WORD  = ((DATA_WIDTH*2)-1);
-  localparam DEPTH = (2**(ADDRESS_WIDTH-1)-1);
-
-  reg [WORD:0] data_out_r;
-  reg [WORD:0] memory [0:DEPTH];
-
-  always @(posedge clk) begin
-    if (write_enable) begin
-      memory[address_in_w] <= data_in;
-    end
-    data_out_r <= memory[address_in_r>>1];
-  end
-
-  assign data_out = address_in_r[0] ? data_out_r[WORD:DATA_WIDTH] : data_out_r[DATA_WIDTH-1:0];
-
-endmodule // sync_ram_sdp_wwr
-
-
-module sync_ram_sdp_wrr #(parameter DATA_WIDTH=8, ADDRESS_WIDTH=10) // rd=16, ra=9
+module sync_ram_sdp_wwr #(parameter DATA_WIDTH=8, ADDRESS_WIDTH=10, WRITE_SHIFT=1) // wd=16, wa=9
 (
-		input  wire                         clk_w, clk_r, write_enable,
-		input  wire  [DATA_WIDTH-1:0]       data_in,
-		input  wire  [ADDRESS_WIDTH-1:0]    address_in_w,
-		input  wire  [ADDRESS_WIDTH_R-1:0]  address_in_r,
-		output wire  [WORD-1:0]   data_out
+		input  wire                          clk_w, clk_r, write_enable,
+    		input  wire  [WORD-1:0]              data_in,
+    		input  wire  [ADDRESS_WIDTH_W-1:0]   address_in_w,
+    		input  wire  [ADDRESS_WIDTH-1:0]     address_in_r,
+    		output wire  [DATA_WIDTH-1:0]        data_out
 );
-	localparam ADDRESS_WIDTH_R = ADDRESS_WIDTH-1;
-	localparam HWORD = DATA_WIDTH;
-	localparam WORD  = 2*DATA_WIDTH;
-	localparam DEPTH = 2**ADDRESS_WIDTH_R;
+
+	localparam ADDRESS_WIDTH_W = ADDRESS_WIDTH-WRITE_SHIFT;
+	localparam BYTE = DATA_WIDTH;
+	localparam WORD  = DATA_WIDTH<<WRITE_SHIFT;
+	localparam DEPTH = 2**ADDRESS_WIDTH_W;
+	localparam SUB_DEPTH = 2**WRITE_SHIFT;
 
 	reg [WORD-1:0] data_out_r;
 	reg [WORD-1:0] memory [0:DEPTH-1];
 
 	always @(posedge clk_w) begin
-	if (write_enable)
-		if (address_in_w[0]) // upper HWORD
-			memory[address_in_w>>1][WORD-1:HWORD] <= data_in;
-		else // lower HWORD
-			memory[address_in_w>>1][HWORD-1:0] <= data_in;
+		if (write_enable)
+			memory[address_in_w] <= data_in;
 	end
 
 	always @(posedge clk_r) begin
-	data_out_r <= memory[address_in_r];
+		data_out_r <= memory[address_in_r>>WRITE_SHIFT];
+	end
+
+	wire [WRITE_SHIFT-1:0] inner_address;
+	assign inner_address = address_in_r[WRITE_SHIFT-1:0];
+	genvar i;
+	generate
+	for (i=0; i<SUB_DEPTH; i=i+1)
+		assign data_out = (inner_address == i) ? data_out_r[i*BYTE+:BYTE] : 0;
+	endgenerate
+
+endmodule // sync_ram_sdp_wwr
+
+
+module sync_ram_sdp_wrr #(parameter DATA_WIDTH=8, ADDRESS_WIDTH=10, READ_SHIFT=1) // rd=16, ra=9
+(
+		input  wire                         clk_w, clk_r, write_enable,
+		input  wire  [DATA_WIDTH-1:0]       data_in,
+		input  wire  [ADDRESS_WIDTH-1:0]    address_in_w,
+		input  wire  [ADDRESS_WIDTH_R-1:0]  address_in_r,
+		output wire  [WORD-1:0]             data_out
+);
+	localparam ADDRESS_WIDTH_R = ADDRESS_WIDTH-READ_SHIFT;
+	localparam BYTE = DATA_WIDTH;
+	localparam WORD  = BYTE<<READ_SHIFT;
+	localparam DEPTH = 2**ADDRESS_WIDTH_R;
+	localparam SUB_DEPTH = 2**READ_SHIFT;
+
+	reg [WORD-1:0] data_out_r;
+	reg [WORD-1:0] memory [0:DEPTH-1];
+
+	integer i;
+	wire [ADDRESS_WIDTH_R-1:0] outer_address;
+	wire [READ_SHIFT-1:0] inner_address;
+
+	assign outer_address = address_in_w>>READ_SHIFT;
+	assign inner_address = address_in_w[READ_SHIFT-1:0];
+
+	always @(posedge clk_w) begin
+	if (write_enable)
+		for (i=0; i<SUB_DEPTH; i = i+1)
+			if (inner_address == i)
+				memory[outer_address][i*BYTE+:BYTE] <= data_in;
+	end
+
+	always @(posedge clk_r) begin
+		data_out_r <= memory[address_in_r];
 	end
 
 	assign data_out = data_out_r;

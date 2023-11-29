@@ -32,11 +32,47 @@ blockram_tests: "list[tuple[list[tuple[str, int]], str, list[str]]]" = [
     ([("ADDRESS_WIDTH", 15), ("DATA_WIDTH",  1)], "sync_ram_*dp", ["-assert-count 1 t:TDP36K", "-assert-count 1 t:TDP36K a:port_a_width=1 %i"]),
 
     # 2x write width (1024x36bit write / 2048x18bit read = 1TDP36K)
-    ([("ADDRESS_WIDTH", 11), ("DATA_WIDTH", 18)], "sync_ram_sdp_wwr", ["-assert-count 1 t:TDP36K"]),
-    ([("ADDRESS_WIDTH", 11), ("DATA_WIDTH",  9)], "sync_ram_sdp_wwr", ["-assert-count 1 t:TDP36K"]),
-    # 2x read width (1024x36bit read / 2048x18bit write = 1TDP36K)
-    ([("ADDRESS_WIDTH", 11), ("DATA_WIDTH", 18)], "sync_ram_sdp_wrr", ["-assert-count 1 t:TDP36K"]),
-    ([("ADDRESS_WIDTH", 12), ("DATA_WIDTH",  9)], "sync_ram_sdp_wrr", ["-assert-count 1 t:TDP36K"]),
+    ([("ADDRESS_WIDTH", 11), ("DATA_WIDTH", 18), ("WRITE_SHIFT", 1)], "sync_ram_sdp_wwr", ["-assert-count 1 t:TDP36K"]),
+    ([("ADDRESS_WIDTH", 11), ("DATA_WIDTH", 16), ("WRITE_SHIFT", 1)], "sync_ram_sdp_wwr", ["-assert-count 1 t:TDP36K"]),
+    ([("ADDRESS_WIDTH", 12), ("DATA_WIDTH",  9), ("WRITE_SHIFT", 1)], "sync_ram_sdp_wwr", ["-assert-count 1 t:TDP36K"]),
+    ([("ADDRESS_WIDTH", 12), ("DATA_WIDTH",  8), ("WRITE_SHIFT", 1)], "sync_ram_sdp_wwr", ["-assert-count 1 t:TDP36K"]),
+    # same for read
+    ([("ADDRESS_WIDTH", 11), ("DATA_WIDTH", 18), ( "READ_SHIFT", 1)], "sync_ram_sdp_wrr", ["-assert-count 1 t:TDP36K"]),
+    ([("ADDRESS_WIDTH", 11), ("DATA_WIDTH", 16), ( "READ_SHIFT", 1)], "sync_ram_sdp_wrr", ["-assert-count 1 t:TDP36K"]),
+    ([("ADDRESS_WIDTH", 12), ("DATA_WIDTH",  9), ( "READ_SHIFT", 1)], "sync_ram_sdp_wrr", ["-assert-count 1 t:TDP36K"]),
+    ([("ADDRESS_WIDTH", 12), ("DATA_WIDTH",  8), ( "READ_SHIFT", 1)], "sync_ram_sdp_wrr", ["-assert-count 1 t:TDP36K"]),
+
+    # 4x write width (1024x36bit write / 4096x9bit read = 1TDP36K)
+    ([("ADDRESS_WIDTH", 11), ("DATA_WIDTH",  4), ("WRITE_SHIFT", 2)], "sync_ram_sdp_wwr", ["-assert-count 1 t:TDP36K"]),
+    ([("ADDRESS_WIDTH", 12), ("DATA_WIDTH",  9), ("WRITE_SHIFT", 2)], "sync_ram_sdp_wwr", ["-assert-count 1 t:TDP36K"]),
+    ([("ADDRESS_WIDTH", 12), ("DATA_WIDTH",  8), ("WRITE_SHIFT", 2)], "sync_ram_sdp_wwr", ["-assert-count 1 t:TDP36K"]),
+    # and again for read
+    ([("ADDRESS_WIDTH", 11), ("DATA_WIDTH",  4), ( "READ_SHIFT", 2)], "sync_ram_sdp_wrr", ["-assert-count 1 t:TDP36K"]),
+    ([("ADDRESS_WIDTH", 12), ("DATA_WIDTH",  9), ( "READ_SHIFT", 2)], "sync_ram_sdp_wrr", ["-assert-count 1 t:TDP36K"]),
+    ([("ADDRESS_WIDTH", 12), ("DATA_WIDTH",  8), ( "READ_SHIFT", 2)], "sync_ram_sdp_wrr", ["-assert-count 1 t:TDP36K"]),
+
+    # etc
+    ([("ADDRESS_WIDTH", 11), ("DATA_WIDTH", 16), ("WRITE_SHIFT", 1)], "sync_ram_sdp_wwr", ["-assert-count 1 t:TDP36K"]),
+    ([("ADDRESS_WIDTH", 11), ("DATA_WIDTH", 16), ( "READ_SHIFT", 1)], "sync_ram_sdp_wrr", ["-assert-count 1 t:TDP36K"]),
+    ([("ADDRESS_WIDTH", 12), ("DATA_WIDTH",  8), ("WRITE_SHIFT", 2)], "sync_ram_sdp_wwr", ["-assert-count 1 t:TDP36K"]),
+    ([("ADDRESS_WIDTH", 12), ("DATA_WIDTH",  8), ( "READ_SHIFT", 2)], "sync_ram_sdp_wrr", ["-assert-count 1 t:TDP36K"]),
+
+    # can also use an extra TDP36K for higher width
+    ([("ADDRESS_WIDTH", 10), ("DATA_WIDTH", 36), ("WRITE_SHIFT", 1)], "sync_ram_sdp_wwr", ["-assert-count 2 t:TDP36K"]),
+    ([("ADDRESS_WIDTH", 10), ("DATA_WIDTH", 36), ( "READ_SHIFT", 1)], "sync_ram_sdp_wrr", ["-assert-count 2 t:TDP36K"]),
+
+    # not sure why these are different but apparently wide writes pack better?
+    ([("ADDRESS_WIDTH", 10), ("DATA_WIDTH", 36), ("WRITE_SHIFT", 2)], "sync_ram_sdp_wwr", ["-assert-count 2 t:TDP36K"]),
+    ([("ADDRESS_WIDTH", 10), ("DATA_WIDTH", 36), ( "READ_SHIFT", 2)], "sync_ram_sdp_wrr", ["-assert-count 4 t:TDP36K"]),
+    ([("ADDRESS_WIDTH",  9), ("DATA_WIDTH", 36), ("WRITE_SHIFT", 2)], "sync_ram_sdp_wwr", ["-assert-count 2 t:TDP36K"]),
+    ([("ADDRESS_WIDTH",  9), ("DATA_WIDTH", 36), ( "READ_SHIFT", 2)], "sync_ram_sdp_wrr", ["-assert-count 4 t:TDP36K"]),
+
+    # SHIFT=0 should be identical to sync_ram_sdp
+    ([("ADDRESS_WIDTH", 10), ("DATA_WIDTH", 36), ( "READ_SHIFT", 0)], "sync_ram_sdp_wrr", ["-assert-count 1 t:TDP36K"]),
+    ([("ADDRESS_WIDTH", 11), ("DATA_WIDTH", 18), ( "READ_SHIFT", 0)], "sync_ram_sdp_wrr", ["-assert-count 1 t:TDP36K"]),
+    # but WRITE_SHIFT=0 doesn't generate any read circuitry and optimises the memory away
+#   ([("ADDRESS_WIDTH", 10), ("DATA_WIDTH", 36), ("WRITE_SHIFT", 0)], "sync_ram_sdp_wwr", ["-assert-count 1 t:TDP36K"]),
+#   ([("ADDRESS_WIDTH", 11), ("DATA_WIDTH", 18), ("WRITE_SHIFT", 0)], "sync_ram_sdp_wwr", ["-assert-count 1 t:TDP36K"]),
 
     # two disjoint 18K memories can share a single TDP36K
     ([("ADDRESS_WIDTH_A", 10), ("DATA_WIDTH_A", 18),
