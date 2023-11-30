@@ -31,6 +31,7 @@ module TDP36K_BRAM_A_X{a_width}_B_X{b_width}_nonsplit (
 	);
 
 	parameter [80:0] MODE_BITS = 81'd0;
+	parameter [1024*36-1:0] RAM_INIT = 36864'bx;
 
 	input  wire RESET_ni;
 	input  wire WEN_A1_i, WEN_B1_i;
@@ -61,7 +62,7 @@ module TDP36K_BRAM_A_X{a_width}_B_X{b_width}_nonsplit (
 
 	input  wire FLUSH2_i;
 
-	TDP36K #(.MODE_BITS(MODE_BITS)) bram (
+	TDP36K #(.MODE_BITS(MODE_BITS), .RAM_INIT(RAM_INIT)) bram (
 		.RESET_ni   (RESET_ni),
 		.WEN_A1_i   (WEN_A1_i),   .WEN_B1_i   (WEN_B1_i),
 		.REN_A1_i   (REN_A1_i),   .REN_B1_i   (REN_B1_i),
@@ -148,6 +149,7 @@ module TDP36K_BRAM_A1_X{a1_width}_B1_X{b1_width}_A2_X{a2_width}_B2_X{b2_width}_s
 	);
 
 	parameter [80:0] MODE_BITS = 81'd0;
+	parameter [1024*36-1:0] RAM_INIT = 36864'bx;
 
 	input  wire RESET_ni;
 	input  wire WEN_A1_i, WEN_B1_i;
@@ -178,7 +180,7 @@ module TDP36K_BRAM_A1_X{a1_width}_B1_X{b1_width}_A2_X{a2_width}_B2_X{b2_width}_s
 
 	input  wire FLUSH2_i;
 
-	TDP36K #(.MODE_BITS(MODE_BITS)) bram (
+	TDP36K #(.MODE_BITS(MODE_BITS), .RAM_INIT(RAM_INIT)) bram (
 		.RESET_ni   (RESET_ni),
 		.WEN_A1_i   (WEN_A1_i),   .WEN_B1_i   (WEN_B1_i),
 		.REN_A1_i   (REN_A1_i),   .REN_B1_i   (REN_B1_i),
