@@ -1,0 +1,5 @@
+read_verilog +/quicklogic/qlf_k6n10f/brams_sim.v +/quicklogic/qlf_k6n10f/sram1024x18_mem.v +/quicklogic/qlf_k6n10f/ufifo_ctl.v +/quicklogic/qlf_k6n10f/TDP18K_FIFO.v
+read_verilog -formal bram_tdp.v bram_tdp_tb.v
+hierarchy -top TB
+proc
+sim -clock clk -n 20 -assert # -vcd bram_tdp.vcd
