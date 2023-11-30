@@ -471,7 +471,7 @@ module TDP36K (
 				.SYNC_FIFO_i(SYNC_FIFO1_i),
 				.POWERDN_i(POWERDN1_i),
 				.SLEEP_i(SLEEP1_i),
-				.PROTECT_i(PROTECT1_i)
+				.PROTECT_i(PROTECT1_i),
 				.INIT_i(split_init(0))
 		)u1(
 				.RMODE_A_i(ram_rmode_a1),
