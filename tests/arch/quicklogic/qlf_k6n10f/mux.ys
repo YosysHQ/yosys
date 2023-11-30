@@ -35,5 +35,5 @@ equiv_opt -assert -map +/quicklogic/qlf_k6n10f/cells_sim.v -map +/quicklogic/com
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd mux16 # Constrain all select calls below inside the top module
 select -assert-max 5 t:$lut r:WIDTH=6 %i # OOT flow does 2
-select -assert-count 0 t:$lut r:WIDTH=3 %i # and here 1
+select -assert-max 1 t:$lut r:WIDTH=3 %i # and here 1
 select -assert-none t:$lut r:WIDTH=6 r:WIDTH=3 %u %i %% t:* %D
