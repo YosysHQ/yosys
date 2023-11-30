@@ -63,10 +63,10 @@ wire wce_b = wce_b_testvector[i];
 wire [ADDR_WIDTH-1:0] wa_b = wa_b_testvector[i];
 wire [DATA_WIDTH-1:0] wd_b = wd_b_testvector[i];
 
-uut #(
+BRAM_TDP #(
 	.AWIDTH(ADDR_WIDTH),
 	.DWIDTH(DATA_WIDTH)
-) BRAM_TDP (
+) uut (
 	.clk_a(clk),
 	.rce_a(rce_a),
 	.ra_a(ra_a),
