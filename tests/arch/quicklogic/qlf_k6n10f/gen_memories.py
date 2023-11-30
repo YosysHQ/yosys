@@ -1,3 +1,8 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
 blockram_template = """# ======================================
 design -reset; read_verilog -defer ../../common/blockram.v
 chparam{param_str} {top}
@@ -97,23 +102,152 @@ blockram_tests: "list[tuple[list[tuple[str, int]], str, list[str]]]" = [
       "-assert-count 1 t:TDP36K"]),
 ]
 
-with open("t_mem.ys", mode="w") as f:
-    for (params, top, assertions) in blockram_tests:
-        param_str = ""
-        for (key, val) in params:
-            param_str += f" -set {key} {val}"
-        dp_subs = [""]
-        if "*dp" in top:
-            dp_subs = ["sdp", "tdp"]
-        wr_subs = [""]
-        if "w*r" in top:
-            wr_subs = ["wwr", "wrr"]
-        for db_sub in dp_subs:
-            for wr_sub in wr_subs:
-                print(
-                    blockram_template.format(param_str=param_str, top=top.replace("*dp", db_sub).replace("w*r", wr_sub)),
-                    file=f
-                )
-                for assertion in assertions:
-                    print("select {}".format(assertion), file=f)
-                print("", file=f)
+sim_template = """\
+cd
+read_verilog +/quicklogic/qlf_k6n10f/brams_sim.v +/quicklogic/qlf_k6n10f/sram1024x18_mem.v +/quicklogic/qlf_k6n10f/ufifo_ctl.v +/quicklogic/qlf_k6n10f/TDP18K_FIFO.v
+read_verilog <<EOF
+`define MEM_TEST_VECTOR {mem_test_vector}
+
+`define UUT_SUBMODULE \\
+{uut_submodule}
+EOF
+read_verilog -defer -formal mem_tb.v
+chparam{param_str} -set VECTORLEN {vectorlen} TB
+hierarchy -top TB -check
+proc
+sim -clock clk -n {vectorlen} -assert
+"""
+
+sync_ram_sdp_submodule = """\
+sync_ram_sdp #(\\
+	.ADDRESS_WIDTH(ADDRESS_WIDTH),\\
+	.DATA_WIDTH(DATA_WIDTH)\\
+) uut (\\
+	.clk(clk),\\
+	.address_in_r(ra_a),\\
+	.data_out(rq_a),\\
+	.write_enable(wce_a),\\
+	.address_in_w(wa_a),\\
+	.data_in(wd_a)\\
+);\
+"""
+
+@dataclass
+class TestClass:
+    params: dict[str, int]
+    top: str
+    assertions: list[str]
+    test_steps: None | list[dict[str, int]]
+
+test_val_map = {
+    "rce_a": "rce_a_testvector",
+    "ra_a":  "ra_a_testvector",
+    "rq_a":  "rq_a_expected",
+    "wce_a": "wce_a_testvector",
+    "wa_a":  "wa_a_testvector",
+    "wd_a":  "wd_a_testvector",
+    "rce_b": "rce_b_testvector",
+    "ra_b":  "ra_b_testvector",
+    "rq_b":  "rq_b_expected",
+    "wce_b": "wce_b_testvector",
+    "wa_b":  "wa_b_testvector",
+    "wd_b":  "wd_b_testvector",
+}
+
+sim_tests: list[TestClass] = [
+    TestClass(
+        params={"ADDRESS_WIDTH": 10, "DATA_WIDTH": 36},
+        top="sync_ram_sdp",
+        assertions=["-assert-count 1 t:TDP36K"],
+        test_steps=[
+            {"wce_a": 1, "wa_a": 0x0A, "wd_a": 0xdeadbeef},
+            {"wce_a": 1, "wa_a": 0xBA, "wd_a": 0x5a5a5a5a},
+            {"wce_a": 1, "wa_a": 0xFF, "wd_a": 0},
+            {"rce_a": 1, "ra_a": 0xA},
+            {"rq_a": 0xdeadbeef},
+            {"rce_a": 1, "ra_a": 0xFF},
+            {"rq_a": 0},
+        ]
+    ),
+]
+
+for (params, top, assertions) in blockram_tests:
+    sim_test = TestClass(
+        params=dict(params),
+        top=top,
+        assertions=assertions,
+        test_steps=None
+    )
+    sim_tests.append(sim_test)
+
+i = 0
+j = 0
+max_j = 16
+f = None
+for sim_test in sim_tests:
+    # format params
+    param_str = ""
+    for (key, val) in sim_test.params.items():
+        param_str += f" -set {key} {val}"
+
+    # resolve top module wildcards
+    top_list = [sim_test.top]
+    if "*dp" in sim_test.top:
+        top_list += [
+            sim_test.top.replace("*dp", dp_sub) for dp_sub in ["sdp", "tdp"]
+        ]
+    if "w*r" in sim_test.top:
+        top_list += [
+            sim_test.top.replace("w*r", wr_sub) for wr_sub in ["wwr", "wrr"]
+        ]
+    if len(top_list) > 1:
+        top_list.pop(0)
+
+    # iterate over string substitutions
+    for top in top_list:
+        # limit number of tests per file to allow parallel make
+        if not f:
+            fn = f"t_mem{i}.ys"
+            f = open(fn, mode="w")
+            j = 0
+        
+        # output yosys script test file
+        print(
+            blockram_template.format(param_str=param_str, top=top),
+            file=f
+        )
+        for assertion in sim_test.assertions:
+            print("select {}".format(assertion), file=f)
+        print("", file=f)
+
+        # prepare simulation tests
+        test_steps = sim_test.test_steps
+        if test_steps:
+            if top == "sync_ram_sdp":
+                uut_submodule = sync_ram_sdp_submodule
+            else:
+                raise NotImplementedError(f"missing submodule header for {top}")
+            mem_test_vector = ""
+            for step, test in enumerate(test_steps):
+                for key, val in test.items():
+                    key = test_val_map[key]
+                    mem_test_vector += f"\\\n{key}[{step}] = 'h{val:x};"
+            print(
+                sim_template.format(
+                    mem_test_vector=mem_test_vector,
+                    uut_submodule=uut_submodule,
+                    param_str=param_str,
+                    vectorlen=len(test_steps) + 2
+                ), file=f
+            )
+            # simulation counts for 2 tests
+            j += 1
+
+        # increment test counter
+        j += 1
+        if j >= max_j:
+            f = f.close()
+            i += 1
+
+if f:
+    f.close()
