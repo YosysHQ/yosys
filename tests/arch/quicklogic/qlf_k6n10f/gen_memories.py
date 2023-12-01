@@ -152,6 +152,38 @@ sync_ram_tdp #(\\
 );\
 """
 
+sync_ram_sdp_wwr_submodule = """\
+sync_ram_sdp_wwr #(\\
+	.ADDRESS_WIDTH(ADDRESS_WIDTH),\\
+	.DATA_WIDTH(DATA_WIDTH),\\
+	.SHIFT_VAL(SHIFT_VAL)\\
+) uut (\\
+	.clk_w(clk),\\
+	.clk_r(clk),\\
+	.write_enable(wce_a),\\
+	.data_in(wd_a),\\
+	.address_in_w(wa_a),\\
+	.address_in_r(ra_a),\\
+	.data_out(rq_a)\\
+);\
+"""
+
+sync_ram_sdp_wrr_submodule = """\
+sync_ram_sdp_wrr #(\\
+	.ADDRESS_WIDTH(ADDRESS_WIDTH),\\
+	.DATA_WIDTH(DATA_WIDTH),\\
+	.SHIFT_VAL(SHIFT_VAL)\\
+) uut (\\
+	.clk_w(clk),\\
+	.clk_r(clk),\\
+	.write_enable(wce_a),\\
+	.data_in(wd_a),\\
+	.address_in_w(wa_a),\\
+	.address_in_r(ra_a),\\
+	.data_out(rq_a)\\
+);\
+"""
+
 @dataclass
 class TestClass:
     params: dict[str, int]
@@ -250,6 +282,58 @@ sim_tests: list[TestClass] = [
             {                               "rq_b": 0xa5a5a5a5},
         ]
     ),
+    TestClass( # 2x wide write
+        params={"ADDRESS_WIDTH": 11, "DATA_WIDTH": 18, "SHIFT_VAL": 1},
+        top="sync_ram_sdp_wwr",
+        assertions=[],
+        test_steps=[
+            {"wce_a": 1, "wa_a": 0b0000000001, "wd_a": 0xdeadbeef},
+            {"rce_a": 0, "ra_a": 0b00000000010},
+            {"rq_a": 0xdead},
+            {"rce_a": 0, "ra_a": 0b00000000011},
+            {"rq_a": 0xbeef},
+        ]
+    ),
+    TestClass( # 4x wide write
+        params={"ADDRESS_WIDTH": 10, "DATA_WIDTH": 8, "SHIFT_VAL": 2},
+        top="sync_ram_sdp_wwr",
+        assertions=[],
+        test_steps=[
+            {"wce_a": 1, "wa_a": 0b000100001, "wd_a": 0xdeadbeef},
+            {"rce_a": 0, "ra_a": 0b00010000100},
+            {"rq_a": 0xde},
+            {"rce_a": 0, "ra_a": 0b00010000101},
+            {"rq_a": 0xad},
+            {"rce_a": 0, "ra_a": 0b00010000110},
+            {"rq_a": 0xbe},
+            {"rce_a": 0, "ra_a": 0b00010000111},
+            {"rq_a": 0xef},
+        ]
+    ),
+    TestClass( # 2x wide read
+        params={"ADDRESS_WIDTH": 11, "DATA_WIDTH": 18, "SHIFT_VAL": 1},
+        top="sync_ram_sdp_wrr",
+        assertions=[],
+        test_steps=[
+            {"wce_a": 1, "wa_a": 0b00000000010, "wd_a": 0xdead},
+            {"wce_a": 1, "wa_a": 0b00000000011, "wd_a": 0xbeef},
+            {"rce_a": 0, "ra_a": 0b0000000001},
+            {"rq_a": 0xdeadbeef},
+        ]
+    ),
+    TestClass( # 4x wide read
+        params={"ADDRESS_WIDTH": 10, "DATA_WIDTH": 8, "SHIFT_VAL": 2},
+        top="sync_ram_sdp_wrr",
+        assertions=[],
+        test_steps=[
+            {"wce_a": 1, "wa_a": 0b00010000100, "wd_a": 0xde},
+            {"wce_a": 1, "wa_a": 0b00010000101, "wd_a": 0xad},
+            {"wce_a": 1, "wa_a": 0b00010000110, "wd_a": 0xbe},
+            {"wce_a": 1, "wa_a": 0b00010000111, "wd_a": 0xef},
+            {"rce_a": 0, "ra_a": 0b000100001},
+            {"rq_a": 0xdeadbeef},
+        ]
+    ),
 ]
 
 for (params, top, assertions) in blockram_tests:
@@ -308,6 +392,10 @@ for sim_test in sim_tests:
                 uut_submodule = sync_ram_sdp_submodule
             elif top == "sync_ram_tdp":
                 uut_submodule = sync_ram_tdp_submodule
+            elif top == "sync_ram_sdp_wwr":
+                uut_submodule = sync_ram_sdp_wwr_submodule
+            elif top == "sync_ram_sdp_wrr":
+                uut_submodule = sync_ram_sdp_wrr_submodule
             else:
                 raise NotImplementedError(f"missing submodule header for {top}")
             mem_test_vector = ""
