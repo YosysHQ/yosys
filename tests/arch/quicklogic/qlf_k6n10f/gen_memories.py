@@ -4,12 +4,11 @@ from dataclasses import dataclass
 
 
 blockram_template = """# ======================================
-log ** TESTING {top} WITH PARAMS{param_str}
+log ** GENERATING TEST {top} WITH PARAMS{param_str}
 design -reset; read_verilog -defer ../../common/blockram.v
 chparam{param_str} {top}
 hierarchy -top {top}
 synth_quicklogic -family qlf_k6n10f -top {top}
-design -stash synthesized
 """
 blockram_tests: "list[tuple[list[tuple[str, int]], str, list[str]]]" = [
     # TDP36K = 1024x36bit RAM, 2048x18bit or 4096x9bit also work
@@ -104,6 +103,7 @@ blockram_tests: "list[tuple[list[tuple[str, int]], str, list[str]]]" = [
 ]
 
 sim_template = """\
+design -stash synthesized
 design -copy-from synthesized -as {top}_synth {top}
 design -delete synthesized
 read_verilog +/quicklogic/common/cells_sim.v +/quicklogic/qlf_k6n10f/cells_sim.v +/quicklogic/qlf_k6n10f/brams_sim.v +/quicklogic/qlf_k6n10f/sram1024x18_mem.v +/quicklogic/qlf_k6n10f/ufifo_ctl.v +/quicklogic/qlf_k6n10f/TDP18K_FIFO.v
@@ -117,6 +117,7 @@ read_verilog -defer -formal mem_tb.v
 chparam{param_str} -set VECTORLEN {vectorlen} TB
 hierarchy -top TB -check
 prep
+log ** CHECKING SIMULATION FOR TEST {top} WITH PARAMS{param_str}
 sim -clock clk -n {vectorlen} -assert
 """
 
@@ -179,7 +180,7 @@ double_sync_ram_sdp_synth uut (\\
 	.address_in_w_a(wa_a),\\
 	.address_in_r_a(ra_a),\\
 	.data_in_a(wd_a),\\
-	.data_out_b(rq_b),\\
+	.data_out_a(rq_a),\\
 	.clk_b(clk),\\
 	.write_enable_b(wce_b),\\
 	.address_in_w_b(wa_b),\\
@@ -401,6 +402,7 @@ for sim_test in sim_tests:
             file=f
         )
         for assertion in sim_test.assertions:
+            print("log ** CHECKING CELL COUNTS FOR TEST {top} WITH PARAMS{param_str}".format(param_str=param_str, top=top), file=f)
             print("select {}".format(assertion), file=f)
         print("", file=f)
 
