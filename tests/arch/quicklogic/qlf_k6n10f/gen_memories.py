@@ -132,6 +132,26 @@ sync_ram_sdp #(\\
 );\
 """
 
+sync_ram_tdp_submodule = """\
+sync_ram_tdp #(\\
+	.ADDRESS_WIDTH(ADDRESS_WIDTH),\\
+	.DATA_WIDTH(DATA_WIDTH)\\
+) uut (\\
+	.clk_a(clk),\\
+	.clk_b(clk),\\
+	.write_enable_a(wce_a),\\
+	.write_enable_b(wce_b),\\
+	.read_enable_a(rce_a),\\
+	.read_enable_b(rce_b),\\
+	.addr_a(ra_a),\\
+	.addr_b(ra_b),\\
+	.read_data_a(rq_a),\\
+	.read_data_b(rq_b),\\
+	.write_data_a(wd_a),\\
+	.write_data_b(wd_b)\\
+);\
+"""
+
 @dataclass
 class TestClass:
     params: dict[str, int]
@@ -155,18 +175,79 @@ test_val_map = {
 }
 
 sim_tests: list[TestClass] = [
-    TestClass(
+    TestClass( # basic SDP test
+        # note that the common SDP model reads every cycle, but the testbench
+        # still uses the rce signal to check read assertions
         params={"ADDRESS_WIDTH": 10, "DATA_WIDTH": 36},
         top="sync_ram_sdp",
-        assertions=["-assert-count 1 t:TDP36K"],
+        assertions=[],
         test_steps=[
             {"wce_a": 1, "wa_a": 0x0A, "wd_a": 0xdeadbeef},
             {"wce_a": 1, "wa_a": 0xBA, "wd_a": 0x5a5a5a5a},
             {"wce_a": 1, "wa_a": 0xFF, "wd_a": 0},
-            {"rce_a": 1, "ra_a": 0xA},
+            {"rce_a": 1, "ra_a": 0x0A},
             {"rq_a": 0xdeadbeef},
             {"rce_a": 1, "ra_a": 0xFF},
             {"rq_a": 0},
+        ]
+    ),
+    TestClass( # SDP read before write
+        params={"ADDRESS_WIDTH": 4, "DATA_WIDTH": 16},
+        top="sync_ram_sdp",
+        assertions=[],
+        test_steps=[
+            {"wce_a": 1, "wa_a": 0xA, "wd_a": 0x1234},
+            {"wce_a": 1, "wa_a": 0xA, "wd_a": 0x5678, "rce_a": 1, "ra_a": 0xA},
+            {"rq_a": 0x1234, "rce_a": 1, "ra_a": 0xA},
+            {"rq_a": 0x5678},
+        ]
+    ),
+    TestClass( # basic TDP test 
+        # note that the testbench uses ra and wa, while the common TDP model
+        # uses a shared address
+        params={"ADDRESS_WIDTH": 10, "DATA_WIDTH": 36},
+        top="sync_ram_tdp",
+        assertions=[],
+        test_steps=[
+            {"wce_a": 1, "ra_a": 0x0A,      "wce_b": 1, "ra_b": 0xBA, 
+             "wd_a": 0xdeadbeef,            "wd_b": 0x5a5a5a5a},
+            {"wce_a": 1, "ra_a": 0xFF, 
+             "wd_a": 0},
+            {"rce_a": 1, "ra_a": 0x0A,      "rce_b": 1, "ra_b": 0x0A},
+            {"rq_a": 0xdeadbeef,            "rq_b": 0xdeadbeef},
+            {"rce_a": 1, "ra_a": 0xFF,      "rce_b": 1, "ra_b": 0xBA},
+            {"rq_a": 0,                     "rq_b": 0x5a5a5a5a},
+        ]
+    ),
+    TestClass( # TDP with truncation
+        params={"ADDRESS_WIDTH": 4, "DATA_WIDTH": 16},
+        top="sync_ram_tdp",
+        assertions=[],
+        test_steps=[
+            {"wce_a": 1, "ra_a": 0x0F,      "wce_b": 1, "ra_b": 0xBA, 
+             "wd_a": 0xdeadbeef,            "wd_b": 0x5a5a5a5a},
+            {"wce_a": 1, "ra_a": 0xFF, 
+             "wd_a": 0},
+            {"rce_a": 1, "ra_a": 0x0F,      "rce_b": 1, "ra_b": 0x0A},
+            {"rq_a": 0,                     "rq_b": 0x00005a5a},
+        ]
+    ),
+    TestClass( # TDP read before write
+        # note that the testbench uses rce and wce, while the common TDP model
+        # uses a single enable for write, with reads on no write
+        params={"ADDRESS_WIDTH": 10, "DATA_WIDTH": 36},
+        top="sync_ram_tdp",
+        assertions=[],
+        test_steps=[
+            {"wce_a": 1, "ra_a": 0x0A,      "wce_b": 1, "ra_b": 0xBA, 
+             "wd_a": 0xdeadbeef,            "wd_b": 0x5a5a5a5a},
+            {"wce_a": 1, "ra_a": 0xBA,      "rce_b": 1, "ra_b": 0xBA,
+             "wd_a": 0xa5a5a5a5},
+            {                               "rq_b": 0x5a5a5a5a},
+            {"rce_a": 1, "ra_a": 0x0A,      "rce_b": 1, "ra_b": 0x0A},
+            {"rq_a": 0xdeadbeef,            "rq_b": 0xdeadbeef},
+            {                               "rce_b": 1, "ra_b": 0xBA},
+            {                               "rq_b": 0xa5a5a5a5},
         ]
     ),
 ]
@@ -225,6 +306,8 @@ for sim_test in sim_tests:
         if test_steps:
             if top == "sync_ram_sdp":
                 uut_submodule = sync_ram_sdp_submodule
+            elif top == "sync_ram_tdp":
+                uut_submodule = sync_ram_tdp_submodule
             else:
                 raise NotImplementedError(f"missing submodule header for {top}")
             mem_test_vector = ""
