@@ -3,6 +3,7 @@ module TB(input clk);
 parameter ADDRESS_WIDTH = 10;
 parameter DATA_WIDTH = 36;
 parameter VECTORLEN = 16;
+parameter SHIFT_VAL = 0;
 localparam MAX_WIDTH = 36;
 
 reg rce_a_testvector [VECTORLEN-1:0];
