@@ -113,6 +113,7 @@ read_verilog <<EOF
 EOF
 read_verilog -defer -formal mem_tb.v
 chparam{param_str} -set VECTORLEN {vectorlen} TB
+read_verilog +/quicklogic/qlf_k6n10f/cells_sim.v
 hierarchy -top TB -check
 proc
 sim -clock clk -n {vectorlen} -assert
@@ -181,6 +182,28 @@ sync_ram_sdp_wrr #(\\
 	.address_in_w(wa_a),\\
 	.address_in_r(ra_a),\\
 	.data_out(rq_a)\\
+);\
+"""
+
+double_sync_ram_sdp_submodule = """\
+double_sync_ram_sdp #(\\
+	.ADDRESS_WIDTH_A(ADDRESS_WIDTH_A),\\
+	.DATA_WIDTH_A(DATA_WIDTH_A),\\
+	.ADDRESS_WIDTH_B(ADDRESS_WIDTH_B),\\
+	.DATA_WIDTH_B(DATA_WIDTH_B)\\
+) uut (\\
+	.clk_a(clk),\\
+	.write_enable_a(wce_a),\\
+	.address_in_w_a(wa_a),\\
+	.address_in_r_a(ra_a),\\
+	.data_in_a(wd_a),\\
+	.data_out_b(rq_b),\\
+	.clk_b(clk),\\
+	.write_enable_b(wce_b),\\
+	.address_in_w_b(wa_b),\\
+	.address_in_r_b(ra_b),\\
+	.data_in_b(wd_b),\\
+	.data_out_b(rq_b)\\
 );\
 """
 
@@ -334,6 +357,20 @@ sim_tests: list[TestClass] = [
             {"rq_a": 0xdeadbeef},
         ]
     ),
+    TestClass( # basic split SDP test
+        params={"ADDRESS_WIDTH_A": 10, "DATA_WIDTH_A": 16,
+                "ADDRESS_WIDTH_B": 10, "DATA_WIDTH_B": 16},
+        top="double_sync_ram_sdp",
+        assertions=[],
+        test_steps=[
+            {"wce_a": 1, "wa_a": 0x0A,      "wce_b": 1, "wa_b": 0xBA,
+            "wd_a": 0x1234,                 "wd_b": 0x4567},
+            {"wce_a": 1, "wa_a": 0xFF,      "wce_b": 1, "wa_b": 0x0A,
+            "wd_a": 0,                      "wd_b": 0xbeef},
+            {"rce_a": 1, "ra_a": 0x0A,      "rce_b": 1, "ra_b": 0x0A},
+            {"rq_a": 0x1234,                "rq_b": 0xbeef},
+        ]
+    ),
 ]
 
 for (params, top, assertions) in blockram_tests:
@@ -396,6 +433,8 @@ for sim_test in sim_tests:
                 uut_submodule = sync_ram_sdp_wwr_submodule
             elif top == "sync_ram_sdp_wrr":
                 uut_submodule = sync_ram_sdp_wrr_submodule
+            elif top == "double_sync_ram_sdp":
+                uut_submodule = double_sync_ram_sdp_submodule
             else:
                 raise NotImplementedError(f"missing submodule header for {top}")
             mem_test_vector = ""
