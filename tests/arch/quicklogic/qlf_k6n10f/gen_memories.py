@@ -4,11 +4,12 @@ from dataclasses import dataclass
 
 
 blockram_template = """# ======================================
+log ** TESTING {top} WITH PARAMS{param_str}
 design -reset; read_verilog -defer ../../common/blockram.v
 chparam{param_str} {top}
 hierarchy -top {top}
-synth_quicklogic -family qlf_k6n10f -top {top}; cd {top}
-log ** TESTING {top} WITH PARAMS{param_str}\
+synth_quicklogic -family qlf_k6n10f -top {top}
+design -stash synthesized
 """
 blockram_tests: "list[tuple[list[tuple[str, int]], str, list[str]]]" = [
     # TDP36K = 1024x36bit RAM, 2048x18bit or 4096x9bit also work
@@ -103,8 +104,9 @@ blockram_tests: "list[tuple[list[tuple[str, int]], str, list[str]]]" = [
 ]
 
 sim_template = """\
-cd
-read_verilog +/quicklogic/qlf_k6n10f/brams_sim.v +/quicklogic/qlf_k6n10f/sram1024x18_mem.v +/quicklogic/qlf_k6n10f/ufifo_ctl.v +/quicklogic/qlf_k6n10f/TDP18K_FIFO.v
+design -copy-from synthesized -as {top}_synth {top}
+design -delete synthesized
+read_verilog +/quicklogic/common/cells_sim.v +/quicklogic/qlf_k6n10f/cells_sim.v +/quicklogic/qlf_k6n10f/brams_sim.v +/quicklogic/qlf_k6n10f/sram1024x18_mem.v +/quicklogic/qlf_k6n10f/ufifo_ctl.v +/quicklogic/qlf_k6n10f/TDP18K_FIFO.v
 read_verilog <<EOF
 `define MEM_TEST_VECTOR {mem_test_vector}
 
@@ -113,17 +115,13 @@ read_verilog <<EOF
 EOF
 read_verilog -defer -formal mem_tb.v
 chparam{param_str} -set VECTORLEN {vectorlen} TB
-read_verilog +/quicklogic/qlf_k6n10f/cells_sim.v
 hierarchy -top TB -check
-proc
+prep
 sim -clock clk -n {vectorlen} -assert
 """
 
 sync_ram_sdp_submodule = """\
-sync_ram_sdp #(\\
-	.ADDRESS_WIDTH(ADDRESS_WIDTH),\\
-	.DATA_WIDTH(DATA_WIDTH)\\
-) uut (\\
+sync_ram_sdp_synth uut (\\
 	.clk(clk),\\
 	.address_in_r(ra_a),\\
 	.data_out(rq_a),\\
@@ -134,10 +132,7 @@ sync_ram_sdp #(\\
 """
 
 sync_ram_tdp_submodule = """\
-sync_ram_tdp #(\\
-	.ADDRESS_WIDTH(ADDRESS_WIDTH),\\
-	.DATA_WIDTH(DATA_WIDTH)\\
-) uut (\\
+sync_ram_tdp_synth uut (\\
 	.clk_a(clk),\\
 	.clk_b(clk),\\
 	.write_enable_a(wce_a),\\
@@ -154,11 +149,7 @@ sync_ram_tdp #(\\
 """
 
 sync_ram_sdp_wwr_submodule = """\
-sync_ram_sdp_wwr #(\\
-	.ADDRESS_WIDTH(ADDRESS_WIDTH),\\
-	.DATA_WIDTH(DATA_WIDTH),\\
-	.SHIFT_VAL(SHIFT_VAL)\\
-) uut (\\
+sync_ram_sdp_wwr_synth uut (\\
 	.clk_w(clk),\\
 	.clk_r(clk),\\
 	.write_enable(wce_a),\\
@@ -170,11 +161,7 @@ sync_ram_sdp_wwr #(\\
 """
 
 sync_ram_sdp_wrr_submodule = """\
-sync_ram_sdp_wrr #(\\
-	.ADDRESS_WIDTH(ADDRESS_WIDTH),\\
-	.DATA_WIDTH(DATA_WIDTH),\\
-	.SHIFT_VAL(SHIFT_VAL)\\
-) uut (\\
+sync_ram_sdp_wrr_synth uut (\\
 	.clk_w(clk),\\
 	.clk_r(clk),\\
 	.write_enable(wce_a),\\
@@ -186,12 +173,7 @@ sync_ram_sdp_wrr #(\\
 """
 
 double_sync_ram_sdp_submodule = """\
-double_sync_ram_sdp #(\\
-	.ADDRESS_WIDTH_A(ADDRESS_WIDTH_A),\\
-	.DATA_WIDTH_A(DATA_WIDTH_A),\\
-	.ADDRESS_WIDTH_B(ADDRESS_WIDTH_B),\\
-	.DATA_WIDTH_B(DATA_WIDTH_B)\\
-) uut (\\
+double_sync_ram_sdp_synth uut (\\
 	.clk_a(clk),\\
 	.write_enable_a(wce_a),\\
 	.address_in_w_a(wa_a),\\
@@ -444,6 +426,7 @@ for sim_test in sim_tests:
                     mem_test_vector += f"\\\n{key}[{step}] = 'h{val:x};"
             print(
                 sim_template.format(
+                    top=top,
                     mem_test_vector=mem_test_vector,
                     uut_submodule=uut_submodule,
                     param_str=param_str,

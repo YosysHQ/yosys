@@ -57,7 +57,7 @@ wire [DATA_WIDTH-1:0] wd_a = wd_a_testvector[i];
 
 wire rce_b = rce_b_testvector[i];
 wire [ADDR_WIDTH-1:0] ra_b = ra_b_testvector[i];
-wire [DATA_WIDTH-1:0] rq_b = rq_b_expected[i];
+wire [DATA_WIDTH-1:0] rq_b;
 
 wire wce_b = wce_b_testvector[i];
 wire [ADDR_WIDTH-1:0] wa_b = wa_b_testvector[i];
