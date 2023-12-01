@@ -8,7 +8,7 @@ parameter DATA_WIDTH_A = DATA_WIDTH;
 parameter DATA_WIDTH_B = DATA_WIDTH;
 parameter VECTORLEN = 16;
 parameter SHIFT_VAL = 0;
-localparam MAX_WIDTH = 36;
+localparam MAX_WIDTH = DATA_WIDTH;
 
 reg rce_a_testvector [VECTORLEN-1:0];
 reg [ADDRESS_WIDTH_A-1:0] ra_a_testvector [VECTORLEN-1:0];
