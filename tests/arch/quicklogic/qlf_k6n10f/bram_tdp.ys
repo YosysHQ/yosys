@@ -1,7 +1,0 @@
-read_verilog bram_tdp.v
-hierarchy -top BRAM_TDP
-synth_quicklogic -family qlf_k6n10f
-read_verilog -formal bram_tdp_tb.v
-read_verilog -overwrite +/quicklogic/common/cells_sim.v +/quicklogic/qlf_k6n10f/cells_sim.v +/quicklogic/qlf_k6n10f/brams_sim.v +/quicklogic/qlf_k6n10f/sram1024x18_mem.v +/quicklogic/qlf_k6n10f/ufifo_ctl.v +/quicklogic/qlf_k6n10f/TDP18K_FIFO.v
-prep -top TB
-sim -clock clk -n 20 -assert # -vcd bram_tdp.vcd
