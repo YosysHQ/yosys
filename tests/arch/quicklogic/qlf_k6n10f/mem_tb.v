@@ -43,6 +43,7 @@ end
 
 wire rce_a = rce_a_testvector[i];
 wire [ADDRESS_WIDTH-1:0] ra_a = ra_a_testvector[i];
+wire [DATA_WIDTH-1:0] rq_a_e = rq_a_expected[i];
 wire [DATA_WIDTH-1:0] rq_a;
 
 wire wce_a = wce_a_testvector[i];
@@ -51,6 +52,7 @@ wire [DATA_WIDTH-1:0] wd_a = wd_a_testvector[i];
 
 wire rce_b = rce_b_testvector[i];
 wire [ADDRESS_WIDTH-1:0] ra_b = ra_b_testvector[i];
+wire [DATA_WIDTH-1:0] rq_b_e = rq_b_expected[i];
 wire [DATA_WIDTH-1:0] rq_b;
 
 wire wce_b = wce_b_testvector[i];
@@ -63,9 +65,9 @@ always @(posedge clk) begin
 	if (i < VECTORLEN-1) begin
 		if (i > 0) begin
 			if($past(rce_a)) 
-				assert(rq_a == rq_a_expected[i]);
+				assert(rq_a == rq_a_e);
 			if($past(rce_b))
-				assert(rq_b == rq_b_expected[i]);
+				assert(rq_b == rq_b_e);
 		end
 		i <= i + 1;
 	end
