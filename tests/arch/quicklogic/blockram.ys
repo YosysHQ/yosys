@@ -1,0 +1,67 @@
+read_verilog ../common/blockram.v
+design -save read
+
+chparam -set ADDRESS_WIDTH 9 -set DATA_WIDTH 32 sync_ram_sdp
+synth_quicklogic -top sync_ram_sdp
+cd sync_ram_sdp
+select -assert-count 1 t:ckpad
+select -assert-count 51 t:inpad
+select -assert-count 32 t:outpad
+select -assert-count 1 t:logic_0
+select -assert-count 1 t:logic_1
+select -assert-count 1 t:ram8k_2x1_cell_macro
+
+select -assert-none t:ckpad t:inpad t:outpad t:logic_0 t:logic_1 t:ram8k_2x1_cell_macro %% t:* %D
+
+design -load read
+chparam -set ADDRESS_WIDTH 10 -set DATA_WIDTH 16 sync_ram_sdp
+synth_quicklogic -top sync_ram_sdp
+cd sync_ram_sdp
+stat
+select -assert-count 1 t:ckpad
+select -assert-count 37 t:inpad
+select -assert-count 16 t:outpad
+select -assert-count 1 t:logic_0
+select -assert-count 1 t:logic_1
+select -assert-count 1 t:ram8k_2x1_cell_macro
+
+select -assert-none t:ckpad t:inpad t:outpad t:logic_0 t:logic_1 t:ram8k_2x1_cell_macro %% t:* %D
+
+design -load read
+chparam -set ADDRESS_WIDTH 11 -set DATA_WIDTH 8 sync_ram_sdp
+synth_quicklogic -top sync_ram_sdp
+cd sync_ram_sdp
+select -assert-count 1 t:ckpad
+select -assert-count 31 t:inpad
+select -assert-count 8 t:outpad
+select -assert-count 1 t:logic_0
+select -assert-count 1 t:logic_1
+select -assert-count 1 t:ram8k_2x1_cell_macro
+
+select -assert-none t:ckpad t:inpad t:outpad t:logic_0 t:logic_1 t:ram8k_2x1_cell_macro %% t:* %D
+
+design -load read
+chparam -set ADDRESS_WIDTH 9 -set DATA_WIDTH 16 sync_ram_sdp
+synth_quicklogic -top sync_ram_sdp
+cd sync_ram_sdp
+select -assert-count 1 t:ckpad
+select -assert-count 35 t:inpad
+select -assert-count 16 t:outpad
+select -assert-count 1 t:logic_0
+select -assert-count 1 t:logic_1
+select -assert-count 1 t:ram8k_2x1_cell_macro
+
+select -assert-none t:ckpad t:inpad t:outpad t:logic_0 t:logic_1 t:ram8k_2x1_cell_macro %% t:* %D
+
+design -load read
+chparam -set ADDRESS_WIDTH 10 -set DATA_WIDTH 8 sync_ram_sdp
+synth_quicklogic -top sync_ram_sdp
+cd sync_ram_sdp
+select -assert-count 1 t:ckpad
+select -assert-count 29 t:inpad
+select -assert-count 8 t:outpad
+select -assert-count 1 t:logic_0
+select -assert-count 1 t:logic_1
+select -assert-count 1 t:ram8k_2x1_cell_macro
+
+select -assert-none t:ckpad t:inpad t:outpad t:logic_0 t:logic_1 t:ram8k_2x1_cell_macro %% t:* %D
