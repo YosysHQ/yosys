@@ -181,3 +181,68 @@ module sync_ram_tdp #(parameter DATA_WIDTH=8, ADDRESS_WIDTH=10)
 
 endmodule // sync_ram_tdp
 
+module double_sync_ram_tdp #(parameter DATA_WIDTH=8, ADDRESS_WIDTH=10)
+(
+    input  wire                         clk_a_0,
+    input  wire                         write_enable_a_0, read_enable_a_0,
+    input  wire  [DATA_WIDTH-1:0]       write_data_a_0,
+    input  wire  [ADDRESS_WIDTH-1:0]    addr_a_0,
+    output wire  [DATA_WIDTH-1:0]       read_data_a_0,
+
+    input  wire                         clk_a_1,
+    input  wire                         write_enable_a_1, read_enable_a_1,
+    input  wire  [DATA_WIDTH-1:0]       write_data_a_1,
+    input  wire  [ADDRESS_WIDTH-1:0]    addr_a_1,
+    output wire  [DATA_WIDTH-1:0]       read_data_a_1,
+
+    input  wire                         clk_b_0,
+    input  wire                         write_enable_b_0, read_enable_b_0,
+    input  wire  [DATA_WIDTH-1:0]       write_data_b_0,
+    input  wire  [ADDRESS_WIDTH-1:0]    addr_b_0,
+    output wire  [DATA_WIDTH-1:0]       read_data_b_0,
+
+    input  wire                         clk_b_1,
+    input  wire                         write_enable_b_1, read_enable_b_1,
+    input  wire  [DATA_WIDTH-1:0]       write_data_b_1,
+    input  wire  [ADDRESS_WIDTH-1:0]    addr_b_1,
+    output wire  [DATA_WIDTH-1:0]       read_data_b_1
+);
+
+    sync_ram_tdp #(
+        .DATA_WIDTH(DATA_WIDTH),
+        .ADDRESS_WIDTH(ADDRESS_WIDTH)
+    ) ram_0 (
+        .clk_a(clk_a_0),
+        .clk_b(clk_b_0),
+        .write_enable_a(write_enable_a_0),
+        .write_enable_b(write_enable_b_0),
+        .read_enable_a(read_enable_a_0),
+        .read_enable_b(read_enable_b_0),
+        .write_data_a(write_data_a_0),
+        .write_data_b(write_data_b_0),
+        .addr_a(addr_a_0),
+        .addr_b(addr_b_0),
+        .read_data_a(read_data_a_0),
+        .read_data_b(read_data_b_0)
+    );
+
+    sync_ram_tdp #(
+        .DATA_WIDTH(DATA_WIDTH),
+        .ADDRESS_WIDTH(ADDRESS_WIDTH)
+    ) ram_1 (
+        .clk_a(clk_a_1),
+        .clk_b(clk_b_1),
+        .write_enable_a(write_enable_a_1),
+        .write_enable_b(write_enable_b_1),
+        .read_enable_a(read_enable_a_1),
+        .read_enable_b(read_enable_b_1),
+        .write_data_a(write_data_a_1),
+        .write_data_b(write_data_b_1),
+        .addr_a(addr_a_1),
+        .addr_b(addr_b_1),
+        .read_data_a(read_data_a_1),
+        .read_data_b(read_data_b_1)
+    );
+
+endmodule // double_sync_ram_tdp
+
