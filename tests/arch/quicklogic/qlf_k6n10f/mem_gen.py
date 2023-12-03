@@ -77,15 +77,29 @@ blockram_tests: "list[tuple[list[tuple[str, int]], str, list[str]]]" = [
     ([("ADDRESS_WIDTH_A",  9), ("DATA_WIDTH_A", 36),
       ("ADDRESS_WIDTH_B", 11), ("DATA_WIDTH_B",  9)], "double_sync_ram_sdp", ["-assert-count 2 t:TDP36K"]),
 
+    # also for tdp
+    ([("ADDRESS_WIDTH", 10), ("DATA_WIDTH", 18)], "double_sync_ram_tdp", ["-assert-count 1 t:TDP36K"]),
+    ([("ADDRESS_WIDTH", 10), ("DATA_WIDTH", 16)], "double_sync_ram_tdp", ["-assert-count 1 t:TDP36K"]),
+    ([("ADDRESS_WIDTH", 11), ("DATA_WIDTH",  8)], "double_sync_ram_tdp", ["-assert-count 1 t:TDP36K"]),
+    ([("ADDRESS_WIDTH", 12), ("DATA_WIDTH",  4)], "double_sync_ram_tdp", ["-assert-count 1 t:TDP36K"]),
+    ([("ADDRESS_WIDTH", 13), ("DATA_WIDTH",  2)], "double_sync_ram_tdp", ["-assert-count 1 t:TDP36K"]),
+    ([("ADDRESS_WIDTH", 14), ("DATA_WIDTH",  1)], "double_sync_ram_tdp", ["-assert-count 1 t:TDP36K"]),
+    # still only if data width is <= 18
+    ([("ADDRESS_WIDTH",  9), ("DATA_WIDTH", 36)], "double_sync_ram_tdp", ["-assert-count 2 t:TDP36K"]),
+
     # sharing a TDP36K sets is_split=1
     ([("ADDRESS_WIDTH_A", 10), ("DATA_WIDTH_A", 18),
       ("ADDRESS_WIDTH_B", 10), ("DATA_WIDTH_B", 18)], "double_sync_ram_sdp", ["-assert-count 1 t:TDP36K a:is_split=1 %i"]),
+    ([("ADDRESS_WIDTH", 10), ("DATA_WIDTH", 18)],     "double_sync_ram_tdp", ["-assert-count 1 t:TDP36K a:is_split=1 %i"]),
     # an unshared TDP36K sets is_split=0
     ([("ADDRESS_WIDTH", 10), ("DATA_WIDTH", 36)],     "sync_ram_*dp",        ["-assert-count 1 t:TDP36K a:is_split=0 %i"]),
     ([("ADDRESS_WIDTH", 11), ("DATA_WIDTH", 18)],     "sync_ram_sdp_w*r",    ["-assert-count 1 t:TDP36K a:is_split=0 %i"]),
 
     # sharing a TDP36K sets correct port widths
     ([("ADDRESS_WIDTH_A", 10), ("DATA_WIDTH_A", 18), ("DATA_WIDTH_B", 18), ("ADDRESS_WIDTH_B", 10)], "double_sync_ram_sdp",
+     ["-assert-count 1 t:TDP36K a:port_a1_width=18 %i a:port_a2_width=18 %i",
+      "-assert-count 1 t:TDP36K"]),
+    ([("ADDRESS_WIDTH", 10), ("DATA_WIDTH", 18)],                                                    "double_sync_ram_tdp",
      ["-assert-count 1 t:TDP36K a:port_a1_width=18 %i a:port_a2_width=18 %i",
       "-assert-count 1 t:TDP36K"]),
     ([("ADDRESS_WIDTH_A", 10), ("DATA_WIDTH_A", 16), ("DATA_WIDTH_B", 8),  ("ADDRESS_WIDTH_B", 11)], "double_sync_ram_sdp",
