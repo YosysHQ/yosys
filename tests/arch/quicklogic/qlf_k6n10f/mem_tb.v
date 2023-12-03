@@ -8,7 +8,10 @@ parameter DATA_WIDTH_A = DATA_WIDTH;
 parameter DATA_WIDTH_B = DATA_WIDTH;
 parameter VECTORLEN = 16;
 parameter SHIFT_VAL = 0;
-localparam MAX_WIDTH = DATA_WIDTH;
+
+// intentionally keep expected values at full width precision to allow testing
+// of truncation
+localparam MAX_WIDTH = 36;
 
 reg rce_a_testvector [VECTORLEN-1:0];
 reg [ADDRESS_WIDTH_A-1:0] ra_a_testvector [VECTORLEN-1:0];
