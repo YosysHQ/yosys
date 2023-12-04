@@ -178,6 +178,7 @@ defparam _TECHMAP_REPLACE_.MODE_BITS = { 1'b0,
 
 (* is_inferred = 1 *)
 (* is_split = 0 *)
+(* was_split_candidate = OPTION_SPLIT *)
 (* port_a_width = PORT_A_WIDTH *)
 (* port_b_width = PORT_B_WIDTH *)
 TDP36K #(
