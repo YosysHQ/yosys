@@ -4,7 +4,7 @@ Internal flow
 
 A (usually short) synthesis script controls Yosys.
 
-This scripts contain three types of commands:
+These scripts contain three types of commands:
 
 - **Frontends**, that read input files (usually Verilog);
 - **Passes**, that perform transformations on the design in memory;

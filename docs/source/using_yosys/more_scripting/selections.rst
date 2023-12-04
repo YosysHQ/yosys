@@ -187,7 +187,7 @@ all cells and signals that are used to generate the signal ``sum``. The ``%ci``
 action can be used to select the input cones of all object in the top selection
 in the stack maintained by the :cmd:ref:`select` command.
 
-As with the ``%x`` action, this commands broadens the selection by one "step".
+As with the ``%x`` action, these commands broaden the selection by one "step".
 But this time the operation only works against the direction of data flow. That
 means, wires only select cells via output ports and cells only select wires via
 input ports.
@@ -329,7 +329,7 @@ Similar to ``%ci`` exists an action ``%co`` to select output cones that accepts
 the same syntax for pattern and repetition. The ``%x`` action mentioned
 previously also accepts this advanced syntax.
 
-This actions for traversing the circuit graph, combined with the actions for
+These actions for traversing the circuit graph, combined with the actions for
 boolean operations such as intersection (``%i``) and difference (``%d``) are
 powerful tools for extracting the relevant portions of the circuit under
 investigation.

@@ -134,12 +134,12 @@ when the individual bits of of a signal vector are accessed.
 
 The key elements in understanding this circuit diagram are of course the boxes
 with round corners and rows labeled ``<MSB_LEFT>:<LSB_LEFT> -
-<MSB_RIGHT>:<LSB_RIGHT>``. Each of this boxes has one signal per row on one side
-and a common signal for all rows on the other side. The ``<MSB>:<LSB>`` tuples
-specify which bits of the signals are broken out and connected. So the top row
-of the box connecting the signals ``a`` and ``x`` indicates that the bit 0 (i.e.
-the range 0:0) from signal ``a`` is connected to bit 1 (i.e. the range 1:1) of
-signal ``x``.
+<MSB_RIGHT>:<LSB_RIGHT>``. Each of these boxes have one signal per row on one
+side and a common signal for all rows on the other side. The ``<MSB>:<LSB>``
+tuples specify which bits of the signals are broken out and connected. So the
+top row of the box connecting the signals ``a`` and ``x`` indicates that the bit
+0 (i.e. the range 0:0) from signal ``a`` is connected to bit 1 (i.e. the range
+1:1) of signal ``x``.
 
 Lines connecting such boxes together and lines connecting such boxes to cell
 ports have a slightly different look to emphasise that they are not actual
@@ -213,11 +213,11 @@ the ``pdf`` and ``ps`` format are the only formats that support plotting
 multiple modules in one run.
 
 In densely connected circuits it is sometimes hard to keep track of the
-individual signal wires. For this cases it can be useful to call :cmd:ref:`show`
-with the ``-colors <integer>`` argument, which randomly assigns colors to the
-nets. The integer (> 0) is used as seed value for the random color assignments.
-Sometimes it is necessary it try some values to find an assignment of colors
-that looks good.
+individual signal wires. For these cases it can be useful to call
+:cmd:ref:`show` with the ``-colors <integer>`` argument, which randomly assigns
+colors to the nets. The integer (> 0) is used as seed value for the random color
+assignments. Sometimes it is necessary it try some values to find an assignment
+of colors that looks good.
 
 The command ``help show`` prints a complete listing of all options supported by
 the :cmd:ref:`show` command.
@@ -531,7 +531,7 @@ Note that the :cmd:ref:`eval` command (as well as the :cmd:ref:`sat` command
 discussed in the next sections) does only operate on flattened modules. It can
 not analyze signals that are passed through design hierarchy levels. So the
 :cmd:ref:`flatten` command must be used on modules that instantiate other
-modules before this commands can be applied.
+modules before these commands can be applied.
 
 Solving combinatorial SAT problems
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

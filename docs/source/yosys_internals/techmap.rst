@@ -279,9 +279,9 @@ Notes on using techmap
 ~~~~~~~~~~~~~~~~~~~~~~
 
 - Don't use positional cell parameters in map modules.
-- You can use the ``$__``-prefix for internal cell types to avoid
-  collisions with the user-namespace. But always use two underscores or the
-  internal consistency checker will trigger on this cells.
+- You can use the ``$__``-prefix for internal cell types to avoid collisions
+  with the user-namespace. But always use two underscores or the internal
+  consistency checker will trigger on these cells.
 - Techmap has two major use cases:
 
     - Creating good logic-level representation of arithmetic functions. This
