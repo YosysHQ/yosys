@@ -1,7 +1,13 @@
 Typical phases of a synthesis flow
 ----------------------------------
 
-.. todo:: expand text
+.. role:: yoscrypt(code)
+   :language: yoscrypt
+
+.. todo:: should e.g. :yoscrypt:`proc` and :yoscrypt:`memory` examples be 
+   included here (typical phases) or examples
+
+.. todo:: expand bullet points
 
 - Reading and elaborating the design
 - Higher-level synthesis and optimization
@@ -16,9 +22,10 @@ Typical phases of a synthesis flow
 - Map bit-level logic gates and registers to cell library
 - Write results to output file
 
-
 Reading the design
 ~~~~~~~~~~~~~~~~~~
+
+.. todo:: include ``read_verilog <<EOF`` when discussing how to read designs?
 
 .. code-block:: yoscrypt
 
@@ -45,6 +52,13 @@ During design elaboration Yosys figures out how the modules are hierarchically
 connected. It also re-runs the AST parts of the Verilog frontend to create all
 needed variations of parametric modules.
 
+.. todo:: hierarchy without ``-top`` is bad
+   - resolve non-module-specific references (sub modules, interfaces et al)
+   - check sub modules exist, discarding unused
+   - set top attribute
+   - also mention failure modes
+   - also prep?
+
 .. code-block:: yoscrypt
 
     # simplest form. at least this version should be used after reading all input files
@@ -57,27 +71,31 @@ needed variations of parametric modules.
     hierarchy -check -top top_module
 
 
-The :cmd:ref:`proc` command
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Converting process blocks
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The Verilog frontend converts ``always``-blocks to RTL netlists for the
-expressions and "processess" for the control- and memory elements.
+expressions and "processess" for the control- and memory elements. The
+:cmd:ref:`proc` command then transforms these "processess" to netlists of RTL
+multiplexer and register cells. It also is a macro command that calls the other
+``proc_*`` commands in a sensible order:
 
-The :cmd:ref:`proc` command transforms this "processess" to netlists of RTL
-multiplexer and register cells.
+#. :cmd:ref:`proc_clean` removes empty branches and processes.
+#. :cmd:ref:`proc_rmdead` removes unreachable branches.
+#. :cmd:ref:`proc_prune`
+#. :cmd:ref:`proc_init` special handling of "initial" blocks.
+#. :cmd:ref:`proc_arst` identifies modeling of async resets.
+#. :cmd:ref:`proc_rom`
+#. :cmd:ref:`proc_mux` converts decision trees to multiplexer networks.
+#. :cmd:ref:`proc_dlatch`
+#. :cmd:ref:`proc_dff` extracts registers from processes.
+#. :cmd:ref:`proc_memwr`
+#. :cmd:ref:`proc_clean` this should remove all the processes, provided all went
+   fine.
 
-The :cmd:ref:`proc` command is actually a macro-command that calls the following
-other commands:
-
-.. code-block:: yoscrypt
-
-    proc_clean      # remove empty branches and processes
-    proc_rmdead     # remove unreachable branches
-    proc_init       # special handling of "initial" blocks
-    proc_arst       # identify modeling of async resets
-    proc_mux        # convert decision trees to multiplexer networks
-    proc_dff        # extract registers from processes
-    proc_clean      # if all went fine, this should remove all the processes
+After all the ``proc_*`` commands, :yoscrypt:`opt_expr` is called. This can be
+disabled by calling :yoscrypt:`proc -noopt`.  For more information about
+:cmd:ref:`proc`, such as disabling certain sub commands, see :doc:`/cmd/proc`.
 
 Many commands can not operate on modules with "processess" in them. Usually a
 call to :cmd:ref:`proc` is the first command in the actual synthesis procedure
@@ -85,6 +103,8 @@ after design elaboration.
 
 Example
 ^^^^^^^
+
+.. todo:: describe ``proc`` images
 
 .. literalinclude:: /code_examples/synth_flow/proc_01.v
    :language: verilog
@@ -95,10 +115,10 @@ Example
    :caption: ``docs/source/code_examples/synth_flow/proc_01.ys``
 
 .. figure:: /_images/code_examples/synth_flow/proc_01.*
-    :class: width-helper
+   :class: width-helper
 
 .. figure:: /_images/code_examples/synth_flow/proc_02.*
-    :class: width-helper
+   :class: width-helper
 
 .. literalinclude:: /code_examples/synth_flow/proc_02.v
    :language: verilog
@@ -109,7 +129,7 @@ Example
    :caption: ``docs/source/code_examples/synth_flow/proc_02.ys``
 
 .. figure:: /_images/code_examples/synth_flow/proc_03.*
-    :class: width-helper
+   :class: width-helper
 
 .. literalinclude:: /code_examples/synth_flow/proc_03.ys
    :language: yoscrypt
@@ -120,8 +140,8 @@ Example
    :caption: ``docs/source/code_examples/synth_flow/proc_03.v``
 
 
-The :cmd:ref:`opt` command
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+Optimizations
+~~~~~~~~~~~~~
 
 The :cmd:ref:`opt` command implements a series of simple optimizations. It also
 is a macro command that calls other commands:
@@ -148,10 +168,12 @@ The command :cmd:ref:`clean` can be used as alias for :cmd:ref:`opt_clean`. And
     hierarchy; proc; opt; memory; opt_expr;; fsm;;
 
 Example
-^^^^^^^
+"""""""
+
+.. todo:: describe ``opt`` images
 
 .. figure:: /_images/code_examples/synth_flow/opt_01.*
-    :class: width-helper
+   :class: width-helper
 
 .. literalinclude:: /code_examples/synth_flow/opt_01.ys
    :language: yoscrypt
@@ -162,7 +184,7 @@ Example
    :caption: ``docs/source/code_examples/synth_flow/opt_01.v``
 
 .. figure:: /_images/code_examples/synth_flow/opt_02.*
-    :class: width-helper
+   :class: width-helper
 
 .. literalinclude:: /code_examples/synth_flow/opt_02.ys
    :language: yoscrypt
@@ -173,7 +195,7 @@ Example
    :caption: ``docs/source/code_examples/synth_flow/opt_02.v``
 
 .. figure:: /_images/code_examples/synth_flow/opt_03.*
-    :class: width-helper
+   :class: width-helper
 
 .. literalinclude:: /code_examples/synth_flow/opt_03.ys
    :language: yoscrypt
@@ -184,7 +206,7 @@ Example
    :caption: ``docs/source/code_examples/synth_flow/opt_03.v``
 
 .. figure:: /_images/code_examples/synth_flow/opt_04.*
-    :class: width-helper
+   :class: width-helper
 
 .. literalinclude:: /code_examples/synth_flow/opt_04.v
    :language: verilog
@@ -194,20 +216,16 @@ Example
    :language: yoscrypt
    :caption: ``docs/source/code_examples/synth_flow/opt_04.ys``
 
-
 When to use :cmd:ref:`opt` or :cmd:ref:`clean`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+""""""""""""""""""""""""""""""""""""""""""""""
 
 Usually it does not hurt to call :cmd:ref:`opt` after each regular command in
 the synthesis script. But it increases the synthesis time, so it is favourable
 to only call :cmd:ref:`opt` when an improvement can be achieved.
 
-The designs in ``yosys-bigsim`` are a good playground for experimenting with the
-effects of calling :cmd:ref:`opt` in various places of the flow.
-
-It generally is a good idea to call :cmd:ref:`opt` before inherently expensive
+It is generally a good idea to call :cmd:ref:`opt` before inherently expensive
 commands such as :cmd:ref:`sat` or :cmd:ref:`freduce`, as the possible gain is
-much higher in this cases as the possible loss.
+much higher in these cases as the possible loss.
 
 The :cmd:ref:`clean` command on the other hand is very fast and many commands
 leave a mess (dangling signal wires, etc). For example, most commands do not
@@ -215,26 +233,44 @@ remove any wires or cells. They just change the connections and depend on a
 later call to clean to get rid of the now unused objects. So the occasional
 ``;;`` is a good idea in every synthesis script.
 
-The :cmd:ref:`memory` command
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Other common optimization commands
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. todo:: fill out descriptions for other optimization commands
+
+:cmd:ref:`wreduce`
+    Reduces the word size of operations.
+
+:cmd:ref:`peepopt`
+    Applies a collection of peephole optimizers to the current design.
+
+:cmd:ref:`share`
+    Merges shareable resources into a single resource using a SAT solver to
+    determine if two resources are shareable.
+
+Memory handling
+~~~~~~~~~~~~~~~
 
 In the RTL netlist, memory reads and writes are individual cells. This makes
 consolidating the number of ports for a memory easier. The :cmd:ref:`memory`
 transforms memories to an implementation. Per default that is logic for address
-decoders and registers. It also is a macro command that calls other commands:
+decoders and registers. It also is a macro command that calls the other
+``memory_*`` commands in a sensible order:
 
-.. code-block:: yoscrypt
+.. todo:: fill out missing :cmd:ref:`memory` subcommands descriptions
 
-    # this merges registers into the memory read- and write cells.
-    memory_dff
+#. :cmd:ref:`memory_bmux2rom`
+#. :cmd:ref:`memory_dff` merges registers into the memory read- and write cells.
+#. :cmd:ref:`memory_share`
+#. :cmd:ref:`memory_memx`
+#. :cmd:ref:`memory_collect` collects all read and write cells for a memory and
+   transforms them into one multi-port memory cell.
+#. :cmd:ref:`memory_bram`
+#. :cmd:ref:`memory_map` takes the multi-port memory cell and transforms it to
+   address decoder logic and registers.
 
-    # this collects all read and write cells for a memory and transforms them
-    # into one multi-port memory cell.
-    memory_collect
-
-    # this takes the multi-port memory cell and transforms it to address decoder
-    # logic and registers. This step is skipped if "memory" is called with -nomap.
-    memory_map
+.. todo:: is :yoscrypt:`memory -nomap; techmap -map my_memory_map.v; memory_map`
+   superceded by :yoscrypt:`memory_libmap`?
 
 Usually it is preferred to use architecture-specific RAM resources for memory.
 For example:
@@ -243,11 +279,16 @@ For example:
 
     memory -nomap; techmap -map my_memory_map.v; memory_map
 
+For more information about :cmd:ref:`memory`, such as disabling certain sub
+commands, see :doc:`/cmd/memory`.
+
 Example
 ^^^^^^^
 
+.. todo:: describe ``memory`` images
+
 .. figure:: /_images/code_examples/synth_flow/memory_01.*
-    :class: width-helper
+   :class: width-helper
 
 .. literalinclude:: /code_examples/synth_flow/memory_01.ys
    :language: yoscrypt
@@ -258,7 +299,7 @@ Example
    :caption: ``docs/source/code_examples/synth_flow/memory_01.v``
 
 .. figure:: /_images/code_examples/synth_flow/memory_02.*
-    :class: width-helper
+   :class: width-helper
 
 .. literalinclude:: /code_examples/synth_flow/memory_02.v
    :language: verilog
@@ -268,58 +309,48 @@ Example
    :language: yoscrypt
    :caption: ``docs/source/code_examples/synth_flow/memory_02.ys``
 
+The :cmd:ref:`memory_libmap` command
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The :cmd:ref:`fsm` command
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. todo:: :cmd:ref:`memory_libmap` description
+
+FSM handling
+~~~~~~~~~~~~
 
 The :cmd:ref:`fsm` command identifies, extracts, optimizes (re-encodes), and
 re-synthesizes finite state machines. It again is a macro that calls a series of
 other commands:
 
-.. code-block:: yoscrypt
+#. :cmd:ref:`fsm_detect` identifies FSM state registers and marks them
+   with the ``(* fsm_encoding = "auto" *)`` attribute, if they do not have the
+   ``fsm_encoding`` set already. Mark registers with ``(* fsm_encoding = "none"
+   *)`` to disable FSM optimization for a register.
+#. :cmd:ref:`fsm_extract` replaces the entire FSM (logic and state registers)
+   with a ``$fsm`` cell.
+#. :cmd:ref:`fsm_opt` optimizes the FSM. Called multiple times.
+#. :cmd:ref:`fsm_expand` optionally merges additional auxilliary gates into the
+   ``$fsm`` cell.
+#. :cmd:ref:`fsm_recode` also optimizes the FSM.
+#. :cmd:ref:`fsm_info` logs internal FSM information.
+#. :cmd:ref:`fsm_export` optionally exports each FSM to KISS2 files.
+#. :cmd:ref:`fsm_map` converts the (optimized) ``$fsm`` cell back to logic and
+   registers.
 
-    fsm_detect          # unless got option -nodetect
-    fsm_extract
+See also :doc:`/cmd/fsm`.
 
-    fsm_opt
-    clean
-    fsm_opt
+DSP handling
+~~~~~~~~~~~~
 
-    fsm_expand          # if got option -expand
-    clean               # if got option -expand
-    fsm_opt             # if got option -expand
+.. todo:: add info about dsp handling
 
-    fsm_recode          # unless got option -norecode
-
-    fsm_info
-
-    fsm_export          # if got option -export
-    fsm_map             # unless got option -nomap
-
-Some details on the most important commands from the ``fsm_*`` group:
-
-The :cmd:ref:`fsm_detect` command identifies FSM state registers and marks them
-with the ``(* fsm_encoding = "auto" *)`` attribute, if they do not have the
-``fsm_encoding`` set already. Mark registers with ``(* fsm_encoding = "none"
-*)`` to disable FSM optimization for a register.
-
-The :cmd:ref:`fsm_extract` command replaces the entire FSM (logic and state
-registers) with a ``$fsm`` cell.
-
-The commands :cmd:ref:`fsm_opt` and :cmd:ref:`fsm_recode` can be used to
-optimize the FSM.
-
-Finally the :cmd:ref:`fsm_map` command can be used to convert the (optimized)
-``$fsm`` cell back to logic and registers.
-
-The :cmd:ref:`techmap` command
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. figure:: /_images/code_examples/synth_flow/techmap_01.*
-    :class: width-helper
+Technology mapping
+~~~~~~~~~~~~~~~~~~
 
 The :cmd:ref:`techmap` command replaces cells with implementations given as
 verilog source. For example implementing a 32 bit adder using 16 bit adders:
+
+.. figure:: /_images/code_examples/synth_flow/techmap_01.*
+   :class: width-helper
 
 .. literalinclude:: /code_examples/synth_flow/techmap_01_map.v
    :language: verilog
@@ -332,6 +363,8 @@ verilog source. For example implementing a 32 bit adder using 16 bit adders:
 .. literalinclude:: /code_examples/synth_flow/techmap_01.ys
    :language: yoscrypt
    :caption: ``docs/source/code_examples/synth_flow/techmap_01.ys``
+
+See :doc:`/yosys_internals/techmap` for more.
 
 stdcell mapping
 ^^^^^^^^^^^^^^^
@@ -378,6 +411,8 @@ advanced ABC features. It is also possible to write the design with
 Example
 ^^^^^^^
 
+.. todo:: describe ``abc`` images
+
 .. literalinclude:: /code_examples/synth_flow/abc_01.v
    :language: verilog
    :caption: ``docs/source/code_examples/synth_flow/abc_01.v``
@@ -387,58 +422,36 @@ Example
    :caption: ``docs/source/code_examples/synth_flow/abc_01.ys``
 
 .. figure:: /_images/code_examples/synth_flow/abc_01.*
-    :class: width-helper
+   :class: width-helper
 
 Other special-purpose mapping commands
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+The commands below may be used depending on the targeted architecture for
+compatibility with, or to take advantage of, resources available.
+
 :cmd:ref:`dfflibmap`
-  This command maps the internal register cell types to the register types
-  described in a liberty file.
+    This command maps the internal register cell types to the register types
+    described in a liberty file.
 
 :cmd:ref:`hilomap`
-  Some architectures require special driver cells for driving a constant hi or
-  lo value. This command replaces simple constants with instances of such driver
-  cells.
+    Some architectures require special driver cells for driving a constant hi or
+    lo value. This command replaces simple constants with instances of such
+    driver cells.
 
 :cmd:ref:`iopadmap`
-  Top-level input/outputs must usually be implemented using special I/O-pad
-  cells. This command inserts this cells to the design.
+    Top-level input/outputs must usually be implemented using special I/O-pad
+    cells. This command inserts such cells to the design.
 
-Example Synthesis Script
-~~~~~~~~~~~~~~~~~~~~~~~~
+:cmd:ref:`alumacc`
+    Translate arithmetic operations like $add, $mul, $lt, etc. to $alu and $macc
+    cells.
 
-.. code-block:: yoscrypt
+:cmd:ref:`dfflegalize`
+    Specify a set of supported FF cells/cell groups and convert all FFs to them.
 
-    # read and elaborate design
-    read_verilog cpu_top.v cpu_ctrl.v cpu_regs.v
-    read_verilog -D WITH_MULT cpu_alu.v
-    hierarchy -check -top cpu_top
+:cmd:ref:`deminout`
+    Convert inout ports to input or output ports, if possible.
 
-    # high-level synthesis
-    proc; opt; fsm;; memory -nomap; opt
-
-    # substitute block rams
-    techmap -map map_rams.v
-
-    # map remaining memories
-    memory_map
-
-    # low-level synthesis
-    techmap; opt; flatten;; abc -lut6
-    techmap -map map_xl_cells.v
-
-    # add clock buffers
-    select -set xl_clocks t:FDRE %x:+FDRE[C] t:FDRE %d
-    iopadmap -inpad BUFGP O:I @xl_clocks
-
-    # add io buffers
-    select -set xl_nonclocks w:* t:BUFGP %x:+BUFGP[I] %d
-    iopadmap -outpad OBUF I:O -inpad IBUF O:I @xl_nonclocks
-
-    # write synthesis results
-    write_edif synth.edif
-
-The weird :cmd:ref:`select` expressions at the end of this script are discussed
-later in
-:doc:`using_yosys/more_scripting/selections</using_yosys/more_scripting/selections>`.
+:cmd:ref:`pmuxtree`
+    Transforms parallel mux cells, ``$pmux``, to trees of ``$mux`` cells.
