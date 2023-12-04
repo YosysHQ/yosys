@@ -1,6 +1,9 @@
 %_pm.h: passes/pmgen/pmgen.py %.pmg
 	$(P) mkdir -p pmgen && $(PYTHON_EXECUTABLE) $< -o $@ -p $(subst _pm.h,,$(notdir $@)) $(filter-out $<,$^)
 
+techlibs/quicklogic/qlf_k6n10f/bram_types_sim.v: techlibs/quicklogic/qlf_k6n10f/generate_bram_types_sim.py
+	$(P) $(PYTHON_EXECUTABLE) $^ $@
+
 OBJS += techlibs/quicklogic/synth_quicklogic.o
 OBJS += techlibs/quicklogic/ql_bram_merge.o
 OBJS += techlibs/quicklogic/ql_bram_types.o
@@ -10,7 +13,7 @@ OBJS += techlibs/quicklogic/ql_dsp_io_regs.o
 # --------------------------------------
 
 OBJS += techlibs/quicklogic/ql_dsp_macc.o
-GENFILES += techlibs/quicklogic/ql_dsp_macc_pm.h
+GENFILES += techlibs/quicklogic/ql_dsp_macc_pm.h techlibs/quicklogic/qlf_k6n10f/bram_types_sim.v
 techlibs/quicklogic/ql_dsp_macc.o: techlibs/quicklogic/ql_dsp_macc_pm.h
 $(eval $(call add_extra_objs,techlibs/quicklogic/ql_dsp_macc_pm.h))
 
