@@ -1,6 +1,6 @@
-read_verilog ../common/add_sub.v
+read_verilog ../../common/add_sub.v
 hierarchy -top top
-equiv_opt -assert -map +/quicklogic/lut_sim.v -map +/quicklogic/pp3_cells_sim.v synth_quicklogic -family pp3 # equivalency check
+equiv_opt -assert -map +/quicklogic/pp3/cells_sim.v synth_quicklogic -family pp3 # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd top # Constrain all select calls below inside the top module
 select -assert-count 2 t:LUT2

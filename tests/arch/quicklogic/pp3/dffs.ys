@@ -1,11 +1,11 @@
-read_verilog ../common/dffs.v
+read_verilog ../../common/dffs.v
 rename dff my_dff # Work around conflicting module names between test and vendor cells
 rename dffe my_dffe
 design -save read
 
 hierarchy -top my_dff
 proc
-equiv_opt -async2sync -assert -map +/quicklogic/pp3_cells_sim.v -map +/quicklogic/cells_sim.v synth_quicklogic # equivalency check
+equiv_opt -async2sync -assert -map +/quicklogic/pp3/cells_sim.v -map +/quicklogic/common/cells_sim.v synth_quicklogic # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd my_dff # Constrain all select calls below inside the top module
 select -assert-count 1 t:ckpad
@@ -20,7 +20,7 @@ select -assert-none t:ckpad t:dffepc t:inpad t:logic_0 t:logic_1 t:outpad %% t:*
 design -load read
 hierarchy -top my_dffe
 proc
-equiv_opt -async2sync -assert -map +/quicklogic/pp3_cells_sim.v -map +/quicklogic/cells_sim.v synth_quicklogic # equivalency check
+equiv_opt -async2sync -assert -map +/quicklogic/pp3/cells_sim.v -map +/quicklogic/common/cells_sim.v synth_quicklogic # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd my_dffe # Constrain all select calls below inside the top module
 

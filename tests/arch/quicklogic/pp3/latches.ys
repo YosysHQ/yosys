@@ -1,4 +1,4 @@
-read_verilog ../common/latches.v
+read_verilog ../../common/latches.v
 design -save read
 
 hierarchy -top latchp
