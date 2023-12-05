@@ -1,6 +1,3 @@
-%_pm.h: passes/pmgen/pmgen.py %.pmg
-	$(P) mkdir -p pmgen && $(PYTHON_EXECUTABLE) $< -o $@ -p $(subst _pm.h,,$(notdir $@)) $(filter-out $<,$^)
-
 techlibs/quicklogic/qlf_k6n10f/bram_types_sim.v: techlibs/quicklogic/qlf_k6n10f/generate_bram_types_sim.py
 	$(P) $(PYTHON_EXECUTABLE) $^ $@
 

@@ -1,5 +1,5 @@
 %_pm.h: passes/pmgen/pmgen.py %.pmg
-	$(P) mkdir -p passes/pmgen && $(PYTHON_EXECUTABLE) $< -o $@ -p $(subst _pm.h,,$(notdir $@)) $(filter-out $<,$^)
+	$(P) mkdir -p $(dir $@) && $(PYTHON_EXECUTABLE) $< -o $@ -p $(subst _pm.h,,$(notdir $@)) $(filter-out $<,$^)
 
 # --------------------------------------
 
