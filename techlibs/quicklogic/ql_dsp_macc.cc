@@ -23,7 +23,7 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#include "ql_dsp_macc_pm.h"
+#include "techlibs/quicklogic/ql_dsp_macc_pm.h"
 
 // ============================================================================
 
