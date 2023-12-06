@@ -82,21 +82,16 @@ code
 	int new_const_factor = 1 << factor_bits;
 	SigSpec padding(State::Sx, new_const_factor-const_factor);
 	SigSpec old_a = port(shift, \A), new_a;
-	int trunc = 0;
-
-	if (GetSize(old_a) % const_factor != 0) {
-		trunc = const_factor - GetSize(old_a) % const_factor;
-		old_a.append(SigSpec(State::Sx, trunc));
-	}
 
 	for (int i = 0; i*const_factor < GetSize(old_a); i++) {
-		SigSpec slice = old_a.extract(i*const_factor, const_factor);
-		new_a.append(slice);
-		new_a.append(padding);
+		if ((i+1)*const_factor < GetSize(old_a)) {
+			SigSpec slice = old_a.extract(i*const_factor, const_factor);
+			new_a.append(slice);
+			new_a.append(padding);
+		} else {
+			new_a.append(old_a.extract_end(i*const_factor));
+		}
 	}
-
-	if (trunc > 0)
-		new_a.remove(GetSize(new_a)-trunc, trunc);
 
 	SigSpec new_b = {mul_din, SigSpec(State::S0, factor_bits)};
 	if (param(shift, \B_SIGNED).as_bool())
