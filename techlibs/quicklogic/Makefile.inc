@@ -1,5 +1,5 @@
 techlibs/quicklogic/qlf_k6n10f/bram_types_sim.v: techlibs/quicklogic/qlf_k6n10f/generate_bram_types_sim.py
-	$(P) $(PYTHON_EXECUTABLE) $^ $@
+	$(P) mkdir -p $(dir $@) && $(PYTHON_EXECUTABLE) $^ $@
 
 OBJS += techlibs/quicklogic/synth_quicklogic.o
 OBJS += techlibs/quicklogic/ql_bram_merge.o
@@ -32,7 +32,7 @@ $(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf
 $(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/libmap_brams_map.v))
 $(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/brams_map.v))
 $(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/brams_sim.v))
-$(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/bram_types_sim.v))
+$(eval $(call add_gen_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/bram_types_sim.v))
 $(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/cells_sim.v))
 $(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/ffs_map.v))
 $(eval $(call add_share_file,share/quicklogic/qlf_k6n10f,techlibs/quicklogic/qlf_k6n10f/dsp_sim.v))
