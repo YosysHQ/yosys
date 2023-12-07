@@ -1,15 +1,5 @@
-Introduction to synthesis
--------------------------
-
-The generic ``synth``
-~~~~~~~~~~~~~~~~~~~~~
-
-The following commands are executed by the :cmd:ref:`synth` command:
-
-.. literalinclude:: /cmd/synth.rst
-   :start-at: begin:
-   :end-before: .. raw:: latex
-   :dedent:
+Synth commands
+--------------
 
 Packaged ``synth_*`` commands
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -38,3 +28,20 @@ being targeted.
 - :doc:`/cmd/synth_quicklogic`
 - :doc:`/cmd/synth_sf2`
 - :doc:`/cmd/synth_xilinx`
+
+General synthesis
+~~~~~~~~~~~~~~~~~
+
+In addition to the above hardware-specific synth commands, there is also
+:doc:`/cmd/prep`.  This command is limited to coarse-grain synthesis, without
+getting into any architecture-specific mappings or optimizations.  Among other
+things, this is useful for design verification.
+
+The following commands are executed by the :cmd:ref:`prep` command:
+
+.. literalinclude:: /cmd/prep.rst
+   :start-at: begin:
+   :end-before: .. raw:: latex
+   :dedent:
+
+The following sections will get more into what each of these commands do.

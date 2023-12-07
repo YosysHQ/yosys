@@ -5,6 +5,9 @@ Synthesis in detail
    :maxdepth: 3
 
    synth
-   opt_passes
    proc
-   memory_mapping
+   fsm
+   memory
+   opt
+   abc
+

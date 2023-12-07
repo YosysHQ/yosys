@@ -1,20 +1,88 @@
-.. _chapter:memorymap:
+Memory handling
+===============
+
+The :cmd:ref:`memory` command
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In the RTL netlist, memory reads and writes are individual cells. This makes
+consolidating the number of ports for a memory easier. The :cmd:ref:`memory`
+pass transforms memories to an implementation. Per default that is logic for
+address decoders and registers. It also is a macro command that the other common
+``memory_*`` commands in a sensible order:
+
+.. todo:: fill out missing :cmd:ref:`memory` subcommands descriptions
+
+#. :cmd:ref:`memory_bmux2rom`
+#. :cmd:ref:`memory_dff` merges registers into the memory read- and write cells.
+#. :cmd:ref:`memory_share`
+#. :cmd:ref:`memory_memx`
+#. :cmd:ref:`memory_collect` collects all read and write cells for a memory and
+   transforms them into one multi-port memory cell.
+#. :cmd:ref:`memory_bram`
+#. :cmd:ref:`memory_map` takes the multi-port memory cell and transforms it to
+   address decoder logic and registers.
+
+For more information about :cmd:ref:`memory`, such as disabling certain sub
+commands, see :doc:`/cmd/memory`.
+
+Example
+-------
+
+.. todo:: describe ``memory`` images
+
+.. figure:: /_images/code_examples/synth_flow/memory_01.*
+   :class: width-helper
+
+.. literalinclude:: /code_examples/synth_flow/memory_01.ys
+   :language: yoscrypt
+   :caption: ``docs/source/code_examples/synth_flow/memory_01.ys``
+
+.. literalinclude:: /code_examples/synth_flow/memory_01.v
+   :language: verilog
+   :caption: ``docs/source/code_examples/synth_flow/memory_01.v``
+
+.. figure:: /_images/code_examples/synth_flow/memory_02.*
+   :class: width-helper
+
+.. literalinclude:: /code_examples/synth_flow/memory_02.v
+   :language: verilog
+   :caption: ``docs/source/code_examples/synth_flow/memory_02.v``
+
+.. literalinclude:: /code_examples/synth_flow/memory_02.ys
+   :language: yoscrypt
+   :caption: ``docs/source/code_examples/synth_flow/memory_02.ys``
+
+.. _memory_map:
 
 Memory mapping
-==============
+^^^^^^^^^^^^^^
 
-Documentation for the Yosys :cmd:ref:`memory_libmap` memory mapper.  Note that
-not all supported patterns are included in this document, of particular note is
-that combinations of multiple patterns should generally work.  For example,
-`Write port with byte enables`_ could be used in conjunction with any of the
-simple dual port (SDP) models.  In general if a hardware memory definition does
-not support a given configuration, additional logic will be instantiated to
-guarantee behaviour is consistent with simulation.
+.. todo:: :cmd:ref:`memory_libmap` description
+
+Usually it is preferred to use architecture-specific RAM resources for memory.
+For example:
+
+.. code-block:: yoscrypt
+
+    memory -nomap
+    memory_libmap -lib my_memory_map.txt
+    techmap -map my_memory_map.v
+    memory_map
+
+Supported memory patterns
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Note that not all supported patterns are included in this document, of
+particular note is that combinations of multiple patterns should generally work.
+For example, `wbe`_ could be used in conjunction with any of the simple dual
+port (SDP) models.  In general if a hardware memory definition does not support
+a given configuration, additional logic will be instantiated to guarantee
+behaviour is consistent with simulation.
 
 See also: `passes/memory/memlib.md <https://github.com/YosysHQ/yosys/blob/master/passes/memory/memlib.md>`_
 
-Additional notes
-----------------
+Notes
+-----
 
 Memory kind selection
 ~~~~~~~~~~~~~~~~~~~~~
@@ -95,7 +163,9 @@ Initial data
 Most FPGA targets support initializing all kinds of memory to user-provided values.  If explicit
 initialization is not used the initial memory value is undefined.  Initial data can be provided by
 either initial statements writing memory cells one by one of ``$readmemh`` or ``$readmemb`` system
-tasks.  For an example pattern, see `Synchronous read port with initial value`_.
+tasks.  For an example pattern, see `sr_init`_.
+
+.. _wbe:
 
 Write port with byte enables
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -127,6 +197,8 @@ Write port with byte enables
 
 Simple dual port (SDP) memory patterns
 --------------------------------------
+
+.. todo:: assorted enables, e.g. cen, wen+ren
 
 Asynchronous-read SDP
 ~~~~~~~~~~~~~~~~~~~~~
@@ -218,6 +290,8 @@ Synchronous SDP with undefined collision behavior
 		if (read_enable) 
 			read_data <= mem[read_addr];
 	end
+
+.. _sdp_wf:
 
 Synchronous SDP with write-first behavior
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -335,6 +409,8 @@ Synchronous single-port RAM with write-first behavior
 				read_data <= mem[addr];
 	end
 
+.. _sr_init:
+
 Synchronous read port with initial value
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -435,6 +511,8 @@ To construct an asymmetric memory (memory with read/write ports of differing wid
 Asymmetric memory is supported on all targets, but may require emulation circuitry where not
 natively supported.  Note that when the memory is larger than the underlying block RAM primitive,
 hardware asymmetric memory support is likely not to be used even if present as it is more expensive.
+
+.. _wide_sr:
 
 Wide synchronous read port
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -597,7 +675,7 @@ Patterns only supported with Verific
 Synchronous SDP with write-first behavior via blocking assignments
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Use `Synchronous SDP with write-first behavior`_ for compatibility with Yosys
+- Use `sdp_wf`_ for compatibility with Yosys
   Verilog frontend.
 
 .. code:: verilog
@@ -615,8 +693,8 @@ Synchronous SDP with write-first behavior via blocking assignments
 Asymmetric memories via part selection
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Build wide ports out of narrow ports instead (see `Wide synchronous read
-  port`_) for compatibility with Yosys Verilog frontend.
+- Build wide ports out of narrow ports instead (see `wide_sr`_) for
+  compatibility with Yosys Verilog frontend.
 
 .. code:: verilog
 

@@ -2,8 +2,9 @@ More scripting
 --------------
 
 .. toctree::
-	:maxdepth: 3
+   :maxdepth: 3
 
-	selections
-	interactive_investigation
-	troubleshooting
+   load_design
+   selections
+   interactive_investigation
+   troubleshooting

@@ -1,16 +1,34 @@
 Synthesis starter
 -----------------
 
+.. 
+   Typical phases of a synthesis flow are as follows:
+
+   - Reading and elaborating the design
+   - Higher-level synthesis and optimization
+
+   - Converting ``always``-blocks to logic and registers
+   - Perform coarse-grain optimizations (resource sharing, const folding, ...)
+   - Handling of memories and other coarse-grain blocks
+   - Extracting and optimizing finite state machines
+
+   - Convert remaining logic to bit-level logic functions
+   - Perform optimizations on bit-level logic functions
+   - Map bit-level logic gates and registers to cell library
+   - Write results to output file
+
 A simple counter
 ~~~~~~~~~~~~~~~~
 
 .. role:: yoscrypt(code)
    :language: yoscrypt
 
-This section covers an example project available in
-``docs/source/code_examples/intro/*``.  The project contains a simple ASIC
+This section covers an `example project`_ available in
+``docs/source/code_examples/intro/``.  The project contains a simple ASIC
 synthesis script (``counter.ys``), a digital design written in Verilog
 (``counter.v``), and a simple CMOS cell library (``mycells.lib``).
+
+.. _example project: https://github.com/YosysHQ/yosys/tree/krys/docs/docs/source/code_examples/intro
 
 First, let's quickly look at the design:
 
@@ -159,20 +177,27 @@ Some of the commands we might use here are:
 - :doc:`/cmd/memory`,
 - :doc:`/cmd/wreduce`,
 - :doc:`/cmd/peepopt`,
+- :doc:`/cmd/pmuxtree`,
 - :doc:`/cmd/alumacc`, and
 - :doc:`/cmd/share`.
 
-Techmap
-~~~~~~~
+We could have also 
+
+Logic gate mapping
+~~~~~~~~~~~~~~~~~~
 
 :yoscrypt:`techmap` - Map coarse-grain RTL cells (adders, etc.) to fine-grain
 logic gates (AND, OR, NOT, etc.).
 
-.. literalinclude:: /code_examples/intro/counter.ys
-   :language: yoscrypt
-   :lines: 8-9
+When :cmd:ref:`techmap` is used without a map file, it uses a built-in map file
+to map all RTL cell types to a generic library of built-in logic gates and
+registers.
 
-Result:
+The built-in logic gate types are: ``$_NOT_``, ``$_AND_``, ``$_OR_``,
+``$_XOR_``, and ``$_MUX_``.
+
+See :doc:`/yosys_internals/formats/cell_library` for more about the internal
+cells used.
 
 .. figure:: /_images/code_examples/intro/counter_02.*
    :class: width-helper
@@ -192,6 +217,22 @@ Mapping to hardware
    :class: width-helper
 
    ``counter`` after hardware cell mapping
+
+:cmd:ref:`dfflibmap`
+    This command maps the internal register cell types to the register types
+    described in a liberty file.
+
+:cmd:ref:`hilomap`
+    Some architectures require special driver cells for driving a constant hi or
+    lo value. This command replaces simple constants with instances of such
+    driver cells.
+
+:cmd:ref:`iopadmap`
+    Top-level input/outputs must usually be implemented using special I/O-pad
+    cells. This command inserts such cells to the design.
+
+:cmd:ref:`dfflegalize`
+    Specify a set of supported FF cells/cell groups and convert all FFs to them.
 
 .. _cmos_lib:
 
@@ -215,3 +256,4 @@ The script file
    :language: yoscrypt
    :caption: ``docs/source/code_examples/intro/counter.ys``
 
+See also :doc:`/using_yosys/synthesis/synth`.

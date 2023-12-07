@@ -1,160 +1,26 @@
-.. _chapter:opt:
+FSM handling
+============
 
-Optimization passes
-===================
+The :cmd:ref:`fsm` command identifies, extracts, optimizes (re-encodes), and
+re-synthesizes finite state machines. It again is a macro that calls a series of
+other commands:
 
-.. todo:: check text context, also check the optimization passes still do what they say
+#. :cmd:ref:`fsm_detect` identifies FSM state registers and marks them
+   with the ``(* fsm_encoding = "auto" *)`` attribute, if they do not have the
+   ``fsm_encoding`` set already. Mark registers with ``(* fsm_encoding = "none"
+   *)`` to disable FSM optimization for a register.
+#. :cmd:ref:`fsm_extract` replaces the entire FSM (logic and state registers)
+   with a ``$fsm`` cell.
+#. :cmd:ref:`fsm_opt` optimizes the FSM. Called multiple times.
+#. :cmd:ref:`fsm_expand` optionally merges additional auxilliary gates into the
+   ``$fsm`` cell.
+#. :cmd:ref:`fsm_recode` also optimizes the FSM.
+#. :cmd:ref:`fsm_info` logs internal FSM information.
+#. :cmd:ref:`fsm_export` optionally exports each FSM to KISS2 files.
+#. :cmd:ref:`fsm_map` converts the (optimized) ``$fsm`` cell back to logic and
+   registers.
 
-Yosys employs a number of optimizations to generate better and cleaner results.
-This chapter outlines these optimizations.
-
-Simple optimizations
---------------------
-
-The Yosys pass :cmd:ref:`opt` runs a number of simple optimizations. This
-includes removing unused signals and cells and const folding. It is recommended
-to run this pass after each major step in the synthesis script. At the time of
-this writing the :cmd:ref:`opt` pass executes the following passes that each
-perform a simple optimization:
-
--  Once at the beginning of :cmd:ref:`opt`:
-
-   -  ``opt_expr``
-   -  ``opt_merge -nomux``
-
--  Repeat until result is stable:
-
-   -  ``opt_muxtree``
-   -  ``opt_reduce``
-   -  ``opt_merge``
-   -  ``opt_rmdff``
-   -  ``opt_clean``
-   -  ``opt_expr``
-
-The following section describes each of the ``opt_`` passes.
-
-The :cmd:ref:`opt_expr` pass
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-This pass performs const folding on the internal combinational cell types
-described in :doc:`/yosys_internals/formats/cell_library`. This means a cell
-with all constant inputs is replaced with the constant value this cell drives.
-In some cases this pass can also optimize cells with some constant inputs.
-
-.. table:: Const folding rules for ``$_AND_`` cells as used in :cmd:ref:`opt_expr`.
-   :name: tab:opt_expr_and
-   :align: center
-
-   ========= ========= ===========
-   A-Input   B-Input   Replacement
-   ========= ========= ===========
-   any       0         0
-   0         any       0
-   1         1         1
-   --------- --------- -----------
-   X/Z       X/Z       X
-   1         X/Z       X
-   X/Z       1         X
-   --------- --------- -----------
-   any       X/Z       0
-   X/Z       any       0
-   --------- --------- -----------
-   :math:`a` 1         :math:`a`
-   1         :math:`b` :math:`b`
-   ========= ========= ===========
-
-.. todo:: How to format table?
-
-:numref:`Table %s <tab:opt_expr_and>` shows the replacement rules used for
-optimizing an ``$_AND_`` gate. The first three rules implement the obvious const
-folding rules. Note that 'any' might include dynamic values calculated by other
-parts of the circuit. The following three lines propagate undef (X) states.
-These are the only three cases in which it is allowed to propagate an undef
-according to Sec. 5.1.10 of IEEE Std. 1364-2005 :cite:p:`Verilog2005`.
-
-The next two lines assume the value 0 for undef states. These two rules are only
-used if no other substitutions are possible in the current module. If other
-substitutions are possible they are performed first, in the hope that the 'any'
-will change to an undef value or a 1 and therefore the output can be set to
-undef.
-
-The last two lines simply replace an ``$_AND_`` gate with one constant-1 input
-with a buffer.
-
-Besides this basic const folding the :cmd:ref:`opt_expr` pass can replace 1-bit
-wide ``$eq`` and ``$ne`` cells with buffers or not-gates if one input is
-constant.
-
-The :cmd:ref:`opt_expr` pass is very conservative regarding optimizing ``$mux``
-cells, as these cells are often used to model decision-trees and breaking these
-trees can interfere with other optimizations.
-
-The :cmd:ref:`opt_muxtree` pass
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-This pass optimizes trees of multiplexer cells by analyzing the select inputs.
-Consider the following simple example:
-
-.. code:: verilog
-
-   module uut(a, y); 
-      input a; 
-      output [1:0] y = a ? (a ? 1 : 2) : 3; 
-   endmodule
-
-The output can never be 2, as this would require ``a`` to be 1 for the outer
-multiplexer and 0 for the inner multiplexer. The :cmd:ref:`opt_muxtree` pass
-detects this contradiction and replaces the inner multiplexer with a constant 1,
-yielding the logic for ``y = a ? 1 : 3``.
-
-The :cmd:ref:`opt_reduce` pass
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-This is a simple optimization pass that identifies and consolidates identical
-input bits to ``$reduce_and`` and ``$reduce_or`` cells. It also sorts the input
-bits to ease identification of shareable ``$reduce_and`` and ``$reduce_or``
-cells in other passes.
-
-This pass also identifies and consolidates identical inputs to multiplexer
-cells. In this case the new shared select bit is driven using a ``$reduce_or``
-cell that combines the original select bits.
-
-Lastly this pass consolidates trees of ``$reduce_and`` cells and trees of
-``$reduce_or`` cells to single large ``$reduce_and`` or ``$reduce_or`` cells.
-
-These three simple optimizations are performed in a loop until a stable result
-is produced.
-
-The ``opt_rmdff`` pass
-~~~~~~~~~~~~~~~~~~~~~~
-
-.. todo:: Update to ``opt_dff``
-
-This pass identifies single-bit d-type flip-flops (``$_DFF_``, ``$dff``, and
-``$adff`` cells) with a constant data input and replaces them with a constant
-driver.
-
-The :cmd:ref:`opt_clean` pass
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-This pass identifies unused signals and cells and removes them from the design.
-It also creates an ``\unused_bits`` attribute on wires with unused bits. This
-attribute can be used for debugging or by other optimization passes.
-
-The :cmd:ref:`opt_merge` pass
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-This pass performs trivial resource sharing. This means that this pass
-identifies cells with identical inputs and replaces them with a single instance
-of the cell.
-
-The option ``-nomux`` can be used to disable resource sharing for multiplexer
-cells (``$mux`` and ``$pmux``.) This can be useful as it prevents multiplexer
-trees to be merged, which might prevent :cmd:ref:`opt_muxtree` to identify
-possible optimizations.
-
-FSM extraction and encoding
----------------------------
+See also :doc:`/cmd/fsm`.
 
 The fsm pass performs finite-state-machine (FSM) extraction and recoding. The
 fsm pass simply executes the following other passes:
@@ -328,14 +194,4 @@ only one-hot encoding with all-zero for the reset state is supported.
 
 The fsm_recode pass can also write a text file with the changes performed by it
 that can be used when verifying designs synthesized by Yosys using Synopsys
-Formality .
-
-Logic optimization
-------------------
-
-Yosys can perform multi-level combinational logic optimization on gate-level
-netlists using the external program ABC . The abc pass extracts the
-combinational gate-level parts of the design, passes it through ABC, and
-re-integrates the results. The abc pass can also be used to perform other
-operations using ABC, such as technology mapping (see :ref:`sec:techmap_extern`
-for details).
+Formality.
