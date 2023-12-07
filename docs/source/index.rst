@@ -2,6 +2,16 @@
 Yosys Open SYnthesis Suite
 ================================================================================
 
+.. todo:: better landing page
+   
+   Consider adding something here that isn't just table of contents since this 
+   *is* the root page and is where the logo links to.
+
+.. only:: html
+
+   Table of contents
+   -----------------
+
 .. toctree::
 	:maxdepth: 3
 	
@@ -13,11 +23,13 @@ Yosys Open SYnthesis Suite
 
 	appendix
 
-Indices
--------
+.. only:: html
 
-- :ref:`commandindex`
-- :ref:`tagindex`
+   Indices
+   -------
+
+   - :ref:`commandindex`
+   - :ref:`tagindex`
 
 TODOs
 -----

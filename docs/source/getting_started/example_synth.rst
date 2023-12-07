@@ -111,6 +111,8 @@ Our circuit now looks like this:
 
    ``counter`` module after :cmd:ref:`hierarchy`
 
+.. seealso:: Advanced usage docs for :doc:`/using_yosys/more_scripting/load_design`
+
 Elaboration
 ~~~~~~~~~~~
 
@@ -158,6 +160,8 @@ Depending on the target architecture, we might also run commands such as
 remove tristate and inout constructs respectively, replacing them with logic
 suitable for mapping to an FPGA.
 
+.. seealso:: Advanced usage docs for :doc:`/using_yosys/synthesis/proc`
+
 The coarse-grain representation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -183,6 +187,9 @@ Some of the commands we might use here are:
 - :doc:`/cmd/pmuxtree`,
 - :doc:`/cmd/alumacc`, and
 - :doc:`/cmd/share`.
+
+.. seealso:: Advanced usage docs for :doc:`/using_yosys/synthesis/fsm`, and 
+   :doc:`/using_yosys/synthesis/memory`
 
 Logic gate mapping
 ~~~~~~~~~~~~~~~~~~
@@ -239,6 +246,8 @@ Mapping to hardware
 :cmd:ref:`dfflegalize`
     Specify a set of supported FF cells/cell groups and convert all FFs to them.
 
+.. seealso:: Advanced usage docs for :doc:`/yosys_internals/techmap`
+
 .. _cmos_lib:
 
 The CMOS cell library
@@ -261,4 +270,4 @@ The script file
    :language: yoscrypt
    :caption: ``docs/source/code_examples/intro/counter.ys``
 
-See also :doc:`/using_yosys/synthesis/synth`.
+.. seealso:: Advanced usage docs for :doc:`/using_yosys/synthesis/synth`
