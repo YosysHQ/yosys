@@ -2,9 +2,8 @@ Getting started with Yosys
 ==========================
 
 .. toctree::
-	:maxdepth: 3
+   :maxdepth: 3
 
-	installation
-	scripting_intro
-	typical_phases
-	examples
+   installation
+   scripting_intro
+   example_synth

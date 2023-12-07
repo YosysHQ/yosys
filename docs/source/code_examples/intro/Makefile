@@ -2,7 +2,7 @@ PROGRAM_PREFIX :=
 
 YOSYS ?= ../../../../$(PROGRAM_PREFIX)yosys
 
-DOTS = counter_00.dot counter_01.dot counter_02.dot counter_03.dot
+DOTS = counter_00.dot counter_proc.dot counter_01.dot counter_02.dot counter_03.dot
 
 dots: $(DOTS)
 

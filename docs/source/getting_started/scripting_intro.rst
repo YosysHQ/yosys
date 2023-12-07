@@ -7,8 +7,7 @@ Yosys reads and processes commands from synthesis scripts, command line
 arguments and an interactive command prompt. Yosys commands consist of a command
 name and an optional whitespace separated list of arguments. Commands are
 terminated using the newline character or a semicolon (;). Empty lines and lines
-starting with the hash sign (#) are ignored. See :ref:`sec:typusecase` for an
-example synthesis script.
+starting with the hash sign (#) are ignored. Also see :doc:`example_synth`.
 
 The command :cmd:ref:`help` can be used to access the command reference manual,
 with ``help <command>`` providing details for a specific command.  ``yosys -H``

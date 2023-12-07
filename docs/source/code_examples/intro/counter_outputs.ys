@@ -1,12 +1,13 @@
-# read design
+# read
 read_verilog counter.v
 hierarchy -check -top counter
-
 show -notitle -format dot -prefix counter_00
 
-# the high-level stuff
-proc; opt; memory; opt; fsm; opt
+# elaborate
+proc
+show -notitle -format dot -prefix counter_proc
 
+opt
 show -notitle -format dot -prefix counter_01
 
 # mapping to internal cell library

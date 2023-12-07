@@ -168,7 +168,7 @@ The command :cmd:ref:`clean` can be used as alias for :cmd:ref:`opt_clean`. And
     hierarchy; proc; opt; memory; opt_expr;; fsm;;
 
 Example
-"""""""
+^^^^^^^
 
 .. todo:: describe ``opt`` images
 
@@ -217,7 +217,7 @@ Example
    :caption: ``docs/source/code_examples/synth_flow/opt_04.ys``
 
 When to use :cmd:ref:`opt` or :cmd:ref:`clean`
-""""""""""""""""""""""""""""""""""""""""""""""
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Usually it does not hurt to call :cmd:ref:`opt` after each regular command in
 the synthesis script. But it increases the synthesis time, so it is favourable
