@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from pyosys import libyosys as ys
+import libyosys as ys
 
 import matplotlib.pyplot as plt
 import numpy as np
