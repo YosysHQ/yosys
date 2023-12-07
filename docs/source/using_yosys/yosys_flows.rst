@@ -39,7 +39,8 @@ The extract pass
   subcircuit with an instance of the module from the map file.
 - In a way the :cmd:ref:`extract` pass is the inverse of the techmap pass.
 
-.. todo:: add/expand supporting text
+.. todo:: add/expand supporting text, also mention custom pattern matching and
+   pmgen
 
 .. literalinclude:: /code_examples/macc/macc_simple_test.ys
     :language: yoscrypt
@@ -277,7 +278,7 @@ Checking.
 Checking techmap
 ~~~~~~~~~~~~~~~~
 
-.. todo:: add/expand supporting text
+.. todo:: add/expand supporting text, reference no longer exists
 
 Remember the following example from :doc:`/getting_started/typical_phases`?
 

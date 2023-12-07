@@ -409,9 +409,7 @@ multiplexers.
 In more complex examples (e.g. asynchronous resets) the part of the
 ``RTLIL::CaseRule``/``RTLIL::SwitchRule`` tree that describes the asynchronous
 reset must first be transformed to the correct ``RTLIL::SyncRule`` objects. This
-is done by the ``proc_adff`` pass.
-
-.. todo:: The ``proc_adff`` pass doesn't exist anymore?
+is done by the ``proc_arst`` pass.
 
 The ProcessGenerator algorithm
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

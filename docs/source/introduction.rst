@@ -117,13 +117,22 @@ Benefits of open source HDL synthesis
 The extended Yosys universe
 ---------------------------
 
-.. todo:: links and add SCY
-
 In no particular order:
 
 - SBY for formal verification
+   - https://github.com/YosysHQ/sby
+   - https://yosyshq.readthedocs.io/projects/sby
+
 - EQY for equivalence checking
+   - https://github.com/YosysHQ/eqy
+   - https://yosyshq.readthedocs.io/projects/eqy
+
 - MCY for mutation coverage
+   - https://github.com/YosysHQ/mcy
+   - https://yosyshq.readthedocs.io/projects/mcy
+
+- SCY for deep formal traces
+   - https://github.com/YosysHQ/scy
 
 History of Yosys
 ----------------

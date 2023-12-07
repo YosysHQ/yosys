@@ -23,6 +23,9 @@ A simple counter
 .. role:: yoscrypt(code)
    :language: yoscrypt
 
+.. todo:: consider changing simple counter example for something with memory
+   using e.g. synth_ice40 to cover more of the synth flow
+
 This section covers an `example project`_ available in
 ``docs/source/code_examples/intro/``.  The project contains a simple ASIC
 synthesis script (``counter.ys``), a digital design written in Verilog
@@ -181,10 +184,10 @@ Some of the commands we might use here are:
 - :doc:`/cmd/alumacc`, and
 - :doc:`/cmd/share`.
 
-We could have also 
-
 Logic gate mapping
 ~~~~~~~~~~~~~~~~~~
+
+.. todo:: example_synth mapping to gates
 
 :yoscrypt:`techmap` - Map coarse-grain RTL cells (adders, etc.) to fine-grain
 logic gates (AND, OR, NOT, etc.).
@@ -206,6 +209,8 @@ cells used.
 
 Mapping to hardware
 ~~~~~~~~~~~~~~~~~~~
+
+.. todo:: example_synth mapping to hardware
 
 :ref:`cmos_lib`
 

@@ -24,6 +24,9 @@ keyword: Frontends
     read_verilog file6.v
     verilog_defaults -pop
 
+.. todo:: more info on other ``read_*`` commands, also is this the first time we
+   mention verific?
+
 Others:
 
 - :doc:`/cmd/read`
