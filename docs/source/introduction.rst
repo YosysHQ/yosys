@@ -1,47 +1,46 @@
 What is Yosys
 =============
 
-.. todo:: rewrite to not be a thesis abstract
+Yosys began as a BSc thesis project by Claire Wolf intended to support synthesis
+for a CGRA (coarse-grained reconfigurable architecture).  It then expanded into
+more general infrastructure for research on synthesis.
 
-:Abstract:
-	Most of today's digital design is done in HDL code (mostly Verilog or 
-	VHDL) and with the help of HDL synthesis tools.
+Modern Yosys has full support for the synthesizable subset of Verilog-2005 and
+has been described as "the GCC of hardware synthesis."  Freely available and
+`open source`_, Yosys finds use across hobbyist and commercial applications as well
+as academic.
 
-	In special cases such as synthesis for coarse-grain cell libraries or
-	when testing new synthesis algorithms it might be necessary to write a
-	custom HDL synthesis tool or add new features to an existing one. In
-	these cases the availability of a Free and Open Source (FOSS) synthesis
-	tool that can be used as basis for custom tools would be helpful.
+.. _open source: https://github.com/YosysHQ/yosys
 
-	In the absence of such a tool, the Yosys Open SYnthesis Suite (Yosys)
-	was developed. This document covers the design and implementation of
-	this tool. At the moment the main focus of Yosys lies on the high-level
-	aspects of digital synthesis. The pre-existing FOSS logic-synthesis tool
-	ABC is used by Yosys to perform advanced gate-level optimizations.
+.. note:: Yosys is released under the ISC License:
 
-	An evaluation of Yosys based on real-world designs is included. It is
-	shown that Yosys can be used as-is to synthesize such designs. The
-	results produced by Yosys in this tests where successfully verified
-	using formal verification and are comparable in quality to the results
-	produced by a commercial synthesis tool.
+   A permissive license lets people do anything with your code with proper
+   attribution and without warranty. The ISC license is functionally equivalent
+   to the BSD 2-Clause and MIT licenses, removing some language that is no
+   longer necessary.
 
-	This document was originally published as bachelor thesis at the Vienna
-	University of Technology :cite:p:`BACC`.
+Together with the place and route tool `nextpnr`_, Yosys can be used to program
+some FPGAs with a fully end-to-end open source flow (Lattice iCE40 and ECP5). It
+also does the synthesis portion for the `OpenLane flow`_, targeting the SkyWater
+130nm open source PDK for fully open source ASIC design.  Yosys can also do
+formal verification with backends for solver formats like `SMT2`_.
 
-Yosys is a Verilog HDL synthesis tool. This means that it takes a behavioural
-design description as input and generates an RTL, logical gate or physical gate
-level description of the design as output. Yosys' main strengths are behavioural
-and RTL synthesis. A wide range of commands (synthesis passes) exist within
-Yosys that can be used to perform a wide range of synthesis tasks within the
-domain of behavioural, rtl and logic synthesis. Yosys is designed to be
-extensible and therefore is a good basis for implementing custom synthesis tools
-for specialised tasks.
+.. _nextpnr: https://github.com/YosysHQ/nextpnr
+.. _OpenLane flow: https://github.com/The-OpenROAD-Project/OpenLane
+.. _SMT2: https://smtlib.cs.uiowa.edu/
 
-.. figure:: /_images/primer/levels_of_abstraction.*
+Yosys, and the accompanying Open Source EDA ecosystem, is currently maintained
+by `Yosys Headquarters`_, with many of the core developers employed by `YosysHQ
+GmbH`_.  A commercial extension, `Tabby CAD Suite`_, includes the Verific
+frontend for industry-grade SystemVerilog and VHDL support, formal verification
+with SVA, and formal apps.
+
+.. _Yosys Headquarters: https://github.com/YosysHQ
+.. _YosysHQ GmbH: https://www.yosyshq.com/about
+.. _Tabby CAD Suite: https://www.yosyshq.com/tabby-cad-datasheet
+
+.. figure:: /_static/logo.png
     :class: width-helper
-    :name: fig:Levels_of_abstraction
-
-    Where Yosys exists in the layers of abstraction
 
 What you can do with Yosys
 --------------------------
@@ -72,8 +71,71 @@ Things you can't do
 
 .. _nextpnr: https://github.com/YosysHQ/nextpnr
 
+The extended Yosys universe
+---------------------------
+
+In no particular order:
+
+- SBY for formal verification
+   - https://github.com/YosysHQ/sby
+   - https://yosyshq.readthedocs.io/projects/sby
+
+- EQY for equivalence checking
+   - https://github.com/YosysHQ/eqy
+   - https://yosyshq.readthedocs.io/projects/eqy
+
+- MCY for mutation coverage
+   - https://github.com/YosysHQ/mcy
+   - https://yosyshq.readthedocs.io/projects/mcy
+
+- SCY for deep formal traces
+   - https://github.com/YosysHQ/scy
+
+The original thesis abstract
+----------------------------
+
+The first version of the Yosys documentation was published as a bachelor thesis
+at the Vienna University of Technology :cite:p:`BACC`.
+
+:Abstract:
+	Most of today's digital design is done in HDL code (mostly Verilog or 
+	VHDL) and with the help of HDL synthesis tools.
+
+	In special cases such as synthesis for coarse-grain cell libraries or
+	when testing new synthesis algorithms it might be necessary to write a
+	custom HDL synthesis tool or add new features to an existing one. In
+	these cases the availability of a Free and Open Source (FOSS) synthesis
+	tool that can be used as basis for custom tools would be helpful.
+
+	In the absence of such a tool, the Yosys Open SYnthesis Suite (Yosys)
+	was developed. This document covers the design and implementation of
+	this tool. At the moment the main focus of Yosys lies on the high-level
+	aspects of digital synthesis. The pre-existing FOSS logic-synthesis tool
+	ABC is used by Yosys to perform advanced gate-level optimizations.
+
+	An evaluation of Yosys based on real-world designs is included. It is
+	shown that Yosys can be used as-is to synthesize such designs. The
+	results produced by Yosys in this tests where successfully verified
+	using formal verification and are comparable in quality to the results
+	produced by a commercial synthesis tool.
+
+Yosys is a Verilog HDL synthesis tool. This means that it takes a behavioural
+design description as input and generates an RTL, logical gate or physical gate
+level description of the design as output. Yosys' main strengths are behavioural
+and RTL synthesis. A wide range of commands (synthesis passes) exist within
+Yosys that can be used to perform a wide range of synthesis tasks within the
+domain of behavioural, rtl and logic synthesis. Yosys is designed to be
+extensible and therefore is a good basis for implementing custom synthesis tools
+for specialised tasks.
+
+.. figure:: /_images/primer/levels_of_abstraction.*
+    :class: width-helper
+    :name: fig:Levels_of_abstraction
+
+    Where Yosys exists in the layers of abstraction
+
 Benefits of open source HDL synthesis
--------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - Cost (also applies to ``free as in free beer`` solutions): 
   
@@ -114,30 +176,10 @@ Benefits of open source HDL synthesis
    purpose with or without fee is hereby granted, provided that the above
    copyright notice and this permission notice appear in all copies.
 
-The extended Yosys universe
----------------------------
-
-In no particular order:
-
-- SBY for formal verification
-   - https://github.com/YosysHQ/sby
-   - https://yosyshq.readthedocs.io/projects/sby
-
-- EQY for equivalence checking
-   - https://github.com/YosysHQ/eqy
-   - https://yosyshq.readthedocs.io/projects/eqy
-
-- MCY for mutation coverage
-   - https://github.com/YosysHQ/mcy
-   - https://yosyshq.readthedocs.io/projects/mcy
-
-- SCY for deep formal traces
-   - https://github.com/YosysHQ/scy
-
 History of Yosys
-----------------
+~~~~~~~~~~~~~~~~
 
-.. todo:: make less academic
+.. todo:: Consider a less academic version of the History of Yosys
 
 A Hardware Description Language (HDL) is a computer language used to describe
 circuits. A HDL synthesis tool is a computer program that takes a formal
