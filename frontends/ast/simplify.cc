@@ -2932,8 +2932,18 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			long long max_offset = (1ll << (max_width - case_sign_hint)) - 1;
 			long long min_offset = case_sign_hint ? -(1ll << (max_width - 1)) : 0;
 
+			// A temporary register holds the result of the (possibly complex) rvalue expression,
+			// avoiding repetition in each AST_COND below.
+			int rvalue_width;
+			bool rvalue_sign;
+			children[1]->detectSignWidth(rvalue_width, rvalue_sign);
+			AstNode *rvalue = mktemp_logic("$bitselwrite$rvalue$", current_ast_mod, true, rvalue_width - 1, 0, rvalue_sign);
+			AstNode *caseNode = new AstNode(AST_CASE, shift_expr);
+			newNode = new AstNode(AST_BLOCK,
+					      new AstNode(AST_ASSIGN_EQ, rvalue, children[1]->clone()),
+					      caseNode);
+
 			did_something = true;
-			newNode = new AstNode(AST_CASE, shift_expr);
 			for (int i = 1 - result_width; i < wire_width; i++) {
 				// Out of range indexes are handled in genrtlil.cc
 				int start_bit = wire_offset + i;
@@ -2951,8 +2961,8 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					lvalue->set_attribute(ID::wiretype, member_node->clone());
 				lvalue->children.push_back(new AstNode(AST_RANGE,
 						mkconst_int(end_bit, true), mkconst_int(start_bit, true)));
-				cond->children.push_back(new AstNode(AST_BLOCK, new AstNode(type, lvalue, children[1]->clone())));
-				newNode->children.push_back(cond);
+				cond->children.push_back(new AstNode(AST_BLOCK, new AstNode(type, lvalue, rvalue->clone())));
+				caseNode->children.push_back(cond);
 			}
 		} else {
 			// mask and shift operations
