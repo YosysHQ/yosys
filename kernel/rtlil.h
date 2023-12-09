@@ -806,10 +806,10 @@ struct RTLIL::SigBit
 struct RTLIL::SigSpecIterator
 {
 	typedef std::input_iterator_tag iterator_category;
-	typedef RTLIL::SigSpec value_type;
+	typedef RTLIL::SigBit value_type;
 	typedef ptrdiff_t difference_type;
-	typedef RTLIL::SigSpec* pointer;
-	typedef RTLIL::SigSpec& reference;
+	typedef RTLIL::SigBit* pointer;
+	typedef RTLIL::SigBit& reference;
 
 	RTLIL::SigSpec *sig_p;
 	int index;
@@ -823,10 +823,10 @@ struct RTLIL::SigSpecIterator
 struct RTLIL::SigSpecConstIterator
 {
 	typedef std::input_iterator_tag iterator_category;
-	typedef RTLIL::SigSpec value_type;
+	typedef RTLIL::SigBit value_type;
 	typedef ptrdiff_t difference_type;
-	typedef RTLIL::SigSpec* pointer;
-	typedef RTLIL::SigSpec& reference;
+	typedef RTLIL::SigBit* pointer;
+	typedef RTLIL::SigBit& reference;
 
 	const RTLIL::SigSpec *sig_p;
 	int index;
