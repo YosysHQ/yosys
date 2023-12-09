@@ -628,6 +628,22 @@ std::string escape_cxx_string(const std::string &input)
 	return output;
 }
 
+std::string basename(const std::string &filepath)
+{
+#ifndef _WIN32
+	const std::string dir_seps = "/";
+#else
+	const std::string dir_seps = "\\/";
+#endif
+	size_t sep_pos = filepath.find_last_of(dir_seps);
+	if (sep_pos != std::string::npos && sep_pos + 1 < filepath.length()) {
+		return filepath.substr(sep_pos + 1);
+	}
+	else {
+		return filepath;
+	}
+}
+
 template<class T>
 std::string get_hdl_name(T *object)
 {
@@ -2571,7 +2587,7 @@ struct CxxrtlWorker {
 		}
 
 		if (split_intf)
-			f << "#include \"" << intf_filename << "\"\n";
+			f << "#include \"" << basename(intf_filename) << "\"\n";
 		else
 			f << "#include <cxxrtl/cxxrtl.h>\n";
 		if (has_prints)
