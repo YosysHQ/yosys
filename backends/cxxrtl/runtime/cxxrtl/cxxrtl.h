@@ -576,6 +576,37 @@ struct value : public expr_base<value<Bits>> {
 		result.data[result.chunks - 1] &= result.msb_mask;
 		return result;
 	}
+
+	std::pair<value<Bits>, value<Bits>> udivmod(value<Bits> divisor) const {
+		value<Bits> quotient;
+		value<Bits> dividend = *this;
+		if (dividend.ucmp(divisor))
+			return {/*quotient=*/value<Bits>{0u}, /*remainder=*/dividend};
+		uint32_t divisor_shift = dividend.ctlz() - divisor.ctlz();
+		divisor = divisor.shl(value<Bits>{divisor_shift});
+		for (size_t step = 0; step <= divisor_shift; step++) {
+			quotient = quotient.shl(value<Bits>{1u});
+			if (!dividend.ucmp(divisor)) {
+				dividend = dividend.sub(divisor);
+				quotient.set_bit(0, true);
+			}
+			divisor = divisor.shr(value<Bits>{1u});
+		}
+		return {quotient, /*remainder=*/dividend};
+	}
+
+	std::pair<value<Bits>, value<Bits>> sdivmod(const value<Bits> &other) const {
+		value<Bits + 1> quotient;
+		value<Bits + 1> remainder;
+		value<Bits + 1> dividend = sext<Bits + 1>();
+		value<Bits + 1> divisor = other.template sext<Bits + 1>();
+		if (dividend.is_neg()) dividend = dividend.neg();
+		if (divisor.is_neg()) divisor = divisor.neg();
+		std::tie(quotient, remainder) = dividend.udivmod(divisor);
+		if (dividend.is_neg() != divisor.is_neg()) quotient = quotient.neg();
+		if (dividend.is_neg()) remainder = remainder.neg();
+		return {quotient.template trunc<Bits>(), remainder.template trunc<Bits>()};
+	}
 };
 
 // Expression template for a slice, usable as lvalue or rvalue, and composable with other expression templates here.
@@ -764,7 +795,7 @@ std::ostream &operator<<(std::ostream &os, const value_formatted<Bits> &vf)
 				buf += '0';
 			while (!val.is_zero()) {
 				value<Bits> quotient, remainder;
-				std::tie(quotient, remainder) = val.template divmod_uu<Bits>(value<Bits>{10u});
+				std::tie(quotient, remainder) = val.udivmod(value<Bits>{10u});
 				buf += '0' + remainder.template trunc<(Bits > 4 ? 4 : Bits)>().val().template get<uint8_t>();
 				val = quotient;
 			}
@@ -1649,35 +1680,23 @@ CXXRTL_ALWAYS_INLINE
 std::pair<value<BitsY>, value<BitsY>> divmod_uu(const value<BitsA> &a, const value<BitsB> &b) {
 	constexpr size_t Bits = max(BitsY, max(BitsA, BitsB));
 	value<Bits> quotient;
+	value<Bits> remainder;
 	value<Bits> dividend = a.template zext<Bits>();
 	value<Bits> divisor = b.template zext<Bits>();
-	if (dividend.ucmp(divisor))
-		return {/*quotient=*/value<BitsY> { 0u }, /*remainder=*/dividend.template trunc<BitsY>()};
-	uint32_t divisor_shift = dividend.ctlz() - divisor.ctlz();
-	divisor = divisor.shl(value<32> { divisor_shift });
-	for (size_t step = 0; step <= divisor_shift; step++) {
-		quotient = quotient.shl(value<1> { 1u });
-		if (!dividend.ucmp(divisor)) {
-			dividend = dividend.sub(divisor);
-			quotient.set_bit(0, true);
-		}
-		divisor = divisor.shr(value<1> { 1u });
-	}
-	return {quotient.template trunc<BitsY>(), /*remainder=*/dividend.template trunc<BitsY>()};
+	std::tie(quotient, remainder) = dividend.udivmod(divisor);
+	return {quotient.template trunc<BitsY>(), remainder.template trunc<BitsY>()};
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
 CXXRTL_ALWAYS_INLINE
 std::pair<value<BitsY>, value<BitsY>> divmod_ss(const value<BitsA> &a, const value<BitsB> &b) {
-	value<BitsA + 1> ua = a.template sext<BitsA + 1>();
-	value<BitsB + 1> ub = b.template sext<BitsB + 1>();
-	if (ua.is_neg()) ua = ua.neg();
-	if (ub.is_neg()) ub = ub.neg();
-	value<BitsY> y, r;
-	std::tie(y, r) = divmod_uu<BitsY>(ua, ub);
-	if (a.is_neg() != b.is_neg()) y = y.neg();
-	if (a.is_neg()) r = r.neg();
-	return {y, r};
+	constexpr size_t Bits = max(BitsY, max(BitsA, BitsB));
+	value<Bits> quotient;
+	value<Bits> remainder;
+	value<Bits> dividend = a.template sext<Bits>();
+	value<Bits> divisor = b.template sext<Bits>();
+	std::tie(quotient, remainder) = dividend.sdivmod(divisor);
+	return {quotient.template trunc<BitsY>(), remainder.template trunc<BitsY>()};
 }
 
 template<size_t BitsY, size_t BitsA, size_t BitsB>
