@@ -519,14 +519,6 @@ struct value : public expr_base<value<Bits>> {
 		return count;
 	}
 
-	size_t chunks_used() const {
-		for (size_t n = chunks; n > 0; n--) {
-			if (data[n - 1] != 0)
-				return n;
-		}
-		return 0;
-	}
-
 	template<bool Invert, bool CarryIn>
 	std::pair<value<Bits>, bool /*CarryOut*/> alu(const value<Bits> &other) const {
 		value<Bits> result;
@@ -583,84 +575,6 @@ struct value : public expr_base<value<Bits>> {
 		}
 		result.data[result.chunks - 1] &= result.msb_mask;
 		return result;
-	}
-
-	// parallel to BigUnsigned::divideWithRemainder; quotient is stored in q,
-	// *this is left with the remainder.  See that function for commentary describing
-	// how/why this works.
-	void divideWithRemainder(const value<Bits> &b, value<Bits> &q) {
-		assert(this != &q);
-
-		if (this == &b || &q == &b) {
-			value<Bits> tmpB(b);
-			divideWithRemainder(tmpB, q);
-			return;
-		}
-
-		q = value<Bits> {0u};
-
-		size_t blen = b.chunks_used();
-		if (blen == 0) {
-			return;
-		}
-
-		size_t len = chunks_used();
-		if (len < blen) {
-			return;
-		}
-
-		size_t i, j, k;
-		size_t i2;
-		chunk_t temp;
-		bool borrowIn, borrowOut;
-
-		size_t origLen = len;
-		len++;
-		chunk::type blk[len];
-		std::copy(data, data + origLen, blk);
-		blk[origLen] = 0;
-		chunk::type subtractBuf[len];
-		std::fill(subtractBuf, subtractBuf + len, 0);
-
-		size_t qlen = origLen - blen + 1;
-
-		i = qlen;
-		while (i > 0) {
-			i--;
-			i2 = chunk::bits;
-			while (i2 > 0) {
-				i2--;
-				for (j = 0, k = i, borrowIn = false; j <= blen; j++, k++) {
-					temp = blk[k] - getShiftedBlock(b, j, i2);
-					borrowOut = (temp > blk[k]);
-					if (borrowIn) {
-						borrowOut |= (temp == 0);
-						temp--;
-					}
-					subtractBuf[k] = temp;
-					borrowIn = borrowOut;
-				}
-				for (; k < origLen && borrowIn; k++) {
-					borrowIn = (blk[k] == 0);
-					subtractBuf[k] = blk[k] - 1;
-				}
-				if (!borrowIn) {
-					q.data[i] |= (chunk::type(1) << i2);
-					while (k > i) {
-						k--;
-						blk[k] = subtractBuf[k];
-					}
-				}
-			}
-		}
-
-		std::copy(blk, blk + origLen, data);
-	}
-
-	static chunk::type getShiftedBlock(const value<Bits> &num, size_t x, size_t y) {
-		chunk::type part1 = (x == 0 || y == 0) ? 0 : (num.data[x - 1] >> (chunk::bits - y));
-		chunk::type part2 = (x == num.chunks) ? 0 : (num.data[x] << y);
-		return part1 | part2;
 	}
 };
 
@@ -849,9 +763,9 @@ std::ostream &operator<<(std::ostream &os, const value_formatted<Bits> &vf)
 			if (val.is_zero())
 				buf += '0';
 			while (!val.is_zero()) {
-				value<Bits> quotient;
-				val.divideWithRemainder(value<Bits>{10u}, quotient);
-				buf += '0' + val.template trunc<(Bits > 4 ? 4 : Bits)>().val().template get<uint8_t>();
+				value<Bits> quotient, remainder;
+				std::tie(quotient, remainder) = val.template divmod_uu<Bits>(value<Bits>{10u});
+				buf += '0' + remainder.template trunc<(Bits > 4 ? 4 : Bits)>().val().template get<uint8_t>();
 				val = quotient;
 			}
 			if (negative || vf.plus)
