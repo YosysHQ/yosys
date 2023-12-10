@@ -636,7 +636,7 @@ std::string basename(const std::string &filepath)
 	const std::string dir_seps = "\\/";
 #endif
 	size_t sep_pos = filepath.find_last_of(dir_seps);
-	if (sep_pos != std::string::npos && sep_pos + 1 < filepath.length()) {
+	if (sep_pos != std::string::npos) {
 		return filepath.substr(sep_pos + 1);
 	}
 	else {
