@@ -57,7 +57,7 @@ Example
 Memory mapping
 ^^^^^^^^^^^^^^
 
-.. todo:: :cmd:ref:`memory_libmap` description
+.. TODO:: :cmd:ref:`memory_libmap` description
 
 Usually it is preferred to use architecture-specific RAM resources for memory.
 For example:

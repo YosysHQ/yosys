@@ -1,7 +1,7 @@
 Scripting in Yosys
 ------------------
 
-.. todo:: check logical consistency
+.. TODO:: logical consistency, esp with example_synth
 
 Yosys reads and processes commands from synthesis scripts, command line
 arguments and an interactive command prompt. Yosys commands consist of a command

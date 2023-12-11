@@ -4,7 +4,7 @@ Flows, command types, and order
 Command order
 -------------
 
-.. todo:: check text is coherent
+.. TODO:: check text is coherent
 
 Intro to coarse-grain synthesis
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

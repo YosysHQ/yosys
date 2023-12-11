@@ -7,8 +7,8 @@ more general infrastructure for research on synthesis.
 
 Modern Yosys has full support for the synthesizable subset of Verilog-2005 and
 has been described as "the GCC of hardware synthesis."  Freely available and
-`open source`_, Yosys finds use across hobbyist and commercial applications as well
-as academic.
+`open source`_, Yosys finds use across hobbyist and commercial applications as
+well as academic.
 
 .. _open source: https://github.com/YosysHQ/yosys
 
@@ -71,8 +71,15 @@ Things you can't do
 
 .. _nextpnr: https://github.com/YosysHQ/nextpnr
 
-The extended Yosys universe
----------------------------
+The Yosys family
+----------------
+
+As mentioned above, `YosysHQ`_ maintains not just Yosys but an entire family of
+tools built around it.
+
+.. _YosysHQ: https://github.com/YosysHQ
+
+.. TODO:: Yosys family descriptions
 
 In no particular order:
 

@@ -23,8 +23,9 @@ A simple counter
 .. role:: yoscrypt(code)
    :language: yoscrypt
 
-.. todo:: consider changing simple counter example for something with memory
-   using e.g. synth_ice40 to cover more of the synth flow
+.. TODO:: move current example synth as mapping to cell libraries
+
+   replace with a walk through of synth_ice40
 
 This section covers an `example project`_ available in
 ``docs/source/code_examples/intro/``.  The project contains a simple ASIC
@@ -77,7 +78,7 @@ stopping the following commands from trying to work on them.  By passing the
 that if the design includes any non-blackbox modules without an implementation
 it should return an error.
 
-.. todo:: more on why :cmd:ref:`hierarchy` is important
+.. TODO:: more on why :cmd:ref:`hierarchy` is important
 
 .. note::
 
@@ -147,7 +148,7 @@ Much better.  We can now see that the ``$dff`` and ``$mux`` cells have been
 replaced with a single ``$sdffe``, using the built-in enable and reset ports
 instead.
 
-.. todo:: a bit more on :cmd:ref:`opt` here
+.. TODO:: a bit more on :cmd:ref:`opt` here
 
 At this stage of a synthesis flow there are a few other commands we could run.
 First off is :cmd:ref:`flatten`.  If we had any modules within our ``counter``,
@@ -176,7 +177,7 @@ Such elements have to be inferred from patterns in the design and there are
 special passes for each.  Detection of these patterns can also be affected by
 optimizations and other transformations done previously.
 
-.. todo:: talk more about DSPs (and their associated commands)
+.. TODO:: talk more about DSPs (and their associated commands)
 
 Some of the commands we might use here are:
 
@@ -194,7 +195,7 @@ Some of the commands we might use here are:
 Logic gate mapping
 ~~~~~~~~~~~~~~~~~~
 
-.. todo:: example_synth mapping to gates
+.. TODO:: example_synth mapping to gates
 
 :yoscrypt:`techmap` - Map coarse-grain RTL cells (adders, etc.) to fine-grain
 logic gates (AND, OR, NOT, etc.).
@@ -217,7 +218,7 @@ cells used.
 Mapping to hardware
 ~~~~~~~~~~~~~~~~~~~
 
-.. todo:: example_synth mapping to hardware
+.. TODO:: example_synth mapping to hardware
 
 :ref:`cmos_lib`
 

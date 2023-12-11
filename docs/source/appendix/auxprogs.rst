@@ -19,7 +19,7 @@ Yosys. See :doc:`/yosys_internals/extensions` for details.
 yosys-filterlib
 ---------------
 
-.. todo:: how does a filterlib rules-file work?  is this still supported?
+.. todo:: how does a filterlib rules-file work?
 
 The ``yosys-filterlib`` tool is a small utility that can be used to strip or
 extract information from a Liberty file.  This can be useful for removing

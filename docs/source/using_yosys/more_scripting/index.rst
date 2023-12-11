@@ -1,6 +1,8 @@
 More scripting
 --------------
 
+.. todo:: brief overview for the more scripting index
+
 .. toctree::
    :maxdepth: 3
 

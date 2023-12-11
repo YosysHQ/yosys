@@ -260,7 +260,7 @@ switch back). Now the `ls` command lists the objects within that module.
 :numref:`lscd` below demonstrates this using the ``example.v`` from
 `A simple circuit`_
 
-.. todo:: update yosys output with $ternary$example.v$3
+.. TODO:: update yosys output with $ternary$example.v$3
 
 .. code-block:: none
    :caption: Demonstration of :cmd:ref:`ls` and :cmd:ref:`cd` having run ``yosys example.v``

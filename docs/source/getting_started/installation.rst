@@ -34,22 +34,24 @@ Targeted architectures
 
 The `OSS CAD Suite`_ releases `nightly builds`_ for the following architectures:
 
-- linux-x64 |linux-x64|
-   - Most personal Linux based computers
+.. only:: html
 
-- darwin-x64 |darwin-x64|
-   - macOS 10.14 or later with Intel CPU
+   - linux-x64 |linux-x64|
+      - Most personal Linux based computers
 
-- darwin-arm64 |darwin-arm64|
-   - macOS 11.00 or later with M1 CPU
+   - darwin-x64 |darwin-x64|
+      - macOS 10.14 or later with Intel CPU
 
-- windows-x64 |windows-x64|
-   - Targeted for Windows 10 and 11, but older 64-bit version of Windows 7, 8,
-     or 8.1 should work
+   - darwin-arm64 |darwin-arm64|
+      - macOS 11.00 or later with M1 CPU
 
-- linux-arm |linux-arm|
-- linux-arm64 |linux-arm64|
-- linux-riscv64 (untested) |linux-riscv64|
+   - windows-x64 |windows-x64|
+      - Targeted for Windows 10 and 11, but older 64-bit version of Windows 7,
+        8, or 8.1 should work
+
+   - linux-arm |linux-arm|
+   - linux-arm64 |linux-arm64|
+   - linux-riscv64 (untested) |linux-riscv64|
 
 .. _OSS CAD Suite: https://github.com/YosysHQ/oss-cad-suite-build
 .. _nightly builds: https://github.com/YosysHQ/oss-cad-suite-build/releases/latest
@@ -141,7 +143,7 @@ executable name).
 Source tree and build system
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. todo:: check if source tree/build system details need updating
+.. TODO:: check if source tree/build system details need updating
 
 The Yosys source tree is organized into the following top-level
 directories:

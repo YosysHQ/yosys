@@ -263,7 +263,7 @@ diagram in :numref:`memdemo_00`.
    
    Complete circuit diagram for the design shown in :numref:`memdemo_src`
 
-.. todo:: :ref:`memdemo_01` and :ref:`memdemo_02` are the same, probably change
+.. TODO:: :ref:`memdemo_01` and :ref:`memdemo_02` are the same, probably change
           the example so they aren't.
 
 There's a lot going on there, but maybe we are only interested in the tree of

@@ -74,7 +74,7 @@ This has three advantages:
 -  First, it is impossible that an auto-generated identifier collides with an
    identifier that was provided by the user.
 
-.. todo:: ``opt_clean`` (or clean), also ``-purge``
+.. TODO:: ``opt_clean`` (or clean), also ``-purge``
 
 -  Second, the information about which identifiers were originally provided by
    the user is always available which can help guide some optimizations. For

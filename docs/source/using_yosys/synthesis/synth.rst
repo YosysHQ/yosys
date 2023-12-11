@@ -4,11 +4,10 @@ Synth commands
 Packaged ``synth_*`` commands
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. todo:: are all these synth commands supported?
-
 The following is a list of all synth commands included in Yosys for different
 platforms.  Each command runs a script of sub commands specific to the platform
-being targeted.
+being targeted.  Note that not all of these scripts are actively maintained and
+may not be up-to-date.
 
 - :doc:`/cmd/synth_achronix`
 - :doc:`/cmd/synth_anlogic`
@@ -21,8 +20,8 @@ being targeted.
 - :doc:`/cmd/synth_gowin`
 - :doc:`/cmd/synth_greenpak4`
 - :doc:`/cmd/synth_ice40`
-- :doc:`/cmd/synth_intel`
-- :doc:`/cmd/synth_intel_alm`
+- :doc:`/cmd/synth_intel` (MAX10, Cyclone IV)
+- :doc:`/cmd/synth_intel_alm` (Cyclone V, Arria V, Cyclone 10 GX)
 - :doc:`/cmd/synth_lattice`
 - :doc:`/cmd/synth_nexus`
 - :doc:`/cmd/synth_quicklogic`

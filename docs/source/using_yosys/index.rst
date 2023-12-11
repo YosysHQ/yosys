@@ -1,6 +1,8 @@
 Using Yosys (advanced)
 ======================
 
+.. todo:: brief overview for the using Yosys index
+
 .. toctree:: 
 	:maxdepth: 2
 

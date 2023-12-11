@@ -66,8 +66,6 @@ In some cases this pass can also optimize cells with some constant inputs.
    1         :math:`b` :math:`b`
    ========= ========= ===========
 
-.. todo:: How to format table?
-
 :numref:`Table %s <tab:opt_expr_and>` shows the replacement rules used for
 optimizing an ``$_AND_`` gate. The first three rules implement the obvious const
 folding rules. Note that 'any' might include dynamic values calculated by other
@@ -131,7 +129,7 @@ is produced.
 The ``opt_rmdff`` pass
 ~~~~~~~~~~~~~~~~~~~~~~
 
-.. todo:: Update to ``opt_dff``
+.. TODO:: Update to ``opt_dff``
 
 This pass identifies single-bit d-type flip-flops (``$_DFF_``, ``$dff``, and
 ``$adff`` cells) with a constant data input and replaces them with a constant

@@ -1,7 +1,7 @@
 The :cmd:ref:`abc` command
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. todo:: discuss abc (more stable) vs abc9 (newer, possibly better)
+.. TODO:: discuss abc, consider using https://github.com/Ravenslofty/yosys-cookbook/blob/master/misc/abc9.md
 
 The :cmd:ref:`abc` command provides an interface to ABC_, an open source tool
 for low-level logic synthesis.

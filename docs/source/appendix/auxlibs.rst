@@ -4,7 +4,7 @@ Auxiliary libraries
 The Yosys source distribution contains some auxiliary libraries that are
 compiled into Yosys and can be used in plugins.
 
-.. todo:: fill out the newer auxiliary libs
+.. TODO:: fill out the newer auxiliary libs
 
 BigInt
 ------

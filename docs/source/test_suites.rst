@@ -9,8 +9,10 @@ Automatic testing
 The `Yosys Git repo`_ has automatic testing of builds and running of the
 included test suite on the following platforms:
 
-- Ubuntu 20.04 (Focal Fossa) |test-linux|
-- macOS 11 (Big Sur) |test-macos|
+.. only:: html
+
+   - Ubuntu 20.04 (Focal Fossa) |test-linux|
+   - macOS 11 (Big Sur) |test-macos|
 
 .. _Yosys Git repo: https://github.com/YosysHQ/yosys
 
