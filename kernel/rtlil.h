@@ -803,8 +803,14 @@ struct RTLIL::SigBit
 	unsigned int hash() const;
 };
 
-struct RTLIL::SigSpecIterator : public std::iterator<std::input_iterator_tag, RTLIL::SigSpec>
+struct RTLIL::SigSpecIterator
 {
+	typedef std::input_iterator_tag iterator_category;
+	typedef RTLIL::SigBit value_type;
+	typedef ptrdiff_t difference_type;
+	typedef RTLIL::SigBit* pointer;
+	typedef RTLIL::SigBit& reference;
+
 	RTLIL::SigSpec *sig_p;
 	int index;
 
@@ -814,8 +820,14 @@ struct RTLIL::SigSpecIterator : public std::iterator<std::input_iterator_tag, RT
 	inline void operator++() { index++; }
 };
 
-struct RTLIL::SigSpecConstIterator : public std::iterator<std::input_iterator_tag, RTLIL::SigSpec>
+struct RTLIL::SigSpecConstIterator
 {
+	typedef std::input_iterator_tag iterator_category;
+	typedef RTLIL::SigBit value_type;
+	typedef ptrdiff_t difference_type;
+	typedef RTLIL::SigBit* pointer;
+	typedef RTLIL::SigBit& reference;
+
 	const RTLIL::SigSpec *sig_p;
 	int index;
 

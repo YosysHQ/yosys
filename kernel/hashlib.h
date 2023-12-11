@@ -371,7 +371,7 @@ class dict
 	}
 
 public:
-	class const_iterator : public std::iterator<std::forward_iterator_tag, std::pair<K, T>>
+	class const_iterator
 	{
 		friend class dict;
 	protected:
@@ -379,6 +379,11 @@ public:
 		int index;
 		const_iterator(const dict *ptr, int index) : ptr(ptr), index(index) { }
 	public:
+		typedef std::forward_iterator_tag iterator_category;
+		typedef std::pair<K, T> value_type;
+		typedef ptrdiff_t difference_type;
+		typedef std::pair<K, T>* pointer;
+		typedef std::pair<K, T>& reference;
 		const_iterator() { }
 		const_iterator operator++() { index--; return *this; }
 		const_iterator operator+=(int amt) { index -= amt; return *this; }
@@ -389,7 +394,7 @@ public:
 		const std::pair<K, T> *operator->() const { return &ptr->entries[index].udata; }
 	};
 
-	class iterator : public std::iterator<std::forward_iterator_tag, std::pair<K, T>>
+	class iterator
 	{
 		friend class dict;
 	protected:
@@ -397,6 +402,11 @@ public:
 		int index;
 		iterator(dict *ptr, int index) : ptr(ptr), index(index) { }
 	public:
+		typedef std::forward_iterator_tag iterator_category;
+		typedef std::pair<K, T> value_type;
+		typedef ptrdiff_t difference_type;
+		typedef std::pair<K, T>* pointer;
+		typedef std::pair<K, T>& reference;
 		iterator() { }
 		iterator operator++() { index--; return *this; }
 		iterator operator+=(int amt) { index -= amt; return *this; }
@@ -800,7 +810,7 @@ protected:
 	}
 
 public:
-	class const_iterator : public std::iterator<std::forward_iterator_tag, K>
+	class const_iterator
 	{
 		friend class pool;
 	protected:
@@ -808,6 +818,11 @@ public:
 		int index;
 		const_iterator(const pool *ptr, int index) : ptr(ptr), index(index) { }
 	public:
+		typedef std::forward_iterator_tag iterator_category;
+		typedef K value_type;
+		typedef ptrdiff_t difference_type;
+		typedef K* pointer;
+		typedef K& reference;
 		const_iterator() { }
 		const_iterator operator++() { index--; return *this; }
 		bool operator==(const const_iterator &other) const { return index == other.index; }
@@ -816,7 +831,7 @@ public:
 		const K *operator->() const { return &ptr->entries[index].udata; }
 	};
 
-	class iterator : public std::iterator<std::forward_iterator_tag, K>
+	class iterator
 	{
 		friend class pool;
 	protected:
@@ -824,6 +839,11 @@ public:
 		int index;
 		iterator(pool *ptr, int index) : ptr(ptr), index(index) { }
 	public:
+		typedef std::forward_iterator_tag iterator_category;
+		typedef K value_type;
+		typedef ptrdiff_t difference_type;
+		typedef K* pointer;
+		typedef K& reference;
 		iterator() { }
 		iterator operator++() { index--; return *this; }
 		bool operator==(const iterator &other) const { return index == other.index; }
@@ -1021,7 +1041,7 @@ class idict
 	pool<K, OPS> database;
 
 public:
-	class const_iterator : public std::iterator<std::forward_iterator_tag, K>
+	class const_iterator
 	{
 		friend class idict;
 	protected:
@@ -1029,6 +1049,11 @@ public:
 		int index;
 		const_iterator(const idict &container, int index) : container(container), index(index) { }
 	public:
+		typedef std::forward_iterator_tag iterator_category;
+		typedef K value_type;
+		typedef ptrdiff_t difference_type;
+		typedef K* pointer;
+		typedef K& reference;
 		const_iterator() { }
 		const_iterator operator++() { index++; return *this; }
 		bool operator==(const const_iterator &other) const { return index == other.index; }
