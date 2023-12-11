@@ -583,7 +583,7 @@ struct value : public expr_base<value<Bits>> {
 		value<Bits> dividend = *this;
 		if (dividend.ucmp(divisor))
 			return {/*quotient=*/value<Bits>{0u}, /*remainder=*/dividend};
-		uint32_t divisor_shift = dividend.ctlz() - divisor.ctlz();
+		uint32_t divisor_shift = divisor.ctlz() - dividend.ctlz();
 		divisor = divisor.shl(value<Bits>{divisor_shift});
 		for (size_t step = 0; step <= divisor_shift; step++) {
 			quotient = quotient.shl(value<Bits>{1u});
