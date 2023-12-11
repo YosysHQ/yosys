@@ -508,12 +508,13 @@ struct value : public expr_base<value<Bits>> {
 		size_t count = 0;
 		for (size_t n = 0; n < chunks; n++) {
 			chunk::type x = data[chunks - 1 - n];
-			if (x == 0) {
-				count += (n == 0 ? Bits % chunk::bits : chunk::bits);
-			} else {
-				// This loop implements the find first set idiom as recognized by LLVM.
-				for (; x != 0; count++)
+			// First add to `count` as if the chunk is zero
+			count += (n == 0 ? Bits % chunk::bits : chunk::bits);
+			// If the chunk isn't zero, correct the `count` value and return
+			if (x != 0) {
+				for (; x != 0; count--)
 					x >>= 1;
+				break;
 			}
 		}
 		return count;
