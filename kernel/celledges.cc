@@ -175,9 +175,16 @@ void demux_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 void shift_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 {
 	bool is_signed = cell->getParam(ID::A_SIGNED).as_bool();
+	bool is_b_signed = cell->getParam(ID::B_SIGNED).as_bool();
 	int a_width = GetSize(cell->getPort(ID::A));
 	int b_width = GetSize(cell->getPort(ID::B));
 	int y_width = GetSize(cell->getPort(ID::Y));
+	int effective_a_width = a_width;
+
+	if (cell->type.in(ID($shift), ID($shiftx)) && is_signed) {
+		effective_a_width = std::max(y_width, a_width);
+		//is_signed = false;
+	}
 
 	// how far the maximum value of B is able to shift
 	int b_range = (1<<b_width) - 1;
@@ -195,18 +202,20 @@ void shift_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 			if (is_signed) b_range_upper -= 1;
 			a_range_lower = max(0, i - b_range);
 			a_range_upper = min(i+1, a_width);
-		} else if (cell->type.in(ID($shr), ID($sshr))){
+		} else if (cell->type.in(ID($shr), ID($sshr)) || (cell->type.in(ID($shift), ID($shiftx)) && !is_b_signed)){
 			// >> and >>>
 			b_range_upper = a_width;
 			a_range_lower = min(i, a_width - 1); // technically the min is unneccessary as b_range_upper check already skips any i >= a_width, but let's leave the logic in since this is hard enough
 			a_range_upper = min(i+1 + b_range, a_width);
-		} else if (cell->type.in(ID($shift), ID($shiftx))) {
+		} else if (cell->type.in(ID($shift), ID($shiftx)) && is_b_signed) {
 			// can go both ways depending on sign of B
 			// 2's complement range is different depending on direction
 			int b_range_left = (1<<(b_width - 1));
 			int b_range_right = (1<<(b_width - 1)) - 1;
-			b_range_upper = a_width + b_range_left;
+			b_range_upper = effective_a_width + b_range_left;
 			a_range_lower = max(0, i - b_range_left);
+			if (is_signed)
+				a_range_lower = min(a_range_lower, a_width - 1);
 			a_range_upper = min(i+1 + b_range_right, a_width);
 		}
 
@@ -223,18 +232,50 @@ void shift_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 			if (cell->type.in(ID($shl), ID($sshl)) && a_width == 1 && is_signed) {
 				int skip = (1<<(k+1));
 				int base = skip -1;
-				if (i % skip != base)
+				if (i % skip != base && i - a_width + 2 < 1 << b_width)
 					db->add_edge(cell, ID::B, k, ID::Y, i, -1);
-			} else if (cell->type.in(ID($shr), ID($sshr)) && is_signed) {
+			} else if (true && cell->type.in(ID($shift), ID($shiftx)) && a_width == 1 && is_signed && is_b_signed) {
+				if (k != b_width - 1) {
+					// can we jump into the zero-padding by toggling B[k]?
+					bool zpad_jump = (((y_width - i) & ((1 << (k + 1)) - 1)) != 0 \
+									&& (((y_width - i) & ~(1 << k)) < (1 << (b_width - 1))));
+					if (((~(i - 1) & ((1 << (k + 1)) - 1)) != 0 && i < 1 << (b_width - 1)) || zpad_jump)
+						db->add_edge(cell, ID::B, k, ID::Y, i, -1);
+				} else {
+					if ((y_width - 1 - i < (1 << (b_width - 1)) - 1) || (i < (1 << (b_width - 1))))
+						db->add_edge(cell, ID::B, k, ID::Y, i, -1);
+				}
+			} else if ((cell->type.in(ID($shr), ID($sshr)) || (cell->type.in(ID($shift), ID($shiftx)) && !is_b_signed)) && is_signed) {
 				bool shift_in_bulk = i < a_width - 1;
 				// can we jump into the zero-padding by toggling B[k]?
 				bool zpad_jump = (((y_width - i) & ((1 << (k + 1)) - 1)) != 0 \
 								&& (((y_width - i) & ~(1 << k)) < (1 << b_width)));
 
-				if (shift_in_bulk || (cell->type == ID($shr) && zpad_jump))
+				if (shift_in_bulk || (cell->type.in(ID($shr), ID($shift), ID($shiftx)) && zpad_jump))
 					db->add_edge(cell, ID::B, k, ID::Y, i, -1);
+			} else if (cell->type.in(ID($sshl), ID($shl)) && is_signed) {
+				if (i - a_width + 2 < 1 << b_width)
+					db->add_edge(cell, ID::B, k, ID::Y, i, -1);
+			} else if (cell->type.in(ID($shl), ID($sshl))) {
+				if (i - a_width + 1 < 1 << b_width)
+					db->add_edge(cell, ID::B, k, ID::Y, i, -1);
+			} else if (cell->type.in(ID($shift), ID($shiftx)) && is_b_signed && !is_signed) {
+				if (i - a_width < (1 << (b_width - 1)))
+					db->add_edge(cell, ID::B, k, ID::Y, i, -1);
+			} else if (cell->type.in(ID($shift), ID($shiftx)) && is_b_signed && is_signed) {
+				if (k != b_width - 1) {
+					bool r_shift_in_bulk = i < a_width - 1;
+					// can we jump into the zero-padding by toggling B[k]?
+					bool r_zpad_jump = (((y_width - i) & ((1 << (k + 1)) - 1)) != 0 \
+									   && (((y_width - i) & ~(1 << k)) < (1 << (b_width - 1))));
+					if (r_shift_in_bulk || r_zpad_jump || i - a_width + 2 <= 1 << (b_width - 1))
+						db->add_edge(cell, ID::B, k, ID::Y, i, -1);
+				} else {
+					if ((i - a_width + 2) <= (1 << (b_width - 1)) || (y_width - i) < (1 << (b_width - 1)))
+						db->add_edge(cell, ID::B, k, ID::Y, i, -1);
+				}
 			} else {
-				if (i < a_width)
+				if (i < effective_a_width)
 					db->add_edge(cell, ID::B, k, ID::Y, i, -1);
 			}
 		}
