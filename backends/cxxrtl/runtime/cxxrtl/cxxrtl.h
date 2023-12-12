@@ -508,12 +508,13 @@ struct value : public expr_base<value<Bits>> {
 		size_t count = 0;
 		for (size_t n = 0; n < chunks; n++) {
 			chunk::type x = data[chunks - 1 - n];
-			if (x == 0) {
-				count += (n == 0 ? Bits % chunk::bits : chunk::bits);
-			} else {
-				// This loop implements the find first set idiom as recognized by LLVM.
-				for (; x != 0; count++)
+			// First add to `count` as if the chunk is zero
+			count += (n == 0 ? Bits % chunk::bits : chunk::bits);
+			// If the chunk isn't zero, correct the `count` value and return
+			if (x != 0) {
+				for (; x != 0; count--)
 					x >>= 1;
+				break;
 			}
 		}
 		return count;
@@ -582,8 +583,9 @@ struct value : public expr_base<value<Bits>> {
 		value<Bits> dividend = *this;
 		if (dividend.ucmp(divisor))
 			return {/*quotient=*/value<Bits>{0u}, /*remainder=*/dividend};
-		uint32_t divisor_shift = dividend.ctlz() - divisor.ctlz();
-		divisor = divisor.shl(value<Bits>{divisor_shift});
+		int64_t divisor_shift = divisor.ctlz() - dividend.ctlz();
+		assert(divisor_shift >= 0);
+		divisor = divisor.shl(value<Bits>{(chunk::type) divisor_shift});
 		for (size_t step = 0; step <= divisor_shift; step++) {
 			quotient = quotient.shl(value<Bits>{1u});
 			if (!dividend.ucmp(divisor)) {
@@ -795,7 +797,10 @@ std::ostream &operator<<(std::ostream &os, const value_formatted<Bits> &vf)
 				buf += '0';
 			while (!val.is_zero()) {
 				value<Bits> quotient, remainder;
-				std::tie(quotient, remainder) = val.udivmod(value<Bits>{10u});
+				if (Bits >= 4)
+					std::tie(quotient, remainder) = val.udivmod(value<Bits>{10u});
+				else
+					std::tie(quotient, remainder) = std::make_pair(value<Bits>{0u}, val);
 				buf += '0' + remainder.template trunc<(Bits > 4 ? 4 : Bits)>().val().template get<uint8_t>();
 				val = quotient;
 			}
