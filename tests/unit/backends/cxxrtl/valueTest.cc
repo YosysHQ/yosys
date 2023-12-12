@@ -69,6 +69,13 @@ void test_binary_operation(Lambda1 f1, Lambda2 f2) {
     test_binary_operation(f1, f2, [](uint64_t, uint64_t){});
 }
 
+TEST(CxxrtlValueTest, shl) {
+    test_binary_operation(
+        [](uint64_t a, uint64_t b) { return b >= 64 ? 0 : a << b; },
+        [](auto a, auto b) { return a.shl(b); },
+        [](uint64_t&, uint64_t& b) { b &= 0x7f; });
+}
+
 TEST(CxxrtlValueTest, add) {
 	test_binary_operation(
         [](uint64_t a, uint64_t b) { return a + b; },
