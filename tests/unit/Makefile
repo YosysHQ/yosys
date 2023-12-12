@@ -1,6 +1,6 @@
 GTESTFLAG := -lgtest -lgtest_main
 RPATH := -Wl,-rpath
-EXTRAFLAGS := -lyosys -pthreads
+EXTRAFLAGS := -lyosys -pthread
 
 OBJTEST := objtest
 BINTEST := bintest
@@ -15,11 +15,12 @@ TESTS := $(addprefix $(BINTEST)/, $(basename $(ALLTESTFILE:%Test.cc=%Test.o)))
 all: prepare $(TESTS) run-tests
 
 $(BINTEST)/%: $(OBJTEST)/%.o
-	$(CXX) -L$(ROOTPATH) $(RPATH)=$(ROOTPATH) -o $@ $^ $(LDLIBS) \
+	$(CXX) $(RPATH)=$(ROOTPATH) -L$(ROOTPATH) -o $@ $^ $(LDLIBS) \
 		$(GTESTFLAG) $(EXTRAFLAGS)
+	patchelf --replace-needed $(YOSYSLIBDIR)/libyosys.so libyosys.so $@
 
 $(OBJTEST)/%.o: $(basename $(subst $(OBJTEST),.,%)).cc
-	$(CXX) -o $@ -c -I$(ROOTPATH) $(CPPFLAGS) $(CXXFLAGS) $^
+	$(CXX) -o $@ -c -I$(ROOTPATH) -I$(ROOTPATH)/backends/cxxrtl/runtime $(CPPFLAGS) $(CXXFLAGS) $^
 
 .PHONY: prepare run-tests clean
 

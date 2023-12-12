@@ -917,7 +917,7 @@ ystests: $(TARGETS) $(EXTRA_TARGETS)
 # Unit test
 unit-test: libyosys.so
 	@$(MAKE) -C $(UNITESTPATH) CXX="$(CXX)" CPPFLAGS="$(CPPFLAGS)" \
-		CXXFLAGS="$(CXXFLAGS)" LDLIBS="$(LDLIBS)" ROOTPATH="$(CURDIR)"
+		CXXFLAGS="$(CXXFLAGS)" LDLIBS="$(LDLIBS)" ROOTPATH="$(CURDIR)" YOSYSLIBDIR="$(LIBDIR)"
 
 clean-unit-test:
 	@$(MAKE) -C $(UNITESTPATH) clean
