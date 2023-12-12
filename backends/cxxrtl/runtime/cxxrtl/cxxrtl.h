@@ -419,6 +419,7 @@ struct value : public expr_base<value<Bits>> {
 			carry = (shift_bits == 0) ? 0
 				: data[n] >> (chunk::bits - shift_bits);
 		}
+		result.data[result.chunks - 1] &= result.msb_mask;
 		return result;
 	}
 
