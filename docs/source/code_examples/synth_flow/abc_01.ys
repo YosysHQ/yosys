@@ -1,5 +1,0 @@
-read_verilog abc_01.v
-read_verilog -lib abc_01_cells.v
-hierarchy -check -top test
-proc; opt; techmap
-abc -dff -liberty abc_01_cells.lib;;

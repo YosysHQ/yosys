@@ -1,8 +1,10 @@
 PROGRAM_PREFIX :=
 
-YOSYS ?= ../../../$(PROGRAM_PREFIX)yosys
+YOSYS ?= ../../../../$(PROGRAM_PREFIX)yosys
 
 all: test0.log test1.log test2.log
+
+dots: test1.dot
 
 CXXFLAGS=$(shell $(YOSYS)-config --cxxflags)
 DATDIR=$(shell $(YOSYS)-config --datdir)
@@ -17,6 +19,9 @@ test0.log: my_cmd.so
 test1.log: my_cmd.so
 	$(YOSYS) -Ql test1.log_new -m ./my_cmd.so -p 'clean; test1; dump' absval_ref.v
 	mv test1.log_new test1.log
+
+test1.dot:
+	$(YOSYS) -m ./my_cmd.so -p 'test1; show -format dot -prefix test1'
 
 test2.log: my_cmd.so
 	$(YOSYS) -Ql test2.log_new -m ./my_cmd.so -p 'hierarchy -top test; test2' sigmap_test.v

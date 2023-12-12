@@ -3,7 +3,6 @@ TARGETS += proc_01 proc_02 proc_03
 TARGETS += opt_01 opt_02 opt_03 opt_04
 TARGETS += memory_01 memory_02
 TARGETS += techmap_01
-TARGETS += abc_01
 
 PROGRAM_PREFIX :=
 
