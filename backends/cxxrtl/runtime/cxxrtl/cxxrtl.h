@@ -796,7 +796,10 @@ std::ostream &operator<<(std::ostream &os, const value_formatted<Bits> &vf)
 				buf += '0';
 			while (!val.is_zero()) {
 				value<Bits> quotient, remainder;
-				std::tie(quotient, remainder) = val.udivmod(value<Bits>{10u});
+				if (Bits >= 4)
+					std::tie(quotient, remainder) = val.udivmod(value<Bits>{10u});
+				else
+					std::tie(quotient, remainder) = std::make_pair(value<Bits>{0u}, val);
 				buf += '0' + remainder.template trunc<(Bits > 4 ? 4 : Bits)>().val().template get<uint8_t>();
 				val = quotient;
 			}
