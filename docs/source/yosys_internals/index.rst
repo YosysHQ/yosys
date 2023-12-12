@@ -32,9 +32,9 @@ chapter, even though the chapter only explains the conceptual idea behind it and
 can be used as reference to implement a similar system in any language.
 
 .. toctree::
-	:maxdepth: 3
+   :maxdepth: 3
 
-	flow/index
-	formats/index
-	techmap
-	extensions
+   flow/index
+   formats/index
+   extending_yosys/index
+   techmap

@@ -13,11 +13,11 @@ The guidelines directory contains notes on various aspects of Yosys development.
 The files GettingStarted and CodingStyle may be of particular interest, and are
 reproduced here.
 
-.. literalinclude:: ../temp/GettingStarted
+.. literalinclude:: /temp/GettingStarted
     :language: none
     :caption: guidelines/GettingStarted
 
-.. literalinclude:: ../temp/CodingStyle
+.. literalinclude:: /temp/CodingStyle
     :language: none
     :caption: guidelines/CodingStyle
 
@@ -87,7 +87,7 @@ Creating modules from scratch
 
 Let's create the following module using the RTLIL API:
 
-.. literalinclude:: ../../resources/PRESENTATION_Prog/absval_ref.v
+.. literalinclude:: ../../../resources/PRESENTATION_Prog/absval_ref.v
     :language: Verilog
     :caption: docs/resources/PRESENTATION_Prog/absval_ref.v
 
