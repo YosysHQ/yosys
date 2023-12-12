@@ -76,6 +76,13 @@ TEST(CxxrtlValueTest, shl) {
         [](uint64_t&, uint64_t& b) { b &= 0x7f; });
 }
 
+TEST(CxxrtlValueTest, shr) {
+    test_binary_operation(
+        [](uint64_t a, uint64_t b) { return b >= 64 ? 0 : a >> b; },
+        [](auto a, auto b) { return a.shr(b); },
+        [](uint64_t&, uint64_t& b) { b &= 0x7f; });
+}
+
 TEST(CxxrtlValueTest, add) {
 	test_binary_operation(
         [](uint64_t a, uint64_t b) { return a + b; },
