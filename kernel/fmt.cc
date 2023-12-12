@@ -326,6 +326,16 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 				break;
 			}
 
+			case VerilogFmtArg::TIME: {
+				FmtPart part = {};
+				part.type = FmtPart::TIME;
+				part.realtime = arg->realtime;
+				part.padding = ' ';
+				part.width = 20;
+				parts.push_back(part);
+				break;
+			}
+
 			case VerilogFmtArg::STRING: {
 				if (arg == args.begin() || !sformat_like) {
 					const auto fmtarg = arg;

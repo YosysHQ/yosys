@@ -26,9 +26,9 @@ reg [DEPTH_LOG2-1:0] counter = 0;
 reg done = 1'b0;
 always @(posedge clk) begin
     if (!done)
-        counter = counter + 1;
+        counter = counter + 1'b1;
     if (counter == 0)
-        done = 1;
+        done = 1'b1;
 end
 
 wire [WIDTH-1:0] old_data = PRIME1 * counter;

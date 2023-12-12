@@ -1,0 +1,29 @@
+read_verilog ../../common/latches.v
+design -save read
+
+hierarchy -top latchp
+proc
+equiv_opt -assert -async2sync -map +/quicklogic/qlf_k6n10f/cells_sim.v synth_quicklogic -family qlf_k6n10f
+design -load postopt
+cd latchp
+select -assert-count 1 t:latchsre
+select -assert-none t:latchsre %% t:* %D
+
+design -load read
+hierarchy -top latchn
+proc
+equiv_opt -assert -async2sync -map +/quicklogic/qlf_k6n10f/cells_sim.v synth_quicklogic -family qlf_k6n10f
+design -load postopt
+cd latchn
+select -assert-count 1 t:latchnsre
+select -assert-none t:latchnsre %% t:* %D
+
+design -load read
+hierarchy -top latchsr
+proc
+equiv_opt -assert -async2sync -map +/quicklogic/qlf_k6n10f/cells_sim.v synth_quicklogic -family qlf_k6n10f
+design -load postopt
+cd latchsr
+select -assert-count 2 t:$lut
+select -assert-count 1 t:latchnsre
+select -assert-none t:$lut t:latchnsre %% t:* %D

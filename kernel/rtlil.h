@@ -803,8 +803,14 @@ struct RTLIL::SigBit
 	unsigned int hash() const;
 };
 
-struct RTLIL::SigSpecIterator : public std::iterator<std::input_iterator_tag, RTLIL::SigSpec>
+struct RTLIL::SigSpecIterator
 {
+	typedef std::input_iterator_tag iterator_category;
+	typedef RTLIL::SigBit value_type;
+	typedef ptrdiff_t difference_type;
+	typedef RTLIL::SigBit* pointer;
+	typedef RTLIL::SigBit& reference;
+
 	RTLIL::SigSpec *sig_p;
 	int index;
 
@@ -814,8 +820,14 @@ struct RTLIL::SigSpecIterator : public std::iterator<std::input_iterator_tag, RT
 	inline void operator++() { index++; }
 };
 
-struct RTLIL::SigSpecConstIterator : public std::iterator<std::input_iterator_tag, RTLIL::SigSpec>
+struct RTLIL::SigSpecConstIterator
 {
+	typedef std::input_iterator_tag iterator_category;
+	typedef RTLIL::SigBit value_type;
+	typedef ptrdiff_t difference_type;
+	typedef RTLIL::SigBit* pointer;
+	typedef RTLIL::SigBit& reference;
+
 	const RTLIL::SigSpec *sig_p;
 	int index;
 
@@ -920,6 +932,9 @@ public:
 	RTLIL::SigSpec extract(const pool<RTLIL::SigBit> &pattern, const RTLIL::SigSpec *other = NULL) const;
 	RTLIL::SigSpec extract(int offset, int length = 1) const;
 	RTLIL::SigSpec extract_end(int offset) const { return extract(offset, width_ - offset); }
+
+	RTLIL::SigBit lsb() const { log_assert(width_); return (*this)[0]; };
+	RTLIL::SigBit msb() const { log_assert(width_); return (*this)[width_ - 1]; };
 
 	void append(const RTLIL::SigSpec &signal);
 	inline void append(Wire *wire) { append(RTLIL::SigSpec(wire)); }

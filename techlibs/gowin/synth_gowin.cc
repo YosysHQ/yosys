@@ -78,8 +78,8 @@ struct SynthGowinPass : public ScriptPass
 		log("    -noalu\n");
 		log("        do not use ALU cells\n");
 		log("\n");
-		log("    -abc9\n");
-		log("        use new ABC9 flow (EXPERIMENTAL)\n");
+		log("    -noabc9\n");
+		log("        disable use of new ABC9 flow\n");
 		log("\n");
 		log("    -no-rw-check\n");
 		log("        marks all recognized read ports as \"return don't-care value on\n");
@@ -106,7 +106,7 @@ struct SynthGowinPass : public ScriptPass
 		nodffe = false;
 		nolutram = false;
 		nowidelut = false;
-		abc9 = false;
+		abc9 = true;
 		noiopads = false;
 		noalu = false;
 		no_rw_check = false;
@@ -170,7 +170,11 @@ struct SynthGowinPass : public ScriptPass
 				continue;
 			}
 			if (args[argidx] == "-abc9") {
-				abc9 = true;
+				// removed, ABC9 is on by default.
+				continue;
+			}
+			if (args[argidx] == "-noabc9") {
+				abc9 = false;
 				continue;
 			}
 			if (args[argidx] == "-noiopads") {

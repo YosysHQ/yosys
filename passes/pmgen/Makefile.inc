@@ -1,5 +1,5 @@
 %_pm.h: passes/pmgen/pmgen.py %.pmg
-	$(P) mkdir -p passes/pmgen && $(PYTHON_EXECUTABLE) $< -o $@ -p $(subst _pm.h,,$(notdir $@)) $(filter-out $<,$^)
+	$(P) mkdir -p $(dir $@) && $(PYTHON_EXECUTABLE) $< -o $@ -p $(subst _pm.h,,$(notdir $@)) $(filter-out $<,$^)
 
 # --------------------------------------
 
@@ -44,6 +44,7 @@ $(eval $(call add_extra_objs,passes/pmgen/peepopt_pm.h))
 
 PEEPOPT_PATTERN  = passes/pmgen/peepopt_shiftmul_right.pmg
 PEEPOPT_PATTERN += passes/pmgen/peepopt_shiftmul_left.pmg
+PEEPOPT_PATTERN += passes/pmgen/peepopt_shiftadd.pmg
 PEEPOPT_PATTERN += passes/pmgen/peepopt_muldiv.pmg
 
 passes/pmgen/peepopt_pm.h: passes/pmgen/pmgen.py $(PEEPOPT_PATTERN)

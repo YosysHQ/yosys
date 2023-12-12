@@ -658,8 +658,17 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 	if (0) { case AST_NEG:         txt = "-";  }
 	if (0) { case AST_LOGIC_NOT:   txt = "!";  }
 	if (0) { case AST_SELFSZ:      txt = "@selfsz@";  }
+	if (0) { case AST_TO_SIGNED:   txt = "signed'";  }
+	if (0) { case AST_TO_UNSIGNED: txt = "unsigned'";  }
 		fprintf(f, "%s(", txt.c_str());
 		children[0]->dumpVlog(f, "");
+		fprintf(f, ")");
+		break;
+
+	case AST_CAST_SIZE:
+		children[0]->dumpVlog(f, "");
+		fprintf(f, "'(");
+		children[1]->dumpVlog(f, "");
 		fprintf(f, ")");
 		break;
 

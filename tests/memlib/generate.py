@@ -1513,6 +1513,28 @@ end"""
 		["block_sp_full"], defs, 
 		{"RAM_BLOCK_SP": 1, "$*": add_logic}
 	))
+	
+ROM_CASE = """
+module rom(input clk, input [2:0] addr, {attr}output reg [7:0] data);
+
+always @(posedge clk) begin
+	case (addr)
+		3'b000: data <= 8'h12;
+		3'b001: data <= 8'hAB;
+		3'b010: data <= 8'h42;
+		3'b011: data <= 8'h23;
+		3'b100: data <= 8'h66;
+		3'b101: data <= 8'hC0;
+		3'b110: data <= 8'h3F;
+		3'b111: data <= 8'h95;
+	endcase
+end
+
+endmodule
+"""
+
+TESTS.append(Test("rom_case", ROM_CASE.format(attr=""), ["block_sdp"], [], {"RAM_BLOCK_SDP" : 0}))
+TESTS.append(Test("rom_case_block", ROM_CASE.format(attr="(* rom_style = \"block\" *) "), ["block_sdp"], [], {"RAM_BLOCK_SDP" : 1}))
 
 with open("run-test.mk", "w") as mf:
     mf.write("ifneq ($(strip $(SEED)),)\n")

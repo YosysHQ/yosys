@@ -46,7 +46,31 @@ design -import gold -as gold peepopt_shiftmul_2
 design -import gate -as gate peepopt_shiftmul_2
 
 miter -equiv -make_assert -make_outputs -ignore_gold_x -flatten gold gate miter
-sat -show-public -enable_undef -prove-asserts miter
+sat -verify -show-public -enable_undef -prove-asserts miter
+cd gate
+select -assert-count 1 t:$shr
+select -assert-count 1 t:$mul
+select -assert-count 0 t:$shr t:$mul %% t:* %D
+
+####################
+
+design -reset
+read_verilog <<EOT
+module peepopt_shiftmul_3 (input [7:0] D, input [0:0] S, output [3:0] Y);
+	assign Y = D >> (S*5);
+endmodule
+EOT
+
+prep
+design -save gold
+peepopt
+design -stash gate
+
+design -import gold -as gold peepopt_shiftmul_3
+design -import gate -as gate peepopt_shiftmul_3
+
+miter -equiv -make_assert -make_outputs -ignore_gold_x -flatten gold gate miter
+sat -verify -show-public -enable_undef -prove-asserts miter
 cd gate
 select -assert-count 1 t:$shr
 select -assert-count 1 t:$mul

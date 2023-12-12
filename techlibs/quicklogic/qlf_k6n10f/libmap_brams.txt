@@ -1,0 +1,22 @@
+ram block $__QLF_TDP36K {
+	init any;
+	byte 9;
+	option "SPLIT" 0 {
+		abits 15;
+		widths 1 2 4 9 18 36 per_port;
+	}
+	option "SPLIT" 1 {
+		abits 14;
+		widths 1 2 4 9 18 per_port;
+	}
+	cost 65;
+	port srsw "A" "B" {
+		width tied;
+		clock posedge;
+		# wen causes read even when ren is low
+		# map clken = wen || ren
+		clken;
+		wrbe_separate;
+		rdwr old;
+	}
+}

@@ -1,5 +1,6 @@
 *.o
 *.d
+*.dwo
 .*.swp
 *.gch
 *.gcda

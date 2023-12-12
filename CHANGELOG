@@ -2,8 +2,48 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.34 .. Yosys 0.35-dev
+Yosys 0.36 .. Yosys 0.37-dev
 --------------------------
+
+Yosys 0.35 .. Yosys 0.36
+--------------------------
+* New commands and options
+    - Added option "--" to pass arguments down to tcl when using -c option.
+    - Added ability on MacOS and Windows to pass options after arguments on cli.
+    - Added option "-cmp2softlogic" to synth_lattice.
+    - Added option "-lowpower" to "booth" pass.
+
+ * QuickLogic support
+    - Added "K6N10f" support.
+    - Added "-nodsp", "-nocarry", "-nobram" and "-bramtypes" options to 
+      "synth_quicklogic" pass.
+    - Added "ql_bram_merge" pass to merge 18K BRAM cells into TDP36K.
+    - Added "ql_bram_types" pass to change TDP36K depending on configuration.
+    - Added "ql_dsp_io_regs" pass to update QL_DSP2 depending on configuration.
+    - Added "ql_dsp_macc" pass to infer multiplier-accumulator DSP cells.
+    - Added "ql_dsp_simd" pass to merge DSP pairs to operate in SIMD mode.
+
+ * ECP5,iCE40 and Gowin support
+    - Enabled abc9 by default, added "-noabc9" option to disable.
+
+ * MachXO3 support
+    - Quality of results improvements.
+    - Enabled "booth" pass by default for it in "synth_lattice".
+
+ * Various
+    - Improved "peepopt" by adding shiftadd pattern support.
+    - Added "--incremental" mode to smtbmc.
+
+Yosys 0.34 .. Yosys 0.35
+--------------------------
+ * Various
+    - Improvements on "peepopt" shiftmul matcher.
+    - Improvements on "ram_style" attributes handling.
+
+ * Verific support
+    - Improved static elaboration for VHDL and mixed HDL designs.
+    - Expose "hdlname" attribute with original module name.
+    - Expose "architecture" attribute with VHDL architecture name.
 
 Yosys 0.33 .. Yosys 0.34
 --------------------------

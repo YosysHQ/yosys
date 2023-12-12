@@ -775,6 +775,30 @@ struct SimInstance
 		return did_something;
 	}
 
+	static void log_source(RTLIL::AttrObject *src)
+	{
+		for (auto src : src->get_strpool_attribute(ID::src))
+			log("    %s\n", src.c_str());
+	}
+
+	void log_cell_w_hierarchy(std::string opening_verbiage, RTLIL::Cell *cell)
+	{
+		log_assert(cell->module == module);
+		bool has_src = cell->has_attribute(ID::src);
+		log("%s %s%s\n", opening_verbiage.c_str(),
+			log_id(cell), has_src ? " at" : "");
+		log_source(cell);
+
+		struct SimInstance *sim = this;
+		while (sim->instance) {
+			has_src = sim->instance->has_attribute(ID::src);
+			log("  in instance %s of module %s%s\n", log_id(sim->instance),
+				log_id(sim->instance->type), has_src ? " at" : "");
+			log_source(sim->instance);
+			sim = sim->parent;
+		}
+	}
+
 	void update_ph3(bool check_assertions)
 	{
 		for (auto &it : ff_database)
@@ -876,10 +900,11 @@ struct SimInstance
 					log("Assumption %s.%s (%s) failed.\n", hiername().c_str(), log_id(cell), label.c_str());
 
 				if (cell->type == ID($assert) && en == State::S1 && a != State::S1) {
+					log_cell_w_hierarchy("Failed assertion", cell);
 					if (shared->serious_asserts)
-						log_error("Assert %s.%s (%s) failed.\n", hiername().c_str(), log_id(cell), label.c_str());
+						log_error("Assertion %s.%s (%s) failed.\n", hiername().c_str(), log_id(cell), label.c_str());
 					else
-						log_warning("Assert %s.%s (%s) failed.\n", hiername().c_str(), log_id(cell), label.c_str());
+						log_warning("Assertion %s.%s (%s) failed.\n", hiername().c_str(), log_id(cell), label.c_str());
 				}
 			}
 		}
