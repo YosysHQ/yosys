@@ -511,7 +511,8 @@ struct value : public expr_base<value<Bits>> {
 		for (size_t n = 0; n < chunks; n++) {
 			chunk::type x = data[chunks - 1 - n];
 			// First add to `count` as if the chunk is zero
-			count += (n == 0 ? Bits % chunk::bits : chunk::bits);
+			constexpr size_t msb_chunk_bits = Bits % chunk::bits != 0 ? Bits % chunk::bits : chunk::bits;
+			count += (n == 0 ? msb_chunk_bits : chunk::bits);
 			// If the chunk isn't zero, correct the `count` value and return
 			if (x != 0) {
 				for (; x != 0; count--)

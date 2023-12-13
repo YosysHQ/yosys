@@ -36,4 +36,10 @@ int main()
         cxxrtl::value<64> c = a.sshr(b);
         assert(c.get<uint64_t>() == 0xffffffff8abcdef1u);
     }
+
+    {
+        // ctlz should work with Bits that are a multiple of chunk size
+        cxxrtl::value<32> a(0x00040000u);
+        assert(a.ctlz() == 13);
+    }
 }
