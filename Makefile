@@ -888,6 +888,7 @@ endif
 	+cd tests/verilog && bash run-test.sh
 	+cd tests/xprop && bash run-test.sh $(SEEDOPT)
 	+cd tests/fmt && bash run-test.sh
+	+cd tests/cxxrtl && bash run-test.sh
 	@echo ""
 	@echo "  Passed \"make test\"."
 	@echo ""
