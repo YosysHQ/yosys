@@ -430,12 +430,12 @@ struct value : public expr_base<value<Bits>> {
 		// Detect shifts definitely large than Bits early.
 		for (size_t n = 1; n < amount.chunks; n++)
 			if (amount.data[n] != 0)
-				return {};
+				return (Signed && is_neg()) ? value<Bits>().bit_not() : value<Bits>();
 		// Past this point we can use the least significant chunk as the shift size.
 		size_t shift_chunks = amount.data[0] / chunk::bits;
 		size_t shift_bits   = amount.data[0] % chunk::bits;
 		if (shift_chunks >= chunks)
-			return {};
+			return (Signed && is_neg()) ? value<Bits>().bit_not() : value<Bits>();
 		value<Bits> result;
 		chunk::type carry = 0;
 		for (size_t n = 0; n < chunks - shift_chunks; n++) {
@@ -444,12 +444,13 @@ struct value : public expr_base<value<Bits>> {
 				: data[chunks - 1 - n] << (chunk::bits - shift_bits);
 		}
 		if (Signed && is_neg()) {
-			size_t top_chunk_idx  = (Bits - shift_bits) / chunk::bits;
-			size_t top_chunk_bits = (Bits - shift_bits) % chunk::bits;
+			size_t top_chunk_idx  = amount.data[0] > Bits ? 0 : (Bits - amount.data[0]) / chunk::bits;
+			size_t top_chunk_bits = amount.data[0] > Bits ? 0 : (Bits - amount.data[0]) % chunk::bits;
 			for (size_t n = top_chunk_idx + 1; n < chunks; n++)
 				result.data[n] = chunk::mask;
-			if (shift_bits != 0)
+			if (amount.data[0] != 0)
 				result.data[top_chunk_idx] |= chunk::mask << top_chunk_bits;
+			result.data[result.chunks - 1] &= result.msb_mask;
 		}
 		return result;
 	}
