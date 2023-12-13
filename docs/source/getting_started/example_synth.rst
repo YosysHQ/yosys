@@ -1,21 +1,17 @@
 Synthesis starter
 -----------------
 
-.. 
-   Typical phases of a synthesis flow are as follows:
+This page will be a guided walkthrough of the prepackaged iCE40 FPGA synthesis
+script - :cmd:ref:`synth_ice40`.  We will take a simple design through each
+step, looking at the commands being called and what they do to the design. While
+:cmd:ref:`synth_ice40` is specific to the iCE40 platform, most of the operations
+we will be discussing are common across the majority of FPGA synthesis scripts.
+Thus, this document will provide a good foundational understanding of how
+synthesis in Yosys is performed, regardless of the actual architecture being
+used.
 
-   - Reading and elaborating the design
-   - Higher-level synthesis and optimization
-
-   - Converting ``always``-blocks to logic and registers
-   - Perform coarse-grain optimizations (resource sharing, const folding, ...)
-   - Handling of memories and other coarse-grain blocks
-   - Extracting and optimizing finite state machines
-
-   - Convert remaining logic to bit-level logic functions
-   - Perform optimizations on bit-level logic functions
-   - Map bit-level logic gates and registers to cell library
-   - Write results to output file
+.. seealso:: Advanced usage docs for
+   :doc:`/using_yosys/synthesis/synth`
 
 A simple counter
 ~~~~~~~~~~~~~~~~
@@ -23,24 +19,15 @@ A simple counter
 .. role:: yoscrypt(code)
    :language: yoscrypt
 
-.. TODO:: move current example synth as mapping to cell libraries
+.. TODO:: replace counter.v with a (slightly) more complex design 
+   which includes hard blocks and maybe an FSM
 
-   replace with a walk through of synth_ice40
-
-This section covers an `example project`_ available in
-``docs/source/code_examples/intro/``.  The project contains a simple ASIC
-synthesis script (``counter.ys``), a digital design written in Verilog
-(``counter.v``), and a simple CMOS cell library (``mycells.lib``).
-
-.. _example project: https://github.com/YosysHQ/yosys/tree/krys/docs/docs/source/code_examples/intro
-
-First, let's quickly look at the design:
+First, let's quickly look at the design we'll be synthesizing:
 
 .. literalinclude:: /code_examples/intro/counter.v
    :language: Verilog
    :caption: ``docs/source/code_examples/intro/counter.v``
    :linenos:
-   :name: counter-v
 
 This is a simple counter with reset and enable.  If the reset signal, ``rst``,
 is high then the counter will reset to 0.  Otherwise, if the enable signal,
@@ -69,14 +56,40 @@ should see something like the following:
    Storing AST representation for module `$abstract\counter'.
    Successfully finished Verilog frontend.
 
+.. seealso:: Advanced usage docs for
+   :doc:`/using_yosys/more_scripting/load_design`
+
+Elaboration
+~~~~~~~~~~~
+
 Now that we are in the interactive shell, we can call Yosys commands directly.
-Let's run :yoscrypt:`hierarchy -check -top counter`.  This command declares that
-the top level module is ``counter``, and that we want to expand it and any other
-modules it may use.  Any other modules which were loaded are then discarded,
-stopping the following commands from trying to work on them.  By passing the
-``-check`` option there we are also telling the :cmd:ref:`hierarchy` command
-that if the design includes any non-blackbox modules without an implementation
-it should return an error.
+Our overall goal is to call :yoscrypt:`synth_ice40 -top counter`, but for now we
+can run each of the commands individually for a better sense of how each part
+contributes to the flow.  At the bottom of the :cmd:ref:`help` output for
+:cmd:ref:`synth_ice40` is the complete list of commands called by this script.
+Let's start with the section labeled ``begin``:
+
+.. literalinclude:: /cmd/synth_ice40.rst
+   :language: yoscrypt
+   :start-after: begin:
+   :end-before: flatten:
+   :dedent:
+   :caption: ``begin`` section
+
+:yoscrypt:`read_verilog -D ICE40_HX -lib -specify +/ice40/cells_sim.v` loads the
+iCE40 cell models which allows us to include platform specific IP blocks in our
+design.  PLLs are a common example of this, where we might need to reference
+``SB_PLL40_CORE`` directly rather than being able to rely on mapping passes
+later.  Since our simple design doesn't use any of these IP blocks, we can safely
+skip this command.
+
+Let's instead start with run :yoscrypt:`hierarchy -check -top counter`.  This
+command declares that the top level module is ``counter``, and that we want to
+expand it and any other modules it may use.  Any other modules which were loaded
+are then discarded, preventing the subsequent commands from trying to work on
+them. By passing the ``-check`` option there we are also telling the
+:cmd:ref:`hierarchy` command that if the design includes any non-blackbox
+modules without an implementation it should return an error.
 
 .. TODO:: more on why :cmd:ref:`hierarchy` is important
 
@@ -108,27 +121,22 @@ Our circuit now looks like this:
 
 .. figure:: /_images/code_examples/intro/counter_00.*
    :class: width-helper
-   :name: counter-hierarchy
 
    ``counter`` module after :cmd:ref:`hierarchy`
 
-.. seealso:: Advanced usage docs for :doc:`/using_yosys/more_scripting/load_design`
-
-Elaboration
-~~~~~~~~~~~
-
 Notice that block that says "PROC" in :ref:`counter-hierarchy`?  Simple
 operations like ``count + 2'd1`` can be extracted from our ``always @`` block in
-:ref:`counter-v`.  This gives us the ``$add`` cell we see.  But control logic,
-like the ``if .. else``; and memory elements, like the ``count <='2d0``; are not
-so straightforward. To handle these, let us now introduce a new command:
+:ref:`counter-v`.  This gives us the ``$add`` cell we see.  But control logic
+(like the ``if .. else``) and memory elements (like the ``count <='2d0``) are
+not so straightforward. To handle these, let us now introduce the next command:
 :doc:`/cmd/proc`.
 
-:cmd:ref:`proc` is a macro command; running a series of other commands which
-work to convert the behavioral logic of processes into multiplexers and
-registers.  We go into more detail on :cmd:ref:`proc` later in
-:doc:`/using_yosys/synthesis/proc`, but for now let's see what happens when we
-run it.
+:cmd:ref:`proc` is a macro command like :cmd:ref:`synth_ice40`.  Rather than
+processing our design itself, it instead calls a series of other commands.  In
+the case of :cmd:ref:`proc`, these sub-commands work to convert the behavioral
+logic of processes into multiplexers and registers.  We go into more detail on
+:cmd:ref:`proc` later in :doc:`/using_yosys/synthesis/proc`, but for now let's
+see what happens when we run it.
 
 .. figure:: /_images/code_examples/intro/counter_proc.*
    :class: width-helper
@@ -136,40 +144,42 @@ run it.
    ``counter`` module after :cmd:ref:`proc`
 
 The ``if`` statements are now modeled with ``$mux`` cells, and the memory
-consists of a ``$dff`` cell.  That's getting a bit messy now, so let's chuck in
-a call to :cmd:ref:`opt`.
+consists of a ``$dff`` cell.
 
-.. figure:: /_images/code_examples/intro/counter_01.*
-   :class: width-helper
+.. seealso:: Advanced usage docs for
+   :doc:`/using_yosys/synthesis/proc`
 
-   ``counter`` module after :cmd:ref:`opt`
-
-Much better.  We can now see that the ``$dff`` and ``$mux`` cells have been
-replaced with a single ``$sdffe``, using the built-in enable and reset ports
-instead.
-
-.. TODO:: a bit more on :cmd:ref:`opt` here
+Flattening
+~~~~~~~~~~
 
 At this stage of a synthesis flow there are a few other commands we could run.
 First off is :cmd:ref:`flatten`.  If we had any modules within our ``counter``,
 this would replace them with their implementation.  Flattening the design like
 this can allow for optimizations between modules which would otherwise be
-missed.  Next is :doc:`/cmd/check`.
+missed.
 
 Depending on the target architecture, we might also run commands such as
 :cmd:ref:`tribuf` with the ``-logic`` option and :cmd:ref:`deminout`.  These
 remove tristate and inout constructs respectively, replacing them with logic
 suitable for mapping to an FPGA.
 
-.. seealso:: Advanced usage docs for :doc:`/using_yosys/synthesis/proc`
+.. literalinclude:: /cmd/synth_ice40.rst
+   :language: yoscrypt
+   :start-after: flatten:
+   :end-before: coarse:
+   :dedent:
+   :name: flatten
+   :caption: ``flatten`` section
+
+The iCE40 flow puts these commands into thier own :ref:`flatten`,
+while some synthesis scripts will instead include them in the next section.
 
 The coarse-grain representation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 At this stage, the design is in coarse-grain representation.  It still looks
-recognizable, and cells are word-level operators with parametrizable width.
-There isn't much else we can do for our ``counter`` example, but this is the
-stage of synthesis where we do things like const propagation, expression
+recognizable, and cells are word-level operators with parametrizable width. This
+is the stage of synthesis where we do things like const propagation, expression
 rewriting, and trimming unused parts of wires.
 
 This is also where we convert our FSMs and hard blocks like DSPs or memories.
@@ -177,59 +187,90 @@ Such elements have to be inferred from patterns in the design and there are
 special passes for each.  Detection of these patterns can also be affected by
 optimizations and other transformations done previously.
 
+In the iCE40 flow we get all the following commands:
+
+.. literalinclude:: /cmd/synth_ice40.rst
+   :language: yoscrypt
+   :start-after: coarse:
+   :end-before: map_ram:
+   :dedent:
+   :caption: ``coarse`` section
+
 .. TODO:: talk more about DSPs (and their associated commands)
+
+.. TODO:: example_syth ``coarse`` section
 
 Some of the commands we might use here are:
 
+- :doc:`/cmd/opt_expr`,
+- :doc:`/cmd/opt_clean`,
+- :doc:`/cmd/check`,
+- :doc:`/cmd/opt`,
 - :doc:`/cmd/fsm`,
-- :doc:`/cmd/memory`,
 - :doc:`/cmd/wreduce`,
 - :doc:`/cmd/peepopt`,
+- :doc:`/cmd/memory`,
 - :doc:`/cmd/pmuxtree`,
 - :doc:`/cmd/alumacc`, and
 - :doc:`/cmd/share`.
 
-.. seealso:: Advanced usage docs for :doc:`/using_yosys/synthesis/fsm`, and 
-   :doc:`/using_yosys/synthesis/memory`
+.. seealso:: Advanced usage docs for
+   :doc:`/using_yosys/synthesis/fsm`,
+   :doc:`/using_yosys/synthesis/memory`, and
+   :doc:`/using_yosys/synthesis/opt`
 
-Logic gate mapping
-~~~~~~~~~~~~~~~~~~
+Hardware mapping
+~~~~~~~~~~~~~~~~
 
-.. TODO:: example_synth mapping to gates
+.. TODO:: example_synth hardware mapping sections
 
-:yoscrypt:`techmap` - Map coarse-grain RTL cells (adders, etc.) to fine-grain
-logic gates (AND, OR, NOT, etc.).
+.. literalinclude:: /cmd/synth_ice40.rst
+   :language: yoscrypt
+   :start-after: map_ram:
+   :end-before: map_ffram:
+   :dedent:
+   :name: map_ram
+   :caption: ``map_ram`` section
 
-When :cmd:ref:`techmap` is used without a map file, it uses a built-in map file
-to map all RTL cell types to a generic library of built-in logic gates and
-registers.
+.. literalinclude:: /cmd/synth_ice40.rst
+   :language: yoscrypt
+   :start-after: map_ffram:
+   :end-before: map_gates:
+   :dedent:
+   :name: map_ffram
+   :caption: ``map_ffram`` section
 
-The built-in logic gate types are: ``$_NOT_``, ``$_AND_``, ``$_OR_``,
-``$_XOR_``, and ``$_MUX_``.
+.. literalinclude:: /cmd/synth_ice40.rst
+   :language: yoscrypt
+   :start-after: map_gates:
+   :end-before: map_ffs:
+   :dedent:
+   :name: map_gates
+   :caption: ``map_gates`` section
 
-See :doc:`/yosys_internals/formats/cell_library` for more about the internal
-cells used.
+.. literalinclude:: /cmd/synth_ice40.rst
+   :language: yoscrypt
+   :start-after: map_ffs:
+   :end-before: map_luts:
+   :dedent:
+   :name: map_ffs
+   :caption: ``map_ffs`` section
 
-.. figure:: /_images/code_examples/intro/counter_02.*
-   :class: width-helper
+.. literalinclude:: /cmd/synth_ice40.rst
+   :language: yoscrypt
+   :start-after: map_luts:
+   :end-before: map_cells:
+   :dedent:
+   :name: map_luts
+   :caption: ``map_luts`` section
 
-   ``counter`` after :cmd:ref:`techmap`
-
-Mapping to hardware
-~~~~~~~~~~~~~~~~~~~
-
-.. TODO:: example_synth mapping to hardware
-
-:ref:`cmos_lib`
-
-#. :yoscrypt:`dfflibmap -liberty mycells.lib` - Map registers to available
-   hardware flip-flops.
-#. :yoscrypt:`abc -liberty mycells.lib` - Map logic to available hardware gates.
-
-.. figure:: /_images/code_examples/intro/counter_03.*
-   :class: width-helper
-
-   ``counter`` after hardware cell mapping
+.. literalinclude:: /cmd/synth_ice40.rst
+   :language: yoscrypt
+   :start-after: map_cells:
+   :end-before: check:
+   :dedent:
+   :name: map_cells
+   :caption: ``map_cells`` section
 
 :cmd:ref:`dfflibmap`
     This command maps the internal register cell types to the register types
@@ -247,28 +288,23 @@ Mapping to hardware
 :cmd:ref:`dfflegalize`
     Specify a set of supported FF cells/cell groups and convert all FFs to them.
 
-.. seealso:: Advanced usage docs for :doc:`/yosys_internals/techmap`
+.. seealso:: Advanced usage docs for
+   :doc:`/yosys_internals/techmap`, and
+   :doc:`/using_yosys/synthesis/memory`.
 
-.. _cmos_lib:
+Final steps
+~~~~~~~~~~~~
 
-The CMOS cell library
-^^^^^^^^^^^^^^^^^^^^^
+.. TODO:: example_synth final steps (check section and outputting)
 
-.. literalinclude:: /code_examples/intro/mycells.lib
-   :language: Liberty
-   :caption: ``docs/source/code_examples/intro/mycells.lib``
-
-The script file
-~~~~~~~~~~~~~~~
-
-#. :yoscrypt:`read_verilog -defer counter.v`
-#. :yoscrypt:`clean` - Clean up the design (just the last step of
-   :cmd:ref:`opt`).
-#. :yoscrypt:`write_verilog synth.v` - Write final synthesis result to output
-   file.
-
-.. literalinclude:: /code_examples/intro/counter.ys
+.. literalinclude:: /cmd/synth_ice40.rst
    :language: yoscrypt
-   :caption: ``docs/source/code_examples/intro/counter.ys``
+   :start-after: check:
+   :end-before: blif:
+   :dedent:
+   :name: check
+   :caption: ``check`` section
 
-.. seealso:: Advanced usage docs for :doc:`/using_yosys/synthesis/synth`
+- :doc:`/cmd/check`
+- :doc:`/cmd/autoname`
+- :doc:`/cmd/stat`

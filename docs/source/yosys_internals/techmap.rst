@@ -2,6 +2,8 @@
 
 .. todo:: less academic, check text is coherent
 
+.. TODO:: can we split some of this into synthesis/techmap ?
+
 Technology mapping 
 ==================
 
