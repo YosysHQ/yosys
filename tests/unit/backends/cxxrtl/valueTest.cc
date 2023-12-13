@@ -45,7 +45,7 @@ void test_binary_operation_for_bitsize(Lambda1 f1, Lambda2 f2, TweakInputLambda 
             vb.data[i] = (chunk_type)(ib >> (i * chunk_bits));
         }
 
-        uint64_t iresult = f1(ia, ib) & mask;
+        uint64_t iresult = f1(Bits, ia, ib) & mask;
         cxxrtl::value<Bits> vresult = f2(va, vb);
 
         for (size_t i = 0; i * chunk_bits < Bits; i++) {
@@ -71,26 +71,36 @@ void test_binary_operation(Lambda1 f1, Lambda2 f2) {
 
 TEST(CxxrtlValueTest, shl) {
     test_binary_operation(
-        [](uint64_t a, uint64_t b) { return b >= 64 ? 0 : a << b; },
+        [](size_t, uint64_t a, uint64_t b) { return b >= 64 ? 0 : a << b; },
         [](auto a, auto b) { return a.shl(b); },
         [](uint64_t&, uint64_t& b) { b &= 0x7f; });
 }
 
 TEST(CxxrtlValueTest, shr) {
     test_binary_operation(
-        [](uint64_t a, uint64_t b) { return b >= 64 ? 0 : a >> b; },
+        [](size_t, uint64_t a, uint64_t b) { return b >= 64 ? 0 : a >> b; },
         [](auto a, auto b) { return a.shr(b); },
+        [](uint64_t&, uint64_t& b) { b &= 0x7f; });
+}
+
+TEST(CxxrtlValueTest, sshr) {
+    test_binary_operation(
+        [](size_t bits, uint64_t a, uint64_t b) {
+            int64_t sa = (int64_t)(a << (64 - bits));
+            return sa >> (b >= bits ? 63 : (b + 64 - bits));
+        },
+        [](auto a, auto b) { return a.sshr(b); },
         [](uint64_t&, uint64_t& b) { b &= 0x7f; });
 }
 
 TEST(CxxrtlValueTest, add) {
 	test_binary_operation(
-        [](uint64_t a, uint64_t b) { return a + b; },
+        [](size_t, uint64_t a, uint64_t b) { return a + b; },
         [](auto a, auto b) { return a.add(b); });
 }
 
 TEST(CxxrtlValueTest, sub) {
     test_binary_operation(
-        [](uint64_t a, uint64_t b) { return a - b; },
+        [](size_t, uint64_t a, uint64_t b) { return a - b; },
         [](auto a, auto b) { return a.sub(b); });
 }
