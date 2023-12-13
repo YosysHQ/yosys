@@ -10,3 +10,4 @@ run_subtest () {
 }
 
 run_subtest value
+run_subtest value_fuzz
