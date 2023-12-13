@@ -2,11 +2,19 @@
 read_verilog counter.v
 hierarchy -check -top counter
 
+show -notitle -format dot -prefix counter_00
+
 # the high-level stuff
-proc; opt; memory; opt; fsm; opt
+proc; opt
+memory; opt
+fsm; opt
+
+show -notitle -format dot -prefix counter_01
 
 # mapping to internal cell library
 techmap; opt
+
+splitnets -ports;; show -notitle -format dot -prefix counter_02
 
 # mapping flip-flops to mycells.lib
 dfflibmap -liberty mycells.lib
@@ -16,6 +24,8 @@ abc -liberty mycells.lib
 
 # cleanup
 clean
+
+show -notitle -lib mycells.v -format dot -prefix counter_03
 
 # write synthesized design
 write_verilog synth.v

@@ -12,4 +12,5 @@ Synthesis in detail
    memory
    opt
    abc
+   cell_libs
 
