@@ -69,6 +69,11 @@ void test_binary_operation(Lambda1 f1, Lambda2 f2) {
     test_binary_operation(f1, f2, [](uint64_t, uint64_t){});
 }
 
+template<typename Lambda1, typename Lambda2>
+void test_unary_operation(Lambda1 f1, Lambda2 f2) {
+    test_binary_operation([&f1](size_t bits, uint64_t a, uint64_t) { return f1(bits, a); }, [&f2](auto a, auto) { return f2(a); });
+}
+
 TEST(CxxrtlValueTest, shl) {
     test_binary_operation(
         [](size_t, uint64_t a, uint64_t b) { return b >= 64 ? 0 : a << b; },
@@ -103,4 +108,14 @@ TEST(CxxrtlValueTest, sub) {
     test_binary_operation(
         [](size_t, uint64_t a, uint64_t b) { return a - b; },
         [](auto a, auto b) { return a.sub(b); });
+}
+
+TEST(CxxrtlValueTest, ctlz) {
+    test_unary_operation(
+        [](size_t bits, uint64_t a) -> uint64_t {
+            if (a == 0)
+                return bits;
+            return __builtin_clzl(a) - (64 - bits);
+        },
+        [](auto a) { return decltype(a)((cxxrtl::chunk_t)a.ctlz()); });
 }
