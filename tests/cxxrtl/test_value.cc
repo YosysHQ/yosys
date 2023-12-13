@@ -42,4 +42,11 @@ int main()
         cxxrtl::value<32> a(0x00040000u);
         assert(a.ctlz() == 13);
     }
+
+    {
+        // bmux clears top bits of result
+        cxxrtl::value<8> val(0x1fu);
+        cxxrtl::value<1> sel(0u);
+        assert(val.template bmux<4>(sel).get<uint64_t>() == 0xfu);
+    }
 }
