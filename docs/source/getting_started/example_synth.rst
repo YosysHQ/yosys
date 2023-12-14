@@ -13,33 +13,30 @@ used.
 .. seealso:: Advanced usage docs for
    :doc:`/using_yosys/synthesis/synth`
 
-A simple counter
-~~~~~~~~~~~~~~~~
+Demo design
+~~~~~~~~~~~
 
 .. role:: yoscrypt(code)
    :language: yoscrypt
 
-.. TODO:: replace counter.v with a (slightly) more complex design 
-   which includes hard blocks and maybe an FSM
-
 First, let's quickly look at the design we'll be synthesizing:
 
-.. literalinclude:: /code_examples/intro/counter.v
-   :language: Verilog
-   :caption: ``docs/source/code_examples/intro/counter.v``
-   :linenos:
+.. todo:: reconsider including the whole (~77 line) design like this
 
-This is a simple counter with reset and enable.  If the reset signal, ``rst``,
-is high then the counter will reset to 0.  Otherwise, if the enable signal,
-``en``, is high then the ``count`` register will increment by 1 each rising edge
-of the clock, ``clk``.  
+.. literalinclude:: /code_examples/example_synth/example.v
+   :language: Verilog
+   :linenos:
+   :caption: ``example.v``
+   :name: example-v
+
+.. todo:: example.v description
 
 Loading the design
 ~~~~~~~~~~~~~~~~~~
 
 Let's load the design into Yosys.  From the command line, we can call ``yosys
-counter.v``.  This will open an interactive Yosys shell session and immediately
-parse the code from ``counter.v`` and convert it into an Abstract Syntax Tree
+example.v``.  This will open an interactive Yosys shell session and immediately
+parse the code from ``example.v`` and convert it into an Abstract Syntax Tree
 (AST).  If you are interested in how this happens, there is more information in
 the document, :doc:`/yosys_internals/flow/verilog_frontend`.  For now, suffice
 it to say that we do this to simplify further processing of the design.  You
@@ -47,13 +44,15 @@ should see something like the following:
 
 .. code:: console
 
-   $ yosys counter.v
+   $ yosys example.v
 
-   -- Parsing `counter.v' using frontend ` -vlog2k' --
+   -- Parsing `example.v' using frontend ` -vlog2k' --
 
-   1. Executing Verilog-2005 frontend: counter.v
-   Parsing Verilog input from `counter.v' to AST representation.
-   Storing AST representation for module `$abstract\counter'.
+   1. Executing Verilog-2005 frontend: example.v
+   Parsing Verilog input from `example.v' to AST representation.
+   Storing AST representation for module `$abstract\example'.
+   Storing AST representation for module `$abstract\control'.
+   Storing AST representation for module `$abstract\data'.
    Successfully finished Verilog frontend.
 
 .. seealso:: Advanced usage docs for
@@ -63,9 +62,12 @@ Elaboration
 ~~~~~~~~~~~
 
 Now that we are in the interactive shell, we can call Yosys commands directly.
-Our overall goal is to call :yoscrypt:`synth_ice40 -top counter`, but for now we
+Our overall goal is to call :yoscrypt:`synth_ice40 -top example`, but for now we
 can run each of the commands individually for a better sense of how each part
-contributes to the flow.  At the bottom of the :cmd:ref:`help` output for
+contributes to the flow.  We will also start with just a single module;
+``control``.
+
+At the bottom of the :cmd:ref:`help` output for
 :cmd:ref:`synth_ice40` is the complete list of commands called by this script.
 Let's start with the section labeled ``begin``:
 
@@ -75,6 +77,7 @@ Let's start with the section labeled ``begin``:
    :end-before: flatten:
    :dedent:
    :caption: ``begin`` section
+   :name: synth_begin
 
 :yoscrypt:`read_verilog -D ICE40_HX -lib -specify +/ice40/cells_sim.v` loads the
 iCE40 cell models which allows us to include platform specific IP blocks in our
@@ -83,15 +86,20 @@ design.  PLLs are a common example of this, where we might need to reference
 later.  Since our simple design doesn't use any of these IP blocks, we can safely
 skip this command.
 
-Let's instead start with run :yoscrypt:`hierarchy -check -top counter`.  This
-command declares that the top level module is ``counter``, and that we want to
-expand it and any other modules it may use.  Any other modules which were loaded
-are then discarded, preventing the subsequent commands from trying to work on
-them. By passing the ``-check`` option there we are also telling the
-:cmd:ref:`hierarchy` command that if the design includes any non-blackbox
-modules without an implementation it should return an error.
+The control module
+^^^^^^^^^^^^^^^^^^
 
-.. TODO:: more on why :cmd:ref:`hierarchy` is important
+Since we're just getting started, let's instead begin with :yoscrypt:`hierarchy
+-top control`.  This command declares that the top level module is ``control``,
+and everything else can be discarded.
+
+.. literalinclude:: /code_examples/example_synth/example.v
+   :language: Verilog
+   :start-at: module control
+   :end-at: endmodule //control
+   :lineno-match:
+   :caption: ``control`` module source
+   :name: control-v
 
 .. note::
 
@@ -100,51 +108,95 @@ modules without an implementation it should return an error.
 
 .. use doscon for a console-like display that supports the `yosys> [command]` format.
 
-.. code:: doscon
+.. literalinclude:: /code_examples/example_synth/example.out
+   :language: doscon
+   :start-at: yosys> hierarchy -top control
+   :end-before: yosys> show
+   :caption: :yoscrypt:`hierarchy -top control` output
 
-   yosys> hierarchy -check -top counter
+Our ``control`` circuit now looks like this:
 
-   2. Executing HIERARCHY pass (managing design hierarchy).
-
-   3. Executing AST frontend in derive mode using pre-parsed AST for module `\counter'.
-   Generating RTLIL representation for module `\counter'.
-
-   3.1. Analyzing design hierarchy..
-   Top module:  \counter
-
-   3.2. Analyzing design hierarchy..
-   Top module:  \counter
-   Removing unused module `$abstract\counter'.
-   Removed 1 unused modules.
-
-Our circuit now looks like this:
-
-.. figure:: /_images/code_examples/intro/counter_00.*
+.. figure:: /_images/code_examples/example_synth/control_hier.*
    :class: width-helper
+   :name: control_hier
 
-   ``counter`` module after :cmd:ref:`hierarchy`
+   ``control`` module after :cmd:ref:`hierarchy`
 
-Notice that block that says "PROC" in :ref:`counter-hierarchy`?  Simple
-operations like ``count + 2'd1`` can be extracted from our ``always @`` block in
-:ref:`counter-v`.  This gives us the ``$add`` cell we see.  But control logic
-(like the ``if .. else``) and memory elements (like the ``count <='2d0``) are
+Notice that block that says "PROC" in :ref:`control_hier`?  Simple operations
+like ``addr + 1'b1`` can be extracted from our ``always @`` block in
+:ref:`control-v`. This gives us the two ``$add`` cells we see.  But control
+logic (like the ``if .. else``) and memory elements (like the ``addr <= 0``) are
 not so straightforward. To handle these, let us now introduce the next command:
 :doc:`/cmd/proc`.
 
 :cmd:ref:`proc` is a macro command like :cmd:ref:`synth_ice40`.  Rather than
-processing our design itself, it instead calls a series of other commands.  In
+modifying the design directly, it instead calls a series of other commands.  In
 the case of :cmd:ref:`proc`, these sub-commands work to convert the behavioral
-logic of processes into multiplexers and registers.  We go into more detail on
-:cmd:ref:`proc` later in :doc:`/using_yosys/synthesis/proc`, but for now let's
-see what happens when we run it.
+logic of processes into multiplexers and registers.  Let's see what happens when
+we run it.
 
-.. figure:: /_images/code_examples/intro/counter_proc.*
+.. figure:: /_images/code_examples/example_synth/control_proc.*
    :class: width-helper
 
-   ``counter`` module after :cmd:ref:`proc`
+   ``control`` module after :cmd:ref:`proc`
 
-The ``if`` statements are now modeled with ``$mux`` cells, and the memory
-consists of a ``$dff`` cell.
+The ``if`` statements are now modeled with ``$mux`` cells, while the registers
+use ``$dff`` cells.  If we look at the terminal output we can also see all of
+the different ``proc_*`` commands being called.  We will look at each of these
+in more detail in :doc:`/using_yosys/synthesis/proc`.
+
+The full example
+^^^^^^^^^^^^^^^^
+
+Let's now go back and check on our full design by using :yoscrypt:`hierarchy
+-check -top example`.  By passing the ``-check`` option there we are also
+telling the :cmd:ref:`hierarchy` command that if the design includes any
+non-blackbox modules without an implementation it should return an error.
+
+Note that if we tried to run this command now then we would get an error.  This
+is because we already removed all of the modules other than ``control``.  We
+could restart our shell session, but instead let's use two new commands:
+
+- :doc:`/cmd/design`, and
+- :doc:`/cmd/read_verilog`.
+
+.. literalinclude:: /code_examples/example_synth/example.out
+   :language: doscon
+   :start-at: design -reset
+   :end-before: yosys> show
+   :caption: reloading ``example.v`` and running :yoscrypt:`hierarchy -check -top example`
+
+Notice how this time we didn't see any of those `$abstract` modules?  That's
+because when we ran ``yosys example.v``, the first command Yosys called was
+:yoscrypt:`read_verilog -defer example.v`.  The ``-defer`` option there tells
+:cmd:ref:`read_verilog` only read the abstract syntax tree and defer actual
+compilation to a later :cmd:ref:`hierarchy` command. This is useful in cases
+where the default parameters of modules yield invalid or not synthesizable code,
+which is why Yosys does this automatically and is one of the reasons why
+hierarchy should always be the first command after loading the design.  If we
+know that our design won't run into this issue, we can skip the ``-defer``.
+
+.. note::
+
+   The number before a command's output increments with each command run.  Don't
+   worry if your numbers don't match ours!  The output you are seeing comes from
+   the same script that was used to generate the images in this document,
+   included in the source as ``example.ys``. There are extra commands being run
+   which you don't see, but feel free to try them yourself, or play around with
+   different commands.  You can always start over with a clean slate by calling
+   ``exit`` or hitting ``ctrl+c`` (i.e. SIGINT) and re-launching the Yosys
+   interactive terminal.
+
+.. figure:: /_images/code_examples/example_synth/example_hier.*
+   :class: width-helper
+   :name: example_hier
+
+   ``example`` module after :cmd:ref:`hierarchy`
+
+We can also run :cmd:ref:`proc` now, although we won't actually see any change
+in this top view.
+
+.. TODO:: more on why :cmd:ref:`hierarchy` is important
 
 .. seealso:: Advanced usage docs for
    :doc:`/using_yosys/synthesis/proc`
@@ -153,26 +205,27 @@ Flattening
 ~~~~~~~~~~
 
 At this stage of a synthesis flow there are a few other commands we could run.
-First off is :cmd:ref:`flatten`.  If we had any modules within our ``counter``,
-this would replace them with their implementation.  Flattening the design like
-this can allow for optimizations between modules which would otherwise be
-missed.
-
-Depending on the target architecture, we might also run commands such as
-:cmd:ref:`tribuf` with the ``-logic`` option and :cmd:ref:`deminout`.  These
-remove tristate and inout constructs respectively, replacing them with logic
-suitable for mapping to an FPGA.
+In :cmd:ref:`synth_ice40` we get these:
 
 .. literalinclude:: /cmd/synth_ice40.rst
    :language: yoscrypt
    :start-after: flatten:
    :end-before: coarse:
    :dedent:
-   :name: flatten
+   :name: synth_flatten
    :caption: ``flatten`` section
 
-The iCE40 flow puts these commands into thier own :ref:`flatten`,
-while some synthesis scripts will instead include them in the next section.
+First off is :cmd:ref:`synth_flatten`.  Flattening the design like this can
+allow for optimizations between modules which would otherwise be missed.  We
+will skip this command for now because it makes the design schematic quite
+large.  If you would like to see for yourself, you can do so with
+:doc:`/cmd/show`.  Note that the :cmd:ref:`show` command only works with a
+single module, so you may need to call it with :yoscrypt:`show example`.
+
+Depending on the target architecture, we might also see commands such as
+:cmd:ref:`tribuf` with the ``-logic`` option and :cmd:ref:`deminout`.  These
+remove tristate and inout constructs respectively, replacing them with logic
+suitable for mapping to an FPGA.
 
 The coarse-grain representation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -195,6 +248,13 @@ In the iCE40 flow we get all the following commands:
    :end-before: map_ram:
    :dedent:
    :caption: ``coarse`` section
+   :name: synth_coarse
+
+.. note::
+
+   While the iCE40 flow had a :ref:`synth_flatten` and put :cmd:ref:`proc` in
+   the :ref:`synth_begin`, some synthesis scripts will instead include these in
+   the :ref:`synth_coarse` section.
 
 .. TODO:: talk more about DSPs (and their associated commands)
 

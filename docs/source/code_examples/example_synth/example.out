@@ -1,0 +1,147 @@
+
+-- Executing script file `example.ys' --
+echo on
+
+yosys> read_verilog -defer example.v
+
+1. Executing Verilog-2005 frontend: example.v
+Parsing Verilog input from `example.v' to AST representation.
+Storing AST representation for module `$abstract\example'.
+Storing AST representation for module `$abstract\control'.
+Storing AST representation for module `$abstract\data'.
+Successfully finished Verilog frontend.
+
+yosys> hierarchy -top control
+
+2. Executing HIERARCHY pass (managing design hierarchy).
+
+3. Executing AST frontend in derive mode using pre-parsed AST for module `\control'.
+Generating RTLIL representation for module `\control'.
+
+3.1. Analyzing design hierarchy..
+Top module:  \control
+
+3.2. Analyzing design hierarchy..
+Top module:  \control
+Removing unused module `$abstract\data'.
+Removing unused module `$abstract\control'.
+Removing unused module `$abstract\example'.
+Removed 3 unused modules.
+
+yosys> show -notitle -format dot -prefix control_hier
+
+4. Generating Graphviz representation of design.
+Writing dot description to `control_hier.dot'.
+Dumping module control to page 1.
+
+yosys> proc
+
+5. Executing PROC pass (convert processes to netlists).
+
+yosys> proc_clean
+
+5.1. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+Cleaned up 0 empty switches.
+
+yosys> proc_rmdead
+
+5.2. Executing PROC_RMDEAD pass (remove dead branches from decision trees).
+Marked 1 switch rules as full_case in process $proc$example.v:43$1 in module control.
+Removed a total of 0 dead cases.
+
+yosys> proc_prune
+
+5.3. Executing PROC_PRUNE pass (remove redundant assignments in processes).
+Removed 1 redundant assignment.
+Promoted 0 assignments to connections.
+
+yosys> proc_init
+
+5.4. Executing PROC_INIT pass (extract init attributes).
+
+yosys> proc_arst
+
+5.5. Executing PROC_ARST pass (detect async resets in processes).
+
+yosys> proc_rom
+
+5.6. Executing PROC_ROM pass (convert switches to ROMs).
+Converted 0 switches.
+<suppressed ~2 debug messages>
+
+yosys> proc_mux
+
+5.7. Executing PROC_MUX pass (convert decision trees to multiplexers).
+Creating decoders for process `\control.$proc$example.v:43$1'.
+     1/2: $0\addr[7:0]
+     2/2: $0\state[1:0]
+
+yosys> proc_dlatch
+
+5.8. Executing PROC_DLATCH pass (convert process syncs to latches).
+
+yosys> proc_dff
+
+5.9. Executing PROC_DFF pass (convert process syncs to FFs).
+Creating register for signal `\control.\state' using process `\control.$proc$example.v:43$1'.
+  created $dff cell `$procdff$12' with positive edge clock.
+Creating register for signal `\control.\addr' using process `\control.$proc$example.v:43$1'.
+  created $dff cell `$procdff$13' with positive edge clock.
+
+yosys> proc_memwr
+
+5.10. Executing PROC_MEMWR pass (convert process memory writes to cells).
+
+yosys> proc_clean
+
+5.11. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+Found and cleaned up 2 empty switches in `\control.$proc$example.v:43$1'.
+Removing empty process `control.$proc$example.v:43$1'.
+Cleaned up 2 empty switches.
+
+yosys> opt_expr -keepdc
+
+5.12. Executing OPT_EXPR pass (perform const folding).
+Optimizing module control.
+
+yosys> show -notitle -format dot -prefix control_proc
+
+6. Generating Graphviz representation of design.
+Writing dot description to `control_proc.dot'.
+Dumping module control to page 1.
+
+yosys> design -reset
+
+yosys> read_verilog example.v
+
+7. Executing Verilog-2005 frontend: example.v
+Parsing Verilog input from `example.v' to AST representation.
+Generating RTLIL representation for module `\example'.
+Generating RTLIL representation for module `\control'.
+Generating RTLIL representation for module `\data'.
+Successfully finished Verilog frontend.
+
+yosys> hierarchy -check -top example
+
+8. Executing HIERARCHY pass (managing design hierarchy).
+
+8.1. Analyzing design hierarchy..
+Top module:  \example
+Used module:     \data
+Used module:     \control
+
+8.2. Analyzing design hierarchy..
+Top module:  \example
+Used module:     \data
+Used module:     \control
+Removed 0 unused modules.
+
+yosys> show -notitle -format dot -prefix example_hier example
+
+9. Generating Graphviz representation of design.
+Writing dot description to `example_hier.dot'.
+Dumping module example to page 1.
+
+End of script. Logfile hash: b45465606c, CPU: user 0.01s system 0.00s, MEM: 11.86 MB peak
+Yosys 0.35+39 (git sha1 0cd4a10c8, clang 10.0.0-4ubuntu1 -fPIC -Os)
+Time spent: 37% 4x read_verilog (0 sec), 23% 3x show (0 sec), ...
