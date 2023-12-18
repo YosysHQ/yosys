@@ -103,7 +103,7 @@ and everything else can be discarded.
 .. literalinclude:: /code_examples/fifo/fifo.out
    :language: doscon
    :start-at: yosys> hierarchy -top addr_gen
-   :end-before: yosys> show
+   :end-before: yosys> select
    :caption: :yoscrypt:`hierarchy -top addr_gen` output
 
 Our ``addr_gen`` circuit now looks like this:
@@ -114,13 +114,19 @@ Our ``addr_gen`` circuit now looks like this:
 
    ``addr_gen`` module after :cmd:ref:`hierarchy`
 
-Notice that block that says "PROC" in :ref:`addr_gen_hier`?  Simple operations
-like ``addr + 1`` and ``addr == MAX_DATA-1`` can be extracted from our ``always
-@`` block in :ref:`addr_gen-v`. This gives us the ``$add`` and ``$eq`` cells we
-see. But control logic (like the ``if .. else``) and memory elements (like the
-``addr <= 0``) are not so straightforward. To handle these, let us now introduce
-the next command: :doc:`/cmd/proc`.
+.. todo:: how to highlight PROC blocks? 
+   They seem to be replaced in ``show``, so the selection never matches
 
+Simple operations like ``addr + 1`` and ``addr == MAX_DATA-1`` can be extracted
+from our ``always @`` block in :ref:`addr_gen-v`. This gives us the highlighted
+``$add`` and ``$eq`` cells we see. But control logic (like the ``if .. else``)
+and memory elements (like the ``addr <= 0``) are not so straightforward.  These
+get put into "processes", shown in the schematic as ``PROC``.  Note how the
+second line refers to the line numbers of the start/end of the corresponding
+``always @`` block.  In the case of an ``initial`` block, we instead see the
+``PROC`` referring to line 0.
+
+To handle these, let us now introduce the next command: :doc:`/cmd/proc`.
 :cmd:ref:`proc` is a macro command like :cmd:ref:`synth_ice40`.  Rather than
 modifying the design directly, it instead calls a series of other commands.  In
 the case of :cmd:ref:`proc`, these sub-commands work to convert the behavioral
@@ -133,10 +139,35 @@ we run it.
 
    ``addr_gen`` module after :cmd:ref:`proc`
 
-The ``if`` statements are now modeled with ``$mux`` cells, while the register
-uses an ``$adff`` cells.  If we look at the terminal output we can also see all
-of the different ``proc_*`` commands being called.  We will look at each of
-these in more detail in :doc:`/using_yosys/synthesis/proc`.
+There are now a few new cells from our ``always @``, which have been
+highlighted.  The ``if`` statements are now modeled with ``$mux`` cells, while
+the register uses an ``$adff`` cell.  If we look at the terminal output we can
+also see all of the different ``proc_*`` commands being called.  We will look at
+each of these in more detail in :doc:`/using_yosys/synthesis/proc`.
+
+.. TODO:: intro ``opt_expr``
+   :doc:`/cmd/opt_expr`
+
+   - by default called at the end of :cmd:ref:`proc`
+
+Notice how in the top left of :ref:`addr_gen_proc` we have a floating wire,
+generated from the initial assignment of 0 to the ``addr`` wire.  However, this
+initial assignment is not synthesizable, so this will need to be cleaned up
+before we can generate the physical hardware.  We can do this now by calling
+:cmd:ref:`opt_clean`:
+
+.. figure:: /_images/code_examples/fifo/addr_gen_clean.*
+   :class: width-helper
+   :name: addr_gen_clean
+
+   ``addr_gen`` module after :cmd:ref:`opt_clean`
+
+.. TODO:: more on opt_clean
+   :doc:`/cmd/opt_clean`
+
+   - :cmd:ref:`clean` for short, ``;;`` for even shorter
+   - final command of :cmd:ref:`opt`
+   - can run at any time
 
 .. todo:: consider a brief glossary for terms like adff
 
@@ -198,8 +229,11 @@ command only works with a single module, so you may need to call it with
 
    ``rdata`` output after :cmd:ref:`proc`
 
-The ``fifo_reader`` block we can see there is the same as the
-:ref:`addr_gen_proc` that we looked at earlier.
+The highlighted ``fifo_reader`` block contains an instance of the
+:ref:`addr_gen_proc` that we looked at earlier.  Notice how the type is shown as
+``$paramod\\addr_gen\\MAX_DATA=s32'...``.  This is a "parametric module"; an
+instance of the ``addr_gen`` module with the ``MAX_DATA`` set to the given
+value.
 
 .. TODO:: comment on ``$memrd``
 
@@ -220,14 +254,28 @@ In :cmd:ref:`synth_ice40` we get these:
    :name: synth_flatten
    :caption: ``flatten`` section
 
-First off is :cmd:ref:`flatten`.  Flattening the design like this can
-allow for optimizations between modules which would otherwise be missed. 
+First off is :cmd:ref:`flatten`.  Flattening the design like this can allow for
+optimizations between modules which would otherwise be missed.  Let's run
+:yoscrypt:`flatten;;` on our design.
+
+.. literalinclude:: /code_examples/fifo/fifo.out
+   :language: doscon
+   :start-at: yosys> flatten
+   :end-before: yosys> show
+   :name: flat_clean
+   :caption: output of :yoscrypt:`flatten;;`
 
 .. figure:: /_images/code_examples/fifo/rdata_flat.*
    :class: width-helper
    :name: rdata_flat
 
-   ``rdata`` module after :cmd:ref:`flatten`
+   ``rdata`` output after :yoscrypt:`flatten;;`
+
+We can now see both :ref:`rdata_proc` and :ref:`addr_gen_proc` together.  Note
+that in the :ref:`flat_clean` we see above has two separate calls: one to
+:cmd:ref:`flatten` and one to :cmd:ref:`clean`.  In an interactive terminal the
+output of both commands will be combined into the single `yosys> flatten;;`
+output.
 
 Depending on the target architecture, we might also see commands such as
 :cmd:ref:`tribuf` with the ``-logic`` option and :cmd:ref:`deminout`.  These
@@ -247,6 +295,12 @@ Such elements have to be inferred from patterns in the design and there are
 special passes for each.  Detection of these patterns can also be affected by
 optimizations and other transformations done previously.
 
+.. note::
+
+   While the iCE40 flow had a :ref:`synth_flatten` and put :cmd:ref:`proc` in
+   the :ref:`synth_begin`, some synthesis scripts will instead include these in
+   the :ref:`synth_coarse`.
+
 In the iCE40 flow we get all the following commands:
 
 .. literalinclude:: /cmd/synth_ice40.rst
@@ -258,34 +312,103 @@ In the iCE40 flow we get all the following commands:
    :caption: ``coarse`` section
    :name: synth_coarse
 
-.. note::
+The first few commands are relatively straightforward.  We've already come
+across :cmd:ref:`opt_clean` and :cmd:ref:`opt_expr`.  The :cmd:ref:`check` pass
+identifies a few obvious problems which will cause errors later.  Calling it
+here lets us fail faster rather than wasting time on something we know is
+impossible.  
 
-   While the iCE40 flow had a :ref:`synth_flatten` and put :cmd:ref:`proc` in
-   the :ref:`synth_begin`, some synthesis scripts will instead include these in
-   the :ref:`synth_coarse` section.
+Next up is :yoscrypt:`opt -nodffe -nosdff` performing a set of simple
+optimizations on the design.  This command also ensures that only a specific
+subset of FF types are included, in preparation for the next command:
+:doc:`/cmd/fsm`.  Both :cmd:ref:`opt` and :cmd:ref:`fsm` are macro commands
+which are explored in more detail in :doc:`/using_yosys/synthesis/fsm` and
+:doc:`/using_yosys/synthesis/opt` respectively.
 
-.. TODO:: talk more about DSPs (and their associated commands)
+Up until now, the data path for ``rdata`` has remained the same since
+:ref:`rdata_flat`.  However the next call to :cmd:ref:`opt` does cause a change.
+Specifically, the call to :cmd:ref:`opt_dff` without the ``-nodffe -nosdff``
+options is able to fold one of the ``$mux`` cells into the ``$adff`` to form an
+``$adffe`` cell; highlighted below:
 
-.. TODO:: example_syth ``coarse`` section
+.. literalinclude:: /code_examples/fifo/fifo.out
+   :language: doscon
+   :start-at: yosys> opt_dff
+   :end-before: yosys> select
+   :caption: output of :cmd:ref:`opt_dff`
 
-Some of the commands we might use here are:
+.. figure:: /_images/code_examples/fifo/rdata_adffe.*
+   :class: width-helper
+   :name: rdata_adffe
 
-- :doc:`/cmd/opt_expr`,
-- :doc:`/cmd/opt_clean`,
-- :doc:`/cmd/check`,
-- :doc:`/cmd/opt`,
-- :doc:`/cmd/fsm`,
-- :doc:`/cmd/wreduce`,
-- :doc:`/cmd/peepopt`,
-- :doc:`/cmd/memory`,
-- :doc:`/cmd/pmuxtree`,
-- :doc:`/cmd/alumacc`, and
-- :doc:`/cmd/share`.
+   ``rdata`` output after :cmd:ref:`opt_dff`
+
+The next three (new) commands are :doc:`/cmd/wreduce`, :doc:`/cmd/peepopt`, and
+:doc:`/cmd/share`.  None of these affect our design either, so let's skip over
+them.  :yoscrypt:`techmap -map +/cmp2lut.v -D LUT_WIDTH=4` optimizes certain
+comparison operators by converting them to LUTs instead.  The usage of
+:cmd:ref:`techmap` is explored more in
+:doc:`/using_yosys/synthesis/techmap_synth`. Our next command to run is
+:doc:`/cmd/memory_dff`.
+
+.. literalinclude:: /code_examples/fifo/fifo.out
+   :language: doscon
+   :start-at: yosys> memory_dff
+   :end-before: yosys> select
+   :caption: output of :cmd:ref:`memory_dff`
+
+.. figure:: /_images/code_examples/fifo/rdata_memrdv2.*
+   :class: width-helper
+   :name: rdata_memrdv2
+
+   ``rdata`` output after :cmd:ref:`memory_dff`
+
+As the title suggests, :cmd:ref:`memory_dff` has merged the output ``$dff`` into
+the ``$memrd`` cell and converted it to a ``$memrd_v2`` (highlighted).
+Following this is a series of commands for mapping to DSPs.
+
+.. TODO:: more on DSP mapping
+
+Where before each type of arithmetic operation had its own cell, e.g. ``$add``,
+we now want to extract these into ``$alu`` and ``$macc`` cells which can be
+mapped to hard blocks.  We do this by running :cmd:ref:`alumacc`, which we can
+see produce the following changes in our example design:
+
+.. literalinclude:: /code_examples/fifo/fifo.out
+   :language: doscon
+   :start-at: yosys> alumacc
+   :end-before: yosys> select
+   :caption: output of :cmd:ref:`alumacc`
+
+.. figure:: /_images/code_examples/fifo/rdata_alumacc.*
+   :class: width-helper
+   :name: rdata_alumacc
+
+   ``rdata`` output after :cmd:ref:`alumacc`
+
+That brings us to the last commands, and a look at ``rdata`` at the end of the
+:ref:`synth_coarse`.  We could also have gotten here by running
+:yoscrypt:`synth_ice40 -top fifo -run begin:map_ram` after loading the design.
+
+.. literalinclude:: /cmd/synth_ice40.rst
+   :language: yoscrypt
+   :start-at: memory -nomap
+   :end-before: map_ram:
+   :dedent:
+
+.. figure:: /_images/code_examples/fifo/rdata_coarse.*
+   :class: width-helper
+   :name: rdata_coarse
+
+   ``rdata`` output after :yoscrypt:`memory -nomap`
+
+.. TODO:: discuss :cmd:ref:`memory_collect` and ``$mem_v2``
 
 .. seealso:: Advanced usage docs for
-   :doc:`/using_yosys/synthesis/fsm`,
-   :doc:`/using_yosys/synthesis/memory`, and
+   :doc:`/using_yosys/synthesis/fsm`
    :doc:`/using_yosys/synthesis/opt`
+   :doc:`/using_yosys/synthesis/techmap_synth`
+   :doc:`/using_yosys/synthesis/memory`
 
 Hardware mapping
 ~~~~~~~~~~~~~~~~

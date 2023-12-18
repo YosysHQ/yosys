@@ -11,6 +11,7 @@ Synthesis in detail
    fsm
    memory
    opt
+   techmap_synth
    abc
    cell_libs
 

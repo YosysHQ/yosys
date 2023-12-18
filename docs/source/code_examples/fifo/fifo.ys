@@ -9,31 +9,54 @@ read_verilog -defer fifo.v
 # turn command echoes on to use the log output as a console session
 echo on
 hierarchy -top addr_gen
-show -notitle -format dot -prefix addr_gen_hier
+select -set new_cells t:*
+show -color maroon3 @new_cells -notitle -format dot -prefix addr_gen_hier
 
 # ========================================================
 proc
-show -notitle -format dot -prefix addr_gen_proc
+select -set new_cells t:$mux t:*dff
+show -color maroon3 @new_cells -notitle -format dot -prefix addr_gen_proc
+
+# ========================================================
+opt_clean
+show -notitle -format dot -prefix addr_gen_clean
 
 # ========================================================
 design -reset
 read_verilog fifo.v
 hierarchy -check -top fifo
 proc
-show -notitle -format dot -prefix rdata_proc o:rdata %ci*
+show -color maroon3 c:fifo_reader -notitle -format dot -prefix rdata_proc o:rdata %ci*
 
 # ========================================================
 
-flatten
+flatten;;
 show -notitle -format dot -prefix rdata_flat o:rdata %ci*
 
 # ========================================================
 
-opt_clean
-show -notitle -format dot -prefix fifo_flat
+opt_dff
+select -set new_cells t:$adffe
+show -color maroon3 @new_cells -notitle -format dot -prefix rdata_adffe o:rdata %ci*
+
+# ========================================================
+
+memory_dff
+select -set new_cells t:$memrd_v2
+show -color maroon3 @new_cells -notitle -format dot -prefix rdata_memrdv2 o:rdata %ci*
+
+# ========================================================
+
+alumacc
+select -set new_cells t:$alu t:$macc
+show -color maroon3 @new_cells -notitle -format dot -prefix rdata_alumacc o:rdata %ci*
+
+# ========================================================
 
 design -reset
 read_verilog fifo.v
-synth_ice40 -dsp -top fifo
-show -notitle -format dot -prefix fifo_synth
-stat
+synth_ice40 -top fifo -run begin:map_ram
+# memory_collect
+# opt
+select -set new_cells t:$mem_v2
+show -color maroon3 @new_cells -notitle -format dot -prefix rdata_coarse o:rdata %ci*
