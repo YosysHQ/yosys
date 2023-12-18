@@ -1,0 +1,2331 @@
+
+-- Executing script file `fifo.ys' --
+$ yosys fifo.v
+
+-- Parsing `fifo.v' using frontend ` -vlog2k' --
+
+1. Executing Verilog-2005 frontend: fifo.v
+Parsing Verilog input from `fifo.v' to AST representation.
+Storing AST representation for module `$abstract\addr_gen'.
+Storing AST representation for module `$abstract\fifo'.
+Successfully finished Verilog frontend.
+echo on
+
+yosys> hierarchy -top addr_gen
+
+2. Executing HIERARCHY pass (managing design hierarchy).
+
+3. Executing AST frontend in derive mode using pre-parsed AST for module `\addr_gen'.
+Generating RTLIL representation for module `\addr_gen'.
+
+3.1. Analyzing design hierarchy..
+Top module:  \addr_gen
+
+3.2. Analyzing design hierarchy..
+Top module:  \addr_gen
+Removing unused module `$abstract\fifo'.
+Removing unused module `$abstract\addr_gen'.
+Removed 2 unused modules.
+
+yosys> show -notitle -format dot -prefix addr_gen_hier
+
+4. Generating Graphviz representation of design.
+Writing dot description to `addr_gen_hier.dot'.
+Dumping module addr_gen to page 1.
+
+yosys> proc
+
+5. Executing PROC pass (convert processes to netlists).
+
+yosys> proc_clean
+
+5.1. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+Cleaned up 0 empty switches.
+
+yosys> proc_rmdead
+
+5.2. Executing PROC_RMDEAD pass (remove dead branches from decision trees).
+Marked 2 switch rules as full_case in process $proc$fifo.v:13$1 in module addr_gen.
+Removed a total of 0 dead cases.
+
+yosys> proc_prune
+
+5.3. Executing PROC_PRUNE pass (remove redundant assignments in processes).
+Removed 0 redundant assignments.
+Promoted 1 assignment to connection.
+
+yosys> proc_init
+
+5.4. Executing PROC_INIT pass (extract init attributes).
+Found init rule in `\addr_gen.$proc$fifo.v:0$4'.
+  Set init value: \addr = 8'00000000
+
+yosys> proc_arst
+
+5.5. Executing PROC_ARST pass (detect async resets in processes).
+Found async reset \rst in `\addr_gen.$proc$fifo.v:13$1'.
+
+yosys> proc_rom
+
+5.6. Executing PROC_ROM pass (convert switches to ROMs).
+Converted 0 switches.
+<suppressed ~2 debug messages>
+
+yosys> proc_mux
+
+5.7. Executing PROC_MUX pass (convert decision trees to multiplexers).
+Creating decoders for process `\addr_gen.$proc$fifo.v:0$4'.
+Creating decoders for process `\addr_gen.$proc$fifo.v:13$1'.
+     1/1: $0\addr[7:0]
+
+yosys> proc_dlatch
+
+5.8. Executing PROC_DLATCH pass (convert process syncs to latches).
+
+yosys> proc_dff
+
+5.9. Executing PROC_DFF pass (convert process syncs to FFs).
+Creating register for signal `\addr_gen.\addr' using process `\addr_gen.$proc$fifo.v:13$1'.
+  created $adff cell `$procdff$10' with positive edge clock and positive level reset.
+
+yosys> proc_memwr
+
+5.10. Executing PROC_MEMWR pass (convert process memory writes to cells).
+
+yosys> proc_clean
+
+5.11. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+Removing empty process `addr_gen.$proc$fifo.v:0$4'.
+Found and cleaned up 2 empty switches in `\addr_gen.$proc$fifo.v:13$1'.
+Removing empty process `addr_gen.$proc$fifo.v:13$1'.
+Cleaned up 2 empty switches.
+
+yosys> opt_expr -keepdc
+
+5.12. Executing OPT_EXPR pass (perform const folding).
+Optimizing module addr_gen.
+
+yosys> show -notitle -format dot -prefix addr_gen_proc
+
+6. Generating Graphviz representation of design.
+Writing dot description to `addr_gen_proc.dot'.
+Dumping module addr_gen to page 1.
+
+yosys> design -reset
+
+yosys> read_verilog fifo.v
+
+7. Executing Verilog-2005 frontend: fifo.v
+Parsing Verilog input from `fifo.v' to AST representation.
+Generating RTLIL representation for module `\addr_gen'.
+Generating RTLIL representation for module `\fifo'.
+Successfully finished Verilog frontend.
+
+yosys> hierarchy -check -top fifo
+
+8. Executing HIERARCHY pass (managing design hierarchy).
+
+8.1. Analyzing design hierarchy..
+Top module:  \fifo
+Used module:     \addr_gen
+Parameter \MAX_DATA = 256
+
+8.2. Executing AST frontend in derive mode using pre-parsed AST for module `\addr_gen'.
+Parameter \MAX_DATA = 256
+Generating RTLIL representation for module `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000'.
+Parameter \MAX_DATA = 256
+Found cached RTLIL representation for module `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000'.
+
+8.3. Analyzing design hierarchy..
+Top module:  \fifo
+Used module:     $paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000
+
+8.4. Analyzing design hierarchy..
+Top module:  \fifo
+Used module:     $paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000
+Removing unused module `\addr_gen'.
+Removed 1 unused modules.
+
+yosys> proc
+
+9. Executing PROC pass (convert processes to netlists).
+
+yosys> proc_clean
+
+9.1. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+Cleaned up 0 empty switches.
+
+yosys> proc_rmdead
+
+9.2. Executing PROC_RMDEAD pass (remove dead branches from decision trees).
+Marked 2 switch rules as full_case in process $proc$fifo.v:64$24 in module fifo.
+Marked 1 switch rules as full_case in process $proc$fifo.v:38$16 in module fifo.
+Marked 2 switch rules as full_case in process $proc$fifo.v:13$32 in module $paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.
+Removed a total of 0 dead cases.
+
+yosys> proc_prune
+
+9.3. Executing PROC_PRUNE pass (remove redundant assignments in processes).
+Removed 0 redundant assignments.
+Promoted 6 assignments to connections.
+
+yosys> proc_init
+
+9.4. Executing PROC_INIT pass (extract init attributes).
+Found init rule in `\fifo.$proc$fifo.v:0$31'.
+  Set init value: \count = 9'000000000
+Found init rule in `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:0$35'.
+  Set init value: \addr = 8'00000000
+
+yosys> proc_arst
+
+9.5. Executing PROC_ARST pass (detect async resets in processes).
+Found async reset \rst in `\fifo.$proc$fifo.v:64$24'.
+Found async reset \rst in `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:13$32'.
+
+yosys> proc_rom
+
+9.6. Executing PROC_ROM pass (convert switches to ROMs).
+Converted 0 switches.
+<suppressed ~5 debug messages>
+
+yosys> proc_mux
+
+9.7. Executing PROC_MUX pass (convert decision trees to multiplexers).
+Creating decoders for process `\fifo.$proc$fifo.v:0$31'.
+Creating decoders for process `\fifo.$proc$fifo.v:64$24'.
+     1/1: $0\count[8:0]
+Creating decoders for process `\fifo.$proc$fifo.v:38$16'.
+     1/3: $1$memwr$\data$fifo.v:40$15_EN[7:0]$22
+     2/3: $1$memwr$\data$fifo.v:40$15_DATA[7:0]$21
+     3/3: $1$memwr$\data$fifo.v:40$15_ADDR[7:0]$20
+Creating decoders for process `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:0$35'.
+Creating decoders for process `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:13$32'.
+     1/1: $0\addr[7:0]
+
+yosys> proc_dlatch
+
+9.8. Executing PROC_DLATCH pass (convert process syncs to latches).
+
+yosys> proc_dff
+
+9.9. Executing PROC_DFF pass (convert process syncs to FFs).
+Creating register for signal `\fifo.\count' using process `\fifo.$proc$fifo.v:64$24'.
+  created $adff cell `$procdff$55' with positive edge clock and positive level reset.
+Creating register for signal `\fifo.\rdata' using process `\fifo.$proc$fifo.v:38$16'.
+  created $dff cell `$procdff$56' with positive edge clock.
+Creating register for signal `\fifo.$memwr$\data$fifo.v:40$15_ADDR' using process `\fifo.$proc$fifo.v:38$16'.
+  created $dff cell `$procdff$57' with positive edge clock.
+Creating register for signal `\fifo.$memwr$\data$fifo.v:40$15_DATA' using process `\fifo.$proc$fifo.v:38$16'.
+  created $dff cell `$procdff$58' with positive edge clock.
+Creating register for signal `\fifo.$memwr$\data$fifo.v:40$15_EN' using process `\fifo.$proc$fifo.v:38$16'.
+  created $dff cell `$procdff$59' with positive edge clock.
+Creating register for signal `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.\addr' using process `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:13$32'.
+  created $adff cell `$procdff$60' with positive edge clock and positive level reset.
+
+yosys> proc_memwr
+
+9.10. Executing PROC_MEMWR pass (convert process memory writes to cells).
+
+yosys> proc_clean
+
+9.11. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+Removing empty process `fifo.$proc$fifo.v:0$31'.
+Found and cleaned up 2 empty switches in `\fifo.$proc$fifo.v:64$24'.
+Removing empty process `fifo.$proc$fifo.v:64$24'.
+Found and cleaned up 1 empty switch in `\fifo.$proc$fifo.v:38$16'.
+Removing empty process `fifo.$proc$fifo.v:38$16'.
+Removing empty process `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:0$35'.
+Found and cleaned up 2 empty switches in `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:13$32'.
+Removing empty process `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:13$32'.
+Cleaned up 5 empty switches.
+
+yosys> opt_expr -keepdc
+
+9.12. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fifo.
+Optimizing module $paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.
+
+yosys> show -notitle -format dot -prefix rdata_proc o:rdata %ci*
+
+10. Generating Graphviz representation of design.
+Writing dot description to `rdata_proc.dot'.
+Dumping selected parts of module fifo to page 1.
+
+yosys> flatten
+
+11. Executing FLATTEN pass (flatten design).
+Deleting now unused module $paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.
+<suppressed ~2 debug messages>
+
+yosys> show -notitle -format dot -prefix rdata_flat o:rdata %ci*
+
+12. Generating Graphviz representation of design.
+Writing dot description to `rdata_flat.dot'.
+Dumping selected parts of module fifo to page 1.
+
+yosys> opt_clean
+
+13. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fifo..
+Removed 3 unused cells and 25 unused wires.
+<suppressed ~4 debug messages>
+
+yosys> show -notitle -format dot -prefix fifo_flat
+
+14. Generating Graphviz representation of design.
+Writing dot description to `fifo_flat.dot'.
+Dumping module fifo to page 1.
+
+yosys> design -reset
+
+yosys> read_verilog fifo.v
+
+15. Executing Verilog-2005 frontend: fifo.v
+Parsing Verilog input from `fifo.v' to AST representation.
+Generating RTLIL representation for module `\addr_gen'.
+Generating RTLIL representation for module `\fifo'.
+Successfully finished Verilog frontend.
+
+yosys> synth_ice40 -dsp -top fifo
+
+16. Executing SYNTH_ICE40 pass.
+
+yosys> read_verilog -D ICE40_HX -lib -specify +/ice40/cells_sim.v
+
+16.1. Executing Verilog-2005 frontend: /home/dawn/yosys/share/ice40/cells_sim.v
+Parsing Verilog input from `/home/dawn/yosys/share/ice40/cells_sim.v' to AST representation.
+Generating RTLIL representation for module `\SB_IO'.
+Generating RTLIL representation for module `\SB_GB_IO'.
+Generating RTLIL representation for module `\SB_GB'.
+Generating RTLIL representation for module `\SB_LUT4'.
+Generating RTLIL representation for module `\SB_CARRY'.
+Generating RTLIL representation for module `\SB_DFF'.
+Generating RTLIL representation for module `\SB_DFFE'.
+Generating RTLIL representation for module `\SB_DFFSR'.
+Generating RTLIL representation for module `\SB_DFFR'.
+Generating RTLIL representation for module `\SB_DFFSS'.
+Generating RTLIL representation for module `\SB_DFFS'.
+Generating RTLIL representation for module `\SB_DFFESR'.
+Generating RTLIL representation for module `\SB_DFFER'.
+Generating RTLIL representation for module `\SB_DFFESS'.
+Generating RTLIL representation for module `\SB_DFFES'.
+Generating RTLIL representation for module `\SB_DFFN'.
+Generating RTLIL representation for module `\SB_DFFNE'.
+Generating RTLIL representation for module `\SB_DFFNSR'.
+Generating RTLIL representation for module `\SB_DFFNR'.
+Generating RTLIL representation for module `\SB_DFFNSS'.
+Generating RTLIL representation for module `\SB_DFFNS'.
+Generating RTLIL representation for module `\SB_DFFNESR'.
+Generating RTLIL representation for module `\SB_DFFNER'.
+Generating RTLIL representation for module `\SB_DFFNESS'.
+Generating RTLIL representation for module `\SB_DFFNES'.
+Generating RTLIL representation for module `\SB_RAM40_4K'.
+Generating RTLIL representation for module `\SB_RAM40_4KNR'.
+Generating RTLIL representation for module `\SB_RAM40_4KNW'.
+Generating RTLIL representation for module `\SB_RAM40_4KNRNW'.
+Generating RTLIL representation for module `\ICESTORM_LC'.
+Generating RTLIL representation for module `\SB_PLL40_CORE'.
+Generating RTLIL representation for module `\SB_PLL40_PAD'.
+Generating RTLIL representation for module `\SB_PLL40_2_PAD'.
+Generating RTLIL representation for module `\SB_PLL40_2F_CORE'.
+Generating RTLIL representation for module `\SB_PLL40_2F_PAD'.
+Generating RTLIL representation for module `\SB_WARMBOOT'.
+Generating RTLIL representation for module `\SB_SPRAM256KA'.
+Generating RTLIL representation for module `\SB_HFOSC'.
+Generating RTLIL representation for module `\SB_LFOSC'.
+Generating RTLIL representation for module `\SB_RGBA_DRV'.
+Generating RTLIL representation for module `\SB_LED_DRV_CUR'.
+Generating RTLIL representation for module `\SB_RGB_DRV'.
+Generating RTLIL representation for module `\SB_I2C'.
+Generating RTLIL representation for module `\SB_SPI'.
+Generating RTLIL representation for module `\SB_LEDDA_IP'.
+Generating RTLIL representation for module `\SB_FILTER_50NS'.
+Generating RTLIL representation for module `\SB_IO_I3C'.
+Generating RTLIL representation for module `\SB_IO_OD'.
+Generating RTLIL representation for module `\SB_MAC16'.
+Generating RTLIL representation for module `\ICESTORM_RAM'.
+Successfully finished Verilog frontend.
+
+yosys> hierarchy -check -top fifo
+
+16.2. Executing HIERARCHY pass (managing design hierarchy).
+
+16.2.1. Analyzing design hierarchy..
+Top module:  \fifo
+Used module:     \addr_gen
+Parameter \MAX_DATA = 256
+
+16.2.2. Executing AST frontend in derive mode using pre-parsed AST for module `\addr_gen'.
+Parameter \MAX_DATA = 256
+Generating RTLIL representation for module `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000'.
+Parameter \MAX_DATA = 256
+Found cached RTLIL representation for module `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000'.
+
+16.2.3. Analyzing design hierarchy..
+Top module:  \fifo
+Used module:     $paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000
+
+16.2.4. Analyzing design hierarchy..
+Top module:  \fifo
+Used module:     $paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000
+Removing unused module `\addr_gen'.
+Removed 1 unused modules.
+
+yosys> proc
+
+16.3. Executing PROC pass (convert processes to netlists).
+
+yosys> proc_clean
+
+16.3.1. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+Cleaned up 0 empty switches.
+
+yosys> proc_rmdead
+
+16.3.2. Executing PROC_RMDEAD pass (remove dead branches from decision trees).
+Marked 1 switch rules as full_case in process $proc$/home/dawn/yosys/share/ice40/cells_sim.v:1414$323 in module SB_DFFNES.
+Marked 1 switch rules as full_case in process $proc$/home/dawn/yosys/share/ice40/cells_sim.v:1353$316 in module SB_DFFNESS.
+Marked 1 switch rules as full_case in process $proc$/home/dawn/yosys/share/ice40/cells_sim.v:1273$312 in module SB_DFFNER.
+Marked 1 switch rules as full_case in process $proc$/home/dawn/yosys/share/ice40/cells_sim.v:1212$305 in module SB_DFFNESR.
+Marked 1 switch rules as full_case in process $proc$/home/dawn/yosys/share/ice40/cells_sim.v:1138$302 in module SB_DFFNS.
+Marked 1 switch rules as full_case in process $proc$/home/dawn/yosys/share/ice40/cells_sim.v:1088$299 in module SB_DFFNSS.
+Marked 1 switch rules as full_case in process $proc$/home/dawn/yosys/share/ice40/cells_sim.v:1017$296 in module SB_DFFNR.
+Marked 1 switch rules as full_case in process $proc$/home/dawn/yosys/share/ice40/cells_sim.v:967$293 in module SB_DFFNSR.
+Marked 1 switch rules as full_case in process $proc$/home/dawn/yosys/share/ice40/cells_sim.v:803$285 in module SB_DFFES.
+Marked 1 switch rules as full_case in process $proc$/home/dawn/yosys/share/ice40/cells_sim.v:742$278 in module SB_DFFESS.
+Marked 1 switch rules as full_case in process $proc$/home/dawn/yosys/share/ice40/cells_sim.v:662$274 in module SB_DFFER.
+Marked 1 switch rules as full_case in process $proc$/home/dawn/yosys/share/ice40/cells_sim.v:601$267 in module SB_DFFESR.
+Marked 1 switch rules as full_case in process $proc$/home/dawn/yosys/share/ice40/cells_sim.v:527$264 in module SB_DFFS.
+Marked 1 switch rules as full_case in process $proc$/home/dawn/yosys/share/ice40/cells_sim.v:477$261 in module SB_DFFSS.
+Marked 1 switch rules as full_case in process $proc$/home/dawn/yosys/share/ice40/cells_sim.v:406$258 in module SB_DFFR.
+Marked 1 switch rules as full_case in process $proc$/home/dawn/yosys/share/ice40/cells_sim.v:356$255 in module SB_DFFSR.
+Marked 2 switch rules as full_case in process $proc$fifo.v:64$75 in module fifo.
+Marked 1 switch rules as full_case in process $proc$fifo.v:38$67 in module fifo.
+Marked 2 switch rules as full_case in process $proc$fifo.v:13$463 in module $paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.
+Removed a total of 0 dead cases.
+
+yosys> proc_prune
+
+16.3.3. Executing PROC_PRUNE pass (remove redundant assignments in processes).
+Removed 8 redundant assignments.
+Promoted 28 assignments to connections.
+
+yosys> proc_init
+
+16.3.4. Executing PROC_INIT pass (extract init attributes).
+Found init rule in `\SB_DFFNES.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$326'.
+  Set init value: \Q = 1'0
+Found init rule in `\SB_DFFNESS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$322'.
+  Set init value: \Q = 1'0
+Found init rule in `\SB_DFFNER.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$315'.
+  Set init value: \Q = 1'0
+Found init rule in `\SB_DFFNESR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$311'.
+  Set init value: \Q = 1'0
+Found init rule in `\SB_DFFNS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$304'.
+  Set init value: \Q = 1'0
+Found init rule in `\SB_DFFNSS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$301'.
+  Set init value: \Q = 1'0
+Found init rule in `\SB_DFFNR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$298'.
+  Set init value: \Q = 1'0
+Found init rule in `\SB_DFFNSR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$295'.
+  Set init value: \Q = 1'0
+Found init rule in `\SB_DFFNE.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$292'.
+  Set init value: \Q = 1'0
+Found init rule in `\SB_DFFN.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$290'.
+  Set init value: \Q = 1'0
+Found init rule in `\SB_DFFES.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$288'.
+  Set init value: \Q = 1'0
+Found init rule in `\SB_DFFESS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$284'.
+  Set init value: \Q = 1'0
+Found init rule in `\SB_DFFER.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$277'.
+  Set init value: \Q = 1'0
+Found init rule in `\SB_DFFESR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$273'.
+  Set init value: \Q = 1'0
+Found init rule in `\SB_DFFS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$266'.
+  Set init value: \Q = 1'0
+Found init rule in `\SB_DFFSS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$263'.
+  Set init value: \Q = 1'0
+Found init rule in `\SB_DFFR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$260'.
+  Set init value: \Q = 1'0
+Found init rule in `\SB_DFFSR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$257'.
+  Set init value: \Q = 1'0
+Found init rule in `\SB_DFFE.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$254'.
+  Set init value: \Q = 1'0
+Found init rule in `\SB_DFF.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$252'.
+  Set init value: \Q = 1'0
+Found init rule in `\fifo.$proc$fifo.v:0$82'.
+  Set init value: \count = 9'000000000
+Found init rule in `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:0$466'.
+  Set init value: \addr = 8'00000000
+
+yosys> proc_arst
+
+16.3.5. Executing PROC_ARST pass (detect async resets in processes).
+Found async reset \S in `\SB_DFFNES.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1414$323'.
+Found async reset \R in `\SB_DFFNER.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1273$312'.
+Found async reset \S in `\SB_DFFNS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1138$302'.
+Found async reset \R in `\SB_DFFNR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1017$296'.
+Found async reset \S in `\SB_DFFES.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:803$285'.
+Found async reset \R in `\SB_DFFER.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:662$274'.
+Found async reset \S in `\SB_DFFS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:527$264'.
+Found async reset \R in `\SB_DFFR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:406$258'.
+Found async reset \rst in `\fifo.$proc$fifo.v:64$75'.
+Found async reset \rst in `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:13$463'.
+
+yosys> proc_rom
+
+16.3.6. Executing PROC_ROM pass (convert switches to ROMs).
+Converted 0 switches.
+<suppressed ~23 debug messages>
+
+yosys> proc_mux
+
+16.3.7. Executing PROC_MUX pass (convert decision trees to multiplexers).
+Creating decoders for process `\SB_DFFNES.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$326'.
+Creating decoders for process `\SB_DFFNES.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1414$323'.
+     1/1: $0\Q[0:0]
+Creating decoders for process `\SB_DFFNESS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$322'.
+Creating decoders for process `\SB_DFFNESS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1353$316'.
+     1/1: $0\Q[0:0]
+Creating decoders for process `\SB_DFFNER.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$315'.
+Creating decoders for process `\SB_DFFNER.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1273$312'.
+     1/1: $0\Q[0:0]
+Creating decoders for process `\SB_DFFNESR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$311'.
+Creating decoders for process `\SB_DFFNESR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1212$305'.
+     1/1: $0\Q[0:0]
+Creating decoders for process `\SB_DFFNS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$304'.
+Creating decoders for process `\SB_DFFNS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1138$302'.
+     1/1: $0\Q[0:0]
+Creating decoders for process `\SB_DFFNSS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$301'.
+Creating decoders for process `\SB_DFFNSS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1088$299'.
+     1/1: $0\Q[0:0]
+Creating decoders for process `\SB_DFFNR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$298'.
+Creating decoders for process `\SB_DFFNR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1017$296'.
+     1/1: $0\Q[0:0]
+Creating decoders for process `\SB_DFFNSR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$295'.
+Creating decoders for process `\SB_DFFNSR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:967$293'.
+     1/1: $0\Q[0:0]
+Creating decoders for process `\SB_DFFNE.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$292'.
+Creating decoders for process `\SB_DFFNE.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:922$291'.
+     1/1: $0\Q[0:0]
+Creating decoders for process `\SB_DFFN.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$290'.
+Creating decoders for process `\SB_DFFN.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:882$289'.
+Creating decoders for process `\SB_DFFES.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$288'.
+Creating decoders for process `\SB_DFFES.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:803$285'.
+     1/1: $0\Q[0:0]
+Creating decoders for process `\SB_DFFESS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$284'.
+Creating decoders for process `\SB_DFFESS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:742$278'.
+     1/1: $0\Q[0:0]
+Creating decoders for process `\SB_DFFER.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$277'.
+Creating decoders for process `\SB_DFFER.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:662$274'.
+     1/1: $0\Q[0:0]
+Creating decoders for process `\SB_DFFESR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$273'.
+Creating decoders for process `\SB_DFFESR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:601$267'.
+     1/1: $0\Q[0:0]
+Creating decoders for process `\SB_DFFS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$266'.
+Creating decoders for process `\SB_DFFS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:527$264'.
+     1/1: $0\Q[0:0]
+Creating decoders for process `\SB_DFFSS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$263'.
+Creating decoders for process `\SB_DFFSS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:477$261'.
+     1/1: $0\Q[0:0]
+Creating decoders for process `\SB_DFFR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$260'.
+Creating decoders for process `\SB_DFFR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:406$258'.
+     1/1: $0\Q[0:0]
+Creating decoders for process `\SB_DFFSR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$257'.
+Creating decoders for process `\SB_DFFSR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:356$255'.
+     1/1: $0\Q[0:0]
+Creating decoders for process `\SB_DFFE.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$254'.
+Creating decoders for process `\SB_DFFE.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:311$253'.
+     1/1: $0\Q[0:0]
+Creating decoders for process `\SB_DFF.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$252'.
+Creating decoders for process `\SB_DFF.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:271$251'.
+Creating decoders for process `\fifo.$proc$fifo.v:0$82'.
+Creating decoders for process `\fifo.$proc$fifo.v:64$75'.
+     1/1: $0\count[8:0]
+Creating decoders for process `\fifo.$proc$fifo.v:38$67'.
+     1/3: $1$memwr$\data$fifo.v:40$66_EN[7:0]$73
+     2/3: $1$memwr$\data$fifo.v:40$66_DATA[7:0]$72
+     3/3: $1$memwr$\data$fifo.v:40$66_ADDR[7:0]$71
+Creating decoders for process `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:0$466'.
+Creating decoders for process `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:13$463'.
+     1/1: $0\addr[7:0]
+
+yosys> proc_dlatch
+
+16.3.8. Executing PROC_DLATCH pass (convert process syncs to latches).
+
+yosys> proc_dff
+
+16.3.9. Executing PROC_DFF pass (convert process syncs to FFs).
+Creating register for signal `\SB_DFFNES.\Q' using process `\SB_DFFNES.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1414$323'.
+  created $adff cell `$procdff$530' with negative edge clock and positive level reset.
+Creating register for signal `\SB_DFFNESS.\Q' using process `\SB_DFFNESS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1353$316'.
+  created $dff cell `$procdff$531' with negative edge clock.
+Creating register for signal `\SB_DFFNER.\Q' using process `\SB_DFFNER.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1273$312'.
+  created $adff cell `$procdff$532' with negative edge clock and positive level reset.
+Creating register for signal `\SB_DFFNESR.\Q' using process `\SB_DFFNESR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1212$305'.
+  created $dff cell `$procdff$533' with negative edge clock.
+Creating register for signal `\SB_DFFNS.\Q' using process `\SB_DFFNS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1138$302'.
+  created $adff cell `$procdff$534' with negative edge clock and positive level reset.
+Creating register for signal `\SB_DFFNSS.\Q' using process `\SB_DFFNSS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1088$299'.
+  created $dff cell `$procdff$535' with negative edge clock.
+Creating register for signal `\SB_DFFNR.\Q' using process `\SB_DFFNR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1017$296'.
+  created $adff cell `$procdff$536' with negative edge clock and positive level reset.
+Creating register for signal `\SB_DFFNSR.\Q' using process `\SB_DFFNSR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:967$293'.
+  created $dff cell `$procdff$537' with negative edge clock.
+Creating register for signal `\SB_DFFNE.\Q' using process `\SB_DFFNE.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:922$291'.
+  created $dff cell `$procdff$538' with negative edge clock.
+Creating register for signal `\SB_DFFN.\Q' using process `\SB_DFFN.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:882$289'.
+  created $dff cell `$procdff$539' with negative edge clock.
+Creating register for signal `\SB_DFFES.\Q' using process `\SB_DFFES.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:803$285'.
+  created $adff cell `$procdff$540' with positive edge clock and positive level reset.
+Creating register for signal `\SB_DFFESS.\Q' using process `\SB_DFFESS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:742$278'.
+  created $dff cell `$procdff$541' with positive edge clock.
+Creating register for signal `\SB_DFFER.\Q' using process `\SB_DFFER.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:662$274'.
+  created $adff cell `$procdff$542' with positive edge clock and positive level reset.
+Creating register for signal `\SB_DFFESR.\Q' using process `\SB_DFFESR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:601$267'.
+  created $dff cell `$procdff$543' with positive edge clock.
+Creating register for signal `\SB_DFFS.\Q' using process `\SB_DFFS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:527$264'.
+  created $adff cell `$procdff$544' with positive edge clock and positive level reset.
+Creating register for signal `\SB_DFFSS.\Q' using process `\SB_DFFSS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:477$261'.
+  created $dff cell `$procdff$545' with positive edge clock.
+Creating register for signal `\SB_DFFR.\Q' using process `\SB_DFFR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:406$258'.
+  created $adff cell `$procdff$546' with positive edge clock and positive level reset.
+Creating register for signal `\SB_DFFSR.\Q' using process `\SB_DFFSR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:356$255'.
+  created $dff cell `$procdff$547' with positive edge clock.
+Creating register for signal `\SB_DFFE.\Q' using process `\SB_DFFE.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:311$253'.
+  created $dff cell `$procdff$548' with positive edge clock.
+Creating register for signal `\SB_DFF.\Q' using process `\SB_DFF.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:271$251'.
+  created $dff cell `$procdff$549' with positive edge clock.
+Creating register for signal `\fifo.\count' using process `\fifo.$proc$fifo.v:64$75'.
+  created $adff cell `$procdff$550' with positive edge clock and positive level reset.
+Creating register for signal `\fifo.\rdata' using process `\fifo.$proc$fifo.v:38$67'.
+  created $dff cell `$procdff$551' with positive edge clock.
+Creating register for signal `\fifo.$memwr$\data$fifo.v:40$66_ADDR' using process `\fifo.$proc$fifo.v:38$67'.
+  created $dff cell `$procdff$552' with positive edge clock.
+Creating register for signal `\fifo.$memwr$\data$fifo.v:40$66_DATA' using process `\fifo.$proc$fifo.v:38$67'.
+  created $dff cell `$procdff$553' with positive edge clock.
+Creating register for signal `\fifo.$memwr$\data$fifo.v:40$66_EN' using process `\fifo.$proc$fifo.v:38$67'.
+  created $dff cell `$procdff$554' with positive edge clock.
+Creating register for signal `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.\addr' using process `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:13$463'.
+  created $adff cell `$procdff$555' with positive edge clock and positive level reset.
+
+yosys> proc_memwr
+
+16.3.10. Executing PROC_MEMWR pass (convert process memory writes to cells).
+
+yosys> proc_clean
+
+16.3.11. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+Removing empty process `SB_DFFNES.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$326'.
+Found and cleaned up 1 empty switch in `\SB_DFFNES.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1414$323'.
+Removing empty process `SB_DFFNES.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1414$323'.
+Removing empty process `SB_DFFNESS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$322'.
+Found and cleaned up 2 empty switches in `\SB_DFFNESS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1353$316'.
+Removing empty process `SB_DFFNESS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1353$316'.
+Removing empty process `SB_DFFNER.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$315'.
+Found and cleaned up 1 empty switch in `\SB_DFFNER.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1273$312'.
+Removing empty process `SB_DFFNER.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1273$312'.
+Removing empty process `SB_DFFNESR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$311'.
+Found and cleaned up 2 empty switches in `\SB_DFFNESR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1212$305'.
+Removing empty process `SB_DFFNESR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1212$305'.
+Removing empty process `SB_DFFNS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$304'.
+Removing empty process `SB_DFFNS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1138$302'.
+Removing empty process `SB_DFFNSS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$301'.
+Found and cleaned up 1 empty switch in `\SB_DFFNSS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1088$299'.
+Removing empty process `SB_DFFNSS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1088$299'.
+Removing empty process `SB_DFFNR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$298'.
+Removing empty process `SB_DFFNR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:1017$296'.
+Removing empty process `SB_DFFNSR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$295'.
+Found and cleaned up 1 empty switch in `\SB_DFFNSR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:967$293'.
+Removing empty process `SB_DFFNSR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:967$293'.
+Removing empty process `SB_DFFNE.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$292'.
+Found and cleaned up 1 empty switch in `\SB_DFFNE.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:922$291'.
+Removing empty process `SB_DFFNE.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:922$291'.
+Removing empty process `SB_DFFN.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$290'.
+Removing empty process `SB_DFFN.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:882$289'.
+Removing empty process `SB_DFFES.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$288'.
+Found and cleaned up 1 empty switch in `\SB_DFFES.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:803$285'.
+Removing empty process `SB_DFFES.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:803$285'.
+Removing empty process `SB_DFFESS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$284'.
+Found and cleaned up 2 empty switches in `\SB_DFFESS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:742$278'.
+Removing empty process `SB_DFFESS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:742$278'.
+Removing empty process `SB_DFFER.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$277'.
+Found and cleaned up 1 empty switch in `\SB_DFFER.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:662$274'.
+Removing empty process `SB_DFFER.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:662$274'.
+Removing empty process `SB_DFFESR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$273'.
+Found and cleaned up 2 empty switches in `\SB_DFFESR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:601$267'.
+Removing empty process `SB_DFFESR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:601$267'.
+Removing empty process `SB_DFFS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$266'.
+Removing empty process `SB_DFFS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:527$264'.
+Removing empty process `SB_DFFSS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$263'.
+Found and cleaned up 1 empty switch in `\SB_DFFSS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:477$261'.
+Removing empty process `SB_DFFSS.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:477$261'.
+Removing empty process `SB_DFFR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$260'.
+Removing empty process `SB_DFFR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:406$258'.
+Removing empty process `SB_DFFSR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$257'.
+Found and cleaned up 1 empty switch in `\SB_DFFSR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:356$255'.
+Removing empty process `SB_DFFSR.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:356$255'.
+Removing empty process `SB_DFFE.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$254'.
+Found and cleaned up 1 empty switch in `\SB_DFFE.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:311$253'.
+Removing empty process `SB_DFFE.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:311$253'.
+Removing empty process `SB_DFF.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:0$252'.
+Removing empty process `SB_DFF.$proc$/home/dawn/yosys/share/ice40/cells_sim.v:271$251'.
+Removing empty process `fifo.$proc$fifo.v:0$82'.
+Found and cleaned up 2 empty switches in `\fifo.$proc$fifo.v:64$75'.
+Removing empty process `fifo.$proc$fifo.v:64$75'.
+Found and cleaned up 1 empty switch in `\fifo.$proc$fifo.v:38$67'.
+Removing empty process `fifo.$proc$fifo.v:38$67'.
+Removing empty process `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:0$466'.
+Found and cleaned up 2 empty switches in `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:13$463'.
+Removing empty process `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:13$463'.
+Cleaned up 23 empty switches.
+
+yosys> opt_expr -keepdc
+
+16.3.12. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fifo.
+Optimizing module $paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.
+
+yosys> flatten
+
+16.4. Executing FLATTEN pass (flatten design).
+Deleting now unused module $paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.
+<suppressed ~2 debug messages>
+
+yosys> tribuf -logic
+
+16.5. Executing TRIBUF pass.
+
+yosys> deminout
+
+16.6. Executing DEMINOUT pass (demote inout ports to input or output).
+
+yosys> opt_expr
+
+16.7. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fifo.
+
+yosys> opt_clean
+
+16.8. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fifo..
+Removed 3 unused cells and 25 unused wires.
+<suppressed ~4 debug messages>
+
+yosys> check
+
+16.9. Executing CHECK pass (checking for obvious problems).
+Checking module fifo...
+Found and reported 0 problems.
+
+yosys> opt -nodffe -nosdff
+
+16.10. Executing OPT pass (performing simple optimizations).
+
+yosys> opt_expr
+
+16.10.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fifo.
+
+yosys> opt_merge -nomux
+
+16.10.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fifo'.
+Removed a total of 0 cells.
+
+yosys> opt_muxtree
+
+16.10.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \fifo..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~6 debug messages>
+
+yosys> opt_reduce
+
+16.10.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \fifo.
+    Consolidated identical input bits for $mux cell $procmux$517:
+      Old ports: A=8'00000000, B=8'11111111, Y=$0$memwr$\data$fifo.v:40$66_EN[7:0]$70
+      New ports: A=1'0, B=1'1, Y=$0$memwr$\data$fifo.v:40$66_EN[7:0]$70 [0]
+      New connections: $0$memwr$\data$fifo.v:40$66_EN[7:0]$70 [7:1] = { $0$memwr$\data$fifo.v:40$66_EN[7:0]$70 [0] $0$memwr$\data$fifo.v:40$66_EN[7:0]$70 [0] $0$memwr$\data$fifo.v:40$66_EN[7:0]$70 [0] $0$memwr$\data$fifo.v:40$66_EN[7:0]$70 [0] $0$memwr$\data$fifo.v:40$66_EN[7:0]$70 [0] $0$memwr$\data$fifo.v:40$66_EN[7:0]$70 [0] $0$memwr$\data$fifo.v:40$66_EN[7:0]$70 [0] }
+  Optimizing cells in module \fifo.
+Performed a total of 1 changes.
+
+yosys> opt_merge
+
+16.10.5. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fifo'.
+Removed a total of 0 cells.
+
+yosys> opt_dff -nodffe -nosdff
+
+16.10.6. Executing OPT_DFF pass (perform DFF optimizations).
+
+yosys> opt_clean
+
+16.10.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fifo..
+
+yosys> opt_expr
+
+16.10.8. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fifo.
+
+16.10.9. Rerunning OPT passes. (Maybe there is more to do..)
+
+yosys> opt_muxtree
+
+16.10.10. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \fifo..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~6 debug messages>
+
+yosys> opt_reduce
+
+16.10.11. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \fifo.
+Performed a total of 0 changes.
+
+yosys> opt_merge
+
+16.10.12. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fifo'.
+Removed a total of 0 cells.
+
+yosys> opt_dff -nodffe -nosdff
+
+16.10.13. Executing OPT_DFF pass (perform DFF optimizations).
+
+yosys> opt_clean
+
+16.10.14. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fifo..
+
+yosys> opt_expr
+
+16.10.15. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fifo.
+
+16.10.16. Finished OPT passes. (There is nothing left to do.)
+
+yosys> fsm
+
+16.11. Executing FSM pass (extract and optimize FSM).
+
+yosys> fsm_detect
+
+16.11.1. Executing FSM_DETECT pass (finding FSMs in design).
+
+yosys> fsm_extract
+
+16.11.2. Executing FSM_EXTRACT pass (extracting FSM from design).
+
+yosys> fsm_opt
+
+16.11.3. Executing FSM_OPT pass (simple optimizations of FSMs).
+
+yosys> opt_clean
+
+16.11.4. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fifo..
+
+yosys> fsm_opt
+
+16.11.5. Executing FSM_OPT pass (simple optimizations of FSMs).
+
+yosys> fsm_recode
+
+16.11.6. Executing FSM_RECODE pass (re-assigning FSM state encoding).
+
+yosys> fsm_info
+
+16.11.7. Executing FSM_INFO pass (dumping all available information on FSM cells).
+
+yosys> fsm_map
+
+16.11.8. Executing FSM_MAP pass (mapping FSMs to basic logic).
+
+yosys> opt
+
+16.12. Executing OPT pass (performing simple optimizations).
+
+yosys> opt_expr
+
+16.12.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fifo.
+
+yosys> opt_merge -nomux
+
+16.12.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fifo'.
+Removed a total of 0 cells.
+
+yosys> opt_muxtree
+
+16.12.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \fifo..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~6 debug messages>
+
+yosys> opt_reduce
+
+16.12.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \fifo.
+Performed a total of 0 changes.
+
+yosys> opt_merge
+
+16.12.5. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fifo'.
+Removed a total of 0 cells.
+
+yosys> opt_dff
+
+16.12.6. Executing OPT_DFF pass (perform DFF optimizations).
+Adding EN signal on $procdff$550 ($adff) from module fifo (D = $0\count[8:0], Q = \count).
+Adding EN signal on $flatten\fifo_writer.$procdff$555 ($adff) from module fifo (D = $flatten\fifo_writer.$procmux$526_Y, Q = \fifo_writer.addr).
+Adding EN signal on $flatten\fifo_reader.$procdff$555 ($adff) from module fifo (D = $flatten\fifo_reader.$procmux$526_Y, Q = \fifo_reader.addr).
+
+yosys> opt_clean
+
+16.12.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fifo..
+Removed 2 unused cells and 2 unused wires.
+<suppressed ~3 debug messages>
+
+yosys> opt_expr
+
+16.12.8. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fifo.
+<suppressed ~1 debug messages>
+
+16.12.9. Rerunning OPT passes. (Maybe there is more to do..)
+
+yosys> opt_muxtree
+
+16.12.10. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \fifo..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~6 debug messages>
+
+yosys> opt_reduce
+
+16.12.11. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \fifo.
+Performed a total of 0 changes.
+
+yosys> opt_merge
+
+16.12.12. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fifo'.
+Removed a total of 0 cells.
+
+yosys> opt_dff
+
+16.12.13. Executing OPT_DFF pass (perform DFF optimizations).
+
+yosys> opt_clean
+
+16.12.14. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fifo..
+
+yosys> opt_expr
+
+16.12.15. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fifo.
+
+16.12.16. Finished OPT passes. (There is nothing left to do.)
+
+yosys> wreduce
+
+16.13. Executing WREDUCE pass (reducing word size of cells).
+Removed top 31 bits (of 32) from port B of cell fifo.$add$fifo.v:68$78 ($add).
+Removed top 23 bits (of 32) from port Y of cell fifo.$add$fifo.v:68$78 ($add).
+Removed top 31 bits (of 32) from port B of cell fifo.$sub$fifo.v:70$81 ($sub).
+Removed top 23 bits (of 32) from port Y of cell fifo.$sub$fifo.v:70$81 ($sub).
+Removed top 31 bits (of 32) from port B of cell fifo.$flatten\fifo_writer.$add$fifo.v:20$465 ($add).
+Removed top 24 bits (of 32) from port Y of cell fifo.$flatten\fifo_writer.$add$fifo.v:20$465 ($add).
+Removed top 31 bits (of 32) from port B of cell fifo.$flatten\fifo_reader.$add$fifo.v:20$465 ($add).
+Removed top 24 bits (of 32) from port Y of cell fifo.$flatten\fifo_reader.$add$fifo.v:20$465 ($add).
+Removed top 23 bits (of 32) from wire fifo.$add$fifo.v:68$78_Y.
+Removed top 23 bits (of 32) from wire fifo.$sub$fifo.v:70$81_Y.
+
+yosys> peepopt
+
+16.14. Executing PEEPOPT pass (run peephole optimizers).
+
+yosys> opt_clean
+
+16.15. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fifo..
+Removed 0 unused cells and 2 unused wires.
+<suppressed ~1 debug messages>
+
+yosys> share
+
+16.16. Executing SHARE pass (SAT-based resource sharing).
+
+yosys> techmap -map +/cmp2lut.v -D LUT_WIDTH=4
+
+16.17. Executing TECHMAP pass (map to technology primitives).
+
+16.17.1. Executing Verilog-2005 frontend: /home/dawn/yosys/share/cmp2lut.v
+Parsing Verilog input from `/home/dawn/yosys/share/cmp2lut.v' to AST representation.
+Generating RTLIL representation for module `\_90_lut_cmp_'.
+Successfully finished Verilog frontend.
+
+16.17.2. Continuing TECHMAP pass.
+No more expansions possible.
+<suppressed ~6 debug messages>
+
+yosys> opt_expr
+
+16.18. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fifo.
+
+yosys> opt_clean
+
+16.19. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fifo..
+
+yosys> memory_dff
+
+16.20. Executing MEMORY_DFF pass (merging $dff cells to $memrd).
+Checking read port `\data'[0] in module `\fifo': merging output FF to cell.
+    Write port 0: non-transparent.
+
+yosys> wreduce t:$mul
+
+16.21. Executing WREDUCE pass (reducing word size of cells).
+
+yosys> techmap -map +/mul2dsp.v -map +/ice40/dsp_map.v -D DSP_A_MAXWIDTH=16 -D DSP_B_MAXWIDTH=16 -D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2 -D DSP_Y_MINWIDTH=11 -D DSP_NAME=$__MUL16X16
+
+16.22. Executing TECHMAP pass (map to technology primitives).
+
+16.22.1. Executing Verilog-2005 frontend: /home/dawn/yosys/share/mul2dsp.v
+Parsing Verilog input from `/home/dawn/yosys/share/mul2dsp.v' to AST representation.
+Generating RTLIL representation for module `\_80_mul'.
+Generating RTLIL representation for module `\_90_soft_mul'.
+Successfully finished Verilog frontend.
+
+16.22.2. Executing Verilog-2005 frontend: /home/dawn/yosys/share/ice40/dsp_map.v
+Parsing Verilog input from `/home/dawn/yosys/share/ice40/dsp_map.v' to AST representation.
+Generating RTLIL representation for module `\$__MUL16X16'.
+Successfully finished Verilog frontend.
+
+16.22.3. Continuing TECHMAP pass.
+No more expansions possible.
+<suppressed ~5 debug messages>
+
+yosys> select a:mul2dsp
+
+yosys*> setattr -unset mul2dsp
+
+yosys*> opt_expr -fine
+
+16.23. Executing OPT_EXPR pass (perform const folding).
+
+yosys*> wreduce
+
+16.24. Executing WREDUCE pass (reducing word size of cells).
+
+yosys*> select -clear
+
+yosys> ice40_dsp
+
+16.25. Executing ICE40_DSP pass (map multipliers).
+
+yosys> chtype -set $mul t:$__soft_mul
+
+yosys> alumacc
+
+16.26. Executing ALUMACC pass (create $alu and $macc cells).
+Extracting $alu and $macc cells in module fifo:
+  creating $macc model for $add$fifo.v:68$78 ($add).
+  creating $macc model for $flatten\fifo_reader.$add$fifo.v:20$465 ($add).
+  creating $macc model for $flatten\fifo_writer.$add$fifo.v:20$465 ($add).
+  creating $macc model for $sub$fifo.v:70$81 ($sub).
+  creating $alu model for $macc $sub$fifo.v:70$81.
+  creating $alu model for $macc $flatten\fifo_writer.$add$fifo.v:20$465.
+  creating $alu model for $macc $flatten\fifo_reader.$add$fifo.v:20$465.
+  creating $alu model for $macc $add$fifo.v:68$78.
+  creating $alu cell for $add$fifo.v:68$78: $auto$alumacc.cc:485:replace_alu$574
+  creating $alu cell for $flatten\fifo_reader.$add$fifo.v:20$465: $auto$alumacc.cc:485:replace_alu$577
+  creating $alu cell for $flatten\fifo_writer.$add$fifo.v:20$465: $auto$alumacc.cc:485:replace_alu$580
+  creating $alu cell for $sub$fifo.v:70$81: $auto$alumacc.cc:485:replace_alu$583
+  created 4 $alu and 0 $macc cells.
+
+yosys> opt
+
+16.27. Executing OPT pass (performing simple optimizations).
+
+yosys> opt_expr
+
+16.27.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fifo.
+
+yosys> opt_merge -nomux
+
+16.27.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fifo'.
+Removed a total of 0 cells.
+
+yosys> opt_muxtree
+
+16.27.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \fifo..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~6 debug messages>
+
+yosys> opt_reduce
+
+16.27.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \fifo.
+Performed a total of 0 changes.
+
+yosys> opt_merge
+
+16.27.5. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fifo'.
+Removed a total of 0 cells.
+
+yosys> opt_dff
+
+16.27.6. Executing OPT_DFF pass (perform DFF optimizations).
+
+yosys> opt_clean
+
+16.27.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fifo..
+Removed 1 unused cells and 9 unused wires.
+<suppressed ~2 debug messages>
+
+yosys> opt_expr
+
+16.27.8. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fifo.
+
+16.27.9. Rerunning OPT passes. (Maybe there is more to do..)
+
+yosys> opt_muxtree
+
+16.27.10. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \fifo..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~6 debug messages>
+
+yosys> opt_reduce
+
+16.27.11. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \fifo.
+Performed a total of 0 changes.
+
+yosys> opt_merge
+
+16.27.12. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fifo'.
+Removed a total of 0 cells.
+
+yosys> opt_dff
+
+16.27.13. Executing OPT_DFF pass (perform DFF optimizations).
+
+yosys> opt_clean
+
+16.27.14. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fifo..
+
+yosys> opt_expr
+
+16.27.15. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fifo.
+
+16.27.16. Finished OPT passes. (There is nothing left to do.)
+
+yosys> memory -nomap
+
+16.28. Executing MEMORY pass.
+
+yosys> opt_mem
+
+16.28.1. Executing OPT_MEM pass (optimize memories).
+Performed a total of 0 transformations.
+
+yosys> opt_mem_priority
+
+16.28.2. Executing OPT_MEM_PRIORITY pass (removing unnecessary memory write priority relations).
+Performed a total of 0 transformations.
+
+yosys> opt_mem_feedback
+
+16.28.3. Executing OPT_MEM_FEEDBACK pass (finding memory read-to-write feedback paths).
+
+yosys> memory_bmux2rom
+
+16.28.4. Executing MEMORY_BMUX2ROM pass (converting muxes to ROMs).
+
+yosys> memory_dff
+
+16.28.5. Executing MEMORY_DFF pass (merging $dff cells to $memrd).
+
+yosys> opt_clean
+
+16.28.6. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fifo..
+
+yosys> memory_share
+
+16.28.7. Executing MEMORY_SHARE pass (consolidating $memrd/$memwr cells).
+
+yosys> opt_mem_widen
+
+16.28.8. Executing OPT_MEM_WIDEN pass (optimize memories where all ports are wide).
+Performed a total of 0 transformations.
+
+yosys> opt_clean
+
+16.28.9. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fifo..
+
+yosys> memory_collect
+
+16.28.10. Executing MEMORY_COLLECT pass (generating $mem cells).
+
+yosys> opt_clean
+
+16.29. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fifo..
+
+yosys> memory_libmap -lib +/ice40/brams.txt -lib +/ice40/spram.txt -no-auto-huge
+
+16.30. Executing MEMORY_LIBMAP pass (mapping memories to cells).
+mapping memory fifo.data via $__ICE40_RAM4K_
+<suppressed ~68 debug messages>
+
+yosys> techmap -map +/ice40/brams_map.v -map +/ice40/spram_map.v
+
+16.31. Executing TECHMAP pass (map to technology primitives).
+
+16.31.1. Executing Verilog-2005 frontend: /home/dawn/yosys/share/ice40/brams_map.v
+Parsing Verilog input from `/home/dawn/yosys/share/ice40/brams_map.v' to AST representation.
+Generating RTLIL representation for module `\$__ICE40_RAM4K_'.
+Successfully finished Verilog frontend.
+
+16.31.2. Executing Verilog-2005 frontend: /home/dawn/yosys/share/ice40/spram_map.v
+Parsing Verilog input from `/home/dawn/yosys/share/ice40/spram_map.v' to AST representation.
+Generating RTLIL representation for module `\$__ICE40_SPRAM_'.
+Successfully finished Verilog frontend.
+
+16.31.3. Continuing TECHMAP pass.
+Using template $paramod$13b3947419e62b7bbba1b93c77e4155efbe69a94\$__ICE40_RAM4K_ for cells of type $__ICE40_RAM4K_.
+No more expansions possible.
+<suppressed ~26 debug messages>
+
+yosys> ice40_braminit
+
+16.32. Executing ICE40_BRAMINIT pass.
+
+yosys> opt -fast -mux_undef -undriven -fine
+
+16.33. Executing OPT pass (performing simple optimizations).
+
+yosys> opt_expr -mux_undef -undriven -fine
+
+16.33.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fifo.
+<suppressed ~13 debug messages>
+
+yosys> opt_merge
+
+16.33.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fifo'.
+Removed a total of 0 cells.
+
+yosys> opt_dff
+
+16.33.3. Executing OPT_DFF pass (perform DFF optimizations).
+Removing always-active EN on $auto$mem.cc:1146:emulate_transparency$593 ($dffe) from module fifo.
+
+yosys> opt_clean
+
+16.33.4. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fifo..
+Removed 0 unused cells and 18 unused wires.
+<suppressed ~1 debug messages>
+
+16.33.5. Rerunning OPT passes. (Removed registers in this run.)
+
+yosys> opt_expr -mux_undef -undriven -fine
+
+16.33.6. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fifo.
+
+yosys> opt_merge
+
+16.33.7. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fifo'.
+Removed a total of 0 cells.
+
+yosys> opt_dff
+
+16.33.8. Executing OPT_DFF pass (perform DFF optimizations).
+
+yosys> opt_clean
+
+16.33.9. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fifo..
+
+16.33.10. Finished fast OPT passes.
+
+yosys> memory_map
+
+16.34. Executing MEMORY_MAP pass (converting memories to logic and flip-flops).
+
+yosys> opt -undriven -fine
+
+16.35. Executing OPT pass (performing simple optimizations).
+
+yosys> opt_expr -undriven -fine
+
+16.35.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fifo.
+
+yosys> opt_merge -nomux
+
+16.35.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fifo'.
+Removed a total of 0 cells.
+
+yosys> opt_muxtree
+
+16.35.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \fifo..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~4 debug messages>
+
+yosys> opt_reduce -fine
+
+16.35.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \fifo.
+Performed a total of 0 changes.
+
+yosys> opt_merge
+
+16.35.5. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fifo'.
+Removed a total of 0 cells.
+
+yosys> opt_dff
+
+16.35.6. Executing OPT_DFF pass (perform DFF optimizations).
+
+yosys> opt_clean
+
+16.35.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fifo..
+
+yosys> opt_expr -undriven -fine
+
+16.35.8. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fifo.
+
+16.35.9. Finished OPT passes. (There is nothing left to do.)
+
+yosys> ice40_wrapcarry
+
+16.36. Executing ICE40_WRAPCARRY pass (wrap carries).
+
+yosys> techmap -map +/techmap.v -map +/ice40/arith_map.v
+
+16.37. Executing TECHMAP pass (map to technology primitives).
+
+16.37.1. Executing Verilog-2005 frontend: /home/dawn/yosys/share/techmap.v
+Parsing Verilog input from `/home/dawn/yosys/share/techmap.v' to AST representation.
+Generating RTLIL representation for module `\_90_simplemap_bool_ops'.
+Generating RTLIL representation for module `\_90_simplemap_reduce_ops'.
+Generating RTLIL representation for module `\_90_simplemap_logic_ops'.
+Generating RTLIL representation for module `\_90_simplemap_compare_ops'.
+Generating RTLIL representation for module `\_90_simplemap_various'.
+Generating RTLIL representation for module `\_90_simplemap_registers'.
+Generating RTLIL representation for module `\_90_shift_ops_shr_shl_sshl_sshr'.
+Generating RTLIL representation for module `\_90_shift_shiftx'.
+Generating RTLIL representation for module `\_90_fa'.
+Generating RTLIL representation for module `\_90_lcu'.
+Generating RTLIL representation for module `\_90_alu'.
+Generating RTLIL representation for module `\_90_macc'.
+Generating RTLIL representation for module `\_90_alumacc'.
+Generating RTLIL representation for module `\$__div_mod_u'.
+Generating RTLIL representation for module `\$__div_mod_trunc'.
+Generating RTLIL representation for module `\_90_div'.
+Generating RTLIL representation for module `\_90_mod'.
+Generating RTLIL representation for module `\$__div_mod_floor'.
+Generating RTLIL representation for module `\_90_divfloor'.
+Generating RTLIL representation for module `\_90_modfloor'.
+Generating RTLIL representation for module `\_90_pow'.
+Generating RTLIL representation for module `\_90_pmux'.
+Generating RTLIL representation for module `\_90_demux'.
+Generating RTLIL representation for module `\_90_lut'.
+Successfully finished Verilog frontend.
+
+16.37.2. Executing Verilog-2005 frontend: /home/dawn/yosys/share/ice40/arith_map.v
+Parsing Verilog input from `/home/dawn/yosys/share/ice40/arith_map.v' to AST representation.
+Generating RTLIL representation for module `\_80_ice40_alu'.
+Successfully finished Verilog frontend.
+
+16.37.3. Continuing TECHMAP pass.
+Using template $paramod$c3cd1564c35d873179656addd6052d7ea8b6d991\_80_ice40_alu for cells of type $alu.
+Using extmapper simplemap for cells of type $dff.
+Using extmapper simplemap for cells of type $logic_not.
+Using extmapper simplemap for cells of type $logic_and.
+Using extmapper simplemap for cells of type $mux.
+Using extmapper simplemap for cells of type $eq.
+Using extmapper simplemap for cells of type $and.
+Using extmapper simplemap for cells of type $adffe.
+Using template $paramod$53700bbee849b2010ad0b60a61ccd204a10e24ca\_80_ice40_alu for cells of type $alu.
+Using extmapper simplemap for cells of type $reduce_bool.
+Using template $paramod$6f67705c43e5e94c02b6ebb52209ce5aa5ade4c1\_80_ice40_alu for cells of type $alu.
+Using extmapper simplemap for cells of type $xor.
+Using extmapper simplemap for cells of type $not.
+Using extmapper simplemap for cells of type $pos.
+No more expansions possible.
+<suppressed ~175 debug messages>
+
+yosys> opt -fast
+
+16.38. Executing OPT pass (performing simple optimizations).
+
+yosys> opt_expr
+
+16.38.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fifo.
+<suppressed ~109 debug messages>
+
+yosys> opt_merge
+
+16.38.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fifo'.
+<suppressed ~81 debug messages>
+Removed a total of 27 cells.
+
+yosys> opt_dff
+
+16.38.3. Executing OPT_DFF pass (perform DFF optimizations).
+
+yosys> opt_clean
+
+16.38.4. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fifo..
+Removed 11 unused cells and 83 unused wires.
+<suppressed ~12 debug messages>
+
+16.38.5. Finished fast OPT passes.
+
+yosys> ice40_opt
+
+16.39. Executing ICE40_OPT pass (performing simple optimizations).
+
+16.39.1. Running ICE40 specific optimizations.
+Optimized $__ICE40_CARRY_WRAPPER cell back to logic (without SB_CARRY) fifo.$auto$alumacc.cc:485:replace_alu$574.slice[0].carry: CO=\count [0]
+Optimized $__ICE40_CARRY_WRAPPER cell back to logic (without SB_CARRY) fifo.$auto$alumacc.cc:485:replace_alu$577.slice[0].carry: CO=\fifo_reader.addr [0]
+Optimized $__ICE40_CARRY_WRAPPER cell back to logic (without SB_CARRY) fifo.$auto$alumacc.cc:485:replace_alu$580.slice[0].carry: CO=\fifo_writer.addr [0]
+Optimized $__ICE40_CARRY_WRAPPER cell back to logic (without SB_CARRY) fifo.$auto$alumacc.cc:485:replace_alu$583.slice[0].carry: CO=\count [0]
+
+yosys> opt_expr -mux_undef -undriven
+
+16.39.2. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fifo.
+
+yosys> opt_merge
+
+16.39.3. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fifo'.
+Removed a total of 0 cells.
+
+yosys> opt_dff
+
+16.39.4. Executing OPT_DFF pass (perform DFF optimizations).
+
+yosys> opt_clean
+
+16.39.5. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fifo..
+
+16.39.6. Rerunning OPT passes. (Removed registers in this run.)
+
+16.39.7. Running ICE40 specific optimizations.
+
+yosys> opt_expr -mux_undef -undriven
+
+16.39.8. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fifo.
+
+yosys> opt_merge
+
+16.39.9. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fifo'.
+Removed a total of 0 cells.
+
+yosys> opt_dff
+
+16.39.10. Executing OPT_DFF pass (perform DFF optimizations).
+
+yosys> opt_clean
+
+16.39.11. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fifo..
+
+16.39.12. Finished OPT passes. (There is nothing left to do.)
+
+yosys> dfflegalize -cell $_DFF_?_ 0 -cell $_DFFE_?P_ 0 -cell $_DFF_?P?_ 0 -cell $_DFFE_?P?P_ 0 -cell $_SDFF_?P?_ 0 -cell $_SDFFCE_?P?P_ 0 -cell $_DLATCH_?_ x -mince -1
+
+16.40. Executing DFFLEGALIZE pass (convert FFs to types supported by the target).
+
+yosys> techmap -map +/ice40/ff_map.v
+
+16.41. Executing TECHMAP pass (map to technology primitives).
+
+16.41.1. Executing Verilog-2005 frontend: /home/dawn/yosys/share/ice40/ff_map.v
+Parsing Verilog input from `/home/dawn/yosys/share/ice40/ff_map.v' to AST representation.
+Generating RTLIL representation for module `\$_DFF_N_'.
+Generating RTLIL representation for module `\$_DFF_P_'.
+Generating RTLIL representation for module `\$_DFFE_NP_'.
+Generating RTLIL representation for module `\$_DFFE_PP_'.
+Generating RTLIL representation for module `\$_DFF_NP0_'.
+Generating RTLIL representation for module `\$_DFF_NP1_'.
+Generating RTLIL representation for module `\$_DFF_PP0_'.
+Generating RTLIL representation for module `\$_DFF_PP1_'.
+Generating RTLIL representation for module `\$_DFFE_NP0P_'.
+Generating RTLIL representation for module `\$_DFFE_NP1P_'.
+Generating RTLIL representation for module `\$_DFFE_PP0P_'.
+Generating RTLIL representation for module `\$_DFFE_PP1P_'.
+Generating RTLIL representation for module `\$_SDFF_NP0_'.
+Generating RTLIL representation for module `\$_SDFF_NP1_'.
+Generating RTLIL representation for module `\$_SDFF_PP0_'.
+Generating RTLIL representation for module `\$_SDFF_PP1_'.
+Generating RTLIL representation for module `\$_SDFFCE_NP0P_'.
+Generating RTLIL representation for module `\$_SDFFCE_NP1P_'.
+Generating RTLIL representation for module `\$_SDFFCE_PP0P_'.
+Generating RTLIL representation for module `\$_SDFFCE_PP1P_'.
+Successfully finished Verilog frontend.
+
+16.41.2. Continuing TECHMAP pass.
+Using template \$_DFFE_PP0P_ for cells of type $_DFFE_PP0P_.
+Using template \$_DFF_P_ for cells of type $_DFF_P_.
+No more expansions possible.
+<suppressed ~73 debug messages>
+
+yosys> opt_expr -mux_undef
+
+16.42. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fifo.
+
+yosys> simplemap
+
+16.43. Executing SIMPLEMAP pass (map simple cells to gate primitives).
+Mapping fifo.$auto$alumacc.cc:485:replace_alu$577.slice[0].carry ($lut).
+Mapping fifo.$auto$alumacc.cc:485:replace_alu$580.slice[0].carry ($lut).
+Mapping fifo.$auto$alumacc.cc:485:replace_alu$583.slice[0].carry ($lut).
+Mapping fifo.$auto$alumacc.cc:485:replace_alu$574.slice[0].carry ($lut).
+
+yosys> ice40_opt -full
+
+16.44. Executing ICE40_OPT pass (performing simple optimizations).
+
+16.44.1. Running ICE40 specific optimizations.
+
+yosys> opt_expr -mux_undef -undriven -full
+
+16.44.2. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fifo.
+<suppressed ~71 debug messages>
+
+yosys> opt_merge
+
+16.44.3. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fifo'.
+<suppressed ~12 debug messages>
+Removed a total of 4 cells.
+
+yosys> opt_dff
+
+16.44.4. Executing OPT_DFF pass (perform DFF optimizations).
+
+yosys> opt_clean
+
+16.44.5. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fifo..
+Removed 0 unused cells and 270 unused wires.
+<suppressed ~1 debug messages>
+
+16.44.6. Rerunning OPT passes. (Removed registers in this run.)
+
+16.44.7. Running ICE40 specific optimizations.
+
+yosys> opt_expr -mux_undef -undriven -full
+
+16.44.8. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fifo.
+<suppressed ~1 debug messages>
+
+yosys> opt_merge
+
+16.44.9. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fifo'.
+Removed a total of 0 cells.
+
+yosys> opt_dff
+
+16.44.10. Executing OPT_DFF pass (perform DFF optimizations).
+
+yosys> opt_clean
+
+16.44.11. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fifo..
+
+16.44.12. Rerunning OPT passes. (Removed registers in this run.)
+
+16.44.13. Running ICE40 specific optimizations.
+
+yosys> opt_expr -mux_undef -undriven -full
+
+16.44.14. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fifo.
+
+yosys> opt_merge
+
+16.44.15. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fifo'.
+Removed a total of 0 cells.
+
+yosys> opt_dff
+
+16.44.16. Executing OPT_DFF pass (perform DFF optimizations).
+
+yosys> opt_clean
+
+16.44.17. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fifo..
+
+16.44.18. Finished OPT passes. (There is nothing left to do.)
+
+yosys> techmap -map +/ice40/latches_map.v
+
+16.45. Executing TECHMAP pass (map to technology primitives).
+
+16.45.1. Executing Verilog-2005 frontend: /home/dawn/yosys/share/ice40/latches_map.v
+Parsing Verilog input from `/home/dawn/yosys/share/ice40/latches_map.v' to AST representation.
+Generating RTLIL representation for module `\$_DLATCH_N_'.
+Generating RTLIL representation for module `\$_DLATCH_P_'.
+Successfully finished Verilog frontend.
+
+16.45.2. Continuing TECHMAP pass.
+No more expansions possible.
+<suppressed ~4 debug messages>
+
+yosys> read_verilog -D ICE40_HX -icells -lib -specify +/ice40/abc9_model.v
+
+16.46. Executing Verilog-2005 frontend: /home/dawn/yosys/share/ice40/abc9_model.v
+Parsing Verilog input from `/home/dawn/yosys/share/ice40/abc9_model.v' to AST representation.
+Generating RTLIL representation for module `$__ICE40_CARRY_WRAPPER'.
+Successfully finished Verilog frontend.
+
+yosys> abc9 -W 250
+
+16.47. Executing ABC9 pass.
+
+yosys> abc9_ops -check
+
+16.47.1. Executing ABC9_OPS pass (helper functions for ABC9).
+
+yosys> abc9_ops -prep_hier
+
+16.47.2. Executing ABC9_OPS pass (helper functions for ABC9).
+
+yosys> scc -specify -set_attr abc9_scc_id {}
+
+16.47.3. Executing SCC pass (detecting logic loops).
+Found 0 SCCs in module fifo.
+Found 0 SCCs.
+
+yosys> abc9_ops -prep_bypass
+
+16.47.4. Executing ABC9_OPS pass (helper functions for ABC9).
+
+yosys> design -stash $abc9
+
+yosys> design -load $abc9_map
+
+yosys> proc
+
+16.47.5. Executing PROC pass (convert processes to netlists).
+
+yosys> proc_clean
+
+16.47.5.1. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+Cleaned up 0 empty switches.
+
+yosys> proc_rmdead
+
+16.47.5.2. Executing PROC_RMDEAD pass (remove dead branches from decision trees).
+Removed a total of 0 dead cases.
+
+yosys> proc_prune
+
+16.47.5.3. Executing PROC_PRUNE pass (remove redundant assignments in processes).
+Removed 0 redundant assignments.
+Promoted 0 assignments to connections.
+
+yosys> proc_init
+
+16.47.5.4. Executing PROC_INIT pass (extract init attributes).
+
+yosys> proc_arst
+
+16.47.5.5. Executing PROC_ARST pass (detect async resets in processes).
+
+yosys> proc_rom
+
+16.47.5.6. Executing PROC_ROM pass (convert switches to ROMs).
+Converted 0 switches.
+
+yosys> proc_mux
+
+16.47.5.7. Executing PROC_MUX pass (convert decision trees to multiplexers).
+
+yosys> proc_dlatch
+
+16.47.5.8. Executing PROC_DLATCH pass (convert process syncs to latches).
+
+yosys> proc_dff
+
+16.47.5.9. Executing PROC_DFF pass (convert process syncs to FFs).
+
+yosys> proc_memwr
+
+16.47.5.10. Executing PROC_MEMWR pass (convert process memory writes to cells).
+
+yosys> proc_clean
+
+16.47.5.11. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+Cleaned up 0 empty switches.
+
+yosys> opt_expr -keepdc
+
+16.47.5.12. Executing OPT_EXPR pass (perform const folding).
+
+yosys> wbflip
+
+yosys> techmap -wb -map %$abc9 -map +/techmap.v A:abc9_flop
+
+16.47.6. Executing TECHMAP pass (map to technology primitives).
+
+16.47.6.1. Executing Verilog-2005 frontend: /home/dawn/yosys/share/techmap.v
+Parsing Verilog input from `/home/dawn/yosys/share/techmap.v' to AST representation.
+Generating RTLIL representation for module `\_90_simplemap_bool_ops'.
+Generating RTLIL representation for module `\_90_simplemap_reduce_ops'.
+Generating RTLIL representation for module `\_90_simplemap_logic_ops'.
+Generating RTLIL representation for module `\_90_simplemap_compare_ops'.
+Generating RTLIL representation for module `\_90_simplemap_various'.
+Generating RTLIL representation for module `\_90_simplemap_registers'.
+Generating RTLIL representation for module `\_90_shift_ops_shr_shl_sshl_sshr'.
+Generating RTLIL representation for module `\_90_shift_shiftx'.
+Generating RTLIL representation for module `\_90_fa'.
+Generating RTLIL representation for module `\_90_lcu'.
+Generating RTLIL representation for module `\_90_alu'.
+Generating RTLIL representation for module `\_90_macc'.
+Generating RTLIL representation for module `\_90_alumacc'.
+Generating RTLIL representation for module `\$__div_mod_u'.
+Generating RTLIL representation for module `\$__div_mod_trunc'.
+Generating RTLIL representation for module `\_90_div'.
+Generating RTLIL representation for module `\_90_mod'.
+Generating RTLIL representation for module `\$__div_mod_floor'.
+Generating RTLIL representation for module `\_90_divfloor'.
+Generating RTLIL representation for module `\_90_modfloor'.
+Generating RTLIL representation for module `\_90_pow'.
+Generating RTLIL representation for module `\_90_pmux'.
+Generating RTLIL representation for module `\_90_demux'.
+Generating RTLIL representation for module `\_90_lut'.
+Successfully finished Verilog frontend.
+
+16.47.6.2. Continuing TECHMAP pass.
+No more expansions possible.
+<suppressed ~128 debug messages>
+
+yosys> opt -nodffe -nosdff
+
+16.47.7. Executing OPT pass (performing simple optimizations).
+
+yosys> opt_expr
+
+16.47.7.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module SB_DFFER.
+
+yosys> opt_merge -nomux
+
+16.47.7.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\SB_DFFER'.
+Removed a total of 0 cells.
+
+yosys> opt_muxtree
+
+16.47.7.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \SB_DFFER..
+  Creating internal representation of mux trees.
+  No muxes found in this module.
+Removed 0 multiplexer ports.
+
+yosys> opt_reduce
+
+16.47.7.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \SB_DFFER.
+Performed a total of 0 changes.
+
+yosys> opt_merge
+
+16.47.7.5. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\SB_DFFER'.
+Removed a total of 0 cells.
+
+yosys> opt_dff -nodffe -nosdff
+
+16.47.7.6. Executing OPT_DFF pass (perform DFF optimizations).
+
+yosys> opt_clean
+
+16.47.7.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \SB_DFFER..
+
+yosys> opt_expr
+
+16.47.7.8. Executing OPT_EXPR pass (perform const folding).
+Optimizing module SB_DFFER.
+
+16.47.7.9. Finished OPT passes. (There is nothing left to do.)
+
+yosys> design -stash $abc9_map
+
+yosys> design -load $abc9
+
+yosys> design -delete $abc9
+
+yosys> techmap -wb -max_iter 1 -map %$abc9_map -map +/abc9_map.v a:abc9_scc_id %n
+
+16.47.8. Executing TECHMAP pass (map to technology primitives).
+
+16.47.8.1. Executing Verilog-2005 frontend: /home/dawn/yosys/share/abc9_map.v
+Parsing Verilog input from `/home/dawn/yosys/share/abc9_map.v' to AST representation.
+Successfully finished Verilog frontend.
+
+16.47.8.2. Continuing TECHMAP pass.
+Using template SB_DFFER for cells of type SB_DFFER.
+No more expansions possible.
+<suppressed ~28 debug messages>
+
+yosys> design -delete $abc9_map
+
+yosys> read_verilog -icells -lib -specify +/abc9_model.v
+
+16.47.9. Executing Verilog-2005 frontend: /home/dawn/yosys/share/abc9_model.v
+Parsing Verilog input from `/home/dawn/yosys/share/abc9_model.v' to AST representation.
+Generating RTLIL representation for module `$__ABC9_DELAY'.
+Generating RTLIL representation for module `$__ABC9_SCC_BREAKER'.
+Generating RTLIL representation for module `$__DFF_N__$abc9_flop'.
+Generating RTLIL representation for module `$__DFF_P__$abc9_flop'.
+Successfully finished Verilog frontend.
+
+yosys> abc9_ops -break_scc -prep_delays -prep_xaiger
+
+16.47.10. Executing ABC9_OPS pass (helper functions for ABC9).
+<suppressed ~86 debug messages>
+
+yosys> abc9_ops -prep_lut 0
+
+16.47.11. Executing ABC9_OPS pass (helper functions for ABC9).
+
+yosys> abc9_ops -prep_box
+
+16.47.12. Executing ABC9_OPS pass (helper functions for ABC9).
+<suppressed ~2 debug messages>
+
+yosys> design -stash $abc9
+
+yosys> design -load $abc9_holes
+
+yosys> techmap -wb -map %$abc9 -map +/techmap.v
+
+16.47.13. Executing TECHMAP pass (map to technology primitives).
+
+16.47.13.1. Executing Verilog-2005 frontend: /home/dawn/yosys/share/techmap.v
+Parsing Verilog input from `/home/dawn/yosys/share/techmap.v' to AST representation.
+Generating RTLIL representation for module `\_90_simplemap_bool_ops'.
+Generating RTLIL representation for module `\_90_simplemap_reduce_ops'.
+Generating RTLIL representation for module `\_90_simplemap_logic_ops'.
+Generating RTLIL representation for module `\_90_simplemap_compare_ops'.
+Generating RTLIL representation for module `\_90_simplemap_various'.
+Generating RTLIL representation for module `\_90_simplemap_registers'.
+Generating RTLIL representation for module `\_90_shift_ops_shr_shl_sshl_sshr'.
+Generating RTLIL representation for module `\_90_shift_shiftx'.
+Generating RTLIL representation for module `\_90_fa'.
+Generating RTLIL representation for module `\_90_lcu'.
+Generating RTLIL representation for module `\_90_alu'.
+Generating RTLIL representation for module `\_90_macc'.
+Generating RTLIL representation for module `\_90_alumacc'.
+Generating RTLIL representation for module `\$__div_mod_u'.
+Generating RTLIL representation for module `\$__div_mod_trunc'.
+Generating RTLIL representation for module `\_90_div'.
+Generating RTLIL representation for module `\_90_mod'.
+Generating RTLIL representation for module `\$__div_mod_floor'.
+Generating RTLIL representation for module `\_90_divfloor'.
+Generating RTLIL representation for module `\_90_modfloor'.
+Generating RTLIL representation for module `\_90_pow'.
+Generating RTLIL representation for module `\_90_pmux'.
+Generating RTLIL representation for module `\_90_demux'.
+Generating RTLIL representation for module `\_90_lut'.
+Successfully finished Verilog frontend.
+
+16.47.13.2. Continuing TECHMAP pass.
+Using template $paramod$__ICE40_CARRY_WRAPPER\LUT=16'0110100110010110\I3_IS_CI=1'1 for cells of type $paramod$__ICE40_CARRY_WRAPPER\LUT=16'0110100110010110\I3_IS_CI=1'1.
+Using template $paramod\SB_LUT4\LUT_INIT=16'0110100110010110 for cells of type SB_LUT4.
+Using template SB_CARRY for cells of type SB_CARRY.
+Using extmapper simplemap for cells of type $mux.
+Using extmapper simplemap for cells of type $logic_and.
+Using extmapper simplemap for cells of type $logic_or.
+No more expansions possible.
+<suppressed ~155 debug messages>
+
+yosys> opt -purge
+
+16.47.14. Executing OPT pass (performing simple optimizations).
+
+yosys> opt_expr
+
+16.47.14.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fifo.
+<suppressed ~4 debug messages>
+
+yosys> opt_merge -nomux
+
+16.47.14.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fifo'.
+<suppressed ~29 debug messages>
+Removed a total of 12 cells.
+
+yosys> opt_muxtree
+
+16.47.14.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \fifo..
+  Creating internal representation of mux trees.
+  No muxes found in this module.
+Removed 0 multiplexer ports.
+
+yosys> opt_reduce
+
+16.47.14.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \fifo.
+Performed a total of 0 changes.
+
+yosys> opt_merge
+
+16.47.14.5. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fifo'.
+Removed a total of 0 cells.
+
+yosys> opt_dff
+
+16.47.14.6. Executing OPT_DFF pass (perform DFF optimizations).
+
+yosys> opt_clean -purge
+
+16.47.14.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fifo..
+Removed 0 unused cells and 24 unused wires.
+<suppressed ~1 debug messages>
+
+yosys> opt_expr
+
+16.47.14.8. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fifo.
+
+16.47.14.9. Rerunning OPT passes. (Maybe there is more to do..)
+
+yosys> opt_muxtree
+
+16.47.14.10. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \fifo..
+  Creating internal representation of mux trees.
+  No muxes found in this module.
+Removed 0 multiplexer ports.
+
+yosys> opt_reduce
+
+16.47.14.11. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \fifo.
+Performed a total of 0 changes.
+
+yosys> opt_merge
+
+16.47.14.12. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\fifo'.
+Removed a total of 0 cells.
+
+yosys> opt_dff
+
+16.47.14.13. Executing OPT_DFF pass (perform DFF optimizations).
+
+yosys> opt_clean -purge
+
+16.47.14.14. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fifo..
+
+yosys> opt_expr
+
+16.47.14.15. Executing OPT_EXPR pass (perform const folding).
+Optimizing module fifo.
+
+16.47.14.16. Finished OPT passes. (There is nothing left to do.)
+
+yosys> aigmap
+
+16.47.15. Executing AIGMAP pass (map logic to AIG).
+Module fifo: replaced 7 cells with 43 new cells, skipped 11 cells.
+  replaced 2 cell types:
+       2 $_OR_
+       5 $_MUX_
+  not replaced 3 cell types:
+       8 $specify2
+       1 $_NOT_
+       2 $_AND_
+
+yosys> design -stash $abc9_holes
+
+yosys> design -load $abc9
+
+yosys> design -delete $abc9
+
+yosys> aigmap
+
+16.47.16. Executing AIGMAP pass (map logic to AIG).
+Module fifo: replaced 46 cells with 256 new cells, skipped 230 cells.
+  replaced 3 cell types:
+      22 $_OR_
+       8 $_XOR_
+      16 $_MUX_
+  not replaced 15 cell types:
+      20 $_NOT_
+      19 $_AND_
+      11 $paramod$__ABC9_DELAY\DELAY=32'00000000000000000000000011100000
+      26 SB_DFF
+      25 SB_DFFER
+      30 $paramod$__ICE40_CARRY_WRAPPER\LUT=16'0110100110010110\I3_IS_CI=1'1
+      11 $paramod$__ABC9_DELAY\DELAY=32'00000000000000000000000011001011
+      25 SB_DFFER_$abc9_byp
+       1 $paramod$__ABC9_DELAY\DELAY=32'00000000000000000000000001100010
+       2 $paramod$__ABC9_DELAY\DELAY=32'00000000000000000000000100001011
+      16 $paramod$__ABC9_DELAY\DELAY=32'00000000000000000000000010100001
+       1 $paramod$__ABC9_DELAY\DELAY=32'00000000000000000000000010000101
+       1 $paramod$ba68a0420314c29d51ab7ddbd2ec9361aa29f018\SB_RAM40_4K
+      16 $paramod$__ABC9_DELAY\DELAY=32'00000000000000000000000100010010
+      26 $paramod$__ABC9_DELAY\DELAY=32'00000000000000000000000000010101
+
+yosys*> abc9_ops -write_lut /tmp/yosys-abc-Sf9BQI/input.lut
+
+16.47.16.1. Executing ABC9_OPS pass (helper functions for ABC9).
+
+yosys*> abc9_ops -write_box /tmp/yosys-abc-Sf9BQI/input.box
+
+16.47.16.2. Executing ABC9_OPS pass (helper functions for ABC9).
+
+yosys*> write_xaiger -map /tmp/yosys-abc-Sf9BQI/input.sym /tmp/yosys-abc-Sf9BQI/input.xaig
+
+16.47.16.3. Executing XAIGER backend.
+<suppressed ~78 debug messages>
+Extracted 113 AND gates and 562 wires from module `fifo' to a netlist network with 71 inputs and 127 outputs.
+
+yosys*> abc9_exe -W 250 -cwd /tmp/yosys-abc-Sf9BQI -lut /tmp/yosys-abc-Sf9BQI/input.lut -box /tmp/yosys-abc-Sf9BQI/input.box
+
+16.47.16.4. Executing ABC9_EXE pass (technology mapping using ABC9).
+
+16.47.16.5. Executing ABC9.
+Running ABC command: "<yosys-exe-dir>/yosys-abc" -s -f <abc-temp-dir>/abc.script 2>&1
+ABC: ABC command line: "source <abc-temp-dir>/abc.script".
+ABC: 
+ABC: + read_lut <abc-temp-dir>/input.lut 
+ABC: + read_box <abc-temp-dir>/input.box 
+ABC: + &read <abc-temp-dir>/input.xaig 
+ABC: + &ps 
+ABC: <abc-temp-dir>/input : i/o =     71/    127  and =     113  lev =    6 (0.27)  mem = 0.01 MB  box = 139  bb = 109
+ABC: Warning: AIG with boxes has internal fanout in 0 complex flops and 20 carries.
+ABC: + &scorr 
+ABC: Warning: The network is combinational.
+ABC: + &sweep 
+ABC: + &dc2 
+ABC: + &dch -f 
+ABC: + &ps 
+ABC: <abc-temp-dir>/input : i/o =     71/    127  and =     160  lev =    6 (0.12)  mem = 0.01 MB  ch =   20  box = 139  bb = 109
+ABC: Warning: AIG with boxes has internal fanout in 0 complex flops and 20 carries.
+ABC: + &if -W 250 -v 
+ABC: K = 4. Memory (bytes): Truth =    0. Cut =   48. Obj =  128. Set =  528. CutMin = no
+ABC: Node =     160.  Ch =    19.  Total mem =    0.11 MB. Peak cut mem =    0.01 MB.
+ABC: P:  Del = 2712.00.  Ar =      28.0.  Edge =       81.  Cut =      569.  T =     0.00 sec
+ABC: P:  Del = 2712.00.  Ar =      27.0.  Edge =       87.  Cut =      564.  T =     0.00 sec
+ABC: P:  Del = 2712.00.  Ar =      26.0.  Edge =       86.  Cut =      565.  T =     0.00 sec
+ABC: F:  Del = 2712.00.  Ar =      26.0.  Edge =       88.  Cut =      554.  T =     0.00 sec
+ABC: A:  Del = 2712.00.  Ar =      26.0.  Edge =       86.  Cut =      537.  T =     0.00 sec
+ABC: A:  Del = 2712.00.  Ar =      26.0.  Edge =       86.  Cut =      545.  T =     0.00 sec
+ABC: Total time =     0.00 sec
+ABC: + &write -n <abc-temp-dir>/output.aig 
+ABC: + &mfs 
+ABC: The network is not changed by "&mfs".
+ABC: + &ps -l 
+ABC: <abc-temp-dir>/input : i/o =     71/    127  and =      91  lev =    6 (0.12)  mem = 0.01 MB  box = 139  bb = 109
+ABC: Mapping (K=4)  :  lut =     26  edge =      86  lev =    3 (0.05)  levB =   10  mem = 0.00 MB
+ABC: LUT = 26 : 2=4 15.4 %  3=10 38.5 %  4=12 46.2 %  Ave = 3.31
+ABC: Warning: AIG with boxes has internal fanout in 0 complex flops and 20 carries.
+ABC: + &write -n <abc-temp-dir>/output.aig 
+ABC: + time 
+ABC: elapse: 0.01 seconds, total: 0.01 seconds
+
+yosys*> read_aiger -xaiger -wideports -module_name fifo$abc9 -map /tmp/yosys-abc-Sf9BQI/input.sym /tmp/yosys-abc-Sf9BQI/output.aig
+
+16.47.16.6. Executing AIGER frontend.
+
+yosys> clean
+<suppressed ~408 debug messages>
+Removed 175 unused cells and 883 unused wires.
+
+yosys*> abc9_ops -reintegrate
+
+16.47.16.7. Executing ABC9_OPS pass (helper functions for ABC9).
+ABC RESULTS:              $lut cells:       29
+ABC RESULTS:   $paramod$__ICE40_CARRY_WRAPPER\LUT=16'0110100110010110\I3_IS_CI=1'1 cells:       30
+ABC RESULTS:   \SB_DFFER_$abc9_byp cells:       25
+ABC RESULTS:           input signals:       36
+ABC RESULTS:          output signals:       91
+Removing temp directory.
+
+yosys> techmap -wb -map %$abc9_unmap -map +/abc9_unmap.v
+
+16.47.17. Executing TECHMAP pass (map to technology primitives).
+
+16.47.17.1. Executing Verilog-2005 frontend: /home/dawn/yosys/share/abc9_unmap.v
+Parsing Verilog input from `/home/dawn/yosys/share/abc9_unmap.v' to AST representation.
+Generating RTLIL representation for module `\$__DFF_x__$abc9_flop'.
+Generating RTLIL representation for module `\$__ABC9_SCC_BREAKER'.
+Successfully finished Verilog frontend.
+
+16.47.17.2. Continuing TECHMAP pass.
+Using template SB_DFFER_$abc9_byp for cells of type SB_DFFER_$abc9_byp.
+Using template $paramod$ba68a0420314c29d51ab7ddbd2ec9361aa29f018\SB_RAM40_4K for cells of type $paramod$ba68a0420314c29d51ab7ddbd2ec9361aa29f018\SB_RAM40_4K.
+Using template $paramod$__ICE40_CARRY_WRAPPER\LUT=16'0110100110010110\I3_IS_CI=1'1 for cells of type $paramod$__ICE40_CARRY_WRAPPER\LUT=16'0110100110010110\I3_IS_CI=1'1.
+No more expansions possible.
+<suppressed ~64 debug messages>
+
+yosys> design -delete $abc9_unmap
+
+yosys> design -delete $abc9_holes
+
+yosys> delete =*_$abc9_byp
+
+yosys> setattr -mod -unset abc9_box_id
+
+yosys> ice40_wrapcarry -unwrap
+
+16.48. Executing ICE40_WRAPCARRY pass (wrap carries).
+
+yosys> techmap -map +/ice40/ff_map.v
+
+16.49. Executing TECHMAP pass (map to technology primitives).
+
+16.49.1. Executing Verilog-2005 frontend: /home/dawn/yosys/share/ice40/ff_map.v
+Parsing Verilog input from `/home/dawn/yosys/share/ice40/ff_map.v' to AST representation.
+Generating RTLIL representation for module `\$_DFF_N_'.
+Generating RTLIL representation for module `\$_DFF_P_'.
+Generating RTLIL representation for module `\$_DFFE_NP_'.
+Generating RTLIL representation for module `\$_DFFE_PP_'.
+Generating RTLIL representation for module `\$_DFF_NP0_'.
+Generating RTLIL representation for module `\$_DFF_NP1_'.
+Generating RTLIL representation for module `\$_DFF_PP0_'.
+Generating RTLIL representation for module `\$_DFF_PP1_'.
+Generating RTLIL representation for module `\$_DFFE_NP0P_'.
+Generating RTLIL representation for module `\$_DFFE_NP1P_'.
+Generating RTLIL representation for module `\$_DFFE_PP0P_'.
+Generating RTLIL representation for module `\$_DFFE_PP1P_'.
+Generating RTLIL representation for module `\$_SDFF_NP0_'.
+Generating RTLIL representation for module `\$_SDFF_NP1_'.
+Generating RTLIL representation for module `\$_SDFF_PP0_'.
+Generating RTLIL representation for module `\$_SDFF_PP1_'.
+Generating RTLIL representation for module `\$_SDFFCE_NP0P_'.
+Generating RTLIL representation for module `\$_SDFFCE_NP1P_'.
+Generating RTLIL representation for module `\$_SDFFCE_PP0P_'.
+Generating RTLIL representation for module `\$_SDFFCE_PP1P_'.
+Successfully finished Verilog frontend.
+
+16.49.2. Continuing TECHMAP pass.
+No more expansions possible.
+<suppressed ~22 debug messages>
+
+yosys> clean
+Removed 7 unused cells and 1055 unused wires.
+
+yosys> opt_lut -dlogic SB_CARRY:I0=1:I1=2:CI=3 -dlogic SB_CARRY:CO=3
+
+16.50. Executing OPT_LUT pass (optimize LUTs).
+Discovering LUTs.
+Number of LUTs:       58
+  1-LUT                3
+  2-LUT                8
+  3-LUT               35
+  4-LUT               12
+  with \SB_CARRY    (#0)   25
+  with \SB_CARRY    (#1)   26
+
+Eliminating LUTs.
+Number of LUTs:       58
+  1-LUT                3
+  2-LUT                8
+  3-LUT               35
+  4-LUT               12
+  with \SB_CARRY    (#0)   25
+  with \SB_CARRY    (#1)   26
+
+Combining LUTs.
+Number of LUTs:       58
+  1-LUT                3
+  2-LUT                8
+  3-LUT               35
+  4-LUT               12
+  with \SB_CARRY    (#0)   25
+  with \SB_CARRY    (#1)   26
+
+Eliminated 0 LUTs.
+Combined 0 LUTs.
+<suppressed ~334 debug messages>
+
+yosys> techmap -map +/ice40/cells_map.v
+
+16.51. Executing TECHMAP pass (map to technology primitives).
+
+16.51.1. Executing Verilog-2005 frontend: /home/dawn/yosys/share/ice40/cells_map.v
+Parsing Verilog input from `/home/dawn/yosys/share/ice40/cells_map.v' to AST representation.
+Generating RTLIL representation for module `\$lut'.
+Successfully finished Verilog frontend.
+
+16.51.2. Continuing TECHMAP pass.
+Using template $paramod\$lut\WIDTH=32'00000000000000000000000000000011\LUT=8'10111000 for cells of type $lut.
+Using template $paramod$fd904e9e35cfd343a9df248824bd3f1408724879\$lut for cells of type $lut.
+Using template $paramod$e87f431398fe61dc3cef677df705fdf1c11aa0f7\$lut for cells of type $lut.
+Using template $paramod$8d7a8d6e3356de09670738ba85f2c6b874f6b06d\$lut for cells of type $lut.
+Using template $paramod\$lut\WIDTH=32'00000000000000000000000000000011\LUT=8'10010000 for cells of type $lut.
+Using template $paramod\$lut\WIDTH=32'00000000000000000000000000000010\LUT=4'0100 for cells of type $lut.
+Using template $paramod$2b29ccbd5fb8b9c557f92ddec1023c75686f32ae\$lut for cells of type $lut.
+Using template $paramod\$lut\WIDTH=32'00000000000000000000000000000010\LUT=4'0010 for cells of type $lut.
+Using template $paramod$ba7c22fadfbf9ee7abcb895a21403114111dd201\$lut for cells of type $lut.
+Using template $paramod$5c7d886f3b88971ac55fed4bca034a87bf180f7d\$lut for cells of type $lut.
+Using template $paramod$571404c0889eaf57f492cb5e37f8acb5df5852f9\$lut for cells of type $lut.
+Using template $paramod\$lut\WIDTH=32'00000000000000000000000000000010\LUT=4'0110 for cells of type $lut.
+Using template $paramod\$lut\WIDTH=32'00000000000000000000000000000001\LUT=2'01 for cells of type $lut.
+Using template $paramod\$lut\WIDTH=32'00000000000000000000000000000011\LUT=8'01001011 for cells of type $lut.
+No more expansions possible.
+<suppressed ~243 debug messages>
+
+yosys> clean
+Removed 0 unused cells and 130 unused wires.
+
+yosys> autoname
+
+16.52. Executing AUTONAME pass.
+Renamed 1254 objects in module fifo (21 iterations).
+<suppressed ~213 debug messages>
+
+yosys> hierarchy -check
+
+16.53. Executing HIERARCHY pass (managing design hierarchy).
+
+16.53.1. Analyzing design hierarchy..
+Top module:  \fifo
+
+16.53.2. Analyzing design hierarchy..
+Top module:  \fifo
+Removed 0 unused modules.
+
+yosys> stat
+
+16.54. Printing statistics.
+
+=== fifo ===
+
+   Number of wires:                 91
+   Number of wire bits:            246
+   Number of public wires:          91
+   Number of public wire bits:     246
+   Number of memories:               0
+   Number of memory bits:            0
+   Number of processes:              0
+   Number of cells:                136
+     SB_CARRY                       26
+     SB_DFF                         26
+     SB_DFFER                       25
+     SB_LUT4                        58
+     SB_RAM40_4K                     1
+
+
+yosys> check -noinit
+
+16.55. Executing CHECK pass (checking for obvious problems).
+Checking module fifo...
+Found and reported 0 problems.
+
+yosys> blackbox =A:whitebox
+
+yosys> show -notitle -format dot -prefix fifo_synth
+
+17. Generating Graphviz representation of design.
+Writing dot description to `fifo_synth.dot'.
+Dumping module fifo to page 1.
+
+yosys> stat
+
+18. Printing statistics.
+
+=== fifo ===
+
+   Number of wires:                 91
+   Number of wire bits:            246
+   Number of public wires:          91
+   Number of public wire bits:     246
+   Number of memories:               0
+   Number of memory bits:            0
+   Number of processes:              0
+   Number of cells:                136
+     SB_CARRY                       26
+     SB_DFF                         26
+     SB_DFFER                       25
+     SB_LUT4                        58
+     SB_RAM40_4K                     1
+
+End of script. Logfile hash: 7fbdf4b991, CPU: user 0.68s system 0.01s, MEM: 29.84 MB peak
+Yosys 0.35+39 (git sha1 0cd4a10c8, clang 10.0.0-4ubuntu1 -fPIC -Os)
+Time spent: 37% 27x read_verilog (0 sec), 33% 12x techmap (0 sec), ...

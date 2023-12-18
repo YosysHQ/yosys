@@ -1,0 +1,39 @@
+# ========================================================
+# throw in some extra text to match what we expect if we were opening an
+# interactive terminal
+log $ yosys fifo.v
+log 
+log -- Parsing `fifo.v' using frontend ` -vlog2k' --
+read_verilog -defer fifo.v
+
+# turn command echoes on to use the log output as a console session
+echo on
+hierarchy -top addr_gen
+show -notitle -format dot -prefix addr_gen_hier
+
+# ========================================================
+proc
+show -notitle -format dot -prefix addr_gen_proc
+
+# ========================================================
+design -reset
+read_verilog fifo.v
+hierarchy -check -top fifo
+proc
+show -notitle -format dot -prefix rdata_proc o:rdata %ci*
+
+# ========================================================
+
+flatten
+show -notitle -format dot -prefix rdata_flat o:rdata %ci*
+
+# ========================================================
+
+opt_clean
+show -notitle -format dot -prefix fifo_flat
+
+design -reset
+read_verilog fifo.v
+synth_ice40 -dsp -top fifo
+show -notitle -format dot -prefix fifo_synth
+stat

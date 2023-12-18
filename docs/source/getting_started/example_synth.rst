@@ -23,37 +23,29 @@ First, let's quickly look at the design we'll be synthesizing:
 
 .. todo:: reconsider including the whole (~77 line) design like this
 
-.. literalinclude:: /code_examples/example_synth/example.v
+.. literalinclude:: /code_examples/fifo/fifo.v
    :language: Verilog
    :linenos:
-   :caption: ``example.v``
-   :name: example-v
+   :caption: ``fifo.v``
+   :name: fifo-v
 
-.. todo:: example.v description
+.. todo:: fifo.v description
 
 Loading the design
 ~~~~~~~~~~~~~~~~~~
 
 Let's load the design into Yosys.  From the command line, we can call ``yosys
-example.v``.  This will open an interactive Yosys shell session and immediately
-parse the code from ``example.v`` and convert it into an Abstract Syntax Tree
+fifo.v``.  This will open an interactive Yosys shell session and immediately
+parse the code from ``fifo.v`` and convert it into an Abstract Syntax Tree
 (AST).  If you are interested in how this happens, there is more information in
 the document, :doc:`/yosys_internals/flow/verilog_frontend`.  For now, suffice
 it to say that we do this to simplify further processing of the design.  You
 should see something like the following:
 
-.. code:: console
-
-   $ yosys example.v
-
-   -- Parsing `example.v' using frontend ` -vlog2k' --
-
-   1. Executing Verilog-2005 frontend: example.v
-   Parsing Verilog input from `example.v' to AST representation.
-   Storing AST representation for module `$abstract\example'.
-   Storing AST representation for module `$abstract\control'.
-   Storing AST representation for module `$abstract\data'.
-   Successfully finished Verilog frontend.
+.. literalinclude:: /code_examples/fifo/fifo.out
+   :language: console
+   :start-at: $ yosys fifo.v
+   :end-before: echo on
 
 .. seealso:: Advanced usage docs for
    :doc:`/using_yosys/more_scripting/load_design`
@@ -62,10 +54,10 @@ Elaboration
 ~~~~~~~~~~~
 
 Now that we are in the interactive shell, we can call Yosys commands directly.
-Our overall goal is to call :yoscrypt:`synth_ice40 -top example`, but for now we
+Our overall goal is to call :yoscrypt:`synth_ice40 -top fifo`, but for now we
 can run each of the commands individually for a better sense of how each part
 contributes to the flow.  We will also start with just a single module;
-``control``.
+``addr_gen``.
 
 At the bottom of the :cmd:ref:`help` output for
 :cmd:ref:`synth_ice40` is the complete list of commands called by this script.
@@ -86,20 +78,20 @@ design.  PLLs are a common example of this, where we might need to reference
 later.  Since our simple design doesn't use any of these IP blocks, we can safely
 skip this command.
 
-The control module
-^^^^^^^^^^^^^^^^^^
+The addr_gen module
+^^^^^^^^^^^^^^^^^^^
 
 Since we're just getting started, let's instead begin with :yoscrypt:`hierarchy
--top control`.  This command declares that the top level module is ``control``,
+-top addr_gen`.  This command declares that the top level module is ``addr_gen``,
 and everything else can be discarded.
 
-.. literalinclude:: /code_examples/example_synth/example.v
+.. literalinclude:: /code_examples/fifo/fifo.v
    :language: Verilog
-   :start-at: module control
-   :end-at: endmodule //control
+   :start-at: module addr_gen
+   :end-at: endmodule //addr_gen
    :lineno-match:
-   :caption: ``control`` module source
-   :name: control-v
+   :caption: ``addr_gen`` module source
+   :name: addr_gen-v
 
 .. note::
 
@@ -108,26 +100,26 @@ and everything else can be discarded.
 
 .. use doscon for a console-like display that supports the `yosys> [command]` format.
 
-.. literalinclude:: /code_examples/example_synth/example.out
+.. literalinclude:: /code_examples/fifo/fifo.out
    :language: doscon
-   :start-at: yosys> hierarchy -top control
+   :start-at: yosys> hierarchy -top addr_gen
    :end-before: yosys> show
-   :caption: :yoscrypt:`hierarchy -top control` output
+   :caption: :yoscrypt:`hierarchy -top addr_gen` output
 
-Our ``control`` circuit now looks like this:
+Our ``addr_gen`` circuit now looks like this:
 
-.. figure:: /_images/code_examples/example_synth/control_hier.*
+.. figure:: /_images/code_examples/fifo/addr_gen_hier.*
    :class: width-helper
-   :name: control_hier
+   :name: addr_gen_hier
 
-   ``control`` module after :cmd:ref:`hierarchy`
+   ``addr_gen`` module after :cmd:ref:`hierarchy`
 
-Notice that block that says "PROC" in :ref:`control_hier`?  Simple operations
-like ``addr + 1'b1`` can be extracted from our ``always @`` block in
-:ref:`control-v`. This gives us the two ``$add`` cells we see.  But control
-logic (like the ``if .. else``) and memory elements (like the ``addr <= 0``) are
-not so straightforward. To handle these, let us now introduce the next command:
-:doc:`/cmd/proc`.
+Notice that block that says "PROC" in :ref:`addr_gen_hier`?  Simple operations
+like ``addr + 1`` and ``addr == MAX_DATA-1`` can be extracted from our ``always
+@`` block in :ref:`addr_gen-v`. This gives us the ``$add`` and ``$eq`` cells we
+see. But control logic (like the ``if .. else``) and memory elements (like the
+``addr <= 0``) are not so straightforward. To handle these, let us now introduce
+the next command: :doc:`/cmd/proc`.
 
 :cmd:ref:`proc` is a macro command like :cmd:ref:`synth_ice40`.  Rather than
 modifying the design directly, it instead calls a series of other commands.  In
@@ -135,68 +127,81 @@ the case of :cmd:ref:`proc`, these sub-commands work to convert the behavioral
 logic of processes into multiplexers and registers.  Let's see what happens when
 we run it.
 
-.. figure:: /_images/code_examples/example_synth/control_proc.*
+.. figure:: /_images/code_examples/fifo/addr_gen_proc.*
    :class: width-helper
+   :name: addr_gen_proc
 
-   ``control`` module after :cmd:ref:`proc`
+   ``addr_gen`` module after :cmd:ref:`proc`
 
-The ``if`` statements are now modeled with ``$mux`` cells, while the registers
-use ``$dff`` cells.  If we look at the terminal output we can also see all of
-the different ``proc_*`` commands being called.  We will look at each of these
-in more detail in :doc:`/using_yosys/synthesis/proc`.
+The ``if`` statements are now modeled with ``$mux`` cells, while the register
+uses an ``$adff`` cells.  If we look at the terminal output we can also see all
+of the different ``proc_*`` commands being called.  We will look at each of
+these in more detail in :doc:`/using_yosys/synthesis/proc`.
+
+.. todo:: consider a brief glossary for terms like adff
 
 The full example
 ^^^^^^^^^^^^^^^^
 
 Let's now go back and check on our full design by using :yoscrypt:`hierarchy
--check -top example`.  By passing the ``-check`` option there we are also
+-check -top fifo`.  By passing the ``-check`` option there we are also
 telling the :cmd:ref:`hierarchy` command that if the design includes any
 non-blackbox modules without an implementation it should return an error.
 
 Note that if we tried to run this command now then we would get an error.  This
-is because we already removed all of the modules other than ``control``.  We
+is because we already removed all of the modules other than ``addr_gen``.  We
 could restart our shell session, but instead let's use two new commands:
 
 - :doc:`/cmd/design`, and
 - :doc:`/cmd/read_verilog`.
 
-.. literalinclude:: /code_examples/example_synth/example.out
+.. literalinclude:: /code_examples/fifo/fifo.out
    :language: doscon
    :start-at: design -reset
-   :end-before: yosys> show
-   :caption: reloading ``example.v`` and running :yoscrypt:`hierarchy -check -top example`
+   :end-before: yosys> proc
+   :caption: reloading ``fifo.v`` and running :yoscrypt:`hierarchy -check -top fifo`
 
 Notice how this time we didn't see any of those `$abstract` modules?  That's
-because when we ran ``yosys example.v``, the first command Yosys called was
-:yoscrypt:`read_verilog -defer example.v`.  The ``-defer`` option there tells
+because when we ran ``yosys fifo.v``, the first command Yosys called was
+:yoscrypt:`read_verilog -defer fifo.v`.  The ``-defer`` option there tells
 :cmd:ref:`read_verilog` only read the abstract syntax tree and defer actual
 compilation to a later :cmd:ref:`hierarchy` command. This is useful in cases
-where the default parameters of modules yield invalid or not synthesizable code,
-which is why Yosys does this automatically and is one of the reasons why
-hierarchy should always be the first command after loading the design.  If we
-know that our design won't run into this issue, we can skip the ``-defer``.
+where the default parameters of modules yield invalid code which is not
+synthesizable. This is why Yosys defers compilation automatically and is one of
+the reasons why hierarchy should always be the first command after loading the
+design.  If we know that our design won't run into this issue, we can skip the
+``-defer``.
+
+.. TODO:: more on why :cmd:ref:`hierarchy` is important
 
 .. note::
 
    The number before a command's output increments with each command run.  Don't
    worry if your numbers don't match ours!  The output you are seeing comes from
    the same script that was used to generate the images in this document,
-   included in the source as ``example.ys``. There are extra commands being run
+   included in the source as ``fifo.ys``. There are extra commands being run
    which you don't see, but feel free to try them yourself, or play around with
    different commands.  You can always start over with a clean slate by calling
    ``exit`` or hitting ``ctrl+c`` (i.e. SIGINT) and re-launching the Yosys
    interactive terminal.
 
-.. figure:: /_images/code_examples/example_synth/example_hier.*
+We can also run :cmd:ref:`proc` now to finish off the full :ref:`synth_begin`.
+Because the design schematic is quite large, we will be showing just the data
+path for the ``rdata`` output.  If you would like to see the entire design for
+yourself, you can do so with :doc:`/cmd/show`.  Note that the :cmd:ref:`show`
+command only works with a single module, so you may need to call it with
+:yoscrypt:`show fifo`.
+
+.. figure:: /_images/code_examples/fifo/rdata_proc.*
    :class: width-helper
-   :name: example_hier
+   :name: rdata_proc
 
-   ``example`` module after :cmd:ref:`hierarchy`
+   ``rdata`` output after :cmd:ref:`proc`
 
-We can also run :cmd:ref:`proc` now, although we won't actually see any change
-in this top view.
+The ``fifo_reader`` block we can see there is the same as the
+:ref:`addr_gen_proc` that we looked at earlier.
 
-.. TODO:: more on why :cmd:ref:`hierarchy` is important
+.. TODO:: comment on ``$memrd``
 
 .. seealso:: Advanced usage docs for
    :doc:`/using_yosys/synthesis/proc`
@@ -215,12 +220,14 @@ In :cmd:ref:`synth_ice40` we get these:
    :name: synth_flatten
    :caption: ``flatten`` section
 
-First off is :cmd:ref:`synth_flatten`.  Flattening the design like this can
-allow for optimizations between modules which would otherwise be missed.  We
-will skip this command for now because it makes the design schematic quite
-large.  If you would like to see for yourself, you can do so with
-:doc:`/cmd/show`.  Note that the :cmd:ref:`show` command only works with a
-single module, so you may need to call it with :yoscrypt:`show example`.
+First off is :cmd:ref:`flatten`.  Flattening the design like this can
+allow for optimizations between modules which would otherwise be missed. 
+
+.. figure:: /_images/code_examples/fifo/rdata_flat.*
+   :class: width-helper
+   :name: rdata_flat
+
+   ``rdata`` module after :cmd:ref:`flatten`
 
 Depending on the target architecture, we might also see commands such as
 :cmd:ref:`tribuf` with the ``-logic`` option and :cmd:ref:`deminout`.  These
@@ -244,6 +251,7 @@ In the iCE40 flow we get all the following commands:
 
 .. literalinclude:: /cmd/synth_ice40.rst
    :language: yoscrypt
+   :linenos:
    :start-after: coarse:
    :end-before: map_ram:
    :dedent:
