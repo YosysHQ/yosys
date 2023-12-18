@@ -194,9 +194,31 @@ class Incremental:
 
         return "Bool"
 
+    def expr_smtlib(self, expr, smt_out):
+        self.expr_arg_len(expr, 2)
+
+        smtlib_expr = expr[1]
+        sort = expr[2]
+
+        if not isinstance(smtlib_expr, str):
+            raise InteractiveError(
+                "raw SMT-LIB expression has to be a string, "
+                f"got {json.dumps(smtlib_expr)}"
+            )
+
+        if not isinstance(sort, str):
+            raise InteractiveError(
+                f"raw SMT-LIB sort has to be a string, got {json.dumps(sort)}"
+            )
+
+        smt_out.append(smtlib_expr)
+        return sort
+
     def expr_label(self, expr, smt_out):
         if len(expr) != 3:
-            raise InteractiveError(f'expected ["!", label, sub_expr], got {expr!r}')
+            raise InteractiveError(
+                f'expected ["!", label, sub_expr], got {json.dumps(expr)}'
+            )
         label = expr[1]
         subexpr = expr[2]
 
@@ -226,6 +248,7 @@ class Incremental:
         "or": expr_andor,
         "=": expr_eq,
         "yw": expr_yw,
+        "smtlib": expr_smtlib,
         "!": expr_label,
     }
 
@@ -251,7 +274,8 @@ class Incremental:
                         )
                     ):
                         raise InteractiveError(
-                            f"required sort {json.dumps(required_sort)} found sort {json.dumps(sort)}"
+                            f"required sort {json.dumps(required_sort)} "
+                            f"found sort {json.dumps(sort)}"
                         )
             return sort
         raise InteractiveError(f"unknown expression {json.dumps(expr[0])}")
@@ -286,6 +310,14 @@ class Incremental:
 
     def cmd_check(self, cmd):
         return smtbmc.smt_check_sat()
+
+    def cmd_smtlib(self, cmd):
+        command = cmd.get("command")
+        if not isinstance(command, str):
+            raise InteractiveError(
+                f"raw SMT-LIB command must be a string, found {json.dumps(command)}"
+            )
+        smtbmc.smt.write(command)
 
     def cmd_design_hierwitness(self, cmd=None):
         allregs = (cmd is None) or bool(cmd.get("allreges", False))
@@ -326,12 +358,16 @@ class Incremental:
 
         map_steps = {i: int(j) for i, j in enumerate(steps)}
 
-        smtbmc.ywfile_constraints(path, constraints, map_steps=map_steps, skip_x=skip_x)
+        last_step = smtbmc.ywfile_constraints(
+            path, constraints, map_steps=map_steps, skip_x=skip_x
+        )
 
         self._yw_constraints[name] = {
             map_steps.get(i, i): [smtexpr for cexfile, smtexpr in constraint_list]
             for i, constraint_list in constraints.items()
         }
+
+        return dict(last_step=last_step)
 
     def cmd_ping(self, cmd):
         return cmd
@@ -344,6 +380,7 @@ class Incremental:
         "push": cmd_push,
         "pop": cmd_pop,
         "check": cmd_check,
+        "smtlib": cmd_smtlib,
         "design_hierwitness": cmd_design_hierwitness,
         "write_yw_trace": cmd_write_yw_trace,
         "read_yw_trace": cmd_read_yw_trace,
