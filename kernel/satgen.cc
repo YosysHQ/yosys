@@ -1379,6 +1379,11 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 		return true;
 	}
 
+	if (cell->type == ID($scopeinfo))
+	{
+		return true;
+	}
+
 	// Unsupported internal cell types: $pow $fsm $mem*
 	// .. and all sequential cells with asynchronous inputs
 	return false;
