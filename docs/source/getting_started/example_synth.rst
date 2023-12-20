@@ -299,24 +299,26 @@ optimizations and other transformations done previously.
 
    While the iCE40 flow had a :ref:`synth_flatten` and put :cmd:ref:`proc` in
    the :ref:`synth_begin`, some synthesis scripts will instead include these in
-   the :ref:`synth_coarse`.
+   this section.
 
-In the iCE40 flow we get all the following commands:
+Part 1
+^^^^^^
+
+In the iCE40 flow, we start with the following commands:
 
 .. literalinclude:: /cmd/synth_ice40.rst
    :language: yoscrypt
-   :linenos:
    :start-after: coarse:
-   :end-before: map_ram:
+   :end-before: wreduce
    :dedent:
-   :caption: ``coarse`` section
-   :name: synth_coarse
+   :caption: ``coarse`` section (part 1)
+   :name: synth_coarse1
 
-The first few commands are relatively straightforward.  We've already come
+The first few commands are relatively straightforward, and we've already come
 across :cmd:ref:`opt_clean` and :cmd:ref:`opt_expr`.  The :cmd:ref:`check` pass
 identifies a few obvious problems which will cause errors later.  Calling it
 here lets us fail faster rather than wasting time on something we know is
-impossible.  
+impossible.
 
 Next up is :yoscrypt:`opt -nodffe -nosdff` performing a set of simple
 optimizations on the design.  This command also ensures that only a specific
@@ -343,12 +345,30 @@ options is able to fold one of the ``$mux`` cells into the ``$adff`` to form an
 
    ``rdata`` output after :cmd:ref:`opt_dff`
 
+.. seealso:: Advanced usage docs for
+   
+   - :doc:`/using_yosys/synthesis/fsm`
+   - :doc:`/using_yosys/synthesis/opt`
+
+Part 2
+^^^^^^
+
+.. literalinclude:: /cmd/synth_ice40.rst
+   :language: yoscrypt
+   :start-at: wreduce
+   :end-before: t:$mul
+   :dedent:
+   :caption: ``coarse`` section (part 2)
+   :name: synth_coarse2
+
 The next three (new) commands are :doc:`/cmd/wreduce`, :doc:`/cmd/peepopt`, and
 :doc:`/cmd/share`.  None of these affect our design either, so let's skip over
 them.  :yoscrypt:`techmap -map +/cmp2lut.v -D LUT_WIDTH=4` optimizes certain
 comparison operators by converting them to LUTs instead.  The usage of
 :cmd:ref:`techmap` is explored more in
-:doc:`/using_yosys/synthesis/techmap_synth`. Our next command to run is
+:doc:`/using_yosys/synthesis/techmap_synth`.
+
+Our next command to run is
 :doc:`/cmd/memory_dff`.
 
 .. literalinclude:: /code_examples/fifo/fifo.out
@@ -365,9 +385,44 @@ comparison operators by converting them to LUTs instead.  The usage of
 
 As the title suggests, :cmd:ref:`memory_dff` has merged the output ``$dff`` into
 the ``$memrd`` cell and converted it to a ``$memrd_v2`` (highlighted).
-Following this is a series of commands for mapping to DSPs.
+
+.. seealso:: Advanced usage docs for
+   
+   - :doc:`/using_yosys/synthesis/opt`
+   - :doc:`/using_yosys/synthesis/techmap_synth`
+   - :doc:`/using_yosys/synthesis/memory`
+
+Part 3
+^^^^^^
+
+The third part of the :cmd:ref:`synth_ice40` flow is a series of commands for
+mapping to DSPs.
+
+.. literalinclude:: /cmd/synth_ice40.rst
+   :language: yoscrypt
+   :start-at: t:$mul
+   :end-before: alumacc
+   :dedent:
+   :caption: ``coarse`` section (part 3)
+   :name: synth_coarse3
 
 .. TODO:: more on DSP mapping
+
+.. seealso:: Advanced usage docs for
+   :doc:`/using_yosys/synthesis/techmap_synth`
+
+Part 4
+^^^^^^
+
+That brings us to the fourth and final part for the iCE40 synthesis flow:
+
+.. literalinclude:: /cmd/synth_ice40.rst
+   :language: yoscrypt
+   :start-at: alumacc
+   :end-before: map_ram:
+   :dedent:
+   :caption: ``coarse`` section (part 4)
+   :name: synth_coarse4
 
 Where before each type of arithmetic operation had its own cell, e.g. ``$add``,
 we now want to extract these into ``$alu`` and ``$macc`` cells which can be
@@ -386,15 +441,7 @@ see produce the following changes in our example design:
 
    ``rdata`` output after :cmd:ref:`alumacc`
 
-That brings us to the last commands, and a look at ``rdata`` at the end of the
-:ref:`synth_coarse`.  We could also have gotten here by running
-:yoscrypt:`synth_ice40 -top fifo -run begin:map_ram` after loading the design.
-
-.. literalinclude:: /cmd/synth_ice40.rst
-   :language: yoscrypt
-   :start-at: memory -nomap
-   :end-before: map_ram:
-   :dedent:
+.. TODO:: discuss :cmd:ref:`memory_collect` and ``$mem_v2``
 
 .. figure:: /_images/code_examples/fifo/rdata_coarse.*
    :class: width-helper
@@ -402,18 +449,26 @@ That brings us to the last commands, and a look at ``rdata`` at the end of the
 
    ``rdata`` output after :yoscrypt:`memory -nomap`
 
-.. TODO:: discuss :cmd:ref:`memory_collect` and ``$mem_v2``
+We could also have gotten here by running :yoscrypt:`synth_ice40 -top fifo -run
+begin:map_ram` after loading the design.
 
 .. seealso:: Advanced usage docs for
-   :doc:`/using_yosys/synthesis/fsm`
-   :doc:`/using_yosys/synthesis/opt`
-   :doc:`/using_yosys/synthesis/techmap_synth`
    :doc:`/using_yosys/synthesis/memory`
 
 Hardware mapping
 ~~~~~~~~~~~~~~~~
 
-.. TODO:: example_synth hardware mapping sections
+The remaining sections each map a different type of hardware and are much more
+architecture dependent than the previous sections.  As such we will only be
+looking at each section very briefly.
+
+Memory blocks
+^^^^^^^^^^^^^
+
+Mapping to hard memory blocks uses a combination of :cmd:ref:`memory_libmap`,
+:cmd:ref:`memory_map`, and :cmd:ref:`techmap`.
+
+.. TODO:: ``$mem_v2`` -> ``SB_RAM40_4K``
 
 .. literalinclude:: /cmd/synth_ice40.rst
    :language: yoscrypt
@@ -423,6 +478,12 @@ Hardware mapping
    :name: map_ram
    :caption: ``map_ram`` section
 
+.. figure:: /_images/code_examples/fifo/rdata_map_ram.*
+   :class: width-helper
+   :name: rdata_map_ram
+
+   ``rdata`` output after :ref:`map_ram`
+
 .. literalinclude:: /cmd/synth_ice40.rst
    :language: yoscrypt
    :start-after: map_ffram:
@@ -430,6 +491,24 @@ Hardware mapping
    :dedent:
    :name: map_ffram
    :caption: ``map_ffram`` section
+
+.. figure:: /_images/code_examples/fifo/rdata_map_ffram.*
+   :class: width-helper
+   :name: rdata_map_ffram
+
+   ``rdata`` output after :ref:`map_ffram`
+
+.. seealso:: Advanced usage docs for
+   
+   - :doc:`/using_yosys/synthesis/techmap_synth`
+   - :doc:`/using_yosys/synthesis/memory`
+
+Arithmetic
+^^^^^^^^^^
+
+Uses :cmd:ref:`techmap`.
+
+.. TODO:: example_synth/Arithmetic
 
 .. literalinclude:: /cmd/synth_ice40.rst
    :language: yoscrypt
@@ -439,6 +518,23 @@ Hardware mapping
    :name: map_gates
    :caption: ``map_gates`` section
 
+.. figure:: /_images/code_examples/fifo/rdata_map_gates.*
+   :class: width-helper
+   :name: rdata_map_gates
+
+   ``rdata`` output after :ref:`map_gates`
+
+.. seealso:: Advanced usage docs for
+   :doc:`/using_yosys/synthesis/techmap_synth`
+
+Flip-flops
+^^^^^^^^^^
+
+Convert FFs to the types supported in hardware with :cmd:ref:`dfflegalize`, and
+then use :cmd:ref:`techmap` to map them.  We also run :cmd:ref:`simplemap` here
+to convert any remaining cells which could not be mapped to hardware into
+gate-level primitives.
+
 .. literalinclude:: /cmd/synth_ice40.rst
    :language: yoscrypt
    :start-after: map_ffs:
@@ -446,6 +542,23 @@ Hardware mapping
    :dedent:
    :name: map_ffs
    :caption: ``map_ffs`` section
+
+.. figure:: /_images/code_examples/fifo/rdata_map_ffs.*
+   :class: width-helper
+   :name: rdata_map_ffs
+
+   ``rdata`` output after :ref:`map_ffs`
+
+.. seealso:: Advanced usage docs for
+   :doc:`/using_yosys/synthesis/techmap_synth`
+
+LUTs
+^^^^
+
+:cmd:ref:`abc` and :cmd:ref:`techmap` are used to map LUTs.  Note that the iCE40
+flow uses :cmd:ref:`abc` rather than :cmd:ref:`abc9`.  For more on what these
+do, and what the difference between these two commands are, refer to
+:doc:`/using_yosys/synthesis/abc`.
 
 .. literalinclude:: /cmd/synth_ice40.rst
    :language: yoscrypt
@@ -455,6 +568,22 @@ Hardware mapping
    :name: map_luts
    :caption: ``map_luts`` section
 
+.. figure:: /_images/code_examples/fifo/rdata_map_luts.*
+   :class: width-helper
+   :name: rdata_map_luts
+
+   ``rdata`` output after :ref:`map_luts`
+
+.. seealso:: Advanced usage docs for
+   
+   - :doc:`/using_yosys/synthesis/techmap_synth`
+   - :doc:`/using_yosys/synthesis/abc`
+
+Other cells
+^^^^^^^^^^^
+
+Seems to be wide LUTs into individual LUTs using :cmd:ref:`techmap`.
+
 .. literalinclude:: /cmd/synth_ice40.rst
    :language: yoscrypt
    :start-after: map_cells:
@@ -463,9 +592,13 @@ Hardware mapping
    :name: map_cells
    :caption: ``map_cells`` section
 
-:cmd:ref:`dfflibmap`
-    This command maps the internal register cell types to the register types
-    described in a liberty file.
+.. figure:: /_images/code_examples/fifo/rdata_map_cells.*
+   :class: width-helper
+   :name: rdata_map_cells
+
+   ``rdata`` output after :ref:`map_cells`
+
+.. TODO:: example_synth other cells
 
 :cmd:ref:`hilomap`
     Some architectures require special driver cells for driving a constant hi or
@@ -476,12 +609,8 @@ Hardware mapping
     Top-level input/outputs must usually be implemented using special I/O-pad
     cells. This command inserts such cells to the design.
 
-:cmd:ref:`dfflegalize`
-    Specify a set of supported FF cells/cell groups and convert all FFs to them.
-
 .. seealso:: Advanced usage docs for
-   :doc:`/yosys_internals/techmap`, and
-   :doc:`/using_yosys/synthesis/memory`.
+   :doc:`/yosys_internals/techmap`
 
 Final steps
 ~~~~~~~~~~~~
