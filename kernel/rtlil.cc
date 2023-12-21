@@ -30,13 +30,18 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-bool RTLIL::IdString::destruct_guard_ok = false;
-RTLIL::IdString::destruct_guard_t RTLIL::IdString::destruct_guard;
-std::vector<char*> RTLIL::IdString::global_id_storage_;
-dict<char*, int, hash_cstr_ops> RTLIL::IdString::global_id_index_;
 #ifndef YOSYS_NO_IDS_REFCNT
-std::vector<int> RTLIL::IdString::global_refcount_storage_;
-std::vector<int> RTLIL::IdString::global_free_idx_list_;
+std::vector<int> &RTLIL::IdString::global_refcount_storage()
+{
+	static std::vector<int> *global_refcount_storage = new std::vector<int>();
+	return *global_refcount_storage;
+}
+
+std::vector<int> &RTLIL::IdString::global_free_idx_list()
+{
+	static std::vector<int> *global_free_idx_list = new std::vector<int>();
+	return *global_free_idx_list;
+}
 #endif
 #ifdef YOSYS_USE_STICKY_IDS
 int RTLIL::IdString::last_created_idx_[8];
@@ -198,6 +203,18 @@ const pool<IdString> &RTLIL::builtin_ff_cell_types() {
 		ID($_FF_),
 	};
 	return res;
+}
+
+std::vector<char *> &RTLIL::IdString::global_id_storage()
+{
+	static std::vector<char *> *global_id_storage = new std::vector<char *>();
+	return *global_id_storage;
+}
+
+dict<char*, int, hash_cstr_ops> &RTLIL::IdString::global_id_index()
+{
+	static dict<char*, int, hash_cstr_ops> *global_id_index = new dict<char*, int, hash_cstr_ops>();
+	return *global_id_index;
 }
 
 RTLIL::Const::Const(const std::string &str)

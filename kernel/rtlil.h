@@ -85,17 +85,12 @@ namespace RTLIL
 
 		// the global id string cache
 
-		static bool destruct_guard_ok; // POD, will be initialized to zero
-		static struct destruct_guard_t {
-			destruct_guard_t() { destruct_guard_ok = true; }
-			~destruct_guard_t() { destruct_guard_ok = false; }
-		} destruct_guard;
+		static std::vector<char*> &global_id_storage();
+		static dict<char*, int, hash_cstr_ops> &global_id_index();
 
-		static std::vector<char*> global_id_storage_;
-		static dict<char*, int, hash_cstr_ops> global_id_index_;
 	#ifndef YOSYS_NO_IDS_REFCNT
-		static std::vector<int> global_refcount_storage_;
-		static std::vector<int> global_free_idx_list_;
+		static std::vector<int> &global_refcount_storage();
+		static std::vector<int> &global_free_idx_list();
 	#endif
 
 	#ifdef YOSYS_USE_STICKY_IDS
@@ -106,12 +101,12 @@ namespace RTLIL
 		static inline void xtrace_db_dump()
 		{
 		#ifdef YOSYS_XTRACE_GET_PUT
-			for (int idx = 0; idx < GetSize(global_id_storage_); idx++)
+			for (int idx = 0; idx < GetSize(global_id_storage()); idx++)
 			{
-				if (global_id_storage_.at(idx) == nullptr)
+				if (global_id_storage().at(idx) == nullptr)
 					log("#X# DB-DUMP index %d: FREE\n", idx);
 				else
-					log("#X# DB-DUMP index %d: '%s' (ref %d)\n", idx, global_id_storage_.at(idx), global_refcount_storage_.at(idx));
+					log("#X# DB-DUMP index %d: '%s' (ref %d)\n", idx, global_id_storage().at(idx), global_refcount_storage().at(idx));
 			}
 		#endif
 		}
@@ -127,7 +122,7 @@ namespace RTLIL
 			}
 		#endif
 		#ifdef YOSYS_SORT_ID_FREE_LIST
-			std::sort(global_free_idx_list_.begin(), global_free_idx_list_.end(), std::greater<int>());
+			std::sort(global_free_idx_list().begin(), global_free_idx_list().end(), std::greater<int>());
 		#endif
 		}
 
@@ -135,11 +130,11 @@ namespace RTLIL
 		{
 			if (idx) {
 		#ifndef YOSYS_NO_IDS_REFCNT
-				global_refcount_storage_[idx]++;
+				global_refcount_storage()[idx]++;
 		#endif
 		#ifdef YOSYS_XTRACE_GET_PUT
 				if (yosys_xtrace)
-					log("#X# GET-BY-INDEX '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
+					log("#X# GET-BY-INDEX '%s' (index %d, refcount %d)\n", global_id_storage().at(idx), idx, global_refcount_storage().at(idx));
 		#endif
 			}
 			return idx;
@@ -147,19 +142,17 @@ namespace RTLIL
 
 		static int get_reference(const char *p)
 		{
-			log_assert(destruct_guard_ok);
-
 			if (!p[0])
 				return 0;
 
-			auto it = global_id_index_.find((char*)p);
-			if (it != global_id_index_.end()) {
+			auto it = global_id_index().find((char*)p);
+			if (it != global_id_index().end()) {
 		#ifndef YOSYS_NO_IDS_REFCNT
-				global_refcount_storage_.at(it->second)++;
+				global_refcount_storage().at(it->second)++;
 		#endif
 		#ifdef YOSYS_XTRACE_GET_PUT
 				if (yosys_xtrace)
-					log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage_.at(it->second), it->second, global_refcount_storage_.at(it->second));
+					log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage().at(it->second), it->second, global_refcount_storage().at(it->second));
 		#endif
 				return it->second;
 			}
@@ -171,31 +164,31 @@ namespace RTLIL
 					log_error("Found control character or space (0x%02x) in string '%s' which is not allowed in RTLIL identifiers\n", *c, p);
 
 		#ifndef YOSYS_NO_IDS_REFCNT
-			if (global_free_idx_list_.empty()) {
-				if (global_id_storage_.empty()) {
-					global_refcount_storage_.push_back(0);
-					global_id_storage_.push_back((char*)"");
-					global_id_index_[global_id_storage_.back()] = 0;
+			if (global_free_idx_list().empty()) {
+				if (global_id_storage().empty()) {
+					global_refcount_storage().push_back(0);
+					global_id_storage().push_back((char*)"");
+					global_id_index()[global_id_storage().back()] = 0;
 				}
-				log_assert(global_id_storage_.size() < 0x40000000);
-				global_free_idx_list_.push_back(global_id_storage_.size());
-				global_id_storage_.push_back(nullptr);
-				global_refcount_storage_.push_back(0);
+				log_assert(global_id_storage().size() < 0x40000000);
+				global_free_idx_list().push_back(global_id_storage().size());
+				global_id_storage().push_back(nullptr);
+				global_refcount_storage().push_back(0);
 			}
 
-			int idx = global_free_idx_list_.back();
-			global_free_idx_list_.pop_back();
-			global_id_storage_.at(idx) = strdup(p);
-			global_id_index_[global_id_storage_.at(idx)] = idx;
-			global_refcount_storage_.at(idx)++;
+			int idx = global_free_idx_list().back();
+			global_free_idx_list().pop_back();
+			global_id_storage().at(idx) = strdup(p);
+			global_id_index()[global_id_storage().at(idx)] = idx;
+			global_refcount_storage().at(idx)++;
 		#else
-			if (global_id_storage_.empty()) {
-				global_id_storage_.push_back((char*)"");
-				global_id_index_[global_id_storage_.back()] = 0;
+			if (global_id_storage().empty()) {
+				global_id_storage().push_back((char*)"");
+				global_id_index()[global_id_storage().back()] = 0;
 			}
-			int idx = global_id_storage_.size();
-			global_id_storage_.push_back(strdup(p));
-			global_id_index_[global_id_storage_.back()] = idx;
+			int idx = global_id_storage().size();
+			global_id_storage().push_back(strdup(p));
+			global_id_index()[global_id_storage().back()] = idx;
 		#endif
 
 			if (yosys_xtrace) {
@@ -205,7 +198,7 @@ namespace RTLIL
 
 		#ifdef YOSYS_XTRACE_GET_PUT
 			if (yosys_xtrace)
-				log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
+				log("#X# GET-BY-NAME '%s' (index %d, refcount %d)\n", global_id_storage().at(idx), idx, global_refcount_storage().at(idx));
 		#endif
 
 		#ifdef YOSYS_USE_STICKY_IDS
@@ -223,18 +216,16 @@ namespace RTLIL
 	#ifndef YOSYS_NO_IDS_REFCNT
 		static inline void put_reference(int idx)
 		{
-			// put_reference() may be called from destructors after the destructor of
-			// global_refcount_storage_ has been run. in this case we simply do nothing.
-			if (!destruct_guard_ok || !idx)
+			if (!idx)
 				return;
 
 		#ifdef YOSYS_XTRACE_GET_PUT
 			if (yosys_xtrace) {
-				log("#X# PUT '%s' (index %d, refcount %d)\n", global_id_storage_.at(idx), idx, global_refcount_storage_.at(idx));
+				log("#X# PUT '%s' (index %d, refcount %d)\n", global_id_storage().at(idx), idx, global_refcount_storage().at(idx));
 			}
 		#endif
 
-			int &refcount = global_refcount_storage_[idx];
+			int &refcount = global_refcount_storage()[idx];
 
 			if (--refcount > 0)
 				return;
@@ -245,14 +236,14 @@ namespace RTLIL
 		static inline void free_reference(int idx)
 		{
 			if (yosys_xtrace) {
-				log("#X# Removed IdString '%s' with index %d.\n", global_id_storage_.at(idx), idx);
+				log("#X# Removed IdString '%s' with index %d.\n", global_id_storage().at(idx), idx);
 				log_backtrace("-X- ", yosys_xtrace-1);
 			}
 
-			global_id_index_.erase(global_id_storage_.at(idx));
-			free(global_id_storage_.at(idx));
-			global_id_storage_.at(idx) = nullptr;
-			global_free_idx_list_.push_back(idx);
+			global_id_index().erase(global_id_storage().at(idx));
+			free(global_id_storage().at(idx));
+			global_id_storage().at(idx) = nullptr;
+			global_free_idx_list().push_back(idx);
 		}
 	#else
 		static inline void put_reference(int) { }
@@ -262,7 +253,10 @@ namespace RTLIL
 
 		int index_;
 
-		inline IdString() : index_(0) { }
+		inline IdString() : index_(0) {
+			// Ensures construction of static members before construction of IdString
+			get_reference("$empty_entry_for_init");
+		}
 		inline IdString(const char *str) : index_(get_reference(str)) { }
 		inline IdString(const IdString &str) : index_(get_reference(str.index_)) { }
 		inline IdString(IdString &&str) : index_(str.index_) { str.index_ = 0; }
@@ -285,11 +279,11 @@ namespace RTLIL
 		}
 
 		inline const char *c_str() const {
-			return global_id_storage_.at(index_);
+			return global_id_storage().at(index_);
 		}
 
 		inline std::string str() const {
-			return std::string(global_id_storage_.at(index_));
+			return std::string(global_id_storage().at(index_));
 		}
 
 		inline bool operator<(const IdString &rhs) const {
