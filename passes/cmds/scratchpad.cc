@@ -26,7 +26,7 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct ScratchpadPass : public Pass {
-	ScratchpadPass() : Pass("scratchpad", "get/set values in the scratchpad") { }
+	ScratchpadPass() : Pass("scratchpad", "get/set values in the scratchpad") { abstract_modules_ok = true; }
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

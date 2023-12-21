@@ -127,7 +127,7 @@ struct SetattrPass : public Pass {
 } SetattrPass;
 
 struct WbflipPass : public Pass {
-	WbflipPass() : Pass("wbflip", "flip the whitebox attribute") { }
+	WbflipPass() : Pass("wbflip", "flip the whitebox attribute") { abstract_modules_ok = true; }
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -166,7 +166,7 @@ struct WbflipPass : public Pass {
 } WbflipPass;
 
 struct SetparamPass : public Pass {
-	SetparamPass() : Pass("setparam", "set/unset parameters on objects") { }
+	SetparamPass() : Pass("setparam", "set/unset parameters on objects") { abstract_modules_ok = true; }
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -218,7 +218,7 @@ struct SetparamPass : public Pass {
 } SetparamPass;
 
 struct ChparamPass : public Pass {
-	ChparamPass() : Pass("chparam", "re-evaluate modules with new parameters") { }
+	ChparamPass() : Pass("chparam", "re-evaluate modules with new parameters") { abstract_modules_ok = true; }
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

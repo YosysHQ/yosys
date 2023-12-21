@@ -26,7 +26,7 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct LogPass : public Pass {
-	LogPass() : Pass("log", "print text and log files") { }
+	LogPass() : Pass("log", "print text and log files") { abstract_modules_ok = true; }
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

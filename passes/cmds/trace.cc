@@ -59,7 +59,7 @@ struct TraceMonitor : public RTLIL::Monitor
 };
 
 struct TracePass : public Pass {
-	TracePass() : Pass("trace", "redirect command output to file") { }
+	TracePass() : Pass("trace", "redirect command output to file") { abstract_modules_ok = true; }
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

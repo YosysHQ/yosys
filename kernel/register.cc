@@ -151,6 +151,22 @@ Pass::~Pass()
 
 Pass::pre_post_exec_state_t Pass::pre_execute()
 {
+	if (!abstract_modules_ok) {
+		bool has_top = false;
+		bool has_abstract = false;
+		for (auto mod : yosys_design->modules()) {
+			if (mod->get_bool_attribute(ID::top))
+				has_top = true;
+			if (mod->name.begins_with("$abstract"))
+				has_abstract = true;
+		}
+		if (has_abstract) {
+			std::string command = has_top ? "hierarchy" : "hierarchy -auto-top";
+			log_warning("Pass `%s` does not accept abstract modules; running `%s` first!\n", pass_name.c_str(), command.c_str());
+			run_pass(command);
+		}
+	}
+
 	pre_post_exec_state_t state;
 	call_counter++;
 	state.begin_ns = PerformanceTimer::query();
@@ -443,6 +459,7 @@ Frontend::Frontend(std::string name, std::string short_help) :
 		Pass(name.rfind("=", 0) == 0 ? name.substr(1) : "read_" + name, short_help),
 		frontend_name(name.rfind("=", 0) == 0 ? name.substr(1) : name)
 {
+	abstract_modules_ok = true;
 }
 
 void Frontend::run_register()

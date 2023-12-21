@@ -37,6 +37,7 @@ struct Pass
 	int call_counter;
 	int64_t runtime_ns;
 	bool experimental_flag = false;
+	bool abstract_modules_ok = false;
 
 	void experimental() {
 		experimental_flag = true;
@@ -78,7 +79,11 @@ struct ScriptPass : Pass
 	RTLIL::Design *active_design;
 	std::string active_run_from, active_run_to;
 
-	ScriptPass(std::string name, std::string short_help = "** document me **") : Pass(name, short_help) { }
+	ScriptPass(std::string name, std::string short_help = "** document me **") : Pass(name, short_help) {
+		// Either the script pass will include an explicit `hierarchy` invocation or one of the passes called inside will
+		// trigger the check for abstract modules.
+		abstract_modules_ok = true;
+	}
 
 	virtual void script() = 0;
 

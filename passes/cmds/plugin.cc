@@ -122,7 +122,7 @@ void load_plugin(std::string, std::vector<std::string>)
 #endif
 
 struct PluginPass : public Pass {
-	PluginPass() : Pass("plugin", "load and list loaded plugins") { }
+	PluginPass() : Pass("plugin", "load and list loaded plugins") { abstract_modules_ok = true; }
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

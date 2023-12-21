@@ -716,7 +716,7 @@ RTLIL::Wire *find_implicit_port_wire(Module *module, Cell *cell, const std::stri
 }
 
 struct HierarchyPass : public Pass {
-	HierarchyPass() : Pass("hierarchy", "check, expand and clean up design hierarchy") { }
+	HierarchyPass() : Pass("hierarchy", "check, expand and clean up design hierarchy") { abstract_modules_ok = true; }
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
