@@ -10,6 +10,24 @@ wire [3:0]z[7:2][2:9];
 //wire [$size(y)-1:0]y_size;
 //wire [$size(z)-1:0]z_size;
 
+assert property ($dimensions(t) == 1);
+assert property ($dimensions(x) == 1);
+assert property ($dimensions({3{x}}) == 1);
+assert property ($dimensions(y) == 2);
+assert property ($dimensions(y[2]) == 1);
+assert property ($dimensions(z) == 3);
+assert property ($dimensions(z[3]) == 2);
+assert property ($dimensions(z[3][3]) == 1);
+
+assert property ($unpacked_dimensions(t) == 0);
+assert property ($unpacked_dimensions(x) == 0);
+assert property ($unpacked_dimensions({3{x}}) == 0);
+assert property ($unpacked_dimensions(y) == 1);
+assert property ($unpacked_dimensions(y[2]) == 0);
+assert property ($unpacked_dimensions(z) == 2);
+assert property ($unpacked_dimensions(z[3]) == 1);
+assert property ($unpacked_dimensions(z[3][3]) == 0);
+
 assert property ($size(t) == 1);
 assert property ($size(x) == 4);
 assert property ($size({3{x}}) == 3*4);
