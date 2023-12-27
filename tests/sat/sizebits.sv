@@ -90,4 +90,17 @@ assert property ($right(z, 3) == 0);
 assert property ($right(z[3]) == 9);
 assert property ($right(z[3][3]) == 0);
 assert property ($right(z[3], 2) == 0);
+
+assert property ($increment(x) == 1);
+assert property ($increment(y) == -1);
+assert property ($increment(y, 1) == -1);
+assert property ($increment(y, (1+1)) == 1);
+
+assert property ($increment(z) == 1);
+assert property ($increment(z, 1) == 1);
+assert property ($increment(z, 2) == -1);
+assert property ($increment(z, 3) == 1);
+assert property ($increment(z[3]) == -1);
+assert property ($increment(z[3][3]) == 1);
+assert property ($increment(z[3], 2) == 1);
 endmodule
