@@ -488,6 +488,20 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 		fprintf(f, ";\n");
 		break;
 
+	if (0) { case AST_MEMRD:   txt = "@memrd@";  }
+	if (0) { case AST_MEMINIT: txt = "@meminit@";  }
+	if (0) { case AST_MEMWR:   txt = "@memwr@";  }
+		fprintf(f, "%s%s", indent.c_str(), txt.c_str());
+		for (auto child : children) {
+			fprintf(f, first ? "(" : ", ");
+			child->dumpVlog(f, "");
+			first = false;
+		}
+		fprintf(f, ")");
+		if (type != AST_MEMRD)
+			fprintf(f, ";\n");
+		break;
+
 	case AST_RANGE:
 		if (range_valid) {
 			if (range_swapped)
@@ -554,6 +568,12 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 		}
 		for (auto child : children)
 			child->dumpVlog(f, "");
+		break;
+
+	case AST_STRUCT:
+	case AST_UNION:
+	case AST_STRUCT_ITEM:
+		fprintf(f, "%s", id2vl(str).c_str());
 		break;
 
 	case AST_CONSTANT:
