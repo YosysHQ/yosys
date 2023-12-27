@@ -3603,10 +3603,11 @@ skip_dynamic_range_lvalue_expansion:;
 				goto apply_newNode;
 			}
 
-			if (str == "\\$increment" || str == "\\$size" || str == "\\$bits" || str == "\\$high" || str == "\\$low" || str == "\\$left" || str == "\\$right")
+			if (str == "\\$dimensions" || str == "\\$unpacked_dimensions" ||
+			    str == "\\$increment" || str == "\\$size" || str == "\\$bits" || str == "\\$high" || str == "\\$low" || str == "\\$left" || str == "\\$right")
 			{
 				int dim = 1;
-				if (str == "\\$bits") {
+				if (str == "\\$dimensions" || str == "\\$unpacked_dimensions" || str == "\\$bits") {
 					if (children.size() != 1)
 						input_error("System function %s got %d arguments, expected 1.\n",
 								RTLIL::unescape_id(str).c_str(), int(children.size()));
@@ -3625,6 +3626,7 @@ skip_dynamic_range_lvalue_expansion:;
 				AstNode *buf = children[0]->clone();
 				int mem_depth = 1;
 				int result, high = 0, low = 0, left = 0, right = 0, width = 1; // defaults for a simple wire
+				int expr_dimensions = 0, expr_unpacked_dimensions = 0;
 				AstNode *id_ast = NULL;
 
 				buf->detectSignWidth(width_hint, sign_hint);
@@ -3650,6 +3652,10 @@ skip_dynamic_range_lvalue_expansion:;
 						// or if the second argument is out of range, then 'x shall be returned."
 						if (dim < 1 || dim > dims)
 							input_error("Dimension %d out of range in `%s', as it only has %d dimensions!\n", dim, id_ast->str.c_str(), dims);
+
+						expr_dimensions = dims - dim + 1;
+						expr_unpacked_dimensions = std::max(id_ast->unpacked_dimensions - dim + 1, 0);
+
 						right = low  = id_ast->dimensions[dim - 1].range_right;
 						left  = high = low + id_ast->dimensions[dim - 1].range_width - 1;
 						if (id_ast->dimensions[dim - 1].range_swapped) {
@@ -3662,9 +3668,16 @@ skip_dynamic_range_lvalue_expansion:;
 					width = high - low + 1;
 				} else {
 					width = width_hint;
+					right = low  = 0;
+					left  = high = width - 1;
+					expr_dimensions = 1;
 				}
 				delete buf;
-				if (str == "\\$high")
+				if (str == "\\$dimensions")
+					result = expr_dimensions;
+				else if (str == "\\$unpacked_dimensions")
+					result = expr_unpacked_dimensions;
+				else if (str == "\\$high")
 					result = high;
 				else if (str == "\\$low")
 					result = low;
