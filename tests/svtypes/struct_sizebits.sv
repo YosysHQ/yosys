@@ -107,6 +107,19 @@ always_comb begin
 	assert ($right(s.sz.z[3]) == 9);
 	assert ($right(s.sz.z[3][3]) == 4);
 	assert ($right(s.sz.z[3], 2) == 4);
+
+	assert ($increment(s.x) == 1);
+	assert ($increment(s.sy.y) == -1);
+	assert ($increment(s.sy.y, 1) == -1);
+	assert ($increment(s.sy.y, (1+1)) == 1);
+
+	assert ($increment(s.sz.z) == 1);
+	assert ($increment(s.sz.z, 1) == 1);
+	assert ($increment(s.sz.z, 2) == -1);
+	assert ($increment(s.sz.z, 3) == -1);
+	assert ($increment(s.sz.z[3]) == -1);
+	assert ($increment(s.sz.z[3][3]) == -1);
+	assert ($increment(s.sz.z[3], 2) == -1);
 end
 
 endmodule

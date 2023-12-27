@@ -3487,7 +3487,7 @@ skip_dynamic_range_lvalue_expansion:;
 				goto apply_newNode;
 			}
 
-			if (str == "\\$size" || str == "\\$bits" || str == "\\$high" || str == "\\$low" || str == "\\$left" || str == "\\$right")
+			if (str == "\\$increment" || str == "\\$size" || str == "\\$bits" || str == "\\$high" || str == "\\$low" || str == "\\$left" || str == "\\$right")
 			{
 				int dim = 1;
 				if (str == "\\$bits") {
@@ -3556,6 +3556,8 @@ skip_dynamic_range_lvalue_expansion:;
 					result = left;
 				else if (str == "\\$right")
 					result = right;
+				else if (str == "\\$increment")
+					result = left >= right ? 1 : -1;
 				else if (str == "\\$size")
 					result = width;
 				else { // str == "\\$bits"
