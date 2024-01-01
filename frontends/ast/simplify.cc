@@ -551,6 +551,22 @@ static AstNode *make_packed_struct(AstNode *template_node, std::string &name, de
 	return wnode;
 }
 
+static void prepend_ranges(AstNode *&range, AstNode *range_add)
+{
+	// Convert range to multirange.
+	if (range->type == AST_RANGE)
+		range = new AstNode(AST_MULTIRANGE, range);
+
+	// Add range or ranges.
+	if (range_add->type == AST_RANGE)
+		range->children.insert(range->children.begin(), range_add->clone());
+	else {
+		int i = 0;
+		for (auto child : range_add->children)
+			range->children.insert(range->children.begin() + i++, child->clone());
+	}
+}
+
 // check if a node or its children contains an assignment to the given variable
 static bool node_contains_assignment_to(const AstNode* node, const AstNode* var)
 {
@@ -1875,8 +1891,10 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			log_assert(resolved_type_node->children.size() == 1);
 			AstNode *template_node = resolved_type_node->children[0];
 
-			// Ensure typedef itself is fully simplified
-			while (template_node->simplify(const_fold, stage, width_hint, sign_hint)) {};
+			// Resolve the typedef from the bottom up, recursing within the current
+			// block of code. Defer further simplification until the complete type is
+			// resolved.
+			while (template_node->is_custom_type && template_node->simplify(const_fold, stage, width_hint, sign_hint)) {};
 
 			if (!str.empty() && str[0] == '\\' && (template_node->type == AST_STRUCT || template_node->type == AST_UNION)) {
 				// replace instance with wire representing the packed structure
@@ -1889,90 +1907,68 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				goto apply_newNode;
 			}
 
-			// Remove type reference
-			delete children[0];
-			children.erase(children.begin());
-
-			if (type == AST_WIRE)
-				type = template_node->type;
-			is_reg = template_node->is_reg;
-			is_logic = template_node->is_logic;
-			is_signed = template_node->is_signed;
-			is_string = template_node->is_string;
-			is_custom_type = template_node->is_custom_type;
-
-			range_valid = template_node->range_valid;
-			range_swapped = template_node->range_swapped;
-			range_left = template_node->range_left;
-			range_right = template_node->range_right;
-
-			set_attribute(ID::wiretype, mkconst_str(resolved_type_node->str));
+			// Prepare replacement node.
+			newNode = template_node->clone();
+			newNode->str = str;
+			newNode->set_attribute(ID::wiretype, mkconst_str(resolved_type_node->str));
+			newNode->is_input = is_input;
+			newNode->is_output = is_output;
+			newNode->is_wand = is_wand;
+			newNode->is_wor = is_wor;
+			for (auto &pair : attributes)
+				newNode->set_attribute(pair.first, pair.second->clone());
 
 			// if an enum then add attributes to support simulator tracing
-			annotateTypedEnums(template_node);
+			newNode->annotateTypedEnums(template_node);
 
-			// Insert clones children from template at beginning
-			for (int i  = 0; i < GetSize(template_node->children); i++)
-				children.insert(children.begin() + i, template_node->children[i]->clone());
+			bool add_packed_dimensions = (type == AST_WIRE && GetSize(children) > 1) || (type == AST_MEMORY && GetSize(children) > 2);
 
-			if (type == AST_MEMORY && GetSize(children) == 1) {
-				// Single-bit memories must have [0:0] range
-				AstNode *rng = make_range(0, 0);
-				children.insert(children.begin(), rng);
+			// Cannot add packed dimensions if unpacked dimensions are already specified.
+			if (add_packed_dimensions && newNode->type == AST_MEMORY)
+				input_error("Cannot extend unpacked type `%s' with packed dimensions\n", type_name.c_str());
+
+			// Add packed dimensions.
+			if (add_packed_dimensions) {
+				AstNode *packed = children[1];
+				if (newNode->children.empty())
+					newNode->children.insert(newNode->children.begin(), packed->clone());
+				else
+					prepend_ranges(newNode->children[0], packed);
 			}
-			fixup_hierarchy_flags();
-			did_something = true;
+
+			// Add unpacked dimensions.
+			if (type == AST_MEMORY) {
+				AstNode *unpacked = children.back();
+				if (GetSize(newNode->children) < 2)
+					newNode->children.push_back(unpacked->clone());
+				else
+					prepend_ranges(newNode->children[1], unpacked);
+				newNode->type = type;
+			}
+
+			// Prepare to generate dimensions metadata for the resolved type.
+			newNode->dimensions.clear();
+			newNode->unpacked_dimensions = 0;
+
+			goto apply_newNode;
 		}
-		log_assert(!is_custom_type);
 	}
 
 	// resolve types of parameters
 	if (type == AST_LOCALPARAM || type == AST_PARAMETER) {
 		if (is_custom_type) {
-			log_assert(children.size() == 2);
+			log_assert(children.size() >= 2);
 			log_assert(children[1]->type == AST_WIRETYPE);
-			auto type_name = children[1]->str;
-			if (!current_scope.count(type_name)) {
-				input_error("Unknown identifier `%s' used as type name\n", type_name.c_str());
-			}
-			AstNode *resolved_type_node = current_scope.at(type_name);
-			if (resolved_type_node->type != AST_TYPEDEF)
-				input_error("`%s' does not name a type\n", type_name.c_str());
-			log_assert(resolved_type_node->children.size() == 1);
-			AstNode *template_node = resolved_type_node->children[0];
-
-			// Ensure typedef itself is fully simplified
-			while (template_node->simplify(const_fold, stage, width_hint, sign_hint)) {};
-
-			if (template_node->type == AST_STRUCT || template_node->type == AST_UNION) {
-				// replace with wire representing the packed structure
-				newNode = make_packed_struct(template_node, str, attributes);
-				newNode->set_attribute(ID::wiretype, mkconst_str(resolved_type_node->str));
-				newNode->type = type;
-				current_scope[str] = this;
-				// copy param value, it needs to be 1st value
-				delete children[1];
-				children.pop_back();
-				newNode->children.insert(newNode->children.begin(), children[0]->clone());
-				goto apply_newNode;
-			}
-			delete children[1];
-			children.pop_back();
-
-			if (template_node->type == AST_MEMORY)
+			// Pretend it's a wire in order to resolve the type in the code block above.
+			AstNodeType param_type = type;
+			type = AST_WIRE;
+			AstNode *expr = children[0];
+			children.erase(children.begin());
+			while (simplify(const_fold, stage, width_hint, sign_hint)) {};
+			type = param_type;
+			children.insert(children.begin(), expr);
+			if (children[1]->type == AST_MEMORY)
 				input_error("unpacked array type `%s' cannot be used for a parameter\n", children[1]->str.c_str());
-			is_signed = template_node->is_signed;
-			is_string = template_node->is_string;
-			is_custom_type = template_node->is_custom_type;
-
-			range_valid = template_node->range_valid;
-			range_swapped = template_node->range_swapped;
-			range_left = template_node->range_left;
-			range_right = template_node->range_right;
-
-			set_attribute(ID::wiretype, mkconst_str(resolved_type_node->str));
-			for (auto template_child : template_node->children)
-				children.push_back(template_child->clone());
 			fixup_hierarchy_flags();
 			did_something = true;
 		}

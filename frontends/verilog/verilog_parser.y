@@ -2122,7 +2122,7 @@ typedef_decl:
 			astbuf1->children.push_back(astbuf2);
 
 		if ($5 != NULL) {
-			if (!astbuf2) {
+			if (!astbuf2 && !astbuf1->is_custom_type) {
 				addRange(astbuf1, 0, 0, false);
 			}
 			rewriteAsMemoryNode(astbuf1, $5);
