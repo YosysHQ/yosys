@@ -60,42 +60,10 @@ struct QlDspSimdPass : public Pass {
 
 	// ..........................................
 
-	// DSP control and config ports to consider and how to map them to ports
-	// of the target DSP cell
-	const std::vector<std::pair<IdString, IdString>> m_DspCfgPorts = {
-		std::make_pair(ID(clock_i), ID(clk)),
-		std::make_pair(ID(reset_i), ID(reset)),
-		std::make_pair(ID(feedback_i), ID(feedback)),
-		std::make_pair(ID(load_acc_i), ID(load_acc)),
-		std::make_pair(ID(unsigned_a_i), ID(unsigned_a)),
-		std::make_pair(ID(unsigned_b_i), ID(unsigned_b)),
-		std::make_pair(ID(subtract_i), ID(subtract)),
-		std::make_pair(ID(output_select_i), ID(output_select)),
-		std::make_pair(ID(saturate_enable_i), ID(saturate_enable)),
-		std::make_pair(ID(shift_right_i), ID(shift_right)),
-		std::make_pair(ID(round_i), ID(round)),
-		std::make_pair(ID(register_inputs_i), ID(register_inputs))
-	};
-
 	const int m_ModeBitsSize = 80;
-
-	// DSP data ports and how to map them to ports of the target DSP cell
-	const std::vector<std::pair<IdString, IdString>> m_DspDataPorts = {
-		std::make_pair(ID(a_i), ID(a)),
-		std::make_pair(ID(b_i), ID(b)),
-		std::make_pair(ID(acc_fir_i), ID(acc_fir)),
-		std::make_pair(ID(z_o), ID(z)),
-		std::make_pair(ID(dly_b_o), ID(dly_b))
-	};
 
 	// DSP parameters
 	const std::vector<std::string> m_DspParams = {"COEFF_3", "COEFF_2", "COEFF_1", "COEFF_0"};
-
-	// Source DSP cell type (SISD)
-	const IdString m_SisdDspType = ID(dsp_t1_10x9x32);
-
-	// Target DSP cell types for the SIMD mode
-	const IdString m_SimdDspType = ID(QL_DSP2);
 
 	/// Temporary SigBit to SigBit helper map.
 	SigMap sigmap;
@@ -105,6 +73,38 @@ struct QlDspSimdPass : public Pass {
 	void execute(std::vector<std::string> a_Args, RTLIL::Design *a_Design) override
 	{
 		log_header(a_Design, "Executing QL_DSP_SIMD pass.\n");
+
+		// DSP control and config ports to consider and how to map them to ports
+		// of the target DSP cell
+		static const std::vector<std::pair<IdString, IdString>> m_DspCfgPorts = {
+			std::make_pair(ID(clock_i), ID(clk)),
+			std::make_pair(ID(reset_i), ID(reset)),
+			std::make_pair(ID(feedback_i), ID(feedback)),
+			std::make_pair(ID(load_acc_i), ID(load_acc)),
+			std::make_pair(ID(unsigned_a_i), ID(unsigned_a)),
+			std::make_pair(ID(unsigned_b_i), ID(unsigned_b)),
+			std::make_pair(ID(subtract_i), ID(subtract)),
+			std::make_pair(ID(output_select_i), ID(output_select)),
+			std::make_pair(ID(saturate_enable_i), ID(saturate_enable)),
+			std::make_pair(ID(shift_right_i), ID(shift_right)),
+			std::make_pair(ID(round_i), ID(round)),
+			std::make_pair(ID(register_inputs_i), ID(register_inputs))
+		};
+
+		// DSP data ports and how to map them to ports of the target DSP cell
+		static const std::vector<std::pair<IdString, IdString>> m_DspDataPorts = {
+			std::make_pair(ID(a_i), ID(a)),
+			std::make_pair(ID(b_i), ID(b)),
+			std::make_pair(ID(acc_fir_i), ID(acc_fir)),
+			std::make_pair(ID(z_o), ID(z)),
+			std::make_pair(ID(dly_b_o), ID(dly_b))
+		};
+
+		// Source DSP cell type (SISD)
+		static const IdString m_SisdDspType = ID(dsp_t1_10x9x32);
+
+		// Target DSP cell types for the SIMD mode
+		static const IdString m_SimdDspType = ID(QL_DSP2);
 
 		// Parse args
 		extra_args(a_Args, 1, a_Design);
@@ -126,7 +126,7 @@ struct QlDspSimdPass : public Pass {
 					continue;
 
 				// Add to a group
-				const auto key = getDspConfig(cell);
+				const auto key = getDspConfig(cell, m_DspCfgPorts);
 				groups[key].push_back(cell);
 			}
 
@@ -255,11 +255,11 @@ struct QlDspSimdPass : public Pass {
 	}
 
 	/// Given a DSP cell populates and returns a DspConfig struct for it.
-	DspConfig getDspConfig(RTLIL::Cell *a_Cell)
+	DspConfig getDspConfig(RTLIL::Cell *a_Cell, const std::vector<std::pair<IdString, IdString>> &dspCfgPorts)
 	{
 		DspConfig config;
 
-		for (const auto &it : m_DspCfgPorts) {
+		for (const auto &it : dspCfgPorts) {
 			auto port = it.first;
 
 			// Port unconnected

@@ -31,9 +31,6 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct QlBramMergeWorker {
 
-	const RTLIL::IdString split_cell_type = ID($__QLF_TDP36K);
-	const RTLIL::IdString merged_cell_type = ID($__QLF_TDP36K_MERGED);
-
 	// can be used to record parameter values that have to match on both sides
 	typedef dict<RTLIL::IdString, RTLIL::Const> MergeableGroupKeyType;
 
@@ -42,6 +39,8 @@ struct QlBramMergeWorker {
 
 	QlBramMergeWorker(RTLIL::Module* module) : module(module)
 	{
+		const RTLIL::IdString split_cell_type = ID($__QLF_TDP36K);
+
 		for (RTLIL::Cell* cell : module->selected_cells())
 		{
 			if(cell->type != split_cell_type) continue;
@@ -125,6 +124,7 @@ struct QlBramMergeWorker {
 
 	void merge_brams(RTLIL::Cell* bram1, RTLIL::Cell* bram2)
 	{
+		const RTLIL::IdString merged_cell_type = ID($__QLF_TDP36K_MERGED);
 
 		// Create the new cell
 		RTLIL::Cell* merged = module->addCell(NEW_ID, merged_cell_type);

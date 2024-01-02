@@ -30,10 +30,6 @@ PRIVATE_NAMESPACE_BEGIN
 // ============================================================================
 
 struct QlDspIORegs : public Pass {
-	const std::vector<IdString> ports2del_mult = {ID(load_acc), ID(subtract), ID(acc_fir), ID(dly_b),
-													 ID(saturate_enable), ID(shift_right), ID(round)};
-	const std::vector<IdString> ports2del_mult_acc = {ID(acc_fir), ID(dly_b)};
-
 	SigMap sigmap;
 
 	// ..........................................
@@ -67,6 +63,11 @@ struct QlDspIORegs : public Pass {
 
 	void ql_dsp_io_regs_pass(RTLIL::Module *module)
 	{
+		static const std::vector<IdString> ports2del_mult = {ID(load_acc), ID(subtract), ID(acc_fir), ID(dly_b),
+														ID(saturate_enable), ID(shift_right), ID(round)};
+		static const std::vector<IdString> ports2del_mult_acc = {ID(acc_fir), ID(dly_b)};
+
+
 		sigmap.set(module);
 
 		for (auto cell : module->cells()) {
