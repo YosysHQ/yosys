@@ -149,25 +149,29 @@ each of these in more detail in :doc:`/using_yosys/synthesis/proc`.
    :doc:`/cmd/opt_expr`
 
    - by default called at the end of :cmd:ref:`proc`
+   - can be disabled with ``-noopt``
+   - done here for... reasons?
 
 Notice how in the top left of :ref:`addr_gen_proc` we have a floating wire,
 generated from the initial assignment of 0 to the ``addr`` wire.  However, this
 initial assignment is not synthesizable, so this will need to be cleaned up
 before we can generate the physical hardware.  We can do this now by calling
-:cmd:ref:`opt_clean`:
+:cmd:ref:`clean`:
 
 .. figure:: /_images/code_examples/fifo/addr_gen_clean.*
    :class: width-helper
    :name: addr_gen_clean
 
-   ``addr_gen`` module after :cmd:ref:`opt_clean`
+   ``addr_gen`` module after :cmd:ref:`clean`
 
-.. TODO:: more on opt_clean
-   :doc:`/cmd/opt_clean`
+.. note::
 
-   - :cmd:ref:`clean` for short, ``;;`` for even shorter
-   - final command of :cmd:ref:`opt`
-   - can run at any time
+   :doc:`/cmd/clean` can also be called with two semicolons after any command,
+   for example we could have called :yoscrypt:`proc;;` instead of
+   :yoscrypt:`proc` and then :yoscrypt:`clean`.  It is generally beneficial to
+   run :cmd:ref:`clean` after each command as a quick way of removing
+   disconnected parts of the circuit which have been left over.  You may notice
+   some scripts will end each line with ``;;``.
 
 .. todo:: consider a brief glossary for terms like adff
 
@@ -231,11 +235,15 @@ command only works with a single module, so you may need to call it with
 
 The highlighted ``fifo_reader`` block contains an instance of the
 :ref:`addr_gen_proc` that we looked at earlier.  Notice how the type is shown as
-``$paramod\\addr_gen\\MAX_DATA=s32'...``.  This is a "parametric module"; an
-instance of the ``addr_gen`` module with the ``MAX_DATA`` set to the given
-value.
+``$paramod\\addr_gen\\MAX_DATA=s32'...``.  This is a "parametric module": an
+instance of the ``addr_gen`` module with the ``MAX_DATA`` parameter set to the
+given value.
 
-.. TODO:: comment on ``$memrd``
+The other highlighted block is a ``$memrd`` cell.  At this stage of synthesis we
+don't yet know what type of memory is going to be implemented, but we *do* know
+that ``rdata <= data[raddr];`` could be implemented as a read from memory. Note
+that the ``$memrd`` cell here is asynchronous, with both the clock and enable
+signal undefined; shown with the ``1'x`` inputs.
 
 .. seealso:: Advanced usage docs for
    :doc:`/using_yosys/synthesis/proc`
@@ -261,7 +269,7 @@ optimizations between modules which would otherwise be missed.  Let's run
 .. literalinclude:: /code_examples/fifo/fifo.out
    :language: doscon
    :start-at: yosys> flatten
-   :end-before: yosys> show
+   :end-before: yosys> select
    :name: flat_clean
    :caption: output of :yoscrypt:`flatten;;`
 
@@ -271,16 +279,24 @@ optimizations between modules which would otherwise be missed.  Let's run
 
    ``rdata`` output after :yoscrypt:`flatten;;`
 
-We can now see both :ref:`rdata_proc` and :ref:`addr_gen_proc` together.  Note
-that in the :ref:`flat_clean` we see above has two separate calls: one to
-:cmd:ref:`flatten` and one to :cmd:ref:`clean`.  In an interactive terminal the
-output of both commands will be combined into the single `yosys> flatten;;`
-output.
+.. role:: yoterm(code)
+   :language: doscon
 
-Depending on the target architecture, we might also see commands such as
-:cmd:ref:`tribuf` with the ``-logic`` option and :cmd:ref:`deminout`.  These
-remove tristate and inout constructs respectively, replacing them with logic
-suitable for mapping to an FPGA.
+The pieces have moved around a bit, but we can see :ref:`addr_gen_proc` from
+earlier has replaced the ``fifo_reader`` block in :ref:`rdata_proc`.  We can
+also see that the ``addr`` output has been renamed to ``fifo_reader.addr`` and
+merged with the ``raddr`` wire feeding into the ``$memrd`` cell.  This wire
+merging happened during the call to :cmd:ref:`clean` which we can see in the
+:ref:`flat_clean`.  Note that in an interactive terminal the outputs of
+:cmd:ref:`flatten` and :cmd:ref:`clean` will be combined into a single
+:yoterm:`yosys> flatten;;` output.
+
+Depending on the target architecture, this stage of synthesis might also see
+commands such as :cmd:ref:`tribuf` with the ``-logic`` option and
+:cmd:ref:`deminout`.  These remove tristate and inout constructs respectively,
+replacing them with logic suitable for mapping to an FPGA.  Since we do not have
+any such constructs in our example running these commands does not change our
+design.
 
 The coarse-grain representation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -314,18 +330,18 @@ In the iCE40 flow, we start with the following commands:
    :caption: ``coarse`` section (part 1)
    :name: synth_coarse1
 
-The first few commands are relatively straightforward, and we've already come
-across :cmd:ref:`opt_clean` and :cmd:ref:`opt_expr`.  The :cmd:ref:`check` pass
-identifies a few obvious problems which will cause errors later.  Calling it
-here lets us fail faster rather than wasting time on something we know is
+We've already come across :cmd:ref:`opt_expr`, and :cmd:ref:`opt_clean` is the
+same as :cmd:ref:`clean` but with more verbose output.  The :cmd:ref:`check`
+pass identifies a few obvious problems which will cause errors later.  Calling
+it here lets us fail faster rather than wasting time on something we know is
 impossible.
 
 Next up is :yoscrypt:`opt -nodffe -nosdff` performing a set of simple
 optimizations on the design.  This command also ensures that only a specific
 subset of FF types are included, in preparation for the next command:
 :doc:`/cmd/fsm`.  Both :cmd:ref:`opt` and :cmd:ref:`fsm` are macro commands
-which are explored in more detail in :doc:`/using_yosys/synthesis/fsm` and
-:doc:`/using_yosys/synthesis/opt` respectively.
+which are explored in more detail in :doc:`/using_yosys/synthesis/opt` and
+:doc:`/using_yosys/synthesis/fsm` respectively.
 
 Up until now, the data path for ``rdata`` has remained the same since
 :ref:`rdata_flat`.  However the next call to :cmd:ref:`opt` does cause a change.
@@ -384,7 +400,10 @@ Our next command to run is
    ``rdata`` output after :cmd:ref:`memory_dff`
 
 As the title suggests, :cmd:ref:`memory_dff` has merged the output ``$dff`` into
-the ``$memrd`` cell and converted it to a ``$memrd_v2`` (highlighted).
+the ``$memrd`` cell and converted it to a ``$memrd_v2`` (highlighted).  This has
+also connected the ``CLK`` port to the ``clk`` input as it is now a synchronous
+memory read with appropriate enable (``EN=1'1``) and reset (``ARST=1'0`` and
+``SRST=1'0``) inputs.
 
 .. seealso:: Advanced usage docs for
    

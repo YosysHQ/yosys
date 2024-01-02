@@ -1,0 +1,45 @@
+read_verilog fifo.v
+synth_ice40 -top fifo -run begin:map_ram
+# this point should be the same as rdata_coarse
+
+# ========================================================
+
+synth_ice40 -top fifo -run map_ram:map_ffram
+select -set new_cells t:SB_RAM40_4K
+select -set rdata_path @new_cells %ci*:-SB_RAM40_4K[WDATA,WADDR,WE] @new_cells %co* %%
+show -color maroon3 @new_cells -notitle -format dot -prefix rdata_map_ram @rdata_path
+
+# ========================================================
+
+synth_ice40 -top fifo -run map_ffram:map_gates
+select -set new_cells t:SB_RAM40_4K
+select -set rdata_path @new_cells %ci*:-SB_RAM40_4K[WDATA,WADDR,WE] @new_cells %co* %%
+show -color maroon3 @new_cells -notitle -format dot -prefix rdata_map_ffram @rdata_path
+
+# ========================================================
+
+synth_ice40 -top fifo -run map_gates:map_ffs
+select -set new_cells t:SB_RAM40_4K
+select -set rdata_path @new_cells %ci*:-SB_RAM40_4K[WDATA,WADDR,WE] @new_cells %co* %%
+show -color maroon3 @new_cells -notitle -format dot -prefix rdata_map_gates @rdata_path
+
+# ========================================================
+
+synth_ice40 -top fifo -run map_ffs:map_luts
+select -set new_cells t:SB_RAM40_4K
+select -set rdata_path @new_cells %ci*:-SB_RAM40_4K[WDATA,WADDR,WE] @new_cells %co* %%
+show -color maroon3 @new_cells -notitle -format dot -prefix rdata_map_ffs @rdata_path
+
+# ========================================================
+
+synth_ice40 -top fifo -run map_luts:map_cells
+select -set new_cells t:SB_RAM40_4K
+select -set rdata_path @new_cells %ci*:-SB_RAM40_4K[WDATA,WADDR,WE] @new_cells %co* %%
+show -color maroon3 @new_cells -notitle -format dot -prefix rdata_map_luts @rdata_path
+
+# ========================================================
+
+synth_ice40 -top fifo -run map_cells:
+select -set new_cells t:SB_RAM40_4K
+select -set rdata_path @new_cells %ci*:-SB_RAM40_4K[WDATA,WADDR,WE] @new_cells %co* %%
+show -color maroon3 @new_cells -notitle -format dot -prefix rdata_map_cells @rdata_path
