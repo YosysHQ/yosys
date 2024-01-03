@@ -44,6 +44,15 @@ show -color maroon3 @new_cells -notitle -format dot -prefix rdata_adffe o:rdata 
 
 # ========================================================
 
+wreduce
+select -set new_cells t:$add %co t:$add %d
+show -color maroon3 @new_cells -notitle -format dot -prefix rdata_wreduce o:rdata %ci*
+
+# unclear if this is necessary or only because of bug(s)
+opt_clean
+
+# ========================================================
+
 memory_dff
 select -set new_cells t:$memrd_v2
 show -color maroon3 @new_cells -notitle -format dot -prefix rdata_memrdv2 o:rdata %ci*
@@ -57,6 +66,10 @@ show -color maroon3 @new_cells -notitle -format dot -prefix rdata_alumacc o:rdat
 # ========================================================
 
 memory -nomap
+# or use the following commands:
+# design -reset
+# read_verilog fifo.v
+# synth_ice40 -top fifo -run begin:map_ram
 select -set new_cells t:$mem_v2
 select -set rdata_path @new_cells %ci*:-$mem_v2[WR_DATA,WR_ADDR,WR_EN] @new_cells %co* %%
 show -color maroon3 @new_cells -notitle -format dot -prefix rdata_coarse @rdata_path

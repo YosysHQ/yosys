@@ -301,9 +301,42 @@ yosys> show -color maroon3 @new_cells -notitle -format dot -prefix rdata_adffe o
 Writing dot description to `rdata_adffe.dot'.
 Dumping selected parts of module fifo to page 1.
 
+yosys> wreduce
+
+16. Executing WREDUCE pass (reducing word size of cells).
+Removed top 31 bits (of 32) from port B of cell fifo.$add$fifo.v:68$27 ($add).
+Removed top 23 bits (of 32) from port Y of cell fifo.$add$fifo.v:68$27 ($add).
+Removed top 31 bits (of 32) from port B of cell fifo.$sub$fifo.v:70$30 ($sub).
+Removed top 23 bits (of 32) from port Y of cell fifo.$sub$fifo.v:70$30 ($sub).
+Removed top 1 bits (of 2) from port B of cell fifo.$auto$opt_dff.cc:195:make_patterns_logic$64 ($ne).
+Removed cell fifo.$flatten\fifo_writer.$procmux$53 ($mux).
+Removed top 31 bits (of 32) from port B of cell fifo.$flatten\fifo_writer.$add$fifo.v:20$34 ($add).
+Removed top 24 bits (of 32) from port Y of cell fifo.$flatten\fifo_writer.$add$fifo.v:20$34 ($add).
+Removed cell fifo.$flatten\fifo_reader.$procmux$53 ($mux).
+Removed top 31 bits (of 32) from port B of cell fifo.$flatten\fifo_reader.$add$fifo.v:20$34 ($add).
+Removed top 24 bits (of 32) from port Y of cell fifo.$flatten\fifo_reader.$add$fifo.v:20$34 ($add).
+Removed top 23 bits (of 32) from wire fifo.$add$fifo.v:68$27_Y.
+Removed top 24 bits (of 32) from wire fifo.$flatten\fifo_reader.$add$fifo.v:20$34_Y.
+Removed top 24 bits (of 32) from wire fifo.$flatten\fifo_writer.$add$fifo.v:20$34_Y.
+
+yosys> select -set new_cells t:$add %co t:$add %d
+
+yosys> show -color maroon3 @new_cells -notitle -format dot -prefix rdata_wreduce o:rdata %ci*
+
+17. Generating Graphviz representation of design.
+Writing dot description to `rdata_wreduce.dot'.
+Dumping selected parts of module fifo to page 1.
+
+yosys> opt_clean
+
+18. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \fifo..
+Removed 0 unused cells and 5 unused wires.
+<suppressed ~1 debug messages>
+
 yosys> memory_dff
 
-16. Executing MEMORY_DFF pass (merging $dff cells to $memrd).
+19. Executing MEMORY_DFF pass (merging $dff cells to $memrd).
 Checking read port `\data'[0] in module `\fifo': merging output FF to cell.
     Write port 0: non-transparent.
 
@@ -311,13 +344,13 @@ yosys> select -set new_cells t:$memrd_v2
 
 yosys> show -color maroon3 @new_cells -notitle -format dot -prefix rdata_memrdv2 o:rdata %ci*
 
-17. Generating Graphviz representation of design.
+20. Generating Graphviz representation of design.
 Writing dot description to `rdata_memrdv2.dot'.
 Dumping selected parts of module fifo to page 1.
 
 yosys> alumacc
 
-18. Executing ALUMACC pass (create $alu and $macc cells).
+21. Executing ALUMACC pass (create $alu and $macc cells).
 Extracting $alu and $macc cells in module fifo:
   creating $macc model for $add$fifo.v:68$27 ($add).
   creating $macc model for $flatten\fifo_reader.$add$fifo.v:20$34 ($add).
@@ -327,70 +360,70 @@ Extracting $alu and $macc cells in module fifo:
   creating $alu model for $macc $flatten\fifo_writer.$add$fifo.v:20$34.
   creating $alu model for $macc $flatten\fifo_reader.$add$fifo.v:20$34.
   creating $alu model for $macc $add$fifo.v:68$27.
-  creating $alu cell for $flatten\fifo_reader.$add$fifo.v:20$34: $auto$alumacc.cc:485:replace_alu$76
-  creating $alu cell for $flatten\fifo_writer.$add$fifo.v:20$34: $auto$alumacc.cc:485:replace_alu$79
-  creating $alu cell for $add$fifo.v:68$27: $auto$alumacc.cc:485:replace_alu$82
-  creating $alu cell for $sub$fifo.v:70$30: $auto$alumacc.cc:485:replace_alu$85
+  creating $alu cell for $add$fifo.v:68$27: $auto$alumacc.cc:485:replace_alu$79
+  creating $alu cell for $flatten\fifo_reader.$add$fifo.v:20$34: $auto$alumacc.cc:485:replace_alu$82
+  creating $alu cell for $flatten\fifo_writer.$add$fifo.v:20$34: $auto$alumacc.cc:485:replace_alu$85
+  creating $alu cell for $sub$fifo.v:70$30: $auto$alumacc.cc:485:replace_alu$88
   created 4 $alu and 0 $macc cells.
 
 yosys> select -set new_cells t:$alu t:$macc
 
 yosys> show -color maroon3 @new_cells -notitle -format dot -prefix rdata_alumacc o:rdata %ci*
 
-19. Generating Graphviz representation of design.
+22. Generating Graphviz representation of design.
 Writing dot description to `rdata_alumacc.dot'.
 Dumping selected parts of module fifo to page 1.
 
 yosys> memory -nomap
 
-20. Executing MEMORY pass.
+23. Executing MEMORY pass.
 
 yosys> opt_mem
 
-20.1. Executing OPT_MEM pass (optimize memories).
+23.1. Executing OPT_MEM pass (optimize memories).
 Performed a total of 0 transformations.
 
 yosys> opt_mem_priority
 
-20.2. Executing OPT_MEM_PRIORITY pass (removing unnecessary memory write priority relations).
+23.2. Executing OPT_MEM_PRIORITY pass (removing unnecessary memory write priority relations).
 Performed a total of 0 transformations.
 
 yosys> opt_mem_feedback
 
-20.3. Executing OPT_MEM_FEEDBACK pass (finding memory read-to-write feedback paths).
+23.3. Executing OPT_MEM_FEEDBACK pass (finding memory read-to-write feedback paths).
 
 yosys> memory_bmux2rom
 
-20.4. Executing MEMORY_BMUX2ROM pass (converting muxes to ROMs).
+23.4. Executing MEMORY_BMUX2ROM pass (converting muxes to ROMs).
 
 yosys> memory_dff
 
-20.5. Executing MEMORY_DFF pass (merging $dff cells to $memrd).
+23.5. Executing MEMORY_DFF pass (merging $dff cells to $memrd).
 
 yosys> opt_clean
 
-20.6. Executing OPT_CLEAN pass (remove unused cells and wires).
+23.6. Executing OPT_CLEAN pass (remove unused cells and wires).
 Finding unused cells or wires in module \fifo..
-Removed 3 unused cells and 11 unused wires.
-<suppressed ~4 debug messages>
+Removed 1 unused cells and 9 unused wires.
+<suppressed ~2 debug messages>
 
 yosys> memory_share
 
-20.7. Executing MEMORY_SHARE pass (consolidating $memrd/$memwr cells).
+23.7. Executing MEMORY_SHARE pass (consolidating $memrd/$memwr cells).
 
 yosys> opt_mem_widen
 
-20.8. Executing OPT_MEM_WIDEN pass (optimize memories where all ports are wide).
+23.8. Executing OPT_MEM_WIDEN pass (optimize memories where all ports are wide).
 Performed a total of 0 transformations.
 
 yosys> opt_clean
 
-20.9. Executing OPT_CLEAN pass (remove unused cells and wires).
+23.9. Executing OPT_CLEAN pass (remove unused cells and wires).
 Finding unused cells or wires in module \fifo..
 
 yosys> memory_collect
 
-20.10. Executing MEMORY_COLLECT pass (generating $mem cells).
+23.10. Executing MEMORY_COLLECT pass (generating $mem cells).
 
 yosys> select -set new_cells t:$mem_v2
 
@@ -398,6 +431,6 @@ yosys> select -set rdata_path @new_cells %ci*:-$mem_v2[WR_DATA,WR_ADDR,WR_EN] @n
 
 yosys> show -color maroon3 @new_cells -notitle -format dot -prefix rdata_coarse @rdata_path
 
-21. Generating Graphviz representation of design.
+24. Generating Graphviz representation of design.
 Writing dot description to `rdata_coarse.dot'.
 Dumping selected parts of module fifo to page 1.

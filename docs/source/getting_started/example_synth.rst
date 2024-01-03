@@ -369,6 +369,8 @@ options is able to fold one of the ``$mux`` cells into the ``$adff`` to form an
 Part 2
 ^^^^^^
 
+The next group of commands performs a series of optimizations:
+
 .. literalinclude:: /cmd/synth_ice40.rst
    :language: yoscrypt
    :start-at: wreduce
@@ -377,12 +379,33 @@ Part 2
    :caption: ``coarse`` section (part 2)
    :name: synth_coarse2
 
-The next three (new) commands are :doc:`/cmd/wreduce`, :doc:`/cmd/peepopt`, and
-:doc:`/cmd/share`.  None of these affect our design either, so let's skip over
-them.  :yoscrypt:`techmap -map +/cmp2lut.v -D LUT_WIDTH=4` optimizes certain
-comparison operators by converting them to LUTs instead.  The usage of
-:cmd:ref:`techmap` is explored more in
-:doc:`/using_yosys/synthesis/techmap_synth`.
+First up is :doc:`/cmd/wreduce`.  If we run this we get the following:
+
+.. literalinclude:: /code_examples/fifo/fifo.out
+   :language: doscon
+   :start-at: yosys> wreduce
+   :end-before: yosys> select
+   :caption: output of :cmd:ref:`wreduce`
+
+Looking at the data path for ``rdata``, the most relevant of these width
+reductions are the ones affecting ``fifo.$flatten\fifo_reader.$add$fifo.v``.
+That is the ``$add`` cell incrementing the fifo_reader address.  We can look at
+the schematic and see the output of that cell has now changed.
+
+.. TODO:: pending bugfix in :cmd:ref:`wreduce` and/or :cmd:ref:`opt_clean`
+
+.. figure:: /_images/code_examples/fifo/rdata_wreduce.*
+   :class: width-helper
+   :name: rdata_wreduce
+
+   ``rdata`` output after :cmd:ref:`wreduce`
+
+The next two (new) commands are :doc:`/cmd/peepopt` and :doc:`/cmd/share`.
+Neither of these affect our design, and they're explored in more detail in
+:doc:`/using_yosys/synthesis/opt`, so let's skip over them.  :yoscrypt:`techmap
+-map +/cmp2lut.v -D LUT_WIDTH=4` optimizes certain comparison operators by
+converting them to LUTs instead.  The usage of :cmd:ref:`techmap` is explored
+more in :doc:`/using_yosys/synthesis/techmap_synth`.
 
 Our next command to run is
 :doc:`/cmd/memory_dff`.
