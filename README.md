@@ -587,7 +587,13 @@ from SystemVerilog:
 - enums are supported (including inside packages)
 	- but are currently not strongly typed
 
-- packed structs and unions are supported.
+- packed structs and unions are supported
+	- arrays of packed structs/unions are currently not supported
+	- structure literals are currently not supported
+
+- multidimensional arrays are supported
+	- array assignment of unpacked arrays is currently not supported
+	- array literals are currently not supported
 
 - SystemVerilog interfaces (SVIs) are supported. Modports for specifying whether
   ports are inputs or outputs are supported.
