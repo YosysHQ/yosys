@@ -26,17 +26,19 @@
 
 namespace cxxrtl {
 
-// A timestamp or a difference in time, stored as a 96-bit number of femtoseconds (10e-15 s). The dynamic range and
-// resolution of this format can represent any VCD timestamp within 136 years, without the need for a timescale.
+// A timestamp or a difference in time, stored as a 96-bit number of femtoseconds (10e-15 s). The range and resolution
+// of this format can represent any VCD timestamp within approx. ±1255321.2 years, without the need for a timescale.
 class time {
 public:
 	static constexpr size_t bits = 96; // 3 chunks
 
 private:
+	static constexpr size_t resolution_digits = 15;
+
+	static_assert(sizeof(chunk_t) == 4, "a chunk is expected to be 32-bit");
 	static constexpr value<bits> resolution = value<bits> {
 		chunk_t(1000000000000000ull & 0xffffffffull), chunk_t(1000000000000000ull >> 32), 0u
 	};
-	static constexpr size_t resolution_digits = 15;
 
 	// Signed number of femtoseconds from the beginning of time.
 	value<bits> raw;
@@ -51,11 +53,11 @@ public:
 		return time(value<bits> { 0xffffffffu, 0xffffffffu, 0x7fffffffu });
 	}
 
-	time(int32_t secs, int64_t femtos) {
-		value<32> secs_val;
-		secs_val.set((uint32_t)secs);
+	time(int64_t secs, int64_t femtos) {
+		value<64> secs_val;
+		secs_val.set(secs);
 		value<64> femtos_val;
-		femtos_val.set((uint64_t)femtos);
+		femtos_val.set(femtos);
 		raw = secs_val.sext<bits>().mul<bits>(resolution).add(femtos_val.sext<bits>());
 	}
 
@@ -68,14 +70,14 @@ public:
 		return raw.is_neg();
 	}
 
-	// Extracts the absolute number of whole seconds. Negative if the value is negative.
-	int32_t secs() const {
-		return raw.sdivmod(resolution).first.trunc<32>().get<uint32_t>();
+	// Extracts the number of whole seconds. Negative if the value is negative.
+	int64_t secs() const {
+		return raw.sdivmod(resolution).first.trunc<64>().get<int64_t>();
 	}
 
-	// Extracts the absolute number of femtoseconds in the fractional second. Negative if the value is negative.
+	// Extracts the number of femtoseconds in the fractional second. Negative if the value is negative.
 	int64_t femtos() const {
-		return raw.sdivmod(resolution).second.trunc<64>().get<uint64_t>();
+		return raw.sdivmod(resolution).second.trunc<64>().get<int64_t>();
 	}
 
 	bool operator==(const time &other) const {
@@ -125,10 +127,10 @@ public:
 	}
 
 	operator std::string() const {
-		char buf[38]; // len(f"-{2**64}.{10**15-1}") + 1 == 38
-		int32_t secs = this->secs();
+		char buf[48]; // x=2**95; len(f"-{x/1_000_000_000_000_000}.{x^1_000_000_000_000_000}") == 48
+		int64_t secs = this->secs();
 		int64_t femtos = this->femtos();
-		snprintf(buf, sizeof(buf), "%s%" PRIi32 ".%015" PRIi64,
+		snprintf(buf, sizeof(buf), "%s%" PRIi64 ".%015" PRIi64,
 			is_negative() ? "-" : "", secs >= 0 ? secs : -secs, femtos >= 0 ? femtos : -femtos);
 		return buf;
 	}
@@ -143,7 +145,7 @@ public:
 			parse_fractional,
 		} state = parse_sign_opt;
 		bool negative = false;
-		int32_t integral = 0;
+		int64_t integral = 0;
 		int64_t fractional = 0;
 		size_t frac_digits = 0;
 		for (auto chr : str) {
@@ -199,7 +201,7 @@ std::ostream &operator<<(std::ostream &os, const time &val) {
 namespace time_literals {
 
 time operator""_s(unsigned long long seconds) {
-	return time { (int32_t)seconds, 0 };
+	return time { (int64_t)seconds, 0 };
 }
 
 time operator""_ms(unsigned long long milliseconds) {
