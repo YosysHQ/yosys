@@ -28,6 +28,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <cassert>
 #include <limits>
 #include <type_traits>
@@ -145,7 +146,7 @@ struct value : public expr_base<value<Bits>> {
 	// These functions ensure that a conversion is never out of range, and should be always used, if at all
 	// possible, instead of direct manipulation of the `data` member. For very large types, .slice() and
 	// .concat() can be used to split them into more manageable parts.
-	template<class IntegerT>
+	template<class IntegerT, typename std::enable_if<!std::is_signed<IntegerT>::value, int>::type = 0>
 	CXXRTL_ALWAYS_INLINE
 	IntegerT get() const {
 		static_assert(std::numeric_limits<IntegerT>::is_integer && !std::numeric_limits<IntegerT>::is_signed,
@@ -158,15 +159,32 @@ struct value : public expr_base<value<Bits>> {
 		return result;
 	}
 
-	template<class IntegerT>
+	template<class IntegerT, typename std::enable_if<std::is_signed<IntegerT>::value, int>::type = 0>
 	CXXRTL_ALWAYS_INLINE
-	void set(IntegerT other) {
+	IntegerT get() const {
+		auto unsigned_result = get<typename std::make_unsigned<IntegerT>::type>();
+		IntegerT result;
+		memcpy(&result, &unsigned_result, sizeof(IntegerT));
+		return result;
+	}
+
+	template<class IntegerT, typename std::enable_if<!std::is_signed<IntegerT>::value, int>::type = 0>
+	CXXRTL_ALWAYS_INLINE
+	void set(IntegerT value) {
 		static_assert(std::numeric_limits<IntegerT>::is_integer && !std::numeric_limits<IntegerT>::is_signed,
 		              "set<T>() requires T to be an unsigned integral type");
 		static_assert(std::numeric_limits<IntegerT>::digits >= Bits,
 		              "set<T>() requires the value to be at least as wide as T is");
 		for (size_t n = 0; n < chunks; n++)
-			data[n] = (other >> (n * chunk::bits)) & chunk::mask;
+			data[n] = (value >> (n * chunk::bits)) & chunk::mask;
+	}
+
+	template<class IntegerT, typename std::enable_if<std::is_signed<IntegerT>::value, int>::type = 0>
+	CXXRTL_ALWAYS_INLINE
+	void set(IntegerT value) {
+		typename std::make_unsigned<IntegerT>::type unsigned_value;
+		memcpy(&unsigned_value, &value, sizeof(IntegerT));
+		set(unsigned_value);
 	}
 
 	// Operations with compile-time parameters.
