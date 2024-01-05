@@ -1900,10 +1900,11 @@ struct_member_type: { astbuf1 = new AstNode(AST_STRUCT_ITEM); } member_type_toke
 	;
 
 member_type_token:
-	  member_type
-	| hierarchical_type_id {
-			addWiretypeNode($1, astbuf1);
-		}
+	member_type range_or_multirange {
+		AstNode *range = checkRange(astbuf1, $2);
+		if (range)
+			astbuf1->children.push_back(range);
+	}
 	| {
 		delete astbuf1;
 	} struct_union {
@@ -1919,7 +1920,8 @@ member_type_token:
 	;
 
 member_type: type_atom type_signing
-	| type_vec type_signing range_or_multirange	{ if ($3) astbuf1->children.push_back($3); }
+	| type_vec type_signing
+	| hierarchical_type_id { addWiretypeNode($1, astbuf1); }
 	;
 
 struct_var_list: struct_var
