@@ -841,24 +841,22 @@ std::ostream &operator<<(std::ostream &os, const value_formatted<Bits> &vf)
 	return os;
 }
 
-// An object that can be passed to a `commit()` method in order to produce a replay log of every
-// state change in the simulation.
+// An object that can be passed to a `commit()` method in order to produce a replay log of every state change in
+// the simulation.
 struct observer {
-	// Called when a `commit()` method for a wire is about to update the `chunks` chunks at `base`
-	// with `chunks` chunks at `value` that have a different bit pattern. It is guaranteed that
-	// `chunks` is equal to the wire chunk count and `base` points to the first chunk.
+	// Called when the `commit()` method for a wire is about to update the `chunks` chunks at `base` with `chunks` chunks
+	// at `value` that have a different bit pattern. It is guaranteed that `chunks` is equal to the wire chunk count and
+	// `base` points to the first chunk.
 	virtual void on_commit(size_t chunks, const chunk_t *base, const chunk_t *value) = 0;
 
-	// Called when a `commit()` method for a memory is about to update the `chunks` chunks at
-	// `&base[chunks * index]` with `chunks` chunks at `value` that have a different bit pattern.
-	// It is guaranteed that `chunks` covers is equal to the memory element chunk count and `base`
-	// points to the first chunk of the first element of the memory.
+	// Called when the `commit()` method for a memory is about to update the `chunks` chunks at `&base[chunks * index]`
+	// with `chunks` chunks at `value` that have a different bit pattern. It is guaranteed that `chunks` is equal to
+	// the memory element chunk count and `base` points to the first chunk of the first element of the memory.
 	virtual void on_commit(size_t chunks, const chunk_t *base, const chunk_t *value, size_t index) = 0;
 };
 
-// The `null_observer` class has the same interface as `observer`, but has no invocation overhead,
-// since its methods are final and have no implementation. This allows the observer feature to be
-// zero-cost when not in use.
+// The `null_observer` class has the same interface as `observer`, but has no invocation overhead, since its methods
+// are final and have no implementation. This allows the observer feature to be zero-cost when not in use.
 struct null_observer final: observer {
 	void on_commit(size_t chunks, const chunk_t *base, const chunk_t *value) override {}
 	void on_commit(size_t chunks, const chunk_t *base, const chunk_t *value, size_t index) override {}
