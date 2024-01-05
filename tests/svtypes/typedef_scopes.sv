@@ -45,12 +45,12 @@ module top;
 		localparam W = 10;
 		typedef T U;
 		typedef logic [W-1:0] V;
-		struct packed {
+		typedef struct packed {
 			logic [W-1:0] x; // width 10
 			U y; // width 5
 			V z; // width 10
-		} shadow;
-		// This currently only works as long as long as shadow is not typedef'ed
+		} shadow_t;
+		shadow_t shadow;
 		always @(*) assert($bits(shadow.x) == 10);
 		always @(*) assert($bits(shadow.y) == 5);
 		always @(*) assert($bits(shadow.z) == 10);
