@@ -244,8 +244,10 @@ int main(int argc, char **argv)
 	bool mode_q = false;
 
 #if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
-	if (getenv("XDG_STATE_HOME") != NULL && getenv("XDG_STATE_HOME")[0] != '\0') {
-		yosys_history_file = stringf("%s/.local/state/.yosys_history", getenv("HOME"));
+	if (getenv("XDG_STATE_HOME") == NULL || getenv("XDG_STATE_HOME")[0] == '\0') {
+		if (getenv("HOME") != NULL) {
+			yosys_history_file = stringf("%s/.local/state/.yosys_history", getenv("HOME"));
+		}
 	} else {
 		yosys_history_file = stringf("%s/.yosys_history", getenv("XDG_STATE_HOME"));
 	}
