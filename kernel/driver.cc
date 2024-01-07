@@ -244,15 +244,13 @@ int main(int argc, char **argv)
 	bool mode_q = false;
 
 #if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
-	if (getenv("XDG_DATA_HOME") != NULL && getenv("XDG_DATA_HOME")[0] != '\0') {
-		yosys_history_file = stringf("%s/yosys/.yosys_history", getenv("XDG_DATA_HOME"));
-		read_history(yosys_history_file.c_str());
-		yosys_history_offset = where_history();
-	} else if (getenv("HOME") != NULL) {
-		yosys_history_file = stringf("%s/.yosys_history", getenv("HOME"));
-		read_history(yosys_history_file.c_str());
-		yosys_history_offset = where_history();
+	if (getenv("XDG_STATE_HOME") != NULL && getenv("XDG_STATE_HOME")[0] != '\0') {
+		yosys_history_file = stringf("%s/.local/state/.yosys_history", getenv("HOME"));
+	} else {
+		yosys_history_file = stringf("%s/.yosys_history", getenv("XDG_STATE_HOME"));
 	}
+	read_history(yosys_history_file.c_str());
+	yosys_history_offset = where_history();
 #endif
 
 	if (argc == 2 && (!strcmp(argv[1], "-h") || !strcmp(argv[1], "-help") || !strcmp(argv[1], "--help")))
