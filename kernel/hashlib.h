@@ -420,7 +420,7 @@ public:
 		operator const_iterator() const { return const_iterator(ptr, index); }
 	};
 
-	dict()
+	constexpr dict()
 	{
 	}
 
@@ -855,7 +855,7 @@ public:
 		operator const_iterator() const { return const_iterator(ptr, index); }
 	};
 
-	pool()
+	constexpr pool()
 	{
 	}
 
@@ -1062,6 +1062,10 @@ public:
 		const K *operator->() const { return &container[index]; }
 	};
 
+	constexpr idict()
+	{
+	}
+
 	int operator()(const K &key)
 	{
 		int hash = database.do_hash(key);
@@ -1131,6 +1135,10 @@ class mfp
 
 public:
 	typedef typename idict<K, 0, OPS>::const_iterator const_iterator;
+
+	constexpr mfp()
+	{
+	}
 
 	int operator()(const K &key) const
 	{

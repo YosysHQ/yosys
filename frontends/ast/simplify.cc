@@ -226,17 +226,6 @@ void AstNode::annotateTypedEnums(AstNode *template_node)
 	}
 }
 
-static bool name_has_dot(const std::string &name, std::string &struct_name)
-{
-	// check if plausible struct member name \sss.mmm
-	std::string::size_type pos;
-	if (name.substr(0, 1) == "\\" && (pos = name.find('.', 0)) != std::string::npos) {
-		struct_name = name.substr(0, pos);
-		return true;
-	}
-	return false;
-}
-
 static AstNode *make_range(int left, int right, bool is_signed = false)
 {
 	// generate a pre-validated range node for a fixed signal range.
@@ -2185,11 +2174,24 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 
 	if (type == AST_IDENTIFIER && !basic_prep) {
 		// check if a plausible struct member sss.mmmm
-		std::string sname;
-		if (name_has_dot(str, sname)) {
-			if (current_scope.count(str) > 0) {
-				auto item_node = current_scope[str];
-				if (item_node->type == AST_STRUCT_ITEM || item_node->type == AST_STRUCT || item_node->type == AST_UNION) {
+		if (!str.empty() && str[0] == '\\' && current_scope.count(str)) {
+			auto item_node = current_scope[str];
+			if (item_node->type == AST_STRUCT_ITEM || item_node->type == AST_STRUCT || item_node->type == AST_UNION) {
+				// Traverse any hierarchical path until the full name for the referenced struct/union is found.
+				std::string sname;
+				bool found_sname = false;
+				for (std::string::size_type pos = 0; (pos = str.find('.', pos)) != std::string::npos; pos++) {
+					sname = str.substr(0, pos);
+					if (current_scope.count(sname)) {
+						auto stype = current_scope[sname]->type;
+						if (stype == AST_WIRE || stype == AST_PARAMETER || stype == AST_LOCALPARAM) {
+							found_sname = true;
+							break;
+						}
+					}
+				}
+
+				if (found_sname) {
 					// structure member, rewrite this node to reference the packed struct wire
 					auto range = make_struct_member_range(this, item_node);
 					newNode = new AstNode(AST_IDENTIFIER, range);
@@ -4681,6 +4683,8 @@ void AstNode::expand_genblock(const std::string &prefix)
 		switch (child->type) {
 		case AST_WIRE:
 		case AST_MEMORY:
+		case AST_STRUCT:
+		case AST_UNION:
 		case AST_PARAMETER:
 		case AST_LOCALPARAM:
 		case AST_FUNCTION:

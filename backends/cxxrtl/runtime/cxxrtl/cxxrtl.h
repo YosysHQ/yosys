@@ -841,6 +841,27 @@ std::ostream &operator<<(std::ostream &os, const value_formatted<Bits> &vf)
 	return os;
 }
 
+// An object that can be passed to a `commit()` method in order to produce a replay log of every state change in
+// the simulation.
+struct observer {
+	// Called when the `commit()` method for a wire is about to update the `chunks` chunks at `base` with `chunks` chunks
+	// at `value` that have a different bit pattern. It is guaranteed that `chunks` is equal to the wire chunk count and
+	// `base` points to the first chunk.
+	virtual void on_commit(size_t chunks, const chunk_t *base, const chunk_t *value) = 0;
+
+	// Called when the `commit()` method for a memory is about to update the `chunks` chunks at `&base[chunks * index]`
+	// with `chunks` chunks at `value` that have a different bit pattern. It is guaranteed that `chunks` is equal to
+	// the memory element chunk count and `base` points to the first chunk of the first element of the memory.
+	virtual void on_commit(size_t chunks, const chunk_t *base, const chunk_t *value, size_t index) = 0;
+};
+
+// The `null_observer` class has the same interface as `observer`, but has no invocation overhead, since its methods
+// are final and have no implementation. This allows the observer feature to be zero-cost when not in use.
+struct null_observer final: observer {
+	void on_commit(size_t chunks, const chunk_t *base, const chunk_t *value) override {}
+	void on_commit(size_t chunks, const chunk_t *base, const chunk_t *value, size_t index) override {}
+};
+
 template<size_t Bits>
 struct wire {
 	static constexpr size_t bits = Bits;
@@ -875,8 +896,14 @@ struct wire {
 		next.template set<IntegerT>(other);
 	}
 
-	bool commit() {
+	// This method intentionally takes a mandatory argument (to make it more difficult to misuse in
+	// black box implementations, leading to missed observer events). It is generic over its argument
+	// to make sure the `on_commit` call is devirtualized. This is somewhat awkward but lets us keep
+	// a single implementation for both this method and the one in `memory`.
+	template<class ObserverT>
+	bool commit(ObserverT &observer) {
 		if (curr != next) {
+			observer.on_commit(curr.chunks, curr.data, next.data);
 			curr = next;
 			return true;
 		}
@@ -950,12 +977,17 @@ struct memory {
 			write { index, val, mask, priority });
 	}
 
-	bool commit() {
+	// See the note for `wire::commit()`.
+	template<class ObserverT>
+	bool commit(ObserverT &observer) {
 		bool changed = false;
 		for (const write &entry : write_queue) {
 			value<Width> elem = data[entry.index];
 			elem = elem.update(entry.val, entry.mask);
-			changed |= (data[entry.index] != elem);
+			if (data[entry.index] != elem) {
+				observer.on_commit(value<Width>::chunks, data[0].data, elem.data, entry.index);
+				changed |= true;
+			}
 			data[entry.index] = elem;
 		}
 		write_queue.clear();
