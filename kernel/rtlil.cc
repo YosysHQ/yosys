@@ -2157,17 +2157,12 @@ void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
 		}
 
 		void operator()(RTLIL::SigSpec &lhs, RTLIL::SigSpec &rhs) {
-			log_assert(GetSize(lhs) == GetSize(rhs));
-			lhs.unpack();
-			rhs.unpack();
-			for (int i = 0; i < GetSize(lhs); i++) {
-				RTLIL::SigBit &lhs_bit = lhs.bits_[i];
-				RTLIL::SigBit &rhs_bit = rhs.bits_[i];
-				if ((lhs_bit.wire != nullptr && wires_p->count(lhs_bit.wire)) || (rhs_bit.wire != nullptr && wires_p->count(rhs_bit.wire))) {
-					lhs_bit = State::Sx;
-					rhs_bit = State::Sx;
-				}
-			}
+			// When a deleted wire occurs on the lhs we can just remove that part
+			// of the assignment
+			lhs.remove2(*wires_p, &rhs);
+
+			// Then replace all rhs occurrences with a dummy wire
+			(*this)(rhs);
 		}
 	};
 
@@ -4226,6 +4221,34 @@ void RTLIL::SigSpec::remove2(const std::set<RTLIL::SigBit> &pattern, RTLIL::SigS
 
 	for (int i = GetSize(bits_) - 1; i >= 0; i--) {
 		if (bits_[i].wire != NULL && pattern.count(bits_[i])) {
+			bits_.erase(bits_.begin() + i);
+			width_--;
+			if (other != NULL) {
+				other->bits_.erase(other->bits_.begin() + i);
+				other->width_--;
+			}
+		}
+	}
+
+	check();
+}
+
+void RTLIL::SigSpec::remove2(const pool<RTLIL::Wire*> &pattern, RTLIL::SigSpec *other)
+{
+	if (other)
+		cover("kernel.rtlil.sigspec.remove_other");
+	else
+		cover("kernel.rtlil.sigspec.remove");
+
+	unpack();
+
+	if (other != NULL) {
+		log_assert(width_ == other->width_);
+		other->unpack();
+	}
+
+	for (int i = GetSize(bits_) - 1; i >= 0; i--) {
+		if (bits_[i].wire != NULL && pattern.count(bits_[i].wire)) {
 			bits_.erase(bits_.begin() + i);
 			width_--;
 			if (other != NULL) {
