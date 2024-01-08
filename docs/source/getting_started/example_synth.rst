@@ -438,7 +438,11 @@ Part 3
 ^^^^^^
 
 The third part of the :cmd:ref:`synth_ice40` flow is a series of commands for
-mapping to DSPs.
+mapping to DSPs.  By default, the iCE40 flow will not map to the hardware DSP
+blocks and will only be performed if called with the ``-dsp`` flag:
+:yoscrypt:`synth_ice40 -dsp`.  While our example has nothing that could be
+mapped to DSPs we can still take a quick look at the commands here and describe
+what they do.
 
 .. literalinclude:: /cmd/synth_ice40.rst
    :language: yoscrypt
@@ -448,7 +452,28 @@ mapping to DSPs.
    :caption: ``coarse`` section (part 3)
    :name: synth_coarse3
 
-.. TODO:: more on DSP mapping
+:yoscrypt:`wreduce t:$mul` performs width reduction again, this time targetting
+only cells of type ``$mul``.  :yoscrypt:`techmap -map +/mul2dsp.v -map
++/ice40/dsp_map.v ... -D DSP_NAME=$__MUL16X16` uses :cmd:ref:`techmap` to map
+``$mul`` cells to ``$__MUL16X16`` which are, in turn, mapped to the iCE40
+``SB_MAC16``.  Any multipliers which aren't compatible with conversion to
+``$__MUL16X16`` are relabelled to ``$__soft_mul`` before :cmd:ref:`chtype`
+changes them back to ``$mul``.
+
+During the mul2dsp conversion, some of the intermediate signals are marked with
+the attribute ``mul2dsp``.  By calling :yoscrypt:`select a:mul2dsp` we restrict
+the following commands to only operate on the cells and wires used for these
+signals.  :cmd:ref:`setattr` removes the now unnecessary ``mul2dsp`` attribute.
+:cmd:ref:`opt_expr` we've already come across for const folding and simple
+expression rewriting, the ``-fine`` option just enables more fine-grain
+optimizations.  Then we perform width reduction a final time and clear the
+selection.
+
+Finally we have :cmd:ref:`ice40_dsp`: similar to the :cmd:ref:`memory_dff`
+command we saw in the previous section, this merges any surrounding registers
+into the ``SB_MAC16`` cell.  This includes not just the input/output registers,
+but also pipeline registers and even a post-adder where applicable: turning a
+multiply + add into a single multiply-accumulate.
 
 .. seealso:: Advanced usage docs for
    :doc:`/using_yosys/synthesis/techmap_synth`
