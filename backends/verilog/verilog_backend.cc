@@ -1988,12 +1988,10 @@ void dump_proc_switch(std::ostream &f, std::string indent, RTLIL::SwitchRule *sw
 	dump_sigspec(f, sw->signal);
 	f << stringf(")\n");
 
-	bool got_default = false;
 	for (auto it = sw->cases.begin(); it != sw->cases.end(); ++it) {
+		bool got_default = false;
 		dump_attributes(f, indent + "  ", (*it)->attributes, '\n', /*modattr=*/false, /*regattr=*/false, /*as_comment=*/true);
 		if ((*it)->compare.size() == 0) {
-			if (got_default)
-				continue;
 			f << stringf("%s  default", indent.c_str());
 			got_default = true;
 		} else {
@@ -2006,6 +2004,14 @@ void dump_proc_switch(std::ostream &f, std::string indent, RTLIL::SwitchRule *sw
 		}
 		f << stringf(":\n");
 		dump_case_body(f, indent + "    ", *it);
+
+		if (got_default) {
+			// If we followed up the default with more cases the Verilog
+			// semantics would be to match those *before* the default, but
+			// the RTLIL semantics are to match those *after* the default
+			// (so they can never be selected). Exit now.
+			break;
+		}
 	}
 
 	if (sw->cases.empty()) {
