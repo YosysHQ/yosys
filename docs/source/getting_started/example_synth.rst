@@ -508,19 +508,38 @@ see produce the following changes in our example design:
 
    ``rdata`` output after :cmd:ref:`alumacc`
 
-.. TODO:: discuss :cmd:ref:`memory_collect` and ``$mem_v2``
+The other new command in this part is :doc:`/cmd/memory`.  :cmd:ref:`memory` is
+another macro command which we examine in more detail in
+:doc:`/using_yosys/synthesis/memory`.  For this document, let us focus just on
+the step most relevant to our example: :cmd:ref:`memory_collect`. Up until this
+point, our memory reads and our memory writes have been totally disjoint cells;
+operating on the same memory only in the abstract. :cmd:ref:`memory_collect`
+combines all of the reads and writes for a memory block into a single cell.
 
 .. figure:: /_images/code_examples/fifo/rdata_coarse.*
    :class: width-helper
    :name: rdata_coarse
 
-   ``rdata`` output after :yoscrypt:`memory -nomap`
+   ``rdata`` output after :cmd:ref:`memory_collect`
 
-We could also have gotten here by running :yoscrypt:`synth_ice40 -top fifo -run
-begin:map_ram` after loading the design.
+Looking at the schematic after running :cmd:ref:`memory_collect` we see that our
+``$memrd_v2`` cell has been replaced with a ``$mem_v2`` cell named ``data``, the
+same name that we used in :ref:`fifo-v`. Where before we had a single set of
+signals for address and enable, we now have one set for reading (``RD_*``) and
+one for writing (``WR_*``), as well as both ``WR_DATA`` input and ``RD_DATA``
+output.
 
 .. seealso:: Advanced usage docs for
    :doc:`/using_yosys/synthesis/memory`
+
+Final note
+^^^^^^^^^^
+
+Having now reached the end of the the coarse-grain representation, we could also
+have gotten here by running :yoscrypt:`synth_ice40 -top fifo -run :map_ram`
+after loading the design.  The :yoscrypt:`-run <from_label>:<to_label>` option
+with an empty ``<from_label>`` starts from the :ref:`synth_begin`, while the
+``<to_label>`` runs up to but including the :ref:`map_ram`.
 
 Hardware mapping
 ~~~~~~~~~~~~~~~~
@@ -534,8 +553,6 @@ Memory blocks
 
 Mapping to hard memory blocks uses a combination of :cmd:ref:`memory_libmap`,
 :cmd:ref:`memory_map`, and :cmd:ref:`techmap`.
-
-.. TODO:: ``$mem_v2`` -> ``SB_RAM40_4K``
 
 .. literalinclude:: /cmd/synth_ice40.rst
    :language: yoscrypt
@@ -551,6 +568,16 @@ Mapping to hard memory blocks uses a combination of :cmd:ref:`memory_libmap`,
 
    ``rdata`` output after :ref:`map_ram`
 
+:ref:`map_ram` converts the generic ``$mem_v2`` into the iCE40 ``SB_RAM40_4K``
+(highlighted). We can also see the memory address has been remapped, and the
+data bits have been reordered (or swizzled).  There is also now a ``$mux`` cell
+controlling the value of ``rdata``.  In :ref:`fifo-v` we wrote our memory as
+read-before-write, however the ``SB_RAM40_4K`` has undefined behaviour when
+reading from and writing to the same address in the same cycle.  As a result,
+extra logic is added so that the generated circuit matches the behaviour of the
+verilog.  :ref:`no_rw_check` describes how we could change our verilog to match
+our hardware instead.
+
 .. literalinclude:: /cmd/synth_ice40.rst
    :language: yoscrypt
    :start-after: map_ffram:
@@ -565,6 +592,8 @@ Mapping to hard memory blocks uses a combination of :cmd:ref:`memory_libmap`,
 
    ``rdata`` output after :ref:`map_ffram`
 
+.. TODO:: what even is this opt output
+
 .. seealso:: Advanced usage docs for
    
    - :doc:`/using_yosys/synthesis/techmap_synth`
@@ -573,9 +602,11 @@ Mapping to hard memory blocks uses a combination of :cmd:ref:`memory_libmap`,
 Arithmetic
 ^^^^^^^^^^
 
-Uses :cmd:ref:`techmap`.
-
-.. TODO:: example_synth/Arithmetic
+Uses :cmd:ref:`techmap` to map basic arithmetic logic to hardware.  This sees
+somewhat of an explosion in cells as multi-bit ``$mux`` and ``$adffe`` are
+replaced with single-bit ``$_MUX_`` and ``$_DFFE_PP0P_`` cells, while the
+``$alu`` is replaced with primitive ``$_OR_`` and ``$_NOT_`` gates and a
+``$lut`` cell.
 
 .. literalinclude:: /cmd/synth_ice40.rst
    :language: yoscrypt
@@ -598,9 +629,13 @@ Flip-flops
 ^^^^^^^^^^
 
 Convert FFs to the types supported in hardware with :cmd:ref:`dfflegalize`, and
-then use :cmd:ref:`techmap` to map them.  We also run :cmd:ref:`simplemap` here
-to convert any remaining cells which could not be mapped to hardware into
-gate-level primitives.
+then use :cmd:ref:`techmap` to map them.  In our example, this converts the
+``$_DFFE_PP0P_`` cells to ``SB_DFFER``.
+
+We also run :cmd:ref:`simplemap` here to convert any remaining cells which could
+not be mapped to hardware into gate-level primitives.  This includes optimizing
+``$_MUX_`` cells where one of the inputs is a constant ``1'0``, replacing it
+instead with an ``$_AND_`` cell.
 
 .. literalinclude:: /cmd/synth_ice40.rst
    :language: yoscrypt
@@ -622,9 +657,10 @@ gate-level primitives.
 LUTs
 ^^^^
 
-:cmd:ref:`abc` and :cmd:ref:`techmap` are used to map LUTs.  Note that the iCE40
-flow uses :cmd:ref:`abc` rather than :cmd:ref:`abc9`.  For more on what these
-do, and what the difference between these two commands are, refer to
+:cmd:ref:`abc` and :cmd:ref:`techmap` are used to map LUTs; converting primitive
+cell types to use ``$lut`` and ``SB_CARRY`` cells.  Note that the iCE40 flow
+uses :cmd:ref:`abc9` rather than :cmd:ref:`abc`. For more on what these do, and
+what the difference between these two commands are, refer to
 :doc:`/using_yosys/synthesis/abc`.
 
 .. literalinclude:: /cmd/synth_ice40.rst
@@ -641,15 +677,8 @@ do, and what the difference between these two commands are, refer to
 
    ``rdata`` output after :ref:`map_luts`
 
-.. seealso:: Advanced usage docs for
-   
-   - :doc:`/using_yosys/synthesis/techmap_synth`
-   - :doc:`/using_yosys/synthesis/abc`
-
-Other cells
-^^^^^^^^^^^
-
-Seems to be wide LUTs into individual LUTs using :cmd:ref:`techmap`.
+Finally we use :cmd:ref:`techmap` to map the generic ``$lut`` cells to iCE40
+``SB_LUT4`` cells.
 
 .. literalinclude:: /cmd/synth_ice40.rst
    :language: yoscrypt
@@ -665,7 +694,15 @@ Seems to be wide LUTs into individual LUTs using :cmd:ref:`techmap`.
 
    ``rdata`` output after :ref:`map_cells`
 
-.. TODO:: example_synth other cells
+.. seealso:: Advanced usage docs for
+   
+   - :doc:`/using_yosys/synthesis/techmap_synth`
+   - :doc:`/using_yosys/synthesis/abc`
+
+Other cells
+^^^^^^^^^^^
+
+The following commands may also be used for mapping other cells:
 
 :cmd:ref:`hilomap`
     Some architectures require special driver cells for driving a constant hi or
@@ -676,8 +713,8 @@ Seems to be wide LUTs into individual LUTs using :cmd:ref:`techmap`.
     Top-level input/outputs must usually be implemented using special I/O-pad
     cells. This command inserts such cells to the design.
 
-.. seealso:: Advanced usage docs for
-   :doc:`/yosys_internals/techmap`
+These commands tend to either be in the :ref:`map_cells` or after the
+:ref:`check` depending on the flow.
 
 Final steps
 ~~~~~~~~~~~~

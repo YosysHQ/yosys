@@ -374,56 +374,9 @@ yosys> show -color maroon3 @new_cells -notitle -format dot -prefix rdata_alumacc
 Writing dot description to `rdata_alumacc.dot'.
 Dumping selected parts of module fifo to page 1.
 
-yosys> memory -nomap
-
-23. Executing MEMORY pass.
-
-yosys> opt_mem
-
-23.1. Executing OPT_MEM pass (optimize memories).
-Performed a total of 0 transformations.
-
-yosys> opt_mem_priority
-
-23.2. Executing OPT_MEM_PRIORITY pass (removing unnecessary memory write priority relations).
-Performed a total of 0 transformations.
-
-yosys> opt_mem_feedback
-
-23.3. Executing OPT_MEM_FEEDBACK pass (finding memory read-to-write feedback paths).
-
-yosys> memory_bmux2rom
-
-23.4. Executing MEMORY_BMUX2ROM pass (converting muxes to ROMs).
-
-yosys> memory_dff
-
-23.5. Executing MEMORY_DFF pass (merging $dff cells to $memrd).
-
-yosys> opt_clean
-
-23.6. Executing OPT_CLEAN pass (remove unused cells and wires).
-Finding unused cells or wires in module \fifo..
-Removed 1 unused cells and 9 unused wires.
-<suppressed ~2 debug messages>
-
-yosys> memory_share
-
-23.7. Executing MEMORY_SHARE pass (consolidating $memrd/$memwr cells).
-
-yosys> opt_mem_widen
-
-23.8. Executing OPT_MEM_WIDEN pass (optimize memories where all ports are wide).
-Performed a total of 0 transformations.
-
-yosys> opt_clean
-
-23.9. Executing OPT_CLEAN pass (remove unused cells and wires).
-Finding unused cells or wires in module \fifo..
-
 yosys> memory_collect
 
-23.10. Executing MEMORY_COLLECT pass (generating $mem cells).
+23. Executing MEMORY_COLLECT pass (generating $mem cells).
 
 yosys> select -set new_cells t:$mem_v2
 

@@ -253,6 +253,8 @@ Synchronous SDP read first
 			read_data <= mem[read_addr];
 	end
 
+.. _no_rw_check:
+
 Synchronous SDP with undefined collision behavior
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
