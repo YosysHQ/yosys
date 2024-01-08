@@ -247,12 +247,14 @@ int main(int argc, char **argv)
 	if (getenv("XDG_STATE_HOME") == NULL || getenv("XDG_STATE_HOME")[0] == '\0') {
 		if (getenv("HOME") != NULL) {
 			yosys_history_file = stringf("%s/.local/state/.yosys_history", getenv("HOME"));
+			read_history(yosys_history_file.c_str());
+			yosys_history_offset = where_history();
 		}
 	} else {
 		yosys_history_file = stringf("%s/.yosys_history", getenv("XDG_STATE_HOME"));
+		read_history(yosys_history_file.c_str());
+		yosys_history_offset = where_history();
 	}
-	read_history(yosys_history_file.c_str());
-	yosys_history_offset = where_history();
 #endif
 
 	if (argc == 2 && (!strcmp(argv[1], "-h") || !strcmp(argv[1], "-help") || !strcmp(argv[1], "--help")))
