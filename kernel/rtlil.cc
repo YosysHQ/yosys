@@ -2157,12 +2157,10 @@ void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
 		}
 
 		void operator()(RTLIL::SigSpec &lhs, RTLIL::SigSpec &rhs) {
-			// When a deleted wire occurs on the lhs we can just remove that part
+			// If a deleted wire occurs on the lhs or rhs we just remove that part
 			// of the assignment
 			lhs.remove2(*wires_p, &rhs);
-
-			// Then replace all rhs occurrences with a dummy wire
-			(*this)(rhs);
+			rhs.remove2(*wires_p, &lhs);
 		}
 	};
 
