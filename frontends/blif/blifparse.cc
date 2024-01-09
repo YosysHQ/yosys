@@ -352,17 +352,17 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 					goto no_latch_clock;
 
 				if (!strcmp(edge, "re"))
-					cell = module->addDff(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q));
+					cell = module->addDffGate(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q));
 				else if (!strcmp(edge, "fe"))
-					cell = module->addDff(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q), false);
+					cell = module->addDffGate(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q), false);
 				else if (!strcmp(edge, "ah"))
-					cell = module->addDlatch(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q));
+					cell = module->addDlatchGate(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q));
 				else if (!strcmp(edge, "al"))
-					cell = module->addDlatch(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q), false);
+					cell = module->addDlatchGate(NEW_ID, blif_wire(clock), blif_wire(d), blif_wire(q), false);
 				else {
 			no_latch_clock:
 					if (dff_name.empty()) {
-						cell = module->addFf(NEW_ID, blif_wire(d), blif_wire(q));
+						cell = module->addFfGate(NEW_ID, blif_wire(d), blif_wire(q));
 					} else {
 						cell = module->addCell(NEW_ID, dff_name);
 						cell->setPort(ID::D, blif_wire(d));
