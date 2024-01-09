@@ -240,6 +240,7 @@ int count_nontrivial_wire_attrs(RTLIL::Wire *w)
 	return count;
 }
 
+// Should we pick `s2` over `s1` to represent a signal?
 bool compare_signals(RTLIL::SigBit &s1, RTLIL::SigBit &s2, SigPool &regs, SigPool &conns, pool<RTLIL::Wire*> &direct_wires)
 {
 	RTLIL::Wire *w1 = s1.wire;
@@ -292,9 +293,10 @@ bool check_public_name(RTLIL::IdString id)
 
 bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbose)
 {
+	// `register_signals` and `connected_signals` will help us decide later on
+	// on picking representatives out of groups of connected signals
 	SigPool register_signals;
 	SigPool connected_signals;
-
 	if (!purge_mode)
 		for (auto &it : module->cells_) {
 			RTLIL::Cell *cell = it.second;
@@ -309,20 +311,27 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 		}
 
 	SigMap assign_map(module);
-	pool<RTLIL::SigSpec> direct_sigs;
+
+	// construct a pool of wires which are directly driven by a known celltype,
+	// this will influence our choice of representatives
 	pool<RTLIL::Wire*> direct_wires;
-	for (auto &it : module->cells_) {
-		RTLIL::Cell *cell = it.second;
-		if (ct_all.cell_known(cell->type))
-			for (auto &it2 : cell->connections())
-				if (ct_all.cell_output(cell->type, it2.first))
-					direct_sigs.insert(assign_map(it2.second));
-	}
-	for (auto &it : module->wires_) {
-		if (direct_sigs.count(assign_map(it.second)) || it.second->port_input)
-			direct_wires.insert(it.second);
+	{
+		pool<RTLIL::SigSpec> direct_sigs;
+		for (auto &it : module->cells_) {
+			RTLIL::Cell *cell = it.second;
+			if (ct_all.cell_known(cell->type))
+				for (auto &it2 : cell->connections())
+					if (ct_all.cell_output(cell->type, it2.first))
+						direct_sigs.insert(assign_map(it2.second));
+		}
+		for (auto &it : module->wires_) {
+			if (direct_sigs.count(assign_map(it.second)) || it.second->port_input)
+				direct_wires.insert(it.second);
+		}
 	}
 
+	// weight all options for representatives with `compare_signals`,
+	// the one that wins will be what `assign_map` maps to
 	for (auto &it : module->wires_) {
 		RTLIL::Wire *wire = it.second;
 		for (int i = 0; i < wire->width; i++) {
@@ -332,21 +341,30 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 		}
 	}
 
+	// we are removing all connections
 	module->connections_.clear();
 
+	// used signals sigmapped
 	SigPool used_signals;
+	// used signals pre-sigmapped
 	SigPool raw_used_signals;
+	// used signals sigmapped, ignoring drivers (we keep track of this to set `unused_bits`)
 	SigPool used_signals_nodrivers;
+
+	// gather the usage information for cells
 	for (auto &it : module->cells_) {
 		RTLIL::Cell *cell = it.second;
 		for (auto &it2 : cell->connections_) {
-			assign_map.apply(it2.second);
+			assign_map.apply(it2.second); // modify the cell connection in place
 			raw_used_signals.add(it2.second);
 			used_signals.add(it2.second);
 			if (!ct_all.cell_output(cell->type, it2.first))
 				used_signals_nodrivers.add(it2.second);
 		}
 	}
+
+	// gather the usage information for ports, wires with `keep`,
+	// also gather init bits
 	dict<RTLIL::SigBit, RTLIL::State> init_bits;
 	for (auto &it : module->wires_) {
 		RTLIL::Wire *wire = it.second;
@@ -374,6 +392,7 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 		}
 	}
 
+	// set init attributes on all wires of a connected group
 	for (auto wire : module->wires()) {
 		bool found = false;
 		Const val(State::Sx, wire->width);
@@ -388,6 +407,7 @@ bool rmunused_module_signals(RTLIL::Module *module, bool purge_mode, bool verbos
 			wire->attributes[ID::init] = val;
 	}
 
+	// now decide for each wire if we should be deleting it
 	pool<RTLIL::Wire*> del_wires_queue;
 	for (auto wire : module->wires())
 	{
