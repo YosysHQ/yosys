@@ -850,6 +850,25 @@ AstNode *AstNode::mkconst_str(const std::string &str)
 	return node;
 }
 
+// create a temporary register
+AstNode *AstNode::mktemp_logic(const std::string &name, AstNode *mod, bool nosync, int range_left, int range_right, bool is_signed)
+{
+	AstNode *wire = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(range_left, true), mkconst_int(range_right, true)));
+	wire->str = stringf("%s%s:%d$%d", name.c_str(), RTLIL::encode_filename(filename).c_str(), location.first_line, autoidx++);
+	if (nosync)
+		wire->set_attribute(ID::nosync, AstNode::mkconst_int(1, false));
+	wire->is_signed = is_signed;
+	wire->is_logic = true;
+	mod->children.push_back(wire);
+	while (wire->simplify(true, 1, -1, false)) { }
+
+	AstNode *ident = new AstNode(AST_IDENTIFIER);
+	ident->str = wire->str;
+	ident->id2ast = wire;
+
+	return ident;
+}
+
 bool AstNode::bits_only_01() const
 {
 	for (auto bit : bits)

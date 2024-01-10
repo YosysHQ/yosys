@@ -321,6 +321,9 @@ namespace AST
 		static AstNode *mkconst_str(const std::vector<RTLIL::State> &v);
 		static AstNode *mkconst_str(const std::string &str);
 
+		// helper function to create an AST node for a temporary register
+		AstNode *mktemp_logic(const std::string &name, AstNode *mod, bool nosync, int range_left, int range_right, bool is_signed);
+
 		// helper function for creating sign-extended const objects
 		RTLIL::Const bitsAsConst(int width, bool is_signed);
 		RTLIL::Const bitsAsConst(int width = -1);
