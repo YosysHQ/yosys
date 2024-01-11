@@ -178,7 +178,7 @@ Fmt AstNode::processFormat(int stage, bool sformat_like, int default_base, size_
 		args.push_back(arg);
 	}
 
-	Fmt fmt = {};
+	Fmt fmt;
 	fmt.parse_verilog(args, sformat_like, default_base, /*task_name=*/str, current_module->name);
 	return fmt;
 }
@@ -784,7 +784,7 @@ AstNode *AstNode::clone_at_zero()
 				pointee->type != AST_MEMORY)
 			break;
 
-		YS_FALLTHROUGH;
+		YS_FALLTHROUGH
 	case AST_MEMRD:
 		detectSignWidth(width_hint, sign_hint);
 		return mkconst_int(0, sign_hint, width_hint);
@@ -3038,97 +3038,6 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		goto apply_newNode;
 	}
 skip_dynamic_range_lvalue_expansion:;
-
-	if (stage > 1 && (type == AST_ASSERT || type == AST_ASSUME || type == AST_LIVE || type == AST_FAIR || type == AST_COVER) && current_block != NULL)
-	{
-		std::stringstream sstr;
-		sstr << "$formal$" << RTLIL::encode_filename(filename) << ":" << location.first_line << "$" << (autoidx++);
-		std::string id_check = sstr.str() + "_CHECK", id_en = sstr.str() + "_EN";
-
-		AstNode *wire_check = new AstNode(AST_WIRE);
-		wire_check->str = id_check;
-		wire_check->was_checked = true;
-		current_ast_mod->children.push_back(wire_check);
-		current_scope[wire_check->str] = wire_check;
-		while (wire_check->simplify(true, 1, -1, false)) { }
-
-		AstNode *wire_en = new AstNode(AST_WIRE);
-		wire_en->str = id_en;
-		wire_en->was_checked = true;
-		current_ast_mod->children.push_back(wire_en);
-		if (current_always_clocked) {
-			current_ast_mod->children.push_back(new AstNode(AST_INITIAL, new AstNode(AST_BLOCK, new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), AstNode::mkconst_int(0, false, 1)))));
-			current_ast_mod->children.back()->children[0]->children[0]->children[0]->str = id_en;
-			current_ast_mod->children.back()->children[0]->children[0]->children[0]->was_checked = true;
-		}
-		current_scope[wire_en->str] = wire_en;
-		while (wire_en->simplify(true, 1, -1, false)) { }
-
-		AstNode *check_defval;
-		if (type == AST_LIVE || type == AST_FAIR) {
-			check_defval = new AstNode(AST_REDUCE_BOOL, children[0]->clone());
-		} else {
-			std::vector<RTLIL::State> x_bit;
-			x_bit.push_back(RTLIL::State::Sx);
-			check_defval = mkconst_bits(x_bit, false);
-		}
-
-		AstNode *assign_check = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), check_defval);
-		assign_check->children[0]->str = id_check;
-		assign_check->children[0]->was_checked = true;
-
-		AstNode *assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_int(0, false, 1));
-		assign_en->children[0]->str = id_en;
-		assign_en->children[0]->was_checked = true;
-
-		AstNode *default_signals = new AstNode(AST_BLOCK);
-		default_signals->children.push_back(assign_check);
-		default_signals->children.push_back(assign_en);
-		current_top_block->children.insert(current_top_block->children.begin(), default_signals);
-
-		if (type == AST_LIVE || type == AST_FAIR) {
-			assign_check = nullptr;
-		} else {
-			assign_check = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), new AstNode(AST_REDUCE_BOOL, children[0]->clone()));
-			assign_check->children[0]->str = id_check;
-			assign_check->children[0]->was_checked = true;
-			assign_check->fixup_hierarchy_flags();
-		}
-
-		if (current_always == nullptr || current_always->type != AST_INITIAL) {
-			assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), mkconst_int(1, false, 1));
-		} else {
-			assign_en = new AstNode(AST_ASSIGN_LE, new AstNode(AST_IDENTIFIER), new AstNode(AST_FCALL));
-			assign_en->children[1]->str = "\\$initstate";
-		}
-		assign_en->children[0]->str = id_en;
-		assign_en->children[0]->was_checked = true;
-		assign_en->fixup_hierarchy_flags();
-
-		newNode = new AstNode(AST_BLOCK);
-		if (assign_check != nullptr)
-			newNode->children.push_back(assign_check);
-		newNode->children.push_back(assign_en);
-
-		AstNode *assertnode = new AstNode(type);
-		assertnode->location = location;
-		assertnode->str = str;
-		assertnode->children.push_back(new AstNode(AST_IDENTIFIER));
-		assertnode->children.push_back(new AstNode(AST_IDENTIFIER));
-		assertnode->children[0]->str = id_check;
-		assertnode->children[1]->str = id_en;
-		assertnode->attributes.swap(attributes);
-		current_ast_mod->children.push_back(assertnode);
-
-		goto apply_newNode;
-	}
-
-	if (stage > 1 && (type == AST_ASSERT || type == AST_ASSUME || type == AST_LIVE || type == AST_FAIR || type == AST_COVER) && children.size() == 1)
-	{
-		children.push_back(mkconst_int(1, false, 1));
-		fixup_hierarchy_flags();
-		did_something = true;
-	}
 
 	// found right-hand side identifier for memory -> replace with memory read port
 	if (stage > 1 && type == AST_IDENTIFIER && id2ast != NULL && id2ast->type == AST_MEMORY && !in_lvalue &&

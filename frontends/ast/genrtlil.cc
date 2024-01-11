@@ -163,6 +163,28 @@ static RTLIL::SigSpec mux2rtlil(AstNode *that, const RTLIL::SigSpec &cond, const
 	return wire;
 }
 
+static void check_unique_id(RTLIL::Module *module, RTLIL::IdString id,
+		const AstNode *node, const char *to_add_kind)
+{
+	auto already_exists = [&](const RTLIL::AttrObject *existing, const char *existing_kind) {
+		std::string src = existing->get_string_attribute(ID::src);
+		std::string location_str = "earlier";
+		if (!src.empty())
+			location_str = "at " + src;
+		node->input_error("Cannot add %s `%s' because a %s with the same name was already created %s!\n",
+						  to_add_kind, id.c_str(), existing_kind, location_str.c_str());
+	};
+
+	if (const RTLIL::Wire *wire = module->wire(id))
+		already_exists(wire, "signal");
+	if (const RTLIL::Cell *cell = module->cell(id))
+		already_exists(cell, "cell");
+	if (module->processes.count(id))
+		already_exists(module->processes.at(id), "process");
+	if (module->memories.count(id))
+		already_exists(module->memories.at(id), "memory");
+}
+
 // helper class for rewriting simple lookahead references in AST always blocks
 struct AST_INTERNAL::LookaheadRewriter
 {
@@ -316,10 +338,10 @@ struct AST_INTERNAL::ProcessGenerator
 	// Buffer for generating the init action
 	RTLIL::SigSpec init_lvalue, init_rvalue;
 
-	// The most recently assigned $print cell \PRIORITY.
-	int last_print_priority;
+	// The most recently assigned $print or $check cell \PRIORITY.
+	int last_effect_priority;
 
-	ProcessGenerator(AstNode *always, RTLIL::SigSpec initSyncSignalsArg = RTLIL::SigSpec()) : always(always), initSyncSignals(initSyncSignalsArg), last_print_priority(0)
+	ProcessGenerator(AstNode *always, RTLIL::SigSpec initSyncSignalsArg = RTLIL::SigSpec()) : always(always), initSyncSignals(initSyncSignalsArg), last_effect_priority(0)
 	{
 		// rewrite lookahead references
 		LookaheadRewriter la_rewriter(always);
@@ -703,8 +725,10 @@ struct AST_INTERNAL::ProcessGenerator
 				std::stringstream sstr;
 				sstr << ast->str << "$" << ast->filename << ":" << ast->location.first_line << "$" << (autoidx++);
 
-				RTLIL::Cell *cell = current_module->addCell(sstr.str(), ID($print));
-				set_src_attr(cell, ast);
+				Wire *en = current_module->addWire(sstr.str() + "_EN", 1);
+				set_src_attr(en, ast);
+				proc->root_case.actions.push_back(SigSig(en, false));
+				current_case->actions.push_back(SigSig(en, true));
 
 				RTLIL::SigSpec triggers;
 				RTLIL::Const polarity;
@@ -717,18 +741,15 @@ struct AST_INTERNAL::ProcessGenerator
 						polarity.bits.push_back(RTLIL::S0);
 					}
 				}
-				cell->parameters[ID::TRG_WIDTH] = triggers.size();
-				cell->parameters[ID::TRG_ENABLE] = (always->type == AST_INITIAL) || !triggers.empty();
-				cell->parameters[ID::TRG_POLARITY] = polarity;
-				cell->parameters[ID::PRIORITY] = --last_print_priority;
+
+				RTLIL::Cell *cell = current_module->addCell(sstr.str(), ID($print));
+				set_src_attr(cell, ast);
+				cell->setParam(ID::TRG_WIDTH, triggers.size());
+				cell->setParam(ID::TRG_ENABLE, (always->type == AST_INITIAL) || !triggers.empty());
+				cell->setParam(ID::TRG_POLARITY, polarity);
+				cell->setParam(ID::PRIORITY, --last_effect_priority);
 				cell->setPort(ID::TRG, triggers);
-
-				Wire *wire = current_module->addWire(sstr.str() + "_EN", 1);
-				set_src_attr(wire, ast);
-				cell->setPort(ID::EN, wire);
-
-				proc->root_case.actions.push_back(SigSig(wire, false));
-				current_case->actions.push_back(SigSig(wire, true));
+				cell->setPort(ID::EN, en);
 
 				int default_base = 10;
 				if (ast->str.back() == 'b')
@@ -766,7 +787,7 @@ struct AST_INTERNAL::ProcessGenerator
 					args.push_back(arg);
 				}
 
-				Fmt fmt = {};
+				Fmt fmt;
 				fmt.parse_verilog(args, /*sformat_like=*/false, default_base, /*task_name=*/ast->str, current_module->name);
 				if (ast->str.substr(0, 8) == "$display")
 					fmt.append_string("\n");
@@ -775,6 +796,70 @@ struct AST_INTERNAL::ProcessGenerator
 				log_file_error(ast->filename, ast->location.first_line, "Found unsupported invocation of system task `%s'!\n", ast->str.c_str());
 			}
 			break;
+
+		// generate $check cells
+		case AST_ASSERT:
+		case AST_ASSUME:
+		case AST_LIVE:
+		case AST_FAIR:
+		case AST_COVER:
+			{
+				std::string flavor, desc;
+				if (ast->type == AST_ASSERT) { flavor = "assert"; desc = "assert ()"; }
+				if (ast->type == AST_ASSUME) { flavor = "assume"; desc = "assume ()"; }
+				if (ast->type == AST_LIVE) { flavor = "live"; desc = "assert (eventually)"; }
+				if (ast->type == AST_FAIR) { flavor = "fair"; desc = "assume (eventually)"; }
+				if (ast->type == AST_COVER) { flavor = "cover"; desc = "cover ()"; }
+
+				IdString cellname;
+				if (ast->str.empty())
+					cellname = stringf("$%s$%s:%d$%d", flavor.c_str(), RTLIL::encode_filename(ast->filename).c_str(), ast->location.first_line, autoidx++);
+				else
+					cellname = ast->str;
+				check_unique_id(current_module, cellname, ast, "procedural assertion");
+
+				RTLIL::SigSpec check = ast->children[0]->genWidthRTLIL(-1, false, &subst_rvalue_map.stdmap());
+				if (GetSize(check) != 1)
+					check = current_module->ReduceBool(NEW_ID, check);
+
+				Wire *en = current_module->addWire(cellname.str() + "_EN", 1);
+				set_src_attr(en, ast);
+				proc->root_case.actions.push_back(SigSig(en, false));
+				current_case->actions.push_back(SigSig(en, true));
+
+				RTLIL::SigSpec triggers;
+				RTLIL::Const polarity;
+				for (auto sync : proc->syncs) {
+					if (sync->type == RTLIL::STp) {
+						triggers.append(sync->signal);
+						polarity.bits.push_back(RTLIL::S1);
+					} else if (sync->type == RTLIL::STn) {
+						triggers.append(sync->signal);
+						polarity.bits.push_back(RTLIL::S0);
+					}
+				}
+
+				RTLIL::Cell *cell = current_module->addCell(cellname, ID($check));
+				set_src_attr(cell, ast);
+				for (auto &attr : ast->attributes) {
+					if (attr.second->type != AST_CONSTANT)
+						log_file_error(ast->filename, ast->location.first_line, "Attribute `%s' with non-constant value!\n", attr.first.c_str());
+					cell->attributes[attr.first] = attr.second->asAttrConst();
+				}
+				cell->setParam(ID::FLAVOR, flavor);
+				cell->setParam(ID::TRG_WIDTH, triggers.size());
+				cell->setParam(ID::TRG_ENABLE, (always->type == AST_INITIAL) || !triggers.empty());
+				cell->setParam(ID::TRG_POLARITY, polarity);
+				cell->setParam(ID::PRIORITY, --last_effect_priority);
+				cell->setPort(ID::TRG, triggers);
+				cell->setPort(ID::EN, en);
+				cell->setPort(ID::A, check);
+
+				// No message is emitted to ensure Verilog code roundtrips correctly.
+				Fmt fmt;
+				fmt.emit_rtlil(cell);
+				break;
+			}
 
 		case AST_NONE:
 		case AST_FOR:
@@ -1240,28 +1325,6 @@ void AstNode::detectSignWidth(int &width_hint, bool &sign_hint, bool *found_real
 	if (width_hint >= kWidthLimit)
 		input_error("Expression width %d exceeds implementation limit of %d!\n",
 					width_hint, kWidthLimit);
-}
-
-static void check_unique_id(RTLIL::Module *module, RTLIL::IdString id,
-		const AstNode *node, const char *to_add_kind)
-{
-	auto already_exists = [&](const RTLIL::AttrObject *existing, const char *existing_kind) {
-		std::string src = existing->get_string_attribute(ID::src);
-		std::string location_str = "earlier";
-		if (!src.empty())
-			location_str = "at " + src;
-		node->input_error("Cannot add %s `%s' because a %s with the same name was already created %s!\n",
-						  to_add_kind, id.c_str(), existing_kind, location_str.c_str());
-	};
-
-	if (const RTLIL::Wire *wire = module->wire(id))
-		already_exists(wire, "signal");
-	if (const RTLIL::Cell *cell = module->cell(id))
-		already_exists(cell, "cell");
-	if (module->processes.count(id))
-		already_exists(module->processes.at(id), "process");
-	if (module->memories.count(id))
-		already_exists(module->memories.at(id), "memory");
 }
 
 // create RTLIL from an AST node
@@ -1945,48 +2008,50 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 		}
 		break;
 
-	// generate $assert cells
+	// generate $check cells
 	case AST_ASSERT:
 	case AST_ASSUME:
 	case AST_LIVE:
 	case AST_FAIR:
 	case AST_COVER:
 		{
-			IdString celltype;
-			if (type == AST_ASSERT) celltype = ID($assert);
-			if (type == AST_ASSUME) celltype = ID($assume);
-			if (type == AST_LIVE) celltype = ID($live);
-			if (type == AST_FAIR) celltype = ID($fair);
-			if (type == AST_COVER) celltype = ID($cover);
+			std::string flavor, desc;
+			if (type == AST_ASSERT) { flavor = "assert"; desc = "assert property ()"; }
+			if (type == AST_ASSUME) { flavor = "assume"; desc = "assume property ()"; }
+			if (type == AST_LIVE) { flavor = "live"; desc = "assert property (eventually)"; }
+			if (type == AST_FAIR) { flavor = "fair"; desc = "assume property (eventually)"; }
+			if (type == AST_COVER) { flavor = "cover"; desc = "cover property ()"; }
 
-			log_assert(children.size() == 2);
+			IdString cellname;
+			if (str.empty())
+				cellname = stringf("$%s$%s:%d$%d", flavor.c_str(), RTLIL::encode_filename(filename).c_str(), location.first_line, autoidx++);
+			else
+				cellname = str;
+			check_unique_id(current_module, cellname, this, "procedural assertion");
 
 			RTLIL::SigSpec check = children[0]->genRTLIL();
 			if (GetSize(check) != 1)
 				check = current_module->ReduceBool(NEW_ID, check);
 
-			RTLIL::SigSpec en = children[1]->genRTLIL();
-			if (GetSize(en) != 1)
-				en = current_module->ReduceBool(NEW_ID, en);
-
-			IdString cellname;
-			if (str.empty())
-				cellname = stringf("%s$%s:%d$%d", celltype.c_str(), RTLIL::encode_filename(filename).c_str(), location.first_line, autoidx++);
-			else
-				cellname = str;
-
-			check_unique_id(current_module, cellname, this, "procedural assertion");
-			RTLIL::Cell *cell = current_module->addCell(cellname, celltype);
+			RTLIL::Cell *cell = current_module->addCell(cellname, ID($check));
 			set_src_attr(cell, this);
-
 			for (auto &attr : attributes) {
 				if (attr.second->type != AST_CONSTANT)
 					input_error("Attribute `%s' with non-constant value!\n", attr.first.c_str());
 				cell->attributes[attr.first] = attr.second->asAttrConst();
 			}
-
+			cell->setParam(ID(FLAVOR), flavor);
+			cell->parameters[ID::TRG_WIDTH] = 0;
+			cell->parameters[ID::TRG_ENABLE] = 0;
+			cell->parameters[ID::TRG_POLARITY] = 0;
+			cell->parameters[ID::PRIORITY] = 0;
+			cell->setPort(ID::TRG, RTLIL::SigSpec());
+			cell->setPort(ID::EN, RTLIL::S1);
 			cell->setPort(ID::A, check);
-			cell->setPort(ID::EN, en);
+
+			// No message is emitted to ensure Verilog code roundtrips correctly.
+			Fmt fmt;
+			fmt.emit_rtlil(cell);
 		}
 		break;
 

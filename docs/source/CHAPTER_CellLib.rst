@@ -621,7 +621,7 @@ Add information about ``$specify2``, ``$specify3``, and ``$specrule`` cells.
 Formal verification cells
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Add information about ``$assert``, ``$assume``, ``$live``, ``$fair``,
+Add information about ``$check``, ``$assert``, ``$assume``, ``$live``, ``$fair``,
 ``$cover``, ``$equiv``, ``$initstate``, ``$anyconst``, ``$anyseq``,
 ``$anyinit``, ``$allconst``, ``$allseq`` cells.
 
@@ -654,8 +654,8 @@ If ``\TRG_ENABLE`` is true, the following parameters also apply:
 	negative-edge triggered.
 
 ``\PRIORITY``
-	When multiple ``$print`` cells fire on the same trigger, they execute in
-	descending priority order.
+	When multiple ``$print`` or ``$$check`` cells fire on the same trigger, they\
+	execute in descending priority order.
 
 Ports:
 
