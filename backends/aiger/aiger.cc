@@ -320,6 +320,9 @@ struct AigerWriter
 				continue;
 			}
 
+			if (cell->type == ID($scopeinfo))
+				continue;
+
 			log_error("Unsupported cell type: %s (%s)\n", log_id(cell->type), log_id(cell));
 		}
 
