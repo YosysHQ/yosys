@@ -1291,20 +1291,29 @@ struct CxxrtlWorker {
 			log_assert(!for_debug);
 
 			// Sync $print cells are grouped into PRINT_SYNC nodes in the FlowGraph.
-			log_assert(!cell->getParam(ID::TRG_ENABLE).as_bool());
+			log_assert(!cell->getParam(ID::TRG_ENABLE).as_bool() || (cell->getParam(ID::TRG_ENABLE).as_bool() && cell->getParam(ID::TRG_WIDTH).as_int() == 0));
 
-			f << indent << "auto " << mangle(cell) << "_curr = ";
-			dump_sigspec_rhs(cell->getPort(ID::EN));
-			f << ".concat(";
-			dump_sigspec_rhs(cell->getPort(ID::ARGS));
-			f << ").val();\n";
+			if (!cell->getParam(ID::TRG_ENABLE).as_bool()) { // async $print cell
+				f << indent << "auto " << mangle(cell) << "_curr = ";
+				dump_sigspec_rhs(cell->getPort(ID::EN));
+				f << ".concat(";
+				dump_sigspec_rhs(cell->getPort(ID::ARGS));
+				f << ").val();\n";
 
-			f << indent << "if (" << mangle(cell) << " != " << mangle(cell) << "_curr) {\n";
-			inc_indent();
-				dump_print(cell);
-				f << indent << mangle(cell) << " = " << mangle(cell) << "_curr;\n";
-			dec_indent();
-			f << indent << "}\n";
+				f << indent << "if (" << mangle(cell) << " != " << mangle(cell) << "_curr) {\n";
+				inc_indent();
+					dump_print(cell);
+					f << indent << mangle(cell) << " = " << mangle(cell) << "_curr;\n";
+				dec_indent();
+				f << indent << "}\n";
+			} else { // initial $print cell
+				f << indent << "if (!" << mangle(cell) << ") {\n";
+				inc_indent();
+					dump_print(cell);
+					f << indent << mangle(cell) << " = value<1>{1u};\n";
+				dec_indent();
+				f << indent << "}\n";
+			}
 		// Flip-flops
 		} else if (is_ff_cell(cell->type)) {
 			log_assert(!for_debug);
@@ -2002,6 +2011,11 @@ struct CxxrtlWorker {
 				}
 			}
 			for (auto cell : module->cells()) {
+				// Certain $print cells have additional state, which must be reset as well.
+				if (cell->type == ID($print) && !cell->getParam(ID::TRG_ENABLE).as_bool())
+					f << indent << mangle(cell) << " = value<" << (1 + cell->getParam(ID::ARGS_WIDTH).as_int()) << ">();\n";
+				if (cell->type == ID($print) && cell->getParam(ID::TRG_ENABLE).as_bool() && cell->getParam(ID::TRG_WIDTH).as_int() == 0)
+					f << indent << mangle(cell) << " = value<1>();\n";
 				if (is_internal_cell(cell->type))
 					continue;
 				f << indent << mangle(cell);
@@ -2430,11 +2444,11 @@ struct CxxrtlWorker {
 					f << "\n";
 				bool has_cells = false;
 				for (auto cell : module->cells()) {
-					if (cell->type == ID($print) && !cell->getParam(ID::TRG_ENABLE).as_bool()) {
-						// comb $print cell -- store the last EN/ARGS values to know when they change.
-						dump_attrs(cell);
+					// Certain $print cells have additional state, which requires storage.
+					if (cell->type == ID($print) && !cell->getParam(ID::TRG_ENABLE).as_bool())
 						f << indent << "value<" << (1 + cell->getParam(ID::ARGS_WIDTH).as_int()) << "> " << mangle(cell) << ";\n";
-					}
+					if (cell->type == ID($print) && cell->getParam(ID::TRG_ENABLE).as_bool() && cell->getParam(ID::TRG_WIDTH).as_int() == 0)
+						f << indent << "value<1> " << mangle(cell) << ";\n";
 					if (is_internal_cell(cell->type))
 						continue;
 					dump_attrs(cell);
@@ -2964,8 +2978,9 @@ struct CxxrtlWorker {
 			for (auto node : node_order)
 				if (live_nodes[node]) {
 					if (node->type == FlowGraph::Node::Type::CELL_EVAL &&
-					    node->cell->type == ID($print) &&
-					    node->cell->getParam(ID::TRG_ENABLE).as_bool())
+							node->cell->type == ID($print) &&
+							node->cell->getParam(ID::TRG_ENABLE).as_bool() &&
+							node->cell->getParam(ID::TRG_WIDTH).as_int() != 0)
 						sync_print_cells[make_pair(node->cell->getPort(ID::TRG), node->cell->getParam(ID::TRG_POLARITY))].push_back(node->cell);
 					else
 						schedule[module].push_back(*node);
