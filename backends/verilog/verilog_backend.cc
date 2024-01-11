@@ -1830,7 +1830,8 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			if (it != cell->parameters.begin())
 				f << stringf(",");
 			f << stringf("\n%s  .%s(", indent.c_str(), id(it->first).c_str());
-			dump_const(f, it->second);
+			if (it->second.size() > 0)
+				dump_const(f, it->second);
 			f << stringf(")");
 		}
 		f << stringf("\n%s" ")", indent.c_str());
