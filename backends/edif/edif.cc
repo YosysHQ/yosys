@@ -213,6 +213,9 @@ struct EdifBackend : public Backend {
 
 			for (auto cell : module->cells())
 			{
+				if (cell->type == ID($scopeinfo))
+					continue;
+
 				if (design->module(cell->type) == nullptr || design->module(cell->type)->get_blackbox_attribute()) {
 					lib_cell_ports[cell->type];
 					for (auto p : cell->connections())
