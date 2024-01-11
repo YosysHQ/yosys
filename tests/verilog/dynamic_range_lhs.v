@@ -1,12 +1,12 @@
 module gate(
-    output reg [`LEFT:`RIGHT] out_u, out_s,
     (* nowrshmsk = `ALT *)
+    output reg [`LEFT:`RIGHT] out_u, out_s,
     input wire data,
     input wire [1:0] sel1, sel2
 );
 always @* begin
-    out_u = 0;
-    out_s = 0;
+    out_u = 'x;
+    out_s = 'x;
     case (`SPAN)
     1: begin
         out_u[sel1*sel2] = data;
@@ -43,8 +43,8 @@ task set;
         out_s[b] = data;
 endtask
 always @* begin
-    out_u = 0;
-    out_s = 0;
+    out_u = 'x;
+    out_s = 'x;
     case (sel1*sel2)
         2'b00: set(0, 0);
         2'b01: set(1, 1);
