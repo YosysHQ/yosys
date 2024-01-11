@@ -226,6 +226,9 @@ struct BlifDumper
 
 		for (auto cell : module->cells())
 		{
+			if (cell->type == ID($scopeinfo))
+				continue;
+
 			if (config->unbuf_types.count(cell->type)) {
 				auto portnames = config->unbuf_types.at(cell->type);
 				f << stringf(".names %s %s\n1 1\n",
