@@ -2002,6 +2002,8 @@ struct CxxrtlWorker {
 				}
 			}
 			for (auto cell : module->cells()) {
+				if (cell->type == ID($print) && !cell->getParam(ID::TRG_ENABLE).as_bool())
+					f << indent << mangle(cell) << " = value<" << (1 + cell->getParam(ID::ARGS_WIDTH).as_int()) << ">();\n";
 				if (is_internal_cell(cell->type))
 					continue;
 				f << indent << mangle(cell);
