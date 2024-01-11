@@ -1896,17 +1896,21 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 
 void dump_sync_print(std::ostream &f, std::string indent, const RTLIL::SigSpec &trg, const RTLIL::Const &polarity, std::vector<const RTLIL::Cell*> &cells)
 {
-	f << stringf("%s" "always @(", indent.c_str());
-	for (int i = 0; i < trg.size(); i++) {
-		if (i != 0)
-			f << " or ";
-		if (polarity[i])
-			f << "posedge ";
-		else
-			f << "negedge ";
-		dump_sigspec(f, trg[i]);
+	if (trg.size() == 0) {
+		f << stringf("%s" "initial begin\n", indent.c_str());
+	} else {
+		f << stringf("%s" "always @(", indent.c_str());
+		for (int i = 0; i < trg.size(); i++) {
+			if (i != 0)
+				f << " or ";
+			if (polarity[i])
+				f << "posedge ";
+			else
+				f << "negedge ";
+			dump_sigspec(f, trg[i]);
+		}
+		f << ") begin\n";
 	}
-	f << ") begin\n";
 
 	std::sort(cells.begin(), cells.end(), [](const RTLIL::Cell *a, const RTLIL::Cell *b) {
 		return a->getParam(ID::PRIORITY).as_int() > b->getParam(ID::PRIORITY).as_int();
