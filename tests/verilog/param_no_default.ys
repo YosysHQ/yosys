@@ -1,5 +1,5 @@
 read_verilog -sv param_no_default.sv
-hierarchy
+hierarchy -top top
 proc
 flatten
 opt -full

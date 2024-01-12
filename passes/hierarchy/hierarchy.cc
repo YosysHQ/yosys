@@ -1006,6 +1006,18 @@ struct HierarchyPass : public Pass {
 				if (mod->get_bool_attribute(ID::top))
 					top_mod = mod;
 
+		if (top_mod == nullptr)
+		{
+			std::vector<IdString> abstract_ids;
+			for (auto module : design->modules())
+				if (module->name.begins_with("$abstract"))
+					abstract_ids.push_back(module->name);
+			for (auto abstract_id : abstract_ids)
+				design->module(abstract_id)->derive(design, {});
+			for (auto abstract_id : abstract_ids)
+				design->remove(design->module(abstract_id));
+		}
+
 		if (top_mod == nullptr && auto_top_mode) {
 			log_header(design, "Finding top of design hierarchy..\n");
 			dict<Module*, int> db;
