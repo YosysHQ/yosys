@@ -280,9 +280,7 @@ Checking techmap
 
 .. todo:: add/expand supporting text
 
-.. TODO:: reference no longer exists
-
-Remember the following example from :doc:`/getting_started/typical_phases`?
+Let's look at the following example:
 
 .. literalinclude:: /code_examples/synth_flow/techmap_01_map.v
    :language: verilog
@@ -296,7 +294,9 @@ Remember the following example from :doc:`/getting_started/typical_phases`?
    :language: yoscrypt
    :caption: ``docs/source/code_examples/synth_flow/techmap_01.ys``
 
-Lets see if it is correct..
+To see if it is correct we can use the following code:
+
+.. todo:: replace inline yosys script code
 
 .. code:: yoscrypt
 
