@@ -104,7 +104,9 @@ Since we're just getting started, let's instead begin with :yoscrypt:`hierarchy
 .. note::
 
    :cmd:ref:`hierarchy` should always be the first command after the design has
-   been read.
+   been read.  By specifying the top module, :cmd:ref:`hierarchy` will also set
+   the ``(* top *)`` attribute on it.  This is used by other commands that need
+   to know which module is the top.
 
 .. use doscon for a console-like display that supports the `yosys> [command]` format.
 
@@ -215,7 +217,7 @@ the reasons why hierarchy should always be the first command after loading the
 design.  If we know that our design won't run into this issue, we can skip the
 ``-defer``.
 
-.. TODO:: more on why :cmd:ref:`hierarchy` is important
+.. todo:: :cmd:ref:`hierarchy` failure modes
 
 .. note::
 
@@ -747,6 +749,39 @@ The new commands here are:
 - :doc:`/cmd/stat`, and
 - :doc:`/cmd/blackbox`.
 
+The output from :cmd:ref:`stat` is useful for checking resource utilization;
+providing a list of cells used in the design and the number of each, as well as
+the number of other resources used such as wires and processes.  For this
+design, the final call to :cmd:ref:`stat` should look something like the
+following:
+
+.. literalinclude:: /code_examples/fifo/fifo.stat
+   :language: doscon
+   :start-at: yosys> stat -top fifo
+
+Note that the :yoscrypt:`-top fifo` here is optional.  :cmd:ref:`stat` will
+automatically use the module with the ``top`` attribute set, which ``fifo`` was
+when we called :cmd:ref:`hierarchy`.  If no module is marked ``top``, then stats
+will be shown for each module selected.
+
+The :cmd:ref:`stat` output is also useful as a kind of sanity-check: Since we
+have already run :cmd:ref:`proc`, we wouldn't expect there to be any processes.
+We also expect ``data`` to use hard memory; if instead of an ``SB_RAM40_4K`` saw
+a high number of flip-flops being used we might suspect something was wrong.
+
+If we instead called :cmd:ref:`stat` immediately after :yoscrypt:`read_verilog
+fifo.v` we would see something very different:
+
+.. literalinclude:: /code_examples/fifo/fifo.stat
+   :language: doscon
+   :start-at: yosys> stat
+   :end-before: yosys> stat -top fifo
+
+Notice how ``fifo`` and ``addr_gen`` are listed separately, and the statistics
+for ``fifo`` show 2 ``addr_gen`` modules.  Because this is before the memory has
+been mapped, we also see that there is 1 memory with 2048 memory bits; matching
+our 8-bit wide ``data`` memory with 256 values (:math:`8*256=2048`).
+
 Synthesis output
 ^^^^^^^^^^^^^^^^
 
@@ -757,8 +792,8 @@ The iCE40 synthesis flow has the following output modes available:
 - :doc:`/cmd/write_json`.
 
 As an example, if we called :yoscrypt:`synth_ice40 -top fifo -json fifo.json`,
-our synthesized FIFO design will be output as ``fifo.json``.  We can then read
-the design back into Yosys with :cmd:ref:`read_json`, but make sure you use
+our synthesized ``fifo`` design will be output as ``fifo.json``.  We can then
+read the design back into Yosys with :cmd:ref:`read_json`, but make sure you use
 :yoscrypt:`design -reset` or open a new interactive terminal first.  The JSON
 output we get can also be loaded into `nextpnr`_ to do place and route; but that
 is beyond the scope of this documentation.

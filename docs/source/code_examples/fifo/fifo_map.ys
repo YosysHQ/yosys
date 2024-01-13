@@ -1,4 +1,7 @@
 read_verilog fifo.v
+echo on
+tee -o fifo.stat stat
+echo off
 synth_ice40 -top fifo -run begin:map_ram
 # this point should be the same as rdata_coarse
 
@@ -45,3 +48,7 @@ show -color maroon3 t:SB_CARRY -color cornflowerblue t:$lut -notitle -format dot
 synth_ice40 -top fifo -run map_cells:
 select -set rdata_path t:SB_RAM40_4K %ci*:-SB_RAM40_4K[WCLKE,WDATA,WADDR,WE] t:SB_RAM40_4K %co* %%
 show -color maroon3 t:SB_LUT* -notitle -format dot -prefix rdata_map_cells @rdata_path
+
+echo on
+tee -a fifo.stat stat -top fifo
+echo off
