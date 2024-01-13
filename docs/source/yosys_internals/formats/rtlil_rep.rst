@@ -74,13 +74,13 @@ This has three advantages:
 -  First, it is impossible that an auto-generated identifier collides with an
    identifier that was provided by the user.
 
-.. TODO:: ``opt_clean`` (or clean), also ``-purge``
-
 -  Second, the information about which identifiers were originally provided by
    the user is always available which can help guide some optimizations. For
-   example the ``opt_rmunused`` tries to preserve signals with a user-provided
+   example, :cmd:ref:`opt_clean` tries to preserve signals with a user-provided
    name but doesn't hesitate to delete signals that have auto-generated names
-   when they just duplicate other signals.
+   when they just duplicate other signals.  Note that this can be overridden
+   with the `-purge` option to also delete internal nets with user-provided
+   names.
 
 -  Third, the delicate job of finding suitable auto-generated public visible
    names is deferred to one central location. Internally auto-generated names
