@@ -75,15 +75,23 @@ Let's start with the section labeled ``begin``:
 iCE40 cell models which allows us to include platform specific IP blocks in our
 design.  PLLs are a common example of this, where we might need to reference
 ``SB_PLL40_CORE`` directly rather than being able to rely on mapping passes
-later.  Since our simple design doesn't use any of these IP blocks, we can safely
-skip this command.
+later.  Since our simple design doesn't use any of these IP blocks, we can skip
+this command for now.  Because these cell models will also be needed once we
+start mapping to hardware we will still need to load them later.
+
+.. note::
+
+   ``+/`` is a dynamic reference to the Yosys ``share`` directory.  By default,
+   this is ``/usr/local/share/yosys``.  If using a locally built version of
+   Yosys from the source directory, this will be the ``share`` folder in the
+   same directory.
 
 The addr_gen module
 ^^^^^^^^^^^^^^^^^^^
 
 Since we're just getting started, let's instead begin with :yoscrypt:`hierarchy
--top addr_gen`.  This command declares that the top level module is ``addr_gen``,
-and everything else can be discarded.
+-top addr_gen`.  This command declares that the top level module is
+``addr_gen``, and everything else can be discarded.
 
 .. literalinclude:: /code_examples/fifo/fifo.v
    :language: Verilog
@@ -548,6 +556,9 @@ The remaining sections each map a different type of hardware and are much more
 architecture dependent than the previous sections.  As such we will only be
 looking at each section very briefly.
 
+If you skipped calling :yoscrypt:`read_verilog -D ICE40_HX -lib -specify
++/ice40/cells_sim.v` earlier, do it now.
+
 Memory blocks
 ^^^^^^^^^^^^^
 
@@ -719,7 +730,8 @@ These commands tend to either be in the :ref:`map_cells` or after the
 Final steps
 ~~~~~~~~~~~~
 
-.. TODO:: example_synth final steps (check section and outputting)
+The next section of the iCE40 synth flow performs some sanity checking and final
+tidy up:
 
 .. literalinclude:: /cmd/synth_ice40.rst
    :language: yoscrypt
@@ -729,6 +741,28 @@ Final steps
    :name: check
    :caption: ``check`` section
 
-- :doc:`/cmd/check`
-- :doc:`/cmd/autoname`
-- :doc:`/cmd/stat`
+The new commands here are:
+
+- :doc:`/cmd/autoname`,
+- :doc:`/cmd/stat`, and
+- :doc:`/cmd/blackbox`.
+
+Synthesis output
+^^^^^^^^^^^^^^^^
+
+The iCE40 synthesis flow has the following output modes available:
+
+- :doc:`/cmd/write_blif`,
+- :doc:`/cmd/write_edif`, and
+- :doc:`/cmd/write_json`.
+
+As an example, if we called :yoscrypt:`synth_ice40 -top fifo -json fifo.json`,
+our synthesized FIFO design will be output as ``fifo.json``.  We can then read
+the design back into Yosys with :cmd:ref:`read_json`, but make sure you use
+:yoscrypt:`design -reset` or open a new interactive terminal first.  The JSON
+output we get can also be loaded into `nextpnr`_ to do place and route; but that
+is beyond the scope of this documentation.
+
+.. _nextpnr: https://github.com/YosysHQ/nextpnr
+
+.. seealso:: :doc:`/cmd/synth_ice40`
