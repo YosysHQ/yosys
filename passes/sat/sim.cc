@@ -185,6 +185,7 @@ struct SimInstance
 
 	struct print_state_t
 	{
+		bool initial_done;
 		Const past_trg;
 		Const past_en;
 		Const past_args;
@@ -350,6 +351,7 @@ struct SimInstance
 				print.past_trg = Const(State::Sx, cell->getPort(ID::TRG).size());
 				print.past_args = Const(State::Sx, cell->getPort(ID::ARGS).size());
 				print.past_en = State::Sx;
+				print.initial_done = false;
 			}
 		}
 
@@ -852,13 +854,14 @@ struct SimInstance
 			bool triggered = false;
 
 			Const trg = get_state(cell->getPort(ID::TRG));
+			bool trg_en = cell->getParam(ID::TRG_ENABLE).as_bool();
 			Const en = get_state(cell->getPort(ID::EN));
 			Const args = get_state(cell->getPort(ID::ARGS));
 
 			if (!en.as_bool())
 				goto update_print;
 
-			if (cell->getParam(ID::TRG_ENABLE).as_bool()) {
+			if (trg.size() > 0 && trg_en) {
 				Const trg_pol = cell->getParam(ID::TRG_POLARITY);
 				for (int i = 0; i < trg.size(); i++) {
 					bool pol = trg_pol[i] == State::S1;
@@ -868,7 +871,12 @@ struct SimInstance
 					if (!pol && curr == State::S0 && past == State::S1)
 						triggered = true;
 				}
+			} else if (trg_en) {
+				// initial $print (TRG width = 0, TRG_ENABLE = true)
+				if (!print.initial_done && en != print.past_en)
+					triggered = true;
 			} else {
+				// always @(*) $print
 				if (args != print.past_args || en != print.past_en)
 					triggered = true;
 			}
@@ -889,6 +897,7 @@ struct SimInstance
 			print.past_trg = trg;
 			print.past_en = en;
 			print.past_args = args;
+			print.initial_done = true;
 		}
 
 		if (check_assertions)
