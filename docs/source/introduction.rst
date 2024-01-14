@@ -75,28 +75,41 @@ The Yosys family
 ----------------
 
 As mentioned above, `YosysHQ`_ maintains not just Yosys but an entire family of
-tools built around it.
+tools built around it.  In no particular order:
 
 .. _YosysHQ: https://github.com/YosysHQ
 
-.. TODO:: Yosys family descriptions
+SBY for formal verification
+   Yosys provides input parsing and conversion to the formats used by the solver
+   engines.  Yosys also provides a unified witness framework for providing cover
+   traces and counter examples for engines which don't natively support this.
+   `SBY source`_ | `SBY docs`_
 
-In no particular order:
+.. _SBY source: https://github.com/YosysHQ/sby
+.. _SBY docs: https://yosyshq.readthedocs.io/projects/sby
 
-- SBY for formal verification
-   - https://github.com/YosysHQ/sby
-   - https://yosyshq.readthedocs.io/projects/sby
+EQY for equivalence checking
+   In addition to input parsing and preparation, Yosys provides  the plugin
+   support enabling EQY to operate on designs directly. `EQY source`_ | `EQY
+   docs`_
 
-- EQY for equivalence checking
-   - https://github.com/YosysHQ/eqy
-   - https://yosyshq.readthedocs.io/projects/eqy
+.. _EQY source: https://github.com/YosysHQ/eqy
+.. _EQY docs: https://yosyshq.readthedocs.io/projects/eqy
 
-- MCY for mutation coverage
-   - https://github.com/YosysHQ/mcy
-   - https://yosyshq.readthedocs.io/projects/mcy
+MCY for mutation coverage
+   Yosys is used to read the source design, generate a list of possible
+   mutations to maximise design coverage, and then perform selected mutations.
+   `MCY source`_ | `MCY docs`_
 
-- SCY for deep formal traces
-   - https://github.com/YosysHQ/scy
+.. _MCY source: https://github.com/YosysHQ/mcy
+.. _MCY docs: https://yosyshq.readthedocs.io/projects/mcy
+
+SCY for deep formal traces
+   Since SCY generates and runs SBY, Yosys provides the same utility for SCY as
+   it does for SBY.  Yosys additionally provides the trace concatenation needed
+   for outputting the deep traces. `SCY source`_
+
+.. _SCY source: https://github.com/YosysHQ/scy
 
 The original thesis abstract
 ----------------------------
