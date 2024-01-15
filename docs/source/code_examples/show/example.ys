@@ -1,6 +1,6 @@
 read_verilog example.v
-show -format dot -prefix example_00
+show -format dot -prefix example_first
 proc
-show -format dot -prefix example_01
+show -format dot -prefix example_second
 opt
-show -format dot -prefix example_02
+show -format dot -prefix example_third
