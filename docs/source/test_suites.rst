@@ -1,5 +1,5 @@
-Test suites
-===========
+Testing Yosys
+=============
 
 .. todo:: more about the included test suite
 
