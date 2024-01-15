@@ -690,7 +690,7 @@ bool apply_clock(MemConfig &cfg, const PortVariant &def, SigBit clk, bool clk_po
 
 // Perform write port assignment, validating clock options as we go.
 void MemMapping::assign_wr_ports() {
-	log_reject(stringf("Assigning write ports... (candidate configs: %lu)", cfgs.size()));
+	log_reject(stringf("Assigning write ports... (candidate configs: %zu)", (size_t) cfgs.size()));
 	for (auto &port: mem.wr_ports) {
 		if (!port.clk_enable) {
 			// Async write ports not supported.
@@ -739,7 +739,7 @@ void MemMapping::assign_wr_ports() {
 
 // Perform read port assignment, validating clock and rden options as we go.
 void MemMapping::assign_rd_ports() {
-	log_reject(stringf("Assigning read ports... (candidate configs: %lu)", cfgs.size()));
+	log_reject(stringf("Assigning read ports... (candidate configs: %zu)", (size_t) cfgs.size()));
 	for (int pidx = 0; pidx < GetSize(mem.rd_ports); pidx++) {
 		auto &port = mem.rd_ports[pidx];
 		MemConfigs new_cfgs;
@@ -900,7 +900,7 @@ void MemMapping::assign_rd_ports() {
 
 // Validate transparency restrictions, determine where to add soft transparency logic.
 void MemMapping::handle_trans() {
-	log_reject(stringf("Handling transparency... (candidate configs: %lu)", cfgs.size()));
+	log_reject(stringf("Handling transparency... (candidate configs: %zu)", (size_t) cfgs.size()));
 	if (mem.emulate_read_first_ok()) {
 		MemConfigs new_cfgs;
 		for (auto &cfg: cfgs) {
