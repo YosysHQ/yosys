@@ -518,6 +518,12 @@ struct OptLutWorker
 		}
 		show_stats_by_arity();
 
+		if (!dlogic.empty()) {
+			// We don't have handling for the constraints, so until then, disable
+			// narrowing.
+			log("Narrowing LUTs skipped: constraints in place.\n");
+			return;
+		}
 		log("\n");
 		log("Narrowing LUTs.\n");
 		worklist = luts;
