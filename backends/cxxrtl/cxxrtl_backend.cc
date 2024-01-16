@@ -2391,7 +2391,7 @@ struct CxxrtlWorker {
 				f << indent << "}\n";
 				f << "\n";
 				f << indent << "bool commit() override {\n";
-				f << indent << indent << "null_observer observer;\n";
+				f << indent << indent << "observer observer;\n";
 				f << indent << indent << "return commit<>(observer);\n";
 				f << indent << "}\n";
 				if (debug_info) {
@@ -2486,7 +2486,7 @@ struct CxxrtlWorker {
 				f << indent << "}\n";
 				f << "\n";
 				f << indent << "bool commit() override {\n";
-				f << indent << indent << "null_observer observer;\n";
+				f << indent << indent << "observer observer;\n";
 				f << indent << indent << "return commit<>(observer);\n";
 				f << indent << "}\n";
 				if (debug_info) {
