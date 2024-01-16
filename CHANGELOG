@@ -2,12 +2,23 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.36 .. Yosys 0.37-dev
+Yosys 0.36 .. Yosys 0.37
 --------------------------
+ * New commands and options
+    - Added option "-nodisplay" to read_verilog.
+
+ * SystemVerilog
+    - Correct hierarchical path names for structs and unions.
+
+ * Various
+    - Print hierarchy for failed assertions in "sim" pass.
+    - Add "--present-only" option to "yosys-witness" to omit unused signals.
+    - Implement a generic record/replay interface for CXXRTL.
+    - Improved readability of emitted code with "write_verilog".
 
 Yosys 0.35 .. Yosys 0.36
 --------------------------
-* New commands and options
+ * New commands and options
     - Added option "--" to pass arguments down to tcl when using -c option.
     - Added ability on MacOS and Windows to pass options after arguments on cli.
     - Added option "-cmp2softlogic" to synth_lattice.
