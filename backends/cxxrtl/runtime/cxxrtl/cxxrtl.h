@@ -39,6 +39,7 @@
 #include <memory>
 #include <functional>
 #include <sstream>
+#include <iostream>
 
 // `cxxrtl::debug_item` has to inherit from `cxxrtl_object` to satisfy strict aliasing requirements.
 #include <cxxrtl/capi/cxxrtl_capi.h>
@@ -891,8 +892,21 @@ struct fmt_part {
 	}
 };
 
+// An object that can be passed to a `eval()` method in order to act on side effects.
+struct performer {
+	// Called to evaluate a Verilog `$time` expression.
+	virtual int64_t time() const { return 0; }
+
+	// Called to evaluate a Verilog `$realtime` expression.
+	virtual double realtime() const { return time(); }
+
+	// Called when a `$print` cell is triggered.
+	virtual void on_print(const std::string &output) { std::cout << output; }
+};
+
 // An object that can be passed to a `commit()` method in order to produce a replay log of every state change in
-// the simulation.
+// the simulation. Unlike `performer`, `observer` does not use virtual calls as their overhead is unacceptable, and
+// a comparatively heavyweight template-based solution is justified.
 struct observer {
 	// Called when the `commit()` method for a wire is about to update the `chunks` chunks at `base` with `chunks` chunks
 	// at `value` that have a different bit pattern. It is guaranteed that `chunks` is equal to the wire chunk count and
@@ -1328,14 +1342,14 @@ struct module {
 
 	virtual void reset() = 0;
 
-	virtual bool eval() = 0;
-	virtual bool commit() = 0;
+	virtual bool eval(performer *performer = nullptr) = 0;
+	virtual bool commit() = 0; // commit observer isn't available since it avoids virtual calls
 
-	size_t step() {
+	size_t step(performer *performer = nullptr) {
 		size_t deltas = 0;
 		bool converged = false;
 		do {
-			converged = eval();
+			converged = eval(performer);
 			deltas++;
 		} while (commit() && !converged);
 		return deltas;
