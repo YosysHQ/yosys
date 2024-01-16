@@ -21,10 +21,12 @@ to run this pass after each major step in the synthesis script.  As listed in
    :dedent:
    :caption: Passes called by :cmd:ref:`opt`
 
-Const folding and simple expression rewriting - :cmd:ref:`opt_expr`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.. _adv_opt_expr:
 
-This pass performs const folding on the internal combinational cell types
+Constant folding and simple expression rewriting - :cmd:ref:`opt_expr`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This pass performs constant folding on the internal combinational cell types
 described in :doc:`/yosys_internals/formats/cell_library`. This means a cell
 with all constant inputs is replaced with the constant value this cell drives.
 In some cases this pass can also optimize cells with some constant inputs.
@@ -69,7 +71,11 @@ with a buffer.
 
 Besides this basic const folding the :cmd:ref:`opt_expr` pass can replace 1-bit
 wide ``$eq`` and ``$ne`` cells with buffers or not-gates if one input is
-constant.
+constant.  Equality checks may also be reduced in size if there are redundant
+bits in the arguments (i.e. bits which are constant on both inputs).  This can,
+for example, result in a 32-bit wide constant like ``255`` being reduced to the
+8-bit value of ``8'11111111`` if the signal being compared is only 8-bit as in
+:ref:`addr_gen_clean` of :doc:`/getting_started/example_synth`.
 
 The :cmd:ref:`opt_expr` pass is very conservative regarding optimizing ``$mux``
 cells, as these cells are often used to model decision-trees and breaking these

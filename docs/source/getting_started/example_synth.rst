@@ -155,13 +155,6 @@ the register uses an ``$adff`` cell.  If we look at the terminal output we can
 also see all of the different ``proc_*`` commands being called.  We will look at
 each of these in more detail in :doc:`/using_yosys/synthesis/proc`.
 
-.. TODO:: intro ``opt_expr``
-   :doc:`/cmd/opt_expr`
-
-   - by default called at the end of :cmd:ref:`proc`
-   - can be disabled with ``-noopt``
-   - done here for... reasons?
-
 Notice how in the top left of :ref:`addr_gen_proc` we have a floating wire,
 generated from the initial assignment of 0 to the ``addr`` wire.  However, this
 initial assignment is not synthesizable, so this will need to be cleaned up
@@ -176,15 +169,14 @@ at the same time by separating them with a colon: :yoscrypt:`opt_expr; clean`.
 
    ``addr_gen`` module after :yoscrypt:`opt_expr; clean`
 
-You may also notice that the highlighted ``$eq`` cell input of ``255`` has been
-converted to ``8'11111111``.  Constant values are presented in the format
+You may also notice that the highlighted ``$eq`` cell input of ``255`` has
+changed to ``8'11111111``.  Constant values are presented in the format
 ``<bit_width>'<bits>``, with 32-bit values instead using the decimal number.
 This indicates that the constant input has been reduced from 32-bit wide to
-8-bit wide.  :cmd:ref:`opt_expr` performs simple expression rewriting and
-constant folding, which we discuss in more detail in
-:doc:`/using_yosys/synthesis/opt`.
-
-.. TODO:: why doesn't the 32-bit value 1 get converted to 1'1?
+8-bit wide.  This is a side-effect of running :cmd:ref:`opt_expr`, which
+performs constant folding and simple expression rewriting.    For more on why
+this happens, refer to :doc:`/using_yosys/synthesis/opt` and the :ref:`section
+on opt_expr <adv_opt_expr>`.
 
 .. note::
 
