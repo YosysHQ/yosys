@@ -132,7 +132,15 @@ is produced.
 Merging mutually exclusive cells with shared inputs - :cmd:ref:`opt_share`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. TODO:: ``opt_share``
+This pass identifies mutually exclusive cells of the same type that:
+   a. share an input signal, and
+   b. drive the same ``$mux``, ``$_MUX_``, or ``$pmux`` multiplexing cell,
+
+allowing the cell to be merged and the multiplexer to be moved from
+multiplexing its output to multiplexing the non-shared input signals.
+
+.. todo:: more detailed description of :cmd:ref:`opt_share` (esp. why)
+   so that it's not just a copy-paste of the help output
 
 Performing DFF optimizations - :cmd:ref:`opt_dff`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
