@@ -1077,7 +1077,7 @@ struct CxxrtlWorker {
 				fmt.emit_cxxrtl(f, indent, [this](const RTLIL::SigSpec &sig) { dump_sigspec_rhs(sig); });
 			dec_indent();
 			f << indent << "};\n";
-			f << indent << print_output << " << formatter(steps, steps);\n";
+			f << indent << print_output << " << formatter(0, 0.0);\n";
 		dec_indent();
 		f << indent << "}\n";
 	}
