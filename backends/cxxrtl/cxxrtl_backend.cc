@@ -1072,9 +1072,12 @@ struct CxxrtlWorker {
 		dump_sigspec_rhs(cell->getPort(ID::EN));
 		f << " == value<1>{1u}) {\n";
 		inc_indent();
-			f << indent << print_output;
-			fmt.emit_cxxrtl(f, [this](const RTLIL::SigSpec &sig) { dump_sigspec_rhs(sig); });
-			f << ";\n";
+			f << indent << "auto formatter = [&](int64_t itime, double ftime) {\n";
+			inc_indent();
+				fmt.emit_cxxrtl(f, indent, [this](const RTLIL::SigSpec &sig) { dump_sigspec_rhs(sig); });
+			dec_indent();
+			f << indent << "};\n";
+			f << indent << print_output << " << formatter(steps, steps);\n";
 		dec_indent();
 		f << indent << "}\n";
 	}
