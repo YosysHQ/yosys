@@ -561,12 +561,12 @@ public:
 			spool::writer *writer;
 
 			CXXRTL_ALWAYS_INLINE
-			void on_commit(size_t chunks, const chunk_t *base, const chunk_t *value) override {
+			void on_update(size_t chunks, const chunk_t *base, const chunk_t *value) override {
 				writer->write_change(ident_lookup->at(base), chunks, value);
 			}
 
 			CXXRTL_ALWAYS_INLINE
-			void on_commit(size_t chunks, const chunk_t *base, const chunk_t *value, size_t index) override {
+			void on_update(size_t chunks, const chunk_t *base, const chunk_t *value, size_t index) override {
 				writer->write_change(ident_lookup->at(base), chunks, value, index);
 			}
 		} record_observer;

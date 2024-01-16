@@ -865,19 +865,19 @@ struct observer {
 	// Called when the `commit()` method for a wire is about to update the `chunks` chunks at `base` with `chunks` chunks
 	// at `value` that have a different bit pattern. It is guaranteed that `chunks` is equal to the wire chunk count and
 	// `base` points to the first chunk.
-	virtual void on_commit(size_t chunks, const chunk_t *base, const chunk_t *value) = 0;
+	virtual void on_update(size_t chunks, const chunk_t *base, const chunk_t *value) = 0;
 
 	// Called when the `commit()` method for a memory is about to update the `chunks` chunks at `&base[chunks * index]`
 	// with `chunks` chunks at `value` that have a different bit pattern. It is guaranteed that `chunks` is equal to
 	// the memory element chunk count and `base` points to the first chunk of the first element of the memory.
-	virtual void on_commit(size_t chunks, const chunk_t *base, const chunk_t *value, size_t index) = 0;
+	virtual void on_update(size_t chunks, const chunk_t *base, const chunk_t *value, size_t index) = 0;
 };
 
 // The `null_observer` class has the same interface as `observer`, but has no invocation overhead, since its methods
 // are final and have no implementation. This allows the observer feature to be zero-cost when not in use.
 struct null_observer final: observer {
-	void on_commit(size_t chunks, const chunk_t *base, const chunk_t *value) override {}
-	void on_commit(size_t chunks, const chunk_t *base, const chunk_t *value, size_t index) override {}
+	void on_update(size_t chunks, const chunk_t *base, const chunk_t *value) override {}
+	void on_update(size_t chunks, const chunk_t *base, const chunk_t *value, size_t index) override {}
 };
 
 template<size_t Bits>
@@ -916,12 +916,12 @@ struct wire {
 
 	// This method intentionally takes a mandatory argument (to make it more difficult to misuse in
 	// black box implementations, leading to missed observer events). It is generic over its argument
-	// to make sure the `on_commit` call is devirtualized. This is somewhat awkward but lets us keep
+	// to make sure the `on_update` call is devirtualized. This is somewhat awkward but lets us keep
 	// a single implementation for both this method and the one in `memory`.
 	template<class ObserverT>
 	bool commit(ObserverT &observer) {
 		if (curr != next) {
-			observer.on_commit(curr.chunks, curr.data, next.data);
+			observer.on_update(curr.chunks, curr.data, next.data);
 			curr = next;
 			return true;
 		}
@@ -1003,7 +1003,7 @@ struct memory {
 			value<Width> elem = data[entry.index];
 			elem = elem.update(entry.val, entry.mask);
 			if (data[entry.index] != elem) {
-				observer.on_commit(value<Width>::chunks, data[0].data, elem.data, entry.index);
+				observer.on_update(value<Width>::chunks, data[0].data, elem.data, entry.index);
 				changed |= true;
 			}
 			data[entry.index] = elem;
