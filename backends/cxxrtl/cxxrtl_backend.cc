@@ -1079,7 +1079,10 @@ struct CxxrtlWorker {
 			f << indent << "};\n";
 			f << indent << "if (performer) {\n";
 			inc_indent();
-				f << indent << "performer->on_print(formatter(performer->time(), performer->realtime()));\n";
+				f << indent << "static const metadata_map attributes = ";
+				dump_metadata_map(cell->attributes);
+				f << ";\n";
+				f << indent << "performer->on_print(formatter(performer->time(), performer->realtime()), attributes);\n";
 			dec_indent();
 			f << indent << "} else {\n";
 			inc_indent();

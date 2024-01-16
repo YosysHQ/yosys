@@ -892,33 +892,6 @@ struct fmt_part {
 	}
 };
 
-// An object that can be passed to a `eval()` method in order to act on side effects.
-struct performer {
-	// Called to evaluate a Verilog `$time` expression.
-	virtual int64_t time() const { return 0; }
-
-	// Called to evaluate a Verilog `$realtime` expression.
-	virtual double realtime() const { return time(); }
-
-	// Called when a `$print` cell is triggered.
-	virtual void on_print(const std::string &output) { std::cout << output; }
-};
-
-// An object that can be passed to a `commit()` method in order to produce a replay log of every state change in
-// the simulation. Unlike `performer`, `observer` does not use virtual calls as their overhead is unacceptable, and
-// a comparatively heavyweight template-based solution is justified.
-struct observer {
-	// Called when the `commit()` method for a wire is about to update the `chunks` chunks at `base` with `chunks` chunks
-	// at `value` that have a different bit pattern. It is guaranteed that `chunks` is equal to the wire chunk count and
-	// `base` points to the first chunk.
-	void on_update(size_t chunks, const chunk_t *base, const chunk_t *value) {}
-
-	// Called when the `commit()` method for a memory is about to update the `chunks` chunks at `&base[chunks * index]`
-	// with `chunks` chunks at `value` that have a different bit pattern. It is guaranteed that `chunks` is equal to
-	// the memory element chunk count and `base` points to the first chunk of the first element of the memory.
-	void on_update(size_t chunks, const chunk_t *base, const chunk_t *value, size_t index) {}
-};
-
 template<size_t Bits>
 struct wire {
 	static constexpr size_t bits = Bits;
@@ -1099,6 +1072,33 @@ struct metadata {
 };
 
 typedef std::map<std::string, metadata> metadata_map;
+
+// An object that can be passed to a `eval()` method in order to act on side effects.
+struct performer {
+	// Called to evaluate a Verilog `$time` expression.
+	virtual int64_t time() const { return 0; }
+
+	// Called to evaluate a Verilog `$realtime` expression.
+	virtual double realtime() const { return time(); }
+
+	// Called when a `$print` cell is triggered.
+	virtual void on_print(const std::string &output, const metadata_map &attributes) { std::cout << output; }
+};
+
+// An object that can be passed to a `commit()` method in order to produce a replay log of every state change in
+// the simulation. Unlike `performer`, `observer` does not use virtual calls as their overhead is unacceptable, and
+// a comparatively heavyweight template-based solution is justified.
+struct observer {
+	// Called when the `commit()` method for a wire is about to update the `chunks` chunks at `base` with `chunks` chunks
+	// at `value` that have a different bit pattern. It is guaranteed that `chunks` is equal to the wire chunk count and
+	// `base` points to the first chunk.
+	void on_update(size_t chunks, const chunk_t *base, const chunk_t *value) {}
+
+	// Called when the `commit()` method for a memory is about to update the `chunks` chunks at `&base[chunks * index]`
+	// with `chunks` chunks at `value` that have a different bit pattern. It is guaranteed that `chunks` is equal to
+	// the memory element chunk count and `base` points to the first chunk of the first element of the memory.
+	void on_update(size_t chunks, const chunk_t *base, const chunk_t *value, size_t index) {}
+};
 
 // Tag class to disambiguate values/wires and their aliases.
 struct debug_alias {};
