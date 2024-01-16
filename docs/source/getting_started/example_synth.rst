@@ -124,8 +124,7 @@ Our ``addr_gen`` circuit now looks like this:
 
    ``addr_gen`` module after :cmd:ref:`hierarchy`
 
-.. todo:: how to highlight PROC blocks? 
-   They seem to be replaced in ``show``, so the selection never matches
+.. TODO:: pending https://github.com/YosysHQ/yosys/pull/4133
 
 Simple operations like ``addr + 1`` and ``addr == MAX_DATA-1`` can be extracted
 from our ``always @`` block in :ref:`addr_gen-v`. This gives us the highlighted
@@ -141,13 +140,14 @@ To handle these, let us now introduce the next command: :doc:`/cmd/proc`.
 modifying the design directly, it instead calls a series of other commands.  In
 the case of :cmd:ref:`proc`, these sub-commands work to convert the behavioral
 logic of processes into multiplexers and registers.  Let's see what happens when
-we run it.
+we run it.  For now, we will call :yoscrypt:`proc -noopt` to prevent some
+automatic optimizations which would normally happen.
 
 .. figure:: /_images/code_examples/fifo/addr_gen_proc.*
    :class: width-helper
    :name: addr_gen_proc
 
-   ``addr_gen`` module after :cmd:ref:`proc`
+   ``addr_gen`` module after :yoscrypt:`proc -noopt`
 
 There are now a few new cells from our ``always @``, which have been
 highlighted.  The ``if`` statements are now modeled with ``$mux`` cells, while
@@ -166,24 +166,41 @@ Notice how in the top left of :ref:`addr_gen_proc` we have a floating wire,
 generated from the initial assignment of 0 to the ``addr`` wire.  However, this
 initial assignment is not synthesizable, so this will need to be cleaned up
 before we can generate the physical hardware.  We can do this now by calling
-:cmd:ref:`clean`:
+:cmd:ref:`clean`.  We're also going to call :cmd:ref:`opt_expr` now, which would
+normally be called at the end of :cmd:ref:`proc`.  We can call both commands
+at the same time by separating them with a colon: :yoscrypt:`opt_expr; clean`.
 
 .. figure:: /_images/code_examples/fifo/addr_gen_clean.*
    :class: width-helper
    :name: addr_gen_clean
 
-   ``addr_gen`` module after :cmd:ref:`clean`
+   ``addr_gen`` module after :yoscrypt:`opt_expr; clean`
+
+You may also notice that the highlighted ``$eq`` cell input of ``255`` has been
+converted to ``8'11111111``.  Constant values are presented in the format
+``<bit_width>'<bits>``, with 32-bit values instead using the decimal number.
+This indicates that the constant input has been reduced from 32-bit wide to
+8-bit wide.  :cmd:ref:`opt_expr` performs simple expression rewriting and
+constant folding, which we discuss in more detail in
+:doc:`/using_yosys/synthesis/opt`.
+
+.. TODO:: why doesn't the 32-bit value 1 get converted to 1'1?
 
 .. note::
 
    :doc:`/cmd/clean` can also be called with two semicolons after any command,
-   for example we could have called :yoscrypt:`proc;;` instead of
-   :yoscrypt:`proc` and then :yoscrypt:`clean`.  It is generally beneficial to
-   run :cmd:ref:`clean` after each command as a quick way of removing
-   disconnected parts of the circuit which have been left over.  You may notice
-   some scripts will end each line with ``;;``.
+   for example we could have called :yoscrypt:`opt_expr;;` instead of
+   :yoscrypt:`opt_expr; clean`.  It is generally beneficial to run
+   :cmd:ref:`clean` after each command as a quick way of removing disconnected
+   parts of the circuit which have been left over.  You may notice some scripts
+   will end each line with ``;;``.
 
 .. todo:: consider a brief glossary for terms like adff
+
+.. seealso:: Advanced usage docs for
+   
+   - :doc:`/using_yosys/synthesis/proc`
+   - :doc:`/using_yosys/synthesis/opt`
 
 The full example
 ^^^^^^^^^^^^^^^^

@@ -29,13 +29,13 @@ Removed 2 unused modules.
 
 yosys> select -set new_cells t:*
 
-yosys> show -color maroon3 @new_cells -notitle -format dot -prefix addr_gen_hier
+yosys> show -color maroon3 @new_cells -color cornflowerblue p:* -notitle -format dot -prefix addr_gen_hier
 
 4. Generating Graphviz representation of design.
 Writing dot description to `addr_gen_hier.dot'.
 Dumping module addr_gen to page 1.
 
-yosys> proc
+yosys> proc -noopt
 
 5. Executing PROC pass (convert processes to netlists).
 
@@ -102,11 +102,6 @@ Found and cleaned up 2 empty switches in `\addr_gen.$proc$fifo.v:13$1'.
 Removing empty process `addr_gen.$proc$fifo.v:13$1'.
 Cleaned up 2 empty switches.
 
-yosys> opt_expr -keepdc
-
-5.12. Executing OPT_EXPR pass (perform const folding).
-Optimizing module addr_gen.
-
 yosys> select -set new_cells t:$mux t:*dff
 
 yosys> show -color maroon3 @new_cells -notitle -format dot -prefix addr_gen_proc
@@ -115,12 +110,19 @@ yosys> show -color maroon3 @new_cells -notitle -format dot -prefix addr_gen_proc
 Writing dot description to `addr_gen_proc.dot'.
 Dumping module addr_gen to page 1.
 
+yosys> opt_expr
+
+7. Executing OPT_EXPR pass (perform const folding).
+Optimizing module addr_gen.
+
 yosys> clean
 Removed 0 unused cells and 4 unused wires.
 
-yosys> show -notitle -format dot -prefix addr_gen_clean
+yosys> select -set new_cells t:$eq
 
-7. Generating Graphviz representation of design.
+yosys> show -color cornflowerblue @new_cells -notitle -format dot -prefix addr_gen_clean
+
+8. Generating Graphviz representation of design.
 Writing dot description to `addr_gen_clean.dot'.
 Dumping module addr_gen to page 1.
 
@@ -128,7 +130,7 @@ yosys> design -reset
 
 yosys> read_verilog fifo.v
 
-8. Executing Verilog-2005 frontend: fifo.v
+9. Executing Verilog-2005 frontend: fifo.v
 Parsing Verilog input from `fifo.v' to AST representation.
 Generating RTLIL representation for module `\addr_gen'.
 Generating RTLIL representation for module `\fifo'.
@@ -136,24 +138,24 @@ Successfully finished Verilog frontend.
 
 yosys> hierarchy -check -top fifo
 
-9. Executing HIERARCHY pass (managing design hierarchy).
+10. Executing HIERARCHY pass (managing design hierarchy).
 
-9.1. Analyzing design hierarchy..
+10.1. Analyzing design hierarchy..
 Top module:  \fifo
 Used module:     \addr_gen
 Parameter \MAX_DATA = 256
 
-9.2. Executing AST frontend in derive mode using pre-parsed AST for module `\addr_gen'.
+10.2. Executing AST frontend in derive mode using pre-parsed AST for module `\addr_gen'.
 Parameter \MAX_DATA = 256
 Generating RTLIL representation for module `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000'.
 Parameter \MAX_DATA = 256
 Found cached RTLIL representation for module `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000'.
 
-9.3. Analyzing design hierarchy..
+10.3. Analyzing design hierarchy..
 Top module:  \fifo
 Used module:     $paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000
 
-9.4. Analyzing design hierarchy..
+10.4. Analyzing design hierarchy..
 Top module:  \fifo
 Used module:     $paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000
 Removing unused module `\addr_gen'.
@@ -161,16 +163,16 @@ Removed 1 unused modules.
 
 yosys> proc
 
-10. Executing PROC pass (convert processes to netlists).
+11. Executing PROC pass (convert processes to netlists).
 
 yosys> proc_clean
 
-10.1. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+11.1. Executing PROC_CLEAN pass (remove empty switches from decision trees).
 Cleaned up 0 empty switches.
 
 yosys> proc_rmdead
 
-10.2. Executing PROC_RMDEAD pass (remove dead branches from decision trees).
+11.2. Executing PROC_RMDEAD pass (remove dead branches from decision trees).
 Marked 2 switch rules as full_case in process $proc$fifo.v:64$24 in module fifo.
 Marked 1 switch rules as full_case in process $proc$fifo.v:38$16 in module fifo.
 Marked 2 switch rules as full_case in process $proc$fifo.v:13$32 in module $paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.
@@ -178,13 +180,13 @@ Removed a total of 0 dead cases.
 
 yosys> proc_prune
 
-10.3. Executing PROC_PRUNE pass (remove redundant assignments in processes).
+11.3. Executing PROC_PRUNE pass (remove redundant assignments in processes).
 Removed 0 redundant assignments.
 Promoted 6 assignments to connections.
 
 yosys> proc_init
 
-10.4. Executing PROC_INIT pass (extract init attributes).
+11.4. Executing PROC_INIT pass (extract init attributes).
 Found init rule in `\fifo.$proc$fifo.v:0$31'.
   Set init value: \count = 9'000000000
 Found init rule in `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:0$35'.
@@ -192,19 +194,19 @@ Found init rule in `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000
 
 yosys> proc_arst
 
-10.5. Executing PROC_ARST pass (detect async resets in processes).
+11.5. Executing PROC_ARST pass (detect async resets in processes).
 Found async reset \rst in `\fifo.$proc$fifo.v:64$24'.
 Found async reset \rst in `$paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.$proc$fifo.v:13$32'.
 
 yosys> proc_rom
 
-10.6. Executing PROC_ROM pass (convert switches to ROMs).
+11.6. Executing PROC_ROM pass (convert switches to ROMs).
 Converted 0 switches.
 <suppressed ~5 debug messages>
 
 yosys> proc_mux
 
-10.7. Executing PROC_MUX pass (convert decision trees to multiplexers).
+11.7. Executing PROC_MUX pass (convert decision trees to multiplexers).
 Creating decoders for process `\fifo.$proc$fifo.v:0$31'.
 Creating decoders for process `\fifo.$proc$fifo.v:64$24'.
      1/1: $0\count[8:0]
@@ -218,11 +220,11 @@ Creating decoders for process `$paramod\addr_gen\MAX_DATA=s32'000000000000000000
 
 yosys> proc_dlatch
 
-10.8. Executing PROC_DLATCH pass (convert process syncs to latches).
+11.8. Executing PROC_DLATCH pass (convert process syncs to latches).
 
 yosys> proc_dff
 
-10.9. Executing PROC_DFF pass (convert process syncs to FFs).
+11.9. Executing PROC_DFF pass (convert process syncs to FFs).
 Creating register for signal `\fifo.\count' using process `\fifo.$proc$fifo.v:64$24'.
   created $adff cell `$procdff$55' with positive edge clock and positive level reset.
 Creating register for signal `\fifo.\rdata' using process `\fifo.$proc$fifo.v:38$16'.
@@ -238,11 +240,11 @@ Creating register for signal `$paramod\addr_gen\MAX_DATA=s32'0000000000000000000
 
 yosys> proc_memwr
 
-10.10. Executing PROC_MEMWR pass (convert process memory writes to cells).
+11.10. Executing PROC_MEMWR pass (convert process memory writes to cells).
 
 yosys> proc_clean
 
-10.11. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+11.11. Executing PROC_CLEAN pass (remove empty switches from decision trees).
 Removing empty process `fifo.$proc$fifo.v:0$31'.
 Found and cleaned up 2 empty switches in `\fifo.$proc$fifo.v:64$24'.
 Removing empty process `fifo.$proc$fifo.v:64$24'.
@@ -255,7 +257,7 @@ Cleaned up 5 empty switches.
 
 yosys> opt_expr -keepdc
 
-10.12. Executing OPT_EXPR pass (perform const folding).
+11.12. Executing OPT_EXPR pass (perform const folding).
 Optimizing module fifo.
 Optimizing module $paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.
 
@@ -263,13 +265,13 @@ yosys> select -set new_cells t:$memrd
 
 yosys> show -color maroon3 c:fifo_reader -color cornflowerblue @new_cells -notitle -format dot -prefix rdata_proc o:rdata %ci*
 
-11. Generating Graphviz representation of design.
+12. Generating Graphviz representation of design.
 Writing dot description to `rdata_proc.dot'.
 Dumping selected parts of module fifo to page 1.
 
 yosys> flatten
 
-12. Executing FLATTEN pass (flatten design).
+13. Executing FLATTEN pass (flatten design).
 Deleting now unused module $paramod\addr_gen\MAX_DATA=s32'00000000000000000000000100000000.
 <suppressed ~2 debug messages>
 
@@ -282,13 +284,13 @@ yosys> select -set new_cells @rdata_path o:rdata %ci3 %d i:* %d
 
 yosys> show -color maroon3 @new_cells -notitle -format dot -prefix rdata_flat @rdata_path
 
-13. Generating Graphviz representation of design.
+14. Generating Graphviz representation of design.
 Writing dot description to `rdata_flat.dot'.
 Dumping selected parts of module fifo to page 1.
 
 yosys> opt_dff
 
-14. Executing OPT_DFF pass (perform DFF optimizations).
+15. Executing OPT_DFF pass (perform DFF optimizations).
 Adding EN signal on $procdff$55 ($adff) from module fifo (D = $0\count[8:0], Q = \count).
 Adding EN signal on $flatten\fifo_writer.$procdff$60 ($adff) from module fifo (D = $flatten\fifo_writer.$procmux$51_Y, Q = \fifo_writer.addr).
 Adding EN signal on $flatten\fifo_reader.$procdff$60 ($adff) from module fifo (D = $flatten\fifo_reader.$procmux$51_Y, Q = \fifo_reader.addr).
@@ -297,13 +299,13 @@ yosys> select -set new_cells t:$adffe
 
 yosys> show -color maroon3 @new_cells -notitle -format dot -prefix rdata_adffe o:rdata %ci*
 
-15. Generating Graphviz representation of design.
+16. Generating Graphviz representation of design.
 Writing dot description to `rdata_adffe.dot'.
 Dumping selected parts of module fifo to page 1.
 
 yosys> wreduce
 
-16. Executing WREDUCE pass (reducing word size of cells).
+17. Executing WREDUCE pass (reducing word size of cells).
 Removed top 31 bits (of 32) from port B of cell fifo.$add$fifo.v:68$27 ($add).
 Removed top 23 bits (of 32) from port Y of cell fifo.$add$fifo.v:68$27 ($add).
 Removed top 31 bits (of 32) from port B of cell fifo.$sub$fifo.v:70$30 ($sub).
@@ -317,26 +319,25 @@ Removed top 31 bits (of 32) from port B of cell fifo.$flatten\fifo_reader.$add$f
 Removed top 24 bits (of 32) from port Y of cell fifo.$flatten\fifo_reader.$add$fifo.v:20$34 ($add).
 Removed top 23 bits (of 32) from wire fifo.$add$fifo.v:68$27_Y.
 Removed top 24 bits (of 32) from wire fifo.$flatten\fifo_reader.$add$fifo.v:20$34_Y.
-Removed top 24 bits (of 32) from wire fifo.$flatten\fifo_writer.$add$fifo.v:20$34_Y.
 
 yosys> select -set new_cells t:$add %co t:$add %d
 
 yosys> show -color maroon3 @new_cells -notitle -format dot -prefix rdata_wreduce o:rdata %ci*
 
-17. Generating Graphviz representation of design.
+18. Generating Graphviz representation of design.
 Writing dot description to `rdata_wreduce.dot'.
 Dumping selected parts of module fifo to page 1.
 
 yosys> opt_clean
 
-18. Executing OPT_CLEAN pass (remove unused cells and wires).
+19. Executing OPT_CLEAN pass (remove unused cells and wires).
 Finding unused cells or wires in module \fifo..
-Removed 0 unused cells and 5 unused wires.
+Removed 0 unused cells and 4 unused wires.
 <suppressed ~1 debug messages>
 
 yosys> memory_dff
 
-19. Executing MEMORY_DFF pass (merging $dff cells to $memrd).
+20. Executing MEMORY_DFF pass (merging $dff cells to $memrd).
 Checking read port `\data'[0] in module `\fifo': merging output FF to cell.
     Write port 0: non-transparent.
 
@@ -344,13 +345,13 @@ yosys> select -set new_cells t:$memrd_v2
 
 yosys> show -color maroon3 @new_cells -notitle -format dot -prefix rdata_memrdv2 o:rdata %ci*
 
-20. Generating Graphviz representation of design.
+21. Generating Graphviz representation of design.
 Writing dot description to `rdata_memrdv2.dot'.
 Dumping selected parts of module fifo to page 1.
 
 yosys> alumacc
 
-21. Executing ALUMACC pass (create $alu and $macc cells).
+22. Executing ALUMACC pass (create $alu and $macc cells).
 Extracting $alu and $macc cells in module fifo:
   creating $macc model for $add$fifo.v:68$27 ($add).
   creating $macc model for $flatten\fifo_reader.$add$fifo.v:20$34 ($add).
@@ -360,23 +361,23 @@ Extracting $alu and $macc cells in module fifo:
   creating $alu model for $macc $flatten\fifo_writer.$add$fifo.v:20$34.
   creating $alu model for $macc $flatten\fifo_reader.$add$fifo.v:20$34.
   creating $alu model for $macc $add$fifo.v:68$27.
-  creating $alu cell for $add$fifo.v:68$27: $auto$alumacc.cc:485:replace_alu$79
-  creating $alu cell for $flatten\fifo_reader.$add$fifo.v:20$34: $auto$alumacc.cc:485:replace_alu$82
-  creating $alu cell for $flatten\fifo_writer.$add$fifo.v:20$34: $auto$alumacc.cc:485:replace_alu$85
-  creating $alu cell for $sub$fifo.v:70$30: $auto$alumacc.cc:485:replace_alu$88
+  creating $alu cell for $add$fifo.v:68$27: $auto$alumacc.cc:485:replace_alu$78
+  creating $alu cell for $flatten\fifo_reader.$add$fifo.v:20$34: $auto$alumacc.cc:485:replace_alu$81
+  creating $alu cell for $flatten\fifo_writer.$add$fifo.v:20$34: $auto$alumacc.cc:485:replace_alu$84
+  creating $alu cell for $sub$fifo.v:70$30: $auto$alumacc.cc:485:replace_alu$87
   created 4 $alu and 0 $macc cells.
 
 yosys> select -set new_cells t:$alu t:$macc
 
 yosys> show -color maroon3 @new_cells -notitle -format dot -prefix rdata_alumacc o:rdata %ci*
 
-22. Generating Graphviz representation of design.
+23. Generating Graphviz representation of design.
 Writing dot description to `rdata_alumacc.dot'.
 Dumping selected parts of module fifo to page 1.
 
 yosys> memory_collect
 
-23. Executing MEMORY_COLLECT pass (generating $mem cells).
+24. Executing MEMORY_COLLECT pass (generating $mem cells).
 
 yosys> select -set new_cells t:$mem_v2
 
@@ -384,6 +385,6 @@ yosys> select -set rdata_path @new_cells %ci*:-$mem_v2[WR_DATA,WR_ADDR,WR_EN] @n
 
 yosys> show -color maroon3 @new_cells -notitle -format dot -prefix rdata_coarse @rdata_path
 
-24. Generating Graphviz representation of design.
+25. Generating Graphviz representation of design.
 Writing dot description to `rdata_coarse.dot'.
 Dumping selected parts of module fifo to page 1.

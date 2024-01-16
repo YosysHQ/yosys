@@ -10,16 +10,17 @@ read_verilog -defer fifo.v
 echo on
 hierarchy -top addr_gen
 select -set new_cells t:*
-show -color maroon3 @new_cells -notitle -format dot -prefix addr_gen_hier
+show -color maroon3 @new_cells -color cornflowerblue p:* -notitle -format dot -prefix addr_gen_hier
 
 # ========================================================
-proc
+proc -noopt
 select -set new_cells t:$mux t:*dff
 show -color maroon3 @new_cells -notitle -format dot -prefix addr_gen_proc
 
 # ========================================================
-clean
-show -notitle -format dot -prefix addr_gen_clean
+opt_expr; clean
+select -set new_cells t:$eq
+show -color cornflowerblue @new_cells -notitle -format dot -prefix addr_gen_clean
 
 # ========================================================
 design -reset
