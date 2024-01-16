@@ -138,20 +138,20 @@ different stages of the yosys tool flow.
 .. role:: yoscrypt(code)
    :language: yoscrypt
 
-.. figure:: /_images/code_examples/show/example_00.*
+.. figure:: /_images/code_examples/show/example_first.*
    :class: width-helper
    
-   ``example_00`` - shown after :yoscrypt:`read_verilog example.v`
+   ``example_first`` - shown after :yoscrypt:`read_verilog example.v`
 
-.. figure:: /_images/code_examples/show/example_01.*
+.. figure:: /_images/code_examples/show/example_second.*
    :class: width-helper
    
-   ``example_01`` - shown after :yoscrypt:`proc`
+   ``example_second`` - shown after :yoscrypt:`proc`
 
-.. figure:: /_images/code_examples/show/example_02.*
+.. figure:: /_images/code_examples/show/example_third.*
    :class: width-helper
    
-   ``example_02`` - shown after :yoscrypt:`opt`
+   ``example_third`` - shown after :yoscrypt:`opt`
 
 A circuit diagram is generated for the design in its current state. Various
 options can be used to change the appearance of the circuit diagram, set the
