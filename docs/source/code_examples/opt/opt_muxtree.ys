@@ -1,0 +1,17 @@
+read_verilog <<EOT
+
+module uut(
+    input a, b, c, d,
+    output y
+);  
+    assign y = a ? (a ? b : c) : d;
+endmodule
+
+EOT
+
+copy uut after
+opt_muxtree after
+clean
+
+show -format dot -prefix opt_muxtree_full -notitle -color cornflowerblue uut
+

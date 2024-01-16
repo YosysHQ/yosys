@@ -437,7 +437,7 @@ sections: ``outstage``, ``selstage``, and ``scramble``.
    :language: yoscrypt
    :caption: Using :cmd:ref:`submod` to break up the circuit from ``memdemo.v``
    :start-after: cd memdemo
-   :end-at: @selstage
+   :end-before: cd ..
    :name: submod
 
 The ``-name`` option is used to specify the name of the new module and also the
