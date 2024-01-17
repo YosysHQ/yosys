@@ -24,6 +24,10 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+// Type represents the following constraint: Preserve connections to dedicated
+// logic cell <cell_type> that has ports connected to LUT inputs. This includes
+// the case where both LUT and dedicated logic input are connected to the same
+// constant.
 struct dlogic_t {
 	IdString cell_type;
 	// LUT input idx -> hard cell's port name
@@ -515,16 +519,6 @@ struct OptLutWorker
 	}
 };
 
-static void split(std::vector<std::string> &tokens, const std::string &text, char sep)
-{
-	size_t start = 0, end = 0;
-	while ((end = text.find(sep, start)) != std::string::npos) {
-		tokens.push_back(text.substr(start, end - start));
-		start = end + 1;
-	}
-	tokens.push_back(text.substr(start));
-}
-
 struct OptLutPass : public Pass {
 	OptLutPass() : Pass("opt_lut", "optimize LUT cells") { }
 	void help() override
@@ -541,6 +535,10 @@ struct OptLutPass : public Pass {
 		log("        the case where both LUT and dedicated logic input are connected to\n");
 		log("        the same constant.\n");
 		log("\n");
+		log("	-tech ice40\n");
+		log("        treat the design as a LUT-mapped circuit for the iCE40 architecture\n");
+		log("        and preserve connections to SB_CARRY as appropriate\n");
+		log("\n");
 		log("    -limit N\n");
 		log("        only perform the first N combines, then stop. useful for debugging.\n");
 		log("\n");
@@ -555,28 +553,28 @@ struct OptLutPass : public Pass {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			if (args[argidx] == "-dlogic" && argidx+1 < args.size())
+			if (args[argidx] == "-tech" && argidx+1 < args.size())
 			{
-				std::vector<std::string> tokens;
-				split(tokens, args[++argidx], ':');
-				if (tokens.size() < 2)
-					log_cmd_error("The -dlogic option requires at least one connection.\n");
-				dlogic_t entry;
-				entry.cell_type = "\\" + tokens[0];
-				for (auto it = tokens.begin() + 1; it != tokens.end(); ++it) {
-					std::vector<std::string> conn_tokens;
-					split(conn_tokens, *it, '=');
-					if (conn_tokens.size() != 2)
-						log_cmd_error("Invalid format of -dlogic signal mapping.\n");
-					IdString logic_port = "\\" + conn_tokens[0];
-					int lut_input = atoi(conn_tokens[1].c_str());
-					entry.lut_input_port[lut_input] = logic_port;
-				}
-				dlogic.push_back(entry);
+				std::string tech = args[++argidx];
+				if (tech != "ice40")
+					log_cmd_error("Unsupported -tech argument: %s\n", tech.c_str());
+
+				dlogic = {{
+					ID(SB_CARRY),
+					dict<int, IdString>{
+						std::make_pair(1, ID(I0)),
+						std::make_pair(2, ID(I1)),
+						std::make_pair(3, ID(CI))
+					}
+				}, {
+					ID(SB_CARRY),
+					dict<int, IdString>{
+						std::make_pair(3, ID(CO))
+					}
+				}};
 				continue;
 			}
-			if (args[argidx] == "-limit" && argidx + 1 < args.size())
-			{
+			if (args[argidx] == "-limit" && argidx + 1 < args.size()) {
 				limit = atoi(args[++argidx].c_str());
 				continue;
 			}
