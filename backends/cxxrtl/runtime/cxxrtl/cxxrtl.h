@@ -39,6 +39,7 @@
 #include <memory>
 #include <functional>
 #include <sstream>
+#include <iostream>
 
 // `cxxrtl::debug_item` has to inherit from `cxxrtl_object` to satisfy strict aliasing requirements.
 #include <cxxrtl/capi/cxxrtl_capi.h>
@@ -565,7 +566,7 @@ struct value : public expr_base<value<Bits>> {
 	}
 
 	value<Bits> neg() const {
-		return value<Bits> { 0u }.sub(*this);
+		return value<Bits>().sub(*this);
 	}
 
 	bool ucmp(const value<Bits> &other) const {
@@ -763,121 +764,132 @@ std::ostream &operator<<(std::ostream &os, const value<Bits> &val) {
 	return os;
 }
 
-template<size_t Bits>
-struct value_formatted {
-	const value<Bits> &val;
-	bool character;
-	bool justify_left;
-	char padding;
-	int width;
-	int base;
-	bool signed_;
-	bool plus;
+// Must be kept in sync with `struct FmtPart` in kernel/fmt.h!
+// Default member initializers would make this a non-aggregate-type in C++11, so they are commented out.
+struct fmt_part {
+	enum {
+		STRING  	= 0,
+		INTEGER 	= 1,
+		CHARACTER = 2,
+		TIME    	= 3,
+	} type;
 
-	value_formatted(const value<Bits> &val, bool character, bool justify_left, char padding, int width, int base, bool signed_, bool plus) :
-		val(val), character(character), justify_left(justify_left), padding(padding), width(width), base(base), signed_(signed_), plus(plus) {}
-	value_formatted(const value_formatted<Bits> &) = delete;
-	value_formatted<Bits> &operator=(const value_formatted<Bits> &rhs) = delete;
-};
+	// STRING type
+	std::string str;
 
-template<size_t Bits>
-std::ostream &operator<<(std::ostream &os, const value_formatted<Bits> &vf)
-{
-	value<Bits> val = vf.val;
+	// INTEGER/CHARACTER types
+	// + value<Bits> val;
 
-	std::string buf;
+	// INTEGER/CHARACTER/TIME types
+	enum {
+		RIGHT	= 0,
+		LEFT	= 1,
+	} justify; // = RIGHT;
+	char padding; // = '\0';
+	size_t width; // = 0;
 
-	// We might want to replace some of these bit() calls with direct
-	// chunk access if it turns out to be slow enough to matter.
+	// INTEGER type
+	unsigned base; // = 10;
+	bool signed_; // = false;
+	bool plus; // = false;
 
-	if (!vf.character) {
-		size_t width = Bits;
-		if (vf.base != 10) {
-			width = 0;
-			for (size_t index = 0; index < Bits; index++)
-				if (val.bit(index))
-					width = index + 1;
-		}
+	// TIME type
+	bool realtime; // = false;
+	// + int64_t itime;
+	// + double ftime;
 
-		if (vf.base == 2) {
-			for (size_t i = width; i > 0; i--)
-				buf += (val.bit(i - 1) ? '1' : '0');
-		} else if (vf.base == 8 || vf.base == 16) {
-			size_t step = (vf.base == 16) ? 4 : 3;
-			for (size_t index = 0; index < width; index += step) {
-				uint8_t value = val.bit(index) | (val.bit(index + 1) << 1) | (val.bit(index + 2) << 2);
-				if (step == 4)
-					value |= val.bit(index + 3) << 3;
-				buf += "0123456789abcdef"[value];
+	// Format the part as a string.
+	//
+	// The values of `itime` and `ftime` are used for `$time` and `$realtime`, correspondingly.
+	template<size_t Bits>
+	std::string render(value<Bits> val, int64_t itime, double ftime)
+	{
+		// We might want to replace some of these bit() calls with direct
+		// chunk access if it turns out to be slow enough to matter.
+		std::string buf;
+		switch (type) {
+			case STRING:
+				return str;
+
+			case CHARACTER: {
+				buf.reserve(Bits/8);
+				for (int i = 0; i < Bits; i += 8) {
+					char ch = 0;
+					for (int j = 0; j < 8 && i + j < int(Bits); j++)
+						if (val.bit(i + j))
+							ch |= 1 << j;
+					if (ch != 0)
+						buf.append({ch});
+				}
+				std::reverse(buf.begin(), buf.end());
+				break;
 			}
-			std::reverse(buf.begin(), buf.end());
-		} else if (vf.base == 10) {
-			bool negative = vf.signed_ && val.is_neg();
-			if (negative)
-				val = val.neg();
-			if (val.is_zero())
-				buf += '0';
-			while (!val.is_zero()) {
-				value<Bits> quotient, remainder;
-				if (Bits >= 4)
-					std::tie(quotient, remainder) = val.udivmod(value<Bits>{10u});
-				else
-					std::tie(quotient, remainder) = std::make_pair(value<Bits>{0u}, val);
-				buf += '0' + remainder.template trunc<(Bits > 4 ? 4 : Bits)>().val().template get<uint8_t>();
-				val = quotient;
+
+			case INTEGER: {
+				size_t width = Bits;
+				if (base != 10) {
+					width = 0;
+					for (size_t index = 0; index < Bits; index++)
+						if (val.bit(index))
+							width = index + 1;
+				}
+
+				if (base == 2) {
+					for (size_t i = width; i > 0; i--)
+						buf += (val.bit(i - 1) ? '1' : '0');
+				} else if (base == 8 || base == 16) {
+					size_t step = (base == 16) ? 4 : 3;
+					for (size_t index = 0; index < width; index += step) {
+						uint8_t value = val.bit(index) | (val.bit(index + 1) << 1) | (val.bit(index + 2) << 2);
+						if (step == 4)
+							value |= val.bit(index + 3) << 3;
+						buf += "0123456789abcdef"[value];
+					}
+					std::reverse(buf.begin(), buf.end());
+				} else if (base == 10) {
+					bool negative = signed_ && val.is_neg();
+					if (negative)
+						val = val.neg();
+					if (val.is_zero())
+						buf += '0';
+					value<(Bits > 4 ? Bits : 4)> xval = val.template zext<(Bits > 4 ? Bits : 4)>();
+					while (!xval.is_zero()) {
+						value<(Bits > 4 ? Bits : 4)> quotient, remainder;
+						if (Bits >= 4)
+							std::tie(quotient, remainder) = xval.udivmod(value<(Bits > 4 ? Bits : 4)>{10u});
+						else
+							std::tie(quotient, remainder) = std::make_pair(value<(Bits > 4 ? Bits : 4)>{0u}, xval);
+						buf += '0' + remainder.template trunc<4>().template get<uint8_t>();
+						xval = quotient;
+					}
+					if (negative || plus)
+						buf += negative ? '-' : '+';
+					std::reverse(buf.begin(), buf.end());
+				} else assert(false && "Unsupported base for fmt_part");
+				break;
 			}
-			if (negative || vf.plus)
-				buf += negative ? '-' : '+';
-			std::reverse(buf.begin(), buf.end());
-		} else assert(false);
-	} else {
-		buf.reserve(Bits/8);
-		for (int i = 0; i < Bits; i += 8) {
-			char ch = 0;
-			for (int j = 0; j < 8 && i + j < int(Bits); j++)
-				if (val.bit(i + j))
-					ch |= 1 << j;
-			if (ch != 0)
-				buf.append({ch});
+
+			case TIME: {
+				buf = realtime ? std::to_string(ftime) : std::to_string(itime);
+				break;
+			}
 		}
-		std::reverse(buf.begin(), buf.end());
-	}
 
-	assert(vf.width == 0 || vf.padding != '\0');
-	if (!vf.justify_left && buf.size() < vf.width) {
-		size_t pad_width = vf.width - buf.size();
-		if (vf.padding == '0' && (buf.front() == '+' || buf.front() == '-')) {
-			os << buf.front();
-			buf.erase(0, 1);
+		std::string str;
+		assert(width == 0 || padding != '\0');
+		if (justify == RIGHT && buf.size() < width) {
+			size_t pad_width = width - buf.size();
+			if (padding == '0' && (buf.front() == '+' || buf.front() == '-')) {
+				str += buf.front();
+				buf.erase(0, 1);
+			}
+			str += std::string(pad_width, padding);
 		}
-		os << std::string(pad_width, vf.padding);
+		str += buf;
+		if (justify == LEFT && buf.size() < width)
+			str += std::string(width - buf.size(), padding);
+		return str;
 	}
-	os << buf;
-	if (vf.justify_left && buf.size() < vf.width)
-		os << std::string(vf.width - buf.size(), vf.padding);
-
-	return os;
-}
-
-// An object that can be passed to a `commit()` method in order to produce a replay log of every state change in
-// the simulation.
-struct observer {
-	// Called when the `commit()` method for a wire is about to update the `chunks` chunks at `base` with `chunks` chunks
-	// at `value` that have a different bit pattern. It is guaranteed that `chunks` is equal to the wire chunk count and
-	// `base` points to the first chunk.
-	virtual void on_commit(size_t chunks, const chunk_t *base, const chunk_t *value) = 0;
-
-	// Called when the `commit()` method for a memory is about to update the `chunks` chunks at `&base[chunks * index]`
-	// with `chunks` chunks at `value` that have a different bit pattern. It is guaranteed that `chunks` is equal to
-	// the memory element chunk count and `base` points to the first chunk of the first element of the memory.
-	virtual void on_commit(size_t chunks, const chunk_t *base, const chunk_t *value, size_t index) = 0;
-};
-
-// The `null_observer` class has the same interface as `observer`, but has no invocation overhead, since its methods
-// are final and have no implementation. This allows the observer feature to be zero-cost when not in use.
-struct null_observer final: observer {
-	void on_commit(size_t chunks, const chunk_t *base, const chunk_t *value) override {}
-	void on_commit(size_t chunks, const chunk_t *base, const chunk_t *value, size_t index) override {}
 };
 
 template<size_t Bits>
@@ -916,12 +928,11 @@ struct wire {
 
 	// This method intentionally takes a mandatory argument (to make it more difficult to misuse in
 	// black box implementations, leading to missed observer events). It is generic over its argument
-	// to make sure the `on_commit` call is devirtualized. This is somewhat awkward but lets us keep
-	// a single implementation for both this method and the one in `memory`.
+	// to allow the `on_update` method to be non-virtual.
 	template<class ObserverT>
 	bool commit(ObserverT &observer) {
 		if (curr != next) {
-			observer.on_commit(curr.chunks, curr.data, next.data);
+			observer.on_update(curr.chunks, curr.data, next.data);
 			curr = next;
 			return true;
 		}
@@ -1003,7 +1014,7 @@ struct memory {
 			value<Width> elem = data[entry.index];
 			elem = elem.update(entry.val, entry.mask);
 			if (data[entry.index] != elem) {
-				observer.on_commit(value<Width>::chunks, data[0].data, elem.data, entry.index);
+				observer.on_update(value<Width>::chunks, data[0].data, elem.data, entry.index);
 				changed |= true;
 			}
 			data[entry.index] = elem;
@@ -1061,6 +1072,33 @@ struct metadata {
 };
 
 typedef std::map<std::string, metadata> metadata_map;
+
+// An object that can be passed to a `eval()` method in order to act on side effects.
+struct performer {
+	// Called to evaluate a Verilog `$time` expression.
+	virtual int64_t time() const { return 0; }
+
+	// Called to evaluate a Verilog `$realtime` expression.
+	virtual double realtime() const { return time(); }
+
+	// Called when a `$print` cell is triggered.
+	virtual void on_print(const std::string &output, const metadata_map &attributes) { std::cout << output; }
+};
+
+// An object that can be passed to a `commit()` method in order to produce a replay log of every state change in
+// the simulation. Unlike `performer`, `observer` does not use virtual calls as their overhead is unacceptable, and
+// a comparatively heavyweight template-based solution is justified.
+struct observer {
+	// Called when the `commit()` method for a wire is about to update the `chunks` chunks at `base` with `chunks` chunks
+	// at `value` that have a different bit pattern. It is guaranteed that `chunks` is equal to the wire chunk count and
+	// `base` points to the first chunk.
+	void on_update(size_t chunks, const chunk_t *base, const chunk_t *value) {}
+
+	// Called when the `commit()` method for a memory is about to update the `chunks` chunks at `&base[chunks * index]`
+	// with `chunks` chunks at `value` that have a different bit pattern. It is guaranteed that `chunks` is equal to
+	// the memory element chunk count and `base` points to the first chunk of the first element of the memory.
+	void on_update(size_t chunks, const chunk_t *base, const chunk_t *value, size_t index) {}
+};
 
 // Tag class to disambiguate values/wires and their aliases.
 struct debug_alias {};
@@ -1304,17 +1342,14 @@ struct module {
 
 	virtual void reset() = 0;
 
-	virtual bool eval() = 0;
-	virtual bool commit() = 0;
+	virtual bool eval(performer *performer = nullptr) = 0;
+	virtual bool commit() = 0; // commit observer isn't available since it avoids virtual calls
 
-	unsigned int steps = 0;
-
-	size_t step() {
-		++steps;
+	size_t step(performer *performer = nullptr) {
 		size_t deltas = 0;
 		bool converged = false;
 		do {
-			converged = eval();
+			converged = eval(performer);
 			deltas++;
 		} while (commit() && !converged);
 		return deltas;

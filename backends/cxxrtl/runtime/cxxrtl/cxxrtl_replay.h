@@ -556,22 +556,20 @@ public:
 	bool record_incremental(ModuleT &module) {
 		assert(streaming);
 
-		struct : public observer {
+		struct {
 			std::unordered_map<const chunk_t*, spool::ident_t> *ident_lookup;
 			spool::writer *writer;
 
 			CXXRTL_ALWAYS_INLINE
-			void on_commit(size_t chunks, const chunk_t *base, const chunk_t *value) override {
+			void on_update(size_t chunks, const chunk_t *base, const chunk_t *value) {
 				writer->write_change(ident_lookup->at(base), chunks, value);
 			}
 
 			CXXRTL_ALWAYS_INLINE
-			void on_commit(size_t chunks, const chunk_t *base, const chunk_t *value, size_t index) override {
+			void on_update(size_t chunks, const chunk_t *base, const chunk_t *value, size_t index) {
 				writer->write_change(ident_lookup->at(base), chunks, value, index);
 			}
-		} record_observer;
-		record_observer.ident_lookup = &ident_lookup;
-		record_observer.writer = &writer;
+		} record_observer = { &ident_lookup, &writer };
 
 		writer.write_sample(/*incremental=*/true, pointer++, timestamp);
 		for (auto input_index : inputs) {

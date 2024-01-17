@@ -1072,9 +1072,23 @@ struct CxxrtlWorker {
 		dump_sigspec_rhs(cell->getPort(ID::EN));
 		f << " == value<1>{1u}) {\n";
 		inc_indent();
-			f << indent << print_output;
-			fmt.emit_cxxrtl(f, [this](const RTLIL::SigSpec &sig) { dump_sigspec_rhs(sig); });
-			f << ";\n";
+			f << indent << "auto formatter = [&](int64_t itime, double ftime) {\n";
+			inc_indent();
+				fmt.emit_cxxrtl(f, indent, [this](const RTLIL::SigSpec &sig) { dump_sigspec_rhs(sig); });
+			dec_indent();
+			f << indent << "};\n";
+			f << indent << "if (performer) {\n";
+			inc_indent();
+				f << indent << "static const metadata_map attributes = ";
+				dump_metadata_map(cell->attributes);
+				f << ";\n";
+				f << indent << "performer->on_print(formatter(performer->time(), performer->realtime()), attributes);\n";
+			dec_indent();
+			f << indent << "} else {\n";
+			inc_indent();
+				f << indent << print_output << " << formatter(0, 0.0);\n";
+			dec_indent();
+			f << indent << "}\n";
 		dec_indent();
 		f << indent << "}\n";
 	}
@@ -1494,11 +1508,11 @@ struct CxxrtlWorker {
 			};
 			if (buffered_inputs) {
 				// If we have any buffered inputs, there's no chance of converging immediately.
-				f << indent << mangle(cell) << access << "eval();\n";
+				f << indent << mangle(cell) << access << "eval(performer);\n";
 				f << indent << "converged = false;\n";
 				assign_from_outputs(/*cell_converged=*/false);
 			} else {
-				f << indent << "if (" << mangle(cell) << access << "eval()) {\n";
+				f << indent << "if (" << mangle(cell) << access << "eval(performer)) {\n";
 				inc_indent();
 					assign_from_outputs(/*cell_converged=*/true);
 				dec_indent();
@@ -2381,7 +2395,8 @@ struct CxxrtlWorker {
 				dump_reset_method(module);
 				f << indent << "}\n";
 				f << "\n";
-				f << indent << "bool eval() override {\n";
+				// No default argument, to prevent unintentional `return bb_foo::eval();` calls that drop performer.
+				f << indent << "bool eval(performer *performer) override {\n";
 				dump_eval_method(module);
 				f << indent << "}\n";
 				f << "\n";
@@ -2391,7 +2406,7 @@ struct CxxrtlWorker {
 				f << indent << "}\n";
 				f << "\n";
 				f << indent << "bool commit() override {\n";
-				f << indent << indent << "null_observer observer;\n";
+				f << indent << indent << "observer observer;\n";
 				f << indent << indent << "return commit<>(observer);\n";
 				f << indent << "}\n";
 				if (debug_info) {
@@ -2478,7 +2493,7 @@ struct CxxrtlWorker {
 				f << "\n";
 				f << indent << "void reset() override;\n";
 				f << "\n";
-				f << indent << "bool eval() override;\n";
+				f << indent << "bool eval(performer *performer = nullptr) override;\n";
 				f << "\n";
 				f << indent << "template<class ObserverT>\n";
 				f << indent << "bool commit(ObserverT &observer) {\n";
@@ -2486,7 +2501,7 @@ struct CxxrtlWorker {
 				f << indent << "}\n";
 				f << "\n";
 				f << indent << "bool commit() override {\n";
-				f << indent << indent << "null_observer observer;\n";
+				f << indent << indent << "observer observer;\n";
 				f << indent << indent << "return commit<>(observer);\n";
 				f << indent << "}\n";
 				if (debug_info) {
@@ -2517,7 +2532,7 @@ struct CxxrtlWorker {
 		dump_reset_method(module);
 		f << indent << "}\n";
 		f << "\n";
-		f << indent << "bool " << mangle(module) << "::eval() {\n";
+		f << indent << "bool " << mangle(module) << "::eval(performer *performer) {\n";
 		dump_eval_method(module);
 		f << indent << "}\n";
 		if (debug_info) {
@@ -2541,7 +2556,6 @@ struct CxxrtlWorker {
 		RTLIL::Module *top_module = nullptr;
 		std::vector<RTLIL::Module*> modules;
 		TopoSort<RTLIL::Module*> topo_design;
-		bool has_prints = false;
 		for (auto module : design->modules()) {
 			if (!design->selected_module(module))
 				continue;
@@ -2554,8 +2568,6 @@ struct CxxrtlWorker {
 
 			topo_design.node(module);
 			for (auto cell : module->cells()) {
-				if (cell->type == ID($print))
-					has_prints = true;
 				if (is_internal_cell(cell->type) || is_cxxrtl_blackbox_cell(cell))
 					continue;
 				RTLIL::Module *cell_module = design->module(cell->type);
@@ -2614,8 +2626,6 @@ struct CxxrtlWorker {
 			f << "#include \"" << basename(intf_filename) << "\"\n";
 		else
 			f << "#include <cxxrtl/cxxrtl.h>\n";
-		if (has_prints)
-			f << "#include <iostream>\n";
 		f << "\n";
 		f << "#if defined(CXXRTL_INCLUDE_CAPI_IMPL) || \\\n";
 		f << "    defined(CXXRTL_INCLUDE_VCD_CAPI_IMPL)\n";
@@ -3293,7 +3303,7 @@ struct CxxrtlBackend : public Backend {
 		log("      value<8> p_i_data;\n");
 		log("      wire<8> p_o_data;\n");
 		log("\n");
-		log("      bool eval() override;\n");
+		log("      bool eval(performer *performer) override;\n");
 		log("      template<class ObserverT>\n");
 		log("      bool commit(ObserverT &observer);\n");
 		log("      bool commit() override;\n");
@@ -3308,11 +3318,11 @@ struct CxxrtlBackend : public Backend {
 		log("    namespace cxxrtl_design {\n");
 		log("\n");
 		log("    struct stderr_debug : public bb_p_debug {\n");
-		log("      bool eval() override {\n");
+		log("      bool eval(performer *performer) override {\n");
 		log("        if (posedge_p_clk() && p_en)\n");
 		log("          fprintf(stderr, \"debug: %%02x\\n\", p_i_data.data[0]);\n");
 		log("        p_o_data.next = p_i_data;\n");
-		log("        return bb_p_debug::eval();\n");
+		log("        return bb_p_debug::eval(performer);\n");
 		log("      }\n");
 		log("    };\n");
 		log("\n");
@@ -3413,7 +3423,7 @@ struct CxxrtlBackend : public Backend {
 		log("    -print-output <stream>\n");
 		log("        $print cells in the generated code direct their output to <stream>.\n");
 		log("        must be one of \"std::cout\", \"std::cerr\". if not specified,\n");
-		log("        \"std::cout\" is used.\n");
+		log("        \"std::cout\" is used. explicitly provided performer overrides this.\n");
 		log("\n");
 		log("    -nohierarchy\n");
 		log("        use design hierarchy as-is. in most designs, a top module should be\n");

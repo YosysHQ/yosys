@@ -569,82 +569,60 @@ std::vector<VerilogFmtArg> Fmt::emit_verilog() const
 	return args;
 }
 
-void Fmt::emit_cxxrtl(std::ostream &f, std::function<void(const RTLIL::SigSpec &)> emit_sig) const
+std::string escape_cxx_string(const std::string &input)
 {
-	for (auto &part : parts) {
-		switch (part.type) {
-			case FmtPart::STRING:
-				f << " << \"";
-				for (char c : part.str) {
-					switch (c) {
-						case '\\':
-							YS_FALLTHROUGH
-						case '"':
-							f << '\\' << c;
-							break;
-						case '\a':
-							f << "\\a";
-							break;
-						case '\b':
-							f << "\\b";
-							break;
-						case '\f':
-							f << "\\f";
-							break;
-						case '\n':
-							f << "\\n";
-							break;
-						case '\r':
-							f << "\\r";
-							break;
-						case '\t':
-							f << "\\t";
-							break;
-						case '\v':
-							f << "\\v";
-							break;
-						default:
-							f << c;
-							break;
-					}
-				}
-				f << '"';
-				break;
-
-			case FmtPart::INTEGER:
-			case FmtPart::CHARACTER: {
-				f << " << value_formatted<" << part.sig.size() << ">(";
-				emit_sig(part.sig);
-				f << ", " << (part.type == FmtPart::CHARACTER);
-				f << ", " << (part.justify == FmtPart::LEFT);
-				f << ", (char)" << (int)part.padding;
-				f << ", " << part.width;
-				f << ", " << part.base;
-				f << ", " << part.signed_;
-				f << ", " << part.plus;
-				f << ')';
-				break;
-			}
-
-			case FmtPart::TIME: {
-				// CXXRTL only records steps taken, so there's no difference between
-				// the values taken by $time and $realtime.
-				f << " << value_formatted<64>(";
-				f << "value<64>{steps}";
-				f << ", " << (part.type == FmtPart::CHARACTER);
-				f << ", " << (part.justify == FmtPart::LEFT);
-				f << ", (char)" << (int)part.padding;
-				f << ", " << part.width;
-				f << ", " << part.base;
-				f << ", " << part.signed_;
-				f << ", " << part.plus;
-				f << ')';
-				break;
-			}
-
-			default: log_abort();
+	std::string output = "\"";
+	for (auto c : input) {
+		if (::isprint(c)) {
+			if (c == '\\')
+				output.push_back('\\');
+			output.push_back(c);
+		} else {
+			char l = c & 0xf, h = (c >> 4) & 0xf;
+			output.append("\\x");
+			output.push_back((h < 10 ? '0' + h : 'a' + h - 10));
+			output.push_back((l < 10 ? '0' + l : 'a' + l - 10));
 		}
 	}
+	output.push_back('"');
+	if (output.find('\0') != std::string::npos) {
+		output.insert(0, "std::string {");
+		output.append(stringf(", %zu}", input.size()));
+	}
+	return output;
+}
+
+void Fmt::emit_cxxrtl(std::ostream &os, std::string indent, std::function<void(const RTLIL::SigSpec &)> emit_sig) const
+{
+	os << indent << "std::string buf;\n";
+	for (auto &part : parts) {
+		os << indent << "buf += fmt_part { ";
+		os << "fmt_part::";
+		switch (part.type) {
+			case FmtPart::STRING:    os << "STRING";    break;
+			case FmtPart::INTEGER:   os << "INTEGER";   break;
+			case FmtPart::CHARACTER: os << "CHARACTER"; break;
+			case FmtPart::TIME:      os << "TIME";      break;
+		}
+		os << ", ";
+		os << escape_cxx_string(part.str) << ", ";
+		os << "fmt_part::";
+		switch (part.justify) {
+			case FmtPart::LEFT:  os << "LEFT";  break;
+			case FmtPart::RIGHT: os << "RIGHT"; break;
+		}
+		os << ", ";
+		os << "(char)" << (int)part.padding << ", ";
+		os << part.width << ", ";
+		os << part.base << ", ";
+		os << part.signed_ << ", ";
+		os << part.plus << ", ";
+		os << part.realtime;
+		os << " }.render(";
+		emit_sig(part.sig);
+		os << ", itime, ftime);\n";
+	}
+	os << indent << "return buf;\n";
 }
 
 std::string Fmt::render() const
