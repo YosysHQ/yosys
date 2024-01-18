@@ -7,5 +7,5 @@ Getting started with Yosys
    :maxdepth: 3
 
    installation
-   scripting_intro
    example_synth
+   scripting_intro

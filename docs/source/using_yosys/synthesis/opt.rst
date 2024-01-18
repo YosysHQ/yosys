@@ -26,6 +26,8 @@ to run this pass after each major step in the synthesis script.  As listed in
 Constant folding and simple expression rewriting - :cmd:ref:`opt_expr`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+.. todo:: unsure if this is too much detail and should be in :doc:`/yosys_internals/index`
+
 This pass performs constant folding on the internal combinational cell types
 described in :doc:`/yosys_internals/formats/cell_library`. This means a cell
 with all constant inputs is replaced with the constant value this cell drives.

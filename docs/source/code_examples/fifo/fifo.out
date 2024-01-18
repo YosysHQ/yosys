@@ -27,7 +27,36 @@ Removing unused module `$abstract\fifo'.
 Removing unused module `$abstract\addr_gen'.
 Removed 2 unused modules.
 
-yosys> select -set new_cells t:*
+yosys> select -module addr_gen
+
+yosys [addr_gen]> select -list
+addr_gen
+addr_gen/$1\addr[7:0]
+addr_gen/$add$fifo.v:20$3_Y
+addr_gen/$eq$fifo.v:17$2_Y
+addr_gen/$0\addr[7:0]
+addr_gen/addr
+addr_gen/rst
+addr_gen/clk
+addr_gen/en
+addr_gen/$add$fifo.v:20$3
+addr_gen/$eq$fifo.v:17$2
+addr_gen/$proc$fifo.v:0$4
+addr_gen/$proc$fifo.v:13$1
+
+yosys [addr_gen]> select t:*
+
+yosys [addr_gen]*> select -list
+addr_gen/$add$fifo.v:20$3
+addr_gen/$eq$fifo.v:17$2
+
+yosys [addr_gen]*> select -set new_cells %
+
+yosys [addr_gen]*> select -clear
+
+yosys> select -list addr_gen/t:*
+addr_gen/$add$fifo.v:20$3
+addr_gen/$eq$fifo.v:17$2
 
 yosys> show -color maroon3 @new_cells -color cornflowerblue p:* -notitle -format dot -prefix addr_gen_hier
 

@@ -86,6 +86,8 @@ start mapping to hardware we will still need to load them later.
    Yosys from the source directory, this will be the ``share`` folder in the
    same directory.
 
+.. _addr_gen_example:
+
 The addr_gen module
 ^^^^^^^^^^^^^^^^^^^
 
@@ -115,6 +117,7 @@ Since we're just getting started, let's instead begin with :yoscrypt:`hierarchy
    :start-at: yosys> hierarchy -top addr_gen
    :end-before: yosys> select
    :caption: :yoscrypt:`hierarchy -top addr_gen` output
+   :name: hierarchy_output
 
 Our ``addr_gen`` circuit now looks like this:
 

@@ -4,7 +4,7 @@ Flows, command types, and order
 Command order
 -------------
 
-.. TODO:: check text is coherent
+.. todo:: More surrounding text (esp as it relates to command order)
 
 Intro to coarse-grain synthesis
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -42,6 +42,8 @@ The extract pass
 .. todo:: add/expand supporting text, also mention custom pattern matching and
    pmgen
 
+Example code can be found in ``docs/source/code_examples/macc/``.
+
 .. literalinclude:: /code_examples/macc/macc_simple_test.ys
     :language: yoscrypt
     :lines: 1-2
@@ -62,15 +64,15 @@ The extract pass
 
 .. literalinclude:: /code_examples/macc/macc_simple_test.v
    :language: verilog
-   :caption: ``docs/source/code_examples/macc/macc_simple_test.v``
+   :caption: ``macc_simple_test.v``
 
 .. literalinclude:: /code_examples/macc/macc_simple_xmap.v
    :language: verilog
-   :caption: ``docs/source/code_examples/macc/macc_simple_xmap.v``
+   :caption: ``macc_simple_xmap.v``
 
 .. literalinclude:: /code_examples/macc/macc_simple_test_01.v
    :language: verilog
-   :caption: ``docs/source/code_examples/macc/macc_simple_test_01.v``
+   :caption: ``macc_simple_test_01.v``
 
 .. figure:: /_images/code_examples/macc/macc_simple_test_01a.*
     :class: width-helper
@@ -80,7 +82,7 @@ The extract pass
 
 .. literalinclude:: /code_examples/macc/macc_simple_test_02.v
    :language: verilog
-   :caption: ``docs/source/code_examples/macc/macc_simple_test_02.v``
+   :caption: ``macc_simple_test_02.v``
 
 .. figure:: /_images/code_examples/macc/macc_simple_test_02a.*
     :class: width-helper
@@ -95,14 +97,15 @@ Often a coarse-grain element has a constant bit-width, but can be used to
 implement operations with a smaller bit-width. For example, a 18x25-bit multiplier
 can also be used to implement 16x20-bit multiplication.
 
-A way of mapping such elements in coarse grain synthesis is the wrap-extract-unwrap method:
+A way of mapping such elements in coarse grain synthesis is the
+wrap-extract-unwrap method:
 
 wrap
   Identify candidate-cells in the circuit and wrap them in a cell with a
   constant wider bit-width using :cmd:ref:`techmap`. The wrappers use the same
   parameters as the original cell, so the information about the original width
-  of the ports is preserved. Then use the ``connwrappers`` command to connect up
-  the bit-extended in- and outputs of the wrapper cells.
+  of the ports is preserved. Then use the :cmd:ref:`connwrappers` command to
+  connect up the bit-extended in- and outputs of the wrapper cells.
 
 extract
   Now all operations are encoded using the same bit-width as the coarse grain
@@ -117,7 +120,8 @@ Example: DSP48_MACC
 
 This section details an example that shows how to map MACC operations of
 arbitrary size to MACC cells with a 18x25-bit multiplier and a 48-bit adder
-(such as the Xilinx DSP48 cells).
+(such as the Xilinx DSP48 cells).  Source code can be found in
+``docs/source/code_examples/macc/``.
 
 Preconditioning: ``macc_xilinx_swap_map.v``
 
@@ -127,27 +131,27 @@ Make sure ``A`` is the smaller port on all multipliers
 
 .. literalinclude:: /code_examples/macc/macc_xilinx_swap_map.v
    :language: verilog
-   :caption: ``docs/source/code_examples/macc/macc_xilinx_swap_map.v``
+   :caption: ``macc_xilinx_swap_map.v``
 
 Wrapping multipliers: ``macc_xilinx_wrap_map.v``
 
 .. literalinclude:: /code_examples/macc/macc_xilinx_wrap_map.v
    :language: verilog
    :lines: 1-46
-   :caption: ``docs/source/code_examples/macc/macc_xilinx_wrap_map.v``
+   :caption: ``macc_xilinx_wrap_map.v``
 
 Wrapping adders: ``macc_xilinx_wrap_map.v``
 
 .. literalinclude:: /code_examples/macc/macc_xilinx_wrap_map.v
    :language: verilog
    :lines: 48-89
-   :caption: ``docs/source/code_examples/macc/macc_xilinx_wrap_map.v``
+   :caption: ``macc_xilinx_wrap_map.v``
 
 Extract: ``macc_xilinx_xmap.v``
 
 .. literalinclude:: /code_examples/macc/macc_xilinx_xmap.v
    :language: verilog
-   :caption: ``docs/source/code_examples/macc/macc_xilinx_xmap.v``
+   :caption: ``macc_xilinx_xmap.v``
 
 ... simply use the same wrapping commands on this module as on the design to
 create a template for the :cmd:ref:`extract` command.
@@ -157,19 +161,19 @@ Unwrapping multipliers: ``macc_xilinx_unwrap_map.v``
 .. literalinclude:: /code_examples/macc/macc_xilinx_unwrap_map.v
    :language: verilog
    :lines: 1-30
-   :caption: ``docs/source/code_examples/macc/macc_xilinx_unwrap_map.v``
+   :caption: ``$__mul_wrapper`` module in ``macc_xilinx_unwrap_map.v``
 
 Unwrapping adders: ``macc_xilinx_unwrap_map.v``
 
 .. literalinclude:: /code_examples/macc/macc_xilinx_unwrap_map.v
    :language: verilog
    :lines: 32-61
-   :caption: ``docs/source/code_examples/macc/macc_xilinx_unwrap_map.v``
+   :caption: ``$__add_wrapper`` module in ``macc_xilinx_unwrap_map.v``
 
 .. literalinclude:: /code_examples/macc/macc_xilinx_test.v
    :language: verilog
    :lines: 1-6
-   :caption: ``test1`` of ``docs/source/code_examples/macc/macc_xilinx_test.v``
+   :caption: ``test1`` of ``macc_xilinx_test.v``
 
 .. figure:: /_images/code_examples/macc/macc_xilinx_test1a.*
     :class: width-helper
@@ -180,7 +184,7 @@ Unwrapping adders: ``macc_xilinx_unwrap_map.v``
 .. literalinclude:: /code_examples/macc/macc_xilinx_test.v
    :language: verilog
    :lines: 8-13
-   :caption: ``test2`` of ``docs/source/code_examples/macc/macc_xilinx_test.v``
+   :caption: ``test2`` of ``macc_xilinx_test.v``
 
 .. figure:: /_images/code_examples/macc/macc_xilinx_test2a.*
     :class: width-helper

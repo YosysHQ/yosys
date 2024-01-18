@@ -9,7 +9,12 @@ read_verilog -defer fifo.v
 # turn command echoes on to use the log output as a console session
 echo on
 hierarchy -top addr_gen
-select -set new_cells t:*
+select -module addr_gen
+select -list
+select t:*
+select -list
+select -set new_cells %
+select -clear
 show -color maroon3 @new_cells -color cornflowerblue p:* -notitle -format dot -prefix addr_gen_hier
 
 # ========================================================

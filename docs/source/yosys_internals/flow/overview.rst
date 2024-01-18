@@ -16,12 +16,11 @@ language.
 
 The AST Frontend then compiles the AST to Yosys's main internal data format, the
 RTL Intermediate Language (RTLIL). A more detailed description of this format is
-given in the next section.
-
-.. TODO:: what next section
+given in :doc:`/yosys_internals/formats/rtlil_rep`.
 
 There is also a text representation of the RTLIL data structure that can be
-parsed using the RTLIL Frontend.
+parsed using the RTLIL Frontend which is described in
+:doc:`/yosys_internals/formats/rtlil_text`.
 
 The design data may then be transformed using a series of passes that all
 operate on the RTLIL representation of the design.
