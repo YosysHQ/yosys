@@ -143,43 +143,56 @@ executable name).
 Source tree and build system
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. TODO:: check if source tree/build system details need updating
-
 The Yosys source tree is organized into the following top-level
 directories:
 
--  | backends/
-   | This directory contains a subdirectory for each of the backend modules.
+``backends/``
+   This directory contains a subdirectory for each of the backend modules.
 
--  | frontends/
-   | This directory contains a subdirectory for each of the frontend modules.
+``docs/``
+   Contains the source for this documentation, including images and sample code.
 
--  | kernel/
-   | This directory contains all the core functionality of Yosys. This includes
-     the functions and definitions for working with the RTLIL data structures
-     (rtlil.h and rtlil.cc), the main() function (driver.cc), the internal
-     framework for generating log messages (log.h and log.cc), the internal
-     framework for registering and calling passes (register.h and register.cc),
-     some core commands that are not really passes (select.cc, show.cc, …) and a
-     couple of other small utility libraries.
+``examples/``
+   Contains example code for using Yosys with some other tools including a demo
+   of the Yosys Python api, and synthesizing for various toolchains such as
+   Intel and Anlogic.
 
--  | passes/
-   | This directory contains a subdirectory for each pass or group of passes.
-     For example as of this writing the directory passes/opt/ contains the code
-     for seven passes: opt, opt_expr, opt_muxtree, opt_reduce, opt_rmdff,
-     opt_rmunused and opt_merge.
+``frontends/``
+   This directory contains a subdirectory for each of the frontend modules.
 
--  | techlibs/
-   | This directory contains simulation models and standard implementations for
-     the cells from the internal cell library.
+``guidelines/``
+   Contains developer guidelines, including the code of conduct and coding style
+   guide.
 
--  | tests/
-   | This directory contains a couple of test cases. Most of the smaller tests
-     are executed automatically when make test is called. The larger tests must
-     be executed manually. Most of the larger tests require downloading external
-     HDL source code and/or external tools. The tests range from comparing
-     simulation results of the synthesized design to the original sources to
-     logic equivalence checking of entire CPU cores.
+``kernel/``
+   This directory contains all the core functionality of Yosys. This includes
+   the functions and definitions for working with the RTLIL data structures
+   (``rtlil.{h|cc}``), the ``main()`` function (``driver.cc``), the internal
+   framework for generating log messages (``log.{h|cc}``), the internal
+   framework for registering and calling passes (``register.{h|cc}``), some core
+   commands that are not really passes (``select.cc``, ``show.cc``, …) and a
+   couple of other small utility libraries.
+
+``libs/``
+   Libraries packaged with Yosys builds are contained in this folder.  See
+   :doc:`/appendix/auxlibs`.
+
+``misc/``
+   Other miscellany which doesn't fit anywhere else.
+
+``passes/``
+   This directory contains a subdirectory for each pass or group of passes. For
+   example as of this writing the directory ``passes/hierarchy/`` contains the
+   code for three passes: :cmd:ref:`hierarchy`, :cmd:ref:`submod`, and
+   :cmd:ref:`uniquify`.
+
+``techlibs/``
+   This directory contains simulation models and standard implementations for
+   the cells from the internal cell library.
+
+``tests/``
+   This directory contains the suite of unit tests and regression tests used by
+   Yosys.  See :doc:`/test_suites`.
 
 The top-level Makefile includes ``frontends/*/Makefile.inc``,
 ``passes/*/Makefile.inc`` and ``backends/*/Makefile.inc``. So when extending
@@ -189,7 +202,7 @@ automatically detects all commands linked with Yosys. So it is not needed to add
 additional commands to a central list of commands.
 
 Good starting points for reading example source code to learn how to write
-passes are ``passes/opt/opt_rmdff.cc`` and ``passes/opt/opt_merge.cc``.
+passes are ``passes/opt/opt_dff.cc`` and ``passes/opt/opt_merge.cc``.
 
 See the top-level README file for a quick Getting Started guide and build
 instructions. The Yosys build is based solely on Makefiles.
