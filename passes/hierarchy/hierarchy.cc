@@ -655,6 +655,17 @@ void hierarchy_clean(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib)
 	log("Removed %d unused modules.\n", del_counter);
 }
 
+bool set_keep_print(std::map<RTLIL::Module*, bool> &cache, RTLIL::Module *mod)
+{
+	if (cache.count(mod) == 0)
+		for (auto c : mod->cells()) {
+			RTLIL::Module *m = mod->design->module(c->type);
+			if ((m != nullptr && set_keep_print(cache, m)) || c->type == ID($print))
+				return cache[mod] = true;
+		}
+	return cache[mod];
+}
+
 bool set_keep_assert(std::map<RTLIL::Module*, bool> &cache, RTLIL::Module *mod)
 {
 	if (cache.count(mod) == 0)
@@ -762,6 +773,11 @@ struct HierarchyPass : public Pass {
 		log("    -nodefaults\n");
 		log("        do not resolve input port default values\n");
 		log("\n");
+		log("    -nokeep_prints\n");
+		log("        per default this pass sets the \"keep\" attribute on all modules\n");
+		log("        that directly or indirectly display text on the terminal.\n");
+		log("        This option disables this behavior.\n");
+		log("\n");
 		log("    -nokeep_asserts\n");
 		log("        per default this pass sets the \"keep\" attribute on all modules\n");
 		log("        that directly or indirectly contain one or more formal properties.\n");
@@ -818,6 +834,7 @@ struct HierarchyPass : public Pass {
 		bool keep_positionals = false;
 		bool keep_portwidths = false;
 		bool nodefaults = false;
+		bool nokeep_prints = false;
 		bool nokeep_asserts = false;
 		std::vector<std::string> generate_cells;
 		std::vector<generate_port_decl_t> generate_ports;
@@ -891,6 +908,10 @@ struct HierarchyPass : public Pass {
 			}
 			if (args[argidx] == "-nodefaults") {
 				nodefaults = true;
+				continue;
+			}
+			if (args[argidx] == "-nokeep_prints") {
+				nokeep_prints = true;
 				continue;
 			}
 			if (args[argidx] == "-nokeep_asserts") {
@@ -1089,6 +1110,15 @@ struct HierarchyPass : public Pass {
 					mod->attributes.erase(ID::top);
 				mod->attributes.erase(ID::initial_top);
 			}
+		}
+
+		if (!nokeep_prints) {
+			std::map<RTLIL::Module*, bool> cache;
+			for (auto mod : design->modules())
+				if (set_keep_print(cache, mod)) {
+					log("Module %s directly or indirectly displays text -> setting \"keep\" attribute.\n", log_id(mod));
+					mod->set_bool_attribute(ID::keep);
+				}
 		}
 
 		if (!nokeep_asserts) {
