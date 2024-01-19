@@ -764,134 +764,6 @@ std::ostream &operator<<(std::ostream &os, const value<Bits> &val) {
 	return os;
 }
 
-// Must be kept in sync with `struct FmtPart` in kernel/fmt.h!
-// Default member initializers would make this a non-aggregate-type in C++11, so they are commented out.
-struct fmt_part {
-	enum {
-		STRING  	= 0,
-		INTEGER 	= 1,
-		CHARACTER = 2,
-		TIME    	= 3,
-	} type;
-
-	// STRING type
-	std::string str;
-
-	// INTEGER/CHARACTER types
-	// + value<Bits> val;
-
-	// INTEGER/CHARACTER/TIME types
-	enum {
-		RIGHT	= 0,
-		LEFT	= 1,
-	} justify; // = RIGHT;
-	char padding; // = '\0';
-	size_t width; // = 0;
-
-	// INTEGER type
-	unsigned base; // = 10;
-	bool signed_; // = false;
-	bool plus; // = false;
-
-	// TIME type
-	bool realtime; // = false;
-	// + int64_t itime;
-	// + double ftime;
-
-	// Format the part as a string.
-	//
-	// The values of `itime` and `ftime` are used for `$time` and `$realtime`, correspondingly.
-	template<size_t Bits>
-	std::string render(value<Bits> val, int64_t itime, double ftime)
-	{
-		// We might want to replace some of these bit() calls with direct
-		// chunk access if it turns out to be slow enough to matter.
-		std::string buf;
-		switch (type) {
-			case STRING:
-				return str;
-
-			case CHARACTER: {
-				buf.reserve(Bits/8);
-				for (int i = 0; i < Bits; i += 8) {
-					char ch = 0;
-					for (int j = 0; j < 8 && i + j < int(Bits); j++)
-						if (val.bit(i + j))
-							ch |= 1 << j;
-					if (ch != 0)
-						buf.append({ch});
-				}
-				std::reverse(buf.begin(), buf.end());
-				break;
-			}
-
-			case INTEGER: {
-				size_t width = Bits;
-				if (base != 10) {
-					width = 0;
-					for (size_t index = 0; index < Bits; index++)
-						if (val.bit(index))
-							width = index + 1;
-				}
-
-				if (base == 2) {
-					for (size_t i = width; i > 0; i--)
-						buf += (val.bit(i - 1) ? '1' : '0');
-				} else if (base == 8 || base == 16) {
-					size_t step = (base == 16) ? 4 : 3;
-					for (size_t index = 0; index < width; index += step) {
-						uint8_t value = val.bit(index) | (val.bit(index + 1) << 1) | (val.bit(index + 2) << 2);
-						if (step == 4)
-							value |= val.bit(index + 3) << 3;
-						buf += "0123456789abcdef"[value];
-					}
-					std::reverse(buf.begin(), buf.end());
-				} else if (base == 10) {
-					bool negative = signed_ && val.is_neg();
-					if (negative)
-						val = val.neg();
-					if (val.is_zero())
-						buf += '0';
-					value<(Bits > 4 ? Bits : 4)> xval = val.template zext<(Bits > 4 ? Bits : 4)>();
-					while (!xval.is_zero()) {
-						value<(Bits > 4 ? Bits : 4)> quotient, remainder;
-						if (Bits >= 4)
-							std::tie(quotient, remainder) = xval.udivmod(value<(Bits > 4 ? Bits : 4)>{10u});
-						else
-							std::tie(quotient, remainder) = std::make_pair(value<(Bits > 4 ? Bits : 4)>{0u}, xval);
-						buf += '0' + remainder.template trunc<4>().template get<uint8_t>();
-						xval = quotient;
-					}
-					if (negative || plus)
-						buf += negative ? '-' : '+';
-					std::reverse(buf.begin(), buf.end());
-				} else assert(false && "Unsupported base for fmt_part");
-				break;
-			}
-
-			case TIME: {
-				buf = realtime ? std::to_string(ftime) : std::to_string(itime);
-				break;
-			}
-		}
-
-		std::string str;
-		assert(width == 0 || padding != '\0');
-		if (justify == RIGHT && buf.size() < width) {
-			size_t pad_width = width - buf.size();
-			if (padding == '0' && (buf.front() == '+' || buf.front() == '-')) {
-				str += buf.front();
-				buf.erase(0, 1);
-			}
-			str += std::string(pad_width, padding);
-		}
-		str += buf;
-		if (justify == LEFT && buf.size() < width)
-			str += std::string(width - buf.size(), padding);
-		return str;
-	}
-};
-
 template<size_t Bits>
 struct wire {
 	static constexpr size_t bits = Bits;
@@ -1098,6 +970,134 @@ struct observer {
 	// with `chunks` chunks at `value` that have a different bit pattern. It is guaranteed that `chunks` is equal to
 	// the memory element chunk count and `base` points to the first chunk of the first element of the memory.
 	void on_update(size_t chunks, const chunk_t *base, const chunk_t *value, size_t index) {}
+};
+
+// Must be kept in sync with `struct FmtPart` in kernel/fmt.h!
+// Default member initializers would make this a non-aggregate-type in C++11, so they are commented out.
+struct fmt_part {
+	enum {
+		STRING  	= 0,
+		INTEGER 	= 1,
+		CHARACTER = 2,
+		TIME    	= 3,
+	} type;
+
+	// STRING type
+	std::string str;
+
+	// INTEGER/CHARACTER types
+	// + value<Bits> val;
+
+	// INTEGER/CHARACTER/TIME types
+	enum {
+		RIGHT	= 0,
+		LEFT	= 1,
+	} justify; // = RIGHT;
+	char padding; // = '\0';
+	size_t width; // = 0;
+
+	// INTEGER type
+	unsigned base; // = 10;
+	bool signed_; // = false;
+	bool plus; // = false;
+
+	// TIME type
+	bool realtime; // = false;
+	// + int64_t itime;
+	// + double ftime;
+
+	// Format the part as a string.
+	//
+	// The values of `itime` and `ftime` are used for `$time` and `$realtime`, correspondingly.
+	template<size_t Bits>
+	std::string render(value<Bits> val, int64_t itime, double ftime)
+	{
+		// We might want to replace some of these bit() calls with direct
+		// chunk access if it turns out to be slow enough to matter.
+		std::string buf;
+		switch (type) {
+			case STRING:
+				return str;
+
+			case CHARACTER: {
+				buf.reserve(Bits/8);
+				for (int i = 0; i < Bits; i += 8) {
+					char ch = 0;
+					for (int j = 0; j < 8 && i + j < int(Bits); j++)
+						if (val.bit(i + j))
+							ch |= 1 << j;
+					if (ch != 0)
+						buf.append({ch});
+				}
+				std::reverse(buf.begin(), buf.end());
+				break;
+			}
+
+			case INTEGER: {
+				size_t width = Bits;
+				if (base != 10) {
+					width = 0;
+					for (size_t index = 0; index < Bits; index++)
+						if (val.bit(index))
+							width = index + 1;
+				}
+
+				if (base == 2) {
+					for (size_t i = width; i > 0; i--)
+						buf += (val.bit(i - 1) ? '1' : '0');
+				} else if (base == 8 || base == 16) {
+					size_t step = (base == 16) ? 4 : 3;
+					for (size_t index = 0; index < width; index += step) {
+						uint8_t value = val.bit(index) | (val.bit(index + 1) << 1) | (val.bit(index + 2) << 2);
+						if (step == 4)
+							value |= val.bit(index + 3) << 3;
+						buf += "0123456789abcdef"[value];
+					}
+					std::reverse(buf.begin(), buf.end());
+				} else if (base == 10) {
+					bool negative = signed_ && val.is_neg();
+					if (negative)
+						val = val.neg();
+					if (val.is_zero())
+						buf += '0';
+					value<(Bits > 4 ? Bits : 4)> xval = val.template zext<(Bits > 4 ? Bits : 4)>();
+					while (!xval.is_zero()) {
+						value<(Bits > 4 ? Bits : 4)> quotient, remainder;
+						if (Bits >= 4)
+							std::tie(quotient, remainder) = xval.udivmod(value<(Bits > 4 ? Bits : 4)>{10u});
+						else
+							std::tie(quotient, remainder) = std::make_pair(value<(Bits > 4 ? Bits : 4)>{0u}, xval);
+						buf += '0' + remainder.template trunc<4>().template get<uint8_t>();
+						xval = quotient;
+					}
+					if (negative || plus)
+						buf += negative ? '-' : '+';
+					std::reverse(buf.begin(), buf.end());
+				} else assert(false && "Unsupported base for fmt_part");
+				break;
+			}
+
+			case TIME: {
+				buf = realtime ? std::to_string(ftime) : std::to_string(itime);
+				break;
+			}
+		}
+
+		std::string str;
+		assert(width == 0 || padding != '\0');
+		if (justify == RIGHT && buf.size() < width) {
+			size_t pad_width = width - buf.size();
+			if (padding == '0' && (buf.front() == '+' || buf.front() == '-')) {
+				str += buf.front();
+				buf.erase(0, 1);
+			}
+			str += std::string(pad_width, padding);
+		}
+		str += buf;
+		if (justify == LEFT && buf.size() < width)
+			str += std::string(width - buf.size(), padding);
+		return str;
+	}
 };
 
 // Tag class to disambiguate values/wires and their aliases.
