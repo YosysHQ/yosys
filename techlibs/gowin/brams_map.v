@@ -131,7 +131,7 @@ if (PORT_A_WIDTH < 9) begin
 		.CE(PORT_A_CLK_EN),
 		.WRE(WRE),
 		.RESET(RST),
-		.OCE(1'b0),
+		.OCE(1'b1),
 		.AD(AD),
 		.DI(DI),
 		.DO(DO),
@@ -157,7 +157,7 @@ end else begin
 		.CE(PORT_A_CLK_EN),
 		.WRE(WRE),
 		.RESET(RST),
-		.OCE(1'b0),
+		.OCE(1'b1),
 		.AD(AD),
 		.DI(DI),
 		.DO(DO),
@@ -224,7 +224,7 @@ if (PORT_A_WIDTH < 9 || PORT_B_WIDTH < 9) begin
 	assign PORT_A_RD_DATA = `x8_rd_data(DOA);
 	assign PORT_B_RD_DATA = `x8_rd_data(DOB);
 
-	DP #(
+	DPB #(
 		`INIT(init_slice_x8)
 		.READ_MODE0(1'b0),
 		.READ_MODE1(1'b0),
@@ -232,16 +232,18 @@ if (PORT_A_WIDTH < 9 || PORT_B_WIDTH < 9) begin
 		.WRITE_MODE1(PORT_B_OPTION_WRITE_MODE),
 		.BIT_WIDTH_0(`x8_width(PORT_A_WIDTH)),
 		.BIT_WIDTH_1(`x8_width(PORT_B_WIDTH)),
-		.BLK_SEL(3'b000),
+		.BLK_SEL_0(3'b000),
+		.BLK_SEL_1(3'b000),
 		.RESET_MODE(OPTION_RESET_MODE),
 	) _TECHMAP_REPLACE_ (
-		.BLKSEL(3'b000),
+		.BLKSELA(3'b000),
+		.BLKSELB(3'b000),
 
 		.CLKA(PORT_A_CLK),
 		.CEA(PORT_A_CLK_EN),
 		.WREA(WREA),
 		.RESETA(RSTA),
-		.OCEA(1'b0),
+		.OCEA(1'b1),
 		.ADA(ADA),
 		.DIA(DIA),
 		.DOA(DOA),
@@ -250,7 +252,7 @@ if (PORT_A_WIDTH < 9 || PORT_B_WIDTH < 9) begin
 		.CEB(PORT_B_CLK_EN),
 		.WREB(WREB),
 		.RESETB(RSTB),
-		.OCEB(1'b0),
+		.OCEB(1'b1),
 		.ADB(ADB),
 		.DIB(DIB),
 		.DOB(DOB),
@@ -266,7 +268,7 @@ end else begin
 	assign PORT_A_RD_DATA = DOA;
 	assign PORT_B_RD_DATA = DOB;
 
-	DPX9 #(
+	DPX9B #(
 		`INIT(init_slice_x9)
 		.READ_MODE0(1'b0),
 		.READ_MODE1(1'b0),
@@ -274,16 +276,18 @@ end else begin
 		.WRITE_MODE1(PORT_B_OPTION_WRITE_MODE),
 		.BIT_WIDTH_0(PORT_A_WIDTH),
 		.BIT_WIDTH_1(PORT_B_WIDTH),
-		.BLK_SEL(3'b000),
+		.BLK_SEL_0(3'b000),
+		.BLK_SEL_1(3'b000),
 		.RESET_MODE(OPTION_RESET_MODE),
 	) _TECHMAP_REPLACE_ (
-		.BLKSEL(3'b000),
+		.BLKSELA(3'b000),
+		.BLKSELB(3'b000),
 
 		.CLKA(PORT_A_CLK),
 		.CEA(PORT_A_CLK_EN),
 		.WREA(WREA),
 		.RESETA(RSTA),
-		.OCEA(1'b0),
+		.OCEA(1'b1),
 		.ADA(ADA),
 		.DIA(DIA),
 		.DOA(DOA),
@@ -292,7 +296,7 @@ end else begin
 		.CEB(PORT_B_CLK_EN),
 		.WREB(WREB),
 		.RESETB(RSTB),
-		.OCEB(1'b0),
+		.OCEB(1'b1),
 		.ADB(ADB),
 		.DIB(DIB),
 		.DOB(DOB),
@@ -344,28 +348,28 @@ if (PORT_W_WIDTH < 9 || PORT_R_WIDTH < 9) begin
 
 	assign PORT_R_RD_DATA = `x8_rd_data(DO);
 
-	SDP #(
+	SDPB #(
 		`INIT(init_slice_x8)
 		.READ_MODE(1'b0),
 		.BIT_WIDTH_0(`x8_width(PORT_W_WIDTH)),
 		.BIT_WIDTH_1(`x8_width(PORT_R_WIDTH)),
-		.BLK_SEL(3'b000),
+		.BLK_SEL_0(3'b000),
+		.BLK_SEL_1(3'b000),
 		.RESET_MODE(OPTION_RESET_MODE),
 	) _TECHMAP_REPLACE_ (
-		.BLKSEL(3'b000),
+		.BLKSELA(3'b000),
+		.BLKSELB(3'b000),
 
 		.CLKA(PORT_W_CLK),
 		.CEA(PORT_W_CLK_EN),
-		.WREA(WRE),
 		.RESETA(1'b0),
 		.ADA(ADW),
 		.DI(DI),
 
 		.CLKB(PORT_R_CLK),
 		.CEB(PORT_R_CLK_EN),
-		.WREB(1'b0),
 		.RESETB(RST),
-		.OCE(1'b0),
+		.OCE(1'b1),
 		.ADB(PORT_R_ADDR),
 		.DO(DO),
 	);
@@ -377,28 +381,28 @@ end else begin
 
 	assign PORT_R_RD_DATA = DO;
 
-	SDPX9 #(
+	SDPX9B #(
 		`INIT(init_slice_x9)
 		.READ_MODE(1'b0),
 		.BIT_WIDTH_0(PORT_W_WIDTH),
 		.BIT_WIDTH_1(PORT_R_WIDTH),
-		.BLK_SEL(3'b000),
+		.BLK_SEL_0(3'b000),
+		.BLK_SEL_1(3'b000),
 		.RESET_MODE(OPTION_RESET_MODE),
 	) _TECHMAP_REPLACE_ (
-		.BLKSEL(3'b000),
+		.BLKSELA(3'b000),
+		.BLKSELB(3'b000),
 
 		.CLKA(PORT_W_CLK),
 		.CEA(PORT_W_CLK_EN),
-		.WREA(WRE),
 		.RESETA(1'b0),
 		.ADA(ADW),
 		.DI(DI),
 
 		.CLKB(PORT_R_CLK),
 		.CEB(PORT_R_CLK_EN),
-		.WREB(1'b0),
 		.RESETB(RST),
-		.OCE(1'b0),
+		.OCE(1'b1),
 		.ADB(PORT_R_ADDR),
 		.DO(DO),
 	);
