@@ -1072,9 +1072,9 @@ struct CxxrtlWorker {
 		dump_sigspec_rhs(cell->getPort(ID::EN));
 		f << " == value<1>{1u}) {\n";
 		inc_indent();
-			f << indent << "auto formatter = [&](int64_t itime, double ftime) {\n";
+			f << indent << "auto formatter = [&](struct performer *performer) {\n";
 			inc_indent();
-				fmt.emit_cxxrtl(f, indent, [this](const RTLIL::SigSpec &sig) { dump_sigspec_rhs(sig); });
+				fmt.emit_cxxrtl(f, indent, [this](const RTLIL::SigSpec &sig) { dump_sigspec_rhs(sig); }, "performer");
 			dec_indent();
 			f << indent << "};\n";
 			f << indent << "if (performer) {\n";
@@ -1082,11 +1082,11 @@ struct CxxrtlWorker {
 				f << indent << "static const metadata_map attributes = ";
 				dump_metadata_map(cell->attributes);
 				f << ";\n";
-				f << indent << "performer->on_print(formatter(performer->time(), performer->realtime()), attributes);\n";
+				f << indent << "performer->on_print(formatter(performer), attributes);\n";
 			dec_indent();
 			f << indent << "} else {\n";
 			inc_indent();
-				f << indent << print_output << " << formatter(0, 0.0);\n";
+				f << indent << print_output << " << formatter(performer);\n";
 			dec_indent();
 			f << indent << "}\n";
 		dec_indent();

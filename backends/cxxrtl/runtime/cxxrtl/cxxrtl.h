@@ -948,10 +948,10 @@ typedef std::map<std::string, metadata> metadata_map;
 // An object that can be passed to a `eval()` method in order to act on side effects.
 struct performer {
 	// Called to evaluate a Verilog `$time` expression.
-	virtual int64_t time() const { return 0; }
+	virtual int64_t vlog_time() const { return 0; }
 
 	// Called to evaluate a Verilog `$realtime` expression.
-	virtual double realtime() const { return time(); }
+	virtual double vlog_realtime() const { return vlog_time(); }
 
 	// Called when a `$print` cell is triggered.
 	virtual void on_print(const std::string &output, const metadata_map &attributes) { std::cout << output; }
@@ -976,10 +976,10 @@ struct observer {
 // Default member initializers would make this a non-aggregate-type in C++11, so they are commented out.
 struct fmt_part {
 	enum {
-		STRING  	= 0,
-		INTEGER 	= 1,
+		STRING    = 0,
+		INTEGER   = 1,
 		CHARACTER = 2,
-		TIME    	= 3,
+		VLOG_TIME = 3,
 	} type;
 
 	// STRING type
@@ -988,7 +988,7 @@ struct fmt_part {
 	// INTEGER/CHARACTER types
 	// + value<Bits> val;
 
-	// INTEGER/CHARACTER/TIME types
+	// INTEGER/CHARACTER/VLOG_TIME types
 	enum {
 		RIGHT	= 0,
 		LEFT	= 1,
@@ -1001,16 +1001,16 @@ struct fmt_part {
 	bool signed_; // = false;
 	bool plus; // = false;
 
-	// TIME type
+	// VLOG_TIME type
 	bool realtime; // = false;
 	// + int64_t itime;
 	// + double ftime;
 
 	// Format the part as a string.
 	//
-	// The values of `itime` and `ftime` are used for `$time` and `$realtime`, correspondingly.
+	// The values of `vlog_time` and `vlog_realtime` are used for Verilog `$time` and `$realtime`, correspondingly.
 	template<size_t Bits>
-	std::string render(value<Bits> val, int64_t itime, double ftime)
+	std::string render(value<Bits> val, performer *performer = nullptr)
 	{
 		// We might want to replace some of these bit() calls with direct
 		// chunk access if it turns out to be slow enough to matter.
@@ -1077,8 +1077,12 @@ struct fmt_part {
 				break;
 			}
 
-			case TIME: {
-				buf = realtime ? std::to_string(ftime) : std::to_string(itime);
+			case VLOG_TIME: {
+				if (performer) {
+					buf = realtime ? std::to_string(performer->vlog_realtime()) : std::to_string(performer->vlog_time());
+				} else {
+					buf = realtime ? std::to_string(0.0) : std::to_string(0);
+				}
 				break;
 			}
 		}

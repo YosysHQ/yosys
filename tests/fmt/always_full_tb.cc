@@ -3,7 +3,7 @@
 int main()
 {
 	struct : public performer {
-		int64_t time() const override { return 1; }
+		int64_t vlog_time() const override { return 1; }
 		void on_print(const std::string &output, const cxxrtl::metadata_map &) override { std::cerr << output; }
 	} performer;
 
