@@ -1072,21 +1072,43 @@ struct CxxrtlWorker {
 		dump_sigspec_rhs(cell->getPort(ID::EN));
 		f << " == value<1>{1u}) {\n";
 		inc_indent();
-			f << indent << "auto formatter = [&](struct performer *performer) {\n";
+			dict<std::string, RTLIL::SigSpec> fmt_args;
+			f << indent << "struct : public lazy_fmt {\n";
 			inc_indent();
-				fmt.emit_cxxrtl(f, indent, [this](const RTLIL::SigSpec &sig) { dump_sigspec_rhs(sig); }, "performer");
+				f << indent << "std::string operator() () const override {\n";
+				inc_indent();
+					fmt.emit_cxxrtl(f, indent, [&](const RTLIL::SigSpec &sig) {
+						if (sig.size() == 0)
+							f << "value<0>()";
+						else {
+							std::string arg_name = "arg" + std::to_string(fmt_args.size());
+							fmt_args[arg_name] = sig;
+							f << arg_name;
+						}
+					}, "performer");
+				dec_indent();
+				f << indent << "}\n";
+				f << indent << "struct performer *performer;\n";
+				for (auto arg : fmt_args)
+					f << indent << "value<" << arg.second.size() << "> " << arg.first << ";\n";
 			dec_indent();
-			f << indent << "};\n";
+			f << indent << "} formatter;\n";
+			f << indent << "formatter.performer = performer;\n";
+			for (auto arg : fmt_args) {
+				f << indent << "formatter." << arg.first << " = ";
+				dump_sigspec_rhs(arg.second);
+				f << ";\n";
+			}
 			f << indent << "if (performer) {\n";
 			inc_indent();
 				f << indent << "static const metadata_map attributes = ";
 				dump_metadata_map(cell->attributes);
 				f << ";\n";
-				f << indent << "performer->on_print(formatter(performer), attributes);\n";
+				f << indent << "performer->on_print(formatter, attributes);\n";
 			dec_indent();
 			f << indent << "} else {\n";
 			inc_indent();
-				f << indent << print_output << " << formatter(performer);\n";
+				f << indent << print_output << " << formatter();\n";
 			dec_indent();
 			f << indent << "}\n";
 		dec_indent();

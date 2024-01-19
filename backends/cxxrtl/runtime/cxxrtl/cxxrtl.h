@@ -945,16 +945,25 @@ struct metadata {
 
 typedef std::map<std::string, metadata> metadata_map;
 
+struct performer;
+
+// An object that allows formatting a string lazily.
+struct lazy_fmt {
+	virtual std::string operator() () const = 0;
+};
+
 // An object that can be passed to a `eval()` method in order to act on side effects.
 struct performer {
-	// Called to evaluate a Verilog `$time` expression.
+	// Called by generated formatting code to evaluate a Verilog `$time` expression.
 	virtual int64_t vlog_time() const { return 0; }
 
-	// Called to evaluate a Verilog `$realtime` expression.
+	// Called by generated formatting code to evaluate a Verilog `$realtime` expression.
 	virtual double vlog_realtime() const { return vlog_time(); }
 
 	// Called when a `$print` cell is triggered.
-	virtual void on_print(const std::string &output, const metadata_map &attributes) { std::cout << output; }
+	virtual void on_print(const lazy_fmt &formatter, const metadata_map &attributes) {
+		std::cout << formatter();
+	}
 };
 
 // An object that can be passed to a `commit()` method in order to produce a replay log of every state change in
