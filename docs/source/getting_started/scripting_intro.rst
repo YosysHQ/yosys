@@ -97,8 +97,8 @@ Detailed documentation of the select framework can be found under
 
 .. _show_intro:
 
-The show command
-~~~~~~~~~~~~~~~~
+Displaying schematics
+^^^^^^^^^^^^^^^^^^^^^
 
 While the :cmd:ref:`select` command is very useful, sometimes nothing beats
 being able to see a design for yourself.  This is where :cmd:ref:`show` comes
@@ -189,6 +189,9 @@ not the final parameter, such as those used in options, must be a single
 expression instead.
 
 .. _GraphViz color docs: https://graphviz.org/doc/info/colors
+
+For all of the options available to :cmd:ref:`show`, check the command reference
+at :doc:`/cmd/show`.
 
 .. seealso:: :ref:`interactive_show` on the
    :doc:`/using_yosys/more_scripting/interactive_investigation` page.
