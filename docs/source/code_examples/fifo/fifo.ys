@@ -15,6 +15,8 @@ select t:*
 select -list
 select -set new_cells %
 select -clear
+show -format dot -prefix addr_gen_show addr_gen
+show -format dot -prefix new_cells_show -notitle @new_cells
 show -color maroon3 @new_cells -color cornflowerblue p:* -notitle -format dot -prefix addr_gen_hier
 
 # ========================================================

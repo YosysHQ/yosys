@@ -247,7 +247,8 @@ Because the design schematic is quite large, we will be showing just the data
 path for the ``rdata`` output.  If you would like to see the entire design for
 yourself, you can do so with :doc:`/cmd/show`.  Note that the :cmd:ref:`show`
 command only works with a single module, so you may need to call it with
-:yoscrypt:`show fifo`.
+:yoscrypt:`show fifo`.  :ref:`show_intro` section in
+:doc:`/getting_started/scripting_intro` has more on how to use :cmd:ref:`show`.
 
 .. figure:: /_images/code_examples/fifo/rdata_proc.*
    :class: width-helper
