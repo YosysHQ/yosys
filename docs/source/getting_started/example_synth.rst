@@ -127,8 +127,6 @@ Our ``addr_gen`` circuit now looks like this:
 
    ``addr_gen`` module after :cmd:ref:`hierarchy`
 
-.. TODO:: pending https://github.com/YosysHQ/yosys/pull/4133
-
 Simple operations like ``addr + 1`` and ``addr == MAX_DATA-1`` can be extracted
 from our ``always @`` block in :ref:`addr_gen-v`. This gives us the highlighted
 ``$add`` and ``$eq`` cells we see. But control logic (like the ``if .. else``)

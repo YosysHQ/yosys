@@ -8,7 +8,7 @@ jobs:
     strategy:
       matrix:
         os:
-          - { id: macos-11, name: 'Big Sur' }
+          - { id: macos-13, name: 'Ventura' }
         cpp_std:
           - 'c++11'
           - 'c++17'

@@ -32,6 +32,10 @@ ram block $__PDPW8KC_ {
 	cost 64;
 	init no_undef;
 	port sr "R" {
+		# width 2 cannot be supported because of quirks
+		# of the primitive, and memlib requires us to
+		# remove width 1 as well
+		width 4 9 18;
 		clock posedge;
 		clken;
 		option "RESETMODE" "SYNC" {

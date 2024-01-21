@@ -38,8 +38,20 @@ endfunction
 
 wire [8:0] DOA;
 wire [8:0] DOB;
-wire [8:0] DIA = PORT_A_WR_DATA;
-wire [8:0] DIB = PORT_B_WR_DATA;
+wire [8:0] DIA;
+wire [8:0] DIB;
+
+case(PORT_A_WIDTH)
+	1: assign DIA = {7'bx, PORT_A_WR_DATA[0], 1'bx};
+	2: assign DIA = {3'bx, PORT_A_WR_DATA[1], 2'bx, PORT_A_WR_DATA[0], 2'bx};
+	default: assign DIA = PORT_A_WR_DATA;
+endcase
+
+case(PORT_B_WIDTH)
+	1: assign DIB = {7'bx, PORT_B_WR_DATA[0], 1'bx};
+	2: assign DIB = {3'bx, PORT_B_WR_DATA[1], 2'bx, PORT_B_WR_DATA[0], 2'bx};
+	default: assign DIB = PORT_B_WR_DATA;
+endcase
 
 assign PORT_A_RD_DATA = DOA;
 assign PORT_B_RD_DATA = DOB;

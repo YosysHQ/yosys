@@ -35,11 +35,24 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <math.h>
+// For std::gcd in C++17
+// #include <numeric>
 
 YOSYS_NAMESPACE_BEGIN
 
 using namespace AST;
 using namespace AST_INTERNAL;
+
+// gcd computed by Euclidian division.
+// To be replaced by C++17 std::gcd
+template<class I> I gcd(I a, I b) {
+	while (b != 0) {
+		I tmp = b;
+		b = a%b;
+		a = tmp;
+	}
+	return std::abs(a);
+}
 
 void AstNode::set_in_lvalue_flag(bool flag, bool no_descend)
 {
@@ -132,7 +145,7 @@ void AstNode::fixup_hierarchy_flags(bool force_descend)
 
 // Process a format string and arguments for $display, $write, $sprintf, etc
 
-Fmt AstNode::processFormat(int stage, bool sformat_like, int default_base, size_t first_arg_at) {
+Fmt AstNode::processFormat(int stage, bool sformat_like, int default_base, size_t first_arg_at, bool may_fail) {
 	std::vector<VerilogFmtArg> args;
 	for (size_t index = first_arg_at; index < children.size(); index++) {
 		AstNode *node_arg = children[index];
@@ -156,6 +169,9 @@ Fmt AstNode::processFormat(int stage, bool sformat_like, int default_base, size_
 			arg.type = VerilogFmtArg::INTEGER;
 			arg.sig = node_arg->bitsAsConst();
 			arg.signed_ = node_arg->is_signed;
+		} else if (may_fail) {
+			log_file_info(filename, location.first_line, "Skipping system task `%s' with non-constant argument at position %zu.\n", str.c_str(), index + 1);
+			return Fmt();
 		} else {
 			log_file_error(filename, location.first_line, "Failed to evaluate system task `%s' with non-constant argument at position %zu.\n", str.c_str(), index + 1);
 		}
@@ -204,8 +220,8 @@ void AstNode::annotateTypedEnums(AstNode *template_node)
 				log_assert(enum_item->children[1]->type == AST_RANGE);
 				is_signed = enum_item->children[1]->is_signed;
 			} else {
-				log_error("enum_item children size==%lu, expected 1 or 2 for %s (%s)\n",
-						  enum_item->children.size(),
+				log_error("enum_item children size==%zu, expected 1 or 2 for %s (%s)\n",
+						  (size_t) enum_item->children.size(),
 						  enum_item->str.c_str(), enum_node->str.c_str()
 				);
 			}
@@ -224,17 +240,6 @@ void AstNode::annotateTypedEnums(AstNode *template_node)
 			set_attribute(enum_item_str.c_str(), mkconst_str(enum_item->str));
 		}
 	}
-}
-
-static bool name_has_dot(const std::string &name, std::string &struct_name)
-{
-	// check if plausible struct member name \sss.mmm
-	std::string::size_type pos;
-	if (name.substr(0, 1) == "\\" && (pos = name.find('.', 0)) != std::string::npos) {
-		struct_name = name.substr(0, pos);
-		return true;
-	}
-	return false;
 }
 
 static AstNode *make_range(int left, int right, bool is_signed = false)
@@ -1053,30 +1058,31 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 	{
 		if (!current_always) {
 			log_file_warning(filename, location.first_line, "System task `%s' outside initial or always block is unsupported.\n", str.c_str());
-		} else if (current_always->type == AST_INITIAL) {
-			int default_base = 10;
-			if (str.back() == 'b')
-				default_base = 2;
-			else if (str.back() == 'o')
-				default_base = 8;
-			else if (str.back() == 'h')
-				default_base = 16;
-
-			// when $display()/$write() functions are used in an initial block, print them during synthesis
-			Fmt fmt = processFormat(stage, /*sformat_like=*/false, default_base);
-			if (str.substr(0, 8) == "$display")
-				fmt.append_string("\n");
-			log("%s", fmt.render().c_str());
+			delete_children();
+			str = std::string();
 		} else {
-			// when $display()/$write() functions are used in an always block, simplify the expressions and
-			// convert them to a special cell later in genrtlil
+			// simplify the expressions and convert them to a special cell later in genrtlil
 			for (auto node : children)
 				while (node->simplify(true, stage, -1, false)) {}
+
+			if (current_always->type == AST_INITIAL && !flag_nodisplay && stage == 2) {
+				int default_base = 10;
+				if (str.back() == 'b')
+					default_base = 2;
+				else if (str.back() == 'o')
+					default_base = 8;
+				else if (str.back() == 'h')
+					default_base = 16;
+
+				// when $display()/$write() functions are used in an initial block, print them during synthesis
+				Fmt fmt = processFormat(stage, /*sformat_like=*/false, default_base, /*first_arg_at=*/0, /*may_fail=*/true);
+				if (str.substr(0, 8) == "$display")
+					fmt.append_string("\n");
+				log("%s", fmt.render().c_str());
+			}
+
 			return false;
 		}
-
-		delete_children();
-		str = std::string();
 	}
 
 	// activate const folding if this is anything that must be evaluated statically (ranges, parameters, attributes, etc.)
@@ -2185,11 +2191,24 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 
 	if (type == AST_IDENTIFIER && !basic_prep) {
 		// check if a plausible struct member sss.mmmm
-		std::string sname;
-		if (name_has_dot(str, sname)) {
-			if (current_scope.count(str) > 0) {
-				auto item_node = current_scope[str];
-				if (item_node->type == AST_STRUCT_ITEM || item_node->type == AST_STRUCT || item_node->type == AST_UNION) {
+		if (!str.empty() && str[0] == '\\' && current_scope.count(str)) {
+			auto item_node = current_scope[str];
+			if (item_node->type == AST_STRUCT_ITEM || item_node->type == AST_STRUCT || item_node->type == AST_UNION) {
+				// Traverse any hierarchical path until the full name for the referenced struct/union is found.
+				std::string sname;
+				bool found_sname = false;
+				for (std::string::size_type pos = 0; (pos = str.find('.', pos)) != std::string::npos; pos++) {
+					sname = str.substr(0, pos);
+					if (current_scope.count(sname)) {
+						auto stype = current_scope[sname]->type;
+						if (stype == AST_WIRE || stype == AST_PARAMETER || stype == AST_LOCALPARAM) {
+							found_sname = true;
+							break;
+						}
+					}
+				}
+
+				if (found_sname) {
 					// structure member, rewrite this node to reference the packed struct wire
 					auto range = make_struct_member_range(this, item_node);
 					newNode = new AstNode(AST_IDENTIFIER, range);
@@ -2816,27 +2835,12 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		if (!children[0]->id2ast->range_valid)
 			goto skip_dynamic_range_lvalue_expansion;
 
-		int source_width = children[0]->id2ast->range_left - children[0]->id2ast->range_right + 1;
-		int source_offset = children[0]->id2ast->range_right;
-		int result_width = 1;
-		int stride = 1;
 		AST::AstNode *member_node = get_struct_member(children[0]);
-		if (member_node) {
-			// Clamp chunk to range of member within struct/union.
-			log_assert(!source_offset && !children[0]->id2ast->range_swapped);
-			source_width = member_node->range_left - member_node->range_right + 1;
-
-			// When the (* nowrshmsk *) attribute is set, a CASE block is generated below
-			// to select the indexed bit slice. When a multirange array is indexed, the
-			// start of each possible slice is separated by the bit stride of the last
-			// index dimension, and we can optimize the CASE block accordingly.
-			// The dimension of the original array expression is saved in the 'integer' field.
-			int dims = children[0]->integer;
-			stride = source_width;
-			for (int dim = 0; dim < dims; dim++) {
-				stride /= get_struct_range_width(member_node, dim);
-			}
-		}
+		int wire_width = member_node ?
+			member_node->range_left - member_node->range_right + 1 :
+			children[0]->id2ast->range_left - children[0]->id2ast->range_right + 1;
+		int wire_offset = children[0]->id2ast->range_right;
+		int result_width = 1;
 
 		AstNode *shift_expr = NULL;
 		AstNode *range = children[0]->children[0];
@@ -2849,133 +2853,184 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		else
 			shift_expr = range->children[0]->clone();
 
-		bool use_case_method = false;
-
-		if (children[0]->id2ast->attributes.count(ID::nowrshmsk)) {
-			AstNode *node = children[0]->id2ast->attributes.at(ID::nowrshmsk);
-			while (node->simplify(true, stage, -1, false)) { }
-			if (node->type != AST_CONSTANT)
-				input_error("Non-constant value for `nowrshmsk' attribute on `%s'!\n", children[0]->id2ast->str.c_str());
-			if (node->asAttrConst().as_bool())
-				use_case_method = true;
-		}
+		bool use_case_method = children[0]->id2ast->get_bool_attribute(ID::nowrshmsk);
 
 		if (!use_case_method && current_always->detect_latch(children[0]->str))
 			use_case_method = true;
 
-		if (use_case_method)
-		{
+		if (use_case_method) {
 			// big case block
 
+			int stride = 1;
+			long long bitno_div = stride;
+
+			int case_width_hint;
+			bool case_sign_hint;
+			shift_expr->detectSignWidth(case_width_hint, case_sign_hint);
+			int max_width = case_width_hint;
+
+			if (member_node) {  // Member in packed struct/union
+				// Clamp chunk to range of member within struct/union.
+				log_assert(!wire_offset && !children[0]->id2ast->range_swapped);
+
+				// When the (* nowrshmsk *) attribute is set, a CASE block is generated below
+				// to select the indexed bit slice. When a multirange array is indexed, the
+				// start of each possible slice is separated by the bit stride of the last
+				// index dimension, and we can optimize the CASE block accordingly.
+				// The dimension of the original array expression is saved in the 'integer' field.
+				int dims = children[0]->integer;
+				stride = wire_width;
+				for (int dim = 0; dim < dims; dim++) {
+					stride /= get_struct_range_width(member_node, dim);
+				}
+				bitno_div = stride;
+			} else {
+				// Extract (index)*(width) from non_opt_range pattern ((@selfsz@((index)*(width)))+(0)).
+				AstNode *lsb_expr =
+					shift_expr->type == AST_ADD && shift_expr->children[0]->type == AST_SELFSZ &&
+					shift_expr->children[1]->type == AST_CONSTANT && shift_expr->children[1]->integer == 0 ?
+					shift_expr->children[0]->children[0] :
+					shift_expr;
+
+				// Extract stride from indexing of two-dimensional packed arrays and
+				// variable slices on the form dst[i*stride +: width] = src.
+				if (lsb_expr->type == AST_MUL &&
+				    (lsb_expr->children[0]->type == AST_CONSTANT ||
+				     lsb_expr->children[1]->type == AST_CONSTANT))
+				{
+					int stride_ix = lsb_expr->children[1]->type == AST_CONSTANT;
+					stride = (int)lsb_expr->children[stride_ix]->integer;
+					bitno_div = stride != 0 ? stride : 1;
+
+					// Check whether i*stride can overflow.
+					int i_width;
+					bool i_sign;
+					lsb_expr->children[1 - stride_ix]->detectSignWidth(i_width, i_sign);
+					int stride_width;
+					bool stride_sign;
+					lsb_expr->children[stride_ix]->detectSignWidth(stride_width, stride_sign);
+					max_width = std::max(i_width, stride_width);
+					// Stride width calculated from actual stride value.
+					stride_width = std::ceil(std::log2(std::abs(stride)));
+
+					if (i_width + stride_width > max_width) {
+						// For (truncated) i*stride to be within the range of dst, the following must hold:
+						//   i*stride ≡ bitno (mod shift_mod), i.e.
+						//   i*stride = k*shift_mod + bitno
+						//
+						// The Diophantine equation on the form ax + by = c:
+						//   stride*i - shift_mod*k = bitno
+						// has solutions iff c is a multiple of d = gcd(a, b), i.e.
+						//   bitno mod gcd(stride, shift_mod) = 0
+						//
+						// long long is at least 64 bits in C++11
+						long long shift_mod = 1ll << (max_width - case_sign_hint);
+						// std::gcd requires C++17
+						// bitno_div = std::gcd(stride, shift_mod);
+						bitno_div = gcd((long long)stride, shift_mod);
+					}
+				}
+			}
+
+			// long long is at least 64 bits in C++11
+			long long max_offset = (1ll << (max_width - case_sign_hint)) - 1;
+			long long min_offset = case_sign_hint ? -(1ll << (max_width - 1)) : 0;
+
+			// A temporary register holds the result of the (possibly complex) rvalue expression,
+			// avoiding repetition in each AST_COND below.
+			int rvalue_width;
+			bool rvalue_sign;
+			children[1]->detectSignWidth(rvalue_width, rvalue_sign);
+			AstNode *rvalue = mktemp_logic("$bitselwrite$rvalue$", current_ast_mod, true, rvalue_width - 1, 0, rvalue_sign);
+			AstNode *caseNode = new AstNode(AST_CASE, shift_expr);
+			newNode = new AstNode(AST_BLOCK,
+					      new AstNode(AST_ASSIGN_EQ, rvalue, children[1]->clone()),
+					      caseNode);
+
 			did_something = true;
-			newNode = new AstNode(AST_CASE, shift_expr);
-			for (int i = 0; i < source_width; i += stride) {
-				int start_bit = source_offset + i;
-				int end_bit = std::min(start_bit+result_width,source_width) - 1;
-				AstNode *cond = new AstNode(AST_COND, mkconst_int(start_bit, true));
+			for (int i = 1 - result_width; i < wire_width; i++) {
+				// Out of range indexes are handled in genrtlil.cc
+				int start_bit = wire_offset + i;
+				int end_bit = start_bit + result_width - 1;
+				// Check whether the current index can be generated by shift_expr.
+				if (start_bit < min_offset || start_bit > max_offset)
+					continue;
+				if (start_bit%bitno_div != 0 || (stride == 0 && start_bit != 0))
+					continue;
+
+				AstNode *cond = new AstNode(AST_COND, mkconst_int(start_bit, case_sign_hint, max_width));
 				AstNode *lvalue = children[0]->clone();
 				lvalue->delete_children();
 				if (member_node)
 					lvalue->set_attribute(ID::wiretype, member_node->clone());
 				lvalue->children.push_back(new AstNode(AST_RANGE,
 						mkconst_int(end_bit, true), mkconst_int(start_bit, true)));
-				cond->children.push_back(new AstNode(AST_BLOCK, new AstNode(type, lvalue, children[1]->clone())));
-				newNode->children.push_back(cond);
+				cond->children.push_back(new AstNode(AST_BLOCK, new AstNode(type, lvalue, rvalue->clone())));
+				caseNode->children.push_back(cond);
 			}
-		}
-		else
-		{
-			// mask and shift operations, disabled for now
-
-			AstNode *wire_mask = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(source_width-1, true), mkconst_int(0, true)));
-			wire_mask->str = stringf("$bitselwrite$mask$%s:%d$%d", RTLIL::encode_filename(filename).c_str(), location.first_line, autoidx++);
-			wire_mask->set_attribute(ID::nosync, AstNode::mkconst_int(1, false));
-			wire_mask->is_logic = true;
-			while (wire_mask->simplify(true, 1, -1, false)) { }
-			current_ast_mod->children.push_back(wire_mask);
-
-			AstNode *wire_data = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(source_width-1, true), mkconst_int(0, true)));
-			wire_data->str = stringf("$bitselwrite$data$%s:%d$%d", RTLIL::encode_filename(filename).c_str(), location.first_line, autoidx++);
-			wire_data->set_attribute(ID::nosync, AstNode::mkconst_int(1, false));
-			wire_data->is_logic = true;
-			while (wire_data->simplify(true, 1, -1, false)) { }
-			current_ast_mod->children.push_back(wire_data);
-
-			int shamt_width_hint = -1;
-			bool shamt_sign_hint = true;
-			shift_expr->detectSignWidth(shamt_width_hint, shamt_sign_hint);
-
-			AstNode *wire_sel = new AstNode(AST_WIRE, new AstNode(AST_RANGE, mkconst_int(shamt_width_hint-1, true), mkconst_int(0, true)));
-			wire_sel->str = stringf("$bitselwrite$sel$%s:%d$%d", RTLIL::encode_filename(filename).c_str(), location.first_line, autoidx++);
-			wire_sel->set_attribute(ID::nosync, AstNode::mkconst_int(1, false));
-			wire_sel->is_logic = true;
-			wire_sel->is_signed = shamt_sign_hint;
-			while (wire_sel->simplify(true, 1, -1, false)) { }
-			current_ast_mod->children.push_back(wire_sel);
-
-			did_something = true;
-			newNode = new AstNode(AST_BLOCK);
+		} else {
+			// mask and shift operations
+			// dst = (dst & ~(width'1 << lsb)) | unsigned'(width'(src)) << lsb)
 
 			AstNode *lvalue = children[0]->clone();
 			lvalue->delete_children();
 			if (member_node)
 				lvalue->set_attribute(ID::wiretype, member_node->clone());
 
-			AstNode *ref_mask = new AstNode(AST_IDENTIFIER);
-			ref_mask->str = wire_mask->str;
-			ref_mask->id2ast = wire_mask;
-			ref_mask->was_checked = true;
-
-			AstNode *ref_data = new AstNode(AST_IDENTIFIER);
-			ref_data->str = wire_data->str;
-			ref_data->id2ast = wire_data;
-			ref_data->was_checked = true;
-
-			AstNode *ref_sel = new AstNode(AST_IDENTIFIER);
-			ref_sel->str = wire_sel->str;
-			ref_sel->id2ast = wire_sel;
-			ref_sel->was_checked = true;
-
 			AstNode *old_data = lvalue->clone();
 			if (type == AST_ASSIGN_LE)
 				old_data->lookahead = true;
 
-			AstNode *s = new AstNode(AST_ASSIGN_EQ, ref_sel->clone(), shift_expr);
-			newNode->children.push_back(s);
+			int shift_width_hint;
+			bool shift_sign_hint;
+			shift_expr->detectSignWidth(shift_width_hint, shift_sign_hint);
 
-			AstNode *shamt = ref_sel;
+			// All operations are carried out in a new block.
+			newNode = new AstNode(AST_BLOCK);
 
-			// convert to signed while preserving the sign and value
-			shamt = new AstNode(AST_CAST_SIZE, mkconst_int(shamt_width_hint + 1, true), shamt);
-			shamt = new AstNode(AST_TO_SIGNED, shamt);
+			// Temporary register holding the result of the bit- or part-select position expression.
+			AstNode *pos = mktemp_logic("$bitselwrite$pos$", current_ast_mod, true, shift_width_hint - 1, 0, shift_sign_hint);
+			newNode->children.push_back(new AstNode(AST_ASSIGN_EQ, pos, shift_expr));
+
+			// Calculate lsb from position.
+			AstNode *shift_val = pos->clone();
+
+			// If the expression is signed, we must add an extra bit for possible negation of the most negative number.
+			// If the expression is unsigned, we must add an extra bit for sign.
+			shift_val = new AstNode(AST_CAST_SIZE, mkconst_int(shift_width_hint + 1, true), shift_val);
+			if (!shift_sign_hint)
+				shift_val = new AstNode(AST_TO_SIGNED, shift_val);
 
 			// offset the shift amount by the lower bound of the dimension
-			int start_bit = source_offset;
-			shamt = new AstNode(AST_SUB, shamt, mkconst_int(start_bit, true));
+			if (wire_offset != 0)
+				shift_val = new AstNode(AST_SUB, shift_val, mkconst_int(wire_offset, true));
 
 			// reflect the shift amount if the dimension is swapped
 			if (children[0]->id2ast->range_swapped)
-				shamt = new AstNode(AST_SUB, mkconst_int(source_width - result_width, true), shamt);
+				shift_val = new AstNode(AST_SUB, mkconst_int(wire_width - result_width, true), shift_val);
 
 			// AST_SHIFT uses negative amounts for shifting left
-			shamt = new AstNode(AST_NEG, shamt);
+			shift_val = new AstNode(AST_NEG, shift_val);
 
-			AstNode *t;
-
-			t = mkconst_bits(std::vector<RTLIL::State>(result_width, State::S1), false);
-			t = new AstNode(AST_SHIFT, t, shamt->clone());
-			t = new AstNode(AST_ASSIGN_EQ, ref_mask->clone(), t);
-			newNode->children.push_back(t);
-
-			t = new AstNode(AST_BIT_AND, mkconst_bits(std::vector<RTLIL::State>(result_width, State::S1), false), children[1]->clone());
-			t = new AstNode(AST_SHIFT, t, shamt);
-			t = new AstNode(AST_ASSIGN_EQ, ref_data->clone(), t);
-			newNode->children.push_back(t);
-
-			t = new AstNode(AST_BIT_AND, old_data, new AstNode(AST_BIT_NOT, ref_mask));
-			t = new AstNode(AST_BIT_OR, t, ref_data);
-			t = new AstNode(type, lvalue, t);
-			newNode->children.push_back(t);
+			// dst = (dst & ~(width'1 << lsb)) | unsigned'(width'(src)) << lsb)
+			did_something = true;
+			AstNode *bitmask = mkconst_bits(std::vector<RTLIL::State>(result_width, State::S1), false);
+			newNode->children.push_back(
+				new AstNode(type,
+					    lvalue,
+					    new AstNode(AST_BIT_OR,
+							new AstNode(AST_BIT_AND,
+								    old_data,
+								    new AstNode(AST_BIT_NOT,
+										new AstNode(AST_SHIFT,
+											    bitmask,
+											    shift_val->clone()))),
+							new AstNode(AST_SHIFT,
+								    new AstNode(AST_TO_UNSIGNED,
+										new AstNode(AST_CAST_SIZE,
+											    mkconst_int(result_width, true),
+											    children[1]->clone())),
+								    shift_val))));
 
 			newNode->fixup_hierarchy_flags(true);
 		}
@@ -4681,6 +4736,8 @@ void AstNode::expand_genblock(const std::string &prefix)
 		switch (child->type) {
 		case AST_WIRE:
 		case AST_MEMORY:
+		case AST_STRUCT:
+		case AST_UNION:
 		case AST_PARAMETER:
 		case AST_LOCALPARAM:
 		case AST_FUNCTION:

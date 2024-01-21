@@ -718,7 +718,7 @@ struct AST_INTERNAL::ProcessGenerator
 					}
 				}
 				cell->parameters[ID::TRG_WIDTH] = triggers.size();
-				cell->parameters[ID::TRG_ENABLE] = !triggers.empty();
+				cell->parameters[ID::TRG_ENABLE] = (always->type == AST_INITIAL) || !triggers.empty();
 				cell->parameters[ID::TRG_POLARITY] = polarity;
 				cell->parameters[ID::PRIORITY] = --last_print_priority;
 				cell->setPort(ID::TRG, triggers);

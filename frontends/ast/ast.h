@@ -287,7 +287,7 @@ namespace AST
 		bool is_simple_const_expr();
 
 		// helper for parsing format strings
-		Fmt processFormat(int stage, bool sformat_like, int default_base = 10, size_t first_arg_at = 0);
+		Fmt processFormat(int stage, bool sformat_like, int default_base = 10, size_t first_arg_at = 0, bool may_fail = false);
 
 		bool is_recursive_function() const;
 		std::pair<AstNode*, AstNode*> get_tern_choice();
@@ -320,6 +320,9 @@ namespace AST
 		static AstNode *mkconst_bits(const std::vector<RTLIL::State> &v, bool is_signed);
 		static AstNode *mkconst_str(const std::vector<RTLIL::State> &v);
 		static AstNode *mkconst_str(const std::string &str);
+
+		// helper function to create an AST node for a temporary register
+		AstNode *mktemp_logic(const std::string &name, AstNode *mod, bool nosync, int range_left, int range_right, bool is_signed);
 
 		// helper function for creating sign-extended const objects
 		RTLIL::Const bitsAsConst(int width, bool is_signed);
@@ -373,7 +376,7 @@ namespace AST
 	};
 
 	// process an AST tree (ast must point to an AST_DESIGN node) and generate RTLIL code
-	void process(RTLIL::Design *design, AstNode *ast, bool dump_ast1, bool dump_ast2, bool no_dump_ptr, bool dump_vlog1, bool dump_vlog2, bool dump_rtlil, bool nolatches, bool nomeminit,
+	void process(RTLIL::Design *design, AstNode *ast, bool nodisplay, bool dump_ast1, bool dump_ast2, bool no_dump_ptr, bool dump_vlog1, bool dump_vlog2, bool dump_rtlil, bool nolatches, bool nomeminit,
 			bool nomem2reg, bool mem2reg, bool noblackbox, bool lib, bool nowb, bool noopt, bool icells, bool pwires, bool nooverwrite, bool overwrite, bool defer, bool autowire);
 
 	// parametric modules are supported directly by the AST library
@@ -429,7 +432,7 @@ namespace AST
 namespace AST_INTERNAL
 {
 	// internal state variables
-	extern bool flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_rtlil, flag_nolatches, flag_nomeminit;
+	extern bool flag_nodisplay, flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_rtlil, flag_nolatches, flag_nomeminit;
 	extern bool flag_nomem2reg, flag_mem2reg, flag_lib, flag_noopt, flag_icells, flag_pwires, flag_autowire;
 	extern AST::AstNode *current_ast, *current_ast_mod;
 	extern std::map<std::string, AST::AstNode*> current_scope;

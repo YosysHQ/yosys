@@ -2110,7 +2110,7 @@ VerificClocking::VerificClocking(VerificImporter *importer, Net *net, bool sva_a
 	if (sva_at_only)
 	do {
 		Instance *inst_mux = net->Driver();
-		if (inst_mux->Type() != PRIM_MUX)
+		if (inst_mux == nullptr || inst_mux->Type() != PRIM_MUX)
 			break;
 
 		bool pwr1 = inst_mux->GetInput1()->IsPwr();

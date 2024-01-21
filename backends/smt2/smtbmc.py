@@ -1327,6 +1327,9 @@ def write_yw_trace(steps, index, allregs=False, filename=None):
                 sig = yw.add_sig(word_path, overlap_start, overlap_end - overlap_start, True)
                 mem_init_values.append((sig, overlap_bits.replace("x", "?")))
 
+        exprs = []
+        all_sigs = []
+
         for i, k in enumerate(steps):
             step_values = WitnessValues()
 
@@ -1337,8 +1340,15 @@ def write_yw_trace(steps, index, allregs=False, filename=None):
             else:
                 sigs = seqs
 
+            exprs.extend(smt.witness_net_expr(topmod, f"s{k}", sig) for sig in sigs)
+
+            all_sigs.append(sigs)
+
+        bvs = iter(smt.get_list(exprs))
+
+        for sigs in all_sigs:
             for sig in sigs:
-                value = smt.bv2bin(smt.get(smt.witness_net_expr(topmod, f"s{k}", sig)))
+                value = smt.bv2bin(next(bvs))
                 step_values[sig["sig"]] = value
             yw.step(step_values)
 

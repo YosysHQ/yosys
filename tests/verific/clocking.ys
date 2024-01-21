@@ -1,0 +1,10 @@
+read -sv <<EOT
+module test(input foo);
+always @(*) assert(foo);
+endmodule
+EOT
+
+verific -import test
+prep
+
+select -assert-count 1 t:$assert
