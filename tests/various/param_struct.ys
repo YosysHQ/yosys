@@ -47,4 +47,5 @@ end
 endmodule
 EOF
 hierarchy; proc; opt
+async2sync
 sat -verify -seq 1 -tempinduct -prove-asserts -show-all

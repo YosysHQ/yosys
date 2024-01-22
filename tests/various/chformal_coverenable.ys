@@ -13,6 +13,8 @@ EOT
 
 prep -top top
 
+async2sync
+
 select -assert-count 1 t:$cover
 
 chformal -cover -coverenable

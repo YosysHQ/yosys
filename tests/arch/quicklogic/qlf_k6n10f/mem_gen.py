@@ -36,7 +36,7 @@ blockram_tests: "list[tuple[list[tuple[str, int]], str, list[str]]]" = [
     ([("ADDRESS_WIDTH", 14), ("DATA_WIDTH",  2)], "sync_ram_*dp", ["-assert-count 1 t:TDP36K", "-assert-count 1 t:TDP36K a:port_a_width=2 %i"]),
     ([("ADDRESS_WIDTH", 15), ("DATA_WIDTH",  1)], "sync_ram_*dp", ["-assert-count 1 t:TDP36K", "-assert-count 1 t:TDP36K a:port_a_width=1 %i"]),
 
-    # 2x asymmetric (1024x36bit write / 2048x18bit read or vice versa = 1TDP36K) 
+    # 2x asymmetric (1024x36bit write / 2048x18bit read or vice versa = 1TDP36K)
     ([("ADDRESS_WIDTH", 11), ("DATA_WIDTH", 18), ("SHIFT_VAL", 1)], "sync_ram_sdp_w*r", ["-assert-count 1 t:TDP36K"]),
     ([("ADDRESS_WIDTH", 11), ("DATA_WIDTH", 16), ("SHIFT_VAL", 1)], "sync_ram_sdp_w*r", ["-assert-count 1 t:TDP36K"]),
     ([("ADDRESS_WIDTH", 12), ("DATA_WIDTH",  9), ("SHIFT_VAL", 1)], "sync_ram_sdp_w*r", ["-assert-count 1 t:TDP36K"]),
@@ -131,6 +131,7 @@ read_verilog -defer -formal mem_tb.v
 chparam{param_str} -set VECTORLEN {vectorlen} TB
 hierarchy -top TB -check
 prep
+async2sync
 log ** CHECKING SIMULATION FOR TEST {top} WITH PARAMS{param_str}
 sim -clock clk -n {vectorlen} -assert
 """
@@ -254,16 +255,16 @@ sim_tests: list[TestClass] = [
             {"rq_a": 0x5678},
         ]
     ),
-    TestClass( # basic TDP test 
+    TestClass( # basic TDP test
         # note that the testbench uses ra and wa, while the common TDP model
         # uses a shared address
         params={"ADDRESS_WIDTH": 10, "DATA_WIDTH": 36},
         top="sync_ram_tdp",
         assertions=[],
         test_steps=[
-            {"wce_a": 1, "ra_a": 0x0A,      "wce_b": 1, "ra_b": 0xBA, 
+            {"wce_a": 1, "ra_a": 0x0A,      "wce_b": 1, "ra_b": 0xBA,
              "wd_a": 0xdeadbeef,            "wd_b": 0x5a5a5a5a},
-            {"wce_a": 1, "ra_a": 0xFF, 
+            {"wce_a": 1, "ra_a": 0xFF,
              "wd_a": 0},
             {"rce_a": 1, "ra_a": 0x0A,      "rce_b": 1, "ra_b": 0x0A},
             {"rq_a": 0xdeadbeef,            "rq_b": 0xdeadbeef},
@@ -276,9 +277,9 @@ sim_tests: list[TestClass] = [
         top="sync_ram_tdp",
         assertions=[],
         test_steps=[
-            {"wce_a": 1, "ra_a": 0x0F,      "wce_b": 1, "ra_b": 0xBA, 
+            {"wce_a": 1, "ra_a": 0x0F,      "wce_b": 1, "ra_b": 0xBA,
              "wd_a": 0xdeadbeef,            "wd_b": 0x5a5a5a5a},
-            {"wce_a": 1, "ra_a": 0xFF, 
+            {"wce_a": 1, "ra_a": 0xFF,
              "wd_a": 0},
             {"rce_a": 1, "ra_a": 0x0F,      "rce_b": 1, "ra_b": 0x0A},
             {"rq_a": 0,                     "rq_b": 0x00005a5a},
@@ -291,7 +292,7 @@ sim_tests: list[TestClass] = [
         top="sync_ram_tdp",
         assertions=[],
         test_steps=[
-            {"wce_a": 1, "ra_a": 0x0A,      "wce_b": 1, "ra_b": 0xBA, 
+            {"wce_a": 1, "ra_a": 0x0A,      "wce_b": 1, "ra_b": 0xBA,
              "wd_a": 0xdeadbeef,            "wd_b": 0x5a5a5a5a},
             {"wce_a": 1, "ra_a": 0xBA,      "rce_b": 1, "ra_b": 0xBA,
              "wd_a": 0xa5a5a5a5},
@@ -409,7 +410,7 @@ for sim_test in sim_tests:
             fn = f"t_mem{i}.ys"
             f = open(fn, mode="w")
             j = 0
-        
+
         # output yosys script test file
         print(
             blockram_template.format(param_str=param_str, top=top),

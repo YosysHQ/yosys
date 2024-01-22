@@ -1,5 +1,5 @@
 read_verilog -sv asserts_seq.v
-hierarchy; proc; opt
+hierarchy; proc; opt; async2sync
 
 sat -verify  -prove-asserts -tempinduct -seq 1 test_001
 sat -falsify -prove-asserts -tempinduct -seq 1 test_002
