@@ -13,6 +13,8 @@ EOT
 
 prep -top top
 
+design -save prep
+
 async2sync
 
 select -assert-count 1 t:$cover
