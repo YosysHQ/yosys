@@ -35,7 +35,12 @@ for macro in MACRO_SOURCE.glob("*.ys"):
         # immediately after.
         start = f.readline()
         end = f.readline()
-        expected_content = f.readlines()
+        file_content = f.readlines()
+    expected_content = []
+    for line in file_content:
+        line = line.split("#")[0].strip()
+        if line:
+            expected_content.append(line)
     # parse {command.ys}
     if "#start:" not in start or "#end:" not in end:
         logging.error(f"Missing start and/or end string in {relative_path}, see {THIS_FILE}")
@@ -49,7 +54,11 @@ for macro in MACRO_SOURCE.glob("*.ys"):
         logging.error(f"Couldn't find {start!r} and/or {end!r} in `yosys -h {command}` output")
         raise_error = True
         continue
-    actual_content = match.group(1).strip().splitlines()
+    match_content = match.group(1).strip().splitlines()
+    actual_content = []
+    for line in match_content:
+        if line:
+            actual_content.append(line)
     # iterate over and compare expected v actual
     for (expected, actual) in zip(expected_content, actual_content):
         expected = expected.strip()
@@ -59,7 +68,7 @@ for macro in MACRO_SOURCE.glob("*.ys"):
             continue
 
         # rip apart formatting to match line parts
-        pattern = r"(?P<cmd>\S+)(?P<pass> \[.*\])?(?P<opt>.*?)(?P<cond>  \(.*\))?(?P<comment>\s+#.*)?"
+        pattern = r"(?P<cmd>\S+)(?P<pass> \[.*\])?(?P<opt>.*?)(?P<cond>\s+\(.*\))?"
         try:
             expected_dict = re.fullmatch(pattern, expected).groupdict()
         except AttributeError:

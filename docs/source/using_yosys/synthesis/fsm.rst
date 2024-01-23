@@ -5,69 +5,12 @@ The :cmd:ref:`fsm` command identifies, extracts, optimizes (re-encodes), and
 re-synthesizes finite state machines. It again is a macro that calls a series of
 other commands:
 
-#. :cmd:ref:`fsm_detect` identifies FSM state registers and marks them
-   with the ``(* fsm_encoding = "auto" *)`` attribute, if they do not have the
-   ``fsm_encoding`` set already. Mark registers with ``(* fsm_encoding = "none"
-   *)`` to disable FSM optimization for a register.
-#. :cmd:ref:`fsm_extract` replaces the entire FSM (logic and state registers)
-   with a ``$fsm`` cell.
-#. :cmd:ref:`fsm_opt` optimizes the FSM. Called multiple times.
-#. :cmd:ref:`fsm_expand` optionally merges additional auxilliary gates into the
-   ``$fsm`` cell.
-#. :cmd:ref:`fsm_recode` also optimizes the FSM.
-#. :cmd:ref:`fsm_info` logs internal FSM information.
-#. :cmd:ref:`fsm_export` optionally exports each FSM to KISS2 files.
-#. :cmd:ref:`fsm_map` converts the (optimized) ``$fsm`` cell back to logic and
-   registers.
+.. literalinclude:: /code_examples/macro_commands/fsm.ys
+   :language: yoscrypt
+   :start-after: #end:
+   :caption: Passes called by :cmd:ref:`fsm`
 
 See also :doc:`/cmd/fsm`.
-
-The fsm pass performs finite-state-machine (FSM) extraction and recoding. The
-fsm pass simply executes the following other passes:
-
--  Identify and extract FSMs:
-
-   -  fsm_detect
-   -  fsm_extract
-
--  Basic optimizations:
-
-   -  fsm_opt
-   -  opt_clean
-   -  fsm_opt
-
--  Expanding to nearby gate-logic (if called with -expand):
-
-   -  fsm_expand
-   -  opt_clean
-   -  fsm_opt
-
--  Re-code FSM states (unless called with -norecode):
-
-   -  fsm_recode
-
--  Print information about FSMs:
-
-   -  fsm_info
-
--  Export FSMs in KISS2 file format (if called with -export):
-
-   -  fsm_export
-
--  Map FSMs to RTL cells (unless called with -nomap):
-
-   -  fsm_map
-
-The fsm_detect pass identifies FSM state registers and marks them using the
-``\fsm_encoding = "auto"`` attribute. The fsm_extract extracts all FSMs marked
-using the ``\fsm_encoding`` attribute (unless ``\fsm_encoding`` is set to
-"none") and replaces the corresponding RTL cells with a ``$fsm`` cell. All other
-``fsm_`` passes operate on these ``$fsm`` cells. The fsm_map call finally
-replaces the ``$fsm`` cells with RTL cells.
-
-Note that these optimizations operate on an RTL netlist. I.e. the :cmd:ref:`fsm`
-pass should be executed after the proc pass has transformed all
-``RTLIL::Process`` objects to RTL cells.
 
 The algorithms used for FSM detection and extraction are influenced by a more
 general reported technique :cite:p:`fsmextract`.
@@ -75,9 +18,9 @@ general reported technique :cite:p:`fsmextract`.
 FSM detection
 ~~~~~~~~~~~~~
 
-The fsm_detect pass identifies FSM state registers. It sets the ``\fsm_encoding
-= "auto"`` attribute on any (multi-bit) wire that matches the following
-description:
+The :cmd:ref:`fsm_detect` pass identifies FSM state registers. It sets the
+``\fsm_encoding = "auto"`` attribute on any (multi-bit) wire that matches the
+following description:
 
 -  Does not already have the ``\fsm_encoding`` attribute.
 -  Is not an output of the containing module.
@@ -101,7 +44,7 @@ results.
 FSM extraction
 ~~~~~~~~~~~~~~
 
-The fsm_extract pass operates on all state signals marked with the
+The :cmd:ref:`fsm_extract` pass operates on all state signals marked with the
 (``\fsm_encoding != "none"``) attribute. For each state signal the following
 information is determined:
 
@@ -142,8 +85,8 @@ given set of result signals using a set of signal-value assignments. It can also
 be passed a list of stop-signals that abort the ConstEval algorithm if the value
 of a stop-signal is needed in order to calculate the result signals.
 
-The fsm_extract pass uses the ConstEval class in the following way to create a
-transition table. For each state:
+The :cmd:ref:`fsm_extract` pass uses the ConstEval class in the following way to
+create a transition table. For each state:
 
 1. Create a ConstEval object for the module containing the FSM
 2. Add all control inputs to the list of stop signals
@@ -163,8 +106,9 @@ drivers for the control outputs are disconnected.
 FSM optimization
 ~~~~~~~~~~~~~~~~
 
-The fsm_opt pass performs basic optimizations on ``$fsm`` cells (not including
-state recoding). The following optimizations are performed (in this order):
+The :cmd:ref:`fsm_opt` pass performs basic optimizations on ``$fsm`` cells (not
+including state recoding). The following optimizations are performed (in this
+order):
 
 -  Unused control outputs are removed from the ``$fsm`` cell. The attribute
    ``\unused_bits`` (that is usually set by the :cmd:ref:`opt_clean` pass) is
@@ -188,10 +132,11 @@ state recoding). The following optimizations are performed (in this order):
 FSM recoding
 ~~~~~~~~~~~~
 
-The fsm_recode pass assigns new bit pattern to the states. Usually this also
-implies a change in the width of the state signal. At the moment of this writing
-only one-hot encoding with all-zero for the reset state is supported.
+The :cmd:ref:`fsm_recode` pass assigns new bit pattern to the states. Usually
+this also implies a change in the width of the state signal. At the moment of
+this writing only one-hot encoding with all-zero for the reset state is
+supported.
 
-The fsm_recode pass can also write a text file with the changes performed by it
-that can be used when verifying designs synthesized by Yosys using Synopsys
-Formality.
+The :cmd:ref:`fsm_recode` pass can also write a text file with the changes
+performed by it that can be used when verifying designs synthesized by Yosys
+using Synopsys Formality.

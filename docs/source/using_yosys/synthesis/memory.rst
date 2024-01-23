@@ -7,19 +7,22 @@ The :cmd:ref:`memory` command
 In the RTL netlist, memory reads and writes are individual cells. This makes
 consolidating the number of ports for a memory easier. The :cmd:ref:`memory`
 pass transforms memories to an implementation. Per default that is logic for
-address decoders and registers. It also is a macro command that the other common
-``memory_*`` commands in a sensible order:
+address decoders and registers. It also is a macro command that calls the other
+common ``memory_*`` passes in a sensible order:
 
-.. todo:: fill out missing :cmd:ref:`memory` subcommands descriptions
+.. literalinclude:: /code_examples/macro_commands/memory.ys
+   :language: yoscrypt
+   :start-after: #end:
+   :caption: Passes called by :cmd:ref:`memory`
 
-#. :cmd:ref:`memory_bmux2rom`
-#. :cmd:ref:`memory_dff` merges registers into the memory read- and write cells.
-#. :cmd:ref:`memory_share`
-#. :cmd:ref:`memory_memx`
-#. :cmd:ref:`memory_collect` collects all read and write cells for a memory and
+.. todo:: Make ``memory_*`` notes less quick
+
+Some quick notes:
+
+-  :cmd:ref:`memory_dff` merges registers into the memory read- and write cells.
+-  :cmd:ref:`memory_collect` collects all read and write cells for a memory and
    transforms them into one multi-port memory cell.
-#. :cmd:ref:`memory_bram`
-#. :cmd:ref:`memory_map` takes the multi-port memory cell and transforms it to
+-  :cmd:ref:`memory_map` takes the multi-port memory cell and transforms it to
    address decoder logic and registers.
 
 For more information about :cmd:ref:`memory`, such as disabling certain sub

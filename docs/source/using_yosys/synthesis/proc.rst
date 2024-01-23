@@ -1,26 +1,21 @@
 Converting process blocks
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
+.. role:: yoscrypt(code)
+   :language: yoscrypt
+
 The Verilog frontend converts ``always``-blocks to RTL netlists for the
 expressions and "processess" for the control- and memory elements. The
 :cmd:ref:`proc` command then transforms these "processess" to netlists of RTL
 multiplexer and register cells. It also is a macro command that calls the other
 ``proc_*`` commands in a sensible order:
 
-#. :cmd:ref:`proc_clean` removes empty branches and processes.
-#. :cmd:ref:`proc_rmdead` removes unreachable branches.
-#. :cmd:ref:`proc_prune`
-#. :cmd:ref:`proc_init` special handling of "initial" blocks.
-#. :cmd:ref:`proc_arst` identifies modeling of async resets.
-#. :cmd:ref:`proc_rom`
-#. :cmd:ref:`proc_mux` converts decision trees to multiplexer networks.
-#. :cmd:ref:`proc_dlatch`
-#. :cmd:ref:`proc_dff` extracts registers from processes.
-#. :cmd:ref:`proc_memwr`
-#. :cmd:ref:`proc_clean` this should remove all the processes, provided all went
-   fine.
+.. literalinclude:: /code_examples/macro_commands/proc.ys
+   :language: yoscrypt
+   :start-after: #end:
+   :caption: Passes called by :cmd:ref:`proc`
 
-After all the ``proc_*`` commands, :yoscrypt:`opt_expr` is called. This can be
+After all the ``proc_*`` commands, :cmd:ref:`opt_expr` is called. This can be
 disabled by calling :yoscrypt:`proc -noopt`.  For more information about
 :cmd:ref:`proc`, such as disabling certain sub commands, see :doc:`/cmd/proc`.
 

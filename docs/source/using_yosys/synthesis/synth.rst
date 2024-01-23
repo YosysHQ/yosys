@@ -43,4 +43,5 @@ The following commands are executed by the :cmd:ref:`prep` command:
    :end-before: .. raw:: latex
    :dedent:
 
-The following sections will get more into what each of these commands do.
+:doc:`/getting_started/example_synth` covers most of these commands and what
+they do.
