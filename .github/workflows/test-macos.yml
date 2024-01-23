@@ -42,7 +42,7 @@ jobs:
         run: |
           git clone https://github.com/steveicarus/iverilog.git
           cd iverilog
-          git checkout ${{ vars.IVERILOG_VERSION }}
+          git checkout 192b6aec96fde982e6ddcb28b346d5893aa8e874
           echo "IVERILOG_GIT=$(git rev-parse HEAD)" >> $GITHUB_ENV
 
       - name: Cache iverilog
