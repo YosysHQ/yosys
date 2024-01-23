@@ -9,4 +9,5 @@ More scripting
    load_design
    selections
    interactive_investigation
-   troubleshooting
+
+.. troubleshooting

@@ -982,7 +982,7 @@ docs/guidelines:
 
 # many of these will return an error which can be safely ignored, so we prefix
 # the command with a '-'
-DOCS_USAGE_PROGS := yosys-config yosys-filterlib yosys-abc yosys-smtbmc yosys-witness
+DOCS_USAGE_PROGS := yosys yosys-config yosys-filterlib yosys-abc yosys-smtbmc yosys-witness
 docs/usage: $(addprefix docs/source/temp/,$(DOCS_USAGE_PROGS))
 docs/source/temp/%: docs/guidelines
 	-$(Q) ./$(PROGRAM_PREFIX)$* --help > $@ 2>&1

@@ -1,6 +1,6 @@
 Troubleshooting
 ~~~~~~~~~~~~~~~
 
-.. TODO:: more on troubleshooting
+.. todo:: troubleshooting document(?)
 
 See :doc:`/cmd/bugpoint`

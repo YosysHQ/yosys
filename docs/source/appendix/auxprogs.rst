@@ -57,3 +57,7 @@ independent of the solver.
 
 .. literalinclude:: /temp/yosys-witness
     :start-at: Usage
+
+.. note:: ``yosys-witness`` requires `click`_ Python package for use.
+
+.. _click: https://pypi.org/project/click/
