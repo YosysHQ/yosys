@@ -14,11 +14,9 @@ includes removing unused signals and cells and const folding. It is recommended
 to run this pass after each major step in the synthesis script.  As listed in
 :doc:`/cmd/opt`, this macro command calls the following ``opt_*`` commands:
 
-.. literalinclude:: /cmd/opt.rst
+.. literalinclude:: /code_examples/macro_commands/opt.ys
    :language: yoscrypt
-   :start-after: following order:
-   :end-at: while <changed design>
-   :dedent:
+   :start-after: #end:
    :caption: Passes called by :cmd:ref:`opt`
 
 .. _adv_opt_expr:

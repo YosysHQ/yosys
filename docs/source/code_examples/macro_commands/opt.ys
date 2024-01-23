@@ -1,0 +1,14 @@
+#start: passes in the following order:
+#end: When called with -fast
+opt_expr
+opt_merge -nomux
+
+do
+    opt_muxtree
+    opt_reduce
+    opt_merge
+    opt_share  (-full only)
+    opt_dff  (except when called with -noff)
+    opt_clean
+    opt_expr
+while <changed design>
