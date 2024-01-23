@@ -224,3 +224,9 @@ dummy:
 	$(SPHINXBUILD) -b dummy $(ALLSPHINXOPTS) $(BUILDDIR)/dummy
 	@echo
 	@echo "Build finished. Dummy builder generates no files."
+
+PYTHON ?= python3
+
+.PHONY: test
+test:
+	$(PYTHON) tests/macro_commands.py
