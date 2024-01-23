@@ -1949,13 +1949,8 @@ void dump_conn(std::ostream &f, std::string indent, const RTLIL::SigSpec &left, 
 
 void dump_proc_switch(std::ostream &f, std::string indent, RTLIL::SwitchRule *sw);
 
-void dump_case_body(std::ostream &f, std::string indent, RTLIL::CaseRule *cs, bool omit_trailing_begin = false)
+void dump_case_actions(std::ostream &f, std::string indent, RTLIL::CaseRule *cs)
 {
-	int number_of_stmts = cs->switches.size() + cs->actions.size();
-
-	if (!omit_trailing_begin && number_of_stmts >= 2)
-		f << stringf("%s" "begin\n", indent.c_str());
-
 	for (auto it = cs->actions.begin(); it != cs->actions.end(); ++it) {
 		if (it->first.size() == 0)
 			continue;
@@ -1965,15 +1960,6 @@ void dump_case_body(std::ostream &f, std::string indent, RTLIL::CaseRule *cs, bo
 		dump_sigspec(f, it->second);
 		f << stringf(";\n");
 	}
-
-	for (auto it = cs->switches.begin(); it != cs->switches.end(); ++it)
-		dump_proc_switch(f, indent + "  ", *it);
-
-	if (!omit_trailing_begin && number_of_stmts == 0)
-		f << stringf("%s  /* empty */;\n", indent.c_str());
-
-	if (omit_trailing_begin || number_of_stmts >= 2)
-		f << stringf("%s" "end\n", indent.c_str());
 }
 
 bool dump_proc_switch_ifelse(std::ostream &f, std::string indent, RTLIL::SwitchRule *sw)
@@ -1996,34 +1982,50 @@ bool dump_proc_switch_ifelse(std::ostream &f, std::string indent, RTLIL::SwitchR
 		}
 	}
 
+	dump_attributes(f, indent, sw->attributes);
 	f << indent;
 	auto sig_it = sw->signal.begin();
 	for (auto it = sw->cases.begin(); it != sw->cases.end(); ++it, ++sig_it) {
-		bool had_newline = true;
 		if (it != sw->cases.begin()) {
-			if ((*it)->compare.empty()) {
-				f << indent << "else\n";
-				had_newline = true;
-			} else {
-				f << indent << "else ";
-				had_newline = false;
-			}
+			if ((*it)->compare.empty())
+				f << " else begin\n";
+			else
+				f << " else ";
 		}
 		if (!(*it)->compare.empty()) {
-			if (!(*it)->attributes.empty()) {
-				if (!had_newline)
-					f << "\n" << indent;
-				dump_attributes(f, "", (*it)->attributes, "\n" + indent);
-			}
 			f << stringf("if (");
 			dump_sigspec(f, *sig_it);
-			f << stringf(")\n");
+			f << stringf(") begin\n");
 		}
-		dump_case_body(f, indent, *it);
+
+		dump_case_actions(f, indent, (*it));
+		for (auto it2 = (*it)->switches.begin(); it2 != (*it)->switches.end(); ++it2)
+			dump_proc_switch(f, indent + "  ", *it2);
+
+		f << indent << "end";
 		if ((*it)->compare.empty())
 			break;
 	}
+	f << "\n";
 	return true;
+}
+
+void dump_case_body(std::ostream &f, std::string indent, RTLIL::CaseRule *cs, bool omit_trailing_begin = false)
+{
+	int number_of_stmts = cs->switches.size() + cs->actions.size();
+
+	if (!omit_trailing_begin && number_of_stmts >= 2)
+		f << stringf("%s" "begin\n", indent.c_str());
+
+	dump_case_actions(f, indent, cs);
+	for (auto it = cs->switches.begin(); it != cs->switches.end(); ++it)
+		dump_proc_switch(f, indent + "  ", *it);
+
+	if (!omit_trailing_begin && number_of_stmts == 0)
+		f << stringf("%s  /* empty */;\n", indent.c_str());
+
+	if (omit_trailing_begin || number_of_stmts >= 2)
+		f << stringf("%s" "end\n", indent.c_str());
 }
 
 void dump_proc_switch(std::ostream &f, std::string indent, RTLIL::SwitchRule *sw)
