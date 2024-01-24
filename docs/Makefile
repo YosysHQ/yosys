@@ -227,6 +227,11 @@ dummy:
 
 PYTHON ?= python3
 
-.PHONY: test
-test:
+.PHONY: test test-examples test-macros
+test: test-examples test-macros
+
+test-examples:
+	$(MAKE) -C source/_images examples
+
+test-macros:
 	$(PYTHON) tests/macro_commands.py
