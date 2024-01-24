@@ -6,6 +6,7 @@ DOT_NAMES = opt_share opt_muxtree opt_merge opt_expr
 
 DOTS := $(addsuffix .dot,$(DOT_NAMES))
 
+all: dots
 dots: $(DOTS)
 
 %_full.dot: %.ys

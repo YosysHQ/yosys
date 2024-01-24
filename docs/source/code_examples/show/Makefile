@@ -8,7 +8,9 @@ EXAMPLE_DOTS := $(addsuffix .dot,$(EXAMPLE))
 CMOS = cmos_00 cmos_01
 CMOS_DOTS := $(addsuffix .dot,$(CMOS))
 
-dots: splice.dot $(EXAMPLE_DOTS) $(CMOS_DOTS) example.out
+.PHONY: all dots
+all: dots example.out
+dots: splice.dot $(EXAMPLE_DOTS) $(CMOS_DOTS)
 
 splice.dot: splice.v
 	$(YOSYS) -p 'prep -top splice_demo; show -format dot -prefix splice' splice.v

@@ -2,6 +2,8 @@ PROGRAM_PREFIX :=
 
 YOSYS ?= ../../../../$(PROGRAM_PREFIX)yosys
 
+.PHONY: all dots
+all: dots
 dots: red_or3x1.dot sym_mul.dot mymul.dot mulshift.dot addshift.dot
 
 red_or3x1.dot: red_or3x1_*

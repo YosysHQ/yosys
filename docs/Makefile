@@ -45,8 +45,10 @@ help:
 	@echo "  dummy      to check syntax errors of document sources"
 
 .PHONY: clean
-clean:
+clean: clean-examples
 	rm -rf $(BUILDDIR)/*
+	rm -rf source/cmd util/__pycache__
+	$(MAKE) -C source/_images clean
 
 .PHONY: html
 html:
@@ -227,15 +229,24 @@ dummy:
 
 PYTHON ?= python3
 
-.PHONY: test test-examples test-macros
+.PHONY: test test-examples test-macros examples
 test: test-examples test-macros
 
 FORCE:
-../%/Makefile: FORCE
-	+$(MAKE) -C $(@D)
+Makefile-%: FORCE
+	$(MAKE) -C $(@D) $(*F)
 
-CODE_EXAMPLES := source/code_examples/*/Makefile
-test-examples: $(CODE_EXAMPLES)
+CODE_EXAMPLES := $(wildcard source/code_examples/*/Makefile)
+TEST_EXAMPLES := $(addsuffix -all,$(CODE_EXAMPLES))
+CLEAN_EXAMPLES := $(addsuffix -clean,$(CODE_EXAMPLES))
+test-examples: $(TEST_EXAMPLES)
+clean-examples: $(CLEAN_EXAMPLES)
+examples: $(TEST_EXAMPLES)
 
 test-macros:
 	$(PYTHON) tests/macro_commands.py
+
+.PHONY: images
+images:
+	$(MAKE) -C source/_images
+

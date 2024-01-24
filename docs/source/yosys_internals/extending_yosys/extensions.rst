@@ -6,6 +6,8 @@ Writing extensions
 
 .. todo:: check text is coherent
 
+.. todo:: update to use ``/code_examples/extensions/test*.log``
+
 This chapter contains some bits and pieces of information about programming
 yosys extensions. Don't be afraid to ask questions on the YosysHQ Slack.
 

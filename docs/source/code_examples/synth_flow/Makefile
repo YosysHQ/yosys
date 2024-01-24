@@ -9,6 +9,8 @@ YOSYS ?= ../../../../$(PROGRAM_PREFIX)yosys
 
 DOTS = $(addsuffix .dot,$(TARGETS))
 
+.PHONY: all dots
+all: dots
 dots: $(DOTS)
 
 %.dot: %.v %.ys

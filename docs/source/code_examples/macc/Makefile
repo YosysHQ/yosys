@@ -4,6 +4,7 @@ YOSYS ?= ../../../../$(PROGRAM_PREFIX)yosys
 
 DOTS = macc_simple_xmap.dot macc_xilinx_xmap.dot
 
+all: dots
 dots: $(DOTS)
 
 macc_simple_xmap.dot: macc_simple_*.v macc_simple_test.ys

@@ -1,5 +1,8 @@
+.PHONY: all dots
+all: dots
 dots:
 
+.PHONY: test
 test: stubnets.so
 	yosys -ql test1.log -m ./stubnets.so test.v -p "stubnets"
 	yosys -ql test2.log -m ./stubnets.so test.v -p "opt; stubnets"
@@ -9,6 +12,7 @@ test: stubnets.so
 stubnets.so: stubnets.cc
 	yosys-config --exec --cxx --cxxflags --ldflags -o $@ -shared $^ --ldlibs
 
+.PHONY: clean
 clean:
 	rm -f test1.log test2.log test3.log
 	rm -f stubnets.so stubnets.d

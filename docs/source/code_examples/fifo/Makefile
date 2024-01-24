@@ -10,12 +10,13 @@ MAPDOT_NAMES += rdata_map_ffs rdata_map_luts rdata_map_cells
 DOTS := $(addsuffix .dot,$(DOT_NAMES))
 MAPDOTS := $(addsuffix .dot,$(MAPDOT_NAMES))
 
-dots: $(DOTS) $(MAPDOTS) fifo.out
+all: dots fifo.out fifo.stat
+dots: $(DOTS) $(MAPDOTS)
 
 $(DOTS) fifo.out: fifo.v fifo.ys
 	$(YOSYS) fifo.ys -l fifo.out -Q -T
 
-$(MAPDOTS): fifo.v fifo_map.ys
+$(MAPDOTS) fifo.stat: fifo.v fifo_map.ys
 	$(YOSYS) fifo_map.ys
 
 .PHONY: clean
