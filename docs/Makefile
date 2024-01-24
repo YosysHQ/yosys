@@ -230,8 +230,12 @@ PYTHON ?= python3
 .PHONY: test test-examples test-macros
 test: test-examples test-macros
 
-test-examples:
-	$(MAKE) -C source/_images examples
+FORCE:
+../%/Makefile: FORCE
+	+$(MAKE) -C $(@D)
+
+CODE_EXAMPLES := source/code_examples/*/Makefile
+test-examples: $(CODE_EXAMPLES)
 
 test-macros:
 	$(PYTHON) tests/macro_commands.py
