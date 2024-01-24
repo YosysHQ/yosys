@@ -1446,7 +1446,7 @@ struct CxxrtlWorker {
 				f << indent;
 				dump_sigspec_lhs(cell->getPort(ID::Q));
 				f << " = ";
-				dump_sigspec_lhs(cell->getPort(ID::Q));
+				dump_sigspec_rhs(cell->getPort(ID::Q));
 				f << ".update(";
 				dump_const(RTLIL::Const(RTLIL::S1, cell->getParam(ID::WIDTH).as_int()));
 				f << ", ";
@@ -1458,7 +1458,7 @@ struct CxxrtlWorker {
 				f << indent;
 				dump_sigspec_lhs(cell->getPort(ID::Q));
 				f << " = ";
-				dump_sigspec_lhs(cell->getPort(ID::Q));
+				dump_sigspec_rhs(cell->getPort(ID::Q));
 				f << ".update(";
 				dump_const(RTLIL::Const(RTLIL::S0, cell->getParam(ID::WIDTH).as_int()));
 				f << ", ";
