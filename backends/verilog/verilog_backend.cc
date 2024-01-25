@@ -1058,7 +1058,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		f << stringf("%s" "assign ", indent.c_str());
 		dump_sigspec(f, cell->getPort(ID::Y));
 		f << stringf(" = ");
-		dump_attributes(f, "", cell->attributes, ' ');
+		dump_attributes(f, "", cell->attributes, " ");
 		dump_cell_expr_port(f, cell, "A", false);
 		f << stringf(";\n");
 		return true;
