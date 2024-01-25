@@ -60,8 +60,6 @@ Example
 Memory mapping
 ^^^^^^^^^^^^^^
 
-.. TODO:: :cmd:ref:`memory_libmap` description
-
 Usually it is preferred to use architecture-specific RAM resources for memory.
 For example:
 
@@ -72,6 +70,18 @@ For example:
     techmap -map my_memory_map.v
     memory_map
 
+:cmd:ref:`memory_libmap` attempts to convert memory cells (``$mem_v2`` etc) into
+hardware supported memory using a provided library (``my_memory_map.txt`` in the
+example above).  Where necessary, emulation logic is added to ensure functional
+equivalence before and after this conversion. :yoscrypt:`techmap -map
+my_memory_map.v` then uses :cmd:ref:`techmap` to map to hardware primitives. Any
+leftover memory cells unable to be converted are then picked up by
+:cmd:ref:`memory_map` and mapped to DFFs and address decoders.
+
+For more on the lib format for :cmd:ref:`memory_libmap`, see
+`passes/memory/memlib.md
+<https://github.com/YosysHQ/yosys/blob/master/passes/memory/memlib.md>`_
+
 Supported memory patterns
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -81,8 +91,6 @@ For example, `wbe`_ could be used in conjunction with any of the simple dual
 port (SDP) models.  In general if a hardware memory definition does not support
 a given configuration, additional logic will be instantiated to guarantee
 behaviour is consistent with simulation.
-
-See also: `passes/memory/memlib.md <https://github.com/YosysHQ/yosys/blob/master/passes/memory/memlib.md>`_
 
 Notes
 -----
