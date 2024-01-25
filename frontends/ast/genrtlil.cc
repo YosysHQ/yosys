@@ -960,7 +960,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 			if (children.size() > 1)
 				range = children[1];
 		} else if (id_ast->type == AST_STRUCT_ITEM || id_ast->type == AST_STRUCT || id_ast->type == AST_UNION) {
-			AstNode *tmp_range = make_struct_member_range(this, id_ast);
+			AstNode *tmp_range = make_index_range(id_ast);
 			this_width = tmp_range->range_left - tmp_range->range_right + 1;
 			delete tmp_range;
 		} else
@@ -1521,7 +1521,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			chunk.width = wire->width;
 			chunk.offset = 0;
 
-			if ((member_node = get_struct_member(this))) {
+			if ((member_node = get_struct_member())) {
 				// Clamp wire chunk to range of member within struct/union.
 				chunk.width = member_node->range_left - member_node->range_right + 1;
 				chunk.offset = member_node->range_right;
