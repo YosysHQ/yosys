@@ -224,6 +224,7 @@ AstNode::AstNode(AstNodeType type, AstNode *child1, AstNode *child2, AstNode *ch
 	port_id = 0;
 	range_left = -1;
 	range_right = 0;
+	unpacked_dimensions = 0;
 	integer = 0;
 	realvalue = 0;
 	id2ast = NULL;
@@ -349,17 +350,15 @@ void AstNode::dumpAst(FILE *f, std::string indent) const
 		fprintf(f, " int=%u", (int)integer);
 	if (realvalue != 0)
 		fprintf(f, " real=%e", realvalue);
-	if (!multirange_dimensions.empty()) {
-		fprintf(f, " multirange=[");
-		for (int v : multirange_dimensions)
-			fprintf(f, " %d", v);
-		fprintf(f, " ]");
-	}
-	if (!multirange_swapped.empty()) {
-		fprintf(f, " multirange_swapped=[");
-		for (bool v : multirange_swapped)
-			fprintf(f, " %d", v);
-		fprintf(f, " ]");
+	if (!dimensions.empty()) {
+		fprintf(f, " dimensions=");
+		for (auto &dim : dimensions) {
+			int left = dim.range_right + dim.range_width - 1;
+			int right = dim.range_right;
+			if (dim.range_swapped)
+				std::swap(left, right);
+			fprintf(f, "[%d:%d]", left, right);
+		}
 	}
 	if (is_enum) {
 		fprintf(f, " type=enum");
@@ -505,6 +504,11 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 		}
 		break;
 
+	case AST_MULTIRANGE:
+		for (auto child : children)
+			child->dumpVlog(f, "");
+		break;
+
 	case AST_ALWAYS:
 		fprintf(f, "%s" "always @", indent.c_str());
 		for (auto child : children) {
@@ -542,7 +546,7 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 
 	case AST_IDENTIFIER:
 		{
-			AST::AstNode *member_node = AST::get_struct_member(this);
+			AstNode *member_node = get_struct_member();
 			if (member_node)
 				fprintf(f, "%s[%d:%d]", id2vl(str).c_str(), member_node->range_left, member_node->range_right);
 			else

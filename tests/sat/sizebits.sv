@@ -16,17 +16,17 @@ assert property ($size({3{x}}) == 3*4);
 assert property ($size(y) == 6);
 assert property ($size(y, 1) == 6);
 assert property ($size(y, (1+1)) == 4);
+assert property ($size(y[2], 1) == 4);
 // This is unsupported at the moment
-//assert property ($size(y[2], 1) == 4);
 //assert property ($size(y[2][1], 1) == 1);
 
 assert property ($size(z) == 6);
 assert property ($size(z, 1) == 6);
 assert property ($size(z, 2) == 8);
 assert property ($size(z, 3) == 4);
-// This is unsupported at the moment
 assert property ($size(z[3], 1) == 8);
 assert property ($size(z[3][3], 1) == 4);
+// This is unsupported at the moment
 //assert property ($size(z[3][3][3], 1) == 1);
 // This should trigger an error if enabled (it does).
 //assert property ($size(z, 4) == 4);
