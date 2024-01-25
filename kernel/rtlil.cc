@@ -3693,6 +3693,9 @@ RTLIL::SigChunk::SigChunk(const RTLIL::SigBit &bit)
 
 RTLIL::SigChunk RTLIL::SigChunk::extract(int offset, int length) const
 {
+	log_assert(offset >= 0);
+	log_assert(length >= 0);
+	log_assert(offset + length <= width);
 	RTLIL::SigChunk ret;
 	if (wire) {
 		ret.wire = wire;
@@ -4377,6 +4380,9 @@ void RTLIL::SigSpec::remove(int offset, int length)
 
 RTLIL::SigSpec RTLIL::SigSpec::extract(int offset, int length) const
 {
+	log_assert(offset >= 0);
+	log_assert(length >= 0);
+	log_assert(offset + length <= width_);
 	unpack();
 	cover("kernel.rtlil.sigspec.extract_pos");
 	return std::vector<RTLIL::SigBit>(bits_.begin() + offset, bits_.begin() + offset + length);
