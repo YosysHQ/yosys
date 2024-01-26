@@ -8,3 +8,6 @@ show -format dot -prefix sumprod_02 prod
 show -format dot -prefix sumprod_03 prod %ci
 show -format dot -prefix sumprod_04 prod %ci2
 show -format dot -prefix sumprod_05 prod %ci3
+
+dump -o sumprod.out prod %ci
+dump -a sumprod.out prod %ci2

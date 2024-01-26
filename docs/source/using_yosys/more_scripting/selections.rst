@@ -197,22 +197,39 @@ The following sequence of diagrams demonstrates this step-wise expansion:
 .. figure:: /_images/code_examples/selections/sumprod_02.*
    :class: width-helper
 
-   Output of ``show prod`` on :numref:`sumprod`
+   Output of :yoscrypt:`show prod` on :numref:`sumprod`
 
 .. figure:: /_images/code_examples/selections/sumprod_03.*
    :class: width-helper
 
-   Output of ``show prod %ci`` on :numref:`sumprod`
+   Output of :yoscrypt:`show prod %ci` on :numref:`sumprod`
 
 .. figure:: /_images/code_examples/selections/sumprod_04.*
    :class: width-helper
 
-   Output of ``show prod %ci %ci`` on :numref:`sumprod`
+   Output of :yoscrypt:`show prod %ci %ci` on :numref:`sumprod`
 
 .. figure:: /_images/code_examples/selections/sumprod_05.*
    :class: width-helper
 
-   Output of ``show prod %ci %ci %ci`` on :numref:`sumprod`
+   Output of :yoscrypt:`show prod %ci %ci %ci` on :numref:`sumprod`
+
+Notice the subtle difference between :yoscrypt:`show prod %ci` and
+:yoscrypt:`show prod %ci %ci`.  Both images show the ``$mul`` cell driven by
+some inputs ``$3_Y`` and ``c``.  However it is not until the second image,
+having called ``%ci`` the second time, that :cmd:ref:`show` is able to
+distinguish between ``$3_Y`` being a wire and ``c`` being an input.  We can see
+this better with the :cmd:ref:`dump` command instead:
+
+.. literalinclude:: /code_examples/selections/sumprod.out
+   :language: RTLIL
+   :end-at: end
+   :caption: Output of :yoscrypt:`dump prod %ci`
+
+.. literalinclude:: /code_examples/selections/sumprod.out
+   :language: RTLIL
+   :start-after: end
+   :caption: Output of :yoscrypt:`dump prod %ci %ci`
 
 When selecting many levels of logic, repeating ``%ci`` over and over again can
 be a bit dull. So there is a shortcut for that: the number of iterations can be
@@ -263,9 +280,6 @@ diagram in :numref:`memdemo_00`.
    
    Complete circuit diagram for the design shown in :numref:`memdemo_src`
 
-.. TODO:: :ref:`memdemo_01` and :ref:`memdemo_02` are the same, probably change
-          the example so they aren't.
-
 There's a lot going on there, but maybe we are only interested in the tree of
 multiplexers that select the output value. Let's start by just showing the
 output signal, ``y``, and its immediate predecessors. Remember `Selecting logic
@@ -279,51 +293,52 @@ cones`_ from above, we can use :yoscrypt:`show y %ci2`:
 
 From this we would learn that ``y`` is driven by a ``$dff cell``, that ``y`` is
 connected to the output port ``Q``, that the ``clk`` signal goes into the
-``CLK`` input port of the cell, and that the data comes from a auto-generated
-wire into the input ``D`` of the flip-flop cell.
-
-As we are not interested in the clock signal we add an additional pattern to the
-``%ci`` action :yoscrypt:`show y %ci2:+$dff[Q,D]`, that tells it to only follow
-ports ``Q`` and ``D`` of ``$dff`` cells:
+``CLK`` input port of the cell, and that the data comes from an auto-generated
+wire into the input ``D`` of the flip-flop cell (indicated by the ``$`` at the
+start of the name).  Let's go a bit further now and try :yoscrypt:`show y %ci5`:
 
 .. figure:: /_images/code_examples/selections/memdemo_02.*
    :class: width-helper
    :name: memdemo_02
    
-   Output of :yoscrypt:`show y %ci2:+$dff[Q,D]`
+   Output of :yoscrypt:`show y %ci5`
 
-To add a pattern we add a colon followed by the pattern to the ``%ci`` action.
-The pattern itself starts with ``-`` or ``+``, indicating if it is an include or
-exclude pattern, followed by an optional comma separated list of cell types,
-followed by an optional comma separated list of port names in square brackets.
-
-Since we know that the only cell considered in this case is a ``$dff`` cell, we
-could as well only specify the port names, :yoscrypt:`show y %ci2:+[Q,D]`. Or we
-could decide to tell the ``%ci`` action to not follow the ``CLK`` input,
-:yoscrypt:`show y %ci2:-[CLK]`.
-
-Next we would investigate the next logic level by adding another ``%ci2`` to the
-command, :yoscrypt:`show y %ci2:-[CLK] %ci2`:
+That's starting to get a bit messy, so maybe we want to ignore the mux select
+inputs. To add a pattern we add a colon followed by the pattern to the ``%ci``
+action. The pattern itself starts with ``-`` or ``+``, indicating if it is an
+include or exclude pattern, followed by an optional comma separated list of cell
+types, followed by an optional comma separated list of port names in square
+brackets.  In this case, we want to exclude the ``S`` port of the ``$mux`` cell
+type with :yoscrypt:`show y %ci5:-$mux[S]`:
 
 .. figure:: /_images/code_examples/selections/memdemo_03.*
    :class: width-helper
    :name: memdemo_03
    
-   Output of :yoscrypt:`show y %ci2:-[CLK] %ci2`
+   Output of :yoscrypt:`show y %ci5:-$mux[S]`
 
-From this we would learn that the next cell is a ``$mux`` cell and we would add
-an additional pattern to narrow the selection on the path we are interested. In
-the end we would end up with a command such as :yoscrypt:`show y %ci2:+$dff[Q,D]
+We could use a command such as :yoscrypt:`show y %ci2:+$dff[Q,D]
 %ci*:-$mux[S]:-$dff` in which the first ``%ci`` jumps over the initial d-type
 flip-flop and the 2nd action selects the entire input cone without going over
-multiplexer select inputs and flip-flop cells. The diagram produced by this
-command is shown in :numref:`memdemo_04`.
+multiplexer select inputs and flip-flop cells:
+
+.. figure:: /_images/code_examples/selections/memdemo_05.*
+   :class: width-helper
+   :name: memdemo_05
+   
+   Output of ``show y %ci2:+$dff[Q,D] %ci*:-$mux[S]:-$dff``
+
+Or we could use :yoscrypt:`show y %ci*:-[CLK,S]:+$dff:+$mux` instead, following
+the input cone all the way but only following ``$dff`` and ``$mux`` cells, and
+ignoring any ports named ``CLK`` or ``S``:
+
+.. TODO:: pending discussion on whether rule ordering is a bug or a feature
 
 .. figure:: /_images/code_examples/selections/memdemo_04.*
    :class: width-helper
    :name: memdemo_04
    
-   Output of ``show y %ci2:+$dff[Q,D] %ci*:-$mux[S]:-$dff``
+   Output of :yoscrypt:`show y %ci*:-[CLK,S]:+$dff,$mux`
 
 Similar to ``%ci`` exists an action ``%co`` to select output cones that accepts
 the same syntax for pattern and repetition. The ``%x`` action mentioned

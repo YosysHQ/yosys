@@ -1,0 +1,38 @@
+
+
+  attribute \src "sumprod.v:4.21-4.25"
+  wire width 8 output 5 \prod
+
+  attribute \src "sumprod.v:10.17-10.26"
+  cell $mul $mul$sumprod.v:10$4
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 8
+    parameter \B_SIGNED 0
+    parameter \B_WIDTH 8
+    parameter \Y_WIDTH 8
+    connect \A $mul$sumprod.v:10$3_Y
+    connect \B \c
+    connect \Y \prod
+  end
+
+
+  attribute \src "sumprod.v:10.17-10.22"
+  wire width 8 $mul$sumprod.v:10$3_Y
+
+  attribute \src "sumprod.v:3.21-3.22"
+  wire width 8 input 3 \c
+
+  attribute \src "sumprod.v:4.21-4.25"
+  wire width 8 output 5 \prod
+
+  attribute \src "sumprod.v:10.17-10.26"
+  cell $mul $mul$sumprod.v:10$4
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 8
+    parameter \B_SIGNED 0
+    parameter \B_WIDTH 8
+    parameter \Y_WIDTH 8
+    connect \A $mul$sumprod.v:10$3_Y
+    connect \B \c
+    connect \Y \prod
+  end
