@@ -103,8 +103,18 @@ code
 		new_a.append(old_a);
 	} else {
 		// data >> (...+c) transformed to data[MAX:c] >> (...)
-		new_a.append(old_a.extract_end(offset));
+		if(offset < GetSize(old_a)) // some signal bits left?
+			new_a.append(old_a.extract_end(offset));
+		else {
+			if(shift->type.in($shiftx))
+				log_warning("at %s: result of indexed part-selection is always constant (selecting from '%s' with index '%s + %d')\n", \
+							shift->get_src_attribute().c_str(), log_signal(old_a), log_signal(var_signal), offset);
+			else
+				log_warning("at %s: result of shift operation is always constant (shifting '%s' by '%s + %d'-bits)\n", \
+							shift->get_src_attribute().c_str(), log_signal(old_a), log_signal(var_signal), offset);
+		}
 
+		// is it fine to leave new_a empty? (size 0)
 	}
 
 	SigSpec new_b = {var_signal, SigSpec(State::S0, log2scale)};
