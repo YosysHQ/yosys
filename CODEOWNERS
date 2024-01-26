@@ -18,6 +18,7 @@ passes/techmap/flowmap.cc      @whitequark
 passes/opt/opt_lut.cc          @whitequark
 passes/techmap/abc9*.cc        @eddiehung @Ravenslofty
 backends/aiger/xaiger.cc       @eddiehung
+docs/                          @KrystalDelusion
 
 
 ## External Contributors
