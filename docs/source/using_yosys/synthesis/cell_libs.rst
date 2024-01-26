@@ -73,8 +73,6 @@ Coarse-grain representation
 Logic gate mapping
 ~~~~~~~~~~~~~~~~~~
 
-.. TODO:: comment on similarities and/or differences with example_synth
-
 .. literalinclude:: /code_examples/intro/counter.ys
    :language: yoscrypt
    :lines: 14-15
@@ -88,8 +86,6 @@ Logic gate mapping
 
 Mapping to hardware
 ~~~~~~~~~~~~~~~~~~~
-
-.. todo:: are we recalling or is this new information
 
 For this example, we are using a Liberty file to describe a cell library which
 our internal cell library will be mapped to:

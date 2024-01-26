@@ -1,6 +1,8 @@
 Synth commands
 --------------
 
+.. todo:: comment on common ``synth_*`` options, like ``-run``
+
 Packaged ``synth_*`` commands
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

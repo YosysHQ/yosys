@@ -9,5 +9,6 @@ More scripting
    load_design
    selections
    interactive_investigation
+   model_checking
 
 .. troubleshooting

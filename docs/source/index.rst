@@ -33,12 +33,13 @@ available, go to :ref:`commandindex`.
    -----------------
 
 .. toctree::
-	:maxdepth: 3
-	
-	introduction
-	getting_started/index
-	using_yosys/index
-	yosys_internals/index
-	test_suites
+   :maxdepth: 3
+   :includehidden:
 
-	appendix
+   introduction
+   getting_started/index
+   using_yosys/index
+   yosys_internals/index
+   test_suites
+
+   appendix
