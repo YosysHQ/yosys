@@ -6,13 +6,13 @@ jobs:
   emcc:
     runs-on: ubuntu-latest
     steps:
-      - uses: mymindstorm/setup-emsdk@v11
-      - uses: actions/checkout@v3
+      - uses: mymindstorm/setup-emsdk@v14
+      - uses: actions/checkout@v4
       - name: Build
         run: |
           make config-emcc
           make YOSYS_VER=latest
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: yosysjs
           path: yosysjs-latest.zip
