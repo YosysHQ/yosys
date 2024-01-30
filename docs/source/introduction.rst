@@ -69,6 +69,8 @@ Things you can't do
 
   - Check out `nextpnr`_ for that
 
+.. todo:: nextpnr for FPGAs, consider mentioning openlane, vpr, coriolis
+
 .. _nextpnr: https://github.com/YosysHQ/nextpnr
 
 The Yosys family
@@ -190,11 +192,6 @@ Benefits of open source HDL synthesis
   Proprietary synthesis tools are at times very secretive about their inner
   workings. They often are ``black boxes``. Yosys is very open about its
   internals and it is easy to observe the different steps of synthesis.
-
-.. note:: Yosys is licensed under the ISC license:
-   Permission to use, copy, modify, and/or distribute this software for any
-   purpose with or without fee is hereby granted, provided that the above
-   copyright notice and this permission notice appear in all copies.
 
 History of Yosys
 ~~~~~~~~~~~~~~~~

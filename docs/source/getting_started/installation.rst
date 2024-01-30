@@ -86,14 +86,10 @@ Build prerequisites
 ^^^^^^^^^^^^^^^^^^^
 
 A C++ compiler with C++11 support is required as well as some standard tools
-such as GNU Flex, GNU Bison, Make, libffi, and Python3.6 or later.  Some
-additional tools: readline, Tcl and zlib; are optional but enabled by default
-(see ``ENABLE_*`` settings in Makefile). Xdot (graphviz) is optional unless
-using the :cmd:ref:`show` command to display schematics.
-
-.. 
-   unclear if libffi is required now or still optional
-   readme says optional, but I can't find a corresponding ENABLE_*
+such as GNU Flex, GNU Bison, Make and Python.  Some additional tools: readline,
+libffi, Tcl and zlib; are optional but enabled by default (see
+:makevar:`ENABLE_*` settings in Makefile). Graphviz and Xdot are used by the
+:cmd:ref:`show` command to display schematics.
 
 Installing all prerequisites for Ubuntu 20.04:
 

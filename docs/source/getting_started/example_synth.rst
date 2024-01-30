@@ -161,8 +161,9 @@ generated from the initial assignment of 0 to the ``addr`` wire.  However, this
 initial assignment is not synthesizable, so this will need to be cleaned up
 before we can generate the physical hardware.  We can do this now by calling
 :cmd:ref:`clean`.  We're also going to call :cmd:ref:`opt_expr` now, which would
-normally be called at the end of :cmd:ref:`proc`.  We can call both commands
-at the same time by separating them with a colon: :yoscrypt:`opt_expr; clean`.
+normally be called at the end of :cmd:ref:`proc`.  We can call both commands at
+the same time by separating them with a colon and space: :yoscrypt:`opt_expr;
+clean`.
 
 .. figure:: /_images/code_examples/fifo/addr_gen_clean.*
    :class: width-helper
@@ -183,10 +184,11 @@ on opt_expr <adv_opt_expr>`.
 
    :doc:`/cmd/clean` can also be called with two semicolons after any command,
    for example we could have called :yoscrypt:`opt_expr;;` instead of
-   :yoscrypt:`opt_expr; clean`.  It is generally beneficial to run
-   :cmd:ref:`clean` after each command as a quick way of removing disconnected
-   parts of the circuit which have been left over.  You may notice some scripts
-   will end each line with ``;;``.
+   :yoscrypt:`opt_expr; clean`.  You may notice some scripts will end each line
+   with ``;;``.  It is beneficial to run :cmd:ref:`clean` before inspecting
+   intermediate products to remove disconnected parts of the circuit which have
+   been left over, and in some cases can reduce the processing required in
+   subsequent commands.
 
 .. todo:: consider a brief glossary for terms like adff
 
@@ -199,9 +201,9 @@ The full example
 ^^^^^^^^^^^^^^^^
 
 Let's now go back and check on our full design by using :yoscrypt:`hierarchy
--check -top fifo`.  By passing the ``-check`` option there we are also
-telling the :cmd:ref:`hierarchy` command that if the design includes any
-non-blackbox modules without an implementation it should return an error.
+-check -top fifo`.  By passing the ``-check`` option there we are also telling
+the :cmd:ref:`hierarchy` command that if the design includes any non-blackbox
+modules without an implementation it should return an error.
 
 Note that if we tried to run this command now then we would get an error.  This
 is because we already removed all of the modules other than ``addr_gen``.  We
@@ -237,8 +239,9 @@ design.  If we know that our design won't run into this issue, we can skip the
    included in the source as :file:`fifo.ys`. There are extra commands being run
    which you don't see, but feel free to try them yourself, or play around with
    different commands.  You can always start over with a clean slate by calling
-   ``exit`` or hitting ``ctrl+c`` (i.e. SIGINT) and re-launching the Yosys
-   interactive terminal.
+   ``exit`` or hitting :kbd:`ctrl+d` (i.e. EOF) and re-launching the Yosys
+   interactive terminal.  :kbd:`ctrl+c` (i.e. SIGINT) will also end the terminal
+   session but will return an error code rather than exiting gracefully.
 
 We can also run :cmd:ref:`proc` now to finish off the full :ref:`synth_begin`.
 Because the design schematic is quite large, we will be showing just the data
@@ -308,9 +311,14 @@ earlier has replaced the ``fifo_reader`` block in :ref:`rdata_proc`.  We can
 also see that the ``addr`` output has been renamed to :file:`fifo_reader.addr`
 and merged with the ``raddr`` wire feeding into the ``$memrd`` cell.  This wire
 merging happened during the call to :cmd:ref:`clean` which we can see in the
-:ref:`flat_clean`.  Note that in an interactive terminal the outputs of
-:cmd:ref:`flatten` and :cmd:ref:`clean` will be combined into a single
-:yoterm:`yosys> flatten;;` output.
+:ref:`flat_clean`.
+
+.. note:: 
+
+   :cmd:ref:`flatten` and :cmd:ref:`clean` would normally be combined into a
+   single :yoterm:`yosys> flatten;;` output, but they appear separately here as
+   a side effect of using :cmd:ref:`echo` for generating the terminal style
+   output.
 
 Depending on the target architecture, this stage of synthesis might also see
 commands such as :cmd:ref:`tribuf` with the ``-logic`` option and
@@ -490,6 +498,8 @@ expression rewriting, the ``-fine`` option just enables more fine-grain
 optimizations.  Then we perform width reduction a final time and clear the
 selection.
 
+.. todo:: ``ice40_dsp`` is pmgen
+
 Finally we have :cmd:ref:`ice40_dsp`: similar to the :cmd:ref:`memory_dff`
 command we saw in the previous section, this merges any surrounding registers
 into the ``SB_MAC16`` cell.  This includes not just the input/output registers,
@@ -513,9 +523,10 @@ That brings us to the fourth and final part for the iCE40 synthesis flow:
    :name: synth_coarse4
 
 Where before each type of arithmetic operation had its own cell, e.g. ``$add``,
-we now want to extract these into ``$alu`` and ``$macc`` cells which can be
-mapped to hard blocks.  We do this by running :cmd:ref:`alumacc`, which we can
-see produce the following changes in our example design:
+we now want to extract these into ``$alu`` and ``$macc`` cells which can help
+identify opportunities for reusing logic.  We do this by running
+:cmd:ref:`alumacc`, which we can see produce the following changes in our
+example design:
 
 .. literalinclude:: /code_examples/fifo/fifo.out
    :language: doscon
@@ -528,6 +539,10 @@ see produce the following changes in our example design:
    :name: rdata_alumacc
 
    ``rdata`` output after :cmd:ref:`alumacc`
+
+Once these cells have been inserted, the call to :cmd:ref:`opt` can combine
+cells which are now identical but may have been missed due to e.g. the
+difference between ``$add`` and ``$sub``.
 
 The other new command in this part is :doc:`/cmd/memory`.  :cmd:ref:`memory` is
 another macro command which we examine in more detail in
@@ -551,7 +566,9 @@ one for writing (``WR_*``), as well as both ``WR_DATA`` input and ``RD_DATA``
 output.
 
 .. seealso:: Advanced usage docs for
-   :doc:`/using_yosys/synthesis/memory`
+
+   - :doc:`/using_yosys/synthesis/opt`
+   - :doc:`/using_yosys/synthesis/memory`
 
 Final note
 ^^^^^^^^^^

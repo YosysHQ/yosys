@@ -220,7 +220,8 @@ Per default the :cmd:ref:`show` command outputs a temporary dot file and
 launches ``xdot`` to display it. The options ``-format``, ``-viewer`` and
 ``-prefix`` can be used to change format, viewer and filename prefix. Note that
 the ``pdf`` and ``ps`` format are the only formats that support plotting
-multiple modules in one run.
+multiple modules in one run.  The ``dot`` format can be used to output multiple
+modules, however ``xdot`` will raise an error when trying to read them.
 
 In densely connected circuits it is sometimes hard to keep track of the
 individual signal wires. For these cases it can be useful to call
