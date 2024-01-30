@@ -103,7 +103,6 @@ void load_plugin(std::string filename, std::vector<std::string> aliases)
 
 			loaded_plugins[orig_filename] = hdl;
 			Pass::init_register();
-
 		}
 	}
 
