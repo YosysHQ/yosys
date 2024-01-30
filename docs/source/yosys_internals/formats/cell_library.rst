@@ -9,8 +9,11 @@ Internal cell library
 .. todo:: less academic, also check formatting consistency
 
 Most of the passes in Yosys operate on netlists, i.e. they only care about the
-RTLIL::Wire and RTLIL::Cell objects in an RTLIL::Module. This chapter discusses
-the cell types used by Yosys to represent a behavioural design internally.
+``RTLIL::Wire`` and ``RTLIL::Cell`` objects in an ``RTLIL::Module``. This
+chapter discusses the cell types used by Yosys to represent a behavioural design
+internally.
+
+.. TODO:: is this chapter split preserved
 
 This chapter is split in two parts. In the first part the internal RTL cells are
 covered. These cells are used to represent the design on a coarse grain level.
@@ -33,7 +36,7 @@ parameters in sync with the size of the signals connected to the inputs and
 outputs.
 
 Simulation models for the RTL cells can be found in the file
-``techlibs/common/simlib.v`` in the Yosys source tree.
+:file:`techlibs/common/simlib.v` in the Yosys source tree.
 
 Unary operators
 ~~~~~~~~~~~~~~~
@@ -42,8 +45,8 @@ All unary RTL cells have one input port ``\A`` and one output port ``\Y``. They
 also have the following parameters:
 
 ``\A_SIGNED``
-	Set to a non-zero value if the input ``\A`` is signed and therefore
-	should be sign-extended when needed.
+	Set to a non-zero value if the input ``\A`` is signed and therefore should be
+	sign-extended when needed.
 
 ``\A_WIDTH``
 	The width of the input port ``\A``.
@@ -110,7 +113,7 @@ All binary RTL cells have two input ports ``\A`` and ``\B`` and one output port
 	:name: tab:CellLib_binary
 
 	======================= ============= ======================= =========
-	Verilog 	        Cell Type     Verilog                 Cell Type
+	Verilog                 Cell Type     Verilog                 Cell Type
 	======================= ============= ======================= =========
 	:verilog:`Y = A  & B`   $and          :verilog:`Y = A <  B`   $lt
 	:verilog:`Y = A  | B`   $or           :verilog:`Y = A <= B`   $le
@@ -124,7 +127,7 @@ All binary RTL cells have two input ports ``\A`` and ``\B`` and one output port
 	:verilog:`Y = A || B`   $logic_or     :verilog:`Y = A  / B`   $div
 	:verilog:`Y = A === B`  $eqx          :verilog:`Y = A  % B`   $mod
 	:verilog:`Y = A !== B`  $nex          ``N/A``                 $divfloor
-	:verilog:`Y = A ** B`   $pow          ``N/A``                 $modfoor
+	:verilog:`Y = A ** B`   $pow          ``N/A``                 $modfloor
 	======================= ============= ======================= =========
 
 The ``$shl`` and ``$shr`` cells implement logical shifts, whereas the ``$sshl``
@@ -141,7 +144,7 @@ positions are filled with undef (x) bits, and corresponds to the Verilog indexed
 part-select expression.
 
 For the binary cells that output a logical value (``$logic_and``, ``$logic_or``,
-``$eqx``, ``$nex``, ``$lt``, ``$le``, ``$eq``, ``$ne``, ``$ge``, ``$gt)``, when
+``$eqx``, ``$nex``, ``$lt``, ``$le``, ``$eq``, ``$ne``, ``$ge``, ``$gt``), when
 the ``\Y_WIDTH`` parameter is greater than 1, the output is zero-extended, and
 only the least significant bit varies.
 
@@ -334,11 +337,11 @@ cells.
 Memories
 ~~~~~~~~
 
-Memories are either represented using RTLIL::Memory objects, ``$memrd_v2``,
+Memories are either represented using ``RTLIL::Memory`` objects, ``$memrd_v2``,
 ``$memwr_v2``, and ``$meminit_v2`` cells, or by ``$mem_v2`` cells alone.
 
-In the first alternative the RTLIL::Memory objects hold the general metadata for
-the memory (bit width, size in number of words, etc.) and for each port a
+In the first alternative the ``RTLIL::Memory`` objects hold the general metadata
+for the memory (bit width, size in number of words, etc.) and for each port a
 ``$memrd_v2`` (read port) or ``$memwr_v2`` (write port) cell is created. Having
 individual cells for read and write ports has the advantage that they can be
 consolidated using resource sharing passes. In some cases this drastically
@@ -353,7 +356,7 @@ address input ``\ADDR``, a data output ``\DATA``, an asynchronous reset input
 parameters:
 
 ``\MEMID``
-	The name of the RTLIL::Memory object that is associated with this read
+	The name of the ``RTLIL::Memory`` object that is associated with this read
 	port.
 
 ``\ABITS``
@@ -413,7 +416,7 @@ The ``$memwr_v2`` cells have a clock input ``\CLK``, an enable input ``\EN``
 ``\DATA``. They also have the following parameters:
 
 ``\MEMID``
-	The name of the RTLIL::Memory object that is associated with this write
+	The name of the ``RTLIL::Memory`` object that is associated with this write
 	port.
 
 ``\ABITS``
@@ -452,7 +455,7 @@ to ``\WIDTH`` parameter. All three of the inputs must resolve to a constant for
 synthesis to succeed.
 
 ``\MEMID``
-	The name of the RTLIL::Memory object that is associated with this
+	The name of the ``RTLIL::Memory`` object that is associated with this
 	initialization cell.
 
 ``\ABITS``
@@ -468,9 +471,9 @@ synthesis to succeed.
 	The cell with the higher integer value in this parameter wins an
 	initialization conflict.
 
-The HDL frontend models a memory using RTLIL::Memory objects and asynchronous
-``$memrd_v2`` and ``$memwr_v2`` cells. The :cmd:ref:`memory` pass (i.e.~its
-various sub-passes) migrates ``$dff`` cells into the ``$memrd_v2`` and
+The HDL frontend models a memory using ``RTLIL::Memory`` objects and
+asynchronous ``$memrd_v2`` and ``$memwr_v2`` cells. The :cmd:ref:`memory` pass
+(i.e. its various sub-passes) migrates ``$dff`` cells into the ``$memrd_v2`` and
 ``$memwr_v2`` cells making them synchronous, then converts them to a single
 ``$mem_v2`` cell and (optionally) maps this cell type to ``$dff`` cells for the
 individual words and multiplexer-based address decoders for the read and write
@@ -480,7 +483,7 @@ is left in the design.
 The ``$mem_v2`` cell provides the following parameters:
 
 ``\MEMID``
-	The name of the original RTLIL::Memory object that became this
+	The name of the original ``RTLIL::Memory`` object that became this
 	``$mem_v2`` cell.
 
 ``\SIZE``
@@ -1145,8 +1148,8 @@ mapped to physical flip-flop cells from a Liberty file using the dfflibmap pass.
 The combinatorial logic cells can be mapped to physical cells from a Liberty
 file via ABC using the abc pass.
 
-Add information about ``$slice`` and ``$concat`` cells.
+.. todo:: Add information about ``$slice`` and ``$concat`` cells.
 
-Add information about ``$lut`` and ``$sop`` cells.
+.. todo:: Add information about ``$lut`` and ``$sop`` cells.
 
-Add information about ``$alu``, ``$macc``, ``$fa``, and ``$lcu`` cells.
+.. todo:: Add information about ``$alu``, ``$macc``, ``$fa``, and ``$lcu`` cells.

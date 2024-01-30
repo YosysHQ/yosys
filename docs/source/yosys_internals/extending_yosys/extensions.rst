@@ -6,7 +6,7 @@ Writing extensions
 
 .. todo:: check text is coherent
 
-.. todo:: update to use ``/code_examples/extensions/test*.log``
+.. todo:: update to use :file:`/code_examples/extensions/test*.log`
 
 This chapter contains some bits and pieces of information about programming
 yosys extensions. Don't be afraid to ask questions on the YosysHQ Slack.
@@ -21,7 +21,11 @@ Quick guide
 -----------
 
 Code examples from this section are included in the
-``docs/code_examples/extensions/`` directory of the Yosys source code.
+|code_examples/extensions|_ directory of the Yosys source code.
+
+.. |code_examples/extensions| replace:: :file:`docs/source/code_examples/extensions`
+.. _code_examples/extensions: https://github.com/YosysHQ/yosys/tree/krys/docs/docs/source/code_examples/extensions
+
 
 Program components and data formats
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -31,7 +35,7 @@ about the internal data storage format used in Yosys and the classes that it
 provides.
 
 This document will focus on the much simpler version of RTLIL left after the
-commands :cmd:ref:`proc` and :cmd:ref:`memory` (or ``memory -nomap``):
+commands :cmd:ref:`proc` and :cmd:ref:`memory` (or :yoscrypt:`memory -nomap`):
 
 .. figure:: /_images/internals/simplified_rtlil.*
     :class: width-helper
@@ -40,6 +44,8 @@ commands :cmd:ref:`proc` and :cmd:ref:`memory` (or ``memory -nomap``):
     Simplified RTLIL entity-relationship diagram without memories and processes
 
 It is possible to only work on this simpler version:
+
+.. todo:: consider replacing inline code
 
 .. code:: c++
 
@@ -66,10 +72,10 @@ with, and lists off the current design's modules.
 .. literalinclude:: /code_examples/extensions/my_cmd.cc
    :language: c++
    :lines: 1, 4, 6, 7-20
-   :caption: Example command :yoscrypt:`my_cmd` from ``my_cmd.cc``
+   :caption: Example command :yoscrypt:`my_cmd` from :file:`my_cmd.cc`
    
 Note that we are making a global instance of a class derived from
-``Yosys::Pass``, which we get by including ``kernel/yosys.h``.
+``Yosys::Pass``, which we get by including :file:`kernel/yosys.h`.
 
 Compiling to a plugin
 ~~~~~~~~~~~~~~~~~~~~~
@@ -79,6 +85,8 @@ by loading plugins into Yosys.  For maintainability it is generally recommended
 to create plugins.
 
 The following command compiles our example :yoscrypt:`my_cmd` to a Yosys plugin:
+
+.. todo:: replace inline code
 
 .. code:: shell
 
@@ -120,7 +128,7 @@ We'll do the same as before and format it as a a ``Yosys::Pass``.
 .. literalinclude:: /code_examples/extensions/my_cmd.cc
    :language: c++
    :lines: 23-47
-   :caption: :yoscrypt:`test1` - creating the absval module, from ``my_cmd.cc``
+   :caption: :yoscrypt:`test1` - creating the absval module, from :file:`my_cmd.cc`
 
 .. code:: shell-session
 
@@ -160,7 +168,7 @@ Consider the following module:
 
 .. literalinclude:: /code_examples/extensions/sigmap_test.v
    :language: Verilog
-   :caption: sigmap_test.v
+   :caption: :file:`sigmap_test.v`
 
 In this case ``a``, ``x``, and ``y`` are all different names for the same
 signal. However:
@@ -204,7 +212,10 @@ Use ``log_id()`` to create a C-string for an ``RTLIL::IdString``:
 
     log("Name of this module: %s\n", log_id(module->name));
 
-Use ``log_header()`` and ``log_push()``/``log_pop()`` to structure log messages:
+Use ``log_header()`` and ``log_push()``/\ ``log_pop()`` to structure log
+messages:
+
+.. todo:: replace inline code
 
 .. code:: C++
 
@@ -218,6 +229,8 @@ Error handling
 ~~~~~~~~~~~~~~
 
 Use ``log_error()`` to report a non-recoverable error:
+
+.. todo:: replace inline code
 
 .. code:: C++
 
@@ -238,20 +251,22 @@ The "stubnets" example module
 ------------------------------
 
 The following is the complete code of the "stubnets" example module. It is
-included in the Yosys source distribution as
-``docs/source/code_examples/stubnets/stubnets.cc``.
+included in the Yosys source distribution under |code_examples/stubnets|_.
+
+.. |code_examples/stubnets| replace:: :file:`docs/source/code_examples/stubnets`
+.. _code_examples/stubnets: https://github.com/YosysHQ/yosys/tree/krys/docs/docs/source/code_examples/stubnets
 
 .. literalinclude:: /code_examples/stubnets/stubnets.cc
     :language: c++
     :linenos:
-    :caption: docs/source/code_examples/stubnets/stubnets.cc
+    :caption: :file:`stubnets.cc`
 
 .. literalinclude:: /code_examples/stubnets/Makefile
     :language: makefile
     :linenos:
-    :caption: docs/source/code_examples/stubnets/Makefile
+    :caption: :file:`Makefile`
 
 .. literalinclude:: /code_examples/stubnets/test.v
     :language: verilog
     :linenos:
-    :caption: docs/source/code_examples/stubnets/test.v
+    :caption: :file:`test.v`

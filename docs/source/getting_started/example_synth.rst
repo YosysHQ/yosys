@@ -26,7 +26,7 @@ First, let's quickly look at the design we'll be synthesizing:
 .. literalinclude:: /code_examples/fifo/fifo.v
    :language: Verilog
    :linenos:
-   :caption: ``fifo.v``
+   :caption: :file:`fifo.v`
    :name: fifo-v
 
 .. todo:: fifo.v description
@@ -36,7 +36,7 @@ Loading the design
 
 Let's load the design into Yosys.  From the command line, we can call ``yosys
 fifo.v``.  This will open an interactive Yosys shell session and immediately
-parse the code from ``fifo.v`` and convert it into an Abstract Syntax Tree
+parse the code from :ref:`fifo-v` and convert it into an Abstract Syntax Tree
 (AST).  If you are interested in how this happens, there is more information in
 the document, :doc:`/yosys_internals/flow/verilog_frontend`.  For now, suffice
 it to say that we do this to simplify further processing of the design.  You
@@ -214,7 +214,7 @@ could restart our shell session, but instead let's use two new commands:
    :language: doscon
    :start-at: design -reset
    :end-before: yosys> proc
-   :caption: reloading ``fifo.v`` and running :yoscrypt:`hierarchy -check -top fifo`
+   :caption: reloading :file:`fifo.v` and running :yoscrypt:`hierarchy -check -top fifo`
 
 Notice how this time we didn't see any of those `$abstract` modules?  That's
 because when we ran ``yosys fifo.v``, the first command Yosys called was
@@ -234,7 +234,7 @@ design.  If we know that our design won't run into this issue, we can skip the
    The number before a command's output increments with each command run.  Don't
    worry if your numbers don't match ours!  The output you are seeing comes from
    the same script that was used to generate the images in this document,
-   included in the source as ``fifo.ys``. There are extra commands being run
+   included in the source as :file:`fifo.ys`. There are extra commands being run
    which you don't see, but feel free to try them yourself, or play around with
    different commands.  You can always start over with a clean slate by calling
    ``exit`` or hitting ``ctrl+c`` (i.e. SIGINT) and re-launching the Yosys
@@ -305,8 +305,8 @@ optimizations between modules which would otherwise be missed.  Let's run
 
 The pieces have moved around a bit, but we can see :ref:`addr_gen_proc` from
 earlier has replaced the ``fifo_reader`` block in :ref:`rdata_proc`.  We can
-also see that the ``addr`` output has been renamed to ``fifo_reader.addr`` and
-merged with the ``raddr`` wire feeding into the ``$memrd`` cell.  This wire
+also see that the ``addr`` output has been renamed to :file:`fifo_reader.addr`
+and merged with the ``raddr`` wire feeding into the ``$memrd`` cell.  This wire
 merging happened during the call to :cmd:ref:`clean` which we can see in the
 :ref:`flat_clean`.  Note that in an interactive terminal the outputs of
 :cmd:ref:`flatten` and :cmd:ref:`clean` will be combined into a single
@@ -803,11 +803,11 @@ The iCE40 synthesis flow has the following output modes available:
 - :doc:`/cmd/write_json`.
 
 As an example, if we called :yoscrypt:`synth_ice40 -top fifo -json fifo.json`,
-our synthesized ``fifo`` design will be output as ``fifo.json``.  We can then
-read the design back into Yosys with :cmd:ref:`read_json`, but make sure you use
-:yoscrypt:`design -reset` or open a new interactive terminal first.  The JSON
-output we get can also be loaded into `nextpnr`_ to do place and route; but that
-is beyond the scope of this documentation.
+our synthesized ``fifo`` design will be output as :file:`fifo.json`.  We can
+then read the design back into Yosys with :cmd:ref:`read_json`, but make sure
+you use :yoscrypt:`design -reset` or open a new interactive terminal first.  The
+JSON output we get can also be loaded into `nextpnr`_ to do place and route; but
+that is beyond the scope of this documentation.
 
 .. _nextpnr: https://github.com/YosysHQ/nextpnr
 

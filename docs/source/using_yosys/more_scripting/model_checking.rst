@@ -25,23 +25,27 @@ Checking techmap
 
 .. todo:: add/expand supporting text
 
-Let's look at the following example:
+Let's take a look at an example included in the Yosys code base under
+|code_examples/synth_flow|_:
+
+.. |code_examples/synth_flow| replace:: :file:`docs/source/code_examples/synth_flow`
+.. _code_examples/synth_flow: https://github.com/YosysHQ/yosys/tree/krys/docs/docs/source/code_examples/synth_flow
 
 .. literalinclude:: /code_examples/synth_flow/techmap_01_map.v
    :language: verilog
-   :caption: ``docs/source/code_examples/synth_flow/techmap_01_map.v``
+   :caption: :file:`techmap_01_map.v`
 
 .. literalinclude:: /code_examples/synth_flow/techmap_01.v
    :language: verilog
-   :caption: ``docs/source/code_examples/synth_flow/techmap_01.v``
+   :caption: :file:`techmap_01.v`
 
 .. literalinclude:: /code_examples/synth_flow/techmap_01.ys
    :language: yoscrypt
-   :caption: ``docs/source/code_examples/synth_flow/techmap_01.ys``
+   :caption: :file:`techmap_01.ys`
 
 To see if it is correct we can use the following code:
 
-.. todo:: replace inline yosys script code
+.. todo:: replace inline code
 
 .. code:: yoscrypt
 
@@ -73,6 +77,12 @@ Result:
 AXI4 Stream Master
 ~~~~~~~~~~~~~~~~~~
 
+The code used in this section is included in the Yosys code base under
+|code_examples/axis|_.
+
+.. |code_examples/axis| replace:: :file:`docs/source/code_examples/axis`
+.. _code_examples/axis: https://github.com/YosysHQ/yosys/tree/krys/docs/docs/source/code_examples/axis
+
 The following AXI4 Stream Master has a bug. But the bug is not exposed if the
 slave keeps ``tready`` asserted all the time. (Something a test bench might do.)
 
@@ -83,24 +93,26 @@ values for ``tready`` that yield the incorrect behavior.
 
 .. literalinclude:: /code_examples/axis/axis_master.v
    :language: verilog
-   :caption: ``docs/source/code_examples/axis/axis_master.v``
+   :caption: :file:`axis_master.v`
 
 .. literalinclude:: /code_examples/axis/axis_test.v
    :language: verilog
-   :caption: ``docs/source/code_examples/axis/axis_test.v``
+   :caption: :file:`axis_test.v`
 
 .. literalinclude:: /code_examples/axis/axis_test.ys
    :language: yoscrypt
-   :caption: ``docs/source/code_examples/axis/test.ys``
+   :caption: :file:`test.ys`
 
-Result with unmodified ``axis_master.v``:
+Result with unmodified :file:`axis_master.v`:
+
+.. todo:: replace inline code
 
 .. code::
 
     Solving problem with 159344 variables and 442126 clauses..
     SAT proof finished - model found: FAIL!
 
-Result with fixed ``axis_master.v``:
+Result with fixed :file:`axis_master.v`:
 
 .. code::
 

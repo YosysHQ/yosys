@@ -12,6 +12,13 @@ Yosys' internal cell types (such as ``$or``) as well as user-defined cell types.
   file.
 - Generate blocks and recursion are powerful tools for writing map files.
 
+Code examples used in this document are included in the Yosys code base under
+|code_examples/techmap|_.
+
+.. |code_examples/techmap| replace:: :file:`docs/source/code_examples/techmap`
+.. _code_examples/techmap: https://github.com/YosysHQ/yosys/tree/krys/docs/docs/source/code_examples/techmap
+
+
 Mapping OR3X1
 ~~~~~~~~~~~~~
 
@@ -24,31 +31,32 @@ Mapping OR3X1
 
 .. literalinclude:: /code_examples/techmap/red_or3x1_map.v
    :language: verilog
-   :caption: ``docs/source/code_examples/techmap/red_or3x1_map.v``
+   :caption: :file:`red_or3x1_map.v`
 
 .. figure:: /_images/code_examples/techmap/red_or3x1.*
     :class: width-helper
 
 .. literalinclude:: /code_examples/techmap/red_or3x1_test.ys
    :language: yoscrypt
-   :caption: ``docs/source/code_examples/techmap/red_or3x1_test.ys``
+   :caption: :file:`red_or3x1_test.ys`
 
 .. literalinclude:: /code_examples/techmap/red_or3x1_test.v
    :language: verilog
-   :caption: ``docs/source/code_examples/techmap/red_or3x1_test.v``
+   :caption: :file:`red_or3x1_test.v`
 
 Conditional techmap
 ~~~~~~~~~~~~~~~~~~~
 
 - In some cases only cells with certain properties should be substituted.
-- The special wire ``_TECHMAP_FAIL_`` can be used to disable a module
-  in the map file for a certain set of parameters.
-- The wire ``_TECHMAP_FAIL_`` must be set to a constant value. If it
-  is non-zero then the module is disabled for this set of parameters.
+- The special wire ``_TECHMAP_FAIL_`` can be used to disable a module in the map
+  file for a certain set of parameters.
+- The wire ``_TECHMAP_FAIL_`` must be set to a constant value. If it is non-zero
+  then the module is disabled for this set of parameters.
 - Example use-cases:
 
     - coarse-grain cell types that only operate on certain bit widths
-    - memory resources for different memory geometries (width, depth, ports, etc.)
+    - memory resources for different memory geometries (width, depth, ports,
+      etc.)
 
 Example:
 
@@ -57,22 +65,22 @@ Example:
 
 .. literalinclude:: /code_examples/techmap/sym_mul_map.v
    :language: verilog
-   :caption: ``docs/source/code_examples/techmap/sym_mul_map.v``
+   :caption: :file:`sym_mul_map.v`
 
 .. literalinclude:: /code_examples/techmap/sym_mul_test.v
    :language: verilog
-   :caption: ``docs/source/code_examples/techmap/sym_mul_test.v``
+   :caption: :file:`sym_mul_test.v`
 
 .. literalinclude:: /code_examples/techmap/sym_mul_test.ys
    :language: yoscrypt
-   :caption: ``docs/source/code_examples/techmap/sym_mul_test.ys``
+   :caption: :file:`sym_mul_test.ys`
 
 
 Scripting in map modules
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-- The special wires ``_TECHMAP_DO_*`` can be used to run Yosys scripts
-  in the context of the replacement module.
+- The special wires ``_TECHMAP_DO_*`` can be used to run Yosys scripts in the
+  context of the replacement module.
 - The wire that comes first in alphabetical oder is interpreted as string (must
   be connected to constants) that is executed as script. Then the wire is
   removed. Repeat.
@@ -96,15 +104,15 @@ Example:
 
 .. literalinclude:: /code_examples/techmap/mymul_map.v
    :language: verilog
-   :caption: ``docs/source/code_examples/techmap/mymul_map.v``
+   :caption: :file:`mymul_map.v`
 
 .. literalinclude:: /code_examples/techmap/mymul_test.v
    :language: verilog
-   :caption: ``docs/source/code_examples/techmap/mymul_test.v``
+   :caption: :file:`mymul_test.v`
 
 .. literalinclude:: /code_examples/techmap/mymul_test.ys
    :language: yoscrypt
-   :caption: ``docs/source/code_examples/techmap/mymul_test.ys``
+   :caption: :file:`mymul_test.ys`
 
 Handling constant inputs
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -126,15 +134,15 @@ Example:
 
 .. literalinclude:: /code_examples/techmap/mulshift_map.v
    :language: verilog
-   :caption: ``docs/source/code_examples/techmap/mulshift_map.v``
+   :caption: :file:`mulshift_map.v`
 
 .. literalinclude:: /code_examples/techmap/mulshift_test.v
    :language: verilog
-   :caption: ``docs/source/code_examples/techmap/mulshift_test.v``
+   :caption: :file:`mulshift_test.v`
 
 .. literalinclude:: /code_examples/techmap/mulshift_test.ys
    :language: yoscrypt
-   :caption: ``docs/source/code_examples/techmap/mulshift_test.ys``
+   :caption: :file:`mulshift_test.ys`
 
 Handling shorted inputs
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -143,7 +151,8 @@ Handling shorted inputs
   ``_TECHMAP_CONNMAP_<port-name>_`` can be used to handle shorted inputs.
 - Each bit of the port correlates to an ``_TECHMAP_BITS_CONNMAP_`` bits wide
   number in ``_TECHMAP_CONNMAP_<port-name>_``.
-- Each unique signal bit is assigned its own number. Identical fields in the ``_TECHMAP_CONNMAP_<port-name>_`` parameters mean shorted signal bits.
+- Each unique signal bit is assigned its own number. Identical fields in the
+  ``_TECHMAP_CONNMAP_<port-name>_`` parameters mean shorted signal bits.
 - The numbers 0-3 are reserved for ``0``, ``1``, ``x``, and ``z`` respectively.
 - Example use-cases:
 
@@ -157,15 +166,15 @@ Example:
 
 .. literalinclude:: /code_examples/techmap/addshift_map.v
    :language: verilog
-   :caption: ``docs/source/code_examples/techmap/addshift_map.v``
+   :caption: :file:`addshift_map.v`
 
 .. literalinclude:: /code_examples/techmap/addshift_test.v
    :language: verilog
-   :caption: ``docs/source/code_examples/techmap/addshift_test.v``
+   :caption: :file:`addshift_test.v`
 
 .. literalinclude:: /code_examples/techmap/addshift_test.ys
    :language: yoscrypt
-   :caption: ``docs/source/code_examples/techmap/addshift_test.ys``
+   :caption: :file:`addshift_test.ys`
 
 Notes on using techmap
 ~~~~~~~~~~~~~~~~~~~~~~

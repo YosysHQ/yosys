@@ -1,7 +1,6 @@
 Internal flow
 =============
 
-
 A (usually short) synthesis script controls Yosys.
 
 These scripts contain three types of commands:

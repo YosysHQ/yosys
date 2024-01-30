@@ -33,27 +33,32 @@ Example
 
 .. todo:: describe ``memory`` images
 
+|code_examples/synth_flow|_.
+
+.. |code_examples/synth_flow| replace:: :file:`docs/source/code_examples/synth_flow`
+.. _code_examples/synth_flow: https://github.com/YosysHQ/yosys/tree/krys/docs/docs/source/code_examples/synth_flow
+
 .. figure:: /_images/code_examples/synth_flow/memory_01.*
    :class: width-helper
 
 .. literalinclude:: /code_examples/synth_flow/memory_01.ys
    :language: yoscrypt
-   :caption: ``docs/source/code_examples/synth_flow/memory_01.ys``
+   :caption: :file:`memory_01.ys`
 
 .. literalinclude:: /code_examples/synth_flow/memory_01.v
    :language: verilog
-   :caption: ``docs/source/code_examples/synth_flow/memory_01.v``
+   :caption: :file:`memory_01.v`
 
 .. figure:: /_images/code_examples/synth_flow/memory_02.*
    :class: width-helper
 
 .. literalinclude:: /code_examples/synth_flow/memory_02.v
    :language: verilog
-   :caption: ``docs/source/code_examples/synth_flow/memory_02.v``
+   :caption: :file:`memory_02.v`
 
 .. literalinclude:: /code_examples/synth_flow/memory_02.ys
    :language: yoscrypt
-   :caption: ``docs/source/code_examples/synth_flow/memory_02.ys``
+   :caption: :file:`memory_02.ys`
 
 .. _memory_map:
 
@@ -71,7 +76,7 @@ For example:
     memory_map
 
 :cmd:ref:`memory_libmap` attempts to convert memory cells (``$mem_v2`` etc) into
-hardware supported memory using a provided library (``my_memory_map.txt`` in the
+hardware supported memory using a provided library (:file:`my_memory_map.txt` in the
 example above).  Where necessary, emulation logic is added to ensure functional
 equivalence before and after this conversion. :yoscrypt:`techmap -map
 my_memory_map.v` then uses :cmd:ref:`techmap` to map to hardware primitives. Any

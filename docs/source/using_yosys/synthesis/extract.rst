@@ -12,7 +12,11 @@ The extract pass
 .. todo:: add/expand supporting text, also mention custom pattern matching and
    pmgen
 
-Example code can be found in ``docs/source/code_examples/macc/``.
+Example code can be found in |code_examples/macc|_.
+
+.. |code_examples/macc| replace:: :file:`docs/source/code_examples/macc`
+.. _code_examples/macc: https://github.com/YosysHQ/yosys/tree/krys/docs/docs/source/code_examples/macc
+
 
 .. literalinclude:: /code_examples/macc/macc_simple_test.ys
     :language: yoscrypt
@@ -34,15 +38,15 @@ Example code can be found in ``docs/source/code_examples/macc/``.
 
 .. literalinclude:: /code_examples/macc/macc_simple_test.v
    :language: verilog
-   :caption: ``macc_simple_test.v``
+   :caption: :file:`macc_simple_test.v`
 
 .. literalinclude:: /code_examples/macc/macc_simple_xmap.v
    :language: verilog
-   :caption: ``macc_simple_xmap.v``
+   :caption: :file:`macc_simple_xmap.v`
 
 .. literalinclude:: /code_examples/macc/macc_simple_test_01.v
    :language: verilog
-   :caption: ``macc_simple_test_01.v``
+   :caption: :file:`macc_simple_test_01.v`
 
 .. figure:: /_images/code_examples/macc/macc_simple_test_01a.*
     :class: width-helper
@@ -52,7 +56,7 @@ Example code can be found in ``docs/source/code_examples/macc/``.
 
 .. literalinclude:: /code_examples/macc/macc_simple_test_02.v
    :language: verilog
-   :caption: ``macc_simple_test_02.v``
+   :caption: :file:`macc_simple_test_02.v`
 
 .. figure:: /_images/code_examples/macc/macc_simple_test_02a.*
     :class: width-helper
@@ -90,10 +94,9 @@ Example: DSP48_MACC
 
 This section details an example that shows how to map MACC operations of
 arbitrary size to MACC cells with a 18x25-bit multiplier and a 48-bit adder
-(such as the Xilinx DSP48 cells).  Source code can be found in
-``docs/source/code_examples/macc/``.
+(such as the Xilinx DSP48 cells).
 
-Preconditioning: ``macc_xilinx_swap_map.v``
+Preconditioning: :file:`macc_xilinx_swap_map.v`
 
 Make sure ``A`` is the smaller port on all multipliers
 
@@ -101,49 +104,49 @@ Make sure ``A`` is the smaller port on all multipliers
 
 .. literalinclude:: /code_examples/macc/macc_xilinx_swap_map.v
    :language: verilog
-   :caption: ``macc_xilinx_swap_map.v``
+   :caption: :file:`macc_xilinx_swap_map.v`
 
-Wrapping multipliers: ``macc_xilinx_wrap_map.v``
+Wrapping multipliers: :file:`macc_xilinx_wrap_map.v`
 
 .. literalinclude:: /code_examples/macc/macc_xilinx_wrap_map.v
    :language: verilog
    :lines: 1-46
-   :caption: ``macc_xilinx_wrap_map.v``
+   :caption: :file:`macc_xilinx_wrap_map.v`
 
-Wrapping adders: ``macc_xilinx_wrap_map.v``
+Wrapping adders: :file:`macc_xilinx_wrap_map.v`
 
 .. literalinclude:: /code_examples/macc/macc_xilinx_wrap_map.v
    :language: verilog
    :lines: 48-89
-   :caption: ``macc_xilinx_wrap_map.v``
+   :caption: :file:`macc_xilinx_wrap_map.v`
 
-Extract: ``macc_xilinx_xmap.v``
+Extract: :file:`macc_xilinx_xmap.v`
 
 .. literalinclude:: /code_examples/macc/macc_xilinx_xmap.v
    :language: verilog
-   :caption: ``macc_xilinx_xmap.v``
+   :caption: :file:`macc_xilinx_xmap.v`
 
 ... simply use the same wrapping commands on this module as on the design to
 create a template for the :cmd:ref:`extract` command.
 
-Unwrapping multipliers: ``macc_xilinx_unwrap_map.v``
+Unwrapping multipliers: :file:`macc_xilinx_unwrap_map.v`
 
 .. literalinclude:: /code_examples/macc/macc_xilinx_unwrap_map.v
    :language: verilog
    :lines: 1-30
-   :caption: ``$__mul_wrapper`` module in ``macc_xilinx_unwrap_map.v``
+   :caption: ``$__mul_wrapper`` module in :file:`macc_xilinx_unwrap_map.v`
 
-Unwrapping adders: ``macc_xilinx_unwrap_map.v``
+Unwrapping adders: :file:`macc_xilinx_unwrap_map.v`
 
 .. literalinclude:: /code_examples/macc/macc_xilinx_unwrap_map.v
    :language: verilog
    :lines: 32-61
-   :caption: ``$__add_wrapper`` module in ``macc_xilinx_unwrap_map.v``
+   :caption: ``$__add_wrapper`` module in :file:`macc_xilinx_unwrap_map.v`
 
 .. literalinclude:: /code_examples/macc/macc_xilinx_test.v
    :language: verilog
    :lines: 1-6
-   :caption: ``test1`` of ``macc_xilinx_test.v``
+   :caption: ``test1`` of :file:`macc_xilinx_test.v`
 
 .. figure:: /_images/code_examples/macc/macc_xilinx_test1a.*
     :class: width-helper
@@ -154,7 +157,7 @@ Unwrapping adders: ``macc_xilinx_unwrap_map.v``
 .. literalinclude:: /code_examples/macc/macc_xilinx_test.v
    :language: verilog
    :lines: 8-13
-   :caption: ``test2`` of ``macc_xilinx_test.v``
+   :caption: ``test2`` of :file:`macc_xilinx_test.v`
 
 .. figure:: /_images/code_examples/macc/macc_xilinx_test2a.*
     :class: width-helper

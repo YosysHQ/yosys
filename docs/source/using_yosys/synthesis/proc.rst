@@ -28,13 +28,18 @@ Example
 
 .. todo:: describe ``proc`` images
 
+|code_examples/synth_flow|_.
+
+.. |code_examples/synth_flow| replace:: :file:`docs/source/code_examples/synth_flow`
+.. _code_examples/synth_flow: https://github.com/YosysHQ/yosys/tree/krys/docs/docs/source/code_examples/synth_flow
+
 .. literalinclude:: /code_examples/synth_flow/proc_01.v
    :language: verilog
-   :caption: ``docs/source/code_examples/synth_flow/proc_01.v``
+   :caption: :file:`proc_01.v`
 
 .. literalinclude:: /code_examples/synth_flow/proc_01.ys
    :language: yoscrypt
-   :caption: ``docs/source/code_examples/synth_flow/proc_01.ys``
+   :caption: :file:`proc_01.ys`
 
 .. figure:: /_images/code_examples/synth_flow/proc_01.*
    :class: width-helper
@@ -44,19 +49,19 @@ Example
 
 .. literalinclude:: /code_examples/synth_flow/proc_02.v
    :language: verilog
-   :caption: ``docs/source/code_examples/synth_flow/proc_02.v``
+   :caption: :file:`proc_02.v`
 
 .. literalinclude:: /code_examples/synth_flow/proc_02.ys
    :language: yoscrypt
-   :caption: ``docs/source/code_examples/synth_flow/proc_02.ys``
+   :caption: :file:`proc_02.ys`
 
 .. figure:: /_images/code_examples/synth_flow/proc_03.*
    :class: width-helper
 
 .. literalinclude:: /code_examples/synth_flow/proc_03.ys
    :language: yoscrypt
-   :caption: ``docs/source/code_examples/synth_flow/proc_03.ys``
+   :caption: :file:`proc_03.ys`
 
 .. literalinclude:: /code_examples/synth_flow/proc_03.v
    :language: verilog
-   :caption: ``docs/source/code_examples/synth_flow/proc_03.v``
+   :caption: :file:`proc_03.v`

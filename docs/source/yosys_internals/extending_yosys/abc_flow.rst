@@ -22,7 +22,7 @@ guide to the syntax:
 
 By convention, all delays in ``specify`` blocks are in integer picoseconds.
 Files containing ``specify`` blocks should be read with the ``-specify`` option
-to ``read_verilog`` so that they aren't skipped.
+to :cmd:ref:`read_verilog` so that they aren't skipped.
 
 LUTs
 ^^^^
@@ -41,9 +41,9 @@ DFFs
 
 DFFs should be annotated with an ``(* abc9_flop *)`` attribute, however ABC9 has
 some specific requirements for this to be valid: - the DFF must initialise to
-zero (consider using ``dfflegalize`` to ensure this). - the DFF cannot have any
-asynchronous resets/sets (see the simplification idiom and the Boxes section for
-what to do here).
+zero (consider using :cmd:ref:`dfflegalize` to ensure this). - the DFF cannot
+have any asynchronous resets/sets (see the simplification idiom and the Boxes
+section for what to do here).
 
 It is worth noting that in pure ``abc9`` mode, only the setup and arrival times
 are passed to ABC9 (specifically, they are modelled as buffers with the given
@@ -59,7 +59,7 @@ mapped back to the original flop. This is used in :cmd:ref:`synth_intel_alm` and
 :cmd:ref:`synth_quicklogic` for the PolarPro3.
 
 DFFs are usually specified to have setup constraints against the clock on the
-input signals, and an arrival time for the Q output.
+input signals, and an arrival time for the ``Q`` output.
 
 Boxes
 ^^^^^

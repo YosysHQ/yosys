@@ -7,6 +7,8 @@ Selections
 The selection framework
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+.. todo:: reduce overlap with :doc:`/getting_started/scripting_intro` select section
+
 The :cmd:ref:`select` command can be used to create a selection for subsequent
 commands. For example:
 
@@ -56,7 +58,7 @@ in synthesis scripts that are hand-tailored for a specific design.
 Module and design context
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Commands can be executed in *module/* or *design/* context. Until now all
+Commands can be executed in *module/* or *design/* context. Until now, all
 commands have been executed in design context. The :cmd:ref:`cd` command can be
 used to switch to module context.
 
@@ -83,9 +85,12 @@ Selecting by object property or type
 Special patterns can be used to select by object property or type. For example:
 
 - select all wires whose names start with ``reg_``: :yoscrypt:`select w:reg_*`
-- select all objects with the attribute ``foobar`` set: :yoscrypt:`select a:foobar`
-- select all objects with the attribute ``foobar`` set to 42: :yoscrypt:`select a:foobar=42`
-- select all modules with the attribute ``blabla`` set: :yoscrypt:`select A:blabla`
+- select all objects with the attribute ``foobar`` set: :yoscrypt:`select
+  a:foobar`
+- select all objects with the attribute ``foobar`` set to 42: :yoscrypt:`select
+  a:foobar=42`
+- select all modules with the attribute ``blabla`` set: :yoscrypt:`select
+  A:blabla`
 - select all $add cells from the module foo: :yoscrypt:`select foo/t:$add`
 
 A complete list of pattern expressions can be found in :doc:`/cmd/select`.
@@ -255,11 +260,11 @@ code is available in ``docs/source/code_examples/selections`` of the Yosys
 source repository.
 
 .. literalinclude:: /code_examples/selections/memdemo.v
-   :caption: ``memdemo.v``
+   :caption: :file:`memdemo.v`
    :name: memdemo_src
    :language: verilog
 
-The script ``memdemo.ys`` is used to generate the images included here. Let's
+The script :file:`memdemo.ys` is used to generate the images included here. Let's
 look at the first section:
 
 .. literalinclude:: /code_examples/selections/memdemo.ys
@@ -270,7 +275,7 @@ look at the first section:
 
 This loads :numref:`memdemo_src` and synthesizes the included module. Note that
 this code can be copied and run directly in a Yosys command line session,
-provided ``memdemo.v`` is in the same directory. We can now change to the
+provided :file:`memdemo.v` is in the same directory. We can now change to the
 ``memdemo`` module with ``cd memdemo``, and call :cmd:ref:`show` to see the
 diagram in :numref:`memdemo_00`.
 
@@ -397,15 +402,18 @@ Remember that select expressions can also be used directly as arguments to most
 commands. Some commands also accept a single select argument to some options. In
 those cases selection variables must be used to capture more complex selections.
 
-Example:
+Example code from |code_examples/selections|_:
+
+.. |code_examples/selections| replace:: :file:`docs/source/code_examples/selections`
+.. _code_examples/selections: https://github.com/YosysHQ/yosys/tree/krys/docs/docs/source/code_examples/selections
 
 .. literalinclude:: /code_examples/selections/select.v
    :language: verilog
-   :caption: ``docs/source/code_examples/selections/select.v``
+   :caption: :file:`select.v`
 
 .. literalinclude:: /code_examples/selections/select.ys
    :language: yoscrypt
-   :caption: ``docs/source/code_examples/selections/select.ys``
+   :caption: :file:`select.ys`
    :name: select_ys
 
 .. figure:: /_images/code_examples/selections/select.*

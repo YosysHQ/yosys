@@ -49,9 +49,7 @@ The `OSS CAD Suite`_ releases `nightly builds`_ for the following architectures:
       - Targeted for Windows 10 and 11, but older 64-bit version of Windows 7,
         8, or 8.1 should work
 
-   - linux-arm |linux-arm|
    - linux-arm64 |linux-arm64|
-   - linux-riscv64 (untested) |linux-riscv64|
 
 .. _OSS CAD Suite: https://github.com/YosysHQ/oss-cad-suite-build
 .. _nightly builds: https://github.com/YosysHQ/oss-cad-suite-build/releases/latest
@@ -60,9 +58,7 @@ The `OSS CAD Suite`_ releases `nightly builds`_ for the following architectures:
 .. |darwin-x64| image:: https://github.com/YosysHQ/oss-cad-suite-build/actions/workflows/darwin-x64.yml/badge.svg
 .. |darwin-arm64| image:: https://github.com/YosysHQ/oss-cad-suite-build/actions/workflows/darwin-arm64.yml/badge.svg
 .. |windows-x64| image:: https://github.com/YosysHQ/oss-cad-suite-build/actions/workflows/windows-x64.yml/badge.svg
-.. |linux-arm| image:: https://github.com/YosysHQ/oss-cad-suite-build/actions/workflows/linux-arm.yml/badge.svg
 .. |linux-arm64| image:: https://github.com/YosysHQ/oss-cad-suite-build/actions/workflows/linux-arm64.yml/badge.svg
-.. |linux-riscv64| image:: https://github.com/YosysHQ/oss-cad-suite-build/actions/workflows/linux-riscv64.yml/badge.svg
 
 Building from source
 ~~~~~~~~~~~~~~~~~~~~
@@ -133,8 +129,10 @@ Then, simply run ``make`` in this directory.
    make
    sudo make install
 
-Note that this also downloads, builds, and installs ABC (using yosys-abc as the
-executable name).
+Note that this also downloads, builds, and installs `ABC`_ (using
+:program:`yosys-abc` as the executable name).
+
+.. _ABC: https://github.com/berkeley-abc/abc
 
 .. seealso:: 
 
@@ -167,11 +165,12 @@ directories:
 ``kernel/``
    This directory contains all the core functionality of Yosys. This includes
    the functions and definitions for working with the RTLIL data structures
-   (``rtlil.{h|cc}``), the ``main()`` function (``driver.cc``), the internal
-   framework for generating log messages (``log.{h|cc}``), the internal
-   framework for registering and calling passes (``register.{h|cc}``), some core
-   commands that are not really passes (``select.cc``, ``show.cc``, …) and a
-   couple of other small utility libraries.
+   (:file:`rtlil.{h|cc}`), the ``main()`` function (:file:`driver.cc`), the
+   internal framework for generating log messages (:file:`log.{h|cc}`), the
+   internal framework for registering and calling passes
+   (:file:`register.{h|cc}`), some core commands that are not really passes
+   (:file:`select.cc`, :file:`show.cc`, …) and a couple of other small utility
+   libraries.
 
 ``libs/``
    Libraries packaged with Yosys builds are contained in this folder.  See
@@ -182,7 +181,7 @@ directories:
 
 ``passes/``
    This directory contains a subdirectory for each pass or group of passes. For
-   example as of this writing the directory ``passes/hierarchy/`` contains the
+   example as of this writing the directory :file:`passes/hierarchy/` contains the
    code for three passes: :cmd:ref:`hierarchy`, :cmd:ref:`submod`, and
    :cmd:ref:`uniquify`.
 
@@ -194,15 +193,16 @@ directories:
    This directory contains the suite of unit tests and regression tests used by
    Yosys.  See :doc:`/test_suites`.
 
-The top-level Makefile includes ``frontends/*/Makefile.inc``,
-``passes/*/Makefile.inc`` and ``backends/*/Makefile.inc``. So when extending
-Yosys it is enough to create a new directory in ``frontends/``, ``passes/`` or
-``backends/`` with your sources and a ``Makefile.inc``. The Yosys kernel
-automatically detects all commands linked with Yosys. So it is not needed to add
-additional commands to a central list of commands.
+The top-level Makefile includes :file:`frontends/{*}/Makefile.inc`,
+:file:`passes/{*}/Makefile.inc` and :file:`backends/{*}/Makefile.inc`. So when
+extending Yosys it is enough to create a new directory in :file:`frontends/`,
+:file:`passes/` or :file:`backends/` with your sources and a
+:file:`Makefile.inc`. The Yosys kernel automatically detects all commands linked
+with Yosys. So it is not needed to add additional commands to a central list of
+commands.
 
 Good starting points for reading example source code to learn how to write
-passes are ``passes/opt/opt_dff.cc`` and ``passes/opt/opt_merge.cc``.
+passes are :file:`passes/opt/opt_dff.cc` and :file:`passes/opt/opt_merge.cc`.
 
 See the top-level README file for a quick Getting Started guide and build
 instructions. The Yosys build is based solely on Makefiles.

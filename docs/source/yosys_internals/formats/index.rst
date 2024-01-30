@@ -1,6 +1,8 @@
 Internal formats
 ================
 
+.. todo:: brief overview for the internal formats index
+
 .. toctree:: 
 	:maxdepth: 3
 
