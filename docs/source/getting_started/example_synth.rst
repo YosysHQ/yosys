@@ -592,8 +592,8 @@ If you skipped calling :yoscrypt:`read_verilog -D ICE40_HX -lib -specify
 Memory blocks
 ^^^^^^^^^^^^^
 
-Mapping to hard memory blocks uses a combination of :cmd:ref:`memory_libmap`,
-:cmd:ref:`memory_map`, and :cmd:ref:`techmap`.
+Mapping to hard memory blocks uses a combination of :cmd:ref:`memory_libmap` and
+:cmd:ref:`techmap`.
 
 .. literalinclude:: /cmd/synth_ice40.rst
    :language: yoscrypt
@@ -609,15 +609,33 @@ Mapping to hard memory blocks uses a combination of :cmd:ref:`memory_libmap`,
 
    ``rdata`` output after :ref:`map_ram`
 
-:ref:`map_ram` converts the generic ``$mem_v2`` into the iCE40 ``SB_RAM40_4K``
-(highlighted). We can also see the memory address has been remapped, and the
-data bits have been reordered (or swizzled).  There is also now a ``$mux`` cell
-controlling the value of ``rdata``.  In :ref:`fifo-v` we wrote our memory as
-read-before-write, however the ``SB_RAM40_4K`` has undefined behaviour when
-reading from and writing to the same address in the same cycle.  As a result,
-extra logic is added so that the generated circuit matches the behaviour of the
-verilog.  :ref:`no_rw_check` describes how we could change our verilog to match
-our hardware instead.
+The :ref:`map_ram` converts the generic ``$mem_v2`` into the iCE40
+``SB_RAM40_4K`` (highlighted). We can also see the memory address has been
+remapped, and the data bits have been reordered (or swizzled).  There is also
+now a ``$mux`` cell controlling the value of ``rdata``.  In :ref:`fifo-v` we
+wrote our memory as read-before-write, however the ``SB_RAM40_4K`` has undefined
+behaviour when reading from and writing to the same address in the same cycle.
+As a result, extra logic is added so that the generated circuit matches the
+behaviour of the verilog.  :ref:`no_rw_check` describes how we could change our
+verilog to match our hardware instead.
+
+If we run :cmd:ref:`memory_libmap` under the :cmd:ref:`debug` command we can see
+candidates which were identified for mapping, along with the costs of each and
+what logic requires emulation.
+
+.. literalinclude:: /code_examples/fifo/fifo.libmap
+   :language: doscon
+   :lines: 2, 6-
+
+The ``$__ICE40_RAM4K_`` cell is defined in the file |techlibs/ice40/brams.txt|_,
+with the mapping to ``SB_RAM40_4K`` done by :cmd:ref:`techmap` using
+|techlibs/ice40/brams_map.v|_.  Any leftover memory cells are then converted
+into flip flops (the ``logic fallback``) with :cmd:ref:`memory_map`.
+
+.. |techlibs/ice40/brams.txt| replace:: :file:`techlibs/ice40/brams.txt`
+.. _techlibs/ice40/brams.txt: https://github.com/YosysHQ/yosys/tree/master/techlibs/ice40/brams.txt
+.. |techlibs/ice40/brams_map.v| replace:: :file:`techlibs/ice40/brams_map.v`
+.. _techlibs/ice40/brams_map.v: https://github.com/YosysHQ/yosys/tree/master/techlibs/ice40/brams_map.v
 
 .. literalinclude:: /cmd/synth_ice40.rst
    :language: yoscrypt
@@ -633,7 +651,13 @@ our hardware instead.
 
    ``rdata`` output after :ref:`map_ffram`
 
-.. TODO:: what even is this opt output
+.. note::
+
+   The visual clutter on the ``RDATA`` output port (highlighted) is an
+   unfortunate side effect of :cmd:ref:`opt_clean` on the swizzled data bits. In
+   connecting the ``$mux`` input port directly to ``RDATA`` to reduce the number
+   of wires, the ``$techmap579\data.0.0.RDATA`` wire becomes more visually
+   complex.
 
 .. seealso:: Advanced usage docs for
    

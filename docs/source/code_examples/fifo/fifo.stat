@@ -36,7 +36,7 @@ yosys> stat
 
 yosys> stat -top fifo
 
-16. Printing statistics.
+17. Printing statistics.
 
 === fifo ===
 
