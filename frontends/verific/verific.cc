@@ -2815,6 +2815,9 @@ struct VerificPass : public Pass {
 		log("  -extnets\n");
 		log("    Resolve references to external nets by adding module ports as needed.\n");
 		log("\n");
+		log("  -no-split-complex-ports\n");
+		log("    Complex ports (structs or arrays) are not split and remain packed as a single port.\n");
+		log("\n");
 		log("  -autocover\n");
 		log("    Generate automatic cover statements for all asserts\n");
 		log("\n");
@@ -3548,6 +3551,7 @@ struct VerificPass : public Pass {
 			bool mode_nosva = false, mode_names = false, mode_verific = false;
 			bool mode_autocover = false, mode_fullinit = false;
 			bool flatten = false, extnets = false, mode_cells = false;
+			bool split_complex_ports = true;
 			string dumpfile;
 			string ppfile;
 			Map parameters(STRING_HASH);
@@ -3563,6 +3567,10 @@ struct VerificPass : public Pass {
 				}
 				if (args[argidx] == "-flatten") {
 					flatten = true;
+					continue;
+				}
+				if (args[argidx] == "-no-split-complex-ports") {
+					split_complex_ports = false;
 					continue;
 				}
 				if (args[argidx] == "-extnets") {
@@ -3804,8 +3812,10 @@ struct VerificPass : public Pass {
 					worker.run(nl.second);
 			}
 
-			for (auto nl : nl_todo)
-				nl.second->ChangePortBusStructures(1 /* hierarchical */);
+			if (split_complex_ports) {
+				for (auto nl : nl_todo)
+					nl.second->ChangePortBusStructures(1 /* hierarchical */);
+			}
 
 			if (!dumpfile.empty()) {
 				VeriWrite veri_writer;
