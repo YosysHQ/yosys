@@ -120,7 +120,7 @@ All binary RTL cells have two input ports ``\A`` and ``\B`` and one output port
 	:verilog:`Y = A >>> B`  $sshr         :verilog:`Y = A  - B`   $sub
 	:verilog:`Y = A && B`   $logic_and    :verilog:`Y = A  * B`   $mul
 	:verilog:`Y = A || B`   $logic_or     :verilog:`Y = A  / B`   $div
-	:verilog:`Y = A === B`  $eqx          :verilog:`Y = A  % B`   $mod 
+	:verilog:`Y = A === B`  $eqx          :verilog:`Y = A  % B`   $mod
 	:verilog:`Y = A !== B`  $nex          ``N/A``                 $divfloor
 	:verilog:`Y = A ** B`   $pow          ``N/A``                 $modfoor
 	======================= ============= ======================= =========
@@ -661,6 +661,8 @@ Ports:
 
 ``\TRG``
 	The signals that control when this ``$print`` cell is triggered.
+	If the width of this port is zero and ``\TRG_ENABLE`` is true, the cell is
+	triggered during initial evaluation (time zero) only.
 
 ``\EN``
 	Enable signal for the whole cell.

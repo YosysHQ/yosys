@@ -88,6 +88,17 @@ struct TriggeredAssertion {
 	{ }
 };
 
+struct DisplayOutput {
+	int step;
+	SimInstance *instance;
+	Cell *cell;
+	std::string output;
+
+	DisplayOutput(int step, SimInstance *instance, Cell *cell, std::string output) :
+		step(step), instance(instance), cell(cell), output(output)
+	{ }
+};
+
 struct SimShared
 {
 	bool debug = false;
@@ -110,6 +121,7 @@ struct SimShared
 	int next_output_id = 0;
 	int step = 0;
 	std::vector<TriggeredAssertion> triggered_assertions;
+	std::vector<DisplayOutput> display_output;
 	bool serious_asserts = false;
 	bool initstate = true;
 };
@@ -173,6 +185,7 @@ struct SimInstance
 
 	struct print_state_t
 	{
+		bool initial_done;
 		Const past_trg;
 		Const past_en;
 		Const past_args;
@@ -338,6 +351,7 @@ struct SimInstance
 				print.past_trg = Const(State::Sx, cell->getPort(ID::TRG).size());
 				print.past_args = Const(State::Sx, cell->getPort(ID::ARGS).size());
 				print.past_en = State::Sx;
+				print.initial_done = false;
 			}
 		}
 
@@ -799,7 +813,7 @@ struct SimInstance
 		}
 	}
 
-	void update_ph3(bool check_assertions)
+	void update_ph3(bool gclk_trigger)
 	{
 		for (auto &it : ff_database)
 		{
@@ -840,45 +854,57 @@ struct SimInstance
 			bool triggered = false;
 
 			Const trg = get_state(cell->getPort(ID::TRG));
+			bool trg_en = cell->getParam(ID::TRG_ENABLE).as_bool();
 			Const en = get_state(cell->getPort(ID::EN));
 			Const args = get_state(cell->getPort(ID::ARGS));
 
-			if (!en.as_bool())
-				goto update_print;
+			bool sampled = trg_en && trg.size() > 0;
 
-			if (cell->getParam(ID::TRG_ENABLE).as_bool()) {
-				Const trg_pol = cell->getParam(ID::TRG_POLARITY);
-				for (int i = 0; i < trg.size(); i++) {
-					bool pol = trg_pol[i] == State::S1;
-					State curr = trg[i], past = print.past_trg[i];
-					if (pol && curr == State::S1 && past == State::S0)
+			if (sampled ? print.past_en.as_bool() : en.as_bool()) {
+				if (sampled) {
+					sampled = true;
+					Const trg_pol = cell->getParam(ID::TRG_POLARITY);
+					for (int i = 0; i < trg.size(); i++) {
+						bool pol = trg_pol[i] == State::S1;
+						State curr = trg[i], past = print.past_trg[i];
+						if (pol && curr == State::S1 && past == State::S0)
+							triggered = true;
+						if (!pol && curr == State::S0 && past == State::S1)
+							triggered = true;
+					}
+				} else if (trg_en) {
+					// initial $print (TRG width = 0, TRG_ENABLE = true)
+					if (!print.initial_done && en != print.past_en)
 						triggered = true;
-					if (!pol && curr == State::S0 && past == State::S1)
+				} else if (cell->get_bool_attribute(ID(trg_on_gclk))) {
+					// unified $print for cycle based FV semantics
+					triggered = gclk_trigger;
+				} else {
+					// always @(*) $print
+					if (args != print.past_args || en != print.past_en)
 						triggered = true;
 				}
-			} else {
-				if (args != print.past_args || en != print.past_en)
-					triggered = true;
-			}
 
-			if (triggered) {
-				int pos = 0;
-				for (auto &part : print.fmt.parts) {
-					part.sig = args.extract(pos, part.sig.size());
-					pos += part.sig.size();
+				if (triggered) {
+					int pos = 0;
+					for (auto &part : print.fmt.parts) {
+						part.sig = (sampled ? print.past_args : args).extract(pos, part.sig.size());
+						pos += part.sig.size();
+					}
+
+					std::string rendered = print.fmt.render();
+					log("%s", rendered.c_str());
+					shared->display_output.emplace_back(shared->step, this, cell, rendered);
 				}
-
-				std::string rendered = print.fmt.render();
-				log("%s", rendered.c_str());
 			}
 
-		update_print:
 			print.past_trg = trg;
 			print.past_en = en;
 			print.past_args = args;
+			print.initial_done = true;
 		}
 
-		if (check_assertions)
+		if (gclk_trigger)
 		{
 			for (auto cell : formal_database)
 			{
@@ -910,7 +936,7 @@ struct SimInstance
 		}
 
 		for (auto it : children)
-			it.second->update_ph3(check_assertions);
+			it.second->update_ph3(gclk_trigger);
 	}
 
 	void set_initstate_outputs(State state)
@@ -2052,6 +2078,20 @@ struct SimWorker : SimShared
 			if (!src.empty()) {
 				json.entry("src", src);
 			}
+			json.end_object();
+		}
+		json.end_array();
+		json.name("display_output");
+		json.begin_array();
+		for (auto &output : display_output) {
+			json.begin_object();
+			json.entry("step", output.step);
+			json.entry("path", output.instance->witness_full_path(output.cell));
+			auto src = output.cell->get_string_attribute(ID::src);
+			if (!src.empty()) {
+				json.entry("src", src);
+			}
+			json.entry("output", output.output);
 			json.end_object();
 		}
 		json.end_array();

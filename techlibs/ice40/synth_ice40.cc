@@ -432,7 +432,7 @@ struct SynthIce40Pass : public ScriptPass
 			run("ice40_wrapcarry -unwrap");
 			run("techmap -map +/ice40/ff_map.v");
 			run("clean");
-			run("opt_lut -dlogic SB_CARRY:I0=1:I1=2:CI=3 -dlogic SB_CARRY:CO=3");
+			run("opt_lut -tech ice40");
 		}
 
 		if (check_label("map_cells"))

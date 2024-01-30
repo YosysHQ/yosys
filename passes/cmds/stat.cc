@@ -366,7 +366,7 @@ struct StatPass : public Pass {
 		log("        use cell area information from the provided liberty file\n");
 		log("\n");
 		log("    -tech <technology>\n");
-		log("        print area estemate for the specified technology. Currently supported\n");
+		log("        print area estimate for the specified technology. Currently supported\n");
 		log("        values for <technology>: xilinx, cmos\n");
 		log("\n");
 		log("    -width\n");

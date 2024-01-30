@@ -1072,9 +1072,45 @@ struct CxxrtlWorker {
 		dump_sigspec_rhs(cell->getPort(ID::EN));
 		f << " == value<1>{1u}) {\n";
 		inc_indent();
-			f << indent << print_output;
-			fmt.emit_cxxrtl(f, [this](const RTLIL::SigSpec &sig) { dump_sigspec_rhs(sig); });
-			f << ";\n";
+			dict<std::string, RTLIL::SigSpec> fmt_args;
+			f << indent << "struct : public lazy_fmt {\n";
+			inc_indent();
+				f << indent << "std::string operator() () const override {\n";
+				inc_indent();
+					fmt.emit_cxxrtl(f, indent, [&](const RTLIL::SigSpec &sig) {
+						if (sig.size() == 0)
+							f << "value<0>()";
+						else {
+							std::string arg_name = "arg" + std::to_string(fmt_args.size());
+							fmt_args[arg_name] = sig;
+							f << arg_name;
+						}
+					}, "performer");
+				dec_indent();
+				f << indent << "}\n";
+				f << indent << "struct performer *performer;\n";
+				for (auto arg : fmt_args)
+					f << indent << "value<" << arg.second.size() << "> " << arg.first << ";\n";
+			dec_indent();
+			f << indent << "} formatter;\n";
+			f << indent << "formatter.performer = performer;\n";
+			for (auto arg : fmt_args) {
+				f << indent << "formatter." << arg.first << " = ";
+				dump_sigspec_rhs(arg.second);
+				f << ";\n";
+			}
+			f << indent << "if (performer) {\n";
+			inc_indent();
+				f << indent << "static const metadata_map attributes = ";
+				dump_metadata_map(cell->attributes);
+				f << ";\n";
+				f << indent << "performer->on_print(formatter, attributes);\n";
+			dec_indent();
+			f << indent << "} else {\n";
+			inc_indent();
+				f << indent << print_output << " << formatter();\n";
+			dec_indent();
+			f << indent << "}\n";
 		dec_indent();
 		f << indent << "}\n";
 	}
@@ -1291,20 +1327,29 @@ struct CxxrtlWorker {
 			log_assert(!for_debug);
 
 			// Sync $print cells are grouped into PRINT_SYNC nodes in the FlowGraph.
-			log_assert(!cell->getParam(ID::TRG_ENABLE).as_bool());
+			log_assert(!cell->getParam(ID::TRG_ENABLE).as_bool() || (cell->getParam(ID::TRG_ENABLE).as_bool() && cell->getParam(ID::TRG_WIDTH).as_int() == 0));
 
-			f << indent << "auto " << mangle(cell) << "_curr = ";
-			dump_sigspec_rhs(cell->getPort(ID::EN));
-			f << ".concat(";
-			dump_sigspec_rhs(cell->getPort(ID::ARGS));
-			f << ").val();\n";
+			if (!cell->getParam(ID::TRG_ENABLE).as_bool()) { // async $print cell
+				f << indent << "auto " << mangle(cell) << "_curr = ";
+				dump_sigspec_rhs(cell->getPort(ID::EN));
+				f << ".concat(";
+				dump_sigspec_rhs(cell->getPort(ID::ARGS));
+				f << ").val();\n";
 
-			f << indent << "if (" << mangle(cell) << " != " << mangle(cell) << "_curr) {\n";
-			inc_indent();
-				dump_print(cell);
-				f << indent << mangle(cell) << " = " << mangle(cell) << "_curr;\n";
-			dec_indent();
-			f << indent << "}\n";
+				f << indent << "if (" << mangle(cell) << " != " << mangle(cell) << "_curr) {\n";
+				inc_indent();
+					dump_print(cell);
+					f << indent << mangle(cell) << " = " << mangle(cell) << "_curr;\n";
+				dec_indent();
+				f << indent << "}\n";
+			} else { // initial $print cell
+				f << indent << "if (!" << mangle(cell) << ") {\n";
+				inc_indent();
+					dump_print(cell);
+					f << indent << mangle(cell) << " = value<1>{1u};\n";
+				dec_indent();
+				f << indent << "}\n";
+			}
 		// Flip-flops
 		} else if (is_ff_cell(cell->type)) {
 			log_assert(!for_debug);
@@ -1401,7 +1446,7 @@ struct CxxrtlWorker {
 				f << indent;
 				dump_sigspec_lhs(cell->getPort(ID::Q));
 				f << " = ";
-				dump_sigspec_lhs(cell->getPort(ID::Q));
+				dump_sigspec_rhs(cell->getPort(ID::Q));
 				f << ".update(";
 				dump_const(RTLIL::Const(RTLIL::S1, cell->getParam(ID::WIDTH).as_int()));
 				f << ", ";
@@ -1413,7 +1458,7 @@ struct CxxrtlWorker {
 				f << indent;
 				dump_sigspec_lhs(cell->getPort(ID::Q));
 				f << " = ";
-				dump_sigspec_lhs(cell->getPort(ID::Q));
+				dump_sigspec_rhs(cell->getPort(ID::Q));
 				f << ".update(";
 				dump_const(RTLIL::Const(RTLIL::S0, cell->getParam(ID::WIDTH).as_int()));
 				f << ", ";
@@ -1485,11 +1530,11 @@ struct CxxrtlWorker {
 			};
 			if (buffered_inputs) {
 				// If we have any buffered inputs, there's no chance of converging immediately.
-				f << indent << mangle(cell) << access << "eval();\n";
+				f << indent << mangle(cell) << access << "eval(performer);\n";
 				f << indent << "converged = false;\n";
 				assign_from_outputs(/*cell_converged=*/false);
 			} else {
-				f << indent << "if (" << mangle(cell) << access << "eval()) {\n";
+				f << indent << "if (" << mangle(cell) << access << "eval(performer)) {\n";
 				inc_indent();
 					assign_from_outputs(/*cell_converged=*/true);
 				dec_indent();
@@ -2002,6 +2047,11 @@ struct CxxrtlWorker {
 				}
 			}
 			for (auto cell : module->cells()) {
+				// Certain $print cells have additional state, which must be reset as well.
+				if (cell->type == ID($print) && !cell->getParam(ID::TRG_ENABLE).as_bool())
+					f << indent << mangle(cell) << " = value<" << (1 + cell->getParam(ID::ARGS_WIDTH).as_int()) << ">();\n";
+				if (cell->type == ID($print) && cell->getParam(ID::TRG_ENABLE).as_bool() && cell->getParam(ID::TRG_WIDTH).as_int() == 0)
+					f << indent << mangle(cell) << " = value<1>();\n";
 				if (is_internal_cell(cell->type))
 					continue;
 				f << indent << mangle(cell);
@@ -2367,7 +2417,8 @@ struct CxxrtlWorker {
 				dump_reset_method(module);
 				f << indent << "}\n";
 				f << "\n";
-				f << indent << "bool eval() override {\n";
+				// No default argument, to prevent unintentional `return bb_foo::eval();` calls that drop performer.
+				f << indent << "bool eval(performer *performer) override {\n";
 				dump_eval_method(module);
 				f << indent << "}\n";
 				f << "\n";
@@ -2377,7 +2428,7 @@ struct CxxrtlWorker {
 				f << indent << "}\n";
 				f << "\n";
 				f << indent << "bool commit() override {\n";
-				f << indent << indent << "null_observer observer;\n";
+				f << indent << indent << "observer observer;\n";
 				f << indent << indent << "return commit<>(observer);\n";
 				f << indent << "}\n";
 				if (debug_info) {
@@ -2430,11 +2481,11 @@ struct CxxrtlWorker {
 					f << "\n";
 				bool has_cells = false;
 				for (auto cell : module->cells()) {
-					if (cell->type == ID($print) && !cell->getParam(ID::TRG_ENABLE).as_bool()) {
-						// comb $print cell -- store the last EN/ARGS values to know when they change.
-						dump_attrs(cell);
+					// Certain $print cells have additional state, which requires storage.
+					if (cell->type == ID($print) && !cell->getParam(ID::TRG_ENABLE).as_bool())
 						f << indent << "value<" << (1 + cell->getParam(ID::ARGS_WIDTH).as_int()) << "> " << mangle(cell) << ";\n";
-					}
+					if (cell->type == ID($print) && cell->getParam(ID::TRG_ENABLE).as_bool() && cell->getParam(ID::TRG_WIDTH).as_int() == 0)
+						f << indent << "value<1> " << mangle(cell) << ";\n";
 					if (is_internal_cell(cell->type))
 						continue;
 					dump_attrs(cell);
@@ -2464,7 +2515,7 @@ struct CxxrtlWorker {
 				f << "\n";
 				f << indent << "void reset() override;\n";
 				f << "\n";
-				f << indent << "bool eval() override;\n";
+				f << indent << "bool eval(performer *performer = nullptr) override;\n";
 				f << "\n";
 				f << indent << "template<class ObserverT>\n";
 				f << indent << "bool commit(ObserverT &observer) {\n";
@@ -2472,7 +2523,7 @@ struct CxxrtlWorker {
 				f << indent << "}\n";
 				f << "\n";
 				f << indent << "bool commit() override {\n";
-				f << indent << indent << "null_observer observer;\n";
+				f << indent << indent << "observer observer;\n";
 				f << indent << indent << "return commit<>(observer);\n";
 				f << indent << "}\n";
 				if (debug_info) {
@@ -2503,7 +2554,7 @@ struct CxxrtlWorker {
 		dump_reset_method(module);
 		f << indent << "}\n";
 		f << "\n";
-		f << indent << "bool " << mangle(module) << "::eval() {\n";
+		f << indent << "bool " << mangle(module) << "::eval(performer *performer) {\n";
 		dump_eval_method(module);
 		f << indent << "}\n";
 		if (debug_info) {
@@ -2527,7 +2578,6 @@ struct CxxrtlWorker {
 		RTLIL::Module *top_module = nullptr;
 		std::vector<RTLIL::Module*> modules;
 		TopoSort<RTLIL::Module*> topo_design;
-		bool has_prints = false;
 		for (auto module : design->modules()) {
 			if (!design->selected_module(module))
 				continue;
@@ -2540,8 +2590,6 @@ struct CxxrtlWorker {
 
 			topo_design.node(module);
 			for (auto cell : module->cells()) {
-				if (cell->type == ID($print))
-					has_prints = true;
 				if (is_internal_cell(cell->type) || is_cxxrtl_blackbox_cell(cell))
 					continue;
 				RTLIL::Module *cell_module = design->module(cell->type);
@@ -2600,8 +2648,6 @@ struct CxxrtlWorker {
 			f << "#include \"" << basename(intf_filename) << "\"\n";
 		else
 			f << "#include <cxxrtl/cxxrtl.h>\n";
-		if (has_prints)
-			f << "#include <iostream>\n";
 		f << "\n";
 		f << "#if defined(CXXRTL_INCLUDE_CAPI_IMPL) || \\\n";
 		f << "    defined(CXXRTL_INCLUDE_VCD_CAPI_IMPL)\n";
@@ -2964,8 +3010,9 @@ struct CxxrtlWorker {
 			for (auto node : node_order)
 				if (live_nodes[node]) {
 					if (node->type == FlowGraph::Node::Type::CELL_EVAL &&
-					    node->cell->type == ID($print) &&
-					    node->cell->getParam(ID::TRG_ENABLE).as_bool())
+							node->cell->type == ID($print) &&
+							node->cell->getParam(ID::TRG_ENABLE).as_bool() &&
+							node->cell->getParam(ID::TRG_WIDTH).as_int() != 0)
 						sync_print_cells[make_pair(node->cell->getPort(ID::TRG), node->cell->getParam(ID::TRG_POLARITY))].push_back(node->cell);
 					else
 						schedule[module].push_back(*node);
@@ -3278,7 +3325,7 @@ struct CxxrtlBackend : public Backend {
 		log("      value<8> p_i_data;\n");
 		log("      wire<8> p_o_data;\n");
 		log("\n");
-		log("      bool eval() override;\n");
+		log("      bool eval(performer *performer) override;\n");
 		log("      template<class ObserverT>\n");
 		log("      bool commit(ObserverT &observer);\n");
 		log("      bool commit() override;\n");
@@ -3293,11 +3340,11 @@ struct CxxrtlBackend : public Backend {
 		log("    namespace cxxrtl_design {\n");
 		log("\n");
 		log("    struct stderr_debug : public bb_p_debug {\n");
-		log("      bool eval() override {\n");
+		log("      bool eval(performer *performer) override {\n");
 		log("        if (posedge_p_clk() && p_en)\n");
 		log("          fprintf(stderr, \"debug: %%02x\\n\", p_i_data.data[0]);\n");
 		log("        p_o_data.next = p_i_data;\n");
-		log("        return bb_p_debug::eval();\n");
+		log("        return bb_p_debug::eval(performer);\n");
 		log("      }\n");
 		log("    };\n");
 		log("\n");
@@ -3398,7 +3445,7 @@ struct CxxrtlBackend : public Backend {
 		log("    -print-output <stream>\n");
 		log("        $print cells in the generated code direct their output to <stream>.\n");
 		log("        must be one of \"std::cout\", \"std::cerr\". if not specified,\n");
-		log("        \"std::cout\" is used.\n");
+		log("        \"std::cout\" is used. explicitly provided performer overrides this.\n");
 		log("\n");
 		log("    -nohierarchy\n");
 		log("        use design hierarchy as-is. in most designs, a top module should be\n");

@@ -100,6 +100,10 @@ struct VerilogFrontend : public Frontend {
 		log("    -assert-assumes\n");
 		log("        treat all assume() statements like assert() statements\n");
 		log("\n");
+		log("    -nodisplay\n");
+		log("        suppress output from display system tasks ($display et. al).\n");
+		log("        This does not affect the output from a later 'sim' command.\n");
+		log("\n");
 		log("    -debug\n");
 		log("        alias for -dump_ast1 -dump_ast2 -dump_vlog1 -dump_vlog2 -yydebug\n");
 		log("\n");
@@ -235,6 +239,7 @@ struct VerilogFrontend : public Frontend {
 	}
 	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		bool flag_nodisplay = false;
 		bool flag_dump_ast1 = false;
 		bool flag_dump_ast2 = false;
 		bool flag_no_dump_ptr = false;
@@ -306,6 +311,10 @@ struct VerilogFrontend : public Frontend {
 			}
 			if (arg == "-assert-assumes") {
 				assert_assumes_mode = true;
+				continue;
+			}
+			if (arg == "-nodisplay") {
+				flag_nodisplay = true;
 				continue;
 			}
 			if (arg == "-debug") {
@@ -510,7 +519,7 @@ struct VerilogFrontend : public Frontend {
 		if (flag_nodpi)
 			error_on_dpi_function(current_ast);
 
-		AST::process(design, current_ast, flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog1, flag_dump_vlog2, flag_dump_rtlil, flag_nolatches,
+		AST::process(design, current_ast, flag_nodisplay, flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog1, flag_dump_vlog2, flag_dump_rtlil, flag_nolatches,
 				flag_nomeminit, flag_nomem2reg, flag_mem2reg, flag_noblackbox, lib_mode, flag_nowb, flag_noopt, flag_icells, flag_pwires, flag_nooverwrite, flag_overwrite, flag_defer, default_nettype_wire);
 
 

@@ -1053,6 +1053,15 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		f << stringf(";\n");
 		return true;
 	}
+	
+	if (cell->type == ID($_BUF_)) {
+		f << stringf("%s" "assign ", indent.c_str());
+		dump_sigspec(f, cell->getPort(ID::Y));
+		f << stringf(" = ");
+		dump_cell_expr_port(f, cell, "A", false);
+		f << stringf(";\n");
+		return true;
+	}
 
 	if (cell->type.in(ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_), ID($_XOR_), ID($_XNOR_), ID($_ANDNOT_), ID($_ORNOT_))) {
 		f << stringf("%s" "assign ", indent.c_str());
@@ -1830,7 +1839,8 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 			if (it != cell->parameters.begin())
 				f << stringf(",");
 			f << stringf("\n%s  .%s(", indent.c_str(), id(it->first).c_str());
-			dump_const(f, it->second);
+			if (it->second.size() > 0)
+				dump_const(f, it->second);
 			f << stringf(")");
 		}
 		f << stringf("\n%s" ")", indent.c_str());
@@ -1895,17 +1905,21 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 
 void dump_sync_print(std::ostream &f, std::string indent, const RTLIL::SigSpec &trg, const RTLIL::Const &polarity, std::vector<const RTLIL::Cell*> &cells)
 {
-	f << stringf("%s" "always @(", indent.c_str());
-	for (int i = 0; i < trg.size(); i++) {
-		if (i != 0)
-			f << " or ";
-		if (polarity[i])
-			f << "posedge ";
-		else
-			f << "negedge ";
-		dump_sigspec(f, trg[i]);
+	if (trg.size() == 0) {
+		f << stringf("%s" "initial begin\n", indent.c_str());
+	} else {
+		f << stringf("%s" "always @(", indent.c_str());
+		for (int i = 0; i < trg.size(); i++) {
+			if (i != 0)
+				f << " or ";
+			if (polarity[i])
+				f << "posedge ";
+			else
+				f << "negedge ";
+			dump_sigspec(f, trg[i]);
+		}
+		f << ") begin\n";
 	}
-	f << ") begin\n";
 
 	std::sort(cells.begin(), cells.end(), [](const RTLIL::Cell *a, const RTLIL::Cell *b) {
 		return a->getParam(ID::PRIORITY).as_int() > b->getParam(ID::PRIORITY).as_int();
@@ -1944,13 +1958,8 @@ void dump_conn(std::ostream &f, std::string indent, const RTLIL::SigSpec &left, 
 
 void dump_proc_switch(std::ostream &f, std::string indent, RTLIL::SwitchRule *sw);
 
-void dump_case_body(std::ostream &f, std::string indent, RTLIL::CaseRule *cs, bool omit_trailing_begin = false)
+void dump_case_actions(std::ostream &f, std::string indent, RTLIL::CaseRule *cs)
 {
-	int number_of_stmts = cs->switches.size() + cs->actions.size();
-
-	if (!omit_trailing_begin && number_of_stmts >= 2)
-		f << stringf("%s" "begin\n", indent.c_str());
-
 	for (auto it = cs->actions.begin(); it != cs->actions.end(); ++it) {
 		if (it->first.size() == 0)
 			continue;
@@ -1960,15 +1969,6 @@ void dump_case_body(std::ostream &f, std::string indent, RTLIL::CaseRule *cs, bo
 		dump_sigspec(f, it->second);
 		f << stringf(";\n");
 	}
-
-	for (auto it = cs->switches.begin(); it != cs->switches.end(); ++it)
-		dump_proc_switch(f, indent + "  ", *it);
-
-	if (!omit_trailing_begin && number_of_stmts == 0)
-		f << stringf("%s  /* empty */;\n", indent.c_str());
-
-	if (omit_trailing_begin || number_of_stmts >= 2)
-		f << stringf("%s" "end\n", indent.c_str());
 }
 
 bool dump_proc_switch_ifelse(std::ostream &f, std::string indent, RTLIL::SwitchRule *sw)
@@ -1991,34 +1991,50 @@ bool dump_proc_switch_ifelse(std::ostream &f, std::string indent, RTLIL::SwitchR
 		}
 	}
 
+	dump_attributes(f, indent, sw->attributes);
 	f << indent;
 	auto sig_it = sw->signal.begin();
 	for (auto it = sw->cases.begin(); it != sw->cases.end(); ++it, ++sig_it) {
-		bool had_newline = true;
 		if (it != sw->cases.begin()) {
-			if ((*it)->compare.empty()) {
-				f << indent << "else\n";
-				had_newline = true;
-			} else {
-				f << indent << "else ";
-				had_newline = false;
-			}
+			if ((*it)->compare.empty())
+				f << " else begin\n";
+			else
+				f << " else ";
 		}
 		if (!(*it)->compare.empty()) {
-			if (!(*it)->attributes.empty()) {
-				if (!had_newline)
-					f << "\n" << indent;
-				dump_attributes(f, "", (*it)->attributes, "\n" + indent);
-			}
 			f << stringf("if (");
 			dump_sigspec(f, *sig_it);
-			f << stringf(")\n");
+			f << stringf(") begin\n");
 		}
-		dump_case_body(f, indent, *it);
+
+		dump_case_actions(f, indent, (*it));
+		for (auto it2 = (*it)->switches.begin(); it2 != (*it)->switches.end(); ++it2)
+			dump_proc_switch(f, indent + "  ", *it2);
+
+		f << indent << "end";
 		if ((*it)->compare.empty())
 			break;
 	}
+	f << "\n";
 	return true;
+}
+
+void dump_case_body(std::ostream &f, std::string indent, RTLIL::CaseRule *cs, bool omit_trailing_begin = false)
+{
+	int number_of_stmts = cs->switches.size() + cs->actions.size();
+
+	if (!omit_trailing_begin && number_of_stmts >= 2)
+		f << stringf("%s" "begin\n", indent.c_str());
+
+	dump_case_actions(f, indent, cs);
+	for (auto it = cs->switches.begin(); it != cs->switches.end(); ++it)
+		dump_proc_switch(f, indent + "  ", *it);
+
+	if (!omit_trailing_begin && number_of_stmts == 0)
+		f << stringf("%s  /* empty */;\n", indent.c_str());
+
+	if (omit_trailing_begin || number_of_stmts >= 2)
+		f << stringf("%s" "end\n", indent.c_str());
 }
 
 void dump_proc_switch(std::ostream &f, std::string indent, RTLIL::SwitchRule *sw)
