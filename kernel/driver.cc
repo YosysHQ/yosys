@@ -53,6 +53,78 @@
 #  include <unistd.h>
 #endif
 
+#include <sys/stat.h> // _stat
+#include <errno.h>    // errno, ENOENT, EEXIST
+#if defined(_WIN32)
+#  include <direct.h>
+#  define mkdir(path, mode) _mkdir(path)
+#  define PATH_DELIMETER "\\"
+#else 
+#  define PATH_DELIMETER "/"
+#endif
+
+
+
+bool isDirExist(const std::string& path)
+{
+#if defined(_WIN32)
+    struct _stat info;
+    if (_stat(path.c_str(), &info) != 0)
+    {
+        return false;
+    }
+    return (info.st_mode & _S_IFDIR) != 0;
+#else 
+    struct stat info;
+    if (stat(path.c_str(), &info) != 0)
+    {
+        return false;
+    }
+    return (info.st_mode & S_IFDIR) != 0;
+#endif
+}
+bool makePath(const std::string& path)
+{
+#if defined(_WIN32)
+    int ret = _mkdir(path.c_str());
+#else
+    mode_t mode = 0755;
+    int ret = mkdir(path.c_str(), mode);
+#endif
+    if (ret == 0)
+        return true;
+
+    switch (errno)
+    {
+    case ENOENT:
+        // parent didn't exist, try to create it
+        {
+            int pos = path.find_last_of('/');
+            if (pos == std::string::npos)
+#if defined(_WIN32)
+                pos = path.find_last_of('\\');
+            if (pos == std::string::npos)
+#endif
+                return false;
+            if (!makePath( path.substr(0, pos) ))
+                return false;
+        }
+        // now, try to create again
+#if defined(_WIN32)
+        return 0 == _mkdir(path.c_str());
+#else 
+        return 0 == mkdir(path.c_str(), mode);
+#endif
+
+    case EEXIST:
+        // done!
+        return isDirExist(path);
+
+    default:
+        return false;
+    }
+}
+
 USING_YOSYS_NAMESPACE
 
 char *optarg;
@@ -244,16 +316,27 @@ int main(int argc, char **argv)
 	bool mode_q = false;
 
 #if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
-	if (getenv("XDG_STATE_HOME") == NULL || getenv("XDG_STATE_HOME")[0] == '\0') {
-		if (getenv("HOME") != NULL) {
-			yosys_history_file = stringf("%s/.local/state/.yosys_history", getenv("HOME"));
-			read_history(yosys_history_file.c_str());
-			yosys_history_offset = where_history();
+    std::string state_dir;
+    if (getenv("XDG_STATE_HOME") == NULL || getenv("XDG_STATE_HOME")[0] == '\0') {
+        if (getenv("HOME") != NULL) {
+            state_dir = stringf("%s/.local/state", getenv("HOME"));
+        }else {
+			log("$HOME is empty. No history file will be created.");
 		}
-	} else {
-		yosys_history_file = stringf("%s/.yosys_history", getenv("XDG_STATE_HOME"));
-		read_history(yosys_history_file.c_str());
-		yosys_history_offset = where_history();
+    } else {
+        state_dir = stringf("%s", getenv("XDG_STATE_HOME"));
+    }
+
+    if (!state_dir.empty()) {
+        std::string yosys_dir = state_dir + "/yosys";
+        // mkdir(yosys_dir.c_str(), 0777);
+		makePath(yosys_dir);
+
+        yosys_history_file = yosys_dir + "/history";
+        read_history(yosys_history_file.c_str());
+        yosys_history_offset = where_history();
+    }else {
+		log("state_dir is empty. No history file will be created.");
 	}
 #endif
 
