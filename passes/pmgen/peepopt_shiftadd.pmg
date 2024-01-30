@@ -113,8 +113,6 @@ code
 				log_warning("at %s: result of shift operation is always constant (shifting '%s' by '%s + %d'-bits)\n", \
 							shift->get_src_attribute().c_str(), log_signal(old_a), log_signal(var_signal), offset);
 		}
-
-		// is it fine to leave new_a empty? (size 0)
 	}
 
 	SigSpec new_b = {var_signal, SigSpec(State::S0, log2scale)};
