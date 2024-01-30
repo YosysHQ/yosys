@@ -324,6 +324,7 @@ input [PORT_W_WIDTH-1:0] PORT_W_WR_DATA;
 
 wire RST = OPTION_RESET_MODE == "SYNC" ? PORT_R_RD_SRST : PORT_R_RD_ARST;
 wire [13:0] ADW = `addrbe_always(PORT_W_WIDTH, PORT_W_ADDR);
+wire WRE = PORT_W_CLK_EN & PORT_W_WR_EN;
 
 generate
 
@@ -347,7 +348,7 @@ if (PORT_W_WIDTH < 9 || PORT_R_WIDTH < 9) begin
 		.BLKSELB(3'b000),
 
 		.CLKA(PORT_W_CLK),
-		.CEA(PORT_W_CLK_EN),
+		.CEA(WRE),
 		.RESETA(1'b0),
 		.ADA(ADW),
 		.DI(DI),
@@ -380,7 +381,7 @@ end else begin
 		.BLKSELB(3'b000),
 
 		.CLKA(PORT_W_CLK),
-		.CEA(PORT_W_CLK_EN),
+		.CEA(WRE),
 		.RESETA(1'b0),
 		.ADA(ADW),
 		.DI(DI),
