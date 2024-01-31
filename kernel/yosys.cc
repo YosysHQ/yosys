@@ -436,6 +436,25 @@ std::string make_temp_dir(std::string template_str)
 #endif
 }
 
+bool check_dir_exists(const std::string& path)
+{
+#if defined(_WIN32)
+	struct _stat info;
+	if (_stat(path.c_str(), &info) != 0)
+	{
+		return false;
+	}
+	return (info.st_mode & _S_IFDIR) != 0;
+#else
+	struct stat info;
+	if (stat(path.c_str(), &info) != 0)
+	{
+		return false;
+	}
+	return (info.st_mode & S_IFDIR) != 0;
+#endif
+}
+
 #ifdef _WIN32
 bool check_file_exists(std::string filename, bool)
 {
@@ -479,6 +498,48 @@ void remove_directory(std::string dirname)
 	free(namelist);
 	rmdir(dirname.c_str());
 #endif
+}
+
+bool create_directory(const std::string& path)
+{
+#if defined(_WIN32)
+	int ret = _mkdir(path.c_str());
+#else
+	mode_t mode = 0755;
+	int ret = mkdir(path.c_str(), mode);
+#endif
+	if (ret == 0)
+		return true;
+
+	switch (errno)
+	{
+	case ENOENT:
+		// parent didn't exist, try to create it
+		{
+			std::string::size_type pos = path.find_last_of('/');
+			if (pos == std::string::npos)
+#if defined(_WIN32)
+				pos = path.find_last_of('\\');
+			if (pos == std::string::npos)
+#endif
+				return false;
+			if (!create_directory( path.substr(0, pos) ))
+				return false;
+		}
+		// now, try to create again
+#if defined(_WIN32)
+		return 0 == _mkdir(path.c_str());
+#else
+		return 0 == mkdir(path.c_str(), mode);
+#endif
+
+	case EEXIST:
+		// done!
+		return check_dir_exists(path);
+
+	default:
+		return false;
+	}
 }
 
 std::string escape_filename_spaces(const std::string& filename)
@@ -781,10 +842,10 @@ static int tcl_yosys_cmd(ClientData, Tcl_Interp *interp, int argc, const char *a
 
 int yosys_tcl_iterp_init(Tcl_Interp *interp)
 {
-    if (Tcl_Init(interp)!=TCL_OK)
+	if (Tcl_Init(interp)!=TCL_OK)
 		log_warning("Tcl_Init() call failed - %s\n",Tcl_ErrnoMsg(Tcl_GetErrno()));
 	Tcl_CreateCommand(interp, "yosys", tcl_yosys_cmd, NULL, NULL);
-    return TCL_OK ;
+	return TCL_OK ;
 }
 
 void yosys_tcl_activate_repl()

@@ -66,6 +66,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <limits.h>
+#include <sys/stat.h>
+#include <errno.h>
 
 #ifdef WITH_PYTHON
 #include <Python.h>
@@ -341,8 +343,10 @@ std::string get_base_tmpdir();
 std::string make_temp_file(std::string template_str = get_base_tmpdir() + "/yosys_XXXXXX");
 std::string make_temp_dir(std::string template_str = get_base_tmpdir() + "/yosys_XXXXXX");
 bool check_file_exists(std::string filename, bool is_exec = false);
+bool check_dir_exists(const std::string& path);
 bool is_absolute_path(std::string filename);
 void remove_directory(std::string dirname);
+bool create_directory(const std::string& path);
 std::string escape_filename_spaces(const std::string& filename);
 
 template<typename T> int GetSize(const T &obj) { return obj.size(); }
