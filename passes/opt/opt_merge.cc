@@ -227,6 +227,11 @@ struct OptMergeWorker
 			for (auto cell : module->cells()) {
 				if (!design->selected(module, cell))
 					continue;
+				if (cell->type.in(ID($meminit), ID($meminit_v2), ID($mem), ID($mem_v2))) {
+					// Ignore those for performance: meminit can have an excessively large port,
+					// mem can have an excessively large parameter holding the init data
+					continue;
+				}
 				if (mode_keepdc && has_dont_care_initval(cell))
 					continue;
 				if (ct.cell_known(cell->type) || (mode_share_all && cell->known()))
