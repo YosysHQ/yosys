@@ -77,78 +77,46 @@ struct OptMergeWorker
 		return str;
 	}
 
-        uint64_t hash_cell_parameters_and_connections(const RTLIL::Cell *cell)
+	uint64_t hash_cell_parameters_and_connections(const RTLIL::Cell *cell)
 	{
-		vector<string> hash_conn_strings;
-		std::string hash_string = cell->type.str() + "\n";
-
-		const dict<RTLIL::IdString, RTLIL::SigSpec> *conn = &cell->connections();
-		dict<RTLIL::IdString, RTLIL::SigSpec> alt_conn;
+		uint64_t conn_hash = 0;
 
 		if (cell->type.in(ID($and), ID($or), ID($xor), ID($xnor), ID($add), ID($mul),
 				ID($logic_and), ID($logic_or), ID($_AND_), ID($_OR_), ID($_XOR_))) {
-			alt_conn = *conn;
-			if (assign_map(alt_conn.at(ID::A)) < assign_map(alt_conn.at(ID::B))) {
-				alt_conn[ID::A] = conn->at(ID::B);
-				alt_conn[ID::B] = conn->at(ID::A);
+			conn_hash = assign_map(cell->getPort(ID::A)).hash() + assign_map(cell->getPort(ID::B)).hash();
+		} else if (cell->type.in(ID($reduce_xor), ID($reduce_xnor))) {
+			SigSpec a = assign_map(cell->getPort(ID::A));
+			a.sort();
+			conn_hash = a.hash();
+		} else if (cell->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_bool))) {
+			SigSpec a = assign_map(cell->getPort(ID::A));
+			a.sort_and_unify();
+			conn_hash = a.hash();
+		} else if (cell->type == ID($pmux)) {
+			uint64_t acc = 0;
+			int width = cell->getParam(ID::WIDTH).as_int();
+			SigSpec a = assign_map(cell->getPort(ID::A));
+			SigSpec b = assign_map(cell->getPort(ID::B));
+			SigSpec s = assign_map(cell->getPort(ID::S));
+			for (int i = 0; i < cell->getParam(ID::S_WIDTH).as_int(); i++) {
+				SigSpec b_window = b.extract(i * width, width);
+				acc += mkhash(s[i].hash(), b_window.hash());
 			}
-			conn = &alt_conn;
-		} else
-		if (cell->type.in(ID($reduce_xor), ID($reduce_xnor))) {
-			alt_conn = *conn;
-			assign_map.apply(alt_conn.at(ID::A));
-			alt_conn.at(ID::A).sort();
-			conn = &alt_conn;
-		} else
-		if (cell->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_bool))) {
-			alt_conn = *conn;
-			assign_map.apply(alt_conn.at(ID::A));
-			alt_conn.at(ID::A).sort_and_unify();
-			conn = &alt_conn;
-		} else
-		if (cell->type == ID($pmux)) {
-			alt_conn = *conn;
-			assign_map.apply(alt_conn.at(ID::A));
-			assign_map.apply(alt_conn.at(ID::B));
-			assign_map.apply(alt_conn.at(ID::S));
-			sort_pmux_conn(alt_conn);
-			conn = &alt_conn;
+			conn_hash = mkhash(a.hash(), acc);
+		} else {
+			for (auto conn : cell->connections())
+			if (!cell->output(conn.first))
+				conn_hash += mkhash(conn.first.hash(), assign_map(conn.second).hash());
+
+			if (RTLIL::builtin_ff_cell_types().count(cell->type))
+				conn_hash += initvals(cell->getPort(ID::Q)).hash();
 		}
 
-		for (auto &it : *conn) {
-			RTLIL::SigSpec sig;
-			if (cell->output(it.first)) {
-				if (it.first == ID::Q && RTLIL::builtin_ff_cell_types().count(cell->type)) {
-					// For the 'Q' output of state elements,
-					//   use its (* init *) attribute value
-					sig = initvals(it.second);
-				}
-				else
-					continue;
-			}
-			else
-				sig = assign_map(it.second);
-			string s = "C " + it.first.str() + "=";
-			for (auto &chunk : sig.chunks()) {
-				if (chunk.wire)
-					s += "{" + chunk.wire->name.str() + " " +
-							int_to_hash_string(chunk.offset) + " " +
-							int_to_hash_string(chunk.width) + "}";
-				else
-					s += RTLIL::Const(chunk.data).as_string();
-			}
-			hash_conn_strings.push_back(s + "\n");
-		}
-
+		uint64_t param_hash = 0;
 		for (auto &it : cell->parameters)
-			hash_conn_strings.push_back("P " + it.first.str() + "=" + it.second.as_string() + "\n");
+			param_hash += mkhash(it.first.hash(), it.second.hash());
 
-		std::sort(hash_conn_strings.begin(), hash_conn_strings.end());
-
-		for (auto it : hash_conn_strings)
-			hash_string += it;
-
-		return std::hash<std::string>{}(hash_string);
+		return mkhash(conn_hash, param_hash) + cell->type.hash();
 	}
 
 	bool compare_cell_parameters_and_connections(const RTLIL::Cell *cell1, const RTLIL::Cell *cell2)
