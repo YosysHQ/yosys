@@ -223,14 +223,14 @@ struct OptMergeWorker
 		while (did_something)
 		{
 			std::vector<RTLIL::Cell*> cells;
-			cells.reserve(module->cells_.size());
-			for (auto &it : module->cells_) {
-				if (!design->selected(module, it.second))
+			cells.reserve(module->cells().size());
+			for (auto cell : module->cells()) {
+				if (!design->selected(module, cell))
 					continue;
-				if (mode_keepdc && has_dont_care_initval(it.second))
+				if (mode_keepdc && has_dont_care_initval(cell))
 					continue;
-				if (ct.cell_known(it.second->type) || (mode_share_all && it.second->known()))
-					cells.push_back(it.second);
+				if (ct.cell_known(cell->type) || (mode_share_all && cell->known()))
+					cells.push_back(cell);
 			}
 
 			did_something = false;
