@@ -271,7 +271,7 @@ int main(int argc, char **argv)
         read_history(yosys_history_file.c_str());
         yosys_history_offset = where_history();
     } else {
-        log("state_dir is empty. No history file will be created.");
+        log("Directory to put history file does not exist. If you are on Windows either $HOMEDRIVE or $HOMEPATH is empty.");
     }
 #endif
 
