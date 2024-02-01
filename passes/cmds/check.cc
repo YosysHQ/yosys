@@ -104,8 +104,7 @@ struct CheckPass : public Pass {
 			dict<SigBit, vector<string>> wire_drivers;
 			dict<SigBit, int> wire_drivers_count;
 			pool<SigBit> used_wires;
-			TopoSort<string> topo;
-
+			TopoSort<std::pair<RTLIL::IdString, int>> topo;
 			for (auto &proc_it : module->processes)
 			{
 				std::vector<RTLIL::CaseRule*> all_cases = {&proc_it.second->root_case};
@@ -164,16 +163,16 @@ struct CheckPass : public Pass {
 					if (cell->input(conn.first))
 						for (auto bit : sig)
 							if (bit.wire) {
-								if (logic_cell)
-									topo.edge(stringf("wire %s", log_signal(bit)),
-											stringf("cell %s (%s)", log_id(cell), log_id(cell->type)));
+								if (logic_cell && bit.wire)
+									topo.edge(std::make_pair(bit.wire->name, bit.offset),
+											std::make_pair(cell->name, -1));
 								used_wires.insert(bit);
 							}
 					if (cell->output(conn.first))
 						for (int i = 0; i < GetSize(sig); i++) {
-							if (logic_cell)
-								topo.edge(stringf("cell %s (%s)", log_id(cell), log_id(cell->type)),
-										stringf("wire %s", log_signal(sig[i])));
+							if (logic_cell && sig[i].wire)
+								topo.edge(std::make_pair(cell->name, -1),
+										std::make_pair(sig[i].wire->name, sig[i].offset));
 
 							if (sig[i].wire || !cell->input(conn.first))
 								wire_drivers[sig[i]].push_back(stringf("port %s[%d] of cell %s (%s)",
@@ -239,8 +238,28 @@ struct CheckPass : public Pass {
 			topo.sort();
 			for (auto &loop : topo.loops) {
 				string message = stringf("found logic loop in module %s:\n", log_id(module));
-				for (auto &str : loop)
-					message += stringf("    %s\n", str.c_str());
+				for (auto &pair : loop) {
+					RTLIL::AttrObject *obj;
+					if (pair.second == -1)
+						obj = module->cell(pair.first);
+					else
+						obj = module->wire(pair.first);
+					log_assert(obj);
+					std::string src;
+					if (obj->has_attribute(ID::src)) {
+						std::string src_attr = obj->get_src_attribute();
+						src = stringf(" source: %s", src_attr.c_str());
+					}
+					if (pair.second == -1) {
+						Cell *cell = module->cell(pair.first);
+						log_assert(cell);
+						message += stringf("    cell %s (%s)%s\n", log_id(cell), log_id(cell->type), src.c_str());
+					} else {
+						Wire *wire = module->wire(pair.first);
+						log_assert(wire);
+						message += stringf("    wire %s%s\n", log_signal(SigBit(wire, pair.second)), src.c_str());
+					}
+				}
 				log_warning("%s", message.c_str());
 				counter++;
 			}
