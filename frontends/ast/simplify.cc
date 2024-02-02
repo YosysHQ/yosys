@@ -273,11 +273,6 @@ static int add_dimension(AstNode *node, AstNode *rnode)
 	return width;
 }
 
-[[noreturn]] static void struct_array_packing_error(AstNode *node)
-{
-	node->input_error("Unpacked array in packed struct/union member %s\n", node->str.c_str());
-}
-
 static int size_packed_struct(AstNode *snode, int base_offset)
 {
 	// Struct members will be laid out in the structure contiguously from left to right.
@@ -296,64 +291,20 @@ static int size_packed_struct(AstNode *snode, int base_offset)
 		}
 		else {
 			log_assert(node->type == AST_STRUCT_ITEM);
-			if (node->children.size() > 0 && node->children[0]->type == AST_RANGE) {
-				// member width e.g. bit [7:0] a
-				width = range_width(node, node->children[0]);
-				if (node->children.size() == 2) {
-					// Unpacked array. Note that this is a Yosys extension; only packed data types
-					// and integer data types are allowed in packed structs / unions in SystemVerilog.
-					if (node->children[1]->type == AST_RANGE) {
-						// Unpacked array, e.g. bit [63:0] a [0:3]
-						// Pretend it's declared as a packed array, e.g. bit [0:3][63:0] a
-						auto rnode = node->children[1];
-						if (rnode->children.size() == 1) {
-							// C-style array size, e.g. bit [63:0] a [4]
-							node->dimensions.push_back({ 0, rnode->range_left, true });
-							width *= rnode->range_left;
-						} else {
-							width *= add_dimension(node, rnode);
-						}
-						add_dimension(node, node->children[0]);
-					}
-					else {
-						// The Yosys extension for unpacked arrays in packed structs / unions
-						// only supports memories, i.e. e.g. logic [7:0] a [256] - see above.
-						struct_array_packing_error(node);
-					}
-				} else {
-					// Vector
-					add_dimension(node, node->children[0]);
-				}
-				// range nodes are now redundant
-				for (AstNode *child : node->children)
-					delete child;
-				node->children.clear();
+			// Pretend it's just a wire in order to resolve the type.
+			node->type = AST_WIRE;
+			while (node->simplify(true, 1, -1, false)) { }
+			node->type = AST_STRUCT_ITEM;
+			width = 1;
+			for (int i = 0; i < GetSize(node->dimensions); i++) {
+				width *= node->dimensions[i].range_width;
 			}
-			else if (node->children.size() > 0 && node->children[0]->type == AST_MULTIRANGE) {
-				// Packed array, e.g. bit [3:0][63:0] a
-				if (node->children.size() != 1) {
-					// The Yosys extension for unpacked arrays in packed structs / unions
-					// only supports memories, i.e. e.g. logic [7:0] a [256] - see above.
-					struct_array_packing_error(node);
-				}
-				width = 1;
-				for (auto rnode : node->children[0]->children) {
-					width *= add_dimension(node, rnode);
-				}
-				// range nodes are now redundant
-				for (AstNode *child : node->children)
-					delete child;
-				node->children.clear();
-			}
-			else if (node->range_left < 0) {
-				// 1 bit signal: bit, logic or reg
-				width = 1;
-				node->dimensions.push_back({ 0, width, false });
-			}
-			else {
-				// already resolved and compacted
-				width = node->range_left - node->range_right + 1;
-			}
+
+			// range nodes are now redundant
+			for (AstNode *child : node->children)
+				delete child;
+			node->children.clear();
+
 			if (is_union) {
 				node->range_right = base_offset;
 				node->range_left = base_offset + width - 1;
@@ -362,8 +313,10 @@ static int size_packed_struct(AstNode *snode, int base_offset)
 				node->range_right = base_offset + offset;
 				node->range_left = base_offset + offset + width - 1;
 			}
+
 			node->range_valid = true;
 		}
+
 		if (is_union) {
 			// check that all members have the same size
 			if (packed_width == -1) {
@@ -1425,6 +1378,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					did_something = true;
 				}
 			}
+
 			// determine member offsets and widths
 			size_packed_struct(this, 0);
 
@@ -1446,7 +1400,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 
 			// Pretend it's just a wire in order to resolve the type.
 			type = AST_WIRE;
-			while (is_custom_type && simplify(const_fold, stage, width_hint, sign_hint)) {};
+			while (is_custom_type && simplify(const_fold, stage, width_hint, sign_hint)) { }
 			if (type == AST_WIRE)
 				type = AST_STRUCT_ITEM;
 
@@ -1859,7 +1813,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			// Resolve the typedef from the bottom up, recursing within the current
 			// block of code. Defer further simplification until the complete type is
 			// resolved.
-			while (template_node->is_custom_type && template_node->simplify(const_fold, stage, width_hint, sign_hint)) {};
+			while (template_node->is_custom_type && template_node->simplify(const_fold, stage, width_hint, sign_hint)) { }
 
 			if (!str.empty() && str[0] == '\\' && (template_node->type == AST_STRUCT || template_node->type == AST_UNION)) {
 				// replace instance with wire representing the packed structure
@@ -1886,10 +1840,12 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			// if an enum then add attributes to support simulator tracing
 			newNode->annotateTypedEnums(template_node);
 
-			bool add_packed_dimensions = (type == AST_WIRE && GetSize(children) > 1) || (type == AST_MEMORY && GetSize(children) > 2);
+			bool unpacked_base_type = newNode->is_unpacked || newNode->type == AST_MEMORY;
+			bool add_unpacked_dimensions = is_unpacked || type == AST_MEMORY;
+			bool add_packed_dimensions = (!add_unpacked_dimensions && GetSize(children) > 1) || (add_unpacked_dimensions && GetSize(children) > 2);
 
 			// Cannot add packed dimensions if unpacked dimensions are already specified.
-			if (add_packed_dimensions && newNode->type == AST_MEMORY)
+			if (unpacked_base_type && add_packed_dimensions)
 				input_error("Cannot extend unpacked type `%s' with packed dimensions\n", type_name.c_str());
 
 			// Add packed dimensions.
@@ -1902,7 +1858,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			}
 
 			// Add unpacked dimensions.
-			if (type == AST_MEMORY) {
+			if (add_unpacked_dimensions) {
 				AstNode *unpacked = children.back();
 				if (GetSize(newNode->children) < 2)
 					newNode->children.push_back(unpacked->clone());
@@ -1930,7 +1886,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			type = AST_WIRE;
 			AstNode *expr = children[0];
 			children.erase(children.begin());
-			while (is_custom_type && simplify(const_fold, stage, width_hint, sign_hint)) {};
+			while (is_custom_type && simplify(const_fold, stage, width_hint, sign_hint)) { }
 			type = param_type;
 			children.insert(children.begin(), expr);
 
@@ -2043,22 +1999,23 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		if (!children.empty()) {
 			// Unpacked ranges first, then packed ranges.
 			for (int i = std::min(GetSize(children), 2) - 1; i >= 0; i--) {
+				int unpacked = i || children[i]->is_unpacked;
 				if (children[i]->type == AST_MULTIRANGE) {
 					int width = 1;
 					for (auto range : children[i]->children) {
 						width *= add_dimension(this, range);
-						if (i) unpacked_dimensions++;
+						if (unpacked) unpacked_dimensions++;
 					}
 					delete children[i];
 					int left = width - 1, right = 0;
-					if (i)
+					if (unpacked)
 						std::swap(left, right);
 					children[i] = new AstNode(AST_RANGE, mkconst_int(left, true), mkconst_int(right, true));
 					fixup_hierarchy_flags();
 					did_something = true;
 				} else if (children[i]->type == AST_RANGE) {
 					add_dimension(this, children[i]);
-					if (i) unpacked_dimensions++;
+					if (unpacked) unpacked_dimensions++;
 				}
 			}
 		} else {
@@ -2129,8 +2086,11 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 
 				if (found_sname) {
 					// structure member, rewrite this node to reference the packed struct wire
-					auto range = make_index_range(item_node);
-					newNode = new AstNode(AST_IDENTIFIER, range);
+					// Merge unpacked ranges with packed ranges.
+					int tmp_unpacked_dimensions = item_node->unpacked_dimensions;
+					item_node->unpacked_dimensions = 0;
+					newNode = new AstNode(AST_IDENTIFIER, make_index_range(item_node));
+					item_node->unpacked_dimensions = tmp_unpacked_dimensions;
 					newNode->str = sname;
 					// save type and original number of dimensions for $size() etc.
 					newNode->set_attribute(ID::wiretype, item_node->clone());
@@ -2148,6 +2108,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			}
 		}
 	}
+
 	// annotate identifiers using scope resolution and create auto-wires as needed
 	if (type == AST_IDENTIFIER) {
 		if (current_scope.count(str) == 0) {
@@ -2213,6 +2174,13 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		// Save original number of dimensions for $size() etc.
 		integer = dims_sel;
 
+		int tmp_unpacked_dimensions = id2ast->unpacked_dimensions;
+
+		if (id2ast->type != AST_MEMORY) {
+			// Merge unpacked ranges with packed ranges.
+			id2ast->unpacked_dimensions = 0;
+		}
+
 		// Split access into unpacked and packed parts.
 		AstNode *unpacked_range = nullptr;
 		AstNode *packed_range = nullptr;
@@ -2240,6 +2208,8 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				range = nullptr;
 			}
 		}
+
+		id2ast->unpacked_dimensions = tmp_unpacked_dimensions;
 
 		for (auto &it : children)
 			delete it;
@@ -2990,7 +2960,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		if (!children[0]->id2ast->range_valid)
 			goto skip_dynamic_range_lvalue_expansion;
 
-		AST::AstNode *member_node = children[0]->get_struct_member();
+		AstNode *member_node = children[0]->get_struct_member();
 		int wire_width = member_node ?
 			member_node->range_left - member_node->range_right + 1 :
 			children[0]->id2ast->range_left - children[0]->id2ast->range_right + 1;

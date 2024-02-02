@@ -607,8 +607,8 @@ from SystemVerilog:
 - enums are supported (including inside packages)
 	- but are currently not strongly typed
 
-- packed structs and unions are supported
-	- arrays of packed structs/unions are currently not supported
+- structs and unions are supported
+	- arrays of structs/unions are currently not supported
 	- structure literals are currently not supported
 
 - multidimensional arrays are supported
