@@ -1,5 +1,5 @@
 read_verilog -sv initval.v
-proc;;
+proc; async2sync;;
 
 sat -seq 10 -prove-asserts
 

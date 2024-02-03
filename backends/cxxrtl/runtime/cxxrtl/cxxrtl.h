@@ -952,7 +952,23 @@ struct lazy_fmt {
 	virtual std::string operator() () const = 0;
 };
 
-// An object that can be passed to a `eval()` method in order to act on side effects.
+// Flavor of a `$check` cell.
+enum class flavor {
+	// Corresponds to a `$assert` cell in other flows, and a Verilog `assert ()` statement.
+	ASSERT,
+	// Corresponds to a `$assume` cell in other flows, and a Verilog `assume ()` statement.
+	ASSUME,
+	// Corresponds to a `$live` cell in other flows, and a Verilog `assert (eventually)` statement.
+	ASSERT_EVENTUALLY,
+	// Corresponds to a `$fair` cell in other flows, and a Verilog `assume (eventually)` statement.
+	ASSUME_EVENTUALLY,
+	// Corresponds to a `$cover` cell in other flows, and a Verilog `cover ()` statement.
+	COVER,
+};
+
+// An object that can be passed to a `eval()` method in order to act on side effects. The default behavior implemented
+// below is the same as the behavior of `eval(nullptr)`, except that `-print-output` option of `write_cxxrtl` is not
+// taken into account.
 struct performer {
 	// Called by generated formatting code to evaluate a Verilog `$time` expression.
 	virtual int64_t vlog_time() const { return 0; }
@@ -963,6 +979,15 @@ struct performer {
 	// Called when a `$print` cell is triggered.
 	virtual void on_print(const lazy_fmt &formatter, const metadata_map &attributes) {
 		std::cout << formatter();
+	}
+
+	// Called when a `$check` cell is triggered.
+	virtual void on_check(flavor type, bool condition, const lazy_fmt &formatter, const metadata_map &attributes) {
+		if (type == flavor::ASSERT || type == flavor::ASSUME) {
+			if (!condition)
+				std::cerr << formatter();
+			CXXRTL_ASSERT(condition && "Check failed");
+		}
 	}
 };
 

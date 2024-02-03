@@ -75,7 +75,7 @@ generate_tests() {
 	if [[ $do_sv = true ]]; then
 		for x in *.sv; do
 			if [ ! -f "${x%.sv}.ys"  ]; then
-				generate_ys_test "$x" "-p \"prep -top top; sat -enable_undef -verify -prove-asserts\" $yosys_args"
+				generate_ys_test "$x" "-p \"prep -top top; async2sync; sat -enable_undef -verify -prove-asserts\" $yosys_args"
 			fi;
 		done
 	fi;

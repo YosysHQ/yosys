@@ -1068,6 +1068,12 @@ namespace {
 				error(__LINE__);
 		}
 
+		std::string param_string(const RTLIL::IdString &name)
+		{
+			param(name);
+			return cell->parameters.at(name).decode_string();
+		}
+
 		void port(const RTLIL::IdString& name, int width)
 		{
 			auto it = cell->connections_.find(name);
@@ -1740,6 +1746,22 @@ namespace {
 				param_bool(ID::TRG_ENABLE);
 				param(ID::TRG_POLARITY);
 				param(ID::PRIORITY);
+				port(ID::EN, 1);
+				port(ID::TRG, param(ID::TRG_WIDTH));
+				port(ID::ARGS, param(ID::ARGS_WIDTH));
+				check_expected();
+				return;
+			}
+
+			if (cell->type == ID($check)) {
+				std::string flavor = param_string(ID(FLAVOR));
+				if (!(flavor == "assert" || flavor == "assume" || flavor == "live" || flavor == "fair" || flavor == "cover"))
+					error(__LINE__);
+				param(ID(FORMAT));
+				param_bool(ID::TRG_ENABLE);
+				param(ID::TRG_POLARITY);
+				param(ID::PRIORITY);
+				port(ID::A, 1);
 				port(ID::EN, 1);
 				port(ID::TRG, param(ID::TRG_WIDTH));
 				port(ID::ARGS, param(ID::ARGS_WIDTH));

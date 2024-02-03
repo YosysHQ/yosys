@@ -671,7 +671,7 @@ bool set_keep_assert(std::map<RTLIL::Module*, bool> &cache, RTLIL::Module *mod)
 	if (cache.count(mod) == 0)
 		for (auto c : mod->cells()) {
 			RTLIL::Module *m = mod->design->module(c->type);
-			if ((m != nullptr && set_keep_assert(cache, m)) || c->type.in(ID($assert), ID($assume), ID($live), ID($fair), ID($cover)))
+			if ((m != nullptr && set_keep_assert(cache, m)) || c->type.in(ID($check), ID($assert), ID($assume), ID($live), ID($fair), ID($cover)))
 				return cache[mod] = true;
 		}
 	return cache[mod];

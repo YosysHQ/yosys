@@ -107,7 +107,7 @@ reg [7:0] i = 0;
 always @(posedge clk) begin
 	if (i < VECTORLEN) begin
 		// FIXME: for some reason the first assert fails (despite comparing zero to zero)
-		if (i > 0) 
+		if (i > 0)
 			assert(y == y_expected);
 		i <= i + 1;
 	end
@@ -117,4 +117,5 @@ EOF
 read_verilog +/quicklogic/qlf_k6n10f/dsp_sim.v
 hierarchy -top testbench
 proc
+async2sync
 sim -assert -q -clock clk -n 20

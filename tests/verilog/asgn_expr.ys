@@ -1,3 +1,4 @@
 read_verilog -sv asgn_expr.sv
 proc
+async2sync
 sat -verify -prove-asserts -show-all

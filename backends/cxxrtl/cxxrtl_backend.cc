@@ -218,7 +218,7 @@ bool is_internal_cell(RTLIL::IdString type)
 
 bool is_effectful_cell(RTLIL::IdString type)
 {
-	return type.isPublic() || type == ID($print);
+	return type.in(ID($print), ID($check));
 }
 
 bool is_cxxrtl_blackbox_cell(const RTLIL::Cell *cell)
@@ -282,7 +282,7 @@ struct FlowGraph {
 			CONNECT,
 			CELL_SYNC,
 			CELL_EVAL,
-			PRINT_SYNC,
+			EFFECT_SYNC,
 			PROCESS_SYNC,
 			PROCESS_CASE,
 			MEM_RDPORT,
@@ -292,7 +292,7 @@ struct FlowGraph {
 		Type type;
 		RTLIL::SigSig connect = {};
 		const RTLIL::Cell *cell = nullptr;
-		std::vector<const RTLIL::Cell*> print_sync_cells;
+		std::vector<const RTLIL::Cell*> cells;
 		const RTLIL::Process *process = nullptr;
 		const Mem *mem = nullptr;
 		int portidx;
@@ -480,11 +480,11 @@ struct FlowGraph {
 		return node;
 	}
 
-	Node *add_print_sync_node(std::vector<const RTLIL::Cell*> cells)
+	Node *add_effect_sync_node(std::vector<const RTLIL::Cell*> cells)
 	{
 		Node *node = new Node;
-		node->type = Node::Type::PRINT_SYNC;
-		node->print_sync_cells = cells;
+		node->type = Node::Type::EFFECT_SYNC;
+		node->cells = cells;
 		nodes.push_back(node);
 		return node;
 	}
@@ -1063,99 +1063,6 @@ struct CxxrtlWorker {
 			f << ".val()";
 	}
 
-	void dump_print(const RTLIL::Cell *cell)
-	{
-		Fmt fmt = {};
-		fmt.parse_rtlil(cell);
-
-		f << indent << "if (";
-		dump_sigspec_rhs(cell->getPort(ID::EN));
-		f << " == value<1>{1u}) {\n";
-		inc_indent();
-			dict<std::string, RTLIL::SigSpec> fmt_args;
-			f << indent << "struct : public lazy_fmt {\n";
-			inc_indent();
-				f << indent << "std::string operator() () const override {\n";
-				inc_indent();
-					fmt.emit_cxxrtl(f, indent, [&](const RTLIL::SigSpec &sig) {
-						if (sig.size() == 0)
-							f << "value<0>()";
-						else {
-							std::string arg_name = "arg" + std::to_string(fmt_args.size());
-							fmt_args[arg_name] = sig;
-							f << arg_name;
-						}
-					}, "performer");
-				dec_indent();
-				f << indent << "}\n";
-				f << indent << "struct performer *performer;\n";
-				for (auto arg : fmt_args)
-					f << indent << "value<" << arg.second.size() << "> " << arg.first << ";\n";
-			dec_indent();
-			f << indent << "} formatter;\n";
-			f << indent << "formatter.performer = performer;\n";
-			for (auto arg : fmt_args) {
-				f << indent << "formatter." << arg.first << " = ";
-				dump_sigspec_rhs(arg.second);
-				f << ";\n";
-			}
-			f << indent << "if (performer) {\n";
-			inc_indent();
-				f << indent << "static const metadata_map attributes = ";
-				dump_metadata_map(cell->attributes);
-				f << ";\n";
-				f << indent << "performer->on_print(formatter, attributes);\n";
-			dec_indent();
-			f << indent << "} else {\n";
-			inc_indent();
-				f << indent << print_output << " << formatter();\n";
-			dec_indent();
-			f << indent << "}\n";
-		dec_indent();
-		f << indent << "}\n";
-	}
-
-	void dump_sync_print(std::vector<const RTLIL::Cell*> &cells)
-	{
-		log_assert(!cells.empty());
-		const auto &trg = cells[0]->getPort(ID::TRG);
-		const auto &trg_polarity = cells[0]->getParam(ID::TRG_POLARITY);
-
-		f << indent << "if (";
-		for (int i = 0; i < trg.size(); i++) {
-			RTLIL::SigBit trg_bit = trg[i];
-			trg_bit = sigmaps[trg_bit.wire->module](trg_bit);
-			log_assert(trg_bit.wire);
-
-			if (i != 0)
-				f << " || ";
-
-			if (trg_polarity[i] == State::S1)
-				f << "posedge_";
-			else
-				f << "negedge_";
-			f << mangle(trg_bit);
-		}
-		f << ") {\n";
-		inc_indent();
-			std::sort(cells.begin(), cells.end(), [](const RTLIL::Cell *a, const RTLIL::Cell *b) {
-				return a->getParam(ID::PRIORITY).as_int() > b->getParam(ID::PRIORITY).as_int();
-			});
-			for (auto cell : cells) {
-				log_assert(cell->getParam(ID::TRG_ENABLE).as_bool());
-				log_assert(cell->getPort(ID::TRG) == trg);
-				log_assert(cell->getParam(ID::TRG_POLARITY) == trg_polarity);
-
-				std::vector<const RTLIL::Cell*> inlined_cells;
-				collect_cell_eval(cell, /*for_debug=*/false, inlined_cells);
-				dump_inlined_cells(inlined_cells);
-				dump_print(cell);
-			}
-		dec_indent();
-
-		f << indent << "}\n";
-	}
-
 	void dump_inlined_cells(const std::vector<const RTLIL::Cell*> &cells)
 	{
 		if (cells.empty()) {
@@ -1309,6 +1216,144 @@ struct CxxrtlWorker {
 		}
 	}
 
+	void dump_print(const RTLIL::Cell *cell)
+	{
+		Fmt fmt;
+		fmt.parse_rtlil(cell);
+
+		f << indent << "if (";
+		dump_sigspec_rhs(cell->getPort(ID::EN));
+		f << " == value<1>{1u}) {\n";
+		inc_indent();
+			dict<std::string, RTLIL::SigSpec> fmt_args;
+			f << indent << "struct : public lazy_fmt {\n";
+			inc_indent();
+				f << indent << "std::string operator() () const override {\n";
+				inc_indent();
+					fmt.emit_cxxrtl(f, indent, [&](const RTLIL::SigSpec &sig) {
+						if (sig.size() == 0)
+							f << "value<0>()";
+						else {
+							std::string arg_name = "arg" + std::to_string(fmt_args.size());
+							fmt_args[arg_name] = sig;
+							f << arg_name;
+						}
+					}, "performer");
+				dec_indent();
+				f << indent << "}\n";
+				f << indent << "struct performer *performer;\n";
+				for (auto arg : fmt_args)
+					f << indent << "value<" << arg.second.size() << "> " << arg.first << ";\n";
+			dec_indent();
+			f << indent << "} formatter;\n";
+			f << indent << "formatter.performer = performer;\n";
+			for (auto arg : fmt_args) {
+				f << indent << "formatter." << arg.first << " = ";
+				dump_sigspec_rhs(arg.second);
+				f << ";\n";
+			}
+			f << indent << "if (performer) {\n";
+			inc_indent();
+				f << indent << "static const metadata_map attributes = ";
+				dump_metadata_map(cell->attributes);
+				f << ";\n";
+				f << indent << "performer->on_print(formatter, attributes);\n";
+			dec_indent();
+			f << indent << "} else {\n";
+			inc_indent();
+				f << indent << print_output << " << formatter();\n";
+			dec_indent();
+			f << indent << "}\n";
+		dec_indent();
+		f << indent << "}\n";
+	}
+
+	void dump_effect(const RTLIL::Cell *cell)
+	{
+		Fmt fmt;
+		fmt.parse_rtlil(cell);
+
+		f << indent << "if (";
+		dump_sigspec_rhs(cell->getPort(ID::EN));
+		f << ") {\n";
+		inc_indent();
+			dict<std::string, RTLIL::SigSpec> fmt_args;
+			f << indent << "struct : public lazy_fmt {\n";
+			inc_indent();
+				f << indent << "std::string operator() () const override {\n";
+				inc_indent();
+					fmt.emit_cxxrtl(f, indent, [&](const RTLIL::SigSpec &sig) {
+						if (sig.size() == 0)
+							f << "value<0>()";
+						else {
+							std::string arg_name = "arg" + std::to_string(fmt_args.size());
+							fmt_args[arg_name] = sig;
+							f << arg_name;
+						}
+					}, "performer");
+				dec_indent();
+				f << indent << "}\n";
+				f << indent << "struct performer *performer;\n";
+				for (auto arg : fmt_args)
+					f << indent << "value<" << arg.second.size() << "> " << arg.first << ";\n";
+			dec_indent();
+			f << indent << "} formatter;\n";
+			f << indent << "formatter.performer = performer;\n";
+			for (auto arg : fmt_args) {
+				f << indent << "formatter." << arg.first << " = ";
+				dump_sigspec_rhs(arg.second);
+				f << ";\n";
+			}
+			if (cell->hasPort(ID::A)) {
+				f << indent << "bool condition = (bool)";
+				dump_sigspec_rhs(cell->getPort(ID::A));
+				f << ";\n";
+			}
+			f << indent << "if (performer) {\n";
+			inc_indent();
+				f << indent << "static const metadata_map attributes = ";
+				dump_metadata_map(cell->attributes);
+				f << ";\n";
+				if (cell->type == ID($print)) {
+					f << indent << "performer->on_print(formatter, attributes);\n";
+				} else if (cell->type == ID($check)) {
+					std::string flavor = cell->getParam(ID::FLAVOR).decode_string();
+					f << indent << "performer->on_check(";
+					if (flavor == "assert")
+						f << "flavor::ASSERT";
+					else if (flavor == "assume")
+						f << "flavor::ASSUME";
+					else if (flavor == "live")
+						f << "flavor::ASSERT_EVENTUALLY";
+					else if (flavor == "fair")
+						f << "flavor::ASSUME_EVENTUALLY";
+					else if (flavor == "cover")
+						f << "flavor::COVER";
+					else log_assert(false);
+					f << ", condition, formatter, attributes);\n";
+				} else log_assert(false);
+			dec_indent();
+			f << indent << "} else {\n";
+			inc_indent();
+				if (cell->type == ID($print)) {
+					f << indent << print_output << " << formatter();\n";
+				} else if (cell->type == ID($check)) {
+					std::string flavor = cell->getParam(ID::FLAVOR).decode_string();
+					if (flavor == "assert" || flavor == "assume") {
+						f << indent << "if (!condition) {\n";
+						inc_indent();
+							f << indent << "std::cerr << formatter();\n";
+						dec_indent();
+						f << indent << "}\n";
+						f << indent << "CXXRTL_ASSERT(condition && \"Check failed\");\n";
+					}
+				} else log_assert(false);
+			dec_indent();
+			f << indent << "}\n";
+		dec_indent();
+		f << indent << "}\n";
+	}
+
 	void dump_cell_eval(const RTLIL::Cell *cell, bool for_debug = false)
 	{
 		std::vector<const RTLIL::Cell*> inlined_cells;
@@ -1322,30 +1367,34 @@ struct CxxrtlWorker {
 			f << " = ";
 			dump_cell_expr(cell, for_debug);
 			f << ";\n";
-		// $print cell
-		} else if (cell->type == ID($print)) {
+		// Effectful cells
+		} else if (is_effectful_cell(cell->type)) {
 			log_assert(!for_debug);
 
-			// Sync $print cells are grouped into PRINT_SYNC nodes in the FlowGraph.
+			// Sync effectful cells are grouped into EFFECT_SYNC nodes in the FlowGraph.
 			log_assert(!cell->getParam(ID::TRG_ENABLE).as_bool() || (cell->getParam(ID::TRG_ENABLE).as_bool() && cell->getParam(ID::TRG_WIDTH).as_int() == 0));
 
-			if (!cell->getParam(ID::TRG_ENABLE).as_bool()) { // async $print cell
-				f << indent << "auto " << mangle(cell) << "_curr = ";
+			if (!cell->getParam(ID::TRG_ENABLE).as_bool()) { // async effectful cell
+				f << indent << "auto " << mangle(cell) << "_next = ";
 				dump_sigspec_rhs(cell->getPort(ID::EN));
 				f << ".concat(";
-				dump_sigspec_rhs(cell->getPort(ID::ARGS));
+				if (cell->type == ID($print))
+					dump_sigspec_rhs(cell->getPort(ID::ARGS));
+				else if (cell->type == ID($check))
+					dump_sigspec_rhs(cell->getPort(ID::A));
+				else log_assert(false);
 				f << ").val();\n";
 
-				f << indent << "if (" << mangle(cell) << " != " << mangle(cell) << "_curr) {\n";
+				f << indent << "if (" << mangle(cell) << " != " << mangle(cell) << "_next) {\n";
 				inc_indent();
-					dump_print(cell);
-					f << indent << mangle(cell) << " = " << mangle(cell) << "_curr;\n";
+					dump_effect(cell);
+					f << indent << mangle(cell) << " = " << mangle(cell) << "_next;\n";
 				dec_indent();
 				f << indent << "}\n";
-			} else { // initial $print cell
+			} else { // initial effectful cell
 				f << indent << "if (!" << mangle(cell) << ") {\n";
 				inc_indent();
-					dump_print(cell);
+					dump_effect(cell);
 					f << indent << mangle(cell) << " = value<1>{1u};\n";
 				dec_indent();
 				f << indent << "}\n";
@@ -1728,6 +1777,47 @@ struct CxxrtlWorker {
 		}
 	}
 
+	void dump_cell_effect_sync(std::vector<const RTLIL::Cell*> &cells)
+	{
+		log_assert(!cells.empty());
+		const auto &trg = cells[0]->getPort(ID::TRG);
+		const auto &trg_polarity = cells[0]->getParam(ID::TRG_POLARITY);
+
+		f << indent << "if (";
+		for (int i = 0; i < trg.size(); i++) {
+			RTLIL::SigBit trg_bit = trg[i];
+			trg_bit = sigmaps[trg_bit.wire->module](trg_bit);
+			log_assert(trg_bit.wire);
+
+			if (i != 0)
+				f << " || ";
+
+			if (trg_polarity[i] == State::S1)
+				f << "posedge_";
+			else
+				f << "negedge_";
+			f << mangle(trg_bit);
+		}
+		f << ") {\n";
+		inc_indent();
+			std::sort(cells.begin(), cells.end(), [](const RTLIL::Cell *a, const RTLIL::Cell *b) {
+				return a->getParam(ID::PRIORITY).as_int() > b->getParam(ID::PRIORITY).as_int();
+			});
+			for (auto cell : cells) {
+				log_assert(cell->getParam(ID::TRG_ENABLE).as_bool());
+				log_assert(cell->getPort(ID::TRG) == trg);
+				log_assert(cell->getParam(ID::TRG_POLARITY) == trg_polarity);
+
+				std::vector<const RTLIL::Cell*> inlined_cells;
+				collect_cell_eval(cell, /*for_debug=*/false, inlined_cells);
+				dump_inlined_cells(inlined_cells);
+				dump_effect(cell);
+			}
+		dec_indent();
+
+		f << indent << "}\n";
+	}
+
 	void dump_mem_rdport(const Mem *mem, int portidx, bool for_debug = false)
 	{
 		auto &port = mem->rd_ports[portidx];
@@ -2047,11 +2137,10 @@ struct CxxrtlWorker {
 				}
 			}
 			for (auto cell : module->cells()) {
-				// Certain $print cells have additional state, which must be reset as well.
-				if (cell->type == ID($print) && !cell->getParam(ID::TRG_ENABLE).as_bool())
-					f << indent << mangle(cell) << " = value<" << (1 + cell->getParam(ID::ARGS_WIDTH).as_int()) << ">();\n";
-				if (cell->type == ID($print) && cell->getParam(ID::TRG_ENABLE).as_bool() && cell->getParam(ID::TRG_WIDTH).as_int() == 0)
-					f << indent << mangle(cell) << " = value<1>();\n";
+				// Async and initial effectful cells have additional state, which must be reset as well.
+				if (is_effectful_cell(cell->type))
+					if (!cell->getParam(ID::TRG_ENABLE).as_bool() || cell->getParam(ID::TRG_WIDTH).as_int() == 0)
+						f << indent << mangle(cell) << " = {};\n";
 				if (is_internal_cell(cell->type))
 					continue;
 				f << indent << mangle(cell);
@@ -2099,8 +2188,8 @@ struct CxxrtlWorker {
 						case FlowGraph::Node::Type::CELL_EVAL:
 							dump_cell_eval(node.cell);
 							break;
-						case FlowGraph::Node::Type::PRINT_SYNC:
-							dump_sync_print(node.print_sync_cells);
+						case FlowGraph::Node::Type::EFFECT_SYNC:
+							dump_cell_effect_sync(node.cells);
 							break;
 						case FlowGraph::Node::Type::PROCESS_CASE:
 							dump_process_case(node.process);
@@ -2481,11 +2570,15 @@ struct CxxrtlWorker {
 					f << "\n";
 				bool has_cells = false;
 				for (auto cell : module->cells()) {
-					// Certain $print cells have additional state, which requires storage.
-					if (cell->type == ID($print) && !cell->getParam(ID::TRG_ENABLE).as_bool())
-						f << indent << "value<" << (1 + cell->getParam(ID::ARGS_WIDTH).as_int()) << "> " << mangle(cell) << ";\n";
-					if (cell->type == ID($print) && cell->getParam(ID::TRG_ENABLE).as_bool() && cell->getParam(ID::TRG_WIDTH).as_int() == 0)
-						f << indent << "value<1> " << mangle(cell) << ";\n";
+					// Async and initial effectful cells have additional state, which requires storage.
+					if (is_effectful_cell(cell->type)) {
+						if (cell->getParam(ID::TRG_ENABLE).as_bool() && cell->getParam(ID::TRG_WIDTH).as_int() == 0)
+							f << indent << "value<1> " << mangle(cell) << ";\n"; // async initial cell
+						if (!cell->getParam(ID::TRG_ENABLE).as_bool() && cell->type == ID($print))
+							f << indent << "value<" << (1 + cell->getParam(ID::ARGS_WIDTH).as_int()) << "> " << mangle(cell) << ";\n"; // {EN, ARGS}
+						if (!cell->getParam(ID::TRG_ENABLE).as_bool() && cell->type == ID($check))
+							f << indent << "value<2> " << mangle(cell) << ";\n"; // {EN, A}
+					}
 					if (is_internal_cell(cell->type))
 						continue;
 					dump_attrs(cell);
@@ -2803,8 +2896,8 @@ struct CxxrtlWorker {
 							cell->parameters[ID::CLK_POLARITY].as_bool() ? RTLIL::STp : RTLIL::STn);
 				}
 
-				// $print cells may be triggered on posedge/negedge events.
-				if (cell->type == ID($print) && cell->getParam(ID::TRG_ENABLE).as_bool()) {
+				// Effectful cells may be triggered on posedge/negedge events.
+				if (is_effectful_cell(cell->type) && cell->getParam(ID::TRG_ENABLE).as_bool()) {
 					for (size_t i = 0; i < (size_t)cell->getParam(ID::TRG_WIDTH).as_int(); i++) {
 						RTLIL::SigBit trg = cell->getPort(ID::TRG).extract(i, 1);
 						if (is_valid_clock(trg))
@@ -2945,10 +3038,12 @@ struct CxxrtlWorker {
 			// Discover nodes reachable from primary outputs (i.e. members) and collect reachable wire users.
 			pool<FlowGraph::Node*, hash_ptr_ops> worklist;
 			for (auto node : flow.nodes) {
-				if (node->type == FlowGraph::Node::Type::CELL_EVAL && is_effectful_cell(node->cell->type))
-					worklist.insert(node); // node has effects
-				else if (node->type == FlowGraph::Node::Type::PRINT_SYNC)
-					worklist.insert(node); // node is sync $print
+				if (node->type == FlowGraph::Node::Type::CELL_EVAL && !is_internal_cell(node->cell->type))
+					worklist.insert(node); // node evaluates a submodule
+				else if (node->type == FlowGraph::Node::Type::CELL_EVAL && is_effectful_cell(node->cell->type))
+					worklist.insert(node); // node has async effects
+				else if (node->type == FlowGraph::Node::Type::EFFECT_SYNC)
+					worklist.insert(node); // node has sync effects
 				else if (node->type == FlowGraph::Node::Type::MEM_WRPORTS)
 					worklist.insert(node); // node is memory write
 				else if (node->type == FlowGraph::Node::Type::PROCESS_SYNC && is_memwr_process(node->process))
@@ -3005,21 +3100,21 @@ struct CxxrtlWorker {
 			}
 
 			// Emit reachable nodes in eval().
-			// Accumulate sync $print cells per trigger condition.
-			dict<std::pair<RTLIL::SigSpec, RTLIL::Const>, std::vector<const RTLIL::Cell*>> sync_print_cells;
+			// Accumulate sync effectful cells per trigger condition.
+			dict<std::pair<RTLIL::SigSpec, RTLIL::Const>, std::vector<const RTLIL::Cell*>> effect_sync_cells;
 			for (auto node : node_order)
 				if (live_nodes[node]) {
 					if (node->type == FlowGraph::Node::Type::CELL_EVAL &&
-							node->cell->type == ID($print) &&
+							is_effectful_cell(node->cell->type) &&
 							node->cell->getParam(ID::TRG_ENABLE).as_bool() &&
 							node->cell->getParam(ID::TRG_WIDTH).as_int() != 0)
-						sync_print_cells[make_pair(node->cell->getPort(ID::TRG), node->cell->getParam(ID::TRG_POLARITY))].push_back(node->cell);
+						effect_sync_cells[make_pair(node->cell->getPort(ID::TRG), node->cell->getParam(ID::TRG_POLARITY))].push_back(node->cell);
 					else
 						schedule[module].push_back(*node);
 				}
 
-			for (auto &it : sync_print_cells) {
-				auto node = flow.add_print_sync_node(it.second);
+			for (auto &it : effect_sync_cells) {
+				auto node = flow.add_effect_sync_node(it.second);
 				schedule[module].push_back(*node);
 			}
 

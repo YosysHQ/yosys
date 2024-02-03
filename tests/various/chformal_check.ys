@@ -1,0 +1,68 @@
+read_verilog -formal <<EOT
+
+module top(input clk, a, en);
+    wire a_q = '0;
+    wire en_q = '0;
+
+    always @(posedge clk) begin
+        a_q <= a;
+        en_q <= en;
+    end
+
+    always @(posedge clk)
+        if (en_q)
+            assert(a_q);
+endmodule
+EOT
+
+prep
+
+design -save prep
+
+select -assert-count 1 t:$check r:FLAVOR=assert %i
+
+chformal -assert2assume
+
+select -assert-count 1 t:$check r:FLAVOR=assume %i
+
+chformal -assume2assert
+
+select -assert-count 1 t:$check r:FLAVOR=assert %i
+
+async2sync
+
+chformal -lower
+select -assert-count 1 t:$assert
+
+design -load prep
+
+chformal -assert2assume
+async2sync
+chformal -lower
+chformal -assume -early
+
+rename -enumerate -pattern assume_% t:$assume
+expose -evert t:$assume
+
+design -save gold
+
+design -load prep
+
+chformal -assert2assume
+chformal -assume -early
+async2sync
+chformal -lower
+
+rename -enumerate -pattern assume_% t:$assume
+expose -evert t:$assume
+
+design -save gate
+
+design -reset
+
+design -copy-from gold -as gold top
+design -copy-from gate -as gate top
+
+miter -equiv -flatten -make_assert gold gate miter
+
+sat -verify -prove-asserts -tempinduct miter

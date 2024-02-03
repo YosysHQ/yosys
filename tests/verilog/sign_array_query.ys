@@ -14,6 +14,7 @@ endmodule
 EOT
 
 prep -top top
+async2sync
 sim -n 3 -clock clk
 
 design -reset
@@ -32,6 +33,7 @@ endmodule
 EOT
 
 prep -top top
+async2sync
 sim -n 3 -clock clk
 
 design -reset
@@ -49,4 +51,5 @@ endmodule
 EOT
 
 prep -top top
+async2sync
 sim -n 3 -clock clk
