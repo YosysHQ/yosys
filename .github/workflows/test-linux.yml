@@ -118,3 +118,7 @@ jobs:
         shell: bash
         run: |
           make -j${{ env.procs }} test CXXSTD=${{ matrix.cpp_std }} CC=$CC CXX=$CC LD=$CC
+
+      - name: Log yosys-config output
+        run: |
+          ./yosys-config
