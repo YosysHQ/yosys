@@ -83,6 +83,13 @@ my_memory_map.v` then uses :cmd:ref:`techmap` to map to hardware primitives. Any
 leftover memory cells unable to be converted are then picked up by
 :cmd:ref:`memory_map` and mapped to DFFs and address decoders.
 
+.. note::
+
+   More information about what mapping options are available and associated
+   costs of each can be found by enabling debug outputs.  This can be done with
+   the :cmd:ref:`debug` command, or by using the ``-g`` flag when calling Yosys
+   to globally enable debug messages.
+
 For more on the lib format for :cmd:ref:`memory_libmap`, see
 `passes/memory/memlib.md
 <https://github.com/YosysHQ/yosys/blob/master/passes/memory/memlib.md>`_
