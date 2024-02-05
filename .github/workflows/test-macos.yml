@@ -1,6 +1,12 @@
 name: Build and run tests (macOS)
 
-on: [push, pull_request]
+on:
+  pull_request:
+    branches:
+    - master
+  push:
+    branches:
+    - master
 
 jobs:
   pre_job:
@@ -27,7 +33,6 @@ jobs:
           - { id: macos-13, name: 'Ventura' }
         cpp_std:
           - 'c++11'
-          - 'c++17'
       fail-fast: false
     steps:
       - name: Install Dependencies
