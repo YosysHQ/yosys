@@ -121,4 +121,4 @@ jobs:
 
       - name: Log yosys-config output
         run: |
-          ./yosys-config
+          ./yosys-config || true
