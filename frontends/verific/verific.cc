@@ -351,7 +351,7 @@ RTLIL::SigBit VerificImporter::netToSigBit(Verific::Net *net) {
 	else if (net && net->IsX())
 		return RTLIL::State::Sx;
 	else if (net)
-			return net_map_at(net);
+		return net_map_at(net);
 	else
 		return RTLIL::State::Sz;
 }
