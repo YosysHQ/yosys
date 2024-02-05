@@ -27,6 +27,9 @@ jobs:
     needs: pre_job
     if: needs.pre_job.outputs.should_skip != 'true'
     runs-on: ${{ matrix.os.id }}
+    env:
+      CC: ${{ matrix.compiler }}
+      CXXSTD: ${{ matrix.cpp_std }}
     strategy:
       matrix:
         os:
@@ -63,11 +66,8 @@ jobs:
           sudo apt-add-repository ppa:ubuntu-toolchain-r/test
           sudo apt-get update
           sudo apt-get install $CC $CXX
-          echo "CC=$CC" >> $GITHUB_ENV
           echo "CXX=$CXX" >> $GITHUB_ENV
           echo "CXXFLAGS=-Wp,-D_GLIBCXX_ASSERTIONS" >> $GITHUB_ENV
-        env:
-          CC: ${{ matrix.compiler }}
 
       - name: Setup Clang
         if: startsWith(matrix.compiler, 'clang')
@@ -80,18 +80,12 @@ jobs:
           sudo apt-get update
           CXX=${CC/#clang/clang++}
           sudo apt-get install $CC $CXX
-          echo "CC=$CC" >> $GITHUB_ENV
           echo "CXX=$CXX" >> $GITHUB_ENV
-        env:
-          CC: ${{ matrix.compiler }}
 
       - name: Runtime environment
         shell: bash
-        env:
-          WORKSPACE: ${{ github.workspace }}
         run: |
-          echo "GITHUB_WORKSPACE=`pwd`" >> $GITHUB_ENV
-          echo "$GITHUB_WORKSPACE/.local/bin" >> $GITHUB_PATH
+          echo "${{ github.workspace }}/.local/bin" >> $GITHUB_PATH
           echo "procs=$(nproc)" >> $GITHUB_ENV
 
       - name: Tool versions
@@ -111,7 +105,7 @@ jobs:
           mkdir build
           cd build
           make -f ../Makefile config-${CC%%-*}
-          make -f ../Makefile -j${{ env.procs }} CXXSTD=${{ matrix.cpp_std }} CC=$CC CXX=$CC LD=$CC
+          make -f ../Makefile -j$procs CXXSTD=$CXXSTD CC=$CC CXX=$CC LD=$CC
 
       - name: Log yosys-config output
         run: |
@@ -149,11 +143,8 @@ jobs:
 
       - name: Runtime environment
         shell: bash
-        env:
-          WORKSPACE: ${{ github.workspace }}
         run: |
-          echo "GITHUB_WORKSPACE=`pwd`" >> $GITHUB_ENV
-          echo "$GITHUB_WORKSPACE/.local/bin" >> $GITHUB_PATH
+          echo "${{ github.workspace }}/.local/bin" >> $GITHUB_PATH
           echo "procs=$(nproc)" >> $GITHUB_ENV
 
       - name: Checkout Yosys
@@ -178,11 +169,11 @@ jobs:
         if: steps.cache-iverilog.outputs.cache-hit != 'true'
         shell: bash
         run: |
-          mkdir -p $GITHUB_WORKSPACE/.local/
+          mkdir -p ${{ github.workspace }}/.local/
           cd iverilog
           autoconf
-          CC=gcc CXX=g++ ./configure --prefix=$GITHUB_WORKSPACE/.local
-          make -j${{ env.procs }}
+          CC=gcc CXX=g++ ./configure --prefix=${{ github.workspace }}/.local
+          make -j$procs
           make install
 
       - name: Download build artifact
