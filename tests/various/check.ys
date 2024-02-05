@@ -1,0 +1,12 @@
+design -reset
+read_verilog <<EOF
+module top(input clk, input a, input b, output [9:0] x);
+	wire [9:0] ripple;
+	reg [9:0] prev_ripple = 9'b0;
+
+	always @(posedge clk) prev_ripple <= ripple;
+	assign ripple = {ripple[8:0], a} ^ prev_ripple; // only cyclic at the coarse-grain level
+	assign x = ripple[9] + b;
+endmodule
+EOF
+check -assert
