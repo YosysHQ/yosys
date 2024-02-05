@@ -121,7 +121,7 @@ jobs:
         shell: bash
         run: |
           cd build
-          tar -cvf ../build.tar Makefile.conf share/ yosys yosys-*
+          tar -cvf ../build.tar share/ yosys yosys-*
 
       - name: Store build artifact
         if: (matrix.cpp_std == 'c++11') && (matrix.compiler == 'gcc-11')
@@ -134,11 +134,12 @@ jobs:
   test-linux:
     name: Run tests
     needs: build-linux
-    runs-on: ${{ matrix.os.id }}
+    runs-on: ${{ matrix.os }}
+    env:
+      CC: clang
     strategy:
       matrix:
-        os:
-          - { id: ubuntu-20.04, name: focal }
+        os: [ubuntu-20.04]
     steps:
       - name: Install Dependencies
         shell: bash
@@ -171,7 +172,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .local/
-          key: ${{ matrix.os.id }}-${{ env.IVERILOG_GIT }}
+          key: ${{ matrix.os }}-${{ env.IVERILOG_GIT }}
 
       - name: Build iverilog
         if: steps.cache-iverilog.outputs.cache-hit != 'true'
@@ -197,4 +198,4 @@ jobs:
       - name: Run tests
         shell: bash
         run: |
-          make -j${{ env.procs }} test TARGETS= EXTRA_TARGETS=
+          make -j$procs test TARGETS= EXTRA_TARGETS= CONFIG=$CC
