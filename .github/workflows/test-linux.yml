@@ -29,12 +29,14 @@ jobs:
     runs-on: ${{ matrix.os.id }}
     env:
       CC: ${{ matrix.compiler }}
+      CXX: ${{ matrix.compiler }}
       CXXSTD: ${{ matrix.cpp_std }}
     strategy:
       matrix:
         os:
           - { id: ubuntu-20.04, name: focal }
         compiler:
+          - 'clang'
           - 'clang-12'
           - 'gcc-11'
         cpp_std:
@@ -70,7 +72,7 @@ jobs:
           echo "CXXFLAGS=-Wp,-D_GLIBCXX_ASSERTIONS" >> $GITHUB_ENV
 
       - name: Setup Clang
-        if: startsWith(matrix.compiler, 'clang')
+        if: startsWith(matrix.compiler, 'clang') && (matrix.compiler != 'clang')
         shell: bash
         run: |
           wget https://apt.llvm.org/llvm-snapshot.gpg.key
@@ -105,7 +107,7 @@ jobs:
           mkdir build
           cd build
           make -f ../Makefile config-${CC%%-*}
-          make -f ../Makefile -j$procs CXXSTD=$CXXSTD CC=$CC CXX=$CC LD=$CC
+          make -f ../Makefile -j$procs CXXSTD=$CXXSTD CC=$CC CXX=$CXX LD=$CC
 
       - name: Log yosys-config output
         run: |
@@ -118,7 +120,7 @@ jobs:
           tar -cvf ../build.tar share/ yosys yosys-*
 
       - name: Store build artifact
-        if: (matrix.cpp_std == 'c++11') && (matrix.compiler == 'gcc-11')
+        if: (matrix.cpp_std == 'c++11') && (matrix.compiler == 'clang')
         uses: actions/upload-artifact@v4
         with:
           name: build-artifact
