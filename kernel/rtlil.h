@@ -712,7 +712,7 @@ struct RTLIL::Const
 	inline unsigned int hash() const {
 		unsigned int h = mkhash_init;
 		for (auto b : bits)
-			mkhash(h, b);
+			h = mkhash(h, b);
 		return h;
 	}
 };
