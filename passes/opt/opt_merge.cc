@@ -83,7 +83,8 @@ struct OptMergeWorker
 
 		if (cell->type.in(ID($and), ID($or), ID($xor), ID($xnor), ID($add), ID($mul),
 				ID($logic_and), ID($logic_or), ID($_AND_), ID($_OR_), ID($_XOR_))) {
-			conn_hash = assign_map(cell->getPort(ID::A)).hash() + assign_map(cell->getPort(ID::B)).hash();
+			conn_hash = hashlib::mkhash_xorshift64(assign_map(cell->getPort(ID::A)).hash()) \
+							+ hashlib::mkhash_xorshift64(assign_map(cell->getPort(ID::B)).hash());
 		} else if (cell->type.in(ID($reduce_xor), ID($reduce_xnor))) {
 			SigSpec a = assign_map(cell->getPort(ID::A));
 			a.sort();
@@ -100,13 +101,13 @@ struct OptMergeWorker
 			SigSpec s = assign_map(cell->getPort(ID::S));
 			for (int i = 0; i < cell->getParam(ID::S_WIDTH).as_int(); i++) {
 				SigSpec b_window = b.extract(i * width, width);
-				acc += mkhash(s[i].hash(), b_window.hash());
+				acc += mkhash_xorshift64(mkhash(s[i].hash(), b_window.hash()));
 			}
-			conn_hash = mkhash(a.hash(), acc);
+			conn_hash = mkhash_xorshift64(a.hash()) + acc;
 		} else {
 			for (auto conn : cell->connections())
 			if (!cell->output(conn.first))
-				conn_hash += mkhash(conn.first.hash(), assign_map(conn.second).hash());
+				conn_hash += mkhash_xorshift64(mkhash(conn.first.hash(), assign_map(conn.second).hash()));
 
 			if (RTLIL::builtin_ff_cell_types().count(cell->type))
 				conn_hash += initvals(cell->getPort(ID::Q)).hash();
@@ -114,9 +115,9 @@ struct OptMergeWorker
 
 		uint64_t param_hash = 0;
 		for (auto &it : cell->parameters)
-			param_hash += mkhash(it.first.hash(), it.second.hash());
+			param_hash += mkhash_xorshift64(mkhash(it.first.hash(), it.second.hash()));
 
-		return mkhash(conn_hash, param_hash) + cell->type.hash();
+		return conn_hash + mkhash_xorshift64(param_hash + cell->type.hash());
 	}
 
 	bool compare_cell_parameters_and_connections(const RTLIL::Cell *cell1, const RTLIL::Cell *cell2)
