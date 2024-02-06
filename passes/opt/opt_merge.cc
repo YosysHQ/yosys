@@ -105,7 +105,7 @@ struct OptMergeWorker
 			}
 			conn_hash = mkhash_xorshift64(a.hash()) + acc;
 		} else {
-			for (auto conn : cell->connections())
+			for (const auto &conn : cell->connections())
 			if (!cell->output(conn.first))
 				conn_hash += mkhash_xorshift64(mkhash(conn.first.hash(), assign_map(conn.second).hash()));
 
@@ -114,7 +114,7 @@ struct OptMergeWorker
 		}
 
 		uint64_t param_hash = 0;
-		for (auto &it : cell->parameters)
+		for (const auto &it : cell->parameters)
 			param_hash += mkhash_xorshift64(mkhash(it.first.hash(), it.second.hash()));
 
 		return conn_hash + mkhash_xorshift64(param_hash + cell->type.hash());
