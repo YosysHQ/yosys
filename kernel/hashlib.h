@@ -19,10 +19,17 @@
 
 namespace hashlib {
 
+#if __cplusplus >= 201603L
+#  define HASHLIB_NODISCARD [[nodiscard]]
+#else
+#  define HASHLIB_NODISCARD
+#endif
+
 const int hashtable_size_trigger = 2;
 const int hashtable_size_factor = 3;
 
 // The XOR version of DJB2
+HASHLIB_NODISCARD
 inline unsigned int mkhash(unsigned int a, unsigned int b) {
 	return ((a << 5) + a) ^ b;
 }
@@ -32,10 +39,12 @@ const unsigned int mkhash_init = 5381;
 
 // The ADD version of DJB2
 // (use this version for cache locality in b)
+HASHLIB_NODISCARD
 inline unsigned int mkhash_add(unsigned int a, unsigned int b) {
 	return ((a << 5) + a) + b;
 }
 
+HASHLIB_NODISCARD
 inline unsigned int mkhash_xorshift(unsigned int a) {
 	a ^= a << 13;
 	a ^= a >> 17;
@@ -43,6 +52,7 @@ inline unsigned int mkhash_xorshift(unsigned int a) {
 	return a;
 }
 
+HASHLIB_NODISCARD
 inline unsigned long long mkhash_xorshift64(unsigned long long a) {
 	a ^= a << 13;
 	a ^= a >> 17;
