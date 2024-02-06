@@ -39,16 +39,19 @@ inline unsigned int mkhash_add(unsigned int a, unsigned int b) {
 }
 
 inline unsigned int mkhash_xorshift(unsigned int a) {
-	if (sizeof(a) == 4) {
-		a ^= a << 13;
-		a ^= a >> 17;
-		a ^= a << 5;
-	} else if (sizeof(a) == 8) {
-		a ^= a << 13;
-		a ^= a >> 7;
-		a ^= a << 17;
-	} else
-		throw std::runtime_error("mkhash_xorshift() only implemented for 32 bit and 64 bit ints");
+	a ^= a << 13;
+	a ^= a >> 17;
+	a ^= a << 5;
+	return a;
+}
+
+inline unsigned long long mkhash_xorshift64(unsigned long long a) {
+	a ^= a << 13;
+	a ^= a >> 17;
+	a ^= a << 5;
+	a ^= a << 13;
+	a ^= a >> 7;
+	a ^= a << 17;
 	return a;
 }
 
