@@ -343,36 +343,46 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 	}
 }
 
+RTLIL::SigBit VerificImporter::netToSigBit(Verific::Net *net) {
+	if (net && net->IsGnd())
+		return RTLIL::State::S0;
+	else if (net && net->IsPwr())
+		return RTLIL::State::S1;
+	else if (net && net->IsX())
+		return RTLIL::State::Sx;
+	else if (net)
+		return net_map_at(net);
+	else
+		return RTLIL::State::Sz;
+}
+
 RTLIL::SigSpec VerificImporter::operatorInput(Instance *inst)
 {
 	RTLIL::SigSpec sig;
-	for (int i = int(inst->InputSize())-1; i >= 0; i--)
-		if (inst->GetInputBit(i))
-			sig.append(net_map_at(inst->GetInputBit(i)));
-		else
-			sig.append(RTLIL::State::Sz);
+	for (int i = int(inst->InputSize())-1; i >= 0; i--) {
+		Net *net = inst->GetInputBit(i);
+		sig.append(netToSigBit(net));
+	}
 	return sig;
 }
 
 RTLIL::SigSpec VerificImporter::operatorInput1(Instance *inst)
 {
 	RTLIL::SigSpec sig;
-	for (int i = int(inst->Input1Size())-1; i >= 0; i--)
-		if (inst->GetInput1Bit(i))
-			sig.append(net_map_at(inst->GetInput1Bit(i)));
-		else
-			sig.append(RTLIL::State::Sz);
+	for (int i = int(inst->Input1Size())-1; i >= 0; i--) {
+		Net *net = inst->GetInput1Bit(i);
+		sig.append(netToSigBit(net));
+	}
 	return sig;
 }
 
 RTLIL::SigSpec VerificImporter::operatorInput2(Instance *inst)
 {
 	RTLIL::SigSpec sig;
-	for (int i = int(inst->Input2Size())-1; i >= 0; i--)
-		if (inst->GetInput2Bit(i))
-			sig.append(net_map_at(inst->GetInput2Bit(i)));
-		else
-			sig.append(RTLIL::State::Sz);
+	for (int i = int(inst->Input2Size())-1; i >= 0; i--) {
+		Net *net = inst->GetInput2Bit(i);
+		sig.append(netToSigBit(net));
+	}
 	return sig;
 }
 
