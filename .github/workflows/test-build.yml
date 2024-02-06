@@ -24,9 +24,10 @@ jobs:
           concurrent_skipping: 'same_content_newer'
 
   build-yosys:
+    name: Build Yosys
+    runs-on: ${{ matrix.os }}
     needs: pre_job
     if: needs.pre_job.outputs.should_skip != 'true'
-    runs-on: ${{ matrix.os }}
     env:
       CC: ${{ matrix.compiler }}
       CXX: ${{ matrix.compiler }}
@@ -35,7 +36,6 @@ jobs:
       matrix:
         os:
           - ubuntu-20.04
-          - macos-13
         compiler:
           - 'clang-12'
           - 'gcc-11'
@@ -45,20 +45,27 @@ jobs:
           - 'c++17'
           - 'c++20'
         include:
+          # Add os_name
+          - os: ubuntu-20.04
+            os_name: focal
           # Build for testing
           - os: ubuntu-20.04
+            os_name: focal
+            compiler: 'clang'
+            cpp_std: 'c++11'
+          # macOS build
+          - os: macos-13
             compiler: 'clang'
             cpp_std: 'c++11'
           # Limited testing for older compilers
           - os: ubuntu-20.04
+            os_name: focal
             compiler: 'clang-11'
             cpp_std: 'c++11'
           - os: ubuntu-20.04
+            os_name: focal
             compiler: 'gcc-10'
             cpp_std: 'c++11'
-          # Add os_name
-          - os: ubuntu-20.04
-            os_name: focal
       fail-fast: false
     steps:
       - name: Install Linux Dependencies
