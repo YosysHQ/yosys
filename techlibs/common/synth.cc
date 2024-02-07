@@ -60,7 +60,7 @@ struct SynthPass : public ScriptPass {
 		log("        do not run abc (as if yosys was compiled without ABC support)\n");
 		log("\n");
 		log("    -booth\n");
-		log("        run the booth pass to convert $mul to Booth encoded multipliers");
+		log("        run the booth pass to map $mul to Booth encoded multipliers\n");
 		log("\n");
 		log("    -noalumacc\n");
 		log("        do not run 'alumacc' pass. i.e. keep arithmetic operators in\n");
