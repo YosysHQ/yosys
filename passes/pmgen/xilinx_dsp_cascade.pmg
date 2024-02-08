@@ -46,7 +46,7 @@ pattern xilinx_dsp_cascade
 udata <std::function<SigSpec(const SigSpec&)>> unextend
 udata <vector<std::tuple<Cell*,int,int,int>>> chain longest_chain
 state <Cell*> next
-state <SigSpec> clock
+state <SigBit> clock
 state <int> AREG BREG
 
 // Variables used for subpatterns
@@ -395,7 +395,7 @@ match ff
 	filter GetSize(port(ff, \Q)) >= offset + GetSize(argQ)
 	filter port(ff, \Q).extract(offset, GetSize(argQ)) == argQ
 
-	filter clock == SigBit() || port(ff, \CLK) == clock
+	filter clock == SigBit() || port(ff, \CLK)[0] == clock
 endmatch
 
 code argQ

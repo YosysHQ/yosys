@@ -111,10 +111,14 @@ jobs:
         shell: bash
         run: |
           make config-${CC%%-*}
-          make -j${{ env.procs }} CCXXSTD=${{ matrix.cpp_std }} CC=$CC CXX=$CC LD=$CC
+          make -j${{ env.procs }} CXXSTD=${{ matrix.cpp_std }} CC=$CC CXX=$CC LD=$CC
 
       - name: Run tests
         if: (matrix.cpp_std == 'c++11') && (matrix.compiler == 'gcc-11')
         shell: bash
         run: |
           make -j${{ env.procs }} test CXXSTD=${{ matrix.cpp_std }} CC=$CC CXX=$CC LD=$CC
+
+      - name: Log yosys-config output
+        run: |
+          ./yosys-config || true

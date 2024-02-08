@@ -353,7 +353,7 @@ struct OptDffWorker
 					// Try a more complex conversion to plain async reset.
 					State val_neutral = ff.pol_set ? State::S0 : State::S1;
 					Const val_arst;
-					SigSpec sig_arst;
+					SigBit sig_arst;
 					if (ff.sig_clr[0] == val_neutral)
 						sig_arst = ff.sig_set[0];
 					else
