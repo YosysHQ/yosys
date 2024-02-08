@@ -17,6 +17,8 @@
 #include <string>
 #include <vector>
 
+#include <stdint.h>
+
 namespace hashlib {
 
 const int hashtable_size_trigger = 2;
