@@ -431,9 +431,10 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 								}
 								break;
 							}
-							if (i == fmt.size()) {
+							if (i == fmt.size())
 								log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with incomplete format specifier in argument %zu.\n", task_name.c_str(), fmtarg - args.begin() + 1);
-							}
+							if (arg->type == VerilogFmtArg::TIME && part.type != FmtPart::VLOG_TIME)
+								log_file_error(fmtarg->filename, fmtarg->first_line, "System task `%s' called with format character `%c' in argument %zu, but the argument is $time or $realtime.\n", task_name.c_str(), fmt[i], fmtarg - args.begin() + 1);
 
 							if (part.padding == '\0')
 								part.padding = (has_leading_zero && part.justify == FmtPart::RIGHT) ? '0' : ' ';
