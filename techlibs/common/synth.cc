@@ -60,7 +60,7 @@ struct SynthPass : public ScriptPass {
 		log("        do not run abc (as if yosys was compiled without ABC support)\n");
 		log("\n");
 		log("    -booth\n");
-		log("        run the booth pass to convert $mul to Booth encoded multipliers");
+		log("        run the booth pass to map $mul to Booth encoded multipliers\n");
 		log("\n");
 		log("    -noalumacc\n");
 		log("        do not run 'alumacc' pass. i.e. keep arithmetic operators in\n");
@@ -230,13 +230,13 @@ struct SynthPass : public ScriptPass {
 
 		if (check_label("coarse")) {
 			run("proc");
-			if (help_mode || flatten)
+			if (flatten || help_mode)
 				run("flatten", "  (if -flatten)");
 			run("opt_expr");
 			run("opt_clean");
 			run("check");
 			run("opt -nodffe -nosdff");
-			if (!nofsm)
+			if (!nofsm || help_mode)
 				run("fsm" + fsm_opts, "      (unless -nofsm)");
 			run("opt");
 			run("wreduce");
@@ -246,8 +246,8 @@ struct SynthPass : public ScriptPass {
 				run("techmap -map +/cmp2lut.v -map +/cmp2lcu.v", " (if -lut)");
 			else if (lut)
 				run(stringf("techmap -map +/cmp2lut.v -map +/cmp2lcu.v -D LUT_WIDTH=%d", lut));
-			if (booth)
-				run("booth");
+			if (booth || help_mode)
+				run("booth", "    (if -booth)");
 			if (!noalumacc)
 				run("alumacc", "  (unless -noalumacc)");
 			if (!noshare)
@@ -274,7 +274,7 @@ struct SynthPass : public ScriptPass {
 			}
 			run("opt -fast");
 
-			if (!noabc && !flowmap) {
+			if ((!noabc && !flowmap) || help_mode) {
 #ifdef YOSYS_ENABLE_ABC
 				if (help_mode) {
 					run(abc + " -fast", "       (unless -noabc, unless -lut)");
