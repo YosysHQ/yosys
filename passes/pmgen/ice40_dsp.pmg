@@ -346,7 +346,7 @@ endmatch
 code argQ argD
 {
 	if (clock != SigBit()) {
-		if (port(ff, \CLK) != clock)
+		if (port(ff, \CLK)[0] != clock)
 			reject;
 		if (param(ff, \CLK_POLARITY).as_bool() != clock_pol)
 			reject;
@@ -393,7 +393,7 @@ endmatch
 code argQ
 	if (ff) {
 		if (clock != SigBit()) {
-			if (port(ff, \CLK) != clock)
+			if (port(ff, \CLK)[0] != clock)
 				reject;
 			if (param(ff, \CLK_POLARITY).as_bool() != clock_pol)
 				reject;

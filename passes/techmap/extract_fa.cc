@@ -281,7 +281,7 @@ struct ExtractFaWorker
 	void assign_new_driver(SigBit bit, SigBit new_driver)
 	{
 		Cell *cell = driver.at(bit);
-		if (sigmap(cell->getPort(ID::Y)) == bit) {
+		if (sigmap(cell->getPort(ID::Y)) == SigSpec(bit)) {
 			cell->setPort(ID::Y, module->addWire(NEW_ID));
 			module->connect(bit, new_driver);
 		}

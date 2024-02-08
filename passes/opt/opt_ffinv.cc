@@ -38,6 +38,7 @@ struct OptFfInvWorker
 	// - ... which has no other users
 	// - all users of FF are LUTs
 	bool push_d_inv(FfData &ff) {
+		log_assert(ff.width == 1);
 		if (index.query_is_input(ff.sig_d))
 			return false;
 		if (index.query_is_output(ff.sig_d))
@@ -90,7 +91,7 @@ struct OptFfInvWorker
 				int flip_mask = 0;
 				SigSpec sig_a = lut->getPort(ID::A);
 				for (int i = 0; i < GetSize(sig_a); i++) {
-					if (index.sigmap(sig_a[i]) == index.sigmap(ff.sig_q)) {
+					if (index.sigmap(sig_a[i]) == index.sigmap(ff.sig_q[0])) {
 						flip_mask |= 1 << i;
 					}
 				}
