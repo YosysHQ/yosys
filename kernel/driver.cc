@@ -243,38 +243,6 @@ int main(int argc, char **argv)
 	bool mode_v = false;
 	bool mode_q = false;
 
-#if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
-    std::string state_dir;
-    #if defined(_WIN32)
-        if (getenv("HOMEDRIVE") != NULL && getenv("HOMEPATH") != NULL) {
-            state_dir = stringf("%s%s/.local/state", getenv("HOMEDRIVE"), getenv("HOMEPATH"));
-        } else {
-            log("$HOMEDRIVE and/or $HOMEPATH is empty. No history file will be created.");
-        }
-    #else
-        if (getenv("XDG_STATE_HOME") == NULL || getenv("XDG_STATE_HOME")[0] == '\0') {
-            if (getenv("HOME") != NULL) {
-                state_dir = stringf("%s/.local/state", getenv("HOME"));
-            } else {
-                log("$HOME is empty. No history file will be created.");
-            }
-        } else {
-            state_dir = stringf("%s", getenv("XDG_STATE_HOME"));
-        }
-    #endif
-
-    if (!state_dir.empty()) {
-        std::string yosys_dir = state_dir + "/yosys";
-        create_directory(yosys_dir);
-
-        yosys_history_file = yosys_dir + "/history";
-        read_history(yosys_history_file.c_str());
-        yosys_history_offset = where_history();
-    } else {
-        log("Directory to put history file does not exist. If you are on Windows either $HOMEDRIVE or $HOMEPATH is empty.");
-    }
-#endif
-
 	if (argc == 2 && (!strcmp(argv[1], "-h") || !strcmp(argv[1], "-help") || !strcmp(argv[1], "--help")))
 	{
 		printf("\n");
@@ -561,6 +529,36 @@ int main(int argc, char **argv)
 
 	if (print_banner)
 		yosys_banner();
+
+#if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
+    std::string state_dir;
+    #if defined(_WIN32)
+        if (getenv("HOMEDRIVE") != NULL && getenv("HOMEPATH") != NULL) {
+            state_dir = stringf("%s%s/.local/state", getenv("HOMEDRIVE"), getenv("HOMEPATH"));
+        } else {
+            log_debug("$HOMEDRIVE and/or $HOMEPATH is empty. No history file will be created.");
+        }
+    #else
+        if (getenv("XDG_STATE_HOME") == NULL || getenv("XDG_STATE_HOME")[0] == '\0') {
+            if (getenv("HOME") != NULL) {
+                state_dir = stringf("%s/.local/state", getenv("HOME"));
+            } else {
+                log_debug("$HOME is empty. No history file will be created.");
+            }
+        } else {
+            state_dir = stringf("%s", getenv("XDG_STATE_HOME"));
+        }
+    #endif
+
+    if (!state_dir.empty()) {
+        std::string yosys_dir = state_dir + "/yosys";
+        create_directory(yosys_dir);
+
+        yosys_history_file = yosys_dir + "/history";
+        read_history(yosys_history_file.c_str());
+        yosys_history_offset = where_history();
+    }
+#endif
 
 	if (print_stats)
 		log_hasher = new SHA1;
