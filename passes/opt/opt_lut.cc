@@ -529,12 +529,6 @@ struct OptLutPass : public Pass {
 		log("\n");
 		log("This pass combines cascaded $lut cells with unused inputs.\n");
 		log("\n");
-		log("    -dlogic <type>:<cell-port>=<LUT-input>[:<cell-port>=<LUT-input>...]\n");
-		log("        preserve connections to dedicated logic cell <type> that has ports\n");
-		log("        <cell-port> connected to LUT inputs <LUT-input>. this includes\n");
-		log("        the case where both LUT and dedicated logic input are connected to\n");
-		log("        the same constant.\n");
-		log("\n");
 		log("	-tech ice40\n");
 		log("        treat the design as a LUT-mapped circuit for the iCE40 architecture\n");
 		log("        and preserve connections to SB_CARRY as appropriate\n");
