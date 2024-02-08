@@ -531,33 +531,33 @@ int main(int argc, char **argv)
 		yosys_banner();
 
 #if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
-    std::string state_dir;
-    #if defined(_WIN32)
-        if (getenv("HOMEDRIVE") != NULL && getenv("HOMEPATH") != NULL) {
-            state_dir = stringf("%s%s/.local/state", getenv("HOMEDRIVE"), getenv("HOMEPATH"));
-        } else {
-            log_debug("$HOMEDRIVE and/or $HOMEPATH is empty. No history file will be created.");
-        }
-    #else
-        if (getenv("XDG_STATE_HOME") == NULL || getenv("XDG_STATE_HOME")[0] == '\0') {
-            if (getenv("HOME") != NULL) {
-                state_dir = stringf("%s/.local/state", getenv("HOME"));
-            } else {
-                log_debug("$HOME is empty. No history file will be created.");
-            }
-        } else {
-            state_dir = stringf("%s", getenv("XDG_STATE_HOME"));
-        }
-    #endif
+	std::string state_dir;
+	#if defined(_WIN32)
+		if (getenv("HOMEDRIVE") != NULL && getenv("HOMEPATH") != NULL) {
+			state_dir = stringf("%s%s/.local/state", getenv("HOMEDRIVE"), getenv("HOMEPATH"));
+		} else {
+			log_debug("$HOMEDRIVE and/or $HOMEPATH is empty. No history file will be created.\n");
+		}
+	#else
+		if (getenv("XDG_STATE_HOME") == NULL || getenv("XDG_STATE_HOME")[0] == '\0') {
+			if (getenv("HOME") != NULL) {
+				state_dir = stringf("%s/.local/state", getenv("HOME"));
+			} else {
+				log_debug("$HOME is empty. No history file will be created.\n");
+			}
+		} else {
+			state_dir = stringf("%s", getenv("XDG_STATE_HOME"));
+		}
+	#endif
 
-    if (!state_dir.empty()) {
-        std::string yosys_dir = state_dir + "/yosys";
-        create_directory(yosys_dir);
+	if (!state_dir.empty()) {
+		std::string yosys_dir = state_dir + "/yosys";
+		create_directory(yosys_dir);
 
-        yosys_history_file = yosys_dir + "/history";
-        read_history(yosys_history_file.c_str());
-        yosys_history_offset = where_history();
-    }
+		yosys_history_file = yosys_dir + "/history";
+		read_history(yosys_history_file.c_str());
+		yosys_history_offset = where_history();
+	}
 #endif
 
 	if (print_stats)
@@ -590,6 +590,8 @@ int main(int argc, char **argv)
 
 	for (auto &fn : plugin_filenames)
 		load_plugin(fn, {});
+
+	log_suppressed();
 
 	if (!vlog_defines.empty()) {
 		std::string vdef_cmd = "read -define";
