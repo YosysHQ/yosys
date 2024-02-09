@@ -28,6 +28,11 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+struct cell_data_t {
+	double area;
+	bool is_flip_flop;
+};
+
 struct statdata_t
 {
 	#define STAT_INT_MEMBERS X(num_wires) X(num_wire_bits) X(num_pub_wires) X(num_pub_wire_bits) \
@@ -39,6 +44,7 @@ struct statdata_t
 	STAT_INT_MEMBERS
 	#undef X
 	double area;
+	double sequential_area;
 	string tech;
 
 	std::map<RTLIL::IdString, int> techinfo;
@@ -74,7 +80,7 @@ struct statdata_t
 	#undef X
 	}
 
-	statdata_t(RTLIL::Design *design, RTLIL::Module *mod, bool width_mode, const dict<IdString, double> &cell_area, string techname)
+	statdata_t(RTLIL::Design *design, RTLIL::Module *mod, bool width_mode, const dict<IdString, cell_data_t> &cell_properties, string techname)
 	{
 		tech = techname;
 
@@ -131,11 +137,17 @@ struct statdata_t
 					cell_type = stringf("%s_%d", cell_type.c_str(), GetSize(cell->getPort(ID::Q)));
 			}
 
-			if (!cell_area.empty()) {
-				if (cell_area.count(cell_type))
-					area += cell_area.at(cell_type);
-				else
+			if (!cell_properties.empty()) {
+				if (cell_properties.count(cell_type)) {
+					cell_data_t cell_data = cell_properties.at(cell_type);
+					if (cell_data.is_flip_flop) {
+						sequential_area += cell_data.area;
+					}
+					area += cell_data.area;
+				}
+				else {
 					unknown_cell_area.insert(cell_type);
+				}
 			}
 
 			num_cells++;
@@ -244,6 +256,7 @@ struct statdata_t
 		if (area != 0) {
 			log("\n");
 			log("   Chip area for %smodule '%s': %f\n", (top_mod) ? "top " : "", mod_name.c_str(), area);
+			log("   Sequential area for %smodule '%s': %f\n", (top_mod) ? "top " : "", mod_name.c_str(), sequential_area);
 		}
 
 		if (tech == "xilinx")
@@ -325,7 +338,7 @@ statdata_t hierarchy_worker(std::map<RTLIL::IdString, statdata_t> &mod_stat, RTL
 	return mod_data;
 }
 
-void read_liberty_cellarea(dict<IdString, double> &cell_area, string liberty_file)
+void read_liberty_cellarea(dict<IdString, cell_data_t> &cell_properties, string liberty_file)
 {
 	std::ifstream f;
 	f.open(liberty_file.c_str());
@@ -341,8 +354,9 @@ void read_liberty_cellarea(dict<IdString, double> &cell_area, string liberty_fil
 			continue;
 
 		LibertyAst *ar = cell->find("area");
+		bool is_flip_flop = cell->find("ff") != nullptr;
 		if (ar != nullptr && !ar->value.empty())
-			cell_area["\\" + cell->args[0]] = atof(ar->value.c_str());
+			cell_properties["\\" + cell->args[0]] = {/*area=*/atof(ar->value.c_str()), is_flip_flop};
 	}
 }
 
@@ -383,7 +397,7 @@ struct StatPass : public Pass {
 		bool width_mode = false, json_mode = false;
 		RTLIL::Module *top_mod = nullptr;
 		std::map<RTLIL::IdString, statdata_t> mod_stat;
-		dict<IdString, double> cell_area;
+		dict<IdString, cell_data_t> cell_properties;
 		string techname;
 
 		size_t argidx;
@@ -396,7 +410,7 @@ struct StatPass : public Pass {
 			if (args[argidx] == "-liberty" && argidx+1 < args.size()) {
 				string liberty_file = args[++argidx];
 				rewrite_filename(liberty_file);
-				read_liberty_cellarea(cell_area, liberty_file);
+				read_liberty_cellarea(cell_properties, liberty_file);
 				continue;
 			}
 			if (args[argidx] == "-tech" && argidx+1 < args.size()) {
@@ -439,7 +453,7 @@ struct StatPass : public Pass {
 				if (mod->get_bool_attribute(ID::top))
 					top_mod = mod;
 
-			statdata_t data(design, mod, width_mode, cell_area, techname);
+			statdata_t data(design, mod, width_mode, cell_properties, techname);
 			mod_stat[mod->name] = data;
 
 			if (json_mode) {
