@@ -4,7 +4,7 @@ set -ex
 ../../yosys -p "
 read_verilog -formal -DFAST clk2fflogic_effects.sv
 hierarchy -top top; proc;;
-tee -o clk2fflogic_effects.sim.log sim -fst /tmp/sim.fst -q -n 16
+tee -o clk2fflogic_effects.sim.log sim -fst clk2fflogic_effects.sim.fst -q -n 16
 "
 
 ../../yosys -p "
@@ -12,7 +12,7 @@ read_verilog -formal -DFAST clk2fflogic_effects.sv
 hierarchy -top top; proc;;
 clk2fflogic;;
 
-tee -o clk2fflogic_effects.clk2fflogic.log sim -fst /tmp/sim.fst -q -n 16
+tee -o clk2fflogic_effects.clk2fflogic.log sim -fst clk2fflogic_effects.clk2fflogic.fst -q -n 16
 "
 
 iverilog -g2012 -o clk2fflogic_effects.iv.out clk2fflogic_effects.sv
