@@ -180,7 +180,7 @@ provided by the user to avoid name collisions. When that happens, attribute
 contains one name (if emitted directly by the frontend, or is a result of
 disambiguation) or multiple names separated by spaces (if a result of
 flattening). All names specified in the "hdlname" attribute are public and do
-not include the leading "\".
+not include the leading "\\".
 
 RTLIL::Design and RTLIL::Module
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
