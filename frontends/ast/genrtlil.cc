@@ -2124,11 +2124,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 						if (sig.is_wire()) {
 							// if the resulting SigSpec is a wire, its
 							// signedness should match that of the AstNode
-							if (arg->type == AST_IDENTIFIER && arg->id2ast && arg->id2ast->is_signed && !arg->is_signed)
-								// fully-sliced signed wire will be resolved
-								// once the module becomes available
-								log_assert(attributes.count(ID::reprocess_after));
-							else
+							// unless this instantiation depends on module
+							// information that isn't available yet
+							if (!attributes.count(ID::reprocess_after))
 								log_assert(arg->is_signed == sig.as_wire()->is_signed);
 						} else if (arg->is_signed) {
 							// non-trivial signed nodes are indirected through
