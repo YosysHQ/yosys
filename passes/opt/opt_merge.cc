@@ -272,6 +272,9 @@ struct OptMergeWorker
 				if ((!mode_share_all && !ct.cell_known(cell->type)) || !cell->known())
 					continue;
 
+				if (cell->type == ID($scopeinfo))
+					continue;
+
 				uint64_t hash = hash_cell_parameters_and_connections(cell);
 				auto r = sharemap.insert(std::make_pair(hash, cell));
 				if (!r.second) {

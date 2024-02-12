@@ -1871,6 +1871,13 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 
 void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 {
+	// To keep the output compatible with other tools we ignore $scopeinfo
+	// cells that exist only to hold metadata. If in the future that metadata
+	// should be exposed as part of the write_verilog output it should be
+	// opt-in and/or represented as something else than a $scopeinfo cell.
+	if (cell->type == ID($scopeinfo))
+		return;
+
 	// Handled by dump_memory
 	if (cell->is_mem_cell())
 		return;

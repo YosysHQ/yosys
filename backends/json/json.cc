@@ -192,6 +192,10 @@ struct JsonWriter
 		for (auto c : module->cells()) {
 			if (use_selection && !module->selected(c))
 				continue;
+			// Eventually we will want to emit $scopeinfo, but currently this
+			// will break JSON netlist consumers like nextpnr
+			if (c->type == ID($scopeinfo))
+				continue;
 			f << stringf("%s\n", first ? "" : ",");
 			f << stringf("        %s: {\n", get_name(c->name).c_str());
 			f << stringf("          \"hide_name\": %s,\n", c->name[0] == '$' ? "1" : "0");

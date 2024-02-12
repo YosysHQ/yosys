@@ -980,6 +980,9 @@ struct FirrtlWorker
 				register_reverse_wire_map(y_id, cell->getPort(ID::Y));
 				continue;
 			}
+
+			if (cell->type == ID($scopeinfo))
+				continue;
 			log_error("Cell type not supported: %s (%s.%s)\n", log_id(cell->type), log_id(module), log_id(cell));
 		}
 

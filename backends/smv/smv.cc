@@ -573,6 +573,9 @@ struct SmvWorker
 				continue;
 			}
 
+			if (cell->type == ID($scopeinfo))
+				continue;
+
 			if (cell->type[0] == '$') {
 				if (cell->type.in(ID($dffe), ID($sdff), ID($sdffe), ID($sdffce)) || cell->type.str().substr(0, 6) == "$_SDFF" || (cell->type.str().substr(0, 6) == "$_DFFE" && cell->type.str().size() == 10)) {
 					log_error("Unsupported cell type %s for cell %s.%s -- please run `dffunmap` before `write_smv`.\n",

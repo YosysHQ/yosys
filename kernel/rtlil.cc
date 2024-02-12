@@ -1769,6 +1769,15 @@ namespace {
 				return;
 			}
 
+			if (cell->type == ID($scopeinfo)) {
+				param(ID::TYPE);
+				check_expected();
+				std::string scope_type = cell->getParam(ID::TYPE).decode_string();
+				if (scope_type != "module" && scope_type != "struct")
+					error(__LINE__);
+				return;
+			}
+
 			if (cell->type == ID($_BUF_))    { port(ID::A,1); port(ID::Y,1); check_expected(); return; }
 			if (cell->type == ID($_NOT_))    { port(ID::A,1); port(ID::Y,1); check_expected(); return; }
 			if (cell->type == ID($_AND_))    { port(ID::A,1); port(ID::B,1); port(ID::Y,1); check_expected(); return; }
