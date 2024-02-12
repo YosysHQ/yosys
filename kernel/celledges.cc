@@ -307,6 +307,40 @@ void shift_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 	}
 }
 
+void packed_mem_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
+{
+	log_assert(cell->type == ID($mem_v2));
+	Const rd_clk_enable = cell->getParam(ID::RD_CLK_ENABLE);
+	int n_rd_ports = cell->getParam(ID::RD_PORTS).as_int();
+	int abits = cell->getParam(ID::ABITS).as_int();
+	int width = cell->getParam(ID::WIDTH).as_int();
+
+	for (int i = 0; i < n_rd_ports; i++) {
+		if (rd_clk_enable[i] != State::S0)
+			continue;
+
+		for (int j = 0; j < abits; j++)
+			for (int k = 0; k < width; k++)
+				db->add_edge(cell, ID::RD_ADDR, i * abits + j,
+								   ID::RD_DATA, i * width + k, -1);
+	}
+}
+
+void memrd_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
+{
+	log_assert(cell->type.in(ID($memrd), ID($memrd_v2)));
+
+	if (cell->getParam(ID::CLK_ENABLE).as_bool())
+		return;
+
+	int abits = cell->getParam(ID::ABITS).as_int();
+	int width = cell->getParam(ID::WIDTH).as_int();
+
+	for (int j = 0; j < abits; j++)
+		for (int k = 0; k < width; k++)
+			db->add_edge(cell, ID::ADDR, j, ID::DATA, k, -1);
+}
+
 PRIVATE_NAMESPACE_END
 
 bool YOSYS_NAMESPACE_PREFIX AbstractCellEdgesDatabase::add_edges_from_cell(RTLIL::Cell *cell)
@@ -358,6 +392,16 @@ bool YOSYS_NAMESPACE_PREFIX AbstractCellEdgesDatabase::add_edges_from_cell(RTLIL
 
 	if (cell->type == ID($demux)) {
 		demux_op(this, cell);
+		return true;
+	}
+
+	if (cell->type == ID($mem_v2)) {
+		packed_mem_op(this, cell);
+		return true;
+	}
+
+	if (cell->type.in(ID($memrd), ID($memrd_v2))) {
+		memrd_op(this, cell);
 		return true;
 	}
 
