@@ -16,5 +16,5 @@ EOF
 hierarchy -top pingpong
 prep
 logger -nowarn "found logic loop in module pingpong:"
-logger -expect error "Found \d+ problems in 'check -assert'" 1
+logger -expect error "Found [0-9]+ problems in 'check -assert'" 1
 check -assert
