@@ -160,8 +160,12 @@ struct CheckPass : public Pass {
 
 				void add_edge(RTLIL::Cell *cell, RTLIL::IdString from_port, int from_bit,
 							  RTLIL::IdString to_port, int to_bit, int) override {
-					SigBit from = sigmap(cell->getPort(from_port))[from_bit];
-					SigBit to = sigmap(cell->getPort(to_port))[to_bit];
+					SigSpec from_portsig = cell->getPort(from_port);
+					SigSpec to_portsig = cell->getPort(to_port);
+					log_assert(from_bit >= 0 && from_bit < from_portsig.size());
+					log_assert(to_bit >= 0 && to_bit < to_portsig.size());
+					SigBit from = sigmap(from_portsig[from_bit]);
+					SigBit to = sigmap(to_portsig[to_bit]);
 
 					if (from.wire && to.wire)
 						topo.edge(std::make_pair(from.wire->name, from.offset), std::make_pair(to.wire->name, to.offset));
