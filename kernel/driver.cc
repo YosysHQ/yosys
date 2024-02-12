@@ -92,8 +92,15 @@ int getopt(int argc, char **argv, const char *optstring)
 		return optopt;
 	}
 
-	optarg = argv[++optind];
+	if (++optind >= argc) {
+		fprintf(stderr, "%s: option '-%c' expects an argument\n", argv[0], optopt);
+		optopt = '?';
+		return optopt;
+	}
+
+	optarg = argv[optind];
 	optind++, optcur = 1;
+
 	return optopt;
 }
 
