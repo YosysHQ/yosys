@@ -220,7 +220,7 @@ struct CheckPass : public Pass {
 					}
 				}
 
-				if (yosys_celltypes.cell_evaluable(cell->type))
+				if (yosys_celltypes.cell_evaluable(cell->type) || cell->type.in(ID($mem_v2), ID($memrd), ID($memrd_v2)))
 					edges_db.add_edges_from_cell(cell);
 			}
 
