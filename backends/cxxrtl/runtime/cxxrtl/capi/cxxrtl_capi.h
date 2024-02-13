@@ -240,6 +240,11 @@ struct cxxrtl_object {
 	// through wires, the bits are double buffered. To avoid race conditions, user code should
 	// always read from `curr` and write to `next`. The `curr` pointer is always valid; for objects
 	// that cannot be modified, or cannot be modified in a race-free way, `next` is NULL.
+	//
+	// In case where `width == 0`, `curr` is a non-NULL pointer unique for the wire. That is,
+	// there is a 1-to-1 correspondence between simulation objects and `curr` pointers, regardless
+	// of whether they have storage or not. (Aliases' `curr` pointer equals that of some other
+	// simulated object.)
 	uint32_t *curr;
 	uint32_t *next;
 
