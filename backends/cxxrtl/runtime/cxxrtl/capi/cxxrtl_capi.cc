@@ -35,19 +35,19 @@ cxxrtl_handle cxxrtl_create(cxxrtl_toplevel design) {
 	return cxxrtl_create_at(design, "");
 }
 
-cxxrtl_handle cxxrtl_create_at(cxxrtl_toplevel design, const char *root) {
-	std::string path = root;
-	if (!path.empty()) {
+cxxrtl_handle cxxrtl_create_at(cxxrtl_toplevel design, const char *top_path_) {
+	std::string top_path = top_path_;
+	if (!top_path.empty()) {
 		// module::debug_info() accepts either an empty path, or a path ending in space to simplify
 		// the logic in generated code. While this is sketchy at best to expose in the C++ API, this
 		// would be a lot worse in the C API, so don't expose it here.
-		assert(path.back() != ' ');
-		path += ' ';
+		assert(top_path.back() != ' ');
+		top_path += ' ';
 	}
 
 	cxxrtl_handle handle = new _cxxrtl_handle;
 	handle->module = std::move(design->module);
-	handle->module->debug_info(handle->objects, path);
+	handle->module->debug_info(handle->objects, top_path);
 	delete design;
 	return handle;
 }

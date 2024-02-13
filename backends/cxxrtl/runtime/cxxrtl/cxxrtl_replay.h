@@ -491,9 +491,9 @@ public:
 	template<typename ...Args>
 	recorder(Args &&...args) : writer(std::forward<Args>(args)...) {}
 
-	void start(module &module) {
+	void start(module &module, std::string top_path = "") {
 		debug_items items;
-		module.debug_info(items);
+		module.debug_info(&items, /*scopes=*/nullptr, top_path);
 		start(items);
 	}
 
@@ -621,9 +621,10 @@ public:
 	template<typename ...Args>
 	player(Args &&...args) : reader(std::forward<Args>(args)...) {}
 
-	void start(module &module) {
+	// The `top_path` must match the one given to the recorder.
+	void start(module &module, std::string top_path = "") {
 		debug_items items;
-		module.debug_info(items);
+		module.debug_info(&items, /*scopes=*/nullptr, top_path);
 		start(items);
 	}
 

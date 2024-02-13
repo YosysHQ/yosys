@@ -1331,14 +1331,15 @@ struct debug_items {
 	std::map<std::string, std::vector<debug_item>> table;
 	std::map<std::string, std::unique_ptr<debug_attrs>> attrs_table;
 
-	void add(const std::string &name, debug_item &&item, metadata_map &&item_attrs = {}) {
-		std::unique_ptr<debug_attrs> &attrs = attrs_table[name];
+	void add(const std::string &path, debug_item &&item, metadata_map &&item_attrs = {}) {
+		assert((path.empty() || path[path.size() - 1] != ' ') && path.find("  ") == std::string::npos);
+		std::unique_ptr<debug_attrs> &attrs = attrs_table[path];
 		if (attrs.get() == nullptr)
 			attrs = std::unique_ptr<debug_attrs>(new debug_attrs);
 		for (auto attr : item_attrs)
 			attrs->map.insert(attr);
 		item.attrs = attrs.get();
-		std::vector<debug_item> &parts = table[name];
+		std::vector<debug_item> &parts = table[path];
 		parts.emplace_back(item);
 		std::sort(parts.begin(), parts.end(),
 			[](const debug_item &a, const debug_item &b) {
@@ -1346,25 +1347,58 @@ struct debug_items {
 			});
 	}
 
-	size_t count(const std::string &name) const {
-		if (table.count(name) == 0)
+	size_t count(const std::string &path) const {
+		if (table.count(path) == 0)
 			return 0;
-		return table.at(name).size();
+		return table.at(path).size();
 	}
 
-	const std::vector<debug_item> &at(const std::string &name) const {
-		return table.at(name);
+	const std::vector<debug_item> &at(const std::string &path) const {
+		return table.at(path);
 	}
 
 	// Like `at()`, but operates only on single-part debug items.
-	const debug_item &operator [](const std::string &name) const {
-		const std::vector<debug_item> &parts = table.at(name);
+	const debug_item &operator [](const std::string &path) const {
+		const std::vector<debug_item> &parts = table.at(path);
 		assert(parts.size() == 1);
 		return parts.at(0);
 	}
 
-	const metadata_map &attrs(const std::string &name) const {
-		return attrs_table.at(name)->map;
+	bool is_memory(const std::string &path) const {
+		return at(path).at(0).type == debug_item::MEMORY;
+	}
+
+	const metadata_map &attrs(const std::string &path) const {
+		return attrs_table.at(path)->map;
+	}
+};
+
+// Only `module` scopes are defined. The type is implicit, since Yosys does not currently support
+// any other scope types.
+struct debug_scope {
+	std::string module_name;
+	std::unique_ptr<debug_attrs> module_attrs;
+	std::unique_ptr<debug_attrs> cell_attrs;
+};
+
+struct debug_scopes {
+	std::map<std::string, debug_scope> table;
+
+	void add(const std::string &path, const std::string &module_name, metadata_map &&module_attrs, metadata_map &&cell_attrs) {
+		assert((path.empty() || path[path.size() - 1] != ' ') && path.find("  ") == std::string::npos);
+		assert(table.count(path) == 0);
+		debug_scope &scope = table[path];
+		scope.module_name = module_name;
+		scope.module_attrs = std::unique_ptr<debug_attrs>(new debug_attrs { module_attrs });
+		scope.cell_attrs = std::unique_ptr<debug_attrs>(new debug_attrs { cell_attrs });
+	}
+
+	size_t contains(const std::string &path) const {
+		return table.count(path);
+	}
+
+	const debug_scope &operator [](const std::string &path) const {
+		return table.at(path);
 	}
 };
 
@@ -1412,8 +1446,16 @@ struct module {
 		return deltas;
 	}
 
-	virtual void debug_info(debug_items &items, std::string path = "") {
-		(void)items, (void)path;
+	virtual void debug_info(debug_items *items, debug_scopes *scopes, std::string path, metadata_map &&cell_attrs = {}) {
+		(void)items, (void)scopes, (void)path, (void)cell_attrs;
+	}
+
+	// Compatibility method.
+#if __has_attribute(deprecated)
+	__attribute__((deprecated("Use `debug_info(path, &items, /*scopes=*/nullptr);` instead. (`path` could be \"top \".)")))
+#endif
+	void debug_info(debug_items &items, std::string path) {
+		debug_info(&items, /*scopes=*/nullptr, path);
 	}
 };
 
