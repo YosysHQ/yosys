@@ -1320,6 +1320,14 @@ namespace cxxrtl {
 using debug_attrs = ::_cxxrtl_attr_set;
 
 struct debug_items {
+	// Debug items may be composed of multiple parts, but the attributes are shared between all of them.
+	// There are additional invariants, not all of which are not checked by this code:
+	// - Memories and non-memories cannot be mixed together.
+	// - Bit indices (considering `lsb_at` and `width`) must not overlap.
+	// - Row indices (considering `depth` and `zero_at`) must be the same.
+	// - The `INPUT` and `OUTPUT` flags must be the same for all parts.
+	// Other than that, the parts can be quite different, e.g. it is OK to mix a value, a wire, an alias,
+	// and an outline, in the debug information for a single name in four parts.
 	std::map<std::string, std::vector<debug_item>> table;
 	std::map<std::string, std::unique_ptr<debug_attrs>> attrs_table;
 
@@ -1344,18 +1352,15 @@ struct debug_items {
 		return table.at(name).size();
 	}
 
-	const std::vector<debug_item> &parts_at(const std::string &name) const {
+	const std::vector<debug_item> &at(const std::string &name) const {
 		return table.at(name);
 	}
 
-	const debug_item &at(const std::string &name) const {
+	// Like `at()`, but operates only on single-part debug items.
+	const debug_item &operator [](const std::string &name) const {
 		const std::vector<debug_item> &parts = table.at(name);
 		assert(parts.size() == 1);
 		return parts.at(0);
-	}
-
-	const debug_item &operator [](const std::string &name) const {
-		return at(name);
 	}
 
 	const metadata_map &attrs(const std::string &name) const {
