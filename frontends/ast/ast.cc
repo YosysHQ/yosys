@@ -1820,7 +1820,7 @@ std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::Id
 
 	AstNode *new_ast = ast->clone();
 	if (!new_ast->attributes.count(ID::hdlname))
-		new_ast->set_attribute(ID::hdlname, AstNode::mkconst_str(stripped_name));
+		new_ast->set_attribute(ID::hdlname, AstNode::mkconst_str(stripped_name.substr(1)));
 
 	para_counter = 0;
 	for (auto child : new_ast->children) {
