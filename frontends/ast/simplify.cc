@@ -5662,7 +5662,7 @@ std::string AstNode::try_pop_module_prefix() const
 		if (current_scope.count(new_str)) {
 			std::string prefix = str.substr(0, pos);
 			auto it = current_scope_ast->attributes.find(ID::hdlname);
-			if ((it != current_scope_ast->attributes.end() && it->second->str == prefix)
+			if ((it != current_scope_ast->attributes.end() && it->second->str == prefix.substr(1))
 					|| prefix == current_scope_ast->str)
 				return new_str;
 		}
