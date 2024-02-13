@@ -1518,8 +1518,9 @@ struct CxxrtlWorker {
 		} else if (is_internal_cell(cell->type)) {
 			log_cmd_error("Unsupported internal cell `%s'.\n", cell->type.c_str());
 		// User cells
+		} else if (for_debug) {
+			// Outlines are called on demand when computing the value of a debug item. Nothing to do here.
 		} else {
-			log_assert(!for_debug);
 			log_assert(cell->known());
 			bool buffered_inputs = false;
 			const char *access = is_cxxrtl_blackbox_cell(cell) ? "->" : ".";
