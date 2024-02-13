@@ -1363,10 +1363,16 @@ struct debug_items {
 	}
 };
 
-// Tag class to disambiguate the default constructor used by the toplevel module that calls reset(),
+// Tag class to disambiguate the default constructor used by the toplevel module that calls `reset()`,
 // and the constructor of interior modules that should not call it.
 struct interior {};
 
+// The core API of the `module` class consists of only four virtual methods: `reset()`, `eval()`,
+// `commit`, and `debug_info()`. (The virtual destructor is made necessary by C++.) Every other method
+// is a convenience method, and exists solely to simplify some common pattern for C++ API consumers.
+// No behavior may be added to such convenience methods that other parts of CXXRTL can rely on, since
+// there is no guarantee they will be called (and, for example, other CXXRTL libraries will often call
+// the `eval()` and `commit()` directly instead, as well as being exposed in the C API).
 struct module {
 	module() {}
 	virtual ~module() {}
@@ -1382,8 +1388,14 @@ struct module {
 
 	virtual void reset() = 0;
 
+	// The `eval()` callback object, `performer`, is included in the virtual call signature since
+	// the generated code has broadly identical performance properties.
 	virtual bool eval(performer *performer = nullptr) = 0;
-	virtual bool commit() = 0; // commit observer isn't available since it avoids virtual calls
+
+	// The `commit()` callback object, `observer`, is not included in the virtual call signature since
+	// the generated code is severely pessimized by it. To observe commit events, the non-virtual
+	// `commit(observer *)` overload must be called directly on a `module` subclass.
+	virtual bool commit() = 0;
 
 	size_t step(performer *performer = nullptr) {
 		size_t deltas = 0;
