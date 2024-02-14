@@ -238,7 +238,8 @@ struct Clk2fflogicPass : public Pass {
 						cell->setPort(ID::EN, module->And(NEW_ID, sig_en_sampled, sig_trg_combined));
 						cell->setPort(ID::ARGS, sig_args_sampled);
 						if (cell->type == ID($check)) {
-							SigBit sig_a_sampled = sample_data(module, sig_en, State::S1, false, false).sampled;
+							SigBit sig_a = cell->getPort(ID::A);
+							SigBit sig_a_sampled = sample_data(module, sig_a, State::S1, false, false).sampled;
 							cell->setPort(ID::A, sig_a_sampled);
 						}
 					}
