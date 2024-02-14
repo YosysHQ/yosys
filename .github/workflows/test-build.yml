@@ -48,10 +48,13 @@ jobs:
           # Add os_name
           - os: ubuntu-20.04
             os_name: focal
-          # macOS build
+          # macOS builds
           - os: macos-13
             compiler: 'clang'
             cpp_std: 'c++11'
+          - os: macos-13
+            compiler: 'clang'
+            cpp_std: 'c++17'
           # Limited testing for older compilers
           - os: ubuntu-20.04
             os_name: focal
