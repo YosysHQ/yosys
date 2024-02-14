@@ -1,27 +1,35 @@
 #!/usr/bin/env bash
-set -ex
+set -e
 
-../../yosys -p "
-read_verilog -formal -DFAST clk2fflogic_effects.sv
+# TODO: when sim gets native $check support, remove the -DNO_ASSERT here
+echo Running yosys sim
+../../yosys -q -p "
+read_verilog -formal -DNO_ASSERT clk2fflogic_effects.sv
 hierarchy -top top; proc;;
-tee -o clk2fflogic_effects.sim.log sim -fst clk2fflogic_effects.sim.fst -q -n 16
-"
 
-../../yosys -p "
-read_verilog -formal -DFAST clk2fflogic_effects.sv
+tee -q -o clk2fflogic_effects.sim.log sim -q -n 32
+"
+echo Running yosys clk2fflogic sim
+../../yosys -q -p "
+read_verilog -formal clk2fflogic_effects.sv
 hierarchy -top top; proc;;
 clk2fflogic;;
 
-tee -o clk2fflogic_effects.clk2fflogic.log sim -fst clk2fflogic_effects.clk2fflogic.fst -q -n 16
+logger -nowarn ^Assertion
+tee -q -o clk2fflogic_effects.clk2fflogic.log sim -q -n 32
 "
 
-iverilog -g2012 -o clk2fflogic_effects.iv.out clk2fflogic_effects.sv
+echo Running iverilog sim
+iverilog -g2012 -DNO_ASSERT -o clk2fflogic_effects.iv.out clk2fflogic_effects.sv
+
 
 ./clk2fflogic_effects.iv.out > clk2fflogic_effects.iv.log
 
-sort clk2fflogic_effects.iv.log > clk2fflogic_effects.iv.sorted.log
-tail -n +3 clk2fflogic_effects.sim.log | sort > clk2fflogic_effects.sim.sorted.log
-tail -n +3 clk2fflogic_effects.clk2fflogic.log | sort > clk2fflogic_effects.clk2fflogic.sorted.log
+gawk '/([0-9]+):/{T=$1;print};/^Failed/{print T,$0}' clk2fflogic_effects.iv.log | sort > clk2fflogic_effects.iv.sorted.log
+gawk '/([0-9]+):/{T=$1;print};/^Failed/{print T,$0}' clk2fflogic_effects.sim.log | sort > clk2fflogic_effects.sim.sorted.log
+gawk '/([0-9]+):/{T=$1;print};/^Failed/{print T,$0}' clk2fflogic_effects.clk2fflogic.log | sort > clk2fflogic_effects.clk2fflogic.sorted.log
 
+echo Comparing iverilog sim vs yosys sim
 cmp clk2fflogic_effects.iv.sorted.log clk2fflogic_effects.sim.sorted.log
+echo Comparing iverilog sim vs yosys clk2fflogic sim
 cmp clk2fflogic_effects.iv.sorted.log clk2fflogic_effects.clk2fflogic.sorted.log
