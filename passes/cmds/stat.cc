@@ -28,9 +28,9 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct cell_data_t {
+struct cell_area_t {
 	double area;
-	bool is_flip_flop;
+	bool is_sequential;
 };
 
 struct statdata_t
@@ -80,7 +80,7 @@ struct statdata_t
 	#undef X
 	}
 
-	statdata_t(RTLIL::Design *design, RTLIL::Module *mod, bool width_mode, const dict<IdString, cell_data_t> &cell_properties, string techname)
+	statdata_t(RTLIL::Design *design, RTLIL::Module *mod, bool width_mode, const dict<IdString, cell_area_t> &cell_properties, string techname)
 	{
 		tech = techname;
 
@@ -139,8 +139,8 @@ struct statdata_t
 
 			if (!cell_properties.empty()) {
 				if (cell_properties.count(cell_type)) {
-					cell_data_t cell_data = cell_properties.at(cell_type);
-					if (cell_data.is_flip_flop) {
+					cell_area_t cell_data = cell_properties.at(cell_type);
+					if (cell_data.is_sequential) {
 						sequential_area += cell_data.area;
 					}
 					area += cell_data.area;
@@ -338,7 +338,7 @@ statdata_t hierarchy_worker(std::map<RTLIL::IdString, statdata_t> &mod_stat, RTL
 	return mod_data;
 }
 
-void read_liberty_cellarea(dict<IdString, cell_data_t> &cell_properties, string liberty_file)
+void read_liberty_cellarea(dict<IdString, cell_area_t> &cell_properties, string liberty_file)
 {
 	std::ifstream f;
 	f.open(liberty_file.c_str());
@@ -397,7 +397,7 @@ struct StatPass : public Pass {
 		bool width_mode = false, json_mode = false;
 		RTLIL::Module *top_mod = nullptr;
 		std::map<RTLIL::IdString, statdata_t> mod_stat;
-		dict<IdString, cell_data_t> cell_properties;
+		dict<IdString, cell_area_t> cell_properties;
 		string techname;
 
 		size_t argidx;
