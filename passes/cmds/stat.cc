@@ -256,7 +256,7 @@ struct statdata_t
 		if (area != 0) {
 			log("\n");
 			log("   Chip area for %smodule '%s': %f\n", (top_mod) ? "top " : "", mod_name.c_str(), area);
-			log("   Sequential area for %smodule '%s': %f\n", (top_mod) ? "top " : "", mod_name.c_str(), sequential_area);
+			log("     of which used for sequential elements: %f (%.2f%%)\n", sequential_area, 100.0*sequential_area/area);
 		}
 
 		if (tech == "xilinx")
