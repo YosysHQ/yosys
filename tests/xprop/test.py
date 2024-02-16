@@ -271,7 +271,7 @@ if "prepare" in steps:
 
         for pattern in patterns:
             print(
-                f'    gclk = 1; #0; A[0] = 1\'b{pattern[-1]}; #0; A = {input_width}\'b{pattern}; #5; gclk = 0; $display("%b %b", A, Y); #5',
+                f'    #0; gclk = 1; #0; A[0] = 1\'b{pattern[-1]}; #0; A = {input_width}\'b{pattern}; #5; gclk = 0; $display("%b %b", A, Y); #5',
                 file=tb_file,
             )
 
