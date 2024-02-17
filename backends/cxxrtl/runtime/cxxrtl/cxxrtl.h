@@ -1176,7 +1176,7 @@ struct debug_item : ::cxxrtl_object {
 
 	template<size_t Bits>
 	debug_item(value<Bits> &item, size_t lsb_offset = 0, uint32_t flags_ = 0) {
-		static_assert(sizeof(item) == value<Bits>::chunks * sizeof(chunk_t),
+		static_assert(Bits == 0 || sizeof(item) == value<Bits>::chunks * sizeof(chunk_t),
 		              "value<Bits> is not compatible with C layout");
 		type    = VALUE;
 		flags   = flags_;
@@ -1192,7 +1192,7 @@ struct debug_item : ::cxxrtl_object {
 
 	template<size_t Bits>
 	debug_item(const value<Bits> &item, size_t lsb_offset = 0) {
-		static_assert(sizeof(item) == value<Bits>::chunks * sizeof(chunk_t),
+		static_assert(Bits == 0 || sizeof(item) == value<Bits>::chunks * sizeof(chunk_t),
 		              "value<Bits> is not compatible with C layout");
 		type    = VALUE;
 		flags   = DRIVEN_COMB;
@@ -1208,8 +1208,9 @@ struct debug_item : ::cxxrtl_object {
 
 	template<size_t Bits>
 	debug_item(wire<Bits> &item, size_t lsb_offset = 0, uint32_t flags_ = 0) {
-		static_assert(sizeof(item.curr) == value<Bits>::chunks * sizeof(chunk_t) &&
-		              sizeof(item.next) == value<Bits>::chunks * sizeof(chunk_t),
+		static_assert(Bits == 0 ||
+		              (sizeof(item.curr) == value<Bits>::chunks * sizeof(chunk_t) &&
+		               sizeof(item.next) == value<Bits>::chunks * sizeof(chunk_t)),
 		              "wire<Bits> is not compatible with C layout");
 		type    = WIRE;
 		flags   = flags_;
@@ -1225,7 +1226,7 @@ struct debug_item : ::cxxrtl_object {
 
 	template<size_t Width>
 	debug_item(memory<Width> &item, size_t zero_offset = 0) {
-		static_assert(sizeof(item.data[0]) == value<Width>::chunks * sizeof(chunk_t),
+		static_assert(Width == 0 || sizeof(item.data[0]) == value<Width>::chunks * sizeof(chunk_t),
 		              "memory<Width> is not compatible with C layout");
 		type    = MEMORY;
 		flags   = 0;
@@ -1241,7 +1242,7 @@ struct debug_item : ::cxxrtl_object {
 
 	template<size_t Bits>
 	debug_item(debug_alias, const value<Bits> &item, size_t lsb_offset = 0) {
-		static_assert(sizeof(item) == value<Bits>::chunks * sizeof(chunk_t),
+		static_assert(Bits == 0 || sizeof(item) == value<Bits>::chunks * sizeof(chunk_t),
 		              "value<Bits> is not compatible with C layout");
 		type    = ALIAS;
 		flags   = DRIVEN_COMB;
@@ -1257,8 +1258,9 @@ struct debug_item : ::cxxrtl_object {
 
 	template<size_t Bits>
 	debug_item(debug_alias, const wire<Bits> &item, size_t lsb_offset = 0) {
-		static_assert(sizeof(item.curr) == value<Bits>::chunks * sizeof(chunk_t) &&
-		              sizeof(item.next) == value<Bits>::chunks * sizeof(chunk_t),
+		static_assert(Bits == 0 ||
+		              (sizeof(item.curr) == value<Bits>::chunks * sizeof(chunk_t) &&
+		               sizeof(item.next) == value<Bits>::chunks * sizeof(chunk_t)),
 		              "wire<Bits> is not compatible with C layout");
 		type    = ALIAS;
 		flags   = DRIVEN_COMB;
@@ -1274,7 +1276,7 @@ struct debug_item : ::cxxrtl_object {
 
 	template<size_t Bits>
 	debug_item(debug_outline &group, const value<Bits> &item, size_t lsb_offset = 0) {
-		static_assert(sizeof(item) == value<Bits>::chunks * sizeof(chunk_t),
+		static_assert(Bits == 0 || sizeof(item) == value<Bits>::chunks * sizeof(chunk_t),
 		              "value<Bits> is not compatible with C layout");
 		type    = OUTLINE;
 		flags   = DRIVEN_COMB;
@@ -1318,6 +1320,14 @@ namespace cxxrtl {
 using debug_attrs = ::_cxxrtl_attr_set;
 
 struct debug_items {
+	// Debug items may be composed of multiple parts, but the attributes are shared between all of them.
+	// There are additional invariants, not all of which are not checked by this code:
+	// - Memories and non-memories cannot be mixed together.
+	// - Bit indices (considering `lsb_at` and `width`) must not overlap.
+	// - Row indices (considering `depth` and `zero_at`) must be the same.
+	// - The `INPUT` and `OUTPUT` flags must be the same for all parts.
+	// Other than that, the parts can be quite different, e.g. it is OK to mix a value, a wire, an alias,
+	// and an outline, in the debug information for a single name in four parts.
 	std::map<std::string, std::vector<debug_item>> table;
 	std::map<std::string, std::unique_ptr<debug_attrs>> attrs_table;
 
@@ -1342,18 +1352,15 @@ struct debug_items {
 		return table.at(name).size();
 	}
 
-	const std::vector<debug_item> &parts_at(const std::string &name) const {
+	const std::vector<debug_item> &at(const std::string &name) const {
 		return table.at(name);
 	}
 
-	const debug_item &at(const std::string &name) const {
+	// Like `at()`, but operates only on single-part debug items.
+	const debug_item &operator [](const std::string &name) const {
 		const std::vector<debug_item> &parts = table.at(name);
 		assert(parts.size() == 1);
 		return parts.at(0);
-	}
-
-	const debug_item &operator [](const std::string &name) const {
-		return at(name);
 	}
 
 	const metadata_map &attrs(const std::string &name) const {
@@ -1361,10 +1368,16 @@ struct debug_items {
 	}
 };
 
-// Tag class to disambiguate the default constructor used by the toplevel module that calls reset(),
+// Tag class to disambiguate the default constructor used by the toplevel module that calls `reset()`,
 // and the constructor of interior modules that should not call it.
 struct interior {};
 
+// The core API of the `module` class consists of only four virtual methods: `reset()`, `eval()`,
+// `commit`, and `debug_info()`. (The virtual destructor is made necessary by C++.) Every other method
+// is a convenience method, and exists solely to simplify some common pattern for C++ API consumers.
+// No behavior may be added to such convenience methods that other parts of CXXRTL can rely on, since
+// there is no guarantee they will be called (and, for example, other CXXRTL libraries will often call
+// the `eval()` and `commit()` directly instead, as well as being exposed in the C API).
 struct module {
 	module() {}
 	virtual ~module() {}
@@ -1380,8 +1393,14 @@ struct module {
 
 	virtual void reset() = 0;
 
+	// The `eval()` callback object, `performer`, is included in the virtual call signature since
+	// the generated code has broadly identical performance properties.
 	virtual bool eval(performer *performer = nullptr) = 0;
-	virtual bool commit() = 0; // commit observer isn't available since it avoids virtual calls
+
+	// The `commit()` callback object, `observer`, is not included in the virtual call signature since
+	// the generated code is severely pessimized by it. To observe commit events, the non-virtual
+	// `commit(observer *)` overload must be called directly on a `module` subclass.
+	virtual bool commit() = 0;
 
 	size_t step(performer *performer = nullptr) {
 		size_t deltas = 0;

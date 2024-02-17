@@ -26,9 +26,9 @@ struct packed {
 
 always_comb begin
 	assert ($dimensions(s) == 1);
-	assert ($dimensions(s.t) == 1);
 	assert ($dimensions(s.x) == 1);
 `ifndef VERIFIC
+	assert ($dimensions(s.t) == 1);
 	assert ($dimensions({3{s.x}}) == 1);
 `endif
 	assert ($dimensions(s.sy.y) == 2);

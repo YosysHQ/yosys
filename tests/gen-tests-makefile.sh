@@ -16,8 +16,8 @@ generate_target() {
 # $ generate_ys_test ys_file [yosys_args]
 generate_ys_test() {
 	ys_file=$1
-	yosys_args=${2:-}
-	generate_target "$ys_file" "\"$YOSYS_BASEDIR/yosys\" -ql ${ys_file%.*}.log $yosys_args $ys_file"
+	yosys_args_=${2:-}
+	generate_target "$ys_file" "\"$YOSYS_BASEDIR/yosys\" -ql ${ys_file%.*}.log $yosys_args_ $ys_file"
 }
 
 # $ generate_bash_test bash_file

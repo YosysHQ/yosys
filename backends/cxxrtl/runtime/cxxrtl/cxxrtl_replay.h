@@ -641,7 +641,7 @@ public:
 			assert(items.count(name) != 0);
 			assert(part_index < items.count(name));
 
-			const debug_item &part = items.parts_at(name).at(part_index);
+			const debug_item &part = items.at(name).at(part_index);
 			assert(chunks == (part.width + sizeof(chunk_t) * 8 - 1) / (sizeof(chunk_t) * 8));
 			assert(depth == part.depth);
 

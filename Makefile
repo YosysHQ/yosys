@@ -141,7 +141,7 @@ LDLIBS += -lrt
 endif
 endif
 
-YOSYS_VER := 0.38+17
+YOSYS_VER := 0.38+54
 
 # Note: We arrange for .gitcommit to contain the (short) commit hash in
 # tarballs generated with git-archive(1) using .gitattributes. The git repo
@@ -630,6 +630,7 @@ $(eval $(call add_include_file,kernel/qcsat.h))
 $(eval $(call add_include_file,kernel/register.h))
 $(eval $(call add_include_file,kernel/rtlil.h))
 $(eval $(call add_include_file,kernel/satgen.h))
+$(eval $(call add_include_file,kernel/scopeinfo.h))
 $(eval $(call add_include_file,kernel/sigtools.h))
 $(eval $(call add_include_file,kernel/timinginfo.h))
 $(eval $(call add_include_file,kernel/utils.h))
@@ -656,7 +657,7 @@ $(eval $(call add_include_file,backends/cxxrtl/runtime/cxxrtl/capi/cxxrtl_capi_v
 
 OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/yosys.o
 OBJS += kernel/binding.o
-OBJS += kernel/cellaigs.o kernel/celledges.o kernel/satgen.o kernel/qcsat.o kernel/mem.o kernel/ffmerge.o kernel/ff.o kernel/yw.o kernel/json.o kernel/fmt.o
+OBJS += kernel/cellaigs.o kernel/celledges.o kernel/satgen.o kernel/scopeinfo.o kernel/qcsat.o kernel/mem.o kernel/ffmerge.o kernel/ff.o kernel/yw.o kernel/json.o kernel/fmt.o
 ifeq ($(ENABLE_ZLIB),1)
 OBJS += kernel/fstdata.o
 endif
@@ -847,9 +848,22 @@ else
 ABCOPT=""
 endif
 
+# When YOSYS_NOVERIFIC is set as a make variable, also export it to the
+# enviornment, so that `YOSYS_NOVERIFIC=1 make test` _and_
+# `make test YOSYS_NOVERIFIC=1` will run with verific disabled.
+ifeq ($(YOSYS_NOVERIFIC),1)
+export YOSYS_NOVERIFIC
+endif
+
 test: $(TARGETS) $(EXTRA_TARGETS)
 ifeq ($(ENABLE_VERIFIC),1)
+ifeq ($(YOSYS_NOVERIFIC),1)
+	@echo
+	@echo "Running tests without verific support due to YOSYS_NOVERIFIC=1"
+	@echo
+else
 	+cd tests/verific && bash run-test.sh $(SEEDOPT)
+endif
 endif
 	+cd tests/simple && bash run-test.sh $(SEEDOPT)
 	+cd tests/simple_abc9 && bash run-test.sh $(SEEDOPT)
