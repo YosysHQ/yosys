@@ -58,3 +58,10 @@ select -assert-count 4 t:$_NOT_
 select -assert-count 1 t:dffn
 select -assert-count 4 t:dffsr
 select -assert-none t:dffn t:dffsr t:$_NOT_ %% %n t:* %i
+
+design -load orig
+dfflibmap -liberty dfflibmap.lib -dont_use *ffn
+clean
+
+select -assert-count 0 t:dffn
+select -assert-count 5 t:dffsr
