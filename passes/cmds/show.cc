@@ -65,6 +65,7 @@ struct ShowWorker
 	bool enumerateIds;
 	bool abbreviateIds;
 	bool notitle;
+	bool href;
 	int page_counter;
 
 	const std::vector<std::pair<std::string, RTLIL::Selection>> &color_selections;
@@ -432,9 +433,13 @@ struct ShowWorker
 			if (wire->port_input || wire->port_output)
 				shape = "octagon";
 			if (wire->name.isPublic()) {
-				fprintf(f, "n%d [ shape=%s, label=\"%s\", %s ];\n",
+				std::string src_href;
+				if (href && wire->attributes.count(ID::src) > 0)
+					src_href = stringf(", href=\"%s\" ", escape(wire->attributes.at(ID::src).decode_string()));
+				fprintf(f, "n%d [ shape=%s, label=\"%s\", %s%s];\n",
 						id2num(wire->name), shape, findLabel(wire->name.str()),
-						nextColor(RTLIL::SigSpec(wire), "color=\"black\", fontcolor=\"black\"").c_str());
+						nextColor(RTLIL::SigSpec(wire), "color=\"black\", fontcolor=\"black\"").c_str(),
+						src_href.c_str());
 				if (wire->port_input)
 					all_sources.insert(stringf("n%d", id2num(wire->name)));
 				else if (wire->port_output)
@@ -496,14 +501,18 @@ struct ShowWorker
 						conn.second, ct.cell_output(cell->type, conn.first));
 			}
 
+			std::string src_href;
+			if (href && cell->attributes.count(ID::src) > 0) {
+				src_href = stringf("%shref=\"%s\" ", (findColor(cell->name).empty() ? "" :" , "), escape(cell->attributes.at(ID::src).decode_string()));
+			}
 #ifdef CLUSTER_CELLS_AND_PORTBOXES
 			if (!code.empty())
-				fprintf(f, "subgraph cluster_c%d {\nc%d [ shape=record, label=\"%s\"%s ];\n%s}\n",
-						id2num(cell->name), id2num(cell->name), label_string.c_str(), color.c_str(), code.c_str());
+				fprintf(f, "subgraph cluster_c%d {\nc%d [ shape=record, label=\"%s\"%s%s ];\n%s}\n",
+						id2num(cell->name), id2num(cell->name), label_string.c_str(), color.c_str(), src_href.c_str(), code.c_str());
 			else
 #endif
-				fprintf(f, "c%d [ shape=record, label=\"%s\", %s ];\n%s",
-						id2num(cell->name), label_string.c_str(), findColor(cell->name).c_str(), code.c_str());
+				fprintf(f, "c%d [ shape=record, label=\"%s\", %s%s ];\n%s",
+						id2num(cell->name), label_string.c_str(), findColor(cell->name).c_str(), src_href.c_str(), code.c_str());
 		}
 
 		for (auto &it : module->processes)
@@ -608,12 +617,12 @@ struct ShowWorker
 	}
 
 	ShowWorker(FILE *f, RTLIL::Design *design, std::vector<RTLIL::Design*> &libs, uint32_t colorSeed, bool genWidthLabels,
-			bool genSignedLabels, bool stretchIO, bool enumerateIds, bool abbreviateIds, bool notitle,
+			bool genSignedLabels, bool stretchIO, bool enumerateIds, bool abbreviateIds, bool notitle, bool href,
 			const std::vector<std::pair<std::string, RTLIL::Selection>> &color_selections,
 			const std::vector<std::pair<std::string, RTLIL::Selection>> &label_selections, RTLIL::IdString colorattr) :
 			f(f), design(design), currentColor(colorSeed), genWidthLabels(genWidthLabels),
 			genSignedLabels(genSignedLabels), stretchIO(stretchIO), enumerateIds(enumerateIds), abbreviateIds(abbreviateIds),
-			notitle(notitle), color_selections(color_selections), label_selections(label_selections), colorattr(colorattr)
+			notitle(notitle), href(href), color_selections(color_selections), label_selections(label_selections), colorattr(colorattr)
 	{
 		ct.setup_internals();
 		ct.setup_internals_mem();
@@ -726,6 +735,10 @@ struct ShowPass : public Pass {
 		log("        don't run viewer in the background, IE wait for the viewer tool to\n");
 		log("        exit before returning\n");
 		log("\n");
+		log("    -href\n");
+		log("        adds href attribute to all items representing cells and wires, using\n");
+		log("        src attribute of origin\n");
+		log("\n");
 		log("When no <format> is specified, 'dot' is used. When no <format> and <viewer> is\n");
 		log("specified, 'xdot' is used to display the schematic (POSIX systems only).\n");
 		log("\n");
@@ -763,6 +776,7 @@ struct ShowPass : public Pass {
 		bool flag_enum = false;
 		bool flag_abbreviate = true;
 		bool flag_notitle = false;
+		bool flag_href = false;
 		bool custom_prefix = false;
 		std::string background = "&";
 		RTLIL::IdString colorattr;
@@ -850,6 +864,10 @@ struct ShowPass : public Pass {
 				background= "";
 				continue;
 			}
+			if (arg == "-href") {
+				flag_href = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -894,7 +912,7 @@ struct ShowPass : public Pass {
 				delete lib;
 			log_cmd_error("Can't open dot file `%s' for writing.\n", dot_file.c_str());
 		}
-		ShowWorker worker(f, design, libs, colorSeed, flag_width, flag_signed, flag_stretch, flag_enum, flag_abbreviate, flag_notitle, color_selections, label_selections, colorattr);
+		ShowWorker worker(f, design, libs, colorSeed, flag_width, flag_signed, flag_stretch, flag_enum, flag_abbreviate, flag_notitle, flag_href, color_selections, label_selections, colorattr);
 		fclose(f);
 
 		for (auto lib : libs)
