@@ -47,7 +47,7 @@ struct ConnectPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    connect [-nomap] [-nounset] -set <lhs-expr> <rhs-expr>\n");
+		log("    connect [-nomap] [-nounset] -set <lhs-expr> <rhs-expr> [selection]\n");
 		log("\n");
 		log("Create a connection. This is equivalent to adding the statement 'assign\n");
 		log("<lhs-expr> = <rhs-expr>;' to the Verilog input. Per default, all existing\n");
@@ -55,12 +55,12 @@ struct ConnectPass : public Pass {
 		log("the -nounset option.\n");
 		log("\n");
 		log("\n");
-		log("    connect [-nomap] -unset <expr>\n");
+		log("    connect [-nomap] -unset <expr> [selection]\n");
 		log("\n");
 		log("Unconnect all existing drivers for the specified expression.\n");
 		log("\n");
 		log("\n");
-		log("    connect [-nomap] [-assert] -port <cell> <port> <expr>\n");
+		log("    connect [-nomap] [-assert] -port <cell> <port> <expr> [selection]\n");
 		log("\n");
 		log("Connect the specified cell port to the specified cell port.\n");
 		log("\n");
@@ -80,17 +80,6 @@ struct ConnectPass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		RTLIL::Module *module = nullptr;
-		for (auto mod : design->selected_modules()) {
-			if (module != nullptr)
-				log_cmd_error("Multiple modules selected: %s, %s\n", log_id(module->name), log_id(mod->name));
-			module = mod;
-		}
-		if (module == nullptr)
-			log_cmd_error("No modules selected.\n");
-		if (!module->processes.empty())
-			log_cmd_error("Found processes in selected module.\n");
-
 		bool flag_nounset = false, flag_nomap = false, flag_assert = false;
 		std::string set_lhs, set_rhs, unset_expr;
 		std::string port_cell, port_port, port_expr;
@@ -128,6 +117,18 @@ struct ConnectPass : public Pass {
 			}
 			break;
 		}
+		extra_args(args, argidx, design);
+
+		RTLIL::Module *module = nullptr;
+		for (auto mod : design->selected_modules()) {
+			if (module != nullptr)
+				log_cmd_error("Multiple modules selected: %s, %s\n", log_id(module->name), log_id(mod->name));
+			module = mod;
+		}
+		if (module == nullptr)
+			log_cmd_error("No modules selected.\n");
+		if (!module->processes.empty())
+			log_cmd_error("Found processes in selected module.\n");
 
 		SigMap sigmap;
 		if (!flag_nomap)
