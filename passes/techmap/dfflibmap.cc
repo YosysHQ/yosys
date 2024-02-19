@@ -124,7 +124,7 @@ static bool parse_pin(LibertyAst *cell, LibertyAst *attr, std::string &pin_name,
 
 static int glob_match(const char *pattern, const char *string) {
 	#ifdef _WIN32
-	return PathMatchSpec(string, pattern);
+	return PathMatchSpecA(string, pattern);
 	#else
 	return fnmatch(pattern, string, 0) == 0;
 	#endif
