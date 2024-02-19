@@ -195,7 +195,7 @@ from ``\S`` is set the output is undefined. Cells of this type are used to model
 by an optimization).
 
 The ``$tribuf`` cell is used to implement tristate logic. Cells of this type
-have a ``\B`` parameter and inputs ``\A`` and ``\EN`` and an output ``\Y``. The
+have a ``\WIDTH`` parameter and inputs ``\A`` and ``\EN`` and an output ``\Y``. The
 ``\A`` input and ``\Y`` output are ``\WIDTH`` bits wide, and the ``\EN`` input
 is one bit wide. When ``\EN`` is 0, the output is not driven. When ``\EN`` is 1,
 the value from ``\A`` input is sent to the ``\Y`` output. Therefore, the
