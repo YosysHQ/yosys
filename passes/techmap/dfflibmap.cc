@@ -23,13 +23,6 @@
 #include <string.h>
 #include <errno.h>
 
-#ifdef _WIN32
-#include <shlwapi.h>
-#pragma comment(lib, "shlwapi.lib")
-#else
-#include <fnmatch.h>
-#endif
-
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
@@ -122,14 +115,6 @@ static bool parse_pin(LibertyAst *cell, LibertyAst *attr, std::string &pin_name,
 	return false;
 }
 
-static int glob_match(const char *pattern, const char *string) {
-	#ifdef _WIN32
-	return PathMatchSpecA(string, pattern);
-	#else
-	return fnmatch(pattern, string, 0) == 0;
-	#endif
-}
-
 static void find_cell(LibertyAst *ast, IdString cell_type, bool clkpol, bool has_reset, bool rstpol, bool rstval, std::vector<std::string> &dont_use_cells)
 {
 	LibertyAst *best_cell = nullptr;
@@ -153,7 +138,7 @@ static void find_cell(LibertyAst *ast, IdString cell_type, bool clkpol, bool has
 		bool dont_use = false;
 		for (std::string &dont_use_cell : dont_use_cells)
 		{
-			if (glob_match(dont_use_cell.c_str(), cell->args[0].c_str()))
+			if (patmatch(dont_use_cell.c_str(), cell->args[0].c_str()))
 			{
 				dont_use = true;
 				break;
@@ -277,7 +262,7 @@ static void find_cell_sr(LibertyAst *ast, IdString cell_type, bool clkpol, bool 
 		bool dont_use = false;
 		for (std::string &dont_use_cell : dont_use_cells)
 		{
-			if (glob_match(dont_use_cell.c_str(), cell->args[0].c_str()))
+			if (patmatch(dont_use_cell.c_str(), cell->args[0].c_str()))
 			{
 				dont_use = true;
 				break;
