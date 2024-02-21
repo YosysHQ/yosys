@@ -649,14 +649,20 @@ if aimfile is not None:
                 num_steps = max(num_steps, step+2)
             step += 1
 
+ywfile_hierwitness_cache = None
+
 def ywfile_constraints(inywfile, constr_assumes, map_steps=None, skip_x=False):
+    global ywfile_hierwitness_cache
     if map_steps is None:
         map_steps = {}
 
     with open(inywfile, "r") as f:
         inyw = ReadWitness(f)
 
-        inits, seqs, clocks, mems = smt.hierwitness(topmod, allregs=True, blackbox=True)
+        if ywfile_hierwitness_cache is None:
+            ywfile_hierwitness_cache = smt.hierwitness(topmod, allregs=True, blackbox=True)
+
+        inits, seqs, clocks, mems = ywfile_hierwitness_cache
 
         smt_wires = defaultdict(list)
         smt_mems = defaultdict(list)
