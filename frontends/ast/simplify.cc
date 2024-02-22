@@ -26,6 +26,7 @@
  *
  */
 
+#include "kernel/yosys.h"
 #include "kernel/log.h"
 #include "libs/sha1/sha1.h"
 #include "frontends/verilog/verilog_frontend.h"
@@ -2467,18 +2468,28 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			if (member_node)
 				rvalue->set_attribute(ID::wiretype, member_node->clone());
 
-			if (wire_offset != 0) {
-				// Offset the shift amount by the lower bound of the dimension.
-				shift_expr = new AstNode(AST_SUB, shift_expr, node_int(wire_offset));
-			}
-			if (id2ast->range_swapped) {
-				// Reflect the shift amount if the dimension is swapped.
-				shift_expr = new AstNode(AST_SUB, node_int(wire_width - result_width), shift_expr);
-			}
+			// Insert a self-sizing barrier to prevent the rewritten AST from
+			// influencing the size of the operators in `shift_expr`
+			shift_expr = new AstNode(AST_SELFSZ, shift_expr);
 
-			if (!shift_expr_sign_hint && (wire_offset != 0 || id2ast->range_swapped || shift_expr_width_hint >= 32)) {
-				// Handle potential unsigned overflows, causing the lower bits of the wire to be selected.
-				shift_expr = new AstNode(AST_TO_SIGNED, shift_expr);
+			// Decode the index based on wire dimensions
+			int idx_signed_nbits = shift_expr_width_hint + !shift_expr_sign_hint;
+			if (!id2ast->range_swapped) {
+				int raw_idx_nbits = 1 + std::max(idx_signed_nbits, ceil_log2(std::abs(wire_offset) + 1) + 1);
+				shift_expr = new AstNode(AST_SUB,
+					new AstNode(AST_TO_SIGNED,
+						new AstNode(AST_CAST_SIZE, node_int(raw_idx_nbits), shift_expr)
+					),
+				node_int(wire_offset));
+			} else {
+				int offset = wire_width - result_width + wire_offset;
+				int raw_idx_nbits = 1 + std::max(idx_signed_nbits, ceil_log2(std::abs(offset)) + 1);
+
+				shift_expr = new AstNode(AST_SUB, node_int(offset),
+					new AstNode(AST_TO_SIGNED,
+						new AstNode(AST_CAST_SIZE, node_int(raw_idx_nbits), shift_expr)
+					)
+				);
 			}
 
 			// Shift rvalue to the right so that the bit slice starts at bit 0.
