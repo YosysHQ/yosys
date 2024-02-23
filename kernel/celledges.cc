@@ -360,6 +360,34 @@ void mem_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 		log_abort();
 }
 
+void ff_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
+{
+	int width = cell->getPort(ID::Q).size();
+
+	if (cell->type.in(ID($dlatch), ID($adlatch), ID($dlatchsr))) {
+		for (int k = 0; k < width; k++) {
+			db->add_edge(cell, ID::D, k, ID::Q, k, -1);
+			db->add_edge(cell, ID::EN, 0, ID::Q, k, -1);
+		}
+	}
+
+	if (cell->hasPort(ID::CLR))
+		for (int k = 0; k < width; k++)
+			db->add_edge(cell, ID::CLR, 0, ID::Q, k, -1);
+	if (cell->hasPort(ID::SET))
+		for (int k = 0; k < width; k++)
+			db->add_edge(cell, ID::SET, 0, ID::Q, k, -1);
+	if (cell->hasPort(ID::ALOAD))
+		for (int k = 0; k < width; k++)
+			db->add_edge(cell, ID::ALOAD, 0, ID::Q, k, -1);
+	if (cell->hasPort(ID::AD))
+		for (int k = 0; k < width; k++)
+			db->add_edge(cell, ID::AD, k, ID::Q, k, -1);
+	if (cell->hasPort(ID::ARST))
+		for (int k = 0; k < width; k++)
+			db->add_edge(cell, ID::ARST, 0, ID::Q, k, -1);
+}
+
 PRIVATE_NAMESPACE_END
 
 bool YOSYS_NAMESPACE_PREFIX AbstractCellEdgesDatabase::add_edges_from_cell(RTLIL::Cell *cell)
@@ -419,6 +447,13 @@ bool YOSYS_NAMESPACE_PREFIX AbstractCellEdgesDatabase::add_edges_from_cell(RTLIL
 		return true;
 	}
 
+	if (RTLIL::builtin_ff_cell_types().count(cell->type)) {
+		ff_op(this, cell);
+		return true;
+	}
+
+	// FIXME: $mul $div $mod $divfloor $modfloor $slice $concat
+	// FIXME: $lut $sop $alu $lcu $macc $fa
 	// FIXME: $mul $div $mod $divfloor $modfloor $pow $slice $concat $bweqx
 	// FIXME: $lut $sop $alu $lcu $macc $fa $logic_and $logic_or $bwmux
 

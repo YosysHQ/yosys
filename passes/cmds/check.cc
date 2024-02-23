@@ -224,7 +224,8 @@ struct CheckPass : public Pass {
 					}
 				}
 
-				if (yosys_celltypes.cell_evaluable(cell->type) || cell->type.in(ID($mem_v2), ID($memrd), ID($memrd_v2)))
+				if (yosys_celltypes.cell_evaluable(cell->type) || cell->type.in(ID($mem_v2), ID($memrd), ID($memrd_v2)) \
+						|| RTLIL::builtin_ff_cell_types().count(cell->type))
 					edges_db.add_edges_from_cell(cell);
 			}
 
