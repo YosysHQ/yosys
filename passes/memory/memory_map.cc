@@ -493,6 +493,9 @@ struct MemoryMapPass : public Pass {
 		extra_args(args, argidx, design);
 
 		for (auto mod : design->selected_modules()) {
+			if (mod->has_processes_warn())
+				continue;
+
 			MemoryMapWorker worker(design, mod);
 			worker.attr_icase = attr_icase;
 			worker.attributes = attributes;
