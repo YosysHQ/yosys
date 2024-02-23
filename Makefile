@@ -215,7 +215,7 @@ ABC_ARCHFLAGS += "-DABC_NO_RLIMIT"
 endif
 
 ifeq ($(CONFIG),clang)
-CXX = clang
+CXX = clang++
 LD = clang++
 CXXFLAGS += -std=$(CXXSTD) -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -Wno-c++11-narrowing $(ABC_ARCHFLAGS)"
