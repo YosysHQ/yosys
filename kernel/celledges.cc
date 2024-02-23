@@ -341,6 +341,18 @@ void memrd_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 			db->add_edge(cell, ID::ADDR, j, ID::DATA, k, -1);
 }
 
+void mem_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
+{
+	if (cell->type == ID($mem_v2))
+		packed_mem_op(db, cell);
+	else if (cell->type.in(ID($memrd), ID($memrd_v2)))
+		memrd_op(db, cell);
+	else if (cell->type.in(ID($memwr), ID($memwr_v2), ID($meminit)))
+		return; /* no edges here */
+	else
+		log_abort();
+}
+
 PRIVATE_NAMESPACE_END
 
 bool YOSYS_NAMESPACE_PREFIX AbstractCellEdgesDatabase::add_edges_from_cell(RTLIL::Cell *cell)
@@ -395,13 +407,8 @@ bool YOSYS_NAMESPACE_PREFIX AbstractCellEdgesDatabase::add_edges_from_cell(RTLIL
 		return true;
 	}
 
-	if (cell->type == ID($mem_v2)) {
-		packed_mem_op(this, cell);
-		return true;
-	}
-
-	if (cell->type.in(ID($memrd), ID($memrd_v2))) {
-		memrd_op(this, cell);
+	if (cell->type.in(ID($mem_v2), ID($memrd), ID($memrd_v2), ID($memwr), ID($memwr_v2), ID($meminit))) {
+		mem_op(this, cell);
 		return true;
 	}
 
