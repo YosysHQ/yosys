@@ -316,8 +316,11 @@ void packed_mem_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 	int width = cell->getParam(ID::WIDTH).as_int();
 
 	for (int i = 0; i < n_rd_ports; i++) {
-		if (rd_clk_enable[i] != State::S0)
+		if (rd_clk_enable[i] != State::S0) {
+			for (int k = 0; k < width; k++)
+				db->add_edge(cell, ID::RD_ARST, i, ID::RD_DATA, i * width + k, -1);
 			continue;
+		}
 
 		for (int j = 0; j < abits; j++)
 			for (int k = 0; k < width; k++)
@@ -329,12 +332,16 @@ void packed_mem_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 void memrd_op(AbstractCellEdgesDatabase *db, RTLIL::Cell *cell)
 {
 	log_assert(cell->type.in(ID($memrd), ID($memrd_v2)));
-
-	if (cell->getParam(ID::CLK_ENABLE).as_bool())
-		return;
-
 	int abits = cell->getParam(ID::ABITS).as_int();
 	int width = cell->getParam(ID::WIDTH).as_int();
+
+	if (cell->getParam(ID::CLK_ENABLE).as_bool()) {
+		if (cell->type == ID($memrd_v2)) {
+			for (int k = 0; k < width; k++)
+				db->add_edge(cell, ID::ARST, 0, ID::DATA, k, -1);
+		}
+		return;
+	}
 
 	for (int j = 0; j < abits; j++)
 		for (int k = 0; k < width; k++)
