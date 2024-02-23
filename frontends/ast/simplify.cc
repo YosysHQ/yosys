@@ -2317,7 +2317,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 	if (type == AST_IDENTIFIER && id2ast != NULL && id2ast->type != AST_MEMORY && !in_lvalue &&
 	    GetSize(children) == 1 && children[0]->type == AST_RANGE && !children[0]->range_valid)
 	{
-		AST::AstNode *member_node = get_struct_member(this);
+		AST::AstNode *member_node = get_struct_member();
 		int wire_width = member_node ?
 			member_node->range_left - member_node->range_right + 1 :
 			id2ast->range_left - id2ast->range_right + 1;
@@ -2354,7 +2354,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				int dims = integer;
 				stride = wire_width;
 				for (int dim = 0; dim < dims; dim++) {
-					stride /= get_struct_range_width(member_node, dim);
+					stride /= member_node->dimensions[dim].range_width;
 				}
 				bitno_div = stride;
 			} else {
