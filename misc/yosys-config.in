@@ -9,8 +9,8 @@ help() {
 		echo "Replacement args:"
 		echo "    --cxx         @CXX@"
 		echo "    --cxxflags    $( echo '@CXXFLAGS@' | fmt -w60 | sed ':a;N;$!ba;s/\n/ \\\n                      /g' )"
-		echo "    --ldflags     @LDFLAGS@"
-		echo "    --ldlibs      @LDLIBS@"
+		echo "    --ldflags     @LINKFLAGS@"
+		echo "    --ldlibs      @LIBS@"
 		echo "    --bindir      @BINDIR@"
 		echo "    --datdir      @DATDIR@"
 		echo ""
@@ -64,9 +64,9 @@ for opt; do
 		"$prefix"cxxflags)
 			tokens=( "${tokens[@]}"  @CXXFLAGS@  ) ;;
 		"$prefix"ldflags)
-			tokens=( "${tokens[@]}"  @LDFLAGS@   ) ;;
+			tokens=( "${tokens[@]}"  @LINKFLAGS@   ) ;;
 		"$prefix"ldlibs)
-			tokens=( "${tokens[@]}"  @LDLIBS@    ) ;;
+			tokens=( "${tokens[@]}"  @LIBS@    ) ;;
 		"$prefix"bindir)
 			tokens=( "${tokens[@]}" '@BINDIR@'   ) ;;
 		"$prefix"datdir)
@@ -104,4 +104,3 @@ fi
 
 echo "${tokens[@]}"
 exit 0
-
