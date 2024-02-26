@@ -4,11 +4,9 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-		nix-github-actions.url = "github:nix-community/nix-github-actions";
-		nix-github-actions.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs, flake-utils, nix-github-actions }:
+  outputs = { self, nixpkgs, flake-utils }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
@@ -41,7 +39,6 @@
         devShell = pkgs.mkShell {
           buildInputs = with pkgs; [ clang bison flex libffi tcl readline python3 llvmPackages.libcxxClang zlib git gtest abc-verifier ];
         };
-				githubActions = nix-github-actions.lib.mkGithubMatrix { checks = self.packages; };
       }
     );
 }
