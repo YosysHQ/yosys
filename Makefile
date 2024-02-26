@@ -791,7 +791,7 @@ abc/abc$(EXE) abc/libabc.a:
 	$(Q) $(MAKE) -C abc $(S) $(ABCMKARGS) $(if $(filter %.a,$@),PROG="abc",PROG="abc$(EXE)") MSG_PREFIX="$(eval P_OFFSET = 5)$(call P_SHOW)$(eval P_OFFSET = 10) ABC: " $(if $(filter %.a,$@),libabc.a)
 
 $(PROGRAM_PREFIX)yosys-abc$(EXE): abc/abc$(EXE)
-	$(P) cp abc/abc-$(EXE) $(PROGRAM_PREFIX)yosys-abc$(EXE)
+	$(P) cp abc/abc$(EXE) $(PROGRAM_PREFIX)yosys-abc$(EXE)
 
 $(PROGRAM_PREFIX)yosys-libabc.a: abc/libabc.a
 	$(P) cp abc/libabc.a $(PROGRAM_PREFIX)yosys-libabc.a
