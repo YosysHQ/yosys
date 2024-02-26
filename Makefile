@@ -786,20 +786,15 @@ $(PROGRAM_PREFIX)yosys-config: misc/yosys-config.in
 			-e 's#@BINDIR@#$(strip $(BINDIR))#;' -e 's#@DATDIR@#$(strip $(DATDIR))#;' < $< > $(PROGRAM_PREFIX)yosys-config
 	$(Q) chmod +x $(PROGRAM_PREFIX)yosys-config
 
-abc/abc-$(ABCREV)$(EXE) abc/libabc-$(ABCREV).a:
+abc/abc$(EXE) abc/libabc.a:
 	$(P)
-	$(Q) $(MAKE) -C abc $(S) $(ABCMKARGS) $(if $(filter %.a,$@),PROG="abc-$(ABCREV)",PROG="abc-$(ABCREV)$(EXE)") MSG_PREFIX="$(eval P_OFFSET = 5)$(call P_SHOW)$(eval P_OFFSET = 10) ABC: " $(if $(filter %.a,$@),libabc-$(ABCREV).a)
+	$(Q) $(MAKE) -C abc $(S) $(ABCMKARGS) $(if $(filter %.a,$@),PROG="abc",PROG="abc$(EXE)") MSG_PREFIX="$(eval P_OFFSET = 5)$(call P_SHOW)$(eval P_OFFSET = 10) ABC: " $(if $(filter %.a,$@),libabc.a)
 
-ifeq ($(ABCREV),default)
-.PHONY: abc/abc-$(ABCREV)$(EXE)
-.PHONY: abc/libabc-$(ABCREV).a
-endif
+$(PROGRAM_PREFIX)yosys-abc$(EXE): abc/abc$(EXE)
+	$(P) cp abc/abc-$(EXE) $(PROGRAM_PREFIX)yosys-abc$(EXE)
 
-$(PROGRAM_PREFIX)yosys-abc$(EXE): abc/abc-$(ABCREV)$(EXE)
-	$(P) cp abc/abc-$(ABCREV)$(EXE) $(PROGRAM_PREFIX)yosys-abc$(EXE)
-
-$(PROGRAM_PREFIX)yosys-libabc.a: abc/libabc-$(ABCREV).a
-	$(P) cp abc/libabc-$(ABCREV).a $(PROGRAM_PREFIX)yosys-libabc.a
+$(PROGRAM_PREFIX)yosys-libabc.a: abc/libabc.a
+	$(P) cp abc/libabc.a $(PROGRAM_PREFIX)yosys-libabc.a
 
 ifneq ($(SEED),)
 SEEDOPT="-S $(SEED)"
@@ -1094,9 +1089,6 @@ echo-yosys-ver:
 
 echo-git-rev:
 	@echo "$(GIT_REV)"
-
-echo-abc-rev:
-	@echo "$(ABCREV)"
 
 -include libs/*/*.d
 -include frontends/*/*.d
