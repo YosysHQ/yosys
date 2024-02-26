@@ -25,6 +25,9 @@
           installPhase = ''
             make install PREFIX=$out
           '';
+					buildPhase = ''
+          make -j$(nproc)
+          '';
           meta = with pkgs.lib; {
             description = "Yosys Open SYnthesis Suite";
             homepage = "https://yosyshq.net/yosys/";
