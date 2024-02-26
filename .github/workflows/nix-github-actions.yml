@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-			with:
-				submodules: true
+      with:
+       submodules: true
     - uses: cachix/install-nix-action@v25
     - run: nix build
