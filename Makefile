@@ -637,12 +637,6 @@ $(eval $(call add_include_file,frontends/ast/ast.h))
 $(eval $(call add_include_file,frontends/ast/ast_binding.h))
 $(eval $(call add_include_file,frontends/blif/blifparse.h))
 $(eval $(call add_include_file,backends/rtlil/rtlil_backend.h))
-$(eval $(call add_include_file,backends/cxxrtl/runtime/cxxrtl/cxxrtl.h))
-$(eval $(call add_include_file,backends/cxxrtl/runtime/cxxrtl/cxxrtl_vcd.h))
-$(eval $(call add_include_file,backends/cxxrtl/runtime/cxxrtl/capi/cxxrtl_capi.cc))
-$(eval $(call add_include_file,backends/cxxrtl/runtime/cxxrtl/capi/cxxrtl_capi.h))
-$(eval $(call add_include_file,backends/cxxrtl/runtime/cxxrtl/capi/cxxrtl_capi_vcd.cc))
-$(eval $(call add_include_file,backends/cxxrtl/runtime/cxxrtl/capi/cxxrtl_capi_vcd.h))
 
 OBJS += kernel/driver.o kernel/register.o kernel/rtlil.o kernel/log.o kernel/calc.o kernel/yosys.o
 OBJS += kernel/binding.o
