@@ -2511,14 +2511,13 @@ struct CxxrtlWorker {
 				dump_eval_method(module);
 				f << indent << "}\n";
 				f << "\n";
-				f << indent << "template<class ObserverT>\n";
-				f << indent << "bool commit(ObserverT &observer) {\n";
+				f << indent << "virtual bool commit(observer &observer) {\n";
 				dump_commit_method(module);
 				f << indent << "}\n";
 				f << "\n";
 				f << indent << "bool commit() override {\n";
 				f << indent << indent << "observer observer;\n";
-				f << indent << indent << "return commit<>(observer);\n";
+				f << indent << indent << "return commit(observer);\n";
 				f << indent << "}\n";
 				if (debug_info) {
 					f << "\n";
@@ -3421,8 +3420,7 @@ struct CxxrtlBackend : public Backend {
 		log("      wire<8> p_o_data;\n");
 		log("\n");
 		log("      bool eval(performer *performer) override;\n");
-		log("      template<class ObserverT>\n");
-		log("      bool commit(ObserverT &observer);\n");
+		log("      virtual bool commit(observer &observer);\n");
 		log("      bool commit() override;\n");
 		log("\n");
 		log("      static std::unique_ptr<bb_p_debug>\n");
