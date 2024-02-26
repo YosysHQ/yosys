@@ -556,7 +556,7 @@ public:
 	bool record_incremental(ModuleT &module) {
 		assert(streaming);
 
-		struct {
+		struct : observer {
 			std::unordered_map<const chunk_t*, spool::ident_t> *ident_lookup;
 			spool::writer *writer;
 
@@ -569,7 +569,9 @@ public:
 			void on_update(size_t chunks, const chunk_t *base, const chunk_t *value, size_t index) {
 				writer->write_change(ident_lookup->at(base), chunks, value, index);
 			}
-		} record_observer = { &ident_lookup, &writer };
+		} record_observer;
+		record_observer.ident_lookup = &ident_lookup;
+		record_observer.writer = &writer;
 
 		writer.write_sample(/*incremental=*/true, pointer++, timestamp);
 		for (auto input_index : inputs) {
