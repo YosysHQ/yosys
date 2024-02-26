@@ -10,4 +10,4 @@ jobs:
       with:
        submodules: true
     - uses: cachix/install-nix-action@v25
-    - run: nix build
+    - run: nix build '.?submodules=1'
