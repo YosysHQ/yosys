@@ -142,9 +142,7 @@ void yosys_banner()
 	log(" |  Copyright (C) 2012 - 2024  Claire Xenia Wolf <claire@yosyshq.com>         |\n");
 	log(" |  Distributed under an ISC-like license, type \"license\" to see terms        |\n");
 	log(" \\----------------------------------------------------------------------------/\n");
-	log("\n");
 	log(" %s\n", yosys_version_str);
-	log("\n");
 }
 
 int ceil_log2(int x)
