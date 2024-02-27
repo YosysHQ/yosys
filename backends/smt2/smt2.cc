@@ -329,12 +329,13 @@ struct Smt2Worker
 	{
 		sigmap.apply(bit);
 
+		if (bit_driver.count(bit)) {
+			export_cell(bit_driver.at(bit));
+			sigmap.apply(bit);
+		}
+
 		if (bit.wire == nullptr)
 			return bit == RTLIL::State::S1 ? "true" : "false";
-
-		if (bit_driver.count(bit))
-			export_cell(bit_driver.at(bit));
-		sigmap.apply(bit);
 
 		if (fcache.count(bit) == 0) {
 			if (verbose) log("%*s-> external bool: %s\n", 2+2*GetSize(recursive_cells), "",
