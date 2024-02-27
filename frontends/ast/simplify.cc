@@ -2067,57 +2067,6 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		}
 	}
 
-	// Resolve multidimensional array access.
-	if (type == AST_IDENTIFIER && !basic_prep && id2ast && (id2ast->type == AST_WIRE || id2ast->type == AST_MEMORY) &&
-	    children.size() > 0 && (children[0]->type == AST_RANGE || children[0]->type == AST_MULTIRANGE))
-	{
-		int dims_sel = children[0]->type == AST_MULTIRANGE ? children[0]->children.size() : 1;
-		// Save original number of dimensions for $size() etc.
-		integer = dims_sel;
-
-		// Split access into unpacked and packed parts.
-		AstNode *unpacked_range = nullptr;
-		AstNode *packed_range = nullptr;
-
-		if (id2ast->unpacked_dimensions) {
-			if (id2ast->unpacked_dimensions > 1) {
-				// Flattened range for access to unpacked dimensions.
-				unpacked_range = make_index_range(id2ast, true);
-			} else {
-				// Index into one-dimensional unpacked part; unlink simple range node.
-				AstNode *&range = children[0]->type == AST_MULTIRANGE ? children[0]->children[0] : children[0];
-				unpacked_range = range;
-				range = nullptr;
-			}
-		}
-
-		if (dims_sel > id2ast->unpacked_dimensions) {
-			if (GetSize(id2ast->dimensions) - id2ast->unpacked_dimensions > 1) {
-				// Flattened range for access to packed dimensions.
-				packed_range = make_index_range(id2ast, false);
-			} else {
-				// Index into one-dimensional packed part; unlink simple range node.
-				AstNode *&range = children[0]->type == AST_MULTIRANGE ? children[0]->children[dims_sel - 1] : children[0];
-				packed_range = range;
-				range = nullptr;
-			}
-		}
-
-		for (auto &it : children)
-			delete it;
-		children.clear();
-
-		if (unpacked_range)
-			children.push_back(unpacked_range);
-
-		if (packed_range)
-			children.push_back(packed_range);
-
-		fixup_hierarchy_flags();
-		basic_prep = true;
-		did_something = true;
-	}
-
 	// trim/extend parameters
 	if (type == AST_PARAMETER || type == AST_LOCALPARAM || type == AST_ENUM_ITEM) {
 		if (children.size() > 1 && children[1]->type == AST_RANGE) {
@@ -2254,6 +2203,60 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			id2ast = current_scope[str];
 			did_something = true;
 		}
+	}
+
+	// Resolve multidimensional array access.
+	if (type == AST_IDENTIFIER && !basic_prep && id2ast && (id2ast->type == AST_WIRE || id2ast->type == AST_MEMORY) &&
+	    children.size() > 0 && (children[0]->type == AST_RANGE || children[0]->type == AST_MULTIRANGE))
+	{
+		int dims_sel = children[0]->type == AST_MULTIRANGE ? children[0]->children.size() : 1;
+		// Save original number of dimensions for $size() etc.
+		integer = dims_sel;
+
+		// Split access into unpacked and packed parts.
+		AstNode *unpacked_range = nullptr;
+		AstNode *packed_range = nullptr;
+
+		if (id2ast->unpacked_dimensions) {
+			if (id2ast->unpacked_dimensions > 1) {
+				// Flattened range for access to unpacked dimensions.
+				unpacked_range = make_index_range(id2ast, true);
+			} else {
+				// Index into one-dimensional unpacked part; unlink simple range node.
+				AstNode *&range = children[0]->type == AST_MULTIRANGE ? children[0]->children[0] : children[0];
+				unpacked_range = range;
+				range = nullptr;
+			}
+		}
+
+		if (dims_sel > id2ast->unpacked_dimensions) {
+			if (GetSize(id2ast->dimensions) - id2ast->unpacked_dimensions > 1) {
+				// Flattened range for access to packed dimensions.
+				packed_range = make_index_range(id2ast, false);
+			} else {
+				// Index into one-dimensional packed part; unlink simple range node.
+				AstNode *&range = children[0]->type == AST_MULTIRANGE ? children[0]->children[dims_sel - 1] : children[0];
+				packed_range = range;
+				range = nullptr;
+			}
+		}
+
+		for (auto &it : children)
+			delete it;
+		children.clear();
+
+		if (unpacked_range)
+			children.push_back(unpacked_range);
+
+		if (packed_range)
+			children.push_back(packed_range);
+
+		for (auto child : children)
+			while (child->simplify(true, 1, -1, false)) { }
+
+		fixup_hierarchy_flags();
+		basic_prep = true;
+		did_something = true;
 	}
 
 	// split memory access with bit select to individual statements
