@@ -215,7 +215,7 @@ ABC_ARCHFLAGS += "-DABC_NO_RLIMIT"
 endif
 
 ifeq ($(CONFIG),clang)
-CXX = clang++
+CXX ?= clang++
 CXXFLAGS += -std=$(CXXSTD) -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -Wno-c++11-narrowing $(ABC_ARCHFLAGS)"
 
@@ -237,7 +237,7 @@ endif
 endif
 
 else ifeq ($(CONFIG),gcc)
-CXX = g++
+CXX ?= g++
 CXXFLAGS += -std=$(CXXSTD) -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H $(ABC_ARCHFLAGS)"
 
@@ -253,17 +253,17 @@ ABCMKARGS += "ABC_USE_NO_PTHREADS=1"
 endif
 
 else ifeq ($(CONFIG),afl-gcc)
-CXX = AFL_QUIET=1 AFL_HARDEN=1 afl-gcc
+CXX ?= AFL_QUIET=1 AFL_HARDEN=1 afl-gcc
 CXXFLAGS += -std=$(CXXSTD) -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 
 else ifeq ($(CONFIG),cygwin)
-CXX = g++
+CXX ?= g++
 CXXFLAGS += -std=gnu++11 -Os
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H"
 
 else ifeq ($(CONFIG),emcc)
-CXX = emcc
+CXX ?= emcc
 CXXFLAGS := -std=$(CXXSTD) $(filter-out -fPIC -ggdb,$(CXXFLAGS))
 ABCMKARGS += ARCHFLAGS="-DABC_USE_STDINT_H -DABC_MEMALIGN=8 -Wno-c++11-narrowing"
 EMCC_CXXFLAGS := -Os -Wno-warn-absolute-paths
@@ -303,12 +303,12 @@ yosys.html: misc/yosys.html
 
 else ifeq ($(CONFIG),wasi)
 ifeq ($(WASI_SDK),)
-CXX = clang++
+CXX ?= clang++
 AR = llvm-ar
 RANLIB = llvm-ranlib
 WASIFLAGS := -target wasm32-wasi --sysroot $(WASI_SYSROOT) $(WASIFLAGS)
 else
-CXX = $(WASI_SDK)/bin/clang++
+CXX ?= $(WASI_SDK)/bin/clang++
 AR = $(WASI_SDK)/bin/ar
 RANLIB = $(WASI_SDK)/bin/ranlib
 WASIFLAGS := --sysroot $(WASI_SDK)/share/wasi-sysroot $(WASIFLAGS)
@@ -330,7 +330,7 @@ endif
 
 else ifeq ($(CONFIG),mxe)
 PKG_CONFIG = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-pkg-config
-CXX = /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-g++
+CXX ?= /usr/local/src/mxe/usr/bin/i686-w64-mingw32.static-g++
 CXXFLAGS += -std=$(CXXSTD) -Os -D_POSIX_SOURCE -DYOSYS_MXE_HACKS -Wno-attributes
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LINKFLAGS := $(filter-out -rdynamic,$(LINKFLAGS)) -s
@@ -341,7 +341,7 @@ ABCMKARGS += LIBS="lib/x86/pthreadVC2.lib -s" LINKFLAGS="-Wl,--allow-multiple-de
 EXE = .exe
 
 else ifeq ($(CONFIG),msys2-32)
-CXX = i686-w64-mingw32-g++
+CXX ?= i686-w64-mingw32-g++
 CXXFLAGS += -std=$(CXXSTD) -Os -D_POSIX_SOURCE -DYOSYS_WIN32_UNIX_DIR
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LINKFLAGS := $(filter-out -rdynamic,$(LINKFLAGS)) -s
@@ -351,7 +351,7 @@ ABCMKARGS += LIBS="-lpthread -lshlwapi -s" ABC_USE_NO_READLINE=0 CC="i686-w64-mi
 EXE = .exe
 
 else ifeq ($(CONFIG),msys2-64)
-CXX = x86_64-w64-mingw32-g++
+CXX ?= x86_64-w64-mingw32-g++
 CXXFLAGS += -std=$(CXXSTD) -Os -D_POSIX_SOURCE -DYOSYS_WIN32_UNIX_DIR
 CXXFLAGS := $(filter-out -fPIC,$(CXXFLAGS))
 LINKFLAGS := $(filter-out -rdynamic,$(LINKFLAGS)) -s
