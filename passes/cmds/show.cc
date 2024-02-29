@@ -429,7 +429,7 @@ struct ShowWorker
 
 		std::map<std::string, std::string> wires_on_demand;
 		for (auto wire : module->selected_wires()) {
-			const char *shape = "diamond";
+			const char *shape = "plaintext";
 			if (wire->port_input || wire->port_output)
 				shape = "octagon";
 			if (wire->name.isPublic()) {
@@ -584,7 +584,7 @@ struct ShowWorker
 				} else {
 					net_conn_map[right_node].in.insert({stringf("x%d", single_idx_count), GetSize(conn.first)});
 					net_conn_map[left_node].out.insert({stringf("x%d", single_idx_count), GetSize(conn.first)});
-					fprintf(f, "x%d [shape=point, %s];\n", single_idx_count++, findColor(conn).c_str());
+					fprintf(f, "x%d [shape=plaintext, label=\"[BUF]\", %s];\n", single_idx_count++, findColor(conn).c_str());
 				}
 			}
 		}
